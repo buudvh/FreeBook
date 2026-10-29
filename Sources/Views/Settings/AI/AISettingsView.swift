@@ -15,8 +15,12 @@ public struct AISettingsView: View {
     /// Số tài khoản Google của provider Chế độ AI (1.3.616) — đọc Keychain nên giữ ở `@State`, làm mới khi cần.
     @State internal var googleAccountCount: Int = 0
     @State private var showingClearAllSessionsAlert = false
+    /// `true` khi mở dạng sheet (Trợ lý AI): hiện tiêu đề trang; đẩy từ Cài đặt thì có nút back, không hiện.
+    let isPresentedAsSheet: Bool
 
-    public init() {}
+    public init(isPresentedAsSheet: Bool = false) {
+        self.isPresentedAsSheet = isPresentedAsSheet
+    }
 
     public var body: some View {
         Form {
@@ -265,8 +269,7 @@ public struct AISettingsView: View {
                 }
             }
         }
-        .navigationTitle("Cấu hình AI")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Cấu hình AI", isVisible: isPresentedAsSheet)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddProviderSheet = true }) {
@@ -283,6 +286,7 @@ public struct AISettingsView: View {
                 apiKeysText = newProfile.allEffectiveApiKeys().joined(separator: "\n")
                 saveConfigSilently()
             }
+            .presentationDragIndicator(.visible)
         }
         .alert("Dọn dẹp tất cả phiên chat?", isPresented: $showingClearAllSessionsAlert) {
             Button("Dọn dẹp tất cả", role: .destructive) {

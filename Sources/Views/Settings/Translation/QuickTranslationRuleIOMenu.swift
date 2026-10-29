@@ -75,6 +75,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                         showingOptionsMenu = true
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 17, weight: .semibold))
                     }
                 }
             }

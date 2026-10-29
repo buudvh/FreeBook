@@ -128,9 +128,9 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
             self.openReader(for: book)
         })
         // Móc bắt **mọi** đường đóng sheet. `presentationControllerDidDismiss` chỉ chạy khi người dùng **vuốt
-        // xuống**, còn nút "Đóng" trong màn Thông báo gọi `@Environment(\.dismiss)` — đường lập trình, không
-        // có callback nào của UIKit. Thiếu móc này thì `isSheetPresented` kẹt ở `true`, nút nổi **biến mất
-        // vĩnh viễn** sau lần đầu đóng sheet bằng nút. Hai cơ chế cố ý chồng nhau: `setSheetPresented` idempotent,
+        // xuống**, còn đường lập trình (chạm một truyện ⇒ `openReader`, `@Environment(\.dismiss)` của màn Thông báo)
+        // không có callback nào của UIKit. Thiếu móc này thì `isSheetPresented` kẹt ở `true`, nút nổi **biến mất
+        // vĩnh viễn** sau lần đầu đóng sheet bằng đường lập trình. Hai cơ chế cố ý chồng nhau: `setSheetPresented` idempotent,
         // và hậu quả của việc kẹt cờ đủ nặng để đáng trả giá một lời gọi thừa.
         let content = inbox.onDisappear {
             FloatingHubWindowManager.shared.setSheetPresented(false)
@@ -146,6 +146,11 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
 
         let hosting = UIHostingController(rootView: root)
         hosting.view.backgroundColor = .clear
+        // Màn Thông báo không còn nút Đóng (1.3.641) ⇒ thanh kéo là gợi ý vuốt xuống. `.presentationDragIndicator`
+        // của SwiftUI không tới được sheet trình bày bằng UIKit. `.pageSheet` tường minh (iPhone vốn ra đúng kiểu này)
+        // để `sheetPresentationController` có sẵn trước khi trình bày.
+        hosting.modalPresentationStyle = .pageSheet
+        hosting.sheetPresentationController?.prefersGrabberVisible = true
 
         FloatingHubWindowManager.shared.setSheetPresented(true)
         present(hosting, animated: true) { [weak self] in
@@ -183,7 +188,7 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         }
     }
 
-    /// Vuốt xuống để đóng sheet cũng phải trả nút về đúng trạng thái — nếu chỉ xử lý ở nút "Đóng" thì nút
+    /// Vuốt xuống để đóng sheet cũng phải trả nút về đúng trạng thái — nếu chỉ xử lý ở đường đóng lập trình thì nút
     /// nổi sẽ biến mất vĩnh viễn sau một lần vuốt.
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         handleSheetDismissed()

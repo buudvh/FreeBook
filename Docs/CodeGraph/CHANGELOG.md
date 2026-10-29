@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.641] - 2026-10-29
+
+### feat: đồng bộ header, menu, danh sách panel và nhập truyện ở Kệ
+
+Người dùng yêu cầu một loạt đồng bộ giao diện (plan `Docs/Plans/2026-10-29-plan-dong-bo-ui-va-nhap-media.md` + `2026-10-29-plan-nut-header-sheet.md`, đã duyệt mockup). Phần nhập/xuất comic/video tách sang entry sau.
+
+- **Ngăn kéo menu "…"**: bỏ vạch giữa các hàng, vạch dưới tiêu đề và dải tối giữa nhóm (`SideDrawerDivider` thành khoảng trống 12pt); tiêu đề 22pt đậm một dòng, tiêu đề nhóm 13pt đậm. `SideDrawerActionRow` thêm `badgeCount:`.
+- **Kiểu Danh sách**: mỗi truyện là panel bo góc (`BookListPanelModifier`, nền `secondarySystemBackground`, bo 12), không vạch ngăn — Kệ/Lịch sử/Bộ sưu tập, tab danh mục Khám phá/Thể loại, tìm một nguồn, Tìm trên kệ, khung chờ. Vẫn là `List` (vuốt hàng, kéo tải lại, tiêu đề nhóm dính, cuộn về vị trí cũ).
+- **Nút xoá/dọn đỏ** (chữ + icon): "Dọn dẹp tác vụ", "Xóa tất cả" lịch sử tìm (Tìm kiếm, Tìm trên kệ), "Xóa lịch sử" trang chủ trình duyệt, xoá trí nhớ AI, pill "Xoá bản tải", nút thùng rác xoá chữ trong ô.
+- **Header trang** (`Common/PageHeader/PageTitleModifier`): tab gốc + sheet tiêu đề trái 22pt đậm một dòng; trang có nút back không hiện tiêu đề (vẫn giữ `navigationTitle` cho VoiceOver/menu nút back); màn mở hai kiểu nhận cờ `isPresentedAsSheet`. Áp ~100 màn; tiêu đề tab gốc viết thường ("Kệ sách", "Kho tiện ích", "Cài đặt"…). Nút trái của tab gốc dồn sang phải.
+- **Kệ**: chuông vào hàng "Thông báo" đầu ngăn kéo (badge số); có thông báo ⇒ chấm đỏ trên nút "…". Nút + nổi ở tab Kệ sách mở sheet nửa màn "Nhập truyện": Từ URL (dò `regexp` tiện ích bằng `ExtensionUrlMatcher` tách khỏi `BypassWebView`; 1 khớp ⇒ Chi tiết, nhiều ⇒ chọn nguồn, 0 ⇒ mở trong trình duyệt; nút dán dạng icon), Mở trình duyệt, Từ file. Hàng "Nhập truyện từ file" của ngăn kéo thành "Nhập truyện" mở cùng sheet.
+- **Sheet nhấn giữ sách**: "Mở trong trình duyệt" (trừ sách nhập file) và "Đánh dấu / Bỏ đánh dấu NSFW" (ẩn với nguồn 18+). Dấu lưu ở `UserDefaults` `nsfwMarkedBookIds` (`NsfwBookMarkStore`); `RepositoryFilterPolicy.isNsfwBook` = dấu || nguồn, áp ở Kệ/Lịch sử, Bộ sưu tập, Tìm trên kệ, tác vụ tải, hub AI, chọn truyện nguồn/đích, tắt tiếng phim (`VideoMutePolicy.shouldStartMuted(bookId:packageId:)`). Chưa áp: mục video của hub, Cấu hình dịch riêng, kết quả Tìm kiếm (không có bookId).
+- **Sheet bỏ nút chỉ để đóng** (Huỷ/Đóng/✕/Xong/Bỏ qua không lưu, ~52 chỗ): vuốt xuống để đóng + thanh kéo. Nút trái còn lại sang phải dạng icon (Đặt lại bộ lọc ↺ đỏ, ⚙ Hẹn giờ TTS, ⌄ Trợ lý AI, tab mới của trình duyệt, ↻ Kho). Nút header chỉ chữ hoặc chỉ icon ("Lưu" của Script editor chỉ còn chữ). Màn toàn màn giữ lối đóng. Sheet mã xác minh Legado nay vuốt đóng được (= huỷ).
+- **"Bỏ thay đổi?" khi vuốt lúc chưa lưu** (`Common/SheetDismissGuard/`): proxy `UIAdaptivePresentationControllerDelegate` chuyển tiếp mọi callback cho delegate gốc, giữ mạnh + gỡ khi probe bị gỡ; chỉ chặn vuốt khi đã cài được proxy (không cài được ⇒ vuốt đóng thẳng, không kẹt). Áp cho Sửa JSON nguồn, Script editor, Thêm/Sửa rule (Bỏ ⇒ xoá nháp). Tạo giọng VieNeu: dọn ghi âm/mẫu dời sang `onDisappear`.
+- **Giải thích → nút "?"** (`SectionHelpButton` chuyển từ `QuickTranslationRuleHelpButton`, `SectionHelpHeader`): 84 footer giải thích chuyển hẳn vào popover cạnh tiêu đề section, 8 footer tách đôi (giải thích vào "?", số liệu/trạng thái giữ footer), 4 giữ nguyên (sentinel tải thêm, "Nhịp chạy").
+- CLAUDE.md/AGENTS.md: thêm quy ước "Header trang & sheet (1.3.641)". Chuyển entry `[1.3.611]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + rà soát bằng agent (không thấy lỗi biên dịch chắc chắn; đã sửa 4 rủi ro logic: sheet kẹt khi proxy không cài được, `original` yếu, đóng nhầm màn dưới ở trình bày Legado, hộp thoại sao lưu gắn header); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử vuốt đóng rồi mở lại từng sheet, hộp "Bỏ thay đổi?", tiêu đề dài trong toolbar, sheet "Nhập truyện" + mở trình duyệt/Chi tiết sau khi đóng, chấm đỏ nút "…".
+
 ## [1.3.640] - 2026-10-28
 
 ### fix: độ trong suốt và độ đục của nút nổi, menu áp đúng cài đặt
@@ -400,14 +418,3 @@ Người dùng: *"provider Chế độ AI của Goôgle dễ bị hạn chê s�
 - `rules.md`: bullet "Giới hạn số câu trả lời AI" + "Tên ví dụ của prompt", sửa bullet retry. Chuyển entry `[1.3.582]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng script `snapshot` mới trên trang Chế độ AI thật (chèn câu giới hạn vào DOM, không gửi gì): trang thường ⇒ không báo; câu ngoài khối lượt ⇒ `limitedPage`; câu trong lượt cũ ⇒ không báo nhầm; câu trong lượt mới nhất ⇒ `limitedNewest`. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (chưa gặp lại trang giới hạn thật để biết câu nằm đâu trên DOM — log `❌ 🤖 [AIMode]` ghi đoạn chữ lúc phát hiện).
 
-## [1.3.611] - 2026-10-26
-
-### fix: xoá name AI không quay lại qua lượt quét và nút Thử lại
-
-Người dùng: *"Tôi đã yêu cầu nếu bấm xoá name trong danh sách name thì lần sau mở danh sách name này lại thì name bị xoá phải mất và trên chat cũng phải mất. Nhưng bạn chưa làm được"* (phạm vi: chỉ tin đang mở). Plan duyệt trong chat.
-
-- **Nguyên nhân** (1.3.606 chỉ sửa `content` của tin): ba đường của lượt quét dựng lại `content` từ **danh sách tên đầy đủ** — `applyBatchProgress` mỗi lượt đang chạy, `writeNames` lúc xong / dừng vì lỗi, nút "Thử lại k lượt lỗi" (`NameScanRetryContext.names` giữ bản cũ) — nên name vừa xoá quay lại ở cả chat lẫn danh sách. Tin cũ còn `extractedNames` thì `condenseHistoricalMessages` dựng lại `content` từ mảng đó mỗi lần mở màn AI.
-- **Sửa** (mới `AIRuntimeCoordinator+NameRemoval.swift`): coordinator nhớ khoá đã xoá **theo tin** (`removedNameKeys`, trong bộ nhớ suốt phiên app); `applyBatchProgress` / `writeNames` lọc qua `keepingUnremovedNames` trước khi ghi; `forgetName` sửa tin trong phiên đang chạy và bỏ name khỏi context "Thử lại" của đúng tin đó. `removeNameLine` gọi qua coordinator, bỏ name khỏi `extractedNames` của tin cũ, lọc `batchExtractedNames` của màn. Hàm tách dòng chuyển sang coordinator (`contentRemovingNameLines`, `nameKey`).
-- **Log để chẩn đoán**: xoá được ⇒ log thường (khoá + số dòng bỏ); không thấy dòng nào trùng khoá hoặc tin nguồn không còn ⇒ log `❌` (ghi kể cả khi tắt log).
-- Chuyển entry `[1.3.581]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

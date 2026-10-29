@@ -28,9 +28,7 @@ struct DeveloperSettingsSection: View {
                 }
             }
         } header: {
-            Text("Nhà Phát Triển")
-        } footer: {
-            Text("Debug Server mở kênh cho VS Code trên cùng mạng LAN; Ghi log hệ thống: bật/tắt log, xem và xuất các file log; Theo dõi nhiệt: mức nhiệt, CPU và pin theo thời gian.")
+            SectionHelpHeader("Nhà Phát Triển", paragraphs: ["Debug Server mở kênh cho VS Code trên cùng mạng LAN; Ghi log hệ thống: bật/tắt log, xem và xuất các file log; Theo dõi nhiệt: mức nhiệt, CPU và pin theo thời gian."])
         }
         .onAppear {
             thermalLevel = ProcessInfo.processInfo.thermalState.rawValue

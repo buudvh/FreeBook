@@ -79,14 +79,9 @@ public struct ReaderAINameReviewSheet: View {
                     }
                 }
             }
-            .navigationTitle("Duyệt tên riêng & VP")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Duyệt tên riêng & VP")
+            .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Menu("Lưu") {
                         Button("Lưu vào Name riêng") { requestSave(isName: true) }

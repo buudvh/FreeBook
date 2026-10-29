@@ -16,7 +16,8 @@ import Foundation
 /// Một slot duy nhất theo `Mode.id`: mở rule khác là draft cũ tự bị bỏ, nên không có gì rò rỉ. Draft
 /// **không** bị xoá ở `onDisappear` — nếu lượt dựng lại có kèm một lần disappear thì chính nó sẽ ăn mất
 /// bản nháp, đúng thứ đang phải chữa. Xoá chỉ ở hai hành động dứt khoát của người dùng: lưu thành công
-/// và bấm Hủy. Hệ quả có chủ ý: vuốt xuống đóng sheet rồi mở lại **cùng** rule thì chữ còn nguyên.
+/// và chọn "Bỏ thay đổi" ở hộp hỏi khi vuốt xuống (sheet không còn nút Hủy từ 1.3.641). Hệ quả có chủ ý: nội dung
+/// chưa khác giá trị điền sẵn thì vuốt đóng thẳng, nháp (nếu có) vẫn còn khi mở lại **cùng** rule.
 final class QuickTranslationRuleDraftStore {
     static let shared = QuickTranslationRuleDraftStore()
 

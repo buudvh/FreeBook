@@ -49,8 +49,7 @@ struct NghiTTSSettingsHubView: View {
             resultSection
         }
         .tint(.white)
-        .navigationTitle("Cài đặt NghiTTS")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Cài đặt NghiTTS")
         .onAppear(perform: loadStoredSettings)
         .onDisappear(perform: stopSample)
     }

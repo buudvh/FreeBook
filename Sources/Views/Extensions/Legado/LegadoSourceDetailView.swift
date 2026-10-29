@@ -35,13 +35,8 @@ struct LegadoSourceDetailView: View {
         NavigationStack {
             screenContent
                 .navigationDestination(isPresented: $showingLogin) { loginScreen }
-                .navigationTitle("Chi tiết nguồn")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Đóng") { dismiss() }
-                    }
-                }
+                .pageTitle("Chi tiết nguồn")
+                .presentationDragIndicator(.visible)
         }
         .task(id: summary?.version) { await loadSource() }
         .fullScreenCover(isPresented: $showingBrowser) {
@@ -168,10 +163,10 @@ struct LegadoSourceDetailView: View {
                 }
             }
         } header: {
-            Text("Công cụ")
-        } footer: {
             if !summary.isEnabled {
-                Text("Bật nguồn để kiểm tra (bộ kiểm tra bỏ qua nguồn đang tắt). Gỡ lỗi từng bước chạy được cả nguồn tắt.")
+                SectionHelpHeader("Công cụ", paragraphs: ["Bật nguồn để kiểm tra (bộ kiểm tra bỏ qua nguồn đang tắt). Gỡ lỗi từng bước chạy được cả nguồn tắt."])
+            } else {
+                Text("Công cụ")
             }
         }
     }

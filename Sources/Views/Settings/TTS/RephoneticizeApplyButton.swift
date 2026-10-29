@@ -66,6 +66,7 @@ struct RephoneticizeApplyButton: View {
                     currentProvider: task.currentWordsProvider,
                     onApply: applyMerged
                 )
+                .presentationDragIndicator(.visible)
             }
         }
     }

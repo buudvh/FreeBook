@@ -37,10 +37,14 @@ public struct BookAIMemorySheet: View {
                                 .frame(minHeight: 90)
                                 .font(.subheadline)
                         } header: {
-                            Label("Bối cảnh & Nhân vật", systemImage: "person.2.fill")
-                                .font(.system(size: 13, weight: .semibold))
-                        } footer: {
-                            Text("Thông tin về môn phái, phe phái, nhân vật chính và bối cảnh thế giới truyện.")
+                            HStack(spacing: 6) {
+                                Label("Bối cảnh & Nhân vật", systemImage: "person.2.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                SectionHelpButton(
+                                    accessibilityLabel: "Giải thích Bối cảnh & Nhân vật",
+                                    paragraphs: ["Thông tin về môn phái, phe phái, nhân vật chính và bối cảnh thế giới truyện."]
+                                )
+                            }
                         }
 
                         Section {
@@ -49,10 +53,14 @@ public struct BookAIMemorySheet: View {
                                 .frame(minHeight: 90)
                                 .font(.subheadline)
                         } header: {
-                            Label("Diễn biến cốt truyện", systemImage: "book.pages.fill")
-                                .font(.system(size: 13, weight: .semibold))
-                        } footer: {
-                            Text("Tóm tắt các sự kiện lớn và diễn biến tích luỹ qua các chương.")
+                            HStack(spacing: 6) {
+                                Label("Diễn biến cốt truyện", systemImage: "book.pages.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                SectionHelpButton(
+                                    accessibilityLabel: "Giải thích Diễn biến cốt truyện",
+                                    paragraphs: ["Tóm tắt các sự kiện lớn và diễn biến tích luỹ qua các chương."]
+                                )
+                            }
                         }
 
                         if !customDictionarySnapshot.isEmpty {
@@ -73,10 +81,14 @@ public struct BookAIMemorySheet: View {
                                 .frame(minHeight: 80)
                                 .font(.subheadline)
                         } header: {
-                            Label("Ghi chú tuỳ chỉnh", systemImage: "note.text")
-                                .font(.system(size: 13, weight: .semibold))
-                        } footer: {
-                            Text("Tự động nạp vào system prompt trong mọi phiên chat của truyện này.")
+                            HStack(spacing: 6) {
+                                Label("Ghi chú tuỳ chỉnh", systemImage: "note.text")
+                                    .font(.system(size: 13, weight: .semibold))
+                                SectionHelpButton(
+                                    accessibilityLabel: "Giải thích Ghi chú tuỳ chỉnh",
+                                    paragraphs: ["Tự động nạp vào system prompt trong mọi phiên chat của truyện này."]
+                                )
+                            }
                         }
 
                         Section {
@@ -93,6 +105,7 @@ public struct BookAIMemorySheet: View {
                                         .font(.system(size: 13))
                                     Text("Xóa toàn bộ trí nhớ truyện này")
                                 }
+                                .foregroundColor(.red)
                             }
                         }
                     } else {
@@ -103,10 +116,14 @@ public struct BookAIMemorySheet: View {
                                 .frame(minHeight: 220)
                                 .font(.system(size: 13, design: .monospaced))
                         } header: {
-                            Label("Quy tắc & Chỉ dẫn AI dùng chung", systemImage: "brain.head.profile")
-                                .font(.system(size: 13, weight: .semibold))
-                        } footer: {
-                            Text("Nội dung này được dùng chung cho TẤT CẢ các truyện trong ứng dụng. Mặc định chứa quy tắc lọc tên riêng và định dạng JSON xuất kết quả.")
+                            HStack(spacing: 6) {
+                                Label("Quy tắc & Chỉ dẫn AI dùng chung", systemImage: "brain.head.profile")
+                                    .font(.system(size: 13, weight: .semibold))
+                                SectionHelpButton(
+                                    accessibilityLabel: "Giải thích Quy tắc & Chỉ dẫn AI dùng chung",
+                                    paragraphs: ["Nội dung này được dùng chung cho TẤT CẢ các truyện trong ứng dụng. Mặc định chứa quy tắc lọc tên riêng và định dạng JSON xuất kết quả."]
+                                )
+                            }
                         }
 
                         Section {
@@ -136,14 +153,9 @@ public struct BookAIMemorySheet: View {
                     }
                 }
             }
-            .navigationTitle("Trí nhớ AI")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Trí nhớ AI")
+            .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         saveMemory()
@@ -166,9 +178,11 @@ public struct BookAIMemorySheet: View {
             }) {
                 Image(systemName: "trash")
                     .font(.caption)
+                    .foregroundColor(.red)
                     .frame(width: 28, height: 26)
-                    .background(Color.secondary.opacity(0.12))
+                    .background(Color.red.opacity(0.15))
                     .cornerRadius(5)
+                    .opacity(text.wrappedValue.isEmpty ? 0.4 : 1)
             }
             .buttonStyle(.borderless)
             .disabled(text.wrappedValue.isEmpty)

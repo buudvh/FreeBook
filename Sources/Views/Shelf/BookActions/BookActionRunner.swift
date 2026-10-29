@@ -71,6 +71,19 @@ struct BookActionRunner {
         }
     }
 
+    /// Đặt / bỏ dấu NSFW của riêng truyện (`NsfwBookMarkStore`, không ghi vào `Book`). Đánh dấu lúc công tắc NSFW đang
+    /// tắt ⇒ truyện biến khỏi Kệ / Lịch sử / Bộ sưu tập ngay, nên báo cách thấy lại.
+    static func toggleNsfwMark(_ book: Book) {
+        let store = NsfwBookMarkStore.shared
+        let marking = !store.isMarked(book.bookId)
+        store.setMarked(marking, bookId: book.bookId)
+        if marking && !RepositoryFilterPolicy.includesNsfwPreference {
+            ToastManager.shared.show(message: "Đã ẩn — bật NSFW để thấy lại", type: .info)
+        } else {
+            ToastManager.shared.show(message: marking ? "Đã đánh dấu NSFW" : "Đã bỏ đánh dấu NSFW", type: .success)
+        }
+    }
+
     /// Xoá hẳn truyện khỏi thiết bị. `BookStorageManager` là điều phối viên duy nhất của việc này.
     static func deleteBook(bookId: String, container: ModelContainer) async {
         do {

@@ -11,6 +11,8 @@ public struct RepositoryFilterPolicy: Sendable {
     /// (`ShelfBookPartition`), Tìm trong Kệ, Bộ sưu tập, tab Tải, hub nổi (Tác vụ AI, Video), Quản lý phạm vi dịch,
     /// sheet chọn truyện `BookShareTargetSheet` / `BookImportSourceSheet`; ẩn ô Truy cập nhanh + lịch sử duyệt trang
     /// nguồn NSFW ở Home trình duyệt (`BypassWebView`). Thông báo (chương mới) **không** lọc (người dùng chốt 2026-10-24).
+    /// Truyện người dùng tự đánh dấu NSFW (`NsfwBookMarkStore`) bị ẩn như truyện của nguồn NSFW ở Kệ + Lịch sử, Tìm
+    /// trong Kệ, Bộ sưu tập, tab Tải, hub (Tác vụ AI), hai sheet chọn truyện — xem `isNsfwBook` / `excludingNsfwBooks`.
     public static let includeNsfwDefaultsKey = "extFilterIncludeNsfw"
 
     /// Giá trị hiện tại của công tắc NSFW (khoá chưa ghi ⇒ `false`).
@@ -28,6 +30,32 @@ public struct RepositoryFilterPolicy: Sendable {
         guard let ext = ExtensionLibraryRepository.snapshot(packageId: packageId)
                 ?? ExtensionLibraryRepository.catalogSnapshot(packageId: packageId) else { return false }
         return ExtensionNsfwCache.shared.isNsfw(ext)
+    }
+
+    /// Truyện có bị coi là NSFW không: người dùng tự đánh dấu (`NsfwBookMarkStore`) **hoặc** nguồn NSFW.
+    public static func isNsfwBook(bookId: String, packageId: String) -> Bool {
+        NsfwBookMarkStore.shared.isMarked(bookId) || isNsfwSource(packageId: packageId)
+    }
+
+    /// Như `excludingNsfwSources` nhưng theo **truyện**: bỏ thêm truyện người dùng tự đánh dấu NSFW. Dấu kiểm theo
+    /// `bookId` (đọc tập dấu một lần), nguồn vẫn nhớ theo `packageId` — hai truyện cùng nguồn có thể khác nhau.
+    public static func excludingNsfwBooks<T>(
+        _ items: [T],
+        includeNsfw: Bool,
+        bookId: (T) -> String,
+        packageId: (T) -> String
+    ) -> [T] {
+        guard !includeNsfw else { return items }
+        let marked = NsfwBookMarkStore.shared.markedBookIds
+        var nsfwByPackageId: [String: Bool] = [:]
+        return items.filter { item in
+            if marked.contains(bookId(item)) { return false }
+            let id = packageId(item)
+            if let cached = nsfwByPackageId[id] { return !cached }
+            let isNsfw = isNsfwSource(packageId: id)
+            nsfwByPackageId[id] = isNsfw
+            return !isNsfw
+        }
     }
 
     /// Bỏ phần tử thuộc nguồn NSFW (sách, tác vụ tải…) khi `includeNsfw == false`, giữ thứ tự; mỗi `packageId` chỉ

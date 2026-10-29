@@ -3,13 +3,6 @@ import WebKit
 import SwiftData
 
 struct BypassWebView: View {
-    private struct ExtensionMatch: Identifiable {
-        let ext: Extension
-        let regexp: String
-
-        var id: String { ext.packageId }
-    }
-
     let urlString: String
     let host: String?
     /// Ép UA/chế độ điện thoại cho mọi tab của phiên này (bỏ qua chế độ máy tính theo tên miền, không ghi đè tuỳ chọn
@@ -42,11 +35,10 @@ struct BypassWebView: View {
     /// Công tắc NSFW toàn app: tắt ⇒ Home không hiện ô của nguồn NSFW và ẩn lịch sử duyệt trang của chúng.
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
-    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`). Bỏ nguồn
-    /// Legado: không phải lối tắt trình duyệt (hàng nghìn nguồn), và `plugin.json` của chúng không có `regexp` nên dò
-    /// khớp URL chỉ tốn một lần đọc file mỗi nguồn mỗi lượt điều hướng.
+    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`), bỏ nguồn
+    /// Legado — cùng tập ứng viên với bộ dò link (`ExtensionUrlMatcher.candidates`).
     private var activeExtensions: [Extension] {
-        LegadoSourcePolicy.excludingLegado(ExtensionLibraryRepository.shared.installed)
+        ExtensionUrlMatcher.candidates(from: ExtensionLibraryRepository.shared.installed)
     }
 
     private var bookExtensions: [Extension] {
@@ -70,8 +62,8 @@ struct BypassWebView: View {
         store.activeTab?.urlString ?? ""
     }
 
-    private var matchingExtensionInfos: [ExtensionMatch] {
-        findMatchingExtensions(for: currentUrlString)
+    private var matchingExtensionInfos: [ExtensionUrlMatcher.Match] {
+        ExtensionUrlMatcher.matches(for: currentUrlString, in: activeExtensions)
     }
 
     private var canImportCurrentPage: Bool {
@@ -130,10 +122,10 @@ struct BypassWebView: View {
                     Spacer()
                 }
             }
-            .navigationTitle(navigationTitleText)
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(navigationTitleText)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                // Toàn màn, không vuốt đóng được ⇒ giữ "Xong", ngoài cùng bên phải; "Tab mới" đứng ngay trước.
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         openNewTab()
                     } label: {
@@ -142,8 +134,6 @@ struct BypassWebView: View {
                     }
                     .disabled(!store.canOpenMoreTabs)
                     .accessibilityLabel("Tab mới")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Xong") {
                         dismiss()
                     }
@@ -179,6 +169,7 @@ struct BypassWebView: View {
             }
             .sheet(isPresented: $showingBrowserSettings) {
                 NavigationStack { BrowserSettingsView(showsDoneButton: true) }
+                    .presentationDragIndicator(.visible)
             }
         }
     }
@@ -371,59 +362,8 @@ struct BypassWebView: View {
         }
     }
 
-    private func importBook(with match: ExtensionMatch) {
+    private func importBook(with match: ExtensionUrlMatcher.Match) {
         onImport?(currentUrlString, match.ext.packageId, match.ext.name)
         dismiss()
-    }
-
-    private static var regexpCache: [String: String] = [:]
-
-    /// Xoá cache regexp của **một** tiện ích. Gọi từ màn Cấu hình tiện ích sau khi người dùng sửa `regexp`.
-    ///
-    /// Bắt buộc phải có: cache này là `static` và khoá theo `localPath`, nên không có đường xoá thì regexp
-    /// mới chỉ có hiệu lực sau khi mở lại app — đúng thứ mà yêu cầu "sửa là áp dụng ngay" cấm. Chỉ xoá một
-    /// khoá, không xoá cả cache, để các tiện ích khác không phải đọc lại `plugin.json`.
-    static func invalidateRegexpCache(localPath: String) {
-        guard !localPath.isEmpty else { return }
-        regexpCache.removeValue(forKey: localPath)
-    }
-
-    private func getExtensionRegexp(localPath: String) -> String? {
-        guard !localPath.isEmpty else { return nil }
-        if let cached = Self.regexpCache[localPath] {
-            return cached
-        }
-        let extUrl = URL(fileURLWithPath: localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path),
-              let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let metadata = json["metadata"] as? [String: Any] else {
-            return nil
-        }
-        let regexp = metadata["regexp"] as? String
-        if let regexp = regexp {
-            Self.regexpCache[localPath] = regexp
-        }
-        return regexp
-    }
-
-    private func findMatchingExtensions(for urlString: String) -> [ExtensionMatch] {
-        guard !urlString.isEmpty, urlString.lowercased().hasPrefix("http") else { return [] }
-
-        var matches: [ExtensionMatch] = []
-        for ext in activeExtensions {
-            guard let regexpStr = getExtensionRegexp(localPath: ext.localPath), !regexpStr.isEmpty else {
-                continue
-            }
-
-            if let regex = try? NSRegularExpression(pattern: regexpStr, options: [.caseInsensitive]) {
-                let range = NSRange(location: 0, length: urlString.utf16.count)
-                if regex.firstMatch(in: urlString, options: [], range: range) != nil {
-                    matches.append(ExtensionMatch(ext: ext, regexp: regexpStr))
-                }
-            }
-        }
-        return matches
     }
 }

@@ -15,16 +15,13 @@ extension LegadoPresentationPresenter {
         let host = UIHostingController<AnyView>(rootView: AnyView(EmptyView()))
         host.rootView = AnyView(
             NavigationStack {
-                SearchView(activeExtensions: installed, selectedExtension: selected, initialSearchQuery: keyword)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Đóng") { [weak host] in host?.dismiss(animated: true) }
-                        }
-                    }
+                SearchView(activeExtensions: installed, selectedExtension: selected, initialSearchQuery: keyword, isPresentedAsSheet: true)
             }
             .modelContainer(container)
         )
         host.modalPresentationStyle = .pageSheet
+        // Không còn nút "Đóng" (1.3.641): vuốt xuống để đóng, thanh kéo là gợi ý.
+        host.sheetPresentationController?.prefersGrabberVisible = true
         presentAuxiliary(host)
     }
 

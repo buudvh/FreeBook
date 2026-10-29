@@ -15,10 +15,11 @@ extension VieNeuJapaneseDictionaryView {
         Section {
             LabeledContent("Áp dụng từ điển", value: JapaneseFlags.dictionaryEnabled ? "Đang bật" : "Đang tắt")
             LabeledContent("Tự động phiên âm tiếng Nhật", value: JapaneseFlags.transliterationEnabled ? "Đang bật" : "Đang tắt")
+        } header: {
+            SectionHelpHeader("Trạng thái", paragraphs: ["Từ khớp trong bảng này được đọc theo đúng cột phải."])
         } footer: {
-            if JapaneseFlags.dictionaryEnabled {
-                Text("Từ khớp trong bảng này được đọc theo đúng cột phải.")
-            } else {
+            // Cảnh báo trạng thái (đang tắt áp dụng) giữ ở footer; phần giải thích nằm ở nút "?".
+            if !JapaneseFlags.dictionaryEnabled {
                 Text("Đang **tắt** áp dụng ⇒ thêm từ ở đây vẫn **chưa** nghe thấy khác. Bật ở **Cài đặt TTS → Quản lý riêng của trình đọc**.")
             }
         }

@@ -125,8 +125,7 @@ struct QuickTranslationRuleListView: View {
             editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
         }
         .searchable(text: $searchText, prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
-        .navigationTitle(scope.isGlobal ? "Rule chung" : "Rule riêng truyện")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle(scope.isGlobal ? "Rule chung" : "Rule riêng truyện")
         .quickTranslationRuleIOMenu(
             scope: scope,
             showingDisabled: showingDisabled,
@@ -175,6 +174,7 @@ struct QuickTranslationRuleListView: View {
                 )
                 report(outcome, successMessage: "Đã chia sẻ bộ rule riêng sang \"\(target.title)\".")
             }
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -197,13 +197,13 @@ struct QuickTranslationRuleListView: View {
                     .foregroundColor(.secondary)
                 Spacer()
             }
-        } footer: {
-            // Hai `Text` literal riêng chứ không phải một ternary: SwiftUI chỉ parse markdown cho
+        } header: {
+            // Hai literal riêng chứ không phải một ternary: SwiftUI chỉ parse markdown cho
             // **chuỗi literal**, ternary trả về `String` nên `**…**` sẽ hiện nguyên dấu sao.
             if scope.isGlobal {
-                Text("Tắt ở đây là tắt cho **mọi** truyện. Muốn dùng lại rule đó ở một truyện thì thêm mẫu vào bộ rule riêng của truyện.")
+                SectionHelpHeader("Phạm vi rule", paragraphs: ["Tắt ở đây là tắt cho **mọi** truyện. Muốn dùng lại rule đó ở một truyện thì thêm mẫu vào bộ rule riêng của truyện."])
             } else {
-                Text("Bộ riêng chỉ áp cho truyện này và **thắng** bộ chung khi trùng mọi tiêu chí ưu tiên khác.")
+                SectionHelpHeader("Phạm vi rule", paragraphs: ["Bộ riêng chỉ áp cho truyện này và **thắng** bộ chung khi trùng mọi tiêu chí ưu tiên khác."])
             }
         }
     }

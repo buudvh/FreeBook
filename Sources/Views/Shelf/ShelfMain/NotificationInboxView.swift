@@ -138,8 +138,8 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
-            .navigationTitle("Thông báo")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Thông báo")
+            .presentationDragIndicator(.visible) // sheet của Kệ; bản mở từ hub (UIKit) đặt thanh kéo ở chỗ trình bày
             .toolbar { toolbarContent }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Thông báo") { optionsMenuItems }
         }
@@ -305,11 +305,9 @@ struct NotificationInboxView: View {
 
     // MARK: - Toolbar
 
+    /// Không có nút Đóng (1.3.641): sheet đóng bằng vuốt xuống.
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button("Đóng") { dismiss() }
-        }
         ToolbarItem(placement: .primaryAction) {
             // Ngăn kéo `optionsMenuItems` gắn ở thân màn, không gắn trong toolbar.
             Button {

@@ -78,9 +78,7 @@ extension VieNeuVoiceLibraryView {
                 }
             }
         } header: {
-            Text("Gói graph nhân bản (tuỳ chọn)")
-        } footer: {
-            Text("Gồm `speaker_encoder` + `codec_encoder` + `reference_encoder`, chỉ cần khi **tạo** giọng mới. Không tải thì 11 giọng sẵn có vẫn dùng bình thường, và engine vẫn nạp được.")
+            SectionHelpHeader("Gói graph nhân bản (tuỳ chọn)", paragraphs: ["Gồm `speaker_encoder` + `codec_encoder` + `reference_encoder`, chỉ cần khi **tạo** giọng mới. Không tải thì 11 giọng sẵn có vẫn dùng bình thường, và engine vẫn nạp được."])
         }
     }
 
@@ -97,9 +95,7 @@ extension VieNeuVoiceLibraryView {
                 }
             }
         } header: {
-            Text("Giọng đã tạo (\(records.count))")
-        } footer: {
-            Text("Giọng đã tạo nằm **đầu** danh sách chọn giọng ở Cài đặt. Tên giọng phải khác các giọng đang có.")
+            SectionHelpHeader("Giọng đã tạo (\(records.count))", paragraphs: ["Giọng đã tạo nằm **đầu** danh sách chọn giọng ở Cài đặt. Tên giọng phải khác các giọng đang có."])
         }
     }
 
@@ -173,13 +169,18 @@ extension VieNeuVoiceLibraryView {
                 }
                 .disabled(!isModelReady || !hasCloneGraphs)
             }
+        } header: {
+            // Đoạn cuối trước đây là section rỗng chỉ có footer ở `VieNeuVoiceLibraryView`, gộp vào đây.
+            SectionHelpHeader("Tạo giọng", paragraphs: [
+                "Thu âm 3–8 giây, hoặc chọn một file audio có sẵn. Audio mẫu được giữ lại để nghe đối chiếu và để tạo lại embedding mà không phải thu lại.",
+                "Bản Nano cho chất lượng nhân bản thấp hơn bản Turbo. Thu âm ở nơi yên tĩnh, 3–8 giây, một người nói — audio mẫu càng sạch thì giọng nhân bản càng giống."
+            ])
         } footer: {
+            // Lý do nút "Tạo giọng mới" bị khoá (trạng thái) giữ ở footer; phần giải thích nằm ở nút "?".
             if !isModelReady {
                 Text("Cần tải model VieNeu trước.")
             } else if !hasCloneGraphs {
                 Text("Cần tải gói graph nhân bản ở trên trước.")
-            } else {
-                Text("Thu âm 3–8 giây, hoặc chọn một file audio có sẵn. Audio mẫu được giữ lại để nghe đối chiếu và để tạo lại embedding mà không phải thu lại.")
             }
         }
     }

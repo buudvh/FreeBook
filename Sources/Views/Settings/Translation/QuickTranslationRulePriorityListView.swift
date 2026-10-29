@@ -28,9 +28,7 @@ struct QuickTranslationRulePriorityListView: View {
                 ForEach(configuration.order, id: \.self, content: movableRow)
                     .onMove(perform: move)
             } header: {
-                Text("Xét theo thứ tự này")
-            } footer: {
-                Text("Bấm Sửa ở góc trên rồi kéo để đổi thứ tự. Bấm vào một hàng để đổi chiều so sánh. Khi hai rule chồng nhau, app so từng tiêu chí từ trên xuống và DỪNG ở tiêu chí đầu tiên phân định được — các tiêu chí bên dưới không được xét nữa.")
+                SectionHelpHeader("Xét theo thứ tự này", paragraphs: ["Bấm Sửa ở góc trên rồi kéo để đổi thứ tự. Bấm vào một hàng để đổi chiều so sánh. Khi hai rule chồng nhau, app so từng tiêu chí từ trên xuống và DỪNG ở tiêu chí đầu tiên phân định được — các tiêu chí bên dưới không được xét nữa."])
             }
 
             Section {
@@ -70,9 +68,7 @@ struct QuickTranslationRulePriorityListView: View {
                 .buttonStyle(.plain)
             }
         } header: {
-            Text("Bộ dựng sẵn")
-        } footer: {
-            Text("Kéo tay ở phần dưới sẽ tạo thứ tự riêng, lúc đó không bộ nào được đánh dấu.")
+            SectionHelpHeader("Bộ dựng sẵn", paragraphs: ["Kéo tay ở phần dưới sẽ tạo thứ tự riêng, lúc đó không bộ nào được đánh dấu."])
         }
     }
 

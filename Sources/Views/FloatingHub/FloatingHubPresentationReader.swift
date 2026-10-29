@@ -263,9 +263,11 @@ final class FloatingHubPresentationReader: ObservableObject {
         includeNsfw ? aiState.tasks : aiState.tasks.filter { !Self.isNsfwBook(bookId: $0.bookId) }
     }
 
-    /// `bookId` dựng bởi `BookIdUtils.make` = `<packageId viết thường>_<16 hex>` ⇒ suy ra nguồn từ tiền tố (run AI
-    /// không lưu `packageId`). Không khớp tiện ích đã cài nào (sách nhập file, id kiểu cũ) ⇒ không ẩn.
+    /// Truyện tự đánh dấu NSFW (`NsfwBookMarkStore`) ⇒ ẩn. Còn lại: `bookId` dựng bởi `BookIdUtils.make` =
+    /// `<packageId viết thường>_<16 hex>` ⇒ suy ra nguồn từ tiền tố (run AI không lưu `packageId`). Không khớp tiện ích
+    /// đã cài nào (sách nhập file, id kiểu cũ) ⇒ không ẩn.
     private static func isNsfwBook(bookId: String) -> Bool {
+        if NsfwBookMarkStore.shared.isMarked(bookId) { return true }
         guard let cut = bookId.lastIndex(of: "_") else { return false }
         let prefix = String(bookId[..<cut])
         guard let ext = ExtensionLibraryRepository.installedSnapshot().first(where: { $0.packageId.lowercased() == prefix }) else {

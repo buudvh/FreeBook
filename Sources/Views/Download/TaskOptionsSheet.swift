@@ -99,17 +99,11 @@ struct TaskOptionsSheet: View {
                     speedSection
                 }
             }
-            .navigationTitle(sheetTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(sheetTitle)
             .task {
                 await loadChapterCatalog()
             }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Bắt đầu") {
                         startTask()
@@ -121,6 +115,7 @@ struct TaskOptionsSheet: View {
         }
         // Toàn màn (1.3.625): người dùng bỏ nửa màn của 1.3.624 — đừng thêm lại `.medium`.
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     private var bookInfoSection: some View {

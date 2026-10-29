@@ -5,7 +5,6 @@ import AVFoundation
 struct TTSSettingsView: View {
     let isPresentedAsSheet: Bool
 
-    @Environment(\.dismiss) var dismiss
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
@@ -364,17 +363,8 @@ struct TTSSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Cài đặt TTS")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if isPresentedAsSheet {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") {
-                        dismiss()
-                    }
-                }
-            }
-        }
+        // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ chỉ nút back.
+        .pageTitle("Cài đặt TTS", isVisible: isPresentedAsSheet)
         .tint(.white)
         .onAppear {
             self.hasResumed = false
@@ -432,16 +422,8 @@ struct TTSSettingsView: View {
             ExtensionConfigView(ext: ext)
         }
         .sheet(isPresented: $showingReplacementManagerSheet) {
-            NavigationStack {
-                TTSReplacementManagerView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Đóng") {
-                                showingReplacementManagerSheet = false
-                            }
-                        }
-                    }
-            }
+            NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }
+                .presentationDragIndicator(.visible)
         }
     }
 

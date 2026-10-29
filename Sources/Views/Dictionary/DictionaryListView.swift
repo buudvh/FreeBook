@@ -140,8 +140,7 @@ struct DictionaryListView: View {
                 }
             }
         }
-        .navigationTitle(navTitle)
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle(navTitle)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

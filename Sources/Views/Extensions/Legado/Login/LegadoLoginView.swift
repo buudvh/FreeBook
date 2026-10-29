@@ -49,8 +49,7 @@ struct LegadoLoginView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
-        .navigationTitle("Đăng nhập")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Đăng nhập")
         .task { await loadInitial() }
         .refreshable { await reloadForm() }
         .sheet(item: $webLogin) { request in

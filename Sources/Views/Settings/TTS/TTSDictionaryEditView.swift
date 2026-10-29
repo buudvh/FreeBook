@@ -44,8 +44,7 @@ struct TTSDictionaryEditView: View {
                     wordList
                 }
             }
-            .navigationTitle("Sửa từ điển phiên âm NghiTTS")
-            .navigationBarTitleDisplayMode(.inline)
+            .backPageTitle("Sửa từ điển phiên âm NghiTTS")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -574,14 +573,8 @@ struct EditWordSheet: View {
                     TextField("Phiên âm tiếng Việt", text: $value)
                 }
             }
-            .navigationTitle("Sửa từ")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Sửa từ")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         onSave(value)
@@ -591,5 +584,7 @@ struct EditWordSheet: View {
                 }
             }
         }
+        // Mở từ hai màn từ điển phiên âm (NghiTTS, VieNeu): vuốt xuống để đóng, không còn nút Hủy.
+        .presentationDragIndicator(.visible)
     }
 }

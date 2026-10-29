@@ -10,8 +10,8 @@ import UniformTypeIdentifiers
 /// trong lúc người dùng còn đang cân nhắc, và có thể đóng ngay khi bấm Lưu.
 ///
 /// **Không** xoá file audio mẫu tạm ở đường Lưu: `VieNeuCustomVoiceStore.add` **copy** nó vào
-/// `CustomVoices/samples/`, nên file tạm chỉ được dọn sau khi copy xong (màn gọi làm). Đường **Huỷ** thì
-/// dọn ngay, vì không ai dùng nữa.
+/// `CustomVoices/samples/`, nên file tạm chỉ được dọn sau khi copy xong (màn gọi làm). Đóng sheet mà **không**
+/// lưu (vuốt xuống — không còn nút Huỷ) thì `onDisappear` dọn ngay, vì không ai dùng nữa.
 struct VieNeuVoiceCreatorView: View {
     enum Source: String, CaseIterable, Identifiable {
         case record = "Thu âm"
@@ -21,7 +21,6 @@ struct VieNeuVoiceCreatorView: View {
     }
 
     let onSave: (String, URL) -> Void
-    let onCancel: () -> Void
 
     @State private var source: Source = .record
     @State private var recorder = VieNeuVoiceRecorder()
@@ -37,6 +36,8 @@ struct VieNeuVoiceCreatorView: View {
     @State private var showingFileImporter = false
     @State private var permissionDenied = false
     @State private var isProbing = false
+    /// Bật ngay trước `onSave`: `onDisappear` khi đó **không** được xoá audio mẫu — màn gọi còn copy nó.
+    @State private var didSave = false
 
     private let ticker = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
@@ -81,8 +82,8 @@ struct VieNeuVoiceCreatorView: View {
                 Section {
                     TextField("Tên giọng", text: $name)
                         .textInputAutocapitalization(.words)
-                } footer: {
-                    Text("Tên này hiện trong danh sách chọn giọng đọc, và phải khác các giọng đang có.")
+                } header: {
+                    SectionHelpHeader("Tên giọng", paragraphs: ["Tên này hiện trong danh sách chọn giọng đọc, và phải khác các giọng đang có."])
                 }
 
                 // Nút "Lưu" bị khoá thì phải nói **vì sao**. Trước đây chỉ có nút xám: người dùng chọn
@@ -104,19 +105,14 @@ struct VieNeuVoiceCreatorView: View {
                 }
             }
             .tint(.white)
-            .navigationTitle("Tạo giọng mới")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Tạo giọng mới")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") { cancel() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") { save() }
                         .disabled(!canSave)
                 }
             }
             .onReceive(ticker) { _ in tick() }
-            .onDisappear(perform: stopPlayer)
             // Dùng `DocumentPickerPresenter` của repo, **không** `.fileImporter`: bản SwiftUI xung đột
             // khi app chạy trong LiveContainer — picker mở ra, chọn file xong **không** có kết quả trả về
             // (không file, cũng không lỗi) nên nút Lưu cứ xám mà không ai giải thích được vì sao.
@@ -135,6 +131,8 @@ struct VieNeuVoiceCreatorView: View {
                 )
             )
         }
+        // Gắn ở `NavigationStack` (gốc sheet): màn này không đẩy trang con nào nên chỉ chạy khi sheet đóng.
+        .onDisappear(perform: cleanUpOnDismiss)
     }
 
     // MARK: - Khối
@@ -162,9 +160,7 @@ struct VieNeuVoiceCreatorView: View {
                 ProgressView(value: levelFraction)
             }
         } header: {
-            Text("Thu âm")
-        } footer: {
-            Text("Nói một câu liền mạch 3–8 giây ở nơi yên tĩnh, cách micro ~20 cm. Tự dừng khi đủ \(Int(VieNeuVoiceCloner.recommendedSampleSeconds)) giây.")
+            SectionHelpHeader("Thu âm", paragraphs: ["Nói một câu liền mạch 3–8 giây ở nơi yên tĩnh, cách micro ~20 cm. Tự dừng khi đủ \(Int(VieNeuVoiceCloner.recommendedSampleSeconds)) giây."])
         }
     }
 
@@ -179,8 +175,8 @@ struct VieNeuVoiceCreatorView: View {
             if isProbing {
                 ProgressView { Text("Đang đọc file…").font(.caption) }
             }
-        } footer: {
-            Text("Nhận mọi định dạng iOS đọc được (m4a, mp3, wav, caf, aiff…). Nên chọn đoạn 3–8 giây, một người nói, ít tạp âm.")
+        } header: {
+            SectionHelpHeader("File audio", paragraphs: ["Nhận mọi định dạng iOS đọc được (m4a, mp3, wav, caf, aiff…). Nên chọn đoạn 3–8 giây, một người nói, ít tạp âm."])
         }
     }
 
@@ -195,8 +191,8 @@ struct VieNeuVoiceCreatorView: View {
                     systemImage: isPlaying ? "stop.circle" : "play.circle"
                 )
             }
-        } footer: {
-            Text("Nghe lại trước khi lưu. Có tạp âm hoặc lẫn tiếng người khác thì thu lại — audio mẫu quyết định gần như toàn bộ chất lượng giọng nhân bản.")
+        } header: {
+            SectionHelpHeader("Nghe lại", paragraphs: ["Nghe lại trước khi lưu. Có tạp âm hoặc lẫn tiếng người khác thì thu lại — audio mẫu quyết định gần như toàn bộ chất lượng giọng nhân bản."])
         }
     }
 
@@ -350,16 +346,18 @@ struct VieNeuVoiceCreatorView: View {
         if isRecording { stopRecording() }
         stopPlayer()
         // **Không** xoá file tạm ở đây: `VieNeuCustomVoiceStore.add` còn phải copy nó.
+        didSave = true
         onSave(name.trimmed, url)
     }
 
-    private func cancel() {
+    /// Sheet đóng: đã lưu thì chỉ dừng phát; chưa lưu (vuốt xuống) thì dừng thu âm và bỏ audio mẫu tạm.
+    private func cleanUpOnDismiss() {
+        stopPlayer()
+        guard !didSave else { return }
         if isRecording {
             isRecording = false
             _ = recorder.stop()
         }
-        stopPlayer()
         discardSample()
-        onCancel()
     }
 }

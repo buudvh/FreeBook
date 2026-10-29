@@ -133,20 +133,12 @@ struct ReaderSettingsView: View {
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .presentationDragIndicator(.visible)
         .sheet(isPresented: $showingRulePriority) {
-            NavigationStack {
-                ReaderBookRulePriorityView(bookId: bookId)
-                    .navigationBarItems(trailing: Button("Đóng") {
-                        showingRulePriority = false
-                    })
-            }
+            NavigationStack { ReaderBookRulePriorityView(bookId: bookId) }
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingTokenSettings) {
-            NavigationStack {
-                ReaderBookTokenSettingsView(bookId: bookId)
-                    .navigationBarItems(trailing: Button("Đóng") {
-                        showingTokenSettings = false
-                    })
-            }
+            NavigationStack { ReaderBookTokenSettingsView(bookId: bookId) }
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             loadTranslationScopes()

@@ -29,10 +29,22 @@ struct GoogleDriveBackupListView: View {
                 configurationSection
             }
         }
-        .navigationTitle("Google Drive")
-        .navigationBarTitleDisplayMode(.inline)
-        // Gắn ở `List` (luôn được dựng), không ở footer của section — footer có thể chưa dựng khi cuộn khuất.
+        .backPageTitle("Google Drive")
+        // Gắn ở `List` (luôn được dựng), không ở header/footer của section — chúng có thể chưa dựng khi cuộn khuất.
         .sideDrawerMenu(item: $menuFile, title: { $0.name }) { file in fileMenuItems(file) }
+        .confirmationDialog(
+            "Xoá \(deletingFile?.name ?? "") trên Drive?",
+            isPresented: isDeleting,
+            titleVisibility: .visible
+        ) {
+            Button("Xoá trên Drive", role: .destructive) {
+                if let file = deletingFile {
+                    Task { await coordinator.deleteFromDrive(file) }
+                }
+                deletingFile = nil
+            }
+            Button("Huỷ", role: .cancel) { deletingFile = nil }
+        }
         .task {
             guard isConfigured, coordinator.isDriveSignedIn, coordinator.driveFiles.isEmpty else { return }
             await coordinator.refreshDriveFiles()
@@ -74,9 +86,7 @@ struct GoogleDriveBackupListView: View {
             }
             .disabled(clientIdInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } header: {
-            Text("Chưa cấu hình Google Drive")
-        } footer: {
-            Text("Bản cài này không có Google Client ID (loại iOS). Dán client id vào đây để dùng Drive, hoặc bỏ qua — sao lưu vào máy và xuất ra Files vẫn hoạt động đầy đủ.")
+            SectionHelpHeader("Chưa cấu hình Google Drive", paragraphs: ["Bản cài này không có Google Client ID (loại iOS). Dán client id vào đây để dùng Drive, hoặc bỏ qua — sao lưu vào máy và xuất ra Files vẫn hoạt động đầy đủ."])
         }
     }
 
@@ -107,9 +117,7 @@ struct GoogleDriveBackupListView: View {
                 .disabled(coordinator.isBusy)
             }
         } header: {
-            Text("Tài khoản")
-        } footer: {
-            Text("App chỉ xin quyền với những file do chính nó tạo, trong thư mục \(GoogleDriveConfiguration.folderName).")
+            SectionHelpHeader("Tài khoản", paragraphs: ["App chỉ xin quyền với những file do chính nó tạo, trong thư mục \(GoogleDriveConfiguration.folderName)."])
         }
     }
 
@@ -127,27 +135,12 @@ struct GoogleDriveBackupListView: View {
                 }
             }
         } header: {
-            Text("Trên Google Drive")
-        } footer: {
-            footer
+            filesHeader
         }
     }
 
-    private var footer: some View {
-        Text("“Khôi phục ngay tất cả” tự tải bản sao lưu về rồi gộp mọi nhóm dữ liệu vào máy, không hỏi lại. Muốn chọn từng nhóm thì dùng “Tải về máy” rồi khôi phục từ danh sách ở máy.")
-            .confirmationDialog(
-                "Xoá \(deletingFile?.name ?? "") trên Drive?",
-                isPresented: isDeleting,
-                titleVisibility: .visible
-            ) {
-                Button("Xoá trên Drive", role: .destructive) {
-                    if let file = deletingFile {
-                        Task { await coordinator.deleteFromDrive(file) }
-                    }
-                    deletingFile = nil
-                }
-                Button("Huỷ", role: .cancel) { deletingFile = nil }
-            }
+    private var filesHeader: some View {
+        SectionHelpHeader("Trên Google Drive", paragraphs: ["“Khôi phục ngay tất cả” tự tải bản sao lưu về rồi gộp mọi nhóm dữ liệu vào máy, không hỏi lại. Muốn chọn từng nhóm thì dùng “Tải về máy” rồi khôi phục từ danh sách ở máy."])
     }
 
     private func row(for file: GoogleDriveFile) -> some View {

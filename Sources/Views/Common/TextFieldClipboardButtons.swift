@@ -28,7 +28,7 @@ struct TextFieldClipboardButtons: View {
                 }
             }
 
-            button(accessibility: "Xoá", action: { text = "" }) {
+            button(accessibility: "Xoá", tone: .destructive, isEnabled: !text.isEmpty, action: { text = "" }) {
                 Image(systemName: "trash")
                     .font(.caption)
             }
@@ -39,7 +39,7 @@ struct TextFieldClipboardButtons: View {
             }
             .disabled(text.isEmpty)
 
-            button(accessibility: "Dán", isAccent: true, action: pasteReplacing) {
+            button(accessibility: "Dán", tone: .accent, action: pasteReplacing) {
                 AppGlyph.paste.image(size: 13)
             }
         }
@@ -51,18 +51,42 @@ struct TextFieldClipboardButtons: View {
         text = clip
     }
 
+    /// Màu ô nút: thường (xám), nhấn (dán), đỏ (xoá chữ).
+    private enum Tone {
+        case normal, accent, destructive
+
+        var foreground: Color {
+            switch self {
+            case .normal: return .secondary
+            case .accent: return .accentColor
+            case .destructive: return .red
+            }
+        }
+
+        var background: Color {
+            switch self {
+            case .normal: return Color.secondary.opacity(0.12)
+            case .accent: return Color.accentColor.opacity(0.15)
+            case .destructive: return Color.red.opacity(0.15)
+            }
+        }
+    }
+
+    /// `isEnabled` chỉ để làm mờ ô đỏ (màu tường minh không tự mờ khi `disabled`); `.disabled` vẫn gắn ở chỗ gọi.
     private func button<Content: View>(
         accessibility: String,
-        isAccent: Bool = false,
+        tone: Tone = .normal,
+        isEnabled: Bool = true,
         action: @escaping () -> Void,
         @ViewBuilder label: () -> Content
     ) -> some View {
         Button(action: action) {
             label()
                 .frame(width: 28, height: 26)
-                .foregroundColor(isAccent ? .accentColor : .secondary)
-                .background(isAccent ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.12))
+                .foregroundColor(tone.foreground)
+                .background(tone.background)
                 .cornerRadius(5)
+                .opacity(isEnabled ? 1 : 0.4)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(accessibility)

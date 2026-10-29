@@ -69,13 +69,8 @@ struct BookImportSourceSheet: View {
                     }
                 }
             }
-            .navigationTitle("Chọn truyện nguồn")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
-            }
+            .pageTitle("Chọn truyện nguồn")
+            .presentationDragIndicator(.visible)
             .dictionaryModeDialog(
                 isPresented: $showingModeDialog,
                 title: "Chọn chế độ nhập",
@@ -100,7 +95,7 @@ struct BookImportSourceSheet: View {
         books = ((try? modelContext.fetch(descriptor)) ?? [])
             .filter {
                 $0.bookId != excludedBookId
-                    && (includeNsfw || !RepositoryFilterPolicy.isNsfwSource(packageId: $0.extensionPackageId))
+                    && (includeNsfw || !RepositoryFilterPolicy.isNsfwBook(bookId: $0.bookId, packageId: $0.extensionPackageId))
             }
     }
 }

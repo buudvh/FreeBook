@@ -1,23 +1,34 @@
 import SwiftUI
 
-/// Nút dấu hỏi cạnh tiêu đề section của sheet thêm/sửa rule (`QuickTranslationRuleEditorSheet+Editing`): bấm mở
-/// popover chứa đoạn giải thích — trước đây là footer luôn hiện của section.
+/// Nút dấu hỏi cạnh tiêu đề section: bấm mở popover chứa đoạn giải thích — thay cho footer luôn hiện của section.
+/// Dùng chung cho mọi màn; header chỉ có tiêu đề + nút thì dùng `SectionHelpHeader`.
 ///
-/// - `paragraphs` là `LocalizedStringKey` để `**đậm**` và `` `token` `` vẫn được vẽ như footer cũ.
+/// - `paragraphs: [LocalizedStringKey]` giữ `**đậm**` và `` `token` `` như footer cũ. Chuỗi động (biến `String`) phải
+///   đi qua `texts:` với `Text(chuỗi)` để vẫn vẽ nguyên văn — bọc vào `LocalizedStringKey` là bắt đầu đọc markdown.
 /// - Nằm trong `header:` của `Section` thuộc `Form`, nên dùng `.buttonStyle(.borderless)` để bấm được riêng nút.
 /// - Popover thừa hưởng environment của header (chữ hoa, font footnote, màu phụ) ⇒ nội dung đặt lại tường minh
 ///   `.textCase(nil)`, font và màu.
 /// - `.presentationCompactAdaptation(.popover)`: iPhone vẫn hiện bong bóng nổi thay vì tự đổi thành sheet; chạm ra
 ///   ngoài là đóng.
 /// - Cao theo nội dung, tối đa `maxHeight`; dài hơn thì `ViewThatFits` chọn bản cuộn.
-struct QuickTranslationRuleHelpButton: View {
+struct SectionHelpButton: View {
     let accessibilityLabel: String
-    let paragraphs: [LocalizedStringKey]
+    let texts: [Text]
 
     @State private var isPresented = false
 
     private static let width: CGFloat = 300
     private static let maxHeight: CGFloat = 320
+
+    init(accessibilityLabel: String, paragraphs: [LocalizedStringKey]) {
+        self.accessibilityLabel = accessibilityLabel
+        self.texts = paragraphs.map { Text($0) }
+    }
+
+    init(accessibilityLabel: String, texts: [Text]) {
+        self.accessibilityLabel = accessibilityLabel
+        self.texts = texts
+    }
 
     var body: some View {
         Button {
@@ -48,8 +59,8 @@ struct QuickTranslationRuleHelpButton: View {
 
     private var helpContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                Text(paragraph)
+            ForEach(Array(texts.enumerated()), id: \.offset) { _, text in
+                text
                     .font(.footnote)
                     .foregroundColor(.primary)
                     .textCase(nil)

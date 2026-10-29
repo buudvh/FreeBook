@@ -8,6 +8,9 @@ struct SearchEnginesConfigView: View {
         let url: URL
     }
 
+    /// `true` khi mở dạng sheet (Reader): hiện tiêu đề trang; đẩy từ Cài đặt thì có nút back, không hiện.
+    var isPresentedAsSheet = false
+
     @State private var engines: [SearchEngine] = []
     @State private var showingAddEditSheet = false
     @State private var editingEngine: SearchEngine? = nil
@@ -27,17 +30,18 @@ struct SearchEnginesConfigView: View {
     
     var body: some View {
         List {
-            Section(footer: Text("Sử dụng ký tự %s trong mẫu URL để đại diện cho từ chữ Hán được bôi đen.")) {
+            Section {
                 ForEach(engines) { engine in
                     engineRow(engine)
                 }
                 .onDelete(perform: deleteEngine)
+            } header: {
+                SectionHelpHeader("Công cụ tra cứu", paragraphs: ["Sử dụng ký tự %s trong mẫu URL để đại diện cho từ chữ Hán được bôi đen."])
             }
         }
         // "Thêm công cụ mới" là nút "+" nổi góc dưới phải (trước đây là hàng cuối danh sách).
         .floatingAddButton("Thêm công cụ") { prepareForAdd() }
-        .navigationTitle("Công cụ tra cứu nhanh")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Công cụ tra cứu nhanh", isVisible: isPresentedAsSheet)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -64,14 +68,8 @@ struct SearchEnginesConfigView: View {
                             .textInputAutocapitalization(.never)
                     }
                 }
-                .navigationTitle(editingEngine == nil ? "Thêm công cụ" : "Sửa công cụ")
-                .navigationBarTitleDisplayMode(.inline)
+                .pageTitle(editingEngine == nil ? "Thêm công cụ" : "Sửa công cụ")
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Hủy") {
-                            showingAddEditSheet = false
-                        }
-                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Lưu") {
                             saveEngine()
@@ -85,6 +83,7 @@ struct SearchEnginesConfigView: View {
             }
             .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
             .presentationDetents([.height(260)])
+            .presentationDragIndicator(.visible)
         }
         .background(
             DocumentPickerPresenter(

@@ -55,8 +55,7 @@ struct VieNeuJapaneseDictionaryView: View {
                 }
             }
         }
-        .navigationTitle("Từ điển phiên âm VieNeu-TTS")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Từ điển phiên âm VieNeu-TTS")
         .tint(.white)
         .searchable(text: $searchText, prompt: "Tìm từ")
         .toolbar {
@@ -204,9 +203,7 @@ struct VieNeuJapaneseDictionaryView: View {
                             }
                     }
                 } header: {
-                    Text("Từ vựng (\(allWords.count) từ)")
-                } footer: {
-                    Text("Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng hoặc icon bút để sửa cách đọc; icon thùng rác hoặc vuốt để xoá.")
+                    SectionHelpHeader("Từ vựng (\(allWords.count) từ)", paragraphs: ["Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng hoặc icon bút để sửa cách đọc; icon thùng rác hoặc vuốt để xoá."])
                 }
             }
         }

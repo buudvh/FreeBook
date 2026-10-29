@@ -205,8 +205,7 @@ struct BookImportConfirmationSheet: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("Xác nhận nhập truyện")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Xác nhận nhập truyện")
             .sheet(item: $activePicker) { picker in
                 switch picker {
                 case .decode:

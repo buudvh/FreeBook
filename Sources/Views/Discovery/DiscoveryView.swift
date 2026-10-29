@@ -572,24 +572,23 @@ struct DiscoveryView: View {
 
 struct DiscoverySkeletonListView: View {
     var body: some View {
+        // Dòng chờ cùng dáng panel của kiểu Danh sách (`bookListPanel`): lề 16, cách nhau 8, không vạch ngăn.
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(0..<8) { _ in
                     HStack(spacing: 12) {
                         SkeletonView(width: 50, height: 70)
-                        
                         VStack(alignment: .leading, spacing: 8) {
                             SkeletonView(width: 160, height: 16)
                             SkeletonView(width: nil, height: 12)
                             SkeletonView(width: 100, height: 12)
                         }
                     }
-                    .padding(.horizontal)
-                    Divider()
-                        .padding(.leading, 74)
+                    .bookListPanel()
                 }
             }
-            .padding(.top, 10)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
     }
 }

@@ -11,7 +11,6 @@ struct CollectionsReorderSheet: View {
     /// Trả về `nil` khi thành công, hoặc câu lỗi để màn chủ phát toast.
     let onReorder: (IndexSet, Int) -> String?
 
-    @Environment(\.dismiss) private var dismiss
     /// Số truyện của bộ không đếm truyện của nguồn NSFW khi công tắc tắt (khớp thẻ ở tab Bộ sưu tập).
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
@@ -33,19 +32,14 @@ struct CollectionsReorderSheet: View {
                         }
                     }
                     .onMove(perform: move)
-                } footer: {
-                    Text("Kéo tay nắm bên phải để đổi thứ tự. Thứ tự này là thứ tự hiện ở tab Bộ sưu tập.")
+                } header: {
+                    SectionHelpHeader("Bộ sưu tập", paragraphs: ["Kéo tay nắm bên phải để đổi thứ tự. Thứ tự này là thứ tự hiện ở tab Bộ sưu tập."])
                 }
             }
             // Luôn ở chế độ sửa: màn này chỉ có một việc, không cần bấm thêm nút Sửa.
             .environment(\.editMode, .constant(.active))
-            .navigationTitle("Sắp xếp lại")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Xong") { dismiss() }
-                }
-            }
+            .pageTitle("Sắp xếp lại")
+            .presentationDragIndicator(.visible)
         }
     }
 

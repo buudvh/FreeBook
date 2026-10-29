@@ -55,14 +55,14 @@ struct QuickTranslationRulesView: View {
             actionSection
             toolsSection
         }
-        .navigationTitle("Quản lý rule dịch")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Quản lý rule dịch")
         .onAppear {
             store.prewarm()
             dictionaryIssues = store.dictionaryIssues()
         }
         .sheet(isPresented: $showingIssues) {
             QuickTranslationRuleIssueSheet(issues: allIssues)
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $sharedFile) { file in
             ShareSheet(activityItems: [file.url]) { _, completed, _, error in
@@ -157,9 +157,7 @@ struct QuickTranslationRulesView: View {
                 }
             }
         } header: {
-            Text("Trạng thái")
-        } footer: {
-            Text("Rule chạy sau khi chuyển Phồn thể → Giản thể và trước khi tách từ. Chỉ vùng khớp rule bị thay, phần còn lại vẫn dịch bằng từ điển như cũ.")
+            SectionHelpHeader("Trạng thái", paragraphs: ["Rule chạy sau khi chuyển Phồn thể → Giản thể và trước khi tách từ. Chỉ vùng khớp rule bị thay, phần còn lại vẫn dịch bằng từ điển như cũ."])
         }
     }
 
@@ -207,11 +205,14 @@ struct QuickTranslationRulesView: View {
             }
             .disabled(!store.status.hasFile || store.isDownloading)
         } header: {
-            Text("Bộ rule")
-        } footer: {
             if store.status.ruleCount == 0 {
-                Text("Bộ rule mặc định tải từ HuggingFace, cùng chỗ với VietPhrase / PhienAm (\(QuickTranslationRuleStore.ruleFileName)). File tải về được kiểm tra trước khi thay bộ đang chạy.")
+                SectionHelpHeader("Bộ rule", paragraphs: ["Bộ rule mặc định tải từ HuggingFace, cùng chỗ với VietPhrase / PhienAm (\(QuickTranslationRuleStore.ruleFileName)). File tải về được kiểm tra trước khi thay bộ đang chạy."])
             } else {
+                Text("Bộ rule")
+            }
+        } footer: {
+            // Số rule đang có + lý do nút tải bị ẩn (trạng thái) giữ ở footer; phần giải thích nằm ở nút "?".
+            if store.status.ruleCount > 0 {
                 Text("Máy đã có \(store.status.ruleCount) rule nên nút tải bộ mặc định được ẩn — nó ghi đè bộ đang chạy. Cần tải lại thì xoá bộ rule khỏi máy trước.")
             }
         }

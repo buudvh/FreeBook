@@ -468,11 +468,9 @@ struct ReaderView: View {
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
-                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
-                    .navigationBarItems(trailing: Button("Đóng") {
-                        showingBookDictionary = false
-                    })
+                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "", isPresentedAsSheet: true)
             }
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingReaderSearch) {
             let snapshot = buildReaderSearchSnapshot()

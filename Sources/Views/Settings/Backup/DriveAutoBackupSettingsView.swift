@@ -33,8 +33,7 @@ struct DriveAutoBackupSettingsView: View {
             statusSection
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Tự Động Sao Lưu")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Tự động sao lưu")
         .onChange(of: scopes) { _, newValue in
             DriveAutoBackupPolicy.scopes = newValue
         }
@@ -52,8 +51,8 @@ struct DriveAutoBackupSettingsView: View {
             Toggle("Tự động tải lên Google Drive", isOn: $isEnabled)
             Toggle("Tự động gửi qua Telegram", isOn: $isTelegramEnabled)
                 .disabled(!TelegramConfiguration.isConfigured)
-        } footer: {
-            Text("Hai đích dùng chung lịch và nhóm nội dung, nhưng chạy độc lập. Mỗi kỳ chỉ tạo một archive. Telegram cần cấu hình Bot trước; Drive giữ tối đa \(DriveAutoBackupPolicy.maxVersions) bản tự động gần nhất.")
+        } header: {
+            SectionHelpHeader("Đích sao lưu", paragraphs: ["Hai đích dùng chung lịch và nhóm nội dung, nhưng chạy độc lập. Mỗi kỳ chỉ tạo một archive. Telegram cần cấu hình Bot trước; Drive giữ tối đa \(DriveAutoBackupPolicy.maxVersions) bản tự động gần nhất."])
         }
     }
 
@@ -98,9 +97,7 @@ struct DriveAutoBackupSettingsView: View {
             }
             .disabled(coordinator.isBusy || !hasReadyDestination)
         } header: {
-            Text("Trạng thái")
-        } footer: {
-            Text("Bấm chạy ngay là bỏ qua nhịp chờ, nhưng vẫn tính là lượt của kỳ này.")
+            SectionHelpHeader("Trạng thái", paragraphs: ["Bấm chạy ngay là bỏ qua nhịp chờ, nhưng vẫn tính là lượt của kỳ này."])
         }
     }
 

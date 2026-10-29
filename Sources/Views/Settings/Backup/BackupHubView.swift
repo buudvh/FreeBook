@@ -52,11 +52,13 @@ struct BackupHubView: View {
 
             driveSection
         }
-        .navigationTitle("Sao Lưu & Khôi Phục")
+        .backPageTitle("Sao lưu & khôi phục")
         .onAppear { coordinator.refreshLocal() }
         .sheet(isPresented: $showingImporter) { importer }
         .sheet(item: $sharingItem) { ShareSheet(activityItems: [$0.url]) }
-        .sheet(isPresented: $showingRestoreOptions, onDismiss: discardPreparedRestore) { restoreSheet }
+        .sheet(isPresented: $showingRestoreOptions, onDismiss: discardPreparedRestore) {
+            restoreSheet.presentationDragIndicator(.visible)
+        }
         // Toast kết quả sao lưu / khôi phục **không** còn ở đây: `MainTabView` (root) đã observe
         // `lastMessage`/`lastError`, nên toast hiện kể cả khi người dùng đã rời màn này giữa chừng. Giữ
         // thêm observer ở đây là mỗi lượt hiện hai toast.
@@ -110,8 +112,8 @@ struct BackupHubView: View {
                 }
                 .disabled(coordinator.isBusy)
             }
-        } footer: {
-            Text("Mọi bản sao lưu đều kèm cài đặt & cấu hình của app, gồm quy tắc mục lục và công cụ tra cứu nhanh (trừ khoá API và token); luật thay ký tự TTS đi theo nhóm Custom VietPhrase / Names. Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu.")
+        } header: {
+            SectionHelpHeader("Thao tác", paragraphs: ["Mọi bản sao lưu đều kèm cài đặt & cấu hình của app, gồm quy tắc mục lục và công cụ tra cứu nhanh (trừ khoá API và token); luật thay ký tự TTS đi theo nhóm Custom VietPhrase / Names. Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu."])
         }
     }
 
@@ -184,14 +186,13 @@ struct BackupHubView: View {
             RestoreOptionsSheet(
                 sourceName: restoreSourceName,
                 manifest: prepared.manifest,
-                onConfirm: runRestore,
-                onCancel: { showingRestoreOptions = false }
+                onConfirm: runRestore
             )
         } else {
             // Khung xương, **không** phải `ProgressView` trần: sheet được trình bày ngay từ cú chạm đầu
             // (xem `startRestore`) nên đây là thứ người dùng nhìn suốt thời gian giải nén. Khung xương sao
             // đúng bố cục màn thật để lúc `preparedRestore` tới thì chỉ có chữ hiện ra, không có khung nhảy.
-            RestoreSkeletonView(sourceName: restoreSourceName) { showingRestoreOptions = false }
+            RestoreSkeletonView(sourceName: restoreSourceName)
         }
     }
 

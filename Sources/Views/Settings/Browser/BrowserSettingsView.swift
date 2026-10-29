@@ -13,10 +13,9 @@ import SwiftUI
 ///
 /// Không tự bọc `NavigationStack`: Cài đặt đẩy màn này vào stack của nó; sheet của trình duyệt tự bọc.
 struct BrowserSettingsView: View {
-    /// `true` khi mở dạng sheet (trình duyệt): thêm nút "Xong" để đóng.
+    /// `true` khi mở dạng sheet (trình duyệt): hiện tiêu đề trang. Không còn nút "Xong" — vuốt xuống để đóng; giữ
+    /// tên cũ để `BypassWebView` khỏi đổi chỗ gọi.
     var showsDoneButton = false
-
-    @Environment(\.dismiss) private var dismiss
 
     @AppStorage(WebContentSettings.adBlockEnabledKey) private var adBlockEnabled = true
     @AppStorage(WebContentSettings.popupBlockingEnabledKey) private var popupBlockingEnabled = true
@@ -32,18 +31,7 @@ struct BrowserSettingsView: View {
             extensionBrowserSection
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Trình duyệt")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if showsDoneButton {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Xong") {
-                        dismiss()
-                    }
-                    .fontWeight(.bold)
-                }
-            }
-        }
+        .pageTitle("Trình duyệt", isVisible: showsDoneButton)
         .onAppear {
             // Menu khiên có thể vừa ghi theo tên miền từ trình duyệt — đọc lại cho chắc.
             BrowserSitePreferenceList.shared.reload()
@@ -64,9 +52,7 @@ struct BrowserSettingsView: View {
                 }
             }
         } header: {
-            Text("Chặn quảng cáo")
-        } footer: {
-            Text("Chặn quảng cáo áp cho trình duyệt và webview của tiện ích; từng tiện ích chỉnh riêng được trong Cấu hình tiện ích. Chặn cửa sổ bật lên: trang tự mở tab sang tên miền khác sẽ bị chặn, link bạn bấm vẫn mở bình thường.")
+            SectionHelpHeader("Chặn quảng cáo", paragraphs: ["Chặn quảng cáo áp cho trình duyệt và webview của tiện ích; từng tiện ích chỉnh riêng được trong Cấu hình tiện ích. Chặn cửa sổ bật lên: trang tự mở tab sang tên miền khác sẽ bị chặn, link bạn bấm vẫn mở bình thường."])
         }
     }
 
@@ -86,9 +72,7 @@ struct BrowserSettingsView: View {
                 .fixedSize()
             }
         } header: {
-            Text("Chế độ hiển thị")
-        } footer: {
-            Text("Chỉ áp cho trình duyệt. Tiện ích luôn dùng điện thoại trừ khi bật riêng.")
+            SectionHelpHeader("Chế độ hiển thị", paragraphs: ["Chỉ áp cho trình duyệt. Tiện ích luôn dùng điện thoại trừ khi bật riêng."])
         }
     }
 

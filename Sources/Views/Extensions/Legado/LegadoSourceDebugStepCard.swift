@@ -183,13 +183,8 @@ struct LegadoSourceDebugStepCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
-            .navigationTitle("HTML trang (4 KB đầu)")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { showingBody = false }
-                }
-            }
+            .pageTitle("HTML trang (4 KB đầu)")
+            .presentationDragIndicator(.visible)
         }
     }
 }

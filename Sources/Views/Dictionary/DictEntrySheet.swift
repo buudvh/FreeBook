@@ -80,10 +80,7 @@ public struct DictEntrySheet: View {
                                 .font(.system(size: 14))
                         }
                     } header: {
-                        Text("Nhập danh sách từ")
-                    } footer: {
-                        Text("Mỗi dòng một từ theo format: Từ gốc=Nghĩa dịch.\nDòng trống hoặc không chứa dấu '=' sẽ tự động được bỏ qua.")
-                            .font(.caption)
+                        SectionHelpHeader("Nhập danh sách từ", paragraphs: ["Mỗi dòng một từ theo format: Từ gốc=Nghĩa dịch.\nDòng trống hoặc không chứa dấu '=' sẽ tự động được bỏ qua."])
                     }
                 } else {
                     Section("Chỉnh sửa") {
@@ -109,12 +106,8 @@ public struct DictEntrySheet: View {
                     }
                 }
             }
-            .navigationTitle(isAdd ? "Thêm từ mới" : "Sửa từ")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(isAdd ? "Thêm từ mới" : "Sửa từ")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         handleSave()
@@ -127,6 +120,7 @@ public struct DictEntrySheet: View {
         }
         // Mở nửa màn, vuốt lên được toàn màn — như sheet phiên âm và thay thế TTS; `Form` tự cuộn khi bàn phím hiện.
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     /// Chế độ thêm (nhập nhiều dòng) không có chip. Tra từ điển đồng bộ: vài lượt `findLongestMatch` cho một từ.
@@ -196,9 +190,11 @@ public struct DictEntrySheet: View {
             }) {
                 Image(systemName: "trash")
                     .font(.caption)
+                    .foregroundColor(.red)
                     .frame(width: 28, height: 26)
-                    .background(Color.secondary.opacity(0.12))
+                    .background(Color.red.opacity(0.15))
                     .cornerRadius(5)
+                    .opacity(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
             }
             .buttonStyle(.borderless)
             .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

@@ -27,8 +27,7 @@ struct TTSSettingsHubView: View {
                 }
             }
         }
-        .navigationTitle("Nghe truyện (TTS)")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Nghe truyện (TTS)")
     }
 
     /// Tên hiển thị của engine theo giá trị `ttsTool` (khoá UserDefaults `TTSManager` ghi): dùng cho chữ phụ của

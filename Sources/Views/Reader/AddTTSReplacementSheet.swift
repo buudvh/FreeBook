@@ -88,9 +88,7 @@ struct AddTTSReplacementSheet: View {
                         .padding(.bottom, 2)
                         .padding(.trailing, ChipCornerBadge.inset)
                     } header: {
-                        Text("Gợi ý từ rule đã có")
-                    } footer: {
-                        Text("R = rule riêng của truyện · C = rule chung · chip **mờ** = rule đang tắt. Bấm chip để nhập lại chuỗi thay thế và đặt công tắc theo rule đó.")
+                        SectionHelpHeader("Gợi ý từ rule đã có", paragraphs: ["R = rule riêng của truyện · C = rule chung · chip **mờ** = rule đang tắt. Bấm chip để nhập lại chuỗi thay thế và đặt công tắc theo rule đó."])
                     }
                 }
 
@@ -102,12 +100,8 @@ struct AddTTSReplacementSheet: View {
                     }
                 }
             }
-            .navigationTitle("Thêm thay thế TTS")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Thêm thay thế TTS")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Menu("Lưu") {
                         Button("Lưu riêng — truyện này") { save(.book(bookId ?? "")) }
@@ -120,6 +114,7 @@ struct AddTTSReplacementSheet: View {
         }
         // Mở nửa màn, vuốt lên được toàn màn (1.3.610) — `Form` tự cuộn khi bàn phím hiện.
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var hasBookLayer: Bool {

@@ -241,8 +241,7 @@ struct TranslationSettingsView: View {
                 }
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Cài đặt dịch thuật")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Cài đặt dịch thuật")
         .sheet(item: $dictionaryExport, onDismiss: cleanUpDictionaryExport) { export in
             dictionaryShareSheet(export)
         }

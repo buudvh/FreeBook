@@ -37,9 +37,7 @@ struct BrowserFilterListSection: View {
             }
             .disabled(isUpdating)
         } header: {
-            Text("Bộ lọc")
-        } footer: {
-            Text("Tự cập nhật khi bộ lọc quá 5 ngày. Bộ lọc của AdGuard và ABPVN.")
+            SectionHelpHeader("Bộ lọc", paragraphs: ["Tự cập nhật khi bộ lọc quá 5 ngày. Bộ lọc của AdGuard và ABPVN."])
         }
     }
 

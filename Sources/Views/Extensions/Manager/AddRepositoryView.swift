@@ -22,14 +22,8 @@ public struct AddRepositoryView: View {
                     fieldRow("Link plugin.json", placeholder: "https://…/plugin.json", text: $url, keyboard: .URL)
                 }
             }
-            .navigationTitle("Nhập Kho Tiện Ích")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Nhập kho tiện ích")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Nhập") {
                         onAdd(name, url)
@@ -40,6 +34,7 @@ public struct AddRepositoryView: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     /// Nhãn + bộ nút ở trên, ô nhập ở dưới — cùng dáng hàng ở màn "Thông tin plugin.json" (`ExtensionMetadataSection`).

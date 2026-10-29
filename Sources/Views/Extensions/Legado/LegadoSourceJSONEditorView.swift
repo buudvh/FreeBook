@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Màn **Sửa JSON nguồn** (sheet từ màn chi tiết nguồn Legado): dùng lại trình soạn mã của tiện ích JS
 /// (`HighlightingCodeEditor`, cùng cỡ chữ `scriptEditorFontSize`), thanh dưới "N dòng · M ký tự", A-/A+, **Cú pháp**,
-/// **Định dạng**, **Tải lại**; toolbar Huỷ / Lưu.
+/// **Định dạng**, **Tải lại**; toolbar chỉ còn Lưu — đóng bằng vuốt xuống, đang có thay đổi chưa lưu thì hỏi
+/// "Bỏ thay đổi?" (`confirmDiscardOnSwipe`).
 ///
 /// - Chỉ lưu khi JSON hợp lệ và đúng là một nguồn nhận được (`LegadoSourceJSONValidator`); lỗi báo theo dòng khi trình
 ///   phân tích chỉ ra được.
@@ -31,7 +32,6 @@ struct LegadoSourceJSONEditorView: View {
     @State private var loadError: String?
     @State private var banner: Banner?
     @State private var isSaving = false
-    @State private var showingDiscardAlert = false
     @State private var pendingNewPackageId: String?
     /// Cùng khoá với trình soạn script của tiện ích JS — đổi cỡ chữ ở một nơi là hai nơi cùng theo.
     @AppStorage("scriptEditorFontSize") private var fontSize: Double = 11.0
@@ -43,14 +43,8 @@ struct LegadoSourceJSONEditorView: View {
     var body: some View {
         NavigationStack {
             editorContent
-                .navigationTitle("Sửa JSON nguồn")
-                .navigationBarTitleDisplayMode(.inline)
+                .pageTitle("Sửa JSON nguồn")
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Huỷ") {
-                            if hasChanges { showingDiscardAlert = true } else { dismiss() }
-                        }
-                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button(action: save) {
                             if isSaving {
@@ -61,12 +55,6 @@ struct LegadoSourceJSONEditorView: View {
                         }
                         .disabled(!hasChanges || isSaving || isLoading)
                     }
-                }
-                .alert("Huỷ thay đổi?", isPresented: $showingDiscardAlert) {
-                    Button("Huỷ thay đổi", role: .destructive) { dismiss() }
-                    Button("Tiếp tục sửa", role: .cancel) {}
-                } message: {
-                    Text("JSON đã sửa chưa được lưu.")
                 }
                 .confirmationDialog(
                     "bookSourceUrl đã đổi",
@@ -83,7 +71,8 @@ struct LegadoSourceJSONEditorView: View {
                     Text("URL nguồn là khoá nhận diện, nên đây là một nguồn khác. Sách đã lưu của nguồn cũ chỉ đọc tiếp được khi giữ nguồn cũ.")
                 }
         }
-        .interactiveDismissDisabled(hasChanges)
+        .confirmDiscardOnSwipe(isDirty: hasChanges)
+        .presentationDragIndicator(.visible)
         .task { await load() }
     }
 

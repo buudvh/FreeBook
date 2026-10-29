@@ -10,8 +10,8 @@ struct SideDrawerSectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Color.white.opacity(0.5))
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(Color.white.opacity(0.6))
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -5,7 +5,6 @@ struct ManageDefinitionsView: View {
     let bookId: String
     @Binding var matches: [DictionaryMatchInfo]
     let onChanged: () -> Void
-    @Environment(\.dismiss) private var dismiss
 
     /// Toàn bộ thao tác sửa nằm trong bản nháp; đĩa chỉ được ghi một lần lúc đóng màn.
     @State private var draft: ManageDefinitionsDraft
@@ -47,15 +46,8 @@ struct ManageDefinitionsView: View {
                 makeDictionarySection(title: "VietPhrase (Riêng)", source: "VietPhrase (Riêng)")
                 makeDictionarySection(title: "VietPhrase (Chung)", source: "VietPhrase (Chung)")
             }
-            .navigationTitle("Quản lý nghĩa từ")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Đóng") {
-                        dismiss()
-                    }
-                }
-            }
+            .pageTitle("Quản lý nghĩa từ")
+            .presentationDragIndicator(.visible)
             .onDisappear {
                 saveAllChangesToDisk()
             }

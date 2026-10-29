@@ -114,13 +114,8 @@ public struct ReaderAISessionListView: View {
                     }
                 }
             }
-            .navigationTitle("Lịch sử phiên chat")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") { dismiss() }
-                }
-            }
+            .pageTitle("Lịch sử phiên chat")
+            .presentationDragIndicator(.visible)
             .alert("Xóa toàn bộ phiên chat?", isPresented: $showingClearAllAlert) {
                 Button("Xóa tất cả", role: .destructive) {
                     clearAll()

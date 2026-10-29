@@ -29,7 +29,7 @@ struct ExtensionDebugServerView: View {
             safetySection
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Debug Server (LAN)")
+        .backPageTitle("Debug Server (LAN)")
         .task { reader.attach() }
     }
 
@@ -80,9 +80,7 @@ struct ExtensionDebugServerView: View {
                 Text(message).font(.caption).foregroundStyle(.orange)
             }
         } header: {
-            Text("Server")
-        } footer: {
-            Text("Máy tính cùng Wi-Fi nối thẳng vào địa chỉ trên — không cần ghép nối. Cổng được ghi nhớ nên lần sau mở lại đúng địa chỉ này nếu cổng còn rảnh. Rời màn hình này không tắt server; nhưng khi iOS treo app ở nền thì server ngừng nhận tới lúc bạn mở lại app.")
+            SectionHelpHeader("Server", paragraphs: ["Máy tính cùng Wi-Fi nối thẳng vào địa chỉ trên — không cần ghép nối. Cổng được ghi nhớ nên lần sau mở lại đúng địa chỉ này nếu cổng còn rảnh. Rời màn hình này không tắt server; nhưng khi iOS treo app ở nền thì server ngừng nhận tới lúc bạn mở lại app."])
         }
     }
 
@@ -92,9 +90,7 @@ struct ExtensionDebugServerView: View {
         Section {
             Toggle("Không cần bấm xác nhận", isOn: $autoApproveInstall)
         } header: {
-            Text("Cài từ debug")
-        } footer: {
-            Text("Bật (mặc định): `draft.install` và `draft.rollback` chạy ngay, không hỏi gì — tiện khi sửa extension liên tục. Nhớ rằng server **không có ghép nối**, nên trong lúc nó bật, máy nào tới được địa chỉ trên cũng ghi được extension vào thư viện. Tắt công tắc này để mỗi lần cài lại phải bấm và thấy trước danh sách file sẽ đổi. Dù bật hay tắt, mọi lần cài đều được ghi vào app_logs.txt.")
+            SectionHelpHeader("Cài từ debug", paragraphs: ["Bật (mặc định): `draft.install` và `draft.rollback` chạy ngay, không hỏi gì — tiện khi sửa extension liên tục. Nhớ rằng server **không có ghép nối**, nên trong lúc nó bật, máy nào tới được địa chỉ trên cũng ghi được extension vào thư viện. Tắt công tắc này để mỗi lần cài lại phải bấm và thấy trước danh sách file sẽ đổi. Dù bật hay tắt, mọi lần cài đều được ghi vào app_logs.txt."])
         }
     }
 
@@ -115,9 +111,10 @@ struct ExtensionDebugServerView: View {
                 Label("Không", systemImage: "xmark.seal")
             }
         } header: {
-            Text(pending.kind == .installNew ? "Yêu cầu thêm extension mới" : "Yêu cầu ghi đè extension")
-        } footer: {
-            Text(installFooter(for: pending.kind))
+            SectionHelpHeader(
+                pending.kind == .installNew ? "Yêu cầu thêm extension mới" : "Yêu cầu ghi đè extension",
+                texts: [Text(installHelp(for: pending.kind))]
+            )
         }
     }
 
@@ -131,7 +128,7 @@ struct ExtensionDebugServerView: View {
 
     /// Chuỗi trả về là `String` runtime nên `Text` **không** hiểu markdown ở đây (khác các `Text("…")`
     /// literal trong `safetySection`) — vì vậy viết phẳng, không `**` hay backtick.
-    private func installFooter(for kind: ExtensionDebugInstallGate.Kind) -> String {
+    private func installHelp(for kind: ExtensionDebugInstallGate.Kind) -> String {
         switch kind {
         case .installNew:
             return "Extension này chưa có trên máy: app sẽ tạo thư mục mới trong extensions/ và thêm một bản ghi vào thư viện. Chỉ đồng ý nếu bạn biết máy nào đang gửi."

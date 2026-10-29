@@ -23,8 +23,7 @@ struct SettingsView: View {
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-            .navigationTitle("Cài Đặt")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Cài đặt")
         }
     }
 }

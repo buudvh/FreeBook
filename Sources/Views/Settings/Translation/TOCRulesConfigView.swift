@@ -69,13 +69,15 @@ struct TOCRulesConfigView: View {
                 }
             } else {
                 List {
-                    Section(footer: Text("Các quy tắc TOC trên cùng sẽ được kiểm tra trước khi nhận diện tiêu đề chương TXT.")) {
+                    Section {
                         ForEach(rules) { rule in
                             ruleRow(for: rule)
                                 .deleteDisabled(isDefaultRule(rule))
                         }
                         .onDelete(perform: deleteCustomRules)
                         .onMove(perform: moveRules)
+                    } header: {
+                        SectionHelpHeader("Quy tắc TOC", paragraphs: ["Các quy tắc TOC trên cùng sẽ được kiểm tra trước khi nhận diện tiêu đề chương TXT."])
                     }
                 }
                 .environment(\.editMode, isEditingMode ? .constant(.active) : .constant(.inactive))
@@ -88,8 +90,7 @@ struct TOCRulesConfigView: View {
             guard !(isLoading || isSaving || isImporting || isExporting) else { return }
             prepareForAdd()
         }
-        .navigationTitle("Quy tắc TOC (Chương TXT)")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Quy tắc TOC (Chương TXT)")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -189,7 +190,7 @@ struct TOCRulesConfigView: View {
 
         NavigationStack {
             Form {
-                Section(header: Text("Thông tin quy tắc TOC")) {
+                Section {
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Tên quy tắc (ví dụ: Quyển x)", text: $inputName)
 
@@ -212,19 +213,12 @@ struct TOCRulesConfigView: View {
                     TextField("Ví dụ mẫu (không bắt buộc)", text: $inputExample)
                     Toggle("Kích hoạt quy tắc", isOn: $inputEnabled)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-                }
-                Section(footer: Text("Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT.")) {
-                    EmptyView()
+                } header: {
+                    SectionHelpHeader("Thông tin quy tắc TOC", paragraphs: ["Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT."])
                 }
             }
-            .navigationTitle(editingRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(editingRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        showingAddEditSheet = false
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         saveRuleFromForm()
@@ -234,6 +228,7 @@ struct TOCRulesConfigView: View {
             }
         }
         .presentationDetents([.height(340)])
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Data Operations & In-Flight Save Tracking

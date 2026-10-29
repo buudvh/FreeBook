@@ -9,11 +9,17 @@ struct DownloadTrackerView: View {
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    /// Công tắc NSFW toàn app — tắt ⇒ ẩn tác vụ tải/xuất của truyện thuộc nguồn NSFW (tác vụ vẫn chạy).
+    /// Công tắc NSFW toàn app — tắt ⇒ ẩn tác vụ tải/xuất của truyện thuộc nguồn NSFW hoặc tự đánh dấu NSFW (tác vụ vẫn
+    /// chạy).
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     private var visibleTasks: [DownloadTask] {
-        RepositoryFilterPolicy.excludingNsfwSources(downloadManager.tasks, includeNsfw: includeNsfw, packageId: \.extensionPackageId)
+        RepositoryFilterPolicy.excludingNsfwBooks(
+            downloadManager.tasks,
+            includeNsfw: includeNsfw,
+            bookId: \.bookId,
+            packageId: \.extensionPackageId
+        )
     }
 
     var body: some View {

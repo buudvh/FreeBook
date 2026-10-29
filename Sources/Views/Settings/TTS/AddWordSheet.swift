@@ -99,8 +99,7 @@ struct AddWordSheet: View {
                     }
                 }
             }
-            .navigationTitle("Thêm từ mới")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Thêm từ mới")
             .onAppear {
                 // Lượt đầu **không** chờ debounce: khoá đã có sẵn từ cụm bôi đen ở Reader.
                 scheduleSuggestionLoad(immediately: true)
@@ -127,11 +126,6 @@ struct AddWordSheet: View {
                 Text("Mục sẽ bị xoá khỏi từ điển phiên âm và **không** khôi phục được.")
             }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     // 3 mục ở **mọi** chế độ mở sheet: đích cố định của màn gọi chỉ là gợi ý, không phải
                     // ràng buộc — người dùng vẫn có thể lưu sang từ điển của engine kia, hoặc cả hai.
@@ -146,6 +140,8 @@ struct AddWordSheet: View {
         }
         // Mở nửa màn, vuốt lên được toàn màn (1.3.610) — `Form` tự cuộn khi bàn phím hiện.
         .presentationDetents([.medium, .large])
+        // Không còn nút Huỷ (cả khi mở từ Reader): vuốt xuống để đóng, thanh kéo là gợi ý.
+        .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder

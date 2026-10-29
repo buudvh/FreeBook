@@ -5,8 +5,8 @@ import SwiftUI
 /// ghi xong là vẽ lại ngay).
 ///
 /// Hai nhánh tách hẳn nhau:
-/// - `.list`: `List` `.plain` + `Section` + `ShelfBookRowView`, sentinel `ProgressView` cuối danh sách — y như trước
-///   khi có tuỳ chọn kiểu, cỡ dòng theo `BookListLayout.rowSize`.
+/// - `.list`: `List` `.plain` + `Section` + `ShelfBookRowView` dạng panel bo góc (`bookListPanelRow`, không vạch
+///   ngăn), sentinel `ProgressView` cuối danh sách; cỡ dòng theo `BookListLayout.rowSize`.
 /// - `.grid` / `.coverOnly`: `ScrollView` + `LazyVGrid` N cột với `ShelfBookGridCardView`. **`LazyVGrid` tuyệt đối
 ///   không lồng trong `List`** (crash `EXC_BREAKPOINT` ở 1.3.269, xem `CollectionsTabView`).
 ///
@@ -69,6 +69,7 @@ struct ShelfBooksLayoutView: View {
                     } header: {
                         headerView(header)
                     }
+                    .listSectionSeparator(.hidden)
                 } else {
                     listRows(group.books, rowSize: rowSize)
                 }
@@ -81,7 +82,7 @@ struct ShelfBooksLayoutView: View {
                         .onAppear { scheduleLoadMore() }
                     Spacer()
                 }
-                .listRowSeparator(.hidden)
+                .bookListPanelRowChrome()
             }
         }
         .listStyle(.plain)
@@ -96,6 +97,7 @@ struct ShelfBooksLayoutView: View {
     @ViewBuilder
     private func listRow(_ book: Book, rowSize: BookListRowSize) -> some View {
         let row = ShelfBookRowView(book: book, extensions: extensions, rowSize: rowSize)
+            .bookListPanelRow(rowSize)
             .contentShape(Rectangle())
             .onTapGesture {
                 onTap(book)

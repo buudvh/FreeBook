@@ -69,13 +69,8 @@ struct BookShareTargetSheet: View {
                     }
                 }
             }
-            .navigationTitle("Chọn truyện đích")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
-            }
+            .pageTitle("Chọn truyện đích")
+            .presentationDragIndicator(.visible)
             .dictionaryModeDialog(
                 isPresented: $showingModeDialog,
                 title: "Chọn chế độ chia sẻ",
@@ -100,7 +95,7 @@ struct BookShareTargetSheet: View {
         books = ((try? modelContext.fetch(descriptor)) ?? [])
             .filter {
                 $0.bookId != excludedBookId
-                    && (includeNsfw || !RepositoryFilterPolicy.isNsfwSource(packageId: $0.extensionPackageId))
+                    && (includeNsfw || !RepositoryFilterPolicy.isNsfwBook(bookId: $0.bookId, packageId: $0.extensionPackageId))
             }
     }
 }

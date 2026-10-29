@@ -67,23 +67,23 @@ public struct FilterSheet: View {
                 .padding()
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Bộ lọc tiện ích")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Bộ lọc tiện ích")
+            .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Xong") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đặt lại") {
+                // Không còn "Xong" (vuốt xuống để đóng); "Đặt lại" thành icon đỏ bên phải, giữ hành vi xoá lọc + đóng.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
                         filterTypes = []
                         filterLocales = []
                         filterAuthors = []
                         includeNsfw = false
                         dismiss()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.red)
                     }
-                    .foregroundColor(.red)
+                    .accessibilityLabel("Đặt lại bộ lọc")
                 }
             }
         }

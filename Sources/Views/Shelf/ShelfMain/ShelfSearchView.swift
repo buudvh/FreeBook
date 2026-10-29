@@ -39,6 +39,10 @@ struct ShelfSearchView: View {
     /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
     /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
     @State var queuedShelfRemovalBook: Book? = nil
+    /// "Mở trong trình duyệt" (`ShelfSearchView+Actions` ghi): xếp hàng như `queuedShelfRemovalBook`, mở trong
+    /// `onDismiss` của sheet nhấn giữ (`bookBrowserPresentation`).
+    @State var queuedBrowserBook: Book? = nil
+    @State private var browserBook: Book? = nil
     /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State var selectedBookForTask: Book? = nil
@@ -83,13 +87,14 @@ struct ShelfSearchView: View {
             + CGFloat(visibleRowCount) * historyRowHeight
     }
 
-    /// Công tắc NSFW toàn app — tắt ⇒ mọi sách (kệ lẫn lịch sử) của nguồn NSFW không tìm thấy.
+    /// Công tắc NSFW toàn app — tắt ⇒ mọi sách (kệ lẫn lịch sử) của nguồn NSFW và sách tự đánh dấu NSFW không tìm thấy.
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     private var searchableBooks: [Book] {
-        RepositoryFilterPolicy.excludingNsfwSources(
+        RepositoryFilterPolicy.excludingNsfwBooks(
             allBooks.filter { $0.isOnShelf || $0.isHistory },
             includeNsfw: includeNsfw,
+            bookId: \.bookId,
             packageId: \.extensionPackageId
         )
     }
@@ -118,6 +123,10 @@ struct ShelfSearchView: View {
                     queuedShelfRemovalBook = nil
                     pendingShelfRemovalBook = book
                 }
+                if let book = queuedBrowserBook {
+                    queuedBrowserBook = nil
+                    browserBook = book
+                }
             }) { target in
                 BookActionSheet(
                     target: target,
@@ -130,6 +139,7 @@ struct ShelfSearchView: View {
             .sheet(item: $selectedBookForTask) { book in
                 TaskOptionsSheet(book: book, taskType: selectedTaskType)
             }
+            .bookBrowserPresentation($browserBook)
             .sheet(item: $editingInfoBook) { book in
                 BookInfoEditView(
                     bookId: book.bookId,
@@ -173,8 +183,7 @@ struct ShelfSearchView: View {
                 deletionOverlay
             }
         }
-        .navigationTitle("Tìm trong Kệ sách & Lịch sử")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Tìm trong Kệ sách & Lịch sử")
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
                 BookContentDestination(
@@ -215,7 +224,7 @@ struct ShelfSearchView: View {
                     }) {
                         Text("Xóa tất cả")
                             .font(.subheadline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.red)
                     }
                 }
                 .padding(.horizontal)
@@ -320,13 +329,15 @@ struct ShelfSearchView: View {
     /// sau khi giữ vẫn kích hoạt action, mở luôn cả Reader — cùng bẫy đã ghi ở `ShelfView`.
     private func resultRow(_ book: Book) -> some View {
         let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+        // Cùng scope "Tất cả" với nhánh lưới ở trên; gọi trong lượt vẽ nên đổi cỡ dòng là vẽ lại.
+        let rowSize = BookListLayoutPreferences.shared.layout(for: .all).rowSize
         return BookListItemView(
             item: book,
-            // Cùng scope "Tất cả" với nhánh lưới ở trên; gọi trong lượt vẽ nên đổi cỡ dòng là vẽ lại.
-            rowSize: BookListLayoutPreferences.shared.layout(for: .all).rowSize,
+            rowSize: rowSize,
             extensionLocalPath: ext?.localPath ?? "",
             extensionIconUrl: ext?.iconUrl
         )
+        .bookListPanelRow(rowSize)
         .contentShape(Rectangle())
         .onTapGesture {
             openReader(book)

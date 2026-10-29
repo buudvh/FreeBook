@@ -71,21 +71,18 @@ struct SideDrawerMenuPanel<Content: View>: View {
 
     private func drawer(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Tiêu đề cùng chuẩn tiêu đề trang (22pt đậm, một dòng); không còn vạch ngăn bên dưới.
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Color.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
                 .accessibilityAddTraits(.isHeader)
-
-            Rectangle()
-                .fill(Color.white.opacity(0.12))
-                .frame(height: 0.5)
-                .accessibilityHidden(true)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

@@ -57,8 +57,7 @@ struct ReaderAINameScanChapterPickerView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Số \(noun) hoặc tên \(noun)"
             )
-            .navigationTitle("Chọn \(noun) bắt đầu")
-            .navigationBarTitleDisplayMode(.inline)
+            .backPageTitle("Chọn \(noun) bắt đầu")
             .onAppear {
                 // `List` chưa dựng xong lúc `onAppear` ⇒ đẩy sang lượt sau mới cuộn được. Đang tìm thì không cuộn.
                 guard let selectedIndex, trimmedQuery.isEmpty else { return }

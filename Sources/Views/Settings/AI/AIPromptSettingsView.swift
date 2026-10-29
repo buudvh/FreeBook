@@ -24,9 +24,7 @@ public struct AIPromptSettingsView: View {
                 .font(.footnote)
                 .foregroundColor(.accentColor)
             } header: {
-                Text("System Prompt Trò chuyện")
-            } footer: {
-                Text("Định hình phong cách trả lời, vai trò và quy tắc ứng xử của AI khi bạn trò chuyện trong sách.")
+                SectionHelpHeader("System Prompt Trò chuyện", paragraphs: ["Định hình phong cách trả lời, vai trò và quy tắc ứng xử của AI khi bạn trò chuyện trong sách."])
             }
 
             Section {
@@ -41,9 +39,7 @@ public struct AIPromptSettingsView: View {
                 .font(.footnote)
                 .foregroundColor(.accentColor)
             } header: {
-                Text("Prompt Trích xuất Tên riêng (Name Extraction)")
-            } footer: {
-                Text("Chỉ dẫn cho AI cách quét và trích xuất nhân vật, địa danh, công pháp từ văn bản raw tiếng Trung thành mảng JSON.")
+                SectionHelpHeader("Prompt Trích xuất Tên riêng (Name Extraction)", paragraphs: ["Chỉ dẫn cho AI cách quét và trích xuất nhân vật, địa danh, công pháp từ văn bản raw tiếng Trung thành mảng JSON."])
             }
 
             Section {
@@ -67,13 +63,10 @@ public struct AIPromptSettingsView: View {
                     .foregroundColor(.accentColor)
                 }
             } header: {
-                Text("Trí Nhớ AI Toàn Cục (Global Memory)")
-            } footer: {
-                Text("Quy tắc lọc tên riêng và ghi chú áp dụng chung cho mọi tác vụ AI trên toàn app.")
+                SectionHelpHeader("Trí Nhớ AI Toàn Cục (Global Memory)", paragraphs: ["Quy tắc lọc tên riêng và ghi chú áp dụng chung cho mọi tác vụ AI trên toàn app."])
             }
         }
-        .navigationTitle("Tùy chỉnh Prompt AI")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Tùy chỉnh Prompt AI")
         .onAppear {
             loadPrompts()
         }

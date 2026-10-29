@@ -13,6 +13,9 @@ import SwiftUI
 ///
 /// Sheet mở toàn màn (không có nấc nửa màn — đã thử ở 1.3.613, bỏ ở 1.3.615 theo yêu cầu người dùng).
 ///
+/// Không có nút Hủy (1.3.641): đóng bằng vuốt xuống. Nội dung đã khác giá trị điền sẵn (`isDirty`) thì vuốt xuống hỏi
+/// "Bỏ thay đổi?" — đồng ý là lối **duy nhất** xoá bản nháp ngoài lưu thành công. Vẫn không xoá nháp ở `onDisappear`.
+///
 /// **Chữ đang gõ không còn chỉ sống trong `@State` của sheet**: nó được mirror sang
 /// `QuickTranslationRuleDraftStore` và `init` khôi phục lại từ đó. Lý do đầy đủ ở doc của store — tóm
 /// lại là Reader tự chuyển chương lúc đang nghe làm SwiftUI dựng lại content của sheet (sheet vẫn mở),
@@ -155,6 +158,19 @@ struct QuickTranslationRuleEditorSheet: View {
         return .book(contextBookId)
     }
 
+    /// Giá trị điền sẵn của hai ô, suy từ `mode` (không lưu thành state riêng).
+    private var seed: (pattern: String, replacement: String) {
+        switch mode {
+        case .add(let prefilled, let prefilledReplacement): return (prefilled, prefilledReplacement)
+        case .edit(let pattern, let replacement, _, _): return (pattern, replacement)
+        }
+    }
+
+    /// Có chữ người dùng đã gõ khác giá trị điền sẵn ⇒ vuốt xuống phải hỏi trước khi bỏ.
+    private var isDirty: Bool {
+        pattern != seed.pattern || replacement != seed.replacement
+    }
+
     private var canSave: Bool {
         !pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -190,15 +206,8 @@ struct QuickTranslationRuleEditorSheet: View {
                     }
                 }
             }
-            .navigationTitle(isEditing ? "Sửa rule" : "Thêm rule")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(isEditing ? "Sửa rule" : "Thêm rule")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        QuickTranslationRuleDraftStore.shared.clear(id: mode.id)
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     saveControl
                 }
@@ -220,6 +229,10 @@ struct QuickTranslationRuleEditorSheet: View {
                 reconcileReplacementSelection(after: newValue)
             }
         }
+        .confirmDiscardOnSwipe(isDirty: isDirty) {
+            QuickTranslationRuleDraftStore.shared.clear(id: mode.id)
+        }
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Lưu

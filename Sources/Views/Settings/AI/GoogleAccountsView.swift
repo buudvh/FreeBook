@@ -28,7 +28,7 @@ public struct GoogleAccountsView: View {
 
     public var body: some View {
         Form {
-            Section(header: Text("Thứ Tự Xoay Vòng Khi Bị Giới Hạn"), footer: Text(rotationFooter)) {
+            Section {
                 if let displayProfile {
                     Text("Provider: \(displayProfile.name)")
                         .font(.caption)
@@ -50,6 +50,8 @@ public struct GoogleAccountsView: View {
                     }
                     .onMove(perform: moveAccounts)
                 }
+            } header: {
+                SectionHelpHeader("Thứ Tự Xoay Vòng Khi Bị Giới Hạn", texts: [Text(rotationHelp)])
             }
 
             Section {
@@ -61,8 +63,8 @@ public struct GoogleAccountsView: View {
                     .font(.subheadline)
                 }
                 .disabled(busyAccountId != nil || displayProfile == nil)
-            } footer: {
-                Text("Thêm tài khoản = lưu phiên tài khoản đang đăng nhập vào provider này → xoá cookie Google → mở trang đăng nhập; đăng nhập xong thì lưu thành tài khoản mới. Huỷ giữa chừng thì phiên cũ được khôi phục.")
+            } header: {
+                SectionHelpHeader("Tài khoản mới", paragraphs: ["Thêm tài khoản = lưu phiên tài khoản đang đăng nhập vào provider này → xoá cookie Google → mở trang đăng nhập; đăng nhập xong thì lưu thành tài khoản mới. Huỷ giữa chừng thì phiên cũ được khôi phục."])
             }
 
             if let errorMessage {
@@ -83,8 +85,7 @@ public struct GoogleAccountsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .navigationTitle("Tài khoản Google")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Tài khoản Google")
         .toolbar { EditButton() }
         .task { await refresh() }
         .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
@@ -102,7 +103,7 @@ public struct GoogleAccountsView: View {
         }
     }
 
-    internal var rotationFooter: String {
+    internal var rotationHelp: String {
         guard accounts.count > 1 else {
             return "Chỉ có một tài khoản: bị Google giới hạn thì app chờ 1 → 2 → 4 → 8 phút rồi quét tiếp. Thêm tài khoản thứ hai để app tự chuyển khi bị giới hạn."
         }

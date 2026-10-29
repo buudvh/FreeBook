@@ -133,8 +133,7 @@ struct RepositoryManagerView: View {
                 }
             }
         }
-        .navigationTitle("Kho Tiện Ích")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Kho tiện ích") // tab gốc
         .toolbar { toolbarContent }
     }
 
@@ -213,13 +212,8 @@ struct RepositoryManagerView: View {
         } else if selectedTab == 0 {
             allExtensionsToolbarContent // `+SourceCheck`
         } else {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { showingAddRepo = true }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-            }
-            ToolbarItem(placement: .navigationBarLeading) {
+            // Bên trái là tiêu đề trang ⇒ ↻ dồn sang phải, đứng trước +.
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: { refreshAllRepositories(force: true) }) {
                     if isRefreshingAll {
                         ProgressView()
@@ -229,6 +223,12 @@ struct RepositoryManagerView: View {
                     }
                 }
                 .disabled(isRefreshingAll || repositories.isEmpty)
+                .accessibilityLabel("Làm mới tất cả kho")
+                Button(action: { showingAddRepo = true }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                .accessibilityLabel("Thêm kho")
             }
         }
     }

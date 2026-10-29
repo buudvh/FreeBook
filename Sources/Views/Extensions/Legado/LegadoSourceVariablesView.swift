@@ -34,9 +34,7 @@ struct LegadoSourceVariablesView: View {
                         .autocorrectionDisabled()
                 }
             } header: {
-                Text("Biến nguồn")
-            } footer: {
-                Text("JS của nguồn đọc giá trị này bằng source.getVariable(). Để trống = không có biến.")
+                SectionHelpHeader("Biến nguồn", paragraphs: ["JS của nguồn đọc giá trị này bằng source.getVariable(). Để trống = không có biến."])
             }
             if !isLoading, !savedValue.isEmpty {
                 Section {
@@ -46,8 +44,7 @@ struct LegadoSourceVariablesView: View {
                 }
             }
         }
-        .navigationTitle("Biến của nguồn")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Biến của nguồn")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(action: { save(value) }) {

@@ -60,8 +60,7 @@ public struct AIChatAllSessionsManagerView: View {
                 .searchable(text: $searchText, prompt: "Tìm theo tiêu đề hoặc model...")
             }
         }
-        .navigationTitle("Lịch sử phiên chat AI")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Lịch sử phiên chat AI")
         .toolbar {
             ToolbarItem(placement: .destructiveAction) {
                 if !sessions.isEmpty {

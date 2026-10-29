@@ -16,13 +16,10 @@ struct KeyboardSettingsView: View {
                     KeyboardDismissPreference.setTapOutsideDismisses(false)
                 }
             } header: {
-                Text("Khi chạm ra ngoài ô nhập")
-            } footer: {
-                Text("Nút đóng bàn phím nằm ngoài cùng bên trái thanh công cụ trên bàn phím. Giữ nút đó để đổi nhanh lựa chọn này. Phím Return của ô một dòng và thao tác kéo danh sách vẫn tắt bàn phím như thường.")
+                SectionHelpHeader("Khi chạm ra ngoài ô nhập", paragraphs: ["Nút đóng bàn phím nằm ngoài cùng bên trái thanh công cụ trên bàn phím. Giữ nút đó để đổi nhanh lựa chọn này. Phím Return của ô một dòng và thao tác kéo danh sách vẫn tắt bàn phím như thường."])
             }
         }
-        .navigationTitle("Bàn phím & ô nhập")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Bàn phím & ô nhập")
     }
 
     private func optionRow(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {

@@ -51,9 +51,7 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                Text("Nút nổi (tai nghe, nút +)")
-            } footer: {
-                Text("Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính.")
+                SectionHelpHeader("Nút nổi (tai nghe, nút +)", paragraphs: ["Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính."])
             }
 
             Section {
@@ -66,13 +64,10 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                Text("Menu ba chấm")
-            } footer: {
-                Text("Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn.")
+                SectionHelpHeader("Menu ba chấm", paragraphs: ["Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn."])
             }
         }
-        .navigationTitle("Giao diện")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Giao diện")
     }
 
     // MARK: - Thanh kéo

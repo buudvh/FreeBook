@@ -14,16 +14,15 @@ import SwiftUI
 /// xương), danh sách nhóm khôi phục, rồi 2 hàng toggle — để lúc nội dung thật tới thì chỉ có **chữ hiện ra**,
 /// không có khung nhảy. Sửa bố cục `RestoreOptionsSheet` thì sửa cả file này.
 ///
-/// ## Nút "Huỷ" vẫn bấm được
-/// Cố ý giữ `Huỷ` hoạt động trong lúc đọc file: giải nén có thể lâu, và khoá người dùng trong một màn chỉ có
-/// khung xương là đúng thứ trải nghiệm mà lượt này đang sửa. Đóng giữa chừng thì `startRestore` dọn thư mục
-/// tạm ngay khi `prepareRestore` trả về.
+/// ## Vẫn vuốt xuống để đóng được
+/// Sheet không có nút Huỷ (đóng bằng vuốt xuống, có thanh kéo) và cố ý **không** chặn vuốt trong lúc đọc file:
+/// giải nén có thể lâu, và khoá người dùng trong một màn chỉ có khung xương là đúng thứ trải nghiệm mà lượt này
+/// đang sửa. Đóng giữa chừng thì `startRestore` dọn thư mục tạm ngay khi `prepareRestore` trả về.
 ///
 /// Tái dùng `SkeletonView` dùng chung thay vì tự vẽ khối nhấp nháy — một định nghĩa "khung xương" cho cả app.
 struct RestoreSkeletonView: View {
     /// Tên file đang đọc — **dữ liệu thật**, đã biết từ trước nên hiện luôn thay vì để xương.
     let sourceName: String
-    let onCancel: () -> Void
 
     var body: some View {
         NavigationView {
@@ -64,13 +63,7 @@ struct RestoreSkeletonView: View {
                     skeletonToggleRow(labelWidth: 178)
                 }
             }
-            .navigationTitle("Khôi phục")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ", action: onCancel)
-                }
-            }
+            .pageTitle("Khôi phục")
         }
     }
 

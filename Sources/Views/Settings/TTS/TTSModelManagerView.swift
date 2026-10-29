@@ -141,7 +141,7 @@ struct TTSModelManagerView: View {
                 }
             }
             .tint(.white)
-            .navigationTitle("Quản lý Model")
+            .backPageTitle("Quản lý model")
             .background {
                 DocumentPickerPresenter(
                     isPresented: $isShowingFileImporter,

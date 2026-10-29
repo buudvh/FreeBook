@@ -19,9 +19,7 @@ extension ExtensionConfigView {
                 Toggle("Lưu lịch sử đọc/xem", isOn: savesHistoryBinding)
                 nsfwPicker
             } header: {
-                Text("Duyệt và lịch sử")
-            } footer: {
-                Text(historyFooter + " " + nsfwFooter)
+                SectionHelpHeader("Duyệt và lịch sử", texts: [Text(historyFooter), Text(nsfwFooter)])
             }
         }
     }

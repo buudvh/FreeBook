@@ -8,8 +8,6 @@ import SwiftUI
 struct QuickTranslationRuleIssueSheet: View {
     let issues: [QuickTranslationRuleIssue]
 
-    @Environment(\.dismiss) private var dismiss
-
     private var hardIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .hard } }
     private var disablingIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .disabling } }
     private var warningIssues: [QuickTranslationRuleIssue] { issues.filter { $0.severity == .warning } }
@@ -43,12 +41,8 @@ struct QuickTranslationRuleIssueSheet: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .navigationTitle("Lỗi & cảnh báo")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Lỗi & cảnh báo")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") { dismiss() }
-                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         UIPasteboard.general.string = clipboardText()

@@ -53,8 +53,7 @@ struct LegadoSourceDebugView: View {
             .padding()
         }
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle("Gỡ lỗi từng bước")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Gỡ lỗi từng bước")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: copyReport) {

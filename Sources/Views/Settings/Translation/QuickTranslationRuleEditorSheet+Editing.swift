@@ -253,10 +253,7 @@ extension QuickTranslationRuleEditorSheet {
                 }
             }
         } header: {
-            HStack(spacing: 6) {
-                Text("Mẫu (vế trái dấu =)")
-                QuickTranslationRuleHelpButton(accessibilityLabel: "Giải thích phần mẫu", paragraphs: patternHelpParagraphs)
-            }
+            SectionHelpHeader("Mẫu (vế trái dấu =)", paragraphs: patternHelpParagraphs)
         }
     }
 
@@ -354,13 +351,10 @@ extension QuickTranslationRuleEditorSheet {
                 insertIntoReplacement("{\(index)}")
             }
         } header: {
-            HStack(spacing: 6) {
-                Text("Bản dịch (vế phải dấu =)")
-                QuickTranslationRuleHelpButton(
-                    accessibilityLabel: "Giải thích phần bản dịch",
-                    paragraphs: ["`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo."]
-                )
-            }
+            SectionHelpHeader(
+                "Bản dịch (vế phải dấu =)",
+                paragraphs: ["`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo."]
+            )
         }
     }
 

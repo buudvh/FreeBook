@@ -3,6 +3,8 @@ import SwiftUI
 struct DictionaryHubView: View {
     let bookId: String
     var bookName: String = ""
+    /// Gốc sheet (mở từ Reader) ⇒ hiện tiêu đề trái; đẩy từ Chi tiết truyện ⇒ chỉ nút back.
+    var isPresentedAsSheet = false
 
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var mergeTask = DictionaryMergeTask.shared
@@ -106,8 +108,7 @@ struct DictionaryHubView: View {
             }
         }
         .id(refreshToken)
-        .navigationTitle("Từ Điển")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Từ Điển", isVisible: isPresentedAsSheet)
         .onAppear {
             translationManager.clearBookDictCache(for: bookId)
             mergeTask.refreshFromDisk()

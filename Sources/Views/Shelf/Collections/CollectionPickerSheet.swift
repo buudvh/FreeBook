@@ -49,8 +49,8 @@ struct CollectionPickerSheet: View {
                                 }
                             }
                         }
-                    } footer: {
-                        Text("Bỏ trống cũng được — truyện vẫn nằm trên kệ sách.")
+                    } header: {
+                        SectionHelpHeader("Bộ sưu tập", paragraphs: ["Bỏ trống cũng được — truyện vẫn nằm trên kệ sách."])
                     }
                 }
 
@@ -64,18 +64,15 @@ struct CollectionPickerSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(title)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Bỏ qua") { dismiss() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Xong") { commit() }
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .onAppear(perform: preloadSelection)
         .alert("Bộ sưu tập mới", isPresented: $showingCreateAlert) {
             TextField("Tên bộ sưu tập", text: $newName)

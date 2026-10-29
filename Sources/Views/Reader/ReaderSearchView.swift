@@ -45,13 +45,8 @@ struct ReaderSearchView: View {
                 Divider()
                 content
             }
-            .navigationTitle("Tìm trong chương")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") { dismiss() }
-                }
-            }
+            .pageTitle("Tìm trong chương")
+            .presentationDragIndicator(.visible)
         }
         .onAppear {
             isSearchFocused = true

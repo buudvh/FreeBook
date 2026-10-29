@@ -46,12 +46,18 @@ struct ShelfView: View {
     @State internal var selectedTab: ShelfTab = .shelf
     @State private var showingClearHistoryAlert = false // Hiện hộp chọn khoảng thời gian để xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
-    @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (nút chuông)
+    @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (hàng "Thông báo" của ngăn kéo)
 
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
-    @State private var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
-    @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI/DOCX/FB2/PDF)
+    // `internal` từ đây tới `queuedImportChoice`: lối nhập truyện nằm ở `Extensions/ShelfView+ImportEntry.swift`.
+    @State internal var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
+    /// Trang đầu của trình duyệt nhập truyện (`"home"` = trang chủ); mọi lối mở đều đặt lại qua `openImportBrowser`.
+    @State internal var bypassBrowserStartUrl = "home"
+    @State internal var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI/DOCX/FB2/PDF)
+    @State internal var showingImportSheet = false // Sheet "Nhập truyện" (nút "+" nổi, hàng "Nhập truyện" của ngăn kéo)
+    /// Việc sheet "Nhập truyện" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
+    @State internal var queuedImportChoice: ShelfImportSheet.Choice? = nil
 
     // Tiến độ nhập file truyện nằm ở `BookImportProgressCenter` (màn Thông báo cũng đọc), không còn là
     // `@State` ở đây. Các `@State` bên dưới `internal` vì khối nhập file đã tách sang
@@ -97,14 +103,18 @@ struct ShelfView: View {
     /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
     /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
     @State private var queuedShelfRemovalBook: Book? = nil
+    /// "Mở trong trình duyệt" của sheet nhấn giữ: xếp hàng như `queuedShelfRemovalBook`, chuyển sang `browserBook`
+    /// (`bookBrowserPresentation`) trong `onDismiss` của sheet.
+    @State private var queuedBrowserBook: Book? = nil
+    @State private var browserBook: Book? = nil
 
-    // Import từ trình duyệt
-    @State private var importedBookId: String = ""
-    @State private var importedExtensionPackageId: String = ""
-    @State private var importedDetailUrl: String = ""
-    @State private var importedSourceName: String = ""
-    @State private var importedHost: String = ""
-    @State private var navigateToImportedBook = false
+    // Import từ trình duyệt / bước "Từ URL" — `internal` vì `openImportedBook` ở `ShelfView+ImportEntry.swift`.
+    @State internal var importedBookId: String = ""
+    @State internal var importedExtensionPackageId: String = ""
+    @State internal var importedDetailUrl: String = ""
+    @State internal var importedSourceName: String = ""
+    @State internal var importedHost: String = ""
+    @State internal var navigateToImportedBook = false
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
@@ -118,8 +128,13 @@ struct ShelfView: View {
     // `ShelfBookPartition`, giữ nguyên thứ tự `lastReadDate` của `@Query`.
 
     /// Nội dung ngăn kéo "…" của Kệ. Tách khỏi `body` để biểu thức `body` (đã rất dài) không vượt ngân sách type-check.
+    /// `badgeCount` truyền **giá trị** từ `body`: ngăn kéo ở cửa sổ riêng, không đọc object được observe của màn.
     @ViewBuilder
-    private func shelfMenuItems(_ parts: ShelfBookPartition, _ kindFilter: ShelfKindFilter) -> some View {
+    private func shelfMenuItems(_ parts: ShelfBookPartition, _ kindFilter: ShelfKindFilter, badgeCount: Int) -> some View {
+        // Thay nút chuông cũ ở header: badge = số toast chưa đọc + số truyện có chương mới.
+        SideDrawerActionRow("Thông báo", systemImage: "bell", badgeCount: badgeCount) { showingNotificationInbox = true }
+
+        SideDrawerDivider()
         SideDrawerSectionHeader("Hiển thị")
         SideDrawerToggleRow("Dịch nghĩa", glyph: .translate, isOn: $isTranslationEnabled)
         // Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm và nút NSFW của Khám phá.
@@ -130,14 +145,17 @@ struct ShelfView: View {
         if selectedTab == .shelf || selectedTab == .history {
             SideDrawerActionRow("Kiểu hiển thị", systemImage: "square.grid.2x2") { showingLayoutSheet = true }
         }
-        SideDrawerActionRow("Nhập truyện từ file", systemImage: "square.and.arrow.down") { showingFilePicker = true }
-        SideDrawerActionRow("Mở trình duyệt web", systemImage: "safari") { showingBypassBrowser = true }
+        // Cùng sheet với nút "+" nổi của tab Kệ sách (Từ URL / Mở trình duyệt / Từ file).
+        SideDrawerActionRow("Nhập truyện", systemImage: "plus") { showingImportSheet = true }
+        SideDrawerActionRow("Mở trình duyệt web", systemImage: "safari") { openImportBrowser() }
         if selectedTab == .shelf && !parts.isShelfEmpty {
             SideDrawerActionRow("Kiểm tra chương mới", systemImage: "bell.badge") { checkAllNewChapters() }
                 .disabled(newChapters.isChecking)
         }
         if selectedTab == .downloads && !DownloadManager.shared.tasks.isEmpty {
-            SideDrawerActionRow("Dọn dẹp tác vụ", systemImage: "trash") { DownloadManager.shared.clearFinishedTasks() }
+            SideDrawerActionRow("Dọn dẹp tác vụ", systemImage: "trash", role: .destructive) {
+                DownloadManager.shared.clearFinishedTasks()
+            }
         }
         if selectedTab == .history && !kindFilter.history.isEmpty {
             SideDrawerActionRow("Xóa tất cả lịch sử", systemImage: "trash", role: .destructive) {
@@ -146,7 +164,7 @@ struct ShelfView: View {
         }
     }
 
-    /// Badge chuông = số toast chưa đọc + số truyện có chương mới.
+    /// Badge hàng "Thông báo" của ngăn kéo = số toast chưa đọc + số truyện có chương mới; > 0 ⇒ chấm đỏ trên nút "…".
     private var notificationBadgeCount: Int {
         notificationInbox.unreadCount + newChapters.totalNewBooks
     }
@@ -154,6 +172,7 @@ struct ShelfView: View {
     var body: some View {
         let parts = ShelfBookPartition(allBooks, hidesNsfw: !includeNsfw)
         let kindFilter = ShelfKindFilter(parts, kindFilter: shelfKindFilter)
+        let badgeCount = notificationBadgeCount
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
@@ -174,8 +193,9 @@ struct ShelfView: View {
                         CollectionsTabView()
                             .tag(ShelfTab.collections)
 
-                        // TAB KỆ SÁCH
+                        // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống).
                         shelfTabView(parts, kindFilter)
+                            .floatingAddButton("Nhập truyện") { showingImportSheet = true }
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
@@ -184,43 +204,13 @@ struct ShelfView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .navigationTitle(selectedTab.navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(selectedTab.navigationTitle) // tab gốc: tiêu đề trái theo trang đang chọn
             // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
             // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
             .task {
                 await runAutoNewChapterCheck()
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        showingNotificationInbox = true
-                    }) {
-                        // `bell.fill` chứ không `bell.badge.fill`: icon có chấm sẵn cộng badge số là hai badge chồng nhau,
-                        // và chấm của icon vẽ tràn khung nên neo theo khung thì badge số rơi vào thân chuông (1.3.526).
-                        Image(systemName: notificationBadgeCount > 0 ? "bell.fill" : "bell")
-                            .font(.system(size: 17, weight: .semibold))
-                            .overlay(alignment: .topTrailing) {
-                                if notificationBadgeCount > 0 {
-                                    // `overlay` chỉ đề xuất đúng khung icon (~20pt) ⇒ `fixedSize` giữ "99+" một dòng.
-                                    // Tối thiểu 16×16 ⇒ 1 chữ số là hình tròn. Tâm hình tròn đặt ở góc trên-phải chuông,
-                                    // lùi vào 2pt mỗi chiều; số dài mọc sang phải thay vì che chuông.
-                                    Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .lineLimit(1)
-                                        .fixedSize()
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 4)
-                                        .frame(minWidth: 16, minHeight: 16)
-                                        .background(Color.red, in: Capsule())
-                                        .overlay(Capsule().stroke(Color(UIColor.systemBackground), lineWidth: 1.5))
-                                        .alignmentGuide(.trailing) { $0[.leading] + 10 }
-                                        .alignmentGuide(.top) { $0[VerticalAlignment.center] - 2 }
-                                }
-                            }
-                    }
-                    .accessibilityLabel("Trung tâm thông báo")
-                }
                 if selectedTab != .downloads {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
@@ -236,12 +226,23 @@ struct ShelfView: View {
                     Button(action: { showingShelfMenu = true }) {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 17, weight: .semibold))
+                            // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải.
+                            .overlay(alignment: .topTrailing) {
+                                if badgeCount > 0 {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 2, y: -2)
+                                }
+                            }
                     }
+                    .accessibilityLabel("Tuỳ chọn Kệ")
+                    .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")
                 }
             }
             // Ngăn kéo "…" gắn ở thân màn (không gắn trong `ToolbarItem`) — xem `SideDrawerMenuModifier`.
             .sideDrawerMenu(isPresented: $showingShelfMenu, title: "Tuỳ chọn Kệ") {
-                shelfMenuItems(parts, kindFilter)
+                shelfMenuItems(parts, kindFilter, badgeCount: badgeCount)
             }
             .navigationDestination(isPresented: $navigateToChangeSource) {
                 changeSourceDestinationView
@@ -287,6 +288,10 @@ struct ShelfView: View {
                 if let book = queuedShelfRemovalBook {
                     queuedShelfRemovalBook = nil
                     pendingShelfRemovalBook = book
+                }
+                if let book = queuedBrowserBook {
+                    queuedBrowserBook = nil
+                    browserBook = book
                 }
             }) { target in
                 BookActionSheet(
@@ -383,26 +388,22 @@ struct ShelfView: View {
             }
             // Chỉ gắn hộp xác nhận, không gắn cả `shelfToggleFlow`: màn này đã có `.sheet(item: $collectionPickerBook)`.
             .shelfRemovalConfirmation(pendingBook: $pendingShelfRemovalBook, isTranslationEnabled: isTranslationEnabled)
+            .bookBrowserPresentation($browserBook)
+            // Trình duyệt nhập truyện: trang chủ, hoặc link của bước "Từ URL" khi chưa tiện ích nào nhận
+            // (`bypassBrowserStartUrl`, đặt qua `openImportBrowser`).
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(
-                    urlString: "home",
+                    urlString: bypassBrowserStartUrl,
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
-                        }
-                        showingBypassBrowser = false
-                        ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            navigateToImportedBook = true
-                        }
+                        importFromBrowser(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
                     }
                 )
+            }
+            .sheet(isPresented: $showingImportSheet, onDismiss: { runQueuedImportChoice() }) {
+                ShelfImportSheet { choice in
+                    queuedImportChoice = choice
+                    showingImportSheet = false
+                }
             }
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
@@ -560,6 +561,11 @@ struct ShelfView: View {
         case .changeSource:
             changeSourceTargetBook = book
             navigateToChangeSource = true
+        case .openInBrowser:
+            // Mở trong `onDismiss` của sheet nhấn giữ (đóng xong hẳn), như hộp xác nhận bỏ kệ.
+            queuedBrowserBook = book
+        case .toggleNsfwMark:
+            BookActionRunner.toggleNsfwMark(book)
         case .editInfo:
             editingInfoBook = book
         case .download:

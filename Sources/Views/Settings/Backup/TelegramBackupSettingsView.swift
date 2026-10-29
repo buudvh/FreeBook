@@ -25,9 +25,7 @@ struct TelegramBackupSettingsView: View {
                 .disabled(isChecking || chatID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           || (!hasStoredToken && token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
             } header: {
-                Text("Telegram Bot")
-            } footer: {
-                Text("Bot phải có quyền gửi tài liệu vào chat. Nút kiểm tra chỉ gọi getMe và getChat, không gửi tin nhắn. Bot Token được giữ trong Keychain và không nằm trong backup.")
+                SectionHelpHeader("Telegram Bot", paragraphs: ["Bot phải có quyền gửi tài liệu vào chat. Nút kiểm tra chỉ gọi getMe và getChat, không gửi tin nhắn. Bot Token được giữ trong Keychain và không nằm trong backup."])
             }
 
             if hasStoredToken || !TelegramConfiguration.chatID.isEmpty {
@@ -42,8 +40,7 @@ struct TelegramBackupSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Telegram")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Telegram")
     }
 
     private func saveAndCheck() {

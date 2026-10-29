@@ -1,13 +1,10 @@
 import SwiftUI
 
 /// Nút "?" ở tiêu đề từng mục của `TaskOptionsSheet` (1.3.624). Các đoạn giải thích trước đây là footer luôn hiện, giờ
-/// nằm trong popover của `QuickTranslationRuleHelpButton` — cùng kiểu sheet thêm rule dịch.
+/// nằm trong popover của `SectionHelpButton` (qua `SectionHelpHeader`) — cùng kiểu sheet thêm rule dịch.
 extension TaskOptionsSheet {
     func helpHeader(_ title: String, paragraphs: [LocalizedStringKey]) -> some View {
-        HStack(spacing: 6) {
-            Text(title)
-            QuickTranslationRuleHelpButton(accessibilityLabel: "Giải thích mục \(title)", paragraphs: paragraphs)
-        }
+        SectionHelpHeader(title, paragraphs: paragraphs)
     }
 
     var startHelpParagraphs: [LocalizedStringKey] {

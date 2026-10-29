@@ -83,8 +83,7 @@ struct QuickTranslationRuleTesterView: View {
                 }
             }
         }
-        .navigationTitle("Thử nhanh rule")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Thử nhanh rule")
         .onChange(of: previewMode) { _, _ in
             if didRun { run() }
         }

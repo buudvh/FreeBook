@@ -15,7 +15,7 @@ import SwiftUI
 /// caller cờ "cũ" có thể đã lỗi thời ở thời điểm người dùng bấm Áp dụng — và lúc đó mục bị bỏ chọn sẽ bị
 /// ghi **đè** bằng giá trị cũ của một bản chụp cũ.
 ///
-/// ## Huỷ = KHÔNG ghi gì
+/// ## Đóng (vuốt xuống) = KHÔNG ghi gì
 /// View **không** tự ghi vào từ điển. Nó trả bảng cuối qua `onApply`, và caller ghi **sau khi** view đã
 /// `dismiss()` — nhờ vậy thoát màn giữa chừng không bao giờ để lại dữ liệu ghi dở.
 struct DictionaryImportConflictView: View {
@@ -77,8 +77,7 @@ struct DictionaryImportConflictView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
+                .pageTitle(title)
                 .toolbar { toolbarContent }
                 .task { await loadDiff() }
         }
@@ -149,9 +148,7 @@ struct DictionaryImportConflictView: View {
                     }
                 }
             } header: {
-                Text("Trùng khoá — bấm một dòng để chọn")
-            } footer: {
-                Text("Chạm cả dòng để chọn/bỏ. Mục **bỏ chọn** giữ nguyên cách đọc đang có. Khoá mới được thêm tự động.")
+                SectionHelpHeader("Trùng khoá — bấm một dòng để chọn", paragraphs: ["Chạm cả dòng để chọn/bỏ. Mục **bỏ chọn** giữ nguyên cách đọc đang có. Khoá mới được thêm tự động."])
             }
         }
         .listStyle(.insetGrouped)
@@ -237,9 +234,6 @@ struct DictionaryImportConflictView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button("Huỷ") { dismiss() }
-        }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if case .ready = phase {
                 Button("Áp dụng (\(selection.count))") { apply() }

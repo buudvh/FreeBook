@@ -6,8 +6,6 @@ import SwiftUI
 struct BookListLayoutSheet: View {
     let scope: BookListLayoutScope
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
@@ -19,8 +17,6 @@ struct BookListLayoutSheet: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Button("Xong") { dismiss() }
-                    .fontWeight(.semibold)
             }
 
             BookListLayoutControls(scope: scope)

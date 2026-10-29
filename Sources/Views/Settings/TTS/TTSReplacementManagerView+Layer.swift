@@ -89,9 +89,7 @@ extension TTSReplacementManagerView {
                     }
                 }
             } header: {
-                Text("Rule chung — lấy vào riêng")
-            } footer: {
-                Text("Trùng chuỗi gốc với rule riêng đang có thì bản lấy về **đè** bản cũ.")
+                SectionHelpHeader("Rule chung — lấy vào riêng", paragraphs: ["Trùng chuỗi gốc với rule riêng đang có thì bản lấy về **đè** bản cũ."])
             }
         }
     }

@@ -38,23 +38,14 @@ struct LegadoURLImportSheet: View {
                     }
                     .padding(.vertical, 4)
                 } header: {
-                    HStack(spacing: 6) {
-                        Text("Tệp JSON nguồn")
-                        QuickTranslationRuleHelpButton(
-                            accessibilityLabel: "Giải thích nhập nguồn từ URL",
-                            paragraphs: ["URL của tệp JSON chứa **một nguồn** hoặc **mảng nguồn** Legado."]
-                        )
-                    }
+                    SectionHelpHeader(
+                        "Tệp JSON nguồn",
+                        paragraphs: ["URL của tệp JSON chứa **một nguồn** hoặc **mảng nguồn** Legado."]
+                    )
                 }
             }
-            .navigationTitle("Nhập nguồn từ URL")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Nhập nguồn từ URL")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") {
-                        dismiss()
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Nhập") {
                         onConfirm()
@@ -66,5 +57,6 @@ struct LegadoURLImportSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }

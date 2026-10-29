@@ -172,9 +172,39 @@ public struct ReaderAIFullScreenView: View {
                     onStop: { stopStreaming() }
                 )
             }
+            // Tiêu đề trái theo chuẩn trang (`PageTitleModifier`): "Trợ lý AI" 22pt đậm, tên phiên một dòng nhỏ bên dưới.
+            // Màn toàn màn không vuốt đóng được ⇒ giữ nút ⌄, đứng **sau** ⋯ (ngoài cùng bên phải).
+            .navigationTitle("Trợ lý AI")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .principal) {
+                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                }
+
+                ToolbarItem(placement: .topBarLeading) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Trợ lý AI")
+                            .font(.system(size: PageTitleModifier.fontSize, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(currentSession.title)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: { showingOptionsMenu = true }) {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel("Tuỳ chọn Trợ lý AI")
+
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 17, weight: .semibold))
@@ -183,27 +213,7 @@ public struct ReaderAIFullScreenView: View {
                             .background(Color(white: 0.18))
                             .clipShape(Circle())
                     }
-                }
-
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 2) {
-                        Text("Trợ lý AI")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
-                        Text(currentSession.title)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingOptionsMenu = true }) {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 36, height: 36)
-                    }
+                    .accessibilityLabel("Đóng Trợ lý AI")
                 }
             }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Trợ lý AI") {
@@ -215,8 +225,9 @@ public struct ReaderAIFullScreenView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 NavigationStack {
-                    AISettingsView()
+                    AISettingsView(isPresentedAsSheet: true)
                 }
+                .presentationDragIndicator(.visible)
                 .onDisappear {
                     reloadSettings()
                 }

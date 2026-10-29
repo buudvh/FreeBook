@@ -223,7 +223,7 @@ final class VideoPlaybackSession {
         bookTitle = newLaunch.bookTitle ?? ""
         currentEpisodeIndex = max(0, newLaunch.chapterIndex)
         // Chỉ phim mới mới áp tuỳ chọn tắt tiếng; đặt TRƯỚC `beginUserRequestedPlayback` (tắt tiếng ⇒ không dừng TTS).
-        let startMuted = VideoMutePolicy.shouldStartMuted(packageId: newLaunch.extensionPackageId)
+        let startMuted = VideoMutePolicy.shouldStartMuted(bookId: newLaunch.bookId, packageId: newLaunch.extensionPackageId)
         AppLogger.shared.log("🎬 [VideoPlayer] Mở phim mới: \(startMuted ? "tắt tiếng" : "có tiếng") theo tuỳ chọn «\(VideoMutePolicy.current.title)»")
         setMuted(startMuted)
         beginUserRequestedPlayback()

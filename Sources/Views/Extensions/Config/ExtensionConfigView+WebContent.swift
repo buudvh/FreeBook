@@ -44,9 +44,12 @@ extension ExtensionConfigView {
                 }
                 Toggle("Chế độ máy tính", isOn: desktopBinding(ext))
             } header: {
-                Text("Trình duyệt")
+                SectionHelpHeader("Trình duyệt", paragraphs: [
+                    "Chế độ máy tính đổi HTML trang trả về, dễ làm tiện ích bóc tách sai. Chỉ bật khi trang bắt buộc. Lưu ngay khi bấm."
+                ])
             } footer: {
-                Text(footer(for: ext))
+                // Trạng thái chặn quảng cáo (theo chung hay đã chỉnh riêng) giữ ở footer; phần giải thích nằm ở nút "?".
+                Text(adBlockNote(for: ext))
             }
         }
 
@@ -81,16 +84,12 @@ extension ExtensionConfigView {
             )
         }
 
-        private func footer(for ext: Extension) -> String {
+        private func adBlockNote(for ext: Extension) -> String {
             let globalText = globalAdBlock ? "Bật" : "Tắt"
-            let adBlockNote: String
             if let override = ext.adBlockOverride {
-                adBlockNote = "Bạn đã \(override ? "bật" : "tắt") chặn quảng cáo cho tiện ích này (cài đặt chung: \(globalText))."
-            } else {
-                adBlockNote = "Chặn quảng cáo theo cài đặt chung (\(globalText))."
+                return "Bạn đã \(override ? "bật" : "tắt") chặn quảng cáo cho tiện ích này (cài đặt chung: \(globalText))."
             }
-            return adBlockNote + " Chế độ máy tính đổi HTML trang trả về, dễ làm tiện ích bóc tách sai. "
-                + "Chỉ bật khi trang bắt buộc. Lưu ngay khi bấm."
+            return "Chặn quảng cáo theo cài đặt chung (\(globalText))."
         }
 
         // MARK: - Lưu

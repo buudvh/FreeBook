@@ -35,6 +35,9 @@ struct CollectionDetailView: View {
     /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
     /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
     @State private var queuedShelfRemovalBook: Book? = nil
+    /// "Mở trong trình duyệt": xếp hàng như `queuedShelfRemovalBook`, mở trong `onDismiss` (`bookBrowserPresentation`).
+    @State private var queuedBrowserBook: Book? = nil
+    @State private var browserBook: Book? = nil
     /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Quản lý chính bộ sưu tập (đổi tên / xoá) ngay tại màn chi tiết: trước 1.3.336 hai việc này chỉ
@@ -56,13 +59,15 @@ struct CollectionDetailView: View {
         ExtensionLibraryRepository.shared.installed
     }
 
-    /// Công tắc NSFW toàn app — tắt ⇒ ẩn truyện của nguồn NSFW trong bộ (chỉ ẩn, vẫn nằm trong bộ).
+    /// Công tắc NSFW toàn app — tắt ⇒ ẩn truyện của nguồn NSFW và truyện tự đánh dấu NSFW trong bộ (chỉ ẩn, vẫn nằm
+    /// trong bộ).
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     private var visibleBooks: [Book] {
-        RepositoryFilterPolicy.excludingNsfwSources(
+        RepositoryFilterPolicy.excludingNsfwBooks(
             collection?.books ?? [],
             includeNsfw: includeNsfw,
+            bookId: \.bookId,
             packageId: \.extensionPackageId
         )
     }
@@ -93,8 +98,7 @@ struct CollectionDetailView: View {
                 deletionOverlay
             }
         }
-        .navigationTitle(collection?.name ?? "Bộ sưu tập")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle(collection?.name ?? "Bộ sưu tập")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 collectionMenu
@@ -123,6 +127,10 @@ struct CollectionDetailView: View {
                 queuedShelfRemovalBook = nil
                 pendingShelfRemovalBook = book
             }
+            if let book = queuedBrowserBook {
+                queuedBrowserBook = nil
+                browserBook = book
+            }
         }) { target in
             BookActionSheet(
                 target: target,
@@ -135,6 +143,7 @@ struct CollectionDetailView: View {
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }
+        .bookBrowserPresentation($browserBook)
         .sheet(isPresented: $showingLayoutSheet) {
             BookListLayoutSheet(scope: .all)
         }
@@ -329,6 +338,10 @@ struct CollectionDetailView: View {
         case .changeSource:
             changeSourceTargetBook = book
             navigateToChangeSource = true
+        case .openInBrowser:
+            queuedBrowserBook = book
+        case .toggleNsfwMark:
+            BookActionRunner.toggleNsfwMark(book)
         case .editInfo:
             editingInfoBook = book
         case .download:

@@ -17,6 +17,7 @@ struct SearchView: View {
     /// với tiện ích này — xem `sameKindScopePackageId` (`SearchView+KindFilter`).
     let kindScopePackageId: String?
     let onSourceChanged: (() -> Void)?
+    let isPresentedAsSheet: Bool // gốc sheet `java.searchBook` của Legado ⇒ hiện tiêu đề trái; còn lại là trang đẩy vào
     
     @Environment(\.modelContext) private var modelContext
     
@@ -71,14 +72,14 @@ struct SearchView: View {
         )
     }
 
-    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, kindScopePackageId: String? = nil, onSourceChanged: (() -> Void)? = nil) {
+    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, kindScopePackageId: String? = nil, onSourceChanged: (() -> Void)? = nil, isPresentedAsSheet: Bool = false) {
         self.activeExtensions = activeExtensions
         self.selectedExtension = selectedExtension
         self.initialSearchQuery = initialSearchQuery
         self.changeSourceTargetBook = changeSourceTargetBook
         self.kindScopePackageId = kindScopePackageId
         self.onSourceChanged = onSourceChanged
-        
+        self.isPresentedAsSheet = isPresentedAsSheet
         // Mặc định tìm tất cả nguồn nếu chưa chọn nguồn cụ thể hoặc khi đang đổi nguồn
         _searchAllSources = State(initialValue: selectedExtension == nil || changeSourceTargetBook != nil)
     }
@@ -131,8 +132,7 @@ struct SearchView: View {
                     searchHistoryView
                 }
             }
-            .navigationTitle("Tìm Kiếm")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Tìm Kiếm", isVisible: isPresentedAsSheet)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let scope = singleSourceLayoutScope {
@@ -499,7 +499,7 @@ struct SearchView: View {
                     }) {
                         Text("Xóa tất cả")
                             .font(.subheadline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.red)
                     }
                 }
                 .padding(.horizontal)

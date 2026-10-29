@@ -6,7 +6,6 @@ struct RestoreOptionsSheet: View {
     let sourceName: String
     let manifest: BackupManifest
     let onConfirm: (BackupRestoreWorker.Options) -> Void
-    let onCancel: () -> Void
 
     @State private var scopes: Set<BackupScope>
     @State private var overwriteShared = false
@@ -15,13 +14,11 @@ struct RestoreOptionsSheet: View {
     init(
         sourceName: String,
         manifest: BackupManifest,
-        onConfirm: @escaping (BackupRestoreWorker.Options) -> Void,
-        onCancel: @escaping () -> Void
+        onConfirm: @escaping (BackupRestoreWorker.Options) -> Void
     ) {
         self.sourceName = sourceName
         self.manifest = manifest
         self.onConfirm = onConfirm
-        self.onCancel = onCancel
         _scopes = State(initialValue: Set(manifest.availableScopes))
         // File tạo trước 1.3.264 không có khối cài đặt (trước 1.3.265 thì không có file cấu hình) —
         // tắt sẵn để công tắc không hứa hẹn hão.
@@ -40,26 +37,26 @@ struct RestoreOptionsSheet: View {
                     showsEstimatedSize: false
                 )
 
-                Section(footer: Text("Từ điển chung chỉ được cài khi máy còn thiếu. Bật tuỳ chọn này nếu muốn lấy bản trong file sao lưu thay cho bản đang có.")) {
+                Section {
                     Toggle("Ghi đè từ điển chung", isOn: $overwriteShared)
                         .disabled(!manifest.availableScopes.contains(.dictShared))
+                } header: {
+                    SectionHelpHeader("Từ điển chung", paragraphs: ["Từ điển chung chỉ được cài khi máy còn thiếu. Bật tuỳ chọn này nếu muốn lấy bản trong file sao lưu thay cho bản đang có."])
                 }
 
-                Section(footer: Text("Ghi các cài đặt trong file sao lưu lên cài đặt hiện tại (giao"
-                                     + " diện đọc, TTS, dịch, tự sao lưu…), gộp thêm quy tắc mục lục"
-                                     + " và công cụ tra cứu nhanh. Không gồm khoá API, token và tiến"
-                                     + " độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")) {
+                Section {
                     Toggle("Khôi phục cài đặt & cấu hình", isOn: $restoreSettings)
                         .disabled(manifest.counts.settings == 0 && manifest.counts.config == 0)
+                } header: {
+                    SectionHelpHeader("Cài đặt", texts: [Text("Ghi các cài đặt trong file sao lưu lên cài đặt hiện tại (giao"
+                                                              + " diện đọc, TTS, dịch, tự sao lưu…), gộp thêm quy tắc mục lục"
+                                                              + " và công cụ tra cứu nhanh. Không gồm khoá API, token và tiến"
+                                                              + " độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")])
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-            .navigationTitle("Khôi phục")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Khôi phục")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ", action: onCancel)
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Khôi phục") {
                         onConfirm(BackupRestoreWorker.Options(

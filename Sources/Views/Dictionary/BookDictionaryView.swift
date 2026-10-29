@@ -7,8 +7,10 @@ import UniformTypeIdentifiers
 struct BookDictionaryView: View {
     let bookId: String
     var bookName: String = ""
+    /// Chuyển tiếp cho `DictionaryHubView`: Reader mở dạng sheet (`true`), Chi tiết truyện đẩy vào (`false`).
+    var isPresentedAsSheet = false
 
     var body: some View {
-        DictionaryHubView(bookId: bookId, bookName: bookName)
+        DictionaryHubView(bookId: bookId, bookName: bookName, isPresentedAsSheet: isPresentedAsSheet)
     }
 }

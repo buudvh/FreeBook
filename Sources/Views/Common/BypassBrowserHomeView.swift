@@ -177,11 +177,13 @@ public struct BypassBrowserHomeView: View {
                                 Text("Xóa lịch sử")
                             }
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.red)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color(white: 0.12))
+                            .background(Color.red.opacity(0.12))
                             .cornerRadius(8)
+                            // Màu đỏ đặt tường minh không tự mờ khi `disabled` ⇒ mờ tay theo cùng điều kiện.
+                            .opacity(recentHistory.isEmpty ? 0.4 : 1)
                         }
                         .disabled(recentHistory.isEmpty)
 

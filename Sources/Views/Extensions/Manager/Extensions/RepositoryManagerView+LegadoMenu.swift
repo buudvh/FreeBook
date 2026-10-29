@@ -42,13 +42,9 @@ extension RepositoryManagerView {
         }
         .sheet(item: $legadoState.check) { route in
             NavigationStack {
-                LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Đóng") { legadoState.check = nil }
-                        }
-                    }
+                LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle, isPresentedAsSheet: true)
             }
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $legadoState.exportFile) { file in
             ShareSheet(activityItems: [file.url])
@@ -148,7 +144,7 @@ extension RepositoryManagerView {
         }
     }
 
-    /// `onDismiss` của sheet URL: chỉ nhập khi người dùng bấm "Nhập" (vuốt đóng / "Huỷ" thì thôi).
+    /// `onDismiss` của sheet URL: chỉ nhập khi người dùng bấm "Nhập" (vuốt đóng thì thôi).
     private func runPendingURLImport() {
         guard legadoState.isURLImportPending else { return }
         legadoState.isURLImportPending = false

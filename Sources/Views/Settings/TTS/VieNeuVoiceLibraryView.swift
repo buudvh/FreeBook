@@ -76,16 +76,9 @@ struct VieNeuVoiceLibraryView: View {
                         .foregroundStyle(isError ? Color.red : Color.secondary)
                 }
             }
-
-            Section {
-                EmptyView()
-            } footer: {
-                Text("Bản Nano cho chất lượng nhân bản thấp hơn bản Turbo. Thu âm ở nơi yên tĩnh, 3–8 giây, một người nói — audio mẫu càng sạch thì giọng nhân bản càng giống.")
-            }
         }
         .tint(.white)
-        .navigationTitle("Giọng của tôi")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Giọng của tôi")
         .sideDrawerMenu(item: $menuRecord, title: { $0.name }) { record in voiceMenuItems(record) }
         .onAppear(perform: reload)
         .onDisappear(perform: teardown)
@@ -94,9 +87,9 @@ struct VieNeuVoiceLibraryView: View {
                 onSave: { name, url in
                     showingCreator = false
                     enroll(name: name, sampleURL: url, replacing: nil)
-                },
-                onCancel: { showingCreator = false }
+                }
             )
+            .presentationDragIndicator(.visible)
         }
         .confirmationDialog(
             "Xoá giọng “\(pendingDeletion?.name ?? "")”?",

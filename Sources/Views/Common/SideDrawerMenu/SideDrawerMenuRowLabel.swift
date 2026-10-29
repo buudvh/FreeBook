@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Bố cục chung của một hàng ngăn kéo: icon cột trái rộng cố định, tiêu đề **một dòng** (co chữ tới 80% khi quá dài,
-/// không xuống hàng), phần phụ bên phải (chữ phụ, công tắc…), cao ≥ 46pt, vạch mảnh ở đáy thẳng cột chữ.
+/// không xuống hàng), phần phụ bên phải (chữ phụ, công tắc…), cao ≥ 46pt. Không có vạch ngăn giữa các hàng — nhóm tách
+/// nhau bằng `SideDrawerDivider` (khoảng trống).
 ///
 /// Tự làm mờ khi bị `.disabled` — nút kiểu tuỳ biến không tự mờ như `Menu` của hệ thống.
 struct SideDrawerMenuRowLabel<Trailing: View>: View {
@@ -34,13 +35,6 @@ struct SideDrawerMenuRowLabel<Trailing: View>: View {
         }
         .padding(.horizontal, Self.horizontalPadding)
         .frame(minHeight: 46)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.white.opacity(0.08))
-                .frame(height: 0.5)
-                .padding(.leading, Self.horizontalPadding + Self.iconColumnWidth + Self.spacing)
-                .accessibilityHidden(true)
-        }
         .opacity(isEnabled ? 1 : 0.4)
         .contentShape(Rectangle())
     }

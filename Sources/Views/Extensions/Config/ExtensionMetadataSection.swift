@@ -21,8 +21,8 @@ import UIKit
 /// 2. Cập nhật bản ghi `Extension` trong index JSON (`ExtensionTransactionCoordinator.updateExtensionMetadata`)
 ///    — để lưới home của trình duyệt (`ext.sourceUrl`), danh sách Tiện Ích và bộ lọc đổi ngay mà không cần
 ///    khởi động lại.
-/// 3. Xoá `BypassWebView.regexpCache` khi `regexp` đổi — không có bước này thì regexp cũ còn sống tới lần mở
-///    lại app.
+/// 3. Xoá cache regexp của `ExtensionUrlMatcher` khi `regexp` đổi — không có bước này thì regexp cũ còn sống tới
+///    lần mở lại app.
 ///
 /// ## Vì sao ô chữ lưu sau 0,4 giây mà Picker lưu ngay
 /// Ghi `plugin.json` mỗi phím gõ là I/O đĩa trên luồng chính từng ký tự, và một lượt chạy JS xen vào sẽ đọc
@@ -94,9 +94,7 @@ struct ExtensionMetadataSection: View {
                 }
             }
         } header: {
-            Text("Metadata (plugin.json)")
-        } footer: {
-            Text("Sửa là tự lưu và áp dụng ngay. `regexp` quyết định tiện ích nào xử lý URL đang mở trong trình duyệt; `source` là link mà lưới home của trình duyệt mở ra. `name` để trống sẽ giữ nguyên tên cũ.")
+            SectionHelpHeader("Metadata (plugin.json)", paragraphs: ["Sửa là tự lưu và áp dụng ngay. `regexp` quyết định tiện ích nào xử lý URL đang mở trong trình duyệt; `source` là link mà lưới home của trình duyệt mở ra. `name` để trống sẽ giữ nguyên tên cũ."])
         }
         .onAppear { load() }
         // Rời màn (Back ở "Thông tin plugin.json") khi lượt ghi 0,4 s còn chờ: ghi ngay thay vì huỷ, không thì mất
@@ -258,10 +256,10 @@ struct ExtensionMetadataSection: View {
                 return
             }
 
-            // 3. `regexp` được `BypassWebView` cache tĩnh theo `localPath` — không xoá thì bản mới không có
+            // 3. `regexp` được `ExtensionUrlMatcher` cache tĩnh theo `localPath` — không xoá thì bản mới không có
             // hiệu lực cho tới lần mở lại app.
             if changed.contains("regexp") {
-                BypassWebView.invalidateRegexpCache(localPath: ext.localPath)
+                ExtensionUrlMatcher.invalidateRegexpCache(localPath: ext.localPath)
             }
 
             loaded = snapshotOfCurrentValues()

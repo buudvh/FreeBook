@@ -9,10 +9,10 @@ struct BookListLayoutSettingsView: View {
                 Section {
                     BookListLayoutControls(scope: scope)
                 } header: {
-                    Text(scope.settingsTitle)
-                } footer: {
                     if scope == .video {
-                        Text("Bìa phim/video luôn ngang 16:9.")
+                        SectionHelpHeader(scope.settingsTitle, paragraphs: ["Bìa phim/video luôn ngang 16:9."])
+                    } else {
+                        Text(scope.settingsTitle)
                     }
                 }
             }
@@ -22,11 +22,10 @@ struct BookListLayoutSettingsView: View {
                     BookListLayoutPreferences.shared.resetAll()
                 }
                 .frame(maxWidth: .infinity)
-            } footer: {
-                Text("Dùng chung cho Kệ và Khám phá. \"Tất cả\" dùng bìa đứng cho mọi truyện để các hàng lưới cao bằng nhau.")
+            } header: {
+                SectionHelpHeader("Phạm vi áp dụng", paragraphs: ["Dùng chung cho Kệ và Khám phá. \"Tất cả\" dùng bìa đứng cho mọi truyện để các hàng lưới cao bằng nhau."])
             }
         }
-        .navigationTitle("Kiểu hiển thị danh sách")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Kiểu hiển thị danh sách")
     }
 }

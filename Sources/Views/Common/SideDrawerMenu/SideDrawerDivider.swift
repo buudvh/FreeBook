@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// Vạch ngăn nhóm trong ngăn kéo — dải tối dày như vạch nhóm của menu hệ thống (thay `Divider()` trong `Menu`).
+/// Ngăn cách nhóm trong ngăn kéo — khoảng trống trong suốt 12pt (thay `Divider()` trong `Menu`), không vẽ vạch.
 struct SideDrawerDivider: View {
     var body: some View {
-        Rectangle()
-            .fill(Color.black.opacity(0.28))
-            .frame(height: 6)
+        Color.clear
+            .frame(height: 12)
             .frame(maxWidth: .infinity)
             .accessibilityHidden(true)
     }

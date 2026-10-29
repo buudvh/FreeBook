@@ -34,10 +34,10 @@ struct BrowserSitePreferencesSection: View {
                 }
             }
         } header: {
-            Text("Trang đã chỉnh riêng")
-        } footer: {
-            if !items.isEmpty {
-                Text("Vuốt trái để xoá, trang về theo mặc định.")
+            if items.isEmpty {
+                Text("Trang đã chỉnh riêng")
+            } else {
+                SectionHelpHeader("Trang đã chỉnh riêng", paragraphs: ["Vuốt trái để xoá, trang về theo mặc định."])
             }
         }
     }

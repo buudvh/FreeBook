@@ -33,9 +33,7 @@ struct ThermalMonitorView: View {
                 LabeledContent("Chế độ nguồn điện thấp", value: (current?.isLowPowerMode ?? ProcessInfo.processInfo.isLowPowerModeEnabled) ? "Bật" : "Tắt")
                 LabeledContent("TTS", value: ttsText)
             } header: {
-                Text("Hiện tại")
-            } footer: {
-                Text("Cập nhật mỗi 2 giây. CPU app: 100% = 1 lõi. iOS không cho đọc nhiệt độ °C, chỉ 4 mức.")
+                SectionHelpHeader("Hiện tại", paragraphs: ["Cập nhật mỗi 2 giây. CPU app: 100% = 1 lõi. iOS không cho đọc nhiệt độ °C, chỉ 4 mức."])
             }
 
             Section {
@@ -47,13 +45,10 @@ struct ThermalMonitorView: View {
             Section {
                 ThermalMonitorChart(kind: .usage, samples: history)
             } header: {
-                Text("CPU app và pin")
-            } footer: {
-                Text("Mẫu mỗi 30 giây từ lúc mở app, giữ 12 giờ trong RAM, tắt app là mất.")
+                SectionHelpHeader("CPU app và pin", paragraphs: ["Mẫu mỗi 30 giây từ lúc mở app, giữ 12 giờ trong RAM, tắt app là mất."])
             }
         }
-        .navigationTitle("Theo dõi nhiệt")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Theo dõi nhiệt")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink(item: ThermalCSVExport(), preview: SharePreview("Dữ liệu nhiệt")) {

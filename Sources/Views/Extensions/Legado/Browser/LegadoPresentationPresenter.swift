@@ -9,7 +9,8 @@ import UIKit
 /// - Trình duyệt / ô mã xác minh trình bày bằng UIKit từ **view controller trên cùng** (cửa sổ mức thường): sheet SwiftUI
 ///   ở root không hiện được khi đang có sheet/fullScreenCover khác (màn chi tiết nguồn, trình đọc…).
 /// - Không trình bày được ⇒ trả ngay kết quả "không có người dùng" để thread engine không chờ tới hết giờ.
-/// - Chỉ Huỷ / Xong / Xác nhận đóng được (chặn vuốt đóng); mọi lối đóng đều trả kết quả cho engine đúng một lần.
+/// - Trình duyệt (toàn màn) chỉ đóng bằng Xong; ô mã xác minh đóng bằng Xác nhận hoặc vuốt xuống (= huỷ, không còn nút
+///   Huỷ từ 1.3.641). Mọi lối đóng đều trả kết quả cho engine đúng một lần.
 /// - Engine hết giờ/huỷ (`.dismiss`) ⇒ đóng màn tương ứng, không trả kết quả lần nữa.
 @MainActor
 final class LegadoPresentationPresenter {
@@ -93,9 +94,11 @@ final class LegadoPresentationPresenter {
         }
         let host = UIHostingController(rootView: sheet)
         host.modalPresentationStyle = .pageSheet
-        host.isModalInPresentation = true
+        // Vuốt xuống là lối huỷ duy nhất (sheet không còn nút Huỷ, 1.3.641) ⇒ không chặn vuốt; `onDisappear` của sheet
+        // trả `nil` cho engine.
         if let sheetController = host.sheetPresentationController {
             sheetController.detents = [.medium(), .large()]
+            sheetController.prefersGrabberVisible = true
         }
         present(host, id: id) {
             LegadoPresentationEventCenter.shared.completeVerification(id: id, code: nil)
@@ -130,7 +133,12 @@ final class LegadoPresentationPresenter {
             return
         }
         active = nil
-        current.controller.presentingViewController?.dismiss(animated: true)
+        // Chỉ đóng khi màn của yêu cầu **còn** đang được trình bày: đã bị vuốt xuống (đang/đã đóng) mà vẫn gọi dismiss
+        // trên màn bên dưới là đóng nhầm chính màn bên dưới.
+        guard !current.controller.isBeingDismissed,
+              let presenting = current.controller.presentingViewController,
+              presenting.presentedViewController === current.controller else { return }
+        presenting.dismiss(animated: true)
     }
 
     /// Trình bày một màn phụ (tìm kiếm, trình duyệt `openUrl`, hộp xác nhận) từ màn trên cùng; không có ⇒ bỏ qua + log.

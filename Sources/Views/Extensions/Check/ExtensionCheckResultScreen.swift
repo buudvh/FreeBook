@@ -37,8 +37,7 @@ struct ExtensionCheckResultScreen: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
         }
-        .navigationTitle(name)
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle(name)
         .task(id: pollGeneration) { await poll() }
         .errorLinkBrowser(link: $openingLink, packageId: packageId, onRetry: retry)
     }

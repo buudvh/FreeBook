@@ -4,8 +4,8 @@ import SwiftUI
 /// video) — cùng phạm vi kiểu hiển thị với Khám phá của nguồn đó.
 ///
 /// Two branches that never mix (same rule as `DiscoveryNovelsLayoutView`):
-/// - `.list` → `List` of the search row, sized by `layout.rowSize`; the default size is exactly the row from before the
-///   layout option existed (cover 50×70, description → content → author, source-name chip).
+/// - `.list` → `List` of the search row as rounded panels (`bookListPanel`, no separators), sized by `layout.rowSize`
+///   (cover 50×70 at the default size, description → content → author, source-name chip).
 /// - `.grid` / `.coverOnly` → `ScrollView` + `LazyVGrid` of `DiscoveryNovelGridCardView`. A `LazyVGrid` must never be
 ///   nested inside a `List` row.
 ///
@@ -33,11 +33,30 @@ struct SearchSingleSourceResultsView: View {
 
     private var listBody: some View {
         List(items) { item in
-            tappable(item) {
-                listRow(item)
-            }
+            listTappable(item)
+                .bookListPanelRowChrome()
         }
         .listStyle(.plain)
+    }
+
+    /// Hàng panel: link mở Chi tiết nằm **ẩn** dưới panel (`opacity(0)`) — `NavigationLink` làm hàng của `List` thì
+    /// hệ thống vẽ mũi tên `>` ở mép phải, nằm ngoài panel. Chạm hàng vẫn mở link như cũ.
+    @ViewBuilder
+    private func listTappable(_ item: ExtensionItemResultWithExt) -> some View {
+        if isChangingSource {
+            tappable(item) {
+                listRow(item).bookListPanel(layout.rowSize)
+            }
+        } else {
+            ZStack {
+                NavigationLink(destination: detailView(item)) {
+                    EmptyView()
+                }
+                .opacity(0)
+
+                listRow(item).bookListPanel(layout.rowSize)
+            }
+        }
     }
 
     /// Cỡ theo `layout.rowSize`; nấc mặc định giữ đúng dòng cũ. Nấc gọn (1–2) bỏ chip tên nguồn, mô tả 1 dòng.
@@ -73,7 +92,6 @@ struct SearchSingleSourceResultsView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
     }
 
     // MARK: - Lưới
@@ -119,16 +137,20 @@ struct SearchSingleSourceResultsView: View {
             }
             .buttonStyle(.plain)
         } else {
-            NavigationLink(destination: BookDetailView(
-                bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                extensionPackageId: item.ext.packageId,
-                initialDetailUrl: item.result.link,
-                sourceName: item.ext.name,
-                initialHost: item.result.host
-            )) {
+            NavigationLink(destination: detailView(item)) {
                 label()
             }
         }
+    }
+
+    private func detailView(_ item: ExtensionItemResultWithExt) -> BookDetailView {
+        BookDetailView(
+            bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+            extensionPackageId: item.ext.packageId,
+            initialDetailUrl: item.result.link,
+            sourceName: item.ext.name,
+            initialHost: item.result.host
+        )
     }
 
     private func translateIfNeeded(_ text: String) -> String {

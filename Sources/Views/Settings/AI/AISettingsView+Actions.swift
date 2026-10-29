@@ -154,8 +154,9 @@ extension AISettingsView {
             } label: {
                 Image(systemName: "trash")
                     .font(.caption)
+                    .foregroundColor(.red)
                     .frame(width: 28, height: 26)
-                    .background(Color.secondary.opacity(0.12))
+                    .background(Color.red.opacity(0.15))
                     .cornerRadius(5)
             }
             .buttonStyle(.plain)

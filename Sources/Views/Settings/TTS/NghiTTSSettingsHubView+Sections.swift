@@ -16,9 +16,7 @@ extension NghiTTSSettingsHubView {
                 Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
             }
         } header: {
-            Text("Quản lý")
-        } footer: {
-            Text("Ba mục này trước đây nằm rời ở tab Cài đặt. Riêng **thử giọng** đã chuyển hẳn vào màn này nên “Cấu hình tiền xử lý & ngắt nghỉ” **không còn** nav thử giọng.")
+            SectionHelpHeader("Quản lý", paragraphs: ["Ba mục này trước đây nằm rời ở tab Cài đặt. Riêng **thử giọng** đã chuyển hẳn vào màn này nên “Cấu hình tiền xử lý & ngắt nghỉ” **không còn** nav thử giọng."])
         }
     }
 
@@ -86,11 +84,12 @@ extension NghiTTSSettingsHubView {
                 Label("Dừng", systemImage: "stop.circle")
             }
             .disabled(player == nil && !isSynthesizing)
+        } header: {
+            SectionHelpHeader("Phát thử", paragraphs: ["Chuỗi được đưa qua **đúng** đường tiền xử lý của NghiTTS (đọc số, phiên âm, từ điển thay thế) trước khi tổng hợp, nên nghe được y như lúc đọc truyện."])
         } footer: {
+            // Trạng thái (đang bị TTS chặn) giữ ở footer; phần giải thích nằm ở nút "?".
             if isBlockedByPlayback {
                 Text("Đang đọc truyện — hãy dừng TTS trước khi thử, vì hai bên dùng chung engine và chung phiên âm thanh.")
-            } else {
-                Text("Chuỗi được đưa qua **đúng** đường tiền xử lý của NghiTTS (đọc số, phiên âm, từ điển thay thế) trước khi tổng hợp, nên nghe được y như lúc đọc truyện.")
             }
         }
     }

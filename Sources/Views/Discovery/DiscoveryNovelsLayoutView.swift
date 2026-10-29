@@ -4,8 +4,8 @@ import SwiftUI
 /// Thể loại / Xem thêm (`CategoryNovelsListView`), dựng theo `BookListLayout` của loại nguồn.
 ///
 /// Two branches that never mix:
-/// - `.list` → `List` of `DiscoveryNovelRowView`, sized by `layout.rowSize` (the default size is exactly the row from
-///   before the layout option existed).
+/// - `.list` → `List` of `DiscoveryNovelRowView` as rounded panels (`bookListPanel`, no separators), sized by
+///   `layout.rowSize`.
 /// - `.grid` / `.coverOnly` → `ScrollView` + `LazyVGrid` of `DiscoveryNovelGridCardView`. A `LazyVGrid` must never be
 ///   nested inside a `List` row (crashed with `EXC_BREAKPOINT` in 1.3.269, see `CollectionsTabView`).
 ///
@@ -29,8 +29,6 @@ struct DiscoveryNovelsLayoutView: View {
     let aspectRatio: CGFloat
     let sourceHost: String?
     let isTranslationEnabled: Bool
-    /// Lề dọc thêm cho mỗi hàng ở kiểu Danh sách (màn Thể loại dùng 4, tab Khám phá dùng 0 — giữ như trước).
-    let rowVerticalPadding: CGFloat
     /// Neo cuộn của Khám phá; `nil` ở màn không nhớ vị trí cuộn.
     let scrollAnchors: DiscoveryScrollAnchorStore?
     /// Khoá tab trong `scrollAnchors` (`CategoryResult.id`).
@@ -43,7 +41,6 @@ struct DiscoveryNovelsLayoutView: View {
         aspectRatio: CGFloat,
         sourceHost: String?,
         isTranslationEnabled: Bool,
-        rowVerticalPadding: CGFloat = 0,
         scrollAnchors: DiscoveryScrollAnchorStore? = nil,
         anchorCategoryId: String = "",
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
@@ -53,7 +50,6 @@ struct DiscoveryNovelsLayoutView: View {
         self.aspectRatio = aspectRatio
         self.sourceHost = sourceHost
         self.isTranslationEnabled = isTranslationEnabled
-        self.rowVerticalPadding = rowVerticalPadding
         self.scrollAnchors = scrollAnchors
         self.anchorCategoryId = anchorCategoryId
         self.onSelectNovel = onSelectNovel
@@ -81,9 +77,10 @@ struct DiscoveryNovelsLayoutView: View {
                         isTranslationEnabled: isTranslationEnabled,
                         rowSize: layout.rowSize
                     )
-                        .padding(.vertical, rowVerticalPadding)
+                    .bookListPanel(layout.rowSize)
                 }
                 .buttonStyle(.plain)
+                .bookListPanelRowChrome()
                 .id(novel.link)
                 .onAppear { setVisible(novel.link, true) }
                 .onDisappear { setVisible(novel.link, false) }
@@ -91,7 +88,7 @@ struct DiscoveryNovelsLayoutView: View {
 
             if loader.canLoadMore {
                 loadMoreSentinel
-                    .listRowSeparator(.hidden)
+                    .bookListPanelRowChrome()
             }
         }
         .listStyle(.plain)

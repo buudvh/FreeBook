@@ -3,8 +3,8 @@ import SwiftUI
 /// Section chọn nhóm nội dung sao lưu / khôi phục, kèm dung lượng ước tính từng nhóm.
 ///
 /// Dung lượng đo bằng cách quét thư mục nên tính **một lần** ngoài main thread rồi giữ trong
-/// `@State`. Phép đo gắn vào footer (một view lá) để chắc chắn chạy đúng một lượt — gắn vào
-/// `ForEach` thì mỗi hàng sẽ chạy một lần.
+/// `@State`. Phép đo gắn vào header (một view lá, luôn có) để chắc chắn chạy đúng một lượt — gắn vào
+/// `ForEach` thì mỗi hàng sẽ chạy một lần. Giải thích nằm ở nút "?" của header; footer chỉ còn con số ước tính.
 struct BackupScopeToggleList: View {
     @Binding var selection: Set<BackupScope>
     var header: String = "Nội dung sao lưu"
@@ -21,30 +21,30 @@ struct BackupScopeToggleList: View {
                 row(for: scope)
             }
         } header: {
-            Text(header)
+            SectionHelpHeader(header, texts: [Text(helpText)])
+                .task {
+                    guard showsEstimatedSize, sizes.isEmpty else { return }
+                    sizes = await Self.measure(scopes: availableScopes)
+                }
         } footer: {
-            footer
-        }
-    }
-
-    private var footer: some View {
-        Text(footerText)
-            .task {
-                guard showsEstimatedSize, sizes.isEmpty else { return }
-                sizes = await Self.measure(scopes: availableScopes)
+            if let estimateText {
+                Text(estimateText)
             }
+        }
     }
 
-    private var footerText: String {
-        guard showsEstimatedSize else {
-            return "Nhóm bị tắt sẽ không được ghi vào dữ liệu hiện có."
-        }
+    private var helpText: String {
+        showsEstimatedSize
+            ? "Ảnh bìa không được sao lưu — bìa tải lại được từ liên kết gốc."
+            : "Nhóm bị tắt sẽ không được ghi vào dữ liệu hiện có."
+    }
+
+    /// Con số ước tính (trạng thái) — giữ ở footer; `nil` khi chưa đo xong hoặc không chọn nhóm nào.
+    private var estimateText: String? {
+        guard showsEstimatedSize else { return nil }
         let total = selection.reduce(Int64(0)) { $0 + (sizes[$1] ?? 0) }
-        guard total > 0 else {
-            return "Ảnh bìa không được sao lưu — bìa tải lại được từ liên kết gốc."
-        }
+        guard total > 0 else { return nil }
         return "Ước tính trước khi nén: \(BackupSizeEstimator.format(total))."
-            + " Ảnh bìa không được sao lưu — bìa tải lại được từ liên kết gốc."
     }
 
     private func row(for scope: BackupScope) -> some View {

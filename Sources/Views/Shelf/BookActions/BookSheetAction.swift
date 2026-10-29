@@ -17,6 +17,10 @@ enum BookSheetAction: Equatable {
     case addToShelf
     case removeFromHistory
     case removeFromCurrentCollection
+    /// Mở trang chi tiết của truyện trong trình duyệt (`bookBrowserPresentation`); không có với truyện nhập file.
+    case openInBrowser
+    /// Đặt / bỏ dấu NSFW của riêng truyện (`BookActionRunner.toggleNsfwMark`); ẩn với truyện của nguồn NSFW.
+    case toggleNsfwMark
 
     /// Ngữ cảnh mở sheet, quyết định hiện những mục nào.
     enum Mode: Equatable {

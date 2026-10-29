@@ -2,7 +2,8 @@ import SwiftUI
 import WebKit
 
 /// Hộp nhập **mã xác minh** do JS của nguồn hỏi (`java.getVerificationCode(imageUrl)`, spec §10.8): ảnh mã (engine đã
-/// tải bằng client của nguồn — cùng phiên cookie) + ô nhập + Huỷ / Xác nhận. Huỷ ⇒ `onFinish(nil)` (JS nhận `""`).
+/// tải bằng client của nguồn — cùng phiên cookie) + ô nhập + Xác nhận. Không có nút Huỷ (1.3.641): vuốt xuống đóng ⇒
+/// `onDisappear` gọi `onFinish(nil)` (JS nhận `""`).
 /// Ảnh SVG (`data:image/svg+xml`) không giải được bằng `UIImage` ⇒ vẽ bằng một `WKWebView` nhỏ.
 struct LegadoVerificationCodeSheet: View {
     let request: LegadoVerificationRequest
@@ -35,12 +36,8 @@ struct LegadoVerificationCodeSheet: View {
                 Spacer(minLength: 0)
             }
             .padding()
-            .navigationTitle("Mã xác minh")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Mã xác minh")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { finish(nil) }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xác nhận") { finish(code) }
                         .fontWeight(.semibold)

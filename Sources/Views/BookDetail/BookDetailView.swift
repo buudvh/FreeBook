@@ -241,17 +241,13 @@ struct BookDetailView: View {
                 }
             }
         }
-        // Tiêu đề không hiện (mục `.principal` rỗng) nhưng vẫn giữ: màn con lấy nó làm nhãn nút quay lại.
-        .navigationTitle("Chi Tiết Truyện")
-        .navigationBarTitleDisplayMode(.inline)
+        // Tiêu đề không hiện (`backPageTitle`: mục `.principal` rỗng) nhưng vẫn giữ: màn con lấy nó làm nhãn nút quay lại.
+        // Cả khi là gốc sheet (mục lục Reader/Comic): header là bìa lớn, không có tiêu đề trái.
+        .backPageTitle("Chi Tiết Truyện")
         // Nút quay lại của màn này chỉ còn icon, không kèm tên màn trước.
         .toolbarRole(.editor)
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng, kể cả truyện trên Kệ
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("")
-                    .accessibilityHidden(true)
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 6) {
                     ReaderTranslationScopeMenuView(

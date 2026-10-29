@@ -19,8 +19,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .navigationTitle("Thứ tự ưu tiên rule")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Thứ tự ưu tiên rule")
         .toolbar { EditButton() }
         .onChange(of: configuration) { _, newValue in
             QuickTranslationRulePriorityConfiguration.storeGlobal(newValue)

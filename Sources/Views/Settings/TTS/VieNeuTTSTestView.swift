@@ -110,13 +110,12 @@ struct VieNeuTTSTestView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-            } footer: {
-                Text("Sao chép cả thông báo lỗi, số đo RTF và trạng thái model — dán vào chat là đủ để tìm nguyên nhân, không cần chụp màn hình.")
+            } header: {
+                SectionHelpHeader("Chẩn đoán", paragraphs: ["Sao chép cả thông báo lỗi, số đo RTF và trạng thái model — dán vào chat là đủ để tìm nguyên nhân, không cần chụp màn hình."])
             }
         }
         .tint(.white)
-        .navigationTitle("Cài đặt VieNeu TTS")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Cài đặt VieNeu TTS")
         .onAppear {
             loadVoices()
             // Từ điển có thể vừa được tải ở màn khác (Cài đặt TTS) ⇒ đọc lại từ đĩa mỗi lần mở màn.

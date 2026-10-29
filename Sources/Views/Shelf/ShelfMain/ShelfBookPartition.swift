@@ -12,12 +12,16 @@ struct ShelfBookPartition {
     var isShelfEmpty: Bool { pinned.isEmpty && unpinned.isEmpty }
 
     /// `hidesNsfw`: công tắc NSFW toàn app đang tắt ⇒ bỏ **mọi** sách của nguồn NSFW, cả trên kệ lẫn lịch sử (chỉ ẩn
-    /// hiển thị, không xoá; người dùng chốt 2026-10-24 — trước đó sách trên kệ vẫn hiện).
+    /// hiển thị, không xoá; người dùng chốt 2026-10-24 — trước đó sách trên kệ vẫn hiện), và sách người dùng tự đánh
+    /// dấu NSFW (`NsfwBookMarkStore`, kiểm theo `bookId` **ngoài** bộ nhớ theo nguồn).
     init(_ books: [Book], hidesNsfw: Bool = false) {
         // Partition chạy mỗi body: nhớ kết quả NSFW theo nguồn để mỗi `packageId` chỉ tra kho + classifier một lần.
         var nsfwByPackageId: [String: Bool] = [:]
+        // Đọc tập dấu một lần (cũng là lượt đăng ký Observation: đánh dấu xong Kệ vẽ lại ngay).
+        let markedBookIds = hidesNsfw ? NsfwBookMarkStore.shared.markedBookIds : []
         for book in books where book.isOnShelf || book.isHistory {
             if hidesNsfw {
+                if markedBookIds.contains(book.bookId) { continue }
                 let packageId = book.extensionPackageId
                 let isNsfw: Bool
                 if let cached = nsfwByPackageId[packageId] {

@@ -47,12 +47,9 @@ struct BookInfoEditView: View {
                     }
                 }
             }
-            .navigationTitle("Sửa thông tin truyện")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Sửa thông tin truyện")
+            .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Huỷ") { dismiss() }
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lưu") { save() }
                         .disabled(isSaving || isLoadingPickedImage || trimmedTitle.isEmpty)

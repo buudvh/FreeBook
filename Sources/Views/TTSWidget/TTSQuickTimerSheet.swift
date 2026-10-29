@@ -31,7 +31,8 @@ struct TTSQuickTimerSheet: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                // Không có nút ✕ (1.3.641): vuốt xuống để đóng. ⚙ là nút duy nhất, đứng bên phải.
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         dismiss()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -43,13 +44,6 @@ struct TTSQuickTimerSheet: View {
                             .foregroundStyle(.white)
                     }
                     .accessibilityLabel("Cài đặt giọng đọc và tốc độ")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
         }

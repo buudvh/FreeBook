@@ -146,15 +146,9 @@ struct ExtensionSelectorView: View {
                 }
                 .listStyle(.plain)
             }
-            .navigationTitle("Phần mở rộng")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Phần mở rộng")
+            .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.primary)
-                    }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     nsfwToggle
                 }

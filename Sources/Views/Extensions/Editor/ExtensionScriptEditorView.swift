@@ -33,7 +33,6 @@ public struct ExtensionScriptEditorView: View {
     @State internal var errorMessage = ""
     @State internal var syntaxStatusMessage: String? = nil
     @State internal var isSyntaxValid: Bool = true
-    @State internal var showingDiscardAlert = false
     @State internal var showingScriptPickerSheet = false
     // (đã gỡ debug-run: `showingDebugRun`/`debugRunEntrypoint` — tính năng Run dùng
     //  `ExtensionDebugConsoleView` đã bị xoá ở 1.3.443)
@@ -152,26 +151,12 @@ public struct ExtensionScriptEditorView: View {
                     }
                 }
             }
-            .navigationTitle("Script Editor: \(ext.name)")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Script Editor: \(ext.name)")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") {
-                        if hasUnsavedChanges || !modifiedFileIds.isEmpty {
-                            showingDiscardAlert = true
-                        } else {
-                            dismiss()
-                        }
-                    }
-                }
-
+                // Không còn nút Đóng: vuốt xuống để đóng, có chỉnh sửa chưa lưu thì hỏi "Bỏ thay đổi?" (bên dưới).
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { _ = saveCurrentScript() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down")
-                            Text("Lưu")
-                        }
-                        .fontWeight(.bold)
+                        Text("Lưu").fontWeight(.bold)
                     }
                     .disabled(!hasUnsavedChanges || scriptFiles.isEmpty)
                 }
@@ -179,15 +164,9 @@ public struct ExtensionScriptEditorView: View {
             .onAppear {
                 loadScriptFiles()
             }
-            .alert("Hủy Thay Đổi?", isPresented: $showingDiscardAlert) {
-                Button("Hủy thay đổi", role: .destructive) {
-                    dismiss()
-                }
-                Button("Tiếp tục chỉnh sửa", role: .cancel) {}
-            } message: {
-                Text("Bạn có những chỉnh sửa chưa lưu trong script. Bạn có chắc chắn muốn thoát không?")
-            }
         }
+        .confirmDiscardOnSwipe(isDirty: hasUnsavedChanges || !modifiedFileIds.isEmpty)
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Code Editor Canvas

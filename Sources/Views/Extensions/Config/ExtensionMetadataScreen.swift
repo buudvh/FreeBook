@@ -12,7 +12,6 @@ struct ExtensionMetadataScreen: View {
             ExtensionMetadataSection(ext: ext)
         }
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle("Thông tin plugin.json")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Thông tin plugin.json")
     }
 }

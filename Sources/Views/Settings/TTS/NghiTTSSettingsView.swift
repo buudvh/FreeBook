@@ -21,7 +21,7 @@ struct NghiTTSSettingsView: View {
     
     var body: some View {
         Form {
-            // Phải là `Section { } header: { } footer: { }` — `Section("…") { } footer: { }` KHÔNG tồn tại
+            // Phải là `Section { } header: { }` — `Section("…") { } header:/footer:` KHÔNG tồn tại
             // (`Section(_:content:)` không có tham số `footer`), và đó đúng là lỗi CI đã mắc ở lượt 1.3.459.
             Section {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
@@ -29,9 +29,7 @@ struct NghiTTSSettingsView: View {
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
                 Toggle("Dùng IPA của espeak cho tiếng Anh", isOn: $useEspeakIPAForEnglish)
             } header: {
-                Text("Tiền xử lý text")
-            } footer: {
-                Text("Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe truyện (TTS) → Cài đặt NghiTTS) — cùng chỗ với các lối vào quản lý.")
+                SectionHelpHeader("Tiền xử lý text", paragraphs: ["Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe truyện (TTS) → Cài đặt NghiTTS) — cùng chỗ với các lối vào quản lý."])
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {
@@ -74,8 +72,7 @@ struct NghiTTSSettingsView: View {
         }
         .tint(.white)
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Cấu hình NghiTTS")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Cấu hình NghiTTS")
     }
 }
 

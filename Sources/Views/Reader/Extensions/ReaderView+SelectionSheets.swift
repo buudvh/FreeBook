@@ -63,11 +63,8 @@ extension ReaderView {
                 }
             }
             .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
-                NavigationStack {
-                    SearchEnginesConfigView().toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Xong") { showingSearchEnginesConfigSheet = false } }
-                    }
-                }
+                NavigationStack { SearchEnginesConfigView(isPresentedAsSheet: true) }
+                    .presentationDragIndicator(.visible)
             }
             .fullScreenCover(item: $definitionLookupRoute) { route in
                 BypassWebView(

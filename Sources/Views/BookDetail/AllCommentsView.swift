@@ -117,8 +117,7 @@ struct AllCommentsView: View {
                 }
             }
         }
-        .navigationTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
         .task {
             if skipsReappearLoad {
                 skipsReappearLoad = false

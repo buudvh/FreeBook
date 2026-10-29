@@ -21,10 +21,10 @@ struct ReaderBookRulePriorityView: View {
         Form {
             Section {
                 Toggle("Đặt riêng cho truyện này", isOn: $isUsingBookConfiguration)
-            } footer: {
-                Text(isUsingBookConfiguration
+            } header: {
+                SectionHelpHeader("Phạm vi áp dụng", paragraphs: [isUsingBookConfiguration
                     ? "Truyện này dùng thứ tự bên dưới cho cả trình đọc và đọc thành tiếng. Sửa cài đặt chung sẽ không còn ảnh hưởng tới nó."
-                    : "Truyện này đang theo cài đặt chung. Sửa cài đặt chung sẽ tự động áp vào đây.")
+                    : "Truyện này đang theo cài đặt chung. Sửa cài đặt chung sẽ tự động áp vào đây."])
             }
 
             if isUsingBookConfiguration {
@@ -32,8 +32,7 @@ struct ReaderBookRulePriorityView: View {
             }
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Thứ tự ưu tiên rule")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Thứ tự ưu tiên rule") // gốc sheet mở từ Cài đặt đọc (không phải trang đẩy vào)
         .toolbar { if isUsingBookConfiguration { EditButton() } }
         .onChange(of: isUsingBookConfiguration) { _, isOn in
             save(isOn ? configuration : nil)

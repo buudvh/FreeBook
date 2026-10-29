@@ -10,6 +10,7 @@ struct TTSSettingsSheet: View {
         NavigationStack {
             TTSSettingsView(isPresentedAsSheet: true)
         }
+        .presentationDragIndicator(.visible) // không còn nút "Xong" (1.3.641) — vuốt xuống để đóng
         .tint(.white)
     }
 }

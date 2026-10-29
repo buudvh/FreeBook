@@ -68,8 +68,7 @@ struct StaleBookCleanupSettingsView: View {
             statusSection
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Dọn Truyện Cũ")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Dọn truyện cũ")
         // Chạy lúc mở màn và mỗi khi ngưỡng đổi; kéo slider huỷ lượt cũ nên chỉ nấc dừng cuối cùng
         // mới đếm lại (debounce ~300 ms) thay vì mỗi nấc ngày một lượt fetch toàn bảng.
         .task(id: clampedInactiveDays) {
@@ -97,10 +96,10 @@ struct StaleBookCleanupSettingsView: View {
     private var enableSection: some View {
         Section {
             Toggle("Tự động xoá truyện lâu không đọc", isOn: $isEnabled)
-        } footer: {
-            Text("Mặc định tắt vì đây là thao tác xoá dữ liệu không hoàn tác được. Khi bật, lượt dọn"
+        } header: {
+            SectionHelpHeader("Tự động dọn", texts: [Text("Mặc định tắt vì đây là thao tác xoá dữ liệu không hoàn tác được. Khi bật, lượt dọn"
                  + " chạy khoảng \(startupDelaySeconds) giây sau khi mở app và chỉ xoá truyện trong"
-                 + " lịch sử — truyện đã thêm vào Kệ sách không bao giờ bị dọn.")
+                 + " lịch sử — truyện đã thêm vào Kệ sách không bao giờ bị dọn.")])
         }
     }
 
@@ -127,11 +126,9 @@ struct StaleBookCleanupSettingsView: View {
                 nudgeButton(systemImage: "plus", delta: 1)
             }
         } header: {
-            Text("Ngưỡng")
-        } footer: {
-            Text("Truyện trong lịch sử có lần đọc gần nhất cũ hơn số ngày này sẽ bị xoá. Truyện trên Kệ"
+            SectionHelpHeader("Ngưỡng", texts: [Text("Truyện trong lịch sử có lần đọc gần nhất cũ hơn số ngày này sẽ bị xoá. Truyện trên Kệ"
                  + " sách, sách local/TXT tự nhập, truyện đang tải hoặc đang xuất ebook, và truyện đang"
-                 + " được đọc bằng TTS luôn được giữ lại.")
+                 + " được đọc bằng TTS luôn được giữ lại.")])
         }
     }
 
@@ -182,9 +179,7 @@ struct StaleBookCleanupSettingsView: View {
             }
             .disabled(isRunning || staleCount == 0)
         } header: {
-            Text("Trạng thái")
-        } footer: {
-            Text("Dọn ngay bỏ qua cả nhịp chờ và cờ bật/tắt, nhưng vẫn tính là lượt của kỳ này.")
+            SectionHelpHeader("Trạng thái", paragraphs: ["Dọn ngay bỏ qua cả nhịp chờ và cờ bật/tắt, nhưng vẫn tính là lượt của kỳ này."])
         }
     }
 

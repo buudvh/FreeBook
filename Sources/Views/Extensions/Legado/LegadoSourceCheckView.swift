@@ -12,6 +12,8 @@ import SwiftUI
 struct LegadoSourceCheckView: View {
     let packageIds: [String]
     let scopeTitle: String
+    /// Gốc của sheet (menu ⋯) ⇒ hiện tiêu đề trái; đẩy trong stack của màn chi tiết ⇒ chỉ nút back.
+    var isPresentedAsSheet = false
 
     static let failedGroupName = "Lỗi"
 
@@ -45,8 +47,7 @@ struct LegadoSourceCheckView: View {
             }
         }
         .padding(.top, 8)
-        .navigationTitle("Kiểm tra nguồn")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Kiểm tra nguồn", isVisible: isPresentedAsSheet)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: shareReport) {

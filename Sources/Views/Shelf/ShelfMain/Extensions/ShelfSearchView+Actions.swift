@@ -78,6 +78,11 @@ extension ShelfSearchView {
         case .changeSource:
             changeSourceTargetBook = book
             navigateToChangeSource = true
+        case .openInBrowser:
+            // Mở trong `onDismiss` của sheet nhấn giữ (đóng xong hẳn), như hộp xác nhận bỏ kệ.
+            queuedBrowserBook = book
+        case .toggleNsfwMark:
+            BookActionRunner.toggleNsfwMark(book)
         case .editInfo:
             editingInfoBook = book
         case .download:

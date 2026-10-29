@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Section liệt kê các file `.fbbackup` trong `backups/` kèm menu hành động cho từng bản.
 ///
-/// Alert đổi tên và hộp thoại xoá gắn vào footer (một view lá) thay vì vào `Section` —
+/// Alert đổi tên và hộp thoại xoá gắn vào header (một view lá, luôn có) thay vì vào `Section` —
 /// modifier đặt trên `Section` sẽ lan xuống từng hàng và bật nhiều lần cùng một binding.
+/// Footer chỉ còn tổng dung lượng; giải thích nằm ở nút "?" của header.
 struct LocalBackupListView: View {
     @ObservedObject var coordinator: BackupCoordinator
     let canUploadToDrive: Bool
@@ -43,16 +44,22 @@ struct LocalBackupListView: View {
                 .disabled(coordinator.isBusy)
             }
         } header: {
-            Text("Bản sao lưu trong máy")
+            sectionHeader
         } footer: {
-            footer
+            // Hộp đổi tên/xoá gắn vào footer (cuối section, cạnh hàng "Xoá tất cả") như trước 1.3.641: header bị gỡ khi
+            // cuộn khuất ở danh sách dài thì bấm ở hàng cuối không hiện hộp. Danh sách rỗng thì không có gì để đổi tên/xoá.
+            if !coordinator.localBackups.isEmpty {
+                footer
+            }
         }
     }
 
+    private var sectionHeader: some View {
+        SectionHelpHeader("Bản sao lưu trong máy", paragraphs: ["File sao lưu nằm trong vùng dữ liệu của app, xoá app là mất — nên xuất ra Files hoặc Google Drive."])
+    }
+
     private var footer: some View {
-        Text(coordinator.localBackups.isEmpty
-             ? "File sao lưu nằm trong vùng dữ liệu của app, xoá app là mất — nên xuất ra Files hoặc Google Drive."
-             : "Tổng \(BackupSizeEstimator.format(coordinator.localBackups.reduce(Int64(0)) { $0 + $1.byteCount })).")
+        Text("Tổng \(BackupSizeEstimator.format(coordinator.localBackups.reduce(Int64(0)) { $0 + $1.byteCount })).")
             .alert("Đổi tên bản sao lưu", isPresented: isRenaming) {
                 TextField("Tên mới", text: $renameText)
                 Button("Huỷ", role: .cancel) { renamingItem = nil }
@@ -99,7 +106,7 @@ struct LocalBackupListView: View {
                     .foregroundColor(.secondary)
             }
             Spacer(minLength: 8)
-            // Ngăn kéo gắn vào chính nút của hàng: body là `Section` (gắn lên đó thì lan xuống từng hàng), còn footer
+            // Ngăn kéo gắn vào chính nút của hàng: body là `Section` (gắn lên đó thì lan xuống từng hàng), còn header
             // có thể chưa được dựng khi danh sách dài cuộn khuất. `.borderless`: nút mặc định biến cả hàng thành vùng bấm.
             SideDrawerMenuButton(title: item.baseName) {
                 itemMenuItems(item)

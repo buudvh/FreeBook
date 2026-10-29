@@ -78,9 +78,7 @@ struct LogSettingsView: View {
                 LabeledContent("File đang mở", value: "\(openFileCount) / \(openFileLimit)")
                 Toggle("Tự dọn file mở thừa", isOn: $isFDSweeperEnabled)
             } header: {
-                Text("Chẩn Đoán")
-            } footer: {
-                Text("Nghe TTS lâu ở nền có thể làm app mở thừa hàng nghìn file rồi lỗi đọc chương. Bật thì app tự đóng các bản mở thừa (không đụng database). Tắt nếu thấy lỗi lạ.")
+                SectionHelpHeader("Chẩn Đoán", paragraphs: ["Nghe TTS lâu ở nền có thể làm app mở thừa hàng nghìn file rồi lỗi đọc chương. Bật thì app tự đóng các bản mở thừa (không đụng database). Tắt nếu thấy lỗi lạ."])
             }
 
             Section {
@@ -103,9 +101,7 @@ struct LogSettingsView: View {
                     }
                 }
             } header: {
-                Text("File Log")
-            } footer: {
-                Text("Mỗi file quá 2 MB tự chia sang app_logs.1…4.txt; file cũ nhất bị xoá.")
+                SectionHelpHeader("File Log", paragraphs: ["Mỗi file quá 2 MB tự chia sang app_logs.1…4.txt; file cũ nhất bị xoá."])
             }
 
             if !logFileURLs.isEmpty {
@@ -138,8 +134,7 @@ struct LogSettingsView: View {
             }
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Ghi log hệ thống")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Ghi log hệ thống")
         .onAppear {
             updateLogStatus()
         }

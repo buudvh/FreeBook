@@ -27,12 +27,13 @@ enum ShelfTab: Int, CaseIterable, Identifiable {
         }
     }
 
+    /// Tiêu đề trái của header Kệ (1.3.641): viết hoa chữ đầu câu như mọi tiêu đề trang.
     var navigationTitle: String {
         switch self {
-        case .downloads: return "Downloads"
-        case .collections: return "Bộ Sưu Tập"
-        case .shelf: return "Kệ Sách"
-        case .history: return "Lịch Sử Đọc"
+        case .downloads: return "Tải xuống"
+        case .collections: return "Bộ sưu tập"
+        case .shelf: return "Kệ sách"
+        case .history: return "Lịch sử"
         }
     }
 

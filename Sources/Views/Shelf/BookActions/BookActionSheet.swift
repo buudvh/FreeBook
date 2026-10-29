@@ -55,16 +55,14 @@ struct BookActionSheet: View {
         List {
             Section {
                 header
-            } footer: {
-                Text(headerHint)
+            } header: {
+                SectionHelpHeader("Truyện", texts: [Text(headerHint)])
             }
 
             Section {
                 collectionRows
             } header: {
-                Text("Bộ sưu tập")
-            } footer: {
-                Text("Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách.")
+                SectionHelpHeader("Bộ sưu tập", paragraphs: ["Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách."])
             }
 
             Section {
@@ -312,6 +310,7 @@ struct BookActionSheet: View {
     private var actionRows: some View {
         if !book.isLocalBook {
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
+            actionRow(.openInBrowser, "Mở trong trình duyệt", "safari")
         }
 
         // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh/video không xuất ebook.
@@ -329,6 +328,12 @@ struct BookActionSheet: View {
 
         if kind == .video {
             VideoDownloadsActionRow(bookId: book.bookId)
+        }
+
+        // Nguồn NSFW đã ẩn theo nguồn ⇒ không cần dấu riêng. Đọc dấu trong `body` ⇒ nhãn đổi ngay khi dấu đổi.
+        if !RepositoryFilterPolicy.isNsfwSource(packageId: book.extensionPackageId) {
+            let marked = NsfwBookMarkStore.shared.isMarked(book.bookId)
+            actionRow(.toggleNsfwMark, marked ? "Bỏ đánh dấu NSFW" : "Đánh dấu NSFW", marked ? "eye" : "eye.slash")
         }
 
         if target.mode == .history {

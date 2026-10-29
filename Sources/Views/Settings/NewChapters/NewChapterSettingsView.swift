@@ -21,8 +21,8 @@ struct NewChapterSettingsView: View {
         Form {
             Section {
                 Toggle("Tự động kiểm tra chương mới", isOn: $isEnabled)
-            } footer: {
-                Text("Lượt kiểm tra chạy sau khi Kệ sách đã hiện, chỉ tải mục lục và không tải nội dung chương. Tắt mục này thì vẫn kiểm tra được bằng tay từ menu Kệ sách.")
+            } header: {
+                SectionHelpHeader("Tự động kiểm tra", paragraphs: ["Lượt kiểm tra chạy sau khi Kệ sách đã hiện, chỉ tải mục lục và không tải nội dung chương. Tắt mục này thì vẫn kiểm tra được bằng tay từ menu Kệ sách."])
             }
 
             if isEnabled {
@@ -71,8 +71,7 @@ struct NewChapterSettingsView: View {
             }
         }
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
-        .navigationTitle("Kiểm tra chương mới")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Kiểm tra chương mới")
     }
 
     private func formatted(_ date: Date) -> String {

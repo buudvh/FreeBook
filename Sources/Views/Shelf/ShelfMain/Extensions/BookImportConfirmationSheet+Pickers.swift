@@ -60,8 +60,7 @@ extension BookImportConfirmationSheet {
                     }
                 }
             }
-            .navigationTitle("Chọn bảng mã")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Chọn bảng mã")
         }
         .presentationDetents([.medium, .large])
     }
@@ -136,8 +135,7 @@ extension BookImportConfirmationSheet {
                     .disabled(isReanalyzing)
                 }
             }
-            .navigationTitle("Chọn quy tắc TOC")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Chọn quy tắc TOC")
         }
         .presentationDetents([.medium, .large])
     }
@@ -182,8 +180,7 @@ extension BookImportConfirmationSheet {
                         .foregroundColor(.secondary)
                 }
             }
-            .navigationTitle("Chọn cấu trúc")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Chọn cấu trúc")
         }
         .presentationDetents([.medium, .large])
     }

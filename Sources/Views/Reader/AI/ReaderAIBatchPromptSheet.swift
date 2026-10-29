@@ -163,9 +163,7 @@ public struct ReaderAIBatchPromptSheet: View {
                         .font(.footnote)
                         .foregroundColor(scopeIsEmpty ? .red : .secondary)
                 } header: {
-                    Text("Phạm vi quét")
-                } footer: {
-                    Text("Chỉ quét các chương đã tải, bắt đầu từ chương chọn ở trên. \"Tiếp nối\" bắt đầu ngay sau chương cuối mà lần quét trước đã quét liền mạch thành công (dừng trước lượt lỗi đầu tiên).\n\"Số lượng chương\" giới hạn số chương thực quét, tính từ chương bắt đầu.")
+                    SectionHelpHeader("Phạm vi quét", paragraphs: ["Chỉ quét các chương đã tải, bắt đầu từ chương chọn ở trên. \"Tiếp nối\" bắt đầu ngay sau chương cuối mà lần quét trước đã quét liền mạch thành công (dừng trước lượt lỗi đầu tiên).\n\"Số lượng chương\" giới hạn số chương thực quét, tính từ chương bắt đầu."])
                 }
 
                 Section {
@@ -185,9 +183,7 @@ public struct ReaderAIBatchPromptSheet: View {
                         useCustomPrompt = true
                     }
                 } header: {
-                    Text("Nguồn prompt")
-                } footer: {
-                    Text("Prompt tự nhập chỉ dùng cho lần quét này, không lưu vào Cài đặt.")
+                    SectionHelpHeader("Nguồn prompt", paragraphs: ["Prompt tự nhập chỉ dùng cho lần quét này, không lưu vào Cài đặt."])
                 }
 
                 Section {
@@ -205,13 +201,8 @@ public struct ReaderAIBatchPromptSheet: View {
                     Text("Prompt cho lần này")
                 }
             }
-            .navigationTitle("Quét tên riêng theo phạm vi")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") { dismiss() }
-                }
-            }
+            .pageTitle("Quét tên riêng theo phạm vi")
+            .presentationDragIndicator(.visible)
             .safeAreaInset(edge: .bottom) {
                 Button {
                     let prompt = useCustomPrompt ? trimmedCustomPrompt : settingsPrompt

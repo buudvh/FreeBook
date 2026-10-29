@@ -28,8 +28,10 @@ struct VideoDownloadsDeletePill: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color(red: 0.45, green: 0.12, blue: 0.12))
-                .foregroundColor(.white)
+                // Chữ + icon đỏ trên nền đỏ mờ ~15%, lót nền tối như các pill cạnh nó để không lẫn vào ảnh bìa.
+                .background(Color.red.opacity(0.15))
+                .background(Color(white: 0.22))
+                .foregroundColor(.red)
                 .cornerRadius(20)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
                 .shadow(radius: 3)

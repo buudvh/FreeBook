@@ -46,9 +46,7 @@ extension VieNeuTTSTestView {
                 }
             }
         } header: {
-            Text("Model")
-        } footer: {
-            Text("Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph. Gói graph **nhân bản giọng** (~91 MB, 3 file) là **tuỳ chọn**: chỉ cần khi bạn muốn tạo giọng mới từ audio mẫu — vào “Giọng của tôi” để tải riêng.")
+            SectionHelpHeader("Model", paragraphs: ["Engine local, chạy hoàn toàn trên máy. Giọng đọc không nằm trong file model mà là hai mảng số trong `voices_v3_nano.json`, nên 11 giọng dùng chung một bộ graph. Gói graph **nhân bản giọng** (~91 MB, 3 file) là **tuỳ chọn**: chỉ cần khi bạn muốn tạo giọng mới từ audio mẫu — vào “Giọng của tôi” để tải riêng."])
         }
     }
 
@@ -79,7 +77,7 @@ extension VieNeuTTSTestView {
     ///
     /// Hai **công tắc** áp dụng (`Áp dụng từ điển phiên âm VieNeu`, `Tự động phiên âm tiếng Nhật`) **không**
     /// ở đây — chúng chỉ có ở *Cài đặt TTS → Quản lý riêng của trình đọc* (người dùng chốt 2026-10-01), nên
-    /// màn này chỉ mở lối vào và nói rõ điều đó ở footer.
+    /// màn này chỉ mở lối vào và nói rõ điều đó ở nút "?" của header.
     @ViewBuilder
     var japaneseDictionarySection: some View {
         Section {
@@ -100,9 +98,7 @@ extension VieNeuTTSTestView {
                 .disabled(isDownloadingJapaneseDict)
             }
         } header: {
-            Text("Tiếng Nhật")
-        } footer: {
-            Text("Từ điển **riêng của VieNeu**, độc lập với từ điển của NghiTTS. Bật/tắt áp dụng ở **Cài đặt TTS → Quản lý riêng của trình đọc**; cả hai công tắc ở đó mặc định **tắt**.")
+            SectionHelpHeader("Tiếng Nhật", paragraphs: ["Từ điển **riêng của VieNeu**, độc lập với từ điển của NghiTTS. Bật/tắt áp dụng ở **Cài đặt TTS → Quản lý riêng của trình đọc**; cả hai công tắc ở đó mặc định **tắt**."])
         }
     }
 
@@ -194,9 +190,7 @@ extension VieNeuTTSTestView {
             }
             LabeledContent("Đang chọn", value: String(format: "%.2f×", speed))
         } header: {
-            Text("Tốc độ phát")
-        } footer: {
-            Text("Chỉ đổi tốc độ **phát**, không đổi tốc độ **tạo**: audio luôn được tổng hợp ở 1.0× rồi phát nhanh/chậm hơn. Nhờ vậy giọng luôn ở đúng tốc độ model được huấn luyện, đổi tốc độ là tức thì (không phải tổng hợp lại), và số RTF đo được luôn ứng với 1.0×.")
+            SectionHelpHeader("Tốc độ phát", paragraphs: ["Chỉ đổi tốc độ **phát**, không đổi tốc độ **tạo**: audio luôn được tổng hợp ở 1.0× rồi phát nhanh/chậm hơn. Nhờ vậy giọng luôn ở đúng tốc độ model được huấn luyện, đổi tốc độ là tức thì (không phải tổng hợp lại), và số RTF đo được luôn ứng với 1.0×."])
         }
     }
 
@@ -222,9 +216,7 @@ extension VieNeuTTSTestView {
             // state khác đổi — đúng triệu chứng "chọn xong không đổi, bấm Phát mới đổi".
             LabeledContent("Đang chạy", value: activeModeName)
         } header: {
-            Text("Tốc độ tạo audio")
-        } footer: {
-            Text("Mỗi bước là một lượt `vector_estimator`, và CFG chạy thêm **một lượt nữa cho mỗi bước** — nên mỗi đoạn tốn: “Chất lượng cao” 32 lượt (16 bước), “Cân bằng” 16 lượt (8 bước). Giảm số bước là cách duy nhất vừa nhanh hơn vừa **mát máy hơn**; đổi lại chất lượng giọng giảm. Bản tham chiếu của model khuyến nghị cặp 8 bước + sway −1. Việc giảm **độ lớn** CFG không tiết kiệm gì: engine chỉ hỏi `cfg > 0` rồi chạy đủ hai nhánh, không theo tỉ lệ.")
+            SectionHelpHeader("Tốc độ tạo audio", paragraphs: ["Mỗi bước là một lượt `vector_estimator`, và CFG chạy thêm **một lượt nữa cho mỗi bước** — nên mỗi đoạn tốn: “Chất lượng cao” 32 lượt (16 bước), “Cân bằng” 16 lượt (8 bước). Giảm số bước là cách duy nhất vừa nhanh hơn vừa **mát máy hơn**; đổi lại chất lượng giọng giảm. Bản tham chiếu của model khuyến nghị cặp 8 bước + sway −1. Việc giảm **độ lớn** CFG không tiết kiệm gì: engine chỉ hỏi `cfg > 0` rồi chạy đủ hai nhánh, không theo tỉ lệ."])
         }
     }
 
@@ -250,11 +242,12 @@ extension VieNeuTTSTestView {
                     Label("Chia sẻ audio", systemImage: "square.and.arrow.up")
                 }
             }
+        } header: {
+            SectionHelpHeader("Phát thử", paragraphs: ["Màn này đi **cùng đường** với Reader: thay thế ký tự (`TTSReplacementManager`) → cắt đoạn bằng `NghiUtteranceSegmenter` theo `chunkLength` của VieNeu → tổng hợp từng đoạn với `boundaryKind` riêng rồi ghép lại. Lớp đọc số/ngày do tầng engine lo; VieNeu **không** dùng lớp phiên âm Anh/Nhật của NghiTTS — số và viết tắt do bộ G2P của model tự xử."])
         } footer: {
+            // Trạng thái (đang bị TTS chặn) giữ ở footer; phần giải thích nằm ở nút "?".
             if isBlockedByPlayback {
                 Text("Đang đọc truyện — hãy dừng TTS trước khi thử, vì hai bên dùng chung phiên âm thanh.")
-            } else {
-                Text("Màn này đi **cùng đường** với Reader: thay thế ký tự (`TTSReplacementManager`) → cắt đoạn bằng `NghiUtteranceSegmenter` theo `chunkLength` của VieNeu → tổng hợp từng đoạn với `boundaryKind` riêng rồi ghép lại. Lớp đọc số/ngày do tầng engine lo; VieNeu **không** dùng lớp phiên âm Anh/Nhật của NghiTTS — số và viết tắt do bộ G2P của model tự xử.")
             }
         }
     }

@@ -20,6 +20,8 @@ struct ExtensionCheckView: View {
 
     let targets: [ExtensionCheckRunner.Target]
     let scopeTitle: String
+    /// Gốc của sheet hàng loạt ⇒ hiện tiêu đề trái; đẩy trong stack của Cấu hình tiện ích ⇒ chỉ nút back.
+    var isPresentedAsSheet = false
 
     @State private var report: ExtensionCheckReport?
     @State private var hasStarted = false
@@ -58,8 +60,7 @@ struct ExtensionCheckView: View {
             actionBar
         }
         .padding(.top, 8)
-        .navigationTitle("Kiểm tra tiện ích")
-        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Kiểm tra tiện ích", isVisible: isPresentedAsSheet)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: shareReport) {

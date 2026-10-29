@@ -52,16 +52,9 @@ extension ExtensionScriptEditorView {
                     pickerList
                 }
             }
-            .navigationTitle("Chọn Script")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Xong") {
-                        showingScriptPickerSheet = false
-                    }
-                }
-            }
+            .pageTitle("Chọn Script")
             .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 

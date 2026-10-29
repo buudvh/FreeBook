@@ -100,7 +100,6 @@ struct CategoryNovelsListView: View {
                     aspectRatio: scope.coverAspectRatio,
                     sourceHost: sourceHost,
                     isTranslationEnabled: isTranslationEnabled,
-                    rowVerticalPadding: 4,
                     onSelectNovel: { selectedNovel = $0 }
                 )
             }
@@ -115,8 +114,7 @@ struct CategoryNovelsListView: View {
                 initialHost: novel.host
             )
         }
-        .navigationTitle(translateIfNeeded(category.title))
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle(translateIfNeeded(category.title))
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng danh sách của nguồn NSFW
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

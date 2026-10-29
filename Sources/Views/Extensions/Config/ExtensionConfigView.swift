@@ -3,7 +3,7 @@ import SwiftData
 
 /// Màn **Cấu hình tiện ích**: thẻ đầu (giới thiệu + Trình duyệt · Ghim · Gỡ) rồi các nhóm cài đặt **tự lưu**.
 ///
-/// Không còn nút "Lưu"/"Hủy" — chỉ "Đóng". Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
+/// Không có nút "Lưu"/"Hủy"/"Đóng" — đóng bằng vuốt xuống (1.3.641). Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
 /// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
 /// + chế độ máy tính của webview ở `+WebContent`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`. Khối
 /// `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
@@ -54,15 +54,8 @@ struct ExtensionConfigView: View {
     var body: some View {
         NavigationStack {
             sourceCheckPresentation(on: browserPresentation(on: uninstallDialogs(on: screenContent)))
-                .navigationTitle("Cấu hình tiện ích")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Đóng") {
-                            dismiss()
-                        }
-                    }
-                }
+                .pageTitle("Cấu hình tiện ích")
+                .presentationDragIndicator(.visible)
                 .sheet(isPresented: $showingScriptEditor) {
                     ExtensionScriptEditorView(ext: current)
                 }

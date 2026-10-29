@@ -30,13 +30,13 @@ enum VideoMutePolicy: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Phim của tiện ích `packageId` có mở ở trạng thái tắt tiếng không. Nguồn 18+ nhận biết bằng
-    /// `RepositoryFilterPolicy.isNsfwSource` (tra bản cài rồi catalog; không tìm thấy ⇒ không phải 18+).
-    static func shouldStartMuted(packageId: String) -> Bool {
+    /// Phim `bookId` của tiện ích `packageId` có mở ở trạng thái tắt tiếng không. "18+" = phim tự đánh dấu NSFW hoặc
+    /// nguồn NSFW (`RepositoryFilterPolicy.isNsfwBook`; nguồn tra bản cài rồi catalog, không tìm thấy ⇒ không phải 18+).
+    static func shouldStartMuted(bookId: String, packageId: String) -> Bool {
         switch current {
         case .none: return false
         case .all: return true
-        case .nsfwOnly: return RepositoryFilterPolicy.isNsfwSource(packageId: packageId)
+        case .nsfwOnly: return RepositoryFilterPolicy.isNsfwBook(bookId: bookId, packageId: packageId)
         }
     }
 }

@@ -90,9 +90,14 @@ struct CollectionGridCardView: View {
         return picked
     }
 
-    /// Truyện của bộ còn hiện (bỏ nguồn NSFW khi công tắc tắt) — dùng chung với màn sắp xếp bộ.
+    /// Truyện của bộ còn hiện (bỏ nguồn NSFW + truyện tự đánh dấu NSFW khi công tắc tắt) — dùng chung với màn sắp xếp bộ.
     static func visibleBooks(of collection: BookCollection, includeNsfw: Bool) -> [Book] {
-        RepositoryFilterPolicy.excludingNsfwSources(collection.books, includeNsfw: includeNsfw, packageId: \.extensionPackageId)
+        RepositoryFilterPolicy.excludingNsfwBooks(
+            collection.books,
+            includeNsfw: includeNsfw,
+            bookId: \.bookId,
+            packageId: \.extensionPackageId
+        )
     }
 
     private static func isOrderedBefore(_ lhs: Book, _ rhs: Book) -> Bool {

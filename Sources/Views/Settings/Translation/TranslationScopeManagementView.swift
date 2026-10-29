@@ -42,9 +42,7 @@ public struct TranslationScopeManagementView: View {
                     .onDelete(perform: deleteSources)
                 }
             } header: {
-                Text("Cấu hình theo Nguồn truyện (\(sourcePackageIds.count))")
-            } footer: {
-                Text("Các nguồn ở trên sẽ ghi đè thiết lập toàn cục khi đọc hoặc nghe TTS.")
+                SectionHelpHeader("Cấu hình theo Nguồn truyện (\(sourcePackageIds.count))", paragraphs: ["Các nguồn ở trên sẽ ghi đè thiết lập toàn cục khi đọc hoặc nghe TTS."])
             }
 
             // Phần 2: Cấu hình theo Từng truyện
@@ -60,9 +58,7 @@ public struct TranslationScopeManagementView: View {
                     .onDelete(perform: deleteBooks)
                 }
             } header: {
-                Text("Cấu hình theo Truyện (\(bookIds.count))")
-            } footer: {
-                Text("Cấu hình theo truyện có độ ưu tiên cao nhất, ghi đè cả nguồn và toàn cục.")
+                SectionHelpHeader("Cấu hình theo Truyện (\(bookIds.count))", paragraphs: ["Cấu hình theo truyện có độ ưu tiên cao nhất, ghi đè cả nguồn và toàn cục."])
             }
 
             // Phần 3: Thao tác đặt lại
@@ -78,13 +74,12 @@ public struct TranslationScopeManagementView: View {
                             Spacer()
                         }
                     }
-                } footer: {
-                    Text("Xoá toàn bộ cấu hình riêng của nguồn và truyện, tất cả sẽ tuân theo thiết lập toàn cục.")
+                } header: {
+                    SectionHelpHeader("Đặt lại", paragraphs: ["Xoá toàn bộ cấu hình riêng của nguồn và truyện, tất cả sẽ tuân theo thiết lập toàn cục."])
                 }
             }
         }
-        .navigationTitle("Cấu hình Dịch riêng biệt")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Cấu hình dịch riêng biệt")
         .toolbar {
             if !sourcePackageIds.isEmpty || !bookIds.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {

@@ -89,13 +89,10 @@ public struct BrowserHistorySheetView: View {
                     }
                 }
             }
-            .navigationTitle("Lịch sử duyệt web")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Lịch sử duyệt web")
+            .presentationDragIndicator(.visible)
             .searchable(text: $searchText, prompt: "Tìm kiếm tiêu đề hoặc link...")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đóng") { dismiss() }
-                }
                 ToolbarItem(placement: .destructiveAction) {
                     if !historyItems.isEmpty {
                         Button("Xóa tất cả") {

@@ -18,6 +18,8 @@ struct TTSReplacementManagerView: View {
     /// `nil` = tầng chung; có giá trị = tầng riêng của truyện đó.
     var bookId: String? = nil
     var bookName: String = ""
+    /// `true` khi mở dạng sheet (Cài đặt TTS): hiện tiêu đề trang; đẩy vào stack thì có nút back, không hiện.
+    var isPresentedAsSheet = false
 
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
@@ -128,7 +130,7 @@ struct TTSReplacementManagerView: View {
             // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
             if searching { editMode = .inactive }
         }
-        .navigationTitle(layerTitle)
+        .pageTitle(layerTitle, isVisible: isPresentedAsSheet)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -261,14 +263,8 @@ struct TTSReplacementManagerView: View {
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
-            .navigationTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        showingEditSheet = false
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         saveRule()
@@ -278,6 +274,7 @@ struct TTSReplacementManagerView: View {
             }
         }
         .presentationDetents([.height(280)])
+        .presentationDragIndicator(.visible)
     }
     
     // Sửa/Xóa/Di chuyển

@@ -14,8 +14,8 @@ struct NsfwSettingsView: View {
         Form {
             Section {
                 Toggle("Hiện nội dung nhạy cảm", isOn: $includeNsfw)
-            } footer: {
-                Text("Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá.")
+            } header: {
+                SectionHelpHeader("Hiển thị", paragraphs: ["Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá."])
             }
 
             Section {
@@ -45,8 +45,7 @@ struct NsfwSettingsView: View {
                 explanationRow("eye.slash", "Vào trang của nguồn không lưu lịch sử, tab trình duyệt tự ẩn danh: không ghi lịch sử duyệt, cookie và đăng nhập vẫn giữ. Về Home là hết ẩn danh.")
             }
         }
-        .navigationTitle("Nội dung nhạy cảm")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Nội dung nhạy cảm")
     }
 
     private func explanationRow(_ symbol: String, _ text: String) -> some View {

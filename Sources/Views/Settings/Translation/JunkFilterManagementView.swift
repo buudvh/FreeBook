@@ -111,8 +111,7 @@ struct JunkFilterManagementView: View {
             // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
             if searching { editMode = .inactive }
         }
-        .navigationTitle("Quản lý lọc rác")
-        .navigationBarTitleDisplayMode(.inline)
+        .backPageTitle("Quản lý lọc rác")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -282,14 +281,8 @@ struct JunkFilterManagementView: View {
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
-            .navigationTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")
-            .navigationBarTitleDisplayMode(.inline)
+            .pageTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        showingEditSheet = false
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
                         saveRule()
@@ -299,6 +292,7 @@ struct JunkFilterManagementView: View {
             }
         }
         .presentationDetents([.height(320)])
+        .presentationDragIndicator(.visible)
     }
 
     private func deleteRules(at offsets: IndexSet) {

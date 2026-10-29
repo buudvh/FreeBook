@@ -52,9 +52,7 @@ extension ExtensionConfigView {
             ))
             configSaveErrorRow
         } header: {
-            Text("Mạng")
-        } footer: {
-            Text("Mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS).")
+            SectionHelpHeader("Mạng", paragraphs: ["Mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS)."])
         }
     }
 
