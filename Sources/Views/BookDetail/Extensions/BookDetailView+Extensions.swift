@@ -26,8 +26,11 @@ extension BookDetailView {
         if localBook != nil && showsDictionaryMenu {
             SideDrawerActionRow("Từ điển", systemImage: "character.book.closed") { navigateToDictionary = true }
         }
-        SideDrawerActionRow("Thay đổi nguồn", systemImage: "arrow.2.squarepath") { navigateToChangeSource = true }
-        SideDrawerActionRow("Mở bằng trình duyệt", systemImage: "safari") { showingBypassBrowser = true }
+        // Truyện/phim nhập từ file không có nguồn: đổi nguồn sẽ dọn ảnh/phim trên máy (bản duy nhất), trình duyệt vô nghĩa.
+        if !isLocalMediaBook {
+            SideDrawerActionRow("Thay đổi nguồn", systemImage: "arrow.2.squarepath") { navigateToChangeSource = true }
+            SideDrawerActionRow("Mở bằng trình duyệt", systemImage: "safari") { showingBypassBrowser = true }
+        }
         SideDrawerActionRow("Chia sẻ", systemImage: "square.and.arrow.up") {
             // Chưa làm chức năng
         }

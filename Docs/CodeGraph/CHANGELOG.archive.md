@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.612] - 2026-10-26
+
+### fix: Chế độ AI hết phí hạn mức khi bị Google giới hạn, tự chuyển Gemini Web hoặc tự chờ
+
+Người dùng: *"provider Chế độ AI của Goôgle dễ bị hạn chê số request quá, tìm cách fix"*; lúc bị chặn app báo "Chế độ AI của Google báo lỗi…", trang Google ghi *"Bạn hiện đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát"*, xảy ra sau khi quét được một lúc. Chốt qua chất vấn: tự chờ rồi quét tiếp, giữ 2.500 chữ/lượt, **tự chuyển sang Gemini Web** (ngay khi bị giới hạn). Yêu cầu "lách" giới hạn (đổi cookie/IP/tài khoản, giả trình duyệt) — **không làm**, đã nói lý do. Plan duyệt trong chat.
+
+- **Nguyên nhân**: 1.3.609 không nhận ra câu giới hạn; `generationFailed` được gửi lại ngay, lỗi không dừng quét, cuối lần quét còn tự thử lại một vòng ⇒ đang bị giới hạn vẫn gửi đều mỗi 5 s, giới hạn kéo dài.
+- **Nhận ra giới hạn**: `GoogleAIModePageContract.rateLimitText` (trong lượt mới hoặc ngoài mọi khối lượt) ⇒ `GoogleAIModeError.rateLimited(retryAfter:)`; hạn chờ toàn cục 60 s trong `GoogleAIModeTurnQueue` (hai lượt liên tiếp "báo lỗi" ở chat hay quét cũng đặt hạn chờ này) — chat lẫn quét không gửi gì tới hạn đó, chat báo "thử lại sau m:ss"; log `❌` kèm ~160 ký tự quanh câu lỗi của trang. `generationFailed` thôi được gửi lại ngay; runner nền không gửi lại `rateLimited`.
+- **Quét**: `AINameScanProviderSwitch` + `AINameExtractionBatchProcessor+RateLimit` — `rateLimited` hoặc 2 lượt `generationFailed` liên tiếp ⇒ có profile Gemini Web thì chuyển ngay, gửi lại đúng lượt đó, phần còn lại (cả vòng tự thử lại) chạy Gemini Web, toast một lần; không có thì chờ 1 → 2 → 4 → 8 phút rồi gửi lại, hết nấc ⇒ dừng (`rateLimitExhausted`) giữ tên + điểm tiếp nối. `runTurns` đọc provider mỗi lượt.
+- **UI**: dải tiến độ trạng thái chờ (nền cam, đồng hồ cát, đếm ngược từng giây, "lần chờ i/4"), dòng phụ "Đã chuyển sang … (Chế độ AI bị giới hạn)"; tiêu đề tác vụ "Chờ Google m:ss · Batch N/T"; ghi chú ở `GoogleAIModeAccountRow`.
+- **Tên ví dụ của prompt** (thử thật: Chế độ AI trả `何老三=Hà lão tam`, `李掌柜=…` dù văn bản không có): `droppingPromptExamples` bỏ tên trùng ví dụ `X=Y` của prompt mà không có trong văn bản đã gửi — mọi provider.
+- `rules.md`: bullet "Giới hạn số câu trả lời AI" + "Tên ví dụ của prompt", sửa bullet retry. Chuyển entry `[1.3.582]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng script `snapshot` mới trên trang Chế độ AI thật (chèn câu giới hạn vào DOM, không gửi gì): trang thường ⇒ không báo; câu ngoài khối lượt ⇒ `limitedPage`; câu trong lượt cũ ⇒ không báo nhầm; câu trong lượt mới nhất ⇒ `limitedNewest`. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (chưa gặp lại trang giới hạn thật để biết câu nằm đâu trên DOM — log `❌ 🤖 [AIMode]` ghi đoạn chữ lúc phát hiện).
+
 ## [1.3.611] - 2026-10-26
 
 ### fix: xoá name AI không quay lại qua lượt quét và nút Thử lại

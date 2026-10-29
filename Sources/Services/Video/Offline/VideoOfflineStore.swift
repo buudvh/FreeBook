@@ -84,7 +84,7 @@ enum VideoOfflineStore {
         return values?.volumeAvailableCapacityForImportantUsage
     }
 
-    // MARK: - Ghi (bộ tải)
+    // MARK: - Ghi (bộ tải, nhập phim từ file)
 
     /// Tạo thư mục tập nếu chưa có (giữ file của bản dở), bỏ manifest cũ để tập không bị coi là đã tải khi đang tải lại.
     static func prepareEpisodeDirectory(bookId: String, episodeIndex: Int) throws -> URL {
@@ -122,6 +122,34 @@ enum VideoOfflineStore {
     static func writeAtomic(_ data: Data, to url: URL) throws {
         try validatePathSafety(for: url)
         try data.write(to: url, options: .atomic)
+    }
+
+    /// Nhập phim từ file (`LocalVideoImporter`): **chuyển** (move) file vào thư mục tập thành `video.<đuôi gốc>` — đuôi
+    /// giữ nguyên vì AVPlayer dựa vào nó để nhận loại media `file://`. Không đọc vào RAM; cùng ổ thì không tốn thêm chỗ.
+    /// Không chuyển được (khác ổ) mới chép, và chỉ chép khi còn đủ dung lượng trống. Trả tên file + dung lượng.
+    static func importEpisodeFile(movingFrom source: URL, bookId: String, episodeIndex: Int) throws -> (file: String, bytes: Int64) {
+        let directory = try prepareEpisodeDirectory(bookId: bookId, episodeIndex: episodeIndex)
+        let rawExtension = source.pathExtension.lowercased().filter { $0.isLetter || $0.isNumber }
+        let fileName = "video." + (rawExtension.isEmpty ? "mp4" : rawExtension)
+        let target = directory.appendingPathComponent(fileName, isDirectory: false)
+        try validatePathSafety(for: target)
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: target.path) {
+            try fileManager.removeItem(at: target)
+        }
+        let bytes = Int64((try? source.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+        do {
+            try fileManager.moveItem(at: source, to: target)
+        } catch {
+            let margin: Int64 = 50 * 1024 * 1024
+            if let available = availableCapacity(), available < bytes + margin {
+                let needed = ByteCountFormatter.string(fromByteCount: bytes + margin, countStyle: .file)
+                throw NSError(domain: "VideoOfflineStore", code: 507, userInfo: [NSLocalizedDescriptionKey: "Không đủ dung lượng trống để nhập phim (cần khoảng \(needed))."])
+            }
+            try fileManager.copyItem(at: source, to: target)
+            try? fileManager.removeItem(at: source)
+        }
+        return (fileName, bytes)
     }
 
     /// Ghi manifest — bước cuối, đánh dấu tập đã tải xong; bỏ `partial.json`.

@@ -58,7 +58,7 @@ public enum ComicOfflineStore {
         try FileManager.default.removeItem(at: url)
     }
 
-    // MARK: - Ghi (chỉ `DownloadManager+Comic`)
+    // MARK: - Ghi (`DownloadManager+Comic`, `LocalComicImporter`)
 
     /// Thư mục sách — `BookStorageManager` dùng để đẩy vào queue xoá lỗi.
     static func bookDirectoryURL(bookId: String) -> URL {
@@ -95,6 +95,21 @@ public enum ComicOfflineStore {
             width: knownWidth ?? measured?.width,
             height: knownHeight ?? measured?.height
         )
+    }
+
+    /// Nhập truyện tranh từ file (`LocalComicImporter`): **chuyển** (move) một ảnh đã giải nén vào thư mục chương thành
+    /// `0001.<ext>`. Chỉ đọc 12 byte đầu (đặt đuôi) và header ảnh (kích thước) — không nạp cả ảnh vào RAM.
+    static func importPage(movingFrom source: URL, pageNumber: Int, chapterDirectory: URL) throws -> ComicChapterManifest.Page {
+        let handle = try FileHandle(forReadingFrom: source)
+        let head = (try? handle.read(upToCount: 12)) ?? Data()
+        try? handle.close()
+        let fileName = String(format: "%04d", pageNumber) + "." + fileExtension(for: head)
+        let target = chapterDirectory.appendingPathComponent(fileName, isDirectory: false)
+        try validatePathSafety(for: target)
+        try FileManager.default.moveItem(at: source, to: target)
+        let size = CGImageSourceCreateWithURL(target as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+            .flatMap { pixelSize(of: $0) }
+        return ComicChapterManifest.Page(file: fileName, width: size?.width, height: size?.height)
     }
 
     /// Ghi manifest — bước cuối, đánh dấu chương đã tải xong.
@@ -157,8 +172,12 @@ public enum ComicOfflineStore {
 
     /// Kích thước điểm ảnh đọc từ header (không giải mã), đã tính EXIF xoay 90°.
     static func pixelSize(of data: Data) -> (width: Int, height: Int)? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        return pixelSize(of: source)
+    }
+
+    private static func pixelSize(of source: CGImageSource) -> (width: Int, height: Int)? {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
               let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
               width > 0, height > 0 else { return nil }

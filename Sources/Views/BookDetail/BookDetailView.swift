@@ -779,7 +779,7 @@ struct BookDetailView: View {
                                     prepareForTask(taskType: .exportTxt)
                                 }) {
                                     HStack {
-                                        Text("Xuất ebook")
+                                        Text(exportActionTitle)
                                             .font(.caption)
                                             .fontWeight(.bold)
                                         Image(systemName: "square.and.arrow.up.fill")
@@ -797,7 +797,7 @@ struct BookDetailView: View {
                                 .transition(.scale.combined(with: .opacity))
                             }
 
-                            if contentKind == .video, let videoBookId = localBook?.bookId {
+                            if showsVideoDownloadsPill, let videoBookId = localBook?.bookId {
                                 VideoDownloadsDeletePill(bookId: videoBookId) { isMenuExpanded = false }
                                     .transition(.scale.combined(with: .opacity))
                             }

@@ -29,8 +29,8 @@ public enum ExtensionContentKind: String, Sendable {
         }
     }
 
-    /// Loại của sách theo `extensionPackageId`. Thứ tự: `"local"`/rỗng → `text`; tiện ích đã cài → catalog
-    /// (mục registry chưa cài) → `text`.
+    /// Loại của sách theo `extensionPackageId`. Thứ tự: `"local"`/rỗng → `text`; `local-comic`/`local-video`
+    /// (`LocalMediaPackage`) → comic/video; tiện ích đã cài → catalog (mục registry chưa cài) → `text`.
     ///
     /// Đọc bảng chụp có lock của `ExtensionLibraryRepository` nên gọi được từ thread bất kỳ, không `await`.
     public static func resolve(packageId: String) -> ExtensionContentKind {
@@ -42,6 +42,7 @@ public enum ExtensionContentKind: String, Sendable {
     public static func resolveIfKnown(packageId: String) -> ExtensionContentKind? {
         let trimmed = packageId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.lowercased() != "local" else { return .text }
+        if let local = LocalMediaPackage.contentKind(packageId: trimmed) { return local }
         if let installed = ExtensionLibraryRepository.snapshot(packageId: trimmed) {
             return ExtensionContentKind(typeString: installed.type)
         }

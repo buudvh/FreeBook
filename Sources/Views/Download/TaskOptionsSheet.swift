@@ -56,8 +56,13 @@ struct TaskOptionsSheet: View {
         let isLegado = ExtensionLibraryRepository.snapshot(packageId: book.extensionPackageId)
             .map { SourceRuntime.shared.isLegado(localPath: $0.localPath) } ?? false
         self.supportsLanes = !kind.isMedia && !isLegado
-        self._onlyExportCached = State(initialValue: defaultOnlyExportCached)
-        self._exportFormat = State(initialValue: taskType.exportFormat ?? .txt)
+        // Xuất truyện tranh chỉ lấy chương đã tải ảnh (không có mạng) ⇒ luôn "chỉ chương đã tải", ẩn mục tốc độ.
+        let isComicExport = taskType.isExport && kind == .comic
+        self._onlyExportCached = State(initialValue: defaultOnlyExportCached || isComicExport)
+        // 5 lối mở xuất đều truyền `.exportTxt` ⇒ đổi sang định dạng đầu tiên hợp với loại sách (truyện tranh: CBZ).
+        let formats = BookExportFormat.formats(for: kind)
+        let requested = taskType.exportFormat ?? .txt
+        self._exportFormat = State(initialValue: formats.contains(requested) ? requested : (formats.first ?? requested))
         self._speed = State(initialValue: DownloadSpeedSettings.load(packageId: book.extensionPackageId))
     }
 
@@ -67,6 +72,9 @@ struct TaskOptionsSheet: View {
 
     /// Tác vụ này có tạo file hay chỉ tải cache.
     internal var isExport: Bool { taskType.isExport }
+
+    /// Xuất truyện tranh ra CBZ/PDF: không dịch, không tải thêm — chỉ chương đã có ảnh offline.
+    internal var isComicExport: Bool { isExport && contentKind == .comic }
 
     /// Loại tác vụ thật sự được đưa vào hàng đợi — với tác vụ xuất, nó theo định dạng đang chọn.
     private var effectiveTaskType: TaskType {
@@ -81,7 +89,7 @@ struct TaskOptionsSheet: View {
                 if isExport {
                     Section {
                         Picker("Định dạng", selection: $exportFormat) {
-                            ForEach(BookExportFormat.allCases, id: \.self) { format in
+                            ForEach(BookExportFormat.formats(for: contentKind), id: \.self) { format in
                                 Text(format.displayName).tag(format)
                             }
                         }
@@ -173,11 +181,13 @@ struct TaskOptionsSheet: View {
             }
 
             if isExport {
-                Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
-                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+                if !isComicExport {
+                    Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
-                Toggle("Dịch nội dung", isOn: $translateContent)
-                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+                    Toggle("Dịch nội dung", isOn: $translateContent)
+                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+                }
 
                 if let cachedPreview {
                     Text(cachedPreview)

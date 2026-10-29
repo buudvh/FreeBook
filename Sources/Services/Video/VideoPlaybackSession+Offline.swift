@@ -23,9 +23,16 @@ extension VideoPlaybackSession {
     /// Khoảng tối thiểu giữa hai lần tự nạp lại bản tải sau lỗi phát.
     static let offlineRetryWindow: TimeInterval = 20
 
-    /// Hàng chip / menu server có gì để chọn (bản tải và/hoặc nhiều server).
+    /// Hàng chip / menu server có gì để chọn (bản tải và/hoặc nhiều server). Phim nhập từ file thì không: chỉ có bản trên
+    /// máy, "Trực tuyến" không có nguồn để nạp.
     var hasSourceChoices: Bool {
-        hasOfflineCopy || servers.count > 1
+        !isLocalMedia && (hasOfflineCopy || servers.count > 1)
+    }
+
+    /// Phim nhập từ file (`LocalMediaPackage`): bản trên máy là bản **duy nhất** ⇒ ẩn chip "Bản tải"/"Trực tuyến", mọi
+    /// lối tải tập / xoá bản tải.
+    var isLocalMedia: Bool {
+        LocalMediaPackage.isLocalMedia(packageId: launch?.extensionPackageId)
     }
 
     // MARK: - Phát

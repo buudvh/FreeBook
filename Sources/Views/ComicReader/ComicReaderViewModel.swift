@@ -195,7 +195,7 @@ final class ComicReaderViewModel {
             throw Self.readerError("Không tìm thấy chương \(index + 1) trong mục lục")
         }
         guard let ext = extensionSnapshot, !ext.localPath.isEmpty else {
-            throw Self.readerError("Chưa cài tiện ích nguồn của truyện này")
+            throw Self.readerError(LocalMediaPackage.missingSourceMessage(packageId: launch.extensionPackageId, fallback: "Chưa cài tiện ích nguồn của truyện này"))
         }
         let host = ExtensionHostResolver.chapterHost(chapterHost: chapter.host, bookHost: bookHost, packageId: ext.packageId)
         let sources = try await SourceRuntime.shared.comicPages(

@@ -23,6 +23,13 @@ extension TaskOptionsSheet {
     }
 
     var taskOptionsHelpParagraphs: [LocalizedStringKey] {
+        if isComicExport {
+            return [
+                "Chỉ các chương **đã tải ảnh offline** được đưa vào file; chương chưa tải bị bỏ qua, không tải thêm.",
+                "**CBZ** giữ nguyên ảnh gốc, mỗi chương một thư mục. **PDF** mỗi ảnh một trang.",
+                "Tắt **Hiển thị trong Kệ sách** để truyện nằm trong Lịch sử đọc."
+            ]
+        }
         if isExport {
             return [
                 "Bật **Dịch nội dung**: các chương được dịch tự động bằng Quick Translator trước khi ghi vào file.",

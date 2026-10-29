@@ -9,9 +9,23 @@ extension BookDetailView {
         ExtensionContentKind.resolve(packageId: extensionPackageId)
     }
 
-    /// Xuất ebook chỉ có nghĩa với truyện chữ.
+    /// Truyện/phim nhập từ file (`LocalMediaPackage`): chỉ có bản trên máy — không tải offline, không xoá bản tải.
+    internal var isLocalMediaBook: Bool {
+        LocalMediaPackage.isLocalMedia(packageId: extensionPackageId)
+    }
+
+    /// Xuất file: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh); video không xuất.
     internal var showsExport: Bool {
-        !contentKind.isMedia
+        contentKind != .video
+    }
+
+    internal var exportActionTitle: String {
+        contentKind == .comic ? "Xuất CBZ/PDF" : "Xuất ebook"
+    }
+
+    /// Nút "Xoá bản tải" của phim — không có với phim nhập từ file (xoá là mất phim).
+    internal var showsVideoDownloadsPill: Bool {
+        contentKind == .video && !isLocalMediaBook
     }
 
     /// Từ điển riêng của truyện chỉ phục vụ dịch nội dung chữ.
@@ -21,6 +35,7 @@ extension BookDetailView {
 
     /// Nhãn nút tải (video tải offline qua `DownloadManager+Video`).
     internal var downloadActionTitle: String? {
+        guard !isLocalMediaBook else { return nil }
         switch contentKind {
         case .comic: return "Tải ảnh offline"
         case .video: return "Tải video offline"

@@ -204,7 +204,7 @@ extension VideoPlaybackSession {
             return ext
         }
         AppLogger.shared.log("❌ [VideoPlayer] Tiện ích \(packageId) chưa cài hoặc đã bị gỡ")
-        fail(generation: generation, message: "Tiện ích nguồn chưa được cài hoặc đã bị gỡ.")
+        fail(generation: generation, message: LocalMediaPackage.missingSourceMessage(packageId: packageId, fallback: "Tiện ích nguồn chưa được cài hoặc đã bị gỡ."))
         return nil
     }
 

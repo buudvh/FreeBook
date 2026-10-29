@@ -11,7 +11,7 @@ struct VideoPlayerDetailsView: View {
                     header
                         .padding(.horizontal, 16)
 
-                    if !session.servers.isEmpty || session.hasOfflineCopy {
+                    if !session.isLocalMedia, !session.servers.isEmpty || session.hasOfflineCopy {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Server")
                                 .font(.headline)
@@ -39,7 +39,7 @@ struct VideoPlayerDetailsView: View {
             }
             .onAppear {
                 scrollToEpisode(session.currentEpisodeIndex, proxy: proxy, animated: false)
-                downloadActions.refresh()
+                downloadActions?.refresh()
             }
             .onChange(of: session.currentEpisodeIndex) { _, newIndex in
                 scrollToEpisode(newIndex, proxy: proxy, animated: true)
@@ -50,8 +50,9 @@ struct VideoPlayerDetailsView: View {
         }
     }
 
-    private var downloadActions: VideoEpisodeDownloadActions {
-        VideoEpisodeDownloadActions(session: session)
+    /// `nil` với phim nhập từ file: không có "Tải tập này"/"Xoá bản tải" khi nhấn giữ ô tập (xoá là mất phim).
+    private var downloadActions: VideoEpisodeDownloadActions? {
+        session.isLocalMedia ? nil : VideoEpisodeDownloadActions(session: session)
     }
 
     /// Chip "Bản tải" / "Trực tuyến" khi tập đang xem đã tải về máy.

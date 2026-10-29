@@ -54,7 +54,7 @@ struct ShelfView: View {
     @State internal var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
     /// Trang đầu của trình duyệt nhập truyện (`"home"` = trang chủ); mọi lối mở đều đặt lại qua `openImportBrowser`.
     @State internal var bypassBrowserStartUrl = "home"
-    @State internal var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI/DOCX/FB2/PDF)
+    @State internal var showingFilePicker = false // Bộ chọn file: sách chữ, CBZ/ZIP, video (`LocalMediaImportRoute`)
     @State internal var showingImportSheet = false // Sheet "Nhập truyện" (nút "+" nổi, hàng "Nhập truyện" của ngăn kéo)
     /// Việc sheet "Nhập truyện" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
     @State internal var queuedImportChoice: ShelfImportSheet.Choice? = nil
@@ -71,6 +71,10 @@ struct ShelfView: View {
     @State internal var pendingPasswordFile: PendingPasswordFile? = nil
     @State internal var showingPasswordPrompt = false
     @State internal var importPassword = ""
+    // Nhập truyện tranh/phim (`ShelfView+MediaImport.swift`): file vừa chọn chờ sheet bộ chọn đóng, rồi sheet xác nhận.
+    @State internal var queuedPickedFiles: [URL] = []
+    @State internal var pendingComicImport: LocalComicImportPlan? = nil
+    @State internal var pendingVideoImport: LocalVideoImportPlan? = nil
 
     // `internal` từ đây (và `readerPresentationRoute`, `actionTarget`): hai trang Kệ/Lịch sử đã tách sang
     // `Extensions/ShelfView+Layout.swift`.
@@ -414,14 +418,13 @@ struct ShelfView: View {
                     initialHost: importedHost
                 )
             }
-            .sheet(isPresented: $showingFilePicker) {
+            .sheet(isPresented: $showingFilePicker, onDismiss: { runQueuedPickedFiles() }) {
                 DocumentPicker(
-                    allowedContentTypes: BookImportFormat.pickerContentTypes,
-                    allowsMultipleSelection: false,
+                    allowedContentTypes: LocalMediaImportRoute.pickerContentTypes,
+                    allowsMultipleSelection: true,
                     onPick: { urls in
                         showingFilePicker = false
-                        guard let selectedUrl = urls.first else { return }
-                        importLocalBook(from: selectedUrl)
+                        queuePickedFiles(urls)
                     },
                     onCancel: {
                         showingFilePicker = false
@@ -491,6 +494,7 @@ struct ShelfView: View {
             // Overlay nhập truyện: struct riêng tự observe `BookImportProgressCenter`, nên mỗi nhịp tiến độ chỉ
             // vẽ lại overlay chứ không kéo cả màn Kệ sách (xem `ShelfView+BookImport.swift`).
             ImportProgressOverlay()
+            mediaImportSheetHost
 
             // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
             if isProcessingDeletion {

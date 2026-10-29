@@ -13,6 +13,9 @@ enum ExportRendererFactory {
             return try Fb2ExportRenderer(request: request)
         case .mobi:
             return try MobiExportRenderer(request: request)
+        case .cbz, .pdf:
+            // Định dạng ảnh chỉ dành cho truyện tranh (`DownloadManager+ComicExport`), không bao giờ dựng từ chữ.
+            throw ExportRenderError.unsupportedFormat(request.format.displayName)
         }
     }
 }

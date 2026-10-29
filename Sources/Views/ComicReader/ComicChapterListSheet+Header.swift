@@ -147,10 +147,11 @@ extension ComicChapterListSheet {
         }
     }
 
-    /// Mở **đúng** `TaskOptionsSheet` mà nhấn-giữ một truyện ở Kệ/Lịch sử vẫn mở — sheet cần một `Book` thật.
+    /// Mở **đúng** `TaskOptionsSheet` mà nhấn-giữ một truyện ở Kệ/Lịch sử vẫn mở — sheet cần một `Book` thật. Truyện nhập
+    /// từ file (`LocalMediaPackage`) đã có sẵn mọi ảnh trên máy, không có nút này.
     @ViewBuilder
     private var downloadButton: some View {
-        if book != nil, !chapters.isEmpty {
+        if let book, !chapters.isEmpty, !LocalMediaPackage.isLocalMedia(packageId: book.extensionPackageId) {
             Button {
                 showingDownloadOptions = true
             } label: {

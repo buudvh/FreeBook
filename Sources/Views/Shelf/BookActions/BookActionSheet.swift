@@ -313,11 +313,15 @@ struct BookActionSheet: View {
             actionRow(.openInBrowser, "Mở trong trình duyệt", "safari")
         }
 
-        // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh/video không xuất ebook.
+        // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh xuất CBZ/PDF, video không xuất. Truyện/phim nhập
+        // từ file (`LocalMediaPackage`) chỉ có bản trên máy ⇒ không tải offline, không xoá bản tải.
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
-        actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
-        if !kind.isMedia {
-            actionRow(.exportEbook, "Xuất ebook", "square.and.arrow.up")
+        let isLocalMedia = LocalMediaPackage.isLocalMedia(packageId: book.extensionPackageId)
+        if !isLocalMedia {
+            actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
+        }
+        if kind != .video {
+            actionRow(.exportEbook, kind == .comic ? "Xuất CBZ/PDF" : "Xuất ebook", "square.and.arrow.up")
         }
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
 
@@ -326,7 +330,7 @@ struct BookActionSheet: View {
                 .accessibilityHint("Truyện vẫn ở trên kệ sách")
         }
 
-        if kind == .video {
+        if kind == .video, !isLocalMedia {
             VideoDownloadsActionRow(bookId: book.bookId)
         }
 

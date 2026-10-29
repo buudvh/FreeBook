@@ -7,6 +7,7 @@ enum ExportRenderError: LocalizedError {
     case emptyExport
     case archiveTooLarge
     case sizeLimitExceeded(String)
+    case unsupportedFormat(String)
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ enum ExportRenderError: LocalizedError {
             return "Bản xuất vượt giới hạn 4 GB của định dạng ZIP."
         case .sizeLimitExceeded(let detail):
             return detail
+        case .unsupportedFormat(let format):
+            return "Định dạng \(format) chỉ dùng để xuất truyện tranh."
         }
     }
 }

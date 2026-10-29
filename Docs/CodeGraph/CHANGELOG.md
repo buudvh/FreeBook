@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.642] - 2026-10-29
+
+### feat: nhập truyện tranh và phim từ file, xuất truyện tranh CBZ/PDF
+
+Phần P5 của plan `Docs/Plans/2026-10-29-plan-dong-bo-ui-va-nhap-media.md`, tách khỏi 1.3.641 theo yêu cầu người dùng ("push sau").
+
+- **Loại nội dung không đổi `@Model`**: sách nhập từ file dùng packageId `local-comic` / `local-video` (`LocalMediaPackage`), url vẫn `local://…` nên `Book.isLocalBook` giữ đúng; `ExtensionContentKind` thêm hai nhánh, `BookContentDestination` tự mở đúng màn. Dịch tên theo công tắc chung như sách `"local"` (`TranslationConfigStore.isLocalPackage`).
+- **Nhập truyện tranh** (`Services/Import/Media/LocalComicImporter`): một file `.cbz`/`.zip` = cả bộ (người dùng chốt); giải nén vào `tmp/LocalMediaImport/<uuid>/`, mỗi thư mục chứa ảnh là một chương (tên tự nhiên, bỏ thư mục bọc chung), không có thư mục con ⇒ một chương. Sheet "Nhập truyện tranh" (tên sửa được, "Chương N · X ảnh") ⇒ chuyển ảnh vào `ComicOfflineStore` (manifest `chapterUrl` = url mục lục, host chương nil), `replaceFullTOC`, bìa = trang đầu. File nén chứa symlink ⇒ huỷ lượt nhập. `.zip` là EPUB vẫn nhập dạng chữ.
+- **Nhập phim** (`LocalVideoImporter`): một hay nhiều `.mp4`/`.mov`/`.m4v` gộp một phim, tập theo tên file; sheet "Nhập phim" ⇒ **chuyển** file (không đọc vào RAM) vào `VideoOfflineStore`, manifest `.file`, bìa là một khung hình; khác ổ thì chép (kiểm dung lượng) rồi xoá nguồn. Chọn nhiều file lẫn loại ⇒ báo lỗi, không nhập gì.
+- **Sách nhập media**: ẩn Tải offline, Xoá bản tải, chip Bản tải/Trực tuyến, nút tải ở mục lục comic, Thay đổi nguồn và Mở bằng trình duyệt ở Chi tiết (đổi nguồn xoá mất bản duy nhất). Thiếu file (khôi phục backup) ⇒ "…không còn trên máy — hãy nhập lại file". Backup **không** gói ảnh/video của sách nhập (người dùng chốt).
+- **Xuất truyện tranh**: `BookExportFormat.cbz` / `.pdf` (+ `TaskType`, rawValue lưu bền, dữ liệu cũ vẫn đọc được); `DownloadManager+ComicExport` chỉ lấy chương đã có ảnh offline, CBZ bằng `ZipStoreWriter` (chặn trước khi ghi nếu vượt 65.535 ảnh / 4 GB — `ZipStoreWriter` cũng tự chặn entry thứ 65.536 thay vì tràn `UInt16`), PDF mỗi ảnh một trang (JPEG nhúng nguyên). Picker định dạng lọc theo loại; "Xuất CBZ/PDF" ở sheet nhấn giữ, Chi tiết, tab Tải. Tiến độ trễ không đưa tác vụ đã xong về "Đang chạy".
+- Thư mục làm việc bỏ dở (> 6 giờ) dọn ở lượt nhập kế tiếp. Chuyển entry `[1.3.612]` sang `CHANGELOG.archive.md`.
+- **Chưa làm**: CBR/RAR/7z, ZIP mật khẩu, xuất phim, `ComicInfo.xml`, chặn zip bomb trước khi giải nén (đầy ổ ⇒ giải nén lỗi ⇒ dọn thư mục), dọn sách nhập dở khi app bị tắt giữa lúc ghi.
+- **Kiểm chứng**: đọc code + rà soát bằng agent (không thấy lỗi biên dịch; đã sửa crash CBZ > 65.535 ảnh, symlink, dịch tên sách media, tiến độ trễ); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử sheet xác nhận sau bộ chọn file, mở comic/phim vừa nhập, mov/m4v, phim vài GB, PDF webtoon dài, CBZ mở ở app khác.
+
 ## [1.3.641] - 2026-10-29
 
 ### feat: đồng bộ header, menu, danh sách panel và nhập truyện ở Kệ
@@ -403,18 +418,4 @@ Người dùng (qua `/grill-me`, 10 mục, mockup duyệt trong chat, *"làm lu�
 - CLAUDE.md + AGENTS.md: đoạn fetch → browser ẩn, vị trí `VideoMutePolicy`, màn đọc comic. Chuyển entry `[1.3.583]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Giới hạn đã biết**: cookie `cf_clearance` nằm trong kho WebKit, không sang URLSession ⇒ mỗi fetch sau tới site đó lại 403 rồi mới vào browser (chưa nhớ host bị chặn); lỗi của điều hướng phụ có thể làm browser báo lỗi nhầm; executor dùng lại (`BookDownloadWorker`) bị huỷ thì browser của lượt cũ giữ suất tới hết hạn.
 - **Kiểm chứng**: đọc code; hai agent review phản biện (service + UI) không thấy lỗi biên dịch/deadlock, đã sửa các bug hành vi nêu ra. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy**, nhất là vuốt ngang trên `ScrollView` của comic (nếu `onEnded` không tới thì chuyển sang `UIPanGestureRecognizer`), popover trong header `Form`, và các dấu hiệu Cloudflare trên site thật.
-
-## [1.3.612] - 2026-10-26
-
-### fix: Chế độ AI hết phí hạn mức khi bị Google giới hạn, tự chuyển Gemini Web hoặc tự chờ
-
-Người dùng: *"provider Chế độ AI của Goôgle dễ bị hạn chê số request quá, tìm cách fix"*; lúc bị chặn app báo "Chế độ AI của Google báo lỗi…", trang Google ghi *"Bạn hiện đã đạt đến giới hạn về số lượng yêu cầu đối với câu trả lời của AI. Hãy thử lại sau giây lát"*, xảy ra sau khi quét được một lúc. Chốt qua chất vấn: tự chờ rồi quét tiếp, giữ 2.500 chữ/lượt, **tự chuyển sang Gemini Web** (ngay khi bị giới hạn). Yêu cầu "lách" giới hạn (đổi cookie/IP/tài khoản, giả trình duyệt) — **không làm**, đã nói lý do. Plan duyệt trong chat.
-
-- **Nguyên nhân**: 1.3.609 không nhận ra câu giới hạn; `generationFailed` được gửi lại ngay, lỗi không dừng quét, cuối lần quét còn tự thử lại một vòng ⇒ đang bị giới hạn vẫn gửi đều mỗi 5 s, giới hạn kéo dài.
-- **Nhận ra giới hạn**: `GoogleAIModePageContract.rateLimitText` (trong lượt mới hoặc ngoài mọi khối lượt) ⇒ `GoogleAIModeError.rateLimited(retryAfter:)`; hạn chờ toàn cục 60 s trong `GoogleAIModeTurnQueue` (hai lượt liên tiếp "báo lỗi" ở chat hay quét cũng đặt hạn chờ này) — chat lẫn quét không gửi gì tới hạn đó, chat báo "thử lại sau m:ss"; log `❌` kèm ~160 ký tự quanh câu lỗi của trang. `generationFailed` thôi được gửi lại ngay; runner nền không gửi lại `rateLimited`.
-- **Quét**: `AINameScanProviderSwitch` + `AINameExtractionBatchProcessor+RateLimit` — `rateLimited` hoặc 2 lượt `generationFailed` liên tiếp ⇒ có profile Gemini Web thì chuyển ngay, gửi lại đúng lượt đó, phần còn lại (cả vòng tự thử lại) chạy Gemini Web, toast một lần; không có thì chờ 1 → 2 → 4 → 8 phút rồi gửi lại, hết nấc ⇒ dừng (`rateLimitExhausted`) giữ tên + điểm tiếp nối. `runTurns` đọc provider mỗi lượt.
-- **UI**: dải tiến độ trạng thái chờ (nền cam, đồng hồ cát, đếm ngược từng giây, "lần chờ i/4"), dòng phụ "Đã chuyển sang … (Chế độ AI bị giới hạn)"; tiêu đề tác vụ "Chờ Google m:ss · Batch N/T"; ghi chú ở `GoogleAIModeAccountRow`.
-- **Tên ví dụ của prompt** (thử thật: Chế độ AI trả `何老三=Hà lão tam`, `李掌柜=…` dù văn bản không có): `droppingPromptExamples` bỏ tên trùng ví dụ `X=Y` của prompt mà không có trong văn bản đã gửi — mọi provider.
-- `rules.md`: bullet "Giới hạn số câu trả lời AI" + "Tên ví dụ của prompt", sửa bullet retry. Chuyển entry `[1.3.582]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Chạy đúng script `snapshot` mới trên trang Chế độ AI thật (chèn câu giới hạn vào DOM, không gửi gì): trang thường ⇒ không báo; câu ngoài khối lượt ⇒ `limitedPage`; câu trong lượt cũ ⇒ không báo nhầm; câu trong lượt mới nhất ⇒ `limitedNewest`. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (chưa gặp lại trang giới hạn thật để biết câu nằm đâu trên DOM — log `❌ 🤖 [AIMode]` ghi đoạn chữ lúc phát hiện).
 

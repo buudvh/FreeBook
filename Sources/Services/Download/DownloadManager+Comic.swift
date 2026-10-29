@@ -10,7 +10,8 @@ import SwiftData
 ///   của nguồn; tiến độ theo chương; huỷ được; `DownloadFailureStreak.limit` chương liên tiếp lỗi thì dừng, báo
 ///   "Thất bại". Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
 /// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
-/// - Comic/video + xuất ebook: báo thất bại (UI bình thường đã ẩn các nút này).
+/// - Comic + xuất CBZ/PDF: `DownloadManager+ComicExport` (chỉ chương đã tải ảnh). Comic + định dạng chữ, video + mọi
+///   định dạng xuất: báo thất bại (UI đã lọc định dạng theo loại).
 extension DownloadManager {
     /// `true` khi tác vụ thuộc sách media và đã được xử lý trọn ở đây — caller phải `return` ngay.
     internal func executeMediaTaskIfNeeded(
@@ -22,8 +23,12 @@ extension DownloadManager {
         guard kind.isMedia else { return false }
 
         if task.taskType.isExport {
-            AppLogger.shared.log("❌ [DownloadManager] Từ chối xuất ebook cho sách \(kind.rawValue): \(task.bookTitle)")
-            await markFailed(taskId: task.id, error: "Không hỗ trợ xuất ebook cho truyện tranh/video")
+            if kind == .comic, let format = task.taskType.exportFormat, format.isComicFormat {
+                await executeComicExport(task, format: format, container: container)
+                return true
+            }
+            AppLogger.shared.log("❌ [DownloadManager] Từ chối xuất \(task.taskType.rawValue) cho sách \(kind.rawValue): \(task.bookTitle)")
+            await markFailed(taskId: task.id, error: kind == .comic ? "Truyện tranh chỉ xuất được CBZ hoặc PDF" : "Không hỗ trợ xuất file cho video")
             return true
         }
         if kind == .video {
@@ -197,7 +202,7 @@ extension DownloadManager {
     /// nằm ở đâu.
     /// Bỏ dòng tiêu đề nhóm tập (`isSection`): không có ảnh để tải. Trả kèm host sách cho fallback host và URL trang
     /// chi tiết (`detailUrl`, khoá trạng thái truyện của nguồn Legado).
-    private func comicChaptersToDownload(
+    internal func comicChaptersToDownload(
         _ task: DownloadTask,
         container: ModelContainer
     ) async throws -> (chapters: [StoredChapterSnapshot], bookHost: String?, bookUrl: String?) {

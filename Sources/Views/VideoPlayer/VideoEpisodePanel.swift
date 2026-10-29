@@ -36,7 +36,7 @@ struct VideoEpisodePanel: View {
                     VideoEpisodeGridView(
                         episodes: session.episodes,
                         currentIndex: session.currentEpisodeIndex,
-                        downloadActions: VideoEpisodeDownloadActions(session: session),
+                        downloadActions: session.isLocalMedia ? nil : VideoEpisodeDownloadActions(session: session),
                         onSelect: { episode in
                             session.selectEpisode(episode)
                             onClose()

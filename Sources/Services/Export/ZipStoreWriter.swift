@@ -20,6 +20,8 @@ final class ZipStoreWriter {
 
     /// Giới hạn của ZIP không có ZIP64.
     private static let maxSize: Int = Int(UInt32.max)
+    /// Số entry tối đa của EOCD (trường 16 bit) — CBZ truyện dài nhiều ảnh nhỏ chạm mốc này trước mốc 4 GB.
+    private static let maxEntries: Int = Int(UInt16.max)
     /// Mốc thời gian cố định 1980-01-01 00:00 — bản xuất cùng nội dung cho ra cùng byte.
     private static let dosTime: UInt16 = 0
     private static let dosDate: UInt16 = 0x0021
@@ -38,7 +40,8 @@ final class ZipStoreWriter {
     }
 
     func addEntry(name: String, data: Data) throws {
-        guard staging.bytesWritten + data.count + name.utf8.count + 30 <= Self.maxSize else {
+        guard entries.count < Self.maxEntries,
+              staging.bytesWritten + data.count + name.utf8.count + 30 <= Self.maxSize else {
             throw ExportRenderError.archiveTooLarge
         }
         let offset = UInt32(staging.bytesWritten)

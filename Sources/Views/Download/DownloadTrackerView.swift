@@ -37,7 +37,7 @@ struct DownloadTrackerView: View {
                         .font(.title3)
                         .fontWeight(.semibold)
                     
-                    Text("Các tác vụ tải truyện đọc offline và xuất ebook (TXT, EPUB, FB2, MOBI) chạy nền sẽ hiển thị ở đây.")
+                    Text("Các tác vụ tải truyện đọc offline, xuất ebook (TXT, EPUB, FB2, MOBI) và truyện tranh (CBZ, PDF) chạy nền sẽ hiển thị ở đây.")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -191,11 +191,13 @@ struct DownloadTrackerView: View {
                 }
             }
             
-            if task.status == .completed && task.taskType == .download {
+            // Theo loại nguồn: truyện chữ ⇒ ebook, truyện tranh ⇒ CBZ/PDF từ ảnh đã tải, video không xuất.
+            if task.status == .completed && task.taskType == .download,
+               let title = exportFromCachedTitle(task) {
                 Button {
                     exportFromCached(task)
                 } label: {
-                    Label("Xuất ebook từ truyện đã tải", systemImage: "square.and.arrow.up")
+                    Label(title, systemImage: "square.and.arrow.up")
                 }
             }
             
@@ -239,6 +241,14 @@ struct DownloadTrackerView: View {
             .cornerRadius(4)
     }
     
+    private func exportFromCachedTitle(_ task: DownloadTask) -> String? {
+        switch ExtensionContentKind.resolve(packageId: task.extensionPackageId) {
+        case .video: return nil
+        case .comic: return "Xuất CBZ/PDF từ ảnh đã tải"
+        case .text, .unsupported: return "Xuất ebook từ truyện đã tải"
+        }
+    }
+
     /// Mở sheet tuỳ chọn với "Chỉ xuất chương đã tải" bật sẵn.
     ///
     /// Từ 1.3.253 đường này **không** enqueue thẳng `.exportTxt` nữa: có 4 định dạng nên người dùng phải

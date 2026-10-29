@@ -228,10 +228,11 @@ struct VideoPlayerTopBar: View {
         }
     }
 
-    /// "Tải tập này" (hoặc "Xoá bản tải tập này" khi đã tải) và "Tải nhiều tập…" (sheet tải của màn hình).
+    /// "Tải tập này" (hoặc "Xoá bản tải tập này" khi đã tải) và "Tải nhiều tập…" (sheet tải của màn hình). Phim nhập từ
+    /// file không có nhóm này (`isLocalMedia`).
     @ViewBuilder
     private var downloadItems: some View {
-        if let episode = session.currentEpisode {
+        if let episode = session.currentEpisode, !session.isLocalMedia {
             let actions = VideoEpisodeDownloadActions(session: session)
             if actions.isDownloaded(episode) {
                 SideDrawerActionRow("Xoá bản tải tập này", systemImage: "trash", role: .destructive) {

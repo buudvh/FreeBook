@@ -68,6 +68,8 @@ public enum TaskType: String, Codable, Identifiable {
     case exportEpub = "Xuất ebook EPUB"
     case exportFb2 = "Xuất ebook FB2"
     case exportMobi = "Xuất ebook MOBI"
+    case exportCbz = "Xuất truyện tranh CBZ"
+    case exportPdf = "Xuất truyện tranh PDF"
     public var id: String { self.rawValue }
 
     /// Định dạng cần render; `nil` nghĩa là tác vụ chỉ tải/cache chứ không tạo file.
@@ -78,6 +80,8 @@ public enum TaskType: String, Codable, Identifiable {
         case .exportEpub: return .epub3
         case .exportFb2: return .fb2
         case .exportMobi: return .mobi
+        case .exportCbz: return .cbz
+        case .exportPdf: return .pdf
         }
     }
 

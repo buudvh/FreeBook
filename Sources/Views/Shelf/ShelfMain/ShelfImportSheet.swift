@@ -39,7 +39,7 @@ struct ShelfImportSheet: View {
                     Button {
                         onChoose(.pickFile)
                     } label: {
-                        optionLabel("Từ file", systemImage: "square.and.arrow.down", detail: "txt, epub, pdf…")
+                        optionLabel("Từ file", systemImage: "square.and.arrow.down", detail: "txt, epub, cbz, mp4…")
                     }
                     .listRowSeparator(.hidden)
                 }

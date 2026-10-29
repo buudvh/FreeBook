@@ -64,8 +64,17 @@ extension TaskOptionsSheet {
                 toc = legacyTOC()
             }
             tocChapters = toc
-            totalChapterCount = toc.count
-            cachedChapterCount = toc.filter { $0.isCached && $0.length > 0 }.count
+            if isComicExport {
+                // Truyện tranh: "đã tải" = chương có manifest ảnh offline (đọc đĩa ngoài main), bỏ dòng tiêu đề nhóm.
+                let readable = toc.filter { !$0.isSection }
+                let bookId = book.bookId
+                let downloaded = await Task.detached { ComicOfflineStore.downloadedChapterIndexes(bookId: bookId) }.value
+                totalChapterCount = readable.count
+                cachedChapterCount = readable.filter { downloaded.contains($0.index) }.count
+            } else {
+                totalChapterCount = toc.count
+                cachedChapterCount = toc.filter { $0.isCached && $0.length > 0 }.count
+            }
         }
 
         guard pickerChapters == nil, let toc = tocChapters else { return }

@@ -44,8 +44,14 @@ public final class TranslationConfigStore: @unchecked Sendable {
 
     private init() {}
 
+    /// Sách nhập từ file — chữ (`"local"`) và truyện tranh/phim (`LocalMediaPackage`): không có tiện ích nguồn để dò
+    /// `plugin.json` ⇒ theo công tắc dịch chung, không tra/ghi cache theo nguồn.
+    private static func isLocalPackage(_ packageId: String) -> Bool {
+        packageId == "local" || LocalMediaPackage.isLocalMedia(packageId: packageId)
+    }
+
     public func registerSource(packageId: String, isChinese: Bool) {
-        guard !packageId.isEmpty, packageId != "local" else { return }
+        guard !packageId.isEmpty, !Self.isLocalPackage(packageId) else { return }
         lock.lock()
         sourceIsChineseMap[packageId.lowercased()] = isChinese
         lock.unlock()
@@ -118,7 +124,7 @@ public final class TranslationConfigStore: @unchecked Sendable {
     }
 
     public func isChineseSource(packageId: String) -> Bool {
-        guard !packageId.isEmpty, packageId != "local" else { return false }
+        guard !packageId.isEmpty, !Self.isLocalPackage(packageId) else { return false }
         lock.lock()
         if let cached = sourceIsChineseMap[packageId.lowercased()] {
             lock.unlock()
@@ -181,7 +187,7 @@ public final class TranslationConfigStore: @unchecked Sendable {
             return ResolvedStatus(isEnabled: hint, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         }
 
-        if let pkgId = packageId, !pkgId.isEmpty, pkgId != "local" {
+        if let pkgId = packageId, !pkgId.isEmpty, !Self.isLocalPackage(pkgId) {
             let isChinese = isChineseSource(packageId: pkgId)
             return ResolvedStatus(isEnabled: isChinese, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
         }
