@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.648] - 2026-10-29
+
+### fix: widget nổi luôn nằm trên ngăn kéo menu
+
+Người dùng: *"bạn sửa gì mà widget tts và widget khác bị che bởi ngăn kéo "…""* → chọn *"Widget nổi trên"*.
+
+- **Nguyên nhân**: từ 1.3.628 cửa sổ ngăn kéo ở level `alert - 0.5`, **trên** widget TTS (`alert - 1`), hub (`alert - 2`), trình duyệt thu nhỏ (`alert - 3`), lớp tối 30% của nó phủ cả màn. Trước 1.3.645 nền ngăn kéo không thật sự nhoè (kính iOS bị giảm độ hiện) nên vẫn nhìn xuyên thấy widget; từ khi nền nhoè thật (1.3.645 ảnh chụp, 1.3.647 kính 6 nấc) widget dưới vùng ngăn kéo bị che hẳn.
+- **Sửa**: `SideDrawerMenuWindowManager` đặt cửa sổ ngăn kéo ở `alert - 3.5` — dưới cả ba widget và toast ⇒ widget luôn nổi trên ngăn kéo và lớp tối, bấm được bình thường (như thời `fullScreenCover`). Đánh đổi: widget ở mép phải có thể che vài hàng menu.
+- Chuyển entry `[1.3.618]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở ngăn kéo khi widget TTS / hub đang hiện, bấm widget lúc ngăn kéo mở.
+
 ## [1.3.647] - 2026-10-29
 
 ### fix: ngăn kéo menu bỏ ảnh chụp nền, độ đục theo 6 nấc kính như nút nổi
@@ -386,18 +397,5 @@ Người dùng: *"sửa sheet sửa từ và thêm từ của vp/name hiển th�
 - **Sheet thêm thay thế TTS** (`AddTTSReplacementSheet`): badge R/C lên góc trên phải, đổi sang màu của panel Dịch (R đỏ, C xám đậm) thay cho xanh ngọc/xanh dương; chip của rule đang tắt vẫn mờ.
 - **Menu ba chấm của tab Kệ**: thêm "Hiện nội dung NSFW" / "Ẩn nội dung NSFW" ngay dưới mục Dịch nghĩa — công tắc NSFW toàn app, chung khoá với Cài đặt và nút NSFW của Khám phá.
 - Chuyển entry `[1.3.589]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.618] - 2026-10-27
-
-### fix: rule <vp> tách rời chữ có dấu thành từng mảnh
-
-Người dùng: *"五绝级别 / <vp>级别 / -> Ng ũ tuy ệ t cấp bậc / fix lỗi này"*; duyệt plan.
-
-- **Nguyên nhân**: nghĩa từ điển của 五绝 lưu dạng dấu rời (NFD: "u" + U+0303 thay vì "ũ"). Rule ghép nghĩa vào dòng, rồi dòng được tách token lại bằng `VietPhraseTokenizer`; `isLatinLetterOrNumber` chỉ nhận ký tự đúng **một** scalar, nên chữ có dấu rời rơi xuống nhánh dấu câu và bị chèn dấu cách hai bên.
-- **`QuickTranslationCompiledRule.render(captures:)`**: kết quả chuẩn hoá NFC (`precomposedStringWithCanonicalMapping`) — áp cho mọi token `<vp>`, `<ne>`, `<pn>`, `<w>` lẫn chữ gõ trong rule; màn chẩn đoán và thử rule thấy cùng chuỗi.
-- **`VietPhraseTokenizer.isLatinLetterOrNumber`**: nhận thêm chữ Latin kèm dấu thuộc khối Combining Diacritical Marks (U+0300–U+036F), vẫn xét theo chữ gốc như cũ; chữ số kèm dấu và emoji nhiều scalar vẫn không phải chữ. Hàm dùng chung với `TranslateUtils.translateAuthorHanViet`, nên tên tác giả có chữ dấu rời cũng không còn bị tách.
-- Dữ liệu từ điển trên máy không đổi.
-- Chuyển entry `[1.3.588]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 
