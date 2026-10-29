@@ -237,7 +237,7 @@ struct DictionaryImportConflictView: View {
         ToolbarItemGroup(placement: .topBarTrailing) {
             if case .ready = phase {
                 Button("Áp dụng (\(selection.count))") { apply() }
-                    .fontWeight(.semibold)
+                    .headerTextButton()
                     .disabled(selection.isEmpty)
             }
         }

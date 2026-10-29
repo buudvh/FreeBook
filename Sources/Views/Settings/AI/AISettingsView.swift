@@ -269,7 +269,7 @@ public struct AISettingsView: View {
                 }
             }
         }
-        .pageTitle("Cấu hình AI", isVisible: isPresentedAsSheet)
+        .pageTitle("Cấu hình AI", style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddProviderSheet = true }) {

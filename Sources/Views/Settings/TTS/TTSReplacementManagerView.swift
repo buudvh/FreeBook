@@ -130,7 +130,7 @@ struct TTSReplacementManagerView: View {
             // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
             if searching { editMode = .inactive }
         }
-        .pageTitle(layerTitle, isVisible: isPresentedAsSheet)
+        .pageTitle(layerTitle, style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -269,6 +269,7 @@ struct TTSReplacementManagerView: View {
                     Button("Lưu") {
                         saveRule()
                     }
+                    .headerTextButton()
                     .disabled(patternInput.isEmpty)
                 }
             }

@@ -212,7 +212,7 @@ struct DiscoveryView: View {
                                                 selectedCategoryId = genresTabId
                                             }) {
                                                 Image(systemName: "tag")
-                                                    .font(.system(size: 16, weight: .medium))
+                                                    .font(.system(size: 17, weight: .semibold))
                                                     .foregroundColor(isGenresSelected ? .white : .secondary)
                                                     .frame(width: 36, height: 36)
                                                     .background(isGenresSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))

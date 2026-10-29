@@ -20,7 +20,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
             }
         }
         .backPageTitle("Thứ tự ưu tiên rule")
-        .toolbar { EditButton() }
+        .toolbar { EditButton().headerTextButton() }
         .onChange(of: configuration) { _, newValue in
             QuickTranslationRulePriorityConfiguration.storeGlobal(newValue)
             // Đúng khuôn `QuickTranslationRuleTokenSettingsView`: dọn cache dịch rồi phát **một**

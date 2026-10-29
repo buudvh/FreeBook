@@ -98,6 +98,7 @@ public struct BrowserHistorySheetView: View {
                         Button("Xóa tất cả") {
                             showingClearConfirmation = true
                         }
+                        .headerTextButton()
                         .foregroundColor(.red)
                     }
                 }

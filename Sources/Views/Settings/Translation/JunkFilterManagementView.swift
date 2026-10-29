@@ -287,6 +287,7 @@ struct JunkFilterManagementView: View {
                     Button("Lưu") {
                         saveRule()
                     }
+                    .headerTextButton()
                     .disabled(patternInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

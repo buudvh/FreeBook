@@ -86,7 +86,7 @@ public struct GoogleAccountsView: View {
             }
         }
         .backPageTitle("Tài khoản Google")
-        .toolbar { EditButton() }
+        .toolbar { EditButton().headerTextButton() }
         .task { await refresh() }
         .onReceive(NotificationCenter.default.publisher(for: AISettingsStore.didChangeNotification)) { _ in
             config = AISettingsStore.shared.loadConfiguration()

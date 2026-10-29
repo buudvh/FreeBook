@@ -1,23 +1,25 @@
 import SwiftUI
 
-/// Chuẩn tiêu đề trang của app (1.3.641): **một** cỡ cho mọi tab gốc và sheet — chữ 22pt đậm, nằm **bên trái**
-/// thanh điều hướng, một dòng (thu nhỏ tới 80% rồi cắt đuôi). Trang có nút back thì **không** hiện tiêu đề.
+/// Chuẩn tiêu đề trang của app (1.3.641, ba kiểu từ 1.3.652): **một** cỡ chữ 22pt đậm, một dòng (thu nhỏ tới 80% rồi
+/// cắt đuôi). Tab gốc và sheet: tiêu đề **bên trái** (`.leading`). Trang có nút back: tiêu đề **giữa** (`.centered`).
+/// `.hidden` = không hiện tiêu đề nào (Chi tiết truyện).
 ///
 /// - Luôn gắn `.navigationTitle` thật: VoiceOver đọc được tên màn và menu nhấn giữ nút back vẫn liệt kê đúng tên.
-/// - Tiêu đề hệ thống (căn giữa, 17pt) bị thay bằng một ô `principal` rỗng nên không bao giờ hiện chồng lên.
+/// - Tiêu đề hệ thống (căn giữa, 17pt) bị thay bằng ô `principal` của mình (chữ 22pt ở `.centered`, ô rỗng ở hai kiểu
+///   còn lại) nên không bao giờ hiện chồng lên.
 /// - Icon header vẫn theo chuẩn `.system(size: 17, weight: .semibold)` ⇒ tiêu đề luôn to và đậm hơn icon.
 ///
 /// ```swift
 /// SettingsList()
-///     .pageTitle("Cài đặt")                 // tab gốc / sheet
+///     .pageTitle("Cài đặt")                 // tab gốc / sheet: trái
 /// DetailList()
-///     .backPageTitle("Giao diện")           // trang đẩy vào, có nút back
+///     .backPageTitle("Giao diện")           // trang đẩy vào, có nút back: giữa
 /// TTSSettingsList()
-///     .pageTitle("Cài đặt TTS", isVisible: isPresentedAsSheet)   // màn mở được cả hai kiểu
+///     .pageTitle("Cài đặt TTS", style: isPresentedAsSheet ? .leading : .centered)   // màn mở được cả hai kiểu
 /// ```
 struct PageTitleModifier: ViewModifier {
     let title: String
-    let isVisible: Bool
+    let style: PageTitleStyle
 
     static let fontSize: CGFloat = 22
 
@@ -27,33 +29,41 @@ struct PageTitleModifier: ViewModifier {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .accessibilityHidden(true)
+                    if style == .centered {
+                        titleText
+                    } else {
+                        Color.clear
+                            .frame(width: 1, height: 1)
+                            .accessibilityHidden(true)
+                    }
                 }
-                if isVisible {
+                if style == .leading {
                     ToolbarItem(placement: .topBarLeading) {
-                        Text(title)
-                            .font(.system(size: Self.fontSize, weight: .bold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .truncationMode(.tail)
-                            .accessibilityAddTraits(.isHeader)
+                        titleText
                     }
                 }
             }
     }
+
+    private var titleText: some View {
+        Text(title)
+            .font(.system(size: Self.fontSize, weight: .bold))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .truncationMode(.tail)
+            .accessibilityAddTraits(.isHeader)
+    }
 }
 
 extension View {
-    /// Tiêu đề trái 22pt đậm cho tab gốc và sheet. `isVisible: false` = trang có nút back (chỉ giữ `navigationTitle`).
-    func pageTitle(_ title: String, isVisible: Bool = true) -> some View {
-        modifier(PageTitleModifier(title: title, isVisible: isVisible))
+    /// Tiêu đề 22pt đậm. Mặc định `.leading` (tab gốc, gốc sheet); màn mở được cả hai kiểu truyền `style:`.
+    func pageTitle(_ title: String, style: PageTitleStyle = .leading) -> some View {
+        modifier(PageTitleModifier(title: title, style: style))
     }
 
-    /// Trang đẩy vào (có nút back): không hiện tiêu đề, vẫn giữ `navigationTitle` cho VoiceOver và menu nút back.
+    /// Trang đẩy vào (có nút back): tiêu đề 22pt đậm nằm giữa thanh điều hướng.
     func backPageTitle(_ title: String) -> some View {
-        modifier(PageTitleModifier(title: title, isVisible: false))
+        modifier(PageTitleModifier(title: title, style: .centered))
     }
 }

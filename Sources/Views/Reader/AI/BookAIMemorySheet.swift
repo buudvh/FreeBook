@@ -160,7 +160,7 @@ public struct BookAIMemorySheet: View {
                     Button("Lưu") {
                         saveMemory()
                     }
-                    .bold()
+                    .headerTextButton()
                 }
             }
             .onAppear {

@@ -363,8 +363,8 @@ struct TTSSettingsView: View {
                 }
             }
         }
-        // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ chỉ nút back.
-        .pageTitle("Cài đặt TTS", isVisible: isPresentedAsSheet)
+        // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ tiêu đề giữa.
+        .pageTitle("Cài đặt TTS", style: isPresentedAsSheet ? .leading : .centered)
         .tint(.white)
         .onAppear {
             self.hasResumed = false

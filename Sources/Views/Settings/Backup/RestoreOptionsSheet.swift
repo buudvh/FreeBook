@@ -65,6 +65,7 @@ struct RestoreOptionsSheet: View {
                             restoreSettings: restoreSettings
                         ))
                     }
+                    .headerTextButton()
                 }
             }
         }

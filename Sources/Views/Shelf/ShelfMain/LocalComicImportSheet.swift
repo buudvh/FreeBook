@@ -59,7 +59,7 @@ struct LocalComicImportSheet: View {
                         onConfirm(trimmedTitle)
                         dismiss()
                     }
-                    .fontWeight(.bold)
+                    .headerTextButton()
                     .disabled(trimmedTitle.isEmpty)
                 }
             }

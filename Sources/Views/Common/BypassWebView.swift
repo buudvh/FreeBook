@@ -129,7 +129,7 @@ struct BypassWebView: View {
                     Button {
                         openNewTab()
                     } label: {
-                        Image(systemName: "plus.square.on.square")
+                        Image(systemName: "plus.square")
                             .font(.system(size: 17, weight: .semibold))
                     }
                     .disabled(!store.canOpenMoreTabs)
@@ -137,7 +137,7 @@ struct BypassWebView: View {
                     Button("Xong") {
                         dismiss()
                     }
-                    .fontWeight(.bold)
+                    .headerTextButton()
                 }
             }
             .confirmationDialog("Chọn nguồn import", isPresented: $showingSourcePicker, titleVisibility: .visible) {

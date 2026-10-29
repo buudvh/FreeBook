@@ -206,12 +206,10 @@ public struct ReaderAIFullScreenView: View {
                     .accessibilityLabel("Tuỳ chọn Trợ lý AI")
 
                     Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.down")
+                        Image(systemName: "chevron.down.circle")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
-                            .background(Color(white: 0.18))
-                            .clipShape(Circle())
                     }
                     .accessibilityLabel("Đóng Trợ lý AI")
                 }

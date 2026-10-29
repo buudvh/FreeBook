@@ -223,6 +223,7 @@ struct TOCRulesConfigView: View {
                     Button("Lưu") {
                         saveRuleFromForm()
                     }
+                    .headerTextButton()
                     .disabled(!isNameValid || !isRuleValid)
                 }
             }

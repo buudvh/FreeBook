@@ -109,6 +109,7 @@ struct VieNeuVoiceCreatorView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") { save() }
+                        .headerTextButton()
                         .disabled(!canSave)
                 }
             }

@@ -52,6 +52,7 @@ struct BookInfoEditView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lưu") { save() }
+                        .headerTextButton()
                         .disabled(isSaving || isLoadingPickedImage || trimmedTitle.isEmpty)
                 }
             }

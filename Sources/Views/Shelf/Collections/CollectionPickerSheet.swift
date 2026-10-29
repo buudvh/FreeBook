@@ -68,6 +68,7 @@ struct CollectionPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Xong") { commit() }
+                        .headerTextButton()
                 }
             }
         }

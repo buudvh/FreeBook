@@ -134,6 +134,7 @@ struct AddWordSheet: View {
                         Button("Lưu vào VieNeu-TTS") { save(.vieNeu) }
                         Button("Lưu tất cả") { save(.both) }
                     }
+                    .headerTextButton()
                     .disabled(!canSave)
                 }
             }

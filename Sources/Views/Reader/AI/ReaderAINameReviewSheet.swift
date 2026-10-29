@@ -87,6 +87,7 @@ public struct ReaderAINameReviewSheet: View {
                         Button("Lưu vào Name riêng") { requestSave(isName: true) }
                         Button("Lưu vào VP riêng") { requestSave(isName: false) }
                     }
+                    .headerTextButton()
                     .disabled(selectedCount == 0)
                 }
             }

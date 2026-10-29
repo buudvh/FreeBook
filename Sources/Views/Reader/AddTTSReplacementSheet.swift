@@ -108,6 +108,7 @@ struct AddTTSReplacementSheet: View {
                             .disabled(!hasBookLayer)
                         Button("Lưu chung — mọi truyện") { save(.global) }
                     }
+                    .headerTextButton()
                     .disabled(pattern.trimmed.isEmpty)
                 }
             }

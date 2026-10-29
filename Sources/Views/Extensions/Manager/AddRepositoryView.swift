@@ -29,6 +29,7 @@ public struct AddRepositoryView: View {
                         onAdd(name, url)
                         dismiss()
                     }
+                    .headerTextButton()
                     .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

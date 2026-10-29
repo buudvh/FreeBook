@@ -84,6 +84,7 @@ public struct TranslationScopeManagementView: View {
             if !sourcePackageIds.isEmpty || !bookIds.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
+                        .headerTextButton()
                 }
             }
         }

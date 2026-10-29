@@ -580,6 +580,7 @@ struct EditWordSheet: View {
                         onSave(value)
                         dismiss()
                     }
+                    .headerTextButton()
                     .disabled(value.trimmed.isEmpty)
                 }
             }

@@ -210,6 +210,7 @@ struct QuickTranslationRuleEditorSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     saveControl
+                        .headerTextButton()
                 }
             }
             .onAppear {

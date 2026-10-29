@@ -51,7 +51,7 @@ struct LegadoURLImportSheet: View {
                         onConfirm()
                         dismiss()
                     }
-                    .fontWeight(.bold)
+                    .headerTextButton()
                     .disabled(trimmedURL.isEmpty)
                 }
             }

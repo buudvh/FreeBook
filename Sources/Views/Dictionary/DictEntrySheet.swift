@@ -112,6 +112,7 @@ public struct DictEntrySheet: View {
                     Button("Lưu") {
                         handleSave()
                     }
+                    .headerTextButton()
                     .disabled(isSaveDisabled)
                 }
             }

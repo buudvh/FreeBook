@@ -155,10 +155,9 @@ public struct ExtensionScriptEditorView: View {
             .toolbar {
                 // Không còn nút Đóng: vuốt xuống để đóng, có chỉnh sửa chưa lưu thì hỏi "Bỏ thay đổi?" (bên dưới).
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: { _ = saveCurrentScript() }) {
-                        Text("Lưu").fontWeight(.bold)
-                    }
-                    .disabled(!hasUnsavedChanges || scriptFiles.isEmpty)
+                    Button("Lưu") { _ = saveCurrentScript() }
+                        .headerTextButton()
+                        .disabled(!hasUnsavedChanges || scriptFiles.isEmpty)
                 }
             }
             .onAppear {

@@ -41,7 +41,7 @@ struct SearchEnginesConfigView: View {
         }
         // "Thêm công cụ mới" là nút "+" nổi góc dưới phải (trước đây là hàng cuối danh sách).
         .floatingAddButton("Thêm công cụ") { prepareForAdd() }
-        .pageTitle("Công cụ tra cứu nhanh", isVisible: isPresentedAsSheet)
+        .pageTitle("Công cụ tra cứu nhanh", style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
@@ -75,6 +75,7 @@ struct SearchEnginesConfigView: View {
                             saveEngine()
                             showingAddEditSheet = false
                         }
+                        .headerTextButton()
                         .disabled(inputName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                                   inputTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                                   !inputTemplate.contains("%s"))

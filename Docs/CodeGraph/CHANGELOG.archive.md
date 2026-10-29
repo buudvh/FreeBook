@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.622] - 2026-10-28
+
+### feat: menu ba chấm thành ngăn kéo kính mờ, lưu tên AI tự gộp khi không trùng
+
+Người dùng: *"tôi muốn sửa tất cả menu dropdown thành dạng chạy từ bên phải qua"*; chọn kiểu ngăn kéo cao toàn màn, phạm vi *"menu ba chấm và menu ở khám phá cạnh nút search"*, mục bật/tắt là công tắc, *"đừng trong suốt quá, phải nhìn rõ chữ, chữ cố gắng đừng xuống hàng"*, *"bỏ dấu x trên menu đi, bấm ra ngoài menu tắt là được"*; duyệt mockup. Thêm: *"khi bấm lưu ở danh sách name của AI, nếu toàn là từ không có trong danh sách thì không cần hiển thị menu hỏi gộp hay thay thế, luôn chọn gộp"*.
+
+- **Component ngăn kéo** (`Views/Common/SideDrawerMenu/`, 12 file mới): `.sideDrawerMenu(isPresented:title:)`, biến thể `item:` cho menu theo từng hàng danh sách, `SideDrawerMenuButton` cho hàng của view chỉ là một `Section`. Hàng: `SideDrawerActionRow` (đóng ngăn kéo **trước**, action chạy trong `onDismiss` của cover sau một nhịp runloop — sheet/alert/bộ chọn tệp/điều hướng không bị hụt; `role: .destructive` đỏ; `.disabled` tự mờ), `SideDrawerToggleRow` (đổi ngay, ngăn kéo vẫn mở, công tắc `SwitchToggleStyle(tint: Color(white: 0.35))` như cả app), `SideDrawerOptionRow` (hàng chọn có dấu tích), `SideDrawerSectionHeader`, `SideDrawerDivider`.
+- **Hình thức**: `fullScreenCover` nền `.clear`, tắt hiệu ứng mặc định, tự trượt vào từ phải; rộng 78% (tối đa 360pt), bo góc trái 16, viền trái trắng 14%; nền `.ultraThinMaterial` chồng lớp tối 84%, ép tông tối để chữ trắng đọc rõ; phần còn lại phủ đen 30%. Đóng bằng chạm ra ngoài hoặc vuốt sang phải — **không** có nút ✕. Chữ một dòng (co tới 80%), hàng cao ≥ 46pt.
+- **Ngăn kéo gắn ở thân màn, không trong `ToolbarItem`** (tránh bug màn trắng 1.3.281); nút "…" giữ nguyên hình/cỡ, chỉ đổi từ `Menu` sang `Button`.
+- **Các màn đã đổi** (giữ nguyên mục, thứ tự, điều kiện, disabled, destructive): Kệ ("Tuỳ chọn Kệ": nhóm Hiển thị có công tắc **Dịch nghĩa** và **Nội dung NSFW**, nhóm Thao tác), Chi tiết truyện (tiêu đề = tên truyện), Từ điển, Kho tiện ích (tab Tất cả tiện ích — gồm mục **Kiểm tra tiện ích đang hiện** của 1.3.621 — và tab Legado), Trợ lý AI, Reader, Công cụ tra cứu, Lọc rác, Rule nhanh, Quy tắc TOC, TTS thay thế, từ điển TTS (menu con "Xuất từ điển" thành nhóm 3 hàng), VieNeu phiên âm, thư viện giọng VieNeu (menu theo hàng), Sao lưu máy và Google Drive (menu theo hàng), Bộ sưu tập, Thông báo, trình phát video (Khung hình / Server / Chất lượng thành nhóm hàng chọn; menu tốc độ, khung hình, server lúc nằm ngang vẫn là `Menu`), menu nguồn cạnh nút tìm của Khám phá ("Dịch văn bản" có chữ phụ Đang bật/Đang tắt, popover dịch mở sau khi ngăn kéo đóng). "Sắp xếp lại" và "Bật/Tắt tất cả" của Legado giữ là hàng thao tác (chế độ/thao tác hàng loạt, không phải một cờ). Không đổi: menu Lưu trong sheet, `Picker`, `contextMenu`.
+- **Lưu tên AI** (`ReaderAINameReviewSheet.requestSave`): không từ đang chọn nào có sẵn trong **từ điển đích** (`hasInBookNames` / `hasInBookVP`) ⇒ gộp luôn, không hỏi; có ít nhất một từ trùng mới hiện hộp Gộp / Thay thế hoàn toàn.
+- Rủi ro chưa kiểm trên máy: cover có thật trong suốt với `.presentationBackground(.clear)`; khung hình đầu của hiệu ứng trượt; thanh trạng thái có thể hiện lại ở Reader/video khi ngăn kéo mở; xoay máy khi ngăn kéo mở ở trình phát; bàn phím của ô tìm đang focus đè lên ngăn kéo.
+- Chuyển entry `[1.3.592]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code (component + từng màn); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.621] - 2026-10-28
 
 ### feat: bộ kiểm tra tiện ích JS chạy đủ script khai trong plugin.json

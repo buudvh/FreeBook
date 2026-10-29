@@ -121,7 +121,7 @@ struct TaskOptionsSheet: View {
                         startTask()
                         dismiss()
                     }
-                    .fontWeight(.bold)
+                    .headerTextButton()
                 }
             }
         }

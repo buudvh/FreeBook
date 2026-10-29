@@ -132,7 +132,7 @@ struct SearchView: View {
                     searchHistoryView
                 }
             }
-            .pageTitle("Tìm Kiếm", isVisible: isPresentedAsSheet)
+            .pageTitle("Tìm Kiếm", style: isPresentedAsSheet ? .leading : .centered)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let scope = singleSourceLayoutScope {

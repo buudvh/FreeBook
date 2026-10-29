@@ -50,9 +50,10 @@ struct LegadoSourceJSONEditorView: View {
                             if isSaving {
                                 ProgressView()
                             } else {
-                                Text("Lưu").fontWeight(.bold)
+                                Text("Lưu")
                             }
                         }
+                        .headerTextButton()
                         .disabled(!hasChanges || isSaving || isLoading)
                     }
                 }

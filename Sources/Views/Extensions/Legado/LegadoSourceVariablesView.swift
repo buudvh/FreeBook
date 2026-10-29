@@ -51,9 +51,10 @@ struct LegadoSourceVariablesView: View {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Text("Lưu").fontWeight(.bold)
+                        Text("Lưu")
                     }
                 }
+                .headerTextButton()
                 .disabled(isLoading || isSaving || value == savedValue)
             }
         }

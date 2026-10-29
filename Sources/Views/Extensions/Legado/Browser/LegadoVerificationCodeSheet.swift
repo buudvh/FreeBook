@@ -40,7 +40,7 @@ struct LegadoVerificationCodeSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xác nhận") { finish(code) }
-                        .fontWeight(.semibold)
+                        .headerTextButton()
                         .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
