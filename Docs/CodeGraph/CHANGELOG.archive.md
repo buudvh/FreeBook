@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.617] - 2026-10-27
+
+### fix: một provider Chế độ AI chứa nhiều tài khoản Google, xoay vòng trong provider
+
+Người dùng sau `[1.3.615]`: *"bạn đang làm mỗi tài khoản thành 1 provider rồi, tôi muốn là 1 provider gồm nhiều tài khoản xoay tua mà"*. Plan: `Docs/Plans/2026-10-27-plan-google-ai-mode-accounts-in-provider.md`.
+
+- **Mô hình đúng**: `GoogleAccount` (`id`, `profileId`, `label`, `order`, cookie, `sessionFingerprint`) sống **trong** một provider `googleAIMode`; `GoogleAccountStore` giữ một item Keychain **mỗi tài khoản** (khoá `accountId`), thứ tự xoay = `order`. Danh sách profile trong Cấu hình AI trở lại "mỗi provider một dòng".
+- **Bỏ mô hình sai của 1.3.615**: xoá `GoogleAccountSnapshot`/`GoogleAccountSnapshotStore` (khoá theo `profileId`), xoá `AIConfiguration.moveGoogleAIModeProfiles` (đổi thứ tự xoay không còn là hoán vị profile).
+- **Xoay trong provider**: `GoogleAccountRotation.rotateToNextAccount() -> GoogleAccount?` vòng tròn theo `order` trong provider đang dùng, `limitedAccountIds` thay `limitedProfileIds`; **không** còn `AISettingsStore.setActiveProfile` ⇒ Cài đặt không tự nhảy provider. Fallback giữ nguyên: hết tài khoản → Gemini Web → chờ 1→2→4→8 phút.
+- **Quét tên + chat Reader**: tráo `apply(account:)` rồi gửi lại đúng lượt; chat vẫn xoá `mstk` của phiên để mở cuộc chat mới, chỉ tráo khi chưa phát chữ nào.
+- **Màn Tài khoản Google**: liệt kê tài khoản **của provider đang chọn** (kèm dòng "Provider: …"), chạm một dòng = tráo phiên sang tài khoản đó, kéo ≡ đổi thứ tự xoay, swipe **Đổi tên** / **Xoá**, "+ Thêm tài khoản Google" hỏi tên rồi đăng nhập (không sinh profile mới); huỷ giữa chừng thì khôi phục phiên cũ.
+- **Đăng xuất / xoá**: `signOut` xoá mọi tài khoản cùng phiên (khớp `sessionFingerprint`) ở mọi provider; xoá provider Chế độ AI xoá toàn bộ tài khoản của nó.
+- **Di trú (một lần, `FreeBook_GoogleAccountModel_V2`)**: item Keychain kiểu 1.3.615 (khoá `profileId`) → tài khoản của provider đang chọn, nhãn = tên profile cũ, xoá item cũ sau khi ghi; profile thừa **không** bị xoá. Chưa có tài khoản nào mà kho đang đăng nhập ⇒ thêm "Tài khoản 1".
+- **Kiểm chứng**: `check_architecture.py` **2 violation nền, 0 mới**. Không build tại chỗ (Windows, không có xcodegen) — CI là cổng biên dịch; **chưa thử trên máy** (cần 2 tài khoản Google thật để thử tráo phiên).
+
 ## [1.3.615] - 2026-10-27
 
 ### feat: tự xoay tài khoản Google cho Chế độ AI khi bị giới hạn

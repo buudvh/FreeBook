@@ -18,12 +18,20 @@ struct ShelfImportSheet: View {
 
     let onChoose: (Choice) -> Void
 
+    /// Nấc gọn của bước đầu: thanh kéo + tiêu đề + ba hàng (1.3.646 — `.medium` cũ cao quá so với ba hàng).
+    private static let compactDetent = PresentationDetent.height(300)
+
+    /// Nấc đang dùng: bước đầu gọn; bước "Từ URL" (có bàn phím + danh sách nguồn khớp) lên `.large`, quay lại thì về gọn.
+    @State private var detent = Self.compactDetent
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     NavigationLink {
                         ShelfImportURLStep(onChoose: onChoose)
+                            .onAppear { detent = .large }
+                            .onDisappear { detent = Self.compactDetent }
                     } label: {
                         optionLabel("Từ URL", systemImage: "link")
                     }
@@ -47,7 +55,7 @@ struct ShelfImportSheet: View {
             .listStyle(.insetGrouped)
             .pageTitle("Nhập truyện")
         }
-        .presentationDetents([.medium])
+        .presentationDetents([Self.compactDetent, .large], selection: $detent)
         .presentationDragIndicator(.visible)
     }
 
