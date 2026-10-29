@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.614] - 2026-10-27
+
+### feat: nút mở link lỗi ở các màn báo lỗi, ghim NE/VP R/C kiểu bìa Kệ
+
+Người dùng (qua `/grill-me`, mockup duyệt trong chat, plan `Docs/Plans/2026-10-27-plan-mo-link-loi.md` duyệt): *"thêm nút mở link lỗi cho những chỗ báo lỗi trên màn hình chi tiết, reader, khám phá, thể loại, ..."*; chốt: mục đích **giải chặn rồi thử lại**, mở **URL fetch lỗi thật** (rồi fetch gần nhất, rồi URL đầu vào), thêm Comic + Video, Tìm kiếm một nguồn, Gợi ý / Bình luận (không Tải truyện), mở bằng `BypassWebView`. Kèm: *"sửa lại icon ghim ở VP/NE R/C của màn hình dịch giống cover ở kệ sách"* — góc trên phải, nghiêng 20°.
+
+- **Mang URL lên màn hình**: `JSExecutor+FetchTrace` ghi URL fetch lỗi / fetch gần nhất của lượt chạy (sau fallback browser ẩn; tên miền chặn sẵn không ghi; xoá ở `beginExecution()` nên executor dùng lại không rò). `ExtensionLoadError` bọc lỗi của 10 hàm chạy script trong `ExtensionManager` (`+Explore`, `+Media`) — chữ lỗi giữ nguyên, không bọc `CancellationError`, không in URL khi nội suy; `unwrapped(_:)` bóc lớp. `SourceErrorLink.resolve(from:fallback(s):host:)` chọn link: fetch lỗi → fetch gần nhất → URL lỗi Legado → URL đầu vào (http(s), `//`, `/` theo host; mẫu `{0}`/từ khoá bị loại ⇒ ẩn nút).
+- **UI chung** (`Sources/Views/Common/ErrorLink/`): `ErrorLinkButton` (capsule / viền / icon), `ErrorLinkCaption` (dòng URL xám host+path), `.errorLinkBrowser(link:packageId:onRetry:)` mở `BypassWebView(forcesMobileUserAgent: true)` (UA điện thoại như `fetch`, công tắc máy tính khoá) — đóng ⇒ `WebKitCookieBridge` chép cookie WebKit của tên miền sang `HTTPCookieStorage.shared` và `LegadoCookieJar` (nguồn Legado) ⇒ toast "Đang thử lại…" ⇒ thử lại đúng hành động của màn. Màn bên dưới không tự tải lại khi hiện lại sau trình duyệt.
+- **Màn có nút**: Chi tiết (lỗi chi tiết toàn màn + header, mục lục chữ chưa/đã có chương — nút tròn la bàn, mục lục video, Gợi ý, Bình luận, Tất cả bình luận); Reader chữ (URL **chương đích** bị lỗi — sửa luôn chỗ "Mở bằng trình duyệt" mở nhầm chương cũ); Khám phá (danh mục hiện **lỗi thật** thay "Extension thiếu home và genres" khi script có khai mà lỗi, thêm Thử lại; tab home; section explore; tab Legado); Thể loại / Xem thêm (`PaginatedNovelLoader.errorLink`); Comic; Video (server rỗng / link phát / phát lỗi / trang nhúng); Tìm kiếm một nguồn (lỗi tìm + lỗi đổi nguồn, trừ lỗi khác loại nội dung). Không gắn: tab Tải, Tìm mọi nguồn, lỗi chỉ toast, lỗi không do nguồn.
+- **Ghim NE/VP R/C**: `CoverPinBadge` thêm `angle` / nhãn trợ năng (Kệ giữ 35°); `dictSegmentButton` bỏ ghim trắng trước chữ, đặt ghim cam ở góc trên phải nút, 20°, đường kính 15; nhóm nút đổi `.cornerRadius` sang nền bo góc để ghim không bị cắt.
+- CLAUDE.md + AGENTS.md: đoạn "Nút Mở link lỗi" (cách nối cho màn lỗi mới). Chuyển entry `[1.3.584]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Giới hạn đã biết**: chép cookie có thể chưa đủ để URLSession qua Cloudflare (vân tay kết nối khác Safari) — fallback browser ẩn vẫn dùng cookie WebKit; nguồn Legado gửi UA Chrome Android khác UA iPhone của trình duyệt nên clearance gắn UA có thể không dùng lại được; fetch chạy lúc nạp script không có dấu vết ⇒ rơi về URL đầu vào.
+- **Kiểm chứng**: đọc code; hai agent review phản biện (service + UI) không thấy lỗi biên dịch, đã sửa các bug hành vi nêu ra. `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; **chưa thử trên máy** (nhất là `fullScreenCover` có làm màn bên dưới chạy lại `onAppear` hay không, 3 cover nối nhau ở màn Chi tiết, và nguồn Cloudflare thật).
+
 ## [1.3.613] - 2026-10-27
 
 ### feat: fetch lỗi thử lại bằng browser ẩn, mục lục comic như truyện chữ, badge R/C, hỏi lại bỏ kệ

@@ -81,11 +81,21 @@ enum LocalMediaImportWorkspace {
         FileManager.default.temporaryDirectory.appendingPathComponent(folderName, isDirectory: true)
     }
 
-    /// So trên đường dẫn đã chuẩn hoá (bỏ `..`), không resolve symlink: gốc và đích đều dựng từ cùng
-    /// `temporaryDirectory`, còn file đích có thể chưa tồn tại (resolve hai bên sẽ lệch tiền tố `/private`).
+    /// Đường dẫn có nằm dưới `LocalMediaImport/` không.
+    ///
+    /// iOS trả `temporaryDirectory` dạng `/private/var/…`, và cả `standardizedFileURL` lẫn `resolvingSymlinksInPath`
+    /// chỉ bỏ tiền tố `/private` khi đường dẫn **đang tồn tại**. File đích (chưa tạo) mà chuẩn hoá trực tiếp thì giữ
+    /// `/private`, còn gốc (đã có) thì không ⇒ lệch tiền tố, mọi file bị từ chối (lỗi 1.3.642). Vì vậy chỉ chuẩn hoá
+    /// **thư mục cha** (luôn đã tồn tại lúc gọi) theo cùng cách với gốc rồi ghép tên; tên rỗng / `.` / `..` bị từ chối.
     private static func isInside(_ url: URL) -> Bool {
-        let root = rootURL().standardizedFileURL.path
-        let target = url.standardizedFileURL.path
-        return target.hasPrefix(root + "/")
+        let name = url.lastPathComponent
+        guard !name.isEmpty, name != ".", name != "..", !name.contains("/") else { return false }
+        let root = resolvedPath(rootURL())
+        let parent = resolvedPath(url.deletingLastPathComponent())
+        return (parent + "/" + name).hasPrefix(root + "/")
+    }
+
+    private static func resolvedPath(_ url: URL) -> String {
+        url.standardizedFileURL.resolvingSymlinksInPath().path
     }
 }
