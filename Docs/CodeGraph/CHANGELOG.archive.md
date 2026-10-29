@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.619] - 2026-10-28
+
+### feat: chip nghĩa cho sheet Sửa từ, badge góc chip, NSFW ở menu Kệ
+
+Người dùng: *"sửa sheet sửa từ và thêm từ của vp/name hiển thị giữa màn hình. Hiển thị thanh chip nghĩa như màn hình dịch cho sheet sửa từ giúp tôi. Ngoài ra giúp tôi sửa vị trí badge cho sheet thêm phiên âm, thêm thay thế tts giống màn hình dịch"*, duyệt mockup, rồi thêm *"thêm bật tắt nfsw vào dropdown của tab kệ sách"*.
+
+- **Thanh chip nghĩa dùng chung** (`Views/Common/MeaningSuggestionChipRow`, mới): tách nguyên khối chip của panel Dịch (viền theo nguồn, badge R/C góc trên phải, nhãn trợ năng) ra view riêng; `ReaderDefinitionOverlayView` gọi lại view đó, giao diện panel Dịch không đổi. Nút chip đặt `.buttonStyle(.plain)` để đặt được trong `Form` (nút mặc định trong một hàng `Form` làm cả hàng bấm được).
+- **Badge góc chip** (`Views/Common/ChipCornerBadge`, mới): capsule 15pt nhô ra trên/phải 6pt, có `init(scope:)` cho R/C cùng màu ở mọi nơi.
+- **Sheet Sửa từ / Thêm từ mới của VP và Names** (`DictEntrySheet`): mở nửa màn, vuốt lên được toàn màn (như sheet phiên âm và thay thế TTS). Chế độ sửa có thanh chip nghĩa ngay dưới ô nghĩa — cùng nguồn và thứ tự với panel Dịch (`ReaderView.buildSuggestionChips`); bấm chip điền nghĩa, đổi từ gốc thì chip tính lại. Chip "(Riêng)" lấy theo truyện: từ điển riêng ⇒ truyện đó, từ điển chung ⇒ truyện đang mở màn Từ điển (`contextBookId`).
+- `ReaderView.dictionaryMatches(for:bookId:)` và `buildSuggestionChips(for:bookId:)` nhận `bookId: String?`; `nil` bỏ hai nguồn "(Riêng)" thay vì nạp từ điển của truyện rỗng vào bộ nhớ đệm 3 truyện.
+- **Sheet thêm phiên âm** (`AddWordSheet`): badge NGI/VIE/JP/EN chuyển từ trong chip lên góc trên phải (nền trắng, chữ đen); nhấn giữ để xoá và viền chip gợi ý chính giữ nguyên.
+- **Sheet thêm thay thế TTS** (`AddTTSReplacementSheet`): badge R/C lên góc trên phải, đổi sang màu của panel Dịch (R đỏ, C xám đậm) thay cho xanh ngọc/xanh dương; chip của rule đang tắt vẫn mờ.
+- **Menu ba chấm của tab Kệ**: thêm "Hiện nội dung NSFW" / "Ẩn nội dung NSFW" ngay dưới mục Dịch nghĩa — công tắc NSFW toàn app, chung khoá với Cài đặt và nút NSFW của Khám phá.
+- Chuyển entry `[1.3.589]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.618] - 2026-10-27
 
 ### fix: rule <vp> tách rời chữ có dấu thành từng mảnh

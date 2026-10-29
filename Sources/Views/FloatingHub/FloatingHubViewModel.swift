@@ -147,12 +147,25 @@ final class FloatingHubViewModel: ObservableObject {
         mode = edgeDistance <= edgeSnapDistance ? .peeking : .revealed
         isDragging = false
 
-        UserDefaults.standard.set(Double(verticalRatio), forKey: Self.storedRatioKey)
-        UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: Self.storedEdgeKey)
+        persistPosition()
 
         if mode == .revealed && !disableAutoHide {
             startAutoHideTimer()
         }
+    }
+
+    /// Ghi chỗ đặt do `FloatingWidgetLayoutCoordinator` chọn (né widget nổi khác) — lưu y như khi kéo tay.
+    /// Không đụng `mode`.
+    func applyResolvedPlacement(edge: EdgeDirection, centerY: CGFloat, screenHeight: CGFloat) {
+        guard screenHeight > 0 else { return }
+        verticalRatio = centerY / screenHeight
+        edgeDirection = edge
+        persistPosition()
+    }
+
+    private func persistPosition() {
+        UserDefaults.standard.set(Double(verticalRatio), forKey: Self.storedRatioKey)
+        UserDefaults.standard.set(edgeDirection == .left ? "left" : "right", forKey: Self.storedEdgeKey)
     }
 
     func startAutoHideTimer() {

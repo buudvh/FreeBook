@@ -16,6 +16,9 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
 
     private var panGesture: UIPanGestureRecognizer!
     private var tapGesture: UITapGestureRecognizer!
+    /// Lượt layout hợp lệ kế tiếp phải xếp lại vị trí để né widget nổi khác (`FloatingWidgetLayoutCoordinator`).
+    /// Bật sẵn cho lần tạo cửa sổ đầu; window manager bật lại mỗi lần widget chuyển từ ẩn sang hiện.
+    private var needsPlacementResolve = true
 
     enum Layout {
         static let width: CGFloat = 212
@@ -133,10 +136,14 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
         if viewModel.mode == .peeking {
             return CGSize(width: Layout.peekSize, height: Layout.peekSize)
         } else {
-            let isTimerActive = TTSManager.shared.timerMode != .off
-            let height = isTimerActive ? (Layout.height + Layout.timerExtraHeight) : Layout.height
-            return CGSize(width: Layout.width, height: height)
+            return CGSize(width: Layout.width, height: expandedHeight)
         }
+    }
+
+    /// Chiều cao khi mở rộng (thêm dòng hẹn giờ nếu đang hẹn). Cũng là chiều cao **giữ chỗ** với widget khác —
+    /// kể cả lúc thu nhỏ 52pt — để bấm mở rộng không đè widget bên cạnh.
+    private var expandedHeight: CGFloat {
+        TTSManager.shared.timerMode != .off ? (Layout.height + Layout.timerExtraHeight) : Layout.height
     }
 
     private func restingCenter(for mode: WidgetMode, in bounds: CGRect) -> CGPoint {
@@ -173,8 +180,20 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
 
     public func updateLayoutForCurrentMode(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
+        // Chỉ xếp lại khi đã nằm trong cửa sổ (bounds thật) và không đang kéo — thả tay tự xếp ở `handlePan`.
+        if needsPlacementResolve, view.window != nil, !viewModel.isDragging {
+            resolvePlacement()
+        }
         let targetSize = currentWidgetSize
         let targetCenter = restingCenter(for: viewModel.mode, in: view.bounds)
+        let screenHeight = view.bounds.height
+        let reservedHeight = expandedHeight
+        FloatingWidgetLayoutCoordinator.shared.refresh(
+            id: .tts,
+            edge: viewModel.edgeDirection,
+            centerY: clampedY(viewModel.verticalRatio * screenHeight, height: reservedHeight, screenHeight: screenHeight),
+            height: reservedHeight
+        )
 
         let applyLayout = {
             self.widgetContainerView.bounds = CGRect(origin: .zero, size: targetSize)
@@ -201,6 +220,40 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
     func reveal(animated: Bool) {
         viewModel.reveal()
         updateLayoutForCurrentMode(animated: animated)
+    }
+
+    // MARK: - Giữ chỗ với widget nổi khác
+
+    /// Window manager gọi khi widget chuyển từ ẩn sang hiện: lượt layout kế tiếp xếp lại để không đè widget khác.
+    func requestPlacementResolve() {
+        needsPlacementResolve = true
+    }
+
+    /// Né widget nổi khác cùng mép (`FloatingWidgetLayoutCoordinator`) — widget này là bên nhường. Dời thì lưu như
+    /// khi kéo tay; khung mới do lượt `updateLayoutForCurrentMode` kế tiếp đặt (có hiệu ứng khi vừa thả tay).
+    private func resolvePlacement() {
+        needsPlacementResolve = false
+        let screenHeight = view.bounds.height
+        guard view.bounds.width > 0, screenHeight > 0 else { return }
+
+        let height = expandedHeight
+        let range = FloatingWidgetGeometry.centerYRange(
+            widgetHeight: height,
+            screenHeight: screenHeight,
+            topMargin: Layout.verticalMargin,
+            bottomMargin: Layout.verticalMargin
+        )
+        let proposed = clampedY(viewModel.verticalRatio * screenHeight, height: height, screenHeight: screenHeight)
+        let placement = FloatingWidgetLayoutCoordinator.shared.resolve(
+            id: .tts,
+            edge: viewModel.edgeDirection,
+            proposedCenterY: proposed,
+            height: height,
+            minY: range.lowerBound,
+            maxY: range.upperBound
+        )
+        guard placement.isMoved(from: viewModel.edgeDirection, centerY: proposed) else { return }
+        viewModel.applyResolvedPlacement(edge: placement.edge, centerY: placement.centerY, screenHeight: screenHeight)
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
@@ -232,6 +285,7 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
                 screenHeight: bounds.height,
                 edgeSnapDistance: Layout.edgeSnapDistance
             )
+            resolvePlacement()
             updateLayoutForCurrentMode(animated: true)
         default:
             break

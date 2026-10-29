@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.649] - 2026-10-29
+
+### fix: widget nổi không đè lên nhau khi cùng mép
+
+Người dùng: *"đừng cho các widget đè lên nhau nhé"* — duyệt plan.
+
+- **`FloatingWidgetLayoutCoordinator`** (mới, `Views/Common/`, `@MainActor`): widget TTS, nút hub, nút mở lại trình duyệt — mỗi cái một cửa sổ riêng, trước đây không biết nhau — đăng ký khoảng dọc đứng yên theo cạnh; ẩn thì gỡ. `resolve(id:edge:proposedCenterY:height:minY:maxY:)` chọn tâm Y **trống gần đề xuất nhất** (khe 8pt) trên cạnh đề xuất, hết chỗ thì thử cạnh kia, cả hai hết thì giữ nguyên + log. Tìm thẳng điểm trống gần nhất (đầu mút khoảng cấm) nên không lắc qua lại giữa hai widget.
+- **Khi nào xếp**: thả tay sau khi kéo (dời có hiệu ứng) và lúc widget vừa hiện (đặt thẳng vào chỗ trống trước khi hiện — không thấy cảnh chồng rồi mới tách). Widget vừa kéo/vừa hiện là bên nhường, widget đứng yên không bị đẩy. Vị trí mới lưu như kéo tay (`applyResolvedPlacement` + `persistPosition` ở ba view model). Xoay màn / đổi vùng an toàn chỉ báo lại khung (`refresh`), không xếp lại.
+- **Widget TTS** giữ chỗ theo chiều cao mở rộng (56pt, 80pt khi đang hẹn giờ). Hai cạnh khác nhau không xét; menu bung của hub không xét.
+- File mới `FloatingHubContainerViewController+Placement.swift`; `FloatingWidgetGeometry.centerYRange`.
+- Chuyển entry `[1.3.619]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — kéo hai widget về cùng mép cùng độ cao, mở app khi cả ba cùng hiện, bật hẹn giờ TTS sau khi đã xếp (chưa xếp lại theo chiều cao mới), màn ngang.
+
 ## [1.3.648] - 2026-10-29
 
 ### fix: widget nổi luôn nằm trên ngăn kéo menu
@@ -381,21 +394,5 @@ Người dùng: *"điều tra thử màn hình danh sách thay thế tts chung b
 - **Sửa** (`TTSReplacementManagerView+Layer`): tầng chung đọc thẳng `manager.rules`, tầng riêng giữ `rules(bookId:)`. Hàm của manager không đổi.
 - Dữ liệu không mất: thêm/sửa/xoá/sắp xếp/nhập file vẫn ghi đúng tầng chung, và TTS vẫn áp rule chung lúc đọc — chỉ màn hình không hiện.
 - Chuyển entry `[1.3.590]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.619] - 2026-10-28
-
-### feat: chip nghĩa cho sheet Sửa từ, badge góc chip, NSFW ở menu Kệ
-
-Người dùng: *"sửa sheet sửa từ và thêm từ của vp/name hiển thị giữa màn hình. Hiển thị thanh chip nghĩa như màn hình dịch cho sheet sửa từ giúp tôi. Ngoài ra giúp tôi sửa vị trí badge cho sheet thêm phiên âm, thêm thay thế tts giống màn hình dịch"*, duyệt mockup, rồi thêm *"thêm bật tắt nfsw vào dropdown của tab kệ sách"*.
-
-- **Thanh chip nghĩa dùng chung** (`Views/Common/MeaningSuggestionChipRow`, mới): tách nguyên khối chip của panel Dịch (viền theo nguồn, badge R/C góc trên phải, nhãn trợ năng) ra view riêng; `ReaderDefinitionOverlayView` gọi lại view đó, giao diện panel Dịch không đổi. Nút chip đặt `.buttonStyle(.plain)` để đặt được trong `Form` (nút mặc định trong một hàng `Form` làm cả hàng bấm được).
-- **Badge góc chip** (`Views/Common/ChipCornerBadge`, mới): capsule 15pt nhô ra trên/phải 6pt, có `init(scope:)` cho R/C cùng màu ở mọi nơi.
-- **Sheet Sửa từ / Thêm từ mới của VP và Names** (`DictEntrySheet`): mở nửa màn, vuốt lên được toàn màn (như sheet phiên âm và thay thế TTS). Chế độ sửa có thanh chip nghĩa ngay dưới ô nghĩa — cùng nguồn và thứ tự với panel Dịch (`ReaderView.buildSuggestionChips`); bấm chip điền nghĩa, đổi từ gốc thì chip tính lại. Chip "(Riêng)" lấy theo truyện: từ điển riêng ⇒ truyện đó, từ điển chung ⇒ truyện đang mở màn Từ điển (`contextBookId`).
-- `ReaderView.dictionaryMatches(for:bookId:)` và `buildSuggestionChips(for:bookId:)` nhận `bookId: String?`; `nil` bỏ hai nguồn "(Riêng)" thay vì nạp từ điển của truyện rỗng vào bộ nhớ đệm 3 truyện.
-- **Sheet thêm phiên âm** (`AddWordSheet`): badge NGI/VIE/JP/EN chuyển từ trong chip lên góc trên phải (nền trắng, chữ đen); nhấn giữ để xoá và viền chip gợi ý chính giữ nguyên.
-- **Sheet thêm thay thế TTS** (`AddTTSReplacementSheet`): badge R/C lên góc trên phải, đổi sang màu của panel Dịch (R đỏ, C xám đậm) thay cho xanh ngọc/xanh dương; chip của rule đang tắt vẫn mờ.
-- **Menu ba chấm của tab Kệ**: thêm "Hiện nội dung NSFW" / "Ẩn nội dung NSFW" ngay dưới mục Dịch nghĩa — công tắc NSFW toàn app, chung khoá với Cài đặt và nút NSFW của Khám phá.
-- Chuyển entry `[1.3.589]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 

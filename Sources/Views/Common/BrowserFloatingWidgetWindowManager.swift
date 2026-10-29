@@ -80,7 +80,8 @@ final class BrowserFloatingWidgetWindowManager {
             if existingWindow.windowScene !== windowScene {
                 existingWindow.windowScene = windowScene
             }
-            // Đang ẩn mà sắp hiện lại ⇒ luôn về dạng nép mép, mờ khi nghỉ.
+            // Đang ẩn mà sắp hiện lại ⇒ luôn về dạng nép mép, mờ khi nghỉ, và xếp lại chỗ để né widget nổi khác
+            // (`prepareForAppearance` bật cờ xếp lại).
             if existingWindow.isHidden {
                 containerViewController.prepareForAppearance()
             }
@@ -107,6 +108,7 @@ final class BrowserFloatingWidgetWindowManager {
     private func hideWidget() {
         window?.isHidden = true
         isPresented = false
+        FloatingWidgetLayoutCoordinator.shared.unregister(.browser)
     }
 
     @objc private func handleSceneDidActivate(_ notification: Notification) {

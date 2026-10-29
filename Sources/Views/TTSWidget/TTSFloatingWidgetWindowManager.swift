@@ -63,6 +63,10 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
             if existingWindow.windowScene !== windowScene {
                 existingWindow.windowScene = windowScene
             }
+            // Chỉ lúc chuyển từ ẩn sang hiện mới xếp lại chỗ (né widget nổi khác) — `refreshState` gọi lặp vào đây.
+            if existingWindow.isHidden {
+                containerViewController?.requestPlacementResolve()
+            }
             updateWindowVisibility(hidden: false)
             isPresented = true
             revealIfRequested(animated: false)
@@ -94,6 +98,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     public func hideWidget() {
         updateWindowVisibility(hidden: true)
         isPresented = false
+        FloatingWidgetLayoutCoordinator.shared.unregister(.tts)
     }
 
     private func updateWindowVisibility(hidden: Bool) {

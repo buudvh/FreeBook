@@ -4,7 +4,7 @@ import UIKit
 
 /// View controller của **nút hub nổi** (1.3.524): sở hữu cử chỉ kéo/chạm và cập nhật frame trực tiếp trên
 /// `UIView`. Menu nằm ở `+Menu.swift`; hành động mở mục, nút của dòng Video và sheet Thông báo ở
-/// `+Actions.swift`.
+/// `+Actions.swift`; giữ chỗ với widget nổi khác ở `+Placement.swift`.
 ///
 /// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI) đúng như widget TTS: ngón tay không bị trễ theo vòng cập
 /// nhật state.
@@ -43,6 +43,9 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
 
     private var panGesture: UIPanGestureRecognizer!
     private var tapGesture: UITapGestureRecognizer!
+    /// Lượt layout hợp lệ kế tiếp phải xếp lại để né widget nổi khác (`+Placement.swift`). Bật sẵn cho lần tạo cửa
+    /// sổ đầu; `prepareForAppearance()` bật lại mỗi lần hub hiện lại. `internal` vì `+Placement.swift` hạ cờ.
+    var needsPlacementResolve = true
 
     enum Layout {
         static let size: CGFloat = FloatingHubButton.size
@@ -236,8 +239,13 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     /// Vẽ lại vị trí theo `mode` hiện tại. `internal` để window manager và file `+Actions` gọi được.
     func updateLayout(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
+        // Chỉ xếp lại khi đã nằm trong cửa sổ (bounds thật) và không đang kéo — thả tay tự xếp ở `handlePan`.
+        if needsPlacementResolve, view.window != nil, !viewModel.isDragging {
+            resolvePlacement()
+        }
         let targetCenter = restingCenter(in: view.bounds)
         let targetSize = CGSize(width: Layout.size, height: Layout.size)
+        refreshPlacementSlot(centerY: targetCenter.y)
 
         let applyLayout = {
             self.widgetContainerView.bounds = CGRect(origin: .zero, size: targetSize)
@@ -266,6 +274,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     func prepareForAppearance() {
         closeMenu(animated: false)
         viewModel.prepareForAppearance()
+        needsPlacementResolve = true
         updateLayout(animated: false)
     }
 
@@ -324,6 +333,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
                 bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin,
                 edgeSnapDistance: Layout.edgeSnapDistance
             )
+            resolvePlacement()
             updateLayout(animated: true)
         default:
             break

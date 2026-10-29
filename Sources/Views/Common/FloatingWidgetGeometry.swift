@@ -14,9 +14,26 @@ enum FloatingWidgetGeometry {
         topMargin: CGFloat,
         bottomMargin: CGFloat
     ) -> CGFloat {
+        let range = centerYRange(
+            widgetHeight: widgetHeight,
+            screenHeight: screenHeight,
+            topMargin: topMargin,
+            bottomMargin: bottomMargin
+        )
+        return min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    /// Khoảng tâm Y hợp lệ (đã trừ lề trên/dưới và nửa chiều cao widget): `clampedCenterY` kẹp vào đây và
+    /// `FloatingWidgetLayoutCoordinator` tìm chỗ trống trong đây.
+    static func centerYRange(
+        widgetHeight: CGFloat,
+        screenHeight: CGFloat,
+        topMargin: CGFloat,
+        bottomMargin: CGFloat
+    ) -> ClosedRange<CGFloat> {
         let minY = topMargin + widgetHeight / 2
         let maxY = max(minY, screenHeight - bottomMargin - widgetHeight / 2)
-        return min(max(value, minY), maxY)
+        return minY...maxY
     }
 
     /// Cạnh gần nhất theo tâm X hiện tại (dùng khi nhả tay để snap về mép).

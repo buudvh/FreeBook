@@ -90,6 +90,7 @@ final class FloatingHubWindowManager {
             window?.isHidden = false
             containerViewController?.closeMenu(animated: false)
             containerViewController?.widgetContainerView.isHidden = true
+            FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
         } else {
             hideWidget()
         }
@@ -112,7 +113,8 @@ final class FloatingHubWindowManager {
             if existingWindow.windowScene !== windowScene {
                 existingWindow.windowScene = windowScene
             }
-            // Đang ẩn (cả cửa sổ hoặc chỉ nút) mà sắp hiện lại ⇒ luôn về dạng nép mép, menu đóng.
+            // Đang ẩn (cả cửa sổ hoặc chỉ nút) mà sắp hiện lại ⇒ luôn về dạng nép mép, menu đóng, và xếp lại chỗ
+            // để né widget nổi khác (`prepareForAppearance` bật cờ xếp lại).
             if existingWindow.isHidden || containerViewController.widgetContainerView.isHidden {
                 containerViewController.prepareForAppearance()
             }
@@ -142,6 +144,7 @@ final class FloatingHubWindowManager {
         containerViewController?.closeMenu(animated: false)
         window?.isHidden = true
         isPresented = false
+        FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
     }
 
     @objc private func handleSceneDidActivate(_ notification: Notification) {

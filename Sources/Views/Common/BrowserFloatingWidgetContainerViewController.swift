@@ -30,6 +30,9 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
 
     private var panGesture: UIPanGestureRecognizer!
     private var tapGesture: UITapGestureRecognizer!
+    /// Lượt layout hợp lệ kế tiếp phải xếp lại để né widget nổi khác (`FloatingWidgetLayoutCoordinator`). Bật sẵn
+    /// cho lần tạo cửa sổ đầu; `prepareForAppearance()` bật lại mỗi lần widget hiện lại.
+    private var needsPlacementResolve = true
 
     enum Layout {
         static let size: CGFloat = VisibleBrowserReopenButton.size
@@ -161,6 +164,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     func prepareForAppearance() {
         viewModel.prepareForAppearance()
         setTouchActive(false, animated: false)
+        needsPlacementResolve = true
         updateLayout(animated: false)
     }
 
@@ -218,8 +222,19 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     /// Vẽ lại vị trí theo `mode` hiện tại. `internal` để window manager gọi được.
     func updateLayout(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
+        // Chỉ xếp lại khi đã nằm trong cửa sổ (bounds thật) và không đang kéo — thả tay tự xếp ở `handlePan`.
+        if needsPlacementResolve, view.window != nil, !viewModel.isDragging {
+            resolvePlacement()
+        }
         let targetCenter = restingCenter(in: view.bounds)
         let targetSize = CGSize(width: Layout.size, height: Layout.size)
+        // Báo lại khung nghỉ (xoay màn, đổi vùng an toàn) — không xếp lại; widget đang ẩn thì coordinator bỏ qua.
+        FloatingWidgetLayoutCoordinator.shared.refresh(
+            id: .browser,
+            edge: viewModel.edgeDirection,
+            centerY: targetCenter.y,
+            height: Layout.size
+        )
 
         let applyLayout = {
             self.widgetContainerView.bounds = CGRect(origin: .zero, size: targetSize)
@@ -241,6 +256,32 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         } else {
             applyLayout()
         }
+    }
+
+    /// Né widget nổi khác cùng mép (`FloatingWidgetLayoutCoordinator`) — widget này là bên nhường. Dời thì lưu như
+    /// khi kéo tay; khung mới do lượt `updateLayout` kế tiếp đặt (có hiệu ứng khi vừa thả tay).
+    private func resolvePlacement() {
+        needsPlacementResolve = false
+        let screenHeight = view.bounds.height
+        guard view.bounds.width > 0, screenHeight > 0 else { return }
+
+        let range = FloatingWidgetGeometry.centerYRange(
+            widgetHeight: Layout.size,
+            screenHeight: screenHeight,
+            topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
+            bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+        )
+        let proposed = clampedY(viewModel.verticalRatio * screenHeight, screenHeight: screenHeight)
+        let placement = FloatingWidgetLayoutCoordinator.shared.resolve(
+            id: .browser,
+            edge: viewModel.edgeDirection,
+            proposedCenterY: proposed,
+            height: Layout.size,
+            minY: range.lowerBound,
+            maxY: range.upperBound
+        )
+        guard placement.isMoved(from: viewModel.edgeDirection, centerY: proposed) else { return }
+        viewModel.applyResolvedPlacement(edge: placement.edge, centerY: placement.centerY, screenHeight: screenHeight)
     }
 
     // MARK: - Cử chỉ
@@ -276,6 +317,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
                 bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin,
                 edgeSnapDistance: Layout.edgeSnapDistance
             )
+            resolvePlacement()
             updateLayout(animated: true)
         default:
             break
