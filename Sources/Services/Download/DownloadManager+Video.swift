@@ -32,7 +32,8 @@ extension DownloadManager {
             return .alreadyQueued
         }
         let isQueued = tasks.contains { task in
-            task.bookId == bookId && task.isActive && task.limit.limitValue == 1
+            // Chỉ tác vụ **tải**: tác vụ xuất video một tập cũng ghi sidecar tập bắt đầu.
+            task.taskType == .download && task.bookId == bookId && task.isActive && task.limit.limitValue == 1
                 && VideoDownloadRequestStore.startEpisode(taskId: task.id) == episodeIndex
         }
         if isQueued { return .alreadyQueued }
@@ -236,7 +237,8 @@ extension DownloadManager {
     }
 
     /// Mục lục tập cần tải — ChapterStore trước, SwiftData sau (như truyện tranh); cũng đẩy phim lên kệ nếu chưa nằm ở đâu.
-    private func videoEpisodesToDownload(_ task: DownloadTask, container: ModelContainer) async throws -> VideoTaskEpisodes {
+    /// Xuất video (`DownloadManager+VideoExport`) dùng lại để tập bắt đầu / số tập khớp đúng cách tải.
+    internal func videoEpisodesToDownload(_ task: DownloadTask, container: ModelContainer) async throws -> VideoTaskEpisodes {
         let context = ModelContext(container)
         let allBooks = (try? context.fetch(FetchDescriptor<Book>())) ?? []
         guard let book = allBooks.first(where: { $0.bookId == task.bookId }) else {

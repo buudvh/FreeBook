@@ -8,7 +8,8 @@ import Foundation
 /// và người dùng bấm "Tải lại tác vụ".
 ///
 /// Truyện chữ: TXT, EPUB 3, FB2, MOBI (`ExportRendererFactory`). Truyện tranh: CBZ và PDF, chỉ từ chương đã tải ảnh
-/// offline (`DownloadManager+ComicExport`). Video không xuất. Picker định dạng lọc theo loại qua `formats(for:)`.
+/// offline (`DownloadManager+ComicExport`). Video: tập đã tải về máy (`DownloadManager+VideoExport`). Picker định dạng
+/// lọc theo loại qua `formats(for:)`.
 public enum BookExportFormat: String, CaseIterable, Sendable {
     case txt
     case epub3
@@ -16,12 +17,13 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
     case mobi
     case cbz
     case pdf
+    case video
 
-    /// Các định dạng hợp với loại nội dung của sách (video: rỗng).
+    /// Các định dạng hợp với loại nội dung của sách.
     public static func formats(for kind: ExtensionContentKind) -> [BookExportFormat] {
         switch kind {
         case .comic: return [.cbz, .pdf]
-        case .video: return []
+        case .video: return [.video]
         case .text, .unsupported: return [.txt, .epub3, .fb2, .mobi]
         }
     }
@@ -29,6 +31,11 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
     /// Định dạng ảnh của truyện tranh — không đi qua `ExportRendererFactory`.
     public var isComicFormat: Bool {
         self == .cbz || self == .pdf
+    }
+
+    /// Xuất tập phim đã tải — không đi qua `ExportRendererFactory`.
+    public var isVideoFormat: Bool {
+        self == .video
     }
 
     /// Tên hiện trên UI (picker định dạng ở sheet tuỳ chọn).
@@ -40,6 +47,7 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
         case .mobi: return "MOBI"
         case .cbz: return "CBZ"
         case .pdf: return "PDF"
+        case .video: return "Video"
         }
     }
 
@@ -52,6 +60,8 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
         case .mobi: return "mobi"
         case .cbz: return "cbz"
         case .pdf: return "pdf"
+        // Danh nghĩa: đuôi thật theo từng tập (mp4/mov/ts/m4a, `VideoEpisodeExportPlan`), nhiều file thì ra thư mục.
+        case .video: return "mp4"
         }
     }
 
@@ -64,13 +74,14 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
         case .mobi: return .exportMobi
         case .cbz: return .exportCbz
         case .pdf: return .exportPdf
+        case .video: return .exportVideo
         }
     }
 
     /// Format có nhúng được ảnh bìa hay không (TXT thì không).
     public var supportsCover: Bool {
         switch self {
-        case .txt, .cbz, .pdf: return false
+        case .txt, .cbz, .pdf, .video: return false
         case .epub3, .fb2, .mobi: return true
         }
     }
@@ -78,7 +89,7 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
     /// Format có mục lục điều hướng được hay không.
     public var supportsNavigation: Bool {
         switch self {
-        case .txt, .cbz, .pdf: return false
+        case .txt, .cbz, .pdf, .video: return false
         case .epub3, .fb2, .mobi: return true
         }
     }
@@ -92,6 +103,7 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
         case .mobi: return "MOBI cho Kindle: không nén, có mục lục và bìa nhúng."
         case .cbz: return "CBZ: ảnh gốc gói trong ZIP, mỗi chương một thư mục — mở được ở các app đọc truyện tranh."
         case .pdf: return "PDF: mỗi ảnh một trang, theo thứ tự chương."
+        case .video: return "Video: giữ nguyên chất lượng đã tải — file MP4/MOV chép nguyên bản, HLS nối các đoạn thành TS/MP4 (kèm file tiếng riêng, phụ đề nếu có)."
         }
     }
 }

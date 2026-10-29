@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.620] - 2026-10-28
+
+### fix: danh sách thay thế TTS chung không còn trống dù đã có rule
+
+Người dùng: *"điều tra thử màn hình danh sách thay thế tts chung bị gì xem không thấy phần tử nào dù nó có"*; duyệt cách sửa.
+
+- **Nguyên nhân**: từ lần tách thay thế TTS thành hai tầng (`4c76df00`, 2026-09-30), `TTSReplacementManagerView.currentRules` đọc qua `TTSReplacementManager.rules(bookId:)` cho **cả hai** tầng. Hàm đó chỉ dành cho tầng riêng và trả `[]` khi `bookId == nil` (`mergedRules` cần đúng hành vi này), nên màn chung luôn hiện "Chưa có quy tắc thay thế nào".
+- **Sửa** (`TTSReplacementManagerView+Layer`): tầng chung đọc thẳng `manager.rules`, tầng riêng giữ `rules(bookId:)`. Hàm của manager không đổi.
+- Dữ liệu không mất: thêm/sửa/xoá/sắp xếp/nhập file vẫn ghi đúng tầng chung, và TTS vẫn áp rule chung lúc đọc — chỉ màn hình không hiện.
+- Chuyển entry `[1.3.590]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.619] - 2026-10-28
 
 ### feat: chip nghĩa cho sheet Sửa từ, badge góc chip, NSFW ở menu Kệ

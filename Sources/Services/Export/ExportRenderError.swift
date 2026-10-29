@@ -20,7 +20,7 @@ enum ExportRenderError: LocalizedError {
         case .sizeLimitExceeded(let detail):
             return detail
         case .unsupportedFormat(let format):
-            return "Định dạng \(format) chỉ dùng để xuất truyện tranh."
+            return "Định dạng \(format) không dùng được cho loại nội dung này."
         }
     }
 }

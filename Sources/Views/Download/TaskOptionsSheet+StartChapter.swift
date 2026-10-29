@@ -18,13 +18,13 @@ extension TaskOptionsSheet {
     var startChapterSection: some View {
         Section {
             startRow(
-                title: isVideo ? "Tập đang xem" : "Chương đang đọc",
+                title: contentKind == .video ? "Tập đang xem" : "Chương đang đọc",
                 subtitle: chapterLabel(index: book.currentChapterIndex),
                 choice: .current
             )
 
             startRow(
-                title: isVideo ? "Tập đầu tiên" : "Chương đầu tiên",
+                title: contentKind == .video ? "Tập đầu tiên" : "Chương đầu tiên",
                 subtitle: pickerChapters?.first.map { chapterLabel(for: $0) } ?? numberLabel(position: 0),
                 choice: .first
             )
@@ -71,6 +71,16 @@ extension TaskOptionsSheet {
                 let downloaded = await Task.detached { ComicOfflineStore.downloadedChapterIndexes(bookId: bookId) }.value
                 totalChapterCount = readable.count
                 cachedChapterCount = readable.filter { downloaded.contains($0.index) }.count
+            } else if isVideoExport {
+                // Video: "đã tải" = tập có manifest **khớp URL tập** (cùng cách so của trình phát và tác vụ xuất).
+                let episodes = toc.filter { !$0.isSection }.map { (index: $0.index, url: $0.url) }
+                let bookId = book.bookId
+                totalChapterCount = episodes.count
+                cachedChapterCount = await Task.detached {
+                    episodes.filter {
+                        VideoOfflineStore.manifest(bookId: bookId, episodeIndex: $0.index, matching: $0.url) != nil
+                    }.count
+                }.value
             } else {
                 totalChapterCount = toc.count
                 cachedChapterCount = toc.filter { $0.isCached && $0.length > 0 }.count
@@ -117,7 +127,7 @@ extension TaskOptionsSheet {
     }
 
     private func numberLabel(position: Int) -> String {
-        isVideo ? "Tập \(position + 1)" : "ch.\(position + 1)"
+        contentKind == .video ? "Tập \(position + 1)" : "ch.\(position + 1)"
     }
 
     // MARK: - Dòng chọn

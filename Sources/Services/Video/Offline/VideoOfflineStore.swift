@@ -46,6 +46,23 @@ enum VideoOfflineStore {
             .appendingPathComponent(safeName, isDirectory: false)
     }
 
+    /// Manifest khi bản tải khớp `url` tập trong mục lục — cùng cách so của trình phát (`offlineManifest`). Xuất video.
+    static func manifest(bookId: String, episodeIndex: Int, matching episodeUrl: String) -> VideoEpisodeManifest? {
+        guard let stored = manifest(bookId: bookId, episodeIndex: episodeIndex),
+              stored.episodeUrl == episodeUrl else { return nil }
+        return stored
+    }
+
+    /// File **đang có** trong thư mục tập (xuất video đọc playlist/đoạn/khoá/phụ đề): `nil` khi không có, là thư mục,
+    /// hoặc thoát ra ngoài `videos/`.
+    static func existingFileURL(bookId: String, episodeIndex: Int, file: String) -> URL? {
+        let url = fileURL(bookId: bookId, episodeIndex: episodeIndex, file: file)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue,
+              (try? validatePathSafety(for: url)) != nil else { return nil }
+        return url
+    }
+
     /// Đường dẫn tương đối dưới `videos/` của một file tập — đoạn sau token trong URL của `VideoOfflineHTTPServer`.
     static func relativePath(bookId: String, episodeIndex: Int, file: String) -> String {
         "\(bookId.sha256())/\(episodeIndex)/\((file as NSString).lastPathComponent)"

@@ -8,6 +8,13 @@ extension TaskOptionsSheet {
     }
 
     var startHelpParagraphs: [LocalizedStringKey] {
+        if isVideoExport {
+            return [
+                "**Tập đang xem**: xuất từ tập đang xem lúc tác vụ bắt đầu chạy. **Tập đầu tiên**: xuất từ đầu danh sách tập.",
+                "**Chọn tập…** mở toàn bộ danh sách tập, tìm được theo số hoặc tên tập.",
+                "Từ tập bắt đầu, tác vụ xét tới hết **Số lượng tập**; tập chưa tải trong khoảng đó bị bỏ qua."
+            ]
+        }
         if isVideo {
             return [
                 "**Tập đang xem**: tải từ tập đang xem lúc tác vụ bắt đầu chạy. **Tập đầu tiên**: tải từ đầu danh sách tập.",
@@ -28,6 +35,14 @@ extension TaskOptionsSheet {
                 "Chỉ các chương **đã tải ảnh offline** được đưa vào file; chương chưa tải bị bỏ qua, không tải thêm.",
                 "**CBZ** giữ nguyên ảnh gốc, mỗi chương một thư mục. **PDF** mỗi ảnh một trang.",
                 "Tắt **Hiển thị trong Kệ sách** để truyện nằm trong Lịch sử đọc."
+            ]
+        }
+        if isVideoExport {
+            return [
+                "Chỉ các tập **đã tải về máy** được xuất; tập chưa tải bị bỏ qua, không tải thêm.",
+                "Video tải dạng file (MP4/MOV) được chép nguyên bản. Video dạng HLS được nối các đoạn thành một file **TS** hoặc **MP4** (không chuyển định dạng); nguồn tách riêng luồng tiếng thì có thêm một file tiếng. Phụ đề chép kèm.",
+                "Một tập ra một file; nhiều tập (hoặc tập có file tiếng / phụ đề) gom vào một thư mục, chia sẻ một lần khi xuất xong.",
+                "Tắt **Hiển thị trong Kệ sách** để phim nằm trong Lịch sử."
             ]
         }
         if isExport {

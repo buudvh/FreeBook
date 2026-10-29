@@ -37,7 +37,7 @@ struct DownloadTrackerView: View {
                         .font(.title3)
                         .fontWeight(.semibold)
                     
-                    Text("Các tác vụ tải truyện đọc offline, xuất ebook (TXT, EPUB, FB2, MOBI) và truyện tranh (CBZ, PDF) chạy nền sẽ hiển thị ở đây.")
+                    Text("Các tác vụ tải truyện đọc offline, xuất ebook (TXT, EPUB, FB2, MOBI), truyện tranh (CBZ, PDF) và video chạy nền sẽ hiển thị ở đây.")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -115,7 +115,7 @@ struct DownloadTrackerView: View {
                     }
                     .padding(.top, 2)
                 } else if task.status == .completed {
-                    Text(task.isVideoDownload ? "Đã tải \(task.progressCount) tập" : "Đã xử lý \(task.progressCount) chương thành công")
+                    Text(task.isVideoDownload ? "Đã tải \(task.progressCount) tập" : "Đã xử lý \(task.progressCount) \(task.unitNoun) thành công")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -191,7 +191,7 @@ struct DownloadTrackerView: View {
                 }
             }
             
-            // Theo loại nguồn: truyện chữ ⇒ ebook, truyện tranh ⇒ CBZ/PDF từ ảnh đã tải, video không xuất.
+            // Theo loại nguồn: truyện chữ ⇒ ebook, truyện tranh ⇒ CBZ/PDF từ ảnh đã tải, video ⇒ file phim từ tập đã tải.
             if task.status == .completed && task.taskType == .download,
                let title = exportFromCachedTitle(task) {
                 Button {
@@ -243,7 +243,7 @@ struct DownloadTrackerView: View {
     
     private func exportFromCachedTitle(_ task: DownloadTask) -> String? {
         switch ExtensionContentKind.resolve(packageId: task.extensionPackageId) {
-        case .video: return nil
+        case .video: return "Xuất video từ tập đã tải"
         case .comic: return "Xuất CBZ/PDF từ ảnh đã tải"
         case .text, .unsupported: return "Xuất ebook từ truyện đã tải"
         }

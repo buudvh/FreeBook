@@ -70,6 +70,7 @@ public enum TaskType: String, Codable, Identifiable {
     case exportMobi = "Xuất ebook MOBI"
     case exportCbz = "Xuất truyện tranh CBZ"
     case exportPdf = "Xuất truyện tranh PDF"
+    case exportVideo = "Xuất video"
     public var id: String { self.rawValue }
 
     /// Định dạng cần render; `nil` nghĩa là tác vụ chỉ tải/cache chứ không tạo file.
@@ -82,6 +83,7 @@ public enum TaskType: String, Codable, Identifiable {
         case .exportMobi: return .mobi
         case .exportCbz: return .cbz
         case .exportPdf: return .pdf
+        case .exportVideo: return .video
         }
     }
 
@@ -134,9 +136,9 @@ public struct DownloadTask: Identifiable {
         isVideoDownload ? "Tải video" : taskType.rawValue
     }
 
-    /// Danh từ của một mục tiến độ: "tập" (video) hoặc "chương".
+    /// Danh từ của một mục tiến độ: "tập" (tải/xuất video) hoặc "chương".
     public var unitNoun: String {
-        isVideoDownload ? "tập" : "chương"
+        isVideoTask ? "tập" : "chương"
     }
 }
 
@@ -266,12 +268,13 @@ public final class DownloadManager: ObservableObject {
         let availableSlots = max(0, maxConcurrentTasks - runningCount)
         guard availableSlots > 0 else { return }
 
-        // Video: mỗi phim chỉ một tác vụ chạy một lúc — tải tuần tự (chủ ý) và hai tác vụ không ghi chung thư mục tập.
-        var busyVideoBooks = Set(tasks.filter { $0.status == .running && $0.isVideoDownload }.map(\.bookId))
+        // Video: mỗi phim chỉ một tác vụ chạy một lúc — tải tuần tự (chủ ý), hai tác vụ không ghi chung thư mục tập, và
+        // bản xuất không đọc tập mà lượt tải lại đang xoá (`isVideoTask` gồm cả xuất video).
+        var busyVideoBooks = Set(tasks.filter { $0.status == .running && $0.isVideoTask }.map(\.bookId))
         var pendingIndices: [Int] = []
         for (offset, task) in tasks.enumerated() where task.status == .pending {
             guard pendingIndices.count < availableSlots else { break }
-            if task.isVideoDownload {
+            if task.isVideoTask {
                 guard !busyVideoBooks.contains(task.bookId) else { continue }
                 busyVideoBooks.insert(task.bookId)
             }

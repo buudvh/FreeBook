@@ -27,6 +27,8 @@ final class ExportShareCoordinator {
     private init() {}
 
     /// Nhận yêu cầu chia sẻ từ event `exportReady`. File phải tồn tại thật, nếu không thì báo lỗi ngay.
+    /// `filePath` có thể là **thư mục** (xuất video nhiều tập, `VideoExportWriter`): `fileExists` đúng với thư mục, nhưng
+    /// app đích nào nhận URL thư mục trong share sheet (Lưu vào Tệp, AirDrop) thì chưa kiểm trên máy.
     func requestShare(filePath: String, bookTitle: String) {
         guard FileManager.default.fileExists(atPath: filePath) else {
             ToastManager.shared.show(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error)

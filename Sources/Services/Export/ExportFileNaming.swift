@@ -32,6 +32,43 @@ enum ExportFileNaming {
         return candidate
     }
 
+    /// Đích tên tự đặt dưới `Exports/` (xuất video: `<Tên phim> - Tập 3.mp4`, hoặc thư mục khi `fileExtension == nil`).
+    /// `baseName` phải đã qua `sanitized`. Trùng thì thêm `-2`, `-3`… — không bao giờ trả về đường dẫn đã có file/thư mục.
+    static func uniqueURL(baseName: String, fileExtension: String?) throws -> URL {
+        let directory = try exportsDirectory()
+        let isDirectory = fileExtension == nil
+        let tail = fileExtension.map { ".\($0)" } ?? ""
+        let fileManager = FileManager.default
+
+        var candidate = directory.appendingPathComponent(baseName + tail, isDirectory: isDirectory)
+        var suffix = 2
+        while fileManager.fileExists(atPath: candidate.path) {
+            candidate = directory.appendingPathComponent("\(baseName)-\(suffix)\(tail)", isDirectory: isDirectory)
+            suffix += 1
+            if suffix > 100 { break }
+        }
+        try validateInsideExports(candidate)
+        return candidate
+    }
+
+    /// `<tên>-<yyyyMMdd-HHmmss>` — tên thư mục của bản xuất nhiều file (video nhiều tập).
+    static func timestampedName(_ title: String, now: Date = Date()) -> String {
+        "\(sanitized(title))-\(timestamp(now))"
+    }
+
+    /// Chặn tên lạ (rỗng, `.`, `..`) hay thư mục cha thoát ra ngoài `Documents/Exports/`. Chỉ chuẩn hoá **thư mục cha**
+    /// (phải đã tồn tại lúc gọi) rồi ghép tên — chuẩn hoá thẳng đường dẫn chưa tồn tại sẽ lệch tiền tố `/private` với
+    /// gốc (bài học `LocalMediaImportWorkspace.isInside`).
+    static func validateInsideExports(_ url: URL) throws {
+        let name = url.lastPathComponent
+        let root = resolvedPath(try exportsDirectory())
+        let parent = resolvedPath(url.deletingLastPathComponent())
+        guard !name.isEmpty, name != ".", name != "..", !name.contains("/"),
+              parent == root || parent.hasPrefix(root + "/") else {
+            throw NSError(domain: "SecurityError", code: 403, userInfo: [NSLocalizedDescriptionKey: "Truy cập file ngoài thư mục Sandbox bị từ chối."])
+        }
+    }
+
     /// File tạm đi kèm: chỉ khi đổi tên thành công thì bản xuất mới tồn tại.
     static func stagingURL(for target: URL) -> URL {
         return target.appendingPathExtension("part")
@@ -43,6 +80,10 @@ enum ExportFileNaming {
             .replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty ? "Truyen" : String(cleaned.prefix(80))
+    }
+
+    private static func resolvedPath(_ url: URL) -> String {
+        url.standardizedFileURL.resolvingSymlinksInPath().path
     }
 
     private static func timestamp(_ date: Date) -> String {

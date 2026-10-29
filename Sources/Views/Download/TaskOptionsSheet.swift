@@ -40,7 +40,8 @@ struct TaskOptionsSheet: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Chất lượng tải video — lựa chọn chung, tác vụ đọc lúc chạy (`VideoDownloadQuality`).
     @AppStorage(VideoDownloadQuality.defaultsKey) private var videoQuality: VideoDownloadQuality = VideoDownloadQuality.defaultValue
-    /// Tải phim (`DownloadManager+Video`): đổi nhãn "chương" → "tập" và có thêm dòng Chất lượng.
+    /// Tải phim (`DownloadManager+Video`): tiêu đề "Tải video", dòng Chất lượng, giải thích riêng. Nhãn "tập" và sidecar
+    /// tập bắt đầu theo **loại sách** (`contentKind == .video`) để xuất video cũng dùng.
     internal let isVideo: Bool
     /// Loại nội dung của nguồn: truyện tranh/video bỏ dòng tiêu đề nhóm ở mục lục, dấu "đã tải" đọc từ manifest.
     internal let contentKind: ExtensionContentKind
@@ -56,9 +57,9 @@ struct TaskOptionsSheet: View {
         let isLegado = ExtensionLibraryRepository.snapshot(packageId: book.extensionPackageId)
             .map { SourceRuntime.shared.isLegado(localPath: $0.localPath) } ?? false
         self.supportsLanes = !kind.isMedia && !isLegado
-        // Xuất truyện tranh chỉ lấy chương đã tải ảnh (không có mạng) ⇒ luôn "chỉ chương đã tải", ẩn mục tốc độ.
-        let isComicExport = taskType.isExport && kind == .comic
-        self._onlyExportCached = State(initialValue: defaultOnlyExportCached || isComicExport)
+        // Xuất truyện tranh / video chỉ lấy chương/tập đã tải (không có mạng) ⇒ luôn "chỉ chương đã tải", ẩn mục tốc độ.
+        let isMediaExport = taskType.isExport && kind.isMedia
+        self._onlyExportCached = State(initialValue: defaultOnlyExportCached || isMediaExport)
         // 5 lối mở xuất đều truyền `.exportTxt` ⇒ đổi sang định dạng đầu tiên hợp với loại sách (truyện tranh: CBZ).
         let formats = BookExportFormat.formats(for: kind)
         let requested = taskType.exportFormat ?? .txt
@@ -66,7 +67,7 @@ struct TaskOptionsSheet: View {
         self._speed = State(initialValue: DownloadSpeedSettings.load(packageId: book.extensionPackageId))
     }
 
-    internal var unitNoun: String { isVideo ? "tập" : "chương" }
+    internal var unitNoun: String { contentKind == .video ? "tập" : "chương" }
 
     private var sheetTitle: String { isVideo ? "Tải video" : effectiveTaskType.rawValue }
 
@@ -75,6 +76,9 @@ struct TaskOptionsSheet: View {
 
     /// Xuất truyện tranh ra CBZ/PDF: không dịch, không tải thêm — chỉ chương đã có ảnh offline.
     internal var isComicExport: Bool { isExport && contentKind == .comic }
+
+    /// Xuất video (`DownloadManager+VideoExport`): chỉ tập đã tải về máy, không dịch, không tải thêm.
+    internal var isVideoExport: Bool { isExport && contentKind == .video }
 
     /// Loại tác vụ thật sự được đưa vào hàng đợi — với tác vụ xuất, nó theo định dạng đang chọn.
     private var effectiveTaskType: TaskType {
@@ -159,7 +163,7 @@ struct TaskOptionsSheet: View {
             }
             .padding(.vertical, 4)
         } header: {
-            Text(isVideo ? "Thông tin phim" : "Thông tin truyện")
+            Text(contentKind == .video ? "Thông tin phim" : "Thông tin truyện")
         }
     }
 
@@ -181,7 +185,7 @@ struct TaskOptionsSheet: View {
             }
 
             if isExport {
-                if !isComicExport {
+                if !isComicExport && !isVideoExport {
                     Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
                         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
@@ -215,13 +219,13 @@ struct TaskOptionsSheet: View {
         return DisplayTextFormatter.titleCase(author)
     }
 
-    /// Dòng xem trước "đã tải X/Y chương", `nil` khi chưa đọc được mục lục.
+    /// Dòng xem trước "đã tải X/Y chương" (video: "tập"), `nil` khi chưa đọc được mục lục.
     private var cachedPreview: String? {
         guard let cached = cachedChapterCount, let total = totalChapterCount, total > 0 else { return nil }
         if cached >= total {
-            return "Đã tải đủ \(total) chương — bản xuất sẽ không thiếu chương nào."
+            return "Đã tải đủ \(total) \(unitNoun) — bản xuất sẽ không thiếu \(unitNoun) nào."
         }
-        return "Đã tải \(cached)/\(total) chương — thiếu \(total - cached) chương."
+        return "Đã tải \(cached)/\(total) \(unitNoun) — thiếu \(total - cached) \(unitNoun)."
     }
 
     /// Giới hạn thật đưa vào hàng đợi: mốc "Tuỳ chọn" được quy đổi thành số chương đang kéo.
@@ -242,7 +246,8 @@ struct TaskOptionsSheet: View {
         // Sidecar chương bắt đầu ghi **trước** `enqueueTask`: tác vụ có thể chạy ngay khi vào hàng đợi.
         let taskId = UUID()
         if startChoice == .custom, let index = customStartIndex {
-            if isVideo {
+            // Tải và xuất video cùng đọc tập bắt đầu ở `VideoDownloadRequestStore` (`videoEpisodesToDownload`).
+            if contentKind == .video {
                 VideoDownloadRequestStore.setStartEpisode(index, taskId: taskId)
             } else {
                 DownloadStartChapterStore.setStartChapter(index, taskId: taskId)

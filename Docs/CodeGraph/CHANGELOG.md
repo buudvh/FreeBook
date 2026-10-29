@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.650] - 2026-10-29
+
+### feat: xuất video từ các tập đã tải
+
+Người dùng: *"làm thêm xuất video"* — chọn HLS **ghép .ts**, đích **Tệp + chia sẻ**; duyệt plan.
+
+- **Lối vào**: "Xuất video" ở sheet nhấn giữ và màn Chi tiết của sách video ⇒ `TaskOptionsSheet` định dạng "Video" (chọn tập bắt đầu + số tập như tác vụ tải); tab Tải có "Xuất video từ tập đã tải". `BookExportFormat.video`, `TaskType.exportVideo` ("Xuất video", rawValue mới — dữ liệu cũ vẫn đọc được); mọi `switch` liên quan đã cập nhật.
+- **Tác vụ** (`DownloadManager+VideoExport`, rẽ từ `executeMediaTaskIfNeeded`, không cần tiện ích ⇒ phim nhập từ file cũng xuất được): chỉ lấy tập có manifest khớp url tập; kiểm dung lượng trống (tổng `totalBytes` × 1,05); mỗi phim một tác vụ video (tải hoặc xuất) chạy một lúc; tập lỗi bỏ qua kèm dòng tổng kết; huỷ/lỗi xoá bản dở.
+- **Từng tập** (`Sources/Services/Export/Video/`): tập dạng file chép nguyên; tập HLS đọc playlist trên máy (`VideoHLSLocalStream`), nối đoạn theo thứ tự (tôn trọng `BYTERANGE`), giải mã AES-128-CBC theo luồng bằng CommonCrypto (`VideoAES128CBCDecryptor`, IV từ playlist hoặc số thứ tự media), khúc 1 MiB — không đọc cả tập vào RAM. Đoạn `.ts` ⇒ file `.ts` (mở bằng VLC/Infuse, không mở bằng Ảnh/Tệp của iOS); fMP4 ⇒ init + đoạn ⇒ `.mp4`. Luồng tiếng tách riêng ⇒ thêm file `… (tiếng)`; phụ đề chép kèm `<tên>.<ngôn ngữ>.<đuôi>`.
+- **Đích**: một tập chỉ một file ⇒ `Documents/Exports/<Tên phim> - Tập N.<đuôi>`; còn lại (nhiều tập, hoặc có file tiếng/phụ đề) ⇒ một thư mục trong `Exports/`, chia sẻ cả thư mục qua `ExportShareCoordinator`. Bản xuất loại khỏi sao lưu iCloud.
+- **Không làm**: chuyển HLS sang mp4 (FFmpeg), lưu vào Ảnh, xuất tập chưa tải.
+- Chuyển entry `[1.3.620]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là lần biên dịch đầu; chưa thử trên máy — **share sheet có nhận thư mục không** (không thì bản nhiều file không lấy ra được), file `.ts` trong VLC, ghép phim vài GB, xoá tác vụ không xoá file đã xuất (như mọi loại xuất cũ).
+
 ## [1.3.649] - 2026-10-29
 
 ### fix: widget nổi không đè lên nhau khi cùng mép
@@ -383,16 +397,4 @@ Người dùng: *"Thêm bộ kiểm tra nguồn tương tự legado cho các ext
 - Menu `⋯` của tab 0 chuyển sang `RepositoryManagerView+SourceCheck` để file legacy `RepositoryManagerView.swift` giảm (605 → 591 dòng).
 - Chuyển entry `[1.3.591]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch. **Chưa thử trên máy**: `JSCheckScriptSyntax` với các tiện ích thật, tiện ích có trang chặn Cloudflare (bước có thể chậm), kiểm hàng loạt nhiều tiện ích.
-
-## [1.3.620] - 2026-10-28
-
-### fix: danh sách thay thế TTS chung không còn trống dù đã có rule
-
-Người dùng: *"điều tra thử màn hình danh sách thay thế tts chung bị gì xem không thấy phần tử nào dù nó có"*; duyệt cách sửa.
-
-- **Nguyên nhân**: từ lần tách thay thế TTS thành hai tầng (`4c76df00`, 2026-09-30), `TTSReplacementManagerView.currentRules` đọc qua `TTSReplacementManager.rules(bookId:)` cho **cả hai** tầng. Hàm đó chỉ dành cho tầng riêng và trả `[]` khi `bookId == nil` (`mergedRules` cần đúng hành vi này), nên màn chung luôn hiện "Chưa có quy tắc thay thế nào".
-- **Sửa** (`TTSReplacementManagerView+Layer`): tầng chung đọc thẳng `manager.rules`, tầng riêng giữ `rules(bookId:)`. Hàm của manager không đổi.
-- Dữ liệu không mất: thêm/sửa/xoá/sắp xếp/nhập file vẫn ghi đúng tầng chung, và TTS vẫn áp rule chung lúc đọc — chỉ màn hình không hiện.
-- Chuyển entry `[1.3.590]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 

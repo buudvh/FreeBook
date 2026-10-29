@@ -10,8 +10,8 @@ import SwiftData
 ///   của nguồn; tiến độ theo chương; huỷ được; `DownloadFailureStreak.limit` chương liên tiếp lỗi thì dừng, báo
 ///   "Thất bại". Script ảnh chạy trên `ComicImageScriptRunner` riêng của tác vụ.
 /// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
-/// - Comic + xuất CBZ/PDF: `DownloadManager+ComicExport` (chỉ chương đã tải ảnh). Comic + định dạng chữ, video + mọi
-///   định dạng xuất: báo thất bại (UI đã lọc định dạng theo loại).
+/// - Comic + xuất CBZ/PDF: `DownloadManager+ComicExport` (chỉ chương đã tải ảnh). Video + xuất video:
+///   `DownloadManager+VideoExport` (chỉ tập đã tải về máy). Định dạng lệch loại: báo thất bại (UI đã lọc theo loại).
 extension DownloadManager {
     /// `true` khi tác vụ thuộc sách media và đã được xử lý trọn ở đây — caller phải `return` ngay.
     internal func executeMediaTaskIfNeeded(
@@ -27,8 +27,13 @@ extension DownloadManager {
                 await executeComicExport(task, format: format, container: container)
                 return true
             }
+            // Không cần tiện ích: chỉ đọc bản tải trên máy (phim nhập từ file cũng không có tiện ích).
+            if kind == .video, task.taskType.exportFormat?.isVideoFormat == true {
+                await executeVideoExport(task, container: container)
+                return true
+            }
             AppLogger.shared.log("❌ [DownloadManager] Từ chối xuất \(task.taskType.rawValue) cho sách \(kind.rawValue): \(task.bookTitle)")
-            await markFailed(taskId: task.id, error: kind == .comic ? "Truyện tranh chỉ xuất được CBZ hoặc PDF" : "Không hỗ trợ xuất file cho video")
+            await markFailed(taskId: task.id, error: kind == .comic ? "Truyện tranh chỉ xuất được CBZ hoặc PDF" : "Video chỉ xuất được định dạng Video")
             return true
         }
         if kind == .video {

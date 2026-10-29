@@ -14,13 +14,18 @@ extension BookDetailView {
         LocalMediaPackage.isLocalMedia(packageId: extensionPackageId)
     }
 
-    /// Xuất file: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh); video không xuất.
+    /// Xuất file có ở mọi loại: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh), video ra file phim
+    /// (tập đã tải về máy, `DownloadManager+VideoExport`).
     internal var showsExport: Bool {
-        contentKind != .video
+        true
     }
 
     internal var exportActionTitle: String {
-        contentKind == .comic ? "Xuất CBZ/PDF" : "Xuất ebook"
+        switch contentKind {
+        case .video: return "Xuất video"
+        case .comic: return "Xuất CBZ/PDF"
+        case .text, .unsupported: return "Xuất ebook"
+        }
     }
 
     /// Nút "Xoá bản tải" của phim — không có với phim nhập từ file (xoá là mất phim).
