@@ -10,10 +10,11 @@ import UIKit
 /// ngay khi ngăn kéo bắt đầu trượt ra; sheet / hộp thoại của màn trượt lên phía dưới trong lúc ngăn kéo trượt đi.
 ///
 /// ## Cửa sổ
-/// - Level `alert - 3.5` (1.3.648): **dưới** ba widget nổi (TTS `alert - 1`, hub `alert - 2`, trình duyệt `alert - 3`)
-///   và toast (`alert`) ⇒ widget luôn nổi trên ngăn kéo và lớp tối, bấm được bình thường (như thời ngăn kéo còn là
-///   `fullScreenCover`). 1.3.628–647 để `alert - 0.5` (trên widget) — từ khi nền ngăn kéo nhoè thật (1.3.645) thì widget
-///   nằm dưới vùng ngăn kéo bị che hẳn. Đánh đổi: widget ở mép phải có thể che vài hàng menu.
+/// - Level `alert - 1.5` (1.3.651): **dưới** widget TTS (`alert - 1`) và toast (`alert`), **trên** hub (`alert - 2`) và
+///   trình duyệt thu nhỏ (`alert - 3`). Widget TTS luôn nổi trên ngăn kéo và lớp tối (điều khiển nghe được khi menu mở);
+///   hub/trình duyệt nằm dưới, nếu không bấm hub mở Thông báo / menu của hub lúc ngăn kéo đang mở thì menu "…" bị che.
+///   Lịch sử: `alert - 0.5` (1.3.628–647, trên mọi widget — từ khi nền nhoè thật thì widget bị che hẳn); `alert - 3.5`
+///   (1.3.648–650, dưới mọi widget).
 /// - **Không bao giờ** `makeKeyAndVisible()`: sheet, bàn phím, first responder vẫn ở cửa sổ chính; các chỗ tìm cửa sổ
 ///   chính theo `isKeyWindow` / level `.normal` không vớ nhầm cửa sổ này.
 /// - Một host dùng chung: mỗi lúc chỉ một ngăn kéo. Mở ngăn kéo khác khi một cái đang mở ⇒ thay, và màn cũ được trả
@@ -185,7 +186,7 @@ final class SideDrawerMenuWindowManager {
         host.view.accessibilityViewIsModal = true
 
         let win = SideDrawerMenuOverlayWindow(windowScene: scene)
-        win.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 3.5)
+        win.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1.5)
         win.backgroundColor = .clear
         win.rootViewController = host
         // Không bao giờ `makeKeyAndVisible()`: đây là lớp phủ, không phải cửa sổ chính.

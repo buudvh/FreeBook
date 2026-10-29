@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.651] - 2026-10-29
+
+### fix: chỉ widget TTS nổi trên ngăn kéo menu, hub và trình duyệt nằm dưới
+
+Người dùng: *"sửa lại cho widget tts cao hơn menu ... thôi, vì nếu như widget kia cao hơn thì bấm vào xem thông báo từ widget không xem được menu ..."*.
+
+- **`SideDrawerMenuWindowManager`**: cửa sổ ngăn kéo `alert - 3.5` (1.3.648, dưới mọi widget) ⇒ `alert - 1.5` — **dưới** widget TTS (`alert - 1`) và toast, **trên** hub (`alert - 2`) và trình duyệt thu nhỏ (`alert - 3`). Widget TTS vẫn bấm được khi menu mở; hub/trình duyệt không còn che menu "…" (bấm hub mở Thông báo lúc menu đang mở không đè lên menu).
+- Chuyển entry `[1.3.621]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở menu "…" khi widget TTS và hub cùng hiện.
+
 ## [1.3.650] - 2026-10-29
 
 ### feat: xuất video từ các tập đã tải
@@ -380,21 +390,4 @@ Người dùng: *"tôi muốn sửa tất cả menu dropdown thành dạng chạ
 - Rủi ro chưa kiểm trên máy: cover có thật trong suốt với `.presentationBackground(.clear)`; khung hình đầu của hiệu ứng trượt; thanh trạng thái có thể hiện lại ở Reader/video khi ngăn kéo mở; xoay máy khi ngăn kéo mở ở trình phát; bàn phím của ô tìm đang focus đè lên ngăn kéo.
 - Chuyển entry `[1.3.592]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code (component + từng màn); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.621] - 2026-10-28
-
-### feat: bộ kiểm tra tiện ích JS chạy đủ script khai trong plugin.json
-
-Người dùng: *"Thêm bộ kiểm tra nguồn tương tự legado cho các ext. Nó phải kiểm tra đủ script khai báo trong plugin.json"*. Duyệt plan + mockup: kiểm từng tiện ích và hàng loạt (3 tiện ích cùng lúc), từ khoá tìm lấy 3 từ gần nhất trong lịch sử tìm kiếm rồi tên truyện của trang chủ, TTS chỉ chạy `voice`, có nhãn "lỗi do ai", chia sẻ báo cáo và gỡ tiện ích lỗi.
-
-- **Một dòng kết quả cho mỗi khoá script** (khác bộ kiểm Legado dừng ở bước hỏng đầu): lỗi một nhánh không dừng nhánh khác. `ExtensionCheckReport` (mới, `Services/Extensions/Diagnostics/`) — đạt / lỗi / bỏ qua (kèm lý do) / chỉ kiểm tĩnh, thời gian, số mục, kết luận, câu lỗi đã redact; `errorLink` không vào JSON.
-- **Tầng tĩnh cho mọi khoá khai báo** (`ExtensionScriptStaticCheck`): tên file hợp lệ, file có ở gốc hoặc `src/` (thứ tự như `getScriptPath`), đọc được UTF-8, đúng cú pháp bằng `JSCheckScriptSyntax` (chỉ phân tích, không chạy code top-level), có `execute`, mọi `load("x")` chữ cố định trỏ tới file có thật. Khoá app không gọi (`config`, `action`, `language`, `model`, `style`, `translate`, `chatStream`, khoá lạ, `track` của tiện ích không phải video, `tts`) chỉ kiểm tĩnh.
-- **Chạy thật** (`ExtensionCheckProbe` + `+Entries` + `+Book`, qua `SourceRuntime` / `ExtensionManager` như app): `home` → `explore` → `genre` → `search` độc lập (`home`/`genre` chạy thêm script phụ của mục đầu thành dòng con); truyện thử ưu tiên mục của `search`, rồi `detail`, `page` → `toc` (trang đầu, như `BookDetailLoader.fetchFirstPageTOC`) → `chap` (chữ; tranh: danh sách ảnh + tải ảnh đầu qua `ComicImageLoader`; video: server) → `track` (tải thử 1 KB đầu nguồn `native`). Bước trước không cho dữ liệu ⇒ bước sau "bỏ qua". Trần thời gian mỗi bước dùng lại `LegadoCorpusDeadline`, phân loại lỗi dùng lại `LegadoCorpusErrorClassifier`.
-- **Kết luận "lỗi do ai"** (`ExtensionCheckVerdict`, heuristic): captcha/Cloudflare/đăng nhập/HTTP 401 ⇒ cần người dùng; mạng/hết giờ/HTTP/có `fetch` lỗi ⇒ web; trả rỗng ⇒ nguồn lỗi thời; thiếu file/cú pháp/ngoại lệ JS ⇒ lỗi script; còn lại ⇒ chưa rõ. Mỗi dòng lỗi có "Mở link lỗi" (`SourceErrorLink.resolve` ngay trong `catch`); đóng trình duyệt ⇒ chạy lại tiện ích đó.
-- **`ExtensionCheckRunner`** (actor): một lượt tại một thời điểm, cửa sổ trượt 3 tiện ích, trong một tiện ích chạy lần lượt; `retry(packageId:)` chạy lại một tiện ích, giữ kết quả các tiện ích khác. Không ghi đĩa, không đụng thư viện. `ExtensionCheckReportShare` ghi JSON vào `tmp/extension_check_share/`.
-- **Màn** (`Views/Extensions/Check/`): `ExtensionCheckView` — một tiện ích (nút **Kiểm tra** mới ở thẻ đầu Cấu hình tiện ích, đẩy trong stack) hoặc hàng loạt (menu `⋯` tab Tất cả tiện ích › "Kiểm tra tiện ích (theo danh sách đang hiện)", chỉ tiện ích đã cài): ô Đạt đủ / Có lỗi / Còn lại, chip lọc, chạm dòng ⇒ `ExtensionCheckResultScreen`; nút Dừng, Chạy lại, Gỡ tiện ích lỗi (hỏi xác nhận), chia sẻ. Dòng "bỏ qua" không tính là lỗi khi gỡ. Rời màn / đóng sheet ⇒ dừng lượt.
-- Loại tiện ích của bộ kiểm lấy theo `type` của bản ghi đã cài (cùng cách `BookContentDestination` chọn màn đọc); nút Kiểm tra không hiện với nguồn Legado; "Gỡ tiện ích lỗi" bỏ qua tiện ích đang làm giọng đọc TTS (cùng luật nút Gỡ ở Cấu hình tiện ích).
-- Menu `⋯` của tab 0 chuyển sang `RepositoryManagerView+SourceCheck` để file legacy `RepositoryManagerView.swift` giảm (605 → 591 dòng).
-- Chuyển entry `[1.3.591]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch. **Chưa thử trên máy**: `JSCheckScriptSyntax` với các tiện ích thật, tiện ích có trang chặn Cloudflare (bước có thể chậm), kiểm hàng loạt nhiều tiện ích.
 
