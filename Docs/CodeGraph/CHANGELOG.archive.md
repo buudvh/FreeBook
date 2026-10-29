@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.624] - 2026-10-28
+
+### feat: sheet tải/xuất nửa màn, chọn chương bắt đầu, nghỉ và số luồng tải; nhập kho, Legado URL thành sheet
+
+Người dùng: *"Sửa sheet tải chương, xuất truyện hiện thị giữa màn hình. Bỏ phần giải thích. Thêm vào icon dấu hỏi tương tự thêm rule dịch. Thêm chọn chương bắt đầu tải từ danh sách chương (nhớ dịch danh sách chương, xử lý lấy danh sách ngầm để tránh đơ máy). Thêm mục chọn delay giữa các lần tải, thời gian delay mặc định như hiện tại. mục chọn số luồng tải, mặc định như hiện tại"*; chọn nửa màn, delay thanh kéo 0–10 giây, 1–3 luồng, nhớ theo nguồn. Thêm: *"Làm sheet nhập kho tiện ích hiển thị giữa màn hình, nhập nguồn legado từ url sửa thành sheet luôn, thêm nút clear, paste trên ô nhập"*; duyệt mockup + plan.
+
+- **Sheet tải/xuất** (`TaskOptionsSheet`, tách thêm `+StartChapter`, `+Speed`, `+Help`): `.presentationDetents([.medium, .large])` ngay trong sheet nên cả 7 chỗ mở đều nửa màn. Bỏ footer định dạng và 3 footer giải thích; nội dung chuyển vào nút "?" (`QuickTranslationRuleHelpButton`) ở tiêu đề mục Định dạng bản xuất / Bắt đầu từ / Tùy chọn tác vụ / Tốc độ tải. Giữ dòng "Đã tải X/Y chương".
+- **Bắt đầu từ**: công tắc "Tải từ chương đang đọc" thành ba dòng chọn — Chương đang đọc (mặc định, như cũ), Chương đầu tiên, Chọn chương… (video: "tập"). Màn chọn dùng lại `ReaderAINameScanChapterPickerView` (thêm tham số `noun`) với **toàn bộ** mục lục. `DownloadStartChapterCatalog` (mới) đọc `ChapterStore` (fallback bảng SwiftData `Chapter`) và dịch tên theo `TranslationConfigStore` + phồn → giản của truyện, trong hàm `async` không gắn actor (ngoài main thread, huỷ theo `.task`); lúc đang nạp, "Chọn chương…" báo "Đang tải mục lục…" / "Đang dịch danh sách…" và tạm khoá. Một lần đọc mục lục dùng chung cho dòng "Đã tải X/Y".
+- **Chương bắt đầu theo tác vụ** (`DownloadStartChapterStore`, mới): sidecar UserDefaults theo `taskId`, ghi **trước** `enqueueTask`, khớp theo `index` chương (không theo vị trí mảng), xoá cùng tác vụ (`deleteTask`, `clearFinishedTasks`) — không thêm cột vào `DownloadTaskModel`. Truyện chữ (`executeTask`) và truyện tranh (`comicChaptersToDownload`) đọc qua `startPosition`; video ghi vào `VideoDownloadRequestStore` sẵn có.
+- **Tốc độ tải** (`DownloadSpeedSettings`, mới, nhớ theo `packageId`): nghỉ 0–10 giây bước 0,5 (mặc định **Không** — trước đây không có nghỉ nào) và 1–3 luồng (mặc định **1**, tuần tự như cũ). Truyện chữ có cả hai; truyện tranh chỉ có nghỉ (giữa các chương vừa tải); video ẩn cả mục; nguồn Legado không có số luồng; ẩn khi xuất chỉ chương đã tải. Giới hạn 2 tác vụ chạy cùng lúc giữ nguyên.
+- **Đường tải nhiều luồng** (`DownloadManager+ChapterLanes`, mới; vòng lặp chương rời khỏi `executeTask`): task group giữ tối đa N chương đang tải, mỗi luồng một `ExportContentProvider` + `BookDownloadWorker` riêng (không dùng chung `JSExecutor`); worker luồng thêm đăng ký vào `activeWorkers` (giờ là `[UUID: [BookDownloadWorker]]`) để `cancelTask` dừng hết. Kết quả xếp lại đúng thứ tự mục lục trước khi ghi bản xuất / báo tiến độ; chạy trước tối đa 2 × N chương. Luồng vừa tải từ mạng thì nghỉ trước chương kế tiếp của nó — chương đã có trong máy không phải chờ, không nghỉ thừa sau chương cuối. `ExportContentProvider` thành `@unchecked Sendable` (mỗi provider chỉ một luồng dùng), `Tally.add` cộng bộ đếm các luồng. Huỷ lúc các chương cuối còn đang tải vẫn báo "Đã hủy" (chốt `checkCancellation` sau vòng lặp). `BookBinManager.writeChapterContent` là hàm actor đồng bộ (tìm cuối file + ghi không có `await` xen giữa) nên các luồng ghi chung file `.bin` không chồng offset. Mặc định 1 luồng, không nghỉ ⇒ cùng thứ tự thao tác cũ.
+- **Nhập kho tiện ích** (`AddRepositoryView`): nửa màn; mỗi ô có nhãn ở trên kèm `TextFieldClipboardButtons` (xoá · sao chép · dán thay cả giá trị).
+- **Nhập nguồn Legado từ URL**: alert thành `LegadoURLImportSheet` (mới) — nửa màn, ô URL có nút xoá · sao chép · dán, giải thích trong nút "?". Bấm "Nhập" chỉ đặt cờ `isURLImportPending`; việc nhập chạy ở `onDismiss` của sheet để alert tổng kết không trình bày chồng lúc sheet đang đóng.
+- `CLAUDE.md` / `AGENTS.md`: câu "đúng một `BookDownloadWorker` mỗi truyện" sửa thành mặc định một worker, nhiều luồng thì mỗi luồng một worker.
+- Rủi ro chưa kiểm trên máy: nguồn chặn khi chạy 2–3 luồng; popover "?" trong header của sheet nửa màn; `.task` bị huỷ khi đẩy màn chọn chương (đã chặn bằng cờ nạp lại); tốc độ dịch tên chương với truyện vài nghìn chương.
+- Chuyển entry `[1.3.594]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.623] - 2026-10-28
 
 ### fix: ngăn kéo menu trong hơn, trượt vào ra nhanh hơn

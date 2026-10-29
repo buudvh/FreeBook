@@ -105,8 +105,8 @@ struct BookDetailView: View {
     @State internal var onlineTitleIndex = BookDetailOnlineTOCIndex()
 
     // Quản lý tác vụ tải/xuất
-    @State internal var selectedTaskType: TaskType = .download
-    @State internal var selectedBookForTask: Book? = nil
+    /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @State internal var taskSheetRequest: TaskSheetRequest? = nil
 
     @State internal var resolvedBookId: String = ""
 
@@ -185,8 +185,7 @@ struct BookDetailView: View {
             floatingActionButton
         }
         .bookDetailActionSheets(
-            selectedBookForTask: $selectedBookForTask,
-            selectedTaskType: selectedTaskType,
+            taskSheetRequest: $taskSheetRequest,
             showingBypassBrowser: $showingBypassBrowser,
             initialDetailUrl: initialDetailUrl,
             resolvedHost: resolvedHost,

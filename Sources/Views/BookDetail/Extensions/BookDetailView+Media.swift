@@ -22,8 +22,8 @@ extension BookDetailView {
 
     internal var exportActionTitle: String {
         switch contentKind {
-        case .video: return "Xuất video"
-        case .comic: return "Xuất CBZ/PDF"
+        case .video: return "Xuất video đã tải"
+        case .comic: return "Xuất chương đã tải"
         case .text, .unsupported: return "Xuất ebook"
         }
     }

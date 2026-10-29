@@ -90,8 +90,7 @@ extension BookDetailView {
                         self.isLoadingRemainingPages = false
 
                         if let book = refetchBook(bookId: saveRequest.bookId) ?? localBook {
-                            self.selectedTaskType = taskType
-                            self.selectedBookForTask = book
+                            self.taskSheetRequest = TaskSheetRequest(book: book, taskType: taskType)
                         }
                         self.loadingTask = nil
                     }
@@ -115,8 +114,7 @@ extension BookDetailView {
                     targetBook = await createBookOnShelf(savedDesc: savedDesc)
                 }
                 if let book = targetBook {
-                    self.selectedTaskType = taskType
-                    self.selectedBookForTask = book
+                    self.taskSheetRequest = TaskSheetRequest(book: book, taskType: taskType)
                 }
             }
         }

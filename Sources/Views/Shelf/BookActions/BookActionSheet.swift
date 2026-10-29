@@ -320,7 +320,7 @@ struct BookActionSheet: View {
         if !isLocalMedia {
             actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
         }
-        actionRow(.exportEbook, kind == .video ? "Xuất video" : (kind == .comic ? "Xuất CBZ/PDF" : "Xuất ebook"), "square.and.arrow.up")
+        actionRow(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
 
         if currentCollectionId != nil {

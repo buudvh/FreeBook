@@ -86,11 +86,9 @@ extension ShelfSearchView {
         case .editInfo:
             editingInfoBook = book
         case .download:
-            selectedTaskType = .download
-            selectedBookForTask = book
+            taskSheetRequest = TaskSheetRequest(book: book, taskType: .download)
         case .exportEbook:
-            selectedTaskType = .exportTxt
-            selectedBookForTask = book
+            taskSheetRequest = TaskSheetRequest(book: book, taskType: .exportTxt)
         case .retranslateChapterTitles:
             BookActionRunner.retranslateChapterTitles(for: book)
         case .togglePin:

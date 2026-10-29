@@ -60,6 +60,9 @@ struct TaskOptionsSheet: View {
         // Xuất truyện tranh / video chỉ lấy chương/tập đã tải (không có mạng) ⇒ luôn "chỉ chương đã tải", ẩn mục tốc độ.
         let isMediaExport = taskType.isExport && kind.isMedia
         self._onlyExportCached = State(initialValue: defaultOnlyExportCached || isMediaExport)
+        // "Xuất video đã tải" / "Xuất chương đã tải" (1.3.654): mặc định lấy **mọi** tập/chương đã tải từ đầu, không phải
+        // từ tập đang xem — người dùng vẫn đổi được mốc bắt đầu và số lượng.
+        self._startChoice = State(initialValue: isMediaExport ? .first : .current)
         // 5 lối mở xuất đều truyền `.exportTxt` ⇒ đổi sang định dạng đầu tiên hợp với loại sách (truyện tranh: CBZ).
         let formats = BookExportFormat.formats(for: kind)
         let requested = taskType.exportFormat ?? .txt

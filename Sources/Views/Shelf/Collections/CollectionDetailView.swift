@@ -24,8 +24,8 @@ struct CollectionDetailView: View {
     @State private var detailTargetBook: Book? = nil
     @State private var navigateToBookDetail = false
     @State private var editingInfoBook: Book? = nil
-    @State private var selectedBookForTask: Book? = nil
-    @State private var selectedTaskType: TaskType = .download
+    /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @State private var taskSheetRequest: TaskSheetRequest? = nil
     @State private var changeSourceTargetBook: Book? = nil
     @State private var navigateToChangeSource = false
     @State private var isProcessingDeletion = false
@@ -140,8 +140,8 @@ struct CollectionDetailView: View {
                 }
             )
         }
-        .sheet(item: $selectedBookForTask) { book in
-            TaskOptionsSheet(book: book, taskType: selectedTaskType)
+        .sheet(item: $taskSheetRequest) { request in
+            TaskOptionsSheet(book: request.book, taskType: request.taskType)
         }
         .bookBrowserPresentation($browserBook)
         .sheet(isPresented: $showingLayoutSheet) {
@@ -345,11 +345,9 @@ struct CollectionDetailView: View {
         case .editInfo:
             editingInfoBook = book
         case .download:
-            selectedTaskType = .download
-            selectedBookForTask = book
+            taskSheetRequest = TaskSheetRequest(book: book, taskType: .download)
         case .exportEbook:
-            selectedTaskType = .exportTxt
-            selectedBookForTask = book
+            taskSheetRequest = TaskSheetRequest(book: book, taskType: .exportTxt)
         case .retranslateChapterTitles:
             BookActionRunner.retranslateChapterTitles(for: book)
         case .togglePin:

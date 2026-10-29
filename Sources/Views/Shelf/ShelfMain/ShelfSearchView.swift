@@ -45,8 +45,8 @@ struct ShelfSearchView: View {
     @State private var browserBook: Book? = nil
     /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    @State var selectedBookForTask: Book? = nil
-    @State var selectedTaskType: TaskType = .download
+    /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @State var taskSheetRequest: TaskSheetRequest? = nil
     @State var changeSourceTargetBook: Book? = nil
     @State var navigateToChangeSource = false
     @State var isProcessingDeletion = false
@@ -136,8 +136,8 @@ struct ShelfSearchView: View {
                     }
                 )
             }
-            .sheet(item: $selectedBookForTask) { book in
-                TaskOptionsSheet(book: book, taskType: selectedTaskType)
+            .sheet(item: $taskSheetRequest) { request in
+                TaskOptionsSheet(book: request.book, taskType: request.taskType)
             }
             .bookBrowserPresentation($browserBook)
             .sheet(item: $editingInfoBook) { book in

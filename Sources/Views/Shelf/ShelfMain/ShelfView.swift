@@ -94,8 +94,8 @@ struct ShelfView: View {
     @State internal var readerPresentationRoute: ShelfReaderRoute? = nil
 
     // Tùy chọn tác vụ
-    @State private var selectedTaskType: TaskType = .download
-    @State private var selectedBookForTask: Book? = nil
+    /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @State private var taskSheetRequest: TaskSheetRequest? = nil
     /// Truyện đang được sửa thông tin. Sheet "Sửa thông tin" trước đây chỉ vào được từ menu "…" của màn Chi tiết;
     /// giờ dùng chung cho cả tab Kệ sách và Lịch sử qua context menu.
     @State private var editingInfoBook: Book? = nil
@@ -376,8 +376,8 @@ struct ShelfView: View {
                     sourceName: info[FloatingHubWindowManager.sourceNameUserInfoKey] as? String ?? ""
                 )
             }
-            .sheet(item: $selectedBookForTask) { book in
-                TaskOptionsSheet(book: book, taskType: selectedTaskType)
+            .sheet(item: $taskSheetRequest) { request in
+                TaskOptionsSheet(book: request.book, taskType: request.taskType)
             }
             .sheet(item: $editingInfoBook) { book in
                 BookInfoEditView(
@@ -603,8 +603,7 @@ struct ShelfView: View {
     }
 
     private func prepareTaskForBook(_ book: Book, type: TaskType) {
-        self.selectedTaskType = type
-        self.selectedBookForTask = book
+        self.taskSheetRequest = TaskSheetRequest(book: book, taskType: type)
     }
 
     private func deleteBookFromDevice(_ book: Book) {

@@ -5,9 +5,8 @@ struct DownloadTrackerView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var downloadManager = DownloadManager.shared
     
-    @State private var selectedBookForTask: Book? = nil
-    @State private var selectedTaskType: TaskType = .download
-    @State private var defaultOnlyExportCached = false
+    /// Sheet xuất — sách + loại tác vụ + cờ "chỉ chương đã tải" đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @State private var taskSheetRequest: TaskSheetRequest? = nil
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Công tắc NSFW toàn app — tắt ⇒ ẩn tác vụ tải/xuất của truyện thuộc nguồn NSFW hoặc tự đánh dấu NSFW (tác vụ vẫn
     /// chạy).
@@ -53,8 +52,12 @@ struct DownloadTrackerView: View {
                 .listStyle(.plain)
             }
         }
-        .sheet(item: $selectedBookForTask) { book in
-            TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)
+        .sheet(item: $taskSheetRequest) { request in
+            TaskOptionsSheet(
+                book: request.book,
+                taskType: request.taskType,
+                defaultOnlyExportCached: request.defaultOnlyExportCached
+            )
         }
     }
     
@@ -243,8 +246,8 @@ struct DownloadTrackerView: View {
     
     private func exportFromCachedTitle(_ task: DownloadTask) -> String? {
         switch ExtensionContentKind.resolve(packageId: task.extensionPackageId) {
-        case .video: return "Xuất video từ tập đã tải"
-        case .comic: return "Xuất CBZ/PDF từ ảnh đã tải"
+        case .video: return "Xuất video đã tải"
+        case .comic: return "Xuất chương đã tải"
         case .text, .unsupported: return "Xuất ebook từ truyện đã tải"
         }
     }
@@ -256,9 +259,7 @@ struct DownloadTrackerView: View {
     private func exportFromCached(_ task: DownloadTask) {
         let allBooks = (try? modelContext.fetch(FetchDescriptor<Book>())) ?? []
         if let book = allBooks.first(where: { $0.bookId == task.bookId }) {
-            selectedTaskType = .exportTxt
-            defaultOnlyExportCached = true
-            selectedBookForTask = book
+            taskSheetRequest = TaskSheetRequest(book: book, taskType: .exportTxt, defaultOnlyExportCached: true)
         }
     }
 }

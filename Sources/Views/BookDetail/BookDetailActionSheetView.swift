@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct BookDetailActionSheetModifier: ViewModifier {
-    @Binding var selectedBookForTask: Book?
-    let selectedTaskType: TaskType
+    /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
+    @Binding var taskSheetRequest: TaskSheetRequest?
     @Binding var showingBypassBrowser: Bool
     let initialDetailUrl: String
     let resolvedHost: String?
@@ -10,10 +10,10 @@ struct BookDetailActionSheetModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $selectedBookForTask) { book in
+            .sheet(item: $taskSheetRequest) { request in
                 TaskOptionsSheet(
-                    book: book,
-                    taskType: selectedTaskType
+                    book: request.book,
+                    taskType: request.taskType
                 )
             }
             .fullScreenCover(isPresented: $showingBypassBrowser) {
@@ -31,8 +31,7 @@ struct BookDetailActionSheetModifier: ViewModifier {
 
 extension View {
     func bookDetailActionSheets(
-        selectedBookForTask: Binding<Book?>,
-        selectedTaskType: TaskType,
+        taskSheetRequest: Binding<TaskSheetRequest?>,
         showingBypassBrowser: Binding<Bool>,
         initialDetailUrl: String,
         resolvedHost: String?,
@@ -40,8 +39,7 @@ extension View {
     ) -> some View {
         self.modifier(
             BookDetailActionSheetModifier(
-                selectedBookForTask: selectedBookForTask,
-                selectedTaskType: selectedTaskType,
+                taskSheetRequest: taskSheetRequest,
                 showingBypassBrowser: showingBypassBrowser,
                 initialDetailUrl: initialDetailUrl,
                 resolvedHost: resolvedHost,
