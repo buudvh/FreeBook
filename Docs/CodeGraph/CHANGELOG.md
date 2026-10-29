@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.647] - 2026-10-29
+
+### fix: ngăn kéo menu bỏ ảnh chụp nền, độ đục theo 6 nấc kính như nút nổi
+
+Người dùng: *"revert ngăn kéo "…" lại đi, sửa thành 6 nấc"*.
+
+- **Gỡ ảnh chụp nền của 1.3.645**: `SideDrawerMenuPanel`, `SideDrawerMenuWindowRoot`, `SideDrawerMenuWindowManager` về đúng bản trước 1.3.645 (không còn `captureBackdrop`, không chụp màn khi mở ngăn kéo).
+- **`SideDrawerGlassBackground`**: dùng chung 6 nấc kính iOS với nút nổi (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; thêm `trailingRadius` cho ô xem trước. Mặc định 60% ⇒ nấc "Vừa".
+- **Cài đặt › Giao diện**: thanh độ đục của ngăn kéo bước 20% kèm tên nấc như nút nổi; ô xem trước ngăn kéo chỉ cắt góc dải bìa, không cắt khung chứa lớp kính. Sửa chú thích `GlassChromeSettings`, `GlassFrostLevel`.
+- Chuyển entry `[1.3.616]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cần xem 6 nấc của ngăn kéo trên nền Kệ.
+
 ## [1.3.646] - 2026-10-29
 
 ### fix: sheet nhập truyện thấp vừa ba lựa chọn
@@ -387,15 +399,5 @@ Người dùng: *"五绝级别 / <vp>级别 / -> Ng ũ tuy ệ t cấp bậc / f
 - **`VietPhraseTokenizer.isLatinLetterOrNumber`**: nhận thêm chữ Latin kèm dấu thuộc khối Combining Diacritical Marks (U+0300–U+036F), vẫn xét theo chữ gốc như cũ; chữ số kèm dấu và emoji nhiều scalar vẫn không phải chữ. Hàm dùng chung với `TranslateUtils.translateAuthorHanViet`, nên tên tác giả có chữ dấu rời cũng không còn bị tách.
 - Dữ liệu từ điển trên máy không đổi.
 - Chuyển entry `[1.3.588]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.616] - 2026-10-27
-
-### fix: giảm đệm trái phải ba sheet bôi đen, sheet thêm rule mở toàn màn
-
-Người dùng: *"giảm padding của các màn hình dịch, xóa từ rác, copy gốc / bỏ nấc hiển thị giữa màn hình của sheet thêm rule"*, rồi chốt *"giảm padding trái phải thôi"*.
-
-- **Ba sheet bôi đen** (Dịch `ReaderDefinitionOverlayView`, Xoá từ rác `ReaderJunkDeleteOverlayView`, Copy gốc `ReaderCopyOriginalOverlayView`): đệm ngang 16 → 12; đệm trên, dưới và khoảng giãn giữa các hàng giữ nguyên.
-- **Sheet thêm/sửa rule** (`QuickTranslationRuleEditorSheet`): bỏ nấc nửa màn của 1.3.613 (`presentationDetents([.medium, .large], selection:)`, state `detent`, tự kéo lên khi chạm ô nhập) — sheet mở toàn màn như trước.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
 

@@ -9,9 +9,6 @@ import SwiftUI
 ///   action chạy luôn; trượt ra xong ⇒ `onClosed` để cửa sổ ẩn đi.
 struct SideDrawerMenuPanel<Content: View>: View {
     let title: String
-    /// Ảnh chụp màn bên dưới lúc mở (cỡ = cửa sổ chính, đơn vị point) — nền phía sau để làm nhoè mịn
-    /// (`SideDrawerGlassBackground`). `nil` khi độ đục 0 hoặc chụp lỗi ⇒ nhìn thẳng xuống màn bên dưới.
-    let backdrop: UIImage?
     /// Panel vừa lên màn (bắt đầu trượt vào) — chỉ để đo thời gian.
     let onAppeared: () -> Void
     /// Gọi đúng một lần khi ngăn kéo bắt đầu trượt ra; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
@@ -36,11 +33,10 @@ struct SideDrawerMenuPanel<Content: View>: View {
             let drawerWidth = min(proxy.size.width * 0.78, 360)
             // Nền ngăn kéo tràn qua vùng an toàn bên phải (tai thỏ khi nằm ngang) ⇒ đẩy thêm đoạn đó khi ẩn.
             let hiddenOffset = drawerWidth + proxy.safeAreaInsets.trailing + 24
-            let offset = isShown ? dragOffset : hiddenOffset
             ZStack(alignment: .trailing) {
                 dimmingLayer
-                drawer(width: drawerWidth, offset: offset)
-                    .offset(x: offset)
+                drawer(width: drawerWidth)
+                    .offset(x: isShown ? dragOffset : hiddenOffset)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -59,12 +55,9 @@ struct SideDrawerMenuPanel<Content: View>: View {
 
     // MARK: - Lớp phủ
 
-    /// Độ tối của lớp phủ phần màn ngoài ngăn kéo — nền ảnh chụp sau ngăn kéo phủ cùng mức này.
-    private static var dimmingOpacity: Double { 0.3 }
-
     private var dimmingLayer: some View {
         Color.black
-            .opacity(isShown ? Self.dimmingOpacity : 0)
+            .opacity(isShown ? 0.3 : 0)
             .ignoresSafeArea()
             .contentShape(Rectangle())
             .onTapGesture { close(nil) }
@@ -76,7 +69,7 @@ struct SideDrawerMenuPanel<Content: View>: View {
 
     // MARK: - Ngăn kéo
 
-    private func drawer(width: CGFloat, offset: CGFloat) -> some View {
+    private func drawer(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Tiêu đề cùng chuẩn tiêu đề trang (22pt đậm, một dòng); không còn vạch ngăn bên dưới.
             Text(title)
@@ -101,7 +94,7 @@ struct SideDrawerMenuPanel<Content: View>: View {
         }
         .frame(width: width)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background { drawerBackground(offset: offset) }
+        .background { drawerBackground }
         .environment(\.colorScheme, .dark)
         .simultaneousGesture(swipeToClose(drawerWidth: width))
         .accessibilityElement(children: .contain)
@@ -112,21 +105,11 @@ struct SideDrawerMenuPanel<Content: View>: View {
     /// Nền kính theo Cài đặt › Giao diện (`SideDrawerGlassBackground`, mặc định "kính đục vừa" của 1.3.633). Nền tràn
     /// vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home indicator); nới 1pt ra ngoài mép trên/dưới/phải
     /// để viền chỉ còn thấy ở cạnh trái.
-    ///
-    /// Nền phía sau là ảnh chụp màn (chụp **trước** khi có lớp phủ tối) nên phủ thêm đúng lớp tối của `dimmingLayer` lên
-    /// ảnh: không thì kéo độ đục từ 0 lên 5% phần sau ngăn kéo sáng vọt lên. Dịch ảnh `-offset` để nó đứng yên theo màn.
-    private func drawerBackground(offset: CGFloat) -> some View {
-        SideDrawerGlassBackground(backdropShift: -offset) {
-            if let backdrop {
-                Image(uiImage: backdrop)
-                    .resizable()
-                    .frame(width: backdrop.size.width, height: backdrop.size.height)
-                    .overlay(Color.black.opacity(Self.dimmingOpacity))
-            }
-        }
-        .padding(.vertical, -1)
-        .padding(.trailing, -1)
-        .ignoresSafeArea()
+    private var drawerBackground: some View {
+        SideDrawerGlassBackground()
+            .padding(.vertical, -1)
+            .padding(.trailing, -1)
+            .ignoresSafeArea()
     }
 
     // MARK: - Đóng

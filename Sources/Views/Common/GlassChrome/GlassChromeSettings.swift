@@ -4,11 +4,9 @@ import Foundation
 /// (tai nghe Reader, nút "+" của màn danh sách) và **ngăn kéo menu ba chấm**.
 ///
 /// - "Độ trong suốt" (0…1): lớp màu nền — 1 = không có lớp màu, 0 = nền đặc.
-/// - "Độ đục" (0…1), từ 1.3.645:
-///   - **Nút nổi**: 6 nấc kính của iOS (`GlassFrostLevel`, bước 0,2), luôn vẽ ở độ hiện 100%.
-///   - **Ngăn kéo**: nhoè mịn ảnh chụp nền phía sau, bán kính = độ đục × `SideDrawerGlassBackground.maxBlurRadius`.
-///   Trước đó (1.3.640) là `.opacity(độ đục)` trên material — sai: kính iOS chỉ nhoè khi hiện đủ 100%, nên 0–95% thực ra
-///   không nhoè, chỉ 100% mới nhoè.
+/// - "Độ đục" (0…1): 6 nấc kính iOS (`GlassFrostLevel`, bước 0,2) cho **cả** nút nổi lẫn ngăn kéo (1.3.645 nút nổi,
+///   1.3.647 ngăn kéo), luôn vẽ ở độ hiện 100%. Trước đó (1.3.640) là `.opacity(độ đục)` trên material — sai: kính iOS
+///   chỉ nhoè khi hiện đủ 100%, nên 0–95% thực ra không nhoè, chỉ 100% mới nhoè.
 ///
 /// Mặc định của ngăn kéo giữ đúng "kính đục vừa" đã duyệt ở 1.3.633 (lớp tối 55% ⇒ trong suốt 45%, nhoè 60%); nút nổi
 /// mặc định "kính rất nhạt" (lớp màu 10%, không nhoè) theo mockup đã duyệt.

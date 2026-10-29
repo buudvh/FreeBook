@@ -32,8 +32,6 @@ final class SideDrawerMenuWindowManager {
         let ownerID: UUID
         let token: UUID
         var title: String
-        /// Ảnh chụp màn bên dưới lúc mở (nền nhoè của ngăn kéo); giữ ở đây để `update` dựng lại vẫn còn ảnh.
-        let backdrop: UIImage?
         let openedAt: CFTimeInterval
         /// Trả `isPresented` của màn sở hữu về `false`.
         let resetPresented: () -> Void
@@ -69,20 +67,16 @@ final class SideDrawerMenuWindowManager {
 
         let previous = session
         let token = UUID()
-        let openedAt = CACurrentMediaTime()
-        // Chụp **trước** khi hiện cửa sổ ngăn kéo (cửa sổ này không ở level `.normal` nên không lọt vào ảnh).
-        let backdrop = captureBackdrop(in: scene)
         let (window, host) = prepareWindow(in: scene)
         session = Session(
             ownerID: ownerID,
             token: token,
             title: title,
-            backdrop: backdrop,
-            openedAt: openedAt,
+            openedAt: CACurrentMediaTime(),
             resetPresented: resetPresented
         )
         window.isUserInteractionEnabled = true
-        host.rootView = makeRoot(token: token, title: title, backdrop: backdrop, content: content)
+        host.rootView = makeRoot(token: token, title: title, content: content)
         window.isHidden = false
         host.setNeedsStatusBarAppearanceUpdate()
         host.setNeedsUpdateOfHomeIndicatorAutoHidden()
@@ -105,12 +99,7 @@ final class SideDrawerMenuWindowManager {
         guard var current = session, current.ownerID == ownerID, !current.isClosing else { return }
         current.title = title
         session = current
-        hostingController?.rootView = makeRoot(
-            token: current.token,
-            title: title,
-            backdrop: current.backdrop,
-            content: content
-        )
+        hostingController?.rootView = makeRoot(token: current.token, title: title, content: content)
     }
 
     /// Gỡ ngay, không hiệu ứng: màn sở hữu rời cây view, hoặc nơi gọi tự hạ `isPresented` khi ngăn kéo còn mở. Đang
@@ -123,17 +112,11 @@ final class SideDrawerMenuWindowManager {
 
     // MARK: - Callback từ `SideDrawerMenuPanel`
 
-    private func makeRoot(
-        token: UUID,
-        title: String,
-        backdrop: UIImage?,
-        content: @escaping () -> AnyView
-    ) -> SideDrawerMenuWindowRoot {
+    private func makeRoot(token: UUID, title: String, content: @escaping () -> AnyView) -> SideDrawerMenuWindowRoot {
         SideDrawerMenuWindowRoot(
             presentation: SideDrawerMenuWindowRoot.Presentation(
                 token: token,
                 title: title,
-                backdrop: backdrop,
                 content: content,
                 onAppeared: { [weak self] in
                     self?.panelDidAppear(token: token)
@@ -183,38 +166,6 @@ final class SideDrawerMenuWindowManager {
         if let closeStartedAt = current.closeStartedAt {
             log("Cửa sổ ẩn sau \(Self.milliseconds(since: closeStartedAt)) ms kể từ lúc chạm")
         }
-    }
-
-    // MARK: - Nền nhoè
-
-    /// Chụp cửa sổ chính (level `.normal`, đang hiện) làm nền nhoè của ngăn kéo — chỉ khi độ đục > 0. Ảnh ở scale 1
-    /// (đơn vị point): nhoè xong không thấy khác ảnh độ phân giải đầy đủ mà rẻ hơn nhiều. `afterScreenUpdates: false` vì
-    /// `present` có thể chạy giữa lượt cập nhật của SwiftUI. Video (AVPlayerLayer) và trang web có thể ra đen / trống
-    /// trong ảnh — nền sau ngăn kéo ở các màn đó sẽ tối. Chụp lỗi ⇒ `nil` ⇒ ngăn kéo như độ đục 0.
-    private func captureBackdrop(in scene: UIWindowScene) -> UIImage? {
-        let frost = UserDefaults.standard.object(forKey: GlassChromeSettings.drawerFrostKey) as? Double
-            ?? GlassChromeSettings.defaultDrawerFrost
-        guard frost > 0 else { return nil }
-        guard let main = scene.windows.last(where: {
-            $0.windowLevel == .normal && !$0.isHidden && !($0 is SideDrawerMenuOverlayWindow)
-        }) else {
-            AppLogger.shared.log("❌ [Drawer] Không tìm thấy cửa sổ chính để chụp nền ngăn kéo")
-            return nil
-        }
-        let startedAt = CACurrentMediaTime()
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        var didDraw = false
-        let image = UIGraphicsImageRenderer(bounds: main.bounds, format: format).image { _ in
-            didDraw = main.drawHierarchy(in: main.bounds, afterScreenUpdates: false)
-        }
-        guard didDraw else {
-            AppLogger.shared.log("❌ [Drawer] Chụp nền ngăn kéo thất bại — mở không nhoè")
-            return nil
-        }
-        log("Chụp nền ngăn kéo mất \(Self.milliseconds(since: startedAt)) ms")
-        return image
     }
 
     // MARK: - Cửa sổ

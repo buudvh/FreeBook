@@ -59,7 +59,10 @@ struct AppearanceSettingsView: View {
 
             Section {
                 percentSlider("Độ trong suốt", value: $drawerTransparency)
-                percentSlider("Độ đục", value: $drawerFrost)
+                // Cùng 6 nấc kính với nút nổi (1.3.647).
+                percentSlider("Độ đục", value: $drawerFrost, step: GlassFrostLevel.step) { value in
+                    GlassFrostLevel(frost: value).title
+                }
                 drawerPreview
                 Button("Đặt lại mặc định") {
                     drawerTransparency = GlassChromeSettings.defaultDrawerTransparency
@@ -142,10 +145,13 @@ struct AppearanceSettingsView: View {
             .background { FloatingGlassBackground() }
     }
 
+    /// Như ô xem trước nút nổi: chỉ cắt góc dải bìa, không cắt khung chứa lớp kính; ngăn kéo tự bo góc phải theo khung.
     private var drawerPreview: some View {
         GeometryReader { proxy in
             ZStack(alignment: .trailing) {
                 previewBackdrop
+                    .background(Self.previewBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Thêm quy tắc", systemImage: "plus")
                     Label("Nhập cấu hình", systemImage: "square.and.arrow.down")
@@ -156,19 +162,10 @@ struct AppearanceSettingsView: View {
                 .padding(12)
                 .frame(width: proxy.size.width * 0.58, alignment: .topLeading)
                 .frame(maxHeight: .infinity, alignment: .top)
-                // Nền phía sau = chính dải bìa cả bề ngang, căn góc trên-phải như ngăn kéo thật ⇒ nhoè mịn theo độ đục.
-                .background {
-                    SideDrawerGlassBackground {
-                        previewBackdrop
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .background(Self.previewBackground)
-                    }
-                }
+                .background { SideDrawerGlassBackground(trailingRadius: 10) }
             }
         }
         .frame(height: 128)
-        .background(Self.previewBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Xem trước menu ba chấm")
     }

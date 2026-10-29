@@ -9,8 +9,6 @@ struct SideDrawerMenuWindowRoot: View {
     struct Presentation {
         let token: UUID
         let title: String
-        /// Ảnh chụp màn bên dưới lúc mở — nền nhoè của ngăn kéo (`SideDrawerGlassBackground`); `nil` = không nhoè.
-        let backdrop: UIImage?
         /// Gọi lại trong `body` của panel mỗi lần vẽ ⇒ luôn đọc state mới nhất của màn.
         let content: () -> AnyView
         let onAppeared: () -> Void
@@ -27,7 +25,6 @@ struct SideDrawerMenuWindowRoot: View {
             if let presentation {
                 SideDrawerMenuPanel(
                     title: presentation.title,
-                    backdrop: presentation.backdrop,
                     onAppeared: presentation.onAppeared,
                     onCloseBegan: presentation.onCloseBegan,
                     onClosed: presentation.onClosed,
