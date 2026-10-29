@@ -27,8 +27,9 @@ final class ExportShareCoordinator {
     private init() {}
 
     /// Nhận yêu cầu chia sẻ từ event `exportReady`. File phải tồn tại thật, nếu không thì báo lỗi ngay.
-    /// `filePath` có thể là **thư mục** (xuất video nhiều tập, `VideoExportWriter`): `fileExists` đúng với thư mục, nhưng
-    /// app đích nào nhận URL thư mục trong share sheet (Lưu vào Tệp, AirDrop) thì chưa kiểm trên máy.
+    /// `filePath` có thể là **thư mục** (xuất video nhiều tập / tập kèm file tiếng, phụ đề — `VideoExportWriter`): share
+    /// sheet không gửi được URL thư mục (người dùng báo 1.3.653), nên lúc trình bày thư mục được bung thành **danh sách
+    /// file** bên trong — xem `shareItems(for:)`.
     func requestShare(filePath: String, bookTitle: String) {
         guard FileManager.default.fileExists(atPath: filePath) else {
             ToastManager.shared.show(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error)
@@ -85,7 +86,12 @@ final class ExportShareCoordinator {
     }
 
     private func present(fileURL: URL, from host: UIViewController) {
-        let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+        let items = Self.shareItems(for: fileURL)
+        guard !items.isEmpty else {
+            ToastManager.shared.show(message: "Thư mục xuất không có tệp nào để chia sẻ.", type: .error)
+            return
+        }
+        let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
 
         if let popover = activityVC.popoverPresentationController {
             popover.sourceView = host.view
@@ -98,5 +104,29 @@ final class ExportShareCoordinator {
             self?.isPresenting = false
         }
         host.present(activityVC, animated: true, completion: nil)
+    }
+
+    /// File thường ⇒ chính nó. Thư mục ⇒ mọi file thường bên trong (cả thư mục con), bỏ file ẩn, xếp theo đường dẫn
+    /// tương đối kiểu tên tự nhiên ("Tập 2" trước "Tập 10") — "Lưu vào Tệp" / AirDrop nhận được nhiều file một lượt.
+    private static func shareItems(for url: URL) -> [URL] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return [] }
+        guard isDirectory.boolValue else { return [url] }
+        let keys: [URLResourceKey] = [.isRegularFileKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        let rootPath = url.standardizedFileURL.path
+        var files: [(relative: String, url: URL)] = []
+        for case let fileURL as URL in enumerator {
+            guard (try? fileURL.resourceValues(forKeys: Set(keys)))?.isRegularFile == true else { continue }
+            let relative = String(fileURL.standardizedFileURL.path.dropFirst(rootPath.count))
+            files.append((relative, fileURL))
+        }
+        return files
+            .sorted { $0.relative.localizedStandardCompare($1.relative) == .orderedAscending }
+            .map(\.url)
     }
 }

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.653] - 2026-10-29
+
+### fix: xuất video nhiều file chia sẻ được từng file thay vì thư mục
+
+Người dùng: *"xuất video dạng folder nên đâu gửi được"* — đúng rủi ro đã ghi ở 1.3.650.
+
+- **`ExportShareCoordinator`**: bản xuất là **thư mục** (video nhiều tập, hoặc một tập kèm file tiếng / phụ đề) ⇒ lúc mở bảng chia sẻ bung thành danh sách mọi file thường bên trong (bỏ file ẩn, xếp tên tự nhiên — "Tập 2" trước "Tập 10") và đưa cả danh sách vào `UIActivityViewController` ⇒ "Lưu vào Tệp" / AirDrop nhận nhiều file một lượt. Bản xuất một file giữ nguyên. Thư mục rỗng ⇒ toast lỗi.
+- Chuyển entry `[1.3.623]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — xuất 2 tập rồi "Lưu vào Tệp" và AirDrop.
+
 ## [1.3.652] - 2026-10-29
 
 ### fix: trang có nút back hiện tiêu đề giữa, nút chữ header 17pt nửa đậm
@@ -376,16 +386,4 @@ Người dùng: *"Sửa sheet tải chương, xuất truyện hiện thị giữ
 - Rủi ro chưa kiểm trên máy: nguồn chặn khi chạy 2–3 luồng; popover "?" trong header của sheet nửa màn; `.task` bị huỷ khi đẩy màn chọn chương (đã chặn bằng cờ nạp lại); tốc độ dịch tên chương với truyện vài nghìn chương.
 - Chuyển entry `[1.3.594]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.623] - 2026-10-28
-
-### fix: ngăn kéo menu trong hơn, trượt vào ra nhanh hơn
-
-Người dùng: *"Menu bạn làm chưa có độ trong suốt, cho hoạt ảnh trượt vào trượt ra nhanh hơn tí"*, rồi *"84% mà tôi không hề thấy trong suốt tí nào"*.
-
-- **Nguyên nhân** (`SideDrawerMenuPanel.drawerBackground`, 1.3.622): lớp tối `Color(white: 0.08).opacity(0.84)` nằm **trên** lớp `.ultraThinMaterial`, nên chỉ ~16% nền mờ lọt qua — nhìn như nền đặc, đậm hơn hẳn mockup đã duyệt.
-- **Sửa**: lớp tối còn `Color(white: 0.12).opacity(0.55)`; chữ trắng vẫn đọc rõ nhờ lớp mờ của material. Lớp phủ phần màn còn lại giữ 30%.
-- **Hoạt ảnh**: trượt vào 0,26 → 0,18 s, trượt ra 0,2 → 0,14 s.
-- Chuyển entry `[1.3.593]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — mức 55% cần người dùng xem lại trên máy.
 
