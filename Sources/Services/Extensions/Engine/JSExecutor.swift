@@ -17,6 +17,9 @@ public final class JSExecutor: @unchecked Sendable {
     /// URL fetch gần nhất / fetch lỗi gần nhất của lượt chạy hiện tại (`+FetchTrace`); xoá ở `beginExecution()`.
     internal let fetchTrace = JSFetchTrace()
     internal var injectedConfigs: [String: Any] = [:]
+    /// File đã `load` trong lúc chuẩn bị script chính (`prepareScript`); lời gọi `load` cùng tên sau đó là no-op (`+Load`).
+    internal var preparedLibraries: Set<String> = []
+    internal var isPreparingEntryScript = false
     /// Trace của lượt debug. Luồng đọc/tải production truyền `nil` và vì thế hành vi không đổi; xem
     /// `JSExecutor+Debug`. Cố ý **không** phải shared/singleton: mỗi run có sink riêng, đúng như mỗi
     /// run có một `JSExecutor` riêng.
@@ -212,40 +215,8 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(qtTranslateBlock, forKeyedSubscript: "_nativeQtTranslate" as NSCopying & NSObjectProtocol)
 
-        // 5. Định nghĩa hàm load(filename) để nạp các file thư viện JS khác (libs.js, ...) tương tự Rhino
-        let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
-            guard let self = self, let localPath = self.localPath else {
-                // AppLogger.shared.log("❌ JS Load error: localPath is not set in JSExecutor")
-                return
-            }
-
-            let extUrl = URL(fileURLWithPath: localPath)
-            var fileUrl = extUrl.appendingPathComponent(filename)
-            var exists = FileManager.default.fileExists(atPath: fileUrl.path)
-
-            if !exists {
-                let srcFileUrl = extUrl.appendingPathComponent("src").appendingPathComponent(filename)
-                if FileManager.default.fileExists(atPath: srcFileUrl.path) {
-                    fileUrl = srcFileUrl
-                    exists = true
-                }
-            }
-
-            if !exists {
-                // AppLogger.shared.log("❌ JS Load error: File '\(filename)' not found in extension.")
-                return
-            }
-
-            do {
-                let data = try Data(contentsOf: fileUrl)
-                let script = self.decodeData(data)
-                self.context.evaluateScript(script)
-                // AppLogger.shared.log("✅ JS Loaded library: \(filename)")
-            } catch {
-                // AppLogger.shared.log("❌ JS Load error running \(filename): \(error.localizedDescription)")
-            }
-        }
-        context.setObject(loadBlock, forKeyedSubscript: "load" as NSCopying & NSObjectProtocol)
+        // 5. Hàm load(filename) nạp file JS khác của tiện ích (config.js, libs.js...) — xem `JSExecutor+Load`
+        installLoadFunction()
 
         // 6. Đăng ký đối tượng Response toàn cục và runner an toàn __safe_run_extension
         let responseBootstrap = JSCoreBootstrapScripts.response
@@ -997,8 +968,13 @@ public final class JSExecutor: @unchecked Sendable {
         // Reset exception trước khi chạy
         context.exception = nil
 
+        // File `load` ở đầu dòng chạy trước ⇒ khai báo của script chính thắng khi trùng tên (hợp đồng: thay văn bản)
+        preparedLibraries = []
+        isPreparingEntryScript = true
+        preloadEntryLibraries(of: scriptContent)
         // Thực thi mã nguồn trước để nạp hàm vào context
         context.evaluateScript(scriptContent)
+        isPreparingEntryScript = false
 
         // Kiểm tra xem evaluateScript có ném lỗi không
         if let exception = context.exception {

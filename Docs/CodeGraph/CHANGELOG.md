@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.657] - 2026-10-30
+
+### fix: load() không đè hàm của script chính, chi tiết đọc trường comment
+
+Người dùng gửi tiện ích Chuangshi QQ (Khám phá trả `{"baseUrl":…,"apiBase":…,"ok":true}` thay cho danh sách) và FQWeb Universal (*"vì sao script comment của ext này không chạy rồi fix chung luôn"*).
+
+- **`load('x.js')` theo hợp đồng = thay văn bản trước khi chạy** (`extension-api.md` của Darkrai9x): khai báo của script chính đứng sau file nạp nên thắng khi trùng tên. App cũ chạy file nạp **lúc gặp lời gọi** ⇒ `function execute()` của `config.js` (Chuangshi QQ có hàm này để thử cấu hình) đè `execute()` của script chính đã hoist từ trước ⇒ cả 7 script của tiện ích trả object cấu hình. Sửa: `JSExecutor+Load.swift` (mới, nhận khối `load` dời khỏi `init`) — `prepareScript` chạy trước các file mà script chính `load(...)` ở **cột 0** (cho phép BOM), rồi mới chạy script chính; file đã chạy trong lúc chuẩn bị ghi vào `preparedLibraries` ⇒ `load` cùng tên sau đó là no-op (không chạy lại file có `let` cấp cao nhất). `load` lúc runtime với file chưa nạp (`Script.execute("gen.js", "execute")`, `Qt.include`, lời gọi thụt lề trong thân hàm) giữ hành vi cũ. Số dòng của script chính không đổi (màn Debug). `JSExecutor.swift` 1012 ⇒ 988 dòng.
+- **Detail: trường `comment`** (một nguồn `{title, input, script}`, hiện trước `comments` — hợp đồng) trước đây bị bỏ qua ⇒ FQWeb Universal (chỉ trả `comment`, không có `title`) không bao giờ gọi `comment.js`. `ExtensionManager.detailCommentSources`: `comment` (object; lỡ là mảng thì đọc như `comments`) rồi `comments`, thiếu `title` ⇒ "Bình luận", script mặc định `comment.js`, trùng nguồn giữ một. `genres`/`suggests` giữ luật cũ (thiếu `title` ⇒ bỏ). `reviews` của hợp đồng vẫn chưa đọc.
+- Chuyển entry `[1.3.627]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; đối chiếu hợp đồng (`load()`, bảng trường detail); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — Khám phá/tìm/đọc của Chuangshi QQ, khối bình luận ở Chi tiết của FQWeb Universal.
+
 ## [1.3.656] - 2026-10-30
 
 ### fix: trình duyệt bôi đen thấy được, ô URL tìm Google, tự dịch nguồn tiếng Trung
@@ -377,15 +388,3 @@ Người dùng: *"Điều tra vì sao chọn option mở sheet, popup, menu ph�
   - Lần thử lại tự dừng giờ luôn thêm tin "Lỗi quét tên riêng: …" vào màn AI (trước chỉ khi Google bắt xác minh) — lý do dừng không còn nằm trong toast.
 - Chuyển entry `[1.3.598]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code (hai phần làm bởi agent con trong worktree riêng, đã duyệt); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Chỗ dễ lỗi biên dịch nhất: các override `childFor…` / `prefersStatusBarHidden` trên lớp con `UIHostingController`.
-
-## [1.3.627] - 2026-10-28
-
-### feat: icon đã tải ở danh sách chọn chương bắt đầu của sheet tải truyện
-
-Người dùng: *"thêm biểu tượng đã tải vào danh sách chương ở tải truyện nữa"*; duyệt mockup + plan.
-
-- **Màn "Chọn chương bắt đầu"** (`ReaderAINameScanChapterPickerView`): chương đã có trong máy hiện `arrow.down.circle.fill` cỡ caption màu xanh lá bên phải (trước dấu ✓ nếu đang chọn) — cùng kiểu danh sách chương Reader / Chi tiết truyện / mục lục comic.
-- **Trạng thái đã tải đọc ngầm** cùng lượt nạp + dịch danh sách (`DownloadStartChapterCatalog`, trong `Task.detached`, không đọc đĩa trong `body`): truyện chữ theo cờ `isCached` + `length > 0` của mục lục `ChapterStore` (cùng điều kiện dòng "Đã tải X/Y"); truyện tranh theo `ComicOfflineStore.downloadedChapterIndexes`, video theo `VideoOfflineStore.downloadedEpisodeIndexes` (manifest, đọc một lần). `pickerChapters` nhận `contentKind` thay cho `skipsSections`; `TaskOptionsSheet.isMediaBook` thành `contentKind`.
-- `AINameScanChapter.isCached` (mặc định `false`): sheet quét tên AI không đặt cờ — danh sách ở đó vốn toàn chương đã tải, không hiện icon thừa.
-- Chuyển entry `[1.3.597]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.

@@ -391,7 +391,7 @@ public final class ExtensionManager: ObservableObject {
                 genres = genresDict.map { CategoryResult(title: $0.key, input: $0.value, script: "search.js") }
             }
             let suggests = Self.detailCategories(dict["suggests"], defaultScript: "search.js")
-            let comments = Self.detailCategories(dict["comments"], defaultScript: "comment.js")
+            let comments = Self.detailCommentSources(dict)
 
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: itemHost, link: link, genres: genres, suggests: suggests, comments: comments)
             AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: name=\(result.name) | author=\(result.author)")

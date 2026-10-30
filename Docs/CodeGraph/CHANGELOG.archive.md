@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.627] - 2026-10-28
+
+### feat: icon đã tải ở danh sách chọn chương bắt đầu của sheet tải truyện
+
+Người dùng: *"thêm biểu tượng đã tải vào danh sách chương ở tải truyện nữa"*; duyệt mockup + plan.
+
+- **Màn "Chọn chương bắt đầu"** (`ReaderAINameScanChapterPickerView`): chương đã có trong máy hiện `arrow.down.circle.fill` cỡ caption màu xanh lá bên phải (trước dấu ✓ nếu đang chọn) — cùng kiểu danh sách chương Reader / Chi tiết truyện / mục lục comic.
+- **Trạng thái đã tải đọc ngầm** cùng lượt nạp + dịch danh sách (`DownloadStartChapterCatalog`, trong `Task.detached`, không đọc đĩa trong `body`): truyện chữ theo cờ `isCached` + `length > 0` của mục lục `ChapterStore` (cùng điều kiện dòng "Đã tải X/Y"); truyện tranh theo `ComicOfflineStore.downloadedChapterIndexes`, video theo `VideoOfflineStore.downloadedEpisodeIndexes` (manifest, đọc một lần). `pickerChapters` nhận `contentKind` thay cho `skipsSections`; `TaskOptionsSheet.isMediaBook` thành `contentKind`.
+- `AINameScanChapter.isCached` (mặc định `false`): sheet quét tên AI không đặt cờ — danh sách ở đó vốn toàn chương đã tải, không hiện icon thừa.
+- Chuyển entry `[1.3.597]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.626] - 2026-10-28
 
 ### fix: ngăn kéo menu trong suốt hơn nữa

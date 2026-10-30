@@ -87,14 +87,28 @@ extension ExtensionManager {
         }
     }
 
-    /// `genres`/`suggests`/`comments` của `detail` (mảng `{title, input, script}`); thiếu `title`/`input` ⇒ bỏ.
-    internal static func detailCategories(_ value: Any?, defaultScript: String) -> [CategoryResult] {
+    /// `genres`/`suggests`/`comments` của `detail` (mảng `{title, input, script}`); thiếu `input` ⇒ bỏ, thiếu `title`
+    /// ⇒ `fallbackTitle` (không có ⇒ bỏ).
+    internal static func detailCategories(_ value: Any?, defaultScript: String, fallbackTitle: String? = nil) -> [CategoryResult] {
         guard let items = value as? [[String: Any]] else { return [] }
         return items.compactMap { item -> CategoryResult? in
-            guard let title = foundationString(item, ["title"]), !title.isEmpty,
+            let title = foundationString(item, ["title"]).flatMap { $0.isEmpty ? nil : $0 } ?? fallbackTitle
+            guard let title,
                   let input = foundationString(item, ["input"]), !input.isEmpty else { return nil }
             let script = ExtensionHostResolver.nonEmpty(foundationString(item, ["script"])) ?? defaultScript
             return CategoryResult(title: title, input: input, script: script)
         }
+    }
+
+    /// Nguồn bình luận của `detail`: `comment` (một object, hiện trước) rồi `comments` (mảng) — theo hợp đồng.
+    /// Tiện ích hay bỏ `title` của nguồn bình luận ⇒ mặc định "Bình luận"; trùng nguồn (cùng title + input) ⇒ giữ một.
+    internal static func detailCommentSources(_ dict: [String: Any]) -> [CategoryResult] {
+        // `comment` lỡ trả mảng thì đọc như `comments`.
+        var single: Any? = dict["comment"]
+        if let object = single as? [String: Any] { single = [object] }
+        let sources = detailCategories(single, defaultScript: "comment.js", fallbackTitle: "Bình luận")
+            + detailCategories(dict["comments"], defaultScript: "comment.js", fallbackTitle: "Bình luận")
+        var seen = Set<String>()
+        return sources.filter { seen.insert($0.id).inserted }
     }
 }
