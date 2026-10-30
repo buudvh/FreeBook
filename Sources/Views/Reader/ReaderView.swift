@@ -196,6 +196,8 @@ struct ReaderView: View {
     @State private var importedHost = ""
     @State private var navigateToBookDetail = false
     @State private var navigateToChangeSource = false
+    /// Chi tiết truyện mở toàn màn từ mục lục (`fullScreenCover` che Reader) — như `navigateToBookDetail`, không `shutdown`.
+    @State private var isBookDetailCoverPresented = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
     @StateObject internal var ttsState = ReaderTTSStateReader()
@@ -861,7 +863,7 @@ struct ReaderView: View {
                 skipsReappearBootstrap = true
                 return
             }
-            if navigateToChangeSource || navigateToBookDetail { return }
+            if navigateToChangeSource || navigateToBookDetail || isBookDetailCoverPresented { return }
             if !showingAIFullScreen, AIRuntimeCoordinator.shared.activeReaderBookId == bookId {
                 AIRuntimeCoordinator.shared.activeReaderBookId = nil
             }
@@ -1298,7 +1300,8 @@ struct ReaderView: View {
                             ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
                         }
                     }
-                }
+                },
+                onBookDetailCoverChange: { isBookDetailCoverPresented = $0 }
             )
             .equatable()
             .presentationDetents([.fraction(0.88), .large])

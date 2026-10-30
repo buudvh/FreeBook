@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.629] - 2026-10-28
+
+### feat: công tắc NSFW ở đầu ngăn kéo menu Khám phá
+
+Người dùng: *"thêm nút bật tắt nfsw vào menu của khám phá"*; duyệt mockup, chọn đặt dòng lên đầu menu.
+
+- **Ngăn kéo "Tuỳ chọn nguồn" của Khám phá** (`DiscoverySourceMenuButton`): thêm dòng công tắc "Nội dung NSFW" (icon `eye`) ở **đầu** ngăn kéo, cùng kiểu dòng của ngăn kéo Kệ (`SideDrawerToggleRow`); chạm cả hàng để đổi, ngăn kéo vẫn mở. Dùng chung khoá NSFW toàn app (`RepositoryFilterPolicy.includeNsfwDefaultsKey`) với Cài đặt › Nội dung nhạy cảm, ngăn kéo Kệ và nút viên thuốc NSFW ở màn chọn nguồn (giữ nguyên). Tắt khi đang xem nguồn NSFW ⇒ Khám phá tự chuyển sang nguồn đầu tiên còn lại như cũ; không còn nguồn nào ⇒ nút menu biến mất và ngăn kéo tự gỡ (`onDisappear` của `sideDrawerMenu`).
+- Chuyển entry `[1.3.599]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.628] - 2026-10-28
 
 ### feat: ngăn kéo menu mở sheet ngay, hiện chương đang lọc name và toast khi dừng

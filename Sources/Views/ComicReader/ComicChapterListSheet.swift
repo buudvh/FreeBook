@@ -24,6 +24,8 @@ struct ComicChapterListSheet: View {
     let launch: BookContentLaunch
     @Binding var isAscending: Bool
     let onSelect: (Int) -> Void
+    /// Chi tiết truyện mở toàn màn (`fullScreenCover`) đang che màn đọc — màn đọc bỏ qua dọn dẹp ở `onDisappear`.
+    var onBookDetailCoverChange: (Bool) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) var modelContext

@@ -10,8 +10,12 @@ struct SuggestRowView: View {
     let isTranslationEnabled: Bool
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
-    
+    /// Lượt kéo làm mới của màn Chi tiết — đổi số thì tải lại; back về (số không đổi) thì giữ kết quả.
+    var refreshGeneration: Int = 0
+
     @State private var novels: [ExtensionItemResult] = []
+    /// Lượt làm mới đã tải **thành công**. Lỗi thật / bị huỷ không ghi ⇒ lần hiện lại tự thử lại.
+    @State private var loadedGeneration: Int? = nil
     @State private var isLoading = true
     @State private var errorMessage = ""
     @State private var errorLink: SourceErrorLink? = nil
@@ -104,11 +108,12 @@ struct SuggestRowView: View {
                 .padding(.vertical, 4)
             }
         }
-        .task {
+        .task(id: refreshGeneration) {
             if skipsReappearLoad {
                 skipsReappearLoad = false
                 return
             }
+            guard loadedGeneration != refreshGeneration else { return }
             await loadSuggests()
         }
         .onDisappear {
@@ -121,6 +126,7 @@ struct SuggestRowView: View {
     }
     
     private func loadSuggests() async {
+        let generation = refreshGeneration
         await MainActor.run {
             isLoading = true
             errorMessage = ""
@@ -143,8 +149,11 @@ struct SuggestRowView: View {
             await MainActor.run {
                 self.novels = unique
                 self.isLoading = false
+                self.loadedGeneration = generation
             }
         } catch {
+            // Rời màn giữa chừng không phải lỗi: giữ trạng thái đang tải, lần hiện lại tải tiếp.
+            if ExtensionLoadError.unwrapped(error) is CancellationError { return }
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.errorLink = SourceErrorLink.resolve(from: error, fallback: category.input, host: host)

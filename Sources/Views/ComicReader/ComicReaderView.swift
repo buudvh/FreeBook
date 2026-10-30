@@ -32,6 +32,8 @@ struct ComicReaderView: View {
     @State private var isZoomPresented = false
     /// Trình duyệt "Mở link lỗi" đang mở (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trình xem phóng to).
     @State private var openingErrorLink: SourceErrorLink?
+    /// Chi tiết truyện mở toàn màn từ mục lục (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trên).
+    @State private var isBookDetailCovering = false
 
     init(launch: BookContentLaunch) {
         self.launch = launch
@@ -91,7 +93,8 @@ struct ComicReaderView: View {
                 book: localBook,
                 launch: launch,
                 isAscending: $isChapterListAscending,
-                onSelect: { viewModel.openChapter($0) }
+                onSelect: { viewModel.openChapter($0) },
+                onBookDetailCoverChange: { isBookDetailCovering = $0 }
             )
             // Cùng cách trình bày với mục lục truyện chữ (`ReaderView.readerChapterListSheet`): kéo xuống để đóng.
             .presentationDetents([.fraction(0.88), .large])
@@ -372,7 +375,7 @@ struct ComicReaderView: View {
 
     private func handleDisappear() {
         // Trình xem phóng to / trình duyệt "Mở link lỗi" đang che màn này — màn đọc vẫn sống, không dọn dẹp.
-        if isZoomPresented || openingErrorLink != nil { return }
+        if isZoomPresented || openingErrorLink != nil || isBookDetailCovering { return }
         ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
         viewModel.shutdown()
     }

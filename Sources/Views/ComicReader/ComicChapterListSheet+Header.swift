@@ -78,7 +78,8 @@ extension ComicChapterListSheet {
         .buttonStyle(.plain)
         .disabled(metadataDetailUrl == nil || sourceExtension == nil)
         .accessibilityLabel("Mở trang chi tiết truyện")
-        .sheet(isPresented: $showingBookDetail) {
+        .onChange(of: showingBookDetail) { _, isShown in onBookDetailCoverChange(isShown) }
+        .fullScreenCover(isPresented: $showingBookDetail) {
             if let detailUrl = metadataDetailUrl, let ext = sourceExtension {
                 NavigationStack {
                     BookDetailView(
@@ -88,6 +89,7 @@ extension ComicChapterListSheet {
                         sourceName: ext.name,
                         initialHost: book?.host
                     )
+                    .coverBackButton()
                 }
             }
         }

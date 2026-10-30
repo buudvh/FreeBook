@@ -270,6 +270,7 @@ extension BookDetailView {
             self.setDetailError("")
             self.setTOCError("")
             self.markSourceUsed()
+            self.sectionRefreshGeneration += 1 // khối Gợi ý/Bình luận tải lại cùng lượt kéo làm mới
             // Lượt "Tải thêm chương"/chuẩn bị tải đang nối trang vào `onlineChapters` sẽ đua với mục lục đầy đủ dưới đây.
             self.loadingTask?.cancel()
             self.loadingTask = nil

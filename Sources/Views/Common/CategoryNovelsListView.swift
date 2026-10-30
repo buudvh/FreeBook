@@ -146,6 +146,9 @@ struct CategoryNovelsListView: View {
                 skipsReappearLoad = false
                 return
             }
+            // Back từ Chi tiết truyện: danh sách đã có (kể cả các trang cuộn thêm) ⇒ giữ nguyên, không về trang 1.
+            // Rỗng = chưa tải, bị huỷ hoặc lỗi trang 1 ⇒ tải (lỗi thì tự thử lại).
+            guard loader.novels.isEmpty else { return }
             await loader.loadInitial()
         }
     }

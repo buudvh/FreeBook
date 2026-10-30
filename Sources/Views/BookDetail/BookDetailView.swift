@@ -38,6 +38,12 @@ struct BookDetailView: View {
     /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `onAppear` kế tiếp không `loadBookData()` trước khi chép cookie
     /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
     @State private var skipsReappearLoad = false
+    /// Đã tải lần đầu ⇒ back từ màn con không gọi mạng lại (`BookDetailView+AppearLoad`).
+    @State internal var hasLoadedBookData = false
+    /// Tăng khi kéo làm mới ⇒ khối Gợi ý/Bình luận tải lại; back về thì không đổi nên chúng giữ kết quả.
+    @State internal var sectionRefreshGeneration = 0
+    /// Mã cho truyện chưa lưu mà link không phải UUID: cấp **một lần** cho cả đời màn, không sinh lại mỗi lần hiện.
+    @State private var fallbackBookId = UUID().uuidString
 
     @State internal var genres: [CategoryResult] = []
     @State internal var suggests: [CategoryResult] = []
@@ -241,7 +247,7 @@ struct BookDetailView: View {
             }
         }
         // Tiêu đề không hiện (`style: .hidden`: không tiêu đề giữa/trái) nhưng vẫn giữ: màn con lấy nó làm nhãn nút quay lại.
-        // Cả khi là gốc sheet (mục lục Reader/Comic): header là bìa lớn, không có tiêu đề.
+        // Cả khi là gốc `fullScreenCover` (mục lục Reader/Comic): header là bìa lớn, không có tiêu đề.
         .pageTitle("Chi Tiết Truyện", style: .hidden)
         // Nút quay lại của màn này chỉ còn icon, không kèm tên màn trước.
         .toolbarRole(.editor)
@@ -274,7 +280,7 @@ struct BookDetailView: View {
             if skipsReappearLoad {
                 skipsReappearLoad = false
             } else {
-                loadBookData()
+                loadBookDataOnAppear()
             }
             markSourceUsed()
             if contentKind == .video, let videoBookId = localBook?.bookId { VideoOfflineLibrary.shared.refresh(bookId: videoBookId) }
@@ -524,7 +530,8 @@ struct BookDetailView: View {
                                     extensionPackageId: extensionPackageId,
                                     sourceName: sourceName,
                                     isTranslationEnabled: isTranslationEnabled,
-                                    host: resolvedHost
+                                    host: resolvedHost,
+                                    refreshGeneration: sectionRefreshGeneration
                                 )
                             }
                         }
@@ -564,7 +571,8 @@ struct BookDetailView: View {
                                     extensionPackageId: extensionPackageId,
                                     sourceName: sourceName,
                                     isTranslationEnabled: isTranslationEnabled,
-                                    host: resolvedHost
+                                    host: resolvedHost,
+                                    refreshGeneration: sectionRefreshGeneration
                                 )
                             }
                         }
@@ -834,12 +842,12 @@ struct BookDetailView: View {
             if bookId.contains("-") && bookId.count > 30 {
                 resolvedBookId = bookId
             } else {
-                resolvedBookId = UUID().uuidString
+                resolvedBookId = fallbackBookId
             }
         }
     }
 
-    private func loadBookData() {
+    internal func loadBookData() {
         resolveBookId()
         // Nếu sách đã ở local, gán dữ liệu từ local để hiển thị ngay
         if let book = localBook {
@@ -883,7 +891,7 @@ struct BookDetailView: View {
         loadTOCDataOnly()
     }
 
-    private func loadBookDetailOnly() {
+    internal func loadBookDetailOnly() {
         if let ext = ext, !ext.localPath.isEmpty {
             isLoadingDetail = true
             setDetailError("")
@@ -951,7 +959,7 @@ struct BookDetailView: View {
         }
     }
 
-    private func loadTOCDataOnly() {
+    internal func loadTOCDataOnly() {
         if let ext = ext, !ext.localPath.isEmpty {
             // Tiếp tục luồng nạp online
         } else if localBook != nil {
@@ -1179,11 +1187,4 @@ struct BookDetailView: View {
     private func loadMoreChapters() {
         startBackgroundRemainingPagesLoading()
     }
-
-
-
-
-
-
-
 }

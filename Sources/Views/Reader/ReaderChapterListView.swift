@@ -20,6 +20,8 @@ public struct ReaderChapterListView: View {
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
     public let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
+    /// Chi tiết truyện mở toàn màn (`fullScreenCover`) đang che Reader — Reader bỏ qua dọn dẹp ở `onDisappear`.
+    public let onBookDetailCoverChange: ((Bool) -> Void)?
 
     public init(
         bookId: String,
@@ -39,7 +41,8 @@ public struct ReaderChapterListView: View {
         isLocalTXTBook: Bool = false,
         onSelectChapter: @escaping (Int) -> Void,
         onClose: @escaping () -> Void,
-        onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)? = nil
+        onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)? = nil,
+        onBookDetailCoverChange: ((Bool) -> Void)? = nil
     ) {
         self.bookId = bookId
         self.bookTitle = bookTitle
@@ -59,6 +62,7 @@ public struct ReaderChapterListView: View {
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
         self.onLocalTOCRefreshed = onLocalTOCRefreshed
+        self.onBookDetailCoverChange = onBookDetailCoverChange
         // Danh sách là sheet dựng lại mỗi lần mở, còn store sống suốt phiên Reader: ô tìm lấy lại truy vấn đang áp.
         self._searchQuery = State(initialValue: store.activeSearchQuery)
     }
@@ -176,7 +180,8 @@ public struct ReaderChapterListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(bookDetailUrl == nil || ext == nil)
-                .sheet(isPresented: $showingBookDetail) {
+                .onChange(of: showingBookDetail) { _, isShown in onBookDetailCoverChange?(isShown) }
+                .fullScreenCover(isPresented: $showingBookDetail) {
                     if let detailUrl = bookDetailUrl, let ext {
                         NavigationStack {
                             BookDetailView(
@@ -185,6 +190,7 @@ public struct ReaderChapterListView: View {
                                 initialDetailUrl: detailUrl,
                                 sourceName: ext.name
                             )
+                            .coverBackButton()
                         }
                     }
                 }

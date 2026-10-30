@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.659] - 2026-10-30
+
+### fix: màn Chi tiết không tải lại khi quay về, mở toàn màn từ trình đọc
+
+Người dùng: *"khi mở xem thêm comment hoặc xem thêm suggest, danh sách genres từ màn hình chi tiết back về màn hình chi tiết đều phải load lại dù là không cần thiết"*; qua phỏng vấn chọn: chỉ xử lý khi back, khối đang lỗi tự thử lại khi back, kéo làm mới tải lại cả gợi ý/bình luận, và *"cho màn hình chi tiết luôn hiển thị toàn màn hình, kể cả mở từ reader"*.
+
+- **Mã truyện ổn định** (`BookDetailView.resolveBookId`): truyện chưa lưu có link không dạng UUID (không chứa `-` hoặc ≤ 30 ký tự) trước đây được cấp `UUID()` **mới mỗi lần màn hiện** ⇒ cache chi tiết 5 phút (`BookDetailCacheManager`) không bao giờ trúng, back về là tải lại cả chi tiết lẫn mục lục; `.task(id: actualBookId)` và phạm vi dịch theo truyện cũng lệch theo. Nay dùng `fallbackBookId` (`@State`, cấp một lần cho cả đời màn).
+- **Hiện lại không gọi mạng** (`BookDetailView+AppearLoad.swift`, mới): `onAppear` gọi `loadBookDataOnAppear()` — lần đầu `loadBookData()`; các lần sau (back từ Xem thêm, bình luận, thể loại, truyện gợi ý, từ điển…) chỉ phần đang lỗi tự thử lại (`detailErrorMessage` ⇒ `loadBookDetailOnly`, `tocErrorMessage` ⇒ `loadTOCDataOnly`). Hết cảnh trang 1 mục lục tải lại mỗi lần back và đặt lại tiến độ "Tải thêm chương". Việc rẻ trên máy (cờ dịch, `markSourceUsed`, đồng bộ mục lục đã lưu, `VideoOfflineLibrary.refresh`) vẫn chạy mỗi lần hiện; nhánh `skipsReappearLoad` của "Mở link lỗi" giữ nguyên.
+- **Khối Gợi ý / Bình luận** (`SuggestRowView`, `CommentSectionView`): `.task(id: refreshGeneration)` + `loadedGeneration` — chỉ tải khi lượt làm mới hiện tại chưa có kết quả thành công. Lỗi thật giữ hiển thị và tự thử lại ở lần back sau; `CancellationError` (kể cả bọc trong `ExtensionLoadError`) không ghi lỗi, lần hiện lại tải tiếp.
+- **Kéo làm mới** (`reloadBookData`) tăng `sectionRefreshGeneration` ⇒ các khối gợi ý/bình luận tải lại cùng lượt (trước đây không: mã khối không đổi nên view con giữ nguyên).
+- **Danh sách thể loại / Xem thêm** (`CategoryNovelsListView`, dùng chung với Khám phá): `.task` chỉ `loadInitial()` khi danh sách rỗng (chưa tải, bị huỷ, lỗi trang 1) ⇒ back từ một truyện giữ nguyên các trang đã cuộn vô cực.
+- **Chi tiết toàn màn từ trình đọc**: bấm bìa ở mục lục Reader (`ReaderChapterListView`) và màn đọc truyện tranh (`ComicChapterListSheet+Header`) mở `BookDetailView` bằng `fullScreenCover` thay cho `sheet`; nút quay lại `.coverBackButton()` (`Views/Common/PageHeader/CoverBackButtonModifier.swift`, mới: `chevron.left` 17pt nửa đậm, khung 38×44, `dismiss()`). Cover che màn đọc có thể làm `onDisappear` của nó nổ ⇒ mục lục báo lên qua `onBookDetailCoverChange` (đi qua `ReaderChapterListHost`, closure không vào `==`); `ReaderView` (`isBookDetailCoverPresented`, như `navigateToBookDetail`) và `ComicReaderView` (`isBookDetailCovering`, như trình xem phóng to) bỏ qua dọn dẹp/`shutdown`.
+- Không đổi: đổi tab Chi tiết ↔ Mục lục vẫn dựng lại tab chi tiết và tải lại khối gợi ý/bình luận (người dùng chọn chỉ xử lý back). Dữ liệu chi tiết giữ tới khi đóng màn hoặc kéo làm mới.
+- Chuyển entry `[1.3.629]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.658] - 2026-10-30
 
 ### fix: dọn dẹp/xoá tác vụ xuất xoá luôn file trong Documents/Exports
@@ -374,13 +390,3 @@ Người dùng: *"sau khi chế độ AI chạy xong mà người dùng chưa xe
 - **Nút nổi** (`FloatingHubPresentationReader`): truyện chưa xem vào `aiTasks` sau các truyện đang chạy (xong gần nhất lên đầu). AI chỉ còn kết quả chưa xem ⇒ vẫn là `.ai` trong `runningKinds` (icon ✨, chạm bung menu sang trang AI) nhưng nằm trong `ButtonState.quietKinds` nên **không nháy**, icon màu chữ hệ thống; VoiceOver đọc "Trợ lý AI đã xong, chưa xem".
 - **Menu**: dòng Trợ lý AI một truyện ⇒ "Đã xong — bấm để xem" (xanh) / "Lỗi — bấm để xem" (đỏ) (`FloatingHubItem.DetailTone`); nhiều truyện ⇒ "1 đang chạy · 2 chưa xem" / "N truyện chưa xem". Trang danh sách đổi tên **"Tác vụ AI"** (`FloatingHubAITaskListView`): truyện chưa xem có icon ✓ xanh / ! đỏ, không có nút ✕. Chữ giải thích ở Cài đặt › Nội dung nhạy cảm đổi theo tên mới.
 - Chưa build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.629] - 2026-10-28
-
-### feat: công tắc NSFW ở đầu ngăn kéo menu Khám phá
-
-Người dùng: *"thêm nút bật tắt nfsw vào menu của khám phá"*; duyệt mockup, chọn đặt dòng lên đầu menu.
-
-- **Ngăn kéo "Tuỳ chọn nguồn" của Khám phá** (`DiscoverySourceMenuButton`): thêm dòng công tắc "Nội dung NSFW" (icon `eye`) ở **đầu** ngăn kéo, cùng kiểu dòng của ngăn kéo Kệ (`SideDrawerToggleRow`); chạm cả hàng để đổi, ngăn kéo vẫn mở. Dùng chung khoá NSFW toàn app (`RepositoryFilterPolicy.includeNsfwDefaultsKey`) với Cài đặt › Nội dung nhạy cảm, ngăn kéo Kệ và nút viên thuốc NSFW ở màn chọn nguồn (giữ nguyên). Tắt khi đang xem nguồn NSFW ⇒ Khám phá tự chuyển sang nguồn đầu tiên còn lại như cũ; không còn nguồn nào ⇒ nút menu biến mất và ngăn kéo tự gỡ (`onDisappear` của `sideDrawerMenu`).
-- Chuyển entry `[1.3.599]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
