@@ -13,6 +13,8 @@ extension BookDetailView {
             return
         }
         if !detailErrorMessage.isEmpty { loadBookDetailOnly() }
-        if !tocErrorMessage.isEmpty { loadTOCDataOnly() }
+        // Lỗi của lượt "Tải thêm chương" (đã có chương) thì không: `loadTOCDataOnly` sẽ thay danh sách bằng trang 1 và
+        // mất các trang đã nối — nút "Tải thêm" ở cuối mục lục vẫn là nút thử lại tay.
+        if !tocErrorMessage.isEmpty && onlineChapters.isEmpty { loadTOCDataOnly() }
     }
 }
