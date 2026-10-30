@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.630] - 2026-10-28
+
+### feat: giữ kết quả AI chưa xem trên nút nổi, bấm để mở thẳng màn AI
+
+Người dùng: *"sau khi chế độ AI chạy xong mà người dùng chưa xem hãy giữ lại để người dùng có thể bấm vào xem trực tiếp"*, *"ý tôi là sau khi chạy xong người dùng chưa đọc thì còn trên widget để người dùng vào xem"*; duyệt mockup, chọn: nút ✨ đứng yên (không nháy), mục mất khi mở màn AI của truyện, giữ qua lần mở app; duyệt plan.
+
+- **Kết quả chưa xem**: lượt chat, quét name nhiều chương hay thử lại lượt lỗi chạy xong (hoặc lỗi) trong lúc màn AI của truyện đó **không** mở ⇒ entry ở lại `AIRuntimeCoordinator.runs` với `isRunning = false` + `unseenOutcome` (`.finished`/`.failed`, `AIBookRunState`). Lối ra hoàn tất/lỗi đi qua `finishRun` (`AIRuntimeCoordinator+UnseenResults`); bấm dừng vẫn gọi thẳng `endRun` nên **không bao giờ** thành kết quả chưa xem. Lượt mới của chính truyện đó (`beginRun`) bỏ kết quả cũ. Toast hoàn tất giữ như cũ.
+- **Mất khi xem**: `presentedAIBookId` nhận đúng `bookId` (mọi đường mở màn AI: nút nổi, nút AI trong Reader) ⇒ `markResultSeen` bỏ cờ; entry chỉ còn vì nó thì bỏ luôn entry, còn nút "Thử lại k lượt lỗi" thì giữ entry.
+- **Qua lần mở app**: `AIUnseenResultStore` (`Services/AI/`) ghi `applicationSupportDirectory/ai_unseen_results.json` trên queue nền, mỗi truyện một `AIUnseenResult` (`Models/AI/`): tên truyện, xong/lỗi, mốc xong, **phiên chat chứa kết quả**, chương, hai cờ dịch tên chương. Khởi tạo coordinator nạp lại entry, `lastSessionIds` (màn AI mở đúng phiên có kết quả) và `ActiveContext` cho `presentFullScreen`. **Giới hạn**: không lưu nội dung chương ⇒ sau khi mở lại app, màn AI mở từ nút nổi (không qua Reader của chính truyện đó) có `currentChapterRawContent` rỗng — xem kết quả không ảnh hưởng, chỉ lượt chat mới từ màn đó thiếu nội dung chương hiện tại.
+- **Nút nổi** (`FloatingHubPresentationReader`): truyện chưa xem vào `aiTasks` sau các truyện đang chạy (xong gần nhất lên đầu). AI chỉ còn kết quả chưa xem ⇒ vẫn là `.ai` trong `runningKinds` (icon ✨, chạm bung menu sang trang AI) nhưng nằm trong `ButtonState.quietKinds` nên **không nháy**, icon màu chữ hệ thống; VoiceOver đọc "Trợ lý AI đã xong, chưa xem".
+- **Menu**: dòng Trợ lý AI một truyện ⇒ "Đã xong — bấm để xem" (xanh) / "Lỗi — bấm để xem" (đỏ) (`FloatingHubItem.DetailTone`); nhiều truyện ⇒ "1 đang chạy · 2 chưa xem" / "N truyện chưa xem". Trang danh sách đổi tên **"Tác vụ AI"** (`FloatingHubAITaskListView`): truyện chưa xem có icon ✓ xanh / ! đỏ, không có nút ✕. Chữ giải thích ở Cài đặt › Nội dung nhạy cảm đổi theo tên mới.
+- Chưa build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.629] - 2026-10-28
 
 ### feat: công tắc NSFW ở đầu ngăn kéo menu Khám phá

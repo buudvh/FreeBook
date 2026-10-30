@@ -247,7 +247,7 @@ struct BookDetailView: View {
             }
         }
         // Tiêu đề không hiện (`style: .hidden`: không tiêu đề giữa/trái) nhưng vẫn giữ: màn con lấy nó làm nhãn nút quay lại.
-        // Cả khi là gốc `fullScreenCover` (mục lục Reader/Comic): header là bìa lớn, không có tiêu đề.
+        // Luôn là trang đẩy vào (cả từ mục lục Reader/Comic) ⇒ `.hidden` cũng ẩn thanh tab: Chi tiết luôn toàn màn.
         .pageTitle("Chi Tiết Truyện", style: .hidden)
         // Nút quay lại của màn này chỉ còn icon, không kèm tên màn trước.
         .toolbarRole(.editor)

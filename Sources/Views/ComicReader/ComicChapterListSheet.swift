@@ -24,13 +24,12 @@ struct ComicChapterListSheet: View {
     let launch: BookContentLaunch
     @Binding var isAscending: Bool
     let onSelect: (Int) -> Void
-    /// Chi tiết truyện mở toàn màn (`fullScreenCover`) đang che màn đọc — màn đọc bỏ qua dọn dẹp ở `onDisappear`.
-    var onBookDetailCoverChange: (Bool) -> Void = { _ in }
+    /// Chạm bìa (kèm URL chi tiết): màn đọc đóng sheet này rồi đẩy Chi tiết truyện vào `NavigationStack` của nó.
+    var onOpenBookDetail: (String) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) var modelContext
     @State private var searchQuery = ""
-    @State var showingBookDetail = false
     @State var showingDownloadOptions = false
     @State var isConfirmingShelfRemoval = false
     @State var collectionPickerBook: Book? = nil

@@ -57,7 +57,7 @@ extension ComicChapterListSheet {
     // MARK: - Bìa
 
     private var coverButton: some View {
-        Button(action: { showingBookDetail = true }) {
+        Button(action: { if let detailUrl = metadataDetailUrl { onOpenBookDetail(detailUrl) } }) {
             BookCoverView(
                 bookId: launch.bookId,
                 coverUrl: metadataCoverUrl,
@@ -78,21 +78,6 @@ extension ComicChapterListSheet {
         .buttonStyle(.plain)
         .disabled(metadataDetailUrl == nil || sourceExtension == nil)
         .accessibilityLabel("Mở trang chi tiết truyện")
-        .onChange(of: showingBookDetail) { _, isShown in onBookDetailCoverChange(isShown) }
-        .fullScreenCover(isPresented: $showingBookDetail) {
-            if let detailUrl = metadataDetailUrl, let ext = sourceExtension {
-                NavigationStack {
-                    BookDetailView(
-                        bookId: launch.bookId,
-                        extensionPackageId: ext.packageId,
-                        initialDetailUrl: detailUrl,
-                        sourceName: ext.name,
-                        initialHost: book?.host
-                    )
-                    .coverBackButton()
-                }
-            }
-        }
     }
 
     // MARK: - Nhãn nguồn

@@ -196,8 +196,8 @@ struct ReaderView: View {
     @State private var importedHost = ""
     @State private var navigateToBookDetail = false
     @State private var navigateToChangeSource = false
-    /// Chi tiết truyện mở toàn màn từ mục lục (`fullScreenCover` che Reader) — như `navigateToBookDetail`, không `shutdown`.
-    @State private var isBookDetailCoverPresented = false
+    /// Chạm bìa ở mục lục: đẩy Chi tiết (đường `navigateToBookDetail`) khi sheet mục lục đã đóng hẳn.
+    @State private var opensBookDetailAfterChapterList = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
     @StateObject internal var ttsState = ReaderTTSStateReader()
@@ -466,7 +466,13 @@ struct ReaderView: View {
             // hàng cuối: bảng cài đặt cuộn được và mở lên hết màn hình khi cần.
             .presentationDetents([.fraction(0.75), .large])
         }
-        .sheet(isPresented: $showingChapterList) {
+        .sheet(isPresented: $showingChapterList, onDismiss: {
+            // Đẩy khi sheet còn đang đóng thì `NavigationLink` có thể bỏ lượt đẩy ⇒ chờ `onDismiss`.
+            if opensBookDetailAfterChapterList {
+                opensBookDetailAfterChapterList = false
+                navigateToBookDetail = true
+            }
+        }) {
             readerChapterListSheet
         }
         .sheet(isPresented: $showingBookDictionary) {
@@ -863,7 +869,7 @@ struct ReaderView: View {
                 skipsReappearBootstrap = true
                 return
             }
-            if navigateToChangeSource || navigateToBookDetail || isBookDetailCoverPresented { return }
+            if navigateToChangeSource || navigateToBookDetail { return }
             if !showingAIFullScreen, AIRuntimeCoordinator.shared.activeReaderBookId == bookId {
                 AIRuntimeCoordinator.shared.activeReaderBookId = nil
             }
@@ -1301,7 +1307,17 @@ struct ReaderView: View {
                         }
                     }
                 },
-                onBookDetailCoverChange: { isBookDetailCoverPresented = $0 }
+                onOpenBookDetail: {
+                    // Chi tiết là trang đẩy vào `NavigationStack` của Reader (cùng đường với Import), không phải cover.
+                    guard let ext, let bookDetailUrl else { return }
+                    importedBookId = bookId
+                    importedExtensionPackageId = ext.packageId
+                    importedDetailUrl = bookDetailUrl
+                    importedSourceName = ext.name
+                    importedHost = localBook?.host ?? ""
+                    opensBookDetailAfterChapterList = true
+                    showingChapterList = false
+                }
             )
             .equatable()
             .presentationDetents([.fraction(0.88), .large])

@@ -32,8 +32,9 @@ struct ComicReaderView: View {
     @State private var isZoomPresented = false
     /// Trình duyệt "Mở link lỗi" đang mở (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trình xem phóng to).
     @State private var openingErrorLink: SourceErrorLink?
-    /// Chi tiết truyện mở toàn màn từ mục lục (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trên).
-    @State private var isBookDetailCovering = false
+    /// Chi tiết truyện đang đẩy vào từ bìa ở mục lục (URL chi tiết) — màn đọc vẫn sống bên dưới, bỏ qua dọn dẹp như trên.
+    @State private var bookDetailUrl: String?
+    @State private var pendingBookDetailUrl: String?
 
     init(launch: BookContentLaunch) {
         self.launch = launch
@@ -84,7 +85,10 @@ struct ComicReaderView: View {
         }
         // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
         .legadoContentRefresh(packageId: launch.extensionPackageId) { viewModel.retry() }
-        .sheet(isPresented: $showsChapterList) {
+        // Chạm bìa ở mục lục: đẩy Chi tiết khi sheet đã đóng hẳn (đẩy lúc sheet đang đóng có thể mất lượt đẩy).
+        .sheet(isPresented: $showsChapterList, onDismiss: {
+            if let detailUrl = pendingBookDetailUrl { pendingBookDetailUrl = nil; bookDetailUrl = detailUrl }
+        }) {
             ComicChapterListSheet(
                 chapters: viewModel.chapters,
                 currentIndex: viewModel.chapterIndex,
@@ -94,13 +98,22 @@ struct ComicReaderView: View {
                 launch: launch,
                 isAscending: $isChapterListAscending,
                 onSelect: { viewModel.openChapter($0) },
-                onBookDetailCoverChange: { isBookDetailCovering = $0 }
+                onOpenBookDetail: { pendingBookDetailUrl = $0; showsChapterList = false }
             )
             // Cùng cách trình bày với mục lục truyện chữ (`ReaderView.readerChapterListSheet`): kéo xuống để đóng.
             .presentationDetents([.fraction(0.88), .large])
             .presentationDragIndicator(.visible)
             .presentationBackground(ComicChapterListSheet.theme.backgroundColor)
             .preferredColorScheme(.dark)
+        }
+        .navigationDestination(item: $bookDetailUrl) { detailUrl in
+            BookDetailView(
+                bookId: launch.bookId,
+                extensionPackageId: launch.extensionPackageId,
+                initialDetailUrl: detailUrl,
+                sourceName: ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)?.name ?? "",
+                initialHost: localBook?.host
+            )
         }
         .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil }) {
             zoomCover
@@ -375,7 +388,7 @@ struct ComicReaderView: View {
 
     private func handleDisappear() {
         // Trình xem phóng to / trình duyệt "Mở link lỗi" đang che màn này — màn đọc vẫn sống, không dọn dẹp.
-        if isZoomPresented || openingErrorLink != nil || isBookDetailCovering { return }
+        if isZoomPresented || openingErrorLink != nil || bookDetailUrl != nil { return }
         ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
         viewModel.shutdown()
     }

@@ -8,6 +8,8 @@ import SwiftUI
 /// - Tiêu đề hệ thống (căn giữa, 17pt) bị thay bằng ô `principal` của mình (chữ 22pt ở `.centered`, ô rỗng ở hai kiểu
 ///   còn lại) nên không bao giờ hiện chồng lên.
 /// - Icon header vẫn theo chuẩn `.system(size: 17, weight: .semibold)` ⇒ tiêu đề luôn to và đậm hơn icon.
+/// - Trang đẩy vào (`.centered`, `.hidden`) **ẩn thanh tab** dưới đáy (1.3.660): chỉ trang gốc của tab (và gốc sheet —
+///   vốn không có thanh tab) giữ nó. Đừng gắn `.toolbar(.hidden, for: .tabBar)` riêng ở từng màn.
 ///
 /// ```swift
 /// SettingsList()
@@ -27,6 +29,7 @@ struct PageTitleModifier: ViewModifier {
         content
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(style == .leading ? .automatic : .hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     if style == .centered {

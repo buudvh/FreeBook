@@ -35,7 +35,7 @@ struct ReaderChapterListHost: View, Equatable {
     let onSelectChapter: (Int) -> Void
     let onClose: () -> Void
     let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
-    var onBookDetailCoverChange: ((Bool) -> Void)? = nil
+    var onOpenBookDetail: (() -> Void)? = nil
 
     var body: some View {
         ReaderChapterListView(
@@ -57,7 +57,7 @@ struct ReaderChapterListHost: View, Equatable {
             onSelectChapter: onSelectChapter,
             onClose: onClose,
             onLocalTOCRefreshed: onLocalTOCRefreshed,
-            onBookDetailCoverChange: onBookDetailCoverChange
+            onOpenBookDetail: onOpenBookDetail
         )
     }
 

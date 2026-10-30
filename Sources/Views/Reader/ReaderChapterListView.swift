@@ -20,8 +20,8 @@ public struct ReaderChapterListView: View {
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
     public let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
-    /// Chi tiết truyện mở toàn màn (`fullScreenCover`) đang che Reader — Reader bỏ qua dọn dẹp ở `onDisappear`.
-    public let onBookDetailCoverChange: ((Bool) -> Void)?
+    /// Chạm bìa: Reader đóng sheet này rồi đẩy Chi tiết truyện vào `NavigationStack` của nó (trang đẩy vào, toàn màn).
+    public let onOpenBookDetail: (() -> Void)?
 
     public init(
         bookId: String,
@@ -42,7 +42,7 @@ public struct ReaderChapterListView: View {
         onSelectChapter: @escaping (Int) -> Void,
         onClose: @escaping () -> Void,
         onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)? = nil,
-        onBookDetailCoverChange: ((Bool) -> Void)? = nil
+        onOpenBookDetail: (() -> Void)? = nil
     ) {
         self.bookId = bookId
         self.bookTitle = bookTitle
@@ -62,13 +62,12 @@ public struct ReaderChapterListView: View {
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
         self.onLocalTOCRefreshed = onLocalTOCRefreshed
-        self.onBookDetailCoverChange = onBookDetailCoverChange
+        self.onOpenBookDetail = onOpenBookDetail
         // Danh sách là sheet dựng lại mỗi lần mở, còn store sống suốt phiên Reader: ô tìm lấy lại truy vấn đang áp.
         self._searchQuery = State(initialValue: store.activeSearchQuery)
     }
 
     @Environment(\.modelContext) internal var modelContext
-    @State private var showingBookDetail = false
     @State internal var searchQuery = ""
     @State internal var isUpdating = false
     @State internal var errorMessage = ""
@@ -161,7 +160,7 @@ public struct ReaderChapterListView: View {
     private var header: some View {
         VStack(spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                Button(action: { showingBookDetail = true }) {
+                Button(action: { onOpenBookDetail?() }) {
                     BookCoverView(
                         bookId: bookId,
                         coverUrl: metadataCoverUrl,
@@ -180,20 +179,6 @@ public struct ReaderChapterListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(bookDetailUrl == nil || ext == nil)
-                .onChange(of: showingBookDetail) { _, isShown in onBookDetailCoverChange?(isShown) }
-                .fullScreenCover(isPresented: $showingBookDetail) {
-                    if let detailUrl = bookDetailUrl, let ext {
-                        NavigationStack {
-                            BookDetailView(
-                                bookId: bookId,
-                                extensionPackageId: ext.packageId,
-                                initialDetailUrl: detailUrl,
-                                sourceName: ext.name
-                            )
-                            .coverBackButton()
-                        }
-                    }
-                }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(metadataTitle)
