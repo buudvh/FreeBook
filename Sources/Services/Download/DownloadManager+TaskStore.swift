@@ -95,9 +95,13 @@ extension DownloadManager {
         } catch {
             AppLogger.shared.log("❌ Error loading download tasks from DB: \(error.localizedDescription)")
         }
+        _ = ExportFileCleaner.removeStagingLeftoversOnce
     }
 
     public func deleteTask(taskId: UUID) {
+        // Chụp trước khi huỷ: tác vụ xuất đang chạy / chờ tự dọn file tạm khi bị huỷ (và `markExportCompleted` xoá bản vừa
+        // ghi xong của tác vụ đã bị xoá), nên chỉ tác vụ xuất đã kết thúc mới cần xoá file ở đây.
+        let finishedExport = tasks.first { $0.id == taskId && $0.taskType.isExport && !$0.isActive }
         cancelTask(taskId: taskId)
 
         if let context = taskStoreContext(), let model = fetchTaskModel(taskId: taskId, in: context) {
@@ -111,6 +115,9 @@ extension DownloadManager {
 
         if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks.remove(at: idx)
+        }
+        if let finishedExport {
+            removeExportFiles(storedPaths: finishedExport.exportFilePath.map { [$0] } ?? [], taskIds: [taskId])
         }
     }
 
@@ -139,9 +146,11 @@ extension DownloadManager {
     }
 
     public func clearFinishedTasks() {
-        let taskIdsToRemove = tasks.filter { task in
+        let finishedTasks = tasks.filter { task in
             task.status == .completed || task.status == .failed || task.status == .cancelled
-        }.map { $0.id }
+        }
+        let taskIdsToRemove = finishedTasks.map { $0.id }
+        let finishedExports = finishedTasks.filter { $0.taskType.isExport }
 
         tasks.removeAll { task in
             taskIdsToRemove.contains(task.id)
@@ -158,6 +167,31 @@ extension DownloadManager {
             }
             try? context.save()
             lastTaskSaveAt = CFAbsoluteTimeGetCurrent()
+        }
+
+        // Dọn tác vụ xuất ⇒ dọn luôn file xuất của chúng. Không còn tác vụ xuất nào chạy / chờ ⇒ dọn cả mục mồ côi trong
+        // `Exports/` (bản xuất của các lần dọn trước, file tạm `.part`).
+        let hasActiveExport = tasks.contains { $0.taskType.isExport }
+        removeExportFiles(
+            storedPaths: finishedExports.compactMap(\.exportFilePath),
+            taskIds: finishedExports.map(\.id),
+            orphanKeeping: hasActiveExport ? nil : tasks.compactMap(\.exportFilePath)
+        )
+    }
+
+    /// Xoá file xuất của các tác vụ vừa bị xoá / dọn — trên luồng nền (thư mục video có thể hàng nghìn đoạn HLS) và **sau**
+    /// khi CSDL đã lưu, cùng thứ tự với `BookStorageManager`. `orphanKeeping != nil` ⇒ xoá luôn mọi mục khác trong
+    /// `Exports/` không thuộc các đường dẫn đó. Có xoá bản xuất nào thì báo một toast.
+    private func removeExportFiles(storedPaths: [String], taskIds: [UUID], orphanKeeping: [String]? = nil) {
+        guard !storedPaths.isEmpty || !taskIds.isEmpty || orphanKeeping != nil else { return }
+        Task.detached(priority: .utility) {
+            var removed = ExportFileCleaner.removeExports(storedPaths: storedPaths, taskIds: taskIds)
+            if let orphanKeeping {
+                removed += ExportFileCleaner.removeOrphans(keepingStoredPaths: orphanKeeping)
+            }
+            guard removed > 0 else { return }
+            AppLogger.shared.log("🧹 [DownloadManager] Đã xoá \(removed) bản xuất trong Documents/Exports")
+            DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xoá \(removed) file xuất trong Documents/Exports.", type: .info))
         }
     }
 
@@ -244,6 +278,11 @@ extension DownloadManager {
     @MainActor
     internal func markExportCompleted(taskId: UUID, artifact: ExportArtifact, summary: String?) {
         let path = artifact.fileURL.path
+        // Tác vụ bị xoá / dọn đúng lúc đang ghi file cuối ⇒ không còn ai giữ đường dẫn: xoá luôn bản vừa xong.
+        guard tasks.contains(where: { $0.id == taskId }) else {
+            removeExportFiles(storedPaths: [path], taskIds: [])
+            return
+        }
         markCompleted(taskId: taskId, exportFilePath: path)
         guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
         tasks[index].exportStage = .readyToShare
@@ -295,5 +334,14 @@ extension DownloadTask {
     /// Đang chạy hoặc đang chờ trong hàng đợi — tức chưa tới trạng thái cuối (xong / lỗi / huỷ).
     public var isActive: Bool {
         status == .running || status == .pending
+    }
+
+    /// Bản xuất còn trên đĩa (file, hoặc thư mục với video nhiều tập); `nil` khi tác vụ không có hay file đã mất. Dựng lại
+    /// theo `Exports/` của lần chạy này vì `exportFilePath` lưu tuyệt đối (`ExportFileCleaner.resolvedURL`).
+    public var existingExportURL: URL? {
+        guard let path = exportFilePath,
+              let url = ExportFileCleaner.resolvedURL(storedPath: path),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
     }
 }

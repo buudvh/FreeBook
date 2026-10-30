@@ -9,11 +9,15 @@ enum ExportFileNaming {
     /// Thư mục xuất duy nhất của app — ngoại lệ có chủ ý so với `applicationSupportDirectory`, vì
     /// người dùng cần thấy file này trong app Files.
     static func exportsDirectory() throws -> URL {
-        let fileManager = FileManager.default
-        let directory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Exports", isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let directory = exportsDirectoryURL()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    /// Như `exportsDirectory()` nhưng không tạo thư mục — để tra / dọn (`ExportFileCleaner`) mà không sinh thư mục rỗng.
+    static func exportsDirectoryURL() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Exports", isDirectory: true)
     }
 
     /// Đường dẫn cuối cùng người dùng nhận được. Không bao giờ trả về đường dẫn đã có file.

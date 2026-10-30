@@ -153,7 +153,7 @@ struct DownloadTrackerView: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.plain)
-            } else if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
+            } else if task.status == .completed, task.existingExportURL != nil {
                 Button(action: {
                     downloadManager.shareExportedFile(taskId: task.id)
                 }) {
@@ -178,7 +178,7 @@ struct DownloadTrackerView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .contextMenu {
-            if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
+            if task.status == .completed, task.existingExportURL != nil {
                 Button {
                     downloadManager.shareExportedFile(taskId: task.id)
                 } label: {
@@ -204,10 +204,11 @@ struct DownloadTrackerView: View {
                 }
             }
             
+            // Tác vụ xuất: xoá luôn file trong `Documents/Exports/` (`DownloadManager.deleteTask`).
             Button(role: .destructive) {
                 downloadManager.deleteTask(taskId: task.id)
             } label: {
-                Label("Xóa khỏi danh sách", systemImage: "trash")
+                Label(task.taskType.isExport ? "Xóa tác vụ và file" : "Xóa khỏi danh sách", systemImage: "trash")
             }
         }
     }

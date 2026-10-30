@@ -156,7 +156,8 @@ struct ShelfView: View {
             SideDrawerActionRow("Kiểm tra chương mới", systemImage: "bell.badge") { checkAllNewChapters() }
                 .disabled(newChapters.isChecking)
         }
-        if selectedTab == .downloads && !DownloadManager.shared.tasks.isEmpty {
+        // Hiện cả khi danh sách rỗng: dọn dẹp còn xoá file xuất mồ côi trong `Documents/Exports/` (1.3.657).
+        if selectedTab == .downloads {
             SideDrawerActionRow("Dọn dẹp tác vụ", systemImage: "trash", role: .destructive) {
                 DownloadManager.shared.clearFinishedTasks()
             }

@@ -29,7 +29,7 @@ enum VideoExportWriter {
     ) async throws -> Result {
         let fileManager = FileManager.default
         let staging = try ExportFileNaming.exportsDirectory()
-            .appendingPathComponent(".video-export-\(taskId.uuidString).part", isDirectory: true)
+            .appendingPathComponent(stagingDirectoryName(taskId: taskId), isDirectory: true)
         try ExportFileNaming.validateInsideExports(staging)
         if fileManager.fileExists(atPath: staging.path) {
             try fileManager.removeItem(at: staging)
@@ -102,6 +102,11 @@ enum VideoExportWriter {
             try? fileManager.removeItem(at: staging)
             throw error
         }
+    }
+
+    /// Tên thư mục tạm ẩn của một tác vụ trong `Exports/` — `ExportFileCleaner` xoá theo tên này khi tác vụ bị xoá / dọn.
+    static func stagingDirectoryName(taskId: UUID) -> String {
+        ".video-export-\(taskId.uuidString).part"
     }
 
     private static func writeOutput(

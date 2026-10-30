@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.658] - 2026-10-30
+
+### fix: dọn dẹp/xoá tác vụ xuất xoá luôn file trong Documents/Exports
+
+Người dùng: *"dù đã dọn dẹp/xoá tác vụ xuất (truyện, video, comic) trong app, các file trong Documents/Exports vẫn còn"*, *"khi bấm dọn dẹp tác vụ mà có tác vụ xuất file trong đó thì dọn dẹp file xuất trong documents nữa"*; "Xóa khỏi danh sách" từng tác vụ cũng xoá file; duyệt plan.
+
+- **Nguyên nhân**: `deleteTask` / `clearFinishedTasks` chỉ xoá hàng `DownloadTaskModel` + sidecar, không dòng nào xoá file — đúng cho cả TXT/EPUB/FB2/MOBI, CBZ/PDF và video (file hoặc thư mục). Thêm hai chỗ rò: `.part` của lần xuất bị tắt giữa chừng (tên có mốc giờ nên lần sau không trùng để tự dọn) và thư mục ẩn `.video-export-<taskId>.part` (chỉ dọn khi "Tải lại" đúng tác vụ đó).
+- **`ExportFileCleaner`** (mới, `Services/Export/`): chỉ xoá mục nằm **trực tiếp** trong `Exports/` (`validateInsideExports` + kiểm thư mục cha), không bao giờ xoá chính `Exports/`; lỗi ⇒ log `❌` (không vào `failed_file_deletions_queue` — hàng đó chỉ nhận `applicationSupport`).
+- **Đường dẫn bền**: `exportFilePath` lưu tuyệt đối (kèm UUID container, đổi khi cập nhật/cài lại app) ⇒ `ExportFileCleaner.resolvedURL` luôn ghép tên cuối vào `Exports/` của lần chạy này. `DownloadTask.existingExportURL` dùng cho nút/ menu Chia sẻ lại và `shareExportedFile`. Không đổi `@Model`.
+- **Xoá một tác vụ** (menu đổi nhãn "Xóa tác vụ và file" với tác vụ xuất): tác vụ xuất đã kết thúc ⇒ xoá file/thư mục + thư mục tạm video. Tác vụ đang chạy tự dọn `.part` khi bị huỷ; `markExportCompleted` của tác vụ đã bị xoá (ghi xong đúng lúc xoá) xoá luôn file vừa ghi.
+- **Dọn dẹp tác vụ**: xoá file của mọi tác vụ xuất bị dọn; không còn tác vụ xuất nào chạy/chờ ⇒ xoá luôn mọi mục mồ côi trong `Exports/` (bản xuất của các lần dọn trước, `.part`). Có xoá ⇒ toast "Đã xoá N file xuất trong Documents/Exports.". Mục "Dọn dẹp tác vụ" ở ngăn kéo tab Tải hiện cả khi danh sách rỗng (trước ẩn ⇒ file tồn đọng sau khi đã dọn hết tác vụ không bao giờ dọn được). Xoá chạy trên `Task.detached`, sau khi CSDL đã lưu (như `BookStorageManager`). Tác vụ tải không đụng file.
+- **Khởi động**: `initialize` dọn `.part` sót lại một lần mỗi lần chạy app, chỉ mục sửa lần cuối trước mốc khởi động. Xoá truyện vẫn không xoá bản xuất.
+- Chuyển entry `[1.3.628]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.657] - 2026-10-30
 
 ### fix: load() không đè hàm của script chính, chi tiết đọc trường comment
@@ -369,22 +384,3 @@ Người dùng: *"thêm nút bật tắt nfsw vào menu của khám phá"*; duy�
 - **Ngăn kéo "Tuỳ chọn nguồn" của Khám phá** (`DiscoverySourceMenuButton`): thêm dòng công tắc "Nội dung NSFW" (icon `eye`) ở **đầu** ngăn kéo, cùng kiểu dòng của ngăn kéo Kệ (`SideDrawerToggleRow`); chạm cả hàng để đổi, ngăn kéo vẫn mở. Dùng chung khoá NSFW toàn app (`RepositoryFilterPolicy.includeNsfwDefaultsKey`) với Cài đặt › Nội dung nhạy cảm, ngăn kéo Kệ và nút viên thuốc NSFW ở màn chọn nguồn (giữ nguyên). Tắt khi đang xem nguồn NSFW ⇒ Khám phá tự chuyển sang nguồn đầu tiên còn lại như cũ; không còn nguồn nào ⇒ nút menu biến mất và ngăn kéo tự gỡ (`onDisappear` của `sideDrawerMenu`).
 - Chuyển entry `[1.3.599]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.628] - 2026-10-28
-
-### feat: ngăn kéo menu mở sheet ngay, hiện chương đang lọc name và toast khi dừng
-
-Người dùng: *"Điều tra vì sao chọn option mở sheet, popup, menu phụ từ menu dropdown đều hiển thị lên khá chậm"*; *"ngoài ra tôi muốn bạn thêm tin ngắn ghi tên chương đang lọc name khi dừng lọc name nhiều chương kể cả thủ công lẫn tự dừng"*, *"Hiển thị chương đang lọc trên header luôn"*; duyệt mockup, rồi *"thực hiện hết tất cả yêu cầu của tôi đi"*.
-
-- **Ngăn kéo menu bằng cửa sổ nổi** (`Views/Common/SideDrawerMenu/`): bỏ `fullScreenCover` — khi cover còn mở iOS không cho trình bày cái mới, nên mục mở sheet/hộp thoại phải chờ trượt ra → gỡ cover (UIKit có thể vẫn chạy hiệu ứng dismiss dù đã `disablesAnimations`) → `onDismiss` → một nhịp runloop, rồi sheet mới trượt lên. Nay ngăn kéo nằm trong cửa sổ riêng (`SideDrawerMenuWindowManager`, level `alert - 0.5`: trên ba widget nổi, dưới toast; không bao giờ là key window) và hàng thao tác chạy action **ngay khi ngăn kéo bắt đầu trượt ra** — sheet của màn trượt lên phía dưới cùng lúc. API công khai giữ nguyên, không nơi gọi nào phải sửa.
-  - Nội dung: `SideDrawerMenuContentRelay` (view vô hình gắn sau màn) đẩy panel mới nhất sang cửa sổ mỗi lần màn vẽ lại; hàng công tắc/hàng chọn tự gọi vẽ lại sau khi đổi giá trị. Mỗi chỗ gắn có định danh, mỗi lượt mở có mã — callback trễ của lượt cũ bị bỏ.
-  - Không có lớp vô hình chặn chạm: bắt đầu đóng là cửa sổ thôi nhận chạm (`SideDrawerMenuOverlayWindow.hitTest` trả `nil`), trượt xong (dự phòng 0,44 s) thì ẩn và gỡ nội dung; màn bị gỡ khi ngăn kéo đang mở ⇒ ẩn ngay.
-  - `SideDrawerMenuHostingController` chuyển tiếp thanh trạng thái, home indicator và hướng xoay theo màn đang hiện của cửa sổ chính (Reader, trình phát video khoá xoay).
-  - Log `[Drawer]` (khi bật log): mở, chạm hàng, action chạy, cửa sổ ẩn — ms tính từ lúc chạm.
-  - Giới hạn mới: nội dung ngăn kéo **không** được chứa view đọc `@Environment`/`@EnvironmentObject`/`@Query` của màn (cửa sổ riêng không thừa hưởng environment).
-- **Chương đang lọc name** (`AINameScanProgress`): thêm chương đầu/cuối của lượt đang gửi và tên đã dịch sẵn. Tên gốc lấy lúc dựng lượt (`AINameScanTextLoader`, `title` trim, rỗng thì `titleTrans`), dịch **một lần mỗi lượt** ngoài main thread trong `runTurns` theo cấu hình dịch tên chương của màn AI (`AINameScanChapterTitleStyle`, truyền qua `startBatchExtraction`; nút thử lại dùng lại cấu hình của lần quét gốc).
-  - Dải tiến độ (`ReaderAIBatchProgressBannerView`): `Đang quét tên riêng: Batch 3/10 · ch.21–30` + dòng `ch.21 <tên> → ch.30 <tên>` (một dòng, tím nhạt); một chương: `· ch.21: <tên>`; lúc chờ giới hạn Google vẫn hiện dòng chương. Tiêu đề trang "AI đang chạy" thêm ` · ch.21–30`.
-  - Toast khi dừng — hiện cả khi màn AI đang mở, màn AI đóng thì kèm tên truyện: bấm Dừng (nút trên dải tiến độ hoặc thanh nhập, chỉ khi đang lọc name) ⇒ `Đã dừng lọc name · ch.21–30: <tên> → <tên>` (`.info`); tự dừng ở lần quét chính hoặc lần thử lại ⇒ `Lọc name tự dừng · …` (`.error`), thay toast "Quét tên riêng bị gián đoạn.". Không toast khi chạy xong bình thường, khi chờ giới hạn Google, khi Gemini Web tạm dừng lúc app ở nền.
-  - Lần thử lại tự dừng giờ luôn thêm tin "Lỗi quét tên riêng: …" vào màn AI (trước chỉ khi Google bắt xác minh) — lý do dừng không còn nằm trong toast.
-- Chuyển entry `[1.3.598]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code (hai phần làm bởi agent con trong worktree riêng, đã duyệt); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Chỗ dễ lỗi biên dịch nhất: các override `childFor…` / `prefersStatusBarHidden` trên lớp con `UIHostingController`.

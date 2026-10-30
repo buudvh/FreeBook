@@ -509,13 +509,12 @@ public final class DownloadManager: ObservableObject {
     @MainActor
     public func shareExportedFile(taskId: UUID) {
         guard let task = tasks.first(where: { $0.id == taskId }),
-              let path = task.exportFilePath,
-              FileManager.default.fileExists(atPath: path) else {
+              let url = task.existingExportURL else {
             DownloadPresentationEventCenter.shared.send(.showToast(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error))
             return
         }
         DownloadPresentationEventCenter.shared.send(
-            .exportReady(filePath: path, bookTitle: task.bookTitle)
+            .exportReady(filePath: url.path, bookTitle: task.bookTitle)
         )
     }
 }
