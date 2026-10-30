@@ -13,6 +13,10 @@ struct URLBarTextField: UIViewRepresentable {
     /// những gì người dùng đang nhập.
     @Binding var isEditing: Bool
     let onSubmit: () -> Void
+    /// Tự lấy focus ngay khi ô được dựng (thanh dưới của trình duyệt: chạm tên miền ⇒ đổi sang ô này và bật bàn phím
+    /// luôn, không bắt chạm lần hai). Hoãn một vòng runloop để ô đã vào cửa sổ; `textFieldDidBeginEditing` vẫn bôi đen
+    /// toàn bộ như khi người dùng tự chạm.
+    var becomesFirstResponderOnAppear: Bool = false
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -37,6 +41,11 @@ struct URLBarTextField: UIViewRepresentable {
             action: #selector(Coordinator.handleEditingChanged(_:)),
             for: .editingChanged
         )
+        if becomesFirstResponderOnAppear {
+            DispatchQueue.main.async { [weak field] in
+                _ = field?.becomeFirstResponder()
+            }
+        }
         return field
     }
 

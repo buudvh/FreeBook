@@ -14,6 +14,9 @@ import WebKit
 /// tab và ở mỗi điều hướng khung chính; chặn cửa sổ bật lên ở `createWebViewWith` (`blockedPopup`). Ẩn danh
 /// (`BypassBrowserTab.isIncognito`) chỉ bỏ ghi Lịch sử truy cập — cookie vẫn ở kho WebKit mặc định, dùng chung với
 /// trình duyệt ẩn của tiện ích, để vượt Cloudflare/đăng nhập ở đây vẫn có tác dụng cho nguồn.
+///
+/// Dịch trang QT + nhớ dịch (`+Translation`), chia sẻ (`+Share`), menu nhấn giữ (`+ContextMenu`): script/handler cài
+/// **một lần** mỗi `WKUserContentController` qua `installBrowserSupport(into:)` ở `makeTab`.
 final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     /// Trần số tab: mỗi tab là một `WKWebView` nên phải chặn để không phình bộ nhớ.
     static let maxTabCount = 8
@@ -24,6 +27,12 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     @Published private(set) var blockedPopup: BypassBrowserBlockedPopup?
     /// Ép chế độ điện thoại cho mọi tab (mở từ nút "Mở link lỗi"); đặt trước khi tạo tab đầu — xem `+MobileOverride`.
     var forcesMobileUserAgent = false
+    /// Yêu cầu mở bảng chia sẻ (`requestShare(url:)`); View trình bày rồi gán lại `nil`.
+    @Published var shareRequest: BrowserShareRequest?
+    /// Sheet Dịch QT / Tra từ điển của menu bôi đen (`browserContextSheets(store:)` quan sát trực tiếp).
+    let contextActions = BrowserContextActions()
+    /// `WKUserContentController` đã cài script + handler (`installBrowserSupport(into:)`): thêm trùng tên handler là crash.
+    var installedControllers: Set<ObjectIdentifier> = []
 
     /// Chuyển tiếp thay đổi của từng tab lên store để View chỉ cần quan sát store.
     private var tabObservations: [String: AnyCancellable] = [:]
@@ -142,7 +151,9 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
     /// mặc định chung để tab có UA/luật ngay từ đầu, không rơi về UA mặc định của WebKit.
     private func makeTab(configuration: WKWebViewConfiguration?, url: URL?, policyHost: String?) -> BypassBrowserTab {
         let config = configuration ?? makeDefaultConfiguration()
-        let webView = WKWebView(frame: .zero, configuration: config)
+        // Cả cấu hình mặc định lẫn cấu hình WebKit trao ở `createWebViewWith`; cài trước khi tạo webView.
+        installBrowserSupport(into: config.userContentController)
+        let webView = BrowserWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         let tab = BypassBrowserTab(webView: webView, initialUrl: url)
@@ -163,7 +174,7 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         return config
     }
 
-    private func tab(for webView: WKWebView) -> BypassBrowserTab? {
+    func tab(for webView: WKWebView) -> BypassBrowserTab? {
         tabs.first { $0.webView === webView }
     }
 
@@ -282,11 +293,13 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         tab(for: webView)?.policyReloadURL = nil
+        applyTranslationOnCommit(for: webView)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let tab = self.tab(for: webView)
         tab?.policyReloadURL = nil
+        if let tab { syncTranslationState(of: tab) } // lệnh lúc commit có thể tới trước khi script kịp cài
         guard let url = webView.url, !url.absoluteString.isEmpty, url.absoluteString != "about:blank" else { return }
         // Trang khôi phục từ bộ đệm lùi/tiến có thể không qua `decidePolicyFor` ⇒ xét lại ẩn danh trước khi ghi.
         if let tab {
@@ -354,47 +367,5 @@ final class BypassBrowserTabStore: NSObject, ObservableObject, WKNavigationDeleg
         guard let tab = tab(for: webView) else { return }
         closeTab(id: tab.id)
     }
-
-    // MARK: - Helpers
-
-    /// So với host **khung chính** của trang mở (không theo `sourceFrame`): iframe quảng cáo gọi `window.open` sang
-    /// chính tên miền của nó vẫn bị tính là khác tên miền trang.
-    private func shouldBlockPopup(_ navigationAction: WKNavigationAction, target: URL?, openerHost: String?) -> Bool {
-        guard WebContentSettings.popupBlockingEnabled,
-              navigationAction.navigationType != .linkActivated else { return false }
-        guard let targetHost = target?.host else { return true }
-        return !Self.isSameSite(targetHost, openerHost)
-    }
-
-    /// Cùng host, hoặc host con/cha của nhau sau khi bỏ `www.` (như `VideoEmbedWebView.Coordinator.host(_:isWithin:)`,
-    /// thêm chuẩn hoá để `m.a.com` ↔ `www.a.com` là cùng trang).
-    private static func isSameSite(_ candidate: String?, _ opener: String?) -> Bool {
-        guard let lhs = BrowserSitePreferenceStore.normalizedDomain(for: candidate), !lhs.isEmpty,
-              let rhs = BrowserSitePreferenceStore.normalizedDomain(for: opener), !rhs.isEmpty else { return false }
-        return lhs == rhs || lhs.hasSuffix("." + rhs) || rhs.hasSuffix("." + lhs)
-    }
-
-    /// URL http(s) có host của cửa sổ mới; rỗng, `about:blank`, `data:`, `blob:`… ⇒ `nil` (cửa sổ trống).
-    private static func webTarget(of url: URL?) -> URL? {
-        guard let url, isWebURL(url), let host = url.host, !host.isEmpty else { return nil }
-        return url
-    }
-
-    /// Host trang tab đang hiển thị; Home / `about:blank` / rỗng / không phải web ⇒ `nil`.
-    private static func pageHost(of tab: BypassBrowserTab) -> String? {
-        let text = tab.urlString
-        guard !text.isEmpty, text != "about:blank", text != "Home",
-              let url = URL(string: text), isWebURL(url),
-              let host = url.host, !host.isEmpty else { return nil }
-        return host
-    }
-
-    private static func currentRuleListIds() -> [ObjectIdentifier] {
-        AdBlockRuleListProvider.currentRuleLists().map { ObjectIdentifier($0) }
-    }
-
-    private static func isWebURL(_ url: URL) -> Bool {
-        let scheme = url.scheme?.lowercased()
-        return scheme == "http" || scheme == "https"
-    }
+    // Hàm phụ URL/tên miền: `BypassBrowserTabStore+URLHelpers`.
 }

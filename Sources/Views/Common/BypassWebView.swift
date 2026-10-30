@@ -1,7 +1,15 @@
 import SwiftUI
 import WebKit
-import SwiftData
 
+/// Trình duyệt người dùng (mockup 2026-10-30 "Trình duyệt mới"):
+/// - Header gọn: `.pageTitle(tiêu đề trang)` (đã dịch khi trang đang dịch QT), nút "…" mở ngăn kéo, "Xong" ngoài cùng.
+/// - Dải tab viên thuốc luôn hiện (`BypassBrowserTabBar`) + vạch tiến độ 2pt (`BrowserLoadProgressLine`).
+/// - Trang (web hoặc Home) chiếm hết phần còn lại, **kéo xuống tận mép màn**; dải báo tự dịch nổi phía trên.
+/// - Cụm nổi phía dưới, đè lên trang: dải báo popup bị chặn, viên Import (`BrowserImportPill`), thanh kính
+///   (`BrowserBottomBar`: lùi, tiến, ô URL, nút dịch).
+///
+/// Thành phần giao diện ở `Sources/Views/Common/Browser/Chrome/`; thao tác (tab, Home, nạp URL, import, sao chép link)
+/// ở `BypassWebView+Actions`. Menu nhấn giữ / sheet dịch-tra / bảng chia sẻ do phần menu nhấn giữ gắn thêm.
 struct BypassWebView: View {
     let urlString: String
     let host: String?
@@ -23,147 +31,70 @@ struct BypassWebView: View {
         self.onImport = onImport
     }
 
-    @Environment(\.dismiss) private var dismiss
+    // Không `private`: `BypassWebView+Actions` (file khác) dùng chung các trạng thái này.
+    @Environment(\.dismiss) var dismiss
 
     /// Chủ sở hữu duy nhất các tab (và mọi `WKWebView`) của phiên duyệt này.
-    @StateObject private var store = BypassBrowserTabStore()
-    @State private var inputUrl = ""
-    @State private var isEditingUrl = false
-    @State private var showingSourcePicker = false
-    @State private var showingAllHistorySheet = false
-    @State private var showingBrowserSettings = false // mở từ bảng nổi của nút khiên
+    @StateObject var store = BypassBrowserTabStore()
+    /// Chữ trong ô nhập địa chỉ — chỉ có nghĩa khi `isEditingUrl`; nhãn ô URL lúc thường suy từ tab.
+    @State var inputUrl = ""
+    @State var isEditingUrl = false
+    @State var showingMenu = false
+    @State var showingSourcePicker = false
+    @State var showingAllHistorySheet = false
+    @State var showingBrowserSettings = false
+    /// Safe area đáy (vạch Home) của vùng trang khi **không** có bàn phím; bàn phím đang hiện ⇒ 0. Đo bằng
+    /// `GeometryReader` nền bỏ qua safe area `.container` (vẫn tôn trọng bàn phím).
+    @State private var bottomSafeInset: CGFloat = 0
     /// Công tắc NSFW toàn app: tắt ⇒ Home không hiện ô của nguồn NSFW và ẩn lịch sử duyệt trang của chúng.
-    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
-
-    /// Tiện ích đã cài, đọc từ `ExtensionLibraryRepository` (Observation tự theo dõi khi đọc trong `body`), bỏ nguồn
-    /// Legado — cùng tập ứng viên với bộ dò link (`ExtensionUrlMatcher.candidates`).
-    private var activeExtensions: [Extension] {
-        ExtensionUrlMatcher.candidates(from: ExtensionLibraryRepository.shared.installed)
-    }
-
-    private var bookExtensions: [Extension] {
-        activeExtensions.filter { !$0.sourceUrl.isEmpty }
-    }
-
-    var resolvedUrl: URL? {
-        if urlString == "home" { return nil }
-        // Link lỗi (`SourceErrorLink.url`) đã là URL tuyệt đối đã kiểm: mở **nguyên văn**. `cleanAndResolveUrl` nhảy tới
-        // `http(s)://` cuối cùng trong chuỗi ⇒ URL fetch kiểu `…?url=https://…` sẽ mở nhầm trang và chép nhầm cookie.
-        if forcesMobileUserAgent, let direct = URL(string: urlString),
-           let scheme = direct.scheme?.lowercased(), scheme == "http" || scheme == "https",
-           let directHost = direct.host, !directHost.isEmpty {
-            return direct
-        }
-        let resolvedString = JSExecutor.cleanAndResolveUrl(urlString, host: host)
-        return URL(string: resolvedString)
-    }
-
-    private var currentUrlString: String {
-        store.activeTab?.urlString ?? ""
-    }
-
-    private var matchingExtensionInfos: [ExtensionUrlMatcher.Match] {
-        ExtensionUrlMatcher.matches(for: currentUrlString, in: activeExtensions)
-    }
-
-    private var canImportCurrentPage: Bool {
-        onImport != nil && !matchingExtensionInfos.isEmpty
-    }
-
-    private var navigationTitleText: String {
-        guard let tab = store.activeTab else { return "Trình duyệt" }
-        if store.tabs.count > 1 {
-            return "\(tab.displayTitle) (\(store.tabs.count) tab)"
-        }
-        return tab.displayTitle
-    }
+    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) var includeNsfw = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
-                if store.tabs.count > 1 {
-                    BypassBrowserTabBar(store: store)
-                    Divider()
-                }
-
+                BypassBrowserTabBar(store: store, onNewTab: { openNewTab() })
+                BrowserLoadProgressLine(
+                    isLoading: store.activeTab?.isLoading ?? false,
+                    progress: store.activeTab?.progress ?? 0
+                )
                 if let tab = store.activeTab {
-                    if isHomeTab(tab) {
-                        BypassBrowserHomeView(
-                            installedExtensions: RepositoryFilterPolicy.applyNsfwFilter(bookExtensions, includeNsfw: includeNsfw),
-                            hidesNsfwHistory: !includeNsfw,
-                            onSelectUrl: { url in
-                                if let target = URL(string: url) {
-                                    tab.load(target)
-                                    inputUrl = url
-                                }
-                            },
-                            onOpenAllHistory: {
-                                showingAllHistorySheet = true
-                            }
-                        )
-                    } else {
-                        BypassBrowserWebPane(webView: tab.webView)
-                            .overlay(alignment: .bottom) {
-                                BypassBrowserPopupBanner(store: store) // dải báo cửa sổ bật lên bị chặn
-                            }
-                    }
-
-                    if tab.isLoading {
-                        ProgressView(value: tab.progress, total: 1.0)
-                            .tint(.white)
-                            .progressViewStyle(LinearProgressViewStyle())
-                            .frame(height: 3)
-                    } else {
-                        Divider()
-                    }
-
-                    addressBar(for: tab)
+                    browserArea(for: tab, matches: importMatches(for: tab))
                 } else {
                     Spacer()
                 }
             }
-            .pageTitle(navigationTitleText)
+            .pageTitle(store.activeTab?.displayTitle ?? "Trình duyệt")
             .toolbar {
-                // Toàn màn, không vuốt đóng được ⇒ giữ "Xong", ngoài cùng bên phải; "Tab mới" đứng ngay trước.
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                // Toàn màn, không vuốt đóng được ⇒ giữ "Xong", ngoài cùng bên phải; "…" đứng ngay trước.
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
-                        openNewTab()
+                        showingMenu = true
                     } label: {
-                        Image(systemName: "plus.square")
+                        Image(systemName: "ellipsis.circle")
                             .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 36, height: 38)
                     }
-                    .disabled(!store.canOpenMoreTabs)
-                    .accessibilityLabel("Tab mới")
+                    .accessibilityLabel("Tuỳ chọn trình duyệt")
                     Button("Xong") {
                         dismiss()
                     }
                     .headerTextButton()
                 }
             }
-            .confirmationDialog("Chọn nguồn import", isPresented: $showingSourcePicker, titleVisibility: .visible) {
-                ForEach(matchingExtensionInfos) { match in
-                    Button(match.ext.name) {
-                        importBook(with: match)
-                    }
-                }
-                Button("Hủy", role: .cancel) {}
-            } message: {
-                Text(currentUrlString)
+            .sideDrawerMenu(isPresented: $showingMenu, title: "Trình duyệt") {
+                drawerContent
             }
             .onAppear {
                 prepareInitialTab()
             }
-            .onChange(of: currentUrlString) { _, newValue in
-                syncInputUrl(with: newValue)
-            }
-            .onChange(of: store.activeTabId) { _, _ in
-                syncInputUrl(with: currentUrlString)
+            .onChange(of: store.activeTab?.urlString ?? "") { _, _ in
+                // Trang đổi (hoặc đổi tab) trong lúc bảng chọn nguồn mở: nguồn khớp đã khác ⇒ đóng bảng.
+                showingSourcePicker = false
             }
             .sheet(isPresented: $showingAllHistorySheet) {
                 BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
                     if let tab = store.activeTab, let target = URL(string: selectedUrl) {
                         tab.load(target)
-                        inputUrl = selectedUrl
                     }
                 }
             }
@@ -171,199 +102,146 @@ struct BypassWebView: View {
                 NavigationStack { BrowserSettingsView(showsDoneButton: true) }
                     .presentationDragIndicator(.visible)
             }
+            // Sheet Dịch QT / Tra từ điển của menu nhấn giữ + bảng chia sẻ (`store.shareRequest`, cả mục "Chia sẻ" của
+            // ngăn kéo lẫn menu link).
+            .browserContextSheets(store: store)
         }
     }
 
-    /// Thanh địa chỉ URL, điều hướng và import truyện.
-    @ViewBuilder
-    private func addressBar(for tab: BypassBrowserTab) -> some View {
-        HStack(spacing: 8) {
-            Button {
-                tab.webView.goBack()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoBack ? .white : .gray)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-            }
-            .disabled(!tab.canGoBack)
+    // MARK: - Vùng trang + cụm nổi
 
-            Button {
-                tab.webView.goForward()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(tab.canGoForward ? .white : .gray)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-            }
-            .disabled(!tab.canGoForward)
-
-            Button {
-                loadHome(into: tab)
-            } label: {
-                Image(systemName: "house.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-            }
-
-            urlField(for: tab)
-
-            Button {
-                if isShowingReloadIcon(for: tab) {
-                    if tab.urlString == "about:blank" {
-                        loadHome(into: tab)
-                    } else {
-                        tab.webView.reload()
+    /// Trang kéo xuống tận mép màn; thanh nổi đặt theo safe area đáy rồi hạ vào vùng vạch Home như mockup. Bàn phím
+    /// hiện (nhập địa chỉ / ô nhập của trang) ⇒ cả vùng co lên trên bàn phím, thanh nằm ngay trên bàn phím.
+    private func browserArea(for tab: BypassBrowserTab, matches: [ExtensionUrlMatcher.Match]) -> some View {
+        ZStack(alignment: .bottom) {
+            if Self.isHomeTab(tab) {
+                homePage(for: tab)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear
+                            .frame(height: chromeClearance)
+                            .allowsHitTesting(false)
                     }
-                } else {
-                    loadEnteredUrl(into: tab)
-                }
-            } label: {
-                Image(systemName: isShowingReloadIcon(for: tab) ? "arrow.clockwise" : "arrow.right.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 36)
+            } else {
+                // Viên Import (kể cả khi thu còn icon) cũng che góc phải dòng cuối ⇒ chừa thêm chỗ khi viên hiện.
+                BypassBrowserWebPane(
+                    webView: tab.webView,
+                    bottomObstruction: bottomSafeInset + chromeClearance
+                        + (showsImportPill(matches) ? Self.importPillClearance : 0)
+                )
+                .ignoresSafeArea(.container, edges: .bottom)
             }
 
-            Button {
-                handleImportTap()
-            } label: {
-                Label("Import truyện", systemImage: "plus.circle.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .labelStyle(.iconOnly)
-                    .foregroundColor(canImportCurrentPage ? .white : .gray)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-            }
-            .disabled(!canImportCurrentPage)
-            .accessibilityLabel("Import truyện")
+            bottomChrome(for: tab, matches: matches)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .overlay(alignment: .top) {
+            BrowserTranslateHintBanner(text: tab.translateHint)
+                .padding(.top, 12)
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { bottomSafeInset = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, value in
+                        bottomSafeInset = value
+                    }
+            }
+            .ignoresSafeArea(.container, edges: .bottom)
+        }
     }
 
-    @ViewBuilder
-    private func urlField(for tab: BypassBrowserTab) -> some View {
-        HStack(spacing: 6) {
-            BypassBrowserShieldButton(store: store, tab: tab) { showingBrowserSettings = true }
+    private func homePage(for tab: BypassBrowserTab) -> some View {
+        BypassBrowserHomeView(
+            installedExtensions: RepositoryFilterPolicy.applyNsfwFilter(bookExtensions, includeNsfw: includeNsfw),
+            hidesNsfwHistory: !includeNsfw,
+            onSelectUrl: { url in
+                if let target = URL(string: url) {
+                    tab.load(target)
+                }
+            },
+            onOpenAllHistory: {
+                showingAllHistorySheet = true
+            }
+        )
+    }
 
-            if tab.isIncognito {
-                Image(systemName: "eye.slash")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .accessibilityLabel("Đang duyệt ẩn danh, không lưu lịch sử")
+    private func bottomChrome(for tab: BypassBrowserTab, matches: [ExtensionUrlMatcher.Match]) -> some View {
+        VStack(spacing: 0) {
+            BypassBrowserPopupBanner(store: store) // dải báo cửa sổ bật lên bị chặn, tự đệm đáy 10pt
+
+            if showsImportPill(matches) {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    BrowserImportPill(
+                        matches: matches,
+                        isCollapsed: tab.isScrolledDown,
+                        isPickerPresented: $showingSourcePicker,
+                        onImport: { match in importBook(with: match) }
+                    )
+                }
+                .padding(.trailing, 12)
+                .padding(.bottom, 10)
             }
 
-            URLBarTextField(
-                placeholder: "Nhập địa chỉ web...",
-                text: $inputUrl,
-                isEditing: $isEditingUrl,
-                onSubmit: { loadEnteredUrl(into: tab) }
+            BrowserBottomBar(
+                store: store,
+                tab: tab,
+                isHome: Self.isHomeTab(tab),
+                inputUrl: $inputUrl,
+                isEditingUrl: $isEditingUrl,
+                onBeginEditing: { beginEditingUrl(for: tab) },
+                onSubmitUrl: { loadEnteredUrl(into: tab) },
+                onReload: { reload(tab) },
+                onOpenSettings: { showingBrowserSettings = true }
             )
-            .frame(maxWidth: .infinity)
-
-            if !inputUrl.isEmpty {
-                Button {
-                    inputUrl = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
-                }
-            }
+            .padding(.horizontal, 10)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
+        .padding(.bottom, barBottomPadding)
     }
 
-    private func isShowingReloadIcon(for tab: BypassBrowserTab) -> Bool {
-        inputUrl == tab.urlString || tab.urlString == "about:blank"
+    /// Đệm đáy của thanh so với mép dưới safe area. Có vạch Home ⇒ hạ thanh vào vùng vạch (mockup: đáy thanh cách mép
+    /// màn 22pt khi vạch Home cao 34pt), chừa ≥ 10pt trên mép màn. Không có (máy nút Home, hoặc bàn phím đang hiện) ⇒ 8pt.
+    private var barBottomPadding: CGFloat {
+        bottomSafeInset > 0 ? -min(12, max(0, bottomSafeInset - 10)) : 8
     }
 
-    // MARK: - Tab lifecycle
-
-    private func prepareInitialTab() {
-        let isFirstMount = store.tabs.isEmpty
-        // Đặt trước `prepareFirstTab`: tab đầu phải được tạo với UA điện thoại ngay từ đầu.
-        store.forcesMobileUserAgent = forcesMobileUserAgent
-        let tab = store.prepareFirstTab(url: resolvedUrl)
-        guard isFirstMount else { return }
-        // Link lỗi có thể mang token trong query ⇒ tab đầu ẩn danh: không vào Lịch sử. Ẩn danh của trình duyệt này chỉ
-        // bỏ ghi lịch sử, cookie vẫn ở kho WebKit mặc định nên chép cookie khi đóng vẫn có tác dụng.
-        if forcesMobileUserAgent { tab.isIncognito = true }
-
-        if let pending = tab.consumePendingUrl() {
-            tab.load(pending)
-            inputUrl = pending.absoluteString
-        } else {
-            loadHome(into: tab)
-        }
+    /// Viên Import hiện khi màn có lối nhập, URL khớp tiện ích và không đang gõ địa chỉ.
+    private func showsImportPill(_ matches: [ExtensionUrlMatcher.Match]) -> Bool {
+        onImport != nil && !matches.isEmpty && !isEditingUrl
     }
 
-    private func openNewTab() {
-        guard let tab = store.openTab() else { return }
-        loadHome(into: tab)
+    /// Chiều cao viên Import (42) + khoảng cách tới thanh (10).
+    private static let importPillClearance: CGFloat = 52
+
+    /// Khoảng trang phải chừa phía trên safe area đáy để nội dung cuối không bị thanh che (thêm 8pt cho thoáng).
+    private var chromeClearance: CGFloat {
+        barBottomPadding + BrowserBottomBar.height + 8
     }
 
-    /// Về Home cũng kết thúc ẩn danh của tab (lùi lại trang nguồn thì `BypassBrowserTabStore` bật lại).
-    private func loadHome(into tab: BypassBrowserTab) {
-        tab.isIncognito = false
-        tab.webView.load(URLRequest(url: URL(string: "about:blank")!))
-        tab.title = "Home"
-        tab.urlString = "about:blank"
-        inputUrl = "Home"
-    }
+    // MARK: - Ngăn kéo "…"
 
-    private func isHomeTab(_ tab: BypassBrowserTab) -> Bool {
-        tab.urlString.isEmpty || tab.urlString == "about:blank" || tab.urlString == "Home"
-    }
-
-    private func loadEnteredUrl(into tab: BypassBrowserTab) {
-        var cleanUrl = inputUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanUrl.isEmpty, cleanUrl != "Home" else { return }
-
-        if !cleanUrl.lowercased().hasPrefix("http://") && !cleanUrl.lowercased().hasPrefix("https://") {
-            cleanUrl = "https://" + cleanUrl
-        }
-
-        guard let url = URL(string: cleanUrl) else { return }
-        tab.load(url)
-    }
-
-    /// Đồng bộ URL hiển thị; bỏ qua khi người dùng đang gõ để không ghi đè.
-    private func syncInputUrl(with newValue: String) {
-        guard !isEditingUrl else { return }
-        if newValue.isEmpty || newValue == "about:blank" {
-            inputUrl = "Home"
-        } else {
-            inputUrl = newValue
-        }
-    }
-    // MARK: - Import truyện
-
-    private func handleImportTap() {
-        let matches = matchingExtensionInfos
-        guard !matches.isEmpty else { return }
-
-        if matches.count == 1, let match = matches.first {
-            importBook(with: match)
-        } else {
-            showingSourcePicker = true
-        }
-    }
-
-    private func importBook(with match: ExtensionUrlMatcher.Match) {
-        onImport?(currentUrlString, match.ext.packageId, match.ext.name)
-        dismiss()
+    private var drawerContent: some View {
+        let tab = store.activeTab
+        let matches = tab.map { importMatches(for: $0) } ?? []
+        let pageURL = tab.flatMap { webPageURL(of: $0) }
+        return BrowserDrawerMenuContent(
+            importSourceCount: matches.count,
+            // Bảng chọn nguồn bật trên viên Import ⇒ chỉ cho bấm khi viên đang hiện (ẩn lúc nhập địa chỉ).
+            canImport: onImport != nil && !matches.isEmpty && !isEditingUrl,
+            hasWebPage: pageURL != nil,
+            canOpenMoreTabs: store.canOpenMoreTabs,
+            onImport: { importFromMenu(matches) },
+            onCopyLink: {
+                if let pageURL { copyLink(pageURL) }
+            },
+            onShare: {
+                if let pageURL { store.requestShare(url: pageURL) }
+            },
+            onNewTab: { openNewTab() },
+            onGoHome: {
+                if let active = store.activeTab { loadHome(into: active) }
+            },
+            onOpenHistory: { showingAllHistorySheet = true },
+            onOpenSettings: { showingBrowserSettings = true }
+        )
     }
 }

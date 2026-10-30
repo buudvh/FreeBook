@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Dải báo **"Đã chặn cửa sổ bật lên"** nổi trên đáy trang của trình duyệt người dùng (plan §3.1), đọc
-/// `store.blockedPopup`.
+/// Dải báo **"Đã chặn cửa sổ bật lên"** của trình duyệt người dùng (plan §3.1), đọc `store.blockedPopup`. Nằm ở đầu
+/// cụm nổi phía dưới: trên viên Import (nếu có) và thanh kính dưới, nên không bị thanh che.
 ///
 /// - Dòng phụ: tên miền đích; cửa sổ trống (`isBlank`) ⇒ `(cửa sổ trống)` và **không** có nút Mở.
 /// - **Mở** ⇒ `store.openBlockedPopup()` (mở tab mới); **✕** ⇒ `store.dismissBlockedPopup()`.

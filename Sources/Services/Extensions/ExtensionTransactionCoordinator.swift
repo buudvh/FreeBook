@@ -244,6 +244,12 @@ public final class ExtensionTransactionCoordinator {
         mutateInstalled(packageId: packageId) { $0.desktopModeOverride = value }
     }
 
+    /// Tự dịch QT trang khớp tiện ích này trong trình duyệt người dùng (`BrowserTranslatePolicy`). Công tắc tắt phải
+    /// truyền `nil` (khớp mặc định không dịch). Áp từ lượt nạp trang kế tiếp.
+    public func setTranslateOverride(packageId: String, _ value: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.translateOverride = value }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

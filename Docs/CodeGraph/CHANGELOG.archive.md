@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.625] - 2026-10-28
+
+### fix: sheet tải/xuất mở toàn màn, bỏ nửa màn
+
+Người dùng: *"sửa lại sheet tải và xoát thành toàn màn hình đi, bỏ nữa màn hình"*.
+
+- `TaskOptionsSheet`: `.presentationDetents([.medium, .large])` của 1.3.624 thành `[.large]` — mở thẳng toàn màn ở cả 7 chỗ gọi. Sheet nhập kho tiện ích và nhập nguồn Legado từ URL giữ nửa màn (không nằm trong yêu cầu).
+- Chuyển entry `[1.3.595]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.624] - 2026-10-28
 
 ### feat: sheet tải/xuất nửa màn, chọn chương bắt đầu, nghỉ và số luồng tải; nhập kho, Legado URL thành sheet

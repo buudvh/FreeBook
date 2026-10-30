@@ -34,6 +34,11 @@ final class BrowserSitePreferenceList {
         reload()
     }
 
+    func setTranslate(_ value: Bool?, forHost host: String) {
+        store.setTranslate(value, forHost: host)
+        reload()
+    }
+
     func remove(domain: String) {
         store.remove(domain: domain)
         reload()

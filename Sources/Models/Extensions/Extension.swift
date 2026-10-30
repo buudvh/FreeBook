@@ -49,6 +49,9 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// `true` = webview của tiện ích dùng chế độ máy tính (UA Safari macOS); `nil` = điện thoại (mặc định —
     /// **không** theo mặc định máy tính của trình duyệt). Tắt công tắc ghi `nil`, không ghi `false`.
     public var desktopModeOverride: Bool?
+    /// `true` = trang khớp tiện ích này (`ExtensionUrlMatcher`) mở trong **trình duyệt người dùng** tự dịch QT, trừ khi
+    /// tên miền đã chỉnh riêng (`BrowserTranslatePolicy`); `nil` = không. Tắt công tắc ghi `nil`, không ghi `false`.
+    public var translateOverride: Bool?
 
     public static let installOriginRepository = "repository"
     public static let installOriginImportZip = "importZip"
@@ -104,7 +107,8 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         savesHistory: Bool? = nil,
         nsfwOverride: Bool? = nil,
         adBlockOverride: Bool? = nil,
-        desktopModeOverride: Bool? = nil
+        desktopModeOverride: Bool? = nil,
+        translateOverride: Bool? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -130,6 +134,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         self.nsfwOverride = nsfwOverride
         self.adBlockOverride = adBlockOverride
         self.desktopModeOverride = desktopModeOverride
+        self.translateOverride = translateOverride
     }
 
     // MARK: - Codable
@@ -140,7 +145,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         case configJson, downloadUrl, repositoryUrl, installOrigin
         case pinnedAt, lastUsedAt, installedAt, updatedAt
         case isNsfw, savesHistory, nsfwOverride
-        case adBlockOverride, desktopModeOverride
+        case adBlockOverride, desktopModeOverride, translateOverride
     }
 
     /// Decode khoan dung: chỉ `packageId` là bắt buộc, trường thiếu rơi về mặc định — file do bản app khác
@@ -172,5 +177,6 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         nsfwOverride = try? c.decodeIfPresent(Bool.self, forKey: .nsfwOverride)
         adBlockOverride = try? c.decodeIfPresent(Bool.self, forKey: .adBlockOverride)
         desktopModeOverride = try? c.decodeIfPresent(Bool.self, forKey: .desktopModeOverride)
+        translateOverride = try? c.decodeIfPresent(Bool.self, forKey: .translateOverride)
     }
 }

@@ -7,7 +7,8 @@ import SwiftUI
 /// lượt nạp trang kế tiếp (không nạp lại tab đang mở).
 ///
 /// Chip: `Tắt chặn QC` / `Máy tính` như mockup; thêm `Bật chặn QC` / `Điện thoại` cho bản ghi ngược chiều mặc định
-/// (vd tắt chặn QC chung rồi bật lại cho một trang) — để không có dòng nào trống chip.
+/// (vd tắt chặn QC chung rồi bật lại cho một trang) — để không có dòng nào trống chip. Nhớ dịch theo tên miền:
+/// `Tự dịch QT` / `Không dịch`.
 struct BrowserSitePreferencesSection: View {
     private var list: BrowserSitePreferenceList { BrowserSitePreferenceList.shared }
 
@@ -66,6 +67,9 @@ struct BrowserSitePreferencesSection: View {
         }
         if let desktop = item.desktop {
             chips.append(desktop ? "Máy tính" : "Điện thoại")
+        }
+        if let translate = item.translate {
+            chips.append(translate ? "Tự dịch QT" : "Không dịch")
         }
         return chips
     }

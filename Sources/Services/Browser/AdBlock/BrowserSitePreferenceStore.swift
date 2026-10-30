@@ -1,7 +1,8 @@
 import Foundation
 import os
 
-/// Chỉnh riêng theo **tên miền** của trình duyệt người dùng (menu khiên): chặn quảng cáo, xem bản máy tính.
+/// Chỉnh riêng theo **tên miền** của trình duyệt người dùng (menu khiên): chặn quảng cáo, xem bản máy tính, tự dịch
+/// QT (`translate`, đọc bởi `BrowserTranslatePolicy`).
 /// Chủ sở hữu **duy nhất** của `applicationSupportDirectory/adblock/site_preferences.json` (mảng
 /// `BrowserSitePreference` sắp theo `domain`).
 ///
@@ -65,15 +66,17 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
             var matched: String?
             var adBlock: Bool?
             var desktop: Bool?
+            var translate: Bool?
             for candidate in chain {
                 guard let item = s.items[candidate] else { continue }
                 if matched == nil { matched = candidate }
                 if adBlock == nil { adBlock = item.adBlock }
                 if desktop == nil { desktop = item.desktop }
-                if adBlock != nil, desktop != nil { break }
+                if translate == nil { translate = item.translate }
+                if adBlock != nil, desktop != nil, translate != nil { break }
             }
             guard let matched else { return nil }
-            return BrowserSitePreference(domain: matched, adBlock: adBlock, desktop: desktop)
+            return BrowserSitePreference(domain: matched, adBlock: adBlock, desktop: desktop, translate: translate)
         }
     }
 
@@ -94,6 +97,11 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
         mutate(host: host) { $0.desktop = value }
     }
 
+    /// Nhớ tự dịch QT theo tên miền (công tắc trong menu khiên). `nil` = về theo tiện ích khớp URL rồi tắt.
+    func setTranslate(_ value: Bool?, forHost host: String) {
+        mutate(host: host) { $0.translate = value }
+    }
+
     /// Xoá hẳn bản ghi (vuốt xoá trong Cài đặt) — tên miền về theo mặc định.
     func remove(domain: String) {
         guard let key = Self.normalizedDomain(for: domain) else { return }
@@ -109,9 +117,9 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
         ensureLoaded()
         let changed = state.withLock { (s) -> Bool in
             let before = s.items[key]
-            var item = before ?? BrowserSitePreference(domain: key, adBlock: nil, desktop: nil)
+            var item = before ?? BrowserSitePreference(domain: key, adBlock: nil, desktop: nil, translate: nil)
             body(&item)
-            // Cả hai trường nil ⇒ xoá bản ghi: dữ liệu khớp đúng "theo mặc định".
+            // Mọi trường nil ⇒ xoá bản ghi: dữ liệu khớp đúng "theo mặc định".
             let after: BrowserSitePreference? = item.isEmpty ? nil : item
             guard after != before else { return false }
             s.items[key] = after
@@ -142,7 +150,9 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
             var items: [String: BrowserSitePreference] = [:]
             for item in list where !item.isEmpty {
                 guard let key = normalizedDomain(for: item.domain) else { continue }
-                items[key] = BrowserSitePreference(domain: key, adBlock: item.adBlock, desktop: item.desktop)
+                items[key] = BrowserSitePreference(
+                    domain: key, adBlock: item.adBlock, desktop: item.desktop, translate: item.translate
+                )
             }
             return items
         } catch {

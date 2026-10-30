@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.655] - 2026-10-30
+
+### feat: trình duyệt mới với dịch QT, menu nhấn giữ và viên Import
+
+Người dùng: *"thêm chức năng dịch (dùng qt) cho browser"* rồi `/grill-me` *"thiết kế lại giao diện browser mới cho đẹp hơn, hợp với yêu cầu thêm dịch, custom context menu của browser lại"*; sau mockup: *"hiển thị thanh tab đi, bỏ lưới"*, *"để nút thêm tab bên phải tab cuối cùng, luôn hiển thị thanh tab"*, Import là viên nổi trong suốt mang icon tiện ích khớp; *"duyệt, làm giống y vậy nhé"*. Plan: `Docs/Plans/2026-10-30-plan-trinh-duyet-moi.md`.
+
+- **Dịch trang QT** (`Services/Browser/Translate/`): script trong content world riêng (`BrowserPageTranslateScript`, chỉ khung chính) dịch **tại chỗ** text node + `title`/`alt`/`placeholder` theo lô qua handler có trả lời `fbPageTranslate` (`BrowserPageTranslator`, `TranslateUtils.translateContent(_, bookId: nil)` ngoài main); tắt ⇒ khôi phục bản gốc; `MutationObserver` dịch nội dung nạp thêm. Tiêu đề tab dịch theo (`displayTitle`).
+- **Nhớ dịch**: `BrowserSitePreference.translate` (công tắc "Tự dịch QT" trong bảng khiên, xem ở Cài đặt › Trang đã chỉnh riêng) ⇒ `Extension.translateOverride` của tiện ích **đầu tiên** khớp URL có giá trị (công tắc mới "Tự dịch trang (QT)" ở Cấu hình tiện ích › Trình duyệt; vào sao lưu, khoá `nil` không đổi vân tay cũ) ⇒ tắt (`BrowserTranslatePolicy`). Nút dịch trên thanh chỉ bật/tắt cho tab đang xem, giữ khi còn cùng tên miền. Dải báo "Tự dịch QT · theo …" chỉ hiện lần đầu tab vào tên miền.
+- **Giao diện** (giống mockup đã duyệt): header `.pageTitle` + `…` (ngăn kéo "Trình duyệt": Import truyện, Sao chép link, Chia sẻ, Tab mới, Về trang chủ, Lịch sử, Cài đặt trình duyệt) + Xong; **dải tab luôn hiện**, nút + ngay sau tab cuối, ẩn ✕ khi 1 tab; **thanh kính nổi** dưới (lùi, tiến, ô URL có khiên + tải lại, nút dịch; nền đọc khoá kính ngăn kéo của `GlassChromeSettings`); **viên Import** trong suốt mang icon tiện ích khớp URL (1 nguồn import luôn, ≥ 2 mở bảng chọn nguồn thay hộp thoại cũ, cuộn xuống thu còn icon). File mới ở `Views/Common/Browser/Chrome/`.
+- **Menu nhấn giữ** thay menu Safari: link (UIMenu gốc, không xem trước) ⇒ Mở / Mở trong tab mới / Mở trong tab nền / Sao chép link / Chia sẻ, link bọc ảnh thêm nhóm Ảnh; ảnh ngoài link ⇒ menu tại điểm chạm (`UIEditMenuInteraction`: Lưu ảnh, Sao chép ảnh, Mở ảnh trong tab mới; thêm `NSPhotoLibraryAddUsageDescription`); chữ bôi đen (`BrowserWebView.buildMenu`, bỏ Tra cứu/Dịch/Chia sẻ/Nói hệ thống) ⇒ Sao chép, Dịch QT, Tra từ điển, Sao chép bản dịch, Tìm trên web, Mở tab mới (khi trong link). Trang đã dịch ⇒ dùng bản gốc của vùng chọn.
+- **Sheet** Dịch QT (bản gốc/bản dịch, Sao chép bản dịch, Tra từ điển) và Tra từ điển (token của câu, Hán Việt, VietPhrase/Names từ điển chung) — `browserContextSheets(store:)`.
+- Script + handler cài **một lần** mỗi `WKUserContentController` (tab `target=_blank` dùng chung controller với tab mẹ ⇒ tránh crash trùng handler).
+- CLAUDE.md/AGENTS.md: thêm ghi chú content world chung, cài một lần mỗi controller, hai kiểu handler, luật nhớ dịch.
+- Chuyển entry `[1.3.625]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + 2 agent review phản biện (biên dịch, hành vi) — đã sửa 1 lỗi biên dịch (đăng ký handler sai bản API) và 6 lỗi hành vi; JS qua `node --check`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); **chưa thử trên máy** — menu bôi đen có thay được menu hệ thống không, `previewProvider: nil` còn xem trước không, menu ảnh sau khi nhả tay, dịch trang dài/SPA, tab mở bằng `_blank`, thanh dưới che cuối trang trên máy có vạch Home.
+
 ## [1.3.654] - 2026-10-29
 
 ### fix: bấm Xuất video không còn ra tác vụ tải, thêm Xuất video/chương đã tải
@@ -370,14 +386,3 @@ Người dùng: *"thêm trong suốt cho menu nữa"*.
 - `SideDrawerMenuPanel.drawerBackground`: lớp tối trên lớp `.ultraThinMaterial` hạ tiếp 55% → 38% (`Color(white: 0.12)`); lớp phủ phần màn còn lại giữ 30%.
 - Chuyển entry `[1.3.596]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — độ đọc rõ chữ ở mức 38% cần người dùng xem trên máy.
-
-## [1.3.625] - 2026-10-28
-
-### fix: sheet tải/xuất mở toàn màn, bỏ nửa màn
-
-Người dùng: *"sửa lại sheet tải và xoát thành toàn màn hình đi, bỏ nữa màn hình"*.
-
-- `TaskOptionsSheet`: `.presentationDetents([.medium, .large])` của 1.3.624 thành `[.large]` — mở thẳng toàn màn ở cả 7 chỗ gọi. Sheet nhập kho tiện ích và nhập nguồn Legado từ URL giữ nửa màn (không nằm trong yêu cầu).
-- Chuyển entry `[1.3.595]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
-

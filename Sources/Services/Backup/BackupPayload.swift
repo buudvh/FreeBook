@@ -162,6 +162,9 @@ public enum BackupPayload {
         /// archive cũ không có ⇒ `nil`.
         public let adBlockOverride: Bool?
         public let desktopModeOverride: Bool?
+        /// `Extension.translateOverride` (công tắc "Tự dịch trang (QT)"); archive cũ không có ⇒ `nil`. Codable tổng hợp
+        /// bỏ khoá khi `nil` nên vân tay sao lưu tự động của dữ liệu cũ không đổi.
+        public let translateOverride: Bool?
 
         public init(
             packageId: String,
@@ -185,7 +188,8 @@ public enum BackupPayload {
             savesHistory: Bool? = nil,
             nsfwOverride: Bool? = nil,
             adBlockOverride: Bool? = nil,
-            desktopModeOverride: Bool? = nil
+            desktopModeOverride: Bool? = nil,
+            translateOverride: Bool? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -209,6 +213,7 @@ public enum BackupPayload {
             self.nsfwOverride = nsfwOverride
             self.adBlockOverride = adBlockOverride
             self.desktopModeOverride = desktopModeOverride
+            self.translateOverride = translateOverride
         }
 
         /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.

@@ -147,6 +147,12 @@ public struct BackupLibraryWriter {
                ) {
                 report.errors.append("Chế độ máy tính \(record.name): \(error.localizedDescription)")
             }
+            if let translate = record.translateOverride, ext.translateOverride == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setTranslateOverride(
+                   packageId: record.packageId, translate
+               ) {
+                report.errors.append("Tự dịch trang \(record.name): \(error.localizedDescription)")
+            }
         }
         return report
     }

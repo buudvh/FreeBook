@@ -175,13 +175,15 @@ enum BackupLibraryFingerprint {
     }
 
     /// `lastUsedAt` đổi mỗi lần duyệt nguồn — không băm (giữ `pinnedAt`, `isNsfw`, `savesHistory`); backup thật ghi đủ.
+    /// Trường `Optional` mới (`translateOverride`) bằng `nil` bị bỏ khoá (`encodeIfPresent`) ⇒ vân tay cũ không đổi.
     private static func withoutLastUsed(_ r: BackupPayload.ExtensionRecord) -> BackupPayload.ExtensionRecord {
         BackupPayload.ExtensionRecord(
             packageId: r.packageId, name: r.name, author: r.author, version: r.version, sourceUrl: r.sourceUrl,
             iconUrl: r.iconUrl, desc: r.desc, type: r.type, locale: r.locale, downloadUrl: r.downloadUrl,
             configJson: r.configJson, isEnabled: r.isEnabled, isPinned: r.isPinned, repositoryUrl: r.repositoryUrl,
             localPathRelative: r.localPathRelative, pinnedAt: r.pinnedAt, lastUsedAt: nil, isNsfw: r.isNsfw, savesHistory: r.savesHistory, nsfwOverride: r.nsfwOverride,
-            adBlockOverride: r.adBlockOverride, desktopModeOverride: r.desktopModeOverride
+            adBlockOverride: r.adBlockOverride, desktopModeOverride: r.desktopModeOverride,
+            translateOverride: r.translateOverride
         )
     }
 

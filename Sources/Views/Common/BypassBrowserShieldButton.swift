@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Nút **khiên** trong ô URL của trình duyệt người dùng (thay ổ khoá cũ) + bảng nổi chỉnh theo tên miền (plan §3.1).
+/// Nút **khiên** đầu ô URL (thanh kính dưới, `BrowserAddressPill`) của trình duyệt người dùng + bảng nổi chỉnh theo tên
+/// miền: chặn quảng cáo, bản máy tính, tự dịch QT (`BrowserShieldTranslateSection`, mockup 2026-10-30 màn "Mới 3").
+/// Khiên nằm ở đáy màn nên bảng bật lên **phía trên** nút.
 ///
 /// Biểu tượng theo `store.decision(for: tab)` của trang đang xem:
 /// - `checkmark.shield.fill` xanh: đang chặn quảng cáo trên trang này;
@@ -33,14 +35,11 @@ struct BypassBrowserShieldButton: View {
         } label: {
             shieldIcon(for: decision)
                 .font(.system(size: 15, weight: .semibold))
-                .frame(width: 32, height: 36)
+                .frame(width: 36, height: 38)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(decision == nil)
-        // Hitbox 32×36 nhưng không làm ô URL cao thêm: ô đã có đệm dọc 8pt, đệm trái 10pt.
-        .padding(.vertical, -8)
-        .padding(.leading, -6)
         .accessibilityLabel(accessibilityText(for: decision))
         .popover(isPresented: $showingPanel, arrowEdge: .bottom) {
             Panel(store: store, tab: tab) {
@@ -89,7 +88,8 @@ struct BypassBrowserShieldButton: View {
 // MARK: - Bảng nổi
 
 extension BypassBrowserShieldButton {
-    /// Nội dung popover: tên miền + trạng thái, hai công tắc nhớ theo tên miền, lối vào Cài đặt Trình duyệt.
+    /// Nội dung popover: tên miền + trạng thái, công tắc nhớ theo tên miền (chặn QC, bản máy tính, tự dịch QT), lối vào
+    /// Cài đặt Trình duyệt.
     /// Là view riêng để tự theo dõi phụ thuộc (popover vẽ trong cây trình bày khác với nút).
     fileprivate struct Panel: View {
         @ObservedObject var store: BypassBrowserTabStore
@@ -137,6 +137,7 @@ extension BypassBrowserShieldButton {
                 )
                 // Phiên ép điện thoại ("Mở link lỗi"): bật ở đây chỉ lưu tuỳ chọn ngược với trang đang hiện ⇒ khoá.
                 .disabled(store.forcesMobileUserAgent)
+                BrowserShieldTranslateSection(store: store, tab: tab, host: host)
 
                 Divider()
                     .background(Color.white.opacity(0.12))
