@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.656] - 2026-10-30
+
+### fix: trình duyệt bôi đen thấy được, ô URL tìm Google, tự dịch nguồn tiếng Trung
+
+Người dùng (thử 1.3.655): *"Phần bôi đen của web bị sửa thành màu trắng không thấy được chữ nào bôi đen"*, *"nhập vào ô url nếu là chữ bình thường không phải link hãy search bằng google, bàn phím đổi thành bàn phím bình thường"*, *"tự quyết định trình duyệt từ đầu có bật tự động dịch không nếu chưa config … url match với ext có ngôn ngữ là tiếng trung thì từ đầu phải bật dịch"*, *"khi bấm nút copy trên bàn phím, hãy thêm toast"*; duyệt plan.
+
+- **Vùng bôi đen**: app đặt màu nhấn trắng toàn cục (`.tint(.white)`) ⇒ vùng chọn + tay nắm của trang thành trắng. `BrowserWebView` và `URLBarTextField` gán `tintColor = .systemBlue` tường minh (như Safari).
+- **Ô địa chỉ**: bàn phím thường (`.default`, thanh công cụ bàn phím của app vẫn tự gắn), chữ gợi ý "Tìm hoặc nhập địa chỉ web". Enter: link (`http(s)://`, hoặc không khoảng trắng + `localhost`/IPv4/tên miền có đuôi chữ ≥ 2 ký tự) ⇒ mở; còn lại ⇒ tìm Google (`BrowserAddressInputMapper`, dùng chung `webSearchURL(for:)` với "Tìm trên web").
+- **Tự dịch mặc định** (`BrowserTranslatePolicy`): tên miền ⇒ công tắc tiện ích khớp URL ⇒ **mặc định của tiện ích khớp đầu tiên** = cấu hình dịch "Nguồn này" của Reader (`TranslationConfigStore`) nếu đã đặt, không thì nguồn tiếng Trung (`Extension.isChineseSource`) ⇒ bật ⇒ tắt. Công tắc "Tự dịch trang (QT)" ở Cấu hình tiện ích hiện giá trị đang hiệu lực, ghi `true`/`false` tường minh, thêm dòng "Dùng mặc định" khi đã chỉnh.
+- **Toast "Đã sao chép"** khi bấm nút sao chép của thanh bàn phím (mọi ô nhập). `ToastManager.show` thêm `recordsInInbox` (mặc định `true`) để toast này không vào Trung tâm thông báo; lớp toast giữ vùng bàn phím (`.ignoresSafeArea(.container)`) nên không bị bàn phím che.
+- Chuyển entry `[1.3.626]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — màu vùng chọn trên trang, toast nằm trên bàn phím (cửa sổ toast mức `.alert`), mở URL tiện ích tiếng Trung lần đầu tự dịch.
+
 ## [1.3.655] - 2026-10-30
 
 ### feat: trình duyệt mới với dịch QT, menu nhấn giữ và viên Import
@@ -376,13 +389,3 @@ Người dùng: *"thêm biểu tượng đã tải vào danh sách chương ở 
 - `AINameScanChapter.isCached` (mặc định `false`): sheet quét tên AI không đặt cờ — danh sách ở đó vốn toàn chương đã tải, không hiện icon thừa.
 - Chuyển entry `[1.3.597]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.626] - 2026-10-28
-
-### fix: ngăn kéo menu trong suốt hơn nữa
-
-Người dùng: *"thêm trong suốt cho menu nữa"*.
-
-- `SideDrawerMenuPanel.drawerBackground`: lớp tối trên lớp `.ultraThinMaterial` hạ tiếp 55% → 38% (`Color(white: 0.12)`); lớp phủ phần màn còn lại giữ 30%.
-- Chuyển entry `[1.3.596]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — độ đọc rõ chữ ở mức 38% cần người dùng xem trên máy.

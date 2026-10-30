@@ -7,8 +7,10 @@ import SwiftUI
 ///   của `WebContentPolicy`) và ghi `true`/`false` **tường minh**; chỉ dòng **Dùng cài đặt chung** (hiện khi đã
 ///   chỉnh) mới ghi `nil`.
 /// - Công tắc **Chế độ máy tính** = `desktopModeOverride ?? false`; tắt ghi `nil` (khớp mặc định điện thoại).
-/// - Công tắc **Tự dịch trang (QT)** = `translateOverride ?? false`; bật ghi `true`, tắt ghi `nil`. Chỉ áp cho
-///   trình duyệt người dùng (trang khớp `regexp` của tiện ích, tên miền chưa chỉnh riêng — `BrowserTranslatePolicy`).
+/// - Công tắc **Tự dịch trang (QT)** = `translateOverride ?? BrowserTranslatePolicy.defaultTranslate(for:)` (cấu hình
+///   dịch "Nguồn này" của Reader, không thì nguồn tiếng Trung ⇒ bật); ghi `true`/`false` tường minh, dòng **Dùng mặc
+///   định** (hiện khi đã chỉnh) ghi `nil`. Chỉ áp cho trình duyệt người dùng (trang khớp `regexp` của tiện ích, tên miền
+///   chưa chỉnh riêng — `BrowserTranslatePolicy`).
 ///
 /// Lưu **ngay** khi bấm qua `ExtensionTransactionCoordinator` (mẫu `+History`), không đi qua `configJson` (chuỗi đó
 /// bị tiêm thành biến global của JS). Có hiệu lực từ lượt nạp trang kế tiếp của webview tiện ích.
@@ -46,9 +48,18 @@ extension ExtensionConfigView {
                 }
                 Toggle("Chế độ máy tính", isOn: desktopBinding(ext))
                 Toggle("Tự dịch trang (QT)", isOn: translateBinding(ext))
+                if ext.translateOverride != nil {
+                    Button {
+                        Self.saveTranslateOverride(packageId: ext.packageId, name: ext.name, nil)
+                    } label: {
+                        Label("Dùng mặc định", systemImage: "arrow.uturn.backward")
+                            .foregroundColor(.primary)
+                    }
+                }
             } header: {
                 SectionHelpHeader("Trình duyệt", paragraphs: [
-                    "Chế độ máy tính đổi HTML trang trả về, dễ làm tiện ích bóc tách sai. Chỉ bật khi trang bắt buộc. Lưu ngay khi bấm. Bật Tự dịch trang (QT) thì trang của tiện ích này mở trong trình duyệt sẽ tự dịch QT nếu tên miền chưa chỉnh riêng."
+                    "Chế độ máy tính đổi HTML trang trả về, dễ làm tiện ích bóc tách sai. Chỉ bật khi trang bắt buộc. Lưu ngay khi bấm.",
+                    "Tự dịch trang (QT): trang của tiện ích này mở trong trình duyệt sẽ tự dịch QT nếu tên miền chưa chỉnh riêng. Mặc định theo cấu hình dịch \"Nguồn này\" của Reader nếu đã đặt, không thì bật với nguồn tiếng Trung."
                 ])
             } footer: {
                 // Trạng thái chặn quảng cáo (theo chung hay đã chỉnh riêng) giữ ở footer; phần giải thích nằm ở nút "?".
@@ -87,17 +98,17 @@ extension ExtensionConfigView {
             )
         }
 
+        /// Hiện giá trị đang có hiệu lực (`translateOverride ?? mặc định`) và ghi `true`/`false` **tường minh** (như chặn
+        /// quảng cáo): `nil` giờ nghĩa là "theo mặc định" (nguồn tiếng Trung tự bật), nên tắt phải ghi `false`.
         private func translateBinding(_ ext: Extension) -> Binding<Bool> {
-            let isOn = ext.translateOverride ?? false
+            let isOn = ext.translateOverride ?? BrowserTranslatePolicy.defaultTranslate(for: ext)
             let packageId = ext.packageId
             let name = ext.name
             return Binding(
                 get: { isOn },
                 set: { value in
                     guard value != isOn else { return }
-                    // Tắt ⇒ `nil`, không ghi `false`: dữ liệu khớp đúng mặc định (không tự dịch).
-                    let stored: Bool? = value ? true : nil
-                    MainActor.assumeIsolated { Self.saveTranslateOverride(packageId: packageId, name: name, stored) }
+                    MainActor.assumeIsolated { Self.saveTranslateOverride(packageId: packageId, name: name, value) }
                 }
             )
         }
@@ -139,7 +150,8 @@ extension ExtensionConfigView {
         private static func saveTranslateOverride(packageId: String, name: String, _ value: Bool?) {
             switch ExtensionTransactionCoordinator.shared.setTranslateOverride(packageId: packageId, value) {
             case .success:
-                AppLogger.shared.log("🌐 [ExtConfig] \(name): \(value == true ? "bật" : "tắt") tự dịch trang QT")
+                let note = value.map { $0 ? "bật tự dịch trang QT" : "tắt tự dịch trang QT" } ?? "tự dịch trang QT theo mặc định"
+                AppLogger.shared.log("🌐 [ExtConfig] \(name): \(note)")
             case .failure(let err):
                 AppLogger.shared.log("❌ [ExtConfig] Lỗi lưu tự dịch trang của \(name): \(err.localizedDescription)")
                 ToastManager.shared.show(message: "Không lưu được công tắc tự dịch trang: \(err.localizedDescription)", type: .error)

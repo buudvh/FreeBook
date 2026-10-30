@@ -123,6 +123,8 @@ final class KeyboardTextToolbarModel: ObservableObject {
         let text = currentText
         guard !text.isEmpty else { return }
         UIPasteboard.general.string = text
+        // Nút sao chép không đổi gì trên ô ⇒ báo để người dùng biết đã chép (không lưu vào Trung tâm thông báo).
+        ToastManager.shared.show(message: "Đã sao chép", type: .success, recordsInInbox: false)
     }
 
     func paste() {

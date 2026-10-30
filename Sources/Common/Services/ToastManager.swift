@@ -36,9 +36,13 @@ public final class ToastManager: ObservableObject {
         )
     }
     
-    public func show(message: String, type: ToastType = .info) {
+    /// `recordsInInbox: false` cho phản hồi tức thời không đáng lưu (vd "Đã sao chép" của thanh bàn phím): không ghi vào
+    /// Trung tâm thông báo, không tăng badge chưa đọc.
+    public func show(message: String, type: ToastType = .info, recordsInInbox: Bool = true) {
         // Choke point duy nhất mọi toast đi qua ⇒ ghi vào nhật ký Trung tâm thông báo tại đây.
-        NotificationInboxManager.shared.record(message: message, type: type)
+        if recordsInInbox {
+            NotificationInboxManager.shared.record(message: message, type: type)
+        }
 
         currentTask?.cancel()
         
@@ -161,7 +165,9 @@ public struct ToastOverlayView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
+        // Chỉ bỏ safe area của màn, **giữ** vùng bàn phím: cửa sổ toast nằm dưới cửa sổ bàn phím, bỏ cả vùng bàn phím thì
+        // toast lúc đang gõ (vd "Đã sao chép" của thanh bàn phím) bị bàn phím che mất.
+        .ignoresSafeArea(.container)
     }
 }
 

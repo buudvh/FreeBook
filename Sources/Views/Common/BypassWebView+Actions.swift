@@ -97,15 +97,10 @@ extension BypassWebView {
         isEditingUrl = true
     }
 
+    /// Enter ở ô địa chỉ: link thì mở, chữ thường thì tìm Google (`BrowserAddressInputMapper`).
     func loadEnteredUrl(into tab: BypassBrowserTab) {
-        var cleanUrl = inputUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanUrl.isEmpty, cleanUrl != "Home" else { return }
-
-        if !cleanUrl.lowercased().hasPrefix("http://") && !cleanUrl.lowercased().hasPrefix("https://") {
-            cleanUrl = "https://" + cleanUrl
-        }
-
-        guard let url = URL(string: cleanUrl) else { return }
+        let text = inputUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text != "Home", let url = BrowserAddressInputMapper.url(for: text) else { return }
         tab.load(url)
     }
 

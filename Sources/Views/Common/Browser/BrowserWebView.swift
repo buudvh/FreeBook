@@ -53,6 +53,20 @@ final class BrowserWebView: WKWebView {
     private var lastTouchPoint: (point: CGPoint, date: Date)?
     private lazy var imageMenu = BrowserImageMenuPresenter(webView: self)
 
+    // MARK: - Khởi tạo
+
+    /// App đặt màu nhấn **trắng** toàn cục (`.tint(.white)`) ⇒ vùng bôi đen + tay nắm của trang thừa hưởng màu trắng, trên
+    /// trang nền trắng không thấy gì. Gán màu xanh hệ thống **tường minh** (giống Safari) để không thừa hưởng nữa.
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+        tintColor = .systemBlue
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        tintColor = .systemBlue
+    }
+
     // MARK: - Script → native (store gọi)
 
     func updateSelection(text: String, linkURL: URL?, sourceHasHan: Bool) {

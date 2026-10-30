@@ -80,7 +80,7 @@ struct BrowserAddressPill: View {
     @ViewBuilder
     private var editingContent: some View {
         URLBarTextField(
-            placeholder: "Nhập địa chỉ web...",
+            placeholder: "Tìm hoặc nhập địa chỉ web",
             text: $inputUrl,
             isEditing: $isEditing,
             onSubmit: onSubmit,
