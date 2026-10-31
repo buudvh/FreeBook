@@ -7,11 +7,16 @@ import UIKit
 ///
 /// - Thanh hệ thống ẩn ở đây, ở `PageTitleModifier` (mọi kiểu) và ở từng tab của `MainTabView`: giá trị luôn `.hidden`
 ///   nên đẩy/back không làm SwiftUI ẩn/hiện gì.
-/// - Bàn phím hiện ⇒ bỏ thanh (`safeAreaInset` cưỡi lên trên bàn phím; thanh hệ thống cũ thì nằm sau bàn phím).
+/// - `hidesWithKeyboard` (chỉ trang gốc có ô nhập — tab Tiện ích): bàn phím hiện ⇒ bỏ thanh (`safeAreaInset` cưỡi lên
+///   trên bàn phím; thanh hệ thống cũ thì nằm sau bàn phím). Chỉ nghe khi trang gốc đang hiện, và trả thanh về ngay lúc
+///   bị trang đẩy vào che: bàn phím của trang con mà làm trang gốc bỏ thanh thì lúc back thanh hiện lại giữa nhịp trượt
+///   ⇒ giật đúng chỗ cần mượt. Trang gốc không có ô nhập để `false`.
 /// - Tab đang chọn đọc từ environment `mainTabSelection` do `MainTabView` truyền xuống.
 struct MainTabBarModifier: ViewModifier {
+    let hidesWithKeyboard: Bool
     @Environment(\.mainTabSelection) private var selection
     @State private var isKeyboardVisible = false
+    @State private var isOnScreen = false
 
     func body(content: Content) -> some View {
         content
@@ -21,8 +26,13 @@ struct MainTabBarModifier: ViewModifier {
                     MainTabBar(selection: selection)
                 }
             }
+            .onAppear { isOnScreen = true }
+            .onDisappear {
+                isOnScreen = false
+                isKeyboardVisible = false
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                isKeyboardVisible = true
+                if hidesWithKeyboard && isOnScreen { isKeyboardVisible = true }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 isKeyboardVisible = false
@@ -45,8 +55,9 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Thanh tab tự vẽ cho trang gốc của tab. Tab gốc mới phải gắn; trang đẩy vào không gắn gì.
-    func mainTabBar() -> some View {
-        modifier(MainTabBarModifier())
+    /// Thanh tab tự vẽ cho trang gốc của tab. Tab gốc mới phải gắn; trang đẩy vào không gắn gì. Trang gốc có ô nhập
+    /// truyền `hidesWithKeyboard: true`.
+    func mainTabBar(hidesWithKeyboard: Bool = false) -> some View {
+        modifier(MainTabBarModifier(hidesWithKeyboard: hidesWithKeyboard))
     }
 }
