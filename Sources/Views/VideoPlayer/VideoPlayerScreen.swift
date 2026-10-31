@@ -84,6 +84,8 @@ struct VideoPlayerScreen: View {
             controller.onMinimizeRequest = { leave(stopPlayback: false) }
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
+            // Độ sáng lần vuốt chỉnh gần nhất (mọi phim, mọi nguồn); rời màn thì trả độ sáng của máy.
+            VideoBrightnessKeeper.shared.activate(controller)
         }
         .onChange(of: suppressesFloatingWidgets) { _, suppressed in
             FloatingWidgetSuppression.shared.isSuppressed = suppressed
@@ -110,6 +112,7 @@ struct VideoPlayerScreen: View {
             // `resetForExit` vừa bỏ khoá ⇒ đồng bộ nút khoá xoay nếu màn này hiện lại.
             controller.isOrientationLocked = false
             session.detachScreen(controller)
+            VideoBrightnessKeeper.shared.deactivate(controller)
         }
     }
 

@@ -6,12 +6,16 @@ struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
+    /// Mã `.id` của nội dung từng tab: tăng khi rời một tab đang ở trang con ⇒ quay lại thấy trang gốc
+    /// (`MainTabView+TabReset`).
+    @State private var tabResetTokens = [0, 0, 0, 0]
     /// Số truyện có chương mới, hiện trên tab Kệ Sách.
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
             ShelfView()
+                .id(tabResetTokens[0])
                 .tabItem {
                     Label("Kệ Sách", systemImage: "books.vertical.fill")
                 }
@@ -19,18 +23,21 @@ struct MainTabView: View {
                 .tag(0)
             
             DiscoveryView()
+                .id(tabResetTokens[1])
                 .tabItem {
                     Label("Khám Phá", systemImage: "safari.fill")
                 }
                 .tag(1)
             
             RepositoryManagerView()
+                .id(tabResetTokens[2])
                 .tabItem {
                     Label("Tiện Ích", systemImage: "puzzlepiece.extension.fill")
                 }
                 .tag(2)
             
             SettingsView()
+                .id(tabResetTokens[3])
                 .tabItem {
                     Label("Cài Đặt", systemImage: "gearshape.fill")
                 }
@@ -64,12 +71,17 @@ struct MainTabView: View {
         }
         // Mục Thông báo của nút hub nổi phải biết tab đang chọn để vắng mặt ở tab Kệ Sách (tab đó đã có nút
         // chuông ở toolbar). `selectedTab` là `@State` cục bộ nên không ai đọc được — phát ra ngoài bằng notification.
-        .onChange(of: selectedTab) { _, index in
+        .onChange(of: selectedTab) { oldIndex, index in
             NotificationCenter.default.post(
                 name: .appTabDidChange,
                 object: nil,
                 userInfo: [FloatingHubWindowManager.tabIndexUserInfoKey: index]
             )
+            // Chỉ tạo lại tab vừa rời (tab đang vào còn phải nhận lệnh mở Reader trong cùng nhịp).
+            if tabResetTokens.indices.contains(oldIndex), Self.shouldResetTab(at: oldIndex, of: tabResetTokens.count) {
+                AppLogger.shared.log("🔄 [TabReset] Rời tab \(oldIndex) đang ở trang con ⇒ tạo lại về trang gốc")
+                tabResetTokens[oldIndex] += 1
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
             selectedTab = 0

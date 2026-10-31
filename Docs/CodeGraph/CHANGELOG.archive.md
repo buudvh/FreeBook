@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.631] - 2026-10-28
+
+### fix: ngăn kéo menu bỏ lớp kính mờ, nhìn xuyên được nền phía sau
+
+Người dùng (kèm ảnh chụp ngăn kéo Kệ trên máy): *"sao ngăn kéo chẳng trong suốt tí nào"*.
+
+- **Nguyên nhân** (`SideDrawerMenuPanel.drawerBackground`): lớp `.ultraThinMaterial` làm nhoè nền phía sau rất mạnh; nền Kệ gần như toàn đen với chữ nhỏ nên bị nhoè thành một mảng xám đều — nhìn như nền đặc dù lớp tối phía trên đã hạ còn 38% (1.3.626). Mockup đã duyệt vốn không làm mờ.
+- **Sửa**: bỏ material, nền ngăn kéo chỉ còn một lớp tối bán trong suốt `Color(white: 0.08).opacity(0.62)` — bìa và chữ của màn bên dưới vẫn nhìn thấy (tối đi), chữ menu trắng vẫn đọc được. Viền trái và lớp phủ 30% phần màn còn lại giữ nguyên.
+- Chuyển entry `[1.3.601]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.630] - 2026-10-28
 
 ### feat: giữ kết quả AI chưa xem trên nút nổi, bấm để mở thẳng màn AI

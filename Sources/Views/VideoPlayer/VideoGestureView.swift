@@ -11,8 +11,8 @@ import AVFoundation
 /// Âm lượng hệ thống chỉ chỉnh được qua `UISlider` của `MPVolumeView` ⇒ giữ một `MPVolumeView` gần như trong suốt
 /// (alpha 0.01, không `isHidden` — ẩn hẳn thì không chỉnh được và iOS hiện HUD âm lượng của hệ thống).
 ///
-/// Độ sáng là của cả máy, iOS không tự trả lại khi rời app ⇒ chụp độ sáng gốc ở lần vuốt đầu và trả lại khi view rời
-/// cửa sổ (đóng / thu nhỏ trình phát, chuyển sang trang nhúng) hoặc app mất active (`willResignActive`).
+/// Độ sáng đi qua `VideoBrightnessKeeper` (chụp / trả độ sáng của máy, nhớ mức cho lần mở phim sau) — view này chỉ
+/// báo mức theo tay và lúc nhả tay.
 final class VideoGestureView: UIView {
     enum Side {
         case leading
@@ -51,8 +51,6 @@ final class VideoGestureView: UIView {
     private let volumeView = MPVolumeView(frame: CGRect(x: -200, y: -200, width: 40, height: 40))
     private var activePan: PanKind?
     private var panStartLevel: CGFloat = 0
-    /// Độ sáng trước lần vuốt đầu tiên (kèm màn hình đã chỉnh); `nil` = chưa chỉnh hoặc đã trả lại.
-    private var originalBrightness: (screen: UIScreen, value: CGFloat)?
     private lazy var singleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
     private lazy var doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
     private lazy var panRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
@@ -81,21 +79,6 @@ final class VideoGestureView: UIView {
         for recognizer in [singleTapRecognizer, doubleTapRecognizer, panRecognizer, longPressRecognizer] as [UIGestureRecognizer] {
             addGestureRecognizer(recognizer)
         }
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleWillResignActive),
-            name: UIApplication.willResignActiveNotification,
-            object: nil
-        )
-    }
-
-    override func willMove(toWindow newWindow: UIWindow?) {
-        super.willMove(toWindow: newWindow)
-        if newWindow == nil { restoreOriginalBrightness() }
-    }
-
-    @objc private func handleWillResignActive() {
-        restoreOriginalBrightness()
     }
 
     // MARK: - Lọc cử chỉ
@@ -134,9 +117,7 @@ final class VideoGestureView: UIView {
             let kind = panKind(for: recognizer)
             activePan = kind
             switch kind {
-            case .brightness:
-                rememberOriginalBrightness()
-                panStartLevel = currentBrightness
+            case .brightness: panStartLevel = currentBrightness
             case .volume: panStartLevel = CGFloat(AVAudioSession.sharedInstance().outputVolume)
             case .seek, .dismiss: break
             }
@@ -149,6 +130,8 @@ final class VideoGestureView: UIView {
             activePan = nil
             let finished = recognizer.state == .ended
             handlers.panEnded(kind, finished ? value(for: kind, translation: translation) : 0)
+            // Sau `value(for:)`: nhịp nhả tay cũng đặt mức, phải lưu đúng mức cuối đó.
+            if kind == .brightness { VideoBrightnessKeeper.shared.commitLevel() }
         default:
             break
         }
@@ -186,21 +169,11 @@ final class VideoGestureView: UIView {
         window?.windowScene?.screen.brightness ?? 0.5
     }
 
-    private func rememberOriginalBrightness() {
-        guard originalBrightness == nil, let screen = window?.windowScene?.screen else { return }
-        originalBrightness = (screen: screen, value: screen.brightness)
-    }
-
-    private func restoreOriginalBrightness() {
-        guard let original = originalBrightness else { return }
-        originalBrightness = nil
-        original.screen.brightness = original.value
-    }
-
     private func apply(level: CGFloat, kind: PanKind) {
         switch kind {
         case .brightness:
-            window?.windowScene?.screen.brightness = level
+            guard let screen = window?.windowScene?.screen else { return }
+            VideoBrightnessKeeper.shared.setLevel(level, on: screen)
         case .volume:
             guard let slider = volumeView.subviews.compactMap({ $0 as? UISlider }).first else { return }
             slider.setValue(Float(level), animated: false)
