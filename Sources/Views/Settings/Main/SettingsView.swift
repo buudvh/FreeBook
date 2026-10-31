@@ -24,6 +24,7 @@ struct SettingsView: View {
             }
             .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .pageTitle("Cài đặt")
+            .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
         }
     }
 }

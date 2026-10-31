@@ -353,6 +353,7 @@ struct DiscoveryView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
             // Gắn ở view ngoài cùng (không nằm trong nhánh có nguồn) để vẫn chạy khi danh sách nguồn rỗng.
             .onChange(of: selectedExtensionId) { _, newValue in
                 // Không ghi "" vào nguồn đã nhớ: hết nguồn (vd ẩn hết nguồn NSFW) rồi có lại thì còn khôi phục được.

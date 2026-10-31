@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.668] - 2026-10-31
+
+### fix: thanh tab tự vẽ trong trang gốc, back về không giật
+
+Người dùng: *"bạn làm màn hình trong full xấu quá, khi từ màn hình full về trang đầu có thanh tab thì cảm giác bị giật màn hình khi hiển thị lại thanh tab. Tham khảo cách hiển thị của reader"*; chọn "thanh tab tự vẽ", duyệt plan.
+
+- **Nguyên nhân**: 1.3.660 ẩn thanh tab hệ thống ở trang đẩy vào bằng `.toolbar(.hidden, for: .tabBar)` (đổi theo kiểu tiêu đề). Lúc back, SwiftUI hiện thanh lại **trễ** hơn trang gốc ⇒ trang gốc co lại một nhịp — đúng lỗi Reader từng gặp (b12ddee7, sửa bằng `fullScreenCover`: cover phủ cả thanh nên thanh không bao giờ ẩn/hiện).
+- **Thanh tab tự vẽ** (`MainTabBar`, mới, `Views/Common/MainTabBar/`): 4 mục icon + chữ (danh sách `items` dùng chung với `.tabItem` của `MainTabView`), mục đang chọn theo `.tint` (trắng), mục khác xám, nền `.bar` + vạch mảnh phía trên, cao 49pt, nền kéo xuống vùng home indicator; badge đỏ số truyện có chương mới ở Kệ Sách (chuyển từ `.badge` của `MainTabView`, bỏ `@ObservedObject newChapters` ở đó).
+- **`.mainTabBar()`** (`MainTabBarModifier`, mới): ẩn thanh hệ thống + `safeAreaInset(edge: .bottom)` đặt `MainTabBar` vào nội dung trang gốc **bên trong** `NavigationStack` ⇒ trang đẩy vào phủ lên thanh, back/vuốt mép thì thanh trượt về cùng trang gốc. Tab đang chọn đi qua environment `mainTabSelection` (`MainTabView` truyền `$selectedTab`). Bàn phím hiện (ô tìm của tab Tiện ích) ⇒ bỏ thanh, bàn phím ẩn ⇒ hiện lại. Gắn ở 4 trang gốc: `ShelfView`, `DiscoveryView`, `RepositoryManagerView`, `SettingsView` (nút "+" nổi của Kệ tự nằm trên thanh).
+- **Thanh hệ thống luôn ẩn**: `PageTitleModifier` ẩn ở **mọi** kiểu (không còn đổi theo trang); `MainTabView` ẩn thêm ở từng tab (ngoài `NavigationStack`) làm chốt chặn cho trang đẩy vào thiếu modifier tiêu đề. Giữ `TabView` + `.tag` + `.tabItem` để `MainTabView+TabReset` vẫn thấy đủ 4 tab. Cập nhật luật ở mục header của `CLAUDE.md`/`AGENTS.md`.
+- Chuyển entry `[1.3.638]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý: thanh tab hệ thống có còn lộ ra ở trang nào không; đẩy/back/vuốt mép có còn giật không; cỡ icon/chữ/badge so với thanh cũ).
+
 ## [1.3.667] - 2026-10-31
 
 ### feat: bỏ chạm 1/3 hai bên và vuốt ngang để đổi chương
@@ -382,14 +395,3 @@ Người dùng: *"Đã dừng lọc name ở ch.115: Chương 116: Dò xét đ�
 - Phiên chat đã lưu trước bản này vẫn giữ hai dòng cũ; chỉ lần dừng sau mới đúng.
 - Chuyển entry `[1.3.609]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.638] - 2026-10-28
-
-### feat: xuất TXT cho từ điển chung
-
-Người dùng: *"thêm nút xuất ra txt cho vp,name,phiên âm,… chung"*; chọn "icon trên mỗi thẻ" và "đúng file gốc"; duyệt mockup + plan.
-
-- **Service** `GlobalDictionaryTextExporter` (mới, `Services/Translation/Manager/`): xuất một từ điển chung ra file tạm `VietPhrase_/Name_/PhienAm_/Pronouns_/LuatNhan_<yyyyMMddHHmmss>.txt`. VietPhrase/Name/Pronouns/LuatNhan duyệt ngược cây đang nạp (hoặc mở `.dat`) bằng `allEntries()`, ghi `từ=nghĩa` theo khúc ~1 MB; số entry phải khớp `wordCount`, lệch thì báo lỗi, không xuất file thiếu (cùng chốt chặn với `DictionaryMergeService`). PhienAm (và `.txt` chưa kịp biên dịch) chép nguyên file. Xuất **đúng file gốc** — không kèm từ thêm/xoá ở VP/Name Chung (bản đó đi qua nút Gộp); nhập lại qua chính thẻ cho ra từ điển y như cũ.
-- **Cài đặt dịch thuật › Từ điển chung**: icon ↑ cuối mỗi thẻ (`TranslationSettingsView+Export`, phủ `overlay` lên thẻ vì thẻ là nhãn của nút Nhập — lồng nút trong nhãn nút thì chạm lẫn nhau; `DictionaryCard` chừa ô 32×32 qua `reservesExportSlot`). Chạm thẻ vẫn là Nhập. Đang xuất: vòng quay + "Đang xuất...", nút Nhập của thẻ đó khoá; một lượt xuất một lúc; thẻ chưa có dữ liệu thì icon mờ. Xuất chạy `Task.detached` rồi mở bảng chia sẻ; đóng bảng thì xoá file tạm; lỗi ⇒ toast + log `❌`.
-- Chuyển entry `[1.3.608]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: VietPhrase cỡ trăm nghìn – triệu từ nên xuất mất vài giây và tốn RAM cỡ lúc Gộp.

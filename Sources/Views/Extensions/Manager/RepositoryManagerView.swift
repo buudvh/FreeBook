@@ -134,6 +134,7 @@ struct RepositoryManagerView: View {
             }
         }
         .pageTitle("Kho tiện ích") // tab gốc
+        .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
         .toolbar { toolbarContent }
     }
 

@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.638] - 2026-10-28
+
+### feat: xuất TXT cho từ điển chung
+
+Người dùng: *"thêm nút xuất ra txt cho vp,name,phiên âm,… chung"*; chọn "icon trên mỗi thẻ" và "đúng file gốc"; duyệt mockup + plan.
+
+- **Service** `GlobalDictionaryTextExporter` (mới, `Services/Translation/Manager/`): xuất một từ điển chung ra file tạm `VietPhrase_/Name_/PhienAm_/Pronouns_/LuatNhan_<yyyyMMddHHmmss>.txt`. VietPhrase/Name/Pronouns/LuatNhan duyệt ngược cây đang nạp (hoặc mở `.dat`) bằng `allEntries()`, ghi `từ=nghĩa` theo khúc ~1 MB; số entry phải khớp `wordCount`, lệch thì báo lỗi, không xuất file thiếu (cùng chốt chặn với `DictionaryMergeService`). PhienAm (và `.txt` chưa kịp biên dịch) chép nguyên file. Xuất **đúng file gốc** — không kèm từ thêm/xoá ở VP/Name Chung (bản đó đi qua nút Gộp); nhập lại qua chính thẻ cho ra từ điển y như cũ.
+- **Cài đặt dịch thuật › Từ điển chung**: icon ↑ cuối mỗi thẻ (`TranslationSettingsView+Export`, phủ `overlay` lên thẻ vì thẻ là nhãn của nút Nhập — lồng nút trong nhãn nút thì chạm lẫn nhau; `DictionaryCard` chừa ô 32×32 qua `reservesExportSlot`). Chạm thẻ vẫn là Nhập. Đang xuất: vòng quay + "Đang xuất...", nút Nhập của thẻ đó khoá; một lượt xuất một lúc; thẻ chưa có dữ liệu thì icon mờ. Xuất chạy `Task.detached` rồi mở bảng chia sẻ; đóng bảng thì xoá file tạm; lỗi ⇒ toast + log `❌`.
+- Chuyển entry `[1.3.608]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: VietPhrase cỡ trăm nghìn – triệu từ nên xuất mất vài giây và tốn RAM cỡ lúc Gộp.
+
 ## [1.3.637] - 2026-10-28
 
 ### fix: thanh kéo Giao diện cập nhật ngay, nút + nổi ở Lọc rác

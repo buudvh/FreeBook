@@ -9,40 +9,37 @@ struct MainTabView: View {
     /// Mã `.id` của nội dung từng tab: tăng khi rời một tab đang ở trang con ⇒ quay lại thấy trang gốc
     /// (`MainTabView+TabReset`).
     @State private var tabResetTokens = [0, 0, 0, 0]
-    /// Số truyện có chương mới, hiện trên tab Kệ Sách.
-    @ObservedObject private var newChapters = NewChapterInboxManager.shared
 
     var body: some View {
+        // Thanh tab hệ thống luôn ẩn (1.3.668): thanh thật là `MainTabBar`, vẽ trong trang gốc của từng tab qua
+        // `.mainTabBar()`. Ẩn cả ở đây (ngoài `NavigationStack`) để trang đẩy vào nào thiếu `PageTitleModifier` cũng không
+        // làm thanh hệ thống hiện lại. Giữ `.tabItem` + `.tag`: `MainTabView+TabReset` cần đủ 4 tab trong `UITabBarController`.
         TabView(selection: $selectedTab) {
             ShelfView()
                 .id(tabResetTokens[0])
-                .tabItem {
-                    Label("Kệ Sách", systemImage: "books.vertical.fill")
-                }
-                .badge(newChapters.totalNewBooks)
+                .toolbar(.hidden, for: .tabBar)
+                .tabItem { MainTabBar.items[0].label }
                 .tag(0)
-            
+
             DiscoveryView()
                 .id(tabResetTokens[1])
-                .tabItem {
-                    Label("Khám Phá", systemImage: "safari.fill")
-                }
+                .toolbar(.hidden, for: .tabBar)
+                .tabItem { MainTabBar.items[1].label }
                 .tag(1)
-            
+
             RepositoryManagerView()
                 .id(tabResetTokens[2])
-                .tabItem {
-                    Label("Tiện Ích", systemImage: "puzzlepiece.extension.fill")
-                }
+                .toolbar(.hidden, for: .tabBar)
+                .tabItem { MainTabBar.items[2].label }
                 .tag(2)
-            
+
             SettingsView()
                 .id(tabResetTokens[3])
-                .tabItem {
-                    Label("Cài Đặt", systemImage: "gearshape.fill")
-                }
+                .toolbar(.hidden, for: .tabBar)
+                .tabItem { MainTabBar.items[3].label }
                 .tag(3)
         }
+        .environment(\.mainTabSelection, $selectedTab)
         .tint(.white)
         .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .toolbarBackground(.visible, for: .tabBar)

@@ -210,6 +210,7 @@ struct ShelfView: View {
                     .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .pageTitle(selectedTab.navigationTitle) // tab gốc: tiêu đề trái theo trang đang chọn
+            .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
             // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
             // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
             .task {
