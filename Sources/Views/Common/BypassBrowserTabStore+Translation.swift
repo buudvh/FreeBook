@@ -34,7 +34,7 @@ extension BypassBrowserTabStore {
 
     // MARK: - API cho View
 
-    /// Nút dịch trên thanh: bật/tắt cho **tab này**, không ghi nhớ; giữ khi còn cùng tên miền.
+    /// Công tắc "Dịch trang" của ngăn kéo: bật/tắt cho **tab này**, không ghi nhớ; giữ khi còn cùng tên miền.
     func toggleTranslation(for tab: BypassBrowserTab) {
         guard let domain = Self.translatableDomain(of: tab.webView.url) else { return }
         let isOn = !tab.isTranslating

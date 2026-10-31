@@ -113,8 +113,8 @@ extension BypassWebView {
 
     // MARK: - Import truyện
 
-    /// Mục "Import truyện" của ngăn kéo: 1 nguồn ⇒ import luôn; nhiều nguồn ⇒ mở bảng chọn nguồn của viên Import (viên
-    /// luôn hiện khi mục này bấm được).
+    /// Mục "Import truyện" của ngăn kéo: 1 nguồn ⇒ import luôn; nhiều nguồn ⇒ mở bảng chọn nguồn của nút Import ở thanh
+    /// dưới (nút luôn hiện khi mục này bấm được).
     func importFromMenu(_ matches: [ExtensionUrlMatcher.Match]) {
         guard let first = matches.first else { return }
         if matches.count == 1 {

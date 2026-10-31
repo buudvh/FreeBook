@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.666] - 2026-10-31
+
+### feat: thanh dưới trình duyệt gắn sát đáy, nút Import và ⋮ trong thanh
+
+Người dùng: *"mockup lại phần bottom của browser"* → *"cho nó sát dưới luôn đừng làm kiểu lở lửng lên, như vậy nó sẽ che mất nội dung trang"* → *"giữ nguyên các thành phần, thêm import vào nữa"* → *"thay nút dịch bằng nút dropdown nhưng đổi icon còn icon ba chấm dọc"*; duyệt mockup + plan.
+
+- **Thanh dưới gắn sát đáy** (`BypassWebView.browserArea`): `ZStack` (thanh nổi đè trang) → `VStack` trang ở trên, `BrowserBottomBar` ở dưới; trang kết thúc ngay trên thanh, không còn gì che nội dung. Nền thanh tối đặc + vạch mảnh trên, kéo xuống hết vùng vạch Home (`ignoresSafeArea(.container, edges: .bottom)` — bàn phím hiện thì thanh nằm ngay trên bàn phím). Bỏ đo safe area đáy (`bottomSafeInset`), các khoản chừa chỗ (`chromeClearance`, `barBottomPadding`, `importPillClearance`) và cơ chế thụt `contentInset` của `BypassBrowserWebPane` (`bottomObstruction`).
+- **Thanh**: lùi, tiến, ô URL (giữ nguyên khiên/tên miền/tải lại), nút **Import**, nút **⋮** (`ellipsis` xoay 90° — SF Symbols không có ba chấm dọc) mở ngăn kéo "Trình duyệt". Đang nhập địa chỉ giữ như cũ (ô giãn hết + "Huỷ").
+- **Nút Import** (`BrowserImportButton` mới, thay viên nổi `BrowserImportPill` đã xoá): icon tiện ích đầu tiên khớp URL, ≥ 2 nguồn có số nguồn ở góc; 1 nguồn chạm là import, nhiều nguồn mở bảng chọn nguồn (popover, nút sáng kiểu chip trong lúc mở); giữ cách import **sau** khi popover đóng hẳn. Ẩn khi không khớp nguồn / màn không nhận import / đang nhập địa chỉ. Bỏ theo dõi cuộn của tab (`isScrolledDown`, KVO `contentOffset`) vì chỉ viên nổi dùng để thu gọn.
+- **Header**: bỏ nút "…", chỉ còn "Xong".
+- **Dịch trang**: nút dịch rời thanh, thành công tắc "Dịch trang" đầu nhóm "Trang này" của ngăn kéo (`SideDrawerToggleRow`, bật/tắt tay cho tab này như nút cũ — `toggleTranslation`, không ghi nhớ; mờ ở Home/trang không phải web). Trang đang dịch ⇒ ô URL có icon dịch nhỏ trước tên miền (`BrowserAddressPill`, cùng chỗ icon ẩn danh).
+- **Dải báo**: popup bị chặn nổi ở cuối vùng trang (ngay trên thanh); dải tự dịch giữ ở đầu trang. `BrowserGlassCapsuleBackground` giờ chỉ còn dải tự dịch dùng ⇒ bỏ tham số `usesBarGlass`/`isHighlighted` và nhánh khoá nút nổi.
+- Sửa tài liệu chuẩn cụm nút header của 1.3.665 (`HeaderButtonMetrics`, `CLAUDE.md`/`AGENTS.md`, `rules.md`, `.agents/AGENTS.md`): ghi nhầm số 1.3.664 (số đó là CryptoJS) và ví dụ "… | Xong" không còn sau đợt này.
+- Chuyển entry `[1.3.636]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: thanh khi bàn phím hiện (ô URL và ô nhập của trang), popover chọn nguồn bật từ nút trong thanh và từ mục ngăn kéo, công tắc "Dịch trang" đổi ngay khi ngăn kéo còn mở, trang Home cuộn tới cuối không bị thanh che.
+
 ## [1.3.665] - 2026-10-31
 
 ### fix: nút liền nhau trên header đứng sát nhau
@@ -376,18 +392,3 @@ Người dùng: *"cài đặt độ trong suốt và độ đục chưa hoạt �
 - **Lọc rác** (`JunkFilterManagementView`): "Thêm quy tắc" rời ngăn kéo thành nút "+" nổi (`.floatingAddButton`); nút "…" 17pt semibold như các màn danh sách khác; vạch ngăn sau "Sắp xếp lại" chỉ hiện cùng mục đó (đang tìm thì ngăn kéo không mở đầu bằng vạch). Hàng quy tắc giữ nguyên (người dùng loại Lọc rác khỏi đợt đồng bộ hàng ở 1.3.635).
 - Chuyển entry `[1.3.607]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Nguyên nhân khoá có dấu chấm là suy từ code, chưa tái hiện được trên máy.
-
-## [1.3.636] - 2026-10-28
-
-### feat: màn Giao diện chỉnh nút nổi và menu, nút + nổi, danh sách cuộn vô cực
-
-Người dùng: *"mấy chỗ danh sách lazyload hãy sửa lại thành scroll vô cực"* (chọn cả 4 chỗ), *"đồng bộ UI danh sách khác giống UI của vp/name luôn"*, *"đem hết nút trừ nút quay lại vào dropdown"*, *"đem nút thêm thành nút icon + ra ngoài ... vị trí tương tự nút tai nghe trong reader ... trong suốt. Sửa nút tai nghe trong suốt luôn"*, *"thêm nav giao diện ... gom hết các nav liên quan ... thêm cài đặt giao diện cho menu. có thanh kéo độ trong suốt độ đục"*, gom thêm NSFW; duyệt mockup + plan.
-
-- **Cài đặt › Chung › Giao diện** (`AppearanceSettingsView`, mới): gom "Kiểu hiển thị danh sách", "Nội dung nhạy cảm (NSFW)", "Bàn phím & ô nhập" (bỏ ba dòng đó ở Chung/Thư Viện). Hai nhóm thanh kéo **Độ trong suốt** (lớp màu nền, 1 = không màu) / **Độ đục** (độ nhoè kính) + ô xem trước + "Đặt lại mặc định": **Nút nổi** (mặc định 90% / 0%) và **Menu ba chấm** (mặc định 45% / 60% = đúng "kính đục vừa" 1.3.633). Khoá ở `GlassChromeSettings`.
-- **Nền kính dùng chung**: `FloatingGlassBackground` (nút tròn) và `SideDrawerGlassBackground` (ngăn kéo, thay nền gán cứng trong `SideDrawerMenuPanel`) đọc thẳng `@AppStorage` ⇒ kéo là đổi ngay. Nút tai nghe Reader (`readerEdgeButton`) thành nút 52pt nền kính theo cài đặt, tâm giữ đúng chỗ cũ (bỏ nền tối 34% + material + bóng).
-- **Nút "+" nổi** (`FloatingAddButton`, `.floatingAddButton(_:action:)` qua `safeAreaInset` để hàng cuối không bị che): thay mục "Thêm…" của ngăn kéo / nút "+" header ở 7 màn — từ điển VP/Name, thay thế TTS, phiên âm NghiTTS, phiên âm VieNeu, công cụ tra cứu, quy tắc mục lục, rule dịch nhanh. Header các màn này chỉ còn nút quay lại + "…" 17pt semibold; "Khôi phục mặc định" của công cụ tra cứu vào ngăn kéo.
-- **Hàng kiểu VP/Name** (cụm icon `.subheadline` [Sửa][Chuyển][Tắt/Bật `pause.circle`/`play.circle`][Xoá], giữ vuốt): thay thế TTS (bỏ công tắc; Chuyển chỉ ở tầng riêng), phiên âm NghiTTS (+Xoá), VieNeu (+Sửa/Xoá), công cụ tra cứu (+Sửa/Xoá, xoá theo id), quy tắc mục lục (`TOCRulesConfigView+Row`, bỏ công tắc; rule mặc định Xoá mờ).
-- **Cuộn vô cực**: từ điển VP/Name (200/lượt), NghiTTS và VieNeu (100/lượt), rule dịch nhanh (200/lượt, bỏ nút "Xem thêm") nạp lượt kế khi hàng cách cuối 50 hoặc hàng cuối hiện ra; bỏ dòng "Cuộn xuống để tải thêm". **Tin nhắn AI** (`ReaderAIFullScreenView+OlderMessages`): cuộn lên gần đầu tự nạp 20 tin cũ, giữ chỗ bằng `scrollTo` tin đầu cũ; chỉ bật 0,6 s sau khi mở/đổi phiên. **Mục lục nhiều trang** (`BookDetailTOCView+AutoLoad`, lưới video `onReachEnd`): cuộn tới cuối tự tải các trang còn lại **một lần** mỗi lần dựng tab, không tự gọi khi đang báo lỗi (nút "Tải thêm" giữ làm thử lại) và không tự gọi khi đã có mục lục đầy đủ lưu trên máy.
-- `CLAUDE.md`/`AGENTS.md`: quy ước màn danh sách (header, nút "+" nổi, hàng VP/Name, nạp trước, `GlassChromeSettings`); đường dẫn NSFW mới.
-- Chuyển entry `[1.3.606]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: giữ chỗ khi nạp tin AI cũ (có thể xê dịch ~36pt), mục lục trang 1 ngắn vừa một màn sẽ tự tải ngay khi mở tab, xoá từ ở hai màn phiên âm nạp lại cả từ điển (hành vi cũ, giờ dễ gặp hơn vì icon Xoá một chạm).

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nội dung bảng chọn nguồn import (popover của `BrowserImportPill`, mockup 2026-10-30 màn "Mới 1b") — thay hộp thoại
+/// Nội dung bảng chọn nguồn import (popover của `BrowserImportButton`, mockup 2026-10-30 màn "Mới 1b") — thay hộp thoại
 /// "Chọn nguồn import" cũ. Tiêu đề nhỏ "Import bằng nguồn"; mỗi hàng: icon 36, tên đậm, dòng phụ "loại nội dung · dùng
 /// <thời gian tương đối>" (theo `Extension.lastUsedAt` nếu có), chevron.
 struct BrowserImportSourcePicker: View {

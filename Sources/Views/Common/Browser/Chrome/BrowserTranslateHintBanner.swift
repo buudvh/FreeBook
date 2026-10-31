@@ -28,7 +28,7 @@ struct BrowserTranslateHintBanner: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background { BrowserGlassCapsuleBackground(outlineOpacity: 0.14, usesBarGlass: true) }
+                .background { BrowserGlassCapsuleBackground(outlineOpacity: 0.14) }
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .accessibilityElement(children: .combine)
             }

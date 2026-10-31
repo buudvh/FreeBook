@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.636] - 2026-10-28
+
+### feat: màn Giao diện chỉnh nút nổi và menu, nút + nổi, danh sách cuộn vô cực
+
+Người dùng: *"mấy chỗ danh sách lazyload hãy sửa lại thành scroll vô cực"* (chọn cả 4 chỗ), *"đồng bộ UI danh sách khác giống UI của vp/name luôn"*, *"đem hết nút trừ nút quay lại vào dropdown"*, *"đem nút thêm thành nút icon + ra ngoài ... vị trí tương tự nút tai nghe trong reader ... trong suốt. Sửa nút tai nghe trong suốt luôn"*, *"thêm nav giao diện ... gom hết các nav liên quan ... thêm cài đặt giao diện cho menu. có thanh kéo độ trong suốt độ đục"*, gom thêm NSFW; duyệt mockup + plan.
+
+- **Cài đặt › Chung › Giao diện** (`AppearanceSettingsView`, mới): gom "Kiểu hiển thị danh sách", "Nội dung nhạy cảm (NSFW)", "Bàn phím & ô nhập" (bỏ ba dòng đó ở Chung/Thư Viện). Hai nhóm thanh kéo **Độ trong suốt** (lớp màu nền, 1 = không màu) / **Độ đục** (độ nhoè kính) + ô xem trước + "Đặt lại mặc định": **Nút nổi** (mặc định 90% / 0%) và **Menu ba chấm** (mặc định 45% / 60% = đúng "kính đục vừa" 1.3.633). Khoá ở `GlassChromeSettings`.
+- **Nền kính dùng chung**: `FloatingGlassBackground` (nút tròn) và `SideDrawerGlassBackground` (ngăn kéo, thay nền gán cứng trong `SideDrawerMenuPanel`) đọc thẳng `@AppStorage` ⇒ kéo là đổi ngay. Nút tai nghe Reader (`readerEdgeButton`) thành nút 52pt nền kính theo cài đặt, tâm giữ đúng chỗ cũ (bỏ nền tối 34% + material + bóng).
+- **Nút "+" nổi** (`FloatingAddButton`, `.floatingAddButton(_:action:)` qua `safeAreaInset` để hàng cuối không bị che): thay mục "Thêm…" của ngăn kéo / nút "+" header ở 7 màn — từ điển VP/Name, thay thế TTS, phiên âm NghiTTS, phiên âm VieNeu, công cụ tra cứu, quy tắc mục lục, rule dịch nhanh. Header các màn này chỉ còn nút quay lại + "…" 17pt semibold; "Khôi phục mặc định" của công cụ tra cứu vào ngăn kéo.
+- **Hàng kiểu VP/Name** (cụm icon `.subheadline` [Sửa][Chuyển][Tắt/Bật `pause.circle`/`play.circle`][Xoá], giữ vuốt): thay thế TTS (bỏ công tắc; Chuyển chỉ ở tầng riêng), phiên âm NghiTTS (+Xoá), VieNeu (+Sửa/Xoá), công cụ tra cứu (+Sửa/Xoá, xoá theo id), quy tắc mục lục (`TOCRulesConfigView+Row`, bỏ công tắc; rule mặc định Xoá mờ).
+- **Cuộn vô cực**: từ điển VP/Name (200/lượt), NghiTTS và VieNeu (100/lượt), rule dịch nhanh (200/lượt, bỏ nút "Xem thêm") nạp lượt kế khi hàng cách cuối 50 hoặc hàng cuối hiện ra; bỏ dòng "Cuộn xuống để tải thêm". **Tin nhắn AI** (`ReaderAIFullScreenView+OlderMessages`): cuộn lên gần đầu tự nạp 20 tin cũ, giữ chỗ bằng `scrollTo` tin đầu cũ; chỉ bật 0,6 s sau khi mở/đổi phiên. **Mục lục nhiều trang** (`BookDetailTOCView+AutoLoad`, lưới video `onReachEnd`): cuộn tới cuối tự tải các trang còn lại **một lần** mỗi lần dựng tab, không tự gọi khi đang báo lỗi (nút "Tải thêm" giữ làm thử lại) và không tự gọi khi đã có mục lục đầy đủ lưu trên máy.
+- `CLAUDE.md`/`AGENTS.md`: quy ước màn danh sách (header, nút "+" nổi, hàng VP/Name, nạp trước, `GlassChromeSettings`); đường dẫn NSFW mới.
+- Chuyển entry `[1.3.606]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: giữ chỗ khi nạp tin AI cũ (có thể xê dịch ~36pt), mục lục trang 1 ngắn vừa một màn sẽ tự tải ngay khi mở tab, xoá từ ở hai màn phiên âm nạp lại cả từ điển (hành vi cũ, giờ dễ gặp hơn vì icon Xoá một chạm).
+
 ## [1.3.635] - 2026-10-28
 
 ### fix: thay thế TTS hiện 2 dòng, đồng bộ cỡ chữ danh sách theo VP/Name

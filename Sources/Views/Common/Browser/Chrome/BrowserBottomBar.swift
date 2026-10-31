@@ -1,35 +1,36 @@
 import SwiftUI
 import UIKit
 
-/// Thanh kính nổi dưới của trình duyệt người dùng (mockup 2026-10-30): lùi, tiến (mờ khi không đi được), ô URL dạng
-/// viên (`BrowserAddressPill`), nút dịch trang (kiểu chip "on" khi `tab.isTranslating`; mờ ở Home / trang không phải
-/// web). Không còn nút Home, Import, số tab — các lối đó ở dải tab, viên Import nổi và ngăn kéo "…".
+/// Thanh dưới của trình duyệt người dùng, **gắn sát đáy** (mockup 2026-10-31): trang kết thúc ngay trên thanh, thanh
+/// không nổi đè lên nội dung. Từ trái: lùi, tiến (mờ khi không đi được), ô URL dạng viên (`BrowserAddressPill`), nút
+/// Import (`BrowserImportButton`, chỉ khi có nguồn khớp URL), nút ⋮ mở ngăn kéo "Trình duyệt". Dịch trang bằng tay nằm ở
+/// ngăn kéo (công tắc "Dịch trang"); trang đang dịch thì ô URL có icon dịch nhỏ.
 ///
-/// Đang nhập địa chỉ ⇒ ô URL giãn hết thanh, ẩn lùi/tiến/dịch, thêm nút "Huỷ" để thoát (trên Home không có web view
+/// Đang nhập địa chỉ ⇒ ô URL giãn hết thanh, ẩn các nút khác, thêm nút "Huỷ" để thoát (trên Home không có web view
 /// nào lấy mất focus nên phải có lối thoát rõ ràng).
 ///
-/// Cao 54, bo 27; nền `BrowserGlassCapsuleBackground` (đọc cài đặt kính của nút nổi). Ép bảng màu tối cho riêng thanh
-/// để chữ/caret của ô nhập luôn trắng trên kính tối.
+/// Nền tối đặc kéo xuống hết vùng vạch Home (chỉ safe area `.container`: bàn phím hiện thì thanh nằm ngay trên bàn
+/// phím). Ép bảng màu tối cho riêng thanh để chữ/caret của ô nhập luôn trắng.
 struct BrowserBottomBar: View {
-    static let height: CGFloat = 54
+    static let height: CGFloat = 52
 
     @ObservedObject var store: BypassBrowserTabStore
     @ObservedObject var tab: BypassBrowserTab
     let isHome: Bool
+    /// Nguồn import khớp URL trang; rỗng ⇒ không có nút Import (View cha truyền rỗng khi màn không nhận import).
+    let importMatches: [ExtensionUrlMatcher.Match]
+    @Binding var isImportPickerPresented: Bool
     @Binding var inputUrl: String
     @Binding var isEditingUrl: Bool
     let onBeginEditing: () -> Void
     let onSubmitUrl: () -> Void
     let onReload: () -> Void
     let onOpenSettings: () -> Void
+    let onImport: (ExtensionUrlMatcher.Match) -> Void
+    let onOpenMenu: () -> Void
 
+    private static let barColor = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
     private static let dimmedColor = Color.white.opacity(0.32)
-
-    /// Nút dịch chỉ có tác dụng với trang web http(s) (`toggleTranslation` bỏ qua Home / `about:blank` / trang khác).
-    private var canTranslate: Bool {
-        guard !isHome, let url = URL(string: tab.urlString) else { return false }
-        return BypassBrowserTabStore.isWebURL(url)
-    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -63,12 +64,28 @@ struct BrowserBottomBar: View {
                 .frame(minWidth: 44, minHeight: 38)
                 .padding(.horizontal, 4)
             } else {
-                translateButton
+                if !importMatches.isEmpty {
+                    BrowserImportButton(
+                        matches: importMatches,
+                        isPickerPresented: $isImportPickerPresented,
+                        onImport: onImport
+                    )
+                }
+                menuButton
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
         .frame(height: Self.height)
-        .background { BrowserGlassCapsuleBackground(outlineOpacity: 0.16, usesBarGlass: true) }
+        .background {
+            Self.barColor
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.14))
+                        .frame(height: 0.5)
+                }
+                .ignoresSafeArea(.container, edges: .bottom)
+        }
         .environment(\.colorScheme, .dark)
         .animation(.easeInOut(duration: 0.2), value: isEditingUrl)
     }
@@ -91,25 +108,18 @@ struct BrowserBottomBar: View {
         .accessibilityLabel(label)
     }
 
-    private var translateButton: some View {
-        Button {
-            store.toggleTranslation(for: tab)
-        } label: {
-            AppGlyph.translate.image(size: 19)
-                .foregroundColor(canTranslate ? Color.white : Self.dimmedColor)
+    /// ⋮ — SF Symbols không có ba chấm dọc nên xoay `ellipsis` 90°.
+    private var menuButton: some View {
+        Button(action: onOpenMenu) {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 17, weight: .semibold))
+                .rotationEffect(.degrees(90))
+                .foregroundColor(.white)
                 .frame(width: 38, height: 38)
-                .background {
-                    if tab.isTranslating {
-                        Circle().fill(Color.white.opacity(0.18))
-                        Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1)
-                    }
-                }
-                .contentShape(Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!canTranslate)
-        .accessibilityLabel(tab.isTranslating ? "Tắt dịch trang" : "Dịch trang")
-        .accessibilityAddTraits(tab.isTranslating ? .isSelected : [])
+        .accessibilityLabel("Tuỳ chọn trình duyệt")
     }
 
     /// Thoát ô nhập: bỏ focus (ô tự hạ `isEditingUrl` ở `textFieldDidEndEditing`) và hạ luôn cờ phòng khi ô chưa từng

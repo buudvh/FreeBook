@@ -912,7 +912,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   **Kích thước Icon Header chuẩn**: Mọi icon trên Header, NavigationBar, Toolbar của toàn bộ các màn hình bắt buộc dùng font `.system(size: 17, weight: .semibold)` (tương đương chuẩn Apple SF Pro Header Action). Nghiêm cấm dùng icon tùy tiện (`.title3` 20pt, 13pt, 14pt hoặc default regular).
     *   **Khung chạm (Hitbox) & Khoảng cách (Spacing)**:
         *   Custom Header Bar / Toolbar: Khoảng cách giữa các nút liền kề tối thiểu **`6pt`**; khung chạm (hitbox) tối thiểu **`36 x 36pt`** (khuyến nghị **`36 x 38pt`**).
-        *   **Cụm nút đứng liền nhau** (1.3.664, người dùng duyệt): gộp vào **một** `ToolbarItem`/`HStack` cách nhau **`2pt`**, khung icon rộng **`32pt`** (`HeaderButtonMetrics`), icon vẫn 17pt; nút tròn có nền giữ 38, cách **`4pt`**. Ngoại lệ giữ chuẩn `6pt`/36 ở dòng trên: header Reader và cụm nút phải của trình phát video.
+        *   **Cụm nút đứng liền nhau** (1.3.665, người dùng duyệt): gộp vào **một** `ToolbarItem`/`HStack` cách nhau **`2pt`**, khung icon rộng **`32pt`** (`HeaderButtonMetrics`), icon vẫn 17pt; nút tròn có nền giữ 38, cách **`4pt`**. Ngoại lệ giữ chuẩn `6pt`/36 ở dòng trên: header Reader và cụm nút phải của trình phát video.
         *   Nút tròn (Circle button): Kích thước chuẩn **`38 x 38pt`** (icon 17pt semibold).
         *   Nút dạng viên thuốc (Pill/Capsule button) cùng hàng: Chiều cao chuẩn **`38pt`** (`frame(height: 38)`, `cornerRadius: 19`).
         *   Nút Quay lại (Back button): Khung bấm mở rộng tối thiểu **`38 x 44pt`** để chạm dễ dàng.

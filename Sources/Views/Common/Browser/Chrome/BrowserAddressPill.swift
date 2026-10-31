@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Ô URL dạng viên giữa thanh kính dưới (mockup 2026-10-30): nút khiên (`BypassBrowserShieldButton`) + tên miền ở giữa +
+/// Ô URL dạng viên giữa thanh dưới (mockup 2026-10-30): nút khiên (`BypassBrowserShieldButton`) + tên miền ở giữa +
 /// nút tải lại. Chạm tên miền ⇒ chuyển sang ô nhập `URLBarTextField` (tự lấy focus, bôi đen cả URL), Enter thì nạp.
 ///
 /// Nhãn hiển thị suy từ trạng thái tab, không lưu vào `inputUrl`: Home ⇒ "Trang chủ", trang web ⇒ tên miền (bỏ `www.`).
+/// Trước tên miền có icon nhỏ: ẩn danh (`eye.slash`), trang đang dịch QT (`AppGlyph.translate` — thanh dưới không còn
+/// nút dịch nên đây là chỗ duy nhất thấy trạng thái dịch).
 /// `inputUrl` chỉ dùng khi đang nhập — View cha gán trước khi bật `isEditing` (Home ⇒ chuỗi rỗng).
 struct BrowserAddressPill: View {
     @ObservedObject var store: BypassBrowserTabStore
@@ -42,6 +44,11 @@ struct BrowserAddressPill: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(Color.white.opacity(0.6))
                         .accessibilityLabel("Đang duyệt ẩn danh, không lưu lịch sử")
+                }
+                if tab.isTranslating {
+                    AppGlyph.translate.image(size: 13)
+                        .foregroundColor(Color.white.opacity(0.7))
+                        .accessibilityLabel("Đang dịch trang")
                 }
                 Text(hostLabel)
                     .font(.system(size: 13))

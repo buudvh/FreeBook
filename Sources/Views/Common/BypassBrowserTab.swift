@@ -15,8 +15,6 @@ import WebKit
 /// Mọi cờ `@Published` mới chỉ gán khi **khác** giá trị cũ: store chuyển tiếp `objectWillChange` của mọi tab lên chính
 /// nó, gán lặp (vd mỗi khung hình cuộn) sẽ vẽ lại cả trình duyệt.
 final class BypassBrowserTab: ObservableObject, Identifiable {
-    /// Đổi hướng cuộn quá khoảng này mới lật `isScrolledDown`; trong khoảng này tính từ đầu trang luôn là `false`.
-    private static let scrollFlipDistance: CGFloat = 24
     /// Thời gian dải báo tự dịch hiện trước khi tự ẩn.
     private static let translateHintDuration: TimeInterval = 2
 
@@ -32,18 +30,17 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     /// Tab **ẩn danh**: không ghi Lịch sử truy cập. `BypassBrowserTabStore` bật khi khung chính vào trang của nguồn tắt
     /// "Lưu lịch sử đọc/xem" (`BrowserSourceSiteIndex`); giữ tới khi về Home / mở tab mới, tab mở từ nó thừa hưởng.
     @Published var isIncognito: Bool = false
-    /// Trang hiện tại đang hiển thị bản dịch QT. Chỉ store đổi (qua `setTranslating(_:)`): commit khung chính, nút dịch,
-    /// đổi luật nhớ.
+    /// Trang hiện tại đang hiển thị bản dịch QT. Chỉ store đổi (qua `setTranslating(_:)`): commit khung chính, công tắc
+    /// "Dịch trang" của ngăn kéo, đổi luật nhớ.
     @Published private(set) var isTranslating: Bool = false
     /// Chữ dải báo tự dịch ("Tự dịch QT · theo …"). Tự xoá sau 2 s; gán chữ mới trước hạn thì tính lại 2 s.
     @Published var translateHint: String? = nil {
         didSet { scheduleTranslateHintClear() }
     }
-    /// Đang cuộn xuống (KVO `scrollView.contentOffset`): giao diện thu viên Import theo cờ này.
-    @Published private(set) var isScrolledDown: Bool = false
 
-    /// Bật/tắt dịch **bằng tay** (nút dịch trên thanh) cho `manualTranslateDomain` (tên miền chuẩn hoá lúc bấm). Không ghi
-    /// nhớ: store xoá khi trang commit sang tên miền khác hoặc về Home. Chỉ `BypassBrowserTabStore+Translation` dùng.
+    /// Bật/tắt dịch **bằng tay** (công tắc "Dịch trang" của ngăn kéo) cho `manualTranslateDomain` (tên miền chuẩn hoá
+    /// lúc bấm). Không ghi nhớ: store xoá khi trang commit sang tên miền khác hoặc về Home. Chỉ
+    /// `BypassBrowserTabStore+Translation` dùng.
     var manualTranslate: Bool?
     var manualTranslateDomain: String?
     /// Tên miền đã hiện dải báo tự dịch gần nhất: đọc liên tiếp nhiều chương cùng trang chỉ báo một lần, sang tên miền
@@ -67,8 +64,6 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     private var observers: [NSKeyValueObservation] = []
     /// Token của lượt hẹn xoá `translateHint`: gán lại thì lượt cũ không xoá nhầm chữ mới.
     private var translateHintToken = 0
-    /// Mốc cuộn: vị trí xa nhất theo hướng hiện tại, đo độ đổi hướng từ đây.
-    private var scrollAnchorY: CGFloat = 0
     /// Tiêu đề đã dịch, nhớ theo tiêu đề gốc để `displayTitle` không dịch lại mỗi lần vẽ.
     private var translatedTitleCache: (source: String, translated: String)?
 
@@ -174,45 +169,6 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
         let goForwardObserver = webView.observe(\.canGoForward, options: .new) { [weak self] webView, _ in
             DispatchQueue.main.async { self?.canGoForward = webView.canGoForward }
         }
-        // Cuộn chạy trên main: xử lý tại chỗ (không `async` mỗi khung hình), lệch thread mới đẩy về main.
-        let scrollObserver = webView.scrollView.observe(\.contentOffset, options: .new) { [weak self] scrollView, _ in
-            if Thread.isMainThread {
-                self?.trackScroll(scrollView)
-            } else {
-                DispatchQueue.main.async { self?.trackScroll(scrollView) }
-            }
-        }
-        observers = [
-            loadingObserver, progressObserver, titleObserver, urlObserver, goBackObserver, goForwardObserver, scrollObserver
-        ]
-    }
-
-    /// Lật `isScrolledDown` khi đổi hướng quá `scrollFlipDistance` so với mốc; gần đầu trang ⇒ `false`. Vị trí được kẹp
-    /// trong vùng cuộn thật để nảy ở cuối trang không bị tính là cuộn lên.
-    private func trackScroll(_ scrollView: UIScrollView) {
-        let inset = scrollView.adjustedContentInset
-        let maxY = max(0, scrollView.contentSize.height - scrollView.bounds.height + inset.top + inset.bottom)
-        let y = min(max(scrollView.contentOffset.y + inset.top, 0), maxY)
-        let flip = Self.scrollFlipDistance
-        if y <= flip {
-            scrollAnchorY = y
-            if isScrolledDown { isScrolledDown = false }
-            return
-        }
-        if isScrolledDown {
-            if y > scrollAnchorY {
-                scrollAnchorY = y
-            } else if scrollAnchorY - y > flip {
-                scrollAnchorY = y
-                isScrolledDown = false
-            }
-        } else {
-            if y < scrollAnchorY {
-                scrollAnchorY = y
-            } else if y - scrollAnchorY > flip {
-                scrollAnchorY = y
-                isScrolledDown = true
-            }
-        }
+        observers = [loadingObserver, progressObserver, titleObserver, urlObserver, goBackObserver, goForwardObserver]
     }
 }

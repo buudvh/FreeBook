@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nút **khiên** đầu ô URL (thanh kính dưới, `BrowserAddressPill`) của trình duyệt người dùng + bảng nổi chỉnh theo tên
+/// Nút **khiên** đầu ô URL (thanh dưới, `BrowserAddressPill`) của trình duyệt người dùng + bảng nổi chỉnh theo tên
 /// miền: chặn quảng cáo, bản máy tính, tự dịch QT (`BrowserShieldTranslateSection`, mockup 2026-10-30 màn "Mới 3").
 /// Khiên nằm ở đáy màn nên bảng bật lên **phía trên** nút.
 ///

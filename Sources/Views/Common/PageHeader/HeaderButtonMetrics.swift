@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Kích thước cho **cụm nút đứng liền nhau** trên header (1.3.664): "…" | Xong, 🔍 | …, ↻ | +…
+/// Kích thước cho **cụm nút đứng liền nhau** trên header (1.3.665): 🔍 | …, ↻ | +, nút dịch | …
 ///
 /// - Gộp cả cụm vào **một** `ToolbarItem` chứa `HStack(spacing: pairSpacing)`. Để mỗi nút một `ToolbarItem` (hoặc
 ///   một `ToolbarItemGroup`) thì iOS tự giãn cách giữa các mục, không chỉnh được.
