@@ -4,12 +4,13 @@ import SwiftUI
 struct VideoPlayerIconLabel: View {
     let systemName: String
     var isActive = false
+    var width: CGFloat = 36
 
     var body: some View {
         Image(systemName: systemName)
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(isActive ? Color.accentColor : Color.white)
-            .frame(width: 36, height: 38)
+            .frame(width: width, height: 38)
             .contentShape(Rectangle())
     }
 }

@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.665] - 2026-10-31
+
+### fix: nút liền nhau trên header đứng sát nhau
+
+Người dùng: *"cho phím dropdown và nút xong gần nhau hơn và nhỏ lại"* (header trình duyệt), rồi *"cái nào có 2 nút gần cũng gom thành group"*, sau đó *"thôi đừng làm group, để cho các nút gần lại là được"*; duyệt plan, chọn **giữ cỡ 17pt** (không thu nhỏ, không viên bao ngoài).
+
+- **`HeaderButtonMetrics`** (mới, `Views/Common/PageHeader/`): `pairSpacing = 2`, `pairIconWidth = 32`, `pairCircleSpacing = 4`. Cụm nút liền nhau trên thanh điều hướng gộp vào **một** `ToolbarItem` chứa `HStack(spacing: pairSpacing)` — để nhiều `ToolbarItem`/`ToolbarItemGroup` thì iOS tự giãn cách, không chỉnh được. Icon giữ 17pt nửa đậm, chỉ khung hẹp 36 → 32 (chiều cao giữ 36/38 như cũ).
+- **Thanh điều hướng (5 màn)**: trình duyệt (… | Xong), Trợ lý AI toàn màn (… | ⌄), Kệ (🔍 | …, kính lúp vẫn ẩn ở tab Tải xuống, chấm đỏ thông báo bám icon vì `.frame` đặt sau `.overlay`), Chi tiết truyện (nút dịch | …, `HStack` sẵn có cách 6 → 2), Quản lý tiện ích tab Kho (↻ | +, `ProgressView` lúc làm mới nằm trong khung 32).
+- **Header tự dựng (4 chỗ)**: chỉ bọc cặp nút trong `HStack` con, khoảng cách của thanh (nút lùi, tiêu đề) giữ nguyên — màn đọc truyện tranh (☰ | …), trình duyệt Legado (↻ | ✓, nút tròn ✓ giữ 38), Khám phá (hai nút tròn 38 cách 8 → 4), cặp trái trình phát video (⌄ | ✕; `VideoPlayerIconButton`/`VideoPlayerIconLabel` thêm tham số `width` mặc định 36 nên các nút video khác không đổi).
+- **Không đổi**: header Reader (6 nút) và cụm nút phải của trình phát video.
+- **Chuẩn header**: `CLAUDE.md`/`AGENTS.md`, `rules.md` (§ chuẩn Header + checklist) và `.agents/AGENTS.md` thêm quy định cụm nút liền nhau (2pt, khung 32, nút tròn cách 4); nút đứng một mình giữ chuẩn 36×36.
+- Chuyển entry `[1.3.635]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: vùng chạm khung 32 hẹp hơn chuẩn 36 (dễ bấm nhầm nút bên cạnh); nút chữ "Xong" và icon trong `HStack` của `ToolbarItem` có thể nhận kiểu nút toolbar khác một chút so với khi là mục riêng.
+
 ## [1.3.664] - 2026-10-31
 
 ### feat: CryptoJS dựng sẵn cho load('crypto.js') của tiện ích
@@ -377,18 +391,3 @@ Người dùng: *"mấy chỗ danh sách lazyload hãy sửa lại thành scroll
 - `CLAUDE.md`/`AGENTS.md`: quy ước màn danh sách (header, nút "+" nổi, hàng VP/Name, nạp trước, `GlassChromeSettings`); đường dẫn NSFW mới.
 - Chuyển entry `[1.3.606]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: giữ chỗ khi nạp tin AI cũ (có thể xê dịch ~36pt), mục lục trang 1 ngắn vừa một màn sẽ tự tải ngay khi mở tab, xoá từ ở hai màn phiên âm nạp lại cả từ điển (hành vi cũ, giờ dễ gặp hơn vì icon Xoá một chạm).
-
-## [1.3.635] - 2026-10-28
-
-### fix: thay thế TTS hiện 2 dòng, đồng bộ cỡ chữ danh sách theo VP/Name
-
-Người dùng: *"danh sách thay thế tts: mỗi rule hiển thị 2 dòng, dòng 1 là từ gốc, dòng 2 là mũi tên và từ thay thế. Giảm size chữ lại bằng size của danh sách vp/name. Đồng bộ size chữ các danh sách khác bằng vp/name luôn"*; duyệt mockup, chọn font thường (không monospaced) cho dòng regex, *"chỗ nào chưa hiển thị 2 hàng thì lọc ra chuyển thành 2 hàng luôn"*, *"lọc rác không làm"*.
-
-- **Chuẩn**: hàng VP/Name `DictionaryEntryRow` — dòng khoá `.headline`, dòng giá trị `.subheadline` màu phụ.
-- **Thay thế TTS** (`TTSReplacementManagerView+Layer`): `ruleText(for:)` mới dùng chung cho `ruleRow` và `globalRulesSection` — dòng 1 `"gốc"` `.headline` (màu phụ khi rule tắt), dòng 2 `→ "thay thế"` hoặc `→ (rỗng)` `.subheadline`; bỏ `.body` monospaced một dòng. Giữ dấu nháy vì nhiều rule mặc định thay bằng dấu cách. Icon sửa `.subheadline`; công tắc, vuốt "Sang chung", nút "Lấy" giữ nguyên.
-- **Từ điển tiếng Nhật VieNeu** (`VieNeuJapaneseDictionaryView.row`): một dòng `khoá … cách đọc` thành hai dòng `.headline` / `.subheadline`, vẫn bấm cả hàng để sửa.
-- **Chỉ đổi cỡ chữ**: rule dịch nhanh (`QuickTranslationRuleEntryRow`: pattern `.footnote` monospaced → `.headline`, replacement `.footnote` → `.subheadline`, giữ màu trắng và dòng "dòng N"/badge), công cụ tra cứu (`SearchEnginesConfigView`: URL `.caption` → `.subheadline`), quy tắc mục lục (`TOCRulesConfigView`: tên `.headline`, regex `.caption` monospaced → `.subheadline`, "Ví dụ" giữ `.caption2`), duyệt name AI (`ReaderAINameReviewCardView`: 13/12pt cố định → `.headline`/`.subheadline`, hàng cao hơn, badge giữ cỡ cũ).
-- **Không đổi**: lọc rác (người dùng loại), xung đột khi nhập từ điển (bố cục `cũ → mới` cố ý), màn thử rule dịch nhanh, chọn quy tắc mục lục khi nhập truyện.
-- Chuyển entry `[1.3.605]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-

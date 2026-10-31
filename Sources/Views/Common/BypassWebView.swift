@@ -65,20 +65,23 @@ struct BypassWebView: View {
             }
             .pageTitle(store.activeTab?.displayTitle ?? "Trình duyệt")
             .toolbar {
-                // Toàn màn, không vuốt đóng được ⇒ giữ "Xong", ngoài cùng bên phải; "…" đứng ngay trước.
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showingMenu = true
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 36, height: 38)
+                // Toàn màn, không vuốt đóng được ⇒ giữ "Xong", ngoài cùng bên phải; "…" đứng sát ngay trước
+                // (một `ToolbarItem` cho cả cụm — xem `HeaderButtonMetrics`).
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                        Button {
+                            showingMenu = true
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                        }
+                        .accessibilityLabel("Tuỳ chọn trình duyệt")
+                        Button("Xong") {
+                            dismiss()
+                        }
+                        .headerTextButton()
                     }
-                    .accessibilityLabel("Tuỳ chọn trình duyệt")
-                    Button("Xong") {
-                        dismiss()
-                    }
-                    .headerTextButton()
                 }
             }
             .sideDrawerMenu(isPresented: $showingMenu, title: "Trình duyệt") {

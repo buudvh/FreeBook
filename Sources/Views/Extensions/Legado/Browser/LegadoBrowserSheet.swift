@@ -69,20 +69,23 @@ struct LegadoBrowserSheet: View {
             }
             .frame(maxWidth: .infinity)
 
-            Button(action: { controller.reload() }) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
-            }
-            .accessibilityLabel("Tải lại")
+            // ↻ đứng sát ✓ (`HeaderButtonMetrics`); nút tròn ✓ giữ cỡ 38.
+            HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                Button(action: { controller.reload() }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                }
+                .accessibilityLabel("Tải lại")
 
-            Button(action: { finish(cancelled: false) }) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 38, height: 38)
-                    .background(Color.accentColor.opacity(0.18), in: Circle())
+                Button(action: { finish(cancelled: false) }) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 38, height: 38)
+                        .background(Color.accentColor.opacity(0.18), in: Circle())
+                }
+                .accessibilityLabel("Xong")
             }
-            .accessibilityLabel("Xong")
         }
         .disabled(isFinishing)
         .padding(.horizontal, 10)

@@ -216,33 +216,36 @@ struct ShelfView: View {
                 await runAutoNewChapterCheck()
             }
             .toolbar {
-                if selectedTab != .downloads {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            showingShelfSearch = true
-                        }) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 17, weight: .semibold))
-                        }
-                        .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
-                    }
-                }
+                // Một `ToolbarItem` cho cả cụm để 🔍 và "…" đứng sát nhau (`HeaderButtonMetrics`).
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingShelfMenu = true }) {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải.
-                            .overlay(alignment: .topTrailing) {
-                                if badgeCount > 0 {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 8, height: 8)
-                                        .offset(x: 2, y: -2)
-                                }
+                    HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                        if selectedTab != .downloads {
+                            Button(action: {
+                                showingShelfSearch = true
+                            }) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
                             }
+                            .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
+                        }
+                        Button(action: { showingShelfMenu = true }) {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 17, weight: .semibold))
+                                // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải.
+                                .overlay(alignment: .topTrailing) {
+                                    if badgeCount > 0 {
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 8, height: 8)
+                                            .offset(x: 2, y: -2)
+                                    }
+                                }
+                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                        }
+                        .accessibilityLabel("Tuỳ chọn Kệ")
+                        .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")
                     }
-                    .accessibilityLabel("Tuỳ chọn Kệ")
-                    .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")
                 }
             }
             // Ngăn kéo "…" gắn ở thân màn (không gắn trong `ToolbarItem`) — xem `SideDrawerMenuModifier`.

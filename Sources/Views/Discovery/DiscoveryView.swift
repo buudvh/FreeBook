@@ -164,33 +164,36 @@ struct DiscoveryView: View {
                         
                         Spacer()
                         
-                        // Menu gộp của nguồn: công tắc NSFW · Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
-                        if let ext = selected {
-                            DiscoverySourceMenuButton(
-                                packageId: ext.packageId,
-                                sourceName: ext.name,
-                                isChineseSourceHint: ext.isChineseSource,
-                                isTranslationEnabled: isTranslationEnabled,
-                                layoutSymbol: layout.mode.symbolName,
-                                canOpenBrowser: !ext.sourceUrl.isEmpty,
-                                onOpenBrowser: { showingSourceBrowser = true },
-                                onShowLayout: { showingLayoutSheet = true }
-                            )
-                        }
+                        // Hai nút tròn đứng sát nhau (`HeaderButtonMetrics.pairCircleSpacing`), giữ cỡ 38.
+                        HStack(spacing: HeaderButtonMetrics.pairCircleSpacing) {
+                            // Menu gộp của nguồn: công tắc NSFW · Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
+                            if let ext = selected {
+                                DiscoverySourceMenuButton(
+                                    packageId: ext.packageId,
+                                    sourceName: ext.name,
+                                    isChineseSourceHint: ext.isChineseSource,
+                                    isTranslationEnabled: isTranslationEnabled,
+                                    layoutSymbol: layout.mode.symbolName,
+                                    canOpenBrowser: !ext.sourceUrl.isEmpty,
+                                    onOpenBrowser: { showingSourceBrowser = true },
+                                    onShowLayout: { showingLayoutSheet = true }
+                                )
+                            }
 
-                        // Nút Tìm Kiếm chuyển sang SearchView
-                        // Tìm kiếm tự lọc phạm vi nguồn (`SearchExtensionScopePolicy`): truyền cả kho để nguồn Legado có
-                        // rule tìm kiếm mà không có Khám phá vẫn được "tìm mọi nguồn".
-                        NavigationLink(destination: SearchView(
-                            activeExtensions: ExtensionLibraryRepository.shared.installed,
-                            selectedExtension: selected
-                        )) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.primary)
-                                .frame(width: 38, height: 38)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(Circle())
+                            // Nút Tìm Kiếm chuyển sang SearchView
+                            // Tìm kiếm tự lọc phạm vi nguồn (`SearchExtensionScopePolicy`): truyền cả kho để nguồn Legado
+                            // có rule tìm kiếm mà không có Khám phá vẫn được "tìm mọi nguồn".
+                            NavigationLink(destination: SearchView(
+                                activeExtensions: ExtensionLibraryRepository.shared.installed,
+                                selectedExtension: selected
+                            )) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 38, height: 38)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(Circle())
+                            }
                         }
                     }
                     .padding(.horizontal)

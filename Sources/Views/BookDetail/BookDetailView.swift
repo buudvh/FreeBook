@@ -254,7 +254,7 @@ struct BookDetailView: View {
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng, kể cả truyện trên Kệ
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 6) {
+                HStack(spacing: HeaderButtonMetrics.pairSpacing) {
                     ReaderTranslationScopeMenuView(
                         bookId: actualBookId,
                         packageId: extensionPackageId,
@@ -262,7 +262,7 @@ struct BookDetailView: View {
                         showBackground: false,
                         isChineseSourceHint: ext?.isChineseSource,
                         iconSize: 17,
-                        frameWidth: 36,
+                        frameWidth: HeaderButtonMetrics.pairIconWidth,
                         frameHeight: 36
                     )
                     ellipsisMenu

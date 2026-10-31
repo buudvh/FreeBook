@@ -7,11 +7,13 @@ struct VideoPlayerIconButton: View {
     /// Nhãn trợ năng.
     let label: String
     var isActive = false
+    /// Rộng khung; cụm nút đứng sát nhau dùng `HeaderButtonMetrics.pairIconWidth`.
+    var width: CGFloat = 36
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VideoPlayerIconLabel(systemName: systemName, isActive: isActive)
+            VideoPlayerIconLabel(systemName: systemName, isActive: isActive, width: width)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

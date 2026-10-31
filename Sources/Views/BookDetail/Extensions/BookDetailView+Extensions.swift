@@ -3,12 +3,13 @@ import SwiftData
 
 extension BookDetailView {
     /// Nút "…" ở toolbar — mở ngăn kéo `ellipsisMenuItems` (gắn ở `mainContentView`, không gắn trong toolbar).
-    /// Nằm ở đây thay vì `BookDetailView.swift` để giữ file gốc dưới baseline dòng.
+    /// Nằm ở đây thay vì `BookDetailView.swift` để giữ file gốc dưới baseline dòng. Đứng sát nút dịch nên khung hẹp
+    /// theo `HeaderButtonMetrics`.
     internal var ellipsisMenu: some View {
         Button(action: { showingEllipsisMenu = true }) {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 17, weight: .semibold))
-                .frame(width: 36, height: 36)
+                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
         }
     }
 

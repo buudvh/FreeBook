@@ -212,23 +212,29 @@ struct RepositoryManagerView: View {
         } else if selectedTab == 0 {
             allExtensionsToolbarContent // `+SourceCheck`
         } else {
-            // Bên trái là tiêu đề trang ⇒ ↻ dồn sang phải, đứng trước +.
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button(action: { refreshAllRepositories(force: true) }) {
-                    if isRefreshingAll {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 17, weight: .semibold))
+            // Bên trái là tiêu đề trang ⇒ ↻ dồn sang phải, đứng sát trước + (một `ToolbarItem` cho cả cụm).
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                    Button(action: { refreshAllRepositories(force: true) }) {
+                        Group {
+                            if isRefreshingAll {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                        }
+                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
                     }
+                    .disabled(isRefreshingAll || repositories.isEmpty)
+                    .accessibilityLabel("Làm mới tất cả kho")
+                    Button(action: { showingAddRepo = true }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                    }
+                    .accessibilityLabel("Thêm kho")
                 }
-                .disabled(isRefreshingAll || repositories.isEmpty)
-                .accessibilityLabel("Làm mới tất cả kho")
-                Button(action: { showingAddRepo = true }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-                .accessibilityLabel("Thêm kho")
             }
         }
     }

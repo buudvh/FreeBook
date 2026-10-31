@@ -42,7 +42,7 @@ graph TD
 
 ### 2.2. Quy tắc Giao diện Header & Toolbar (UI Standard)
 
-*   Mọi thay đổi hoặc bổ sung màn hình/view mới bắt buộc tuân thủ chuẩn Header & Toolbar: Icon font `.system(size: 17, weight: .semibold)`, khoảng cách tối thiểu `6pt`, hitbox tối thiểu `36x36pt` (khuyến nghị `36x38pt`), nút tròn `38x38pt`, pill cao `38pt` (chi tiết tại `Docs/CodeGraph/rules.md` §5.4).
+*   Mọi thay đổi hoặc bổ sung màn hình/view mới bắt buộc tuân thủ chuẩn Header & Toolbar: Icon font `.system(size: 17, weight: .semibold)`, khoảng cách tối thiểu `6pt`, hitbox tối thiểu `36x36pt` (khuyến nghị `36x38pt`) — cụm nút liền nhau thì cách `2pt`, khung `32pt` theo `HeaderButtonMetrics` (1.3.664), nút tròn `38x38pt`, pill cao `38pt` (chi tiết tại `Docs/CodeGraph/rules.md` §5.4).
 
 ---
 

@@ -196,22 +196,24 @@ public struct ReaderAIFullScreenView: View {
                     }
                 }
 
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button(action: { showingOptionsMenu = true }) {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 36, height: 36)
-                    }
-                    .accessibilityLabel("Tuỳ chọn Trợ lý AI")
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                        Button(action: { showingOptionsMenu = true }) {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
+                        }
+                        .accessibilityLabel("Tuỳ chọn Trợ lý AI")
 
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.down.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 36, height: 36)
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "chevron.down.circle")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
+                        }
+                        .accessibilityLabel("Đóng Trợ lý AI")
                     }
-                    .accessibilityLabel("Đóng Trợ lý AI")
                 }
             }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Trợ lý AI") {

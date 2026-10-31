@@ -17,8 +17,21 @@ struct VideoPlayerTopBar: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            VideoPlayerIconButton(systemName: "chevron.down", label: "Thu nhỏ trình phát", action: onMinimize)
-            VideoPlayerIconButton(systemName: "xmark", label: "Đóng trình phát", action: onClose)
+            // Cặp nút trái đứng sát nhau (`HeaderButtonMetrics`); cụm nút phải giữ khoảng cách 6 của thanh.
+            HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                VideoPlayerIconButton(
+                    systemName: "chevron.down",
+                    label: "Thu nhỏ trình phát",
+                    width: HeaderButtonMetrics.pairIconWidth,
+                    action: onMinimize
+                )
+                VideoPlayerIconButton(
+                    systemName: "xmark",
+                    label: "Đóng trình phát",
+                    width: HeaderButtonMetrics.pairIconWidth,
+                    action: onClose
+                )
+            }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.bookTitle)
