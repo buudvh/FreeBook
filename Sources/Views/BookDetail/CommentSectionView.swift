@@ -1,6 +1,10 @@
 import SwiftUI
 
+/// Thẻ bình luận của tab Chi tiết (`BookDetailSectionCard`): tối đa 3 bình luận cách nhau bằng vạch, cuối thẻ là nút
+/// "Xem tất cả bình luận" (`AllCommentsView`) khi còn nhiều hơn.
 struct CommentSectionView: View {
+    /// Tiêu đề thẻ (đã dịch nếu cần) — `BookDetailView` truyền `translateMetaIfNeeded(category.title)`.
+    let title: String
     let category: CategoryResult
     let localPath: String
     let downloadUrl: String
@@ -26,6 +30,27 @@ struct CommentSectionView: View {
     @State private var skipsReappearLoad = false
     
     var body: some View {
+        BookDetailSectionCard(title: title) {
+            content
+        }
+        .task(id: refreshGeneration) {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
+            guard loadedGeneration != refreshGeneration else { return }
+            await loadComments()
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            Task { await loadComments() }
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             if isLoading {
                 HStack {
@@ -55,7 +80,7 @@ struct CommentSectionView: View {
                             .font(.title3)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(Color.red.opacity(0.05))
                 .cornerRadius(8)
@@ -63,11 +88,9 @@ struct CommentSectionView: View {
                 Text("Chưa có bình luận nào")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
             } else {
                 let displayComments = Array(comments.prefix(3))
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(displayComments) { comment in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
@@ -106,11 +129,14 @@ struct CommentSectionView: View {
                                 .padding(.leading, 32)
                             }
                         }
-                        
-                        Divider()
-                            .padding(.leading, 32)
+
+                        // Vạch chỉ nằm **giữa** hai bình luận — dưới bình luận cuối là nút / mép thẻ.
+                        if comment.id != displayComments.last?.id {
+                            Divider()
+                                .padding(.leading, 32)
+                        }
                     }
-                    
+
                     if comments.count > 3 || nextPageUrl != nil {
                         NavigationLink(destination: AllCommentsView(
                             category: category,
@@ -129,30 +155,14 @@ struct CommentSectionView: View {
                                     .foregroundColor(.white)
                                 Spacer()
                             }
-                            .padding(.vertical, 8)
-                            .background(Color.secondary.opacity(0.05))
-                            .cornerRadius(8)
+                            .padding(.vertical, 10)
+                            // Nền `secondarySystemBackground` của thẻ nuốt mất `secondary.opacity(0.05)` cũ.
+                            .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal)
             }
-        }
-        .task(id: refreshGeneration) {
-            if skipsReappearLoad {
-                skipsReappearLoad = false
-                return
-            }
-            guard loadedGeneration != refreshGeneration else { return }
-            await loadComments()
-        }
-        .onDisappear {
-            if openingErrorLink != nil { skipsReappearLoad = true }
-        }
-        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
-            skipsReappearLoad = false
-            Task { await loadComments() }
         }
     }
     

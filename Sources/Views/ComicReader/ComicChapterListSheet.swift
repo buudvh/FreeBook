@@ -34,10 +34,12 @@ struct ComicChapterListSheet: View {
     @State var isConfirmingShelfRemoval = false
     @State var collectionPickerBook: Book? = nil
 
+    /// Màu panel Mục lục — cùng bảng màu nền Tối của mục lục truyện chữ.
+    static var palette: ChapterTOCPalette { .reader(theme) }
+
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().background(Self.theme.textColor.opacity(0.1))
 
             if chapters.isEmpty {
                 ContentUnavailableView(
@@ -47,8 +49,18 @@ struct ComicChapterListSheet: View {
                 )
                 .frame(maxHeight: .infinity)
             } else {
-                searchField
-                chapterList
+                // Panel Mục lục dùng chung với truyện chữ / tab Mục lục của Chi tiết.
+                VStack(spacing: 0) {
+                    ChapterTOCPanelHeader(
+                        chapterCount: readableChapterCount,
+                        searchText: $searchQuery,
+                        isAscending: isAscending,
+                        palette: Self.palette,
+                        onToggleSort: { isAscending.toggle() }
+                    )
+                    chapterList
+                }
+                .chapterTOCPanel(Self.palette)
             }
         }
         .background(Self.theme.backgroundColor.ignoresSafeArea())
@@ -63,32 +75,6 @@ struct ComicChapterListSheet: View {
             isConfirmingRemoval: $isConfirmingShelfRemoval,
             collectionPickerBook: $collectionPickerBook
         )
-    }
-
-    // MARK: - Ô tìm
-
-    private var searchField: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(Self.theme.textColor.opacity(0.6))
-            TextField("Tìm kiếm chương...", text: $searchQuery)
-                .textFieldStyle(.plain)
-                .textInputAutocapitalization(.never)
-                .foregroundColor(Self.theme.textColor)
-                .submitLabel(.search)
-            if !searchQuery.isEmpty {
-                Button(action: { searchQuery = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Self.theme.textColor.opacity(0.6))
-                }
-                .accessibilityLabel("Xoá từ khoá")
-            }
-        }
-        .padding(10)
-        .background(Self.theme.textColor.opacity(0.08))
-        .cornerRadius(8)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 
     // MARK: - Danh sách
@@ -123,8 +109,8 @@ struct ComicChapterListSheet: View {
                 .id(chapter.index)
             }
             .listStyle(.plain)
+            // Nằm trong panel Mục lục: nền trong suốt để thấy nền panel (hàng tự đặt nền + màu vạch).
             .scrollContentBackground(.hidden)
-            .background(Self.theme.backgroundColor)
             .onAppear {
                 // Đợi List dựng xong rồi mới cuộn tới chương đang đọc.
                 DispatchQueue.main.async {
@@ -143,15 +129,17 @@ struct ComicChapterListSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
             .listRowBackground(Color.white.opacity(0.05))
+            .listRowSeparatorTint(Self.palette.divider)
             .accessibilityAddTraits(.isHeader)
     }
 
-    /// Cùng kiểu `ReaderChapterRowView`: đang đọc = chữ trắng đậm + nền trắng mờ; đã đọc (index logic nhỏ hơn) = mờ
+    /// Cùng kiểu `ReaderChapterRowView`: đang đọc = chữ trắng đậm + nền mờ; đã đọc (index logic nhỏ hơn) = mờ
     /// 0.4; đã tải offline = icon xanh trong khung 30×30 cố định để hàng không đổi chiều cao.
     private func row(for chapter: ComicChapterEntry) -> some View {
         let isCurrent = chapter.index == currentIndex
         let isRead = chapter.index < currentIndex
         let theme = Self.theme
+        let palette = Self.palette
         return Button {
             onSelect(chapter.index)
             dismiss()
@@ -159,7 +147,7 @@ struct ComicChapterListSheet: View {
             HStack(spacing: 4) {
                 Text(chapter.displayTitle(translated: isTranslationEnabled))
                     .font(.body)
-                    .foregroundColor(isCurrent ? .white : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
+                    .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -180,7 +168,8 @@ struct ComicChapterListSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(isCurrent ? Color.white.opacity(0.1) : theme.backgroundColor)
+        .listRowBackground(isCurrent ? palette.currentRowFill : Color.clear)
+        .listRowSeparatorTint(palette.divider)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 }

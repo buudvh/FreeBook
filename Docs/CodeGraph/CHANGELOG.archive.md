@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.632] - 2026-10-28
+
+### fix: bấm dừng lọc name ghi chương đã dừng vào tin AI, ngăn kéo menu tối 80%
+
+Người dùng: *"tôi yêu cầu là bấm dừng thì hiển thị chương đã dừng trong tin nhắn trả lời của ai chứ không phải thông báo. làm lại cho đúng"* — chọn **tin AI riêng ngay sau** tin kết quả; tự dừng *"có, không bỏ toast"*. Thêm: *"độ trong suốt menu thành 80% cho tôi"* — chọn **lớp tối 80%**.
+
+- **Bấm dừng lọc name nhiều chương** (`AIRuntimeCoordinator.stopActiveTask`): bỏ toast "Đã dừng lọc name · …" của 1.3.628; thay bằng **tin AI riêng** ngay sau tin kết quả: `Đã dừng lọc name ở ch.21–30: <tên> → <tên>.` (một chương `ở ch.21: <tên>.`; chưa gửi lượt nào `… khi đang chuẩn bị.`). Danh sách `Tên=Nghĩa` của tin kết quả giữ sạch để sao chép/duyệt. `stopActiveTask` trả về tin đó (`@discardableResult`) để màn AI (`cancelBatchExtraction`, `stopStreaming`) thêm đúng tin ấy vào phiên đang hiện trong `@State`; chat thường không có tiến độ ⇒ không thêm gì.
+- **Tự dừng** (lần quét chính và lần thử lại): tin lỗi trong màn AI có thêm dòng đầu `Lọc name tự dừng ở ch.…` trước `Lỗi quét tên riêng: …`; toast "Lọc name tự dừng · ch.…" giữ nguyên.
+- Helper mới `nameScanStopNote(_:bookId:)` (`+BatchExtraction`), đọc tiến độ trước khi entry bị dọn.
+- **Ngăn kéo menu** (`SideDrawerMenuPanel.drawerBackground`): lớp tối không làm mờ 62% → **80%**.
+- Chuyển entry `[1.3.602]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.631] - 2026-10-28
 
 ### fix: ngăn kéo menu bỏ lớp kính mờ, nhìn xuyên được nền phía sau

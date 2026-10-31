@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Header của `ComicChapterListSheet`, bám header danh sách chương truyện chữ (`ReaderChapterListView.header`):
-/// bìa 86×120 (số chương đọc được trên dải đáy bìa, chạm mở Chi tiết), bên phải tên + tác giả + nhãn nguồn, hàng nút
-/// dồn phải sát đáy bìa (kệ, tải ảnh offline, đảo thứ tự). Không có các nút dịch lại tên chương / cập nhật mục lục /
-/// tải lẻ từng chương của truyện chữ.
+/// bìa 86×120 (chạm mở Chi tiết), bên phải tên + tác giả + nhãn nguồn, hàng nút dồn phải sát đáy bìa (kệ, tải ảnh
+/// offline). Số chương và nút đảo thứ tự nằm ở đầu panel Mục lục (`ChapterTOCPanelHeader`). Không có các nút dịch lại
+/// tên chương / cập nhật mục lục / tải lẻ từng chương của truyện chữ.
 ///
 /// Metadata ưu tiên `Book` (đã có trong thư viện), thiếu thì lấy từ `launch` — sách mở thẳng từ Chi tiết/Khám phá
 /// chưa có hàng `Book` vẫn có bìa, tên, tác giả. Chuỗi rỗng của `Book` (các trường không optional) coi như thiếu.
@@ -38,7 +38,6 @@ extension ComicChapterListSheet {
                     HStack(spacing: 4) {
                         shelfToggleButton
                         downloadButton
-                        sortButton
                     }
                 }
             }
@@ -66,13 +65,6 @@ extension ComicChapterListSheet {
                 host: book?.host,
                 extensionPackageId: launch.extensionPackageId
             )
-            // Dải chữ gắn **trước** `clipShape` để phần nền tràn lên bị cắt theo bìa.
-            .overlay(alignment: .bottom) {
-                CoverCaptionStrip(
-                    subtitle: "\(readableChapterCount) chương",
-                    fadeHeight: CoverCaptionStrip.compactFadeHeight
-                )
-            }
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
@@ -151,18 +143,6 @@ extension ComicChapterListSheet {
         }
     }
 
-    private var sortButton: some View {
-        Button {
-            isAscending.toggle()
-        } label: {
-            Image(systemName: "arrow.up.arrow.down")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Self.theme.textColor)
-                .frame(width: 32, height: 32)
-        }
-        .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
-    }
-
     // MARK: - Metadata
 
     /// Tên truyện — cùng luật dịch tên với thẻ ở Kệ; cũng là tên trong hộp xác nhận bỏ kệ.
@@ -194,8 +174,8 @@ extension ComicChapterListSheet {
         ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)
     }
 
-    /// Số chương đọc được — không tính dòng tiêu đề nhóm.
-    private var readableChapterCount: Int {
+    /// Số chương đọc được — không tính dòng tiêu đề nhóm. Đầu panel Mục lục (`ComicChapterListSheet.body`) hiện số này.
+    var readableChapterCount: Int {
         chapters.reduce(0) { count, chapter in chapter.isSection ? count : count + 1 }
     }
 

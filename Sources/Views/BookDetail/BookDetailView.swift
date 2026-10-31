@@ -446,7 +446,8 @@ struct BookDetailView: View {
     private var detailTab: some View {
         ScrollView {
             if renderedTab == 0 {
-                VStack(alignment: .leading, spacing: 16) {
+                // 12 = khoảng cách giữa các thẻ của `BookDetailHeaderView` ⇒ thẻ đề xuất / bình luận nối tiếp đều nhau.
+                VStack(alignment: .leading, spacing: 12) {
                     BookDetailHeaderView(
                         actualBookId: actualBookId,
                         coverUrl: coverUrl,
@@ -475,7 +476,6 @@ struct BookDetailView: View {
                     )
 
                     if isLoadingDetail && title.isEmpty {
-                        Divider()
                         VStack(alignment: .leading, spacing: 8) {
                             SkeletonView(width: 120, height: 18)
                             let columns = [
@@ -495,50 +495,28 @@ struct BookDetailView: View {
                                 }
                             }
                         }
+                        // Khung chờ cùng dáng `BookDetailSectionCard` ⇒ không nhảy bố cục khi thẻ thật về.
+                        .padding(14)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .padding(.horizontal)
                     } else if !suggests.isEmpty {
-                        Divider()
                         ForEach(suggests) { suggest in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text(translateMetaIfNeeded(suggest.title))
-                                        .font(.headline)
-                                    Spacer()
-                                    NavigationLink(destination: CategoryNovelsListView(
-                                        category: suggest,
-                                        extensionPackageId: extensionPackageId,
-                                        localPath: ext?.localPath ?? "",
-                                        downloadUrl: ext?.downloadUrl ?? "",
-                                        configJson: ext?.configJson ?? "{}",
-                                        sourceName: sourceName
-                                    )) {
-                                        HStack(spacing: 4) {
-                                            Text("Xem thêm")
-                                            Image(systemName: "chevron.right")
-                                        }
-                                        .font(.subheadline)
-                                        .foregroundColor(.white)
-                                    }
-                                }
-                                .padding(.horizontal)
-
-                                SuggestRowView(
-                                    category: suggest,
-                                    localPath: ext?.localPath ?? "",
-                                    downloadUrl: ext?.downloadUrl ?? "",
-                                    configJson: ext?.configJson ?? "{}",
-                                    extensionPackageId: extensionPackageId,
-                                    sourceName: sourceName,
-                                    isTranslationEnabled: isTranslationEnabled,
-                                    host: resolvedHost,
-                                    refreshGeneration: sectionRefreshGeneration
-                                )
-                            }
+                            SuggestRowView(
+                                title: translateMetaIfNeeded(suggest.title),
+                                category: suggest,
+                                localPath: ext?.localPath ?? "",
+                                downloadUrl: ext?.downloadUrl ?? "",
+                                configJson: ext?.configJson ?? "{}",
+                                extensionPackageId: extensionPackageId,
+                                sourceName: sourceName,
+                                isTranslationEnabled: isTranslationEnabled,
+                                host: resolvedHost,
+                                refreshGeneration: sectionRefreshGeneration
+                            )
                         }
                     }
 
                     if isLoadingDetail && title.isEmpty {
-                        Divider()
                         VStack(alignment: .leading, spacing: 8) {
                             SkeletonView(width: 100, height: 18)
                             VStack(alignment: .leading, spacing: 12) {
@@ -554,27 +532,23 @@ struct BookDetailView: View {
                                 }
                             }
                         }
+                        .padding(14)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .padding(.horizontal)
                     } else if !comments.isEmpty {
-                        Divider()
                         ForEach(comments) { comment in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(translateMetaIfNeeded(comment.title))
-                                    .font(.headline)
-                                    .padding(.horizontal)
-
-                                CommentSectionView(
-                                    category: comment,
-                                    localPath: ext?.localPath ?? "",
-                                    downloadUrl: ext?.downloadUrl ?? "",
-                                    configJson: ext?.configJson ?? "{}",
-                                    extensionPackageId: extensionPackageId,
-                                    sourceName: sourceName,
-                                    isTranslationEnabled: isTranslationEnabled,
-                                    host: resolvedHost,
-                                    refreshGeneration: sectionRefreshGeneration
-                                )
-                            }
+                            CommentSectionView(
+                                title: translateMetaIfNeeded(comment.title),
+                                category: comment,
+                                localPath: ext?.localPath ?? "",
+                                downloadUrl: ext?.downloadUrl ?? "",
+                                configJson: ext?.configJson ?? "{}",
+                                extensionPackageId: extensionPackageId,
+                                sourceName: sourceName,
+                                isTranslationEnabled: isTranslationEnabled,
+                                host: resolvedHost,
+                                refreshGeneration: sectionRefreshGeneration
+                            )
                         }
                     }
                 }

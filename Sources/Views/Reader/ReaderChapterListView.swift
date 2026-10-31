@@ -112,21 +112,30 @@ public struct ReaderChapterListView: View {
         ZStack {
             VStack(spacing: 0) {
                 header
-                Divider().background(theme.textColor.opacity(0.1))
 
                 if !errorMessage.isEmpty {
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundColor(.red)
                         .padding(.horizontal)
-                        .padding(.top, 4)
+                        .padding(.bottom, 8)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                    Divider().background(theme.textColor.opacity(0.1))
                 }
 
-                searchField
-                chapterList
+                // Panel Mục lục dùng chung với tab Mục lục của Chi tiết / comic, màu theo nền đọc.
+                VStack(spacing: 0) {
+                    ChapterTOCPanelHeader(
+                        chapterCount: store.totalCount,
+                        searchText: $searchQuery,
+                        isAscending: store.isAscending,
+                        palette: tocPalette,
+                        // Thứ tự đọc thẳng từ store (sống suốt phiên Reader), không giữ bản sao trong view.
+                        onToggleSort: { store.updateSortOrder(isAscending: !store.isAscending) }
+                    )
+                    chapterList
+                }
+                .chapterTOCPanel(tocPalette)
             }
             .background(theme.backgroundColor.ignoresSafeArea())
         }
@@ -155,8 +164,8 @@ public struct ReaderChapterListView: View {
     private static let coverHeight: CGFloat = 120
 
     /// Thanh kéo là của sheet hệ thống (`ReaderView.readerChapterListSheet`) — header không tự vẽ capsule hay bắt cử
-    /// chỉ kéo nữa. Số chương nằm trên dải đáy bìa (`CoverCaptionStrip`, cùng kiểu chỉ bìa của Kệ); hàng nút dồn phải,
-    /// sát đáy bìa.
+    /// chỉ kéo nữa. Số chương và nút đảo thứ tự nằm ở đầu panel Mục lục (`ChapterTOCPanelHeader`), bìa không còn dải
+    /// số chương; hàng nút dồn phải, sát đáy bìa.
     private var header: some View {
         VStack(spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
@@ -169,12 +178,6 @@ public struct ReaderChapterListView: View {
                         host: localBook?.host,
                         extensionPackageId: ext?.packageId ?? localBook?.extensionPackageId ?? ""
                     )
-                    .overlay(alignment: .bottom) {
-                        CoverCaptionStrip(
-                            subtitle: "\(store.totalCount) chương",
-                            fadeHeight: CoverCaptionStrip.compactFadeHeight
-                        )
-                    }
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -255,17 +258,6 @@ public struct ReaderChapterListView: View {
                                     .accessibilityLabel("Cập nhật mục lục")
                                 }
                             }
-
-                            // Thứ tự đọc thẳng từ store (sống suốt phiên Reader), không giữ bản sao trong view.
-                            Button(action: {
-                                store.updateSortOrder(isAscending: !store.isAscending)
-                            }) {
-                                Image(systemName: "arrow.up.arrow.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(theme.textColor)
-                                    .frame(width: 32, height: 32)
-                            }
-                            .accessibilityLabel(store.isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                         }
                     }
                 }
@@ -292,28 +284,8 @@ public struct ReaderChapterListView: View {
         return nil
     }
 
-    private var searchField: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(theme.textColor.opacity(0.6))
-            TextField("Tìm kiếm chương...", text: $searchQuery)
-                .textFieldStyle(.plain)
-                .textInputAutocapitalization(.never)
-                .foregroundColor(theme.textColor)
-                .submitLabel(.search)
-            if !searchQuery.isEmpty {
-                Button(action: { searchQuery = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(theme.textColor.opacity(0.6))
-                }
-            }
-        }
-        .padding(10)
-        .background(theme.textColor.opacity(0.08))
-        .cornerRadius(8)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-    }
+    /// Màu panel Mục lục theo nền đọc — `ReaderChapterRowView` dựng cùng bảng màu từ `theme`.
+    internal var tocPalette: ChapterTOCPalette { .reader(theme) }
 
     private func retranslateChaptersAction() {
         displayTitleCache.removeAll()

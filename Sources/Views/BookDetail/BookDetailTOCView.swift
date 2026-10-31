@@ -39,12 +39,26 @@ struct BookDetailTOCView: View {
             if isVideo {
                 videoTOC
             } else {
+                // Panel Mục lục dùng chung với Reader/comic: đầu panel + ô tìm đứng yên, chỉ danh sách cuộn.
                 VStack(spacing: 0) {
-                    if totalChaps > 0 {
-                        searchBarView
+                    ChapterTOCPanelHeader(
+                        chapterCount: readableChapterCount,
+                        noun: episodeNoun,
+                        searchText: totalChaps > 0 ? $chapterSearchQuery : nil,
+                        isAscending: isTocAscending,
+                        palette: .system,
+                        onToggleSort: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isTocAscending.toggle()
+                            }
+                        }
+                    ) {
+                        tocErrorActions
                     }
                     tocListView
                 }
+                .chapterTOCPanel(.system)
+                .padding(.top, 12)
             }
         }
         .onChange(of: appliedSearchQuery, initial: true) { recomputeVisibleSnapshots() }
@@ -124,24 +138,34 @@ struct BookDetailTOCView: View {
         visibleSnapshots = filteredChapterSnapshots
     }
 
-    private var searchBarView: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-            TextField("Tìm kiếm \(episodeNoun)...", text: $chapterSearchQuery)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.none)
-                .submitLabel(.search)
-            if !chapterSearchQuery.isEmpty {
-                Button(action: { chapterSearchQuery = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+    /// Đã có mục lục nhưng lượt tải lại lỗi: "Tải lại lỗi" + la bàn "Mở link lỗi", đứng trước nút sắp xếp ở đầu panel.
+    @ViewBuilder
+    private var tocErrorActions: some View {
+        if totalChaps > 0 && !tocErrorMessage.isEmpty {
+            Button(action: onLoadTOCDataOnly) {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                    Text("Tải lại lỗi")
                 }
+                .font(.caption)
+                .foregroundColor(.red)
+            }
+            if let link = tocErrorLink {
+                // Nút tròn la bàn 24pt, vùng chạm 36×36 — cùng hàng với nút sắp xếp.
+                Button { openingErrorLink = link } label: {
+                    Image(systemName: ErrorLinkButton.systemImage)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.white.opacity(0.16)))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ErrorLinkButton.accessibilityText)
+                .accessibilityHint(link.displayText)
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
     }
 
     private var filteredChapterSnapshots: [StoredChapterSnapshot] {
@@ -159,185 +183,102 @@ struct BookDetailTOCView: View {
 
     private var tocListView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
+            if isLoadingTOC && totalChaps == 0 {
                 HStack {
-                    Text("Danh sách \(episodeNoun) (\(readableChapterCount))")
-                        .font(.headline)
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isTocAscending.toggle()
-                        }
-                    }) {
-                        Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.leading, 4)
-
                     Spacer()
-                    if totalChaps > 0 && !tocErrorMessage.isEmpty {
-                        Button(action: onLoadTOCDataOnly) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                Text("Tải lại lỗi")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.red)
-                        }
-                        if let link = tocErrorLink {
-                            // Nút tròn la bàn 24pt cỡ hàng tiêu đề, vùng chạm 36×36; padding âm giữ bố cục như nút 24pt
-                            // (hàng không cao lên, vị trí không xê dịch).
-                            Button { openingErrorLink = link } label: {
-                                Image(systemName: ErrorLinkButton.systemImage)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 24, height: 24)
-                                    .background(Circle().fill(Color.white.opacity(0.16)))
-                                    .frame(width: 36, height: 36)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(-6)
-                            .accessibilityLabel(ErrorLinkButton.accessibilityText)
-                            .accessibilityHint(link.displayText)
-                        }
-                    }
+                    ProgressView("Đang tải danh sách \(episodeNoun)...")
+                        .padding(.vertical, 30)
+                    Spacer()
                 }
-                .padding(.horizontal)
-                .padding(.top, 4)
-
-                if isLoadingTOC && totalChaps == 0 {
-                    HStack {
-                        Spacer()
-                        ProgressView("Đang tải danh sách \(episodeNoun)...")
-                            .padding(.vertical, 30)
-                        Spacer()
-                    }
-                } else if totalChaps == 0 {
-                    if !tocErrorMessage.isEmpty {
-                        BookDetailTOCErrorBlock(
-                            message: tocErrorMessage,
-                            link: tocErrorLink,
-                            openingLink: $openingErrorLink,
-                            onReload: onLoadTOCDataOnly
-                        )
-                    } else {
-                        Text("Không tìm thấy chương nào hoặc lỗi tải chương")
-                            .foregroundColor(.gray)
-                            .padding()
-                    }
+            } else if totalChaps == 0 {
+                if !tocErrorMessage.isEmpty {
+                    BookDetailTOCErrorBlock(
+                        message: tocErrorMessage,
+                        link: tocErrorLink,
+                        openingLink: $openingErrorLink,
+                        onReload: onLoadTOCDataOnly
+                    )
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        let currentIdx = localBook?.currentChapterIndex ?? -1
-                        if !chapterSnapshots.isEmpty {
-                            ForEach(visibleSnapshots, id: \.id) { chap in
-                                if chap.isSection {
-                                    sectionHeader(isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title)
-                                } else {
-                                    Button(action: {
-                                        onStartReading(chap.index)
-                                    }) {
-                                        HStack {
-                                            let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
-                                            let isCurrent = currentIdx == chap.index
-                                            let isRead = currentIdx >= 0 && chap.index < currentIdx
-                                            Text(displayTitle)
-                                                .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
-                                                .font(.subheadline)
-                                                .lineLimit(2)
-                                            Spacer()
-                                            if chap.isCached {
-                                                Image(systemName: "arrow.down.circle.fill")
-                                                    .font(.caption)
-                                                    .foregroundColor(.green)
-                                            }
-                                        }
-                                        .padding(.vertical, 12)
-                                        .padding(.horizontal)
-                                        Divider()
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        } else if let book = localBook, !filteredLocalChapters.isEmpty {
-                            // `chaptersList` lấy từ `Book.chapters`, mà `enableSwiftDataTOCWrite = false` nên **luôn rỗng**:
-                            // sách vừa được tạo (bấm "Đọc ngay") có `localBook != nil` mà chưa nạp kịp `chapterSnapshots`
-                            // ⇒ nhánh này vẽ ra danh sách 0 dòng dù `onlineChapters` đang giữ đủ mục lục. Chỉ dùng khi có dữ liệu.
-                            ForEach(filteredLocalChapters) { chap in
-                                Button(action: {
-                                    onStartReading(chap.index)
-                                }) {
-                                    HStack {
-                                        let isCurrent = book.currentChapterIndex == chap.index
-                                        let isRead = chap.index < book.currentChapterIndex
-                                        Text(onTranslateChapterTitleIfNeeded(chap))
-                                            .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
-                                            .font(.subheadline)
-                                            .lineLimit(2)
-                                        Spacer()
-                                        if chap.isCached {
-                                            Image(systemName: "arrow.down.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.green)
-                                        }
-                                    }
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal)
-                                    Divider()
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        } else {
-                            ForEach(onlineRows, id: \.offset) { index, chap in
-                                if chap.isSection {
-                                    sectionHeader(onTranslateTitleIfNeeded(chap.name))
-                                } else {
-                                    Button(action: {
-                                        onStartReading(index)
-                                    }) {
-                                        VStack(alignment: .leading) {
-                                            let isCurrent = currentIdx == index
-                                            let isRead = currentIdx >= 0 && index < currentIdx
-                                            Text(onTranslateTitleIfNeeded(chap.name))
-                                                .font(.subheadline)
-                                                .foregroundColor(isCurrent ? .white : (isRead ? Color.primary.opacity(0.4) : .primary))
-                                                .lineLimit(2)
-                                                .padding(.vertical, 12)
-                                                .padding(.horizontal)
-                                            Divider()
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                }
+                    Text("Không tìm thấy chương nào hoặc lỗi tải chương")
+                        .foregroundColor(.gray)
+                        .padding()
+                }
+            } else {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    let currentIdx = localBook?.currentChapterIndex ?? -1
+                    if !chapterSnapshots.isEmpty {
+                        ForEach(visibleSnapshots, id: \.id) { chap in
+                            let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
+                            if chap.isSection {
+                                sectionHeader(displayTitle)
+                            } else {
+                                BookDetailTOCRow(
+                                    title: displayTitle,
+                                    isCurrent: currentIdx == chap.index,
+                                    isRead: currentIdx >= 0 && chap.index < currentIdx,
+                                    isCached: chap.isCached,
+                                    palette: .system,
+                                    onSelect: { onStartReading(chap.index) }
+                                )
                             }
                         }
-
-                        if tocPages.count > 1 && !remainingPagesLoaded {
-                            Button(action: onLoadMoreChapters) {
-                                HStack {
-                                    Spacer()
-                                    Text("Tải thêm \(episodeNoun) (còn \(tocPages.count - 1) trang)")
-                                        .fontWeight(.semibold)
-                                    Spacer()
-                                }
-                                .padding()
-                                .background(Color.white.opacity(0.16))
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    } else if let book = localBook, !filteredLocalChapters.isEmpty {
+                        // `chaptersList` lấy từ `Book.chapters`, mà `enableSwiftDataTOCWrite = false` nên **luôn rỗng**:
+                        // sách vừa được tạo (bấm "Đọc ngay") có `localBook != nil` mà chưa nạp kịp `chapterSnapshots`
+                        // ⇒ nhánh này vẽ ra danh sách 0 dòng dù `onlineChapters` đang giữ đủ mục lục. Chỉ dùng khi có dữ liệu.
+                        ForEach(filteredLocalChapters) { chap in
+                            BookDetailTOCRow(
+                                title: onTranslateChapterTitleIfNeeded(chap),
+                                isCurrent: book.currentChapterIndex == chap.index,
+                                isRead: chap.index < book.currentChapterIndex,
+                                isCached: chap.isCached,
+                                palette: .system,
+                                onSelect: { onStartReading(chap.index) }
+                            )
+                        }
+                    } else {
+                        ForEach(onlineRows, id: \.offset) { index, chap in
+                            if chap.isSection {
+                                sectionHeader(onTranslateTitleIfNeeded(chap.name))
+                            } else {
+                                BookDetailTOCRow(
+                                    title: onTranslateTitleIfNeeded(chap.name),
+                                    isCurrent: currentIdx == index,
+                                    isRead: currentIdx >= 0 && index < currentIdx,
+                                    isCached: false,
+                                    palette: .system,
+                                    onSelect: { onStartReading(index) }
                                 )
-                                .padding(.horizontal)
-                                .padding(.top, 10)
                             }
-                            .onAppear(perform: autoLoadMoreChaptersIfNeeded) // nằm trong `LazyVStack` ⇒ chỉ khi cuộn tới cuối
                         }
                     }
+
+                    if tocPages.count > 1 && !remainingPagesLoaded {
+                        Button(action: onLoadMoreChapters) {
+                            HStack {
+                                Spacer()
+                                Text("Tải thêm \(episodeNoun) (còn \(tocPages.count - 1) trang)")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.white.opacity(0.16))
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 8)
+                            .padding(.top, 10)
+                        }
+                        .onAppear(perform: autoLoadMoreChaptersIfNeeded) // nằm trong `LazyVStack` ⇒ chỉ khi cuộn tới cuối
+                    }
                 }
+                // Hàng tự đệm ngang 8 (nền chương đang đọc) ⇒ chữ thẳng lề 16 với đầu panel.
+                .padding(.horizontal, 8)
+                .padding(.bottom)
             }
-            .padding(.vertical)
         }
     }
 
@@ -361,19 +302,17 @@ struct BookDetailTOCView: View {
         return Self.liftSectionHeaders(filteredOnlineChapters, isSection: { $0.element.isSection })
     }
 
+    /// Nhãn nhóm tập — không vạch riêng: hàng chương ngay dưới tự vẽ vạch ở trên nó (`BookDetailTOCRow`).
     private func sectionHeader(_ title: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.subheadline.weight(.bold))
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.top, 16)
-                .padding(.bottom, 6)
-            Divider()
-        }
-        .accessibilityAddTraits(.isHeader)
+        Text(title)
+            .font(.subheadline.weight(.bold))
+            .foregroundColor(.secondary)
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.top, 16)
+            .padding(.bottom, 6)
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// Danh sách **đã đảo chiều**: tiêu đề nhóm đứng sau các tập của nó — đưa lên đầu nhóm. Tập đứng trước tiêu đề

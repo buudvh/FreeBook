@@ -1,6 +1,10 @@
 import SwiftUI
 
+/// Thẻ đề xuất của tab Chi tiết (`BookDetailSectionCard`): tiêu đề + "Xem thêm ›" (mở `CategoryNovelsListView`), dưới
+/// là lưới 2 cột bìa + tên.
 struct SuggestRowView: View {
+    /// Tiêu đề thẻ (đã dịch nếu cần) — `BookDetailView` truyền `translateMetaIfNeeded(category.title)`.
+    let title: String
     let category: CategoryResult
     let localPath: String
     let downloadUrl: String
@@ -25,6 +29,44 @@ struct SuggestRowView: View {
     @State private var skipsReappearLoad = false
     
     var body: some View {
+        BookDetailSectionCard(title: title) {
+            content
+        } trailing: {
+            NavigationLink(destination: CategoryNovelsListView(
+                category: category,
+                extensionPackageId: extensionPackageId,
+                localPath: localPath,
+                downloadUrl: downloadUrl,
+                configJson: configJson,
+                sourceName: sourceName
+            )) {
+                HStack(spacing: 4) {
+                    Text("Xem thêm")
+                    Image(systemName: "chevron.right")
+                }
+                .font(.subheadline)
+                .foregroundColor(.white)
+            }
+        }
+        .task(id: refreshGeneration) {
+            if skipsReappearLoad {
+                skipsReappearLoad = false
+                return
+            }
+            guard loadedGeneration != refreshGeneration else { return }
+            await loadSuggests()
+        }
+        .onDisappear {
+            if openingErrorLink != nil { skipsReappearLoad = true }
+        }
+        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
+            skipsReappearLoad = false
+            Task { await loadSuggests() }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             if isLoading {
                 HStack {
@@ -54,7 +96,7 @@ struct SuggestRowView: View {
                             .font(.title3)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .background(Color.red.opacity(0.05))
                 .cornerRadius(8)
@@ -62,7 +104,6 @@ struct SuggestRowView: View {
                 Text("Không có gợi ý nào")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .padding(.horizontal)
             } else {
                 let columns = [
                     GridItem(.flexible(), spacing: 12),
@@ -104,24 +145,8 @@ struct SuggestRowView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 4)
+                .padding(.top, 2)
             }
-        }
-        .task(id: refreshGeneration) {
-            if skipsReappearLoad {
-                skipsReappearLoad = false
-                return
-            }
-            guard loadedGeneration != refreshGeneration else { return }
-            await loadSuggests()
-        }
-        .onDisappear {
-            if openingErrorLink != nil { skipsReappearLoad = true }
-        }
-        .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
-            skipsReappearLoad = false
-            Task { await loadSuggests() }
         }
     }
     

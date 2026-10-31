@@ -44,12 +44,16 @@ public struct ReaderChapterRowView: View {
         }
     }
 
+    /// Hàng nằm trong panel Mục lục (`ChapterTOCPanelBackground`) ⇒ màu theo bảng màu của panel, nền trong suốt.
+    private var palette: ChapterTOCPalette { .reader(theme) }
+
     private var contentRow: some View {
         HStack(spacing: 4) {
             HStack(spacing: 0) {
                 Text(displayTitle)
                     .font(.body)
-                    .foregroundColor(isCurrent ? .white : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
+                    // Đang đọc: chữ trắng chỉ ở nền Tối — nền Sáng/Trầm ấm dùng màu chữ của nền (trắng không đọc được).
+                    .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -62,7 +66,8 @@ public struct ReaderChapterRowView: View {
                 .frame(width: 30, height: 30)
         }
         .padding(.vertical, 4)
-        .listRowBackground(isCurrent ? Color.white.opacity(0.1) : theme.backgroundColor)
+        .listRowBackground(isCurrent ? palette.currentRowFill : Color.clear)
+        .listRowSeparatorTint(palette.divider)
     }
 
     /// Ba trạng thái dùng **cùng một** khung 30×30 để hàng không nhảy chiều cao khi đổi trạng thái.
@@ -99,7 +104,8 @@ public struct ReaderChapterRowView: View {
             SkeletonView(width: 14, height: 14, color: theme.textColor.opacity(0.18))
         }
         .padding(.vertical, 4)
-        .listRowBackground(theme.backgroundColor)
+        .listRowBackground(Color.clear)
+        .listRowSeparatorTint(palette.divider)
         .accessibilityLabel("Đang tải chương...")
     }
 

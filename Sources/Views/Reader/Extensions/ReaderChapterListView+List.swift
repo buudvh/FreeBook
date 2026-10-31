@@ -37,7 +37,7 @@ extension ReaderChapterListView {
                     }
                 }
                 .listStyle(.plain)
-                .background(theme.backgroundColor)
+                // Nằm trong panel Mục lục: nền trong suốt để thấy nền panel (hàng tự đặt nền + màu vạch).
                 .scrollContentBackground(.hidden)
 
                 if store.isSearching {

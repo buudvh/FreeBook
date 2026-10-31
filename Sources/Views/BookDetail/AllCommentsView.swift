@@ -91,7 +91,8 @@ struct AllCommentsView: View {
                                 .padding(.leading, 36)
                             }
                         }
-                        .padding(.vertical, 4)
+                        // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
+                        .bookListPanelRow()
                         .onAppear {
                             // Infinite Scroll: Khi cuộn tới phần tử cuối cùng và có trang tiếp theo
                             if comment.id == comments.last?.id && nextPageUrl != nil {
@@ -109,6 +110,7 @@ struct AllCommentsView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
+                        .bookListPanelRowChrome()
                     }
                 }
                 .listStyle(.plain)
