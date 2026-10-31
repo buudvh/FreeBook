@@ -302,7 +302,7 @@ public struct ReaderAIFullScreenView: View {
                     .cornerRadius(16)
                     .contextMenu {
                         Button {
-                            UIPasteboard.general.string = message.content
+                            ClipboardCopier.copy(message.content)
                         } label: {
                             Label("Sao chép tin nhắn", image: AppGlyph.copy.assetName)
                         }
@@ -329,7 +329,7 @@ public struct ReaderAIFullScreenView: View {
                             .cornerRadius(16)
                             .contextMenu {
                                 Button {
-                                    UIPasteboard.general.string = message.content
+                                    ClipboardCopier.copy(message.content)
                                 } label: {
                                     Label("Sao chép tin nhắn", image: AppGlyph.copy.assetName)
                                 }

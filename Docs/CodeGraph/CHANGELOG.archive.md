@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.633] - 2026-10-28
+
+### fix: ngăn kéo menu thành kính đục vừa
+
+Người dùng: *"làm cho menu có một độ đục nhất định. Cho mockup trước"*; duyệt **kiểu 2 — kính đục vừa** (nhoè vừa + tối 55%).
+
+- **`SideDrawerPartialBlurView`** (mới, `Views/Common/SideDrawerMenu/`): nhoè **một phần** — `UIVisualEffectView` với `UIViewPropertyAnimator` chuyển `effect` từ `nil` sang `UIBlurEffect(.systemUltraThinMaterialDark)` rồi dừng ở `intensity` (0,6). Material của SwiftUI chỉ có một mức nhoè, mạnh tới mức nền Kệ đen thành mảng xám đều (lý do 1.3.622–630 bị chê "chẳng trong suốt"). Animator dựng lại khi view vào cửa sổ và khi app trở lại foreground; luôn `stopAnimation(true)` trước khi thả (thả animator đang dừng là crash).
+- **`SideDrawerMenuPanel.drawerBackground`**: nhoè 60% + lớp tối `Color(white: 0.16).opacity(0.55)` (thay lớp tối 80% không nhoè của 1.3.632); viền trái và lớp phủ 30% phần màn còn lại giữ nguyên.
+- Chuyển entry `[1.3.603]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — độ nhoè thật trên máy có thể khác mockup, chỉnh `intensity` nếu cần.
+
 ## [1.3.632] - 2026-10-28
 
 ### fix: bấm dừng lọc name ghi chương đã dừng vào tin AI, ngăn kéo menu tối 80%

@@ -201,7 +201,7 @@ public struct DictEntrySheet: View {
             .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Button(action: {
-                UIPasteboard.general.string = text.wrappedValue
+                ClipboardCopier.copy(text.wrappedValue)
             }) {
                 AppGlyph.copy.image(size: 13)
                     .frame(width: 28, height: 26)

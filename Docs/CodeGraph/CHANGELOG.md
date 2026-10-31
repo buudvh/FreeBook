@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.663] - 2026-10-31
+
+### fix: mọi nút sao chép cạnh ô nhập báo toast Đã sao chép
+
+Người dùng: *"tôi đã yêu cầu nhấp nút copy trên bàn phím thì có toast báo nhưng sao bạn chỉ làm cho màn hình browser thôi, phải làm tất cả chỗ nào hiển thị bàn phím có nút copy chứ"* (1.3.656 chỉ thêm toast cho nút sao chép của thanh công cụ bàn phím).
+
+- **`ClipboardCopier.copy(_:message:)`** (mới, `Views/Common/`): ghi bộ nhớ tạm + toast "Đã sao chép" (`recordsInInbox: false`, không vào Trung tâm thông báo). Nút sao chép mới thì gọi qua đây.
+- Dùng cho: thanh công cụ bàn phím (`KeyboardTextToolbarModel.copy`), bộ nút cạnh ô một dòng `TextFieldClipboardButtons` (Cấu hình tiện ích, Thông tin plugin.json), nút sao chép cạnh ô của Từ điển (`DictEntrySheet`), Trí nhớ AI (`BookAIMemorySheet`), Cài đặt AI (`AISettingsView+Actions`), ô chữ thử VieNeu, và hai nút trước đây sao chép im lặng: "Sao chép tin nhắn" của Trợ lý AI toàn màn, địa chỉ của Debug server tiện ích. Các nút đã có toast/chỉ báo riêng giữ nguyên.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — toast nổi trên bàn phím ở sheet (Từ điển, Trí nhớ AI).
+
 ## [1.3.662] - 2026-10-31
 
 ### feat: panel Mục lục dùng chung, thẻ gợi ý và bình luận ở Chi tiết
@@ -380,14 +390,3 @@ Người dùng: *"nếu tải bị lỗi 5 chương liên tiếp thì dừng l�
 - **Thông báo**: dùng `markFailed` sẵn có — toast lỗi, dòng "Thất bại" kèm lý do ở tab Tải và hộp thư Thông báo, nút Thử lại (tải tiếp, chương đã tải bỏ qua nhanh).
 - Chuyển entry `[1.3.604]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.633] - 2026-10-28
-
-### fix: ngăn kéo menu thành kính đục vừa
-
-Người dùng: *"làm cho menu có một độ đục nhất định. Cho mockup trước"*; duyệt **kiểu 2 — kính đục vừa** (nhoè vừa + tối 55%).
-
-- **`SideDrawerPartialBlurView`** (mới, `Views/Common/SideDrawerMenu/`): nhoè **một phần** — `UIVisualEffectView` với `UIViewPropertyAnimator` chuyển `effect` từ `nil` sang `UIBlurEffect(.systemUltraThinMaterialDark)` rồi dừng ở `intensity` (0,6). Material của SwiftUI chỉ có một mức nhoè, mạnh tới mức nền Kệ đen thành mảng xám đều (lý do 1.3.622–630 bị chê "chẳng trong suốt"). Animator dựng lại khi view vào cửa sổ và khi app trở lại foreground; luôn `stopAnimation(true)` trước khi thả (thả animator đang dừng là crash).
-- **`SideDrawerMenuPanel.drawerBackground`**: nhoè 60% + lớp tối `Color(white: 0.16).opacity(0.55)` (thay lớp tối 80% không nhoè của 1.3.632); viền trái và lớp phủ 30% phần màn còn lại giữ nguyên.
-- Chuyển entry `[1.3.603]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — độ nhoè thật trên máy có thể khác mockup, chỉnh `intensity` nếu cần.

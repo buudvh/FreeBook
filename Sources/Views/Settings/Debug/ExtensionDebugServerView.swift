@@ -59,7 +59,7 @@ struct ExtensionDebugServerView: View {
                             .textSelection(.enabled)
                         Spacer()
                         Button {
-                            UIPasteboard.general.string = endpoint
+                            ClipboardCopier.copy(endpoint)
                         } label: {
                             AppGlyph.copy.image(size: 17)
                         }

@@ -162,7 +162,7 @@ extension AISettingsView {
             .buttonStyle(.plain)
 
             Button {
-                UIPasteboard.general.string = text.wrappedValue
+                ClipboardCopier.copy(text.wrappedValue)
             } label: {
                 AppGlyph.copy.image(size: 13)
                     .frame(width: 28, height: 26)

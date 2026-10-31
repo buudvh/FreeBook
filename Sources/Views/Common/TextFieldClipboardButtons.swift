@@ -34,7 +34,7 @@ struct TextFieldClipboardButtons: View {
             }
             .disabled(text.isEmpty)
 
-            button(accessibility: "Sao chép", action: { UIPasteboard.general.string = text }) {
+            button(accessibility: "Sao chép", action: { ClipboardCopier.copy(text) }) {
                 AppGlyph.copy.image(size: 13)
             }
             .disabled(text.isEmpty)

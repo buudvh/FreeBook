@@ -133,7 +133,7 @@ extension VieNeuTTSTestView {
                 .disabled(text.isEmpty)
 
                 Button {
-                    UIPasteboard.general.string = text
+                    ClipboardCopier.copy(text)
                 } label: {
                     AppGlyph.copy.image(size: 17)
                 }
