@@ -171,7 +171,6 @@ struct ReaderView: View {
     @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
-    @AppStorage(ReaderEdgeTapDetector.preferenceKey) internal var edgeTapChangesChapter = true // Chạm 1/3 trái/phải để chuyển chương
     @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""

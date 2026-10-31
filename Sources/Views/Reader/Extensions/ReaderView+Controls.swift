@@ -306,32 +306,13 @@ extension ReaderView {
         AppLogger.shared.log("[Reader] Người dùng tự cuộn khi TTS đang đọc — tắt cuộn theo highlight")
     }
 
-    /// Hai đầu dò UIKit nằm **trong** content của khung cuộn chương: kéo tay khi TTS đang đọc
-    /// (`ReaderUserScrollDetector`) và chạm 1/3 trái/phải để chuyển chương (`ReaderEdgeTapDetector`, 1.3.643). Cả hai
-    /// không tiêu thụ touch nên không đụng bôi đen chữ.
+    /// Đầu dò UIKit nằm **trong** content của khung cuộn chương: kéo tay khi TTS đang đọc (`ReaderUserScrollDetector`).
+    /// Không tiêu thụ touch nên không đụng bôi đen chữ. Chạm 1/3 hai bên để chuyển chương (1.3.643) đã bỏ ở 1.3.667 —
+    /// đổi chương chỉ bằng nút Chương trước/sau và mục lục.
     internal var readerScrollProbes: some View {
-        ZStack(alignment: .topLeading) {
-            ReaderUserScrollDetector { handleUserScrollWhilePlaying() }
-            ReaderEdgeTapDetector(
-                isEnabled: edgeTapChangesChapter,
-                isSelectionActive: { showingFloatingMenu },
-                onTap: handleEdgeTap
-            )
-        }
-        .frame(width: 1, height: 1)
-        .allowsHitTesting(false)
-    }
-
-    /// Chạm hai bên khung đọc: đi đúng cửa của nút Chương trước/sau (tôn trọng TTS đang đọc). Chương đầu/cuối thì
-    /// `stepChapterHonoringTTS` tự bỏ qua; chỉ rung khi thật sự có chương để chuyển.
-    internal func handleEdgeTap(_ direction: ReaderEdgeTapDetector.Direction) {
-        guard !showingFloatingMenu else { return }
-        let offset = direction == .next ? 1 : -1
-        let baseIndex = viewModel?.pendingNavigationIndex ?? viewModel?.displayedChapterIndex ?? chapterIndex
-        let target = baseIndex + offset
-        guard target >= 0 && target < totalChaptersCount else { return }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        stepChapterHonoringTTS(by: offset, source: direction == .next ? .nextButton : .previousButton)
+        ReaderUserScrollDetector { handleUserScrollWhilePlaying() }
+            .frame(width: 1, height: 1)
+            .allowsHitTesting(false)
     }
 
     /// Nhảy từ widget TTS là lệnh quay lại vệt đang nghe, nên bật lại cuộn theo highlight nếu phiên

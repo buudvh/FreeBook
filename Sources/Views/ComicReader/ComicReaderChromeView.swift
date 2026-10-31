@@ -11,8 +11,6 @@ struct ComicReaderChromeView: View {
     let isTranslationEnabled: Bool
     let onBack: () -> Void
     let onOpenChapterList: () -> Void
-    /// Ngăn kéo "…" của màn đọc (chọn cách chuyển chương).
-    let onOpenMenu: () -> Void
 
     private static let barBackground = Color.black.opacity(0.82)
 
@@ -51,24 +49,13 @@ struct ComicReaderChromeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Cụm nút liền nhau đứng sát (`HeaderButtonMetrics`); khoảng cách 6 của thanh chỉ cho nút lùi và tiêu đề.
-            HStack(spacing: HeaderButtonMetrics.pairSpacing) {
-                Button(action: onOpenChapterList) {
-                    Image(systemName: "list.bullet")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Mục lục")
-
-                Button(action: onOpenMenu) {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Tuỳ chọn đọc")
+            Button(action: onOpenChapterList) {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 36, height: 38)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("Mục lục")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)

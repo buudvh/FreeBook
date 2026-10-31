@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.667] - 2026-10-31
+
+### feat: bỏ chạm 1/3 hai bên và vuốt ngang để đổi chương
+
+Người dùng: *"bỏ chạm 1/3 trái phải để chuyển chương giúp tôi"* — chọn bỏ ở cả Reader lẫn truyện tranh; comic chỉ đổi chương bằng nút/mục lục (bỏ luôn vuốt ngang), chạm ảnh ở đâu cũng bật/tắt thanh, bỏ nút "…", cuối chương *"không có gì"*. Đảo phần chạm hai bên của 1.3.643 và vuốt ngang của 1.3.613.
+
+- **Truyện tranh**: xoá `ComicChapterNavigationMode` cùng ngăn kéo "Tuỳ chọn đọc" và nút "…" ở thanh trên (thanh trên còn ☰, khung 36×38 vì giờ đứng một mình). `ComicReaderView` bỏ `chapterSwipeGesture`/`handleChapterSwipe`, `handleSingleTap`, `stepChapter` (cùng hai toast chương đầu/mới nhất); chạm ảnh và dòng cuối chương gọi thẳng `toggleChrome()`. `ComicPageView.onSingleTap` thành `() -> Void` (không cần điểm chạm). Đổi chương chỉ còn nút Chương trước/sau ở thanh dưới, mục lục, và nút "Chương tiếp" ở màn chương rỗng (giữ nguyên).
+- **Cuối chương comic**: bỏ dòng gợi ý "Chạm bên phải…/Vuốt sang trái…"; còn "Hết chương" (chương cuối thêm "Đây là chương mới nhất"), giữ lề dưới 96 để ảnh cuối không nằm dưới thanh dưới.
+- **Reader truyện chữ**: xoá `ReaderEdgeTapDetector` và `handleEdgeTap`; `readerScrollProbes` chỉ còn `ReaderUserScrollDetector` (tắt cuộn theo highlight khi tự kéo lúc TTS đọc — giữ nguyên). Bỏ công tắc "Chạm hai bên để chuyển chương" ở Cài đặt đọc.
+- **Giá trị đã lưu**: khoá `comicChapterNavigationMode` và `readerEdgeTapChangesChapter` còn trong `UserDefaults` nhưng không code nào đọc ⇒ không ảnh hưởng, không cần migration.
+- CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic. Chuyển entry `[1.3.637]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff, grep sạch các tên đã xoá trong `Sources/`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: comic chạm ảnh (cả hai bên) chỉ bật/tắt thanh, chạm đúp phóng to, vuốt ngang không đổi chương, nút Chương trước/sau; Reader chạm hai bên không đổi chương, bôi đen và tắt cuộn theo highlight khi TTS đọc như cũ.
+
 ## [1.3.666] - 2026-10-31
 
 ### feat: thanh dưới trình duyệt gắn sát đáy, nút Import và ⋮ trong thanh
@@ -380,15 +393,3 @@ Người dùng: *"thêm nút xuất ra txt cho vp,name,phiên âm,… chung"*; c
 - **Cài đặt dịch thuật › Từ điển chung**: icon ↑ cuối mỗi thẻ (`TranslationSettingsView+Export`, phủ `overlay` lên thẻ vì thẻ là nhãn của nút Nhập — lồng nút trong nhãn nút thì chạm lẫn nhau; `DictionaryCard` chừa ô 32×32 qua `reservesExportSlot`). Chạm thẻ vẫn là Nhập. Đang xuất: vòng quay + "Đang xuất...", nút Nhập của thẻ đó khoá; một lượt xuất một lúc; thẻ chưa có dữ liệu thì icon mờ. Xuất chạy `Task.detached` rồi mở bảng chia sẻ; đóng bảng thì xoá file tạm; lỗi ⇒ toast + log `❌`.
 - Chuyển entry `[1.3.608]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: VietPhrase cỡ trăm nghìn – triệu từ nên xuất mất vài giây và tốn RAM cỡ lúc Gộp.
-
-## [1.3.637] - 2026-10-28
-
-### fix: thanh kéo Giao diện cập nhật ngay, nút + nổi ở Lọc rác
-
-Người dùng: *"cài đặt độ trong suốt và độ đục chưa hoạt động"*, *"nút thêm lọc rác chưa chuẩn hoá"*; duyệt mockup + plan.
-
-- **Khoá cài đặt kính bỏ dấu chấm** (`GlassChromeSettings`): `glassChrome.floatingButton.transparency`… → `glassChromeFloatingTransparency`, `glassChromeFloatingFrost`, `glassChromeDrawerTransparency`, `glassChromeDrawerFrost`. `@AppStorage` nghe thay đổi qua KVO của `UserDefaults`, KVO đọc dấu chấm là key path lồng nhau ⇒ thanh kéo ghi được nhưng nút nổi, ngăn kéo và ô xem trước (mỗi view một `@AppStorage` riêng) không được báo. Mọi khoá `@AppStorage` khác trong app vốn không có dấu chấm. Giá trị đã kéo dưới khoá cũ (chỉ có từ 1.3.636) về mặc định một lần.
-- **Ô xem trước** (`AppearanceSettingsView`): nền tối + chữ xám mờ đổi thành dải 5 "bìa" màu (Ch.1–Ch.5) chạy dưới nút và dưới ngăn kéo, cao 112 → 128pt — trên nền tối, lớp màu kính (xám 0.16) và độ nhoè gần như không đổi khi kéo. Mặc định và màu lớp kính giữ nguyên.
-- **Lọc rác** (`JunkFilterManagementView`): "Thêm quy tắc" rời ngăn kéo thành nút "+" nổi (`.floatingAddButton`); nút "…" 17pt semibold như các màn danh sách khác; vạch ngăn sau "Sắp xếp lại" chỉ hiện cùng mục đó (đang tìm thì ngăn kéo không mở đầu bằng vạch). Hàng quy tắc giữ nguyên (người dùng loại Lọc rác khỏi đợt đồng bộ hàng ở 1.3.635).
-- Chuyển entry `[1.3.607]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Nguyên nhân khoá có dấu chấm là suy từ code, chưa tái hiện được trên máy.

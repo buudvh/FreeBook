@@ -7,8 +7,8 @@ import UIKit
 ///   tải xong thì dùng tỉ lệ thật của ảnh.
 /// - Tải qua `ComicImageLoader` với bề ngang tối đa = bề ngang màn × scale; task tự huỷ khi hàng biến mất,
 ///   ảnh cũng được thả khỏi `@State` để `LazyVStack` không giữ ảnh của hàng đã cuộn qua (cache của loader lo phần tải lại).
-/// - Chạm một lần báo điểm chạm cho màn đọc (đổi chương ở 1/3 hai bên hoặc bật/tắt thanh — `ComicChapterNavigationMode`),
-///   chạm đúp mở trình xem phóng to; ảnh lỗi có nút "Thử lại".
+/// - Chạm một lần bật/tắt thanh điều khiển của màn đọc (không đổi chương), chạm đúp mở trình xem phóng to;
+///   ảnh lỗi có nút "Thử lại".
 /// - `request.source.imageStyle` (nguồn Legado, spec §8.5): `FULL` = ảnh khớp trọn bề ngang, không lề, không khoảng
 ///   cách giữa ảnh — đúng cách màn này luôn vẽ (`LazyVStack(spacing: 0)` + `.frame(maxWidth: .infinity)`); giá trị
 ///   khác/rỗng (`0`, `DEFAULT`, `TEXT`…) giữ nguyên cách vẽ đó, nên không cần rẽ nhánh.
@@ -19,8 +19,8 @@ struct ComicPageView: View {
     let maxPixelWidth: Int
     let estimatedAspectRatio: CGFloat
     let onAspectRatioMeasured: (CGFloat) -> Void
-    /// Chạm một lần, kèm điểm chạm trong toạ độ `.global` — màn đọc quyết định đổi chương (1/3 hai bên) hay bật/tắt thanh.
-    let onSingleTap: (CGPoint) -> Void
+    /// Chạm một lần (ở đâu trên ảnh cũng vậy) — màn đọc bật/tắt thanh điều khiển.
+    let onSingleTap: () -> Void
     let onDoubleTap: (UIImage) -> Void
 
     @State private var image: UIImage?
@@ -44,7 +44,7 @@ struct ComicPageView: View {
             .onTapGesture(count: 2) {
                 if let image { onDoubleTap(image) }
             }
-            .onTapGesture(count: 1, coordinateSpace: .global) { location in onSingleTap(location) }
+            .onTapGesture(count: 1) { onSingleTap() }
             .task(id: attempt) { await loadImage() }
             .onDisappear { image = nil }
     }

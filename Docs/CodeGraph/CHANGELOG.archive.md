@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.637] - 2026-10-28
+
+### fix: thanh kéo Giao diện cập nhật ngay, nút + nổi ở Lọc rác
+
+Người dùng: *"cài đặt độ trong suốt và độ đục chưa hoạt động"*, *"nút thêm lọc rác chưa chuẩn hoá"*; duyệt mockup + plan.
+
+- **Khoá cài đặt kính bỏ dấu chấm** (`GlassChromeSettings`): `glassChrome.floatingButton.transparency`… → `glassChromeFloatingTransparency`, `glassChromeFloatingFrost`, `glassChromeDrawerTransparency`, `glassChromeDrawerFrost`. `@AppStorage` nghe thay đổi qua KVO của `UserDefaults`, KVO đọc dấu chấm là key path lồng nhau ⇒ thanh kéo ghi được nhưng nút nổi, ngăn kéo và ô xem trước (mỗi view một `@AppStorage` riêng) không được báo. Mọi khoá `@AppStorage` khác trong app vốn không có dấu chấm. Giá trị đã kéo dưới khoá cũ (chỉ có từ 1.3.636) về mặc định một lần.
+- **Ô xem trước** (`AppearanceSettingsView`): nền tối + chữ xám mờ đổi thành dải 5 "bìa" màu (Ch.1–Ch.5) chạy dưới nút và dưới ngăn kéo, cao 112 → 128pt — trên nền tối, lớp màu kính (xám 0.16) và độ nhoè gần như không đổi khi kéo. Mặc định và màu lớp kính giữ nguyên.
+- **Lọc rác** (`JunkFilterManagementView`): "Thêm quy tắc" rời ngăn kéo thành nút "+" nổi (`.floatingAddButton`); nút "…" 17pt semibold như các màn danh sách khác; vạch ngăn sau "Sắp xếp lại" chỉ hiện cùng mục đó (đang tìm thì ngăn kéo không mở đầu bằng vạch). Hàng quy tắc giữ nguyên (người dùng loại Lọc rác khỏi đợt đồng bộ hàng ở 1.3.635).
+- Chuyển entry `[1.3.607]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Nguyên nhân khoá có dấu chấm là suy từ code, chưa tái hiện được trên máy.
+
 ## [1.3.636] - 2026-10-28
 
 ### feat: màn Giao diện chỉnh nút nổi và menu, nút + nổi, danh sách cuộn vô cực
