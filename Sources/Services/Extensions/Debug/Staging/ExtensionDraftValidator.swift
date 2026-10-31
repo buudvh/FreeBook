@@ -75,7 +75,8 @@ public enum ExtensionDraftValidator {
         var issues: [String] = []
         for match in matches where match.numberOfRanges == 2 {
             let dependency = ns.substring(with: match.range(at: 1))
-            if resolvedScriptPath(dependency, declaredPaths: declaredPaths) == nil {
+            // Thư viện dựng sẵn (`crypto.js`) app tự cấp khi snapshot không mang file.
+            if resolvedScriptPath(dependency, declaredPaths: declaredPaths) == nil && !JSBuiltInLibrary.isBuiltIn(dependency) {
                 issues.append("\(relativePath): load(\"\(dependency)\") không có trong snapshot")
             }
         }

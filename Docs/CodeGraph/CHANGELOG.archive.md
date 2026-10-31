@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.634] - 2026-10-28
+
+### feat: tải truyện dừng và báo lỗi khi 5 chương liên tiếp tải lỗi
+
+Người dùng: *"nếu tải bị lỗi 5 chương liên tiếp thì dừng lại và thông báo"*; chọn báo lỗi + Thử lại (không thêm trạng thái tạm dừng), áp cho chữ + comic + video, xuất ebook bị dừng thì không ghi file; duyệt plan.
+
+- **`DownloadFailureStreak`** (mới): ngưỡng `limit = 5` (cùng `TTSManager.maxConsecutiveChapterFailures`); chương lỗi ⇒ +1, chương lấy được hoặc đã có sẵn trong máy ⇒ về 0; lời báo *"Đã dừng: 5 chương liên tiếp tải lỗi (ch.12–16). Kiểm tra nguồn rồi bấm Thử lại — chương đã tải không phải tải lại."* (video: "tập").
+- **Truyện chữ / xuất ebook** (`DownloadManager+ChapterLanes.runChapterLanes`): đếm ở vòng giao kết quả đã xếp đúng thứ tự mục lục ⇒ "liên tiếp" đúng cả khi chạy 2–3 luồng; `.skippedUncached` ("Chỉ xuất chương đã tải") không tính. Chạm ngưỡng ⇒ `checkCancellation` (đang huỷ thì vẫn báo "Đã hủy") rồi ném `LimitReached` ⇒ nhánh `catch` sẵn có của `executeTask` bỏ file xuất dở + `markFailed`. Trước đây chương lỗi bị bỏ qua tới hết phạm vi.
+- **Truyện tranh** (`DownloadManager+Comic`): đếm trong vòng từng chương; chạm ngưỡng ⇒ nhả `ComicImageScriptRunner` + `markFailed`.
+- **Video** (`DownloadManager+Video`): đếm theo tập; chạm ngưỡng ⇒ các tập còn chờ thành "Đã huỷ" + `markFailed`, cùng kiểu dừng khi bộ nhớ dưới 1 GB.
+- **Thông báo**: dùng `markFailed` sẵn có — toast lỗi, dòng "Thất bại" kèm lý do ở tab Tải và hộp thư Thông báo, nút Thử lại (tải tiếp, chương đã tải bỏ qua nhanh).
+- Chuyển entry `[1.3.604]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.633] - 2026-10-28
 
 ### fix: ngăn kéo menu thành kính đục vừa

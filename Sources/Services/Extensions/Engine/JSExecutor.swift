@@ -848,8 +848,9 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(browserCloseVisibleBlock, forKeyedSubscript: "_nativeBrowserCloseVisible" as NSCopying & NSObjectProtocol)
 
-        // Đăng ký JSCrypto toàn cục
+        // Đăng ký JSCrypto toàn cục + phần native của CryptoJS (`crypto.getRandomValues`, AES-GCM, PBKDF2)
         context.setObject(JSCrypto.self, forKeyedSubscript: "Crypto" as NSCopying & NSObjectProtocol)
+        JSCryptoJSBridge.install(in: context)
 
         // 9. Đăng ký đối tượng Engine toàn cục (Browser thực tế)
         let engineBootstrap = JSEngineBootstrapScript.source

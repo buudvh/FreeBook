@@ -74,7 +74,10 @@ enum ExtensionScriptStaticCheck {
         guard matches(executeRegex, in: source) else {
             return "Không có hàm execute"
         }
-        if let missing = loadTargets(in: source).first(where: { resolve($0, localPath: localPath) == nil }) {
+        // Tên thư viện dựng sẵn (`crypto.js`) không cần file: app tự cấp khi tiện ích không mang.
+        if let missing = loadTargets(in: source).first(where: {
+            resolve($0, localPath: localPath) == nil && !JSBuiltInLibrary.isBuiltIn($0)
+        }) {
             return "load(\"\(missing)\") trỏ tới file không có"
         }
         return nil

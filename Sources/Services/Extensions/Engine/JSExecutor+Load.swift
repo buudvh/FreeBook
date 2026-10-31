@@ -16,6 +16,9 @@ import JavaScriptCore
 ///   khai báo) và không đè lại khai báo của script chính.
 /// - `load` lúc runtime với file **chưa** nạp khi chuẩn bị (`Script.execute("gen.js", "execute")`, `Qt.include`, lời
 ///   gọi thụt lề trong thân hàm) giữ hành vi cũ: chạy file ngay, mỗi lần gọi.
+/// - Tiện ích không mang file mà tên là thư viện dựng sẵn (`JSBuiltInLibrary`, vd. `crypto.js` = CryptoJS 4.2.0) ⇒ chạy
+///   bản đóng gói, một lần mỗi executor (cả `load` lúc runtime). File của tiện ích luôn thắng. Sau mỗi lần nạp
+///   `crypto.js` (bản nào cũng vậy) gắn phần native `JSCryptoJSBootstrapScript.addons`.
 extension JSExecutor {
     /// `load('x.js')` / `load("x.js")` ở cột 0 (cho phép BOM ở đầu file). Dòng `// load(...)` không khớp.
     private static let entryLoadRegex = try? NSRegularExpression(
@@ -23,7 +26,7 @@ extension JSExecutor {
         options: [.anchorsMatchLines]
     )
 
-    /// Đăng ký hàm toàn cục `load(filename)`: tìm file ở gốc tiện ích rồi tới `src/`, thiếu file ⇒ bỏ qua.
+    /// Đăng ký hàm toàn cục `load(filename)`: tìm file ở gốc tiện ích rồi tới `src/`, rồi thư viện dựng sẵn; không có ⇒ bỏ qua.
     internal func installLoadFunction() {
         let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
             self?.evaluateLibrary(named: filename)
@@ -41,18 +44,33 @@ extension JSExecutor {
     }
 
     private func evaluateLibrary(named filename: String) {
-        guard !preparedLibraries.contains(filename), let localPath else { return }
+        guard !preparedLibraries.contains(filename) else { return }
 
+        if let data = extensionLibraryData(named: filename) {
+            // Ghi trước khi chạy: file nạp tự `load` lại chính nó cũng không lặp.
+            if isPreparingEntryScript { preparedLibraries.insert(filename) }
+            context.evaluateScript(decodeData(data))
+        } else if let builtIn = JSBuiltInLibrary(rawValue: filename) {
+            preparedLibraries.insert(filename)
+            guard let source = builtIn.source else { return }
+            context.evaluateScript(source)
+        } else {
+            return
+        }
+
+        // Gắn phần native lên `CryptoJS` vừa nạp; đoạn JS tự bỏ qua khi không có `CryptoJS` đúng dạng.
+        if filename == JSBuiltInLibrary.cryptoJS.rawValue { context.evaluateScript(JSCryptoJSBootstrapScript.addons) }
+    }
+
+    /// File theo tên ở gốc tiện ích rồi `src/`; không có (hoặc executor không gắn tiện ích) ⇒ `nil`.
+    private func extensionLibraryData(named filename: String) -> Data? {
+        guard let localPath else { return nil }
         let extUrl = URL(fileURLWithPath: localPath)
         var fileUrl = extUrl.appendingPathComponent(filename)
         if !FileManager.default.fileExists(atPath: fileUrl.path) {
             fileUrl = extUrl.appendingPathComponent("src").appendingPathComponent(filename)
-            guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
+            guard FileManager.default.fileExists(atPath: fileUrl.path) else { return nil }
         }
-        guard let data = try? Data(contentsOf: fileUrl) else { return }
-
-        // Ghi trước khi chạy: file nạp tự `load` lại chính nó cũng không lặp.
-        if isPreparingEntryScript { preparedLibraries.insert(filename) }
-        context.evaluateScript(decodeData(data))
+        return try? Data(contentsOf: fileUrl)
     }
 }

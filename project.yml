@@ -33,6 +33,12 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+        excludes:
+          - "Resources/ExtensionLibraries"
+      # Thư viện JS tiện ích nạp bằng `load('<tên>')` (`JSBuiltInLibrary`) — khai tường minh là resource để `.js`
+      # chắc chắn vào Copy Bundle Resources, không rơi vào Compile Sources.
+      - path: Sources/Resources/ExtensionLibraries
+        buildPhase: resources
     dependencies:
       - package: SwiftSoup
       - package: ZIPFoundation

@@ -822,6 +822,8 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   `Qt`: Quick Translator bridge (`Qt.translate(text, to, extras)`) và các tiện ích mã hóa.
     *   `localStorage`, `cacheStorage`, `localConfig`, `localCookie`: Hệ thống lưu trữ và cấu hình tiện ích mở rộng.
     *   `UserAgent`, `Crypto`, `Script`, `Http`: Các bộ công cụ giả lập môi trường VBook Android & WebKit.
+    *   `crypto.getRandomValues`: polyfill native (`JSCryptoJSBridge`) cho mọi executor.
+*   **Thư viện dựng sẵn cho `load()`** (1.3.664): tên trong `JSBuiltInLibrary` (hiện chỉ `crypto.js` = CryptoJS 4.2.0 đóng gói ở `Sources/Resources/ExtensionLibraries/`) được app cấp khi tiện ích **không** mang file cùng tên; file của tiện ích luôn thắng (chủ ý khác hợp đồng chuẩn). Sau mỗi lần nạp `crypto.js` gắn phần native `AES.encryptGcm/decryptGcm`, `PBKDF2` (CommonCrypto) và `WordArray.random`. Bộ kiểm tra tĩnh không được báo thiếu file cho các tên này. Thêm thư viện dựng sẵn mới = thêm case vào `JSBuiltInLibrary` + file vào thư mục resource đó.
 
 ---
 

@@ -1,3 +1,6 @@
 # Bộ lọc chặn quảng cáo đóng gói kèm app: giữ nguyên byte (CRLF như máy chủ AdGuard trả về) để checksum
 # trong adblock_bundled_meta.json khớp đúng file được đóng gói — không cho git đổi xuống dòng.
 Sources/Resources/AdBlock/** -text
+
+# Thư viện JS đóng gói kèm app (CryptoJS bản cdnjs): giữ nguyên byte để khớp SRI ghi ở Docs/ThirdParty/CryptoJS-LICENSE.txt.
+Sources/Resources/ExtensionLibraries/** -text
