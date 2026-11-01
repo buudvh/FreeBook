@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.639] - 2026-10-28
+
+### fix: tin dừng lọc name không còn hiện hai lần
+
+Người dùng: *"Đã dừng lọc name ở ch.115: Chương 116: Dò xét động cùng gặp lại U Minh Hà.. tôi bấm dừng lọc name, dòng này xuất hiện 2 lần"*.
+
+- **Nguyên nhân** (lỗi của 1.3.632): `stopActiveTask` thêm tin dừng vào phiên của coordinator qua `updateRun` ⇒ `$runs` phát ⇒ màn AI `mergeRunningSession` đã gộp tin đó vào phiên đang hiện; sau đó `appendStopNote` của màn lại dựng **một tin mới** (khác `id`) từ chuỗi trả về ⇒ hai dòng.
+- **`AIRuntimeCoordinator.stopActiveTask`** trả về chính `AIChatMessage` đã thêm (thay cho `String?`); **`ReaderAIFullScreenView.appendStopNote`** chỉ thêm khi phiên đang hiện chưa có tin cùng `id` — đúng dù `$runs` tới trước hay sau.
+- **`nameScanStopNote`**: tên chương đã kết bằng `.`/`!`/`?`/`…` thì không thêm dấu chấm (hết "Hà.."); áp cho cả tin dừng tay lẫn dòng đầu tin lỗi khi tự dừng.
+- "ch.115" cạnh tên "Chương 116" **không** phải lỗi: số ch. là vị trí trong mục lục (đếm từ 1, `AINameScanTextLoader` lấy `chapter.index`), tên là cách nguồn tự đánh số — giữ nguyên.
+- Phiên chat đã lưu trước bản này vẫn giữ hai dòng cũ; chỉ lần dừng sau mới đúng.
+- Chuyển entry `[1.3.609]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.638] - 2026-10-28
 
 ### feat: xuất TXT cho từ điển chung

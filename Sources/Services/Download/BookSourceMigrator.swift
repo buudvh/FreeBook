@@ -88,7 +88,7 @@ public actor BookSourceMigrator {
         }
     }
 
-    /// Di chuyển phiên AI chat, bộ nhớ truyện AI và cấu hình bật/tắt dịch thuật riêng.
+    /// Di chuyển phiên AI chat, bộ nhớ truyện AI, phạm vi + điểm tiếp nối quét tên riêng và cấu hình bật/tắt dịch thuật riêng.
     public func migrateMetadataAndSettings(
         oldBookId: String,
         newBookId: String,
@@ -97,6 +97,7 @@ public actor BookSourceMigrator {
         // 1. AI Chat sessions & Memory
         AIChatHistoryStore.shared.migrateSessions(from: oldBookId, to: newBookId)
         BookAIMemoryStore.shared.migrateMemory(from: oldBookId, to: newBookId)
+        AINameScanScopeStore.shared.migrate(from: oldBookId, to: newBookId, keepingOld: isPlayingTTS)
 
         // 2. Translation override mode
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)

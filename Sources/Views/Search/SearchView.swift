@@ -681,6 +681,7 @@ struct SearchView: View {
                 }
 
                 TranslationManager.shared.clearBookDictCache(for: newBookId)
+                AIRuntimeCoordinator.shared.migrateLastSession(from: oldBookId, to: newBookId)
 
                 if isPlayingTTS {
                     ToastManager.shared.show(message: "Đã thêm nguồn mới '\(ext.name)' vào kệ sách!", type: .success)

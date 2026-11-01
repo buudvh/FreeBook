@@ -49,4 +49,21 @@ public final class AINameScanScopeStore: @unchecked Sendable {
         raw[bookId] = index
         UserDefaults.standard.set(raw, forKey: Self.resumeUserDefaultsKey)
     }
+
+    /// Đổi nguồn truyện (1.3.669): chép phạm vi quét và điểm tiếp nối sang id truyện mới, **giữ nguyên chỉ số** (người
+    /// dùng chọn) — chương đã tải được chép sang theo đúng vị trí (`BookSourceMigrator.migrateCachedChapters`), nên chỉ
+    /// số cũ vẫn trỏ ngay sau phần nội dung đã quét. `keepingOld` = truyện cũ còn ở lại (đang phát TTS) ⇒ không xoá bản cũ.
+    public func migrate(from oldBookId: String, to newBookId: String, keepingOld: Bool) {
+        guard oldBookId != newBookId else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        for key in [Self.userDefaultsKey, Self.resumeUserDefaultsKey] {
+            guard var raw = UserDefaults.standard.dictionary(forKey: key), let value = raw[oldBookId] else { continue }
+            raw[newBookId] = value
+            if !keepingOld {
+                raw[oldBookId] = nil
+            }
+            UserDefaults.standard.set(raw, forKey: key)
+        }
+    }
 }

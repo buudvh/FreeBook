@@ -132,7 +132,9 @@ extension ReaderAIFullScreenView {
             }
         }
         if changed {
-            AIChatHistoryStore.shared.saveSession(session, for: session.bookId)
+            // Lưu theo truyện của màn này, không theo `session.bookId`: phiên chép khi đổi nguồn trước 1.3.669 còn mang
+            // id truyện cũ, lưu theo đó sẽ dựng lại thư mục của truyện đã xoá.
+            AIChatHistoryStore.shared.saveSession(session, for: bookId)
         }
     }
 }

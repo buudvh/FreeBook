@@ -219,9 +219,22 @@ public final class AIChatHistoryStore: Sendable {
         let oldSessions = loadSessions(for: oldBookId)
         guard !oldSessions.isEmpty else { return }
 
+        // Giữ nguyên `updatedAt` (1.3.669): trước đây gán `Date()` lần lượt theo thứ tự mới → cũ nên phiên cũ nhất nhận
+        // mốc mới nhất, thứ tự bị đảo và màn AI của truyện mới mở nhầm phiên cũ nhất. `bookId` là `let` ⇒ dựng lại phiên
+        // với id truyện mới (cùng `id` phiên), để mọi chỗ lưu/xoá theo `session.bookId` trỏ đúng thư mục mới.
         for session in oldSessions {
-            var migrated = session
-            migrated.updatedAt = Date()
+            let migrated = AIChatSession(
+                id: session.id,
+                bookId: newBookId,
+                title: session.title,
+                createdAt: session.createdAt,
+                updatedAt: session.updatedAt,
+                messages: session.messages,
+                mode: session.mode,
+                model: session.model,
+                providerProfileId: session.providerProfileId,
+                contextSummary: session.contextSummary
+            )
             saveSession(migrated, for: newBookId)
         }
         clearAllSessions(for: oldBookId)

@@ -16,6 +16,13 @@ extension AIRuntimeCoordinator {
         lastSessionIds[bookId]
     }
 
+    /// Đổi nguồn truyện (1.3.669): phiên chat đã chép sang id truyện mới với cùng `id` phiên ⇒ chuyển luôn phiên lượt
+    /// gần nhất đã dùng, để màn AI của truyện mới mở đúng phiên đó (có dòng "Đã dừng lọc name ở …") trong lần mở app này.
+    public func migrateLastSession(from oldBookId: String, to newBookId: String) {
+        guard oldBookId != newBookId, let sessionId = lastSessionIds.removeValue(forKey: oldBookId) else { return }
+        lastSessionIds[newBookId] = sessionId
+    }
+
     /// Mở một lượt mới cho truyện: huỷ tác vụ cũ **của chính truyện đó**, dựng entry mới (giữ nút "Thử lại" nếu có),
     /// cấp mã lượt. Mọi cập nhật trễ của lượt phải so mã này qua `isCurrentRun`. Lượt mới thay kết quả chưa xem của
     /// lượt trước (1.3.630) — entry mới không mang cờ đó, bản ghi trên đĩa cũng bỏ.

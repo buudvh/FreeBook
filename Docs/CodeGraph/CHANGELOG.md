@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.669] - 2026-11-01
+
+### fix: giữ dòng dừng lọc name và điểm tiếp nối khi đổi nguồn
+
+Người dùng: *"Dòng Đã dừng lọc name ở ch.240: Chương 256: Võ đạo đường rẽ cùng mới cảnh giới. Bị mất khi chuyển nguồn truyện"*; chọn "giữ nguyên chỉ số", duyệt plan.
+
+- **Nguyên nhân 1 — mở nhầm phiên**: dòng dừng là một tin trong phiên chat AI. Đổi nguồn tạo `bookId` mới (UUID); `AIChatHistoryStore.migrateSessions` có chép phiên nhưng gán `updatedAt = Date()` lần lượt theo thứ tự mới → cũ ⇒ phiên cũ nhất nhận mốc mới nhất, thứ tự bị đảo. Màn AI của truyện mới (chưa có `lastSessionIds`) mở `summaries.first` = phiên **cũ nhất** ⇒ dòng dừng trông như mất. Phiên chép sang còn giữ `session.bookId` cũ (`let`) ⇒ `condenseHistoricalMessages` lưu nhầm về thư mục của truyện cũ, xoá phiên ở Cài đặt trỏ nhầm thư mục.
+- **Sửa**: `migrateSessions` dựng lại phiên với `bookId` mới, giữ `id`, `createdAt`, `updatedAt`. `AIRuntimeCoordinator.migrateLastSession(from:to:)` chuyển phiên lượt gần nhất đã dùng (RAM), gọi từ `SearchView.executeSourceChange`. `condenseHistoricalMessages` lưu theo `bookId` của màn (đỡ cho phiên đã chép trước bản này).
+- **Nguyên nhân 2 — mất điểm tiếp nối**: `AINameScanScopeStore` (điểm tiếp nối + lựa chọn "từ chương đang đọc", UserDefaults theo `bookId`) không được chép ⇒ sheet quét mất dòng "Tiếp nối lần quét trước". **Sửa**: `AINameScanScopeStore.migrate(from:to:keepingOld:)` gọi trong `BookSourceMigrator.migrateMetadataAndSettings`; **giữ nguyên chỉ số** (người dùng chọn) vì chương đã tải được chép sang theo vị trí — chỉ số cũ vẫn trỏ ngay sau phần nội dung đã quét. Đang phát TTS truyện cũ thì giữ bản của truyện cũ (như cấu hình dịch).
+- **Truyện đã đổi nguồn trước bản này**: không tự khôi phục — thứ tự phiên đã lưu bị đảo, điểm tiếp nối nằm ở id cũ không còn ánh xạ. Dòng dừng vẫn có trong danh sách phiên; quét tiếp bằng "Chọn chương…".
+- **Chưa làm**: kết quả AI chưa xem trên hub (`AIUnseenResultStore`), nút "Thử lại k lượt lỗi" (chỉ trong RAM), lượt quét đang chạy lúc đổi nguồn vẫn ghi vào id cũ; chép chương đã tải theo vị trí (có từ trước) có thể lệch tên/nội dung khi hai mục lục khác nhau.
+- `rules.md` thêm luật dữ liệu AI theo truyện phải đi theo khi đổi nguồn. Chuyển entry `[1.3.639]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: dừng lọc name → đổi nguồn → mở AI của truyện mới thấy đúng phiên có dòng dừng; sheet quét có "Tiếp nối lần quét trước" và quét tiếp được trên nguồn mới.
+
 ## [1.3.668] - 2026-10-31
 
 ### fix: thanh tab tự vẽ trong trang gốc, back về không giật
@@ -381,17 +395,3 @@ Người dùng: *"Cài đặt trong suốt không hoạt động. Tôi cài ki�
 - Xoá `SideDrawerPartialBlurView.swift` (chỉ hai chỗ dùng trên); sửa chú thích `GlassChromeSettings`.
 - Chuyển entry `[1.3.610]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử 0%/100% ở cả ngăn kéo lẫn nút tai nghe, và sau khi cho app vào nền rồi mở lại.
-
-## [1.3.639] - 2026-10-28
-
-### fix: tin dừng lọc name không còn hiện hai lần
-
-Người dùng: *"Đã dừng lọc name ở ch.115: Chương 116: Dò xét động cùng gặp lại U Minh Hà.. tôi bấm dừng lọc name, dòng này xuất hiện 2 lần"*.
-
-- **Nguyên nhân** (lỗi của 1.3.632): `stopActiveTask` thêm tin dừng vào phiên của coordinator qua `updateRun` ⇒ `$runs` phát ⇒ màn AI `mergeRunningSession` đã gộp tin đó vào phiên đang hiện; sau đó `appendStopNote` của màn lại dựng **một tin mới** (khác `id`) từ chuỗi trả về ⇒ hai dòng.
-- **`AIRuntimeCoordinator.stopActiveTask`** trả về chính `AIChatMessage` đã thêm (thay cho `String?`); **`ReaderAIFullScreenView.appendStopNote`** chỉ thêm khi phiên đang hiện chưa có tin cùng `id` — đúng dù `$runs` tới trước hay sau.
-- **`nameScanStopNote`**: tên chương đã kết bằng `.`/`!`/`?`/`…` thì không thêm dấu chấm (hết "Hà.."); áp cho cả tin dừng tay lẫn dòng đầu tin lỗi khi tự dừng.
-- "ch.115" cạnh tên "Chương 116" **không** phải lỗi: số ch. là vị trí trong mục lục (đếm từ 1, `AINameScanTextLoader` lấy `chapter.index`), tên là cách nguồn tự đánh số — giữ nguyên.
-- Phiên chat đã lưu trước bản này vẫn giữ hai dòng cũ; chỉ lần dừng sau mới đúng.
-- Chuyển entry `[1.3.609]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
