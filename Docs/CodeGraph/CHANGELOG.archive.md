@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.644] - 2026-10-29
+
+### fix: nhập truyện tranh và phim từ file bị từ chối do lệch tiền tố /private
+
+Người dùng gửi log: `❌ [MediaImport] Lỗi chuẩn bị nhập truyện tranh: Truy cập file ngoài thư mục tạm bị từ chối.` (và cùng lỗi với phim) — mọi lượt nhập comic/phim của 1.3.642 đều hỏng ngay bước đầu.
+
+- **Nguyên nhân**: `LocalMediaImportWorkspace.isInside` so `standardizedFileURL.path` của gốc `tmp/LocalMediaImport/` với file đích. iOS trả `temporaryDirectory` dạng `/private/var/…`; chuẩn hoá chỉ bỏ `/private` khi đường dẫn **đang tồn tại** ⇒ gốc (đã có) thành `/var/…`, file đích (chưa tạo) vẫn `/private/var/…` ⇒ lệch tiền tố, `adopt` từ chối mọi file. Truyện chữ không bị (đi luồng nhập cũ).
+- **Sửa**: chuẩn hoá **thư mục cha** của đích (luôn đã tồn tại lúc gọi) bằng cùng cách với gốc (`standardizedFileURL.resolvingSymlinksInPath()`) rồi ghép tên file; tên rỗng / `.` / `..` / chứa `/` bị từ chối. `discard` và dọn thư mục cũ đi cùng hàm nên cũng nhất quán. Các kiểm đường dẫn khác của luồng nhập (quét ảnh sau giải nén) so hai đường dẫn đã tồn tại nên không dính lỗi này.
+- Chuyển entry `[1.3.614]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần nhập lại một `.cbz` và một `.mp4`.
+
 ## [1.3.643] - 2026-10-29
 
 ### feat: chạm 1/3 hai bên để chuyển chương ở Reader và truyện tranh

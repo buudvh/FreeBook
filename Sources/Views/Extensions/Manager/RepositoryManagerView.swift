@@ -5,20 +5,22 @@ struct RepositoryManagerView: View {
     /// Nguồn sự thật (`@Observable`): đọc trong `body` là tự vẽ lại khi kho/tiện ích đổi. Ghi qua
     /// `ExtensionTransactionCoordinator`.
     internal var library: ExtensionLibraryRepository { ExtensionLibraryRepository.shared }
-    internal var repositories: [ExtensionRepositoryRecord] {
-        library.repositories.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
+    /// Kiểm tra cập nhật + thêm kho (`@Observable`): tự chạy khi vào "Tất cả tiện ích", trang Danh sách kho đọc chung.
+    internal var updateChecker: ExtensionUpdateCheckCoordinator { ExtensionUpdateCheckCoordinator.shared }
     /// Đã cài ∪ mục registry chưa cài (`folder` rỗng ⇒ `localPath` rỗng). **Không** gồm nguồn Legado (tab riêng).
     internal var allExtensions: [Extension] { LegadoSourcePolicy.excludingLegado(library.catalog) }
 
-    // Quản lý Tab chính của view
-    @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho, 2: Nguồn Legado
+    // Quản lý Tab chính của view. Tag 1 (Danh sách kho) bỏ từ 1.3.673 — giờ là trang con `ExtensionRepositoryListView`
+    // mở từ ngăn kéo …; giữ tag 2 cho Legado để các chỗ so `== 2` không phải đổi.
+    @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 2: Nguồn Legado
     @State internal var renderedTab = 0
     @State internal var legadoState = LegadoSourceTabState()
-    
-    // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
-    @State internal var showingAddRepo = false
-    @State internal var isRefreshingAll = false
+    @State internal var showingRepositoryList = false
+    /// Đặt khi đẩy trang Danh sách kho: back về thì gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không tự
+    /// thêm lại kho mặc định vừa bị xoá hết, không kiểm tra lại).
+    @State internal var isReturningFromRepositoryList = false
+
+    // Trạng thái của tab Tất cả tiện ích
     @State internal var isUpdatingAll = false
     @State internal var statusMessage = ""
     @State internal var storeSearchQuery: String = ""
@@ -27,9 +29,7 @@ struct RepositoryManagerView: View {
     @State internal var selectedExtensionForConfig: Extension? = nil
     @State internal var selectedExtensionForScriptEditor: Extension? = nil
     @State internal var sourceCheckRoute: ExtensionCheckView.Route? // `+SourceCheck`
-    @State internal var repositoryToDelete: ExtensionRepositoryRecord?
-    @State internal var showingDeleteRepositoryAlert = false
-    
+
     internal var updatableExtensions: [Extension] {
         allExtensions.filter { $0.hasUpdate }
     }
@@ -113,7 +113,6 @@ struct RepositoryManagerView: View {
         VStack(spacing: 0) {
             Picker("", selection: $selectedTab) {
                 Text("Tất cả tiện ích").tag(0)
-                Text("Danh sách kho").tag(1)
                 Text("Nguồn Legado").tag(2)
             }
             .pickerStyle(.segmented)
@@ -123,7 +122,6 @@ struct RepositoryManagerView: View {
             
             TabView(selection: $selectedTab) {
                 allExtensionsTab.tag(0)
-                repositoryListTab.tag(1)
                 legadoSourcesTab.tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -131,6 +129,8 @@ struct RepositoryManagerView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     renderedTab = newVal
                 }
+                // Từ Nguồn Legado sang ⇒ cũng là "vào Tất cả tiện ích" (coordinator tự giãn cách 5 phút).
+                if newVal == 0 { updateChecker.checkOnEntry() }
             }
         }
         .pageTitle("Kho tiện ích") // tab gốc
@@ -151,28 +151,11 @@ struct RepositoryManagerView: View {
             } message: {
                 Text("Hành động này sẽ gỡ cài đặt toàn bộ các tiện ích đã cài trong ứng dụng. Bạn có chắc chắn không?")
             }
-            .alert(
-                "Xóa kho tiện ích?",
-                isPresented: $showingDeleteRepositoryAlert,
-                presenting: repositoryToDelete
-            ) { repo in
-                Button("Hủy", role: .cancel) {
-                    repositoryToDelete = nil
-                }
-                Button("Xóa kho", role: .destructive) {
-                    deleteRepository(repo)
-                    repositoryToDelete = nil
-                }
-            } message: { repo in
-                Text("Kho \(repo.name) và các tiện ích đã cài từ kho này sẽ bị xóa khỏi ứng dụng.")
-            }
             .sheet(isPresented: $showingFilterSheet) {
                 makeFilterSheet()
             }
-            .sheet(isPresented: $showingAddRepo) {
-                AddRepositoryView { name, url in
-                    addNewRepository(name: name, url: url)
-                }
+            .navigationDestination(isPresented: $showingRepositoryList) {
+                ExtensionRepositoryListView()
             }
             .sheet(item: $selectedExtensionForConfig) { ext in
                 ExtensionConfigView(ext: ext)
@@ -196,12 +179,16 @@ struct RepositoryManagerView: View {
             .background { legadoFilePicker }
             .onAppear {
                 renderedTab = selectedTab
-                // Dọn trước khi làm mới kho: hàng đã mất file mà không có nguồn tải lại chỉ gây lỗi.
+                if isReturningFromRepositoryList {
+                    isReturningFromRepositoryList = false
+                    return
+                }
+                // Dọn trước khi kiểm tra cập nhật: hàng đã mất file mà không có nguồn tải lại chỉ gây lỗi.
                 auditInstalledExtensions()
-                if repositories.isEmpty {
-                    addSampleRepository()
-                } else {
-                    refreshAllRepositories()
+                if library.repositories.isEmpty {
+                    Task { statusMessage = await updateChecker.addDefaultRepository() }
+                } else if selectedTab == 0 {
+                    updateChecker.checkOnEntry()
                 }
             }
     }
@@ -210,33 +197,8 @@ struct RepositoryManagerView: View {
     internal var toolbarContent: some ToolbarContent {
         if selectedTab == 2 {
             legadoToolbarContent
-        } else if selectedTab == 0 {
-            allExtensionsToolbarContent // `+SourceCheck`
         } else {
-            // Bên trái là tiêu đề trang ⇒ ↻ dồn sang phải, đứng sát trước + (một `ToolbarItem` cho cả cụm).
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: HeaderButtonMetrics.pairSpacing) {
-                    Button(action: { refreshAllRepositories(force: true) }) {
-                        Group {
-                            if isRefreshingAll {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 17, weight: .semibold))
-                            }
-                        }
-                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
-                    }
-                    .disabled(isRefreshingAll || repositories.isEmpty)
-                    .accessibilityLabel("Làm mới tất cả kho")
-                    Button(action: { showingAddRepo = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
-                    }
-                    .accessibilityLabel("Thêm kho")
-                }
-            }
+            allExtensionsToolbarContent // `+SourceCheck`
         }
     }
 
@@ -250,9 +212,22 @@ struct RepositoryManagerView: View {
                 let extensions = filteredExtensions
 
                 filterStatusBar(count: extensions.count)
+                if ExtensionUpdateCheckStatusLine.hasContent {
+                    ExtensionUpdateCheckStatusLine()
+                        .padding(.horizontal)
+                }
                 searchAndFilterBar
                 Divider()
                 updateAllBanner
+
+                // Kết quả "Cập nhật tất cả", Import zip, tự thêm kho mặc định — trước 1.3.673 chỉ hiện ở tab Danh sách kho.
+                if !statusMessage.isEmpty {
+                    Text(statusMessage)
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                }
 
                 if !errorMessage.isEmpty {
                     Text(errorMessage)
@@ -529,75 +504,5 @@ struct RepositoryManagerView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    @ViewBuilder
-    internal var repositoryListTab: some View {
-        List {
-            if renderedTab == 1 {
-                if !statusMessage.isEmpty {
-                    Section {
-                        Text(statusMessage)
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
-                }
-                Section(header: Text("Danh sách kho tiện ích")) {
-                    if repositories.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "square.stack.3d.up.slash")
-                                .font(.system(size: 40))
-                                .foregroundColor(.gray)
-                            Text("Bạn có thể nhập link kho tiện ích (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Button(action: { addSampleRepository() }) {
-                                Text("Nhập kho tiện ích mặc định (buudvh)")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(Color.white.opacity(0.18))
-                                    .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 5)
-                        }
-                        .padding(.vertical)
-                    } else {
-                        ForEach(repositories) { repo in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(repo.name)
-                                        .font(.headline)
-                                    Text(repo.url)
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                
-                                Button {
-                                    guard !isRefreshingAll else { return }
-                                    repositoryToDelete = repo
-                                    showingDeleteRepositoryAlert = true
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.red)
-                                        .padding(8)
-                                        .background(Color.red.opacity(0.1))
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(.borderless)
-                                .disabled(isRefreshingAll)
-                                .accessibilityLabel("Xóa kho \(repo.name)")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
     }
 }

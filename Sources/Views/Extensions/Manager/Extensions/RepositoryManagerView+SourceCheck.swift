@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Ngăn kéo ⋯ của tab "Tất cả tiện ích" (Import .zip · **Kiểm tra tiện ích** · Xóa tất cả) và sheet Kiểm tra tiện ích
+/// Ngăn kéo ⋯ của tab "Tất cả tiện ích" (**Danh sách kho** · Import .zip · **Kiểm tra tiện ích** · Xóa tất cả) và sheet Kiểm tra tiện ích
 /// hàng loạt (`ExtensionCheckView`) — chạy đủ script khai trong `plugin.json` của mọi tiện ích **đã cài** đang hiện (sau
 /// ô tìm + bộ lọc), không gồm nguồn Legado (tab riêng có bộ kiểm tra riêng).
 ///
@@ -21,6 +21,12 @@ extension RepositoryManagerView {
     /// Các hàng của ngăn kéo ⋯. Ở đây (không ở file chính) vì `checkVisibleExtensions` là `private` của file này.
     @ViewBuilder
     internal var extensionsMenuItems: some View {
+        // Trang con thay mục "Danh sách kho" của ô chọn (1.3.673).
+        SideDrawerActionRow("Danh sách kho", systemImage: "square.stack.3d.up", detail: "\(library.repositories.count) kho") {
+            isReturningFromRepositoryList = true
+            showingRepositoryList = true
+        }
+        SideDrawerDivider()
         SideDrawerActionRow("Import tiện ích (.zip)", systemImage: "doc.badge.plus") { showingZipImporter = true }
         SideDrawerActionRow("Kiểm tra tiện ích đang hiện", systemImage: "checkmark.seal", action: checkVisibleExtensions)
             .disabled(!filteredExtensions.contains { $0.isInstalled })

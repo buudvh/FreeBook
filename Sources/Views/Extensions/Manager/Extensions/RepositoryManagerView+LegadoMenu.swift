@@ -2,10 +2,10 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// Tab thứ ba "Nguồn Legado" của Kho Tiện Ích: nội dung tab, menu ⋯ trên toolbar, alert và bộ chọn tệp.
+/// Tab "Nguồn Legado" (tag 2) của Kho Tiện Ích: nội dung tab, menu ⋯ trên toolbar, alert và bộ chọn tệp.
 ///
 /// Mọi thao tác đi qua `LegadoSourceCoordinator` (View không ghi file). Alert + bộ chọn tệp gắn vào **trang** của tab
-/// (không gắn vào view gốc) để không chồng với alert của hai tab còn lại. Sheet chi tiết nguồn / kiểm tra hàng loạt /
+/// (không gắn vào view gốc) để không chồng với alert của tab còn lại. Sheet chi tiết nguồn / kiểm tra hàng loạt /
 /// chia sẻ tệp xuất cũng gắn ở trang này. Mọi thao tác "theo danh sách đang hiện / nhóm đang lọc" dùng
 /// `legadoVisibleSummaries` (NSFW + nhóm + ô tìm) — đúng danh sách người dùng đang thấy.
 extension RepositoryManagerView {

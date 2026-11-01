@@ -83,12 +83,14 @@ public final class ExtensionManager: ObservableObject {
     }
     
     // Tải danh sách registry từ một URL kho (plugin.json)
-    public func fetchRegistry(from urlString: String) async throws -> [ExtensionRegistryItem] {
+    /// Bỏ cache URLSession cục bộ: đây là lượt kiểm tra cập nhật, bản cũ trong cache sẽ giấu phiên bản mới của kho.
+    public func fetchRegistry(from urlString: String, timeout: TimeInterval = 60) async throws -> [ExtensionRegistryItem] {
         guard let url = URL(string: urlString) else {
             throw NSError(domain: "ExtensionManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Registry URL"])
         }
-        
-        let (data, _) = try await URLSession.shared.data(from: url)
+
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(RegistryResponse.self, from: data)
         return response.data
     }

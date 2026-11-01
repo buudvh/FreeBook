@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.674] - 2026-11-01
+
+### fix: danh sách kho thành trang con, tự kiểm tra cập nhật tiện ích
+
+Người dùng: *"cho màn hình danh sách kho thành màn hình con của tất cả tiện ích. Khi vào tất cả tiên ích hãy tự chạy kiểm tra cập nhật của tất cả ext"*; duyệt plan: lối vào nằm trong ngăn kéo …, giãn cách 5 phút.
+
+- **Trang con Danh sách kho** (`ExtensionRepositoryListView`, mới): ô chọn của tab Kho tiện ích còn hai mục Tất cả tiện ích · Nguồn Legado (giữ tag 0/2). Hàng "Danh sách kho" (chữ phụ = số kho) đứng đầu ngăn kéo … của Tất cả tiện ích ⇒ đẩy trang `.backPageTitle`, phủ thanh tab. Header giữ cụm ↻ | +; xoá kho, trang trống + nút nhập kho mặc định như cũ. Bỏ lối vào cũ.
+- **Tự kiểm tra cập nhật** (`ExtensionUpdateCheckCoordinator`, mới, `@MainActor @Observable`): kiểm tra = tải lại registry của mọi kho (1 request/kho, song song, tối đa 20 s/kho, bỏ cache URLSession cục bộ) rồi `saveRegistry` ⇒ `hasUpdate` và banner "Cập nhật tất cả" tự đổi. Chạy khi vào tab Kho tiện ích lúc đang ở Tất cả tiện ích, hoặc khi chuyển ô chọn từ Legado sang. Giãn cách 5 phút, giữ trong RAM (mở lại app ⇒ kiểm tra ngay lần đầu vào), chỉ tính lượt tải được ít nhất một kho; kho chưa có cache vẫn được tải trong giãn cách. ↻ / "Thử lại" bỏ qua giãn cách. Chỉ kiểm tra, không tự cài; nguồn Legado ngoài phạm vi. Bỏ `RepositoryRefreshPolicy` (cửa 6 tiếng nên gần như không bao giờ tự chạy); `rules.md` mục 7 cập nhật theo.
+- **Một cờ bận chung** (`isBusy`): kiểm tra, thêm kho, xoá kho cùng đọc ⇒ không chạy trùng. Sửa lỗi cũ: thêm kho trong lúc làm mới hạ cờ `isRefreshingAll` giữa chừng ⇒ mở lại nút xoá kho, cho lượt làm mới thứ hai chạy.
+- **Hiển thị** (`ExtensionUpdateCheckStatusLine`, mới): dòng nhỏ dưới "Đang hiển thị N tiện ích" — vòng quay "Đang kiểm tra cập nhật…"; xong "Đã kiểm tra cập nhật lúc HH:mm"; lỗi chữ cam "Không kiểm tra được cập nhật" / "Không tải được f/t kho" + "Thử lại". Cache cũ giữ nguyên, không toast, không alert. Trang Danh sách kho dùng cùng dòng. Thông báo của "Cập nhật tất cả", Import zip và tự thêm kho mặc định giờ hiện ở tab Tất cả tiện ích (trước chỉ hiện ở tab kho).
+- **Back từ trang Danh sách kho**: gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không kiểm tra, không tự thêm lại kho mặc định vừa bị xoá hết).
+- `RepositoryManagerView.swift` 603 → 508 dòng.
+- Chuyển entry `[1.3.644]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: vào tab Kho tiện ích thấy "Đang kiểm tra cập nhật…" rồi giờ kiểm tra; tắt mạng thấy chữ cam + "Thử lại"; ngăn kéo … → Danh sách kho → back thì không chạy lại.
+
 ## [1.3.673] - 2026-11-01
 
 ### fix: tiện ích JS cài an toàn, tìm kiếm tải thêm, cookie của nguồn
@@ -383,14 +398,3 @@ Người dùng: *"Vì sao config độ đục giữa 95% và 100% nó khác bi�
 - **Thay đổi thấy được**: ngăn kéo để mặc định 60% giờ mới nhoè thật.
 - Chuyển entry `[1.3.615]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + tài liệu Apple; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử kéo độ đục ngăn kéo 0→100% (mịn, không nhảy), ngăn kéo trượt vào/vuốt ra (nền đứng yên), độ trễ mở ngăn kéo (log `[Drawer]`), 6 nấc nút nổi.
-
-## [1.3.644] - 2026-10-29
-
-### fix: nhập truyện tranh và phim từ file bị từ chối do lệch tiền tố /private
-
-Người dùng gửi log: `❌ [MediaImport] Lỗi chuẩn bị nhập truyện tranh: Truy cập file ngoài thư mục tạm bị từ chối.` (và cùng lỗi với phim) — mọi lượt nhập comic/phim của 1.3.642 đều hỏng ngay bước đầu.
-
-- **Nguyên nhân**: `LocalMediaImportWorkspace.isInside` so `standardizedFileURL.path` của gốc `tmp/LocalMediaImport/` với file đích. iOS trả `temporaryDirectory` dạng `/private/var/…`; chuẩn hoá chỉ bỏ `/private` khi đường dẫn **đang tồn tại** ⇒ gốc (đã có) thành `/var/…`, file đích (chưa tạo) vẫn `/private/var/…` ⇒ lệch tiền tố, `adopt` từ chối mọi file. Truyện chữ không bị (đi luồng nhập cũ).
-- **Sửa**: chuẩn hoá **thư mục cha** của đích (luôn đã tồn tại lúc gọi) bằng cùng cách với gốc (`standardizedFileURL.resolvingSymlinksInPath()`) rồi ghép tên file; tên rỗng / `.` / `..` / chứa `/` bị từ chối. `discard` và dọn thư mục cũ đi cùng hàm nên cũng nhất quán. Các kiểm đường dẫn khác của luồng nhập (quét ảnh sau giải nén) so hai đường dẫn đã tồn tại nên không dính lỗi này.
-- Chuyển entry `[1.3.614]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần nhập lại một `.cbz` và một `.mp4`.

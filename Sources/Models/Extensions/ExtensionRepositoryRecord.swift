@@ -3,7 +3,7 @@ import Foundation
 /// Bản ghi tối thiểu của một kho tiện ích (`extension_store/repositories.json`), thay `@Model Repository`.
 ///
 /// Không còn `isEnabled` (không có UI bật/tắt) và `lastUpdated` (UI chỉ hiện `name` + `url`; cooldown làm mới
-/// kho do `RepositoryRefreshPolicy` giữ riêng). Thứ tự trong file = thứ tự thêm kho.
+/// kho do `ExtensionUpdateCheckCoordinator` giữ trong RAM). Thứ tự trong file = thứ tự thêm kho.
 public struct ExtensionRepositoryRecord: Codable, Identifiable, Hashable, Sendable {
     public var url: String
     public var name: String
