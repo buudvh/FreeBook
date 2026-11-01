@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.641] - 2026-10-29
+
+### feat: đồng bộ header, menu, danh sách panel và nhập truyện ở Kệ
+
+Người dùng yêu cầu một loạt đồng bộ giao diện (plan `Docs/Plans/2026-10-29-plan-dong-bo-ui-va-nhap-media.md` + `2026-10-29-plan-nut-header-sheet.md`, đã duyệt mockup). Phần nhập/xuất comic/video tách sang entry sau.
+
+- **Ngăn kéo menu "…"**: bỏ vạch giữa các hàng, vạch dưới tiêu đề và dải tối giữa nhóm (`SideDrawerDivider` thành khoảng trống 12pt); tiêu đề 22pt đậm một dòng, tiêu đề nhóm 13pt đậm. `SideDrawerActionRow` thêm `badgeCount:`.
+- **Kiểu Danh sách**: mỗi truyện là panel bo góc (`BookListPanelModifier`, nền `secondarySystemBackground`, bo 12), không vạch ngăn — Kệ/Lịch sử/Bộ sưu tập, tab danh mục Khám phá/Thể loại, tìm một nguồn, Tìm trên kệ, khung chờ. Vẫn là `List` (vuốt hàng, kéo tải lại, tiêu đề nhóm dính, cuộn về vị trí cũ).
+- **Nút xoá/dọn đỏ** (chữ + icon): "Dọn dẹp tác vụ", "Xóa tất cả" lịch sử tìm (Tìm kiếm, Tìm trên kệ), "Xóa lịch sử" trang chủ trình duyệt, xoá trí nhớ AI, pill "Xoá bản tải", nút thùng rác xoá chữ trong ô.
+- **Header trang** (`Common/PageHeader/PageTitleModifier`): tab gốc + sheet tiêu đề trái 22pt đậm một dòng; trang có nút back không hiện tiêu đề (vẫn giữ `navigationTitle` cho VoiceOver/menu nút back); màn mở hai kiểu nhận cờ `isPresentedAsSheet`. Áp ~100 màn; tiêu đề tab gốc viết thường ("Kệ sách", "Kho tiện ích", "Cài đặt"…). Nút trái của tab gốc dồn sang phải.
+- **Kệ**: chuông vào hàng "Thông báo" đầu ngăn kéo (badge số); có thông báo ⇒ chấm đỏ trên nút "…". Nút + nổi ở tab Kệ sách mở sheet nửa màn "Nhập truyện": Từ URL (dò `regexp` tiện ích bằng `ExtensionUrlMatcher` tách khỏi `BypassWebView`; 1 khớp ⇒ Chi tiết, nhiều ⇒ chọn nguồn, 0 ⇒ mở trong trình duyệt; nút dán dạng icon), Mở trình duyệt, Từ file. Hàng "Nhập truyện từ file" của ngăn kéo thành "Nhập truyện" mở cùng sheet.
+- **Sheet nhấn giữ sách**: "Mở trong trình duyệt" (trừ sách nhập file) và "Đánh dấu / Bỏ đánh dấu NSFW" (ẩn với nguồn 18+). Dấu lưu ở `UserDefaults` `nsfwMarkedBookIds` (`NsfwBookMarkStore`); `RepositoryFilterPolicy.isNsfwBook` = dấu || nguồn, áp ở Kệ/Lịch sử, Bộ sưu tập, Tìm trên kệ, tác vụ tải, hub AI, chọn truyện nguồn/đích, tắt tiếng phim (`VideoMutePolicy.shouldStartMuted(bookId:packageId:)`). Chưa áp: mục video của hub, Cấu hình dịch riêng, kết quả Tìm kiếm (không có bookId).
+- **Sheet bỏ nút chỉ để đóng** (Huỷ/Đóng/✕/Xong/Bỏ qua không lưu, ~52 chỗ): vuốt xuống để đóng + thanh kéo. Nút trái còn lại sang phải dạng icon (Đặt lại bộ lọc ↺ đỏ, ⚙ Hẹn giờ TTS, ⌄ Trợ lý AI, tab mới của trình duyệt, ↻ Kho). Nút header chỉ chữ hoặc chỉ icon ("Lưu" của Script editor chỉ còn chữ). Màn toàn màn giữ lối đóng. Sheet mã xác minh Legado nay vuốt đóng được (= huỷ).
+- **"Bỏ thay đổi?" khi vuốt lúc chưa lưu** (`Common/SheetDismissGuard/`): proxy `UIAdaptivePresentationControllerDelegate` chuyển tiếp mọi callback cho delegate gốc, giữ mạnh + gỡ khi probe bị gỡ; chỉ chặn vuốt khi đã cài được proxy (không cài được ⇒ vuốt đóng thẳng, không kẹt). Áp cho Sửa JSON nguồn, Script editor, Thêm/Sửa rule (Bỏ ⇒ xoá nháp). Tạo giọng VieNeu: dọn ghi âm/mẫu dời sang `onDisappear`.
+- **Giải thích → nút "?"** (`SectionHelpButton` chuyển từ `QuickTranslationRuleHelpButton`, `SectionHelpHeader`): 84 footer giải thích chuyển hẳn vào popover cạnh tiêu đề section, 8 footer tách đôi (giải thích vào "?", số liệu/trạng thái giữ footer), 4 giữ nguyên (sentinel tải thêm, "Nhịp chạy").
+- CLAUDE.md/AGENTS.md: thêm quy ước "Header trang & sheet (1.3.641)". Chuyển entry `[1.3.611]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + rà soát bằng agent (không thấy lỗi biên dịch chắc chắn; đã sửa 4 rủi ro logic: sheet kẹt khi proxy không cài được, `original` yếu, đóng nhầm màn dưới ở trình bày Legado, hộp thoại sao lưu gắn header); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử vuốt đóng rồi mở lại từng sheet, hộp "Bỏ thay đổi?", tiêu đề dài trong toolbar, sheet "Nhập truyện" + mở trình duyệt/Chi tiết sau khi đóng, chấm đỏ nút "…".
+
 ## [1.3.640] - 2026-10-28
 
 ### fix: độ trong suốt và độ đục của nút nổi, menu áp đúng cài đặt

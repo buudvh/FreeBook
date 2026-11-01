@@ -774,7 +774,7 @@ struct SearchView: View {
             }
             sourceStates = initialStates
             
-            // Tiện ích JS song song không giới hạn như cũ; nguồn Legado qua cửa sổ trượt (`LegadoSearchScheduler`).
+            // Tiện ích JS song song (TTS đang phát thì chừa thread cho TTS); nguồn Legado qua cửa sổ trượt (`LegadoSearchScheduler`).
             let targets = extensionsToSearch.map { LegadoSearchScheduler.Target($0) }
             // Tắt NSFW giữa lượt ⇒ nguồn Legado NSFW còn xếp hàng không được chạy (trừ ngoại lệ đổi nguồn).
             let changeSourcePackageId = sameKindScopePackageId

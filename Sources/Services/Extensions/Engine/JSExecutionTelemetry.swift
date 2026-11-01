@@ -1,12 +1,14 @@
 import Foundation
 
-/// Đo **chỉ để ghi log** — không đổi hành vi (plan `Docs/Plans/2026-10-09-plan-perf-4-hotspots.md` §1.3).
+/// Đếm lời gọi JS đồng bộ đang chạy (plan `Docs/Plans/2026-10-09-plan-perf-4-hotspots.md` §1.3) — ghi log, và từ
+/// 1.3.671 còn là đầu vào của `SearchTTSThreadReservePolicy` (`inFlightCount`).
 ///
 /// `JSExecutor.callAsync` là hàm `async` nonisolated (Swift 5 mode, SE-0338) nên luôn chạy trên thread của
 /// cooperative pool — **không bao giờ** trên main — và gọi `runner.call` **đồng bộ** ở đó: suốt lúc script
 /// `fetch`/`sleep`/chờ browser, thread ấy bị chặn cứng. Bộ đếm này trả lời đúng một câu: có lúc nào số lời
 /// gọi đồng bộ đang chạy cùng lúc chạm `activeProcessorCount` (pool cạn theo định nghĩa) hay không. Hậu quả
-/// lên TTS thì đọc ở log có sẵn `[TTSPerf] PrefetchSummary` (`waitedHit`/`miss`/`maxWaitMs`).
+/// lên TTS thì đọc ở log có sẵn `[TTSPerf] PrefetchSummary` (`waitedHit`/`miss`/`maxWaitMs`) và `[TTSPerf] RemoteWait`.
+/// Actor mặc định (`BookDownloadWorker`, `ExtTTSRuntime`) cũng chạy trên pool này, nên lời gọi của chúng cũng được đếm.
 ///
 /// Chỉ ghi khi **có chồng lấn**, để Ext TTS từng chunk hay tải tuần tự từng chương (một lời gọi mỗi lúc)
 /// không sinh log: `SyncCall` cho lời gọi bắt đầu lúc đã có lời gọi khác chạy; `SyncBurst` khi một đợt
@@ -22,6 +24,13 @@ enum JSExecutionTelemetry {
     private static var burstPeak = 0
     private static var burstCalls = 0
     private static var burstStartedAt: CFAbsoluteTime = 0
+
+    /// Số lời gọi JS đồng bộ đang chặn thread lúc này (toàn app). Đọc được từ thread bất kỳ.
+    static var inFlightCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return inFlight
+    }
 
     static func begin() -> Token {
         let now = CFAbsoluteTimeGetCurrent()

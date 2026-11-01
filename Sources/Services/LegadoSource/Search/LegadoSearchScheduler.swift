@@ -2,7 +2,9 @@ import Foundation
 
 /// Lịch chạy "Tìm trên tất cả nguồn" của màn Tìm kiếm.
 ///
-/// - Tiện ích JS: chạy song song **không giới hạn**, đúng như trước khi có nguồn Legado.
+/// - Tiện ích JS: chạy song song **không giới hạn** khi TTS không phát (như trước khi có nguồn Legado). TTS đang phát
+///   ⇒ cửa sổ trượt theo `SearchTTSThreadReservePolicy` (chừa một thread của cooperative pool cho TTS, 1.3.671);
+///   giới hạn tính lại mỗi khi một nguồn JS xong, nên TTS dừng giữa lượt thì các nguồn còn chờ chạy hết ngay.
 /// - Nguồn Legado: cửa sổ trượt tối đa `maxConcurrentLegadoSearches` nguồn cùng lúc — người dùng có thể bật hàng
 ///   nghìn nguồn, mở ngần ấy request một lượt sẽ nghẽn mạng và bị trang nguồn chặn.
 ///
@@ -31,8 +33,8 @@ enum LegadoSearchScheduler {
     /// Tìm `query` trên mọi `targets`. `onResult(packageId, results)` chạy trên task của caller mỗi khi một nguồn
     /// xong, theo thứ tự hoàn thành; `results == nil` = nguồn đó lỗi.
     ///
-    /// `shouldStart` xét lại **lúc tới lượt** của nguồn Legado đang xếp hàng (vd người dùng vừa tắt NSFW giữa lượt
-    /// tìm): `false` ⇒ không chạy, báo `nil` như lỗi. Tiện ích JS chạy hết ngay từ đầu nên không xét lại được.
+    /// `shouldStart` xét lại **lúc tới lượt** của nguồn đang xếp hàng (vd người dùng vừa tắt NSFW giữa lượt tìm):
+    /// `false` ⇒ không chạy, báo `nil` như lỗi. Nguồn JS chỉ xếp hàng khi TTS đang phát; lúc khác chạy hết ngay từ đầu.
     static func searchAll(
         _ targets: [Target],
         query: String,
@@ -40,24 +42,39 @@ enum LegadoSearchScheduler {
         onResult: @escaping (String, [ExtensionItemResult]?) async -> Void
     ) async {
         let limit = maxConcurrentLegadoSearches
+        let startedAt = ProcessInfo.processInfo.systemUptime
         await withTaskGroup(of: (String, [ExtensionItemResult]?).self) { group in
+            var pendingJS = targets.filter { !$0.isLegado }[...]
             var pendingLegado = targets.filter { $0.isLegado }[...]
+            let jsCount = pendingJS.count
             let legadoIds = Set(pendingLegado.map { $0.packageId })
+            var runningJS = 0
             var runningLegado = 0
+            var peakJS = 0
+            var jsCapped = false
             var skipped: [String] = []
 
-            func popNextToStart() -> Target? {
-                while let next = pendingLegado.popFirst() {
+            func popNextToStart(from pending: inout ArraySlice<Target>) -> Target? {
+                while let next = pending.popFirst() {
                     if shouldStart(next.packageId) { return next }
                     skipped.append(next.packageId)
                 }
                 return nil
             }
 
-            for target in targets where !target.isLegado {
-                group.addTask { await LegadoSearchScheduler.search(target, query: query) }
+            if !pendingJS.isEmpty {
+                let jsLimit = await currentJSLimit(runningSearches: runningJS)
+                while runningJS < jsLimit, let next = popNextToStart(from: &pendingJS) {
+                    runningJS += 1
+                    group.addTask { await LegadoSearchScheduler.search(next, query: query) }
+                }
+                peakJS = runningJS
+                if !pendingJS.isEmpty {
+                    jsCapped = true
+                    logJSCap(sources: jsCount, cap: jsLimit)
+                }
             }
-            while runningLegado < limit, let next = popNextToStart() {
+            while runningLegado < limit, let next = popNextToStart(from: &pendingLegado) {
                 runningLegado += 1
                 group.addTask { await LegadoSearchScheduler.search(next, query: query) }
             }
@@ -66,9 +83,19 @@ enum LegadoSearchScheduler {
                 if legadoIds.contains(outcome.0) {
                     runningLegado -= 1
                     // Lượt đã bị huỷ (tìm lại / rời màn) ⇒ không mở thêm request nào cho các nguồn còn chờ.
-                    if !Task.isCancelled, runningLegado < limit, let next = popNextToStart() {
+                    if !Task.isCancelled, runningLegado < limit, let next = popNextToStart(from: &pendingLegado) {
                         runningLegado += 1
                         group.addTask { await LegadoSearchScheduler.search(next, query: query) }
+                    }
+                } else {
+                    runningJS -= 1
+                    if !Task.isCancelled, !pendingJS.isEmpty {
+                        let jsLimit = await currentJSLimit(runningSearches: runningJS)
+                        while runningJS < jsLimit, let next = popNextToStart(from: &pendingJS) {
+                            runningJS += 1
+                            group.addTask { await LegadoSearchScheduler.search(next, query: query) }
+                        }
+                        peakJS = max(peakJS, runningJS)
                     }
                 }
                 await onResult(outcome.0, outcome.1)
@@ -76,7 +103,27 @@ enum LegadoSearchScheduler {
                 skipped.removeAll()
             }
             for packageId in skipped { await onResult(packageId, nil) }
+            if jsCapped {
+                let elapsedMs = (ProcessInfo.processInfo.systemUptime - startedAt) * 1000
+                AppLogger.shared.log(String(
+                    format: "[SearchPerf] JSDone sources=%d peak=%d ms=%.0f cancelled=%d",
+                    jsCount, peakJS, elapsedMs, Task.isCancelled ? 1 : 0
+                ))
+            }
         }
+    }
+
+    /// Số nguồn JS được chạy cùng lúc lúc này (`Int.max` khi TTS không phát).
+    private static func currentJSLimit(runningSearches: Int) async -> Int {
+        let ttsPlaying = await SearchTTSThreadReservePolicy.isTTSPlaying()
+        return SearchTTSThreadReservePolicy.jsSearchLimit(ttsPlaying: ttsPlaying, runningSearches: runningSearches)
+    }
+
+    private static func logJSCap(sources: Int, cap: Int) {
+        AppLogger.shared.log(String(
+            format: "[SearchPerf] JSCap sources=%d cap=%d jsInFlight=%d cores=%d ttsPlaying=1",
+            sources, cap, JSExecutionTelemetry.inFlightCount, ProcessInfo.processInfo.activeProcessorCount
+        ))
     }
 
     private static func search(_ target: Target, query: String) async -> (String, [ExtensionItemResult]?) {
