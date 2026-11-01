@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.672] - 2026-11-01
+
+### fix: cấu hình tiện ích hiện ô chọn select và danh sách list
+
+Người dùng: *"bạn hãy đọc ext qimao của đường đen. trong đó có config dạng select. app chưa đọc được dạng đó"*; thêm các mục còn thiếu theo hợp đồng (từ phiên rà màn Cấu hình), *"đừng làm mode database"*; duyệt plan, chưa áp `thread_num`/`delay`/`ignore` làm giới hạn.
+
+- **Tiện ích**: Qimao của Đường đen (repo GitHub của tài khoản `duongden`, `Novel_Zh/qimao` v37 có 6 mục `select`; bản Phim ngắn v7 có 1). Script (mã hoá) đọc biến global `CONFIG_*`, rồi `localConfig.getItem`, và so đúng chữ của lựa chọn.
+- **Nguyên nhân**: `ExtensionConfigView.ConfigItem` decode bằng `JSONDecoder` chỉ 4 trường `title/mode/format/default`, bỏ `values`/`subtitle` ⇒ `select` rơi vào nhánh ô chữ. Phần tiêm giá trị chọn vào script vốn đúng.
+- **`select`**: nút menu rộng hết dòng dưới tiêu đề, ✓ ở lựa chọn đang hiện (kiểu ô chọn của form đăng nhập Legado), chọn là lưu ngay, luôn lưu chuỗi. Mọi `format` đều là chọn **một**: hợp đồng bản đầu có `single`/`multiple` (chọn nhiều, nối dấu phẩy), bản hiện tại bỏ `multiple`; khảo sát ~800 `plugin.json` ở 8 kho: `single` 42, bỏ trống 17, `text` 2, `multiple` 0. Giá trị không có trong `values` hiện lựa chọn đầu (hợp đồng), không tự ghi đè.
+- **`ConfigItem`** dựng tay từ dict: `default`/`values` là số/bool ⇒ ép chuỗi thay vì mất cả dòng. **`subtitle`** hiện ở mọi dòng có khai.
+- **`list`** (mới, `ExtensionConfigListEditor`): dòng hiện số mục, chạm mở trang thêm (nút `+` nổi)/sửa/xoá từng dòng; giá trị là chuỗi JSON `"[\"a\",\"b\"]"`. Giá trị cũ không phải mảng JSON ⇒ một dòng; `default` viết thành mảng thật vẫn hiện (hợp đồng nói hiện rỗng — cố ý khác vì script cũng nhận nó).
+- **Thứ tự mục** theo `plugin.json` (đọc lại bằng `LegadoEngineJSONParser` giữ thứ tự). `ExtensionScriptDecoder.clearEncryptFlag` giờ chỉ sửa đúng chữ `"encrypt": true` (trước ghi lại cả file `.sortedKeys` ⇒ tiện ích mã hoá mất thứ tự). Bản đã cài trước bản này phải cài lại mới có thứ tự gốc.
+- **Khoá kết nối** `thread_num`/`delay`/`ignore` viết dạng giá trị trần: ẩn khỏi màn Cấu hình (hợp đồng: là giới hạn, không phải cài đặt), vẫn tiêm vào script; giá trị cũ người dùng đã sửa bị bỏ ở lượt lưu kế tiếp. Chưa áp làm giới hạn tải/lịch sử. Giá trị trần khác (`max_length`, `preload_size`…) vẫn sửa được.
+- **Script nhận chuỗi**: `JSExecutor.injectGlobals` đổi mọi giá trị sang chuỗi trước khi đưa vào JS (biến global + `localConfig.getItem`) qua `ExtensionConfigValueFormatter` (mới) — bool ⇒ `"true"`/`"false"`, số ⇒ `"3000"`, mảng ⇒ JSON, `null` ⇒ `""`. `injectedConfigs` của Swift giữ kiểu gốc; cách lưu `configJson` không đổi. Script cũ dùng `if (X)` với bool sẽ thấy `"false"` là đúng.
+- **Khám phá** tải lại `home`/`genre` khi `configJson` của nguồn đang xem đổi; tab danh mục và trang `explore` dựng lại bộ nạp (`.id(configJson)`).
+- **Không làm**: `mode: "database"` (giữ như cũ — ô chữ), `config.js` động, `actions`, `format` `password`/`multiline` (mỗi kiểu 1 tiện ích dùng), áp giới hạn kết nối.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cài lại Qimao, màn Cấu hình hiện 6 ô chọn đúng thứ tác giả, đổi "Nhóm nội dung" rồi đóng sheet thấy Khám phá đổi; tiện ích AI có `api_key` dạng `list` thêm/xoá được dòng.
+
 ## [1.3.671] - 2026-11-01
 
 ### fix: tìm nhiều nguồn chừa luồng cho TTS khi đang phát
@@ -375,18 +393,3 @@ Người dùng: *"Tôi muốn thêm hành động tap ở 1/3 màn hình trái p
 - **Truyện tranh** (người dùng: *"Comic làm luôn, cho config chọn kiểu mới này và kiểu vuốt cũ. Mặc định kiểu mới"*): `ComicChapterNavigationMode` (`@AppStorage("comicChapterNavigationMode")`) chọn ở ngăn kéo "…" mới trên thanh trên của màn đọc ("Tuỳ chọn đọc" › "Chuyển chương"). **Chạm hai bên** (mặc định): chạm 1/3 trái/phải trên ảnh hoặc dòng "Hết chương" ⇒ chương trước/sau, giữa ⇒ bật/tắt thanh, vuốt ngang không đổi chương. **Vuốt ngang**: như 1.3.613. Chạm đúp vẫn phóng to (`ComicPageView` báo điểm chạm `.global`). Dòng gợi ý cuối chương đổi theo kiểu; chạm hai bên và vuốt dùng chung `stepChapter(forward:)` (chặn khi đang nạp chương, toast ở chương đầu/cuối). CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic.
 - Chuyển entry `[1.3.613]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nhấn giữ bôi đen, chạm đúp chọn từ, kéo nới vùng chọn, chạm bỏ bôi đen, chạm khi trang đang trôi, chạm lúc TTS đang đọc; truyện tranh: chạm hai bên, chạm đúp phóng to, chuyển kiểu ở ngăn kéo "…".
-
-## [1.3.642] - 2026-10-29
-
-### feat: nhập truyện tranh và phim từ file, xuất truyện tranh CBZ/PDF
-
-Phần P5 của plan `Docs/Plans/2026-10-29-plan-dong-bo-ui-va-nhap-media.md`, tách khỏi 1.3.641 theo yêu cầu người dùng ("push sau").
-
-- **Loại nội dung không đổi `@Model`**: sách nhập từ file dùng packageId `local-comic` / `local-video` (`LocalMediaPackage`), url vẫn `local://…` nên `Book.isLocalBook` giữ đúng; `ExtensionContentKind` thêm hai nhánh, `BookContentDestination` tự mở đúng màn. Dịch tên theo công tắc chung như sách `"local"` (`TranslationConfigStore.isLocalPackage`).
-- **Nhập truyện tranh** (`Services/Import/Media/LocalComicImporter`): một file `.cbz`/`.zip` = cả bộ (người dùng chốt); giải nén vào `tmp/LocalMediaImport/<uuid>/`, mỗi thư mục chứa ảnh là một chương (tên tự nhiên, bỏ thư mục bọc chung), không có thư mục con ⇒ một chương. Sheet "Nhập truyện tranh" (tên sửa được, "Chương N · X ảnh") ⇒ chuyển ảnh vào `ComicOfflineStore` (manifest `chapterUrl` = url mục lục, host chương nil), `replaceFullTOC`, bìa = trang đầu. File nén chứa symlink ⇒ huỷ lượt nhập. `.zip` là EPUB vẫn nhập dạng chữ.
-- **Nhập phim** (`LocalVideoImporter`): một hay nhiều `.mp4`/`.mov`/`.m4v` gộp một phim, tập theo tên file; sheet "Nhập phim" ⇒ **chuyển** file (không đọc vào RAM) vào `VideoOfflineStore`, manifest `.file`, bìa là một khung hình; khác ổ thì chép (kiểm dung lượng) rồi xoá nguồn. Chọn nhiều file lẫn loại ⇒ báo lỗi, không nhập gì.
-- **Sách nhập media**: ẩn Tải offline, Xoá bản tải, chip Bản tải/Trực tuyến, nút tải ở mục lục comic, Thay đổi nguồn và Mở bằng trình duyệt ở Chi tiết (đổi nguồn xoá mất bản duy nhất). Thiếu file (khôi phục backup) ⇒ "…không còn trên máy — hãy nhập lại file". Backup **không** gói ảnh/video của sách nhập (người dùng chốt).
-- **Xuất truyện tranh**: `BookExportFormat.cbz` / `.pdf` (+ `TaskType`, rawValue lưu bền, dữ liệu cũ vẫn đọc được); `DownloadManager+ComicExport` chỉ lấy chương đã có ảnh offline, CBZ bằng `ZipStoreWriter` (chặn trước khi ghi nếu vượt 65.535 ảnh / 4 GB — `ZipStoreWriter` cũng tự chặn entry thứ 65.536 thay vì tràn `UInt16`), PDF mỗi ảnh một trang (JPEG nhúng nguyên). Picker định dạng lọc theo loại; "Xuất CBZ/PDF" ở sheet nhấn giữ, Chi tiết, tab Tải. Tiến độ trễ không đưa tác vụ đã xong về "Đang chạy".
-- Thư mục làm việc bỏ dở (> 6 giờ) dọn ở lượt nhập kế tiếp. Chuyển entry `[1.3.612]` sang `CHANGELOG.archive.md`.
-- **Chưa làm**: CBR/RAR/7z, ZIP mật khẩu, xuất phim, `ComicInfo.xml`, chặn zip bomb trước khi giải nén (đầy ổ ⇒ giải nén lỗi ⇒ dọn thư mục), dọn sách nhập dở khi app bị tắt giữa lúc ghi.
-- **Kiểm chứng**: đọc code + rà soát bằng agent (không thấy lỗi biên dịch; đã sửa crash CBZ > 65.535 ảnh, symlink, dịch tên sách media, tiến độ trễ); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử sheet xác nhận sau bộ chọn file, mở comic/phim vừa nhập, mov/m4v, phim vài GB, PDF webtoon dài, CBZ mở ở app khác.

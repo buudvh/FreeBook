@@ -870,13 +870,15 @@ public final class JSExecutor: @unchecked Sendable {
         ExtensionURLFormatter.resolveAssetURL(raw, host: host)
     }
 
-    /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext
+    /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext. Script luôn nhận **chuỗi** (hợp đồng:
+    /// `FLAG === "true"`, `parseInt(X)`) — `ExtensionConfigValueFormatter`; `injectedConfigs` giữ kiểu gốc cho code Swift.
     public func injectGlobals(_ globals: [String: Any]) {
         self.injectedConfigs = globals
-        for (key, value) in globals {
+        let jsGlobals = ExtensionConfigValueFormatter.jsGlobals(from: globals)
+        for (key, value) in jsGlobals {
             context.setObject(value, forKeyedSubscript: key as NSCopying & NSObjectProtocol)
         }
-        context.setObject(globals, forKeyedSubscript: "_injectedConfigs" as NSCopying & NSObjectProtocol)
+        context.setObject(jsGlobals, forKeyedSubscript: "_injectedConfigs" as NSCopying & NSObjectProtocol)
     }
 
     /// Kiểm tra tính hợp lệ cú pháp của script JS trong môi trường runtime đầy đủ của extension

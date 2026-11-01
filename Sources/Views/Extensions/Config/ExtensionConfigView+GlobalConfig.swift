@@ -9,7 +9,7 @@ import SwiftUI
 /// lỗi hiện thành dòng chữ đỏ trong nhóm + log `❌`.
 ///
 /// ## Khi nào ghi
-/// - Công tắc (biến `boolean`/`toggle`, cookie): ghi ngay.
+/// - Công tắc (biến `boolean`/`toggle`, cookie) và ô chọn (`select`): ghi ngay.
 /// - Ô chữ/số: ghi sau 0,4 s kể từ phím cuối (như `ExtensionMetadataSection`) — tránh I/O mỗi phím và tránh một
 ///   lượt chạy JS đọc phải giá trị đang gõ dở.
 /// - Màn đóng: **flush** lượt đang chờ (ghi ngay), không bỏ.
@@ -29,7 +29,7 @@ extension ExtensionConfigView {
                     .foregroundColor(.secondary)
                     .padding(.vertical, 4)
             } else {
-                ForEach(configDefinitions.keys.sorted(), id: \.self) { key in
+                ForEach(configKeys, id: \.self) { key in
                     if let definition = configDefinitions[key] {
                         configRow(key: key, definition: definition)
                     }
@@ -67,14 +67,32 @@ extension ExtensionConfigView {
         }
     }
 
-    /// Ba dáng dòng:
+    /// Năm dáng dòng:
+    /// - chọn (`select`, mọi `format` — `single`, bỏ trống, `text`… đều là chọn **một**; hợp đồng bỏ `multiple`): nút
+    ///   menu rộng hết dòng ở dưới tiêu đề — lựa chọn dài ("Tối đa 20 phản hồi mỗi bình luận") để bên phải sẽ bị cắt;
+    /// - danh sách (`list`): số dòng bên phải, chạm mở `ExtensionConfigListEditor`;
     /// - công tắc: tiêu đề + khoá bên trái, `Toggle` bên phải;
     /// - số: ô gọn bên phải (giá trị ngắn);
     /// - chữ (thường là URL dài): tiêu đề + khoá, bộ nút ↺ · xoá · sao chép · dán bên phải, ô nhập **rộng hết dòng**
     ///   ở dưới — để bên phải thì URL bị cắt chỉ còn vài ký tự. Giá trị mặc định là chữ mờ trong ô khi ô trống.
     @ViewBuilder
     private func configRow(key: String, definition: ConfigItem) -> some View {
-        if Self.isToggle(definition) {
+        if definition.mode == "select" {
+            selectRow(key: key, definition: definition)
+        } else if definition.mode == "list" {
+            NavigationLink {
+                ExtensionConfigListEditor(title: definition.title ?? key, subtitle: definition.subtitle,
+                                          value: configTextBinding(key))
+            } label: {
+                HStack(spacing: 12) {
+                    configRowLabel(key: key, definition: definition)
+                    Spacer(minLength: 8)
+                    Text("\(ExtensionConfigListEditor.items(from: userValues[key] ?? "").count) dòng")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+        } else if Self.isToggle(definition) {
             Toggle(isOn: Binding(
                 get: { (userValues[key] ?? definition.default ?? "false") == "true" },
                 set: { userValues[key] = $0 ? "true" : "false" }
@@ -114,6 +132,49 @@ extension ExtensionConfigView {
         }
     }
 
+    /// Menu kiểu ô chọn của form đăng nhập Legado (`LegadoLoginFieldView.selectField`): dấu ✓ ở lựa chọn đang hiện.
+    private func selectRow(key: String, definition: ConfigItem) -> some View {
+        let selected = Self.displayedSelection(userValues[key], definition: definition)
+        return VStack(alignment: .leading, spacing: 7) {
+            configRowLabel(key: key, definition: definition)
+            Menu {
+                ForEach(Array(definition.values.enumerated()), id: \.offset) { _, option in
+                    Button(action: { userValues[key] = option }) {
+                        if option == selected {
+                            Label(option, systemImage: "checkmark")
+                        } else {
+                            Text(option)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Text(selected)
+                        .font(.footnote)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 7)
+                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .disabled(definition.values.isEmpty)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// Hợp đồng: giá trị không nằm trong `values` hiện lựa chọn đầu. Chỉ là hiển thị — không tự ghi đè, script vẫn
+    /// nhận giá trị đã lưu cho tới khi người dùng chọn.
+    private static func displayedSelection(_ value: String?, definition: ConfigItem) -> String {
+        if let value, definition.values.contains(value) { return value }
+        return definition.values.first ?? value ?? ""
+    }
+
     private func configTextBinding(_ key: String) -> Binding<String> {
         Binding(
             get: { userValues[key] ?? "" },
@@ -121,8 +182,9 @@ extension ExtensionConfigView {
         )
     }
 
-    /// Tiêu đề + dòng phụ là **khoá** (chữ đều, một dòng). Không ghi "mặc định X" ở đây: mặc định thường là URL dài,
-    /// kéo dòng phụ xuống 3–4 dòng; nó đã là chữ mờ trong ô và là đích của nút ↺.
+    /// Tiêu đề + dòng phụ là **khoá** (chữ đều, một dòng) + `subtitle` của tiện ích nếu có (hiện ở mọi kiểu — hợp đồng
+    /// chỉ nói `toggle`/`list` nhưng tiện ích thật viết cả cho `select`/`input`). Không ghi "mặc định X" ở đây: mặc định
+    /// thường là URL dài, kéo dòng phụ xuống 3–4 dòng; nó đã là chữ mờ trong ô và là đích của nút ↺.
     private func configRowLabel(key: String, definition: ConfigItem) -> some View {
         let title = definition.title ?? key
         return VStack(alignment: .leading, spacing: 2) {
@@ -135,6 +197,12 @@ extension ExtensionConfigView {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            if let subtitle = definition.subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -144,7 +212,7 @@ extension ExtensionConfigView {
 
     // MARK: - Lưu
 
-    /// Công tắc đổi ⇒ ghi ngay; chỉ ô chữ/số đổi ⇒ chờ 0,4 s.
+    /// Công tắc / ô chọn đổi ⇒ ghi ngay; chỉ ô chữ/số/danh sách đổi ⇒ chờ 0,4 s.
     internal func handleConfigChange(from oldValues: [String: String], to newValues: [String: String]) {
         guard !isLoading, errorMessage.isEmpty else { return }
         guard newValues != persistedConfigValues else {
@@ -155,7 +223,7 @@ extension ExtensionConfigView {
         }
         let changedKeys = Set(oldValues.keys).union(newValues.keys).filter { oldValues[$0] != newValues[$0] }
         let hasDiscreteChange = changedKeys.contains { key in
-            key == Self.cookieKey || configDefinitions[key].map { Self.isToggle($0) } == true
+            key == Self.cookieKey || configDefinitions[key].map { Self.isToggle($0) || $0.mode == "select" } == true
         }
         if hasDiscreteChange {
             configSaveTask?.cancel()
@@ -209,13 +277,18 @@ extension ExtensionConfigView {
     }
 
     /// Dựng `configJson` — giữ nguyên luật của `saveConfig()` cũ: bỏ giá trị rỗng, cookie luôn là bool, `boolean`
-    /// ⇒ bool, `number` ⇒ Int/Double (không parse được thì giữ chuỗi), còn lại là chuỗi.
+    /// ⇒ bool, `number` ⇒ Int/Double (không parse được thì giữ chuỗi), còn lại là chuỗi. `select`/`list` luôn là chuỗi
+    /// dù `format` ghi gì. (Script nhận chuỗi bất kể kiểu lưu — `JSExecutor.injectGlobals`.)
     private static func configJsonString(from values: [String: String], definitions: [String: ConfigItem]) throws -> String? {
         var typedDict: [String: Any] = [:]
         for (key, strVal) in values {
             guard !strVal.isEmpty else { continue }
             if key == cookieKey {
                 typedDict[key] = (strVal.lowercased() == "true")
+                continue
+            }
+            if let mode = definitions[key]?.mode, mode == "select" || mode == "list" {
+                typedDict[key] = strVal
                 continue
             }
             let fmt = definitions[key]?.format

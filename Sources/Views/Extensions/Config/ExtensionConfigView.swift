@@ -25,6 +25,8 @@ struct ExtensionConfigView: View {
 
     // Lưu các cấu hình định nghĩa trong plugin.json
     @State internal var configDefinitions: [String: ConfigItem] = [:]
+    /// Khoá của `configDefinitions` theo thứ tự hiển thị: thứ tự trong `config` của `plugin.json`, rồi khoá đặc biệt ở gốc.
+    @State internal var configKeys: [String] = []
     // Lưu các giá trị hiện tại người dùng nhập vào
     @State internal var userValues: [String: String] = [:]
     /// Bản đã ghi gần nhất (hoặc bản vừa nạp) — mốc so sánh để không sinh lượt ghi giả. `+GlobalConfig`
@@ -44,12 +46,39 @@ struct ExtensionConfigView: View {
     @State internal var navigateToImportedBook = false
     @State internal var showingSourceCheck = false // `+SourceCheck`
 
-    struct ConfigItem: Codable {
+    /// Một mục của khối `config` trong `plugin.json`. Dựng tay từ dict (không `JSONDecoder`): `default`/`values` viết
+    /// bằng số hay bool vẫn đọc được (ép thành chuỗi) thay vì làm mất cả dòng.
+    struct ConfigItem {
         let title: String?
+        let subtitle: String?
         let mode: String?
         let format: String?
         let `default`: String?
+        /// Lựa chọn của `mode: "select"`; rỗng với kiểu khác.
+        let values: [String]
+
+        init(title: String?, mode: String?, format: String?, default: String?) {
+            self.title = title
+            self.subtitle = nil
+            self.mode = mode
+            self.format = format
+            self.default = `default`
+            self.values = []
+        }
+
+        init(dictionary: [String: Any]) {
+            title = dictionary["title"] as? String
+            subtitle = dictionary["subtitle"] as? String
+            mode = dictionary["mode"] as? String
+            format = dictionary["format"] as? String
+            `default` = dictionary["default"].map(ExtensionConfigValueFormatter.text)
+            values = (dictionary["values"] as? [Any])?.map(ExtensionConfigValueFormatter.text) ?? []
+        }
     }
+
+    /// Giới hạn kết nối viết dạng giá trị trần dưới `config` (hợp đồng): không phải cài đặt nên không hiện. Vẫn được
+    /// tiêm vào script (`ExtensionManager.getCombinedConfigs`). Viết thành object `{ title, mode }` thì là cài đặt thường.
+    static let connectionKeys: Set<String> = ["thread_num", "delay", "ignore"]
 
     var body: some View {
         NavigationStack {
@@ -162,15 +191,17 @@ struct ExtensionConfigView: View {
             let data = try Data(contentsOf: pluginJsonUrl)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 var definitions: [String: ConfigItem] = [:]
+                var keys: [String] = []
 
-                // 1. Đọc từ section "config" nếu có
+                // 1. Đọc từ section "config" nếu có — theo thứ tự trong file
                 if let configSection = json["config"] as? [String: Any] {
-                    for (key, value) in configSection {
+                    keys = Self.orderedConfigKeys(in: data, section: configSection)
+                    for key in keys {
+                        guard let value = configSection[key] else { continue }
                         if let dict = value as? [String: Any] {
-                            if let dictData = try? JSONSerialization.data(withJSONObject: dict),
-                               let item = try? JSONDecoder().decode(ConfigItem.self, from: dictData) {
-                                definitions[key] = item
-                            }
+                            definitions[key] = ConfigItem(dictionary: dict)
+                        } else if Self.connectionKeys.contains(key) {
+                            continue
                         } else if let bVal = value as? Bool {
                             definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
                         } else if let nVal = value as? NSNumber {
@@ -195,15 +226,19 @@ struct ExtensionConfigView: View {
                     }
                 }
 
+                let declaredKeys = keys.filter { definitions[$0] != nil }
+                let rootKeys = specialKeys.filter { definitions[$0] != nil && !declaredKeys.contains($0) }
                 self.configDefinitions = definitions
+                self.configKeys = declaredKeys + rootKeys
             }
 
-            // Đọc các giá trị người dùng đã lưu trước đó trong Extension
+            // Đọc các giá trị người dùng đã lưu trước đó trong Extension. Bỏ giá trị cũ của khoá kết nối đã ẩn (bản cũ
+            // của màn này cho sửa): không còn chỗ sửa thì lượt ghi kế tiếp xoá nó, script về giá trị của `plugin.json`.
             var values: [String: String] = [:]
             if let userConfigData = current.configJson.data(using: .utf8),
                let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: Any] {
-                for (k, v) in savedValues {
-                    values[k] = Self.storedValueText(v)
+                for (k, v) in savedValues where !(Self.connectionKeys.contains(k) && configDefinitions[k] == nil) {
+                    values[k] = ExtensionConfigValueFormatter.text(v)
                 }
             }
 
@@ -226,12 +261,15 @@ struct ExtensionConfigView: View {
         }
     }
 
-    /// `JSONSerialization` trả bool dưới dạng `NSNumber`; nội suy `"\(v)"` ra `"1"`/`"0"` nên công tắc (so với
-    /// `"true"`) luôn hiện tắt và lần ghi sau biến `true` thành `false`. Nhận diện bool thật qua `CFBoolean`.
-    private static func storedValueText(_ value: Any) -> String {
-        if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
-            return number.boolValue ? "true" : "false"
-        }
-        return "\(value)"
+    /// Khoá của khối `config` theo thứ tự trong file — `JSONSerialization` trả dict mất thứ tự, nên đọc lại bằng parser
+    /// JSON giữ thứ tự sẵn có của engine Legado. Không đọc được ⇒ xếp ABC như trước. Tiện ích mã hoá cài trước 1.3.672
+    /// đã bị ghi lại `plugin.json` theo ABC (`ExtensionScriptDecoder`) — phải cài lại mới có thứ tự gốc.
+    private static func orderedConfigKeys(in data: Data, section: [String: Any]) -> [String] {
+        let sorted = section.keys.sorted()
+        guard let text = String(data: data, encoding: .utf8),
+              let entries = LegadoEngineJSONParser.parse(text)?["config"]?.objectEntries else { return sorted }
+        var seen = Set<String>()
+        let ordered = entries.map { $0.key }.filter { section[$0] != nil && seen.insert($0).inserted }
+        return ordered + sorted.filter { !seen.contains($0) }
     }
 }

@@ -323,6 +323,7 @@ struct DiscoveryView: View {
                                             if ExploreSectionsView.isTab(item) {
                                                 ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
+                                                    .id(ext.configJson) // đổi config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
                                             } else if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
@@ -337,6 +338,7 @@ struct DiscoveryView: View {
                                                     packageId: extPackageId,
                                                     onSelectNovel: openNovel
                                                 )
+                                                .id(ext.configJson) // bộ nạp là `@StateObject` tạo một lần với `configJson` cũ
                                                 .tag(item.id)
                                             } else {
                                                 Color.clear
@@ -373,6 +375,12 @@ struct DiscoveryView: View {
                     discoveryLoadTask?.cancel()
                     isLoading = false
                 }
+            }
+            // Config của nguồn đang xem vừa đổi (màn Cấu hình tự lưu, vd "Nhóm nội dung" lọc `home`/`genre`) ⇒ tải lại
+            // danh mục. Đổi nguồn đã có `onChange(selectedExtensionId)` lo, không tải hai lần.
+            .onChange(of: [selectedExtensionId, selectedExtension?.configJson ?? ""]) { old, new in
+                guard old[0] == new[0], old[1] != new[1], !new[0].isEmpty else { return }
+                loadDiscoveryData()
             }
             // Nguồn đang chọn vừa bị gỡ/ẩn ⇒ nguồn đầu tiên còn lại; hết nguồn thì xoá chọn. Đang không chọn gì mà có
             // nguồn trở lại (bật NSFW, cài tiện ích) ⇒ khôi phục nguồn cuối đã xem, không còn thì nguồn đầu tiên.

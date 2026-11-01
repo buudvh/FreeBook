@@ -202,7 +202,29 @@ enum ExtensionScriptDecoder {
     // MARK: - Ghi cờ
 
     /// Đặt `encrypt = false` trong `plugin.json` để đánh dấu thư mục đã là bản rõ.
+    ///
+    /// Ưu tiên sửa đúng chữ của cờ, giữ nguyên phần còn lại của file: ghi lại bằng `JSONSerialization` làm mất thứ tự
+    /// khoá, mà màn Cấu hình hiện các mục `config` theo thứ tự tác giả viết (`ExtensionConfigView`). Không khớp mẫu
+    /// hoặc kết quả không còn là JSON hợp lệ ⇒ ghi lại cả file như cũ.
     private static func clearEncryptFlag(pluginUrl: URL, plugin: [String: Any]) {
+        if let text = try? String(contentsOf: pluginUrl, encoding: .utf8) {
+            let flipped = text.replacingOccurrences(
+                of: #""encrypt"\s*:\s*true"#,
+                with: "\"encrypt\": false",
+                options: .regularExpression
+            )
+            if flipped != text,
+               let flippedData = flipped.data(using: .utf8),
+               (try? JSONSerialization.jsonObject(with: flippedData)) != nil {
+                do {
+                    try flippedData.write(to: pluginUrl, options: .atomic)
+                    return
+                } catch {
+                    AppLogger.shared.log("❌ [ExtensionScriptDecoder] Không ghi được cờ encrypt vào plugin.json: \(error.localizedDescription)")
+                }
+            }
+        }
+
         var updated = plugin
         if var metaDict = updated["metadata"] as? [String: Any], metaDict["encrypt"] != nil {
             metaDict["encrypt"] = false
