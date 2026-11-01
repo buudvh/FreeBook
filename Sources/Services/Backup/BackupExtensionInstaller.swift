@@ -66,7 +66,7 @@ public enum BackupExtensionInstaller {
                 continue
             }
 
-            let mainFolder = ExtensionManager.shared.findMainExtensionFolder(at: target)
+            let mainFolder = ExtensionPackageInstaller.findMainFolder(at: target)
             outcome.commands.append(
                 UpsertExtensionCommand(
                     packageId: record.packageId,

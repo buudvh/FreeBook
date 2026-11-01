@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.643] - 2026-10-29
+
+### feat: chạm 1/3 hai bên để chuyển chương ở Reader và truyện tranh
+
+Người dùng: *"Tôi muốn thêm hành động tap ở 1/3 màn hình trái phải để chuyển chương. Nhưng sợ xung đột với hành động bôi đen"* — duyệt plan, công tắc mặc định **bật**.
+
+- **`ReaderEdgeTapDetector`** (`Sources/Views/Reader/Components/`): `UITapGestureRecognizer` không tiêu thụ touch gắn lên `UIScrollView` của chương (cùng mẫu `ReaderUserScrollDetector`: `cancelsTouchesInView = false`, nhận đồng thời, không đòi recognizer khác fail) ⇒ không giành touch của ô chữ. 1/3 trái ⇒ chương trước, 1/3 phải ⇒ chương sau, giữa không làm gì; tính cả chạm lên chữ lẫn lề.
+- **Không tính là chạm chuyển chương** khi: lúc đặt ngón đang có đoạn bôi đen / menu bôi đen hiện (chạm để bỏ bôi đen); giữ > 0,35 s hoặc kéo; trang đang trôi/đang kéo (chạm để dừng cuộn); chạm đúp — chờ 0,25 s, có chạm thứ hai hoặc chữ vừa được bôi đen thì huỷ; chương đầu/cuối; chương đang tải/lỗi (khung cuộn chưa có). Khung nội dung chương chỉ chứa đoạn chữ, nút Chương trước/sau ở thanh điều khiển ngoài ⇒ không bấm trùng nút.
+- Chuyển chương đi qua `stepChapterHonoringTTS` như nút Chương trước/sau (tôn trọng TTS đang đọc), rung nhẹ. Hai đầu dò gộp thành `readerScrollProbes` ở `ReaderView+Controls`.
+- Công tắc "Chạm hai bên để chuyển chương" ở Cài đặt đọc (`@AppStorage("readerEdgeTapChangesChapter")`, mặc định bật).
+- **Truyện tranh** (người dùng: *"Comic làm luôn, cho config chọn kiểu mới này và kiểu vuốt cũ. Mặc định kiểu mới"*): `ComicChapterNavigationMode` (`@AppStorage("comicChapterNavigationMode")`) chọn ở ngăn kéo "…" mới trên thanh trên của màn đọc ("Tuỳ chọn đọc" › "Chuyển chương"). **Chạm hai bên** (mặc định): chạm 1/3 trái/phải trên ảnh hoặc dòng "Hết chương" ⇒ chương trước/sau, giữa ⇒ bật/tắt thanh, vuốt ngang không đổi chương. **Vuốt ngang**: như 1.3.613. Chạm đúp vẫn phóng to (`ComicPageView` báo điểm chạm `.global`). Dòng gợi ý cuối chương đổi theo kiểu; chạm hai bên và vuốt dùng chung `stepChapter(forward:)` (chặn khi đang nạp chương, toast ở chương đầu/cuối). CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic.
+- Chuyển entry `[1.3.613]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nhấn giữ bôi đen, chạm đúp chọn từ, kéo nới vùng chọn, chạm bỏ bôi đen, chạm khi trang đang trôi, chạm lúc TTS đang đọc; truyện tranh: chạm hai bên, chạm đúp phóng to, chuyển kiểu ở ngăn kéo "…".
+
 ## [1.3.642] - 2026-10-29
 
 ### feat: nhập truyện tranh và phim từ file, xuất truyện tranh CBZ/PDF

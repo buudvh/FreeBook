@@ -12,6 +12,10 @@ import Foundation
 ///
 /// **Chỉ hỗ trợ đúng biến thể trên** (quyết định đã chốt): không thử ma trận biến thể key,
 /// không giải nén payload — tool chính thức của Vbook mã hoá JS thô chứ không nén.
+///
+/// **Định dạng mã hoá mới** (ciphertext sau bước 1–2 mở đầu bằng 4 byte `a7 e4 1d 02`) chưa giải được: nhận ra ngay
+/// sau Base64 và ném lỗi riêng (`unsupportedFormatErrorCode`, kiểm bằng `isUnsupportedFormat(_:)`) để UI báo rõ,
+/// thay vì rơi xuống AES-CBC rồi báo nhầm "metadata.source/author đã bị sửa".
 enum ExtensionScriptDecoder {
 
     // MARK: - Hằng số
@@ -32,14 +36,31 @@ enum ExtensionScriptDecoder {
     /// Kích thước block AES. Bọc `Int(...)` vì macro của CommonCrypto có thể được import thành `Int32`.
     private static let aesBlockSize = Int(kCCBlockSizeAES128)
 
+    /// 4 byte đầu ciphertext (sau khi bỏ token + Base64) của định dạng mã hoá mới mà app chưa giải được.
+    private static let unsupportedFormatPrefix = Data([0xA7, 0xE4, 0x1D, 0x02])
+
+    private static let errorDomain = "ExtensionScriptDecoder"
+
+    /// Mã lỗi của "định dạng mã hoá mới" — khác `-1` của mọi lỗi giải mã khác.
+    static let unsupportedFormatErrorCode = -2
+
     // MARK: - API
+
+    /// `error` (hoặc lỗi gốc nằm trong `NSUnderlyingErrorKey`, kể cả khi bị bọc nhiều lớp) là lỗi "định dạng mã
+    /// hoá mới" của `decodeScripts`.
+    static func isUnsupportedFormat(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == errorDomain, nsError.code == unsupportedFormatErrorCode { return true }
+        guard let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error else { return false }
+        return isUnsupportedFormat(underlying)
+    }
 
     /// Giải mã tại chỗ mọi script bị mã hoá trong thư mục extension.
     ///
     /// - Ghi đè nội dung file script bằng bản plaintext, **giữ nguyên tên file** ⇒ bản đồ `script`
     ///   trong `plugin.json` không phải sửa, runtime và editor đọc như extension thường.
     /// - Đặt cờ `encrypt` về `false` để đánh dấu thư mục đã là bản rõ.
-    /// - Ném lỗi khi gặp file **chắc chắn** bị mã hoá (có token) mà không giải được ⇒ luồng cài dừng
+    /// - Ném lỗi khi gặp file **chắc chắn** bị mã hoá (có token, hoặc khớp định dạng mã hoá mới) mà không giải được ⇒ luồng cài dừng
     ///   và báo lỗi, thay vì cài một extension chắc chắn hỏng lúc chạy.
     /// - Trả về số file đã giải mã; `0` nghĩa là extension không mã hoá (không làm gì).
     @discardableResult
@@ -78,8 +99,9 @@ enum ExtensionScriptDecoder {
                 try plain.write(to: item.url, atomically: true, encoding: .utf8)
                 decodedCount += 1
             } catch {
-                // Không có token ⇒ chỉ là phỏng đoán theo cờ `encrypt`, chưa đủ căn cứ để chặn cài.
-                guard item.hasTokens else { continue }
+                // Không có token ⇒ chỉ là phỏng đoán theo cờ `encrypt`, chưa đủ căn cứ để chặn cài — trừ khi đã
+                // khớp 4 byte của định dạng mã hoá mới: khi đó chắc chắn là script mã hoá mà app chưa đọc được.
+                guard item.hasTokens || isUnsupportedFormat(error) else { continue }
                 throw error
             }
         }
@@ -110,6 +132,12 @@ enum ExtensionScriptDecoder {
         let base64 = unescape(raw).filter { !$0.isWhitespace }
         guard let cipher = Data(base64Encoded: base64) else {
             throw failure("\(fileName): noi dung sau khi bo token khong phai Base64 hop le")
+        }
+        // Kiểm trước điều kiện độ dài: ciphertext định dạng mới có độ dài tuỳ ý, nhiều file lại tình cờ chia hết cho 16.
+        guard !cipher.starts(with: unsupportedFormatPrefix) else {
+            throw NSError(domain: errorDomain, code: unsupportedFormatErrorCode, userInfo: [
+                NSLocalizedDescriptionKey: "\(fileName): tiện ích dùng định dạng mã hoá mới, FreeBook chưa đọc được"
+            ])
         }
         guard !cipher.isEmpty, cipher.count % aesBlockSize == 0 else {
             throw failure("\(fileName): do dai ciphertext (\(cipher.count) byte) khong chia het cho 16")
@@ -243,6 +271,6 @@ enum ExtensionScriptDecoder {
 
     /// Không khai báo type `Error` riêng để giữ luật 1 type top level mỗi file.
     private static func failure(_ message: String) -> NSError {
-        NSError(domain: "ExtensionScriptDecoder", code: -1, userInfo: [NSLocalizedDescriptionKey: message])
+        NSError(domain: errorDomain, code: -1, userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

@@ -5,8 +5,8 @@ import SwiftData
 ///
 /// Không có nút "Lưu"/"Hủy"/"Đóng" — đóng bằng vuốt xuống (1.3.641). Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
 /// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
-/// + chế độ máy tính của webview ở `+WebContent`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`. Khối
-/// `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
+/// + chế độ máy tính của webview ở `+WebContent`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`, trang đăng
+/// nhập `support_url` ở `+SupportLink`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
 ///
 /// Mọi `@State` để `internal`: các file `+` là extension ở file khác, mà `private` chỉ có phạm vi **file**.
 /// `onImport` có mặc định `nil` nên Quản lý tiện ích và màn TTS vẫn gọi `ExtensionConfigView(ext:)` như cũ.
@@ -45,6 +45,9 @@ struct ExtensionConfigView: View {
     @State internal var importedBook: ImportedBookRoute? = nil
     @State internal var navigateToImportedBook = false
     @State internal var showingSourceCheck = false // `+SourceCheck`
+    // Trang đăng nhập `support_url` — `ExtensionConfigView+SupportLink`
+    @State internal var supportLinkURL: String? = nil
+    @State internal var openingSupportLink: SupportLinkRoute? = nil
 
     /// Một mục của khối `config` trong `plugin.json`. Dựng tay từ dict (không `JSONDecoder`): `default`/`values` viết
     /// bằng số hay bool vẫn đọc được (ép thành chuỗi) thay vì làm mất cả dòng.
@@ -82,7 +85,7 @@ struct ExtensionConfigView: View {
 
     var body: some View {
         NavigationStack {
-            sourceCheckPresentation(on: browserPresentation(on: uninstallDialogs(on: screenContent)))
+            supportLinkPresentation(on: sourceCheckPresentation(on: browserPresentation(on: uninstallDialogs(on: screenContent))))
                 .pageTitle("Cấu hình tiện ích")
                 .presentationDragIndicator(.visible)
                 .sheet(isPresented: $showingScriptEditor) {
@@ -146,6 +149,7 @@ struct ExtensionConfigView: View {
                 )
             }
 
+            supportLinkSection // nút mở trang đăng nhập — `ExtensionConfigView+SupportLink`
             globalConfigSection // tự lưu — `ExtensionConfigView+GlobalConfig`
             browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
             webContentSection // tự lưu khi bấm — `ExtensionConfigView+WebContent`
@@ -202,6 +206,8 @@ struct ExtensionConfigView: View {
                             definitions[key] = ConfigItem(dictionary: dict)
                         } else if Self.connectionKeys.contains(key) {
                             continue
+                        } else if key == Self.supportURLKey, let link = Self.supportLink(from: value) {
+                            supportLinkURL = link // nút, không phải cài đặt — `+SupportLink`
                         } else if let bVal = value as? Bool {
                             definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
                         } else if let nVal = value as? NSNumber {
@@ -216,7 +222,9 @@ struct ExtensionConfigView: View {
                 let specialKeys = ["preload_size", "max_length", "required_api_key", "support_url"]
                 for key in specialKeys {
                     if definitions[key] == nil, let val = json[key] {
-                        if let bVal = val as? Bool {
+                        if key == Self.supportURLKey, let link = Self.supportLink(from: val) {
+                            supportLinkURL = supportLinkURL ?? link
+                        } else if let bVal = val as? Bool {
                             definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
                         } else if let nVal = val as? NSNumber {
                             definitions[key] = ConfigItem(title: key, mode: "input", format: "number", default: "\(nVal)")

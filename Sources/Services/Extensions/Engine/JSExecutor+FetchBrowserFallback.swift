@@ -67,7 +67,9 @@ extension JSExecutor {
                 "statusText": "OK",
                 "raw": raw.base64EncodedString(),
                 "headers": ["Content-Type": "\(mime); charset=\(charset)"],
-                "url": page.finalURL.isEmpty ? url.absoluteString : page.finalURL
+                "url": page.finalURL.isEmpty ? url.absoluteString : page.finalURL,
+                // Header của request `fetch` gốc (`response.request.headers`) — không phải của browser.
+                "requestHeaders": response["requestHeaders"] ?? [String: String]()
             ]
         case .failure(let reason, let httpStatus):
             AppLogger.shared.log("❌ [JSFetch] Fetch lỗi (\(trigger)) và browser ẩn cũng lỗi (\(reason)) — \(target)")

@@ -2,6 +2,8 @@ import Foundation
 
 /// Cầu nối lưu trữ của extension (`localStorage`, `cacheStorage`, `localConfig`, `localCookie`). Hiện chỉ giữ
 /// polyfill JS; block `_nativeStorage*` vẫn cài trong `JSExecutor`. Nội dung chuyển nguyên văn từ `JSExecutor.swift` (1.3.481).
+/// `localCookie` gọi `_nativeCookieGet`/`_nativeCookieSet` (`JSExecutor+Cookie`): cookie thật của tên miền `source` trong
+/// kho mà `fetch` dùng, không còn là biến JS rỗng mỗi lượt.
 enum JSExtensionStorageBridge {
     /// Chuỗi JS dựng các API lưu trữ.
     static let bootstrap = """
@@ -52,13 +54,12 @@ enum JSExtensionStorageBridge {
         }
     };
 
-    var __cookieData = "";
     var localCookie = {
         setCookie: function(cookieStr) {
-            __cookieData = String(cookieStr || "");
+            _nativeCookieSet(String(cookieStr || ""));
         },
         getCookie: function(url) {
-            return __cookieData;
+            return _nativeCookieGet(url ? String(url) : "");
         }
     };
     """

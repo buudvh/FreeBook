@@ -17,7 +17,8 @@ import WebKit
 /// Không log giá trị cookie — chỉ số lượng và host.
 enum WebKitCookieBridge {
     /// Chép mọi cookie WebKit áp được cho `host` (cookie của chính host hoặc của tên miền cha — domain có/không dấu
-    /// chấm đầu) sang `HTTPCookieStorage.shared`. Cookie trùng tên/domain/path bị ghi đè bằng bản WebKit.
+    /// chấm đầu) sang `HTTPCookieStorage.shared`. Cookie trùng tên/domain/path bị ghi đè bằng bản WebKit, và được ghi dấu
+    /// vân tay (`ExtensionCookieSync.recordCopied`) để lượt đồng bộ trước khi chạy script không ghi đè bản mới hơn về sau.
     /// `sourcePackageId` là nguồn Legado ⇒ cùng các cookie đó được gộp vào kho cookie của nguồn (tiện ích JS ⇒ bỏ qua).
     /// Trả số cookie đã chép; host rỗng ⇒ 0.
     @MainActor
@@ -30,6 +31,7 @@ enum WebKitCookieBridge {
         for cookie in matching {
             HTTPCookieStorage.shared.setCookie(cookie)
         }
+        ExtensionCookieSync.shared.recordCopied(matching)
         AppLogger.shared.log("[WebKitCookieBridge] Đã chép \(matching.count) cookie cho \(target)")
         if let sourcePackageId, !sourcePackageId.isEmpty, !matching.isEmpty {
             // Hàm không gắn actor ⇒ tra nguồn (có thể đọc `source.json`) chạy ngoài main.
@@ -60,7 +62,8 @@ enum WebKitCookieBridge {
     }
 
     /// `host` trùng domain cookie hoặc là tên miền con của nó (`a.b.com` nhận cookie `.b.com` / `b.com`).
-    private static func appliesTo(_ host: String, cookieDomain: String) -> Bool {
+    /// Dùng chung với `ExtensionCookieSync`.
+    static func appliesTo(_ host: String, cookieDomain: String) -> Bool {
         var domain = cookieDomain.lowercased()
         while domain.hasPrefix(".") { domain.removeFirst() }
         guard !domain.isEmpty else { return false }

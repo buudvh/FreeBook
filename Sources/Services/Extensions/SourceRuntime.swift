@@ -31,6 +31,21 @@ public final class SourceRuntime: @unchecked Sendable {
         return try await ExtensionManager.shared.search(localPath: localPath, downloadUrl: downloadUrl, query: query, page: page, configJson: configJson)
     }
 
+    /// Một trang kết quả tìm kèm token trang kế (`nil` ⇒ hết trang) — màn Tìm kiếm một nguồn tải thêm trang bằng hàm này.
+    /// - Tiện ích JS: `pageToken` gửi nguyên văn cho `execute(query, page)`; `nil` (trang 1) ⇒ số trang `page` (`"1"`).
+    /// - Nguồn Legado: chạy theo số trang `page`; trang kế chỉ có khi trang này ra kết quả **và** `searchUrl` có chỗ cắm
+    ///   số trang (không có thì trang 2+ chỉ lặp trang 1).
+    public func searchPage(localPath: String, downloadUrl: String = "", query: String, page: Int, pageToken: String?, configJson: String = "{}") async throws -> (results: [ExtensionItemResult], nextPage: String?) {
+        if let target = try legadoTarget(localPath) {
+            let results = try await legadoCall("search", "query=\(query), page=\(page)") {
+                try await LegadoSourceRuntime.search(target, query: query, page: page)
+            }
+            let hasNext = !results.isEmpty && LegadoSourceRuntime.hasPagePlaceholder(target.source.searchUrl)
+            return (results, hasNext ? String(page + 1) : nil)
+        }
+        return try await ExtensionManager.shared.searchPage(localPath: localPath, downloadUrl: downloadUrl, query: query, pageToken: pageToken ?? String(page), configJson: configJson)
+    }
+
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}", context: SourceRuntimeContext? = nil) async throws -> NovelDetailResult {
         if let target = try legadoTarget(localPath) {
             return try await legadoCall("detail", url, interactive: context?.isInteractive == true) {

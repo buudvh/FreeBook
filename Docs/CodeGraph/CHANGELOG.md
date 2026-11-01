@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.673] - 2026-11-01
+
+### fix: tiện ích JS cài an toàn, tìm kiếm tải thêm, cookie của nguồn
+
+Người dùng nhờ điều tra tiện ích JS nào FreeBook chưa dùng được (báo cáo 33 mục); chọn "Lập plan mục 1–3", duyệt cả 3 kể cả nút trang đăng nhập.
+
+- **Cài/cập nhật an toàn** (`ExtensionPackageInstaller`, mới): giải nén + giải mã ở thư mục tạm, thành công mới đổi chỗ vào `extensions/<packageId>/` (bản cũ dời sang tmp, chuyển bản mới lỗi thì trả bản cũ về). Trước đây `install(item:)` xoá bản đang chạy rồi mới giải mã ⇒ gói không giải được làm mất bản cũ; cài mới lỗi để lại thư mục dở; nhập zip xoá bản cũ trước khi chuyển. Giữ nguyên hình dạng `localPath` (zip bọc thư mục con vẫn trỏ thư mục con). `ExtensionManager.findMainExtensionFolder` thành `ExtensionPackageInstaller.findMainFolder`.
+- **Định dạng mã hoá mới**: 14/93 gói của kho chính thức (wikidich, wattpad, mangadex, metruyenchu-app, allshorts…) có ciphertext mở đầu `a7 e4 1d 02`; app chưa giải được (thử AES-GCM/ChaCha20/CTR với khoá cũ đều không khớp — UNKNOWN). `ExtensionScriptDecoder` nhận ra ngay sau Base64, **trước** bước kiểm độ dài (4 file dài đúng bội 16 từng rơi xuống CBC rồi báo nhầm "source/author bị sửa"), ném lỗi riêng (`isUnsupportedFormat`). Màn Quản lý tiện ích báo "<tên> dùng định dạng mã hoá mới, FreeBook chưa đọc được." kèm "Bản đang cài vẫn giữ nguyên."; "Cập nhật tất cả" gom lỗi, báo "Đã cập nhật N/M tiện ích." (trước luôn báo xong, lỗi của tiện ích trước bị xoá). Máy đã bấm cập nhật trước bản này thì bản cũ đã mất.
+- **Tìm kiếm tải thêm trang** (tìm trên một nguồn): `ExtensionManager+Search` (mới) có `searchPage` trả token trang kế — đọc `next` của object script trả về, thiếu thì `Response.nextPage`; `search(page:)` cũ thành vỏ cho bộ kiểm tra, tìm nhiều nguồn, bộ nghiệm thu. Trang 1 vẫn gửi `"1"`, trang sau gửi nguyên token. `SourceRuntime.searchPage`: nguồn Legado có trang kế khi `searchUrl` có chỗ cắm số trang và trang có kết quả. Màn Tìm (`SearchView+Paging`, `SearchPagingState`): tự nạp khi một trong 5 mục cuối hoặc sentinel cuối hiện ra (lưới `.id(count)`), không có nút "Xem thêm"; dừng khi token rỗng/trùng token vừa dùng, trang không thêm link mới, hoặc đủ 50 trang; lỗi trang sau tự thử lại 3 lần cách 2 s rồi dừng im lặng; tìm lại thì huỷ lượt tải thêm cũ. Tìm nhiều nguồn vẫn chỉ trang 1.
+- **Cookie của nguồn**: `ExtensionCookieSync` (mới) chép cookie WebKit (nơi người dùng đăng nhập) sang `HTTPCookieStorage.shared` cho tên miền `source` ở đầu mỗi `JSExecutor.callAsync` (phủ cả runtime TTS). Rẻ nhờ `WKHTTPCookieStoreObserver` + bộ đếm thế hệ: WebKit không đổi ⇒ một lần khoá, không nhảy main. Chỉ chép cookie còn thiếu hoặc vừa đổi bên WebKit (dấu SHA-256 trong `UserDefaults`, không lưu giá trị) để không đè cookie `Set-Cookie` mới hơn của `fetch`; app ở nền hoặc WebKit không trả lời sau 2 s ⇒ bỏ lượt. `localCookie` (`JSExecutor+Cookie`, mới) đọc/ghi kho thật: `getCookie(url?)`; `setCookie` nhận dòng Set-Cookie hoặc danh sách `a=1; b=2`. `fetch` trả header thật đã gửi (gồm `Cookie` tính lúc gửi) ⇒ `response.request.headers` thêm khoá chữ thường (`.cookie`), kể cả khi qua browser ẩn. `WebKitCookieBridge` ghi dấu cho cookie chép từ "Mở link lỗi".
+- **Trang đăng nhập** (`ExtensionConfigView+SupportLink`, mới): `support_url` là URL http(s) (trong `config` hoặc ở gốc) ⇒ dòng "Mở trang đăng nhập" thay ô chữ, mở `BypassWebView`; đóng ⇒ chép cookie ngay (WebKit thắng). Hưởng lợi: tiktok-tts, metruyenchu/vtruyen (phần cần đăng nhập), koanchay.
+- **Không làm**: giải mã định dạng mới; trang sau của tìm nhiều nguồn; ghi header `Cookie` do script tự truyền vào kho; chiều URLSession → WebKit. Lưu ý: tiện ích có `source` thuộc google.com giờ nhận cookie đăng nhập Google — tắt bằng "Xử lý cookie hệ thống".
+- Chuyển entry `[1.3.643]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cập nhật một gói định dạng mới thì báo rõ và bản cũ vẫn chạy; tìm một nguồn rồi cuộn xuống thấy trang 2; tiktok-tts đăng nhập qua "Mở trang đăng nhập" rồi đọc được.
+
 ## [1.3.672] - 2026-11-01
 
 ### fix: cấu hình tiện ích hiện ô chọn select và danh sách list
@@ -379,17 +394,3 @@ Người dùng gửi log: `❌ [MediaImport] Lỗi chuẩn bị nhập truyện 
 - **Sửa**: chuẩn hoá **thư mục cha** của đích (luôn đã tồn tại lúc gọi) bằng cùng cách với gốc (`standardizedFileURL.resolvingSymlinksInPath()`) rồi ghép tên file; tên rỗng / `.` / `..` / chứa `/` bị từ chối. `discard` và dọn thư mục cũ đi cùng hàm nên cũng nhất quán. Các kiểm đường dẫn khác của luồng nhập (quét ảnh sau giải nén) so hai đường dẫn đã tồn tại nên không dính lỗi này.
 - Chuyển entry `[1.3.614]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần nhập lại một `.cbz` và một `.mp4`.
-
-## [1.3.643] - 2026-10-29
-
-### feat: chạm 1/3 hai bên để chuyển chương ở Reader và truyện tranh
-
-Người dùng: *"Tôi muốn thêm hành động tap ở 1/3 màn hình trái phải để chuyển chương. Nhưng sợ xung đột với hành động bôi đen"* — duyệt plan, công tắc mặc định **bật**.
-
-- **`ReaderEdgeTapDetector`** (`Sources/Views/Reader/Components/`): `UITapGestureRecognizer` không tiêu thụ touch gắn lên `UIScrollView` của chương (cùng mẫu `ReaderUserScrollDetector`: `cancelsTouchesInView = false`, nhận đồng thời, không đòi recognizer khác fail) ⇒ không giành touch của ô chữ. 1/3 trái ⇒ chương trước, 1/3 phải ⇒ chương sau, giữa không làm gì; tính cả chạm lên chữ lẫn lề.
-- **Không tính là chạm chuyển chương** khi: lúc đặt ngón đang có đoạn bôi đen / menu bôi đen hiện (chạm để bỏ bôi đen); giữ > 0,35 s hoặc kéo; trang đang trôi/đang kéo (chạm để dừng cuộn); chạm đúp — chờ 0,25 s, có chạm thứ hai hoặc chữ vừa được bôi đen thì huỷ; chương đầu/cuối; chương đang tải/lỗi (khung cuộn chưa có). Khung nội dung chương chỉ chứa đoạn chữ, nút Chương trước/sau ở thanh điều khiển ngoài ⇒ không bấm trùng nút.
-- Chuyển chương đi qua `stepChapterHonoringTTS` như nút Chương trước/sau (tôn trọng TTS đang đọc), rung nhẹ. Hai đầu dò gộp thành `readerScrollProbes` ở `ReaderView+Controls`.
-- Công tắc "Chạm hai bên để chuyển chương" ở Cài đặt đọc (`@AppStorage("readerEdgeTapChangesChapter")`, mặc định bật).
-- **Truyện tranh** (người dùng: *"Comic làm luôn, cho config chọn kiểu mới này và kiểu vuốt cũ. Mặc định kiểu mới"*): `ComicChapterNavigationMode` (`@AppStorage("comicChapterNavigationMode")`) chọn ở ngăn kéo "…" mới trên thanh trên của màn đọc ("Tuỳ chọn đọc" › "Chuyển chương"). **Chạm hai bên** (mặc định): chạm 1/3 trái/phải trên ảnh hoặc dòng "Hết chương" ⇒ chương trước/sau, giữa ⇒ bật/tắt thanh, vuốt ngang không đổi chương. **Vuốt ngang**: như 1.3.613. Chạm đúp vẫn phóng to (`ComicPageView` báo điểm chạm `.global`). Dòng gợi ý cuối chương đổi theo kiểu; chạm hai bên và vuốt dùng chung `stepChapter(forward:)` (chặn khi đang nạp chương, toast ở chương đầu/cuối). CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic.
-- Chuyển entry `[1.3.613]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nhấn giữ bôi đen, chạm đúp chọn từ, kéo nới vùng chọn, chạm bỏ bôi đen, chạm khi trang đang trôi, chạm lúc TTS đang đọc; truyện tranh: chạm hai bên, chạm đúp phóng to, chuyển kiểu ở ngăn kéo "…".

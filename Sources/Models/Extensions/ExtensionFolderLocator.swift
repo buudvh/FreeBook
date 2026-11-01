@@ -31,7 +31,7 @@ public enum ExtensionFolderLocator {
     /// Thứ tự thử: (1) phần sau lần xuất hiện **đầu tiên** của `/extensions/` — giữ đúng thư mục con khi zip
     /// bọc `plugin.json` trong một thư mục (`twkan/twkan`), và chịu được path trỏ về gốc cũ; (2) thư mục
     /// `extensions/<packageId>/`, kể cả một cấp thư mục con có `plugin.json` (cùng luật
-    /// `ExtensionManager.findMainExtensionFolder` lúc cài).
+    /// `ExtensionPackageInstaller.findMainFolder` lúc cài).
     public static func folder(forAbsolutePath path: String, packageId: String) -> String? {
         let root = extensionsRoot.standardizedFileURL
 

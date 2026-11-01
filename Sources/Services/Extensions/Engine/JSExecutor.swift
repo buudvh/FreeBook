@@ -154,6 +154,7 @@ public final class JSExecutor: @unchecked Sendable {
             localStorage.removeAll(namespace: storageNamespace)
         }
         context.setObject(storageClearBlock, forKeyedSubscript: "_nativeStorageClear" as NSCopying & NSObjectProtocol)
+        installCookieBridge() // `localCookie` = cookie của tên miền `source`, dùng chung với `fetch` — `JSExecutor+Cookie`
 
         // Đăng ký native bridge cho Quick Translator (Qt.translate)
         let qtTranslateBlock: @convention(block) (String, String, JSValue?) -> [String: Any] = { text, toLang, extrasVal in
@@ -274,11 +275,7 @@ public final class JSExecutor: @unchecked Sendable {
             var request = URLRequest(url: url)
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
 
-            if let handleCookies = self.injectedConfigs["http_should_handle_cookies"] as? Bool {
-                request.httpShouldHandleCookies = handleCookies
-            } else if let handleCookiesStr = self.injectedConfigs["http_should_handle_cookies"] as? String {
-                request.httpShouldHandleCookies = (handleCookiesStr.lowercased() == "true")
-            }
+            request.httpShouldHandleCookies = self.cookieHandlingEnabled
 
             if let options = optionsVal, options.isObject {
                 // Timeout
@@ -372,6 +369,7 @@ public final class JSExecutor: @unchecked Sendable {
                 )
                 return ["html": "", "status": 499, "statusText": "Cancelled", "raw": "", "headers": [String: String](), "url": resolvedUrlString]
             }
+            let sentHeaders = JSExecutor.sentRequestHeaders(for: request) // `response.request.headers`, tính lúc gửi
             task.resume()
             let waitResult = semaphore.wait(timeout: .now() + timeoutSeconds)
             if waitResult == .timedOut {
@@ -395,7 +393,7 @@ public final class JSExecutor: @unchecked Sendable {
                 bytes: responseByteCount,
                 startedAt: fetchStartedAt
             )
-            let response: [String: Any] = ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
+            let response: [String: Any] = ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl, "requestHeaders": sentHeaders]
             let finalResponse = self.applyingFetchBrowserFallback(to: response, request: request, error: fetchError, timedOut: waitResult == .timedOut && statusCode == 408)
             return self.tracingFetch(finalResponse, requestURL: resolvedUrlString)
         }

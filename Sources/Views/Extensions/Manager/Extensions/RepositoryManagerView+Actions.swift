@@ -1,7 +1,33 @@
 import SwiftUI
 
 extension RepositoryManagerView {
-    internal func installExtensionAsync(_ ext: Extension) async {
+    /// Lỗi của một lượt cài/cập nhật (`installExtensionAsync`) — "Cập nhật tất cả" gom lại để báo một lần.
+    struct InstallFailure: Sendable {
+        let name: String
+        /// Câu báo lỗi đầy đủ, đã gán vào `errorMessage`.
+        let message: String
+        /// Gói dùng định dạng mã hoá mới mà app chưa đọc được (`ExtensionScriptDecoder.isUnsupportedFormat`).
+        let isUnsupportedFormat: Bool
+        /// Lỗi xảy ra trước khi thư mục cài bị đụng tới và máy đang có bản cài ⇒ bản đó còn nguyên.
+        let keptInstalledCopy: Bool
+
+        /// Lỗi tải/giải nén/giải mã: `ExtensionPackageInstaller` chỉ thay thư mục cài khi mọi bước đã xong.
+        static func installFailed(name: String, error: Error, hadInstalledCopy: Bool) -> InstallFailure {
+            let isUnsupported = ExtensionScriptDecoder.isUnsupportedFormat(error)
+            var message = isUnsupported
+                ? "\(name) dùng định dạng mã hoá mới, FreeBook chưa đọc được."
+                : "Lỗi cài đặt/cập nhật \(name): \(error.localizedDescription)"
+            if hadInstalledCopy {
+                if !message.hasSuffix(".") { message += "." }
+                message += " Bản đang cài vẫn giữ nguyên."
+            }
+            return InstallFailure(name: name, message: message, isUnsupportedFormat: isUnsupported, keptInstalledCopy: hadInstalledCopy)
+        }
+    }
+
+    /// Cài/cập nhật một tiện ích của kho. Thất bại ⇒ trả lỗi (câu báo đã gán vào `errorMessage`); xong ⇒ `nil`.
+    @discardableResult
+    internal func installExtensionAsync(_ ext: Extension) async -> InstallFailure? {
         // Làm mới kho không còn ghi đè bản ghi đã cài, nên đường dẫn zip mới nhất nằm ở cache registry.
         let storedDownloadUrl = registryDownloadUrl(for: ext) ?? ext.downloadUrl
         let downloadUrl = storedDownloadUrl.isEmpty ? ext.sourceUrl : storedDownloadUrl
@@ -17,6 +43,8 @@ extension RepositoryManagerView {
             type: ext.type,
             locale: ext.locale
         )
+        // Đang cập nhật bản đã cài: bản ghi có thư mục và thư mục đó còn trên máy.
+        let hadInstalledCopy = ext.isInstalled && FileManager.default.fileExists(atPath: ext.localPath)
 
         await MainActor.run {
             extensionManager.loadingStates[ext.packageId] = true
@@ -44,7 +72,7 @@ extension RepositoryManagerView {
                 if let v = meta["author"] as? String, !v.isEmpty { localAuthor = v }
             }
 
-            await MainActor.run {
+            return await MainActor.run { () -> InstallFailure? in
                 // `configJson: nil` ⇒ coordinator giữ cấu hình hiện có khi cập nhật (cài mới ⇒ "{}"); ghim,
                 // lần dùng, `installedAt` và localStorage cũng được giữ — `ext` chỉ là ảnh chụp, có thể đã cũ.
                 let cmd = UpsertExtensionCommand(
@@ -65,8 +93,12 @@ extension RepositoryManagerView {
                     installOrigin: Extension.installOriginRepository
                 )
                 let result = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd)
+                var failure: InstallFailure?
                 if case .failure(let err) = result {
-                    errorMessage = "Lỗi lưu tiện ích \(ext.name): \(err.localizedDescription)"
+                    // File đã được thay ⇒ không còn "bản đang cài giữ nguyên".
+                    let message = "Lỗi lưu tiện ích \(ext.name): \(err.localizedDescription)"
+                    errorMessage = message
+                    failure = InstallFailure(name: ext.name, message: message, isUnsupportedFormat: false, keptInstalledCopy: false)
                 }
                 extensionManager.loadingStates[ext.packageId] = false
 
@@ -75,12 +107,15 @@ extension RepositoryManagerView {
                     object: nil,
                     userInfo: ["packageId": ext.packageId]
                 )
+                return failure
             }
         } catch {
+            let failure = InstallFailure.installFailed(name: ext.name, error: error, hadInstalledCopy: hadInstalledCopy)
             await MainActor.run {
-                errorMessage = "Lỗi cài đặt/cập nhật \(ext.name): \(error.localizedDescription)"
+                errorMessage = failure.message
                 extensionManager.loadingStates[ext.packageId] = false
             }
+            return failure
         }
     }
 
@@ -103,14 +138,39 @@ extension RepositoryManagerView {
         statusMessage = "Đang cập nhật \(targets.count) tiện ích..."
 
         Task {
+            // Mỗi lượt cài xoá `errorMessage` lúc bắt đầu ⇒ gom lỗi lại, báo một lần ở cuối.
+            var failures: [InstallFailure] = []
             for ext in targets {
-                await installExtensionAsync(ext)
+                if let failure = await installExtensionAsync(ext) {
+                    failures.append(failure)
+                }
             }
+            let updatedCount = targets.count - failures.count
+            let summary = failures.isEmpty ? nil : updateAllErrorMessage(failures)
             await MainActor.run {
                 isUpdatingAll = false
-                statusMessage = "Đã cập nhật xong tất cả tiện ích!"
+                statusMessage = "Đã cập nhật \(updatedCount)/\(targets.count) tiện ích."
+                if let summary { errorMessage = summary }
             }
         }
+    }
+
+    /// Một lỗi ⇒ giữ câu chi tiết; nhiều lỗi ⇒ chỉ liệt kê tên theo lý do cho gọn.
+    private func updateAllErrorMessage(_ failures: [InstallFailure]) -> String {
+        guard failures.count > 1 else { return failures.first?.message ?? "" }
+        let unsupported = failures.filter(\.isUnsupportedFormat).map(\.name)
+        let others = failures.filter { !$0.isUnsupportedFormat }.map(\.name)
+        var parts: [String] = []
+        if !unsupported.isEmpty {
+            parts.append("Định dạng mã hoá mới, FreeBook chưa đọc được: \(unsupported.joined(separator: ", ")).")
+        }
+        if !others.isEmpty {
+            parts.append("Lỗi cập nhật: \(others.joined(separator: ", ")).")
+        }
+        if failures.allSatisfy(\.keptInstalledCopy) {
+            parts.append("Bản đang cài vẫn giữ nguyên.")
+        }
+        return parts.joined(separator: " ")
     }
 
     /// Gỡ = **xoá sạch**: thư mục, bản ghi (cấu hình, ghim, lần dùng) và localStorage. Tiện ích của kho vẫn

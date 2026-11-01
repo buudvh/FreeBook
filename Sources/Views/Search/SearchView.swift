@@ -27,11 +27,13 @@ struct SearchView: View {
     @State var isChangingSource = false
     
     @State private var searchQuery = ""
-    @State private var isSearching = false
-    @State private var searchTask: Task<Void, Never>? // lượt tìm đang chạy; tìm lại thì huỷ lượt cũ
+    @State var isSearching = false
+    @State var searchTask: Task<Void, Never>? // lượt tìm đang chạy; tìm lại thì huỷ lượt cũ
+    /// Tải thêm trang khi tìm trong một nguồn (`SearchView+Paging`).
+    @State var searchPaging = SearchPagingState()
     @State var searchAllSources = false
     @AppStorage("searchKindFilter") var searchKindFilter = "" // chip loại nội dung — `SearchView+KindFilter`
-    @State private var searchResults: [ExtensionItemResultWithExt] = []
+    @State var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State var searchStatusMessage = ""
     /// Lỗi tìm/đổi nguồn kèm link "Mở link lỗi" (`SearchView+ErrorLink`) và trình duyệt đang mở cho nó.
@@ -226,6 +228,7 @@ struct SearchView: View {
                 if !searchQuery.isEmpty {
                     Button(action: {
                         searchQuery = ""
+                        resetSearchPaging()
                         searchResults.removeAll()
                         sourceStates.removeAll()
                         searchStatusMessage = ""
@@ -481,7 +484,9 @@ struct SearchView: View {
                 changeSourceTargetResult = item.result
                 changeSourceTargetExtension = item.ext
                 showingChangeSourceAlert = true
-            }
+            },
+            canLoadMore: searchPaging.canLoadMore && !isSearching,
+            onLoadMore: { loadMoreSearchResults() }
         )
     }
     
@@ -751,6 +756,7 @@ struct SearchView: View {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }
         searchTask?.cancel()
+        resetSearchPaging() // lượt mới: huỷ tải thêm trang của lượt cũ
         saveQueryToHistory(trimmedQuery)
         
         isSearching = true
@@ -807,34 +813,7 @@ struct SearchView: View {
                 return
             }
             
-            searchStatusMessage = "Đang tìm trên nguồn \(ext.name)..."
-            ExtensionTransactionCoordinator.shared.markUsed(packageId: ext.packageId) // chỉ tìm MỘT nguồn mới tính "đã dùng"
-
-            searchTask = Task {
-                do {
-                    let results = try await SourceRuntime.shared.search(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        query: trimmedQuery,
-                        page: 1,
-                        configJson: ext.configJson
-                    )
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        let cleanResults = filterAndDeduplicate(results)
-                        self.searchResults = cleanResults.map { ExtensionItemResultWithExt(result: $0, ext: ext) }
-                        self.isSearching = false
-                        self.searchStatusMessage = "Tìm thấy \(cleanResults.count) truyện trên nguồn \(ext.name)."
-                    }
-                } catch {
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        self.isSearching = false
-                        self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"
-                        self.attachStatusErrorLink(error, fallbacks: [ext.sourceUrl], host: nil, retry: .search, packageId: ext.packageId)
-                    }
-                }
-            }
+            startSingleSourceSearch(ext: ext, query: trimmedQuery) // trang 1 + tải thêm trang: `SearchView+Paging`
         }
     }
 }

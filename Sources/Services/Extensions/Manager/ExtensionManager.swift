@@ -93,7 +93,9 @@ public final class ExtensionManager: ObservableObject {
         return response.data
     }
     
-    // Cài đặt/Cập nhật một extension
+    // Cài đặt/Cập nhật một extension. Giải nén + giải mã ở thư mục tạm rồi mới thay `extensions/<packageId>/`
+    // (`ExtensionPackageInstaller`) ⇒ lỗi giữa chừng không làm mất bản đang cài.
+    // Trả về thư mục chứa plugin.json — có thể là thư mục con khi zip bọc mọi thứ trong 1 folder.
     public func install(item: ExtensionRegistryItem, packageId: String) async throws -> String {
         guard let zipUrl = URL(string: item.path) else {
             throw NSError(domain: "ExtensionManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid ZIP URL"])
@@ -102,25 +104,9 @@ public final class ExtensionManager: ObservableObject {
         // 1. Tải file ZIP về thư mục tạm
         let (tempZipUrl, _) = try await URLSession.shared.download(from: zipUrl)
         
-        // 2. Chuẩn bị thư mục giải nén
+        // 2. Dựng ở thư mục tạm, thành công mới đổi chỗ vào thư mục cài
         let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
-        
-        // Nếu thư mục đã tồn tại, xóa đi để cập nhật mới
-        if FileManager.default.fileExists(atPath: destFolder.path) {
-            try FileManager.default.removeItem(at: destFolder)
-        }
-        try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true, attributes: nil)
-        
-        // 3. Giải nén ZIPFoundation
-        try FileManager.default.unzipItem(at: tempZipUrl, to: destFolder)
-        
-        // 4. Kiểm tra cấu trúc thư mục sau khi giải nén
-        // Một số file zip giải nén ra sẽ chứa thẳng các file js, một số khác nén trong 1 folder con
-        // Tìm kiếm tệp plugin.json để xác định thư mục làm việc chính
-        let mainFolder = findMainExtensionFolder(at: destFolder)
-        try ExtensionScriptDecoder.decodeScripts(in: mainFolder)
-        
-        return mainFolder.path
+        return try ExtensionPackageInstaller.install(archive: tempZipUrl, replacing: destFolder).path
     }
     
     // Cài đặt extension từ tệp local .zip được chọn từ máy
@@ -143,95 +129,52 @@ public final class ExtensionManager: ObservableObject {
             }
         }
 
-        let tempZipDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tempZipDir, withIntermediateDirectories: true, attributes: nil)
-        defer {
-            try? FileManager.default.removeItem(at: tempZipDir)
-        }
-
-        let tempZipFile = tempZipDir.appendingPathComponent("imported.zip")
-        try FileManager.default.copyItem(at: fileUrl, to: tempZipFile)
-
-        let tempExtractDir = tempZipDir.appendingPathComponent("extracted", isDirectory: true)
-        try FileManager.default.createDirectory(at: tempExtractDir, withIntermediateDirectories: true, attributes: nil)
-
-        try FileManager.default.unzipItem(at: tempZipFile, to: tempExtractDir)
-
-        let mainFolder = findMainExtensionFolder(at: tempExtractDir)
-        try ExtensionScriptDecoder.decodeScripts(in: mainFolder)
-        let pluginJsonUrl = mainFolder.appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
-            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tệp plugin.json trong file zip"])
-        }
-
-        let jsonData = try Data(contentsOf: pluginJsonUrl)
-        guard let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-            throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Tệp plugin.json không hợp lệ"])
-        }
-
-        let meta = json["metadata"] as? [String: Any] ?? json
-        let name = (meta["name"] as? String) ?? (json["name"] as? String) ?? "Tiện ích Import"
-        let author = (meta["author"] as? String) ?? ""
-        let locale = (meta["locale"] as? String) ?? (meta["language"] as? String) ?? "vi_VN"
-        let type = (meta["type"] as? String) ?? ExtensionType.novel
-        let sourceUrl = (meta["source"] as? String) ?? ""
-        let iconUrl = meta["icon"] as? String
-        let desc = meta["description"] as? String
-
-        var version = 1
-        if let v = meta["version"] as? Int { version = v }
-        else if let vs = meta["version"] as? String, let vi = Int(vs) { version = vi }
-
-        let packageId: String
-        if let rawPkg = meta["packageId"] as? String, !rawPkg.isEmpty {
-            packageId = rawPkg
-        } else {
-            packageId = name.lowercased()
-                .replacingOccurrences(of: " ", with: "_")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
-        if FileManager.default.fileExists(atPath: destFolder.path) {
-            try FileManager.default.removeItem(at: destFolder)
-        }
-        try FileManager.default.createDirectory(at: destFolder.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
-
-        try FileManager.default.moveItem(at: mainFolder, to: destFolder)
-
-        return (
-            mainFolderPath: destFolder.path,
-            packageId: packageId,
-            name: name,
-            author: author,
-            version: version,
-            sourceUrl: sourceUrl,
-            iconUrl: iconUrl,
-            desc: desc,
-            type: type,
-            locale: locale
-        )
-    }
-    
-    internal func findMainExtensionFolder(at url: URL) -> URL {
-        let pluginJsonUrl = url.appendingPathComponent("plugin.json")
-        if FileManager.default.fileExists(atPath: pluginJsonUrl.path) {
-            return url
-        }
-        
-        // Nếu không thấy, duyệt các thư mục con
-        if let contents = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            for item in contents {
-                var isDir: ObjCBool = false
-                if FileManager.default.fileExists(atPath: item.path, isDirectory: &isDir), isDir.boolValue {
-                    let subPluginUrl = item.appendingPathComponent("plugin.json")
-                    if FileManager.default.fileExists(atPath: subPluginUrl.path) {
-                        return item
-                    }
-                }
+        // Giải nén, kiểm plugin.json và giải mã ở thư mục tạm; chỉ đổi chỗ vào `extensions/` ở bước cuối
+        // (`ExtensionPackageInstaller.replace`) ⇒ plugin.json hỏng hay script không giải mã được không làm mất bản đang cài.
+        return try ExtensionPackageInstaller.withStagedPackage(archive: fileUrl) { _, mainFolder in
+            let jsonData = try Data(contentsOf: mainFolder.appendingPathComponent("plugin.json"))
+            guard let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Tệp plugin.json không hợp lệ"])
             }
+
+            let meta = json["metadata"] as? [String: Any] ?? json
+            let name = (meta["name"] as? String) ?? (json["name"] as? String) ?? "Tiện ích Import"
+            let author = (meta["author"] as? String) ?? ""
+            let locale = (meta["locale"] as? String) ?? (meta["language"] as? String) ?? "vi_VN"
+            let type = (meta["type"] as? String) ?? ExtensionType.novel
+            let sourceUrl = (meta["source"] as? String) ?? ""
+            let iconUrl = meta["icon"] as? String
+            let desc = meta["description"] as? String
+
+            var version = 1
+            if let v = meta["version"] as? Int { version = v }
+            else if let vs = meta["version"] as? String, let vi = Int(vs) { version = vi }
+
+            let packageId: String
+            if let rawPkg = meta["packageId"] as? String, !rawPkg.isEmpty {
+                packageId = rawPkg
+            } else {
+                packageId = name.lowercased()
+                    .replacingOccurrences(of: " ", with: "_")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+
+            let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
+            try ExtensionPackageInstaller.replace(destFolder, with: mainFolder)
+
+            return (
+                mainFolderPath: destFolder.path,
+                packageId: packageId,
+                name: name,
+                author: author,
+                version: version,
+                sourceUrl: sourceUrl,
+                iconUrl: iconUrl,
+                desc: desc,
+                type: type,
+                locale: locale
+            )
         }
-        return url
     }
     
     // Gỡ cài đặt extension
@@ -311,43 +254,7 @@ public final class ExtensionManager: ObservableObject {
     
     // MARK: - Chạy Script JS bóc tách dữ liệu
     
-    // search: Gọi script JS tìm kiếm sách từ nguồn truyện.
-    // Trả về một mảng chứa thông tin sách tìm kiếm được [ExtensionItemResult]
-    public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [ExtensionItemResult] {
-        // Lấy đường dẫn file script JS tìm kiếm ("search")
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
-        let scriptName = scriptUrl.lastPathComponent
-        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(query), \(page)], query=\(query), page=\(page), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-        
-        // Khởi tạo bộ thực thi Javascript (JSExecutor)
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
-        // Nạp và gộp các cấu hình của extension (mặc định + người dùng tuỳ chỉnh)
-        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-        executor.injectGlobals(configs) // Tiêm các hàm global (Html, fetch, Response, Console) vào JSContext
-        
-        do {
-            // Chạy hàm "execute(query, page)" bất đồng bộ bên trong JS Engine
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "search")
-            
-            // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
-            let jsArray = toDictionaryArray(cleanVal)
-            
-            // Ánh xạ sang `ExtensionItemResult` (đọc an toàn, bìa resolve theo host item → source): `+ItemParsing`.
-            let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
-            let results = jsArray
-                .map { Self.listItem(from: $0, sourceHost: sourceHost) }
-                .filter { !$0.link.isEmpty }
-            // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
-            updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:")
-            return results
-        } catch {
-            // AppLogger.shared.log("❌ [ExtensionManager] search error: \(error.localizedDescription)")
-            updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Error", details: error.localizedDescription)
-            throw ExtensionLoadError.wrapping(error, executor: executor)
-        }
-    }
+    // search / searchPage (tìm kiếm có token trang kế): `ExtensionManager+Search.swift`.
     
     // Lấy thông tin chi tiết truyện
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> NovelDetailResult {

@@ -95,6 +95,9 @@ struct MainTabView: View {
             }
         }
         .onAppear {
+            // Theo dõi kho cookie WebKit (đồng bộ cookie của nguồn sang `fetch` trước mỗi lượt chạy script) — trước khi
+            // tải truyện/TTS kịp chạy script. Gọi lại vô hại.
+            ExtensionCookieSync.shared.startObserving()
             DownloadManager.shared.initialize(container: modelContext.container)
             TTSManager.shared.initialize(container: modelContext.container)
             // Dọn sách mồ côi của tiện ích không lưu lịch sử — ngay sau khi danh sách tác vụ tải đã nạp, trước khi

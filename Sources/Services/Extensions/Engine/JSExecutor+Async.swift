@@ -4,6 +4,10 @@ import JavaScriptCore
 extension JSExecutor {
     public func callAsync(functionName: String, arguments: [Any]) async throws -> JSValue {
         try Task.checkCancellation()
+        // Cookie WebKit của tên miền `source` (người dùng đăng nhập ở trình duyệt) → `fetch`/`localCookie`. Kho WebKit không
+        // đổi kể từ lần chép trước ⇒ chỉ một lần khoá, không nhảy main (`JSExecutor+Cookie`, `ExtensionCookieSync`).
+        await syncSourceCookiesBeforeRun()
+        try Task.checkCancellation()
         beginExecution()
 
         let runner = context.objectForKeyedSubscript("__safe_run_extension")

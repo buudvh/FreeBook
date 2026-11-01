@@ -56,6 +56,17 @@ enum JSFetchBootstrapScript {
 
         var res = _nativeSyncFetch(url, options || null);
         var headersMap = res.headers || {};
+        // request.headers: header script truyền (giữ nguyên chữ hoa/thường) + khoá chữ thường cho mỗi header thật sự gửi
+        // đi (kể cả Cookie của kho), để `res.request.headers.cookie` đọc được.
+        var hasOwn = Object.prototype.hasOwnProperty;
+        var requestHeaders = {};
+        for (var rk in originalHeaders) {
+            if (hasOwn.call(originalHeaders, rk)) requestHeaders[rk] = originalHeaders[rk];
+        }
+        var sentHeaders = res.requestHeaders || {};
+        for (var sk in sentHeaders) {
+            if (hasOwn.call(sentHeaders, sk)) requestHeaders[sk.toLowerCase()] = sentHeaders[sk];
+        }
         var responseObj = {
             ok: res.status >= 200 && res.status < 300,
             status: res.status,
@@ -102,7 +113,7 @@ enum JSFetchBootstrapScript {
             },
             request: {
                 url: originalUrl,
-                headers: originalHeaders
+                headers: requestHeaders
             }
         };
 
