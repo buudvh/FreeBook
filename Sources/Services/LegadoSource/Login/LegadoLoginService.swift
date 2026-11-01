@@ -156,10 +156,15 @@ enum LegadoLoginService {
         AppLogger.shared.log("[LegadoLogin] Đã gộp \(cookies.count) cookie vào kho của nguồn \(packageId)")
     }
 
-    /// Đăng xuất (§10.4 mục 6): xoá thông tin + header đăng nhập (Keychain) và **mọi** cookie của nguồn.
+    /// Đăng xuất (§10.4 mục 6): xoá thông tin + header đăng nhập (Keychain), **mọi** cookie của nguồn, và cookie WebKit
+    /// của tên miền nguồn (`baseURL` + URL đăng nhập web) — trình duyệt Legado dùng chung kho WebKit mặc định (1.3.670),
+    /// không xoá thì lần mở sau gộp lại phiên cũ vào kho của nguồn.
     static func logout(source: LegadoEngineSource) async {
         LegadoLoginStore.shared.removeAll(sourceKey: source.key)
         LegadoCookieJar.shared(forSourceKey: source.key, store: LegadoFileStateStore.shared).removeAll()
+        var urls = [source.baseURL]
+        if case .web(let target) = mode(for: source) { urls.append(target) }
+        await WebKitCookieBridge.removeCookies(forHosts: Set(urls.compactMap { LegadoURLResolver.host(of: $0) }))
     }
 
     /// Xoá nguồn ⇒ xoá mục Keychain (lớp xoá nguồn gọi).

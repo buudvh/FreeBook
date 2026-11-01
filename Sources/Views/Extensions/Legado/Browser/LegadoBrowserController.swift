@@ -3,9 +3,11 @@ import WebKit
 
 /// `WKWebView` của **trình duyệt nhỏ nguồn Legado** (spec §10.2 đăng nhập trên web, §10.8 `java.startBrowser*`).
 ///
-/// - Kho dữ liệu `nonPersistent` riêng cho mỗi lần mở: gieo cookie hiện có của nguồn trước khi nạp, lúc đóng đọc lại
-///   cookie của **các tên miền đã ghé** (khung chính) — đúng "đồng bộ hai chiều khi mở và khi đóng", không rò cookie sang
-///   trình duyệt người dùng hay nguồn khác.
+/// - Kho dữ liệu **mặc định** (`.default()`, 1.3.670), chung với trình duyệt của app, browser tiện ích JS và WebView ẩn của
+///   Legado: đăng nhập Google/GitHub, cookie qua Cloudflare và `localStorage` của trang còn giữa các lần mở. Gieo cookie
+///   hiện có của nguồn trước khi nạp, lúc đóng đọc lại cookie của **các tên miền đã ghé** (khung chính) — "đồng bộ hai
+///   chiều khi mở và khi đóng". Đăng xuất nguồn xoá cookie WebKit của tên miền nguồn (`LegadoLoginService.logout`), nếu
+///   không lần mở sau phiên cũ tự quay lại.
 /// - Chặn quảng cáo / chế độ hiển thị theo `WebContentPolicy` của tiện ích (nguồn Legado là một tiện ích); UA = UA nguồn
 ///   khai (thắng chế độ máy tính, như webview tiện ích JS).
 /// - `html` khác `nil` ⇒ nạp chuỗi đó với URL nền = `url`; URL `data:` ⇒ giải bằng `LegadoDataURL` rồi nạp byte.
@@ -33,7 +35,7 @@ final class LegadoBrowserController: NSObject, ObservableObject, WKNavigationDel
     init(request: LegadoBrowserRequest) {
         self.request = request
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = .default()
         configuration.mediaTypesRequiringUserActionForPlayback = .all
         webView = WKWebView(frame: .zero, configuration: configuration)
         let packageId = LegadoSourceIdentity.packageId(forSourceUrl: request.sourceKey)

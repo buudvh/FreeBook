@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.670] - 2026-11-01
+
+### fix: trình duyệt Legado dùng chung profile với trình duyệt của app
+
+Người dùng: *"vì sao bạn làm trình duyệt đăng nhập của legado có profile khác trình duyệt chung vậy"*; duyệt "dùng chung".
+
+- **Nguyên nhân**: `LegadoBrowserController` (trình duyệt hiện cho người dùng của nguồn Legado: đăng nhập web §10.2, `java.startBrowser*` §10.8) tạo `WKWebsiteDataStore.nonPersistent()` **mới mỗi lần mở** (chọn từ đợt 2 Legado, 4d69a023, để cookie không lẫn sang nơi khác — spec không bắt buộc). Trình duyệt của app, browser tiện ích JS và WebView ẩn của Legado (`LegadoWebViewFetcher` qua `WebViewLoader`) đều dùng kho mặc định ⇒ đăng nhập Google/GitHub, cookie qua Cloudflare không sang được; `localStorage` của trang mất sau mỗi lần đóng.
+- **Sửa**: kho `.default()`. Giữ nguyên đồng bộ hai chiều với kho cookie của nguồn (gieo khi mở, đọc cookie các tên miền đã ghé khi đóng) — giống WebView ẩn của Legado vốn đã làm trên kho mặc định.
+- **Đăng xuất** (`LegadoLoginService.logout`): thêm xoá cookie WebKit của tên miền nguồn (`baseURL` + URL đăng nhập web) qua `WebKitCookieBridge.removeCookies(forHosts:)` mới — cookie áp cho host (của host hoặc tên miền cha) và cookie của tên miền con. Không xoá thì lần mở sau đọc lại phiên cũ vào kho của nguồn. Tên miền khác đã ghé (Google, GitHub khi đăng nhập OAuth) **không** bị xoá. `localStorage` của trang không xoá.
+- **Hệ quả**: cookie của nguồn Legado thấy được trong trình duyệt của app; đăng xuất nguồn cũng đăng xuất tên miền đó trong trình duyệt của app. Gieo cookie khi mở vẫn ghi đè cookie trùng tên/tên miền đang có trong kho WebKit (như WebView ẩn).
+- Chuyển entry `[1.3.640]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: đăng nhập Google ở trình duyệt của app rồi mở "Đăng nhập trên web" của một nguồn Legado thấy vẫn còn phiên Google; đóng mở lại trình duyệt Legado vẫn còn đăng nhập; Đăng xuất nguồn rồi mở lại thì trang nguồn không còn đăng nhập.
+
 ## [1.3.669] - 2026-11-01
 
 ### fix: giữ dòng dừng lọc name và điểm tiếp nối khi đổi nguồn
@@ -382,16 +395,3 @@ Người dùng yêu cầu một loạt đồng bộ giao diện (plan `Docs/Plan
 - **Giải thích → nút "?"** (`SectionHelpButton` chuyển từ `QuickTranslationRuleHelpButton`, `SectionHelpHeader`): 84 footer giải thích chuyển hẳn vào popover cạnh tiêu đề section, 8 footer tách đôi (giải thích vào "?", số liệu/trạng thái giữ footer), 4 giữ nguyên (sentinel tải thêm, "Nhịp chạy").
 - CLAUDE.md/AGENTS.md: thêm quy ước "Header trang & sheet (1.3.641)". Chuyển entry `[1.3.611]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + rà soát bằng agent (không thấy lỗi biên dịch chắc chắn; đã sửa 4 rủi ro logic: sheet kẹt khi proxy không cài được, `original` yếu, đóng nhầm màn dưới ở trình bày Legado, hộp thoại sao lưu gắn header); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử vuốt đóng rồi mở lại từng sheet, hộp "Bỏ thay đổi?", tiêu đề dài trong toolbar, sheet "Nhập truyện" + mở trình duyệt/Chi tiết sau khi đóng, chấm đỏ nút "…".
-
-## [1.3.640] - 2026-10-28
-
-### fix: độ trong suốt và độ đục của nút nổi, menu áp đúng cài đặt
-
-Người dùng: *"Cài đặt trong suốt không hoạt động. Tôi cài kiểu gì cũng hiển thị giống 2 hình đầu"* (ảnh: nút tai nghe Reader là đĩa xám đặc, ngăn kéo menu xám đều; ô xem trước ở màn Giao diện thì đổi đúng theo thanh kéo).
-
-- **Nguyên nhân (khả năng cao, chưa kiểm được trên máy)**: lớp nhoè `SideDrawerPartialBlurView` (1.3.633) dùng `UIViewPropertyAnimator` dừng giữa chừng để có mức nhoè lưng chừng. Animator dễ bị hệ thống chạy hết (dựng view lần đầu, chuyển màn, app vào nền rồi về) ⇒ kẹt ở mức nhoè **đầy đủ**; ô xem trước trông đúng chỉ vì mỗi lần kéo thanh là animator được dựng lại. Hệ quả: "kính đục vừa" của 1.3.633 nhiều khả năng chưa bao giờ hiện đúng trên máy, và mọi giá trị cài đặt trông như nhau.
-- **`FloatingGlassBackground`, `SideDrawerGlassBackground`**: lớp nhoè thay bằng shape tô `.ultraThinMaterial` (ép tông tối/sáng qua `colorScheme`) với `.opacity(frost)` — không có trạng thái nên không kẹt. Lớp màu vẫn `1 − độ trong suốt`, viền giữ nguyên.
-- **Đánh đổi** (người dùng đã duyệt): 0% và 100% đúng y cài đặt; mức giữa là nền rõ trộn nền nhoè (hơi có bóng đôi) thay vì nhoè mịn bán kính nhỏ.
-- Xoá `SideDrawerPartialBlurView.swift` (chỉ hai chỗ dùng trên); sửa chú thích `GlassChromeSettings`.
-- Chuyển entry `[1.3.610]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử 0%/100% ở cả ngăn kéo lẫn nút tai nghe, và sau khi cho app vào nền rồi mở lại.

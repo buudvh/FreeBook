@@ -38,6 +38,27 @@ enum WebKitCookieBridge {
         return matching.count
     }
 
+    /// Xoá khỏi kho WebKit mặc định mọi cookie gắn với `hosts`: cookie áp được cho host (của chính host hoặc tên miền cha)
+    /// và cookie của tên miền con của host. Không đụng tên miền khác (Google, GitHub… đã ghé lúc đăng nhập OAuth).
+    /// Dùng khi đăng xuất nguồn Legado — trình duyệt Legado dùng chung kho này. Trả số cookie đã xoá.
+    @MainActor
+    @discardableResult
+    static func removeCookies(forHosts hosts: Set<String>) async -> Int {
+        let targets = Set(hosts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }.filter { !$0.isEmpty })
+        guard !targets.isEmpty else { return 0 }
+        let store = WKWebsiteDataStore.default().httpCookieStore
+        let matching = await store.allCookies().filter { cookie in
+            var domain = cookie.domain.lowercased()
+            while domain.hasPrefix(".") { domain.removeFirst() }
+            return targets.contains { appliesTo($0, cookieDomain: cookie.domain) || domain.hasSuffix("." + $0) }
+        }
+        for cookie in matching {
+            await store.deleteCookie(cookie)
+        }
+        AppLogger.shared.log("[WebKitCookieBridge] Đã xoá \(matching.count) cookie của \(targets.sorted().joined(separator: ", "))")
+        return matching.count
+    }
+
     /// `host` trùng domain cookie hoặc là tên miền con của nó (`a.b.com` nhận cookie `.b.com` / `b.com`).
     private static func appliesTo(_ host: String, cookieDomain: String) -> Bool {
         var domain = cookieDomain.lowercased()
