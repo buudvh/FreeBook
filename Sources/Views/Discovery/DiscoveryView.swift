@@ -38,6 +38,11 @@ struct DiscoveryView: View {
     @State private var selectedExtensionId: String = ""
     @State private var isLoading = true
     @State private var needsReloadActiveExtension = false
+    /// `packageId` của nguồn đang xem có config vừa đổi, chờ tải lại khi sheet chọn nguồn đóng / màn hiện lại — không
+    /// tải lại sau mỗi lượt tự lưu (ô chữ lưu sau mỗi 0,4 s dừng gõ ⇒ gọi nguồn dồn dập, tên miền gõ dở). Đổi nguồn ⇒ `nil`.
+    @State private var configReloadPendingId: String? = nil
+    /// Tăng khi tải lại vì config ⇒ tab danh mục / `explore` dựng lại bộ nạp (`.id`).
+    @State private var catalogConfigStamp = 0
     /// Lượt tải danh mục đang chạy; lượt mới huỷ lượt cũ (đổi nguồn nhanh / `extensionDidUpdate`).
     @State private var discoveryLoadTask: Task<Void, Never>? = nil
     
@@ -323,7 +328,7 @@ struct DiscoveryView: View {
                                             if ExploreSectionsView.isTab(item) {
                                                 ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
-                                                    .id(ext.configJson) // đổi config ⇒ dựng lại, tải lại theo giá trị mới
+                                                    .id(catalogConfigStamp) // đổi config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
                                             } else if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
@@ -338,7 +343,7 @@ struct DiscoveryView: View {
                                                     packageId: extPackageId,
                                                     onSelectNovel: openNovel
                                                 )
-                                                .id(ext.configJson) // bộ nạp là `@StateObject` tạo một lần với `configJson` cũ
+                                                .id(catalogConfigStamp) // bộ nạp là `@StateObject` tạo một lần với `configJson` cũ
                                                 .tag(item.id)
                                             } else {
                                                 Color.clear
@@ -360,6 +365,7 @@ struct DiscoveryView: View {
             .onChange(of: selectedExtensionId) { _, newValue in
                 // Không ghi "" vào nguồn đã nhớ: hết nguồn (vd ẩn hết nguồn NSFW) rồi có lại thì còn khôi phục được.
                 if !newValue.isEmpty { lastSelectedExtensionId = newValue }
+                configReloadPendingId = nil // nguồn mới tải lại từ đầu bên dưới
                 let isChinese = selectedExtension?.isChineseSource ?? false
                 TranslationConfigStore.shared.registerSource(packageId: newValue, isChinese: isChinese)
                 isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue, isChineseSourceHint: isChinese)
@@ -376,11 +382,15 @@ struct DiscoveryView: View {
                     isLoading = false
                 }
             }
-            // Config của nguồn đang xem vừa đổi (màn Cấu hình tự lưu, vd "Nhóm nội dung" lọc `home`/`genre`) ⇒ tải lại
-            // danh mục. Đổi nguồn đã có `onChange(selectedExtensionId)` lo, không tải hai lần.
+            // Config của nguồn đang xem vừa đổi (màn Cấu hình tự lưu, vd "Nhóm nội dung" lọc `home`/`genre`) ⇒ đánh dấu
+            // tải lại; chạy khi sheet chọn nguồn (nơi mở Cấu hình từ Khám phá) đóng, hoặc ở `onAppear` (sửa từ tab
+            // Tiện ích). Đổi nguồn đã có `onChange(selectedExtensionId)` lo.
             .onChange(of: [selectedExtensionId, selectedExtension?.configJson ?? ""]) { old, new in
                 guard old[0] == new[0], old[1] != new[1], !new[0].isEmpty else { return }
-                loadDiscoveryData()
+                configReloadPendingId = new[0]
+            }
+            .onChange(of: showingExtensionSelector) { _, isShowing in
+                if !isShowing { _ = reloadAfterConfigChangeIfPending() }
             }
             // Nguồn đang chọn vừa bị gỡ/ẩn ⇒ nguồn đầu tiên còn lại; hết nguồn thì xoá chọn. Đang không chọn gì mà có
             // nguồn trở lại (bật NSFW, cài tiện ích) ⇒ khôi phục nguồn cuối đã xem, không còn thì nguồn đầu tiên.
@@ -423,8 +433,10 @@ struct DiscoveryView: View {
                     packageId: selectedExtensionId,
                     isChineseSourceHint: selectedExtension?.isChineseSource
                 )
-                
-                if needsReloadActiveExtension {
+
+                if !restoredSelection && reloadAfterConfigChangeIfPending() {
+                    needsReloadActiveExtension = false
+                } else if needsReloadActiveExtension {
                     needsReloadActiveExtension = false
                     if !selectedExtensionId.isEmpty {
                         loadDiscoveryData()
@@ -529,6 +541,16 @@ struct DiscoveryView: View {
             importedHost = ""
         }
         navigateToImportedBook = true
+    }
+
+    /// Tải lại danh mục + dựng lại bộ nạp của các tab nếu config của **nguồn đang xem** đã đổi. `true` khi đã tải.
+    private func reloadAfterConfigChangeIfPending() -> Bool {
+        guard let pendingId = configReloadPendingId else { return false }
+        configReloadPendingId = nil
+        guard pendingId == selectedExtensionId else { return false }
+        catalogConfigStamp &+= 1
+        loadDiscoveryData()
+        return true
     }
 
     private func loadDiscoveryData() {
