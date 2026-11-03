@@ -47,8 +47,10 @@ enum QuickTranslationRuleKeyboardSuggestions {
         }
     }
 
+    /// `^`/`$` tính là chữ của tên token (neo dòng, 1.3.686): gõ `<^` rồi bấm chip thì thay đúng đoạn gõ dở
+    /// thành `<^>` thay vì để lại `<^<^>`.
     private static func isTokenNameCharacter(_ character: Character) -> Bool {
-        character.isASCII && character.isLetter
+        character.isASCII && (character.isLetter || character == "^" || character == "$")
     }
 
     private static func isDigit(_ character: Character) -> Bool {

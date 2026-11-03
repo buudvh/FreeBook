@@ -158,7 +158,7 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional else { continue }
                 total += alternatives.map { literalLength(of: $0) }.max() ?? 0
-            case .numeral, .chapterLabel, .dictionary, .anyRun:
+            case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
                 continue
             }
         }
@@ -173,7 +173,7 @@ public enum QuickTranslationRuleCompiler {
                 total += element.maxLength
             case .group(let alternatives):
                 total += alternatives.map { wildcardCapacity(of: $0) }.max() ?? 0
-            case .literal:
+            case .literal, .lineStart, .lineEnd:
                 continue
             }
         }
@@ -212,7 +212,9 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional, !alternatives.isEmpty else { continue }
                 if alternatives.allSatisfy({ hasAnchor($0) }) { return true }
-            case .numeral, .chapterLabel, .dictionary, .anyRun:
+            // Neo dòng `<^>`/`<$>` không chiếm ký tự nên không làm neo prefilter: `<^><n>` vẫn là
+            // `NO_LITERAL_ANCHOR`.
+            case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
                 continue
             }
         }
@@ -235,7 +237,8 @@ public enum QuickTranslationRuleCompiler {
 
     private static func hasConsecutiveTokens(_ elements: [QuickTranslationRuleElement]) -> Bool {
         var previousWasToken = false
-        for element in elements {
+        // Neo dòng rộng 0 nên không tách hai token: `<n><$><n>` vẫn là hai token dán nhau.
+        for element in elements where !element.isLineAnchor {
             if element.isToken {
                 if previousWasToken { return true }
                 previousWasToken = true
@@ -260,7 +263,7 @@ public enum QuickTranslationRuleCompiler {
                         kinds.append(kind)
                     }
                 }
-            case .literal, .numeral, .chapterLabel, .anyRun:
+            case .literal, .numeral, .chapterLabel, .anyRun, .lineStart, .lineEnd:
                 continue
             }
         }
@@ -291,7 +294,7 @@ public enum QuickTranslationRuleCompiler {
                 for alternative in alternatives {
                     ranks.append(contentsOf: numeralNarrownessRanks(alternative))
                 }
-            case .literal, .chapterLabel, .dictionary:
+            case .literal, .chapterLabel, .dictionary, .lineStart, .lineEnd:
                 continue
             }
         }

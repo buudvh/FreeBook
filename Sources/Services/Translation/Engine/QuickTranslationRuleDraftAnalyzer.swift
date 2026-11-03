@@ -71,7 +71,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         public enum Kind: Equatable, Sendable {
             /// Ký tự thường. `\x` giữ nguyên hai ký tự trong một chip để không mất dấu escape.
             case literal
-            /// `<n>`, `<n:1-6>`, `<ne|pn>?`…
+            /// `<n>`, `<n:1-6>`, `<ne|pn>?`… Neo dòng `<^>`/`<$>` cũng là chip `.token` nhưng
+            /// `tokenOrdinal == nil` (không sinh capture) nên không mở thanh chỉnh độ dài.
             case token
             /// `(`, `|`, `)`, `)?` — không sinh capture.
             case groupPunct
@@ -119,6 +120,12 @@ public enum QuickTranslationRuleDraftAnalyzer {
             if char == "<", let close = chars[cursor...].firstIndex(of: ">") {
                 var length = close - cursor + 1
                 if close + 1 < chars.count, chars[close + 1] == "?" { length += 1 }
+                // Neo dòng không được parser cấp số capture ⇒ không đánh số, để thứ tự của các token
+                // phía sau vẫn khớp `captureIndex`.
+                if QuickTranslationRuleParser.isLineAnchorSpec(String(chars[(cursor + 1)..<close])) {
+                    append(.token, length: length)
+                    continue
+                }
                 append(.token, length: length, ordinal: tokenCount)
                 tokenCount += 1
                 continue
@@ -141,32 +148,51 @@ public enum QuickTranslationRuleDraftAnalyzer {
     /// Cú pháp một token đã tách sẵn, để thanh điều chỉnh min–max không phải tự parse chuỗi.
     ///
     /// Mọi hằng số ở đây lấy **từ parser**, không đặt lại: token không khai `:min-max` nghĩa là
-    /// `1...12` (`QuickTranslationRuleParser.parseToken`), nên khi hai đầu đúng bằng mặc định thì
-    /// `syntax` xuất lại token trần thay vì viết thừa `:1-12` vào mẫu của người dùng.
+    /// `1...12` (`<any>`: `1...50`, `QuickTranslationRuleParser.parseToken`), nên khi hai đầu đúng bằng
+    /// mặc định **của chính token đó** thì `syntax` xuất lại token trần thay vì viết thừa `:1-12`.
     public struct TokenSpec: Sendable, Equatable {
         public static let defaultMinLength = 1
         public static let defaultMaxLength = 12
         /// Trần của thanh điều chỉnh. Parser không cấm số lớn hơn, nhưng `wildcardCapacity` càng rộng
         /// thì rule càng thua ở tiêu chí ưu tiên thứ 3 và càng nặng backtracking.
         public static let adjustableUpperBound = 20
+        /// Riêng `<any>` (1.3.686): mặc định `1...50`, thanh chỉnh tới 100 — cụm cần đảo thường dài hơn
+        /// một con số, và matcher chỉ thử độ dài để lại đúng chữ cố định theo sau nên vẫn nhẹ.
+        public static let anyRunDefaultMaxLength = QuickTranslationRuleParser.anyRunDefaultMaxLength
+        public static let anyRunAdjustableUpperBound = 100
 
         public var names: [String]
         public var minLength: Int
         public var maxLength: Int
         public var isOptional: Bool
 
+        public var isAnyRun: Bool { names == ["any"] }
+
+        /// Mặc định khi token không ghi `:min-max` — theo loại token, khớp parser.
+        public var defaultRangeMax: Int {
+            isAnyRun ? Self.anyRunDefaultMaxLength : Self.defaultMaxLength
+        }
+
+        /// Trần của thanh điều chỉnh cho token này.
+        public var lengthUpperBound: Int {
+            isAnyRun ? Self.anyRunAdjustableUpperBound : Self.adjustableUpperBound
+        }
+
         /// `<L>` và `<hv>` bị parser ép về đúng 1 ký tự, `<m>` tự động nhận diện dải cơ số 1-4 ký tự, nên không
         /// cho điều chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có** range vì cấp bậc
-        /// kiểu `SSS` dài 3 ký tự.
+        /// kiểu `SSS` dài 3 ký tự. Neo `<^>`/`<$>` rộng 0, không có độ dài.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }
             if names == ["hv"] { return false }
             if names == ["m"] { return false }
+            if names.contains(where: { QuickTranslationRuleTokenSettings.Kind(rawValue: $0)?.isLineAnchor == true }) {
+                return false
+            }
             return true
         }
 
         public var isDefaultRange: Bool {
-            minLength == Self.defaultMinLength && maxLength == Self.defaultMaxLength
+            minLength == Self.defaultMinLength && maxLength == defaultRangeMax
         }
 
         public var syntax: String {
@@ -180,8 +206,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         /// Kẹp về vùng hợp lệ của parser: `min ≥ 1` là điều kiện cứng (sai thì `UNKNOWN_TOKEN_NAME`,
         /// lỗi hard) và `max = max(min, max)`.
         public mutating func clamp() {
-            minLength = min(max(1, minLength), Self.adjustableUpperBound)
-            maxLength = min(max(minLength, maxLength), Self.adjustableUpperBound)
+            minLength = min(max(1, minLength), lengthUpperBound)
+            maxLength = min(max(minLength, maxLength), lengthUpperBound)
         }
     }
 
@@ -204,6 +230,7 @@ public enum QuickTranslationRuleDraftAnalyzer {
             maxLength: TokenSpec.defaultMaxLength,
             isOptional: isOptional
         )
+        spec.maxLength = spec.defaultRangeMax
         if parts.count > 1, !parts[1].isEmpty {
             let bounds = parts[1].components(separatedBy: "-").compactMap { Int($0) }
             if let first = bounds.first, first >= 1 {

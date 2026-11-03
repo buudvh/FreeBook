@@ -28,10 +28,17 @@ public struct QuickTranslationRuleElement: Sendable {
         case chapterLabel
         /// `<ne>/<pn>/<vp>/<hv>/<w>` — phải khớp một entry của từ điển tương ứng.
         case dictionary([DictionaryKind])
-        /// `<any>` / `<any:min-max>` — một cụm ký tự bất kỳ dài `minLength...maxLength`, dừng ở dấu
-        /// câu (Unicode P*) và khoảng trắng/xuống dòng; capture trả **nguyên văn** cụm đã nuốt. Không
-        /// phải `NumeralKind`: không có lớp ký tự đóng, không boundary guard, không render theo loại.
+        /// `<any>` / `<any:min-max>` — một cụm ký tự bất kỳ dài `minLength...maxLength` (không ghi độ dài
+        /// ⇒ 1–50), nuốt cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng `\n`/`\r` (1.3.686); capture trả
+        /// **nguyên văn** cụm đã nuốt. Không phải `NumeralKind`: không có lớp ký tự đóng, không boundary
+        /// guard, không render theo loại.
         case anyRun
+        /// `<^>` — neo đầu dòng (1.3.686): đúng khi từ đầu chuỗi (hoặc sau `\n`/`\r` gần nhất) tới vị trí
+        /// hiện tại chỉ có khoảng trắng. Rộng 0, **không** sinh capture, khoảng trắng nằm ngoài vùng khớp.
+        case lineStart
+        /// `<$>` — neo cuối dòng (1.3.686): đúng khi từ vị trí hiện tại tới cuối chuỗi (hoặc trước
+        /// `\n`/`\r` kế tiếp) chỉ có khoảng trắng. Rộng 0, **không** sinh capture.
+        case lineEnd
         /// `(a|b)` — mỗi alternative là một dãy phần tử; nhóm **không** sinh capture.
         case group([[QuickTranslationRuleElement]])
     }
@@ -106,11 +113,19 @@ public struct QuickTranslationRuleElement: Sendable {
         self.guardsRight = guardsRight
     }
 
-    /// Token có sinh capture hay không (literal và group thì không).
+    /// Token có sinh capture hay không (literal, group và neo dòng thì không).
     public var isToken: Bool {
         switch kind {
-        case .literal, .group: return false
+        case .literal, .group, .lineStart, .lineEnd: return false
         case .numeral, .chapterLabel, .dictionary, .anyRun: return true
+        }
+    }
+
+    /// `<^>` / `<$>` — phần tử rộng 0, chỉ kiểm điều kiện tại vị trí hiện tại.
+    public var isLineAnchor: Bool {
+        switch kind {
+        case .lineStart, .lineEnd: return true
+        case .literal, .numeral, .chapterLabel, .dictionary, .anyRun, .group: return false
         }
     }
 
@@ -127,7 +142,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary, .anyRun:
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
             return nil
         }
     }
@@ -143,7 +158,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary, .anyRun:
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
             return nil
         }
     }
@@ -154,6 +169,7 @@ public struct QuickTranslationRuleElement: Sendable {
         switch kind {
         case .literal(let units): return units.count
         case .numeral, .chapterLabel, .dictionary, .anyRun: return minLength
+        case .lineStart, .lineEnd: return 0
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.minimumWidth } }.min() ?? 0
         }
@@ -163,6 +179,7 @@ public struct QuickTranslationRuleElement: Sendable {
         switch kind {
         case .literal(let units): return units.count
         case .numeral, .chapterLabel, .dictionary, .anyRun: return maxLength
+        case .lineStart, .lineEnd: return 0
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.maximumWidth } }.max() ?? 0
         }

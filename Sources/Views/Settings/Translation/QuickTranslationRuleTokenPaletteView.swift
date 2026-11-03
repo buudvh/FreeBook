@@ -126,6 +126,8 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .latinLetters: return "chữ A-Z"
         case .hanNumeral: return "số Hán-Việt"
         case .any: return "cụm bất kỳ"
+        case .lineStart: return "đầu dòng"
+        case .lineEnd: return "cuối dòng"
         }
     }
 

@@ -12,10 +12,14 @@ public enum QuickTranslationRuleParser {
         public var issues: [QuickTranslationRuleIssue] = []
     }
 
-    private struct ParseError: Error {
+    /// `internal` (không `private`) để `QuickTranslationRuleParser+LineAnchor.swift` ném cùng loại lỗi.
+    struct ParseError: Error {
         let code: QuickTranslationRuleIssue.Code
         let message: String
     }
+
+    /// `<any>` không ghi `:min-max` ⇒ `1...50` (1.3.686); mọi token khác vẫn `1...12`.
+    static let anyRunDefaultMaxLength = 50
 
     // MARK: - Nhập văn bản
 
@@ -221,6 +225,9 @@ public enum QuickTranslationRuleParser {
             cursor += 1
         }
 
+        // Neo `<^>`/`<$>` rộng 0, không capture ⇒ phải trả về TRƯỚC `captureCount += 1` bên dưới.
+        if let anchor = try parseLineAnchor(spec: spec, isOptional: isOptional) { return anchor }
+
         let parts = spec.components(separatedBy: ":")
         let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
         guard !names.isEmpty, !names.contains(where: { $0.isEmpty }) else {
@@ -229,7 +236,7 @@ public enum QuickTranslationRuleParser {
         let sourceTokenKinds = try tokenKinds(for: names)
 
         var minLength = 1
-        var maxLength = 12
+        var maxLength = names == ["any"] ? anyRunDefaultMaxLength : 12
         if parts.count > 1, !parts[1].isEmpty {
             let bounds = parts[1].components(separatedBy: "-").compactMap { Int($0) }
             guard let first = bounds.first, first >= 1 else {

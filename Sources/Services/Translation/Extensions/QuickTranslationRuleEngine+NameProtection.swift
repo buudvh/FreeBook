@@ -43,10 +43,13 @@ extension QuickTranslationRuleEngine {
         for nameRange in bookNameRanges {
             let intersection = NSIntersectionRange(ruleRange, nameRange)
             guard intersection.length > 0 else { continue }
-            // Nếu capture bao trọn vẹn Name riêng thì coi là hợp lệ (ví dụ token <ne> nuốt trọn Name)
+            // Nếu capture bao trọn vẹn Name riêng thì coi là hợp lệ (ví dụ token <ne> nuốt trọn Name).
+            // Capture `<any>` (1.3.686) được **chứa** Name ở giữa: nó trả nguyên văn rồi chuỗi đó còn được
+            // dịch lại bằng từ điển, nên Name riêng vẫn áp đúng.
             let cleanlyCapturesName = captures.contains { capture in
                 guard let src = capture.sourceRange else { return false }
-                return src.location == nameRange.location && src.length == nameRange.length
+                if src.location == nameRange.location && src.length == nameRange.length { return true }
+                return capture.allowsEnclosedNames && NSIntersectionRange(src, nameRange).length == nameRange.length
             }
             if !cleanlyCapturesName {
                 return true

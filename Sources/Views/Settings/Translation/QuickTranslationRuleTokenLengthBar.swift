@@ -12,9 +12,10 @@ import SwiftUI
 /// (`<n:1-8>1-9>`). Giá trị đang kéo giữ ở `@State` cục bộ nên nhãn số vẫn nhảy mượt.
 ///
 /// Mọi biên đều lấy từ parser chứ không tự đặt: `min ≥ 1` là điều kiện cứng (sai thì
-/// `UNKNOWN_TOKEN_NAME`, lỗi hard), `max ≥ min`, và token không khai `:min-max` nghĩa là `1...12` —
-/// nên khi hai đầu về đúng mặc định, `TokenSpec.syntax` tự xuất lại token trần thay vì viết thừa
-/// `:1-12`. Nhờ vậy không có đường bấm hay kéo nào tạo ra được token sai cú pháp.
+/// `UNKNOWN_TOKEN_NAME`, lỗi hard), `max ≥ min`, và token không khai `:min-max` nghĩa là `1...12`
+/// (`<any>`: `1...50`, trần thanh 100 thay vì 20 — 1.3.686) — nên khi hai đầu về đúng mặc định,
+/// `TokenSpec.syntax` tự xuất lại token trần thay vì viết thừa `:1-12`. Nhờ vậy không có đường bấm hay
+/// kéo nào tạo ra được token sai cú pháp.
 struct QuickTranslationRuleTokenLengthBar: View {
     typealias TokenSpec = QuickTranslationRuleDraftAnalyzer.TokenSpec
 
@@ -49,7 +50,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
                         title: "Tối thiểu",
                         value: shownMin,
                         canDecrease: shownMin > 1,
-                        canIncrease: shownMin < TokenSpec.adjustableUpperBound,
+                        canIncrease: shownMin < spec.lengthUpperBound,
                         onStep: { delta in adjust { $0.minLength += delta } },
                         onDrag: { draggingMin = $0 },
                         onCommitDrag: {
@@ -63,7 +64,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
                         title: "Tối đa",
                         value: shownMax,
                         canDecrease: shownMax > shownMin,
-                        canIncrease: shownMax < TokenSpec.adjustableUpperBound,
+                        canIncrease: shownMax < spec.lengthUpperBound,
                         onStep: { delta in adjust { $0.maxLength += delta } },
                         onDrag: { draggingMax = $0 },
                         onCommitDrag: {
@@ -75,7 +76,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
                 }
 
                 if spec.isDefaultRange {
-                    Text("Đang là mặc định \(TokenSpec.defaultMinLength)–\(TokenSpec.defaultMaxLength) ký tự, nên mẫu ghi token trần.")
+                    Text("Đang là mặc định \(TokenSpec.defaultMinLength)–\(spec.defaultRangeMax) ký tự, nên mẫu ghi token trần.")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -131,7 +132,7 @@ struct QuickTranslationRuleTokenLengthBar: View {
                     get: { Double(value) },
                     set: { onDrag(Int($0.rounded())) }
                 ),
-                in: 1...Double(TokenSpec.adjustableUpperBound),
+                in: 1...Double(spec.lengthUpperBound),
                 step: 1,
                 onEditingChanged: { isEditing in
                     guard !isEditing else { return }

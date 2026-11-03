@@ -18,10 +18,15 @@ public final class QuickTranslationRuleMatcher {
         public let text: String
         /// `nil` khi token optional vắng mặt — không có ký tự nguồn nào bị nuốt.
         public let sourceRange: NSRange?
+        /// `true` chỉ với capture của `<any>` (1.3.686): nó trả **nguyên văn** rồi chuỗi đó còn được tách từ
+        /// và dịch lại (Name riêng vẫn áp), nên được phép **bao trọn** Name riêng chứ không chỉ trùng khít
+        /// (`QuickTranslationRuleEngine.ruleMatchConflictsWithBookNames`).
+        public let allowsEnclosedNames: Bool
 
-        public init(text: String, sourceRange: NSRange?) {
+        public init(text: String, sourceRange: NSRange?, allowsEnclosedNames: Bool = false) {
             self.text = text
             self.sourceRange = sourceRange
+            self.allowsEnclosedNames = allowsEnclosedNames
         }
     }
 
@@ -40,7 +45,8 @@ public final class QuickTranslationRuleMatcher {
         let index: Int
     }
 
-    /// Chặn nổ backtracking. Pattern thật rất ngắn (≤ 8 phần tử, `max ≤ 12`) nên cap không bao giờ
+    /// Chặn nổ backtracking. Pattern thật rất ngắn (≤ 8 phần tử, `max ≤ 12`; `<any>` mặc định 50 nhưng chỉ
+    /// thử độ dài để lại đúng chữ cố định theo sau — xem `walkAnyRun`) nên cap không bao giờ
     /// chạm với dữ liệu hiện có; nó chỉ để một rule bệnh lý không treo Reader.
     private static let stepCap = 4_000
 
@@ -144,6 +150,15 @@ public final class QuickTranslationRuleMatcher {
 
         case .anyRun:
             return walkAnyRun(element, advanced, position)
+
+        // Neo dòng rộng 0: chỉ kiểm điều kiện rồi đi tiếp **tại chỗ**, không capture.
+        case .lineStart:
+            guard QuickTranslationRuleLineAnchor.isAtLineStart(units, position) else { return nil }
+            return walk(advanced, position)
+
+        case .lineEnd:
+            guard QuickTranslationRuleLineAnchor.isAtLineEnd(units, position) else { return nil }
+            return walk(advanced, position)
         }
     }
 
@@ -271,61 +286,72 @@ public final class QuickTranslationRuleMatcher {
         return skipOptional(element, advanced, position)
     }
 
-    /// `<any>`: thử độ dài **dài → ngắn** có lùi như `walkNumeral`, nhưng lớp ký tự là **phần bù** — mọi
-    /// đơn vị UTF-16 trừ dấu câu (P*) và khoảng trắng/xuống dòng (Z*, `\t\n\r`). Capture trả nguyên văn;
-    /// chuỗi sau rewrite vẫn được tách từ và dịch từ điển như phần còn lại của dòng.
+    /// `<any>`: thử độ dài **dài → ngắn** có lùi như `walkNumeral`; từ 1.3.686 nuốt **mọi** đơn vị UTF-16
+    /// kể cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng `\n`/`\r`. Capture trả nguyên văn; chuỗi sau
+    /// rewrite vẫn được tách từ và dịch từ điển như phần còn lại của dòng.
     ///
     /// Hai ràng buộc mà token số không cần:
     /// - Không bắt đầu hay kết thúc **giữa** một cặp surrogate (chữ Hán mở rộng B+ chiếm 2 đơn vị).
-    /// - Cụm dừng ở chỗ vùng Name riêng bắt đầu/kết thúc. Engine bỏ cả lượt khớp cắt vào Name
-    ///   (`ruleMatchConflictsWithBookNames`) **sau** khi matcher trả về, lúc đó không còn lùi về độ dài
-    ///   ngắn hơn được: `<any:1-6>的<any:1-6>` trên `我的张三师兄` (Name `张三`) sẽ chết hẳn thay vì
-    ///   khớp `我的张三`. Hai Name dán liền nhau vẫn bị coi là một vùng — engine chặn ca đó như cũ.
+    /// - Được nuốt **trọn** Name riêng (capture mang `allowsEnclosedNames`, engine chấp nhận), nhưng không
+    ///   được bắt đầu hay kết thúc **giữa** một Name: engine bỏ lượt khớp đó **sau** khi matcher trả về,
+    ///   lúc ấy không còn lùi về độ dài khác được. Chỉ có tập vị trí bị chiếm nên hai Name dán liền nhau bị
+    ///   coi là một vùng — không cắt được ở khe giữa hai Name (thận trọng, không sinh match bị engine bỏ).
+    ///
+    /// Hiệu năng: nếu phần tử **ngay sau** `<any>` trong cùng dãy là chữ cố định, chỉ những độ dài để lại
+    /// đúng chữ đó ở ngay sau mới được thử — không đi bộ cả 50–100 độ dài cho mỗi vị trí.
     private func walkAnyRun(
         _ element: QuickTranslationRuleElement,
         _ advanced: [Frame],
         _ position: Int
     ) -> Int? {
-        guard position < units.count, !splitsSurrogatePair(at: position) else {
+        guard position < units.count, !splitsSurrogatePair(at: position), !isInsideBookName(at: position) else {
             return skipOptional(element, advanced, position)
         }
 
-        let startsInName = bookNameOccupiedIndices.contains(position)
         let limit = min(element.maxLength, units.count - position)
         var run = 0
-        while run < limit {
-            let index = position + run
-            if Self.isAnyRunStop(units[index]) { break }
-            if !bookNameOccupiedIndices.isEmpty, bookNameOccupiedIndices.contains(index) != startsInName { break }
+        while run < limit, !QuickTranslationRuleLineAnchor.isLineBreak(units[position + run]) {
             run += 1
         }
 
+        let nextLiteral = followingLiteral(in: advanced)
         let saved = captures
         var candidate = run
         while candidate >= element.minLength {
             let end = position + candidate
-            if splitsSurrogatePair(at: end) {
-                candidate -= 1
-                continue
-            }
-            let range = NSRange(location: position, length: candidate)
-            store(text.substring(with: range), sourceRange: range, for: element)
+            candidate -= 1
+            if splitsSurrogatePair(at: end) || isInsideBookName(at: end) { continue }
+            if let nextLiteral, !hasLiteral(nextLiteral, at: end) { continue }
+            let range = NSRange(location: position, length: end - position)
+            store(text.substring(with: range), sourceRange: range, for: element, allowsEnclosedNames: true)
             if let matchEnd = walk(advanced, end) { return matchEnd }
             captures = saved
-            candidate -= 1
         }
 
         return skipOptional(element, advanced, position)
     }
 
-    /// Dấu câu (Unicode P*: `，。！？“”（）《》…—·`) và khoảng trắng/xuống dòng (Z* + `\t\n\r`) — chặn `<any>`.
-    private static let anyRunStopScalars = CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+    /// Chữ cố định (không optional) đứng **ngay sau** phần tử đang xét trong cùng dãy; `nil` nếu không có.
+    private func followingLiteral(in advanced: [Frame]) -> [UInt16]? {
+        guard let frame = advanced.last, frame.index < frame.elements.count else { return nil }
+        let next = frame.elements[frame.index]
+        guard !next.isOptional, case .literal(let literal) = next.kind, !literal.isEmpty else { return nil }
+        return literal
+    }
 
-    /// Đơn vị surrogate (`Unicode.Scalar(UInt16)` trả `nil`) coi như nuốt được: dấu câu ngoài BMP hầu như
-    /// không gặp trong truyện, còn chữ Hán mở rộng thì phải nuốt được.
-    private static func isAnyRunStop(_ unit: UInt16) -> Bool {
-        guard let scalar = Unicode.Scalar(unit) else { return false }
-        return anyRunStopScalars.contains(scalar)
+    private func hasLiteral(_ literal: [UInt16], at index: Int) -> Bool {
+        guard index + literal.count <= units.count else { return false }
+        for offset in literal.indices where units[index + offset] != literal[offset] {
+            return false
+        }
+        return true
+    }
+
+    /// `true` khi `index` rơi **giữa** một vùng Name riêng (cả ký tự trước lẫn ký tự tại `index` đều bị
+    /// Name chiếm) — `<any>` không được bắt đầu hay kết thúc ở đó.
+    private func isInsideBookName(at index: Int) -> Bool {
+        index > 0 && index < units.count
+            && bookNameOccupiedIndices.contains(index) && bookNameOccupiedIndices.contains(index - 1)
     }
 
     /// `true` khi `index` rơi giữa high và low của một cặp surrogate.
@@ -346,8 +372,13 @@ public final class QuickTranslationRuleMatcher {
         return walk(advanced, position)
     }
 
-    private func store(_ value: String, sourceRange: NSRange?, for element: QuickTranslationRuleElement) {
+    private func store(
+        _ value: String,
+        sourceRange: NSRange?,
+        for element: QuickTranslationRuleElement,
+        allowsEnclosedNames: Bool = false
+    ) {
         guard let index = element.captureIndex, index < captures.count else { return }
-        captures[index] = Capture(text: value, sourceRange: sourceRange)
+        captures[index] = Capture(text: value, sourceRange: sourceRange, allowsEnclosedNames: allowsEnclosedNames)
     }
 }

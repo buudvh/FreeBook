@@ -2,6 +2,38 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.686] - 2026-11-03
+
+### feat: neo đầu/cuối dòng <^> <$> và <any> bắt mọi ký tự trong rule dịch
+
+Người dùng: *"có token xác định đầu dòng trong rule dịch chưa, nếu chưa thì thêm vào"* và *"token any sửa lại bắt mọi ký tự và tăng length lên"*. Chốt bằng bảng chọn:
+- Thêm `<^>` và `<$>`, bỏ qua khoảng trắng đầu/cuối dòng.
+- `<any>` bắt mọi ký tự trừ xuống dòng, mặc định 1–50, chỉnh được tới 100.
+
+- **Neo `<^>` / `<$>`** (`QuickTranslationRuleLineAnchor`, `QuickTranslationRuleParser+LineAnchor`, mới):
+  - Rộng 0 và **không sinh capture**, nên số `{i}` của rule giữ nguyên.
+  - `<^>` đúng khi từ đầu chuỗi (hoặc sau `\n`/`\r`) tới vị trí hiện tại chỉ có khoảng trắng; `<$>` đối xứng ở cuối dòng. Khoảng trắng thụt nằm ngoài vùng khớp nên giữ nguyên trong bản dịch.
+  - Ghép `|`, ghi độ dài `:min-max` hoặc thêm `?` sau neo ⇒ lỗi `UNKNOWN_TOKEN_NAME` kèm câu giải thích.
+- **Giao diện neo:**
+  - `QuickTranslationRuleTokenSettings.Kind` thêm `lineStart = "^"`, `lineEnd = "$"` vào **cuối** danh sách, có công tắc ở Cấu hình token (chung và riêng theo truyện).
+  - Có nút trong bảng token và gợi ý trên bàn phím.
+  - Chip ở màn sửa rule không có thanh độ dài và không được đánh số.
+  - Phần giải thích token có ví dụ `<^>第<n>章 = Chương {0}`.
+- **`<any>`:**
+  - Nuốt **mọi** ký tự, kể cả dấu câu và khoảng trắng; chỉ dừng ở xuống dòng.
+  - Không ghi độ dài ⇒ 1–50. Thanh chỉnh độ dài tới 100 (`TokenSpec.defaultRangeMax` / `lengthUpperBound`); token khác giữ 1–12 và trần 20.
+  - Được nuốt **trọn** Name riêng: capture mang `allowsEnclosedNames`, `+NameProtection` chấp nhận. Chỉ không được bắt đầu hay kết thúc giữa một Name.
+  - Theo sau là chữ cố định thì chỉ thử những độ dài có chữ đó ngay sau, nên vẫn nhẹ dù dài hơn.
+  - Ví dụ: `<any:1-6>说` trên `走吧，他说` giờ lấy `走吧，他`; `第<n>章<any>` giờ khớp `第12章 风起`.
+- **Đổi hành vi rule cũ:** `<any>` không ghi độ dài giờ nuốt tới 50 ký tự, kể cả dấu câu.
+- `CLAUDE.md` / `AGENTS.md`: cập nhật đoạn token ở mục Dịch thuật VietPhrase.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Tự soát tay các ca:
+  - `<^>第<n>章` khớp `　　第12章 风起` mà không khớp `他说第12章`.
+  - `<any>的<any>` với Name `张三` nằm trọn trong cụm vẫn khớp.
+
+  Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.685] - 2026-11-03
 
 ### feat: sheet Bộ lọc hiện chữ đã dịch khi nguồn bật dịch
@@ -461,16 +493,3 @@ Người dùng gửi tiện ích Chuangshi QQ (Khám phá trả `{"baseUrl":…,
 - **Detail: trường `comment`** (một nguồn `{title, input, script}`, hiện trước `comments` — hợp đồng) trước đây bị bỏ qua ⇒ FQWeb Universal (chỉ trả `comment`, không có `title`) không bao giờ gọi `comment.js`. `ExtensionManager.detailCommentSources`: `comment` (object; lỡ là mảng thì đọc như `comments`) rồi `comments`, thiếu `title` ⇒ "Bình luận", script mặc định `comment.js`, trùng nguồn giữ một. `genres`/`suggests` giữ luật cũ (thiếu `title` ⇒ bỏ). `reviews` của hợp đồng vẫn chưa đọc.
 - Chuyển entry `[1.3.627]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; đối chiếu hợp đồng (`load()`, bảng trường detail); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — Khám phá/tìm/đọc của Chuangshi QQ, khối bình luận ở Chi tiết của FQWeb Universal.
-
-## [1.3.656] - 2026-10-30
-
-### fix: trình duyệt bôi đen thấy được, ô URL tìm Google, tự dịch nguồn tiếng Trung
-
-Người dùng (thử 1.3.655): *"Phần bôi đen của web bị sửa thành màu trắng không thấy được chữ nào bôi đen"*, *"nhập vào ô url nếu là chữ bình thường không phải link hãy search bằng google, bàn phím đổi thành bàn phím bình thường"*, *"tự quyết định trình duyệt từ đầu có bật tự động dịch không nếu chưa config … url match với ext có ngôn ngữ là tiếng trung thì từ đầu phải bật dịch"*, *"khi bấm nút copy trên bàn phím, hãy thêm toast"*; duyệt plan.
-
-- **Vùng bôi đen**: app đặt màu nhấn trắng toàn cục (`.tint(.white)`) ⇒ vùng chọn + tay nắm của trang thành trắng. `BrowserWebView` và `URLBarTextField` gán `tintColor = .systemBlue` tường minh (như Safari).
-- **Ô địa chỉ**: bàn phím thường (`.default`, thanh công cụ bàn phím của app vẫn tự gắn), chữ gợi ý "Tìm hoặc nhập địa chỉ web". Enter: link (`http(s)://`, hoặc không khoảng trắng + `localhost`/IPv4/tên miền có đuôi chữ ≥ 2 ký tự) ⇒ mở; còn lại ⇒ tìm Google (`BrowserAddressInputMapper`, dùng chung `webSearchURL(for:)` với "Tìm trên web").
-- **Tự dịch mặc định** (`BrowserTranslatePolicy`): tên miền ⇒ công tắc tiện ích khớp URL ⇒ **mặc định của tiện ích khớp đầu tiên** = cấu hình dịch "Nguồn này" của Reader (`TranslationConfigStore`) nếu đã đặt, không thì nguồn tiếng Trung (`Extension.isChineseSource`) ⇒ bật ⇒ tắt. Công tắc "Tự dịch trang (QT)" ở Cấu hình tiện ích hiện giá trị đang hiệu lực, ghi `true`/`false` tường minh, thêm dòng "Dùng mặc định" khi đã chỉnh.
-- **Toast "Đã sao chép"** khi bấm nút sao chép của thanh bàn phím (mọi ô nhập). `ToastManager.show` thêm `recordsInInbox` (mặc định `true`) để toast này không vào Trung tâm thông báo; lớp toast giữ vùng bàn phím (`.ignoresSafeArea(.container)`) nên không bị bàn phím che.
-- Chuyển entry `[1.3.626]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — màu vùng chọn trên trang, toast nằm trên bàn phím (cửa sổ toast mức `.alert`), mở URL tiện ích tiếng Trung lần đầu tự dịch.
