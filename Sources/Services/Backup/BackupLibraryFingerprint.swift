@@ -280,12 +280,11 @@ enum BackupLibraryFingerprint {
         } else {
             feed(0, into: &hasher)
         }
-        feedFile(label: "quickTranslateRules", at: QuickTranslationRuleStore.shared.ruleFileURL, into: &hasher)
-        feedFile(
-            label: "quickTranslateRulesDisabled",
-            at: QuickTranslationRuleDisableStore.shared.fileURL(for: .global),
-            into: &hasher
-        )
+        let ruleFiles: [(String, URL)] = [("quickTranslateRules", QuickTranslationRuleStore.shared.ruleFileURL),
+            ("quickTranslateRulesDisabled", QuickTranslationRuleDisableStore.shared.fileURL(for: .global)),
+            ("quickTranslateChapterRules", QuickTranslationRuleChapterStore.shared.ruleFileURL),
+            ("quickTranslateChapterRulesDisabled", QuickTranslationRuleDisableStore.shared.fileURL(for: .chapterTitle))]
+        for (label, url) in ruleFiles { feedFile(label: label, at: url, into: &hasher) }
         let memoryFiles = (try? FileManager.default.contentsOfDirectory(
             at: BackupPaths.aiMemoryDirectory,
             includingPropertiesForKeys: nil

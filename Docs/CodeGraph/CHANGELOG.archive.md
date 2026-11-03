@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.653] - 2026-10-29
+
+### fix: xuất video nhiều file chia sẻ được từng file thay vì thư mục
+
+Người dùng: *"xuất video dạng folder nên đâu gửi được"* — đúng rủi ro đã ghi ở 1.3.650.
+
+- **`ExportShareCoordinator`**: bản xuất là **thư mục** (video nhiều tập, hoặc một tập kèm file tiếng / phụ đề) ⇒ lúc mở bảng chia sẻ bung thành danh sách mọi file thường bên trong (bỏ file ẩn, xếp tên tự nhiên — "Tập 2" trước "Tập 10") và đưa cả danh sách vào `UIActivityViewController` ⇒ "Lưu vào Tệp" / AirDrop nhận nhiều file một lượt. Bản xuất một file giữ nguyên. Thư mục rỗng ⇒ toast lỗi.
+- Chuyển entry `[1.3.623]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — xuất 2 tập rồi "Lưu vào Tệp" và AirDrop.
+
 ## [1.3.652] - 2026-10-29
 
 ### fix: trang có nút back hiện tiêu đề giữa, nút chữ header 17pt nửa đậm

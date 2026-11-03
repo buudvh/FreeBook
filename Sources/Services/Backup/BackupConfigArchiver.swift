@@ -6,7 +6,8 @@ import Foundation
 /// - `config/search_engines.json` — danh sách công cụ tra cứu nhanh (nguồn thật là `UserDefaults`,
 ///   nhưng tách ra file riêng để phục hồi **gộp** được thay vì ghi đè cả mảng như khối cài đặt),
 /// - `config/QuickTranslateRules.txt` — bộ rule dịch Quick Translate đang có trên máy (tải từ
-///   HuggingFace hoặc người dùng nhập; không đi kèm app nên phải sao lưu).
+///   HuggingFace hoặc người dùng nhập; không đi kèm app nên phải sao lưu),
+/// - `config/QuickTranslateChapterRules.txt` (+ file tắt) — bộ rule tên chương (1.3.683).
 ///
 /// Không thêm `BackupScope` mới (xem `BackupSettingsArchiver` để biết lý do): luôn ghi vào archive
 /// vì chỉ vài KB, phía khôi phục bật/tắt bằng `BackupRestoreWorker.Options.restoreSettings`.
@@ -18,12 +19,15 @@ public enum BackupConfigArchiver {
         public var searchEngines = 0
         /// Số rule dịch đã nạp lại từ file rule trong archive (0 nếu archive không có).
         public var quickTranslateRules = 0
+        /// Số rule của bộ tên chương đã nạp lại từ archive (0 nếu archive không có).
+        public var quickTranslateChapterRules = 0
         /// Số file trí nhớ AI (global memory, book memory) đã khôi phục.
         public var aiMemoryFiles = 0
         public var errors: [String] = []
 
         public var restoredFiles: Int {
-            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0) + (quickTranslateRules > 0 ? 1 : 0) + (aiMemoryFiles > 0 ? 1 : 0)
+            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0) + (quickTranslateRules > 0 ? 1 : 0)
+                + (quickTranslateChapterRules > 0 ? 1 : 0) + (aiMemoryFiles > 0 ? 1 : 0)
         }
 
         public init() {}
@@ -59,14 +63,14 @@ public enum BackupConfigArchiver {
         }
 
         // Rule đã tắt cũng là lựa chọn của người dùng — cùng lý do "quy tắc mục lục đã tắt vẫn phải
-        // sao lưu" ở trên.
-        let disabledURL = QuickTranslationRuleDisableStore.shared.fileURL(for: .global)
-        if FileManager.default.fileExists(atPath: disabledURL.path) {
-            try BackupZipArchive.stage(
-                fileAt: disabledURL,
-                entryName: BackupPaths.quickTranslateRulesDisabled,
-                in: staging
-            )
+        // sao lưu" ở trên. Bộ tên chương (1.3.683) đi cùng đường: file rule + file tắt của nó.
+        let ruleFiles: [(url: URL, entry: String)] = [
+            (QuickTranslationRuleDisableStore.shared.fileURL(for: .global), BackupPaths.quickTranslateRulesDisabled),
+            (QuickTranslationRuleChapterStore.shared.ruleFileURL, BackupPaths.quickTranslateChapterRules),
+            (QuickTranslationRuleDisableStore.shared.fileURL(for: .chapterTitle), BackupPaths.quickTranslateChapterRulesDisabled)
+        ]
+        for file in ruleFiles where FileManager.default.fileExists(atPath: file.url.path) {
+            try BackupZipArchive.stage(fileAt: file.url, entryName: file.entry, in: staging)
             staged += 1
         }
 
@@ -96,13 +100,14 @@ public enum BackupConfigArchiver {
         restoreSearchEngines(from: directory, into: &report)
         restoreQuickTranslateRules(from: directory, into: &report)
         restoreQuickTranslateDisabledRules(from: directory, into: &report)
+        restoreQuickTranslateChapterRules(from: directory, into: &report)
         restoreAIMemory(from: directory, into: &report)
 
         if report.restoredFiles > 0 {
             AppLogger.shared.log(
                 "♻️ [Restore] Cấu hình: \(report.tocRules) quy tắc mục lục,"
                 + " \(report.searchEngines) công cụ tra cứu mới,"
-                + " \(report.quickTranslateRules) rule dịch,"
+                + " \(report.quickTranslateRules) rule dịch, \(report.quickTranslateChapterRules) rule tên chương,"
                 + " \(report.aiMemoryFiles) file trí nhớ AI"
             )
         }
@@ -153,6 +158,41 @@ public enum BackupConfigArchiver {
         case .failure(let message):
             report.errors.append("Rule dịch: \(message)")
         }
+    }
+
+    /// Bộ rule tên chương (1.3.683): file tắt **hợp tập** trước (như bộ chung), rồi file rule **thay toàn bộ**
+    /// (như bộ chung). Cả hai bước im lặng; xong mới dọn cache dịch + phát **một** thông báo rule đã đổi, vì
+    /// `BackupRestoreWorker` không phát gì sau bước cấu hình và `merge` của file tắt không đổi generation —
+    /// archive chỉ có file tắt mà không phát thì bản dịch đang mở giữ kết quả cũ.
+    private static func restoreQuickTranslateChapterRules(from directory: URL, into report: inout Report) {
+        var changed = false
+        if let data = BackupZipArchive.readStaged(entryName: BackupPaths.quickTranslateChapterRulesDisabled, in: directory),
+           let text = String(data: data, encoding: .utf8) {
+            let patterns = QuickTranslationRuleDisableFile.parse(text)
+            if !patterns.isEmpty {
+                switch QuickTranslationRuleDisableStore.shared.merge(patterns: patterns, into: .chapterTitle) {
+                case .success: changed = true
+                case .failure(let message): report.errors.append("Rule tên chương đã tắt: \(message)")
+                }
+            }
+        }
+
+        if let data = BackupZipArchive.readStaged(entryName: BackupPaths.quickTranslateChapterRules, in: directory),
+           let text = String(data: data, encoding: .utf8) {
+            switch QuickTranslationRuleChapterStore.shared.importRules(text: text, mode: .replaceAll, notifiesObservers: false) {
+            case .success(let ruleCount, _):
+                report.quickTranslateChapterRules = ruleCount
+                changed = true
+            case .rejected(let issues):
+                report.errors.append("Rule tên chương: \(issues.count) dòng lỗi nặng, giữ bộ đang dùng")
+            case .failure(let message):
+                report.errors.append("Rule tên chương: \(message)")
+            }
+        }
+
+        guard changed else { return }
+        TranslateUtils.invalidateCache(bookId: nil)
+        TranslationManager.shared.notifyRulesDidUpdate()
     }
 
     /// Gộp theo `id` bằng đúng primitive của màn Quy tắc mục lục (`TranslateUtils.mergeTOCRules`):

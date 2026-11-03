@@ -196,7 +196,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
         source: QuickTranslationRuleSnapshot.Source,
         notifiesObservers: Bool = true
     ) -> LoadOutcome {
-        let prepared = QuickTranslationRuleRecordStore.validRecords(from: records, scopeRank: 1)
+        let prepared = QuickTranslationRuleRecordStore.validRecords(from: records, scopeRank: QuickTranslationRuleScope.globalRank)
         let text = QuickTranslationRuleRecordStore.serialize(prepared.records)
 
         guard text.utf8.count <= Self.maxRuleFileBytes else {
@@ -291,7 +291,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
         precompiled: QuickTranslationRuleCompiler.Result? = nil,
         notifiesObservers: Bool = true
     ) -> LoadOutcome {
-        let compiled = precompiled ?? QuickTranslationRuleCompiler.compile(QuickTranslationRuleParser.parse(text))
+        let compiled = precompiled ?? QuickTranslationRuleCompiler.compile(QuickTranslationRuleParser.parse(text), scopeRank: QuickTranslationRuleScope.globalRank)
 
         let warnings = compiled.issues.filter { $0.severity != .hard }
         lock.lock()

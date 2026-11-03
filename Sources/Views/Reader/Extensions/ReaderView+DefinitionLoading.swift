@@ -126,13 +126,16 @@ extension ReaderView {
         let sessionID = definitionSession.identity
         let text = originalSentence
         let book = bookId
+        // Dòng tiêu đề chương (id -1) dịch bằng thêm bộ rule tên chương ⇒ chip rule cũng phải soi bộ đó.
+        let isChapterTitle = editingParagraphIndex == -1
         let worker = definitionSession.worker
         definitionSession.loadingRules = true
         definitionSession.ruleTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: 150_000_000)
                 let result = try await CancellableTranslationWork.run {
-                    try await worker.traces(sentence: text, bookId: book, selection: NSRange(location: 0, length: 0))
+                    try await worker.traces(sentence: text, bookId: book, selection: NSRange(location: 0, length: 0),
+                                            isChapterTitle: isChapterTitle)
                 }
                 guard showingDefinitionSheet,
                       definitionSession.identity == sessionID,

@@ -33,7 +33,7 @@ struct CommentRowView: View {
                 if !comment.content.isEmpty, !comment.description.isEmpty {
                     Text(Self.displayText(comment.description, translating: isTranslationEnabled))
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.tertiary)
                 }
 
                 bodyText

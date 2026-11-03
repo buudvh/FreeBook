@@ -17,12 +17,12 @@ public enum QuickTranslationRuleCompiler {
     /// Literal chỉ gồm những ký tự cực phổ biến ⇒ prefilter gần như vô dụng, dễ khớp bừa.
     private static let weakAnchorUnits: Set<UInt16> = Set("的了是不存在上下个個".utf16)
 
-    /// `scopeRank` đi thẳng vào mọi rule của lượt compile này: 0 = bộ **riêng** truyện, 1 = bộ
-    /// **chung**. Nó là tiêu chí ưu tiên thứ 5 trong `QuickTranslationRuleEngine.select`, đứng ngay
-    /// trước `sourceLine`, nên rule riêng thắng rule chung khi trùng mọi tiêu chí trước đó.
+    /// `scopeRank` đi thẳng vào mọi rule của lượt compile này (`QuickTranslationRuleScope.rank`: riêng 0,
+    /// tên chương 1, chung 2). Nó là tiêu chí ưu tiên thứ 5 trong `QuickTranslationRuleEngine.select`, đứng
+    /// ngay trước `sourceLine`, nên riêng > tên chương > chung khi trùng mọi tiêu chí trước đó.
     public static func compile(
         _ parsed: QuickTranslationRuleParser.Result,
-        scopeRank: Int = 1
+        scopeRank: Int = QuickTranslationRuleScope.globalRank
     ) -> Result {
         var result = Result()
         result.issues = parsed.issues

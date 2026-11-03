@@ -1,14 +1,11 @@
 import Foundation
 import SwiftUI
 
-/// Phần thao tác cho tab **Đã tắt** của menu rule chung, tách file để modifier chính không vượt 400 dòng.
+/// Phần thao tác cho tab **Đã tắt** của menu rule (mọi phạm vi), tách file để modifier chính không vượt 400 dòng.
 @MainActor
 extension QuickTranslationRuleIOMenu {
     var currentDisabledPatterns: [String] {
-        switch scope {
-        case .global: return QuickTranslationRuleDisableStore.shared.disabledPatterns(for: .global)
-        case .book(let bookId): return QuickTranslationRuleDisableStore.shared.disabledPatterns(for: .book(bookId))
-        }
+        QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope)
     }
 
     var isDisabledListEmpty: Bool { currentDisabledPatterns.isEmpty }
@@ -69,7 +66,7 @@ extension QuickTranslationRuleIOMenu {
     func exportDisabledRules() {
         let text = QuickTranslationRuleDisableFile.serialize(currentDisabledPatterns)
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(QuickTranslationRuleDisableStore.fileName)
+            .appendingPathComponent(QuickTranslationRuleDisableStore.disabledFileName(for: scope))
         do {
             try text.write(to: url, atomically: true, encoding: .utf8)
             sharedDisabledFile = SharedFile(url: url)
@@ -95,6 +92,8 @@ extension QuickTranslationRuleIOMenu {
         switch scope {
         case .global:
             outcome = QuickTranslationRuleStore.shared.deleteRules(patterns: patterns)
+        case .chapterTitle:
+            outcome = QuickTranslationRuleChapterStore.shared.deleteRules(patterns: patterns)
         case .book(let bookId):
             outcome = QuickTranslationRuleBookStore.shared.deleteRules(patterns: patterns, bookId: bookId)
         }

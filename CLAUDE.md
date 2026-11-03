@@ -181,6 +181,8 @@ Giới hạn cần nhớ:
 
 `TranslateUtils` tra từ điển và dựng `TranslatedTextResult { text, spans }`. `buildTranslationSpans` dò từng token dịch trong chuỗi kết quả; nếu **một** token không tìm thấy thì trả `[]` — mọi code tiêu thụ span phải xử lý được mảng rỗng.
 
+**Tên chương** (1.3.681–683): `translateChapterTitle` dịch **y như nội dung** — không còn regex `第N章`/số Ả-rập, nhãn chương do rule dịch nhanh `<L>` của người dùng lo — và chạy trong cờ task-local `TranslationReadContext.appliesChapterTitleRules`. Khi cờ bật, engine trộn thêm **bộ rule tên chương** (`QuickTranslationRuleScope.chapterTitle`, `translate/QuickTranslateChapterRules.txt`, `QuickTranslationRuleChapterStore`, có file tắt riêng, có backup). Thứ tự riêng > tên chương > chung qua tiêu chí `scopeRank` 0/1/2. Dịch tên chương ở chỗ mới thì gọi `translateChapterTitle`; gọi `translateContent` là mất bộ rule tên chương. `title_trans` trong `ChapterStore` chỉ làm mới bằng tay ("Dịch lại tên chương"); mục lục Chi tiết, sheet Reader và comic ưu tiên nó, trừ khi truyện bật phồn→giản (`TranslationConfigStore.convertsTraditionalToSimplified(bookId:)`) thì dịch sống. Token `<any:min-max>` (1.3.682) khớp cụm ký tự bất kỳ trừ dấu câu và khoảng trắng, trả nguyên văn; rule có `<any>` phải có chữ cố định (`ANY_WITHOUT_LITERAL`).
+
 ### Extension JavaScript (VBook)
 
 Entrypoint mọi file JS (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) là hàm `execute(...)`, gọi qua `runAsync`. Script nằm ở gốc extension hoặc trong `src/`. Manifest là `plugin.json`.

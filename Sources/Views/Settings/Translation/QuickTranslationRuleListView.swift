@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Danh sách rule của **một phạm vi** (bộ chung hoặc bộ riêng của truyện), có **2 tab** Đang bật /
-/// Đã tắt và ô tìm kiếm.
+/// Danh sách rule của **một phạm vi** (bộ chung, bộ tên chương hoặc bộ riêng của truyện), có **2 tab**
+/// Đang bật / Đã tắt và ô tìm kiếm.
 ///
-/// Ba đường vào cùng dùng view này, chỉ khác `scope`: hub Từ điển của Reader (Rule Riêng / Rule Chung)
-/// và mục Công cụ của màn Quản lý rule dịch.
+/// Các đường vào cùng dùng view này, chỉ khác `scope`: hub Từ điển của Reader (Rule Riêng / Tên chương /
+/// Chung) và mục Công cụ của màn Quản lý rule dịch (bộ chung, bộ tên chương).
 ///
 /// Bẫy layout phải giữ: mỗi rule là **một hàng `List` thật**. Không bọc `LazyVStack`/`LazyHStack`
 /// trong một hàng — `List` của iOS 16+ chạy trên `UICollectionView` + compositional layout, lazy
@@ -19,11 +19,13 @@ struct QuickTranslationRuleListView: View {
     /// Lỗi trạng thái runtime do màn quản lý tính (`DICT_TOKEN_WITHOUT_DICTIONARY`) — không nằm trong
     /// snapshot nên phải truyền vào để badge của hàng nói đủ.
     let extraIssues: [QuickTranslationRuleIssue]
-    /// bookId của màn đang mở, chỉ dùng khi `scope == .global` để biết đích của nút Chuyển.
+    /// bookId của màn đang mở, chỉ dùng khi phạm vi không thuộc truyện nào (chung / tên chương) để biết
+    /// đích "riêng" của nút Chuyển.
     let contextBookId: String?
 
     @ObservedObject private var store = QuickTranslationRuleStore.shared
     @ObservedObject private var bookStore = QuickTranslationRuleBookStore.shared
+    @ObservedObject private var chapterStore = QuickTranslationRuleChapterStore.shared
     @ObservedObject private var disableStore = QuickTranslationRuleDisableStore.shared
 
     @State private var searchText = ""
@@ -59,7 +61,29 @@ struct QuickTranslationRuleListView: View {
     private var snapshot: QuickTranslationRuleSnapshot? {
         switch scope {
         case .global: return store.currentSnapshot
+        case .chapterTitle: return chapterStore.currentSnapshot
         case .book(let bookId): return bookStore.snapshot(for: bookId)
+        }
+    }
+
+    /// Tiêu đề trang theo phạm vi.
+    private var pageTitle: String {
+        switch scope {
+        case .global: return "Rule chung"
+        case .chapterTitle: return "Rule tên chương"
+        case .book: return "Rule riêng truyện"
+        }
+    }
+
+    /// Chữ hiện khi phạm vi chưa có rule nào.
+    private var emptyMessage: String {
+        switch scope {
+        case .global:
+            return "Chưa có bộ rule nào. Tải hoặc nhập bộ rule ở màn Quản lý rule dịch, hoặc bấm + để tự thêm rule đầu tiên."
+        case .chapterTitle:
+            return "Chưa có rule tên chương. Bấm + để thêm, hoặc dùng nút Chuyển ở danh sách rule chung / rule riêng."
+        case .book:
+            return "Truyện này chưa có rule riêng. Bấm + để thêm, hoặc dùng nút Chuyển ở danh sách rule chung."
         }
     }
 
@@ -72,8 +96,9 @@ struct QuickTranslationRuleListView: View {
         Set(disableStore.disabledPatterns(for: scope))
     }
 
+    /// Chỉ hàng của bộ **riêng** mới báo "tắt ở bộ chung"; bộ tên chương có file tắt của chính nó.
     private var globallyDisabledPatterns: Set<String> {
-        scope.isGlobal ? [] : Set(disableStore.disabledPatterns(for: .global))
+        scope.bookId == nil ? [] : Set(disableStore.disabledPatterns(for: .global))
     }
 
     private func isDisabled(_ rule: QuickTranslationCompiledRule) -> Bool {
@@ -125,19 +150,21 @@ struct QuickTranslationRuleListView: View {
             editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
         }
         .searchable(text: $searchText, prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
-        .backPageTitle(scope.isGlobal ? "Rule chung" : "Rule riêng truyện")
+        .backPageTitle(pageTitle)
         .quickTranslationRuleIOMenu(
             scope: scope,
             showingDisabled: showingDisabled,
-            onShareAll: scope.isGlobal ? nil : { showingShareAll = true }
+            onShareAll: scope.bookId == nil ? nil : { showingShareAll = true }
         ) {
             visibleLimit = Self.pageSize
         }
         .sheet(item: $editorMode) { mode in
+            // Nút + lưu đúng phạm vi đang mở: bộ riêng có truyện ⇒ menu Lưu; chung / tên chương ⇒ chạm Lưu là lưu
+            // thẳng vào bộ đang xem (`defaultScope`), nhấn giữ để chọn bộ khác.
             QuickTranslationRuleEditorSheet(
                 mode: mode,
                 defaultScope: scope,
-                contextBookId: scope.isGlobal ? nil : scope.bookId
+                contextBookId: scope.bookId
             ) { pattern, replacement, targetScope in
                 let oldPattern: String?
                 if case .edit(let pattern, _, _, _) = mode { oldPattern = pattern } else { oldPattern = nil }
@@ -202,6 +229,8 @@ struct QuickTranslationRuleListView: View {
             // **chuỗi literal**, ternary trả về `String` nên `**…**` sẽ hiện nguyên dấu sao.
             if scope.isGlobal {
                 SectionHelpHeader("Phạm vi rule", paragraphs: ["Tắt ở đây là tắt cho **mọi** truyện. Muốn dùng lại rule đó ở một truyện thì thêm mẫu vào bộ rule riêng của truyện."])
+            } else if scope.isChapterTitle {
+                SectionHelpHeader("Phạm vi rule", paragraphs: ["Bộ tên chương dùng cho **mọi** truyện nhưng **chỉ** áp khi dịch tên chương, không đụng nội dung chương. Khi trùng mọi tiêu chí ưu tiên khác: bộ riêng của truyện thắng bộ tên chương, bộ tên chương thắng bộ chung. Tắt ở đây là tắt cho mọi truyện."])
             } else {
                 SectionHelpHeader("Phạm vi rule", paragraphs: ["Bộ riêng chỉ áp cho truyện này và **thắng** bộ chung khi trùng mọi tiêu chí ưu tiên khác."])
             }
@@ -221,9 +250,7 @@ struct QuickTranslationRuleListView: View {
         let nextLimit = rows.count + Self.pageSize
         Section {
             if ruleRows.isEmpty {
-                Text(scope.isGlobal
-                     ? "Chưa có bộ rule nào. Tải hoặc nhập bộ rule ở màn Quản lý rule dịch, hoặc bấm + để tự thêm rule đầu tiên."
-                     : "Truyện này chưa có rule riêng. Bấm + để thêm, hoặc dùng nút Chuyển ở danh sách rule chung.")
+                Text(emptyMessage)
                     .font(.footnote)
                     .foregroundColor(.secondary)
             } else if rows.isEmpty {
@@ -255,7 +282,7 @@ struct QuickTranslationRuleListView: View {
             isDisabled: isDisabled(row.rule),
             isDisabledGlobally: globallyDisabledPatterns.contains(row.rule.pattern),
             issues: issuesByLine[row.rule.sourceLine] ?? [],
-            contextBookId: scope.isGlobal ? contextBookId : scope.bookId,
+            contextBookId: scope.bookId ?? contextBookId,
             onEdit: {
                 editorMode = .edit(
                     pattern: row.rule.pattern,
@@ -299,7 +326,7 @@ struct QuickTranslationRuleListView: View {
         switch outcome {
         case .success:
             let verb = disabled ? "Đã bật lại" : "Đã tắt"
-            let target = scope.isGlobal ? "cho mọi truyện" : "cho truyện này"
+            let target = scope.bookId == nil ? "cho mọi truyện" : "cho truyện này"
             ToastManager.shared.show(message: "\(verb) rule \(target).", type: .info)
         case .failure(let message):
             ToastManager.shared.show(message: message, type: .error)
@@ -311,6 +338,8 @@ struct QuickTranslationRuleListView: View {
         switch scope {
         case .global:
             outcome = QuickTranslationRuleStore.shared.deleteRule(pattern: row.rule.pattern)
+        case .chapterTitle:
+            outcome = QuickTranslationRuleChapterStore.shared.deleteRule(pattern: row.rule.pattern)
         case .book(let bookId):
             outcome = QuickTranslationRuleBookStore.shared.deleteRule(pattern: row.rule.pattern, bookId: bookId)
         }

@@ -1,14 +1,16 @@
 import Foundation
 import Combine
 
-/// Chủ sở hữu duy nhất của **hai file tắt rule**:
+/// Chủ sở hữu duy nhất của **ba loại file tắt rule**:
 ///
 /// - chung: `translate/QuickTranslateRulesDisabled.txt`
+/// - tên chương (1.3.683): `translate/QuickTranslateChapterRulesDisabled.txt`
 /// - riêng truyện: `translate/books/<bookId>/QuickTranslateRulesDisabled.txt`
 ///
-/// Ngữ nghĩa **giống VP riêng / VP chung** (xem `snapshot(bookId:)`): tắt ở phạm vi chung là tắt cho
-/// **mọi** truyện; muốn dùng lại rule đó ở một truyện thì thêm mẫu vào bộ rule riêng của truyện, vì
-/// rule của bộ riêng chỉ chịu file tắt riêng.
+/// Ngữ nghĩa **giống VP riêng / VP chung** (xem `snapshot(bookId:)`): tắt ở phạm vi chung (hoặc tên
+/// chương) là tắt rule **của bộ đó** cho **mọi** truyện; muốn dùng lại rule đó ở một truyện thì thêm mẫu
+/// vào bộ rule riêng của truyện, vì rule của bộ riêng chỉ chịu file tắt riêng. File tắt riêng thì tắt
+/// mẫu đó ở **mọi** bộ, nhưng chỉ cho truyện đó.
 ///
 /// Ranh giới tầng: Service nên **không** `import SwiftUI` và **không** gọi `ToastManager` — trả
 /// `Outcome`, View tự phát toast.
@@ -16,28 +18,43 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     public static let shared = QuickTranslationRuleDisableStore()
 
     public static let fileName = "QuickTranslateRulesDisabled.txt"
+    /// File tắt của bộ rule tên chương — khác tên với file tắt chung vì nằm cùng thư mục `translate/`.
+    public static let chapterTitleFileName = "QuickTranslateChapterRulesDisabled.txt"
+
+    /// Tên file trên máy (và tên file khi xuất) của danh sách tắt ở một phạm vi.
+    public static func disabledFileName(for scope: QuickTranslationRuleScope) -> String {
+        scope.isChapterTitle ? chapterTitleFileName : fileName
+    }
 
     public enum Outcome: Sendable {
         case success
         case failure(message: String)
     }
 
-    /// Bản chụp bất biến hai tập mẫu đang tắt, đủ để engine quyết định cho **một** lượt rewrite.
+    /// Bản chụp bất biến ba tập mẫu đang tắt, đủ để engine quyết định cho **một** lượt rewrite.
     public struct Snapshot: Sendable {
         public let global: Set<String>
+        public let chapter: Set<String>
         public let book: Set<String>
 
-        public var isEmpty: Bool { global.isEmpty && book.isEmpty }
+        public var isEmpty: Bool { global.isEmpty && chapter.isEmpty && book.isEmpty }
 
-        public init(global: Set<String>, book: Set<String>) {
+        public init(global: Set<String>, chapter: Set<String>, book: Set<String>) {
             self.global = global
+            self.chapter = chapter
             self.book = book
         }
 
-        /// `scopeRank` lấy từ `QuickTranslationCompiledRule.scopeRank` (0 = bộ riêng, 1 = bộ chung).
+        /// `scopeRank` lấy từ `QuickTranslationCompiledRule.scopeRank` (`QuickTranslationRuleScope.rank`).
+        /// Tập riêng tắt mẫu ở **mọi** bộ; tập tên chương chỉ tắt rule của bộ tên chương; tập chung chỉ
+        /// tắt rule của bộ chung.
         public func isDisabled(pattern: String, scopeRank: Int) -> Bool {
             if book.contains(pattern) { return true }
-            return scopeRank != 0 && global.contains(pattern)
+            switch scopeRank {
+            case QuickTranslationRuleScope.chapterTitleRank: return chapter.contains(pattern)
+            case QuickTranslationRuleScope.globalRank: return global.contains(pattern)
+            default: return false
+            }
         }
     }
 
@@ -47,6 +64,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
 
     private let lock = NSLock()
     private nonisolated(unsafe) var globalPatterns: [String]?
+    private nonisolated(unsafe) var chapterPatterns: [String]?
     private nonisolated(unsafe) var bookPatterns: [String: [String]] = [:]
 
     private init() {}
@@ -58,6 +76,8 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         switch scope {
         case .global:
             return root.appendingPathComponent(Self.fileName)
+        case .chapterTitle:
+            return root.appendingPathComponent(Self.chapterTitleFileName)
         case .book(let bookId):
             return root
                 .appendingPathComponent("books")
@@ -85,12 +105,14 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     }
 
     /// Bản chụp cho một lượt rewrite. `bookId == nil` ⇒ tập riêng rỗng (đường dịch meta/global).
+    /// Tập tên chương luôn được chụp; engine chỉ dùng tới khi đang dịch tên chương.
     public func snapshot(bookId: String?) -> Snapshot {
         let global = Set(disabledPatterns(for: .global))
+        let chapter = Set(disabledPatterns(for: .chapterTitle))
         guard let bookId, !bookId.isEmpty else {
-            return Snapshot(global: global, book: [])
+            return Snapshot(global: global, chapter: chapter, book: [])
         }
-        return Snapshot(global: global, book: Set(disabledPatterns(for: .book(bookId))))
+        return Snapshot(global: global, chapter: chapter, book: Set(disabledPatterns(for: .book(bookId))))
     }
 
     public func isDisabled(pattern: String, in scope: QuickTranslationRuleScope) -> Bool {
@@ -208,9 +230,12 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         switch scope {
         case .none:
             globalPatterns = nil
+            chapterPatterns = nil
             bookPatterns.removeAll()
         case .some(.global):
             globalPatterns = nil
+        case .some(.chapterTitle):
+            chapterPatterns = nil
         case .some(.book(let bookId)):
             bookPatterns.removeValue(forKey: bookId)
         }
@@ -223,6 +248,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     private func cachedPatterns(for scope: QuickTranslationRuleScope) -> [String]? {
         switch scope {
         case .global: return globalPatterns
+        case .chapterTitle: return chapterPatterns
         case .book(let bookId): return bookPatterns[bookId]
         }
     }
@@ -230,6 +256,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     private func store(_ patterns: [String], for scope: QuickTranslationRuleScope) {
         switch scope {
         case .global: globalPatterns = patterns
+        case .chapterTitle: chapterPatterns = patterns
         case .book(let bookId): bookPatterns[bookId] = patterns
         }
     }
@@ -268,7 +295,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
 
     /// Đúng **một** lời gọi cho mọi thứ còn lại: `notifyRulesDidUpdate` →
     /// `TranslateUtils.invalidateCache(bookId:)` → `TranslationManager.shared.notifyRulesDidUpdate(bookId:)` để
-    /// Reader/TTS dựng lại.
+    /// Reader/TTS dựng lại. Bộ chung và bộ tên chương không có `bookId` ⇒ dọn toàn cục.
     private func notifyRulesUpdated(scope: QuickTranslationRuleScope) {
         TranslateUtils.invalidateCache(bookId: scope.bookId)
         TranslationManager.shared.notifyRulesDidUpdate(bookId: scope.bookId)

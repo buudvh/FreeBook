@@ -32,7 +32,9 @@ extension TranslateUtils {
         let isPronounsEnabled = context?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
         let isLuatNhanEnabled = context?.luatNhanEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
         let generation = TranslationReadContext.cacheGeneration(for: bookId)
-        let key = "\(generation)|\(bookId ?? "global")|\(convert ? 1 : 0)|\(isPronounsEnabled ? 1 : 0)\(isLuatNhanEnabled ? 1 : 0)|\(original.md5())"
+        // Cờ bộ rule tên chương: đường này là nội dung nên cờ luôn tắt, nhưng có trong khoá thì không bao giờ lẫn kết quả.
+        let titleRules = TranslationReadContext.appliesChapterTitleRules ? 1 : 0
+        let key = "\(generation)|\(bookId ?? "global")|\(convert ? 1 : 0)|\(isPronounsEnabled ? 1 : 0)\(isLuatNhanEnabled ? 1 : 0)\(titleRules)|\(original.md5())"
         let lookup = mappingResultCache.lookup(key)
         if let cached = lookup.value { return cached }
 

@@ -2,10 +2,11 @@ import Foundation
 
 /// Áp bộ rule dịch lên một chuỗi Trung: chèn **sau** Phồn thể → Giản thể và **trước** tokenize.
 ///
-/// Từ 1.3.274 engine trộn **hai** bộ rule trong cùng một lượt: bộ **riêng của truyện**
-/// (`scopeRank = 0`) và bộ **chung** (`scopeRank = 1`). Hai bộ được thu match riêng rồi `select`
-/// **một** lần trên tập hợp nhất — không dựng `literalIndex` gộp cho từng truyện, vì index của bộ
-/// 17k dòng là cấu trúc lớn còn bộ riêng chỉ vài chục rule.
+/// Engine trộn tới **ba** bộ rule trong cùng một lượt: bộ **riêng của truyện** (`scopeRank = 0`), bộ
+/// **tên chương** (`scopeRank = 1`, 1.3.683 — chỉ khi cờ `TranslationReadContext.appliesChapterTitleRules`
+/// bật, tức đang dịch tên chương) và bộ **chung** (`scopeRank = 2`). Mỗi bộ được thu match riêng rồi
+/// `select` **một** lần trên tập hợp nhất — không dựng `literalIndex` gộp cho từng truyện, vì index của
+/// bộ 17k dòng là cấu trúc lớn còn bộ riêng chỉ vài chục rule.
 ///
 /// Thứ tự chọn match: `start` **luôn** đầu, `sourceLine` **luôn** cuối, bốn tiêu chí giữa
 /// (`literalLength`, `wildcardCapacity`, độ dài match, `scopeRank`) lấy thứ tự và chiều từ
@@ -60,30 +61,38 @@ public enum QuickTranslationRuleEngine {
     /// `maxCost` — nâng `maxEntries` không nới bộ nhớ.
     private static let cache = TranslationMemo<QuickTranslationRewriteResult>(maxEntries: 2048, maxCost: 2 * 1024 * 1024)
 
-    /// `nil` khi công tắc tắt hoặc **cả hai** bộ đều không có rule — bên gọi giữ nguyên đường dịch cũ.
+    /// `nil` khi công tắc tắt hoặc **mọi** bộ đang dùng đều không có rule — bên gọi giữ nguyên đường dịch cũ.
+    /// Bộ tên chương chỉ vào cuộc khi đang dịch tên chương; nội dung chương không bao giờ thấy nó.
     public static func rewrite(_ text: String, bookId: String?) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty else { return nil }
         let context = TranslationReadContext.current ?? TranslationReadContext.capture(bookId: bookId)
         guard context.rulesEnabled else { return nil }
         let globalSnapshot = nonEmpty(context.globalRules)
         let bookSnapshot = nonEmpty(context.bookRules)
-        guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
+        let isChapterTitle = TranslationReadContext.appliesChapterTitleRules
+        let chapterSnapshot = isChapterTitle ? nonEmpty(context.chapterRules) : nil
+        guard globalSnapshot != nil || bookSnapshot != nil || chapterSnapshot != nil else { return nil }
 
         let tokenConfiguration = context.tokens
         let priority = context.priority
 
-        // Khoá mang generation của **cả hai** bộ: hai truyện khác nhau đã khác `bookId`, nhưng cùng
+        // Khoá mang generation của **mọi** bộ: hai truyện khác nhau đã khác `bookId`, nhưng cùng
         // một truyện sau khi sửa bộ riêng phải là khoá khác. `priority.signature` cũng phải có mặt —
-        // đổi thứ tự ưu tiên mà không đổi khoá là cache cũ tiếp tục trả kết quả của thứ tự cũ.
+        // đổi thứ tự ưu tiên mà không đổi khoá là cache cũ tiếp tục trả kết quả của thứ tự cũ. Cờ tên chương
+        // tách hẳn kết quả của dòng tên chương với dòng nội dung trùng chữ.
         let key = "\(context.generation)|\(globalSnapshot?.generation ?? 0)|\(bookSnapshot?.generation ?? 0)"
+            + "|\(isChapterTitle ? 1 : 0):\(chapterSnapshot?.generation ?? 0)"
             + "|\(tokenConfiguration.signature)|\(priority.signature)|\(bookId ?? "global")|\(text.md5())"
         let lookup = cache.lookup(key)
         if let cached = lookup.value { return cached }
 
         let result = TranslationReadContext.$current.withValue(context) { execute(
             text,
-            bookSnapshot: bookSnapshot,
-            globalSnapshot: globalSnapshot,
+            ruleSets: [
+                (bookSnapshot, QuickTranslationRuleScope.bookRank),
+                (chapterSnapshot, QuickTranslationRuleScope.chapterTitleRank),
+                (globalSnapshot, QuickTranslationRuleScope.globalRank)
+            ],
             bookId: bookId,
             tokenConfiguration: tokenConfiguration,
             priority: priority
@@ -100,7 +109,8 @@ public enum QuickTranslationRuleEngine {
     }
 
     /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo, nhưng
-    /// **vẫn tôn trọng file tắt** — nếu không nó nói khác kết quả thật của Reader.
+    /// **vẫn tôn trọng file tắt** — nếu không nó nói khác kết quả thật của Reader. Không có bộ tên chương:
+    /// ô thử nhanh dịch một câu nội dung.
     public static func preview(
         _ text: String,
         bookId: String? = nil,
@@ -121,8 +131,7 @@ public enum QuickTranslationRuleEngine {
         }
         return execute(
             text,
-            bookSnapshot: bookSnapshot,
-            globalSnapshot: globalSnapshot,
+            ruleSets: [(bookSnapshot, QuickTranslationRuleScope.bookRank), (globalSnapshot, QuickTranslationRuleScope.globalRank)],
             bookId: bookId,
             tokenConfiguration: tokenConfiguration,
             priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId)
@@ -136,10 +145,10 @@ public enum QuickTranslationRuleEngine {
 
     // MARK: - Thi hành
 
+    /// `ruleSets`: từng bộ rule kèm `scopeRank` của nó (`QuickTranslationRuleScope.rank`).
     private static func execute(
         _ text: String,
-        bookSnapshot: QuickTranslationRuleSnapshot?,
-        globalSnapshot: QuickTranslationRuleSnapshot?,
+        ruleSets: [(snapshot: QuickTranslationRuleSnapshot?, scopeRank: Int)],
         bookId: String?,
         tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration,
         priority: QuickTranslationRulePriorityConfiguration.Configuration
@@ -154,30 +163,21 @@ public enum QuickTranslationRuleEngine {
         let disable = TranslationReadContext.current?.disabledRules ?? QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
 
         var found: [Found] = []
-        // Bộ riêng đi trước cho dễ đọc log; thứ tự thu match không ảnh hưởng kết quả vì `select`
-        // sắp xếp lại toàn bộ.
-        found += collectFound(
-            text: text,
-            snapshot: bookSnapshot,
-            scopeRank: 0,
-            matcher: matcher,
-            tokenConfiguration: tokenConfiguration,
-            disable: disable,
-            includesDisabled: false,
-            bookNameRanges: bookNameRanges,
-            bookNameOccupiedIndices: bookNameOccupiedIndices
-        )
-        found += collectFound(
-            text: text,
-            snapshot: globalSnapshot,
-            scopeRank: 1,
-            matcher: matcher,
-            tokenConfiguration: tokenConfiguration,
-            disable: disable,
-            includesDisabled: false,
-            bookNameRanges: bookNameRanges,
-            bookNameOccupiedIndices: bookNameOccupiedIndices
-        )
+        // Thu theo thứ tự riêng → tên chương → chung cho dễ đọc log; thứ tự thu match không ảnh hưởng
+        // kết quả vì `select` sắp xếp lại toàn bộ.
+        for ruleSet in ruleSets {
+            found += collectFound(
+                text: text,
+                snapshot: ruleSet.snapshot,
+                scopeRank: ruleSet.scopeRank,
+                matcher: matcher,
+                tokenConfiguration: tokenConfiguration,
+                disable: disable,
+                includesDisabled: false,
+                bookNameRanges: bookNameRanges,
+                bookNameOccupiedIndices: bookNameOccupiedIndices
+            )
+        }
 
         guard !found.isEmpty else { return passthrough(text, length: nsText.length) }
         return assemble(selected: select(from: found, priority: priority), text: text, nsText: nsText)

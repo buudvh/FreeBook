@@ -19,6 +19,7 @@ struct QuickTranslationRulesView: View {
     }
 
     @ObservedObject private var store = QuickTranslationRuleStore.shared
+    @ObservedObject private var chapterStore = QuickTranslationRuleChapterStore.shared
     @ObservedObject private var disableStore = QuickTranslationRuleDisableStore.shared
     @AppStorage("isQuickTranslateRuleEnabled") private var isQuickTranslateRuleEnabled = true
 
@@ -229,6 +230,13 @@ struct QuickTranslationRulesView: View {
                 QuickTranslationRuleListView(extraIssues: dictionaryIssues)
             } label: {
                 Label("Danh sách rule (\(store.status.ruleCount))", systemImage: "list.number")
+            }
+
+            // Bộ rule tên chương (1.3.683): file riêng, chỉ áp khi dịch tên chương.
+            NavigationLink {
+                QuickTranslationRuleListView(scope: .chapterTitle)
+            } label: {
+                Label("Danh sách rule tên chương (\(chapterStore.ruleCount))", systemImage: "list.bullet.rectangle")
             }
 
             NavigationLink(destination: QuickTranslationRuleTokenSettingsView()) {

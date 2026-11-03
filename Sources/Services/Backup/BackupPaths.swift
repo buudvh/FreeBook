@@ -99,6 +99,12 @@ public enum BackupPaths {
     /// lục đã tắt cũng phải sao lưu". Chiều khôi phục **hợp tập** mẫu, không ghi đè.
     public static let quickTranslateRulesDisabled = "config/QuickTranslateRulesDisabled.txt"
 
+    /// Bộ rule **tên chương** (1.3.683, `translate/QuickTranslateChapterRules.txt`) và danh sách rule tắt của
+    /// bộ đó (`translate/QuickTranslateChapterRulesDisabled.txt`). Cùng công tắc `restoreSettings` và cùng
+    /// cách khôi phục như bộ chung: file rule thay toàn bộ, file tắt hợp tập.
+    public static let quickTranslateChapterRules = "config/QuickTranslateChapterRules.txt"
+    public static let quickTranslateChapterRulesDisabled = "config/QuickTranslateChapterRulesDisabled.txt"
+
     /// Thư mục chứa trí nhớ AI (global memory và memory theo sách).
     public static let aiMemoryFolder = "config/ai_memory"
 

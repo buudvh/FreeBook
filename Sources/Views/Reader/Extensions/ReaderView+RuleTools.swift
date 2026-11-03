@@ -95,8 +95,10 @@ extension ReaderView {
     func handleRuleAction(_ trace: QuickTranslationRuleTrace, _ action: ReaderRuleAction) {
         switch action {
         case .setDisabled(let disabled, let scope):
+            // File tắt riêng tác động mọi bộ nhưng chỉ cho truyện này; file tắt chung / tên chương chỉ tác động bộ đó.
+            let target = scope.bookId == nil ? "ở \(scope.longLabel.lowercased()) cho mọi truyện" : "cho truyện này"
             performRuleCommand(.disable(pattern: trace.pattern, disabled: disabled, scope: scope),
-                message: "\(disabled ? "Đã tắt" : "Đã bật") rule \(scope.longLabel.lowercased()).")
+                message: "\(disabled ? "Đã tắt" : "Đã bật") rule \(target).")
 
         case .edit:
             ruleEditorMode = .edit(
@@ -115,7 +117,7 @@ extension ReaderView {
         }
     }
 
-    /// Chuyển một rule sang phạm vi còn lại = **ghi ở đích rồi xoá ở nguồn**.
+    /// Chuyển một rule sang phạm vi khác (riêng / tên chương / chung) = **ghi ở đích rồi xoá ở nguồn**.
     ///
     /// `QuickTranslationRuleTransfer.copy` cố ý là copy (xem doc của nó), nên phần "xoá ở nguồn" nằm ở
     /// đây chứ không sửa ngữ nghĩa của transfer — nút Chuyển của từ điển vẫn là copy như trước.

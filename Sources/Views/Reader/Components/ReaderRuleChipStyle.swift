@@ -17,7 +17,7 @@ enum ReaderRuleChipStyle {
             self = .winner
         case .lostOverlap:
             self = .conflicting
-        case .disabledGlobally, .disabledForBook, .tokenDisabled, .tooComplex:
+        case .disabledGlobally, .disabledForChapterTitles, .disabledForBook, .tokenDisabled, .tooComplex:
             self = .disabled
         }
     }
@@ -61,6 +61,7 @@ enum ReaderRuleChipStyle {
         case .applied: return "đang áp dụng"
         case .lostOverlap(let line): return "thua dòng \(line)"
         case .disabledGlobally: return "tắt ở bộ chung"
+        case .disabledForChapterTitles: return "tắt ở bộ tên chương"
         case .disabledForBook: return "tắt cho truyện này"
         case .tokenDisabled: return "token đang tắt"
         case .tooComplex: return "rule quá phức tạp"

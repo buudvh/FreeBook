@@ -30,6 +30,8 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
         case lostOverlap(toSourceLine: Int)
         /// Mẫu nằm trong file tắt **chung** ⇒ tắt cho mọi truyện.
         case disabledGlobally
+        /// Rule của bộ tên chương, mẫu nằm trong file tắt của **bộ tên chương** ⇒ tắt cho mọi truyện (1.3.683).
+        case disabledForChapterTitles
         /// Mẫu nằm trong file tắt **riêng** của truyện đang đọc.
         case disabledForBook
         /// Một cú pháp token của rule đang bị tắt ở Cấu hình token rule.
@@ -39,7 +41,7 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
 
         public var isDisabled: Bool {
             switch self {
-            case .disabledGlobally, .disabledForBook, .tokenDisabled: return true
+            case .disabledGlobally, .disabledForChapterTitles, .disabledForBook, .tokenDisabled: return true
             case .applied, .lostOverlap, .tooComplex: return false
             }
         }
@@ -60,7 +62,7 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
 
     /// Định danh **xác định** (không phải UUID mới mỗi lượt) để `ForEach` không dựng lại dải chip sau
     /// mỗi lần chẩn đoán lại. Một rule khớp nhiều vị trí trong đoạn ⇒ mỗi vị trí một chip riêng.
-    public var id: String { "\(scope.label)#\(pattern)#\(sourceRange.location)" }
+    public var id: String { "\(scope.identityKey)#\(pattern)#\(sourceRange.location)" }
 
     public init(
         scope: QuickTranslationRuleScope,

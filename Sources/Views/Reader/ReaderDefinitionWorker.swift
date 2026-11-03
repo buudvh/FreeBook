@@ -62,12 +62,16 @@ actor ReaderDefinitionWorker {
         }
     }
 
-    func traces(sentence: String, bookId: String, selection: NSRange) throws -> Traces {
+    /// `isChapterTitle`: đoạn đang soi là dòng tiêu đề chương (`ParagraphItem.id == -1`) ⇒ chẩn đoán có bộ rule
+    /// tên chương, đúng như bản dịch thật của dòng đó (`TranslateUtils.translateChapterTitleWithMapping`).
+    func traces(sentence: String, bookId: String, selection: NSRange, isChapterTitle: Bool = false) throws -> Traces {
         try Task.checkCancellation()
         let context = TranslationReadContext.capture(bookId: bookId)
-        let key = "\(context.generation)|\(bookId)|\(sentence)"
+        let key = "\(context.generation)|\(bookId)|\(isChapterTitle ? 1 : 0)|\(sentence)"
         let traces = key == traceKey ? cachedTraces : TranslationReadContext.$current.withValue(context) {
-            QuickTranslationRuleDiagnostics.diagnose(text: sentence, bookId: bookId)
+            TranslationReadContext.$appliesChapterTitleRules.withValue(isChapterTitle) {
+                QuickTranslationRuleDiagnostics.diagnose(text: sentence, bookId: bookId)
+            }
         }
         try Task.checkCancellation()
         if context.isCurrent { traceKey = key; cachedTraces = traces }

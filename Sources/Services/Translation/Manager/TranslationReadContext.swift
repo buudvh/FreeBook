@@ -3,6 +3,9 @@ import Foundation
 /// A synchronous translation pass uses one immutable dictionary/rule/configuration snapshot.
 struct TranslationReadContext: Sendable {
     @TaskLocal static var current: TranslationReadContext?
+    /// Bật **chỉ** trong `TranslateUtils.translateChapterTitle(WithMapping)` (1.3.683): khi đó engine rule mới
+    /// trộn bộ rule tên chương (`chapterRules`). Nội dung chương, tên truyện, meta… luôn chạy với cờ tắt.
+    @TaskLocal static var appliesChapterTitleRules: Bool = false
 
     let bookId: String?
     let generation: Int
@@ -14,6 +17,8 @@ struct TranslationReadContext: Sendable {
     let rulesEnabled: Bool
     let globalRules: QuickTranslationRuleSnapshot?
     let bookRules: QuickTranslationRuleSnapshot?
+    /// Luôn được chụp; dùng hay không do `appliesChapterTitleRules` quyết định ở từng lượt rewrite.
+    let chapterRules: QuickTranslationRuleSnapshot?
     let disabledRules: QuickTranslationRuleDisableStore.Snapshot
     let tokens: QuickTranslationRuleTokenSettings.Configuration
     let priority: QuickTranslationRulePriorityConfiguration.Configuration
@@ -22,7 +27,7 @@ struct TranslationReadContext: Sendable {
         generation == TranslateUtils.translationGenerationToken(for: bookId)
             && dictionaryRevision == TranslationManager.shared.dictionaryState.revision()
     }
-    var hasRules: Bool { globalRules != nil || bookRules != nil }
+    var hasRules: Bool { globalRules != nil || bookRules != nil || chapterRules != nil }
 
     static func capture(bookId: String?) -> Self {
         while true {
@@ -41,6 +46,7 @@ struct TranslationReadContext: Sendable {
                 rulesEnabled: QuickTranslationRuleStore.shared.isEnabled,
                 globalRules: QuickTranslationRuleStore.shared.currentSnapshot,
                 bookRules: QuickTranslationRuleBookStore.shared.snapshot(for: bookId),
+                chapterRules: QuickTranslationRuleChapterStore.shared.currentSnapshot,
                 disabledRules: QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId),
                 tokens: QuickTranslationBookEngineConfigStore.shared.tokenConfiguration(bookId: bookId),
                 priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId)

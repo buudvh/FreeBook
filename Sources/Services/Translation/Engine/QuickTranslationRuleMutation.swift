@@ -21,6 +21,9 @@ actor QuickTranslationRuleMutation {
             case .global:
                 return QuickTranslationRuleStore.shared.updateRule(
                     oldPattern: oldPattern, newPattern: pattern, replacement: replacement)
+            case .chapterTitle:
+                return QuickTranslationRuleChapterStore.shared.updateRule(
+                    oldPattern: oldPattern, newPattern: pattern, replacement: replacement)
             case .book(let bookId):
                 return QuickTranslationRuleBookStore.shared.updateRule(
                     oldPattern: oldPattern, newPattern: pattern, replacement: replacement, bookId: bookId)
@@ -46,6 +49,7 @@ actor QuickTranslationRuleMutation {
     private func delete(_ pattern: String, from scope: QuickTranslationRuleScope) -> QuickTranslationRuleStore.LoadOutcome {
         switch scope {
         case .global: return QuickTranslationRuleStore.shared.deleteRule(pattern: pattern)
+        case .chapterTitle: return QuickTranslationRuleChapterStore.shared.deleteRule(pattern: pattern)
         case .book(let bookId): return QuickTranslationRuleBookStore.shared.deleteRule(pattern: pattern, bookId: bookId)
         }
     }

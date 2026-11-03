@@ -82,6 +82,16 @@ struct DictionaryHubView: View {
                         subtitle: ruleStatusText(scope: .book(bookId))
                     )
                 }
+                // Bộ tên chương (1.3.683): dùng chung mọi truyện, chỉ áp khi dịch tên chương — đứng giữa vì thứ tự
+                // ưu tiên là riêng > tên chương > chung.
+                NavigationLink(destination: QuickTranslationRuleListView(scope: .chapterTitle, contextBookId: bookId)) {
+                    DictionaryNavRow(
+                        title: "Rule Tên chương",
+                        icon: "list.bullet.rectangle",
+                        iconColor: .cyan,
+                        subtitle: ruleStatusText(scope: .chapterTitle)
+                    )
+                }
                 NavigationLink(destination: QuickTranslationRuleListView(scope: .global, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "Rule Chung (Toàn cục)",
@@ -122,11 +132,17 @@ struct DictionaryHubView: View {
         switch scope {
         case .global:
             snapshot = QuickTranslationRuleStore.shared.currentSnapshot
+        case .chapterTitle:
+            snapshot = QuickTranslationRuleChapterStore.shared.currentSnapshot
         case .book(let identifier):
             snapshot = QuickTranslationRuleBookStore.shared.snapshot(for: identifier)
         }
         guard let snapshot, !snapshot.rules.isEmpty else {
-            return scope.isGlobal ? "Chưa có bộ rule chung" : "Chưa có rule riêng"
+            switch scope {
+            case .global: return "Chưa có bộ rule chung"
+            case .chapterTitle: return "Chưa có rule tên chương"
+            case .book: return "Chưa có rule riêng"
+            }
         }
 
         let disabled = Set(QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope))

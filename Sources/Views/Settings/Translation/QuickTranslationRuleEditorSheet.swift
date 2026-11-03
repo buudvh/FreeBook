@@ -1,15 +1,17 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** rule dịch, cho **cả hai** phạm vi (bộ chung và bộ riêng của truyện).
+/// Sheet thêm / sửa **một** rule dịch, cho **cả ba** phạm vi (bộ chung, bộ tên chương và bộ riêng của truyện).
 ///
 /// Sheet **không** tự đóng khi lưu thất bại: `importRules` validate toàn bộ file, nên một mẫu viết
 /// sai (lệch ngoặc, `{2}` vượt số token, không có literal làm neo…) sẽ bị từ chối kèm lý do — đóng
 /// sheet lúc đó là bắt người dùng gõ lại từ đầu. Đóng chỉ khi ghi file thành công.
 ///
-/// Phạm vi chọn **lúc bấm Lưu**: ở chế độ **thêm** và biết truyện đang mở, nút Lưu là `Menu` đúng hai mục
-/// "Lưu vào bộ riêng truyện" / "Lưu vào bộ chung" — giống sheet "Thêm từ mới" của phiên âm (`AddWordSheet`).
-/// Ở chế độ sửa (hoặc không có truyện), Lưu là nút thường: chế độ sửa giữ phạm vi của rule đang sửa — đổi phạm vi
-/// lúc sửa là *copy sang bộ khác*, không phải sửa — việc đó đã có nút Chuyển ở danh sách.
+/// Phạm vi chọn **lúc bấm Lưu**: ở chế độ **thêm** và biết truyện đang mở, nút Lưu là `Menu` ba mục
+/// "Lưu vào bộ riêng truyện" / "Lưu vào bộ rule tên chương" / "Lưu vào bộ chung" — giống sheet "Thêm từ mới" của
+/// phiên âm (`AddWordSheet`). Thêm mà không có truyện: chạm Lưu vẫn lưu thẳng vào `defaultScope` như trước 1.3.683
+/// (bộ chung, hoặc bộ tên chương khi mở từ danh sách đó), nhấn giữ Lưu để chọn bộ còn lại.
+/// Ở chế độ sửa, Lưu là nút thường giữ phạm vi của rule đang sửa — đổi phạm vi lúc sửa là *copy sang bộ khác*,
+/// không phải sửa — việc đó đã có nút Chuyển ở danh sách.
 ///
 /// Sheet mở toàn màn (không có nấc nửa màn — đã thử ở 1.3.613, bỏ ở 1.3.615 theo yêu cầu người dùng).
 ///
@@ -53,7 +55,7 @@ struct QuickTranslationRuleEditorSheet: View {
         var id: String {
             switch self {
             case .add(let prefilled, let replacement): return "add:\(prefilled)|\(replacement)"
-            case .edit(let pattern, _, let sourceLine, let scope): return "edit:\(scope.label)#\(sourceLine):\(pattern)"
+            case .edit(let pattern, _, let sourceLine, let scope): return "edit:\(scope.identityKey)#\(sourceLine):\(pattern)"
             }
         }
     }
@@ -61,7 +63,7 @@ struct QuickTranslationRuleEditorSheet: View {
     let mode: Mode
     /// Phạm vi mặc định khi mở sheet (chỉ dùng ở chế độ thêm). Ở chế độ sửa, phạm vi lấy từ `mode`.
     let defaultScope: QuickTranslationRuleScope
-    /// `nil` = không biết truyện nào đang mở ⇒ ẩn segment, chỉ lưu được vào bộ chung.
+    /// `nil` = không biết truyện nào đang mở ⇒ không có mục "bộ riêng", chỉ lưu được vào bộ chung / tên chương.
     let contextBookId: String?
     /// Trả về kết quả để sheet biết đóng hay giữ; phía gọi chịu trách nhiệm phát toast.
     let onSubmit: (
@@ -76,7 +78,7 @@ struct QuickTranslationRuleEditorSheet: View {
     /// `private` trong Swift là phạm vi **file** nên extension ngoài file sẽ không thấy được.
     @State var pattern: String
     @State var replacement: String
-    @State private var saveToBook: Bool
+    @State private var saveScope: QuickTranslationRuleScope
     /// Con trỏ / vùng chọn trong mẫu, đếm theo **ký tự** trên `Array(pattern)`. Nguồn cấp là ô nhập
     /// (`QuickTranslationRulePatternField` báo lên con trỏ thật); dải chip ghi vào đây thì ô nhập nhận
     /// lại — hai chiều cùng một biến, không có bản sao thứ hai.
@@ -131,7 +133,7 @@ struct QuickTranslationRuleEditorSheet: View {
         let restored = QuickTranslationRuleDraftStore.shared.draft(for: mode.id)
         _pattern = State(initialValue: restored?.pattern ?? seedPattern)
         _replacement = State(initialValue: restored?.replacement ?? seedReplacement)
-        _saveToBook = State(initialValue: restored?.saveToBook ?? !defaultScope.isGlobal)
+        _saveScope = State(initialValue: restored?.saveScope ?? defaultScope)
         _selectionStart = State(initialValue: restored?.selectionStart ?? Array(seedPattern).count)
         _selectionLength = State(initialValue: restored?.selectionLength ?? 0)
         _replacementSelectionStart = State(
@@ -147,14 +149,12 @@ struct QuickTranslationRuleEditorSheet: View {
         return false
     }
 
-    /// Phạm vi của nút Lưu thường: chế độ sửa dùng scope từ `mode`, chế độ thêm mà không có truyện nào
-    /// đang mở thì chỉ còn bộ chung. Chế độ thêm có truyện mở đi qua `Menu` Lưu, không qua đây.
+    /// Phạm vi của lần chạm Lưu: chế độ sửa dùng scope từ `mode`; chế độ thêm dùng phạm vi đang chọn
+    /// (`defaultScope` lúc mở). Phạm vi riêng mà không biết truyện nào thì về bộ chung như trước.
     private var effectiveScope: QuickTranslationRuleScope {
-        if isEditing {
-            if case .edit(_, _, _, let scope) = mode { return scope }
-            return defaultScope
-        }
-        guard saveToBook, let contextBookId, !contextBookId.isEmpty else { return .global }
+        if case .edit(_, _, _, let scope) = mode { return scope }
+        guard case .book = saveScope else { return saveScope }
+        guard let contextBookId, !contextBookId.isEmpty else { return .global }
         return .book(contextBookId)
     }
 
@@ -179,7 +179,7 @@ struct QuickTranslationRuleEditorSheet: View {
         QuickTranslationRuleDraftStore.Draft(
             pattern: pattern,
             replacement: replacement,
-            saveToBook: saveToBook,
+            saveScope: saveScope,
             selectionStart: selectionStart,
             selectionLength: selectionLength,
             replacementSelectionStart: replacementSelectionStart,
@@ -238,25 +238,41 @@ struct QuickTranslationRuleEditorSheet: View {
 
     // MARK: - Lưu
 
-    /// Chế độ **thêm** có truyện mở ⇒ `Menu` hai mục, chọn phạm vi lúc đã viết xong rule. Còn lại ⇒ nút thường.
+    /// Sửa ⇒ nút thường. Thêm có truyện mở ⇒ chạm Lưu mở `Menu` ba mục, chọn phạm vi lúc đã viết xong rule.
+    /// Thêm không có truyện ⇒ chạm Lưu lưu thẳng vào phạm vi mặc định (như cũ), nhấn giữ mở menu hai mục.
     @ViewBuilder
     private var saveControl: some View {
-        if !isEditing, let contextBookId, !contextBookId.isEmpty {
-            Menu("Lưu") {
-                Button("Lưu vào bộ riêng truyện") {
-                    saveToBook = true
-                    performSubmit(scope: .book(contextBookId))
-                }
-                Button("Lưu vào bộ chung") {
-                    saveToBook = false
-                    performSubmit(scope: .global)
-                }
-            }
-            .disabled(!canSave || isSaving)
-        } else {
+        if isEditing {
             Button("Lưu") { performSubmit(scope: effectiveScope) }
                 .disabled(!canSave || isSaving)
+        } else if let contextBookId, !contextBookId.isEmpty {
+            Menu("Lưu") { saveMenuItems(bookId: contextBookId) }
+                .disabled(!canSave || isSaving)
+        } else {
+            Menu {
+                saveMenuItems(bookId: nil)
+            } label: {
+                Text("Lưu")
+            } primaryAction: {
+                performSubmit(scope: effectiveScope)
+            }
+            .disabled(!canSave || isSaving)
         }
+    }
+
+    /// Các mục của menu Lưu, theo thứ tự ưu tiên riêng → tên chương → chung.
+    @ViewBuilder
+    private func saveMenuItems(bookId: String?) -> some View {
+        if let bookId {
+            Button("Lưu vào bộ riêng truyện") { submit(to: .book(bookId)) }
+        }
+        Button("Lưu vào bộ rule tên chương") { submit(to: .chapterTitle) }
+        Button("Lưu vào bộ chung") { submit(to: .global) }
+    }
+
+    private func submit(to scope: QuickTranslationRuleScope) {
+        saveScope = scope
+        performSubmit(scope: scope)
     }
 
     /// Lưu thật vào một phạm vi cụ thể.

@@ -144,7 +144,8 @@ extension ReaderDefinitionOverlayView {
     // MARK: - Popup thao tác trên một rule
 
     /// Ba mức phạm vi tắt/bật giữ nguyên như màn Check rule cũ: rule riêng chỉ tắt được cho truyện này,
-    /// rule chung tắt được cho truyện này **hoặc** cho mọi truyện.
+    /// rule chung / rule tên chương tắt được cho truyện này **hoặc** cho mọi truyện (ở file tắt của chính bộ
+    /// đó). Chuyển: mỗi phạm vi đích một nút (`confirmationDialog` không lồng được `Menu`).
     @ViewBuilder
     internal func ruleActionButtons(for trace: QuickTranslationRuleTrace) -> some View {
         let bookScope = QuickTranslationRuleScope.book(bookId)
@@ -160,14 +161,16 @@ extension ReaderDefinitionOverlayView {
             }
         }
 
-        if trace.scope.isGlobal {
-            let disabledGlobally = QuickTranslationRuleDisableStore.shared.isDisabled(pattern: trace.pattern, in: .global)
-            Button(disabledGlobally ? "Bật cho mọi truyện" : "Tắt cho mọi truyện") {
-                onRuleAction(trace, .setDisabled(!disabledGlobally, .global))
+        if trace.scope.bookId == nil {
+            let sharedScope = trace.scope
+            let disabledEverywhere = QuickTranslationRuleDisableStore.shared.isDisabled(pattern: trace.pattern, in: sharedScope)
+            let suffix = sharedScope.isChapterTitle ? " (bộ tên chương)" : ""
+            Button(disabledEverywhere ? "Bật cho mọi truyện\(suffix)" : "Tắt cho mọi truyện\(suffix)") {
+                onRuleAction(trace, .setDisabled(!disabledEverywhere, sharedScope))
             }
         }
 
-        if let destination = QuickTranslationRuleTransfer.opposite(of: trace.scope, contextBookId: bookId) {
+        ForEach(QuickTranslationRuleTransfer.transferTargets(of: trace.scope, contextBookId: bookId), id: \.self) { destination in
             Button("Chuyển sang \(destination.longLabel.lowercased())") {
                 onRuleAction(trace, .moveScope(destination))
             }

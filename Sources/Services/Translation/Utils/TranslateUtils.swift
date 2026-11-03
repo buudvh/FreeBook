@@ -26,6 +26,7 @@ public final class TranslateUtils {
         // Công tắc + generation của bộ rule dịch: đổi rule là đổi kết quả dịch, snapshot Reader/TTS
         // cũ phải bị loại đúng lúc.
         hasher.combine(QuickTranslationRuleStore.shared.cacheTag)
+        hasher.combine(QuickTranslationRuleChapterStore.shared.generation) // bộ rule tên chương (1.3.683)
         return hasher.finalize()
     }
 
@@ -212,7 +213,9 @@ public final class TranslateUtils {
         bookId: String? = nil,
         shouldConvertTraditionalToSimplified: Bool = false
     ) -> TranslatedTextResult {
-        return TranslationReadContext.withSnapshot(bookId: bookId) {
+        // Cờ bộ rule tên chương phủ cả phần dựng span: span phải dựng trên đúng bản rewrite đã cho ra `translated`.
+        return TranslationReadContext.$appliesChapterTitleRules.withValue(true) { () -> TranslatedTextResult in
+        TranslationReadContext.withSnapshot(bookId: bookId) {
         let translationInput = textForTranslation(
             text,
             shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
@@ -224,7 +227,7 @@ public final class TranslateUtils {
                 ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
-        }
+        } }
     }
 
     internal static func textForTranslation(
@@ -246,11 +249,13 @@ public final class TranslateUtils {
     /// Tên chương dịch **y như nội dung** (`translateContent`: Name riêng/chung, rule dịch nhanh, VietPhrase) từ 1.3.681 —
     /// không còn tự đổi `第N章`/số Ả-rập thành "Chương N". Tên không có chữ Hán trả nguyên văn (sau trim).
     /// Có cache riêng (`chapterTitleCache`) vì mục lục dài dịch lại cùng tên ở nhiều màn.
+    /// Khác nội dung đúng một điểm (1.3.683): chạy trong cờ `appliesChapterTitleRules` nên có thêm bộ rule tên chương.
     public static func translateChapterTitle(
         _ text: String,
         bookId: String? = nil,
         shouldConvertTraditionalToSimplified: Bool = false
     ) -> String {
+        TranslationReadContext.$appliesChapterTitleRules.withValue(true) { () -> String in
         let trimmed = textForTranslation(
             text,
             shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
@@ -271,6 +276,7 @@ public final class TranslateUtils {
         }
         
         return translated
+        }
     }
     
     private static func translateText(
@@ -290,7 +296,7 @@ public final class TranslateUtils {
         // Tra cache TRƯỚC `withSnapshot` (kệ sách dịch tên mọi hàng mỗi lần vẽ lại; `capture` nạp rule + từ điển riêng, cache 3 truyện).
         let cache = isMeta ? metaTranslationCache : translationCache
         let generation = TranslationReadContext.cacheGeneration(for: bookId)
-        let key = "\(generation)|\(isMeta)|\(applyingQuickTranslationRules)|\(bookId ?? "global")|\(text.md5())"
+        let key = "\(generation)|\(isMeta)|\(applyingQuickTranslationRules)|\(TranslationReadContext.appliesChapterTitleRules)|\(bookId ?? "global")|\(text.md5())"
         let lookup = cache.lookup(key)
         if let cached = lookup.value { return cached }
         return TranslationReadContext.withSnapshot(bookId: bookId) {

@@ -1,7 +1,10 @@
 import Foundation
 
 /// Soi **một đoạn văn** và trả về mọi lần khớp rule, kèm trạng thái: rule thắng, rule thua chồng lấn,
-/// rule đang tắt (riêng/chung), rule bị token tắt, rule chạm cap backtracking.
+/// rule đang tắt (riêng/tên chương/chung), rule bị token tắt, rule chạm cap backtracking.
+///
+/// Bộ rule tên chương chỉ có mặt khi bên gọi bật `TranslationReadContext.appliesChapterTitleRules` (Reader
+/// bật cho dòng tiêu đề chương) — đúng tập mà bản dịch thật của dòng đó dùng.
 ///
 /// Không dùng lại `QuickTranslationRewriteResult` vì bản đồ đoạn của nó chỉ giữ rule **thắng**.
 /// Ngược lại, ở đây **bắt buộc** dùng lại `QuickTranslationRuleEngine.collectFound` và
@@ -23,7 +26,8 @@ public enum QuickTranslationRuleDiagnostics {
         let context = TranslationReadContext.current ?? TranslationReadContext.capture(bookId: bookId)
         let globalSnapshot = context.globalRules
         let bookSnapshot = context.bookRules
-        guard globalSnapshot != nil || bookSnapshot != nil else { return [] }
+        let chapterSnapshot = TranslationReadContext.appliesChapterTitleRules ? context.chapterRules : nil
+        guard globalSnapshot != nil || bookSnapshot != nil || chapterSnapshot != nil else { return [] }
 
         let nsText = text as NSString
         let (bookNameRanges, bookNameOccupiedIndices) = QuickTranslationRuleEngine.scanBookNameOccupiedIndices(text: text, bookId: bookId)
@@ -37,42 +41,38 @@ public enum QuickTranslationRuleDiagnostics {
             bookNameOccupiedIndices: bookNameOccupiedIndices
         )
 
-        var complexBook: [(ruleIndex: Int, start: Int)] = []
-        var complexGlobal: [(ruleIndex: Int, start: Int)] = []
-
-        var found = QuickTranslationRuleEngine.collectFound(
-            text: text,
-            snapshot: bookSnapshot,
-            scopeRank: 0,
-            matcher: matcher,
-            tokenConfiguration: tokenConfiguration,
-            disable: disable,
-            includesDisabled: true,
-            bookNameRanges: bookNameRanges,
-            bookNameOccupiedIndices: bookNameOccupiedIndices,
-            notesComplexRules: false,
-            onTooComplex: { index, start in complexBook.append((index, start)) }
-        )
-        found += QuickTranslationRuleEngine.collectFound(
-            text: text,
-            snapshot: globalSnapshot,
-            scopeRank: 1,
-            matcher: matcher,
-            tokenConfiguration: tokenConfiguration,
-            disable: disable,
-            includesDisabled: true,
-            bookNameRanges: bookNameRanges,
-            bookNameOccupiedIndices: bookNameOccupiedIndices,
-            notesComplexRules: false,
-            onTooComplex: { index, start in complexGlobal.append((index, start)) }
-        )
+        // Cùng thứ tự riêng → tên chương → chung như engine; rank lấy từ `QuickTranslationRuleScope`.
+        let ruleSets: [(snapshot: QuickTranslationRuleSnapshot?, rank: Int)] = [
+            (bookSnapshot, QuickTranslationRuleScope.bookRank),
+            (chapterSnapshot, QuickTranslationRuleScope.chapterTitleRank),
+            (globalSnapshot, QuickTranslationRuleScope.globalRank)
+        ]
+        var complexByRank: [Int: [(ruleIndex: Int, start: Int)]] = [:]
+        var found: [QuickTranslationRuleEngine.Found] = []
+        for ruleSet in ruleSets {
+            let rank = ruleSet.rank
+            found += QuickTranslationRuleEngine.collectFound(
+                text: text,
+                snapshot: ruleSet.snapshot,
+                scopeRank: rank,
+                matcher: matcher,
+                tokenConfiguration: tokenConfiguration,
+                disable: disable,
+                includesDisabled: true,
+                bookNameRanges: bookNameRanges,
+                bookNameOccupiedIndices: bookNameOccupiedIndices,
+                notesComplexRules: false,
+                onTooComplex: { index, start in complexByRank[rank, default: []].append((index, start)) }
+            )
+        }
 
         func snapshotForRank(_ rank: Int) -> QuickTranslationRuleSnapshot? {
-            rank == 0 ? bookSnapshot : globalSnapshot
+            ruleSets.first { $0.rank == rank }?.snapshot
         }
 
         func scopeForRank(_ rank: Int) -> QuickTranslationRuleScope {
-            guard rank == 0, let bookId, !bookId.isEmpty else { return .global }
+            if rank == QuickTranslationRuleScope.chapterTitleRank { return .chapterTitle }
+            guard rank == QuickTranslationRuleScope.bookRank, let bookId, !bookId.isEmpty else { return .global }
             return .book(bookId)
         }
 
@@ -116,8 +116,11 @@ public enum QuickTranslationRuleDiagnostics {
                 status = .tokenDisabled
             } else if disable.book.contains(rule.pattern) {
                 status = .disabledForBook
-            } else if item.scopeRank != 0, disable.global.contains(rule.pattern) {
-                status = .disabledGlobally
+            } else if disable.isDisabled(pattern: rule.pattern, scopeRank: item.scopeRank) {
+                // Tập riêng đã xét ở trên ⇒ tới đây là file tắt của chính bộ chứa rule (tên chương hoặc chung).
+                status = item.scopeRank == QuickTranslationRuleScope.chapterTitleRank
+                    ? .disabledForChapterTitles
+                    : .disabledGlobally
             } else {
                 let blocking = winners.first { NSIntersectionRange(
                     NSRange(location: $0.start, length: max(1, $0.length)),
@@ -140,7 +143,7 @@ public enum QuickTranslationRuleDiagnostics {
 
         // Rule chạm cap backtracking không sinh match nào nên không có cụm để tô: range dài 0, UI hiện
         // chip cảnh báo "rule quá phức tạp" mà không tô gì trên thanh gốc.
-        for (rank, items) in [(0, complexBook), (1, complexGlobal)] {
+        for (rank, items) in complexByRank.sorted(by: { $0.key < $1.key }) {
             guard let snapshot = snapshotForRank(rank) else { continue }
             var seen = Set<Int>()
             for item in items where snapshot.rules.indices.contains(item.ruleIndex) {
@@ -192,7 +195,7 @@ public enum QuickTranslationRuleDiagnostics {
         switch status {
         case .applied: return 0
         case .lostOverlap: return 1
-        case .disabledForBook, .disabledGlobally, .tokenDisabled: return 2
+        case .disabledForBook, .disabledGlobally, .disabledForChapterTitles, .tokenDisabled: return 2
         case .tooComplex: return 3
         }
     }

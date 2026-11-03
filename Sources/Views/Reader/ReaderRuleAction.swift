@@ -8,6 +8,6 @@ enum ReaderRuleAction: Equatable {
     case setDisabled(Bool, QuickTranslationRuleScope)
     case edit
     case delete
-    /// Chuyển rule sang phạm vi còn lại (riêng ⇄ chung). Là **move**: ghi ở đích rồi xoá ở nguồn.
+    /// Chuyển rule sang phạm vi khác (riêng / tên chương / chung). Là **move**: ghi ở đích rồi xoá ở nguồn.
     case moveScope(QuickTranslationRuleScope)
 }

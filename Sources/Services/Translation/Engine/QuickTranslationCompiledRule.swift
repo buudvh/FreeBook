@@ -45,9 +45,10 @@ public struct QuickTranslationCompiledRule: Sendable {
     /// Tiêu chí phá hoà cuối cùng trước `sourceLine`: hai rule hoà mọi tiêu chí cấu hình thì rule có
     /// token hẹp hơn thắng, thay cho việc để số dòng quyết định.
     public let numeralNarrownessRanks: [Int]
-    /// 0 = rule của **bộ riêng truyện**, 1 = rule của **bộ chung**. Tiêu chí ưu tiên thứ 5 trong
-    /// `QuickTranslationRuleEngine.select`, đứng ngay trước `sourceLine`: trong một bộ đơn lẻ nó là
-    /// hằng số nên thứ tự cũ **không đổi**; khi trộn hai bộ thì rule riêng thắng.
+    /// Hạng của bộ chứa rule (`QuickTranslationRuleScope.rank`): 0 = **bộ riêng truyện**, 1 = **bộ tên
+    /// chương**, 2 = **bộ chung**. Tiêu chí ưu tiên thứ 5 trong `QuickTranslationRuleEngine.select`, đứng
+    /// ngay trước `sourceLine`: trong một bộ đơn lẻ nó là hằng số nên thứ tự cũ **không đổi**; khi trộn
+    /// nhiều bộ thì số nhỏ thắng.
     public let scopeRank: Int
 
     public init(
@@ -65,7 +66,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind],
         requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
         numeralNarrownessRanks: [Int] = [],
-        scopeRank: Int = 1
+        scopeRank: Int = QuickTranslationRuleScope.globalRank
     ) {
         self.sourceLine = sourceLine
         self.pattern = pattern

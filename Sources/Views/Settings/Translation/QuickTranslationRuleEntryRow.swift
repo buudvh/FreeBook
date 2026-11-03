@@ -3,9 +3,9 @@ import SwiftUI
 /// Một hàng rule trong `QuickTranslationRuleListView`, mirror đúng `DictionaryEntryRow` của từ điển:
 /// icon cùng cỡ, cùng padding, thứ tự cố định `[Sửa] [Chuyển] [Tắt|Bật] [Xoá]`.
 ///
-/// Icon **Chuyển** là COPY sang phạm vi còn lại (rule nguồn giữ nguyên), giống hệt nút Chuyển của
-/// từ điển. Ở danh sách **Chung** mà không biết truyện đang mở thì icon mờ và chạm vào chỉ báo lý do,
-/// tuyệt đối không ghi bừa vào đâu.
+/// Icon **Chuyển** là menu chọn phạm vi đích (`QuickTranslationRuleTransfer.transferTargets`) rồi COPY sang
+/// đó (rule nguồn giữ nguyên), giống hệt nút Chuyển của từ điển. Không có đích nào thì icon mờ và chạm vào
+/// chỉ báo lý do, tuyệt đối không ghi bừa vào đâu.
 struct QuickTranslationRuleEntryRow: View {
     let rule: QuickTranslationCompiledRule
     let scope: QuickTranslationRuleScope
@@ -24,8 +24,8 @@ struct QuickTranslationRuleEntryRow: View {
     let onDelete: () -> Void
     let onMissingContext: () -> Void
 
-    private var transferTarget: QuickTranslationRuleScope? {
-        QuickTranslationRuleTransfer.opposite(of: scope, contextBookId: contextBookId)
+    private var transferTargets: [QuickTranslationRuleScope] {
+        QuickTranslationRuleTransfer.transferTargets(of: scope, contextBookId: contextBookId)
     }
 
     var body: some View {
@@ -39,7 +39,7 @@ struct QuickTranslationRuleEntryRow: View {
                     if isDisabled {
                         badge("ĐÃ TẮT", color: .orange)
                     }
-                    if isDisabledGlobally, !scope.isGlobal {
+                    if isDisabledGlobally, scope.bookId != nil {
                         badge("TẮT Ở BỘ CHUNG", color: .orange)
                     }
                     if let worst = issues.min(by: { $0.severity < $1.severity }) {
@@ -97,16 +97,19 @@ struct QuickTranslationRuleEntryRow: View {
 
     @ViewBuilder
     private var transferButton: some View {
-        if let target = transferTarget {
+        let targets = transferTargets
+        if !targets.isEmpty {
             Menu {
-                Section(target.isGlobal ? "Chuyển qua Chung" : "Chuyển qua Riêng") {
-                    Button {
-                        onTransfer(target)
-                    } label: {
-                        Label(target.longLabel, systemImage: "arrow.left.arrow.right")
+                Section("Chuyển sang") {
+                    ForEach(targets, id: \.self) { target in
+                        Button {
+                            onTransfer(target)
+                        } label: {
+                            Label(target.longLabel, systemImage: "arrow.left.arrow.right")
+                        }
                     }
                 }
-                if !scope.isGlobal {
+                if scope.bookId != nil {
                     Button {
                         onShareToBook()
                     } label: {
@@ -120,9 +123,9 @@ struct QuickTranslationRuleEntryRow: View {
             }
             .menuStyle(.borderlessButton)
             .accessibilityLabel(
-                scope.isGlobal
-                    ? "Chuyển rule dòng \(rule.sourceLine) sang \(target.longLabel)"
-                    : "Chuyển rule dòng \(rule.sourceLine) sang \(target.longLabel), hoặc chia sẻ cả bộ rule riêng sang truyện khác"
+                scope.bookId == nil
+                    ? "Chuyển rule dòng \(rule.sourceLine) sang bộ khác"
+                    : "Chuyển rule dòng \(rule.sourceLine) sang bộ khác, hoặc chia sẻ cả bộ rule riêng sang truyện khác"
             )
         } else {
             Button(action: onMissingContext) {

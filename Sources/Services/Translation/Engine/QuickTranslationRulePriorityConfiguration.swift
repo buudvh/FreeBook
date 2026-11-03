@@ -54,7 +54,7 @@ public enum QuickTranslationRulePriorityConfiguration {
             case .matchLength:
                 return "Số chữ rule thật sự nuốt được trên đoạn văn đang dịch. Trên 三米五: <n>米 nuốt 2 chữ, <n>米<n> nuốt 3 chữ."
             case .scopeRank:
-                return "Rule trong bộ riêng của truyện thắng rule cùng hạng trong bộ chung."
+                return "Rule trong bộ riêng của truyện thắng rule cùng hạng trong bộ tên chương, bộ tên chương thắng bộ chung. Bộ tên chương chỉ có mặt khi dịch tên chương."
             }
         }
 

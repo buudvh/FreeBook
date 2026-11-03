@@ -29,7 +29,9 @@ final class QuickTranslationRuleDraftStore {
     struct Draft: Equatable {
         var pattern: String
         var replacement: String
-        var saveToBook: Bool
+        /// Phạm vi Lưu đã chọn gần nhất (thay `saveToBook: Bool` từ 1.3.683, khi có thêm bộ tên chương).
+        /// Store chỉ sống trong bộ nhớ nên đổi kiểu không có dữ liệu cũ nào phải tương thích.
+        var saveScope: QuickTranslationRuleScope
         /// Vùng chọn trong mẫu, tính theo **chỉ số ký tự** của `Array(pattern)`.
         var selectionStart: Int
         var selectionLength: Int

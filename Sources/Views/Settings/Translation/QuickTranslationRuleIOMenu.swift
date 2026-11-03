@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Modifier **Nhập / Xuất / Xoá** cho rule của một phạm vi (riêng hoặc chung).
+/// Modifier **Nhập / Xuất / Xoá** cho rule của một phạm vi (riêng, tên chương hoặc chung).
 /// Nội dung menu đổi theo tab hiện tại: tab Đang bật thao tác bộ rule, tab Đã tắt thao tác danh sách tắt.
 ///
 /// **Lý do dùng ViewModifier thay View gắn toolbar:**
@@ -47,6 +47,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     private var currentSourceText: String? {
         switch scope {
         case .global: return QuickTranslationRuleStore.shared.currentSourceText()
+        case .chapterTitle: return QuickTranslationRuleChapterStore.shared.currentSourceText()
         case .book(let bookId): return QuickTranslationRuleBookStore.shared.currentSourceText(for: bookId)
         }
     }
@@ -54,16 +55,17 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     private var hasRuleFile: Bool {
         switch scope {
         case .global: return QuickTranslationRuleStore.shared.hasRuleFile
+        case .chapterTitle: return QuickTranslationRuleChapterStore.shared.hasRuleFile
         case .book(let bookId): return QuickTranslationRuleBookStore.shared.hasRuleFile(for: bookId)
         }
     }
 
     var scopeLabel: String {
-        scope.isGlobal ? "chung" : "riêng"
+        scope.label.lowercased()
     }
 
     private var scopeLongLabel: String {
-        scope.isGlobal ? "Rule chung" : "Rule riêng"
+        "Rule \(scopeLabel)"
     }
 
     func body(content: Content) -> some View {
@@ -86,7 +88,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImporter = true }
                     SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
                         .disabled(!hasRuleFile)
-                    if !scope.isGlobal, let onShareAll {
+                    if scope.bookId != nil, let onShareAll {
                         SideDrawerActionRow("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square") {
                             onShareAll()
                         }
@@ -153,7 +155,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 )
             }
             .confirmationDialog(
-                "Xoá bộ rule \(scopeLabel)\(scope.isGlobal ? " khỏi máy" : " của truyện")?",
+                "Xoá bộ rule \(scopeLabel)\(scope.bookId == nil ? " khỏi máy" : " của truyện")?",
                 isPresented: $showingDeleteConfirm,
                 titleVisibility: .visible
             ) {
@@ -162,15 +164,13 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     switch scope {
                     case .global:
                         existed = QuickTranslationRuleStore.shared.deleteRules()
+                    case .chapterTitle:
+                        existed = QuickTranslationRuleChapterStore.shared.deleteRules()
                     case .book(let bookId):
                         existed = QuickTranslationRuleBookStore.shared.deleteRules(for: bookId)
                     }
                     ToastManager.shared.show(
-                        message: existed
-                            ? "Đã xoá bộ rule \(scopeLabel)."
-                            : scope.isGlobal
-                                ? "Máy chưa có bộ rule nào."
-                                : "Truyện này chưa có bộ rule riêng.",
+                        message: existed ? "Đã xoá bộ rule \(scopeLabel)." : missingRuleSetMessage,
                         type: .info
                     )
                     onChanged()
@@ -179,6 +179,8 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             } message: {
                 if scope.isGlobal {
                     Text("File \(QuickTranslationRuleStore.ruleFileName) sẽ bị xoá và việc dịch quay về thuần từ điển. Tải lại được bất cứ lúc nào.")
+                } else if scope.isChapterTitle {
+                    Text("File \(QuickTranslationRuleChapterStore.ruleFileName) sẽ bị xoá; tên chương quay về dịch bằng bộ riêng, bộ chung và từ điển. Hai bộ đó không bị ảnh hưởng.")
                 } else {
                     Text("Truyện này sẽ quay về dùng thuần bộ rule chung. Bộ chung không bị ảnh hưởng.")
                 }
@@ -257,6 +259,8 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         switch scope {
         case .global:
             outcome = QuickTranslationRuleStore.shared.importRules(text: text, mode: mode)
+        case .chapterTitle:
+            outcome = QuickTranslationRuleChapterStore.shared.importRules(text: text, mode: mode)
         case .book(let bookId):
             outcome = QuickTranslationRuleBookStore.shared.importRules(text: text, mode: mode, bookId: bookId)
         }
@@ -285,7 +289,12 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             ToastManager.shared.show(message: "Không có bộ rule \(scopeLabel) nào để xuất.", type: .error)
             return
         }
-        let fileName = scope.isGlobal ? QuickTranslationRuleStore.ruleFileName : QuickTranslationRuleBookStore.ruleFileName
+        let fileName: String
+        switch scope {
+        case .global: fileName = QuickTranslationRuleStore.ruleFileName
+        case .chapterTitle: fileName = QuickTranslationRuleChapterStore.ruleFileName
+        case .book: fileName = QuickTranslationRuleBookStore.ruleFileName
+        }
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(fileName)
         do {
@@ -293,6 +302,15 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             sharedFile = SharedFile(url: url)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file: \(error.localizedDescription)", type: .error)
+        }
+    }
+
+    /// Toast khi bấm xoá cả bộ mà máy chưa có file của phạm vi này.
+    private var missingRuleSetMessage: String {
+        switch scope {
+        case .global: return "Máy chưa có bộ rule nào."
+        case .chapterTitle: return "Máy chưa có bộ rule tên chương."
+        case .book: return "Truyện này chưa có bộ rule riêng."
         }
     }
 }

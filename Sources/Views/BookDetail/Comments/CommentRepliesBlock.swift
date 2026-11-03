@@ -161,7 +161,7 @@ struct CommentRepliesBlock: View {
                     if !reply.content.isEmpty, !reply.description.isEmpty {
                         Text(CommentRowView.displayText(reply.description, translating: isTranslationEnabled))
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
 
                     let raw = !reply.content.isEmpty ? reply.content : reply.description
