@@ -19,12 +19,14 @@ struct SearchView: View {
     let onSourceChanged: (() -> Void)?
     let isPresentedAsSheet: Bool // gốc sheet `java.searchBook` của Legado ⇒ hiện tiêu đề trái; còn lại là trang đẩy vào
     
-    @Environment(\.modelContext) private var modelContext
-    
+    @Environment(\.modelContext) var modelContext
+
     @State private var changeSourceTargetResult: ExtensionItemResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
     @State private var showingChangeSourceAlert = false
     @State var isChangingSource = false
+    /// Bước đang chạy của lượt đổi nguồn ("Đang chép chương đã tải 350/2134…"); rỗng = câu mặc định.
+    @State var sourceChangeStatus = ""
     
     @State private var searchQuery = ""
     @State var isSearching = false
@@ -187,7 +189,9 @@ struct SearchView: View {
                     ProgressView()
                         .tint(.white)
                         .scaleEffect(1.3)
-                    Text("Đang thực hiện chuyển nguồn...")
+                    Text(sourceChangeStatus.isEmpty ? "Đang thực hiện chuyển nguồn..." : sourceChangeStatus)
+                        .multilineTextAlignment(.center)
+                        .monospacedDigit()
                         .foregroundColor(.white)
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -590,129 +594,6 @@ struct SearchView: View {
         return str
     }
 
-    func executeSourceChange(to result: ExtensionItemResult, ext: Extension) async {
-        guard let oldBook = changeSourceTargetBook else { return }
-        
-        let oldBookId = oldBook.bookId
-        let newBookId = UUID().uuidString
-        let oldChapterIndex = oldBook.currentChapterIndex
-        let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
-        var passedKindCheck = false // lỗi "khác loại nội dung" không phải lỗi tải trang ⇒ không gắn "Mở link lỗi"
-
-        do {
-            try BookSourceMigrator.ensureSameContentKind(oldPackageId: oldBook.extensionPackageId, newPackageId: ext.packageId)
-            passedKindCheck = true
-            let path = ext.localPath
-            // Ngữ cảnh theo `newBookId`: nguồn Legado ghi trạng thái theo đúng id của sách sắp tạo.
-            let context = SourceRuntimeContext(bookId: newBookId, bookUrl: result.link, bookName: result.name, bookAuthor: result.author, isInteractive: true)
-            let detailResult = try await SourceRuntime.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl, configJson: ext.configJson, context: context)
-            // Host sách: host detail → host item tìm kiếm → source (detail thường không trả host).
-            let bookHost = ExtensionHostResolver.nonEmpty(detailResult.host) ?? ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
-            // Cùng quy tắc với BookDetail (trang đầu = `pages.first`). Mục lục rỗng/trang rỗng ⇒ ném lỗi trước khi tạo sách
-            // mới, nên sách cũ và chương đã tải không bị xoá.
-            let snapshot = ExtensionExecutionSnapshot(packageId: ext.packageId, name: ext.name, localPath: path, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-            let tocChapters = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: result.link, host: bookHost, context: context).chapters
-
-            let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
-            let initialChapterIndex = min(oldChapterIndex, max(0, tocChapters.count - 1))
-            let initialChapterTitle = tocChapters.isEmpty ? "" : tocChapters[initialChapterIndex].name
-
-            let createSnapshot = TOCBookCreateSnapshot(
-                bookId: newBookId,
-                title: detailResult.name,
-                author: detailResult.author,
-                coverUrl: detailResult.cover,
-                desc: savedDesc,
-                detailUrl: result.link,
-                sourceName: ext.name,
-                sourceUrl: ext.sourceUrl,
-                extensionPackageId: ext.packageId,
-                currentChapterIndex: initialChapterIndex,
-                currentChapterPage: 0,
-                currentChapterTitle: initialChapterTitle,
-                isOnShelf: oldBook.isOnShelf,
-                isHistory: oldBook.isHistory,
-                host: bookHost
-            )
-
-            let chapterSnapshots = tocChapters.enumerated().map { index, item in
-                ChapterMetadataSnapshot(title: item.name, url: item.url, index: index, host: item.host, isSection: item.isSection)
-            }
-
-            _ = try await ChapterContentRepository.shared.saveChapterList(
-                bookId: newBookId,
-                createSnapshot: createSnapshot,
-                chapters: chapterSnapshots,
-                mode: .replaceFullTOC
-            )
-
-            // Giữ lại nội dung các chương đã tải từ nguồn cũ
-            await BookSourceMigrator.shared.migrateCachedChapters(
-                oldBookId: oldBookId,
-                newBookId: newBookId,
-                newChapters: chapterSnapshots
-            )
-
-            // Di chuyển từ điển riêng, rule riêng, session AI và cấu hình dịch
-            await BookSourceMigrator.shared.migrateTranslationFiles(
-                oldBookId: oldBookId,
-                newBookId: newBookId,
-                isPlayingTTS: isPlayingTTS
-            )
-            await BookSourceMigrator.shared.migrateMetadataAndSettings(
-                oldBookId: oldBookId,
-                newBookId: newBookId,
-                isPlayingTTS: isPlayingTTS
-            )
-
-            await MainActor.run {
-                if !isPlayingTTS {
-                    let delRes = BookTransactionCoordinator.shared.deleteBook(bookId: oldBookId, in: modelContext)
-                    if case .failure(let err) = delRes {
-                        searchStatusMessage = "Lỗi xóa sách cũ: \(err.localizedDescription)"
-                    }
-
-                    TranslateUtils.clearCache()
-                    TranslationManager.shared.clearBookDictCache(for: oldBookId)
-                }
-
-                TranslationManager.shared.clearBookDictCache(for: newBookId)
-                AIRuntimeCoordinator.shared.migrateLastSession(from: oldBookId, to: newBookId)
-
-                if isPlayingTTS {
-                    ToastManager.shared.show(message: "Đã thêm nguồn mới '\(ext.name)' vào kệ sách!", type: .success)
-                }
-
-                // Gửi `ShelfTab.rawValue` chứ không phải số trần — xem `ShelfTab`.
-                let targetShelfTab = (createSnapshot.isOnShelf ? ShelfTab.shelf : ShelfTab.history).rawValue
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("sourceChangedNavigateToShelf"),
-                    object: nil,
-                    userInfo: ["shelfTab": targetShelfTab]
-                )
-
-                onSourceChanged?()
-            }
-
-            if !isPlayingTTS {
-                await BookSourceMigrator.shared.cleanupOldBookStorage(oldBookId: oldBookId)
-            }
-        } catch {
-            AppLogger.shared.log("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
-            let linksError = passedKindCheck // closure `@Sendable` không được bắt `var`
-            await MainActor.run {
-                searchStatusMessage = "Lỗi đổi nguồn: \(error.localizedDescription)"
-                guard linksError else {
-                    statusErrorLink = nil
-                    return
-                }
-                let bookHost = ExtensionHostResolver.nonEmpty(result.host) ?? ext.sourceUrl
-                attachStatusErrorLink(error, fallbacks: [result.link, ext.sourceUrl], host: bookHost,
-                                      retry: .sourceChange(result: result, ext: ext), packageId: ext.packageId)
-            }
-        }
-    }
-    
     private func translateIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text

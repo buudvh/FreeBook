@@ -192,6 +192,68 @@ public actor BookBinManager {
         return (offset: offset, length: length)
     }
 
+    /// Chép nhiều chương của `sourceBookId` sang **cuối** file `.bin` của `targetBookId`, mỗi lô một handle đọc và một
+    /// handle ghi (đổi nguồn, 1.3.689). Trước đây mỗi chương mở/đóng hai file và nhảy actor ba lần.
+    ///
+    /// Trả mảng đúng thứ tự `ranges`: `nil` = đoạn đó đọc thiếu hoặc rỗng, nên không ghi gì. File nguồn không có hoặc mở
+    /// hỏng, hay ghi lỗi, thì ném cho cả lô. Các đoạn đã ghi trước chỗ lỗi nằm thừa trong file đích, vì file chỉ ghi thêm.
+    public func copyChapterContents(
+        from sourceBookId: String,
+        to targetBookId: String,
+        ranges: [(offset: Int64, length: Int64)]
+    ) throws -> [(offset: Int64, length: Int64)?] {
+        guard !ranges.isEmpty else { return [] }
+        let sourceURL = try resolvedBinURL(for: sourceBookId)
+        let targetURL = try resolvedBinURL(for: targetBookId)
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
+            throw NSError(domain: "BookBinManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "File .bin không tồn tại cho sách \(sourceBookId)"])
+        }
+
+        let reader: FileHandle
+        do {
+            reader = try FileHandle(forReadingFrom: sourceURL)
+        } catch {
+            FileDescriptorCensus.noteOpenFailure(context: "BookBinManager.copyRead", error: error)
+            throw error
+        }
+        defer { try? reader.close() }
+
+        if !fileManager.fileExists(atPath: targetURL.path) {
+            fileManager.createFile(atPath: targetURL.path, contents: nil)
+        }
+        let writer: FileHandle
+        do {
+            writer = try FileHandle(forWritingTo: targetURL)
+        } catch {
+            FileDescriptorCensus.noteOpenFailure(context: "BookBinManager.copyWrite", error: error)
+            throw error
+        }
+        defer { try? writer.close() }
+        try writer.seekToEnd()
+        var writeOffset = Int64(try writer.offset())
+
+        var results: [(offset: Int64, length: Int64)?] = []
+        results.reserveCapacity(ranges.count)
+        for range in ranges {
+            try autoreleasepool { () throws -> Void in
+                guard range.length > 0 else {
+                    results.append(nil)
+                    return
+                }
+                try reader.seek(toOffset: UInt64(max(0, range.offset)))
+                guard let data = try reader.read(upToCount: Int(range.length)),
+                      !data.isEmpty, Int64(data.count) == range.length else {
+                    results.append(nil)
+                    return
+                }
+                try writer.write(contentsOf: data)
+                results.append((offset: writeOffset, length: range.length))
+                writeOffset += range.length
+            }
+        }
+        return results
+    }
+
     public func deleteBinFile(for bookId: String) throws {
         resolvedBinURLs.removeValue(forKey: bookId)
         let fileURL = binFilePath(for: bookId)

@@ -1,6 +1,12 @@
 import Foundation
 
-/// Quản lý di chuyển dữ liệu (chương đã tải, phiên AI chat, bộ nhớ truyện AI, cấu hình dịch) khi đổi nguồn truyện.
+/// Thiết lập theo `bookId` phải đi theo truyện khi đổi nguồn (bookId đổi): từ điển + rule riêng, phiên AI chat, trí nhớ
+/// AI, phạm vi + điểm tiếp nối quét tên riêng, chế độ dịch riêng. Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
+///
+/// Từ 1.3.689 tách hai bước: `copyBookScopedSettings` chỉ **chép** (không đụng bản cũ; truyện đích đã có bản riêng thì giữ
+/// của đích), `removeBookScopedSettings` xoá bản của một truyện sau mốc chốt (hoặc của truyện mới khi lùi lại). Trước đây
+/// chuyển rồi xoá ngay ⇒ app chết trước khi xoá truyện cũ thì truyện cũ mất hết thiết lập riêng.
+/// Chép chương đã tải: `BookSourceChapterCopier`. Điều phối cả lượt: `BookSourceChangeCoordinator`.
 public actor BookSourceMigrator {
     public static let shared = BookSourceMigrator()
 
@@ -23,109 +29,70 @@ public actor BookSourceMigrator {
         }
     }
 
-    /// Sao chép các chương đã tải từ nguồn cũ sang nguồn mới nếu chương tương ứng tồn tại theo thứ tự.
-    func migrateCachedChapters(
-        oldBookId: String,
-        newBookId: String,
-        newChapters: [ChapterMetadataSnapshot]
-    ) async {
-        guard let oldChapters = try? await ChapterStore.shared.fetchOrderedTOC(bookId: oldBookId) else { return }
+    /// Chép mọi thiết lập riêng của truyện cũ sang truyện đích. Không xoá gì; chạy lại nhiều lần cho cùng kết quả.
+    public func copyBookScopedSettings(from oldBookId: String, to newBookId: String) {
+        guard oldBookId != newBookId else { return }
+        copyTranslationFiles(from: oldBookId, to: newBookId)
+        AIChatHistoryStore.shared.copySessions(from: oldBookId, to: newBookId)
+        BookAIMemoryStore.shared.copyMemory(from: oldBookId, to: newBookId)
+        AINameScanScopeStore.shared.copy(from: oldBookId, to: newBookId)
 
-        for oldChapter in oldChapters where oldChapter.isCached && oldChapter.length > 0 {
-            guard oldChapter.index < newChapters.count else { continue }
-            guard let content = try? await BookBinManager.shared.readChapterContent(
-                bookId: oldBookId,
-                offset: oldChapter.offset,
-                length: oldChapter.length
-            ), !content.isEmpty else {
-                continue
-            }
-
-            if let (newOffset, newLength) = try? await BookBinManager.shared.writeChapterContent(
-                bookId: newBookId,
-                content: content
-            ) {
-                try? await ChapterStore.shared.updateCacheMetadata(
-                    bookId: newBookId,
-                    index: oldChapter.index,
-                    url: newChapters[oldChapter.index].url,
-                    isCached: true,
-                    offset: newOffset,
-                    length: newLength
-                )
-            }
-        }
-    }
-
-    /// Di chuyển các file từ điển và cấu hình dịch thuật riêng của truyện dưới `translate/books/<bookId>/`.
-    public func migrateTranslationFiles(
-        oldBookId: String,
-        newBookId: String,
-        isPlayingTTS: Bool
-    ) {
-        let translateDir = TranslationManager.shared.translateDirectory
-        let oldDir = translateDir.appendingPathComponent("books").appendingPathComponent(oldBookId)
-        let newDir = translateDir.appendingPathComponent("books").appendingPathComponent(newBookId)
-
-        if FileManager.default.fileExists(atPath: oldDir.path) {
-            try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
-            let fileNames = TranslationManager.bookScopedMigrationFiles
-            for name in fileNames {
-                let oldFile = oldDir.appendingPathComponent(name)
-                let newFile = newDir.appendingPathComponent(name)
-                if FileManager.default.fileExists(atPath: oldFile.path) {
-                    try? FileManager.default.removeItem(at: newFile)
-                    try? FileManager.default.copyItem(at: oldFile, to: newFile)
-                }
-            }
-            if !isPlayingTTS {
-                try? FileManager.default.removeItem(at: oldDir)
-            }
-            QuickTranslationRuleBookStore.shared.invalidate(bookId: oldBookId)
-            QuickTranslationRuleBookStore.shared.invalidate(bookId: newBookId)
-            QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(oldBookId))
-            QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(newBookId))
-        }
-    }
-
-    /// Di chuyển phiên AI chat, bộ nhớ truyện AI, phạm vi + điểm tiếp nối quét tên riêng và cấu hình bật/tắt dịch thuật riêng.
-    public func migrateMetadataAndSettings(
-        oldBookId: String,
-        newBookId: String,
-        isPlayingTTS: Bool
-    ) {
-        // 1. AI Chat sessions & Memory
-        AIChatHistoryStore.shared.migrateSessions(from: oldBookId, to: newBookId)
-        BookAIMemoryStore.shared.migrateMemory(from: oldBookId, to: newBookId)
-        AINameScanScopeStore.shared.migrate(from: oldBookId, to: newBookId, keepingOld: isPlayingTTS)
-
-        // 2. Translation override mode
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)
-        if oldOverride != .inherited {
+        if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: newBookId, mode: oldOverride)
-            if !isPlayingTTS {
-                TranslationConfigStore.shared.setBookOverride(bookId: oldBookId, mode: .inherited)
-            }
         }
     }
 
-    /// Dọn dẹp dữ liệu lưu trữ vật lý của truyện cũ khi không phát TTS.
-    public func cleanupOldBookStorage(oldBookId: String) async {
-        try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
-        try? await BookBinManager.shared.deleteBinFile(for: oldBookId)
-        // Sách truyện tranh: ảnh tải offline nằm ở `comics/<sha256(oldBookId)>`, sách mới không dùng lại được.
-        do {
-            try ComicOfflineStore.deleteBook(bookId: oldBookId)
-        } catch {
-            AppLogger.shared.log("❌ [BookSourceMigrator] Lỗi xoá ảnh offline của truyện cũ: \(error.localizedDescription)")
+    /// Xoá mọi thiết lập riêng của một truyện (truyện cũ sau mốc chốt, hoặc truyện mới khi lùi lại).
+    public func removeBookScopedSettings(bookId: String) {
+        // `bookId` rỗng / có "/" hay ".." ⇒ đường dẫn trỏ ra ngoài thư mục của truyện: không bao giờ xoá thư mục.
+        let isSafeComponent = !bookId.isEmpty && !bookId.contains("/") && !bookId.contains("..")
+        let dir = bookTranslationDirectory(bookId)
+        if isSafeComponent, FileManager.default.fileExists(atPath: dir.path) {
+            do {
+                try FileManager.default.removeItem(at: dir)
+            } catch {
+                AppLogger.shared.log("❌ [BookSourceMigrator] Không xoá được từ điển/rule riêng của truyện: \(error.localizedDescription)")
+            }
         }
-        // Phim: bản tải nằm ở `videos/<sha256(oldBookId)>`, sách mới không dùng lại được.
-        do {
-            try VideoOfflineStore.deleteBook(bookId: oldBookId)
-        } catch {
-            AppLogger.shared.log("❌ [BookSourceMigrator] Lỗi xoá phim tải offline của truyện cũ: \(error.localizedDescription)")
+        invalidateTranslationCaches(bookId: bookId)
+        AIChatHistoryStore.shared.clearAllSessions(for: bookId)
+        BookAIMemoryStore.shared.clearMemory(for: bookId)
+        AINameScanScopeStore.shared.remove(bookId: bookId)
+        if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
+            TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
         }
-        // Trạng thái nguồn Legado của truyện cũ (sách mới có trạng thái riêng theo id mới).
-        await BookStorageManager.deleteLegadoState(bookId: oldBookId)
+    }
+
+    /// File dưới `translate/books/<bookId>/`: chép từng file, file truyện đích đã có thì giữ.
+    private func copyTranslationFiles(from oldBookId: String, to newBookId: String) {
+        let oldDir = bookTranslationDirectory(oldBookId)
+        let newDir = bookTranslationDirectory(newBookId)
+        guard FileManager.default.fileExists(atPath: oldDir.path) else { return }
+
+        try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
+        for name in TranslationManager.bookScopedMigrationFiles {
+            let oldFile = oldDir.appendingPathComponent(name)
+            let newFile = newDir.appendingPathComponent(name)
+            guard FileManager.default.fileExists(atPath: oldFile.path),
+                  !FileManager.default.fileExists(atPath: newFile.path) else { continue }
+            do {
+                try FileManager.default.copyItem(at: oldFile, to: newFile)
+            } catch {
+                AppLogger.shared.log("❌ [BookSourceMigrator] Không chép được \(name) sang truyện mới: \(error.localizedDescription)")
+            }
+        }
+        invalidateTranslationCaches(bookId: newBookId)
+    }
+
+    private func bookTranslationDirectory(_ bookId: String) -> URL {
+        TranslationManager.shared.translateDirectory
+            .appendingPathComponent("books")
+            .appendingPathComponent(bookId)
+    }
+
+    private func invalidateTranslationCaches(bookId: String) {
+        QuickTranslationRuleBookStore.shared.invalidate(bookId: bookId)
+        QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(bookId))
     }
 }

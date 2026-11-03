@@ -72,31 +72,27 @@ public final class BookAIMemoryStore: Sendable {
         }
     }
 
-    /// Di chuyển trí nhớ AI khi đổi nguồn truyện.
-    public func migrateMemory(from oldBookId: String, to newBookId: String) {
+    /// Chép trí nhớ AI sang truyện mới khi đổi nguồn. **Không** xoá bản cũ (1.3.689: xoá sau mốc chốt, qua `clearMemory`);
+    /// truyện mới đã có trí nhớ riêng thì giữ của truyện mới.
+    public func copyMemory(from oldBookId: String, to newBookId: String) {
+        guard oldBookId != newBookId else { return }
         let oldUrl = fileURL(for: oldBookId)
         let newUrl = fileURL(for: newBookId)
-        guard FileManager.default.fileExists(atPath: oldUrl.path) else { return }
+        guard FileManager.default.fileExists(atPath: oldUrl.path),
+              !FileManager.default.fileExists(atPath: newUrl.path) else { return }
 
-        try? FileManager.default.removeItem(at: newUrl)
-        do {
-            try FileManager.default.copyItem(at: oldUrl, to: newUrl)
-            try? FileManager.default.removeItem(at: oldUrl)
-            var mem = loadMemory(for: newBookId)
-            let updated = BookAIMemory(
-                id: mem.id,
-                bookId: newBookId,
-                characterContext: mem.characterContext,
-                plotSummary: mem.plotSummary,
-                customDictionarySnapshot: mem.customDictionarySnapshot,
-                notes: mem.notes,
-                updatedAt: Date()
-            )
-            saveMemory(updated)
-            AppLogger.shared.log("Đã di chuyển trí nhớ AI từ \(oldBookId) sang \(newBookId)")
-        } catch {
-            AppLogger.shared.log("❌ Lỗi di chuyển trí nhớ AI: \(error.localizedDescription)")
-        }
+        let mem = loadMemory(for: oldBookId)
+        let copied = BookAIMemory(
+            id: mem.id,
+            bookId: newBookId,
+            characterContext: mem.characterContext,
+            plotSummary: mem.plotSummary,
+            customDictionarySnapshot: mem.customDictionarySnapshot,
+            notes: mem.notes,
+            updatedAt: Date()
+        )
+        saveMemory(copied)
+        AppLogger.shared.log("Đã chép trí nhớ AI từ \(oldBookId) sang \(newBookId)")
     }
 
     /// Xóa trí nhớ của cuốn truyện.

@@ -90,6 +90,12 @@ internal actor ChapterStore: ChapterStoreProtocol {
         try database.updateCacheMetadata(bookId: bookId, index: index, url: url, isCached: isCached, offset: offset, length: length)
     }
 
+    /// Đánh dấu đã tải cho nhiều chương (tra theo **chỉ số**) trong một transaction — `ChapterStoreDatabase+CacheBatch`.
+    internal func markChaptersCached(bookId: String, updates: [(index: Int, offset: Int64, length: Int64)]) async throws {
+        guard let database else { throw ChapterStoreError.unavailable }
+        try database.markChaptersCached(bookId: bookId, updates: updates)
+    }
+
     internal func upsertCachedChapter(bookId: String, metadata: ChapterMetadataSnapshot, isCached: Bool, offset: Int64, length: Int64) async throws {
         guard let database else { throw ChapterStoreError.unavailable }
         try database.upsertCachedChapter(bookId: bookId, metadata: metadata, isCached: isCached, offset: offset, length: length)

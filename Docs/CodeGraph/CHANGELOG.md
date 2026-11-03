@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.689] - 2026-11-03
+
+### fix: đổi nguồn chép chương theo lô, dọn truyện cũ an toàn khi app chết
+
+Người dùng: *"tôi đổi nguồn 1 truyện có hơn 2k chương đã tải thành đơ app sau đó thoát app luôn. nhưng vẫn chuyển được dữ liệu, tuy nhiên nguồn cũ vẫn còn"*. Lúc đổi không có TTS; truyện mới đủ chương.
+
+- **Nguyên nhân** (suy từ code; log chỉ cho thấy main thread bị chặn ≥ 3 s lúc 21:36:44–21:36:59 và không có dòng ❌ nào của luồng đổi nguồn):
+  - Chép chương đã xong, app chết trước khi lệnh xoá truyện cũ lưu xuống đĩa. Bước xoá chạy `BookTransactionCoordinator.deleteBook` trên context **main**, cascade `Book.chapters`. Worker chuyển mục lục sang SQLite (27/7, gỡ 28/7) không xoá dòng `Chapter` SwiftData, nên truyện đời đó còn hàng nghìn dòng phải cascade trên main. Bước này cũng đi tắt qua `BookStorageManager` (không huỷ tải, không xoá bìa).
+  - Thứ tự cũ chuyển rồi **xoá ngay** thiết lập riêng (từ điển/rule, phiên AI, trí nhớ AI, điểm quét name) trước khi xoá truyện cũ ⇒ chết giữa chừng thì còn hai truyện, truyện cũ mất thiết lập. Không có gì dọn lại.
+  - Vòng chép từng chương: mỗi chương mở/đóng 2 file, 3 lần nhảy actor, một lần commit sqlite; lỗi nuốt bằng `try?`, không tiến trình.
+- **`BookSourceChangeCoordinator`** (mới, `Services/Download/SourceChange/`) nhận cả lượt từ `SearchView` (812 ⇒ 693 dòng; phần View còn ở `SearchView+SourceChange`):
+  - Nhật ký `source_change/journal.json` (`BookSourceChangeJournal`) ghi **trước** tác dụng phụ đầu tiên. Trước mốc `.committed` chỉ **chép**, truyện cũ nguyên vẹn.
+  - Huỷ lượt tìm đang chạy. Nguồn mới trả mục lục xong mới huỷ tác vụ tải của truyện cũ (tra lỗi thì không đụng gì) và ghi nốt lệnh ghi đang chờ của nó, rồi mới đọc mục lục để chép. Nhật ký của lượt trước chưa dọn xong ⇒ báo lỗi, không ghi đè.
+  - Truyện đích cùng tiện ích + link chi tiết đã có trên máy ⇒ **dùng lại** (không tạo bản UUID trùng); tiến độ lấy theo bản đọc gần hơn, cờ kệ/lịch sử chỉ bật thêm (`BookTransactionCoordinator.mergeSourceChangeState`).
+  - `BookSourceChapterCopier` chép theo lô ≤ 64 chương / ≤ 4 MB: một handle đọc + một handle ghi (`BookBinManager.copyChapterContents`), một transaction (`ChapterStore.markChaptersCached`, tra theo chỉ số). Bỏ qua chương truyện đích đã có. Overlay hiện "Đang chép chương đã tải N/M". Giữ `beginBackgroundTask`; hết hạn thì dừng giữa hai lô và báo "Bị ngắt vì app chuyển nền". Chương lỗi gom một dòng ❌; có chương lỗi ⇒ **giữ** truyện cũ.
+  - Sau mốc chốt, View đóng các màn đang giữ `Book` cũ; 1,2 s sau mới xoá truyện cũ qua `BookStorageManager.deleteBooksAsync` (context nền) rồi xoá thiết lập cũ.
+  - Mở app / app hoạt động lại (`MainTabView+SourceChangeRecovery`): nhật ký `.copying` ⇒ lùi (xoá truyện mới nếu lượt đó tạo ra); `.committed` ⇒ dọn nốt truyện cũ. Có toast.
+- **Thiết lập riêng**: `BookSourceMigrator.copyBookScopedSettings` (chỉ chép, truyện đích có rồi thì giữ của đích) + `removeBookScopedSettings`. `AIChatHistoryStore.copySessions` nạp từng phiên, ghi mục lục một lần; `BookAIMemoryStore.copyMemory`; `AINameScanScopeStore.copy`/`remove`. Đang nghe TTS truyện cũ thì truyện cũ giữ đủ phiên AI và trí nhớ AI (trước đây vẫn bị gỡ).
+- **Truyện đã nửa vời trước bản này** (không có nhật ký): mở truyện cũ ⇒ Đổi nguồn ⇒ chọn lại đúng nguồn mới. App dùng lại truyện mới đã có, chỉ chép chương còn thiếu rồi xoá truyện cũ.
+- `rules.md`, `CLAUDE.md`, `AGENTS.md` ghi tên hàm mới. Chuyển entry `[1.3.659]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` trước và sau đều 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.688] - 2026-11-03
 
 ### fix: bật dịch trong Reader dịch lại ngay chương đang mở
@@ -496,19 +518,3 @@ Người dùng thử 1.3.659: *"reader -> chi tiết bị lỗi hiển thị 2 n
 - **Màn đọc truyện tranh** tương tự: `ComicChapterListSheet` báo URL chi tiết qua `onOpenBookDetail(_:)`, `ComicReaderView` đẩy bằng `.navigationDestination(item: $bookDetailUrl)` sau `onDismiss` của sheet mục lục; `handleDisappear` bỏ qua dọn dẹp khi `bookDetailUrl != nil`; quay lại thì `bootstrap()` tự bỏ qua (`hasStarted`).
 - Xoá `CoverBackButtonModifier.swift`, cờ `isBookDetailCoverPresented`/`isBookDetailCovering`. Chuyển entry `[1.3.630]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý thanh tab có giật một nhịp lúc đẩy/back không).
-
-## [1.3.659] - 2026-10-30
-
-### fix: màn Chi tiết không tải lại khi quay về, mở toàn màn từ trình đọc
-
-Người dùng: *"khi mở xem thêm comment hoặc xem thêm suggest, danh sách genres từ màn hình chi tiết back về màn hình chi tiết đều phải load lại dù là không cần thiết"*; qua phỏng vấn chọn: chỉ xử lý khi back, khối đang lỗi tự thử lại khi back, kéo làm mới tải lại cả gợi ý/bình luận, và *"cho màn hình chi tiết luôn hiển thị toàn màn hình, kể cả mở từ reader"*.
-
-- **Mã truyện ổn định** (`BookDetailView.resolveBookId`): truyện chưa lưu có link không dạng UUID (không chứa `-` hoặc ≤ 30 ký tự) trước đây được cấp `UUID()` **mới mỗi lần màn hiện** ⇒ cache chi tiết 5 phút (`BookDetailCacheManager`) không bao giờ trúng, back về là tải lại cả chi tiết lẫn mục lục; `.task(id: actualBookId)` và phạm vi dịch theo truyện cũng lệch theo. Nay dùng `fallbackBookId` (`@State`, cấp một lần cho cả đời màn).
-- **Hiện lại không gọi mạng** (`BookDetailView+AppearLoad.swift`, mới): `onAppear` gọi `loadBookDataOnAppear()` — lần đầu `loadBookData()`; các lần sau (back từ Xem thêm, bình luận, thể loại, truyện gợi ý, từ điển…) chỉ phần đang lỗi tự thử lại (`detailErrorMessage` ⇒ `loadBookDetailOnly`; `tocErrorMessage` khi `onlineChapters` còn rỗng ⇒ `loadTOCDataOnly` — lỗi của lượt "Tải thêm chương" thì không, vì sẽ thay danh sách bằng trang 1; nút "Tải thêm" vẫn là nút thử lại tay). Hết cảnh trang 1 mục lục tải lại mỗi lần back và đặt lại tiến độ "Tải thêm chương". Việc rẻ trên máy (cờ dịch, `markSourceUsed`, đồng bộ mục lục đã lưu, `VideoOfflineLibrary.refresh`) vẫn chạy mỗi lần hiện; nhánh `skipsReappearLoad` của "Mở link lỗi" giữ nguyên.
-- **Khối Gợi ý / Bình luận** (`SuggestRowView`, `CommentSectionView`): `.task(id: refreshGeneration)` + `loadedGeneration` — chỉ tải khi lượt làm mới hiện tại chưa có kết quả thành công. Lỗi thật giữ hiển thị và tự thử lại ở lần back sau; `CancellationError` (kể cả bọc trong `ExtensionLoadError`) không ghi lỗi, lần hiện lại tải tiếp.
-- **Kéo làm mới** (`reloadBookData`) tăng `sectionRefreshGeneration` ⇒ các khối gợi ý/bình luận tải lại cùng lượt (trước đây không: mã khối không đổi nên view con giữ nguyên).
-- **Danh sách thể loại / Xem thêm** (`CategoryNovelsListView`, dùng chung với Khám phá): `.task` chỉ `loadInitial()` khi danh sách rỗng (chưa tải, bị huỷ, lỗi trang 1) ⇒ back từ một truyện giữ nguyên các trang đã cuộn vô cực.
-- **Chi tiết toàn màn từ trình đọc**: bấm bìa ở mục lục Reader (`ReaderChapterListView`) và màn đọc truyện tranh (`ComicChapterListSheet+Header`) mở `BookDetailView` bằng `fullScreenCover` thay cho `sheet`; nút quay lại `.coverBackButton()` (`Views/Common/PageHeader/CoverBackButtonModifier.swift`, mới: `chevron.left` 17pt nửa đậm, khung 38×44, `dismiss()`). Cover che màn đọc có thể làm `onDisappear` của nó nổ ⇒ mục lục báo lên qua `onBookDetailCoverChange` (đi qua `ReaderChapterListHost`, closure không vào `==`); `ReaderView` (`isBookDetailCoverPresented`, như `navigateToBookDetail`) và `ComicReaderView` (`isBookDetailCovering`, như trình xem phóng to) bỏ qua dọn dẹp/`shutdown`. Đóng cover thì mục lục có thể chạy lại `onAppear` ⇒ cuộn về chương đang đọc (chỉ tra store, không gọi mạng).
-- Không đổi: đổi tab Chi tiết ↔ Mục lục vẫn dựng lại tab chi tiết và tải lại khối gợi ý/bình luận (người dùng chọn chỉ xử lý back). Dữ liệu chi tiết giữ tới khi đóng màn hoặc kéo làm mới.
-- Chuyển entry `[1.3.629]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy.

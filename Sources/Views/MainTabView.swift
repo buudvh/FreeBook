@@ -126,6 +126,9 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await runStaleBookCleanupIfDue(container: modelContext.container)
         }
+        .task {
+            await recoverInterruptedSourceChange(container: modelContext.container)
+        }
         // Nạp/biên dịch bộ lọc quảng cáo (lần đầu vài giây CPU nền, sau đó chỉ tra lại) rồi tự cập nhật bộ quá hạn.
         // Gọi nhiều lần vô hại (`warmUp` chỉ chạy một lần). Webview mở trước khi xong thì chưa có luật ở lượt đó.
         .task(priority: .utility) {
@@ -137,6 +140,7 @@ struct MainTabView: View {
                 // và bàn giao ngay khi app trở lại foreground.
                 ExportShareCoordinator.shared.flushPendingShare()
                 FileDescriptorCensus.record(event: "active")
+                Task { await recoverInterruptedSourceChange(container: modelContext.container) }
                 return
             }
             guard phase == .inactive || phase == .background else { return }

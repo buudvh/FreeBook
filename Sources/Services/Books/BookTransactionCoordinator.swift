@@ -240,6 +240,37 @@ public final class BookTransactionCoordinator {
         }
     }
 
+    /// Đổi nguồn vào truyện **đã có** trên máy (1.3.689): `progress != nil` ⇒ lấy tiến độ của truyện cũ (đọc gần hơn),
+    /// đoạn về 0 như lúc tạo truyện mới. Cờ kệ/lịch sử chỉ được **bật** thêm, không bao giờ hạ.
+    @discardableResult
+    public func mergeSourceChangeState(
+        bookId: String,
+        progress: (chapterIndex: Int, chapterTitle: String)?,
+        isOnShelf: Bool,
+        isHistory: Bool,
+        in context: ModelContext
+    ) -> Result<Void, Error> {
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        if let progress {
+            book.currentChapterIndex = progress.chapterIndex
+            book.currentChapterPage = 0
+            book.currentChapterTitle = progress.chapterTitle
+            book.lastReadDate = Date()
+        }
+        if isOnShelf { book.isOnShelf = true }
+        if isHistory { book.isHistory = true }
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
     @discardableResult
     public func deleteBook(bookId: String, in context: ModelContext) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })

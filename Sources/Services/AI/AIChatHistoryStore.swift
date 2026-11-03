@@ -213,16 +213,22 @@ public final class AIChatHistoryStore: Sendable {
         return allSummaries.sorted(by: { $0.updatedAt > $1.updatedAt })
     }
 
-    /// Chuyển toàn bộ phiên chat từ sách cũ sang sách mới khi đổi nguồn.
-    public func migrateSessions(from oldBookId: String, to newBookId: String) {
+    /// Chép phiên chat của sách cũ sang sách mới khi đổi nguồn. **Không** xoá bản cũ (1.3.689: xoá sau mốc chốt, qua
+    /// `clearAllSessions`). Phiên cùng `id` đã có ở sách mới thì giữ của sách mới, nên chạy lại không nhân đôi.
+    /// Nạp từng phiên một rồi ghi mục lục **một** lần, thay vì nạp hết vào RAM rồi `saveSession` từng phiên.
+    public func copySessions(from oldBookId: String, to newBookId: String) {
         guard oldBookId != newBookId else { return }
-        let oldSessions = loadSessions(for: oldBookId)
-        guard !oldSessions.isEmpty else { return }
+        let oldSummaries = loadSessionSummaries(for: oldBookId)
+        guard !oldSummaries.isEmpty else { return }
 
+        var summaries = loadSessionSummaries(for: newBookId)
+        let existingIds = Set(summaries.map(\.id))
+        var copiedCount = 0
         // Giữ nguyên `updatedAt` (1.3.669): trước đây gán `Date()` lần lượt theo thứ tự mới → cũ nên phiên cũ nhất nhận
         // mốc mới nhất, thứ tự bị đảo và màn AI của truyện mới mở nhầm phiên cũ nhất. `bookId` là `let` ⇒ dựng lại phiên
         // với id truyện mới (cùng `id` phiên), để mọi chỗ lưu/xoá theo `session.bookId` trỏ đúng thư mục mới.
-        for session in oldSessions {
+        for summary in oldSummaries where !existingIds.contains(summary.id) {
+            guard let session = loadSession(id: summary.id, for: oldBookId) else { continue }
             let migrated = AIChatSession(
                 id: session.id,
                 bookId: newBookId,
@@ -235,10 +241,20 @@ public final class AIChatHistoryStore: Sendable {
                 providerProfileId: session.providerProfileId,
                 contextSummary: session.contextSummary
             )
-            saveSession(migrated, for: newBookId)
+            do {
+                let data = try JSONEncoder().encode(migrated)
+                try data.write(to: sessionFileURL(id: migrated.id, for: newBookId), options: .atomic)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi chép phiên chat \(migrated.id) sang sách \(newBookId): \(error.localizedDescription)")
+                continue
+            }
+            summaries.append(AIChatSessionSummary(session: migrated))
+            copiedCount += 1
         }
-        clearAllSessions(for: oldBookId)
-        AppLogger.shared.log("Đã chuyển \(oldSessions.count) phiên chat AI từ \(oldBookId) sang \(newBookId).")
+        guard copiedCount > 0 else { return }
+        summaries.sort(by: { $0.updatedAt > $1.updatedAt })
+        persistSummaries(summaries, for: newBookId)
+        AppLogger.shared.log("Đã chép \(copiedCount) phiên chat AI từ \(oldBookId) sang \(newBookId).")
     }
 
     private func persistSummaries(_ summaries: [AIChatSessionSummary], for bookId: String) {

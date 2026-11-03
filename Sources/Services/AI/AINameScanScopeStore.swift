@@ -51,18 +51,27 @@ public final class AINameScanScopeStore: @unchecked Sendable {
     }
 
     /// Đổi nguồn truyện (1.3.669): chép phạm vi quét và điểm tiếp nối sang id truyện mới, **giữ nguyên chỉ số** (người
-    /// dùng chọn) — chương đã tải được chép sang theo đúng vị trí (`BookSourceMigrator.migrateCachedChapters`), nên chỉ
-    /// số cũ vẫn trỏ ngay sau phần nội dung đã quét. `keepingOld` = truyện cũ còn ở lại (đang phát TTS) ⇒ không xoá bản cũ.
-    public func migrate(from oldBookId: String, to newBookId: String, keepingOld: Bool) {
+    /// dùng chọn) — chương đã tải được chép sang theo đúng vị trí (`BookSourceChapterCopier`), nên chỉ số cũ vẫn trỏ ngay
+    /// sau phần nội dung đã quét. Từ 1.3.689 chỉ chép (truyện mới đã có giá trị thì giữ); bản cũ xoá sau mốc chốt qua `remove`.
+    public func copy(from oldBookId: String, to newBookId: String) {
         guard oldBookId != newBookId else { return }
         lock.lock()
         defer { lock.unlock() }
         for key in [Self.userDefaultsKey, Self.resumeUserDefaultsKey] {
-            guard var raw = UserDefaults.standard.dictionary(forKey: key), let value = raw[oldBookId] else { continue }
+            guard var raw = UserDefaults.standard.dictionary(forKey: key), let value = raw[oldBookId],
+                  raw[newBookId] == nil else { continue }
             raw[newBookId] = value
-            if !keepingOld {
-                raw[oldBookId] = nil
-            }
+            UserDefaults.standard.set(raw, forKey: key)
+        }
+    }
+
+    /// Xoá phạm vi quét và điểm tiếp nối của một truyện (truyện cũ sau khi đổi nguồn xong).
+    public func remove(bookId: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        for key in [Self.userDefaultsKey, Self.resumeUserDefaultsKey] {
+            guard var raw = UserDefaults.standard.dictionary(forKey: key), raw[bookId] != nil else { continue }
+            raw[bookId] = nil
             UserDefaults.standard.set(raw, forKey: key)
         }
     }
