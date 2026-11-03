@@ -6,6 +6,8 @@ import UIKit
 /// token có chữ Hán đầu tiên). Sheet nhỏ, vuốt xuống để đóng, không nút đóng.
 struct BrowserTranslateSheet: View {
     let source: String
+    /// Phồn → giản trước khi dịch — theo trang tab đang xem (`BrowserTranslatePolicy.convertsTraditional`, 1.3.684).
+    let convertsTraditional: Bool
 
     @State private var translated: String?
     @State private var lookupRequest: BrowserLookupRequest?
@@ -70,8 +72,9 @@ struct BrowserTranslateSheet: View {
 
     private func translate() async {
         let text = source
+        let converts = convertsTraditional
         let result = await Task.detached(priority: .userInitiated) {
-            TranslateUtils.translateContent(text, bookId: nil)
+            TranslateUtils.translateContent(text, bookId: nil, shouldConvertTraditionalToSimplified: converts)
         }.value
         let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
         translated = trimmed.isEmpty ? source : result

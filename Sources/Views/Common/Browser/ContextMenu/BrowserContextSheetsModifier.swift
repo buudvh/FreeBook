@@ -15,7 +15,7 @@ struct BrowserContextSheetsModifier: ViewModifier {
             .sheet(item: $actions.sheet) { sheet in
                 switch sheet.kind {
                 case .translate(let source):
-                    BrowserTranslateSheet(source: source)
+                    BrowserTranslateSheet(source: source, convertsTraditional: convertsTraditional)
                 case .lookup(let request):
                     BrowserDictionarySheet(request: request)
                 }
@@ -24,6 +24,14 @@ struct BrowserContextSheetsModifier: ViewModifier {
                 ShareSheet(activityItems: request.items)
                     .presentationDetents([.medium, .large])
             }
+    }
+
+    /// Phồn → giản của sheet Dịch QT theo trang tab đang xem (menu bôi đen chỉ có trên tab đang hiển thị), cùng luật
+    /// với dịch cả trang (`BrowserTranslatePolicy.convertsTraditional`, 1.3.684).
+    private var convertsTraditional: Bool {
+        MainActor.assumeIsolated {
+            BrowserTranslatePolicy.convertsTraditional(urlString: store.activeTab?.urlString ?? "")
+        }
     }
 }
 

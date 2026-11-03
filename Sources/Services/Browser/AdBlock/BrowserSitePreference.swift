@@ -10,8 +10,12 @@ struct BrowserSitePreference: Identifiable, Equatable, Codable, Sendable {
     /// Tự dịch QT trang của tên miền này (`true`) / không dịch (`false`); `nil` = theo tiện ích khớp URL rồi tắt
     /// (`BrowserTranslatePolicy`). File cũ không có khoá này vẫn đọc được (Codable tổng hợp đọc thiếu khoá thành `nil`).
     var translate: Bool?
+    /// Chuyển phồn thể → giản thể trước khi dịch QT trang của tên miền này (`true`) / không chuyển (`false`); `nil` =
+    /// theo công tắc chung ở Cài đặt › Trình duyệt (`BrowserTranslatePolicy.convertsTraditional`, 1.3.684). File cũ
+    /// không có khoá này vẫn đọc được như `translate`.
+    var convertsTraditional: Bool?
 
     var id: String { domain }
 
-    var isEmpty: Bool { adBlock == nil && desktop == nil && translate == nil }
+    var isEmpty: Bool { adBlock == nil && desktop == nil && translate == nil && convertsTraditional == nil }
 }

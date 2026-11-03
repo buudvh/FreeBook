@@ -8,7 +8,7 @@ import SwiftUI
 ///
 /// Chip: `Tắt chặn QC` / `Máy tính` như mockup; thêm `Bật chặn QC` / `Điện thoại` cho bản ghi ngược chiều mặc định
 /// (vd tắt chặn QC chung rồi bật lại cho một trang) — để không có dòng nào trống chip. Nhớ dịch theo tên miền:
-/// `Tự dịch QT` / `Không dịch`.
+/// `Tự dịch QT` / `Không dịch`. Phồn → giản theo tên miền (1.3.684): `Phồn → giản` / `Giữ phồn thể`.
 struct BrowserSitePreferencesSection: View {
     private var list: BrowserSitePreferenceList { BrowserSitePreferenceList.shared }
 
@@ -70,6 +70,9 @@ struct BrowserSitePreferencesSection: View {
         }
         if let translate = item.translate {
             chips.append(translate ? "Tự dịch QT" : "Không dịch")
+        }
+        if let convertsTraditional = item.convertsTraditional {
+            chips.append(convertsTraditional ? "Phồn → giản" : "Giữ phồn thể")
         }
         return chips
     }

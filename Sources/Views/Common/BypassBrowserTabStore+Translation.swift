@@ -2,7 +2,8 @@ import Foundation
 import WebKit
 
 /// Dịch trang QT của trình duyệt người dùng: cài script/handler (`installBrowserSupport`), áp luật nhớ khi trang commit,
-/// nút dịch bấm tay và áp lại sau khi đổi công tắc nhớ.
+/// nút dịch bấm tay và áp lại sau khi đổi công tắc nhớ; dịch lại tab đang dịch khi đổi công tắc phồn → giản (1.3.684 —
+/// cờ phồn → giản do handler đọc theo URL trang ở mỗi lô, `BrowserTranslatePolicy.convertsTraditional`).
 ///
 /// Trạng thái mong muốn của trang = bật/tắt **tay** của tab (`manualTranslate`, chỉ khi trang còn cùng tên miền chuẩn
 /// hoá lúc bấm) ?? luật nhớ (`BrowserTranslatePolicy.resolve`). Trang Home / `about:blank` / không phải web ⇒ tắt và
@@ -25,10 +26,20 @@ extension BypassBrowserTabStore {
         if !hasScript {
             controller.addUserScript(BrowserPageTranslateScript.userScript())
         }
-        BrowserPageTranslator.installMessageHandler(into: controller) { [weak self] webView in
-            guard let self, let webView, let tab = self.tab(for: webView) else { return false }
-            return tab.isTranslating
-        }
+        BrowserPageTranslator.installMessageHandler(
+            into: controller,
+            accepts: { [weak self] webView in
+                guard let self, let webView, let tab = self.tab(for: webView) else { return false }
+                return tab.isTranslating
+            },
+            convertsTraditional: { webView in
+                // Handler WebKit chạy trên main; luật là `@MainActor`.
+                MainActor.assumeIsolated {
+                    guard let urlString = webView?.url?.absoluteString else { return false }
+                    return BrowserTranslatePolicy.convertsTraditional(urlString: urlString)
+                }
+            }
+        )
         installContextMenuSupport(into: controller)
     }
 
@@ -55,6 +66,45 @@ extension BypassBrowserTabStore {
             return
         }
         push(Self.policyResolution(for: url).isEnabled, to: tab)
+    }
+
+    // MARK: - Phồn → giản (1.3.684)
+
+    /// Sau khi đổi chỉnh riêng phồn → giản của `hosts` (bảng khiên): dịch lại tab đang dịch thuộc các tên miền đó hoặc
+    /// tên miền con của chúng (tra chỉnh riêng gộp tên miền cha). Không đụng bật/tắt tay hay luật nhớ tự dịch.
+    func retranslateTabs(underHosts hosts: [String]) {
+        let domains = hosts.compactMap { BrowserSitePreferenceStore.normalizedDomain(for: $0) }
+        guard !domains.isEmpty else { return }
+        retranslateTabs(where: { domain in
+            domains.contains { domain == $0 || domain.hasSuffix("." + $0) }
+        })
+    }
+
+    /// Sau khi đổi công tắc chung phồn → giản (Cài đặt › Trình duyệt): dịch lại tab đang dịch **không** có chỉnh riêng
+    /// phồn → giản theo tên miền (tab có chỉnh riêng giữ nguyên cờ nên khỏi dịch lại).
+    func retranslateTabsFollowingGlobalConvert() {
+        retranslateTabs(where: { domain in
+            BrowserSitePreferenceStore.shared.preference(forHost: domain)?.convertsTraditional == nil
+        })
+    }
+
+    /// Tắt rồi bật lại dịch trang trên tab **đang dịch** mà `isAffected(tên miền chuẩn hoá)`: script khôi phục bản gốc
+    /// theo node rồi quét lại, nên chữ được gửi dịch lần nữa và handler đọc cờ mới. Không nạp lại trang, không đổi
+    /// `isTranslating`; lô đang bay của lượt cũ bị script bỏ (đổi `generation`).
+    private func retranslateTabs(where isAffected: (String) -> Bool) {
+        var count = 0
+        for tab in tabs where tab.isTranslating {
+            guard let domain = Self.translatableDomain(of: tab.webView.url), isAffected(domain) else { continue }
+            let webView = tab.webView
+            MainActor.assumeIsolated {
+                BrowserPageTranslator.disable(on: webView)
+                BrowserPageTranslator.enable(on: webView)
+            }
+            count += 1
+        }
+        if count > 0 {
+            AppLogger.shared.log("🌐 [BypassBrowser] Dịch lại \(count) tab sau khi đổi phồn → giản")
+        }
     }
 
     // MARK: - Điều hướng (gọi từ delegate)

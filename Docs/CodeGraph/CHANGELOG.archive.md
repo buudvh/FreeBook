@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.654] - 2026-10-29
+
+### fix: bấm Xuất video không còn ra tác vụ tải, thêm Xuất video/chương đã tải
+
+Người dùng: *"tôi bấm xuất video mà nó không xuất, chỉ tải video, tôi phải qua tab tải bấm xuất video đã tải nó mới xuất. fix lỗi nào đi. Nên có option xuất video đã tải, xuất chương đã tải cho commic"*.
+
+- **Nguyên nhân (khả năng cao, chưa kiểm được trên máy)**: Kệ, Tìm trên kệ, Bộ sưu tập, Chi tiết, tab Tải mỗi màn giữ hai state rời — sách (`selectedBookForTask`, item của `.sheet`) và loại tác vụ (`selectedTaskType`, mặc định `.download`) — và closure của sheet đọc loại tác vụ riêng. SwiftUI có thể dựng nội dung sheet bằng giá trị cũ ở lần mở đầu ⇒ ra sheet "Tải video", bấm Bắt đầu thành tác vụ tải.
+- **Sửa**: `TaskSheetRequest` (mới, `Views/Download/`) gộp sách + loại tác vụ + cờ "chỉ chương đã tải" làm **một** item cho `.sheet(item:)` ở cả 5 nơi (`ShelfView`, `ShelfSearchView(+Actions)`, `CollectionDetailView`, `BookDetailView` + `BookDetailActionSheetModifier`, `DownloadTrackerView`).
+- **"Xuất video đã tải" / "Xuất chương đã tải"**: nhãn ở sheet nhấn giữ, màn Chi tiết và tab Tải (thay "Xuất video", "Xuất CBZ/PDF"). `TaskOptionsSheet` xuất truyện tranh/video mặc định bắt đầu **từ đầu** (mọi tập/chương đã tải) thay vì từ tập/chương đang xem; vẫn đổi được mốc bắt đầu và số lượng.
+- Chuyển entry `[1.3.624]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — bấm "Xuất video đã tải" ở Kệ và Chi tiết ngay lần đầu mở app: sheet phải là "Xuất video", tác vụ là xuất.
+
 ## [1.3.653] - 2026-10-29
 
 ### fix: xuất video nhiều file chia sẻ được từng file thay vì thư mục

@@ -13,8 +13,25 @@ import Foundation
 /// `@MainActor` vì đọc `ExtensionLibraryRepository.shared.installed` (View gọi trong `body` thì Observation tự vẽ lại
 /// khi bảng tiện ích đổi). Chỉ dò `regexp` của tiện ích **có thể** quyết định (có công tắc, nguồn tiếng Trung, hoặc đã
 /// cấu hình dịch nguồn) nên mỗi lần commit trang không biên dịch regex của mọi tiện ích.
+///
+/// Cũng là nguồn duy nhất của cờ **phồn → giản trước khi dịch** (`convertsTraditional(urlString:)`, 1.3.684) — áp cho
+/// mọi lần dịch chữ của trang: dịch QT cả trang (kể cả bật bằng nút tay) và sheet "Dịch QT" khi bôi đen.
 @MainActor
 enum BrowserTranslatePolicy {
+    /// Khoá `UserDefaults` của công tắc chung phồn → giản (Cài đặt › Trình duyệt › Dịch trang), mặc định tắt. Viết
+    /// thường nên Backup tự gói. `nonisolated` để `@AppStorage` của View dùng được ở mọi ngữ cảnh.
+    nonisolated static let convertsTraditionalKey = "browserTranslateConvertsTraditional"
+
+    /// Phồn → giản trước khi dịch trang `urlString`: chỉnh riêng theo tên miền (`BrowserSitePreference.convertsTraditional`,
+    /// gộp tên miền cha như `preference(forHost:)`) ?? công tắc chung. **Không** theo tiện ích khớp URL.
+    static func convertsTraditional(urlString: String) -> Bool {
+        let host = URL(string: urlString)?.host
+        if let siteOverride = BrowserSitePreferenceStore.shared.preference(forHost: host)?.convertsTraditional {
+            return siteOverride
+        }
+        return UserDefaults.standard.bool(forKey: convertsTraditionalKey)
+    }
+
     static func resolve(urlString: String) -> BrowserTranslateResolution {
         guard let url = URL(string: urlString),
               let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",

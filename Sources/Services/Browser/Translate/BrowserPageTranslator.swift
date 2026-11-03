@@ -7,7 +7,9 @@ import WebKit
 ///
 /// Handler là `MessageHandler` lồng bên trong (proxy **không** giữ chủ): `WKUserContentController` giữ handler bằng
 /// tham chiếu mạnh, nên chủ (`BypassBrowserTabStore`) chỉ truyền closure `accepts` tự `[weak self]` để định tuyến theo
-/// `message.webView`. Namespace là `enum` để hàm dịch thuần không bị suy luận cô lập actor theo protocol của WebKit.
+/// `message.webView`, và closure `convertsTraditional` (phồn → giản theo URL trang, 1.3.684) — cả hai chạy trên main
+/// **trước** khi dịch, chỉ cờ `Bool` đi sang thread nền. Namespace là `enum` để hàm dịch thuần không bị suy luận cô lập
+/// actor theo protocol của WebKit.
 enum BrowserPageTranslator {
     static let messageHandlerName = "fbPageTranslate"
     /// Trần phía native — rộng hơn trần của script (120 mục / 12 000 ký tự) để lô hợp lệ không bao giờ bị cắt; mục
@@ -19,14 +21,20 @@ enum BrowserPageTranslator {
 
     /// Gỡ handler cùng tên **trong cùng world** trước khi thêm: thêm trùng tên là WebKit ném exception (tab con dùng
     /// chung `WKUserContentController` của tab mẹ). `accepts(webView)` chạy trên main, trả `false` khi webView không
-    /// thuộc tab nào đang dịch ⇒ trả nguyên văn.
+    /// thuộc tab nào đang dịch ⇒ trả nguyên văn. `convertsTraditional(webView)` cũng chạy trên main, mỗi lô một lần:
+    /// `true` ⇒ chuyển phồn thể → giản thể trước khi tra từ điển.
     static func installMessageHandler(
         into controller: WKUserContentController,
-        accepts: @escaping (WKWebView?) -> Bool
+        accepts: @escaping (WKWebView?) -> Bool,
+        convertsTraditional: @escaping (WKWebView?) -> Bool
     ) {
         let world = BrowserPageTranslateScript.contentWorld
         controller.removeScriptMessageHandler(forName: messageHandlerName, contentWorld: world)
-        controller.addScriptMessageHandler(MessageHandler(accepts: accepts), contentWorld: world, name: messageHandlerName)
+        controller.addScriptMessageHandler(
+            MessageHandler(accepts: accepts, convertsTraditional: convertsTraditional),
+            contentWorld: world,
+            name: messageHandlerName
+        )
     }
 
     // MARK: - Gọi JS (MainActor)
@@ -71,8 +79,9 @@ enum BrowserPageTranslator {
     // MARK: - Dịch
 
     /// Dịch từng mục, giữ đúng độ dài và thứ tự. Mục từ vị trí vượt `maxItemsPerBatch`/`maxCharactersPerBatch` trả
-    /// nguyên văn (script sẽ bỏ qua vì bản dịch trùng bản gốc). Hàm thuần — gọi từ thread nền.
-    static func translate(_ texts: [String]) -> [String] {
+    /// nguyên văn (script sẽ bỏ qua vì bản dịch trùng bản gốc). `convertsTraditional` ⇒ chuyển phồn → giản trước khi
+    /// tra từ điển (cờ đã tính trên main theo URL trang). Hàm thuần — gọi từ thread nền.
+    static func translate(_ texts: [String], convertsTraditional: Bool) -> [String] {
         var output: [String] = []
         output.reserveCapacity(texts.count)
         var budget = maxCharactersPerBatch
@@ -83,7 +92,11 @@ enum BrowserPageTranslator {
                 continue
             }
             budget -= length
-            let translated = TranslateUtils.translateContent(text, bookId: nil)
+            let translated = TranslateUtils.translateContent(
+                text,
+                bookId: nil,
+                shouldConvertTraditionalToSimplified: convertsTraditional
+            )
             output.append(translated.isEmpty ? text : translated)
         }
         return output
@@ -100,9 +113,11 @@ enum BrowserPageTranslator {
     /// Proxy handler có trả lời. **Luôn** gọi `replyHandler` đúng một lần ở mọi nhánh — WebKit kiểm tra việc này.
     final class MessageHandler: NSObject, WKScriptMessageHandlerWithReply {
         private let accepts: (WKWebView?) -> Bool
+        private let convertsTraditional: (WKWebView?) -> Bool
 
-        init(accepts: @escaping (WKWebView?) -> Bool) {
+        init(accepts: @escaping (WKWebView?) -> Bool, convertsTraditional: @escaping (WKWebView?) -> Bool) {
             self.accepts = accepts
+            self.convertsTraditional = convertsTraditional
             super.init()
         }
 
@@ -126,9 +141,11 @@ enum BrowserPageTranslator {
                 replyHandler(texts, nil)
                 return
             }
+            // Đọc cờ trên main (luật đọc chỉnh riêng theo tên miền + UserDefaults); chỉ `Bool` đi sang thread nền.
+            let converts = convertsTraditional(message.webView)
             Task { @MainActor in
                 let translated = await Task.detached(priority: .userInitiated) {
-                    BrowserPageTranslator.translate(texts)
+                    BrowserPageTranslator.translate(texts, convertsTraditional: converts)
                 }.value
                 replyHandler(translated, nil)
             }
