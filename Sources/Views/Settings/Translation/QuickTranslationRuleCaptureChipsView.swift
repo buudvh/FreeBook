@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// Dải chip `{0} {1} {2}…` cho ô **Bản dịch**: đếm token đang có trong mẫu, cho bấm để chèn tham
-/// chiếu, và nói ngay cái nào còn thiếu.
+/// Dải chip `{0} {1} {2}…` cho ô **Bản dịch**: đếm số `{i}` của mẫu, cho bấm để chèn tham chiếu, và
+/// nói ngay số nào chưa xuất ra bản dịch.
 ///
-/// Vì sao đáng làm: `UNUSED_CAPTURE` (token có trong mẫu mà bản dịch không dùng) và
-/// `INVALID_REF_INDEX` (`{5}` khi mẫu chỉ có 3 token) đều là lỗi **hard** — rule bị từ chối khi lưu.
-/// Trước đây người dùng gõ xong cả rule rồi mới biết, và chỉ thấy **một** lỗi đầu tiên.
+/// `INVALID_REF_INDEX` (`{5}` khi mẫu chỉ có 3 số) là lỗi **hard** — rule bị từ chối khi lưu, nên tô đỏ.
+/// `UNUSED_CAPTURE` (token chỉ dùng để khớp, bản dịch không dùng) chỉ là **cảnh báo** từ 1.3.339 — ví dụ
+/// cụm trong ngoặc mà rule muốn xoá — nên chip chưa dùng là chip thường, không đỏ.
 ///
-/// Số của chip là thứ tự token **theo vị trí xuất hiện, tính cả token nằm trong `(a|b)`**; bản thân
-/// nhóm không được đánh số.
+/// Số của chip lấy từ parser: token theo vị trí xuất hiện, nhưng các nhánh của một nhóm `(a|b)` **dùng
+/// chung số** (1.3.687); bản thân nhóm không được đánh số.
 struct QuickTranslationRuleCaptureChipsView: View {
     let analysis: QuickTranslationRuleDraftAnalyzer.Analysis
     let onInsert: (Int) -> Void
@@ -31,7 +31,7 @@ struct QuickTranslationRuleCaptureChipsView: View {
 
                 Text(summary)
                     .font(.caption2)
-                    .foregroundColor(analysis.missing.isEmpty ? .secondary : .red)
+                    .foregroundColor(.secondary)
             }
 
             if !analysis.outOfRange.isEmpty {
@@ -44,10 +44,10 @@ struct QuickTranslationRuleCaptureChipsView: View {
 
     private var summary: String {
         if analysis.missing.isEmpty {
-            return "\(analysis.captureCount) token · bản dịch đã dùng đủ."
+            return "\(analysis.captureCount) số {i} · bản dịch đã dùng đủ."
         }
         let list = analysis.missing.map { "{\($0)}" }.joined(separator: ", ")
-        return "\(analysis.captureCount) token · còn thiếu \(list); mọi token phải được dùng."
+        return "\(analysis.captureCount) số {i} · \(list) chỉ dùng để khớp, không xuất ra bản dịch."
     }
 
     private func chip(_ index: Int) -> some View {
@@ -64,19 +64,19 @@ struct QuickTranslationRuleCaptureChipsView: View {
                         .font(.system(size: 8, weight: .bold))
                 }
             }
-            .foregroundColor(isUsed ? .white : .red)
+            .foregroundColor(isUsed ? .white : .secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isUsed ? Color.white.opacity(0.18) : Color.red.opacity(0.08))
+                    .fill(isUsed ? Color.white.opacity(0.18) : Color(.tertiarySystemFill))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isUsed ? Color.white.opacity(0.35) : Color.red.opacity(0.6), lineWidth: 1)
+                    .stroke(isUsed ? Color.white.opacity(0.35) : .clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isUsed ? "Chèn thêm {\(index)}" : "Token {\(index)} chưa được dùng, bấm để chèn")
+        .accessibilityLabel(isUsed ? "Chèn thêm {\(index)}" : "{\(index)} chưa xuất ra bản dịch, bấm để chèn")
     }
 }

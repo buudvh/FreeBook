@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.657] - 2026-10-30
+
+### fix: load() không đè hàm của script chính, chi tiết đọc trường comment
+
+Người dùng gửi tiện ích Chuangshi QQ (Khám phá trả `{"baseUrl":…,"apiBase":…,"ok":true}` thay cho danh sách) và FQWeb Universal (*"vì sao script comment của ext này không chạy rồi fix chung luôn"*).
+
+- **`load('x.js')` theo hợp đồng = thay văn bản trước khi chạy** (`extension-api.md` của Darkrai9x): khai báo của script chính đứng sau file nạp nên thắng khi trùng tên. App cũ chạy file nạp **lúc gặp lời gọi** ⇒ `function execute()` của `config.js` (Chuangshi QQ có hàm này để thử cấu hình) đè `execute()` của script chính đã hoist từ trước ⇒ cả 7 script của tiện ích trả object cấu hình. Sửa: `JSExecutor+Load.swift` (mới, nhận khối `load` dời khỏi `init`) — `prepareScript` chạy trước các file mà script chính `load(...)` ở **cột 0** (cho phép BOM), rồi mới chạy script chính; file đã chạy trong lúc chuẩn bị ghi vào `preparedLibraries` ⇒ `load` cùng tên sau đó là no-op (không chạy lại file có `let` cấp cao nhất). `load` lúc runtime với file chưa nạp (`Script.execute("gen.js", "execute")`, `Qt.include`, lời gọi thụt lề trong thân hàm) giữ hành vi cũ. Số dòng của script chính không đổi (màn Debug). `JSExecutor.swift` 1012 ⇒ 988 dòng.
+- **Detail: trường `comment`** (một nguồn `{title, input, script}`, hiện trước `comments` — hợp đồng) trước đây bị bỏ qua ⇒ FQWeb Universal (chỉ trả `comment`, không có `title`) không bao giờ gọi `comment.js`. `ExtensionManager.detailCommentSources`: `comment` (object; lỡ là mảng thì đọc như `comments`) rồi `comments`, thiếu `title` ⇒ "Bình luận", script mặc định `comment.js`, trùng nguồn giữ một. `genres`/`suggests` giữ luật cũ (thiếu `title` ⇒ bỏ). `reviews` của hợp đồng vẫn chưa đọc.
+- Chuyển entry `[1.3.627]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; đối chiếu hợp đồng (`load()`, bảng trường detail); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — Khám phá/tìm/đọc của Chuangshi QQ, khối bình luận ở Chi tiết của FQWeb Universal.
+
 ## [1.3.656] - 2026-10-30
 
 ### fix: trình duyệt bôi đen thấy được, ô URL tìm Google, tự dịch nguồn tiếng Trung

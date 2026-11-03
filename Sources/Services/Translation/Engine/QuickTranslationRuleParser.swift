@@ -353,6 +353,8 @@ public enum QuickTranslationRuleParser {
         return kinds
     }
 
+    /// Các nhánh dùng chung số `{i}` (1.3.687, như `(?|…)` của PCRE): mỗi nhánh đánh số từ `base`, sau nhóm
+    /// đếm tiếp từ nhánh nhiều token nhất — mỗi lần khớp chỉ một nhánh có giá trị.
     private static func parseGroup(
         _ chars: [Character],
         from cursor: inout Int,
@@ -360,9 +362,12 @@ public enum QuickTranslationRuleParser {
     ) throws -> QuickTranslationRuleElement {
         cursor += 1 // bỏ '('
         var alternatives: [[QuickTranslationRuleElement]] = []
+        let base = captureCount
 
         while true {
-            let alternative = try parseSequence(chars, from: &cursor, stopAtCloseParen: true, captureCount: &captureCount)
+            var branchCount = base
+            let alternative = try parseSequence(chars, from: &cursor, stopAtCloseParen: true, captureCount: &branchCount)
+            captureCount = max(captureCount, branchCount)
             alternatives.append(alternative)
 
             guard cursor < chars.count else {

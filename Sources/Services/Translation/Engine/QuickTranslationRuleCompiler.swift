@@ -50,7 +50,7 @@ public enum QuickTranslationRuleCompiler {
                 note(.invalidRefIndex, "Tham chiếu {\(index)} vượt quá số token (\(rule.captureCount))")
             }
             for index in 0..<rule.captureCount where !referenced.contains(index) {
-                note(.unusedCapture, "Token thứ \(index) chỉ dùng để khớp, không xuất ra bản dịch (không có {\(index)})")
+                note(.unusedCapture, "Token {\(index)} chỉ dùng để khớp, không xuất ra bản dịch")
             }
 
             // `literalLength == 0` luôn kéo theo "không có neo", nên rule có `<any>` mà thiếu chữ cố định

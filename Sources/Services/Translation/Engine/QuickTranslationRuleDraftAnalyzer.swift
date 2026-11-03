@@ -14,11 +14,11 @@ public enum QuickTranslationRuleDraftAnalyzer {
     // MARK: - Verdict của một bản nháp
 
     public struct Analysis: Sendable {
-        /// Số token trong mẫu, đánh số theo thứ tự xuất hiện (kể cả token nằm trong nhóm).
+        /// Số `{i}` của mẫu, theo parser: các nhánh của một nhóm dùng chung số (1.3.687).
         public var captureCount: Int = 0
         /// Các `{i}` mà bản dịch đang tham chiếu.
         public var referenced: Set<Int> = []
-        /// Token có trong mẫu nhưng bản dịch chưa dùng — `UNUSED_CAPTURE`, lỗi **hard**.
+        /// Token có trong mẫu nhưng bản dịch chưa dùng — `UNUSED_CAPTURE`, chỉ là **cảnh báo** (từ 1.3.339).
         public var missing: [Int] = []
         /// `{i}` vượt quá số token — `INVALID_REF_INDEX`, lỗi **hard**.
         public var outOfRange: [Int] = []
@@ -65,8 +65,9 @@ public enum QuickTranslationRuleDraftAnalyzer {
     /// cú pháp nhóm là chip riêng, còn lại là từng ký tự.
     ///
     /// Cắt phẳng chứ không đi theo cây: nhờ vậy token nằm trong `(a|<n>)` vẫn chọn và sửa được như
-    /// token ở ngoài, và `tokenOrdinal` khớp đúng `captureIndex` của parser vì cả hai đều đánh số
-    /// theo thứ tự xuất hiện từ trái sang phải.
+    /// token ở ngoài. Số `{i}` (`tokenOrdinal`) thì **hỏi parser** chứ không tự đếm: từ 1.3.687 các nhánh
+    /// của một nhóm dùng chung số, nên hai chip có thể cùng số — muốn định vị đúng một chip thì dùng
+    /// `tokenPosition`.
     public struct Segment: Identifiable, Sendable {
         public enum Kind: Equatable, Sendable {
             /// Ký tự thường. `\x` giữ nguyên hai ký tự trong một chip để không mất dấu escape.
@@ -84,8 +85,12 @@ public enum QuickTranslationRuleDraftAnalyzer {
         /// Vị trí trong `Array(pattern)`: mọi chỉ số UI cầm đều là **chỉ số ký tự**, không phải UTF-16.
         public let start: Int
         public let length: Int
-        /// Thứ tự token, chỉ đếm chip `.token`; `nil` với literal và cú pháp nhóm.
+        /// Số `{i}` của token, đúng `captureIndex` của parser (các nhánh của một nhóm dùng chung số);
+        /// `nil` với literal, cú pháp nhóm và neo dòng.
         public let tokenOrdinal: Int?
+        /// Vị trí **duy nhất** của token theo thứ tự xuất hiện — dùng để định vị chip khi sửa, vì
+        /// `tokenOrdinal` có thể trùng giữa các nhánh. `nil` khi `tokenOrdinal` là `nil`.
+        public let tokenPosition: Int?
 
         public var end: Int { start + length }
         public var range: Range<Int> { start..<end }
@@ -97,14 +102,16 @@ public enum QuickTranslationRuleDraftAnalyzer {
         var cursor = 0
         var tokenCount = 0
 
-        func append(_ kind: Segment.Kind, length: Int, ordinal: Int? = nil) {
+        // Cắt trước với số phẳng (`tokenOrdinal == tokenPosition`), cuối hàm mới thay bằng số của parser.
+        func append(_ kind: Segment.Kind, length: Int, position: Int? = nil) {
             result.append(Segment(
                 id: result.count,
                 kind: kind,
                 text: String(chars[cursor..<(cursor + length)]),
                 start: cursor,
                 length: length,
-                tokenOrdinal: ordinal
+                tokenOrdinal: position,
+                tokenPosition: position
             ))
             cursor += length
         }
@@ -120,13 +127,13 @@ public enum QuickTranslationRuleDraftAnalyzer {
             if char == "<", let close = chars[cursor...].firstIndex(of: ">") {
                 var length = close - cursor + 1
                 if close + 1 < chars.count, chars[close + 1] == "?" { length += 1 }
-                // Neo dòng không được parser cấp số capture ⇒ không đánh số, để thứ tự của các token
-                // phía sau vẫn khớp `captureIndex`.
+                // Neo dòng không được parser cấp số capture ⇒ không đánh số, để vị trí của các token
+                // phía sau vẫn khớp danh sách `captureIndex` lấy từ parser.
                 if QuickTranslationRuleParser.isLineAnchorSpec(String(chars[(cursor + 1)..<close])) {
                     append(.token, length: length)
                     continue
                 }
-                append(.token, length: length, ordinal: tokenCount)
+                append(.token, length: length, position: tokenCount)
                 tokenCount += 1
                 continue
             }
@@ -140,7 +147,42 @@ public enum QuickTranslationRuleDraftAnalyzer {
             append(.literal, length: 1)
         }
 
-        return result
+        // Mẫu chưa parse được, hoặc số token của parser lệch số chip (không nên xảy ra) ⇒ giữ số phẳng.
+        guard let captureIndices = captureIndicesInSourceOrder(of: pattern),
+              captureIndices.count == tokenCount else { return result }
+        return result.map { segment in
+            Segment(
+                id: segment.id,
+                kind: segment.kind,
+                text: segment.text,
+                start: segment.start,
+                length: segment.length,
+                tokenOrdinal: segment.tokenPosition.map { captureIndices[$0] },
+                tokenPosition: segment.tokenPosition
+            )
+        }
+    }
+
+    /// `captureIndex` của từng token theo thứ tự nguồn, lấy từ AST của **chính parser** để không có
+    /// luật đánh số thứ hai. `nil` khi mẫu chưa parse được (đang gõ dở, thiếu `)`…) ⇒ đánh số phẳng.
+    private static func captureIndicesInSourceOrder(of pattern: String) -> [Int]? {
+        let text = QuickTranslationRuleRecordStore.serialize([
+            QuickTranslationRuleRecordStore.Record(pattern: pattern, replacement: "")
+        ])
+        guard let rule = QuickTranslationRuleParser.parse(text).rules.first else { return nil }
+
+        var indices: [Int] = []
+        func collect(_ elements: [QuickTranslationRuleElement]) {
+            for element in elements {
+                if case .group(let alternatives) = element.kind {
+                    alternatives.forEach(collect)
+                } else if let index = element.captureIndex {
+                    indices.append(index)
+                }
+            }
+        }
+        collect(rule.elements)
+        return indices
     }
 
     // MARK: - Một token và khoảng độ dài của nó
@@ -258,8 +300,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         return String(chars)
     }
 
-    public static func replacing(tokenOrdinal: Int, in pattern: String, with spec: TokenSpec) -> String {
-        guard let segment = segments(of: pattern).first(where: { $0.tokenOrdinal == tokenOrdinal }) else {
+    public static func replacing(tokenPosition: Int, in pattern: String, with spec: TokenSpec) -> String {
+        guard let segment = segments(of: pattern).first(where: { $0.tokenPosition == tokenPosition }) else {
             return pattern
         }
         return replacing(range: segment.range, in: pattern, with: spec.syntax)

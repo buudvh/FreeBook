@@ -64,24 +64,25 @@ extension QuickTranslationRuleEditorSheet {
         setPattern(updated, caret: start + Array(text).count)
     }
 
-    /// Thay token thứ `tokenOrdinal` bằng cú pháp mới.
+    /// Thay token ở vị trí `tokenPosition` bằng cú pháp mới.
     ///
-    /// Nhận **thứ tự token** chứ không nhận `Segment`: `Segment` mang `range` tính trên mẫu **lúc dựng
+    /// Nhận **vị trí token** chứ không nhận `Segment`: `Segment` mang `range` tính trên mẫu **lúc dựng
     /// body**, mà `applyTokenSpec` có thể được gọi sau khi mẫu đã đổi. Range cũ + `replacing(range:)`
     /// (chỉ kẹp về biên chuỗi) = cắt sai chỗ **im lặng**, để lại rác ở đuôi (`<n:1-8>1-9>`).
-    /// `replacing(tokenOrdinal:)` tự định vị lại token trên mẫu hiện tại.
+    /// `replacing(tokenPosition:)` tự định vị lại token trên mẫu hiện tại. Không dùng số `{i}`: các nhánh
+    /// của một nhóm dùng chung số (1.3.687), sửa theo số là sửa nhầm token của nhánh đầu.
     func applyTokenSpec(
         _ spec: QuickTranslationRuleDraftAnalyzer.TokenSpec,
-        tokenOrdinal: Int
+        tokenPosition: Int
     ) {
         let updated = QuickTranslationRuleDraftAnalyzer.replacing(
-            tokenOrdinal: tokenOrdinal,
+            tokenPosition: tokenPosition,
             in: pattern,
             with: spec
         )
-        // Không còn token thứ đó (mẫu đã bị sửa từ đường khác) ⇒ không đổi gì, không di con trỏ.
+        // Không còn token ở vị trí đó (mẫu đã bị sửa từ đường khác) ⇒ không đổi gì, không di con trỏ.
         guard let segment = QuickTranslationRuleDraftAnalyzer.segments(of: updated)
-            .first(where: { $0.tokenOrdinal == tokenOrdinal }) else { return }
+            .first(where: { $0.tokenPosition == tokenPosition }) else { return }
         setPattern(updated, caret: segment.end)
     }
 
@@ -246,10 +247,10 @@ extension QuickTranslationRuleEditorSheet {
             QuickTranslationRuleTokenPaletteView { insertIntoPattern($0) }
 
             if let segment = selectedTokenSegment(in: segments),
-               let ordinal = segment.tokenOrdinal,
+               let position = segment.tokenPosition,
                let spec = QuickTranslationRuleDraftAnalyzer.tokenSpec(of: segment.text) {
                 QuickTranslationRuleTokenLengthBar(spec: spec) { updated in
-                    applyTokenSpec(updated, tokenOrdinal: ordinal)
+                    applyTokenSpec(updated, tokenPosition: position)
                 }
             }
         } header: {
@@ -261,7 +262,7 @@ extension QuickTranslationRuleEditorSheet {
     /// nằm ở `editInfoSection`.
     private var patternHelpParagraphs: [LocalizedStringKey] {
         var paragraphs: [LocalizedStringKey] = [
-            "Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển, `<any>` cụm ký tự bất kỳ kể cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng (mặc định 1-50, chỉnh tới 100; trả nguyên văn rồi dịch tiếp bằng từ điển — ví dụ `<any:1-6>的<any:1-6> = {1} của {0}`; rule có `<any>` phải có ít nhất một chữ cố định), `<^>`/`<$>` neo đầu/cuối dòng (bỏ qua khoảng trắng thụt đầu/thừa cuối, không nuốt ký tự, không được đánh số — ví dụ `<^>第<n>章 = Chương {0}`). `<L>`, `<hv>` và `<m>` luôn đúng một ký tự, `<^>`/`<$>` không chiếm ký tự, nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy."
+            "Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển, `<any>` cụm ký tự bất kỳ kể cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng (mặc định 1-50, chỉnh tới 100; trả nguyên văn rồi dịch tiếp bằng từ điển — ví dụ `<any:1-6>的<any:1-6> = {1} của {0}`; rule có `<any>` phải có ít nhất một chữ cố định), `<^>`/`<$>` neo đầu/cuối dòng (bỏ qua khoảng trắng thụt đầu/thừa cuối, không nuốt ký tự, không được đánh số — ví dụ `<^>第<n>章 = Chương {0}`). `<L>`, `<hv>` và `<m>` luôn đúng một ký tự, `<^>`/`<$>` không chiếm ký tự, nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số; token trong các nhánh của cùng một nhóm **dùng chung số** `{i}`, vì mỗi lần khớp chỉ một nhánh có giá trị — ví dụ `(（<any>）|【<any>】)` chỉ sinh một `{i}`. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy."
         ]
         if case .edit = mode {
             paragraphs.append("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")

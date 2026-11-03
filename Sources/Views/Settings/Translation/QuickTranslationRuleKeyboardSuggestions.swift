@@ -5,8 +5,9 @@ import Foundation
 ///
 /// - Ô **Mẫu**: đủ token (`<n>`, `<y>`… theo đúng thứ tự nhóm của `QuickTranslationRuleTokenPaletteView`) rồi tới cú pháp
 ///   nhóm `( | ) )?`; token đang tắt ở Cấu hình token rule hiện mờ, giống bảng token.
-/// - Ô **Bản dịch**: `{0} {1}…` theo token của mẫu; đã dùng có ✓, chưa dùng hiện đỏ (`UNUSED_CAPTURE` là lỗi hard). Mẫu
-///   chưa có token ⇒ `nil` ⇒ không có hàng.
+/// - Ô **Bản dịch**: `{0} {1}…` theo số `{i}` của parser — các nhánh của một nhóm dùng chung số (1.3.687) nên mỗi số chỉ
+///   một chip. Đã dùng có ✓, chưa dùng là chip thường: `UNUSED_CAPTURE` chỉ là cảnh báo (token dùng để khớp mà không
+///   xuất ra), không tô đỏ như lỗi. Mẫu chưa có token ⇒ `nil` ⇒ không có hàng.
 ///
 /// **Lọc theo phần gõ dở** (mockup đã duyệt 2026-10-21): sát trước con trỏ là `<` + chữ cái (vd `<h`) thì chỉ còn token
 /// bắt đầu bằng đoạn đó (không phân biệt hoa thường), và chip thay luôn đoạn gõ dở; với ô Bản dịch là `{` + chữ số. Không
@@ -102,25 +103,26 @@ enum QuickTranslationRuleKeyboardSuggestions {
         let analysis = QuickTranslationRuleDraftAnalyzer.analyze(pattern: pattern, replacement: replacement)
         guard analysis.captureCount > 0 else { return nil }
 
-        // Token gốc của từng `{i}` — chỉ để đọc cho VoiceOver, chip chỉ hiện `{i}` cho gọn một dòng.
-        var tokenTexts: [Int: String] = [:]
+        // Token gốc của từng `{i}` — chỉ để đọc cho VoiceOver, chip chỉ hiện `{i}` cho gọn một dòng. Một số có thể
+        // ứng với nhiều token (mỗi nhánh của nhóm một token) ⇒ ghép lại.
+        var tokenTexts: [Int: [String]] = [:]
         for segment in QuickTranslationRuleDraftAnalyzer.segments(of: pattern) {
             if let ordinal = segment.tokenOrdinal {
-                tokenTexts[ordinal] = segment.text
+                tokenTexts[ordinal, default: []].append(segment.text)
             }
         }
 
         let all = (0..<analysis.captureCount).map { index -> KeyboardSuggestion in
             let reference = "{\(index)}"
             let isUsed = analysis.referenced.contains(index)
-            let source = tokenTexts[index].map { " (token \($0))" } ?? ""
+            let source = tokenTexts[index].map { " (token \($0.joined(separator: " / ")))" } ?? ""
             return KeyboardSuggestion(
                 text: reference,
                 replacingPrefix: "",
-                style: isUsed ? .used : .missing,
+                style: isUsed ? .used : .normal,
                 accessibilityLabel: isUsed
                     ? "Chèn thêm \(reference)\(source)"
-                    : "\(reference)\(source) chưa được dùng, bấm để chèn"
+                    : "\(reference)\(source) chưa xuất ra bản dịch, bấm để chèn"
             )
         }
 

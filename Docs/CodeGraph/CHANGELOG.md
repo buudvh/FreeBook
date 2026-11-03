@@ -2,6 +2,35 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.687] - 2026-11-03
+
+### feat: các nhánh của một nhóm trong rule dịch dùng chung số {i}
+
+Người dùng: *"nhiều any ngăn cách bởi | thật ra chỉ có một nhưng gợi ý nhập phần nghĩa lại không nhận ra"*. Đã chốt: áp **mặc định** cho mọi nhóm, không cần cú pháp riêng.
+
+- **Parser** (`QuickTranslationRuleParser.parseGroup`): mỗi nhánh của nhóm `( | )` đánh số từ **cùng một số**; sau nhóm, số tiếp theo nối từ nhánh nhiều token nhất. Giống `(?|…)` của PCRE.
+  - `第<n><L><any>(\(<any>\)|（<any>）|【<any>】)<$>` giờ chỉ có `{0}…{3}`, trong đó `{3}` là nội dung ngoặc của nhánh khớp.
+  - `(<n>|<a><d>)<L>`: `<n>` = 0; `<a>` = 0, `<d>` = 1; `<L>` = 2.
+  - Nhóm lồng áp luật theo từng tầng. `|` ngoài nhóm vẫn là chữ thường.
+  - Matcher không đổi: nhánh không khớp để `{i}` rỗng như trước.
+- **Màn sửa rule** (`QuickTranslationRuleDraftAnalyzer.segments`):
+  - Số `{i}` của chip lấy từ AST của parser, không tự đếm. Mẫu đang gõ dở chưa parse được thì lùi về đánh số phẳng.
+  - `Segment` thêm `tokenPosition` (vị trí duy nhất). Thanh chỉnh độ dài định vị chip bằng vị trí này (`replacing(tokenPosition:)`, `applyTokenSpec`), nên chỉnh `<any>` ở nhánh 2 không sửa nhầm nhánh 1.
+- **Gợi ý ô Bản dịch và dải chip `{i}`:**
+  - Mỗi số một chip; nhãn VoiceOver ghép các token chung số.
+  - Token chưa dùng **không còn tô đỏ như lỗi**, vì `UNUSED_CAPTURE` chỉ là cảnh báo từ 1.3.339. Câu "mọi token phải được dùng" đổi thành "{i} chỉ dùng để khớp, không xuất ra bản dịch". Lời cảnh báo của compiler ghi theo số `{i}`.
+- Câu giải thích token ở màn sửa rule và đoạn token trong `CLAUDE.md` / `AGENTS.md` ghi luật chung số.
+- **Đổi hành vi rule cũ:** rule có token ở từ 2 nhánh trở lên của cùng một nhóm sẽ bị dời số. `{i}` vượt số token thì rule báo lỗi và không chạy; còn trong khoảng thì trỏ sang token khác. Bộ rule mặc định tải về (633 rule) đã quét: không rule nào bị ảnh hưởng.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Dò tay trên code các mẫu:
+  - `(<n>|<a><d>)<L>`
+  - `((<n>|<a>)<d>|<any>)`
+  - `a|<n>`
+  - `\(` và `\|`
+  - mẫu thiếu `)`
+  - rule ngoặc ở trên
+
+  Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.686] - 2026-11-03
 
 ### feat: neo đầu/cuối dòng <^> <$> và <any> bắt mọi ký tự trong rule dịch
@@ -482,14 +511,3 @@ Người dùng: *"dù đã dọn dẹp/xoá tác vụ xuất (truyện, video, c
 - **Khởi động**: `initialize` dọn `.part` sót lại một lần mỗi lần chạy app, chỉ mục sửa lần cuối trước mốc khởi động. Xoá truyện vẫn không xoá bản xuất.
 - Chuyển entry `[1.3.628]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.657] - 2026-10-30
-
-### fix: load() không đè hàm của script chính, chi tiết đọc trường comment
-
-Người dùng gửi tiện ích Chuangshi QQ (Khám phá trả `{"baseUrl":…,"apiBase":…,"ok":true}` thay cho danh sách) và FQWeb Universal (*"vì sao script comment của ext này không chạy rồi fix chung luôn"*).
-
-- **`load('x.js')` theo hợp đồng = thay văn bản trước khi chạy** (`extension-api.md` của Darkrai9x): khai báo của script chính đứng sau file nạp nên thắng khi trùng tên. App cũ chạy file nạp **lúc gặp lời gọi** ⇒ `function execute()` của `config.js` (Chuangshi QQ có hàm này để thử cấu hình) đè `execute()` của script chính đã hoist từ trước ⇒ cả 7 script của tiện ích trả object cấu hình. Sửa: `JSExecutor+Load.swift` (mới, nhận khối `load` dời khỏi `init`) — `prepareScript` chạy trước các file mà script chính `load(...)` ở **cột 0** (cho phép BOM), rồi mới chạy script chính; file đã chạy trong lúc chuẩn bị ghi vào `preparedLibraries` ⇒ `load` cùng tên sau đó là no-op (không chạy lại file có `let` cấp cao nhất). `load` lúc runtime với file chưa nạp (`Script.execute("gen.js", "execute")`, `Qt.include`, lời gọi thụt lề trong thân hàm) giữ hành vi cũ. Số dòng của script chính không đổi (màn Debug). `JSExecutor.swift` 1012 ⇒ 988 dòng.
-- **Detail: trường `comment`** (một nguồn `{title, input, script}`, hiện trước `comments` — hợp đồng) trước đây bị bỏ qua ⇒ FQWeb Universal (chỉ trả `comment`, không có `title`) không bao giờ gọi `comment.js`. `ExtensionManager.detailCommentSources`: `comment` (object; lỡ là mảng thì đọc như `comments`) rồi `comments`, thiếu `title` ⇒ "Bình luận", script mặc định `comment.js`, trùng nguồn giữ một. `genres`/`suggests` giữ luật cũ (thiếu `title` ⇒ bỏ). `reviews` của hợp đồng vẫn chưa đọc.
-- Chuyển entry `[1.3.627]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; đối chiếu hợp đồng (`load()`, bảng trường detail); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — Khám phá/tìm/đọc của Chuangshi QQ, khối bình luận ở Chi tiết của FQWeb Universal.
