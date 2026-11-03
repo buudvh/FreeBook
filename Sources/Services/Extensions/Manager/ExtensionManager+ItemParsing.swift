@@ -40,24 +40,63 @@ extension ExtensionManager {
     }
 
     /// Một item danh sách. `nameKeys`: script tuỳ chọn (bình luận…) còn nhận `username`/`author` làm tên.
+    /// Trường của bình luận (`avatar`, `replies`, `reply_source`, `reply_count`) đọc cho mọi item — thiếu thì rỗng.
+    /// `replyDepth > 0` = đang đọc một trả lời: không đọc `replies`/`reply_source` của nó (`commentReplies` lo).
     internal static func listItem(
         from dict: [String: JSValue],
         nameKeys: [String] = ["name"],
-        sourceHost: String?
+        sourceHost: String?,
+        replyDepth: Int = 0
     ) -> ExtensionItemResult {
         let host = JSValueReader.cleanString(dict["host"]) ?? ""
         let cover = firstString(dict, ["cover"]) ?? ""
+        let assetHost = coverHost(itemHost: host, sourceHost: sourceHost)
+        let isTopLevel = replyDepth == 0
         return ExtensionItemResult(
             name: firstString(dict, nameKeys) ?? "",
             author: firstString(dict, ["author"]) ?? "",
             description: firstString(dict, ["description", "desc"]) ?? "",
             content: firstString(dict, ["content"]) ?? "",
-            cover: ExtensionURLFormatter.resolveAssetURL(cover, host: coverHost(itemHost: host, sourceHost: sourceHost)),
+            cover: ExtensionURLFormatter.resolveAssetURL(cover, host: assetHost),
             link: firstString(dict, ["link", "url"]) ?? "",
             host: host,
             tag: (firstString(dict, ["tag"]) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-            type: (firstString(dict, ["type"]) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            type: (firstString(dict, ["type"]) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+            avatar: ExtensionURLFormatter.resolveAssetURL(firstString(dict, ["avatar"]) ?? "", host: assetHost),
+            replies: isTopLevel ? commentReplies(dict["replies"], nameKeys: nameKeys, sourceHost: sourceHost, depth: 1) : [],
+            replySource: isTopLevel ? commentReplySource(dict["reply_source"]) : nil,
+            replyCount: JSValueReader.int(dict["reply_count"]).flatMap { $0 > 0 ? $0 : nil }
         )
+    }
+
+    /// Trần độ sâu khi đọc `replies` lồng nhau — script lỗi trả vòng lặp object không làm treo parse.
+    private static let maxReplyDepth = 8
+
+    /// `replies` của bình luận (hợp đồng: mảng cùng dạng bình luận, lồng tuỳ ý). App hiện **một** cấp ⇒ trả lời của
+    /// trả lời đứng ngay sau trả lời cha. Trả lời không có cả nội dung lẫn mô tả bị bỏ (cùng luật với bình luận).
+    internal static func commentReplies(_ value: JSValue?, nameKeys: [String], sourceHost: String?, depth: Int) -> [ExtensionItemResult] {
+        guard depth <= maxReplyDepth else { return [] }
+        var result: [ExtensionItemResult] = []
+        for element in JSValueReader.array(value) where JSValueReader.isPlainObject(element) {
+            var dict: [String: JSValue] = [:]
+            for key in JSValueReader.keys(element) {
+                dict[key] = element.forProperty(key)
+            }
+            let reply = listItem(from: dict, nameKeys: nameKeys, sourceHost: sourceHost, replyDepth: depth)
+            if !reply.content.isEmpty || !reply.description.isEmpty {
+                result.append(reply)
+            }
+            result.append(contentsOf: commentReplies(dict["replies"], nameKeys: nameKeys, sourceHost: sourceHost, depth: depth + 1))
+        }
+        return result
+    }
+
+    /// `reply_source: {input, script}` — thiếu `input` ⇒ không có nguồn; thiếu `script` ⇒ `comment.js`.
+    private static func commentReplySource(_ value: JSValue?) -> CommentReplySource? {
+        guard let value, JSValueReader.isPlainObject(value),
+              let input = JSValueReader.cleanString(value.forProperty("input")), !input.isEmpty else { return nil }
+        let script = ExtensionHostResolver.nonEmpty(JSValueReader.cleanString(value.forProperty("script"))) ?? "comment.js"
+        return CommentReplySource(input: input, script: script)
     }
 
     /// Một dòng mục lục. Thiếu khoá `host` (hoặc `undefined`/`null`) ⇒ `source`; `host: ""` ⇒ giữ `""`.

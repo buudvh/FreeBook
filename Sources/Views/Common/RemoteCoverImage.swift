@@ -13,6 +13,8 @@ struct RemoteCoverImage: View {
     let url: String
     let referer: String?
     let contentMode: ContentMode
+    /// SF Symbol của placeholder (đang tải / lỗi) — avatar bình luận dùng hình người thay cho `photo`.
+    let placeholderSymbol: String
 
     @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
@@ -22,10 +24,11 @@ struct RemoteCoverImage: View {
     /// Làm tròn cỡ pixel lên bội số này: khung đổi vài điểm không kích hoạt tải/giải mã lại.
     private static let pixelBucket: CGFloat = 32
 
-    init(url: String, referer: String?, contentMode: ContentMode = .fill) {
+    init(url: String, referer: String?, contentMode: ContentMode = .fill, placeholderSymbol: String = "photo") {
         self.url = url
         self.referer = referer
         self.contentMode = contentMode
+        self.placeholderSymbol = placeholderSymbol
     }
 
     var body: some View {
@@ -57,7 +60,7 @@ struct RemoteCoverImage: View {
     private func placeholder(size: CGSize) -> some View {
         ZStack {
             Color.gray.opacity(0.15)
-            Image(systemName: "photo")
+            Image(systemName: placeholderSymbol)
                 .font(.system(size: max(10, min(size.width, size.height) * 0.28)))
                 .foregroundColor(.secondary.opacity(0.5))
         }

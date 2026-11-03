@@ -134,6 +134,11 @@ public struct ExpandableTextView: View {
     let font: Font
     let foregroundColor: Color
     let isJustified: Bool
+    /// Cỡ chữ nút "Xem thêm / Thu gọn" — trả lời bình luận dùng cỡ nhỏ hơn.
+    let toggleFont: Font
+    /// Nút phụ đặt **cùng hàng**, sát phải nút "Xem thêm" (bình luận: "N trả lời"). Có nút phụ thì hàng luôn hiện,
+    /// kể cả khi chữ không bị cắt.
+    let trailingAccessory: AnyView?
 
     @State private var isExpanded = false
     @State private var isTruncated = false
@@ -147,13 +152,17 @@ public struct ExpandableTextView: View {
         lineLimit: Int,
         font: Font = .body,
         foregroundColor: Color = .secondary,
-        isJustified: Bool = false
+        isJustified: Bool = false,
+        toggleFont: Font = .subheadline,
+        trailingAccessory: AnyView? = nil
     ) {
         self.text = text
         self.lineLimit = lineLimit
         self.font = font
         self.foregroundColor = foregroundColor
         self.isJustified = isJustified
+        self.toggleFont = toggleFont
+        self.trailingAccessory = trailingAccessory
     }
 
     public var body: some View {
@@ -165,20 +174,15 @@ public struct ExpandableTextView: View {
                     }
                 )
 
-            if isTruncated {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
+            if isTruncated || trailingAccessory != nil {
+                HStack(spacing: 8) {
+                    if isTruncated {
+                        toggleButton
                     }
-                }) {
-                    HStack(spacing: 4) {
-                        Text(isExpanded ? "Thu gọn" : "Xem thêm")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption)
+                    if let trailingAccessory {
+                        Spacer(minLength: 0)
+                        trailingAccessory
                     }
-                    .foregroundColor(.white)
                 }
                 .padding(.top, 2)
             }
@@ -209,6 +213,23 @@ public struct ExpandableTextView: View {
             isExpanded = false
             isTruncated = false
             measurementToken += 1
+        }
+    }
+
+    private var toggleButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded.toggle()
+            }
+        }) {
+            HStack(spacing: 4) {
+                Text(isExpanded ? "Thu gọn" : "Xem thêm")
+                    .font(toggleFont)
+                    .fontWeight(.medium)
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption)
+            }
+            .foregroundColor(.white)
         }
     }
 

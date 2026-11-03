@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Thẻ bình luận của tab Chi tiết (`BookDetailSectionCard`): tối đa 3 bình luận cách nhau bằng vạch, cuối thẻ là nút
-/// "Xem tất cả bình luận" (`AllCommentsView`) khi còn nhiều hơn.
+/// Thẻ bình luận của tab Chi tiết (`BookDetailSectionCard`): tối đa 3 bình luận (`CommentRowView`, trả lời thu gọn)
+/// cách nhau bằng vạch, cuối thẻ là nút "Xem tất cả bình luận" (`AllCommentsView`) khi còn nhiều hơn.
 struct CommentSectionView: View {
     /// Tiêu đề thẻ (đã dịch nếu cần) — `BookDetailView` truyền `translateMetaIfNeeded(category.title)`.
     let title: String
@@ -92,48 +92,20 @@ struct CommentSectionView: View {
                 let displayComments = Array(comments.prefix(3))
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(displayComments) { comment in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "person.circle.fill")
-                                    .resizable()
-                                    .frame(width: 24, height: 24)
-                                    .foregroundColor(.secondary.opacity(0.6))
-                                
-                                let commentatorName = (isTranslationEnabled && TranslateUtils.containsChinese(comment.name)) ? TranslateUtils.translateMeta(comment.name) : comment.name
-                                Text(commentatorName)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                if !comment.description.isEmpty {
-                                    let cleanedDesc = comment.description.cleanHTML()
-                                    let descText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
-                                    Text(descText)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary.opacity(0.8))
-                                }
-                            }
-                            
-                            let rawCommentContent = !comment.content.isEmpty ? comment.content : comment.description
-                            if !rawCommentContent.isEmpty {
-                                let cleanedContent = rawCommentContent.cleanHTML()
-                                let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedContent)) ? TranslateUtils.translateMeta(cleanedContent) : cleanedContent
-                                ExpandableTextView(
-                                    text: commentText,
-                                    lineLimit: 3,
-                                    font: .footnote,
-                                    foregroundColor: .secondary
-                                )
-                                .padding(.leading, 32)
-                            }
-                        }
+                        CommentRowView(
+                            comment: comment,
+                            avatarSize: 32,
+                            localPath: localPath,
+                            downloadUrl: downloadUrl,
+                            configJson: configJson,
+                            isTranslationEnabled: isTranslationEnabled,
+                            host: host
+                        )
 
                         // Vạch chỉ nằm **giữa** hai bình luận — dưới bình luận cuối là nút / mép thẻ.
                         if comment.id != displayComments.last?.id {
                             Divider()
-                                .padding(.leading, 32)
+                                .padding(.leading, 40)
                         }
                     }
 

@@ -56,43 +56,15 @@ struct AllCommentsView: View {
             } else {
                 List {
                     ForEach(comments) { comment in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "person.circle.fill")
-                                    .resizable()
-                                    .frame(width: 28, height: 28)
-                                    .foregroundColor(.secondary.opacity(0.6))
-                                
-                                let commentatorName = (isTranslationEnabled && TranslateUtils.containsChinese(comment.name)) ? TranslateUtils.translateMeta(comment.name) : comment.name
-                                Text(commentatorName)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                if !comment.description.isEmpty {
-                                    let cleanedDesc = comment.description.cleanHTML()
-                                    let descText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
-                                    Text(descText)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary.opacity(0.8))
-                                }
-                            }
-                            
-                            let rawCommentContent = !comment.content.isEmpty ? comment.content : comment.description
-                            if !rawCommentContent.isEmpty {
-                                let cleanedContent = rawCommentContent.cleanHTML()
-                                let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedContent)) ? TranslateUtils.translateMeta(cleanedContent) : cleanedContent
-                                ExpandableTextView(
-                                    text: commentText,
-                                    lineLimit: 3,
-                                    font: .footnote,
-                                    foregroundColor: .secondary
-                                )
-                                .padding(.leading, 36)
-                            }
-                        }
+                        CommentRowView(
+                            comment: comment,
+                            avatarSize: 36,
+                            localPath: localPath,
+                            downloadUrl: downloadUrl,
+                            configJson: configJson,
+                            isTranslationEnabled: isTranslationEnabled,
+                            host: host
+                        )
                         // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
                         .bookListPanelRow()
                         .onAppear {

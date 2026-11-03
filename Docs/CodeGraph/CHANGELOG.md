@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.680] - 2026-11-03
+
+### feat: bình luận hiện avatar người bình luận và các trả lời
+
+Người dùng: *"app chưa làm: replies của comment chưa được hiển, avatar cũng chưa được dùng để hiển thị avatar người comment. xem ext qimao của đường đen để hiểu rõ hơn"*. Chốt bằng mockup + bảng chọn (thẻ Chi tiết chỉ dòng "N trả lời", xổ tại chỗ, mô tả dưới tên, hàng nút kiểu B, qimao tải trả lời khi bấm) rồi duyệt plan.
+
+- **Đọc dữ liệu** (`ExtensionManager+ItemParsing.listItem`): mỗi item đọc thêm `avatar` (resolve như bìa: host item → `source`) và `replies` theo template script bình luận của hợp đồng (mảng cùng dạng bình luận, lồng nhau) — app hiện **một** cấp, trả lời của trả lời đứng ngay sau trả lời cha (`commentReplies`, sâu tối đa 8), trả lời không có nội dung lẫn mô tả bị bỏ. Khoá riêng của FreeBook (hợp đồng không có): `reply_source: {input, script}` (`CommentReplySource`, mới) + `reply_count` = trả lời **tải khi bấm**, chỉ dùng khi `replies` rỗng. `ExtensionItemResult` thêm `avatar`, `replies`, `replySource`, `replyCount` (đều có mặc định).
+- **Hàng bình luận dùng chung** (`CommentRowView`, mới, `Views/BookDetail/Comments/`): thay khối chép trùng ở thẻ Chi tiết (`CommentSectionView`) và Tất cả bình luận (`AllCommentsView`). Avatar tròn 32pt / 36pt (`CommentAvatarView`, mới — không có URL thì hình người xám như cũ, đang tải / lỗi thì placeholder hình người), tên, dòng mô tả **dưới** tên (trước nằm bên phải tên; không có nội dung thì mô tả làm thân, không lặp), nội dung 3 dòng. Có trả lời ⇒ cùng hàng với "Xem thêm" (trái) là "💬 N trả lời ⌄" màu nhấn (phải); mặc định thu gọn ở cả hai màn.
+- **Khối trả lời xổ tại chỗ** (`CommentRepliesBlock`, mới): thụt vào, vạch dọc trái; mỗi trả lời avatar 22pt, tên, mô tả, nội dung 3 dòng có "Xem thêm" nhỏ; tên / mô tả / nội dung dịch như bình luận. `replies` lồng sẵn ⇒ hiện ngay; `reply_source` ⇒ lần mở đầu gọi `script(input, page)` qua `SourceRuntime.executeCustomScript`, "Đang tải trả lời…", lỗi + "Thử lại", "Tải thêm trả lời" khi còn trang. Trang đã tải giữ ở hàng cha ⇒ thu gọn / mở lại không tải lại. Khối dài hơn 3 trả lời có "Thu gọn" ở đáy. Số trên nút: lồng sẵn = số trả lời có thật; tải khi bấm = `reply_count`, không khai ⇒ "Xem trả lời".
+- **Thành phần chung**: `ExpandableTextView` thêm `toggleFont` và `trailingAccessory` (nút phụ cùng hàng "Xem thêm"; mặc định như cũ). `RemoteCoverImage` thêm `placeholderSymbol` (mặc định `photo`). Hàng bình luận gắn `.buttonStyle(.borderless)` để các nút trong một hàng `List` nhận chạm riêng.
+- `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục Extension JavaScript.
+- Tiện ích (repo riêng, cùng đợt): STV v24 + qidian v27 tách trả lời khỏi danh sách bình luận gốc (trước hiện thành bình luận riêng lẻ) + avatar; qimao v3 avatar + `reply_source` (`reply.js`), bỏ kiểu gộp trả lời vào nội dung.
+- Chuyển entry `[1.3.650]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: avatar hiện ở thẻ / Tất cả bình luận / trả lời, bấm "N trả lời" xổ đúng bình luận và không kích hoạt "Xem thêm" (và ngược lại) trong hàng `List`, qimao tải / tải thêm / thử lại trả lời, cuộn hàng đang tải ra khỏi màn rồi quay lại.
+
 ## [1.3.679] - 2026-11-03
 
 ### fix: app đơ khi cuộn tới cuối danh sách do chân danh sách tự kích hoạt lại
@@ -390,17 +405,3 @@ Người dùng: *"sửa lại cho widget tts cao hơn menu ... thôi, vì nếu 
 - **`SideDrawerMenuWindowManager`**: cửa sổ ngăn kéo `alert - 3.5` (1.3.648, dưới mọi widget) ⇒ `alert - 1.5` — **dưới** widget TTS (`alert - 1`) và toast, **trên** hub (`alert - 2`) và trình duyệt thu nhỏ (`alert - 3`). Widget TTS vẫn bấm được khi menu mở; hub/trình duyệt không còn che menu "…" (bấm hub mở Thông báo lúc menu đang mở không đè lên menu).
 - Chuyển entry `[1.3.621]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở menu "…" khi widget TTS và hub cùng hiện.
-
-## [1.3.650] - 2026-10-29
-
-### feat: xuất video từ các tập đã tải
-
-Người dùng: *"làm thêm xuất video"* — chọn HLS **ghép .ts**, đích **Tệp + chia sẻ**; duyệt plan.
-
-- **Lối vào**: "Xuất video" ở sheet nhấn giữ và màn Chi tiết của sách video ⇒ `TaskOptionsSheet` định dạng "Video" (chọn tập bắt đầu + số tập như tác vụ tải); tab Tải có "Xuất video từ tập đã tải". `BookExportFormat.video`, `TaskType.exportVideo` ("Xuất video", rawValue mới — dữ liệu cũ vẫn đọc được); mọi `switch` liên quan đã cập nhật.
-- **Tác vụ** (`DownloadManager+VideoExport`, rẽ từ `executeMediaTaskIfNeeded`, không cần tiện ích ⇒ phim nhập từ file cũng xuất được): chỉ lấy tập có manifest khớp url tập; kiểm dung lượng trống (tổng `totalBytes` × 1,05); mỗi phim một tác vụ video (tải hoặc xuất) chạy một lúc; tập lỗi bỏ qua kèm dòng tổng kết; huỷ/lỗi xoá bản dở.
-- **Từng tập** (`Sources/Services/Export/Video/`): tập dạng file chép nguyên; tập HLS đọc playlist trên máy (`VideoHLSLocalStream`), nối đoạn theo thứ tự (tôn trọng `BYTERANGE`), giải mã AES-128-CBC theo luồng bằng CommonCrypto (`VideoAES128CBCDecryptor`, IV từ playlist hoặc số thứ tự media), khúc 1 MiB — không đọc cả tập vào RAM. Đoạn `.ts` ⇒ file `.ts` (mở bằng VLC/Infuse, không mở bằng Ảnh/Tệp của iOS); fMP4 ⇒ init + đoạn ⇒ `.mp4`. Luồng tiếng tách riêng ⇒ thêm file `… (tiếng)`; phụ đề chép kèm `<tên>.<ngôn ngữ>.<đuôi>`.
-- **Đích**: một tập chỉ một file ⇒ `Documents/Exports/<Tên phim> - Tập N.<đuôi>`; còn lại (nhiều tập, hoặc có file tiếng/phụ đề) ⇒ một thư mục trong `Exports/`, chia sẻ cả thư mục qua `ExportShareCoordinator`. Bản xuất loại khỏi sao lưu iCloud.
-- **Không làm**: chuyển HLS sang mp4 (FFmpeg), lưu vào Ảnh, xuất tập chưa tải.
-- Chuyển entry `[1.3.620]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là lần biên dịch đầu; chưa thử trên máy — **share sheet có nhận thư mục không** (không thì bản nhiều file không lấy ra được), file `.ts` trong VLC, ghép phim vài GB, xoá tác vụ không xoá file đã xuất (như mọi loại xuất cũ).
