@@ -204,18 +204,17 @@ extension BookDetailView {
         updateFilteredOnlineChapters()
     }
 
+    /// Khớp bằng `ChapterTitleSearchMatcher` như ô tìm của Reader: không phân biệt hoa/thường và dấu ("kiem" ra "Kiếm").
     internal func updateFilteredLocalChapters() {
-        let query = appliedChapterSearchQuery
+        let query = appliedChapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
         filteredLocalChapters = sorted.filter { chap in
-            query.isEmpty ||
-            chap.title.localizedCaseInsensitiveContains(query) ||
-            chap.titleTrans?.localizedCaseInsensitiveContains(query) == true
+            query.isEmpty || ChapterTitleSearchMatcher.matches(query, anyOf: [chap.title, chap.titleTrans])
         }
     }
 
     internal func updateFilteredOnlineChapters() {
-        let query = appliedChapterSearchQuery
+        let query = appliedChapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let translationEnabled = isTranslationEnabled
         let translatedTitles = translationEnabled ? onlineTranslatedTitlesOrScheduleBuild() : nil
         if !translationEnabled && onlineTitleIndex.isBuilding { onlineTitleIndex.cancelBuild() }
@@ -223,13 +222,8 @@ extension BookDetailView {
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             if query.isEmpty { return true }
-            if translationEnabled {
-                // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại.
-                return chap.name.localizedCaseInsensitiveContains(query) ||
-                    translatedTitles?[index].localizedCaseInsensitiveContains(query) == true
-            } else {
-                return chap.name.localizedCaseInsensitiveContains(query)
-            }
+            // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại.
+            return ChapterTitleSearchMatcher.matches(query, anyOf: [chap.name, translatedTitles?[index]])
         }
     }
 
@@ -239,6 +233,7 @@ extension BookDetailView {
         let key = BookDetailOnlineTOCIndex.Key(
             generation: TranslateUtils.translationGenerationToken(for: actualBookId),
             bookId: actualBookId,
+            convertsTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
             source: onlineChapters
         )
         if let titles = onlineTitleIndex.titles(for: key) { return titles }
@@ -247,7 +242,8 @@ extension BookDetailView {
               onlineTitleIndex.pendingKey != key else { return nil }
         let names = onlineChapters.map(\.name)
         let task = Task { @MainActor in
-            guard let titles = await BookDetailOnlineTOCIndex.translateTitles(names, bookId: key.bookId),
+            guard let titles = await BookDetailOnlineTOCIndex.translateTitles(
+                      names, bookId: key.bookId, convertsTraditionalToSimplified: key.convertsTraditionalToSimplified),
                   !Task.isCancelled, self.onlineTitleIndex.pendingKey == key else { return }
             self.onlineTitleIndex.finish(key: key, titles: titles)
             if !self.appliedChapterSearchQuery.isEmpty { self.updateFilteredOnlineChapters() }

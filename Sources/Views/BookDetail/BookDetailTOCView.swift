@@ -22,6 +22,8 @@ struct BookDetailTOCView: View {
     let onStartReading: (Int) -> Void
     let onTranslateChapterTitleIfNeeded: (Chapter) -> String
     let onTranslateTitleIfNeeded: (String) -> String
+    /// Tên hiển thị của một dòng mục lục đã lưu — `BookDetailView.displayTitle(for:)` (bản lưu / dịch sống / phồn→giản).
+    let onDisplayTitle: (StoredChapterSnapshot) -> String
     let onLoadMoreChapters: () -> Void
     /// "chương" hoặc "tập" (video) — `BookDetailView.episodeNoun`.
     var episodeNoun: String = "chương"
@@ -29,9 +31,11 @@ struct BookDetailTOCView: View {
     var isVideo: Bool = false
 
     /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
-    /// `BookDetailView` (có closure nên không bỏ qua được): lọc `localizedStandardContains` hàng nghìn
-    /// chương ở mỗi lần vẽ là việc thừa — chỉ tính lại khi query/chiều/mục lục đổi.
+    /// `BookDetailView` (có closure nên không bỏ qua được): lọc hàng nghìn chương ở mỗi lần vẽ là việc
+    /// thừa — chỉ tính lại khi query/chiều/mục lục đổi.
     @State private var visibleSnapshots: [StoredChapterSnapshot] = []
+    /// Dòng của lưới tập (video) đã dịch sẵn — lưới không lazy, dịch trong `body` là dịch mọi tập ở mỗi lần vẽ.
+    @State private var videoRows: [BookDetailVideoTOCGrid.Row] = []
     @State var didAutoLoadMoreChapters = false // `+AutoLoad`: tự tải trang mục lục còn lại tối đa một lần
 
     var body: some View {
@@ -64,6 +68,8 @@ struct BookDetailTOCView: View {
         .onChange(of: appliedSearchQuery, initial: true) { recomputeVisibleSnapshots() }
         .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
         .onChange(of: chapterSnapshots) { recomputeVisibleSnapshots() }
+        .onChange(of: isTranslationEnabled) { recomputeVideoRows(snapshots: visibleSnapshots) }
+        .onChange(of: filteredOnlineChapters.map(\.offset)) { recomputeVideoRows(snapshots: visibleSnapshots) }
     }
 
     // MARK: - Video: mục lục dạng lưới
@@ -94,11 +100,13 @@ struct BookDetailTOCView: View {
         )
     }
 
-    /// Dòng mục lục cho lưới tập. Giữ **đúng thứ tự ưu tiên** của danh sách hàng
-    /// (`chapterSnapshots` → `Book.chapters` → `onlineChapters`) để hai cách hiển thị không lệch nhau.
-    /// Số tập hiển thị do lưới tự đánh theo từng tab, nên ở đây chỉ chuyển dữ liệu thô.
-    private var videoRows: [BookDetailVideoTOCGrid.Row] {
-        videoSourceRows().map { item in
+    /// Dòng mục lục cho lưới tập, tính lại vào `videoRows` khi từ khoá / thứ tự / mục lục / công tắc dịch đổi (không
+    /// dịch trong `body`). Giữ **đúng thứ tự ưu tiên** của danh sách hàng (`chapterSnapshots` → `Book.chapters` →
+    /// `onlineChapters`) để hai cách hiển thị không lệch nhau. Số tập hiển thị do lưới tự đánh theo từng tab, nên ở đây
+    /// chỉ chuyển dữ liệu thô. `snapshots` = danh sách đã lọc vừa tính (đừng đọc lại `@State` ngay sau khi gán).
+    private func recomputeVideoRows(snapshots: [StoredChapterSnapshot]) {
+        guard isVideo else { return }
+        videoRows = videoSourceRows(snapshots: snapshots).map { item in
             BookDetailVideoTOCGrid.Row(
                 index: item.index,
                 title: item.title,
@@ -108,11 +116,11 @@ struct BookDetailTOCView: View {
         }
     }
 
-    private func videoSourceRows() -> [(index: Int, title: String, isSection: Bool, isCached: Bool)] {
+    private func videoSourceRows(snapshots: [StoredChapterSnapshot]) -> [(index: Int, title: String, isSection: Bool, isCached: Bool)] {
         if !chapterSnapshots.isEmpty {
-            return visibleSnapshots.map { chap in
+            return snapshots.map { chap in
                 (index: chap.index,
-                 title: isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title,
+                 title: onDisplayTitle(chap),
                  isSection: chap.isSection,
                  isCached: chap.isCached)
             }
@@ -135,7 +143,9 @@ struct BookDetailTOCView: View {
     }
 
     private func recomputeVisibleSnapshots() {
-        visibleSnapshots = filteredChapterSnapshots
+        let snapshots = filteredChapterSnapshots
+        visibleSnapshots = snapshots
+        recomputeVideoRows(snapshots: snapshots)
     }
 
     /// Đã có mục lục nhưng lượt tải lại lỗi: "Tải lại lỗi" + la bàn "Mở link lỗi", đứng trước nút sắp xếp ở đầu panel.
@@ -175,9 +185,9 @@ struct BookDetailTOCView: View {
             : Self.liftSectionHeaders(Array(chapterSnapshots.reversed()), isSection: { $0.isSection })
         let query = appliedSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
+        // Khớp tên gốc + bản lưu (không dịch sống từng dòng trên main mỗi lần gõ), bỏ qua hoa/thường và dấu như Reader.
         return sorted.filter { chap in
-            chap.title.localizedStandardContains(query)
-                || chap.titleTrans?.localizedStandardContains(query) == true
+            ChapterTitleSearchMatcher.matches(query, anyOf: [chap.title, chap.titleTrans])
         }
     }
 
@@ -208,7 +218,7 @@ struct BookDetailTOCView: View {
                     let currentIdx = localBook?.currentChapterIndex ?? -1
                     if !chapterSnapshots.isEmpty {
                         ForEach(visibleSnapshots, id: \.id) { chap in
-                            let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
+                            let displayTitle = onDisplayTitle(chap)
                             if chap.isSection {
                                 sectionHeader(displayTitle)
                             } else {

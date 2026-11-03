@@ -10,12 +10,16 @@ struct ComicChapterEntry: Equatable {
     /// Dòng tiêu đề nhóm tập (`type: "section"`, ext nhiều server): không có ảnh, không mở được — mục lục hiện thành
     /// tiêu đề, điều hướng chương bỏ qua.
     var isSection: Bool = false
+    /// Tên đã dịch khi bật dịch (`ComicChapterTitleTranslator`, cùng luật mục lục Chi tiết: bản lưu `titleTrans` /
+    /// dịch sống / phồn→giản). `nil` = chưa dịch xong hoặc đang tắt dịch.
+    var translatedTitle: String? = nil
 
-    /// Tên hiển thị: dùng `titleTrans` khi bật dịch và đã có bản dịch, còn lại là tên gốc.
+    /// Tên hiển thị khi bật dịch: tên đã dịch, chưa dịch xong thì tạm bản lưu `titleTrans` (không chớp chữ Hán ở mục
+    /// lục dài); tắt dịch hoặc không có gì thì tên gốc.
     func displayTitle(translated: Bool) -> String {
-        if translated, let trans = titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines), !trans.isEmpty {
-            return trans
-        }
+        guard translated else { return title }
+        if let translatedTitle, !translatedTitle.isEmpty { return translatedTitle }
+        if let trans = titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines), !trans.isEmpty { return trans }
         return title
     }
 

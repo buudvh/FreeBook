@@ -184,9 +184,9 @@ public final class JSExecutor: @unchecked Sendable {
 
             var translated = ""
             if isChapterName || isFirstLineChapterName {
-                // Qt bridge **không** áp rule dịch: bản dịch ở đây đi ra ngoài cho extension dùng,
-                // phải giữ đúng hành vi tra từ điển thuần như trước.
-                translated = TranslateUtils.translateChapterTitle(text, applyingQuickTranslationRules: false)
+                // Tên chương dịch y như nội dung (1.3.681): có áp rule dịch chung (không có truyện ⇒ không
+                // có rule riêng). Các nhánh khác giữ nguyên: Hán-Việt, hoặc `translateMeta` không áp rule.
+                translated = TranslateUtils.translateChapterTitle(text)
             } else if target == "hv" {
                 translated = TranslateUtils.translateAuthorHanViet(text)
             } else if isPersonName {

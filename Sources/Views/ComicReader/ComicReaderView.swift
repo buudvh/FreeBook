@@ -19,8 +19,11 @@ struct ComicReaderView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.displayScale) private var displayScale
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
+    /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`, như Reader/Chi tiết) — không phải công tắc chung.
+    @State private var isTranslationEnabled: Bool
+    /// Lượt dịch tên chương đang chạy — lượt mới huỷ lượt cũ để kết quả cũ không ghi đè.
+    @State private var titleTranslationTask: Task<Void, Never>?
     @State private var viewModel: ComicReaderViewModel
     @State private var showsChrome = true
     @State private var showsChapterList = false
@@ -38,6 +41,10 @@ struct ComicReaderView: View {
 
     init(launch: BookContentLaunch) {
         self.launch = launch
+        _isTranslationEnabled = State(initialValue: TranslationConfigStore.shared.isTranslationEnabled(
+            bookId: launch.bookId,
+            packageId: launch.extensionPackageId
+        ))
         _viewModel = State(initialValue: ComicReaderViewModel(launch: launch))
     }
 
@@ -71,6 +78,11 @@ struct ComicReaderView: View {
                 viewModel.flushProgress()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
+            let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId)
+            if isTranslationEnabled != newState { isTranslationEnabled = newState }
+        }
+        .onChange(of: isTranslationEnabled) { _, _ in translateChapterTitles() }
         // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
         .legadoContentRefresh(packageId: launch.extensionPackageId) { viewModel.retry() }
         // Chạm bìa ở mục lục: đẩy Chi tiết khi sheet đã đóng hẳn (đẩy lúc sheet đang đóng có thể mất lượt đẩy).
@@ -286,6 +298,14 @@ struct ComicReaderView: View {
         localBook = book
         let saved = book.map { (chapterIndex: $0.currentChapterIndex, page: $0.currentChapterPage, chapterTitle: $0.currentChapterTitle) }
         await viewModel.start(saved: saved, bookHost: book?.host)
+        translateChapterTitles() // `start` chờ nạp xong mục lục mới trả về
+    }
+
+    /// Dịch tên chương ngoài main theo công tắc hiện tại (tắt dịch ⇒ VM bỏ qua, màn hiện tên gốc).
+    private func translateChapterTitles() {
+        titleTranslationTask?.cancel()
+        let enabled = isTranslationEnabled
+        titleTranslationTask = Task { await viewModel.translateChapterTitles(enabled: enabled) }
     }
 
     /// Đọc `Book` một lần (không theo dõi: chính các lần checkpoint của màn này sẽ đổi nó).
@@ -306,6 +326,7 @@ struct ComicReaderView: View {
         // Trình xem phóng to / trình duyệt "Mở link lỗi" đang che màn này — màn đọc vẫn sống, không dọn dẹp.
         if isZoomPresented || openingErrorLink != nil || bookDetailUrl != nil { return }
         ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
+        titleTranslationTask?.cancel()
         viewModel.shutdown()
     }
 }

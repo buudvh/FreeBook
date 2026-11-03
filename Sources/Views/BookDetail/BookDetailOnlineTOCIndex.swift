@@ -1,7 +1,7 @@
 import Foundation
 
 /// Chỉ mục tên chương online đã dịch cho ô "Tìm kiếm chương..." của BookDetail.
-/// Dựng MỘT lần ngoài main (Task.detached) khi mục lục online / bật dịch / generation dịch đổi,
+/// Dựng MỘT lần ngoài main (Task.detached) khi mục lục online / bật dịch / phồn→giản / generation dịch đổi,
 /// để mỗi phím gõ không phải dịch lại toàn bộ tên chương trên main (cache tên 1024 entry bị đẩy hết
 /// với mục lục dài). Chưa dựng xong thì caller tạm khớp tên gốc.
 struct BookDetailOnlineTOCIndex {
@@ -10,6 +10,7 @@ struct BookDetailOnlineTOCIndex {
     struct Key: Equatable {
         let generation: Int
         let bookId: String
+        let convertsTraditionalToSimplified: Bool
         let source: [ChapterResult]
     }
 
@@ -47,13 +48,17 @@ struct BookDetailOnlineTOCIndex {
 
     /// Dịch toàn bộ tên chương ngoài main, cùng hàm `translateChapterTitle` mà bộ lọc cũ gọi từng phím gõ,
     /// nên kết quả khớp y hệt. Trả `nil` khi bị huỷ; huỷ task gọi lan xuống task detached.
-    static func translateTitles(_ names: [String], bookId: String) async -> [String]? {
+    static func translateTitles(_ names: [String], bookId: String, convertsTraditionalToSimplified: Bool) async -> [String]? {
         let worker = Task.detached(priority: .userInitiated) { () -> [String]? in
             var titles: [String] = []
             titles.reserveCapacity(names.count)
             for name in names {
                 if Task.isCancelled { return nil }
-                titles.append(TranslateUtils.translateChapterTitle(name, bookId: bookId))
+                titles.append(TranslateUtils.translateChapterTitle(
+                    name,
+                    bookId: bookId,
+                    shouldConvertTraditionalToSimplified: convertsTraditionalToSimplified
+                ))
             }
             return titles
         }

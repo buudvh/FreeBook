@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Phần danh sách chương của `ReaderChapterListView`: `List`, tiêu đề đã dịch, cuộn tới chương hiện
-/// tại, nạp trang khi hàng xuất hiện và hâm nóng tiêu đề quanh vùng nhìn.
+/// Phần danh sách chương của `ReaderChapterListView`: `List`, cuộn tới chương hiện tại và nạp trang khi
+/// hàng xuất hiện. Tên chương do worker trang (`BackgroundPagingWorker`) chọn sẵn (bản lưu / dịch sống / gốc).
 ///
 /// Tách khỏi `ReaderChapterListView.swift` vì file đó đã vượt baseline dòng của
 /// `check_architecture.py` nên chỉ được giảm, mà 1.3.334 còn thêm nút tải từng chương vào **cả hai**
@@ -64,14 +64,12 @@ extension ReaderChapterListView {
                 }
             }
             .onChange(of: isTranslationEnabled) { _, newValue in
-                displayTitleCache.removeAll()
                 store.updateTranslation(
                     isTranslationEnabled: newValue,
                     shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
                 )
             }
             .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
-                displayTitleCache.removeAll()
                 store.updateTranslation(
                     isTranslationEnabled: isTranslationEnabled,
                     shouldConvertTraditionalToSimplified: newValue
@@ -97,24 +95,10 @@ extension ReaderChapterListView {
         )
     }
 
+    /// `chapter.title` đã là tên hiển thị (worker chọn bản lưu / dịch sống / gốc theo công tắc + phồn→giản) — không dịch
+    /// lớp thứ hai, không ghi `@State` trong `body`.
     internal func displayTitle(for chapter: ReaderChapterRowState) -> String {
-        guard !chapter.isPlaceholder else { return "Đang tải..." }
-        if !isTranslationEnabled {
-            return chapter.title
-        }
-        if let cached = displayTitleCache[chapter.index] {
-            return cached
-        }
-        if TranslateUtils.containsChinese(chapter.title) {
-            let translated = TranslateUtils.translateChapterTitle(
-                chapter.title,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            displayTitleCache[chapter.index] = translated
-            return translated
-        }
-        return chapter.title
+        chapter.isPlaceholder ? "Đang tải..." : chapter.title
     }
 
     internal func scrollToCurrentChapter(proxy: ScrollViewProxy) {
@@ -124,7 +108,6 @@ extension ReaderChapterListView {
             if let item = store.item(at: displayPosition) {
                 proxy.scrollTo(item.index, anchor: .center)
             }
-            warmNearbyTitles(aroundDisplayPosition: displayPosition, windowSize: 8)
             isPositioningInitialChapter = false
         }
     }
@@ -137,47 +120,6 @@ extension ReaderChapterListView {
             await MainActor.run {
                 store.loadVisiblePageIfNeeded(displayPosition: displayPosition)
                 store.prefetchAround(displayPosition: displayPosition)
-            }
-        }
-    }
-
-    internal func warmNearbyTitles(aroundDisplayPosition targetDisplayPosition: Int, windowSize: Int = 8) {
-        guard isTranslationEnabled else { return }
-        let total = store.totalCount
-        guard total > 0 else { return }
-
-        let minPos = max(0, targetDisplayPosition - windowSize)
-        let maxPos = min(total - 1, targetDisplayPosition + windowSize)
-
-        var toWarm: [(index: Int, rawTitle: String)] = []
-        for pos in minPos...maxPos {
-            if let rowState = store.loadedRowStates[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
-                let logicalIndex = rowState.index
-                guard displayTitleCache[logicalIndex] == nil else { continue }
-                if TranslateUtils.containsChinese(rowState.title) {
-                    toWarm.append((index: logicalIndex, rawTitle: rowState.title))
-                }
-            }
-        }
-
-        guard !toWarm.isEmpty else { return }
-        let currentBookId = bookId
-        let shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
-        Task.detached(priority: .utility) { [toWarm, currentBookId, shouldConvertTraditionalToSimplified] in
-            var results: [Int: String] = [:]
-            for item in toWarm {
-                let translated = TranslateUtils.translateChapterTitle(
-                    item.rawTitle,
-                    bookId: currentBookId,
-                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                )
-                results[item.index] = translated
-            }
-            let finalResults = results
-            await MainActor.run {
-                guard self.isTranslationEnabled,
-                      self.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else { return }
-                self.displayTitleCache.merge(finalResults) { current, _ in current }
             }
         }
     }

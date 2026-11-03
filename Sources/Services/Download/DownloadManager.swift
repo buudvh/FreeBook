@@ -416,6 +416,8 @@ public final class DownloadManager: ObservableObject {
             let packageId = bgBook.extensionPackageId
             let skipUncached = exportFormat != nil && task.onlyExportCached
             let bookContext = SourceRuntimeContext(bookId: bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
+            // Phồn→giản của truyện áp cho cả tên chương lẫn nội dung xuất — đọc một lần cho cả tác vụ.
+            let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
             var processedCount = 0
 
             let tally = try await acquireChaptersInOrder(
@@ -440,8 +442,12 @@ public final class DownloadManager: ObservableObject {
                     var contentToExport = originalContent
 
                     if task.translate {
-                        titleToExport = TranslateUtils.translateChapterTitle(titleToExport, bookId: bookId)
-                        contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bookId)
+                        titleToExport = TranslateUtils.translateChapterTitle(
+                            titleToExport, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
+                        )
+                        contentToExport = TranslateUtils.translateContent(
+                            contentToExport, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
+                        )
                     }
 
                     let payload = ExportChapterPayload(

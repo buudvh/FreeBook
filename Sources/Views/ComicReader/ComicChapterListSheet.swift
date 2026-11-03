@@ -83,15 +83,16 @@ struct ComicChapterListSheet: View {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Hàng đang hiện: lọc theo tên **đang hiển thị** (đã dịch nếu bật dịch), không phân biệt hoa thường, rồi xếp theo
-    /// `isAscending`. Dòng tiêu đề nhóm chỉ giữ khi không tìm và xếp tăng dần.
+    /// Hàng đang hiện: lọc theo tên **đang hiển thị** (đã dịch nếu bật dịch) và tên gốc bằng `ChapterTitleSearchMatcher`
+    /// (không phân biệt hoa thường và dấu, như Reader), rồi xếp theo `isAscending`. Dòng tiêu đề nhóm chỉ giữ khi không
+    /// tìm và xếp tăng dần.
     private var visibleChapters: [ComicChapterEntry] {
         let query = trimmedQuery
         let showsSections = query.isEmpty && isAscending
         let rows = chapters.filter { chapter in
             if chapter.isSection { return showsSections }
             guard !query.isEmpty else { return true }
-            return chapter.displayTitle(translated: isTranslationEnabled).localizedCaseInsensitiveContains(query)
+            return ChapterTitleSearchMatcher.matches(query, anyOf: [chapter.displayTitle(translated: isTranslationEnabled), chapter.title])
         }
         return isAscending ? rows : Array(rows.reversed())
     }

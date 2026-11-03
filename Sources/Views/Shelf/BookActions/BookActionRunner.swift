@@ -94,6 +94,11 @@ struct BookActionRunner {
     }
 
     static func retranslateChapterTitles(for book: Book) {
+        // Từ điển chưa nạp xong ⇒ "bản dịch" chỉ là chữ Hán gốc, ghi đè bản lưu đang đúng.
+        guard TranslationManager.shared.isVietPhraseLoaded else {
+            ToastManager.shared.show(message: "Từ điển chưa nạp xong, thử lại sau", type: .error)
+            return
+        }
         TranslateUtils.clearChapterTitleCache(for: book.bookId)
         ToastManager.shared.show(message: "Đang dịch lại tên chương...")
 

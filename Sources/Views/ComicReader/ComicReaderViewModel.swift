@@ -21,7 +21,7 @@ final class ComicReaderViewModel {
 
     let launch: BookContentLaunch
 
-    private(set) var chapters: [ComicChapterEntry] = []
+    var chapters: [ComicChapterEntry] = []
     private(set) var chapterIndex: Int
     private(set) var pages: [ComicPageSource] = []
     private(set) var loadState: LoadState = .loading

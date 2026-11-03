@@ -163,7 +163,23 @@ struct BookDetailView: View {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateChapterTitle(text, bookId: actualBookId)
+        return TranslateUtils.translateChapterTitle(
+            text,
+            bookId: actualBookId,
+            shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId)
+        )
+    }
+
+    /// Tên chương của mục lục đã lưu — cùng luật với sheet mục lục Reader (`BackgroundPagingWorker`): tắt dịch ⇒ tên gốc;
+    /// bật phồn→giản ⇒ dịch sống từ tên gốc (bản lưu `titleTrans` là bản **không** chuyển); có bản lưu ⇒ dùng nó (còn
+    /// chữ Hán thì dịch tiếp); không có ⇒ dịch sống.
+    internal func displayTitle(for chap: StoredChapterSnapshot) -> String {
+        guard isTranslationEnabled else { return chap.title }
+        if !TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
+           let trans = chap.titleTrans, !trans.isEmpty {
+            return translateTitleIfNeeded(trans)
+        }
+        return translateTitleIfNeeded(chap.title)
     }
 
     internal func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
@@ -604,6 +620,7 @@ struct BookDetailView: View {
                     onStartReading: startReading,
                     onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
                     onTranslateTitleIfNeeded: translateTitleIfNeeded,
+                    onDisplayTitle: displayTitle(for:),
                     onLoadMoreChapters: loadMoreChapters,
                     episodeNoun: episodeNoun,
                     isVideo: contentKind == .video
@@ -1088,7 +1105,8 @@ struct BookDetailView: View {
     }
 
     internal func scheduleBackgroundTitleTranslationIfNeeded(for targetBook: Book? = nil) {
-        guard isTranslationEnabled else { return }
+        // Từ điển chưa nạp (hoặc nạp lỗi) ⇒ "bản dịch" chỉ là chữ Hán, lưu vào ô rỗng là không bao giờ được điền lại.
+        guard isTranslationEnabled, TranslationManager.shared.isVietPhraseLoaded else { return }
         let targetBookId = actualBookId
 
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {

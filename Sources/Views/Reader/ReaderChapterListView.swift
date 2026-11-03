@@ -72,7 +72,6 @@ public struct ReaderChapterListView: View {
     @State internal var isUpdating = false
     @State internal var errorMessage = ""
     @State internal var isPositioningInitialChapter = true
-    @State internal var displayTitleCache: [Int: String] = [:]
     @State internal var deferredVisiblePageTask: Task<Void, Never>? = nil
     /// Index **logic** của các chương đang tải lẻ — xem `ReaderChapterListView+Download.swift`.
     @State internal var downloadingChapterIndices: Set<Int> = []
@@ -155,7 +154,6 @@ public struct ReaderChapterListView: View {
         )
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in
             guard let notifBookId = notification.userInfo?["bookId"] as? String, notifBookId == bookId else { return }
-            displayTitleCache.removeAll()
             store.reloadAllPages()
         }
     }
@@ -288,7 +286,6 @@ public struct ReaderChapterListView: View {
     internal var tocPalette: ChapterTOCPalette { .reader(theme) }
 
     private func retranslateChaptersAction() {
-        displayTitleCache.removeAll()
         if let book = localBook {
             BookActionRunner.retranslateChapterTitles(for: book)
         }

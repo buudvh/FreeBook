@@ -195,6 +195,13 @@ public final class TranslationConfigStore: @unchecked Sendable {
         return ResolvedStatus(isEnabled: global, origin: .global, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
     }
 
+    // MARK: - Phồn → giản
+    /// Công tắc "chuyển phồn thể sang giản thể" của truyện — Reader ghi khoá `convertTraditionalToSimplified_<bookId>`;
+    /// chưa từng đặt ⇒ `false`. Đọc thẳng `UserDefaults` mỗi lần gọi nên luôn theo giá trị mới nhất.
+    public func convertsTraditionalToSimplified(bookId: String) -> Bool {
+        UserDefaults.standard.bool(forKey: "convertTraditionalToSimplified_\(bookId)")
+    }
+
     // MARK: - Management Listing
     public var allBookOverrides: [String: ScopeOverride] {
         lock.lock()

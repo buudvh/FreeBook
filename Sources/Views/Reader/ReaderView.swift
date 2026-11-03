@@ -107,7 +107,6 @@ struct ReaderView: View {
     let bookSourceName: String?
     var initialParagraphIndex: Int? = nil
 
-    @State private var cachedDisplayedBookTitle: String = ""
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
     @State internal var removeDuplicatedTitle = true // Loại bỏ tiêu đề chương trùng ở đầu nội dung (dùng TOC rule)
 
@@ -328,38 +327,6 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
             )
             : title
-    }
-
-    internal var displayedBookTitle: String {
-        if !cachedDisplayedBookTitle.isEmpty {
-            return cachedDisplayedBookTitle
-        }
-        let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
-        guard !rawTitle.isEmpty else { return "" }
-        return isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
-            ? TranslateUtils.translateChapterTitle(
-                rawTitle,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            : rawTitle
-    }
-
-    private func updateDisplayedBookTitleCache() {
-        let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
-        guard !rawTitle.isEmpty else {
-            cachedDisplayedBookTitle = ""
-            return
-        }
-        if isTranslationEnabled && TranslateUtils.containsChinese(rawTitle) {
-            cachedDisplayedBookTitle = TranslateUtils.translateChapterTitle(
-                rawTitle,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-        } else {
-            cachedDisplayedBookTitle = rawTitle
-        }
     }
 
     var body: some View {
@@ -855,12 +822,8 @@ struct ReaderView: View {
             ttsState.scope(to: bookId)
             ttsHighlight.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
-            updateDisplayedBookTitleCache()
             if ReaderView.activeBookId == nil { ReaderView.activeBookId = bookId }
             if let vm = viewModel { viewModelRelay.observe(vm) }
-        }
-        .onChange(of: isTranslationEnabled) { _, _ in
-            updateDisplayedBookTitleCache()
         }
         .onDisappear {
             // Trình duyệt "Mở link lỗi" che màn (không phải rời Reader): không `shutdown`, không tải lại khi hiện lại.

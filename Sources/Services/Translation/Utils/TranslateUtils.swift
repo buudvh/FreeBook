@@ -69,19 +69,6 @@ public final class TranslateUtils {
         TOCRule(id: "rule21", name: "Quy tắc mở rộng nâng cao", rule: #"(?im)^.{0,6}(?:[引楔]子|正文(?!完|结)|[引序前]言|[序终]章|扉页|[上中下][部篇卷]|卷首语|后记|尾声|番外|={2,4}|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|页[、 　\s]|集(?![合和])|部(?![分是门落])|篇(?!张))).{0,100}$|^.{0,6}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟a-z]{1,8}[、. 　\s].{0,100}$"#, example: "第1章 激进规则,适配更多非常用格式", enabled: false)
     ]
 
-    private static let chapterUnitMap: [String: String] = [
-        "卷": "Quyển",
-        "回": "Hồi",
-        "章": "Chương",
-        "幕": "Màn",
-        "折": "Chiết",
-        "节": "Tiết",
-        "集": "Tập",
-        "部": "Bộ",
-        "篇": "Thiên",
-        "话": "Thoại"
-    ]
-    
     public static var isTranslationEnabled: Bool { TranslationConfigStore.shared.globalEnabled }
     public static func isTranslationEnabled(for bookId: String?, packageId: String? = nil) -> Bool { TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId) }
     
@@ -256,11 +243,13 @@ public final class TranslateUtils {
         return TranslatedTextResult(text: text, spans: spans)
     }
     
+    /// Tên chương dịch **y như nội dung** (`translateContent`: Name riêng/chung, rule dịch nhanh, VietPhrase) từ 1.3.681 —
+    /// không còn tự đổi `第N章`/số Ả-rập thành "Chương N". Tên không có chữ Hán trả nguyên văn (sau trim).
+    /// Có cache riêng (`chapterTitleCache`) vì mục lục dài dịch lại cùng tên ở nhiều màn.
     public static func translateChapterTitle(
         _ text: String,
         bookId: String? = nil,
-        shouldConvertTraditionalToSimplified: Bool = false,
-        applyingQuickTranslationRules: Bool = true
+        shouldConvertTraditionalToSimplified: Bool = false
     ) -> String {
         let trimmed = textForTranslation(
             text,
@@ -269,84 +258,13 @@ public final class TranslateUtils {
         .trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "" }
 
-        // Đường Qt bridge (`applyingQuickTranslationRules == false`) phải có khoá cache riêng để bản
-        // dịch bridge không lẫn bản dịch trong app. Namespace ở khoá con để `invalidateCache(bookId:)`
-        // vẫn dọn được cả hai.
-        let bid = bookId ?? "global"
-        let cacheEntryKey = applyingQuickTranslationRules ? trimmed : "\u{1}norule|" + trimmed
-        
         let generation = TranslationReadContext.cacheGeneration(for: bookId)
-        let titleKey = "\(generation)|\(bid)|\(cacheEntryKey)"
+        let titleKey = "\(generation)|\(bookId ?? "global")|\(trimmed)"
         let lookup = chapterTitleCache.lookup(titleKey)
         if let cached = lookup.value { return cached }
-        
-        let translated: String
-        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-        
-        func cleanLeadingDelimiters(_ input: String) -> String {
-            return input
-                .replacingOccurrences(of: #"^[:：,.， 、_—\-]+"#, with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        
-        let titleNumberRegex = chapterTitleNumberRegex
-        let arabicNumberTitleRegex = chapterTitleArabicNumberRegex
-        
-        if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
-           let matchRange = Range(match.range(at: 1), in: trimmed) {
-            let matchedPrefix = String(trimmed[matchRange])
-            
-            let numberPartRegex = chapterTitleNumberPartRegex
-            let unitPartRegex = chapterTitleUnitPartRegex
-            
-            let prefixRange = NSRange(matchedPrefix.startIndex..<matchedPrefix.endIndex, in: matchedPrefix)
-            
-            var numberVal = ""
-            var unitVal = "Chương"
-            
-            if let numMatch = numberPartRegex.firstMatch(in: matchedPrefix, options: [], range: prefixRange),
-               let numRange = Range(numMatch.range(at: 1), in: matchedPrefix) {
-                let numStr = String(matchedPrefix[numRange])
-                numberVal = String(chineseNumberToInt(numStr))
-            }
-            
-            if let unitMatch = unitPartRegex.firstMatch(in: matchedPrefix, options: [], range: prefixRange),
-               let unitRange = Range(unitMatch.range(at: 1), in: matchedPrefix) {
-                let unitStr = String(matchedPrefix[unitRange])
-                unitVal = chapterUnitMap[unitStr] ?? "Chương"
-            }
-            
-            let preMatch = String(trimmed[..<matchRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let rawPost = String(trimmed[matchRange.upperBound...])
-            let cleanPost = cleanLeadingDelimiters(rawPost)
-            
-            // Mảnh tên chương đi tầng nội dung (`chapterTitleCache` đã giữ cả tên): mục lục dài không đẩy tên truyện ở tầng meta ra.
-            let translatedPre = preMatch.isEmpty
-                ? ""
-                : translateContent(preMatch, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules) + " "
-            let translatedPost = cleanPost.isEmpty
-                ? ""
-                : ": " + translateContent(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
-            
-            translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if let match = arabicNumberTitleRegex.firstMatch(in: trimmed, options: [], range: range),
-                  let numRange = Range(match.range(at: 1), in: trimmed) {
-            let numberVal = String(trimmed[numRange])
-            var rawPost = ""
-            if match.range(at: 2).location != NSNotFound,
-               let postRange = Range(match.range(at: 2), in: trimmed) {
-                rawPost = String(trimmed[postRange])
-            }
-            let cleanPost = cleanLeadingDelimiters(rawPost)
-            let translatedPost = cleanPost.isEmpty
-                ? ""
-                : ": " + translateContent(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
 
-            translated = "Chương \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            translated = translateContent(trimmed, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
-        }
-        
+        let translated = translateContent(trimmed, bookId: bookId)
+
         if !Task.isCancelled, generation == translationGenerationToken(for: bookId) {
             chapterTitleCache.insert(translated, key: titleKey, bookId: bookId,
                                      cost: translated.utf16.count * 2, ticket: lookup.ticket)
@@ -552,52 +470,6 @@ public final class TranslateUtils {
 
     internal static func tokenize(_ text: String, bookId: String?) -> [String] {
         return VietPhraseTokenizer.tokenize(text, bookId: bookId)
-    }
-    
-    private static func chineseNumberToInt(_ numberStr: String) -> Int {
-        if let val = Int(numberStr) {
-            return val
-        }
-        
-        let digits: [Character: Int] = [
-            "零": 0, "〇": 0,
-            "一": 1, "二": 2, "两": 2, "三": 3, "四": 4,
-            "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
-            "壹": 1, "贰": 2, "叁": 3, "肆": 4, "伍": 5,
-            "陆": 6, "柒": 7, "捌": 8, "玖": 9
-        ]
-        
-        var result = 0
-        var temp = 0
-        
-        for char in numberStr {
-            if let val = digits[char] {
-                temp = val
-            } else {
-                switch char {
-                case "十", "拾":
-                    if temp == 0 { temp = 1 }
-                    result += temp * 10
-                    temp = 0
-                case "百", "佰":
-                    result += temp * 100
-                    temp = 0
-                case "千", "仟":
-                    result += temp * 1000
-                    temp = 0
-                case "万":
-                    result += temp
-                    result *= 10000
-                    temp = 0
-                default:
-                    if let digit = Int(String(char)) {
-                        temp = digit
-                    }
-                }
-            }
-        }
-        result += temp
-        return result
     }
     
     /// `internal` (không `private`) vì `TranslateUtils+QuickTranslationRules` dựng span ở file khác.

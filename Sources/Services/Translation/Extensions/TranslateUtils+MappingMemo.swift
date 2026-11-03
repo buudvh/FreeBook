@@ -1,17 +1,9 @@
 import Foundation
 
-// Cache tĩnh cho hai đường nóng của `TranslateUtils`. Tách file riêng vì `TranslateUtils.swift` đã chạm
-// baseline dòng: ở đó chỉ thay dòng tại chỗ để gọi vào đây.
+// Cache tĩnh cho đường nóng `translateContentWithMapping` của `TranslateUtils`. Tách file riêng vì
+// `TranslateUtils.swift` đã chạm baseline dòng: ở đó chỉ thay dòng tại chỗ để gọi vào đây.
+// (Bốn regex tên chương từng nằm ở đây đã bỏ ở 1.3.681: tên chương dịch y như nội dung.)
 extension TranslateUtils {
-
-    // MARK: - Regex tên chương
-
-    // Bốn regex của `translateChapterTitle` trước đây biên dịch lại ở **mỗi** lần cache tên chương miss.
-    // Pattern/option giữ nguyên từng ký tự; `NSRegularExpression` bất biến nên dùng chung đa luồng an toàn.
-    static let chapterTitleNumberRegex = try! NSRegularExpression(pattern: #"(第\s*[0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+\s*[卷回章节幕折集部篇话])"#, options: [])
-    static let chapterTitleArabicNumberRegex = try! NSRegularExpression(pattern: #"^\s*(\d{1,5})[\s.:：,.， 、_—\-]+(.*)$"#, options: [])
-    static let chapterTitleNumberPartRegex = try! NSRegularExpression(pattern: #"([0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+)"#, options: [])
-    static let chapterTitleUnitPartRegex = try! NSRegularExpression(pattern: #"([卷回章节幕折集部篇话])"#, options: [])
 
     // MARK: - Memo kết quả `translateContentWithMapping`
 

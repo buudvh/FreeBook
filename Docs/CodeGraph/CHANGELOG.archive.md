@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.651] - 2026-10-29
+
+### fix: chỉ widget TTS nổi trên ngăn kéo menu, hub và trình duyệt nằm dưới
+
+Người dùng: *"sửa lại cho widget tts cao hơn menu ... thôi, vì nếu như widget kia cao hơn thì bấm vào xem thông báo từ widget không xem được menu ..."*.
+
+- **`SideDrawerMenuWindowManager`**: cửa sổ ngăn kéo `alert - 3.5` (1.3.648, dưới mọi widget) ⇒ `alert - 1.5` — **dưới** widget TTS (`alert - 1`) và toast, **trên** hub (`alert - 2`) và trình duyệt thu nhỏ (`alert - 3`). Widget TTS vẫn bấm được khi menu mở; hub/trình duyệt không còn che menu "…" (bấm hub mở Thông báo lúc menu đang mở không đè lên menu).
+- Chuyển entry `[1.3.621]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở menu "…" khi widget TTS và hub cùng hiện.
+
 ## [1.3.650] - 2026-10-29
 
 ### feat: xuất video từ các tập đã tải
