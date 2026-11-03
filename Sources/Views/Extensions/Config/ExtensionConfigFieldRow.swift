@@ -17,13 +17,20 @@ struct ExtensionConfigFieldRow: View {
     @Binding var values: [String: String]
     /// Nút nhỏ ở đầu phải dòng tiêu đề — chỉ dòng chọn (`select`) có chỗ trống ở đó (sheet Bộ lọc đặt ↺ Đặt lại).
     var labelAccessory: AnyView? = nil
+    /// Chữ **hiển thị** của tiêu đề / dòng phụ / lựa chọn (sheet Bộ lọc truyền bản dịch khi nguồn bật dịch, 1.3.685).
+    /// Giá trị ghi vào `values` luôn là chữ gốc — script nhận đúng chuỗi đó. Mặc định giữ nguyên (màn Cấu hình).
+    var displayText: (String) -> String = { $0 }
 
     var body: some View {
         if item.mode == "select" {
             selectRow
         } else if item.mode == "list" {
             NavigationLink {
-                ExtensionConfigListEditor(title: item.title ?? key, subtitle: item.subtitle, value: textBinding)
+                ExtensionConfigListEditor(
+                    title: displayText(item.title ?? key),
+                    subtitle: item.subtitle.map(displayText),
+                    value: textBinding
+                )
             } label: {
                 HStack(spacing: 12) {
                     label
@@ -88,15 +95,15 @@ struct ExtensionConfigFieldRow: View {
                 ForEach(Array(item.values.enumerated()), id: \.offset) { _, option in
                     Button(action: { values[key] = option }) {
                         if option == selected {
-                            Label(option, systemImage: "checkmark")
+                            Label(displayText(option), systemImage: "checkmark")
                         } else {
-                            Text(option)
+                            Text(displayText(option))
                         }
                     }
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Text(selected)
+                    Text(displayText(selected))
                         .font(.footnote)
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.leading)
@@ -128,7 +135,7 @@ struct ExtensionConfigFieldRow: View {
     private var label: some View {
         let title = item.title ?? key
         return VStack(alignment: .leading, spacing: 2) {
-            Text(title)
+            Text(displayText(title))
                 .font(.subheadline)
             if title != key {
                 Text(key)
@@ -138,7 +145,7 @@ struct ExtensionConfigFieldRow: View {
                     .truncationMode(.middle)
             }
             if let subtitle = item.subtitle, !subtitle.isEmpty {
-                Text(subtitle)
+                Text(displayText(subtitle))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

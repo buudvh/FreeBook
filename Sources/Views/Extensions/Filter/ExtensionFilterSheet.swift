@@ -22,6 +22,8 @@ struct ExtensionFilterSheet: View {
     @State private var isLoaded = false
     @State private var loadError = ""
     @State private var saveError = ""
+    /// Chữ gốc → bản dịch của tiêu đề / dòng phụ / lựa chọn khi nguồn bật dịch (`translateLabels`, 1.3.685). Chỉ để hiện.
+    @State private var translations: [String: String] = [:]
 
     private var isDirty: Bool {
         schema.filterKeys.contains { draft[$0] != savedValues[$0] }
@@ -88,7 +90,8 @@ struct ExtensionFilterSheet: View {
                                     key: key,
                                     item: item,
                                     values: $draft,
-                                    labelAccessory: key == resetKey ? AnyView(resetButton) : nil
+                                    labelAccessory: key == resetKey ? AnyView(resetButton) : nil,
+                                    displayText: { translations[$0] ?? $0 }
                                 )
                             }
                         }
@@ -134,8 +137,39 @@ struct ExtensionFilterSheet: View {
             schema = loaded
             savedValues = values
             draft = values
+            translateLabels(of: loaded, isChineseSource: ext.isChineseSource)
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    /// Nguồn bật dịch (cấu hình dịch của nguồn — `TranslationConfigStore`, nguồn tiếng Trung tự bật) ⇒ dịch tiêu đề /
+    /// dòng phụ / lựa chọn của các mục lọc **ngoài main** để hiển thị; chưa xong thì dòng hiện chữ gốc. Giá trị lưu vẫn là
+    /// chữ gốc (script nhận đúng chuỗi đó). Màn Cấu hình tiện ích không dịch (người dùng chọn).
+    private func translateLabels(of loaded: ExtensionConfigSchema, isChineseSource: Bool) {
+        guard TranslationConfigStore.shared.isTranslationEnabled(
+            bookId: nil,
+            packageId: packageId,
+            isChineseSourceHint: isChineseSource
+        ) else { return }
+        var texts = Set<String>()
+        for key in loaded.filterKeys {
+            guard let item = loaded.items[key] else { continue }
+            texts.formUnion([item.title, item.subtitle].compactMap { $0 })
+            texts.formUnion(item.values)
+        }
+        let sources = texts.filter { TranslateUtils.containsChinese($0) }
+        guard !sources.isEmpty else { return }
+        Task {
+            let translated = await Task.detached(priority: .userInitiated) { () -> [String: String] in
+                var map: [String: String] = [:]
+                for text in sources {
+                    let result = TranslateUtils.translateMeta(text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !result.isEmpty { map[text] = result }
+                }
+                return map
+            }.value
+            translations = translated
         }
     }
 
