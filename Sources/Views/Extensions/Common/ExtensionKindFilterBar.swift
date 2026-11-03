@@ -4,7 +4,8 @@ import SwiftUI
 ///
 /// Lựa chọn là chuỗi để gắn thẳng vào `@AppStorage`: `""` = tất cả, còn lại là `ExtensionContentKind.rawValue`
 /// (luật đọc ở `SearchExtensionScopePolicy.selectedKind`). Nhãn dùng chung nhãn nhóm thể loại của kho
-/// (`ExtensionContentKind.label`). Dùng ở `ExtensionSelectorView` (Khám phá) và `SearchView`.
+/// (`ExtensionContentKind.label`). Dùng ở `SearchView`; ngăn kéo chọn nguồn của Khám phá dùng `ExtensionKindMenuButton`
+/// (hàng chip cuộn ngang tranh với vuốt đóng ngăn kéo).
 struct ExtensionKindFilterBar: View {
     @Binding var selection: String
 

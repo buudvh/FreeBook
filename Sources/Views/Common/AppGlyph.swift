@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Icon dùng chung cho các nút sao chép / dán / sao chép văn bản gốc, và icon bật/tắt dịch.
+/// Icon dùng chung cho các nút sao chép / dán / sao chép văn bản gốc, icon bật/tắt dịch và icon bộ lọc.
 ///
 /// `translate` thay SF Symbol `character.bubble` ở mọi nút dịch (1.3.605). Từ 1.3.607 là Material Symbols
 /// `g_translate` (Rounded, tô đặc, nét 600 — giấy phép Apache 2.0, `Docs/ThirdParty/MaterialSymbols-LICENSE.txt`),
@@ -28,6 +28,9 @@ enum AppGlyph {
     case originalText
     /// Bật/tắt dịch, dịch lại — Material Symbols `g_translate`.
     case translate
+    /// Bộ lọc (phễu) — Tabler Icons `filter` (giấy phép MIT, `Docs/ThirdParty/Tabler-Icons-LICENSE.txt`). Thay SF Symbol
+    /// `line.3.horizontal.decrease` cho mọi nút lọc (`FilterGlyph`).
+    case filter
 
     /// Tên imageset trong `Sources/Assets.xcassets`.
     var assetName: String {
@@ -36,6 +39,7 @@ enum AppGlyph {
         case .paste: return "LucideClipboardPaste"
         case .originalText: return "LucideLanguages"
         case .translate: return "MaterialGTranslate"
+        case .filter: return "TablerFilter"
         }
     }
 
@@ -47,6 +51,7 @@ enum AppGlyph {
         case .paste: return "Dán"
         case .originalText: return "Sao chép văn bản gốc"
         case .translate: return "Dịch"
+        case .filter: return "Bộ lọc"
         }
     }
 

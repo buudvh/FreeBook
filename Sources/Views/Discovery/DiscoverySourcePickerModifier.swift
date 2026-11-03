@@ -22,7 +22,12 @@ struct DiscoverySourcePickerModifier: ViewModifier {
     func body(content: Content) -> some View {
         let selectionBinding = $selectedExtensionId
         return content
-            .sideDrawerMenu(isPresented: $isPresented, title: "Chọn nguồn", edge: .leading) {
+            .sideDrawerMenu(
+                isPresented: $isPresented,
+                title: "Chọn nguồn",
+                edge: .leading,
+                titleAccessory: { AnyView(ExtensionNsfwToggle()) }
+            ) {
                 ExtensionSelectorView(
                     activeExtensions: extensions,
                     selectedExtensionId: selectedExtensionId,

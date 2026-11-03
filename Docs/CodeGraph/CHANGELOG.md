@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.677] - 2026-11-03
+
+### fix: ngăn kéo chọn nguồn chọn loại bằng menu, icon lọc hình phễu, ô tìm và tên tab ở Kho tiện ích
+
+Người dùng (sau 1.3.675–676): *"nút nsfw ngang với title chọn nguồn; thêm nút select để chọn tất cả, truyện chữ, truyện tranh, phim … bên cạnh ô tìm kiếm; bỏ thanh chọn … vì kéo scroll đang xung đột với vuốt đóng; dùng icon bộ lọc khác … giống y như mockup; sheet bộ lọc … nút reset … giảm size nút áp dụng"*; thêm *"áp dụng cho nút lọc của kho tiện ích luôn, đồng bộ nút search của tìm kiếm chương cho cả kho tiện ích và legado; đổi tên 2 tab con … tiện ích freebook và tiện ích legado"*. Chốt bằng mockup rồi duyệt plan.
+
+- **Ngăn kéo chọn nguồn**: viên NSFW (`ExtensionNsfwToggle`, mới) lên dòng tiêu đề "Chọn nguồn" — `SideDrawerMenu` thêm tham số `titleAccessory` (mặc định không có, menu ⋯ khác không đổi). Bỏ hàng chip loại (kéo cuộn ngang tranh với vuốt đóng); cạnh ô tìm là nút chọn loại dạng menu `ExtensionKindMenuButton` (mới: viên thuốc 40pt icon + tên + ↕; Tất cả · Truyện chữ · Truyện tranh · Phim, ✓ ở mục đang chọn; vẫn khoá `discoveryKindFilter`).
+- **Icon lọc hình phễu**: asset vector `TablerFilter` (Tabler Icons `filter`, MIT — `Docs/ThirdParty/Tabler-Icons-LICENSE.txt`), `AppGlyph.filter`; phần vẽ dùng chung `FilterGlyph` (mới — tròn / thanh tiêu đề / cạnh ô tìm, chấm trắng khi đang lọc). Dùng cho nút lọc tiện ích (Khám phá, danh sách thể loại, màn Tìm) và nút lọc của Kho tiện ích (thay `line.3.horizontal.decrease.circle` tô cam).
+- **Sheet Bộ lọc**: header chỉ còn "Áp dụng" nhỏ (viên thuốc 28pt, chữ 13pt — người dùng yêu cầu, nhỏ hơn nút chữ header chuẩn 17pt); ↺ Đặt lại nằm trong khung, cùng hàng tiêu đề mục đầu ("Sắp xếp") qua `ExtensionConfigFieldRow.labelAccessory` (mới, màn Cấu hình không dùng); mục đầu không phải ô chọn ⇒ ↺ đứng riêng ở đầu khung.
+- **Kho tiện ích**: hai tab đổi tên "Tiện ích FreeBook" · "Tiện ích Legado" (cả tiêu đề ngăn kéo ⋯). Ô tìm của cả hai tab thành viên thuốc kiểu mục lục `ChapterTOCSearchField` ("Tìm kiếm N tiện ích" / "Tìm kiếm N nguồn"), cách tìm giữ nguyên. `ChapterTOCSearchField` tắt tự sửa chính tả.
+- Chuyển entry `[1.3.647]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: menu chọn loại mở được trong ngăn kéo (cửa sổ nổi riêng), vuốt đóng ngăn kéo không còn vướng, icon phễu hiện đúng (asset SVG), ↺ cùng hàng "Sắp xếp".
+
 ## [1.3.676] - 2026-11-03
 
 ### fix: nút lọc không nháy mất khi vừa áp dụng bộ lọc
@@ -387,15 +400,3 @@ Người dùng: *"bạn sửa gì mà widget tts và widget khác bị che bởi
 - **Sửa**: `SideDrawerMenuWindowManager` đặt cửa sổ ngăn kéo ở `alert - 3.5` — dưới cả ba widget và toast ⇒ widget luôn nổi trên ngăn kéo và lớp tối, bấm được bình thường (như thời `fullScreenCover`). Đánh đổi: widget ở mép phải có thể che vài hàng menu.
 - Chuyển entry `[1.3.618]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở ngăn kéo khi widget TTS / hub đang hiện, bấm widget lúc ngăn kéo mở.
-
-## [1.3.647] - 2026-10-29
-
-### fix: ngăn kéo menu bỏ ảnh chụp nền, độ đục theo 6 nấc kính như nút nổi
-
-Người dùng: *"revert ngăn kéo "…" lại đi, sửa thành 6 nấc"*.
-
-- **Gỡ ảnh chụp nền của 1.3.645**: `SideDrawerMenuPanel`, `SideDrawerMenuWindowRoot`, `SideDrawerMenuWindowManager` về đúng bản trước 1.3.645 (không còn `captureBackdrop`, không chụp màn khi mở ngăn kéo).
-- **`SideDrawerGlassBackground`**: dùng chung 6 nấc kính iOS với nút nổi (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; thêm `trailingRadius` cho ô xem trước. Mặc định 60% ⇒ nấc "Vừa".
-- **Cài đặt › Giao diện**: thanh độ đục của ngăn kéo bước 20% kèm tên nấc như nút nổi; ô xem trước ngăn kéo chỉ cắt góc dải bìa, không cắt khung chứa lớp kính. Sửa chú thích `GlassChromeSettings`, `GlassFrostLevel`.
-- Chuyển entry `[1.3.616]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cần xem 6 nấc của ngăn kéo trên nền Kệ.

@@ -1,15 +1,16 @@
 import SwiftUI
 
 /// Nội dung ngăn kéo **chọn nguồn** của Khám phá (trượt từ mép trái — `discoverySourcePicker`): ô tìm viên thuốc kiểu
-/// mục lục (tìm theo tên/link), công tắc NSFW, chip loại, rồi danh sách nguồn — bấm hàng để chọn, ⚙ mở Cấu hình tiện
-/// ích (ⓘ Chi tiết nguồn với nguồn Legado), 📌 ghim.
+/// mục lục (tìm theo tên/link) + nút chọn loại dạng menu (`ExtensionKindMenuButton`), rồi danh sách nguồn — bấm hàng để
+/// chọn, ⚙ mở Cấu hình tiện ích (ⓘ Chi tiết nguồn với nguồn Legado), 📌 ghim. Viên NSFW nằm ở dòng tiêu đề ngăn kéo
+/// (`ExtensionNsfwToggle`). Không còn hàng chip loại: kéo cuộn ngang hàng chip tranh với vuốt đóng ngăn kéo.
 ///
 /// Ngăn kéo nằm ở cửa sổ nổi riêng (`SideDrawerMenuWindowManager`) nên:
 /// - Từ khoá tìm là `@State` của chính view này (không phải Binding của màn): Binding sang cây view khác không làm
 ///   ngăn kéo vẽ lại khi gõ.
 /// - Chọn nguồn / mở Cấu hình / Chi tiết nguồn đi qua `sideDrawerMenuDismiss`: ngăn kéo bắt đầu trượt ra rồi màn
 ///   Khám phá mới đổi nguồn hay trình bày sheet (`DiscoverySourcePickerModifier`).
-/// - Ghim / NSFW / chip loại đổi giá trị ⇒ `refreshContent()` để ngăn kéo vẽ lại ngay.
+/// - Ghim / chọn loại đổi giá trị ⇒ `refreshContent()` để ngăn kéo vẽ lại ngay.
 ///
 /// Trình duyệt của nguồn không mở từ dòng ở đây mà từ dòng "Mở trình duyệt" trong menu header Khám phá
 /// (`DiscoverySourceMenuButton`) hoặc nút "Trình duyệt" của màn Cấu hình tiện ích.
@@ -22,10 +23,7 @@ struct ExtensionSelectorView: View {
 
     @Environment(\.sideDrawerMenuDismiss) private var dismissDrawer
     @State private var searchQuery = ""
-    @AppStorage("discoveryKindFilter") private var kindFilter = "" // chip loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
-    /// Công tắc NSFW **toàn app** (chung khoá với Cài đặt và bộ lọc Kho). `activeExtensions` do `DiscoveryView` lọc theo
-    /// cùng khoá nên bấm là danh sách đổi ngay; tắt khi đang xem nguồn NSFW thì `DiscoveryView` tự chuyển nguồn.
-    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+    @AppStorage("discoveryKindFilter") private var kindFilter = "" // loại: "" = tất cả, còn lại `ExtensionContentKind.rawValue`
 
     private var filteredExtensions: [Extension] {
         let kindScoped = activeExtensions.filter { SearchExtensionScopePolicy.matches($0, kindFilter: kindFilter) }
@@ -47,25 +45,17 @@ struct ExtensionSelectorView: View {
     var body: some View {
         let list = filteredExtensions
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
+            HStack(spacing: 2) {
                 ChapterTOCSearchField(
                     text: $searchQuery,
                     placeholder: "Tìm kiếm \(activeExtensions.count) nguồn",
                     palette: .system
                 )
-                nsfwToggle
+                ExtensionKindMenuButton(selection: $kindFilter) { dismissDrawer.refreshContent() }
             }
             .padding(.leading, 16)
             .padding(.trailing, 10)
             .padding(.bottom, 4)
-
-            ExtensionKindFilterBar(selection: Binding(
-                get: { kindFilter },
-                set: {
-                    kindFilter = $0
-                    dismissDrawer.refreshContent()
-                }
-            ))
 
             if list.isEmpty {
                 Text("Không có nguồn nào khớp")
@@ -142,36 +132,6 @@ struct ExtensionSelectorView: View {
             dismissDrawer(then: { onSelect(ext) })
         }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    /// Nút viên thuốc "NSFW" cạnh ô tìm; bật thì tô màu nhấn như chip đang chọn của `ExtensionKindFilterBar`.
-    /// Viên thuốc nhỏ (cao 26pt, chữ 12pt) theo yêu cầu người dùng — nhỏ hơn chuẩn nút header 38pt; vùng chạm vẫn
-    /// cao 38pt nhờ khung trong suốt bọc ngoài.
-    private var nsfwToggle: some View {
-        Button(action: {
-            includeNsfw.toggle()
-            dismissDrawer.refreshContent()
-        }) {
-            HStack(spacing: 3) {
-                Image(systemName: includeNsfw ? "eye" : "eye.slash")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("NSFW")
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 26)
-            .foregroundColor(includeNsfw ? .accentColor : .secondary)
-            .background(includeNsfw ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(includeNsfw ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1)
-            )
-            .frame(minWidth: 36, minHeight: 38)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Hiện nội dung nhạy cảm (NSFW)")
-        .accessibilityAddTraits(includeNsfw ? .isSelected : [])
     }
 
     private func togglePin(_ ext: Extension) {

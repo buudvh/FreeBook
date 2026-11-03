@@ -33,6 +33,8 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     let title: String
     var edge: HorizontalEdge = .trailing
+    /// Nút ở đầu phải dòng tiêu đề (vd viên NSFW của bảng chọn nguồn). Tự đọc state của nó (`@AppStorage`…) để vẽ lại.
+    var titleAccessory: (() -> AnyView)? = nil
     @ViewBuilder let menuContent: () -> MenuContent
 
     /// Định danh chỗ gắn này với `SideDrawerMenuWindowManager` (một màn có thể gắn nhiều ngăn kéo).
@@ -80,6 +82,7 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
             ownerID: ownerID,
             title: title,
             edge: edge,
+            titleAccessory: titleAccessory,
             content: contentProvider,
             resetPresented: {
                 if binding.wrappedValue {
@@ -111,9 +114,16 @@ extension View {
         isPresented: Binding<Bool>,
         title: String,
         edge: HorizontalEdge = .trailing,
+        titleAccessory: (() -> AnyView)? = nil,
         @ViewBuilder content: @escaping () -> MenuContent
     ) -> some View {
-        modifier(SideDrawerMenuModifier(isPresented: isPresented, title: title, edge: edge, menuContent: content))
+        modifier(SideDrawerMenuModifier(
+            isPresented: isPresented,
+            title: title,
+            edge: edge,
+            titleAccessory: titleAccessory,
+            menuContent: content
+        ))
     }
 
     /// Biến thể cho menu theo **từng hàng** của danh sách: gán `item` = hàng được bấm để mở; ngăn kéo đóng thì `item`

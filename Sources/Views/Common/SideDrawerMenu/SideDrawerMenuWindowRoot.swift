@@ -11,6 +11,8 @@ struct SideDrawerMenuWindowRoot: View {
         let title: String
         /// Mép màn ngăn kéo bám vào.
         let edge: HorizontalEdge
+        /// Nút ở đầu phải dòng tiêu đề; gọi lại mỗi lần panel vẽ như `content`.
+        let titleAccessory: (() -> AnyView)?
         /// Gọi lại trong `body` của panel mỗi lần vẽ ⇒ luôn đọc state mới nhất của màn.
         let content: () -> AnyView
         let onAppeared: () -> Void
@@ -28,6 +30,7 @@ struct SideDrawerMenuWindowRoot: View {
                 SideDrawerMenuPanel(
                     title: presentation.title,
                     edge: presentation.edge,
+                    titleAccessory: presentation.titleAccessory,
                     onAppeared: presentation.onAppeared,
                     onCloseBegan: presentation.onCloseBegan,
                     onClosed: presentation.onClosed,

@@ -3,6 +3,8 @@ import SwiftUI
 /// Sheet "Bộ lọc" của một tiện ích: các mục `select` / công tắc / `list` khai trong `config` của `plugin.json`
 /// (`ExtensionConfigSchema.filterKeys`, theo thứ tự trong file), dùng lại dòng của màn Cấu hình (`ExtensionConfigFieldRow`).
 ///
+/// - Header: "Bộ lọc" + nút "Áp dụng" nhỏ (viên thuốc 28pt, chữ 13pt — người dùng yêu cầu nhỏ hơn nút chữ header chuẩn).
+///   ↺ Đặt lại nằm trong khung, cùng hàng tiêu đề mục đầu tiên ("Sắp xếp"); mục đầu không phải ô chọn thì ở đầu khung.
 /// - Sửa trên bản nháp; ↺ đưa bản nháp về mặc định. "Áp dụng" mới ghi — **lưu vĩnh viễn** vào `configJson` qua
 ///   `ExtensionTransactionCoordinator` (màn Cấu hình thấy cùng giá trị), rồi gọi `onApplied` với chuỗi vừa ghi để màn
 ///   danh sách tải lại từ trang 1. Không đổi gì ⇒ chỉ đóng.
@@ -31,20 +33,17 @@ struct ExtensionFilterSheet: View {
                 .pageTitle("Bộ lọc")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack(spacing: 10) {
-                            Button(action: resetToDefaults) {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
-                                    .contentShape(Rectangle())
-                            }
-                            .accessibilityLabel("Đặt lại mặc định")
-                            .disabled(schema.filterKeys.isEmpty)
-
-                            Button("Áp dụng", action: apply)
-                                .headerTextButton()
-                                .disabled(!loadError.isEmpty)
+                        Button(action: apply) {
+                            Text("Áp dụng")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Color(.systemBackground))
+                                .padding(.horizontal, 12)
+                                .frame(height: 28)
+                                .background(Color.primary, in: Capsule())
+                                .contentShape(Capsule())
                         }
+                        .buttonStyle(.plain)
+                        .disabled(!loadError.isEmpty)
                     }
                 }
         }
@@ -66,6 +65,7 @@ struct ExtensionFilterSheet: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
+            let resetKey = resetRowKey
             Form {
                 Section {
                     if schema.filterKeys.isEmpty {
@@ -73,9 +73,21 @@ struct ExtensionFilterSheet: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {
+                        if resetKey == nil {
+                            // Mục đầu là công tắc / danh sách (bên phải dòng đã có điều khiển) ⇒ ↺ đứng riêng ở đầu khung.
+                            HStack {
+                                Spacer()
+                                resetButton
+                            }
+                        }
                         ForEach(schema.filterKeys, id: \.self) { key in
                             if let item = schema.items[key] {
-                                ExtensionConfigFieldRow(key: key, item: item, values: $draft)
+                                ExtensionConfigFieldRow(
+                                    key: key,
+                                    item: item,
+                                    values: $draft,
+                                    labelAccessory: key == resetKey ? AnyView(resetButton) : nil
+                                )
                             }
                         }
                     }
@@ -89,6 +101,24 @@ struct ExtensionFilterSheet: View {
             .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .listSectionSpacing(.compact)
         }
+    }
+
+    /// Mục đầu tiên nếu là ô chọn — ↺ đứng ở đầu phải dòng tiêu đề của nó (cùng hàng "Sắp xếp").
+    private var resetRowKey: String? {
+        guard let first = schema.filterKeys.first, schema.items[first]?.mode == "select" else { return nil }
+        return first
+    }
+
+    private var resetButton: some View {
+        Button(action: resetToDefaults) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.primary)
+                .frame(width: 32, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Đặt lại mặc định")
     }
 
     private func load() {

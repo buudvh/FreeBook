@@ -36,6 +36,7 @@ final class SideDrawerMenuWindowManager {
         let token: UUID
         var title: String
         let edge: HorizontalEdge
+        let titleAccessory: (() -> AnyView)?
         let openedAt: CFTimeInterval
         /// Trả `isPresented` của màn sở hữu về `false`.
         let resetPresented: () -> Void
@@ -58,6 +59,7 @@ final class SideDrawerMenuWindowManager {
         ownerID: UUID,
         title: String,
         edge: HorizontalEdge = .trailing,
+        titleAccessory: (() -> AnyView)? = nil,
         content: @escaping () -> AnyView,
         resetPresented: @escaping () -> Void
     ) -> Bool {
@@ -78,11 +80,12 @@ final class SideDrawerMenuWindowManager {
             token: token,
             title: title,
             edge: edge,
+            titleAccessory: titleAccessory,
             openedAt: CACurrentMediaTime(),
             resetPresented: resetPresented
         )
         window.isUserInteractionEnabled = true
-        host.rootView = makeRoot(token: token, title: title, edge: edge, content: content)
+        host.rootView = makeRoot(token: token, title: title, edge: edge, titleAccessory: titleAccessory, content: content)
         window.isHidden = false
         host.setNeedsStatusBarAppearanceUpdate()
         host.setNeedsUpdateOfHomeIndicatorAutoHidden()
@@ -105,7 +108,13 @@ final class SideDrawerMenuWindowManager {
         guard var current = session, current.ownerID == ownerID, !current.isClosing else { return }
         current.title = title
         session = current
-        hostingController?.rootView = makeRoot(token: current.token, title: title, edge: current.edge, content: content)
+        hostingController?.rootView = makeRoot(
+            token: current.token,
+            title: title,
+            edge: current.edge,
+            titleAccessory: current.titleAccessory,
+            content: content
+        )
     }
 
     /// Gỡ ngay, không hiệu ứng: màn sở hữu rời cây view, hoặc nơi gọi tự hạ `isPresented` khi ngăn kéo còn mở. Đang
@@ -122,6 +131,7 @@ final class SideDrawerMenuWindowManager {
         token: UUID,
         title: String,
         edge: HorizontalEdge,
+        titleAccessory: (() -> AnyView)?,
         content: @escaping () -> AnyView
     ) -> SideDrawerMenuWindowRoot {
         SideDrawerMenuWindowRoot(
@@ -129,6 +139,7 @@ final class SideDrawerMenuWindowManager {
                 token: token,
                 title: title,
                 edge: edge,
+                titleAccessory: titleAccessory,
                 content: content,
                 onAppeared: { [weak self] in
                     self?.panelDidAppear(token: token)

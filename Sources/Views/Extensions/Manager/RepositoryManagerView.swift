@@ -112,8 +112,8 @@ struct RepositoryManagerView: View {
     internal var mainContentView: some View {
         VStack(spacing: 0) {
             Picker("", selection: $selectedTab) {
-                Text("Tất cả tiện ích").tag(0)
-                Text("Nguồn Legado").tag(2)
+                Text("Tiện ích FreeBook").tag(0)
+                Text("Tiện ích Legado").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -141,8 +141,8 @@ struct RepositoryManagerView: View {
     @ViewBuilder
     internal func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
         content
-            .sideDrawerMenu(isPresented: $showingExtensionsMenu, title: "Tất cả tiện ích") { extensionsMenuItems }
-            .sideDrawerMenu(isPresented: $showingLegadoMenu, title: "Nguồn Legado") { legadoMenuItems }
+            .sideDrawerMenu(isPresented: $showingExtensionsMenu, title: "Tiện ích FreeBook") { extensionsMenuItems }
+            .sideDrawerMenu(isPresented: $showingLegadoMenu, title: "Tiện ích Legado") { legadoMenuItems }
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }
                 Button("Xóa sạch", role: .destructive) {
@@ -286,36 +286,24 @@ struct RepositoryManagerView: View {
         .background(Color(.systemBackground))
     }
 
+    /// Ô tìm viên thuốc kiểu mục lục (`ChapterTOCSearchField`, tìm theo tên/URL như trước) + icon lọc phễu (`FilterGlyph`,
+    /// chấm trắng khi đang lọc) — cùng kiểu nút lọc tiện ích ở Khám phá / màn Tìm.
     @ViewBuilder
     internal var searchAndFilterBar: some View {
-        HStack(spacing: 8) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
-                    .textInputAutocapitalization(.none)
-                    .submitLabel(.search)
-                if !storeSearchQuery.isEmpty {
-                    Button(action: { storeSearchQuery = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(8)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
-            
+        HStack(spacing: 2) {
+            ChapterTOCSearchField(
+                text: $storeSearchQuery,
+                placeholder: "Tìm kiếm \(allExtensions.count) tiện ích",
+                palette: .system
+            )
             Button(action: { showingFilterSheet = true }) {
-                Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                    .font(.title3)
-                    .foregroundColor(isFiltering ? .orange : .white)
-                    .padding(8)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(10)
+                FilterGlyph(style: .inline, isActive: isFiltering)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isFiltering ? "Bộ lọc (đang lọc)" : "Bộ lọc")
         }
-        .padding(.horizontal)
+        .padding(.leading, 16)
+        .padding(.trailing, 10)
     }
 
     @ViewBuilder

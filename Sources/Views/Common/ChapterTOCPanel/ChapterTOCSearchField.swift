@@ -17,6 +17,7 @@ struct ChapterTOCSearchField: View {
             TextField("", text: $text, prompt: Text(placeholder).foregroundColor(palette.secondaryText))
                 .textFieldStyle(.plain)
                 .textInputAutocapitalization(.never)
+                .autocorrectionDisabled() // từ khoá tên chương / tiện ích / nguồn, không phải câu văn
                 .foregroundColor(palette.text)
                 .submitLabel(.search)
                 .onSubmit { onSubmit?() }

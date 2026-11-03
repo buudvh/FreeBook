@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.647] - 2026-10-29
+
+### fix: ngăn kéo menu bỏ ảnh chụp nền, độ đục theo 6 nấc kính như nút nổi
+
+Người dùng: *"revert ngăn kéo "…" lại đi, sửa thành 6 nấc"*.
+
+- **Gỡ ảnh chụp nền của 1.3.645**: `SideDrawerMenuPanel`, `SideDrawerMenuWindowRoot`, `SideDrawerMenuWindowManager` về đúng bản trước 1.3.645 (không còn `captureBackdrop`, không chụp màn khi mở ngăn kéo).
+- **`SideDrawerGlassBackground`**: dùng chung 6 nấc kính iOS với nút nổi (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; thêm `trailingRadius` cho ô xem trước. Mặc định 60% ⇒ nấc "Vừa".
+- **Cài đặt › Giao diện**: thanh độ đục của ngăn kéo bước 20% kèm tên nấc như nút nổi; ô xem trước ngăn kéo chỉ cắt góc dải bìa, không cắt khung chứa lớp kính. Sửa chú thích `GlassChromeSettings`, `GlassFrostLevel`.
+- Chuyển entry `[1.3.616]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cần xem 6 nấc của ngăn kéo trên nền Kệ.
+
 ## [1.3.646] - 2026-10-29
 
 ### fix: sheet nhập truyện thấp vừa ba lựa chọn

@@ -12,6 +12,8 @@ struct SideDrawerMenuPanel<Content: View>: View {
     let title: String
     /// Mép màn ngăn kéo bám vào.
     let edge: HorizontalEdge
+    /// Nút nhỏ ở đầu phải dòng tiêu đề (vd viên NSFW của bảng chọn nguồn); `nil` ⇒ tiêu đề chiếm cả dòng.
+    let titleAccessory: (() -> AnyView)?
     /// Panel vừa lên màn (bắt đầu trượt vào) — chỉ để đo thời gian.
     let onAppeared: () -> Void
     /// Gọi đúng một lần khi ngăn kéo bắt đầu trượt ra; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
@@ -76,17 +78,21 @@ struct SideDrawerMenuPanel<Content: View>: View {
     private func drawer(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Tiêu đề cùng chuẩn tiêu đề trang (22pt đậm, một dòng); không còn vạch ngăn bên dưới.
-            Text(title)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(Color.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
-                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+                titleAccessory?()
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, titleAccessory == nil ? 16 : 10)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

@@ -21,7 +21,7 @@ struct LegadoSourceListView: View {
         let visible = state.visibleSummaries(all, includeNsfw: includeNsfw, nsfwIds: nsfwIds)
 
         VStack(spacing: 8) {
-            searchField
+            searchField(count: pool.count)
             groupChips(pool: pool, all: all)
             statusLine(visible: visible, hiddenNsfw: all.count - pool.count)
             Divider()
@@ -33,27 +33,11 @@ struct LegadoSourceListView: View {
 
     // MARK: - Ô tìm
 
-    private var searchField: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-            TextField("Tìm nguồn Legado", text: $state.query)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-            if !state.query.isEmpty {
-                Button(action: { state.query = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Xoá ô tìm")
-            }
-        }
-        .padding(8)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
-        .padding(.horizontal)
+    /// Ô tìm viên thuốc kiểu mục lục (`ChapterTOCSearchField`), cùng kiểu ô tìm của tab Tiện ích FreeBook.
+    private func searchField(count: Int) -> some View {
+        ChapterTOCSearchField(text: $state.query, placeholder: "Tìm kiếm \(count) nguồn", palette: .system)
+            .padding(.leading, 16)
+            .padding(.trailing, 10)
     }
 
     // MARK: - Chip nhóm

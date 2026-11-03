@@ -15,6 +15,8 @@ struct ExtensionConfigFieldRow: View {
     let key: String
     let item: ExtensionConfigSchema.Item
     @Binding var values: [String: String]
+    /// Nút nhỏ ở đầu phải dòng tiêu đề — chỉ dòng chọn (`select`) có chỗ trống ở đó (sheet Bộ lọc đặt ↺ Đặt lại).
+    var labelAccessory: AnyView? = nil
 
     var body: some View {
         if item.mode == "select" {
@@ -75,7 +77,13 @@ struct ExtensionConfigFieldRow: View {
     private var selectRow: some View {
         let selected = ExtensionConfigSchema.displayedSelection(values[key], item: item)
         return VStack(alignment: .leading, spacing: 7) {
-            label
+            HStack(alignment: .top, spacing: 8) {
+                label
+                if let labelAccessory {
+                    Spacer(minLength: 8)
+                    labelAccessory
+                }
+            }
             Menu {
                 ForEach(Array(item.values.enumerated()), id: \.offset) { _, option in
                     Button(action: { values[key] = option }) {
