@@ -695,24 +695,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let scope = notification.userInfo?["scope"] as? DictionaryInvalidationScope ?? .globalReload
                 if (updatedBookId == nil || updatedBookId == self.playingBookId),
                    scope.affects(bookId: self.playingBookId) {
-                    self.preparationGeneration &+= 1
-                    self.prepareSpeakingTask?.cancel()
-                    self.prepareSpeakingTask = nil
-                    self.preparedChapterKey = nil
-                    self.preparedChapter = nil
-                    self.claimedSynthesisTask?.cancel()
-                    self.claimedSynthesisTask = nil
-                    self.claimedSynthesisTaskKey = nil
-                    self.nextChapterPrefetcher.cancel()
-                    self.resetNextChapterPrefixCache()
-                    self.nowPlayingUpdateGeneration &+= 1
-                    self.nowPlayingMetadataTask?.cancel()
-                    self.nowPlayingMetadataTask = nil
-                    self.nowPlayingMetadataTaskKey = nil
-                    self.nowPlayingStaticMetadata = nil
-                    if self.showFloatingWidget {
-                        self.updateNowPlayingInfo()
-                    }
+                    self.invalidatePreparedTranslationState()
                 }
             }
             .store(in: &cancellables)
@@ -723,24 +706,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard let self = self else { return }
                 let updatedBookId = notification.userInfo?["bookId"] as? String
                 if updatedBookId == nil || updatedBookId == self.playingBookId {
-                    self.preparationGeneration &+= 1
-                    self.prepareSpeakingTask?.cancel()
-                    self.prepareSpeakingTask = nil
-                    self.preparedChapterKey = nil
-                    self.preparedChapter = nil
-                    self.claimedSynthesisTask?.cancel()
-                    self.claimedSynthesisTask = nil
-                    self.claimedSynthesisTaskKey = nil
-                    self.nextChapterPrefetcher.cancel()
-                    self.resetNextChapterPrefixCache()
-                    self.nowPlayingUpdateGeneration &+= 1
-                    self.nowPlayingMetadataTask?.cancel()
-                    self.nowPlayingMetadataTask = nil
-                    self.nowPlayingMetadataTaskKey = nil
-                    self.nowPlayingStaticMetadata = nil
-                    if self.showFloatingWidget {
-                        self.updateNowPlayingInfo()
-                    }
+                    self.invalidatePreparedTranslationState()
                 }
             }
             .store(in: &cancellables)
@@ -939,7 +905,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         bookSourceName: String = "",
         extensionInfo: TTSExtensionInfo?,
         snapshot: TTSPretranslatedSnapshot? = nil,
-        author: String = ""
+        author: String = "",
+        translationEnabled: Bool? = nil
     ) {
         guard chapters.contains(where: { $0.index == currentIndex }) else { return }
         checkpointProgressAndRelease()
@@ -960,7 +927,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true)
-        let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
+        let isTransEnabled = translationEnabled
+            ?? TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
         self.sessionTranslationEnabled = isTransEnabled
         let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
             forKey: "convertTraditionalToSimplified_\(bookId)"

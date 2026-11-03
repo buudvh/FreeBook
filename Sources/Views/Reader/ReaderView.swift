@@ -511,6 +511,7 @@ struct ReaderView: View {
         .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
             chapterListStore?.updateTranslation(isTranslationEnabled: newValue, shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified)
+            ttsManager.updateTranslationSetting(for: bookId, enabled: newValue)
         }
         .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
             UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")

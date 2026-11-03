@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.658] - 2026-10-30
+
+### fix: dọn dẹp/xoá tác vụ xuất xoá luôn file trong Documents/Exports
+
+Người dùng: *"dù đã dọn dẹp/xoá tác vụ xuất (truyện, video, comic) trong app, các file trong Documents/Exports vẫn còn"*, *"khi bấm dọn dẹp tác vụ mà có tác vụ xuất file trong đó thì dọn dẹp file xuất trong documents nữa"*; "Xóa khỏi danh sách" từng tác vụ cũng xoá file; duyệt plan.
+
+- **Nguyên nhân**: `deleteTask` / `clearFinishedTasks` chỉ xoá hàng `DownloadTaskModel` + sidecar, không dòng nào xoá file — đúng cho cả TXT/EPUB/FB2/MOBI, CBZ/PDF và video (file hoặc thư mục). Thêm hai chỗ rò: `.part` của lần xuất bị tắt giữa chừng (tên có mốc giờ nên lần sau không trùng để tự dọn) và thư mục ẩn `.video-export-<taskId>.part` (chỉ dọn khi "Tải lại" đúng tác vụ đó).
+- **`ExportFileCleaner`** (mới, `Services/Export/`): chỉ xoá mục nằm **trực tiếp** trong `Exports/` (`validateInsideExports` + kiểm thư mục cha), không bao giờ xoá chính `Exports/`; lỗi ⇒ log `❌` (không vào `failed_file_deletions_queue` — hàng đó chỉ nhận `applicationSupport`).
+- **Đường dẫn bền**: `exportFilePath` lưu tuyệt đối (kèm UUID container, đổi khi cập nhật/cài lại app) ⇒ `ExportFileCleaner.resolvedURL` luôn ghép tên cuối vào `Exports/` của lần chạy này. `DownloadTask.existingExportURL` dùng cho nút/ menu Chia sẻ lại và `shareExportedFile`. Không đổi `@Model`.
+- **Xoá một tác vụ** (menu đổi nhãn "Xóa tác vụ và file" với tác vụ xuất): tác vụ xuất đã kết thúc ⇒ xoá file/thư mục + thư mục tạm video. Tác vụ đang chạy tự dọn `.part` khi bị huỷ; `markExportCompleted` của tác vụ đã bị xoá (ghi xong đúng lúc xoá) xoá luôn file vừa ghi.
+- **Dọn dẹp tác vụ**: xoá file của mọi tác vụ xuất bị dọn; không còn tác vụ xuất nào chạy/chờ ⇒ xoá luôn mọi mục mồ côi trong `Exports/` (bản xuất của các lần dọn trước, `.part`). Có xoá ⇒ toast "Đã xoá N file xuất trong Documents/Exports.". Mục "Dọn dẹp tác vụ" ở ngăn kéo tab Tải hiện cả khi danh sách rỗng (trước ẩn ⇒ file tồn đọng sau khi đã dọn hết tác vụ không bao giờ dọn được). Xoá chạy trên `Task.detached`, sau khi CSDL đã lưu (như `BookStorageManager`). Tác vụ tải không đụng file.
+- **Khởi động**: `initialize` dọn `.part` sót lại một lần mỗi lần chạy app, chỉ mục sửa lần cuối trước mốc khởi động. Xoá truyện vẫn không xoá bản xuất.
+- Chuyển entry `[1.3.628]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.657] - 2026-10-30
 
 ### fix: load() không đè hàm của script chính, chi tiết đọc trường comment

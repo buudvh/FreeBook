@@ -174,8 +174,17 @@ extension ReaderViewModel {
         }
     }
 
+    /// Đổi công tắc dịch ⇒ dựng lại chương đang hiện nếu bản đang có dựng theo trạng thái khác. Chương dựng lúc tắt
+    /// dịch có `translated == original` (`untranslatedTextResult`) nên bật lên mà không dựng lại vẫn thấy chữ gốc.
+    /// Chương khác trong cache tự dựng lại khi tới vì `isTranslationFresh` so cả công tắc.
     func toggleTranslation(enabled: Bool) {
+        guard isTranslationEnabled != enabled else { return }
         self.isTranslationEnabled = enabled
+        guard let cached = cache.cache[displayedChapterIndex], cached.state == .loaded,
+              !cached.isTranslationFresh(token: TranslateUtils.translationGenerationToken(for: bookId),
+                                         enabled: enabled,
+                                         convertTraditional: shouldConvertTraditionalToSimplified) else { return }
+        refreshParagraphItems()
     }
 
     func setTraditionalToSimplifiedConversion(enabled: Bool) {
