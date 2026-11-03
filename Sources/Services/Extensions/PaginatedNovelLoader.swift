@@ -18,11 +18,14 @@ final class PaginatedNovelLoader: ObservableObject {
     private let downloadUrl: String
     private let scriptFileName: String
     private let input: String
-    private let configJson: String
+    /// Đổi qua `reset(configJson:)` khi người dùng áp dụng bộ lọc của tiện ích.
+    private var configJson: String
 
     private var currentPage = 1
     private var nextPageUrl: String?
     private var retryCount = 0
+    /// Tăng mỗi lần `reset(configJson:)`: lượt tải của danh sách cũ về muộn thì bỏ, không chèn vào danh sách mới.
+    private var generation = 0
 
     init(
         localPath: String,
@@ -57,7 +60,21 @@ final class PaginatedNovelLoader: ObservableObject {
         await load(page: 1)
     }
 
+    /// Bộ lọc vừa áp dụng: bỏ danh sách đang có (màn về khung chờ ⇒ lên đầu danh sách) rồi tải lại trang 1 bằng
+    /// `configJson` mới — kể cả khi người dùng đang ở trang 2 trở đi.
+    func reset(configJson: String) async {
+        self.configJson = configJson
+        generation &+= 1
+        novels = []
+        nextPageUrl = nil
+        currentPage = 1
+        canLoadMore = false
+        isLoadingMore = false
+        await load(page: 1)
+    }
+
     private func load(page: Int) async {
+        let loadGeneration = generation
         if page == 1 {
             isLoading = true
             errorMessage = ""
@@ -82,6 +99,7 @@ final class PaginatedNovelLoader: ObservableObject {
                     configJson: config
                 )
             }
+            guard loadGeneration == generation else { return }
 
             let unique = filterAndDeduplicate(results)
             var addedCount = unique.count
@@ -114,6 +132,7 @@ final class PaginatedNovelLoader: ObservableObject {
             isLoading = false
             isLoadingMore = false
         } catch {
+            guard loadGeneration == generation else { return }
             AppLogger.shared.log("❌ [PaginatedNovelLoader] load page \(page) error: \(error.localizedDescription)")
             if page == 1 {
                 errorMessage = error.localizedDescription
@@ -129,6 +148,7 @@ final class PaginatedNovelLoader: ObservableObject {
                     AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(retryCount))...")
                     Task {
                         try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        guard loadGeneration == generation else { return } // đã áp bộ lọc mới trong lúc chờ
                         await load(page: page)
                     }
                 }

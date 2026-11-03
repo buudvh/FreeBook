@@ -23,10 +23,8 @@ struct ExtensionConfigView: View {
         ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId) ?? ext
     }
 
-    // Lưu các cấu hình định nghĩa trong plugin.json
-    @State internal var configDefinitions: [String: ConfigItem] = [:]
-    /// Khoá của `configDefinitions` theo thứ tự hiển thị: thứ tự trong `config` của `plugin.json`, rồi khoá đặc biệt ở gốc.
-    @State internal var configKeys: [String] = []
+    /// Các mục cài đặt khai trong plugin.json, theo thứ tự hiển thị.
+    @State internal var configSchema = ExtensionConfigSchema()
     // Lưu các giá trị hiện tại người dùng nhập vào
     @State internal var userValues: [String: String] = [:]
     /// Bản đã ghi gần nhất (hoặc bản vừa nạp) — mốc so sánh để không sinh lượt ghi giả. `+GlobalConfig`
@@ -48,40 +46,6 @@ struct ExtensionConfigView: View {
     // Trang đăng nhập `support_url` — `ExtensionConfigView+SupportLink`
     @State internal var supportLinkURL: String? = nil
     @State internal var openingSupportLink: SupportLinkRoute? = nil
-
-    /// Một mục của khối `config` trong `plugin.json`. Dựng tay từ dict (không `JSONDecoder`): `default`/`values` viết
-    /// bằng số hay bool vẫn đọc được (ép thành chuỗi) thay vì làm mất cả dòng.
-    struct ConfigItem {
-        let title: String?
-        let subtitle: String?
-        let mode: String?
-        let format: String?
-        let `default`: String?
-        /// Lựa chọn của `mode: "select"`; rỗng với kiểu khác.
-        let values: [String]
-
-        init(title: String?, mode: String?, format: String?, default: String?) {
-            self.title = title
-            self.subtitle = nil
-            self.mode = mode
-            self.format = format
-            self.default = `default`
-            self.values = []
-        }
-
-        init(dictionary: [String: Any]) {
-            title = dictionary["title"] as? String
-            subtitle = dictionary["subtitle"] as? String
-            mode = dictionary["mode"] as? String
-            format = dictionary["format"] as? String
-            `default` = dictionary["default"].map(ExtensionConfigValueFormatter.text)
-            values = (dictionary["values"] as? [Any])?.map(ExtensionConfigValueFormatter.text) ?? []
-        }
-    }
-
-    /// Giới hạn kết nối viết dạng giá trị trần dưới `config` (hợp đồng): không phải cài đặt nên không hiện. Vẫn được
-    /// tiêm vào script (`ExtensionManager.getCombinedConfigs`). Viết thành object `{ title, mode }` thì là cài đặt thường.
-    static let connectionKeys: Set<String> = ["thread_num", "delay", "ignore"]
 
     var body: some View {
         NavigationStack {
@@ -176,108 +140,18 @@ struct ExtensionConfigView: View {
     }
 
     internal func loadConfigDefinitions() {
-        guard !current.localPath.isEmpty else {
-            errorMessage = "Tiện ích chưa được cài đặt cục bộ."
-            isLoading = false
-            return
-        }
-
-        let extUrl = URL(fileURLWithPath: current.localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
-            errorMessage = "Không tìm thấy tệp plugin.json"
-            isLoading = false
-            return
-        }
-
         do {
-            let data = try Data(contentsOf: pluginJsonUrl)
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                var definitions: [String: ConfigItem] = [:]
-                var keys: [String] = []
-
-                // 1. Đọc từ section "config" nếu có — theo thứ tự trong file
-                if let configSection = json["config"] as? [String: Any] {
-                    keys = Self.orderedConfigKeys(in: data, section: configSection)
-                    for key in keys {
-                        guard let value = configSection[key] else { continue }
-                        if let dict = value as? [String: Any] {
-                            definitions[key] = ConfigItem(dictionary: dict)
-                        } else if Self.connectionKeys.contains(key) {
-                            continue
-                        } else if key == Self.supportURLKey, let link = Self.supportLink(from: value) {
-                            supportLinkURL = link // nút, không phải cài đặt — `+SupportLink`
-                        } else if let bVal = value as? Bool {
-                            definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
-                        } else if let nVal = value as? NSNumber {
-                            definitions[key] = ConfigItem(title: key, mode: "input", format: "number", default: "\(nVal)")
-                        } else if let sVal = value as? String {
-                            definitions[key] = ConfigItem(title: key, mode: "input", format: "text", default: sVal)
-                        }
-                    }
-                }
-
-                // 2. Đọc các trường thô đặc biệt ở root plugin.json nếu chưa có trong config
-                let specialKeys = ["preload_size", "max_length", "required_api_key", "support_url"]
-                for key in specialKeys {
-                    if definitions[key] == nil, let val = json[key] {
-                        if key == Self.supportURLKey, let link = Self.supportLink(from: val) {
-                            supportLinkURL = supportLinkURL ?? link
-                        } else if let bVal = val as? Bool {
-                            definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
-                        } else if let nVal = val as? NSNumber {
-                            definitions[key] = ConfigItem(title: key, mode: "input", format: "number", default: "\(nVal)")
-                        } else if let sVal = val as? String {
-                            definitions[key] = ConfigItem(title: key, mode: "input", format: "text", default: sVal)
-                        }
-                    }
-                }
-
-                let declaredKeys = keys.filter { definitions[$0] != nil }
-                let rootKeys = specialKeys.filter { definitions[$0] != nil && !declaredKeys.contains($0) }
-                self.configDefinitions = definitions
-                self.configKeys = declaredKeys + rootKeys
-            }
-
-            // Đọc các giá trị người dùng đã lưu trước đó trong Extension. Bỏ giá trị cũ của khoá kết nối đã ẩn (bản cũ
-            // của màn này cho sửa): không còn chỗ sửa thì lượt ghi kế tiếp xoá nó, script về giá trị của `plugin.json`.
-            var values: [String: String] = [:]
-            if let userConfigData = current.configJson.data(using: .utf8),
-               let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: Any] {
-                for (k, v) in savedValues where !(Self.connectionKeys.contains(k) && configDefinitions[k] == nil) {
-                    values[k] = ExtensionConfigValueFormatter.text(v)
-                }
-            }
-
-            // Điền sẵn các giá trị mặc định cho những key chưa được lưu
-            for (key, definition) in configDefinitions where values[key] == nil {
-                values[key] = definition.default ?? ""
-            }
-            if values[Self.cookieKey] == nil {
-                values[Self.cookieKey] = "true"
-            }
-
+            let schema = try ExtensionConfigSchema.load(localPath: current.localPath)
+            supportLinkURL = schema.supportLinkURL // nút, không phải cài đặt — `+SupportLink`
+            configSchema = schema
+            let values = schema.initialValues(configJson: current.configJson)
             // Mốc so sánh lấy SAU khi điền mặc định: lượt `onChange` do lần gán này bắn ra thấy hai bản bằng nhau
             // nên không ghi gì.
-            self.persistedConfigValues = values
-            self.userValues = values
-            isLoading = false
+            persistedConfigValues = values
+            userValues = values
         } catch {
-            errorMessage = "Lỗi xử lý file plugin.json: \(error.localizedDescription)"
-            isLoading = false
+            errorMessage = error.localizedDescription
         }
-    }
-
-    /// Khoá của khối `config` theo thứ tự trong file — `JSONSerialization` trả dict mất thứ tự, nên đọc lại bằng parser
-    /// JSON giữ thứ tự sẵn có của engine Legado. Không đọc được ⇒ xếp ABC như trước. Tiện ích mã hoá cài trước 1.3.672
-    /// đã bị ghi lại `plugin.json` theo ABC (`ExtensionScriptDecoder`) — phải cài lại mới có thứ tự gốc.
-    private static func orderedConfigKeys(in data: Data, section: [String: Any]) -> [String] {
-        let sorted = section.keys.sorted()
-        guard let text = String(data: data, encoding: .utf8),
-              let entries = LegadoEngineJSONParser.parse(text)?["config"]?.objectEntries else { return sorted }
-        var seen = Set<String>()
-        let ordered = entries.map { $0.key }.filter { section[$0] != nil && seen.insert($0).inserted }
-        return ordered + sorted.filter { !seen.contains($0) }
+        isLoading = false
     }
 }

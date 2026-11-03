@@ -1,6 +1,7 @@
-﻿import SwiftUI
+import SwiftUI
 
-/// Tab hiển thị lưới danh sách Thể loại trong trang Khám Phá
+/// Tab hiển thị lưới danh sách Thể loại trong trang Khám Phá. Đầu lưới là ô tìm viên thuốc kiểu mục lục
+/// (`ChapterTOCSearchField`): lọc ngay khi gõ, khớp cả tiêu đề gốc lẫn tiêu đề đã dịch, không phân biệt hoa thường/dấu.
 struct DiscoveryGenresTabView: View {
     let genreItems: [CategoryResult]
     let homeItems: [CategoryResult]
@@ -10,6 +11,20 @@ struct DiscoveryGenresTabView: View {
     /// Nguồn Legado đang xem ⇒ tab vẽ mục khám phá có kiểu (tiêu đề nhóm, ô bấm, điều khiển — `LegadoExploreTabView`)
     /// thay cho lưới `genreItems`.
     var legadoExtension: Extension? = nil
+
+    @State private var searchText = ""
+    /// Tiêu đề đã dịch theo `CategoryResult.id` — dựng một lần khi bắt đầu tìm (không dịch lại mỗi phím gõ); danh sách
+    /// hoặc công tắc dịch đổi thì bỏ.
+    @State private var translatedTitles: [String: String] = [:]
+
+    private var filteredItems: [CategoryResult] {
+        let query = Self.searchKey(searchText.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !query.isEmpty else { return genreItems }
+        return genreItems.filter { item in
+            Self.searchKey(item.title).contains(query)
+                || Self.searchKey(translatedTitles[item.id] ?? translateIfNeeded(item.title)).contains(query)
+        }
+    }
 
     var body: some View {
         if let legadoExtension {
@@ -33,34 +48,73 @@ struct DiscoveryGenresTabView: View {
                     .foregroundColor(.secondary)
                     .padding(.top, 40)
             } else {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(genreItems) { item in
-                        Button(action: {
-                            if homeItems.contains(where: { $0.id == item.id }) {
-                                selectedCategoryId = item.id
-                            } else {
-                                onSelectGenre(item)
+                VStack(spacing: 0) {
+                    ChapterTOCSearchField(
+                        text: $searchText,
+                        placeholder: "Tìm kiếm \(genreItems.count) thể loại",
+                        palette: .system
+                    )
+                    .padding(.leading, 16)
+                    .padding(.trailing, 10)
+                    .padding(.top, 12)
+
+                    let items = filteredItems
+                    if items.isEmpty {
+                        Text("Không có thể loại nào khớp")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 24)
+                    }
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(items) { item in
+                            Button(action: {
+                                if homeItems.contains(where: { $0.id == item.id }) {
+                                    selectedCategoryId = item.id
+                                } else {
+                                    onSelectGenre(item)
+                                }
+                            }) {
+                                Text(translatedTitles[item.id] ?? translateIfNeeded(item.title))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .padding(.horizontal, 4)
+                                    .frame(height: 50)
+                                    .background(Color.white.opacity(0.12))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                                    )
                             }
-                        }) {
-                            Text(translateIfNeeded(item.title))
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.horizontal, 4)
-                                .frame(height: 50)
-                                .background(Color.white.opacity(0.12))
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                                )
                         }
                     }
+                    .padding()
                 }
-                .padding()
             }
         }
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: searchText) { _, text in
+            if !text.isEmpty && translatedTitles.isEmpty { rebuildTranslatedTitles() }
+        }
+        .onChange(of: genreItems.map(\.id)) { _, _ in translatedTitles = [:] }
+        .onChange(of: isTranslationEnabled) { _, _ in translatedTitles = [:] }
+    }
+
+    private func rebuildTranslatedTitles() {
+        var titles: [String: String] = [:]
+        for item in genreItems {
+            titles[item.id] = translateIfNeeded(item.title)
+        }
+        translatedTitles = titles
+    }
+
+    /// Khoá so khớp: bỏ dấu, không phân biệt hoa thường, "đ" ≈ "d" — gõ "he thong" vẫn ra "Hệ Thống Lưu".
+    private static func searchKey(_ text: String) -> String {
+        text.replacingOccurrences(of: "đ", with: "d")
+            .replacingOccurrences(of: "Đ", with: "D")
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
     private func translateIfNeeded(_ text: String) -> String {

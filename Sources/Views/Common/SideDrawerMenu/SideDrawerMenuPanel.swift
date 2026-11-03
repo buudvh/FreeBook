@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// Nội dung cửa sổ ngăn kéo (`SideDrawerMenuWindowRoot`): lớp phủ tối + ngăn kéo bán trong suốt bám mép phải.
+/// Nội dung cửa sổ ngăn kéo (`SideDrawerMenuWindowRoot`): lớp phủ tối + ngăn kéo bán trong suốt bám mép `edge` (mặc
+/// định mép phải — menu "…"; mép trái — bảng chọn nguồn của Khám phá).
 ///
-/// - Ngăn kéo cao toàn màn, rộng 78% bề ngang (tối đa 360pt), bo góc trái, viền trái mảnh; nội dung luôn tông tối
+/// - Ngăn kéo cao toàn màn, rộng 78% bề ngang (tối đa 360pt), bo hai góc phía trong; nội dung luôn tông tối
 ///   (`colorScheme = .dark`) để chữ trắng đọc rõ cả khi màn bên dưới là bìa sáng màu.
-/// - Đóng: chạm ra ngoài, vuốt sang phải trên ngăn kéo, hoặc chọn một hàng thao tác. Không có nút ✕.
+/// - Đóng: chạm ra ngoài, vuốt về phía mép bám trên ngăn kéo, hoặc chọn một hàng thao tác. Không có nút ✕.
 /// - Bắt đầu trượt ra ⇒ gọi ngay `onCloseBegan` (kèm action của hàng vừa chọn, nếu có) để cửa sổ thôi nhận chạm và
 ///   action chạy luôn; trượt ra xong ⇒ `onClosed` để cửa sổ ẩn đi.
 struct SideDrawerMenuPanel<Content: View>: View {
     let title: String
+    /// Mép màn ngăn kéo bám vào.
+    let edge: HorizontalEdge
     /// Panel vừa lên màn (bắt đầu trượt vào) — chỉ để đo thời gian.
     let onAppeared: () -> Void
     /// Gọi đúng một lần khi ngăn kéo bắt đầu trượt ra; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
@@ -31,9 +34,10 @@ struct SideDrawerMenuPanel<Content: View>: View {
     var body: some View {
         GeometryReader { proxy in
             let drawerWidth = min(proxy.size.width * 0.78, 360)
-            // Nền ngăn kéo tràn qua vùng an toàn bên phải (tai thỏ khi nằm ngang) ⇒ đẩy thêm đoạn đó khi ẩn.
-            let hiddenOffset = drawerWidth + proxy.safeAreaInsets.trailing + 24
-            ZStack(alignment: .trailing) {
+            // Nền ngăn kéo tràn qua vùng an toàn phía mép bám (tai thỏ khi nằm ngang) ⇒ đẩy thêm đoạn đó khi ẩn.
+            let edgeInset = edge == .leading ? proxy.safeAreaInsets.leading : proxy.safeAreaInsets.trailing
+            let hiddenOffset = (drawerWidth + edgeInset + 24) * edgeSign
+            ZStack(alignment: edge == .leading ? .leading : .trailing) {
                 dimmingLayer
                 drawer(width: drawerWidth)
                     .offset(x: isShown ? dragOffset : hiddenOffset)
@@ -106,21 +110,24 @@ struct SideDrawerMenuPanel<Content: View>: View {
     /// vào vùng an toàn (tai thỏ khi nằm ngang, thanh trạng thái, home indicator); nới 1pt ra ngoài mép trên/dưới/phải
     /// để viền chỉ còn thấy ở cạnh trái.
     private var drawerBackground: some View {
-        SideDrawerGlassBackground()
+        SideDrawerGlassBackground(attachedEdge: edge)
             .padding(.vertical, -1)
-            .padding(.trailing, -1)
+            .padding(edge == .leading ? .leading : .trailing, -1)
             .ignoresSafeArea()
     }
 
+    /// Dấu của trục x hướng ra mép bám: +1 mép phải, −1 mép trái.
+    private var edgeSign: CGFloat { edge == .leading ? -1 : 1 }
+
     // MARK: - Đóng
 
-    /// Chỉ ăn cú vuốt **ngang** sang phải để không tranh với cuộn dọc của danh sách mục.
+    /// Chỉ ăn cú vuốt **ngang** về phía mép bám để không tranh với cuộn dọc của danh sách mục.
     private func swipeToClose(drawerWidth: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 16, coordinateSpace: .global)
             .onChanged { value in
                 guard !isClosing else { return }
                 let dx = value.translation.width
-                if dx > 0, abs(dx) > abs(value.translation.height) {
+                if dx * edgeSign > 0, abs(dx) > abs(value.translation.height) {
                     dragOffset = dx
                 } else if dragOffset != 0 {
                     dragOffset = 0
@@ -128,8 +135,8 @@ struct SideDrawerMenuPanel<Content: View>: View {
             }
             .onEnded { value in
                 guard !isClosing else { return }
-                let travelled = dragOffset
-                let predicted = value.predictedEndTranslation.width
+                let travelled = dragOffset * edgeSign
+                let predicted = value.predictedEndTranslation.width * edgeSign
                 if travelled > 0, travelled > drawerWidth * 0.3 || predicted > drawerWidth * 0.6 {
                     close(nil)
                 } else {

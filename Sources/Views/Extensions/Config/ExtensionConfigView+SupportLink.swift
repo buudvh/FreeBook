@@ -8,20 +8,13 @@ import SwiftUI
 /// Chạm ⇒ `BypassWebView` toàn màn (kho cookie WebKit mặc định; ép chế độ điện thoại như `fetch`, URL mở nguyên văn).
 /// Đóng ⇒ chép ngay cookie WebKit của tên miền `source` và tên miền trang đăng nhập sang `fetch`
 /// (`ExtensionCookieSync.syncNow`: bỏ qua kiểm thế hệ, WebKit thắng khi hai bên khác giá trị).
+///
+/// Nhận diện URL ở `ExtensionConfigSchema.supportLink(from:)`.
 extension ExtensionConfigView {
-    static let supportURLKey = "support_url"
-
     /// Trang đăng nhập đang mở — `Identifiable` cho `fullScreenCover(item:)`, chụp URL lúc chạm.
     struct SupportLinkRoute: Identifiable {
         let url: String
         var id: String { url }
-    }
-
-    /// Giá trị trần là URL http(s) tuyệt đối có host ⇒ chuỗi đã trim; khác ⇒ `nil`.
-    static func supportLink(from value: Any) -> String? {
-        guard let text = (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              let url = URL(string: text), ExtensionCookieSync.host(of: url) != nil else { return nil }
-        return text
     }
 
     @ViewBuilder

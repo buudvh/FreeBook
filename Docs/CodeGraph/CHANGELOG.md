@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.675] - 2026-11-03
+
+### fix: bộ lọc tiện ích ở mọi màn danh sách, ngăn kéo chọn nguồn và ô tìm thể loại
+
+Người dùng: *"sửa lại ext qidian… dùng config của ext select để làm bộ lọc… thêm ô tìm kiếm cho genres… thêm biểu tượng lọc ngoài màn hình nếu config có kiểu select, bool, list"*; thêm *"hiển thị nút bộ lọc ở tất cả màn hình danh sách"*; chốt từng nhánh qua grill-me + mockup rồi duyệt plan. Tiện ích qidian (bộ lọc STV, home thể loại, genre nhãn) sửa ở repo tiện ích riêng.
+
+- **Nút lọc** (`ExtensionFilterButton`, mới): chỉ hiện khi `config` của tiện ích có mục `select` / công tắc (cả bool trần) / `list`; chấm trắng khi khác mặc định. Đọc `plugin.json` ở luồng nền một lần cho mỗi (tiện ích, phiên bản, `configJson`) qua `ExtensionFilterCatalog` (`@MainActor @Observable`), `body` chỉ tra bảng. Ba chỗ: header Khám phá (nút tròn 38 trước ⋯, mọi tab home/nhãn/Trang chủ), trang danh sách thể loại/nhãn `CategoryNovelsListView` (cặp với Kiểu hiển thị trong một `ToolbarItem`, cả khi mở từ Chi tiết), màn Tìm khi tìm trong một nguồn (thay chỗ nút "Tìm").
+- **Sheet Bộ lọc** (`ExtensionFilterSheet`, mới): mọi mục lọc theo thứ tự `plugin.json`, dùng lại dòng của màn Cấu hình. Sửa trên bản nháp; ↺ về mặc định; "Áp dụng" **lưu vĩnh viễn** qua `ExtensionTransactionCoordinator.saveExtensionConfig` — đọc config mới nhất, chỉ thay khoá lọc; vuốt đóng khi chưa áp dụng thì hỏi (`confirmDiscardOnSwipe`).
+- **Tải lại sau khi áp dụng** (kể cả đang ở trang 2+): Khám phá dùng `reloadAfterConfigChangeIfPending()` khi sheet đóng (tab đang xem giữ, về trang 1, neo cuộn bị xoá); danh sách thể loại gọi `PaginatedNovelLoader.reset(configJson:)` (mới — config là `var`, bộ đếm lượt bỏ trang cũ về muộn và lượt tự thử lại đã hẹn); màn Tìm tìm lại bằng bản tiện ích mới nhất (`selectedExtension` là bản chụp có config cũ).
+- **Màn Cấu hình tách phần dùng chung**: `ExtensionConfigSchema` (mới — đọc `config` theo thứ tự, mục ở gốc, `support_url`, giá trị ban đầu, dựng `configJson`, `filterKeys`) và `ExtensionConfigFieldRow` (mới — 5 dáng dòng chuyển từ `+GlobalConfig`). Hành vi màn Cấu hình giữ nguyên; `plugin.json` hỏng vẫn báo lỗi.
+- **Header Khám phá + ngăn kéo chọn nguồn**: nút tròn icon tiện ích + tên và link hai dòng (`DiscoverySourceHeaderButton`, mới); bấm nút hay vùng chữ đều mở ngăn kéo **trượt từ trái** (`DiscoverySourcePickerModifier`, mới) thay sheet chọn nguồn: ô tìm viên thuốc, NSFW, chip loại, hàng nguồn với ⚙/ⓘ và 📌. Sheet Cấu hình / Chi tiết nguồn Legado chuyển về màn Khám phá. `SideDrawerMenu` thêm tham số `edge` (mặc định phải; panel, nền kính, vuốt đóng theo mép).
+- **Ô tìm kiểu mục lục**: `ChapterTOCSearchField` thêm `onSubmit`/`onClear` tuỳ chọn. Màn Tìm bỏ nút "Tìm" (bấm Tìm trên bàn phím). Tab nhãn Khám phá có ô "Tìm kiếm N thể loại": lọc ngay khi gõ, khớp tên gốc lẫn tên đã dịch, bỏ dấu, "đ" ≈ "d"; thanh tab ẩn theo bàn phím.
+- Chuyển entry `[1.3.645]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: gõ phím trong ngăn kéo chọn nguồn (cửa sổ nổi riêng); qidian bản 25: nút lọc hiện ở Khám phá, chọn "Lượt đọc tuần" + "> 500" rồi Áp dụng thì tab đang xem tải lại từ đầu; tìm "hệ thống" ở tab nhãn.
+
 ## [1.3.674] - 2026-11-01
 
 ### fix: danh sách kho thành trang con, tự kiểm tra cập nhật tiện ích
@@ -384,17 +399,3 @@ Người dùng: *"sheet import cao quá, điều chỉnh lại chiều cao vừa
 - **`ShelfImportSheet`**: nấc `.medium` thành nấc gọn `.height(300)` (thanh kéo + tiêu đề + ba hàng) và `.large`, có `selection`; bước "Từ URL" tự lên `.large` (bàn phím + danh sách nguồn khớp), quay lại thì về nấc gọn. Không dùng `fittedSheetDetent` vì `List` trong `NavigationStack` không đo được chiều cao.
 - Chuyển entry `[1.3.617]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cỡ chữ lớn có thể cần kéo lên.
-
-## [1.3.645] - 2026-10-29
-
-### fix: ngăn kéo nhoè mịn theo độ đục, nút nổi chỉnh độ đục theo 6 nấc kính
-
-Người dùng: *"Vì sao config độ đục giữa 95% và 100% nó khác biệt hoàn toàn vậy?"* — điều tra lại, chọn phương án B (ảnh chụp nền cho ngăn kéo).
-
-- **Nguyên nhân**: 1.3.640 vẽ `.ultraThinMaterial` rồi `.opacity(độ đục)`. Tài liệu `UIVisualEffectView` của Apple: alpha < 1 trên lớp hiệu ứng hoặc lớp cha ép vẽ tách riêng ⇒ hiệu ứng "hiện sai hoặc không hiện". Kính SwiftUI chạy cùng cơ chế ⇒ 0–95% thực ra **không nhoè** (chỉ phủ lớp xám), chỉ 100% mới nhoè. Mặc định ngăn kéo 60% vì vậy chưa từng nhoè.
-- **Ngăn kéo** (`SideDrawerGlassBackground<Backdrop>`): bỏ kính iOS, nhoè **mịn** bằng SwiftUI `.blur(radius: độ đục × 28pt, opaque: true)` trên ảnh chụp màn bên dưới. `SideDrawerMenuWindowManager.captureBackdrop` chụp cửa sổ chính (level `.normal`) bằng `drawHierarchy(afterScreenUpdates: false)` ở scale 1 lúc mở, chỉ khi độ đục > 0; ảnh đi qua `Session` → `Presentation` → `SideDrawerMenuPanel`, nhả khi ẩn cửa sổ; có log `[Drawer]` đo ms, chụp lỗi ⇒ log `❌` và mở như độ đục 0. Ảnh phủ lớp tối 30% như `dimmingLayer` (không thì từ 0 lên 5% phần sau ngăn kéo sáng vọt), dịch `-offset` của ngăn kéo để đứng yên theo màn khi trượt/vuốt. Video và trang web có thể ra tối trong ảnh chụp.
-- **Nút nổi** (`FloatingGlassBackground`): độ đục thành 6 nấc kính iOS (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; giá trị đã lưu làm tròn về nấc gần nhất (bước 0,2).
-- **Cài đặt › Giao diện**: thanh độ đục nút nổi bước 20% kèm tên nấc ("60% · Vừa"); ô xem trước nút nổi chỉ cắt góc dải bìa (kính iOS hỏng khi lớp cha bị cắt mặt nạ); ô xem trước ngăn kéo nhoè chính dải bìa theo cùng công thức. Sửa chú thích sai ở `GlassChromeSettings`.
-- **Thay đổi thấy được**: ngăn kéo để mặc định 60% giờ mới nhoè thật.
-- Chuyển entry `[1.3.615]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + tài liệu Apple; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử kéo độ đục ngăn kéo 0→100% (mịn, không nhảy), ngăn kéo trượt vào/vuốt ra (nền đứng yên), độ trễ mở ngăn kéo (log `[Drawer]`), 6 nấc nút nổi.

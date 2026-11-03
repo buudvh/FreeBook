@@ -35,6 +35,7 @@ final class SideDrawerMenuWindowManager {
         let ownerID: UUID
         let token: UUID
         var title: String
+        let edge: HorizontalEdge
         let openedAt: CFTimeInterval
         /// Trả `isPresented` của màn sở hữu về `false`.
         let resetPresented: () -> Void
@@ -56,6 +57,7 @@ final class SideDrawerMenuWindowManager {
     func present(
         ownerID: UUID,
         title: String,
+        edge: HorizontalEdge = .trailing,
         content: @escaping () -> AnyView,
         resetPresented: @escaping () -> Void
     ) -> Bool {
@@ -75,11 +77,12 @@ final class SideDrawerMenuWindowManager {
             ownerID: ownerID,
             token: token,
             title: title,
+            edge: edge,
             openedAt: CACurrentMediaTime(),
             resetPresented: resetPresented
         )
         window.isUserInteractionEnabled = true
-        host.rootView = makeRoot(token: token, title: title, content: content)
+        host.rootView = makeRoot(token: token, title: title, edge: edge, content: content)
         window.isHidden = false
         host.setNeedsStatusBarAppearanceUpdate()
         host.setNeedsUpdateOfHomeIndicatorAutoHidden()
@@ -102,7 +105,7 @@ final class SideDrawerMenuWindowManager {
         guard var current = session, current.ownerID == ownerID, !current.isClosing else { return }
         current.title = title
         session = current
-        hostingController?.rootView = makeRoot(token: current.token, title: title, content: content)
+        hostingController?.rootView = makeRoot(token: current.token, title: title, edge: current.edge, content: content)
     }
 
     /// Gỡ ngay, không hiệu ứng: màn sở hữu rời cây view, hoặc nơi gọi tự hạ `isPresented` khi ngăn kéo còn mở. Đang
@@ -115,11 +118,17 @@ final class SideDrawerMenuWindowManager {
 
     // MARK: - Callback từ `SideDrawerMenuPanel`
 
-    private func makeRoot(token: UUID, title: String, content: @escaping () -> AnyView) -> SideDrawerMenuWindowRoot {
+    private func makeRoot(
+        token: UUID,
+        title: String,
+        edge: HorizontalEdge,
+        content: @escaping () -> AnyView
+    ) -> SideDrawerMenuWindowRoot {
         SideDrawerMenuWindowRoot(
             presentation: SideDrawerMenuWindowRoot.Presentation(
                 token: token,
                 title: title,
+                edge: edge,
                 content: content,
                 onAppeared: { [weak self] in
                     self?.panelDidAppear(token: token)

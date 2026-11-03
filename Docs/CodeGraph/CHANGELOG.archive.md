@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.645] - 2026-10-29
+
+### fix: ngăn kéo nhoè mịn theo độ đục, nút nổi chỉnh độ đục theo 6 nấc kính
+
+Người dùng: *"Vì sao config độ đục giữa 95% và 100% nó khác biệt hoàn toàn vậy?"* — điều tra lại, chọn phương án B (ảnh chụp nền cho ngăn kéo).
+
+- **Nguyên nhân**: 1.3.640 vẽ `.ultraThinMaterial` rồi `.opacity(độ đục)`. Tài liệu `UIVisualEffectView` của Apple: alpha < 1 trên lớp hiệu ứng hoặc lớp cha ép vẽ tách riêng ⇒ hiệu ứng "hiện sai hoặc không hiện". Kính SwiftUI chạy cùng cơ chế ⇒ 0–95% thực ra **không nhoè** (chỉ phủ lớp xám), chỉ 100% mới nhoè. Mặc định ngăn kéo 60% vì vậy chưa từng nhoè.
+- **Ngăn kéo** (`SideDrawerGlassBackground<Backdrop>`): bỏ kính iOS, nhoè **mịn** bằng SwiftUI `.blur(radius: độ đục × 28pt, opaque: true)` trên ảnh chụp màn bên dưới. `SideDrawerMenuWindowManager.captureBackdrop` chụp cửa sổ chính (level `.normal`) bằng `drawHierarchy(afterScreenUpdates: false)` ở scale 1 lúc mở, chỉ khi độ đục > 0; ảnh đi qua `Session` → `Presentation` → `SideDrawerMenuPanel`, nhả khi ẩn cửa sổ; có log `[Drawer]` đo ms, chụp lỗi ⇒ log `❌` và mở như độ đục 0. Ảnh phủ lớp tối 30% như `dimmingLayer` (không thì từ 0 lên 5% phần sau ngăn kéo sáng vọt), dịch `-offset` của ngăn kéo để đứng yên theo màn khi trượt/vuốt. Video và trang web có thể ra tối trong ảnh chụp.
+- **Nút nổi** (`FloatingGlassBackground`): độ đục thành 6 nấc kính iOS (`GlassFrostLevel`: Không nhoè / Rất mỏng / Mỏng / Vừa / Dày / Rất dày), luôn vẽ ở độ hiện 100%; giá trị đã lưu làm tròn về nấc gần nhất (bước 0,2).
+- **Cài đặt › Giao diện**: thanh độ đục nút nổi bước 20% kèm tên nấc ("60% · Vừa"); ô xem trước nút nổi chỉ cắt góc dải bìa (kính iOS hỏng khi lớp cha bị cắt mặt nạ); ô xem trước ngăn kéo nhoè chính dải bìa theo cùng công thức. Sửa chú thích sai ở `GlassChromeSettings`.
+- **Thay đổi thấy được**: ngăn kéo để mặc định 60% giờ mới nhoè thật.
+- Chuyển entry `[1.3.615]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + tài liệu Apple; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử kéo độ đục ngăn kéo 0→100% (mịn, không nhảy), ngăn kéo trượt vào/vuốt ra (nền đứng yên), độ trễ mở ngăn kéo (log `[Drawer]`), 6 nấc nút nổi.
+
 ## [1.3.644] - 2026-10-29
 
 ### fix: nhập truyện tranh và phim từ file bị từ chối do lệch tiền tố /private

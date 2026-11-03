@@ -9,6 +9,8 @@ struct SideDrawerMenuWindowRoot: View {
     struct Presentation {
         let token: UUID
         let title: String
+        /// Mép màn ngăn kéo bám vào.
+        let edge: HorizontalEdge
         /// Gọi lại trong `body` của panel mỗi lần vẽ ⇒ luôn đọc state mới nhất của màn.
         let content: () -> AnyView
         let onAppeared: () -> Void
@@ -25,6 +27,7 @@ struct SideDrawerMenuWindowRoot: View {
             if let presentation {
                 SideDrawerMenuPanel(
                     title: presentation.title,
+                    edge: presentation.edge,
                     onAppeared: presentation.onAppeared,
                     onCloseBegan: presentation.onCloseBegan,
                     onClosed: presentation.onClosed,

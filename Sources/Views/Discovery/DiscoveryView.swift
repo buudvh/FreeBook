@@ -70,9 +70,10 @@ struct DiscoveryView: View {
     // Định danh tab Thể loại
     private let genresTabId = "__genres__"
     
-    // Sheet chọn nguồn "Phần mở rộng" nâng cao
+    // Ngăn kéo chọn nguồn (trượt từ trái — `discoverySourcePicker`)
     @State private var showingExtensionSelector = false
-    @State private var extensionSearchQuery = ""
+    /// Sheet "Bộ lọc" của nguồn đang xem (`ExtensionFilterSheet`); đóng ⇒ tải lại nếu config vừa đổi.
+    @State private var showingFilterSheet = false
     @State private var isTranslationEnabled = false
     
     // Import từ trình duyệt
@@ -139,38 +140,16 @@ struct DiscoveryView: View {
                         Spacer()
                     }
                 } else {
-                    // 1. Custom Header Bar (Nguồn bên trái có icon & tên, Tìm kiếm bên phải)
+                    // 1. Custom Header Bar (nguồn bên trái: icon tròn + tên/link hai dòng; Lọc · menu · Tìm kiếm bên phải)
                     HStack(spacing: 8) {
-                        // Nút chọn nguồn tiện ích
-                        Button(action: { showingExtensionSelector = true }) {
-                            HStack(spacing: 6) {
-                                if let ext = selected {
-                                    ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 22)
-                                    Text(ext.name)
-                                        .fontWeight(.semibold)
-                                        .lineLimit(1)
-                                } else {
-                                    Image(systemName: "puzzlepiece.extension")
-                                        .resizable()
-                                        .frame(width: 22, height: 22)
-                                    Text("Chọn Nguồn")
-                                }
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.secondary)
-                            }
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .frame(height: 38)
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(19)
-                        }
-                        .layoutPriority(1) // Đảm bảo nút chọn nguồn được hiển thị trọn vẹn nhất có thể
-                        
-                        Spacer()
-                        
-                        // Hai nút tròn đứng sát nhau (`HeaderButtonMetrics.pairCircleSpacing`), giữ cỡ 38.
+                        // Nút tròn icon + vùng chữ đều mở ngăn kéo chọn nguồn
+                        DiscoverySourceHeaderButton(ext: selected) { showingExtensionSelector = true }
+
+                        // Các nút tròn đứng sát nhau (`HeaderButtonMetrics.pairCircleSpacing`), giữ cỡ 38.
                         HStack(spacing: HeaderButtonMetrics.pairCircleSpacing) {
+                            // Bộ lọc của nguồn (mục select/công tắc/list trong `config`) — không có thì không hiện.
+                            ExtensionFilterButton(ext: selected, style: .circle) { showingFilterSheet = true }
+
                             // Menu gộp của nguồn: công tắc NSFW · Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
                             if let ext = selected {
                                 DiscoverySourceMenuButton(
@@ -360,7 +339,8 @@ struct DiscoveryView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
+            // Thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668); tab nhãn có ô tìm ⇒ ẩn theo bàn phím.
+            .mainTabBar(hidesWithKeyboard: true)
             // Gắn ở view ngoài cùng (không nằm trong nhánh có nguồn) để vẫn chạy khi danh sách nguồn rỗng.
             .onChange(of: selectedExtensionId) { _, newValue in
                 // Không ghi "" vào nguồn đã nhớ: hết nguồn (vd ẩn hết nguồn NSFW) rồi có lại thì còn khôi phục được.
@@ -390,6 +370,10 @@ struct DiscoveryView: View {
                 configReloadPendingId = new[0]
             }
             .onChange(of: showingExtensionSelector) { _, isShowing in
+                if !isShowing { _ = reloadAfterConfigChangeIfPending() }
+            }
+            // Áp dụng bộ lọc ⇒ config đổi (đánh dấu ở trên) ⇒ sheet đóng thì tải lại: tab đang xem về trang 1, lên đầu.
+            .onChange(of: showingFilterSheet) { _, isShowing in
                 if !isShowing { _ = reloadAfterConfigChangeIfPending() }
             }
             // Nguồn đang chọn vừa bị gỡ/ẩn ⇒ nguồn đầu tiên còn lại; hết nguồn thì xoá chọn. Đang không chọn gì mà có
@@ -465,15 +449,19 @@ struct DiscoveryView: View {
                     isTranslationEnabled = newState
                 }
             }
-            .sheet(isPresented: $showingExtensionSelector) {
-                ExtensionSelectorView(
-                    activeExtensions: activeExtensions,
-                    selectedExtensionId: $selectedExtensionId,
-                    extensionSearchQuery: $extensionSearchQuery,
-                    onImport: { detailUrl, packageId, sourceName in
-                        showImportedBook(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
-                    }
-                )
+            .discoverySourcePicker(
+                isPresented: $showingExtensionSelector,
+                selectedExtensionId: $selectedExtensionId,
+                extensions: active,
+                onImport: { detailUrl, packageId, sourceName in
+                    showImportedBook(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
+                },
+                onConfigClosed: { _ = reloadAfterConfigChangeIfPending() }
+            )
+            .sheet(isPresented: $showingFilterSheet) {
+                if let packageId = selectedExtension?.packageId {
+                    ExtensionFilterSheet(packageId: packageId)
+                }
             }
             .sheet(isPresented: $showingLayoutSheet) {
                 // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.

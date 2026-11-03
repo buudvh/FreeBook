@@ -11,8 +11,10 @@ import SwiftUI
 /// 100% — **không** gắn `.opacity`/mặt nạ lên lớp kính hay lớp cha của nó. Dùng cho ngăn kéo thật (`SideDrawerMenuPanel`)
 /// và ô xem trước ở màn Giao diện.
 struct SideDrawerGlassBackground: View {
-    /// Bo góc phải — ngăn kéo thật bám mép màn nên 0; ô xem trước bo theo khung của nó.
+    /// Bo góc phía mép bám — ngăn kéo thật bám mép màn nên 0; ô xem trước bo theo khung của nó.
     var trailingRadius: CGFloat = 0
+    /// Mép ngăn kéo bám vào; phía còn lại bo 16.
+    var attachedEdge: HorizontalEdge = .trailing
 
     @AppStorage(GlassChromeSettings.drawerTransparencyKey)
     private var transparency = GlassChromeSettings.defaultDrawerTransparency
@@ -20,11 +22,13 @@ struct SideDrawerGlassBackground: View {
     private var frost = GlassChromeSettings.defaultDrawerFrost
 
     private var shape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            topLeadingRadius: 16,
-            bottomLeadingRadius: 16,
-            bottomTrailingRadius: trailingRadius,
-            topTrailingRadius: trailingRadius,
+        let inner: CGFloat = 16
+        let isLeading = attachedEdge == .leading
+        return UnevenRoundedRectangle(
+            topLeadingRadius: isLeading ? trailingRadius : inner,
+            bottomLeadingRadius: isLeading ? trailingRadius : inner,
+            bottomTrailingRadius: isLeading ? inner : trailingRadius,
+            topTrailingRadius: isLeading ? inner : trailingRadius,
             style: .continuous
         )
     }

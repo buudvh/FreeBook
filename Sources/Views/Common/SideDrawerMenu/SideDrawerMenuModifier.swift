@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Ngăn kéo menu trượt từ mép phải — thay cho menu thả xuống "…" (`Menu` của hệ thống) ở các màn.
+/// Ngăn kéo menu trượt từ mép phải — thay cho menu thả xuống "…" (`Menu` của hệ thống) ở các màn. `edge: .leading` ⇒
+/// trượt từ mép trái (bảng chọn nguồn của Khám phá).
 ///
 /// Cách dùng: nút "…" trên thanh tiêu đề chỉ bật một `@State`, còn ngăn kéo gắn ở **thân chính** của màn:
 /// ```swift
@@ -31,6 +32,7 @@ import SwiftUI
 struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     let title: String
+    var edge: HorizontalEdge = .trailing
     @ViewBuilder let menuContent: () -> MenuContent
 
     /// Định danh chỗ gắn này với `SideDrawerMenuWindowManager` (một màn có thể gắn nhiều ngăn kéo).
@@ -77,6 +79,7 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
         let didPresent = SideDrawerMenuWindowManager.shared.present(
             ownerID: ownerID,
             title: title,
+            edge: edge,
             content: contentProvider,
             resetPresented: {
                 if binding.wrappedValue {
@@ -102,13 +105,15 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
 }
 
 extension View {
-    /// Gắn ngăn kéo menu trượt từ mép phải; bật bằng `isPresented`. Xem `SideDrawerMenuModifier`.
+    /// Gắn ngăn kéo menu trượt từ mép phải (hoặc mép trái với `edge: .leading`); bật bằng `isPresented`. Xem
+    /// `SideDrawerMenuModifier`.
     func sideDrawerMenu<MenuContent: View>(
         isPresented: Binding<Bool>,
         title: String,
+        edge: HorizontalEdge = .trailing,
         @ViewBuilder content: @escaping () -> MenuContent
     ) -> some View {
-        modifier(SideDrawerMenuModifier(isPresented: isPresented, title: title, menuContent: content))
+        modifier(SideDrawerMenuModifier(isPresented: isPresented, title: title, edge: edge, menuContent: content))
     }
 
     /// Biến thể cho menu theo **từng hàng** của danh sách: gán `item` = hàng được bấm để mở; ngăn kéo đóng thì `item`

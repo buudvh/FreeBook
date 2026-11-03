@@ -41,6 +41,8 @@ struct SearchView: View {
     @State private var openingErrorLink: SourceErrorLink?
     /// Scope đang mở sheet "Kiểu hiển thị" (chỉ có khi tìm trong một nguồn).
     @State private var layoutSheetScope: BookListLayoutScope?
+    /// Sheet "Bộ lọc" của nguồn đang tìm (chỉ khi tìm trong một nguồn); áp dụng ⇒ tìm lại từ trang 1.
+    @State private var showingFilterSheet = false
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
     /// Bản đã decode của `searchHistoryJSON`, **chỉ** cho hiển thị (`matchingHistory`) — xem `ShelfSearchView`.
     @State private var displayedHistory: [String] = []
@@ -151,6 +153,11 @@ struct SearchView: View {
             .sheet(item: $layoutSheetScope) { scope in
                 BookListLayoutSheet(scope: scope)
             }
+            .sheet(isPresented: $showingFilterSheet) {
+                if let packageId = selectedExtension?.packageId {
+                    ExtensionFilterSheet(packageId: packageId) { _ in performSearch() }
+                }
+            }
             .errorLinkBrowser(link: $openingErrorLink, packageId: statusErrorLink?.packageId) { retryStatusError() }
             .onAppear {
                 if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
@@ -215,52 +222,36 @@ struct SearchView: View {
         }
     }
     
+    /// Ô tìm viên thuốc kiểu mục lục — bấm Tìm trên bàn phím để tìm (không còn nút "Tìm"; thanh trên bàn phím nhận ra
+    /// ô tìm qua `returnKeyType == .search` để ẩn nhóm `aa…AA`). Tìm trong một nguồn có bộ lọc ⇒ icon lọc bên phải.
     @ViewBuilder
     private var searchBarView: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
-                    .textInputAutocapitalization(.none)
-                    // Thanh trên bàn phím nhận ra ô tìm kiếm qua `returnKeyType == .search` để ẩn nhóm `aa…AA`.
-                    .submitLabel(.search)
-                if !searchQuery.isEmpty {
-                    Button(action: {
-                        searchQuery = ""
-                        resetSearchPaging()
-                        searchResults.removeAll()
-                        sourceStates.removeAll()
-                        searchStatusMessage = ""
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
+        HStack(spacing: 2) {
+            ChapterTOCSearchField(
+                text: $searchQuery,
+                placeholder: "Tìm truyện hoặc tác giả",
+                palette: .system,
+                onSubmit: performSearch,
+                onClear: clearSearch
+            )
+            if !searchAllSources, let ext = selectedExtension {
+                ExtensionFilterButton(
+                    ext: ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId),
+                    style: .inline
+                ) { showingFilterSheet = true }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
-            
-            Button(action: performSearch) {
-                Text("Tìm")
-                    .bold()
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.18))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                    )
-                    .cornerRadius(10)
-            }
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal)
+        .padding(.leading, 16)
+        .padding(.trailing, 10)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
+    }
+
+    private func clearSearch() {
+        resetSearchPaging()
+        searchResults.removeAll()
+        sourceStates.removeAll()
+        searchStatusMessage = ""
     }
     
     @ViewBuilder
@@ -807,7 +798,8 @@ struct SearchView: View {
                 }
             }
         } else {
-            guard let ext = selectedExtension else {
+            // Bản ghi mới nhất: vừa áp dụng bộ lọc thì `selectedExtension` (bản chụp lúc mở màn) còn config cũ.
+            guard let ext = selectedExtension.map({ ExtensionLibraryRepository.shared.installedExtension(packageId: $0.packageId) ?? $0 }) else {
                 isSearching = false
                 searchStatusMessage = "Vui lòng chọn một nguồn trước."
                 return

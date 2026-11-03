@@ -13,6 +13,8 @@ struct CategoryNovelsListView: View {
     @State private var sourceHost: String? = nil
     @State private var selectedNovel: ExtensionItemResult? = nil
     @State private var showingLayoutSheet = false
+    /// Sheet "Bộ lọc" của tiện ích (`ExtensionFilterSheet`); áp dụng ⇒ tải lại từ trang 1 bằng config mới.
+    @State private var showingFilterSheet = false
     @State private var openingErrorLink: SourceErrorLink? = nil
     /// Màn bị trình duyệt "Mở link lỗi" che (biến mất khi nó mở): lần xuất hiện lại kế tiếp không để `.task` tải chồng
     /// trước khi chép cookie — lượt thử lại do `.errorLinkBrowser` gọi sau khi chép.
@@ -117,18 +119,32 @@ struct CategoryNovelsListView: View {
         .backPageTitle(translateIfNeeded(category.title))
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng danh sách của nguồn NSFW
         .toolbar {
+            // Cụm nút sát nhau trong MỘT `ToolbarItem` (`HeaderButtonMetrics`): Lọc (chỉ khi tiện ích có bộ lọc) · Kiểu hiển thị.
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showingLayoutSheet = true
-                } label: {
-                    Image(systemName: layout.mode.symbolName)
-                        .font(.system(size: 17, weight: .semibold))
+                HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                    ExtensionFilterButton(
+                        ext: ExtensionLibraryRepository.shared.installedExtension(packageId: extensionPackageId),
+                        style: .toolbar
+                    ) { showingFilterSheet = true }
+                    Button {
+                        showingLayoutSheet = true
+                    } label: {
+                        Image(systemName: layout.mode.symbolName)
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Kiểu hiển thị")
                 }
-                .accessibilityLabel("Kiểu hiển thị")
             }
         }
         .sheet(isPresented: $showingLayoutSheet) {
             BookListLayoutSheet(scope: layoutScope)
+        }
+        .sheet(isPresented: $showingFilterSheet) {
+            ExtensionFilterSheet(packageId: extensionPackageId) { configJson in
+                Task { await loader.reset(configJson: configJson) }
+            }
         }
         .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
             Task { await loader.loadInitial() }
