@@ -23,7 +23,10 @@ final class ExtensionFilterCatalog {
     func info(for ext: Extension) -> Info? {
         let key = "\(ext.packageId)|\(ext.version)|\(ext.configJson)"
         if let info = infos[key] { return info }
-        guard !ext.localPath.isEmpty, pendingKeys.insert(key).inserted else { return nil }
+        // Config vừa đổi (áp dụng bộ lọc, màn Cấu hình tự lưu): trong lúc đọc bộ mới vẫn trả bộ cũ của tiện ích — nút
+        // không biến mất một nhịp làm cụm nút header xô lệch.
+        let previous = infos.first { $0.key.hasPrefix("\(ext.packageId)|") }?.value
+        guard !ext.localPath.isEmpty, pendingKeys.insert(key).inserted else { return previous }
         let (localPath, configJson, packageId) = (ext.localPath, ext.configJson, ext.packageId)
         Task { @MainActor in
             let info = await Task.detached(priority: .utility) { () -> Info in
@@ -39,6 +42,6 @@ final class ExtensionFilterCatalog {
             infos[key] = info
             pendingKeys.remove(key)
         }
-        return nil
+        return previous
     }
 }

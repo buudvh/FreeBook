@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.646] - 2026-10-29
+
+### fix: sheet nhập truyện thấp vừa ba lựa chọn
+
+Người dùng: *"sheet import cao quá, điều chỉnh lại chiều cao vừa phải thôi"*.
+
+- **`ShelfImportSheet`**: nấc `.medium` thành nấc gọn `.height(300)` (thanh kéo + tiêu đề + ba hàng) và `.large`, có `selection`; bước "Từ URL" tự lên `.large` (bàn phím + danh sách nguồn khớp), quay lại thì về nấc gọn. Không dùng `fittedSheetDetent` vì `List` trong `NavigationStack` không đo được chiều cao.
+- Chuyển entry `[1.3.617]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cỡ chữ lớn có thể cần kéo lên.
+
 ## [1.3.645] - 2026-10-29
 
 ### fix: ngăn kéo nhoè mịn theo độ đục, nút nổi chỉnh độ đục theo 6 nấc kính

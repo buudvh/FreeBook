@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.676] - 2026-11-03
+
+### fix: nút lọc không nháy mất khi vừa áp dụng bộ lọc
+
+Tiếp 1.3.675 (rà lại sau khi CI xanh).
+
+- **`ExtensionFilterCatalog.info(for:)`**: khoá tra gồm cả `configJson`, nên mỗi lần áp dụng bộ lọc hoặc màn Cấu hình tự lưu thì khoá mới chưa có ⇒ trả `nil` ⇒ nút lọc biến mất một nhịp, cụm nút tròn của header Khám phá xô sang trái rồi về. Giờ trong lúc đọc bộ mới vẫn trả bộ cũ của cùng tiện ích; lần đầu (chưa có bộ nào) vẫn ẩn tới khi đọc xong.
+- Chuyển entry `[1.3.646]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
+
 ## [1.3.675] - 2026-11-03
 
 ### fix: bộ lọc tiện ích ở mọi màn danh sách, ngăn kéo chọn nguồn và ô tìm thể loại
@@ -389,13 +399,3 @@ Người dùng: *"revert ngăn kéo "…" lại đi, sửa thành 6 nấc"*.
 - **Cài đặt › Giao diện**: thanh độ đục của ngăn kéo bước 20% kèm tên nấc như nút nổi; ô xem trước ngăn kéo chỉ cắt góc dải bìa, không cắt khung chứa lớp kính. Sửa chú thích `GlassChromeSettings`, `GlassFrostLevel`.
 - Chuyển entry `[1.3.616]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cần xem 6 nấc của ngăn kéo trên nền Kệ.
-
-## [1.3.646] - 2026-10-29
-
-### fix: sheet nhập truyện thấp vừa ba lựa chọn
-
-Người dùng: *"sheet import cao quá, điều chỉnh lại chiều cao vừa phải thôi"*.
-
-- **`ShelfImportSheet`**: nấc `.medium` thành nấc gọn `.height(300)` (thanh kéo + tiêu đề + ba hàng) và `.large`, có `selection`; bước "Từ URL" tự lên `.large` (bàn phím + danh sách nguồn khớp), quay lại thì về nấc gọn. Không dùng `fittedSheetDetent` vì `List` trong `NavigationStack` không đo được chiều cao.
-- Chuyển entry `[1.3.617]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — cỡ chữ lớn có thể cần kéo lên.
