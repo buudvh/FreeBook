@@ -104,7 +104,6 @@ struct VieNeuVoiceCreatorView: View {
                     }
                 }
             }
-            .tint(.white)
             .pageTitle("Tạo giọng mới")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

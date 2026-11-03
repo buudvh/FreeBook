@@ -302,7 +302,6 @@ struct BookImportConfirmationSheet: View {
 
             Toggle("Tôi hiểu, chỉ nhập phần có văn bản", isOn: $acknowledgedWarning)
                 .font(.caption)
-                .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         }
         .padding(10)
         .background(Color.orange.opacity(0.12))

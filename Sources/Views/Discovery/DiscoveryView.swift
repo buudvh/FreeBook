@@ -224,13 +224,13 @@ struct DiscoveryView: View {
                                                     .fontWeight(isSelected ? .bold : .regular)
                                                     .padding(.horizontal, 14)
                                                     .padding(.vertical, 8)
-                                                    .background(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
-                                                    .foregroundColor(isSelected ? .white : .secondary)
+                                                    .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+                                                    .foregroundColor(isSelected ? .accentColor : .secondary)
                                                     .cornerRadius(20)
                                                     .overlay(
                                                         RoundedRectangle(cornerRadius: 20)
                                                             .stroke(
-                                                                isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
+                                                                isSelected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.25),
                                                                 lineWidth: isSelected ? 1.2 : 1
                                                             )
                                                     )

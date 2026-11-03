@@ -48,7 +48,6 @@ struct NghiTTSSettingsHubView: View {
             playSection
             resultSection
         }
-        .tint(.white)
         .backPageTitle("Cài đặt NghiTTS")
         .onAppear(perform: loadStoredSettings)
         .onDisappear(perform: stopSample)

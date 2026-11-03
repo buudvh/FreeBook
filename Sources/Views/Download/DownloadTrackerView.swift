@@ -94,7 +94,6 @@ struct DownloadTrackerView: View {
                 if task.status == .running || task.status == .pending {
                     VStack(alignment: .leading, spacing: 2) {
                         ProgressView(value: progressValue(task), total: Double(max(1, task.totalCount)))
-                            .tint(.white)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
 
                         Text(progressText(task))

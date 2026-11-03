@@ -55,7 +55,7 @@ struct QuickTranslationRulePriorityListView: View {
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(isSelected ? .white : .secondary)
+                            .foregroundColor(isSelected ? .accentColor : .secondary)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(preset.title)
                                 .font(.subheadline.weight(.medium))

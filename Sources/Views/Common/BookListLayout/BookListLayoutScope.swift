@@ -48,6 +48,11 @@ enum BookListLayoutScope: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Từ gọi một mục ở dòng "Đã hết · N …" của chân danh sách (`LoadMoreFooter`).
+    var itemNoun: String {
+        self == .video ? "phim" : "truyện"
+    }
+
     /// Tỉ lệ rộng : cao của bìa trong lưới. Video luôn ngang 16:9; còn lại (kể cả `all`) đứng 2:3 để các hàng
     /// lưới trộn loại cao bằng nhau.
     var coverAspectRatio: CGFloat {

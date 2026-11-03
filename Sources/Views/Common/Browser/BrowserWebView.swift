@@ -55,8 +55,8 @@ final class BrowserWebView: WKWebView {
 
     // MARK: - Khởi tạo
 
-    /// App đặt màu nhấn **trắng** toàn cục (`.tint(.white)`) ⇒ vùng bôi đen + tay nắm của trang thừa hưởng màu trắng, trên
-    /// trang nền trắng không thấy gì. Gán màu xanh hệ thống **tường minh** (giống Safari) để không thừa hưởng nữa.
+    /// Vùng bôi đen + tay nắm của trang thừa hưởng màu nhấn của cửa sổ (người dùng chọn; hồi còn trắng thì trên trang nền
+    /// trắng không thấy gì). Gán màu xanh hệ thống **tường minh** (giống Safari) để không thừa hưởng nữa.
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
         tintColor = .systemBlue

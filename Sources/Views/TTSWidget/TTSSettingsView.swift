@@ -365,7 +365,6 @@ struct TTSSettingsView: View {
         }
         // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ tiêu đề giữa.
         .pageTitle("Cài đặt TTS", style: isPresentedAsSheet ? .leading : .centered)
-        .tint(.white)
         .onAppear {
             self.hasResumed = false
             // Phải đọc lại mỗi lần mở màn: `@State` chỉ khởi tạo một lần lúc View dựng ⇒ mở lại từ tab

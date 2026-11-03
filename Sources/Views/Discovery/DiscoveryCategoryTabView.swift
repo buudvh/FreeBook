@@ -120,6 +120,7 @@ struct DiscoveryCategoryTabView: View {
                         isTranslationEnabled: isTranslationEnabled,
                         scrollAnchors: scrollAnchors,
                         anchorCategoryId: category.id,
+                        itemNoun: layoutScope.itemNoun,
                         onSelectNovel: onSelectNovel
                     )
                     // Neo có thể được đặt lúc dữ liệu chưa nạp xong, nên phải thử lại khi danh sách

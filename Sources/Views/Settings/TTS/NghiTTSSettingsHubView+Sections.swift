@@ -54,7 +54,6 @@ extension NghiTTSSettingsHubView {
             HStack {
                 Text("0.5×").font(.caption2).foregroundStyle(.secondary)
                 Slider(value: $speed, in: 0.5...2.0, step: 0.05)
-                    .tint(.white)
                 Text("2.0×").font(.caption2).foregroundStyle(.secondary)
             }
             LabeledContent("Đang chọn", value: String(format: "%.2f×", speed))

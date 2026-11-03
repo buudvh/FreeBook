@@ -230,7 +230,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isAnnouncementRead {
                     Circle()
-                        .fill(Color.white)
+                        .fill(Color.accentColor)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }
@@ -263,7 +263,7 @@ struct NotificationInboxView: View {
                 Spacer(minLength: 0)
                 if !record.isRead {
                     Circle()
-                        .fill(Color.white)
+                        .fill(Color.accentColor)
                         .frame(width: 8, height: 8)
                         .padding(.top, 6)
                 }

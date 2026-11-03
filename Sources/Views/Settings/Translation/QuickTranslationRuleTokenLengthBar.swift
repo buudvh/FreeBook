@@ -138,7 +138,6 @@ struct QuickTranslationRuleTokenLengthBar: View {
                     onCommitDrag()
                 }
             )
-            .tint(.white)
 
             Text("\(value)")
                 .font(.system(size: 15, weight: .semibold, design: .monospaced))

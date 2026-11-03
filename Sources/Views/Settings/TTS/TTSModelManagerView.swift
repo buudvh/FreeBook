@@ -140,7 +140,6 @@ struct TTSModelManagerView: View {
                     }
                 }
             }
-            .tint(.white)
             .backPageTitle("Quản lý model")
             .background {
                 DocumentPickerPresenter(

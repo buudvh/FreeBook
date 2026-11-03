@@ -13,6 +13,9 @@ final class PaginatedNovelLoader: ObservableObject {
     /// Link "Mở link lỗi" của `errorMessage` (lỗi trang 1) — gán/xoá cùng chỗ với chữ lỗi; `nil` ⇒ màn ẩn nút.
     @Published private(set) var errorLink: SourceErrorLink?
     @Published private(set) var canLoadMore = false
+    /// Trang kế lỗi hết lượt tự thử ⇒ chân danh sách hiện "Thử lại" (`retryLoadMore()`); tự nạp khi cuộn tới bị chặn
+    /// tới khi người dùng bấm, kéo làm mới hoặc áp bộ lọc.
+    @Published private(set) var loadMoreError: String?
 
     private let localPath: String
     private let downloadUrl: String
@@ -52,8 +55,15 @@ final class PaginatedNovelLoader: ObservableObject {
     }
 
     func loadMore() async {
-        guard !isLoadingMore, !isLoading else { return }
+        guard !isLoadingMore, !isLoading, loadMoreError == nil else { return }
         await load(page: currentPage + 1)
+    }
+
+    /// Nút "Thử lại" ở chân danh sách: xoá lỗi, tính lại lượt tự thử từ đầu.
+    func retryLoadMore() async {
+        loadMoreError = nil
+        retryCount = 0
+        await loadMore()
     }
 
     func reload() async {
@@ -70,6 +80,7 @@ final class PaginatedNovelLoader: ObservableObject {
         currentPage = 1
         canLoadMore = false
         isLoadingMore = false
+        loadMoreError = nil
         await load(page: 1)
     }
 
@@ -79,6 +90,7 @@ final class PaginatedNovelLoader: ObservableObject {
             isLoading = true
             errorMessage = ""
             errorLink = nil
+            loadMoreError = nil
             retryCount = 0
         } else {
             isLoadingMore = true
@@ -141,17 +153,18 @@ final class PaginatedNovelLoader: ObservableObject {
                 errorLink = SourceErrorLink.resolve(from: error, fallbacks: [input, sourceUrl], host: sourceUrl)
                 isLoading = false
                 canLoadMore = false
+            } else if retryCount < 3 {
+                // Giữ `isLoadingMore` trong lúc chờ: chân danh sách vẫn xoay và lượt cuộn tới không nạp chồng.
+                retryCount += 1
+                AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(retryCount))...")
+                Task {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard loadGeneration == generation else { return } // đã áp bộ lọc mới trong lúc chờ
+                    await load(page: page)
+                }
             } else {
                 isLoadingMore = false
-                if retryCount < 3 {
-                    retryCount += 1
-                    AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(retryCount))...")
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        guard loadGeneration == generation else { return } // đã áp bộ lọc mới trong lúc chờ
-                        await load(page: page)
-                    }
-                }
+                loadMoreError = error.localizedDescription
             }
         }
     }

@@ -41,8 +41,8 @@ struct DictionaryImportConflictView: View {
     @State private var selection: Set<String> = []
     @State private var searchText = ""
 
-    /// Màu nhấn **riêng của màn này**: không dùng `Color.accentColor` vì app đặt `.tint(.white)` toàn cục
-    /// (`MainTabView.swift:38`) ⇒ accent có thể là trắng và mất hẳn chữ trên nền sáng (1.3.447).
+    /// Màu nhấn **riêng của màn này** (xanh lá cố định), không theo `Color.accentColor` = màu người dùng chọn
+    /// (`AppAccentColor`). Đặt từ thời màu nhấn của app còn là trắng và mất hẳn chữ trên nền sáng (1.3.447).
     private let accent = Color(red: 0.204, green: 0.780, blue: 0.349)
 
     /// Khai `init` **tường minh**: các `@State` ở trên là `private`, nên `init` memberwise do compiler sinh

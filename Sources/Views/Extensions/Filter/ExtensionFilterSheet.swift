@@ -34,12 +34,14 @@ struct ExtensionFilterSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: apply) {
+                            // Kiểu chip đang chọn của `ExtensionKindFilterBar` (màu nhấn người dùng chọn, không tô đặc).
                             Text("Áp dụng")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Color(.systemBackground))
+                                .foregroundColor(.accentColor)
                                 .padding(.horizontal, 12)
                                 .frame(height: 28)
-                                .background(Color.primary, in: Capsule())
+                                .background(Color.accentColor.opacity(0.18), in: Capsule())
+                                .overlay(Capsule().stroke(Color.accentColor.opacity(0.6), lineWidth: 1))
                                 .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -98,7 +100,6 @@ struct ExtensionFilterSheet: View {
                     }
                 }
             }
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .listSectionSpacing(.compact)
         }
     }

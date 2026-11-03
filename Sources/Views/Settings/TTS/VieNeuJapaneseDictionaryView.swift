@@ -56,7 +56,6 @@ struct VieNeuJapaneseDictionaryView: View {
             }
         }
         .backPageTitle("Từ điển phiên âm VieNeu-TTS")
-        .tint(.white)
         .searchable(text: $searchText, prompt: "Tìm từ")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

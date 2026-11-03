@@ -173,7 +173,7 @@ struct ReaderHeaderFooterOverlayView: View {
                 VStack(spacing: 2) {
                     if let target = pendingNavigationIndex, navigationFailureMessage == nil {
                         HStack(spacing: 4) {
-                            ProgressView().controlSize(.small)
+                            ProgressView().controlSize(.small).tint(selectedTheme.textColor)
                             Text("Chương \(target + 1)")
                         }
                     } else {

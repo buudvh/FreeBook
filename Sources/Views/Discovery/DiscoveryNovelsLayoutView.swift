@@ -13,7 +13,8 @@ import SwiftUI
 /// - every row/cell carries `.id(novel.link)` so the parent's `ScrollViewReader` can `scrollTo` a saved anchor
 ///   (`link`, not `ExtensionItemResult.id` — that is a fresh `UUID()` on every parse);
 /// - `onAppear`/`onDisappear` feed `scrollAnchors` when the parent passes one (only the discovery tab does);
-/// - `.refreshable { await loader.reload() }` and a full-width `loadMore` sentinel after the last item.
+/// - `.refreshable { await loader.reload() }` and a full-width `LoadMoreFooter` after the last item (spinner while
+///   loading the next page, "Thử lại" after the loader gave up, "Đã hết · N truyện" when there are no more pages).
 ///
 /// The `ScrollViewReader` itself stays in the parent (restore logic and its state live there); the proxy finds
 /// whichever scroll container this view currently renders.
@@ -33,6 +34,8 @@ struct DiscoveryNovelsLayoutView: View {
     let scrollAnchors: DiscoveryScrollAnchorStore?
     /// Khoá tab trong `scrollAnchors` (`CategoryResult.id`).
     let anchorCategoryId: String
+    /// Từ gọi mục ở dòng "Đã hết · N …" (`BookListLayoutScope.itemNoun`).
+    let itemNoun: String
     let onSelectNovel: (ExtensionItemResult) -> Void
 
     init(
@@ -43,6 +46,7 @@ struct DiscoveryNovelsLayoutView: View {
         isTranslationEnabled: Bool,
         scrollAnchors: DiscoveryScrollAnchorStore? = nil,
         anchorCategoryId: String = "",
+        itemNoun: String = "truyện",
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         _loader = ObservedObject(wrappedValue: loader)
@@ -52,6 +56,7 @@ struct DiscoveryNovelsLayoutView: View {
         self.isTranslationEnabled = isTranslationEnabled
         self.scrollAnchors = scrollAnchors
         self.anchorCategoryId = anchorCategoryId
+        self.itemNoun = itemNoun
         self.onSelectNovel = onSelectNovel
     }
 
@@ -86,8 +91,8 @@ struct DiscoveryNovelsLayoutView: View {
                 .onDisappear { setVisible(novel.link, false) }
             }
 
-            if loader.canLoadMore {
-                loadMoreSentinel
+            if let phase = footerPhase {
+                footer(phase)
                     .bookListPanelRowChrome()
             }
         }
@@ -135,8 +140,8 @@ struct DiscoveryNovelsLayoutView: View {
                     // `.id(count)`: lưới nhiều cột / chỉ bìa có thể chưa đầy màn sau một trang, footer vẫn trong
                     // màn nên `onAppear` không nổ lại và không cuộn được để kích hoạt. Mỗi lượt nối thêm đổi id ⇒
                     // sentinel mới ⇒ tải tiếp tới khi đầy màn. Trang toàn mục trùng thì `count` đứng yên, không lặp.
-                    if loader.canLoadMore {
-                        loadMoreSentinel
+                    if let phase = footerPhase {
+                        footer(phase)
                             .id(loader.novels.count)
                     }
                 }
@@ -150,18 +155,19 @@ struct DiscoveryNovelsLayoutView: View {
 
     // MARK: - Dùng chung
 
-    private var loadMoreSentinel: some View {
-        HStack {
-            Spacer()
-            ProgressView()
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .onAppear {
-            Task {
-                await loader.loadMore()
-            }
-        }
+    /// Lỗi trang kế (hết lượt tự thử) ⇒ "Thử lại"; còn trang ⇒ vòng xoay; hết trang ⇒ "Đã hết · N …".
+    private var footerPhase: LoadMoreFooter.Phase? {
+        if let error = loader.loadMoreError { return .failed(error) }
+        if loader.canLoadMore { return .loading }
+        return loader.novels.isEmpty ? nil : .finished("\(loader.novels.count) \(itemNoun)")
+    }
+
+    private func footer(_ phase: LoadMoreFooter.Phase) -> some View {
+        LoadMoreFooter(
+            phase: phase,
+            onAppear: { Task { await loader.loadMore() } },
+            onRetry: { Task { await loader.retryLoadMore() } }
+        )
     }
 
     private func setVisible(_ link: String, _ isVisible: Bool) {

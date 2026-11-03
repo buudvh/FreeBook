@@ -71,7 +71,7 @@ extension ExtensionScriptEditorView {
                     HStack(spacing: 12) {
                         Image(systemName: file.isPluginJson ? "gearshape.doc.fill" : "curlybraces")
                             .font(.system(size: 16))
-                            .foregroundColor(file.isPluginJson ? .orange : (isSelected ? .white : .secondary))
+                            .foregroundColor(file.isPluginJson ? .orange : (isSelected ? .accentColor : .secondary))
                             .frame(width: 24)
 
                         VStack(alignment: .leading, spacing: 2) {

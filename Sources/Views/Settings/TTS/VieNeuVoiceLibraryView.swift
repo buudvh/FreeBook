@@ -13,8 +13,8 @@ import SwiftUI
 /// `VieNeuTTSTestView+Sections`.
 ///
 /// ## Nút bấm ở đây **không** dùng `.borderedProminent`
-/// `MainTabView` đặt `.tint(.white)` toàn cục, mà `.borderedProminent` không tự đảo màu chữ theo tint ⇒
-/// nút thành nền trắng chữ trắng (bug đã gặp ở 1.3.447). Dùng `Button` + `Label` trong `Form` như màn thử
+/// Nền nhấn đặc phải đi qua `.appFilled` (luật `WHITE_TINT_FILL`); hồi màu nhấn còn là trắng, `.borderedProminent`
+/// thành nền trắng chữ trắng (bug đã gặp ở 1.3.447). Dùng `Button` + `Label` trong `Form` như màn thử
 /// giọng để không phải nhớ cái bẫy đó.
 struct VieNeuVoiceLibraryView: View {
     /// Câu dùng cho "Nghe giọng" — cùng câu với màn thử giọng để hai chỗ nghe ra giống nhau.
@@ -77,7 +77,6 @@ struct VieNeuVoiceLibraryView: View {
                 }
             }
         }
-        .tint(.white)
         .backPageTitle("Giọng của tôi")
         .sideDrawerMenu(item: $menuRecord, title: { $0.name }) { record in voiceMenuItems(record) }
         .onAppear(perform: reload)

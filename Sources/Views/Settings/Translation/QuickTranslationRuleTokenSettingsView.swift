@@ -50,7 +50,6 @@ struct QuickTranslationRuleTokenSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Cấu hình token rule")
     }
 

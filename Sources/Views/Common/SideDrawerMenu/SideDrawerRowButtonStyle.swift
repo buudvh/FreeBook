@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Kiểu nút của hàng ngăn kéo: không tô màu nhấn (màu nhấn của app là trắng), chỉ sáng nền nhẹ khi đang nhấn.
+/// Kiểu nút của hàng ngăn kéo: không tô màu nhấn (hàng giữ trung tính), chỉ sáng nền nhẹ khi đang nhấn.
 struct SideDrawerRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

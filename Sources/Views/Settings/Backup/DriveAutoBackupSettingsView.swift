@@ -32,7 +32,6 @@ struct DriveAutoBackupSettingsView: View {
             BackupScopeToggleList(selection: $scopes, header: "Nội dung sao lưu tự động")
             statusSection
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Tự động sao lưu")
         .onChange(of: scopes) { _, newValue in
             DriveAutoBackupPolicy.scopes = newValue

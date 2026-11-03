@@ -31,7 +31,6 @@ struct ReaderBookRulePriorityView: View {
                 QuickTranslationRulePriorityListView(configuration: $configuration)
             }
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .pageTitle("Thứ tự ưu tiên rule") // gốc sheet mở từ Cài đặt đọc (không phải trang đẩy vào)
         .toolbar { if isUsingBookConfiguration { EditButton().headerTextButton() } }
         .onChange(of: isUsingBookConfiguration) { _, isOn in

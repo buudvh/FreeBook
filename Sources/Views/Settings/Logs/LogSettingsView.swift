@@ -133,7 +133,6 @@ struct LogSettingsView: View {
                 }
             }
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Ghi log hệ thống")
         .onAppear {
             updateLogStatus()

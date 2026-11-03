@@ -95,7 +95,6 @@ public struct FilterSheet: View {
                 Text("Nội dung nhạy cảm (NSFW)")
                     .font(.subheadline.weight(.semibold))
             }
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             Text(nsfwFootnote)
                 .font(.caption)
                 .foregroundColor(.secondary)

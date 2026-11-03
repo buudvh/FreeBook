@@ -36,6 +36,7 @@ extension ShelfView {
                             onLoadMore: {
                                 shelfLimit += 50
                             },
+                            endCaption: Self.endCaption(filter.pinned.count + filter.unpinned.count, paged: filter.unpinned.count > 50),
                             onTap: { book in
                                 newChapters.markSeen(bookId: book.bookId)
                                 openReader(book)
@@ -74,6 +75,7 @@ extension ShelfView {
                             onLoadMore: {
                                 historyLimit += 50
                             },
+                            endCaption: Self.endCaption(filter.history.count, paged: filter.history.count > 50),
                             // Lịch sử không `markSeen` — giữ đúng hành vi cũ của hàng lịch sử.
                             onTap: { book in
                                 openReader(book)
@@ -90,6 +92,11 @@ extension ShelfView {
     }
 
     // MARK: - Nhóm truyện
+
+    /// Dòng "Đã hết · N truyện" chỉ khi danh sách đã qua ít nhất một lượt 50 — kệ ngắn không có dòng thừa.
+    private static func endCaption(_ count: Int, paged: Bool) -> String? {
+        paged ? "\(count) truyện" : nil
+    }
 
     /// Phân trang 50/lượt (sau khi lọc loại) **chỉ** áp cho nhóm chưa ghim: nhóm ghim luôn hiện đủ vì người dùng chủ
     /// động ghim. Chưa ghim truyện nào thì kệ chỉ có một nhóm không tiêu đề — bố cục giống hệt trước 1.3.334.

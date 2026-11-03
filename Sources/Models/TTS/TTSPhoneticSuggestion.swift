@@ -55,9 +55,9 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
             }
         }
 
-        /// Màu badge. **Cố ý** để tất cả `.white`: `MainTabView.swift:38` đặt `.tint(.white)` toàn cục, nên
-        /// đổi màu ở đây là dễ vướng bẫy "nút rỗng" đã trả giá ở 1.3.447. Hai chip thư viện phân biệt nhau
-        /// bằng **chữ** `NGI` / `VIE`, đúng yêu cầu người dùng.
+        /// Màu badge. **Cố ý** để tất cả `.white`, không theo màu nhấn người dùng chọn (`AppAccentColor`): badge giữ
+        /// một màu trung tính (đặt từ thời màu nhấn còn là trắng, sau bẫy "nút rỗng" ở 1.3.447). Hai chip thư viện
+        /// phân biệt nhau bằng **chữ** `NGI` / `VIE`, đúng yêu cầu người dùng.
         public var tint: Color {
             switch self {
             case .nghiTTSLibrary, .vieNeuLibrary, .japanese, .englishIPA, .englishRule: return .white

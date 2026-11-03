@@ -7,7 +7,7 @@ import SwiftUI
 /// Thanh nằm trong trang gốc thì trang đẩy vào phủ lên nó và back là nó trượt về cùng trang gốc — không gì bật/tắt cả.
 ///
 /// Bám dáng thanh hệ thống cũ (`configureWithDefaultBackground`): nền `.bar` mờ + vạch mảnh trên, mục đang chọn theo
-/// `.tint` của `MainTabView` (trắng), mục khác xám; badge đỏ = số truyện có chương mới ở Kệ Sách.
+/// `.tint` của `MainTabView` (màu nhấn người dùng chọn, `appAccentTint()`), mục khác xám; badge đỏ = số truyện có chương mới ở Kệ Sách.
 struct MainTabBar: View {
     struct Item {
         let title: String

@@ -255,7 +255,8 @@ public final class AIRuntimeCoordinator: ObservableObject {
             convertsTraditionalToSimplified: ctx.convertsTraditionalToSimplified
         )
 
-        let hosting = UIHostingController(rootView: aiView)
+        // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
+        let hosting = UIHostingController(rootView: aiView.appAccentTint())
         hosting.modalPresentationStyle = .overFullScreen
         self.currentPresentedVC = hosting
         self.presentedAIBookId = ctx.bookId

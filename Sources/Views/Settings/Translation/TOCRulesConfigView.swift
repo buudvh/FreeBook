@@ -212,7 +212,6 @@ struct TOCRulesConfigView: View {
                     }
                     TextField("Ví dụ mẫu (không bắt buộc)", text: $inputExample)
                     Toggle("Kích hoạt quy tắc", isOn: $inputEnabled)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 } header: {
                     SectionHelpHeader("Thông tin quy tắc TOC", paragraphs: ["Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT."])
                 }

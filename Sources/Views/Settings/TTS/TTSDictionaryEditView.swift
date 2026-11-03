@@ -136,7 +136,6 @@ struct TTSDictionaryEditView: View {
                 }
             }
         }
-        .tint(.white)
     }
 
     /// Danh sách từ, nạp 100 từ/lượt. Lượt kế nạp **sớm** khi hàng còn cách cuối ~50 hàng xuất hiện; hàng cuối

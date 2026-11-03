@@ -50,7 +50,6 @@ extension TTSSettingsView {
                     }
                 }
                 Slider(value: $ttsManager.speed, in: TTSSpeedPolicy.playbackRange, step: 0.1)
-                    .tint(.white)
             }
 
             // Thanh riêng của VieNeu: đặt **cạnh** thanh Tốc độ để hai thứ cộng hưởng vào nhau được nhìn
@@ -76,7 +75,6 @@ extension TTSSettingsView {
                 .disabled(disablePitch)
 
                 Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
-                    .tint(.white)
                     .disabled(disablePitch)
                 if TTSManager.isLocalEngine(ttsManager.tool) {
                     Text("(*) Engine offline (NghiTTS/VieNeu) không hỗ trợ chỉnh cao độ thời gian thực")

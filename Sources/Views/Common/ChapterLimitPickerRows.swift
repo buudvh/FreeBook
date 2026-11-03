@@ -42,7 +42,6 @@ enum ChapterLimitPicker {
                     in: customSliderRange,
                     step: 1
                 )
-                .tint(.white)
                 stepButton(systemName: "plus", delta: 1, customLimit: customLimit)
             }
         }

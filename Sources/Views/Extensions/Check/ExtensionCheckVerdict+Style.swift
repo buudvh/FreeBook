@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Màu + icon của kết luận "lỗi do ai" của Kiểm tra tiện ích (tầng View — enum ở Services không giữ `Color`). Màu cố
-/// định, **không** dùng màu nhấn (app đặt `.tint(.white)` toàn cục ⇒ màu nhấn là trắng). Cùng bảng màu với
+/// định, **không** dùng màu nhấn (màu nhấn do người dùng chọn, kết luận cần màu riêng). Cùng bảng màu với
 /// `LegadoFailureVerdict` để hai màn kiểm tra đọc giống nhau.
 extension ExtensionCheckVerdict {
     var tint: Color {

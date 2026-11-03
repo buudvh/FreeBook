@@ -19,7 +19,6 @@ extension SearchView {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .padding(.horizontal)
         .padding(.vertical, 6)
 

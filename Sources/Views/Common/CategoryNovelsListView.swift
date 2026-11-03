@@ -102,6 +102,7 @@ struct CategoryNovelsListView: View {
                     aspectRatio: scope.coverAspectRatio,
                     sourceHost: sourceHost,
                     isTranslationEnabled: isTranslationEnabled,
+                    itemNoun: scope.itemNoun,
                     onSelectNovel: { selectedNovel = $0 }
                 )
             }

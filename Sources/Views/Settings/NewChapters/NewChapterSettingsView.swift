@@ -70,7 +70,6 @@ struct NewChapterSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Kiểm tra chương mới")
     }
 

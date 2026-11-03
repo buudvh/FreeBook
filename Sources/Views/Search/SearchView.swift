@@ -476,8 +476,8 @@ struct SearchView: View {
                 changeSourceTargetExtension = item.ext
                 showingChangeSourceAlert = true
             },
-            canLoadMore: searchPaging.canLoadMore && !isSearching,
-            onLoadMore: { loadMoreSearchResults() }
+            footer: singleSourceFooterPhase(shownCount: displayResults.count, noun: scope.itemNoun),
+            onLoadMore: { loadMoreSearchResults() }, onRetry: { retryLoadMoreSearchResults() }
         )
     }
     

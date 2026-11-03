@@ -25,7 +25,7 @@ struct URLBarTextField: UIViewRepresentable {
         field.text = text
         field.font = .systemFont(ofSize: 15)
         field.textColor = .label
-        // Màu nhấn của app là trắng ⇒ vùng bôi đen cả URL lúc chạm sẽ trắng đè chữ trắng. Gán xanh hệ thống tường minh.
+        // Không thừa hưởng màu nhấn của cửa sổ (hồi còn trắng thì vùng bôi đen trắng đè chữ). Gán xanh hệ thống tường minh.
         field.tintColor = .systemBlue
         // Bàn phím thường (không phải bàn phím URL): ô vừa nhập địa chỉ vừa gõ từ khoá tìm Google.
         field.keyboardType = .default

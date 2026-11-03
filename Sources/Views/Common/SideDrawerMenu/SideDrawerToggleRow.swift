@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Hàng công tắc của ngăn kéo: chạm bất kỳ đâu trên hàng ⇒ đổi giá trị ngay, ngăn kéo **vẫn mở**.
 ///
-/// Công tắc cùng kiểu với phần còn lại của app (`SwitchToggleStyle(tint: Color(white: 0.35))`); nó chỉ để hiển thị,
+/// Công tắc cùng kiểu với phần còn lại của app (công tắc chuẩn, tô theo màu nhấn người dùng chọn); nó chỉ để hiển thị,
 /// cú chạm do cả hàng nhận. VoiceOver thấy cả hàng như một `Toggle` chuẩn.
 ///
 /// Đổi xong thì nhờ ngăn kéo vẽ lại (`refreshContent`): ngăn kéo ở cửa sổ riêng, màn có thể không tự vẽ lại nếu
@@ -34,7 +34,6 @@ struct SideDrawerToggleRow: View {
             SideDrawerMenuRowLabel(icon: icon, title: title, tint: Color.white) {
                 Toggle(title, isOn: $isOn)
                     .labelsHidden()
-                    .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                     .allowsHitTesting(false)
             }
         }

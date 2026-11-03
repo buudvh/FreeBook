@@ -39,7 +39,10 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
         widgetContainerView.layer.masksToBounds = false
         view.addSubview(widgetContainerView)
 
+        // Cửa sổ riêng không thừa hưởng `.tint` của `MainTabView` ⇒ gắn màu nhấn ở gốc (sheet hẹn giờ / cài đặt mở
+        // từ widget thừa hưởng theo).
         let contentView = TTSWidgetContentView(viewModel: viewModel, rotationState: rotationState)
+            .appAccentTint()
         let hostingView: AnyView
         if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
             hostingView = AnyView(contentView.modelContainer(container))

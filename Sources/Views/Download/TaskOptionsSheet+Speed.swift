@@ -27,7 +27,6 @@ extension TaskOptionsSheet {
                     in: DownloadSpeedSettings.delayRange,
                     step: DownloadSpeedSettings.delayStep
                 )
-                .tint(.white)
             }
             .padding(.vertical, 4)
 

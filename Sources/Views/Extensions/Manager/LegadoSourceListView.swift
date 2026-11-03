@@ -79,7 +79,7 @@ struct LegadoSourceListView: View {
                 .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
                 .foregroundColor(isSelected ? .accentColor : .primary)
                 .clipShape(Capsule())
-                // App đặt `.tint(.white)` toàn cục ⇒ màu nhấn là trắng: chip chọn theo kiểu `ExtensionKindFilterBar`.
+                // Chip chọn theo kiểu `ExtensionKindFilterBar` (màu nhấn người dùng chọn, chỉ dùng dạng mờ).
                 .overlay(Capsule().stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1))
         }
         .buttonStyle(.plain)

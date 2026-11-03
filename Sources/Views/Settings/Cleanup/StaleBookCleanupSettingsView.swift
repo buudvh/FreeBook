@@ -67,7 +67,6 @@ struct StaleBookCleanupSettingsView: View {
             }
             statusSection
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Dọn truyện cũ")
         // Chạy lúc mở màn và mỗi khi ngưỡng đổi; kéo slider huỷ lượt cũ nên chỉ nấc dừng cuối cùng
         // mới đếm lại (debounce ~300 ms) thay vì mỗi nấc ngày một lượt fetch toàn bảng.
@@ -114,7 +113,6 @@ struct StaleBookCleanupSettingsView: View {
                         in: Double(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)...Double(StaleBookCleanupPolicy.inactiveDaysRange.upperBound),
                         step: 1
                     )
-                    .tint(.white)
                     HStack {
                         Text("\(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)")
                         Spacer()

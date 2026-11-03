@@ -20,6 +20,8 @@ struct AllCommentsView: View {
     @State private var currentPage = 1
     @State private var nextPageUrl: String? = nil
     @State private var retryCount = 0
+    /// Trang kế lỗi hết lượt tự thử ⇒ chân danh sách hiện "Thử lại"; không tự nạp khi cuộn tới cho tới lúc bấm.
+    @State private var loadMoreError: String? = nil
     /// Bị trình duyệt "Mở link lỗi" che lúc biến mất ⇒ `.task` lần hiện lại kế tiếp không tải chồng trước khi chép cookie
     /// (lượt thử lại của `.errorLinkBrowser` lo tải và cũng hạ cờ) — xem `ErrorLinkBrowserModifier`.
     @State private var skipsReappearLoad = false
@@ -103,13 +105,12 @@ struct AllCommentsView: View {
                         }
                     }
                     
-                    if nextPageUrl != nil {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
+                    if let phase = footerPhase {
+                        LoadMoreFooter(
+                            phase: phase,
+                            onAppear: { Task { await loadMoreComments() } },
+                            onRetry: { Task { await retryLoadMoreComments() } }
+                        )
                         .bookListPanelRowChrome()
                     }
                 }
@@ -142,6 +143,7 @@ struct AllCommentsView: View {
                 isLoading = true
                 errorMessage = ""
                 errorLink = nil
+                loadMoreError = nil
                 retryCount = 0
             }
         } else {
@@ -180,23 +182,38 @@ struct AllCommentsView: View {
                     self.errorMessage = error.localizedDescription
                     self.errorLink = SourceErrorLink.resolve(from: error, fallback: category.input, host: host)
                     self.isLoading = false
+                } else if self.retryCount < 3 {
+                    // Giữ `isLoadingMore` trong lúc chờ: chân danh sách vẫn xoay, hàng cuối hiện lại không nạp chồng.
+                    self.retryCount += 1
+                    AppLogger.shared.log("🔄 Tự động tải lại bình luận trang \(page) (Lần thử \(self.retryCount))...")
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // Đợi 2 giây
+                        await self.loadComments(page: page)
+                    }
                 } else {
                     self.isLoadingMore = false
-                    if self.retryCount < 3 {
-                        self.retryCount += 1
-                        AppLogger.shared.log("🔄 Tự động tải lại bình luận trang \(page) (Lần thử \(self.retryCount))...")
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000) // Đợi 2 giây
-                            await self.loadComments(page: page)
-                        }
-                    }
+                    self.loadMoreError = error.localizedDescription
                 }
             }
         }
     }
     
     private func loadMoreComments() async {
-        guard !isLoadingMore && nextPageUrl != nil else { return }
+        guard !isLoadingMore && nextPageUrl != nil && loadMoreError == nil else { return }
         await loadComments(page: currentPage + 1)
+    }
+
+    /// Nút "Thử lại" ở chân danh sách: xoá lỗi, tính lại lượt tự thử từ đầu.
+    private func retryLoadMoreComments() async {
+        loadMoreError = nil
+        retryCount = 0
+        await loadMoreComments()
+    }
+
+    /// Lỗi trang kế ⇒ "Thử lại"; còn trang ⇒ vòng xoay; hết trang ⇒ "Đã hết · N bình luận".
+    private var footerPhase: LoadMoreFooter.Phase? {
+        if let loadMoreError { return .failed(loadMoreError) }
+        if nextPageUrl != nil { return .loading }
+        return comments.isEmpty ? nil : .finished("\(comments.count) bình luận")
     }
 }

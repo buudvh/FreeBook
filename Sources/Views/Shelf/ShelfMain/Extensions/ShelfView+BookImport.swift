@@ -299,7 +299,6 @@ extension ShelfView {
                             ProgressView(value: fraction)
                                 .progressViewStyle(.linear)
                                 .frame(width: 220)
-                                .tint(.white)
                         } else {
                             ProgressView()
                                 .controlSize(.regular)

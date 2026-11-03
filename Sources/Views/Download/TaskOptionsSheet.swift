@@ -190,10 +190,8 @@ struct TaskOptionsSheet: View {
             if isExport {
                 if !isComicExport && !isVideoExport {
                     Toggle("Chỉ xuất chương đã tải", isOn: $onlyExportCached)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
                     Toggle("Dịch nội dung", isOn: $translateContent)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
 
                 if let cachedPreview {
@@ -204,7 +202,6 @@ struct TaskOptionsSheet: View {
             }
 
             Toggle("Hiển thị trong Kệ sách", isOn: $displayInShelf)
-                .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         } header: {
             helpHeader("Tùy chọn tác vụ", paragraphs: taskOptionsHelpParagraphs)
         }

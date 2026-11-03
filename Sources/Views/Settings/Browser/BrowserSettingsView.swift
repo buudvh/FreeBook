@@ -30,7 +30,6 @@ struct BrowserSettingsView: View {
             BrowserSitePreferencesSection()
             extensionBrowserSection
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .pageTitle("Trình duyệt", style: showsDoneButton ? .leading : .centered)
         .onAppear {
             // Menu khiên có thể vừa ghi theo tên miền từ trình duyệt — đọc lại cho chắc.

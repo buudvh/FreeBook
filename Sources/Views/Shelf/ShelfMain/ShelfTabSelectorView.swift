@@ -10,7 +10,8 @@ import SwiftUI
 /// `SearchView` (`userInfo["shelfTab"]`) và từ `ShelfView+BookImport` chạy như cũ.
 ///
 /// Dùng màu semantic (`accentColor`, `.secondarySystemBackground`) chứ không hardcode màu tối — app đi
-/// theo giao diện hệ thống, không phải dark-only.
+/// theo giao diện hệ thống, không phải dark-only. Tab đang chọn theo kiểu chip đang chọn của `ExtensionKindFilterBar`:
+/// chữ màu nhấn người dùng chọn, nền nhấn mờ 18%, viền nhấn 60%.
 struct ShelfTabSelectorView: View {
     @Binding var selection: ShelfTab
 
@@ -72,16 +73,16 @@ struct ShelfTabSelectorView: View {
     private func background<S: InsettableShape>(for tab: ShelfTab, shape: S) -> some View {
         let isSelected = selection == tab
         return shape
-            .fill(isSelected ? Color.white.opacity(0.15) : Color(.secondarySystemBackground))
+            .fill(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? Color.white.opacity(0.32) : Color.secondary.opacity(0.25),
-                    lineWidth: isSelected ? 1.2 : 1
+                    isSelected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.25),
+                    lineWidth: 1
                 )
             )
     }
 
     private func foreground(for tab: ShelfTab) -> Color {
-        selection == tab ? .white : .secondary
+        selection == tab ? .accentColor : .secondary
     }
 }

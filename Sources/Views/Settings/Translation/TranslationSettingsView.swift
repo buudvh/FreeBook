@@ -240,7 +240,6 @@ struct TranslationSettingsView: View {
                     .disabled(!importingTypes.isEmpty)
                 }
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Cài đặt dịch thuật")
         .sheet(item: $dictionaryExport, onDismiss: cleanUpDictionaryExport) { export in
             dictionaryShareSheet(export)

@@ -18,6 +18,8 @@ extension LegadoPresentationPresenter {
                 SearchView(activeExtensions: installed, selectedExtension: selected, initialSearchQuery: keyword, isPresentedAsSheet: true)
             }
             .modelContainer(container)
+            // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
+            .appAccentTint()
         )
         host.modalPresentationStyle = .pageSheet
         // Không còn nút "Đóng" (1.3.641): vuốt xuống để đóng, thanh kéo là gợi ý.
@@ -63,7 +65,7 @@ extension LegadoPresentationPresenter {
         let host = UIHostingController<AnyView>(rootView: AnyView(EmptyView()))
         host.rootView = AnyView(LegadoBrowserSheet(request: request) { [weak host] _, _ in
             host?.dismiss(animated: true)
-        })
+        }.appAccentTint())
         host.modalPresentationStyle = .overFullScreen
         presentAuxiliary(host)
     }

@@ -49,6 +49,8 @@ struct TTSQuickTimerSheet: View {
         }
         .presentationDetents([.fraction(0.88), .large])
         .presentationDragIndicator(.visible)
+        // Sheet của widget TTS (cửa sổ riêng): gắn lại màu nhấn người dùng chọn cho nút / thanh / ô đang chọn.
+        .appAccentTint()
         .onAppear {
             if case .minutes(let mins) = ttsManager.timerMode { customMinutes = Double(mins) }
             coverLoader.load(bookId: ttsManager.playingBookId, coverURL: ttsManager.playingCoverUrl)
@@ -183,9 +185,9 @@ struct TTSQuickTimerSheet: View {
                 Text(title).font(.system(size: 13, weight: isSelected ? .bold : .medium))
             }
             .frame(maxWidth: .infinity).padding(.vertical, 8)
-            .foregroundStyle(isSelected ? Color.white : Color.secondary)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isSelected ? Color.white.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(isSelected ? Color.white.opacity(0.32) : Color.clear, lineWidth: 1))
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isSelected ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -236,13 +238,13 @@ struct TTSQuickTimerSheet: View {
     private func presetButton(title: String, icon: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 16, weight: isSelected ? .bold : .regular)).foregroundStyle(isSelected ? Color.white : Color.secondary)
-                Text(title).font(.subheadline).fontWeight(isSelected ? .bold : .medium).foregroundStyle(isSelected ? Color.white : Color.primary)
+                Image(systemName: icon).font(.system(size: 16, weight: isSelected ? .bold : .regular)).foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                Text(title).font(.subheadline).fontWeight(isSelected ? .bold : .medium).foregroundStyle(isSelected ? Color.accentColor : Color.primary)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 12)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(isSelected ? Color.white.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(isSelected ? Color.white.opacity(0.35) : Color.clear, lineWidth: 1.5))
-            .shadow(color: isSelected ? Color.white.opacity(0.1) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(isSelected ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
+            .shadow(color: isSelected ? Color.accentColor.opacity(0.1) : Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -270,7 +272,7 @@ struct TTSQuickTimerSheet: View {
                 }
                 .padding(.horizontal, 8)
 
-                Slider(value: $customMinutes, in: 1...180, step: 1).tint(Color.white)
+                Slider(value: $customMinutes, in: 1...180, step: 1)
 
                 Button(action: {
                     triggerHaptic()
@@ -332,8 +334,8 @@ struct TTSQuickTimerSheet: View {
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isPlaying ? Color.white.opacity(0.12) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isPlaying ? Color.white.opacity(0.28) : Color.clear, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isPlaying ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isPlaying ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

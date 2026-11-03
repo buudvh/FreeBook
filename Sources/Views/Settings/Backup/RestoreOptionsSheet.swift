@@ -54,7 +54,6 @@ struct RestoreOptionsSheet: View {
                                                               + " độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")])
                 }
             }
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
             .pageTitle("Khôi phục")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

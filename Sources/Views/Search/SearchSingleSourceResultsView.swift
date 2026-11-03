@@ -11,8 +11,8 @@ import SwiftUI
 ///
 /// Chạm item: đang đổi nguồn ⇒ `onChangeSource` (hộp xác nhận nằm ở `SearchView`); ngược lại mở Chi tiết truyện.
 ///
-/// Tải thêm trang (`canLoadMore`): sentinel cuối danh sách / footer của lưới (cùng mẹo `.id(count)` với
-/// `DiscoveryNovelsLayoutView`), và gọi sớm khi một trong `preloadDistance` mục cuối hiện ra — tải trước khi chạm đáy.
+/// Tải thêm trang (`footer == .loading`): `LoadMoreFooter` cuối danh sách / footer của lưới (cùng mẹo `.id(count)`
+/// với `DiscoveryNovelsLayoutView`), và gọi sớm khi một trong `preloadDistance` mục cuối hiện ra — tải trước khi chạm đáy.
 struct SearchSingleSourceResultsView: View {
     let items: [ExtensionItemResultWithExt]
     let layout: BookListLayout
@@ -23,9 +23,11 @@ struct SearchSingleSourceResultsView: View {
     /// `true` khi đang đổi nguồn: chạm item gọi `onChangeSource` thay vì mở Chi tiết.
     let isChangingSource: Bool
     let onChangeSource: (ExtensionItemResultWithExt) -> Void
-    /// Còn trang kế ⇒ vẽ sentinel và gọi `onLoadMore` (`SearchView` tự chặn gọi trùng lúc đang tải).
-    let canLoadMore: Bool
+    /// Chân danh sách (`SearchView.singleSourceFooterPhase`); `.loading` ⇒ gọi `onLoadMore` (`SearchView` tự chặn gọi
+    /// trùng lúc đang tải), `.failed` ⇒ nút "Thử lại" gọi `onRetry`.
+    let footer: LoadMoreFooter.Phase?
     let onLoadMore: () -> Void
+    let onRetry: () -> Void
 
     private static let preloadDistance = 5
 
@@ -48,8 +50,8 @@ struct SearchSingleSourceResultsView: View {
                     .onAppear { preloadIfNeeded(item, triggerIds: preloadIds) }
             }
 
-            if canLoadMore {
-                loadMoreSentinel
+            if let footer {
+                footerView(footer)
                     .bookListPanelRowChrome()
                     .id(items.count)
             }
@@ -141,8 +143,8 @@ struct SearchSingleSourceResultsView: View {
                 } footer: {
                     // Footer của section được dựng lười (chỉ hiện khi cuộn tới cuối). `.id(count)`: lưới chưa đầy màn
                     // sau một trang thì mỗi lượt nối thêm đổi id ⇒ sentinel mới ⇒ tải tiếp tới khi đầy màn.
-                    if canLoadMore {
-                        loadMoreSentinel
+                    if let footer {
+                        footerView(footer)
                             .id(items.count)
                     }
                 }
@@ -157,7 +159,7 @@ struct SearchSingleSourceResultsView: View {
 
     /// `id` của vài mục cuối: một trong số đó hiện ra ⇒ tải trang kế. Rỗng khi hết trang.
     private var preloadTriggerIds: Set<UUID> {
-        guard canLoadMore else { return [] }
+        guard footer == .loading else { return [] }
         return Set(items.suffix(Self.preloadDistance).map(\.id))
     }
 
@@ -165,14 +167,8 @@ struct SearchSingleSourceResultsView: View {
         if triggerIds.contains(item.id) { onLoadMore() }
     }
 
-    private var loadMoreSentinel: some View {
-        HStack {
-            Spacer()
-            ProgressView()
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .onAppear { onLoadMore() }
+    private func footerView(_ phase: LoadMoreFooter.Phase) -> some View {
+        LoadMoreFooter(phase: phase, onAppear: onLoadMore, onRetry: onRetry)
     }
 
     /// Bọc nội dung một item thành nút đổi nguồn hoặc link mở Chi tiết truyện (`bookId` giữ đúng dạng cũ của màn này).

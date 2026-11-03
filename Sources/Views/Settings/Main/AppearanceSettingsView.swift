@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Cài đặt → Chung → **Giao diện** (1.3.636): gom các màn cài đặt về hiển thị (kiểu danh sách, nội dung nhạy cảm, bàn
-/// phím) và chỉnh độ trong suốt / độ đục của nút nổi (tai nghe Reader, nút "+") cùng ngăn kéo menu ba chấm.
+/// Cài đặt → Chung → **Giao diện** (1.3.636): gom các màn cài đặt về hiển thị (màu nhấn, kiểu danh sách, nội dung nhạy
+/// cảm, bàn phím) và chỉnh độ trong suốt / độ đục của nút nổi (tai nghe Reader, nút "+") cùng ngăn kéo menu ba chấm.
 ///
 /// Thanh kéo ghi thẳng `UserDefaults` qua `@AppStorage` cùng khoá với `FloatingGlassBackground` /
 /// `SideDrawerGlassBackground`, nên ô xem trước (dựng bằng đúng hai view đó) và mọi nút thật đổi theo ngay khi kéo.
@@ -14,6 +14,8 @@ struct AppearanceSettingsView: View {
     private var drawerTransparency = GlassChromeSettings.defaultDrawerTransparency
     @AppStorage(GlassChromeSettings.drawerFrostKey)
     private var drawerFrost = GlassChromeSettings.defaultDrawerFrost
+    @AppStorage(AppAccentColor.storageKey)
+    private var storedAccent = AppAccentColor.defaultValue.rawValue
 
     /// Nền ô xem trước — cùng màu nền chủ đề Tối của Reader.
     private static let previewBackground = Color(red: 0.08, green: 0.08, blue: 0.09)
@@ -30,6 +32,9 @@ struct AppearanceSettingsView: View {
     var body: some View {
         Form {
             Section {
+                NavigationLink(destination: AccentColorSettingsView()) {
+                    accentRowLabel
+                }
                 NavigationLink(destination: BookListLayoutSettingsView()) {
                     Label("Kiểu hiển thị danh sách", systemImage: "square.grid.2x2")
                 }
@@ -74,6 +79,20 @@ struct AppearanceSettingsView: View {
             }
         }
         .backPageTitle("Giao diện")
+    }
+
+    /// Hàng "Màu nhấn": chấm màu + tên màu đang chọn (mockup 1.3.678).
+    private var accentRowLabel: some View {
+        let accent = AppAccentColor(storedValue: storedAccent)
+        return HStack(spacing: 8) {
+            Label("Màu nhấn", systemImage: "paintpalette")
+            Spacer()
+            Circle()
+                .fill(accent.color)
+                .frame(width: 14, height: 14)
+            Text(accent.title)
+                .foregroundStyle(.secondary)
+        }
     }
 
     // MARK: - Thanh kéo

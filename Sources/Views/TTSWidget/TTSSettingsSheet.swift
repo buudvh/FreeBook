@@ -11,6 +11,7 @@ struct TTSSettingsSheet: View {
             TTSSettingsView(isPresentedAsSheet: true)
         }
         .presentationDragIndicator(.visible) // không còn nút "Xong" (1.3.641) — vuốt xuống để đóng
-        .tint(.white)
+        // Mở được từ widget TTS (cửa sổ riêng, không thừa hưởng `.tint` của `MainTabView`) ⇒ tự gắn màu nhấn.
+        .appAccentTint()
     }
 }

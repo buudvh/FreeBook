@@ -114,7 +114,6 @@ struct VieNeuTTSTestView: View {
                 SectionHelpHeader("Chẩn đoán", paragraphs: ["Sao chép cả thông báo lỗi, số đo RTF và trạng thái model — dán vào chat là đủ để tìm nguyên nhân, không cần chụp màn hình."])
             }
         }
-        .tint(.white)
         .backPageTitle("Cài đặt VieNeu TTS")
         .onAppear {
             loadVoices()

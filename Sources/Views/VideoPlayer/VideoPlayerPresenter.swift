@@ -61,9 +61,12 @@ final class VideoPlayerPresenter {
         host.modalPresentationStyle = .overFullScreen
         host.modalPresentationCapturesStatusBarAppearance = true
         host.view.backgroundColor = .black
+        // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`; gắn lại màu nhấn để sheet / menu của
+        // trình phát cùng màu với lối mở qua `BookContentDestination`.
         let screen = VideoPlayerScreen(onDismiss: { [weak host] in
             host?.dismiss(animated: true)
         })
+        .appAccentTint()
         if let container = session.modelContainer {
             host.rootView = AnyView(screen.modelContainer(container))
         } else {

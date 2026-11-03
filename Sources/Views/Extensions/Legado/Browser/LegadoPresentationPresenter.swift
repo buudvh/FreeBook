@@ -78,7 +78,8 @@ final class LegadoPresentationPresenter {
             LegadoPresentationEventCenter.shared.completeBrowser(id: id, result: result)
             self?.dismissActive(id)
         }
-        let host = UIHostingController(rootView: sheet)
+        // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
+        let host = UIHostingController(rootView: sheet.appAccentTint())
         host.modalPresentationStyle = .overFullScreen
         host.isModalInPresentation = true
         present(host, id: id) {
@@ -92,7 +93,7 @@ final class LegadoPresentationPresenter {
             LegadoPresentationEventCenter.shared.completeVerification(id: id, code: code)
             self?.dismissActive(id)
         }
-        let host = UIHostingController(rootView: sheet)
+        let host = UIHostingController(rootView: sheet.appAccentTint())
         host.modalPresentationStyle = .pageSheet
         // Vuốt xuống là lối huỷ duy nhất (sheet không còn nút Huỷ, 1.3.641) ⇒ không chặn vuốt; `onDisappear` của sheet
         // trả `nil` cho engine.

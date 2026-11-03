@@ -135,6 +135,8 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         let content = inbox.onDisappear {
             FloatingHubWindowManager.shared.setSheetPresented(false)
         }
+        // Trình bày bằng UIKit từ cửa sổ hub ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
+        .appAccentTint()
         let root: AnyView
         if let container = FloatingHubWindowManager.shared.modelContainer {
             // Bắt buộc: cửa sổ phụ **không** có `modelContainer` trong environment, mà `NotificationInboxView`

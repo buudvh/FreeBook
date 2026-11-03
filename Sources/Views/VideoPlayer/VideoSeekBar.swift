@@ -24,8 +24,9 @@ struct VideoSeekBar: View {
                 Capsule()
                     .fill(Color.white.opacity(0.5))
                     .frame(width: width * clamp(buffered), height: 3)
+                // Trắng cố định: trình phát luôn tông trắng trên nền đen, không theo màu nhấn.
                 Capsule()
-                    .fill(Color.accentColor)
+                    .fill(Color.white)
                     .frame(width: played, height: 3)
                 if isEnabled {
                     Circle()

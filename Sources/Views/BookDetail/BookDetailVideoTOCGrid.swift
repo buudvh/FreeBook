@@ -236,13 +236,18 @@ struct BookDetailVideoTOCGrid: View {
                     .opacity(0.55)
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary.opacity(0.72))
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary.opacity(0.72))
             .padding(.horizontal, 12)
             .frame(maxWidth: fillsWidth ? .infinity : nil)
             .frame(height: 32)
+            // Đang chọn theo kiểu chip của `ExtensionKindFilterBar`: chữ màu nhấn, nền nhấn mờ, viền nhấn.
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(isSelected ? Color.primary : Color.primary.opacity(0.07))
+                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.07))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
@@ -301,12 +306,16 @@ struct BookDetailVideoTOCGrid: View {
             Text("\(number)")
                 .font(.system(size: 14, weight: isCurrent ? .bold : .semibold))
                 .monospacedDigit()
-                .foregroundStyle(isCurrent ? Color(.systemBackground) : Color.primary.opacity(isRead ? 0.36 : 1))
+                .foregroundStyle(isCurrent ? Color.accentColor : Color.primary.opacity(isRead ? 0.36 : 1))
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.cellHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(isCurrent ? Color.primary : Color.primary.opacity(isRead ? 0.04 : 0.07))
+                        .fill(isCurrent ? Color.accentColor.opacity(0.18) : Color.primary.opacity(isRead ? 0.04 : 0.07))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(isCurrent ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1)
                 )
                 .overlay(alignment: .topTrailing) {
                     if row.isCached && !isCurrent {

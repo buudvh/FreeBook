@@ -23,8 +23,8 @@ struct RephoneticizeApplyButton: View {
     @State private var showingModeDialog = false
     @State private var showingMergeSheet = false
 
-    /// Xem `DictionaryImportConflictView.accent`: **không** dùng `Color.accentColor` vì app đặt
-    /// `.tint(.white)` toàn cục (`MainTabView.swift:38`).
+    /// Xem `DictionaryImportConflictView.accent`: xanh lá cố định, **không** theo `Color.accentColor` (màu nhấn
+    /// người dùng chọn).
     private let accent = Color(red: 0.204, green: 0.780, blue: 0.349)
 
     /// Khai `init` tường minh: các `@State` trên là `private`, nên `init` memberwise do compiler sinh sẽ

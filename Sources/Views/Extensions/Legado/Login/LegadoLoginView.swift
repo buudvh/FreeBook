@@ -165,7 +165,7 @@ struct LegadoLoginView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .foregroundColor(.white)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 10)) // không dùng màu nhấn: app tint trắng
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 10)) // xanh cố định, không theo màu nhấn
                 }
                 .disabled(isSubmitting || busyFieldId != nil || isLoadingForm)
             }

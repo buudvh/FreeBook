@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Nút chọn **một** loại nội dung dạng menu (Tất cả · Truyện chữ · Truyện tranh · Phim), đứng cạnh ô tìm viên thuốc —
 /// thay hàng chip `ExtensionKindFilterBar` ở ngăn kéo chọn nguồn (kéo cuộn hàng chip tranh với vuốt đóng ngăn kéo).
-/// Viên thuốc cao 40 bằng ô tìm: icon + tên loại đang chọn + ↕; mục đang chọn trong menu có ✓.
+/// Nút tròn 40 × 40 (cao bằng ô tìm) **chỉ có icon** của loại đang chọn, icon 17pt nửa đậm như nút header — cỡ nút
+/// không đổi theo độ dài tên loại (1.3.678). Tên loại nằm trong menu (mục đang chọn có ✓) và nhãn VoiceOver.
 ///
 /// Lựa chọn cùng quy ước với `ExtensionKindFilterBar`: `""` = tất cả, còn lại `ExtensionContentKind.rawValue`.
 struct ExtensionKindMenuButton: View {
@@ -23,21 +24,12 @@ struct ExtensionKindMenuButton: View {
                 option(title: Self.title(of: kind), symbol: kind.symbolName, isSelected: selectedKind == kind, value: kind.rawValue)
             }
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: selectedKind?.symbolName ?? Self.allSymbol)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(selectedKind.map(Self.title(of:)) ?? "Tất cả")
-                    .font(.subheadline)
-                    .lineLimit(1)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundColor(.secondary)
-            }
-            .foregroundColor(.primary)
-            .padding(.horizontal, 12)
-            .frame(height: 40)
-            .background(Color(.tertiarySystemFill), in: Capsule())
-            .contentShape(Capsule())
+            Image(systemName: selectedKind?.symbolName ?? Self.allSymbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.primary)
+                .frame(width: 40, height: 40)
+                .background(Color(.tertiarySystemFill), in: Circle())
+                .contentShape(Circle())
         }
         .accessibilityLabel("Loại nội dung: \(selectedKind.map(Self.title(of:)) ?? "Tất cả")")
     }

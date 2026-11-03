@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Icon bộ lọc (phễu `AppGlyph.filter`) dùng chung cho mọi nút lọc — nút lọc tiện ích (`ExtensionFilterButton`) và nút
-/// lọc của Kho tiện ích — để hai nơi trông y hệt nhau. Chấm trắng góc trên phải khi đang lọc. Chỉ là phần vẽ; nút do
+/// lọc của Kho tiện ích — để hai nơi trông y hệt nhau. Chấm màu nhấn góc trên phải khi đang lọc. Chỉ là phần vẽ; nút do
 /// nơi dùng bọc.
 struct FilterGlyph: View {
     enum Style {
@@ -43,7 +43,7 @@ struct FilterGlyph: View {
     private var activeDot: some View {
         if isActive {
             Circle()
-                .fill(Color.white)
+                .fill(Color.accentColor)
                 .frame(width: 7, height: 7)
         }
     }

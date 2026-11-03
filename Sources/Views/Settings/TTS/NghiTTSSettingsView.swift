@@ -70,8 +70,6 @@ struct NghiTTSSettingsView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .tint(.white)
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .backPageTitle("Cấu hình NghiTTS")
     }
 }
@@ -144,7 +142,6 @@ struct PrecisionSliderView: View {
                     .foregroundColor(.secondary)
                 
                 Slider(value: $value, in: range, step: step)
-                    .tint(.white)
                 
                 Text(String(format: "%.1f", range.upperBound))
                     .font(.caption2)

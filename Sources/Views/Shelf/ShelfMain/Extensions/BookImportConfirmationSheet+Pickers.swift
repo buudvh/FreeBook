@@ -100,7 +100,7 @@ extension BookImportConfirmationSheet {
                         } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                                    .foregroundColor(isSelected ? .white : .secondary)
+                                    .foregroundColor(isSelected ? .accentColor : .secondary)
                                     .padding(.top, 2)
 
                                 VStack(alignment: .leading, spacing: 2) {

@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// Hai nhánh tách hẳn nhau:
 /// - `.list`: `List` `.plain` + `Section` + `ShelfBookRowView` dạng panel bo góc (`bookListPanelRow`, không vạch
-///   ngăn), sentinel `ProgressView` cuối danh sách; cỡ dòng theo `BookListLayout.rowSize`.
+///   ngăn), chân `LoadMoreFooter` cuối danh sách; cỡ dòng theo `BookListLayout.rowSize`.
 /// - `.grid` / `.coverOnly`: `ScrollView` + `LazyVGrid` N cột với `ShelfBookGridCardView`. **`LazyVGrid` tuyệt đối
 ///   không lồng trong `List`** (crash `EXC_BREAKPOINT` ở 1.3.269, xem `CollectionsTabView`).
 ///
@@ -45,6 +45,9 @@ struct ShelfBooksLayoutView: View {
     /// Còn truyện chưa hiện (phân trang 50/lượt của nơi dùng) ⇒ có sentinel tải thêm ở cuối.
     var hasMore: Bool = false
     var onLoadMore: () -> Void = {}
+    /// Hết truyện để hiện ⇒ dòng "Đã hết · …" (vd. "128 truyện"); `nil` ⇒ không có dòng (danh sách ngắn, chưa từng
+    /// phân trang — nơi dùng tự quyết).
+    var endCaption: String? = nil
     var swipeAction: SwipeAction? = nil
     let onTap: (Book) -> Void
     let onLongPress: (Book) -> Void
@@ -75,14 +78,9 @@ struct ShelfBooksLayoutView: View {
                 }
             }
 
-            if hasMore {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .onAppear { scheduleLoadMore() }
-                    Spacer()
-                }
-                .bookListPanelRowChrome()
+            if let phase = footerPhase {
+                footer(phase)
+                    .bookListPanelRowChrome()
             }
         }
         .listStyle(.plain)
@@ -152,14 +150,12 @@ struct ShelfBooksLayoutView: View {
 
                 // Sentinel là **footer** của một section rỗng: footer trải hết bề ngang lưới (một ô lưới chỉ chiếm một
                 // cột) và được dựng lười — `onAppear` chỉ nổ khi cuộn tới cuối.
-                if hasMore {
+                if let phase = footerPhase {
                     Section {
                         EmptyView()
                     } footer: {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .onAppear { scheduleLoadMore() }
+                        footer(phase)
+                            .padding(.vertical, 4)
                             // `id` theo số truyện đã hiện, đặt **ngoài** `onAppear`: tải thêm xong mà sentinel vẫn trong
                             // màn hình (lưới bìa ngang nhiều cột rất thấp) thì nó được dựng lại và `onAppear` chạy tiếp,
                             // không kẹt tới khi người dùng cuộn.
@@ -203,6 +199,16 @@ struct ShelfBooksLayoutView: View {
 
     private func headerView(_ header: Header) -> ShelfSectionHeaderView {
         ShelfSectionHeaderView(title: header.title, icon: header.icon, color: header.color, count: header.count)
+    }
+
+    /// Nạp trên máy nên không có trạng thái lỗi: còn truyện ⇒ vòng xoay, hết ⇒ "Đã hết · …" khi nơi dùng đưa chữ.
+    private var footerPhase: LoadMoreFooter.Phase? {
+        if hasMore { return .loading }
+        return endCaption.map(LoadMoreFooter.Phase.finished)
+    }
+
+    private func footer(_ phase: LoadMoreFooter.Phase) -> some View {
+        LoadMoreFooter(phase: phase, onAppear: { scheduleLoadMore() })
     }
 
     /// Như bản cũ của Kệ/Lịch sử: nhích 0,3 s rồi mới tăng giới hạn, để lượt tải thêm không chen vào giữa lượt vẽ

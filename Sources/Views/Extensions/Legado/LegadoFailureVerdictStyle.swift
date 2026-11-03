@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Màu + icon của kết luận "lỗi do ai" (tầng View — enum ở Services không giữ `Color`). Màu cố định, **không** dùng màu
-/// nhấn (app đặt `.tint(.white)` toàn cục ⇒ màu nhấn là trắng).
+/// nhấn (màu nhấn do người dùng chọn, kết luận cần màu riêng).
 extension LegadoFailureVerdict {
     var tint: Color {
         switch self {

@@ -200,7 +200,7 @@ struct ExtensionCheckView: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    /// Chip chọn theo kiểu `ExtensionKindFilterBar` (app đặt `.tint(.white)` ⇒ màu nhấn là trắng, chỉ dùng dạng mờ).
+    /// Chip chọn theo kiểu `ExtensionKindFilterBar` (màu nhấn người dùng chọn, chỉ dùng dạng mờ).
     private func filterChip(_ item: ExtensionCheckFilter) -> some View {
         let isSelected = item == filter
         return Button(action: { filter = item }) {

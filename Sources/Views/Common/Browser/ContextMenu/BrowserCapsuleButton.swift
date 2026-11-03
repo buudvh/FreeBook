@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Nút capsule cao 38pt chia đều hàng (sheet Dịch QT): icon + chữ 13pt nửa đậm, nền mờ của màu chữ — không dùng màu
-/// nhấn (màu nhấn của app là trắng). Bị `disabled` thì mờ đi.
+/// nhấn (nút trung tính, không đổi theo màu người dùng chọn). Bị `disabled` thì mờ đi.
 struct BrowserCapsuleButton<Icon: View>: View {
     let title: String
     let action: () -> Void

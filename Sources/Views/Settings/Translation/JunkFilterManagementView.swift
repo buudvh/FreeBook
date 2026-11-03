@@ -250,7 +250,6 @@ struct JunkFilterManagementView: View {
                 }
             ))
             .labelsHidden()
-            .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
 
             Button(action: {
                 prepareForEdit(rule)
@@ -276,9 +275,7 @@ struct JunkFilterManagementView: View {
                         .textInputAutocapitalization(.never)
 
                     Toggle("Biểu thức chính quy (Regex)", isOn: $isRegexInput)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
             .pageTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")

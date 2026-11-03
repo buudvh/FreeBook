@@ -3,7 +3,7 @@ import SwiftUI
 /// "Tìm trong một nguồn": trang 1 (tách khỏi `performSearch`) và tải thêm trang khi cuộn gần cuối danh sách.
 ///
 /// Trang kế đi theo token mà nguồn trả (`SourceRuntime.searchPage`); luật dừng, lọc trùng và chống kết quả về muộn ở
-/// `SearchPagingState`. Lỗi ở trang sau không hiện lên màn: tự thử lại rồi dừng im lặng (log `❌` một lần).
+/// `SearchPagingState`. Lỗi ở trang sau: tự thử lại, hết lượt thì chân danh sách hiện "Thử lại" (log `❌` một lần).
 extension SearchView {
     static func singleSourceFoundMessage(count: Int, sourceName: String) -> String {
         "Tìm thấy \(count) truyện trên nguồn \(sourceName)."
@@ -52,6 +52,7 @@ extension SearchView {
     /// Sentinel cuối danh sách / một trong vài mục cuối hiện ra ⇒ tải trang kế. Gọi trùng lúc đang tải thì bỏ qua.
     func loadMoreSearchResults() {
         guard !searchAllSources, !isSearching, !searchPaging.isLoadingMore, searchPaging.canLoadMore,
+              searchPaging.failedMessage == nil,
               let ext = searchPaging.ext, let token = searchPaging.nextToken else { return }
         let searchId = searchPaging.searchId
         let query = searchPaging.query
@@ -88,7 +89,7 @@ extension SearchView {
                 }
                 guard retryCount < SearchPagingState.maxRetries else {
                     AppLogger.shared.log("❌ [SearchView] Tải thêm trang tìm kiếm \(page) của nguồn \(ext.name) lỗi: \(error.localizedDescription)")
-                    searchPaging.stop()
+                    searchPaging.fail(message: error.localizedDescription)
                     return
                 }
                 retryCount += 1
@@ -101,6 +102,20 @@ extension SearchView {
                 guard isCurrentSearchPaging(searchId) else { return }
             }
         }
+    }
+
+    /// Nút "Thử lại" ở chân danh sách: tải lại trang kế vừa lỗi.
+    func retryLoadMoreSearchResults() {
+        searchPaging.clearFailure()
+        loadMoreSearchResults()
+    }
+
+    /// Chân danh sách của "tìm trong một nguồn" (`shownCount` = số mục đang hiện sau lọc đổi nguồn).
+    func singleSourceFooterPhase(shownCount: Int, noun: String) -> LoadMoreFooter.Phase? {
+        guard !isSearching, shownCount > 0 else { return nil }
+        if let message = searchPaging.failedMessage { return .failed(message) }
+        if searchPaging.canLoadMore { return .loading }
+        return .finished("\(shownCount) \(noun)")
     }
 
     private func isCurrentSearchPaging(_ searchId: Int) -> Bool {

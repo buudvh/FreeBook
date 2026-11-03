@@ -104,14 +104,12 @@ extension TTSSettingsView {
                 }
             }
             Slider(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05)
-                // `.tint` tường minh vì `TTSSettingsView` đặt `.tint(.white)` toàn cục.
-                .tint(.white)
             HStack(spacing: 4) {
                 Text("Tốc độ nghe thực tế:")
                 Text(String(format: "%.2fx", effective))
                     .font(.system(.body, design: .monospaced))
-                    // `.orange` là màu literal có chủ ý: không dùng `Color.accentColor` vì tint toàn cục
-                    // là trắng (cùng bẫy đã ghi ở màn trộn từ điển).
+                    // `.orange` là màu cảnh báo literal có chủ ý: không dùng `Color.accentColor` vì màu nhấn do người
+                    // dùng chọn (có thể chính là Cam hổ phách) ⇒ cảnh báo lẫn với màu nhấn.
                     .foregroundColor(effective > 2.0 ? .orange : .primary)
             }
             .font(.caption)

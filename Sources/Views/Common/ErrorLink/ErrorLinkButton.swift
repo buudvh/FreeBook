@@ -12,7 +12,8 @@ import SwiftUI
 /// ErrorLinkButton(link: errorLink, presenting: $openingErrorLink, style: .icon)   // dải lỗi gọn / header
 /// ```
 ///
-/// Màu nhấn app là trắng ⇒ không dùng `.borderedProminent`; capsule là nền trắng mờ như `ComicReaderView.actionButton`.
+/// Không dùng `.borderedProminent` (nền nhấn đặc phải qua `.appFilled`, luật `WHITE_TINT_FILL`); capsule là nền trắng
+/// mờ như `ComicReaderView.actionButton` (khối lỗi thường nằm trên nền tối của comic / video).
 struct ErrorLinkButton: View {
     enum Style {
         /// Capsule nền trắng mờ 16%, cao 38pt — khối lỗi giữa màn (comic, video, Reader, Khám phá…).

@@ -40,8 +40,8 @@ struct MainTabView: View {
                 .tag(3)
         }
         .environment(\.mainTabSelection, $selectedTab)
-        .tint(.white)
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
+        // Màu nhấn do người dùng chọn (1.3.678, mặc định Xanh ngọc) — công tắc cũng theo màu này.
+        .appAccentTint()
         .toolbarBackground(.visible, for: .tabBar)
         // Kết quả sao lưu / khôi phục và kết quả tải model — hai nguồn kết quả tác vụ **nền**: hiện toast ở
         // **đây** (root, luôn sống) để không phụ thuộc việc người dùng còn đang đứng ở màn bấm hay không, kể cả

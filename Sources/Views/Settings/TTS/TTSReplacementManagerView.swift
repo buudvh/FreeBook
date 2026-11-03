@@ -260,7 +260,6 @@ struct TTSReplacementManagerView: View {
                         .textInputAutocapitalization(.never)
                     
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
-                        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
                 }
             }
             .pageTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")

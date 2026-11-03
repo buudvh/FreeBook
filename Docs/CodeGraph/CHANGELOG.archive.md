@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.648] - 2026-10-29
+
+### fix: widget nổi luôn nằm trên ngăn kéo menu
+
+Người dùng: *"bạn sửa gì mà widget tts và widget khác bị che bởi ngăn kéo "…""* → chọn *"Widget nổi trên"*.
+
+- **Nguyên nhân**: từ 1.3.628 cửa sổ ngăn kéo ở level `alert - 0.5`, **trên** widget TTS (`alert - 1`), hub (`alert - 2`), trình duyệt thu nhỏ (`alert - 3`), lớp tối 30% của nó phủ cả màn. Trước 1.3.645 nền ngăn kéo không thật sự nhoè (kính iOS bị giảm độ hiện) nên vẫn nhìn xuyên thấy widget; từ khi nền nhoè thật (1.3.645 ảnh chụp, 1.3.647 kính 6 nấc) widget dưới vùng ngăn kéo bị che hẳn.
+- **Sửa**: `SideDrawerMenuWindowManager` đặt cửa sổ ngăn kéo ở `alert - 3.5` — dưới cả ba widget và toast ⇒ widget luôn nổi trên ngăn kéo và lớp tối, bấm được bình thường (như thời `fullScreenCover`). Đánh đổi: widget ở mép phải có thể che vài hàng menu.
+- Chuyển entry `[1.3.618]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — mở ngăn kéo khi widget TTS / hub đang hiện, bấm widget lúc ngăn kéo mở.
+
 ## [1.3.647] - 2026-10-29
 
 ### fix: ngăn kéo menu bỏ ảnh chụp nền, độ đục theo 6 nấc kính như nút nổi

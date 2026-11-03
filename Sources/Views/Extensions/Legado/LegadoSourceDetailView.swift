@@ -109,7 +109,6 @@ struct LegadoSourceDetailView: View {
             activitySection(summary)
             toolsSection(summary)
         }
-        .toggleStyle(SwitchToggleStyle(tint: Color(white: 0.35)))
         .listSectionSpacing(.compact)
         .disabled(isWorking)
     }
