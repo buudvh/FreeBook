@@ -91,9 +91,12 @@ struct DiscoveryNovelsLayoutView: View {
                 .onDisappear { setVisible(novel.link, false) }
             }
 
+            // `.id(count)` như lưới: mỗi trang mới về là hàng chân mới ⇒ vòng xoay mới (`ProgressView` trong hàng tái
+            // dùng hiện trống). Trang không thêm mục nào thì `count` đứng yên, không kích hoạt lại.
             if let phase = footerPhase {
                 footer(phase)
                     .bookListPanelRowChrome()
+                    .id(loader.novels.count)
             }
         }
         .listStyle(.plain)

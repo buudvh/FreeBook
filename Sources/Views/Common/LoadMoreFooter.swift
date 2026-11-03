@@ -7,8 +7,10 @@ import SwiftUI
 /// lỗi hết lượt tự thử; "Đã hết · N truyện" giữa hai vạch mờ khi hết trang. Không có nút "Xem thêm" — nạp vẫn tự chạy
 /// khi cuộn tới (bộ nạp của nơi dùng tự chặn gọi trùng; `onAppear` ở đây chỉ là lưới an toàn).
 ///
-/// Vòng xoay được dựng **mới** mỗi lần chân hiện ra (`spinnerToken`): `ProgressView` trong hàng `List` bị tái dùng sẽ
-/// hiện trống / đứng yên từ lần thứ hai — lý do danh sách trước đây "thiếu vòng xoay". Màu theo màu nhấn của app.
+/// **Không giữ state** (1.3.679): `ProgressView` trong hàng `List` bị tái dùng hiện trống / đứng yên từ lần thứ hai, nên
+/// nơi dùng gắn `.id(số mục)` cho chân ⇒ mỗi trang mới về là một vòng xoay mới. Đừng ghi state trong `onAppear` ở đây
+/// (1.3.678 ghi `UUID()` mới mỗi lần hiện ⇒ hàng cuối vẽ lại → "hiện" lại → ghi tiếp, vòng lặp trên main thread làm đơ
+/// app khi cuộn tới cuối). Màu theo màu nhấn của app.
 struct LoadMoreFooter: View {
     enum Phase: Equatable {
         case loading
@@ -22,13 +24,10 @@ struct LoadMoreFooter: View {
     var onAppear: () -> Void = {}
     var onRetry: () -> Void = {}
 
-    @State private var spinnerToken = UUID()
-
     var body: some View {
         content
             .frame(maxWidth: .infinity)
             .onAppear {
-                spinnerToken = UUID()
                 if phase == .loading { onAppear() }
             }
     }
@@ -38,7 +37,6 @@ struct LoadMoreFooter: View {
         switch phase {
         case .loading:
             ProgressView()
-                .id(spinnerToken)
                 .frame(height: 44)
                 .accessibilityLabel("Đang tải thêm")
         case .failed(let message):

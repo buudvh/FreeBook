@@ -50,12 +50,13 @@ enum AppAccentColor: String, CaseIterable, Identifiable {
         AppAccentColor(storedValue: UserDefaults.standard.string(forKey: storageKey) ?? "")
     }
 
-    /// `tintColor` của mọi cửa sổ đang mở — phần UIKit không đọc `.tint` của SwiftUI.
+    /// `tintColor` của mọi cửa sổ đang mở — phần UIKit không đọc `.tint` của SwiftUI. Cửa sổ đã đúng màu thì bỏ qua:
+    /// gán lại làm `tintColorDidChange` lan khắp cây view (cả các hàng danh sách) mỗi lần một sheet / cửa sổ nổi hiện.
     @MainActor
     func applyToWindows() {
         for scene in UIApplication.shared.connectedScenes {
             guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
+            for window in windowScene.windows where window.tintColor != uiColor {
                 window.tintColor = uiColor
             }
         }

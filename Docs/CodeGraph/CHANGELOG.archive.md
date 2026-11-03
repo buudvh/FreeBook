@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.649] - 2026-10-29
+
+### fix: widget nổi không đè lên nhau khi cùng mép
+
+Người dùng: *"đừng cho các widget đè lên nhau nhé"* — duyệt plan.
+
+- **`FloatingWidgetLayoutCoordinator`** (mới, `Views/Common/`, `@MainActor`): widget TTS, nút hub, nút mở lại trình duyệt — mỗi cái một cửa sổ riêng, trước đây không biết nhau — đăng ký khoảng dọc đứng yên theo cạnh; ẩn thì gỡ. `resolve(id:edge:proposedCenterY:height:minY:maxY:)` chọn tâm Y **trống gần đề xuất nhất** (khe 8pt) trên cạnh đề xuất, hết chỗ thì thử cạnh kia, cả hai hết thì giữ nguyên + log. Tìm thẳng điểm trống gần nhất (đầu mút khoảng cấm) nên không lắc qua lại giữa hai widget.
+- **Khi nào xếp**: thả tay sau khi kéo (dời có hiệu ứng) và lúc widget vừa hiện (đặt thẳng vào chỗ trống trước khi hiện — không thấy cảnh chồng rồi mới tách). Widget vừa kéo/vừa hiện là bên nhường, widget đứng yên không bị đẩy. Vị trí mới lưu như kéo tay (`applyResolvedPlacement` + `persistPosition` ở ba view model). Xoay màn / đổi vùng an toàn chỉ báo lại khung (`refresh`), không xếp lại.
+- **Widget TTS** giữ chỗ theo chiều cao mở rộng (56pt, 80pt khi đang hẹn giờ). Hai cạnh khác nhau không xét; menu bung của hub không xét.
+- File mới `FloatingHubContainerViewController+Placement.swift`; `FloatingWidgetGeometry.centerYRange`.
+- Chuyển entry `[1.3.619]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — kéo hai widget về cùng mép cùng độ cao, mở app khi cả ba cùng hiện, bật hẹn giờ TTS sau khi đã xếp (chưa xếp lại theo chiều cao mới), màn ngang.
+
 ## [1.3.648] - 2026-10-29
 
 ### fix: widget nổi luôn nằm trên ngăn kéo menu

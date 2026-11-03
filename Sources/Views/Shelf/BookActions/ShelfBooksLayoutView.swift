@@ -78,9 +78,11 @@ struct ShelfBooksLayoutView: View {
                 }
             }
 
+            // `.id` theo số truyện đã hiện như kiểu lưới: mỗi lượt nạp thêm là hàng chân mới ⇒ vòng xoay mới.
             if let phase = footerPhase {
                 footer(phase)
                     .bookListPanelRowChrome()
+                    .id(groups.reduce(0) { $0 + $1.books.count })
             }
         }
         .listStyle(.plain)

@@ -112,6 +112,7 @@ struct AllCommentsView: View {
                             onRetry: { Task { await retryLoadMoreComments() } }
                         )
                         .bookListPanelRowChrome()
+                        .id(comments.count) // mỗi trang mới về là hàng chân mới ⇒ vòng xoay mới
                     }
                 }
                 .listStyle(.plain)
