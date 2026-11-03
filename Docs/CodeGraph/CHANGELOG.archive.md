@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.652] - 2026-10-29
+
+### fix: trang có nút back hiện tiêu đề giữa, nút chữ header 17pt nửa đậm
+
+Người dùng: *"các màn khác cũng vậy nhé, đồng bộ 1 size chữ title, 1 size button icon, 1 size button chữ"*, rồi *"Reader, Truyện tranh, Trình y như cũ … Trừ chi tiết và reader thì hãy giữ title giữa cho các màn có back"*; duyệt mockup.
+
+- **Tiêu đề ba kiểu** (`PageTitleStyle`: `.leading` / `.centered` / `.hidden`, `PageTitleModifier`): `.pageTitle(_:)` = trái (tab gốc, gốc sheet, như 1.3.641); `.backPageTitle(_:)` = **giữa**, 22pt đậm, một dòng, thu nhỏ tới 80% rồi cắt đuôi (trước đây không hiện); `.pageTitle(_:style:)` cho màn mở hai kiểu (9 chỗ: `style: cờ ? .leading : .centered`). Ngoại lệ **Chi tiết truyện** `.hidden`. Reader, truyện tranh, trình phát video giữ header riêng như cũ.
+- **Nút chữ trên header** (`.headerTextButton()`, mới): 17pt nửa đậm cho 31 chỗ (Lưu, Nhập, Xong, Bắt đầu, Khôi phục, Áp dụng, Xác nhận, Xóa tất cả…, nhãn của menu "Lưu ▾", 4 `EditButton`); bỏ `.fontWeight(.bold/.semibold)` lẻ tẻ cũ. Nút xoá vẫn đỏ.
+- **Icon**: nút đóng Trợ lý AI toàn màn `chevron.down` trong ô tròn nền xám ⇒ `chevron.down.circle` không nền, cùng kiểu `ellipsis.circle` bên cạnh; "Tab mới" của trình duyệt `plus.square.on.square` ⇒ `plus.square`; icon thẻ thể loại ở Khám phá 16pt thường ⇒ 17pt nửa đậm.
+- CLAUDE.md/AGENTS.md: cập nhật mục "Header trang & sheet" và chuẩn nút chữ header.
+- Chuyển entry `[1.3.622]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — tiêu đề giữa dài (Thể loại, Bình luận, Bộ sưu tập) có chèn icon phải không; nút `.confirmationAction`/`EditButton` có bị iOS tự in đậm thêm không.
+
 ## [1.3.651] - 2026-10-29
 
 ### fix: chỉ widget TTS nổi trên ngăn kéo menu, hub và trình duyệt nằm dưới

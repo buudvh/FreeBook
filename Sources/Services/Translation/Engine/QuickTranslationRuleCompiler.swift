@@ -53,7 +53,12 @@ public enum QuickTranslationRuleCompiler {
                 note(.unusedCapture, "Token thứ \(index) chỉ dùng để khớp, không xuất ra bản dịch (không có {\(index)})")
             }
 
-            if !hasAnchor(rule.elements) {
+            // `literalLength == 0` luôn kéo theo "không có neo", nên rule có `<any>` mà thiếu chữ cố định
+            // báo lỗi riêng **thay cho** `NO_LITERAL_ANCHOR` — màn sửa rule nói đúng nguyên nhân, không
+            // hiện hai lỗi nặng cho cùng một chỗ.
+            if collectTokenKinds(rule.elements).contains(.any), literalLength(of: rule.elements) == 0 {
+                note(.anyWithoutLiteral, "Rule có <any> phải có ít nhất một chữ cố định")
+            } else if !hasAnchor(rule.elements) {
                 note(.noLiteralAnchor, "Mẫu không có ký tự thường nào làm neo")
             }
 
@@ -153,7 +158,7 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional else { continue }
                 total += alternatives.map { literalLength(of: $0) }.max() ?? 0
-            case .numeral, .chapterLabel, .dictionary:
+            case .numeral, .chapterLabel, .dictionary, .anyRun:
                 continue
             }
         }
@@ -164,7 +169,7 @@ public enum QuickTranslationRuleCompiler {
         var total = 0
         for element in elements {
             switch element.kind {
-            case .numeral, .chapterLabel, .dictionary:
+            case .numeral, .chapterLabel, .dictionary, .anyRun:
                 total += element.maxLength
             case .group(let alternatives):
                 total += alternatives.map { wildcardCapacity(of: $0) }.max() ?? 0
@@ -207,7 +212,7 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional, !alternatives.isEmpty else { continue }
                 if alternatives.allSatisfy({ hasAnchor($0) }) { return true }
-            case .numeral, .chapterLabel, .dictionary:
+            case .numeral, .chapterLabel, .dictionary, .anyRun:
                 continue
             }
         }
@@ -255,7 +260,7 @@ public enum QuickTranslationRuleCompiler {
                         kinds.append(kind)
                     }
                 }
-            case .literal, .numeral, .chapterLabel:
+            case .literal, .numeral, .chapterLabel, .anyRun:
                 continue
             }
         }
@@ -270,6 +275,8 @@ public enum QuickTranslationRuleCompiler {
     /// Token không phải lớp ký tự (`<L>`, `<ne>`, `<pn>`, `<vp>`, `<hv>`, `<w>`) **không** vào vector:
     /// so độ hẹp giữa một token số và một token từ điển là so hai thứ khác loại. Rule chỉ có token từ
     /// điển vì thế ra vector rỗng ⇒ hoà ở tiêu chí này ⇒ rơi xuống `sourceLine` như trước 1.3.416.
+    /// Riêng `<any>` (1.3.682) **có** vào vector với hạng `anyRunRank` (rộng nhất): nó cũng nuốt ký tự
+    /// theo lớp, chỉ là lớp mở, nên hoà mọi thứ khác thì `<n>的` thắng `<any>的` trên `3的`.
     private static func numeralNarrownessRanks(
         _ elements: [QuickTranslationRuleElement]
     ) -> [Int] {
@@ -278,6 +285,8 @@ public enum QuickTranslationRuleCompiler {
             switch element.kind {
             case .numeral(let kind):
                 ranks.append(QuickTranslationRuleNumeralNarrowness.rank(of: kind))
+            case .anyRun:
+                ranks.append(QuickTranslationRuleNumeralNarrowness.anyRunRank)
             case .group(let alternatives):
                 for alternative in alternatives {
                     ranks.append(contentsOf: numeralNarrownessRanks(alternative))

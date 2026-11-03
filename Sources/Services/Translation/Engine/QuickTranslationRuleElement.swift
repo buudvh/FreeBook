@@ -28,6 +28,10 @@ public struct QuickTranslationRuleElement: Sendable {
         case chapterLabel
         /// `<ne>/<pn>/<vp>/<hv>/<w>` — phải khớp một entry của từ điển tương ứng.
         case dictionary([DictionaryKind])
+        /// `<any>` / `<any:min-max>` — một cụm ký tự bất kỳ dài `minLength...maxLength`, dừng ở dấu
+        /// câu (Unicode P*) và khoảng trắng/xuống dòng; capture trả **nguyên văn** cụm đã nuốt. Không
+        /// phải `NumeralKind`: không có lớp ký tự đóng, không boundary guard, không render theo loại.
+        case anyRun
         /// `(a|b)` — mỗi alternative là một dãy phần tử; nhóm **không** sinh capture.
         case group([[QuickTranslationRuleElement]])
     }
@@ -106,7 +110,7 @@ public struct QuickTranslationRuleElement: Sendable {
     public var isToken: Bool {
         switch kind {
         case .literal, .group: return false
-        case .numeral, .chapterLabel, .dictionary: return true
+        case .numeral, .chapterLabel, .dictionary, .anyRun: return true
         }
     }
 
@@ -123,7 +127,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary:
+        case .numeral, .chapterLabel, .dictionary, .anyRun:
             return nil
         }
     }
@@ -139,7 +143,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary:
+        case .numeral, .chapterLabel, .dictionary, .anyRun:
             return nil
         }
     }
@@ -149,7 +153,7 @@ public struct QuickTranslationRuleElement: Sendable {
         if isOptional { return 0 }
         switch kind {
         case .literal(let units): return units.count
-        case .numeral, .chapterLabel, .dictionary: return minLength
+        case .numeral, .chapterLabel, .dictionary, .anyRun: return minLength
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.minimumWidth } }.min() ?? 0
         }
@@ -158,7 +162,7 @@ public struct QuickTranslationRuleElement: Sendable {
     public var maximumWidth: Int {
         switch kind {
         case .literal(let units): return units.count
-        case .numeral, .chapterLabel, .dictionary: return maxLength
+        case .numeral, .chapterLabel, .dictionary, .anyRun: return maxLength
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.maximumWidth } }.max() ?? 0
         }

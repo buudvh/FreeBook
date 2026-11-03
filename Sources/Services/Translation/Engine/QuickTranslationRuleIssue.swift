@@ -30,11 +30,14 @@ public struct QuickTranslationRuleIssue: Identifiable, Hashable, Sendable {
         case duplicatePattern = "DUPLICATE_PATTERN"
         case weakAnchor = "WEAK_ANCHOR"
         case ruleTooComplex = "RULE_TOO_COMPLEX"
+        /// Rule có `<any>` mà không có chữ cố định nào (`literalLength == 0`): `<any>` nuốt gần như mọi
+        /// cụm nên rule như vậy khớp bừa khắp nơi (1.3.682).
+        case anyWithoutLiteral = "ANY_WITHOUT_LITERAL"
 
         public var severity: Severity {
             switch self {
             case .unparseableRuleLine, .emptyPattern, .unknownTokenName,
-                 .unbalancedParens, .invalidRefIndex, .noLiteralAnchor:
+                 .unbalancedParens, .invalidRefIndex, .noLiteralAnchor, .anyWithoutLiteral:
                 return .hard
             case .dictTokenWithoutDictionary:
                 return .disabling

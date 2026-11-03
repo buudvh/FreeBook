@@ -242,6 +242,22 @@ public enum QuickTranslationRuleParser {
         let index = captureCount
         captureCount += 1
 
+        // `<any>` nuốt một cụm ký tự bất kỳ nên không có nghĩa khi ghép `|` với token khác: `<any|n>`
+        // luôn khớp như `<any>`. Báo lỗi rõ thay vì lặng lẽ bỏ phần sau dấu `|`.
+        if names.contains("any") {
+            guard names == ["any"] else {
+                throw ParseError(code: .unknownTokenName, message: "Token <any> không ghép được với token khác bằng dấu |")
+            }
+            return QuickTranslationRuleElement(
+                kind: .anyRun,
+                sourceTokenKinds: sourceTokenKinds,
+                minLength: minLength,
+                maxLength: maxLength,
+                isOptional: isOptional,
+                captureIndex: index
+            )
+        }
+
         let numeralKinds: Set<String> = ["n", "y", "h", "d", "m", "a", "hn"]
         if names.allSatisfy({ numeralKinds.contains($0) }) {
             // `<n|y>` (và các tổ hợp số khác) vẫn được chấp nhận để không phá rule cũ; ngữ nghĩa

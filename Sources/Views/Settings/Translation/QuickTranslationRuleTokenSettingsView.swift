@@ -18,6 +18,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.word.userDefaultsKey) private var isWordEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.magnitude.userDefaultsKey) private var isMagnitudeEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.latinLetters.userDefaultsKey) private var isLatinLettersEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.any.userDefaultsKey) private var isAnyEnabled = true
 
     var body: some View {
         Form {
@@ -30,8 +31,9 @@ struct QuickTranslationRuleTokenSettingsView: View {
                 Toggle(QuickTranslationRuleTokenSettings.Kind.magnitude.label, isOn: invalidating($isMagnitudeEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.latinLetters.label, isOn: invalidating($isLatinLettersEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.chapterLabel.label, isOn: invalidating($isChapterLabelEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.any.label, isOn: invalidating($isAnyEnabled))
             } header: {
-                SectionHelpHeader("Token lớp ký tự và nhãn", paragraphs: ["<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.\n\n<hn> khớp số Hán kể cả ký tự bậc (KHÔNG nhận chữ số 0-9) rồi đọc thành phiên âm Hán-Việt, mỗi chữ một âm cách nhau bằng dấu cách: 三十 → tam thập, 九 → cửu, 万 → vạn. Dùng cho tên gọi, cấp bậc, chiêu thức cần đọc Hán-Việt thay vì ra số: <hn>重天 = {0} trọng thiên. Cần ra số thì dùng <n>, cần từng chữ số thì dùng <h>."])
+                SectionHelpHeader("Token lớp ký tự và nhãn", paragraphs: ["<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.\n\n<hn> khớp số Hán kể cả ký tự bậc (KHÔNG nhận chữ số 0-9) rồi đọc thành phiên âm Hán-Việt, mỗi chữ một âm cách nhau bằng dấu cách: 三十 → tam thập, 九 → cửu, 万 → vạn. Dùng cho tên gọi, cấp bậc, chiêu thức cần đọc Hán-Việt thay vì ra số: <hn>重天 = {0} trọng thiên. Cần ra số thì dùng <n>, cần từng chữ số thì dùng <h>.\n\n<any> khớp một cụm ký tự bất kỳ (mặc định 1-12 ký tự, chỉnh bằng <any:1-6>), dừng ở dấu câu và khoảng trắng, rồi trả NGUYÊN VĂN cụm đó — phần chữ Hán vẫn được dịch tiếp bằng từ điển như phần còn lại của câu. Dùng để đảo trật tự: <any:1-6>的<any:1-6> = {1} của {0}. Rule có <any> phải có ít nhất một chữ cố định, nếu không sẽ bị báo lỗi và không chạy."])
             }
 
             Section {

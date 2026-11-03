@@ -5,7 +5,7 @@ import Foundation
 /// Giá trị chỉ sống trong `UserDefaults`, không đi vào file rule hay snapshot. Mỗi rule lưu lại
 /// cú pháp token gốc lúc parse để `<w>` vẫn là một công tắc độc lập với `<ne>|<pn>|<vp>`.
 public enum QuickTranslationRuleTokenSettings {
-    /// Mười ba token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
+    /// Mười bốn token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
     ///
     /// Token mới **phải thêm vào cuối**: `Configuration.signature` là chuỗi bit theo thứ tự
     /// `allCases`, nên chèn vào giữa làm mọi chữ ký cũ trượt một bit và cache dịch của người dùng
@@ -26,6 +26,9 @@ public enum QuickTranslationRuleTokenSettings {
         /// Nối vào **cuối** danh sách (1.3.416) — xem ghi chú đầu `enum`: chèn vào giữa là làm chữ ký
         /// cache của mọi token phía sau trượt một bit.
         case hanNumeral = "hn"
+        /// `<any>` — cụm ký tự bất kỳ (1.3.682), cũng nối vào **cuối**. Backtick chỉ để chắc chắn: `any`
+        /// là từ khoá ngữ cảnh của Swift; nơi dùng vẫn viết `.any`.
+        case `any` = "any"
 
         /// Khóa cài đặt phải bắt đầu bằng chữ thường để `BackupSettingsArchiver` tự sao lưu.
         public var userDefaultsKey: String {
@@ -43,6 +46,7 @@ public enum QuickTranslationRuleTokenSettings {
             case .magnitude: return "quickTranslateRuleTokenMagnitudeEnabled"
             case .latinLetters: return "quickTranslateRuleTokenLatinLettersEnabled"
             case .hanNumeral: return "quickTranslateRuleTokenHanNumeralEnabled"
+            case .any: return "quickTranslateRuleTokenAnyEnabled"
             }
         }
 
@@ -65,14 +69,16 @@ public enum QuickTranslationRuleTokenSettings {
             case .magnitude: return "<m> — cơ số 10 (mươi, trăm, hai mươi, chục vạn...)"
             case .latinLetters: return "<a> — chữ cái A-Z"
             case .hanNumeral: return "<hn> — số Hán đọc Hán-Việt"
+            case .any: return "<any> — cụm ký tự bất kỳ"
             }
         }
 
-        /// Token số và nhãn chương đứng chung một nhóm ở cả hai màn cấu hình.
+        /// Token số, nhãn chương và `<any>` (token ký tự, không tra từ điển) đứng chung một nhóm ở cả
+        /// hai màn cấu hình.
         public var isNumeralGroup: Bool {
             switch self {
             case .numeral, .digitwise, .hanDigits, .asciiDigits, .chapterLabel, .magnitude, .latinLetters,
-                 .hanNumeral:
+                 .hanNumeral, .any:
                 return true
             case .name, .pronoun, .vietPhrase, .hanViet, .word:
                 return false

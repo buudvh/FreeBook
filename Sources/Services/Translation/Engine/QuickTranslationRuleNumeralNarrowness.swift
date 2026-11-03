@@ -22,6 +22,11 @@ import Foundation
 /// | 4 | `<y>` | 33 | đọc từng chữ số |
 /// | 5 | `<n>` | 41 | số tổng quát |
 /// | 6 | `<a>` | 104 | chữ cái Latin |
+/// | 7 | `<any>` | — | mọi ký tự trừ dấu câu và khoảng trắng |
+///
+/// `<any>` (1.3.682) không phải token lớp ký tự (`NumeralKind`) nên không đi qua `rank(of:)`: lớp của nó
+/// là phần bù của dấu câu + khoảng trắng, rộng hơn mọi lớp trên và chứa trọn chúng, nên hạng là một hằng
+/// riêng `anyRunRank` đứng **cuối** — hoà mọi tiêu chí khác thì `<any>` thua mọi token ký tự.
 ///
 /// **Bảng viết tay chứ không suy ra từ `units(for:).count`** — cố ý. Suy ra thì hôm nay cho kết quả y
 /// hệt, nhưng mai kia ai đó nới lớp ký tự của một token (đúng việc đã xảy ra với `<m>` ở 1.3.415) là
@@ -32,6 +37,10 @@ import Foundation
 /// chỗ, nên thứ tự giữa chúng vô hại; chúng vẫn được xếp hạng để thứ tự là **tổng**, không còn cặp hoà
 /// nào phải đoán.
 public enum QuickTranslationRuleNumeralNarrowness {
+    /// Hạng của `<any>`: lớn hơn mọi hạng của `rank(of:)`. Thêm hạng mới cho token lớp ký tự thì phải giữ
+    /// hằng này **lớn nhất**.
+    public static let anyRunRank = 7
+
     /// Hạng của một token lớp ký tự. Hạng **nhỏ hơn** = lớp hẹp hơn = thắng.
     public static func rank(of kind: QuickTranslationRuleElement.NumeralKind) -> Int {
         switch kind {

@@ -141,6 +141,9 @@ public final class QuickTranslationRuleMatcher {
 
         case .dictionary(let kinds):
             return walkDictionary(element, kinds: kinds, advanced, position)
+
+        case .anyRun:
+            return walkAnyRun(element, advanced, position)
         }
     }
 
@@ -266,6 +269,69 @@ public final class QuickTranslationRuleMatcher {
         }
 
         return skipOptional(element, advanced, position)
+    }
+
+    /// `<any>`: thử độ dài **dài → ngắn** có lùi như `walkNumeral`, nhưng lớp ký tự là **phần bù** — mọi
+    /// đơn vị UTF-16 trừ dấu câu (P*) và khoảng trắng/xuống dòng (Z*, `\t\n\r`). Capture trả nguyên văn;
+    /// chuỗi sau rewrite vẫn được tách từ và dịch từ điển như phần còn lại của dòng.
+    ///
+    /// Hai ràng buộc mà token số không cần:
+    /// - Không bắt đầu hay kết thúc **giữa** một cặp surrogate (chữ Hán mở rộng B+ chiếm 2 đơn vị).
+    /// - Cụm dừng ở chỗ vùng Name riêng bắt đầu/kết thúc. Engine bỏ cả lượt khớp cắt vào Name
+    ///   (`ruleMatchConflictsWithBookNames`) **sau** khi matcher trả về, lúc đó không còn lùi về độ dài
+    ///   ngắn hơn được: `<any:1-6>的<any:1-6>` trên `我的张三师兄` (Name `张三`) sẽ chết hẳn thay vì
+    ///   khớp `我的张三`. Hai Name dán liền nhau vẫn bị coi là một vùng — engine chặn ca đó như cũ.
+    private func walkAnyRun(
+        _ element: QuickTranslationRuleElement,
+        _ advanced: [Frame],
+        _ position: Int
+    ) -> Int? {
+        guard position < units.count, !splitsSurrogatePair(at: position) else {
+            return skipOptional(element, advanced, position)
+        }
+
+        let startsInName = bookNameOccupiedIndices.contains(position)
+        let limit = min(element.maxLength, units.count - position)
+        var run = 0
+        while run < limit {
+            let index = position + run
+            if Self.isAnyRunStop(units[index]) { break }
+            if !bookNameOccupiedIndices.isEmpty, bookNameOccupiedIndices.contains(index) != startsInName { break }
+            run += 1
+        }
+
+        let saved = captures
+        var candidate = run
+        while candidate >= element.minLength {
+            let end = position + candidate
+            if splitsSurrogatePair(at: end) {
+                candidate -= 1
+                continue
+            }
+            let range = NSRange(location: position, length: candidate)
+            store(text.substring(with: range), sourceRange: range, for: element)
+            if let matchEnd = walk(advanced, end) { return matchEnd }
+            captures = saved
+            candidate -= 1
+        }
+
+        return skipOptional(element, advanced, position)
+    }
+
+    /// Dấu câu (Unicode P*: `，。！？“”（）《》…—·`) và khoảng trắng/xuống dòng (Z* + `\t\n\r`) — chặn `<any>`.
+    private static let anyRunStopScalars = CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+
+    /// Đơn vị surrogate (`Unicode.Scalar(UInt16)` trả `nil`) coi như nuốt được: dấu câu ngoài BMP hầu như
+    /// không gặp trong truyện, còn chữ Hán mở rộng thì phải nuốt được.
+    private static func isAnyRunStop(_ unit: UInt16) -> Bool {
+        guard let scalar = Unicode.Scalar(unit) else { return false }
+        return anyRunStopScalars.contains(scalar)
+    }
+
+    /// `true` khi `index` rơi giữa high và low của một cặp surrogate.
+    private func splitsSurrogatePair(at index: Int) -> Bool {
+        index > 0 && index < units.count
+            && UTF16.isLeadSurrogate(units[index - 1]) && UTF16.isTrailSurrogate(units[index])
     }
 
     /// Token optional vắng mặt ⇒ capture rỗng, `{i}` render chuỗi rỗng; `sourceRange` là `nil` vì

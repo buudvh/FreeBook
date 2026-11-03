@@ -125,6 +125,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .magnitude: return "mươi/trăm/vạn"
         case .latinLetters: return "chữ A-Z"
         case .hanNumeral: return "số Hán-Việt"
+        case .any: return "cụm bất kỳ"
         }
     }
 
