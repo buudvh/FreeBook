@@ -28,8 +28,14 @@ extension RepositoryManagerView {
         }
         SideDrawerDivider()
         SideDrawerActionRow("Import tiện ích (.zip)", systemImage: "doc.badge.plus") { showingZipImporter = true }
-        SideDrawerActionRow("Kiểm tra tiện ích đang hiện", systemImage: "checkmark.seal", action: checkVisibleExtensions)
-            .disabled(!filteredExtensions.contains { $0.isInstalled })
+        // Đang có lượt kiểm tra tiện ích chạy ở nền ⇒ khoá + ghi lý do (1.3.704).
+        SourceCheckBusyReader(kind: .script) { isBusy in
+            SideDrawerActionRow(
+                "Kiểm tra tiện ích đang hiện", systemImage: "checkmark.seal",
+                detail: isBusy ? MinimizedSourceCheck.shortBusyLabel : nil, action: checkVisibleExtensions
+            )
+            .disabled(!filteredExtensions.contains { $0.isInstalled } || isBusy)
+        }
         SideDrawerDivider()
         SideDrawerActionRow("Xóa tất cả tiện ích", systemImage: "trash", role: .destructive) {
             showingUninstallAllAlert = true

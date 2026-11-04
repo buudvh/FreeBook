@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.704] - 2026-11-04
+
+### feat: khoá nút kiểm tra nguồn khi đang có lượt kiểm tra chạy nền
+
+Người dùng: *"Đang có tiến trình kiểm tra rồi thì disable nút kiểm tra đi nhé"*. Trước đây bấm vẫn mở màn rồi mới báo "Đang có một lượt kiểm tra khác…".
+
+- **`SourceCheckBusyReader`** (mới, `Views/Extensions/SourceCheck/`): đọc `MinimizedSourceCheckCoordinator.isBusy(kind)` = bộ chạy có lượt **đang chạy ở nền** (đã thu nhỏ). Màn kiểm tra còn mở thì đã che mọi lối vào, và không đổi trạng thái `NavigationLink` đang đẩy chính màn đó. Reader tự observe coordinator nên dùng được trong ngăn kéo ⋯ (cửa sổ nổi riêng).
+- **Bốn lối vào** khoá theo đúng bộ chạy, mờ đi và có chữ lý do: ⋯ tab Nguồn Legado "Kiểm tra nguồn (theo nhóm đang lọc)" và ⋯ tab Tất cả tiện ích "Kiểm tra tiện ích đang hiện" (chữ phụ "Đang chạy"); "Kiểm tra nguồn này" ở Chi tiết nguồn Legado (chữ "Đang có lượt kiểm tra"); nút tròn "Kiểm tra" ở thẻ đầu Cấu hình tiện ích (nhãn đổi thành "Đang chạy"). Lượt Legado không khoá lối vào tiện ích JS và ngược lại (hai bộ chạy riêng, chạy song song được).
+- Lượt chạy từ Debug server không qua màn kiểm tra nên không khoá; bấm vẫn ra màn báo bận như cũ. `rules.md` luật hub (f) thêm ý này. Chuyển `[1.3.673]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.703] - 2026-11-04
 
 ### fix: token <m> đứng đầu rule đọc 十 là mười
@@ -649,18 +660,3 @@ Người dùng: *"cho màn hình danh sách kho thành màn hình con của tấ
 - `RepositoryManagerView.swift` 603 → 508 dòng.
 - Chuyển entry `[1.3.644]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: vào tab Kho tiện ích thấy "Đang kiểm tra cập nhật…" rồi giờ kiểm tra; tắt mạng thấy chữ cam + "Thử lại"; ngăn kéo … → Danh sách kho → back thì không chạy lại.
-
-## [1.3.673] - 2026-11-01
-
-### fix: tiện ích JS cài an toàn, tìm kiếm tải thêm, cookie của nguồn
-
-Người dùng nhờ điều tra tiện ích JS nào FreeBook chưa dùng được (báo cáo 33 mục); chọn "Lập plan mục 1–3", duyệt cả 3 kể cả nút trang đăng nhập.
-
-- **Cài/cập nhật an toàn** (`ExtensionPackageInstaller`, mới): giải nén + giải mã ở thư mục tạm, thành công mới đổi chỗ vào `extensions/<packageId>/` (bản cũ dời sang tmp, chuyển bản mới lỗi thì trả bản cũ về). Trước đây `install(item:)` xoá bản đang chạy rồi mới giải mã ⇒ gói không giải được làm mất bản cũ; cài mới lỗi để lại thư mục dở; nhập zip xoá bản cũ trước khi chuyển. Giữ nguyên hình dạng `localPath` (zip bọc thư mục con vẫn trỏ thư mục con). `ExtensionManager.findMainExtensionFolder` thành `ExtensionPackageInstaller.findMainFolder`.
-- **Định dạng mã hoá mới**: 14/93 gói của kho chính thức (wikidich, wattpad, mangadex, metruyenchu-app, allshorts…) có ciphertext mở đầu `a7 e4 1d 02`; app chưa giải được (thử AES-GCM/ChaCha20/CTR với khoá cũ đều không khớp — UNKNOWN). `ExtensionScriptDecoder` nhận ra ngay sau Base64, **trước** bước kiểm độ dài (4 file dài đúng bội 16 từng rơi xuống CBC rồi báo nhầm "source/author bị sửa"), ném lỗi riêng (`isUnsupportedFormat`). Màn Quản lý tiện ích báo "<tên> dùng định dạng mã hoá mới, FreeBook chưa đọc được." kèm "Bản đang cài vẫn giữ nguyên."; "Cập nhật tất cả" gom lỗi, báo "Đã cập nhật N/M tiện ích." (trước luôn báo xong, lỗi của tiện ích trước bị xoá). Máy đã bấm cập nhật trước bản này thì bản cũ đã mất.
-- **Tìm kiếm tải thêm trang** (tìm trên một nguồn): `ExtensionManager+Search` (mới) có `searchPage` trả token trang kế — đọc `next` của object script trả về, thiếu thì `Response.nextPage`; `search(page:)` cũ thành vỏ cho bộ kiểm tra, tìm nhiều nguồn, bộ nghiệm thu. Trang 1 vẫn gửi `"1"`, trang sau gửi nguyên token. `SourceRuntime.searchPage`: nguồn Legado có trang kế khi `searchUrl` có chỗ cắm số trang và trang có kết quả. Màn Tìm (`SearchView+Paging`, `SearchPagingState`): tự nạp khi một trong 5 mục cuối hoặc sentinel cuối hiện ra (lưới `.id(count)`), không có nút "Xem thêm"; dừng khi token rỗng/trùng token vừa dùng, trang không thêm link mới, hoặc đủ 50 trang; lỗi trang sau tự thử lại 3 lần cách 2 s rồi dừng im lặng; tìm lại thì huỷ lượt tải thêm cũ. Tìm nhiều nguồn vẫn chỉ trang 1.
-- **Cookie của nguồn**: `ExtensionCookieSync` (mới) chép cookie WebKit (nơi người dùng đăng nhập) sang `HTTPCookieStorage.shared` cho tên miền `source` ở đầu mỗi `JSExecutor.callAsync` (phủ cả runtime TTS). Rẻ nhờ `WKHTTPCookieStoreObserver` + bộ đếm thế hệ: WebKit không đổi ⇒ một lần khoá, không nhảy main. Chỉ chép cookie còn thiếu hoặc vừa đổi bên WebKit (dấu SHA-256 trong `UserDefaults`, không lưu giá trị) để không đè cookie `Set-Cookie` mới hơn của `fetch`; app ở nền hoặc WebKit không trả lời sau 2 s ⇒ bỏ lượt. `localCookie` (`JSExecutor+Cookie`, mới) đọc/ghi kho thật: `getCookie(url?)`; `setCookie` nhận dòng Set-Cookie hoặc danh sách `a=1; b=2`. `fetch` trả header thật đã gửi (gồm `Cookie` tính lúc gửi) ⇒ `response.request.headers` thêm khoá chữ thường (`.cookie`), kể cả khi qua browser ẩn. `WebKitCookieBridge` ghi dấu cho cookie chép từ "Mở link lỗi".
-- **Trang đăng nhập** (`ExtensionConfigView+SupportLink`, mới): `support_url` là URL http(s) (trong `config` hoặc ở gốc) ⇒ dòng "Mở trang đăng nhập" thay ô chữ, mở `BypassWebView`; đóng ⇒ chép cookie ngay (WebKit thắng). Hưởng lợi: tiktok-tts, metruyenchu/vtruyen (phần cần đăng nhập), koanchay.
-- **Không làm**: giải mã định dạng mới; trang sau của tìm nhiều nguồn; ghi header `Cookie` do script tự truyền vào kho; chiều URLSession → WebKit. Lưu ý: tiện ích có `source` thuộc google.com giờ nhận cookie đăng nhập Google — tắt bằng "Xử lý cookie hệ thống".
-- Chuyển entry `[1.3.643]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cập nhật một gói định dạng mới thì báo rõ và bản cũ vẫn chạy; tìm một nguồn rồi cuộn xuống thấy trang 2; tiktok-tts đăng nhập qua "Mở trang đăng nhập" rồi đọc được.

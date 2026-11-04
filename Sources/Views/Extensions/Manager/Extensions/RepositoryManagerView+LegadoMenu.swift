@@ -137,8 +137,14 @@ extension RepositoryManagerView {
 
         SideDrawerDivider()
 
-        SideDrawerActionRow("Kiểm tra nguồn (theo nhóm đang lọc)", systemImage: "checkmark.seal", action: checkVisibleLegadoSources)
-            .disabled(isEmpty)
+        // Đang có lượt kiểm tra Legado chạy ở nền ⇒ khoá + ghi lý do (1.3.704).
+        SourceCheckBusyReader(kind: .legado) { isBusy in
+            SideDrawerActionRow(
+                "Kiểm tra nguồn (theo nhóm đang lọc)", systemImage: "checkmark.seal",
+                detail: isBusy ? MinimizedSourceCheck.shortBusyLabel : nil, action: checkVisibleLegadoSources
+            )
+            .disabled(isEmpty || isBusy)
+        }
         SideDrawerActionRow("Xuất nguồn (theo nhóm đang lọc)", systemImage: "square.and.arrow.up", action: exportVisibleLegadoSources)
             .disabled(isEmpty)
 

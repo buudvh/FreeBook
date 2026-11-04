@@ -132,7 +132,16 @@ struct ExtensionConfigHeaderCard: View {
                 actionButton(title: "Trình duyệt", systemImage: "safari", action: onOpenBrowser)
             }
             if let onCheck {
-                actionButton(title: "Kiểm tra", systemImage: "checkmark.seal", action: onCheck)
+                // Đang có lượt kiểm tra tiện ích chạy ở nền ⇒ khoá + ghi lý do (1.3.704).
+                SourceCheckBusyReader(kind: .script) { isBusy in
+                    actionButton(
+                        title: isBusy ? MinimizedSourceCheck.shortBusyLabel : "Kiểm tra",
+                        systemImage: "checkmark.seal",
+                        action: onCheck
+                    )
+                    .disabled(isBusy)
+                    .opacity(isBusy ? 0.45 : 1)
+                }
             }
             actionButton(
                 title: ext.isPinned ? "Bỏ ghim" : "Ghim",

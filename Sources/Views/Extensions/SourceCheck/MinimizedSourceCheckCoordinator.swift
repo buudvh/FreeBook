@@ -74,6 +74,13 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         entries.first { $0.kind == kind }
     }
 
+    /// Bộ chạy `kind` có lượt **đang chạy ở nền** (đã thu nhỏ) ⇒ khoá các lối mở lượt mới (1.3.704,
+    /// `SourceCheckBusyReader`). Màn kiểm tra còn mở thì đã che mọi lối vào nên không cần tính — và không đổi trạng thái
+    /// của `NavigationLink` đang đẩy chính màn đó.
+    func isBusy(_ kind: MinimizedSourceCheck.Kind) -> Bool {
+        entries.contains { $0.kind == kind && $0.isMinimized && $0.isRunning }
+    }
+
     // MARK: - Màn kiểm tra báo
 
     /// Màn vừa bắt đầu / gắn vào lượt `progress.runId`: thay bản cũ cùng bộ chạy (kết quả cũ đã bị lượt mới thay).

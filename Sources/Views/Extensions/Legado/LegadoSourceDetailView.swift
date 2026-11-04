@@ -145,12 +145,23 @@ struct LegadoSourceDetailView: View {
             } label: {
                 Label("Gỡ lỗi từng bước", systemImage: "ladybug")
             }
-            NavigationLink {
-                LegadoSourceCheckView(packageIds: [packageId], scopeTitle: summary.displayName)
-            } label: {
-                Label("Kiểm tra nguồn này", systemImage: "checkmark.seal")
+            // Đang có lượt kiểm tra Legado chạy ở nền ⇒ khoá + ghi lý do (1.3.704).
+            SourceCheckBusyReader(kind: .legado) { isBusy in
+                NavigationLink {
+                    LegadoSourceCheckView(packageIds: [packageId], scopeTitle: summary.displayName)
+                } label: {
+                    HStack {
+                        Label("Kiểm tra nguồn này", systemImage: "checkmark.seal")
+                        if isBusy {
+                            Spacer()
+                            Text(MinimizedSourceCheck.busyLabel)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .disabled(!summary.isEnabled || isBusy)
             }
-            .disabled(!summary.isEnabled)
             Button(action: shareSource) {
                 HStack {
                     Label("Chia sẻ nguồn (JSON)", systemImage: "square.and.arrow.up")

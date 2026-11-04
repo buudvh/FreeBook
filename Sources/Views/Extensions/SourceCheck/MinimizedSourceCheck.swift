@@ -36,6 +36,10 @@ struct MinimizedSourceCheck: Equatable, Identifiable {
         var failed: Int
     }
 
+    /// Chữ của lối mở lượt kiểm tra bị khoá vì bộ chạy đang có lượt ở nền (`SourceCheckBusyReader`, 1.3.704).
+    static let busyLabel = "Đang có lượt kiểm tra"
+    static let shortBusyLabel = "Đang chạy"
+
     let kind: Kind
     let scopeTitle: String
     var progress: Progress
