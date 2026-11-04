@@ -107,19 +107,22 @@ extension LegadoJSRuntime {
         runQuietly("delete java.ruleUrl; if (__lg.resetLoginCheck) { __lg.resetLoginCheck(); }")
     }
 
-    /// Phân loại giá trị trả của `loginCheckJs` (đối tượng phản hồi / chuỗi / khác).
+    /// Phân loại giá trị trả của `loginCheckJs` (đối tượng phản hồi / chuỗi / khác). Chạy JS sau khi `evaluateRaw` đã
+    /// trả về nên tự bọc `autoreleasepool` (thân phản hồi có thể vài MB).
     func classifyLoginCheck(_ value: JSValue?) -> LoginCheckOutcome {
-        guard let value, let classify = context.objectForKeyedSubscript("__lgClassify"), !classify.isUndefined,
-              let text = classify.call(withArguments: [value])?.toString(),
-              let json = LegadoEngineJSONParser.parse(text) else { return .unchanged }
-        switch json["k"]?.stringValue {
-        case "resp":
-            guard let response = json["r"] else { return .unchanged }
-            return .response(response)
-        case "str":
-            return .body(json["s"]?.stringValue ?? "")
-        default:
-            return .unchanged
+        autoreleasepool { () -> LoginCheckOutcome in
+            guard let value, let classify = context.objectForKeyedSubscript("__lgClassify"), !classify.isUndefined,
+                  let text = classify.call(withArguments: [value])?.toString(),
+                  let json = LegadoEngineJSONParser.parse(text) else { return .unchanged }
+            switch json["k"]?.stringValue {
+            case "resp":
+                guard let response = json["r"] else { return .unchanged }
+                return .response(response)
+            case "str":
+                return .body(json["s"]?.stringValue ?? "")
+            default:
+                return .unchanged
+            }
         }
     }
 

@@ -217,7 +217,8 @@ extension LegadoSourceRuntime {
 
     /// Các chương của một trang mục lục. Thứ tự trường: `chapterName, chapterUrl, isVolume, isVip, isPay, updateTime`
     /// (spec §5.4.1). `chapterUrl` rỗng ⇒ URL trang mục lục (truyện một trang); thiếu cả tên lẫn URL ⇒ bỏ. `matched` =
-    /// số phần tử `chapterList` khớp trước khi lọc (đầu dò bộ chọn).
+    /// số phần tử `chapterList` khớp trước khi lọc (đầu dò bộ chọn). Mỗi mục một `autoreleasepool`: mục lục hàng nghìn
+    /// chương trên một trang không dồn rác Foundation/JS tới cuối trang.
     static func parseTocPage(
         session: LegadoEngineSession,
         analyzer: LegadoRuleAnalyzer,
@@ -233,37 +234,40 @@ extension LegadoSourceRuntime {
         defer { session.chapter = nil }
         for item in items {
             try session.checkCancellation()
-            let index = startIndex + output.count
-            let chapter = LegadoChapterContext(index: index, baseUrl: analyzer.baseUrl, bookUrl: book.bookUrl)
-            session.chapter = chapter
-            let name = try trimmed(analyzer.string(rule.chapterName, in: item))
-            chapter.title = name
-            var url = try analyzer.url(rule.chapterUrl, in: item)
-            if url.isEmpty {
-                guard !name.isEmpty else { continue }
-                url = analyzer.baseUrl
+            // `nil` = bỏ mục (thiếu cả tên lẫn URL, hoặc tên tập ở truyện chữ).
+            let entry = try autoreleasepool { () throws -> TocEntry? in
+                let index = startIndex + output.count
+                let chapter = LegadoChapterContext(index: index, baseUrl: analyzer.baseUrl, bookUrl: book.bookUrl)
+                session.chapter = chapter
+                let name = try trimmed(analyzer.string(rule.chapterName, in: item))
+                chapter.title = name
+                var url = try analyzer.url(rule.chapterUrl, in: item)
+                if url.isEmpty {
+                    guard !name.isEmpty else { return nil }
+                    url = analyzer.baseUrl
+                }
+                chapter.url = url
+                let isVolume = try LegadoRuleValue.isTruthy(analyzer.string(rule.isVolume, in: item))
+                chapter.isVolume = isVolume
+                let isVip = try LegadoRuleValue.isTruthy(analyzer.string(rule.isVip, in: item))
+                chapter.isVip = isVip
+                let isPay = try LegadoRuleValue.isTruthy(analyzer.string(rule.isPay, in: item))
+                chapter.isPay = isPay
+                let updateTime = try trimmed(analyzer.string(rule.updateTime, in: item))
+                chapter.tag = updateTime
+                if chapter.hasChanges {
+                    chapterVariables[url, default: [:]].merge(chapter.variables) { _, new in new }
+                }
+                // Tên tập là tiêu đề nhóm, không phải chương đọc được (spec §5.4.3).
+                if isVolume {
+                    guard keepsVolumes else { return nil }
+                    return TocEntry(name: name.isEmpty ? "Phần \(index + 1)" : name, url: url, isVip: false,
+                                    isPay: false, updateTime: updateTime, isVolume: true)
+                }
+                return TocEntry(name: name.isEmpty ? "Chương \(index + 1)" : name, url: url, isVip: isVip,
+                                isPay: isPay, updateTime: updateTime)
             }
-            chapter.url = url
-            let isVolume = try LegadoRuleValue.isTruthy(analyzer.string(rule.isVolume, in: item))
-            chapter.isVolume = isVolume
-            let isVip = try LegadoRuleValue.isTruthy(analyzer.string(rule.isVip, in: item))
-            chapter.isVip = isVip
-            let isPay = try LegadoRuleValue.isTruthy(analyzer.string(rule.isPay, in: item))
-            chapter.isPay = isPay
-            let updateTime = try trimmed(analyzer.string(rule.updateTime, in: item))
-            chapter.tag = updateTime
-            if chapter.hasChanges {
-                chapterVariables[url, default: [:]].merge(chapter.variables) { _, new in new }
-            }
-            // Tên tập là tiêu đề nhóm, không phải chương đọc được (spec §5.4.3).
-            if isVolume {
-                guard keepsVolumes else { continue }
-                output.append(TocEntry(name: name.isEmpty ? "Phần \(index + 1)" : name, url: url, isVip: false,
-                                       isPay: false, updateTime: updateTime, isVolume: true))
-                continue
-            }
-            output.append(TocEntry(name: name.isEmpty ? "Chương \(index + 1)" : name, url: url, isVip: isVip,
-                                   isPay: isPay, updateTime: updateTime))
+            if let entry { output.append(entry) }
         }
         return (output, items.count)
     }

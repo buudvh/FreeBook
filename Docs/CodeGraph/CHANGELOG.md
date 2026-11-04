@@ -2,6 +2,38 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.696] - 2026-11-04
+
+### fix: mục lục nguồn Legado nhiều chương không còn làm app hết bộ nhớ
+
+Người dùng: *"sửa cái gì mà tôi bấm chạy kiểm tra sau vài giây nó đơ app rồi crash app luôn?"*; gửi 2 file log rồi duyệt phương án (*"Duyệt, sửa đi"*).
+
+- **Nguyên nhân** (có từ engine gốc `3a9044e5`, không do 1.3.693–695):
+  - Log bật đủ cho thấy app chết khi 多看阅读 đang dựng mục lục 九星霸体诀: 7.177 chương, trang JSON 1,3 MB. Mỗi chương chạy 2 đoạn JS (`chapterUrl`, `isVip`), khoảng 14.000 lần.
+  - Mỗi lần, `LegadoJSRuntime.apply` gán `src` bằng **nguyên trang**, tức một chuỗi JS mới khoảng 2 MB.
+  - API ObjC của JavaScriptCore đưa mọi `JSValue` vào autorelease pool hiện hành và giữ giá trị JS khỏi GC (`objcWrapperForJSValueRef` → `autorelease`, `JSValueProtect`). Thread engine (`LegadoEngineSession.run`) không có pool riêng, nên không gì được nhả cho tới hết bước, và iOS giết app vì hết RAM.
+  - Bộ thử Node không tái hiện được lỗi này, vì V8 không có autorelease pool.
+- **Mỗi lần chạy JS tự dọn:** `autoreleasepool` bọc `evaluate`, `evaluateRaw`, `evaluateOptionScript`, `runLibrary`, `runQuietly`, `callHelper`, `evaluateBytesScript`/`exportedDescriptor` và `classifyLoginCheck`. Vòng chương của `parseTocPage` cũng có pool riêng cho mỗi chương; mục bị bỏ trả `nil` thay cho `continue`, thứ tự gộp `chapterVariables` giữ nguyên.
+- **Chuỗi trang chép một lần mỗi trang:**
+  - Ô ẩn `__lgSrcCache` (không liệt kê, không xoá) giữ chuỗi JS của trang lớn gần nhất, chỉ trang ≥ 16 KB. Swift giữ bản `String` tương ứng (`cachedPageText`), không giữ `JSValue`.
+  - `src` trùng trang đang đệm thì dùng lại; `result` là nguyên trang cũng dùng lại nhưng không ghi ô đệm.
+  - Analyzer truyền cùng một `String` cho mọi mục, nên phép so sánh đi đường tắt.
+- **Bớt lời gọi qua cầu nối:**
+  - Chỉ lần chạy **lồng** (JS → `java.getString` → rule → JS) mới lưu/khôi phục 7 biến môi trường; lần ngoài cùng bỏ 14 lời gọi, vì `apply` của lần sau gán lại đủ 7.
+  - Đã rà: ngoài một lượt `evaluateRaw` không chỗ nào đọc 7 biến này (Swift, bootstrap, `runQuietly`, `jsLib` nạp trước lần `apply` đầu).
+  - Giữa hai lượt, các biến giữ giá trị của lượt trước thay cho `undefined`.
+- **Lỗi cú pháp có lại số dòng:**
+  - Eval gián tiếp báo `SyntaxError` không kèm dòng (log "dòng 0" từ 1.3.693). Khi gặp, phân tích lại mã gốc bằng `JSCheckScriptSyntax` — chỉ phân tích, không chạy.
+  - `describe` bỏ hậu tố "(dòng N)" khi N ≤ 0.
+  - Đường dự phòng `return` vẫn được xét trước.
+- **Spec:** `Docs/Specs/legado-source-spec.md` §6.1, mục "Bộ nhớ khi chạy nhiều lần".
+- **Quy trình:** agent riêng viết theo phương án đã duyệt (clean-room).
+- **Kiểm chứng:**
+  - Đọc code đối chiếu chữ ký API: `autoreleasepool(invoking:)` `rethrows`, và `JSCheckScriptSyntax` mà repo đã dùng ở `ExtensionScriptStaticCheck.swift`.
+  - Đọc mã JavaScriptCore trên GitHub để xác nhận cơ chế autorelease.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy. Nên thử: mở mục lục 九星霸体诀 ở 多看阅读, rồi chạy lại kiểm tra nhóm nguồn đó.
+
 ## [1.3.695] - 2026-11-04
 
 ### feat: nguồn Legado có SecretKeyFactory DES, GZIP/Inflater và java.net.URL
@@ -630,19 +662,3 @@ Người dùng: *"bỏ chạm 1/3 trái phải để chuyển chương giúp tô
 - **Giá trị đã lưu**: khoá `comicChapterNavigationMode` và `readerEdgeTapChangesChapter` còn trong `UserDefaults` nhưng không code nào đọc ⇒ không ảnh hưởng, không cần migration.
 - CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic. Chuyển entry `[1.3.637]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff, grep sạch các tên đã xoá trong `Sources/`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: comic chạm ảnh (cả hai bên) chỉ bật/tắt thanh, chạm đúp phóng to, vuốt ngang không đổi chương, nút Chương trước/sau; Reader chạm hai bên không đổi chương, bôi đen và tắt cuộn theo highlight khi TTS đọc như cũ.
-
-## [1.3.666] - 2026-10-31
-
-### feat: thanh dưới trình duyệt gắn sát đáy, nút Import và ⋮ trong thanh
-
-Người dùng: *"mockup lại phần bottom của browser"* → *"cho nó sát dưới luôn đừng làm kiểu lở lửng lên, như vậy nó sẽ che mất nội dung trang"* → *"giữ nguyên các thành phần, thêm import vào nữa"* → *"thay nút dịch bằng nút dropdown nhưng đổi icon còn icon ba chấm dọc"*; duyệt mockup + plan.
-
-- **Thanh dưới gắn sát đáy** (`BypassWebView.browserArea`): `ZStack` (thanh nổi đè trang) → `VStack` trang ở trên, `BrowserBottomBar` ở dưới; trang kết thúc ngay trên thanh, không còn gì che nội dung. Nền thanh tối đặc + vạch mảnh trên, kéo xuống hết vùng vạch Home (`ignoresSafeArea(.container, edges: .bottom)` — bàn phím hiện thì thanh nằm ngay trên bàn phím). Bỏ đo safe area đáy (`bottomSafeInset`), các khoản chừa chỗ (`chromeClearance`, `barBottomPadding`, `importPillClearance`) và cơ chế thụt `contentInset` của `BypassBrowserWebPane` (`bottomObstruction`).
-- **Thanh**: lùi, tiến, ô URL (giữ nguyên khiên/tên miền/tải lại), nút **Import**, nút **⋮** (`ellipsis` xoay 90° — SF Symbols không có ba chấm dọc) mở ngăn kéo "Trình duyệt". Đang nhập địa chỉ giữ như cũ (ô giãn hết + "Huỷ").
-- **Nút Import** (`BrowserImportButton` mới, thay viên nổi `BrowserImportPill` đã xoá): icon tiện ích đầu tiên khớp URL, ≥ 2 nguồn có số nguồn ở góc; 1 nguồn chạm là import, nhiều nguồn mở bảng chọn nguồn (popover, nút sáng kiểu chip trong lúc mở); giữ cách import **sau** khi popover đóng hẳn. Ẩn khi không khớp nguồn / màn không nhận import / đang nhập địa chỉ. Bỏ theo dõi cuộn của tab (`isScrolledDown`, KVO `contentOffset`) vì chỉ viên nổi dùng để thu gọn.
-- **Header**: bỏ nút "…", chỉ còn "Xong".
-- **Dịch trang**: nút dịch rời thanh, thành công tắc "Dịch trang" đầu nhóm "Trang này" của ngăn kéo (`SideDrawerToggleRow`, bật/tắt tay cho tab này như nút cũ — `toggleTranslation`, không ghi nhớ; mờ ở Home/trang không phải web). Trang đang dịch ⇒ ô URL có icon dịch nhỏ trước tên miền (`BrowserAddressPill`, cùng chỗ icon ẩn danh).
-- **Dải báo**: popup bị chặn nổi ở cuối vùng trang (ngay trên thanh); dải tự dịch giữ ở đầu trang. `BrowserGlassCapsuleBackground` giờ chỉ còn dải tự dịch dùng ⇒ bỏ tham số `usesBarGlass`/`isHighlighted` và nhánh khoá nút nổi.
-- Sửa tài liệu chuẩn cụm nút header của 1.3.665 (`HeaderButtonMetrics`, `CLAUDE.md`/`AGENTS.md`, `rules.md`, `.agents/AGENTS.md`): ghi nhầm số 1.3.664 (số đó là CryptoJS) và ví dụ "… | Xong" không còn sau đợt này.
-- Chuyển entry `[1.3.636]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: thanh khi bàn phím hiện (ô URL và ô nhập của trang), popover chọn nguồn bật từ nút trong thanh và từ mục ngăn kéo, công tắc "Dịch trang" đổi ngay khi ngăn kéo còn mở, trang Home cuộn tới cuối không bị thanh che.

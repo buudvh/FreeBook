@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.666] - 2026-10-31
+
+### feat: thanh dưới trình duyệt gắn sát đáy, nút Import và ⋮ trong thanh
+
+Người dùng: *"mockup lại phần bottom của browser"* → *"cho nó sát dưới luôn đừng làm kiểu lở lửng lên, như vậy nó sẽ che mất nội dung trang"* → *"giữ nguyên các thành phần, thêm import vào nữa"* → *"thay nút dịch bằng nút dropdown nhưng đổi icon còn icon ba chấm dọc"*; duyệt mockup + plan.
+
+- **Thanh dưới gắn sát đáy** (`BypassWebView.browserArea`): `ZStack` (thanh nổi đè trang) → `VStack` trang ở trên, `BrowserBottomBar` ở dưới; trang kết thúc ngay trên thanh, không còn gì che nội dung. Nền thanh tối đặc + vạch mảnh trên, kéo xuống hết vùng vạch Home (`ignoresSafeArea(.container, edges: .bottom)` — bàn phím hiện thì thanh nằm ngay trên bàn phím). Bỏ đo safe area đáy (`bottomSafeInset`), các khoản chừa chỗ (`chromeClearance`, `barBottomPadding`, `importPillClearance`) và cơ chế thụt `contentInset` của `BypassBrowserWebPane` (`bottomObstruction`).
+- **Thanh**: lùi, tiến, ô URL (giữ nguyên khiên/tên miền/tải lại), nút **Import**, nút **⋮** (`ellipsis` xoay 90° — SF Symbols không có ba chấm dọc) mở ngăn kéo "Trình duyệt". Đang nhập địa chỉ giữ như cũ (ô giãn hết + "Huỷ").
+- **Nút Import** (`BrowserImportButton` mới, thay viên nổi `BrowserImportPill` đã xoá): icon tiện ích đầu tiên khớp URL, ≥ 2 nguồn có số nguồn ở góc; 1 nguồn chạm là import, nhiều nguồn mở bảng chọn nguồn (popover, nút sáng kiểu chip trong lúc mở); giữ cách import **sau** khi popover đóng hẳn. Ẩn khi không khớp nguồn / màn không nhận import / đang nhập địa chỉ. Bỏ theo dõi cuộn của tab (`isScrolledDown`, KVO `contentOffset`) vì chỉ viên nổi dùng để thu gọn.
+- **Header**: bỏ nút "…", chỉ còn "Xong".
+- **Dịch trang**: nút dịch rời thanh, thành công tắc "Dịch trang" đầu nhóm "Trang này" của ngăn kéo (`SideDrawerToggleRow`, bật/tắt tay cho tab này như nút cũ — `toggleTranslation`, không ghi nhớ; mờ ở Home/trang không phải web). Trang đang dịch ⇒ ô URL có icon dịch nhỏ trước tên miền (`BrowserAddressPill`, cùng chỗ icon ẩn danh).
+- **Dải báo**: popup bị chặn nổi ở cuối vùng trang (ngay trên thanh); dải tự dịch giữ ở đầu trang. `BrowserGlassCapsuleBackground` giờ chỉ còn dải tự dịch dùng ⇒ bỏ tham số `usesBarGlass`/`isHighlighted` và nhánh khoá nút nổi.
+- Sửa tài liệu chuẩn cụm nút header của 1.3.665 (`HeaderButtonMetrics`, `CLAUDE.md`/`AGENTS.md`, `rules.md`, `.agents/AGENTS.md`): ghi nhầm số 1.3.664 (số đó là CryptoJS) và ví dụ "… | Xong" không còn sau đợt này.
+- Chuyển entry `[1.3.636]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: thanh khi bàn phím hiện (ô URL và ô nhập của trang), popover chọn nguồn bật từ nút trong thanh và từ mục ngăn kéo, công tắc "Dịch trang" đổi ngay khi ngăn kéo còn mở, trang Home cuộn tới cuối không bị thanh che.
+
 ## [1.3.665] - 2026-10-31
 
 ### fix: nút liền nhau trên header đứng sát nhau

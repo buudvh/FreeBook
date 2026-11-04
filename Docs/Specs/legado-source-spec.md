@@ -1341,6 +1341,10 @@ tính trong `jsHelp.md` `[tài liệu]`, xem §6.6.
   `var src = src.trim(); return src` vẫn đọc giá trị cũ. Khối bên trong cho phép `let`/`const` trùng tên tham số. Giá trị trả
   là giá trị `return`. Khác đã biết: gán `result` mà không `return` thì mất, vì phép gán chỉ đổi tham số nên dự phòng `result`
   ở trên không áp (corpus: 0 đoạn) `[đề xuất]`.
+- **Bộ nhớ khi chạy nhiều lần** `[đề xuất]`: mỗi lần chạy nhả ngay đối tượng cầu nối Swift↔JS của nó (một `autoreleasepool`
+  mỗi lần), và chuỗi trang (`src`, hoặc `result` khi rule chạy trên cả trang) chỉ được chép vào JS một lần mỗi trang, nên
+  mục lục hàng nghìn chương trên một trang không làm app hết bộ nhớ. 7 biến môi trường (§6.2) chỉ được lưu và khôi phục
+  quanh lần chạy **lồng** (JS → `java.getString` → rule → JS); lần chạy ngoài cùng để nguyên giá trị, vì lần sau gán lại cả 7.
 - **Một ngữ cảnh mỗi tác vụ** (§5.8). Không dùng ngữ cảnh chung toàn app (đúng quy ước repo: mỗi tác vụ một executor).
 - Lỗi JS (ném ngoại lệ) → phân đoạn cho kết quả rỗng, ghi log có tên nguồn, trường và thông báo lỗi; **không** làm hỏng cả
   danh sách (một mục lỗi thì bỏ mục đó) `[đề xuất]`.
