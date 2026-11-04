@@ -102,6 +102,9 @@ extension LegadoJSBootstrap {
             },
             connect: L.unsupported('org.jsoup.Jsoup.connect')
           };
+          // Tên ngắn kiểu lớp Java: `importClass(org.jsoup.Jsoup)` / `JavaImporter(org.jsoup.Jsoup)` đặt `Jsoup` vào phạm vi
+          // (SF轻小说 `importClass(org.jsoup.Jsoup); result=Jsoup.parse(…)`).
+          L.defineHidden(Jsoup, '__lgName', 'Jsoup');
           L.defineHidden(g, '__lgJsoup', Jsoup);
         })(this);
         """#

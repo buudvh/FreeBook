@@ -529,6 +529,12 @@ Ba loại placeholder `[quan sát]`:
    → đánh giá như rule `getString` trên nội dung hiện hành; không có → **JS** `[tài liệu ruleHelp.md]`. Phân loại 4955
    `{{}}` trong rule loại 0: `$.` 2577, JS 1418 (320 là tên biến/thuộc tính trần như `{{book.name}}`, `{{baseUrl}}`),
    `@@` 931, `@css:` 20, `@json:` 6, `//` 3.
+   - `X` mở đầu bằng **một** `@` (không phải `@@`, `@css:`…) cũng là rule, không phải JS `[quan sát]`: 梧桐中文
+     `{{@.w_txt li.4@textNodes}}`, 飞卢, 酷书阁, SF轻小说. Corpus có 50 chỗ ở 27 nguồn, không chỗ nào là `@get:`/`@put:`/`@js:`;
+     không câu JS nào mở đầu bằng `@`. Chạy như JS thì ra lỗi `Invalid character '@'`.
+   - `X` là JS đánh giá trên **trang gốc** nhận `result` = thân thô của trang (chuỗi), như phân đoạn JS đứng đầu (§2.2),
+     không nhận phần tử HTML `[quan sát]`. Ví dụ 豆瓣读书 ×5 `{{html='';if(result.match(/ratingValue": "(\d+)"/))…}}`; corpus có
+     8 chỗ, đều đọc `result` như chuỗi. `src` như phân đoạn JS (§6.2).
 2. `{$.path}` / `{$..path}` / `{$[…]}` (một cặp ngoặc): 433 lần, chủ yếu ở trường URL của nguồn JSON
    (`/pc/book/{$.id}/catalog`, `bookId={$.bookId}`) và `@json:{$.classname}&&{$.tag[*]}` → JSONPath `getString` trên nội dung.
 3. `@get:{key}`: biến đã lưu (§2.10). Rule chỉ gồm `@get:{n}` (102 lần ở `ruleBookInfo.name`) → giá trị biến.
@@ -1455,6 +1461,12 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
 | `nextChapterUrl` | – | – | – | – | URL chương kế | – |
 
 - `src` được dùng ở 333 nguồn loại 0, `baseUrl` 583, `result` 1375, `book` 622 (đếm thô) `[quan sát]`.
+- `java`, `source`, `cookie`, `cache`, `infoMap` được **gán lại bản gốc trước mỗi lần chạy**. Lần chạy lồng lưu và trả lại cả
+  chúng. Rule chạy ở phạm vi toàn cục (eval gián tiếp, §6.1), nên câu gán không khai báo như `cookie=cookie.getKey(…)`
+  (晋江 `chapterUrl`) hay `cookie = cookie.getCookie(source.key)` (天地中文网 header) sẽ thay `cookie` cho mọi script sau.
+  `chapterUrl` chạy cho từng chương, nên nếu bản Android cũng rò thì mọi chương từ chương thứ hai đều hỏng
+  (`cookie.getKey is not a function`) `[quan sát]`. Không đặt chỉ-đọc: chính script đó còn đọc lại giá trị nó vừa gán
+  (`'&token='+cookie`). Corpus có 8 nguồn gán `cookie =` không khai báo.
 - Trong JS của rule trường đánh giá trên **một mục** (trường của mục tìm/khám phá, trường của chương trong mục lục; cũng áp
   cho phạm vi `init` của thông tin sách), `src` = mã của chính mục: phần tử HTML → outer HTML **gọn** (không pretty-print,
   như cây XPath §2.12), mục JSON → văn bản JSON; rule cấp trang (rule danh sách, rule không qua mục) giữ thân thô `[quan sát]`.
@@ -1482,6 +1494,10 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
   FreeBook còn có `containsKey`, `remove`, `keySet`, `values`, `size`, `isEmpty` và `entrySet()` = danh sách entry
   `getKey()`, `getValue()`, `setValue(v)` (ghi ngược map), `toString()` = `k=v`, nên `cookies().entrySet().toArray().join("; ")`
   cho ra chuỗi cookie (刺猬猫), `entrySet().iterator()` duyệt được (微信读书).
+- **Object JSON** đưa vào JS (`result` là mục JSON, giá trị từ `java.getElement`/`getElements`) giữ nguyên là object JS, có
+  thêm `get(k)` (thiếu khoá ⇒ `null`), `containsKey(k)`, `keySet()`, `size()` như map của json-smart `[quan sát]`. Các
+  phương thức này ẩn, chỉ gắn khi object không có khoá trùng tên, và không lồng xuống object con. Ví dụ 点众阅读 với
+  `init: $.bookDetail`: `kind` gọi `result.get("statusTips")`, còn `tocUrl` đọc `result.bookId` trên cùng mục.
 - **Danh sách Java** (`ajaxAll`, `getElements`): object giống mảng có `size()`, `get(i)`, `toArray()`, `length`, chỉ số `[i]`,
   `forEach`, và lặp được (`Array.from`, `for…of`) `[đề xuất]`; `[quan sát]` `.size()` 561 lần/51 nguồn, `.get(i)` 267 lần,
   `.toArray()` 107 lần/76 nguồn.
@@ -1697,7 +1713,8 @@ Tài liệu ghi `cache` lưu vào CSDL và tệp đệm (50 MB) `[tài liệu js
 
 - Tài liệu: biến `java` đã bị ứng dụng thay, muốn gọi gói `java.*` phải viết `Packages.java.*`; có `JavaImporter`, `importClass`,
   `importPackage`; ứng dụng chặn một số lớp vì an toàn `[tài liệu jsHelp.md]`.
-- Corpus: `Packages.` 518 lần/92 nguồn, `JavaImporter` 53/41, `importClass` 1 `[quan sát]`. Lớp hay gặp (lần/nguồn):
+- Corpus: `Packages.` 518 lần/92 nguồn, `JavaImporter` 53/41, `importClass` 1 `[quan sát]`. `importClass(org.jsoup.Jsoup)`
+  (SF轻小说 `ruleSearch.kind`) đặt tên ngắn `Jsoup` vào phạm vi như mọi lớp giả lập, theo cách `importClass` của Rhino. Lớp hay gặp (lần/nguồn):
   `java.lang.String` 36/11 (tạo chuỗi từ bytes theo bảng mã, `.getBytes(cs)`), `javax.crypto(.spec)` 42/30 (`Cipher`,
   `SecretKeySpec`, `IvParameterSpec`: tự giải AES/DES), `java.util` 33/25 (`Base64`, `Arrays`, `HashMap`, `UUID`, `ArrayList`),
   `java.lang.Thread` 16/15 (`Thread.sleep`), `java.io` 20/12 (`ByteArrayOutputStream`/`InputStream`), `java.security(.spec,.interfaces)`

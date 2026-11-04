@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.679] - 2026-11-03
+
+### fix: app đơ khi cuộn tới cuối danh sách do chân danh sách tự kích hoạt lại
+
+Người dùng (sau 1.3.678): *"có lỗi vuốt xuống cuối danh sách thì đơ app, lỗi bị sau khi làm Vòng xoay cuối danh sách"*; thêm *"chưa thấy chữ "Đã hết" đã đơ rồi"*. Duyệt plan sửa.
+
+- **Nguyên nhân (suy từ code, chưa tái hiện)**: `LoadMoreFooter` của 1.3.678 ghi `@State spinnerToken = UUID()` trong `onAppear` ở **mọi** trạng thái để dựng mới vòng xoay. Giá trị mới mỗi lần ⇒ hàng cuối của `List` / `LazyVGrid` vẽ lại → "hiện" lại → ghi tiếp, vòng lặp trên main thread; ở trạng thái đang nạp mỗi vòng còn sinh thêm một `Task` nạp trang kế ⇒ đơ ngay khi vòng xoay vừa lộ ra ở cuối (trước cả khi tới "Đã hết").
+- **`LoadMoreFooter` không giữ state**: bỏ `spinnerToken` + `.id` bên trong; `onAppear` chỉ gọi nạp trang kế khi đang nạp. Vòng xoay mới cho mỗi trang do nơi dùng gắn `.id(số mục)` — cách màn Tìm và các lưới đã chạy ổn trước 1.3.678; thêm cho ba chỗ còn thiếu: danh sách Khám phá / Thể loại (`DiscoveryNovelsLayoutView`, số truyện), Kệ / Lịch sử kiểu Danh sách (`ShelfBooksLayoutView`, số truyện đang hiện), Tất cả bình luận (số bình luận). Trang không thêm mục nào thì số không đổi, không kích hoạt lại.
+- **Gia cố phụ**: `AppAccentColor.applyToWindows()` bỏ qua cửa sổ đã đúng màu — trước đây mỗi lần một sheet / cửa sổ nổi có `.appAccentTint()` hiện là `tintColorDidChange` lan khắp cây view.
+- Chuyển entry `[1.3.649]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `LoadMoreFooter.swift` không còn `@State` / `UUID()`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cuộn tới cuối Khám phá / Thể loại / Tìm / Bình luận / Kệ / Lịch sử (cả kiểu Danh sách lẫn lưới) không đơ, vòng xoay vẫn hiện ở mỗi lần nạp trang kế, hết trang hiện "Đã hết".
+
 ## [1.3.678] - 2026-11-03
 
 ### fix: vòng xoay cuối danh sách, nút chọn loại chỉ icon và màu nhấn tuỳ chọn

@@ -45,14 +45,25 @@ extension LegadoRuleAnalyzer {
         return TemplateRender(text: output, hadEmptyPlaceholder: hadEmpty)
     }
 
-    /// `{{X}}`: có dấu hiệu chế độ ⇒ rule `getString` trên nội dung hiện hành; không có ⇒ JS (`undefined`/`null` ⇒ rỗng).
+    /// `{{X}}`: có dấu hiệu chế độ, hoặc mở đầu bằng `@` ⇒ rule `getString` trên nội dung hiện hành; không có ⇒ JS
+    /// (`undefined`/`null` ⇒ rỗng). Không câu JS nào mở đầu bằng `@`: 梧桐中文 `{{@.w_txt li.4@textNodes}}`, 飞卢, 酷书阁,
+    /// SF轻小说 (corpus: 50 chỗ ở 27 nguồn, không chỗ nào là JS).
+    ///
+    /// JS trên **trang gốc** nhận `result` = thân thô của trang (chuỗi) như phân đoạn JS đứng đầu (§2.2), không phải phần
+    /// tử HTML: 豆瓣读书 `{{html='';if(result.match(/ratingValue": "(\d+)"/))…}}`. `src` theo phân đoạn JS (§6.2).
     func placeholderValue(_ inner: String, content: LegadoContentNode) throws -> String {
         let trimmed = inner.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        if Self.hasModeMarker(trimmed) {
+        if Self.hasModeMarker(trimmed) || trimmed.hasPrefix("@") {
             return try evaluate(trimmed, kind: .string, content: content).finalString
         }
-        return try session.evaluateScript(trimmed, result: content, baseUrl: baseUrl, src: src).finalString
+        let input: LegadoContentNode
+        if isRootDocument(content), let src {
+            input = .string(src)
+        } else {
+            input = content
+        }
+        return try session.evaluateScript(trimmed, result: input, baseUrl: baseUrl, src: itemScriptSource()).finalString
     }
 
     static func hasModeMarker(_ text: String) -> Bool {

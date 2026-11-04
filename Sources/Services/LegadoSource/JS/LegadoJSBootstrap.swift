@@ -69,9 +69,25 @@ enum LegadoJSBootstrap {
               }
               return list;
             }
-            if (d.$json !== undefined) { return d.$json; }
+            if (d.$json !== undefined) { return mapLike(d.$json); }
             if (d.$bytes !== undefined) { return hexToBytes(d.$bytes); }
             return d;
+          }
+          // Object JSON đưa vào JS dùng được như `Map` của Java (bản Android là map của json-smart): `get(k)`,
+          // `containsKey(k)`, `keySet()`, `size()` — ẩn, chỉ khi object không có khoá trùng tên, không lồng xuống con.
+          // 点众阅读: cùng một mục, `kind` gọi `result.get("statusTips")`, `tocUrl` đọc `result.bookId`.
+          function mapLike(o) {
+            if (o === null || typeof o !== 'object' || Array.isArray(o)) { return o; }
+            var methods = {
+              get: function (k) { var v = o[k]; return v === undefined ? null : v; },
+              containsKey: function (k) { return Object.prototype.hasOwnProperty.call(o, k); },
+              keySet: function () { return javaList(Object.keys(o)); },
+              size: function () { return Object.keys(o).length; }
+            };
+            Object.keys(methods).forEach(function (name) {
+              if (!Object.prototype.hasOwnProperty.call(o, name)) { defineHidden(o, name, methods[name]); }
+            });
+            return o;
           }
           function call(command, args) {
             return N(command, JSON.stringify((args || []).map(enc)));

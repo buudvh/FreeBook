@@ -101,7 +101,7 @@ final class LegadoRuleAnalyzer {
     /// (phần tử HTML ⇒ outer HTML gọn, không pretty-print; JSON ⇒ văn bản JSON). 冷冷文学 + 9 nguồn cùng mẫu chạy regex
     /// một dòng `String(src).match(/class="g" .*?="…"/)` trên **mục** (thân trang tách thuộc tính ra nhiều dòng);
     /// 必应搜书 `name` tìm 作者/分类 trong `src` của từng kết quả.
-    private func itemScriptSource() -> String? {
+    func itemScriptSource() -> String? {
         guard let item = scriptItem else { return src }
         if let scriptItemSource { return scriptItemSource }
         let text: String

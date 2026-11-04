@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.710] - 2026-11-04
+
+### fix: sửa 5 lỗi engine Legado tìm thấy trong log
+
+Người dùng: *"Duyệt E1–E5"* (từ `app_logs (134).txt`, nối tiếp `[1.3.708]`). Spec `legado-source-spec.md` đã sửa theo (§2.7, §6.2, §6.3, §6.9).
+
+- **E1. `{{@…}}` là rule, không phải JS** (`LegadoRuleAnalyzer+Template.placeholderValue`).
+  - Ví dụ 梧桐中文 ×6 `{{@.w_txt li.4@textNodes}}`, 飞卢 ×3, 酷书阁 ×2, 轻菠萝包, SF轻小说. Trước đây lỗi `Invalid character '@'`, mất phần giới thiệu/trường đó.
+  - Corpus: 50 chỗ ở 27 nguồn, không chỗ nào là JS.
+- **E2. Năm đối tượng chuẩn được trả về bản gốc trước mỗi lần chạy JS**: `java`, `source`, `cookie`, `cache`, `infoMap` (`LegadoJSRuntime+StandardObjects`). Lần chạy lồng lưu và trả lại cả chúng.
+  - 晋江百合 / 晋江 (cá nhân) `cookie=cookie.getKey(…)` và 天地中文网 `cookie = cookie.getCookie(…)` gán không khai báo. Trước đây chúng thay `cookie` bằng chuỗi cho mọi script sau, nên lỗi `cookie.getKey is not a function` từ chương thứ hai.
+- **E3. `{{js}}` trên trang gốc nhận `result` = chuỗi thân trang**, như phân đoạn JS đứng đầu, không nhận phần tử HTML. Ví dụ 豆瓣读书 ×5 `result.match(/ratingValue…/)` trước đây mất dòng điểm. `src` của `{{js}}` theo quy ước `src` của mục (`[1.3.708]`).
+- **E4. `importClass(org.jsoup.Jsoup)` / `JavaImporter` đặt `Jsoup` vào phạm vi**, nhờ bản giả lập Jsoup có tên ngắn. Ví dụ SF轻小说#2 `Jsoup.parse(…)`.
+- **E5. Object JSON đưa vào JS có `get(k)`, `containsKey`, `keySet`, `size`**, ẩn, như map của json-smart; chỉ gắn khi không trùng khoá, không lồng xuống object con. Ví dụ 点众阅读 `result.get("statusTips")`.
+- Chuyển `[1.3.679]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.709] - 2026-11-04
 
 ### revert: bỏ khoảng giá trị min-max của token số trong rule dịch
@@ -700,15 +717,3 @@ Người dùng: *"app chưa làm: replies của comment chưa được hiển, a
 - Tiện ích (repo riêng, cùng đợt): STV v24 + qidian v27 tách trả lời khỏi danh sách bình luận gốc (trước hiện thành bình luận riêng lẻ) + avatar; qimao v3 avatar + `reply_source` (`reply.js`), bỏ kiểu gộp trả lời vào nội dung.
 - Chuyển entry `[1.3.650]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: avatar hiện ở thẻ / Tất cả bình luận / trả lời, bấm "N trả lời" xổ đúng bình luận và không kích hoạt "Xem thêm" (và ngược lại) trong hàng `List`, qimao tải / tải thêm / thử lại trả lời, cuộn hàng đang tải ra khỏi màn rồi quay lại.
-
-## [1.3.679] - 2026-11-03
-
-### fix: app đơ khi cuộn tới cuối danh sách do chân danh sách tự kích hoạt lại
-
-Người dùng (sau 1.3.678): *"có lỗi vuốt xuống cuối danh sách thì đơ app, lỗi bị sau khi làm Vòng xoay cuối danh sách"*; thêm *"chưa thấy chữ "Đã hết" đã đơ rồi"*. Duyệt plan sửa.
-
-- **Nguyên nhân (suy từ code, chưa tái hiện)**: `LoadMoreFooter` của 1.3.678 ghi `@State spinnerToken = UUID()` trong `onAppear` ở **mọi** trạng thái để dựng mới vòng xoay. Giá trị mới mỗi lần ⇒ hàng cuối của `List` / `LazyVGrid` vẽ lại → "hiện" lại → ghi tiếp, vòng lặp trên main thread; ở trạng thái đang nạp mỗi vòng còn sinh thêm một `Task` nạp trang kế ⇒ đơ ngay khi vòng xoay vừa lộ ra ở cuối (trước cả khi tới "Đã hết").
-- **`LoadMoreFooter` không giữ state**: bỏ `spinnerToken` + `.id` bên trong; `onAppear` chỉ gọi nạp trang kế khi đang nạp. Vòng xoay mới cho mỗi trang do nơi dùng gắn `.id(số mục)` — cách màn Tìm và các lưới đã chạy ổn trước 1.3.678; thêm cho ba chỗ còn thiếu: danh sách Khám phá / Thể loại (`DiscoveryNovelsLayoutView`, số truyện), Kệ / Lịch sử kiểu Danh sách (`ShelfBooksLayoutView`, số truyện đang hiện), Tất cả bình luận (số bình luận). Trang không thêm mục nào thì số không đổi, không kích hoạt lại.
-- **Gia cố phụ**: `AppAccentColor.applyToWindows()` bỏ qua cửa sổ đã đúng màu — trước đây mỗi lần một sheet / cửa sổ nổi có `.appAccentTint()` hiện là `tintColorDidChange` lan khắp cây view.
-- Chuyển entry `[1.3.649]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `LoadMoreFooter.swift` không còn `@State` / `UUID()`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cuộn tới cuối Khám phá / Thể loại / Tìm / Bình luận / Kệ / Lịch sử (cả kiểu Danh sách lẫn lưới) không đơ, vòng xoay vẫn hiện ở mỗi lần nạp trang kế, hết trang hiện "Đã hết".

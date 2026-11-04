@@ -62,6 +62,7 @@ final class LegadoJSRuntime {
                 session.diagnostics.record(.javaScript, "bootstrap: \(error)")
             }
         }
+        installStandardObjectRestore()
         capturedError = nil
     }
 
@@ -92,7 +93,8 @@ final class LegadoJSRuntime {
     /// (ký tự Cf, `let` trùng tham số) ⇒ sửa rồi chạy lại (`runFixingRhinoSyntax`), ở cả hai đường.
     ///
     /// Mỗi lần chạy nằm trong một `autoreleasepool` (giá trị trả vẫn sống vì Swift giữ tham chiếu mạnh). Chỉ lần chạy
-    /// **lồng** mới lưu và khôi phục 7 biến môi trường: lần ngoài cùng không cần, vì `apply` của lần sau gán lại cả 7.
+    /// **lồng** mới lưu và khôi phục 7 biến môi trường cùng 5 đối tượng chuẩn (`+StandardObjects`): lần ngoài cùng không
+    /// cần, vì `apply` của lần sau gán lại cả 7 và trả 5 đối tượng chuẩn về bản gốc.
     func evaluateRaw(_ code: String, bindings: LegadoJSBindings) throws -> (value: JSValue?, error: String?) {
         try autoreleasepool { () throws -> (value: JSValue?, error: String?) in
             guard let session else { throw CancellationError() }
@@ -100,13 +102,14 @@ final class LegadoJSRuntime {
             let isNested = evaluationDepth > 0
             evaluationDepth += 1
             defer { evaluationDepth -= 1 }
+            let savedNames = LegadoJSBindings.names + Self.standardObjectNames
             var saved: [JSValue?] = []
             if isNested {
-                saved = LegadoJSBindings.names.map { context.objectForKeyedSubscript($0) }
+                saved = savedNames.map { context.objectForKeyedSubscript($0) }
             }
             defer {
                 if isNested {
-                    for (index, name) in LegadoJSBindings.names.enumerated() {
+                    for (index, name) in savedNames.enumerated() {
                         context.setObject(saved[index], forKeyedSubscript: name as NSCopying & NSObjectProtocol)
                     }
                 }
@@ -263,6 +266,7 @@ final class LegadoJSRuntime {
     /// Gán 7 biến môi trường. `src` (trước, để điền ô đệm) và `result` là chuỗi trang thì dùng lại chuỗi JS đã chép
     /// (`pageValue`, `cachedPageValue`) thay vì chép lại mấy MB mỗi lần chạy rule của từng mục.
     private func apply(_ bindings: LegadoJSBindings) {
+        restoreStandardObjects()
         let srcValue = pageValue(bindings.src)
         if let response = bindings.responseResult {
             setGlobal("result", callHelper("__lgMakeResponse", response.compactText))
