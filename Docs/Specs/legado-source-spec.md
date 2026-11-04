@@ -1463,6 +1463,11 @@ Biến đổi gặp (số lần, mọi loại nguồn) `[quan sát]`: `AES/CBC/P
 CommonCrypto `[đề xuất]`. Nhận dạng `data` là hex hay base64 `[UNKNOWN]`: khuyến nghị chuỗi chỉ gồm `[0-9a-fA-F]`, độ dài chẵn
 → hex, còn lại base64.
 
+Lớp `javax.crypto` giả lập (§6.9) dùng cùng lõi đối xứng. `Cipher.getInstance("DES")` = `DES/ECB/PKCS5Padding` như Java. Khoá
+từ `SecretKeyFactory` DES/DESede + `DESKeySpec`/`DESedeKeySpec` là đúng 8/24 byte từ `offset` của mảng byte (mật khẩu dài hơn
+thì phần thừa bị bỏ, như JDK). JDK chỉnh bit chẵn lẻ trong `getEncoded()`, FreeBook không chỉnh: DES bỏ qua bit đó nên bản mã
+giống hệt. `SecretKeyFactory` thuật toán khác (PBKDF2…) chưa hỗ trợ.
+
 #### §6.4.4 Tiện ích
 
 | Hàm | Lần / nguồn | Chữ ký và hành vi | Nhãn |
@@ -1596,8 +1601,41 @@ Tài liệu ghi `cache` lưu vào CSDL và tệp đệm (50 MB) `[tài liệu js
   `java.lang.Thread.sleep(ms)` (giới hạn ≤ 5 s), `java.util.Base64`/`android.util.Base64` (`getEncoder().encodeToString`,
   `getDecoder().decode`, `encodeToString(b, flags)`, `decode(s, flags)`), `java.util.UUID.randomUUID()`.
 - Đợt 2: `javax.crypto.Cipher` + `SecretKeySpec` + `IvParameterSpec`, `java.security.MessageDigest`, `java.io.ByteArray*Stream`,
-  `java.util.HashMap`/`ArrayList`/`Arrays` tối thiểu, `java.util.zip.Inflater`, `java.net.URL`.
-- Không giả lập: `okhttp3.*`, `android.*` (trừ `Base64`), `java.net.Socket`, lớp nội bộ ứng dụng gốc, `org.mozilla.javascript.*`.
+  `java.util.HashMap`/`ArrayList`/`Arrays` tối thiểu, `java.util.zip.Inflater`, `java.net.URL` (hai lớp cuối làm ở đợt 3, dưới).
+- Đợt 3 (script `streams` + `classes`, giải nén ở `LegadoInflate`) `[đề xuất]`:
+  - `javax.crypto.SecretKeyFactory.getInstance("DES"|"DESede"|"TripleDES")`: `generateSecret(spec)` trả khoá có
+    `getEncoded()`, `getAlgorithm()`, `getFormat()` = `"RAW"`, dùng thẳng cho `Cipher.init(mode, key[, iv])`; factory có
+    `getAlgorithm()`. Thuật toán khác ⇒ "chưa hỗ trợ SecretKeyFactory <alg>". `javax.crypto.spec.DESKeySpec(bytes[, offset])`
+    lấy đúng 8 byte từ `offset`, thiếu ⇒ `InvalidKeyException`; `DESedeKeySpec` lấy 24 byte; cả hai có `getKey()`. Mẫu: 晋江
+    (`DES/CBC/PKCS5Padding`, mật khẩu 22 byte), 国家图书馆 (`Cipher.getInstance("DES")`).
+  - `java.util.zip.GZIPInputStream(in)` và `InflaterInputStream(in[, inflater])`: đọc hết `in`, giải **ngay khi dựng** (lỗi
+    ném ở `new`), trả luồng đọc giống `ByteArrayInputStream`: `read()` → 0..255 hoặc -1, `read(buf[, off, len])` → số byte hoặc
+    -1 khi hết. `InflaterInputStream` không có `inflater` hoặc `nowrap = false` ⇒ zlib; `Inflater(true)` ⇒ DEFLATE thô.
+  - `java.util.zip.Inflater([nowrap])`: `setInput(b[, off, len])`, `inflate(buf[, off, len])` (trả số byte), `finished()`,
+    `needsInput()`, `getRemaining()`, `getTotalIn()`/`getTotalOut()`, `end()`, `reset()`. Giản lược: lần `inflate` đầu sau
+    `setInput` giải hết dữ liệu vào rồi trả dần, nên dữ liệu phải đủ cả luồng trong một lần `setInput` (cụt ⇒ ném lỗi thay vì
+    `needsInput()`); `getRemaining()` chỉ chính xác sau khi giải; `setDictionary` chưa hỗ trợ.
+  - Giải nén bằng framework `Compression` (`COMPRESSION_ZLIB` = DEFLATE thô). zlib: kiểm header RFC 1950, FDICT chưa hỗ trợ,
+    không kiểm Adler-32. gzip: header RFC 1952 (FEXTRA, FNAME, FCOMMENT, FHCRC), không kiểm CRC32, nối nhiều member liền nhau,
+    byte thừa sau member bị bỏ qua như `GZIPInputStream`. Đầu ra tối đa 16 MiB (kết quả về JS dạng hex, bộ nhớ thực tốn gấp
+    5–6 lần). Lỗi ⇒ ném vào JS, `try/catch` của nguồn bắt được (云端聚合 dựa vào đây để rơi về đọc văn bản thường).
+  - `java.nio.ByteBuffer` tối thiểu: `allocate(n)` / `wrap(bytes)` có `array()` (mảng byte `Uint8Array` như mọi `byte[]`
+    khác, `wrap` dùng chung mảng khi đã là `Uint8Array`), `hasArray()`, `capacity()`, `limit()`. Không có `put`/`get`/`flip`.
+  - `java.io.InputStreamReader(in[, charset])` (mặc định UTF-8, bảng mã như `java.bytesToStr`, giải cả luồng một lần) +
+    `java.io.BufferedReader(reader)`: `readLine()` tách theo `\n`, `\r\n`, `\r`, hết ⇒ `null`; `read()` (mã ký tự hoặc -1),
+    `read(cbuf[, off, len])`, `ready()`, `skip(n)`, `close()`.
+  - `java.net.URL(spec)`, `URL(context, spec)` (ghép tương đối qua `java.toURL`; `spec` rỗng ⇒ ngữ cảnh bỏ `#ref`, chỉ
+    `?query`/`#ref` ⇒ thay phần đó của ngữ cảnh, giữ đường dẫn kể cả khi rỗng), `URL(protocol, host[, port], file)`. Getter
+    theo Java, tách từ `href`: `getProtocol()` (không `:`), `getHost()`, `getPort()` (-1 khi không có), `getDefaultPort()`,
+    `getPath()` (rỗng khi không có đường dẫn), `getQuery()`/`getRef()` (`null` khi không có), `getFile()`, `getAuthority()`,
+    `getUserInfo()`, `toString()`/`toExternalForm()`. Không có scheme ⇒ `MalformedURLException: no protocol`; protocol ngoài
+    http/https/ftp/file/jar ⇒ `unknown protocol`; `openConnection()`/`openStream()` ⇒ "chưa hỗ trợ".
+  - Mọi lớp trên tìm được qua `java.util.zip.X`, `Packages.java.util.zip.X`, `JavaImporter(...)` + `with`, `importClass`,
+    `importPackage`. Mẫu: 酷匠网 (GZIP + vòng `read`), 微信读书 (`Inflater(true)` + `InflaterInputStream`), 云端聚合
+    (`InflaterInputStream` → `BufferedReader.readLine`), 海棠搜书 (`URL.openConnection` trong `try`).
+  - Còn thiếu đã gặp: `java.security.SecureRandom` (đường đăng nhập của 微信读书).
+- Không giả lập: `okhttp3.*`, `android.*` (trừ `Base64`), `java.net.Socket`, `HttpURLConnection` (`URL.openConnection`),
+  `SecretKeyFactory` PBKDF2, lớp nội bộ ứng dụng gốc, `org.mozilla.javascript.*`.
 
 ### §6.10 Mã dò biến thể ứng dụng
 

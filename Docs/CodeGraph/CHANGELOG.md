@@ -2,6 +2,48 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.695] - 2026-11-04
+
+### feat: nguồn Legado có SecretKeyFactory DES, GZIP/Inflater và java.net.URL
+
+Người dùng: *"làm plan: … 3. Lớp Java còn thiếu: DES, GZIP, URL."*; duyệt plan (*"Duyệt, làm đi"*). Trong 3.339 nguồn đã quét: 7 nguồn cần DES qua `SecretKeyFactory`, 4 nguồn giải nén, khoảng 1 nguồn dùng `java.net.URL`.
+
+- **DES** (`LegadoJSBootstrap+Classes.swift`):
+  - `javax.crypto.SecretKeyFactory.getInstance("DES"|"DESede"|"TripleDES")`. `generateSecret(spec)` trả khoá có `getEncoded`, `getAlgorithm`, `getFormat` = `"RAW"`. Thuật toán khác (PBKDF2…) báo chưa hỗ trợ.
+  - `DESKeySpec(bytes[, offset])` lấy đúng 8 byte, `DESedeKeySpec(bytes[, offset])` lấy 24 byte, cả hai có `getKey()`. Thiếu byte ném `InvalidKeyException`; spec sai loại ném `InvalidKeySpecException`.
+  - Khoá dùng thẳng với `Cipher.init` có sẵn: phần mã hoá (`LegadoSymmetricCipher`) không đổi. `SecretKeySpec` thêm `getFormat()`.
+- **Giải nén** (`Files/LegadoInflate.swift` mới, lệnh native `inflate`/`inflateUsed` ở `LegadoJSRuntime+Inflate.swift`):
+  - Dùng `compression_stream` của framework `Compression`, với `COMPRESSION_ZLIB` (DEFLATE thô).
+  - Ba dạng vỏ:
+    - `raw`;
+    - `zlib`: kiểm header RFC 1950; FDICT báo chưa hỗ trợ;
+    - `gzip`: header RFC 1952 đủ cờ, nối nhiều member, kiểm ISIZE.
+  - Đầu ra tối đa 16 MiB, để chặn bom nén. Dữ liệu về JS dạng hex nên bộ nhớ thực tốn gấp 5–6 lần.
+  - Lỗi được ném vào JS, nên `try/catch` của nguồn bắt được.
+- **Luồng Java** (`LegadoJSBootstrap+Streams.swift` mới, nạp ngay trước `packages`):
+  - `java.util.zip.GZIPInputStream` / `InflaterInputStream(in[, inflater])`: `Inflater(true)` = raw, còn lại = zlib. `read()` trả 0..255 hoặc -1, `read(buf)` trả -1 khi hết.
+  - `java.util.zip.Inflater([nowrap])`: `setInput`, `inflate`, `finished`, `needsInput`, `getRemaining`, `getTotalIn/Out`, `end`, `reset`. Lần `inflate` đầu giải hết đầu vào rồi trả dần, nên cần trọn dữ liệu trong một `setInput`.
+  - `java.io.InputStreamReader(in[, charset])` + `BufferedReader`: `readLine` tách `\n`, `\r\n`, `\r` và trả `null` khi hết. Charset đi qua `bytesToStr`.
+  - `java.nio.ByteBuffer.allocate/wrap(...).array()` tối thiểu, để đường giải nén của 微信读书 không chết trước.
+  - `java.net.URL(spec)` / `URL(context, spec)`:
+    - `getProtocol`, `getHost`, `getPort` (-1 khi không có), `getDefaultPort`, `getPath` (`""` khi không có), `getQuery`/`getRef` (`null` khi không có), `getFile`, `getAuthority`, `toString`/`toExternalForm`.
+    - Không scheme ném `MalformedURLException: no protocol`. Spec rỗng trả URL ngữ cảnh bỏ `#ref`, như Java.
+    - `openConnection` báo chưa hỗ trợ.
+  - Gọi được qua `java.util.zip.X`, `Packages.…`, `JavaImporter` + `with`, `importClass`, `importPackage`.
+- **Ngoài phạm vi:** `SecureRandom` (đăng nhập 微信读书), okhttp3, `HttpURLConnection`.
+- **Spec:** `Docs/Specs/legado-source-spec.md` §6.4.3 và §6.9.
+- **Quy trình:** agent riêng viết theo plan và spec (clean-room). Review bắt các lỗi sau, đã sửa:
+  - `URL(ctx, "")` ném lỗi;
+  - thiếu `ByteBuffer`;
+  - giới hạn 64 MiB quá cao (hạ xuống 16 MiB);
+  - comment thứ tự nạp script cũ.
+- **Kiểm chứng:**
+  - JS bootstrap lấy nguyên văn từ file Swift, chạy Node với native giả theo đúng thuật toán `LegadoInflate`: 85/85 ca đạt.
+  - Các ca DES đối chiếu với DES thật của Node: 晋江 (DES-CBC), 国家图书馆 (DES-ECB), DESede-CBC.
+  - Các ca giải nén: vòng `read` của 酷匠网; gzip nhiều member; `Inflater(true)` của 微信读书; `readLine` của 云端聚合; giới hạn 16 MiB.
+  - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: chưa xác nhận bộ giải của Apple báo đúng số byte đã dùng khi `END`. Nếu sai, gzip nhiều member chỉ mất các member sau.
+
 ## [1.3.694] - 2026-11-04
 
 ### fix: đối tượng Java của nguồn Legado có đủ method List, Element, Map, chapter
@@ -604,17 +646,3 @@ Người dùng: *"mockup lại phần bottom của browser"* → *"cho nó sát 
 - Sửa tài liệu chuẩn cụm nút header của 1.3.665 (`HeaderButtonMetrics`, `CLAUDE.md`/`AGENTS.md`, `rules.md`, `.agents/AGENTS.md`): ghi nhầm số 1.3.664 (số đó là CryptoJS) và ví dụ "… | Xong" không còn sau đợt này.
 - Chuyển entry `[1.3.636]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro cần thử: thanh khi bàn phím hiện (ô URL và ô nhập của trang), popover chọn nguồn bật từ nút trong thanh và từ mục ngăn kéo, công tắc "Dịch trang" đổi ngay khi ngăn kéo còn mở, trang Home cuộn tới cuối không bị thanh che.
-
-## [1.3.665] - 2026-10-31
-
-### fix: nút liền nhau trên header đứng sát nhau
-
-Người dùng: *"cho phím dropdown và nút xong gần nhau hơn và nhỏ lại"* (header trình duyệt), rồi *"cái nào có 2 nút gần cũng gom thành group"*, sau đó *"thôi đừng làm group, để cho các nút gần lại là được"*; duyệt plan, chọn **giữ cỡ 17pt** (không thu nhỏ, không viên bao ngoài).
-
-- **`HeaderButtonMetrics`** (mới, `Views/Common/PageHeader/`): `pairSpacing = 2`, `pairIconWidth = 32`, `pairCircleSpacing = 4`. Cụm nút liền nhau trên thanh điều hướng gộp vào **một** `ToolbarItem` chứa `HStack(spacing: pairSpacing)` — để nhiều `ToolbarItem`/`ToolbarItemGroup` thì iOS tự giãn cách, không chỉnh được. Icon giữ 17pt nửa đậm, chỉ khung hẹp 36 → 32 (chiều cao giữ 36/38 như cũ).
-- **Thanh điều hướng (5 màn)**: trình duyệt (… | Xong), Trợ lý AI toàn màn (… | ⌄), Kệ (🔍 | …, kính lúp vẫn ẩn ở tab Tải xuống, chấm đỏ thông báo bám icon vì `.frame` đặt sau `.overlay`), Chi tiết truyện (nút dịch | …, `HStack` sẵn có cách 6 → 2), Quản lý tiện ích tab Kho (↻ | +, `ProgressView` lúc làm mới nằm trong khung 32).
-- **Header tự dựng (4 chỗ)**: chỉ bọc cặp nút trong `HStack` con, khoảng cách của thanh (nút lùi, tiêu đề) giữ nguyên — màn đọc truyện tranh (☰ | …), trình duyệt Legado (↻ | ✓, nút tròn ✓ giữ 38), Khám phá (hai nút tròn 38 cách 8 → 4), cặp trái trình phát video (⌄ | ✕; `VideoPlayerIconButton`/`VideoPlayerIconLabel` thêm tham số `width` mặc định 36 nên các nút video khác không đổi).
-- **Không đổi**: header Reader (6 nút) và cụm nút phải của trình phát video.
-- **Chuẩn header**: `CLAUDE.md`/`AGENTS.md`, `rules.md` (§ chuẩn Header + checklist) và `.agents/AGENTS.md` thêm quy định cụm nút liền nhau (2pt, khung 32, nút tròn cách 4); nút đứng một mình giữ chuẩn 36×36.
-- Chuyển entry `[1.3.635]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: vùng chạm khung 32 hẹp hơn chuẩn 36 (dễ bấm nhầm nút bên cạnh); nút chữ "Xong" và icon trong `HStack` của `ToolbarItem` có thể nhận kiểu nút toolbar khác một chút so với khi là mục riêng.

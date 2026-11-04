@@ -21,6 +21,7 @@ extension LegadoJSRuntime {
             if let output = try nativeFiles(command, arguments, session) { return output }
             if let output = try nativeAsymmetric(command, arguments) { return output }
             if let output = try nativeConcurrent(command, arguments) { return output }
+            if let output = try nativeInflate(command, arguments) { return output }
             throw LegadoJSNativeError("Lệnh bridge không tồn tại: \(command)")
         } catch is CancellationError {
             raise("Đã huỷ tác vụ")

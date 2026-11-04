@@ -3,9 +3,10 @@ import Foundation
 extension LegadoJSBootstrap {
     /// Lớp Java giả lập đợt 2/3 (spec §13.10, §14.3, §6.9, §10.7), đăng ký vào `__lg.classes` theo tên đầy đủ để
     /// `Packages.*`, `JavaImporter`, `importPackage`/`importClass` (script `packages`, nạp sau) tìm thấy:
-    /// `javax.crypto.Cipher`/`Mac`/`spec.*`, `java.security.MessageDigest`/`KeyFactory`/`Signature`/`spec.*`,
-    /// `java.io.ByteArray{Output,Input}Stream`, `java.util.HashMap`/`ArrayList`/`Arrays`, hàm dựng `StrResponse` của
-    /// ngữ cảnh đăng nhập. Mảng byte là `Uint8Array` không dấu (U56).
+    /// `javax.crypto.Cipher`/`Mac`/`SecretKeyFactory`/`spec.*`, `java.security.MessageDigest`/`KeyFactory`/`Signature`/
+    /// `spec.*`, `java.io.ByteArray{Output,Input}Stream`, `java.util.HashMap`/`ArrayList`/`Arrays`, hàm dựng `StrResponse`
+    /// của ngữ cảnh đăng nhập. Mảng byte là `Uint8Array` không dấu (U56). `L.registerClass`/`L.toBytes`/`L.concatBytes`
+    /// mở cho script nạp sau (`streams`).
     static let classes = #"""
         (function (g) {
           var L = g.__lg, call = L.call;
@@ -29,6 +30,7 @@ extension LegadoJSBootstrap {
             if (typeof k.getEncoded === 'function') { return toBytes(k.getEncoded()); }
             return k;
           }
+          L.registerClass = register; L.toBytes = toBytes; L.concatBytes = concat;
 
           // javax.crypto.spec / java.security.spec
           function SecretKeySpec(bytes, algorithm) {
@@ -36,6 +38,7 @@ extension LegadoJSBootstrap {
             L.defineHidden(this, '__lgKeyBytes', key);
             this.getEncoded = function () { return key; };
             this.getAlgorithm = function () { return String(algorithm || ''); };
+            this.getFormat = function () { return 'RAW'; };
           }
           function IvParameterSpec(bytes) { var iv = toBytes(bytes); this.getIV = function () { return iv; }; L.defineHidden(this, '__lgIv', iv); }
           function GCMParameterSpec(tagBits, iv) {
@@ -50,6 +53,51 @@ extension LegadoJSBootstrap {
           register('javax.crypto.spec.GCMParameterSpec', GCMParameterSpec);
           register('java.security.spec.X509EncodedKeySpec', EncodedKeySpec('public'));
           register('java.security.spec.PKCS8EncodedKeySpec', EncodedKeySpec('private'));
+
+          // DES/3DES (§6.9): `DESKeySpec`/`DESedeKeySpec` lấy đúng 8/24 byte từ `offset` (thiếu ⇒ InvalidKeyException);
+          // `SecretKeyFactory.getInstance('DES'|'DESede'|'TripleDES').generateSecret(spec)` ⇒ khoá RAW dùng cho `Cipher.init`.
+          // Không chỉnh bit chẵn lẻ như JDK: DES bỏ qua bit đó nên bản mã giống hệt.
+          var DES_KINDS = { DES: { kind: 'DES', size: 8 }, DESEDE: { kind: 'DESede', size: 24 }, TRIPLEDES: { kind: 'DESede', size: 24 } };
+          function desKeySpec(kind, size) {
+            var Spec = function (bytes, offset) {
+              var all = toBytes(bytes), off = offset === undefined || offset === null ? 0 : Number(offset);
+              if (!(off >= 0) || all.length - off < size) {
+                throw new Error('java.security.InvalidKeyException: khoá ' + kind + ' cần ' + size + ' byte, chỉ có ' + Math.max(0, all.length - (off || 0)));
+              }
+              var key = all.slice(off, off + size);
+              L.defineHidden(this, '__lgKeyBytes', key); L.defineHidden(this, '__lgDesKind', kind);
+              this.getKey = function () { return key.slice(); };
+            };
+            return Spec;
+          }
+          var DESKeySpec = desKeySpec('DES', 8), DESedeKeySpec = desKeySpec('DESede', 24);
+          DESKeySpec.DES_KEY_LEN = 8; DESedeKeySpec.DES_EDE_KEY_LEN = 24;
+          register('javax.crypto.spec.DESKeySpec', DESKeySpec);
+          register('javax.crypto.spec.DESedeKeySpec', DESedeKeySpec);
+          function secretKey(bytes, algorithm) {
+            var k = { getEncoded: function () { return bytes.slice(); }, getAlgorithm: function () { return algorithm; }, getFormat: function () { return 'RAW'; } };
+            L.defineHidden(k, '__lgKeyBytes', bytes);
+            return k;
+          }
+          register('javax.crypto.SecretKeyFactory', {
+            getInstance: function (alg) {
+              var name = String(alg), info = DES_KINDS[name.toUpperCase()];
+              if (!info) { call('unsupported', ['SecretKeyFactory ' + name]); }
+              return {
+                getAlgorithm: function () { return name; },
+                generateSecret: function (spec) {
+                  if (spec && spec.__lgDesKind && spec.__lgDesKind !== info.kind) {
+                    throw new Error('java.security.spec.InvalidKeySpecException: cần ' + info.kind + 'KeySpec cho SecretKeyFactory ' + name);
+                  }
+                  var raw = spec === undefined || spec === null ? new Uint8Array(0) : toBytes(keyBytes(spec));
+                  if (raw.length < info.size) {
+                    throw new Error('java.security.spec.InvalidKeySpecException: khoá ' + info.kind + ' cần ' + info.size + ' byte, chỉ có ' + raw.length);
+                  }
+                  return secretKey(raw.slice(0, info.size), info.kind);
+                }
+              };
+            }
+          });
 
           function rsaKey(kind, bytes) {
             var k = { getEncoded: function () { return bytes; }, getAlgorithm: function () { return 'RSA'; }, getFormat: function () { return kind === 'public' ? 'X.509' : 'PKCS#8'; } };

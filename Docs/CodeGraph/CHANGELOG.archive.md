@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.665] - 2026-10-31
+
+### fix: nút liền nhau trên header đứng sát nhau
+
+Người dùng: *"cho phím dropdown và nút xong gần nhau hơn và nhỏ lại"* (header trình duyệt), rồi *"cái nào có 2 nút gần cũng gom thành group"*, sau đó *"thôi đừng làm group, để cho các nút gần lại là được"*; duyệt plan, chọn **giữ cỡ 17pt** (không thu nhỏ, không viên bao ngoài).
+
+- **`HeaderButtonMetrics`** (mới, `Views/Common/PageHeader/`): `pairSpacing = 2`, `pairIconWidth = 32`, `pairCircleSpacing = 4`. Cụm nút liền nhau trên thanh điều hướng gộp vào **một** `ToolbarItem` chứa `HStack(spacing: pairSpacing)` — để nhiều `ToolbarItem`/`ToolbarItemGroup` thì iOS tự giãn cách, không chỉnh được. Icon giữ 17pt nửa đậm, chỉ khung hẹp 36 → 32 (chiều cao giữ 36/38 như cũ).
+- **Thanh điều hướng (5 màn)**: trình duyệt (… | Xong), Trợ lý AI toàn màn (… | ⌄), Kệ (🔍 | …, kính lúp vẫn ẩn ở tab Tải xuống, chấm đỏ thông báo bám icon vì `.frame` đặt sau `.overlay`), Chi tiết truyện (nút dịch | …, `HStack` sẵn có cách 6 → 2), Quản lý tiện ích tab Kho (↻ | +, `ProgressView` lúc làm mới nằm trong khung 32).
+- **Header tự dựng (4 chỗ)**: chỉ bọc cặp nút trong `HStack` con, khoảng cách của thanh (nút lùi, tiêu đề) giữ nguyên — màn đọc truyện tranh (☰ | …), trình duyệt Legado (↻ | ✓, nút tròn ✓ giữ 38), Khám phá (hai nút tròn 38 cách 8 → 4), cặp trái trình phát video (⌄ | ✕; `VideoPlayerIconButton`/`VideoPlayerIconLabel` thêm tham số `width` mặc định 36 nên các nút video khác không đổi).
+- **Không đổi**: header Reader (6 nút) và cụm nút phải của trình phát video.
+- **Chuẩn header**: `CLAUDE.md`/`AGENTS.md`, `rules.md` (§ chuẩn Header + checklist) và `.agents/AGENTS.md` thêm quy định cụm nút liền nhau (2pt, khung 32, nút tròn cách 4); nút đứng một mình giữ chuẩn 36×36.
+- Chuyển entry `[1.3.635]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: vùng chạm khung 32 hẹp hơn chuẩn 36 (dễ bấm nhầm nút bên cạnh); nút chữ "Xong" và icon trong `HStack` của `ToolbarItem` có thể nhận kiểu nút toolbar khác một chút so với khi là mục riêng.
+
 ## [1.3.664] - 2026-10-31
 
 ### feat: CryptoJS dựng sẵn cho load('crypto.js') của tiện ích

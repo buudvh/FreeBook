@@ -8,10 +8,10 @@ import Foundation
 /// `{"$arr": [...]}` = danh sách, `{"$json": v}` = object/mảng JS, `{"$bytes": "hex"}` = mảng byte.
 ///
 /// Thứ tự nạp: `core` → `info` → `objects` → `java` → `javaExtra` → `classes` → `concurrent` → `jsoup` → `connect` →
-/// `packages`.
+/// `streams` → `packages`.
 enum LegadoJSBootstrap {
     static var scripts: [String] {
-        [core, info, objects, java, javaExtra, classes, concurrent, jsoup, connect, packages]
+        [core, info, objects, java, javaExtra, classes, concurrent, jsoup, connect, streams, packages]
     }
 
     /// Lõi: mã hoá/giải mã descriptor, danh sách/map kiểu Java, hàm gọi native, xuất kết quả.
