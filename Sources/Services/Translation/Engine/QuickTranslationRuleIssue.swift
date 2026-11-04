@@ -33,14 +33,11 @@ public struct QuickTranslationRuleIssue: Identifiable, Hashable, Sendable {
         /// Rule có `<any>` mà không có chữ cố định nào (`literalLength == 0`): `<any>` nuốt gần như mọi
         /// cụm nên rule như vậy khớp bừa khắp nơi (1.3.682).
         case anyWithoutLiteral = "ANY_WITHOUT_LITERAL"
-        /// Khoảng giá trị `#min-max` viết sai (trống, không phải số, số đầu lớn hơn số sau, sai thứ tự với
-        /// `:min-max`) hoặc gắn cho token không đọc ra một con số (1.3.701).
-        case invalidValueRange = "INVALID_VALUE_RANGE"
 
         public var severity: Severity {
             switch self {
             case .unparseableRuleLine, .emptyPattern, .unknownTokenName,
-                 .unbalancedParens, .invalidRefIndex, .noLiteralAnchor, .anyWithoutLiteral, .invalidValueRange:
+                 .unbalancedParens, .invalidRefIndex, .noLiteralAnchor, .anyWithoutLiteral:
                 return .hard
             case .dictTokenWithoutDictionary:
                 return .disabling

@@ -225,15 +225,12 @@ public enum QuickTranslationRuleParser {
         // Neo `<START>`/`<END>` và ngoặc `<[>`/`<]>` không capture ⇒ phải trả về TRƯỚC `captureCount += 1`.
         if let uncaptured = try parseUncapturedToken(spec: spec, isOptional: isOptional) { return uncaptured }
 
-        // `#min-max` (khoảng giá trị, 1.3.701) tách TRƯỚC `:` độ dài — `QuickTranslationRuleParser+ValueRange.swift`.
-        let (lengthSpec, valueRange) = try splitValueRange(spec)
-        let parts = lengthSpec.components(separatedBy: ":")
+        let parts = spec.components(separatedBy: ":")
         let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
         guard !names.isEmpty, !names.contains(where: { $0.isEmpty }) else {
             throw ParseError(code: .unknownTokenName, message: "Token <\(spec)> không có tên")
         }
         let sourceTokenKinds = try tokenKinds(for: names)
-        try requireValueRangeSupport(valueRange, names: names)
 
         var minLength = 1
         var maxLength = names == ["any"] ? anyRunDefaultMaxLength : 12
@@ -291,7 +288,6 @@ public enum QuickTranslationRuleParser {
                 sourceTokenKinds: sourceTokenKinds,
                 minLength: minLength,
                 maxLength: maxLength,
-                valueRange: valueRange,
                 isOptional: isOptional,
                 captureIndex: index
             )

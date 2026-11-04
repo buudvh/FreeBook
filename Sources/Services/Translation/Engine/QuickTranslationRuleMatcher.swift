@@ -254,11 +254,6 @@ public final class QuickTranslationRuleMatcher {
             case .latinLetters:
                 rendered = QuickTranslationNumberFormatter.renderLatinLetters(value)
             }
-            // `#min-max` (1.3.701): giá trị ngoài khoảng ⇒ bỏ độ dài này, thử độ dài ngắn hơn như mọi ứng viên khác.
-            if let range = element.valueRange, !range.accepts(rendered: rendered, source: value, kind: kind) {
-                candidate -= 1
-                continue
-            }
             store(
                 rendered,
                 sourceRange: NSRange(location: position, length: candidate),

@@ -37,7 +37,7 @@ enum QuickTranslationRuleKeyboardSuggestions {
         switch mode {
         case .pattern:
             let typed = caret.flatMap {
-                partial(in: text, caret: $0, opener: "<", allowed: isTokenNameCharacter, tail: [">", ":", "#", "|", "?"])
+                partial(in: text, caret: $0, opener: "<", allowed: isTokenNameCharacter, tail: [">", ":", "|", "?"])
             }
             return patternSuggestions(typed: typed)
         case .replacement(let pattern):
@@ -151,7 +151,7 @@ enum QuickTranslationRuleKeyboardSuggestions {
     /// - không có;
     /// - `opener` bị escape bằng số lẻ dấu `\` (`\<` là ký tự `<` thường của mẫu, không phải mở token);
     /// - con trỏ nằm **giữa** một token đã viết xong (ký tự ngay sau con trỏ là chữ của token hoặc thuộc `tail`, vd chạm
-    ///   vào giữa `<n|:1-6>` hay `<n|#1-200>`) — thay `<n` lúc đó sẽ để lại `<n>:1-6>`.
+    ///   vào giữa `<n|:1-6>`) — thay `<n` lúc đó sẽ để lại `<n>:1-6>`.
     private static func partial(
         in text: String,
         caret: Int,

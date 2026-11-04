@@ -24,10 +24,9 @@ extension QuickTranslationRuleParser {
         tokenSpecNames(spec).names.contains { TokenKind.kind(forTokenName: $0)?.isUncaptured == true }
     }
 
-    /// Tách `spec` đúng như `parseToken`: bỏ phần `#min-max` (1.3.701), tên trước dấu `:`, ngăn bằng `|`, bỏ khoảng
-    /// trắng hai đầu.
+    /// Tách `spec` đúng như `parseToken`: tên trước dấu `:`, ngăn bằng `|`, bỏ khoảng trắng hai đầu.
     static func tokenSpecNames(_ spec: String) -> (names: [String], hasLength: Bool) {
-        let parts = QuickTranslationRuleValueRange.split(spec: spec).head.components(separatedBy: ":")
+        let parts = spec.components(separatedBy: ":")
         let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
         return (names, parts.count > 1)
     }
@@ -35,7 +34,6 @@ extension QuickTranslationRuleParser {
     /// Neo dòng hoặc ngoặc; ném lỗi khi viết sai; `nil` khi `spec` không dính tới hai loại này để
     /// `parseToken` đi tiếp đường token thường (có cấp số `{i}`).
     static func parseUncapturedToken(spec: String, isOptional: Bool) throws -> QuickTranslationRuleElement? {
-        try rejectValueRangeOnUncapturedToken(spec)
         if let anchor = try parseLineAnchor(spec: spec, isOptional: isOptional) { return anchor }
         return try parseBracketToken(spec: spec, isOptional: isOptional)
     }

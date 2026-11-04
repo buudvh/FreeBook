@@ -16,9 +16,6 @@ import SwiftUI
 /// (`<any>`: `1...50`, trần thanh 100 thay vì 20 — 1.3.686) — nên khi hai đầu về đúng mặc định,
 /// `TokenSpec.syntax` tự xuất lại token trần thay vì viết thừa `:1-12`. Nhờ vậy không có đường bấm hay
 /// kéo nào tạo ra được token sai cú pháp.
-///
-/// Token số đọc ra một con số (`<n>` `<y>` `<h>` `<d>` `<hn>`) có thêm phần khoảng giá trị `#min-max` ở dưới
-/// (`QuickTranslationRuleTokenValueRangeEditor`, 1.3.701); chỉnh độ dài vẫn giữ nguyên phần `#` vì nó nằm trong `spec`.
 struct QuickTranslationRuleTokenLengthBar: View {
     typealias TokenSpec = QuickTranslationRuleDraftAnalyzer.TokenSpec
 
@@ -87,14 +84,6 @@ struct QuickTranslationRuleTokenLengthBar: View {
                 Text("Token này luôn nuốt **đúng 1 ký tự**, không nhận khoảng độ dài.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
-            }
-
-            if spec.supportsValueRange {
-                Divider()
-                    .padding(.vertical, 2)
-                QuickTranslationRuleTokenValueRangeEditor(range: spec.valueRange) { range in
-                    adjust { $0.valueRange = range }
-                }
             }
         }
     }

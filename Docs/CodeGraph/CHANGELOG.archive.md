@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.678] - 2026-11-03
+
+### fix: vòng xoay cuối danh sách, nút chọn loại chỉ icon và màu nhấn tuỳ chọn
+
+Người dùng: *"các danh sách vô hạn có vẻ đang thiếu icon xoay tròn cuối trang trong lúc đang load phần kế tiếp nhỉ?"*; thêm *"nút chọn tất cả truyện chữ truyện tranh phim bên ô tìm kiếm của chọn nguồn hãy chỉ hiển thị icon của option đã chọn thôi"* và *".tint(.white) đổi thành màu khác đi … thêm config cho tint đi, thêm 1 nav vào màn setting giao diện … xem trước UI … Bỏ option trắng đi nhé, mặc định xanh ngọc"*. Chốt bằng mockup + bảng chọn rồi duyệt plan, gộp một commit.
+
+- **Chân danh sách cuộn vô hạn** (`LoadMoreFooter`, mới): vòng xoay khi đang nạp trang kế; "Không tải được trang kế" + "Thử lại" khi trang kế lỗi hết 3 lượt tự thử; "Đã hết · N truyện" (phim / bình luận) giữa hai vạch mờ khi hết trang. Vòng xoay được dựng mới mỗi lần chân hiện ra — `ProgressView` trong hàng `List` bị tái dùng hiện trống từ lần thứ hai, lý do "thiếu vòng xoay". Áp cho Khám phá + Thể loại/nhãn (`DiscoveryNovelsLayoutView`, cả danh sách lẫn lưới), Tìm trong một nguồn, Tất cả bình luận, Kệ / Lịch sử (nạp trên máy, "Đã hết" chỉ khi danh sách dài hơn một lượt 50). Thời điểm nạp giữ nguyên (người dùng chọn), không có nút "Xem thêm".
+- **Bộ nạp báo lỗi trang kế**: `PaginatedNovelLoader.loadMoreError` + `retryLoadMore()`; `SearchPagingState.fail(message:)` thay `stop()` (trước đây tắt im lặng) + `retryLoadMoreSearchResults()`; `AllCommentsView` cùng kiểu (trước đây vòng xoay treo mãi). Trong lúc chờ tự thử lại vẫn giữ cờ đang nạp ⇒ không nạp chồng. Kéo làm mới / áp bộ lọc xoá lỗi.
+- **Nút chọn loại ở ngăn kéo Chọn nguồn** (`ExtensionKindMenuButton`): nút tròn 40 × 40 chỉ có icon 17pt nửa đậm của loại đang chọn (cỡ không đổi theo tên loại); tên loại nằm trong menu (✓) và nhãn VoiceOver.
+- **Màu nhấn tuỳ chọn** (`AppAccentColor`, mới — Xanh ngọc mặc định, Xanh dương, Cam hổ phách, Chàm; bỏ trắng): Cài đặt › Chung › Giao diện thêm hàng "Màu nhấn" (chấm màu + tên) mở `AccentColorSettingsView` (mới — bốn màu + ô xem trước nền tối / nền sáng bằng thành phần thật như mockup). Áp bằng `.appAccentTint()` (mới, `.tint` + `.accentColor`, đọc `@AppStorage` ⇒ chọn là đổi ngay) ở `MainTabView` (thay `.tint(.white)`) và gốc các cửa sổ / màn mở bằng UIKit không thừa hưởng tint: ngăn kéo `…`, widget TTS + sheet cài đặt / hẹn giờ, Thông báo của hub, trình duyệt / mã xác minh Legado, AI, trình phát video. Phần UIKit đổi qua `applyToWindows()` (gán `tintColor` mọi cửa sổ) khi modifier hiện ra và khi đổi màu.
+- **Theo màu nhấn**: công tắc (bỏ `SwitchToggleStyle(tint: Color(white: 0.35))` ở 31 chỗ, người dùng chọn); gỡ `.tint(.white)` cục bộ ở các màn TTS / VieNeu / Nghi, thanh trượt, thanh tiến độ; trạng thái đang chọn đang tô trắng cứng sang kiểu chip của `ExtensionKindFilterBar` (tab Kệ/Lịch sử, tab danh mục Khám phá, tab Chi tiết/Mục lục, nhóm + ô tập đang xem ở lưới tập video, nút hẹn giờ TTS, "Áp dụng" của sheet Bộ lọc, dấu ✓ của vài màn chọn); chấm báo (Thông báo, nút lọc); `.appFilled` mặc định màu nhấn (chữ trắng như mockup).
+- **Giữ trắng**: comic, trình phát video (thanh tua, icon cố định `Color.white`), chữ / vòng xoay trên ảnh, `AppLoadingView`, lớp phủ tối của Reader. Vòng xoay ở `ReaderHeaderFooterOverlayView` theo màu chữ của theme (trước vô hình ở nền Sáng).
+- **Luật `WHITE_TINT_FILL` giữ nguyên** (người dùng chọn), chỉ sửa lý do trong `check_architecture.py`, `rules.md`, `CLAUDE.md` / `AGENTS.md` (mục màu nhấn viết lại) và chú thích code từng nói "màu nhấn trắng".
+- Chuyển entry `[1.3.648]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: vòng xoay hiện ở mọi lần nạp trang kế (cả kiểu Danh sách), "Thử lại" sau lỗi, đổi màu ở Cài đặt là cả app + cửa sổ nổi + menu/hộp thoại UIKit đổi ngay, công tắc trong widget TTS, chữ trắng trên nút đặc Xanh ngọc có đủ rõ.
+
 ## [1.3.677] - 2026-11-03
 
 ### fix: ngăn kéo chọn nguồn chọn loại bằng menu, icon lọc hình phễu, ô tìm và tên tab ở Kho tiện ích
