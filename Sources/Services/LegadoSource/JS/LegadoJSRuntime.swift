@@ -32,6 +32,8 @@ final class LegadoJSRuntime {
     /// Bản Swift của chuỗi trang đang nằm ở `__lgSrcCache` bên JS (`pageValue`); `nil` = chưa có. Giá trị JS ở lại phía JS,
     /// không giữ `JSValue` ở đây.
     private var cachedPageText: String?
+    /// Mã gốc → bản đã sửa cú pháp kiểu Rhino (`runFixingRhinoSyntax`): rule chạy lại cho từng mục không phân tích lại.
+    private var rhinoFixedSources: [String: String] = [:]
 
     init(session: LegadoEngineSession) {
         self.session = session
@@ -86,7 +88,8 @@ final class LegadoJSRuntime {
     /// trong phạm vi riêng của lần chạy nên không rò sang lần sau (hết lỗi `Can't create duplicate variable`, không che
     /// biến môi trường của lần sau). Giá trị trả = giá trị hoàn tất; số dòng lỗi theo code gốc. Khác chạy thẳng: code
     /// mở đầu bằng `"use strict"` thì `var`/`function` chỉ sống trong lần chạy đó. `return` ở cấp ngoài cùng ⇒ chạy
-    /// code **gốc** trong hàm nhận biến môi trường làm tham số (`returnWrapperHead`).
+    /// code **gốc** trong hàm nhận biến môi trường làm tham số (`returnWrapperHead`). Lỗi cú pháp mà Rhino chấp nhận
+    /// (ký tự Cf, `let` trùng tham số) ⇒ sửa rồi chạy lại (`runFixingRhinoSyntax`), ở cả hai đường.
     ///
     /// Mỗi lần chạy nằm trong một `autoreleasepool` (giá trị trả vẫn sống vì Swift giữ tham chiếu mạnh). Chỉ lần chạy
     /// **lồng** mới lưu và khôi phục 7 biến môi trường: lần ngoài cùng không cần, vì `apply` của lần sau gán lại cả 7.
@@ -115,12 +118,15 @@ final class LegadoJSRuntime {
             capturedErrorLine = 0
             defer { capturedError = outerError }
 
-            var value: JSValue? = globalEval(code)
+            let first = runFixingRhinoSyntax(code) { globalEval($0) }
+            var value: JSValue? = first.value
             if let error = capturedError, error.contains("Return statements") {
                 capturedError = nil
-                value = context.evaluateScript(Self.returnWrapperHead + code + Self.returnWrapperTail)
+                value = runFixingRhinoSyntax(Self.returnWrapperHead + first.code + Self.returnWrapperTail) {
+                    context.evaluateScript($0)
+                }.value
             } else if let error = capturedError, error.hasPrefix("SyntaxError"), capturedErrorLine <= 0,
-                      let located = syntaxErrorWithLine(code) {
+                      let located = syntaxErrorWithLine(first.code) {
                 // Eval gián tiếp báo lỗi cú pháp không kèm dòng: lấy dòng bằng cách phân tích lại (không chạy).
                 capturedError = located
             }
@@ -149,6 +155,21 @@ final class LegadoJSRuntime {
             return context.evaluateScript(code)
         }
         return evaluator.call(withArguments: [code])
+    }
+
+    /// Chạy `run(code)`; lỗi cú pháp mà Rhino chấp nhận (ký tự Cf ngoài literal, `let` trùng tham số, §6.1) ⇒ sửa mã
+    /// (`rhinoCompatibleSource`, chỉ phân tích) rồi chạy lại **một** lần. An toàn: lỗi cú pháp có trước câu lệnh đầu nên
+    /// lần đầu chưa chạy gì. Bản sửa được nhớ theo mã gốc (lần sau chạy thẳng bản sửa). Trả kèm mã đã chạy.
+    private func runFixingRhinoSyntax(_ code: String, _ run: (String) -> JSValue?) -> (value: JSValue?, code: String) {
+        if !rhinoFixedSources.isEmpty, let fixed = rhinoFixedSources[code] { return (run(fixed), fixed) }
+        let value = run(code)
+        guard let error = capturedError, LegadoJSRhinoSyntax.isFixable(error),
+              let fixed = rhinoCompatibleSource(code) else { return (value, code) }
+        rhinoFixedSources[code] = fixed
+        session?.diagnostics.record(.info, "Sửa cú pháp cho JavaScriptCore rồi chạy lại (\(error))")
+        capturedError = nil
+        capturedErrorLine = 0
+        return (run(fixed), fixed)
     }
 
     /// Dạng dự phòng khi rule có `return` ở cấp ngoài cùng: `(function(result, baseUrl, …){{<code>\n}}).call(this, …)`.
@@ -189,7 +210,8 @@ final class LegadoJSRuntime {
     }
 
     /// Nạp `jsLib` (§5.8): mã JS, hoặc object JSON `{tên: url}` (tải mỗi URL một lần, đệm bền theo URL).
-    /// Lỗi khi nạp chỉ ghi chẩn đoán; rule vẫn chạy (lỗi sẽ hiện ở chỗ gọi hàm thiếu).
+    /// Lỗi cú pháp kiểu Rhino được sửa trước (§6.1); lỗi còn lại khi nạp chỉ ghi chẩn đoán, rule vẫn chạy (lỗi sẽ hiện ở
+    /// chỗ gọi hàm thiếu).
     func loadLibrary(_ jsLib: String) {
         guard let session else { return }
         let trimmed = jsLib.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -213,7 +235,8 @@ final class LegadoJSRuntime {
         autoreleasepool {
             let outer = capturedError
             capturedError = nil
-            context.evaluateScript(code)
+            // Bản đã sửa cú pháp (nếu có) là bản được cài: lỗi cú pháp không còn làm mất cả thư viện.
+            _ = runFixingRhinoSyntax(code) { context.evaluateScript($0) }
             if let error = capturedError {
                 session?.diagnostics.record(.javaScript, "\(name): \(error)")
             }
@@ -346,12 +369,8 @@ final class LegadoJSRuntime {
     /// dòng dùng được, nên phân tích lại mã gốc bằng `JSCheckScriptSyntax` — **chỉ phân tích, không chạy** (không dùng
     /// `evaluateScript`). Không có lỗi hoặc vẫn không có dòng > 0 ⇒ `nil`.
     private func syntaxErrorWithLine(_ code: String) -> String? {
-        guard let script = JSStringCreateWithCFString(code as CFString) else { return nil }
-        defer { JSStringRelease(script) }
-        var exception: JSValueRef?
-        guard !JSCheckScriptSyntax(context.jsGlobalContextRef, script, nil, 1, &exception), let exception,
-              let error = JSValue(jsValueRef: exception, in: context), Self.lineNumber(of: error) > 0 else { return nil }
-        return Self.describe(error)
+        guard let issue = syntaxIssue(in: code), issue.line > 0 else { return nil }
+        return Self.describe(issue.error)
     }
 
     func raise(_ message: String) {

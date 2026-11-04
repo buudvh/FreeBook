@@ -118,6 +118,8 @@ final class LegadoCorpusProbe {
         case .bookURL(let url):
             try await continueFromBook(BookRef(link: url, host: nil, name: nil, author: nil))
         case .tocURL(let url):
+            // `++url` là trang mục lục: bước mục lục phân tích thẳng URL này, không chạy thông tin sách trên nó.
+            Self.seedTocURL(url, packageId: candidate.packageId, bookId: bookId)
             let chapter = try await toc(bookURL: url, book: nil)
             try await content(chapter, bookURL: url, book: nil)
         case .contentURL(let url):
@@ -213,14 +215,16 @@ final class LegadoCorpusProbe {
         let config = candidate.configJson
         let host = book?.host
         let context = makeContext(bookURL: bookURL, book: book, chapter: nil)
+        let packageId = candidate.packageId
+        let probeBookId = bookId
         let chapter = try await measure(.toc, seconds: Self.tocSeconds, operation: { () async throws -> ChapterRef in
             let chapters = try await SourceRuntime.shared.toc(
                 localPath: path, downloadUrl: downloadUrl, url: bookURL, host: host,
                 configJson: config, context: context
             )
-            let index = chapters.firstIndex { row in
-                !row.isSection && !row.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            }
+            // Bỏ hàng tên quyển rơi về URL trang mục lục (`+Chapter`).
+            let pages = LegadoCorpusProbe.knownTocPageURLs(packageId: packageId, bookURL: bookURL, bookId: probeBookId)
+            let index = LegadoCorpusProbe.testChapterIndex(chapters, tocPageURLs: pages)
             guard let index else { return ChapterRef(total: chapters.count, index: 0, title: "", url: "") }
             return ChapterRef(total: chapters.count, index: index, title: chapters[index].name, url: chapters[index].url)
         }, evaluate: { (count: $0.total, ok: !$0.url.isEmpty) })

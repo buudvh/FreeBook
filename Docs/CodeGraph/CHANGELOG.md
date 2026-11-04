@@ -2,6 +2,55 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.708] - 2026-11-04
+
+### fix: sửa 15 lỗi engine Legado từ báo cáo kiểm tra nguồn 19:57
+
+Người dùng: *"Làm theo javis đề xuất và hãy xem log sau đây"* (plan có bằng chứng từ hai báo cáo 18:12 và 19:57 cùng `app_logs (134).txt`). Mọi bằng chứng đối chiếu trang hoặc API thật, cộng corpus 6 file nguồn. Spec `legado-source-spec.md` đã sửa theo (§1.2.1, §2.2–§2.3, §2.6, §2.12, §3.9/U8, §3.10, §4.6, §4.7, §6.1–§6.4).
+
+- **Rule và URL**
+  - **Đuôi `##R##P##` cũng là trích khớp đầu, như `###`** (`LegadoRuleScanner.splitRegexTail`).
+    - Ví dụ: 黑岩#玄奇 / 黑岩网站 `a@href##\d+$##…/content/$0##` trước đây ra URL dính `…/book/140966/https://…` (404).
+    - Corpus: 27 rule ở 20 nguồn chỉ hợp lý khi trích khớp đầu. `##R##` (hai phần) vẫn là "xoá mọi đoạn".
+  - **`@js:` có đuôi `##`** ⇒ chạy phần trước `##` làm JS rồi áp đuôi regex lên kết quả. Chỉ tách khi cả đoạn không phân tích được mà phần trước thì được (`LegadoJSRegexTail`: kiểm cú pháp bằng `JSCheckScriptSyntax`, không chạy).
+    - `@js:##…` (JS rỗng) giữ `result`; khối `<js>##…</js>` là đuôi regex.
+    - Ví dụ 晋江[网页], 穿越小说, 笔迷读, VIP中文, 企鹅阅读, 七猫, 恩京.
+    - Corpus: 86 đoạn ở 65 nguồn, 20 đoạn JS rỗng, 26 khối `<js>##`.
+  - **Body là chuỗi JSON mà nguồn không đặt Content-Type** ⇒ gửi `application/json`, như `java.post` (U8 đã chốt).
+    - 乐读 ×3, 少年梦, 西瓜 ×4, 趣悦 ×2: gửi form thì 4 API từ chối hoặc trả rỗng.
+  - **Khối option `,{…}` không đọc được thì bỏ** (§1.2.1), không dán vào URL nữa. 独步 ×2 trước đây bị trang báo "没有找到…{body…}".
+  - **XPath `//X…` trên mục X khớp cả chính mục** (`self::X… | .//X…`). Ví dụ 耽美小说 `bookList //h2` + `name //h2/a//text()`. Vị từ chỉ số giữ nguyên nghĩa.
+  - **`src` của JS trong rule trường của mục là mã của mục**: HTML gọn hoặc JSON. 冷冷文学 cùng 9 nguồn dùng chung chapterUrl chạy regex một dòng trên `src`.
+- **Cầu JS**
+  - **`java.getElement`** với jsoup/CSS/XPath trả cả danh sách như `getElements`; JSONPath xác định vẫn trả một giá trị.
+    - 凡人小说 ×2 trước đây dùng `d.length`/`d.select` mà ra 0 chương; trang thật có 1891 chương.
+    - Danh sách có thêm `hasAttr`, `hasClass`, `hasText`, `val`.
+  - **`res.headers(tên)`** trả danh sách mọi giá trị (`[i]`, `toString()` kiểu `[a, b]`). `Set-Cookie` tách theo từng cookie.
+    - 天籁小说 `headers("Set-Cookie")[0]` trước đây ra `undefined`, nên URL tìm kiếm dựng ra rỗng.
+  - **Danh sách JSON rỗng thành chuỗi `"[]"`**, nối tiếp 1.3.700. 爱发电 ×3 (tác giả có 0 album) trước đây ra 0 chương.
+  - **`base64Decode` bỏ ký tự ngoài bảng chữ base64.** 完本小说网: base64 chứa `\/`, sau khi giải AES ra nội dung chương.
+  - **Lỗi cú pháp mà Rhino chấp nhận thì sửa rồi chạy lại** (`LegadoJSRhinoSyntax`, `runFixingRhinoSyntax`). Áp cho rule JS và jsLib; bản sửa là bản được cài.
+    - **Ký tự Cf** (U+200B…) ngoài literal thì bỏ (ES3 §7.1). Ví dụ 移动阅读 ×2.
+    - **`let X` trùng tham số** thì đổi thành `var X`. Ví dụ jsLib 书旗 `GetUrl`, 长佩 `AESencrypt`, trước đây mất cả thư viện.
+- **Mạng và bộ kiểm tra nguồn**
+  - **UA mặc định đổi sang Chrome máy tính** (§3.10).
+    - Với UA Android di động, 26 nguồn bị chuyển sang bản mobile không khớp rule: 黑岩 ×10, 若初 ×6, 若夏 ×4, 塔读 ×5, 红袖.
+    - Thử 40 nguồn đang qua với UA máy tính: không nguồn nào đổi kết quả.
+    - `java.getWebViewUA()` giữ UA WebView Android.
+  - **Trang HTTP 404 của các bước chính vẫn chạy rule** (§4.6, `LegadoSourceRuntime+HTTPErrorPage`). Áp cho tìm, khám phá, thông tin sách, mục lục, nội dung, comic.
+    - Bước ra rỗng hoặc rule ném lỗi trên trang 404 ⇒ ném lại lỗi HTTP gốc như trước.
+    - Mã ≥ 400 khác (403/429/503 thử thách Cloudflare, captcha) vẫn lỗi ngay. Nhờ vậy trang chặn không thành nội dung chương, và nút "Mở link lỗi" vẫn hiện.
+    - Ví dụ 阅友 ×4: chapterUrl là id trần nên trả 404, nhưng rule nội dung tự gửi POST.
+    - Thay đổi hành vi: trang 404 mà rule nội dung vẫn ra chữ thì chữ đó được lưu làm nội dung chương.
+  - **Bộ kiểm tra nguồn chọn chương thử bỏ qua hàng quyển** (không URL, URL trùng trang mục lục hoặc trùng hàng khác). Mục kiểm `++url` dùng làm tocUrl.
+    - 中文万维 / 中文书城 ×7 trước đây bị báo lỗi nội dung giả.
+- **Chưa sửa**
+  - `{{baseUrl}}` sau chuyển hướng (起点 ×2 `//catalog/`): bằng chứng chưa đủ, ghi UNKNOWN ở §4.7.
+- **Kiểm chứng**
+  - Đọc code; logic JS thử trên Node/V8 với văn bản bootstrap thật; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+  - Báo cáo 19:57 chạy bản có 1.3.700. Các nguồn 1.3.700 đã sửa đang tắt nên cần bật lại và chạy riêng.
+
 ## [1.3.707] - 2026-11-04
 
 ### fix: ô tìm của bảng chọn nguồn Khám phá đứng yên khi cuộn
@@ -666,16 +715,3 @@ Người dùng: *"các danh sách vô hạn có vẻ đang thiếu icon xoay tr�
 - **Luật `WHITE_TINT_FILL` giữ nguyên** (người dùng chọn), chỉ sửa lý do trong `check_architecture.py`, `rules.md`, `CLAUDE.md` / `AGENTS.md` (mục màu nhấn viết lại) và chú thích code từng nói "màu nhấn trắng".
 - Chuyển entry `[1.3.648]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: vòng xoay hiện ở mọi lần nạp trang kế (cả kiểu Danh sách), "Thử lại" sau lỗi, đổi màu ở Cài đặt là cả app + cửa sổ nổi + menu/hộp thoại UIKit đổi ngay, công tắc trong widget TTS, chữ trắng trên nút đặc Xanh ngọc có đủ rõ.
-
-## [1.3.677] - 2026-11-03
-
-### fix: ngăn kéo chọn nguồn chọn loại bằng menu, icon lọc hình phễu, ô tìm và tên tab ở Kho tiện ích
-
-Người dùng (sau 1.3.675–676): *"nút nsfw ngang với title chọn nguồn; thêm nút select để chọn tất cả, truyện chữ, truyện tranh, phim … bên cạnh ô tìm kiếm; bỏ thanh chọn … vì kéo scroll đang xung đột với vuốt đóng; dùng icon bộ lọc khác … giống y như mockup; sheet bộ lọc … nút reset … giảm size nút áp dụng"*; thêm *"áp dụng cho nút lọc của kho tiện ích luôn, đồng bộ nút search của tìm kiếm chương cho cả kho tiện ích và legado; đổi tên 2 tab con … tiện ích freebook và tiện ích legado"*. Chốt bằng mockup rồi duyệt plan.
-
-- **Ngăn kéo chọn nguồn**: viên NSFW (`ExtensionNsfwToggle`, mới) lên dòng tiêu đề "Chọn nguồn" — `SideDrawerMenu` thêm tham số `titleAccessory` (mặc định không có, menu ⋯ khác không đổi). Bỏ hàng chip loại (kéo cuộn ngang tranh với vuốt đóng); cạnh ô tìm là nút chọn loại dạng menu `ExtensionKindMenuButton` (mới: viên thuốc 40pt icon + tên + ↕; Tất cả · Truyện chữ · Truyện tranh · Phim, ✓ ở mục đang chọn; vẫn khoá `discoveryKindFilter`).
-- **Icon lọc hình phễu**: asset vector `TablerFilter` (Tabler Icons `filter`, MIT — `Docs/ThirdParty/Tabler-Icons-LICENSE.txt`), `AppGlyph.filter`; phần vẽ dùng chung `FilterGlyph` (mới — tròn / thanh tiêu đề / cạnh ô tìm, chấm trắng khi đang lọc). Dùng cho nút lọc tiện ích (Khám phá, danh sách thể loại, màn Tìm) và nút lọc của Kho tiện ích (thay `line.3.horizontal.decrease.circle` tô cam).
-- **Sheet Bộ lọc**: header chỉ còn "Áp dụng" nhỏ (viên thuốc 28pt, chữ 13pt — người dùng yêu cầu, nhỏ hơn nút chữ header chuẩn 17pt); ↺ Đặt lại nằm trong khung, cùng hàng tiêu đề mục đầu ("Sắp xếp") qua `ExtensionConfigFieldRow.labelAccessory` (mới, màn Cấu hình không dùng); mục đầu không phải ô chọn ⇒ ↺ đứng riêng ở đầu khung.
-- **Kho tiện ích**: hai tab đổi tên "Tiện ích FreeBook" · "Tiện ích Legado" (cả tiêu đề ngăn kéo ⋯). Ô tìm của cả hai tab thành viên thuốc kiểu mục lục `ChapterTOCSearchField` ("Tìm kiếm N tiện ích" / "Tìm kiếm N nguồn"), cách tìm giữ nguyên. `ChapterTOCSearchField` tắt tự sửa chính tả.
-- Chuyển entry `[1.3.647]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: menu chọn loại mở được trong ngăn kéo (cửa sổ nổi riêng), vuốt đóng ngăn kéo không còn vướng, icon phễu hiện đúng (asset SVG), ↺ cùng hàng "Sắp xếp".

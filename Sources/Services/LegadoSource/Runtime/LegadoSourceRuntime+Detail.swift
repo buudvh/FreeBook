@@ -38,8 +38,12 @@ extension LegadoSourceRuntime {
         let book = makeBookContext(target, bookUrl: bookUrl, state: initial, context: context)
         let rule = target.source.ruleBookInfo
         let raw: BookInfo = try await runSession(target, book: book, log: log) { session in
-            let response = try session.fetch(bookUrl)
-            let info = try Self.evaluateBookInfo(session: session, response: response, rule: rule, book: book)
+            // HTTP ≥ 400 vẫn chạy rule trên thân; trang không cho `name` ⇒ ném lỗi HTTP gốc (spec §4.6). Không xét
+            // `tocUrl`: rule kiểu `{{baseUrl}}/catalog/` ra giá trị trên mọi trang.
+            let response = try Self.fetchPage(session, bookUrl)
+            let info = try Self.evaluatePage(session, response, isEmpty: { $0.name.isEmpty }) { () throws -> BookInfo in
+                try Self.evaluateBookInfo(session: session, response: response, rule: rule, book: book)
+            }
             if info.name.isEmpty, book.name.isEmpty, Self.hasHardFailure(session) {
                 throw Self.emptyResultError(session, "ruleBookInfo.name")
             }

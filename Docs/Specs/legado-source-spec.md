@@ -127,6 +127,10 @@ Thuật toán đề xuất: (1) thử JSON chuẩn; (2) thử parser kiểu JSON
 chú thích `//` `/* */`, ký tự điều khiển và xuống dòng thô trong chuỗi; (3) nếu văn bản là nhiều object nối nhau
 thì lấy object đầu; (4) vẫn lỗi → coi như rỗng và ghi log có tên nguồn và tên trường `[đề xuất]`.
 
+Với option URL, "rỗng" = **bỏ khối** `,{…}`, URL chỉ còn phần trước dấu phẩy; không dán khối vào URL `[đã curl]`: 独步
+`/plus/search.php?q={{key}},\n{"body": "id"="search-form"}` gửi URL sạch thì ra 13 kết quả, dán khối vào query thì trang báo
+"没有找到…{body…}". Ngoại lệ: URL `data:` giữ nguyên chuỗi (§3.11).
+
 ### §1.3 Khoá cấp nguồn
 
 Tần suất trên 3701 nguồn. "Có giá trị" = khoá có mặt và không rỗng.
@@ -356,8 +360,20 @@ Một chuỗi rule có thể xen kẽ **phân đoạn rule** và **phân đoạn
 
 1. Duyệt chuỗi từ trái sang phải. Bỏ qua (không tách) vùng nằm trong `{{…}}` (§2.7).
 2. Gặp `<js>` (không phân biệt hoa thường) → kết thúc phân đoạn rule hiện tại; nội dung tới `</js>` đầu tiên là một
-   phân đoạn JS. Thiếu `</js>` → JS tới hết chuỗi.
-3. Gặp `@js:` (không phân biệt hoa thường) ngoài khối `<js>` → phần còn lại là một phân đoạn JS cuối.
+   phân đoạn JS. Thiếu `</js>` → JS tới hết chuỗi. Thân khối (đã trim) bắt đầu bằng `##` → không phải JS (không câu JS
+   nào mở đầu bằng `##`) mà là một phân đoạn rule `##R…` (đuôi regex §2.6) áp lên kết quả hiện hành `[quan sát]`: 26 khối ở
+   14 nguồn, ví dụ 七猫小说（优+） `<js>##[\(（【]…</js>`, 恩京的书房🎃 `<js>##、##,</js>`; chạy như JS thì luôn lỗi cú pháp.
+3. Gặp `@js:` (không phân biệt hoa thường) ngoài khối `<js>` → phần còn lại là một phân đoạn JS cuối. **Trừ** khi phần còn
+   lại có `##` nằm ngoài chuỗi/regex/template/chú thích JS, cả phần còn lại không phân tích được như JS, còn phần trước
+   `##` đầu tiên đó thì phân tích được: khi đó phần trước là phân đoạn JS, phần từ `##` là một phân đoạn rule `##R…`
+   (đuôi regex §2.6, gồm `###`/đuôi `##`) áp lên kết quả JS `[quan sát]`. Corpus: 86 khối `@js:` ở 65 nguồn chỉ phân
+   tích được khi cắt tại `##` đầu tiên, ví dụ 晋江[网页] `@JSon:$..content@js:result.replace(…)##@无限好文…|…` (không cắt thì
+   `Invalid character '#'`), 🎃猫眼看书🎃 `@js:java.aesBase64DecodeToString(…);##$##,{"js": …}` (regex nối khối option vào
+   URL). Chỉ kiểm cú pháp (không chạy) nên đoạn JS không chạy hai lần; "phân tích được" tính như lúc chạy (cho phép
+   `return` cấp ngoài cùng, §6.1). Phần trước `##` rỗng hoặc chỉ khoảng trắng (`a.0@href@js:##.+\D((\d+)\d{3})\D##…$2_$1/###`;
+   20 phân đoạn ở 12 nguồn, ví dụ 穿越小说, 笔迷读吧) → không có phân đoạn JS: `result` đi qua nguyên vẹn rồi mới áp đuôi
+   regex (chạy JS rỗng thì giá trị hoàn tất là `undefined`, mất kết quả). Không áp cho rule URL (§3.3), kể cả khối
+   `<js>##…</js>` ở bước 2.
 4. Phân đoạn rule chỉ có khoảng trắng bị bỏ.
 5. Chạy tuần tự: `c₀` = nội dung hiện hành. Phân đoạn rule dùng `cᵢ` làm nội dung; phân đoạn JS nhận `result = cᵢ`
    (§6.2), kết quả JS thành `cᵢ₊₁`. Trong phân đoạn JS, `java.getString/getElements` không truyền `content` vẫn chạy
@@ -376,7 +392,7 @@ Tiền tố `-`/`+` của rule danh sách (§2.13.1) được bóc **trước** 
 ```
 phân đoạn  := biểu-thức
 biểu-thức  := lá ( ("||" | "&&" | "%%") lá )*        ; tách theo §2.5
-lá         := [@put:{…}]* phần-chọn ["##" regex ["##" thay-thế ["###"]]] [@put:{…}]*
+lá         := [@put:{…}]* phần-chọn ["##" regex ["##" thay-thế ["###" | "##"]]] [@put:{…}]*
 phần-chọn  := [tiền-tố-chế-độ] thân  |  mẫu (template, §2.7)
 ```
 
@@ -474,6 +490,7 @@ Mỗi **lá** có thể mang đuôi regex (gắn với lá, không với cả bi
 | `sel##R` | xoá **mọi** đoạn khớp `R` | `p.m-book-meta@text##·.*` |
 | `sel##R##P` | thay **mọi** đoạn khớp `R` bằng `P` (`$1`… là nhóm) | `id.fmimg@tag.img@data-original##^/##https://www.min-yuan.com/` |
 | `sel##R##P###` | tìm **đoạn khớp đầu tiên**; kết quả = `P` khai triển theo nhóm của đoạn khớp đó (phần còn lại của chuỗi **bị bỏ**) | xem dưới |
+| `sel##R##P##` | như `###` (trích khớp đầu) | 黑岩 `a@href##\d+$##https://a.heiyan.com/ajax/chapter/content/$0##`, xem dưới |
 
 `###` = "trích khớp đầu", **không** phải "chỉ thay lần đầu" `[quan sát, đã curl]`: nguồn `⚡📂搜小说` có
 `tocUrl: .mubtn@a@href##/(\d+)##https://wap.sou78.com/info.php?aid=$1###`. Trang `https://www.sou78.com/book/2/` có
@@ -484,8 +501,13 @@ Mỗi **lá** có thể mang đuôi regex (gắn với lá, không với cả bi
 - Không khớp ở chế độ `###` → `[UNKNOWN]`. Bằng chứng yếu cho "giữ nguyên chuỗi": tác giả viết
   `##(^.*_\d+.*$|^)##$1###` (thêm nhánh `|^` luôn khớp rỗng để ép kết quả rỗng), tức là nếu không khớp thì chuỗi gốc
   bị giữ lại. Khuyến nghị: **giữ nguyên chuỗi đầu vào**.
-- Đuôi kết thúc bằng `##` (hai dấu, ví dụ `$.bid##(\d+)##https://book.qq.com/book-detail/$1##`) → coi như thay mọi đoạn
-  (hai cách cho cùng kết quả trên mọi mẫu gặp) `[đề xuất]`.
+- `sel##R##P##` (phần thay thế rồi `##` cuối, phần sau rỗng) → **trích khớp đầu**, y như `###` `[đã curl]`: 黑岩#玄奇 /
+  📚黑岩网站 `a@href##\d+$##https://a.heiyan.com/ajax/chapter/content/$0##` trên `https://www.heiyan.com/book/140966/11461933`
+  cho `https://a.heiyan.com/ajax/chapter/content/11461933` (API trả 200); thay mọi đoạn cho
+  `…/book/140966/https://a.heiyan.com/…` (404). Corpus: 27 rule / 20 nguồn dạng này, rule nào cũng hoặc cho cùng kết quả hai
+  cách, hoặc chỉ hợp lý khi trích (必应 `{{baseUrl}}##//([^/]+)##$1##`, AO3 `(.*)##Chapter: $1##`); `$.bid##(\d+)##…$1##`
+  trên `123` cho `https://book.qq.com/book-detail/123`. Không ghi log "hơn một cặp ##". `sel##R##` (chỉ hai phần) vẫn là
+  thay bằng rỗng = xoá mọi đoạn khớp.
 - Hơn một cặp `R##P`: không gặp mẫu rõ ràng (các chuỗi có ≥4 `##` đều do JS chen giữa) → bỏ phần dư, ghi log `[UNKNOWN]`.
 - Phần-chọn rỗng (`##R…` đứng đầu lá) → áp regex lên **chuỗi của nội dung hiện hành**: phần tử HTML → outer HTML, JSON →
   văn bản JSON, chuỗi → chính nó. Bằng chứng: `kind: ##\[([^]]*)[\s\S]*?_blank">[^>]*>([^<]*)##$1,$2###` khớp thẻ HTML
@@ -689,6 +711,13 @@ Tiền tố: `@json:` (118 lần mọi kiểu hoa thường), `$.`/`$[` (5088 ch
 - 663 chuỗi rule có `/text()` hoặc `/@attr`. Kết quả là phần tử (`//font[2]` ở `isVip`, `//ul[@class='ullist']//p` trong `{{}}`)
   → `getString` lấy chữ của phần tử `[UNKNOWN]`; `getElements` trả nút.
 - `/a/p[1]/text()` dưới mục XPath = đường dẫn **tương đối** tới mục (bước đầu là con), như `./a/p[1]/text()` `[quan sát]`.
+- `//X…` dưới một mục: **chính mục** cũng khớp được bước đầu, mỗi vế hợp `//X[p]rest` viết lại thành
+  `(self::X[p]rest | .//X[p]rest)` `[đã curl]`. 耽美小说 (+2 nguồn corpus) `bookList: //h2`, `name: //h2/a//text()`,
+  `bookUrl: //h2/a//@href`: mục là `<h2>` nên `.//h2/a` không ra gì; viết lại thì trang thật ra 4 kết quả. Chỉ viết lại
+  khi bước đầu là phép thử tên phần tử (`h2`, `p:x`, `*`) theo sau là hết biểu thức hoặc `/…`; vị từ chỉ số (`[2]`,
+  `last()`, `position()`) giữ `.//…` vì trên trục `self` chúng đổi nghĩa; `//@x` (`.//@x` đã gồm thuộc tính của chính
+  mục), `//text()`, trục tường minh giữ `.//…` `[đề xuất]`. 🔞Nhentai漫 `//a[contains(@class,'group')]/div[2]/…` dưới mục
+  `a.group` cũng nhờ đó mà khớp.
 - Cài đặt `[đề xuất]`: iOS có sẵn libxml2 (parser HTML + XPath). Mục XPath là nút libxml2; rule con không phải XPath thì
   tuần tự hoá nút thành HTML rồi parse bằng SwiftSoup.
 - Cây cho XPath dựng bằng **SwiftSoup** (cây HTML5 như jsoup) rồi tuần tự hoá (không pretty-print) cho libxml2, không đưa
@@ -886,10 +915,13 @@ Thuật toán khuyến nghị:
 
 - `body` là object JSON → tuần tự hoá thành JSON `[đề xuất]`.
 - `body` là chuỗi: gửi nguyên (sau mã hoá §3.8 nếu là form).
-- Content-Type: header (nguồn hoặc option) có thì dùng; corpus có 18 nguồn tự đặt (`application/x-www-form-urlencoded` 38 lần,
-  `application/json` 36 lần) `[quan sát]`. Không có: `[UNKNOWN]`. Khuyến nghị: `body` là object → `application/json`;
-  chuỗi → `application/x-www-form-urlencoded` kèm `charset` nếu có. (Việc nhiều tác giả tự thêm `application/json` khi body là
-  chuỗi JSON gợi ý mặc định gốc không phải JSON.)
+- Content-Type: header (nguồn, option hoặc `java.headerMap` của option `js`) có thì dùng; corpus có 18 nguồn tự đặt
+  (`application/x-www-form-urlencoded` 38 lần, `application/json` 36 lần) `[quan sát]`. Không có (U8, đã chốt): `body` là
+  object/mảng **hoặc chuỗi là văn bản JSON** (object/mảng JSON chuẩn) → `application/json`, như `java.post`; chuỗi khác →
+  `application/x-www-form-urlencoded`. Có `charset` thì kèm `; charset=…` (byte thân mã hoá theo nó, §3.8) `[đã curl]`: 10
+  nguồn gửi body chuỗi JSON mà không đặt Content-Type (乐读 ×3, 少年梦, 西瓜 ×4, 趣悦 ×2); cùng request trên 4 API (bookld,
+  shaoniandream, zuanqianyi, vivo) gửi form thì bị từ chối hoặc ra rỗng, gửi JSON thì có kết quả (vivo trả cả 斗罗大陆). Corpus
+  còn ≥ 18 nguồn cùng dạng.
 - `method` GET mà có `body` → bỏ body `[đề xuất]`. Không gặp `body` mà thiếu `method` trong `searchUrl`; nếu gặp → POST `[đề xuất]`.
 
 ### §3.10 Header nguồn
@@ -911,9 +943,17 @@ dạng khác 27.
 5. Tài liệu lưu ý khoá header phân biệt hoa thường và dạng đúng là `User-Agent`, `Referer` `[tài liệu ruleHelp.md]`; corpus vẫn
    có `user-agent` (37), `referer` (21) `[quan sát]`. Khuyến nghị gộp không phân biệt hoa thường (HTTP vốn vậy), ưu tiên theo
    thứ tự: mặc định < header nguồn < `headers` option < `java.headerMap` (option `js`).
-6. Không có header nguồn (2454 nguồn loại 0): UA mặc định `[đề xuất]` là UA **Chrome Android di động** (tác giả viết rule
-   trên ứng dụng Android; `java.getWebViewUA()` trả UA WebView Android `[tài liệu jsHelp.md]`), không dùng UA Safari iOS
-   (trang có thể trả HTML khác).
+6. Không có header nguồn (2454 nguồn loại 0): UA mặc định là UA **Chrome máy tính** Windows
+   (`Mozilla/5.0 (Windows NT 10.0; Win64; x64) … Chrome/124.0.0.0 Safari/537.36`), đã chốt thay cho UA Chrome Android di
+   động `[quan sát, đã curl]`:
+   - với UA di động, 26 nguồn hỏng vì trang chuyển sang bản di động mà rule không khớp: 黑岩 ×10, 若初 ×6, 若夏 ×4, 塔读 ×5,
+     红袖 ×1;
+   - 40 nguồn đang qua lấy mẫu (14 nguồn `m.`/`wap.`) không đổi kết quả khi đổi sang UA máy tính;
+   - 5 bản 塔读 tự khai UA Windows đều qua.
+
+   UA này áp cho mọi request luồng chính (kể cả trang tải bằng WebView, khi nguồn không khai UA) và `java.ajax`/`connect`/
+   `get`/`post`. `java.getWebViewUA()`, `java.webView(…)` và trình duyệt của nguồn **giữ** UA WebView Android
+   `[tài liệu jsHelp.md]`. Không dùng UA Safari iOS (trang có thể trả HTML khác).
 7. Header nguồn đánh giá **mỗi request** (JS header có thể sinh UUID/thời gian; có nguồn tự cache giá trị bằng `source.put`)
    `[quan sát]`.
 
@@ -978,10 +1018,20 @@ Thứ tự: `charset` trong header `Content-Type` → option `charset` → BOM �
 UTF-8; giải UTF-8 hỏng thì thử GB18030. Lý do đặt header trước option: option `charset` chủ yếu dùng cho **mã hoá request**
 (§3.8); khi server khai bảng mã thì đó là thông tin đáng tin nhất.
 
-### §4.6 Mã lỗi HTTP `[UNKNOWN, khuyến nghị]`
+### §4.6 Mã lỗi HTTP
 
-- Luồng chính (tìm, khám phá, thông tin, mục lục, nội dung): `2xx` → xử lý; `3xx` → theo chuyển hướng; `≥ 400` → lỗi có mã
-  (`HTTP 403`) và thân giữ lại cho màn gỡ lỗi. Trang xác minh (Cloudflare/captcha) thường là 403/503.
+- Luồng chính (tìm, khám phá, thông tin, mục lục, nội dung, kể cả trang `nextTocUrl`/`nextContentUrl`): `2xx` → xử lý;
+  `3xx` → theo chuyển hướng; **404** → **vẫn đưa thân cho rule** như ứng dụng Android `[quan sát]`: 阅友 ×4 có `chapterUrl`
+  là id trần (`chapterId@put:{…}`) nên trang chương trả 404, còn rule nội dung là JS tự gửi POST có chữ ký. Mã `≥ 400` khác
+  (403/429/503 thử thách Cloudflare, captcha…) → lỗi ngay như cũ `[đề xuất]`: rule mở đầu bằng JS trên `result` sẽ biến trang
+  chặn thành "nội dung" (bị lưu lại), và luồng "Mở link lỗi" / verdict cần người dùng dựa vào lỗi HTTP.
+- Bước ra **rỗng** trên trang 404 — 0 sách; `name` của trang rỗng (không xét `tocUrl`: `{{baseUrl}}/catalog/` ra giá
+  trị trên mọi trang); 0 chương; nội dung rỗng; tranh không có ảnh — hoặc rule ném lỗi trên thân đó ⇒ lỗi có mã (`HTTP 404`)
+  như cũ, thân giữ lại cho màn gỡ lỗi. Lỗi này đứng **trước** lỗi "rule khớp 0"/lỗi JS do chính trang lỗi gây ra, để bộ kiểm
+  tra nguồn vẫn phân loại theo mã `[đề xuất]`. Trang sau (`nextTocUrl`/`nextContentUrl`) 404 mà ra rỗng, hoặc mã `≥ 400` khác ⇒ dừng
+  phân trang, dùng phần đã có, không đi theo link của trang lỗi (§5.6).
+- `loginCheckJs` (§10.7) vẫn chạy sau request như cũ, trước bước rule. `preUpdateJs` → `java.refreshTocUrl()` (§13.3) và
+  video (§9.3) giữ cách cũ: `≥ 400` là lỗi ngay `[đề xuất]`.
 - Trong JS: `java.ajax` trả thân bất kể mã; `java.connect`/`get`/`post`/`head` trả đối tượng phản hồi có mã (§6.4) để JS tự xử lý
   (`if(/^30/.test(response.statusCode()))` `[quan sát]`).
 
@@ -992,6 +1042,15 @@ UTF-8; giải UTF-8 hỏng thì thử GB18030. Lý do đặt header trước opt
 - `java.get(url, headers)` / `java.post(url, body, headers)` **không** đi theo chuyển hướng: tài liệu nói chúng "dùng để chặn
   chuyển hướng", ví dụ lấy `header("Location")` `[tài liệu ruleHelp.md]`. Corpus dùng đúng như vậy
   (`response = java.get(url,{…}); if(/^30/.test(response.statusCode())){ source.setVariable(response.header("Location")…`) `[quan sát]`.
+- Biến `baseUrl` / `{{baseUrl}}` sau chuyển hướng là URL gốc hay URL cuối: `[UNKNOWN]`, đang dùng URL cuối.
+  - 起点🎃 (`bookUrl` `//m.qidian.com/book/<id>`, `tocUrl: {{baseUrl}}/catalog/`) và 起点男频 (`bookUrl` `…/book/<id>.html`,
+    `tocUrl: {{baseUrl}}/catalog/##.html`) chỉ chạy nếu `baseUrl` là URL **gốc** `[quan sát, đã curl]` (ngày 2026-11-04):
+    - `https://m.qidian.com/book/20117` và `…/20117.html` đều 301 về `…/20117/`, với cả UA máy tính lẫn UA Android, nên
+      đổi UA (§3.10 mục 6) không sửa được;
+    - URL gốc ghép ra `…/20117/catalog/` (200); URL cuối ghép ra `…/20117//catalog/` (404).
+  - Không kết luận được: hai nguồn cùng một trang, và trang có thể mới thêm 301 sau khi nguồn được viết. Nguồn 起点 mới hơn
+    (2025) tự dựng `https://m.qidian.com/book/$1/` có `/` cuối.
+  - Khi có bằng chứng, hướng sửa là `baseUrl` = URL gốc, còn link tương đối vẫn ghép theo URL cuối.
 - Tìm kiếm bị chuyển thẳng tới trang sách (một kết quả): xem §5.1.4.
 
 ### §4.8 `loginCheckJs` và đăng nhập
@@ -1355,6 +1414,19 @@ tính trong `jsHelp.md` `[tài liệu]`, xem §6.6.
   `var src = src.trim(); return src` vẫn đọc giá trị cũ. Khối bên trong cho phép `let`/`const` trùng tên tham số. Giá trị trả
   là giá trị `return`. Khác đã biết: gán `result` mà không `return` thì mất, vì phép gán chỉ đổi tham số nên dự phòng `result`
   ở trên không áp (corpus: 0 đoạn) `[đề xuất]`.
+- **Tương thích Rhino khi lỗi cú pháp** `[đề xuất]`: hai lỗi cú pháp của JSC mà Rhino chấp nhận được sửa, rồi chạy lại **một**
+  lần. Lỗi cú pháp xảy ra trước câu lệnh đầu nên lần đầu chưa chạy gì. Áp cho rule JS (cả dạng bọc `return`) và `jsLib`; với
+  `jsLib`, bản sửa là bản được cài, nên lỗi không còn làm mất cả thư viện (trước đó: `ReferenceError: Can't find variable:
+  GetUrl` ở chỗ gọi). Engine phân tích lại mã (không chạy) để lấy lỗi đầu và sửa từng lỗi một.
+  - `Invalid character '\u200b'` với ký tự định dạng Unicode Cf (U+200B, 200C, 200D, 2060…): bỏ mọi ký tự Cf **ngoài**
+    chuỗi, template và regex literal. ES3 §7.1 bỏ chúng trước khi phân tích từ vựng, và Rhino theo ES3. 📚移动阅读 ×2
+    `source.getSource\u200b()` `[quan sát]`. Trong literal thì giữ: emoji ghép bằng U+200D (👁 + ZWJ + 🗨), chuỗi `'\u200b'` cố ý (các bản
+    晋江, 禁漫天堂, 月色书屋) `[quan sát]`. Bộ quét là bản rút gọn: regex literal nhận theo token đứng trước `/`.
+  - `Cannot declare a let variable twice: 'X'` (ES2015 cấm `let X` ở thân hàm trùng tham số `X`): đổi **một** `let X` ở
+    dòng báo lỗi (không có thì dòng gần nhất) thành `var X`; lặp tối đa vài lần, mỗi lỗi một tên; không đụng `const`.
+    `var X` trùng tham số giữ giá trị tham số, nên `let sourceUrl = sourceUrl || "…"` đúng ý. 🏷书旗小说 jsLib
+    `function GetUrl(path, params, sourceUrl){… let sourceUrl = …`, 🔰长佩文学 `function AESencrypt(text, key, iv){… let
+    key = …` `[quan sát]`.
 - **Bộ nhớ khi chạy nhiều lần** `[đề xuất]`: mỗi lần chạy nhả ngay đối tượng cầu nối Swift↔JS của nó (một `autoreleasepool`
   mỗi lần), và chuỗi trang (`src`, hoặc `result` khi rule chạy trên cả trang) chỉ được chép vào JS một lần mỗi trang, nên
   mục lục hàng nghìn chương trên một trang không làm app hết bộ nhớ. 7 biến môi trường (§6.2) chỉ được lưu và khôi phục
@@ -1376,13 +1448,22 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
 | `page` | ✓ | ✓ | – | – | – | – |
 | `baseUrl` | `bookSourceUrl` | URL trang kết quả | URL trang sách | URL trang mục lục | URL trang chương | `bookSourceUrl` |
 | `result` | chuỗi tích luỹ (§3.2) | đầu ra phân đoạn trước | như trên | như trên | như trên | – |
-| `src` | – | thân phản hồi thô | như trên | như trên | như trên | – |
+| `src` | – | rule danh sách: thân phản hồi thô; rule trường của mục: mã của mục (dưới) | thân thô (có `init`: mã của phần tử `init`) | như cột tìm/khám phá | thân thô | – |
 | `book` | – | mục đang dựng (§6.6) | sách | sách | sách | sách nếu có |
 | `chapter` | – | – | – | mục đang dựng | chương | chương nếu có |
 | `title` | – | – | – | – | tên chương | – |
 | `nextChapterUrl` | – | – | – | – | URL chương kế | – |
 
 - `src` được dùng ở 333 nguồn loại 0, `baseUrl` 583, `result` 1375, `book` 622 (đếm thô) `[quan sát]`.
+- Trong JS của rule trường đánh giá trên **một mục** (trường của mục tìm/khám phá, trường của chương trong mục lục; cũng áp
+  cho phạm vi `init` của thông tin sách), `src` = mã của chính mục: phần tử HTML → outer HTML **gọn** (không pretty-print,
+  như cây XPath §2.12), mục JSON → văn bản JSON; rule cấp trang (rule danh sách, rule không qua mục) giữ thân thô `[quan sát]`.
+  冷冷文学 `chapterUrl: @href<js>…java.base64Decode(String(src).match(/class="g" .*?="([a-zA-Z\d\+=\/]{30,})"/)[1])…</js>`:
+  thân trang tách thuộc tính của `<a>` ra nhiều dòng (regex không khớp) và nếu khớp thì mọi chương ra cùng URL; mã của mục ra
+  đúng `/book/…/….html`. 9 nguồn khác cùng mẫu (海马书屋 ×2, 52PO ×3, 飞言情, 🔞PO5, ⚡📂新龙, 📚海棠搜书); 必应搜书 `name` tìm
+  作者/分类 trong `src` của từng kết quả. Corpus không có rule trường của mục nào cần `src` là cả trang (🏷晋江 `coverUrl`
+  `java.setContent(src)` rồi đọc `{{$.novelId}}` của mục; 哔哩哔哩 truyền `src` cho hàm `jsLib` không dùng nó).
+  `{{…}}` dạng JS trong rule trường vẫn thấy thân thô (corpus 0 lần dùng `src` ở đó).
 - Trong rule tìm/khám phá, `book` là mục đang dựng: `ruleSearch.intro: @put:{bookid:tag.td.0@text}\n《{{book.name}}》…` và
   `ruleExplore.intro: div.0@text##{{book.name}}|{{book.author}}` đọc tên/tác giả đã đánh giá `[quan sát]` → đánh giá trường theo
   thứ tự cố định: `name`, `author`, `kind`, `wordCount`, `lastChapter`, `intro`, `coverUrl`, `bookUrl` `[đề xuất]`.
@@ -1419,8 +1500,11 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
     như `JSONArray` của json-smart `[quan sát]`: `data.books[*]\n@js:JSON.parse(result).map(…)` (网易云),
     `$.data.list<js>String(result).replace(/\[/,'[{…},')` (爱发电), `JSON.parse(result)` sau `$.data.chapterListWithVolume`
     (番茄). Danh sách mà mọi phần tử là Element ⇒ `outerHtml` nối bằng `\n` (như jsoup, để `Jsoup.parse(ds)` đúng). Danh
-    sách khác giữ kiểu mảng JS (`a,b`), không theo `[a, b]` của Java; danh sách JSON rỗng cũng ra `""` (không phân biệt
-    được với mảng rỗng). Giá trị rule trả về xuất qua mảng, không qua `toString`, nên không đổi.
+    sách khác giữ kiểu mảng JS (`a,b`), không theo `[a, b]` của Java; riêng danh sách của `headers(tên)` in `[a, b]`
+    (§6.4.1). Giá trị rule trả về xuất qua mảng, không qua `toString`, nên không đổi.
+  - Danh sách JSON **rỗng** ⇒ `"[]"` như `JSONArray` rỗng. Engine gắn cờ "danh sách JSON" cả khi rỗng: danh sách rỗng mà
+    nội dung của rule đang chạy là JSON (JSONPath không còn mục) `[đề xuất]`. 爱发电 ×3, tác giả 0 album: `$.data.list` rỗng
+    ⇒ `"[]"` ⇒ `replace(/\[/,'[{"text":…},')` ⇒ `[{…},]` ⇒ `$.[*]` ra 1 chương (trước đó `""`, 0 chương) `[quan sát]`.
 
 ### §6.4 `java.*`: đợt 1
 
@@ -1446,6 +1530,14 @@ lỗi, không chặn đợt 1. `69書吧`, `魔丸小说`, `起点小说`, `全�
 
 **Phân biệt `java.get`** theo số tham số: 1 tham số = đọc biến (878 lần), 2 tham số = HTTP GET (52 lần) `[tài liệu jsHelp.md, ruleHelp.md]`.
 
+**`headers(tên)`** của đối tượng phản hồi (và `raw().headers(tên)`) = `List<String>` **mọi** giá trị của header đó, tên không
+phân biệt hoa thường: `[i]`, `get(i)`, `size()`, `length`, `toString()` kiểu Java `[a, b]` (không có ⇒ danh sách rỗng, `[]`).
+`headers()` không đối số vẫn là map (§6.3), `header(tên)` vẫn là một chuỗi. `[quan sát]` 15 nguồn dùng `.headers('Location')[0]`
+hoặc `String(….headers("Location")).replace(/\[(.*?)\]/,'$1')`; 📂天籁小说 `res.raw().headers("Set-Cookie")[0]` khi trang trả
+403 kèm 2 `Set-Cookie` `[đã curl]`. `Set-Cookie` mỗi cookie một mục: Foundation gộp các header trùng tên bằng `, `, nên engine
+cắt lại ở dấu phẩy ngay trước `tên=` (dấu phẩy trong `expires=Wed, 04-Nov-26 …` giữ nguyên); header khác giữ một giá trị
+(`Date` có dấu phẩy) `[đề xuất]`.
+
 #### §6.4.2 Rule và nội dung
 
 | Hàm | Lần / nguồn | Chữ ký và hành vi | Nhãn |
@@ -1453,7 +1545,7 @@ lỗi, không chặn đợt 1. `69書吧`, `魔丸小说`, `起点小说`, `全�
 | `java.getString(rule[, content[, isUrl]])` | 860 / 269 | đánh giá rule `getString` trên `content` (thiếu → nội dung hiện hành = trang/mục của rule, không phải `result` trung gian, §2.2 bước 5); `isUrl` → §2.15 | `[tài liệu]` |
 | `java.getStringList(rule[, content[, isUrl]])` | 44 / 21 | như trên, `getStringList` → mảng | `[tài liệu]` |
 | `java.getElements(rule)` | 97 / 61 | `getElements` trên nội dung hiện hành → danh sách phần tử shim (§6.8) hoặc giá trị JSON | `[tài liệu]` |
-| `java.getElement(rule)` | 53 / 29 | phần tử đầu (hoặc rỗng) | `[tài liệu]` |
+| `java.getElement(rule)` | 53 / 29 | jsoup/CSS/XPath ⇒ **cả danh sách** như `getElements` (kiểu `Elements`: `.length`, `[i]`, `.toArray()`, `.first()`, `.select(…)`, `.text()`, `.attr(…)`, `.html()`, cả `hasAttr`/`hasClass`/`hasText`/`val`); rỗng ⇒ danh sách rỗng. JSONPath **xác định** (không `*`, `..`, `[?…]`, `[a,b]`, `[a:b]`) ⇒ chính giá trị (`$.content` ⇒ chuỗi), không có ⇒ `null`; giá trị là mảng nhiều mục hoặc JSONPath không xác định ⇒ danh sách. Mảng một mục không phân biệt được với một giá trị ⇒ trả mục đó | `[tài liệu]`; danh sách `[quan sát]`: 凡人小说 ×2 `d=java.getElement(".list > div"); for(i=0;i<d.length-1;i++){d.select(…)}` (trang thật 1891 chương, trước đó 0), ~13 nguồn dùng `.length`/`[i]`/`.toArray()`/`.first()`; 晋江 `decode(java.getElement("$.content"))` cần chuỗi |
 | `java.setContent(content[, baseUrl])` | 63 / 42 | đặt nội dung hiện hành cho các lệnh `getString`/`getElements` sau, trong đoạn JS này | `[tài liệu]` |
 | `java.put(key, value)` | 930 / 221 | lưu biến rule (§5.7), **trả `value`** (`java.put(...).replace(...)` 9 lần) | `[tài liệu]`; giá trị trả `[quan sát]` |
 | `java.get(key)` | 878 lần | đọc biến rule; thiếu → `""` (§5.7) | `[tài liệu]`; giá trị thiếu `[UNKNOWN]` |
@@ -1466,7 +1558,7 @@ lỗi, không chặn đợt 1. `69書吧`, `魔丸小说`, `起点小说`, `全�
 | `java.md5Encode(s)` | 835 / 110 | MD5 32 hex **thường** (562 lần nối `.toUpperCase()`) | `[tài liệu]` + `[quan sát]` |
 | `java.md5Encode16(s)` | 6 / 2 | MD5 16 hex; `[UNKNOWN]` lấy đoạn nào, khuyến nghị ký tự 8…23 của bản 32 | `[tài liệu]` |
 | `java.base64Encode(s[, flags])` | 184 / 47 | UTF-8 → base64, mặc định không xuống dòng | `[tài liệu]` |
-| `java.base64Decode(s[, charset])` | 144 / 111 | base64 → chuỗi (UTF-8 hoặc `charset`) | `[tài liệu]` |
+| `java.base64Decode(s[, charset])` | 144 / 111 | base64 → chuỗi (UTF-8 hoặc `charset`). Khoan dung như bộ giải MIME của Java: bỏ mọi ký tự ngoài `[A-Za-z0-9+/=_-]` (khoảng trắng, `\` của `\/` chép từ JSON…), nhận bảng chữ URL-safe, tự thêm `=`. Mọi chỗ giải base64 của engine dùng chung (cả dữ liệu base64 của mã hoá đối xứng) | `[tài liệu]`; khoan dung `[đã curl]` (完本小说网: base64 chứa `\/`, bỏ `\` thì giải AES ra chương 2606 ký tự) |
 | `java.base64DecodeToByteArray(s[, flags])` | 40 / 23 | → bytes | `[tài liệu]` |
 | `java.hexDecodeToString(hex)` | 69 / 30 | hex → chuỗi UTF-8 | `[tài liệu]` |
 | `java.hexDecodeToByteArray(hex)` | 11 / 8 | hex → bytes | `[tài liệu]` |
@@ -1724,7 +1816,7 @@ lỗi, thời gian, và các chỉ số riêng dưới đây. Với mỗi điể
 | U5 | `ruleExplore` thừa kế từng trường hay cả nhóm (§5.2.4) | từng trường | 12 nguồn có `bookList` rỗng nhưng có trường khác |
 | U6 | Vế `\|\|` dạng mẫu thất bại khi placeholder rỗng (§2.7) | thất bại nếu có placeholder rỗng | rule URL có `{$.`/`{{` và `\|\|` |
 | U7 | Bảng mã phản hồi; mã hoá query/form, dấu cách (§3.8, §4.5) | header > option > BOM > meta > UTF-8; `%20` / `+` | nguồn có `charset` (487 lần): số kết quả tìm kiếm, ký tự lỗi |
-| U8 | Content-Type mặc định khi body là chuỗi (§3.9) | form-urlencoded; object → JSON | nguồn có body chuỗi JSON mà không tự đặt Content-Type |
+| U8 | Content-Type mặc định khi body là chuỗi (§3.9) | **đã chốt**: chuỗi văn bản JSON → `application/json`; chuỗi khác → form; object → JSON | đã đo: 4 API (bookld, shaoniandream, zuanqianyi, vivo) — form bị từ chối/rỗng, JSON có kết quả `[đã curl]` |
 | U9 | Không tự bỏ chương trùng (§5.4.2) | không bỏ | đếm `chapterUrl` trùng mỗi nguồn; nguồn có khối "chương mới nhất" |
 | U10 | `java.toNumChapter` (§6.4.2) | đổi số Hán trong `第…章`, không khớp thì giữ | 45 nguồn: so tên chương với trang thật |
 | U11 | Option `js` có thay URL bằng giá trị trả về (§3.6) | có, nếu là chuỗi không rỗng | 16 lần trong corpus |

@@ -8,6 +8,9 @@ extension LegadoSourceRuntime {
         var html: String
         /// URL cuối của trang chương đầu — URL nền để ghép URL ảnh tương đối (spec §8.2 bước 4).
         var pageURL: String
+        /// Trang chương đầu khi nó là trang lỗi HTTP (≥ 400, spec §4.6): bước ra rỗng (không chữ / không ảnh) thì caller
+        /// ném lỗi HTTP gốc của trang này thay cho lỗi "rỗng".
+        var errorPage: LegadoHTTPResponse? = nil
     }
 
     /// Văn bản thuần của chương ở `chapterUrl` (`ChapterResult.url` nguyên văn). Mọi trang `nextContentUrl` chạy chung
@@ -62,10 +65,15 @@ extension LegadoSourceRuntime {
         return value
     }
 
-    /// Thân phiên nội dung chữ: `collectContent` → `LegadoHTMLText.plainText` (§5.5.2).
+    /// Thân phiên nội dung chữ: `collectContent` → `LegadoHTMLText.plainText` (§5.5.2). Trang đầu là trang lỗi HTTP mà
+    /// chữ ra rỗng ⇒ ném lỗi HTTP gốc (§4.6).
     static func runContent(session: LegadoEngineSession, target: Target, chapterUrl: String, stopURL: String?) throws -> String {
         let collected = try collectContent(session: session, target: target, chapterUrl: chapterUrl, stopURL: stopURL)
-        return LegadoHTMLText.plainText(fromHTML: collected.html)
+        let text = LegadoHTMLText.plainText(fromHTML: collected.html)
+        if trimmed(text).isEmpty, let errorPage = collected.errorPage {
+            throw httpStatusError(session, errorPage)
+        }
+        return text
     }
 
     /// Vòng trang (spec §5.6) → nối `\n` → `replaceRegex` trên chuỗi đã nối, **trước** bước HTML → văn bản / tách ảnh
@@ -90,10 +98,10 @@ extension LegadoSourceRuntime {
             head += 1
             let response: LegadoHTTPResponse
             if loaded == 0 {
-                response = try session.fetch(pageURL, webJs: webJs, sourceRegex: sourceRegex)
+                response = try fetchPage(session, pageURL, webJs: webJs, sourceRegex: sourceRegex)
             } else {
                 do {
-                    response = try session.fetch(pageURL, webJs: webJs, sourceRegex: sourceRegex)
+                    response = try fetchPage(session, pageURL, webJs: webJs, sourceRegex: sourceRegex)
                 } catch let error as LegadoEngineError {
                     session.diagnostics.record(.info, "Dừng phân trang nội dung: \(error.localizedDescription)")
                     break
@@ -107,7 +115,18 @@ extension LegadoSourceRuntime {
             visited.insert(LegadoURLResolver.normalizedForComparison(response.finalURL))
             let analyzer = session.analyzer(response: response)
             // Trường nội dung: phần tử HTML (vd danh sách `<img>` do JS trả) giữ outer HTML (spec §15.3 mục 2).
-            let part = try analyzer.contentString(rule.content)
+            // Trang lỗi HTTP (spec §4.6): rule vẫn chạy trên thân. Ra rỗng ⇒ trang đầu ném lỗi HTTP gốc, trang sau thì dừng
+            // phân trang và **không** đi theo `nextContentUrl` của trang lỗi.
+            let part: String
+            do {
+                part = try evaluatePage(session, response, isEmpty: { trimmed($0).isEmpty }) { () throws -> String in
+                    try analyzer.contentString(rule.content)
+                }
+            } catch let error as LegadoEngineError {
+                guard loaded > 1, isErrorPage(response) else { throw error }
+                session.diagnostics.record(.info, "Dừng phân trang nội dung: \(error.localizedDescription)")
+                break
+            }
             let partKey = trimmed(part)
             // Trang lờ tham số trả lại đúng nội dung trước ⇒ dừng.
             if loaded > 1, seenParts.contains(partKey) { break }
@@ -142,7 +161,7 @@ extension LegadoSourceRuntime {
                 processed = replaced
             }
         }
-        return CollectedContent(html: processed, pageURL: firstPageURL)
+        return CollectedContent(html: processed, pageURL: firstPageURL, errorPage: isErrorPage(firstPage) ? firstPage : nil)
     }
 
     /// URL chương kế của `chapterUrl`: mục lục vừa tải trong bộ nhớ, không có thì `ChapterStore` theo `bookId` +

@@ -130,8 +130,10 @@ extension LegadoSourceRuntime {
             session.diagnostics.record(.info, "Mục lục theo tocUrl đã lưu lỗi HTTP — chạy lại thông tin sách")
         }
 
-        let response = try session.fetch(effectiveBookUrl)
-        let info = try evaluateBookInfo(session: session, response: response, rule: target.source.ruleBookInfo, book: book)
+        let response = try fetchPage(session, effectiveBookUrl)
+        let info = try evaluatePage(session, response, isEmpty: { $0.name.isEmpty }) { () throws -> BookInfo in
+            try evaluateBookInfo(session: session, response: response, rule: target.source.ruleBookInfo, book: book)
+        }
         variables = [:]
         let entries = try collectToc(session: session, target: target, book: book, bookUrl: effectiveBookUrl,
                                      tocUrl: info.tocUrl, firstResponse: info.tocUrl.isEmpty ? response : nil,
@@ -169,10 +171,10 @@ extension LegadoSourceRuntime {
             if loaded == 0, let firstResponse {
                 response = firstResponse
             } else if loaded == 0 {
-                response = try session.fetch(pageURL)
+                response = try fetchPage(session, pageURL)
             } else {
                 do {
-                    response = try session.fetch(pageURL)
+                    response = try fetchPage(session, pageURL)
                 } catch let error as LegadoEngineError {
                     // Trang sau lỗi: giữ phần đã có (spec §5.6 "dùng phần đã có"), không bỏ cả mục lục.
                     session.diagnostics.record(.info, "Dừng phân trang mục lục: \(error.localizedDescription)")
@@ -183,8 +185,21 @@ extension LegadoSourceRuntime {
             visited.insert(LegadoURLResolver.normalizedForComparison(response.finalURL))
             if loaded == 1 { book.tocUrl = response.finalURL }
             let analyzer = session.analyzer(response: response)
-            let parsed = try parseTocPage(session: session, analyzer: analyzer, rule: rule, book: book,
-                                          startIndex: output.count, chapterVariables: &chapterVariables)
+            // Trang lỗi HTTP (spec §4.6): rule vẫn chạy trên thân. Ra 0 chương ⇒ trang đầu ném lỗi HTTP gốc (lượt làm mới
+            // `tocUrl` của `collectTocWithRefresh` dựa vào `.httpStatus`), trang sau thì dừng phân trang và **không** đi theo
+            // `nextTocUrl` của trang lỗi.
+            let parsed: (entries: [TocEntry], matched: Int)
+            do {
+                parsed = try evaluatePage(session, response, isEmpty: { $0.entries.isEmpty }) {
+                    () throws -> (entries: [TocEntry], matched: Int) in
+                    try parseTocPage(session: session, analyzer: analyzer, rule: rule, book: book,
+                                     startIndex: output.count, chapterVariables: &chapterVariables)
+                }
+            } catch let error as LegadoEngineError {
+                guard loaded > 1, isErrorPage(response) else { throw error }
+                session.diagnostics.record(.info, "Dừng phân trang mục lục: \(error.localizedDescription)")
+                break
+            }
             let entries = parsed.entries
             if loaded == 1 {
                 firstPage = response

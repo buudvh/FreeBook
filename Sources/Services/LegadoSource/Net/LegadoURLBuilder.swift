@@ -5,7 +5,8 @@ import Foundation
 ///
 /// 1. JS sinh URL (`@js:`/`<js>`): phân đoạn chữ cộng dồn, phân đoạn JS nhận `result` = chuỗi tích luỹ — placeholder
 ///    trong **mã JS** không được thay trước.
-/// 2. Danh sách trang `<a,b,…>`. 3. Thay `{{…}}` (cả trong khối option). 4. Tách option `,{…}` (lenient).
+/// 2. Danh sách trang `<a,b,…>`. 3. Thay `{{…}}` (cả trong khối option). 4. Tách option `,{…}` (lenient; không đọc
+///    được ⇒ bỏ khối).
 /// 5. Option `js`. 6. Ghép URL tuyệt đối + mã hoá theo `charset`. 7. Gộp header: mặc định < nguồn < option < `java.headerMap`.
 struct LegadoURLBuilder {
     let session: LegadoEngineSession
@@ -37,11 +38,11 @@ struct LegadoURLBuilder {
         if let optionText = split.option {
             let rendered = try render(optionText, with: templateSource)
             option = LegadoURLOption.parse(rendered)
+            // Khối không đọc được bị **bỏ** (§1.2.1 bước 4), không dán vào URL: 独步 `…?q={{key}},\n{"body": "id"="search-form"}`
+            // dán khối vào query thì trang báo "没有找到…{body…}", URL sạch thì ra kết quả. URL `data:` vẫn giữ (dưới).
+            renderedOption = rendered
             if option == nil {
-                session.diagnostics.record(.ruleSyntax, "Khối option URL không đọc được: \(rendered.prefix(120))")
-                urlPart += "," + rendered
-            } else {
-                renderedOption = rendered
+                session.diagnostics.record(.ruleSyntax, "Bỏ khối option URL không đọc được: \(rendered.prefix(120))")
             }
         }
 
@@ -168,18 +169,21 @@ struct LegadoURLBuilder {
     }
 
     /// Thân request (§3.8–§3.9): object/mảng ⇒ JSON UTF-8; chuỗi văn bản JSON ⇒ gửi nguyên (theo charset);
-    /// chuỗi form ⇒ mã hoá form theo charset. Content-Type mặc định: object ⇒ JSON, chuỗi ⇒ form (U8).
+    /// chuỗi form ⇒ mã hoá form theo charset. Content-Type mặc định (chỉ dùng khi header nguồn/option/`java.headerMap`
+    /// không đặt): object/mảng và **chuỗi là văn bản JSON** ⇒ `application/json` (như `java.post`, U8 đã chốt), chuỗi
+    /// khác ⇒ form. Có `charset` ⇒ kèm `; charset=…` vì byte thân mã hoá theo nó.
     static func bodyData(_ body: LegadoEngineJSON, encoding: String.Encoding, charsetName: String?) -> (data: Data, contentType: String) {
-        let formType = "application/x-www-form-urlencoded" + (charsetName.map { "; charset=\($0)" } ?? "")
+        let charsetSuffix = charsetName.map { "; charset=\($0)" } ?? ""
         switch body {
         case .object, .array:
             return (Data(body.compactText.utf8), "application/json")
         default:
             let text = body.scalarString
             if LegadoEngineJSONParser.parseContainer(text) != nil {
-                return (Data(LegadoCharset.bytes(of: text, encoding: encoding)), formType)
+                return (Data(LegadoCharset.bytes(of: text, encoding: encoding)), "application/json" + charsetSuffix)
             }
-            return (Data(LegadoURLEncoder.encodeForm(text, encoding: encoding).utf8), formType)
+            return (Data(LegadoURLEncoder.encodeForm(text, encoding: encoding).utf8),
+                    "application/x-www-form-urlencoded" + charsetSuffix)
         }
     }
 }

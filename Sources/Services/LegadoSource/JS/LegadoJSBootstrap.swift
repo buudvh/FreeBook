@@ -5,7 +5,8 @@ import Foundation
 /// Swift chỉ cài **một** hàm native `__lgNative(lệnh, đối-số-JSON) -> chuỗi`; mọi đối tượng nguồn thấy được (`java`,
 /// `source`, `book`, `chapter`, `cookie`, `cache`, `org.jsoup`, `Packages`…) được dựng bằng JS ở đây. Giá trị qua ranh
 /// giới dùng "descriptor" JSON: chuỗi/số/bool giữ nguyên, `{"$el": id}` = phần tử HTML (handle trong runtime),
-/// `{"$arr": [...]}` = danh sách, `{"$json": v}` = object/mảng JS, `{"$bytes": "hex"}` = mảng byte.
+/// `{"$arr": [...]}` = danh sách (thêm `"$jsonList": true` = danh sách JSON), `{"$json": v}` = object/mảng JS,
+/// `{"$bytes": "hex"}` = mảng byte.
 ///
 /// Thứ tự nạp: `core` → `info` → `objects` → `java` → `javaExtra` → `classes` → `concurrent` → `jsoup` → `connect` →
 /// `streams` → `packages`.
@@ -61,8 +62,11 @@ enum LegadoJSBootstrap {
             if (d.$el !== undefined) { return g.__lg.wrapElement(d.$el); }
             if (d.$arr !== undefined) {
               var list = javaList(d.$arr.map(dec));
-              // Mọi mục là giá trị JSON (mục JSONPath) ⇒ danh sách kiểu `JSONArray`: `toString()` ra văn bản JSON.
-              if (d.$arr.length > 0 && d.$arr.every(isJSONDescriptor)) { defineHidden(list, '__lgJSON', true); }
+              // Danh sách JSON (Swift gắn `$jsonList`, kể cả khi rỗng; hoặc mọi mục là giá trị JSON) ⇒ kiểu `JSONArray`:
+              // `toString()` ra văn bản JSON, danh sách rỗng ra `[]`.
+              if (d.$jsonList === true || (d.$arr.length > 0 && d.$arr.every(isJSONDescriptor))) {
+                defineHidden(list, '__lgJSON', true);
+              }
               return list;
             }
             if (d.$json !== undefined) { return d.$json; }
@@ -202,6 +206,11 @@ enum LegadoJSBootstrap {
               }
               return '';
             },
+            // Như jsoup `Elements`: có phần tử nào có thuộc tính/class/chữ; `val()` của phần tử đầu.
+            hasAttr: function (k) { return this.some(function (x) { return x && typeof x.hasAttr === 'function' && x.hasAttr(k); }); },
+            hasClass: function (c) { return this.some(function (x) { return x && typeof x.hasClass === 'function' && x.hasClass(c); }); },
+            hasText: function () { return this.some(function (x) { return x && typeof x.text === 'function' && x.text().length > 0; }); },
+            val: function () { var x = this[0]; return x && typeof x.val === 'function' ? x.val() : ''; },
             eachText: function () {
               return javaList(this.map(function (x) { return x && typeof x.text === 'function' ? x.text() : String(x); })
                 .filter(function (s) { return s.length > 0; }));

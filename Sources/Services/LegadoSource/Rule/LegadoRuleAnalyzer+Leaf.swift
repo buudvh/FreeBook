@@ -49,7 +49,8 @@ extension LegadoRuleAnalyzer {
 
     // MARK: - Đuôi regex (§2.6)
 
-    /// `##R` xoá mọi đoạn khớp, `##R##P` thay mọi đoạn, `##R##P###` trích khớp đầu (không khớp ⇒ giữ nguyên, U3).
+    /// `##R` xoá mọi đoạn khớp, `##R##P` thay mọi đoạn, `##R##P###` / `##R##P##` trích khớp đầu (không khớp ⇒ giữ
+    /// nguyên, U3).
     /// Placeholder trong regex được thay giá trị **thô**; regex sau khi thay không biên dịch được thì thay lại bằng giá
     /// trị đã escape. Regex hỏng hẳn ⇒ bỏ bước regex, giữ chuỗi.
     func applyTail(_ tail: LegadoRuleScanner.RegexTail, to text: String, content: LegadoContentNode) throws -> String {

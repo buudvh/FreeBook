@@ -4,7 +4,8 @@ import SwiftSoup
 /// Đánh giá rule nguồn Legado trên một nội dung (spec §2).
 ///
 /// Một analyzer = một trang/nội dung gốc (`content`, URL nền `baseUrl`, thân thô `src`). Rule trường của từng mục
-/// danh sách đánh giá bằng tham số `in:`; khi đó mục là nội dung hiện hành nhưng `baseUrl`/`src` vẫn là của trang.
+/// danh sách đánh giá bằng tham số `in:`; khi đó mục là nội dung hiện hành, `baseUrl` vẫn là của trang, còn biến JS
+/// `src` là **mã của mục** (spec §6.2, `itemScriptSource`).
 ///
 /// Chỉ gọi trên thread engine (bên trong `LegadoEngineSession.run`). Mọi hàm chỉ ném `CancellationError`: lỗi rule
 /// (regex/CSS/JS hỏng) cho kết quả rỗng và được ghi vào `session.diagnostics` (spec §6.1).
@@ -23,6 +24,9 @@ final class LegadoRuleAnalyzer {
     var substitutesPlaceholdersInJS = true
 
     var xpathRootDocument: LegadoXPathDocument?
+    /// Mục đang đánh giá qua tham số `in:` (rule trường của mục) và `src` của mục, dựng lười khi có phân đoạn JS chạy.
+    private var scriptItem: LegadoContentNode?
+    private var scriptItemSource: String?
 
     init(session: LegadoEngineSession, content: LegadoContentNode, baseUrl: String, src: String?) {
         self.session = session
@@ -35,7 +39,7 @@ final class LegadoRuleAnalyzer {
 
     /// `getElements` (§2.1): rule danh sách (`bookList`, `chapterList`, `init`). Hỗ trợ tiền tố `-` (đảo) / `+`.
     func elements(_ rule: String, in item: LegadoContentNode? = nil) throws -> [LegadoContentNode] {
-        try evaluate(rule, kind: .elements, content: item ?? content, isRoot: item == nil).finalElements
+        try evaluate(rule, kind: .elements, in: item).finalElements
     }
 
     /// Phần tử/giá trị đầu của `getElements`, hoặc `nil`.
@@ -45,18 +49,18 @@ final class LegadoRuleAnalyzer {
 
     /// `getString`: một chuỗi (nhiều giá trị nối `\n`).
     func string(_ rule: String, in item: LegadoContentNode? = nil) throws -> String {
-        try evaluate(rule, kind: .string, content: item ?? content, isRoot: item == nil).finalString
+        try evaluate(rule, kind: .string, in: item).finalString
     }
 
     /// `getString` cho trường **nội dung** (đính chính spec §15.3 mục 2): phần tử HTML (do JS trả, vd danh sách `<img>`
     /// đã sửa `src`) thành **outer HTML** nối `\n` thay vì chữ của phần tử. Trường khác vẫn dùng `string(_:in:)` (U61).
     func contentString(_ rule: String, in item: LegadoContentNode? = nil) throws -> String {
-        try evaluate(rule, kind: .string, content: item ?? content, isRoot: item == nil, elementsAsHTML: true).finalString
+        try evaluate(rule, kind: .string, in: item, elementsAsHTML: true).finalString
     }
 
     /// `getStringList`: danh sách chuỗi không rỗng (`nextTocUrl`, `nextContentUrl`).
     func strings(_ rule: String, in item: LegadoContentNode? = nil) throws -> [String] {
-        try evaluate(rule, kind: .stringList, content: item ?? content, isRoot: item == nil).finalStrings
+        try evaluate(rule, kind: .stringList, in: item).finalStrings
     }
 
     /// Trường URL (§2.15): `getString` rồi tuyệt đối hoá theo `baseUrl` (khối option `,{…}` giữ nguyên).
@@ -74,6 +78,41 @@ final class LegadoRuleAnalyzer {
     }
 
     // MARK: - Đường ống (§2.2)
+
+    /// Rule cấp trang (`item == nil`) hoặc rule trường của một mục: cả lượt đánh giá (kể cả `@put`, placeholder lồng)
+    /// cho JS thấy `src` của mục. Lồng nhau an toàn: mục ngoài được khôi phục khi lượt trong kết thúc.
+    private func evaluate(_ rule: String, kind: Kind, in item: LegadoContentNode?,
+                          elementsAsHTML: Bool = false) throws -> LegadoContentNode {
+        guard let item else {
+            return try evaluate(rule, kind: kind, content: content, isRoot: true, elementsAsHTML: elementsAsHTML)
+        }
+        let savedItem = scriptItem
+        let savedSource = scriptItemSource
+        scriptItem = item
+        scriptItemSource = nil
+        defer {
+            scriptItem = savedItem
+            scriptItemSource = savedSource
+        }
+        return try evaluate(rule, kind: kind, content: item, isRoot: false, elementsAsHTML: elementsAsHTML)
+    }
+
+    /// Biến JS `src` của phân đoạn JS (§6.2): rule cấp trang ⇒ thân thô của trang; rule trường của mục ⇒ mã của mục
+    /// (phần tử HTML ⇒ outer HTML gọn, không pretty-print; JSON ⇒ văn bản JSON). 冷冷文学 + 9 nguồn cùng mẫu chạy regex
+    /// một dòng `String(src).match(/class="g" .*?="…"/)` trên **mục** (thân trang tách thuộc tính ra nhiều dòng);
+    /// 必应搜书 `name` tìm 作者/分类 trong `src` của từng kết quả.
+    private func itemScriptSource() -> String? {
+        guard let item = scriptItem else { return src }
+        if let scriptItemSource { return scriptItemSource }
+        let text: String
+        if case .html(let element) = item, let html = Self.compactOuterHTML(element) {
+            text = html
+        } else {
+            text = item.sourceText
+        }
+        scriptItemSource = text
+        return text
+    }
 
     /// Đánh giá đầy đủ một chuỗi rule theo dạng yêu cầu. Kết quả: `.string` cho `.string`, `.list` cho hai dạng còn lại.
     ///
@@ -97,7 +136,7 @@ final class LegadoRuleAnalyzer {
 
         var current = start
         var currentIsPage = isRoot
-        for segment in LegadoRuleScanner.segments(text) {
+        for segment in LegadoRuleScanner.segments(text, splitsJSRegexTail: true) {
             try session.checkCancellation()
             switch segment {
             case .rule(let ruleText):
@@ -115,7 +154,8 @@ final class LegadoRuleAnalyzer {
                 }
                 // `java.getString/getElements` trong đoạn JS chạy trên nội dung **gốc** của rule (trang/mục), không trên
                 // kết quả trung gian: `$.data.list<js>java.getString('$.data.prefix')</js>` (spec §2.2 bước 5).
-                current = try session.evaluateScript(script, result: input, baseUrl: baseUrl, src: src, frameContent: start)
+                current = try session.evaluateScript(script, result: input, baseUrl: baseUrl, src: itemScriptSource(),
+                                                     frameContent: start)
             }
             currentIsPage = false
         }

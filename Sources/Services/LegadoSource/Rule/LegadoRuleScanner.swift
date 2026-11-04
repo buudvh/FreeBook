@@ -21,7 +21,7 @@ enum LegadoRuleScanner {
         case variable(String)
     }
 
-    /// Đuôi regex của một lá: `##R`, `##R##P`, `##R##P###`.
+    /// Đuôi regex của một lá: `##R`, `##R##P`, `##R##P###` (hoặc `##R##P##`: cùng nghĩa trích khớp đầu).
     struct RegexTail {
         var pattern: String
         var replacement: String?
@@ -31,7 +31,10 @@ enum LegadoRuleScanner {
 
     // MARK: - Phân đoạn (§2.2)
 
-    static func segments(_ rule: String) -> [Segment] {
+    /// `splitsJSRegexTail`: mã của `@js:` có đuôi `##…` (`@js:result.replace(…)##R##P`) ⇒ tách thành phân đoạn JS và
+    /// phân đoạn rule `##…` áp lên kết quả JS (§2.2 bước 3, `LegadoJSRegexTail`); khối `<js>##…</js>` (thân chỉ là đuôi
+    /// regex) ⇒ phân đoạn rule `##…` (§2.2 bước 2). Rule URL không bật.
+    static func segments(_ rule: String, splitsJSRegexTail: Bool = false) -> [Segment] {
         let bytes = Array(rule.utf8)
         var output: [Segment] = []
         var ruleStart = 0
@@ -40,6 +43,15 @@ enum LegadoRuleScanner {
             guard end > ruleStart else { return }
             let text = string(bytes, ruleStart, end).trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty { output.append(.rule(text)) }
+        }
+        // `<js>##、##,</js>`, `<js>##[\(（【]…</js>`: không câu JS nào mở đầu bằng `##`, nên đó là đuôi regex trên `result`.
+        func appendBlock(_ code: String) {
+            let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+            if splitsJSRegexTail, trimmed.hasPrefix("##") {
+                output.append(.rule(trimmed))
+            } else {
+                output.append(.js(code))
+            }
         }
         while index < bytes.count {
             if bytes[index] == brace, index + 1 < bytes.count, bytes[index + 1] == brace,
@@ -51,10 +63,10 @@ enum LegadoRuleScanner {
                 flushRule(until: index)
                 let codeStart = index + jsOpen.count
                 if let close = findCI(bytes, jsClose, from: codeStart) {
-                    output.append(.js(string(bytes, codeStart, close)))
+                    appendBlock(string(bytes, codeStart, close))
                     index = close + jsClose.count
                 } else {
-                    output.append(.js(string(bytes, codeStart, bytes.count)))
+                    appendBlock(string(bytes, codeStart, bytes.count))
                     index = bytes.count
                 }
                 ruleStart = index
@@ -62,7 +74,16 @@ enum LegadoRuleScanner {
             }
             if matchesCI(bytes, at: index, jsPrefix) {
                 flushRule(until: index)
-                output.append(.js(string(bytes, index + jsPrefix.count, bytes.count)))
+                let code = string(bytes, index + jsPrefix.count, bytes.count)
+                if splitsJSRegexTail, let split = LegadoJSRegexTail.split(code) {
+                    // `@js:##R##P###` (không có mã trước `##`): không chạy JS — JS rỗng cho `undefined`, xoá kết quả.
+                    if !split.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        output.append(.js(split.code))
+                    }
+                    output.append(.rule(split.tail))
+                } else {
+                    output.append(.js(code))
+                }
                 ruleStart = bytes.count
                 index = bytes.count
                 break
@@ -153,6 +174,11 @@ enum LegadoRuleScanner {
         var parts = tailText.components(separatedBy: "##")
         var firstOnly = false
         if parts.count >= 2, parts.last == "#" {
+            firstOnly = true
+            parts.removeLast()
+        } else if parts.count >= 3, parts.last == "" {
+            // `##R##P##` = `##R##P###` (黑岩 `a@href##\d+$##https://a.heiyan.com/…/$0##`). `##R##` (hai phần) vẫn là
+            // "xoá mọi đoạn khớp".
             firstOnly = true
             parts.removeLast()
         }

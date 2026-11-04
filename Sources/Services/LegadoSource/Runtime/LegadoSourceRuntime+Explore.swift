@@ -58,13 +58,16 @@ extension LegadoSourceRuntime {
         let books: [FoundBook] = try await runSession(target, log: log) { session in
             session.key = ""
             session.page = pageNumber
-            let response = try session.fetch(url, key: "", page: pageNumber)
+            // HTTP ≥ 400 vẫn chạy rule trên thân; 0 sách ⇒ ném lỗi HTTP gốc (`+HTTPErrorPage`, spec §4.6).
+            let response = try Self.fetchPage(session, url, key: "", page: pageNumber)
             let analyzer = session.analyzer(response: response)
-            let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer, rule: rule)
-            let found = extracted.books
-            if found.isEmpty {
-                LegadoSelectorProbe.record(in: session, field: "bookList", rule: rule.bookList, response: response,
-                                           matchedElements: extracted.matched)
+            let found = try Self.evaluatePage(session, response, isEmpty: { $0.isEmpty }) { () throws -> [FoundBook] in
+                let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer, rule: rule)
+                if extracted.books.isEmpty, !Self.isErrorPage(response) {
+                    LegadoSelectorProbe.record(in: session, field: "bookList", rule: rule.bookList, response: response,
+                                               matchedElements: extracted.matched)
+                }
+                return extracted.books
             }
             if found.isEmpty, Self.hasHardFailure(session) {
                 throw Self.emptyResultError(session, "bookList")

@@ -6,9 +6,11 @@ import Foundation
 ///
 /// Gọi đồng bộ trên thread engine; chờ theo lát ngắn để huỷ có hiệu lực ngay (`LegadoEngineCancellation`).
 final class LegadoHTTPClient {
-    /// UA mặc định khi nguồn không khai: Chrome Android di động (spec §3.10 mục 6).
-    static let defaultUserAgent = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-    /// UA của WebView Android (`java.getWebViewUA()`, §6.4.4).
+    /// UA mặc định khi nguồn không khai: Chrome **máy tính** Windows (spec §3.10 mục 6). Dùng cho request luồng chính (cả
+    /// trang tải bằng WebView — `LegadoURLBuilder` luôn đặt UA này trước header nguồn) và `java.ajax`/`get`/`post`. UA di
+    /// động làm nhiều trang chuyển sang bản `m.`/`wap.` mà rule không khớp (黑岩, 若初, 若夏, 塔读, 红袖).
+    static let defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    /// UA của WebView Android (`java.getWebViewUA()`, §6.4.4) — giữ nguyên cho `java.webView`, trình duyệt của nguồn.
     static let webViewUserAgent = "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230901.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.0.0 Mobile Safari/537.36"
 
     struct Hop {

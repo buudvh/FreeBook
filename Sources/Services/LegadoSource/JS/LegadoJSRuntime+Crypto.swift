@@ -116,9 +116,10 @@ extension LegadoJSRuntime {
         return text
     }
 
-    /// Giải base64 khoan dung: bỏ khoảng trắng, nhận cả bảng chữ URL-safe, tự thêm `=`.
+    /// Giải base64 khoan dung như bộ giải MIME của Java: bỏ mọi ký tự ngoài `[A-Za-z0-9+/=_-]` (khoảng trắng, `\` của
+    /// `\/` chép từ JSON…), nhận cả bảng chữ URL-safe, tự thêm `=`.
     static func base64Decode(_ text: String, flags: Int?) -> Data {
-        var cleaned = text.filter { !$0.isWhitespace }
+        var cleaned = String(String.UnicodeScalarView(text.unicodeScalars.filter { isBase64Character($0) }))
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
         while cleaned.hasSuffix("=") { cleaned.removeLast() }
@@ -126,6 +127,13 @@ extension LegadoJSRuntime {
         if remainder == 1 { cleaned.removeLast() }
         if remainder > 1 { cleaned += String(repeating: "=", count: 4 - remainder) }
         return Data(base64Encoded: cleaned) ?? Data()
+    }
+
+    private static func isBase64Character(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar {
+        case "A"..."Z", "a"..."z", "0"..."9", "+", "/", "=", "_", "-": return true
+        default: return false
+        }
     }
 
     // MARK: - Băm

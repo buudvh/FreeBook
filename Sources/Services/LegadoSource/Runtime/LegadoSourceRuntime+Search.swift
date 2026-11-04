@@ -14,17 +14,22 @@ extension LegadoSourceRuntime {
         let books: [FoundBook] = try await runSession(target, log: log) { session in
             session.key = key
             session.page = pageNumber
-            let response = try session.fetch(searchUrl, key: key, page: pageNumber)
+            // HTTP ≥ 400 vẫn chạy rule trên thân; 0 sách ⇒ ném lỗi HTTP gốc (`+HTTPErrorPage`, spec §4.6).
+            let response = try Self.fetchPage(session, searchUrl, key: key, page: pageNumber)
             let analyzer = session.analyzer(response: response)
-            let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer, rule: target.source.ruleSearch)
-            var found = extracted.books
-            if found.isEmpty, let direct = try Self.directBookPage(session: session, target: target, response: response) {
-                found = [direct]
-            }
-            if found.isEmpty {
-                // Đầu dò bộ chọn (chỉ khi lượt chạy có log): bằng chứng "nguồn lỗi thời" hay "nghi do app".
-                LegadoSelectorProbe.record(in: session, field: "bookList", rule: target.source.ruleSearch.bookList,
-                                           response: response, matchedElements: extracted.matched)
+            let found = try Self.evaluatePage(session, response, isEmpty: { $0.isEmpty }) { () throws -> [FoundBook] in
+                let extracted = try Self.extractBooksCounting(session: session, analyzer: analyzer,
+                                                              rule: target.source.ruleSearch)
+                var books = extracted.books
+                if books.isEmpty, let direct = try Self.directBookPage(session: session, target: target, response: response) {
+                    books = [direct]
+                }
+                if books.isEmpty, !Self.isErrorPage(response) {
+                    // Đầu dò bộ chọn (chỉ khi lượt chạy có log): bằng chứng "nguồn lỗi thời" hay "nghi do app".
+                    LegadoSelectorProbe.record(in: session, field: "bookList", rule: target.source.ruleSearch.bookList,
+                                               response: response, matchedElements: extracted.matched)
+                }
+                return books
             }
             if found.isEmpty, Self.hasHardFailure(session) {
                 throw Self.emptyResultError(session, "bookList")

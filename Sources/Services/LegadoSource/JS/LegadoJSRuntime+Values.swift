@@ -24,7 +24,33 @@ extension LegadoJSRuntime {
         case .regexMatch(let groups):
             return .object([(key: "$arr", value: .strings(groups))])
         case .list(let items):
-            return .object([(key: "$arr", value: .array(items.map { descriptor(for: $0) }))])
+            var entries: [(key: String, value: LegadoEngineJSON)] = [(key: "$arr", value: .array(items.map { descriptor(for: $0) }))]
+            if isJSONList(items) { entries.append((key: "$jsonList", value: .bool(true))) }
+            return .object(entries)
+        }
+    }
+
+    /// Danh sách JSON (kết quả JSONPath): mọi mục là giá trị JSON; danh sách **rỗng** thì xét nội dung của rule đang chạy
+    /// (khung JS trên cùng) là JSON — JSONPath không còn mục. Bên JS, danh sách JSON `toString()` ra văn bản JSON, rỗng
+    /// ⇒ `"[]"` như `JSONArray` (spec §6.3). Nội dung khung là chuỗi thì chỉ nhìn ký tự đầu, không phân tích lại cả trang.
+    private func isJSONList(_ items: [LegadoContentNode]) -> Bool {
+        guard items.isEmpty else {
+            return items.allSatisfy { item in
+                if case .json = item { return true }
+                return false
+            }
+        }
+        switch session?.ruleFrames.last?.content {
+        case .json?:
+            return true
+        case .list(let frameItems)?:
+            if case .json? = frameItems.first { return true }
+            return false
+        case .string(let text)?:
+            let first = text.unicodeScalars.first { !CharacterSet.whitespacesAndNewlines.contains($0) }
+            return first == "{" || first == "["
+        default:
+            return false
         }
     }
 

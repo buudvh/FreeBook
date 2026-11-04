@@ -14,10 +14,14 @@ extension LegadoSourceRuntime {
         let decodes = nonEmpty(target.source.ruleContent.imageDecode) != nil
         let pages: [ComicPageSource] = try await runChapterSession(target, chapterUrl: chapterUrl, context: context, log: log) { session, nextURL in
             let collected = try Self.collectContent(session: session, target: target, chapterUrl: chapterUrl, stopURL: nextURL)
+            // Trang chương đầu là trang lỗi HTTP mà không ra ảnh ⇒ lỗi HTTP gốc (spec §4.6), trước lỗi "rỗng"/"không ảnh".
+            let images = LegadoComicImageExtractor.images(in: collected.html)
+            if images.isEmpty, let errorPage = collected.errorPage {
+                throw Self.httpStatusError(session, errorPage)
+            }
             guard !Self.trimmed(collected.html).isEmpty else {
                 throw Self.emptyResultError(session, "nội dung chương (content)")
             }
-            let images = LegadoComicImageExtractor.images(in: collected.html)
             guard !images.isEmpty else {
                 // Nguồn "tranh" thực chất trả chữ/link (spec §8.2 bước 6): đưa đoạn chữ đã làm sạch vào thông báo lỗi.
                 let text = LegadoHTMLText.plainText(fromHTML: collected.html)

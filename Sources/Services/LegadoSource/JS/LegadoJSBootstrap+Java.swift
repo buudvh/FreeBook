@@ -11,12 +11,30 @@ extension LegadoJSBootstrap {
             if (typeof h === 'string') { return h; }
             try { return JSON.stringify(h); } catch (e) { return String(h); }
           }
+          // `Set-Cookie` đã gộp: Foundation nối các header trùng tên bằng ", ". Chỉ cắt ở dấu phẩy mà ngay sau là `tên=`,
+          // nên dấu phẩy trong `expires=Wed, 04-Nov-26 …` (sau nó là chữ số rồi dấu cách) giữ nguyên.
+          function splitSetCookie(v) {
+            return String(v).split(/,\s*(?=[^=;,\s]+=)/).filter(function (s) { return s.length > 0; });
+          }
           function response(r) {
             r = r || { url: '', code: 0, message: '', headers: {}, cookies: {}, body: '' };
             function findHeader(name) {
               var lower = String(name).toLowerCase();
               for (var k in r.headers) { if (k.toLowerCase() === lower) { return r.headers[k]; } }
               return null;
+            }
+            // `headers(tên)` = `List<String>` mọi giá trị của header (tên không phân biệt hoa thường; `Set-Cookie` mỗi cookie
+            // một mục), `toString()` kiểu Java `[a, b]`; không đối số = map như cũ.
+            function headers(name) {
+              if (name === undefined) { return L.map(Object.assign({}, r.headers)); }
+              var lower = String(name).toLowerCase(), values = [];
+              for (var k in r.headers) {
+                if (k.toLowerCase() !== lower) { continue; }
+                if (lower === 'set-cookie') { values.push.apply(values, splitSetCookie(r.headers[k])); } else { values.push(String(r.headers[k])); }
+              }
+              var list = L.list(values);
+              L.defineHidden(list, 'toString', function () { return '[' + this.join(', ') + ']'; });
+              return list;
             }
             var res = {
               body: function () { return r.body; },
@@ -25,7 +43,7 @@ extension LegadoJSBootstrap {
               message: function () { return r.message; },
               statusMessage: function () { return r.message; },
               isSuccessful: function () { return r.code >= 200 && r.code < 300; },
-              headers: function () { return L.map(Object.assign({}, r.headers)); },
+              headers: headers,
               header: function (name) { return findHeader(name); },
               cookies: function () { return L.map(Object.assign({}, r.cookies)); },
               cookie: function (name) { var v = r.cookies[name]; return v === undefined ? null : v; },
@@ -35,7 +53,7 @@ extension LegadoJSBootstrap {
                   request: function () { return { url: function () { return r.url; } }; },
                   code: function () { return r.code; },
                   message: function () { return r.message; },
-                  headers: function () { return L.map(Object.assign({}, r.headers)); },
+                  headers: headers,
                   header: function (name) { return findHeader(name); }
                 };
               },
@@ -53,6 +71,11 @@ extension LegadoJSBootstrap {
             if (typeof v === 'string' || v instanceof String) { return JSON.stringify({ k: 'str', s: String(v) }); }
             return '{"k":"none"}';
           });
+          // JSONPath "xác định" kiểu Jayway: không `*`, `..`, bộ lọc `[?…]`, nhiều chỉ số/khoảng `[a,b]`/`[a:b]`, `&&`/`%%`.
+          function definiteJSONPath(rule) {
+            var r = String(rule).trim().replace(/^@json:/i, '');
+            return !/\*|\.\.|\[\s*\?|&&|%%|\[[^\]]*[,:][^\]]*\]/.test(r);
+          }
           function symmetric(transformation, key, iv) {
             function run(op, data, output) { return call('sym', [op, String(transformation), key, iv === undefined ? null : iv, data, output]); }
             return {
@@ -88,7 +111,14 @@ extension LegadoJSBootstrap {
               return L.list(callJSON('getStringList', [String(rule), content === undefined ? null : content, !!isUrl]) || []);
             },
             getElements: function (rule) { return L.dec(callJSON('getElements', [String(rule)])) || L.list([]); },
-            getElement: function (rule) { var l = java.getElements(rule); return l.length ? l[0] : null; },
+            // jsoup/CSS/XPath ⇒ cả danh sách như `getElements` (kiểu `Elements`: `.length`, `[i]`, `.select`, `.text()`…).
+            // JSONPath xác định (một giá trị, `$.content`) ⇒ chính giá trị đó, thiếu ⇒ `null`; giá trị là mảng (nhiều mục)
+            // hoặc JSONPath không xác định ⇒ danh sách.
+            getElement: function (rule) {
+              var l = java.getElements(rule);
+              if (l.__lgJSON !== true || !definiteJSONPath(rule) || l.length > 1) { return l; }
+              return l.length ? l[0] : null;
+            },
             setContent: function (content, baseUrl) { call('setContent', [content, baseUrl == null ? null : String(baseUrl)]); },
             put: function (k, v) { call('putVar', [String(k), String(v)]); return v; },
             toNumChapter: function (s) { return call('toNumChapter', [s == null ? '' : String(s)]); },
