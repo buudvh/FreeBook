@@ -37,10 +37,14 @@ extension ReaderDefinitionOverlayView {
                         .background(Color.secondary.opacity(0.18))
                         .cornerRadius(3)
 
-                    Text(notice)
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .lineLimit(1)
+                    // Câu báo dài ⇒ kéo ngang để đọc hết, không cắt đuôi.
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Text(notice)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else if let trace = focusedRuleTrace {
@@ -57,12 +61,16 @@ extension ReaderDefinitionOverlayView {
                         .foregroundColor(.secondary)
                 }
 
-                Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
-                    .font(.body)
-                    .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
-                    .textSelection(.enabled)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Nghĩa rule dài ⇒ kéo ngang để xem phần bị khuất; vẫn bôi chọn được, hàng giữ cao 50.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(trace.rendered.isEmpty ? "(rule này không sinh chữ nào ở đây)" : trace.rendered)
+                        .font(.body)
+                        .foregroundColor(trace.status.isDisabled ? .secondary : .primary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text("Không có thông tin rule")
                     .font(.caption)

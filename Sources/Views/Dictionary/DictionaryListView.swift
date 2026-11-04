@@ -170,13 +170,22 @@ struct DictionaryListView: View {
             })
         }
         .sheet(item: $editingEntry) { entry in
-            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value), chipBookId: bookId ?? contextBookId, onSaveSingle: { newKey, newValue in
-                if newKey == entry.key {
-                    upsertEntry(key: newKey, value: newValue)
-                } else {
-                    updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
-                }
-            })
+            DictEntrySheet(
+                mode: .edit(key: entry.key, value: entry.value), chipBookId: bookId ?? contextBookId,
+                dictType: type, scopeBookId: bookId,
+                existingValue: { key in allEntries.first { $0.key == key }?.value },
+                onSaveSingle: { newKey, newValue in
+                    if newKey == entry.key {
+                        upsertEntry(key: newKey, value: newValue)
+                    } else {
+                        updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
+                    }
+                },
+                // Lưu một phần từ gốc: thêm mục mới, mục đang sửa giữ nguyên ("Giữ từ cũ").
+                onAddEntry: { newKey, newValue in upsertEntry(key: newKey, value: newValue) },
+                // Danh sách Chung tự làm mới qua `DictionaryCache.refreshIfLoaded`; Riêng phải đọc lại file.
+                onDefinitionsChanged: { if !isGlobal { Task { bookEntries = await loadBookEntries() } } }
+            )
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in

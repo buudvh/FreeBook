@@ -2,6 +2,37 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.706] - 2026-11-04
+
+### feat: màn sửa VP/Name theo bố cục màn dịch, nghĩa rule cuộn ngang được
+
+Người dùng:
+- *"Cho màn edit của vp/name trong danh sách giống màn dịch của reader nhưng đừng có suggest rule và nghĩa rule"*;
+- *"Thêm nút mở rộng thu hẹp, nếu lưu vế trái sẽ lưu phần đang chọn"*;
+- *"hàng gốc phải giống dịch. Nút mở rộng thu hẹp trên 1 hàng"*;
+- *"Ô nhập hiển thị được tối đa 2 hàng như dịch. Sửa phần nghĩa rule màn dịch nếu dài quá sẽ cho scroll ngang"*;
+- chọn *"Giữ từ cũ"*.
+
+- **Màn sửa từ của danh sách VP/Name** (`DictEntryEditSheet`, `+Rows`, `DictEntryEditLookup`): chế độ `.edit` của `DictEntrySheet` chuyển sang màn mới; chế độ thêm (dán nhiều dòng `key=value`) giữ nguyên. Dựng lại theo `ReaderDefinitionOverlayView`, màu theo hệ thống thay cho chữ trắng trên nền tối. Từ trên xuống:
+  - **Header:** `.pageTitle("Sửa từ")`, nhãn chỉ đọc loại từ điển và phạm vi ("VP · Chung", "Name · Riêng truyện"). Nút bút chì gõ lại từ gốc, giữ cảnh báo ghi đè. Không còn nút "Lưu" trên header.
+  - **Hàng từ gốc:** giống Reader — cao 40, hai cặp nút tròn 28pt mở rộng/thu hẹp hai đầu trên cùng một hàng. Chữ đang chọn đậm và gạch chân, chữ còn lại mờ; chạm một chữ thì chọn chữ đó. Vùng chọn ban đầu là cả từ, mở rộng tới hai đầu từ gốc, thu hẹp còn ít nhất 1 chữ.
+  - **Hàng token dịch:** dùng `TranslateUtils.getTranslationTokens`; chạm token thì chọn đúng phạm vi của token.
+  - **Ô nghĩa:** 2 dòng như Reader. Đổi vùng chọn thì ô hiện nghĩa của cụm: nghĩa đang lưu nếu cụm đã có trong danh sách, không thì bản dịch (`translateTerm`). Chữ người dùng đang gõ không bị kết quả tra về muộn ghi đè.
+  - **Dải gợi ý nghĩa:** chip của Reader, tính lại theo vùng chọn. Có nút dán. Nút ⚙ quản lý nghĩa chỉ hiện khi có truyện.
+  - **Chữ hoa/thường** và **tra nhanh** (công cụ tìm của Reader, mở `BypassWebView`, ⚙ cấu hình công cụ).
+  - Không có phần rule (nghĩa rule, chip rule, thêm rule) và không có bộ chọn NE/VP, R/C.
+- **Lưu bằng nút "Cập nhật"** (`.appFilled`) ở dưới:
+  - Chọn cả từ: cập nhật nghĩa như cũ.
+  - Từ gõ lại bằng bút chì: đổi tên như cũ.
+  - **Chọn một phần: giữ nguyên từ cũ, thêm cụm đang chọn thành từ mới**, kèm dòng báo trước khi lưu và cảnh báo khi cụm đã có trong danh sách.
+  - Vuốt đóng khi có thay đổi thì hỏi xác nhận.
+- **Màn dịch của Reader:** chữ "Nghĩa rule" và dòng thông báo rule nằm trong khung cuộn ngang, nên chữ dài kéo xem hết được. Vẫn chọn để chép được; hàng giữ cao 50.
+- **Kiểm chứng:**
+  - Đọc code đối chiếu API có sẵn: `getTranslationTokens`, `translateTerm`, `ReaderView.dictionaryMatches`/`suggestionChips`, `SearchEngine.loadEngines`, `ReaderLookupRoute`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DictionaryListView` 661/690 dòng.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+  - Rủi ro: sửa nghĩa trong ⚙ rồi bấm "Cập nhật" sẽ ghi đè bằng chữ trong ô; gõ lại từ gốc rồi chọn một phần thì thêm cụm thay vì đổi tên.
+
 ## [1.3.705] - 2026-11-04
 
 ### feat: sửa rule dịch đổi mẫu thì chọn thay rule cũ hoặc lưu thêm rule mới
@@ -642,18 +673,3 @@ Tiếp 1.3.675 (rà lại sau khi CI xanh).
 - **`ExtensionFilterCatalog.info(for:)`**: khoá tra gồm cả `configJson`, nên mỗi lần áp dụng bộ lọc hoặc màn Cấu hình tự lưu thì khoá mới chưa có ⇒ trả `nil` ⇒ nút lọc biến mất một nhịp, cụm nút tròn của header Khám phá xô sang trái rồi về. Giờ trong lúc đọc bộ mới vẫn trả bộ cũ của cùng tiện ích; lần đầu (chưa có bộ nào) vẫn ẩn tới khi đọc xong.
 - Chuyển entry `[1.3.646]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.
-
-## [1.3.675] - 2026-11-03
-
-### fix: bộ lọc tiện ích ở mọi màn danh sách, ngăn kéo chọn nguồn và ô tìm thể loại
-
-Người dùng: *"sửa lại ext qidian… dùng config của ext select để làm bộ lọc… thêm ô tìm kiếm cho genres… thêm biểu tượng lọc ngoài màn hình nếu config có kiểu select, bool, list"*; thêm *"hiển thị nút bộ lọc ở tất cả màn hình danh sách"*; chốt từng nhánh qua grill-me + mockup rồi duyệt plan. Tiện ích qidian (bộ lọc STV, home thể loại, genre nhãn) sửa ở repo tiện ích riêng.
-
-- **Nút lọc** (`ExtensionFilterButton`, mới): chỉ hiện khi `config` của tiện ích có mục `select` / công tắc (cả bool trần) / `list`; chấm trắng khi khác mặc định. Đọc `plugin.json` ở luồng nền một lần cho mỗi (tiện ích, phiên bản, `configJson`) qua `ExtensionFilterCatalog` (`@MainActor @Observable`), `body` chỉ tra bảng. Ba chỗ: header Khám phá (nút tròn 38 trước ⋯, mọi tab home/nhãn/Trang chủ), trang danh sách thể loại/nhãn `CategoryNovelsListView` (cặp với Kiểu hiển thị trong một `ToolbarItem`, cả khi mở từ Chi tiết), màn Tìm khi tìm trong một nguồn (thay chỗ nút "Tìm").
-- **Sheet Bộ lọc** (`ExtensionFilterSheet`, mới): mọi mục lọc theo thứ tự `plugin.json`, dùng lại dòng của màn Cấu hình. Sửa trên bản nháp; ↺ về mặc định; "Áp dụng" **lưu vĩnh viễn** qua `ExtensionTransactionCoordinator.saveExtensionConfig` — đọc config mới nhất, chỉ thay khoá lọc; vuốt đóng khi chưa áp dụng thì hỏi (`confirmDiscardOnSwipe`).
-- **Tải lại sau khi áp dụng** (kể cả đang ở trang 2+): Khám phá dùng `reloadAfterConfigChangeIfPending()` khi sheet đóng (tab đang xem giữ, về trang 1, neo cuộn bị xoá); danh sách thể loại gọi `PaginatedNovelLoader.reset(configJson:)` (mới — config là `var`, bộ đếm lượt bỏ trang cũ về muộn và lượt tự thử lại đã hẹn); màn Tìm tìm lại bằng bản tiện ích mới nhất (`selectedExtension` là bản chụp có config cũ).
-- **Màn Cấu hình tách phần dùng chung**: `ExtensionConfigSchema` (mới — đọc `config` theo thứ tự, mục ở gốc, `support_url`, giá trị ban đầu, dựng `configJson`, `filterKeys`) và `ExtensionConfigFieldRow` (mới — 5 dáng dòng chuyển từ `+GlobalConfig`). Hành vi màn Cấu hình giữ nguyên; `plugin.json` hỏng vẫn báo lỗi.
-- **Header Khám phá + ngăn kéo chọn nguồn**: nút tròn icon tiện ích + tên và link hai dòng (`DiscoverySourceHeaderButton`, mới); bấm nút hay vùng chữ đều mở ngăn kéo **trượt từ trái** (`DiscoverySourcePickerModifier`, mới) thay sheet chọn nguồn: ô tìm viên thuốc, NSFW, chip loại, hàng nguồn với ⚙/ⓘ và 📌. Sheet Cấu hình / Chi tiết nguồn Legado chuyển về màn Khám phá. `SideDrawerMenu` thêm tham số `edge` (mặc định phải; panel, nền kính, vuốt đóng theo mép).
-- **Ô tìm kiểu mục lục**: `ChapterTOCSearchField` thêm `onSubmit`/`onClear` tuỳ chọn. Màn Tìm bỏ nút "Tìm" (bấm Tìm trên bàn phím). Tab nhãn Khám phá có ô "Tìm kiếm N thể loại": lọc ngay khi gõ, khớp tên gốc lẫn tên đã dịch, bỏ dấu, "đ" ≈ "d"; thanh tab ẩn theo bàn phím.
-- Chuyển entry `[1.3.645]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: gõ phím trong ngăn kéo chọn nguồn (cửa sổ nổi riêng); qidian bản 25: nút lọc hiện ở Khám phá, chọn "Lượt đọc tuần" + "> 500" rồi Áp dụng thì tab đang xem tải lại từ đầu; tìm "hệ thống" ở tab nhãn.

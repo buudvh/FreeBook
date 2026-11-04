@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.675] - 2026-11-03
+
+### fix: bộ lọc tiện ích ở mọi màn danh sách, ngăn kéo chọn nguồn và ô tìm thể loại
+
+Người dùng: *"sửa lại ext qidian… dùng config của ext select để làm bộ lọc… thêm ô tìm kiếm cho genres… thêm biểu tượng lọc ngoài màn hình nếu config có kiểu select, bool, list"*; thêm *"hiển thị nút bộ lọc ở tất cả màn hình danh sách"*; chốt từng nhánh qua grill-me + mockup rồi duyệt plan. Tiện ích qidian (bộ lọc STV, home thể loại, genre nhãn) sửa ở repo tiện ích riêng.
+
+- **Nút lọc** (`ExtensionFilterButton`, mới): chỉ hiện khi `config` của tiện ích có mục `select` / công tắc (cả bool trần) / `list`; chấm trắng khi khác mặc định. Đọc `plugin.json` ở luồng nền một lần cho mỗi (tiện ích, phiên bản, `configJson`) qua `ExtensionFilterCatalog` (`@MainActor @Observable`), `body` chỉ tra bảng. Ba chỗ: header Khám phá (nút tròn 38 trước ⋯, mọi tab home/nhãn/Trang chủ), trang danh sách thể loại/nhãn `CategoryNovelsListView` (cặp với Kiểu hiển thị trong một `ToolbarItem`, cả khi mở từ Chi tiết), màn Tìm khi tìm trong một nguồn (thay chỗ nút "Tìm").
+- **Sheet Bộ lọc** (`ExtensionFilterSheet`, mới): mọi mục lọc theo thứ tự `plugin.json`, dùng lại dòng của màn Cấu hình. Sửa trên bản nháp; ↺ về mặc định; "Áp dụng" **lưu vĩnh viễn** qua `ExtensionTransactionCoordinator.saveExtensionConfig` — đọc config mới nhất, chỉ thay khoá lọc; vuốt đóng khi chưa áp dụng thì hỏi (`confirmDiscardOnSwipe`).
+- **Tải lại sau khi áp dụng** (kể cả đang ở trang 2+): Khám phá dùng `reloadAfterConfigChangeIfPending()` khi sheet đóng (tab đang xem giữ, về trang 1, neo cuộn bị xoá); danh sách thể loại gọi `PaginatedNovelLoader.reset(configJson:)` (mới — config là `var`, bộ đếm lượt bỏ trang cũ về muộn và lượt tự thử lại đã hẹn); màn Tìm tìm lại bằng bản tiện ích mới nhất (`selectedExtension` là bản chụp có config cũ).
+- **Màn Cấu hình tách phần dùng chung**: `ExtensionConfigSchema` (mới — đọc `config` theo thứ tự, mục ở gốc, `support_url`, giá trị ban đầu, dựng `configJson`, `filterKeys`) và `ExtensionConfigFieldRow` (mới — 5 dáng dòng chuyển từ `+GlobalConfig`). Hành vi màn Cấu hình giữ nguyên; `plugin.json` hỏng vẫn báo lỗi.
+- **Header Khám phá + ngăn kéo chọn nguồn**: nút tròn icon tiện ích + tên và link hai dòng (`DiscoverySourceHeaderButton`, mới); bấm nút hay vùng chữ đều mở ngăn kéo **trượt từ trái** (`DiscoverySourcePickerModifier`, mới) thay sheet chọn nguồn: ô tìm viên thuốc, NSFW, chip loại, hàng nguồn với ⚙/ⓘ và 📌. Sheet Cấu hình / Chi tiết nguồn Legado chuyển về màn Khám phá. `SideDrawerMenu` thêm tham số `edge` (mặc định phải; panel, nền kính, vuốt đóng theo mép).
+- **Ô tìm kiểu mục lục**: `ChapterTOCSearchField` thêm `onSubmit`/`onClear` tuỳ chọn. Màn Tìm bỏ nút "Tìm" (bấm Tìm trên bàn phím). Tab nhãn Khám phá có ô "Tìm kiếm N thể loại": lọc ngay khi gõ, khớp tên gốc lẫn tên đã dịch, bỏ dấu, "đ" ≈ "d"; thanh tab ẩn theo bàn phím.
+- Chuyển entry `[1.3.645]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: gõ phím trong ngăn kéo chọn nguồn (cửa sổ nổi riêng); qidian bản 25: nút lọc hiện ở Khám phá, chọn "Lượt đọc tuần" + "> 500" rồi Áp dụng thì tab đang xem tải lại từ đầu; tìm "hệ thống" ở tab nhãn.
+
 ## [1.3.674] - 2026-11-01
 
 ### fix: danh sách kho thành trang con, tự kiểm tra cập nhật tiện ích
