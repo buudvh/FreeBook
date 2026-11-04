@@ -64,9 +64,10 @@ public enum QuickTranslationNumberFormatter {
         }
     }
 
-    /// `<m>`: chuỗi cơ số 10 → **chữ đơn vị** tiếng Việt (uỷ quyền cho `QuickTranslationMagnitudeFormatter`).
-    public static func renderMagnitude(_ value: String) -> String {
-        QuickTranslationMagnitudeFormatter.renderMagnitude(value)
+    /// `<m>`: chuỗi cơ số 10 → **chữ đơn vị** tiếng Việt (uỷ quyền cho `QuickTranslationMagnitudeFormatter`);
+    /// `leadsPattern` ⇒ `十` đứng đầu mẫu đọc `mười`.
+    public static func renderMagnitude(_ value: String, leadsPattern: Bool = false) -> String {
+        QuickTranslationMagnitudeFormatter.renderMagnitude(value, leadsPattern: leadsPattern)
     }
 
     /// `<a>`: giữ đúng hoa/thường của bản gốc — `SSS级` phải ra `SSS`, không phải `sss`. Chỉ hạ full-width

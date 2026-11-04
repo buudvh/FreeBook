@@ -102,6 +102,9 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Chỉ đặt khi phần tử liền kề **không** tiếp tục chuỗi số (xem `QuickTranslationRuleCompiler`).
     public var guardsLeft: Bool
     public var guardsRight: Bool
+    /// Chỉ `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+LeadingMagnitude`, 1.3.703): token là phần tử **đầu
+    /// tiên** của mẫu (bỏ qua neo dòng) ⇒ khớp `十`/`一十` thì đọc `mười` (`<m>几` trên `十几` = mười mấy) thay vì `mươi`.
+    public var leadsPattern: Bool
     /// Chỉ `<[>`: ô **ẩn** trong mảng capture của matcher (sau mọi ô `{i}`) giữ ký tự mở đã bắt. Parser cấp
     /// sau khi đánh số xong `{i}` (`captureCount + k`).
     public var bracketSlot: Int?
@@ -118,6 +121,7 @@ public struct QuickTranslationRuleElement: Sendable {
         captureIndex: Int? = nil,
         guardsLeft: Bool = false,
         guardsRight: Bool = false,
+        leadsPattern: Bool = false,
         bracketSlot: Int? = nil,
         bracketPartnerSlot: Int? = nil
     ) {
@@ -130,6 +134,7 @@ public struct QuickTranslationRuleElement: Sendable {
         self.captureIndex = captureIndex
         self.guardsLeft = guardsLeft
         self.guardsRight = guardsRight
+        self.leadsPattern = leadsPattern
         self.bracketSlot = bracketSlot
         self.bracketPartnerSlot = bracketPartnerSlot
     }

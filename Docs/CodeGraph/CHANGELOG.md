@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.703] - 2026-11-04
+
+### fix: token <m> đứng đầu rule đọc 十 là mười
+
+Người dùng: *"Nếu token <m> giá trị 10 đứng đầu rule ví dụ mười mấy thì dịch là mười thay vì mươi"*; xác nhận `<m>几 = {0} mấy` trên `十几` đang ra "mươi mấy", muốn "mười mấy", tiêu chí *"đứng đầu rule và là 10 thôi, 20 30 vẫn là mươi"*; duyệt plan.
+
+- **Nguyên nhân**: `QuickTranslationMagnitudeFormatter` tra bảng cố định `十`/`一十` → `mươi` (chữ đơn vị để ghép sau số đếm: `几<m>` ⇒ `mấy mươi`), không biết `<m>` đứng ở đâu trong mẫu.
+- **Sửa**: compiler đánh dấu `<m>` là phần tử đầu tiên của mẫu (`QuickTranslationRuleCompiler+LeadingMagnitude`, mới; cờ `QuickTranslationRuleElement.leadsPattern`). Neo `<START>`/`<END>` bỏ qua vì không chiếm ký tự; mẫu mở đầu bằng nhóm thì xét phần tử đầu từng nhánh; chữ cố định hay ngoặc đứng trước thì không tính là đứng đầu. `<m>` được đánh dấu mà khớp `十`/`一十` ⇒ `mười` (`renderMagnitude(_:leadsPattern:)`); `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`, `几<m>年` vẫn `mấy mươi năm`.
+- Giới hạn theo đúng tiêu chí vị trí: câu `几十几` gặp rule `<m>几` vẫn khớp từ `十` (`几` không thuộc lớp ký tự của `<m>` nên không bị chặn biên) ⇒ ra "mấy mười mấy". Tên chương đã lưu bản dịch trong mục lục chỉ đổi sau "Dịch lại tên chương".
+- Hướng dẫn (`QuickTranslationRuleGuide`, mục Token số và nhãn) thêm một ý. Chuyển `[1.3.672]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.702] - 2026-11-04
 
 ### fix: thu nhỏ màn kiểm tra nguồn không còn mất dòng trên hub
@@ -652,21 +664,3 @@ Người dùng nhờ điều tra tiện ích JS nào FreeBook chưa dùng đư�
 - **Không làm**: giải mã định dạng mới; trang sau của tìm nhiều nguồn; ghi header `Cookie` do script tự truyền vào kho; chiều URLSession → WebKit. Lưu ý: tiện ích có `source` thuộc google.com giờ nhận cookie đăng nhập Google — tắt bằng "Xử lý cookie hệ thống".
 - Chuyển entry `[1.3.643]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cập nhật một gói định dạng mới thì báo rõ và bản cũ vẫn chạy; tìm một nguồn rồi cuộn xuống thấy trang 2; tiktok-tts đăng nhập qua "Mở trang đăng nhập" rồi đọc được.
-
-## [1.3.672] - 2026-11-01
-
-### fix: cấu hình tiện ích hiện ô chọn select và danh sách list
-
-Người dùng: *"bạn hãy đọc ext qimao của đường đen. trong đó có config dạng select. app chưa đọc được dạng đó"*; thêm các mục còn thiếu theo hợp đồng (từ phiên rà màn Cấu hình), *"đừng làm mode database"*; duyệt plan, chưa áp `thread_num`/`delay`/`ignore` làm giới hạn.
-
-- **Tiện ích**: Qimao của Đường đen (repo GitHub của tài khoản `duongden`, `Novel_Zh/qimao` v37 có 6 mục `select`; bản Phim ngắn v7 có 1). Script (mã hoá) đọc biến global `CONFIG_*`, rồi `localConfig.getItem`, và so đúng chữ của lựa chọn.
-- **Nguyên nhân**: `ExtensionConfigView.ConfigItem` decode bằng `JSONDecoder` chỉ 4 trường `title/mode/format/default`, bỏ `values`/`subtitle` ⇒ `select` rơi vào nhánh ô chữ. Phần tiêm giá trị chọn vào script vốn đúng.
-- **`select`**: nút menu rộng hết dòng dưới tiêu đề, ✓ ở lựa chọn đang hiện (kiểu ô chọn của form đăng nhập Legado), chọn là lưu ngay, luôn lưu chuỗi. Mọi `format` đều là chọn **một**: hợp đồng bản đầu có `single`/`multiple` (chọn nhiều, nối dấu phẩy), bản hiện tại bỏ `multiple`; khảo sát ~800 `plugin.json` ở 8 kho: `single` 42, bỏ trống 17, `text` 2, `multiple` 0. Giá trị không có trong `values` hiện lựa chọn đầu (hợp đồng), không tự ghi đè.
-- **`ConfigItem`** dựng tay từ dict: `default`/`values` là số/bool ⇒ ép chuỗi thay vì mất cả dòng. **`subtitle`** hiện ở mọi dòng có khai.
-- **`list`** (mới, `ExtensionConfigListEditor`): dòng hiện số mục, chạm mở trang thêm (nút `+` nổi)/sửa/xoá từng dòng; giá trị là chuỗi JSON `"[\"a\",\"b\"]"`. Giá trị cũ không phải mảng JSON ⇒ một dòng; `default` viết thành mảng thật vẫn hiện (hợp đồng nói hiện rỗng — cố ý khác vì script cũng nhận nó).
-- **Thứ tự mục** theo `plugin.json` (đọc lại bằng `LegadoEngineJSONParser` giữ thứ tự). `ExtensionScriptDecoder.clearEncryptFlag` giờ chỉ sửa đúng chữ `"encrypt": true` (trước ghi lại cả file `.sortedKeys` ⇒ tiện ích mã hoá mất thứ tự). Bản đã cài trước bản này phải cài lại mới có thứ tự gốc.
-- **Khoá kết nối** `thread_num`/`delay`/`ignore` viết dạng giá trị trần: ẩn khỏi màn Cấu hình (hợp đồng: là giới hạn, không phải cài đặt), vẫn tiêm vào script; giá trị cũ người dùng đã sửa bị bỏ ở lượt lưu kế tiếp. Chưa áp làm giới hạn tải/lịch sử. Giá trị trần khác (`max_length`, `preload_size`…) vẫn sửa được.
-- **Script nhận chuỗi**: `JSExecutor.injectGlobals` đổi mọi giá trị sang chuỗi trước khi đưa vào JS (biến global + `localConfig.getItem`) qua `ExtensionConfigValueFormatter` (mới) — bool ⇒ `"true"`/`"false"`, số ⇒ `"3000"`, mảng ⇒ JSON, `null` ⇒ `""`. `injectedConfigs` của Swift giữ kiểu gốc; cách lưu `configJson` không đổi. Script cũ dùng `if (X)` với bool sẽ thấy `"false"` là đúng.
-- **Khám phá** tải lại `home`/`genre` khi `configJson` của nguồn đang xem đổi — chờ sheet chọn nguồn (nơi mở Cấu hình) đóng, hoặc lúc màn hiện lại nếu sửa từ tab Tiện ích; không tải lại sau mỗi lượt tự lưu của ô chữ (gọi nguồn dồn dập, tên miền gõ dở). Tab danh mục và trang `explore` dựng lại bộ nạp (`.id` theo mốc tải lại vì config).
-- **Không làm**: `mode: "database"` (giữ như cũ — ô chữ), `config.js` động, `actions`, `format` `password`/`multiline` (mỗi kiểu 1 tiện ích dùng), áp giới hạn kết nối.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cài lại Qimao, màn Cấu hình hiện 6 ô chọn đúng thứ tác giả, đổi "Nhóm nội dung" rồi đóng sheet thấy Khám phá đổi; tiện ích AI có `api_key` dạng `list` thêm/xoá được dòng.

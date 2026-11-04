@@ -85,6 +85,8 @@ enum QuickTranslationRuleGuide {
               "<hn>重天 = {0} trọng thiên  →  九重天 ra cửu trọng thiên", help: [.tokenSettings]),
             p("<m> cụm bậc 十 百 千 万 亿 (1-4 chữ), ra chữ đơn vị: mươi, trăm, nghìn, vạn…",
               "几<m>年 = mấy {0} năm  →  几百年 ra mấy trăm năm", help: [.tokenSettings]),
+            p("<m> đứng đầu mẫu (neo <START> không tính) mà khớp đúng 十 thì ra mười; 二十 vẫn hai mươi.",
+              "<m>几 = {0} mấy  →  十几 ra mười mấy", help: [.tokenSettings]),
             p("<a> chữ cái A-Z (cả toàn khổ), giữ nguyên hoa thường.", "<a>级 = cấp {0}  →  SSS级 ra cấp SSS",
               help: [.tokenSettings]),
             p("<L> một nhãn 章 卷 集 节 節 幕 回 折, ra Chương, Quyển, Tập, Tiết, Màn, Hồi, Chiết.",

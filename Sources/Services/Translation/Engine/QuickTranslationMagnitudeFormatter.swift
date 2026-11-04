@@ -109,8 +109,16 @@ public enum QuickTranslationMagnitudeFormatter {
         magnitudeWordsMap[value] != nil
     }
 
+    /// `十`/`一十` khi `<m>` đứng đầu mẫu: chính số 10, đọc `mười` (1.3.703).
+    private static let leadingTenValues: Set<String> = ["十", "一十"]
+
     /// Render một chuỗi cơ số 10 thành chữ tiếng Việt. Nếu không nằm trong danh mục, trả về nguyên bản.
-    public static func renderMagnitude(_ value: String) -> String {
-        magnitudeWordsMap[value] ?? value
+    ///
+    /// `leadsPattern` = `<m>` là phần tử đầu của mẫu (`QuickTranslationRuleElement.leadsPattern`): khi đó `十`/`一十`
+    /// là số 10 đứng một mình (`<m>几 = {0} mấy` trên `十几` ⇒ `mười mấy`), không phải chữ đơn vị sau số đếm
+    /// (`几<m>` ⇒ `mấy mươi`). Chỉ 10 đổi: `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`.
+    public static func renderMagnitude(_ value: String, leadsPattern: Bool = false) -> String {
+        if leadsPattern, leadingTenValues.contains(value) { return "mười" }
+        return magnitudeWordsMap[value] ?? value
     }
 }

@@ -79,6 +79,7 @@ public enum QuickTranslationRuleCompiler {
 
             var elements = rule.elements
             applyBoundaryGuards(&elements)
+            markLeadingMagnitude(&elements)
 
             let literal = requiredLiteral(of: elements)
             if !literal.units.isEmpty, literal.units.allSatisfy({ weakAnchorUnits.contains($0) }) {

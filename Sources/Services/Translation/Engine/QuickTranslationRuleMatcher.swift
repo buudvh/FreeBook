@@ -250,7 +250,7 @@ public final class QuickTranslationRuleMatcher {
             case .hanNumeral:
                 rendered = dictionaries.hanVietReading(for: value)
             case .magnitude:
-                rendered = QuickTranslationNumberFormatter.renderMagnitude(value)
+                rendered = QuickTranslationNumberFormatter.renderMagnitude(value, leadsPattern: element.leadsPattern)
             case .latinLetters:
                 rendered = QuickTranslationNumberFormatter.renderLatinLetters(value)
             }
