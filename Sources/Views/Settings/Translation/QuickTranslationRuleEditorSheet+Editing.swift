@@ -273,7 +273,7 @@ extension QuickTranslationRuleEditorSheet {
         var texts = [Text("Bấm token để chèn **tại con trỏ** hoặc thay đoạn đang bôi đen; chạm chip token để chỉnh độ dài (token số: cả khoảng giá trị).")]
         texts += QuickTranslationRuleGuide.helpTexts(for: .pattern)
         if case .edit = mode {
-            texts.append(Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách."))
+            texts.append(Text("Đổi mẫu rồi chạm **Lưu** để chọn: **Thay rule cũ** (mẫu mới nằm đúng dòng cũ, mẫu cũ mất) hoặc **Lưu thêm rule mới** (giữ rule cũ)."))
         }
         return texts
     }

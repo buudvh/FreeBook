@@ -25,13 +25,14 @@ extension QuickTranslationRuleStore {
         }
     }
 
-    /// Sửa một rule. Đổi key ⇒ xử như **thêm key mới**, dòng cũ giữ nguyên — đúng ngữ nghĩa
-    /// `DictionaryCache.updateKey(oldKey:newKey:newValue:type:)` của phân hệ từ điển.
-    public func updateRule(oldPattern _: String, newPattern: String, replacement: String) -> LoadOutcome {
+    /// Sửa một rule **thay chỗ** dòng `oldPattern` (1.3.705 — "Thay rule cũ"; trước đó đổi key là thêm key mới và giữ
+    /// dòng cũ, việc đó giờ là "Lưu thêm rule mới" đi qua `addOrOverwriteRule`). Xem `QuickTranslationRuleRecordStore.replacing`.
+    public func updateRule(oldPattern: String, newPattern: String, replacement: String) -> LoadOutcome {
         let newKey = newPattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newKey.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
         return withMutationLock {
-            let records = QuickTranslationRuleRecordStore.upsert(
+            let records = QuickTranslationRuleRecordStore.replacing(
+                oldPattern: oldPattern,
                 pattern: newKey,
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText() ?? "")

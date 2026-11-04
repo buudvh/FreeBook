@@ -10,8 +10,10 @@ import SwiftUI
 /// "Lưu vào bộ riêng truyện" / "Lưu vào bộ rule tên chương" / "Lưu vào bộ chung" — giống sheet "Thêm từ mới" của
 /// phiên âm (`AddWordSheet`). Thêm mà không có truyện: chạm Lưu vẫn lưu thẳng vào `defaultScope` như trước 1.3.683
 /// (bộ chung, hoặc bộ tên chương khi mở từ danh sách đó), nhấn giữ Lưu để chọn bộ còn lại.
-/// Ở chế độ sửa, Lưu là nút thường giữ phạm vi của rule đang sửa — đổi phạm vi lúc sửa là *copy sang bộ khác*,
-/// không phải sửa — việc đó đã có nút Chuyển ở danh sách.
+/// Ở chế độ sửa, Lưu giữ phạm vi của rule đang sửa — đổi phạm vi lúc sửa là *copy sang bộ khác*, không phải sửa — việc
+/// đó đã có nút Chuyển ở danh sách. Sửa mà **đổi mẫu** (1.3.705) thì chạm Lưu mở `Menu` hai mục: "Thay rule cũ" (mẫu mới
+/// nằm đúng dòng cũ, mẫu cũ mất) / "Lưu thêm rule mới" (giữ rule cũ — hành vi trước 1.3.705). Mẫu không đổi thì chỉ có
+/// một kết quả (file khoá theo mẫu, không giữ được hai dòng cùng mẫu) nên Lưu vẫn là nút thường, đè bản dịch tại chỗ.
 ///
 /// Sheet mở toàn màn (không có nấc nửa màn — đã thử ở 1.3.613, bỏ ở 1.3.615 theo yêu cầu người dùng).
 ///
@@ -65,11 +67,13 @@ struct QuickTranslationRuleEditorSheet: View {
     let defaultScope: QuickTranslationRuleScope
     /// `nil` = không biết truyện nào đang mở ⇒ không có mục "bộ riêng", chỉ lưu được vào bộ chung / tên chương.
     let contextBookId: String?
-    /// Trả về kết quả để sheet biết đóng hay giữ; phía gọi chịu trách nhiệm phát toast.
+    /// Trả về kết quả để sheet biết đóng hay giữ; phía gọi chịu trách nhiệm phát toast. `replacing` = mẫu của rule bị
+    /// **thay chỗ** (sửa: "Thay rule cũ" hoặc mẫu không đổi); `nil` = thêm / "Lưu thêm rule mới" (giữ rule cũ).
     let onSubmit: (
         _ pattern: String,
         _ replacement: String,
-        _ scope: QuickTranslationRuleScope
+        _ scope: QuickTranslationRuleScope,
+        _ replacing: String?
     ) async -> QuickTranslationRuleStore.LoadOutcome
 
     @Environment(\.dismiss) private var dismiss
@@ -238,13 +242,28 @@ struct QuickTranslationRuleEditorSheet: View {
 
     // MARK: - Lưu
 
-    /// Sửa ⇒ nút thường. Thêm có truyện mở ⇒ chạm Lưu mở `Menu` ba mục, chọn phạm vi lúc đã viết xong rule.
-    /// Thêm không có truyện ⇒ chạm Lưu lưu thẳng vào phạm vi mặc định (như cũ), nhấn giữ mở menu hai mục.
+    /// Sửa ⇒ nút thường, hoặc `Menu` Thay / Lưu thêm khi đã đổi mẫu. Thêm có truyện mở ⇒ chạm Lưu mở `Menu` ba mục,
+    /// chọn phạm vi lúc đã viết xong rule. Thêm không có truyện ⇒ chạm Lưu lưu thẳng vào phạm vi mặc định (như cũ),
+    /// nhấn giữ mở menu hai mục.
     @ViewBuilder
     private var saveControl: some View {
-        if isEditing {
-            Button("Lưu") { performSubmit(scope: effectiveScope) }
+        if case .edit(let originalPattern, _, let sourceLine, _) = mode {
+            if pattern.trimmingCharacters(in: .whitespacesAndNewlines) != originalPattern {
+                Menu("Lưu") {
+                    Button { performSubmit(scope: effectiveScope, replacing: originalPattern) } label: {
+                        Text("Thay rule cũ")
+                        Text("Sửa đúng dòng \(sourceLine), mẫu cũ mất")
+                    }
+                    Button { performSubmit(scope: effectiveScope, replacing: nil) } label: {
+                        Text("Lưu thêm rule mới")
+                        Text("Giữ nguyên rule cũ")
+                    }
+                }
                 .disabled(!canSave || isSaving)
+            } else {
+                Button("Lưu") { performSubmit(scope: effectiveScope, replacing: originalPattern) }
+                    .disabled(!canSave || isSaving)
+            }
         } else if let contextBookId, !contextBookId.isEmpty {
             Menu("Lưu") { saveMenuItems(bookId: contextBookId) }
                 .disabled(!canSave || isSaving)
@@ -254,7 +273,7 @@ struct QuickTranslationRuleEditorSheet: View {
             } label: {
                 Text("Lưu")
             } primaryAction: {
-                performSubmit(scope: effectiveScope)
+                performSubmit(scope: effectiveScope, replacing: nil)
             }
             .disabled(!canSave || isSaving)
         }
@@ -272,22 +291,22 @@ struct QuickTranslationRuleEditorSheet: View {
 
     private func submit(to scope: QuickTranslationRuleScope) {
         saveScope = scope
-        performSubmit(scope: scope)
+        performSubmit(scope: scope, replacing: nil)
     }
 
     /// Lưu thật vào một phạm vi cụ thể.
     ///
     /// Mẫu đã có trong phạm vi đó thì **đè vế phải** và giữ nguyên vị trí dòng; chưa có thì thêm mới —
-    /// cùng một lời gọi `QuickTranslationRuleRecordStore.upsert` cho cả hai bộ, nên không có nhánh
+    /// `QuickTranslationRuleRecordStore.upsert`, hoặc `replacing` khi thay chỗ một rule đang sửa — nên không có nhánh
     /// "trùng mẫu thì báo lỗi" nào.
-    private func performSubmit(scope: QuickTranslationRuleScope) {
+    private func performSubmit(scope: QuickTranslationRuleScope, replacing: String?) {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, !isSaving else { return }
         let submitted = currentDraft
         let value = replacement
         isSaving = true
         Task { @MainActor in
-        let outcome = await onSubmit(key, value, scope)
+        let outcome = await onSubmit(key, value, scope, replacing)
         isSaving = false
         switch outcome {
         case .success:

@@ -139,17 +139,16 @@ extension ReaderView {
     }
 
     /// Lưu rule mới từ nút `+` hoặc sửa rule từ Check rule. Trả `LoadOutcome` để sheet biết đóng hay giữ lại kèm lý do.
+    /// `replacing` do sheet quyết định: mẫu của rule bị thay chỗ ("Thay rule cũ" / mẫu không đổi), `nil` = thêm mới.
     func saveRuleFromEditor(
-        mode: QuickTranslationRuleEditorSheet.Mode,
         pattern: String,
         replacement: String,
-        scope: QuickTranslationRuleScope
+        scope: QuickTranslationRuleScope,
+        replacing: String?
     ) async -> QuickTranslationRuleStore.LoadOutcome {
         let session = definitionSession.identity
-        let oldPattern: String?
-        if case .edit(let pattern, _, _, _) = mode { oldPattern = pattern } else { oldPattern = nil }
         let outcome = await QuickTranslationRuleMutation.shared.perform(
-            .upsert(oldPattern: oldPattern, pattern: pattern, replacement: replacement, scope: scope))
+            .upsert(oldPattern: replacing, pattern: pattern, replacement: replacement, scope: scope))
         if definitionSession.identity == session {
             handleRuleOutcome(outcome, successMessage: "Đã lưu rule vào \(scope.longLabel.lowercased()).")
         }

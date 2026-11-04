@@ -58,6 +58,30 @@ public enum QuickTranslationRuleRecordStore {
         return result
     }
 
+    /// "Thay rule cũ" ở màn sửa rule (1.3.705): `pattern = replacement` nằm **đúng dòng** của `oldPattern` (giữ thứ tự
+    /// ưu tiên khi hoà), mẫu cũ mất. Mẫu mới trùng một dòng khác ⇒ dòng kia bị bỏ để bản đang sửa thắng — như lưu một
+    /// mẫu đã có thì đè. Không còn dòng `oldPattern` (file vừa đổi từ đường khác) ⇒ thêm như `upsert`.
+    public static func replacing(
+        oldPattern: String,
+        pattern: String,
+        replacement: String,
+        in records: [Record]
+    ) -> [Record] {
+        let oldPattern = oldPattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        let replacement = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pattern.isEmpty else { return canonicalRecords(records) }
+
+        var result = canonicalRecords(records)
+        guard let index = result.firstIndex(where: { $0.pattern == oldPattern }) else {
+            return upsert(pattern: pattern, replacement: replacement, in: result)
+        }
+        result[index] = Record(pattern: pattern, replacement: replacement)
+        return result.enumerated()
+            .filter { $0.offset == index || $0.element.pattern != pattern }
+            .map(\.element)
+    }
+
     public static func removing(pattern: String, from records: [Record]) -> [Record] {
         let pattern = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !pattern.isEmpty else { return canonicalRecords(records) }

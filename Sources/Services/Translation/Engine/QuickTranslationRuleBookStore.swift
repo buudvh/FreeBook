@@ -107,9 +107,9 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         }
     }
 
-    /// Đổi mẫu ⇒ xử như **thêm mẫu mới**, dòng cũ giữ nguyên (đúng `DictionaryCache.updateKey`).
+    /// Sửa rule **thay chỗ** dòng `oldPattern` ("Thay rule cũ", 1.3.705) — như `QuickTranslationRuleStore.updateRule`.
     public func updateRule(
-        oldPattern _: String,
+        oldPattern: String,
         newPattern: String,
         replacement: String,
         bookId: String
@@ -118,7 +118,8 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         guard !newKey.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
 
         return withMutationLock {
-            let records = QuickTranslationRuleRecordStore.upsert(
+            let records = QuickTranslationRuleRecordStore.replacing(
+                oldPattern: oldPattern,
                 pattern: newKey,
                 replacement: replacement,
                 in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText(for: bookId) ?? "")

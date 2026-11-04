@@ -58,8 +58,8 @@ extension ReaderView {
                     mode: mode,
                     defaultScope: defaultRuleEditorScope(for: mode),
                     contextBookId: bookId
-                ) { pattern, replacement, scope in
-                    await saveRuleFromEditor(mode: mode, pattern: pattern, replacement: replacement, scope: scope)
+                ) { pattern, replacement, scope, replacing in
+                    await saveRuleFromEditor(pattern: pattern, replacement: replacement, scope: scope, replacing: replacing)
                 }
             }
             .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {

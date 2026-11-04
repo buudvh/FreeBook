@@ -165,11 +165,9 @@ struct QuickTranslationRuleListView: View {
                 mode: mode,
                 defaultScope: scope,
                 contextBookId: scope.bookId
-            ) { pattern, replacement, targetScope in
-                let oldPattern: String?
-                if case .edit(let pattern, _, _, _) = mode { oldPattern = pattern } else { oldPattern = nil }
+            ) { pattern, replacement, targetScope, replacing in
                 let result = await QuickTranslationRuleMutation.shared.perform(
-                    .upsert(oldPattern: oldPattern, pattern: pattern, replacement: replacement, scope: targetScope))
+                    .upsert(oldPattern: replacing, pattern: pattern, replacement: replacement, scope: targetScope))
                 report(result, successMessage: "Đã lưu rule.")
                 return result
             }

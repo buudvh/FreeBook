@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.674] - 2026-11-01
+
+### fix: danh sách kho thành trang con, tự kiểm tra cập nhật tiện ích
+
+Người dùng: *"cho màn hình danh sách kho thành màn hình con của tất cả tiện ích. Khi vào tất cả tiên ích hãy tự chạy kiểm tra cập nhật của tất cả ext"*; duyệt plan: lối vào nằm trong ngăn kéo …, giãn cách 5 phút.
+
+- **Trang con Danh sách kho** (`ExtensionRepositoryListView`, mới): ô chọn của tab Kho tiện ích còn hai mục Tất cả tiện ích · Nguồn Legado (giữ tag 0/2). Hàng "Danh sách kho" (chữ phụ = số kho) đứng đầu ngăn kéo … của Tất cả tiện ích ⇒ đẩy trang `.backPageTitle`, phủ thanh tab. Header giữ cụm ↻ | +; xoá kho, trang trống + nút nhập kho mặc định như cũ. Bỏ lối vào cũ.
+- **Tự kiểm tra cập nhật** (`ExtensionUpdateCheckCoordinator`, mới, `@MainActor @Observable`): kiểm tra = tải lại registry của mọi kho (1 request/kho, song song, tối đa 20 s/kho, bỏ cache URLSession cục bộ) rồi `saveRegistry` ⇒ `hasUpdate` và banner "Cập nhật tất cả" tự đổi. Chạy khi vào tab Kho tiện ích lúc đang ở Tất cả tiện ích, hoặc khi chuyển ô chọn từ Legado sang. Giãn cách 5 phút, giữ trong RAM (mở lại app ⇒ kiểm tra ngay lần đầu vào), chỉ tính lượt tải được ít nhất một kho; kho chưa có cache vẫn được tải trong giãn cách. ↻ / "Thử lại" bỏ qua giãn cách. Chỉ kiểm tra, không tự cài; nguồn Legado ngoài phạm vi. Bỏ `RepositoryRefreshPolicy` (cửa 6 tiếng nên gần như không bao giờ tự chạy); `rules.md` mục 7 cập nhật theo.
+- **Một cờ bận chung** (`isBusy`): kiểm tra, thêm kho, xoá kho cùng đọc ⇒ không chạy trùng. Sửa lỗi cũ: thêm kho trong lúc làm mới hạ cờ `isRefreshingAll` giữa chừng ⇒ mở lại nút xoá kho, cho lượt làm mới thứ hai chạy.
+- **Hiển thị** (`ExtensionUpdateCheckStatusLine`, mới): dòng nhỏ dưới "Đang hiển thị N tiện ích" — vòng quay "Đang kiểm tra cập nhật…"; xong "Đã kiểm tra cập nhật lúc HH:mm"; lỗi chữ cam "Không kiểm tra được cập nhật" / "Không tải được f/t kho" + "Thử lại". Cache cũ giữ nguyên, không toast, không alert. Trang Danh sách kho dùng cùng dòng. Thông báo của "Cập nhật tất cả", Import zip và tự thêm kho mặc định giờ hiện ở tab Tất cả tiện ích (trước chỉ hiện ở tab kho).
+- **Back từ trang Danh sách kho**: gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không kiểm tra, không tự thêm lại kho mặc định vừa bị xoá hết).
+- `RepositoryManagerView.swift` 603 → 508 dòng.
+- Chuyển entry `[1.3.644]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: vào tab Kho tiện ích thấy "Đang kiểm tra cập nhật…" rồi giờ kiểm tra; tắt mạng thấy chữ cam + "Thử lại"; ngăn kéo … → Danh sách kho → back thì không chạy lại.
+
 ## [1.3.673] - 2026-11-01
 
 ### fix: tiện ích JS cài an toàn, tìm kiếm tải thêm, cookie của nguồn
