@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.671] - 2026-11-01
+
+### fix: tìm nhiều nguồn chừa luồng cho TTS khi đang phát
+
+Người dùng: *"Tìm nhiều nguồn làm đơ google tts, nên ưu tiên để dư 1 luồng cho tts"*; chọn "A trước, B sau", duyệt plan.
+
+- **Nguyên nhân**: "Tìm trên tất cả nguồn" chạy mọi tiện ích JS cùng lúc, không giới hạn. Script chạy **đồng bộ** trên cooperative pool (`JSExecutor.callAsync` → `runner.call`), `fetch` chờ bằng semaphore tới 15 s ⇒ quá ~6 nguồn là pool (≈ số lõi) bị chiếm hết. Google TTS cần chính pool đó ở mọi bước (`TTSAudioSynthesisWorker` → `RemoteTTSSynthesisCoordinator` → `URLSession` async) ⇒ hết đoạn nạp trước là đơ. Không phải main thread; không phải giới hạn kết nối của URLSession (Google TTS khác tên miền với nguồn). Đúng chẩn đoán #1 của plan perf 2026-10-09 (bản sửa đang chờ số đo).
+- **Sửa (A)**: `SearchTTSThreadReservePolicy` (mới): TTS đang phát (mọi engine) ⇒ nguồn JS chạy cùng lúc tối đa `số lõi − 1 − (lời gọi JS khác đang chạy)`, tối thiểu 1; TTS không phát ⇒ không giới hạn như cũ. `LegadoSearchScheduler.searchAll` đưa nguồn JS vào cửa sổ trượt, tính lại giới hạn mỗi khi một nguồn JS xong (TTS dừng giữa lượt ⇒ nguồn còn chờ chạy hết); `shouldStart` (NSFW) xét cả nguồn JS đang chờ. Nguồn Legado giữ cửa sổ 8. `JSExecutionTelemetry.inFlightCount` đọc bộ đếm có sẵn. Không đụng tải truyện.
+- **Log** (phải bật ghi log): `[SearchPerf] JSCap sources= cap= jsInFlight= cores= ttsPlaying=1` (một lần khi giới hạn có tác dụng), `[SearchPerf] JSDone sources= peak= ms= cancelled=`; `[TTSPerf] RemoteWait priority= engine= waitMs= queueMs= runMs= outcome= jsInFlight= cores=` (đoạn đang đọc chờ ≥ 400 ms hoặc một lượt chạy ≥ 2 s; `queueMs`/`runMs` lớn kèm `jsInFlight` gần `cores` = đói thread, không phải mạng chậm).
+- **Giới hạn**: đang nghe mà tìm thì kết quả về chậm hơn; tải truyện/nạp chương đã chiếm gần hết pool thì tìm chỉ còn 1 nguồn và TTS vẫn có thể chậm; TTS bắt đầu sau khi bấm tìm thì nguồn đã chạy không bị giới hạn. Cách tận gốc (B: đưa JS ra khỏi pool, plan perf §1.4) để làm sau.
+- `rules.md` (Tìm mọi nguồn) ghi luật mới và sửa nhận định sai "nằm trong actor ⇒ không chặn pool" (`BookDownloadWorker`, `ExtTTSRuntime` là actor mặc định, vẫn chạy trên pool). Chuyển entry `[1.3.641]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nghe Google TTS rồi tìm tất cả nguồn, giọng không đơ và log có `JSCap`; tìm khi không nghe vẫn chạy hết cùng lúc như cũ.
+
 ## [1.3.670] - 2026-11-01
 
 ### fix: trình duyệt Legado dùng chung profile với trình duyệt của app

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.702] - 2026-11-04
+
+### fix: thu nhỏ màn kiểm tra nguồn không còn mất dòng trên hub
+
+Người dùng (bản 1.3.698 trên máy): *"Đã thu nhỏ, kiểm tra đang chạy nhưng không hiện hub mà hiện icon thông báo"*. Lượt không bấm chia sẻ; mở lại Kiểm tra nguồn không có nút "Mở lượt đang chạy" ⇒ bản ghi chưa bao giờ được đánh dấu thu nhỏ (phần hub đúng).
+
+- **Nguyên nhân**: nút ⌄ chỉ đóng màn rồi trông vào `onDisappear` để báo thu nhỏ; màn Legado không có lối dự phòng chắc chắn khi sheet đóng mà `onDisappear` không tới (`ScreenLease` chỉ chạy nếu SwiftUI giải phóng màn). Chưa xác nhận được trên máy lối nào rơi.
+- **Nút ⌄** gọi `MinimizedSourceCheckCoordinator.screenDidClose(_, screenId: nil)` **trước** khi đóng màn, không qua `onDisappear`.
+- **`onDismiss` của mọi sheet có thể chứa màn kiểm tra**: sheet Kiểm tra nguồn và Chi tiết nguồn Legado (`RepositoryManagerView+LegadoMenu`, `DiscoverySourcePickerModifier`), ba chỗ mở Cấu hình tiện ích (`RepositoryManagerView`, `DiscoverySourcePickerModifier`, `TTSSettingsView`); sheet mở lại từ hub dùng `SheetDismissRelay` (`presentationController.delegate`, gán sau khi trình bày).
+- `onDisappear` của hai màn bỏ điều kiện cờ chia sẻ (bảng chia sẻ không làm màn biến mất, cờ kẹt thì chặn mất việc thu nhỏ). `update` bỏ qua lượt đã thu nhỏ (màn đóng mà task chưa dừng không cướp mốc "xong" ⇒ mất toast). Log `🧪 [SourceCheck]` ở `track` và các nhánh `screenDidClose` bỏ qua (cần bật log trong Cài đặt). `rules.md` luật hub (f) ghi các lối báo đóng. Chuyển `[1.3.671]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.701] - 2026-11-04
 
 ### feat: token số trong rule dịch có khoảng giá trị #min-max
@@ -658,16 +670,3 @@ Người dùng: *"bạn hãy đọc ext qimao của đường đen. trong đó c
 - **Khám phá** tải lại `home`/`genre` khi `configJson` của nguồn đang xem đổi — chờ sheet chọn nguồn (nơi mở Cấu hình) đóng, hoặc lúc màn hiện lại nếu sửa từ tab Tiện ích; không tải lại sau mỗi lượt tự lưu của ô chữ (gọi nguồn dồn dập, tên miền gõ dở). Tab danh mục và trang `explore` dựng lại bộ nạp (`.id` theo mốc tải lại vì config).
 - **Không làm**: `mode: "database"` (giữ như cũ — ô chữ), `config.js` động, `actions`, `format` `password`/`multiline` (mỗi kiểu 1 tiện ích dùng), áp giới hạn kết nối.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: cài lại Qimao, màn Cấu hình hiện 6 ô chọn đúng thứ tác giả, đổi "Nhóm nội dung" rồi đóng sheet thấy Khám phá đổi; tiện ích AI có `api_key` dạng `list` thêm/xoá được dòng.
-
-## [1.3.671] - 2026-11-01
-
-### fix: tìm nhiều nguồn chừa luồng cho TTS khi đang phát
-
-Người dùng: *"Tìm nhiều nguồn làm đơ google tts, nên ưu tiên để dư 1 luồng cho tts"*; chọn "A trước, B sau", duyệt plan.
-
-- **Nguyên nhân**: "Tìm trên tất cả nguồn" chạy mọi tiện ích JS cùng lúc, không giới hạn. Script chạy **đồng bộ** trên cooperative pool (`JSExecutor.callAsync` → `runner.call`), `fetch` chờ bằng semaphore tới 15 s ⇒ quá ~6 nguồn là pool (≈ số lõi) bị chiếm hết. Google TTS cần chính pool đó ở mọi bước (`TTSAudioSynthesisWorker` → `RemoteTTSSynthesisCoordinator` → `URLSession` async) ⇒ hết đoạn nạp trước là đơ. Không phải main thread; không phải giới hạn kết nối của URLSession (Google TTS khác tên miền với nguồn). Đúng chẩn đoán #1 của plan perf 2026-10-09 (bản sửa đang chờ số đo).
-- **Sửa (A)**: `SearchTTSThreadReservePolicy` (mới): TTS đang phát (mọi engine) ⇒ nguồn JS chạy cùng lúc tối đa `số lõi − 1 − (lời gọi JS khác đang chạy)`, tối thiểu 1; TTS không phát ⇒ không giới hạn như cũ. `LegadoSearchScheduler.searchAll` đưa nguồn JS vào cửa sổ trượt, tính lại giới hạn mỗi khi một nguồn JS xong (TTS dừng giữa lượt ⇒ nguồn còn chờ chạy hết); `shouldStart` (NSFW) xét cả nguồn JS đang chờ. Nguồn Legado giữ cửa sổ 8. `JSExecutionTelemetry.inFlightCount` đọc bộ đếm có sẵn. Không đụng tải truyện.
-- **Log** (phải bật ghi log): `[SearchPerf] JSCap sources= cap= jsInFlight= cores= ttsPlaying=1` (một lần khi giới hạn có tác dụng), `[SearchPerf] JSDone sources= peak= ms= cancelled=`; `[TTSPerf] RemoteWait priority= engine= waitMs= queueMs= runMs= outcome= jsInFlight= cores=` (đoạn đang đọc chờ ≥ 400 ms hoặc một lượt chạy ≥ 2 s; `queueMs`/`runMs` lớn kèm `jsInFlight` gần `cores` = đói thread, không phải mạng chậm).
-- **Giới hạn**: đang nghe mà tìm thì kết quả về chậm hơn; tải truyện/nạp chương đã chiếm gần hết pool thì tìm chỉ còn 1 nguồn và TTS vẫn có thể chậm; TTS bắt đầu sau khi bấm tìm thì nguồn đã chạy không bị giới hạn. Cách tận gốc (B: đưa JS ra khỏi pool, plan perf §1.4) để làm sau.
-- `rules.md` (Tìm mọi nguồn) ghi luật mới và sửa nhận định sai "nằm trong actor ⇒ không chặn pool" (`BookDownloadWorker`, `ExtTTSRuntime` là actor mặc định, vẫn chạy trên pool). Chuyển entry `[1.3.641]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nghe Google TTS rồi tìm tất cả nguồn, giọng không đơ và log có `JSCap`; tìm khi không nghe vẫn chạy hết cùng lúc như cũ.

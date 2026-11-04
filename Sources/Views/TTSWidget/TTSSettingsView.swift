@@ -417,7 +417,7 @@ struct TTSSettingsView: View {
                 Task { await loadVoicesForCurrentTool() }
             }
         }
-        .sheet(item: $selectedExtForConfig) { ext in
+        .sheet(item: $selectedExtForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
             ExtensionConfigView(ext: ext)
         }
         .sheet(isPresented: $showingReplacementManagerSheet) {

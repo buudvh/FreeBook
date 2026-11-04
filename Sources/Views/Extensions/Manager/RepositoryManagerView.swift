@@ -157,7 +157,7 @@ struct RepositoryManagerView: View {
             .navigationDestination(isPresented: $showingRepositoryList) {
                 ExtensionRepositoryListView()
             }
-            .sheet(item: $selectedExtensionForConfig) { ext in
+            .sheet(item: $selectedExtensionForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
                 ExtensionConfigView(ext: ext)
             }
             .sheet(item: $selectedExtensionForScriptEditor) { ext in

@@ -37,10 +37,11 @@ extension RepositoryManagerView {
                 legadoState.isURLImportPending = true
             }
         }
-        .sheet(item: $legadoState.detail) { route in
+        // Hai sheet có thể chứa màn kiểm tra nguồn: đóng khi lượt còn chạy ⇒ thu nhỏ vào hub (1.3.702).
+        .sheet(item: $legadoState.detail, onDismiss: closeLegadoSourceCheck) { route in
             LegadoSourceDetailView(packageId: route.packageId)
         }
-        .sheet(item: $legadoState.check) { route in
+        .sheet(item: $legadoState.check, onDismiss: closeLegadoSourceCheck) { route in
             NavigationStack {
                 LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle, isPresentedAsSheet: true)
             }
@@ -49,6 +50,11 @@ extension RepositoryManagerView {
         .sheet(item: $legadoState.exportFile) { file in
             ShareSheet(activityItems: [file.url])
         }
+    }
+
+    /// `onDismiss` của sheet kiểm tra / chi tiết nguồn: màn kiểm tra có thể không nhận `onDisappear` khi sheet đóng.
+    private func closeLegadoSourceCheck() {
+        MinimizedSourceCheckCoordinator.shared.screenDidClose(.legado, screenId: nil)
     }
 
     /// Danh sách đang hiện của tab (NSFW + nhóm + ô tìm).

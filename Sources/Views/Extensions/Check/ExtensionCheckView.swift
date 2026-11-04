@@ -77,7 +77,7 @@ struct ExtensionCheckView: View {
                 SourceCheckHeaderButtons(
                     showsMinimize: isRunning,
                     isShareDisabled: (report?.results.isEmpty ?? true) || isPreparingShare,
-                    onMinimize: closeScreen,
+                    onMinimize: minimize,
                     onShare: shareReport
                 )
             }
@@ -104,8 +104,9 @@ struct ExtensionCheckView: View {
             await poll()
         }
         .onDisappear {
-            // Đẩy màn con / chia sẻ / mở trình duyệt cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn.
-            guard openedPackageId == nil, shareURL == nil, openingLink == nil else { return }
+            // Đẩy màn con / mở trình duyệt cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn (cờ chia sẻ không
+            // xét: bảng chia sẻ không làm màn biến mất, cờ kẹt thì chặn mất việc thu nhỏ, 1.3.702).
+            guard openedPackageId == nil, openingLink == nil else { return }
             MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: lease.id)
         }
     }
@@ -311,7 +312,12 @@ struct ExtensionCheckView: View {
         Task { await ExtensionCheckRunner.shared.cancel(runId: runId) }
     }
 
-    /// Nút ⌄: đóng màn — `onDisappear` giao lượt còn chạy cho hub.
+    /// Nút ⌄: giao lượt cho hub **trước** rồi mới đóng màn — không trông vào `onDisappear` (1.3.702).
+    private func minimize() {
+        MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil)
+        closeScreen()
+    }
+
     private func closeScreen() {
         if let onClose {
             onClose()

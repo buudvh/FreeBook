@@ -64,7 +64,7 @@ struct LegadoSourceCheckView: View {
                 SourceCheckHeaderButtons(
                     showsMinimize: isRunning,
                     isShareDisabled: (report?.sources?.isEmpty ?? true) || isPreparingShare,
-                    onMinimize: closeScreen,
+                    onMinimize: minimize,
                     onShare: shareReport
                 )
             }
@@ -90,8 +90,9 @@ struct LegadoSourceCheckView: View {
             await poll()
         }
         .onDisappear {
-            // Mở Gỡ lỗi (đẩy màn mới) / chia sẻ cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn.
-            guard debugPackageId == nil, shareURL == nil else { return }
+            // Mở Gỡ lỗi (đẩy màn mới) cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn. Không xét cờ chia sẻ:
+            // bảng chia sẻ không làm màn biến mất, cờ còn kẹt thì lại chặn mất việc thu nhỏ (1.3.702).
+            guard debugPackageId == nil else { return }
             MinimizedSourceCheckCoordinator.shared.screenDidClose(.legado, screenId: lease.id)
         }
     }
@@ -267,7 +268,13 @@ struct LegadoSourceCheckView: View {
         }
     }
 
-    /// Nút ⌄: đóng màn — `onDisappear` giao lượt còn chạy cho hub.
+    /// Nút ⌄: giao lượt cho hub **trước** rồi mới đóng màn — không trông vào `onDisappear`, máy thật có lúc không gọi
+    /// khi sheet đóng (1.3.702).
+    private func minimize() {
+        MinimizedSourceCheckCoordinator.shared.screenDidClose(.legado, screenId: nil)
+        closeScreen()
+    }
+
     private func closeScreen() {
         if let onClose {
             onClose()

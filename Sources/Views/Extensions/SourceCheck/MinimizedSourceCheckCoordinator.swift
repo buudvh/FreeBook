@@ -13,8 +13,10 @@ import UIKit
 /// - `reopen` (chạm dòng hub) trình bày lại màn ở chế độ gắn vào lượt bằng UIKit từ màn trên cùng của cửa sổ mức thường
 ///   (sheet có thanh kéo, như màn Thông báo của hub).
 ///
-/// Màn đóng mà không nhận `onDisappear` (đang đẩy màn con thì sheet bị vuốt xuống) vẫn được bắt nhờ `ScreenLease` —
-/// `@StateObject` của màn, giải phóng cùng màn. Tầng Views vì cần toast và trình bày màn.
+/// Báo "màn đóng" **không** trông vào một mình `onDisappear` (1.3.702: máy thật đóng sheet mà lượt không thu nhỏ): nút ⌄
+/// báo trước khi đóng; mọi sheet có thể chứa màn kiểm tra gọi `screenDidClose(_, screenId: nil)` ở `onDismiss` (sheet
+/// mở lại từ hub: `SheetDismissRelay`); `onDisappear` và `ScreenLease` (`@StateObject` giải phóng cùng màn) là lối dự
+/// phòng. Tầng Views vì cần toast và trình bày màn.
 @MainActor
 final class MinimizedSourceCheckCoordinator: ObservableObject {
     static let shared = MinimizedSourceCheckCoordinator()
@@ -39,6 +41,21 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         }
     }
 
+    /// Vuốt xuống sheet mở lại (UIKit) ⇒ thu nhỏ lần nữa. `presentationController.delegate` là tham chiếu yếu nên lớp
+    /// điều phối giữ relay (`sheetRelays`).
+    @MainActor
+    final class SheetDismissRelay: NSObject, UIAdaptivePresentationControllerDelegate {
+        let kind: MinimizedSourceCheck.Kind
+
+        init(kind: MinimizedSourceCheck.Kind) {
+            self.kind = kind
+        }
+
+        func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+            MinimizedSourceCheckCoordinator.shared.screenDidClose(kind, screenId: nil)
+        }
+    }
+
     /// Câu của màn mở lại khi bộ chạy đã sang lượt khác.
     static let replacedRunMessage = "Lượt kiểm tra này không còn — bộ kiểm tra đã chạy lượt khác sau nó."
     private static let pollInterval: UInt64 = 1_000_000_000
@@ -48,6 +65,7 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
     /// Theo thứ tự bắt đầu theo dõi. Hub chỉ đọc bản đang thu nhỏ (`isMinimized`).
     @Published private(set) var entries: [MinimizedSourceCheck] = []
     private var payloads: [MinimizedSourceCheck.Kind: Payload] = [:]
+    private var sheetRelays: [MinimizedSourceCheck.Kind: SheetDismissRelay] = [:]
     private var pollTask: Task<Void, Never>?
 
     private init() {}
@@ -70,21 +88,35 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         entries.removeAll { $0.kind == kind }
         entries.append(MinimizedSourceCheck(kind: kind, scopeTitle: scopeTitle, progress: progress, openScreenId: screen.id))
         payloads[kind] = payload
+        AppLogger.shared.log("🧪 [SourceCheck] Theo dõi \(kind.rawValue) \(progress.runId), màn \(screen.id.uuidString.prefix(8))")
     }
 
-    /// Tiến độ mới từ vòng thăm dò của màn đang mở — để lúc màn đóng biết lượt còn chạy hay đã xong.
+    /// Tiến độ mới từ vòng thăm dò của màn đang mở — để lúc màn đóng biết lượt còn chạy hay đã xong. Lượt đã thu nhỏ thì
+    /// lớp này tự thăm dò (màn đóng mà task của nó chưa dừng không được cướp mốc "xong" ⇒ mất toast).
     func update(_ kind: MinimizedSourceCheck.Kind, progress: MinimizedSourceCheck.Progress) {
         guard let index = entries.firstIndex(where: { $0.kind == kind && $0.runId == progress.runId }),
+              !entries[index].isMinimized,
               entries[index].progress != progress else { return }
         entries[index].progress = progress
     }
 
-    /// Màn rời đi. `screenId == nil` (sheet đóng, không biết màn nào) ⇒ mọi màn đang mở của `kind`. Gọi lại nhiều lần
-    /// vô hại: chỉ tác động bản ghi còn gắn đúng màn đó.
+    /// Màn rời đi. `screenId == nil` (nút ⌄, `onDismiss` của sheet chứa màn) ⇒ màn đang mở của `kind`, không cần biết
+    /// màn nào. Gọi lại nhiều lần vô hại: chỉ tác động bản ghi còn gắn màn.
     func screenDidClose(_ kind: MinimizedSourceCheck.Kind, screenId: UUID?) {
-        guard let index = entries.firstIndex(where: { $0.kind == kind }),
-              let openId = entries[index].openScreenId,
-              screenId == nil || screenId == openId else { return }
+        guard let index = entries.firstIndex(where: { $0.kind == kind }) else {
+            if screenId == nil {
+                AppLogger.shared.log("🧪 [SourceCheck] Đóng màn \(kind.rawValue): không có lượt đang theo dõi")
+            }
+            return
+        }
+        guard let openId = entries[index].openScreenId else { return }
+        guard screenId == nil || screenId == openId else {
+            AppLogger.shared.log(
+                "🧪 [SourceCheck] Đóng màn \(kind.rawValue) bỏ qua: màn \(screenId.map { String($0.uuidString.prefix(8)) } ?? "-") "
+                    + "không phải màn đang gắn \(String(openId.uuidString.prefix(8)))"
+            )
+            return
+        }
         guard entries[index].isRunning else {
             discard(kind)
             return
@@ -126,7 +158,12 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         if let top = LegadoPresentationPresenter.topViewController() {
             // Hub xám ngay; màn gắn vào lượt sẽ `track` lại với danh tính của nó.
             entries[index].openScreenId = UUID()
-            top.present(controller, animated: true)
+            let relay = SheetDismissRelay(kind: kind)
+            sheetRelays[kind] = relay
+            top.present(controller, animated: true) {
+                // Gán **sau** khi trình bày: `presentationController` chỉ có từ lúc trình bày (luật 26).
+                controller.presentationController?.delegate = relay
+            }
             return
         }
         guard attempt < Self.presentAttempts else {
