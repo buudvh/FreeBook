@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.697] - 2026-11-04
+
+### feat: xoá hàng loạt nguồn Legado đang hiện hoặc đang tắt
+
+Người dùng: *"thêm option xóa tất cả nguồn legado đang hiển thị, xóa tất cả nguồn legado đang tắt"*. Phạm vi "đang tắt" là toàn bộ danh sách (người dùng chọn).
+
+- **Hai hàng đỏ mới trong ngăn kéo "…" của tab Nguồn Legado**, đặt trên "Xoá tất cả nguồn Legado". Bên phải mỗi hàng là số nguồn sẽ xoá; số bằng 0 thì hàng mờ.
+  - **Xoá tất cả (theo danh sách đang hiện)**: lấy từ `legadoVisibleSummaries` (NSFW, nhóm và ô tìm), đúng tập mà "Kiểm tra nguồn" và "Bật/Tắt tất cả" dùng.
+  - **Xoá tất cả nguồn đang tắt**: mọi nguồn có `isEnabled == false` trong `LegadoSourceRepository.summaries`, không theo nhóm, ô tìm hay NSFW. Chỉ tính sau lần nạp đầu (`hasLoaded`), vì `isEnabled(packageId:)` dạng tĩnh trả `false` cho mọi nguồn trước lúc đó.
+- **Hộp xác nhận** (`PendingAlert.confirmDeleteSubset` + `LegadoSourceTabState.DeleteSubset`):
+  - Chụp sẵn danh sách `packageIds` lúc bấm hàng và xoá đúng tập đó, nên số trên nút "Xoá N nguồn" khớp số bị xoá.
+  - Phạm vi "đang hiện" ghi tên nhóm và từ khoá ô tìm.
+  - Phạm vi "đang tắt" báo cả số nguồn 18+ đang ẩn bị gộp vào.
+- **Đường gỡ dùng lại** `LegadoSourceCoordinator.delete(packageIds:)`, cũng là đường của nút "Xoá nguồn lỗi" ở màn kiểm tra. Hàm này xoá thư mục, gọi `ExtensionTransactionCoordinator.deleteExtensions`, nạp lại danh sách và xoá thông tin đăng nhập.
+  - Mất bản ghi tiện ích thì truyện trên kệ dùng nguồn đó tự thành truyện mất nguồn (luồng 1.3.690).
+- **Sau khi xoá:**
+  - Toast `Đã xoá N nguồn Legado đang hiện/đang tắt`; lỗi thì toast đỏ.
+  - Nhóm đang lọc không còn nguồn nào thì về "Tất cả" (`resetGroupFilterIfEmpty`).
+- `legadoScopeTitle` tách ra từ `checkVisibleLegadoSources`, dùng chung cho màn kiểm tra và hộp xác nhận.
+
 ## [1.3.696] - 2026-11-04
 
 ### fix: mục lục nguồn Legado nhiều chương không còn làm app hết bộ nhớ

@@ -77,6 +77,9 @@ extension RepositoryManagerView {
         case .confirmDeleteAll:
             Button("Huỷ", role: .cancel) {}
             Button("Xoá tất cả", role: .destructive) { deleteAllLegadoSources() }
+        case .confirmDeleteSubset(let subset):
+            Button("Huỷ", role: .cancel) {}
+            Button("Xoá \(subset.packageIds.count) nguồn", role: .destructive) { deleteLegadoSubset(subset) }
         case .importResult, .error:
             Button("Xong", role: .cancel) {}
         }
@@ -100,9 +103,13 @@ extension RepositoryManagerView {
     }
 
     /// Nội dung ngăn kéo "…" của tab Legado. "Bật/Tắt tất cả" là hai thao tác hàng loạt, không phải một công tắc.
+    /// Hai hàng xoá theo phạm vi hiện số nguồn sẽ xoá; "đang tắt" chỉ tính sau lần nạp đầu (trước đó chưa biết bật/tắt).
     @ViewBuilder
     internal var legadoMenuItems: some View {
-        let isEmpty = LegadoSourceRepository.shared.summaries.isEmpty
+        let repository = LegadoSourceRepository.shared
+        let isEmpty = repository.summaries.isEmpty
+        let visibleCount = legadoVisibleSummaries.count
+        let disabledCount = legadoDisabledSourceIds.count
         SideDrawerActionRow("Nhập nguồn từ tệp JSON", systemImage: "doc.badge.plus") { legadoState.showingFileImporter = true }
         SideDrawerActionRow("Nhập nguồn từ URL", systemImage: "link.badge.plus") {
             legadoState.urlInput = ""
@@ -131,6 +138,16 @@ extension RepositoryManagerView {
 
         SideDrawerDivider()
 
+        SideDrawerActionRow(
+            "Xoá tất cả (theo danh sách đang hiện)", systemImage: "line.3.horizontal.decrease.circle",
+            detail: "\(visibleCount)", role: .destructive, action: confirmDeleteVisibleLegadoSources
+        )
+        .disabled(visibleCount == 0)
+        SideDrawerActionRow(
+            "Xoá tất cả nguồn đang tắt", systemImage: "xmark.circle",
+            detail: "\(disabledCount)", role: .destructive, action: confirmDeleteDisabledLegadoSources
+        )
+        .disabled(disabledCount == 0)
         SideDrawerActionRow("Xoá tất cả nguồn Legado", systemImage: "trash", role: .destructive, action: confirmDeleteAllLegadoSources)
             .disabled(LegadoSourcePolicy.onlyLegado(library.installed).isEmpty)
     }
@@ -209,12 +226,16 @@ extension RepositoryManagerView {
     private func checkVisibleLegadoSources() {
         let ids = legadoVisibleSummaries.map(\.packageId)
         guard !ids.isEmpty else { return }
+        legadoState.check = LegadoSourceTabState.CheckRoute(packageIds: ids, scopeTitle: legadoScopeTitle)
+    }
+
+    /// "Nhóm: …" (tên nhóm đã dịch) / "Tất cả nguồn" / "Chưa nhóm" + từ khoá ô tìm.
+    private var legadoScopeTitle: String {
         let groups = Dictionary(
             LegadoSourceRepository.shared.groupCounts.map { ($0.group, $0.translatedGroup) },
             uniquingKeysWith: { first, _ in first }
         )
-        let title = legadoState.scopeTitle(groupLabel: { groups[$0] ?? $0 })
-        legadoState.check = LegadoSourceTabState.CheckRoute(packageIds: ids, scopeTitle: title)
+        return legadoState.scopeTitle(groupLabel: { groups[$0] ?? $0 })
     }
 
     private func exportVisibleLegadoSources() {
@@ -237,6 +258,56 @@ extension RepositoryManagerView {
         let count = LegadoSourcePolicy.onlyLegado(library.installed).count
         guard count > 0 else { return }
         legadoState.alert = .confirmDeleteAll(count: count)
+    }
+
+    // MARK: - Xoá theo phạm vi (danh sách đang hiện / nguồn đang tắt)
+
+    /// Mọi nguồn đang tắt, không theo nhóm / ô tìm / NSFW. Đọc `summaries` (đã gộp bật/tắt đang ghi dở), **không** đọc
+    /// `isEnabled(packageId:)` tĩnh — trước lần nạp đầu nó trả `false` cho mọi nguồn.
+    private var legadoDisabledSourceIds: [String] {
+        let repository = LegadoSourceRepository.shared
+        guard repository.hasLoaded else { return [] }
+        return repository.summaries.filter { !$0.isEnabled }.map(\.packageId)
+    }
+
+    private func confirmDeleteVisibleLegadoSources() {
+        let ids = legadoVisibleSummaries.map(\.packageId)
+        guard !ids.isEmpty else { return }
+        legadoState.alert = .confirmDeleteSubset(LegadoSourceTabState.DeleteSubset(
+            scope: .visible, packageIds: ids, scopeTitle: legadoScopeTitle, hiddenNsfwCount: 0
+        ))
+    }
+
+    private func confirmDeleteDisabledLegadoSources() {
+        let ids = legadoDisabledSourceIds
+        guard !ids.isEmpty else { return }
+        let nsfwIds = LegadoSourceRepository.shared.nsfwPackageIds
+        let hiddenNsfw = filterIncludeNsfw ? 0 : ids.reduce(0) { $0 + (nsfwIds.contains($1) ? 1 : 0) }
+        legadoState.alert = .confirmDeleteSubset(LegadoSourceTabState.DeleteSubset(
+            scope: .disabled, packageIds: ids, scopeTitle: legadoScopeTitle, hiddenNsfwCount: hiddenNsfw
+        ))
+    }
+
+    /// Xoá đúng tập đã chụp lúc mở hộp xác nhận — cùng đường "Xoá nguồn lỗi" của màn kiểm tra
+    /// (`LegadoSourceCoordinator.delete(packageIds:)`): bản ghi tiện ích mất ⇒ truyện trên kệ thành truyện mất nguồn.
+    private func deleteLegadoSubset(_ subset: LegadoSourceTabState.DeleteSubset) {
+        guard !legadoState.isBusy, !subset.packageIds.isEmpty else { return }
+        legadoState.isBusy = true
+        legadoState.busyMessage = "Đang xoá \(subset.packageIds.count) nguồn Legado…"
+        Task { @MainActor in
+            let result = await LegadoSourceCoordinator.shared.delete(packageIds: subset.packageIds)
+            legadoState.isBusy = false
+            legadoState.busyMessage = ""
+            let repository = LegadoSourceRepository.shared
+            legadoState.resetGroupFilterIfEmpty(groups: repository.groupCounts, ungroupedCount: repository.ungroupedCount)
+            switch result {
+            case .success(let count):
+                let scope = subset.scope == .visible ? "đang hiện" : "đang tắt"
+                ToastManager.shared.show(message: "Đã xoá \(count) nguồn Legado \(scope)", type: .success)
+            case .failure(let error):
+                ToastManager.shared.show(message: "Không xoá hết nguồn Legado: \(error.localizedDescription)", type: .error)
+            }
+        }
     }
 
     private func deleteAllLegadoSources() {

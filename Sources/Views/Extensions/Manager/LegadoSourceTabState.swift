@@ -13,14 +13,33 @@ struct LegadoSourceTabState {
         case importResult(LegadoImportSummary)
         case error(String)
         case confirmDeleteAll(count: Int)
+        case confirmDeleteSubset(DeleteSubset)
 
         var id: String {
             switch self {
             case .importResult: return "importResult"
             case .error: return "error"
             case .confirmDeleteAll: return "confirmDeleteAll"
+            case .confirmDeleteSubset: return "confirmDeleteSubset"
             }
         }
+    }
+
+    /// Tập nguồn chụp lúc bấm hàng ngăn kéo — bấm "Xoá" thì xoá đúng tập này, số trong hộp xác nhận khớp số sẽ xoá.
+    struct DeleteSubset {
+        enum Scope {
+            /// Danh sách đang hiện (NSFW + nhóm + ô tìm).
+            case visible
+            /// Mọi nguồn đang tắt, không theo nhóm / ô tìm, kể cả nguồn 18+ đang ẩn.
+            case disabled
+        }
+
+        let scope: Scope
+        let packageIds: [String]
+        /// Phạm vi danh sách đang hiện: "Nhóm: …" / "Tất cả nguồn" (+ từ khoá ô tìm).
+        let scopeTitle: String
+        /// Số nguồn 18+ đang ẩn nằm trong tập (chỉ phạm vi `disabled`).
+        let hiddenNsfwCount: Int
     }
 
     /// Màn chi tiết của một nguồn (sheet có `NavigationStack` riêng).
@@ -122,6 +141,11 @@ struct LegadoSourceTabState {
         case .importResult(let summary): return "Đã nhập \(summary.importedCount) nguồn"
         case .error: return "Lỗi nguồn Legado"
         case .confirmDeleteAll: return "Xoá tất cả nguồn Legado?"
+        case .confirmDeleteSubset(let subset):
+            switch subset.scope {
+            case .visible: return "Xoá nguồn Legado đang hiện?"
+            case .disabled: return "Xoá nguồn Legado đang tắt?"
+            }
         case .none: return ""
         }
     }
@@ -135,8 +159,35 @@ struct LegadoSourceTabState {
             return message
         case .confirmDeleteAll(let count):
             return "Gỡ \(count) nguồn Legado khỏi ứng dụng. Tiện ích JavaScript không bị ảnh hưởng."
+        case .confirmDeleteSubset(let subset):
+            return Self.deleteSubsetMessage(subset)
         case .none:
             return ""
+        }
+    }
+
+    private static func deleteSubsetMessage(_ subset: DeleteSubset) -> String {
+        let count = subset.packageIds.count
+        var message: String
+        switch subset.scope {
+        case .visible:
+            message = "Gỡ \(count) nguồn Legado đang hiện (\(subset.scopeTitle)) khỏi ứng dụng."
+        case .disabled:
+            message = "Gỡ \(count) nguồn Legado đang tắt trong toàn bộ danh sách khỏi ứng dụng"
+            message += subset.hiddenNsfwCount > 0 ? ", kể cả \(subset.hiddenNsfwCount) nguồn 18+ đang ẩn." : "."
+        }
+        return message + " Truyện trên kệ dùng các nguồn này sẽ thành truyện mất nguồn."
+    }
+
+    /// Nhóm đang lọc không còn nguồn nào (vừa xoá hết) ⇒ về "Tất cả", để chip đang chọn không biến mất khỏi hàng chip.
+    mutating func resetGroupFilterIfEmpty(groups: [LegadoSourceGroupCount], ungroupedCount: Int) {
+        switch groupFilter {
+        case .all:
+            return
+        case .group(let group):
+            if !groups.contains(where: { $0.group == group }) { groupFilter = .all }
+        case .ungrouped:
+            if ungroupedCount == 0 { groupFilter = .all }
         }
     }
 
