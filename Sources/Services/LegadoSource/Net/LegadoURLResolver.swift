@@ -80,10 +80,11 @@ enum LegadoURLResolver {
         return parts.origin + removeDotSegments(in: directory + ref)
     }
 
-    /// Trường URL (§2.15): trim; khối option giữ nguyên; `javascript:…`, `#`, rỗng ⇒ `""`; `data:`/`http(s)` giữ nguyên.
+    /// Trường URL (§2.15): trim; nhiều giá trị ⇒ giá trị đầu; khối option giữ nguyên; `javascript:…`, `#`, rỗng ⇒ `""`;
+    /// `data:`/`http(s)` giữ nguyên.
     static func absoluteFieldURL(_ raw: String, base: String, fallbackBase: String) -> String {
         let split = splitOption(raw)
-        let url = split.url
+        let url = firstValue(split.url)
         let lower = url.lowercased()
         if url.isEmpty || url == "#" || lower.hasPrefix("javascript:") { return "" }
         if lower.hasPrefix("data:") { return raw.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -91,6 +92,16 @@ enum LegadoURLResolver {
         let resolved = absolute(url, base: effectiveBase)
         guard let option = split.option else { return resolved }
         return resolved + "," + option
+    }
+
+    /// Rule khớp nhiều giá trị nối `\n` (一曲书屋 `a@href` trên mục có link sách + link tác giả) ⇒ dòng không rỗng đầu.
+    /// URL không chứa xuống dòng, nên chuỗi nối lại chỉ là URL hỏng (spec §2.15 bước 1).
+    private static func firstValue(_ text: String) -> String {
+        guard text.contains(where: \.isNewline) else { return text }
+        return text.split(whereSeparator: \.isNewline)
+            .lazy
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
     }
 
     /// Chuẩn hoá để so trùng trong phân trang (§5.6): bỏ khối option, bỏ fragment; phân biệt hoa thường path/query.

@@ -8,8 +8,9 @@ extension LegadoEngineSession {
         try evaluateScript(code, result: result, baseUrl: baseUrl, src: nil)
     }
 
-    /// `frameContent`: nội dung hiện hành cho `java.getString/getElements` trong đoạn JS (mặc định = `result`). Khác
-    /// `result` khi JS đầu trên trang nhận chuỗi thân trang nhưng `java.getString` vẫn dùng cây đã phân tích.
+    /// `frameContent`: nội dung hiện hành cho `java.getString/getElements` trong đoạn JS (mặc định = `result`). Rule
+    /// truyền nội dung gốc của rule (trang/mục): JS đầu trên trang nhận chuỗi thân trang, JS sau một phân đoạn rule
+    /// nhận kết quả trung gian, nhưng `java.getString` vẫn chạy trên trang/mục.
     func evaluateScript(_ code: String, result: LegadoContentNode?, baseUrl: String?, src: String?,
                         frameContent: LegadoContentNode? = nil) throws -> LegadoContentNode {
         let base = baseUrl ?? sourceBase

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.700] - 2026-11-04
+
+### fix: sửa 5 lỗi engine Legado từ báo cáo kiểm tra nguồn
+
+Người dùng gửi hai báo cáo "Kiểm tra nguồn" (31 nguồn / 735 nguồn dừng ở 76) và duyệt plan sửa các lỗi do app. Bằng chứng lấy từ trang/API thật và corpus nguồn; phần lớn lỗi còn lại là do web hoặc nguồn cũ.
+
+- **`java.getString/getElements` trong JS sau một phân đoạn rule chạy trên trang/mục của rule** (`LegadoRuleAnalyzer.evaluate`: `frameContent` = nội dung gốc, không còn là kết quả trung gian; `result` giữ nguyên). ㊣ UC小说 #一程1101: `$.data.chapterList[0].volumeList<js>java.put('freeUrlPre',java.getString('$.data.freeContUrlPrefix'))…` trước đây ra tiền tố rỗng, URL chương ghép vào API mục lục nên nội dung rỗng. 77 rule cùng kiểu trong corpus (书旗, 阿巴, 人人小说, 起点, 晋江…).
+- **JSONPath ngầm `.x` thành `$..x`** (quét sâu, như thư viện JsonPath thêm `$.` trước đường dẫn không bắt đầu bằng `$`/`@`); `..x` và `[…]` chỉ thêm `$`. QQ阅读 ×3 `.bookList[*]`/`.books[*]` trên API trả `{"data":{"bookList":[…]}}` trước đây ra 0 mục.
+- **Danh sách giá trị JSON đổi thành chuỗi ra văn bản JSON** như `JSONArray` của json-smart (`LegadoJSBootstrap.core`: `dec` gắn cờ ẩn khi mọi mục là `$json`, `toString()` dùng `JSON.stringify`). 网易云 `data.books[*]` rồi `JSON.parse(result)` trước đây lỗi `Unexpected identifier "object"`; 爱发电 `String(result).replace(/\[/,…)`, 番茄 cũng cần. Danh sách phần tử HTML và danh sách chuỗi giữ như 1.3.694; danh sách rỗng vẫn ra `""`.
+- **XPath dựng trên cây SwiftSoup thay vì thân thô** (`rootXPathDocument`, nhánh chuỗi HTML của `xpathItems`): libxml2 2.9 không tự đóng `<dd>` khi gặp `<dd>` kế, nên mục lục R 玩文学 (`<dd><a>…` thiếu `</dd>`) thành lồng nhau, chương i lấy link/tên của chương i…N ⇒ HTTP 414 ở bước nội dung. Tuần tự hoá không pretty-print, escape `.xhtml` để SwiftSoup không chép lại nguyên văn thân gốc; cài đặt in của document trả lại ngay. Rule `/table/tbody/tr` (13 rule corpus) cũng khớp như cây jsoup.
+- **Trường URL nhiều giá trị lấy dòng không rỗng đầu** (`LegadoURLResolver.absoluteFieldURL`, sau khi tách khối option): 一曲书屋 `bookUrl: a@href` trên `<p>` có link sách + link tác giả trước đây ra `…/book/132394/\n/author/…` ⇒ HTTP 400. `nextTocUrl`/`nextContentUrl` vẫn là danh sách.
+- **Không sửa (không phải lỗi app)**: 企鹅浏览 (bản cài có `bookUrl` hỏng), 天地中文 (web trả danh sách rỗng; kết luận "app" của báo cáo là sai), ⭐ 猫眼看书③ (mọi host API lỗi), 黑岩 ×2 (UA di động mặc định ⇒ web chuyển bản `w.heiyan.com` không có `<span>`; giữ UA theo spec §3.10).
+- Spec `legado-source-spec.md` cập nhật §2.2 bước 5, §2.11.1, §2.12, §2.15 bước 1, §6.3 (`toString`), bảng `java.getString`. Chuyển `[1.3.669]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; chạy `core` bootstrap bằng node với `__lgNative` giả (danh sách JSON/chuỗi/trộn/rỗng, `for…in`, export); lần tay JSONPath trên JSON QQ thật; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.698] - 2026-11-04
 
 ### feat: thu nhỏ màn kiểm tra nguồn và kiểm tra tiện ích vào hub nổi
@@ -655,17 +670,3 @@ Người dùng: *"vì sao bạn làm trình duyệt đăng nhập của legado c
 - **Hệ quả**: cookie của nguồn Legado thấy được trong trình duyệt của app; đăng xuất nguồn cũng đăng xuất tên miền đó trong trình duyệt của app. Gieo cookie khi mở vẫn ghi đè cookie trùng tên/tên miền đang có trong kho WebKit (như WebView ẩn).
 - Chuyển entry `[1.3.640]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: đăng nhập Google ở trình duyệt của app rồi mở "Đăng nhập trên web" của một nguồn Legado thấy vẫn còn phiên Google; đóng mở lại trình duyệt Legado vẫn còn đăng nhập; Đăng xuất nguồn rồi mở lại thì trang nguồn không còn đăng nhập.
-
-## [1.3.669] - 2026-11-01
-
-### fix: giữ dòng dừng lọc name và điểm tiếp nối khi đổi nguồn
-
-Người dùng: *"Dòng Đã dừng lọc name ở ch.240: Chương 256: Võ đạo đường rẽ cùng mới cảnh giới. Bị mất khi chuyển nguồn truyện"*; chọn "giữ nguyên chỉ số", duyệt plan.
-
-- **Nguyên nhân 1 — mở nhầm phiên**: dòng dừng là một tin trong phiên chat AI. Đổi nguồn tạo `bookId` mới (UUID); `AIChatHistoryStore.migrateSessions` có chép phiên nhưng gán `updatedAt = Date()` lần lượt theo thứ tự mới → cũ ⇒ phiên cũ nhất nhận mốc mới nhất, thứ tự bị đảo. Màn AI của truyện mới (chưa có `lastSessionIds`) mở `summaries.first` = phiên **cũ nhất** ⇒ dòng dừng trông như mất. Phiên chép sang còn giữ `session.bookId` cũ (`let`) ⇒ `condenseHistoricalMessages` lưu nhầm về thư mục của truyện cũ, xoá phiên ở Cài đặt trỏ nhầm thư mục.
-- **Sửa**: `migrateSessions` dựng lại phiên với `bookId` mới, giữ `id`, `createdAt`, `updatedAt`. `AIRuntimeCoordinator.migrateLastSession(from:to:)` chuyển phiên lượt gần nhất đã dùng (RAM), gọi từ `SearchView.executeSourceChange`. `condenseHistoricalMessages` lưu theo `bookId` của màn (đỡ cho phiên đã chép trước bản này).
-- **Nguyên nhân 2 — mất điểm tiếp nối**: `AINameScanScopeStore` (điểm tiếp nối + lựa chọn "từ chương đang đọc", UserDefaults theo `bookId`) không được chép ⇒ sheet quét mất dòng "Tiếp nối lần quét trước". **Sửa**: `AINameScanScopeStore.migrate(from:to:keepingOld:)` gọi trong `BookSourceMigrator.migrateMetadataAndSettings`; **giữ nguyên chỉ số** (người dùng chọn) vì chương đã tải được chép sang theo vị trí — chỉ số cũ vẫn trỏ ngay sau phần nội dung đã quét. Đang phát TTS truyện cũ thì giữ bản của truyện cũ (như cấu hình dịch).
-- **Truyện đã đổi nguồn trước bản này**: không tự khôi phục — thứ tự phiên đã lưu bị đảo, điểm tiếp nối nằm ở id cũ không còn ánh xạ. Dòng dừng vẫn có trong danh sách phiên; quét tiếp bằng "Chọn chương…".
-- **Chưa làm**: kết quả AI chưa xem trên hub (`AIUnseenResultStore`), nút "Thử lại k lượt lỗi" (chỉ trong RAM), lượt quét đang chạy lúc đổi nguồn vẫn ghi vào id cũ; chép chương đã tải theo vị trí (có từ trước) có thể lệch tên/nội dung khi hai mục lục khác nhau.
-- `rules.md` thêm luật dữ liệu AI theo truyện phải đi theo khi đổi nguồn. Chuyển entry `[1.3.639]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: dừng lọc name → đổi nguồn → mở AI của truyện mới thấy đúng phiên có dòng dừng; sheet quét có "Tiếp nối lần quét trước" và quét tiếp được trên nguồn mới.

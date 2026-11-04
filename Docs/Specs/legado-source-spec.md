@@ -360,7 +360,10 @@ Một chuỗi rule có thể xen kẽ **phân đoạn rule** và **phân đoạn
 3. Gặp `@js:` (không phân biệt hoa thường) ngoài khối `<js>` → phần còn lại là một phân đoạn JS cuối.
 4. Phân đoạn rule chỉ có khoảng trắng bị bỏ.
 5. Chạy tuần tự: `c₀` = nội dung hiện hành. Phân đoạn rule dùng `cᵢ` làm nội dung; phân đoạn JS nhận `result = cᵢ`
-   (§6.2), kết quả JS thành `cᵢ₊₁`.
+   (§6.2), kết quả JS thành `cᵢ₊₁`. Trong phân đoạn JS, `java.getString/getElements` không truyền `content` vẫn chạy
+   trên **`c₀`** (trang hoặc mục), không trên `cᵢ` `[quan sát]`: 77 chuỗi rule trong corpus đều hỏi trường của trang/mục,
+   ví dụ `$.data.chapterList[0].volumeList<js>java.put('freeUrlPre',java.getString('$.data.freeContUrlPrefix'))…`
+   (UC/书旗/阿巴), `$.uptime@js:…java.getString('$.last_chapter_name')`, `@css:a[…]<js>…java.getString('tag.title@text')`.
 6. Mọi phân đoạn rule trung gian được đánh giá **cùng dạng yêu cầu với cả rule** (`getElements` / `getStringList` /
    `getString`), vì JS phía sau dùng `result.toArray()` khi là danh sách
    (`class.cytable@tag.tr[1:20]@tag.a[1]\n<js>list=result.toArray();`) và `result.match(...)` khi là chuỗi `[quan sát]`.
@@ -653,7 +656,10 @@ Tiền tố: `@json:` (118 lần mọi kiểu hoa thường), `$.`/`$[` (5088 ch
 
 #### §2.11.1 Đường dẫn ngầm
 
-- Phần-chọn không bắt đầu bằng `$` → thêm tiền tố: bắt đầu bằng `.` hoặc `[` thì thêm `$`, còn lại thêm `$.` `[đề xuất]`.
+- Phần-chọn không bắt đầu bằng `$`/`@` → thêm `$.` như thư viện JsonPath (thêm `$.` trước mọi đường dẫn không bắt đầu
+  bằng `$`/`@`). Vì vậy `.x` thành `$..x` (**quét sâu**): QQ阅读 `.bookList[*]` trên `{"data":{"bookList":[…]}}`,
+  `.books[*]`, `.list[*]`, `.rows[*]` và trường `.title`/`.author` (khoảng 56 rule / 13 nguồn) `[quan sát]`. Ngoại lệ để
+  không ra `$...x` / `$.[…]`: `..x` → `$..x`, `[…]` → `$[…]`.
   Ví dụ: `title` → `$.title`, `data.books` → `$.data.books`, `@json:id` → `$.id` (`{{@json:id}}`, 6 lần) `[quan sát]`.
 - Trong chế độ JSON, `@` **không** tách bước (filter JSONPath dùng `@`).
 
@@ -685,6 +691,11 @@ Tiền tố: `@json:` (118 lần mọi kiểu hoa thường), `$.`/`$[` (5088 ch
 - `/a/p[1]/text()` dưới mục XPath = đường dẫn **tương đối** tới mục (bước đầu là con), như `./a/p[1]/text()` `[quan sát]`.
 - Cài đặt `[đề xuất]`: iOS có sẵn libxml2 (parser HTML + XPath). Mục XPath là nút libxml2; rule con không phải XPath thì
   tuần tự hoá nút thành HTML rồi parse bằng SwiftSoup.
+- Cây cho XPath dựng bằng **SwiftSoup** (cây HTML5 như jsoup) rồi tuần tự hoá (không pretty-print) cho libxml2, không đưa
+  thân thô thẳng vào libxml2 `[quan sát]`: parser HTML của libxml2 2.9 không tự đóng `<dd>` khi gặp `<dd>` kế (bảng
+  start-close không có cặp `dd`/`dd`), nên mục lục `<dd><a>…</a>` thiếu `</dd>` (R 玩文学 `//dd[@class="col-md-3"]` +
+  `//a/@href`) thành lồng nhau: mục i chứa link/tên của chương i…N. libxml2 cũng không chèn `<tbody>`, trong khi 13 rule
+  corpus viết `…/table/tbody/tr` theo cây jsoup.
 
 ### §2.13 Regex danh sách `:` và tiền tố danh sách
 
@@ -723,7 +734,10 @@ Bằng chứng: danh sách chương dựng bằng JS trả mảng object
 Trường URL: `bookUrl`, `coverUrl`, `tocUrl`, `chapterUrl`, `nextTocUrl`, `nextContentUrl`, `downloadUrls`; thêm
 `java.getString(rule, content, true)` (tham số `isUrl`) `[tài liệu jsHelp.md]`.
 
-1. Lấy chuỗi, trim.
+1. Lấy chuỗi, trim. Phần URL (trước khối option) có nhiều dòng — rule khớp nhiều giá trị, nối `\n` — thì lấy dòng không
+   rỗng **đầu** `[đề xuất]`: URL không chứa xuống dòng nên chuỗi nối không bao giờ dùng được. Bằng chứng: 一曲书屋 (đã kiểm
+   26.10.15) dùng `name: a.0@text` nhưng `bookUrl: a@href` trên cùng `<p>` có link sách + link tác giả. Trường danh sách
+   (`nextTocUrl`, `nextContentUrl`, `getStringList(…, true)`) vẫn lấy từng giá trị.
 2. Có khối option `,{…}` ở cuối (§3.6) thì chỉ ghép phần trước khối; khối giữ nguyên.
 3. Ghép với URL nền = URL **cuối cùng** (sau chuyển hướng) của trang đang phân tích; nội dung JSON/JS dùng URL của request
    sinh ra nội dung đó; không có thì dùng `bookSourceUrl` (§1.4).
@@ -1401,9 +1415,12 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
     khi tạo `subList` (độ dài hoặc phần tử trong đoạn khác đi) ⇒ `clear()` ném lỗi bắt đầu bằng
     `ConcurrentModificationException`, như Java, thay vì bỏ nhầm đoạn.
   - So sánh (`contains`, `indexOf`, `remove(đối tượng)`) theo `===`: phần tử HTML dùng được nhờ định danh ổn định (§6.8).
-  - `toString()`: danh sách mà mọi phần tử là Element ⇒ `outerHtml` nối bằng `\n` (như jsoup, để `Jsoup.parse(ds)` đúng);
-    danh sách khác giữ kiểu mảng JS (`a,b`), không theo `[a, b]` của Java. Giá trị rule trả về xuất qua mảng, không qua
-    `toString`, nên không đổi.
+  - `toString()`: danh sách mà mọi phần tử là giá trị JSON (mục JSONPath, `java.getElements('$…')`) ⇒ **văn bản JSON**
+    như `JSONArray` của json-smart `[quan sát]`: `data.books[*]\n@js:JSON.parse(result).map(…)` (网易云),
+    `$.data.list<js>String(result).replace(/\[/,'[{…},')` (爱发电), `JSON.parse(result)` sau `$.data.chapterListWithVolume`
+    (番茄). Danh sách mà mọi phần tử là Element ⇒ `outerHtml` nối bằng `\n` (như jsoup, để `Jsoup.parse(ds)` đúng). Danh
+    sách khác giữ kiểu mảng JS (`a,b`), không theo `[a, b]` của Java; danh sách JSON rỗng cũng ra `""` (không phân biệt
+    được với mảng rỗng). Giá trị rule trả về xuất qua mảng, không qua `toString`, nên không đổi.
 
 ### §6.4 `java.*`: đợt 1
 
@@ -1433,7 +1450,7 @@ lỗi, không chặn đợt 1. `69書吧`, `魔丸小说`, `起点小说`, `全�
 
 | Hàm | Lần / nguồn | Chữ ký và hành vi | Nhãn |
 |---|---|---|---|
-| `java.getString(rule[, content[, isUrl]])` | 860 / 269 | đánh giá rule `getString` trên `content` (thiếu → nội dung hiện hành); `isUrl` → §2.15 | `[tài liệu]` |
+| `java.getString(rule[, content[, isUrl]])` | 860 / 269 | đánh giá rule `getString` trên `content` (thiếu → nội dung hiện hành = trang/mục của rule, không phải `result` trung gian, §2.2 bước 5); `isUrl` → §2.15 | `[tài liệu]` |
 | `java.getStringList(rule[, content[, isUrl]])` | 44 / 21 | như trên, `getStringList` → mảng | `[tài liệu]` |
 | `java.getElements(rule)` | 97 / 61 | `getElements` trên nội dung hiện hành → danh sách phần tử shim (§6.8) hoặc giá trị JSON | `[tài liệu]` |
 | `java.getElement(rule)` | 53 / 29 | phần tử đầu (hoặc rỗng) | `[tài liệu]` |

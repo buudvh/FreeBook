@@ -53,12 +53,18 @@ enum LegadoJSBootstrap {
             if (typeof v.__lgString === 'function') { return v.__lgString(); }
             try { JSON.stringify(v); return { $json: v }; } catch (e) { return String(v); }
           }
+          function isJSONDescriptor(x) { return x !== null && typeof x === 'object' && x.$json !== undefined; }
           function dec(d) {
             if (d === null || d === undefined) { return null; }
             if (typeof d !== 'object') { return d; }
             if (Array.isArray(d)) { return javaList(d.map(dec)); }
             if (d.$el !== undefined) { return g.__lg.wrapElement(d.$el); }
-            if (d.$arr !== undefined) { return javaList(d.$arr.map(dec)); }
+            if (d.$arr !== undefined) {
+              var list = javaList(d.$arr.map(dec));
+              // Mọi mục là giá trị JSON (mục JSONPath) ⇒ danh sách kiểu `JSONArray`: `toString()` ra văn bản JSON.
+              if (d.$arr.length > 0 && d.$arr.every(isJSONDescriptor)) { defineHidden(list, '__lgJSON', true); }
+              return list;
+            }
             if (d.$json !== undefined) { return d.$json; }
             if (d.$bytes !== undefined) { return hexToBytes(d.$bytes); }
             return d;
@@ -179,8 +185,13 @@ enum LegadoJSBootstrap {
             outerHtml: function () {
               return this.map(function (x) { return x && typeof x.outerHtml === 'function' ? x.outerHtml() : String(x); }).join('\n');
             },
-            // Danh sách phần tử ⇒ `outerHtml` nối bằng `\n` như jsoup (để `Jsoup.parse(ds)` đúng); còn lại như mảng JS.
+            // Danh sách từ JSON ⇒ văn bản JSON như `JSONArray` của json-smart (`JSON.parse(result)`,
+            // `String(result).replace(/\[/, …)`); danh sách phần tử ⇒ `outerHtml` nối bằng `\n` như jsoup (để
+            // `Jsoup.parse(ds)` đúng); còn lại như mảng JS.
             toString: function () {
+              if (this.__lgJSON === true) {
+                try { return JSON.stringify(this); } catch (e) { return Array.prototype.toString.call(this); }
+              }
               if (this.length > 0 && this.every(isElement)) { return this.outerHtml(); }
               return Array.prototype.toString.call(this);
             },

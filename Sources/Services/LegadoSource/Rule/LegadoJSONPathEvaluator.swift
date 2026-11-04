@@ -28,11 +28,12 @@ struct LegadoJSONPathEvaluator {
     private(set) var isDefinite = true
     private(set) var isValid = true
 
-    /// Thêm tiền tố ngầm (§2.11.1): không bắt đầu bằng `$`/`@` ⇒ bắt đầu bằng `.`/`[` thì thêm `$`, còn lại thêm `$.`.
+    /// Thêm tiền tố ngầm (§2.11.1) như thư viện JsonPath: không bắt đầu bằng `$`/`@` ⇒ thêm `$.`. Vì vậy `.x` thành
+    /// `$..x` (quét sâu — QQ阅读 `.bookList[*]` trên `{"data":{"bookList":[…]}}`); `..x` và `[…]` chỉ thêm `$`.
     static func normalized(_ rule: String) -> String {
         let trimmed = rule.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("$") || trimmed.hasPrefix("@") { return trimmed }
-        if trimmed.hasPrefix(".") || trimmed.hasPrefix("[") { return "$" + trimmed }
+        if trimmed.hasPrefix("..") || trimmed.hasPrefix("[") { return "$" + trimmed }
         return "$." + trimmed
     }
 

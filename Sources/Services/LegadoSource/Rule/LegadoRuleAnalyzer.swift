@@ -113,7 +113,9 @@ final class LegadoRuleAnalyzer {
                 } else {
                     input = current
                 }
-                current = try session.evaluateScript(script, result: input, baseUrl: baseUrl, src: src, frameContent: current)
+                // `java.getString/getElements` trong đoạn JS chạy trên nội dung **gốc** của rule (trang/mục), không trên
+                // kết quả trung gian: `$.data.list<js>java.getString('$.data.prefix')</js>` (spec §2.2 bước 5).
+                current = try session.evaluateScript(script, result: input, baseUrl: baseUrl, src: src, frameContent: start)
             }
             currentIsPage = false
         }

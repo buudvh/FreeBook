@@ -184,17 +184,34 @@ extension LegadoRuleAnalyzer {
         case .null:
             return []
         default:
-            guard let document = LegadoXPathDocument(html: content.sourceText) else { return [] }
+            // Chuỗi HTML (vd JS trả về) cũng qua cây SwiftSoup như trang (xem `rootXPathDocument`).
+            let html = content.htmlElement(baseUrl: baseUrl).flatMap { Self.compactOuterHTML($0) } ?? content.sourceText
+            guard let document = LegadoXPathDocument(html: html) else { return [] }
             return document.evaluate(expression, at: nil).map { (document, $0) }
         }
     }
 
+    /// Tài liệu XPath của trang dựng từ **cây SwiftSoup** (cùng cách dựng cây HTML5 với jsoup của bản Android), không
+    /// từ thân thô: parser HTML của libxml2 2.9 không tự đóng `<dd>` khi gặp `<dd>` kế (mục lục `<dd><a>…` không có
+    /// `</dd>` thành lồng nhau, mục đầu chứa cả trang) và không chèn `<tbody>` (rule `/table/tbody/tr`).
     private func rootXPathDocument(_ element: Element) -> LegadoXPathDocument? {
         if let cached = xpathRootDocument { return cached }
-        let html = src ?? ((try? element.outerHtml()) ?? "")
-        let made = LegadoXPathDocument(html: html)
+        let made = LegadoXPathDocument(html: Self.compactOuterHTML(element) ?? src ?? "")
         xpathRootDocument = made
         return made
+    }
+
+    /// Outer HTML dựng lại từ cây, không pretty-print (giữ nguyên khoảng trắng của nút chữ cho `text()`). Escape mode
+    /// `.xhtml` để SwiftSoup không chép lại nguyên văn thân gốc (≥ 2.14 tái dùng nguồn khi tắt pretty-print và escape
+    /// mode `.base` — sẽ trả lại đúng các thẻ chưa đóng). Cài đặt in của document được trả lại ngay: `@html` và trường
+    /// nội dung đọc cùng cài đặt đó.
+    static func compactOuterHTML(_ element: Element) -> String? {
+        guard let settings = element.ownerDocument()?.outputSettings() else { return try? element.outerHtml() }
+        let wasPretty = settings.prettyPrint()
+        let oldEscapeMode = settings.escapeMode()
+        settings.prettyPrint(pretty: false).escapeMode(.xhtml)
+        defer { settings.prettyPrint(pretty: wasPretty).escapeMode(oldEscapeMode) }
+        return try? element.outerHtml()
     }
 
     // MARK: - Regex danh sách (§2.13)
