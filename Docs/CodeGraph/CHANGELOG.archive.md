@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.663] - 2026-10-31
+
+### fix: mọi nút sao chép cạnh ô nhập báo toast Đã sao chép
+
+Người dùng: *"tôi đã yêu cầu nhấp nút copy trên bàn phím thì có toast báo nhưng sao bạn chỉ làm cho màn hình browser thôi, phải làm tất cả chỗ nào hiển thị bàn phím có nút copy chứ"* (1.3.656 chỉ thêm toast cho nút sao chép của thanh công cụ bàn phím).
+
+- **`ClipboardCopier.copy(_:message:)`** (mới, `Views/Common/`): ghi bộ nhớ tạm + toast "Đã sao chép" (`recordsInInbox: false`, không vào Trung tâm thông báo). Nút sao chép mới thì gọi qua đây.
+- Dùng cho: thanh công cụ bàn phím (`KeyboardTextToolbarModel.copy`), bộ nút cạnh ô một dòng `TextFieldClipboardButtons` (Cấu hình tiện ích, Thông tin plugin.json), nút sao chép cạnh ô của Từ điển (`DictEntrySheet`), Trí nhớ AI (`BookAIMemorySheet`), Cài đặt AI (`AISettingsView+Actions`), ô chữ thử VieNeu, và hai nút trước đây sao chép im lặng: "Sao chép tin nhắn" của Trợ lý AI toàn màn, địa chỉ của Debug server tiện ích. Các nút đã có toast/chỉ báo riêng giữ nguyên.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — toast nổi trên bàn phím ở sheet (Từ điển, Trí nhớ AI).
+
 ## [1.3.662] - 2026-10-31
 
 ### feat: panel Mục lục dùng chung, thẻ gợi ý và bình luận ở Chi tiết

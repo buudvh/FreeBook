@@ -794,8 +794,8 @@ Hệ quả của thứ tự 1 → 3: giá trị thay vào không thể phá cú 
 - JS trả về **object** `{url, method, body}` (`@js:{ … return { method: 'POST', url: …, body: … } }`, nguồn `可乐小说`
   bộ 1298 — ghi chú của nguồn nói "ghép theo giao diện đã thử, hãy kiểm lại", nên đây **không** là bằng chứng về engine
   gốc) → `[đề xuất]` mở rộng: object có khoá `url` thì coi như `url` + option là các khoá còn lại.
-- Mã JS có `return` ở cấp cao nhất (`@js:{ … return … }`, 5 chuỗi): JS chuẩn báo lỗi cú pháp. `[đề xuất]` thử lại bằng cách
-  bọc thành `(function(){ … })()`.
+- Mã JS có `return` ở cấp cao nhất (`@js:{ … return … }`, 5 chuỗi): JS chuẩn báo lỗi cú pháp. `[đề xuất]` thử lại trong một
+  hàm nhận biến môi trường làm tham số (§6.1).
 
 ### §3.4 Placeholder trong URL
 
@@ -1320,8 +1320,27 @@ tính trong `jsHelp.md` `[tài liệu]`, xem §6.6.
 - **Toàn cục**: biến môi trường (§6.2) phải là **thuộc tính của đối tượng toàn cục** (hàm `jsLib` đọc `this.source` khi được gọi
   không kèm `this`, §5.8) `[quan sát]`. Gán lại biến môi trường trong mã (`result = …`, `baseUrl = baseUrl.replace(…)`) là bình
   thường `[quan sát]`.
+- **Phạm vi mỗi lần chạy**: mọi lần chạy rule JS của một tác vụ dùng chung một ngữ cảnh, nên mã rule chạy bằng **eval gián
+  tiếp ở global**. Engine gọi `eval` gốc như một hàm, không qua cú pháp `eval(…)` trong JS. Bản `eval` này được giữ ngay khi
+  tạo ngữ cảnh, trước bootstrap và `jsLib`, ở một thuộc tính ẩn không ghi được, nên nguồn gán lại `eval` không ảnh hưởng.
+  Theo chuẩn, eval gián tiếp ở chế độ sloppy có ba tính chất:
+  - `var` và `function` lên global, và mọi `function` được tạo **trước** câu lệnh đầu tiên. Đoạn ném lỗi giữa chừng vẫn để
+    lại hàm cho lần sau. Luồng `loginUrl` → `login()` (§10.4), nút của form đăng nhập và `action` khám phá (§11.4) dựa vào
+    điều này.
+  - `let`/`const`/`class` ở cấp ngoài cùng nằm trong môi trường riêng của lần chạy. Chạy lại cùng đoạn (rule của từng mục
+    danh sách) không còn lỗi `Can't create duplicate variable`, và `let page`/`let baseUrl`… không che biến môi trường (§6.2)
+    của các lần sau. Hàm khai trong đoạn vẫn đọc được chúng qua closure.
+  - Giá trị trả là giá trị hoàn tất, và số dòng lỗi tính theo mã gốc.
+
+  Khác chạy thẳng, đã biết và không sửa: mã mở đầu bằng `"use strict"` thì `var`/`function` chỉ sống trong lần chạy đó
+  (corpus: 0 đoạn). `jsLib` (§5.8) và mã nội bộ vẫn chạy thẳng bằng `evaluateScript` `[đề xuất]`.
 - **`return` ở cấp cao nhất** (5 chuỗi rule) và `const` trong vòng lặp (tài liệu cảnh báo Rhino không hỗ trợ phạm vi khối cho
-  `const` `[tài liệu jsHelp.md]`): JSC theo chuẩn. Lỗi cú pháp vì `return` cấp cao → thử bọc `(function(){…})()` `[đề xuất]`.
+  `const` `[tài liệu jsHelp.md]`): JSC theo chuẩn. Lỗi cú pháp có chữ `Return statements` thì engine chạy **mã gốc** trong
+  `(function(result, baseUrl, src, key, page, title, nextChapterUrl){{…\n}}).call(this, …)`. Biến môi trường thành tham số;
+  đối số đọc bằng `typeof x === 'undefined' ? undefined : x`, nên tên chưa có trên global không gây `ReferenceError`. Nhờ vậy
+  `var src = src.trim(); return src` vẫn đọc giá trị cũ. Khối bên trong cho phép `let`/`const` trùng tên tham số. Giá trị trả
+  là giá trị `return`. Khác đã biết: gán `result` mà không `return` thì mất, vì phép gán chỉ đổi tham số nên dự phòng `result`
+  ở trên không áp (corpus: 0 đoạn) `[đề xuất]`.
 - **Một ngữ cảnh mỗi tác vụ** (§5.8). Không dùng ngữ cảnh chung toàn app (đúng quy ước repo: mỗi tác vụ một executor).
 - Lỗi JS (ném ngoại lệ) → phân đoạn cho kết quả rỗng, ghi log có tên nguồn, trường và thông báo lỗi; **không** làm hỏng cả
   danh sách (một mục lỗi thì bỏ mục đó) `[đề xuất]`.

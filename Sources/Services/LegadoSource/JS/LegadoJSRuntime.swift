@@ -24,6 +24,9 @@ final class LegadoJSRuntime {
         context.exceptionHandler = { [weak self] _, exception in
             self?.capturedError = Self.describe(exception)
         }
+        // Giữ `eval` gốc trước khi chạy bất kỳ mã nào (bootstrap, `jsLib`, rule): rule chạy bằng eval gián tiếp qua bản
+        // này (`globalEval`), nên nguồn gán lại `eval` không ảnh hưởng. Thuộc tính ẩn, không ghi/xoá được.
+        context.evaluateScript("Object.defineProperty(this, '\(Self.globalEvalName)', { value: eval });")
         let native: @convention(block) (String, String) -> String = { [weak self] command, arguments in
             guard let self else { return "" }
             return self.dispatchNative(command, arguments)
@@ -53,6 +56,14 @@ final class LegadoJSRuntime {
 
     /// Như `evaluate` nhưng trả **giá trị JS thô** và thông báo lỗi (lỗi đã được ghi chẩn đoán). Dùng khi cần phân biệt
     /// "JS ném lỗi" với "JS trả `undefined`" (`login()`, `loginCheckJs`, `imageDecode`).
+    ///
+    /// Rule chạy bằng **eval gián tiếp ở global** (§6.1, `globalEval`). `var`/`function` lên global và mọi `function`
+    /// có ngay từ trước câu lệnh đầu, nên đoạn ném lỗi giữa chừng vẫn để lại hàm cho lần sau (luồng `loginUrl` →
+    /// `login()`, nút form đăng nhập, `action` khám phá dựa vào điều này). `let`/`const`/`class` ở cấp ngoài cùng nằm
+    /// trong phạm vi riêng của lần chạy nên không rò sang lần sau (hết lỗi `Can't create duplicate variable`, không che
+    /// biến môi trường của lần sau). Giá trị trả = giá trị hoàn tất; số dòng lỗi theo code gốc. Khác chạy thẳng: code
+    /// mở đầu bằng `"use strict"` thì `var`/`function` chỉ sống trong lần chạy đó. `return` ở cấp ngoài cùng ⇒ chạy
+    /// code **gốc** trong hàm nhận biến môi trường làm tham số (`returnWrapperHead`).
     func evaluateRaw(_ code: String, bindings: LegadoJSBindings) throws -> (value: JSValue?, error: String?) {
         guard let session else { throw CancellationError() }
         try session.checkCancellation()
@@ -68,10 +79,10 @@ final class LegadoJSRuntime {
         capturedError = nil
         defer { capturedError = outerError }
 
-        var value: JSValue? = context.evaluateScript(code)
-        if let error = capturedError, error.contains("Return statements are only valid inside functions") {
+        var value: JSValue? = globalEval(code)
+        if let error = capturedError, error.contains("Return statements") {
             capturedError = nil
-            value = context.evaluateScript("(function(){\n" + code + "\n}).call(this)")
+            value = context.evaluateScript(Self.returnWrapperHead + code + Self.returnWrapperTail)
         }
         try session.checkCancellation()
         if let error = capturedError {
@@ -85,6 +96,30 @@ final class LegadoJSRuntime {
         }
         return (value, nil)
     }
+
+    /// Tên thuộc tính ẩn trên global giữ `eval` gốc (gắn trong `init`, trước bootstrap).
+    private static let globalEvalName = "__lgEval"
+
+    /// Eval **gián tiếp**: gọi `eval` gốc như một hàm (không phải cú pháp `eval(…)` trong JS) ⇒ chạy ở phạm vi global
+    /// với môi trường lexical riêng cho mỗi lần. Lỗi đi qua `exceptionHandler` như `evaluateScript`. Thiếu `eval` gốc
+    /// (không xảy ra) ⇒ chạy thẳng `evaluateScript`.
+    private func globalEval(_ code: String) -> JSValue? {
+        guard let evaluator = context.objectForKeyedSubscript(Self.globalEvalName), evaluator.isObject else {
+            return context.evaluateScript(code)
+        }
+        return evaluator.call(withArguments: [code])
+    }
+
+    /// Dạng dự phòng khi rule có `return` ở cấp ngoài cùng: `(function(result, baseUrl, …){{<code>\n}}).call(this, …)`.
+    /// Biến môi trường (`LegadoJSBindings.names`) thành tham số nên `var src = src.trim()` đọc được giá trị cũ; khối
+    /// bên trong cho phép `let`/`const` trùng tên tham số. Đối số đọc bằng `typeof` nên tên chưa có trên global không
+    /// ném `ReferenceError`. Đường này trả giá trị bằng `return`; gán `result` chỉ đổi tham số nên không được phát
+    /// hiện.
+    private static let returnWrapperHead: String =
+        "(function(" + LegadoJSBindings.names.joined(separator: ", ") + "){{"
+    private static let returnWrapperTail: String = "\n}}).call(this, "
+        + LegadoJSBindings.names.map { "typeof \($0) === 'undefined' ? undefined : \($0)" }.joined(separator: ", ")
+        + ")"
 
     /// Option `js` của URL (§3.6): `java.url` = URL hiện tại, `java.headerMap` = header hiện tại; JS sửa chúng.
     /// Giá trị trả là chuỗi không rỗng ⇒ dùng làm URL (U11), ngược lại dùng `java.url`.
