@@ -14,6 +14,8 @@ struct SideDrawerMenuWindowRoot: View {
         let edge: HorizontalEdge
         /// Nút ở đầu phải dòng tiêu đề; gọi lại mỗi lần panel vẽ như `content`.
         let titleAccessory: (() -> AnyView)?
+        /// `false` ⇒ panel không bọc nội dung trong `ScrollView` (nội dung tự cuộn).
+        let contentScrolls: Bool
         /// Gọi lại trong `body` của panel mỗi lần vẽ ⇒ luôn đọc state mới nhất của màn.
         let content: () -> AnyView
         let onAppeared: () -> Void
@@ -32,6 +34,7 @@ struct SideDrawerMenuWindowRoot: View {
                     title: presentation.title,
                     edge: presentation.edge,
                     titleAccessory: presentation.titleAccessory,
+                    contentScrolls: presentation.contentScrolls,
                     onAppeared: presentation.onAppeared,
                     onCloseBegan: presentation.onCloseBegan,
                     onClosed: presentation.onClosed,

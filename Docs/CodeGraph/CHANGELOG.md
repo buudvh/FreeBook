@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.707] - 2026-11-04
+
+### fix: ô tìm của bảng chọn nguồn Khám phá đứng yên khi cuộn
+
+Người dùng: *"Hãy sửa cho hàng search luôn hiển thị ở vị trí đó dù scroll xuống dưới trên màn chọn tiện ích khám phá"*.
+
+- **Ngăn kéo menu có tuỳ chọn `contentScrolls`** (`sideDrawerMenu(..., contentScrolls:)`, mặc định `true`, đi qua `SideDrawerMenuModifier` → `SideDrawerMenuWindowManager` → `SideDrawerMenuWindowRoot` → `SideDrawerMenuPanel`).
+  - `false` thì panel không bọc nội dung trong `ScrollView`. Nội dung chiếm phần còn lại của ngăn kéo và tự cuộn.
+  - Mọi ngăn kéo khác giữ nguyên.
+- **Bảng chọn nguồn Khám phá** (`DiscoverySourcePickerModifier`, `ExtensionSelectorView`) mở với `contentScrolls: false`.
+  - Ô tìm và nút chọn loại đứng yên ở đầu; chỉ danh sách nguồn (hoặc dòng "Không có nguồn nào khớp") cuộn bên dưới.
+  - Ô tìm vẫn ở trong cùng view nên từ khoá vẫn là `@State` của bảng: gõ là lọc ngay, như trước.
+- **Kiểm chứng:**
+  - Đọc code; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy: cuộn danh sách dài, vuốt đóng ngăn kéo, gõ tìm khi bàn phím đang mở.
+
 ## [1.3.706] - 2026-11-04
 
 ### feat: màn sửa VP/Name theo bố cục màn dịch, nghĩa rule cuộn ngang được
@@ -663,13 +679,3 @@ Người dùng (sau 1.3.675–676): *"nút nsfw ngang với title chọn nguồn
 - **Kho tiện ích**: hai tab đổi tên "Tiện ích FreeBook" · "Tiện ích Legado" (cả tiêu đề ngăn kéo ⋯). Ô tìm của cả hai tab thành viên thuốc kiểu mục lục `ChapterTOCSearchField` ("Tìm kiếm N tiện ích" / "Tìm kiếm N nguồn"), cách tìm giữ nguyên. `ChapterTOCSearchField` tắt tự sửa chính tả.
 - Chuyển entry `[1.3.647]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: menu chọn loại mở được trong ngăn kéo (cửa sổ nổi riêng), vuốt đóng ngăn kéo không còn vướng, icon phễu hiện đúng (asset SVG), ↺ cùng hàng "Sắp xếp".
-
-## [1.3.676] - 2026-11-03
-
-### fix: nút lọc không nháy mất khi vừa áp dụng bộ lọc
-
-Tiếp 1.3.675 (rà lại sau khi CI xanh).
-
-- **`ExtensionFilterCatalog.info(for:)`**: khoá tra gồm cả `configJson`, nên mỗi lần áp dụng bộ lọc hoặc màn Cấu hình tự lưu thì khoá mới chưa có ⇒ trả `nil` ⇒ nút lọc biến mất một nhịp, cụm nút tròn của header Khám phá xô sang trái rồi về. Giờ trong lúc đọc bộ mới vẫn trả bộ cũ của cùng tiện ích; lần đầu (chưa có bộ nào) vẫn ẩn tới khi đọc xong.
-- Chuyển entry `[1.3.646]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy.

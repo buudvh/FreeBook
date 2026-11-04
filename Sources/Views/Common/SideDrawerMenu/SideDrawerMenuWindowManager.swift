@@ -37,6 +37,7 @@ final class SideDrawerMenuWindowManager {
         var title: String
         let edge: HorizontalEdge
         let titleAccessory: (() -> AnyView)?
+        let contentScrolls: Bool
         let openedAt: CFTimeInterval
         /// Trả `isPresented` của màn sở hữu về `false`.
         let resetPresented: () -> Void
@@ -60,6 +61,7 @@ final class SideDrawerMenuWindowManager {
         title: String,
         edge: HorizontalEdge = .trailing,
         titleAccessory: (() -> AnyView)? = nil,
+        contentScrolls: Bool = true,
         content: @escaping () -> AnyView,
         resetPresented: @escaping () -> Void
     ) -> Bool {
@@ -81,11 +83,13 @@ final class SideDrawerMenuWindowManager {
             title: title,
             edge: edge,
             titleAccessory: titleAccessory,
+            contentScrolls: contentScrolls,
             openedAt: CACurrentMediaTime(),
             resetPresented: resetPresented
         )
         window.isUserInteractionEnabled = true
-        host.rootView = makeRoot(token: token, title: title, edge: edge, titleAccessory: titleAccessory, content: content)
+        host.rootView = makeRoot(token: token, title: title, edge: edge, titleAccessory: titleAccessory,
+                                 contentScrolls: contentScrolls, content: content)
         window.isHidden = false
         host.setNeedsStatusBarAppearanceUpdate()
         host.setNeedsUpdateOfHomeIndicatorAutoHidden()
@@ -113,6 +117,7 @@ final class SideDrawerMenuWindowManager {
             title: title,
             edge: current.edge,
             titleAccessory: current.titleAccessory,
+            contentScrolls: current.contentScrolls,
             content: content
         )
     }
@@ -132,6 +137,7 @@ final class SideDrawerMenuWindowManager {
         title: String,
         edge: HorizontalEdge,
         titleAccessory: (() -> AnyView)?,
+        contentScrolls: Bool,
         content: @escaping () -> AnyView
     ) -> SideDrawerMenuWindowRoot {
         SideDrawerMenuWindowRoot(
@@ -140,6 +146,7 @@ final class SideDrawerMenuWindowManager {
                 title: title,
                 edge: edge,
                 titleAccessory: titleAccessory,
+                contentScrolls: contentScrolls,
                 content: content,
                 onAppeared: { [weak self] in
                     self?.panelDidAppear(token: token)

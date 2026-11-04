@@ -14,6 +14,9 @@ struct SideDrawerMenuPanel<Content: View>: View {
     let edge: HorizontalEdge
     /// Nút nhỏ ở đầu phải dòng tiêu đề (vd viên NSFW của bảng chọn nguồn); `nil` ⇒ tiêu đề chiếm cả dòng.
     let titleAccessory: (() -> AnyView)?
+    /// `false` ⇒ không bọc nội dung trong `ScrollView`: nội dung chiếm phần còn lại của ngăn kéo và tự cuộn (giữ được
+    /// một hàng đứng yên ở đầu, vd ô tìm của bảng chọn nguồn Khám phá).
+    let contentScrolls: Bool
     /// Panel vừa lên màn (bắt đầu trượt vào) — chỉ để đo thời gian.
     let onAppeared: () -> Void
     /// Gọi đúng một lần khi ngăn kéo bắt đầu trượt ra; tham số là action của hàng thao tác vừa chọn (`nil` = chỉ đóng).
@@ -94,13 +97,20 @@ struct SideDrawerMenuPanel<Content: View>: View {
             .padding(.top, 14)
             .padding(.bottom, 8)
 
-            ScrollView {
+            if contentScrolls {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        content()
+                    }
+                    .padding(.bottom, 12)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            } else {
                 VStack(alignment: .leading, spacing: 0) {
                     content()
                 }
-                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
         .frame(width: width)
         .frame(maxHeight: .infinity, alignment: .top)

@@ -26,7 +26,9 @@ struct DiscoverySourcePickerModifier: ViewModifier {
                 isPresented: $isPresented,
                 title: "Chọn nguồn",
                 edge: .leading,
-                titleAccessory: { AnyView(ExtensionNsfwToggle()) }
+                titleAccessory: { AnyView(ExtensionNsfwToggle()) },
+                // Ô tìm đứng yên ở đầu, chỉ danh sách nguồn cuộn (`ExtensionSelectorView` tự cuộn).
+                contentScrolls: false
             ) {
                 ExtensionSelectorView(
                     activeExtensions: extensions,

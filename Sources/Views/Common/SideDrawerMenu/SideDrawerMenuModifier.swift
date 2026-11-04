@@ -35,6 +35,9 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
     var edge: HorizontalEdge = .trailing
     /// Nút ở đầu phải dòng tiêu đề (vd viên NSFW của bảng chọn nguồn). Tự đọc state của nó (`@AppStorage`…) để vẽ lại.
     var titleAccessory: (() -> AnyView)? = nil
+    /// `false` ⇒ ngăn kéo không bọc nội dung trong `ScrollView`: nội dung tự cuộn phần cần cuộn, để giữ một hàng đứng
+    /// yên ở đầu (ô tìm của bảng chọn nguồn Khám phá).
+    var contentScrolls: Bool = true
     @ViewBuilder let menuContent: () -> MenuContent
 
     /// Định danh chỗ gắn này với `SideDrawerMenuWindowManager` (một màn có thể gắn nhiều ngăn kéo).
@@ -83,6 +86,7 @@ struct SideDrawerMenuModifier<MenuContent: View>: ViewModifier {
             title: title,
             edge: edge,
             titleAccessory: titleAccessory,
+            contentScrolls: contentScrolls,
             content: contentProvider,
             resetPresented: {
                 if binding.wrappedValue {
@@ -115,6 +119,7 @@ extension View {
         title: String,
         edge: HorizontalEdge = .trailing,
         titleAccessory: (() -> AnyView)? = nil,
+        contentScrolls: Bool = true,
         @ViewBuilder content: @escaping () -> MenuContent
     ) -> some View {
         modifier(SideDrawerMenuModifier(
@@ -122,6 +127,7 @@ extension View {
             title: title,
             edge: edge,
             titleAccessory: titleAccessory,
+            contentScrolls: contentScrolls,
             menuContent: content
         ))
     }

@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Nội dung ngăn kéo **chọn nguồn** của Khám phá (trượt từ mép trái — `discoverySourcePicker`): ô tìm viên thuốc kiểu
-/// mục lục (tìm theo tên/link) + nút chọn loại dạng menu (`ExtensionKindMenuButton`), rồi danh sách nguồn — bấm hàng để
+/// mục lục (tìm theo tên/link) + nút chọn loại dạng menu (`ExtensionKindMenuButton`) **đứng yên ở đầu**, rồi danh sách
+/// nguồn tự cuộn bên dưới (ngăn kéo mở với `contentScrolls: false`, 1.3.707) — bấm hàng để
 /// chọn, ⚙ mở Cấu hình tiện ích (ⓘ Chi tiết nguồn với nguồn Legado), 📌 ghim. Viên NSFW nằm ở dòng tiêu đề ngăn kéo
 /// (`ExtensionNsfwToggle`). Không còn hàng chip loại: kéo cuộn ngang hàng chip tranh với vuốt đóng ngăn kéo.
 ///
@@ -57,20 +58,26 @@ struct ExtensionSelectorView: View {
             .padding(.trailing, 10)
             .padding(.bottom, 4)
 
-            if list.isEmpty {
-                Text("Không có nguồn nào khớp")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(16)
-            } else {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(list, id: \.packageId) { ext in
-                        row(ext)
+            // Ngăn kéo gắn `contentScrolls: false` ⇒ chỉ danh sách cuộn, hàng tìm ở trên luôn đứng yên.
+            ScrollView {
+                if list.isEmpty {
+                    Text("Không có nguồn nào khớp")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(list, id: \.packageId) { ext in
+                            row(ext)
+                        }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 4)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
