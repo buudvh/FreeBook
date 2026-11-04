@@ -91,6 +91,9 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Số ký tự UTF-16 tối thiểu token được nuốt (`:min-max`). Phần tử literal/group không dùng.
     public var minLength: Int
     public var maxLength: Int
+    /// Chỉ token số `<n>` `<y>` `<h>` `<d>` `<hn>` ghi `#min-max` (1.3.701): giá trị đọc ra phải nằm trong khoảng.
+    /// `nil` = không giới hạn (mọi rule viết trước 1.3.701).
+    public var valueRange: QuickTranslationRuleValueRange?
     /// `(a|b)?` hoặc `<x>?` — vắng thì `{i}` render chuỗi rỗng.
     public var isOptional: Bool
     /// Thứ tự capture của token, đánh số theo thứ tự xuất hiện (kể cả token nằm trong group).
@@ -110,6 +113,7 @@ public struct QuickTranslationRuleElement: Sendable {
         sourceTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
         minLength: Int = 1,
         maxLength: Int = 1,
+        valueRange: QuickTranslationRuleValueRange? = nil,
         isOptional: Bool = false,
         captureIndex: Int? = nil,
         guardsLeft: Bool = false,
@@ -121,6 +125,7 @@ public struct QuickTranslationRuleElement: Sendable {
         self.sourceTokenKinds = sourceTokenKinds
         self.minLength = minLength
         self.maxLength = maxLength
+        self.valueRange = valueRange
         self.isOptional = isOptional
         self.captureIndex = captureIndex
         self.guardsLeft = guardsLeft

@@ -192,6 +192,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
     /// Mọi hằng số ở đây lấy **từ parser**, không đặt lại: token không khai `:min-max` nghĩa là
     /// `1...12` (`<any>`: `1...50`, `QuickTranslationRuleParser.parseToken`), nên khi hai đầu đúng bằng
     /// mặc định **của chính token đó** thì `syntax` xuất lại token trần thay vì viết thừa `:1-12`.
+    ///
+    /// Khoảng giá trị `#min-max` (1.3.701) đi kèm trong `valueRange` để chỉnh độ dài không làm rơi mất nó.
     public struct TokenSpec: Sendable, Equatable {
         public static let defaultMinLength = 1
         public static let defaultMaxLength = 12
@@ -207,8 +209,15 @@ public enum QuickTranslationRuleDraftAnalyzer {
         public var minLength: Int
         public var maxLength: Int
         public var isOptional: Bool
+        /// `nil` = token không ghi `#min-max`. Chỉ có nghĩa khi `supportsValueRange`.
+        public var valueRange: QuickTranslationRuleValueRange? = nil
 
         public var isAnyRun: Bool { names == ["any"] }
+
+        /// Token đọc ra một con số (`<n>` `<y>` `<h>` `<d>` `<hn>`) — nhận `#min-max`, theo đúng tập của parser.
+        public var supportsValueRange: Bool {
+            QuickTranslationRuleValueRange.supports(names: names)
+        }
 
         /// Mặc định khi token không ghi `:min-max` — theo loại token, khớp parser.
         public var defaultRangeMax: Int {
@@ -243,14 +252,19 @@ public enum QuickTranslationRuleDraftAnalyzer {
             if supportsLengthRange, !isDefaultRange {
                 spec += minLength == maxLength ? ":\(minLength)" : ":\(minLength)-\(maxLength)"
             }
+            if supportsValueRange, let valueRange {
+                spec += valueRange.syntax
+            }
             return "<\(spec)>" + (isOptional ? "?" : "")
         }
 
         /// Kẹp về vùng hợp lệ của parser: `min ≥ 1` là điều kiện cứng (sai thì `UNKNOWN_TOKEN_NAME`,
-        /// lỗi hard) và `max = max(min, max)`.
+        /// lỗi hard) và `max = max(min, max)`. Khoảng giá trị: số đầu `≥ 0`, số sau (nếu có) `≥` số đầu — parser
+        /// coi khoảng ngược là `INVALID_VALUE_RANGE` nên mọi đường bấm phải dừng ở biên.
         public mutating func clamp() {
             minLength = min(max(1, minLength), lengthUpperBound)
             maxLength = min(max(minLength, maxLength), lengthUpperBound)
+            valueRange = valueRange?.clamped()
         }
     }
 
@@ -263,7 +277,16 @@ public enum QuickTranslationRuleDraftAnalyzer {
         }
         guard text.hasPrefix("<"), text.hasSuffix(">") else { return nil }
 
-        let parts = String(text.dropFirst().dropLast()).components(separatedBy: ":")
+        // `#…` viết sai hoặc gắn cho token không phải số ⇒ không mở thanh chỉnh: parser đã báo
+        // `INVALID_VALUE_RANGE`, và dựng lại `syntax` từ đây sẽ lặng lẽ xoá mất phần người dùng đang gõ.
+        let valueSplit = QuickTranslationRuleValueRange.split(spec: String(text.dropFirst().dropLast()))
+        var valueRange: QuickTranslationRuleValueRange?
+        if let valueText = valueSplit.valueText {
+            guard let parsed = try? QuickTranslationRuleValueRange.parse(valueText) else { return nil }
+            valueRange = parsed
+        }
+
+        let parts = valueSplit.head.components(separatedBy: ":")
         let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
         guard !names.isEmpty, !names.contains(where: { $0.isEmpty }) else { return nil }
 
@@ -271,8 +294,10 @@ public enum QuickTranslationRuleDraftAnalyzer {
             names: names,
             minLength: TokenSpec.defaultMinLength,
             maxLength: TokenSpec.defaultMaxLength,
-            isOptional: isOptional
+            isOptional: isOptional,
+            valueRange: valueRange
         )
+        if valueRange != nil, !spec.supportsValueRange { return nil }
         spec.maxLength = spec.defaultRangeMax
         if parts.count > 1, !parts[1].isEmpty {
             let bounds = parts[1].components(separatedBy: "-").compactMap { Int($0) }

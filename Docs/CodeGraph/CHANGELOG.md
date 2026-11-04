@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.701] - 2026-11-04
+
+### feat: token số trong rule dịch có khoảng giá trị #min-max
+
+Người dùng: *"thêm min max cho các token số trong rule dịch"*; chọn **giá trị số** (không phải độ dài, vốn đã có `<n:1-4>`), áp cho `<n>` `<d>` `<y>` `<h>` `<hn>`, cú pháp `<n#1-200>`; duyệt plan + mockup.
+
+- **Cú pháp**: `#min-max` viết sau tên và sau độ dài: `<n#1-200>`, `<n:1-4#1-200>`, `<d#0-99>`, `#5` = đúng 5, `#100-` = từ 100 trở lên. Kiểu `QuickTranslationRuleValueRange` (mới, `Engine/`) giữ tách `#`, đọc, kẹp, dựng lại cú pháp và kiểm giá trị — parser (`QuickTranslationRuleParser+ValueRange`, mới), `tokenSpecNames` và `TokenSpec` cùng gọi nên hiểu `#` như nhau. `#…` tách **trước** `:`: tách `:` trước thì `<n:1-4#1-200>` bị đọc lặng lẽ thành độ dài `1-200`.
+- **Giá trị lấy từ kết quả render**, không parse lại chữ Hán: `<n>` `<y>` `<h>` `<d>` ra chữ số ⇒ `Int` (`二零二五` = 2025, `007` = 7); `<n>` liệt kê (`十三四` → `13, 14`) ⇒ mọi số phải trong khoảng; `<hn>` (render Hán-Việt) ⇒ giá trị bằng `renderNumeral` của chuỗi nguồn; tràn `Int` / đọc không được ⇒ không khớp. Matcher (`walkNumeral`) bỏ độ dài ứng viên có giá trị ngoài khoảng rồi thử độ dài ngắn hơn, như ứng viên `<m>` sai dạng; token có biên chặn hai đầu (`第<n#1-200>章`) chỉ xét cả dãy số ⇒ `第三百章` không khớp hẳn.
+- **Lỗi mới `INVALID_VALUE_RANGE` (lỗi nặng)**: `#` trống, không phải số, `#-9` (thiếu số đầu; không chặn dưới thì viết `#0-…`), khoảng ngược `#5-3` (khác độ dài vốn tự kẹp), sai thứ tự `#1-9:1-3`, hoặc `#` gắn cho `<a>` `<m>` `<L>` `<any>`, token từ điển, neo dòng, ngoặc.
+- **Chip chỉnh** (`QuickTranslationRuleTokenValueRangeEditor`, mới): dưới thanh độ dài của token số có công tắc "Giới hạn giá trị" (bật ⇒ 1–100, tắt ⇒ bỏ `#`) và hai hàng `[−] ô số [+]`; ô Đến trống = không chặn trên. Ô số chỉ ghi vào mẫu khi rời ô hoặc bấm −/+, kẹp qua `clamped()` (chung với `TokenSpec.clamp()`); thanh chỉnh gắn `.id(tokenPosition)` để chữ gõ dở không dính sang token khác. `TokenSpec` giữ `valueRange` nên chỉnh độ dài không làm mất `#`; `#` viết sai ⇒ không mở thanh (không xoá phần đang gõ). Gợi ý bàn phím coi `#` là đuôi token (con trỏ trước `#…` không bị hiểu là gõ dở).
+- **Rule cũ không đổi**: không thêm loại token nên chữ ký cache (`Configuration.signature`) giữ nguyên; token không ghi `#` có `valueRange == nil`, matcher không đi qua nhánh mới. Ưu tiên giữa rule không đổi: `<n>章` và `<n#1-9>章` hoà mọi tiêu chí thì dòng viết trước thắng như cũ.
+- Hướng dẫn (`QuickTranslationRuleGuide`: mục Token số và nhãn + Lỗi hay gặp), câu trợ giúp ô Mẫu, đoạn token ở `CLAUDE.md`/`AGENTS.md` cập nhật. Chuyển `[1.3.670]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.700] - 2026-11-04
 
 ### fix: sửa 5 lỗi engine Legado từ báo cáo kiểm tra nguồn
@@ -657,16 +671,3 @@ Người dùng: *"Tìm nhiều nguồn làm đơ google tts, nên ưu tiên đ�
 - **Giới hạn**: đang nghe mà tìm thì kết quả về chậm hơn; tải truyện/nạp chương đã chiếm gần hết pool thì tìm chỉ còn 1 nguồn và TTS vẫn có thể chậm; TTS bắt đầu sau khi bấm tìm thì nguồn đã chạy không bị giới hạn. Cách tận gốc (B: đưa JS ra khỏi pool, plan perf §1.4) để làm sau.
 - `rules.md` (Tìm mọi nguồn) ghi luật mới và sửa nhận định sai "nằm trong actor ⇒ không chặn pool" (`BookDownloadWorker`, `ExtTTSRuntime` là actor mặc định, vẫn chạy trên pool). Chuyển entry `[1.3.641]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: nghe Google TTS rồi tìm tất cả nguồn, giọng không đơ và log có `JSCap`; tìm khi không nghe vẫn chạy hết cùng lúc như cũ.
-
-## [1.3.670] - 2026-11-01
-
-### fix: trình duyệt Legado dùng chung profile với trình duyệt của app
-
-Người dùng: *"vì sao bạn làm trình duyệt đăng nhập của legado có profile khác trình duyệt chung vậy"*; duyệt "dùng chung".
-
-- **Nguyên nhân**: `LegadoBrowserController` (trình duyệt hiện cho người dùng của nguồn Legado: đăng nhập web §10.2, `java.startBrowser*` §10.8) tạo `WKWebsiteDataStore.nonPersistent()` **mới mỗi lần mở** (chọn từ đợt 2 Legado, 4d69a023, để cookie không lẫn sang nơi khác — spec không bắt buộc). Trình duyệt của app, browser tiện ích JS và WebView ẩn của Legado (`LegadoWebViewFetcher` qua `WebViewLoader`) đều dùng kho mặc định ⇒ đăng nhập Google/GitHub, cookie qua Cloudflare không sang được; `localStorage` của trang mất sau mỗi lần đóng.
-- **Sửa**: kho `.default()`. Giữ nguyên đồng bộ hai chiều với kho cookie của nguồn (gieo khi mở, đọc cookie các tên miền đã ghé khi đóng) — giống WebView ẩn của Legado vốn đã làm trên kho mặc định.
-- **Đăng xuất** (`LegadoLoginService.logout`): thêm xoá cookie WebKit của tên miền nguồn (`baseURL` + URL đăng nhập web) qua `WebKitCookieBridge.removeCookies(forHosts:)` mới — cookie áp cho host (của host hoặc tên miền cha) và cookie của tên miền con. Không xoá thì lần mở sau đọc lại phiên cũ vào kho của nguồn. Tên miền khác đã ghé (Google, GitHub khi đăng nhập OAuth) **không** bị xoá. `localStorage` của trang không xoá.
-- **Hệ quả**: cookie của nguồn Legado thấy được trong trình duyệt của app; đăng xuất nguồn cũng đăng xuất tên miền đó trong trình duyệt của app. Gieo cookie khi mở vẫn ghi đè cookie trùng tên/tên miền đang có trong kho WebKit (như WebView ẩn).
-- Chuyển entry `[1.3.640]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: đăng nhập Google ở trình duyệt của app rồi mở "Đăng nhập trên web" của một nguồn Legado thấy vẫn còn phiên Google; đóng mở lại trình duyệt Legado vẫn còn đăng nhập; Đăng xuất nguồn rồi mở lại thì trang nguồn không còn đăng nhập.

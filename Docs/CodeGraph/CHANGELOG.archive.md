@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.670] - 2026-11-01
+
+### fix: trình duyệt Legado dùng chung profile với trình duyệt của app
+
+Người dùng: *"vì sao bạn làm trình duyệt đăng nhập của legado có profile khác trình duyệt chung vậy"*; duyệt "dùng chung".
+
+- **Nguyên nhân**: `LegadoBrowserController` (trình duyệt hiện cho người dùng của nguồn Legado: đăng nhập web §10.2, `java.startBrowser*` §10.8) tạo `WKWebsiteDataStore.nonPersistent()` **mới mỗi lần mở** (chọn từ đợt 2 Legado, 4d69a023, để cookie không lẫn sang nơi khác — spec không bắt buộc). Trình duyệt của app, browser tiện ích JS và WebView ẩn của Legado (`LegadoWebViewFetcher` qua `WebViewLoader`) đều dùng kho mặc định ⇒ đăng nhập Google/GitHub, cookie qua Cloudflare không sang được; `localStorage` của trang mất sau mỗi lần đóng.
+- **Sửa**: kho `.default()`. Giữ nguyên đồng bộ hai chiều với kho cookie của nguồn (gieo khi mở, đọc cookie các tên miền đã ghé khi đóng) — giống WebView ẩn của Legado vốn đã làm trên kho mặc định.
+- **Đăng xuất** (`LegadoLoginService.logout`): thêm xoá cookie WebKit của tên miền nguồn (`baseURL` + URL đăng nhập web) qua `WebKitCookieBridge.removeCookies(forHosts:)` mới — cookie áp cho host (của host hoặc tên miền cha) và cookie của tên miền con. Không xoá thì lần mở sau đọc lại phiên cũ vào kho của nguồn. Tên miền khác đã ghé (Google, GitHub khi đăng nhập OAuth) **không** bị xoá. `localStorage` của trang không xoá.
+- **Hệ quả**: cookie của nguồn Legado thấy được trong trình duyệt của app; đăng xuất nguồn cũng đăng xuất tên miền đó trong trình duyệt của app. Gieo cookie khi mở vẫn ghi đè cookie trùng tên/tên miền đang có trong kho WebKit (như WebView ẩn).
+- Chuyển entry `[1.3.640]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: đăng nhập Google ở trình duyệt của app rồi mở "Đăng nhập trên web" của một nguồn Legado thấy vẫn còn phiên Google; đóng mở lại trình duyệt Legado vẫn còn đăng nhập; Đăng xuất nguồn rồi mở lại thì trang nguồn không còn đăng nhập.
+
 ## [1.3.669] - 2026-11-01
 
 ### fix: giữ dòng dừng lọc name và điểm tiếp nối khi đổi nguồn

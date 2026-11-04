@@ -249,9 +249,11 @@ extension QuickTranslationRuleEditorSheet {
             if let segment = selectedTokenSegment(in: segments),
                let position = segment.tokenPosition,
                let spec = QuickTranslationRuleDraftAnalyzer.tokenSpec(of: segment.text) {
+                // `.id`: chọn token khác là thanh mới — chữ đang gõ dở trong ô số không dính sang token đó.
                 QuickTranslationRuleTokenLengthBar(spec: spec) { updated in
                     applyTokenSpec(updated, tokenPosition: position)
                 }
+                .id(position)
             }
 
             // Đẩy trang trong `NavigationStack` của sheet — không thêm nút header (giữ luật cụm nút).
@@ -268,7 +270,7 @@ extension QuickTranslationRuleEditorSheet {
     /// Nút "?" của header "Mẫu": một câu về cách dùng bảng token + vài ý lấy từ `QuickTranslationRuleGuide` (nguồn duy
     /// nhất, bản đủ ở hàng "Hướng dẫn đầy đủ"). Chế độ sửa thêm câu về việc đổi mẫu.
     private var patternHelpTexts: [Text] {
-        var texts = [Text("Bấm token để chèn **tại con trỏ** hoặc thay đoạn đang bôi đen; chạm chip token để chỉnh độ dài.")]
+        var texts = [Text("Bấm token để chèn **tại con trỏ** hoặc thay đoạn đang bôi đen; chạm chip token để chỉnh độ dài (token số: cả khoảng giá trị).")]
         texts += QuickTranslationRuleGuide.helpTexts(for: .pattern)
         if case .edit = mode {
             texts.append(Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách."))
