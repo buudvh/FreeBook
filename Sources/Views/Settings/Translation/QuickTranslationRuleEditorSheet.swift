@@ -115,7 +115,8 @@ struct QuickTranslationRuleEditorSheet: View {
         onSubmit: @escaping (
             _ pattern: String,
             _ replacement: String,
-            _ scope: QuickTranslationRuleScope
+            _ scope: QuickTranslationRuleScope,
+            _ replacing: String?
         ) async -> QuickTranslationRuleStore.LoadOutcome
     ) {
         self.mode = mode
