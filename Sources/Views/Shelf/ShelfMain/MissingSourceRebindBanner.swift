@@ -106,44 +106,12 @@ struct MissingSourceRebindBanner: View {
     }
 
     private func start(_ candidates: [MissingSourceRebindCoordinator.Candidate], isInteractive: Bool) {
-        guard !candidates.isEmpty else { return }
-        let context = modelContext
-        let translates = isTranslationEnabled
-        Task { @MainActor in
-            let report = await MissingSourceRebindCoordinator.shared.run(
-                candidates,
-                isInteractive: isInteractive,
-                context: context,
-                isBookOpen: { ReaderView.activeBookId == $0 }
-            )
-            Self.showToast(report, translates: translates, includesFailures: isInteractive)
-        }
-    }
-
-    /// Tự chuyển (`includesFailures == false`) chỉ báo truyện đã chuyển: truyện không chuyển được sẽ được thử lại ở mỗi
-    /// lần mở app, báo lỗi mỗi lần là phiền; lý do vẫn có trong log.
-    private static func showToast(_ report: MissingSourceRebindCoordinator.Report, translates: Bool, includesFailures: Bool) {
-        var parts: [String] = []
-        if report.rebound.count == 1, let only = report.rebound.first {
-            let title = BookDisplayTranslation.title(only.title, bookId: only.bookId, isEnabled: translates)
-            parts.append("Đã chuyển “\(title)” sang nguồn \(only.extName)")
-        } else if !report.rebound.isEmpty {
-            parts.append("Đã chuyển \(report.rebound.count) truyện mất nguồn sang nguồn khớp link")
-        }
-        let showsFailures = includesFailures && (report.incompatible > 0 || report.failed > 0)
-        if showsFailures && report.incompatible > 0 {
-            parts.append("\(report.incompatible) truyện có mục lục nguồn mới khác dạng, hãy dùng Đổi nguồn")
-        }
-        if showsFailures && report.failed > 0 {
-            parts.append("\(report.failed) truyện lỗi khi tải nguồn mới")
-        }
-        guard !parts.isEmpty else { return }
-        let type: ToastType
-        if !showsFailures {
-            type = .success
-        } else {
-            type = report.rebound.isEmpty ? .error : .info
-        }
-        ToastManager.shared.show(message: parts.joined(separator: "; "), type: type)
+        MissingSourceRebindRunner.start(
+            candidates,
+            isInteractive: isInteractive,
+            requiresShelfRoot: true,
+            context: modelContext,
+            translatesTitles: isTranslationEnabled
+        )
     }
 }

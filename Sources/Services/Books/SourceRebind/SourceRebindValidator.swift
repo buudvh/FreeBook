@@ -1,17 +1,29 @@
 import Foundation
 
 /// Kiểm một tiện ích có thay được nguồn đã gỡ của truyện không: chạy chi tiết + toàn bộ mục lục của tiện ích mới trên
-/// link chi tiết cũ (cùng lời gọi như `BookSourceChangeCoordinator.fetchSource`), rồi so link chương đã lưu với mục lục
-/// mới.
+/// link chi tiết cũ (cùng lời gọi như `BookSourceChangeCoordinator.fetchSource`), rồi so 3 chương mẫu đã lưu (đầu, đang
+/// đọc, cuối) với mục lục mới.
 ///
-/// Gắn lại nguồn giữ nguyên mục lục đã lưu, mà `ChapterStore` khớp chương theo **URL** khi làm mới mục lục. Tiện ích mới
-/// trả link chương khác dạng (miền mobile, API…) thì làm mới mục lục sẽ nhân đôi chương, còn chương chưa tải mở bằng
-/// link cũ có thể hỏng ⇒ chỉ nhận khi 3 chương mẫu (đầu, đang đọc, cuối) đều có trong mục lục mới.
+/// - `.sameLinks`: link chương mẫu đều có trong mục lục mới ⇒ gắn lại nguồn tại chỗ được (`ChapterStore` khớp chương
+///   theo URL khi làm mới mục lục, nên link phải giữ nguyên).
+/// - `.samePositions`: link khác dạng nhưng tên chương ở đúng vị trí đó trùng nhau — hai tiện ích cùng trang dựng link
+///   chương khác nhau (vd qimao: `api-bc.wtzw.com/chapter?chapterId=…` với `www.qimao.com/shuku/<id>-<chương>/`). Gắn tại
+///   chỗ thì chương chưa tải mở bằng link cũ hỏng và làm mới mục lục nhân đôi chương ⇒ phải đi luồng Đổi nguồn (mục lục
+///   mới, chép chương đã tải theo vị trí).
+/// - `.different`: lệch cả link lẫn tên ⇒ không tự chuyển.
 enum SourceRebindValidator {
+    enum Match: Sendable {
+        case sameLinks
+        case samePositions
+        case different
+    }
+
     struct Verdict: Sendable {
-        let isCompatible: Bool
+        let match: Match
         /// Host sách ở nguồn mới: host chi tiết → `source` của tiện ích.
         let bookHost: String
+        /// Chương mẫu đầu tiên lệch (link + tên, cũ và mới) và số chương hai bên — chỉ để ghi log.
+        let mismatchSummary: String
     }
 
     static func check(
@@ -41,8 +53,9 @@ enum SourceRebindValidator {
             configJson: ext.configJson
         )
         let toc = try await BookDetailLoader.shared.fetchFullTOC(snapshot: snapshot, url: detailUrl, host: bookHost, context: context).chapters
+        // Dòng tiêu đề nhóm tập (truyện tranh/video) không có link chương; `index` vẫn là vị trí trong mục lục.
         let stored = try await ChapterStore.shared.fetchOrderedTOC(bookId: bookId).filter { !$0.isSection }
-        guard !stored.isEmpty else { return Verdict(isCompatible: true, bookHost: bookHost) }
+        guard !stored.isEmpty else { return Verdict(match: .sameLinks, bookHost: bookHost, mismatchSummary: "") }
 
         var newKeys = Set<String>()
         for chapter in toc {
@@ -50,11 +63,20 @@ enum SourceRebindValidator {
         }
         let current = stored.first(where: { $0.index == currentChapterIndex })
         let samples = [stored.first, current, stored.last].compactMap { $0 }
-        let isCompatible = samples.allSatisfy { chapter in
+        let linkMismatch = samples.first { chapter in
             let host = ExtensionHostResolver.nonEmpty(chapter.host) ?? oldHost ?? ""
-            return !keys(url: chapter.url, host: host).isDisjoint(with: newKeys)
+            return keys(url: chapter.url, host: host).isDisjoint(with: newKeys)
         }
-        return Verdict(isCompatible: isCompatible, bookHost: bookHost)
+        guard let linkMismatch else { return Verdict(match: .sameLinks, bookHost: bookHost, mismatchSummary: "") }
+
+        let titleMismatch = samples.first { chapter in
+            !toc.indices.contains(chapter.index) || normalizedTitle(toc[chapter.index].name) != normalizedTitle(chapter.title)
+        }
+        let probe = titleMismatch ?? linkMismatch
+        let newChapter = toc.indices.contains(probe.index) ? toc[probe.index] : nil
+        let summary = "chương \(probe.index + 1): link cũ \(probe.url) | mới \(newChapter?.url ?? "—"); "
+            + "tên cũ \"\(probe.title)\" | mới \"\(newChapter?.name ?? "—")\"; \(stored.count)/\(toc.count) chương"
+        return Verdict(match: titleMismatch == nil ? .samePositions : .different, bookHost: bookHost, mismatchSummary: summary)
     }
 
     /// Link nguyên văn (đã trim) + bản tuyệt đối rút gọn: ghép host khi link tương đối, bỏ scheme, `www.` và `/` cuối,
@@ -77,5 +99,11 @@ enum SourceRebindValidator {
         while text.hasSuffix("/") { text.removeLast() }
         result.insert(text)
         return result
+    }
+
+    /// Tên chương để so vị trí: bỏ khoảng trắng hai đầu, gộp khoảng trắng giữa, chữ thường (tiện ích này trim, tiện
+    /// ích kia giữ nguyên tên của API).
+    static func normalizedTitle(_ title: String) -> String {
+        title.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").lowercased()
     }
 }

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.661] - 2026-10-31
+
+### feat: nhớ độ sáng khi xem phim, đổi tab về trang gốc
+
+Người dùng: *"Ghi nhớ độ sáng của video mở lần gần nhất, mọi video, mọi nguồn. Chuyển qua tab khác về tab cũ thì hiển thị màn hình ban đầu của tab"*; chọn áp độ sáng ngay khi mở phim (cả khung dọc nhỏ lẫn toàn màn) và chỉ đặt lại tab khi tab đang ở trang con; duyệt plan.
+
+- **Độ sáng phim** (`VideoBrightnessKeeper`, mới, `Views/VideoPlayer/`): chủ duy nhất đổi `UIScreen.brightness` ở trình phát. Một mức chung cho mọi phim, mọi nguồn = mức cuối vuốt chỉnh, UserDefaults `videoPlayerBrightness` (chưa từng vuốt ⇒ không đụng; tra `object(forKey:)` vì 0 là mức hợp lệ). `VideoPlayerScreen.onAppear` ⇒ `activate(controller)`: chụp độ sáng của máy **rồi** áp mức đã nhớ (cả phim nhúng trang); `onDisappear` (đóng / thu nhỏ / PiP) ⇒ `deactivate(controller)` trả độ sáng máy — giữ **tập** màn như `VideoPlaybackSession.attachedScreens` nên màn mới hiện trước khi màn cũ kịp biến mất (mở lại từ hub / PiP) không bị màn cũ trả mất độ sáng; hai chỗ đặt sau nhánh bỏ qua trình duyệt "Mở link lỗi". App mất active ⇒ trả độ sáng máy; active lại khi màn còn mở ⇒ chụp lại (có thể vừa chỉnh ở Trung tâm điều khiển) rồi áp lại.
+- **`VideoGestureView`** bỏ phần tự chụp/trả độ sáng gốc (`originalBrightness`, `willMove(toWindow:)`, observer `willResignActive`) — để lại thì nó chụp nhầm mức của phim làm "gốc". Vuốt ⇒ `setLevel(_:on:)` đặt ngay; nhả tay ⇒ `commitLevel()` lưu mức cuối đã đặt (gọi **sau** `value(for:)` của nhịp nhả tay; cử chỉ huỷ báo 0 cho controller nhưng không lưu số đó).
+- **Đổi tab về trang gốc** (`MainTabView` + `MainTabView+TabReset.swift`, mới): mỗi tab có mã `.id` (`tabResetTokens`, gắn trước `.tabItem`). `onChange(of: selectedTab)` vẫn phát `.appTabDidChange`, rồi tăng mã của **tab vừa rời** nếu `shouldResetTab(at:)` ⇒ SwiftUI tạo lại tab đó ngầm. Tab đang vào không bị đụng (widget TTS chuyển sang tab Kệ còn phải mở Reader trong cùng nhịp). Các tab gốc dùng `NavigationStack` không `path` (cờ `isPresented` + `NavigationLink`, riêng Cài đặt 40 chỗ) nên đọc **chỉ đọc** cây UIKit của cửa sổ có thanh tab: có `UINavigationController` nào trong tab nhiều hơn 1 trang ⇒ đặt lại; tab đang ở trang gốc giữ nguyên (Khám phá không tải lại, giữ chỗ cuộn). Có sheet / màn toàn màn đang phủ (Reader, phim, truyện tranh) ⇒ không đặt lại để khỏi đóng mất màn đó. Không đọc được cây UIKit, hoặc thanh tab không liệt kê đủ 4 tab (chỉ số có thể trỏ nhầm tab) ⇒ đặt lại và log `❌ [TabReset]` (luôn ghi); mỗi lần đặt lại log `🔄 [TabReset]` (chỉ khi bật ghi log).
+- Chuyển entry `[1.3.631]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (rủi ro chính: SwiftUI có đọc được `UITabBarController`/`UINavigationController` như giả định không — xem log `❌ [TabReset]`, bật ghi log để thấy cả `🔄`; tab Kệ tạo lại lúc ẩn có còn nhận lệnh mở Reader từ widget TTS).
+
 ## [1.3.660] - 2026-10-30
 
 ### fix: Chi tiết từ trình đọc đẩy vào màn đọc, trang đẩy vào ẩn thanh tab

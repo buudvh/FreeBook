@@ -309,6 +309,7 @@ struct BookActionSheet: View {
     @ViewBuilder
     private var actionRows: some View {
         if !book.isLocalBook {
+            MissingSourceRebindActionRows(book: book) { dismiss() }
             actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
             actionRow(.openInBrowser, "Mở trong trình duyệt", "safari")
         }
