@@ -14,6 +14,9 @@ struct BookDetailTOCView: View {
     let filteredLocalChapters: [Chapter]
     let chapterSnapshots: [StoredChapterSnapshot]
     let filteredOnlineChapters: [(offset: Int, element: ChapterResult)]
+    /// Số thứ tự của mục lục online, dựng từ **toàn bộ** `onlineChapters` ở `BookDetailView` (danh sách ở đây đã lọc
+    /// khi tìm nên không đếm được dòng tiêu đề nhóm đứng trước).
+    let onlineNumbering: ChapterOrdinalNumbering
     let tocPages: [String]
     let remainingPagesLoaded: Bool
     let isTranslationEnabled: Bool
@@ -37,6 +40,10 @@ struct BookDetailTOCView: View {
     /// Dòng của lưới tập (video) đã dịch sẵn — lưới không lazy, dịch trong `body` là dịch mọi tập ở mỗi lần vẽ.
     @State private var videoRows: [BookDetailVideoTOCGrid.Row] = []
     @State var didAutoLoadMoreChapters = false // `+AutoLoad`: tự tải trang mục lục còn lại tối đa một lần
+    /// Số thứ tự của mục lục đã lưu, dựng lại chỉ khi `chapterSnapshots` đổi (không theo từ khoá / chiều).
+    @State private var snapshotNumbering = ChapterOrdinalNumbering.empty
+    @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
+    private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     var body: some View {
         Group {
@@ -65,9 +72,12 @@ struct BookDetailTOCView: View {
                 .padding(.top, 12)
             }
         }
-        .onChange(of: appliedSearchQuery, initial: true) { recomputeVisibleSnapshots() }
+        .onChange(of: appliedSearchQuery) { recomputeVisibleSnapshots() }
         .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
-        .onChange(of: chapterSnapshots) { recomputeVisibleSnapshots() }
+        .onChange(of: chapterSnapshots, initial: true) {
+            snapshotNumbering = ChapterOrdinalNumbering(chapterSnapshots, index: { $0.index }, isSection: { $0.isSection })
+            recomputeVisibleSnapshots()
+        }
         .onChange(of: isTranslationEnabled) { recomputeVideoRows(snapshots: visibleSnapshots) }
         .onChange(of: filteredOnlineChapters.map(\.offset)) { recomputeVideoRows(snapshots: visibleSnapshots) }
     }
@@ -217,6 +227,7 @@ struct BookDetailTOCView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let currentIdx = localBook?.currentChapterIndex ?? -1
                     if !chapterSnapshots.isEmpty {
+                        let ordinalDigits = showsChapterOrdinal ? snapshotNumbering.digits : 0
                         ForEach(visibleSnapshots, id: \.id) { chap in
                             let displayTitle = onDisplayTitle(chap)
                             if chap.isSection {
@@ -224,6 +235,8 @@ struct BookDetailTOCView: View {
                             } else {
                                 BookDetailTOCRow(
                                     title: displayTitle,
+                                    ordinal: snapshotNumbering.ordinal(forIndex: chap.index),
+                                    ordinalDigits: ordinalDigits,
                                     isCurrent: currentIdx == chap.index,
                                     isRead: currentIdx >= 0 && chap.index < currentIdx,
                                     isCached: chap.isCached,
@@ -236,9 +249,14 @@ struct BookDetailTOCView: View {
                         // `chaptersList` lấy từ `Book.chapters`, mà `enableSwiftDataTOCWrite = false` nên **luôn rỗng**:
                         // sách vừa được tạo (bấm "Đọc ngay") có `localBook != nil` mà chưa nạp kịp `chapterSnapshots`
                         // ⇒ nhánh này vẽ ra danh sách 0 dòng dù `onlineChapters` đang giữ đủ mục lục. Chỉ dùng khi có dữ liệu.
+                        // Bảng SwiftData `Chapter` không có dòng tiêu đề nhóm ⇒ số = index + 1.
+                        let localCount = (filteredLocalChapters.map(\.index).max() ?? -1) + 1
+                        let ordinalDigits = showsChapterOrdinal ? ChapterOrdinalNumbering(chapterCount: localCount).digits : 0
                         ForEach(filteredLocalChapters) { chap in
                             BookDetailTOCRow(
                                 title: onTranslateChapterTitleIfNeeded(chap),
+                                ordinal: chap.index + 1,
+                                ordinalDigits: ordinalDigits,
                                 isCurrent: book.currentChapterIndex == chap.index,
                                 isRead: chap.index < book.currentChapterIndex,
                                 isCached: chap.isCached,
@@ -247,12 +265,15 @@ struct BookDetailTOCView: View {
                             )
                         }
                     } else {
+                        let ordinalDigits = showsChapterOrdinal ? onlineNumbering.digits : 0
                         ForEach(onlineRows, id: \.offset) { index, chap in
                             if chap.isSection {
                                 sectionHeader(onTranslateTitleIfNeeded(chap.name))
                             } else {
                                 BookDetailTOCRow(
                                     title: onTranslateTitleIfNeeded(chap.name),
+                                    ordinal: onlineNumbering.ordinal(forIndex: index),
+                                    ordinalDigits: ordinalDigits,
                                     isCurrent: currentIdx == index,
                                     isRead: currentIdx >= 0 && index < currentIdx,
                                     isCached: false,
@@ -295,15 +316,9 @@ struct BookDetailTOCView: View {
     // MARK: - Nhóm tập (section)
 
     /// Số chương trên tiêu đề danh sách: dòng tiêu đề nhóm (`isSection`, ext nhiều server) không chạm được nên
-    /// không tính.
+    /// không tính. Lấy từ cùng bộ số thứ tự của danh sách ⇒ N luôn bằng số lớn nhất, kể cả khi đang tìm.
     private var readableChapterCount: Int {
-        let sectionRows: Int
-        if !chapterSnapshots.isEmpty {
-            sectionRows = chapterSnapshots.reduce(0) { count, chapter in chapter.isSection ? count + 1 : count }
-        } else {
-            sectionRows = filteredOnlineChapters.reduce(0) { count, row in row.element.isSection ? count + 1 : count }
-        }
-        return max(0, totalChaps - sectionRows)
+        chapterSnapshots.isEmpty ? onlineNumbering.chapterCount : snapshotNumbering.chapterCount
     }
 
     /// `BookDetailView` đảo chiều mục lục online sẵn; giữ tiêu đề nhóm ở đầu nhóm khi xếp giảm dần.

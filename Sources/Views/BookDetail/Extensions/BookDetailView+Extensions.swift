@@ -219,6 +219,8 @@ extension BookDetailView {
         let translatedTitles = translationEnabled ? onlineTranslatedTitlesOrScheduleBuild() : nil
         if !translationEnabled && onlineTitleIndex.isBuilding { onlineTitleIndex.cancelBuild() }
         let enumeratedChaps = Array(onlineChapters.enumerated())
+        // Số thứ tự dựng từ mục lục đủ (trước khi lọc) ⇒ tìm/đảo thứ tự vẫn giữ số, dòng tiêu đề nhóm không chiếm số.
+        onlineOrdinalNumbering = ChapterOrdinalNumbering(enumeratedChaps, index: { $0.offset }, isSection: { $0.element.isSection })
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             if query.isEmpty { return true }

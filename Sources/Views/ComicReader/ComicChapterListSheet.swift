@@ -33,6 +33,9 @@ struct ComicChapterListSheet: View {
     @State var showingDownloadOptions = false
     @State var isConfirmingShelfRemoval = false
     @State var collectionPickerBook: Book? = nil
+    /// Công tắc "Hiện số thứ tự chương" — đọc một lần ở danh sách, hàng chỉ nhận số + bề rộng cột.
+    @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
+    private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     /// Màu panel Mục lục — cùng bảng màu nền Tối của mục lục truyện chữ.
     static var palette: ChapterTOCPalette { .reader(theme) }
@@ -99,12 +102,17 @@ struct ComicChapterListSheet: View {
 
     private var chapterList: some View {
         ScrollViewReader { proxy in
+            // Số dựng từ **toàn bộ** `chapters` (không phải `visibleChapters`) ⇒ tìm/đảo thứ tự vẫn giữ số; dòng tiêu đề
+            // nhóm không chiếm số. Dựng một lần cho cả danh sách.
+            let numbering: ChapterOrdinalNumbering? = showsChapterOrdinal
+                ? ChapterOrdinalNumbering(chapters, index: { $0.index }, isSection: { $0.isSection })
+                : nil
             List(visibleChapters, id: \.index) { chapter in
                 Group {
                     if chapter.isSection {
                         sectionHeader(for: chapter)
                     } else {
-                        row(for: chapter)
+                        row(for: chapter, numbering: numbering)
                     }
                 }
                 .id(chapter.index)
@@ -136,7 +144,7 @@ struct ComicChapterListSheet: View {
 
     /// Cùng kiểu `ReaderChapterRowView`: đang đọc = chữ trắng đậm + nền mờ; đã đọc (index logic nhỏ hơn) = mờ
     /// 0.4; đã tải offline = icon xanh trong khung 30×30 cố định để hàng không đổi chiều cao.
-    private func row(for chapter: ComicChapterEntry) -> some View {
+    private func row(for chapter: ComicChapterEntry, numbering: ChapterOrdinalNumbering?) -> some View {
         let isCurrent = chapter.index == currentIndex
         let isRead = chapter.index < currentIndex
         let theme = Self.theme
@@ -146,12 +154,23 @@ struct ComicChapterListSheet: View {
             dismiss()
         } label: {
             HStack(spacing: 4) {
-                Text(chapter.displayTitle(translated: isTranslationEnabled))
-                    .font(.body)
-                    .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
-                    .fontWeight(isCurrent ? .semibold : .regular)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if let numbering {
+                        ChapterOrdinalLabel(
+                            ordinal: numbering.ordinal(forIndex: chapter.index),
+                            digits: numbering.digits,
+                            palette: palette,
+                            isCurrent: isCurrent,
+                            isRead: isRead
+                        )
+                    }
+                    Text(chapter.displayTitle(translated: isTranslationEnabled))
+                        .font(.body)
+                        .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
+                        .fontWeight(isCurrent ? .semibold : .regular)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
                 Spacer(minLength: 8)
 
                 Color.clear

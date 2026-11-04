@@ -12,6 +12,10 @@ public struct ReaderChapterRowView: View {
     public let displayTitle: String
     public let theme: ReaderTheme
     public let isDownloading: Bool
+    /// Số thứ tự của chương trong mục lục; `nil` = không có số (vẫn giữ chỗ cột).
+    public let ordinal: Int?
+    /// Bề rộng cột số (chữ số của số lớn nhất); `0` = công tắc "Hiện số thứ tự chương" tắt ⇒ không có cột.
+    public let ordinalDigits: Int
     public let onSelect: () -> Void
     /// `nil` = truyện này không tải lẻ được (TXT nội bộ, hoặc chưa có trong kệ) ⇒ không hiện nút.
     public let onDownload: (() -> Void)?
@@ -23,6 +27,8 @@ public struct ReaderChapterRowView: View {
         displayTitle: String,
         theme: ReaderTheme,
         isDownloading: Bool = false,
+        ordinal: Int? = nil,
+        ordinalDigits: Int = 0,
         onSelect: @escaping () -> Void,
         onDownload: (() -> Void)? = nil
     ) {
@@ -32,6 +38,8 @@ public struct ReaderChapterRowView: View {
         self.displayTitle = displayTitle
         self.theme = theme
         self.isDownloading = isDownloading
+        self.ordinal = ordinal
+        self.ordinalDigits = ordinalDigits
         self.onSelect = onSelect
         self.onDownload = onDownload
     }
@@ -49,7 +57,8 @@ public struct ReaderChapterRowView: View {
 
     private var contentRow: some View {
         HStack(spacing: 4) {
-            HStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                ordinalColumn
                 Text(displayTitle)
                     .font(.body)
                     // Đang đọc: chữ trắng chỉ ở nền Tối — nền Sáng/Trầm ấm dùng màu chữ của nền (trắng không đọc được).
@@ -97,10 +106,20 @@ public struct ReaderChapterRowView: View {
         }
     }
 
+    /// Cột số kiểu flex trước tên (`ChapterOrdinalLabel`); hàng giữ chỗ cũng có để tên không nhảy ngang khi trang nạp xong.
+    @ViewBuilder
+    private var ordinalColumn: some View {
+        if ordinalDigits > 0 {
+            ChapterOrdinalLabel(ordinal: ordinal, digits: ordinalDigits, palette: palette, isCurrent: isCurrent, isRead: isRead)
+                .padding(.trailing, 8)
+        }
+    }
+
     private var placeholderRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
+            ordinalColumn
             SkeletonView(width: placeholderWidth, height: 14, color: theme.textColor.opacity(0.18))
-            Spacer()
+            Spacer(minLength: 8)
             SkeletonView(width: 14, height: 14, color: theme.textColor.opacity(0.18))
         }
         .padding(.vertical, 4)

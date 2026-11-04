@@ -121,8 +121,9 @@ extension TaskOptionsSheet {
         return numberLabel(position: index)
     }
 
+    /// Số lấy từ `chapter.number` (dòng tiêu đề nhóm không chiếm số) ⇒ khớp cột số của màn "Chọn chương…".
     private func chapterLabel(for chapter: AINameScanChapter) -> String {
-        let number = numberLabel(position: chapter.index)
+        let number = numberLabel(position: chapter.number - 1)
         return chapter.title.isEmpty ? number : "\(number): \(chapter.title)"
     }
 

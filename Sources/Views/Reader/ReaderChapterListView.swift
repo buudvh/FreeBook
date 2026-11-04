@@ -80,6 +80,9 @@ public struct ReaderChapterListView: View {
     /// Luồng nút kệ — xem `ReaderChapterListView+Shelf.swift`.
     @State internal var isConfirmingShelfRemoval = false
     @State internal var collectionPickerBook: Book? = nil
+    /// Công tắc "Hiện số thứ tự chương" — đọc một lần ở danh sách, hàng chỉ nhận bề rộng cột (`+List`).
+    @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
+    internal var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     internal var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"

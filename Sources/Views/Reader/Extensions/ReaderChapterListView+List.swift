@@ -12,6 +12,9 @@ extension ReaderChapterListView {
         ScrollViewReader { proxy in
             ZStack {
                 List {
+                    // Truyện chữ không có dòng tiêu đề nhóm (chỉ comic/video gắn `isSection`) ⇒ số = index logic + 1,
+                    // giữ nguyên khi tìm hay đảo thứ tự; cột rộng theo số chương lớn nhất, tính một lần cho cả danh sách.
+                    let ordinalDigits = showsChapterOrdinal ? ChapterOrdinalNumbering(chapterCount: store.totalCount).digits : 0
                     if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         // Đúng MỘT hàng cho mỗi phần tử (không bọc `if let`): hàng tuỳ chọn buộc `List`
                         // dựng closure của mọi chương để đếm hàng. Index logic tính như `store.item(at:)`,
@@ -20,7 +23,7 @@ extension ReaderChapterListView {
                         let ascending = store.isAscending
                         ForEach(0..<total, id: \.self) { displayPosition in
                             let logicalIndex = ascending ? displayPosition : (total - 1 - displayPosition)
-                            chapterRow(at: displayPosition, logicalIndex: logicalIndex)
+                            chapterRow(at: displayPosition, logicalIndex: logicalIndex, ordinalDigits: ordinalDigits)
                                 .id(logicalIndex)
                                 .onAppear {
                                     guard !isPositioningInitialChapter else {
@@ -31,7 +34,7 @@ extension ReaderChapterListView {
                         }
                     } else {
                         ForEach(store.searchResults) { item in
-                            chapterRow(at: item.id, logicalIndex: item.index)
+                            chapterRow(at: item.id, logicalIndex: item.index, ordinalDigits: ordinalDigits)
                                 .id(item.index)
                         }
                     }
@@ -78,7 +81,7 @@ extension ReaderChapterListView {
         }
     }
 
-    private func chapterRow(at displayPosition: Int, logicalIndex: Int) -> some View {
+    private func chapterRow(at displayPosition: Int, logicalIndex: Int, ordinalDigits: Int) -> some View {
         let chapter = store.rowState(at: displayPosition)
         return ReaderChapterRowView(
             chapter: chapter,
@@ -87,6 +90,8 @@ extension ReaderChapterListView {
             displayTitle: displayTitle(for: chapter),
             theme: theme,
             isDownloading: downloadingChapterIndices.contains(logicalIndex),
+            ordinal: logicalIndex + 1,
+            ordinalDigits: ordinalDigits,
             onSelect: {
                 onSelectChapter(logicalIndex)
                 onClose()

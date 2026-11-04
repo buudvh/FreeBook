@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.711] - 2026-11-04
+
+### feat: danh sách chương hiện số thứ tự, cột số vừa đủ chữ số lớn nhất
+
+Người dùng: *"Thêm số thứ tự hiển thị ở mỗi danh sách chương trong truyện. Nhớ vừa số chữ số cao nhất của thứ tự…"*, *"Cho config hiện/ẩn số thứ tự"*, *"Sửa lại đồng bộ số thứ tự và tên chương hiển thị kiểu flex nhé"*, *"Nhãn ch.N cũ bỏ đi"*.
+
+- **Mảnh dùng chung** (`Sources/Views/Common/ChapterTOCPanel/`):
+  - `ChapterOrdinalNumbering`: số = vị trí (từ 1) của chương trong **mục lục đủ** theo thứ tự gốc; dòng tiêu đề nhóm (`isSection`) không có số, không chiếm số ⇒ số lớn nhất = N của "Mục lục (N chương)". Tìm/lọc hay đảo ↓↑ thì mỗi chương giữ số của nó. Mục lục liền mạch không có dòng nhóm (mọi truyện chữ) ⇒ số = chỉ số + 1, không dựng bảng; có dòng nhóm mới dựng bảng chỉ số → số. `digits` = số chữ số của số lớn nhất (2000 → 4, 10000 → 5), tính **một lần mỗi danh sách**.
+  - `ChapterOrdinalLabel`: cột số kiểu flex trước tên — đặt cùng tên trong `HStack(alignment: .firstTextBaseline)`, tên dài xuống dòng thì thẳng lề với tên. Bề rộng đo bằng `Text` giữ chỗ ẩn gồm `digits` chữ "0" cùng font (`.body.monospacedDigit()`, cùng cỡ với tên), số căn phải, `Text(verbatim:)` (không chèn dấu nhóm theo vùng). Màu phụ của `ChapterTOCPalette`; hàng đang đọc theo màu tiêu đề, đã đọc mờ thêm. Không `GeometryReader` ⇒ giữ lazy.
+- **Các danh sách**:
+  - Tab Mục lục của Chi tiết (`BookDetailTOCView` / `BookDetailTOCRow`): bản chụp `chapter_store` dựng số từ `chapterSnapshots` khi mục lục đổi (`@State snapshotNumbering`, không theo từ khoá/chiều); mục lục online dựng từ **toàn bộ** `onlineChapters` ở `BookDetailView.updateFilteredOnlineChapters` (danh sách đã lọc không đếm được dòng nhóm đứng trước) rồi truyền xuống; nhánh `Book.chapters` = index + 1. "Mục lục (N chương)" lấy N từ cùng bộ số ⇒ không còn lệch khi đang tìm ở mục lục online có dòng nhóm.
+  - Sheet mục lục Reader (`ReaderChapterListView+List` → `ReaderChapterRowView`): truyện chữ không có dòng nhóm ⇒ số = index logic + 1 cho cả danh sách phân trang lẫn kết quả tìm; cột rộng theo `store.totalCount`. Hàng giữ chỗ (đang tải trang) cũng có cột số để tên không nhảy ngang.
+  - Mục lục màn đọc comic (`ComicChapterListSheet`): dựng từ toàn bộ `chapters` (không phải `visibleChapters`).
+  - Màn "Chọn chương…" (`ReaderAINameScanChapterPickerView`, sheet tải/xuất + sheet quét tên): **bỏ nhãn "ch.N" cũ**, thay bằng cùng cột số; chương không tên hiện "Chương N"/"Tập N". Sheet tải/xuất gắn `AINameScanChapter.ordinal` lúc dựng danh sách (`DownloadStartChapterCatalog`, dòng nhóm không chiếm số) ⇒ số và tìm theo số khớp mục lục; dòng phụ "ch.N: tên" của mục "Bắt đầu từ" dùng cùng số. Sheet quét tên giữ index + 1.
+  - Không đổi: lưới tập video.
+- **Công tắc**: Cài đặt › Chung › Giao diện › mục "Danh sách chương" › "Hiện số thứ tự chương" (nút "?" giải thích). `@AppStorage` khoá `chapterListShowsOrdinal` (`ChapterOrdinalNumbering.showsOrdinalKey`), mặc định bật; đọc một lần ở mỗi danh sách, tắt là bỏ hẳn cột, đổi ngay. Backup tự gói (khoá chữ thường đầu, `BackupSettingsArchiver.isExportable`), không cần thêm vào danh sách.
+- `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục "Mục lục & thẻ Chi tiết".
+- Chuyển `[1.3.680]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.710] - 2026-11-04
 
 ### fix: sửa 5 lỗi engine Legado tìm thấy trong log
@@ -703,17 +723,3 @@ Người dùng: *"điều tra logic dịch tên chương giúp tôi"*. Báo cáo
     - Nhãn nhóm tập video.
     - Tìm "kiem" ra "Kiếm".
 
-## [1.3.680] - 2026-11-03
-
-### feat: bình luận hiện avatar người bình luận và các trả lời
-
-Người dùng: *"app chưa làm: replies của comment chưa được hiển, avatar cũng chưa được dùng để hiển thị avatar người comment. xem ext qimao của đường đen để hiểu rõ hơn"*. Chốt bằng mockup + bảng chọn (thẻ Chi tiết chỉ dòng "N trả lời", xổ tại chỗ, mô tả dưới tên, hàng nút kiểu B, qimao tải trả lời khi bấm) rồi duyệt plan.
-
-- **Đọc dữ liệu** (`ExtensionManager+ItemParsing.listItem`): mỗi item đọc thêm `avatar` (resolve như bìa: host item → `source`) và `replies` theo template script bình luận của hợp đồng (mảng cùng dạng bình luận, lồng nhau) — app hiện **một** cấp, trả lời của trả lời đứng ngay sau trả lời cha (`commentReplies`, sâu tối đa 8), trả lời không có nội dung lẫn mô tả bị bỏ. Khoá riêng của FreeBook (hợp đồng không có): `reply_source: {input, script}` (`CommentReplySource`, mới) + `reply_count` = trả lời **tải khi bấm**, chỉ dùng khi `replies` rỗng. `ExtensionItemResult` thêm `avatar`, `replies`, `replySource`, `replyCount` (đều có mặc định).
-- **Hàng bình luận dùng chung** (`CommentRowView`, mới, `Views/BookDetail/Comments/`): thay khối chép trùng ở thẻ Chi tiết (`CommentSectionView`) và Tất cả bình luận (`AllCommentsView`). Avatar tròn 32pt / 36pt (`CommentAvatarView`, mới — không có URL thì hình người xám như cũ, đang tải / lỗi thì placeholder hình người), tên, dòng mô tả **dưới** tên (trước nằm bên phải tên; không có nội dung thì mô tả làm thân, không lặp), nội dung 3 dòng. Có trả lời ⇒ cùng hàng với "Xem thêm" (trái) là "💬 N trả lời ⌄" màu nhấn (phải); mặc định thu gọn ở cả hai màn.
-- **Khối trả lời xổ tại chỗ** (`CommentRepliesBlock`, mới): thụt vào, vạch dọc trái; mỗi trả lời avatar 22pt, tên, mô tả, nội dung 3 dòng có "Xem thêm" nhỏ; tên / mô tả / nội dung dịch như bình luận. `replies` lồng sẵn ⇒ hiện ngay; `reply_source` ⇒ lần mở đầu gọi `script(input, page)` qua `SourceRuntime.executeCustomScript`, "Đang tải trả lời…", lỗi + "Thử lại", "Tải thêm trả lời" khi còn trang. Trang đã tải giữ ở hàng cha ⇒ thu gọn / mở lại không tải lại. Khối dài hơn 3 trả lời có "Thu gọn" ở đáy. Số trên nút: lồng sẵn = số trả lời có thật; tải khi bấm = `reply_count`, không khai ⇒ "Xem trả lời".
-- **Thành phần chung**: `ExpandableTextView` thêm `toggleFont` và `trailingAccessory` (nút phụ cùng hàng "Xem thêm"; mặc định như cũ). `RemoteCoverImage` thêm `placeholderSymbol` (mặc định `photo`). Hàng bình luận gắn `.buttonStyle(.borderless)` để các nút trong một hàng `List` nhận chạm riêng.
-- `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục Extension JavaScript.
-- Tiện ích (repo riêng, cùng đợt): STV v24 + qidian v27 tách trả lời khỏi danh sách bình luận gốc (trước hiện thành bình luận riêng lẻ) + avatar; qimao v3 avatar + `reply_source` (`reply.js`), bỏ kiểu gộp trả lời vào nội dung.
-- Chuyển entry `[1.3.650]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: avatar hiện ở thẻ / Tất cả bình luận / trả lời, bấm "N trả lời" xổ đúng bình luận và không kích hoạt "Xem thêm" (và ngược lại) trong hàng `List`, qimao tải / tải thêm / thử lại trả lời, cuộn hàng đang tải ra khỏi màn rồi quay lại.

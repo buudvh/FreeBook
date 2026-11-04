@@ -4,8 +4,9 @@ import SwiftUI
 /// (`TaskOptionsSheet`, 1.3.624).
 ///
 /// Liệt kê đúng danh sách caller đã nạp, không đọc lại mục lục: sheet quét tên đưa chương **đã tải**, sheet tải/xuất
-/// đưa **cả mục lục**. `noun` = "tập" với video (tiêu đề, ô tìm, nhãn số). Tìm theo số chương (đánh từ 1,
-/// khớp phần đầu: "12" ra ch.12, ch.120…) hoặc theo tên — tên hiển thị (đã dịch khi Reader bật dịch, 1.3.603) lẫn tên
+/// đưa **cả mục lục**. `noun` = "tập" với video (tiêu đề, ô tìm). Số thứ tự là cột kiểu flex trước tên
+/// (`ChapterOrdinalLabel`, theo công tắc "Hiện số thứ tự chương"; thay nhãn "ch.N" cũ). Tìm theo số chương (đánh từ 1,
+/// khớp phần đầu: "12" ra 12, 120…) hoặc theo tên — tên hiển thị (đã dịch khi Reader bật dịch, 1.3.603) lẫn tên
 /// gốc; dấu tích ở chương đang chọn, mở ra tự cuộn tới chương đó. Chạm một chương ⇒ báo `onSelect` (chỉ số 0-based)
 /// rồi quay lại sheet.
 struct ReaderAINameScanChapterPickerView: View {
@@ -19,11 +20,8 @@ struct ReaderAINameScanChapterPickerView: View {
     let onSelect: (Int) -> Void
 
     @State private var query: String = ""
-
-    /// Nhãn số đứng trước tên: "ch.12" (chương) hoặc "tập 12".
-    private var numberPrefix: String {
-        noun == "chương" ? "ch." : "\(noun) "
-    }
+    @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
+    private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -42,8 +40,12 @@ struct ReaderAINameScanChapterPickerView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
+            // Cột số rộng theo số lớn nhất của danh sách caller đưa, tính một lần cho cả danh sách.
+            let ordinalDigits = showsChapterOrdinal
+                ? ChapterOrdinalNumbering(chapterCount: chapters.reduce(0) { max($0, $1.number) }).digits
+                : 0
             List(filteredChapters) { chapter in
-                row(for: chapter)
+                row(for: chapter, ordinalDigits: ordinalDigits)
                     .id(chapter.index)
             }
             .listStyle(.plain)
@@ -68,23 +70,28 @@ struct ReaderAINameScanChapterPickerView: View {
         }
     }
 
-    private func row(for chapter: AINameScanChapter) -> some View {
+    private func row(for chapter: AINameScanChapter, ordinalDigits: Int) -> some View {
         let isSelected = chapter.index == selectedIndex
         return Button {
             onSelect(chapter.index)
             dismiss()
         } label: {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(numberPrefix)\(chapter.number)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    if !chapter.title.isEmpty {
-                        Text(chapter.title)
-                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                            .foregroundColor(.primary)
-                            .lineLimit(2)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if ordinalDigits > 0 {
+                        ChapterOrdinalLabel(
+                            ordinal: chapter.number,
+                            digits: ordinalDigits,
+                            palette: .system,
+                            isCurrent: isSelected,
+                            isRead: false
+                        )
                     }
+                    Text(chapter.title.isEmpty ? untitledLabel(for: chapter) : chapter.title)
+                        .font(.body.weight(isSelected ? .semibold : .regular))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
                 Spacer()
                 // Cùng kiểu icon "đã tải" của danh sách chương Reader / Chi tiết truyện / mục lục comic (1.3.627).
@@ -103,5 +110,10 @@ struct ReaderAINameScanChapterPickerView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Chương không có tên: "Chương 12" / "Tập 12" để hàng không trống khi tắt cột số.
+    private func untitledLabel(for chapter: AINameScanChapter) -> String {
+        "\(noun.prefix(1).uppercased())\(noun.dropFirst()) \(chapter.number)"
     }
 }

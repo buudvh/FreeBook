@@ -46,13 +46,17 @@ enum DownloadStartChapterCatalog {
         let convertsTraditional = UserDefaults.standard.bool(forKey: "convertTraditionalToSimplified_\(bookId)")
         var result: [AINameScanChapter] = []
         result.reserveCapacity(toc.count)
+        // Số thứ tự như mục lục Chi tiết/Reader/comic: đếm chương thường, dòng tiêu đề nhóm không chiếm số.
+        var readableCount = 0
         for chapter in toc where !(skipsSections && chapter.isSection) {
+            if !chapter.isSection { readableCount += 1 }
+            let ordinal = chapter.isSection ? nil : readableCount
             let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let fallback = chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let raw = title.isEmpty ? fallback : title
             let isCached = mediaDownloaded.map { $0.contains(chapter.index) } ?? (chapter.isCached && chapter.length > 0)
             guard translates, !Task.isCancelled, TranslateUtils.containsChinese(raw) else {
-                result.append(AINameScanChapter(index: chapter.index, title: raw, rawTitle: raw, isCached: isCached))
+                result.append(AINameScanChapter(index: chapter.index, title: raw, rawTitle: raw, isCached: isCached, ordinal: ordinal))
                 continue
             }
             let translated = TranslateUtils.translateChapterTitle(
@@ -64,7 +68,8 @@ enum DownloadStartChapterCatalog {
                 index: chapter.index,
                 title: translated.isEmpty ? raw : translated,
                 rawTitle: raw,
-                isCached: isCached
+                isCached: isCached,
+                ordinal: ordinal
             ))
         }
         return result

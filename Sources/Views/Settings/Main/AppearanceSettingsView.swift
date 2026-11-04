@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Cài đặt → Chung → **Giao diện** (1.3.636): gom các màn cài đặt về hiển thị (màu nhấn, kiểu danh sách, nội dung nhạy
-/// cảm, bàn phím) và chỉnh độ trong suốt / độ đục của nút nổi (tai nghe Reader, nút "+") cùng ngăn kéo menu ba chấm.
+/// cảm, bàn phím), công tắc số thứ tự ở các danh sách chương, và chỉnh độ trong suốt / độ đục của nút nổi (tai nghe
+/// Reader, nút "+") cùng ngăn kéo menu ba chấm.
 ///
 /// Thanh kéo ghi thẳng `UserDefaults` qua `@AppStorage` cùng khoá với `FloatingGlassBackground` /
 /// `SideDrawerGlassBackground`, nên ô xem trước (dựng bằng đúng hai view đó) và mọi nút thật đổi theo ngay khi kéo.
@@ -16,6 +17,8 @@ struct AppearanceSettingsView: View {
     private var drawerFrost = GlassChromeSettings.defaultDrawerFrost
     @AppStorage(AppAccentColor.storageKey)
     private var storedAccent = AppAccentColor.defaultValue.rawValue
+    @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
+    private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     /// Nền ô xem trước — cùng màu nền chủ đề Tối của Reader.
     private static let previewBackground = Color(red: 0.08, green: 0.08, blue: 0.09)
@@ -44,6 +47,14 @@ struct AppearanceSettingsView: View {
                 NavigationLink(destination: KeyboardSettingsView()) {
                     Label("Bàn phím & ô nhập", systemImage: "keyboard")
                 }
+            }
+
+            Section {
+                Toggle(isOn: $showsChapterOrdinal) {
+                    Label("Hiện số thứ tự chương", systemImage: "list.number")
+                }
+            } header: {
+                SectionHelpHeader("Danh sách chương", paragraphs: ["Cột số đứng trước tên chương ở mục lục Chi tiết truyện, danh sách chương trong Reader, mục lục truyện tranh và màn chọn chương bắt đầu.", "Số đánh từ 1 theo mục lục, không đổi khi tìm hay đảo thứ tự; dòng tên nhóm tập không có số. Tắt thì bỏ hẳn cột số."])
             }
 
             Section {

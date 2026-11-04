@@ -12,11 +12,14 @@ struct AINameScanChapter: Sendable, Identifiable, Equatable {
     /// Chương đã có trong máy — màn chọn hiện icon "đã tải" (1.3.627). Chỉ sheet tải/xuất đặt cờ này; sheet quét tên
     /// vốn chỉ liệt kê chương đã tải nên để mặc định `false`, không hiện icon thừa.
     var isCached: Bool = false
+    /// Số thứ tự trong mục lục đủ khi khác `index + 1` — sheet tải/xuất đặt cho truyện tranh/video có dòng tiêu đề
+    /// nhóm (dòng nhóm không chiếm số, như `ChapterOrdinalNumbering`). `nil` = `index + 1`.
+    var ordinal: Int? = nil
 
     var id: Int { index }
 
     /// Số chương hiển thị — đánh từ 1 như mọi chỗ khác trong app.
-    var number: Int { index + 1 }
+    var number: Int { ordinal ?? index + 1 }
 
     /// "ch.N: tên", tên rỗng thì chỉ "ch.N".
     var label: String {

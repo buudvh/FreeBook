@@ -63,6 +63,7 @@ struct BookDetailView: View {
     @State internal var filteredLocalChapters: [Chapter] = []
     @State internal var chapterSnapshots: [StoredChapterSnapshot] = []
     @State internal var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
+    @State internal var onlineOrdinalNumbering = ChapterOrdinalNumbering.empty // số thứ tự từ toàn bộ `onlineChapters`
     @State internal var host = ""
     @State internal var isTranslationEnabled = false
 
@@ -613,6 +614,7 @@ struct BookDetailView: View {
                     filteredLocalChapters: filteredLocalChapters,
                     chapterSnapshots: chapterSnapshots,
                     filteredOnlineChapters: filteredOnlineChapters,
+                    onlineNumbering: onlineOrdinalNumbering,
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
                     isTranslationEnabled: isTranslationEnabled,
