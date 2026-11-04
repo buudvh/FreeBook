@@ -43,6 +43,41 @@ enum ExtensionUrlMatcher {
         return matches
     }
 
+    /// Bộ khớp **cả chuỗi** đúng hợp đồng tiện ích (`String.matches` của Kotlin): `regexp` phải phủ hết link, thử link
+    /// nguyên văn rồi link bỏ `http(s)://` và dấu `/` cuối. Dùng cho việc tự gắn lại nguồn của truyện mất nguồn
+    /// (`MissingSourceRebindCoordinator`), nơi khớp nhầm là đổi sai nguồn; `matches(for:in:)` (khớp một phần) giữ
+    /// nguyên cho nút Nhập và dịch trang. Biểu thức dựng **một lần** cho cả danh sách rồi thử nhiều link.
+    struct WholeMatcher {
+        private let entries: [(ext: Extension, regexp: String, regex: NSRegularExpression)]
+
+        init(extensions: [Extension]) {
+            entries = extensions.compactMap { (ext: Extension) -> (ext: Extension, regexp: String, regex: NSRegularExpression)? in
+                guard let pattern = ExtensionUrlMatcher.regexp(localPath: ext.localPath), !pattern.isEmpty,
+                      let regex = try? NSRegularExpression(pattern: "\\A(?:\(pattern))\\z", options: [.caseInsensitive]) else {
+                    return nil
+                }
+                return (ext: ext, regexp: pattern, regex: regex)
+            }
+        }
+
+        var isEmpty: Bool { entries.isEmpty }
+
+        /// Tiện ích khớp `urlString`, giữ thứ tự danh sách đầu vào. Chỉ nhận link http(s).
+        func matches(for urlString: String) -> [Match] {
+            let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.lowercased().hasPrefix("http") else { return [] }
+            var bare = trimmed.replacingOccurrences(of: "^https?://", with: "", options: [.regularExpression, .caseInsensitive])
+            while bare.hasSuffix("/") { bare.removeLast() }
+            let variants = bare == trimmed ? [trimmed] : [trimmed, bare]
+            return entries.compactMap { entry in
+                let hit = variants.contains { text in
+                    entry.regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)) != nil
+                }
+                return hit ? Match(ext: entry.ext, regexp: entry.regexp) : nil
+            }
+        }
+    }
+
     /// Xoá cache regexp của **một** tiện ích (chỉ một khoá, để tiện ích khác không phải đọc lại `plugin.json`).
     static func invalidateRegexpCache(localPath: String) {
         guard !localPath.isEmpty else { return }

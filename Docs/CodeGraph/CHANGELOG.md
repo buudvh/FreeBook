@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.690] - 2026-11-04
+
+### feat: truyện mất nguồn tự chuyển sang tiện ích khớp link, hỏi một chạm hoặc tự chuyển
+
+Người dùng: *"nếu nguồn bị xoá rồi thì tự check url regex nếu có nguồn nào ăn đổi qua nguồn đó được không?"*, rồi *"tạo config Hỏi một chạm - Tự chuyển"*. Duyệt PA1: gắn lại nguồn tại chỗ.
+
+- **Dò** (`MissingSourceRebindCoordinator`, `Services/Books/SourceRebind/`, mới):
+  - Truyện mất nguồn = truyện ở Kệ hoặc Lịch sử có `extensionPackageId` không còn cài; sách nhập từ file không tính.
+  - Ứng viên là tiện ích đã cài trừ nguồn Legado, cùng loại nội dung nếu còn tra được loại của nguồn cũ.
+  - `regexp` phải khớp **cả chuỗi** `detailUrl` như hợp đồng tiện ích: thử link nguyên văn, rồi link bỏ `http(s)://` và `/` cuối (`ExtensionUrlMatcher.WholeMatcher`, mới). `matches(for:in:)` khớp một phần giữ nguyên cho nút Nhập và dịch trang.
+- **Kiểm trước khi chuyển** (`SourceRebindValidator`, mới): chạy chi tiết + toàn bộ mục lục của tiện ích mới trên link cũ. Link của 3 chương đã lưu (đầu, đang đọc, cuối) phải có trong mục lục mới; so cả bản ghép host, bỏ scheme, `www.` và `/` cuối. Không đạt thì không chuyển, vì làm mới mục lục khớp chương theo URL sẽ nhân đôi chương.
+- **Ghi** (`BookTransactionCoordinator.rebindSource`, file `+SourceRebind` mới): đổi `extensionPackageId`, `sourceName`, `sourceUrl`, `host`, **giữ nguyên `bookId`**. Chương đã tải, tiến độ, Name/từ điển riêng, phiên AI không phải chép như Đổi nguồn. Truyện vừa được đổi nguồn ở chỗ khác thì không ghi đè.
+- **Kệ** (`MissingSourceRebindBanner`, mới; `ShelfView` thêm 2 dòng): dò mỗi lần trang gốc Kệ hiện, hiện ở tab Kệ sách và Lịch sử.
+  - Hỏi một chạm: dải báo "N truyện mất nguồn có nguồn khớp link · Chuyển", có nút ẩn trong phiên.
+  - Tự chuyển: chạy ngầm cho truyện chỉ khớp một nguồn; khớp từ 2 nguồn thì vẫn hiện dải báo.
+  - Chạy lần lượt từng truyện, khớp nhiều nguồn thì lấy nguồn đầu tiên (theo thứ tự đã cài) qua bước kiểm. Truyện không chuyển được nhớ trong phiên để không gọi mạng lại. Đang có lượt Đổi nguồn thì bỏ qua.
+  - Rời trang gốc Kệ hoặc mở đúng truyện đang chuyển (`ReaderView.activeBookId`) ⇒ dừng trước khi ghi truyện kế tiếp, lần hiện Kệ sau thử lại.
+  - Toast: Hỏi một chạm báo số truyện đã chuyển / mục lục khác dạng / lỗi tải; Tự chuyển chỉ báo truyện đã chuyển (lý do không chuyển nằm trong log).
+  - Không dò ở Chi tiết/Reader: hai màn giữ `extensionPackageId` cố định từ lúc mở, Chi tiết tìm truyện theo (link, tiện ích), nên gắn lại nguồn khi màn đang mở là màn đó mất truyện.
+- **Cài đặt › Thư Viện › Truyện mất nguồn**: Hỏi một chạm (mặc định) / Tự chuyển (`MissingSourceRebindMode`, khoá `missingSourceRebindMode`).
+- Giới hạn: tác vụ tải đang chờ của truyện vẫn mang nguồn cũ; thiết lập theo nguồn (bật dịch riêng của nguồn, đăng nhập, cấu hình tiện ích) theo nguồn mới; Chi tiết của truyện đang mở ở tab khác lúc chuyển thì cần mở lại.
+- `CLAUDE.md` / `AGENTS.md`: thêm mục "Gắn lại nguồn khi tiện ích đã gỡ" ở Ràng buộc runtime.
+- Chuyển entry `[1.3.660]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.689] - 2026-11-03
 
 ### fix: đổi nguồn chép chương theo lô, dọn truyện cũ an toàn khi app chết
@@ -506,15 +531,3 @@ Người dùng: *"Ghi nhớ độ sáng của video mở lần gần nhất, m�
 - **Đổi tab về trang gốc** (`MainTabView` + `MainTabView+TabReset.swift`, mới): mỗi tab có mã `.id` (`tabResetTokens`, gắn trước `.tabItem`). `onChange(of: selectedTab)` vẫn phát `.appTabDidChange`, rồi tăng mã của **tab vừa rời** nếu `shouldResetTab(at:)` ⇒ SwiftUI tạo lại tab đó ngầm. Tab đang vào không bị đụng (widget TTS chuyển sang tab Kệ còn phải mở Reader trong cùng nhịp). Các tab gốc dùng `NavigationStack` không `path` (cờ `isPresented` + `NavigationLink`, riêng Cài đặt 40 chỗ) nên đọc **chỉ đọc** cây UIKit của cửa sổ có thanh tab: có `UINavigationController` nào trong tab nhiều hơn 1 trang ⇒ đặt lại; tab đang ở trang gốc giữ nguyên (Khám phá không tải lại, giữ chỗ cuộn). Có sheet / màn toàn màn đang phủ (Reader, phim, truyện tranh) ⇒ không đặt lại để khỏi đóng mất màn đó. Không đọc được cây UIKit, hoặc thanh tab không liệt kê đủ 4 tab (chỉ số có thể trỏ nhầm tab) ⇒ đặt lại và log `❌ [TabReset]` (luôn ghi); mỗi lần đặt lại log `🔄 [TabReset]` (chỉ khi bật ghi log).
 - Chuyển entry `[1.3.631]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (rủi ro chính: SwiftUI có đọc được `UITabBarController`/`UINavigationController` như giả định không — xem log `❌ [TabReset]`, bật ghi log để thấy cả `🔄`; tab Kệ tạo lại lúc ẩn có còn nhận lệnh mở Reader từ widget TTS).
-
-## [1.3.660] - 2026-10-30
-
-### fix: Chi tiết từ trình đọc đẩy vào màn đọc, trang đẩy vào ẩn thanh tab
-
-Người dùng thử 1.3.659: *"reader -> chi tiết bị lỗi hiển thị 2 nút back"*, *"tôi muốn chi tiết luôn full màn hình"*; chọn ẩn thanh tab ở **mọi** trang đẩy vào và đẩy Chi tiết vào màn đọc.
-
-- **Mọi trang đẩy vào ẩn thanh tab** (`PageTitleModifier`): `.toolbar(style == .leading ? .automatic : .hidden, for: .tabBar)`. Theo quy ước header, `.centered` (`.backPageTitle`, màn mở được cả hai kiểu khi đẩy vào) và `.hidden` (Chi tiết truyện) là trang đẩy vào; `.leading` là tab gốc / gốc sheet ⇒ chỉ 4 tab gốc còn thanh tab. Đã soát các đích `NavigationLink`/`navigationDestination`: đều dùng kiểu giữa (riêng `BookDictionaryView` chuyển tiếp sang `DictionaryHubView` có `style:`). Ghi luật vào mục header của `CLAUDE.md`/`AGENTS.md`.
-- **Chi tiết từ mục lục Reader** không còn `fullScreenCover` + nút `chevron.left` tự vẽ (bản 1.3.659 hiện hai nút back): chạm bìa ⇒ `onOpenBookDetail` (thay `onBookDetailCoverChange`, qua `ReaderChapterListHost`) ⇒ `ReaderView` gán `imported*` theo sách đang đọc, đóng sheet, `onDismiss` của sheet bật `navigateToBookDetail` ⇒ đẩy vào `NavigationStack` của Reader bằng đúng đường Import có sẵn (`onDisappear` vốn bỏ qua `shutdown` khi `navigateToBookDetail`). Một nút back hệ thống, vuốt mép quay lại về trang đọc.
-- **Màn đọc truyện tranh** tương tự: `ComicChapterListSheet` báo URL chi tiết qua `onOpenBookDetail(_:)`, `ComicReaderView` đẩy bằng `.navigationDestination(item: $bookDetailUrl)` sau `onDismiss` của sheet mục lục; `handleDisappear` bỏ qua dọn dẹp khi `bookDetailUrl != nil`; quay lại thì `bootstrap()` tự bỏ qua (`hasStarted`).
-- Xoá `CoverBackButtonModifier.swift`, cờ `isBookDetailCoverPresented`/`isBookDetailCovering`. Chuyển entry `[1.3.630]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý thanh tab có giật một nhịp lúc đẩy/back không).

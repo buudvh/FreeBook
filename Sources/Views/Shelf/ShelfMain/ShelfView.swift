@@ -189,6 +189,8 @@ struct ShelfView: View {
 
                 Divider()
 
+                MissingSourceRebindBanner(books: allBooks, isVisible: selectedTab == .shelf || selectedTab == .history)
+
                     TabView(selection: $selectedTab) {
                         // TAB TẢI TRƯỚC
                         DownloadTrackerView()

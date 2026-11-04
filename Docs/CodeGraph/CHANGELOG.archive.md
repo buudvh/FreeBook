@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.660] - 2026-10-30
+
+### fix: Chi tiết từ trình đọc đẩy vào màn đọc, trang đẩy vào ẩn thanh tab
+
+Người dùng thử 1.3.659: *"reader -> chi tiết bị lỗi hiển thị 2 nút back"*, *"tôi muốn chi tiết luôn full màn hình"*; chọn ẩn thanh tab ở **mọi** trang đẩy vào và đẩy Chi tiết vào màn đọc.
+
+- **Mọi trang đẩy vào ẩn thanh tab** (`PageTitleModifier`): `.toolbar(style == .leading ? .automatic : .hidden, for: .tabBar)`. Theo quy ước header, `.centered` (`.backPageTitle`, màn mở được cả hai kiểu khi đẩy vào) và `.hidden` (Chi tiết truyện) là trang đẩy vào; `.leading` là tab gốc / gốc sheet ⇒ chỉ 4 tab gốc còn thanh tab. Đã soát các đích `NavigationLink`/`navigationDestination`: đều dùng kiểu giữa (riêng `BookDictionaryView` chuyển tiếp sang `DictionaryHubView` có `style:`). Ghi luật vào mục header của `CLAUDE.md`/`AGENTS.md`.
+- **Chi tiết từ mục lục Reader** không còn `fullScreenCover` + nút `chevron.left` tự vẽ (bản 1.3.659 hiện hai nút back): chạm bìa ⇒ `onOpenBookDetail` (thay `onBookDetailCoverChange`, qua `ReaderChapterListHost`) ⇒ `ReaderView` gán `imported*` theo sách đang đọc, đóng sheet, `onDismiss` của sheet bật `navigateToBookDetail` ⇒ đẩy vào `NavigationStack` của Reader bằng đúng đường Import có sẵn (`onDisappear` vốn bỏ qua `shutdown` khi `navigateToBookDetail`). Một nút back hệ thống, vuốt mép quay lại về trang đọc.
+- **Màn đọc truyện tranh** tương tự: `ComicChapterListSheet` báo URL chi tiết qua `onOpenBookDetail(_:)`, `ComicReaderView` đẩy bằng `.navigationDestination(item: $bookDetailUrl)` sau `onDismiss` của sheet mục lục; `handleDisappear` bỏ qua dọn dẹp khi `bookDetailUrl != nil`; quay lại thì `bootstrap()` tự bỏ qua (`hasStarted`).
+- Xoá `CoverBackButtonModifier.swift`, cờ `isBookDetailCoverPresented`/`isBookDetailCovering`. Chuyển entry `[1.3.630]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý thanh tab có giật một nhịp lúc đẩy/back không).
+
 ## [1.3.659] - 2026-10-30
 
 ### fix: màn Chi tiết không tải lại khi quay về, mở toàn màn từ trình đọc
