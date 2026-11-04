@@ -8,15 +8,22 @@ import SwiftUI
 ///
 /// Một lượt tại một thời điểm (bộ chạy dùng chung với Debug server). Gọi thẳng API Swift của bộ chạy (không qua mạng),
 /// thăm dò trạng thái mỗi giây. Không tự tạo `NavigationStack` — nơi trình bày bọc (sheet từ menu ⋯) hoặc đẩy trong
-/// stack của màn chi tiết. Rời màn (không phải để mở Gỡ lỗi) ⇒ dừng lượt đang chạy.
+/// stack của màn chi tiết. Từ 1.3.697 rời màn (nút ⌄, vuốt xuống, quay lại — không phải để mở Gỡ lỗi) khi lượt còn chạy
+/// ⇒ lượt **thu nhỏ** (`MinimizedSourceCheckCoordinator`, dòng "Kiểm tra nguồn" của hub nổi); chỉ nút Dừng mới dừng.
+/// `attachRunId` ⇒ màn mở lại từ hub, gắn vào lượt đó thay vì chạy lượt mới.
 struct LegadoSourceCheckView: View {
     let packageIds: [String]
     let scopeTitle: String
     /// Gốc của sheet (menu ⋯) ⇒ hiện tiêu đề trái; đẩy trong stack của màn chi tiết ⇒ tiêu đề giữa.
     var isPresentedAsSheet = false
+    var attachRunId: String?
+    /// Màn trình bày bằng UIKit (mở lại từ hub) tự đóng qua đây thay vì `dismiss` của environment.
+    var onClose: (() -> Void)?
 
     static let failedGroupName = "Lỗi"
 
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var lease = MinimizedSourceCheckCoordinator.ScreenLease()
     @State private var report: LegadoCorpusReport?
     @State private var runId: String?
     @State private var hasStarted = false
@@ -38,7 +45,11 @@ struct LegadoSourceCheckView: View {
         VStack(spacing: 10) {
             header
             if let startError {
-                startErrorView(startError)
+                SourceCheckStartErrorView(
+                    message: startError,
+                    onOpenRunning: canOpenMinimizedRun ? openMinimizedRun : nil,
+                    onStopRunning: isBusyConflict ? stopOtherRun : nil
+                )
             } else {
                 summaryTiles
                 LegadoSourceCheckVerdictPanel(results: results, filter: $filter)
@@ -50,14 +61,12 @@ struct LegadoSourceCheckView: View {
         .pageTitle("Kiểm tra nguồn", style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: shareReport) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                        .contentShape(Rectangle())
-                }
-                .disabled((report?.sources?.isEmpty ?? true) || isPreparingShare)
-                .accessibilityLabel("Chia sẻ báo cáo kiểm tra")
+                SourceCheckHeaderButtons(
+                    showsMinimize: isRunning,
+                    isShareDisabled: (report?.sources?.isEmpty ?? true) || isPreparingShare,
+                    onMinimize: closeScreen,
+                    onShare: shareReport
+                )
             }
         }
         .sheet(isPresented: isSharing) {
@@ -81,9 +90,9 @@ struct LegadoSourceCheckView: View {
             await poll()
         }
         .onDisappear {
-            // Mở Gỡ lỗi (đẩy màn mới) cũng làm màn này "biến mất" — chỉ dừng khi thật sự rời màn.
-            guard debugPackageId == nil, shareURL == nil, isRunning else { return }
-            cancelRun()
+            // Mở Gỡ lỗi (đẩy màn mới) / chia sẻ cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn.
+            guard debugPackageId == nil, shareURL == nil else { return }
+            MinimizedSourceCheckCoordinator.shared.screenDidClose(.legado, screenId: lease.id)
         }
     }
 
@@ -118,25 +127,11 @@ struct LegadoSourceCheckView: View {
         let failed = (report?.attempted ?? 0) - passed
         let remaining = max(0, (report?.totalSources ?? packageIds.count) - (report?.completed ?? 0))
         return HStack(spacing: 8) {
-            tile("Đạt", value: passed, color: .green)
-            tile("Lỗi", value: failed, color: .red)
-            tile("Còn lại", value: remaining, color: .secondary)
+            SourceCheckTile(title: "Đạt", value: passed, color: .green)
+            SourceCheckTile(title: "Lỗi", value: failed, color: .red)
+            SourceCheckTile(title: "Còn lại", value: remaining, color: .secondary)
         }
         .padding(.horizontal)
-    }
-
-    private func tile(_ title: String, value: Int, color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text("\(value)")
-                .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundColor(color)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Danh sách
@@ -177,52 +172,17 @@ struct LegadoSourceCheckView: View {
             }
             HStack(spacing: 8) {
                 if isRunning {
-                    actionButton("Dừng", systemImage: "stop.fill", tint: .red, action: cancelRun)
+                    SourceCheckActionButton("Dừng", systemImage: "stop.fill", tint: .red, action: cancelRun)
                 } else {
-                    actionButton("Tắt nguồn lỗi", systemImage: "power", tint: .orange, action: disableFailed)
-                    actionButton("Gắn nhóm \"\(Self.failedGroupName)\"", systemImage: "tag", tint: .blue, action: tagFailed)
-                    actionButton("Xoá nguồn lỗi", systemImage: "trash", tint: .red, action: { showingDeleteConfirm = true })
+                    SourceCheckActionButton("Tắt nguồn lỗi", systemImage: "power", tint: .orange, action: disableFailed)
+                    SourceCheckActionButton("Gắn nhóm \"\(Self.failedGroupName)\"", systemImage: "tag", tint: .blue, action: tagFailed)
+                    SourceCheckActionButton("Xoá nguồn lỗi", systemImage: "trash", tint: .red, action: { showingDeleteConfirm = true })
                 }
             }
             .disabled(isActing || (!isRunning && failedIds.isEmpty))
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
-    }
-
-    private func actionButton(_ title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                Text(title)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundColor(tint)
-            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func startErrorView(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            if isBusyConflict {
-                Button("Dừng lượt đang chạy") {
-                    Task { _ = await LegadoCorpusRunner.shared.cancel(runId: nil) }
-                }
-                .buttonStyle(.bordered)
-            }
-            Spacer()
-        }
-        .padding()
     }
 
     /// Tên hiển thị (dịch QT) theo `packageId`.
@@ -244,6 +204,10 @@ struct LegadoSourceCheckView: View {
     private func startIfNeeded() async {
         guard !hasStarted else { return }
         hasStarted = true
+        if let attachRunId {
+            await attach(to: attachRunId)
+            return
+        }
         switch LegadoCorpusRequest.make(packageIds: packageIds, allEnabled: nil, keyword: nil, limit: nil) {
         case .failure(let issue):
             startError = issue.message
@@ -252,6 +216,7 @@ struct LegadoSourceCheckView: View {
                 let initial = try await LegadoCorpusRunner.shared.start(request)
                 runId = initial.runId
                 report = initial
+                track(initial)
             } catch let error as LegadoCorpusRunner.StartError {
                 if case .busy = error {
                     isBusyConflict = true
@@ -265,16 +230,64 @@ struct LegadoSourceCheckView: View {
         }
     }
 
+    /// Màn mở lại từ hub: không chạy lượt mới, đọc ngay kết quả hiện có của lượt đang thu nhỏ.
+    private func attach(to id: String) async {
+        guard let current = await LegadoCorpusRunner.shared.status(includeSources: true), current.runId == id else {
+            MinimizedSourceCheckCoordinator.shared.discard(.legado, runId: id)
+            startError = MinimizedSourceCheckCoordinator.replacedRunMessage
+            return
+        }
+        runId = id
+        report = current
+        track(current)
+    }
+
+    /// Giao lượt cho `MinimizedSourceCheckCoordinator` (màn đang mở). Màn đã đóng trong lúc chờ bộ chạy (task bị huỷ) ⇒
+    /// thu nhỏ luôn, kẻo lượt chạy mà không ai theo dõi.
+    private func track(_ report: LegadoCorpusReport) {
+        let coordinator = MinimizedSourceCheckCoordinator.shared
+        coordinator.track(
+            .legado, scopeTitle: scopeTitle, progress: .init(report), payload: .legado(packageIds: packageIds), screen: lease
+        )
+        if Task.isCancelled {
+            coordinator.screenDidClose(.legado, screenId: lease.id)
+        }
+    }
+
     /// Thăm dò mỗi giây tới khi lượt của màn này xong. Task bị huỷ khi màn ẩn — mở lại thì thăm dò tiếp.
     private func poll() async {
         guard let runId else { return }
         while !Task.isCancelled {
             if let current = await LegadoCorpusRunner.shared.status(includeSources: true), current.runId == runId {
                 report = current
+                MinimizedSourceCheckCoordinator.shared.update(.legado, progress: .init(current))
                 if current.state != .running { return }
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
+    }
+
+    /// Nút ⌄: đóng màn — `onDisappear` giao lượt còn chạy cho hub.
+    private func closeScreen() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    /// Màn báo bận mà lượt kia đang thu nhỏ ⇒ đóng màn này rồi mở lại màn của lượt kia.
+    private var canOpenMinimizedRun: Bool {
+        isBusyConflict && MinimizedSourceCheckCoordinator.shared.entry(for: .legado)?.isMinimized == true
+    }
+
+    private func openMinimizedRun() {
+        closeScreen()
+        MinimizedSourceCheckCoordinator.shared.reopen(.legado, delay: 600_000_000)
+    }
+
+    private func stopOtherRun() {
+        Task { _ = await LegadoCorpusRunner.shared.cancel(runId: nil) }
     }
 
     /// Chia sẻ JSON báo cáo lượt hiện tại: Services ghi tệp tạm (ngoài main), View chỉ trình bày share sheet.
@@ -303,8 +316,10 @@ struct LegadoSourceCheckView: View {
         Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })
     }
 
+    /// Nút Dừng — lối dừng duy nhất từ 1.3.697: thôi theo dõi rồi huỷ lượt.
     private func cancelRun() {
         let id = runId
+        MinimizedSourceCheckCoordinator.shared.discard(.legado, runId: id)
         Task { _ = await LegadoCorpusRunner.shared.cancel(runId: id) }
     }
 

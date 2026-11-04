@@ -4,7 +4,7 @@ import SwiftUI
 /// nền mà người dùng có thể quay lại.
 ///
 /// ## Tập dòng cố định
-/// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video), mục nào không dùng được thì **xám** chứ không
+/// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video → Kiểm tra nguồn), mục nào không dùng được thì **xám** chứ không
 /// biến mất. `FloatingHubPresentationReader` là nơi duy nhất quyết định trạng thái từng dòng; type này chỉ mô
 /// tả dòng trông ra sao. Trình duyệt thu nhỏ đã rời hub, quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
 ///
@@ -13,11 +13,13 @@ import SwiftUI
 /// này **không** đi vào `FloatingHubPresentationReader.ButtonState`: tiêu đề AI đổi theo từng batch hay video
 /// phát/dừng không làm vẽ lại nút.
 struct FloatingHubItem: Equatable, Identifiable {
-    /// Loại dòng. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Thông báo → Video.
+    /// Loại dòng. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Thông báo → Video → Kiểm tra nguồn
+    /// (lượt kiểm tra nguồn / tiện ích đang thu nhỏ, 1.3.697).
     enum Kind: Int, CaseIterable {
         case ai
         case notifications
         case video
+        case sourceCheck
 
         var title: String {
             switch self {
@@ -27,6 +29,8 @@ struct FloatingHubItem: Equatable, Identifiable {
                 return "Thông báo"
             case .video:
                 return "Video"
+            case .sourceCheck:
+                return "Kiểm tra nguồn"
             }
         }
 
@@ -41,15 +45,17 @@ struct FloatingHubItem: Equatable, Identifiable {
                 return unreadCount > 0 ? "bell.fill" : "bell"
             case .video:
                 return "play.rectangle"
+            case .sourceCheck:
+                return "checkmark.seal"
             }
         }
 
-        /// AI dùng icon trắng (người dùng chốt 2026-10-17); hai dòng kia theo màu chữ hệ thống.
+        /// AI dùng icon trắng (người dùng chốt 2026-10-17); các dòng khác theo màu chữ hệ thống.
         var tint: Color {
             switch self {
             case .ai:
                 return .white
-            case .notifications, .video:
+            case .notifications, .video, .sourceCheck:
                 return .primary
             }
         }

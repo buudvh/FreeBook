@@ -77,16 +77,20 @@ extension FloatingHubContainerViewController {
     }
 
     /// Gán lại nội dung thẻ theo snapshot hiện tại; tạo hosting controller ở lần mở đầu tiên.
-    /// Trang "Tác vụ AI" mà không còn truyện nào chạy ⇒ tự về trang chính.
+    /// Trang "Tác vụ AI" / "Kiểm tra nguồn" mà danh sách đã rỗng ⇒ tự về trang chính.
     func refreshMenu() {
         let snapshot = presentationReader.snapshot
         if menuPage == .aiTasks, snapshot.aiTasks.isEmpty {
+            menuPage = .main
+        }
+        if menuPage == .sourceChecks, snapshot.sourceChecks.isEmpty {
             menuPage = .main
         }
         let menu = FloatingHubMenuView(
             page: menuPage,
             items: snapshot.items,
             aiTasks: snapshot.aiTasks,
+            sourceChecks: snapshot.sourceChecks,
             onSelect: { [weak self] kind in
                 self?.open(kind)
             },
@@ -98,6 +102,9 @@ extension FloatingHubContainerViewController {
             },
             onSelectAITask: { [weak self] bookId in
                 self?.openAITask(bookId: bookId)
+            },
+            onSelectSourceCheck: { [weak self] kind in
+                self?.openSourceCheck(kind)
             },
             onBack: { [weak self] in
                 self?.showMenuPage(.main)

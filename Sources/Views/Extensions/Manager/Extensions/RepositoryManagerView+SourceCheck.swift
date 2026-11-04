@@ -4,8 +4,8 @@ import SwiftUI
 /// hàng loạt (`ExtensionCheckView`) — chạy đủ script khai trong `plugin.json` của mọi tiện ích **đã cài** đang hiện (sau
 /// ô tìm + bộ lọc), không gồm nguồn Legado (tab riêng có bộ kiểm tra riêng).
 ///
-/// Đóng sheet (vuốt xuống — không còn nút "Đóng" từ 1.3.641) ⇒ dừng lượt đang chạy, kể cả khi đang đứng ở màn con của
-/// một tiện ích.
+/// Đóng sheet (vuốt xuống — không còn nút "Đóng" từ 1.3.641) khi lượt còn chạy ⇒ lượt thu nhỏ vào hub nổi (1.3.697),
+/// kể cả khi đang đứng ở màn con của một tiện ích.
 extension RepositoryManagerView {
     @ToolbarContentBuilder
     internal var allExtensionsToolbarContent: some ToolbarContent {
@@ -44,9 +44,10 @@ extension RepositoryManagerView {
         .presentationDragIndicator(.visible)
     }
 
-    /// `onDismiss` của sheet: màn kiểm tra có thể đang bị che bởi màn con nên không tự nhận `onDisappear`.
+    /// `onDismiss` của sheet: màn kiểm tra có thể đang bị che bởi màn con nên không tự nhận `onDisappear`. Từ 1.3.697
+    /// đóng sheet khi lượt còn chạy là **thu nhỏ** (hub nổi), không dừng — chỉ nút Dừng mới dừng.
     internal func stopSourceCheck() {
-        Task { await ExtensionCheckRunner.shared.cancel(runId: nil) }
+        MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil)
     }
 
     private func checkVisibleExtensions() {

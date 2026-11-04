@@ -1,8 +1,8 @@
 import Combine
 import Foundation
 
-/// Gộp ba nguồn (AI, thông báo, video phát nền) thành **một** snapshot cho nút hub nổi (1.3.524; 1.3.533 bỏ
-/// trình duyệt, thêm Video).
+/// Gộp các nguồn (AI, thông báo, video phát nền, lượt kiểm tra nguồn thu nhỏ) thành **một** snapshot cho nút hub nổi
+/// (1.3.524; 1.3.533 bỏ trình duyệt, thêm Video; 1.3.697 thêm Kiểm tra nguồn — `+SourceCheck`).
 ///
 /// ## Tập dòng cố định
 /// `snapshot.items` **luôn** có đủ `FloatingHubItem.Kind.allCases`, đúng thứ tự. Điều kiện từng có/vắng của
@@ -94,6 +94,8 @@ final class FloatingHubPresentationReader: ObservableObject {
         /// Truyện đang chạy AI (bắt đầu gần nhất lên đầu) rồi tới truyện có kết quả chưa xem (xong gần nhất lên đầu) —
         /// trang "Tác vụ AI". Không vào `ButtonState`: tiêu đề tác vụ đổi theo batch không làm vẽ lại nút.
         var aiTasks: [AITask] = []
+        /// Lượt kiểm tra nguồn đang thu nhỏ (1.3.697) — trang "Kiểm tra nguồn" khi có hai lượt.
+        var sourceChecks: [MinimizedSourceCheck] = []
         /// Tiến trình đang chạy cho nút hub — xem `ButtonState.runningKinds`. Lưu riêng vì "tác vụ nền" không
         /// suy ra được từ `items` (dòng Thông báo gộp cả tin chưa đọc).
         var runningKinds: [FloatingHubItem.Kind] = []
@@ -125,6 +127,7 @@ final class FloatingHubPresentationReader: ObservableObject {
     private let inboxReader = NotificationInboxPresenceReader()
     private var aiState = AIState()
     private var videoState = VideoState()
+    private var sourceChecks: [MinimizedSourceCheck] = []
     /// Tab Kệ Sách là tab 0 của `MainTabView`; mặc định `true` vì app luôn khởi động ở tab đó. Tab Kệ đã có
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
     private var isShelfTabActive = true
@@ -146,6 +149,8 @@ final class FloatingHubPresentationReader: ObservableObject {
             subtitle: video.subtitle,
             isPlaying: video.isPlaying
         )
+        let sourceCheckCoordinator = MinimizedSourceCheckCoordinator.shared
+        sourceChecks = sourceCheckCoordinator.entries.filter(\.isMinimized)
         snapshot = makeSnapshot()
 
         // `@Published` phát ở willSet ⇒ mọi sink đi qua `receive(on:)` rồi mới tính lại. Nhánh AI và Video dùng
@@ -179,6 +184,18 @@ final class FloatingHubPresentationReader: ObservableObject {
         inboxReader.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refresh() }
+            .store(in: &cancellables)
+
+        // Màn kiểm tra đang mở cập nhật tiến độ mỗi giây: chỉ lấy bản **đang thu nhỏ** rồi `removeDuplicates`.
+        sourceCheckCoordinator.$entries
+            .map { $0.filter(\.isMinimized) }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] entries in
+                guard let self else { return }
+                self.sourceChecks = entries
+                self.refresh()
+            }
             .store(in: &cancellables)
 
         // Công tắc NSFW là `UserDefaults` (không có publisher riêng): rút về một bit rồi `removeDuplicates`.
@@ -215,7 +232,7 @@ final class FloatingHubPresentationReader: ObservableObject {
         snapshot = updated
     }
 
-    /// Dựng đủ ba dòng theo `Kind.allCases` — không nhánh nào được bỏ qua một loại.
+    /// Dựng đủ các dòng theo `Kind.allCases` — không nhánh nào được bỏ qua một loại.
     private func makeSnapshot() -> Snapshot {
         let inbox = inboxReader.snapshot
         // Thông báo **luôn** chạm được (mở sheet thông báo) và luôn có chấm đỏ khi còn tin chưa đọc. Ngoại lệ tab Kệ
@@ -238,6 +255,8 @@ final class FloatingHubPresentationReader: ObservableObject {
                 )
             case .video:
                 return videoItem()
+            case .sourceCheck:
+                return Self.sourceCheckItem(entries: sourceChecks)
             }
         }
         // Tiến trình của nút hub, theo thứ tự `items` (= `Kind.allCases`): AI và Video lấy `isActive` của dòng; Thông
@@ -245,15 +264,20 @@ final class FloatingHubPresentationReader: ObservableObject {
         let runningKinds = items
             .filter { $0.kind == .notifications ? inbox.hasRunningTask : $0.isActive }
             .map(\.kind)
-        // AI chỉ còn kết quả chưa xem ⇒ vẫn là mục của nút (icon, chạm) nhưng không nháy.
+        // AI / kiểm tra nguồn chỉ còn kết quả chưa xem ⇒ vẫn là mục của nút (icon, chạm) nhưng không nháy.
         let tasks = visibleAITasks
-        let quietKinds: [FloatingHubItem.Kind] = runningKinds.contains(.ai) && !tasks.contains(where: \.isRunning)
-            ? [.ai]
-            : []
+        var quietKinds: [FloatingHubItem.Kind] = []
+        if runningKinds.contains(.ai), !tasks.contains(where: \.isRunning) {
+            quietKinds.append(.ai)
+        }
+        if runningKinds.contains(.sourceCheck), !sourceChecks.contains(where: \.isRunning) {
+            quietKinds.append(.sourceCheck)
+        }
         return Snapshot(
             items: items,
             unreadCount: unreadCount,
             aiTasks: tasks,
+            sourceChecks: sourceChecks,
             runningKinds: runningKinds,
             quietKinds: quietKinds
         )

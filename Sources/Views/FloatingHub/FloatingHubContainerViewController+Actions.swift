@@ -25,12 +25,22 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
             showMenuPage(.aiTasks)
             return
         }
+        // Kiểm tra nguồn (1.3.697): hai lượt thu nhỏ ⇒ trang chọn lượt (menu giữ mở); một lượt ⇒ mở thẳng màn của nó.
+        if kind == .sourceCheck {
+            let entries = presentationReader.snapshot.sourceChecks
+            if entries.count > 1 {
+                showMenuPage(.sourceChecks)
+            } else if let entry = entries.first {
+                openSourceCheck(entry.kind)
+            }
+            return
+        }
         closeMenu(animated: false)
         viewModel.hide()
         updateLayout(animated: true)
 
         switch kind {
-        case .ai:
+        case .ai, .sourceCheck:
             break
         case .notifications:
             presentInbox()
@@ -53,6 +63,17 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
     }
 
+    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng menu, hub nép mép, `MinimizedSourceCheckCoordinator` trình bày
+    /// màn từ cửa sổ mức thường (không phụ thuộc cửa sổ của hub).
+    func openSourceCheck(_ kind: MinimizedSourceCheck.Kind) {
+        guard isItemEnabled(.sourceCheck),
+              presentationReader.snapshot.sourceChecks.contains(where: { $0.kind == kind }) else { return }
+        closeMenu(animated: false)
+        viewModel.hide()
+        updateLayout(animated: true)
+        MinimizedSourceCheckCoordinator.shared.reopen(kind)
+    }
+
     // MARK: - Chạm nút hub
 
     /// Chạm nút hub khi menu **đang đóng** (người dùng chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
@@ -71,7 +92,8 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
             open(.notifications)
         case 1:
             let kind = button.runningKinds[0]
-            if kind == .ai {
+            // AI và Kiểm tra nguồn có hai lượt chỉ chuyển trang của menu ⇒ menu phải mở trước.
+            if kind == .ai || (kind == .sourceCheck && presentationReader.snapshot.sourceChecks.count > 1) {
                 revealAndOpenMenu()
             }
             open(kind)

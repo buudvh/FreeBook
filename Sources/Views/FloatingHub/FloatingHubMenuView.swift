@@ -7,9 +7,9 @@ import SwiftUI
 /// trong `rules.md`), và hit-test kiểm soát được hoàn toàn.
 ///
 /// ## Hai trang (1.3.558)
-/// `.main` là ba dòng cố định; chạm dòng AI thì thẻ chuyển sang `.aiTasks` — danh sách truyện đang chạy AI
-/// (`FloatingHubAITaskListView`), chạm truyện nào mở màn AI của truyện đó. Container giữ trang và luôn mở menu ở
-/// `.main`.
+/// `.main` là các dòng cố định; chạm dòng AI thì thẻ chuyển sang `.aiTasks` — danh sách truyện đang chạy AI
+/// (`FloatingHubAITaskListView`), chạm truyện nào mở màn AI của truyện đó. Dòng Kiểm tra nguồn có hai lượt thu nhỏ thì
+/// sang `.sourceChecks` (1.3.697). Container giữ trang và luôn mở menu ở `.main`.
 ///
 /// ## Không vẽ lại
 /// Dòng của trang chính dựng theo `FloatingHubItem.Kind.allCases` (hằng), danh tính là `kind` — **không** theo mảng
@@ -27,15 +27,19 @@ struct FloatingHubMenuView: View {
     enum Page {
         case main
         case aiTasks
+        /// Hai lượt kiểm tra nguồn cùng thu nhỏ (1.3.697).
+        case sourceChecks
     }
 
     let page: Page
     let items: [FloatingHubItem]
     let aiTasks: [FloatingHubPresentationReader.AITask]
+    let sourceChecks: [MinimizedSourceCheck]
     let onSelect: (FloatingHubItem.Kind) -> Void
     let onToggleVideoPlayback: () -> Void
     let onStopVideo: () -> Void
     let onSelectAITask: (String) -> Void
+    let onSelectSourceCheck: (MinimizedSourceCheck.Kind) -> Void
     let onBack: () -> Void
 
     var body: some View {
@@ -67,6 +71,8 @@ struct FloatingHubMenuView: View {
             }
         case .aiTasks:
             FloatingHubAITaskListView(tasks: aiTasks, onSelect: onSelectAITask, onBack: onBack)
+        case .sourceChecks:
+            FloatingHubSourceCheckListView(entries: sourceChecks, onSelect: onSelectSourceCheck, onBack: onBack)
         }
     }
 

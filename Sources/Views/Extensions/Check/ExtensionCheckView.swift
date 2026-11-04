@@ -9,7 +9,9 @@ import SwiftUI
 ///   (hỏi xác nhận, qua `ExtensionTransactionCoordinator`).
 ///
 /// Nút chia sẻ (toolbar) xuất JSON báo cáo đã redact qua Services. Một lượt tại một thời điểm. Không tự tạo
-/// `NavigationStack`. Rời màn (không phải để mở màn con / chia sẻ / trình duyệt) ⇒ dừng lượt đang chạy.
+/// `NavigationStack`. Từ 1.3.697 rời màn (nút ⌄, vuốt xuống, quay lại — không phải để mở màn con / chia sẻ / trình
+/// duyệt) khi lượt còn chạy ⇒ lượt **thu nhỏ** (`MinimizedSourceCheckCoordinator`, hub nổi); chỉ nút Dừng mới dừng.
+/// `attachRunId` ⇒ màn mở lại từ hub, gắn vào lượt đó thay vì chạy lượt mới.
 struct ExtensionCheckView: View {
     /// Đích của sheet hàng loạt.
     struct Route: Identifiable {
@@ -22,7 +24,12 @@ struct ExtensionCheckView: View {
     let scopeTitle: String
     /// Gốc của sheet hàng loạt ⇒ hiện tiêu đề trái; đẩy trong stack của Cấu hình tiện ích ⇒ tiêu đề giữa.
     var isPresentedAsSheet = false
+    var attachRunId: String?
+    /// Màn trình bày bằng UIKit (mở lại từ hub) tự đóng qua đây thay vì `dismiss` của environment.
+    var onClose: (() -> Void)?
 
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var lease = MinimizedSourceCheckCoordinator.ScreenLease()
     @State private var report: ExtensionCheckReport?
     @State private var hasStarted = false
     @State private var startError: String?
@@ -51,7 +58,11 @@ struct ExtensionCheckView: View {
         VStack(spacing: 10) {
             header
             if let startError {
-                startErrorView(startError)
+                SourceCheckStartErrorView(
+                    message: startError,
+                    onOpenRunning: canOpenMinimizedRun ? openMinimizedRun : nil,
+                    onStopRunning: isBusyConflict ? stopOtherRun : nil
+                )
             } else if isSingle {
                 ExtensionCheckDetailContent(result: report?.results.first, openingLink: $openingLink)
             } else {
@@ -63,14 +74,12 @@ struct ExtensionCheckView: View {
         .pageTitle("Kiểm tra tiện ích", style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: shareReport) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                        .contentShape(Rectangle())
-                }
-                .disabled((report?.results.isEmpty ?? true) || isPreparingShare)
-                .accessibilityLabel("Chia sẻ báo cáo kiểm tra")
+                SourceCheckHeaderButtons(
+                    showsMinimize: isRunning,
+                    isShareDisabled: (report?.results.isEmpty ?? true) || isPreparingShare,
+                    onMinimize: closeScreen,
+                    onShare: shareReport
+                )
             }
         }
         .sheet(isPresented: isSharing) {
@@ -95,9 +104,9 @@ struct ExtensionCheckView: View {
             await poll()
         }
         .onDisappear {
-            // Đẩy màn con / chia sẻ / mở trình duyệt cũng làm màn này "biến mất" — chỉ dừng khi thật sự rời màn.
-            guard openedPackageId == nil, shareURL == nil, openingLink == nil, isRunning else { return }
-            cancelRun()
+            // Đẩy màn con / chia sẻ / mở trình duyệt cũng làm màn này "biến mất" — chỉ tính khi thật sự rời màn.
+            guard openedPackageId == nil, shareURL == nil, openingLink == nil else { return }
+            MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: lease.id)
         }
     }
 
@@ -152,15 +161,15 @@ struct ExtensionCheckView: View {
         let rows = results.filter { filter.matches($0) }
         return VStack(spacing: 10) {
             HStack(spacing: 8) {
-                tile("Đạt đủ", value: report?.fullyPassed ?? 0, color: .green)
-                tile("Có lỗi", value: report?.withProblems ?? 0, color: .red)
-                tile("Còn lại", value: remaining, color: .secondary)
+                SourceCheckTile(title: "Đạt đủ", value: report?.fullyPassed ?? 0, color: .green)
+                SourceCheckTile(title: "Có lỗi", value: report?.withProblems ?? 0, color: .red)
+                SourceCheckTile(title: "Còn lại", value: remaining, color: .secondary)
             }
             .padding(.horizontal)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(ExtensionCheckFilter.allCases) { item in
-                        filterChip(item)
+                        ExtensionCheckFilterChip(item: item, isSelected: item == filter) { filter = item }
                     }
                 }
                 .padding(.horizontal)
@@ -186,36 +195,6 @@ struct ExtensionCheckView: View {
         }
     }
 
-    private func tile(_ title: String, value: Int, color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text("\(value)")
-                .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundColor(color)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    /// Chip chọn theo kiểu `ExtensionKindFilterBar` (màu nhấn người dùng chọn, chỉ dùng dạng mờ).
-    private func filterChip(_ item: ExtensionCheckFilter) -> some View {
-        let isSelected = item == filter
-        return Button(action: { filter = item }) {
-            Text(item.label)
-                .font(.caption.weight(isSelected ? .semibold : .regular))
-                .padding(.horizontal, 12)
-                .frame(height: 30)
-                .background(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
-                .foregroundColor(isSelected ? .accentColor : .primary)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - Hành động
 
     private var actionBar: some View {
@@ -227,12 +206,12 @@ struct ExtensionCheckView: View {
             }
             HStack(spacing: 8) {
                 if isRunning {
-                    actionButton("Dừng", systemImage: "stop.fill", tint: .red, action: cancelRun)
+                    SourceCheckActionButton("Dừng", systemImage: "stop.fill", tint: .red, action: cancelRun)
                 } else if isSingle {
-                    actionButton("Chạy lại", systemImage: "arrow.clockwise", tint: .blue, action: retrySingle)
+                    SourceCheckActionButton("Chạy lại", systemImage: "arrow.clockwise", tint: .blue, action: retrySingle)
                 } else {
-                    actionButton("Chạy lại tất cả", systemImage: "arrow.clockwise", tint: .blue, action: restartAll)
-                    actionButton("Gỡ tiện ích lỗi", systemImage: "trash", tint: .red, action: { showingUninstallConfirm = true })
+                    SourceCheckActionButton("Chạy lại tất cả", systemImage: "arrow.clockwise", tint: .blue, action: restartAll)
+                    SourceCheckActionButton("Gỡ tiện ích lỗi", systemImage: "trash", tint: .red, action: { showingUninstallConfirm = true })
                         .disabled(failedIds.isEmpty)
                 }
             }
@@ -242,56 +221,38 @@ struct ExtensionCheckView: View {
         .padding(.bottom, 8)
     }
 
-    private func actionButton(_ title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                Text(title)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundColor(tint)
-            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func startErrorView(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            if isBusyConflict {
-                Button("Dừng lượt đang chạy") {
-                    Task { await ExtensionCheckRunner.shared.cancel(runId: nil) }
-                }
-                .buttonStyle(.bordered)
-            }
-            Spacer()
-        }
-        .padding()
-    }
-
     // MARK: - Chạy
 
     private func startIfNeeded() async {
         guard !hasStarted else { return }
         hasStarted = true
+        if let attachRunId {
+            await attach(to: attachRunId)
+            return
+        }
         await begin { try await ExtensionCheckRunner.shared.start(targets) }
+    }
+
+    /// Màn mở lại từ hub: không chạy lượt mới, đọc ngay kết quả hiện có của lượt đang thu nhỏ.
+    private func attach(to runId: String) async {
+        guard let current = await ExtensionCheckRunner.shared.status(), current.runId == runId else {
+            MinimizedSourceCheckCoordinator.shared.discard(.script, runId: runId)
+            startError = MinimizedSourceCheckCoordinator.replacedRunMessage
+            return
+        }
+        report = current
+        track(current)
     }
 
     /// Gọi lệnh của runner; lỗi bận ⇒ hiện nút dừng lượt kia.
     private func begin(_ command: () async throws -> ExtensionCheckReport) async {
         do {
-            report = try await command()
+            let started = try await command()
+            report = started
             startError = nil
             isBusyConflict = false
             actionMessage = nil
+            track(started)
         } catch let error as ExtensionCheckRunner.StartError {
             if case .busy = error { isBusyConflict = true }
             if report == nil {
@@ -304,12 +265,23 @@ struct ExtensionCheckView: View {
         }
     }
 
+    /// Giao lượt cho `MinimizedSourceCheckCoordinator` (màn đang mở). Màn đã đóng trong lúc chờ bộ chạy (task bị huỷ) ⇒
+    /// thu nhỏ luôn, kẻo lượt chạy mà không ai theo dõi.
+    private func track(_ report: ExtensionCheckReport) {
+        let coordinator = MinimizedSourceCheckCoordinator.shared
+        coordinator.track(.script, scopeTitle: scopeTitle, progress: .init(report), payload: .script(targets: targets), screen: lease)
+        if Task.isCancelled {
+            coordinator.screenDidClose(.script, screenId: lease.id)
+        }
+    }
+
     /// Thăm dò mỗi giây tới khi lượt xong. Task bị huỷ khi màn ẩn — mở lại thì thăm dò tiếp.
     private func poll() async {
         while !Task.isCancelled {
             guard let runId = report?.runId else { return }
             if let current = await ExtensionCheckRunner.shared.status(), current.runId == runId {
                 report = current
+                MinimizedSourceCheckCoordinator.shared.update(.script, progress: .init(current))
                 if current.state != .running { return }
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -332,9 +304,34 @@ struct ExtensionCheckView: View {
         }
     }
 
+    /// Nút Dừng — lối dừng duy nhất từ 1.3.697: thôi theo dõi rồi huỷ lượt.
     private func cancelRun() {
         let runId = report?.runId
+        MinimizedSourceCheckCoordinator.shared.discard(.script, runId: runId)
         Task { await ExtensionCheckRunner.shared.cancel(runId: runId) }
+    }
+
+    /// Nút ⌄: đóng màn — `onDisappear` giao lượt còn chạy cho hub.
+    private func closeScreen() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    /// Màn báo bận mà lượt kia đang thu nhỏ ⇒ đóng màn này rồi mở lại màn của lượt kia.
+    private var canOpenMinimizedRun: Bool {
+        isBusyConflict && MinimizedSourceCheckCoordinator.shared.entry(for: .script)?.isMinimized == true
+    }
+
+    private func openMinimizedRun() {
+        closeScreen()
+        MinimizedSourceCheckCoordinator.shared.reopen(.script, delay: 600_000_000)
+    }
+
+    private func stopOtherRun() {
+        Task { await ExtensionCheckRunner.shared.cancel(runId: nil) }
     }
 
     /// Bỏ qua tiện ích đang là giọng đọc TTS — cùng luật chặn của nút Gỡ ở Cấu hình tiện ích (`requestUninstall`).

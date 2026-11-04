@@ -12,7 +12,8 @@ import SwiftUI
 /// - 0 tiến trình: `bell` (viền), màu chữ hệ thống, không nháy.
 /// - Chỉ còn kết quả AI chưa xem (1.3.630): tính là một mục `.ai` (`sparkles`, chạm mở trang "Tác vụ AI") nhưng nằm
 ///   trong `quietKinds` nên **không** nháy, icon màu chữ hệ thống.
-/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle`; tác vụ nền ⇒ `bell`), nháy.
+/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle` / `checkmark.seal`; tác vụ nền ⇒ `bell`), nháy.
+///   Lượt kiểm tra nguồn thu nhỏ đã xong, chưa xem (1.3.697) không nháy, như kết quả AI chưa xem.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
 /// Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu chưa đọc nào lên hình: không badge số, không chấm
@@ -72,7 +73,7 @@ struct FloatingHubButton: View {
             case .notifications:
                 // Tác vụ nền: chuông viền như lúc rảnh, chỉ khác ở chỗ nháy.
                 return "bell"
-            case .ai, .video:
+            case .ai, .video, .sourceCheck:
                 return state.runningKinds[0].systemImage(unreadCount: 0)
             }
         default:

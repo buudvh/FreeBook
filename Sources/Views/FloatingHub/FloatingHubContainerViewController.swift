@@ -149,7 +149,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         // Menu chỉ vẽ khi đang mở, và chỉ **cập nhật** dòng đã có (sáng/xám, badge, chữ) — tập dòng cố định nên
         // không bao giờ phải đóng menu vì "hết mục". Danh sách truyện đang chạy AI cũng vẽ lại thẻ (trang "Tác vụ AI").
         presentationReader.$snapshot
-            .map { ($0.items, $0.aiTasks) }
+            .map { ($0.items, $0.aiTasks, $0.sourceChecks) }
             .removeDuplicates(by: ==)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in

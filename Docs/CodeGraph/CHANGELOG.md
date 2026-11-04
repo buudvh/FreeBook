@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.698] - 2026-11-04
+
+### feat: thu nhỏ màn kiểm tra nguồn và kiểm tra tiện ích vào hub nổi
+
+Người dùng: *"cho phép thu nhỏ khi kiểm tra nguồn, làm cho cả kiểm tra js luôn"*, rồi *"vuốt xuống sheet đừng tắt mà thu nhỏ nhé"*. Lối mở lại là dòng thứ 4 cố định của hub (người dùng chọn).
+
+- **Rời màn không còn dừng lượt**: màn Kiểm tra nguồn Legado (`LegadoSourceCheckView`) và Kiểm tra tiện ích (`ExtensionCheckView`) có nút ⌄ sát nút chia sẻ (chỉ hiện khi đang chạy). Bấm ⌄, vuốt xuống sheet hay quay lại khi lượt còn chạy ⇒ lượt **thu nhỏ** và chạy tiếp ở bộ chạy; chỉ nút Dừng mới dừng. `stopSourceCheck` (`onDismiss` của sheet kiểm tra tiện ích hàng loạt) đổi từ huỷ lượt sang thu nhỏ.
+- **`MinimizedSourceCheckCoordinator`** (mới, `Views/Extensions/SourceCheck/`): mỗi bộ chạy giữ tối đa một bản ghi (lượt Legado và lượt tiện ích JS chạy song song được). Màn bắt đầu hoặc gắn vào lượt ⇒ `track`; vòng thăm dò của màn ⇒ `update`. Màn đóng (`onDisappear`, hoặc `ScreenLease` là `@StateObject` giải phóng cùng màn, để bắt cả lúc sheet bị vuốt khi đang đẩy màn con) ⇒ lượt còn chạy thì thu nhỏ và tự thăm dò mỗi giây, lượt đã xong thì bỏ. Xong hoặc dừng khi đang thu nhỏ ⇒ toast (vào cả Trung tâm thông báo).
+- **Mở lại**: `reopen` trình bày màn bằng UIKit từ màn trên cùng của cửa sổ mức thường (sheet có thanh kéo; thử lại khi màn trên cùng đang mở/đóng dở). Màn chạy ở chế độ `attachRunId`: đọc ngay kết quả hiện có, không chạy lượt mới; bộ chạy đã sang lượt khác ⇒ báo rõ và bỏ bản ghi. Màn báo bận có thêm nút "Mở lượt đang chạy" khi lượt kia đang thu nhỏ.
+- **Hub nổi**: dòng thứ 4 cố định `Kind.sourceCheck` "Kiểm tra nguồn" (`checkmark.seal`), xám khi không có lượt. Đang chạy ⇒ là tiến trình của nút (nháy), dòng phụ "12/31 · 3 lỗi"; xong mà chưa xem ⇒ nằm trong `quietKinds` (không nháy), "Xong · 25 đạt · 6 lỗi — bấm để xem". Tiến độ chỉ nằm ở chữ của dòng, không vào `ButtonState`. Hai lượt cùng thu nhỏ ⇒ trang con `FloatingHubSourceCheckListView`. Chạm hub khi đây là tiến trình duy nhất ⇒ mở thẳng màn.
+- Tách phần trùng giữa hai màn: `SourceCheckHeaderButtons`, `SourceCheckTile`, `SourceCheckActionButton`, `SourceCheckStartErrorView`, `ExtensionCheckFilterChip` (giữ `ExtensionCheckView` dưới 400 dòng). Chuyển `[1.3.668]`, `[1.3.667]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.697] - 2026-11-04
 
 ### feat: xoá hàng loạt nguồn Legado đang hiện hoặc đang tắt
@@ -656,29 +669,3 @@ Người dùng: *"Dòng Đã dừng lọc name ở ch.240: Chương 256: Võ đ�
 - **Chưa làm**: kết quả AI chưa xem trên hub (`AIUnseenResultStore`), nút "Thử lại k lượt lỗi" (chỉ trong RAM), lượt quét đang chạy lúc đổi nguồn vẫn ghi vào id cũ; chép chương đã tải theo vị trí (có từ trước) có thể lệch tên/nội dung khi hai mục lục khác nhau.
 - `rules.md` thêm luật dữ liệu AI theo truyện phải đi theo khi đổi nguồn. Chuyển entry `[1.3.639]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: dừng lọc name → đổi nguồn → mở AI của truyện mới thấy đúng phiên có dòng dừng; sheet quét có "Tiếp nối lần quét trước" và quét tiếp được trên nguồn mới.
-
-## [1.3.668] - 2026-10-31
-
-### fix: thanh tab tự vẽ trong trang gốc, back về không giật
-
-Người dùng: *"bạn làm màn hình trong full xấu quá, khi từ màn hình full về trang đầu có thanh tab thì cảm giác bị giật màn hình khi hiển thị lại thanh tab. Tham khảo cách hiển thị của reader"*; chọn "thanh tab tự vẽ", duyệt plan.
-
-- **Nguyên nhân**: 1.3.660 ẩn thanh tab hệ thống ở trang đẩy vào bằng `.toolbar(.hidden, for: .tabBar)` (đổi theo kiểu tiêu đề). Lúc back, SwiftUI hiện thanh lại **trễ** hơn trang gốc ⇒ trang gốc co lại một nhịp — đúng lỗi Reader từng gặp (b12ddee7, sửa bằng `fullScreenCover`: cover phủ cả thanh nên thanh không bao giờ ẩn/hiện).
-- **Thanh tab tự vẽ** (`MainTabBar`, mới, `Views/Common/MainTabBar/`): 4 mục icon + chữ (danh sách `items` dùng chung với `.tabItem` của `MainTabView`), mục đang chọn theo `.tint` (trắng), mục khác xám, nền `.bar` + vạch mảnh phía trên, cao 49pt, nền kéo xuống vùng home indicator; badge đỏ số truyện có chương mới ở Kệ Sách (chuyển từ `.badge` của `MainTabView`, bỏ `@ObservedObject newChapters` ở đó).
-- **`.mainTabBar()`** (`MainTabBarModifier`, mới): ẩn thanh hệ thống + `safeAreaInset(edge: .bottom)` đặt `MainTabBar` vào nội dung trang gốc **bên trong** `NavigationStack` ⇒ trang đẩy vào phủ lên thanh, back/vuốt mép thì thanh trượt về cùng trang gốc. Tab đang chọn đi qua environment `mainTabSelection` (`MainTabView` truyền `$selectedTab`). `hidesWithKeyboard: true` chỉ ở tab Tiện ích (trang gốc có ô tìm): bàn phím hiện ⇒ bỏ thanh, ẩn ⇒ hiện lại; chỉ nghe khi trang gốc đang hiện và trả thanh về lúc bị trang đẩy vào che (bàn phím của trang con không được làm thanh hiện lại giữa nhịp back). Gắn ở 4 trang gốc: `ShelfView`, `DiscoveryView`, `RepositoryManagerView`, `SettingsView` (nút "+" nổi của Kệ tự nằm trên thanh).
-- **Thanh hệ thống luôn ẩn**: `PageTitleModifier` ẩn ở **mọi** kiểu (không còn đổi theo trang); `MainTabView` ẩn thêm ở từng tab (ngoài `NavigationStack`) làm chốt chặn cho trang đẩy vào thiếu modifier tiêu đề. Giữ `TabView` + `.tag` + `.tabItem` để `MainTabView+TabReset` vẫn thấy đủ 4 tab. Cập nhật luật ở mục header của `CLAUDE.md`/`AGENTS.md`.
-- Chuyển entry `[1.3.638]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý: thanh tab hệ thống có còn lộ ra ở trang nào không; đẩy/back/vuốt mép có còn giật không; cỡ icon/chữ/badge so với thanh cũ).
-
-## [1.3.667] - 2026-10-31
-
-### feat: bỏ chạm 1/3 hai bên và vuốt ngang để đổi chương
-
-Người dùng: *"bỏ chạm 1/3 trái phải để chuyển chương giúp tôi"* — chọn bỏ ở cả Reader lẫn truyện tranh; comic chỉ đổi chương bằng nút/mục lục (bỏ luôn vuốt ngang), chạm ảnh ở đâu cũng bật/tắt thanh, bỏ nút "…", cuối chương *"không có gì"*. Đảo phần chạm hai bên của 1.3.643 và vuốt ngang của 1.3.613.
-
-- **Truyện tranh**: xoá `ComicChapterNavigationMode` cùng ngăn kéo "Tuỳ chọn đọc" và nút "…" ở thanh trên (thanh trên còn ☰, khung 36×38 vì giờ đứng một mình). `ComicReaderView` bỏ `chapterSwipeGesture`/`handleChapterSwipe`, `handleSingleTap`, `stepChapter` (cùng hai toast chương đầu/mới nhất); chạm ảnh và dòng cuối chương gọi thẳng `toggleChrome()`. `ComicPageView.onSingleTap` thành `() -> Void` (không cần điểm chạm). Đổi chương chỉ còn nút Chương trước/sau ở thanh dưới, mục lục, và nút "Chương tiếp" ở màn chương rỗng (giữ nguyên).
-- **Cuối chương comic**: bỏ dòng gợi ý "Chạm bên phải…/Vuốt sang trái…"; còn "Hết chương" (chương cuối thêm "Đây là chương mới nhất"), giữ lề dưới 96 để ảnh cuối không nằm dưới thanh dưới.
-- **Reader truyện chữ**: xoá `ReaderEdgeTapDetector` và `handleEdgeTap`; `readerScrollProbes` chỉ còn `ReaderUserScrollDetector` (tắt cuộn theo highlight khi tự kéo lúc TTS đọc — giữ nguyên). Bỏ công tắc "Chạm hai bên để chuyển chương" ở Cài đặt đọc.
-- **Giá trị đã lưu**: khoá `comicChapterNavigationMode` và `readerEdgeTapChangesChapter` còn trong `UserDefaults` nhưng không code nào đọc ⇒ không ảnh hưởng, không cần migration.
-- CLAUDE.md/AGENTS.md cập nhật mục màn đọc comic. Chuyển entry `[1.3.637]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff, grep sạch các tên đã xoá trong `Sources/`; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy — cần thử: comic chạm ảnh (cả hai bên) chỉ bật/tắt thanh, chạm đúp phóng to, vuốt ngang không đổi chương, nút Chương trước/sau; Reader chạm hai bên không đổi chương, bôi đen và tắt cuộn theo highlight khi TTS đọc như cũ.
