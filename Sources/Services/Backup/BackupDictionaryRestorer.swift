@@ -64,6 +64,13 @@ public enum BackupDictionaryRestorer {
                     booksRoot: booksRoot,
                     into: &report
                 )
+                restoreBookEngineConfigFiles(
+                    slug: slug,
+                    bookId: bookId,
+                    from: extractedDirectory,
+                    booksRoot: booksRoot,
+                    into: &report
+                )
             }
         }
 
@@ -230,6 +237,40 @@ public enum BackupDictionaryRestorer {
             report.bookFiles += 1
             Task { @MainActor in TTSReplacementManager.shared.loadRules(bookId: bookId) }
         }
+    }
+
+    /// Khôi phục **nguyên văn** cấu hình engine rule riêng của truyện (`QuickTranslateEngineConfig.json`: thứ tự
+    /// ưu tiên, công tắc token riêng, bộ ngoặc riêng). Là một bản cấu hình chứ không phải danh sách mục nên
+    /// không gộp: bản trong archive thay bản trên máy. Nội dung không phải object JSON thì giữ bản đang có.
+    ///
+    /// Ghi xong dọn cache RAM của `QuickTranslationBookEngineConfigStore` cho đúng truyện, và đếm vào
+    /// `report.bookFiles` để `BackupRestoreWorker` phát `notifyDictionariesDidUpdate` (dọn cache dịch).
+    private static func restoreBookEngineConfigFiles(
+        slug: String,
+        bookId: String,
+        from extractedDirectory: URL,
+        booksRoot: URL,
+        into report: inout Report
+    ) {
+        let folder = BackupPaths.bookDictionaryFolder(slug: slug)
+        for name in BackupPaths.bookEngineConfigFiles {
+            let entry = "\(folder)/\(name)"
+            guard let source = BackupZipArchive.stagedURL(entryName: entry, in: extractedDirectory) else { continue }
+            do {
+                let data = try Data(contentsOf: source)
+                guard (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else {
+                    report.errors.append("Cấu hình rule riêng \(bookId): nội dung không phải JSON hợp lệ, giữ bản đang dùng")
+                    continue
+                }
+                let directory = booksRoot.appendingPathComponent(bookId, isDirectory: true)
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                report.bookFiles += 1
+            } catch {
+                report.errors.append("Cấu hình rule riêng \(bookId): \(error.localizedDescription)")
+            }
+        }
+        QuickTranslationBookEngineConfigStore.shared.invalidate(bookId: bookId)
     }
 
     /// Gộp một plist `[String: String]`: entry của archive ghi đè key trùng, key chỉ có trên máy

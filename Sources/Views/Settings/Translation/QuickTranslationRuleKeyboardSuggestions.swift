@@ -48,10 +48,13 @@ enum QuickTranslationRuleKeyboardSuggestions {
         }
     }
 
-    /// `^`/`$` tính là chữ của tên token (neo dòng, 1.3.686): gõ `<^` rồi bấm chip thì thay đúng đoạn gõ dở
-    /// thành `<^>` thay vì để lại `<^<^>`.
+    /// `[`/`]` tính là chữ của tên token (ngoặc, 1.3.692): gõ `<[` rồi bấm chip thì thay đúng đoạn gõ dở thành `<[>`
+    /// thay vì để lại `<[<[>`. Neo dòng viết bằng chữ (`<START>`/`<END>`) nên gõ `<s` đã lọc ra `<START>` (không phân
+    /// biệt hoa thường). `^`/`$` giữ lại cho cách viết cũ `<^>`/`<$>` mà parser vẫn nhận: gõ dở `<^` không có chip nào
+    /// khớp ⇒ hiện đủ chip, không thay đoạn gõ dở.
     private static func isTokenNameCharacter(_ character: Character) -> Bool {
-        character.isASCII && (character.isLetter || character == "^" || character == "$")
+        character.isASCII
+            && (character.isLetter || character == "[" || character == "]" || character == "^" || character == "$")
     }
 
     private static func isDigit(_ character: Character) -> Bool {

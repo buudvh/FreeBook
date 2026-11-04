@@ -5,7 +5,7 @@ import Foundation
 /// Giá trị chỉ sống trong `UserDefaults`, không đi vào file rule hay snapshot. Mỗi rule lưu lại
 /// cú pháp token gốc lúc parse để `<w>` vẫn là một công tắc độc lập với `<ne>|<pn>|<vp>`.
 public enum QuickTranslationRuleTokenSettings {
-    /// Mười sáu token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
+    /// Mười tám token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
     ///
     /// Token mới **phải thêm vào cuối**: `Configuration.signature` là chuỗi bit theo thứ tự
     /// `allCases`, nên chèn vào giữa làm mọi chữ ký cũ trượt một bit và cache dịch của người dùng
@@ -29,10 +29,18 @@ public enum QuickTranslationRuleTokenSettings {
         /// `<any>` — cụm ký tự bất kỳ (1.3.682), cũng nối vào **cuối**. Backtick chỉ để chắc chắn: `any`
         /// là từ khoá ngữ cảnh của Swift; nơi dùng vẫn viết `.any`.
         case `any` = "any"
-        /// `<^>` / `<$>` — neo đầu dòng / cuối dòng (1.3.686), nối vào **cuối** sau `<any>`. Rộng 0 và
-        /// **không** sinh capture: thêm neo vào mẫu không làm `{i}` của các token khác đổi số.
-        case lineStart = "^"
-        case lineEnd = "$"
+        /// `<START>` / `<END>` — neo đầu dòng / cuối dòng (1.3.686), nối vào **cuối** sau `<any>`. Rộng 0
+        /// và **không** sinh capture: thêm neo vào mẫu không làm `{i}` của các token khác đổi số.
+        ///
+        /// Trước 1.3.692 viết `<^>` / `<$>` (rawValue `^`/`$`). Rule cũ vẫn chạy nhờ `kind(forTokenName:)`;
+        /// khoá `UserDefaults` giữ nguyên nên công tắc chung không mất trạng thái. Chữ ký cache đi theo
+        /// thứ tự `allCases` chứ không theo rawValue nên đổi tên không làm trượt chữ ký.
+        case lineStart = "START"
+        case lineEnd = "END"
+        /// `<[>` / `<]>` — một ký tự mở / đóng ngoặc thuộc **bộ ngoặc** (1.3.692), nối vào **cuối**. Rộng
+        /// đúng 1 và **không** sinh capture như neo; `<]>` phải đóng đúng cặp với `<[>` đi trước nó.
+        case openBracket = "["
+        case closeBracket = "]"
 
         /// Khóa cài đặt phải bắt đầu bằng chữ thường để `BackupSettingsArchiver` tự sao lưu.
         public var userDefaultsKey: String {
@@ -53,6 +61,8 @@ public enum QuickTranslationRuleTokenSettings {
             case .any: return "quickTranslateRuleTokenAnyEnabled"
             case .lineStart: return "quickTranslateRuleTokenLineStartEnabled"
             case .lineEnd: return "quickTranslateRuleTokenLineEndEnabled"
+            case .openBracket: return "quickTranslateRuleTokenOpenBracketEnabled"
+            case .closeBracket: return "quickTranslateRuleTokenCloseBracketEnabled"
             }
         }
 
@@ -76,27 +86,48 @@ public enum QuickTranslationRuleTokenSettings {
             case .latinLetters: return "<a> — chữ cái A-Z"
             case .hanNumeral: return "<hn> — số Hán đọc Hán-Việt"
             case .any: return "<any> — cụm ký tự bất kỳ (trừ xuống dòng)"
-            case .lineStart: return "<^> — đầu dòng"
-            case .lineEnd: return "<$> — cuối dòng"
+            case .lineStart: return "<START> — đầu dòng"
+            case .lineEnd: return "<END> — cuối dòng"
+            case .openBracket: return "<[> — mở ngoặc"
+            case .closeBracket: return "<]> — đóng ngoặc"
             }
         }
 
-        /// Token số, nhãn chương, `<any>` và neo dòng (token ký tự, không tra từ điển) đứng chung một
-        /// nhóm ở cả hai màn cấu hình.
+        /// Token số, nhãn chương, `<any>`, neo dòng và ngoặc (token ký tự, không tra từ điển) đứng chung
+        /// một nhóm ở cả hai màn cấu hình.
         public var isNumeralGroup: Bool {
             switch self {
             case .numeral, .digitwise, .hanDigits, .asciiDigits, .chapterLabel, .magnitude, .latinLetters,
-                 .hanNumeral, .any, .lineStart, .lineEnd:
+                 .hanNumeral, .any, .lineStart, .lineEnd, .openBracket, .closeBracket:
                 return true
             case .name, .pronoun, .vietPhrase, .hanViet, .word:
                 return false
             }
         }
 
-        /// `<^>` / `<$>`: neo rộng 0, không capture, không có độ dài — parser và màn sửa rule cùng hỏi
-        /// thuộc tính này để không đánh số `{i}` cho chúng.
+        /// `<START>` / `<END>`: neo rộng 0, không capture, không có độ dài.
         public var isLineAnchor: Bool {
             self == .lineStart || self == .lineEnd
+        }
+
+        /// `<[>` / `<]>`: đúng một ký tự ngoặc lấy trong bộ ngoặc, không có độ dài.
+        public var isBracket: Bool {
+            self == .openBracket || self == .closeBracket
+        }
+
+        /// Token **không** sinh `{i}` (neo dòng + ngoặc) — parser và màn sửa rule cùng hỏi thuộc tính
+        /// này để không đánh số chip của chúng và không hiện thanh độ dài.
+        public var isUncaptured: Bool {
+            isLineAnchor || isBracket
+        }
+
+        /// Cách viết cũ vẫn được nhận khi đọc rule và cấu hình riêng truyện. **Không** dùng để ghi.
+        private static let legacyTokenNames: [String: Kind] = ["^": .lineStart, "$": .lineEnd]
+
+        /// Tên token (phần giữa `<` và `>`, không kèm `:min-max`) → loại token; nhận cả tên cũ `^`/`$`
+        /// của neo dòng. Phân biệt hoa/thường như mọi tên token khác.
+        public static func kind(forTokenName name: String) -> Kind? {
+            Kind(rawValue: name) ?? legacyTokenNames[name]
         }
     }
 

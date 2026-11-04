@@ -242,7 +242,7 @@ enum BackupLibraryFingerprint {
         }
         if scopes.contains(.dictBooks) {
             let booksRoot = translateRoot.appendingPathComponent("books", isDirectory: true)
-            let names = BackupPaths.bookDictionaryFiles + BackupPaths.bookTTSFiles + BackupPaths.bookRuleFiles
+            let names = BackupPaths.bookDictionaryFiles + BackupPaths.bookTTSFiles + BackupPaths.bookRuleFiles + BackupPaths.bookEngineConfigFiles
             for bookId in bookIds {
                 let folder = booksRoot.appendingPathComponent(bookId, isDirectory: true)
                 for name in names {

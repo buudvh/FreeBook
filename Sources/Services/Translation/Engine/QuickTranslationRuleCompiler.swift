@@ -55,11 +55,12 @@ public enum QuickTranslationRuleCompiler {
 
             // `literalLength == 0` luôn kéo theo "không có neo", nên rule có `<any>` mà thiếu chữ cố định
             // báo lỗi riêng **thay cho** `NO_LITERAL_ANCHOR` — màn sửa rule nói đúng nguyên nhân, không
-            // hiện hai lỗi nặng cho cùng một chỗ.
+            // hiện hai lỗi nặng cho cùng một chỗ. Token ngoặc `<[>`/`<]>` (1.3.692, không optional) tính như
+            // một chữ cố định ở cả hai kiểm tra: `<[><any><]><END> =` hợp lệ.
             if collectTokenKinds(rule.elements).contains(.any), literalLength(of: rule.elements) == 0 {
-                note(.anyWithoutLiteral, "Rule có <any> phải có ít nhất một chữ cố định")
+                note(.anyWithoutLiteral, "Rule có <any> phải có ít nhất một chữ cố định hoặc token ngoặc <[> <]>")
             } else if !hasAnchor(rule.elements) {
-                note(.noLiteralAnchor, "Mẫu không có ký tự thường nào làm neo")
+                note(.noLiteralAnchor, "Mẫu không có ký tự thường hay token ngoặc nào làm neo")
             }
 
             if let previous = seenPatterns[rule.pattern] {
@@ -98,6 +99,7 @@ public enum QuickTranslationRuleCompiler {
                 elements: elements,
                 template: template,
                 captureCount: rule.captureCount,
+                slotCount: rule.slotCount,
                 literalLength: literalLength(of: elements),
                 wildcardCapacity: wildcardCapacity(of: elements),
                 requiredLiteral: literal.units,
@@ -158,6 +160,9 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional else { continue }
                 total += alternatives.map { literalLength(of: $0) }.max() ?? 0
+            // Ngoặc là một ký tự cố định (lấy trong bộ ngoặc) — tính 1 như chữ thường, trừ khi optional.
+            case .openBracket, .closeBracket:
+                if !element.isOptional { total += 1 }
             case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
                 continue
             }
@@ -173,7 +178,7 @@ public enum QuickTranslationRuleCompiler {
                 total += element.maxLength
             case .group(let alternatives):
                 total += alternatives.map { wildcardCapacity(of: $0) }.max() ?? 0
-            case .literal, .lineStart, .lineEnd:
+            case .literal, .lineStart, .lineEnd, .openBracket, .closeBracket:
                 continue
             }
         }
@@ -212,7 +217,11 @@ public enum QuickTranslationRuleCompiler {
             case .group(let alternatives):
                 guard !element.isOptional, !alternatives.isEmpty else { continue }
                 if alternatives.allSatisfy({ hasAnchor($0) }) { return true }
-            // Neo dòng `<^>`/`<$>` không chiếm ký tự nên không làm neo prefilter: `<^><n>` vẫn là
+            // Ngoặc không optional khớp đúng một ký tự trong bộ ngoặc ⇒ đủ làm neo (rule không có chữ thường
+            // thì vào danh sách "luôn thử" của `QuickTranslationLiteralIndex`, như rule chỉ có nhóm).
+            case .openBracket, .closeBracket:
+                if !element.isOptional { return true }
+            // Neo dòng `<START>`/`<END>` không chiếm ký tự nên không làm neo prefilter: `<START><n>` vẫn là
             // `NO_LITERAL_ANCHOR`.
             case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
                 continue
@@ -237,7 +246,8 @@ public enum QuickTranslationRuleCompiler {
 
     private static func hasConsecutiveTokens(_ elements: [QuickTranslationRuleElement]) -> Bool {
         var previousWasToken = false
-        // Neo dòng rộng 0 nên không tách hai token: `<n><$><n>` vẫn là hai token dán nhau.
+        // Neo dòng rộng 0 nên không tách hai token: `<n><END><n>` vẫn là hai token dán nhau. Ngoặc chiếm
+        // một ký tự cố định nên **có** tách, như chữ thường.
         for element in elements where !element.isLineAnchor {
             if element.isToken {
                 if previousWasToken { return true }
@@ -263,7 +273,7 @@ public enum QuickTranslationRuleCompiler {
                         kinds.append(kind)
                     }
                 }
-            case .literal, .numeral, .chapterLabel, .anyRun, .lineStart, .lineEnd:
+            case .literal, .numeral, .chapterLabel, .anyRun, .lineStart, .lineEnd, .openBracket, .closeBracket:
                 continue
             }
         }
@@ -294,7 +304,7 @@ public enum QuickTranslationRuleCompiler {
                 for alternative in alternatives {
                     ranks.append(contentsOf: numeralNarrownessRanks(alternative))
                 }
-            case .literal, .chapterLabel, .dictionary, .lineStart, .lineEnd:
+            case .literal, .chapterLabel, .dictionary, .lineStart, .lineEnd, .openBracket, .closeBracket:
                 continue
             }
         }

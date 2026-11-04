@@ -53,6 +53,11 @@ public enum BackupPaths {
     /// cùng lý do như `bookRuleFiles`: vòng khôi phục nhóm đó parse `key=value` và sẽ **phá JSON**.
     public static let bookTTSFiles = TranslationManager.bookScopedTTSFiles
 
+    /// Cấu hình engine rule riêng của truyện (`QuickTranslateEngineConfig.json`: thứ tự ưu tiên, công tắc token
+    /// riêng, bộ ngoặc riêng — 1.3.692; trước đó file này **không** được sao lưu). JSON nên đi vòng riêng như
+    /// `bookTTSFiles`; khôi phục **ghi đè nguyên văn** (một bản cấu hình, không có gì để gộp).
+    public static let bookEngineConfigFiles = TranslationManager.bookScopedEngineConfigFiles
+
     /// Từ điển chung dạng nhị phân. Chỉ lấy `<Name>.txt` khi **không** có `.dat` cùng tên
     /// để tránh nhân đôi vài chục MB.
     public static let sharedDictionaryDatFiles = ["VietPhrase.dat", "Names.dat", "Pronouns.dat", "LuatNhan.dat"]

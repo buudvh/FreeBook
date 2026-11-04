@@ -17,6 +17,9 @@ public struct QuickTranslationCompiledRule: Sendable {
     public let elements: [QuickTranslationRuleElement]
     public let template: [TemplateSegment]
     public let captureCount: Int
+    /// `captureCount` + số `<[>` (1.3.692): matcher cấp chừng ấy ô, nhưng `Match.captures` chỉ trả
+    /// `captureCount` ô đầu — ô ẩn của ngoặc không ra bản dịch hay màn chẩn đoán.
+    public let slotCount: Int
 
     /// Tổng số ký tự literal ngoài token. Group không optional đóng góp alternative dài nhất,
     /// group optional đóng góp 0 (giống `compile()` của reference).
@@ -58,6 +61,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         elements: [QuickTranslationRuleElement],
         template: [TemplateSegment],
         captureCount: Int,
+        slotCount: Int? = nil,
         literalLength: Int,
         wildcardCapacity: Int,
         requiredLiteral: [UInt16],
@@ -74,6 +78,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         self.elements = elements
         self.template = template
         self.captureCount = captureCount
+        self.slotCount = max(captureCount, slotCount ?? captureCount)
         self.literalLength = literalLength
         self.wildcardCapacity = wildcardCapacity
         self.requiredLiteral = requiredLiteral

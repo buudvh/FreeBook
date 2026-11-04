@@ -155,6 +155,10 @@ struct ReaderSettingsView: View {
     private var ruleEngineOptions: some View {
         let store = QuickTranslationBookEngineConfigStore.shared
         let tokenCount = store.overriddenTokenCount(bookId: bookId)
+        // Bộ ngoặc riêng (1.3.692) nằm cùng màn "Token rule của truyện" nên cũng tính là đặt riêng.
+        let hasOwnBrackets = store.bracketPairs(bookId: bookId) != nil
+        let ownParts: [String] = (tokenCount > 0 ? ["\(tokenCount) token"] : []) + (hasOwnBrackets ? ["bộ ngoặc"] : [])
+        let ownLabel = ownParts.joined(separator: " + ")
 
         VStack(spacing: 10) {
             ruleEngineButton(
@@ -169,9 +173,9 @@ struct ReaderSettingsView: View {
 
             ruleEngineButton(
                 title: "Token rule của truyện",
-                detail: tokenCount == 0
+                detail: ownParts.isEmpty
                     ? "Đang theo cài đặt chung"
-                    : "Đang đặt riêng \(tokenCount) token",
+                    : "Đang đặt riêng \(ownLabel)",
                 systemImage: "switch.2"
             ) {
                 showingTokenSettings = true

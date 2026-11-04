@@ -33,12 +33,19 @@ public struct QuickTranslationRuleElement: Sendable {
         /// **nguyên văn** cụm đã nuốt. Không phải `NumeralKind`: không có lớp ký tự đóng, không boundary
         /// guard, không render theo loại.
         case anyRun
-        /// `<^>` — neo đầu dòng (1.3.686): đúng khi từ đầu chuỗi (hoặc sau `\n`/`\r` gần nhất) tới vị trí
-        /// hiện tại chỉ có khoảng trắng. Rộng 0, **không** sinh capture, khoảng trắng nằm ngoài vùng khớp.
+        /// `<START>` (cách viết cũ `<^>`) — neo đầu dòng (1.3.686): đúng khi từ đầu chuỗi (hoặc sau `\n`/`\r`
+        /// gần nhất) tới vị trí hiện tại chỉ có khoảng trắng. Rộng 0, **không** sinh capture, khoảng trắng
+        /// nằm ngoài vùng khớp.
         case lineStart
-        /// `<$>` — neo cuối dòng (1.3.686): đúng khi từ vị trí hiện tại tới cuối chuỗi (hoặc trước
-        /// `\n`/`\r` kế tiếp) chỉ có khoảng trắng. Rộng 0, **không** sinh capture.
+        /// `<END>` (cách viết cũ `<$>`) — neo cuối dòng (1.3.686): đúng khi từ vị trí hiện tại tới cuối chuỗi
+        /// (hoặc trước `\n`/`\r` kế tiếp) chỉ có khoảng trắng. Rộng 0, **không** sinh capture.
         case lineEnd
+        /// `<[>` — đúng **một** ký tự mở ngoặc thuộc bộ ngoặc (1.3.692). Rộng 1, **không** sinh `{i}`; ký tự đã
+        /// bắt giữ ở ô ẩn `bracketSlot` để `<]>` đi cặp kiểm đúng kiểu và cân bằng.
+        case openBracket
+        /// `<]>` — đúng **một** ký tự đóng ngoặc thuộc bộ ngoặc (1.3.692). Rộng 1, **không** sinh `{i}`. Có
+        /// `bracketPartnerSlot` và ô đó có giá trị ⇒ phải là ngoặc đóng của ký tự đó, đoạn giữa phải cân bằng.
+        case closeBracket
         /// `(a|b)` — mỗi alternative là một dãy phần tử; nhóm **không** sinh capture.
         case group([[QuickTranslationRuleElement]])
     }
@@ -92,6 +99,11 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Chỉ đặt khi phần tử liền kề **không** tiếp tục chuỗi số (xem `QuickTranslationRuleCompiler`).
     public var guardsLeft: Bool
     public var guardsRight: Bool
+    /// Chỉ `<[>`: ô **ẩn** trong mảng capture của matcher (sau mọi ô `{i}`) giữ ký tự mở đã bắt. Parser cấp
+    /// sau khi đánh số xong `{i}` (`captureCount + k`).
+    public var bracketSlot: Int?
+    /// Chỉ `<]>`: ô của `<[>` gần nhất còn mở theo thứ tự nguồn; `nil` = không có `<[>` đi cặp.
+    public var bracketPartnerSlot: Int?
 
     public init(
         kind: Kind,
@@ -101,7 +113,9 @@ public struct QuickTranslationRuleElement: Sendable {
         isOptional: Bool = false,
         captureIndex: Int? = nil,
         guardsLeft: Bool = false,
-        guardsRight: Bool = false
+        guardsRight: Bool = false,
+        bracketSlot: Int? = nil,
+        bracketPartnerSlot: Int? = nil
     ) {
         self.kind = kind
         self.sourceTokenKinds = sourceTokenKinds
@@ -111,21 +125,31 @@ public struct QuickTranslationRuleElement: Sendable {
         self.captureIndex = captureIndex
         self.guardsLeft = guardsLeft
         self.guardsRight = guardsRight
+        self.bracketSlot = bracketSlot
+        self.bracketPartnerSlot = bracketPartnerSlot
     }
 
-    /// Token có sinh capture hay không (literal, group và neo dòng thì không).
+    /// Token có sinh capture hay không (literal, group, neo dòng và ngoặc thì không).
     public var isToken: Bool {
         switch kind {
-        case .literal, .group, .lineStart, .lineEnd: return false
+        case .literal, .group, .lineStart, .lineEnd, .openBracket, .closeBracket: return false
         case .numeral, .chapterLabel, .dictionary, .anyRun: return true
         }
     }
 
-    /// `<^>` / `<$>` — phần tử rộng 0, chỉ kiểm điều kiện tại vị trí hiện tại.
+    /// `<START>` / `<END>` — phần tử rộng 0, chỉ kiểm điều kiện tại vị trí hiện tại.
     public var isLineAnchor: Bool {
         switch kind {
         case .lineStart, .lineEnd: return true
-        case .literal, .numeral, .chapterLabel, .dictionary, .anyRun, .group: return false
+        case .literal, .numeral, .chapterLabel, .dictionary, .anyRun, .group, .openBracket, .closeBracket: return false
+        }
+    }
+
+    /// `<[>` / `<]>` — đúng một ký tự ngoặc, không sinh `{i}`.
+    public var isBracket: Bool {
+        switch kind {
+        case .openBracket, .closeBracket: return true
+        case .literal, .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd, .group: return false
         }
     }
 
@@ -142,7 +166,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd, .openBracket, .closeBracket:
             return nil
         }
     }
@@ -158,7 +182,7 @@ public struct QuickTranslationRuleElement: Sendable {
                 result.append(contentsOf: units)
             }
             return result.isEmpty ? nil : result
-        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd:
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .lineStart, .lineEnd, .openBracket, .closeBracket:
             return nil
         }
     }
@@ -168,7 +192,8 @@ public struct QuickTranslationRuleElement: Sendable {
         if isOptional { return 0 }
         switch kind {
         case .literal(let units): return units.count
-        case .numeral, .chapterLabel, .dictionary, .anyRun: return minLength
+        // Ngoặc: parser đặt `minLength = maxLength = 1` — bề rộng 1 để bộ lọc vị trí bắt đầu tính đúng.
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .openBracket, .closeBracket: return minLength
         case .lineStart, .lineEnd: return 0
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.minimumWidth } }.min() ?? 0
@@ -178,7 +203,7 @@ public struct QuickTranslationRuleElement: Sendable {
     public var maximumWidth: Int {
         switch kind {
         case .literal(let units): return units.count
-        case .numeral, .chapterLabel, .dictionary, .anyRun: return maxLength
+        case .numeral, .chapterLabel, .dictionary, .anyRun, .openBracket, .closeBracket: return maxLength
         case .lineStart, .lineEnd: return 0
         case .group(let alternatives):
             return alternatives.map { $0.reduce(0) { $0 + $1.maximumWidth } }.max() ?? 0

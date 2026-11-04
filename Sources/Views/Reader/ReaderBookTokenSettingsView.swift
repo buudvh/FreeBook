@@ -12,6 +12,9 @@ struct ReaderBookTokenSettingsView: View {
     let bookId: String
 
     @State private var overrides: [Kind: Store.TokenOverride]
+    /// Dòng phụ của hàng Bộ ngoặc. Tách khỏi `overrides` (mà `onChange` ghi đĩa) và đọc lại ở `onAppear` — chạy lại
+    /// khi quay về từ màn Bộ ngoặc; store không phát thay đổi.
+    @State private var bracketSummary = ""
 
     /// Nạp state ngay ở `init` chứ không ở `onAppear`: nạp trong `onAppear` là một lần đổi state, và
     /// `onChange` bên dưới sẽ hiểu đó là người dùng vừa sửa cả 10 token rồi ghi đĩa 10 lần.
@@ -37,6 +40,22 @@ struct ReaderBookTokenSettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    QuickTranslationRuleBracketListView(scope: .book(bookId: bookId))
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Bộ ngoặc")
+                            .font(.subheadline)
+                        Text(verbatim: bracketSummary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text(verbatim: "Ngoặc của <[> <]>")
+            }
+
+            Section {
                 ForEach(Kind.allCases.filter { !$0.isNumeralGroup }, id: \.self, content: row)
             } header: {
                 Text("Token từ điển")
@@ -59,6 +78,17 @@ struct ReaderBookTokenSettingsView: View {
                 apply(current[kind] ?? .inherit, for: kind)
             }
         }
+        .onAppear {
+            reloadBracketSummary()
+        }
+    }
+
+    private func reloadBracketSummary() {
+        guard let pairs = Store.shared.bracketPairs(bookId: bookId) else {
+            bracketSummary = "Theo bộ chung"
+            return
+        }
+        bracketSummary = "Riêng (\(pairs.filter(\.isEnabled).count)/\(pairs.count) cặp bật)"
     }
 
     private func row(_ kind: Kind) -> some View {

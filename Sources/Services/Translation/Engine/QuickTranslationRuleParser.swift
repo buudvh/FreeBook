@@ -12,7 +12,7 @@ public enum QuickTranslationRuleParser {
         public var issues: [QuickTranslationRuleIssue] = []
     }
 
-    /// `internal` (không `private`) để `QuickTranslationRuleParser+LineAnchor.swift` ném cùng loại lỗi.
+    /// `internal` (không `private`) để `QuickTranslationRuleParser+LineAnchor/+Bracket.swift` ném cùng loại lỗi.
     struct ParseError: Error {
         let code: QuickTranslationRuleIssue.Code
         let message: String
@@ -57,15 +57,12 @@ public enum QuickTranslationRuleParser {
             }
 
             do {
-                var captureCount = 0
-                let elements = try parseElements(Array(split.pattern), captureCount: &captureCount)
-                result.rules.append(QuickTranslationParsedRule(
+                // AST + đánh số `{i}` + ghép cặp ngoặc `<[>`/`<]>` (`QuickTranslationRuleParser+Bracket.swift`).
+                try result.rules.append(makeParsedRule(
                     sourceLine: sourceLine,
                     rawLine: rawLine,
                     pattern: split.pattern,
-                    replacement: split.replacement,
-                    elements: elements,
-                    captureCount: captureCount
+                    replacement: split.replacement
                 ))
             } catch let error as ParseError {
                 result.issues.append(QuickTranslationRuleIssue(
@@ -129,8 +126,8 @@ public enum QuickTranslationRuleParser {
     // MARK: - Dựng AST
 
     /// Đọc một dãy phần tử tới hết `chars`, hoặc tới `)` khi `stopAtCloseParen` bật.
-    /// Trả về cả vị trí dừng để nhánh group biết ăn tới đâu.
-    private static func parseElements(
+    /// Trả về cả vị trí dừng để nhánh group biết ăn tới đâu. `internal` cho `makeParsedRule` (+Bracket).
+    static func parseElements(
         _ chars: [Character],
         captureCount: inout Int
     ) throws -> [QuickTranslationRuleElement] {
@@ -225,8 +222,8 @@ public enum QuickTranslationRuleParser {
             cursor += 1
         }
 
-        // Neo `<^>`/`<$>` rộng 0, không capture ⇒ phải trả về TRƯỚC `captureCount += 1` bên dưới.
-        if let anchor = try parseLineAnchor(spec: spec, isOptional: isOptional) { return anchor }
+        // Neo `<START>`/`<END>` và ngoặc `<[>`/`<]>` không capture ⇒ phải trả về TRƯỚC `captureCount += 1`.
+        if let uncaptured = try parseUncapturedToken(spec: spec, isOptional: isOptional) { return uncaptured }
 
         let parts = spec.components(separatedBy: ":")
         let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
@@ -345,7 +342,7 @@ public enum QuickTranslationRuleParser {
     ) throws -> Set<QuickTranslationRuleTokenSettings.Kind> {
         var kinds: Set<QuickTranslationRuleTokenSettings.Kind> = []
         for name in names {
-            guard let kind = QuickTranslationRuleTokenSettings.Kind(rawValue: name) else {
+            guard let kind = QuickTranslationRuleTokenSettings.Kind.kind(forTokenName: name) else {
                 throw ParseError(code: .unknownTokenName, message: "Token <\(name)> không được hỗ trợ")
             }
             kinds.insert(kind)

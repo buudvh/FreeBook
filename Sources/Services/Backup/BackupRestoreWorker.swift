@@ -160,6 +160,12 @@ public actor BackupRestoreWorker {
         let settings = options.restoreSettings
             ? BackupSettingsArchiver.restore(from: prepared.directory)
             : BackupSettingsArchiver.Report()
+        // Bộ ngoặc chung và công tắc token rule nằm trong `UserDefaults` và được đọc lại ở mỗi lượt dịch ⇒ dọn
+        // cache dịch để chúng có hiệu lực ngay (1.3.692), không chờ mở lại app.
+        if settings.restoredKeys > 0 {
+            TranslateUtils.clearCache()
+            TranslationManager.shared.notifyRulesDidUpdate()
+        }
         let config = options.restoreSettings
             ? BackupConfigArchiver.restore(from: prepared.directory)
             : BackupConfigArchiver.Report()

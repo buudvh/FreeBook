@@ -7,7 +7,8 @@ import Foundation
 /// cache:
 ///
 /// - thứ tự ưu tiên rule (`QuickTranslationRulePriorityConfiguration`),
-/// - trạng thái riêng của 10 token DSL.
+/// - trạng thái riêng của các token DSL,
+/// - bộ ngoặc riêng của token `<[>` / `<]>` (1.3.692, `brackets`).
 ///
 /// **Ngữ nghĩa kế thừa, không phải bản copy.** Trường vắng mặt = *theo cài đặt chung*, nên sửa cấu
 /// hình chung vẫn lan tới truyện chưa đặt riêng. Nếu lưu bản copy thì lần đầu mở màn cấu hình của
@@ -58,6 +59,10 @@ public final class QuickTranslationBookEngineConfigStore {
     private let lock = NSLock()
     /// Có khoá trong dictionary = đã đọc đĩa. Giá trị rỗng = truyện không có file hoặc không đặt gì.
     private nonisolated(unsafe) var cached: [String: Overrides] = [:]
+    /// Bản chụp bộ ngoặc riêng đã dựng, **chỉ** cho truyện có `brackets`. Chung lock với `cached` và bị
+    /// dọn ở **mọi** chỗ `cached` của truyện đổi (`mutate`, `invalidate`) — để riêng ở store khác là có
+    /// lúc một đường dọn cache quên dọn bên kia.
+    private nonisolated(unsafe) var bracketSets: [String: QuickTranslationRuleBracketSet] = [:]
 
     private init() {}
 
@@ -69,10 +74,13 @@ public final class QuickTranslationBookEngineConfigStore {
         var priorityOrder: String?
         var priorityDescending: String?
         /// Khoá là `QuickTranslationRuleTokenSettings.Kind.rawValue`; giá trị là bật/tắt tường minh.
+        /// Khoá cũ `^`/`$` (trước 1.3.692) được đổi sang `START`/`END` ngay lúc đọc file.
         var tokens: [String: Bool]?
+        /// Bộ ngoặc riêng. `nil` = theo bộ chung; `[]` = riêng, **không** cặp nào (lựa chọn có chủ ý).
+        var brackets: [QuickTranslationRuleBracketPair]?
 
         var isEmpty: Bool {
-            (priorityOrder ?? "").isEmpty && (tokens?.isEmpty ?? true)
+            (priorityOrder ?? "").isEmpty && (tokens?.isEmpty ?? true) && brackets == nil
         }
     }
 
@@ -110,10 +118,23 @@ public final class QuickTranslationBookEngineConfigStore {
     private func readFile(for bookId: String) -> Overrides {
         let url = fileURL(for: bookId)
         guard let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode(Overrides.self, from: data) else {
+              var decoded = try? JSONDecoder().decode(Overrides.self, from: data) else {
             return Overrides()
         }
+        decoded.tokens = decoded.tokens.map(Self.normalizingTokenKeys)
         return decoded
+    }
+
+    /// Đổi khoá token cũ (`^`/`$`) sang rawValue hiện tại. Khoá mới có mặt thì thắng khoá cũ; khoá không
+    /// nhận ra được giữ nguyên để không làm mất dữ liệu của bản app khác. Lần ghi kế tiếp lưu tên mới.
+    private static func normalizingTokenKeys(_ tokens: [String: Bool]) -> [String: Bool] {
+        var normalized: [String: Bool] = [:]
+        for (key, value) in tokens {
+            let name = TokenKind.kind(forTokenName: key)?.rawValue ?? key
+            if name != key, tokens[name] != nil { continue }
+            normalized[name] = value
+        }
+        return normalized
     }
 
     // MARK: - Phân giải cho một lượt rewrite
@@ -157,6 +178,32 @@ public final class QuickTranslationBookEngineConfigStore {
         overrides(for: bookId)?.tokens?.count ?? 0
     }
 
+    /// Bộ ngoặc riêng của truyện; `nil` = truyện theo bộ chung (`QuickTranslationRuleBracketStore`).
+    public func bracketPairs(bookId: String?) -> [QuickTranslationRuleBracketPair]? {
+        overrides(for: bookId)?.brackets
+    }
+
+    /// Bản chụp bộ ngoặc riêng cho một lượt dịch; `nil` = theo bộ chung. Chỉ
+    /// `QuickTranslationRuleBracketStore.bracketSet(bookId:)` gọi — nơi khác hỏi store đó.
+    func bookBracketSet(bookId: String?) -> QuickTranslationRuleBracketSet? {
+        guard let bookId, !bookId.isEmpty else { return nil }
+        lock.lock()
+        if let hit = bracketSets[bookId] {
+            lock.unlock()
+            return hit
+        }
+        lock.unlock()
+
+        guard let pairs = overrides(for: bookId)?.brackets else { return nil }
+        let set = QuickTranslationRuleBracketSet(pairs: pairs)
+        lock.lock()
+        // Chỉ cache khi bản đang nằm trong `cached` vẫn là bản vừa dựng — `mutate` chạy xen giữa hai lần
+        // khoá thì bản chụp này đã cũ, không được ghi đè lên trạng thái mới.
+        if cached[bookId]?.brackets == pairs { bracketSets[bookId] = set }
+        lock.unlock()
+        return set
+    }
+
     // MARK: - Ghi
 
     /// `nil` = xoá phần đặt riêng, truyện quay về kế thừa cấu hình chung.
@@ -184,6 +231,12 @@ public final class QuickTranslationBookEngineConfigStore {
         }
     }
 
+    /// `nil` = xoá bộ ngoặc riêng, truyện quay về bộ chung. Bên gọi tự làm mới bản dịch như khi đổi
+    /// công tắc token riêng (`notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId:))`).
+    public func setBracketPairs(_ pairs: [QuickTranslationRuleBracketPair]?, bookId: String) -> Outcome {
+        mutate(bookId: bookId) { $0.brackets = pairs }
+    }
+
     /// Xoá toàn bộ phần đặt riêng của truyện.
     public func reset(bookId: String) -> Outcome {
         mutate(bookId: bookId) { $0 = Overrides() }
@@ -200,6 +253,7 @@ public final class QuickTranslationBookEngineConfigStore {
         }
         lock.lock()
         cached[bookId] = next
+        bracketSets.removeValue(forKey: bookId)
         lock.unlock()
         return .success
     }
@@ -229,8 +283,10 @@ public final class QuickTranslationBookEngineConfigStore {
         lock.lock()
         if let bookId, !bookId.isEmpty {
             cached.removeValue(forKey: bookId)
+            bracketSets.removeValue(forKey: bookId)
         } else {
             cached.removeAll()
+            bracketSets.removeAll()
         }
         lock.unlock()
     }

@@ -27,7 +27,7 @@ import Foundation
 /// `<any>` (1.3.682) không phải token lớp ký tự (`NumeralKind`) nên không đi qua `rank(of:)`: lớp của nó
 /// là mọi ký tự trừ xuống dòng (từ 1.3.686, trước đó còn chặn dấu câu + khoảng trắng), rộng hơn mọi lớp
 /// trên và chứa trọn chúng, nên hạng là một hằng riêng `anyRunRank` đứng **cuối** — hoà mọi tiêu chí
-/// khác thì `<any>` thua mọi token ký tự. Neo dòng `<^>`/`<$>` rộng 0 nên không có hạng.
+/// khác thì `<any>` thua mọi token ký tự. Neo dòng `<START>`/`<END>` và ngoặc `<[>`/`<]>` không có hạng.
 ///
 /// **Bảng viết tay chứ không suy ra từ `units(for:).count`** — cố ý. Suy ra thì hôm nay cho kết quả y
 /// hệt, nhưng mai kia ai đó nới lớp ký tự của một token (đúng việc đã xảy ra với `<m>` ở 1.3.415) là

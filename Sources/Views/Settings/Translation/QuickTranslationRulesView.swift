@@ -226,6 +226,11 @@ struct QuickTranslationRulesView: View {
     @ViewBuilder
     private var toolsSection: some View {
         Section(header: Text("Công cụ")) {
+            // Hàng đầu (1.3.692): nội dung ở `QuickTranslationRuleGuide`, cùng nguồn với các nút "?" của màn sửa rule.
+            NavigationLink(destination: QuickTranslationRuleGuideView()) {
+                Label("Hướng dẫn viết rule", systemImage: "text.book.closed")
+            }
+
             NavigationLink {
                 QuickTranslationRuleListView(extraIssues: dictionaryIssues)
             } label: {

@@ -253,21 +253,27 @@ extension QuickTranslationRuleEditorSheet {
                     applyTokenSpec(updated, tokenPosition: position)
                 }
             }
+
+            // Đẩy trang trong `NavigationStack` của sheet — không thêm nút header (giữ luật cụm nút).
+            NavigationLink {
+                QuickTranslationRuleGuideView()
+            } label: {
+                Label("Hướng dẫn đầy đủ", systemImage: "text.book.closed")
+            }
         } header: {
-            SectionHelpHeader("Mẫu (vế trái dấu =)", paragraphs: patternHelpParagraphs)
+            SectionHelpHeader("Mẫu (vế trái dấu =)", texts: patternHelpTexts)
         }
     }
 
-    /// Giải thích của nút dấu hỏi ở header "Mẫu" (trước là footer). Chế độ sửa thêm câu về việc đổi mẫu — trước
-    /// nằm ở `editInfoSection`.
-    private var patternHelpParagraphs: [LocalizedStringKey] {
-        var paragraphs: [LocalizedStringKey] = [
-            "Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<m>` đơn vị bậc (十 → mươi, 百 → trăm), `<a>` chữ cái A-Z giữ nguyên văn, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển, `<any>` cụm ký tự bất kỳ kể cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng (mặc định 1-50, chỉnh tới 100; trả nguyên văn rồi dịch tiếp bằng từ điển — ví dụ `<any:1-6>的<any:1-6> = {1} của {0}`; rule có `<any>` phải có ít nhất một chữ cố định), `<^>`/`<$>` neo đầu/cuối dòng (bỏ qua khoảng trắng thụt đầu/thừa cuối, không nuốt ký tự, không được đánh số — ví dụ `<^>第<n>章 = Chương {0}`). `<L>`, `<hv>` và `<m>` luôn đúng một ký tự, `<^>`/`<$>` không chiếm ký tự, nên không có thanh độ dài. Nhóm `(a|b)` và `(a|b)?` không được đánh số; token trong các nhánh của cùng một nhóm **dùng chung số** `{i}`, vì mỗi lần khớp chỉ một nhánh có giá trị — ví dụ `(（<any>）|【<any>】)` chỉ sinh một `{i}`. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy."
-        ]
+    /// Nút "?" của header "Mẫu": một câu về cách dùng bảng token + vài ý lấy từ `QuickTranslationRuleGuide` (nguồn duy
+    /// nhất, bản đủ ở hàng "Hướng dẫn đầy đủ"). Chế độ sửa thêm câu về việc đổi mẫu.
+    private var patternHelpTexts: [Text] {
+        var texts = [Text("Bấm token để chèn **tại con trỏ** hoặc thay đoạn đang bôi đen; chạm chip token để chỉnh độ dài.")]
+        texts += QuickTranslationRuleGuide.helpTexts(for: .pattern)
         if case .edit = mode {
-            paragraphs.append("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
+            texts.append(Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách."))
         }
-        return paragraphs
+        return texts
     }
 
     @ViewBuilder
@@ -354,12 +360,13 @@ extension QuickTranslationRuleEditorSheet {
         } header: {
             SectionHelpHeader(
                 "Bản dịch (vế phải dấu =)",
-                paragraphs: ["`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Chip chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo."]
+                texts: [Text("Chip `{i}` chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen.")]
+                    + QuickTranslationRuleGuide.helpTexts(for: .replacement)
             )
         }
     }
 
-    /// Câu về việc đổi mẫu đã chuyển vào popover của header "Mẫu" (`patternHelpParagraphs`).
+    /// Câu về việc đổi mẫu đã chuyển vào popover của header "Mẫu" (`patternHelpTexts`).
     @ViewBuilder
     var editInfoSection: some View {
         if case .edit(_, _, let sourceLine, let scope) = mode {

@@ -46,9 +46,9 @@ public enum BackupDictionaryArchiver {
                     )
                     staged = true
                 }
-                // Rule thay thế TTS riêng của truyện: JSON nên đi **vòng riêng**, không nằm trong
-                // `bookDictionaryFiles` (vòng khôi phục nhóm đó gộp kiểu `key=value` ⇒ phá JSON).
-                for name in BackupPaths.bookTTSFiles {
+                // Rule thay thế TTS riêng + cấu hình engine rule riêng của truyện: JSON nên đi **vòng riêng**,
+                // không nằm trong `bookDictionaryFiles` (vòng khôi phục nhóm đó gộp kiểu `key=value` ⇒ phá JSON).
+                for name in BackupPaths.bookTTSFiles + BackupPaths.bookEngineConfigFiles {
                     let source = booksRoot.appendingPathComponent(bookId, isDirectory: true).appendingPathComponent(name)
                     guard FileManager.default.fileExists(atPath: source.path) else { continue }
                     try BackupZipArchive.stage(

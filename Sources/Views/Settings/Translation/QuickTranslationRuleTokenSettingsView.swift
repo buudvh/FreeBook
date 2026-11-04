@@ -21,6 +21,12 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.any.userDefaultsKey) private var isAnyEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.lineStart.userDefaultsKey) private var isLineStartEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.lineEnd.userDefaultsKey) private var isLineEndEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.openBracket.userDefaultsKey) private var isOpenBracketEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.closeBracket.userDefaultsKey) private var isCloseBracketEnabled = true
+
+    /// "x/y cặp bật" của hàng Bộ ngoặc. Store bộ ngoặc không phát thay đổi ⇒ đọc lại ở `onAppear` (chạy lại khi quay
+    /// về từ màn Bộ ngoặc), không tính thẳng trong `body`.
+    @State private var bracketSummary = ""
 
     var body: some View {
         Form {
@@ -36,8 +42,21 @@ struct QuickTranslationRuleTokenSettingsView: View {
                 Toggle(QuickTranslationRuleTokenSettings.Kind.any.label, isOn: invalidating($isAnyEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.lineStart.label, isOn: invalidating($isLineStartEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.lineEnd.label, isOn: invalidating($isLineEndEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.openBracket.label, isOn: invalidating($isOpenBracketEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.closeBracket.label, isOn: invalidating($isCloseBracketEnabled))
+
+                NavigationLink {
+                    QuickTranslationRuleBracketListView(scope: .global)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Bộ ngoặc")
+                        Text(verbatim: bracketSummary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             } header: {
-                SectionHelpHeader("Token lớp ký tự và nhãn", paragraphs: ["<m> khớp đúng một ký tự bậc Hán và trả về CHỮ ĐƠN VỊ tiếng Việt: 十 → mươi, 百 → trăm, 千 → nghìn, 万 → vạn, 亿 → ức, 兆 → triệu. Viết 几<m>年 = mấy {0} năm là một rule phủ cả mấy mươi / mấy trăm / mấy nghìn năm. Cần con số thì dùng <n>, nó đọc 十 thành 10.\n\n<a> khớp chuỗi chữ cái A-Z và trả nguyên văn, giữ đúng hoa/thường: <a>级 = cấp {0} phủ A级, BB级, SSS级.\n\n<hn> khớp số Hán kể cả ký tự bậc (KHÔNG nhận chữ số 0-9) rồi đọc thành phiên âm Hán-Việt, mỗi chữ một âm cách nhau bằng dấu cách: 三十 → tam thập, 九 → cửu, 万 → vạn. Dùng cho tên gọi, cấp bậc, chiêu thức cần đọc Hán-Việt thay vì ra số: <hn>重天 = {0} trọng thiên. Cần ra số thì dùng <n>, cần từng chữ số thì dùng <h>.\n\n<any> khớp một cụm ký tự bất kỳ, kể cả dấu câu và khoảng trắng, chỉ dừng ở chỗ xuống dòng (mặc định 1-50 ký tự, chỉnh bằng <any:1-6>, tối đa 100), rồi trả NGUYÊN VĂN cụm đó — phần chữ Hán vẫn được dịch tiếp bằng từ điển như phần còn lại của câu. Dùng để đảo trật tự: <any:1-6>的<any:1-6> = {1} của {0}. Rule có <any> phải có ít nhất một chữ cố định, nếu không sẽ bị báo lỗi và không chạy.\n\n<^> và <$> là neo đầu dòng / cuối dòng: không nuốt ký tự nào và không được đánh số {i}. Khoảng trắng thụt đầu hoặc thừa cuối dòng được bỏ qua và giữ nguyên trong bản dịch: <^>第<n>章 = Chương {0} khớp \"　　第12章 风起\" nhưng không khớp \"他说第12章\"."])
+                SectionHelpHeader("Token lớp ký tự và nhãn", texts: QuickTranslationRuleGuide.helpTexts(for: .tokenSettings))
             }
 
             Section {
@@ -57,6 +76,10 @@ struct QuickTranslationRuleTokenSettingsView: View {
             }
         }
         .backPageTitle("Cấu hình token rule")
+        .onAppear {
+            let pairs = QuickTranslationRuleBracketStore.shared.globalPairs()
+            bracketSummary = "\(pairs.filter(\.isEnabled).count)/\(pairs.count) cặp bật"
+        }
     }
 
     /// Mỗi thay đổi hợp lệ làm cache dịch mất hiệu lực và phát đúng một tín hiệu cập nhật UI.

@@ -72,8 +72,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         public enum Kind: Equatable, Sendable {
             /// Ký tự thường. `\x` giữ nguyên hai ký tự trong một chip để không mất dấu escape.
             case literal
-            /// `<n>`, `<n:1-6>`, `<ne|pn>?`… Neo dòng `<^>`/`<$>` cũng là chip `.token` nhưng
-            /// `tokenOrdinal == nil` (không sinh capture) nên không mở thanh chỉnh độ dài.
+            /// `<n>`, `<n:1-6>`, `<ne|pn>?`… Neo dòng `<START>`/`<END>` và ngoặc `<[>`/`<]>` cũng là chip
+            /// `.token` nhưng `tokenOrdinal == nil` (không sinh capture) nên không mở thanh chỉnh độ dài.
             case token
             /// `(`, `|`, `)`, `)?` — không sinh capture.
             case groupPunct
@@ -127,9 +127,9 @@ public enum QuickTranslationRuleDraftAnalyzer {
             if char == "<", let close = chars[cursor...].firstIndex(of: ">") {
                 var length = close - cursor + 1
                 if close + 1 < chars.count, chars[close + 1] == "?" { length += 1 }
-                // Neo dòng không được parser cấp số capture ⇒ không đánh số, để vị trí của các token
-                // phía sau vẫn khớp danh sách `captureIndex` lấy từ parser.
-                if QuickTranslationRuleParser.isLineAnchorSpec(String(chars[(cursor + 1)..<close])) {
+                // Neo dòng và ngoặc không được parser cấp số capture ⇒ không đánh số, để vị trí của các
+                // token phía sau vẫn khớp danh sách `captureIndex` lấy từ parser.
+                if QuickTranslationRuleParser.isUncapturedTokenSpec(String(chars[(cursor + 1)..<close])) {
                     append(.token, length: length)
                     continue
                 }
@@ -222,12 +222,13 @@ public enum QuickTranslationRuleDraftAnalyzer {
 
         /// `<L>` và `<hv>` bị parser ép về đúng 1 ký tự, `<m>` tự động nhận diện dải cơ số 1-4 ký tự, nên không
         /// cho điều chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có** range vì cấp bậc
-        /// kiểu `SSS` dài 3 ký tự. Neo `<^>`/`<$>` rộng 0, không có độ dài.
+        /// kiểu `SSS` dài 3 ký tự. Neo `<START>`/`<END>` rộng 0 và ngoặc `<[>`/`<]>` đúng 1 ký tự: không có
+        /// độ dài.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }
             if names == ["hv"] { return false }
             if names == ["m"] { return false }
-            if names.contains(where: { QuickTranslationRuleTokenSettings.Kind(rawValue: $0)?.isLineAnchor == true }) {
+            if names.contains(where: { QuickTranslationRuleTokenSettings.Kind.kind(forTokenName: $0)?.isUncaptured == true }) {
                 return false
             }
             return true

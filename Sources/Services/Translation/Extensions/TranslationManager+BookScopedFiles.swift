@@ -28,9 +28,13 @@ extension TranslationManager {
     /// ghi cho `BackupPaths.bookRuleFiles`.
     public static let bookScopedTTSFiles = [TTSReplacementManager.bookRulesFileName]
 
+    /// Cấu hình engine rule riêng của truyện (`QuickTranslateEngineConfig.json`: thứ tự ưu tiên, công tắc
+    /// token riêng, bộ ngoặc riêng). JSON nên cũng **không** gộp vào `bookScopedDictionaryTextFiles`.
+    public static let bookScopedEngineConfigFiles = [QuickTranslationBookEngineConfigStore.fileName]
+
     /// Mọi file phải đi theo truyện khi **đổi nguồn** (bookId đổi).
     public static var bookScopedMigrationFiles: [String] {
         bookScopedDictionaryBinaryFiles + bookScopedDictionaryTextFiles + bookScopedRuleFiles
-            + bookScopedTTSFiles + [QuickTranslationBookEngineConfigStore.fileName]
+            + bookScopedTTSFiles + bookScopedEngineConfigFiles
     }
 }

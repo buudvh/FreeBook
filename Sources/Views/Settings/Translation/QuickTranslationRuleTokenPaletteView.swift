@@ -128,6 +128,8 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .any: return "cụm bất kỳ"
         case .lineStart: return "đầu dòng"
         case .lineEnd: return "cuối dòng"
+        case .openBracket: return "mở ngoặc"
+        case .closeBracket: return "đóng ngoặc"
         }
     }
 

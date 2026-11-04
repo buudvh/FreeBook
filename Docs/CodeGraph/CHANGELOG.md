@@ -2,6 +2,43 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.692] - 2026-11-04
+
+### feat: token ngoặc <[> <]> với bộ ngoặc chỉnh được, neo <START> <END> và hướng dẫn viết rule
+
+Người dùng: *"thêm token đóng mở ngoặc cho rule dịch, có thể config các loại ngoặc cho token"*, *"ngoặc tròn ngoặc vuông ngoặc nhọn đủ nhé"*, *"nhớ bổ sung hướng dẫn đầy đủ để tạo rule… mỗi ý trong phần hướng dẫn 1 dòng"*. Đã chốt bằng bảng chọn:
+- Token viết `<[>` / `<]>` (dấu ngoặc vuông, không lẫn với nhóm `( )`); neo dòng đổi tên thành chữ in hoa `<START>` / `<END>`.
+- Mở và đóng phải cùng cặp và cân bằng; ngoặc **không** sinh `{i}`.
+- Bộ ngoặc có bản chung và bản riêng từng truyện.
+
+- **Token ngoặc** (`QuickTranslationRuleParser+Bracket`, `QuickTranslationRuleMatcher+Bracket`):
+  - `<[>` khớp đúng một ký tự mở, `<]>` khớp đúng một ký tự đóng trong bộ ngoặc đang bật; rộng 1, nhận `?`, không nhận `|` hay độ dài.
+  - Parser ghép mỗi `<]>` với `<[>` gần nhất còn mở theo thứ tự nguồn (mỗi nhánh của nhóm bắt đầu từ cùng ngăn xếp). Khi khớp, `<]>` phải đúng ngoặc đóng của ký tự `<[>` đã bắt và đoạn giữa phải cân bằng: `<[><any><]>` trên `(a)Y(b)` ra `(a)` rồi `(b)`. `<]>` không có cặp, hoặc cặp nằm ở nhánh không khớp, thì nhận mọi ngoặc đóng.
+  - Ký tự mở giữ ở **ô ẩn** sau các ô `{i}` (`slotCount` ở `QuickTranslationParsedRule` / `QuickTranslationCompiledRule`); `Match.captures` chỉ trả phần `{i}`.
+  - Tính như chữ cố định khi xét `ANY_WITHOUT_LITERAL` / `NO_LITERAL_ANCHOR` và khi xếp ưu tiên, nên `<[><any><]><END> =` hợp lệ. `<any>` đứng ngay trước token ngoặc chỉ thử các độ dài mà ký tự kế tiếp là ngoặc hợp lệ.
+- **Neo dòng đổi tên** `<^>` → `<START>`, `<$>` → `<END>` (`Kind.lineStart/.lineEnd` rawValue mới). Rule cũ vẫn chạy nhờ `Kind.kind(forTokenName:)`. Khoá công tắc chung giữ nguyên; khoá cũ `^`/`$` trong cấu hình riêng truyện được đọc thành tên mới.
+- **Bộ ngoặc** (`QuickTranslationRuleBracketPair`, `QuickTranslationRuleBracketDefaults`, `QuickTranslationRuleBracketSet`, `QuickTranslationRuleBracketStore`):
+  - Mặc định 50 cặp: tròn 11, mai rùa 6, vuông 11, ngoặc móc 6, ngoặc góc 16. `<>` ASCII có sẵn nhưng tắt. Không có `「」『』` (lời thoại), `⦍⦎⦏⦐` (ghép chéo), `〈〉` U+2329/232A.
+  - Bộ chung ở `UserDefaults` `quickTranslateRuleBracketPairs` (vắng = mặc định, Backup tự gói). Bộ riêng truyện ở trường `brackets` của `QuickTranslateEngineConfig.json`.
+  - `TranslationReadContext` chụp bộ ngoặc của truyện; engine và màn chẩn đoán dùng bản chụp đó.
+  - Khi lưu, kiểm mỗi ô đúng một ký tự (một đơn vị UTF-16), mở khác đóng, không trùng ký tự với cặp khác.
+- **Backup:**
+  - `QuickTranslateEngineConfig.json` riêng truyện (thứ tự ưu tiên, công tắc token riêng, bộ ngoặc riêng) giờ được sao lưu và khôi phục nguyên văn. Trước đây file này không có trong Backup.
+  - Khôi phục cài đặt xong thì dọn cache dịch để bộ ngoặc chung có hiệu lực ngay.
+- **Giao diện:**
+  - Cấu hình token rule có công tắc `<[>` `<]>` và hàng "Bộ ngoặc".
+  - Màn **Bộ ngoặc** (`QuickTranslationRuleBracketListView`), kiểu danh sách 1.3.636 với [Sửa][Tắt/Bật][Xoá] và nút `+` nổi.
+    - Bộ chung: ngăn kéo `…` có "Khôi phục mặc định".
+    - Bộ riêng truyện (mở từ Cài đặt đọc › token riêng): khi chưa có bộ riêng chỉ xem kèm nút "Chỉnh riêng cho truyện này"; khi đã có thì ngăn kéo có "Dùng bộ chung".
+  - Sheet thêm/sửa cặp (`QuickTranslationRuleBracketEditorSheet`) báo lỗi ngay dưới ô.
+- **Hướng dẫn viết rule** — một nguồn `QuickTranslationRuleGuide`:
+  - Trang `QuickTranslationRuleGuideView` có 11 mục, mỗi ý một dòng kèm ví dụ. Mở từ hàng đầu "Công cụ" của Rule dịch nhanh và từ hàng "Hướng dẫn đầy đủ" ở màn sửa rule.
+  - Các nút "?" ở Mẫu, Bản dịch, Cấu hình token và Bộ ngoặc chỉ còn vài dòng lấy từ cùng nguồn. Bỏ câu sai cũ "Mọi token phải được dùng".
+- Gợi ý bàn phím nhận `<[` / `<]`; chip ngoặc và neo không được đánh số.
+- `CLAUDE.md` / `AGENTS.md`: cập nhật đoạn token ở mục Dịch thuật VietPhrase.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. Dò tay trên code các mẫu `<[><any><]>` trên `(a)Y(b)` và `【a)`, `<]>` đứng một mình, `<[><any><]><END>`, `(<[>a|b)<]>`, rule cũ `<^>第<n>章`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.691] - 2026-11-04
 
 ### fix: chuyển nguồn khi link chương khác dạng, thêm mục chuyển nguồn ở sheet nhấn giữ
@@ -525,17 +562,3 @@ Người dùng: *"tôi đã yêu cầu nhấp nút copy trên bàn phím thì c�
 - **`ClipboardCopier.copy(_:message:)`** (mới, `Views/Common/`): ghi bộ nhớ tạm + toast "Đã sao chép" (`recordsInInbox: false`, không vào Trung tâm thông báo). Nút sao chép mới thì gọi qua đây.
 - Dùng cho: thanh công cụ bàn phím (`KeyboardTextToolbarModel.copy`), bộ nút cạnh ô một dòng `TextFieldClipboardButtons` (Cấu hình tiện ích, Thông tin plugin.json), nút sao chép cạnh ô của Từ điển (`DictEntrySheet`), Trí nhớ AI (`BookAIMemorySheet`), Cài đặt AI (`AISettingsView+Actions`), ô chữ thử VieNeu, và hai nút trước đây sao chép im lặng: "Sao chép tin nhắn" của Trợ lý AI toàn màn, địa chỉ của Debug server tiện ích. Các nút đã có toast/chỉ báo riêng giữ nguyên.
 - **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); chưa thử trên máy — toast nổi trên bàn phím ở sheet (Từ điển, Trí nhớ AI).
-
-## [1.3.662] - 2026-10-31
-
-### feat: panel Mục lục dùng chung, thẻ gợi ý và bình luận ở Chi tiết
-
-Người dùng: *"Sửa lại UI panel comment và panel suggest cho đồng bộ với UI của chi tiết. Sửa lại UI mục lục tham khảo hình. Sửa lại màn hình comment panel dạng bo góc giống danh sách truyện"*, thêm *"đồng bộ mục lục reader và commic nữa"*, *"Bỏ số trên bìa"*, *"Cho màu chữ mục lục(xx chương) thành trắng luôn"*; duyệt plan + mockup.
-
-- **Panel Mục lục dùng chung** (`Views/Common/ChapterTOCPanel/`, mới): `ChapterTOCPanelHeader` = "Mục lục" 22pt đậm + "(N chương)" 17pt, chữ trắng, nút đảo thứ tự `arrow.up.arrow.down` 17pt nửa đậm khung 36×36 (ô `accessory` đứng trước), dưới là `ChapterTOCSearchField` viên thuốc cao 40 "Tìm kiếm N chương"; `.chapterTOCPanel(_:)` = nền bo 16 hai góc trên, tràn xuống vùng an toàn đáy, lề ngang 16 — đầu panel + ô tìm đứng yên, chỉ danh sách cuộn; `ChapterTOCPalette` `.system` (Chi tiết) / `.reader(theme)` (nền Sáng/Trầm ấm: tiêu đề và chương đang đọc dùng màu chữ của nền vì chữ trắng không đọc được).
-- **Tab Mục lục của Chi tiết** (`BookDetailTOCView`): bỏ hàng "Danh sách chương (N)" + ô tìm `.roundedBorder` cũ, dựng panel trên; "Tải lại lỗi" + la bàn "Mở link lỗi" (`tocErrorActions`) nằm ở đầu panel. Ba nhánh hàng (bản chụp `chapter_store`, `Book.chapters`, mục lục online) dùng chung `BookDetailTOCRow` (mới): chữ `.body` tối đa 2 dòng, vạch ở trên mỗi hàng, đang đọc = đậm + nền mờ bo 8, đã đọc mờ 0.4, đã tải icon xanh. Số chương trên tiêu đề không tính dòng nhóm. Lưới tập video giữ nguyên.
-- **Mục lục Reader** (`ReaderChapterListView`) và **comic** (`ComicChapterListSheet`): header bìa + tên + nguồn + hàng nút giữ nguyên, nhưng nút đảo thứ tự dời xuống đầu panel và bìa bỏ dải số chương (`CoverCaptionStrip`). `List` nền trong suốt trong panel; hàng (`ReaderChapterRowView`, `row(for:)`) nền trong suốt, chương đang đọc nền `currentRowFill`, vạch `listRowSeparatorTint` theo nền đọc. Sửa luôn chữ trắng của chương đang đọc trên nền Sáng/Trầm ấm. Ô tìm cũ của hai màn bị xoá.
-- **Thẻ đề xuất + bình luận** (tab Chi tiết): `BookDetailSectionCard` có thêm ô `trailing` (mặc định trống, ba thẻ cũ không đổi). `SuggestRowView`/`CommentSectionView` nhận `title` và tự bọc thẻ (tiêu đề xanh nhạt như "Giới thiệu"); "Xem thêm ›" dời từ `BookDetailView` vào ô `trailing` của thẻ đề xuất. Bỏ lề ngang lồng và `Divider` giữa các khối, khoảng cách thẻ 12 đều với thẻ phía trên; vạch chỉ nằm giữa hai bình luận; nút "Xem tất cả bình luận" nền `tertiarySystemFill` (nền 5% cũ chìm trên nền thẻ). Khung chờ tải của hai khối có cùng dáng thẻ.
-- **Màn tất cả bình luận** (`AllCommentsView`): mỗi bình luận là panel `.bookListPanelRow()` như kiểu Danh sách truyện, không vạch; hàng chờ trang sau `.bookListPanelRowChrome()`. Cuộn vô cực, kéo làm mới giữ nguyên.
-- Ghi quy ước panel Mục lục vào `CLAUDE.md`/`AGENTS.md`. Chuyển entry `[1.3.632]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý: chạm hàng mục lục trong panel, vạch ngăn `List` ở nền Sáng/Trầm ấm, nút nổi của Chi tiết đè lên panel).

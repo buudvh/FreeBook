@@ -12,6 +12,8 @@ public struct QuickTranslationParsedRule: Sendable {
     public let elements: [QuickTranslationRuleElement]
     /// Số token sinh capture, đánh số theo thứ tự xuất hiện.
     public let captureCount: Int
+    /// Số ô capture matcher phải cấp: `captureCount` ô `{i}` + một ô **ẩn** cho mỗi `<[>` (1.3.692).
+    public let slotCount: Int
 
     public init(
         sourceLine: Int,
@@ -19,7 +21,8 @@ public struct QuickTranslationParsedRule: Sendable {
         pattern: String,
         replacement: String,
         elements: [QuickTranslationRuleElement],
-        captureCount: Int
+        captureCount: Int,
+        slotCount: Int? = nil
     ) {
         self.sourceLine = sourceLine
         self.rawLine = rawLine
@@ -27,5 +30,6 @@ public struct QuickTranslationParsedRule: Sendable {
         self.replacement = replacement
         self.elements = elements
         self.captureCount = captureCount
+        self.slotCount = max(captureCount, slotCount ?? captureCount)
     }
 }

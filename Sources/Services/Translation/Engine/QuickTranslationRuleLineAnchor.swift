@@ -1,13 +1,13 @@
 import Foundation
 
-/// Điều kiện của neo dòng `<^>` / `<$>` (1.3.686) và ranh giới dòng của `<any>`, trên mảng UTF-16 mà
-/// `QuickTranslationRuleMatcher` đang khớp.
+/// Điều kiện của neo dòng `<START>` / `<END>` (1.3.686, cách viết cũ `<^>` / `<$>`) và ranh giới dòng của
+/// `<any>`, trên mảng UTF-16 mà `QuickTranslationRuleMatcher` đang khớp.
 ///
 /// "Dòng" là chuỗi đưa vào dịch: Reader/TTS dịch từng đoạn (đã cắt khoảng trắng), tên chương dịch cả
 /// tên, xuất TXT dịch cả chương nên đầu dòng là sau mỗi `\n`/`\r`.
 ///
-/// **Bỏ qua khoảng trắng**: `<^>` vẫn đúng khi giữa đầu dòng và vị trí hiện tại chỉ có khoảng trắng
-/// (thụt đầu dòng `　　第一章`), `<$>` tương tự ở cuối. Khoảng trắng đó nằm **ngoài** vùng khớp nên giữ
+/// **Bỏ qua khoảng trắng**: `<START>` vẫn đúng khi giữa đầu dòng và vị trí hiện tại chỉ có khoảng trắng
+/// (thụt đầu dòng `　　第一章`), `<END>` tương tự ở cuối. Khoảng trắng đó nằm **ngoài** vùng khớp nên giữ
 /// nguyên trong bản dịch. Mỗi lần kiểm dừng ngay ở ký tự đầu tiên không phải khoảng trắng nên chi phí
 /// chỉ bằng độ dài dải khoảng trắng, kể cả khi dịch cả chương.
 ///
@@ -28,7 +28,7 @@ enum QuickTranslationRuleLineAnchor {
         return spaceScalars.contains(scalar)
     }
 
-    /// `<^>`: từ đầu chuỗi (hoặc ngay sau `\n`/`\r` gần nhất) tới `position` chỉ có khoảng trắng.
+    /// `<START>`: từ đầu chuỗi (hoặc ngay sau `\n`/`\r` gần nhất) tới `position` chỉ có khoảng trắng.
     static func isAtLineStart(_ units: [UInt16], _ position: Int) -> Bool {
         var index = min(position, units.count)
         while index > 0 {
@@ -40,7 +40,7 @@ enum QuickTranslationRuleLineAnchor {
         return true
     }
 
-    /// `<$>`: từ `position` tới cuối chuỗi (hoặc tới `\n`/`\r` kế tiếp) chỉ có khoảng trắng.
+    /// `<END>`: từ `position` tới cuối chuỗi (hoặc tới `\n`/`\r` kế tiếp) chỉ có khoảng trắng.
     static func isAtLineEnd(_ units: [UInt16], _ position: Int) -> Bool {
         var index = max(position, 0)
         while index < units.count {

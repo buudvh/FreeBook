@@ -22,6 +22,8 @@ struct TranslationReadContext: Sendable {
     let disabledRules: QuickTranslationRuleDisableStore.Snapshot
     let tokens: QuickTranslationRuleTokenSettings.Configuration
     let priority: QuickTranslationRulePriorityConfiguration.Configuration
+    /// Bộ ngoặc của token `<[>` / `<]>` (1.3.692): riêng truyện nếu có, không thì bộ chung.
+    let brackets: QuickTranslationRuleBracketSet
 
     var isCurrent: Bool {
         generation == TranslateUtils.translationGenerationToken(for: bookId)
@@ -49,7 +51,8 @@ struct TranslationReadContext: Sendable {
                 chapterRules: QuickTranslationRuleChapterStore.shared.currentSnapshot,
                 disabledRules: QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId),
                 tokens: QuickTranslationBookEngineConfigStore.shared.tokenConfiguration(bookId: bookId),
-                priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId)
+                priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId),
+                brackets: QuickTranslationRuleBracketStore.shared.bracketSet(bookId: bookId)
             )
             if context.isCurrent { return context }
         }

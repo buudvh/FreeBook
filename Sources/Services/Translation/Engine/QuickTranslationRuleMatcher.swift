@@ -12,8 +12,8 @@ public final class QuickTranslationRuleMatcher {
     /// Một capture đã khớp: chuỗi **đã render** cộng range **nguồn** đã bị token nuốt.
     ///
     /// Vì sao gộp text và range vào **một** struct thay vì hai mảng song song: backtracking rollback
-    /// bằng mẫu `let saved = captures` … `captures = saved` ở **5** chỗ trong file này; hai mảng chỉ
-    /// cần quên một chỗ là range lệch âm thầm mà không có gì báo lỗi.
+    /// bằng mẫu `let saved = captures` … `captures = saved` ở mọi chỗ thử lùi (kể cả `<[>` ở
+    /// `QuickTranslationRuleMatcher+Bracket.swift`); hai mảng chỉ cần quên một chỗ là range lệch âm thầm.
     public struct Capture: Sendable {
         public let text: String
         /// `nil` khi token optional vắng mặt — không có ký tự nguồn nào bị nuốt.
@@ -40,7 +40,8 @@ public final class QuickTranslationRuleMatcher {
         public var captureTexts: [String] { captures.map(\.text) }
     }
 
-    private struct Frame {
+    /// `internal` (không `private`) cho `QuickTranslationRuleMatcher+Bracket.swift`.
+    struct Frame {
         let elements: [QuickTranslationRuleElement]
         let index: Int
     }
@@ -50,12 +51,15 @@ public final class QuickTranslationRuleMatcher {
     /// chạm với dữ liệu hiện có; nó chỉ để một rule bệnh lý không treo Reader.
     private static let stepCap = 4_000
 
-    private let units: [UInt16]
-    private let text: NSString
+    let units: [UInt16]
+    let text: NSString
     private let dictionaries: QuickTranslationDictionaryToken
     private let bookNameOccupiedIndices: Set<Int>
+    /// Bộ ngoặc của `<[>`/`<]>` cho lượt dịch này (1.3.692) — bản chụp bất biến, không đọc store theo vị trí.
+    let brackets: QuickTranslationRuleBracketSet
 
-    private var captures: [Capture] = []
+    /// `rule.slotCount` ô: các ô `{i}` rồi tới ô **ẩn** của từng `<[>` (ký tự mở đã bắt).
+    var captures: [Capture] = []
     private var steps = 0
     /// Rule vừa thử có chạm cap hay không — engine dùng để ghi cảnh báo `RULE_TOO_COMPLEX`.
     public private(set) var didExceedStepCap = false
@@ -63,12 +67,14 @@ public final class QuickTranslationRuleMatcher {
     public init(
         text: String,
         dictionaries: QuickTranslationDictionaryToken,
-        bookNameOccupiedIndices: Set<Int> = []
+        bookNameOccupiedIndices: Set<Int> = [],
+        brackets: QuickTranslationRuleBracketSet = .defaults
     ) {
         self.units = Array(text.utf16)
         self.text = text as NSString
         self.dictionaries = dictionaries
         self.bookNameOccupiedIndices = bookNameOccupiedIndices
+        self.brackets = brackets
     }
 
     public var length: Int { units.count }
@@ -79,18 +85,20 @@ public final class QuickTranslationRuleMatcher {
         guard start >= 0, start <= units.count else { return nil }
         captures = Array(
             repeating: Capture(text: "", sourceRange: nil),
-            count: rule.captureCount
+            count: max(rule.captureCount, rule.slotCount)
         )
         steps = 0
         didExceedStepCap = false
 
         guard let end = walk([Frame(elements: rule.elements, index: 0)], start) else { return nil }
-        return Match(start: start, length: end - start, captures: captures)
+        // Chỉ trả các ô `{i}`: ô ẩn của ngoặc không được ra bản dịch, chẩn đoán hay kiểm Name riêng.
+        let visible = captures.count > rule.captureCount ? Array(captures.prefix(rule.captureCount)) : captures
+        return Match(start: start, length: end - start, captures: visible)
     }
 
     // MARK: - AST walk
 
-    private func walk(_ stack: [Frame], _ position: Int) -> Int? {
+    func walk(_ stack: [Frame], _ position: Int) -> Int? {
         if Task.isCancelled { return nil }
         steps += 1
         if steps > Self.stepCap {
@@ -159,6 +167,12 @@ public final class QuickTranslationRuleMatcher {
         case .lineEnd:
             guard QuickTranslationRuleLineAnchor.isAtLineEnd(units, position) else { return nil }
             return walk(advanced, position)
+
+        case .openBracket:
+            return walkOpenBracket(element, advanced, position)
+
+        case .closeBracket:
+            return walkCloseBracket(element, advanced, position)
         }
     }
 
@@ -298,7 +312,8 @@ public final class QuickTranslationRuleMatcher {
     ///   coi là một vùng — không cắt được ở khe giữa hai Name (thận trọng, không sinh match bị engine bỏ).
     ///
     /// Hiệu năng: nếu phần tử **ngay sau** `<any>` trong cùng dãy là chữ cố định, chỉ những độ dài để lại
-    /// đúng chữ đó ở ngay sau mới được thử — không đi bộ cả 50–100 độ dài cho mỗi vị trí.
+    /// đúng chữ đó ở ngay sau mới được thử — không đi bộ cả 50–100 độ dài cho mỗi vị trí. Token ngoặc ngay
+    /// sau (1.3.692) cũng vậy: chỉ thử độ dài mà ký tự kế tiếp là ngoặc hợp lệ cho token đó.
     private func walkAnyRun(
         _ element: QuickTranslationRuleElement,
         _ advanced: [Frame],
@@ -315,6 +330,7 @@ public final class QuickTranslationRuleMatcher {
         }
 
         let nextLiteral = followingLiteral(in: advanced)
+        let nextBracketUnits = followingBracketUnits(in: advanced)
         let saved = captures
         var candidate = run
         while candidate >= element.minLength {
@@ -322,6 +338,7 @@ public final class QuickTranslationRuleMatcher {
             candidate -= 1
             if splitsSurrogatePair(at: end) || isInsideBookName(at: end) { continue }
             if let nextLiteral, !hasLiteral(nextLiteral, at: end) { continue }
+            if let nextBracketUnits, !(end < units.count && nextBracketUnits.contains(units[end])) { continue }
             let range = NSRange(location: position, length: end - position)
             store(text.substring(with: range), sourceRange: range, for: element, allowsEnclosedNames: true)
             if let matchEnd = walk(advanced, end) { return matchEnd }
@@ -329,22 +346,6 @@ public final class QuickTranslationRuleMatcher {
         }
 
         return skipOptional(element, advanced, position)
-    }
-
-    /// Chữ cố định (không optional) đứng **ngay sau** phần tử đang xét trong cùng dãy; `nil` nếu không có.
-    private func followingLiteral(in advanced: [Frame]) -> [UInt16]? {
-        guard let frame = advanced.last, frame.index < frame.elements.count else { return nil }
-        let next = frame.elements[frame.index]
-        guard !next.isOptional, case .literal(let literal) = next.kind, !literal.isEmpty else { return nil }
-        return literal
-    }
-
-    private func hasLiteral(_ literal: [UInt16], at index: Int) -> Bool {
-        guard index + literal.count <= units.count else { return false }
-        for offset in literal.indices where units[index + offset] != literal[offset] {
-            return false
-        }
-        return true
     }
 
     /// `true` khi `index` rơi **giữa** một vùng Name riêng (cả ký tự trước lẫn ký tự tại `index` đều bị
@@ -362,7 +363,7 @@ public final class QuickTranslationRuleMatcher {
 
     /// Token optional vắng mặt ⇒ capture rỗng, `{i}` render chuỗi rỗng; `sourceRange` là `nil` vì
     /// không có ký tự nguồn nào bị nuốt.
-    private func skipOptional(
+    func skipOptional(
         _ element: QuickTranslationRuleElement,
         _ advanced: [Frame],
         _ position: Int
@@ -372,7 +373,7 @@ public final class QuickTranslationRuleMatcher {
         return walk(advanced, position)
     }
 
-    private func store(
+    func store(
         _ value: String,
         sourceRange: NSRange?,
         for element: QuickTranslationRuleElement,

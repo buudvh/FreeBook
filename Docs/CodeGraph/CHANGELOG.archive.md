@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.662] - 2026-10-31
+
+### feat: panel Mục lục dùng chung, thẻ gợi ý và bình luận ở Chi tiết
+
+Người dùng: *"Sửa lại UI panel comment và panel suggest cho đồng bộ với UI của chi tiết. Sửa lại UI mục lục tham khảo hình. Sửa lại màn hình comment panel dạng bo góc giống danh sách truyện"*, thêm *"đồng bộ mục lục reader và commic nữa"*, *"Bỏ số trên bìa"*, *"Cho màu chữ mục lục(xx chương) thành trắng luôn"*; duyệt plan + mockup.
+
+- **Panel Mục lục dùng chung** (`Views/Common/ChapterTOCPanel/`, mới): `ChapterTOCPanelHeader` = "Mục lục" 22pt đậm + "(N chương)" 17pt, chữ trắng, nút đảo thứ tự `arrow.up.arrow.down` 17pt nửa đậm khung 36×36 (ô `accessory` đứng trước), dưới là `ChapterTOCSearchField` viên thuốc cao 40 "Tìm kiếm N chương"; `.chapterTOCPanel(_:)` = nền bo 16 hai góc trên, tràn xuống vùng an toàn đáy, lề ngang 16 — đầu panel + ô tìm đứng yên, chỉ danh sách cuộn; `ChapterTOCPalette` `.system` (Chi tiết) / `.reader(theme)` (nền Sáng/Trầm ấm: tiêu đề và chương đang đọc dùng màu chữ của nền vì chữ trắng không đọc được).
+- **Tab Mục lục của Chi tiết** (`BookDetailTOCView`): bỏ hàng "Danh sách chương (N)" + ô tìm `.roundedBorder` cũ, dựng panel trên; "Tải lại lỗi" + la bàn "Mở link lỗi" (`tocErrorActions`) nằm ở đầu panel. Ba nhánh hàng (bản chụp `chapter_store`, `Book.chapters`, mục lục online) dùng chung `BookDetailTOCRow` (mới): chữ `.body` tối đa 2 dòng, vạch ở trên mỗi hàng, đang đọc = đậm + nền mờ bo 8, đã đọc mờ 0.4, đã tải icon xanh. Số chương trên tiêu đề không tính dòng nhóm. Lưới tập video giữ nguyên.
+- **Mục lục Reader** (`ReaderChapterListView`) và **comic** (`ComicChapterListSheet`): header bìa + tên + nguồn + hàng nút giữ nguyên, nhưng nút đảo thứ tự dời xuống đầu panel và bìa bỏ dải số chương (`CoverCaptionStrip`). `List` nền trong suốt trong panel; hàng (`ReaderChapterRowView`, `row(for:)`) nền trong suốt, chương đang đọc nền `currentRowFill`, vạch `listRowSeparatorTint` theo nền đọc. Sửa luôn chữ trắng của chương đang đọc trên nền Sáng/Trầm ấm. Ô tìm cũ của hai màn bị xoá.
+- **Thẻ đề xuất + bình luận** (tab Chi tiết): `BookDetailSectionCard` có thêm ô `trailing` (mặc định trống, ba thẻ cũ không đổi). `SuggestRowView`/`CommentSectionView` nhận `title` và tự bọc thẻ (tiêu đề xanh nhạt như "Giới thiệu"); "Xem thêm ›" dời từ `BookDetailView` vào ô `trailing` của thẻ đề xuất. Bỏ lề ngang lồng và `Divider` giữa các khối, khoảng cách thẻ 12 đều với thẻ phía trên; vạch chỉ nằm giữa hai bình luận; nút "Xem tất cả bình luận" nền `tertiarySystemFill` (nền 5% cũ chìm trên nền thẻ). Khung chờ tải của hai khối có cùng dáng thẻ.
+- **Màn tất cả bình luận** (`AllCommentsView`): mỗi bình luận là panel `.bookListPanelRow()` như kiểu Danh sách truyện, không vạch; hàng chờ trang sau `.bookListPanelRowChrome()`. Cuộn vô cực, kéo làm mới giữ nguyên.
+- Ghi quy ước panel Mục lục vào `CLAUDE.md`/`AGENTS.md`. Chuyển entry `[1.3.632]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; `check_architecture.py` 2 violation nền, **0 mới**. CI là cổng biên dịch; chưa thử trên máy (để ý: chạm hàng mục lục trong panel, vạch ngăn `List` ở nền Sáng/Trầm ấm, nút nổi của Chi tiết đè lên panel).
+
 ## [1.3.661] - 2026-10-31
 
 ### feat: nhớ độ sáng khi xem phim, đổi tab về trang gốc

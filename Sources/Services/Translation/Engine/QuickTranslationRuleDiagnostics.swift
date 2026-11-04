@@ -38,7 +38,8 @@ public enum QuickTranslationRuleDiagnostics {
         let matcher = QuickTranslationRuleMatcher(
             text: text,
             dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId),
-            bookNameOccupiedIndices: bookNameOccupiedIndices
+            bookNameOccupiedIndices: bookNameOccupiedIndices,
+            brackets: context.brackets
         )
 
         // Cùng thứ tự riêng → tên chương → chung như engine; rank lấy từ `QuickTranslationRuleScope`.

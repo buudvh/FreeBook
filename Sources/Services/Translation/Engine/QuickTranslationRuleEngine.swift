@@ -24,7 +24,6 @@ public enum QuickTranslationRuleEngine {
         case ignoreTokenConfiguration
     }
 
-
     /// `internal` chứ không `private`: `QuickTranslationRuleDiagnostics` phải dùng **đúng** hàm
     /// `select` này, không được cài lại 6 tiêu chí ưu tiên ở chỗ thứ hai.
     struct Found {
@@ -158,7 +157,8 @@ public enum QuickTranslationRuleEngine {
         let matcher = QuickTranslationRuleMatcher(
             text: text,
             dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId),
-            bookNameOccupiedIndices: bookNameOccupiedIndices
+            bookNameOccupiedIndices: bookNameOccupiedIndices,
+            brackets: TranslationReadContext.current?.brackets ?? QuickTranslationRuleBracketStore.shared.bracketSet(bookId: bookId)
         )
         let disable = TranslationReadContext.current?.disabledRules ?? QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
 
