@@ -153,9 +153,15 @@ extension LegadoJSRuntime {
 
     // MARK: - Handle phần tử
 
+    /// Handle của một node; cùng node SwiftSoup ⇒ cùng handle (để `===`, `contains`, `indexOf` của JS đúng, spec §6.8).
+    /// Handle sống tới khi runtime giải phóng (không bao giờ dọn giữa chừng), cùng tuổi với cache wrapper bên JS.
     func register(_ element: Element) -> Int {
+        let key = ObjectIdentifier(element)
+        if let handle = elementHandleIndex[key] { return handle }
         elementHandles.append(element)
-        return elementHandles.count - 1
+        let handle = elementHandles.count - 1
+        elementHandleIndex[key] = handle
+        return handle
     }
 
     func element(handle: Int) -> Element? {

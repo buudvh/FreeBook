@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.664] - 2026-10-31
+
+### feat: CryptoJS dựng sẵn cho load('crypto.js') của tiện ích
+
+Lệch hợp đồng phát hiện khi viết tiện ích ciyuanji (giải mã DES): hợp đồng chuẩn (mục "Crypto") nói `load('crypto.js')` nạp CryptoJS dựng sẵn, nhưng FreeBook chỉ tìm file trong tiện ích — không có thì bỏ qua im lặng, script chết với `CryptoJS is not defined`. Người dùng duyệt plan, chọn **file của tiện ích thắng** (khác hợp đồng), CryptoJS 4.2.0, GCM + PBKDF2 native.
+
+- **Thư viện đóng gói** `Sources/Resources/ExtensionLibraries/crypto-js-4.2.0.min.js` = `crypto-js.min.js` 4.2.0 của cdnjs (khớp SRI, giữ nguyên byte qua `.gitattributes`); giấy phép MIT ở `Docs/ThirdParty/CryptoJS-LICENSE.txt`. `project.yml` khai tường minh thư mục này là resource (loại khỏi mục `Sources` chung).
+- **`JSBuiltInLibrary`** (mới, `Engine/`): tên thư viện dựng sẵn (`crypto.js`) + nguồn đọc từ bundle một lần; thiếu resource ⇒ log ❌. Dùng chung cho `load` và hai bộ kiểm tra tĩnh.
+- **`load('crypto.js')`** (`JSExecutor+Load`): file `crypto.js` của tiện ích (gốc rồi `src/`) chạy như cũ; không có ⇒ chạy bản dựng sẵn, một lần mỗi executor (cả `load` lúc runtime). Chạy được cả khi executor không gắn tiện ích.
+- **Phần native** (`JSCryptoJSBridge` mới ở `Bridges/`, JS ở `Bootstrap/JSCryptoJSBootstrapScript`), cài cho mọi executor bằng một dòng trong `JSExecutor`: `crypto.getRandomValues` toàn cục (JSC không có ⇒ CryptoJS 4.x không sinh được salt khi mã hoá bằng passphrase). Sau mỗi lần nạp `crypto.js` (bản nào cũng vậy) gắn thêm: `WordArray.random` lấy byte native (bản 4.1 tiện ích đang mang không dò `globalThis.crypto`); `AES.encryptGcm/decryptGcm` theo hợp đồng qua CryptoKit (khoá hex 32/48/64 hoặc passphrase đệm 0/cắt 16/24/32, IV rỗng = 12 byte 0, IV < 12 byte ⇒ lỗi, thẻ sai ⇒ WordArray rỗng như hành vi iOS; WordArray có byte ≥ 0x80 dùng byte thô thay vì hỏng như app gốc); `PBKDF2` với hasher SHA1/224/256/384/512 qua `CCKeyDerivationPBKDF` (250 000 vòng mặc định của 4.2.0 chạy JS thuần trong JSC không JIT mất hàng chục giây), hasher khác giữ bản JS. Đoạn JS bổ sung bỏ qua `CryptoJS` không đúng dạng và không bao giờ ném lỗi ra ngoài.
+- **Bộ kiểm tra tiện ích** (`ExtensionScriptStaticCheck`) và **validator nháp của server debug** (`ExtensionDraftValidator`) không còn báo `load("crypto.js")` thiếu file (trước đây server debug chặn chạy nháp).
+- **Tương thích**: ciyuanji, qidian-vp tự mang cùng bản CryptoJS 4.0/4.1 ⇒ vẫn chạy bản của mình (được gắn thêm `WordArray.random` native, GCM, PBKDF2 native; kết quả các hàm sẵn có không đổi). Bản dựng sẵn 4.2.0 chỉ khác 4.1 ở mặc định PBKDF2 (SHA256/250 000 thay SHA1/1). `Crypto.md5/sha*/hmac*` giữ nguyên.
+- Ghi vào `rules.md` (global JS) và `CLAUDE.md`/`AGENTS.md` (đoạn `load()`). Chuyển entry `[1.3.634]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code; JS bổ sung chạy thử bằng node trên context không có `crypto`/`require` với native giả lập (28/28 đạt: DES-ECB 4.1 → 4.2.0, AES passphrase khứ hồi trên cả hai bản, PBKDF2 native = JS, GCM khớp node, thẻ sai ⇒ rỗng); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); phần Swift (CryptoKit/CommonCrypto, resource trong bundle) chỉ CI chứng minh biên dịch + đóng gói; chưa thử trên máy.
+
 ## [1.3.663] - 2026-10-31
 
 ### fix: mọi nút sao chép cạnh ô nhập báo toast Đã sao chép

@@ -49,6 +49,15 @@ extension LegadoJSRuntime {
             guard let index = arguments.int(1), index >= 0, index < children.size() else { return "-1" }
             return String(register(children.get(index)))
         case "el.parent": return handle(element.parent())
+        case "el.parents": return handles(ancestors(of: element))
+        case "el.all": return handles((try? element.getAllElements().array()) ?? [])
+        case "el.attrs": return attributePairs(of: element)
+        case "el.before":
+            _ = try? element.before(text(of: arguments[1]))
+            return ""
+        case "el.after":
+            _ = try? element.after(text(of: arguments[1]))
+            return ""
         case "el.next": return handle((try? element.nextElementSibling()) ?? nil)
         case "el.prev": return handle((try? element.previousElementSibling()) ?? nil)
         case "el.byId": return handle((try? element.getElementById(text(of: arguments[1]))) ?? nil)
@@ -63,6 +72,28 @@ extension LegadoJSRuntime {
         default:
             return nil
         }
+    }
+
+    /// Cha, ông… gần nhất trước, tới `<html>`; không gồm Document (như jsoup `parents()`).
+    private func ancestors(of element: Element) -> [Element] {
+        var output: [Element] = []
+        var current = element.parent()
+        while let parent = current, !(parent is Document) {
+            output.append(parent)
+            current = parent.parent()
+        }
+        return output
+    }
+
+    /// Thuộc tính của phần tử theo thứ tự trong tài liệu: `[[khoá, giá trị], …]`.
+    private func attributePairs(of element: Element) -> String {
+        var pairs: [LegadoEngineJSON] = []
+        if let attributes = element.getAttributes() {
+            for attribute in attributes {
+                pairs.append(.strings([attribute.getKey(), attribute.getValue()]))
+            }
+        }
+        return LegadoEngineJSON.array(pairs).compactText
     }
 
     private func handle(_ element: Element?) -> String {

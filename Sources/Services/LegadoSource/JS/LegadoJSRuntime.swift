@@ -13,6 +13,9 @@ final class LegadoJSRuntime {
     weak var session: LegadoEngineSession?
     let context: JSContext
     var elementHandles: [Element] = []
+    /// Handle của từng node đã đăng ký (`register`): cùng node ⇒ cùng handle. An toàn vì `elementHandles` giữ mạnh mọi node
+    /// nên `ObjectIdentifier` không bị tái dùng; ai cắt bớt `elementHandles` thì phải cắt cả bảng này.
+    var elementHandleIndex: [ObjectIdentifier: Int] = [:]
     /// Font đã nạp bằng `java.queryTTF`/`queryBase64TTF` (JS giữ chỉ số), giải phóng cùng runtime.
     var fontHandles: [LegadoFont] = []
     private var capturedError: String?

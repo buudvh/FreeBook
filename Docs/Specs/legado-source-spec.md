@@ -1380,9 +1380,26 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
   `[đề xuất]` thêm polyfill vô hại `String.prototype.contains/equals/isEmpty/getBytes`; không đổi `replaceAll`; chấp nhận `.length()` lỗi.
 - **Mảng byte**: `Uint8Array` `[đề xuất]`. Mã kiểu `b[p] & 0xff`, `bytes.length`, `Array.from(bytes)` vẫn chạy.
 - **Map Java** (`getLoginInfoMap()`, `headers()` của phản hồi): object JS có thêm phương thức `get(k)` và `put(k, v)` `[đề xuất]`.
+  FreeBook còn có `containsKey`, `remove`, `keySet`, `values`, `size`, `isEmpty` và `entrySet()` = danh sách entry
+  `getKey()`, `getValue()`, `setValue(v)` (ghi ngược map), `toString()` = `k=v`, nên `cookies().entrySet().toArray().join("; ")`
+  cho ra chuỗi cookie (刺猬猫), `entrySet().iterator()` duyệt được (微信读书).
 - **Danh sách Java** (`ajaxAll`, `getElements`): object giống mảng có `size()`, `get(i)`, `toArray()`, `length`, chỉ số `[i]`,
   `forEach`, và lặp được (`Array.from`, `for…of`) `[đề xuất]`; `[quan sát]` `.size()` 561 lần/51 nguồn, `.get(i)` 267 lần,
   `.toArray()` 107 lần/76 nguồn.
+  - FreeBook: là **mảng JS thật**, phương thức gắn ẩn (không enumerable) nên `for (i in ds)` chỉ thấy chỉ số (看书网).
+  - Ngữ nghĩa Java `List`: `add(x)` (trả `true`), `add(i, x)`, `addAll(ds)`/`addAll(i, ds)` (trả "có đổi"), `set(i, v)` (trả
+    giá trị cũ), `clear()`, `contains(x)`, `iterator()` (`hasNext`/`next`/`remove`), `remove(số)` = bỏ phần tử ở chỉ số
+    đó, trả phần tử; `remove(đối tượng)` = bỏ lần xuất hiện đầu, trả `true`/`false`; `remove()` không đối số = `Elements.remove()`
+    (§6.8). Chỉ số ngoài khoảng ở `remove`/`set`/`add(i, …)` ⇒ ném `RangeError`; `get(i)` ngoài khoảng ⇒ `null`.
+    jsoup ≥1.17.1 còn gỡ cả khỏi DOM; FreeBook cố ý chỉ bỏ khỏi danh sách (言情小说吧).
+  - `subList(a, b)` là **bản sao** `[a, b)`; chỉ `clear()` ghi ngược (bỏ đoạn đó khỏi danh sách gốc), đúng mẫu duy nhất của
+    corpus `src.subList(1,i).clear()` (9 nguồn). Sửa khác trên bản sao không ảnh hưởng danh sách gốc. Danh sách gốc đổi sau
+    khi tạo `subList` (độ dài hoặc phần tử trong đoạn khác đi) ⇒ `clear()` ném lỗi bắt đầu bằng
+    `ConcurrentModificationException`, như Java, thay vì bỏ nhầm đoạn.
+  - So sánh (`contains`, `indexOf`, `remove(đối tượng)`) theo `===`: phần tử HTML dùng được nhờ định danh ổn định (§6.8).
+  - `toString()`: danh sách mà mọi phần tử là Element ⇒ `outerHtml` nối bằng `\n` (như jsoup, để `Jsoup.parse(ds)` đúng);
+    danh sách khác giữ kiểu mảng JS (`a,b`), không theo `[a, b]` của Java. Giá trị rule trả về xuất qua mảng, không qua
+    `toString`, nên không đổi.
 
 ### §6.4 `java.*`: đợt 1
 
@@ -1490,6 +1507,14 @@ Thuộc tính theo `jsHelp.md` `[tài liệu]`. Đọc được qua cả `x` và
   đợt 2; đợt 1 cho ghi vào bản sao trong ngữ cảnh, **không** lưu xuống sách `[đề xuất]`.
 - `chapter` đợt 1: `title` (103/89), `index` (36/27), `url` (22/12), `baseUrl`, `bookUrl`, `tag`, `isVip`, `isVolume`, `isPay`,
   `variable`; `putVariable`/`getVariable` (19/10) `[tài liệu]` + `[quan sát]`. `resourceUrl`, `start`, `end`: không cần.
+- Cờ `isVip`/`isVolume`/`isPay` theo kiểu bean Kotlin `[quan sát]` (起点限免 `if(chapter.isVip()){…}`):
+  - `chapter.isVip()` là **method** trả boolean; gán `chapter.isVip = v` vẫn ghi trường.
+  - Thuộc tính bean `vip`/`volume`/`pay` đọc/ghi được, setter `setVip`/`setVolume`/`setPay`; `getIsVip()`/`setIsVip(v)` vẫn
+    có và đọc/ghi **giá trị** trường.
+  - Hệ quả, giống ứng dụng gốc: `if (chapter.isVip)` (quên `()`) luôn đúng; `JSON.stringify(chapter)` có `vip`, không có
+    `isVip`.
+  - Swift không đọc ngược đối tượng JS: đọc đi qua ngữ cảnh chương của phiên, ghi chỉ được ghi nhận (không lưu bền), nên
+    đổi này không ảnh hưởng luồng mục lục/nội dung.
 - Tên lạ dạng `book.qq`, `book.sfacg`, `book.midukanshu` là **tên miền** (`book.qq.com`) trong chuỗi, không phải thành viên.
 
 ### §6.7 `cookie.*` và `cache.*`
@@ -1523,9 +1548,31 @@ Tài liệu ghi `cache` lưu vào CSDL và tệp đệm (50 MB) `[tài liệu js
     `attr(k, v)`, `hasAttr(k)`, `absUrl(k)`, `hasClass(c)`, `id()`, `className()`, `tagName()`, `children()`, `child(i)`, `parent()`,
     `nextElementSibling()`, `previousElementSibling()`, `getElementById(id)`, `getElementsByTag(t)`, `getElementsByClass(c)`,
     `remove()`, `body()`, `head()`, `title()`, `toString()` (= `outerHtml()`).
+  - Element, thêm (FreeBook, theo API công khai của jsoup; mẫu corpus trong ngoặc):
+    - `parents()`: cha, ông… gần nhất trước, tới `<html>`, không gồm Document (言情小说吧 `parents().contains(c)`).
+    - `getAllElements()`: chính nó cùng mọi con cháu theo thứ tự tài liệu; gọi trên Document thì phần tử đầu là chính
+      Document (白鹿书院 `getAllElements().indexOf(el)`).
+    - `attributes()`: danh sách Attribute theo thứ tự tài liệu (深夜看书 `Array.from(el.attributes())[i].toString()`).
+      - Mỗi Attribute có `getKey()`, `getValue()`, `key`, `value`, và `html()`/`toString()` = `key="value"`, với `&` → `&amp;`
+        và `"` → `&quot;` trong `value`.
+      - Bản thân danh sách có `size()`, `get(số)` (theo chỉ số), `get(tên)` (giá trị, thiếu ⇒ `""`), `hasKey(tên)`,
+        `asList()`, `html()`/`toString()` = ` k="v" k2="v2"`; `Array.from`/`for…of` duyệt được.
+      - Là bản chụp: sửa thuộc tính sau đó không cập nhật danh sách đã lấy.
+    - `before(html)` / `after(html)`: chèn HTML làm anh/em đứng trước/sau, trả chính phần tử (哔哩哔哩
+      `e.before(...)`). Đối số được đổi thành chuỗi, nên truyền một phần tử thì chèn bản sao `outerHtml` (jsoup dời node).
+    - `equals(o)`: theo định danh.
+  - **Định danh**: cùng một node ⇒ cùng handle (runtime giữ bảng node → handle) và cùng một đối tượng JS (shim giữ một
+    wrapper mỗi handle). Nhờ đó `===`, `contains`, `indexOf`, `remove(đối tượng)` của danh sách đúng. Handle và wrapper sống
+    tới khi runtime của phiên giải phóng; không có lượt dọn giữa chừng.
   - Elements: `size()`, `get(i)`, `first()`, `last()`, `isEmpty()`, `text()` (nối bằng dấu cách như jsoup), `html()`, `outerHtml()`,
     `attr(k)` (của phần tử đầu có thuộc tính), `eachText()`, `eachAttr(k)`, `select(css)`, `remove()`, `toArray()` (mảng JS),
-    `forEach(fn)`, `length`, chỉ số `[i]`, lặp được.
+    `forEach(fn)`, `length`, chỉ số `[i]`, lặp được. Thêm:
+    - `remove()` không đối số gỡ mọi phần tử khỏi DOM và trả chính danh sách; `remove(số)`/`remove(đối tượng)` chỉ bỏ khỏi
+      danh sách (ngữ nghĩa `List`, §6.3).
+    - `eq(i)` = danh sách chỉ gồm phần tử thứ i, ngoài khoảng ⇒ rỗng (看书网 `select(".row").eq(2)`).
+    - `parents()` = gộp tổ tiên của mọi phần tử, bỏ trùng theo định danh, giữ thứ tự gặp.
+    - `toString()` = `outerHtml()` (nối bằng `\n`), nên `Jsoup.parse(elements)` và `String(elements)` đúng như jsoup.
+    - Mọi phương thức `List` của §6.3 (`subList`, `set`, `addAll`, `clear`…).
   - Phần tử từ `java.getElements` và từ `result` của rule danh sách dùng **cùng** shim.
 
 ### §6.9 `Packages`, `JavaImporter`, `java.lang`/`java.util`/…

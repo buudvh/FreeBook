@@ -3,13 +3,49 @@ import Foundation
 extension LegadoJSBootstrap {
     /// Shim `org.jsoup` trên SwiftSoup (spec §6.8). Phần tử là đối tượng JS giữ handle số nguyên (registry của runtime);
     /// danh sách phần tử là mảng JS có thêm phương thức kiểu `Elements` (`size`, `get`, `text`, `select`…).
+    ///
+    /// Định danh: runtime trả cùng handle cho cùng node, và `wrap` giữ **một** wrapper mỗi handle ⇒ cùng node là cùng đối
+    /// tượng JS (`===`, `contains`, `indexOf`, `remove(obj)` đúng). Handle không bao giờ bị dọn giữa chừng nên cache
+    /// không cần làm mới; nó sống cùng `JSContext` của runtime.
     static let jsoup = #"""
         (function (g) {
           var L = g.__lg, call = L.call, callJSON = L.callJSON;
+          var wrappers = [];
           function JsoupElement(id) { L.defineHidden(this, '__lgEl', id); }
-          function wrap(id) { return (id === null || id === undefined || id < 0) ? null : new JsoupElement(id); }
-          function wrapList(ids) { return L.list((ids || []).map(function (id) { return new JsoupElement(id); })); }
+          function wrap(id) {
+            if (id === null || id === undefined || id < 0) { return null; }
+            return wrappers[id] || (wrappers[id] = new JsoupElement(id));
+          }
+          function wrapList(ids) { return L.list((ids || []).map(wrap)); }
           function idOf(el) { return el.__lgEl; }
+          function htmlArg(h) { return h === undefined || h === null ? '' : String(h); }
+          // `Attribute` của jsoup: `getKey()`, `getValue()`, `html()`/`toString()` = `key="value"` (`&`, `"` được escape).
+          function JsoupAttribute(key, value) { this.key = key; this.value = value; }
+          var A = JsoupAttribute.prototype;
+          A.getKey = function () { return this.key; };
+          A.getValue = function () { return this.value; };
+          A.html = function () { return this.key + '="' + String(this.value).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"'; };
+          A.toString = A.html;
+          // `Attributes`: danh sách Attribute (`size()`, `get(số)`, `Array.from`, `for…of`) thêm `get(tên)` (giá trị, thiếu ⇒
+          // `""`), `hasKey(tên)`, `asList()`, `html()`/`toString()` = ` k="v" k2="v2"`.
+          function findAttribute(list, key) {
+            for (var i = 0; i < list.length; i++) { if (list[i].key === String(key)) { return list[i]; } }
+            return null;
+          }
+          function attributeList(pairs) {
+            var list = L.list((pairs || []).map(function (p) { return new JsoupAttribute(String(p[0]), String(p[1])); }));
+            var byIndex = list.get;
+            L.defineHidden(list, 'get', function (k) {
+              if (typeof k === 'number' || k instanceof Number) { return byIndex.call(this, k); }
+              var found = findAttribute(this, k);
+              return found ? found.value : '';
+            });
+            L.defineHidden(list, 'hasKey', function (k) { return findAttribute(this, k) !== null; });
+            L.defineHidden(list, 'asList', function () { return L.list(Array.prototype.slice.call(this)); });
+            L.defineHidden(list, 'html', function () { return this.map(function (a) { return ' ' + a.html(); }).join(''); });
+            L.defineHidden(list, 'toString', function () { return this.html(); });
+            return list;
+          }
           var P = JsoupElement.prototype;
           P.select = function (css) { return wrapList(callJSON('el.select', [idOf(this), String(css)])); };
           P.selectFirst = function (css) { var l = this.select(css); return l.length ? l[0] : null; };
@@ -34,6 +70,16 @@ extension LegadoJSBootstrap {
           P.children = function () { return wrapList(callJSON('el.children', [idOf(this)])); };
           P.child = function (i) { return wrap(callJSON('el.child', [idOf(this), Number(i)])); };
           P.parent = function () { return wrap(callJSON('el.parent', [idOf(this)])); };
+          // Cha, ông… gần nhất trước, tới `<html>` (không gồm Document).
+          P.parents = function () { return wrapList(callJSON('el.parents', [idOf(this)])); };
+          // Chính nó cùng mọi con cháu, theo thứ tự tài liệu.
+          P.getAllElements = function () { return wrapList(callJSON('el.all', [idOf(this)])); };
+          P.attributes = function () { return attributeList(callJSON('el.attrs', [idOf(this)])); };
+          // Chèn HTML làm anh/em đứng trước/sau phần tử; trả chính nó. Đối số đổi thành chuỗi (phần tử ⇒ chèn bản sao
+          // `outerHtml`, không dời node như `before(Node)` của jsoup).
+          P.before = function (html) { call('el.before', [idOf(this), htmlArg(html)]); return this; };
+          P.after = function (html) { call('el.after', [idOf(this), htmlArg(html)]); return this; };
+          P.equals = function (o) { return o !== null && o !== undefined && o.__lgEl === this.__lgEl; };
           P.nextElementSibling = function () { return wrap(callJSON('el.next', [idOf(this)])); };
           P.previousElementSibling = function () { return wrap(callJSON('el.prev', [idOf(this)])); };
           P.getElementById = function (id) { return wrap(callJSON('el.byId', [idOf(this), String(id)])); };

@@ -2,6 +2,52 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.694] - 2026-11-04
+
+### fix: đối tượng Java của nguồn Legado có đủ method List, Element, Map, chapter
+
+Người dùng: *"làm plan: … 2. Method sai hoặc thiếu trên đối tượng Java"*; duyệt plan (*"Duyệt, làm đi"*). Khoảng 30 nguồn trong 3.339 nguồn đã quét gọi method thiếu, hoặc method chạy sai ngữ nghĩa Java.
+
+- **Định danh phần tử:**
+  - `LegadoJSRuntime.register` trả cùng handle cho cùng node SwiftSoup, qua bảng mới `elementHandleIndex: [ObjectIdentifier: Int]`. Bảng an toàn vì `elementHandles` giữ mạnh mọi node, nên `ObjectIdentifier` không bị dùng lại.
+  - Bên JS, `wrap` giữ một wrapper cho mỗi handle, nên cùng node ra cùng đối tượng. Nhờ đó `===`, `contains`, `indexOf` và `remove(obj)` chạy đúng.
+  - Thêm `equals(o)`.
+- **List** (`javaList`, ngữ nghĩa `java.util.List`):
+  - `remove()` không đối số vẫn gỡ khỏi DOM như cũ.
+  - `remove(số)` bỏ khỏi **danh sách** và trả phần tử. jsoup ≥1.17.1 gỡ cả DOM; FreeBook cố ý chỉ bỏ khỏi danh sách vì mẫu 言情小说吧 cần vậy.
+  - `remove(đối tượng)` trả `true`/`false`.
+  - Thêm `set`, `add(i, x)`, `addAll([i,] ds)`, `clear`, `iterator()`.
+  - `subList(a, b)` là bản sao; chỉ `clear()` ghi ngược về danh sách gốc. Nếu danh sách gốc đã đổi thì ném `ConcurrentModificationException`.
+  - Danh sách toàn Element có thêm `eq(i)`, `parents()` (bỏ trùng theo định danh), và `toString()` = `outerHtml` nối bằng `\n`.
+  - Mọi method gắn ẩn, nên `for…in`, `Object.keys` và `JSON.stringify` của danh sách không đổi.
+- **Element:**
+  - Lệnh native mới: `el.parents`, `el.all`, `el.attrs`, `el.before`, `el.after`.
+  - `parents()` lấy từ cha gần nhất tới `<html>`, không gồm Document. `getAllElements()` gồm chính nó và mọi con cháu.
+  - `attributes()` trả danh sách Attribute: `getKey`, `getValue`, và `toString`/`html` = `key="value"` có escape. Danh sách có `get(tên|số)`, `hasKey`, `asList`, `size`.
+  - `before(html)` / `after(html)` trả chính phần tử.
+- **chapter:**
+  - `isVip()` / `isVolume()` / `isPay()` là method trả boolean; gán `chapter.isVip = v` vẫn ghi được trường.
+  - Thêm thuộc tính bean `vip`/`volume`/`pay` và setter `setVip`/`setVolume`/`setPay`. `getIsVip()` trả giá trị trường.
+  - Swift không đọc ngược đối tượng chapter bên JS: mục lục dựng từ giá trị Swift tự tính. Vì vậy đổi này không ảnh hưởng `TocEntry`.
+- **Map:** thêm `entrySet()`, mỗi entry có `getKey`, `getValue`, `setValue`, `toString` = `k=v`. Mẫu 刺猬猫 `entrySet().toArray().join("; ")` cho ra chuỗi cookie.
+- **Hành vi đổi có chủ ý:**
+  - `String(danh sách phần tử)` nối bằng `\n` thay cho `,`.
+  - `{{chapter.isVip}}` ra rỗng; `if (chapter.isVip)` quên `()` thì luôn đúng, như Legado. Corpus không có nguồn nào viết như vậy.
+- **Spec:** `Docs/Specs/legado-source-spec.md` §6.3, §6.6, §6.8.
+- **Quy trình:** agent riêng viết theo plan và spec (clean-room). Review bắt lỗi `subList().clear()` xoá nhầm đoạn khi danh sách gốc đã đổi; đã sửa.
+- **Kiểm chứng:**
+  - JS bootstrap lấy nguyên văn từ file Swift, chạy Node với `__lgNative` giả: 60/60 ca đạt, gồm mẫu thật của:
+    - 言情小说吧 (`parents().contains`, `remove(v)`, `subList(1,i).clear()`);
+    - 看书网 (`eq`);
+    - 白鹿书院 (`getAllElements().indexOf`);
+    - 深夜看书 (`attributes`);
+    - 哔哩哔哩 (`before`);
+    - 刺猬猫 (`entrySet`);
+    - 起点限免 (`chapter.isVip()`).
+  - Đối chiếu SwiftSoup 2.14.3: có `Element.before/after(String)`, `getAllElements()`, `getAttributes()`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.693] - 2026-11-04
 
 ### fix: rule JS của nguồn Legado chạy trong scope riêng, hết lỗi khai báo trùng
@@ -572,18 +618,3 @@ Người dùng: *"cho phím dropdown và nút xong gần nhau hơn và nhỏ l�
 - **Chuẩn header**: `CLAUDE.md`/`AGENTS.md`, `rules.md` (§ chuẩn Header + checklist) và `.agents/AGENTS.md` thêm quy định cụm nút liền nhau (2pt, khung 32, nút tròn cách 4); nút đứng một mình giữ chuẩn 36×36.
 - Chuyển entry `[1.3.635]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows) — CI là cổng biên dịch; chưa thử trên máy. Rủi ro: vùng chạm khung 32 hẹp hơn chuẩn 36 (dễ bấm nhầm nút bên cạnh); nút chữ "Xong" và icon trong `HStack` của `ToolbarItem` có thể nhận kiểu nút toolbar khác một chút so với khi là mục riêng.
-
-## [1.3.664] - 2026-10-31
-
-### feat: CryptoJS dựng sẵn cho load('crypto.js') của tiện ích
-
-Lệch hợp đồng phát hiện khi viết tiện ích ciyuanji (giải mã DES): hợp đồng chuẩn (mục "Crypto") nói `load('crypto.js')` nạp CryptoJS dựng sẵn, nhưng FreeBook chỉ tìm file trong tiện ích — không có thì bỏ qua im lặng, script chết với `CryptoJS is not defined`. Người dùng duyệt plan, chọn **file của tiện ích thắng** (khác hợp đồng), CryptoJS 4.2.0, GCM + PBKDF2 native.
-
-- **Thư viện đóng gói** `Sources/Resources/ExtensionLibraries/crypto-js-4.2.0.min.js` = `crypto-js.min.js` 4.2.0 của cdnjs (khớp SRI, giữ nguyên byte qua `.gitattributes`); giấy phép MIT ở `Docs/ThirdParty/CryptoJS-LICENSE.txt`. `project.yml` khai tường minh thư mục này là resource (loại khỏi mục `Sources` chung).
-- **`JSBuiltInLibrary`** (mới, `Engine/`): tên thư viện dựng sẵn (`crypto.js`) + nguồn đọc từ bundle một lần; thiếu resource ⇒ log ❌. Dùng chung cho `load` và hai bộ kiểm tra tĩnh.
-- **`load('crypto.js')`** (`JSExecutor+Load`): file `crypto.js` của tiện ích (gốc rồi `src/`) chạy như cũ; không có ⇒ chạy bản dựng sẵn, một lần mỗi executor (cả `load` lúc runtime). Chạy được cả khi executor không gắn tiện ích.
-- **Phần native** (`JSCryptoJSBridge` mới ở `Bridges/`, JS ở `Bootstrap/JSCryptoJSBootstrapScript`), cài cho mọi executor bằng một dòng trong `JSExecutor`: `crypto.getRandomValues` toàn cục (JSC không có ⇒ CryptoJS 4.x không sinh được salt khi mã hoá bằng passphrase). Sau mỗi lần nạp `crypto.js` (bản nào cũng vậy) gắn thêm: `WordArray.random` lấy byte native (bản 4.1 tiện ích đang mang không dò `globalThis.crypto`); `AES.encryptGcm/decryptGcm` theo hợp đồng qua CryptoKit (khoá hex 32/48/64 hoặc passphrase đệm 0/cắt 16/24/32, IV rỗng = 12 byte 0, IV < 12 byte ⇒ lỗi, thẻ sai ⇒ WordArray rỗng như hành vi iOS; WordArray có byte ≥ 0x80 dùng byte thô thay vì hỏng như app gốc); `PBKDF2` với hasher SHA1/224/256/384/512 qua `CCKeyDerivationPBKDF` (250 000 vòng mặc định của 4.2.0 chạy JS thuần trong JSC không JIT mất hàng chục giây), hasher khác giữ bản JS. Đoạn JS bổ sung bỏ qua `CryptoJS` không đúng dạng và không bao giờ ném lỗi ra ngoài.
-- **Bộ kiểm tra tiện ích** (`ExtensionScriptStaticCheck`) và **validator nháp của server debug** (`ExtensionDraftValidator`) không còn báo `load("crypto.js")` thiếu file (trước đây server debug chặn chạy nháp).
-- **Tương thích**: ciyuanji, qidian-vp tự mang cùng bản CryptoJS 4.0/4.1 ⇒ vẫn chạy bản của mình (được gắn thêm `WordArray.random` native, GCM, PBKDF2 native; kết quả các hàm sẵn có không đổi). Bản dựng sẵn 4.2.0 chỉ khác 4.1 ở mặc định PBKDF2 (SHA256/250 000 thay SHA1/1). `Crypto.md5/sha*/hmac*` giữ nguyên.
-- Ghi vào `rules.md` (global JS) và `CLAUDE.md`/`AGENTS.md` (đoạn `load()`). Chuyển entry `[1.3.634]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code; JS bổ sung chạy thử bằng node trên context không có `crypto`/`require` với native giả lập (28/28 đạt: DES-ECB 4.1 → 4.2.0, AES passphrase khứ hồi trên cả hai bản, PBKDF2 native = JS, GCM khớp node, thẻ sai ⇒ rỗng); `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows); phần Swift (CryptoKit/CommonCrypto, resource trong bundle) chỉ CI chứng minh biên dịch + đóng gói; chưa thử trên máy.
