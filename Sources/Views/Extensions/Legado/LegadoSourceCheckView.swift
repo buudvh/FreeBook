@@ -286,7 +286,9 @@ struct LegadoSourceCheckView: View {
         MinimizedSourceCheckCoordinator.shared.reopen(.legado, delay: 600_000_000)
     }
 
+    /// Lượt kia có thể đang thu nhỏ ⇒ thôi theo dõi như nút Dừng, hub không giữ dòng "Đã dừng".
     private func stopOtherRun() {
+        MinimizedSourceCheckCoordinator.shared.discard(.legado)
         Task { _ = await LegadoCorpusRunner.shared.cancel(runId: nil) }
     }
 

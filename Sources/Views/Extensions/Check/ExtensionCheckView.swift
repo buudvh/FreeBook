@@ -330,7 +330,9 @@ struct ExtensionCheckView: View {
         MinimizedSourceCheckCoordinator.shared.reopen(.script, delay: 600_000_000)
     }
 
+    /// Lượt kia có thể đang thu nhỏ ⇒ thôi theo dõi như nút Dừng, hub không giữ dòng "Đã dừng".
     private func stopOtherRun() {
+        MinimizedSourceCheckCoordinator.shared.discard(.script)
         Task { await ExtensionCheckRunner.shared.cancel(runId: nil) }
     }
 
