@@ -9,14 +9,21 @@ extension ShelfView {
     /// Gọi ở `onAppear` của Kệ; chỉ lượt đầu tiên của tiến trình có tác dụng.
     @MainActor
     func restoreReaderSessionIfNeeded() {
-        let recentIds = ReaderSessionRestoreStore.takeLaunchCandidates()
-        guard !recentIds.isEmpty else { return }
+        guard let recentIds = ReaderSessionRestoreStore.takeLaunchCandidates() else { return }
         // `@Query` lấy cả truyện 18+ bị ẩn ⇒ tra ở đây được, rồi bỏ 18+ bằng đúng luật Kệ dùng để ẩn.
-        let booksById = Dictionary(allBooks.map { ($0.bookId, $0) }, uniquingKeysWith: { first, _ in first })
+        let candidates: [Book]
+        if recentIds.isEmpty {
+            // Chưa có danh sách (lần đầu sau khi cài bản có tính năng): dự phòng theo Lịch sử đọc. `isHistory` bật mỗi
+            // lần tiến độ được ghi (cả truyện trên kệ đã đọc); `allBooks` đã xếp `lastReadDate` giảm dần.
+            candidates = allBooks.filter(\.isHistory)
+            AppLogger.shared.log("↩️ [ReaderRestore] Chưa có danh sách mở gần nhất ⇒ dự phòng theo Lịch sử đọc")
+        } else {
+            let booksById = Dictionary(allBooks.map { ($0.bookId, $0) }, uniquingKeysWith: { first, _ in first })
+            candidates = recentIds.compactMap { booksById[$0] }
+        }
         var skippedNsfw = 0
         var target: Book?
-        for bookId in recentIds {
-            guard let book = booksById[bookId] else { continue }
+        for book in candidates {
             // Bản ghi mồ côi (tiện ích tắt lưu lịch sử, không trên kệ): không hiện ở đâu và bị dọn lúc mở app.
             guard book.isOnShelf || book.isHistory || book.isLocalBook else { continue }
             if RepositoryFilterPolicy.isNsfwBook(bookId: book.bookId, packageId: book.extensionPackageId) {

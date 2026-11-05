@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.720] - 2026-11-05
+
+### feat: mở lại theo Lịch sử đọc khi chưa có danh sách gần nhất
+
+Tiếp 1.3.718. Danh sách mở gần nhất chỉ bắt đầu ghi từ bản đó, nên lần mở app đầu tiên sau khi cài sẽ không mở gì. Anh Bửu chọn thêm dự phòng.
+
+- `ReaderSessionRestoreStore.takeLaunchCandidates()` trả `[String]?`:
+  - `nil` = không mở lại (công tắc tắt, lần mở lại trước chết sớm, đổi nguồn dở);
+  - mảng rỗng = chưa có danh sách.
+- `ShelfView+LaunchRestore`: danh sách rỗng ⇒ duyệt truyện `isHistory` theo `lastReadDate` giảm dần (thứ tự sẵn của `@Query`), cùng các điều kiện còn trên máy, ở Kệ/Lịch sử, không phải 18+.
+  - `isHistory` bật mỗi lần tiến độ được ghi, kể cả truyện trên kệ đã đọc ⇒ không chỉ là truyện ở tab Lịch sử.
+  - Mở xong thì màn đọc tự ghi vào danh sách, lần sau dùng danh sách như thường.
+- `CLAUDE.md`/`AGENTS.md`: ghi thêm phần dự phòng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.719] - 2026-11-05
 
 ### feat: icon app mới Tàng Công Các kiểu thư pháp thủy mặc
@@ -655,25 +671,3 @@ Người dùng: *"nếu nguồn bị xoá rồi thì tự check url regex nếu 
 - `CLAUDE.md` / `AGENTS.md`: thêm mục "Gắn lại nguồn khi tiện ích đã gỡ" ở Ràng buộc runtime.
 - Chuyển entry `[1.3.660]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.689] - 2026-11-03
-
-### fix: đổi nguồn chép chương theo lô, dọn truyện cũ an toàn khi app chết
-
-Người dùng: *"tôi đổi nguồn 1 truyện có hơn 2k chương đã tải thành đơ app sau đó thoát app luôn. nhưng vẫn chuyển được dữ liệu, tuy nhiên nguồn cũ vẫn còn"*. Lúc đổi không có TTS; truyện mới đủ chương.
-
-- **Nguyên nhân** (suy từ code; log chỉ cho thấy main thread bị chặn ≥ 3 s lúc 21:36:44–21:36:59 và không có dòng ❌ nào của luồng đổi nguồn):
-  - Chép chương đã xong, app chết trước khi lệnh xoá truyện cũ lưu xuống đĩa. Bước xoá chạy `BookTransactionCoordinator.deleteBook` trên context **main**, cascade `Book.chapters`. Worker chuyển mục lục sang SQLite (27/7, gỡ 28/7) không xoá dòng `Chapter` SwiftData, nên truyện đời đó còn hàng nghìn dòng phải cascade trên main. Bước này cũng đi tắt qua `BookStorageManager` (không huỷ tải, không xoá bìa).
-  - Thứ tự cũ chuyển rồi **xoá ngay** thiết lập riêng (từ điển/rule, phiên AI, trí nhớ AI, điểm quét name) trước khi xoá truyện cũ ⇒ chết giữa chừng thì còn hai truyện, truyện cũ mất thiết lập. Không có gì dọn lại.
-  - Vòng chép từng chương: mỗi chương mở/đóng 2 file, 3 lần nhảy actor, một lần commit sqlite; lỗi nuốt bằng `try?`, không tiến trình.
-- **`BookSourceChangeCoordinator`** (mới, `Services/Download/SourceChange/`) nhận cả lượt từ `SearchView` (812 ⇒ 693 dòng; phần View còn ở `SearchView+SourceChange`):
-  - Nhật ký `source_change/journal.json` (`BookSourceChangeJournal`) ghi **trước** tác dụng phụ đầu tiên. Trước mốc `.committed` chỉ **chép**, truyện cũ nguyên vẹn.
-  - Huỷ lượt tìm đang chạy. Nguồn mới trả mục lục xong mới huỷ tác vụ tải của truyện cũ (tra lỗi thì không đụng gì) và ghi nốt lệnh ghi đang chờ của nó, rồi mới đọc mục lục để chép. Nhật ký của lượt trước chưa dọn xong ⇒ báo lỗi, không ghi đè.
-  - Truyện đích cùng tiện ích + link chi tiết đã có trên máy ⇒ **dùng lại** (không tạo bản UUID trùng); tiến độ lấy theo bản đọc gần hơn, cờ kệ/lịch sử chỉ bật thêm (`BookTransactionCoordinator.mergeSourceChangeState`).
-  - `BookSourceChapterCopier` chép theo lô ≤ 64 chương / ≤ 4 MB: một handle đọc + một handle ghi (`BookBinManager.copyChapterContents`), một transaction (`ChapterStore.markChaptersCached`, tra theo chỉ số). Bỏ qua chương truyện đích đã có. Overlay hiện "Đang chép chương đã tải N/M". Giữ `beginBackgroundTask`; hết hạn thì dừng giữa hai lô và báo "Bị ngắt vì app chuyển nền". Chương lỗi gom một dòng ❌; có chương lỗi ⇒ **giữ** truyện cũ.
-  - Sau mốc chốt, View đóng các màn đang giữ `Book` cũ; 1,2 s sau mới xoá truyện cũ qua `BookStorageManager.deleteBooksAsync` (context nền) rồi xoá thiết lập cũ.
-  - Mở app / app hoạt động lại (`MainTabView+SourceChangeRecovery`): nhật ký `.copying` ⇒ lùi (xoá truyện mới nếu lượt đó tạo ra); `.committed` ⇒ dọn nốt truyện cũ. Có toast.
-- **Thiết lập riêng**: `BookSourceMigrator.copyBookScopedSettings` (chỉ chép, truyện đích có rồi thì giữ của đích) + `removeBookScopedSettings`. `AIChatHistoryStore.copySessions` nạp từng phiên, ghi mục lục một lần; `BookAIMemoryStore.copyMemory`; `AINameScanScopeStore.copy`/`remove`. Đang nghe TTS truyện cũ thì truyện cũ giữ đủ phiên AI và trí nhớ AI (trước đây vẫn bị gỡ).
-- **Truyện đã nửa vời trước bản này** (không có nhật ký): mở truyện cũ ⇒ Đổi nguồn ⇒ chọn lại đúng nguồn mới. App dùng lại truyện mới đã có, chỉ chép chương còn thiếu rồi xoá truyện cũ.
-- `rules.md`, `CLAUDE.md`, `AGENTS.md` ghi tên hàm mới. Chuyển entry `[1.3.659]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` trước và sau đều 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.

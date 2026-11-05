@@ -49,23 +49,25 @@ enum ReaderSessionRestoreStore {
     }
 
     /// Các truyện mở gần nhất, mới nhất trước, để Kệ chọn mục mở lại. Chỉ lượt gọi **đầu tiên** của tiến trình có kết quả
-    /// (Kệ tạo lại qua `.id` thì không mở lần nữa); rỗng khi công tắc tắt, lần mở lại trước chết sớm, hoặc còn đổi nguồn dở.
+    /// (Kệ tạo lại qua `.id` thì không mở lần nữa).
+    /// - `nil`: không mở lại — công tắc tắt, lần mở lại trước chết sớm, hoặc còn đổi nguồn dở.
+    /// - mảng rỗng: chưa có danh sách (lần đầu sau khi cài bản có tính năng) ⇒ Kệ dự phòng theo Lịch sử đọc.
     @MainActor
-    static func takeLaunchCandidates() -> [String] {
-        guard !didTakeLaunchCandidates else { return [] }
+    static func takeLaunchCandidates() -> [String]? {
+        guard !didTakeLaunchCandidates else { return nil }
         didTakeLaunchCandidates = true
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: legacyOpenBookKey)
-        guard isEnabled else { return [] }
+        guard isEnabled else { return nil }
         if defaults.object(forKey: pendingAttemptKey) != nil {
             defaults.removeObject(forKey: pendingAttemptKey)
             AppLogger.shared.log("❌ [ReaderRestore] Lần mở lại trước bị tắt trong 10 s đầu ⇒ bỏ qua để tránh vòng lặp crash")
-            return []
+            return nil
         }
         // Đổi nguồn dở: truyện gần nhất có thể sắp bị xoá (lùi lại / dọn truyện cũ) ⇒ không mở.
         if BookSourceChangeJournal.load() != nil {
             AppLogger.shared.log("↩️ [ReaderRestore] Còn lượt đổi nguồn dở ⇒ không mở lại màn đọc")
-            return []
+            return nil
         }
         return defaults.stringArray(forKey: recentBookIdsKey) ?? []
     }
