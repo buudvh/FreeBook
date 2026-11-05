@@ -372,10 +372,7 @@ struct TTSSettingsView: View {
             refreshVieNeuSettings()
             // Tạm dừng phát để cấu hình
             ttsManager.prepareForSettings()
-            self.systemVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
-            if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
-                ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
-            }
+            Task { await loadSystemVoices() }
             if TTSManager.isExtensionTool(ttsManager.tool) {
                 if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                     if ttsManager.extensionLocalPath != ext.localPath {
@@ -423,6 +420,18 @@ struct TTSSettingsView: View {
         .sheet(isPresented: $showingReplacementManagerSheet) {
             NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }
                 .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// Giọng Siri tiếng Việt, đọc **ngoài main** (1.3.713): `speechVoices()` dò kho giọng của hệ thống, chậm — gọi thẳng
+    /// trong `onAppear` thì chặn hoạt cảnh mở sheet Cài đặt TTS. Picker giọng Siri trống một nhịp rồi mới có danh sách.
+    private func loadSystemVoices() async {
+        let voices = await Task.detached(priority: .userInitiated) {
+            AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
+        }.value
+        systemVoices = voices
+        if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
+            ttsManager.selectedVoice = voices.first?.identifier ?? ""
         }
     }
 

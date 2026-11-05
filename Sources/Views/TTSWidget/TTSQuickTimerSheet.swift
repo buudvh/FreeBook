@@ -4,8 +4,9 @@ import UIKit
 /// Bottom Sheet hiện đại điều khiển Hẹn giờ tắt và Danh sách chương cho TTS Widget.
 ///
 /// Bố cục (1.3.712): dải thanh kéo có nút ⚙ tròn ở góc phải → header kiểu mục lục Reader (`TTSQuickTimerHeader`,
-/// đồng hồ hẹn giờ trên bìa) → hàng tên chương đang phát → tab con kiểu tab Chi tiết truyện (chữ + gạch chân, badge đỏ
-/// tổng số chương) → nội dung tab. Không có `NavigationStack`: sheet không đẩy trang nào, toolbar chỉ tốn chỗ.
+/// đồng hồ hẹn giờ trên bìa) → hàng tên chương đang phát → tab con ô viên thuốc có icon (kiểu cũ, 1.3.713; badge đỏ
+/// tổng số chương trong ô sau chữ) → nội dung tab. Không có `NavigationStack`: sheet không đẩy trang nào. Nút ⚙ mở
+/// Cài đặt TTS đè lên sheet này (`TTSSettingsSheetHost`).
 struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var ttsManager = TTSManager.shared
@@ -37,6 +38,9 @@ struct TTSQuickTimerSheet: View {
         // Không có nút ✕ (1.3.641): vuốt xuống để đóng. ⚙ là nút duy nhất, ở góc phải dải thanh kéo.
         .overlay(alignment: .topTrailing) { settingsButton }
         .background(Color(uiColor: .systemGroupedBackground))
+        // Cài đặt TTS mở **đè lên** sheet này (1.3.713): một lần trượt lên, không chờ sheet Hẹn giờ đóng; vuốt đóng
+        // Cài đặt là về lại Hẹn giờ. Trước đây: `dismiss()` → chờ cứng 0,3 s → mở từ widget ⇒ chậm thấy rõ.
+        .modifier(TTSSettingsSheetHost())
         .presentationDetents([.fraction(0.88), .large])
         .presentationDragIndicator(.visible)
         // Sheet của widget TTS (cửa sổ riêng): gắn lại màu nhấn người dùng chọn cho nút / thanh / ô đang chọn.
@@ -80,10 +84,7 @@ struct TTSQuickTimerSheet: View {
     /// Nút ⚙ dạng chấm tròn (như badge) ở góc phải dải thanh kéo; icon 17pt nửa đậm như mọi icon header.
     private var settingsButton: some View {
         Button(action: {
-            dismiss()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                ttsManager.showingSettingsSheet = true
-            }
+            ttsManager.showingSettingsSheet = true
         }) {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 17, weight: .semibold))
@@ -110,53 +111,50 @@ struct TTSQuickTimerSheet: View {
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.7)))
     }
 
-    // MARK: - Tab con (kiểu tab Chi tiết truyện, `BookDetailView.customTabBar`)
+    // MARK: - Tab con (ô viên thuốc có icon như trước 1.3.712)
 
     private var subTabsBar: some View {
         let count = ttsManager.chaptersQueue.count
-        return HStack(spacing: 0) {
-            subTabButton(title: "Hẹn giờ tắt", badgeCount: nil, index: 0)
-            subTabButton(title: "Danh sách chương", badgeCount: count > 0 ? count : nil, index: 1)
+        return HStack(spacing: 8) {
+            subTabButton(title: "Hẹn giờ tắt", icon: "timer", badgeCount: nil, index: 0)
+            subTabButton(title: "Danh sách chương", icon: "list.bullet", badgeCount: count > 0 ? count : nil, index: 1)
         }
+        .padding(.horizontal, 16)
     }
 
-    /// Tên tab luôn một dòng, chật thì cắt "…"; badge giữ đủ số (`fixedSize` + ưu tiên bố cục cao hơn tên).
-    private func subTabButton(title: String, badgeCount: Int?, index: Int) -> some View {
+    /// Tên tab luôn một dòng, chật thì cắt "…"; badge đỏ tổng số chương nằm trong ô ngay sau chữ, giữ đủ số
+    /// (`fixedSize` + ưu tiên bố cục cao hơn tên).
+    private func subTabButton(title: String, icon: String, badgeCount: Int?, index: Int) -> some View {
         let isSelected = selectedTab == index
         return Button(action: {
             triggerHaptic()
-            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { selectedTab = index }
         }) {
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(isSelected ? .bold : .medium)
-                        .foregroundColor(isSelected ? .accentColor : .secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if let badgeCount {
-                        Text(verbatim: String(badgeCount))
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.red))
-                            .fixedSize()
-                            .layoutPriority(1)
-                    }
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                Text(title)
+                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let badgeCount {
+                    Text(verbatim: String(badgeCount))
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.red))
+                        .fixedSize()
+                        .layoutPriority(1)
                 }
-                .padding(.horizontal, 6)
-
-                Rectangle()
-                    .fill(isSelected ? Color.accentColor : Color.clear)
-                    .frame(height: 3)
             }
-            .contentShape(Rectangle())
+            .padding(.horizontal, 6)
+            .frame(maxWidth: .infinity).padding(.vertical, 8)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isSelected ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Tab 1: Hẹn giờ tắt

@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.682] - 2026-11-03
+
+### feat: token <any> khớp cụm ký tự bất kỳ trong rule dịch
+
+Người dùng: *"thêm token cụm ký tự bất kỳ trong rule dịch, (nó dùng để xác định một cụm ký tự không cần biết nghĩa nó là gì, chỉ cần biết nó độ dài từ bao nhiêu đến bao nhiêu, trả về phần nghĩa sẽ là cụm nguyên bản đó)"*. Chốt bằng bảng chọn: tên `<any>`, dừng ở dấu câu và khoảng trắng, rule có `<any>` mà không có chữ cố định thì báo lỗi.
+
+- **Cú pháp** `<any>` / `<any:min-max>` (mặc định 1–12, `QuickTranslationRuleParser`): khớp một cụm ký tự bất kỳ, capture trả **nguyên văn**. Chuỗi sau rule vẫn được tách từ và dịch từ điển như phần còn lại của dòng, nên `<any:1-6>的<any:1-6> = {1} của {0}` đảo trật tự rồi dịch đúng. Không ghép được với token khác bằng `|` (báo lỗi).
+- **Khớp** (`QuickTranslationRuleMatcher.walkAnyRun`):
+  - Nuốt mọi ký tự trừ dấu câu (Unicode P*) và khoảng trắng/xuống dòng.
+  - Thử dài → ngắn có lùi như token số; không cắt giữa cặp surrogate.
+  - Dừng ở ranh giới Name riêng, nhờ đó vẫn lùi về độ dài ngắn hơn thay vì bỏ cả lượt khớp.
+- **Ưu tiên**: `<any>` có hạng độ hẹp 7, rộng nhất (`QuickTranslationRuleNumeralNarrowness.anyRunRank`). Khi hoà mọi tiêu chí, nó thua mọi token ký tự khác; `wildcardCapacity` cộng `maxLength`.
+- **Lỗi nặng mới** `ANY_WITHOUT_LITERAL` (`QuickTranslationRuleIssue`, `QuickTranslationRuleCompiler`): rule có `<any>` mà không có chữ cố định nào thì bị loại khi nạp, màn sửa rule báo *"Rule có <any> phải có ít nhất một chữ cố định"*. Lỗi này báo thay cho `NO_LITERAL_ANCHOR` ở cùng chỗ.
+- **Giao diện**:
+  - Công tắc `<any>` ở Cấu hình token rule (chung và riêng theo truyện).
+  - Nút trong bảng token và hàng gợi ý trên bàn phím.
+  - Phần giải thích token có ví dụ.
+  - `QuickTranslationRuleTokenSettings.Kind.any` nối vào **cuối** danh sách, nên chữ ký cache dịch đổi một lần. Khoá cài đặt `quickTranslateRuleTokenAnyEnabled` tự vào backup.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**:
+  - Đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**.
+  - Tự soát tay 4 ca:
+    - `我的剑` ⇒ `剑 của 我`.
+    - `走吧，他说` với `<any:1-6>说` chỉ lấy `他`.
+    - `<any:2-4>` đứng một mình bị lỗi nặng.
+    - `第<n>章<any:1-30>` **không** khớp `第12章 风起` vì khoảng trắng chặn `<any>`; muốn chịu cả hai dạng thì viết `第<n>章( )?<any:1-30>`.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.681] - 2026-11-03
 
 ### fix: tên chương dịch như nội dung, phồn→giản khi xuất và mục lục comic theo cấu hình truyện

@@ -80,8 +80,8 @@ struct TTSWidgetContentView: View {
                 )
             }
         }
-        // Sheet cài đặt: binding SwiftUI theo dõi được, chỉ modifier observe TTSManager (xem TTSSettingsSheetHost).
-        .modifier(TTSSettingsSheetHost())
+        // Sheet Cài đặt TTS không gắn ở đây nữa (1.3.713): nó mở đè lên sheet Hẹn giờ (`TTSQuickTimerSheet`) — lối vào
+        // duy nhất — thay vì đóng Hẹn giờ, chờ, rồi mới mở từ widget.
         .onAppear {
             rotationState.syncPlaybackState(isPlaying: ttsState.snapshot.isPlaying, at: Date())
             refreshCover()
