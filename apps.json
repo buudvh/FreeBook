@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.730",
+          "buildVersion": "1156",
+          "date": "2026-11-05T09:23:01Z",
+          "localizedDescription": "- fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên\n- feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1156/TangCongCac-1.3.730-1156.ipa",
+          "size": 37581425,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.728",
           "buildVersion": "1155",
           "date": "2026-11-05T08:51:46Z",
@@ -32,11 +41,11 @@
           "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.728",
-      "versionDate": "2026-11-05T08:51:46Z",
-      "versionDescription": "- feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi\n- chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release\n- feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1155/TangCongCac-1.3.728-1155.ipa",
-      "size": 37575369,
+      "version": "1.3.730",
+      "versionDate": "2026-11-05T09:23:01Z",
+      "versionDescription": "- fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên\n- feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1156/TangCongCac-1.3.730-1156.ipa",
+      "size": 37581425,
       "appPermissions": {}
     }
   ],
