@@ -13,6 +13,7 @@ Rà lại phần 2–3 của màn xem video (1.3.734–735) trước khi đẩy 
   - `PaginatedNovelLoader` coi lượt bị huỷ là "không lỗi, không mục", còn cờ đã bắt đầu chặn mọi lần thử lại.
   - Sửa: `VideoWatchSuggestSection` tải bằng `Task` riêng trong `onAppear`, rời màn không huỷ.
 - **Bình luận tải lại mỗi lần cuộn qua**: `VideoWatchCommentsCard` nhớ nhóm đã tải xong (thành công hoặc lỗi thật). Lượt bị huỷ thì lần hiện sau tải tiếp.
+- **Lỗi biên dịch của 1.3.734** (CI: "unable to type-check this expression in reasonable time"): chip nhóm ở dải tập (`VideoWatchEpisodeStrip.chip`) gộp màu chọn / màu thường trong một biểu thức ⇒ tách màu, nhãn, trait ra hằng có kiểu rõ + hàm vẽ nhãn riêng.
 - **Khai rõ `= nil`** cho các `@State` optional mới (`VideoPlayerScreen`, `VideoWatchActionRow`, `VideoWatchDetailsView`, `VideoWatchRouteView`), theo cách viết của repo. Thiếu giá trị đầu, thuộc tính `private` có thể làm init tự sinh thành `private` ⇒ chỗ dựng view ở file khác không gọi được.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**

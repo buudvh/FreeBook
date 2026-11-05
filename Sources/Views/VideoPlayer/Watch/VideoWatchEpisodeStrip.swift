@@ -92,23 +92,34 @@ struct VideoWatchEpisodeStrip: View {
     private func chip(_ group: VideoEpisodeGrouping.Group<VideoPlaybackSession.Episode>) -> some View {
         let isSelected = group.id == selectedGroup
         let label = VideoEpisodeGridView.label(of: group)
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        let count = group.items.count
+        let groupId = group.id
+        // Tách màu / chữ ra hằng có kiểu rõ: gộp cả vào một biểu thức thì trình biên dịch không kiểm kiểu kịp.
+        let foreground: Color = isSelected ? .accentColor : Color.white.opacity(0.75)
+        let fill: Color = isSelected ? Color.accentColor.opacity(0.18) : Color.white.opacity(0.07)
+        let stroke: Color = isSelected ? Color.accentColor.opacity(0.6) : .clear
+        let traits: AccessibilityTraits = isSelected ? .isSelected : []
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selectedGroup = group.id }
+            withAnimation(.easeInOut(duration: 0.2)) { selectedGroup = groupId }
         } label: {
-            Text("\(label) · \(group.items.count)")
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .foregroundStyle(isSelected ? Color.accentColor : Color.white.opacity(0.75))
-                .padding(.horizontal, 12)
-                .frame(height: 32)
-                .background(shape.fill(isSelected ? Color.accentColor.opacity(0.18) : Color.white.opacity(0.07)))
-                .overlay(shape.strokeBorder(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
-                .contentShape(shape)
+            chipLabel(title: "\(label) · \(count)", foreground: foreground, fill: fill, stroke: stroke)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(label), \(group.items.count) tập")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel("\(label), \(count) tập")
+        .accessibilityAddTraits(traits)
+    }
+
+    private func chipLabel(title: String, foreground: Color, fill: Color, stroke: Color) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return Text(title)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(shape.fill(fill))
+            .overlay(shape.strokeBorder(stroke, lineWidth: 1))
+            .contentShape(shape)
     }
 
     // MARK: - Dải ô tập
