@@ -55,7 +55,7 @@ public actor TelegramBackupUploader {
         let size = BackupPaths.fileSize(at: fileURL)
         guard size > 0 else { throw Failure.unreadable }
         if size <= BackupMultipartArchive.defaultPartSize {
-            try await sendDocument(fileURL, token: token, caption: "FreeBook backup", report: report)
+            try await sendDocument(fileURL, token: token, caption: "Bản sao lưu Tàng Công Các", report: report)
             return Outcome(documentCount: 1, wasSplit: false)
         }
 
@@ -89,7 +89,7 @@ public actor TelegramBackupUploader {
         removingSourceAfterBuild: Bool = false,
         report: @escaping @Sendable (BackupProgress) -> Void
     ) async throws {
-        let boundary = "FreeBook-\(UUID().uuidString)"
+        let boundary = "TangCongCac-\(UUID().uuidString)"
         let bodyURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("telegram-body-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: bodyURL) }

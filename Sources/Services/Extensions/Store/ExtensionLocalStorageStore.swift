@@ -4,7 +4,7 @@ import os
 /// `localStorage` của tiện ích JavaScript, khoá theo **namespace** (`packageId`), lưu ở
 /// `extension_store/local_storage.json`.
 ///
-/// Thay khoá `UserDefaults` cũ `"vbook_ext_storage_" + md5(localPath) + "_" + key` (`JSExecutor`): khoá cũ đổi
+/// Thay khoá `UserDefaults` cũ `LegacyExtensionSQLiteMigrator.storageKeyPrefix + md5(localPath) + "_" + key` (`JSExecutor`): khoá cũ đổi
 /// theo đường dẫn tuyệt đối nên mất sạch khi gốc thư mục dữ liệu đổi (1.3.523) và không bao giờ được dọn.
 ///
 /// API **đồng bộ, không chặn lâu** — được gọi thẳng từ thread JavaScriptCore (`@convention(block)`): chỉ giữ
@@ -25,7 +25,7 @@ public final class ExtensionLocalStorageStore: @unchecked Sendable {
     private static let writeDelay: TimeInterval = 2
 
     private let state = OSAllocatedUnfairLock(initialState: State())
-    private let writeQueue = DispatchQueue(label: "FreeBook.ExtensionLocalStorageStore", qos: .utility)
+    private let writeQueue = DispatchQueue(label: "TangCongCac.ExtensionLocalStorageStore", qos: .utility)
 
     private init() {}
 

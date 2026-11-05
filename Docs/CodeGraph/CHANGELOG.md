@@ -1,6 +1,19 @@
-# CHANGELOG - Nhật ký Thay đổi CodeGraph FreeBook
+# CHANGELOG - Nhật ký Thay đổi CodeGraph Tàng Công Các
 
-Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
+Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
+
+## [1.3.717] - 2026-11-05
+
+### chore: đổi FreeBook thành Tàng Công Các ở tài liệu, chữ hiển thị và comment
+
+Người dùng yêu cầu đổi tên cũ của app (FreeBook) và tên app tiện ích bên thứ ba còn sót trong dự án sang Tàng Công Các. Người dùng chọn: đổi tài liệu + chữ người dùng thấy + comment + nhãn nội bộ; "Tàng Công Các" cho chữ hiển thị/tài liệu, "TangCongCac" cho tên kỹ thuật; tên app tiện ích bên thứ ba thay bằng cách gọi trung tính ("hợp đồng tiện ích", "định dạng gốc"); giữ nguyên lịch sử (entry cũ, archive, `.workbuddy-ai`).
+
+- **Chữ người dùng thấy**: 3 câu xin quyền trong `project.yml` (mạng nội bộ, micro, ảnh); tab + tiêu đề ngăn kéo "Tiện ích Tàng Công Các"; lỗi "… chưa đọc được" ×3; tên dự phòng khi truyện không có tên (Reader ×4, màn khoá TTS) và ngoại lệ viết hoa của `DisplayTextFormatter` (`"TangCongCac"`); file xuất FB2/PDF ghi "Tàng Công Các", MOBI ghi "TangCongCac" (tên Palm chỉ nhận ASCII); chú thích bản backup gửi Telegram; dòng đầu CSV nhiệt và file tắt rule (chỉ file tạo mới); prompt AI mặc định (chỉ máy chưa từng lưu cấu hình AI hoặc bấm khôi phục mặc định — Luật 20, không di trú); mô tả preset "Như engine gốc" thành "Giống bộ dịch gốc trên máy tính"; câu debug server nhắc tên lệnh VS Code; 3 thông báo Telegram của CI; tiêu đề `check_architecture.py` (ASCII để console Windows không lỗi mã hoá).
+- **Nhãn nội bộ** (chỉ sống trong RAM, không ghi đĩa): 15 nhãn `DispatchQueue`, tên luồng `LegadoEngine`, 2 background task, môi trường ONNX của VieNeu, tên gesture tắt bàn phím, content world dịch trang, `ExtensionLoadError.errorDomain`, boundary multipart Telegram, thư mục tạm của backup nhiều phần, UA của `update_adblock_snapshot.py` → `TangCongCac…` / `com.tangcongcac…`.
+- **Comment**: văn xuôi → "Tàng Công Các"; comment về tiện ích JS → "hợp đồng tiện ích" / "định dạng gốc"; comment chép nguyên salt giải mã và tiền tố khoá `localStorage` cũ viết lại thành tên hằng (`salt`, `storageKeyPrefix`).
+- **Tài liệu**: `README.md` (tiêu đề "Tàng Công Các", ghi rõ tên kỹ thuật vẫn là `FreeBook`), `CLAUDE.md` + `AGENTS.md`, `.agents/AGENTS.md`, `rules.md`, `Docs/Specs/legado-source-spec*.md` (scheme đề xuất chưa có code → `tangcongcac://`), 4 file giấy phép `Docs/ThirdParty`, 3 mockup, 2 dòng đầu file này. Skill mẫu tiện ích đổi thư mục thành `.agents/skills/extension_helper/`. Tool VS Code: README, LICENSE và chữ hiển thị (tiêu đề lệnh, category, Output, thanh trạng thái, thông báo) — **giữ** ID lệnh, setting, package, publisher nên cấu hình đã lưu không mất; phải build lại VSIX mới thấy tên mới.
+- **Cố ý giữ** (đổi là mất dữ liệu hoặc vỡ tương thích): target/scheme/module/bundle id `FreeBook`, `FreeBookApp`, `FreeBookBridgingHeader.h`, tên `.xcodeproj`/IPA/artifact trong CI; khoá UserDefaults `FreeBook_*`; keychain `com.raikiri1498.FreeBook.*` / `FreeBook.GoogleAccountSnapshots`; thư mục `Application Support/FreeBook/TTS/` (và câu lỗi nhắc nó); tiền tố backup `freebook-` / `freebook-auto-`; thư mục Drive `FreeBookBackups`; salt giải mã và tiền tố khoá cũ của tiện ích JS; giao thức debug `freebook-extdebug.v1`; repo `buudvh/FreeBook`.
+- **Kiểm chứng**: grep lại chỉ còn các chỗ cố ý giữ ở trên; `check_architecture.py` như nền (1 violation `JSDom.swift`), 0 mới; mọi thay đổi là thay trong dòng, không thêm dòng code. Không build tại chỗ (Windows), chưa thử trên máy.
 
 ## [1.3.716] - 2026-11-05
 
@@ -660,37 +673,5 @@ Người dùng: *"nhiều any ngăn cách bởi | thật ra chỉ có một như
   - `\(` và `\|`
   - mẫu thiếu `)`
   - rule ngoặc ở trên
-
-  Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.686] - 2026-11-03
-
-### feat: neo đầu/cuối dòng <^> <$> và <any> bắt mọi ký tự trong rule dịch
-
-Người dùng: *"có token xác định đầu dòng trong rule dịch chưa, nếu chưa thì thêm vào"* và *"token any sửa lại bắt mọi ký tự và tăng length lên"*. Chốt bằng bảng chọn:
-- Thêm `<^>` và `<$>`, bỏ qua khoảng trắng đầu/cuối dòng.
-- `<any>` bắt mọi ký tự trừ xuống dòng, mặc định 1–50, chỉnh được tới 100.
-
-- **Neo `<^>` / `<$>`** (`QuickTranslationRuleLineAnchor`, `QuickTranslationRuleParser+LineAnchor`, mới):
-  - Rộng 0 và **không sinh capture**, nên số `{i}` của rule giữ nguyên.
-  - `<^>` đúng khi từ đầu chuỗi (hoặc sau `\n`/`\r`) tới vị trí hiện tại chỉ có khoảng trắng; `<$>` đối xứng ở cuối dòng. Khoảng trắng thụt nằm ngoài vùng khớp nên giữ nguyên trong bản dịch.
-  - Ghép `|`, ghi độ dài `:min-max` hoặc thêm `?` sau neo ⇒ lỗi `UNKNOWN_TOKEN_NAME` kèm câu giải thích.
-- **Giao diện neo:**
-  - `QuickTranslationRuleTokenSettings.Kind` thêm `lineStart = "^"`, `lineEnd = "$"` vào **cuối** danh sách, có công tắc ở Cấu hình token (chung và riêng theo truyện).
-  - Có nút trong bảng token và gợi ý trên bàn phím.
-  - Chip ở màn sửa rule không có thanh độ dài và không được đánh số.
-  - Phần giải thích token có ví dụ `<^>第<n>章 = Chương {0}`.
-- **`<any>`:**
-  - Nuốt **mọi** ký tự, kể cả dấu câu và khoảng trắng; chỉ dừng ở xuống dòng.
-  - Không ghi độ dài ⇒ 1–50. Thanh chỉnh độ dài tới 100 (`TokenSpec.defaultRangeMax` / `lengthUpperBound`); token khác giữ 1–12 và trần 20.
-  - Được nuốt **trọn** Name riêng: capture mang `allowsEnclosedNames`, `+NameProtection` chấp nhận. Chỉ không được bắt đầu hay kết thúc giữa một Name.
-  - Theo sau là chữ cố định thì chỉ thử những độ dài có chữ đó ngay sau, nên vẫn nhẹ dù dài hơn.
-  - Ví dụ: `<any:1-6>说` trên `走吧，他说` giờ lấy `走吧，他`; `第<n>章<any>` giờ khớp `第12章 风起`.
-- **Đổi hành vi rule cũ:** `<any>` không ghi độ dài giờ nuốt tới 50 ký tự, kể cả dấu câu.
-- `CLAUDE.md` / `AGENTS.md`: cập nhật đoạn token ở mục Dịch thuật VietPhrase.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Tự soát tay các ca:
-  - `<^>第<n>章` khớp `　　第12章 风起` mà không khớp `他说第12章`.
-  - `<any>的<any>` với Name `张三` nằm trọn trong cụm vẫn khớp.
 
   Không build tại chỗ (Windows), chưa thử trên máy.

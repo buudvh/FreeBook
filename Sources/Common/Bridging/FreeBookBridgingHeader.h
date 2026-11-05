@@ -1,6 +1,6 @@
 //
 //  FreeBookBridgingHeader.h
-//  FreeBook
+//  Tàng Công Các
 //
 //  Bridging header duy nhất của target app (`SWIFT_OBJC_BRIDGING_HEADER` trong `project.yml`).
 //  Chỉ gom các header C mà Swift cần thấy; mỗi phân hệ giữ header riêng của mình.

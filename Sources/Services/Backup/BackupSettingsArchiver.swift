@@ -50,7 +50,7 @@ public enum BackupSettingsArchiver {
     ///   sở hữu — phục hồi từ đây sẽ đá nhau với bản trong thư viện;
     /// - `failed_file_deletions_retry_count_`: đếm lần thử xoá file của riêng máy đó;
     /// - `ttsSleepTimer`: trạng thái hẹn giờ của phiên phát, không phải cấu hình;
-    /// - `vbook_ext_storage_`: `localStorage` kiểu cũ của tiện ích, khoá theo md5 đường dẫn tuyệt đối — vô dụng
+    /// - `LegacyExtensionSQLiteMigrator.storageKeyPrefix` (mục cuối): `localStorage` kiểu cũ của tiện ích, khoá theo md5 đường dẫn tuyệt đối — vô dụng
     ///   trên máy khác/sau khi đổi gốc thư mục. `localStorage` giờ nằm ở `ExtensionLocalStorageStore` và đi theo
     ///   nhóm `.extensions` (`BackupPaths.extensionLocalStorage`); chặn cả hai chiều để archive cũ không ghi lại rác.
     private static let deniedKeyPrefixes = [

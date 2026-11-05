@@ -1,5 +1,5 @@
 CryptoJS (https://github.com/brix/crypto-js) - crypto-js v4.2.0 (phiên bản ghim cố định).
-Dùng trong FreeBook: Sources/Resources/ExtensionLibraries/crypto-js-4.2.0.min.js = crypto-js.min.js của cdnjs,
+Dùng trong Tàng Công Các: Sources/Resources/ExtensionLibraries/crypto-js-4.2.0.min.js = crypto-js.min.js của cdnjs,
 SRI sha512-a+SUDuwNzXDvz4XrIcXHuCf089/iJAoN4lmrXJg18XnduKK6YlDHNRalv4yd1N40OKI80tFidF+rqTFKGPoWFQ== (giữ nguyên byte).
 Tiện ích JS nhận nó qua load('crypto.js') khi không tự mang file cùng tên. Giấy phép lấy từ gói npm crypto-js@4.2.0.
 

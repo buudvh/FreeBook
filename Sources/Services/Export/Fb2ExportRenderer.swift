@@ -79,8 +79,8 @@ final class Fb2ExportRenderer: ExportRenderer {
         <lang>vi</lang>
         </title-info>
         <document-info>
-        <author><nickname>FreeBook</nickname></author>
-        <program-used>FreeBook</program-used>
+        <author><nickname>Tàng Công Các</nickname></author>
+        <program-used>Tàng Công Các</program-used>
         <date value="\(today)">\(today)</date>
         <id>\(ExportTextEscaper.xml(request.bookId))</id>
         <version>1.0</version>

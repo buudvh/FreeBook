@@ -13,7 +13,7 @@ import Foundation
 public final class ExtensionIndexStore: @unchecked Sendable {
     public static let shared = ExtensionIndexStore()
 
-    private let queue = DispatchQueue(label: "FreeBook.ExtensionIndexStore", qos: .utility)
+    private let queue = DispatchQueue(label: "TangCongCac.ExtensionIndexStore", qos: .utility)
     /// Chỉ truy cập trên `queue`.
     private var migratedFromLegacy = false
 

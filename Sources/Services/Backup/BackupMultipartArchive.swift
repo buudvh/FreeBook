@@ -49,7 +49,7 @@ public enum BackupMultipartArchive {
     public static func split(archive: URL, partSize: Int64 = defaultPartSize) throws -> Package {
         guard partSize > 0 else { throw Failure.invalidManifest }
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("freebook-parts-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("tangcongcac-parts-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         do {
             let source = try FileHandle(forReadingFrom: archive)
@@ -140,7 +140,7 @@ public enum BackupMultipartArchive {
         }
 
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("freebook-assemble-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("tangcongcac-assemble-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let partial = root.appendingPathComponent(manifest.originalFileName + ".partial")
         FileManager.default.createFile(atPath: partial.path, contents: nil)

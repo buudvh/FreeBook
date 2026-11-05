@@ -85,7 +85,7 @@ public struct ReaderChapterListView: View {
     internal var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     internal var metadataTitle: String {
-        let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
+        let original = firstNonempty(localBook?.title, bookTitle) ?? "Tàng Công Các"
         let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
             ? TranslateUtils.translateMeta(
                 original,

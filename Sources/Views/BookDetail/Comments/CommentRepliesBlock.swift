@@ -3,7 +3,7 @@ import SwiftUI
 /// Khối trả lời xổ ra ngay dưới một bình luận (`CommentRowView`), thụt vào với vạch dọc bên trái.
 ///
 /// - `replies` lồng sẵn (hợp đồng) ⇒ hiện ngay, không gọi mạng.
-/// - Không có mà có `reply_source` (khoá riêng của FreeBook) ⇒ lần mở đầu gọi `script(input, page)` qua `SourceRuntime`
+/// - Không có mà có `reply_source` (khoá riêng của Tàng Công Các) ⇒ lần mở đầu gọi `script(input, page)` qua `SourceRuntime`
 ///   như script bình luận; còn trang kế thì có "Tải thêm trả lời". Trang đã tải nằm trong `page` của hàng cha.
 struct CommentRepliesBlock: View {
     /// Trang trả lời đã tải từ `reply_source` — hàng cha giữ để thu gọn / mở lại không tải lại.

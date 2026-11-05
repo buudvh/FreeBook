@@ -35,7 +35,7 @@ final class LegadoFileStateStore: LegadoPersistentStore, @unchecked Sendable {
     private var dirtyKeys: Set<String> = []
     private var writeScheduled = false
     private var deviceId: String?
-    private let writeQueue = DispatchQueue(label: "FreeBook.LegadoState", qos: .utility)
+    private let writeQueue = DispatchQueue(label: "TangCongCac.LegadoState", qos: .utility)
 
     init(rootURL: URL? = nil) {
         if let rootURL {

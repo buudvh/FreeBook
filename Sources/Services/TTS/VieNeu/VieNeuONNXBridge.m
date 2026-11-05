@@ -1,6 +1,6 @@
 //
 //  VieNeuONNXBridge.m
-//  FreeBook
+//  Tàng Công Các
 //
 //  Thi hành cầu nối khai ở `VieNeuONNXBridge.h` bằng **C API** của ONNX Runtime.
 //
@@ -431,7 +431,7 @@ static VieNeuORT *createBaseContext(int32_t threadCount,
     }
     context->api = api;
 
-    if (check(api->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "FreeBookVieNeu", &context->env),
+    if (check(api->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "TangCongCacVieNeu", &context->env),
               api, errorMessage) != 0) {
         VieNeuORTDestroy(context);
         return NULL;

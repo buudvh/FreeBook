@@ -77,7 +77,7 @@ public enum QuickTranslationRulePriorityConfiguration {
     public enum Preset: String, CaseIterable, Hashable, Sendable {
         /// Mặc định của app từ 1.3.300.
         case lengthFirst
-        /// Hành vi của bản VBook trên máy tính (`executeRules` của `ruleEngine.ts`).
+        /// Hành vi của bộ dịch gốc trên máy tính (`executeRules` của `ruleEngine.ts`).
         case referenceEngine
         /// Leftmost-longest thuần, giống tokenizer VietPhrase ở bước sau.
         case longestMatch
@@ -95,7 +95,7 @@ public enum QuickTranslationRulePriorityConfiguration {
             case .lengthFirst:
                 return "Chữ ghim → số chữ khớp → hạn mức → bộ riêng. Rule dịch được nhiều chữ hơn thì thắng, nên 三米五 ra \"3 mét 5\"."
             case .referenceEngine:
-                return "Chữ ghim → hạn mức → số chữ khớp → bộ riêng. Giống bản VBook trên máy tính. Rule ít token thắng, nên 三米五 ra \"3 mét\" và chữ 五 được dịch riêng."
+                return "Chữ ghim → hạn mức → số chữ khớp → bộ riêng. Giống bộ dịch gốc trên máy tính. Rule ít token thắng, nên 三米五 ra \"3 mét\" và chữ 五 được dịch riêng."
             case .longestMatch:
                 return "Số chữ khớp → chữ ghim → hạn mức → bộ riêng. Rule khớp dài nhất luôn thắng, kể cả khi giành chỗ của rule literal viết tay: 五米三 ra \"5 mét 3\" thay vì \"năm mét\"."
             }

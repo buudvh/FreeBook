@@ -2,7 +2,7 @@ import Foundation
 
 /// Text → `[QuickTranslationParsedRule]` + danh sách lỗi cú pháp.
 ///
-/// Hỗ trợ đúng các định dạng dòng mà bộ rule vBook đang dùng: `pattern = replacement`,
+/// Hỗ trợ đúng các định dạng dòng mà các bộ rule dịch nhanh phổ biến đang dùng: `pattern = replacement`,
 /// `pattern=replacement`, `"pattern" = "replacement"` và phân tách bằng tab. Dòng trống, `#`, `//`,
 /// `===` bị bỏ qua. Dòng non-comment không thuộc định dạng nào thành `UNPARSEABLE_RULE_LINE` khi gọi
 /// parser trực tiếp; luồng import/CRUD canonical lọc các dòng này trước khi compile.

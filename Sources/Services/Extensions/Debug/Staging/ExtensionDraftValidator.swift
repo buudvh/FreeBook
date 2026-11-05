@@ -2,7 +2,7 @@ import Foundation
 
 /// Validate một snapshot nháp **trước** khi cho phép chạy (Phase 3).
 ///
-/// Checksum đã được `ExtensionDraftStagingStore` xác minh; ở đây kiểm những thứ về *ngữ nghĩa VBook*:
+/// Checksum đã được `ExtensionDraftStagingStore` xác minh; ở đây kiểm những thứ về *ngữ nghĩa hợp đồng tiện ích*:
 /// `plugin.json` đọc được, mọi script khai trong nó có mặt trong snapshot, mọi `load("…")` trỏ tới file
 /// có thật, và từng script biên dịch được.
 ///

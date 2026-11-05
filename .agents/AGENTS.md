@@ -1,4 +1,4 @@
-# FreeBook - AI Agent Development Workflow
+# Tàng Công Các - AI Agent Development Workflow
 
 > **AGENTS.md defines AI workflow only. Project-specific architecture, coding standards, runtime constraints, subsystem rules and implementation details must reside in `Docs/CodeGraph/rules.md`. AGENTS.md should reference those documents instead of duplicating their contents.**
 

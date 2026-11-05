@@ -47,7 +47,7 @@ def resource_name(filter_id):
 
 def download(filter_id):
     url = URL_TEMPLATE.format(id=filter_id)
-    request = urllib.request.Request(url, headers={"User-Agent": "FreeBook-snapshot/1.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "TangCongCac-snapshot/1.0"})
     with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
         status = getattr(response, "status", 200)
         if status < 200 or status >= 300:

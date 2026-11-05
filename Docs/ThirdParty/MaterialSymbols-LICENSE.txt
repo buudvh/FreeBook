@@ -1,5 +1,5 @@
 Material Symbols (https://github.com/google/material-design-icons) - nhánh master, tải 2026-10-26.
-Dùng trong FreeBook: symbols/web/g_translate/materialsymbolsrounded/g_translate_wght600fill1_24px.svg
+Dùng trong Tàng Công Các: symbols/web/g_translate/materialsymbolsrounded/g_translate_wght600fill1_24px.svg
 tại Sources/Assets.xcassets/MaterialGTranslate.imageset/g_translate.svg (viewBox 0 -960 960 960 đổi thành 0 0 960 960 + translate(0 960), fill #000000 cho asset template).
 
 --------------------------------------------------------------------------------

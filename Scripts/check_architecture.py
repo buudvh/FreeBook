@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FreeBook Architecture Compliance Checker (v2 Fail-Closed)
+TangCongCac Architecture Compliance Checker (v2 Fail-Closed)
 Scans Sources/ directory for architectural rules violations and compares against baseline allowlist schema.
 Exits with 0 on SUCCESS, 1 on VIOLATION.
 """
@@ -198,7 +198,7 @@ def run_checks():
                 for line_no, message in find_white_tint_fills(raw_lines):
                     errors.append(f"[WHITE_TINT_FILL] {rel_path}:{line_no}: {message}")
 
-    print("\n--- FreeBook Architecture Compliance Checker ---")
+    print("\n--- TangCongCac Architecture Compliance Checker ---")
     if errors:
         print(f"[FAIL] Found {len(errors)} architecture violation(s):")
         for err in errors:

@@ -161,7 +161,7 @@ extension ReaderView {
     }
 
     internal var readerBookDisplayTitle: String {
-        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
+        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "Tàng Công Các"))
     }
 
     internal var readerPresentedChapterIndex: Int {

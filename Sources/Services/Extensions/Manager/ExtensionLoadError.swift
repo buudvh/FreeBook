@@ -29,7 +29,7 @@ struct ExtensionLoadError: LocalizedError, CustomNSError, CustomStringConvertibl
     var description: String { String(describing: underlying) }
     var debugDescription: String { String(describing: underlying) }
 
-    static var errorDomain: String { "FreeBook.ExtensionLoadError" }
+    static var errorDomain: String { "TangCongCac.ExtensionLoadError" }
     var errorCode: Int { (underlying as NSError).code }
     var errorUserInfo: [String: Any] {
         [

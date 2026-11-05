@@ -25,7 +25,7 @@ enum FileDescriptorStepProbe {
     private static var tickTimer: DispatchSourceTimer?
     private static var tickStartedAt: TimeInterval = 0
     private static var lastTickTotal = 0
-    private static let tickQueue = DispatchQueue(label: "FreeBook.FileDescriptorStepProbe", qos: .utility)
+    private static let tickQueue = DispatchQueue(label: "TangCongCac.FileDescriptorStepProbe", qos: .utility)
 
     private static let measuredChunkLimit = 60
     private static let stepLogBudget = 40

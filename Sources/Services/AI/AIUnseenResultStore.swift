@@ -11,7 +11,7 @@ public final class AIUnseenResultStore: @unchecked Sendable {
 
     private let lock = NSLock()
     private var results: [String: AIUnseenResult]
-    private let writeQueue = DispatchQueue(label: "FreeBook.AIUnseenResultStore.write", qos: .utility)
+    private let writeQueue = DispatchQueue(label: "TangCongCac.AIUnseenResultStore.write", qos: .utility)
 
     private static var fileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!

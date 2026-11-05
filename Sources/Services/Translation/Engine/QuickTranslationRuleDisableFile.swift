@@ -11,7 +11,7 @@ import Foundation
 /// `QuickTranslationRuleDisableStore`.
 public enum QuickTranslationRuleDisableFile {
     public static let header = """
-    # FreeBook — danh sách rule dịch đang TẮT.
+    # Tàng Công Các — danh sách rule dịch đang TẮT.
     # Mỗi dòng là một mẫu (phần trước dấu = của dòng rule). File này không chứa nội dung rule.
     # Xoá một dòng ở đây là bật lại rule đó.
     """

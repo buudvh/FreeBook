@@ -28,7 +28,7 @@ enum ComicPdfExportWriter {
         format.documentInfo = [
             kCGPDFContextTitle as String: title,
             kCGPDFContextAuthor as String: author,
-            kCGPDFContextCreator as String: "FreeBook"
+            kCGPDFContextCreator as String: "Tàng Công Các"
         ]
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 612, height: 792), format: format)
         var pageCount = 0

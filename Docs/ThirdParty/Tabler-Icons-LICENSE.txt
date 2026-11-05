@@ -1,5 +1,5 @@
 Tabler Icons (https://tabler.io/icons) - icon "filter" (outline).
-Dùng trong FreeBook: filter.svg tại Sources/Assets.xcassets/TablerFilter.imageset
+Dùng trong Tàng Công Các: filter.svg tại Sources/Assets.xcassets/TablerFilter.imageset
 (stroke đổi currentColor -> #000000 cho asset template).
 
 MIT License

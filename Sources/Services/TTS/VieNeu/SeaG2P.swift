@@ -2,7 +2,7 @@ import Foundation
 
 extension Data {
     /// Đọc `UInt32` little-endian. Bản port của `sea-g2p` cần nó để bóc header + bảng offset của
-    /// `sea_g2p.bin`. Đã kiểm FreeBook chưa có hàm trùng tên trước khi mang vào.
+    /// `sea_g2p.bin`. Đã kiểm Tàng Công Các chưa có hàm trùng tên trước khi mang vào.
     func readUInt32Le(at offset: Int) -> UInt32 {
         guard offset + 4 <= self.count else { return 0 }
         let b0 = UInt32(self[offset])

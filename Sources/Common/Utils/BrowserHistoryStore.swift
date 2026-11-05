@@ -26,7 +26,7 @@ public final class BrowserHistoryStore: @unchecked Sendable {
 
     private let userDefaultsKey = "bypass_browser_history_items"
     private let maxItemCount = 200
-    private let queue = DispatchQueue(label: "com.freebook.browserhistory", qos: .utility)
+    private let queue = DispatchQueue(label: "com.tangcongcac.browserhistory", qos: .utility)
 
     private init() {}
 

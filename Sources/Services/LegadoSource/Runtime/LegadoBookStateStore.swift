@@ -34,7 +34,7 @@ final class LegadoBookStateStore: @unchecked Sendable {
     private var savedBookIds: Set<String> = []
     private var deletedBookIds: Set<String> = []
     private var clock: UInt64 = 0
-    private let writeQueue = DispatchQueue(label: "FreeBook.LegadoBookState", qos: .utility)
+    private let writeQueue = DispatchQueue(label: "TangCongCac.LegadoBookState", qos: .utility)
 
     init(rootURL: URL? = nil) {
         if let rootURL {

@@ -16,7 +16,7 @@ final class ComicImageDiskCache: @unchecked Sendable {
 
     private let directory: URL
     private let fileManager = FileManager.default
-    private let trimQueue = DispatchQueue(label: "com.freebook.comic-image-disk-cache", qos: .utility)
+    private let trimQueue = DispatchQueue(label: "com.tangcongcac.comic-image-disk-cache", qos: .utility)
     private let lock = NSLock()
     /// Tổng byte ước lượng; `nil` = chưa đo (đo lần đầu trong lượt dọn).
     private var estimatedBytes: Int64?

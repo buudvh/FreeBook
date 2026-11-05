@@ -207,7 +207,7 @@ extension TTSManager {
     // MARK: - Displayed Metadata for UI & Widgets
 
     public var displayedBookTitle: String {
-        let title = bookTitle.isEmpty ? "FreeBook" : bookTitle
+        let title = bookTitle.isEmpty ? "Tàng Công Các" : bookTitle
         guard sessionTranslationEnabled && TranslateUtils.containsChinese(title) else { return title }
         return TranslateUtils.translateMeta(title, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
     }

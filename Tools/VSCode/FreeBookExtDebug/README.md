@@ -1,6 +1,6 @@
-# FreeBook Extension Debug — VS Code client
+# Tàng Công Các Extension Debug — VS Code client
 
-Client của debug server trong app FreeBook (iOS). Cho phép chạy `execute(...)` của VBook extension **trên
+Client của debug server trong app Tàng Công Các (iOS). Cho phép chạy `execute(...)` của tiện ích JS **trên
 thiết bị thật** rồi xem trace console/fetch/exception ngay trong VS Code.
 
 > Chưa publish lên Marketplace và chưa có bước build trong CI của repo. Đây là package nguồn, chạy bằng
@@ -9,7 +9,7 @@ thiết bị thật** rồi xem trace console/fetch/exception ngay trong VS Code
 ## Yêu cầu
 
 - VS Code desktop 1.85+, workspace **tin cậy** (`workspace.isTrusted`).
-- App FreeBook bản Dev/Ad Hoc, đang **foreground**, cùng mạng LAN.
+- App Tàng Công Các bản Dev/Ad Hoc, đang **foreground**, cùng mạng LAN.
 - Trong app: **Cài Đặt → Nhà Phát Triển → Debug Server (LAN) → Bật server**.
 
 ## Kết nối
@@ -17,7 +17,7 @@ thiết bị thật** rồi xem trace console/fetch/exception ngay trong VS Code
 **Không có bước ghép nối** (bỏ từ 1.3.305): server bật là nối được, đúng như một server API trên LAN.
 
 1. App hiện địa chỉ `ws://<ip>:<port>` trong **Cài Đặt → Nhà Phát Triển → Debug Server (LAN)**.
-2. VS Code: `FreeBook: Connect to App` (hoặc ô địa chỉ trong Sidebar), dán `ws://ip:port`. Địa chỉ được
+2. VS Code: `Tàng Công Các: Connect to App` (hoặc ô địa chỉ trong Sidebar), dán `ws://ip:port`. Địa chỉ được
    ghi vào `workspaceState` nên lần sau mở lại đúng nó.
 3. App hiện tên client trong danh sách kết nối. Không có token, không có bước bấm "Cho phép kết nối".
 
@@ -35,27 +35,27 @@ server tự chạy tiếp mà không quảng bá.
 
 | Lệnh | Việc |
 | --- | --- |
-| `FreeBook: Connect to App` | Nhập `ws://ip:port` và kết nối |
-| `FreeBook: Select Extension` | Chọn extension trong workspace (có `plugin.json`) hoặc extension đã cài trên app |
-| `FreeBook: Browse Extension Folder…` | Chọn tay một thư mục chứa `plugin.json` (kể cả ngoài workspace) |
-| `FreeBook: Refresh Workspace Extensions` | Quét lại `**/plugin.json` trong workspace |
-| `FreeBook: Run Current execute` | Chạy entrypoint suy ra từ tên file đang mở; tên không thuộc sáu entrypoint chuẩn thì chạy dạng `custom` |
-| `FreeBook: Run Script…` | Chọn entrypoint và nhập input, source `installed` |
-| `FreeBook: Run Saved Profile` | Như trên nhưng source `draft` — chạy được cả extension **chưa** cài trên app |
-| `FreeBook: Stage Workspace Draft` | Gửi snapshot `plugin.json` + `*.js` (gốc và `src/`) lên staging của app; không cần extension đã cài |
-| `FreeBook: Install Staged Draft` | Ghi đè extension đang cài, hoặc **cài mới** nếu app chưa có — **cần bấm đồng ý trên thiết bị** |
-| `FreeBook: Rollback Installed Extension` | Trả lại bản trước lần cài gần nhất |
-| `FreeBook: Cancel Current Run` | Huỷ run đang chạy |
-| `FreeBook: Open Trace` | Mở Output Channel |
+| `Tàng Công Các: Connect to App` | Nhập `ws://ip:port` và kết nối |
+| `Tàng Công Các: Select Extension` | Chọn extension trong workspace (có `plugin.json`) hoặc extension đã cài trên app |
+| `Tàng Công Các: Browse Extension Folder…` | Chọn tay một thư mục chứa `plugin.json` (kể cả ngoài workspace) |
+| `Tàng Công Các: Refresh Workspace Extensions` | Quét lại `**/plugin.json` trong workspace |
+| `Tàng Công Các: Run Current execute` | Chạy entrypoint suy ra từ tên file đang mở; tên không thuộc sáu entrypoint chuẩn thì chạy dạng `custom` |
+| `Tàng Công Các: Run Script…` | Chọn entrypoint và nhập input, source `installed` |
+| `Tàng Công Các: Run Saved Profile` | Như trên nhưng source `draft` — chạy được cả extension **chưa** cài trên app |
+| `Tàng Công Các: Stage Workspace Draft` | Gửi snapshot `plugin.json` + `*.js` (gốc và `src/`) lên staging của app; không cần extension đã cài |
+| `Tàng Công Các: Install Staged Draft` | Ghi đè extension đang cài, hoặc **cài mới** nếu app chưa có — **cần bấm đồng ý trên thiết bị** |
+| `Tàng Công Các: Rollback Installed Extension` | Trả lại bản trước lần cài gần nhất |
+| `Tàng Công Các: Cancel Current Run` | Huỷ run đang chạy |
+| `Tàng Công Các: Open Trace` | Mở Output Channel |
 
 ## Chạy script mà không cần cài
 
 Được — đây là đường mặc định khi phát triển, không phải trường hợp đặc biệt:
 
-1. `FreeBook: Select Extension` → chọn thư mục trong workspace (hoặc `Browse Extension Folder…`).
-2. `FreeBook: Stage Workspace Draft` → app nhận snapshot vào `extension-drafts/<packageId>/<revision>/`,
+1. `Tàng Công Các: Select Extension` → chọn thư mục trong workspace (hoặc `Browse Extension Folder…`).
+2. `Tàng Công Các: Stage Workspace Draft` → app nhận snapshot vào `extension-drafts/<packageId>/<revision>/`,
    kiểm size + SHA-256 từng file rồi validate.
-3. `FreeBook: Run Saved Profile` → `run.start` với `sourceMode: "draft"`, chạy **thẳng từ thư mục
+3. `Tàng Công Các: Run Saved Profile` → `run.start` với `sourceMode: "draft"`, chạy **thẳng từ thư mục
    staging**. Extension không cần có trên app, thư viện không bị chạm.
 
 Sửa file thì stage lại (revision là hash nội dung nên nó tự đổi) rồi chạy tiếp. Chỉ bấm

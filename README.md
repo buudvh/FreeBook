@@ -1,8 +1,8 @@
-# FreeBook (Tàng Công Các)
+# Tàng Công Các
 
-Ứng dụng đọc truyện chữ cho iOS, viết bằng SwiftUI + SwiftData. Lấy truyện từ nguồn web qua extension JavaScript (tương thích VBook), dịch convert bằng VietPhrase, đọc thành tiếng bằng nhiều engine TTS (có engine offline chạy ONNX ngay trên máy) và có trợ lý AI ngay trong màn đọc.
+Ứng dụng đọc truyện chữ cho iOS, viết bằng SwiftUI + SwiftData. Lấy truyện từ nguồn web qua extension JavaScript (theo hợp đồng tiện ích `extension-api.md` của Darkrai9x), dịch convert bằng VietPhrase, đọc thành tiếng bằng nhiều engine TTS (có engine offline chạy ONNX ngay trên máy) và có trợ lý AI ngay trong màn đọc.
 
-- Tên hiển thị: **Tàng Công Các** · Bundle target: `FreeBook`
+- Tên hiển thị: **Tàng Công Các** · Tên kỹ thuật (target, scheme, module, bundle id) vẫn là `FreeBook`
 - iOS **17.0+** · Swift / SwiftUI / SwiftData · dự án sinh bằng **XcodeGen**
 - Bản build chính thức là **IPA unsigned** do GitHub Actions đóng gói, cài qua sideload / LiveContainer.
 
@@ -11,7 +11,7 @@
 ## Tính năng
 
 ### Nguồn truyện & thư viện
-- **Extension JavaScript (VBook)**: cài từ kho (repository) trực tuyến, tự đồng bộ cập nhật; mỗi extension có `search` / `home` / `genre` / `detail` / `toc` / `chap`. Có trình soạn script có tô màu cú pháp và cấu hình riêng từng extension.
+- **Extension JavaScript**: cài từ kho (repository) trực tuyến, tự đồng bộ cập nhật; mỗi extension có `search` / `home` / `genre` / `detail` / `toc` / `chap`. Có trình soạn script có tô màu cú pháp và cấu hình riêng từng extension.
 - **Trình duyệt bypass** nhiều tab để vượt Cloudflare / đăng nhập trang nguồn, có widget nổi để mở lại.
 - **Khám phá & tìm kiếm** trên nhiều nguồn cùng lúc, cấu hình bộ máy tìm kiếm.
 - **Kệ sách** có bộ sưu tập, sửa thông tin truyện, đổi nguồn truyện.
@@ -54,7 +54,7 @@
 
 ### Dành cho người viết extension
 - **Debug server** trong app + extension VS Code ở [`Tools/VSCode/FreeBookExtDebug`](Tools/VSCode/FreeBookExtDebug) để chạy và gỡ lỗi script extension trên máy thật.
-- Mẫu `plugin.json` và từng script: [`.agents/skills/vbook_helper/SKILL.md`](.agents/skills/vbook_helper/SKILL.md).
+- Mẫu `plugin.json` và từng script: [`.agents/skills/extension_helper/SKILL.md`](.agents/skills/extension_helper/SKILL.md).
 
 ---
 

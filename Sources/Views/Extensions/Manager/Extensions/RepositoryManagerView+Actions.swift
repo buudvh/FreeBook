@@ -15,7 +15,7 @@ extension RepositoryManagerView {
         static func installFailed(name: String, error: Error, hadInstalledCopy: Bool) -> InstallFailure {
             let isUnsupported = ExtensionScriptDecoder.isUnsupportedFormat(error)
             var message = isUnsupported
-                ? "\(name) dùng định dạng mã hoá mới, FreeBook chưa đọc được."
+                ? "\(name) dùng định dạng mã hoá mới, Tàng Công Các chưa đọc được."
                 : "Lỗi cài đặt/cập nhật \(name): \(error.localizedDescription)"
             if hadInstalledCopy {
                 if !message.hasSuffix(".") { message += "." }
@@ -162,7 +162,7 @@ extension RepositoryManagerView {
         let others = failures.filter { !$0.isUnsupportedFormat }.map(\.name)
         var parts: [String] = []
         if !unsupported.isEmpty {
-            parts.append("Định dạng mã hoá mới, FreeBook chưa đọc được: \(unsupported.joined(separator: ", ")).")
+            parts.append("Định dạng mã hoá mới, Tàng Công Các chưa đọc được: \(unsupported.joined(separator: ", ")).")
         }
         if !others.isEmpty {
             parts.append("Lỗi cập nhật: \(others.joined(separator: ", ")).")

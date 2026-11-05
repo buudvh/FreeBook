@@ -96,14 +96,14 @@ public final class JSExecutor: @unchecked Sendable {
         logObj?.setObject(logBlock, forKeyedSubscript: "log" as NSCopying & NSObjectProtocol)
         context.setObject(logObj, forKeyedSubscript: "Log" as NSCopying & NSObjectProtocol)
 
-        // Đăng ký sleep đồng bộ chuẩn Rhino / VBook
+        // Đăng ký sleep đồng bộ chuẩn Rhino / hợp đồng tiện ích
         let sleepBlock: @convention(block) (Int) -> Void = { ms in
             guard ms > 0 else { return }
             Thread.sleep(forTimeInterval: Double(ms) / 1000.0)
         }
         context.setObject(sleepBlock, forKeyedSubscript: "sleep" as NSCopying & NSObjectProtocol)
 
-        // Đăng ký toast / Toast chuẩn VBook
+        // Đăng ký toast / Toast theo hợp đồng tiện ích
         let toastBlock: @convention(block) (String) -> Void = { msg in
             AppLogger.shared.log("🍞 JS Toast: \(msg)")
         }
@@ -227,7 +227,7 @@ public final class JSExecutor: @unchecked Sendable {
         let storageBootstrap = JSExtensionStorageBridge.bootstrap
         context.evaluateScript(storageBootstrap)
 
-        // 6.5. Đăng ký đối tượng UserAgent toàn cục với đầy đủ phương thức VBook
+        // 6.5. Đăng ký đối tượng UserAgent toàn cục với đầy đủ phương thức của hợp đồng tiện ích
         let userAgentBootstrap = JSCoreBootstrapScripts.userAgent
         context.evaluateScript(userAgentBootstrap)
 
@@ -235,7 +235,7 @@ public final class JSExecutor: @unchecked Sendable {
         let qtBootstrap = JSQtTranslateBridge.bootstrap
         context.evaluateScript(qtBootstrap)
 
-        // 6.7. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook) và đối tượng Http
+        // 6.7. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động theo hợp đồng tiện ích) và đối tượng Http
         let scriptBootstrap = JSScriptHttpBootstrapScript.source
         context.evaluateScript(scriptBootstrap)
 

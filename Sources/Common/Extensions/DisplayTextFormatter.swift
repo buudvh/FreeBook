@@ -21,7 +21,7 @@ public enum DisplayTextFormatter {
             if preservedTokens.contains(cleanWord.uppercased()) && cleanWord.uppercased() == cleanWord {
                 return word
             }
-            if cleanWord == "iOS" || cleanWord == "eBook" || cleanWord == "FreeBook" {
+            if cleanWord == "iOS" || cleanWord == "eBook" || cleanWord == "TangCongCac" {
                 return word
             }
             if cleanWord.count <= 3 && cleanWord.uppercased() == cleanWord && cleanWord.rangeOfCharacter(from: CharacterSet.letters.inverted) == nil && !cleanWord.isEmpty {

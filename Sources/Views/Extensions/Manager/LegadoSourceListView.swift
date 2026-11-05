@@ -33,7 +33,7 @@ struct LegadoSourceListView: View {
 
     // MARK: - Ô tìm
 
-    /// Ô tìm viên thuốc kiểu mục lục (`ChapterTOCSearchField`), cùng kiểu ô tìm của tab Tiện ích FreeBook.
+    /// Ô tìm viên thuốc kiểu mục lục (`ChapterTOCSearchField`), cùng kiểu ô tìm của tab Tiện ích Tàng Công Các.
     private func searchField(count: Int) -> some View {
         ChapterTOCSearchField(text: $state.query, placeholder: "Tìm kiếm \(count) nguồn", palette: .system)
             .padding(.leading, 16)

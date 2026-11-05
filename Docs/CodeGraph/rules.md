@@ -9,7 +9,7 @@ document_version: 9
 
 # Hướng dẫn Quy định Lập trình (Coding & Architecture Rules)
 
-Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo trì và kiến thức kỹ thuật chi tiết của dự án FreeBook.
+Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo trì và kiến thức kỹ thuật chi tiết của dự án Tàng Công Các.
 
 ## Ghi chú thủ công (Human Notes)
 *Ghi chú thủ công của con người.*
@@ -263,7 +263,7 @@ Ba widget nổi (Trợ lý AI, Trình duyệt thu nhỏ, Thông báo) gộp thà
 * **`_split_long_part` divides EVENLY, it is not greedy.** `k = ceil(rest / max_chars)` pieces, each targeting `rest / k`; the docstring records why greedy was abandoned — it left a 304-char part as 251 + 53 and the "near the ceiling" cut landed on bad spots. `min_left = max_chars // 3` gates connector-word cuts (a natural cut must still leave a real clause).
 * **RTF must be reported against speech, not against audio-with-pauses.** Inserted inter-chunk silence costs no inference but inflates `pcmDuration`, so `synthesisMs / pcmDuration` is **falsely low** — and the more chunks, the more falsely low. `Output.speechDuration` (audio minus inserted pauses) is reported alongside, and the test screen shows both.
 * **Chunk by SENTENCE, never by word or character — port `pack_sentences_into_chunks`.** The reference is `normalize_to_chunks_v3_with_gaps` → `pack_sentences_into_chunks(sentences, max_chars)`: split paragraphs on `\n`, split sentences with `RE_SENTENCE_FINDALL = r'[^.!?]+[.!?]*|[.!?]+'`, then greedily pack **whole sentences**. Only a single sentence longer than the ceiling may be split, and then **first at minor punctuation** (`RE_MINOR_PUNCT = r'(?<=[,;:\-–—])\s+'`) and only after that by words. A word-based chunker (the 1.3.424 attempt) fixed split *words* but still cut **mid-sentence**, so the join landed as an unnatural pause — the reported "cắt chunk giữa đường". Verified on the user's 450-char paragraph: 5 chunks, every cut on a comma or sentence end, concatenation byte-identical to the source.
-* **Gaps are classified by the chunk's final punctuation, and each class has its own silence.** `_classify_gap` returns `"sentence"` when the chunk ends in `.!?` and `"minor"` otherwise (`,;:` or a forced cut); `"para"` is assigned by the caller for a `\n` boundary. Reference silences are `V3_GAP_SILENCE = {"para": 0.70, "sentence": 0.50, "minor": 0.30}`; FreeBook maps them to the existing `UserDefaults` keys instead (`paragraphPauseDuration` 0.5 / `sentencePauseDuration` 0.3 / `phrasePauseDuration` 0.15) so one setting drives both engines.
+* **Gaps are classified by the chunk's final punctuation, and each class has its own silence.** `_classify_gap` returns `"sentence"` when the chunk ends in `.!?` and `"minor"` otherwise (`,;:` or a forced cut); `"para"` is assigned by the caller for a `\n` boundary. Reference silences are `V3_GAP_SILENCE = {"para": 0.70, "sentence": 0.50, "minor": 0.30}`; Tàng Công Các maps them to the existing `UserDefaults` keys instead (`paragraphPauseDuration` 0.5 / `sentencePauseDuration` 0.3 / `phrasePauseDuration` 0.15) so one setting drives both engines.
 * **`_fits` has a tail slack, and dropping it creates orphan fragments.** A sentence is accepted if it fits, **or** if it is shorter than `min(CHUNK_TAIL_SLACK, max_chars/8)` and the total stays within `max_chars + slack`. Without that rule a fragment like `"phương."` ends up alone and gets glued onto the next sentence.
 * **Inter-chunk pauses must follow the punctuation, and the chunker must break on it.** The first version inserted a flat 0.12 s between chunks and did not treat `,` as a boundary at all, so commas lived *inside* a chunk while silence was only inserted *between* chunks — every comma break was lost. `pauseSeconds(afterChunk:)` now reads the same `UserDefaults` keys the NghiTTS path uses (`sentencePauseDuration` / `phrasePauseDuration`), and `chunkBoundaryCharacters` includes `,` `，` `、`.
 * **`sea_g2p.bin` has no digits at all — numbers and dates must be spelled out before phonemizing.** `8`, `1999`, `74`, `3`, `2002` all fail lookup, so they fall into the per-character fallback; the model's vocab only has `1 2 4 5 6 7`, so `0 3 8 9` are dropped. The user's `8/1999` and `3/11/2002` lost exactly **10** characters (7 digits + 3 slashes) — the reported `phoneme bỏ: 10`. VieNeu therefore runs `TextPreprocessor.normalizingForVieNeu`, which is `processVietnameseText` (numbers, dates, year ranges, time, units, roman numerals, NFC, dash/quote normalization) **without** the espeak transliteration that `preprocess(_:)` would add — espeak IPA is a different alphabet and would be dropped silently. This is a **reversal of plan §2** ("no preprocessing"), driven by reality.
@@ -622,7 +622,7 @@ Thêm `case` vào `ExtensionDebugEvent.Category` là đổi contract v1 ⇒ nân
 * **Write Coordinators**: SwiftUI Views must not perform direct `modelContext` write mutations (`insert`, `delete`, `save`). All write transactions are owned by domain transaction coordinators accepting immutable Command DTOs/IDs: `BookTransactionCoordinator` (SwiftData) and `ExtensionTransactionCoordinator` (the JSON extension store — no `ModelContext` since 1.3.529).
 * **Services Layer Boundaries**: `Sources/Services/` must not import `SwiftUI` and must not invoke `ToastManager.shared` directly. The `SERVICE_SWIFTUI_IMPORT` check exempts only files whose name ends with `WebViewLoader.swift` (currently `WebViewLoader.swift` and `VisibleWebViewLoader.swift`); as of this revision no Services file imports SwiftUI at all, so the exemption is a standing allowance rather than an active carve-out.
 * **Presentation Event Center**: UI presentation events (toasts) emitted by background services use thread-safe `AsyncStream` event centers (`TTSPresentationEventCenter`, `DownloadPresentationEventCenter`) with `AppLaunchRootView` as the sole UI presentation subscriber.
-* **VBook JS Runtime Boundaries**: Extraction operations use short-lived `JSExecutor` instances; only `ExtTTSRuntime` may persist a long-lived runtime. All extension calls must preserve `execute(...)`, `runAsync`, global API injections (`Html`, `Engine`, `Response`, `fetch`), and root vs `src/` script path resolution.
+* **JS Extension Runtime Boundaries**: Extraction operations use short-lived `JSExecutor` instances; only `ExtTTSRuntime` may persist a long-lived runtime. All extension calls must preserve `execute(...)`, `runAsync`, global API injections (`Html`, `Engine`, `Response`, `fetch`), and root vs `src/` script path resolution.
 * **Logging and Observability**: Log via `AppLogger.shared` with structured tags; do not use raw `print`. Never log secrets, full chapter payloads, or sensitive user data.
 * **Security**: Enforce `validatePathSafety(for:)` on all physical file operations. Validate external URLs and input data at extension boundaries. Never expose API keys.
 * **Test Layer Removed (1.3.235, user-directed)**: tầng test không còn tồn tại — `Tests/` và target `FreeBookTests` đã bị xoá khỏi repo và `project.yml`. Không tạo lại thư mục `Tests/` hay target test khi người dùng chưa yêu cầu rõ ràng. Xác minh tính đúng dựa trên đọc code, build trên macOS và hai script tĩnh (`validate_links.py`, `check_architecture.py`); không được viện dẫn test làm bằng chứng.
@@ -778,7 +778,7 @@ CodeGraph bắt buộc phải được đồng bộ hóa lập tức khi có b�
 ## 4. Kiến thức Dự án & Cấu trúc Thư mục (Project Knowledge)
 
 ### 4.1. Cấu trúc thư mục mã nguồn
-Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ngặt:
+Dự án Tàng Công Các được tổ chức theo cấu trúc phân tầng nghiêm ngặt:
 *   **Common (`Sources/Common`)**: Chứa các thành phần dùng chung cho toàn dự án.
     *   `Extensions/`: Các phần mở rộng (Extensions/Helpers) dùng chung (`String+HTML.swift`, `View+Keyboard.swift`, `String+Crypto.swift`...).
     *   `Services/`: Các Service/Manager dùng chung cho toàn bộ ứng dụng (`ImageCacheManager.swift`, `ToastManager.swift`...).
@@ -813,7 +813,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   `Logging/`: `AppLogger.swift`, `AppLogFiles.swift` (đường dẫn + xoay vòng file log, 1.3.518), `FileDescriptorCensus.swift` (đếm fd đang mở theo nhóm + nâng `RLIMIT_NOFILE` lúc khởi động — chẩn đoán cạn file descriptor, 1.3.517).
     *   `Diagnostics/`: `DeviceThermalMonitor.swift` (bộ ghi nhiệt: 1 mẫu/30 s — mức nhiệt, % CPU app, pin, sạc, Low Power, engine TTS — vào bộ đệm vòng 1.440 ô trong RAM, **không ghi đĩa**; bật ở `FreeBookApp.init`), `ThermalCSVExport.swift` (`Transferable`, CSV dựng trong RAM lúc chia sẻ) — 1.3.520.
 
-### 4.2. JavaScript Core Runtime & VBook Extensions Integration
+### 4.2. JavaScript Core Runtime & JS Extensions Integration
 *   **Script Entrypoint**: Tên hàm bắt đầu thực thi bên trong toàn bộ các tệp JavaScript (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) phải là `execute(...)`, được gọi bất đồng bộ qua `runAsync` trong `ExtensionManager.swift`.
 *   **Script File Path Resolution**: Các tệp JS script có thể đặt ở thư mục gốc của extension hoặc trong thư mục `src/`. `ExtensionManager` sẽ quét cả hai vị trí này.
 *   **Injected Global JS Objects**: Các đối tượng global được inject vào `JSContext`:
@@ -824,7 +824,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   `Engine`: Headless browser giả lập (`Engine.newBrowser()`, `newVisibleBrowser()`).
     *   `Qt`: Quick Translator bridge (`Qt.translate(text, to, extras)`) và các tiện ích mã hóa.
     *   `localStorage`, `cacheStorage`, `localConfig`, `localCookie`: Hệ thống lưu trữ và cấu hình tiện ích mở rộng.
-    *   `UserAgent`, `Crypto`, `Script`, `Http`: Các bộ công cụ giả lập môi trường VBook Android & WebKit.
+    *   `UserAgent`, `Crypto`, `Script`, `Http`: Các bộ công cụ giả lập môi trường Android gốc của tiện ích & WebKit.
     *   `crypto.getRandomValues`: polyfill native (`JSCryptoJSBridge`) cho mọi executor.
 *   **Thư viện dựng sẵn cho `load()`** (1.3.664): tên trong `JSBuiltInLibrary` (hiện chỉ `crypto.js` = CryptoJS 4.2.0 đóng gói ở `Sources/Resources/ExtensionLibraries/`) được app cấp khi tiện ích **không** mang file cùng tên; file của tiện ích luôn thắng (chủ ý khác hợp đồng chuẩn). Sau mỗi lần nạp `crypto.js` gắn phần native `AES.encryptGcm/decryptGcm`, `PBKDF2` (CommonCrypto) và `WordArray.random`. Bộ kiểm tra tĩnh không được báo thiếu file cho các tên này. Thêm thư viện dựng sẵn mới = thêm case vào `JSBuiltInLibrary` + file vào thư mục resource đó.
 

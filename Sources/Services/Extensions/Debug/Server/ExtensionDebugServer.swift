@@ -25,7 +25,7 @@ public actor ExtensionDebugServer {
     private static let portStorageKey = "extDebugServerPort"
     private static let maxRestartAttempts = 3
 
-    private let queue = DispatchQueue(label: "com.freebook.extdebug.server")
+    private let queue = DispatchQueue(label: "com.tangcongcac.extdebug.server")
 
     private var listener: NWListener?
     private var connection: ExtensionDebugConnection?

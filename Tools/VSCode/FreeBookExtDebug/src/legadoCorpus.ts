@@ -130,7 +130,7 @@ export async function cancelLegadoCorpus(host: LegadoCorpusHost): Promise<void> 
 function requireLegadoClient(host: LegadoCorpusHost): ExtDebugClient | undefined {
   const client = host.client();
   if (!client?.isConnected) {
-    vscode.window.showWarningMessage('Chưa kết nối. Chạy “FreeBook: Connect to App” trước.');
+    vscode.window.showWarningMessage('Chưa kết nối. Chạy “Tàng Công Các: Connect to App” trước.');
     return undefined;
   }
   if (client.negotiatedVersion < LEGADO_MIN_PROTOCOL_VERSION) {

@@ -49,7 +49,7 @@ public final class AppLogger {
 
     /// Mọi thao tác trên file log chạy tuần tự trên queue nền này: luồng gọi (kể cả main) chỉ dựng chuỗi
     /// rồi đi tiếp, không chờ ghi đĩa. Đổi lại, app crash có thể mất vài dòng cuối chưa kịp ghi.
-    private let queue = DispatchQueue(label: "FreeBook.AppLogger", qos: .utility)
+    private let queue = DispatchQueue(label: "TangCongCac.AppLogger", qos: .utility)
     // Handle của `app_logs.txt`, mở một lần rồi giữ suốt phiên (chỉ truy cập trên `queue`): mở lại cần fd mới,
     // mà lúc tiến trình đã cạn fd thì mở lại hỏng âm thầm và mọi dòng log sau đó mất.
     private var fileHandle: FileHandle?

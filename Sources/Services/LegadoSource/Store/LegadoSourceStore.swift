@@ -15,7 +15,7 @@ public enum LegadoSourceStore {
     public static let manifestFileName = "plugin.json"
 
     /// Hàng đợi tuần tự cho mọi thao tác file do app khởi xướng (nhập, vá `enabled`, xoá, nạp danh sách).
-    static let fileQueue = DispatchQueue(label: "FreeBook.LegadoSourceStore", qos: .userInitiated)
+    static let fileQueue = DispatchQueue(label: "TangCongCac.LegadoSourceStore", qos: .userInitiated)
 
     /// `extensions/<packageId>/` — không tạo thư mục.
     public static func directoryURL(packageId: String) -> URL {

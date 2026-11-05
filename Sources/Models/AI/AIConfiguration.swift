@@ -133,7 +133,7 @@ public struct AIConfiguration: Codable, Sendable, Equatable {
     }
 
     public static let defaultSystemPrompt: String = """
-    Bạn là AI Trợ Lý đọc truyện chuyên nghiệp tích hợp trong app FreeBook (FreeBook AI Harness).
+    Bạn là AI Trợ Lý đọc truyện chuyên nghiệp tích hợp trong app Tàng Công Các (Tàng Công Các AI Harness).
     Nhiệm vụ của bạn là:
     - Trả lời, tóm tắt, giải thích bối cảnh, phân tích nhân vật và tình tiết truyện một cách chính xác, hấp dẫn.
     - Trích xuất tên riêng (Nhân vật, Địa danh, Tông môn, Công pháp...) từ văn bản raw tiếng Trung chưa dịch.

@@ -4,7 +4,7 @@ import Foundation
 /// Kho **dự phòng** cho `LegadoLoginStore` khi Keychain từ chối (app chạy dưới LiveContainer có thể thiếu entitlement
 /// Keychain) — cùng cách `TelegramTokenStore` hạ xuống file được bảo vệ.
 ///
-/// - Thư mục `applicationSupport/.legado_login/` — **ngoài** `legado_state/` (Backup của FreeBook gói `legado_state/`),
+/// - Thư mục `applicationSupport/.legado_login/` — **ngoài** `legado_state/` (Backup của Tàng Công Các gói `legado_state/`),
 ///   đánh dấu `isExcludedFromBackup` (không vào bản sao lưu iCloud/máy tính).
 /// - Mỗi mục một tệp `<sha256(account)>.bin` (tên tệp không lộ nguồn), bảo vệ
 ///   `completeUntilFirstUserAuthentication` (khớp `AfterFirstUnlockThisDeviceOnly` của Keychain).

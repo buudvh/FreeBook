@@ -270,7 +270,7 @@ jobs:
           echo "File size is under 50MB. Uploading directly to Telegram..."
 
           # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
-          CAPTION=$(printf "📦 FreeBook Build Thành Công! 🚀\n\n💬 Commit: %s" "$COMMIT_SUBJECT")
+          CAPTION=$(printf "📦 Tàng Công Các Build Thành Công! 🚀\n\n💬 Commit: %s" "$COMMIT_SUBJECT")
 
           curl --connect-timeout 30 --max-time 300 --retry 3 \
                -F chat_id="${TELEGRAM_CHAT_ID}" \
@@ -284,7 +284,7 @@ jobs:
           echo "Uploaded to: $UPLOAD_URL"
           
           # Định dạng nội dung tin nhắn bằng printf
-          TEXT=$(printf "📦 FreeBook Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$COMMIT_MSG" "$UPLOAD_URL")
+          TEXT=$(printf "📦 Tàng Công Các Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$COMMIT_MSG" "$UPLOAD_URL")
           
           curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
                --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
@@ -300,7 +300,7 @@ jobs:
         COMMIT_MSG=$(git log -1 --pretty=format:"%B")
         
         # Định dạng tin nhắn lỗi bằng printf (bỏ chi tiết lỗi cụ thể)
-        TEXT=$(printf "❌ FreeBook Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
+        TEXT=$(printf "❌ Tàng Công Các Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
         
         curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \

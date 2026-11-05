@@ -1,5 +1,5 @@
 Lucide icons (https://lucide.dev) - lucide-static v0.400.0 (phiên bản ghim cố định).
-Dùng trong FreeBook: copy.svg, clipboard-paste.svg, languages.svg
+Dùng trong Tàng Công Các: copy.svg, clipboard-paste.svg, languages.svg
 tại Sources/Assets.xcassets/Lucide*.imageset (stroke đổi currentColor -> #000000 cho asset template).
 
 ISC License

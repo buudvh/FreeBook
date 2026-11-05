@@ -111,7 +111,7 @@ final class VieNeuModelClient {
         _ all: [Source],
         progressHandler: ((String, Double) -> Void)?
     ) async throws -> Int {
-        let background = BackgroundTaskSession.begin(name: "FreeBook-VieNeuModel")
+        let background = BackgroundTaskSession.begin(name: "TangCongCac-VieNeuModel")
         defer { background.end() }
 
         var downloaded = 0

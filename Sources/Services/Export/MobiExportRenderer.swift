@@ -200,7 +200,7 @@ final class MobiExportRenderer: ExportRenderer {
         }
         name = name.trimmingCharacters(in: .whitespaces)
         if name.isEmpty {
-            name = "FreeBook"
+            name = "TangCongCac"
         }
         return Data(name.utf8.prefix(31))
     }

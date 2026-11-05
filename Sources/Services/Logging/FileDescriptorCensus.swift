@@ -21,7 +21,7 @@ import Darwin
 /// Vẫn giữ: nâng giới hạn mềm, dọn fd mồ côi, `openCount()` cho màn log, và `[FD] FAILURE` + bảng chụp lúc lỗi.
 enum FileDescriptorCensus {
     /// Mọi việc đếm và mọi trạng thái bên dưới chạy tuần tự trên queue này: không chặn main/TTS.
-    private static let queue = DispatchQueue(label: "FreeBook.FileDescriptorCensus", qos: .utility)
+    private static let queue = DispatchQueue(label: "TangCongCac.FileDescriptorCensus", qos: .utility)
     private static var previousBuckets: [String: Int] = [:]
     private static var previousTotal = 0
     private static var chunkCount = 0

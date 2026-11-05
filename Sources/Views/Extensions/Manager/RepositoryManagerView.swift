@@ -112,7 +112,7 @@ struct RepositoryManagerView: View {
     internal var mainContentView: some View {
         VStack(spacing: 0) {
             Picker("", selection: $selectedTab) {
-                Text("Tiện ích FreeBook").tag(0)
+                Text("Tiện ích Tàng Công Các").tag(0)
                 Text("Tiện ích Legado").tag(2)
             }
             .pickerStyle(.segmented)
@@ -141,7 +141,7 @@ struct RepositoryManagerView: View {
     @ViewBuilder
     internal func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
         content
-            .sideDrawerMenu(isPresented: $showingExtensionsMenu, title: "Tiện ích FreeBook") { extensionsMenuItems }
+            .sideDrawerMenu(isPresented: $showingExtensionsMenu, title: "Tiện ích Tàng Công Các") { extensionsMenuItems }
             .sideDrawerMenu(isPresented: $showingLegadoMenu, title: "Tiện ích Legado") { legadoMenuItems }
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }

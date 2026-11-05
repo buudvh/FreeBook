@@ -1,6 +1,6 @@
 //
 //  VieNeuONNXBridge.h
-//  FreeBook
+//  Tàng Công Các
 //
 //  Cầu nối **C API** của ONNX Runtime cho engine VieNeu-TTS.
 //

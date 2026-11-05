@@ -6,7 +6,7 @@ import Foundation
 /// ngay trước khi nhận byte nào: quá quota, path không an toàn, hoặc thiếu `plugin.json`. Không có
 /// đường nào để client gửi một file không khai trong manifest.
 public struct ExtensionDraftManifest: Codable, Sendable, Equatable {
-    /// Trần của một snapshot. Extension VBook là vài chục KB JS; 4 MiB đã rất rộng.
+    /// Trần của một snapshot. Một tiện ích là vài chục KB JS; 4 MiB đã rất rộng.
     public static let maxTotalBytes = 4 * 1024 * 1024
     public static let maxFileCount = 200
     public static let maxFileBytes = 1024 * 1024

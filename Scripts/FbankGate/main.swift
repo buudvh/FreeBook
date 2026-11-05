@@ -2,7 +2,7 @@
 // diffed against the numpy reference on a macOS runner.
 //
 // Not part of the app target: this lives under `Scripts/` (XcodeGen only globs `Sources/`),
-// so it is never compiled into FreeBook.
+// so it is never compiled into the app.
 //
 //   swiftc -O Sources/Services/TTS/VieNeu/VieNeuFbank.swift Scripts/FbankGate/main.swift -o fbank_gate
 //   ./fbank_gate probe.wav swift.csv

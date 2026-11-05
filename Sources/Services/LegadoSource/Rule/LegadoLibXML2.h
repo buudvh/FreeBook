@@ -1,6 +1,6 @@
 //
 //  LegadoLibXML2.h
-//  FreeBook
+//  Tàng Công Các
 //
 //  Header libxml2 hệ thống mà engine rule của nguồn Legado dùng (HTML parser + XPath).
 //  Thư mục `$(SDKROOT)/usr/include/libxml2` phải nằm trong `HEADER_SEARCH_PATHS` (khai ở `project.yml`)

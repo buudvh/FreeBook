@@ -11,7 +11,7 @@ struct SearchPagingState {
     /// Trang sau lỗi: tự thử lại tối đa `maxRetries` lần, cách nhau `retryDelayNanoseconds`, rồi chờ người dùng bấm "Thử lại".
     static let maxRetries = 3
     static let retryDelayNanoseconds: UInt64 = 2_000_000_000
-    /// Đối số `page` của trang 1 (tiện ích riêng của FreeBook có thể `parseInt(page)`).
+    /// Đối số `page` của trang 1 (tiện ích riêng của Tàng Công Các có thể `parseInt(page)`).
     static let firstPageToken = "1"
 
     private(set) var searchId = 0

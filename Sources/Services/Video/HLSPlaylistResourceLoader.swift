@@ -12,7 +12,7 @@ public final class HLSPlaylistResourceLoader: NSObject, AVAssetResourceLoaderDel
     /// Nội dung theo path của URL `fbhls://` được phục vụ (playlist chính + playlist con kèm). URI tương đối còn sót
     /// (thiếu `baseURL`) cũng rơi vào scheme `fbhls` và phải bị từ chối thay vì trả nhầm nội dung playlist.
     private let documents: [String: Data]
-    private let queue = DispatchQueue(label: "FreeBook.HLSPlaylistResourceLoader")
+    private let queue = DispatchQueue(label: "TangCongCac.HLSPlaylistResourceLoader")
 
     private init(documents: [String: Data]) {
         self.documents = documents

@@ -102,7 +102,7 @@ public final class NghiTTSClient {
     }
 
     public func prefetchModels(voices: [String], progressHandler: ((String, Double) -> Void)? = nil) async throws -> [PrefetchResult] {
-        let bgSession = BackgroundTaskSession.begin(name: "FreeBook-DownloadModel")
+        let bgSession = BackgroundTaskSession.begin(name: "TangCongCac-DownloadModel")
         defer { bgSession.end() }
         
         let totalFiles = voices.count * 2

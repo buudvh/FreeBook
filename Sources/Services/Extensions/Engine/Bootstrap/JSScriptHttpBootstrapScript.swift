@@ -1,6 +1,6 @@
 import Foundation
 
-/// Polyfill JS cho `Script`/`Http` (VBook). Nội dung chuyển nguyên văn từ `JSExecutor.swift` (1.3.481).
+/// Polyfill JS cho `Script`/`Http` (hợp đồng tiện ích). Nội dung chuyển nguyên văn từ `JSExecutor.swift` (1.3.481).
 enum JSScriptHttpBootstrapScript {
     /// Chuỗi JS, `evaluateScript` ngay sau khi khai báo trong `JSExecutor`.
     static let source = """

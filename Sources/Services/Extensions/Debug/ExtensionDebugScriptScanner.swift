@@ -17,7 +17,7 @@ public enum ExtensionDebugScriptScanner {
     /// vài MB không được phép làm `extensions.list` treo.
     private static let maxBytesPerFile = 256 * 1024
 
-    /// Bốn cách khai `execute` mà extension VBook thực tế dùng: `function execute(`,
+    /// Bốn cách khai `execute` mà tiện ích thực tế dùng: `function execute(`,
     /// `async function execute(`, `execute = function`/`execute: function`, và `execute = (`/`execute = async (`.
     private static let executeRegex = try! NSRegularExpression(
         pattern: #"(?:\bfunction\s+execute\s*\()|(?:\bexecute\s*[:=]\s*(?:async\s+)?(?:function\b|\())"#,

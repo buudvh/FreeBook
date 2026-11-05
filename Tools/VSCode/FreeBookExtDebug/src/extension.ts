@@ -14,7 +14,7 @@ import { SidebarViewProvider, SidebarState } from './sidebarView';
 import { cancelLegadoCorpus, LegadoCorpusHost, runLegadoCorpus, showLegadoCorpusReport } from './legadoCorpus';
 
 /**
- * Client VS Code của FreeBook debug server kèm Sidebar UI & Quét thư mục Extension.
+ * Client VS Code của Tàng Công Các debug server kèm Sidebar UI & Quét thư mục Extension.
  */
 
 let client: ExtDebugClient | undefined;
@@ -42,7 +42,7 @@ const legadoHost: LegadoCorpusHost = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
-  output = vscode.window.createOutputChannel('FreeBook ExtDebug');
+  output = vscode.window.createOutputChannel('Tàng Công Các ExtDebug');
   diagnostics = vscode.languages.createDiagnosticCollection('freebook-extdebug');
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBar.command = 'freebook.extdebug.openTrace';
@@ -332,7 +332,7 @@ function getActiveFolderUri(): vscode.Uri | undefined {
 
 async function connect(context: vscode.ExtensionContext): Promise<void> {
   if (!vscode.workspace.isTrusted) {
-    vscode.window.showErrorMessage('FreeBook ExtDebug cần workspace tin cậy.');
+    vscode.window.showErrorMessage('Tàng Công Các ExtDebug cần workspace tin cậy.');
     return;
   }
 
@@ -375,7 +375,7 @@ async function connectWithAddress(raw: string, context: vscode.ExtensionContext)
       clientName: clientName(),
       appVersion: hello.appVersion
     });
-    vscode.window.showInformationMessage(`FreeBook: Đã kết nối ${address}`);
+    vscode.window.showInformationMessage(`Tàng Công Các: Đã kết nối ${address}`);
   } catch (error) {
     updateStatusBar('lỗi kết nối');
     syncSidebar({ isConnected: false });
@@ -839,7 +839,7 @@ function applyDiagnostic(event: DebugEvent): void {
   const column = Math.max(0, (event.location.column ?? 1) - 1);
   const range = new vscode.Range(line, column, line, column + 1);
   const diagnostic = new vscode.Diagnostic(range, event.message, vscode.DiagnosticSeverity.Error);
-  diagnostic.source = 'FreeBook';
+  diagnostic.source = 'Tàng Công Các';
   diagnostic.code = event.category;
   const existing = diagnostics.get(uri) ?? [];
   diagnostics.set(uri, [...existing, diagnostic]);
@@ -849,7 +849,7 @@ function applyDiagnostic(event: DebugEvent): void {
 
 function requireClient(): boolean {
   if (!client?.isConnected || !target) {
-    vscode.window.showWarningMessage('Chưa kết nối. Bấm Kết Nối trong Sidebar hoặc chạy “FreeBook: Connect to App”.');
+    vscode.window.showWarningMessage('Chưa kết nối. Bấm Kết Nối trong Sidebar hoặc chạy “Tàng Công Các: Connect to App”.');
     return false;
   }
   return true;
@@ -857,15 +857,15 @@ function requireClient(): boolean {
 
 function requireSelection(): boolean {
   if (!selectedWorkspaceExt && !selectedAppExt) {
-    vscode.window.showWarningMessage('Chưa chọn extension. Chọn trong Sidebar hoặc chạy “FreeBook: Select Extension”.');
+    vscode.window.showWarningMessage('Chưa chọn extension. Chọn trong Sidebar hoặc chạy “Tàng Công Các: Select Extension”.');
     return false;
   }
   return true;
 }
 
 function updateStatusBar(state: string): void {
-  statusBar.text = `$(ladybug) FreeBook: ${state}`;
-  statusBar.tooltip = 'FreeBook Extension Debug — bấm để mở trace';
+  statusBar.text = `$(ladybug) Tàng Công Các: ${state}`;
+  statusBar.tooltip = 'Tàng Công Các Extension Debug — bấm để mở trace';
 }
 
 function syncSidebar(partial: Partial<SidebarState> = {}): void {

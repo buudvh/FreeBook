@@ -42,7 +42,7 @@ enum WebNetworkCaptureScript {
     }
 
     /// Luật khớp của `waitUrl`: như hợp đồng extension, mẫu là **regex khớp toàn bộ URL**. `allowSubstring` giữ thêm luật cũ của
-    /// FreeBook (URL chứa nguyên văn mẫu) — CHỈ cho URL **điều hướng** (hành vi trước khi có bắt request), để ext đang
+    /// Tàng Công Các (URL chứa nguyên văn mẫu) — CHỈ cho URL **điều hướng** (hành vi trước khi có bắt request), để ext đang
     /// truyền chuỗi con không bị hỏng. Request bắt được (ảnh/css/js/XHR) luôn truyền `false`: chuỗi con như `"/user"`
     /// sẽ khớp nhầm `…/static/user.js` khi trang còn đang tải/giải captcha.
     static func url(_ url: String, matchesWaitPattern pattern: String, allowSubstring: Bool) -> Bool {

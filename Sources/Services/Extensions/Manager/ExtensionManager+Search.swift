@@ -2,7 +2,7 @@ import Foundation
 import JavaScriptCore
 
 /// Script `search` — `execute(query, page)`. Theo hợp đồng tiện ích, `page` là token trang **mờ**: trang 1 gửi `"1"`
-/// (tiện ích riêng của FreeBook có thể `parseInt(page)`), trang sau gửi **nguyên văn** token mà lượt trước trả ở đối số
+/// (tiện ích riêng của Tàng Công Các có thể `parseInt(page)`), trang sau gửi **nguyên văn** token mà lượt trước trả ở đối số
 /// thứ hai của `Response.success(data, next)`. Token rỗng / không có ⇒ hết trang.
 extension ExtensionManager {
     // search: Gọi script JS tìm kiếm sách từ nguồn truyện — chỉ lấy kết quả của trang `page`, bỏ token trang kế.

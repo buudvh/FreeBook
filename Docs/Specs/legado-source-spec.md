@@ -2,7 +2,7 @@
 
 > Trạng thái: bản 1 (2026-10-21). Tài liệu này mô tả **hành vi quan sát được và hành vi đề xuất**,
 > không mô tả cách cài đặt của bất kỳ ứng dụng nào. Đội triển khai viết engine Swift **từ đầu** chỉ dựa
-> trên file này và code FreeBook.
+> trên file này và code Tàng Công Các.
 
 **Mục lục**: §0 Mở đầu (phạm vi, nhãn, tài liệu, đơn vị) · §1 Model JSON nguồn · §2 Rule · §3 URL · §4 Mạng · §5 Luồng ·
 §6 JS bridge · §7 Phụ lục (đợt 1/hoãn, danh sách `[UNKNOWN]` U1–U28).
@@ -11,7 +11,7 @@
 
 ### §0.1 Mục đích
 
-Cho phép FreeBook (iOS) nhập và chạy các "nguồn truyện" dạng JSON mà cộng đồng Legado chia sẻ: một nguồn là
+Cho phép Tàng Công Các (iOS) nhập và chạy các "nguồn truyện" dạng JSON mà cộng đồng Legado chia sẻ: một nguồn là
 một object JSON mô tả cách tìm truyện, đọc thông tin, lấy mục lục và lấy nội dung chương trên một trang web
 hoặc API, bằng các "rule" (chuỗi bộ chọn HTML/JSON/XPath/regex/JS).
 
@@ -37,7 +37,7 @@ Mỗi khẳng định quan trọng mang một nhãn:
   hoặc từ trang web thật đã curl (ghi URL).
 - **`[UNKNOWN]`**: không đủ bằng chứng. Ghi các khả năng và **khuyến nghị** an toàn nhất. Bộ chạy nghiệm thu
   phải đo lại các điểm này (§7.2).
-- **`[đề xuất]`**: ghi chú phụ, không phải nhãn thứ tư. Trên việc **chỉ thuộc FreeBook** (log, giới hạn số trang, nhịp toast,
+- **`[đề xuất]`**: ghi chú phụ, không phải nhãn thứ tư. Trên việc **chỉ thuộc Tàng Công Các** (log, giới hạn số trang, nhịp toast,
   thông báo lỗi, giao diện) thì đó là quyết định thiết kế thuần. Trên bất cứ thứ gì **làm đổi đầu ra của nguồn** (cách chuyển
   kiểu, URL nền, tiền tố JSONPath ngầm, luật bỏ mục…) thì `[đề xuất]` nghĩa là **không có bằng chứng về hành vi gốc**, tức là
   `[UNKNOWN]` kèm khuyến nghị; bộ nghiệm thu đo các chỗ này qua mục U28 (§7.2).
@@ -204,9 +204,9 @@ Không gặp trong corpus nhưng nên chấp nhận và lưu nguyên: mọi kho�
 - Loại chỉ lấy từ `bookSourceType`; **không** suy từ tên/nhóm: 55 nguồn loại 0 có chữ `漫` trong tên/nhóm, 13 nguồn
   loại 0 có `🎨` `[quan sát]`.
 - Giá trị lạ (âm, >4, không parse được) → coi là 0 và ghi log `[đề xuất]`.
-- Nối với FreeBook: ánh xạ `0→ExtensionContentKind.text`, `2→.comic`, `4→.video`, `1`/`3`→`.unsupported`
-  (đúng cách `ExtensionContentKind` của FreeBook đã chia). Loại tính lúc chạy theo nguồn, không ghi vào `Book`,
-  giống quy ước comic/video hiện có của FreeBook `[đề xuất]`.
+- Nối với Tàng Công Các: ánh xạ `0→ExtensionContentKind.text`, `2→.comic`, `4→.video`, `1`/`3`→`.unsupported`
+  (đúng cách `ExtensionContentKind` của Tàng Công Các đã chia). Loại tính lúc chạy theo nguồn, không ghi vào `Book`,
+  giống quy ước comic/video hiện có của Tàng Công Các `[đề xuất]`.
 
 ### §1.7 Nhóm rule và khoá con
 
@@ -986,7 +986,7 @@ dạng khác 27.
   Giá trị nhỏ như `3`, `5` theo tài liệu là 3–5 ms (gần như không giới hạn). Theo tài liệu, không đoán "số luồng".
 - Phạm vi: **mỗi nguồn** (mọi request của nguồn đó, gồm `java.ajax` trong JS) `[đề xuất]`.
 - `0`, rỗng, không parse được → không giới hạn.
-- Ghép với nguyên tắc của FreeBook: tải truyện vẫn tuần tự từng truyện; `concurrentRate` chỉ thêm khoảng chờ.
+- Ghép với nguyên tắc của Tàng Công Các: tải truyện vẫn tuần tự từng truyện; `concurrentRate` chỉ thêm khoảng chờ.
 
 ### §4.2 Cookie và `enabledCookieJar`
 
@@ -1015,7 +1015,7 @@ dạng khác 27.
   `webJs` mẫu: `getDecode();$('#content').html();` (5), IIFE trả `innerText` hoặc `null` (`null` → chờ rồi thử lại tối đa vài
   lần `[đề xuất]`).
 - `sourceRegex` (bắt URL tài nguyên trong WebView): đợt 2.
-- Nối với FreeBook: tái dùng `WebViewLoader`/`WebContentConfigurator` (đã có cho tiện ích JS). WKWebView chạy trên main thread:
+- Nối với Tàng Công Các: tái dùng `WebViewLoader`/`WebContentConfigurator` (đã có cho tiện ích JS). WKWebView chạy trên main thread:
   luồng JS (không phải main) được phép **chờ** kết quả; tuyệt đối không chờ đồng bộ trên main thread (quy ước repo) `[đề xuất]`.
 
 ### §4.5 Bảng mã phản hồi `[UNKNOWN, khuyến nghị]`
@@ -1232,7 +1232,7 @@ Luật truthy `[đề xuất]`: chuỗi kết quả sau trim, so không phân bi
 3. Phân trang `nextContentUrl` theo §5.6, với **URL dừng = URL chương kế tiếp** trong mục lục.
 4. Nối nội dung các trang bằng `\n`.
 5. Áp `replaceRegex` (§5.5.3) lên chuỗi đã nối.
-6. Chuyển sang văn bản (§5.5.2) → đưa vào `ChapterTextNormalizer` của FreeBook (nguồn duy nhất chuẩn hoá văn bản chương).
+6. Chuyển sang văn bản (§5.5.2) → đưa vào `ChapterTextNormalizer` của Tàng Công Các (nguồn duy nhất chuẩn hoá văn bản chương).
 7. `title` (nếu có) → tên chương lấy từ trang nội dung; chỉ dùng để hiển thị khi tên trong mục lục rỗng `[đề xuất]`.
 8. Kết quả rỗng sau mọi bước → lỗi "nội dung rỗng" (không lưu bản rỗng).
 
@@ -1374,7 +1374,7 @@ tính trong `jsHelp.md` `[tài liệu]`, xem §6.6.
 
 - **Tranh** (175 nguồn): `content` trả HTML chứa nhiều `<img src="…">` (120/175 nguồn tự dựng `<img`), mỗi ảnh là một trang `[quan sát]`.
   URL ảnh có thể kèm `,{"headers":{…}}` `[tài liệu ruleHelp.md]`. `imageStyle` (`FULL` hay gặp), `imageDecode` (5 nguồn, đợt 3),
-  `nextContentUrl` (11 nguồn) để nối trang ảnh. Đi thẳng vào màn đọc tranh của FreeBook; **không** đi qua `ChapterTextNormalizer`,
+  `nextContentUrl` (11 nguồn) để nối trang ảnh. Đi thẳng vào màn đọc tranh của Tàng Công Các; **không** đi qua `ChapterTextNormalizer`,
   dịch, TTS (quy ước media của repo).
 - **Video** (12 nguồn): `content` thường trả URL phát (`result = baseUrl;`, URL `.m3u8`), có `sourceRegex` (2) để bắt URL media trong
   WebView `[quan sát]`. Tiến độ (số giây) lưu như video tiện ích hiện có.
@@ -1386,7 +1386,7 @@ tính trong `jsHelp.md` `[tài liệu]`, xem §6.6.
 
 ### §6.1 Engine và ngữ cảnh
 
-- Ứng dụng gốc dùng Rhino 1.8.0 và cho JS gọi lớp Java `[tài liệu jsHelp.md]`. FreeBook dùng **JavaScriptCore**. Corpus dùng
+- Ứng dụng gốc dùng Rhino 1.8.0 và cho JS gọi lớp Java `[tài liệu jsHelp.md]`. Tàng Công Các dùng **JavaScriptCore**. Corpus dùng
   nhiều cú pháp ES6+ (đếm nguồn loại 0): mũi tên `=>` 424, template literal 364, `let` 228, `const` 84, `async`/`await` 7
   `[quan sát]`, nên JSC (hỗ trợ đủ) là tập lớn hơn của những gì cần.
 - **Đồng bộ**: mọi hàm bridge (`java.ajax`, `java.connect`, `java.webView`, …) trả kết quả **ngay** (chặn luồng JS), đúng chữ ký
@@ -1491,7 +1491,7 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
   `[đề xuất]` thêm polyfill vô hại `String.prototype.contains/equals/isEmpty/getBytes`; không đổi `replaceAll`; chấp nhận `.length()` lỗi.
 - **Mảng byte**: `Uint8Array` `[đề xuất]`. Mã kiểu `b[p] & 0xff`, `bytes.length`, `Array.from(bytes)` vẫn chạy.
 - **Map Java** (`getLoginInfoMap()`, `headers()` của phản hồi): object JS có thêm phương thức `get(k)` và `put(k, v)` `[đề xuất]`.
-  FreeBook còn có `containsKey`, `remove`, `keySet`, `values`, `size`, `isEmpty` và `entrySet()` = danh sách entry
+  Tàng Công Các còn có `containsKey`, `remove`, `keySet`, `values`, `size`, `isEmpty` và `entrySet()` = danh sách entry
   `getKey()`, `getValue()`, `setValue(v)` (ghi ngược map), `toString()` = `k=v`, nên `cookies().entrySet().toArray().join("; ")`
   cho ra chuỗi cookie (刺猬猫), `entrySet().iterator()` duyệt được (微信读书).
 - **Object JSON** đưa vào JS (`result` là mục JSON, giá trị từ `java.getElement`/`getElements`) giữ nguyên là object JS, có
@@ -1501,12 +1501,12 @@ Danh sách biến theo tài liệu `[tài liệu jsHelp.md]`: `java`, `baseUrl` 
 - **Danh sách Java** (`ajaxAll`, `getElements`): object giống mảng có `size()`, `get(i)`, `toArray()`, `length`, chỉ số `[i]`,
   `forEach`, và lặp được (`Array.from`, `for…of`) `[đề xuất]`; `[quan sát]` `.size()` 561 lần/51 nguồn, `.get(i)` 267 lần,
   `.toArray()` 107 lần/76 nguồn.
-  - FreeBook: là **mảng JS thật**, phương thức gắn ẩn (không enumerable) nên `for (i in ds)` chỉ thấy chỉ số (看书网).
+  - Tàng Công Các: là **mảng JS thật**, phương thức gắn ẩn (không enumerable) nên `for (i in ds)` chỉ thấy chỉ số (看书网).
   - Ngữ nghĩa Java `List`: `add(x)` (trả `true`), `add(i, x)`, `addAll(ds)`/`addAll(i, ds)` (trả "có đổi"), `set(i, v)` (trả
     giá trị cũ), `clear()`, `contains(x)`, `iterator()` (`hasNext`/`next`/`remove`), `remove(số)` = bỏ phần tử ở chỉ số
     đó, trả phần tử; `remove(đối tượng)` = bỏ lần xuất hiện đầu, trả `true`/`false`; `remove()` không đối số = `Elements.remove()`
     (§6.8). Chỉ số ngoài khoảng ở `remove`/`set`/`add(i, …)` ⇒ ném `RangeError`; `get(i)` ngoài khoảng ⇒ `null`.
-    jsoup ≥1.17.1 còn gỡ cả khỏi DOM; FreeBook cố ý chỉ bỏ khỏi danh sách (言情小说吧).
+    jsoup ≥1.17.1 còn gỡ cả khỏi DOM; Tàng Công Các cố ý chỉ bỏ khỏi danh sách (言情小说吧).
   - `subList(a, b)` là **bản sao** `[a, b)`; chỉ `clear()` ghi ngược (bỏ đoạn đó khỏi danh sách gốc), đúng mẫu duy nhất của
     corpus `src.subList(1,i).clear()` (9 nguồn). Sửa khác trên bản sao không ảnh hưởng danh sách gốc. Danh sách gốc đổi sau
     khi tạo `subList` (độ dài hoặc phần tử trong đoạn khác đi) ⇒ `clear()` ném lỗi bắt đầu bằng
@@ -1594,7 +1594,7 @@ CommonCrypto `[đề xuất]`. Nhận dạng `data` là hex hay base64 `[UNKNOWN
 
 Lớp `javax.crypto` giả lập (§6.9) dùng cùng lõi đối xứng. `Cipher.getInstance("DES")` = `DES/ECB/PKCS5Padding` như Java. Khoá
 từ `SecretKeyFactory` DES/DESede + `DESKeySpec`/`DESedeKeySpec` là đúng 8/24 byte từ `offset` của mảng byte (mật khẩu dài hơn
-thì phần thừa bị bỏ, như JDK). JDK chỉnh bit chẵn lẻ trong `getEncoded()`, FreeBook không chỉnh: DES bỏ qua bit đó nên bản mã
+thì phần thừa bị bỏ, như JDK). JDK chỉnh bit chẵn lẻ trong `getEncoded()`, Tàng Công Các không chỉnh: DES bỏ qua bit đó nên bản mã
 giống hệt. `SecretKeyFactory` thuật toán khác (PBKDF2…) chưa hỗ trợ.
 
 #### §6.4.4 Tiện ích
@@ -1603,7 +1603,7 @@ giống hệt. `SecretKeyFactory` thuật toán khác (PBKDF2…) chưa hỗ tr�
 |---|---|---|---|
 | `java.log(msg)` | 788 / 209 | ghi log gỡ lỗi nguồn; **trả `msg`** (6 đoạn JS kết thúc bằng `java.log(x)` với ý trả `x`, ví dụ `list;\njava.log(list)`) | `[tài liệu]`; trả về `[quan sát]` |
 | `java.logType(v)` | – | log kiểu của giá trị | `[tài liệu]` |
-| `java.toast(msg)`, `java.longToast(msg)` | 728/121, 451/59 | thông báo ngắn không chặn; trả `undefined`. FreeBook: phát qua event center (Service không gọi `ToastManager` trực tiếp) + log; giới hạn tần suất (ví dụ ≤ 1/giây/nguồn) | `[tài liệu]` + `[đề xuất]` |
+| `java.toast(msg)`, `java.longToast(msg)` | 728/121, 451/59 | thông báo ngắn không chặn; trả `undefined`. Tàng Công Các: phát qua event center (Service không gọi `ToastManager` trực tiếp) + log; giới hạn tần suất (ví dụ ≤ 1/giây/nguồn) | `[tài liệu]` + `[đề xuất]` |
 | `java.timeFormat(ms)` | 196 / 115 | số ms (hoặc chuỗi số) → chuỗi ngày giờ địa phương. Mẫu `String(java.timeFormat(…)).replace(/\//g,"-")` và `.slice(0,10)` cho thấy dạng `yyyy/MM/dd HH:mm` | `[tài liệu]`; định dạng `[quan sát]` một phần |
 | `java.timeFormatUTC(ms, format, sh)` | 45 / 22 | định dạng theo mẫu kiểu Java (`yyyy-MM-dd HH:mm:ss`) ở múi giờ UTC+`sh` giờ (`…,'yyyy-MM-dd',8)`) | `[tài liệu]` |
 | `java.t2s(s)`, `java.s2t(s)` | 89/19, 3/3 | phồn → giản / giản → phồn (ICU `Hant-Hans`) | `[tài liệu]` |
@@ -1682,7 +1682,7 @@ Tài liệu ghi `cache` lưu vào CSDL và tệp đệm (50 MB) `[tài liệu js
     `attr(k, v)`, `hasAttr(k)`, `absUrl(k)`, `hasClass(c)`, `id()`, `className()`, `tagName()`, `children()`, `child(i)`, `parent()`,
     `nextElementSibling()`, `previousElementSibling()`, `getElementById(id)`, `getElementsByTag(t)`, `getElementsByClass(c)`,
     `remove()`, `body()`, `head()`, `title()`, `toString()` (= `outerHtml()`).
-  - Element, thêm (FreeBook, theo API công khai của jsoup; mẫu corpus trong ngoặc):
+  - Element, thêm (Tàng Công Các, theo API công khai của jsoup; mẫu corpus trong ngoặc):
     - `parents()`: cha, ông… gần nhất trước, tới `<html>`, không gồm Document (言情小说吧 `parents().contains(c)`).
     - `getAllElements()`: chính nó cùng mọi con cháu theo thứ tự tài liệu; gọi trên Document thì phần tử đầu là chính
       Document (白鹿书院 `getAllElements().indexOf(el)`).

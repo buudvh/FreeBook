@@ -6,7 +6,7 @@ import Foundation
 /// cùng nội dung; bỏ mọi thẻ còn lại (ảnh bị bỏ ở đợt 1). 3. Giải thực thể HTML. 4. Trim từng dòng (gồm khoảng trắng
 /// toàn góc), bỏ dòng rỗng.
 ///
-/// Kết quả vẫn phải đi qua `ChapterTextNormalizer` của FreeBook (nguồn duy nhất chuẩn hoá văn bản chương).
+/// Kết quả vẫn phải đi qua `ChapterTextNormalizer` của Tàng Công Các (nguồn duy nhất chuẩn hoá văn bản chương).
 enum LegadoHTMLText {
     private static let scriptStyle = try? NSRegularExpression(
         pattern: "<(script|style)\\b[^>]*>[\\s\\S]*?</\\1\\s*>", options: [.caseInsensitive]

@@ -1,7 +1,7 @@
 {
   "name": "freebook-extdebug",
-  "displayName": "FreeBook Extension Debug",
-  "description": "Chạy execute(...) của tiện ích JavaScript trên app FreeBook đang mở trên iPhone/iPad cùng mạng LAN, và xem trace console/fetch/exception ngay trong VS Code.",
+  "displayName": "Tàng Công Các Extension Debug",
+  "description": "Chạy execute(...) của tiện ích JavaScript trên app Tàng Công Các đang mở trên iPhone/iPad cùng mạng LAN, và xem trace console/fetch/exception ngay trong VS Code.",
   "version": "0.1.0",
   "publisher": "freebook",
   "private": true,
@@ -23,7 +23,7 @@
       "activitybar": [
         {
           "id": "freebook-ext-debug",
-          "title": "FreeBook Debug",
+          "title": "Tàng Công Các Debug",
           "icon": "media/freebook-debug.svg"
         }
       ]
@@ -38,24 +38,24 @@
       ]
     },
     "commands": [
-      { "command": "freebook.extdebug.connect", "title": "FreeBook: Connect to App", "category": "FreeBook" },
-      { "command": "freebook.extdebug.selectExtension", "title": "FreeBook: Select Extension", "category": "FreeBook" },
-      { "command": "freebook.extdebug.runCurrent", "title": "FreeBook: Run Current execute", "category": "FreeBook" },
-      { "command": "freebook.extdebug.runScript", "title": "FreeBook: Run Script…", "category": "FreeBook" },
-      { "command": "freebook.extdebug.runProfile", "title": "FreeBook: Run Saved Profile", "category": "FreeBook" },
-      { "command": "freebook.extdebug.stageDraft", "title": "FreeBook: Stage Workspace Draft", "category": "FreeBook" },
-      { "command": "freebook.extdebug.installDraft", "title": "FreeBook: Install Staged Draft (overwrite or new install, needs device approval)", "category": "FreeBook" },
-      { "command": "freebook.extdebug.rollback", "title": "FreeBook: Rollback Installed Extension", "category": "FreeBook" },
-      { "command": "freebook.extdebug.browseFolder", "title": "FreeBook: Browse Extension Folder…", "category": "FreeBook" },
-      { "command": "freebook.extdebug.refreshWorkspace", "title": "FreeBook: Refresh Workspace Extensions", "category": "FreeBook" },
-      { "command": "freebook.extdebug.cancelRun", "title": "FreeBook: Cancel Current Run", "category": "FreeBook" },
-      { "command": "freebook.extdebug.openTrace", "title": "FreeBook: Open Trace", "category": "FreeBook" },
-      { "command": "freebook.extdebug.legadoCorpusRun", "title": "FreeBook: Chạy nghiệm thu nguồn Legado", "category": "FreeBook" },
-      { "command": "freebook.extdebug.legadoCorpusReport", "title": "FreeBook: Xem kết quả nghiệm thu nguồn Legado", "category": "FreeBook" },
-      { "command": "freebook.extdebug.legadoCorpusCancel", "title": "FreeBook: Huỷ nghiệm thu nguồn Legado", "category": "FreeBook" }
+      { "command": "freebook.extdebug.connect", "title": "Tàng Công Các: Connect to App", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.selectExtension", "title": "Tàng Công Các: Select Extension", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.runCurrent", "title": "Tàng Công Các: Run Current execute", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.runScript", "title": "Tàng Công Các: Run Script…", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.runProfile", "title": "Tàng Công Các: Run Saved Profile", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.stageDraft", "title": "Tàng Công Các: Stage Workspace Draft", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.installDraft", "title": "Tàng Công Các: Install Staged Draft (overwrite or new install, needs device approval)", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.rollback", "title": "Tàng Công Các: Rollback Installed Extension", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.browseFolder", "title": "Tàng Công Các: Browse Extension Folder…", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.refreshWorkspace", "title": "Tàng Công Các: Refresh Workspace Extensions", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.cancelRun", "title": "Tàng Công Các: Cancel Current Run", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.openTrace", "title": "Tàng Công Các: Open Trace", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.legadoCorpusRun", "title": "Tàng Công Các: Chạy nghiệm thu nguồn Legado", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.legadoCorpusReport", "title": "Tàng Công Các: Xem kết quả nghiệm thu nguồn Legado", "category": "Tàng Công Các" },
+      { "command": "freebook.extdebug.legadoCorpusCancel", "title": "Tàng Công Các: Huỷ nghiệm thu nguồn Legado", "category": "Tàng Công Các" }
     ],
     "configuration": {
-      "title": "FreeBook Extension Debug",
+      "title": "Tàng Công Các Extension Debug",
       "properties": {
         "freebook.extdebug.defaultPage": {
           "type": "number",

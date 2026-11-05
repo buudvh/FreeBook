@@ -18,7 +18,7 @@ import WebKit
 /// Mọi đoạn gọi từ Swift (`enableCall`…) luôn trả giá trị khác `undefined`/`null`: lớp `Result` của
 /// `evaluateJavaScript(_:in:in:completionHandler:)` có thể crash khi không nhận được cả kết quả lẫn lỗi.
 enum BrowserPageTranslateScript {
-    static let contentWorld = WKContentWorld.world(name: "FreeBookPageTranslate")
+    static let contentWorld = WKContentWorld.world(name: "TangCongCacPageTranslate")
 
     static func userScript() -> WKUserScript {
         WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: contentWorld)

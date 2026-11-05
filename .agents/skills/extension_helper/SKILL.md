@@ -1,15 +1,15 @@
 ---
-name: vbook_helper
-description: Support for developing, modifying, and debugging JavaScript-based VBook extensions and their integration in the FreeBook iOS app.
+name: extension_helper
+description: Support for developing, modifying, and debugging JavaScript extensions and their integration in the Tàng Công Các iOS app.
 ---
 
-# VBook Extension Developer & Integrator Skill
+# JavaScript Extension Developer & Integrator Skill
 
-Use this skill when you need to write new VBook JavaScript extensions, debug existing extensions, or modify the JS execution environment in the FreeBook app.
+Use this skill when you need to write new JavaScript extensions, debug existing extensions, or modify the JS execution environment in the Tàng Công Các app.
 
-## Writing a VBook JavaScript Extension
+## Writing a JavaScript Extension
 
-Every VBook extension consists of:
+Every extension consists of:
 1. `plugin.json` (Manifest file)
 2. Standalone JS script files (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) located either in the root directory or inside `src/`.
 
@@ -152,7 +152,7 @@ function execute(url) {
 ```
 An image `script` receives `execute(link)` and returns **raw base64** (no `data:` prefix). It may use
 `Graphics.createImage(b64)`, `Graphics.createCanvas(w, h)`, `canvas.drawImage(img, ...3|5|9 args)` and
-`canvas.capture()`. In FreeBook, a `link` paired with a `script` is passed through verbatim.
+`canvas.capture()`. In Tàng Công Các, a `link` paired with a `script` is passed through verbatim.
 
 ### 4. Video extensions (`metadata.type: "video"`, script key `track` required)
 Flow: `toc` (episodes) → `chap(episodeUrl)` (servers) → `track(data)` (playable source).
@@ -183,7 +183,7 @@ the regex must match the **whole** URL.
 
 ---
 
-## Debugging JS Environment in FreeBook App
+## Debugging JS Environment in Tàng Công Các App
 
 If an extension fails to load or execute, check the Xcode Console output. The app logs:
 1. `🔍 [ExtensionManager] <action> called` with input parameters.

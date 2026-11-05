@@ -26,7 +26,7 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
-    private let writeQueue = DispatchQueue(label: "FreeBook.BrowserSitePreferenceStore", qos: .utility)
+    private let writeQueue = DispatchQueue(label: "TangCongCac.BrowserSitePreferenceStore", qos: .utility)
 
     private init() {}
 

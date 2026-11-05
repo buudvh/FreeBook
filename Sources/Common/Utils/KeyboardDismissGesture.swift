@@ -36,7 +36,7 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     static let shared = KeyboardDismissGesture()
 
     /// Đánh dấu recognizer của mình để không cài trùng lên cùng một window.
-    private static let gestureName = "FreeBookKeyboardDismissTap"
+    private static let gestureName = "TangCongCacKeyboardDismissTap"
 
     private var isObserving = false
     /// Theo `keyboardWillShow/WillHide` — để `applyPreference()` biết có nên cài recognizer ngay hay chờ lần sau.

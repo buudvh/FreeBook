@@ -11,7 +11,7 @@ import Foundation
 ///   `library.db` (vẫn trước khi container mở) để dữ liệu không mất.
 /// - Thiếu bảng/cột bắt buộc ⇒ log `❌` liệt kê cột thật, **không** migrate, giữ bản chép để bản sau đọc lại.
 /// - Ghi `repositories.json` → `local_storage.json` → `installed.json` (cờ `migratedFromLegacy` ghi **cuối**);
-///   chỉ khi ghi đủ mới xoá khoá `vbook_ext_storage_*`. Lỗi giữa chừng ⇒ lần mở sau chạy lại.
+///   chỉ khi ghi đủ mới xoá khoá `storageKeyPrefix*`. Lỗi giữa chừng ⇒ lần mở sau chạy lại.
 /// - Mọi lần ghi **gộp** với dữ liệu đang có trong file (dữ liệu đang có thắng) — chạy lại sau một lần dở dang
 ///   hay sau khi `installed.json` bị cách ly cũng không đè mất kho/localStorage mới hơn.
 enum LegacyExtensionSQLiteMigrator {
@@ -231,7 +231,7 @@ enum LegacyExtensionSQLiteMigrator {
 
     // MARK: - localStorage
 
-    /// Gom khoá `"vbook_ext_storage_" + md5(path) + "_" + key` của từng tiện ích về namespace = `packageId`.
+    /// Gom khoá `storageKeyPrefix + md5(path) + "_" + key` của từng tiện ích về namespace = `packageId`.
     /// Thử cả md5 của `ZLOCALPATH` cũ (path `JSExecutor` thật sự đã dùng — **thắng** khi trùng khoá) lẫn md5 của
     /// `localPath` tính lại từ gốc hiện tại. Khoá `..._global_...` (executor không có path) về namespace `global`.
     private static func collectLocalStorage(for items: [MigratedExtension]) -> [String: [String: String]] {
@@ -273,7 +273,7 @@ enum LegacyExtensionSQLiteMigrator {
         return result
     }
 
-    /// Xoá **mọi** khoá `vbook_ext_storage_*` — kể cả của tiện ích đã gỡ/bản nháp, vốn không bao giờ được dọn.
+    /// Xoá **mọi** khoá `storageKeyPrefix*` — kể cả của tiện ích đã gỡ/bản nháp, vốn không bao giờ được dọn.
     private static func removeLegacyStorageKeys() {
         let defaults = UserDefaults.standard
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(storageKeyPrefix) {

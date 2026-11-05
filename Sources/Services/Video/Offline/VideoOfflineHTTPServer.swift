@@ -13,7 +13,7 @@ final class VideoOfflineHTTPServer: @unchecked Sendable {
     static let shared = VideoOfflineHTTPServer()
     private static let readyTimeout: TimeInterval = 3
 
-    private let queue = DispatchQueue(label: "FreeBook.VideoOfflineHTTPServer")
+    private let queue = DispatchQueue(label: "TangCongCac.VideoOfflineHTTPServer")
     private var listener: NWListener?
     private var port: UInt16?
     private var token = ""

@@ -2,7 +2,7 @@
 
 > Trạng thái: bản 1 (2026-10-21). Nối tiếp `Docs/Specs/legado-source-spec.md` (gọi tắt là **phần 1**). Đánh số mục chạy
 > tiếp từ §8 để hai file dùng chung một hệ trích dẫn. Phần này **không** mô tả cách cài đặt của ứng dụng nào; đội triển khai
-> viết engine Swift từ đầu dựa trên hai file spec và code FreeBook.
+> viết engine Swift từ đầu dựa trên hai file spec và code Tàng Công Các.
 
 **Mục lục**: §8 Tranh (loại 2) · §9 Video (loại 4) · §10 Đăng nhập và trình duyệt cho người dùng · §11 Khám phá động ·
 §12 Quản lý nguồn · §13 Phần đuôi đợt 2 · §14 Đợt 3 (phần hiếm) · §15 Phụ lục (bảng đợt, `[UNKNOWN]` U29–U63, đính chính phần 1
@@ -77,7 +77,7 @@ nguồn tự dựng `<img>`, 38 nguồn lấy `@html`). Tài liệu cũng dùng 
    Phần URL ghép tuyệt đối theo URL cuối của trang chương (§2.15 phần 1); `//host/…` thêm scheme; `data:` giữ nguyên.
 5. Ảnh trùng URL liên tiếp: giữ cả hai `[đề xuất]` (không có bằng chứng tác giả dựa vào việc bỏ trùng; tranh có thể lặp trang).
 6. Không có `<img>` nào:
-   - nếu chuỗi gồm các dòng mà **mỗi dòng không rỗng là một URL** `http(s)://…` → mỗi dòng một ảnh `[đề xuất]` (FreeBook
+   - nếu chuỗi gồm các dòng mà **mỗi dòng không rỗng là một URL** `http(s)://…` → mỗi dòng một ảnh `[đề xuất]` (Tàng Công Các
      `ComicPageMapper` đã nhận dạng này);
    - ngược lại → chương **không có ảnh**: hiển thị văn bản đã làm sạch (HTML → văn bản như §5.5.2) cùng các link trong đó, để người
      dùng tự mở; không báo lỗi cứng. Lý do: có nguồn loại 2 thực chất trả chữ/link video (§8.1, dòng cuối bảng) `[quan sát]`.
@@ -147,7 +147,7 @@ Các thuộc tính khác của thẻ (`data-original`, `alt`) đọc bằng pars
 - Ảnh bìa (`coverUrl`) cũng có thể mang option: 5 nguồn tranh ở `ruleSearch.coverUrl`, 2 ở `ruleBookInfo.coverUrl` `[quan sát]`. Cùng
   luật gộp header như trên.
 
-### §8.4 Nối với FreeBook
+### §8.4 Nối với Tàng Công Các
 
 - Loại nội dung: `bookSourceType = 2` → `ExtensionContentKind.comic` (§1.6 phần 1), trừ khi sách có ghi đè `book.type` (§13.6).
 - Mỗi ảnh → `ComicPageSource(link: URL đã ghép, headers: header đã gộp, referer: Referer đã gộp)`. Không dùng `script` của
@@ -168,7 +168,7 @@ Các thuộc tính khác của thẻ (`data-original`, `alt`) đọc bằng pars
   `[UNKNOWN]` (U31): có thể là "ảnh hiển thị cùng dòng, cỡ như một ký tự". Các giá trị khác (`0`, `DEFAULT`, CSS) → mặc định.
 - Ghi theo sách: `book.imageStyle = 'FULL' | 'TEXT'` trong `content` (6 nguồn loại 0, chọn theo nhánh dò ứng dụng) và option `style`
   theo từng ảnh (§8.3) `[quan sát]`. Thứ tự ưu tiên `[đề xuất]`: `style` của ảnh > `book.imageStyle` > `ruleContent.imageStyle`.
-- Áp vào FreeBook `[đề xuất]`:
+- Áp vào Tàng Công Các `[đề xuất]`:
   - màn tranh: luôn khớp bề ngang (đúng nghĩa `FULL`), không cần đọc giá trị;
   - ảnh trong truyện chữ (đợt sau, §5.5.2 phần 1 đang bỏ ảnh): `FULL` → khối ảnh rộng bằng cột chữ; `TEXT` → ảnh cao bằng một dòng,
     nằm cùng dòng; còn lại → khối ảnh cỡ gốc, thu nhỏ nếu rộng hơn cột chữ.
@@ -300,7 +300,7 @@ trị 2/13, `loginUrl` 4/13 (URL trang chủ hoặc JS mở trình duyệt). Hà
   Tuyến 1 là trang chia sẻ `https://…/share/<id>`, tuyến 2 là `…/index.m3u8` `[quan sát]`. Trang chia sẻ (đã curl
   `https://vip.ffzy-plays.com/share/fd2c18a27361dd16124f2780015b05f3`) chứa `url = "/…/index.m3u8?sign=…"` — đường dẫn tương đối, có chữ
   ký; khớp cách `🎬U酷资源`/`🎬红牛资源` tự dựng URL `.m3u8` từ trang `/share/`.
-- Nối với FreeBook `[đề xuất]`: mỗi chương (không phải `isVolume`) → một `Episode`; mục `isVolume` → tiêu đề nhóm trong lưới tập
+- Nối với Tàng Công Các `[đề xuất]`: mỗi chương (không phải `isVolume`) → một `Episode`; mục `isVolume` → tiêu đề nhóm trong lưới tập
   (`BookDetailVideoTOCGrid`), không bấm được; mỗi tập có **đúng một** `VideoServer`. Không cố tách tuyến thành chip server (không có
   dữ liệu cấu trúc để làm việc đó an toàn).
 
@@ -322,7 +322,7 @@ trị 2/13, `loginUrl` 4/13 (URL trang chủ hoặc JS mở trình duyệt). Hà
       có đuôi media; không có thì URL `http(s)` cuối cùng; vẫn không có thì dùng URL ứng viên ghi lại từ `java.startBrowser` (§9.6).
       Hiển thị phần chữ (đã làm sạch) dưới trình phát như ghi chú `[đề xuất]`.
    3. Rỗng → lỗi "không lấy được nguồn phát" kèm log.
-5. Phân loại URL phát → `VideoTrack` của FreeBook:
+5. Phân loại URL phát → `VideoTrack` của Tàng Công Các:
    - đuôi media hoặc option khai `type` media → `.native`, `data` = URL, `headers` = §9.5;
    - còn lại (trang nhúng `iframe`, trang giải mã `…/?url=…`, `dplayer`) → `.webview`: nạp trang bằng `VideoMediaSniffer` và lấy URL media
      bắt được; nếu nguồn có `sourceRegex` thì chỉ nhận URL khớp regex đó (§9.4) `[đề xuất]`.
@@ -344,7 +344,7 @@ vào `ChapterContentRepository`; không tải video offline ở đợt này `[đ
   `[quan sát]`.
 - **Đặc tả** `[đề xuất]`:
   1. Áp khi request nội dung chương **là request WebView** (option `webView` truthy) **và** `sourceRegex` không rỗng: nạp trang (kèm header,
-     body nếu POST), theo dõi mọi URL request của trang và các frame (điều hướng, XHR, fetch, media — FreeBook đã có
+     body nếu POST), theo dõi mọi URL request của trang và các frame (điều hướng, XHR, fetch, media — Tàng Công Các đã có
      `WebNetworkCaptureScript`/`VideoMediaSniffer`), URL đầu tiên khớp regex (khớp **toàn chuỗi** URL tuyệt đối; regex dạng `.*x.*` cho
      cùng kết quả với khớp một phần) → **thân phản hồi = URL đó**, `baseUrl` giữ là URL trang; dừng nạp.
      Hết thời gian (30 s, §4.3 phần 1) → lỗi "không bắt được tài nguyên".
@@ -360,7 +360,7 @@ vào `ChapterContentRepository`; không tải video offline ở đợt này `[đ
 - Header phát `[đề xuất]` = header nguồn đã đánh giá (§3.10 phần 1, gồm header đăng nhập §10.6) ⊕ cookie của kho cho tên miền media ⊕
   `headers` trong khối option của URL phát (thắng khi trùng). Lý do: `GScenes短剧`, hai `黄豆短剧` khai `Referer` ở header nguồn và
   không gắn ở đâu khác, nên phải đi theo request media mới có ý nghĩa `[quan sát]`.
-- Gắn vào `VideoTrack.headers`; FreeBook tự tách `User-Agent` sang `AVURLAssetHTTPUserAgentKey` (`VideoPlaybackSession`). Với `.webview`,
+- Gắn vào `VideoTrack.headers`; Tàng Công Các tự tách `User-Agent` sang `AVURLAssetHTTPUserAgentKey` (`VideoPlaybackSession`). Với `.webview`,
   `VideoMediaSniffer` đặt `Referer` theo frame phát request — giữ nguyên hành vi đó.
 - Không có header nguồn: không thêm `Referer` (khác ảnh tranh) `[đề xuất]`: nhiều CDN video chấp nhận request trống `Referer`.
 
@@ -376,7 +376,7 @@ vào `ChapterContentRepository`; không tải video offline ở đợt này `[đ
 - `java.openWeb(url)` (2 nguồn video, trong `loginUrl`, luôn bọc `try … catch` rồi rơi về `java.startBrowser`) → **không định nghĩa**
   để nhánh dự phòng chạy `[đề xuất]`.
 
-### §9.7 Nối với FreeBook
+### §9.7 Nối với Tàng Công Các
 
 - `bookSourceType = 4` → `ExtensionContentKind.video` → `VideoPlayerScreen` qua `BookContentDestination` (§1.6 phần 1).
 - Tiến độ: **số giây** trong `Book.currentChapterPage`, ghi bằng `ReadingProgressStore.checkpoint`; trình phát chiếm `AVAudioSession` và
@@ -394,7 +394,7 @@ vào `ChapterContentRepository`; không tải video offline ở đợt này `[đ
 | Không có cấu trúc server/tuyến ở cấp rule | `[quan sát]`, 13/13 |
 | `sourceRegex` chỉ có tác dụng với request WebView | `[UNKNOWN]` U34 |
 | Không tải thân khi `chapterUrl` là tệp media | `[UNKNOWN]` U33 |
-| `content` trả chữ + `startBrowser` nghĩa là "mở trang phát" | `[quan sát]` 3 nguồn loại 4 + 2 loại 2; cách FreeBook xử lý là `[đề xuất]` §9.6 |
+| `content` trả chữ + `startBrowser` nghĩa là "mở trang phát" | `[quan sát]` 3 nguồn loại 4 + 2 loại 2; cách Tàng Công Các xử lý là `[đề xuất]` §9.6 |
 | Header nguồn đi theo request media | `[đề xuất]` dựa trên 3 nguồn |
 
 ### §9.9 Ví dụ biên
@@ -526,7 +526,7 @@ Nhận dạng "JS": chuỗi chứa `function`, `=>`, `java.`, `source.`, `eval(`
 
 - Lưu trữ `[đề xuất]`: **Keychain** (`kSecClassGenericPassword`, service riêng cho thông tin đăng nhập nguồn Legado, account = `bookSourceUrl`
   đã trim), `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` (đọc được khi app chạy nền sau lần mở khoá đầu, không đồng bộ iCloud).
-- Không đưa vào: xuất nguồn (§12.1), Backup của FreeBook, log, bộ nghiệm thu (bộ nghiệm thu chạy ở trạng thái **chưa đăng nhập**). Xoá
+- Không đưa vào: xuất nguồn (§12.1), Backup của Tàng Công Các, log, bộ nghiệm thu (bộ nghiệm thu chạy ở trạng thái **chưa đăng nhập**). Xoá
   nguồn → xoá mục Keychain.
 
 ### §10.6 Header đăng nhập
@@ -607,7 +607,7 @@ Nhận dạng "JS": chuỗi chứa `function`, `=>`, `java.`, `source.`, `eval(`
   - Thanh trên có nút "Xong" (✓): nhiều nguồn nhắc người dùng "xác minh xong thì bấm dấu ✓ góc trên bên phải" (`请完成人机验证后点右上角对勾`)
     `[quan sát]`.
 - Mọi trình duyệt hiện cho người dùng: dùng chung kho cookie với request HTTP của nguồn (đồng bộ hai chiều khi mở và khi đóng, §4.2 phần 1),
-  UA = UA WebView Android (§3.10 phần 1) hoặc theo cài đặt chế độ máy tính của FreeBook; áp chặn quảng cáo theo `WebContentPolicy` như webview
+  UA = UA WebView Android (§3.10 phần 1) hoặc theo cài đặt chế độ máy tính của Tàng Công Các; áp chặn quảng cáo theo `WebContentPolicy` như webview
   tiện ích JS hiện có `[đề xuất]`.
 - **Luồng chạy**: JS chạy ngoài main thread và chờ; UI dựng trên main thread (quy ước repo cấm chờ đồng bộ trên main thread, §6.1 phần 1).
 - **Ngữ cảnh không có người dùng** (tải truyện nền, tải trước chương, kiểm tra nguồn hàng loạt, bộ nghiệm thu): `startBrowser` → không mở,
@@ -714,7 +714,7 @@ Nhận dạng "JS": chuỗi chứa `function`, `=>`, `java.`, `source.`, `eval(`
 
 7 nguồn gọi từ nút khám phá `[quan sát]`; tài liệu chỉ ghi `java.searchBook(bookName)` cho ngữ cảnh nguồn đăng ký `[tài liệu jsHelp.md]`.
 Tham số 2 gặp: đối tượng `source`, hoặc chuỗi `` `${source.bookSourceName}::${source.getKey()}` ``. Đặc tả `[đề xuất]`: mở màn Tìm kiếm của
-FreeBook với từ khoá `key`; có tham số 2 → giới hạn phạm vi vào nguồn đó (so theo `bookSourceUrl`, phần sau `::` của chuỗi); không có → mọi
+Tàng Công Các với từ khoá `key`; có tham số 2 → giới hạn phạm vi vào nguồn đó (so theo `bookSourceUrl`, phần sau `::` của chuỗi); không có → mọi
 nguồn đang bật. Không chặn JS.
 
 ### §11.7 Bố cục `style`
@@ -750,8 +750,8 @@ nguồn đang bật. Không chặn JS.
   hàng loạt gồm bật, tắt, gắn hoặc gỡ nhóm, bật/tắt mục khám phá, dời lên đầu hoặc xuống cuối, xuất tệp, kiểm tra `[tài liệu SourceMBookHelp.md]`. Tệp nguồn có đuôi `.txt` hoặc
   `.json`; bản sao lưu của ứng dụng gốc có tệp `myBookSource.json` `[tài liệu appHelp.md]`.
 - Định dạng xuất `[đề xuất, khớp §1.1 phần 1]`: **mảng JSON** các object nguồn, UTF-8 không BOM, mỗi object là **JSON gốc đã lưu** (giữ khoá lạ)
-  đè lên bằng các trường người dùng đã sửa trong FreeBook (`enabled`, `enabledExplore`, `bookSourceGroup`, `customOrder`, nội dung rule nếu có
-  trình sửa). Quan sát: các bộ tải về có khoá **xếp theo thứ tự chữ cái** và nguồn xếp theo `customOrder` tăng dần `[quan sát]`; FreeBook làm
+  đè lên bằng các trường người dùng đã sửa trong Tàng Công Các (`enabled`, `enabledExplore`, `bookSourceGroup`, `customOrder`, nội dung rule nếu có
+  trình sửa). Quan sát: các bộ tải về có khoá **xếp theo thứ tự chữ cái** và nguồn xếp theo `customOrder` tăng dần `[quan sát]`; Tàng Công Các làm
   giống vậy (thụt 2 dấu cách) để so khác biệt dễ.
 - **Không** xuất: thông tin/header đăng nhập (§10.5–§10.6), cookie, `cache`, `infoMap`, kho biến phiên. Biến nguồn (`source.setVariable`):
   `[UNKNOWN]` U48 (gốc có xuất không); khuyến nghị **không** xuất mặc định (có thể chứa token người dùng tự dán), có công tắc "kèm biến nguồn".
@@ -769,7 +769,7 @@ nguồn đang bật. Không chặn JS.
   | `yuedu://booksource/importonline?src=<URL đã encode>` | 6 / 6 | link trong trang HTML tự dựng |
 
 - Khuyến nghị `[đề xuất]`:
-  1. FreeBook đăng ký scheme riêng (ví dụ `freebook://legado/import?src=`) cho chia sẻ ra ngoài.
+  1. Tàng Công Các đăng ký scheme riêng (ví dụ `tangcongcac://legado/import?src=`) cho chia sẻ ra ngoài.
   2. Nhận thêm ba dạng trên làm **bí danh đầu vào**: khi người dùng mở link (từ trình duyệt, ứng dụng khác) hoặc khi nguồn gọi `java.openUrl` với
      URL có scheme này → xử lý nội bộ, **không** chuyển cho iOS.
   3. `importonline`: tải `src` (giới hạn 20 MB, chỉ `http(s)`), parse như §1.1 phần 1, **hiện màn xác nhận** (số nguồn mới/cập nhật/giống hệt,
@@ -797,7 +797,7 @@ nguồn đang bật. Không chặn JS.
   bảng mã đã chọn, có dùng WebView không; header gửi đi **đã che** giá trị `Cookie`, `Authorization`, header đăng nhập; kết quả từng trường rule
   (tên trường → giá trị rút gọn 200 ký tự, hoặc "(rỗng)"); số mục danh sách; các URL `next*`; lỗi kèm tên trường và chuỗi rule; dòng `java.log`
   của nguồn theo thứ tự thời gian. Nút "xem thân phản hồi" mở toàn văn (chỉ trong phiên, không ghi log file).
-- FreeBook đã có bộ chạy nghiệm thu qua Debug server (commit `f32e0614`); chế độ gỡ lỗi trong app dùng lại cùng lõi, chỉ khác lối vào và màn
+- Tàng Công Các đã có bộ chạy nghiệm thu qua Debug server (commit `f32e0614`); chế độ gỡ lỗi trong app dùng lại cùng lõi, chỉ khác lối vào và màn
   hiển thị.
 
 ### §12.4 Kiểm tra nguồn hàng loạt
@@ -820,7 +820,7 @@ nguồn đang bật. Không chặn JS.
 
 ### §12.5 Khoá phụ và trình sửa biến
 
-| Khoá | Quan sát | Dùng trong FreeBook |
+| Khoá | Quan sát | Dùng trong Tàng Công Các |
 |---|---|---|
 | `customOrder` | mỗi bộ đã xếp tăng dần theo khoá này; 1315: 0…851 không trùng; 1316: −4312…3186, 1342 giá trị khác nhau / 1378, 4 số âm `[quan sát]` | thứ tự thủ công. "Đưa lên đầu" = min − 1, "xuống cuối" = max + 1 `[đề xuất]`; nhập vào thư viện đã có → giữ thứ tự tương đối, dời ra sau max hiện tại `[đề xuất]` |
 | `weight` | 0: 3030 nguồn, 1: 211, 2: 35, −5: 23, 100: 22, 60: 11, 58: 10; 671 nguồn khác 0 `[quan sát]` | nghĩa `[UNKNOWN]` U51 (có thể là ưu tiên khi đổi nguồn). Lưu; chỉ dùng làm tiêu chí phụ khi xếp kết quả tìm kiếm cùng độ khớp (cao trước) `[đề xuất]` |
@@ -831,12 +831,12 @@ nguồn đang bật. Không chặn JS.
 **Trình sửa biến** `[quan sát + đề xuất]`:
 
 - **Biến nguồn**: một chuỗi (`source.getVariable()`/`setVariable`, §5.7 phần 1). Ghi chú nguồn hướng dẫn người dùng mở "sửa nguồn → menu → đặt
-  biến nguồn" (`🔞兽人小说站`) `[quan sát]`. FreeBook: mục "Biến nguồn" trong menu nguồn; ô nhập nhiều dòng; phía trên hiện `variableComment` như
+  biến nguồn" (`🔞兽人小说站`) `[quan sát]`. Tàng Công Các: mục "Biến nguồn" trong menu nguồn; ô nhập nhiều dòng; phía trên hiện `variableComment` như
   chữ hướng dẫn (chọn được, cuộn được, rút gọn sau 20 dòng). `variableComment` là chuỗi liền không khoảng trắng dài > 40 ký tự → hiện gọn
   "(nguồn có dữ liệu cấu hình riêng)" thay vì đổ chuỗi mã hoá ra màn hình.
 - **Biến sách**: 20 nguồn bảo người dùng "điền vào biến sách ở góc trên bên phải" (`右上角书籍变量填 0-N 刷新切换线路`, `书籍变量（当前书）`) và
   26 nguồn đọc nó bằng `book.getVariable('custom')` `[quan sát]` → trình sửa biến sách ghi vào **khoá `custom`** của kho biến sách (§5.7 phần 1).
-  FreeBook: mục "Biến sách" trong menu trang sách/Reader cho sách thuộc nguồn Legado; cùng ô hướng dẫn `variableComment`. Lưu xong → làm mới
+  Tàng Công Các: mục "Biến sách" trong menu trang sách/Reader cho sách thuộc nguồn Legado; cùng ô hướng dẫn `variableComment`. Lưu xong → làm mới
   thông tin/mục lục/chương hiện tại theo màn đang mở.
 - Biến chỉ là chuỗi; không kiểm tra định dạng. Không ghi giá trị vào log.
 
@@ -927,7 +927,7 @@ Xem §9.4 (dùng chung cho video, audio và mọi loại khi request nội dung 
 | `setReverseToc(b)` | mọi chỗ | lưu cờ "đảo mục lục" theo sách; áp ở cuối bước 3 §5.4.1 phần 1 (sau `-` của rule) |
 | `canUpdate` | mọi chỗ | `false` → bỏ sách khỏi lượt kiểm chương mới của kệ |
 | `imageStyle` | `content` | §8.5 |
-| `setUseReplaceRule(b)` | mọi chỗ | `false` → bỏ qua lọc rác của FreeBook (`JunkFilterManager`) cho sách này `[UNKNOWN]` U53 (ở ứng dụng gốc đó là bộ luật người dùng tự đặt để gỡ quảng cáo/chữ lỗi khỏi nội dung, `appHelp.md`; gần nghĩa nhất ở FreeBook là bộ lọc rác) |
+| `setUseReplaceRule(b)` | mọi chỗ | `false` → bỏ qua lọc rác của Tàng Công Các (`JunkFilterManager`) cho sách này `[UNKNOWN]` U53 (ở ứng dụng gốc đó là bộ luật người dùng tự đặt để gỡ quảng cáo/chữ lỗi khỏi nội dung, `appHelp.md`; gần nghĩa nhất ở Tàng Công Các là bộ lọc rác) |
 | `type`, `setType(n)` | mọi chỗ | §13.6 |
 | `name`, `author`, `durChapterIndex`… | không lưu | log cảnh báo |
 | `chapter.url`, `chapter.title` | không lưu | dùng trong lượt đang chạy (ví dụ `chapter.url = baseUrl = …` rồi `java.ajax(baseUrl)`) |
@@ -950,7 +950,7 @@ Ghi được thực hiện trên bản sao trong ngữ cảnh JS; khi bước k�
   gộp phim gọi `book.setType(isArt ? 0 : 4)`; `哔哩哔哩（优+++）` gán `4` cho chế độ trình phát.
 - Nguồn **đọc** `book.type` (ít): `📷🔞HentaiCosplay`, `📷🔞AsianPornImage` (loại 2) kiểm `book.type==64||book.type==1088` → với nguồn tranh,
   `book.type` đọc ra phải là `64` (1088 = 64 + 1024, bit 1024 chưa rõ) `[quan sát]`.
-- Vì FreeBook chọn đi nhánh "Android chính thức" (§6.10 phần 1, `java.androidId` có, `java.qread`/`deviceID` không), đặc tả `[đề xuất]`:
+- Vì Tàng Công Các chọn đi nhánh "Android chính thức" (§6.10 phần 1, `java.androidId` có, `java.qread`/`deviceID` không), đặc tả `[đề xuất]`:
   - **Đọc** `book.type`: theo **bitmask** — loại 0 → `8`, loại 1 → `32`, loại 2 → `64`, loại 3 → `128`; loại 4 → `[UNKNOWN]` U54 (không nguồn video
     nào đọc; khuyến nghị `8`, giống nhánh Android coi phim ngắn là chữ, để nguồn dò kiểu "là chữ" không đi sai nhánh). Sách đã có ghi đè → giá trị
     đã ghi. Đính chính §6.6 phần 1 (§15.3 mục 4).
@@ -1022,7 +1022,7 @@ cần sau này: object kiểu `URL` của trình duyệt (`href`, `protocol`, `h
   `longClickBookName`, `clickCopyBookUrl` (mỗi cái 1); mã trả `true` khi đã tự xử lý. Hàm UI đi kèm: `java.open("explore", url, title[, source])`
   28 lần, `java.open("login")` 4, `java.open("search")` 1.
 - Tần suất thấp, toàn là thao tác UI của ứng dụng gốc → **hoãn hẳn** (không vào đợt 3). Nhập/lưu nguyên khoá; không hiện nút tuỳ biến; không gọi
-  `callBackJs`. Nếu làm sau: `event` + `book` + `source` + `java`, trả `true` thì bỏ hành vi mặc định của FreeBook `[đề xuất]`.
+  `callBackJs`. Nếu làm sau: `event` + `book` + `source` + `java`, trả `true` thì bỏ hành vi mặc định của Tàng Công Các `[đề xuất]`.
 
 ---
 
@@ -1154,7 +1154,7 @@ Lập bằng cách lấy mọi token `java.x`, `source.x`, `cookie.x`, `cache.x`
 | `java.createAsymmetricCrypto` | 4 / 4 | §14.3 | 3 | – |
 | `java.desEncodeToBase64String`, `java.tripleDESEncodeBase64Str` | 16/4, 6/3 | §14.4 | 3 | – |
 | `java.openWeb(url)` | 2 / 2 (t4) | §9.6: không định nghĩa | – | `[quan sát]` |
-| `java.openUrl(url[, mimeType])` | 23 / 10 | mở link ngoài hoặc scheme của ứng dụng khác `[tài liệu jsHelp.md]`; FreeBook: `legado://`/`yuedu://` → §12.2; `http(s)` → mở trình duyệt trong app; scheme khác → hỏi người dùng rồi `UIApplication.open` | 3 | `[đề xuất]` |
+| `java.openUrl(url[, mimeType])` | 23 / 10 | mở link ngoài hoặc scheme của ứng dụng khác `[tài liệu jsHelp.md]`; Tàng Công Các: `legado://`/`yuedu://` → §12.2; `http(s)` → mở trình duyệt trong app; scheme khác → hỏi người dùng rồi `UIApplication.open` | 3 | `[đề xuất]` |
 | `java.copyText(text)` | 17 / 4 | chép vào bộ nhớ tạm (`UIPasteboard`), trả `undefined` | 3 | `[quan sát]` nghĩa; cài `[đề xuất]` |
 | `java.open(kind, …)` | 33 / 8 | `"explore", url, title[, source]` mở danh sách khám phá với URL; `"login"`; `"search"` — chủ yếu trong `callBackJs` (§13.11) | hoãn hẳn | `[quan sát]` |
 | `java.showBrowser(url, html, js)`, `java.showReadingBrowser(url, title)` | 15/10, 9/7 | chỉ ở nhánh "ứng dụng sửa đổi" hoặc trong `try` có dự phòng `startBrowser` | – | không định nghĩa `[đề xuất]` |
@@ -1265,7 +1265,7 @@ Nối tiếp §7.2 phần 1, cùng cách đo (chạy cả hai phương án trên
 | U50 | `respondTime = 180000` là mức trần thời gian kiểm (§12.4) | trần 180 s | 24 nguồn |
 | U51 | Nghĩa `weight` (§12.5) | chỉ tiêu chí phụ khi xếp kết quả | 671 nguồn khác 0 |
 | U52 | `java.refreshBookUrl()`, `java.refreshBookInfo()` (§13.3) | = `refreshTocUrl()` | 3 + 1 nguồn |
-| U53 | `book.setUseReplaceRule(false)` (§13.5) | bỏ lọc rác của FreeBook cho sách | 7 nguồn: so nội dung có/không lọc |
+| U53 | `book.setUseReplaceRule(false)` (§13.5) | bỏ lọc rác của Tàng Công Các cho sách | 7 nguồn: so nội dung có/không lọc |
 | U54 | `book.type` đọc ra với nguồn video; giá trị ghi `3` (§13.6) | đọc `8`; bỏ qua `3` | nguồn ghi `book.type` (24) và nguồn video |
 | U55 | `Jsoup.connect` có gắn header nguồn (§13.9) | không | 9 nguồn |
 | U56 | Byte có dấu/không dấu trong shim Java (§13.10) | `Uint8Array` | dò mã so sánh `< 0` trên biến byte |
@@ -1289,7 +1289,7 @@ về đếm từ 1).
    = outer HTML (như chuyển đối tượng sang chuỗi); với trường không phải `content` thì bước làm sạch của trường (§5.1.2 phần 1) bỏ thẻ — `[UNKNOWN]` U61.
 3. **§1.3 và §4.8 — nhãn của `loginCheckJs`**: phần 1 ghi "kiểm tra sau mỗi request `[tài liệu ruleHelp.md]`". `ruleHelp.md` chỉ nói nó dùng để
    kiểm kết quả đăng nhập; `jsHelp.md` nói vài hàm chỉ có hiệu lực trong nó. "Chạy sau mỗi request" là `[quan sát]` (§10.7) — sửa nhãn, giữ nội dung.
-4. **§6.6 — `book.type` = `0`**: corpus cho thấy nguồn đi nhánh "Android chính thức" (chính nhánh FreeBook chọn ở §6.10) dùng **bitmask** `8` chữ /
+4. **§6.6 — `book.type` = `0`**: corpus cho thấy nguồn đi nhánh "Android chính thức" (chính nhánh Tàng Công Các chọn ở §6.10) dùng **bitmask** `8` chữ /
    `32` audio / `64` tranh / `128` tệp, và nguồn tranh kiểm `book.type == 64`. Đọc `book.type` phải trả theo bitmask (§13.6).
 5. **§1.2.1 — JSON lỏng**: thêm hai trường hợp. (a) Nháy cong `“…”` / `‘…’` dùng như nháy thẳng: `',{webView:“true”}'` ở `chapterUrl` của 2 nguồn audio
    (§9.4). (b) Chuỗi `"true"`/`"false"` ở option boolean (`webView: "true"`) → bool (luật truthy §5.4.3 phần 1).

@@ -126,7 +126,7 @@ final class LegadoEngineSession {
                     session.close()
                     continuation.resume(with: outcome)
                 }
-                thread.name = "FreeBook.LegadoEngine"
+                thread.name = "TangCongCac.LegadoEngine"
                 thread.stackSize = 8 << 20
                 thread.qualityOfService = .userInitiated
                 thread.start()

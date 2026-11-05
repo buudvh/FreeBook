@@ -2,16 +2,16 @@ import CommonCrypto
 import CryptoKit
 import Foundation
 
-/// Giải mã script extension bị mã hoá theo scheme của Vbook.
+/// Giải mã script extension bị mã hoá theo scheme của định dạng tiện ích gốc.
 ///
 /// Scheme đã đối chứng với dữ liệu thật (xem `Docs/Plans/2026-10-15-plan-extension-script-decoder.md`):
 /// 1. Ba token `x0P1Xx` / `x0P2Xx` / `x0P3Xx` lần lượt thay cho `+` `/` `=`, mỗi token ứng đúng **1 ký tự**
 ///    (kiểm chứng: `độ dài − 5×số_token ≡ 0 (mod 4)` trên cả 10/10 file).
 /// 2. Phần còn lại là Base64 của ciphertext **AES-256-CBC**, IV 16 byte `0x00`, padding PKCS#7.
-/// 3. Key = `SHA256(MD5("com.vbook.app" + source + author) dạng hex)`.
+/// 3. Key = `SHA256(MD5(salt + source + author) dạng hex)` (`salt` ở mục Hằng số).
 ///
 /// **Chỉ hỗ trợ đúng biến thể trên** (quyết định đã chốt): không thử ma trận biến thể key,
-/// không giải nén payload — tool chính thức của Vbook mã hoá JS thô chứ không nén.
+/// không giải nén payload — công cụ mã hoá chính thức của định dạng gốc mã hoá JS thô chứ không nén.
 ///
 /// **Định dạng mã hoá mới** (ciphertext sau bước 1–2 mở đầu bằng 4 byte `a7 e4 1d 02`) chưa giải được: nhận ra ngay
 /// sau Base64 và ném lỗi riêng (`unsupportedFormatErrorCode`, kiểm bằng `isUnsupportedFormat(_:)`) để UI báo rõ,
@@ -20,7 +20,7 @@ enum ExtensionScriptDecoder {
 
     // MARK: - Hằng số
 
-    /// Salt cố định của Vbook khi sinh key.
+    /// Salt cố định của định dạng gốc khi sinh key.
     private static let salt = "com.vbook.app"
 
     /// Token trong chuỗi mã hoá, theo đúng thứ tự thay thế.
@@ -71,7 +71,7 @@ enum ExtensionScriptDecoder {
             return 0
         }
 
-        // `plugin.json` của Vbook bọc metadata trong `metadata`; record của app có thể để phẳng ở root.
+        // `plugin.json` chuẩn bọc metadata trong `metadata`; record của app có thể để phẳng ở root.
         let meta = (plugin["metadata"] as? [String: Any]) ?? plugin
         let source = (meta["source"] as? String) ?? ""
         let author = (meta["author"] as? String) ?? ""
@@ -114,9 +114,9 @@ enum ExtensionScriptDecoder {
 
     // MARK: - Giải mã
 
-    /// Sinh key AES-256 theo công thức Vbook: `SHA256(MD5(salt + source + author) dạng hex)`.
+    /// Sinh key AES-256 theo công thức của định dạng gốc: `SHA256(MD5(salt + source + author) dạng hex)`.
     ///
-    /// MD5 ở đây **không** phải để bảo mật mà là bước trộn chuỗi do định dạng Vbook quy định;
+    /// MD5 ở đây **không** phải để bảo mật mà là bước trộn chuỗi do định dạng gốc quy định;
     /// bản thân AES-256 mới là phần mã hoá. Dùng `Insecure.MD5` của CryptoKit cho khớp
     /// `Sources/Common/Extensions/String+Crypto.swift:8`.
     private static func deriveKey(source: String, author: String) -> Data {
@@ -136,7 +136,7 @@ enum ExtensionScriptDecoder {
         // Kiểm trước điều kiện độ dài: ciphertext định dạng mới có độ dài tuỳ ý, nhiều file lại tình cờ chia hết cho 16.
         guard !cipher.starts(with: unsupportedFormatPrefix) else {
             throw NSError(domain: errorDomain, code: unsupportedFormatErrorCode, userInfo: [
-                NSLocalizedDescriptionKey: "\(fileName): tiện ích dùng định dạng mã hoá mới, FreeBook chưa đọc được"
+                NSLocalizedDescriptionKey: "\(fileName): tiện ích dùng định dạng mã hoá mới, Tàng Công Các chưa đọc được"
             ])
         }
         guard !cipher.isEmpty, cipher.count % aesBlockSize == 0 else {
@@ -198,7 +198,7 @@ enum ExtensionScriptDecoder {
 
     // MARK: - Nhận dạng
 
-    /// Cờ `encrypt` nằm trong `metadata` (bản ZIP của Vbook) hoặc ở root (record của app).
+    /// Cờ `encrypt` nằm trong `metadata` (bản ZIP chuẩn) hoặc ở root (record của app).
     private static func isEncryptFlagOn(meta: [String: Any], plugin: [String: Any]) -> Bool {
         if let value = meta["encrypt"] as? Bool { return value }
         if let value = plugin["encrypt"] as? Bool { return value }

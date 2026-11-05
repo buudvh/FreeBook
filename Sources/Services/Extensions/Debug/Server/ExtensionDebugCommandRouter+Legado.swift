@@ -50,7 +50,7 @@ extension ExtensionDebugCommandRouter {
             return nil
         }
         return "'\(packageId)' là nguồn Legado — không có script JS cho run.start. "
-            + "Dùng legado.corpus.start (VS Code: FreeBook: Chạy nghiệm thu nguồn Legado)."
+            + "Dùng legado.corpus.start (VS Code: Tàng Công Các: Chạy nghiệm thu nguồn Legado)."
     }
 
     // MARK: - Lệnh

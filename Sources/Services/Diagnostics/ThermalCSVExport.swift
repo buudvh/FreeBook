@@ -34,7 +34,7 @@ struct ThermalCSVExport: Transferable {
     }()
 
     static func makeCSV(_ samples: [DeviceThermalMonitor.Sample]) -> String {
-        var lines: [String] = ["# FreeBook theo dõi nhiệt"]
+        var lines: [String] = ["# Tàng Công Các theo dõi nhiệt"]
         if let first = samples.first, let last = samples.last {
             let maxLevel = Int(samples.map(\.thermalLevel).max() ?? 0)
             let averageCPU = samples.map(\.cpuPercent).reduce(0, +) / Float(samples.count)
