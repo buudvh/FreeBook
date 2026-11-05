@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.744] - 2026-11-05
+
+### feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim
+
+Plan đợt 2 trình phát video, mục 7–8 (anh Bửu đã duyệt).
+
+- **Tiêu đề nhóm đề xuất kiểu A** (`VideoWatchSuggestSection.header`): khoảng trống + đường ngăn mờ phía trên, vạch màu nhấn 3 pt bên trái (không bo góc), chữ `.title3` đậm (to hơn tên phim trong thẻ), "Xem thêm ›" màu nhấn bên phải. Mọi nhóm có "Xem thêm"; nhóm cuối vẫn nạp thêm khi cuộn.
+- **`VideoWatchPagePresenter`** (mới, `Views/VideoPlayer/Watch`): trang **toàn màn** đè lên màn xem.
+  - `UIHostingController` `.overFullScreen` (không `.fullScreen`: kiểu đó gỡ màn xem ⇒ `onDisappear` ⇒ phim thu nhỏ). Màn xem vẫn gắn bên dưới, phim chạy tiếng như cũ.
+  - `NavigationStack` riêng (trong trang vẫn đẩy tiếp Chi tiết, thể loại khác), nút `‹` đóng trang về lại màn xem, `.appAccentTint()` + `modelContainer` ở gốc.
+  - Chỉ dọc (VC con trả `.portrait`); đang ngang thì xin xoay dọc rồi mới mở.
+  - Dùng cho 3 lối: thể loại (nhãn `#` trên tên + chip của sheet Thông tin, mở sau khi sheet đóng), "Xem thêm" của đề xuất (`CategoryNovelsListView`), "Mở trang chi tiết" ở `⋮` của thẻ đề xuất (và đề xuất không phải phim) (`BookDetailView`).
+- **`CategoryNovelsListView(onSelectVideo:)`** (mặc định `nil` = hành vi cũ ở mọi chỗ khác): trong trang, bấm phim của nguồn video ⇒ đóng trang trước, lượt sau đổi phim tại chỗ (`VideoWatchModel.replace`, mẫu `BookActionSheet.emit`). Nguồn khác ⇒ đẩy Chi tiết trong trang như cũ.
+- **Bỏ đường sheet cũ**: `VideoWatchExit` chỉ còn `.home` / `.close`; `VideoPlayerScreen.handleExit` bỏ hai nhánh thu nhỏ rồi mở sheet; `VideoWatchPresenter` bỏ `presentPage` / `dismissPage`, `readyTopViewController` dùng chung với trang mới. `performDismiss` đóng trang đang đè (nếu có) trước khi đóng màn.
+- **Nút âm lượng cứng khi trang đang che màn xem**: màn không "đang hiện" ⇒ không hiện thanh, không bỏ tắt tiếng (`VideoWatchPagePresenter.isPresenting`).
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu `presentPage` / `dismissPage` / `VideoWatchExit.genre` / `.openDetail` của màn xem. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: tiêu đề nhóm dễ thấy; "Xem thêm" từng nhóm mở trang, phim vẫn phát tiếng; bấm phim trong trang ⇒ trang đóng, màn đổi phim tại chỗ; bấm thể loại (nhãn # và sheet Thông tin); "Mở trang chi tiết" ở ⋮; nút ‹ về màn xem; trang không xoay ngang.
+
 ## [1.3.743] - 2026-11-05
 
 ### feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động
@@ -730,21 +750,3 @@ Người dùng: *"tôi đang đọc truyện và bấm nút tải ở danh sách
 - `rules.md`: thêm luật kênh "đã tải" ở mục Danh sách chương Reader; mục 11 của 1.3.334 ghi đúng tên `ReaderChapterListStore.markCached(index:)`.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.714] - 2026-11-05
-
-### fix: trình duyệt tiện ích giữ tab đang xem khi tiện ích mở tab mới
-
-Người dùng: *"newvisiblebrowser khi mở browser mà tôi có tab đang xem thì giữ tab tôi đang xem chứ đừng sang tab mới mở"*. Trình duyệt đang thu nhỏ thì giữ hành vi cũ (người dùng chọn).
-
-- **`VisibleBrowserTabManager`** (trình duyệt hiện của tiện ích, `Engine.newVisibleBrowser`): thêm `isUserViewingTab` = container đang hiện toàn màn (`isPresented`, không thu nhỏ, không đang tắt) và tab đang chọn còn tồn tại.
-- Hai chỗ từng giật tab, giờ đều giữ tab đang xem khi `isUserViewingTab`:
-  - `addTab` tab mới: chỉ thêm pill vào cuối dải tab (tiêu đề "Trình duyệt (N tab)", widget đếm tab vẫn cập nhật), `activeTabId` không đổi.
-  - `addTab` trùng id — chạy ở **mỗi** `launch()`/`launchAsync()` vì `load`/`loadAsync` gọi `presentUIIfNeeded()`: không `activateTab` nữa. Thiếu chỗ này thì `newVisibleBrowser()` rồi `launch(url)` vẫn kéo sang tab mới, và mỗi lần `launch` sau lại kéo đi.
-- **Không đổi**:
-  - Trình duyệt chưa có tab ⇒ mở và hiện tab mới như cũ.
-  - Đang thu nhỏ ⇒ chuyển sang tab mới, bật lên theo cài đặt "Mở thu nhỏ".
-  - Đăng nhập Gemini / Xác minh Google vẫn nhảy sang tab của mình: người dùng bấm nút mới mở, và hai launcher gọi `selectTab` riêng sau `loadAsync`.
-- **Không áp dụng**: `window.open`/`_blank` (trình duyệt này không có `uiDelegate`, không mở tab từ trong trang); trình duyệt người dùng `BypassWebView` (mỗi lần mở là một store mới, không có tab cũ).
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: tab nền không nằm trên màn hình (như trình duyệt ẩn / lúc thu nhỏ) — trang cần bấm captcha thì phải bấm pill của tab đó.

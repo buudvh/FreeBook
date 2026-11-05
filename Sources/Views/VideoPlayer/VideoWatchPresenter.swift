@@ -11,14 +11,13 @@ import UIKit
 ///
 /// - `present`: màn xem đang mở thì đóng nó trước rồi mới mở màn mới — không bao giờ chồng hai màn xem (kể cả lúc màn
 ///   đang hiện bìa phim B mà hub mở lại phim A đang chạy nền).
-/// - `presentPage`: trang phụ mở **sau khi** màn xem đã đóng (danh sách thể loại, Chi tiết của một đề xuất) — sheet lớn
-///   có `NavigationStack` riêng, vuốt xuống để đóng. Một trang phụ một lúc.
+/// - Trang phụ của màn xem (thể loại, Xem thêm, Chi tiết của đề xuất) không còn ở đây: từ 1.3.744 là trang toàn màn đè
+///   lên màn xem (`VideoWatchPagePresenter`, dùng chung `readyTopViewController`).
 @MainActor
 final class VideoWatchPresenter {
     static let shared = VideoWatchPresenter()
 
     private weak var hostController: UIViewController?
-    private weak var pageController: UIViewController?
     /// Màn xem đang hiện trong `fullScreenCover` của router (`VideoWatchRouteView`) — không do presenter này trình bày.
     private weak var coverModel: VideoWatchModel?
     private static let maxRetryCount = 6
@@ -48,28 +47,6 @@ final class VideoWatchPresenter {
             shared.coverModel = model
         } else if shared.coverModel === model {
             shared.coverModel = nil
-        }
-    }
-
-    /// Trang phụ của màn xem. `content` được bọc `NavigationStack` + màu nhấn + `modelContainer` (trình bày bằng UIKit
-    /// nên không thừa hưởng gì của `MainTabView`).
-    static func presentPage<Content: View>(modelContainer: ModelContainer, @ViewBuilder content: () -> Content) {
-        let page = content()
-        let root = NavigationStack { page }
-            .appAccentTint()
-            .modelContainer(modelContainer)
-        shared.presentPage(AnyView(root), retryCount: 0)
-    }
-
-    /// Đóng trang phụ đang mở (nếu có) rồi gọi `completion` — nút Home của màn xem dọn hết lớp phủ của nó trước khi
-    /// chuyển tab.
-    static func dismissPage(completion: @escaping () -> Void) {
-        guard let page = shared.pageController, page.presentingViewController != nil, !page.isBeingDismissed else {
-            completion()
-            return
-        }
-        page.dismiss(animated: true) {
-            MainActor.assumeIsolated { completion() }
         }
     }
 
@@ -106,36 +83,11 @@ final class VideoWatchPresenter {
         }
     }
 
-    // MARK: - Trang phụ
-
-    private func presentPage(_ root: AnyView, retryCount: Int) {
-        if let page = pageController, page.presentingViewController != nil, !page.isBeingDismissed {
-            page.dismiss(animated: false) {
-                MainActor.assumeIsolated {
-                    VideoWatchPresenter.shared.presentPage(root, retryCount: retryCount)
-                }
-            }
-            return
-        }
-        guard let top = Self.readyTopViewController(retryCount: retryCount, retry: { next in
-            VideoWatchPresenter.shared.presentPage(root, retryCount: next)
-        }, onGiveUp: {}) else { return }
-
-        let page = UIHostingController(rootView: root)
-        page.modalPresentationStyle = .pageSheet
-        if let sheet = page.sheetPresentationController {
-            sheet.detents = [.large()]
-            sheet.prefersGrabberVisible = true
-        }
-        pageController = page
-        top.present(page, animated: true)
-    }
-
     // MARK: - VC trên cùng
 
     /// VC trên cùng đang đứng yên; đang chuyển cảnh (màn xem vừa đóng…) ⇒ thử lại sau 0,3 giây, tối đa `maxRetryCount`
-    /// lần rồi bỏ (log ❌). Trả `nil` khi đã hẹn thử lại / đã bỏ.
-    private static func readyTopViewController(
+    /// lần rồi bỏ (log ❌). Trả `nil` khi đã hẹn thử lại / đã bỏ. Dùng chung với `VideoWatchPagePresenter`.
+    static func readyTopViewController(
         retryCount: Int,
         retry: @escaping (Int) -> Void,
         onGiveUp: () -> Void

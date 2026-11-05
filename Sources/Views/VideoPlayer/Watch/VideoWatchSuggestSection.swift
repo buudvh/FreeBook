@@ -2,12 +2,17 @@ import SwiftUI
 
 /// Một nhóm đề xuất của màn xem (`VideoWatchSuggestFeed`): tiêu đề + các thẻ, bộ nạp phân trang riêng của nhóm (như
 /// `CategoryNovelsListView`). Tải trang 1 khi nhóm hiện; `loadsMore` (nhóm cuối) ⇒ tới thẻ cuối thì nạp trang kế.
+///
+/// Tiêu đề **kiểu A** (1.3.744, anh Bửu chọn) để tách hẳn khỏi tên phim trong thẻ: khoảng trống + đường ngăn mờ phía trên,
+/// vạch màu nhấn 3 pt bên trái (không bo góc), chữ `.title3` đậm (to hơn tên phim), "Xem thêm ›" màu nhấn bên phải
+/// ⇒ `onShowMore` (trang toàn màn với cả danh sách của nhóm).
 struct VideoWatchSuggestSection: View {
     let category: CategoryResult
     let model: VideoWatchModel
     let loadsMore: Bool
     let onSelect: (VideoWatchRequest) -> Void
     let onOpenDetail: (VideoWatchRequest) -> Void
+    let onShowMore: () -> Void
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var didStart = false
@@ -17,13 +22,15 @@ struct VideoWatchSuggestSection: View {
         model: VideoWatchModel,
         loadsMore: Bool,
         onSelect: @escaping (VideoWatchRequest) -> Void,
-        onOpenDetail: @escaping (VideoWatchRequest) -> Void
+        onOpenDetail: @escaping (VideoWatchRequest) -> Void,
+        onShowMore: @escaping () -> Void
     ) {
         self.category = category
         self.model = model
         self.loadsMore = loadsMore
         self.onSelect = onSelect
         self.onOpenDetail = onOpenDetail
+        self.onShowMore = onShowMore
         let ext = ExtensionLibraryRepository.snapshot(packageId: model.request.packageId)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: ext?.localPath ?? "",
@@ -41,10 +48,7 @@ struct VideoWatchSuggestSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(model.meta(category.title.isEmpty ? "Đề xuất" : category.title))
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
+            header
             content
         }
         // `Task` riêng (không phải `.task`): cuộn nhanh qua nhóm trong `LazyVStack` sẽ huỷ `.task`, bộ nạp coi lượt bị
@@ -54,6 +58,41 @@ struct VideoWatchSuggestSection: View {
             didStart = true
             Task { await loader.loadInitial() }
         }
+    }
+
+    /// Kiểu A: đường ngăn mờ + vạch màu nhấn + `.title3` đậm + "Xem thêm ›".
+    private var header: some View {
+        let title = model.meta(category.title.isEmpty ? "Đề xuất" : category.title)
+        return VStack(alignment: .leading, spacing: 14) {
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(height: 0.5)
+            HStack(alignment: .center, spacing: 10) {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: 3, height: 22)
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Button(action: onShowMore) {
+                    HStack(spacing: 2) {
+                        Text("Xem thêm")
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(minHeight: 36)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Xem thêm \(title)")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 
     @ViewBuilder

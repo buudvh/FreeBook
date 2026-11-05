@@ -8,8 +8,9 @@ import SwiftUI
 /// nhóm đã dịch, tập đổi theo lúc phát). Phiên trống / chạy phim khác ⇒ chỉ dữ liệu của `VideoWatchModel`, không có
 /// lưới Server (server chỉ có sau khi nạp một tập).
 ///
-/// Mọi lối rời màn (thể loại, Home, Chi tiết của đề xuất, đổi nguồn xong) đi qua `onExit`; sheet đang mở thì đóng sheet
-/// trước rồi mới báo (`onDismiss` của sheet) — gọi đóng màn khi sheet còn hiện chỉ đóng được sheet.
+/// Lối rời màn (Home, đổi nguồn xong) đi qua `onExit`. Thể loại, "Xem thêm" của nhóm đề xuất và Chi tiết của đề xuất mở
+/// trang toàn màn đè lên màn (`VideoWatchPagePresenter`, phim vẫn phát bên dưới). Thể loại bấm trong sheet Thông tin thì
+/// đóng sheet trước rồi mới mở trang (`onDismiss` của sheet) — trình bày lúc sheet còn hiện là trình bày lên sheet.
 struct VideoWatchDetailsView: View {
     let model: VideoWatchModel
     let session: VideoPlaybackSession
@@ -18,7 +19,7 @@ struct VideoWatchDetailsView: View {
     let onExit: (VideoWatchExit) -> Void
 
     @State private var showingInfo = false
-    /// Thể loại bấm trong sheet Thông tin — mở sau khi sheet đã đóng.
+    /// Thể loại bấm trong sheet Thông tin — mở trang sau khi sheet đã đóng.
     @State private var pendingGenre: CategoryResult? = nil
 
     private var ownsSession: Bool { model.ownsSession }
@@ -58,7 +59,7 @@ struct VideoWatchDetailsView: View {
                     model: model,
                     episodeCount: episodes.filter { !$0.isSection }.count,
                     onShowInfo: { showingInfo = true },
-                    onSelectGenre: { onExit(.genre($0)) }
+                    onSelectGenre: { VideoWatchPagePresenter.openCategory($0, model: model) }
                 )
                 .id(Self.topAnchor)
                 VideoWatchActionRow(model: model, onSourceChanged: { onExit(.close) })
@@ -82,10 +83,11 @@ struct VideoWatchDetailsView: View {
                         if ExtensionContentKind.resolve(packageId: request.packageId) == .video {
                             model.replace(with: request)
                         } else {
-                            onExit(.openDetail(request))
+                            VideoWatchPagePresenter.openDetail(request, modelContainer: model.modelContainer)
                         }
                     },
-                    onOpenDetail: { onExit(.openDetail($0)) }
+                    onOpenDetail: { VideoWatchPagePresenter.openDetail($0, modelContainer: model.modelContainer) },
+                    onShowMore: { VideoWatchPagePresenter.openCategory($0, model: model) }
                 )
             }
             .padding(.top, 14)
@@ -98,7 +100,7 @@ struct VideoWatchDetailsView: View {
     private func openPendingGenre() {
         guard let genre = pendingGenre else { return }
         pendingGenre = nil
-        onExit(.genre(genre))
+        VideoWatchPagePresenter.openCategory(genre, model: model)
     }
 
     // MARK: - Lỗi chi tiết

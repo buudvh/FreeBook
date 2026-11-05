@@ -7,6 +7,10 @@ struct CategoryNovelsListView: View {
     let downloadUrl: String
     let configJson: String
     let sourceName: String
+    /// Mở từ trang toàn màn của màn xem phim (`VideoWatchPagePresenter`): bấm phim của nguồn video ⇒ gọi closure này (đóng
+    /// trang, đổi phim tại chỗ) thay cho mở màn xem mới. `nil` (mặc định, mọi chỗ khác) ⇒ hành vi cũ. Nguồn khác ⇒ vẫn
+    /// đẩy Chi tiết trong trang.
+    let onSelectVideo: ((ExtensionItemResult) -> Void)?
     /// Container cho màn xem phim (`ContentDetailRouter`): item của nguồn video mở màn xem thay cho Chi tiết.
     @Environment(\.modelContext) private var modelContext
     @StateObject private var loader: PaginatedNovelLoader
@@ -43,8 +47,10 @@ struct CategoryNovelsListView: View {
         localPath: String,
         downloadUrl: String,
         configJson: String,
-        sourceName: String
+        sourceName: String,
+        onSelectVideo: ((ExtensionItemResult) -> Void)? = nil
     ) {
+        self.onSelectVideo = onSelectVideo
         self.category = category
         self.extensionPackageId = extensionPackageId
         self.localPath = localPath
@@ -106,6 +112,10 @@ struct CategoryNovelsListView: View {
                     isTranslationEnabled: isTranslationEnabled,
                     itemNoun: scope.itemNoun,
                     onSelectNovel: { novel in
+                        if let onSelectVideo, ContentDetailRouter.isVideo(packageId: extensionPackageId) {
+                            onSelectVideo(novel)
+                            return
+                        }
                         // Nguồn video ⇒ màn xem phim (phát dọc ngay), không đẩy Chi tiết.
                         if ContentDetailRouter.openIfVideo(
                             novel, packageId: extensionPackageId, sourceName: sourceName,

@@ -14,8 +14,9 @@ import SwiftData
 /// Màn hình chỉ gắn / gỡ session: biến mất mà chưa bấm Đóng ⇒ thu nhỏ (phim chạy nền, hub hiện mục Video).
 /// Bố cục: màn dọc = khung 16:9 + phần dưới (màn xem: `VideoWatchDetailsView`; lối cũ: `VideoPlayerDetailsView`); ngang
 /// hoặc "toàn màn" ở màn dọc = khung phim phủ cả màn. Toàn màn / khoá cảm ứng thì ẩn mọi widget nổi
-/// (`FloatingWidgetSuppression`). Lối rời màn của màn xem (`VideoWatchExit`) mở trang tiếp theo **sau khi** màn đã đóng
-/// (`onDisappear`): trình bày lúc màn còn đang đóng dở sẽ bị UIKit bỏ qua.
+/// (`FloatingWidgetSuppression`). Lối rời màn của màn xem (`VideoWatchExit`: Home, đổi nguồn) làm việc tiếp theo **sau
+/// khi** màn đã đóng (`onDisappear`): trình bày lúc màn còn đang đóng dở sẽ bị UIKit bỏ qua. Thể loại / Xem thêm / Chi tiết
+/// của đề xuất mở trang toàn màn đè lên màn (`VideoWatchPagePresenter`), màn vẫn gắn, phim vẫn phát.
 struct VideoPlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -26,7 +27,7 @@ struct VideoPlayerScreen: View {
     @State private var controller: VideoPlayerController
     @State private var watch: VideoWatchModel? = nil
     @State private var isLeaving = false
-    /// Việc chạy sau khi màn đã đóng hẳn (mở danh sách thể loại, Chi tiết, chuyển tab Khám phá…) — `leave(then:)`.
+    /// Việc chạy sau khi màn đã đóng hẳn (chuyển tab Khám phá…) — `leave(then:)`.
     @State private var pendingExitAction: (() -> Void)? = nil
     /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
     @State private var openingDetailErrorLink: SourceErrorLink? = nil
@@ -141,7 +142,8 @@ struct VideoPlayerScreen: View {
             // Nút âm lượng cứng: hiện thanh âm lượng sẵn có (thanh của iOS bị `MPVolumeView` của khung phim ẩn đi) và bỏ
             // tắt tiếng khi TTS không đọc. Màn xem chưa phát phim của nó (bìa) thì bỏ qua.
             VideoVolumeObserver.shared.activate(controller) { [controller] level in
-                guard watchOwnsSession else { return }
+                // Trang toàn màn đang che màn (thể loại, Xem thêm, Chi tiết) ⇒ màn không "đang hiện": bỏ qua.
+                guard watchOwnsSession, !VideoWatchPagePresenter.isPresenting else { return }
                 controller.showFeedback(.volume(level), duration: 0.8)
                 controller.session.handleHardwareVolumeChange()
             }
@@ -281,58 +283,29 @@ struct VideoPlayerScreen: View {
 
     // MARK: - Lối rời màn xem
 
-    /// Thu nhỏ phim (Home với phim 18+ thì `prepareGoHome` đã dừng hẳn) rồi, khi màn đã đóng, mở trang tiếp theo. Trang
-    /// tiếp theo là sheet lớn của `VideoWatchPresenter` (màn xem không nằm trong `NavigationStack` của tab nào).
+    /// Home: thu nhỏ phim (phim 18+ thì `prepareGoHome` đã dừng hẳn) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
+    /// Đổi nguồn xong: đóng hẳn.
     private func handleExit(_ exit: VideoWatchExit) {
         guard let watch else { return }
-        let container = modelContext.container
-        let packageId = watch.request.packageId
-        let sourceName = watch.request.sourceName
         switch exit {
-        case .genre(let genre):
-            let ext = ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId)
-            AppLogger.shared.log("🎬 [VideoWatch] Mở thể loại '\(genre.title)' từ màn xem ⇒ thu nhỏ phim")
-            leave(stopPlayback: false) {
-                VideoWatchPresenter.presentPage(modelContainer: container) {
-                    CategoryNovelsListView(
-                        category: genre,
-                        extensionPackageId: packageId,
-                        localPath: ext?.localPath ?? "",
-                        downloadUrl: ext?.downloadUrl ?? "",
-                        configJson: ext?.configJson ?? "{}",
-                        sourceName: sourceName
-                    )
-                }
-            }
-        case .openDetail(let request):
-            leave(stopPlayback: false) {
-                VideoWatchPresenter.presentPage(modelContainer: container) {
-                    BookDetailView(
-                        bookId: request.detailUrl,
-                        extensionPackageId: request.packageId,
-                        initialDetailUrl: request.detailUrl,
-                        sourceName: request.sourceName,
-                        initialHost: request.host
-                    )
-                }
-            }
         case .home:
             watch.prepareGoHome()
             leave(stopPlayback: false) {
-                VideoWatchPresenter.dismissPage {
-                    MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
-                }
+                MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
             }
         case .close:
             leave(stopPlayback: true)
         }
     }
 
+    /// Đóng trang toàn màn đang đè lên màn (nếu có) trước: gọi đóng màn khi còn trang chỉ đóng được trang.
     private func performDismiss() {
-        if let onDismiss {
-            onDismiss()
-        } else {
-            dismiss()
+        VideoWatchPagePresenter.dismiss(animated: false) {
+            if let onDismiss {
+                onDismiss()
+            } else {
+                dismiss()
+            }
         }
     }
 }
