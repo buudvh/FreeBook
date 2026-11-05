@@ -2,6 +2,35 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.715] - 2026-11-05
+
+### fix: mục lục đổi icon đã tải ngay khi chương tải xong
+
+Người dùng: *"tôi đang đọc truyện và bấm nút tải ở danh sách chương nhưng các chương tải xong ở danh sách chương của reader chưa đổi lại biểu tượng đã tải khi chúng được tải xong"*. Người dùng chọn sửa cả 3 danh sách chương: Reader, comic và tab Mục lục của Chi tiết.
+
+- **Nguyên nhân**:
+  - Hàng mục lục Reader đọc `ReaderChapterRowState.isCached`. Cờ này chỉ đổi qua `ReaderChapterListStore.markCached(index:)`, và hàm đó chỉ được gọi từ nút tải lẻ và lúc Reader tự tải chương đang đọc.
+  - Nút "Tải truyện" (`TaskOptionsSheet` → `DownloadManager` → `ExportContentProvider`) và TTS đọc trước ghi cờ thẳng vào `ChapterStore` mà không báo ai.
+  - Store sống suốt phiên Reader và không nạp lại trang đã có ⇒ đóng/mở lại sheet vẫn sai, phải thoát Reader.
+  - Mục lục comic: `downloadedChapterIndexes` chỉ đọc đĩa một lần lúc mở màn.
+  - Tab Mục lục của Chi tiết: `chapterSnapshots` chỉ đọc lại khi tab hiện, kéo làm mới hoặc đóng Reader.
+- **Kênh mới `ChapterDownloadEventCenter`** (`Services/ChapterText/Events/`): nhiều subscriber, mỗi subscriber một `AsyncStream` lọc theo `bookId`, Task bị huỷ là tự gỡ. Mỗi loại nội dung phát ở **một** chỗ:
+  - truyện chữ: actor `ChapterStore`, sau khi ghi DB thành công ở `upsertCachedChapter`, `updateCacheMetadata` (khi `isCached`) và `markChaptersCached`. Phủ tải cả truyện (mọi luồng), xuất có tải, Legado, tải lẻ, Reader/TTS đọc trước, khôi phục backup, đổi nguồn.
+  - truyện tranh: `ComicOfflineStore.saveManifest`.
+- **Reader** (`ReaderChapterListStore+CacheEvents`): store đăng ký lúc tạo, `deinit` huỷ. `markCached(indices:)` dùng chung cho sự kiện lẫn `markCached(index:)` cũ.
+  - Chỉ bật `isCached` của đúng hàng, nên chỉ hàng đó vẽ lại. Không nạp lại trang ⇒ không nháy, không nhảy cuộn.
+  - Sửa cả hàng kết quả tìm (trước đây đang tìm mà tải lẻ thì icon không đổi).
+  - Nhớ chỉ số trong `freshlyCachedIndices` để hàng dựng sau đó cũng đúng: trang trong `pageCache`, trang đang nạp dở đọc DB trước lúc ghi, kết quả tìm mới. Tập này xoá ở `setupPlaceholderRows()`.
+- **Comic** (`ComicReaderViewModel+DownloadEvents`): `.task` của `ComicReaderView` tạo stream, đọc lại đĩa ngoài main, rồi gộp chỉ số được báo. Mở trình xem phóng to làm Task chạy lại nên mỗi lần chạy đều đọc lại đĩa.
+- **Chi tiết** (`BookDetailTOCView+DownloadEvents`): giữ tập chỉ số vừa tải; hàng hiện icon khi `chap.isCached || tập.contains(index)`. Không đọc lại cả mục lục mỗi chương.
+  - `chapterSnapshots` đọc lại thì bỏ khỏi tập các chương DB đã có; số chương đổi thì xoá hết.
+  - Chỉ nghe với truyện chữ: hàng ở đây lấy cờ từ `ChapterStore`, comic báo theo manifest ảnh trên cùng `bookId`.
+  - Lưới tập video không đổi (đã có `VideoOfflineLibrary`).
+- Không sửa: màn "Chọn chương bắt đầu" và chọn chương quét name chỉ chụp một lần lúc mở để chọn.
+- `rules.md`: thêm luật kênh "đã tải" ở mục Danh sách chương Reader; mục 11 của 1.3.334 ghi đúng tên `ReaderChapterListStore.markCached(index:)`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.714] - 2026-11-05
 
 ### fix: trình duyệt tiện ích giữ tab đang xem khi tiện ích mở tab mới
