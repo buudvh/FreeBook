@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.744",
+          "buildVersion": "1161",
+          "date": "2026-11-05T17:04:52Z",
+          "localizedDescription": "- fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn\n- fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình\n- feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+\n- feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc\n- feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc\n- feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động\n- feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1161/TangCongCac-1.3.744-1161.ipa",
+          "size": 37822290,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.736",
           "buildVersion": "1159",
           "date": "2026-11-05T14:40:50Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1155/TangCongCac-1.3.728-1155.ipa",
           "size": 37575369,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.724",
-          "buildVersion": "1153",
-          "date": "2026-11-05T07:23:38Z",
-          "localizedDescription": "feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1153/TangCongCac-1.3.724-1153.ipa",
-          "size": 37509685,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.736",
-      "versionDate": "2026-11-05T14:40:50Z",
-      "versionDescription": "- feat: nền màn xem video: định danh phim, tải chi tiết + mục lục, tự phát và lưới tuỳ chọn trình phát\n- feat: giao diện màn xem video kiểu trình phát dọc, nút Home và mở lại từ hub\n- feat: mọi lối vào phim mở thẳng màn xem phát dọc thay cho trang Chi tiết\n- fix: màn xem video: đề xuất và bình luận không kẹt khi cuộn nhanh, khai rõ giá trị đầu của state",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1159/TangCongCac-1.3.736-1159.ipa",
-      "size": 37800738,
+      "version": "1.3.744",
+      "versionDate": "2026-11-05T17:04:52Z",
+      "versionDescription": "- fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn\n- fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình\n- feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+\n- feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc\n- feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc\n- feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động\n- feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1161/TangCongCac-1.3.744-1161.ipa",
+      "size": 37822290,
       "appPermissions": {}
     }
   ],
