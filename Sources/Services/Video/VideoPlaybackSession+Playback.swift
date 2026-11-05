@@ -262,6 +262,7 @@ extension VideoPlaybackSession {
         let status = player.timeControlStatus
         let playing = status != .paused
         if isPlaying != playing { isPlaying = playing }
+        VideoNativePlaybackFlag.set(playing && embedContent == nil)
         let buffering = status == .waitingToPlayAtSpecifiedRate
         if isBuffering != buffering { isBuffering = buffering }
         refreshIdleTimer()

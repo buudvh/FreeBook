@@ -1244,7 +1244,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         MPNowPlayingInfoCenter.default().playbackState = .stopped
         // Giải phóng Audio Session khi dừng hoàn toàn để ứng dụng khác có thể phát âm thanh
         if !keepWidget {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            audioSessionController.deactivateUnlessVideoPlaying()
             isAudioSessionConfigured = false
         }
     }

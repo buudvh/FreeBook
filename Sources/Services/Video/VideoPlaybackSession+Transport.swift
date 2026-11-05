@@ -108,6 +108,19 @@ extension VideoPlaybackSession {
         }
     }
 
+    /// Nút âm lượng cứng lúc màn trình phát đang hiện (`VideoVolumeObserver`): phim native đang tắt tiếng mà TTS **không**
+    /// đọc ⇒ bật tiếng (bấm nút âm lượng = muốn nghe). TTS đang đọc ⇒ giữ tắt tiếng, màn chỉ hiện thanh (anh Bửu chốt):
+    /// bật tiếng lúc đó là dừng TTS.
+    func handleHardwareVolumeChange() {
+        guard isEffectivelyMuted, launch != nil, isScreenAttached else { return }
+        guard !TTSManager.shared.isPlaying else {
+            AppLogger.shared.log("🔇 [VideoPlayer] Nút âm lượng cứng: TTS đang đọc ⇒ giữ tắt tiếng phim, chỉ hiện thanh")
+            return
+        }
+        AppLogger.shared.log("🔊 [VideoPlayer] Nút âm lượng cứng ⇒ bỏ tắt tiếng phim")
+        setMuted(false)
+    }
+
     // MARK: - Tua
 
     func seek(by delta: Double) {

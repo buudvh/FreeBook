@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.741] - 2026-11-05
+
+### feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc
+
+Plan đợt 2 trình phát video, mục 4 (anh Bửu đã duyệt).
+
+- **Vì sao không hiện gì**: khung phim native giữ một `MPVolumeView` gần như vô hình (`VideoGestureView`) để vuốt chỉnh âm lượng, và nó ẩn luôn thanh âm lượng của iOS. Không chỗ nào theo dõi `AVAudioSession.outputVolume`.
+- **`VideoVolumeObserver`** (mới, `Services/Video`): KVO `AVAudioSession.outputVolume`, bật/tắt theo màn trình phát cùng chỗ `VideoBrightnessKeeper.activate/deactivate` (`VideoPlayerScreen.onAppear/onDisappear`), đếm theo từng màn, màn mới nhất nhận sự kiện.
+  - Mỗi lần đổi ⇒ `controller.showFeedback(.volume(level))`: thanh âm lượng sẵn có của trình phát, ở màn dọc lẫn toàn màn.
+  - Màn xem đang hiện bìa (chưa phát phim của nó) ⇒ bỏ qua. Thu nhỏ vào hub / PiP ⇒ không còn màn ⇒ nút cứng không đụng tới phim.
+- **Bỏ tắt tiếng** (`VideoPlaybackSession.handleHardwareVolumeChange`): chỉ khi phim native đang tắt tiếng + màn trình phát đang hiện + TTS **không** đọc ⇒ `setMuted(false)`. TTS đang đọc ⇒ giữ tắt tiếng, chỉ hiện thanh (anh chọn).
+- **Lỗ phiên âm thanh**: phim tắt tiếng phát cùng TTS, rồi TTS dừng hẳn ⇒ TTS `setActive(false)` ⇒ KVO im luôn.
+  - `VideoNativePlaybackFlag` (mới): cờ "phim native đang phát", `VideoPlaybackSession` ghi ở `handleTimeControlChange` và `stop`. Tầng TTS đọc cờ mà không phải chạm `VideoPlaybackSession.shared`.
+  - `TTSAudioSessionController.deactivateUnlessVideoPlaying()`: phim native còn phát thì không tắt phiên.
+  - `TTSManager.stopPlayback` gọi hàm này thay cho dòng `setActive(false)` (đổi 1 dòng lấy 1 dòng, không thêm dòng vào file sát baseline). Hai chỗ tắt phiên khi có cuộc gọi / ngắt âm thanh giữ nguyên.
+- **Giới hạn iOS**: đang 100% mà bấm tăng, hay đang 0% mà bấm giảm, thì iOS không báo đổi ⇒ không hiện thanh, không bật tiếng.
+- `CLAUDE.md` + `AGENTS.md`: thay dòng "nút âm lượng cứng thì không" bằng luật mới. Sửa comment ở `VideoPlayerController.handlePanBegan`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `TTSManager.swift` giữ 3468 dòng.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: bấm nút cứng ở màn dọc và toàn màn (hiện thanh); phim tắt tiếng, TTS không đọc ⇒ bật tiếng; TTS đang đọc ⇒ chỉ hiện thanh; phim tắt tiếng phát cùng TTS, dừng hẳn TTS rồi bấm nút cứng ⇒ vẫn hiện thanh.
+
 ## [1.3.740] - 2026-11-05
 
 ### feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+
@@ -723,23 +745,3 @@ Người dùng: *"chưa đánh số thứ tự cho danh sách chương ở màn 
   - Lọc như ô tìm mục lục Reader: `ChapterTitleSearchMatcher` trên tên đang hiển thị (dịch sống y như `TTSManager.displayTitle(for:)`) + tên gốc; chờ 250 ms, chạy ngoài main, phím mới huỷ lượt cũ; mục lục làm mới khi đang lọc ⇒ lọc lại. Không khớp ⇒ "Không có chương nào khớp".
 - **Mảnh dùng chung mở rộng (tương thích ngược)**: `FloatingAddButton` / `floatingAddButton(_:systemImage:action:)` thêm `systemImage` (mặc định "plus"); `ChapterTOCSearchField` thêm `focus: FocusState<Bool>.Binding?`.
 - Chưa thử máy (Windows, chỉ CI biên dịch). Rủi ro: ô tìm nằm trong cửa sổ nổi của widget TTS (không bao giờ là key window) — tiền lệ là ô API key Google ở sheet cài đặt TTS cùng cửa sổ; nếu gõ không ăn thì nghi ở đây.
-
-## [1.3.711] - 2026-11-04
-
-### feat: danh sách chương hiện số thứ tự, cột số vừa đủ chữ số lớn nhất
-
-Người dùng: *"Thêm số thứ tự hiển thị ở mỗi danh sách chương trong truyện. Nhớ vừa số chữ số cao nhất của thứ tự…"*, *"Cho config hiện/ẩn số thứ tự"*, *"Sửa lại đồng bộ số thứ tự và tên chương hiển thị kiểu flex nhé"*, *"Nhãn ch.N cũ bỏ đi"*.
-
-- **Mảnh dùng chung** (`Sources/Views/Common/ChapterTOCPanel/`):
-  - `ChapterOrdinalNumbering`: số = vị trí (từ 1) của chương trong **mục lục đủ** theo thứ tự gốc; dòng tiêu đề nhóm (`isSection`) không có số, không chiếm số ⇒ số lớn nhất = N của "Mục lục (N chương)". Tìm/lọc hay đảo ↓↑ thì mỗi chương giữ số của nó. Mục lục liền mạch không có dòng nhóm (mọi truyện chữ) ⇒ số = chỉ số + 1, không dựng bảng; có dòng nhóm mới dựng bảng chỉ số → số. `digits` = số chữ số của số lớn nhất (2000 → 4, 10000 → 5), tính **một lần mỗi danh sách**.
-  - `ChapterOrdinalLabel`: cột số kiểu flex trước tên — đặt cùng tên trong `HStack(alignment: .firstTextBaseline)`, tên dài xuống dòng thì thẳng lề với tên. Bề rộng đo bằng `Text` giữ chỗ ẩn gồm `digits` chữ "0" cùng font (`.body.monospacedDigit()`, cùng cỡ với tên), số căn phải, `Text(verbatim:)` (không chèn dấu nhóm theo vùng). Màu phụ của `ChapterTOCPalette`; hàng đang đọc theo màu tiêu đề, đã đọc mờ thêm. Không `GeometryReader` ⇒ giữ lazy.
-- **Các danh sách**:
-  - Tab Mục lục của Chi tiết (`BookDetailTOCView` / `BookDetailTOCRow`): bản chụp `chapter_store` dựng số từ `chapterSnapshots` khi mục lục đổi (`@State snapshotNumbering`, không theo từ khoá/chiều); mục lục online dựng từ **toàn bộ** `onlineChapters` ở `BookDetailView.updateFilteredOnlineChapters` (danh sách đã lọc không đếm được dòng nhóm đứng trước) rồi truyền xuống; nhánh `Book.chapters` = index + 1. "Mục lục (N chương)" lấy N từ cùng bộ số ⇒ không còn lệch khi đang tìm ở mục lục online có dòng nhóm.
-  - Sheet mục lục Reader (`ReaderChapterListView+List` → `ReaderChapterRowView`): truyện chữ không có dòng nhóm ⇒ số = index logic + 1 cho cả danh sách phân trang lẫn kết quả tìm; cột rộng theo `store.totalCount`. Hàng giữ chỗ (đang tải trang) cũng có cột số để tên không nhảy ngang.
-  - Mục lục màn đọc comic (`ComicChapterListSheet`): dựng từ toàn bộ `chapters` (không phải `visibleChapters`).
-  - Màn "Chọn chương…" (`ReaderAINameScanChapterPickerView`, sheet tải/xuất + sheet quét tên): **bỏ nhãn "ch.N" cũ**, thay bằng cùng cột số; chương không tên hiện "Chương N"/"Tập N". Sheet tải/xuất gắn `AINameScanChapter.ordinal` lúc dựng danh sách (`DownloadStartChapterCatalog`, dòng nhóm không chiếm số) ⇒ số và tìm theo số khớp mục lục; dòng phụ "ch.N: tên" của mục "Bắt đầu từ" dùng cùng số. Sheet quét tên giữ index + 1.
-  - Không đổi: lưới tập video.
-- **Công tắc**: Cài đặt › Chung › Giao diện › mục "Danh sách chương" › "Hiện số thứ tự chương" (nút "?" giải thích). `@AppStorage` khoá `chapterListShowsOrdinal` (`ChapterOrdinalNumbering.showsOrdinalKey`), mặc định bật; đọc một lần ở mỗi danh sách, tắt là bỏ hẳn cột, đổi ngay. Backup tự gói (khoá chữ thường đầu, `BackupSettingsArchiver.isExportable`), không cần thêm vào danh sách.
-- `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục "Mục lục & thẻ Chi tiết".
-- Chuyển `[1.3.680]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

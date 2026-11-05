@@ -302,6 +302,7 @@ final class VideoPlaybackSession {
         cues = []
         timeSkips = []
         isPlaying = false
+        VideoNativePlaybackFlag.set(false)
         isBuffering = false
         currentSeconds = 0
         durationSeconds = 0

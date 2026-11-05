@@ -176,7 +176,8 @@ final class VideoPlayerController {
             controlsVisible = false
         }
         // Vuốt chỉnh âm lượng = muốn nghe ⇒ bỏ tắt tiếng. Bật tiếng khi video đang phát sẽ dừng TTS đang đọc
-        // (đúng hành vi của `setMuted(false)`). Chỉ cử chỉ vuốt, không theo dõi nút âm lượng cứng.
+        // (đúng hành vi của `setMuted(false)`). Nút âm lượng cứng đi đường riêng (`VideoVolumeObserver` →
+        // `handleHardwareVolumeChange`): TTS đang đọc thì không bật tiếng.
         if kind == .volume, session.isMuted {
             session.setMuted(false)
         }

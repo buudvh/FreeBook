@@ -9,6 +9,19 @@ public final class TTSAudioSessionController: @unchecked Sendable {
         try? session.setActive(true)
     }
 
+    /// TTS dừng hẳn: trả phiên âm thanh cho app khác — **trừ khi** phim native còn phát (`VideoNativePlaybackFlag`,
+    /// thường là phim tắt tiếng phát cùng TTS). Tắt phiên lúc đó thì KVO `outputVolume` của trình phát im luôn: nút âm
+    /// lượng cứng không hiện thanh, không bỏ tắt tiếng phim được nữa. Phim dừng sau đó thì
+    /// `VideoPlaybackSession.deactivateAudioSessionIfIdle` (phiên do phim bật) hoặc lượt dừng TTS kế tiếp trả phiên.
+    @MainActor
+    public func deactivateUnlessVideoPlaying() {
+        guard !VideoNativePlaybackFlag.isPlaying else {
+            AppLogger.shared.log("🔊 [TTSAudioSessionController] TTS dừng nhưng phim còn phát ⇒ giữ phiên âm thanh")
+            return
+        }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
     public func configureAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
 

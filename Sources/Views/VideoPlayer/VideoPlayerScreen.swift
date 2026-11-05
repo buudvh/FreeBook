@@ -138,6 +138,13 @@ struct VideoPlayerScreen: View {
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
             // Độ sáng lần vuốt chỉnh gần nhất (mọi phim, mọi nguồn); rời màn thì trả độ sáng của máy.
             VideoBrightnessKeeper.shared.activate(controller)
+            // Nút âm lượng cứng: hiện thanh âm lượng sẵn có (thanh của iOS bị `MPVolumeView` của khung phim ẩn đi) và bỏ
+            // tắt tiếng khi TTS không đọc. Màn xem chưa phát phim của nó (bìa) thì bỏ qua.
+            VideoVolumeObserver.shared.activate(controller) { [controller] level in
+                guard watchOwnsSession else { return }
+                controller.showFeedback(.volume(level), duration: 0.8)
+                controller.session.handleHardwareVolumeChange()
+            }
         }
         .onChange(of: suppressesFloatingWidgets) { _, suppressed in
             FloatingWidgetSuppression.shared.isSuppressed = suppressed
@@ -176,6 +183,7 @@ struct VideoPlayerScreen: View {
             controller.isOrientationLocked = false
             session.detachScreen(controller)
             VideoBrightnessKeeper.shared.deactivate(controller)
+            VideoVolumeObserver.shared.deactivate(controller)
             // Màn xem bị đóng bằng code (presenter mở phim khác, về tab…) không qua `leave` ⇒ huỷ lượt tải ở đây, kẻo tải
             // xong muộn lại tự mở phim khi không còn màn.
             watch?.cancel()

@@ -2,6 +2,26 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.711] - 2026-11-04
+
+### feat: danh sách chương hiện số thứ tự, cột số vừa đủ chữ số lớn nhất
+
+Người dùng: *"Thêm số thứ tự hiển thị ở mỗi danh sách chương trong truyện. Nhớ vừa số chữ số cao nhất của thứ tự…"*, *"Cho config hiện/ẩn số thứ tự"*, *"Sửa lại đồng bộ số thứ tự và tên chương hiển thị kiểu flex nhé"*, *"Nhãn ch.N cũ bỏ đi"*.
+
+- **Mảnh dùng chung** (`Sources/Views/Common/ChapterTOCPanel/`):
+  - `ChapterOrdinalNumbering`: số = vị trí (từ 1) của chương trong **mục lục đủ** theo thứ tự gốc; dòng tiêu đề nhóm (`isSection`) không có số, không chiếm số ⇒ số lớn nhất = N của "Mục lục (N chương)". Tìm/lọc hay đảo ↓↑ thì mỗi chương giữ số của nó. Mục lục liền mạch không có dòng nhóm (mọi truyện chữ) ⇒ số = chỉ số + 1, không dựng bảng; có dòng nhóm mới dựng bảng chỉ số → số. `digits` = số chữ số của số lớn nhất (2000 → 4, 10000 → 5), tính **một lần mỗi danh sách**.
+  - `ChapterOrdinalLabel`: cột số kiểu flex trước tên — đặt cùng tên trong `HStack(alignment: .firstTextBaseline)`, tên dài xuống dòng thì thẳng lề với tên. Bề rộng đo bằng `Text` giữ chỗ ẩn gồm `digits` chữ "0" cùng font (`.body.monospacedDigit()`, cùng cỡ với tên), số căn phải, `Text(verbatim:)` (không chèn dấu nhóm theo vùng). Màu phụ của `ChapterTOCPalette`; hàng đang đọc theo màu tiêu đề, đã đọc mờ thêm. Không `GeometryReader` ⇒ giữ lazy.
+- **Các danh sách**:
+  - Tab Mục lục của Chi tiết (`BookDetailTOCView` / `BookDetailTOCRow`): bản chụp `chapter_store` dựng số từ `chapterSnapshots` khi mục lục đổi (`@State snapshotNumbering`, không theo từ khoá/chiều); mục lục online dựng từ **toàn bộ** `onlineChapters` ở `BookDetailView.updateFilteredOnlineChapters` (danh sách đã lọc không đếm được dòng nhóm đứng trước) rồi truyền xuống; nhánh `Book.chapters` = index + 1. "Mục lục (N chương)" lấy N từ cùng bộ số ⇒ không còn lệch khi đang tìm ở mục lục online có dòng nhóm.
+  - Sheet mục lục Reader (`ReaderChapterListView+List` → `ReaderChapterRowView`): truyện chữ không có dòng nhóm ⇒ số = index logic + 1 cho cả danh sách phân trang lẫn kết quả tìm; cột rộng theo `store.totalCount`. Hàng giữ chỗ (đang tải trang) cũng có cột số để tên không nhảy ngang.
+  - Mục lục màn đọc comic (`ComicChapterListSheet`): dựng từ toàn bộ `chapters` (không phải `visibleChapters`).
+  - Màn "Chọn chương…" (`ReaderAINameScanChapterPickerView`, sheet tải/xuất + sheet quét tên): **bỏ nhãn "ch.N" cũ**, thay bằng cùng cột số; chương không tên hiện "Chương N"/"Tập N". Sheet tải/xuất gắn `AINameScanChapter.ordinal` lúc dựng danh sách (`DownloadStartChapterCatalog`, dòng nhóm không chiếm số) ⇒ số và tìm theo số khớp mục lục; dòng phụ "ch.N: tên" của mục "Bắt đầu từ" dùng cùng số. Sheet quét tên giữ index + 1.
+  - Không đổi: lưới tập video.
+- **Công tắc**: Cài đặt › Chung › Giao diện › mục "Danh sách chương" › "Hiện số thứ tự chương" (nút "?" giải thích). `@AppStorage` khoá `chapterListShowsOrdinal` (`ChapterOrdinalNumbering.showsOrdinalKey`), mặc định bật; đọc một lần ở mỗi danh sách, tắt là bỏ hẳn cột, đổi ngay. Backup tự gói (khoá chữ thường đầu, `BackupSettingsArchiver.isExportable`), không cần thêm vào danh sách.
+- `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục "Mục lục & thẻ Chi tiết".
+- Chuyển `[1.3.680]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.710] - 2026-11-04
 
 ### fix: sửa 5 lỗi engine Legado tìm thấy trong log
