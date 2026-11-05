@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.712] - 2026-11-05
+
+### feat: màn hẹn giờ TTS theo header mục lục Reader, thêm số thứ tự và ô tìm chương
+
+Người dùng: *"chưa đánh số thứ tự cho danh sách chương ở màn hình hẹn giờ"*, *"cho header của màn hình hẹn giờ giống màn hình danh sách chương của reader"*, *"số chương ở header bỏ đi, tạo badge số…"*, *"hiển thị hẹn giờ lên ngay chỗ cover trên header, hiển thị giống kiểu chỉ bìa"*, *"danh sách chương ở hẹn giờ đang thiếu ô tìm kiếm"*, *"tab con hiển thị giống tab chi tiết"*, *"nút search hiển thị kiểu giống nút + ở kệ sách"*, *"thời gian hẹn giờ ở cover hiển thị căn lề giữa"* (duyệt mockup bản 6).
+
+- **Sheet Hẹn giờ** (`TTSQuickTimerSheet`, mở từ widget TTS): bỏ `NavigationStack`/toolbar (sheet không đẩy trang). Dải trên cùng 36pt chứa thanh kéo của sheet hệ thống + nút ⚙ dạng chấm tròn 28pt (icon 17pt nửa đậm, vùng chạm 38×38) ở góc phải — header bắt đầu ngay dưới nên tên truyện dùng hết bề ngang. Hàng tên chương đang phát (chữ chạy) giữ riêng dưới header, trên tab con.
+- **Header mới** `TTSQuickTimerHeader` (file riêng): cùng số đo header mục lục Reader — bìa `BookCoverView` 86×120 bo 6 (chạm = mở truyện như cũ), tên `.headline` 2 dòng, tác giả `.subheadline` mờ 72%, viên nguồn `.caption2` (icon + tên tiện ích đã cài; tiện ích đã gỡ ⇒ tên nguồn đã lưu). Bỏ thẻ bo viền, bỏ chip "N chương" và hàng trạng thái hẹn giờ. Nút "Hủy" hẹn giờ ở góc dưới phải cột chữ, chỉ khi đang hẹn giờ.
+- **Đồng hồ trên bìa**: `CoverCaptionStrip` (dải của kiểu "Chỉ bìa") đè đáy bìa — "m:ss" / "Hết chương" + "Hẹn giờ tắt", **căn giữa**, chữ số rộng đều, phần chuyển thấp (`compactFadeHeight`) vì bìa nhỏ. Chưa hẹn giờ ⇒ bìa trơn. `CoverCaptionStrip` thêm `isCentered` và `usesMonospacedDigits` (mặc định tắt ⇒ Kệ/Khám phá không đổi).
+- **Tab con kiểu tab Chi tiết** (`BookDetailView.customTabBar`): chữ `.subheadline`, đang chọn đậm + màu nhấn + gạch chân 3pt, không icon. "Danh sách chương" có badge đỏ **tổng số chương** ngay cạnh chữ (giữ tổng cả khi đang lọc). Tên tab một dòng, chật thì cắt "…"; badge `fixedSize` + ưu tiên bố cục ⇒ luôn đủ số.
+- **Danh sách chương** `TTSQuickTimerChapterList` (file riêng):
+  - Cột số thứ tự `ChapterOrdinalLabel` theo công tắc "Hiện số thứ tự chương": `chaptersQueue` là mục lục đủ theo thứ tự gốc ⇒ số = `index + 1`, giữ nguyên khi lọc; bề rộng cột tính một lần theo mục lục đủ. `ChapterOrdinalLabel` thêm tham số `font` (mặc định `.body`) để số cùng cỡ 14pt với tên chương ở đây.
+  - Chương đang phát chỉ đổi màu nền + chữ đậm; bỏ icon loa đầu hàng và chip "Đang phát".
+  - Ô tìm `ChapterTOCSearchField` ("Tìm kiếm N chương") **ẩn mặc định**. Nút kính nổi 52pt góc dưới phải (`floatingAddButton`, cùng kiểu nút "+" ở Kệ) mở ô + bật bàn phím, mở rồi thành ✕ (xoá từ khoá, ẩn ô, cuộn lại chương đang phát). Bàn phím đóng khi ô trống ⇒ ô tự ẩn; cuộn danh sách là đóng bàn phím.
+  - Lọc như ô tìm mục lục Reader: `ChapterTitleSearchMatcher` trên tên đang hiển thị (dịch sống y như `TTSManager.displayTitle(for:)`) + tên gốc; chờ 250 ms, chạy ngoài main, phím mới huỷ lượt cũ; mục lục làm mới khi đang lọc ⇒ lọc lại. Không khớp ⇒ "Không có chương nào khớp".
+- **Mảnh dùng chung mở rộng (tương thích ngược)**: `FloatingAddButton` / `floatingAddButton(_:systemImage:action:)` thêm `systemImage` (mặc định "plus"); `ChapterTOCSearchField` thêm `focus: FocusState<Bool>.Binding?`.
+- Chưa thử máy (Windows, chỉ CI biên dịch). Rủi ro: ô tìm nằm trong cửa sổ nổi của widget TTS (không bao giờ là key window) — tiền lệ là ô API key Google ở sheet cài đặt TTS cùng cửa sổ; nếu gõ không ăn thì nghi ở đây.
+
 ## [1.3.711] - 2026-11-04
 
 ### feat: danh sách chương hiện số thứ tự, cột số vừa đủ chữ số lớn nhất

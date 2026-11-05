@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.742] - 2026-11-05
+
+### feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc
+
+Plan đợt 2 trình phát video, mục 5 (anh Bửu đã duyệt).
+
+- **`VideoPlayerController.toggleFullscreenForVideoShape()`** (nút "Toàn màn" của `VideoPlayerBottomBar` ở màn dọc): đọc `player.currentItem.presentationSize` lúc bấm.
+  - Ngang (rộng > cao) ⇒ `rotate(currentlyLandscape: false)`: xoay ngang như nút Xoay.
+  - Dọc hoặc vuông ⇒ toàn màn dọc như cũ (`togglePortraitFullscreen`).
+  - Chưa biết khung (đang tải, trang nhúng — kích thước 0) ⇒ xoay ngang, vì phần lớn phim là ngang.
+  - Đang toàn màn dọc ⇒ nút là "Thoát toàn màn" như cũ.
+  - Log thường `🎬 [VideoPlayer] Toàn màn: …` ghi khung + lựa chọn.
+- Nút Xoay giữ nguyên.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: "Toàn màn" với phim ngang (xoay ngang) và phim dọc (giữ dọc), lúc đang khoá xoay.
+
 ## [1.3.741] - 2026-11-05
 
 ### feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc
@@ -727,21 +745,3 @@ Người dùng: *"vào cài đặt tts từ màn hình hẹn giờ bị lâu"*, 
   - `TTSSettingsView.loadSystemVoices()`: đọc giọng Siri tiếng Việt bằng `Task.detached`, gán lại trên main, giữ việc chọn giọng mặc định khi engine là Siri mà chưa có giọng. Picker giọng Siri trống một nhịp rồi mới có danh sách. Áp cả khi mở từ tab Cài đặt.
 - **Tab con** về ô viên thuốc có icon như trước 1.3.712 (icon + chữ 13pt, bo 10, đang chọn nền màu nhấn 18% + viền 60%). Badge đỏ tổng số chương nằm **trong ô ngay sau chữ**; tên một dòng, chật thì cắt "…", badge `fixedSize` + ưu tiên bố cục nên luôn đủ số. Header, ⚙, đồng hồ trên bìa, số thứ tự, ô tìm nổi giữ nguyên.
 - Chưa thử máy (Windows, chỉ CI biên dịch). Nếu Cài đặt vẫn chậm thì nghi tiếp `TTSSettingsView` (Form lớn, `isModelDownloaded` chạm đĩa mỗi giọng NghiTTS trong `body`).
-
-## [1.3.712] - 2026-11-05
-
-### feat: màn hẹn giờ TTS theo header mục lục Reader, thêm số thứ tự và ô tìm chương
-
-Người dùng: *"chưa đánh số thứ tự cho danh sách chương ở màn hình hẹn giờ"*, *"cho header của màn hình hẹn giờ giống màn hình danh sách chương của reader"*, *"số chương ở header bỏ đi, tạo badge số…"*, *"hiển thị hẹn giờ lên ngay chỗ cover trên header, hiển thị giống kiểu chỉ bìa"*, *"danh sách chương ở hẹn giờ đang thiếu ô tìm kiếm"*, *"tab con hiển thị giống tab chi tiết"*, *"nút search hiển thị kiểu giống nút + ở kệ sách"*, *"thời gian hẹn giờ ở cover hiển thị căn lề giữa"* (duyệt mockup bản 6).
-
-- **Sheet Hẹn giờ** (`TTSQuickTimerSheet`, mở từ widget TTS): bỏ `NavigationStack`/toolbar (sheet không đẩy trang). Dải trên cùng 36pt chứa thanh kéo của sheet hệ thống + nút ⚙ dạng chấm tròn 28pt (icon 17pt nửa đậm, vùng chạm 38×38) ở góc phải — header bắt đầu ngay dưới nên tên truyện dùng hết bề ngang. Hàng tên chương đang phát (chữ chạy) giữ riêng dưới header, trên tab con.
-- **Header mới** `TTSQuickTimerHeader` (file riêng): cùng số đo header mục lục Reader — bìa `BookCoverView` 86×120 bo 6 (chạm = mở truyện như cũ), tên `.headline` 2 dòng, tác giả `.subheadline` mờ 72%, viên nguồn `.caption2` (icon + tên tiện ích đã cài; tiện ích đã gỡ ⇒ tên nguồn đã lưu). Bỏ thẻ bo viền, bỏ chip "N chương" và hàng trạng thái hẹn giờ. Nút "Hủy" hẹn giờ ở góc dưới phải cột chữ, chỉ khi đang hẹn giờ.
-- **Đồng hồ trên bìa**: `CoverCaptionStrip` (dải của kiểu "Chỉ bìa") đè đáy bìa — "m:ss" / "Hết chương" + "Hẹn giờ tắt", **căn giữa**, chữ số rộng đều, phần chuyển thấp (`compactFadeHeight`) vì bìa nhỏ. Chưa hẹn giờ ⇒ bìa trơn. `CoverCaptionStrip` thêm `isCentered` và `usesMonospacedDigits` (mặc định tắt ⇒ Kệ/Khám phá không đổi).
-- **Tab con kiểu tab Chi tiết** (`BookDetailView.customTabBar`): chữ `.subheadline`, đang chọn đậm + màu nhấn + gạch chân 3pt, không icon. "Danh sách chương" có badge đỏ **tổng số chương** ngay cạnh chữ (giữ tổng cả khi đang lọc). Tên tab một dòng, chật thì cắt "…"; badge `fixedSize` + ưu tiên bố cục ⇒ luôn đủ số.
-- **Danh sách chương** `TTSQuickTimerChapterList` (file riêng):
-  - Cột số thứ tự `ChapterOrdinalLabel` theo công tắc "Hiện số thứ tự chương": `chaptersQueue` là mục lục đủ theo thứ tự gốc ⇒ số = `index + 1`, giữ nguyên khi lọc; bề rộng cột tính một lần theo mục lục đủ. `ChapterOrdinalLabel` thêm tham số `font` (mặc định `.body`) để số cùng cỡ 14pt với tên chương ở đây.
-  - Chương đang phát chỉ đổi màu nền + chữ đậm; bỏ icon loa đầu hàng và chip "Đang phát".
-  - Ô tìm `ChapterTOCSearchField` ("Tìm kiếm N chương") **ẩn mặc định**. Nút kính nổi 52pt góc dưới phải (`floatingAddButton`, cùng kiểu nút "+" ở Kệ) mở ô + bật bàn phím, mở rồi thành ✕ (xoá từ khoá, ẩn ô, cuộn lại chương đang phát). Bàn phím đóng khi ô trống ⇒ ô tự ẩn; cuộn danh sách là đóng bàn phím.
-  - Lọc như ô tìm mục lục Reader: `ChapterTitleSearchMatcher` trên tên đang hiển thị (dịch sống y như `TTSManager.displayTitle(for:)`) + tên gốc; chờ 250 ms, chạy ngoài main, phím mới huỷ lượt cũ; mục lục làm mới khi đang lọc ⇒ lọc lại. Không khớp ⇒ "Không có chương nào khớp".
-- **Mảnh dùng chung mở rộng (tương thích ngược)**: `FloatingAddButton` / `floatingAddButton(_:systemImage:action:)` thêm `systemImage` (mặc định "plus"); `ChapterTOCSearchField` thêm `focus: FocusState<Bool>.Binding?`.
-- Chưa thử máy (Windows, chỉ CI biên dịch). Rủi ro: ô tìm nằm trong cửa sổ nổi của widget TTS (không bao giờ là key window) — tiền lệ là ô API key Google ở sheet cài đặt TTS cùng cửa sổ; nếu gõ không ăn thì nghi ở đây.

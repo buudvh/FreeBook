@@ -120,6 +120,24 @@ final class VideoPlayerController {
         showControls()
     }
 
+    /// Nút "Toàn màn" ở màn dọc (1.3.742) chọn theo khung phim, đọc lúc bấm (`presentationSize` của item đang phát):
+    /// ngang (rộng > cao) ⇒ xoay ngang như nút Xoay; dọc hoặc vuông ⇒ toàn màn dọc như cũ; chưa biết khung (đang tải,
+    /// trang nhúng — kích thước 0) ⇒ xoay ngang, vì phần lớn phim là ngang. Đang toàn màn dọc ⇒ thoát.
+    func toggleFullscreenForVideoShape() {
+        guard !isPortraitFullscreen else {
+            togglePortraitFullscreen()
+            return
+        }
+        let size = session.player.currentItem?.presentationSize ?? .zero
+        if size.width > 0, size.height > 0, size.width <= size.height {
+            AppLogger.shared.log("🎬 [VideoPlayer] Toàn màn: phim dọc \(Int(size.width))x\(Int(size.height)) ⇒ toàn màn dọc")
+            togglePortraitFullscreen()
+        } else {
+            AppLogger.shared.log("🎬 [VideoPlayer] Toàn màn: khung \(Int(size.width))x\(Int(size.height)) ⇒ xoay ngang")
+            rotate(currentlyLandscape: false)
+        }
+    }
+
     func toggleOrientationLock() {
         isOrientationLocked.toggle()
         VideoOrientationLock.setLocked(isOrientationLocked)

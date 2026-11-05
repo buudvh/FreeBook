@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Thanh dưới của trình phát: hàng thời gian (đang xem · thanh tua có phần đã đệm · còn lại) và hàng nút biểu tượng
-/// (khoá cảm ứng · tắt/bật tiếng · tập kế · danh sách tập · Xoay · toàn màn ở màn dọc).
+/// (khoá cảm ứng · tắt/bật tiếng · tập kế · danh sách tập · Xoay · toàn màn ở màn dọc). "Toàn màn" chọn theo khung phim:
+/// phim ngang thì xoay ngang, phim dọc thì toàn màn dọc (`VideoPlayerController.toggleFullscreenForVideoShape`).
 ///
 /// Hàng thời gian tách thành `VideoTimelineRow` để chỉ nó vẽ lại theo tick 0,5 giây.
 struct VideoPlayerBottomBar: View {
@@ -50,7 +51,7 @@ struct VideoPlayerBottomBar: View {
                             : "arrow.up.left.and.arrow.down.right",
                         label: controller.isPortraitFullscreen ? "Thoát toàn màn" : "Toàn màn"
                     ) {
-                        controller.togglePortraitFullscreen()
+                        controller.toggleFullscreenForVideoShape()
                     }
                 }
             }
