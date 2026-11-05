@@ -224,28 +224,10 @@ struct VideoPlayerTopBar: View {
         SideDrawerActionRow("Đóng trình phát", systemImage: "xmark", role: .destructive, action: onClose)
     }
 
-    /// Bản lưới của `serverPicker` cho ngăn kéo (menu Server lúc nằm ngang vẫn dùng `serverPicker`): "Bản tải" (+ "Trực
-    /// tuyến" khi chưa nạp server) đứng đầu như hàng chip dưới khung phim.
+    /// Bản lưới của `serverPicker` cho ngăn kéo (menu Server lúc nằm ngang vẫn dùng `serverPicker`) — cùng danh sách ô
+    /// với lưới Server của màn xem (`VideoServerOptions`).
     private var serverOptions: [VideoPlayerOptionGrid.Option] {
-        var options: [VideoPlayerOptionGrid.Option] = []
-        if session.hasOfflineCopy {
-            options.append(.init(id: "offline", title: "Bản tải", systemImage: "arrow.down.circle.fill", isSelected: session.isPlayingOffline) {
-                session.playOffline()
-            })
-            if session.servers.isEmpty {
-                options.append(.init(id: "online", title: "Trực tuyến", isSelected: false) { session.playOnline() })
-            }
-        }
-        for (index, server) in session.servers.enumerated() {
-            options.append(.init(
-                id: "server-\(index)",
-                title: server.title.isEmpty ? "Server \(index + 1)" : server.title,
-                isSelected: index == session.selectedServerIndex
-            ) {
-                session.selectServer(at: index)
-            })
-        }
-        return options
+        VideoServerOptions.make(session: session)
     }
 
     /// "Tự động" + từng mức HLS (cao → thấp); ô chọn theo `appliedQuality` như hàng chọn cũ.

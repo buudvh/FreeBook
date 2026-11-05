@@ -35,31 +35,10 @@ extension BookDetailVideoTOCGrid {
 
     /// Mỗi dòng `section` là **một tab**, không cắt khúc theo số tập. Dòng nằm trước section đầu tiên
     /// (mục lục không có nhóm) thành tab không tên → hiện là "Khác"; nếu chỉ có một tab thì hàng tab bị ẩn.
+    /// Thuật toán chia nhóm dùng chung với trình phát / màn xem (`VideoEpisodeGrouping`).
     var groups: [SectionGroup] {
-        var buckets: [(title: String, rows: [Row])] = []
-        var pendingTitle: String?
-        var bucket: [Row] = []
-
-        for row in rows {
-            if row.isSection {
-                if pendingTitle != nil || !bucket.isEmpty {
-                    buckets.append((pendingTitle ?? "", bucket))
-                }
-                pendingTitle = row.title
-                bucket = []
-            } else {
-                bucket.append(row)
-            }
-        }
-        if pendingTitle != nil || !bucket.isEmpty {
-            buckets.append((pendingTitle ?? "", bucket))
-        }
-
-        return buckets.enumerated().compactMap { offset, bucket in
-            bucket.rows.isEmpty
-                ? nil
-                : SectionGroup(id: offset, title: bucket.title, rows: bucket.rows)
-        }
+        VideoEpisodeGrouping.groups(rows, isSection: { $0.isSection }, title: { $0.title })
+            .map { SectionGroup(id: $0.id, title: $0.title, rows: $0.items) }
     }
 
     /// Mở đúng tab chứa tập đang xem; không có tiến độ thì để tab đầu.

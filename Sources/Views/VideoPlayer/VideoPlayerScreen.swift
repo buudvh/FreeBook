@@ -5,14 +5,17 @@ import SwiftData
 /// - Router (`BookContentDestination`, trong `fullScreenCover` + `NavigationStack`): `init(launch:)` mở phim vào
 ///   `VideoPlaybackSession` (cùng phim đang chạy nền thì chỉ gắn lại).
 /// - Presenter (`VideoPlayerPresenter`, mở lại từ hub / PiP): `init(onDismiss:)` gắn vào phiên đang chạy.
-/// - Màn xem (`VideoWatchPresenter`, từ item danh sách): `init(watch:onDismiss:)` — `VideoWatchModel` tải chi tiết + mục
-///   lục rồi tự phát theo công tắc. Phiên phát **chưa** chạy phim của màn (đang tải, tắt tự phát, phim khác chạy nền) ⇒
-///   khung phim là bìa + ▶ (`VideoWatchPosterView`) và màn **không** gắn vào phiên: phim khác vẫn chạy nền, hub vẫn hiện
-///   nó, ⌄/✕ chỉ đóng màn. Phiên chuyển sang phim của màn thì mới gắn (`onChange(of: watchOwnsSession)`).
+/// - Màn xem (`VideoWatchPresenter` — item danh sách, mở lại từ hub / PiP): `init(watch:onDismiss:)` — `VideoWatchModel`
+///   tải chi tiết + mục lục rồi tự phát theo công tắc. Phiên phát **chưa** chạy phim của màn (đang tải, tắt tự phát, phim
+///   khác chạy nền) ⇒ khung phim là bìa + ▶ (`VideoWatchPosterView`) và màn **không** gắn vào phiên: phim khác vẫn chạy
+///   nền, hub vẫn hiện nó, ⌄/✕ chỉ đóng màn. Phiên chuyển sang phim của màn thì mới gắn (`onChange(of: watchOwnsSession)`).
+///   Phần dưới khung phim là `VideoWatchDetailsView`.
 ///
 /// Màn hình chỉ gắn / gỡ session: biến mất mà chưa bấm Đóng ⇒ thu nhỏ (phim chạy nền, hub hiện mục Video).
-/// Bố cục: màn dọc = khung 16:9 + tên phim, chip server, lưới tập; ngang hoặc "toàn màn" ở màn dọc = khung phim phủ
-/// cả màn. Toàn màn / khoá cảm ứng thì ẩn mọi widget nổi (`FloatingWidgetSuppression`).
+/// Bố cục: màn dọc = khung 16:9 + phần dưới (màn xem: `VideoWatchDetailsView`; lối cũ: `VideoPlayerDetailsView`); ngang
+/// hoặc "toàn màn" ở màn dọc = khung phim phủ cả màn. Toàn màn / khoá cảm ứng thì ẩn mọi widget nổi
+/// (`FloatingWidgetSuppression`). Lối rời màn của màn xem (`VideoWatchExit`) mở trang tiếp theo **sau khi** màn đã đóng
+/// (`onDisappear`): trình bày lúc màn còn đang đóng dở sẽ bị UIKit bỏ qua.
 struct VideoPlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -23,6 +26,10 @@ struct VideoPlayerScreen: View {
     @State private var controller: VideoPlayerController
     @State private var watch: VideoWatchModel?
     @State private var isLeaving = false
+    /// Việc chạy sau khi màn đã đóng hẳn (mở danh sách thể loại, Chi tiết, chuyển tab Khám phá…) — `leave(then:)`.
+    @State private var pendingExitAction: (() -> Void)?
+    /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
+    @State private var openingDetailErrorLink: SourceErrorLink?
     /// Trình duyệt "Mở link lỗi" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp là quay lại từ
     /// trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
     @State private var isCoveredByErrorBrowser = false
@@ -41,8 +48,9 @@ struct VideoPlayerScreen: View {
         _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
     }
 
-    /// Đường màn xem: như presenter, đóng bằng closure của `VideoWatchPresenter`.
-    init(watch: VideoWatchModel, onDismiss: @escaping () -> Void) {
+    /// Đường màn xem: như presenter, đóng bằng closure của `VideoWatchPresenter`; `nil` (router, trong `fullScreenCover`)
+    /// ⇒ `@Environment(\.dismiss)`.
+    init(watch: VideoWatchModel, onDismiss: (() -> Void)? = nil) {
         self.launch = nil
         self.onDismiss = onDismiss
         _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
@@ -82,8 +90,13 @@ struct VideoPlayerScreen: View {
                 .frame(height: isFullscreen ? geometry.size.height : geometry.size.width * 9 / 16)
 
                 if !isFullscreen {
-                    if let watch, !watchOwnsSession {
-                        pendingWatchDetails(watch)
+                    if let watch {
+                        VideoWatchDetailsView(
+                            model: watch,
+                            session: session,
+                            openingDetailErrorLink: $openingDetailErrorLink,
+                            onExit: handleExit
+                        )
                     } else {
                         VideoPlayerDetailsView(session: session)
                     }
@@ -102,6 +115,7 @@ struct VideoPlayerScreen: View {
         // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
         // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.
         .errorLinkBrowser(link: $controller.openingErrorLink, packageId: errorLinkPackageId) { retryAfterErrorLink() }
+        .errorLinkBrowser(link: $openingDetailErrorLink, packageId: watch?.request.packageId) { watch?.retry() }
         .onAppear {
             if isCoveredByErrorBrowser {
                 isCoveredByErrorBrowser = false
@@ -146,7 +160,7 @@ struct VideoPlayerScreen: View {
         .onDisappear {
             // Trình duyệt "Mở link lỗi" che màn (không phải rời màn): gỡ màn lúc này sẽ thu nhỏ trình phát (hub hiện mục
             // Video) và trả khoá xoay; khi quay lại, `open` lại tự `retry()` trước khi kịp chép cookie. Giữ nguyên hết.
-            if controller.openingErrorLink != nil {
+            if controller.openingErrorLink != nil || openingDetailErrorLink != nil {
                 isCoveredByErrorBrowser = true
                 return
             }
@@ -161,6 +175,11 @@ struct VideoPlayerScreen: View {
             // Màn xem bị đóng bằng code (presenter mở phim khác, về tab…) không qua `leave` ⇒ huỷ lượt tải ở đây, kẻo tải
             // xong muộn lại tự mở phim khi không còn màn.
             watch?.cancel()
+            // Màn đã đóng hẳn ⇒ mới mở trang tiếp theo của lối rời màn (một nhịp main sau, khi UIKit xong chuyển cảnh).
+            if let action = pendingExitAction {
+                pendingExitAction = nil
+                DispatchQueue.main.async { action() }
+            }
         }
     }
 
@@ -181,10 +200,11 @@ struct VideoPlayerScreen: View {
     // MARK: - Rời màn
 
     /// Thu nhỏ (`stopPlayback == false`): phim chạy nền, `onDisappear` gỡ màn khỏi session. Đóng: dừng hẳn trước.
-    /// Đang ngang thì trả về dọc rồi mới đóng màn để phần còn lại của app không nằm ngang.
-    private func leave(stopPlayback: Bool) {
+    /// Đang ngang thì trả về dọc rồi mới đóng màn để phần còn lại của app không nằm ngang. `then` chạy sau khi màn đã đóng.
+    private func leave(stopPlayback: Bool, then action: (() -> Void)? = nil) {
         guard !isLeaving else { return }
         isLeaving = true
+        pendingExitAction = action
         // Màn xem chưa phát phim của nó: ✕ chỉ đóng màn, không dừng phim khác đang chạy nền.
         if stopPlayback, watchOwnsSession {
             session.stop()
@@ -219,27 +239,52 @@ struct VideoPlayerScreen: View {
         }
     }
 
-    /// Phần dưới khung phim khi màn xem chưa phát (tạm — giao diện màn xem thay ở phần sau): tên phim + lưới tập của
-    /// `VideoWatchModel`; chạm ô tập ⇒ phát tập đó.
-    private func pendingWatchDetails(_ watch: VideoWatchModel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(watch.displayTitle)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 16)
-                if !watch.episodes.isEmpty {
-                    VideoEpisodeGridView(
-                        episodes: watch.episodes,
-                        currentIndex: watch.resumeEpisode?.index ?? -1
-                    ) { episode in
-                        watch.play(episodeIndex: episode.index)
-                    }
+    // MARK: - Lối rời màn xem
+
+    /// Thu nhỏ phim (Home với phim 18+ thì `prepareGoHome` đã dừng hẳn) rồi, khi màn đã đóng, mở trang tiếp theo. Trang
+    /// tiếp theo là sheet lớn của `VideoWatchPresenter` (màn xem không nằm trong `NavigationStack` của tab nào).
+    private func handleExit(_ exit: VideoWatchExit) {
+        guard let watch else { return }
+        let container = modelContext.container
+        let packageId = watch.request.packageId
+        let sourceName = watch.request.sourceName
+        switch exit {
+        case .genre(let genre):
+            let ext = ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId)
+            AppLogger.shared.log("🎬 [VideoWatch] Mở thể loại '\(genre.title)' từ màn xem ⇒ thu nhỏ phim")
+            leave(stopPlayback: false) {
+                VideoWatchPresenter.presentPage(modelContainer: container) {
+                    CategoryNovelsListView(
+                        category: genre,
+                        extensionPackageId: packageId,
+                        localPath: ext?.localPath ?? "",
+                        downloadUrl: ext?.downloadUrl ?? "",
+                        configJson: ext?.configJson ?? "{}",
+                        sourceName: sourceName
+                    )
                 }
             }
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        case .openDetail(let request):
+            leave(stopPlayback: false) {
+                VideoWatchPresenter.presentPage(modelContainer: container) {
+                    BookDetailView(
+                        bookId: request.detailUrl,
+                        extensionPackageId: request.packageId,
+                        initialDetailUrl: request.detailUrl,
+                        sourceName: request.sourceName,
+                        initialHost: request.host
+                    )
+                }
+            }
+        case .home:
+            watch.prepareGoHome()
+            leave(stopPlayback: false) {
+                VideoWatchPresenter.dismissPage {
+                    MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
+                }
+            }
+        case .close:
+            leave(stopPlayback: true)
         }
     }
 

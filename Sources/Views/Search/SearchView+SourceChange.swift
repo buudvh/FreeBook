@@ -39,6 +39,13 @@ extension SearchView {
         searchTask?.cancel()
         resetSearchPaging()
 
+        // Phim của truyện cũ đang phát (màn xem, hub, PiP) ⇒ dừng hẳn trước: lượt đổi nguồn xoá truyện cũ mà phiên phát
+        // còn giữ id của nó (lưu tiến độ, bản tải, server đã nhớ).
+        if VideoPlaybackSession.shared.launch?.bookId == oldBookId {
+            AppLogger.shared.log("🎬 [VideoPlayer] Đổi nguồn phim đang phát ⇒ dừng phim trước")
+            VideoPlaybackSession.shared.stop()
+        }
+
         do {
             let outcome = try await BookSourceChangeCoordinator.shared.run(request, container: container) { status in
                 sourceChangeStatus = status

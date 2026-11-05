@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.704] - 2026-11-04
+
+### feat: khoá nút kiểm tra nguồn khi đang có lượt kiểm tra chạy nền
+
+Người dùng: *"Đang có tiến trình kiểm tra rồi thì disable nút kiểm tra đi nhé"*. Trước đây bấm vẫn mở màn rồi mới báo "Đang có một lượt kiểm tra khác…".
+
+- **`SourceCheckBusyReader`** (mới, `Views/Extensions/SourceCheck/`): đọc `MinimizedSourceCheckCoordinator.isBusy(kind)` = bộ chạy có lượt **đang chạy ở nền** (đã thu nhỏ). Màn kiểm tra còn mở thì đã che mọi lối vào, và không đổi trạng thái `NavigationLink` đang đẩy chính màn đó. Reader tự observe coordinator nên dùng được trong ngăn kéo ⋯ (cửa sổ nổi riêng).
+- **Bốn lối vào** khoá theo đúng bộ chạy, mờ đi và có chữ lý do: ⋯ tab Nguồn Legado "Kiểm tra nguồn (theo nhóm đang lọc)" và ⋯ tab Tất cả tiện ích "Kiểm tra tiện ích đang hiện" (chữ phụ "Đang chạy"); "Kiểm tra nguồn này" ở Chi tiết nguồn Legado (chữ "Đang có lượt kiểm tra"); nút tròn "Kiểm tra" ở thẻ đầu Cấu hình tiện ích (nhãn đổi thành "Đang chạy"). Lượt Legado không khoá lối vào tiện ích JS và ngược lại (hai bộ chạy riêng, chạy song song được).
+- Lượt chạy từ Debug server không qua màn kiểm tra nên không khoá; bấm vẫn ra màn báo bận như cũ. `rules.md` luật hub (f) thêm ý này. Chuyển `[1.3.673]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.703] - 2026-11-04
 
 ### fix: token <m> đứng đầu rule đọc 十 là mười

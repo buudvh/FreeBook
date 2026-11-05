@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /// Presenter toàn cục **mở lại** trình phát gắn với `VideoPlaybackSession` đang chạy — từ mục Video của hub
-/// (`VideoMiniPlayerState.onReopen`) hoặc khi khôi phục từ PiP.
+/// (`VideoMiniPlayerState.onReopen`) hoặc khi khôi phục từ PiP. Phiên có `launch` + `modelContainer` (luôn có khi đang
+/// phát) ⇒ chuyển sang `VideoWatchPresenter` (giao diện màn xem); phần trình bày bên dưới chỉ còn là dự phòng.
 ///
 /// Cách tìm chỗ trình bày giống `VisibleBrowserTabManager.reopenContainer`: chỉ nhận window level `.normal` (widget TTS
 /// và hub nổi sống ở window riêng level cao hơn — trình bày lên đó thì sheet biến mất theo window), lấy VC trên cùng
@@ -36,6 +37,14 @@ final class VideoPlayerPresenter {
         }
         if let host = hostController, host.presentingViewController != nil, !host.isBeingDismissed {
             completion()
+            return
+        }
+        // Giao diện màn xem (tên, nút, tập, đề xuất…) cho cả lối mở lại: `VideoWatchPresenter` đóng màn xem đang mở (kể
+        // cả lúc nó hiện bìa phim khác) rồi mới mở ⇒ không chồng trình phát. Id lấy nguyên từ phiên ⇒ màn gắn ngay vào phim
+        // đang chạy, không tự phát lại.
+        if let launch = session.launch, let container = session.modelContainer {
+            AppLogger.shared.log("🎬 [VideoPlayer] Mở lại trình phát từ phiên đang chạy (màn xem)")
+            VideoWatchPresenter.present(VideoWatchRequest(launch: launch), modelContainer: container, completion: completion)
             return
         }
         guard let top = Self.findTopViewController() else {

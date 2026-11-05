@@ -56,6 +56,10 @@ final class VideoWatchModel {
     // MARK: Mục lục / phát
     var episodes: [VideoPlaybackSession.Episode] = []
     var resumePoint: ResumePoint?
+    /// Phim đang ở Kệ (`Book.isOnShelf`) — nút "Trên kệ". Đọc lại cùng lúc với `resumePoint`.
+    var isOnShelf = false
+    /// Đang chạy một hành động nút (Trên kệ / Tải) ⇒ nút đó quay vòng, không bấm chồng.
+    var isRunningAction = false
     /// Đang ghi mục lục / tạo `Book` trước khi mở phiên phát (nút ▶ quay vòng).
     var isPreparingPlayback = false
 
@@ -156,6 +160,8 @@ final class VideoWatchModel {
         detailErrorLink = nil
         episodes = []
         resumePoint = nil
+        isOnShelf = false
+        isRunningAction = false
         isPreparingPlayback = false
         chapterResults = []
         storedEpisodes = []
@@ -186,7 +192,7 @@ final class VideoWatchModel {
             AppLogger.shared.log("🎬 [VideoWatch] Tắt tự phát ⇒ hiện bìa, chờ bấm phát")
             return
         }
-        play()
+        play(isUserInitiated: false)
     }
 
     // MARK: - Đọc SwiftData (chỉ đọc)
@@ -202,9 +208,11 @@ final class VideoWatchModel {
     func refreshResumePoint() {
         guard let book = fetchBook() else {
             resumePoint = nil
+            isOnShelf = false
             return
         }
         resumePoint = ResumePoint(episodeIndex: book.currentChapterIndex, seconds: max(0, book.currentChapterPage))
+        isOnShelf = book.isOnShelf
     }
 
     private static func resolvedBookId(for request: VideoWatchRequest, in container: ModelContainer) -> String {

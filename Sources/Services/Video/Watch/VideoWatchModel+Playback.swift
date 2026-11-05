@@ -9,7 +9,9 @@ import SwiftData
 extension VideoWatchModel {
     /// Phát `episodeIndex` (`nil` = tập xem dở / tập đầu). Phiên đang chạy phim này ⇒ chỉ chuyển tập (hoặc thử lại khi
     /// đang lỗi). Chưa có đủ mục lục (`phase != .ready`) thì bỏ qua — nút ▶ chỉ hiện khi sẵn sàng.
-    func play(episodeIndex: Int? = nil) {
+    /// `isUserInitiated == false` chỉ cho lượt tự phát: người dùng tự bấm ▶ / ô tập thì bỏ lệnh "dừng sẵn" của lượt mở lại
+    /// lúc khởi động (`ReaderSessionRestoreStore`) — bấm phát mà phim đứng yên là sai.
+    func play(episodeIndex: Int? = nil, isUserInitiated: Bool = true) {
         if ownsSession {
             if let episodeIndex, let target = session.episodes.first(where: { $0.index == episodeIndex }) {
                 session.selectEpisode(target)
@@ -22,14 +24,17 @@ extension VideoWatchModel {
         playTask?.cancel()
         let generation = loadGeneration
         playTask = Task { [weak self] in
-            await self?.preparePlayback(episodeIndex: episodeIndex, generation: generation)
+            await self?.preparePlayback(episodeIndex: episodeIndex, isUserInitiated: isUserInitiated, generation: generation)
         }
     }
 
-    private func preparePlayback(episodeIndex requested: Int?, generation: Int) async {
+    private func preparePlayback(episodeIndex requested: Int?, isUserInitiated: Bool, generation: Int) async {
         isPreparingPlayback = true
         defer { isPreparingPlayback = false }
         adoptBookCreatedElsewhereIfNeeded()
+        if isUserInitiated {
+            _ = ReaderSessionRestoreStore.consumePausedVideoStart(bookId: bookId)
+        }
         let target = targetEpisodeIndex(requested)
         await ensureBook(currentEpisodeIndex: target)
         guard isCurrent(generation) else { return }

@@ -8,33 +8,31 @@ import SwiftUI
 /// vẫn `scrollTo` tới tập đang phát được.
 ///
 /// Hợp đồng: chỉ đọc `episodes` + `currentIndex`, mọi thao tác đi qua `onSelect` — đổi tab **không** đổi tập đang phát.
-/// Nhấn giữ ô tập (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải".
+/// Nhấn giữ ô tập (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải". `downloadedIndexes` (sheet "Tất cả tập"
+/// của màn xem) ⇒ ô tập đã tải có dấu ⬇ ở góc. Chia nhóm bằng `VideoEpisodeGrouping`.
 struct VideoEpisodeGridView: View {
+    typealias SectionTab = VideoEpisodeGrouping.Group<VideoPlaybackSession.Episode>
+
     let episodes: [VideoPlaybackSession.Episode]
     let currentIndex: Int
     let onSelect: (VideoPlaybackSession.Episode) -> Void
     let downloadActions: VideoEpisodeDownloadActions?
+    /// Chỉ số mục lục của các tập đã tải trọn (`VideoOfflineLibrary`) — rỗng thì không vẽ dấu.
+    let downloadedIndexes: Set<Int>
 
     @State private var selectedGroup: Int
-
-    private struct SectionTab: Identifiable {
-        let id: Int
-        let title: String
-        let episodes: [VideoPlaybackSession.Episode]
-
-        /// Nhóm đứng trước section đầu tiên không có tên.
-        var label: String { title.isEmpty ? "Tập" : title }
-    }
 
     /// Tối đa chừng này tab thì chia đều bề ngang; nhiều hơn thì cho cuộn ngang để tên không bị cắt.
     private static let maxEvenTabs = 3
     private static let cellHeight: CGFloat = 46
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 7), count: 4)
+    private let columns: [GridItem]
 
     init(
         episodes: [VideoPlaybackSession.Episode],
         currentIndex: Int,
+        columnCount: Int = 4,
+        downloadedIndexes: Set<Int> = [],
         downloadActions: VideoEpisodeDownloadActions? = nil,
         onSelect: @escaping (VideoPlaybackSession.Episode) -> Void
     ) {
@@ -42,10 +40,10 @@ struct VideoEpisodeGridView: View {
         self.currentIndex = currentIndex
         self.onSelect = onSelect
         self.downloadActions = downloadActions
+        self.downloadedIndexes = downloadedIndexes
+        self.columns = Array(repeating: GridItem(.flexible(), spacing: 7), count: max(1, columnCount))
         // Mở đúng tab chứa tập đang phát ngay từ lần vẽ đầu, để `scrollTo` của màn cha tìm thấy ô.
-        let initial = Self.makeGroups(episodes).firstIndex { group in
-            group.episodes.contains { $0.index == currentIndex }
-        } ?? 0
+        let initial = VideoEpisodeGrouping.groupPosition(of: currentIndex, in: VideoEpisodeGrouping.groups(episodes)) ?? 0
         _selectedGroup = State(initialValue: initial)
     }
 
@@ -91,13 +89,14 @@ struct VideoEpisodeGridView: View {
 
     private func tab(_ group: SectionTab, fillsWidth: Bool) -> some View {
         let isSelected = group.id == selectedGroup
+        let label = Self.label(of: group)
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) { selectedGroup = group.id }
         } label: {
             HStack(spacing: 6) {
-                Text(group.label)
+                Text(label)
                     .lineLimit(1)
-                Text("\(group.episodes.count)")
+                Text("\(group.items.count)")
                     .font(.caption2.weight(.bold))
                     .monospacedDigit()
                     .opacity(0.55)
@@ -114,7 +113,7 @@ struct VideoEpisodeGridView: View {
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(group.label), \(group.episodes.count) tập")
+        .accessibilityLabel("\(label), \(group.items.count) tập")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -161,51 +160,36 @@ struct VideoEpisodeGridView: View {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(isCurrent ? Color.white : Color.white.opacity(isWatched ? 0.04 : 0.07))
                 )
+                .overlay(alignment: .topTrailing) {
+                    if downloadedIndexes.contains(episode.index) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(isCurrent ? Color.black.opacity(0.6) : Color.white.opacity(0.75))
+                            .padding(4)
+                            .accessibilityHidden(true)
+                    }
+                }
                 .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Tập \(number): \(episode.displayTitle)")
-        .accessibilityValue(isCurrent ? "Đang phát" : "")
+        .accessibilityValue(isCurrent ? "Đang phát" : (downloadedIndexes.contains(episode.index) ? "Đã tải" : ""))
     }
 
     // MARK: - Dữ liệu dẫn xuất
 
     private var groups: [SectionTab] {
-        Self.makeGroups(episodes)
+        VideoEpisodeGrouping.groups(episodes)
     }
 
     private var activeEpisodes: [VideoPlaybackSession.Episode] {
         guard !groups.isEmpty else { return [] }
-        return groups[min(max(selectedGroup, 0), groups.count - 1)].episodes
+        return groups[min(max(selectedGroup, 0), groups.count - 1)].items
     }
 
-    /// Mỗi dòng `section` là một tab. Dòng trước section đầu tiên (mục lục không có nhóm) thành tab không tên;
-    /// nếu chỉ có một tab thì hàng tab bị ẩn.
-    private static func makeGroups(_ episodes: [VideoPlaybackSession.Episode]) -> [SectionTab] {
-        var buckets: [(title: String, episodes: [VideoPlaybackSession.Episode])] = []
-        var pendingTitle: String?
-        var bucket: [VideoPlaybackSession.Episode] = []
-
-        for episode in episodes {
-            if episode.isSection {
-                if pendingTitle != nil || !bucket.isEmpty {
-                    buckets.append((pendingTitle ?? "", bucket))
-                }
-                pendingTitle = episode.title
-                bucket = []
-            } else {
-                bucket.append(episode)
-            }
-        }
-        if pendingTitle != nil || !bucket.isEmpty {
-            buckets.append((pendingTitle ?? "", bucket))
-        }
-
-        return buckets.enumerated().compactMap { offset, bucket in
-            bucket.episodes.isEmpty
-                ? nil
-                : SectionTab(id: offset, title: bucket.title, episodes: bucket.episodes)
-        }
+    /// Nhóm đứng trước section đầu tiên không có tên ⇒ "Tập".
+    static func label(of group: SectionTab) -> String {
+        group.title.isEmpty ? "Tập" : group.title
     }
 
     /// Chỉ đồng bộ tab khi tập đang phát đổi — người dùng đổi tab để xem thì không bị kéo lại.
@@ -214,9 +198,7 @@ struct VideoEpisodeGridView: View {
             selectedGroup = 0
             return
         }
-        if let index = groups.firstIndex(where: { group in
-            group.episodes.contains { $0.index == currentIndex }
-        }) {
+        if let index = VideoEpisodeGrouping.groupPosition(of: currentIndex, in: groups) {
             selectedGroup = index
         } else if selectedGroup >= groups.count {
             selectedGroup = 0

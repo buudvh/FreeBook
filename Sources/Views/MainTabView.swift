@@ -89,6 +89,12 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateToSettingsTab"))) { _ in
             selectedTab = 3
         }
+        // Lệnh chuyển tab từ màn ngoài cây tab (nút Home của màn xem phim) — `MainTabNavigationEvents`.
+        .task {
+            for await event in MainTabNavigationEvents.shared.events() {
+                handleNavigationEvent(event)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             Task {
                 await ChapterContentRepository.shared.trimMemoryCache()
@@ -167,6 +173,20 @@ struct MainTabView: View {
 }
 
 extension MainTabView {
+    /// `.showDiscoveryRoot`: sang tab Khám phá rồi về trang gốc. Tab vừa rời được `onChange(of: selectedTab)` đặt lại như
+    /// thường; tab Khám phá thì tự đặt lại ở đây (đang đứng sẵn ở Khám phá thì không có `onChange` nào chạy).
+    private func handleNavigationEvent(_ event: MainTabNavigationEvents.Event) {
+        switch event {
+        case .showDiscoveryRoot:
+            let discovery = 1
+            if Self.tabHasPushedPages(at: discovery, of: tabResetTokens.count) {
+                AppLogger.shared.log("🔄 [TabReset] Nút Home ⇒ tạo lại tab Khám phá về trang gốc")
+                tabResetTokens[discovery] += 1
+            }
+            selectedTab = discovery
+        }
+    }
+
     /// Lượt tự động sao lưu tới các đích đã bật. Cửa mở/đóng thuộc `DriveAutoBackupPolicy`; ở đây
     /// chỉ có việc hoãn cho qua lúc khởi động rồi hiện đúng một toast cho kết quả — service không
     /// được gọi `ToastManager`.

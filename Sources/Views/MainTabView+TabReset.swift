@@ -32,6 +32,21 @@ extension MainTabView {
         return stacks.contains { $0.viewControllers.count > 1 }
     }
 
+    /// Tab `index` đang có trang đẩy vào không — như `shouldResetTab` nhưng **không** bỏ qua khi có màn đang phủ: lệnh
+    /// "về trang gốc" (nút Home của màn xem phim) chạy sau khi màn xem đã đóng, cần biết đúng độ sâu ngăn xếp. Không đọc
+    /// được cây UIKit ⇒ `true` (đặt lại).
+    @MainActor
+    static func tabHasPushedPages(at index: Int, of tabCount: Int) -> Bool {
+        guard let tabBarController = mainTabBarController(),
+              let tabs = tabBarController.viewControllers, tabs.count == tabCount, tabs.indices.contains(index) else {
+            AppLogger.shared.log("❌ [TabReset] Không đọc được UITabBarController đủ \(tabCount) tab ⇒ đặt lại tab \(index)")
+            return true
+        }
+        return descendants(of: tabs[index])
+            .compactMap { $0 as? UINavigationController }
+            .contains { $0.viewControllers.count > 1 }
+    }
+
     /// Thanh tab của cửa sổ chính. Dò mọi cửa sổ (ưu tiên cửa sổ key) thay vì tin cửa sổ key: widget TTS, hub, ngăn kéo
     /// là cửa sổ phủ riêng, không có thanh tab.
     @MainActor
