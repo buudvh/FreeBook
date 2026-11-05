@@ -34,6 +34,12 @@ public final class ToastManager: ObservableObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSceneDidDisconnect),
+            name: UIScene.didDisconnectNotification,
+            object: nil
+        )
     }
     
     /// `recordsInInbox: false` cho phản hồi tức thời không đáng lưu (vd "Đã sao chép" của thanh bàn phím): không ghi vào
@@ -95,8 +101,10 @@ public final class ToastManager: ObservableObject {
         win.isHidden = false
     }
     
+    /// Chỉ theo scene chứa giao diện chính (`AppMainWindowScene`) — scene của PiP cũng báo `didActivate`.
     @objc private func handleSceneDidActivate(_ notification: Notification) {
-        guard let scene = notification.object as? UIWindowScene else { return }
+        guard let scene = notification.object as? UIWindowScene,
+              AppMainWindowScene.isMainInterface(scene) else { return }
         if window?.windowScene !== scene {
             window?.windowScene = scene
         }
@@ -109,17 +117,23 @@ public final class ToastManager: ObservableObject {
         }
     }
 
+    /// Scene đang giữ cửa sổ toast bị ngắt ⇒ đưa về scene chính (toast sau vẫn hiện được).
+    @objc private func handleSceneDidDisconnect(_ notification: Notification) {
+        guard let window, let scene = notification.object as? UIScene else { return }
+        guard window.windowScene == nil || window.windowScene === scene else { return }
+        if let target = AppMainWindowScene.current(excluding: scene) {
+            window.windowScene = target
+        }
+    }
+
     private var activeWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive })
-            ?? scenes.first(where: { $0.activationState == .foregroundInactive })
-            ?? scenes.first
+        AppMainWindowScene.current()
     }
 }
 
 /// Window hiển thị Toast nổi trên tất cả các màn hình, hoàn toàn passthrough touch xuống bên dưới.
 @MainActor
-final class ToastUIWindow: UIWindow {
+final class ToastUIWindow: UIWindow, AppOverlayWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         // Toasts are purely informational HUDs, always pass touch through
         return nil

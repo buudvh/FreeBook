@@ -70,9 +70,9 @@ enum VideoOrientationLock {
 
     // MARK: - Nội bộ
 
+    /// Scene chứa giao diện chính (`AppMainWindowScene`) — xoay nhầm scene của PiP thì màn trình phát không xoay.
     private static var activeScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        AppMainWindowScene.current()
     }
 
     private static func request(_ mask: UIInterfaceOrientationMask) {

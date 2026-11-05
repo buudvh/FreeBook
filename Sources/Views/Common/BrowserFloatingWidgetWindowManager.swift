@@ -39,6 +39,12 @@ final class BrowserFloatingWidgetWindowManager {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSceneDidDisconnect),
+            name: UIScene.didDisconnectNotification,
+            object: nil
+        )
 
         // `@Published` phát ở willSet ⇒ hai nhánh đều qua `receive(on:)` để `refreshState` đọc giá trị mới.
         presentationReader.$snapshot
@@ -77,9 +83,7 @@ final class BrowserFloatingWidgetWindowManager {
         guard let windowScene = activeWindowScene else { return }
 
         if let existingWindow = window, let containerViewController {
-            if existingWindow.windowScene !== windowScene {
-                existingWindow.windowScene = windowScene
-            }
+            move(to: windowScene)
             // Đang ẩn mà sắp hiện lại ⇒ luôn về dạng nép mép, mờ khi nghỉ, và xếp lại chỗ để né widget nổi khác
             // (`prepareForAppearance` bật cờ xếp lại).
             if existingWindow.isHidden {
@@ -111,28 +115,42 @@ final class BrowserFloatingWidgetWindowManager {
         FloatingWidgetLayoutCoordinator.shared.unregister(.browser)
     }
 
+    /// Chỉ theo scene chứa giao diện chính (`AppMainWindowScene`) — scene của PiP cũng báo `didActivate`.
     @objc private func handleSceneDidActivate(_ notification: Notification) {
-        guard isPresented, let scene = notification.object as? UIWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
-        }
+        guard isPresented, let scene = notification.object as? UIWindowScene,
+              AppMainWindowScene.isMainInterface(scene) else { return }
+        move(to: scene)
         window?.isHidden = false
     }
 
     @objc private func handleDidBecomeActive() {
         guard isPresented, let scene = activeWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
-        }
+        move(to: scene)
         window?.isHidden = false
     }
 
+    /// Scene đang giữ widget bị ngắt (vd scene của PiP) ⇒ đưa widget về scene chính.
+    @objc private func handleSceneDidDisconnect(_ notification: Notification) {
+        guard let window, let scene = notification.object as? UIScene else { return }
+        guard window.windowScene == nil || window.windowScene === scene else { return }
+        AppLogger.shared.log("🪟 [BrowserWidget] Scene giữ widget bị ngắt: \(AppMainWindowScene.describe(scene))")
+        if let target = AppMainWindowScene.current(excluding: scene) {
+            move(to: target)
+        }
+        // Lượt sau: lúc này scene đang ngắt có thể còn trong `connectedScenes`, `refreshState` gọi ngay có thể chọn lại nó.
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshState()
+        }
+    }
+
+    private func move(to scene: UIWindowScene) {
+        guard let window, window.windowScene !== scene else { return }
+        AppLogger.shared.log("🪟 [BrowserWidget] Chuyển widget sang scene: \(AppMainWindowScene.describe(scene))")
+        window.windowScene = scene
+        containerViewController?.view.setNeedsLayout()
+    }
+
     private var activeWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive })
-            ?? scenes.first(where: { $0.activationState == .foregroundInactive })
-            ?? scenes.first
+        AppMainWindowScene.current()
     }
 }

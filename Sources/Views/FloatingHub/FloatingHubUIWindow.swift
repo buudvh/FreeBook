@@ -11,7 +11,7 @@ import UIKit
 ///
 /// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính.
 @MainActor
-final class FloatingHubUIWindow: UIWindow {
+final class FloatingHubUIWindow: UIWindow, AppOverlayWindow {
     weak var containerViewController: FloatingHubContainerViewController?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

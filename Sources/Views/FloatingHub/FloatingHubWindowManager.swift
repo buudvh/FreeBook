@@ -61,6 +61,12 @@ final class FloatingHubWindowManager {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSceneDidDisconnect),
+            name: UIScene.didDisconnectNotification,
+            object: nil
+        )
 
         // Snapshot không còn quyết định hiện/ẩn (hub luôn hiện), nên chỉ nghe cờ ẩn widget của trình phát video.
         // `@Published` phát ở willSet ⇒ phải qua `receive(on:)` thì `refreshState` mới đọc được giá trị mới.
@@ -110,9 +116,7 @@ final class FloatingHubWindowManager {
         guard let windowScene = activeWindowScene else { return }
 
         if let existingWindow = window, let containerViewController {
-            if existingWindow.windowScene !== windowScene {
-                existingWindow.windowScene = windowScene
-            }
+            move(to: windowScene)
             // Đang ẩn (cả cửa sổ hoặc chỉ nút) mà sắp hiện lại ⇒ luôn về dạng nép mép, menu đóng, và xếp lại chỗ
             // để né widget nổi khác (`prepareForAppearance` bật cờ xếp lại).
             if existingWindow.isHidden || containerViewController.widgetContainerView.isHidden {
@@ -147,32 +151,53 @@ final class FloatingHubWindowManager {
         FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
     }
 
+    /// Chỉ theo scene chứa giao diện chính (`AppMainWindowScene`): scene của PiP cũng báo `didActivate`, chuyển hub
+    /// sang đó là hub hiện trong khung PiP rồi mất hẳn khi tắt PiP.
     @objc private func handleSceneDidActivate(_ notification: Notification) {
         // Đổi/quay lại scene: menu luôn đóng — không để lớp nền nuốt chạm sống qua lượt chuyển cảnh.
         containerViewController?.closeMenu(animated: false)
         guard isPresented || isSheetPresented, let scene = notification.object as? UIWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
+        guard AppMainWindowScene.isMainInterface(scene) else {
+            if window?.windowScene !== scene {
+                AppLogger.shared.log("🪟 [FloatingHub] Bỏ qua scene không chứa giao diện chính: \(AppMainWindowScene.describe(scene))")
+            }
+            return
         }
+        move(to: scene)
         window?.isHidden = false
     }
 
     @objc private func handleDidBecomeActive() {
         containerViewController?.closeMenu(animated: false)
         guard isPresented || isSheetPresented, let scene = activeWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
-        }
+        move(to: scene)
         window?.isHidden = false
     }
 
+    /// Scene đang giữ hub bị ngắt (vd scene của PiP lúc tắt PiP) ⇒ đưa hub về scene chính. Không làm gì thì hub kẹt ở
+    /// scene đã mất tới khi mở lại app: app không rời `.active`, cờ ẩn không đổi, scene chính không báo `didActivate`.
+    @objc private func handleSceneDidDisconnect(_ notification: Notification) {
+        guard let window, let scene = notification.object as? UIScene else { return }
+        guard window.windowScene == nil || window.windowScene === scene else { return }
+        AppLogger.shared.log("🪟 [FloatingHub] Scene giữ hub bị ngắt: \(AppMainWindowScene.describe(scene))")
+        if let target = AppMainWindowScene.current(excluding: scene) {
+            move(to: target)
+        }
+        // Lượt sau: lúc này scene đang ngắt có thể còn trong `connectedScenes`, `refreshState` gọi ngay có thể chọn lại nó.
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshState()
+        }
+    }
+
+    private func move(to scene: UIWindowScene) {
+        guard let window, window.windowScene !== scene else { return }
+        AppLogger.shared.log("🪟 [FloatingHub] Chuyển hub sang scene: \(AppMainWindowScene.describe(scene))")
+        window.windowScene = scene
+        containerViewController?.view.setNeedsLayout()
+    }
+
     private var activeWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive })
-            ?? scenes.first(where: { $0.activationState == .foregroundInactive })
-            ?? scenes.first
+        AppMainWindowScene.current()
     }
 }
 

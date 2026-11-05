@@ -12,7 +12,7 @@ import UIKit
 ///
 /// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính.
 @MainActor
-final class BrowserFloatingWidgetUIWindow: UIWindow {
+final class BrowserFloatingWidgetUIWindow: UIWindow, AppOverlayWindow {
     weak var containerViewController: BrowserFloatingWidgetContainerViewController?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

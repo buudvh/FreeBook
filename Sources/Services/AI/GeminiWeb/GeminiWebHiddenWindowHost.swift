@@ -48,10 +48,8 @@ final class GeminiWebHiddenWindowHost {
         return created
     }
 
+    /// Scene chứa giao diện chính (`AppMainWindowScene`) — không gắn webview ẩn vào scene của PiP.
     private static var activeWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive })
-            ?? scenes.first(where: { $0.activationState == .foregroundInactive })
-            ?? scenes.first
+        AppMainWindowScene.current()
     }
 }

@@ -7,7 +7,7 @@ import UIKit
 /// không bao giờ còn một lớp vô hình chặn chạm của app.
 ///
 /// Không bao giờ gọi `makeKeyAndVisible()`: đây là lớp phủ, không phải cửa sổ chính.
-final class SideDrawerMenuOverlayWindow: UIWindow {
+final class SideDrawerMenuOverlayWindow: UIWindow, AppOverlayWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isUserInteractionEnabled, !isHidden else { return nil }
         return super.hitTest(point, with: event)

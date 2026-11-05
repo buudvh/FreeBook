@@ -31,6 +31,12 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSceneDidDisconnect),
+            name: UIScene.didDisconnectNotification,
+            object: nil
+        )
         // Trình phát video toàn màn / khoá màn ⇒ ẩn widget, thoát ra ⇒ hiện lại. `@Published` phát ở willSet nên
         // phải qua `receive(on:)` thì `refreshState` mới đọc được giá trị mới.
         FloatingWidgetSuppression.shared.$isSuppressed
@@ -60,9 +66,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
         }
 
         if let existingWindow = window {
-            if existingWindow.windowScene !== windowScene {
-                existingWindow.windowScene = windowScene
-            }
+            move(to: windowScene)
             // Chỉ lúc chuyển từ ẩn sang hiện mới xếp lại chỗ (né widget nổi khác) — `refreshState` gọi lặp vào đây.
             if existingWindow.isHidden {
                 containerViewController?.requestPlacementResolve()
@@ -115,28 +119,42 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
         containerViewController.reveal(animated: animated)
     }
 
+    /// Chỉ theo scene chứa giao diện chính (`AppMainWindowScene`) — scene của PiP cũng báo `didActivate`.
     @objc private func handleSceneDidActivate(_ notification: Notification) {
-        guard isPresented, let scene = notification.object as? UIWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
-        }
+        guard isPresented, let scene = notification.object as? UIWindowScene,
+              AppMainWindowScene.isMainInterface(scene) else { return }
+        move(to: scene)
         updateWindowVisibility(hidden: false)
     }
 
     @objc private func handleDidBecomeActive() {
         guard isPresented, let scene = activeWindowScene else { return }
-        if window?.windowScene !== scene {
-            window?.windowScene = scene
-            containerViewController?.view.setNeedsLayout()
-        }
+        move(to: scene)
         updateWindowVisibility(hidden: false)
     }
 
+    /// Scene đang giữ widget bị ngắt (vd scene của PiP) ⇒ đưa widget về scene chính.
+    @objc private func handleSceneDidDisconnect(_ notification: Notification) {
+        guard let window, let scene = notification.object as? UIScene else { return }
+        guard window.windowScene == nil || window.windowScene === scene else { return }
+        AppLogger.shared.log("🪟 [TTSWidget] Scene giữ widget bị ngắt: \(AppMainWindowScene.describe(scene))")
+        if let target = AppMainWindowScene.current(excluding: scene) {
+            move(to: target)
+        }
+        // Lượt sau: lúc này scene đang ngắt có thể còn trong `connectedScenes`, `refreshState` gọi ngay có thể chọn lại nó.
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshState()
+        }
+    }
+
+    private func move(to scene: UIWindowScene) {
+        guard let window, window.windowScene !== scene else { return }
+        AppLogger.shared.log("🪟 [TTSWidget] Chuyển widget sang scene: \(AppMainWindowScene.describe(scene))")
+        window.windowScene = scene
+        containerViewController?.view.setNeedsLayout()
+    }
+
     private var activeWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive })
-            ?? scenes.first(where: { $0.activationState == .foregroundInactive })
-            ?? scenes.first
+        AppMainWindowScene.current()
     }
 }

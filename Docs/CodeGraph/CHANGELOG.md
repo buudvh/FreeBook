@@ -2,6 +2,34 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.739] - 2026-11-05
+
+### fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình
+
+Người dùng: xem phim → bật PiP → tắt PiP ⇒ **mất cả hub** tới khi tắt app mở lại (có lúc thấy widget hiện trong khung PiP).
+
+- **Nguyên nhân nhiều khả năng nhất** (đọc code, chưa xác nhận trên máy):
+  - Bật PiP thì iOS (trong LiveContainer) có thể nối thêm một `UIWindowScene` cũng báo `didActivate`.
+  - `handleSceneDidActivate` của các window manager chuyển cửa sổ nổi sang **bất kỳ** scene nào báo `didActivate`; `activeWindowScene` lấy scene active **đầu tiên** của một `Set` không thứ tự.
+  - ⇒ Hub bị chuyển sang scene của PiP. Tắt PiP thì scene đó mất, không còn gì gọi `refreshState` (app không rời `.active`, cờ ẩn không đổi, scene chính không báo `didActivate` lại).
+- **`AppMainWindowScene`** (mới, `Sources/Common/Utils/`): chọn scene chứa giao diện chính theo hạng:
+  1. scene có key window không phải lớp phủ, level `.normal`;
+  2. scene có cửa sổ `.normal` đang hiện không phải lớp phủ;
+  3. cách chọn cũ (active → inactive → bất kỳ), để không bao giờ trả `nil` khi còn scene.
+  - Lớp phủ đánh dấu bằng protocol `AppOverlayWindow`: `FloatingHubUIWindow`, `FloatingWidgetUIWindow`, `BrowserFloatingWidgetUIWindow`, `ToastUIWindow`, `SideDrawerMenuOverlayWindow`.
+  - `isMainInterface(_:)` = scene đó có đúng là `current()` không (không chỉ xét "có cửa sổ `.normal`", vì cửa sổ của PiP là lớp riêng của hệ thống).
+- **`FloatingHubWindowManager`, `TTSFloatingWidgetWindowManager`, `BrowserFloatingWidgetWindowManager`, `ToastManager`**:
+  - `activeWindowScene` = `AppMainWindowScene.current()`.
+  - `handleSceneDidActivate` bỏ qua scene không phải scene chính.
+  - Nghe `UIScene.didDisconnectNotification`: scene đang giữ cửa sổ bị ngắt (hoặc `windowScene == nil`) ⇒ chuyển cửa sổ về scene chính rồi `refreshState()` ở lượt sau (lúc ngắt, scene cũ có thể còn trong `connectedScenes`).
+  - Log thường `🪟 [FloatingHub]` / `🪟 [TTSWidget]` / `🪟 [BrowserWidget]` khi chuyển scene, bỏ qua scene hoặc scene bị ngắt: vai trò, trạng thái, số scene, lớp + level từng cửa sổ (phải bật log trong Cài đặt mới thấy).
+- Cùng hàm chọn scene cho `VideoPlayerPresenter.findTopViewController` (cả `VideoWatchPresenter` dùng chung), `VideoOrientationLock.activeScene`, và — ngoài brief, cùng lỗi — `SideDrawerMenuWindowManager` (ngăn kéo `…`) và `GeminiWebHiddenWindowHost` (webview ẩn).
+- Không nối phiên video vào hub.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: bật PiP rồi tắt bằng ✕ (hub còn); bật PiP rồi bấm nút về app (hub còn, không có widget trong PiP); lặp lại với widget TTS và trình duyệt thu nhỏ đang hiện. Nếu vẫn mất, bật log và gửi các dòng `🪟`.
+
 ## [1.3.738] - 2026-11-05
 
 ### fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn
@@ -704,16 +732,3 @@ Người dùng: *"Duyệt E1–E5"* (từ `app_logs (134).txt`, nối tiếp `[1
 - **E5. Object JSON đưa vào JS có `get(k)`, `containsKey`, `keySet`, `size`**, ẩn, như map của json-smart; chỉ gắn khi không trùng khoá, không lồng xuống object con. Ví dụ 点众阅读 `result.get("statusTips")`.
 - Chuyển `[1.3.679]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.709] - 2026-11-04
-
-### revert: bỏ khoảng giá trị min-max của token số trong rule dịch
-
-Người dùng: *"Revert bỏ min max cho token số giúp tôi"*. Gỡ hẳn tính năng `#min-max` của `[1.3.701]` (commit `392dd254`); giữ nguyên `<m>` = `十` đứng đầu mẫu đọc "mười" (`[1.3.703]`) và nút Lưu "Thay rule cũ" / "Lưu thêm rule mới" (`[1.3.705]`).
-
-- **Gỡ**: xoá `QuickTranslationRuleValueRange`, `QuickTranslationRuleParser+ValueRange`, `QuickTranslationRuleTokenValueRangeEditor`; bỏ `valueRange` khỏi `QuickTranslationRuleElement` và `TokenSpec`, nhánh kiểm giá trị trong `walkNumeral`, mã lỗi `INVALID_VALUE_RANGE`, `#` trong đuôi gợi ý bàn phím, thanh chỉnh giá trị dưới thanh độ dài (kèm `.id(tokenPosition)`), các ý về `#` trong `QuickTranslationRuleGuide` + câu trợ giúp ô Mẫu, câu về `#min-max` trong đoạn token của `CLAUDE.md`/`AGENTS.md`. Parser, matcher, chip chỉnh trở lại đúng như trước 1.3.701.
-- **Rule đã viết có `#`** (cú pháp giờ không còn):
-  - `<n#1-200>`, `<d#0-99>`, `<n#5>` (không ghi độ dài) ⇒ `UNKNOWN_TOKEN_NAME` (lỗi nặng). Rule không chạy, **không hiện** ở danh sách rule và sheet lỗi (hai nơi này chỉ hiện rule biên dịch được + cảnh báo), và **bị bỏ khỏi file** ở lần ghi kế tiếp của bộ đó (thêm / sửa / xoá / nhập rule đi qua `validRecords`). Không bị coi là chữ cố định.
-  - `<n:1-4#1-200>` (độ dài rồi `#`) ⇒ **không báo lỗi**: phần độ dài `1-4#1-200` tách theo `-` rồi bỏ mảnh không phải số ⇒ thành độ dài `1-200`, không giới hạn giá trị. `<n:1-4#5>` ⇒ độ dài đúng 1; `<n:3#5>` ⇒ lỗi "Khoảng độ dài không hợp lệ" (lỗi nặng, như trên). Đây là cách đọc độ dài lỏng có từ trước 1.3.701.
-- Chuyển `[1.3.678]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff (patch đảo của `392dd254` áp sạch trừ `QuickTranslationRuleEditorSheet+Editing.swift`, gỡ tay hai chỗ); grep `valueRange`/`ValueRange`/`invalidValueRange` trong `Sources/` không còn; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.709] - 2026-11-04
+
+### revert: bỏ khoảng giá trị min-max của token số trong rule dịch
+
+Người dùng: *"Revert bỏ min max cho token số giúp tôi"*. Gỡ hẳn tính năng `#min-max` của `[1.3.701]` (commit `392dd254`); giữ nguyên `<m>` = `十` đứng đầu mẫu đọc "mười" (`[1.3.703]`) và nút Lưu "Thay rule cũ" / "Lưu thêm rule mới" (`[1.3.705]`).
+
+- **Gỡ**: xoá `QuickTranslationRuleValueRange`, `QuickTranslationRuleParser+ValueRange`, `QuickTranslationRuleTokenValueRangeEditor`; bỏ `valueRange` khỏi `QuickTranslationRuleElement` và `TokenSpec`, nhánh kiểm giá trị trong `walkNumeral`, mã lỗi `INVALID_VALUE_RANGE`, `#` trong đuôi gợi ý bàn phím, thanh chỉnh giá trị dưới thanh độ dài (kèm `.id(tokenPosition)`), các ý về `#` trong `QuickTranslationRuleGuide` + câu trợ giúp ô Mẫu, câu về `#min-max` trong đoạn token của `CLAUDE.md`/`AGENTS.md`. Parser, matcher, chip chỉnh trở lại đúng như trước 1.3.701.
+- **Rule đã viết có `#`** (cú pháp giờ không còn):
+  - `<n#1-200>`, `<d#0-99>`, `<n#5>` (không ghi độ dài) ⇒ `UNKNOWN_TOKEN_NAME` (lỗi nặng). Rule không chạy, **không hiện** ở danh sách rule và sheet lỗi (hai nơi này chỉ hiện rule biên dịch được + cảnh báo), và **bị bỏ khỏi file** ở lần ghi kế tiếp của bộ đó (thêm / sửa / xoá / nhập rule đi qua `validRecords`). Không bị coi là chữ cố định.
+  - `<n:1-4#1-200>` (độ dài rồi `#`) ⇒ **không báo lỗi**: phần độ dài `1-4#1-200` tách theo `-` rồi bỏ mảnh không phải số ⇒ thành độ dài `1-200`, không giới hạn giá trị. `<n:1-4#5>` ⇒ độ dài đúng 1; `<n:3#5>` ⇒ lỗi "Khoảng độ dài không hợp lệ" (lỗi nặng, như trên). Đây là cách đọc độ dài lỏng có từ trước 1.3.701.
+- Chuyển `[1.3.678]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff (patch đảo của `392dd254` áp sạch trừ `QuickTranslationRuleEditorSheet+Editing.swift`, gỡ tay hai chỗ); grep `valueRange`/`ValueRange`/`invalidValueRange` trong `Sources/` không còn; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.708] - 2026-11-04
 
 ### fix: sửa 15 lỗi engine Legado từ báo cáo kiểm tra nguồn 19:57

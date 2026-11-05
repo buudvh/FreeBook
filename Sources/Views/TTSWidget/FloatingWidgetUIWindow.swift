@@ -3,7 +3,7 @@ import UIKit
 
 /// Overlay UIWindow có nền trong suốt, là ranh giới hit-testing duy nhất có thẩm quyền.
 @MainActor
-final class FloatingWidgetUIWindow: UIWindow {
+final class FloatingWidgetUIWindow: UIWindow, AppOverlayWindow {
     weak var containerViewController: FloatingWidgetContainerViewController?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
