@@ -19,7 +19,7 @@ struct VideoWatchDetailsView: View {
 
     @State private var showingInfo = false
     /// Thể loại bấm trong sheet Thông tin — mở sau khi sheet đã đóng.
-    @State private var pendingGenre: CategoryResult?
+    @State private var pendingGenre: CategoryResult? = nil
 
     private var ownsSession: Bool { model.ownsSession }
     private var episodes: [VideoPlaybackSession.Episode] { ownsSession ? session.episodes : model.episodes }

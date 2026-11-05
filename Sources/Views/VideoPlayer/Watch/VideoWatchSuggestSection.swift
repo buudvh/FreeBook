@@ -47,10 +47,12 @@ struct VideoWatchSuggestSection: View {
                 .padding(.horizontal, 16)
             content
         }
-        .task {
+        // `Task` riêng (không phải `.task`): cuộn nhanh qua nhóm trong `LazyVStack` sẽ huỷ `.task`, bộ nạp coi lượt bị
+        // huỷ là "không lỗi, không mục" ⇒ nhóm kẹt ở "Không có đề xuất nào".
+        .onAppear {
             guard !didStart else { return }
             didStart = true
-            await loader.loadInitial()
+            Task { await loader.loadInitial() }
         }
     }
 

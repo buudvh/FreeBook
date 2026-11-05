@@ -11,7 +11,7 @@ struct VideoWatchRouteView: View {
     let launch: BookContentLaunch
 
     @Environment(\.modelContext) private var modelContext
-    @State private var model: VideoWatchModel?
+    @State private var model: VideoWatchModel? = nil
 
     var body: some View {
         ZStack {

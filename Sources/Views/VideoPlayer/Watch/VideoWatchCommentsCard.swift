@@ -12,6 +12,8 @@ struct VideoWatchCommentsCard: View {
     @State private var isLoading = true
     @State private var errorMessage = ""
     @State private var showingAll = false
+    /// Nhóm đã tải xong (thành công / lỗi thật) — cuộn qua lại không tải lại; lượt bị huỷ thì lần hiện sau tải tiếp.
+    @State private var loadedCategoryId: String? = nil
 
     private static let previewCount = 2
 
@@ -28,7 +30,10 @@ struct VideoWatchCommentsCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onTapGesture { if !comments.isEmpty { showingAll = true } }
         .padding(.horizontal, 16)
-        .task(id: category.id) { await load() }
+        .task(id: category.id) {
+            guard loadedCategoryId != category.id else { return }
+            await load()
+        }
         .sheet(isPresented: $showingAll) {
             NavigationStack {
                 AllCommentsView(
@@ -134,12 +139,14 @@ struct VideoWatchCommentsCard: View {
             comments = results
             hasMore = nextPage != nil
             isLoading = false
+            loadedCategoryId = category.id
         } catch {
             // Rời màn / đổi phim giữa chừng không phải lỗi.
             if ExtensionLoadError.unwrapped(error) is CancellationError { return }
             AppLogger.shared.log("❌ [VideoWatch] Lỗi tải bình luận: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
             isLoading = false
+            loadedCategoryId = category.id
         }
     }
 }

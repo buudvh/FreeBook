@@ -24,12 +24,12 @@ struct VideoPlayerScreen: View {
     private let launch: BookContentLaunch?
     private let onDismiss: (() -> Void)?
     @State private var controller: VideoPlayerController
-    @State private var watch: VideoWatchModel?
+    @State private var watch: VideoWatchModel? = nil
     @State private var isLeaving = false
     /// Việc chạy sau khi màn đã đóng hẳn (mở danh sách thể loại, Chi tiết, chuyển tab Khám phá…) — `leave(then:)`.
-    @State private var pendingExitAction: (() -> Void)?
+    @State private var pendingExitAction: (() -> Void)? = nil
     /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
-    @State private var openingDetailErrorLink: SourceErrorLink?
+    @State private var openingDetailErrorLink: SourceErrorLink? = nil
     /// Trình duyệt "Mở link lỗi" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp là quay lại từ
     /// trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
     @State private var isCoveredByErrorBrowser = false

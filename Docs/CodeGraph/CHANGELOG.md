@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.736] - 2026-11-05
+
+### fix: màn xem video: đề xuất và bình luận không kẹt khi cuộn nhanh, khai rõ giá trị đầu của state
+
+Rà lại phần 2–3 của màn xem video (1.3.734–735) trước khi đẩy lên.
+
+- **Đề xuất kẹt "Không có đề xuất nào"**:
+  - Nhóm đề xuất tải trang 1 bằng `.task` trong `LazyVStack`. Cuộn nhanh qua nhóm thì `.task` bị huỷ.
+  - `PaginatedNovelLoader` coi lượt bị huỷ là "không lỗi, không mục", còn cờ đã bắt đầu chặn mọi lần thử lại.
+  - Sửa: `VideoWatchSuggestSection` tải bằng `Task` riêng trong `onAppear`, rời màn không huỷ.
+- **Bình luận tải lại mỗi lần cuộn qua**: `VideoWatchCommentsCard` nhớ nhóm đã tải xong (thành công hoặc lỗi thật). Lượt bị huỷ thì lần hiện sau tải tiếp.
+- **Khai rõ `= nil`** cho các `@State` optional mới (`VideoPlayerScreen`, `VideoWatchActionRow`, `VideoWatchDetailsView`, `VideoWatchRouteView`), theo cách viết của repo. Thiếu giá trị đầu, thuộc tính `private` có thể làm init tự sinh thành `private` ⇒ chỗ dựng view ở file khác không gọi được.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.735] - 2026-11-05
 
 ### feat: mọi lối vào phim mở thẳng màn xem phát dọc thay cho trang Chi tiết
@@ -720,34 +737,3 @@ Người dùng: *"Hãy sửa cho hàng search luôn hiển thị ở vị trí �
 - **Kiểm chứng:**
   - Đọc code; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy: cuộn danh sách dài, vuốt đóng ngăn kéo, gõ tìm khi bàn phím đang mở.
-
-## [1.3.706] - 2026-11-04
-
-### feat: màn sửa VP/Name theo bố cục màn dịch, nghĩa rule cuộn ngang được
-
-Người dùng:
-- *"Cho màn edit của vp/name trong danh sách giống màn dịch của reader nhưng đừng có suggest rule và nghĩa rule"*;
-- *"Thêm nút mở rộng thu hẹp, nếu lưu vế trái sẽ lưu phần đang chọn"*;
-- *"hàng gốc phải giống dịch. Nút mở rộng thu hẹp trên 1 hàng"*;
-- *"Ô nhập hiển thị được tối đa 2 hàng như dịch. Sửa phần nghĩa rule màn dịch nếu dài quá sẽ cho scroll ngang"*;
-- chọn *"Giữ từ cũ"*.
-
-- **Màn sửa từ của danh sách VP/Name** (`DictEntryEditSheet`, `+Rows`, `DictEntryEditLookup`): chế độ `.edit` của `DictEntrySheet` chuyển sang màn mới; chế độ thêm (dán nhiều dòng `key=value`) giữ nguyên. Dựng lại theo `ReaderDefinitionOverlayView`, màu theo hệ thống thay cho chữ trắng trên nền tối. Từ trên xuống:
-  - **Header:** `.pageTitle("Sửa từ")`, nhãn chỉ đọc loại từ điển và phạm vi ("VP · Chung", "Name · Riêng truyện"). Nút bút chì gõ lại từ gốc, giữ cảnh báo ghi đè. Không còn nút "Lưu" trên header.
-  - **Hàng từ gốc:** giống Reader — cao 40, hai cặp nút tròn 28pt mở rộng/thu hẹp hai đầu trên cùng một hàng. Chữ đang chọn đậm và gạch chân, chữ còn lại mờ; chạm một chữ thì chọn chữ đó. Vùng chọn ban đầu là cả từ, mở rộng tới hai đầu từ gốc, thu hẹp còn ít nhất 1 chữ.
-  - **Hàng token dịch:** dùng `TranslateUtils.getTranslationTokens`; chạm token thì chọn đúng phạm vi của token.
-  - **Ô nghĩa:** 2 dòng như Reader. Đổi vùng chọn thì ô hiện nghĩa của cụm: nghĩa đang lưu nếu cụm đã có trong danh sách, không thì bản dịch (`translateTerm`). Chữ người dùng đang gõ không bị kết quả tra về muộn ghi đè.
-  - **Dải gợi ý nghĩa:** chip của Reader, tính lại theo vùng chọn. Có nút dán. Nút ⚙ quản lý nghĩa chỉ hiện khi có truyện.
-  - **Chữ hoa/thường** và **tra nhanh** (công cụ tìm của Reader, mở `BypassWebView`, ⚙ cấu hình công cụ).
-  - Không có phần rule (nghĩa rule, chip rule, thêm rule) và không có bộ chọn NE/VP, R/C.
-- **Lưu bằng nút "Cập nhật"** (`.appFilled`) ở dưới:
-  - Chọn cả từ: cập nhật nghĩa như cũ.
-  - Từ gõ lại bằng bút chì: đổi tên như cũ.
-  - **Chọn một phần: giữ nguyên từ cũ, thêm cụm đang chọn thành từ mới**, kèm dòng báo trước khi lưu và cảnh báo khi cụm đã có trong danh sách.
-  - Vuốt đóng khi có thay đổi thì hỏi xác nhận.
-- **Màn dịch của Reader:** chữ "Nghĩa rule" và dòng thông báo rule nằm trong khung cuộn ngang, nên chữ dài kéo xem hết được. Vẫn chọn để chép được; hàng giữ cao 50.
-- **Kiểm chứng:**
-  - Đọc code đối chiếu API có sẵn: `getTranslationTokens`, `translateTerm`, `ReaderView.dictionaryMatches`/`suggestionChips`, `SearchEngine.loadEngines`, `ReaderLookupRoute`.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DictionaryListView` 661/690 dòng.
-  - Không build tại chỗ (Windows), chưa thử trên máy.
-  - Rủi ro: sửa nghĩa trong ⚙ rồi bấm "Cập nhật" sẽ ghi đè bằng chữ trong ô; gõ lại từ gốc rồi chọn một phần thì thêm cụm thay vì đổi tên.

@@ -17,7 +17,7 @@ struct VideoWatchActionRow: View {
 
     @State private var collectionPickerBookId = ""
     @State private var showingCollectionPicker = false
-    @State private var downloadBook: Book?
+    @State private var downloadBook: Book? = nil
     @State private var showingChangeSource = false
     @State private var didChangeSource = false
     @State private var showingShare = false
