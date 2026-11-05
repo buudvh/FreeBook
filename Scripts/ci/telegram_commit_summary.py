@@ -7,7 +7,7 @@ session con commit xong), nên tin build phải nói đủ — không chỉ comm
 
 - `--format telegram`: header, rồi `💬 Commit: <subject>` (một commit) hoặc `💬 N commit:` + `• <subject>` từng dòng;
   cắt cho vừa `--limit` ký tự (caption sendDocument 1024, sendMessage 4096), chừa chỗ cho `--footer`; còn thừa ⇒
-  `… và K commit khác (xem release)`.
+  `… và K commit khác`.
 - `--format notes`: danh sách gạch đầu dòng `- <subject>` đầy đủ, dùng làm ghi chú release / `apps.json`.
 """
 
@@ -46,10 +46,10 @@ def telegram_text(header, subjects, footer, limit):
         remaining = len(subjects) - index
         candidate = f"• {subject}"
         # Chừa chỗ cho dòng "còn K commit" (nếu dòng này không phải dòng cuối) và footer.
-        tail = "" if remaining == 1 else f"\n… và {remaining - 1} commit khác (xem release)"
+        tail = "" if remaining == 1 else f"\n… và {remaining - 1} commit khác"
         projected = u16len("\n".join(lines + [candidate])) + u16len(tail) + u16len(footer_part)
         if projected > limit:
-            lines.append(f"… và {remaining} commit khác (xem release)")
+            lines.append(f"… và {remaining} commit khác")
             break
         lines.append(candidate)
     return trim_u16("\n".join(lines) + footer_part, limit)

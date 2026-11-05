@@ -302,7 +302,7 @@ jobs:
 
     # Release `build-<số build>` + nguồn LiveContainer `apps.json` ở nhánh `source`, giữ 5 bản mới nhất
     # (`Scripts/ci/publish_altstore_source.py`). Chỉ lượt push lên main. Lỗi ở đây không làm hỏng lượt build:
-    # IPA vẫn gửi Telegram như cũ, chỉ thiếu link release.
+    # IPA vẫn gửi Telegram như cũ, chỉ thiếu link nguồn `apps.json` (tin Telegram gửi link nguồn, không gửi link release).
     - name: Publish GitHub Release + LiveContainer Source
       if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
       continue-on-error: true
@@ -321,7 +321,7 @@ jobs:
           --notes "$RELEASE_NOTES" \
           --icon Sources/Assets.xcassets/AppIcon.appiconset/icon_60_3x.png \
           --keep 5
-        echo "RELEASE_URL=https://github.com/${REPO}/releases/tag/build-${BUILD_NUMBER}" >> "$GITHUB_ENV"
+        echo "SOURCE_URL=https://raw.githubusercontent.com/${REPO}/source/apps.json" >> "$GITHUB_ENV"
 
     - name: Send IPA to Telegram
       env:
@@ -345,7 +345,7 @@ jobs:
         [ -s "$LIST" ] || { git log -1 --pretty=format:"%s" > "$LIST"; echo >> "$LIST"; }
         # Caption của sendDocument bị Telegram giới hạn 1024 ký tự (quá thì trả 400 "message caption is too long",
         # IPA không tới mà curl vẫn exit 0) ⇒ `telegram_commit_summary.py` cắt vừa giới hạn, thừa thì "… và K commit
-        # khác (xem release)". sendMessage giới hạn 4096.
+        # khác". sendMessage giới hạn 4096. Dòng cuối = link nguồn LiveContainer (khi bước Publish chạy được).
 
         echo "IPA File Size: $FILE_SIZE bytes"
 
@@ -354,8 +354,8 @@ jobs:
 
           HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! 🚀" "$APP_VERSION" "$BUILD_NUMBER")
           FOOTER=""
-          if [ -n "${RELEASE_URL:-}" ]; then
-            FOOTER="🔗 Release: $RELEASE_URL"
+          if [ -n "${SOURCE_URL:-}" ]; then
+            FOOTER="📲 Nguồn LiveContainer: $SOURCE_URL"
           fi
           CAPTION=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 1024)
 
@@ -364,7 +364,7 @@ jobs:
                --form-string chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
                --form-string caption="$CAPTION" \
-            || echo "IPA không tới được Telegram — vẫn tải được ở GitHub Artifacts / Release."
+            || echo "IPA không tới được Telegram — vẫn tải được ở GitHub Artifacts / nguồn LiveContainer."
         else
           echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
           # Tải lên transfer.sh làm link dự phòng
@@ -372,7 +372,10 @@ jobs:
           echo "Uploaded to: $UPLOAD_URL"
           
           HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)" "$APP_VERSION" "$BUILD_NUMBER")
-          FOOTER=$(printf "\nTải IPA tại đây: %s" "${RELEASE_URL:-$UPLOAD_URL}")
+          FOOTER=$(printf "\nTải IPA tại đây: %s" "$UPLOAD_URL")
+          if [ -n "${SOURCE_URL:-}" ]; then
+            FOOTER=$(printf "%s\n📲 Nguồn LiveContainer: %s" "$FOOTER" "$SOURCE_URL")
+          fi
           TEXT=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 4096)
 
           tg_call sendMessage -X POST \

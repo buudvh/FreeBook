@@ -10,7 +10,7 @@ Chạy trong `.github/workflows/build-ipa.yml` sau khi đóng gói IPA thành c�
    build lại, không đụng lịch sử code). Push bị từ chối (hai lượt build đẩy cùng lúc) ⇒ tải lại nhánh, dựng lại từ
    danh sách release mới nhất rồi đẩy lại.
 
-URL nguồn cố định: https://raw.githubusercontent.com/<repo>/source/apps.json — app đọc ở `AppDistributionSource`.
+URL nguồn cố định: https://raw.githubusercontent.com/<repo>/source/apps.json — tin Telegram của lượt build gửi kèm link này.
 
 Cần `gh` (có sẵn trên runner macOS), biến môi trường `GH_TOKEN` (quyền `contents: write`) và `REPO` (`owner/name`).
 """

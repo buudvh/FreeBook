@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.726] - 2026-11-05
+
+### chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release
+
+Người dùng: *"không cần nút này, bỏ nút này và nút copy đi giúp tôi, gửi chung link app.json với tele là được, cũng không cần gửi link realase chung tele"*.
+
+- **Cài đặt › Thông Tin**: bỏ hàng "Thêm nguồn cập nhật vào LiveContainer" và nút sao chép link nguồn (thêm ở 1.3.724). Chỉ còn dòng "Phiên bản ứng dụng".
+  - Xoá `AppDistributionSource` (`Sources/Common/Utils/`), không còn nơi dùng.
+- **Tin Telegram** (`build-ipa.yml`):
+  - Bước Publish ghi `SOURCE_URL` (link `apps.json` ở nhánh `source`) thay cho `RELEASE_URL`.
+  - Caption gửi IPA kết thúc bằng `📲 Nguồn LiveContainer: <link apps.json>`, **không** còn link release.
+  - File quá 50 MB: link tải transfer.sh như trước, kèm dòng nguồn LiveContainer.
+  - Dòng thừa đổi thành `… và K commit khác` (bỏ "(xem release)").
+- Release `build-*` vẫn tạo như cũ (để `apps.json` có link tải IPA), chỉ không gửi link của nó qua Telegram.
+- `CLAUDE.md` / `AGENTS.md`: sửa đoạn "Nguồn cập nhật LiveContainer" và "Tin Telegram + ghi chú release liệt kê mọi commit".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; YAML hợp lệ; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Commit này đổi `Sources/**` ⇒ kích hoạt build. Lượt đó cũng là lần đầu chạy thật phần liệt kê mọi commit của 1.3.725: tin Telegram phải có 2 commit (1.3.725, 1.3.726) và dòng nguồn LiveContainer.
+  - Chưa thử trên máy.
+
 ## [1.3.725] - 2026-11-05
 
 ### feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi
@@ -587,45 +608,3 @@ Người dùng: *"sửa cái gì mà tôi bấm chạy kiểm tra sau vài giây
   - Đọc mã JavaScriptCore trên GitHub để xác nhận cơ chế autorelease.
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy. Nên thử: mở mục lục 九星霸体诀 ở 多看阅读, rồi chạy lại kiểm tra nhóm nguồn đó.
-
-## [1.3.695] - 2026-11-04
-
-### feat: nguồn Legado có SecretKeyFactory DES, GZIP/Inflater và java.net.URL
-
-Người dùng: *"làm plan: … 3. Lớp Java còn thiếu: DES, GZIP, URL."*; duyệt plan (*"Duyệt, làm đi"*). Trong 3.339 nguồn đã quét: 7 nguồn cần DES qua `SecretKeyFactory`, 4 nguồn giải nén, khoảng 1 nguồn dùng `java.net.URL`.
-
-- **DES** (`LegadoJSBootstrap+Classes.swift`):
-  - `javax.crypto.SecretKeyFactory.getInstance("DES"|"DESede"|"TripleDES")`. `generateSecret(spec)` trả khoá có `getEncoded`, `getAlgorithm`, `getFormat` = `"RAW"`. Thuật toán khác (PBKDF2…) báo chưa hỗ trợ.
-  - `DESKeySpec(bytes[, offset])` lấy đúng 8 byte, `DESedeKeySpec(bytes[, offset])` lấy 24 byte, cả hai có `getKey()`. Thiếu byte ném `InvalidKeyException`; spec sai loại ném `InvalidKeySpecException`.
-  - Khoá dùng thẳng với `Cipher.init` có sẵn: phần mã hoá (`LegadoSymmetricCipher`) không đổi. `SecretKeySpec` thêm `getFormat()`.
-- **Giải nén** (`Files/LegadoInflate.swift` mới, lệnh native `inflate`/`inflateUsed` ở `LegadoJSRuntime+Inflate.swift`):
-  - Dùng `compression_stream` của framework `Compression`, với `COMPRESSION_ZLIB` (DEFLATE thô).
-  - Ba dạng vỏ:
-    - `raw`;
-    - `zlib`: kiểm header RFC 1950; FDICT báo chưa hỗ trợ;
-    - `gzip`: header RFC 1952 đủ cờ, nối nhiều member, kiểm ISIZE.
-  - Đầu ra tối đa 16 MiB, để chặn bom nén. Dữ liệu về JS dạng hex nên bộ nhớ thực tốn gấp 5–6 lần.
-  - Lỗi được ném vào JS, nên `try/catch` của nguồn bắt được.
-- **Luồng Java** (`LegadoJSBootstrap+Streams.swift` mới, nạp ngay trước `packages`):
-  - `java.util.zip.GZIPInputStream` / `InflaterInputStream(in[, inflater])`: `Inflater(true)` = raw, còn lại = zlib. `read()` trả 0..255 hoặc -1, `read(buf)` trả -1 khi hết.
-  - `java.util.zip.Inflater([nowrap])`: `setInput`, `inflate`, `finished`, `needsInput`, `getRemaining`, `getTotalIn/Out`, `end`, `reset`. Lần `inflate` đầu giải hết đầu vào rồi trả dần, nên cần trọn dữ liệu trong một `setInput`.
-  - `java.io.InputStreamReader(in[, charset])` + `BufferedReader`: `readLine` tách `\n`, `\r\n`, `\r` và trả `null` khi hết. Charset đi qua `bytesToStr`.
-  - `java.nio.ByteBuffer.allocate/wrap(...).array()` tối thiểu, để đường giải nén của 微信读书 không chết trước.
-  - `java.net.URL(spec)` / `URL(context, spec)`:
-    - `getProtocol`, `getHost`, `getPort` (-1 khi không có), `getDefaultPort`, `getPath` (`""` khi không có), `getQuery`/`getRef` (`null` khi không có), `getFile`, `getAuthority`, `toString`/`toExternalForm`.
-    - Không scheme ném `MalformedURLException: no protocol`. Spec rỗng trả URL ngữ cảnh bỏ `#ref`, như Java.
-    - `openConnection` báo chưa hỗ trợ.
-  - Gọi được qua `java.util.zip.X`, `Packages.…`, `JavaImporter` + `with`, `importClass`, `importPackage`.
-- **Ngoài phạm vi:** `SecureRandom` (đăng nhập 微信读书), okhttp3, `HttpURLConnection`.
-- **Spec:** `Docs/Specs/legado-source-spec.md` §6.4.3 và §6.9.
-- **Quy trình:** agent riêng viết theo plan và spec (clean-room). Review bắt các lỗi sau, đã sửa:
-  - `URL(ctx, "")` ném lỗi;
-  - thiếu `ByteBuffer`;
-  - giới hạn 64 MiB quá cao (hạ xuống 16 MiB);
-  - comment thứ tự nạp script cũ.
-- **Kiểm chứng:**
-  - JS bootstrap lấy nguyên văn từ file Swift, chạy Node với native giả theo đúng thuật toán `LegadoInflate`: 85/85 ca đạt.
-  - Các ca DES đối chiếu với DES thật của Node: 晋江 (DES-CBC), 国家图书馆 (DES-ECB), DESede-CBC.
-  - Các ca giải nén: vòng `read` của 酷匠网; gzip nhiều member; `Inflater(true)` của 微信读书; `readLine` của 云端聚合; giới hạn 16 MiB.
-  - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: chưa xác nhận bộ giải của Apple báo đúng số byte đã dùng khi `END`. Nếu sai, gzip nhiều member chỉ mất các member sau.
