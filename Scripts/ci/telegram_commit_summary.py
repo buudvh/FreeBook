@@ -9,6 +9,9 @@ session con commit xong), nên tin build phải nói đủ — không chỉ comm
   cắt cho vừa `--limit` ký tự (caption sendDocument 1024, sendMessage 4096), chừa chỗ cho `--footer`; còn thừa ⇒
   `… và K commit khác`.
 - `--format notes`: danh sách gạch đầu dòng `- <subject>` đầy đủ, dùng làm ghi chú release / `apps.json`.
+
+Subject trùng nhau chỉ giữ lần đầu (1.3.729): commit sửa lỗi CI dùng lại đúng message của commit hỏng, nên một
+lượt build có thể mang hai commit cùng subject.
 """
 
 import argparse
@@ -18,9 +21,11 @@ import sys
 def read_subjects(path):
     try:
         with open(path, encoding="utf-8") as fh:
-            return [line.strip() for line in fh if line.strip()]
+            lines = [line.strip() for line in fh if line.strip()]
     except OSError:
         return []
+    # Giữ thứ tự cũ → mới, bỏ dòng trùng (so nguyên văn).
+    return list(dict.fromkeys(lines))
 
 
 def u16len(text):

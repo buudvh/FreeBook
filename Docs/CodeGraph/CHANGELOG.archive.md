@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.698] - 2026-11-04
+
+### feat: thu nhỏ màn kiểm tra nguồn và kiểm tra tiện ích vào hub nổi
+
+Người dùng: *"cho phép thu nhỏ khi kiểm tra nguồn, làm cho cả kiểm tra js luôn"*, rồi *"vuốt xuống sheet đừng tắt mà thu nhỏ nhé"*. Lối mở lại là dòng thứ 4 cố định của hub (người dùng chọn).
+
+- **Rời màn không còn dừng lượt**: màn Kiểm tra nguồn Legado (`LegadoSourceCheckView`) và Kiểm tra tiện ích (`ExtensionCheckView`) có nút ⌄ sát nút chia sẻ (chỉ hiện khi đang chạy). Bấm ⌄, vuốt xuống sheet hay quay lại khi lượt còn chạy ⇒ lượt **thu nhỏ** và chạy tiếp ở bộ chạy; chỉ nút Dừng mới dừng. `stopSourceCheck` (`onDismiss` của sheet kiểm tra tiện ích hàng loạt) đổi từ huỷ lượt sang thu nhỏ.
+- **`MinimizedSourceCheckCoordinator`** (mới, `Views/Extensions/SourceCheck/`): mỗi bộ chạy giữ tối đa một bản ghi (lượt Legado và lượt tiện ích JS chạy song song được). Màn bắt đầu hoặc gắn vào lượt ⇒ `track`; vòng thăm dò của màn ⇒ `update`. Màn đóng (`onDisappear`, hoặc `ScreenLease` là `@StateObject` giải phóng cùng màn, để bắt cả lúc sheet bị vuốt khi đang đẩy màn con) ⇒ lượt còn chạy thì thu nhỏ và tự thăm dò mỗi giây, lượt đã xong thì bỏ. Xong hoặc dừng khi đang thu nhỏ ⇒ toast (vào cả Trung tâm thông báo).
+- **Mở lại**: `reopen` trình bày màn bằng UIKit từ màn trên cùng của cửa sổ mức thường (sheet có thanh kéo; thử lại khi màn trên cùng đang mở/đóng dở). Màn chạy ở chế độ `attachRunId`: đọc ngay kết quả hiện có, không chạy lượt mới; bộ chạy đã sang lượt khác ⇒ báo rõ và bỏ bản ghi. Màn báo bận có thêm nút "Mở lượt đang chạy" khi lượt kia đang thu nhỏ; "Dừng lượt đang chạy" ở đó cũng thôi theo dõi như nút Dừng.
+- **Hub nổi**: dòng thứ 4 cố định `Kind.sourceCheck` "Kiểm tra nguồn" (`checkmark.seal`), xám khi không có lượt. Đang chạy ⇒ là tiến trình của nút (nháy), dòng phụ "12/31 · 3 lỗi"; xong mà chưa xem ⇒ nằm trong `quietKinds` (không nháy), "Xong · 25 đạt · 6 lỗi — bấm để xem". Tiến độ chỉ nằm ở chữ của dòng, không vào `ButtonState`. Hai lượt cùng thu nhỏ ⇒ trang con `FloatingHubSourceCheckListView`. Chạm hub khi đây là tiến trình duy nhất ⇒ mở thẳng màn.
+- Tách phần trùng giữa hai màn: `SourceCheckHeaderButtons`, `SourceCheckTile`, `SourceCheckActionButton`, `SourceCheckStartErrorView`, `ExtensionCheckFilterChip` (giữ `ExtensionCheckView` dưới 400 dòng). `rules.md` thêm luật hub (f) cho dòng Kiểm tra nguồn và vòng đời lượt thu nhỏ. Chuyển `[1.3.668]`, `[1.3.667]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.697] - 2026-11-04
 
 ### feat: xoá hàng loạt nguồn Legado đang hiện hoặc đang tắt

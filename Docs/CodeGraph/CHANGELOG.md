@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.729] - 2026-11-05
+
+### fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên
+
+Người dùng chọn *"Có, lọc trùng"*. Lượt build 1155 liệt kê 5 dòng: commit sửa lỗi biên dịch (`705bbf3e`) dùng lại đúng message của commit hỏng (`71aaf405`) theo quy trình sửa CI. Vì vậy dòng "feat: màn Dung lượng…" hiện hai lần.
+
+- `Scripts/ci/telegram_commit_summary.py`: `read_subjects` bỏ subject trùng (so nguyên văn), giữ thứ tự cũ → mới, giữ lần đầu. Áp cho cả tin Telegram lẫn ghi chú release / `apps.json`. Số "N commit" đếm sau khi lọc.
+- Bước `Collect Commit List` của CI không đổi (log vẫn in đủ danh sách thô).
+- Ghi chú của release `build-1155` đã đăng giữ nguyên; từ lượt build sau mới lọc.
+- `CLAUDE.md` / `AGENTS.md`: đoạn "Tin Telegram + ghi chú release liệt kê mọi commit" ghi thêm việc bỏ dòng trùng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Tại chỗ với đúng danh sách của lượt 1155 (API so sánh `a7a5aba2...705bbf3e`, 5 dòng) ⇒ tin "💬 4 commit:" không trùng, ghi chú 4 dòng.
+  - Commit này chỉ đổi `Scripts/` + tài liệu ⇒ không kích hoạt build; lượt build kế tiếp dùng bản lọc.
+
 ## [1.3.728] - 2026-11-05
 
 ### feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log
@@ -612,16 +627,3 @@ Người dùng gửi hai báo cáo "Kiểm tra nguồn" (31 nguồn / 735 nguồ
 - **Không sửa (không phải lỗi app)**: 企鹅浏览 (bản cài có `bookUrl` hỏng), 天地中文 (web trả danh sách rỗng; kết luận "app" của báo cáo là sai), ⭐ 猫眼看书③ (mọi host API lỗi), 黑岩 ×2 (UA di động mặc định ⇒ web chuyển bản `w.heiyan.com` không có `<span>`; giữ UA theo spec §3.10).
 - Spec `legado-source-spec.md` cập nhật §2.2 bước 5, §2.11.1, §2.12, §2.15 bước 1, §6.3 (`toString`), bảng `java.getString`. Chuyển `[1.3.669]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff; chạy `core` bootstrap bằng node với `__lgNative` giả (danh sách JSON/chuỗi/trộn/rỗng, `for…in`, export); lần tay JSONPath trên JSON QQ thật; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.698] - 2026-11-04
-
-### feat: thu nhỏ màn kiểm tra nguồn và kiểm tra tiện ích vào hub nổi
-
-Người dùng: *"cho phép thu nhỏ khi kiểm tra nguồn, làm cho cả kiểm tra js luôn"*, rồi *"vuốt xuống sheet đừng tắt mà thu nhỏ nhé"*. Lối mở lại là dòng thứ 4 cố định của hub (người dùng chọn).
-
-- **Rời màn không còn dừng lượt**: màn Kiểm tra nguồn Legado (`LegadoSourceCheckView`) và Kiểm tra tiện ích (`ExtensionCheckView`) có nút ⌄ sát nút chia sẻ (chỉ hiện khi đang chạy). Bấm ⌄, vuốt xuống sheet hay quay lại khi lượt còn chạy ⇒ lượt **thu nhỏ** và chạy tiếp ở bộ chạy; chỉ nút Dừng mới dừng. `stopSourceCheck` (`onDismiss` của sheet kiểm tra tiện ích hàng loạt) đổi từ huỷ lượt sang thu nhỏ.
-- **`MinimizedSourceCheckCoordinator`** (mới, `Views/Extensions/SourceCheck/`): mỗi bộ chạy giữ tối đa một bản ghi (lượt Legado và lượt tiện ích JS chạy song song được). Màn bắt đầu hoặc gắn vào lượt ⇒ `track`; vòng thăm dò của màn ⇒ `update`. Màn đóng (`onDisappear`, hoặc `ScreenLease` là `@StateObject` giải phóng cùng màn, để bắt cả lúc sheet bị vuốt khi đang đẩy màn con) ⇒ lượt còn chạy thì thu nhỏ và tự thăm dò mỗi giây, lượt đã xong thì bỏ. Xong hoặc dừng khi đang thu nhỏ ⇒ toast (vào cả Trung tâm thông báo).
-- **Mở lại**: `reopen` trình bày màn bằng UIKit từ màn trên cùng của cửa sổ mức thường (sheet có thanh kéo; thử lại khi màn trên cùng đang mở/đóng dở). Màn chạy ở chế độ `attachRunId`: đọc ngay kết quả hiện có, không chạy lượt mới; bộ chạy đã sang lượt khác ⇒ báo rõ và bỏ bản ghi. Màn báo bận có thêm nút "Mở lượt đang chạy" khi lượt kia đang thu nhỏ; "Dừng lượt đang chạy" ở đó cũng thôi theo dõi như nút Dừng.
-- **Hub nổi**: dòng thứ 4 cố định `Kind.sourceCheck` "Kiểm tra nguồn" (`checkmark.seal`), xám khi không có lượt. Đang chạy ⇒ là tiến trình của nút (nháy), dòng phụ "12/31 · 3 lỗi"; xong mà chưa xem ⇒ nằm trong `quietKinds` (không nháy), "Xong · 25 đạt · 6 lỗi — bấm để xem". Tiến độ chỉ nằm ở chữ của dòng, không vào `ButtonState`. Hai lượt cùng thu nhỏ ⇒ trang con `FloatingHubSourceCheckListView`. Chạm hub khi đây là tiến trình duy nhất ⇒ mở thẳng màn.
-- Tách phần trùng giữa hai màn: `SourceCheckHeaderButtons`, `SourceCheckTile`, `SourceCheckActionButton`, `SourceCheckStartErrorView`, `ExtensionCheckFilterChip` (giữ `ExtensionCheckView` dưới 400 dòng). `rules.md` thêm luật hub (f) cho dòng Kiểm tra nguồn và vòng đời lượt thu nhỏ. Chuyển `[1.3.668]`, `[1.3.667]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
