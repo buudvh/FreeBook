@@ -230,16 +230,17 @@ struct VideoPlayerTopBar: View {
         VideoServerOptions.make(session: session)
     }
 
-    /// "Tự động" + từng mức HLS (cao → thấp); ô chọn theo `appliedQuality` như hàng chọn cũ.
+    /// "Tự động" + từng mức HLS (cao → thấp); ô chọn theo `appliedQuality` — mức đã nhớ không có ở phim này (mọi mức
+    /// đều cao hơn) thì đang áp Tự động ⇒ ô "Tự động" sáng.
     private var qualityOptions: [VideoPlayerOptionGrid.Option] {
-        let automatic = VideoPlayerOptionGrid.Option(id: "auto", title: "Tự động", isSelected: session.selectedQuality == nil) {
+        let automatic = VideoPlayerOptionGrid.Option(id: "auto", title: "Tự động", isSelected: session.appliedQuality == nil) {
             session.selectQuality(nil)
         }
         return [automatic] + session.qualityOptions.map { option in
             VideoPlayerOptionGrid.Option(
                 id: option.id,
                 title: option.title,
-                isSelected: session.selectedQuality != nil && option == session.appliedQuality
+                isSelected: option == session.appliedQuality
             ) {
                 session.selectQuality(option)
             }

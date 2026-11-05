@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.713] - 2026-11-05
+
+### fix: Cài đặt TTS mở ngay từ màn hẹn giờ, tab con về kiểu cũ
+
+Người dùng: *"vào cài đặt tts từ màn hình hẹn giờ bị lâu"*, *"sửa lại hiển thị tab con kiểu như trước"* (chọn mở đè lên Hẹn giờ, badge trong ô cạnh chữ).
+
+- **Nguyên nhân chậm** (đọc code, chưa đo trên máy):
+  - Bấm ⚙ ⇒ `dismiss()` sheet Hẹn giờ → chờ cứng 0,3 s → bật `showingSettingsSheet` để widget mở sheet Cài đặt. Sheet ở nấc 0.88 trượt xuống lâu hơn 0,3 s nên Cài đặt phải đợi đóng xong rồi mới trượt lên: hai hoạt cảnh nối đuôi.
+  - `TTSSettingsView.onAppear` gọi `AVSpeechSynthesisVoice.speechVoices()` **đồng bộ trên main** (dò kho giọng hệ thống, chậm) ngay lúc sheet đang mở ⇒ chặn hoạt cảnh.
+- **Sửa**:
+  - `TTSSettingsSheetHost` gắn trong `TTSQuickTimerSheet` thay vì `TTSFloatingWidgetView` ⇒ ⚙ chỉ bật cờ, Cài đặt mở **đè lên** sheet Hẹn giờ (một lần trượt); vuốt đóng Cài đặt là về lại Hẹn giờ. Sheet Hẹn giờ là lối vào duy nhất của cờ này. `resumeAfterSettings` vẫn ở `onDisappear` của `TTSSettingsView` nên không đổi.
+  - `TTSSettingsView.loadSystemVoices()`: đọc giọng Siri tiếng Việt bằng `Task.detached`, gán lại trên main, giữ việc chọn giọng mặc định khi engine là Siri mà chưa có giọng. Picker giọng Siri trống một nhịp rồi mới có danh sách. Áp cả khi mở từ tab Cài đặt.
+- **Tab con** về ô viên thuốc có icon như trước 1.3.712 (icon + chữ 13pt, bo 10, đang chọn nền màu nhấn 18% + viền 60%). Badge đỏ tổng số chương nằm **trong ô ngay sau chữ**; tên một dòng, chật thì cắt "…", badge `fixedSize` + ưu tiên bố cục nên luôn đủ số. Header, ⚙, đồng hồ trên bìa, số thứ tự, ô tìm nổi giữ nguyên.
+- Chưa thử máy (Windows, chỉ CI biên dịch). Nếu Cài đặt vẫn chậm thì nghi tiếp `TTSSettingsView` (Form lớn, `isModelDownloaded` chạm đĩa mỗi giọng NghiTTS trong `body`).
+
 ## [1.3.712] - 2026-11-05
 
 ### feat: màn hẹn giờ TTS theo header mục lục Reader, thêm số thứ tự và ô tìm chương

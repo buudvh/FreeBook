@@ -92,7 +92,7 @@ final class VideoPlaybackSession {
     var playbackNotice: String?
     /// Mức chất lượng của item đang phát (HLS ≥ 2 mức, cao → thấp); rỗng ⇒ menu không có mục Chất lượng (`+Quality`).
     var qualityOptions: [VideoQualityOption] = []
-    /// Lựa chọn của người dùng, giữ qua các tập; `nil` = Tự động.
+    /// Lựa chọn của người dùng, nhớ theo tiện ích (`VideoQualityPreferenceStore`); `nil` = Tự động.
     var selectedQuality: VideoQualityOption?
     /// Tập đang xem có bản tải trọn vẹn ⇒ hàng chip/menu server có "Bản tải" (`+Offline`).
     var hasOfflineCopy = false

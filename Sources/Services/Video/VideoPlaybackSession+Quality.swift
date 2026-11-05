@@ -5,14 +5,19 @@ import AVFoundation
 ///
 /// - Chỉ có mục khi item là HLS có từ **2** mức trở lên (mp4, playlist một mức, playlist ghép hình + tiếng của
 ///   `VideoAudioRenditionComposer` ⇒ không có).
-/// - Lựa chọn (`selectedQuality`) là **sở thích** giữ qua các tập trong phiên; mức thật sự áp (`appliedQuality`) là mức
-///   cao nhất của item hiện tại không vượt lựa chọn đó. `stop()` ⇒ về Tự động.
-/// - Áp qua `refreshBandwidthLimit` (`+Lifecycle`): đang phát ẩn thì vẫn ép thấp nhất, hiện lại thì theo lựa chọn.
+/// - Lựa chọn (`selectedQuality`) là **sở thích nhớ theo tiện ích** (`VideoQualityPreferenceStore`, 1.3.743): mỗi item
+///   mới (mở phim, đổi tập) đọc lại từ kho theo `launch.extensionPackageId`; `selectQuality` ghi (Tự động ⇒ xoá).
+///   `stop()` chỉ xoá bản trong RAM, không xoá kho.
+/// - Mức thật sự áp (`appliedQuality`) là mức cao nhất của item hiện tại không vượt lựa chọn đó; **không có** mức nào
+///   như vậy ⇒ Tự động (trước 1.3.743 lấy mức thấp nhất).
+/// - Áp qua `refreshBandwidthLimit` (`+Lifecycle`): đang phát ẩn thì vẫn ép thấp nhất (không ghi kho), hiện lại thì theo
+///   lựa chọn.
 extension VideoPlaybackSession {
     /// Gọi ngay sau khi item mới vào player: bỏ danh sách cũ rồi đọc `variants` của asset (không chặn main).
     func loadQualityOptions(for item: AVPlayerItem) {
         qualityTask?.cancel()
         qualityOptions = []
+        selectedQuality = VideoQualityPreferenceStore.preference(packageId: launch?.extensionPackageId ?? "")
         // `variants` chỉ có trên `AVURLAsset` (item của trình phát luôn dựng từ `AVURLAsset`, kể cả `fbhls://`).
         guard let asset = item.asset as? AVURLAsset else { return }
         qualityTask = Task { [weak self] in
@@ -30,14 +35,16 @@ extension VideoPlaybackSession {
     /// `nil` = Tự động.
     func selectQuality(_ option: VideoQualityOption?) {
         selectedQuality = option
+        VideoQualityPreferenceStore.save(option, packageId: launch?.extensionPackageId ?? "")
         refreshBandwidthLimit()
         AppLogger.shared.log("🎚️ [VideoPlayer] Chọn chất lượng: \(option?.title ?? "Tự động")")
     }
 
-    /// Mức đang áp cho item hiện tại; `nil` = không giới hạn (Tự động, hoặc item không có mục chất lượng).
+    /// Mức đang áp cho item hiện tại; `nil` = không giới hạn (Tự động, item không có mục chất lượng, hoặc mọi mức của
+    /// item đều cao hơn lựa chọn).
     var appliedQuality: VideoQualityOption? {
         guard let selected = selectedQuality, !qualityOptions.isEmpty else { return nil }
-        return qualityOptions.first { $0.isAtMost(selected) } ?? qualityOptions.last
+        return qualityOptions.first { $0.isAtMost(selected) }
     }
 
     /// Mỗi độ phân giải giữ biến thể bitrate cao nhất, xếp cao → thấp; bỏ biến thể chỉ có tiếng. Dưới 2 mức ⇒ `[]`.

@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.743] - 2026-11-05
+
+### feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động
+
+Plan đợt 2 trình phát video, mục 6 (anh Bửu đã duyệt).
+
+- **`VideoQualityPreferenceStore`** (mới, `Services/Video`): một dictionary `UserDefaults` `videoQualityPreferenceByPackage` dạng `[packageId: {height, bitrate}]`. Lưu chiều cao, kèm bitrate cho playlist không khai độ phân giải; không lưu `id`.
+- **`VideoPlaybackSession+Quality`**:
+  - `selectQuality` ghi vào kho theo `launch.extensionPackageId`; chọn "Tự động" ⇒ xoá. `refreshBandwidthLimit` (ép thấp nhất khi phát ẩn) **không** ghi.
+  - Mỗi item mới (mở phim, đổi tập) ⇒ `selectedQuality` đọc lại từ kho. `stop()` chỉ xoá bản trong RAM, không xoá kho.
+  - `appliedQuality` = mức cao nhất ≤ đã chọn; **không có** ⇒ Tự động (thay cho "mức thấp nhất").
+- **Lưới Chất lượng ở ngăn kéo ⋮**: ô sáng theo mức đang áp — áp Tự động (kể cả khi mức đã nhớ không có ở phim này) ⇒ ô "Tự động" sáng.
+- "Nguồn" hiểu là **tiện ích**: phim nào cùng tiện ích thì cùng mức. AVPlayer chỉ đặt được trần, mạng yếu vẫn có thể xuống thấp hơn. Bản tải offline vẫn theo `videoDownloadQuality` riêng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: chọn 720p ở phim A, mở phim B cùng tiện ích ⇒ 720p hoặc mức thấp hơn gần nhất, không có thì Tự động; tắt app mở lại vẫn nhớ.
+
 ## [1.3.742] - 2026-11-05
 
 ### feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc
@@ -730,18 +748,3 @@ Người dùng: *"newvisiblebrowser khi mở browser mà tôi có tab đang xem 
 - **Không áp dụng**: `window.open`/`_blank` (trình duyệt này không có `uiDelegate`, không mở tab từ trong trang); trình duyệt người dùng `BypassWebView` (mỗi lần mở là một store mới, không có tab cũ).
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: tab nền không nằm trên màn hình (như trình duyệt ẩn / lúc thu nhỏ) — trang cần bấm captcha thì phải bấm pill của tab đó.
-
-## [1.3.713] - 2026-11-05
-
-### fix: Cài đặt TTS mở ngay từ màn hẹn giờ, tab con về kiểu cũ
-
-Người dùng: *"vào cài đặt tts từ màn hình hẹn giờ bị lâu"*, *"sửa lại hiển thị tab con kiểu như trước"* (chọn mở đè lên Hẹn giờ, badge trong ô cạnh chữ).
-
-- **Nguyên nhân chậm** (đọc code, chưa đo trên máy):
-  - Bấm ⚙ ⇒ `dismiss()` sheet Hẹn giờ → chờ cứng 0,3 s → bật `showingSettingsSheet` để widget mở sheet Cài đặt. Sheet ở nấc 0.88 trượt xuống lâu hơn 0,3 s nên Cài đặt phải đợi đóng xong rồi mới trượt lên: hai hoạt cảnh nối đuôi.
-  - `TTSSettingsView.onAppear` gọi `AVSpeechSynthesisVoice.speechVoices()` **đồng bộ trên main** (dò kho giọng hệ thống, chậm) ngay lúc sheet đang mở ⇒ chặn hoạt cảnh.
-- **Sửa**:
-  - `TTSSettingsSheetHost` gắn trong `TTSQuickTimerSheet` thay vì `TTSFloatingWidgetView` ⇒ ⚙ chỉ bật cờ, Cài đặt mở **đè lên** sheet Hẹn giờ (một lần trượt); vuốt đóng Cài đặt là về lại Hẹn giờ. Sheet Hẹn giờ là lối vào duy nhất của cờ này. `resumeAfterSettings` vẫn ở `onDisappear` của `TTSSettingsView` nên không đổi.
-  - `TTSSettingsView.loadSystemVoices()`: đọc giọng Siri tiếng Việt bằng `Task.detached`, gán lại trên main, giữ việc chọn giọng mặc định khi engine là Siri mà chưa có giọng. Picker giọng Siri trống một nhịp rồi mới có danh sách. Áp cả khi mở từ tab Cài đặt.
-- **Tab con** về ô viên thuốc có icon như trước 1.3.712 (icon + chữ 13pt, bo 10, đang chọn nền màu nhấn 18% + viền 60%). Badge đỏ tổng số chương nằm **trong ô ngay sau chữ**; tên một dòng, chật thì cắt "…", badge `fixedSize` + ưu tiên bố cục nên luôn đủ số. Header, ⚙, đồng hồ trên bìa, số thứ tự, ô tìm nổi giữ nguyên.
-- Chưa thử máy (Windows, chỉ CI biên dịch). Nếu Cài đặt vẫn chậm thì nghi tiếp `TTSSettingsView` (Form lớn, `isModelDownloaded` chạm đĩa mỗi giọng NghiTTS trong `body`).
