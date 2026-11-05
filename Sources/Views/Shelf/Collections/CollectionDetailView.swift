@@ -161,9 +161,7 @@ struct CollectionDetailView: View {
         .navigationDestination(isPresented: $navigateToChangeSource) {
             changeSourceDestinationView
         }
-        .fullScreenCover(item: $readerRoute, onDismiss: {
-            if readerRoute == nil { ReaderSessionRestoreStore.markClosed() }
-        }) { route in
+        .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
                 BookContentDestination(
                     bookId: route.bookId,

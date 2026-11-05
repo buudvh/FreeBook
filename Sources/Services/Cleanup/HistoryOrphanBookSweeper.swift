@@ -10,8 +10,7 @@ import SwiftData
 /// Chỉ chọn sách `!isOnShelf && !isHistory && !isLocalBook && !recordsHistory`:
 /// - lịch sử cũ (`isHistory == true`) giữ nguyên dù tiện ích đã tắt lưu lịch sử;
 /// - sách của tiện ích vẫn lưu lịch sử (kể cả bản ghi tạm của màn Chi tiết) không bị chạm;
-/// - bỏ qua sách đang phát TTS / còn widget TTS, sách có tác vụ tải/xuất đang chờ hoặc đang chạy, và sách đang ở màn
-///   đọc lúc tắt app (sắp được mở lại, `ReaderSessionRestoreStore`).
+/// - bỏ qua sách đang phát TTS / còn widget TTS, và sách có tác vụ tải/xuất đang chờ hoặc đang chạy.
 ///
 /// Gọi **ngay** lúc mở app, sau `DownloadManager.initialize` (danh sách tác vụ mới có), không hoãn: hoãn thì có thể
 /// xoá đúng bản ghi người dùng vừa mở ở màn Chi tiết/Reader.
@@ -55,10 +54,6 @@ enum HistoryOrphanBookSweeper {
         }
         for task in DownloadManager.shared.tasks where task.status == .pending || task.status == .running {
             ids.insert(task.bookId)
-        }
-        // Truyện đang ở màn đọc lúc tắt app: Kệ sắp mở lại nó (`ReaderSessionRestoreStore`), lượt dọn chạy cùng lúc.
-        if let openBookId = ReaderSessionRestoreStore.markedBookId {
-            ids.insert(openBookId)
         }
         return ids
     }

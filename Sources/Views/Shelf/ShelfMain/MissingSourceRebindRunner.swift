@@ -25,7 +25,7 @@ enum MissingSourceRebindRunner {
                 isInteractive: isInteractive,
                 requiresShelfRoot: requiresShelfRoot,
                 context: context,
-                isBookOpen: { ReaderView.activeBookId == $0 }
+                isBookOpen: { ReaderView.activeBookId == $0 || ReaderSessionRestoreStore.isRestoring(bookId: $0) }
             )
             for item in report.switched where item.newBookId != item.oldBookId {
                 AIRuntimeCoordinator.shared.migrateLastSession(from: item.oldBookId, to: item.newBookId)

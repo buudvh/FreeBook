@@ -28,6 +28,8 @@ public enum BackupSettingsArchiver {
     /// - ba mốc `...LastRunAt` / `LastBatchAt` quyết định lần chạy nền kế tiếp: mang mốc của máy cũ
     ///   sang sẽ làm lượt tự động chạy sai thời điểm;
     /// - hai hàng đợi `failed_*` là việc dở của riêng máy đó;
+    /// - `ReaderSessionRestoreStore.pendingAttemptKey`: cờ chống vòng lặp crash của một lần chạy — mang sang máy khác
+    ///   làm lượt mở lại mục gần nhất đầu tiên bị bỏ qua;
     /// - `custom_search_engines` do `BackupConfigArchiver` sở hữu (entry `config/search_engines.json`)
     ///   để phục hồi **gộp** được từng công cụ; để ở đây thì cả mảng bị ghi đè, xoá mất công cụ chỉ
     ///   có trên máy đang phục hồi.
@@ -42,7 +44,8 @@ public enum BackupSettingsArchiver {
         "newChapterLastBatchAt",
         "failed_file_deletions_queue",
         "failed_chapterstore_deletions_queue",
-        SearchEngine.storageKey
+        SearchEngine.storageKey,
+        ReaderSessionRestoreStore.pendingAttemptKey
     ]
 
     /// Tiền tố bị loại:

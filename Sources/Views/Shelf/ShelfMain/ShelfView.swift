@@ -218,7 +218,7 @@ struct ShelfView: View {
             .task {
                 await runAutoNewChapterCheck()
             }
-            .onAppear { restoreReaderSessionIfNeeded() } // mở lại màn đọc lúc tắt app (`ShelfView+LaunchRestore`)
+            .onAppear { restoreReaderSessionIfNeeded() } // mở lại mục đọc/xem gần nhất (`ShelfView+LaunchRestore`)
             .toolbar {
                 // Một `ToolbarItem` cho cả cụm để 🔍 và "…" đứng sát nhau (`HeaderButtonMetrics`).
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -271,7 +271,7 @@ struct ShelfView: View {
             } message: {
                 Text("Truyện lịch sử không ở trên kệ sách sẽ bị xóa khỏi thiết bị. Truyện trên kệ và truyện đang nghe được giữ nguyên.")
             }
-            .fullScreenCover(item: $readerPresentationRoute, onDismiss: { readerCoverDidDismiss() }) { route in
+            .fullScreenCover(item: $readerPresentationRoute) { route in
                 NavigationStack {
                     BookContentDestination(
                         bookId: route.bookId,

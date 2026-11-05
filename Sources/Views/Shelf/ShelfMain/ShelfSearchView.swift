@@ -184,9 +184,7 @@ struct ShelfSearchView: View {
             }
         }
         .backPageTitle("Tìm trong Kệ sách & Lịch sử")
-        .fullScreenCover(item: $readerRoute, onDismiss: {
-            if readerRoute == nil { ReaderSessionRestoreStore.markClosed() }
-        }) { route in
+        .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
                 BookContentDestination(
                     bookId: route.bookId,

@@ -2,6 +2,35 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.687] - 2026-11-03
+
+### feat: các nhánh của một nhóm trong rule dịch dùng chung số {i}
+
+Người dùng: *"nhiều any ngăn cách bởi | thật ra chỉ có một nhưng gợi ý nhập phần nghĩa lại không nhận ra"*. Đã chốt: áp **mặc định** cho mọi nhóm, không cần cú pháp riêng.
+
+- **Parser** (`QuickTranslationRuleParser.parseGroup`): mỗi nhánh của nhóm `( | )` đánh số từ **cùng một số**; sau nhóm, số tiếp theo nối từ nhánh nhiều token nhất. Giống `(?|…)` của PCRE.
+  - `第<n><L><any>(\(<any>\)|（<any>）|【<any>】)<$>` giờ chỉ có `{0}…{3}`, trong đó `{3}` là nội dung ngoặc của nhánh khớp.
+  - `(<n>|<a><d>)<L>`: `<n>` = 0; `<a>` = 0, `<d>` = 1; `<L>` = 2.
+  - Nhóm lồng áp luật theo từng tầng. `|` ngoài nhóm vẫn là chữ thường.
+  - Matcher không đổi: nhánh không khớp để `{i}` rỗng như trước.
+- **Màn sửa rule** (`QuickTranslationRuleDraftAnalyzer.segments`):
+  - Số `{i}` của chip lấy từ AST của parser, không tự đếm. Mẫu đang gõ dở chưa parse được thì lùi về đánh số phẳng.
+  - `Segment` thêm `tokenPosition` (vị trí duy nhất). Thanh chỉnh độ dài định vị chip bằng vị trí này (`replacing(tokenPosition:)`, `applyTokenSpec`), nên chỉnh `<any>` ở nhánh 2 không sửa nhầm nhánh 1.
+- **Gợi ý ô Bản dịch và dải chip `{i}`:**
+  - Mỗi số một chip; nhãn VoiceOver ghép các token chung số.
+  - Token chưa dùng **không còn tô đỏ như lỗi**, vì `UNUSED_CAPTURE` chỉ là cảnh báo từ 1.3.339. Câu "mọi token phải được dùng" đổi thành "{i} chỉ dùng để khớp, không xuất ra bản dịch". Lời cảnh báo của compiler ghi theo số `{i}`.
+- Câu giải thích token ở màn sửa rule và đoạn token trong `CLAUDE.md` / `AGENTS.md` ghi luật chung số.
+- **Đổi hành vi rule cũ:** rule có token ở từ 2 nhánh trở lên của cùng một nhóm sẽ bị dời số. `{i}` vượt số token thì rule báo lỗi và không chạy; còn trong khoảng thì trỏ sang token khác. Bộ rule mặc định tải về (633 rule) đã quét: không rule nào bị ảnh hưởng.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Dò tay trên code các mẫu:
+  - `(<n>|<a><d>)<L>`
+  - `((<n>|<a>)<d>|<any>)`
+  - `a|<n>`
+  - `\(` và `\|`
+  - mẫu thiếu `)`
+  - rule ngoặc ở trên
+
+  Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.686] - 2026-11-03
 
 ### feat: neo đầu/cuối dòng <^> <$> và <any> bắt mọi ký tự trong rule dịch

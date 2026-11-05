@@ -52,8 +52,8 @@ struct BookContentDestination: View {
 
     var body: some View {
         content
-            // Dấu "đang ở màn đọc" cho lần mở app sau (`ReaderSessionRestoreStore`); xoá ở `onDismiss` của nơi mở cover.
-            .onAppear { ReaderSessionRestoreStore.markOpened(bookId: launch.bookId) }
+            // Danh sách mở gần nhất cho lượt mở lại lúc khởi động (`ReaderSessionRestoreStore`).
+            .onAppear { ReaderSessionRestoreStore.recordOpened(bookId: launch.bookId) }
     }
 
     @ViewBuilder
