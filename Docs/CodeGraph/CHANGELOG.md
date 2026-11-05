@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.722] - 2026-11-05
+
+### fix: Khám phá đổi nguồn thì tab trùng tên tải lại theo nguồn mới
+
+Người dùng: *"Có lỗi khi chuyển ext mở lại tab cũ không được load lại. Ví dụ đang xem tab đồng nhân ext qidian rồi chuyển sang ext stv mở lại tab đồng nhân vẫn hiển thị dữ liệu cũ"*.
+
+- **Nguyên nhân** (`DiscoveryView`):
+  - Trang tab trong `TabView` được nhận diện bằng `CategoryResult.id` (= `title + "_" + input`) cộng `.id(catalogConfigStamp)`, không có nguồn.
+  - Bộ nạp của tab (`PaginatedNovelLoader`, `@StateObject` của `DiscoveryCategoryTabView`) chỉ tạo một lần, với `localPath`/`configJson` của lần dựng đầu.
+  - Đổi nguồn có xoá `homeItems`, nhưng nguồn mới có `explore` thì `loadDiscoveryData` thêm lại tab section **ngay** ⇒ màn chờ không hiện, khung tab không bị dựng lại.
+  - Tab của nguồn mới trùng tên + input với tab của nguồn cũ (vd "Đồng nhân" của qidian và STV) ⇒ SwiftUI giữ nguyên trang, kèm bộ nạp vẫn trỏ vào nguồn cũ. Tab section (`ExploreSectionsView`, id cố định) bị y như vậy.
+- **Sửa**:
+  - Trang tab danh mục và tab section gắn `.id("\(packageId)#\(catalogConfigStamp)")` ⇒ đổi nguồn hay đổi config đều dựng lại với bộ nạp mới.
+  - Tab Thể loại gắn `.id(selectedExtensionId)` ⇒ đổi nguồn thì ô tìm thể loại về rỗng.
+  - Tải lại khi đổi config giữ nguyên như cũ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy: đổi qua lại hai nguồn có tab trùng tên, đổi config của nguồn đang xem.
+
 ## [1.3.721] - 2026-11-05
 
 ### fix: chip nghĩa theo đúng thứ tự màn quản lý, chỉ còn Name/VP
@@ -650,23 +670,3 @@ Người dùng: *"thêm token đóng mở ngoặc cho rule dịch, có thể con
 - `CLAUDE.md` / `AGENTS.md`: cập nhật đoạn token ở mục Dịch thuật VietPhrase.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. Dò tay trên code các mẫu `<[><any><]>` trên `(a)Y(b)` và `【a)`, `<]>` đứng một mình, `<[><any><]><END>`, `(<[>a|b)<]>`, rule cũ `<^>第<n>章`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.691] - 2026-11-04
-
-### fix: chuyển nguồn khi link chương khác dạng, thêm mục chuyển nguồn ở sheet nhấn giữ
-
-Người dùng: *"báo lỗi mục lục nguồn mới khác dạng … nguồn cũ là qimao đường đen, nguồn mới là qimao của tôi"*, *"log không thấy gì, bạn không thêm log lỗi à?"*, rồi *"làm y như bạn nói đi. thêm option chuyển nguồn trong contextmenu với book mất ext"*.
-
-- **Nguyên nhân** (đối chiếu mã hai tiện ích): cùng API mục lục nhưng link chương khác hẳn — bản Đường đen (v37) `https://api-bc.wtzw.com/chapter?chapterId=…&id=…&reader_agent=0`, bản của người dùng (v4) `https://www.qimao.com/shuku/<id>-<chương>/`. 1.3.690 chỉ biết gắn lại tại chỗ nên dừng ở "mục lục khác dạng": gắn tại chỗ thì chương chưa tải mở bằng link cũ hỏng, làm mới mục lục nhân đôi chương.
-- **Bước kiểm 3 mức** (`SourceRebindValidator.Match`):
-  - `sameLinks`: link 3 chương mẫu (đầu, đang đọc, cuối) có trong mục lục mới ⇒ gắn lại tại chỗ như 1.3.690.
-  - `samePositions`: link khác nhưng tên chương ở đúng các vị trí đó trùng (bỏ khoảng trắng thừa, chữ thường) ⇒ chạy luồng Đổi nguồn (`BookSourceChangeCoordinator.run`, kết quả tìm dựng từ link chi tiết cũ): truyện mới với mục lục nguồn mới, chép chương đã tải theo vị trí, chép thiết lập riêng, xoá truyện cũ sau mốc chốt; đang nghe TTS truyện đó thì giữ truyện cũ. View chuyển phiên AI sang truyện mới như `SearchView+SourceChange`.
-  - `different`: lệch cả tên ⇒ không chuyển.
-- **Log**: mọi lần không chuyển được ghi `❌ [SourceRebind]` (link + tên chương mẫu cũ/mới, số chương hai bên) nên có trong log cả khi công tắc log tắt; 1.3.690 ghi dòng thường nên bị nuốt.
-- **Sheet nhấn giữ** (Kệ, Lịch sử, Tìm trên kệ, Bộ sưu tập; `MissingSourceRebindActionRows`, mới): truyện mất nguồn có thêm hàng "Chuyển sang nguồn <tên>" cho từng tiện ích khớp link, đứng trên "Đổi nguồn". Chạy cho riêng truyện đó, kể cả truyện dải báo đã thử không được trong phiên; không đòi đang ở trang gốc Kệ (các màn này là danh sách), vẫn dừng nếu truyện đang mở ở màn đọc.
-- Luồng Đổi nguồn giữ lại truyện cũ (đang nghe TTS, chép chương lỗi) ⇒ truyện cũ vẫn mất nguồn, được nhớ trong phiên để dải báo không chạy lại mỗi lần mở Kệ.
-- `MissingSourceRebindRunner` (mới): phần View dùng chung cho dải báo và sheet — chạy lượt, chuyển phiên AI, toast ("… chép chương lỗi nên giữ lại truyện cũ" khi luồng Đổi nguồn giữ truyện cũ). Bấm lúc đang có lượt đổi nguồn khác ⇒ toast báo thử lại.
-- Rủi ro đã có từ trước: mở truyện cũ trong lúc luồng Đổi nguồn đang chép chương thì màn đọc giữ `Book` cũ khi nó bị xoá.
-- `CLAUDE.md` / `AGENTS.md`: cập nhật mục "Gắn lại nguồn khi tiện ích đã gỡ".
-- Chuyển entry `[1.3.661]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.

@@ -2,6 +2,26 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.691] - 2026-11-04
+
+### fix: chuyển nguồn khi link chương khác dạng, thêm mục chuyển nguồn ở sheet nhấn giữ
+
+Người dùng: *"báo lỗi mục lục nguồn mới khác dạng … nguồn cũ là qimao đường đen, nguồn mới là qimao của tôi"*, *"log không thấy gì, bạn không thêm log lỗi à?"*, rồi *"làm y như bạn nói đi. thêm option chuyển nguồn trong contextmenu với book mất ext"*.
+
+- **Nguyên nhân** (đối chiếu mã hai tiện ích): cùng API mục lục nhưng link chương khác hẳn — bản Đường đen (v37) `https://api-bc.wtzw.com/chapter?chapterId=…&id=…&reader_agent=0`, bản của người dùng (v4) `https://www.qimao.com/shuku/<id>-<chương>/`. 1.3.690 chỉ biết gắn lại tại chỗ nên dừng ở "mục lục khác dạng": gắn tại chỗ thì chương chưa tải mở bằng link cũ hỏng, làm mới mục lục nhân đôi chương.
+- **Bước kiểm 3 mức** (`SourceRebindValidator.Match`):
+  - `sameLinks`: link 3 chương mẫu (đầu, đang đọc, cuối) có trong mục lục mới ⇒ gắn lại tại chỗ như 1.3.690.
+  - `samePositions`: link khác nhưng tên chương ở đúng các vị trí đó trùng (bỏ khoảng trắng thừa, chữ thường) ⇒ chạy luồng Đổi nguồn (`BookSourceChangeCoordinator.run`, kết quả tìm dựng từ link chi tiết cũ): truyện mới với mục lục nguồn mới, chép chương đã tải theo vị trí, chép thiết lập riêng, xoá truyện cũ sau mốc chốt; đang nghe TTS truyện đó thì giữ truyện cũ. View chuyển phiên AI sang truyện mới như `SearchView+SourceChange`.
+  - `different`: lệch cả tên ⇒ không chuyển.
+- **Log**: mọi lần không chuyển được ghi `❌ [SourceRebind]` (link + tên chương mẫu cũ/mới, số chương hai bên) nên có trong log cả khi công tắc log tắt; 1.3.690 ghi dòng thường nên bị nuốt.
+- **Sheet nhấn giữ** (Kệ, Lịch sử, Tìm trên kệ, Bộ sưu tập; `MissingSourceRebindActionRows`, mới): truyện mất nguồn có thêm hàng "Chuyển sang nguồn <tên>" cho từng tiện ích khớp link, đứng trên "Đổi nguồn". Chạy cho riêng truyện đó, kể cả truyện dải báo đã thử không được trong phiên; không đòi đang ở trang gốc Kệ (các màn này là danh sách), vẫn dừng nếu truyện đang mở ở màn đọc.
+- Luồng Đổi nguồn giữ lại truyện cũ (đang nghe TTS, chép chương lỗi) ⇒ truyện cũ vẫn mất nguồn, được nhớ trong phiên để dải báo không chạy lại mỗi lần mở Kệ.
+- `MissingSourceRebindRunner` (mới): phần View dùng chung cho dải báo và sheet — chạy lượt, chuyển phiên AI, toast ("… chép chương lỗi nên giữ lại truyện cũ" khi luồng Đổi nguồn giữ truyện cũ). Bấm lúc đang có lượt đổi nguồn khác ⇒ toast báo thử lại.
+- Rủi ro đã có từ trước: mở truyện cũ trong lúc luồng Đổi nguồn đang chép chương thì màn đọc giữ `Book` cũ khi nó bị xoá.
+- `CLAUDE.md` / `AGENTS.md`: cập nhật mục "Gắn lại nguồn khi tiện ích đã gỡ".
+- Chuyển entry `[1.3.661]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.690] - 2026-11-04
 
 ### feat: truyện mất nguồn tự chuyển sang tiện ích khớp link, hỏi một chạm hoặc tự chuyển

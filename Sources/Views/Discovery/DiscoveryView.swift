@@ -288,6 +288,7 @@ struct DiscoveryView: View {
                                             },
                                             legadoExtension: selected.flatMap { LegadoSourceIdentity.isLegado($0) ? $0 : nil }
                                         )
+                                        .id(selectedExtensionId) // đổi nguồn ⇒ ô tìm thể loại về rỗng
                                         .tag(genresTabId)
                                     }
 
@@ -295,6 +296,11 @@ struct DiscoveryView: View {
                                         if let ext = selected {
                                             let extPackageId = ext.packageId
                                             let extSourceName = ext.name
+                                            // Định danh trang = nguồn + lượt config: hai nguồn có tab trùng tên + input
+                                            // (vd "Đồng nhân" của qidian và STV, tab section cố định) không được dùng lại
+                                            // bộ nạp của nguồn trước — khi cả hai có `explore`, tab section được thêm lại
+                                            // ngay nên khung tab không bị dựng lại lúc đổi nguồn.
+                                            let pageIdentity = "\(extPackageId)#\(catalogConfigStamp)"
                                             let openNovel: (ExtensionItemResult) -> Void = { novel in
                                                 selectedDetailRoute = DiscoveryDetailRoute(
                                                     bookId: "\(extSourceName.lowercased())_\(novel.link)",
@@ -307,7 +313,7 @@ struct DiscoveryView: View {
                                             if ExploreSectionsView.isTab(item) {
                                                 ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
-                                                    .id(catalogConfigStamp) // đổi config ⇒ dựng lại, tải lại theo giá trị mới
+                                                    .id(pageIdentity) // đổi nguồn/config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
                                             } else if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
@@ -322,7 +328,7 @@ struct DiscoveryView: View {
                                                     packageId: extPackageId,
                                                     onSelectNovel: openNovel
                                                 )
-                                                .id(catalogConfigStamp) // bộ nạp là `@StateObject` tạo một lần với `configJson` cũ
+                                                .id(pageIdentity) // bộ nạp là `@StateObject` tạo một lần với nguồn + `configJson` cũ
                                                 .tag(item.id)
                                             } else {
                                                 Color.clear
