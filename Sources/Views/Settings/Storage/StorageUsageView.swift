@@ -4,11 +4,10 @@ import SwiftUI
 /// dữ liệu xếp lớn → nhỏ (`StorageUsageScanner`). Ba loại xoá được (cache ảnh truyện tranh, file xuất, nhật ký) có
 /// nút "Xoá" kèm hộp xác nhận (`StorageUsageCleaner`); xoá xong đo lại.
 ///
-/// Đo trên luồng nền mỗi lần mở màn và khi bấm ↻ — cả cây thư mục có thể hàng chục nghìn file (đoạn HLS, ảnh comic),
-/// nên hàng "Dung lượng" ở Cài đặt không hiện số.
+/// Số liệu nằm ở `StorageUsageRepository` (1.3.730): mở màn hiện ngay lần đo gần nhất kèm giờ đo, rồi đo lại ngầm; thoát
+/// màn giữa chừng vẫn đo tiếp. Cả cây thư mục có thể hàng chục nghìn file (đoạn HLS, ảnh comic), nên hàng "Dung lượng"
+/// ở Cài đặt không hiện số.
 struct StorageUsageView: View {
-    @State private var snapshot: StorageUsageSnapshot? = nil
-    @State private var isScanning = false
     @State private var clearingCategory: StorageUsageCategory? = nil
     @State private var pendingClear: StorageUsageSnapshot.Entry? = nil
 
@@ -16,6 +15,10 @@ struct StorageUsageView: View {
     /// (luật `WHITE_TINT_FILL` cấm tô nền đặc bằng `Color.accentColor`).
     private static let highlightColors: [Color] = [.teal, .purple, .orange]
     private static let restColor = Color(UIColor.systemGray3)
+
+    private var repository: StorageUsageRepository { .shared }
+    private var snapshot: StorageUsageSnapshot? { repository.snapshot }
+    private var isScanning: Bool { repository.isScanning }
 
     var body: some View {
         List {
@@ -32,18 +35,26 @@ struct StorageUsageView: View {
         .backPageTitle("Dung lượng")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    Task { await scan() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 17, weight: .semibold))
+                if isScanning {
+                    // Đang đo (kể cả lượt chạy từ lần vào trước): vòng xoay thay cho ↻.
+                    ProgressView()
                         .frame(width: 36, height: 38)
+                        .accessibilityLabel("Đang đo")
+                } else {
+                    Button {
+                        repository.refresh()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 36, height: 38)
+                    }
+                    .disabled(clearingCategory != nil)
+                    .accessibilityLabel("Đo lại")
                 }
-                .disabled(isScanning || clearingCategory != nil)
-                .accessibilityLabel("Đo lại")
             }
         }
-        .task { await scan() }
+        // Hiện ngay số cũ, đo lại ngầm; lượt đo là của repository nên thoát màn vẫn chạy tiếp.
+        .onAppear { repository.refresh() }
         .confirmationDialog(
             pendingClear.map { "Xoá \($0.category.title.lowercased()) (\(StorageUsageSnapshot.format($0.bytes)))?" } ?? "",
             isPresented: Binding(get: { pendingClear != nil }, set: { if !$0 { pendingClear = nil } }),
@@ -68,6 +79,9 @@ struct StorageUsageView: View {
             if let snapshot {
                 Text(StorageUsageSnapshot.format(snapshot.appBytes))
                     .font(.system(size: 28, weight: .bold))
+                Text(measuredText(snapshot.measuredAt))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 usageBar(snapshot)
                 if let total = snapshot.deviceTotalBytes, let available = snapshot.deviceAvailableBytes {
                     HStack {
@@ -139,22 +153,23 @@ struct StorageUsageView: View {
         index < Self.highlightColors.count ? Self.highlightColors[index] : Self.restColor
     }
 
-    // MARK: - Đo / xoá
-
-    private func scan() async {
-        guard !isScanning else { return }
-        isScanning = true
-        let result = await Task.detached(priority: .utility) { StorageUsageScanner.scan() }.value
-        snapshot = result
-        isScanning = false
+    /// "Đo lúc 14:32" (hôm nay) hoặc "Đo lúc 14:32 03/11"; đang đo thì thêm "· đang đo lại".
+    private func measuredText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "vi_VN")
+        formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "HH:mm dd/MM"
+        let base = "Đo lúc \(formatter.string(from: date))"
+        return isScanning ? base + " · đang đo lại" : base
     }
+
+    // MARK: - Xoá
 
     private func clear(_ entry: StorageUsageSnapshot.Entry) async {
         let category = entry.category
         let before = snapshot?.bytes(of: category) ?? entry.bytes
         clearingCategory = category
         await StorageUsageCleaner.clear(category)
-        await scan()
+        await repository.refreshAfterChange()
         clearingCategory = nil
         let freed = max(0, before - (snapshot?.bytes(of: category) ?? 0))
         ToastManager.shared.show(

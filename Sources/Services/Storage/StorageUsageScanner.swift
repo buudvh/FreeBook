@@ -33,7 +33,8 @@ public enum StorageUsageScanner {
             appBytes: appBytes,
             entries: entries,
             deviceAvailableBytes: volume?.volumeAvailableCapacityForImportantUsage,
-            deviceTotalBytes: volume?.volumeTotalCapacity.map { Int64($0) }
+            deviceTotalBytes: volume?.volumeTotalCapacity.map { Int64($0) },
+            measuredAt: Date()
         )
     }
 

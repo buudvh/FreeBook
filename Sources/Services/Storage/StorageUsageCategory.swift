@@ -5,7 +5,7 @@ import Foundation
 ///
 /// `other` = tổng thư mục nhà của app trừ các loại đã liệt kê (WebKit, `tmp`, cache khác, trí nhớ AI…) ⇒ tổng trên màn
 /// luôn khớp dung lượng thật. Chỉ ba loại xoá được (`isClearable`): tải lại được hoặc chỉ là bản sao để chia sẻ.
-public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable {
+public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, Codable {
     case books
     case videos
     case comics
