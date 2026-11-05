@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.703] - 2026-11-04
+
+### fix: token <m> đứng đầu rule đọc 十 là mười
+
+Người dùng: *"Nếu token <m> giá trị 10 đứng đầu rule ví dụ mười mấy thì dịch là mười thay vì mươi"*; xác nhận `<m>几 = {0} mấy` trên `十几` đang ra "mươi mấy", muốn "mười mấy", tiêu chí *"đứng đầu rule và là 10 thôi, 20 30 vẫn là mươi"*; duyệt plan.
+
+- **Nguyên nhân**: `QuickTranslationMagnitudeFormatter` tra bảng cố định `十`/`一十` → `mươi` (chữ đơn vị để ghép sau số đếm: `几<m>` ⇒ `mấy mươi`), không biết `<m>` đứng ở đâu trong mẫu.
+- **Sửa**: compiler đánh dấu `<m>` là phần tử đầu tiên của mẫu (`QuickTranslationRuleCompiler+LeadingMagnitude`, mới; cờ `QuickTranslationRuleElement.leadsPattern`). Neo `<START>`/`<END>` bỏ qua vì không chiếm ký tự; mẫu mở đầu bằng nhóm thì xét phần tử đầu từng nhánh; chữ cố định hay ngoặc đứng trước thì không tính là đứng đầu. `<m>` được đánh dấu mà khớp `十`/`一十` ⇒ `mười` (`renderMagnitude(_:leadsPattern:)`); `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`, `几<m>年` vẫn `mấy mươi năm`.
+- Giới hạn theo đúng tiêu chí vị trí: câu `几十几` gặp rule `<m>几` vẫn khớp từ `十` (`几` không thuộc lớp ký tự của `<m>` nên không bị chặn biên) ⇒ ra "mấy mười mấy". Tên chương đã lưu bản dịch trong mục lục chỉ đổi sau "Dịch lại tên chương".
+- Hướng dẫn (`QuickTranslationRuleGuide`, mục Token số và nhãn) thêm một ý. Chuyển `[1.3.672]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.702] - 2026-11-04
 
 ### fix: thu nhỏ màn kiểm tra nguồn không còn mất dòng trên hub

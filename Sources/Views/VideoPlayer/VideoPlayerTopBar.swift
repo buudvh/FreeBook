@@ -14,6 +14,8 @@ struct VideoPlayerTopBar: View {
     let onClose: () -> Void
 
     @State private var showingMoreMenu = false // Ngăn kéo `⋯`
+    /// Hàng đầu ngăn kéo `⋯` — cùng khoá với Cài đặt › Đọc & Nghe (`VideoAutoplayPolicy`).
+    @AppStorage(VideoAutoplayPolicy.defaultsKey) private var autoplayOnOpen = VideoAutoplayPolicy.defaultValue
 
     var body: some View {
         HStack(spacing: 6) {
@@ -183,7 +185,8 @@ struct VideoPlayerTopBar: View {
         .accessibilityLabel("Thêm")
     }
 
-    /// Ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba nhóm hàng chọn: bấm là áp dụng ngay, ngăn kéo vẫn mở.
+    /// Đầu ngăn kéo: công tắc "Tự phát khi mở phim". Sau đó ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba lưới
+    /// chọn 3 cột (`VideoPlayerOptionGrid`): bấm là áp dụng ngay, ngăn kéo vẫn mở.
     @ViewBuilder
     private var moreMenuItems: some View {
         let showsGravity = !isLandscape && session.embedContent == nil
@@ -191,24 +194,23 @@ struct VideoPlayerTopBar: View {
         // HLS từ 2 mức trở lên (`VideoPlaybackSession+Quality`); chọn = trần chất lượng, mạng yếu vẫn có thể thấp hơn.
         // Danh sách chỉ xoá khi item mới vào ⇒ chặn thêm lúc nhúng trang / không có item để không hiện mục cũ.
         let showsQuality = session.embedContent == nil && session.hasPlayableItem && !session.qualityOptions.isEmpty
+        SideDrawerToggleRow("Tự phát khi mở phim", systemImage: "play.circle", isOn: $autoplayOnOpen)
+        SideDrawerDivider()
         if showsGravity {
             SideDrawerSectionHeader("Khung hình")
-            ForEach(VideoPlayerController.Gravity.allCases) { gravity in
-                SideDrawerOptionRow(gravity.title, isSelected: gravity == controller.gravity) { controller.setGravity(gravity) }
-            }
+            VideoPlayerOptionGrid(options: VideoPlayerController.Gravity.allCases.map { gravity in
+                VideoPlayerOptionGrid.Option(id: gravity.rawValue, title: gravity.title, isSelected: gravity == controller.gravity) {
+                    controller.setGravity(gravity)
+                }
+            })
         }
         if showsServers {
             SideDrawerSectionHeader("Server")
-            serverOptionRows
+            VideoPlayerOptionGrid(options: serverOptions)
         }
         if showsQuality {
             SideDrawerSectionHeader("Chất lượng · \(session.appliedQuality?.title ?? "Tự động")")
-            SideDrawerOptionRow("Tự động", isSelected: session.selectedQuality == nil) { session.selectQuality(nil) }
-            ForEach(session.qualityOptions) { option in
-                SideDrawerOptionRow(option.title, isSelected: session.selectedQuality != nil && option == session.appliedQuality) {
-                    session.selectQuality(option)
-                }
-            }
+            VideoPlayerOptionGrid(options: qualityOptions)
         }
         if showsGravity || showsServers || showsQuality {
             SideDrawerDivider()
@@ -222,21 +224,42 @@ struct VideoPlayerTopBar: View {
         SideDrawerActionRow("Đóng trình phát", systemImage: "xmark", role: .destructive, action: onClose)
     }
 
-    /// Bản hàng chọn của `serverPicker` cho ngăn kéo (menu Server lúc nằm ngang vẫn dùng `serverPicker`).
-    @ViewBuilder
-    private var serverOptionRows: some View {
+    /// Bản lưới của `serverPicker` cho ngăn kéo (menu Server lúc nằm ngang vẫn dùng `serverPicker`): "Bản tải" (+ "Trực
+    /// tuyến" khi chưa nạp server) đứng đầu như hàng chip dưới khung phim.
+    private var serverOptions: [VideoPlayerOptionGrid.Option] {
+        var options: [VideoPlayerOptionGrid.Option] = []
         if session.hasOfflineCopy {
-            SideDrawerOptionRow("Bản tải", isSelected: session.isPlayingOffline) { session.playOffline() }
+            options.append(.init(id: "offline", title: "Bản tải", systemImage: "arrow.down.circle.fill", isSelected: session.isPlayingOffline) {
+                session.playOffline()
+            })
             if session.servers.isEmpty {
-                SideDrawerOptionRow("Trực tuyến", isSelected: false) { session.playOnline() }
+                options.append(.init(id: "online", title: "Trực tuyến", isSelected: false) { session.playOnline() })
             }
         }
-        ForEach(Array(session.servers.enumerated()), id: \.offset) { index, server in
-            SideDrawerOptionRow(
-                server.title.isEmpty ? "Server \(index + 1)" : server.title,
+        for (index, server) in session.servers.enumerated() {
+            options.append(.init(
+                id: "server-\(index)",
+                title: server.title.isEmpty ? "Server \(index + 1)" : server.title,
                 isSelected: index == session.selectedServerIndex
             ) {
                 session.selectServer(at: index)
+            })
+        }
+        return options
+    }
+
+    /// "Tự động" + từng mức HLS (cao → thấp); ô chọn theo `appliedQuality` như hàng chọn cũ.
+    private var qualityOptions: [VideoPlayerOptionGrid.Option] {
+        let automatic = VideoPlayerOptionGrid.Option(id: "auto", title: "Tự động", isSelected: session.selectedQuality == nil) {
+            session.selectQuality(nil)
+        }
+        return [automatic] + session.qualityOptions.map { option in
+            VideoPlayerOptionGrid.Option(
+                id: option.id,
+                title: option.title,
+                isSelected: session.selectedQuality != nil && option == session.appliedQuality
+            ) {
+                session.selectQuality(option)
             }
         }
     }

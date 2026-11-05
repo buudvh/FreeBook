@@ -86,6 +86,7 @@ extension VideoPlaybackSession {
 
     private func resolveBookHost(book: Book?, launch: BookContentLaunch) -> String {
         if let host = book?.host, !host.isEmpty { return host }
+        if let host = launch.host, !host.isEmpty { return host }
         if let host = launch.onlineChapters.first(where: { !$0.host.isEmpty })?.host { return host }
         return episodes.first(where: { !$0.host.isEmpty })?.host ?? ""
     }

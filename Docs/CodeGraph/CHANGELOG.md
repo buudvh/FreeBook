@@ -2,6 +2,40 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.733] - 2026-11-05
+
+### feat: nền màn xem video: định danh phim, tải chi tiết + mục lục, tự phát và lưới tuỳ chọn trình phát
+
+Người dùng: *"thiết kế lại màn chi tiết cho video (kiểu như app youtube), bấm vào thì sẽ chiếu dọc luôn"*; duyệt plan 3 phần. Đây là **phần 1** (nền); phần 2 = giao diện dưới khung phim + nút Home, phần 3 = đổi các lối vào. Chưa có lối vào nào gọi màn mới.
+
+- **`VideoWatchRequest`** (mới, `Services/Video/Watch/`): dữ liệu lúc bấm phim (tiện ích, link chi tiết, nguồn, host, tên/bìa của item; `init(book:)`, `init(launch:)` cho `Book` đã có).
+  - **Một quy tắc định danh** cho mọi lối vào: `Book` cùng (link, tiện ích) ⇒ id đó (nhiều bản ⇒ bản xem gần nhất); id caller là `Book` có thật ⇒ giữ; còn lại ⇒ id **xác định** `BookIdUtils.make`. Mở cùng phim từ Khám phá rồi từ Tìm không ra hai `Book`.
+  - `BookDetailView.resolveBookId` dùng chung quy tắc này (bỏ `fallbackBookId`). **Đổi cả truyện chữ / truyện tranh**: truyện mới mở từ Chi tiết trước đây nhận UUID ngẫu nhiên mỗi lần mở màn (hoặc chính link khi link có "-" và dài > 30 ký tự), nay nhận id xác định theo (tiện ích, link). Truyện đã lưu không đổi id.
+- **`VideoWatchModel`** (mới, `@MainActor @Observable`, một phiên mỗi màn xem):
+  - Id chốt trong `init`, trước mọi lần gọi nguồn (`SourceRuntimeContext`, cache chi tiết).
+  - Phim đã có `Book` + mục lục trên máy ⇒ hiện và phát được ngay (kể cả ngoại tuyến / chỉ còn bản tải), rồi làm mới từ nguồn.
+  - Chi tiết: cache 5 phút → `BookDetailLoader.fetchDetail`, chạy song song với mục lục; lỗi chi tiết không chặn phát.
+  - Mục lục **đủ**: `fetchFirstPageTOC` + `fetchRemainingPages` (trang 1 hiện ngay, phát khi đủ). Lỗi khi máy chưa có bản nào ⇒ lỗi + "Mở link lỗi" (`SourceErrorLink`, dự phòng trang mục lục đang tải → link chi tiết).
+  - `Book` chỉ tạo khi **bấm phát** (`isOnShelf: false`, `isHistory: false` — Lịch sử bật ở lần lưu tiến độ đầu), cùng đường `startReading` của Chi tiết (`saveChapterList(.replaceFullTOC)`), ghi xong mới `session.open` (tránh đua với `ensureHistoryBook`). Chi tiết về sau khi đã tạo ⇒ điền nốt metadata cho `Book` vừa tạo (`updateBookMetadata`); `Book` có sẵn thì không đè.
+  - `Book` có sẵn mà nguồn **thêm tập ở cuối** ⇒ ghi lại đủ và phiên phát đang chạy phim đó nhận danh sách tập mới (`VideoPlaybackSession+Watch.adoptRefreshedEpisodes`, mới). Nguồn đổi thứ tự / bớt tập ⇒ giữ bản đã lưu (bản tải, tiến độ, server đã nhớ theo chỉ số tập).
+  - Màn biến mất (kể cả bị đóng bằng code) ⇒ huỷ lượt tải / chuẩn bị phát, không tự mở phim khi không còn màn.
+  - `play(episodeIndex:)` dựng `BookContentLaunch` (thêm trường `host`, mặc định `nil`, mọi chỗ khởi tạo cũ không đổi; phiên phát dùng sau `Book.host`) rồi `VideoPlaybackSession.shared.open`. Ghi "Mở lại truyện đọc gần nhất" như `BookContentDestination`.
+  - Có sẵn `ensureBook(isOnShelf:)` và `replace(with:)` (đổi phim tại màn) cho phần 2.
+- **`VideoWatchPresenter`** (mới): mở màn xem bằng `VideoPlayerHostingController` `.overFullScreen` như `VideoPlayerPresenter` (dùng chung `findTopViewController`), gắn lại màu nhấn + `modelContainer`.
+- **`VideoPlayerScreen(watch:onDismiss:)`** (init mới; hai init cũ giữ nguyên):
+  - Phiên phát chưa chạy phim của màn (đang tải, tắt tự phát, phim khác chạy nền) ⇒ khung phim là **`VideoWatchPosterView`** (mới): bìa đặt giữa trên nền mờ của chính bìa, nút ▶ giữa, nhãn "Xem tiếp Tập N · m:ss" / "Tập 1"; đang tải ⇒ vòng xoay; lỗi ⇒ lớp phủ lỗi chung.
+  - Lúc đó màn **không** gắn vào phiên: phim khác vẫn chạy nền, hub vẫn hiện nó, ⌄/✕ chỉ đóng màn. Phiên chuyển sang phim của màn mới gắn.
+  - Phần dưới khung phim lúc chưa phát tạm là tên phim + lưới tập của model (phần 2 thay).
+- **Công tắc "Tự phát khi mở phim"** (`VideoAutoplayPolicy`, khoá `videoAutoplayOnOpen`, mặc định bật): hàng ở Cài đặt › Đọc & Nghe (cạnh "Mở lại truyện đọc gần nhất", có giải thích ở nút "?") và hàng đầu ngăn kéo ⋯ của trình phát.
+  - Bật ⇒ phát ngay khi có mục lục, đúng tập xem dở; phim khác đang chạy nền bị dừng.
+  - Tắt ⇒ bìa + ▶; phim khác đang chạy nền chạy tiếp tới khi bấm ▶.
+- **Ngăn kéo ⋯ của trình phát**: Khung hình / Server / Chất lượng đổi từ hàng chọn sang **lưới 3 cột** `VideoPlayerOptionGrid` (mới, dùng chung): ô đang chọn chữ màu nhấn + nền nhấn mờ 18% + viền 60%, ô thường nền xám tối, tên dài cắt "…". Bấm là áp dụng, ngăn kéo vẫn mở. Điều kiện hiện từng nhóm giữ nguyên.
+  - `SideDrawerOptionRow` không còn chỗ dùng (để nguyên).
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo mọi chỗ khởi tạo `BookContentLaunch` (chỉ `BookContentDestination`) và `fallbackBookId`. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.732] - 2026-11-05
 
 ### fix: mở app là kiểm tra bản mới, bấm dòng phiên bản ở Cài đặt để kiểm tay
@@ -658,16 +692,4 @@ Người dùng: *"Đang có tiến trình kiểm tra rồi thì disable nút ki�
 - **`SourceCheckBusyReader`** (mới, `Views/Extensions/SourceCheck/`): đọc `MinimizedSourceCheckCoordinator.isBusy(kind)` = bộ chạy có lượt **đang chạy ở nền** (đã thu nhỏ). Màn kiểm tra còn mở thì đã che mọi lối vào, và không đổi trạng thái `NavigationLink` đang đẩy chính màn đó. Reader tự observe coordinator nên dùng được trong ngăn kéo ⋯ (cửa sổ nổi riêng).
 - **Bốn lối vào** khoá theo đúng bộ chạy, mờ đi và có chữ lý do: ⋯ tab Nguồn Legado "Kiểm tra nguồn (theo nhóm đang lọc)" và ⋯ tab Tất cả tiện ích "Kiểm tra tiện ích đang hiện" (chữ phụ "Đang chạy"); "Kiểm tra nguồn này" ở Chi tiết nguồn Legado (chữ "Đang có lượt kiểm tra"); nút tròn "Kiểm tra" ở thẻ đầu Cấu hình tiện ích (nhãn đổi thành "Đang chạy"). Lượt Legado không khoá lối vào tiện ích JS và ngược lại (hai bộ chạy riêng, chạy song song được).
 - Lượt chạy từ Debug server không qua màn kiểm tra nên không khoá; bấm vẫn ra màn báo bận như cũ. `rules.md` luật hub (f) thêm ý này. Chuyển `[1.3.673]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.703] - 2026-11-04
-
-### fix: token <m> đứng đầu rule đọc 十 là mười
-
-Người dùng: *"Nếu token <m> giá trị 10 đứng đầu rule ví dụ mười mấy thì dịch là mười thay vì mươi"*; xác nhận `<m>几 = {0} mấy` trên `十几` đang ra "mươi mấy", muốn "mười mấy", tiêu chí *"đứng đầu rule và là 10 thôi, 20 30 vẫn là mươi"*; duyệt plan.
-
-- **Nguyên nhân**: `QuickTranslationMagnitudeFormatter` tra bảng cố định `十`/`一十` → `mươi` (chữ đơn vị để ghép sau số đếm: `几<m>` ⇒ `mấy mươi`), không biết `<m>` đứng ở đâu trong mẫu.
-- **Sửa**: compiler đánh dấu `<m>` là phần tử đầu tiên của mẫu (`QuickTranslationRuleCompiler+LeadingMagnitude`, mới; cờ `QuickTranslationRuleElement.leadsPattern`). Neo `<START>`/`<END>` bỏ qua vì không chiếm ký tự; mẫu mở đầu bằng nhóm thì xét phần tử đầu từng nhánh; chữ cố định hay ngoặc đứng trước thì không tính là đứng đầu. `<m>` được đánh dấu mà khớp `十`/`一十` ⇒ `mười` (`renderMagnitude(_:leadsPattern:)`); `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`, `几<m>年` vẫn `mấy mươi năm`.
-- Giới hạn theo đúng tiêu chí vị trí: câu `几十几` gặp rule `<m>几` vẫn khớp từ `十` (`几` không thuộc lớp ký tự của `<m>` nên không bị chặn biên) ⇒ ra "mấy mười mấy". Tên chương đã lưu bản dịch trong mục lục chỉ đổi sau "Dịch lại tên chương".
-- Hướng dẫn (`QuickTranslationRuleGuide`, mục Token số và nhãn) thêm một ý. Chuyển `[1.3.672]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

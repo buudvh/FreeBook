@@ -19,4 +19,7 @@ struct BookContentLaunch: Equatable {
     let bookDetailUrl: String?
     let bookSourceName: String?
     let initialParagraphIndex: Int?
+    /// Host của sách (item / chi tiết) khi chưa có `Book` để đọc `Book.host` — trình phát dùng sau `Book.host`. Khai `var`
+    /// có mặc định và đứng cuối để init memberwise của mọi chỗ khởi tạo cũ không đổi.
+    var host: String? = nil
 }

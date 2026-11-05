@@ -79,7 +79,8 @@ final class VideoPlayerPresenter {
         }
     }
 
-    private static func findTopViewController() -> UIViewController? {
+    /// Dùng chung với `VideoWatchPresenter` (cùng cách chọn window + VC trên cùng).
+    static func findTopViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
             return nil

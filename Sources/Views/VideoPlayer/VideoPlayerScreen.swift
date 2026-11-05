@@ -1,10 +1,14 @@
 import SwiftUI
 import SwiftData
 
-/// Màn xem phim cho tiện ích loại `video`. Hai đường vào:
+/// Màn xem phim cho tiện ích loại `video`. Ba đường vào:
 /// - Router (`BookContentDestination`, trong `fullScreenCover` + `NavigationStack`): `init(launch:)` mở phim vào
 ///   `VideoPlaybackSession` (cùng phim đang chạy nền thì chỉ gắn lại).
 /// - Presenter (`VideoPlayerPresenter`, mở lại từ hub / PiP): `init(onDismiss:)` gắn vào phiên đang chạy.
+/// - Màn xem (`VideoWatchPresenter`, từ item danh sách): `init(watch:onDismiss:)` — `VideoWatchModel` tải chi tiết + mục
+///   lục rồi tự phát theo công tắc. Phiên phát **chưa** chạy phim của màn (đang tải, tắt tự phát, phim khác chạy nền) ⇒
+///   khung phim là bìa + ▶ (`VideoWatchPosterView`) và màn **không** gắn vào phiên: phim khác vẫn chạy nền, hub vẫn hiện
+///   nó, ⌄/✕ chỉ đóng màn. Phiên chuyển sang phim của màn thì mới gắn (`onChange(of: watchOwnsSession)`).
 ///
 /// Màn hình chỉ gắn / gỡ session: biến mất mà chưa bấm Đóng ⇒ thu nhỏ (phim chạy nền, hub hiện mục Video).
 /// Bố cục: màn dọc = khung 16:9 + tên phim, chip server, lưới tập; ngang hoặc "toàn màn" ở màn dọc = khung phim phủ
@@ -17,6 +21,7 @@ struct VideoPlayerScreen: View {
     private let launch: BookContentLaunch?
     private let onDismiss: (() -> Void)?
     @State private var controller: VideoPlayerController
+    @State private var watch: VideoWatchModel?
     @State private var isLeaving = false
     /// Trình duyệt "Mở link lỗi" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp là quay lại từ
     /// trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
@@ -36,27 +41,52 @@ struct VideoPlayerScreen: View {
         _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
     }
 
+    /// Đường màn xem: như presenter, đóng bằng closure của `VideoWatchPresenter`.
+    init(watch: VideoWatchModel, onDismiss: @escaping () -> Void) {
+        self.launch = nil
+        self.onDismiss = onDismiss
+        _controller = State(initialValue: VideoPlayerController(session: VideoPlaybackSession.shared))
+        _watch = State(initialValue: watch)
+    }
+
     private var session: VideoPlaybackSession { controller.session }
     /// iPhone: chiều dọc compact ⇔ đang ngang.
     private var isLandscape: Bool { verticalSizeClass == .compact }
     private var isFullscreen: Bool { isLandscape || controller.isPortraitFullscreen }
     private var suppressesFloatingWidgets: Bool { isFullscreen || controller.isTouchLocked }
+    /// Màn thường (router / presenter) luôn sở hữu phiên; màn xem chỉ khi phiên đang chạy đúng phim của nó.
+    private var watchOwnsSession: Bool { watch?.ownsSession ?? true }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                VideoPlayerStage(
-                    session: session,
-                    controller: controller,
-                    isLandscape: isLandscape,
-                    isFullscreen: isFullscreen,
-                    onMinimize: { leave(stopPlayback: false) },
-                    onClose: { leave(stopPlayback: true) }
-                )
+                Group {
+                    if let watch, !watchOwnsSession {
+                        VideoWatchPosterView(
+                            model: watch,
+                            onMinimize: { leave(stopPlayback: false) },
+                            onClose: { leave(stopPlayback: true) },
+                            onOpenErrorLink: { controller.openingErrorLink = $0 }
+                        )
+                    } else {
+                        VideoPlayerStage(
+                            session: session,
+                            controller: controller,
+                            isLandscape: isLandscape,
+                            isFullscreen: isFullscreen,
+                            onMinimize: { leave(stopPlayback: false) },
+                            onClose: { leave(stopPlayback: true) }
+                        )
+                    }
+                }
                 .frame(height: isFullscreen ? geometry.size.height : geometry.size.width * 9 / 16)
 
                 if !isFullscreen {
-                    VideoPlayerDetailsView(session: session)
+                    if let watch, !watchOwnsSession {
+                        pendingWatchDetails(watch)
+                    } else {
+                        VideoPlayerDetailsView(session: session)
+                    }
                 }
             }
         }
@@ -70,7 +100,8 @@ struct VideoPlayerScreen: View {
             batchDownloadSheet
         }
         // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
-        .errorLinkBrowser(link: $controller.openingErrorLink, packageId: session.launch?.extensionPackageId) { session.retry() }
+        // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.
+        .errorLinkBrowser(link: $controller.openingErrorLink, packageId: errorLinkPackageId) { retryAfterErrorLink() }
         .onAppear {
             if isCoveredByErrorBrowser {
                 isCoveredByErrorBrowser = false
@@ -80,7 +111,10 @@ struct VideoPlayerScreen: View {
             if let launch {
                 session.open(launch, modelContainer: modelContext.container)
             }
-            session.attachScreen(controller)
+            if watchOwnsSession {
+                session.attachScreen(controller)
+            }
+            watch?.start()
             controller.onMinimizeRequest = { leave(stopPlayback: false) }
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
@@ -89,6 +123,17 @@ struct VideoPlayerScreen: View {
         }
         .onChange(of: suppressesFloatingWidgets) { _, suppressed in
             FloatingWidgetSuppression.shared.isSuppressed = suppressed
+        }
+        .onChange(of: watchOwnsSession) { _, owns in
+            guard !isLeaving else { return }
+            if owns {
+                session.attachScreen(controller)
+                controller.showControls()
+            } else {
+                // Phiên rời phim của màn (dừng / đổi phim) ⇒ trả về bìa với tiến độ mới.
+                session.detachScreen(controller)
+                watch?.refreshResumePoint()
+            }
         }
         .onChange(of: session.pictureInPictureStartCount) { _, _ in
             // Bấm PiP lúc app đang mở ⇒ thu nhỏ trình phát về màn trước, phim chạy tiếp trong cửa sổ PiP (khôi phục từ PiP
@@ -113,6 +158,9 @@ struct VideoPlayerScreen: View {
             controller.isOrientationLocked = false
             session.detachScreen(controller)
             VideoBrightnessKeeper.shared.deactivate(controller)
+            // Màn xem bị đóng bằng code (presenter mở phim khác, về tab…) không qua `leave` ⇒ huỷ lượt tải ở đây, kẻo tải
+            // xong muộn lại tự mở phim khi không còn màn.
+            watch?.cancel()
         }
     }
 
@@ -137,9 +185,11 @@ struct VideoPlayerScreen: View {
     private func leave(stopPlayback: Bool) {
         guard !isLeaving else { return }
         isLeaving = true
-        if stopPlayback {
+        // Màn xem chưa phát phim của nó: ✕ chỉ đóng màn, không dừng phim khác đang chạy nền.
+        if stopPlayback, watchOwnsSession {
             session.stop()
         }
+        watch?.cancel()
         controller.cancelTimers()
         FloatingWidgetSuppression.shared.isSuppressed = false
         let wasLandscape = isLandscape
@@ -151,6 +201,45 @@ struct VideoPlayerScreen: View {
             }
         } else {
             performDismiss()
+        }
+    }
+
+    // MARK: - Màn xem chưa phát
+
+    private var errorLinkPackageId: String? {
+        if let watch, !watchOwnsSession { return watch.request.packageId }
+        return session.launch?.extensionPackageId
+    }
+
+    private func retryAfterErrorLink() {
+        if let watch, !watchOwnsSession {
+            watch.retry()
+        } else {
+            session.retry()
+        }
+    }
+
+    /// Phần dưới khung phim khi màn xem chưa phát (tạm — giao diện màn xem thay ở phần sau): tên phim + lưới tập của
+    /// `VideoWatchModel`; chạm ô tập ⇒ phát tập đó.
+    private func pendingWatchDetails(_ watch: VideoWatchModel) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(watch.displayTitle)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                if !watch.episodes.isEmpty {
+                    VideoEpisodeGridView(
+                        episodes: watch.episodes,
+                        currentIndex: watch.resumeEpisode?.index ?? -1
+                    ) { episode in
+                        watch.play(episodeIndex: episode.index)
+                    }
+                }
+            }
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

@@ -42,8 +42,6 @@ struct BookDetailView: View {
     @State internal var hasLoadedBookData = false
     /// Tăng khi kéo làm mới ⇒ khối Gợi ý/Bình luận tải lại; back về thì không đổi nên chúng giữ kết quả.
     @State internal var sectionRefreshGeneration = 0
-    /// Mã cho truyện chưa lưu mà link không phải UUID: cấp **một lần** cho cả đời màn, không sinh lại mỗi lần hiện.
-    @State private var fallbackBookId = UUID().uuidString
 
     @State internal var genres: [CategoryResult] = []
     @State internal var suggests: [CategoryResult] = []
@@ -828,16 +826,12 @@ struct BookDetailView: View {
     }
 
 
+    /// Quy tắc định danh chung với màn xem phim (`VideoWatchRequest.resolveBookId`): `localBook` → id caller nếu đúng là
+    /// một `Book` có thật → id xác định theo (tiện ích, link) — mở cùng truyện từ nhiều lối không ra hai `Book`.
     private func resolveBookId() {
-        if let book = localBook {
-            resolvedBookId = book.bookId
-        } else {
-            if bookId.contains("-") && bookId.count > 30 {
-                resolvedBookId = bookId
-            } else {
-                resolvedBookId = fallbackBookId
-            }
-        }
+        resolvedBookId = VideoWatchRequest.resolveBookId(
+            matchedBookId: localBook?.bookId, preferredBookId: bookId, packageId: extensionPackageId, detailUrl: initialDetailUrl
+        ) { id in allBooks.contains { $0.bookId == id } }
     }
 
     internal func loadBookData() {
