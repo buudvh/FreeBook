@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Thanh chip nghĩa cuộn ngang: viền theo nguồn (Names đỏ, VietPhrase/Xưng hô/Luật nhân xanh, Phiên âm xám), badge
+/// Thanh chip nghĩa cuộn ngang: viền theo nguồn (Names đỏ, VietPhrase xanh, Phiên âm xám), badge
 /// R/C ở góc trên phải. Dùng chung cho panel Dịch của Reader và sheet Sửa từ của từ điển VP/Names, nên hai nơi luôn
 /// trông giống nhau. Danh sách chip dựng bằng `ReaderView.buildSuggestionChips(for:bookId:)`.
 ///

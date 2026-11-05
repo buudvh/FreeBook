@@ -2,6 +2,31 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.690] - 2026-11-04
+
+### feat: truyện mất nguồn tự chuyển sang tiện ích khớp link, hỏi một chạm hoặc tự chuyển
+
+Người dùng: *"nếu nguồn bị xoá rồi thì tự check url regex nếu có nguồn nào ăn đổi qua nguồn đó được không?"*, rồi *"tạo config Hỏi một chạm - Tự chuyển"*. Duyệt PA1: gắn lại nguồn tại chỗ.
+
+- **Dò** (`MissingSourceRebindCoordinator`, `Services/Books/SourceRebind/`, mới):
+  - Truyện mất nguồn = truyện ở Kệ hoặc Lịch sử có `extensionPackageId` không còn cài; sách nhập từ file không tính.
+  - Ứng viên là tiện ích đã cài trừ nguồn Legado, cùng loại nội dung nếu còn tra được loại của nguồn cũ.
+  - `regexp` phải khớp **cả chuỗi** `detailUrl` như hợp đồng tiện ích: thử link nguyên văn, rồi link bỏ `http(s)://` và `/` cuối (`ExtensionUrlMatcher.WholeMatcher`, mới). `matches(for:in:)` khớp một phần giữ nguyên cho nút Nhập và dịch trang.
+- **Kiểm trước khi chuyển** (`SourceRebindValidator`, mới): chạy chi tiết + toàn bộ mục lục của tiện ích mới trên link cũ. Link của 3 chương đã lưu (đầu, đang đọc, cuối) phải có trong mục lục mới; so cả bản ghép host, bỏ scheme, `www.` và `/` cuối. Không đạt thì không chuyển, vì làm mới mục lục khớp chương theo URL sẽ nhân đôi chương.
+- **Ghi** (`BookTransactionCoordinator.rebindSource`, file `+SourceRebind` mới): đổi `extensionPackageId`, `sourceName`, `sourceUrl`, `host`, **giữ nguyên `bookId`**. Chương đã tải, tiến độ, Name/từ điển riêng, phiên AI không phải chép như Đổi nguồn. Truyện vừa được đổi nguồn ở chỗ khác thì không ghi đè.
+- **Kệ** (`MissingSourceRebindBanner`, mới; `ShelfView` thêm 2 dòng): dò mỗi lần trang gốc Kệ hiện, hiện ở tab Kệ sách và Lịch sử.
+  - Hỏi một chạm: dải báo "N truyện mất nguồn có nguồn khớp link · Chuyển", có nút ẩn trong phiên.
+  - Tự chuyển: chạy ngầm cho truyện chỉ khớp một nguồn; khớp từ 2 nguồn thì vẫn hiện dải báo.
+  - Chạy lần lượt từng truyện, khớp nhiều nguồn thì lấy nguồn đầu tiên (theo thứ tự đã cài) qua bước kiểm. Truyện không chuyển được nhớ trong phiên để không gọi mạng lại. Đang có lượt Đổi nguồn thì bỏ qua.
+  - Rời trang gốc Kệ hoặc mở đúng truyện đang chuyển (`ReaderView.activeBookId`) ⇒ dừng trước khi ghi truyện kế tiếp, lần hiện Kệ sau thử lại.
+  - Toast: Hỏi một chạm báo số truyện đã chuyển / mục lục khác dạng / lỗi tải; Tự chuyển chỉ báo truyện đã chuyển (lý do không chuyển nằm trong log).
+  - Không dò ở Chi tiết/Reader: hai màn giữ `extensionPackageId` cố định từ lúc mở, Chi tiết tìm truyện theo (link, tiện ích), nên gắn lại nguồn khi màn đang mở là màn đó mất truyện.
+- **Cài đặt › Thư Viện › Truyện mất nguồn**: Hỏi một chạm (mặc định) / Tự chuyển (`MissingSourceRebindMode`, khoá `missingSourceRebindMode`).
+- Giới hạn: tác vụ tải đang chờ của truyện vẫn mang nguồn cũ; thiết lập theo nguồn (bật dịch riêng của nguồn, đăng nhập, cấu hình tiện ích) theo nguồn mới; Chi tiết của truyện đang mở ở tab khác lúc chuyển thì cần mở lại.
+- `CLAUDE.md` / `AGENTS.md`: thêm mục "Gắn lại nguồn khi tiện ích đã gỡ" ở Ràng buộc runtime.
+- Chuyển entry `[1.3.660]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.689] - 2026-11-03
 
 ### fix: đổi nguồn chép chương theo lô, dọn truyện cũ an toàn khi app chết

@@ -6,7 +6,7 @@ import Foundation
 /// Trình duyệt không gắn với truyện nào ⇒ chỉ từ điển chung (`bookId: nil`, badge C). Chỉ tra, không sửa nghĩa.
 ///
 /// Nguồn nghĩa dùng chung với Reader: `ReaderView.dictionaryMatches(for:bookId:)` + `ReaderView.suggestionChips(from:)`
-/// (chip `.vietPhrase` gồm VietPhrase, Xưng hô, Luật nhân; `.name` = Names). Hán Việt lấy riêng từ
+/// (chip `.vietPhrase` = VietPhrase, `.name` = Names; Xưng hô / Luật nhân không lên chip từ 1.3.721). Hán Việt lấy riêng từ
 /// `ReaderSelectionCoordinator.hanViet(for:)` nên chip `.hanViet` (Phiên âm) không lặp lại ở nhóm VietPhrase.
 struct BrowserDictionaryLookup: Sendable {
     /// Câu dài hơn trần này thì cắt cửa sổ quanh từ đang tra.

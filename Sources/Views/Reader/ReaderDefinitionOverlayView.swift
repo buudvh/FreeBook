@@ -45,7 +45,7 @@ public struct SuggestionChip: Identifiable, Hashable, Sendable {
     public let id = UUID()
     public let text: String
     public let category: SuggestionChipCategory
-    /// `nil` = không badge (Xưng hô, Luật nhân, Phiên âm). `var` để khi gộp nghĩa trùng thì nâng được badge.
+    /// `nil` = không badge (Phiên âm). `var` để khi gộp nghĩa trùng thì nâng được badge.
     public var scope: Scope?
 
     public init(text: String, category: SuggestionChipCategory, scope: Scope? = nil) {

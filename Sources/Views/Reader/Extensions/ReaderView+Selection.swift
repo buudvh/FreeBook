@@ -116,8 +116,9 @@ extension ReaderView {
 
     /// Tra một từ qua **7** tầng theo đúng thứ tự ưu tiên của pipeline dịch, để màn Dịch nói rõ
     /// nghĩa đang đến từ đâu. Thứ tự này là hợp đồng với UI — đổi thứ tự là đổi nghĩa hiển thị.
-    /// Nhãn nguồn cũng là hợp đồng: `ReaderView+Suggestions` suy màu chip từ tiền tố "Names" và badge R/C từ hậu tố
-    /// "(Riêng)" / "(Chung)".
+    /// Nhãn nguồn cũng là hợp đồng: `ReaderView+Suggestions` chọn nguồn lên chip theo đúng nhãn (chỉ Names/VietPhrase
+    /// Riêng/Chung + Phiên âm, xếp theo màn quản lý chứ không theo thứ tự này), suy màu chip từ tiền tố "Names" và
+    /// badge R/C từ hậu tố "(Riêng)" / "(Chung)".
     func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
         Self.dictionaryMatches(for: word, bookId: bookId)
     }

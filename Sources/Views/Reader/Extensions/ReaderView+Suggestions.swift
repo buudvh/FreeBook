@@ -8,9 +8,13 @@ import SwiftUI
 /// khi từ đang chọn đổi (`updateEditorFromSelection`) và khi định nghĩa của chính từ đó bị sửa/xoá.
 ///
 /// Chip dựng **thẳng từ `dictionaryMatches`** — đúng danh sách màn quản lý định nghĩa (⚙) đang hiện — nên màn đó
-/// có nghĩa nào thì thanh chip có nghĩa đó. Trước 1.3.601 hàm này tự tra lại từ điển và lệch hai chỗ: bỏ cả mục
-/// VietPhrase chung khi nghĩa dài ≥ 100 ký tự, và không tra Xưng hô / Luật nhân ⇒ thanh chỉ còn chip Hán-Việt
-/// trong khi hàng token và màn quản lý vẫn có nghĩa.
+/// có nghĩa nào thì thanh chip có nghĩa đó. Trước 1.3.601 hàm này tự tra lại từ điển và bỏ cả mục VietPhrase chung
+/// khi nghĩa dài ≥ 100 ký tự.
+///
+/// Từ 1.3.721 thanh chip chỉ lấy đúng các mục màn quản lý hiện (Name/VP Riêng/Chung, rồi Phiên âm), theo **thứ tự
+/// của màn đó**. Trước đó chip còn có Xưng hô / Luật nhân đứng trước VP (kể cả khi công tắc dịch của chúng đang tắt):
+/// nghĩa Xưng hô chen lên đầu hàng, rồi nghĩa VP trùng chữ gộp vào và nâng nó lên badge C ⇒ trông như VP Chung xếp
+/// nghĩa đó đầu tiên, còn nghĩa chỉ có ở Xưng hô thì nằm giữa hàng mà không có badge.
 extension ReaderView {
     /// Tính lại chip cho `rawWord` và ghi vào `@State suggestionChips`.
     func refreshSuggestionChips(for rawWord: String) {
@@ -23,14 +27,23 @@ extension ReaderView {
         return suggestionChips(from: dictionaryMatches(for: word, bookId: bookId))
     }
 
-    /// Mỗi nguồn tách theo `/` (và `¦`) thành chip, bỏ nghĩa trùng; thứ tự giữ đúng thứ tự nguồn của
-    /// `dictionaryMatches` (Names → Xưng hô → Luật nhân → VietPhrase → Phiên âm).
+    /// Nguồn được lên chip, theo đúng thứ tự mục của màn Quản lý nghĩa (`ManageDefinitionsView`): bốn mục sửa được
+    /// (`ManageDefinitionsDraft.editableSources`) rồi Phiên âm ở cuối. Xưng hô / Luật nhân không lên chip.
+    /// Nhãn là hợp đồng với `dictionaryMatches(for:bookId:)` (`ReaderView+Selection`) — đổi nhãn ở đó là chip mất im
+    /// lặng, sửa cả hai chỗ.
+    private nonisolated static let chipSourceOrder = ManageDefinitionsDraft.editableSources + ["Phiên âm"]
+
+    /// Mỗi nguồn tách theo `/` (và `¦`) thành chip, bỏ nghĩa trùng. Thứ tự theo `chipSourceOrder` chứ **không** theo
+    /// thứ tự của `matches` (màn quản lý nối nguồn mới thêm vào cuối danh sách — `mergedMatches`); trong một nguồn,
+    /// nghĩa giữ đúng thứ tự đang lưu.
     ///
     /// Badge phạm vi: nghĩa có trong **bất kỳ** nguồn Names/VietPhrase "(Riêng)" nào ⇒ `R`; không có mà có trong nguồn
-    /// "(Chung)" ⇒ `C`; còn lại không badge. Nghĩa trùng giữ category (màu viền) của lần xuất hiện đầu, chỉ nâng badge.
+    /// "(Chung)" ⇒ `C`; Phiên âm không badge. Nghĩa trùng giữ vị trí + category (màu viền) của lần xuất hiện đầu, chỉ
+    /// nâng badge.
     nonisolated static func suggestionChips(from matches: [DictionaryMatchInfo]) -> [SuggestionChip] {
         var chips: [SuggestionChip] = []
-        for match in matches {
+        let ordered = chipSourceOrder.flatMap { source in matches.filter { $0.source == source } }
+        for match in ordered {
             let category = suggestionCategory(forSource: match.source)
             let scope = suggestionScope(forSource: match.source)
             let translation = category == .hanViet ? match.translation.lowercased() : match.translation
@@ -49,7 +62,7 @@ extension ReaderView {
 
     /// Phạm vi suy từ **hậu tố nhãn nguồn** "(Riêng)" / "(Chung)" khai ở `dictionaryMatches(for:bookId:)`
     /// (`ReaderView+Selection`). Đổi nhãn ở đó là badge R/C mất im lặng — sửa cả hai chỗ. Chỉ nguồn Names và
-    /// VietPhrase có phạm vi; Xưng hô, Luật nhân, Phiên âm trả `nil`.
+    /// VietPhrase có phạm vi; Phiên âm trả `nil`.
     private nonisolated static func suggestionScope(forSource source: String) -> SuggestionChip.Scope? {
         guard source.hasPrefix("Names") || source.hasPrefix("VietPhrase") else { return nil }
         if source.hasSuffix("(Riêng)") { return .book }
@@ -68,7 +81,7 @@ extension ReaderView {
     }
 
     /// Màu chip theo nhãn nguồn — nhãn khai ở `dictionaryMatches(for:bookId:)` (`ReaderView+Selection`):
-    /// "Names (…)" viền đỏ, "Phiên âm" viền xám, còn lại (VietPhrase, Xưng hô, Luật nhân) viền xanh.
+    /// "Names (…)" viền đỏ, "Phiên âm" viền xám, VietPhrase viền xanh.
     private nonisolated static func suggestionCategory(forSource source: String) -> SuggestionChipCategory {
         if source.hasPrefix("Names") { return .name }
         if source == "Phiên âm" { return .hanViet }
