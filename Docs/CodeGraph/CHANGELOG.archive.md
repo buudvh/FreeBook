@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.684] - 2026-11-03
+
+### feat: phồn→giản trước khi dịch trang trình duyệt, chung và riêng theo tên miền
+
+Người dùng: *"thêm cài đặt phồn -> giản trước khi dịch trang"*. Đã chốt bằng bảng chọn: có công tắc chung (mặc định tắt) và chỉnh riêng theo tên miền, còn *"Phồn → giản thụt vào trong Tự dịch QT để biết nó là cài đặt con của Tự dịch QT"*.
+
+- **Luật** `BrowserTranslatePolicy.convertsTraditional(urlString:)`: lấy chỉnh riêng của tên miền trước (`BrowserSitePreference.convertsTraditional`, có gộp tên miền cha); không có thì theo công tắc chung `browserTranslateConvertsTraditional`. Không theo tiện ích khớp URL.
+- **Áp cho:** dịch QT cả trang (tự dịch lẫn nút dịch bấm tay) và sheet "Dịch QT" khi bôi đen. `BrowserPageTranslator` đọc cờ trên main ở mỗi lô rồi chỉ chuyển `Bool` sang luồng nền.
+- **Cài đặt › Trình duyệt:** section mới "Dịch trang", công tắc "Chuyển phồn thể → giản thể trước khi dịch" kèm nút "?" giải thích (trang giản thể có thể bị đổi vài chữ mập mờ).
+- **Bảng khiên:** công tắc con "Phồn → giản" thụt dưới "Tự dịch QT", luôn hiện kể cả khi tự dịch đang tắt. Dòng phụ "Theo cài đặt chung" / "Bật/Tắt cho <tên miền>"; nút "Dùng cài đặt chung" xoá chỉnh riêng của cả tên miền cha.
+- **Dịch lại ngay:** đổi công tắc thì tab đang dịch được tắt rồi bật lại dịch trang, không nạp lại. Đổi công tắc chung chỉ dịch lại các tab không có chỉnh riêng.
+- **Trang đã chỉnh riêng:** thêm chip "Phồn → giản" / "Giữ phồn thể".
+- **Backup:** công tắc chung tự vào backup. Chỉnh riêng nằm ở `site_preferences.json` nên không được backup, giống "Tự dịch QT".
+- **Chưa làm:** tiêu đề tab dịch qua `translateMeta` vẫn chưa chuyển phồn→giản.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Cần thử:
+  - Trang phồn thể có/không bật công tắc.
+  - Công tắc riêng theo tên miền thắng công tắc chung.
+  - Dịch lại ngay khi đổi công tắc.
+  - Sheet Dịch QT.
+
 ## [1.3.683] - 2026-11-03
 
 ### feat: bộ rule dịch tên chương, ưu tiên riêng > tên chương > chung

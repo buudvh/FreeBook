@@ -112,13 +112,15 @@ public enum ComicOfflineStore {
         return ComicChapterManifest.Page(file: fileName, width: size?.width, height: size?.height)
     }
 
-    /// Ghi manifest — bước cuối, đánh dấu chương đã tải xong.
+    /// Ghi manifest — bước cuối, đánh dấu chương đã tải xong. Ghi xong thì báo `ChapterDownloadEventCenter` để mục lục
+    /// comic đang mở đổi icon ngay.
     static func saveManifest(_ manifest: ComicChapterManifest, bookId: String, chapterIndex: Int) throws {
         let url = chapterDirectoryURL(bookId: bookId, chapterIndex: chapterIndex)
             .appendingPathComponent(manifestFileName, isDirectory: false)
         try validatePathSafety(for: url)
         let data = try makeEncoder().encode(manifest)
         try data.write(to: url, options: .atomic)
+        ChapterDownloadEventCenter.shared.send(bookId: bookId, chapterIndices: [chapterIndex])
     }
 
     /// Bỏ chương dở dang (lỗi hoặc huỷ giữa chừng).

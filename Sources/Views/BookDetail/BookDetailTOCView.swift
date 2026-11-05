@@ -40,6 +40,7 @@ struct BookDetailTOCView: View {
     /// Dòng của lưới tập (video) đã dịch sẵn — lưới không lazy, dịch trong `body` là dịch mọi tập ở mỗi lần vẽ.
     @State private var videoRows: [BookDetailVideoTOCGrid.Row] = []
     @State var didAutoLoadMoreChapters = false // `+AutoLoad`: tự tải trang mục lục còn lại tối đa một lần
+    @State var freshlyCachedIndices: Set<Int> = [] // `+DownloadEvents`: chương vừa tải xong, `chapterSnapshots` chưa có
     /// Số thứ tự của mục lục đã lưu, dựng lại chỉ khi `chapterSnapshots` đổi (không theo từ khoá / chiều).
     @State private var snapshotNumbering = ChapterOrdinalNumbering.empty
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
@@ -74,10 +75,12 @@ struct BookDetailTOCView: View {
         }
         .onChange(of: appliedSearchQuery) { recomputeVisibleSnapshots() }
         .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
-        .onChange(of: chapterSnapshots, initial: true) {
+        .onChange(of: chapterSnapshots, initial: true) { oldSnapshots, _ in
             snapshotNumbering = ChapterOrdinalNumbering(chapterSnapshots, index: { $0.index }, isSection: { $0.isSection })
             recomputeVisibleSnapshots()
+            reconcileFreshlyCached(previousCount: oldSnapshots.count)
         }
+        .task(id: localBook?.bookId) { await observeChapterDownloads() }
         .onChange(of: isTranslationEnabled) { recomputeVideoRows(snapshots: visibleSnapshots) }
         .onChange(of: filteredOnlineChapters.map(\.offset)) { recomputeVideoRows(snapshots: visibleSnapshots) }
     }
@@ -239,7 +242,7 @@ struct BookDetailTOCView: View {
                                     ordinalDigits: ordinalDigits,
                                     isCurrent: currentIdx == chap.index,
                                     isRead: currentIdx >= 0 && chap.index < currentIdx,
-                                    isCached: chap.isCached,
+                                    isCached: chap.isCached || freshlyCachedIndices.contains(chap.index),
                                     palette: .system,
                                     onSelect: { onStartReading(chap.index) }
                                 )
@@ -259,7 +262,7 @@ struct BookDetailTOCView: View {
                                 ordinalDigits: ordinalDigits,
                                 isCurrent: book.currentChapterIndex == chap.index,
                                 isRead: chap.index < book.currentChapterIndex,
-                                isCached: chap.isCached,
+                                isCached: chap.isCached || freshlyCachedIndices.contains(chap.index),
                                 palette: .system,
                                 onSelect: { onStartReading(chap.index) }
                             )
@@ -276,7 +279,7 @@ struct BookDetailTOCView: View {
                                     ordinalDigits: ordinalDigits,
                                     isCurrent: currentIdx == index,
                                     isRead: currentIdx >= 0 && index < currentIdx,
-                                    isCached: false,
+                                    isCached: freshlyCachedIndices.contains(index),
                                     palette: .system,
                                     onSelect: { onStartReading(index) }
                                 )

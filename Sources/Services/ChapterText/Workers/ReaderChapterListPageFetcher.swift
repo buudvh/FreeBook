@@ -32,7 +32,7 @@ extension ReaderChapterListStore {
                 index: logicIdx,
                 title: item.title,
                 url: item.url,
-                isCached: item.isCached,
+                isCached: item.isCached || freshlyCachedIndices.contains(logicIdx),
                 isPlaceholder: false
             )
         }

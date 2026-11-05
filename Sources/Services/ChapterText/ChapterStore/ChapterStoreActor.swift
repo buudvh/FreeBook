@@ -88,17 +88,26 @@ internal actor ChapterStore: ChapterStoreProtocol {
     internal func updateCacheMetadata(bookId: String, index: Int, url: String, isCached: Bool, offset: Int64, length: Int64) async throws {
         guard let database else { throw ChapterStoreError.unavailable }
         try database.updateCacheMetadata(bookId: bookId, index: index, url: url, isCached: isCached, offset: offset, length: length)
+        if isCached {
+            ChapterDownloadEventCenter.shared.send(bookId: bookId, chapterIndices: [index])
+        }
     }
 
     /// Đánh dấu đã tải cho nhiều chương (tra theo **chỉ số**) trong một transaction — `ChapterStoreDatabase+CacheBatch`.
     internal func markChaptersCached(bookId: String, updates: [(index: Int, offset: Int64, length: Int64)]) async throws {
         guard let database else { throw ChapterStoreError.unavailable }
         try database.markChaptersCached(bookId: bookId, updates: updates)
+        ChapterDownloadEventCenter.shared.send(bookId: bookId, chapterIndices: updates.map { $0.index })
     }
 
+    /// Ba hàm ghi cờ đã tải (hàm này, `updateCacheMetadata`, `markChaptersCached`) là chỗ **duy nhất** báo
+    /// `ChapterDownloadEventCenter` — báo sau khi ghi DB thành công, nên danh sách nạp lại từ DB sau đó luôn thấy cờ mới.
     internal func upsertCachedChapter(bookId: String, metadata: ChapterMetadataSnapshot, isCached: Bool, offset: Int64, length: Int64) async throws {
         guard let database else { throw ChapterStoreError.unavailable }
         try database.upsertCachedChapter(bookId: bookId, metadata: metadata, isCached: isCached, offset: offset, length: length)
+        if isCached {
+            ChapterDownloadEventCenter.shared.send(bookId: bookId, chapterIndices: [metadata.index])
+        }
     }
 
     internal func updateTitleTranslations(bookId: String, updates: [(index: Int, url: String, titleTrans: String)]) async throws {

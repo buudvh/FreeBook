@@ -71,6 +71,7 @@ struct ComicReaderView: View {
         .statusBarHidden(!showsChrome)
         .preferredColorScheme(.dark)
         .task { await bootstrap() }
+        .task { await viewModel.observeChapterDownloads() } // icon "đã tải" của mục lục đổi khi tải xong
         .onAppear { keepScreenAwake() }
         .onDisappear { handleDisappear() }
         .onChange(of: scenePhase) { _, newPhase in

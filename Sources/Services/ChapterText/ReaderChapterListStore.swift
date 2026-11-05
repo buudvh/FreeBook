@@ -47,6 +47,10 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
+    /// Chương được báo đã tải từ lần nạp DB gần nhất (`+CacheEvents`), áp lên mọi hàng dựng sau đó.
+    @ObservationIgnored var freshlyCachedIndices: Set<Int> = []
+    @ObservationIgnored var cacheEventTask: Task<Void, Never>? = nil
+
     public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, shouldConvertTraditionalToSimplified: Bool = false) {
         self.bookId = bookId
         self.modelContext = modelContext
@@ -57,6 +61,11 @@ public final class ReaderChapterListStore {
         self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
 
         setupPlaceholderRows()
+        startObservingCacheEvents()
+    }
+
+    deinit {
+        cacheEventTask?.cancel()
     }
 
     public func updateTranslation(
@@ -95,6 +104,8 @@ public final class ReaderChapterListStore {
         loadedPages = []
         searchResults = []
         searchResultStates = [:]
+        // Cờ đã nằm trong DB trước khi được báo ⇒ lượt nạp mới tự thấy; mục lục đổi thì chỉ số cũ còn có thể sai.
+        freshlyCachedIndices.removeAll()
     }
 
     public func updateSortOrder(isAscending: Bool) {
@@ -234,7 +245,7 @@ public final class ReaderChapterListStore {
                                 index: logicIdx,
                                 title: data.title,
                                 url: data.url,
-                                isCached: data.isCached,
+                                isCached: data.isCached || self.freshlyCachedIndices.contains(logicIdx),
                                 isPlaceholder: false
                             )
                         } else {
@@ -292,7 +303,7 @@ public final class ReaderChapterListStore {
                 index: logicIdx,
                 title: data.title,
                 url: data.url,
-                isCached: data.isCached,
+                isCached: data.isCached || freshlyCachedIndices.contains(logicIdx),
                 isPlaceholder: false
             )
         }
@@ -306,12 +317,9 @@ public final class ReaderChapterListStore {
         )
     }
 
+    /// Tải lẻ / Reader vừa tự tải chương — cùng đường đánh dấu với sự kiện từ `ChapterStore` (`+CacheEvents`).
     public func markCached(index: Int) {
-        guard index >= 0 && index < totalCount else { return }
-        let displayPos = isAscending ? index : (totalCount - 1 - index)
-        if let state = loadedRowStates[displayPos] {
-            state.isCached = true
-        }
+        markCached(indices: [index])
     }
 
     public func jumpToChapter(index: Int) async -> Int {
@@ -353,6 +361,7 @@ public final class ReaderChapterListStore {
             onResultsReady: { [weak self] items, states in
                 self?.searchResults = items
                 self?.searchResultStates = states
+                self?.applyFreshlyCached(to: states.values)
                 // Không log từ khoá, chỉ độ dài. `ms` gồm debounce 250 ms của coordinator.
                 if queryLength > 0 {
                     let ms = Int(Date().timeIntervalSince(startedAt) * 1000)

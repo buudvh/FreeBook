@@ -31,7 +31,7 @@ final class ComicReaderViewModel {
     private(set) var loadGeneration = 0
     /// Ảnh cần cuộn tới ngay sau khi nạp (khôi phục tiến độ). View cuộn xong gọi `didFinishRestoringScroll()`.
     private(set) var pendingScrollPage: Int?
-    private(set) var downloadedChapterIndexes: Set<Int> = []
+    var downloadedChapterIndexes: Set<Int> = [] // ghi ở đây và `+DownloadEvents` (chương tải xong lúc đang mở)
     @ObservationIgnored private(set) var hasStarted = false
 
     @ObservationIgnored private var extensionSnapshot: Extension?
