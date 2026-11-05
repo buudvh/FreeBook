@@ -17,6 +17,7 @@ Plan đợt 2 trình phát video, mục 7–8 (anh Bửu đã duyệt).
 - **`CategoryNovelsListView(onSelectVideo:)`** (mặc định `nil` = hành vi cũ ở mọi chỗ khác): trong trang, bấm phim của nguồn video ⇒ đóng trang trước, lượt sau đổi phim tại chỗ (`VideoWatchModel.replace`, mẫu `BookActionSheet.emit`). Nguồn khác ⇒ đẩy Chi tiết trong trang như cũ.
 - **Bỏ đường sheet cũ**: `VideoWatchExit` chỉ còn `.home` / `.close`; `VideoPlayerScreen.handleExit` bỏ hai nhánh thu nhỏ rồi mở sheet; `VideoWatchPresenter` bỏ `presentPage` / `dismissPage`, `readyTopViewController` dùng chung với trang mới. `performDismiss` đóng trang đang đè (nếu có) trước khi đóng màn.
 - **Nút âm lượng cứng khi trang đang che màn xem**: màn không "đang hiện" ⇒ không hiện thanh, không bỏ tắt tiếng (`VideoWatchPagePresenter.isPresenting`).
+- Commit sửa thêm (cùng tiêu đề, trước khi đẩy): gọi `VideoWatchPagePresenter.dismiss` / `.shared` bằng tên kiểu trong closure thoát của hàm `static`.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu `presentPage` / `dismissPage` / `VideoWatchExit.genre` / `.openDetail` của màn xem. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.

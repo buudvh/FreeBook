@@ -63,7 +63,7 @@ final class VideoWatchPagePresenter {
                         coverUrl: item.cover
                     )
                     AppLogger.shared.log("🎬 [VideoWatch] Chọn phim trong trang ⇒ đóng trang, đổi phim tại chỗ")
-                    dismiss { model?.replace(with: request) }
+                    VideoWatchPagePresenter.dismiss { model?.replace(with: request) }
                 }
             )
         }
@@ -97,7 +97,7 @@ final class VideoWatchPagePresenter {
         }
         VideoOrientationLock.rotate(toLandscape: false)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            MainActor.assumeIsolated { shared.present(root, retryCount: 0) }
+            MainActor.assumeIsolated { VideoWatchPagePresenter.shared.present(root, retryCount: 0) }
         }
     }
 
