@@ -35,6 +35,7 @@ Plan đợt 2 trình phát video, mục 6 (anh Bửu đã duyệt).
   - `appliedQuality` = mức cao nhất ≤ đã chọn; **không có** ⇒ Tự động (thay cho "mức thấp nhất").
 - **Lưới Chất lượng ở ngăn kéo ⋮**: ô sáng theo mức đang áp — áp Tự động (kể cả khi mức đã nhớ không có ở phim này) ⇒ ô "Tự động" sáng.
 - "Nguồn" hiểu là **tiện ích**: phim nào cùng tiện ích thì cùng mức. AVPlayer chỉ đặt được trần, mạng yếu vẫn có thể xuống thấp hơn. Bản tải offline vẫn theo `videoDownloadQuality` riêng.
+- Commit sửa thêm (cùng tiêu đề, trước khi đẩy): mục ghi vào kho khai kiểu `[String: Any]` tường minh — literal dictionary trộn `Int` + `Double` không khai kiểu có thể bị trình biên dịch từ chối.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.

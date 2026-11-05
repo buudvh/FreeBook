@@ -31,7 +31,8 @@ enum VideoQualityPreferenceStore {
         guard !packageId.isEmpty else { return }
         var all = UserDefaults.standard.dictionary(forKey: defaultsKey) ?? [:]
         if let option {
-            all[packageId] = [heightKey: option.height, bitrateKey: option.peakBitRate]
+            let entry: [String: Any] = [heightKey: option.height, bitrateKey: option.peakBitRate]
+            all[packageId] = entry
         } else {
             all.removeValue(forKey: packageId)
         }
