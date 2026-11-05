@@ -208,6 +208,8 @@ Mỗi tác vụ bóc tách tạo `JSExecutor` mới rồi giải phóng — **kh
 
 **Nút "Mở link lỗi"** (1.3.614): executor ghi URL fetch lỗi / fetch gần nhất của lượt chạy (`JSExecutor+FetchTrace`, xoá ở `beginExecution()`; tên miền chặn sẵn không ghi); `ExtensionManager` bọc lỗi của 10 hàm chạy script bằng `ExtensionLoadError` (chữ lỗi giữ nguyên — so kiểu lỗi gốc thì `ExtensionLoadError.unwrapped(_:)`). Màn lỗi dựng link bằng `SourceErrorLink.resolve(from:fallback(s):host:)` **ngay trong `catch`** (fetch lỗi → fetch gần nhất → URL lỗi Legado → URL đầu vào), hiện `ErrorLinkCaption` + `ErrorLinkButton`, và `.errorLinkBrowser(link:onRetry:)` mở `BypassWebView(forcesMobileUserAgent: true)`; đóng ⇒ `WebKitCookieBridge` chép cookie WebKit của tên miền sang `HTTPCookieStorage.shared` ⇒ tự thử lại. Màn lỗi mới thì nối cùng kiểu này.
 
+**Bộ lọc theo tab** (1.3.746): nút / sheet "Bộ lọc" (`ExtensionFilterButton` / `ExtensionFilterSheet`) chỉ hiện mục `select` / công tắc / `list` của `config` mà **script của tab** nhắc tới — file đó cùng mọi file nó `load('x.js')` (đệ quy), bỏ comment, khớp nguyên tên (`ExtensionScriptConfigScanner`, quét chữ, không chạy script). Tab = `ExtensionFilterScope`: Khám phá theo tab đang chọn (Trang chủ ⇒ `explore`, Thể loại ⇒ `genre`, tab home ⇒ `script` của mục), danh sách thể loại / Xem thêm ⇒ `category.script`, Tìm một nguồn ⇒ `search`. Tab không dùng mục nào ⇒ ẩn nút. Khoá mà file dùng chung (vd `config.js` load ở mọi script) nhắc tới thì hiện ở mọi tab — quét chữ không theo luồng dữ liệu; muốn gọn thì sửa tiện ích, không sửa app. Màn danh sách mới của tiện ích gắn nút + sheet kèm `scope`.
+
 Có skill riêng cho việc này: `.agents/skills/extension_helper/SKILL.md` (mẫu `plugin.json` + mẫu từng script).
 
 ### Comic & Video (1.3.531)

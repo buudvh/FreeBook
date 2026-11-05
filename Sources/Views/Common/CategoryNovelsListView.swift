@@ -31,6 +31,9 @@ struct CategoryNovelsListView: View {
         BookListLayoutScope(kind: ExtensionContentKind.resolve(packageId: extensionPackageId))
     }
 
+    /// Bộ lọc chỉ gồm các mục `config` mà script của danh sách (cùng các file nó `load`) dùng tới.
+    private var filterScope: ExtensionFilterScope { .file(category.script) }
+
     /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
     /// sách và tiêu đề phải hiện nguyên văn.
     private var isTranslationEnabled: Bool {
@@ -144,6 +147,7 @@ struct CategoryNovelsListView: View {
                 HStack(spacing: HeaderButtonMetrics.pairSpacing) {
                     ExtensionFilterButton(
                         ext: ExtensionLibraryRepository.shared.installedExtension(packageId: extensionPackageId),
+                        scope: filterScope,
                         style: .toolbar
                     ) { showingFilterSheet = true }
                     Button {
@@ -162,7 +166,7 @@ struct CategoryNovelsListView: View {
             BookListLayoutSheet(scope: layoutScope)
         }
         .sheet(isPresented: $showingFilterSheet) {
-            ExtensionFilterSheet(packageId: extensionPackageId) { configJson in
+            ExtensionFilterSheet(packageId: extensionPackageId, scope: filterScope) { configJson in
                 Task { await loader.reset(configJson: configJson) }
             }
         }

@@ -76,6 +76,8 @@ struct DiscoveryView: View {
     @State private var showingExtensionSelector = false
     /// Sheet "Bộ lọc" của nguồn đang xem (`ExtensionFilterSheet`); đóng ⇒ tải lại nếu config vừa đổi.
     @State private var showingFilterSheet = false
+    /// Tab lúc bấm nút lọc — sheet giữ đúng tab đó dù người dùng vuốt sang tab khác phía sau.
+    @State private var filterSheetScope: ExtensionFilterScope = .file("")
     @State private var isTranslationEnabled = false
     
     // Import từ trình duyệt
@@ -98,6 +100,14 @@ struct DiscoveryView: View {
     /// Phạm vi kiểu hiển thị theo loại của nguồn; chưa chọn nguồn ⇒ truyện chữ.
     private static func layoutScope(for ext: Extension?) -> BookListLayoutScope {
         BookListLayoutScope(kind: ext.map(SearchExtensionScopePolicy.kind(of:)) ?? .text)
+    }
+
+    /// Script của tab đang chọn cho nút lọc: Trang chủ ⇒ `explore`, Thể loại ⇒ `genre`, tab home ⇒ script của mục.
+    /// Chưa có tab ⇒ không có mục lọc.
+    private var filterScope: ExtensionFilterScope {
+        if selectedCategoryId == genresTabId { return .pluginScript("genre") }
+        guard let item = homeItems.first(where: { $0.id == selectedCategoryId }) else { return .file("") }
+        return ExploreSectionsView.isTab(item) ? .pluginScript("explore") : .file(item.script)
     }
 
     private func shouldRenderCategoryTab(id: String) -> Bool {
@@ -149,8 +159,12 @@ struct DiscoveryView: View {
 
                         // Các nút tròn đứng sát nhau (`HeaderButtonMetrics.pairCircleSpacing`), giữ cỡ 38.
                         HStack(spacing: HeaderButtonMetrics.pairCircleSpacing) {
-                            // Bộ lọc của nguồn (mục select/công tắc/list trong `config`) — không có thì không hiện.
-                            ExtensionFilterButton(ext: selected, style: .circle) { showingFilterSheet = true }
+                            // Bộ lọc của tab đang xem (mục select/công tắc/list mà script của tab dùng) — không có thì không hiện.
+                            let scope = filterScope
+                            ExtensionFilterButton(ext: selected, scope: scope, style: .circle) {
+                                filterSheetScope = scope
+                                showingFilterSheet = true
+                            }
 
                             // Menu gộp của nguồn: công tắc NSFW · Mở trình duyệt · Kiểu hiển thị · Dịch văn bản.
                             if let ext = selected {
@@ -473,7 +487,7 @@ struct DiscoveryView: View {
             )
             .sheet(isPresented: $showingFilterSheet) {
                 if let packageId = selectedExtension?.packageId {
-                    ExtensionFilterSheet(packageId: packageId)
+                    ExtensionFilterSheet(packageId: packageId, scope: filterSheetScope)
                 }
             }
             .sheet(isPresented: $showingLayoutSheet) {

@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.746] - 2026-11-06
+
+### feat: bộ lọc chỉ hiện config mà script của tab dùng tới
+
+Người dùng: *"Chỉ hiển thị những config dùng trong danh sách trong bộ lọc"*. Anh Bửu chốt qua grill-me: tab chạy `gen.js`, trong `gen.js` (cùng các file nó `load()`) có nhắc tới config B thì bấm lọc ở tab đó mới có B. Chỉ sửa app, không sửa tiện ích.
+
+- **`ExtensionScriptConfigScanner`** (mới, `Services/Extensions/Config`): quét chữ, không chạy script.
+  - Đọc file script của tab cùng mọi `load('x.js')` chữ cố định (đệ quy, chống lặp, tối đa 30 file). File tìm ở gốc tiện ích rồi `src/` như `JSExecutor+Load`; thư viện dựng sẵn không có file thì bỏ qua.
+  - Bỏ comment `//`, `/* */` ngoài chuỗi (chuỗi giữ nguyên; ngoài chuỗi `\` bỏ qua ký tự kế để `/https?:\/\//` không thành comment).
+  - Khớp **nguyên tên** khoá: `(?<![A-Za-z0-9_$])KEY(?![A-Za-z0-9_$])` ⇒ `FILTER_SORT` không khớp `FILTER_SORT_NAME`.
+- **`ExtensionFilterScope`** (mới): `.file(tên)` hoặc `.pluginScript(khoá)` (đổi ra tên file lúc quét, ngoài main).
+  - Khám phá theo tab đang chọn: Trang chủ ⇒ `explore`, Thể loại ⇒ `genre`, tab home ⇒ `script` của mục. Sheet giữ tab lúc bấm.
+  - Danh sách thể loại / Xem thêm (`CategoryNovelsListView`) ⇒ `category.script`; Tìm một nguồn ⇒ `search`.
+- `ExtensionConfigSchema.tabFilterKeys(for:localPath:)`; `hasActiveFilter(values:keys:)` chỉ xét khoá của tab.
+- `ExtensionFilterCatalog`: khoá bảng gồm cả tab; chỉ dọn bản của version/config cũ, không dọn tab khác. Chấm "đang lọc" theo khoá của tab.
+- `ExtensionFilterButton(ext:scope:…)`, `ExtensionFilterSheet(packageId:scope:…)`: sheet chỉ hiện / đặt lại / ghi khoá của tab, khoá khác giữ nguyên trong `configJson`. Đọc `plugin.json` + quét chạy ngoài main. Tab không dùng khoá nào ⇒ ẩn nút.
+- **Giới hạn đã báo anh**: quét chữ không theo luồng dữ liệu. Tiện ích đọc mọi khoá trong file dùng chung (`config.js` của sto9, missav, 123av) thì mọi tab vẫn hiện đủ; qimao / wikidich thừa `COMMENT_MODE` / `FILTER_REVIEW_SORT`. qidian, STV, youtube hiện đúng theo tab.
+- `CLAUDE.md` + `AGENTS.md`: thêm luật bộ lọc theo tab ở mục Extension JavaScript.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. Mô phỏng cùng thuật toán bằng Python trên 9 tiện ích của anh ⇒ kết quả khớp phân tích ở trên.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: nút lọc đổi theo tab ở Khám phá, trang Xem thêm, Tìm một nguồn; áp dụng xong danh sách tải lại.
+
 ## [1.3.745] - 2026-11-05
 
 ### docs: cập nhật README theo tính năng hiện tại của app
@@ -739,25 +763,3 @@ Người dùng yêu cầu đổi tên cũ của app (FreeBook) và tên app ti�
 - **Tài liệu**: `README.md` (tiêu đề "Tàng Công Các", ghi rõ tên kỹ thuật vẫn là `FreeBook`), `CLAUDE.md` + `AGENTS.md`, `.agents/AGENTS.md`, `rules.md`, `Docs/Specs/legado-source-spec*.md` (scheme đề xuất chưa có code → `tangcongcac://`), 4 file giấy phép `Docs/ThirdParty`, 3 mockup, 2 dòng đầu file này. Skill mẫu tiện ích đổi thư mục thành `.agents/skills/extension_helper/`. Tool VS Code: README, LICENSE và chữ hiển thị (tiêu đề lệnh, category, Output, thanh trạng thái, thông báo) — **giữ** ID lệnh, setting, package, publisher nên cấu hình đã lưu không mất; phải build lại VSIX mới thấy tên mới.
 - **Cố ý giữ** (đổi là mất dữ liệu hoặc vỡ tương thích): target/scheme/module/bundle id `FreeBook`, `FreeBookApp`, `FreeBookBridgingHeader.h`, tên `.xcodeproj`/IPA/artifact trong CI; khoá UserDefaults `FreeBook_*`; keychain `com.raikiri1498.FreeBook.*` / `FreeBook.GoogleAccountSnapshots`; thư mục `Application Support/FreeBook/TTS/` (và câu lỗi nhắc nó); tiền tố backup `freebook-` / `freebook-auto-`; thư mục Drive `FreeBookBackups`; salt giải mã và tiền tố khoá cũ của tiện ích JS; giao thức debug `freebook-extdebug.v1`; repo `buudvh/FreeBook`.
 - **Kiểm chứng**: grep lại chỉ còn các chỗ cố ý giữ ở trên; `check_architecture.py` như nền (1 violation `JSDom.swift`), 0 mới; mọi thay đổi là thay trong dòng, không thêm dòng code. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.716] - 2026-11-05
-
-### feat: mở lại truyện đang đọc khi mở app, có công tắc trong Cài đặt
-
-Người dùng: *"thêm chức năng mở lại chương đã xem trước khi tắt và thêm config bật tắt chức năng này"*. Người dùng chọn: áp cho chữ + truyện tranh + phim nhưng nguồn 18+ không tự mở lại; chỉ mở lại khi lúc tắt app đang ở màn đọc; TTS mở đúng chỗ, không phát; phim dừng sẵn; công tắc ở Cài đặt › Đọc & Nghe, mặc định bật.
-
-- **`ReaderSessionRestoreStore`** (`Services/Books/ReaderSession/`, mới): giữ khoá công tắc `restoreReaderOnLaunch` (đọc `object(forKey:) as? Bool ?? true` vì `@AppStorage` không ghi mặc định), dấu `bookId` của màn đọc đang mở, cờ "đang thử mở lại" và chốt mỗi tiến trình một lần.
-- **Ghi/xoá dấu**:
-  - `BookContentDestination.onAppear` ghi dấu ⇒ đủ cả chữ, truyện tranh, phim.
-  - Chỉ `onDismiss` của 4 cover màn đọc xoá dấu, khi route đã về `nil`: Kệ, Tìm trên kệ, Bộ sưu tập, Chi tiết. Không dùng `onDisappear` vì Chi tiết đẩy vào hay màn AI phủ lên cũng làm màn đọc biến mất.
-  - Trình phát mở lại từ hub/PiP (`VideoPlayerPresenter`) không qua router ⇒ không tính là đang ở màn đọc.
-- **Mở lại** (`ShelfView+LaunchRestore`, gọi ở `onAppear` của Kệ):
-  - Chờ 0,35 s rồi đặt `readerPresentationRoute` như khi bấm truyện trên Kệ: chương `Book.currentChapterIndex`, vị trí `nil` ⇒ chữ về đoạn đã lưu, truyện tranh về ảnh, phim về giây. TTS đang đọc lúc tắt thì tiến độ thuộc TTS ⇒ mở đúng đoạn TTS, không tự phát.
-  - Bỏ qua và xoá dấu khi: công tắc tắt, truyện không còn trên máy, truyện 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật Kệ dùng để ẩn, gồm cả truyện tự đánh dấu), còn nhật ký đổi nguồn dở.
-- **Chống vòng lặp crash**: bật cờ ngay trước khi mở lại. Cờ xoá khi màn sống đủ 10 s, khi app rời trạng thái active (`MainTabView`) hoặc khi đóng màn đọc. Mở app mà cờ còn ⇒ bỏ qua lần này, log `❌ [ReaderRestore]`.
-- **`HistoryOrphanBookSweeper`** không xoá truyện đang mang dấu: truyện của tiện ích tắt lưu lịch sử có thể bị dọn đúng lúc đang được mở lại.
-- **Phim dừng sẵn**: `VideoPlaybackSession+Playback` hỏi `consumePausedVideoStart` khi item sẵn sàng ⇒ tua tới giây đã lưu rồi dừng. Phim nhúng trang web không áp được.
-- **Cài đặt › Đọc & Nghe**: thêm công tắc "Mở lại truyện đang đọc"; tiêu đề section thành `SectionHelpHeader` với nút "?" giải thích.
-- `CLAUDE.md`/`AGENTS.md`: thêm luật lối mở màn đọc bằng cover phải xoá dấu ở `onDismiss`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.

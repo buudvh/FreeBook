@@ -157,7 +157,7 @@ struct SearchView: View {
             }
             .sheet(isPresented: $showingFilterSheet) {
                 if let packageId = selectedExtension?.packageId {
-                    ExtensionFilterSheet(packageId: packageId) { _ in performSearch() }
+                    ExtensionFilterSheet(packageId: packageId, scope: .pluginScript("search")) { _ in performSearch() }
                 }
             }
             .errorLinkBrowser(link: $openingErrorLink, packageId: statusErrorLink?.packageId) { retryStatusError() }
@@ -239,8 +239,10 @@ struct SearchView: View {
                 onClear: clearSearch
             )
             if !searchAllSources, let ext = selectedExtension {
+                // Chỉ các mục `config` mà `search` (cùng các file nó `load`) dùng tới.
                 ExtensionFilterButton(
                     ext: ExtensionLibraryRepository.shared.installedExtension(packageId: ext.packageId),
+                    scope: .pluginScript("search"),
                     style: .inline
                 ) { showingFilterSheet = true }
             }

@@ -78,6 +78,15 @@ struct ExtensionConfigSchema {
         declaredKeys.filter { items[$0]?.isFilter == true }
     }
 
+    /// Khoá lọc của **một tab**: chỉ những khoá mà script của tab (cùng các file nó `load`) nhắc tới, theo thứ tự trong
+    /// `config` (`ExtensionScriptConfigScanner`). Tab không có script ⇒ rỗng. Đọc file ⇒ gọi ngoài main.
+    func tabFilterKeys(for scope: ExtensionFilterScope, localPath: String) -> [String] {
+        let keys: [String] = self.filterKeys
+        guard !keys.isEmpty, let script = scope.fileName(localPath: localPath) else { return [] }
+        let used = ExtensionScriptConfigScanner.referencedKeys(localPath: localPath, entryScript: script, candidates: keys)
+        return keys.filter { used.contains($0) }
+    }
+
     // MARK: - Đọc
 
     static func load(localPath: String) throws -> ExtensionConfigSchema {
@@ -180,10 +189,10 @@ struct ExtensionConfigSchema {
         return values
     }
 
-    /// Mục lọc nào đang khác mặc định — chấm trắng trên nút lọc. Giá trị lạ của `select` coi như lựa chọn đầu (cách màn
-    /// Cấu hình hiển thị).
-    func hasActiveFilter(values: [String: String]) -> Bool {
-        filterKeys.contains { key in
+    /// Mục lọc nào (trong `keys` — khoá lọc của tab đang xem) đang khác mặc định — chấm trên nút lọc. Giá trị lạ của
+    /// `select` coi như lựa chọn đầu (cách màn Cấu hình hiển thị).
+    func hasActiveFilter(values: [String: String], keys: [String]) -> Bool {
+        keys.contains { key in
             guard let item = items[key] else { return false }
             let value = values[key] ?? item.default ?? ""
             if item.mode == "select" {
