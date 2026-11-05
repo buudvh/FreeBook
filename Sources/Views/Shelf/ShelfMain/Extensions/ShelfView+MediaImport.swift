@@ -31,10 +31,15 @@ extension ShelfView {
         switch route {
         case .text(let url):
             importLocalBook(from: url)
-        case .comic(let url):
-            prepareMediaImport(log: "truyện tranh") {
-                let plan = try LocalComicImporter.prepare(pickedURL: url)
-                await MainActor.run { self.pendingComicImport = plan }
+        case .archive(let url):
+            // ZIP/CBZ: có video ⇒ một phim (sheet "Nhập phim"), không có ⇒ truyện tranh (1.3.731).
+            prepareMediaImport(log: "file nén") {
+                switch try LocalMediaArchiveImporter.prepare(pickedURL: url) {
+                case .comic(let plan):
+                    await MainActor.run { self.pendingComicImport = plan }
+                case .video(let plan):
+                    await MainActor.run { self.pendingVideoImport = plan }
+                }
             }
         case .video(let urls):
             prepareMediaImport(log: "phim") {

@@ -4,9 +4,9 @@ import UIKit
 
 /// Nhập truyện tranh từ **một** file CBZ/ZIP = cả bộ (người dùng chốt).
 ///
-/// - `prepare` (ngoài main): chuyển file vào `LocalMediaImportWorkspace`, kiểm dung lượng trống, giải nén bằng
-///   `BackupZipArchive.extract` (ZIPFoundation chỉ được gọi ở đó), rồi quét ảnh. Không hỗ trợ ZIP có mật khẩu,
-///   CBR/RAR/7z.
+/// - Chuyển file, kiểm chỗ trống và giải nén nằm ở `LocalMediaArchiveImporter` (1.3.731: ZIP có video ⇒ phim, không có
+///   ⇒ truyện tranh). Ở đây chỉ còn `plan(fromExtracted:…)` = quét ảnh của thư mục đã giải nén. Không hỗ trợ ZIP có mật
+///   khẩu, CBR/RAR/7z.
 /// - Chương = mỗi thư mục **trực tiếp** chứa ảnh, xếp theo đường dẫn tên tự nhiên; thư mục bọc ngoài chung bị bỏ khỏi
 ///   tên. Không có thư mục con ⇒ một chương. Ảnh trong chương xếp theo tên tự nhiên.
 /// - Zip-slip: lúc **ghi** do ZIPFoundation chặn (bản 0.9.x mới từ chối entry ra ngoài thư mục đích); bước quét chỉ là
@@ -36,42 +36,20 @@ enum LocalComicImporter {
     }
 
     static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "avif"]
-    private static let spaceMargin: Int64 = 50 * 1024 * 1024
 
     // MARK: - Chuẩn bị
 
-    static func prepare(pickedURL: URL) throws -> LocalComicImportPlan {
-        let fileName = pickedURL.lastPathComponent
-        let workDirectory = try LocalMediaImportWorkspace.make()
-        do {
-            let ext = pickedURL.pathExtension.lowercased()
-            let archive = try LocalMediaImportWorkspace.adopt(pickedURL, into: workDirectory, as: "source.\(ext.isEmpty ? "zip" : ext)")
-            // CBZ thường lưu ảnh không nén ⇒ bản giải nén xấp xỉ cỡ file. Kiểm trước để không đầy ổ giữa chừng.
-            let archiveSize = LocalMediaImportWorkspace.fileSize(archive)
-            if let available = LocalMediaImportWorkspace.availableCapacity(), available < archiveSize + spaceMargin {
-                throw ImportError.notEnoughSpace(ByteCountFormatter.string(fromByteCount: archiveSize + spaceMargin, countStyle: .file))
-            }
-            let extracted = workDirectory.appendingPathComponent("extracted", isDirectory: true)
-            do {
-                try BackupZipArchive.extract(archive: archive, to: extracted)
-            } catch {
-                throw ImportError.unreadableArchive(error.localizedDescription)
-            }
-            // Bỏ bản nén ngay để trả lại chỗ trống cho bước chuyển ảnh.
-            try? FileManager.default.removeItem(at: archive)
-            let scan = try scanChapters(in: extracted)
-            AppLogger.shared.log("📥 [ComicImport] \(fileName): \(scan.chapters.count) chương, \(scan.folderCount) thư mục con")
-            return LocalComicImportPlan(
-                fileName: fileName,
-                defaultTitle: (fileName as NSString).deletingPathExtension,
-                workDirectory: workDirectory,
-                chapters: scan.chapters,
-                folderCount: scan.folderCount
-            )
-        } catch {
-            LocalMediaImportWorkspace.discard(workDirectory)
-            throw error
-        }
+    /// Quét ảnh của thư mục đã giải nén (`LocalMediaArchiveImporter.prepare`). Lỗi ⇒ caller xoá thư mục làm việc.
+    static func plan(fromExtracted extracted: URL, workDirectory: URL, fileName: String) throws -> LocalComicImportPlan {
+        let scan = try scanChapters(in: extracted)
+        AppLogger.shared.log("📥 [ComicImport] \(fileName): \(scan.chapters.count) chương, \(scan.folderCount) thư mục con")
+        return LocalComicImportPlan(
+            fileName: fileName,
+            defaultTitle: (fileName as NSString).deletingPathExtension,
+            workDirectory: workDirectory,
+            chapters: scan.chapters,
+            folderCount: scan.folderCount
+        )
     }
 
     private static func scanChapters(in extracted: URL) throws -> (chapters: [LocalComicImportPlan.Chapter], folderCount: Int) {

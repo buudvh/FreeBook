@@ -1,6 +1,6 @@
 import Foundation
 
-/// Kết quả quét một file CBZ/ZIP đã giải nén (`LocalComicImporter.prepare`) — dữ liệu của sheet xác nhận
+/// Kết quả quét một file CBZ/ZIP đã giải nén (`LocalComicImporter.plan(fromExtracted:…)`, gọi từ `LocalMediaArchiveImporter`) — dữ liệu của sheet xác nhận
 /// "Nhập truyện tranh". Ảnh vẫn nằm trong `workDirectory` cho tới khi người dùng bấm "Nhập".
 struct LocalComicImportPlan: Identifiable, Sendable {
     struct Chapter: Identifiable, Sendable {

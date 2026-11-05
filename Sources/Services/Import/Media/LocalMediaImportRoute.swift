@@ -4,14 +4,16 @@ import UniformTypeIdentifiers
 /// Phân loại các file người dùng chọn ở Kệ sách **theo đuôi**, trước khi `BookImportService` chạm tới file.
 ///
 /// Luật (người dùng chốt):
-/// - Một file `.cbz`/`.zip` = **cả bộ** truyện tranh (`LocalComicImporter`). Riêng `.zip` mà mở đầu là EPUB
-///   (`mimetype` = `application/epub+zip`) vẫn đi luồng chữ như trước.
+/// - Một file `.cbz`/`.zip` (`.archive`) giải nén ở `LocalMediaArchiveImporter` (1.3.731): có video MP4/MOV/M4V ⇒
+///   **một phim**, mỗi video một tập; không có ⇒ **cả bộ** truyện tranh (`LocalComicImporter`). Riêng `.zip` mà mở đầu
+///   là EPUB (`mimetype` = `application/epub+zip`) vẫn đi luồng chữ như trước.
 /// - Video `.mp4`/`.mov`/`.m4v`: một hay nhiều file đều gộp thành **một** phim (`LocalVideoImporter`).
 /// - Chọn nhiều file chỉ hợp lệ khi **tất cả** là video; lẫn loại ⇒ từ chối, không nhập gì.
 /// - Còn lại (một file) ⇒ luồng chữ cũ (`importLocalBook`). Không nhận CBR/RAR/7z.
 enum LocalMediaImportRoute {
     case text(URL)
-    case comic(URL)
+    /// ZIP/CBZ: phim hay truyện tranh chỉ biết sau khi giải nén (`LocalMediaArchiveImporter`).
+    case archive(URL)
     case video([URL])
     case rejected(String)
 
@@ -46,7 +48,7 @@ enum LocalMediaImportRoute {
         if extensions[0] == "zip", looksLikeEpub(first) {
             return .text(first)
         }
-        return .comic(first)
+        return .archive(first)
     }
 
     /// So tên kiểu Finder: "Tập 2" đứng trước "Tập 10".

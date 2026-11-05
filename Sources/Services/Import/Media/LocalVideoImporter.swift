@@ -48,6 +48,101 @@ enum LocalVideoImporter {
         }
     }
 
+    /// Đuôi video app không phát được (AVPlayer) — có trong ZIP thì bỏ qua và báo số lượng trên sheet.
+    private static let unsupportedVideoExtensions: Set<String> = [
+        "mkv", "avi", "webm", "flv", "wmv", "ts", "3gp", "mpg", "mpeg", "rmvb", "rm", "vob"
+    ]
+
+    enum ArchiveError: LocalizedError {
+        case unsupportedVideosOnly(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupportedVideosOnly(let formats):
+                return "File nén chỉ có video \(formats) — app chỉ phát được MP4/MOV/M4V."
+            }
+        }
+    }
+
+    /// Phim từ thư mục đã giải nén của một file ZIP (`LocalMediaArchiveImporter`, 1.3.731). `nil` ⇒ không có video nào
+    /// (caller nhập thành truyện tranh). Mọi file MP4/MOV/M4V ở mọi cấp thư mục là một tập, xếp theo **đường dẫn** tên tự
+    /// nhiên ("Tập 2" trước "Tập 10"); tên tập = tên file bỏ đuôi; tên phim mặc định = tên file ZIP bỏ đuôi. File đã nằm
+    /// trong thư mục làm việc nên `commit` chuyển thẳng vào kho, không chép thêm.
+    ///
+    /// Cùng lớp an toàn với bước quét ảnh của truyện tranh: có symlink ⇒ huỷ cả lượt; bỏ file ẩn, `__MACOSX/` và file
+    /// mà đường dẫn thật nằm ngoài thư mục giải nén.
+    static func plan(fromExtracted extracted: URL, workDirectory: URL, archiveName: String) throws -> LocalVideoImportPlan? {
+        let root = extracted.standardizedFileURL.resolvingSymlinksInPath()
+        let rootPath = root.path
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
+        guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys) else { return nil }
+        var videos: [(relativePath: String, url: URL)] = []
+        var skippedFormats: [String: Int] = [:]
+        for case let url as URL in enumerator {
+            let name = url.lastPathComponent
+            let values = try? url.resourceValues(forKeys: Set(keys))
+            if values?.isDirectory == true {
+                if name.hasPrefix(".") || name == "__MACOSX" {
+                    enumerator.skipDescendants()
+                }
+                continue
+            }
+            if values?.isSymbolicLink == true {
+                AppLogger.shared.log("❌ [VideoImport] File nén chứa symlink (\(name)) — huỷ lượt nhập")
+                throw LocalComicImporter.ImportError.unreadableArchive("file nén chứa liên kết tượng trưng")
+            }
+            guard values?.isRegularFile == true, !name.hasPrefix(".") else { continue }
+            let ext = url.pathExtension.lowercased()
+            if unsupportedVideoExtensions.contains(ext) {
+                skippedFormats[ext.uppercased(), default: 0] += 1
+                continue
+            }
+            guard LocalMediaImportRoute.videoExtensions.contains(ext) else { continue }
+            let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+            guard resolved.path.hasPrefix(rootPath + "/") else {
+                AppLogger.shared.log("⚠️ [VideoImport] Bỏ qua file nằm ngoài thư mục giải nén: \(name)")
+                continue
+            }
+            videos.append((String(resolved.path.dropFirst(rootPath.count + 1)), resolved))
+        }
+
+        let skippedCount = skippedFormats.values.reduce(0, +)
+        guard !videos.isEmpty else {
+            guard skippedCount > 0 else { return nil }
+            throw ArchiveError.unsupportedVideosOnly(skippedFormats.keys.sorted().joined(separator: "/"))
+        }
+        videos.sort { pathLess($0.relativePath, $1.relativePath) }
+        let episodes = videos.enumerated().map { (offset, video) -> LocalVideoImportPlan.Episode in
+            let fileName = video.url.lastPathComponent
+            return LocalVideoImportPlan.Episode(
+                id: offset,
+                fileName: fileName,
+                title: (fileName as NSString).deletingPathExtension,
+                fileURL: video.url,
+                bytes: LocalMediaImportWorkspace.fileSize(video.url)
+            )
+        }
+        let defaultTitle = (archiveName as NSString).deletingPathExtension
+        AppLogger.shared.log("📥 [VideoImport] \(archiveName): \(episodes.count) tập, bỏ qua \(skippedCount) file không hỗ trợ")
+        return LocalVideoImportPlan(
+            defaultTitle: defaultTitle.isEmpty ? self.defaultTitle(for: episodes.map(\.title)) : defaultTitle,
+            workDirectory: workDirectory,
+            episodes: episodes,
+            skippedCount: skippedCount
+        )
+    }
+
+    /// So đường dẫn tương đối theo từng cấp, mỗi cấp so tên tự nhiên ("Phần 2/…" trước "Phần 10/…"); trùng hết phần
+    /// chung thì đường dẫn ngắn hơn đứng trước.
+    private static func pathLess(_ lhs: String, _ rhs: String) -> Bool {
+        let left = lhs.split(separator: "/").map(String.init)
+        let right = rhs.split(separator: "/").map(String.init)
+        for (a, b) in zip(left, right) where a != b {
+            return LocalMediaImportRoute.naturalLess(a, b)
+        }
+        return left.count < right.count
+    }
+
     /// Một file ⇒ tên file. Nhiều file ⇒ phần đầu chung của các tên ("Phim A - Tập 1", "Phim A - Tập 2" ⇒ "Phim A"),
     /// quá ngắn thì lấy tên file đầu.
     private static func defaultTitle(for titles: [String]) -> String {

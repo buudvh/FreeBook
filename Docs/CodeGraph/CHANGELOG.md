@@ -2,6 +2,41 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.731] - 2026-11-05
+
+### feat: nhập phim nhiều tập từ file ZIP, mỗi video trong file là một tập
+
+Người dùng: *"Hãy cho phép nhập video từ zip, tất cả video trong đó là các tập của 1 phim"*.
+
+- **Trước đây**: một file `.zip`/`.cbz` ở Kệ sách › Nhập truyện › Từ file luôn đi luồng truyện tranh ⇒ ZIP chỉ có video báo "Không tìm thấy ảnh nào trong file". Nhập phim chỉ nhận chọn thẳng các file MP4/MOV/M4V.
+- **`LocalMediaArchiveImporter`** (mới, `Services/Import/Media/`): giải nén **một lần** rồi mới quyết định.
+  - Phần chuyển file vào thư mục làm việc, kiểm chỗ trống (cỡ file + 50 MB), `BackupZipArchive.extract`, xoá bản nén: **chuyển nguyên** từ đầu `LocalComicImporter.prepare`, không đổi hành vi.
+  - Có ít nhất một file MP4/MOV/M4V ⇒ **một phim**. Ảnh lẫn trong ZIP bị bỏ qua.
+  - Không có video ⇒ truyện tranh như cũ.
+  - Lỗi bất kỳ bước nào ⇒ xoá cả thư mục làm việc.
+- **`LocalVideoImporter.plan(fromExtracted:workDirectory:archiveName:)`** (mới):
+  - Tập = mọi file MP4/MOV/M4V ở mọi cấp thư mục, xếp theo đường dẫn tên tự nhiên (từng cấp, "Tập 2" trước "Tập 10").
+  - Tên tập = tên file bỏ đuôi. Tên phim mặc định = tên file ZIP bỏ đuôi.
+  - Cùng lớp an toàn với bước quét ảnh: có symlink ⇒ huỷ; bỏ file ẩn, `__MACOSX/`, file nằm ngoài thư mục giải nén.
+  - Video không phát được (MKV, AVI, WEBM, FLV, WMV, TS, 3GP, MPG, RMVB, VOB…):
+    - Có cả file phát được ⇒ bỏ qua, sheet hiện "Bỏ qua N file không hỗ trợ (chỉ MP4/MOV/M4V)".
+    - Chỉ toàn file không phát được ⇒ báo lỗi "File nén chỉ có video … — app chỉ phát được MP4/MOV/M4V".
+  - File đã nằm trong thư mục làm việc ⇒ `commit` có sẵn **chuyển** thẳng vào `VideoOfflineStore`, không chép bản thứ hai.
+- `LocalComicImporter.prepare(pickedURL:)` → `plan(fromExtracted:workDirectory:fileName:)` (chỉ còn quét ảnh). Luật chương / ảnh / thông báo lỗi giữ nguyên.
+- `LocalMediaImportRoute`: case `.comic` đổi tên `.archive` (phim hay truyện tranh chỉ biết sau khi giải nén). EPUB đội lốt `.zip` vẫn đi luồng chữ.
+- `LocalVideoImportPlan` thêm `skippedCount` (mặc định 0).
+- `ShelfView+MediaImport`: nhánh `.archive` mở sheet "Nhập phim" có sẵn (`LocalVideoImportSheet`) hoặc sheet truyện tranh theo kết quả.
+- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm dòng nhập từ file.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo mọi chỗ gọi `LocalComicImporter.prepare` / case route (chỉ `ShelfView+MediaImport`). `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy:
+    - ZIP nhiều tập MP4: thứ tự tập, tên phim, phát offline, ảnh bìa.
+    - ZIP truyện tranh vẫn như cũ.
+    - ZIP lẫn MKV.
+    - ZIP lớn: cần chỗ trống cho cả bản nén lẫn bản giải nén lúc giải nén.
+
 ## [1.3.730] - 2026-11-05
 
 ### feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn
@@ -620,18 +655,4 @@ Người dùng (bản 1.3.698 trên máy): *"Đã thu nhỏ, kiểm tra đang ch
 - **Nút ⌄** gọi `MinimizedSourceCheckCoordinator.screenDidClose(_, screenId: nil)` **trước** khi đóng màn, không qua `onDisappear`.
 - **`onDismiss` của mọi sheet có thể chứa màn kiểm tra**: sheet Kiểm tra nguồn và Chi tiết nguồn Legado (`RepositoryManagerView+LegadoMenu`, `DiscoverySourcePickerModifier`), ba chỗ mở Cấu hình tiện ích (`RepositoryManagerView`, `DiscoverySourcePickerModifier`, `TTSSettingsView`); sheet mở lại từ hub dùng `SheetDismissRelay` (`presentationController.delegate`, gán sau khi trình bày).
 - `onDisappear` của hai màn bỏ điều kiện cờ chia sẻ (bảng chia sẻ không làm màn biến mất, cờ kẹt thì chặn mất việc thu nhỏ). `update` bỏ qua lượt đã thu nhỏ (màn đóng mà task chưa dừng không cướp mốc "xong" ⇒ mất toast). Log `🧪 [SourceCheck]` ở `track` và các nhánh `screenDidClose` bỏ qua (cần bật log trong Cài đặt). `rules.md` luật hub (f) ghi các lối báo đóng. Chuyển `[1.3.671]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.701] - 2026-11-04
-
-### feat: token số trong rule dịch có khoảng giá trị #min-max
-
-Người dùng: *"thêm min max cho các token số trong rule dịch"*; chọn **giá trị số** (không phải độ dài, vốn đã có `<n:1-4>`), áp cho `<n>` `<d>` `<y>` `<h>` `<hn>`, cú pháp `<n#1-200>`; duyệt plan + mockup.
-
-- **Cú pháp**: `#min-max` viết sau tên và sau độ dài: `<n#1-200>`, `<n:1-4#1-200>`, `<d#0-99>`, `#5` = đúng 5, `#100-` = từ 100 trở lên. Kiểu `QuickTranslationRuleValueRange` (mới, `Engine/`) giữ tách `#`, đọc, kẹp, dựng lại cú pháp và kiểm giá trị — parser (`QuickTranslationRuleParser+ValueRange`, mới), `tokenSpecNames` và `TokenSpec` cùng gọi nên hiểu `#` như nhau. `#…` tách **trước** `:`: tách `:` trước thì `<n:1-4#1-200>` bị đọc lặng lẽ thành độ dài `1-200`.
-- **Giá trị lấy từ kết quả render**, không parse lại chữ Hán: `<n>` `<y>` `<h>` `<d>` ra chữ số ⇒ `Int` (`二零二五` = 2025, `007` = 7); `<n>` liệt kê (`十三四` → `13, 14`) ⇒ mọi số phải trong khoảng; `<hn>` (render Hán-Việt) ⇒ giá trị bằng `renderNumeral` của chuỗi nguồn; tràn `Int` / đọc không được ⇒ không khớp. Matcher (`walkNumeral`) bỏ độ dài ứng viên có giá trị ngoài khoảng rồi thử độ dài ngắn hơn, như ứng viên `<m>` sai dạng; token có biên chặn hai đầu (`第<n#1-200>章`) chỉ xét cả dãy số ⇒ `第三百章` không khớp hẳn.
-- **Lỗi mới `INVALID_VALUE_RANGE` (lỗi nặng)**: `#` trống, không phải số, `#-9` (thiếu số đầu; không chặn dưới thì viết `#0-…`), khoảng ngược `#5-3` (khác độ dài vốn tự kẹp), sai thứ tự `#1-9:1-3`, hoặc `#` gắn cho `<a>` `<m>` `<L>` `<any>`, token từ điển, neo dòng, ngoặc.
-- **Chip chỉnh** (`QuickTranslationRuleTokenValueRangeEditor`, mới): dưới thanh độ dài của token số có công tắc "Giới hạn giá trị" (bật ⇒ 1–100, tắt ⇒ bỏ `#`) và hai hàng `[−] ô số [+]`; ô Đến trống = không chặn trên. Ô số chỉ ghi vào mẫu khi rời ô hoặc bấm −/+, kẹp qua `clamped()` (chung với `TokenSpec.clamp()`); thanh chỉnh gắn `.id(tokenPosition)` để chữ gõ dở không dính sang token khác. `TokenSpec` giữ `valueRange` nên chỉnh độ dài không làm mất `#`; `#` viết sai ⇒ không mở thanh (không xoá phần đang gõ). Gợi ý bàn phím coi `#` là đuôi token (con trỏ trước `#…` không bị hiểu là gõ dở).
-- **Rule cũ không đổi**: không thêm loại token nên chữ ký cache (`Configuration.signature`) giữ nguyên; token không ghi `#` có `valueRange == nil`, matcher không đi qua nhánh mới. Ưu tiên giữa rule không đổi: `<n>章` và `<n#1-9>章` hoà mọi tiêu chí thì dòng viết trước thắng như cũ.
-- Hướng dẫn (`QuickTranslationRuleGuide`: mục Token số và nhãn + Lỗi hay gặp), câu trợ giúp ô Mẫu, đoạn token ở `CLAUDE.md`/`AGENTS.md` cập nhật. Chuyển `[1.3.670]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

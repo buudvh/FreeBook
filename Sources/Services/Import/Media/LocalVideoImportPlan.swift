@@ -20,6 +20,8 @@ struct LocalVideoImportPlan: Identifiable, Sendable {
     /// `LocalMediaImportWorkspace` của lượt nhập — xoá cả cây khi nhập xong hoặc bỏ.
     let workDirectory: URL
     let episodes: [Episode]
+    /// Video trong file ZIP mà app không phát được (MKV, AVI…) nên bị bỏ qua (1.3.731); chọn file lẻ thì luôn 0.
+    var skippedCount: Int = 0
 
     var totalBytes: Int64 {
         episodes.reduce(0) { $0 + $1.bytes }

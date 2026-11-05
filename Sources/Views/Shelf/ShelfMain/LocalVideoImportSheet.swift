@@ -32,6 +32,10 @@ struct LocalVideoImportSheet: View {
                     TextField("Tên phim", text: $title)
                         .textInputAutocapitalization(.sentences)
                     Text("\(plan.episodes.count) file → 1 phim, xếp theo tên file")
+                    if plan.skippedCount > 0 {
+                        Text("Bỏ qua \(plan.skippedCount) file không hỗ trợ (chỉ MP4/MOV/M4V)")
+                            .foregroundStyle(.secondary)
+                    }
                     LabeledContent("Dung lượng", value: ByteCountFormatter.string(fromByteCount: plan.totalBytes, countStyle: .file))
                 } header: {
                     Text("Phim")

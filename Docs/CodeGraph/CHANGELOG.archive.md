@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.701] - 2026-11-04
+
+### feat: token số trong rule dịch có khoảng giá trị #min-max
+
+Người dùng: *"thêm min max cho các token số trong rule dịch"*; chọn **giá trị số** (không phải độ dài, vốn đã có `<n:1-4>`), áp cho `<n>` `<d>` `<y>` `<h>` `<hn>`, cú pháp `<n#1-200>`; duyệt plan + mockup.
+
+- **Cú pháp**: `#min-max` viết sau tên và sau độ dài: `<n#1-200>`, `<n:1-4#1-200>`, `<d#0-99>`, `#5` = đúng 5, `#100-` = từ 100 trở lên. Kiểu `QuickTranslationRuleValueRange` (mới, `Engine/`) giữ tách `#`, đọc, kẹp, dựng lại cú pháp và kiểm giá trị — parser (`QuickTranslationRuleParser+ValueRange`, mới), `tokenSpecNames` và `TokenSpec` cùng gọi nên hiểu `#` như nhau. `#…` tách **trước** `:`: tách `:` trước thì `<n:1-4#1-200>` bị đọc lặng lẽ thành độ dài `1-200`.
+- **Giá trị lấy từ kết quả render**, không parse lại chữ Hán: `<n>` `<y>` `<h>` `<d>` ra chữ số ⇒ `Int` (`二零二五` = 2025, `007` = 7); `<n>` liệt kê (`十三四` → `13, 14`) ⇒ mọi số phải trong khoảng; `<hn>` (render Hán-Việt) ⇒ giá trị bằng `renderNumeral` của chuỗi nguồn; tràn `Int` / đọc không được ⇒ không khớp. Matcher (`walkNumeral`) bỏ độ dài ứng viên có giá trị ngoài khoảng rồi thử độ dài ngắn hơn, như ứng viên `<m>` sai dạng; token có biên chặn hai đầu (`第<n#1-200>章`) chỉ xét cả dãy số ⇒ `第三百章` không khớp hẳn.
+- **Lỗi mới `INVALID_VALUE_RANGE` (lỗi nặng)**: `#` trống, không phải số, `#-9` (thiếu số đầu; không chặn dưới thì viết `#0-…`), khoảng ngược `#5-3` (khác độ dài vốn tự kẹp), sai thứ tự `#1-9:1-3`, hoặc `#` gắn cho `<a>` `<m>` `<L>` `<any>`, token từ điển, neo dòng, ngoặc.
+- **Chip chỉnh** (`QuickTranslationRuleTokenValueRangeEditor`, mới): dưới thanh độ dài của token số có công tắc "Giới hạn giá trị" (bật ⇒ 1–100, tắt ⇒ bỏ `#`) và hai hàng `[−] ô số [+]`; ô Đến trống = không chặn trên. Ô số chỉ ghi vào mẫu khi rời ô hoặc bấm −/+, kẹp qua `clamped()` (chung với `TokenSpec.clamp()`); thanh chỉnh gắn `.id(tokenPosition)` để chữ gõ dở không dính sang token khác. `TokenSpec` giữ `valueRange` nên chỉnh độ dài không làm mất `#`; `#` viết sai ⇒ không mở thanh (không xoá phần đang gõ). Gợi ý bàn phím coi `#` là đuôi token (con trỏ trước `#…` không bị hiểu là gõ dở).
+- **Rule cũ không đổi**: không thêm loại token nên chữ ký cache (`Configuration.signature`) giữ nguyên; token không ghi `#` có `valueRange == nil`, matcher không đi qua nhánh mới. Ưu tiên giữa rule không đổi: `<n>章` và `<n#1-9>章` hoà mọi tiêu chí thì dòng viết trước thắng như cũ.
+- Hướng dẫn (`QuickTranslationRuleGuide`: mục Token số và nhãn + Lỗi hay gặp), câu trợ giúp ô Mẫu, đoạn token ở `CLAUDE.md`/`AGENTS.md` cập nhật. Chuyển `[1.3.670]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
+
 ## [1.3.700] - 2026-11-04
 
 ### fix: sửa 5 lỗi engine Legado từ báo cáo kiểm tra nguồn
