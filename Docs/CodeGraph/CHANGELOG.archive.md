@@ -2,6 +2,38 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.696] - 2026-11-04
+
+### fix: mục lục nguồn Legado nhiều chương không còn làm app hết bộ nhớ
+
+Người dùng: *"sửa cái gì mà tôi bấm chạy kiểm tra sau vài giây nó đơ app rồi crash app luôn?"*; gửi 2 file log rồi duyệt phương án (*"Duyệt, sửa đi"*).
+
+- **Nguyên nhân** (có từ engine gốc `3a9044e5`, không do 1.3.693–695):
+  - Log bật đủ cho thấy app chết khi 多看阅读 đang dựng mục lục 九星霸体诀: 7.177 chương, trang JSON 1,3 MB. Mỗi chương chạy 2 đoạn JS (`chapterUrl`, `isVip`), khoảng 14.000 lần.
+  - Mỗi lần, `LegadoJSRuntime.apply` gán `src` bằng **nguyên trang**, tức một chuỗi JS mới khoảng 2 MB.
+  - API ObjC của JavaScriptCore đưa mọi `JSValue` vào autorelease pool hiện hành và giữ giá trị JS khỏi GC (`objcWrapperForJSValueRef` → `autorelease`, `JSValueProtect`). Thread engine (`LegadoEngineSession.run`) không có pool riêng, nên không gì được nhả cho tới hết bước, và iOS giết app vì hết RAM.
+  - Bộ thử Node không tái hiện được lỗi này, vì V8 không có autorelease pool.
+- **Mỗi lần chạy JS tự dọn:** `autoreleasepool` bọc `evaluate`, `evaluateRaw`, `evaluateOptionScript`, `runLibrary`, `runQuietly`, `callHelper`, `evaluateBytesScript`/`exportedDescriptor` và `classifyLoginCheck`. Vòng chương của `parseTocPage` cũng có pool riêng cho mỗi chương; mục bị bỏ trả `nil` thay cho `continue`, thứ tự gộp `chapterVariables` giữ nguyên.
+- **Chuỗi trang chép một lần mỗi trang:**
+  - Ô ẩn `__lgSrcCache` (không liệt kê, không xoá) giữ chuỗi JS của trang lớn gần nhất, chỉ trang ≥ 16 KB. Swift giữ bản `String` tương ứng (`cachedPageText`), không giữ `JSValue`.
+  - `src` trùng trang đang đệm thì dùng lại; `result` là nguyên trang cũng dùng lại nhưng không ghi ô đệm.
+  - Analyzer truyền cùng một `String` cho mọi mục, nên phép so sánh đi đường tắt.
+- **Bớt lời gọi qua cầu nối:**
+  - Chỉ lần chạy **lồng** (JS → `java.getString` → rule → JS) mới lưu/khôi phục 7 biến môi trường; lần ngoài cùng bỏ 14 lời gọi, vì `apply` của lần sau gán lại đủ 7.
+  - Đã rà: ngoài một lượt `evaluateRaw` không chỗ nào đọc 7 biến này (Swift, bootstrap, `runQuietly`, `jsLib` nạp trước lần `apply` đầu).
+  - Giữa hai lượt, các biến giữ giá trị của lượt trước thay cho `undefined`.
+- **Lỗi cú pháp có lại số dòng:**
+  - Eval gián tiếp báo `SyntaxError` không kèm dòng (log "dòng 0" từ 1.3.693). Khi gặp, phân tích lại mã gốc bằng `JSCheckScriptSyntax` — chỉ phân tích, không chạy.
+  - `describe` bỏ hậu tố "(dòng N)" khi N ≤ 0.
+  - Đường dự phòng `return` vẫn được xét trước.
+- **Spec:** `Docs/Specs/legado-source-spec.md` §6.1, mục "Bộ nhớ khi chạy nhiều lần".
+- **Quy trình:** agent riêng viết theo phương án đã duyệt (clean-room).
+- **Kiểm chứng:**
+  - Đọc code đối chiếu chữ ký API: `autoreleasepool(invoking:)` `rethrows`, và `JSCheckScriptSyntax` mà repo đã dùng ở `ExtensionScriptStaticCheck.swift`.
+  - Đọc mã JavaScriptCore trên GitHub để xác nhận cơ chế autorelease.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy. Nên thử: mở mục lục 九星霸体诀 ở 多看阅读, rồi chạy lại kiểm tra nhóm nguồn đó.
+
 ## [1.3.695] - 2026-11-04
 
 ### feat: nguồn Legado có SecretKeyFactory DES, GZIP/Inflater và java.net.URL

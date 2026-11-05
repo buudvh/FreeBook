@@ -2,6 +2,45 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.727] - 2026-11-05
+
+### feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt
+
+Người dùng: *"có thể thì thông báo có bản cập nhập mới trong app để user biết"*. Chốt theo mockup bản 4:
+- Dải báo không có nút cập nhật; phải bấm vào xem thay đổi.
+- Icon cập nhật kiểu mockup (`arrow.down.square`), không dùng chuông, không ghi vào Trung tâm thông báo, không ghi số thay đổi.
+- Thêm hàng ở Cài đặt và chấm đỏ tab Cài Đặt.
+- Kiểm tra khi mở app và khi quay lại app, giãn cách 6 giờ.
+- Giữ nút "Mở LiveContainer" để thử trên máy.
+
+- **`Services/AppUpdate/`** (mới, không `import SwiftUI`):
+  - `AppUpdateSourceClient`: đọc `apps.json` ở nhánh `source` (raw GitHub, timeout 15 s, bỏ cache cục bộ). Lấy `apps[0].versions[0]`.
+  - `AppUpdateInfo`: `version`, `buildNumber`, `date`, `notes` (mỗi commit một dòng, bỏ tiền tố `- `).
+  - `AppUpdateRepository` (`@MainActor @Observable`, nguồn sự thật duy nhất):
+    - Có bản mới ⇔ số build của nguồn > `CFBundleVersion` đang chạy. Bản build tay (số build 1) luôn thấy báo.
+    - `checkIfNeeded()` giãn cách 6 giờ (`appUpdateLastCheckAt`). Bản đọc được cuối lưu ở `appUpdateLatestJSON`. Lỗi ⇒ log `❌ [AppUpdate]`, giữ kết quả cũ.
+    - Ẩn / bỏ qua / đã xem nhớ **theo số build** (`appUpdateDismissedBuild`, `appUpdateSkippedBuild`, `appUpdateSeenBuild`) ⇒ bản mới hơn nữa ra là báo lại.
+- **Dải báo Kệ** (`AppUpdateBanner`, dưới dải "mất nguồn", chỉ tab Kệ sách):
+  - Dòng "Có bản mới 1.3.NNN · xem thay đổi ›" + ×, cùng kiểu panel `MissingSourceRebindBanner`.
+  - Bấm ⇒ sheet. × ⇒ ẩn tới bản sau.
+- **Sheet** (`AppUpdateSheet`):
+  - Tiêu đề + "bản mới · đang dùng".
+  - Danh sách thay đổi.
+  - "Cách cập nhật: Mở LiveContainer › Sources › Refresh › Install, chọn thay app cũ để giữ dữ liệu".
+  - Nút **Mở LiveContainer** và **Bỏ qua bản này**. Mở sheet ⇒ đánh dấu đã xem.
+- **Cài đặt › Thông Tin**: hàng "Có bản mới 1.3.NNN" (chấm đỏ khi chưa xem) mở cùng sheet. Hàng vẫn còn sau khi bấm × ở Kệ, chỉ mất khi bỏ qua hoặc đã lên bản đó.
+- **Tab Cài Đặt** (`MainTabBar`): chấm đỏ 8pt khi có bản mới chưa xem. Badge chương mới của tab Kệ giữ nguyên.
+- **Kích hoạt** (`MainTabView`): `.task(priority: .utility)` lúc mở app + khi `scenePhase` về `.active`.
+- **Vì sao không có nút "Cập nhật ngay"** (đọc mã LiveContainer `TweakLoader/UIKit+GuestHooks.m`):
+  - App đang chạy bên trong LiveContainer gọi `livecontainer://install?url=…` ⇒ LiveContainer chỉ báo "Vui lòng mở lại LiveContainer để cài app", không cài.
+  - Nút "Mở LiveContainer" dùng `livecontainer://livecontainer-launch?bundle-name=ui` (hộp xác nhận rồi về màn chính LiveContainer). Không mở được ⇒ toast lỗi.
+- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Báo có bản mới trong app".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy: dải báo / × / bỏ qua, chấm đỏ, và nút "Mở LiveContainer" có chuyển về màn chính LiveContainer không.
+
 ## [1.3.726] - 2026-11-05
 
 ### chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release
@@ -576,35 +615,3 @@ Người dùng: *"thêm option xóa tất cả nguồn legado đang hiển thị
   - Toast `Đã xoá N nguồn Legado đang hiện/đang tắt`; lỗi thì toast đỏ.
   - Nhóm đang lọc không còn nguồn nào thì về "Tất cả" (`resetGroupFilterIfEmpty`).
 - `legadoScopeTitle` tách ra từ `checkVisibleLegadoSources`, dùng chung cho màn kiểm tra và hộp xác nhận.
-
-## [1.3.696] - 2026-11-04
-
-### fix: mục lục nguồn Legado nhiều chương không còn làm app hết bộ nhớ
-
-Người dùng: *"sửa cái gì mà tôi bấm chạy kiểm tra sau vài giây nó đơ app rồi crash app luôn?"*; gửi 2 file log rồi duyệt phương án (*"Duyệt, sửa đi"*).
-
-- **Nguyên nhân** (có từ engine gốc `3a9044e5`, không do 1.3.693–695):
-  - Log bật đủ cho thấy app chết khi 多看阅读 đang dựng mục lục 九星霸体诀: 7.177 chương, trang JSON 1,3 MB. Mỗi chương chạy 2 đoạn JS (`chapterUrl`, `isVip`), khoảng 14.000 lần.
-  - Mỗi lần, `LegadoJSRuntime.apply` gán `src` bằng **nguyên trang**, tức một chuỗi JS mới khoảng 2 MB.
-  - API ObjC của JavaScriptCore đưa mọi `JSValue` vào autorelease pool hiện hành và giữ giá trị JS khỏi GC (`objcWrapperForJSValueRef` → `autorelease`, `JSValueProtect`). Thread engine (`LegadoEngineSession.run`) không có pool riêng, nên không gì được nhả cho tới hết bước, và iOS giết app vì hết RAM.
-  - Bộ thử Node không tái hiện được lỗi này, vì V8 không có autorelease pool.
-- **Mỗi lần chạy JS tự dọn:** `autoreleasepool` bọc `evaluate`, `evaluateRaw`, `evaluateOptionScript`, `runLibrary`, `runQuietly`, `callHelper`, `evaluateBytesScript`/`exportedDescriptor` và `classifyLoginCheck`. Vòng chương của `parseTocPage` cũng có pool riêng cho mỗi chương; mục bị bỏ trả `nil` thay cho `continue`, thứ tự gộp `chapterVariables` giữ nguyên.
-- **Chuỗi trang chép một lần mỗi trang:**
-  - Ô ẩn `__lgSrcCache` (không liệt kê, không xoá) giữ chuỗi JS của trang lớn gần nhất, chỉ trang ≥ 16 KB. Swift giữ bản `String` tương ứng (`cachedPageText`), không giữ `JSValue`.
-  - `src` trùng trang đang đệm thì dùng lại; `result` là nguyên trang cũng dùng lại nhưng không ghi ô đệm.
-  - Analyzer truyền cùng một `String` cho mọi mục, nên phép so sánh đi đường tắt.
-- **Bớt lời gọi qua cầu nối:**
-  - Chỉ lần chạy **lồng** (JS → `java.getString` → rule → JS) mới lưu/khôi phục 7 biến môi trường; lần ngoài cùng bỏ 14 lời gọi, vì `apply` của lần sau gán lại đủ 7.
-  - Đã rà: ngoài một lượt `evaluateRaw` không chỗ nào đọc 7 biến này (Swift, bootstrap, `runQuietly`, `jsLib` nạp trước lần `apply` đầu).
-  - Giữa hai lượt, các biến giữ giá trị của lượt trước thay cho `undefined`.
-- **Lỗi cú pháp có lại số dòng:**
-  - Eval gián tiếp báo `SyntaxError` không kèm dòng (log "dòng 0" từ 1.3.693). Khi gặp, phân tích lại mã gốc bằng `JSCheckScriptSyntax` — chỉ phân tích, không chạy.
-  - `describe` bỏ hậu tố "(dòng N)" khi N ≤ 0.
-  - Đường dự phòng `return` vẫn được xét trước.
-- **Spec:** `Docs/Specs/legado-source-spec.md` §6.1, mục "Bộ nhớ khi chạy nhiều lần".
-- **Quy trình:** agent riêng viết theo phương án đã duyệt (clean-room).
-- **Kiểm chứng:**
-  - Đọc code đối chiếu chữ ký API: `autoreleasepool(invoking:)` `rethrows`, và `JSCheckScriptSyntax` mà repo đã dùng ở `ExtensionScriptStaticCheck.swift`.
-  - Đọc mã JavaScriptCore trên GitHub để xác nhận cơ chế autorelease.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy. Nên thử: mở mục lục 九星霸体诀 ở 多看阅读, rồi chạy lại kiểm tra nhóm nguồn đó.

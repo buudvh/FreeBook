@@ -47,6 +47,8 @@ struct MainTabBar: View {
         let item = Self.items[index]
         let isSelected = selection == index
         let badge = index == 0 ? newChapters.totalNewBooks : 0
+        // Tab Cài Đặt: chấm đỏ khi có bản app mới chưa xem (`AppUpdateRepository`).
+        let showsUpdateDot = index == 3 && AppUpdateRepository.shared.showsUnseenDot
         return Button {
             selection = index
         } label: {
@@ -55,7 +57,14 @@ struct MainTabBar: View {
                     .font(.system(size: 21))
                     .frame(height: 26)
                     .overlay(alignment: .topTrailing) {
-                        if badge > 0 { badgeView(badge) }
+                        if badge > 0 {
+                            badgeView(badge)
+                        } else if showsUpdateDot {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 3, y: -1)
+                        }
                     }
                 Text(item.title)
                     .font(.system(size: 10, weight: .medium))
@@ -67,7 +76,7 @@ struct MainTabBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.title)
-        .accessibilityValue(badge > 0 ? "\(badge) truyện có chương mới" : "")
+        .accessibilityValue(badge > 0 ? "\(badge) truyện có chương mới" : (showsUpdateDot ? "Có bản cập nhật" : ""))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

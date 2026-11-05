@@ -190,6 +190,7 @@ struct ShelfView: View {
                 Divider()
 
                 MissingSourceRebindBanner(books: allBooks, isVisible: selectedTab == .shelf || selectedTab == .history)
+                AppUpdateBanner(isVisible: selectedTab == .shelf) // có bản app mới (`AppUpdateRepository`)
 
                     TabView(selection: $selectedTab) {
                         // TAB TẢI TRƯỚC
