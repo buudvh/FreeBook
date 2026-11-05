@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.688] - 2026-11-03
+
+### fix: bật dịch trong Reader dịch lại ngay chương đang mở
+
+Người dùng: *"tôi bật dịch lại thì nội dung chương không dịch lại ngay. phải thoát vào lại reader nó mới chịu dịch"*. Lỗi đi kèm (truyện có tiện ích nguồn đã gỡ thì bị tắt dịch): người dùng chọn **không** sửa.
+
+- **Nguyên nhân**: `ReaderViewModel.toggleTranslation(enabled:)` chỉ gán cờ, không dựng lại đoạn. Chương dựng lúc tắt dịch có `translated == original` (`untranslatedTextResult`), nên bật lên thì `ParagraphCardView.displayText` vẫn ra chữ gốc. Tắt dịch thì đúng ngay vì chữ gốc luôn có. Thoát vào lại thì đúng vì ViewModel mới đọc lại cờ, `isTranslationFresh` thấy lệch và dựng lại. `ChapterContentRepository` không liên quan (chỉ giữ chữ gốc).
+- **Reader** (`ReaderViewModel+Translation.swift`): `toggleTranslation` dựng lại chương đang hiện (`refreshParagraphItems`, gồm đoạn tiêu đề -1) khi bản đang có không khớp công tắc mới; cờ không đổi thì không làm gì (nhánh Pronouns/LuatNhan vẫn gọi lại hàm này). Chương khác trong cache tự dựng lại khi tới, như cũ. Header và sheet mục lục vốn đã theo cờ.
+- **TTS đang phát cùng truyện** (`TTSManager+TranslationIdentity.swift`, `updateTranslationSetting(for:enabled:)`, gọi từ `onChange` của Reader): chữ TTS đọc và vệt highlight phải cùng hệ toạ độ với chữ Reader đang hiện.
+  - Đang phát ⇒ tải lại chương hiện tại qua `ChapterContentRepository`, rồi `startSpeaking` từ đầu đoạn đang đọc với `translationEnabled` mới. Đây là tham số mới của `startSpeaking`; bỏ trống thì vẫn tra `TranslationConfigStore` như cũ.
+  - Đang dừng ⇒ chỉ đổi cờ phiên và bỏ prefetch, áp từ chương sau; phần còn lại của chương đang dừng giữ chữ cũ.
+  - Cờ phiên đổi ngay, nên bấm bật/tắt liên tiếp thì chỉ lượt cuối được đọc lại.
+- Gom hai khối huỷ phần đã dịch sẵn giống hệt nhau (khi đổi từ điển / rule dịch nhanh) thành `invalidatePreparedTranslationState()`. `TTSManager.swift` 3500 ⇒ 3468 dòng, về dưới baseline 3470.
+- Chuyển entry `[1.3.658]` sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` trước sửa 2 violation nền (`JSDom`, `TTSManager`), sau sửa còn 1 (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.687] - 2026-11-03
 
 ### feat: các nhánh của một nhóm trong rule dịch dùng chung số {i}

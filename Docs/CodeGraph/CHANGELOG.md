@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.719] - 2026-11-05
+
+### feat: icon app mới Tàng Công Các kiểu thư pháp thủy mặc
+
+Người dùng: *"tạo lại icon app mới, tàng công các kiểu chữ tiếng việt thư pháp, phong cách tranh thủy mặc, đơn giản"*. Trong 3 phương án phác, người dùng chọn PA2 (đủ ba chữ xếp dọc) với font Kolker Brush.
+
+- **Hình**: nền giấy ngà, ba chữ "Tàng / Công / Các" viết bút lông xếp so le, trăng nhạt, một nhánh tre bên phải, núi xa mờ phía dưới. Ảnh vuông đặc, không trong suốt, không tự bo góc (iOS tự bo).
+- **Đánh đổi đã biết**: ở cỡ nhỏ nhất (20–29pt: Cài đặt, thông báo), ba dòng chữ chỉ còn như hoa văn. Người dùng chấp nhận để có đủ tên.
+- **Chữ "Tàng"**: tách "T" khỏi "àng" và hạ "àng" xuống 0,13 em, để dấu huyền không bị gạch ngang chữ T che.
+- **Ảnh** (`Sources/Assets.xcassets/AppIcon.appiconset/`):
+  - Thay cả 12 PNG, giữ tên file và cỡ pixel cũ (40–1024 px), thu nhỏ từ bản 1024 bằng LANCZOS.
+  - Giờ là RGB không kênh alpha (bản cũ RGBA), sRGB.
+  - `Contents.json` giữ nguyên, không thêm biến thể dark/tinted.
+  - Ảnh dựng từ SVG sinh bằng script, chụp bằng Edge headless; script và SVG không đưa vào repo.
+- **Font**: Kolker Brush (SIL OFL 1.1), chữ đã render sẵn vào PNG; app không đóng gói file font. Giấy phép ở `Docs/ThirdParty/KolkerBrush-OFL.txt`.
+- Không đổi tên hiển thị hay bundle id (thuộc việc đổi tên riêng).
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**:
+  - Soát ảnh 1024 và 180 px. So với một bản render bằng font giả để chắc font thật đã nạp.
+  - Kiểm từng PNG: `mode == RGB`, không có `transparency`, đúng cỡ.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.718] - 2026-11-05
 
 ### feat: mở lại mục đọc/xem gần nhất không phải 18+ khi mở app
@@ -654,19 +677,3 @@ Người dùng: *"tôi đổi nguồn 1 truyện có hơn 2k chương đã tải
 - **Truyện đã nửa vời trước bản này** (không có nhật ký): mở truyện cũ ⇒ Đổi nguồn ⇒ chọn lại đúng nguồn mới. App dùng lại truyện mới đã có, chỉ chép chương còn thiếu rồi xoá truyện cũ.
 - `rules.md`, `CLAUDE.md`, `AGENTS.md` ghi tên hàm mới. Chuyển entry `[1.3.659]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` trước và sau đều 1 violation nền (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.688] - 2026-11-03
-
-### fix: bật dịch trong Reader dịch lại ngay chương đang mở
-
-Người dùng: *"tôi bật dịch lại thì nội dung chương không dịch lại ngay. phải thoát vào lại reader nó mới chịu dịch"*. Lỗi đi kèm (truyện có tiện ích nguồn đã gỡ thì bị tắt dịch): người dùng chọn **không** sửa.
-
-- **Nguyên nhân**: `ReaderViewModel.toggleTranslation(enabled:)` chỉ gán cờ, không dựng lại đoạn. Chương dựng lúc tắt dịch có `translated == original` (`untranslatedTextResult`), nên bật lên thì `ParagraphCardView.displayText` vẫn ra chữ gốc. Tắt dịch thì đúng ngay vì chữ gốc luôn có. Thoát vào lại thì đúng vì ViewModel mới đọc lại cờ, `isTranslationFresh` thấy lệch và dựng lại. `ChapterContentRepository` không liên quan (chỉ giữ chữ gốc).
-- **Reader** (`ReaderViewModel+Translation.swift`): `toggleTranslation` dựng lại chương đang hiện (`refreshParagraphItems`, gồm đoạn tiêu đề -1) khi bản đang có không khớp công tắc mới; cờ không đổi thì không làm gì (nhánh Pronouns/LuatNhan vẫn gọi lại hàm này). Chương khác trong cache tự dựng lại khi tới, như cũ. Header và sheet mục lục vốn đã theo cờ.
-- **TTS đang phát cùng truyện** (`TTSManager+TranslationIdentity.swift`, `updateTranslationSetting(for:enabled:)`, gọi từ `onChange` của Reader): chữ TTS đọc và vệt highlight phải cùng hệ toạ độ với chữ Reader đang hiện.
-  - Đang phát ⇒ tải lại chương hiện tại qua `ChapterContentRepository`, rồi `startSpeaking` từ đầu đoạn đang đọc với `translationEnabled` mới. Đây là tham số mới của `startSpeaking`; bỏ trống thì vẫn tra `TranslationConfigStore` như cũ.
-  - Đang dừng ⇒ chỉ đổi cờ phiên và bỏ prefetch, áp từ chương sau; phần còn lại của chương đang dừng giữ chữ cũ.
-  - Cờ phiên đổi ngay, nên bấm bật/tắt liên tiếp thì chỉ lượt cuối được đọc lại.
-- Gom hai khối huỷ phần đã dịch sẵn giống hệt nhau (khi đổi từ điển / rule dịch nhanh) thành `invalidatePreparedTranslationState()`. `TTSManager.swift` 3500 ⇒ 3468 dòng, về dưới baseline 3470.
-- Chuyển entry `[1.3.658]` sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` trước sửa 2 violation nền (`JSDom`, `TTSManager`), sau sửa còn 1 (`JSDom`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
