@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.717] - 2026-11-05
+
+### chore: đổi FreeBook thành Tàng Công Các ở tài liệu, chữ hiển thị và comment
+
+Người dùng yêu cầu đổi tên cũ của app (FreeBook) và tên app tiện ích bên thứ ba còn sót trong dự án sang Tàng Công Các. Người dùng chọn: đổi tài liệu + chữ người dùng thấy + comment + nhãn nội bộ; "Tàng Công Các" cho chữ hiển thị/tài liệu, "TangCongCac" cho tên kỹ thuật; tên app tiện ích bên thứ ba thay bằng cách gọi trung tính ("hợp đồng tiện ích", "định dạng gốc"); giữ nguyên lịch sử (entry cũ, archive, `.workbuddy-ai`).
+
+- **Chữ người dùng thấy**: 3 câu xin quyền trong `project.yml` (mạng nội bộ, micro, ảnh); tab + tiêu đề ngăn kéo "Tiện ích Tàng Công Các"; lỗi "… chưa đọc được" ×3; tên dự phòng khi truyện không có tên (Reader ×4, màn khoá TTS) và ngoại lệ viết hoa của `DisplayTextFormatter` (`"TangCongCac"`); file xuất FB2/PDF ghi "Tàng Công Các", MOBI ghi "TangCongCac" (tên Palm chỉ nhận ASCII); chú thích bản backup gửi Telegram; dòng đầu CSV nhiệt và file tắt rule (chỉ file tạo mới); prompt AI mặc định (chỉ máy chưa từng lưu cấu hình AI hoặc bấm khôi phục mặc định — Luật 20, không di trú); mô tả preset "Như engine gốc" thành "Giống bộ dịch gốc trên máy tính"; câu debug server nhắc tên lệnh VS Code; 3 thông báo Telegram của CI; tiêu đề `check_architecture.py` (ASCII để console Windows không lỗi mã hoá).
+- **Nhãn nội bộ** (chỉ sống trong RAM, không ghi đĩa): 15 nhãn `DispatchQueue`, tên luồng `LegadoEngine`, 2 background task, môi trường ONNX của VieNeu, tên gesture tắt bàn phím, content world dịch trang, `ExtensionLoadError.errorDomain`, boundary multipart Telegram, thư mục tạm của backup nhiều phần, UA của `update_adblock_snapshot.py` → `TangCongCac…` / `com.tangcongcac…`.
+- **Comment**: văn xuôi → "Tàng Công Các"; comment về tiện ích JS → "hợp đồng tiện ích" / "định dạng gốc"; comment chép nguyên salt giải mã và tiền tố khoá `localStorage` cũ viết lại thành tên hằng (`salt`, `storageKeyPrefix`).
+- **Tài liệu**: `README.md` (tiêu đề "Tàng Công Các", ghi rõ tên kỹ thuật vẫn là `FreeBook`), `CLAUDE.md` + `AGENTS.md`, `.agents/AGENTS.md`, `rules.md`, `Docs/Specs/legado-source-spec*.md` (scheme đề xuất chưa có code → `tangcongcac://`), 4 file giấy phép `Docs/ThirdParty`, 3 mockup, 2 dòng đầu file này. Skill mẫu tiện ích đổi thư mục thành `.agents/skills/extension_helper/`. Tool VS Code: README, LICENSE và chữ hiển thị (tiêu đề lệnh, category, Output, thanh trạng thái, thông báo) — **giữ** ID lệnh, setting, package, publisher nên cấu hình đã lưu không mất; phải build lại VSIX mới thấy tên mới.
+- **Cố ý giữ** (đổi là mất dữ liệu hoặc vỡ tương thích): target/scheme/module/bundle id `FreeBook`, `FreeBookApp`, `FreeBookBridgingHeader.h`, tên `.xcodeproj`/IPA/artifact trong CI; khoá UserDefaults `FreeBook_*`; keychain `com.raikiri1498.FreeBook.*` / `FreeBook.GoogleAccountSnapshots`; thư mục `Application Support/FreeBook/TTS/` (và câu lỗi nhắc nó); tiền tố backup `freebook-` / `freebook-auto-`; thư mục Drive `FreeBookBackups`; salt giải mã và tiền tố khoá cũ của tiện ích JS; giao thức debug `freebook-extdebug.v1`; repo `buudvh/FreeBook`.
+- **Kiểm chứng**: grep lại chỉ còn các chỗ cố ý giữ ở trên; `check_architecture.py` như nền (1 violation `JSDom.swift`), 0 mới; mọi thay đổi là thay trong dòng, không thêm dòng code. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.716] - 2026-11-05
 
 ### feat: mở lại truyện đang đọc khi mở app, có công tắc trong Cài đặt

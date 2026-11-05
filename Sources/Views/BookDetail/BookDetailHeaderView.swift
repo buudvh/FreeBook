@@ -28,8 +28,6 @@ struct BookDetailHeaderView: View {
     let downloadUrl: String
     let configJson: String
     let isTranslationEnabled: Bool
-    /// Nguồn video ⇒ đoán bìa ngang trước khi ảnh bìa về.
-    let prefersLandscapeCover: Bool
 
     let onTranslateMetaIfNeeded: (String) -> String
     let onLoadBookDetailOnly: () -> Void
@@ -57,8 +55,7 @@ struct BookDetailHeaderView: View {
                     sourceHost: sourceHost,
                     sourceName: sourceName,
                     localPath: localPath,
-                    iconUrl: iconUrl,
-                    prefersLandscapeCover: prefersLandscapeCover
+                    iconUrl: iconUrl
                 )
 
                 VStack(alignment: .leading, spacing: 12) {

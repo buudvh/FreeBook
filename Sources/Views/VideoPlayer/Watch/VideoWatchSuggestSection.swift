@@ -11,7 +11,6 @@ struct VideoWatchSuggestSection: View {
     let model: VideoWatchModel
     let loadsMore: Bool
     let onSelect: (VideoWatchRequest) -> Void
-    let onOpenDetail: (VideoWatchRequest) -> Void
     let onShowMore: () -> Void
 
     @StateObject private var loader: PaginatedNovelLoader
@@ -22,14 +21,12 @@ struct VideoWatchSuggestSection: View {
         model: VideoWatchModel,
         loadsMore: Bool,
         onSelect: @escaping (VideoWatchRequest) -> Void,
-        onOpenDetail: @escaping (VideoWatchRequest) -> Void,
         onShowMore: @escaping () -> Void
     ) {
         self.category = category
         self.model = model
         self.loadsMore = loadsMore
         self.onSelect = onSelect
-        self.onOpenDetail = onOpenDetail
         self.onShowMore = onShowMore
         let ext = ExtensionLibraryRepository.snapshot(packageId: model.request.packageId)
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
@@ -131,7 +128,6 @@ struct VideoWatchSuggestSection: View {
                         item: item,
                         model: model,
                         onSelect: { onSelect(request(for: item)) },
-                        onOpenDetail: { onOpenDetail(request(for: item)) },
                         makeRequest: { request(for: item) }
                     )
                     .onAppear { loadMoreIfNeeded(after: item) }

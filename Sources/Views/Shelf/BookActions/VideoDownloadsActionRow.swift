@@ -14,7 +14,7 @@ struct VideoDownloadsActionRow: View {
             Button(role: .destructive) {
                 isConfirming = true
             } label: {
-                Label("Xoá bản tải (\(VideoDownloadsDeletePill.detailText(for: summary)))", systemImage: "trash")
+                Label("Xoá bản tải (\(Self.detailText(for: summary)))", systemImage: "trash")
             }
             .confirmationDialog("Xoá bản tải của phim này?", isPresented: $isConfirming, titleVisibility: .visible) {
                 Button("Xoá bản tải", role: .destructive) {
@@ -25,6 +25,16 @@ struct VideoDownloadsActionRow: View {
                 Text("Phim vẫn ở trên kệ; xem lại cần mạng hoặc tải lại.")
             }
         }
+    }
+
+    /// "5 tập · 2,3 GB" — chỉ có bản dở thì chỉ ghi dung lượng.
+    static func detailText(for summary: VideoOfflineStore.BookSummary) -> String {
+        var parts: [String] = []
+        if !summary.completedEpisodes.isEmpty {
+            parts.append("\(summary.completedEpisodes.count) tập")
+        }
+        parts.append(ByteCountFormatter.string(fromByteCount: summary.totalBytes, countStyle: .file))
+        return parts.joined(separator: " · ")
     }
 
     private func deleteAll() {

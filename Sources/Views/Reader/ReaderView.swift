@@ -613,6 +613,9 @@ struct ReaderView: View {
                     }
 
                     showingBypassBrowser = false
+                    // Link của tiện ích phim ⇒ màn xem phim (tự chờ cover trình duyệt đóng), không đẩy Chi tiết kiểu cũ.
+                    if ContentDetailRouter.openIfVideo(packageId: packageId, detailUrl: detailUrl, sourceName: sourceName,
+                                                       host: importedHost, modelContainer: modelContext.container) { return }
                     ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         navigateToBookDetail = true

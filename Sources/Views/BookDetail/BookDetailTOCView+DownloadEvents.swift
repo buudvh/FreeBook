@@ -12,7 +12,7 @@ extension BookDetailTOCView {
     /// cả comic thì icon hiện trong phiên rồi mất khi tab dựng lại.
     @MainActor
     func observeChapterDownloads() async {
-        guard !isVideo, let book = localBook, !book.bookId.isEmpty,
+        guard let book = localBook, !book.bookId.isEmpty,
               ExtensionContentKind.resolve(packageId: book.extensionPackageId) == .text else { return }
         let bookId = book.bookId
         for await indices in ChapterDownloadEventCenter.shared.chapterIndices(bookId: bookId) {

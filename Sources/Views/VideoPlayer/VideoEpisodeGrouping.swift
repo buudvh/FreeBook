@@ -1,8 +1,7 @@
 import Foundation
 
 /// Chia mục lục phim thành **nhóm theo dòng `section`** — một thuật toán duy nhất cho lưới tập của trình phát
-/// (`VideoEpisodeGridView`), dải tập + sheet "Tất cả tập" của màn xem và tab Mục lục của Chi tiết
-/// (`BookDetailVideoTOCGrid`). Trước đây hai bản chép riêng.
+/// (`VideoEpisodeGridView`) và dải tập + sheet "Tất cả tập" của màn xem. Trước đây hai bản chép riêng.
 ///
 /// - Mỗi dòng `section` mở một nhóm mang tên của nó; các tập đứng **trước** section đầu tiên thành nhóm không tên.
 /// - Nhóm rỗng (hai section liền nhau, section ở cuối) bị bỏ.

@@ -28,17 +28,11 @@ struct BookDetailTOCView: View {
     /// Tên hiển thị của một dòng mục lục đã lưu — `BookDetailView.displayTitle(for:)` (bản lưu / dịch sống / phồn→giản).
     let onDisplayTitle: (StoredChapterSnapshot) -> String
     let onLoadMoreChapters: () -> Void
-    /// "chương" hoặc "tập" (video) — `BookDetailView.episodeNoun`.
-    var episodeNoun: String = "chương"
-    /// `true` = nội dung video: vẽ **lưới tập** (`BookDetailVideoTOCGrid`) thay cho danh sách hàng.
-    var isVideo: Bool = false
 
     /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
     /// `BookDetailView` (có closure nên không bỏ qua được): lọc hàng nghìn chương ở mỗi lần vẽ là việc
     /// thừa — chỉ tính lại khi query/chiều/mục lục đổi.
     @State private var visibleSnapshots: [StoredChapterSnapshot] = []
-    /// Dòng của lưới tập (video) đã dịch sẵn — lưới không lazy, dịch trong `body` là dịch mọi tập ở mỗi lần vẽ.
-    @State private var videoRows: [BookDetailVideoTOCGrid.Row] = []
     @State var didAutoLoadMoreChapters = false // `+AutoLoad`: tự tải trang mục lục còn lại tối đa một lần
     @State var freshlyCachedIndices: Set<Int> = [] // `+DownloadEvents`: chương vừa tải xong, `chapterSnapshots` chưa có
     /// Số thứ tự của mục lục đã lưu, dựng lại chỉ khi `chapterSnapshots` đổi (không theo từ khoá / chiều).
@@ -47,32 +41,26 @@ struct BookDetailTOCView: View {
     private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
     var body: some View {
-        Group {
-            if isVideo {
-                videoTOC
-            } else {
-                // Panel Mục lục dùng chung với Reader/comic: đầu panel + ô tìm đứng yên, chỉ danh sách cuộn.
-                VStack(spacing: 0) {
-                    ChapterTOCPanelHeader(
-                        chapterCount: readableChapterCount,
-                        noun: episodeNoun,
-                        searchText: totalChaps > 0 ? $chapterSearchQuery : nil,
-                        isAscending: isTocAscending,
-                        palette: .system,
-                        onToggleSort: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isTocAscending.toggle()
-                            }
-                        }
-                    ) {
-                        tocErrorActions
+        // Panel Mục lục dùng chung với Reader/comic: đầu panel + ô tìm đứng yên, chỉ danh sách cuộn.
+        VStack(spacing: 0) {
+            ChapterTOCPanelHeader(
+                chapterCount: readableChapterCount,
+                noun: "chương",
+                searchText: totalChaps > 0 ? $chapterSearchQuery : nil,
+                isAscending: isTocAscending,
+                palette: .system,
+                onToggleSort: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isTocAscending.toggle()
                     }
-                    tocListView
                 }
-                .chapterTOCPanel(.system)
-                .padding(.top, 12)
+            ) {
+                tocErrorActions
             }
+            tocListView
         }
+        .chapterTOCPanel(.system)
+        .padding(.top, 12)
         .onChange(of: appliedSearchQuery) { recomputeVisibleSnapshots() }
         .onChange(of: isTocAscending) { recomputeVisibleSnapshots() }
         .onChange(of: chapterSnapshots, initial: true) { oldSnapshots, _ in
@@ -81,84 +69,10 @@ struct BookDetailTOCView: View {
             reconcileFreshlyCached(previousCount: oldSnapshots.count)
         }
         .task(id: localBook?.bookId) { await observeChapterDownloads() }
-        .onChange(of: isTranslationEnabled) { recomputeVideoRows(snapshots: visibleSnapshots) }
-        .onChange(of: filteredOnlineChapters.map(\.offset)) { recomputeVideoRows(snapshots: visibleSnapshots) }
-    }
-
-    // MARK: - Video: mục lục dạng lưới
-
-    /// Nhánh video: cùng dữ liệu với danh sách hàng, khác cách trình bày. Tìm kiếm dùng chung
-    /// `chapterSearchQuery` nên không có hai nguồn từ khoá.
-    private var videoTOC: some View {
-        BookDetailVideoTOCGrid(
-            rows: videoRows,
-            currentIndex: localBook?.currentChapterIndex ?? -1,
-            isAscending: isTocAscending,
-            isLoading: isLoadingTOC,
-            errorMessage: tocErrorMessage,
-            errorLink: tocErrorLink,
-            openingErrorLink: $openingErrorLink,
-            noun: episodeNoun,
-            remainingPages: tocPages.count > 1 && !remainingPagesLoaded ? tocPages.count - 1 : 0,
-            searchQuery: $chapterSearchQuery,
-            onToggleSort: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isTocAscending.toggle()
-                }
-            },
-            onSelect: { onStartReading($0) },
-            onReload: onLoadTOCDataOnly,
-            onLoadMore: onLoadMoreChapters,
-            onReachEnd: autoLoadMoreChaptersIfNeeded
-        )
-    }
-
-    /// Dòng mục lục cho lưới tập, tính lại vào `videoRows` khi từ khoá / thứ tự / mục lục / công tắc dịch đổi (không
-    /// dịch trong `body`). Giữ **đúng thứ tự ưu tiên** của danh sách hàng (`chapterSnapshots` → `Book.chapters` →
-    /// `onlineChapters`) để hai cách hiển thị không lệch nhau. Số tập hiển thị do lưới tự đánh theo từng tab, nên ở đây
-    /// chỉ chuyển dữ liệu thô. `snapshots` = danh sách đã lọc vừa tính (đừng đọc lại `@State` ngay sau khi gán).
-    private func recomputeVideoRows(snapshots: [StoredChapterSnapshot]) {
-        guard isVideo else { return }
-        videoRows = videoSourceRows(snapshots: snapshots).map { item in
-            BookDetailVideoTOCGrid.Row(
-                index: item.index,
-                title: item.title,
-                isSection: item.isSection,
-                isCached: item.isCached
-            )
-        }
-    }
-
-    private func videoSourceRows(snapshots: [StoredChapterSnapshot]) -> [(index: Int, title: String, isSection: Bool, isCached: Bool)] {
-        if !chapterSnapshots.isEmpty {
-            return snapshots.map { chap in
-                (index: chap.index,
-                 title: onDisplayTitle(chap),
-                 isSection: chap.isSection,
-                 isCached: chap.isCached)
-            }
-        }
-        if localBook != nil, !filteredLocalChapters.isEmpty {
-            // `Book.chapters` luôn rỗng khi `enableSwiftDataTOCWrite = false`; giữ nhánh cho đồng bộ với danh sách hàng.
-            return filteredLocalChapters.map { chap in
-                (index: chap.index,
-                 title: onTranslateChapterTitleIfNeeded(chap),
-                 isSection: false,
-                 isCached: chap.isCached)
-            }
-        }
-        return onlineRows.map { row in
-            (index: row.offset,
-             title: onTranslateTitleIfNeeded(row.element.name),
-             isSection: row.element.isSection,
-             isCached: false)
-        }
     }
 
     private func recomputeVisibleSnapshots() {
-        let snapshots = filteredChapterSnapshots
-        visibleSnapshots = snapshots
-        recomputeVideoRows(snapshots: snapshots)
+        visibleSnapshots = filteredChapterSnapshots
     }
 
     /// Đã có mục lục nhưng lượt tải lại lỗi: "Tải lại lỗi" + la bàn "Mở link lỗi", đứng trước nút sắp xếp ở đầu panel.
@@ -209,7 +123,7 @@ struct BookDetailTOCView: View {
             if isLoadingTOC && totalChaps == 0 {
                 HStack {
                     Spacer()
-                    ProgressView("Đang tải danh sách \(episodeNoun)...")
+                    ProgressView("Đang tải danh sách chương...")
                         .padding(.vertical, 30)
                     Spacer()
                 }
@@ -291,7 +205,7 @@ struct BookDetailTOCView: View {
                         Button(action: onLoadMoreChapters) {
                             HStack {
                                 Spacer()
-                                Text("Tải thêm \(episodeNoun) (còn \(tocPages.count - 1) trang)")
+                                Text("Tải thêm chương (còn \(tocPages.count - 1) trang)")
                                     .fontWeight(.semibold)
                                 Spacer()
                             }

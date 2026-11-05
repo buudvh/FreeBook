@@ -2,14 +2,13 @@ import SwiftUI
 
 /// Thẻ đề xuất kiểu bảng tin của màn xem: ảnh **16:9 rộng hết màn** (bìa dọc đặt giữa trên nền mờ của chính bìa), nhãn
 /// góc ảnh khi nguồn trả `tag` (thường là số tập); dưới ảnh: icon tiện ích nguồn tròn, tên 2 dòng, dòng phụ
-/// `nguồn · tác giả / mô tả ngắn`, và `⋮` (Thêm vào kệ / Mở trang chi tiết).
+/// `nguồn · tác giả / mô tả ngắn`, và `⋮` (chỉ "Thêm vào kệ" — phim không còn trang Chi tiết kiểu cũ).
 ///
 /// Chạm ảnh hoặc chữ ⇒ `onSelect`. "Thêm vào kệ" tự tải chi tiết + mục lục rồi tạo `Book` (`VideoWatchShelfAdder`).
 struct VideoWatchSuggestCard: View {
     let item: ExtensionItemResult
     let model: VideoWatchModel
     let onSelect: () -> Void
-    let onOpenDetail: () -> Void
     let makeRequest: () -> VideoWatchRequest
 
     @State private var isAddingToShelf = false
@@ -119,9 +118,6 @@ struct VideoWatchSuggestCard: View {
                 Label("Thêm vào kệ", systemImage: "plus.circle")
             }
             .disabled(isAddingToShelf)
-            Button(action: onOpenDetail) {
-                Label("Mở trang chi tiết", systemImage: "info.circle")
-            }
         } label: {
             Group {
                 if isAddingToShelf {

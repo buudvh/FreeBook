@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Bìa dọc hay ngang theo **tỉ lệ thật của ảnh** (`BookCoverView.onImageSize` — thumbnail giữ tỉ lệ gốc): ảnh rộng
 /// hơn cao từ `landscapeThreshold` thì dựng ngang gần hết bề ngang màn, còn lại dựng dọc 150×210. Lúc ảnh chưa về thì
-/// đoán theo loại nguồn (`prefersLandscapeCover` — video) để khung ít nhảy.
+/// dựng dọc (phim không mở màn này nên không còn đoán bìa ngang).
 ///
 /// Cả hai lớp bìa đều là `BookCoverView` theo `bookId` (cùng file `covers/`, `ImageCacheManager` gộp lượt tải trùng).
 /// Lớp nền dựng thumbnail nhỏ rồi phóng: đã làm mờ thì không cần ảnh to.
@@ -23,14 +23,12 @@ struct BookDetailHeroView: View {
     let sourceName: String
     let localPath: String
     let iconUrl: String?
-    let prefersLandscapeCover: Bool
 
     /// Rộng : cao của ảnh bìa đã tải; `nil` khi chưa có ảnh.
     @State private var imageAspect: CGFloat?
 
     private static let portraitAspect: CGFloat = 5.0 / 7.0
     private static let portraitWidth: CGFloat = 150
-    private static let landscapeGuessAspect: CGFloat = 16.0 / 9.0
     /// Ảnh gần vuông vẫn dựng dọc; từ tỉ lệ này mới là bìa ngang.
     private static let landscapeThreshold: CGFloat = 1.15
     private static let landscapeMaxAspect: CGFloat = 2.4
@@ -78,9 +76,7 @@ struct BookDetailHeroView: View {
     // MARK: - Bìa
 
     private var coverAspect: CGFloat {
-        guard let imageAspect else {
-            return prefersLandscapeCover ? Self.landscapeGuessAspect : Self.portraitAspect
-        }
+        guard let imageAspect else { return Self.portraitAspect }
         guard imageAspect >= Self.landscapeThreshold else { return Self.portraitAspect }
         return min(imageAspect, Self.landscapeMaxAspect)
     }

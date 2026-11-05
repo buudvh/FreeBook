@@ -8,7 +8,8 @@ import SwiftUI
 /// nhóm đã dịch, tập đổi theo lúc phát). Phiên trống / chạy phim khác ⇒ chỉ dữ liệu của `VideoWatchModel`, không có
 /// lưới Server (server chỉ có sau khi nạp một tập).
 ///
-/// Lối rời màn (Home, đổi nguồn xong) đi qua `onExit`. Thể loại, "Xem thêm" của nhóm đề xuất và Chi tiết của đề xuất mở
+/// Lối rời màn (Home, đổi nguồn xong) đi qua `onExit`. Thể loại, "Xem thêm" của nhóm đề xuất và Chi tiết của đề xuất
+/// không phải phim mở
 /// trang toàn màn đè lên màn (`VideoWatchPagePresenter`, phim vẫn phát bên dưới). Thể loại bấm trong sheet Thông tin thì
 /// đóng sheet trước rồi mới mở trang (`onDismiss` của sheet) — trình bày lúc sheet còn hiện là trình bày lên sheet.
 struct VideoWatchDetailsView: View {
@@ -83,10 +84,10 @@ struct VideoWatchDetailsView: View {
                         if ExtensionContentKind.resolve(packageId: request.packageId) == .video {
                             model.replace(with: request)
                         } else {
+                            // Đề xuất không phải phim (truyện chữ / tranh) ⇒ trang Chi tiết của truyện đó.
                             VideoWatchPagePresenter.openDetail(request, modelContainer: model.modelContainer)
                         }
                     },
-                    onOpenDetail: { VideoWatchPagePresenter.openDetail($0, modelContainer: model.modelContainer) },
                     onShowMore: { VideoWatchPagePresenter.openCategory($0, model: model) }
                 )
             }

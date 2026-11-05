@@ -6,7 +6,8 @@ import UIKit
 /// khi đã thu nhỏ phim). Ba lối dùng chung:
 /// - thể loại (nhãn `#` trên tên + chip của sheet Thông tin) và "Xem thêm ›" của một nhóm đề xuất ⇒ `openCategory`
 ///   (`CategoryNovelsListView`);
-/// - "Mở trang chi tiết" ở `⋮` của thẻ đề xuất (và đề xuất không phải phim) ⇒ `openDetail` (`BookDetailView`).
+/// - bấm một đề xuất **không phải phim** (truyện chữ / tranh) ⇒ `openDetail` (`BookDetailView`). Phim không bao giờ mở
+///   trang Chi tiết kiểu cũ: bấm phim là đổi phim tại chỗ, `⋮` của thẻ không còn "Mở trang chi tiết".
 ///
 /// ## Cách trình bày
 /// - `UIHostingController` `.overFullScreen` lên VC trên cùng (cùng cách tìm với `VideoWatchPresenter`). **Không**
@@ -69,7 +70,7 @@ final class VideoWatchPagePresenter {
         }
     }
 
-    /// Trang Chi tiết của một đề xuất.
+    /// Trang Chi tiết của một đề xuất không phải phim.
     static func openDetail(_ request: VideoWatchRequest, modelContainer: ModelContainer) {
         AppLogger.shared.log("🎬 [VideoWatch] Mở trang Chi tiết đè lên màn xem, phim vẫn phát")
         present(modelContainer: modelContainer) {

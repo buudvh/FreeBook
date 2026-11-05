@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Cờ hiển thị của màn chi tiết theo **loại nội dung** của nguồn (truyện chữ / truyện tranh / video).
+/// Cờ hiển thị của màn chi tiết theo **loại nội dung** của nguồn (truyện chữ / truyện tranh). Phim không mở màn này
+/// (mọi lối vào phim đi `ContentDetailRouter` ⇒ màn xem phim).
 ///
 /// Loại suy lúc chạy qua `ExtensionContentKind.resolve(packageId:)` — không lưu vào `Book` (bất biến 4 của plan
 /// comic/video). Dịch tên truyện và tên chương vẫn giữ cho mọi loại (có ích với manhua).
@@ -9,28 +10,18 @@ extension BookDetailView {
         ExtensionContentKind.resolve(packageId: extensionPackageId)
     }
 
-    /// Truyện/phim nhập từ file (`LocalMediaPackage`): chỉ có bản trên máy — không tải offline, không xoá bản tải.
+    /// Truyện nhập từ file (`LocalMediaPackage`): chỉ có bản trên máy — không tải offline.
     internal var isLocalMediaBook: Bool {
         LocalMediaPackage.isLocalMedia(packageId: extensionPackageId)
     }
 
-    /// Xuất file có ở mọi loại: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh), video ra file phim
-    /// (tập đã tải về máy, `DownloadManager+VideoExport`).
+    /// Xuất file có ở mọi loại: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh).
     internal var showsExport: Bool {
         true
     }
 
     internal var exportActionTitle: String {
-        switch contentKind {
-        case .video: return "Xuất video đã tải"
-        case .comic: return "Xuất chương đã tải"
-        case .text, .unsupported: return "Xuất ebook"
-        }
-    }
-
-    /// Nút "Xoá bản tải" của phim — không có với phim nhập từ file (xoá là mất phim).
-    internal var showsVideoDownloadsPill: Bool {
-        contentKind == .video && !isLocalMediaBook
+        contentKind == .comic ? "Xuất chương đã tải" : "Xuất ebook"
     }
 
     /// Từ điển riêng của truyện chỉ phục vụ dịch nội dung chữ.
@@ -38,26 +29,14 @@ extension BookDetailView {
         !contentKind.isMedia
     }
 
-    /// Nhãn nút tải (video tải offline qua `DownloadManager+Video`).
+    /// Nhãn nút tải.
     internal var downloadActionTitle: String? {
         guard !isLocalMediaBook else { return nil }
-        switch contentKind {
-        case .comic: return "Tải ảnh offline"
-        case .video: return "Tải video offline"
-        case .text, .unsupported: return "Tải truyện"
-        }
+        return contentKind == .comic ? "Tải ảnh offline" : "Tải truyện"
     }
 
-    /// "Đọc ngay"/"Đọc tiếp" cho truyện, "Xem ngay"/"Xem tiếp" cho video.
+    /// "Đọc ngay" / "Đọc tiếp".
     internal func readActionTitle(isResuming: Bool) -> String {
-        if contentKind == .video {
-            return isResuming ? "Xem tiếp" : "Xem ngay"
-        }
-        return isResuming ? "Đọc tiếp" : "Đọc ngay"
-    }
-
-    /// Danh từ cho một mục của mục lục: "chương" hoặc "tập".
-    internal var episodeNoun: String {
-        contentKind == .video ? "tập" : "chương"
+        isResuming ? "Đọc tiếp" : "Đọc ngay"
     }
 }

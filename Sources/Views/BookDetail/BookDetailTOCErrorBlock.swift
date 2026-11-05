@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Khối lỗi mục lục khi **chưa có chương nào** — danh sách hàng (`BookDetailTOCView`) và lưới tập video
-/// (`BookDetailVideoTOCGrid`) dùng chung: câu lỗi đỏ + dòng URL xám + `[Tải lại mục lục] [Mở link lỗi]`.
+/// Khối lỗi mục lục khi **chưa có chương nào** của danh sách hàng (`BookDetailTOCView`): câu lỗi đỏ + dòng URL xám +
+/// `[Tải lại mục lục] [Mở link lỗi]`.
 /// Màn cha (`BookDetailView`) gắn `.errorLinkBrowser` cho `openingLink`, thử lại = `onReload`.
 struct BookDetailTOCErrorBlock: View {
     let message: String

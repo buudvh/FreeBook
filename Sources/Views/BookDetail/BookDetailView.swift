@@ -303,7 +303,6 @@ struct BookDetailView: View {
                 loadBookDataOnAppear()
             }
             markSourceUsed()
-            if contentKind == .video, let videoBookId = localBook?.bookId { VideoOfflineLibrary.shared.refresh(bookId: videoBookId) }
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
@@ -490,7 +489,6 @@ struct BookDetailView: View {
                         downloadUrl: ext?.downloadUrl ?? "",
                         configJson: ext?.configJson ?? "{}",
                         isTranslationEnabled: isTranslationEnabled,
-                        prefersLandscapeCover: contentKind == .video,
                         onTranslateMetaIfNeeded: translateMetaIfNeeded,
                         onLoadBookDetailOnly: loadBookDetailOnly
                     )
@@ -626,9 +624,7 @@ struct BookDetailView: View {
                     onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
                     onTranslateTitleIfNeeded: translateTitleIfNeeded,
                     onDisplayTitle: displayTitle(for:),
-                    onLoadMoreChapters: loadMoreChapters,
-                    episodeNoun: episodeNoun,
-                    isVideo: contentKind == .video
+                    onLoadMoreChapters: loadMoreChapters
                 )
             } else {
                 Spacer()
@@ -799,11 +795,6 @@ struct BookDetailView: View {
                                 }
                                 .transition(.scale.combined(with: .opacity))
                             }
-
-                            if showsVideoDownloadsPill, let videoBookId = localBook?.bookId {
-                                VideoDownloadsDeletePill(bookId: videoBookId) { isMenuExpanded = false }
-                                    .transition(.scale.combined(with: .opacity))
-                            }
                         }
 
                         Button(action: {
@@ -831,15 +822,10 @@ struct BookDetailView: View {
     }
 
 
-    /// Phim: quy tắc chung với màn xem phim (`VideoWatchRequest.resolveBookId`, id xác định theo tiện ích + link) để mở
-    /// cùng phim từ nhiều lối không ra hai `Book`. Truyện chữ / tranh giữ cách cũ (id ngẫu nhiên cho truyện chưa lưu): id
-    /// xác định sẽ trùng id của bản đã xoá, mà hàng đợi xoá lỗi của `BookStorageManager` có thể còn mục của id đó.
+    /// Truyện chữ / tranh: id ngẫu nhiên cho truyện chưa lưu — id xác định sẽ trùng id của bản đã xoá, mà hàng đợi xoá lỗi
+    /// của `BookStorageManager` có thể còn mục của id đó. (Phim không mở màn này: id phim do `VideoWatchRequest` phân giải.)
     private func resolveBookId() {
-        if contentKind == .video {
-            resolvedBookId = VideoWatchRequest.resolveBookId(
-                matchedBookId: localBook?.bookId, preferredBookId: bookId, packageId: extensionPackageId, detailUrl: initialDetailUrl
-            ) { id in allBooks.contains { $0.bookId == id } }
-        } else if let book = localBook {
+        if let book = localBook {
             resolvedBookId = book.bookId
         } else {
             resolvedBookId = bookId.contains("-") && bookId.count > 30 ? bookId : fallbackBookId
