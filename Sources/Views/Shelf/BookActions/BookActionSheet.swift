@@ -92,8 +92,10 @@ struct BookActionSheet: View {
     // MARK: - Phần đầu
 
     /// Chi tiết chỉ mở được khi truyện có nguồn để mở: đúng điều kiện của hàng "Xem chi tiết" cũ.
+    /// Phim thì không (1.3.737): bấm phim đã mở thẳng màn xem có đủ thông tin, trang Chi tiết kiểu cũ không còn lối vào từ đây.
     private var canOpenDetail: Bool {
-        target.mode == .history || !book.isLocalBook
+        guard ExtensionContentKind.resolve(packageId: book.extensionPackageId) != .video else { return false }
+        return target.mode == .history || !book.isLocalBook
     }
 
     private var canTogglePin: Bool {

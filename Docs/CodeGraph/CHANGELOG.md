@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.737] - 2026-11-05
+
+### fix: nhấn giữ phim ở Kệ và Lịch sử không còn mở trang Chi tiết
+
+Người dùng: *"bỏ bấm vào chi tiết từ contextmenu ở kệ và lịch sử đối với video"*.
+
+- **`BookActionSheet.canOpenDetail`**: phim (`ExtensionContentKind.resolve(packageId:) == .video`) trả `false` ⇒ chạm phần đầu (bìa + tên) của sheet nhấn giữ không mở `BookDetailView` nữa.
+  - Dòng gợi ý "?" và trait nút của phần đầu đổi theo (không còn "Chạm phần trên để xem chi tiết").
+  - Nhấn giữ để ghim, nút Sửa thông tin, nút Kệ và mọi hàng khác giữ nguyên.
+  - Sheet dùng chung ⇒ áp cả ở Bộ sưu tập và Tìm trên kệ.
+- Đảo một phần quyết định của 1.3.735 (giữ "Xem chi tiết" cho phim làm lối vào trang Chi tiết kiểu cũ). "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem vẫn giữ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.736] - 2026-11-05
 
 ### fix: màn xem video: đề xuất và bình luận không kẹt khi cuộn nhanh, khai rõ giá trị đầu của state
@@ -722,19 +738,3 @@ Người dùng: *"Làm theo javis đề xuất và hãy xem log sau đây"* (pla
   - Đọc code; logic JS thử trên Node/V8 với văn bản bootstrap thật; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`.
   - Không build tại chỗ (Windows), chưa thử trên máy.
   - Báo cáo 19:57 chạy bản có 1.3.700. Các nguồn 1.3.700 đã sửa đang tắt nên cần bật lại và chạy riêng.
-
-## [1.3.707] - 2026-11-04
-
-### fix: ô tìm của bảng chọn nguồn Khám phá đứng yên khi cuộn
-
-Người dùng: *"Hãy sửa cho hàng search luôn hiển thị ở vị trí đó dù scroll xuống dưới trên màn chọn tiện ích khám phá"*.
-
-- **Ngăn kéo menu có tuỳ chọn `contentScrolls`** (`sideDrawerMenu(..., contentScrolls:)`, mặc định `true`, đi qua `SideDrawerMenuModifier` → `SideDrawerMenuWindowManager` → `SideDrawerMenuWindowRoot` → `SideDrawerMenuPanel`).
-  - `false` thì panel không bọc nội dung trong `ScrollView`. Nội dung chiếm phần còn lại của ngăn kéo và tự cuộn.
-  - Mọi ngăn kéo khác giữ nguyên.
-- **Bảng chọn nguồn Khám phá** (`DiscoverySourcePickerModifier`, `ExtensionSelectorView`) mở với `contentScrolls: false`.
-  - Ô tìm và nút chọn loại đứng yên ở đầu; chỉ danh sách nguồn (hoặc dòng "Không có nguồn nào khớp") cuộn bên dưới.
-  - Ô tìm vẫn ở trong cùng view nên từ khoá vẫn là `@State` của bảng: gõ là lọc ngay, như trước.
-- **Kiểm chứng:**
-  - Đọc code; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy: cuộn danh sách dài, vuốt đóng ngăn kéo, gõ tìm khi bàn phím đang mở.
