@@ -3,16 +3,19 @@ import SwiftUI
 /// Section "Đọc & Nghe" của tab Cài đặt (1.3.520): mỗi nhóm cài đặt là **một dòng** dẫn vào màn riêng, chữ phụ
 /// bên phải là trạng thái hiện tại. Đọc trạng thái qua `@AppStorage` (cùng khoá các màn con ghi) — không
 /// observe `TTSManager` (View không được observe trực tiếp manager). "Tắt tiếng khi mở phim" đã chuyển sang màn
-/// Nội dung nhạy cảm (`NsfwSettingsView`).
+/// Nội dung nhạy cảm (`NsfwSettingsView`). Ngoại lệ duy nhất là công tắc "Mở lại truyện đang đọc" (1.3.716,
+/// `ReaderSessionRestoreStore`) nằm ngay trong section, giải thích ở nút "?" của tiêu đề.
 struct ReadingSettingsSection: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// `TTSManager` ghi khoá này mỗi khi đổi engine; mặc định `"system"` giống `TTSManager.init`.
     @AppStorage("ttsTool") private var ttsTool = "system"
     /// Mặc định `true` khớp `WebContentSettings.registerDefaults()`.
     @AppStorage(WebContentSettings.adBlockEnabledKey) private var adBlockEnabled = true
+    /// Mặc định bật — khớp `ReaderSessionRestoreStore.isEnabled` (khoá chưa ghi = bật).
+    @AppStorage(ReaderSessionRestoreStore.enabledKey) private var restoresReaderOnLaunch = ReaderSessionRestoreStore.defaultEnabled
 
     var body: some View {
-        Section(header: Text("Đọc & Nghe")) {
+        Section {
             NavigationLink(destination: TranslationSettingsView()) {
                 LabeledContent {
                     Text(isTranslationEnabled ? "Đang bật" : "Tắt")
@@ -37,6 +40,15 @@ struct ReadingSettingsSection: View {
                     Label("Trình duyệt", systemImage: "globe")
                 }
             }
+            Toggle(isOn: $restoresReaderOnLaunch) {
+                Label("Mở lại truyện đang đọc", systemImage: "arrow.uturn.backward.circle")
+            }
+        } header: {
+            SectionHelpHeader("Đọc & Nghe", paragraphs: [
+                "**Mở lại truyện đang đọc**: tắt app khi đang ở màn đọc truyện, truyện tranh hay phim thì lần mở app sau tự vào lại đúng chương, đúng chỗ. Đã đóng màn đọc rồi mới tắt app thì thôi.",
+                "Không tự mở truyện 18+. TTS và phim không tự phát.",
+                "Lần mở lại trước bị tắt trong 10 giây đầu thì lần này bỏ qua."
+            ])
         }
     }
 }

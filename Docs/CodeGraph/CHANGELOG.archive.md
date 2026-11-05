@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.685] - 2026-11-03
+
+### feat: sheet Bộ lọc hiện chữ đã dịch khi nguồn bật dịch
+
+Người dùng: *"hãy hiển thị nội dung bộ lọc đã dịch nếu ext config dịch"*. Chốt: chỉ sheet Bộ lọc, màn Cấu hình tiện ích giữ nguyên văn.
+
+- `ExtensionFilterSheet`:
+  - Lúc nạp, nếu nguồn bật dịch (`TranslationConfigStore.isTranslationEnabled(bookId: nil, packageId:, isChineseSourceHint:)`, nguồn tiếng Trung tự bật) thì gom tiêu đề, dòng phụ và lựa chọn của các mục lọc có chữ Hán, rồi dịch **ngoài main** bằng `translateMeta` (bỏ trùng) vào bảng `translations`.
+  - Chưa dịch xong thì hiện chữ gốc.
+- `ExtensionConfigFieldRow` thêm `displayText`, áp cho tiêu đề, dòng phụ, nhãn lựa chọn trong menu, lựa chọn đang hiện và tiêu đề màn danh sách. **Giá trị lưu vẫn là chữ gốc**, vì script nhận đúng chuỗi đó. Mặc định giữ nguyên nên màn Cấu hình không đổi.
+- Phần E (thứ tự explore/home) người dùng đã huỷ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Cần thử: mở Bộ lọc của qidian/qimao khi nguồn bật dịch, chọn một lựa chọn đã dịch rồi Áp dụng và kiểm danh sách lọc đúng.
+
 ## [1.3.684] - 2026-11-03
 
 ### feat: phồn→giản trước khi dịch trang trình duyệt, chung và riêng theo tên miền

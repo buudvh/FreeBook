@@ -220,6 +220,13 @@ extension VideoPlaybackSession {
                 AppLogger.shared.log("⏩ [VideoPlayer] Tua tới giây đã lưu: \(resume)")
             }
             refreshTimeline()
+            // Phim được mở lại lúc khởi động (`ReaderSessionRestoreStore`): dừng sẵn ở giây đã lưu, người dùng tự bấm phát.
+            if let bookId = launch?.bookId, ReaderSessionRestoreStore.consumePausedVideoStart(bookId: bookId) {
+                if player.timeControlStatus != .paused { player.pause() }
+                phase = .playing
+                AppLogger.shared.log("⏸️ [VideoPlayer] Mở lại lúc khởi động ⇒ dừng sẵn, không tự phát")
+                return
+            }
             // Video đang tắt tiếng không giành âm thanh ⇒ vẫn tự phát cùng TTS (`prepareAudioForPlayback` để TTS yên).
             guard isEffectivelyMuted || (!autoplayBlockedByTTS && !TTSManager.shared.isPlaying) else {
                 // Video đã nhường TTS / TTS đang đọc ⇒ chỉ chuẩn bị item, chờ người dùng bấm phát. `rate` còn khác 0

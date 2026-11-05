@@ -145,6 +145,8 @@ struct MainTabView: View {
             }
             guard phase == .inactive || phase == .background else { return }
             if phase == .background { FileDescriptorCensus.record(event: "background") }
+            // Màn đọc vừa được mở lại lúc khởi động đã sống tới lúc rời active ⇒ không phải vòng lặp crash.
+            ReaderSessionRestoreStore.confirmRestoreSurvived()
             TTSManager.shared.checkpointForBackground()
             // Index tiện ích (`lastUsedAt` gom ~3 s) và localStorage của JS (gom ~2 s): ghi ngay, đồng bộ.
             ExtensionLibraryRepository.shared.flush()

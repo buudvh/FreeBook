@@ -352,6 +352,7 @@ struct BookDetailView: View {
         // `chapterSnapshots`/`chaptersList` còn rỗng; không đồng bộ ở đây thì tab mục lục trắng (chỉ đọc DB,
         // không gọi mạng — mục lục vừa được `startReading` ghi đủ).
         .fullScreenCover(item: $readerRoute, onDismiss: {
+            if readerRoute == nil { ReaderSessionRestoreStore.markClosed() }
             syncChaptersList()
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()

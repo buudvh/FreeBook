@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.716] - 2026-11-05
+
+### feat: mở lại truyện đang đọc khi mở app, có công tắc trong Cài đặt
+
+Người dùng: *"thêm chức năng mở lại chương đã xem trước khi tắt và thêm config bật tắt chức năng này"*. Người dùng chọn: áp cho chữ + truyện tranh + phim nhưng nguồn 18+ không tự mở lại; chỉ mở lại khi lúc tắt app đang ở màn đọc; TTS mở đúng chỗ, không phát; phim dừng sẵn; công tắc ở Cài đặt › Đọc & Nghe, mặc định bật.
+
+- **`ReaderSessionRestoreStore`** (`Services/Books/ReaderSession/`, mới): giữ khoá công tắc `restoreReaderOnLaunch` (đọc `object(forKey:) as? Bool ?? true` vì `@AppStorage` không ghi mặc định), dấu `bookId` của màn đọc đang mở, cờ "đang thử mở lại" và chốt mỗi tiến trình một lần.
+- **Ghi/xoá dấu**:
+  - `BookContentDestination.onAppear` ghi dấu ⇒ đủ cả chữ, truyện tranh, phim.
+  - Chỉ `onDismiss` của 4 cover màn đọc xoá dấu, khi route đã về `nil`: Kệ, Tìm trên kệ, Bộ sưu tập, Chi tiết. Không dùng `onDisappear` vì Chi tiết đẩy vào hay màn AI phủ lên cũng làm màn đọc biến mất.
+  - Trình phát mở lại từ hub/PiP (`VideoPlayerPresenter`) không qua router ⇒ không tính là đang ở màn đọc.
+- **Mở lại** (`ShelfView+LaunchRestore`, gọi ở `onAppear` của Kệ):
+  - Chờ 0,35 s rồi đặt `readerPresentationRoute` như khi bấm truyện trên Kệ: chương `Book.currentChapterIndex`, vị trí `nil` ⇒ chữ về đoạn đã lưu, truyện tranh về ảnh, phim về giây. TTS đang đọc lúc tắt thì tiến độ thuộc TTS ⇒ mở đúng đoạn TTS, không tự phát.
+  - Bỏ qua và xoá dấu khi: công tắc tắt, truyện không còn trên máy, truyện 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật Kệ dùng để ẩn, gồm cả truyện tự đánh dấu), còn nhật ký đổi nguồn dở.
+- **Chống vòng lặp crash**: bật cờ ngay trước khi mở lại. Cờ xoá khi màn sống đủ 10 s, khi app rời trạng thái active (`MainTabView`) hoặc khi đóng màn đọc. Mở app mà cờ còn ⇒ bỏ qua lần này, log `❌ [ReaderRestore]`.
+- **`HistoryOrphanBookSweeper`** không xoá truyện đang mang dấu: truyện của tiện ích tắt lưu lịch sử có thể bị dọn đúng lúc đang được mở lại.
+- **Phim dừng sẵn**: `VideoPlaybackSession+Playback` hỏi `consumePausedVideoStart` khi item sẵn sàng ⇒ tua tới giây đã lưu rồi dừng. Phim nhúng trang web không áp được.
+- **Cài đặt › Đọc & Nghe**: thêm công tắc "Mở lại truyện đang đọc"; tiêu đề section thành `SectionHelpHeader` với nút "?" giải thích.
+- `CLAUDE.md`/`AGENTS.md`: thêm luật lối mở màn đọc bằng cover phải xoá dấu ở `onDismiss`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.715] - 2026-11-05
 
 ### fix: mục lục đổi icon đã tải ngay khi chương tải xong
@@ -672,17 +694,3 @@ Người dùng: *"có token xác định đầu dòng trong rule dịch chưa, n
   - `<any>的<any>` với Name `张三` nằm trọn trong cụm vẫn khớp.
 
   Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.685] - 2026-11-03
-
-### feat: sheet Bộ lọc hiện chữ đã dịch khi nguồn bật dịch
-
-Người dùng: *"hãy hiển thị nội dung bộ lọc đã dịch nếu ext config dịch"*. Chốt: chỉ sheet Bộ lọc, màn Cấu hình tiện ích giữ nguyên văn.
-
-- `ExtensionFilterSheet`:
-  - Lúc nạp, nếu nguồn bật dịch (`TranslationConfigStore.isTranslationEnabled(bookId: nil, packageId:, isChineseSourceHint:)`, nguồn tiếng Trung tự bật) thì gom tiêu đề, dòng phụ và lựa chọn của các mục lọc có chữ Hán, rồi dịch **ngoài main** bằng `translateMeta` (bỏ trùng) vào bảng `translations`.
-  - Chưa dịch xong thì hiện chữ gốc.
-- `ExtensionConfigFieldRow` thêm `displayText`, áp cho tiêu đề, dòng phụ, nhãn lựa chọn trong menu, lựa chọn đang hiện và tiêu đề màn danh sách. **Giá trị lưu vẫn là chữ gốc**, vì script nhận đúng chuỗi đó. Mặc định giữ nguyên nên màn Cấu hình không đổi.
-- Phần E (thứ tự explore/home) người dùng đã huỷ.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Cần thử: mở Bộ lọc của qidian/qimao khi nguồn bật dịch, chọn một lựa chọn đã dịch rồi Áp dụng và kiểm danh sách lọc đúng.
