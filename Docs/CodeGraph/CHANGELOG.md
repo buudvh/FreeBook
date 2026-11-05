@@ -2,6 +2,34 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.724] - 2026-11-05
+
+### feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất
+
+Người dùng: *"có cách tạo nguồn app để livecontainer update không?"*. Duyệt plan: *"Chỉ giữ 5 bản gần nhất là ok, không bỏ GOOGLE_CLOUD_TTS_API_KEY đâu"*.
+
+- **LiveContainer** có tab Sources đọc nguồn kiểu AltStore: thêm bằng URL hoặc link `livecontainer://source?url=…`; `Refresh` rồi `Install` cài bản mới nhất của nguồn.
+- **CI** (`build-ipa.yml`), bước mới `Publish GitHub Release + LiveContainer Source`. Chỉ chạy với push lên `main`, không chạy với PR. `continue-on-error` ⇒ lỗi đăng không làm đỏ build, IPA vẫn gửi Telegram.
+  - Script `Scripts/ci/publish_altstore_source.py` (mới):
+    - Tạo release `build-<số build>` kèm `TangCongCac-<version>-<số build>.ipa`, ghi chú = subject commit. Chạy lại workflow (cùng số build) ⇒ xoá release cũ cùng tag rồi tạo lại.
+    - Chỉ giữ **5** release `build-*` mới nhất; release cũ hơn xoá kèm tag (`--cleanup-tag`).
+    - Dựng `apps.json` (định dạng nguồn AltStore: `versions` + các trường một bản kiểu cũ) từ 5 release còn lại. Ghi kèm `icon.png` (`icon_60_3x.png`) và `README.md` lên nhánh riêng **`source`** (orphan, không phải `main` ⇒ không kích hoạt build, không đụng lịch sử code).
+    - Push bị từ chối (hai lượt build đẩy cùng lúc) ⇒ tải lại nhánh, dựng lại từ danh sách release mới nhất, thử tối đa 3 lần.
+  - Job có `permissions: contents: write`.
+  - Caption Telegram thêm dòng `🔗 Release: …` khi đăng thành công; file quá 50 MB thì gửi link release thay cho transfer.sh.
+- **URL nguồn cố định:** `https://raw.githubusercontent.com/buudvh/FreeBook/source/apps.json`.
+- **App:**
+  - `AppDistributionSource` mới (`Sources/Common/Utils/`) giữ URL nguồn và dựng link `livecontainer://source?url=…`.
+  - Cài đặt › Thông Tin thêm hàng "Thêm nguồn cập nhật vào LiveContainer" (mở LiveContainer; không mở được ⇒ toast lỗi) và nút sao chép link nguồn (`ClipboardCopier`, toast "Đã sao chép link nguồn").
+- **Khoá Google Cloud TTS:** repo công khai ⇒ IPA trên Release ai cũng tải được và đọc được `GOOGLE_CLOUD_TTS_API_KEY` trong `Info.plist`. Người dùng chọn giữ khoá trong IPA.
+- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Nguồn cập nhật LiveContainer" ở mục CI.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; cú pháp script Python và YAML hợp lệ; thử đọc danh sách release thật bằng `gh` (chỉ đọc).
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Lượt CI của chính commit này là lượt đầu tiên tạo release và nhánh `source`.
+  - Chưa thử trên máy: thêm nguồn trong LiveContainer, cài đè bản mới có giữ dữ liệu không (tài liệu LiveContainer không nói).
+
 ## [1.3.723] - 2026-11-05
 
 ### feat: version app tự nâng theo số bản CHANGELOG mỗi lần CI build
@@ -623,38 +651,3 @@ Người dùng: *"làm plan: … 2. Method sai hoặc thiếu trên đối tư�
   - Đối chiếu SwiftSoup 2.14.3: có `Element.before/after(String)`, `getAllElements()`, `getAttributes()`.
   - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.693] - 2026-11-04
-
-### fix: rule JS của nguồn Legado chạy trong scope riêng, hết lỗi khai báo trùng
-
-Người dùng: *"TÔi chắc chắn đang thiếu rất nhiều vì rất nhiều source chạy bị lỗi phần java"*, rồi *"làm plan: 1. Lỗi scope JS (top-level `let`/`const` chạy lần hai bị báo khai báo trùng): vẫn đứng đầu, 149 nguồn"*; duyệt plan (*"Duyệt, làm đi"*).
-
-- **Nguyên nhân:** mọi rule JS của một phiên chạy chung global của `JSContext`. Vì vậy `let`/`const`/`class` ở cấp ngoài cùng sống sang lần sau, và chạy lần hai báo `SyntaxError: Can't create duplicate variable`. Quét 3.339 nguồn thật: 149 nguồn dính, 51 nguồn hỏng ngay từ mục thứ 2 của danh sách.
-- **`LegadoJSRuntime.evaluateRaw`** chạy rule bằng **eval gián tiếp ở global**:
-  - Hàm `eval` gốc được giữ ở thuộc tính ẩn `__lgEval`, cài ngay sau khi tạo context, trước bootstrap và `jsLib`. Nguồn có gán lại `eval` cũng không ảnh hưởng.
-  - Mỗi lần chạy, `let`/`const`/`class` có môi trường lexical riêng.
-  - `var`/`function` vẫn lên global, và mọi `function` có ngay trước câu lệnh đầu tiên. Vì vậy luồng `loginUrl` → nút form đăng nhập và nút khám phá vẫn gọi được hàm, kể cả khi đoạn đầu script ném lỗi.
-  - Giá trị trả vẫn là câu lệnh cuối; luật "`result` bị gán lại" giữ nguyên.
-- **Hết che biến môi trường:** nguồn tự khai `let page`/`key`/`result`/`baseUrl` không còn che giá trị app đặt cho các lần sau. Ví dụ: 晋江, 光遇聚合 (`page`/`key`); 51漫画, 塔读 (`result`); 乐乎文章 (`baseUrl`).
-- **`return` ở cấp ngoài cùng:**
-  - Chạy code gốc trong `(function(result, baseUrl, src, key, page, title, nextChapterUrl){{…}}).call(this, …)`. Đối số đọc bằng `typeof`, nên `var src = src.trim(); return src` hết ra `undefined`.
-  - Khối bên trong cho phép `let` trùng tên tham số.
-  - Điều kiện bắt lỗi nới thành `"Return statements"`.
-- **Khác đã biết, ghi vào spec, corpus 0 đoạn:**
-  - Code mở đầu bằng `"use strict"` thì `var`/`function` chỉ sống trong lần đó.
-  - Ở đường `return`, gán `result` mà không `return` thì mất.
-- **Không đổi:** `jsLib`, `runQuietly` và mọi nơi gọi `evaluateRaw`.
-- **Spec:** viết lại `Docs/Specs/legado-source-spec.md` §6.1 và sửa dòng cũ ở §3.3.
-- **Quy trình:** session chính đã đọc code Legado (GPL), nên phần code do agent riêng viết theo plan và spec (clean-room). Bản đầu bọc khối `{…}` bị review bắt lỗi: `function` chỉ lên global khi chạy tới câu khai báo, làm hỏng nút đăng nhập ở 7 nguồn. Đã đổi sang eval gián tiếp.
-- **Kiểm chứng:**
-  - Chuỗi mẫu dựng lại từ chính literal Swift, chạy trên Node `vm` một context dùng chung, đạt đủ bảng ca thử:
-    - `let`/`class` chạy hai lần;
-    - `var src = src`;
-    - hàm khai sau câu lệnh ném lỗi;
-    - hàm `jsLib` gọi hàm rule khai muộn;
-    - `with(JavaImporter)`;
-    - completion value;
-    - đường `return` kiểu 可乐小说.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên JSC hay trên máy. Nên thử: 少年梦阅读 (lặp `let`), 点众阅读 hoặc 刺猬猫#2 (nút đăng nhập), 可乐小说 (`return`).

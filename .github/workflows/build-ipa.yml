@@ -17,6 +17,9 @@ jobs:
   build:
     name: Build Unsigned IPA
     runs-on: macos-15
+    # Ghi release + nhánh `source` (nguồn LiveContainer) — bước "Publish GitHub Release + LiveContainer Source".
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout Repository
@@ -272,6 +275,27 @@ jobs:
         path: build/FreeBook.ipa
         if-no-files-found: ignore
 
+    # Release `build-<số build>` + nguồn LiveContainer `apps.json` ở nhánh `source`, giữ 5 bản mới nhất
+    # (`Scripts/ci/publish_altstore_source.py`). Chỉ lượt push lên main. Lỗi ở đây không làm hỏng lượt build:
+    # IPA vẫn gửi Telegram như cũ, chỉ thiếu link release.
+    - name: Publish GitHub Release + LiveContainer Source
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+        python3 Scripts/ci/publish_altstore_source.py \
+          --ipa build/FreeBook.ipa \
+          --version "$APP_VERSION" \
+          --build "$BUILD_NUMBER" \
+          --notes "$COMMIT_SUBJECT" \
+          --icon Sources/Assets.xcassets/AppIcon.appiconset/icon_60_3x.png \
+          --keep 5
+        echo "RELEASE_URL=https://github.com/${REPO}/releases/tag/build-${BUILD_NUMBER}" >> "$GITHUB_ENV"
+
     - name: Send IPA to Telegram
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
@@ -301,6 +325,9 @@ jobs:
 
           # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
           CAPTION=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! 🚀\n\n💬 Commit: %s" "$APP_VERSION" "$BUILD_NUMBER" "$COMMIT_SUBJECT")
+          if [ -n "${RELEASE_URL:-}" ]; then
+            CAPTION=$(printf "%s\n🔗 Release: %s" "$CAPTION" "$RELEASE_URL")
+          fi
 
           curl --connect-timeout 30 --max-time 300 --retry 3 \
                -F chat_id="${TELEGRAM_CHAT_ID}" \
@@ -314,7 +341,7 @@ jobs:
           echo "Uploaded to: $UPLOAD_URL"
           
           # Định dạng nội dung tin nhắn bằng printf
-          TEXT=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$APP_VERSION" "$BUILD_NUMBER" "$COMMIT_MSG" "$UPLOAD_URL")
+          TEXT=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$APP_VERSION" "$BUILD_NUMBER" "$COMMIT_MSG" "${RELEASE_URL:-$UPLOAD_URL}")
           
           curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
                --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \

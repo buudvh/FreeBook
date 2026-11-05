@@ -2,6 +2,41 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.693] - 2026-11-04
+
+### fix: rule JS của nguồn Legado chạy trong scope riêng, hết lỗi khai báo trùng
+
+Người dùng: *"TÔi chắc chắn đang thiếu rất nhiều vì rất nhiều source chạy bị lỗi phần java"*, rồi *"làm plan: 1. Lỗi scope JS (top-level `let`/`const` chạy lần hai bị báo khai báo trùng): vẫn đứng đầu, 149 nguồn"*; duyệt plan (*"Duyệt, làm đi"*).
+
+- **Nguyên nhân:** mọi rule JS của một phiên chạy chung global của `JSContext`. Vì vậy `let`/`const`/`class` ở cấp ngoài cùng sống sang lần sau, và chạy lần hai báo `SyntaxError: Can't create duplicate variable`. Quét 3.339 nguồn thật: 149 nguồn dính, 51 nguồn hỏng ngay từ mục thứ 2 của danh sách.
+- **`LegadoJSRuntime.evaluateRaw`** chạy rule bằng **eval gián tiếp ở global**:
+  - Hàm `eval` gốc được giữ ở thuộc tính ẩn `__lgEval`, cài ngay sau khi tạo context, trước bootstrap và `jsLib`. Nguồn có gán lại `eval` cũng không ảnh hưởng.
+  - Mỗi lần chạy, `let`/`const`/`class` có môi trường lexical riêng.
+  - `var`/`function` vẫn lên global, và mọi `function` có ngay trước câu lệnh đầu tiên. Vì vậy luồng `loginUrl` → nút form đăng nhập và nút khám phá vẫn gọi được hàm, kể cả khi đoạn đầu script ném lỗi.
+  - Giá trị trả vẫn là câu lệnh cuối; luật "`result` bị gán lại" giữ nguyên.
+- **Hết che biến môi trường:** nguồn tự khai `let page`/`key`/`result`/`baseUrl` không còn che giá trị app đặt cho các lần sau. Ví dụ: 晋江, 光遇聚合 (`page`/`key`); 51漫画, 塔读 (`result`); 乐乎文章 (`baseUrl`).
+- **`return` ở cấp ngoài cùng:**
+  - Chạy code gốc trong `(function(result, baseUrl, src, key, page, title, nextChapterUrl){{…}}).call(this, …)`. Đối số đọc bằng `typeof`, nên `var src = src.trim(); return src` hết ra `undefined`.
+  - Khối bên trong cho phép `let` trùng tên tham số.
+  - Điều kiện bắt lỗi nới thành `"Return statements"`.
+- **Khác đã biết, ghi vào spec, corpus 0 đoạn:**
+  - Code mở đầu bằng `"use strict"` thì `var`/`function` chỉ sống trong lần đó.
+  - Ở đường `return`, gán `result` mà không `return` thì mất.
+- **Không đổi:** `jsLib`, `runQuietly` và mọi nơi gọi `evaluateRaw`.
+- **Spec:** viết lại `Docs/Specs/legado-source-spec.md` §6.1 và sửa dòng cũ ở §3.3.
+- **Quy trình:** session chính đã đọc code Legado (GPL), nên phần code do agent riêng viết theo plan và spec (clean-room). Bản đầu bọc khối `{…}` bị review bắt lỗi: `function` chỉ lên global khi chạy tới câu khai báo, làm hỏng nút đăng nhập ở 7 nguồn. Đã đổi sang eval gián tiếp.
+- **Kiểm chứng:**
+  - Chuỗi mẫu dựng lại từ chính literal Swift, chạy trên Node `vm` một context dùng chung, đạt đủ bảng ca thử:
+    - `let`/`class` chạy hai lần;
+    - `var src = src`;
+    - hàm khai sau câu lệnh ném lỗi;
+    - hàm `jsLib` gọi hàm rule khai muộn;
+    - `with(JavaImporter)`;
+    - completion value;
+    - đường `return` kiểu 可乐小说.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên JSC hay trên máy. Nên thử: 少年梦阅读 (lặp `let`), 点众阅读 hoặc 刺猬猫#2 (nút đăng nhập), 可乐小说 (`return`).
+
 ## [1.3.692] - 2026-11-04
 
 ### feat: token ngoặc <[> <]> với bộ ngoặc chỉnh được, neo <START> <END> và hướng dẫn viết rule
