@@ -108,13 +108,6 @@ public struct BackupManifest: Codable, Sendable {
     }
 
     public static var runningAppVersion: String {
-        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-        switch (short, build) {
-        case let (version?, buildNumber?): return "\(version) (\(buildNumber))"
-        case let (version?, nil): return version
-        case let (nil, buildNumber?): return buildNumber
-        default: return "unknown"
-        }
+        AppVersionInfo.display
     }
 }

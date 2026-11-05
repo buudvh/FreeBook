@@ -57,6 +57,9 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: "Tàng Công Các"
+        # Version do CI chèn lúc build (`build-ipa.yml`): số bản đầu `Docs/CodeGraph/CHANGELOG.md` + số lượt chạy CI.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         UILaunchScreen: {}
@@ -95,3 +98,7 @@ targets:
         DEVELOPMENT_TEAM: ""
         PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBook
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Giá trị mặc định cho bản build tay. CI ghi đè bằng `MARKETING_VERSION=<1.3.NNN của CHANGELOG>`
+        # `CURRENT_PROJECT_VERSION=<github.run_number>` trên dòng lệnh `xcodebuild archive`.
+        MARKETING_VERSION: "1.3.0"
+        CURRENT_PROJECT_VERSION: "1"

@@ -73,6 +73,8 @@ Khi clone repo này về máy khác (hoặc để lâu ngày rồi `git pull` nh
 
 **CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `check_architecture.py`, cũng không truy vấn `codegraph` MCP**, và chỉ trigger khi đổi `Sources/**` hoặc `project.yml`. Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*.
 
+**Version app tự nâng theo CHANGELOG** (1.3.723): bước `Resolve App Version` của `build-ipa.yml` lấy số bản đầu `Docs/CodeGraph/CHANGELOG.md` làm `MARKETING_VERSION` (`CFBundleShortVersionString`) và `github.run_number` làm `CURRENT_PROJECT_VERSION` (`CFBundleVersion`), truyền vào `xcodebuild archive` rồi chốt lại bằng `plutil` trong IPA; caption Telegram có version. CI **không** commit ngược về repo. Bản build tay mang mặc định `1.3.0 (1)` của `project.yml`. Code đọc version qua `AppVersionInfo` (`Sources/Common/Utils/`). Hệ quả: commit quên thêm entry CHANGELOG mới thì version không đổi, chỉ số build tăng.
+
 `GOOGLE_CLOUD_TTS_API_KEY` đi từ GitHub secret → build setting → `Info.plist` (`project.yml` khai `GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"`, workflow còn `plutil -replace` vào IPA). Build local không có key thì Google TTS im lặng không hoạt động — không phải bug.
 
 Target đặt `CODE_SIGNING_ALLOWED: NO`. Deployment target iOS 17.0. Dependencies (SwiftSoup, ZIPFoundation, ONNX Runtime, espeak-ng-spm) khai SPM trong `project.yml`.

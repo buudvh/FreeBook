@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.723] - 2026-11-05
+
+### feat: version app tự nâng theo số bản CHANGELOG mỗi lần CI build
+
+Người dùng: *"tôi muốn tự nâng ver mỗi khi build thành công"*. Người dùng chọn phương án "Theo CHANGELOG" (không dùng bộ đếm riêng có CI commit ngược).
+
+- **Trước đây**: `project.yml` không khai version ⇒ app mang mặc định của Xcode. Màn Cài đặt › Thông Tin ghi cứng `1.0.0`; caption Telegram không có version.
+- **CI** (`build-ipa.yml`):
+  - Bước mới `Resolve App Version` lấy số bản đầu `Docs/CodeGraph/CHANGELOG.md` (`## [1.3.NNN]`) làm `APP_VERSION` và `github.run_number` làm `BUILD_NUMBER`. Không đọc được số bản ⇒ cảnh báo + dùng `1.3.0`.
+  - `xcodebuild archive` nhận thêm `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`.
+  - Bước đóng gói chốt lại `CFBundleShortVersionString` / `CFBundleVersion` trong `Info.plist` của IPA bằng `plutil` và in ra log.
+  - Caption Telegram (thành công, file quá 50 MB, thất bại) có `1.3.NNN (số build)`.
+  - CI **không** commit ngược về repo ⇒ không có vòng build lặp, không xung đột với các session commit trên main.
+- **`project.yml`**: `CFBundleShortVersionString: "$(MARKETING_VERSION)"`, `CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"`. Mặc định cho bản build tay: `MARKETING_VERSION: "1.3.0"`, `CURRENT_PROJECT_VERSION: "1"`.
+- **App**:
+  - `AppVersionInfo` mới (`Sources/Common/Utils/`) đọc hai khoá trên, dạng hiển thị `1.3.723 (412)`.
+  - Màn Cài đặt › Thông Tin hiện version thật thay cho `1.0.0`.
+  - `BackupManifest.runningAppVersion` dùng chung `AppVersionInfo.display` (kết quả như cũ).
+- **Hệ quả**: commit quên thêm entry CHANGELOG mới thì version không đổi, chỉ số build tăng.
+- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Version app tự nâng theo CHANGELOG" ở mục CI.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Lượt CI của chính commit này là lượt kiểm đầu tiên: log bước `Resolve App Version` và dòng `Info.plist version:` phải ra `1.3.723 (<số lượt>)`. Chưa thử trên máy.
+
 ## [1.3.722] - 2026-11-05
 
 ### fix: Khám phá đổi nguồn thì tab trùng tên tải lại theo nguồn mới
@@ -633,40 +658,3 @@ Người dùng: *"TÔi chắc chắn đang thiếu rất nhiều vì rất nhi�
     - đường `return` kiểu 可乐小说.
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên JSC hay trên máy. Nên thử: 少年梦阅读 (lặp `let`), 点众阅读 hoặc 刺猬猫#2 (nút đăng nhập), 可乐小说 (`return`).
-
-## [1.3.692] - 2026-11-04
-
-### feat: token ngoặc <[> <]> với bộ ngoặc chỉnh được, neo <START> <END> và hướng dẫn viết rule
-
-Người dùng: *"thêm token đóng mở ngoặc cho rule dịch, có thể config các loại ngoặc cho token"*, *"ngoặc tròn ngoặc vuông ngoặc nhọn đủ nhé"*, *"nhớ bổ sung hướng dẫn đầy đủ để tạo rule… mỗi ý trong phần hướng dẫn 1 dòng"*. Đã chốt bằng bảng chọn:
-- Token viết `<[>` / `<]>` (dấu ngoặc vuông, không lẫn với nhóm `( )`); neo dòng đổi tên thành chữ in hoa `<START>` / `<END>`.
-- Mở và đóng phải cùng cặp và cân bằng; ngoặc **không** sinh `{i}`.
-- Bộ ngoặc có bản chung và bản riêng từng truyện.
-
-- **Token ngoặc** (`QuickTranslationRuleParser+Bracket`, `QuickTranslationRuleMatcher+Bracket`):
-  - `<[>` khớp đúng một ký tự mở, `<]>` khớp đúng một ký tự đóng trong bộ ngoặc đang bật; rộng 1, nhận `?`, không nhận `|` hay độ dài.
-  - Parser ghép mỗi `<]>` với `<[>` gần nhất còn mở theo thứ tự nguồn (mỗi nhánh của nhóm bắt đầu từ cùng ngăn xếp). Khi khớp, `<]>` phải đúng ngoặc đóng của ký tự `<[>` đã bắt và đoạn giữa phải cân bằng: `<[><any><]>` trên `(a)Y(b)` ra `(a)` rồi `(b)`. `<]>` không có cặp, hoặc cặp nằm ở nhánh không khớp, thì nhận mọi ngoặc đóng.
-  - Ký tự mở giữ ở **ô ẩn** sau các ô `{i}` (`slotCount` ở `QuickTranslationParsedRule` / `QuickTranslationCompiledRule`); `Match.captures` chỉ trả phần `{i}`.
-  - Tính như chữ cố định khi xét `ANY_WITHOUT_LITERAL` / `NO_LITERAL_ANCHOR` và khi xếp ưu tiên, nên `<[><any><]><END> =` hợp lệ. `<any>` đứng ngay trước token ngoặc chỉ thử các độ dài mà ký tự kế tiếp là ngoặc hợp lệ.
-- **Neo dòng đổi tên** `<^>` → `<START>`, `<$>` → `<END>` (`Kind.lineStart/.lineEnd` rawValue mới). Rule cũ vẫn chạy nhờ `Kind.kind(forTokenName:)`. Khoá công tắc chung giữ nguyên; khoá cũ `^`/`$` trong cấu hình riêng truyện được đọc thành tên mới.
-- **Bộ ngoặc** (`QuickTranslationRuleBracketPair`, `QuickTranslationRuleBracketDefaults`, `QuickTranslationRuleBracketSet`, `QuickTranslationRuleBracketStore`):
-  - Mặc định 50 cặp: tròn 11, mai rùa 6, vuông 11, ngoặc móc 6, ngoặc góc 16. `<>` ASCII có sẵn nhưng tắt. Không có `「」『』` (lời thoại), `⦍⦎⦏⦐` (ghép chéo), `〈〉` U+2329/232A.
-  - Bộ chung ở `UserDefaults` `quickTranslateRuleBracketPairs` (vắng = mặc định, Backup tự gói). Bộ riêng truyện ở trường `brackets` của `QuickTranslateEngineConfig.json`.
-  - `TranslationReadContext` chụp bộ ngoặc của truyện; engine và màn chẩn đoán dùng bản chụp đó.
-  - Khi lưu, kiểm mỗi ô đúng một ký tự (một đơn vị UTF-16), mở khác đóng, không trùng ký tự với cặp khác.
-- **Backup:**
-  - `QuickTranslateEngineConfig.json` riêng truyện (thứ tự ưu tiên, công tắc token riêng, bộ ngoặc riêng) giờ được sao lưu và khôi phục nguyên văn. Trước đây file này không có trong Backup.
-  - Khôi phục cài đặt xong thì dọn cache dịch để bộ ngoặc chung có hiệu lực ngay.
-- **Giao diện:**
-  - Cấu hình token rule có công tắc `<[>` `<]>` và hàng "Bộ ngoặc".
-  - Màn **Bộ ngoặc** (`QuickTranslationRuleBracketListView`), kiểu danh sách 1.3.636 với [Sửa][Tắt/Bật][Xoá] và nút `+` nổi.
-    - Bộ chung: ngăn kéo `…` có "Khôi phục mặc định".
-    - Bộ riêng truyện (mở từ Cài đặt đọc › token riêng): khi chưa có bộ riêng chỉ xem kèm nút "Chỉnh riêng cho truyện này"; khi đã có thì ngăn kéo có "Dùng bộ chung".
-  - Sheet thêm/sửa cặp (`QuickTranslationRuleBracketEditorSheet`) báo lỗi ngay dưới ô.
-- **Hướng dẫn viết rule** — một nguồn `QuickTranslationRuleGuide`:
-  - Trang `QuickTranslationRuleGuideView` có 11 mục, mỗi ý một dòng kèm ví dụ. Mở từ hàng đầu "Công cụ" của Rule dịch nhanh và từ hàng "Hướng dẫn đầy đủ" ở màn sửa rule.
-  - Các nút "?" ở Mẫu, Bản dịch, Cấu hình token và Bộ ngoặc chỉ còn vài dòng lấy từ cùng nguồn. Bỏ câu sai cũ "Mọi token phải được dùng".
-- Gợi ý bàn phím nhận `<[` / `<]`; chip ngoặc và neo không được đánh số.
-- `CLAUDE.md` / `AGENTS.md`: cập nhật đoạn token ở mục Dịch thuật VietPhrase.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. Dò tay trên code các mẫu `<[><any><]>` trên `(a)Y(b)` và `【a)`, `<]>` đứng một mình, `<[><any><]><END>`, `(<[>a|b)<]>`, rule cũ `<^>第<n>章`. Không build tại chỗ (Windows), chưa thử trên máy.

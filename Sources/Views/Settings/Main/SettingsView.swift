@@ -17,7 +17,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Phiên bản ứng dụng")
                         Spacer()
-                        Text("1.0.0")
+                        Text(AppVersionInfo.display)
                             .foregroundColor(.secondary)
                     }
                 }
