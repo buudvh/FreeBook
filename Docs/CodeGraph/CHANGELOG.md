@@ -2,6 +2,33 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.732] - 2026-11-05
+
+### fix: mở app là kiểm tra bản mới, bấm dòng phiên bản ở Cài đặt để kiểm tay
+
+Người dùng: *"1.3.728 tôi mở nhưng lại không báo cập nhật ver mới cho tôi"*. Chốt: kiểm mỗi lần mở app, thêm kiểm tay ở dòng phiên bản.
+
+- **Nguyên nhân** (đối chiếu giờ đăng release với code 1.3.727):
+  - `checkIfNeeded()` giãn cách **6 giờ cho mọi lần**.
+  - Mở 1.3.728 (1155, đăng 15:51) thì lần kiểm thấy nguồn cũng là 1155 ⇒ không báo, nhưng vẫn ghi `appUpdateLastCheckAt`.
+  - 1.3.730 (1156) đăng 16:23 ⇒ phải chờ 6 giờ mới tới lần kiểm kế.
+  - Lần kiểm "đang dùng bản mới nhất" không ghi log nên không soát được trên máy.
+- **`AppUpdateRepository`**:
+  - `checkOnLaunch()`: mở app (`.task` của `MainTabView`) là kiểm, **không giãn cách**.
+  - `checkOnForeground()`: quay lại app kiểm nếu lần trước đã quá **30 phút** (thay 6 giờ).
+  - `checkNow() -> CheckOutcome` (`upToDate` / `updateAvailable` / `failed`): kiểm tay.
+  - Gọi dồn khi đang có lượt đọc nguồn thì chờ chung lượt đó, không đọc chồng.
+  - `isChecking` thành thuộc tính quan sát được.
+  - Mỗi lần kiểm đều ghi log: "✅ Đang dùng bản mới nhất … (nguồn: …)" / "⬆️ Có bản mới …" / "❌ Không đọc được nguồn cập nhật".
+- **Cài đặt › Thông Tin**: dòng "Phiên bản ứng dụng" bấm được ⇒ kiểm ngay (vòng xoay thay số version khi đang kiểm).
+  - Kết quả: toast "Đang dùng bản mới nhất", hoặc "Có bản mới 1.3.NNN" + mở sheet bản mới, hoặc "Không kiểm tra được bản mới".
+- **Lưu ý**: bản 1.3.728 / 1.3.730 đang cài vẫn giữ giãn cách 6 giờ cũ; từ bản này trở đi mới kiểm khi mở app.
+- `CLAUDE.md` / `AGENTS.md`: sửa đoạn "Báo có bản mới trong app".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.731] - 2026-11-05
 
 ### feat: nhập phim nhiều tập từ file ZIP, mỗi video trong file là một tập
@@ -643,16 +670,4 @@ Người dùng: *"Nếu token <m> giá trị 10 đứng đầu rule ví dụ mư
 - **Sửa**: compiler đánh dấu `<m>` là phần tử đầu tiên của mẫu (`QuickTranslationRuleCompiler+LeadingMagnitude`, mới; cờ `QuickTranslationRuleElement.leadsPattern`). Neo `<START>`/`<END>` bỏ qua vì không chiếm ký tự; mẫu mở đầu bằng nhóm thì xét phần tử đầu từng nhánh; chữ cố định hay ngoặc đứng trước thì không tính là đứng đầu. `<m>` được đánh dấu mà khớp `十`/`一十` ⇒ `mười` (`renderMagnitude(_:leadsPattern:)`); `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`, `几<m>年` vẫn `mấy mươi năm`.
 - Giới hạn theo đúng tiêu chí vị trí: câu `几十几` gặp rule `<m>几` vẫn khớp từ `十` (`几` không thuộc lớp ký tự của `<m>` nên không bị chặn biên) ⇒ ra "mấy mười mấy". Tên chương đã lưu bản dịch trong mục lục chỉ đổi sau "Dịch lại tên chương".
 - Hướng dẫn (`QuickTranslationRuleGuide`, mục Token số và nhãn) thêm một ý. Chuyển `[1.3.672]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.702] - 2026-11-04
-
-### fix: thu nhỏ màn kiểm tra nguồn không còn mất dòng trên hub
-
-Người dùng (bản 1.3.698 trên máy): *"Đã thu nhỏ, kiểm tra đang chạy nhưng không hiện hub mà hiện icon thông báo"*. Lượt không bấm chia sẻ; mở lại Kiểm tra nguồn không có nút "Mở lượt đang chạy" ⇒ bản ghi chưa bao giờ được đánh dấu thu nhỏ (phần hub đúng).
-
-- **Nguyên nhân**: nút ⌄ chỉ đóng màn rồi trông vào `onDisappear` để báo thu nhỏ; màn Legado không có lối dự phòng chắc chắn khi sheet đóng mà `onDisappear` không tới (`ScreenLease` chỉ chạy nếu SwiftUI giải phóng màn). Chưa xác nhận được trên máy lối nào rơi.
-- **Nút ⌄** gọi `MinimizedSourceCheckCoordinator.screenDidClose(_, screenId: nil)` **trước** khi đóng màn, không qua `onDisappear`.
-- **`onDismiss` của mọi sheet có thể chứa màn kiểm tra**: sheet Kiểm tra nguồn và Chi tiết nguồn Legado (`RepositoryManagerView+LegadoMenu`, `DiscoverySourcePickerModifier`), ba chỗ mở Cấu hình tiện ích (`RepositoryManagerView`, `DiscoverySourcePickerModifier`, `TTSSettingsView`); sheet mở lại từ hub dùng `SheetDismissRelay` (`presentationController.delegate`, gán sau khi trình bày).
-- `onDisappear` của hai màn bỏ điều kiện cờ chia sẻ (bảng chia sẻ không làm màn biến mất, cờ kẹt thì chặn mất việc thu nhỏ). `update` bỏ qua lượt đã thu nhỏ (màn đóng mà task chưa dừng không cướp mốc "xong" ⇒ mất toast). Log `🧪 [SourceCheck]` ở `track` và các nhánh `screenDidClose` bỏ qua (cần bật log trong Cài đặt). `rules.md` luật hub (f) ghi các lối báo đóng. Chuyển `[1.3.671]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

@@ -134,9 +134,9 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await AdBlockRuleListProvider.shared.warmUp()
         }
-        // Có bản app mới không (`apps.json` của nguồn LiveContainer) — giãn cách 6 giờ nằm trong repository.
+        // Có bản app mới không (`apps.json` của nguồn LiveContainer): mở app là kiểm, không giãn cách (1.3.732).
         .task(priority: .utility) {
-            await AppUpdateRepository.shared.checkIfNeeded()
+            await AppUpdateRepository.shared.checkOnLaunch()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -145,7 +145,7 @@ struct MainTabView: View {
                 ExportShareCoordinator.shared.flushPendingShare()
                 FileDescriptorCensus.record(event: "active")
                 Task { await recoverInterruptedSourceChange(container: modelContext.container) }
-                Task { await AppUpdateRepository.shared.checkIfNeeded() }
+                Task { await AppUpdateRepository.shared.checkOnForeground() } // quá 30 phút từ lần kiểm trước
                 return
             }
             guard phase == .inactive || phase == .background else { return }

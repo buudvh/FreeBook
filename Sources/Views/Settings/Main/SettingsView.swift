@@ -17,12 +17,7 @@ struct SettingsView: View {
                 DeveloperSettingsSection()
 
                 Section(header: Text("Thông Tin")) {
-                    HStack {
-                        Text("Phiên bản ứng dụng")
-                        Spacer()
-                        Text(AppVersionInfo.display)
-                            .foregroundColor(.secondary)
-                    }
+                    versionRow
                     if let update = AppUpdateRepository.shared.pendingUpdate {
                         appUpdateRow(update)
                     }
@@ -33,6 +28,44 @@ struct SettingsView: View {
             .sheet(item: $sheetUpdate) { update in
                 AppUpdateSheet(update: update)
             }
+        }
+    }
+
+    /// Dòng "Phiên bản ứng dụng": bấm ⇒ kiểm tra bản mới ngay (1.3.732). Đang kiểm thì vòng xoay thay cho số version;
+    /// xong thì toast "Đang dùng bản mới nhất" / mở sheet bản mới / báo lỗi.
+    private var versionRow: some View {
+        let isChecking = AppUpdateRepository.shared.isChecking
+        return Button {
+            Task { await checkForUpdate() }
+        } label: {
+            HStack {
+                Text("Phiên bản ứng dụng")
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Text(AppVersionInfo.display)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isChecking)
+        .accessibilityHint("Bấm để kiểm tra bản mới")
+    }
+
+    private func checkForUpdate() async {
+        switch await AppUpdateRepository.shared.checkNow() {
+        case .upToDate:
+            ToastManager.shared.show(message: "Đang dùng bản mới nhất", type: .success, recordsInInbox: false)
+        case .updateAvailable(let update):
+            ToastManager.shared.show(message: "Có bản mới \(update.version)", type: .info, recordsInInbox: false)
+            sheetUpdate = update
+        case .failed:
+            ToastManager.shared.show(message: "Không kiểm tra được bản mới", type: .error, recordsInInbox: false)
         }
     }
 

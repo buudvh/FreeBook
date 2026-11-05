@@ -4,8 +4,10 @@ import Observation
 /// Nguồn sự thật **duy nhất** cho việc báo có bản app mới (dải báo ở Kệ, hàng ở Cài đặt › Thông Tin, chấm đỏ tab
 /// Cài Đặt, sheet bản mới).
 ///
-/// - Đọc `apps.json` (`AppUpdateSourceClient`) khi mở app và khi quay lại app, giãn cách 6 giờ. Bản đọc được cuối cùng
-///   lưu lại ⇒ mở app lại trong 6 giờ vẫn thấy báo.
+/// - Đọc `apps.json` (`AppUpdateSourceClient`) **mỗi lần mở app** (`checkOnLaunch`), khi quay lại app nếu lần trước đã
+///   quá 30 phút (`checkOnForeground`), và khi bấm dòng "Phiên bản ứng dụng" ở Cài đặt (`checkNow`). Trước 1.3.732 giãn
+///   cách 6 giờ cho mọi lần ⇒ bản ra ngay sau một lần kiểm phải chờ 6 giờ mới báo. Bản đọc được cuối cùng lưu lại ⇒
+///   mở app lúc mất mạng vẫn thấy báo.
 /// - Có bản mới ⇔ số build của nguồn > `CFBundleVersion` đang chạy (`AppVersionInfo.buildNumber`). Bản build tay
 ///   mang số build mặc định `1` ⇒ luôn thấy báo, đúng vì nó cũ hơn mọi bản CI.
 /// - Trạng thái ẩn/bỏ qua/đã xem nhớ theo **số build**: bản mới hơn nữa ra là báo lại từ đầu.
@@ -18,7 +20,15 @@ import Observation
 final class AppUpdateRepository {
     static let shared = AppUpdateRepository()
 
-    private static let checkInterval: TimeInterval = 6 * 60 * 60
+    /// Giãn cách khi quay lại app (`checkOnForeground`); mở app và kiểm tay không giãn cách.
+    private static let foregroundInterval: TimeInterval = 30 * 60
+
+    /// Kết quả một lần kiểm — dùng cho nút kiểm tay ở Cài đặt.
+    enum CheckOutcome: Sendable {
+        case upToDate
+        case updateAvailable(AppUpdateInfo)
+        case failed
+    }
 
     private enum Keys {
         static let lastCheckAt = "appUpdateLastCheckAt"
@@ -33,7 +43,9 @@ final class AppUpdateRepository {
     private var dismissedBuild = 0
     private var skippedBuild = 0
     private var seenBuild = 0
-    @ObservationIgnored private var isChecking = false
+    /// Đang đọc nguồn (Cài đặt hiện vòng xoay ở dòng phiên bản khi kiểm tay).
+    private(set) var isChecking = false
+    @ObservationIgnored private var checkTask: Task<CheckOutcome, Never>? = nil
 
     private init() {
         let defaults = UserDefaults.standard
@@ -106,26 +118,57 @@ final class AppUpdateRepository {
 
     // MARK: - Kiểm tra
 
-    /// Đọc nguồn nếu lần đọc trước đã quá 6 giờ. Gọi lúc mở app và khi app quay lại `.active`; gọi dồn vô hại.
-    func checkIfNeeded() async {
-        let defaults = UserDefaults.standard
-        let lastCheck = defaults.double(forKey: Keys.lastCheckAt)
-        let now = Date().timeIntervalSince1970
-        guard !isChecking, now - lastCheck >= Self.checkInterval else { return }
+    /// Mở app: luôn kiểm (không giãn cách).
+    func checkOnLaunch() async {
+        _ = await runCheck()
+    }
+
+    /// Quay lại app (`scenePhase` về `.active`): kiểm nếu lần trước đã quá 30 phút.
+    func checkOnForeground() async {
+        let lastCheck = UserDefaults.standard.double(forKey: Keys.lastCheckAt)
+        guard Date().timeIntervalSince1970 - lastCheck >= Self.foregroundInterval else { return }
+        _ = await runCheck()
+    }
+
+    /// Kiểm tay (bấm dòng "Phiên bản ứng dụng"): luôn kiểm, trả kết quả để màn báo toast / mở sheet.
+    func checkNow() async -> CheckOutcome {
+        await runCheck()
+    }
+
+    /// Một lượt đọc nguồn; gọi dồn khi đang có lượt chạy thì chờ chung lượt đó (không đọc chồng).
+    private func runCheck() async -> CheckOutcome {
+        if let checkTask {
+            return await checkTask.value
+        }
         isChecking = true
-        defer { isChecking = false }
+        let task = Task { () -> CheckOutcome in
+            await self.performCheck()
+        }
+        checkTask = task
+        let outcome = await task.value
+        checkTask = nil
+        isChecking = false
+        return outcome
+    }
+
+    private func performCheck() async -> CheckOutcome {
         do {
             let info = try await AppUpdateSourceClient.fetchLatest()
-            defaults.set(now, forKey: Keys.lastCheckAt)
+            let defaults = UserDefaults.standard
+            defaults.set(Date().timeIntervalSince1970, forKey: Keys.lastCheckAt)
             if let data = try? JSONEncoder().encode(info) {
                 defaults.set(data, forKey: Keys.latestJSON)
             }
             latest = Self.newerThanRunning(info)
             if let latest {
                 AppLogger.shared.log("⬆️ [AppUpdate] Có bản mới \(latest.display), đang dùng \(AppVersionInfo.display)")
+                return .updateAvailable(latest)
             }
+            AppLogger.shared.log("✅ [AppUpdate] Đang dùng bản mới nhất \(AppVersionInfo.display) (nguồn: \(info.display))")
+            return .upToDate
         } catch {
             AppLogger.shared.log("❌ [AppUpdate] Không đọc được nguồn cập nhật: \(error.localizedDescription)")
+            return .failed
         }
     }
 }
