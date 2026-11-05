@@ -26,11 +26,20 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         NotificationCenter.default.post(name: Self.stateDidChangeNotification, object: nil)
     }
 
+    /// Người dùng đang xem trình duyệt: container hiện toàn màn và tab đang chọn còn tồn tại. Khi đó tab tiện ích
+    /// mở thêm (hoặc `launch` lại) chạy nền, không giật tab đang xem. Thu nhỏ = không xem tab nào ⇒ hành vi cũ.
+    private var isUserViewingTab: Bool {
+        guard isPresented, !isHidden, !isDismissing, navController != nil, let activeTabId else { return false }
+        return tabs.contains { $0.id == activeTabId }
+    }
+
     public func addTab(id: String, loader: VisibleWebViewLoader) {
         // Tránh thêm trùng tab ID. `presentUIIfNeeded()` được gọi lại ở mỗi lần
         // `load`/`loadAsync`, nên nhánh này là đường **lập trình**, không phải cử chỉ
-        // người dùng: chỉ kích hoạt tab, không tự mở container (xem `activateTab`).
+        // người dùng: đang xem trình duyệt thì giữ nguyên tab đang xem; đang thu nhỏ thì
+        // chỉ kích hoạt tab, không tự mở container trừ khi cài đặt cho phép (xem `activateTab`).
         if tabs.contains(where: { $0.id == id }) {
+            guard !isUserViewingTab else { return }
             activateTab(id: id)
             if isHidden, !VisibleBrowserSettings.opensMinimized {
                 reopenContainer()
@@ -38,6 +47,8 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             return
         }
 
+        // Đang xem một tab ⇒ tab mới chỉ thêm pill vào dải tab, không chuyển sang nó.
+        let keepsViewedTab = isUserViewingTab
         let rawTitle = loader.titleString.isEmpty ? "Trình duyệt" : loader.titleString
 
         // Tính toán tiêu đề phân biệt trùng tên: "Tab 1", "Tab 1 (2)", "Tab 1 (3)"...
@@ -52,7 +63,9 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         )
 
         tabs.append(tabItem)
-        activeTabId = id
+        if !keepsViewedTab {
+            activeTabId = id
+        }
         notifyStateChanged()
 
         if isHidden, let container = containerViewController {
@@ -83,8 +96,8 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         }
     }
 
-    /// Kích hoạt tab **không** đổi trạng thái thu nhỏ/mở của container. Dùng cho mọi
-    /// đường lập trình (extension gọi `load` lại trên loader đã có tab).
+    /// Kích hoạt tab **không** đổi trạng thái thu nhỏ/mở của container. Dùng cho đường
+    /// lập trình (extension gọi `load` lại trên loader đã có tab) khi người dùng không xem trình duyệt.
     internal func activateTab(id: String) {
         guard tabs.contains(where: { $0.id == id }) else { return }
         activeTabId = id

@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.714] - 2026-11-05
+
+### fix: trình duyệt tiện ích giữ tab đang xem khi tiện ích mở tab mới
+
+Người dùng: *"newvisiblebrowser khi mở browser mà tôi có tab đang xem thì giữ tab tôi đang xem chứ đừng sang tab mới mở"*. Trình duyệt đang thu nhỏ thì giữ hành vi cũ (người dùng chọn).
+
+- **`VisibleBrowserTabManager`** (trình duyệt hiện của tiện ích, `Engine.newVisibleBrowser`): thêm `isUserViewingTab` = container đang hiện toàn màn (`isPresented`, không thu nhỏ, không đang tắt) và tab đang chọn còn tồn tại.
+- Hai chỗ từng giật tab, giờ đều giữ tab đang xem khi `isUserViewingTab`:
+  - `addTab` tab mới: chỉ thêm pill vào cuối dải tab (tiêu đề "Trình duyệt (N tab)", widget đếm tab vẫn cập nhật), `activeTabId` không đổi.
+  - `addTab` trùng id — chạy ở **mỗi** `launch()`/`launchAsync()` vì `load`/`loadAsync` gọi `presentUIIfNeeded()`: không `activateTab` nữa. Thiếu chỗ này thì `newVisibleBrowser()` rồi `launch(url)` vẫn kéo sang tab mới, và mỗi lần `launch` sau lại kéo đi.
+- **Không đổi**:
+  - Trình duyệt chưa có tab ⇒ mở và hiện tab mới như cũ.
+  - Đang thu nhỏ ⇒ chuyển sang tab mới, bật lên theo cài đặt "Mở thu nhỏ".
+  - Đăng nhập Gemini / Xác minh Google vẫn nhảy sang tab của mình: người dùng bấm nút mới mở, và hai launcher gọi `selectTab` riêng sau `loadAsync`.
+- **Không áp dụng**: `window.open`/`_blank` (trình duyệt này không có `uiDelegate`, không mở tab từ trong trang); trình duyệt người dùng `BypassWebView` (mỗi lần mở là một store mới, không có tab cũ).
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: tab nền không nằm trên màn hình (như trình duyệt ẩn / lúc thu nhỏ) — trang cần bấm captcha thì phải bấm pill của tab đó.
+
 ## [1.3.713] - 2026-11-05
 
 ### fix: Cài đặt TTS mở ngay từ màn hẹn giờ, tab con về kiểu cũ
@@ -660,38 +678,3 @@ Người dùng: *"thêm cài đặt phồn -> giản trước khi dịch trang"*
   - Công tắc riêng theo tên miền thắng công tắc chung.
   - Dịch lại ngay khi đổi công tắc.
   - Sheet Dịch QT.
-
-## [1.3.683] - 2026-11-03
-
-### feat: bộ rule dịch tên chương, ưu tiên riêng > tên chương > chung
-
-Người dùng: *"rule dịch thêm 1 phạm vi rule dành cho chương nữa; nhớ thêm vào hub từ điển để quản lý; nhớ backup các rule của chương; độ ưu tiên rule riêng > rule tên chương > rule chung; rule tên chương chỉ dùng để dịch tên chương thôi"* và *"thêm option lưu vào bộ tên chương khi bấm lưu ở màn hình thêm rule"*.
-
-- **Phạm vi thứ ba** `QuickTranslationRuleScope.chapterTitle`:
-  - Lưu ở file `translate/QuickTranslateChapterRules.txt`, do store mới `QuickTranslationRuleChapterStore` quản lý (nạp lười, tôn trọng công tắc tổng). Có file tắt riêng `QuickTranslateChapterRulesDisabled.txt`.
-  - Hạng `scopeRank`: riêng 0, tên chương 1, chung 2 (`QuickTranslationRuleScope.bookRank/chapterTitleRank/globalRank`). Mặc định của compiler đổi sang hạng chung. Thứ tự đi qua tiêu chí "bộ rule" có sẵn trong cấu hình ưu tiên.
-- **Chỉ áp khi dịch tên chương:**
-  - `translateChapterTitle(WithMapping)` chạy trong cờ task-local `TranslationReadContext.appliesChapterTitleRules`. Engine và chẩn đoán chỉ trộn bộ tên chương khi cờ bật.
-  - Khoá cache `translateText`, cache rewrite và memo mapping có thêm cờ này, nên dòng tên chương và dòng nội dung trùng chữ không dùng chung kết quả.
-  - Generation của store đi vào `translationGenerationToken`.
-  - Mọi đường dịch tên chương đều có bộ này: Reader đoạn -1, TTS chunk -1, widget, mục lục, xuất TXT, `Qt.translate` chapter_name.
-- **Tắt rule:** file tắt riêng truyện vẫn tắt mẫu ở **mọi** bộ. File tắt tên chương chỉ tắt rule của bộ tên chương, file tắt chung chỉ tắt rule của bộ chung. Có trạng thái chip mới `.disabledForChapterTitles` ("tắt ở bộ tên chương").
-- **Giao diện:**
-  - Hub Từ điển có mục **Rule Tên chương** giữa Riêng và Chung. Cài đặt › Quản lý rule dịch có thêm "Danh sách rule tên chương".
-  - Danh sách, hàng rule và menu nhập/xuất/tắt chạy đúng 3 phạm vi: nút + lưu đúng bộ đang mở, tên file xuất `QuickTranslateChapterRules.txt`, "chia sẻ cả bộ" chỉ cho bộ riêng.
-  - Nút Chuyển thành menu chọn bộ đích (thay `opposite`).
-  - Màn thêm rule có thêm **"Lưu vào bộ rule tên chương"**, mặc định của nút Lưu giữ như cũ. Có truyện ⇒ menu ba mục. Không có truyện ⇒ chạm lưu vào bộ mặc định (mở từ danh sách tên chương thì là bộ tên chương), nhấn giữ để chọn bộ khác.
-  - Reader: chip rule trên dòng tiêu đề chương soi cả bộ tên chương. Nhấn giữ chip có tắt ở bộ tên chương và chuyển sang hai bộ còn lại.
-- **Backup:** gói và khôi phục `config/QuickTranslateChapterRules.txt` + `config/QuickTranslateChapterRulesDisabled.txt`. Khôi phục xong thì dọn cache dịch và phát một thông báo. `BackupLibraryFingerprint` gộp các file cấu hình thành vòng lặp (thêm 2 file ⇒ mỗi máy sẽ tự sao lưu thêm một lần sau khi cập nhật).
-- **Bình luận** (anh Bửu nhờ qua phiên bình luận): dòng mô tả dưới tên, ở cả bình luận lẫn trả lời, đổi sang xám mờ `.tertiary` để tách khỏi nội dung (người dùng chọn kiểu B trên mockup).
-- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Tên chương" ở mục Dịch thuật VietPhrase.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**.
-  - Đã soát thứ tự khoá: `translationGenerationToken` chỉ đọc bộ đếm của store, `notifyChange` chạy ngoài khoá.
-  - Không build tại chỗ (Windows), chưa thử trên máy. Cần thử:
-    - Rule tên chương thắng rule chung, thua rule riêng.
-    - Nội dung chương không bị rule tên chương ảnh hưởng.
-    - Thêm/sửa/tắt/chuyển/nhập/xuất ở hub.
-    - Backup rồi khôi phục.
-    - Màu mô tả bình luận.
