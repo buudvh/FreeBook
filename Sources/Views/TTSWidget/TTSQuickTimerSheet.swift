@@ -2,157 +2,100 @@ import SwiftUI
 import UIKit
 
 /// Bottom Sheet hiện đại điều khiển Hẹn giờ tắt và Danh sách chương cho TTS Widget.
+///
+/// Bố cục (1.3.712): dải thanh kéo có nút ⚙ tròn ở góc phải → header kiểu mục lục Reader (`TTSQuickTimerHeader`,
+/// đồng hồ hẹn giờ trên bìa) → hàng tên chương đang phát → tab con kiểu tab Chi tiết truyện (chữ + gạch chân, badge đỏ
+/// tổng số chương) → nội dung tab. Không có `NavigationStack`: sheet không đẩy trang nào, toolbar chỉ tốn chỗ.
 struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var ttsManager = TTSManager.shared
-    @StateObject private var coverLoader = TTSCoverImageLoader()
     @State private var selectedTab: Int = 0 // 0: Hẹn giờ tắt, 1: Danh sách chương
     @State private var customMinutes: Double = 90.0
     private let presetMinutes = [15, 30, 45, 60, 90]
 
+    /// Dải trên cùng: thanh kéo của sheet hệ thống + nút ⚙ (vòng 28pt, vùng chạm 38×38) — header bắt đầu ngay dưới
+    /// nên nút không lấn bề ngang của tên truyện.
+    private static let topBandHeight: CGFloat = 36
+
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                playingBookHeaderCard
-                    .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
-                playingChapterMarqueeRow
-                    .padding(.horizontal, 16).padding(.bottom, 10)
-                subTabsBar
-                    .padding(.horizontal, 16).padding(.bottom, 10)
-                TabView(selection: $selectedTab) {
-                    timerTabContent
-                        .tag(0)
-                    chapterListTabContent
-                        .tag(1)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 0) {
+            header
+                .padding(.top, Self.topBandHeight)
+            playingChapterMarqueeRow
+                .padding(.horizontal, 16).padding(.bottom, 10)
+            subTabsBar
+                .padding(.bottom, 10)
+            TabView(selection: $selectedTab) {
+                timerTabContent
+                    .tag(0)
+                TTSQuickTimerChapterList(ttsManager: ttsManager)
+                    .tag(1)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // Không có nút ✕ (1.3.641): vuốt xuống để đóng. ⚙ là nút duy nhất, đứng bên phải.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            ttsManager.showingSettingsSheet = true
-                        }
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                    .accessibilityLabel("Cài đặt giọng đọc và tốc độ")
-                }
-            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // Không có nút ✕ (1.3.641): vuốt xuống để đóng. ⚙ là nút duy nhất, ở góc phải dải thanh kéo.
+        .overlay(alignment: .topTrailing) { settingsButton }
+        .background(Color(uiColor: .systemGroupedBackground))
         .presentationDetents([.fraction(0.88), .large])
         .presentationDragIndicator(.visible)
         // Sheet của widget TTS (cửa sổ riêng): gắn lại màu nhấn người dùng chọn cho nút / thanh / ô đang chọn.
         .appAccentTint()
         .onAppear {
             if case .minutes(let mins) = ttsManager.timerMode { customMinutes = Double(mins) }
-            coverLoader.load(bookId: ttsManager.playingBookId, coverURL: ttsManager.playingCoverUrl)
-        }
-        .onChange(of: ttsManager.playingBookId) { _, newBookId in
-            coverLoader.load(bookId: newBookId, coverURL: ttsManager.playingCoverUrl)
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Header
 
-    /// Card thông tin truyện đang phát
-    private var playingBookHeaderCard: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Button(action: {
+    private var header: some View {
+        let packageId = ttsManager.extensionInfo?.packageId ?? ""
+        // Viên nguồn như header Reader: tên + icon của tiện ích đã cài; tiện ích đã gỡ ⇒ tên nguồn đã lưu của phiên TTS.
+        let ext: Extension? = packageId.isEmpty
+            ? nil
+            : ExtensionLibraryRepository.shared.installed.first(where: { $0.packageId == packageId })
+        let extName = ext?.name ?? ""
+        return TTSQuickTimerHeader(
+            bookId: ttsManager.playingBookId,
+            coverUrl: ttsManager.playingCoverUrl,
+            extensionPackageId: packageId,
+            title: ttsManager.displayedBookTitle,
+            author: ttsManager.displayedAuthor,
+            sourceName: extName.isEmpty ? ttsManager.playingBookSourceName : extName,
+            sourceLocalPath: ext?.localPath ?? "",
+            sourceIconUrl: ext?.iconUrl,
+            timerMode: ttsManager.timerMode,
+            timerBadgeText: ttsManager.sleepTimerBadgeText,
+            onOpenReader: {
                 dismiss()
                 NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
-            }) {
-                Group {
-                    if let img = coverLoader.image {
-                        Image(uiImage: img).resizable().scaledToFill()
-                    } else {
-                        ZStack {
-                            LinearGradient(colors: [Color.gray.opacity(0.5), Color.black.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            Image(systemName: "book.fill").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white.opacity(0.88))
-                        }
-                    }
-                }
-                .frame(width: 58, height: 78)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+            },
+            onCancelTimer: {
+                triggerHaptic()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { ttsManager.cancelSleepTimer() }
             }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(ttsManager.displayedBookTitle)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if !ttsManager.chaptersQueue.isEmpty {
-                        Text("\(ttsManager.chaptersQueue.count) chương")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
-                    }
-                    Spacer(minLength: 0)
-                }
-
-                HStack(spacing: 5) {
-                    Image(systemName: "person.fill").font(.system(size: 11)).foregroundStyle(.secondary)
-                    if !ttsManager.displayedAuthor.isEmpty {
-                        Text(ttsManager.displayedAuthor).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }
-
-                timerSlotRow
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 1))
         )
     }
 
-    /// Slot bộ đếm giờ cố định 22pt để tránh giật/nhảy layout
-    private var timerSlotRow: some View {
-        HStack(spacing: 8) {
-            if ttsManager.timerMode != .off {
-                HStack(spacing: 6) {
-                    Image(systemName: "timer").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                    if case .endOfChapter = ttsManager.timerMode {
-                        Text("Hết chương").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                    } else {
-                        Text(ttsManager.sleepTimerBadgeText.isEmpty ? "\(Int(customMinutes))m" : ttsManager.sleepTimerBadgeText)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundStyle(.white)
-                    }
-                }
-                .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(Color(white: 0.22)))
-
-                Button(action: {
-                    triggerHaptic()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { ttsManager.cancelSleepTimer() }
-                }) {
-                    Text("Hủy").font(.system(size: 11, weight: .bold)).foregroundStyle(.red)
-                        .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(Color.red.opacity(0.12)))
-                }
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "moon.stars").font(.system(size: 11))
-                    Text("Chưa hẹn giờ tắt").font(.system(size: 11))
-                }
-                .foregroundStyle(.tertiary)
+    /// Nút ⚙ dạng chấm tròn (như badge) ở góc phải dải thanh kéo; icon 17pt nửa đậm như mọi icon header.
+    private var settingsButton: some View {
+        Button(action: {
+            dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                ttsManager.showingSettingsSheet = true
             }
-            Spacer(minLength: 0)
+        }) {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color(uiColor: .tertiarySystemFill)))
+                .frame(width: 38, height: 38)
+                .contentShape(Rectangle())
         }
-        .frame(height: 22)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cài đặt giọng đọc và tốc độ")
+        .padding(.trailing, 10)
     }
 
     /// Hàng tên chương đang phát với hiệu ứng Marquee
@@ -163,33 +106,57 @@ struct TTSQuickTimerSheet: View {
                 .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.primary)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.7)))
     }
 
-    /// Thanh 2 Tab con chuẩn 1 hàng
+    // MARK: - Tab con (kiểu tab Chi tiết truyện, `BookDetailView.customTabBar`)
+
     private var subTabsBar: some View {
-        HStack(spacing: 8) {
-            subTabButton(title: "Hẹn giờ tắt", icon: "timer", index: 0)
-            subTabButton(title: "Danh sách chương", icon: "list.bullet", index: 1)
+        let count = ttsManager.chaptersQueue.count
+        return HStack(spacing: 0) {
+            subTabButton(title: "Hẹn giờ tắt", badgeCount: nil, index: 0)
+            subTabButton(title: "Danh sách chương", badgeCount: count > 0 ? count : nil, index: 1)
         }
     }
 
-    private func subTabButton(title: String, icon: String, index: Int) -> some View {
+    /// Tên tab luôn một dòng, chật thì cắt "…"; badge giữ đủ số (`fixedSize` + ưu tiên bố cục cao hơn tên).
+    private func subTabButton(title: String, badgeCount: Int?, index: Int) -> some View {
         let isSelected = selectedTab == index
         return Button(action: {
             triggerHaptic()
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { selectedTab = index }
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
         }) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 13, weight: isSelected ? .bold : .medium))
-                Text(title).font(.system(size: 13, weight: isSelected ? .bold : .medium))
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(isSelected ? .bold : .medium)
+                        .foregroundColor(isSelected ? .accentColor : .secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if let badgeCount {
+                        Text(verbatim: String(badgeCount))
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.red))
+                            .fixedSize()
+                            .layoutPriority(1)
+                    }
+                }
+                .padding(.horizontal, 6)
+
+                Rectangle()
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .frame(height: 3)
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 8)
-            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isSelected ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Tab 1: Hẹn giờ tắt
@@ -290,58 +257,6 @@ struct TTSQuickTimerSheet: View {
             }
             .padding(16).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground)))
         }
-    }
-
-    // MARK: - Tab 2: Danh sách chương
-
-    private var chapterListTabContent: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(ttsManager.chaptersQueue, id: \.index) { chapter in
-                        chapterRow(chapter: chapter, isPlaying: chapter.index == ttsManager.playingChapterIndex)
-                            .id(chapter.index)
-                    }
-                }
-                .padding(.horizontal, 16).padding(.vertical, 8)
-            }
-            .onAppear {
-                if ttsManager.playingChapterIndex >= 0 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        proxy.scrollTo(ttsManager.playingChapterIndex, anchor: .center)
-                    }
-                }
-            }
-        }
-    }
-
-    private func chapterRow(chapter: TTSChapterInfo, isPlaying: Bool) -> some View {
-        Button(action: {
-            triggerHaptic()
-            ttsManager.jumpToChapter(at: chapter.index)
-        }) {
-            HStack(spacing: 12) {
-                // Không có cột số thứ tự; chỉ chương đang phát có icon loa ở đầu hàng.
-                if isPlaying {
-                    Image(systemName: "speaker.wave.2.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(.tint).frame(width: 20)
-                }
-                Text(displayTitle(for: chapter))
-                    .font(.system(size: 14, weight: isPlaying ? .bold : .regular)).foregroundStyle(isPlaying ? Color.primary : Color.secondary)
-                    .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                if isPlaying {
-                    Text("Đang phát").font(.system(size: 11, weight: .bold)).foregroundStyle(.tint)
-                        .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                }
-            }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isPlaying ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isPlaying ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func displayTitle(for chapter: TTSChapterInfo) -> String {
-        ttsManager.displayTitle(for: chapter)
     }
 
     private func triggerHaptic() {

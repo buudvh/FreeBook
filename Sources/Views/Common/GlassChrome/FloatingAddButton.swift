@@ -1,14 +1,16 @@
 import SwiftUI
 
 /// Nút "+" nổi góc dưới phải của các màn danh sách (1.3.636) — thay mục "Thêm…" trong ngăn kéo / nút "+" trên header.
-/// Cùng cỡ 52pt, cùng nền kính (`FloatingGlassBackground`) và cùng chỗ với nút tai nghe trong Reader.
+/// Cùng cỡ 52pt, cùng nền kính (`FloatingGlassBackground`) và cùng chỗ với nút tai nghe trong Reader. `systemImage`
+/// đổi icon cho nút nổi cùng kiểu khác (kính lúp / ✕ của danh sách chương trong sheet Hẹn giờ TTS); mặc định "+".
 struct FloatingAddButton: View {
     let accessibilityLabel: String
+    var systemImage: String = "plus"
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "plus")
+            Image(systemName: systemImage)
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: 52, height: 52)
@@ -25,9 +27,13 @@ struct FloatingAddButton: View {
 extension View {
     /// Gắn nút "+" nổi. Dùng `safeAreaInset` (không phải `overlay`) để cuộn tới cuối thì hàng cuối nằm **trên** nút,
     /// không bị nút che mất icon Xoá; danh sách vẫn cuộn xuyên qua vùng dưới nút như thường.
-    func floatingAddButton(_ accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+    func floatingAddButton(
+        _ accessibilityLabel: String,
+        systemImage: String = "plus",
+        action: @escaping () -> Void
+    ) -> some View {
         safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
-            FloatingAddButton(accessibilityLabel: accessibilityLabel, action: action)
+            FloatingAddButton(accessibilityLabel: accessibilityLabel, systemImage: systemImage, action: action)
         }
     }
 }

@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.712] - 2026-11-05
+
+### feat: màn hẹn giờ TTS theo header mục lục Reader, thêm số thứ tự và ô tìm chương
+
+Người dùng: *"chưa đánh số thứ tự cho danh sách chương ở màn hình hẹn giờ"*, *"cho header của màn hình hẹn giờ giống màn hình danh sách chương của reader"*, *"số chương ở header bỏ đi, tạo badge số…"*, *"hiển thị hẹn giờ lên ngay chỗ cover trên header, hiển thị giống kiểu chỉ bìa"*, *"danh sách chương ở hẹn giờ đang thiếu ô tìm kiếm"*, *"tab con hiển thị giống tab chi tiết"*, *"nút search hiển thị kiểu giống nút + ở kệ sách"*, *"thời gian hẹn giờ ở cover hiển thị căn lề giữa"* (duyệt mockup bản 6).
+
+- **Sheet Hẹn giờ** (`TTSQuickTimerSheet`, mở từ widget TTS): bỏ `NavigationStack`/toolbar (sheet không đẩy trang). Dải trên cùng 36pt chứa thanh kéo của sheet hệ thống + nút ⚙ dạng chấm tròn 28pt (icon 17pt nửa đậm, vùng chạm 38×38) ở góc phải — header bắt đầu ngay dưới nên tên truyện dùng hết bề ngang. Hàng tên chương đang phát (chữ chạy) giữ riêng dưới header, trên tab con.
+- **Header mới** `TTSQuickTimerHeader` (file riêng): cùng số đo header mục lục Reader — bìa `BookCoverView` 86×120 bo 6 (chạm = mở truyện như cũ), tên `.headline` 2 dòng, tác giả `.subheadline` mờ 72%, viên nguồn `.caption2` (icon + tên tiện ích đã cài; tiện ích đã gỡ ⇒ tên nguồn đã lưu). Bỏ thẻ bo viền, bỏ chip "N chương" và hàng trạng thái hẹn giờ. Nút "Hủy" hẹn giờ ở góc dưới phải cột chữ, chỉ khi đang hẹn giờ.
+- **Đồng hồ trên bìa**: `CoverCaptionStrip` (dải của kiểu "Chỉ bìa") đè đáy bìa — "m:ss" / "Hết chương" + "Hẹn giờ tắt", **căn giữa**, chữ số rộng đều, phần chuyển thấp (`compactFadeHeight`) vì bìa nhỏ. Chưa hẹn giờ ⇒ bìa trơn. `CoverCaptionStrip` thêm `isCentered` và `usesMonospacedDigits` (mặc định tắt ⇒ Kệ/Khám phá không đổi).
+- **Tab con kiểu tab Chi tiết** (`BookDetailView.customTabBar`): chữ `.subheadline`, đang chọn đậm + màu nhấn + gạch chân 3pt, không icon. "Danh sách chương" có badge đỏ **tổng số chương** ngay cạnh chữ (giữ tổng cả khi đang lọc). Tên tab một dòng, chật thì cắt "…"; badge `fixedSize` + ưu tiên bố cục ⇒ luôn đủ số.
+- **Danh sách chương** `TTSQuickTimerChapterList` (file riêng):
+  - Cột số thứ tự `ChapterOrdinalLabel` theo công tắc "Hiện số thứ tự chương": `chaptersQueue` là mục lục đủ theo thứ tự gốc ⇒ số = `index + 1`, giữ nguyên khi lọc; bề rộng cột tính một lần theo mục lục đủ. `ChapterOrdinalLabel` thêm tham số `font` (mặc định `.body`) để số cùng cỡ 14pt với tên chương ở đây.
+  - Chương đang phát chỉ đổi màu nền + chữ đậm; bỏ icon loa đầu hàng và chip "Đang phát".
+  - Ô tìm `ChapterTOCSearchField` ("Tìm kiếm N chương") **ẩn mặc định**. Nút kính nổi 52pt góc dưới phải (`floatingAddButton`, cùng kiểu nút "+" ở Kệ) mở ô + bật bàn phím, mở rồi thành ✕ (xoá từ khoá, ẩn ô, cuộn lại chương đang phát). Bàn phím đóng khi ô trống ⇒ ô tự ẩn; cuộn danh sách là đóng bàn phím.
+  - Lọc như ô tìm mục lục Reader: `ChapterTitleSearchMatcher` trên tên đang hiển thị (dịch sống y như `TTSManager.displayTitle(for:)`) + tên gốc; chờ 250 ms, chạy ngoài main, phím mới huỷ lượt cũ; mục lục làm mới khi đang lọc ⇒ lọc lại. Không khớp ⇒ "Không có chương nào khớp".
+- **Mảnh dùng chung mở rộng (tương thích ngược)**: `FloatingAddButton` / `floatingAddButton(_:systemImage:action:)` thêm `systemImage` (mặc định "plus"); `ChapterTOCSearchField` thêm `focus: FocusState<Bool>.Binding?`.
+- Chưa thử máy (Windows, chỉ CI biên dịch). Rủi ro: ô tìm nằm trong cửa sổ nổi của widget TTS (không bao giờ là key window) — tiền lệ là ô API key Google ở sheet cài đặt TTS cùng cửa sổ; nếu gõ không ăn thì nghi ở đây.
+
 ## [1.3.711] - 2026-11-04
 
 ### feat: danh sách chương hiện số thứ tự, cột số vừa đủ chữ số lớn nhất
@@ -690,36 +708,3 @@ Người dùng: *"thêm token cụm ký tự bất kỳ trong rule dịch, (nó 
     - `<any:2-4>` đứng một mình bị lỗi nặng.
     - `第<n>章<any:1-30>` **không** khớp `第12章 风起` vì khoảng trắng chặn `<any>`; muốn chịu cả hai dạng thì viết `第<n>章( )?<any:1-30>`.
   - Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.681] - 2026-11-03
-
-### fix: tên chương dịch như nội dung, phồn→giản khi xuất và mục lục comic theo cấu hình truyện
-
-Người dùng: *"điều tra logic dịch tên chương giúp tôi"*. Báo cáo điều tra liệt kê 18 chỗ hiện tên chương và 14 điểm lệch. Sau đó chốt bằng bảng chọn: *"translateChapterTitle không dịch kiểu translateChapterTitle, dịch như dịch content bình thường thôi vì bây giờ tôi đã có rule <L> rồi"*, *"Xuất TXT bỏ qua phồn→giản là quên làm"*, giữ `title_trans` làm mới bằng tay, rồi duyệt plan.
-
-- **Tên chương dịch y như nội dung** (`TranslateUtils.translateChapterTitle`): bỏ hai regex cứng `第N章` ⇒ "Chương N: …" và số Ả-rập `"1. …"` ⇒ "Chương 1: …", cùng `chapterUnitMap`, `chineseNumberToInt` và 4 regex trong `TranslateUtils+MappingMemo`. Hàm còn lại: phồn→giản → trim → `chapterTitleCache` → `translateContent`. Nhãn chương do rule dịch nhanh `<L>` của người dùng lo. Tên không có chữ Hán giữ nguyên, nên "Dịch lại tên chương", nhập TXT/EPUB/comic/video và xuất TXT không còn biến `1. Mở đầu` thành `Chương 1: Mở đầu`. Bỏ tham số `applyingQuickTranslationRules` của hàm này; `Qt.translate(..., {chapter_name})` nay áp rule dịch chung.
-- **Phồn→giản theo công tắc của truyện** (`TranslationConfigStore.convertsTraditionalToSimplified(bookId:)`, mới): xuất TXT áp cho cả tên lẫn nội dung (trước quên). Mục lục tab Chi tiết và comic đi theo luật của sheet mục lục Reader: bật phồn→giản thì bỏ bản lưu và dịch sống có chuyển. Chỉ mục tìm online ở Chi tiết thêm cờ này vào khoá.
-- **Comic** theo công tắc dịch của truyện/nguồn (`TranslationConfigStore`, nghe `didChangeNotification`), không còn theo công tắc chung. Tên chương dịch ngoài main (`ComicChapterTitleTranslator`, `ComicReaderViewModel+TitleTranslation`, mới); lúc chưa dịch xong thì tạm hiện bản lưu `titleTrans`.
-- **Trình phát video** dịch tên nhóm tập (`isSection`) một lần sau khi nạp, theo công tắc truyện + phồn→giản; tập thường giữ nguyên.
-- **Ô tìm chương** ở Chi tiết (đã lưu và online) và comic dùng `ChapterTitleSearchMatcher` như Reader: không phân biệt hoa/thường và dấu.
-- **Dọn dẹp**:
-  - Lưới tập video ở Chi tiết dịch vào `@State` khi mục lục/từ khoá/thứ tự/công tắc đổi, không dịch mọi tập ở mỗi lần vẽ.
-  - Sheet mục lục Reader bỏ lớp dịch thứ hai và việc ghi `@State` trong `body` (`displayTitleCache`, `warmNearbyTitles`).
-  - Xoá code chết `ReaderView.displayedBookTitle`.
-  - Lưu nền `title_trans` ở Chi tiết và "Dịch lại tên chương" chờ từ điển nạp xong.
-- **Giữ nguyên theo người dùng chọn**:
-  - `title_trans` chỉ làm mới bằng tay. Truyện cũ còn bản lưu dạng "Chương 12: …" tới khi bấm "Dịch lại tên chương".
-  - Kệ sách và hộp thư theo công tắc chung.
-  - Rule TOC và "Loại bỏ tiêu đề chương trùng" không đổi.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**:
-  - Đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**.
-  - Không build tại chỗ (Windows) — CI là cổng biên dịch.
-  - Chưa thử trên máy. Cần thử:
-    - Rule `<L>` cho tên chương ở Reader, TTS và mục lục sau "Dịch lại".
-    - TXT tiếng Việt `1. …` giữ nguyên tên.
-    - Phồn→giản ở Chi tiết, comic và file TXT xuất.
-    - Comic nguồn Trung khi công tắc chung tắt.
-    - Nhãn nhóm tập video.
-    - Tìm "kiem" ra "Kiếm".
-

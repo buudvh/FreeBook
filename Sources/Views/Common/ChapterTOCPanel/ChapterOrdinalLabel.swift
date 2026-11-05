@@ -6,16 +6,19 @@ import SwiftUI
 ///
 /// Bề rộng đo bằng một `Text` giữ chỗ ẩn gồm `digits` chữ "0" cùng font (chữ số đều nhau nhờ `.monospacedDigit()`) ⇒
 /// mọi hàng của một danh sách cùng bề rộng, không ghi cứng số point, không đo bằng `GeometryReader` (giữ lazy). Số căn
-/// phải, cùng cỡ chữ với tên (`.body`), màu phụ của panel; không đổi độ đậm theo hàng đang đọc để bề rộng không lệch.
+/// phải, cùng cỡ chữ với tên (`font`, mặc định `.body` của các mục lục; sheet Hẹn giờ TTS truyền 14pt như tên chương),
+/// màu phụ của panel; không đổi độ đậm theo hàng đang đọc để bề rộng không lệch.
 struct ChapterOrdinalLabel: View {
     /// `nil` = hàng không có số nhưng vẫn giữ chỗ để tên thẳng cột.
     let ordinal: Int?
     let digits: Int
     let color: Color
+    let font: Font
 
-    init(ordinal: Int?, digits: Int, palette: ChapterTOCPalette, isCurrent: Bool, isRead: Bool) {
+    init(ordinal: Int?, digits: Int, palette: ChapterTOCPalette, isCurrent: Bool, isRead: Bool, font: Font = .body) {
         self.ordinal = ordinal
         self.digits = digits
+        self.font = font
         color = isCurrent ? palette.title : (isRead ? palette.secondaryText.opacity(0.5) : palette.secondaryText)
     }
 
@@ -29,7 +32,7 @@ struct ChapterOrdinalLabel: View {
                     .foregroundColor(color)
             }
         }
-        .font(.body.monospacedDigit())
+        .font(font.monospacedDigit())
         .lineLimit(1)
         .fixedSize()
     }

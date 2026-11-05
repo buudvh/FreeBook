@@ -2,6 +2,38 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.681] - 2026-11-03
+
+### fix: tên chương dịch như nội dung, phồn→giản khi xuất và mục lục comic theo cấu hình truyện
+
+Người dùng: *"điều tra logic dịch tên chương giúp tôi"*. Báo cáo điều tra liệt kê 18 chỗ hiện tên chương và 14 điểm lệch. Sau đó chốt bằng bảng chọn: *"translateChapterTitle không dịch kiểu translateChapterTitle, dịch như dịch content bình thường thôi vì bây giờ tôi đã có rule <L> rồi"*, *"Xuất TXT bỏ qua phồn→giản là quên làm"*, giữ `title_trans` làm mới bằng tay, rồi duyệt plan.
+
+- **Tên chương dịch y như nội dung** (`TranslateUtils.translateChapterTitle`): bỏ hai regex cứng `第N章` ⇒ "Chương N: …" và số Ả-rập `"1. …"` ⇒ "Chương 1: …", cùng `chapterUnitMap`, `chineseNumberToInt` và 4 regex trong `TranslateUtils+MappingMemo`. Hàm còn lại: phồn→giản → trim → `chapterTitleCache` → `translateContent`. Nhãn chương do rule dịch nhanh `<L>` của người dùng lo. Tên không có chữ Hán giữ nguyên, nên "Dịch lại tên chương", nhập TXT/EPUB/comic/video và xuất TXT không còn biến `1. Mở đầu` thành `Chương 1: Mở đầu`. Bỏ tham số `applyingQuickTranslationRules` của hàm này; `Qt.translate(..., {chapter_name})` nay áp rule dịch chung.
+- **Phồn→giản theo công tắc của truyện** (`TranslationConfigStore.convertsTraditionalToSimplified(bookId:)`, mới): xuất TXT áp cho cả tên lẫn nội dung (trước quên). Mục lục tab Chi tiết và comic đi theo luật của sheet mục lục Reader: bật phồn→giản thì bỏ bản lưu và dịch sống có chuyển. Chỉ mục tìm online ở Chi tiết thêm cờ này vào khoá.
+- **Comic** theo công tắc dịch của truyện/nguồn (`TranslationConfigStore`, nghe `didChangeNotification`), không còn theo công tắc chung. Tên chương dịch ngoài main (`ComicChapterTitleTranslator`, `ComicReaderViewModel+TitleTranslation`, mới); lúc chưa dịch xong thì tạm hiện bản lưu `titleTrans`.
+- **Trình phát video** dịch tên nhóm tập (`isSection`) một lần sau khi nạp, theo công tắc truyện + phồn→giản; tập thường giữ nguyên.
+- **Ô tìm chương** ở Chi tiết (đã lưu và online) và comic dùng `ChapterTitleSearchMatcher` như Reader: không phân biệt hoa/thường và dấu.
+- **Dọn dẹp**:
+  - Lưới tập video ở Chi tiết dịch vào `@State` khi mục lục/từ khoá/thứ tự/công tắc đổi, không dịch mọi tập ở mỗi lần vẽ.
+  - Sheet mục lục Reader bỏ lớp dịch thứ hai và việc ghi `@State` trong `body` (`displayTitleCache`, `warmNearbyTitles`).
+  - Xoá code chết `ReaderView.displayedBookTitle`.
+  - Lưu nền `title_trans` ở Chi tiết và "Dịch lại tên chương" chờ từ điển nạp xong.
+- **Giữ nguyên theo người dùng chọn**:
+  - `title_trans` chỉ làm mới bằng tay. Truyện cũ còn bản lưu dạng "Chương 12: …" tới khi bấm "Dịch lại tên chương".
+  - Kệ sách và hộp thư theo công tắc chung.
+  - Rule TOC và "Loại bỏ tiêu đề chương trùng" không đổi.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**:
+  - Đọc code + diff; `check_architecture.py` 2 violation nền, **0 mới**.
+  - Không build tại chỗ (Windows) — CI là cổng biên dịch.
+  - Chưa thử trên máy. Cần thử:
+    - Rule `<L>` cho tên chương ở Reader, TTS và mục lục sau "Dịch lại".
+    - TXT tiếng Việt `1. …` giữ nguyên tên.
+    - Phồn→giản ở Chi tiết, comic và file TXT xuất.
+    - Comic nguồn Trung khi công tắc chung tắt.
+    - Nhãn nhóm tập video.
+    - Tìm "kiem" ra "Kiếm".
+
 ## [1.3.680] - 2026-11-03
 
 ### feat: bình luận hiện avatar người bình luận và các trả lời

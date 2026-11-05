@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Dải chữ ở đáy bìa — một kiểu dùng chung cho kiểu "Chỉ bìa" (Kệ, Khám phá) và bìa ở header danh sách chương của
-/// Reader, để chữ trên bìa đọc rõ như nhau ở mọi nơi.
+/// Dải chữ ở đáy bìa — một kiểu dùng chung cho kiểu "Chỉ bìa" (Kệ, Khám phá), bìa ở header danh sách chương của
+/// Reader và đồng hồ hẹn giờ trên bìa của sheet Hẹn giờ TTS, để chữ trên bìa đọc rõ như nhau ở mọi nơi.
 ///
 /// - Nền: trong suốt → đen 75% trên đoạn `fadeHeight` phía trên chữ, rồi 75% → 95% sau chữ — tức đã đậm ngay từ dòng
 ///   đầu, không để dòng tên trên rơi vào phần nền còn mỏng. Phần chuyển **không** chiếm chỗ trong bố cục (nền tràn lên
@@ -19,15 +19,19 @@ struct CoverCaptionStrip: View {
     var subtitle: String? = nil
     var titleLineLimit: Int = 2
     var fadeHeight: CGFloat = CoverCaptionStrip.regularFadeHeight
+    /// Căn giữa hai dòng chữ (đồng hồ hẹn giờ trên bìa của sheet Hẹn giờ TTS). Kệ / Khám phá giữ căn trái.
+    var isCentered = false
+    /// Chữ số rộng đều cho dòng trên — số đếm ngược đổi mỗi giây không làm chữ rung ngang.
+    var usesMonospacedDigits = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: isCentered ? .center : .leading, spacing: 1) {
             if let title, !title.isEmpty {
                 Text(title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(usesMonospacedDigits ? .system(size: 13, weight: .bold).monospacedDigit() : .system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(titleLineLimit)
-                    .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(isCentered ? .center : .leading)
                     .shadow(color: .black.opacity(0.9), radius: 1.5, x: 0, y: 1)
             }
             if let subtitle, !subtitle.isEmpty {
@@ -38,7 +42,7 @@ struct CoverCaptionStrip: View {
                     .shadow(color: .black.opacity(0.9), radius: 1.5, x: 0, y: 1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: isCentered ? .center : .leading)
         .padding(.horizontal, 6)
         .padding(.top, 2)
         .padding(.bottom, 5)
