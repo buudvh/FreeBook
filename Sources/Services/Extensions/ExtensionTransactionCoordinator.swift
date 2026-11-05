@@ -250,6 +250,12 @@ public final class ExtensionTransactionCoordinator {
         mutateInstalled(packageId: packageId) { $0.translateOverride = value }
     }
 
+    /// Kiểu thu nhỏ khi vuốt xuống trình phát phim của tiện ích: raw value của `VideoMinimizeStyle`; `nil` = theo cài
+    /// đặt chung. Áp từ lần vuốt kế tiếp (`VideoMinimizePolicy` đọc lúc vuốt).
+    public func setVideoMinimizeOverride(packageId: String, _ value: String?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.videoMinimizeOverride = value }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

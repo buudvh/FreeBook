@@ -52,6 +52,10 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// `true` = trang khớp tiện ích này (`ExtensionUrlMatcher`) mở trong **trình duyệt người dùng** tự dịch QT, trừ khi
     /// tên miền đã chỉnh riêng (`BrowserTranslatePolicy`); `nil` = không. Tắt công tắc ghi `nil`, không ghi `false`.
     public var translateOverride: Bool?
+    /// Kiểu thu nhỏ khi **vuốt xuống** trình phát phim của tiện ích này: raw value của `VideoMinimizeStyle`
+    /// (`"hub"` / `"pictureInPicture"`); `nil` = theo cài đặt chung (`VideoMinimizePolicy`). Mục Video của Cấu hình
+    /// tiện ích, chỉ tiện ích loại video.
+    public var videoMinimizeOverride: String?
 
     public static let installOriginRepository = "repository"
     public static let installOriginImportZip = "importZip"
@@ -108,7 +112,8 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         nsfwOverride: Bool? = nil,
         adBlockOverride: Bool? = nil,
         desktopModeOverride: Bool? = nil,
-        translateOverride: Bool? = nil
+        translateOverride: Bool? = nil,
+        videoMinimizeOverride: String? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -135,6 +140,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         self.adBlockOverride = adBlockOverride
         self.desktopModeOverride = desktopModeOverride
         self.translateOverride = translateOverride
+        self.videoMinimizeOverride = videoMinimizeOverride
     }
 
     // MARK: - Codable
@@ -146,6 +152,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         case pinnedAt, lastUsedAt, installedAt, updatedAt
         case isNsfw, savesHistory, nsfwOverride
         case adBlockOverride, desktopModeOverride, translateOverride
+        case videoMinimizeOverride
     }
 
     /// Decode khoan dung: chỉ `packageId` là bắt buộc, trường thiếu rơi về mặc định — file do bản app khác
@@ -178,5 +185,6 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         adBlockOverride = try? c.decodeIfPresent(Bool.self, forKey: .adBlockOverride)
         desktopModeOverride = try? c.decodeIfPresent(Bool.self, forKey: .desktopModeOverride)
         translateOverride = try? c.decodeIfPresent(Bool.self, forKey: .translateOverride)
+        videoMinimizeOverride = try? c.decodeIfPresent(String.self, forKey: .videoMinimizeOverride)
     }
 }

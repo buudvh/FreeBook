@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// Không có nút "Lưu"/"Hủy"/"Đóng" — đóng bằng vuốt xuống (1.3.641). Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
 /// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
-/// + chế độ máy tính của webview ở `+WebContent`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`, trang đăng
+/// + chế độ máy tính của webview ở `+WebContent`, kiểu vuốt xuống trình phát (tiện ích video) ở `+Video`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`, trang đăng
 /// nhập `support_url` ở `+SupportLink`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
 ///
 /// Mọi `@State` để `internal`: các file `+` là extension ở file khác, mà `private` chỉ có phạm vi **file**.
@@ -119,6 +119,7 @@ struct ExtensionConfigView: View {
             globalConfigSection // tự lưu — `ExtensionConfigView+GlobalConfig`
             browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
             webContentSection // tự lưu khi bấm — `ExtensionConfigView+WebContent`
+            videoSection // tự lưu khi chọn, chỉ tiện ích video — `ExtensionConfigView+Video`
             networkSection // tự lưu — `ExtensionConfigView+GlobalConfig`
 
             Section(header: Text("Nâng cao")) {

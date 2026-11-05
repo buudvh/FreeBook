@@ -158,6 +158,9 @@ final class VideoPlaybackSession {
     @ObservationIgnored var noticeTask: Task<Void, Never>?
     /// Giây ghi vào Lịch sử khi đang nhúng trang: 0, trừ khi tự chuyển sang nhúng vì mất tiếng (giữ giây đang xem).
     @ObservationIgnored var embedProgressSeconds = 0
+    /// Tắt NSFW ⇒ dừng phim 18+ (`+NsfwGuard`): observer + giá trị công tắc lần trước (chỉ xử lý lúc chuyển bật → tắt).
+    @ObservationIgnored var nsfwDefaultsObserver: NSObjectProtocol?
+    @ObservationIgnored var lastIncludesNsfw = false
 
     private init() {
         let player = AVPlayer()
@@ -169,6 +172,7 @@ final class VideoPlaybackSession {
         installLifecycleObservers()
         installPictureInPicture()
         installRemoteActions()
+        installNsfwGuard()
     }
 
     // MARK: - Trạng thái suy ra

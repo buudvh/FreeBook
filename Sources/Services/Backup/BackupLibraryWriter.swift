@@ -153,6 +153,12 @@ public struct BackupLibraryWriter {
                ) {
                 report.errors.append("Tự dịch trang \(record.name): \(error.localizedDescription)")
             }
+            if let minimize = record.videoMinimizeOverride, ext.videoMinimizeOverride == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setVideoMinimizeOverride(
+                   packageId: record.packageId, minimize
+               ) {
+                report.errors.append("Vuốt xuống trình phát \(record.name): \(error.localizedDescription)")
+            }
         }
         return report
     }

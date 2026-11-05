@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.710] - 2026-11-04
+
+### fix: sửa 5 lỗi engine Legado tìm thấy trong log
+
+Người dùng: *"Duyệt E1–E5"* (từ `app_logs (134).txt`, nối tiếp `[1.3.708]`). Spec `legado-source-spec.md` đã sửa theo (§2.7, §6.2, §6.3, §6.9).
+
+- **E1. `{{@…}}` là rule, không phải JS** (`LegadoRuleAnalyzer+Template.placeholderValue`).
+  - Ví dụ 梧桐中文 ×6 `{{@.w_txt li.4@textNodes}}`, 飞卢 ×3, 酷书阁 ×2, 轻菠萝包, SF轻小说. Trước đây lỗi `Invalid character '@'`, mất phần giới thiệu/trường đó.
+  - Corpus: 50 chỗ ở 27 nguồn, không chỗ nào là JS.
+- **E2. Năm đối tượng chuẩn được trả về bản gốc trước mỗi lần chạy JS**: `java`, `source`, `cookie`, `cache`, `infoMap` (`LegadoJSRuntime+StandardObjects`). Lần chạy lồng lưu và trả lại cả chúng.
+  - 晋江百合 / 晋江 (cá nhân) `cookie=cookie.getKey(…)` và 天地中文网 `cookie = cookie.getCookie(…)` gán không khai báo. Trước đây chúng thay `cookie` bằng chuỗi cho mọi script sau, nên lỗi `cookie.getKey is not a function` từ chương thứ hai.
+- **E3. `{{js}}` trên trang gốc nhận `result` = chuỗi thân trang**, như phân đoạn JS đứng đầu, không nhận phần tử HTML. Ví dụ 豆瓣读书 ×5 `result.match(/ratingValue…/)` trước đây mất dòng điểm. `src` của `{{js}}` theo quy ước `src` của mục (`[1.3.708]`).
+- **E4. `importClass(org.jsoup.Jsoup)` / `JavaImporter` đặt `Jsoup` vào phạm vi**, nhờ bản giả lập Jsoup có tên ngắn. Ví dụ SF轻小说#2 `Jsoup.parse(…)`.
+- **E5. Object JSON đưa vào JS có `get(k)`, `containsKey`, `keySet`, `size`**, ẩn, như map của json-smart; chỉ gắn khi không trùng khoá, không lồng xuống object con. Ví dụ 点众阅读 `result.get("statusTips")`.
+- Chuyển `[1.3.679]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.709] - 2026-11-04
 
 ### revert: bỏ khoảng giá trị min-max của token số trong rule dịch

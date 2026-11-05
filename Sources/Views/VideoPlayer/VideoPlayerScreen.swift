@@ -133,7 +133,7 @@ struct VideoPlayerScreen: View {
             if onDismiss == nil, let watch {
                 VideoWatchPresenter.noteCoverScreen(watch, isVisible: true)
             }
-            controller.onMinimizeRequest = { leave(stopPlayback: false) }
+            controller.onMinimizeRequest = { minimizeBySwipe() }
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
             // Độ sáng lần vuốt chỉnh gần nhất (mọi phim, mọi nguồn); rời màn thì trả độ sáng của máy.
@@ -228,6 +228,31 @@ struct VideoPlayerScreen: View {
             }
         } else {
             performDismiss()
+        }
+    }
+
+    /// Vuốt xuống khung phim (chỉ màn dọc): hub hoặc PiP theo `VideoMinimizePolicy` (nút ⌄ luôn hub). PiP được thì chỉ
+    /// **bật PiP**: handler `pictureInPictureStartCount` tự thu nhỏ khi PiP đã bật — đóng màn trước là gỡ layer lúc PiP
+    /// đang bật dở. PiP không lên sau 1,5 giây (bị từ chối, lỗi) ⇒ thu nhỏ vào hub như cũ.
+    private func minimizeBySwipe() {
+        guard !isLeaving, watchOwnsSession, let playing = session.launch,
+              VideoMinimizePolicy.style(bookId: playing.bookId, packageId: playing.extensionPackageId) == .pictureInPicture
+        else {
+            leave(stopPlayback: false)
+            return
+        }
+        guard session.isPictureInPicturePossible, !session.isPictureInPictureActive else {
+            AppLogger.shared.log("🖼️ [VideoPiP] Vuốt xuống: chưa bật được PiP (phim nhúng / chưa sẵn sàng) ⇒ thu nhỏ vào hub")
+            leave(stopPlayback: false)
+            return
+        }
+        AppLogger.shared.log("🖼️ [VideoPiP] Vuốt xuống ⇒ bật Hình trong hình theo cài đặt")
+        session.togglePictureInPicture()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !isLeaving, !session.isPictureInPictureActive else { return }
+            AppLogger.shared.log("🖼️ [VideoPiP] PiP không lên sau khi vuốt xuống ⇒ thu nhỏ vào hub")
+            leave(stopPlayback: false)
         }
     }
 

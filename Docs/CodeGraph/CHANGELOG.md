@@ -2,6 +2,34 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.740] - 2026-11-05
+
+### feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+
+
+Plan đợt 2 trình phát video, mục 1–3 (anh Bửu đã duyệt).
+
+- **Trang Cài đặt › Đọc & Nghe › Video** (`VideoSettingsView`, `Sources/Views/Settings/Video/`; hàng `NavigationLink` icon `play.rectangle` trong `ReadingSettingsSection`):
+  - Nhóm **Khi mở phim**: "Tự phát khi mở phim" (dời từ section Đọc & Nghe, bỏ hàng cũ) và "Tắt tiếng khi mở phim" (dời từ màn Nội dung nhạy cảm, bỏ hàng cũ). Cùng khoá cũ, không mất lựa chọn.
+  - Nhóm **Vuốt xuống trình phát** (nút "?"): "Phim thường" / "Phim 18+", mỗi dòng chọn Thu nhỏ vào hub / Hình trong hình. Mặc định cả hai là hub (giữ hành vi cũ).
+  - Sửa comment sai ở `NsfwSettingsView` (màn nằm ở Cài đặt › Chung › Giao diện, không phải Thư Viện), `VideoMutePolicy`, `VideoAutoplayPolicy`, `ReadingSettingsSection`.
+- **`VideoMinimizeStyle` + `VideoMinimizePolicy`** (`Services/Video`): khoá `videoSwipeMinimizeNormal` / `videoSwipeMinimizeNsfw`; luật `Extension.videoMinimizeOverride ?? (RepositoryFilterPolicy.isNsfwBook ? "Phim 18+" : "Phim thường")`.
+- **Vuốt xuống** (`VideoPlayerScreen.minimizeBySwipe`, gắn vào `controller.onMinimizeRequest`):
+  - Kiểu hub ⇒ thu nhỏ như cũ.
+  - Kiểu PiP và `isPictureInPicturePossible` ⇒ chỉ `togglePictureInPicture()`; handler `pictureInPictureStartCount` có sẵn tự thu nhỏ khi PiP đã bật (không đóng màn trực tiếp vì PiP cần layer còn gắn).
+  - PiP không được (phim nhúng, item chưa sẵn sàng) ⇒ hub. PiP không lên sau 1,5 giây (bị từ chối, lỗi) ⇒ hub.
+  - Nút ⌄ không đổi: luôn thu nhỏ vào hub.
+- **Ghi đè theo tiện ích**:
+  - `Extension.videoMinimizeOverride: String?` (`nil` = theo cài đặt chung; decode khoan dung).
+  - `ExtensionTransactionCoordinator.setVideoMinimizeOverride`.
+  - Mục **Video** trong Cấu hình tiện ích (`ExtensionConfigView+Video`), chỉ tiện ích loại video: Picker menu "Theo cài đặt chung (…)" / Thu nhỏ vào hub / Hình trong hình (mẫu `NsfwChoice`). Nhãn "Theo cài đặt chung" ghi giá trị chung đang áp (tiện ích 18+ theo dòng "Phim 18+").
+  - Backup: `BackupPayload.ExtensionRecord`, `BackupLibraryReader`, `BackupLibraryWriter` (chỉ áp khi máy này chưa tự chọn), `BackupLibraryFingerprint`. Optional mặc định `nil` ⇒ vân tay backup cũ không đổi.
+- **Tắt NSFW thì dừng phim 18+** (`VideoPlaybackSession+NsfwGuard`): nghe `UserDefaults.didChangeNotification` (nhận trên main), chỉ xử lý lúc khoá `RepositoryFilterPolicy.includeNsfwDefaultsKey` chuyển từ bật sang tắt; phim đang phát là `isNsfwBook` ⇒ `stop()`, kể cả khi đang ở hub hay PiP.
+- `CLAUDE.md` + `AGENTS.md`: cập nhật chỗ đặt "Tắt tiếng khi mở phim", thêm luật vuốt xuống và dừng phim 18+.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: vuốt xuống ở màn dọc theo từng cài đặt (phim thường / 18+ / tiện ích đặt riêng, PiP được và không được); tắt NSFW lúc phim 18+ đang ở hub hoặc PiP ⇒ phim dừng.
+
 ## [1.3.739] - 2026-11-05
 
 ### fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình
@@ -715,20 +743,3 @@ Người dùng: *"Thêm số thứ tự hiển thị ở mỗi danh sách chươ
 - `CLAUDE.md` / `AGENTS.md`: thêm một câu ở mục "Mục lục & thẻ Chi tiết".
 - Chuyển `[1.3.680]` sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.710] - 2026-11-04
-
-### fix: sửa 5 lỗi engine Legado tìm thấy trong log
-
-Người dùng: *"Duyệt E1–E5"* (từ `app_logs (134).txt`, nối tiếp `[1.3.708]`). Spec `legado-source-spec.md` đã sửa theo (§2.7, §6.2, §6.3, §6.9).
-
-- **E1. `{{@…}}` là rule, không phải JS** (`LegadoRuleAnalyzer+Template.placeholderValue`).
-  - Ví dụ 梧桐中文 ×6 `{{@.w_txt li.4@textNodes}}`, 飞卢 ×3, 酷书阁 ×2, 轻菠萝包, SF轻小说. Trước đây lỗi `Invalid character '@'`, mất phần giới thiệu/trường đó.
-  - Corpus: 50 chỗ ở 27 nguồn, không chỗ nào là JS.
-- **E2. Năm đối tượng chuẩn được trả về bản gốc trước mỗi lần chạy JS**: `java`, `source`, `cookie`, `cache`, `infoMap` (`LegadoJSRuntime+StandardObjects`). Lần chạy lồng lưu và trả lại cả chúng.
-  - 晋江百合 / 晋江 (cá nhân) `cookie=cookie.getKey(…)` và 天地中文网 `cookie = cookie.getCookie(…)` gán không khai báo. Trước đây chúng thay `cookie` bằng chuỗi cho mọi script sau, nên lỗi `cookie.getKey is not a function` từ chương thứ hai.
-- **E3. `{{js}}` trên trang gốc nhận `result` = chuỗi thân trang**, như phân đoạn JS đứng đầu, không nhận phần tử HTML. Ví dụ 豆瓣读书 ×5 `result.match(/ratingValue…/)` trước đây mất dòng điểm. `src` của `{{js}}` theo quy ước `src` của mục (`[1.3.708]`).
-- **E4. `importClass(org.jsoup.Jsoup)` / `JavaImporter` đặt `Jsoup` vào phạm vi**, nhờ bản giả lập Jsoup có tên ngắn. Ví dụ SF轻小说#2 `Jsoup.parse(…)`.
-- **E5. Object JSON đưa vào JS có `get(k)`, `containsKey`, `keySet`, `size`**, ẩn, như map của json-smart; chỉ gắn khi không trùng khoá, không lồng xuống object con. Ví dụ 点众阅读 `result.get("statusTips")`.
-- Chuyển `[1.3.679]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

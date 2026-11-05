@@ -1,6 +1,6 @@
 import Foundation
 
-/// Công tắc "Tự phát khi mở phim" (Cài đặt › Đọc & Nghe và đầu ngăn kéo `⋯` của trình phát), mặc định **bật**.
+/// Công tắc "Tự phát khi mở phim" (Cài đặt › Đọc & Nghe › Video và đầu ngăn kéo `⋯` của trình phát), mặc định **bật**.
 ///
 /// Một nguồn cho khoá + giá trị mặc định: View đọc bằng `@AppStorage(VideoAutoplayPolicy.defaultsKey)` với
 /// `= VideoAutoplayPolicy.defaultValue`, tầng nền đọc `isEnabled` (`UserDefaults.bool` trả `false` cho khoá chưa ghi nên
