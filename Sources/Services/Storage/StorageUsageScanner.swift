@@ -51,7 +51,7 @@ public enum StorageUsageScanner {
             let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
             return names
                 .filter { $0.hasPrefix(prefix) }
-                .reduce(Int64(0)) { $0 + fileSize(directory.appendingPathComponent($0)) }
+                .reduce(Int64(0)) { total, name in total + fileSize(directory.appendingPathComponent(name)) }
         }
     }
 
