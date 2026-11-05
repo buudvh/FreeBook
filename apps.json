@@ -1,0 +1,35 @@
+{
+  "name": "Tàng Công Các",
+  "identifier": "com.raikiri1498.FreeBook.source",
+  "sourceURL": "https://raw.githubusercontent.com/buudvh/FreeBook/source/apps.json",
+  "iconURL": "https://raw.githubusercontent.com/buudvh/FreeBook/source/icon.png",
+  "apps": [
+    {
+      "name": "Tàng Công Các",
+      "bundleIdentifier": "com.raikiri1498.FreeBook",
+      "developerName": "buudvh",
+      "subtitle": "Đọc truyện, truyện tranh, xem phim, nghe đọc truyện",
+      "localizedDescription": "Đọc truyện chữ, truyện tranh và xem phim từ tiện ích nguồn; dịch VietPhrase, nghe đọc truyện (TTS).",
+      "iconURL": "https://raw.githubusercontent.com/buudvh/FreeBook/source/icon.png",
+      "tintColor": "#2BB3A3",
+      "versions": [
+        {
+          "version": "1.3.724",
+          "buildVersion": "1153",
+          "date": "2026-11-05T07:23:38Z",
+          "localizedDescription": "feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1153/TangCongCac-1.3.724-1153.ipa",
+          "size": 37509685,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "version": "1.3.724",
+      "versionDate": "2026-11-05T07:23:38Z",
+      "versionDescription": "feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1153/TangCongCac-1.3.724-1153.ipa",
+      "size": 37509685,
+      "appPermissions": {}
+    }
+  ],
+  "news": []
+}
