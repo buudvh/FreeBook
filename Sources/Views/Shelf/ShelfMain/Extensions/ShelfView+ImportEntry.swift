@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Sheet chỉ **chọn** việc (`queuedImportChoice`); việc thật — mở Chi tiết, trình duyệt, bộ chọn file — chạy trong
 /// `onDismiss` khi sheet đã đóng hẳn: bật một lớp trình bày khác lúc sheet còn đang trượt xuống thì lớp mới không hiện
-/// (cùng lý do với `queuedShelfRemovalBook`).
+/// (cùng lý do với `queuedBrowserBook`).
 ///
 /// Tách khỏi `ShelfView.swift` để file gốc không phình thêm (baseline dòng); các `@State` mà khối này chạm tới là
 /// `internal`.

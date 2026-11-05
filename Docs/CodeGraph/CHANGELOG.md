@@ -2,6 +2,34 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.738] - 2026-11-05
+
+### fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn
+
+Người dùng: *"bỏ hỏi khi bấm nút bỏ khỏi kệ (nhớ tất cả màn hình có nút này) trực tiếp bỏ khỏi kệ"*.
+
+- **Grep mọi nút bỏ kệ**:
+  - 5 chỗ có hộp "Bỏ … khỏi kệ?":
+    - danh sách chương Reader chữ;
+    - mục lục truyện tranh;
+    - nút kệ của sheet nhấn giữ ở Kệ sách / Lịch sử;
+    - Tìm trên kệ;
+    - Bộ sưu tập.
+  - Không hỏi sẵn từ trước:
+    - nút "Trên kệ" của màn xem video;
+    - nút "Đã ở kệ" của màn Chi tiết.
+- **`ShelfToggleFlowModifier.toggle`**: đã ở kệ ⇒ `BookActionRunner.removeFromShelfOnly` ngay (tự toast, truyện về Lịch sử, rời bộ sưu tập, bỏ ghim — y như nút "Bỏ khỏi kệ" của hộp cũ).
+  - Modifier chỉ còn sheet chọn bộ sưu tập: `shelfToggleFlow(collectionPickerBook:)`.
+  - Bỏ `isConfirmingShelfRemoval` ở `ReaderChapterListView` / `ComicChapterListSheet`.
+- **`ShelfView` / `ShelfSearchView(+Actions)` / `CollectionDetailView`**:
+  - `.removeFromShelfOnly` gọi thẳng `removeFromShelfOnly`.
+  - Bỏ hàng chờ `queuedShelfRemovalBook` / `pendingShelfRemovalBook`: chúng chỉ để bật hộp sau khi sheet nhấn giữ đóng hẳn.
+- Xoá `ShelfRemovalConfirmationModifier.swift` (không còn chỗ dùng). Sửa comment nhắc tới hàng chờ cũ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu tới hộp cũ. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.737] - 2026-11-05
 
 ### fix: nhấn giữ phim ở Kệ và Lịch sử không còn mở trang Chi tiết
@@ -689,52 +717,3 @@ Người dùng: *"Revert bỏ min max cho token số giúp tôi"*. Gỡ hẳn t�
   - `<n:1-4#1-200>` (độ dài rồi `#`) ⇒ **không báo lỗi**: phần độ dài `1-4#1-200` tách theo `-` rồi bỏ mảnh không phải số ⇒ thành độ dài `1-200`, không giới hạn giá trị. `<n:1-4#5>` ⇒ độ dài đúng 1; `<n:3#5>` ⇒ lỗi "Khoảng độ dài không hợp lệ" (lỗi nặng, như trên). Đây là cách đọc độ dài lỏng có từ trước 1.3.701.
 - Chuyển `[1.3.678]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff (patch đảo của `392dd254` áp sạch trừ `QuickTranslationRuleEditorSheet+Editing.swift`, gỡ tay hai chỗ); grep `valueRange`/`ValueRange`/`invalidValueRange` trong `Sources/` không còn; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.708] - 2026-11-04
-
-### fix: sửa 15 lỗi engine Legado từ báo cáo kiểm tra nguồn 19:57
-
-Người dùng: *"Làm theo javis đề xuất và hãy xem log sau đây"* (plan có bằng chứng từ hai báo cáo 18:12 và 19:57 cùng `app_logs (134).txt`). Mọi bằng chứng đối chiếu trang hoặc API thật, cộng corpus 6 file nguồn. Spec `legado-source-spec.md` đã sửa theo (§1.2.1, §2.2–§2.3, §2.6, §2.12, §3.9/U8, §3.10, §4.6, §4.7, §6.1–§6.4).
-
-- **Rule và URL**
-  - **Đuôi `##R##P##` cũng là trích khớp đầu, như `###`** (`LegadoRuleScanner.splitRegexTail`).
-    - Ví dụ: 黑岩#玄奇 / 黑岩网站 `a@href##\d+$##…/content/$0##` trước đây ra URL dính `…/book/140966/https://…` (404).
-    - Corpus: 27 rule ở 20 nguồn chỉ hợp lý khi trích khớp đầu. `##R##` (hai phần) vẫn là "xoá mọi đoạn".
-  - **`@js:` có đuôi `##`** ⇒ chạy phần trước `##` làm JS rồi áp đuôi regex lên kết quả. Chỉ tách khi cả đoạn không phân tích được mà phần trước thì được (`LegadoJSRegexTail`: kiểm cú pháp bằng `JSCheckScriptSyntax`, không chạy).
-    - `@js:##…` (JS rỗng) giữ `result`; khối `<js>##…</js>` là đuôi regex.
-    - Ví dụ 晋江[网页], 穿越小说, 笔迷读, VIP中文, 企鹅阅读, 七猫, 恩京.
-    - Corpus: 86 đoạn ở 65 nguồn, 20 đoạn JS rỗng, 26 khối `<js>##`.
-  - **Body là chuỗi JSON mà nguồn không đặt Content-Type** ⇒ gửi `application/json`, như `java.post` (U8 đã chốt).
-    - 乐读 ×3, 少年梦, 西瓜 ×4, 趣悦 ×2: gửi form thì 4 API từ chối hoặc trả rỗng.
-  - **Khối option `,{…}` không đọc được thì bỏ** (§1.2.1), không dán vào URL nữa. 独步 ×2 trước đây bị trang báo "没有找到…{body…}".
-  - **XPath `//X…` trên mục X khớp cả chính mục** (`self::X… | .//X…`). Ví dụ 耽美小说 `bookList //h2` + `name //h2/a//text()`. Vị từ chỉ số giữ nguyên nghĩa.
-  - **`src` của JS trong rule trường của mục là mã của mục**: HTML gọn hoặc JSON. 冷冷文学 cùng 9 nguồn dùng chung chapterUrl chạy regex một dòng trên `src`.
-- **Cầu JS**
-  - **`java.getElement`** với jsoup/CSS/XPath trả cả danh sách như `getElements`; JSONPath xác định vẫn trả một giá trị.
-    - 凡人小说 ×2 trước đây dùng `d.length`/`d.select` mà ra 0 chương; trang thật có 1891 chương.
-    - Danh sách có thêm `hasAttr`, `hasClass`, `hasText`, `val`.
-  - **`res.headers(tên)`** trả danh sách mọi giá trị (`[i]`, `toString()` kiểu `[a, b]`). `Set-Cookie` tách theo từng cookie.
-    - 天籁小说 `headers("Set-Cookie")[0]` trước đây ra `undefined`, nên URL tìm kiếm dựng ra rỗng.
-  - **Danh sách JSON rỗng thành chuỗi `"[]"`**, nối tiếp 1.3.700. 爱发电 ×3 (tác giả có 0 album) trước đây ra 0 chương.
-  - **`base64Decode` bỏ ký tự ngoài bảng chữ base64.** 完本小说网: base64 chứa `\/`, sau khi giải AES ra nội dung chương.
-  - **Lỗi cú pháp mà Rhino chấp nhận thì sửa rồi chạy lại** (`LegadoJSRhinoSyntax`, `runFixingRhinoSyntax`). Áp cho rule JS và jsLib; bản sửa là bản được cài.
-    - **Ký tự Cf** (U+200B…) ngoài literal thì bỏ (ES3 §7.1). Ví dụ 移动阅读 ×2.
-    - **`let X` trùng tham số** thì đổi thành `var X`. Ví dụ jsLib 书旗 `GetUrl`, 长佩 `AESencrypt`, trước đây mất cả thư viện.
-- **Mạng và bộ kiểm tra nguồn**
-  - **UA mặc định đổi sang Chrome máy tính** (§3.10).
-    - Với UA Android di động, 26 nguồn bị chuyển sang bản mobile không khớp rule: 黑岩 ×10, 若初 ×6, 若夏 ×4, 塔读 ×5, 红袖.
-    - Thử 40 nguồn đang qua với UA máy tính: không nguồn nào đổi kết quả.
-    - `java.getWebViewUA()` giữ UA WebView Android.
-  - **Trang HTTP 404 của các bước chính vẫn chạy rule** (§4.6, `LegadoSourceRuntime+HTTPErrorPage`). Áp cho tìm, khám phá, thông tin sách, mục lục, nội dung, comic.
-    - Bước ra rỗng hoặc rule ném lỗi trên trang 404 ⇒ ném lại lỗi HTTP gốc như trước.
-    - Mã ≥ 400 khác (403/429/503 thử thách Cloudflare, captcha) vẫn lỗi ngay. Nhờ vậy trang chặn không thành nội dung chương, và nút "Mở link lỗi" vẫn hiện.
-    - Ví dụ 阅友 ×4: chapterUrl là id trần nên trả 404, nhưng rule nội dung tự gửi POST.
-    - Thay đổi hành vi: trang 404 mà rule nội dung vẫn ra chữ thì chữ đó được lưu làm nội dung chương.
-  - **Bộ kiểm tra nguồn chọn chương thử bỏ qua hàng quyển** (không URL, URL trùng trang mục lục hoặc trùng hàng khác). Mục kiểm `++url` dùng làm tocUrl.
-    - 中文万维 / 中文书城 ×7 trước đây bị báo lỗi nội dung giả.
-- **Chưa sửa**
-  - `{{baseUrl}}` sau chuyển hướng (起点 ×2 `//catalog/`): bằng chứng chưa đủ, ghi UNKNOWN ở §4.7.
-- **Kiểm chứng**
-  - Đọc code; logic JS thử trên Node/V8 với văn bản bootstrap thật; `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`.
-  - Không build tại chỗ (Windows), chưa thử trên máy.
-  - Báo cáo 19:57 chạy bản có 1.3.700. Các nguồn 1.3.700 đã sửa đang tắt nên cần bật lại và chạy riêng.

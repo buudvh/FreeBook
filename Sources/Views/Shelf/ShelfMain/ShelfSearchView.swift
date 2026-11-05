@@ -33,14 +33,8 @@ struct ShelfSearchView: View {
     @State var editingInfoBook: Book? = nil
     /// Lên kệ xong mời chọn bộ sưu tập, như màn Chi tiết / Reader — `ShelfSearchView+Actions`.
     @State var collectionPickerBook: Book? = nil
-    /// Truyện chờ xác nhận "Bỏ khỏi kệ" — `ShelfSearchView+Actions` ghi. Giữ riêng vì sheet nhấn giữ đã đóng và
-    /// `actionTarget` đã về `nil` trước khi hành động tới (`BookActionSheet.emit`).
-    @State var pendingShelfRemovalBook: Book? = nil
-    /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
-    /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
-    @State var queuedShelfRemovalBook: Book? = nil
-    /// "Mở trong trình duyệt" (`ShelfSearchView+Actions` ghi): xếp hàng như `queuedShelfRemovalBook`, mở trong
-    /// `onDismiss` của sheet nhấn giữ (`bookBrowserPresentation`).
+    /// "Mở trong trình duyệt" (`ShelfSearchView+Actions` ghi): hành động tới khi sheet nhấn giữ **còn đang đóng** ⇒ xếp
+    /// hàng ở đây, mở trong `onDismiss` của sheet (`bookBrowserPresentation`).
     @State var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
     /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
@@ -119,10 +113,6 @@ struct ShelfSearchView: View {
                 displayedHistory = SearchHistoryStore.decode(json)
             }
             .sheet(item: $actionTarget, onDismiss: {
-                if let book = queuedShelfRemovalBook {
-                    queuedShelfRemovalBook = nil
-                    pendingShelfRemovalBook = book
-                }
                 if let book = queuedBrowserBook {
                     queuedBrowserBook = nil
                     browserBook = book
@@ -151,8 +141,6 @@ struct ShelfSearchView: View {
             .sheet(item: $collectionPickerBook) { book in
                 CollectionPickerSheet(bookId: book.bookId)
             }
-            // Chỉ gắn hộp xác nhận, không gắn cả `shelfToggleFlow`: màn này đã có `.sheet(item: $collectionPickerBook)`.
-            .shelfRemovalConfirmation(pendingBook: $pendingShelfRemovalBook, isTranslationEnabled: isTranslationEnabled)
             .navigationDestination(isPresented: $navigateToBookDetail) {
                 bookDetailDestinationView
             }

@@ -31,7 +31,6 @@ struct ComicChapterListSheet: View {
     @Environment(\.modelContext) var modelContext
     @State private var searchQuery = ""
     @State var showingDownloadOptions = false
-    @State var isConfirmingShelfRemoval = false
     @State var collectionPickerBook: Book? = nil
     /// Công tắc "Hiện số thứ tự chương" — đọc một lần ở danh sách, hàng chỉ nhận số + bề rộng cột.
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
@@ -72,12 +71,7 @@ struct ComicChapterListSheet: View {
                 TaskOptionsSheet(book: book, taskType: .download)
             }
         }
-        .shelfToggleFlow(
-            book: book,
-            displayTitle: metadataTitle,
-            isConfirmingRemoval: $isConfirmingShelfRemoval,
-            collectionPickerBook: $collectionPickerBook
-        )
+        .shelfToggleFlow(collectionPickerBook: $collectionPickerBook)
     }
 
     // MARK: - Danh sách

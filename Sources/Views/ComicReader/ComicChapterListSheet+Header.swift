@@ -103,8 +103,8 @@ extension ComicChapterListSheet {
 
     // MARK: - Hàng nút (14pt semibold, khung 32×32, cách 4)
 
-    /// Đọc `book.isOnShelf` ngay trong view để icon đổi theo Observation. Luồng xác nhận bỏ/mời chọn bộ sưu tập nằm
-    /// ở `.shelfToggleFlow` gắn trong `body`.
+    /// Đọc `book.isOnShelf` ngay trong view để icon đổi theo Observation. Bỏ kệ ngay (không hỏi) / mời chọn bộ sưu tập
+    /// nằm ở `ShelfToggleFlowModifier` + `.shelfToggleFlow` gắn trong `body`.
     @ViewBuilder
     private var shelfToggleButton: some View {
         if let book {
@@ -113,7 +113,6 @@ extension ComicChapterListSheet {
                 ShelfToggleFlowModifier.toggle(
                     book,
                     in: modelContext,
-                    isConfirmingRemoval: $isConfirmingShelfRemoval,
                     collectionPickerBook: $collectionPickerBook
                 )
             } label: {

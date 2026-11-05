@@ -101,14 +101,8 @@ struct ShelfView: View {
     @State private var editingInfoBook: Book? = nil
     /// Lên kệ xong (Lịch sử → Kệ) mời chọn bộ sưu tập, như màn Chi tiết / Reader.
     @State private var collectionPickerBook: Book? = nil
-    /// Truyện chờ xác nhận "Bỏ khỏi kệ" (nút kệ của sheet nhấn giữ). Giữ riêng vì sheet đã đóng và `actionTarget`
-    /// đã về `nil` trước khi hành động tới (`BookActionSheet.emit`).
-    @State private var pendingShelfRemovalBook: Book? = nil
-    /// Hành động tới khi sheet nhấn giữ **còn đang đóng**; bật alert lúc đó dễ không hiện ⇒ xếp hàng ở đây, chuyển sang
-    /// `pendingShelfRemovalBook` trong `onDismiss` của sheet (đóng xong hẳn).
-    @State private var queuedShelfRemovalBook: Book? = nil
-    /// "Mở trong trình duyệt" của sheet nhấn giữ: xếp hàng như `queuedShelfRemovalBook`, chuyển sang `browserBook`
-    /// (`bookBrowserPresentation`) trong `onDismiss` của sheet.
+    /// "Mở trong trình duyệt" của sheet nhấn giữ: hành động tới khi sheet **còn đang đóng**, trình bày màn mới lúc đó dễ
+    /// không hiện ⇒ xếp hàng ở đây, chuyển sang `browserBook` (`bookBrowserPresentation`) trong `onDismiss` của sheet.
     @State private var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
 
@@ -298,10 +292,6 @@ struct ShelfView: View {
                 BookListLayoutSheet(scope: kindFilter.scope)
             }
             .sheet(item: $actionTarget, onDismiss: {
-                if let book = queuedShelfRemovalBook {
-                    queuedShelfRemovalBook = nil
-                    pendingShelfRemovalBook = book
-                }
                 if let book = queuedBrowserBook {
                     queuedBrowserBook = nil
                     browserBook = book
@@ -399,8 +389,6 @@ struct ShelfView: View {
             .sheet(item: $collectionPickerBook) { book in
                 CollectionPickerSheet(bookId: book.bookId)
             }
-            // Chỉ gắn hộp xác nhận, không gắn cả `shelfToggleFlow`: màn này đã có `.sheet(item: $collectionPickerBook)`.
-            .shelfRemovalConfirmation(pendingBook: $pendingShelfRemovalBook, isTranslationEnabled: isTranslationEnabled)
             .bookBrowserPresentation($browserBook)
             // Trình duyệt nhập truyện: trang chủ, hoặc link của bước "Từ URL" khi chưa tiện ích nào nhận
             // (`bypassBrowserStartUrl`, đặt qua `openImportBrowser`).
@@ -595,9 +583,8 @@ struct ShelfView: View {
             // đã đóng trước khi tới đây (`BookActionSheet.emit`), giống đường mở sheet Sửa thông tin.
             if book.isOnShelf { collectionPickerBook = book }
         case .removeFromShelfOnly:
-            // Hỏi lại bằng đúng hộp của danh sách chương; bỏ kệ thật ở nút "Bỏ khỏi kệ" của hộp. Hộp bật trong
-            // `onDismiss` của sheet nhấn giữ (xem `queuedShelfRemovalBook`).
-            queuedShelfRemovalBook = book
+            // Bỏ ngay, không hỏi (1.3.738): truyện về Lịch sử, `removeFromShelfOnly` tự toast.
+            BookActionRunner.removeFromShelfOnly(book, in: modelContext)
         case .removeFromCurrentCollection:
             // Kệ sách/Lịch sử không mở sheet ở chế độ `.collection` nên mục này không bao giờ tới đây;
             // giữ nhánh cho `switch` đủ case, việc thật do `CollectionDetailView` làm.

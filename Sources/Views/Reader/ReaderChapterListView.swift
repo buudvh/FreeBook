@@ -78,7 +78,6 @@ public struct ReaderChapterListView: View {
     /// Mở `TaskOptionsSheet` của tác vụ **tải cả truyện** (cùng sheet với nhấn-giữ ở Kệ/Lịch sử).
     @State internal var showingDownloadOptions = false
     /// Luồng nút kệ — xem `ReaderChapterListView+Shelf.swift`.
-    @State internal var isConfirmingShelfRemoval = false
     @State internal var collectionPickerBook: Book? = nil
     /// Công tắc "Hiện số thứ tự chương" — đọc một lần ở danh sách, hàng chỉ nhận bề rộng cột (`+List`).
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
@@ -149,12 +148,7 @@ public struct ReaderChapterListView: View {
                 TaskOptionsSheet(book: book, taskType: .download)
             }
         }
-        .shelfToggleFlow(
-            book: localBook,
-            displayTitle: metadataTitle,
-            isConfirmingRemoval: $isConfirmingShelfRemoval,
-            collectionPickerBook: $collectionPickerBook
-        )
+        .shelfToggleFlow(collectionPickerBook: $collectionPickerBook)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in
             guard let notifBookId = notification.userInfo?["bookId"] as? String, notifBookId == bookId else { return }
             store.reloadAllPages()

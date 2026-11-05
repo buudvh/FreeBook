@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nút icon thêm/bỏ kệ ở đầu hàng nút của header danh sách chương. Luồng (xác nhận khi bỏ, mời chọn bộ sưu tập khi
+/// Nút icon thêm/bỏ kệ ở đầu hàng nút của header danh sách chương. Luồng (bỏ ngay khi bỏ, mời chọn bộ sưu tập khi
 /// thêm) nằm ở `ShelfToggleFlowModifier`, gắn ở `body` của view gốc.
 ///
 /// Truyện chưa có bản ghi `Book` thì ẩn nút — mở Reader từ màn Chi tiết luôn tạo bản ghi trước khi vào. Đọc
@@ -15,7 +15,6 @@ extension ReaderChapterListView {
                 ShelfToggleFlowModifier.toggle(
                     book,
                     in: modelContext,
-                    isConfirmingRemoval: $isConfirmingShelfRemoval,
                     collectionPickerBook: $collectionPickerBook
                 )
             } label: {

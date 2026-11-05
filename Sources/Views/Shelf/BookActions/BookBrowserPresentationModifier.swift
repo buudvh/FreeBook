@@ -5,7 +5,7 @@ import SwiftUI
 /// (`ShelfView`), Tìm trên kệ (`ShelfSearchView`), Bộ sưu tập (`CollectionDetailView`).
 ///
 /// - Mỗi nơi xếp truyện vào hàng chờ khi nhận hành động và chỉ gán `book` trong `onDismiss` của sheet nhấn giữ: cover
-///   bật lên lúc sheet còn đang trượt xuống thì không hiện (cùng lý do với `queuedShelfRemovalBook`).
+///   bật lên lúc sheet còn đang trượt xuống thì không hiện.
 /// - Không truyền `onImport`: truyện đã có trong thư viện, trình duyệt chỉ để xem trang nguồn (đăng nhập, vượt chặn…).
 /// - `detailUrl` của nguồn Legado có thể kèm khối tuỳ chọn `,{…}` ở cuối ⇒ trang có thể mở không sạch.
 struct BookBrowserPresentationModifier: ViewModifier {
