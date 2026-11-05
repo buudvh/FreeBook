@@ -18,8 +18,10 @@ jobs:
     name: Build Unsigned IPA
     runs-on: macos-15
     # Ghi release + nhánh `source` (nguồn LiveContainer) — bước "Publish GitHub Release + LiveContainer Source".
+    # `actions: read` cho `gh run list` ở bước "Collect Commit List".
     permissions:
       contents: write
+      actions: read
 
     steps:
     - name: Checkout Repository
@@ -39,6 +41,29 @@ jobs:
         echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
         echo "App version: $APP_VERSION ($BUILD_NUMBER)"
+
+    # Mọi commit kể từ lần build xanh trước trên main (một lượt push có thể mang nhiều commit — session chính push
+    # gộp sau khi các session con commit xong). Dùng API so sánh vì checkout chỉ có 1 commit (`fetch-depth: 1`).
+    # Không lấy được ⇒ chỉ commit cuối như trước. Tin Telegram + ghi chú release đọc file này.
+    - name: Collect Commit List
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+      run: |
+        mkdir -p build
+        LIST=build/commit_subjects.txt
+        : > "$LIST"
+        PREV_SHA=$(gh run list --repo "$REPO" --workflow build-ipa.yml --branch main --status success --limit 1 --json headSha -q '.[0].headSha' 2>/dev/null || true)
+        if [ -n "$PREV_SHA" ] && [ "$PREV_SHA" != "$GITHUB_SHA" ]; then
+          gh api "repos/$REPO/compare/${PREV_SHA}...${GITHUB_SHA}" --jq '.commits[].commit.message | split("\n")[0]' > "$LIST" 2>/dev/null || : > "$LIST"
+        fi
+        if [ ! -s "$LIST" ]; then
+          git log -1 --pretty=format:"%s" > "$LIST"
+          echo >> "$LIST"
+        fi
+        echo "COMMIT_COUNT=$(grep -c . "$LIST")" >> "$GITHUB_ENV"
+        echo "Commit của lượt build (từ lần build xanh ${PREV_SHA:-không rõ}):"
+        cat "$LIST"
 
     - name: Cache Homebrew
       uses: actions/cache@v4
@@ -286,12 +311,14 @@ jobs:
         REPO: ${{ github.repository }}
       run: |
         set -euo pipefail
-        COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+        # Ghi chú release (và `localizedDescription` của `apps.json`) = mọi commit của lượt build.
+        RELEASE_NOTES=$(python3 Scripts/ci/telegram_commit_summary.py --list build/commit_subjects.txt --format notes)
+        [ -n "$RELEASE_NOTES" ] || RELEASE_NOTES=$(git log -1 --pretty=format:"%s")
         python3 Scripts/ci/publish_altstore_source.py \
           --ipa build/FreeBook.ipa \
           --version "$APP_VERSION" \
           --build "$BUILD_NUMBER" \
-          --notes "$COMMIT_SUBJECT" \
+          --notes "$RELEASE_NOTES" \
           --icon Sources/Assets.xcassets/AppIcon.appiconset/icon_60_3x.png \
           --keep 5
         echo "RELEASE_URL=https://github.com/${REPO}/releases/tag/build-${BUILD_NUMBER}" >> "$GITHUB_ENV"
@@ -310,42 +337,48 @@ jobs:
         FILE_SIZE=$(wc -c < "$IPA_PATH")
         MAX_SIZE=50000000 # ~47.6 MB để đảm bảo an toàn cho giới hạn 50MB của Telegram Bot
         
-        # Lấy toàn bộ nội dung commit message gần nhất (dùng cho sendMessage, giới hạn 4096 ký tự)
-        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
-        # Riêng caption của sendDocument bị Telegram giới hạn 1024 ký tự: commit message
-        # nhiều đoạn sẽ bị trả về 400 "message caption is too long" và IPA không tới được
-        # Telegram (curl vẫn exit 0 nên step vẫn xanh). Vì vậy caption chỉ dùng subject
-        # một dòng; toàn bộ message vẫn tra được bằng git log.
-        COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+        # Gửi có kiểm `"ok":true`, lỗi thì thử lại 2 lần (`tg_call`).
+        source Scripts/ci/telegram_send.sh
+
+        # Danh sách subject mọi commit của lượt build (bước "Collect Commit List"); thiếu thì commit cuối.
+        LIST=build/commit_subjects.txt
+        [ -s "$LIST" ] || { git log -1 --pretty=format:"%s" > "$LIST"; echo >> "$LIST"; }
+        # Caption của sendDocument bị Telegram giới hạn 1024 ký tự (quá thì trả 400 "message caption is too long",
+        # IPA không tới mà curl vẫn exit 0) ⇒ `telegram_commit_summary.py` cắt vừa giới hạn, thừa thì "… và K commit
+        # khác (xem release)". sendMessage giới hạn 4096.
 
         echo "IPA File Size: $FILE_SIZE bytes"
 
         if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
           echo "File size is under 50MB. Uploading directly to Telegram..."
 
-          # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
-          CAPTION=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! 🚀\n\n💬 Commit: %s" "$APP_VERSION" "$BUILD_NUMBER" "$COMMIT_SUBJECT")
+          HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! 🚀" "$APP_VERSION" "$BUILD_NUMBER")
+          FOOTER=""
           if [ -n "${RELEASE_URL:-}" ]; then
-            CAPTION=$(printf "%s\n🔗 Release: %s" "$CAPTION" "$RELEASE_URL")
+            FOOTER="🔗 Release: $RELEASE_URL"
           fi
+          CAPTION=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 1024)
 
-          curl --connect-timeout 30 --max-time 300 --retry 3 \
-               -F chat_id="${TELEGRAM_CHAT_ID}" \
+          # `--form-string`: caption gửi nguyên văn (không hiểu `@`/`<`/`;type=` trong subject commit là cú pháp curl).
+          tg_call sendDocument \
+               --form-string chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
-               -F caption="$CAPTION" \
-               https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument || echo "Telegram upload failed or timed out, IPA is available in GitHub Artifacts"
+               --form-string caption="$CAPTION" \
+            || echo "IPA không tới được Telegram — vẫn tải được ở GitHub Artifacts / Release."
         else
           echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
           # Tải lên transfer.sh làm link dự phòng
           UPLOAD_URL=$(curl --connect-timeout 30 --max-time 300 --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa" || echo "")
           echo "Uploaded to: $UPLOAD_URL"
           
-          # Định dạng nội dung tin nhắn bằng printf
-          TEXT=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$APP_VERSION" "$BUILD_NUMBER" "$COMMIT_MSG" "${RELEASE_URL:-$UPLOAD_URL}")
-          
-          curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)" "$APP_VERSION" "$BUILD_NUMBER")
+          FOOTER=$(printf "\nTải IPA tại đây: %s" "${RELEASE_URL:-$UPLOAD_URL}")
+          TEXT=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 4096)
+
+          tg_call sendMessage -X POST \
                --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-               --data-urlencode "text=$TEXT" || echo "Telegram notification failed"
+               --data-urlencode "text=$TEXT" \
+            || echo "Tin báo build không tới được Telegram."
         fi
 
     - name: Send Failure Notification to Telegram
@@ -354,11 +387,16 @@ jobs:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_TO_CHAT_ID }}
       run: |
-        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
-        
-        # Định dạng tin nhắn lỗi bằng printf (bỏ chi tiết lỗi cụ thể)
-        TEXT=$(printf "❌ Tàng Công Các %s (%s) Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "${APP_VERSION:-?}" "${BUILD_NUMBER:-?}" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
-        
-        curl --connect-timeout 30 --max-time 60 -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+        # Mọi commit của lượt build (bước "Collect Commit List"); thiếu thì commit cuối. Bỏ chi tiết lỗi cụ thể.
+        LIST=build/commit_subjects.txt
+        mkdir -p build
+        [ -s "$LIST" ] || { git log -1 --pretty=format:"%s" > "$LIST"; echo >> "$LIST"; }
+        HEADER=$(printf "❌ Tàng Công Các %s (%s) Build Thất Bại! 🛑" "${APP_VERSION:-?}" "${BUILD_NUMBER:-?}")
+        FOOTER=$(printf "\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "${{ github.repository }}" "${{ github.run_id }}")
+        TEXT=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 4096)
+
+        source Scripts/ci/telegram_send.sh
+        tg_call sendMessage -X POST \
              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-             --data-urlencode "text=$TEXT" || echo "Telegram failure notification failed"
+             --data-urlencode "text=$TEXT" \
+          || echo "Tin báo build thất bại không tới được Telegram."

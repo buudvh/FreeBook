@@ -2,6 +2,52 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.694] - 2026-11-04
+
+### fix: đối tượng Java của nguồn Legado có đủ method List, Element, Map, chapter
+
+Người dùng: *"làm plan: … 2. Method sai hoặc thiếu trên đối tượng Java"*; duyệt plan (*"Duyệt, làm đi"*). Khoảng 30 nguồn trong 3.339 nguồn đã quét gọi method thiếu, hoặc method chạy sai ngữ nghĩa Java.
+
+- **Định danh phần tử:**
+  - `LegadoJSRuntime.register` trả cùng handle cho cùng node SwiftSoup, qua bảng mới `elementHandleIndex: [ObjectIdentifier: Int]`. Bảng an toàn vì `elementHandles` giữ mạnh mọi node, nên `ObjectIdentifier` không bị dùng lại.
+  - Bên JS, `wrap` giữ một wrapper cho mỗi handle, nên cùng node ra cùng đối tượng. Nhờ đó `===`, `contains`, `indexOf` và `remove(obj)` chạy đúng.
+  - Thêm `equals(o)`.
+- **List** (`javaList`, ngữ nghĩa `java.util.List`):
+  - `remove()` không đối số vẫn gỡ khỏi DOM như cũ.
+  - `remove(số)` bỏ khỏi **danh sách** và trả phần tử. jsoup ≥1.17.1 gỡ cả DOM; FreeBook cố ý chỉ bỏ khỏi danh sách vì mẫu 言情小说吧 cần vậy.
+  - `remove(đối tượng)` trả `true`/`false`.
+  - Thêm `set`, `add(i, x)`, `addAll([i,] ds)`, `clear`, `iterator()`.
+  - `subList(a, b)` là bản sao; chỉ `clear()` ghi ngược về danh sách gốc. Nếu danh sách gốc đã đổi thì ném `ConcurrentModificationException`.
+  - Danh sách toàn Element có thêm `eq(i)`, `parents()` (bỏ trùng theo định danh), và `toString()` = `outerHtml` nối bằng `\n`.
+  - Mọi method gắn ẩn, nên `for…in`, `Object.keys` và `JSON.stringify` của danh sách không đổi.
+- **Element:**
+  - Lệnh native mới: `el.parents`, `el.all`, `el.attrs`, `el.before`, `el.after`.
+  - `parents()` lấy từ cha gần nhất tới `<html>`, không gồm Document. `getAllElements()` gồm chính nó và mọi con cháu.
+  - `attributes()` trả danh sách Attribute: `getKey`, `getValue`, và `toString`/`html` = `key="value"` có escape. Danh sách có `get(tên|số)`, `hasKey`, `asList`, `size`.
+  - `before(html)` / `after(html)` trả chính phần tử.
+- **chapter:**
+  - `isVip()` / `isVolume()` / `isPay()` là method trả boolean; gán `chapter.isVip = v` vẫn ghi được trường.
+  - Thêm thuộc tính bean `vip`/`volume`/`pay` và setter `setVip`/`setVolume`/`setPay`. `getIsVip()` trả giá trị trường.
+  - Swift không đọc ngược đối tượng chapter bên JS: mục lục dựng từ giá trị Swift tự tính. Vì vậy đổi này không ảnh hưởng `TocEntry`.
+- **Map:** thêm `entrySet()`, mỗi entry có `getKey`, `getValue`, `setValue`, `toString` = `k=v`. Mẫu 刺猬猫 `entrySet().toArray().join("; ")` cho ra chuỗi cookie.
+- **Hành vi đổi có chủ ý:**
+  - `String(danh sách phần tử)` nối bằng `\n` thay cho `,`.
+  - `{{chapter.isVip}}` ra rỗng; `if (chapter.isVip)` quên `()` thì luôn đúng, như Legado. Corpus không có nguồn nào viết như vậy.
+- **Spec:** `Docs/Specs/legado-source-spec.md` §6.3, §6.6, §6.8.
+- **Quy trình:** agent riêng viết theo plan và spec (clean-room). Review bắt lỗi `subList().clear()` xoá nhầm đoạn khi danh sách gốc đã đổi; đã sửa.
+- **Kiểm chứng:**
+  - JS bootstrap lấy nguyên văn từ file Swift, chạy Node với `__lgNative` giả: 60/60 ca đạt, gồm mẫu thật của:
+    - 言情小说吧 (`parents().contains`, `remove(v)`, `subList(1,i).clear()`);
+    - 看书网 (`eq`);
+    - 白鹿书院 (`getAllElements().indexOf`);
+    - 深夜看书 (`attributes`);
+    - 哔哩哔哩 (`before`);
+    - 刺猬猫 (`entrySet`);
+    - 起点限免 (`chapter.isVip()`).
+  - Đối chiếu SwiftSoup 2.14.3: có `Element.before/after(String)`, `getAllElements()`, `getAttributes()`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.693] - 2026-11-04
 
 ### fix: rule JS của nguồn Legado chạy trong scope riêng, hết lỗi khai báo trùng

@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.725] - 2026-11-05
+
+### feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi
+
+Người dùng (qua /grill-me): chia việc cho session con thì *"việc push và build làm cuối cùng sau khi các việc của session con đã xong hết … nội dung commit phải chứa đủ những thứ đã sửa"*. Chốt: giữ commit riêng, session chính push một lần. Thêm: *"nhớ cắt tin nhắn trước khi gửi tele để đảm bảo không bị lỗi tin quá dài nhé. và nhớ check tin nhắn đã được gửi, nếu chưa được thì thử lại 2 lần"*.
+
+- **Trước đây**: CI chỉ đọc `git log -1`. Một lượt push mang nhiều commit thì caption Telegram, ghi chú release và `localizedDescription` của `apps.json` chỉ có commit cuối. `curl … || echo` coi mọi phản hồi là đã gửi, kể cả 400/429.
+- **Bước mới `Collect Commit List`** (`build-ipa.yml`):
+  - SHA lần build xanh trước trên `main` lấy qua `gh run list` (job thêm `permissions: actions: read`).
+  - Danh sách commit lấy qua `gh api repos/…/compare/<cũ>...<mới>` (checkout chỉ có 1 commit). Mỗi commit lấy dòng đầu, cũ → mới, ghi `build/commit_subjects.txt`.
+  - Không lấy được ⇒ commit cuối như trước.
+- **`Scripts/ci/telegram_commit_summary.py`** (mới): dựng tin `💬 N commit:` + `• <subject>`; một commit giữ dạng `💬 Commit: …`.
+  - **Cắt vừa giới hạn trước khi gửi**, đếm theo UTF-16 như Telegram (emoji = 2): caption gửi IPA 1024, tin 4096. Có chừa chỗ cho dòng link. Thừa ⇒ `… và K commit khác (xem release)`.
+  - `--format notes` ⇒ danh sách đầy đủ cho ghi chú release, nên LiveContainer cũng thấy đủ.
+  - In UTF-8 bất kể bảng mã console.
+- **`Scripts/ci/telegram_send.sh`** (mới, `tg_call`): coi là đã gửi **chỉ khi** phản hồi có `"ok":true`. Lỗi ⇒ thử lại **2 lần** (nghỉ 5 s, 10 s). Hết lượt ⇒ `::warning::`, không làm đỏ build (để không gửi nhầm tin "Build Thất Bại").
+  - Dùng cho cả 3 tin: gửi IPA, file quá 50 MB, build thất bại.
+  - Caption/`chat_id` gửi bằng `--form-string` ⇒ subject có `@`, `<`, `;type=` không bị curl hiểu nhầm.
+- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Tin Telegram + ghi chú release liệt kê mọi commit" ở mục CI.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Tại chỗ: API so sánh `4cefa5f7...a7a5aba2` trả đúng 3 subject. Caption 3 commit đúng dạng. 40 commit cắt còn 978/1024 đơn vị UTF-16 kèm "… và 28 commit khác". `tg_call` với curl giả (lỗi 2 lần rồi ok ⇒ gửi ở lần 3; luôn lỗi ⇒ trả 1 sau 3 lần). YAML hợp lệ.
+  - Commit này không đổi `Sources/**`/`project.yml` ⇒ không kích hoạt build. Lượt build thật kế tiếp là lần kiểm đầu tiên trên CI.
+
 ## [1.3.724] - 2026-11-05
 
 ### feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất
@@ -605,49 +629,3 @@ Người dùng: *"làm plan: … 3. Lớp Java còn thiếu: DES, GZIP, URL."*; 
   - Các ca giải nén: vòng `read` của 酷匠网; gzip nhiều member; `Inflater(true)` của 微信读书; `readLine` của 云端聚合; giới hạn 16 MiB.
   - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy. Rủi ro: chưa xác nhận bộ giải của Apple báo đúng số byte đã dùng khi `END`. Nếu sai, gzip nhiều member chỉ mất các member sau.
-
-## [1.3.694] - 2026-11-04
-
-### fix: đối tượng Java của nguồn Legado có đủ method List, Element, Map, chapter
-
-Người dùng: *"làm plan: … 2. Method sai hoặc thiếu trên đối tượng Java"*; duyệt plan (*"Duyệt, làm đi"*). Khoảng 30 nguồn trong 3.339 nguồn đã quét gọi method thiếu, hoặc method chạy sai ngữ nghĩa Java.
-
-- **Định danh phần tử:**
-  - `LegadoJSRuntime.register` trả cùng handle cho cùng node SwiftSoup, qua bảng mới `elementHandleIndex: [ObjectIdentifier: Int]`. Bảng an toàn vì `elementHandles` giữ mạnh mọi node, nên `ObjectIdentifier` không bị dùng lại.
-  - Bên JS, `wrap` giữ một wrapper cho mỗi handle, nên cùng node ra cùng đối tượng. Nhờ đó `===`, `contains`, `indexOf` và `remove(obj)` chạy đúng.
-  - Thêm `equals(o)`.
-- **List** (`javaList`, ngữ nghĩa `java.util.List`):
-  - `remove()` không đối số vẫn gỡ khỏi DOM như cũ.
-  - `remove(số)` bỏ khỏi **danh sách** và trả phần tử. jsoup ≥1.17.1 gỡ cả DOM; FreeBook cố ý chỉ bỏ khỏi danh sách vì mẫu 言情小说吧 cần vậy.
-  - `remove(đối tượng)` trả `true`/`false`.
-  - Thêm `set`, `add(i, x)`, `addAll([i,] ds)`, `clear`, `iterator()`.
-  - `subList(a, b)` là bản sao; chỉ `clear()` ghi ngược về danh sách gốc. Nếu danh sách gốc đã đổi thì ném `ConcurrentModificationException`.
-  - Danh sách toàn Element có thêm `eq(i)`, `parents()` (bỏ trùng theo định danh), và `toString()` = `outerHtml` nối bằng `\n`.
-  - Mọi method gắn ẩn, nên `for…in`, `Object.keys` và `JSON.stringify` của danh sách không đổi.
-- **Element:**
-  - Lệnh native mới: `el.parents`, `el.all`, `el.attrs`, `el.before`, `el.after`.
-  - `parents()` lấy từ cha gần nhất tới `<html>`, không gồm Document. `getAllElements()` gồm chính nó và mọi con cháu.
-  - `attributes()` trả danh sách Attribute: `getKey`, `getValue`, và `toString`/`html` = `key="value"` có escape. Danh sách có `get(tên|số)`, `hasKey`, `asList`, `size`.
-  - `before(html)` / `after(html)` trả chính phần tử.
-- **chapter:**
-  - `isVip()` / `isVolume()` / `isPay()` là method trả boolean; gán `chapter.isVip = v` vẫn ghi được trường.
-  - Thêm thuộc tính bean `vip`/`volume`/`pay` và setter `setVip`/`setVolume`/`setPay`. `getIsVip()` trả giá trị trường.
-  - Swift không đọc ngược đối tượng chapter bên JS: mục lục dựng từ giá trị Swift tự tính. Vì vậy đổi này không ảnh hưởng `TocEntry`.
-- **Map:** thêm `entrySet()`, mỗi entry có `getKey`, `getValue`, `setValue`, `toString` = `k=v`. Mẫu 刺猬猫 `entrySet().toArray().join("; ")` cho ra chuỗi cookie.
-- **Hành vi đổi có chủ ý:**
-  - `String(danh sách phần tử)` nối bằng `\n` thay cho `,`.
-  - `{{chapter.isVip}}` ra rỗng; `if (chapter.isVip)` quên `()` thì luôn đúng, như Legado. Corpus không có nguồn nào viết như vậy.
-- **Spec:** `Docs/Specs/legado-source-spec.md` §6.3, §6.6, §6.8.
-- **Quy trình:** agent riêng viết theo plan và spec (clean-room). Review bắt lỗi `subList().clear()` xoá nhầm đoạn khi danh sách gốc đã đổi; đã sửa.
-- **Kiểm chứng:**
-  - JS bootstrap lấy nguyên văn từ file Swift, chạy Node với `__lgNative` giả: 60/60 ca đạt, gồm mẫu thật của:
-    - 言情小说吧 (`parents().contains`, `remove(v)`, `subList(1,i).clear()`);
-    - 看书网 (`eq`);
-    - 白鹿书院 (`getAllElements().indexOf`);
-    - 深夜看书 (`attributes`);
-    - 哔哩哔哩 (`before`);
-    - 刺猬猫 (`entrySet`);
-    - 起点限免 (`chapter.isVip()`).
-  - Đối chiếu SwiftSoup 2.14.3: có `Element.before/after(String)`, `getAllElements()`, `getAttributes()`.
-  - `check_architecture.py` chỉ còn 1 lỗi nền, **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy.
