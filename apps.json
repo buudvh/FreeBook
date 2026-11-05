@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.728",
+          "buildVersion": "1155",
+          "date": "2026-11-05T08:51:46Z",
+          "localizedDescription": "- feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi\n- chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release\n- feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1155/TangCongCac-1.3.728-1155.ipa",
+          "size": 37575369,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.724",
           "buildVersion": "1153",
           "date": "2026-11-05T07:23:38Z",
@@ -23,11 +32,11 @@
           "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.724",
-      "versionDate": "2026-11-05T07:23:38Z",
-      "versionDescription": "feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1153/TangCongCac-1.3.724-1153.ipa",
-      "size": 37509685,
+      "version": "1.3.728",
+      "versionDate": "2026-11-05T08:51:46Z",
+      "versionDescription": "- feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi\n- chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release\n- feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log\n- feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1155/TangCongCac-1.3.728-1155.ipa",
+      "size": 37575369,
       "appPermissions": {}
     }
   ],
