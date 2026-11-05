@@ -1,10 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// Màn xem phim cho tiện ích loại `video`. Ba đường vào:
-/// - Router (`BookContentDestination`, trong `fullScreenCover` + `NavigationStack`): `init(launch:)` mở phim vào
-///   `VideoPlaybackSession` (cùng phim đang chạy nền thì chỉ gắn lại).
-/// - Presenter (`VideoPlayerPresenter`, mở lại từ hub / PiP): `init(onDismiss:)` gắn vào phiên đang chạy.
+/// Màn xem phim cho tiện ích loại `video`. Mọi lối vào hiện dùng màn xem (`init(watch:onDismiss:)`):
+/// - Router (`BookContentDestination` → `VideoWatchRouteView`, trong `fullScreenCover` + `NavigationStack`): đóng bằng
+///   `dismiss`. `init(launch:)` (mở thẳng phiên phát) giữ lại nhưng không còn chỗ gọi.
+/// - Presenter cũ (`VideoPlayerPresenter`): `init(onDismiss:)` chỉ còn làm dự phòng khi phiên thiếu `modelContainer`.
 /// - Màn xem (`VideoWatchPresenter` — item danh sách, mở lại từ hub / PiP): `init(watch:onDismiss:)` — `VideoWatchModel`
 ///   tải chi tiết + mục lục rồi tự phát theo công tắc. Phiên phát **chưa** chạy phim của màn (đang tải, tắt tự phát, phim
 ///   khác chạy nền) ⇒ khung phim là bìa + ▶ (`VideoWatchPosterView`) và màn **không** gắn vào phiên: phim khác vẫn chạy
@@ -129,6 +129,10 @@ struct VideoPlayerScreen: View {
                 session.attachScreen(controller)
             }
             watch?.start()
+            // Màn xem của router (trong cover): hub mở lại phim đang chạy thì đổi chính màn này, không chồng màn mới.
+            if onDismiss == nil, let watch {
+                VideoWatchPresenter.noteCoverScreen(watch, isVisible: true)
+            }
             controller.onMinimizeRequest = { leave(stopPlayback: false) }
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
@@ -175,6 +179,9 @@ struct VideoPlayerScreen: View {
             // Màn xem bị đóng bằng code (presenter mở phim khác, về tab…) không qua `leave` ⇒ huỷ lượt tải ở đây, kẻo tải
             // xong muộn lại tự mở phim khi không còn màn.
             watch?.cancel()
+            if let watch {
+                VideoWatchPresenter.noteCoverScreen(watch, isVisible: false)
+            }
             // Màn đã đóng hẳn ⇒ mới mở trang tiếp theo của lối rời màn (một nhịp main sau, khi UIKit xong chuyển cảnh).
             if let action = pendingExitAction {
                 pendingExitAction = nil

@@ -2,6 +2,35 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.735] - 2026-11-05
+
+### feat: mọi lối vào phim mở thẳng màn xem phát dọc thay cho trang Chi tiết
+
+Phần 3 (cuối) của plan "Màn xem video kiểu trình phát dọc" (anh Bửu đã duyệt): bấm phim ở đâu cũng vào màn xem, phát dọc ngay theo công tắc "Tự phát khi mở phim". Truyện chữ / truyện tranh giữ `BookDetailView` như cũ.
+
+- **`ContentDetailRouter`** (mới, `Views/ContentRouting/`): loại nội dung suy từ tiện ích lúc bấm (`ExtensionContentKind.resolve(packageId:)`).
+  - Video ⇒ `VideoWatchPresenter.present(VideoWatchRequest(...))` với tên / bìa của item, trả `true`.
+  - Loại khác ⇒ `false`, chỗ gọi đẩy `BookDetailView` như cũ.
+  - Id phim không lấy từ chỗ gọi (mỗi màn tự chế một kiểu) mà do `VideoWatchRequest.resolveBookId` phân giải.
+- **`ContentDetailLink`** (mới): thay `NavigationLink(destination: BookDetailView(...))` của item danh sách — phim ⇒ `Button` mở màn xem, loại khác ⇒ `NavigationLink` y như cũ.
+- **Chỗ gọi đã đổi** (grep chéo mọi `BookDetailView(` trong `Sources/`):
+  - Khám phá: `openNovel` (tab danh mục `DiscoveryCategoryTabView` + tab "Trang chủ" `ExploreSectionsView`) và nhập từ trình duyệt của nguồn (`showImportedBook`).
+  - Tìm nhiều nguồn (`SearchView`): ô kết quả. Chế độ đổi nguồn giữ nguyên.
+  - Tìm một nguồn (`SearchSingleSourceResultsView`): hàng danh sách (phim là nút thường, không mũi tên `>`) và ô lưới.
+  - Danh sách thể loại (`CategoryNovelsListView`), Đề xuất trong Chi tiết (`SuggestRowView`).
+  - Nhập từ trình duyệt / "Từ URL" ở Kệ (`ShelfView+ImportEntry`), ở Cấu hình tiện ích (`ExtensionConfigView+Browser`), ở Chi tiết (`BookDetailView` `onImport`, +3 dòng, còn dưới baseline 1201).
+- **Kệ / Lịch sử / Bộ sưu tập / Tìm trên kệ / mở lại lúc khởi động / chạm tập ở Chi tiết** (qua router `BookContentDestination`):
+  - Nhánh `.video` thành `VideoWatchRouteView` (mới): cùng màn xem, trong `fullScreenCover` sẵn có, model dựng một lần từ `VideoWatchRequest(launch:)` (id `Book` thật, tập / giây của launch).
+  - Tự phát theo công tắc như mọi lối vào. Lượt mở lại lúc khởi động vẫn dừng sẵn.
+  - Màn xem trong cover đang hiện bìa mà hub / PiP mở lại phim đang chạy ⇒ đổi chính màn đó sang phim đang chạy (`VideoWatchPresenter.presentRunningSession`), không chồng màn mới.
+- **Giữ nguyên `BookDetailView`**: nhấn giữ "Xem chi tiết" ở Kệ / Bộ sưu tập / Tìm trên kệ (lối duy nhất xem trang chi tiết đầy đủ kiểu cũ cho phim), Chi tiết mở từ Reader / màn truyện tranh, và "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem.
+- `VideoPlayerScreen(launch:)` không còn chỗ gọi, giữ lại.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo `BookDetailView(`, `VideoPlayerScreen(`, `navigateToImportedBook = true`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.734] - 2026-11-05
 
 ### feat: giao diện màn xem video kiểu trình phát dọc, nút Home và mở lại từ hub
@@ -722,15 +751,3 @@ Người dùng:
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DictionaryListView` 661/690 dòng.
   - Không build tại chỗ (Windows), chưa thử trên máy.
   - Rủi ro: sửa nghĩa trong ⚙ rồi bấm "Cập nhật" sẽ ghi đè bằng chữ trong ô; gõ lại từ gốc rồi chọn một phần thì thêm cụm thay vì đổi tên.
-
-## [1.3.705] - 2026-11-04
-
-### feat: sửa rule dịch đổi mẫu thì chọn thay rule cũ hoặc lưu thêm rule mới
-
-Người dùng: *"Nút lưu của sửa rule thêm option thay the rule cũ cùng lưu và giữ rule cũ. Hiển thị option kiểu như nút lưu thêm rule"*; duyệt plan + mockup.
-
-- **Trước đây** sửa mà đổi mẫu thì luôn **thêm** rule mới, rule cũ giữ nguyên (`updateRule` bỏ qua `oldPattern`, chỉ `upsert` mẫu mới); muốn bỏ rule cũ phải xoá ở danh sách.
-- **Màn sửa rule** (`QuickTranslationRuleEditorSheet`): đổi mẫu ⇒ chạm Lưu mở `Menu` hai mục như nút Lưu của màn thêm: "Thay rule cũ" (phụ đề "Sửa đúng dòng N, mẫu cũ mất") / "Lưu thêm rule mới" ("Giữ nguyên rule cũ" — hành vi cũ). Mẫu không đổi ⇒ Lưu vẫn là nút thường, đè bản dịch tại chỗ: file khoá theo mẫu nên không giữ được hai dòng cùng mẫu. Bản lưu luôn vào bộ của rule đang sửa (chung / tên chương / riêng truyện). Câu trợ giúp ô Mẫu viết lại.
-- **Thay chỗ**: `QuickTranslationRuleRecordStore.replacing(oldPattern:pattern:replacement:in:)` (mới) đặt rule mới đúng vị trí dòng cũ (giữ thứ tự khi hoà ưu tiên); mẫu mới trùng một dòng khác trong bộ ⇒ dòng kia bị bỏ để bản đang sửa thắng (như lưu mẫu đã có thì đè); không còn dòng cũ ⇒ thêm như `upsert`. `updateRule` của cả ba kho (`QuickTranslationRuleStore+Editing`, `QuickTranslationRuleChapterStore`, `QuickTranslationRuleBookStore`) dùng hàm này; "Lưu thêm rule mới" đi `QuickTranslationRuleTransfer.copy` như thêm rule.
-- `onSubmit` của sheet nhận thêm `replacing` (mẫu bị thay chỗ, `nil` = thêm / giữ rule cũ) nên danh sách rule và Reader không còn tự suy `oldPattern` từ `mode`. Cờ tắt của mẫu cũ không chuyển sang mẫu mới (như xoá rule hiện nay). Chuyển `[1.3.674]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.

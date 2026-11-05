@@ -11,6 +11,8 @@ private struct DiscoveryDetailRoute: Identifiable, Hashable {
 }
 
 struct DiscoveryView: View {
+    /// Container cho màn xem phim (`ContentDetailRouter`): item của nguồn video mở màn xem thay cho Chi tiết.
+    @Environment(\.modelContext) private var modelContext
     // Nhớ Extension và Home tab cuối cùng đã xem
     @AppStorage("lastSelectedExtensionId") private var lastSelectedExtensionId: String = ""
     @AppStorage("lastSelectedCategoryId") private var lastSelectedCategoryId: String = ""
@@ -302,6 +304,11 @@ struct DiscoveryView: View {
                                             // ngay nên khung tab không bị dựng lại lúc đổi nguồn.
                                             let pageIdentity = "\(extPackageId)#\(catalogConfigStamp)"
                                             let openNovel: (ExtensionItemResult) -> Void = { novel in
+                                                // Nguồn video ⇒ màn xem phim (phát dọc ngay), không đẩy Chi tiết.
+                                                if ContentDetailRouter.openIfVideo(
+                                                    novel, packageId: extPackageId, sourceName: extSourceName,
+                                                    modelContainer: modelContext.container
+                                                ) { return }
                                                 selectedDetailRoute = DiscoveryDetailRoute(
                                                     bookId: "\(extSourceName.lowercased())_\(novel.link)",
                                                     extensionPackageId: extPackageId,
@@ -534,6 +541,11 @@ struct DiscoveryView: View {
         } else {
             importedHost = ""
         }
+        // Phim ⇒ màn xem (phát dọc ngay) thay cho Chi tiết.
+        if ContentDetailRouter.openIfVideo(
+            packageId: packageId, detailUrl: detailUrl, sourceName: sourceName,
+            host: importedHost, modelContainer: modelContext.container
+        ) { return }
         navigateToImportedBook = true
     }
 

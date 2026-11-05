@@ -71,6 +71,11 @@ extension ExtensionConfigView {
         } else {
             host = ""
         }
+        // Phim ⇒ màn xem (phát dọc ngay) thay cho Chi tiết; trình bày bằng UIKit nên tự chờ cover trình duyệt đóng xong.
+        if ContentDetailRouter.openIfVideo(
+            packageId: packageId, detailUrl: detailUrl, sourceName: sourceName,
+            host: host, modelContainer: modelContext.container
+        ) { return }
         importedBook = ImportedBookRoute(
             bookId: BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl),
             extensionPackageId: packageId,

@@ -62,7 +62,8 @@ struct BookContentDestination: View {
         case .comic:
             ComicReaderView(launch: launch)
         case .video:
-            VideoPlayerScreen(launch: launch)
+            // Màn xem phim (tên, nút, tập, đề xuất…) như lối mở từ danh sách — `VideoWatchRouteView`.
+            VideoWatchRouteView(launch: launch)
         case .text, .unsupported:
             ReaderView(
                 bookId: launch.bookId,

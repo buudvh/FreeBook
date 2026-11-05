@@ -44,7 +44,7 @@ final class VideoPlayerPresenter {
         // đang chạy, không tự phát lại.
         if let launch = session.launch, let container = session.modelContainer {
             AppLogger.shared.log("🎬 [VideoPlayer] Mở lại trình phát từ phiên đang chạy (màn xem)")
-            VideoWatchPresenter.present(VideoWatchRequest(launch: launch), modelContainer: container, completion: completion)
+            VideoWatchPresenter.presentRunningSession(launch, modelContainer: container, completion: completion)
             return
         }
         guard let top = Self.findTopViewController() else {

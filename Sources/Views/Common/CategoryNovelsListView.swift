@@ -7,6 +7,8 @@ struct CategoryNovelsListView: View {
     let downloadUrl: String
     let configJson: String
     let sourceName: String
+    /// Container cho màn xem phim (`ContentDetailRouter`): item của nguồn video mở màn xem thay cho Chi tiết.
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var loader: PaginatedNovelLoader
     /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi xuất hiện, không trong `init` — `init` chạy lại
     /// mỗi lần view cha dựng lại body.
@@ -103,7 +105,14 @@ struct CategoryNovelsListView: View {
                     sourceHost: sourceHost,
                     isTranslationEnabled: isTranslationEnabled,
                     itemNoun: scope.itemNoun,
-                    onSelectNovel: { selectedNovel = $0 }
+                    onSelectNovel: { novel in
+                        // Nguồn video ⇒ màn xem phim (phát dọc ngay), không đẩy Chi tiết.
+                        if ContentDetailRouter.openIfVideo(
+                            novel, packageId: extensionPackageId, sourceName: sourceName,
+                            modelContainer: modelContext.container
+                        ) { return }
+                        selectedNovel = novel
+                    }
                 )
             }
         }

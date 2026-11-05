@@ -219,6 +219,9 @@ struct BookDetailView: View {
                 if targetBookId == actualBookId || detailUrl == actualBookId {
                     loadBookData()
                     loadLocalChapterSnapshots()
+                } else if ContentDetailRouter.openIfVideo(packageId: packageId, detailUrl: detailUrl, sourceName: sourceName,
+                                                          host: nil, modelContainer: modelContext.container) {
+                    // Phim khác ⇒ màn xem phim (phát dọc ngay) thay cho đẩy Chi tiết.
                 } else {
                     importedBookId = targetBookId
                     importedExtensionPackageId = packageId

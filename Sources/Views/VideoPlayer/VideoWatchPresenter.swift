@@ -19,12 +19,36 @@ final class VideoWatchPresenter {
 
     private weak var hostController: UIViewController?
     private weak var pageController: UIViewController?
+    /// Màn xem đang hiện trong `fullScreenCover` của router (`VideoWatchRouteView`) — không do presenter này trình bày.
+    private weak var coverModel: VideoWatchModel?
     private static let maxRetryCount = 6
 
     private init() {}
 
     static func present(_ request: VideoWatchRequest, modelContainer: ModelContainer, completion: (() -> Void)? = nil) {
         shared.present(request, container: modelContainer, retryCount: 0, completion: completion)
+    }
+
+    /// Mở lại phim đang chạy (hub / PiP). Màn xem của router đang hiện bìa phim khác ⇒ đổi chính màn đó sang phim đang
+    /// chạy (`replace`), không trình bày thêm một màn chồng lên; còn lại ⇒ `present`.
+    static func presentRunningSession(_ launch: BookContentLaunch, modelContainer: ModelContainer, completion: @escaping () -> Void) {
+        let request = VideoWatchRequest(launch: launch)
+        if let model = shared.coverModel, !model.ownsSession {
+            AppLogger.shared.log("🎬 [VideoWatch] Màn xem trong cover đang hiện bìa ⇒ đổi sang phim đang chạy")
+            model.replace(with: request)
+            completion()
+            return
+        }
+        present(request, modelContainer: modelContainer, completion: completion)
+    }
+
+    /// `VideoPlayerScreen` của router báo hiện / ẩn (chỉ màn không do presenter trình bày).
+    static func noteCoverScreen(_ model: VideoWatchModel, isVisible: Bool) {
+        if isVisible {
+            shared.coverModel = model
+        } else if shared.coverModel === model {
+            shared.coverModel = nil
+        }
     }
 
     /// Trang phụ của màn xem. `content` được bọc `NavigationStack` + màu nhấn + `modelContainer` (trình bày bằng UIKit

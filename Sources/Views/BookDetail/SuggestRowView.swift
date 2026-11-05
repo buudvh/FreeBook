@@ -111,13 +111,13 @@ struct SuggestRowView: View {
                 ]
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(novels) { novel in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: novel.link,
-                            extensionPackageId: extensionPackageId,
-                            initialDetailUrl: novel.link,
+                        // Nguồn video ⇒ nút mở màn xem phim; còn lại ⇒ link Chi tiết như cũ.
+                        ContentDetailLink(
+                            item: novel,
+                            packageId: extensionPackageId,
                             sourceName: sourceName,
-                            initialHost: novel.host
-                        )) {
+                            detailBookId: novel.link
+                        ) {
                             HStack(alignment: .top, spacing: 10) {
                                 // Gợi ý là danh sách tạm: cache ảnh ở `Caches` (`RemoteCoverImage`), không ghi `covers/`.
                                 RemoteCoverImage(

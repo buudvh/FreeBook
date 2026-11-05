@@ -58,6 +58,11 @@ extension ShelfView {
         } else {
             importedHost = ""
         }
+        // Phim ⇒ màn xem (phát dọc ngay) thay cho Chi tiết; trình bày bằng UIKit nên tự chờ cover trình duyệt đóng xong.
+        if ContentDetailRouter.openIfVideo(
+            packageId: packageId, detailUrl: detailUrl, sourceName: sourceName,
+            host: importedHost, modelContainer: modelContext.container
+        ) { return }
         guard navigationDelay > 0 else {
             navigateToImportedBook = true
             return

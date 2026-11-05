@@ -12,6 +12,8 @@ import SwiftData
 /// `onImport` có mặc định `nil` nên Quản lý tiện ích và màn TTS vẫn gọi `ExtensionConfigView(ext:)` như cũ.
 struct ExtensionConfigView: View {
     @Environment(\.dismiss) internal var dismiss
+    /// Container cho màn xem phim: "Import" phim từ trình duyệt của nguồn video mở màn xem thay cho Chi tiết.
+    @Environment(\.modelContext) internal var modelContext
 
     var ext: Extension
     /// Khám phá truyền vào để **tự** mở màn Chi tiết sau khi bấm "Import truyện" trong trình duyệt của nguồn.

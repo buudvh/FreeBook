@@ -393,13 +393,13 @@ struct SearchView: View {
                                                             }
                                                             .buttonStyle(.plain)
                                                         } else {
-                                                            NavigationLink(destination: BookDetailView(
-                                                                bookId: "\(ext.name.lowercased())_\(result.link)",
-                                                                extensionPackageId: ext.packageId,
-                                                                initialDetailUrl: result.link,
+                                                            // Nguồn video ⇒ nút mở màn xem phim; còn lại ⇒ link Chi tiết như cũ.
+                                                            ContentDetailLink(
+                                                                item: result,
+                                                                packageId: ext.packageId,
                                                                 sourceName: ext.name,
-                                                                initialHost: result.host
-                                                            )) {
+                                                                detailBookId: "\(ext.name.lowercased())_\(result.link)"
+                                                            ) {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     Self.searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     

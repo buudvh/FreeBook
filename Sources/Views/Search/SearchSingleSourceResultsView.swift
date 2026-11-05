@@ -63,10 +63,12 @@ struct SearchSingleSourceResultsView: View {
     /// hệ thống vẽ mũi tên `>` ở mép phải, nằm ngoài panel. Chạm hàng vẫn mở link như cũ.
     @ViewBuilder
     private func listTappable(_ item: ExtensionItemResultWithExt) -> some View {
-        if isChangingSource {
+        if isChangingSource || ContentDetailRouter.isVideo(packageId: item.ext.packageId) {
+            // Đổi nguồn / phim (mở màn xem phim): nút thường, không có mũi tên `>` của `NavigationLink`.
             tappable(item) {
                 listRow(item).bookListPanel(layout.rowSize)
             }
+            .buttonStyle(.plain)
         } else {
             ZStack {
                 NavigationLink(destination: detailView(item)) {
@@ -171,7 +173,8 @@ struct SearchSingleSourceResultsView: View {
         LoadMoreFooter(phase: phase, onAppear: onLoadMore, onRetry: onRetry)
     }
 
-    /// Bọc nội dung một item thành nút đổi nguồn hoặc link mở Chi tiết truyện (`bookId` giữ đúng dạng cũ của màn này).
+    /// Bọc nội dung một item thành nút đổi nguồn, hoặc `ContentDetailLink`: phim ⇒ nút mở màn xem phim, loại khác ⇒ link
+    /// mở Chi tiết truyện (`bookId` giữ đúng dạng cũ của màn này).
     @ViewBuilder
     private func tappable<Label: View>(_ item: ExtensionItemResultWithExt, @ViewBuilder label: () -> Label) -> some View {
         if isChangingSource {
@@ -182,8 +185,15 @@ struct SearchSingleSourceResultsView: View {
             }
             .buttonStyle(.plain)
         } else {
-            NavigationLink(destination: detailView(item)) {
-                label()
+            // `label` không thoát được khỏi hàm ⇒ dựng nội dung trước rồi mới giao cho link.
+            let content = label()
+            ContentDetailLink(
+                item: item.result,
+                packageId: item.ext.packageId,
+                sourceName: item.ext.name,
+                detailBookId: "\(item.ext.name.lowercased())_\(item.result.link)"
+            ) {
+                content
             }
         }
     }
