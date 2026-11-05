@@ -90,13 +90,23 @@ final class ComicImageDiskCache: @unchecked Sendable {
 
     func removeAll() {
         trimQueue.async { [weak self] in
-            guard let self else { return }
-            try? self.fileManager.removeItem(at: self.directory)
-            try? self.fileManager.createDirectory(at: self.directory, withIntermediateDirectories: true, attributes: nil)
-            self.lock.lock()
-            self.estimatedBytes = 0
-            self.lock.unlock()
+            self?.removeAllOnQueue()
         }
+    }
+
+    /// Như `removeAll()` nhưng **chờ** xoá xong (màn Dung lượng đo lại ngay sau đó). Không gọi từ `trimQueue`.
+    func removeAllAndWait() {
+        trimQueue.sync {
+            removeAllOnQueue()
+        }
+    }
+
+    private func removeAllOnQueue() {
+        try? fileManager.removeItem(at: directory)
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+        lock.lock()
+        estimatedBytes = 0
+        lock.unlock()
     }
 
     // MARK: - Dọn dẹp

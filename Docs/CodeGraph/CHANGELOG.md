@@ -2,6 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.728] - 2026-11-05
+
+### feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log
+
+Người dùng: *"tôi muốn thêm kiểm tra dung lượng đã dùng trên máy có là được không?"*. Chốt theo mockup: xoá mục an toàn (có hỏi xác nhận), chưa cần xem theo từng truyện.
+
+- **Cài đặt › Thư Viện** thêm hàng **Dung lượng** (icon `cylinder.split.1x2` như mockup), đặt trên "Sao lưu & khôi phục dữ liệu". Hàng không hiện số: đo cả cây thư mục mỗi lần mở Cài đặt là tốn.
+- **Màn Dung lượng** (`StorageUsageView`, trang đẩy vào, tiêu đề giữa, nút ↻ đo lại):
+  - Thẻ đầu: "App đang dùng" + số lớn. Thanh chia theo tỉ lệ: 3 loại lớn nhất màu riêng (teal/tím/cam, không dùng màu nhấn), còn lại xám. Dòng "Máy đã dùng X / Y · Còn trống Z".
+  - Danh sách panel (`.bookListPanelRow()`), xếp lớn → nhỏ, bỏ loại 0 byte.
+  - Ba loại xoá được có nút chữ đỏ **Xoá** + `confirmationDialog` kèm lời nhắc; xoá xong đo lại và toast "Đã xoá … (số đã giải phóng)".
+- **`Services/Storage/`** (mới):
+  - `StorageUsageCategory`: 15 loại theo đúng thư mục app ghi: `books/`, `videos/`, `comics/`, `Caches/comic_images/`, `chapters/`, `translate/`, `covers/`, `extensions/` + `extension_store/`, `FreeBook/`, `adblock/`, `backups/`, `library.db*`, `Documents/Exports/`, `app_logs*`, Khác.
+  - `StorageUsageScanner`:
+    - Đo dung lượng thật trên đĩa (`totalFileAllocatedSize`), đếm cả file ẩn, không theo symlink. `BackupPaths.directorySize` giữ nguyên cho Sao lưu.
+    - **Khác** = cả thư mục nhà của app trừ các loại đã liệt kê ⇒ tổng khớp dung lượng thật.
+    - Dung lượng máy qua `volumeAvailableCapacityForImportantUsage` / `volumeTotalCapacity`.
+  - `StorageUsageSnapshot`: kết quả bất biến.
+  - `StorageUsageCleaner`: chỉ gọi đường xoá có sẵn của từng owner.
+- **Đường xoá**:
+  - `ComicImageLoader.clearDiskCache()` → `ComicImageDiskCache.removeAllAndWait()` (mới, chờ xoá xong; `removeAll()` cũ dùng chung thân).
+  - `DownloadManager.clearFinishedExportTasks()` (mới, `@MainActor`): như `clearFinishedTasks()` nhưng **chỉ tác vụ xuất** đã xong/lỗi/huỷ — xoá hàng + file của chúng. Không còn tác vụ xuất nào chạy ⇒ dọn mục mồ côi trong `Exports/`. Đợi xoá file xong, không tự báo toast.
+  - `AppLogger.shared.clear()` (có sẵn).
+- `CLAUDE.md` / `AGENTS.md`: mục lưu trữ ghi thêm "thêm thư mục dữ liệu mới thì thêm vào `StorageUsageCategory`".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DownloadManager+TaskStore.swift` 387/400 dòng.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy: số liệu so với Cài đặt iOS (app chạy trong LiveContainer nên iOS tính chung vào LiveContainer), xoá ba loại, bản đang xuất không bị xoá.
+
 ## [1.3.727] - 2026-11-05
 
 ### feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt
@@ -595,23 +625,3 @@ Người dùng: *"cho phép thu nhỏ khi kiểm tra nguồn, làm cho cả ki�
 - **Hub nổi**: dòng thứ 4 cố định `Kind.sourceCheck` "Kiểm tra nguồn" (`checkmark.seal`), xám khi không có lượt. Đang chạy ⇒ là tiến trình của nút (nháy), dòng phụ "12/31 · 3 lỗi"; xong mà chưa xem ⇒ nằm trong `quietKinds` (không nháy), "Xong · 25 đạt · 6 lỗi — bấm để xem". Tiến độ chỉ nằm ở chữ của dòng, không vào `ButtonState`. Hai lượt cùng thu nhỏ ⇒ trang con `FloatingHubSourceCheckListView`. Chạm hub khi đây là tiến trình duy nhất ⇒ mở thẳng màn.
 - Tách phần trùng giữa hai màn: `SourceCheckHeaderButtons`, `SourceCheckTile`, `SourceCheckActionButton`, `SourceCheckStartErrorView`, `ExtensionCheckFilterChip` (giữ `ExtensionCheckView` dưới 400 dòng). `rules.md` thêm luật hub (f) cho dòng Kiểm tra nguồn và vòng đời lượt thu nhỏ. Chuyển `[1.3.668]`, `[1.3.667]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn của `JSDom.swift`. Máy Windows nên chưa build, chưa thử trên máy — chờ CI biên dịch.
-
-## [1.3.697] - 2026-11-04
-
-### feat: xoá hàng loạt nguồn Legado đang hiện hoặc đang tắt
-
-Người dùng: *"thêm option xóa tất cả nguồn legado đang hiển thị, xóa tất cả nguồn legado đang tắt"*. Phạm vi "đang tắt" là toàn bộ danh sách (người dùng chọn).
-
-- **Hai hàng đỏ mới trong ngăn kéo "…" của tab Nguồn Legado**, đặt trên "Xoá tất cả nguồn Legado". Bên phải mỗi hàng là số nguồn sẽ xoá; số bằng 0 thì hàng mờ.
-  - **Xoá tất cả (theo danh sách đang hiện)**: lấy từ `legadoVisibleSummaries` (NSFW, nhóm và ô tìm), đúng tập mà "Kiểm tra nguồn" và "Bật/Tắt tất cả" dùng.
-  - **Xoá tất cả nguồn đang tắt**: mọi nguồn có `isEnabled == false` trong `LegadoSourceRepository.summaries`, không theo nhóm, ô tìm hay NSFW. Chỉ tính sau lần nạp đầu (`hasLoaded`), vì `isEnabled(packageId:)` dạng tĩnh trả `false` cho mọi nguồn trước lúc đó.
-- **Hộp xác nhận** (`PendingAlert.confirmDeleteSubset` + `LegadoSourceTabState.DeleteSubset`):
-  - Chụp sẵn danh sách `packageIds` lúc bấm hàng và xoá đúng tập đó, nên số trên nút "Xoá N nguồn" khớp số bị xoá.
-  - Phạm vi "đang hiện" ghi tên nhóm và từ khoá ô tìm.
-  - Phạm vi "đang tắt" báo cả số nguồn 18+ đang ẩn bị gộp vào.
-- **Đường gỡ dùng lại** `LegadoSourceCoordinator.delete(packageIds:)`, cũng là đường của nút "Xoá nguồn lỗi" ở màn kiểm tra. Hàm này xoá thư mục, gọi `ExtensionTransactionCoordinator.deleteExtensions`, nạp lại danh sách và xoá thông tin đăng nhập.
-  - Mất bản ghi tiện ích thì truyện trên kệ dùng nguồn đó tự thành truyện mất nguồn (luồng 1.3.690).
-- **Sau khi xoá:**
-  - Toast `Đã xoá N nguồn Legado đang hiện/đang tắt`; lỗi thì toast đỏ.
-  - Nhóm đang lọc không còn nguồn nào thì về "Tất cả" (`resetGroupFilterIfEmpty`).
-- `legadoScopeTitle` tách ra từ `checkVisibleLegadoSources`, dùng chung cho màn kiểm tra và hộp xác nhận.

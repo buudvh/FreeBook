@@ -13,6 +13,10 @@ struct LibrarySettingsSection: View {
             NavigationLink(destination: NewChapterSettingsView()) {
                 Label("Kiểm tra chương mới", systemImage: "bell.badge")
             }
+            // Dung lượng app đang chiếm theo loại dữ liệu, xoá được cache ảnh / file xuất / log (1.3.728).
+            NavigationLink(destination: StorageUsageView()) {
+                Label("Dung lượng", systemImage: "cylinder.split.1x2")
+            }
             NavigationLink(destination: BackupHubView()) {
                 Label("Sao lưu & khôi phục dữ liệu", systemImage: "externaldrive.badge.timemachine")
             }

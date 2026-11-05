@@ -179,6 +179,46 @@ extension DownloadManager {
         )
     }
 
+    /// Như `clearFinishedTasks()` nhưng **chỉ tác vụ xuất** đã xong/lỗi/huỷ — nút "Xoá" của loại "File xuất" ở màn Dung
+    /// lượng (1.3.728). Xoá hàng + file của chúng, rồi mục mồ côi trong `Exports/` khi không còn tác vụ xuất nào chạy /
+    /// chờ. **Đợi** xoá file xong (khác `removeExportFiles`) để màn đo lại ra số mới; không tự báo toast. Trả số bản đã xoá.
+    @MainActor
+    @discardableResult
+    public func clearFinishedExportTasks() async -> Int {
+        let finishedExports = tasks.filter { task in
+            task.taskType.isExport && (task.status == .completed || task.status == .failed || task.status == .cancelled)
+        }
+        let taskIds = finishedExports.map(\.id)
+        if !taskIds.isEmpty {
+            tasks.removeAll { taskIds.contains($0.id) }
+            VideoDownloadRequestStore.remove(taskIds: taskIds)
+            DownloadStartChapterStore.remove(taskIds: taskIds)
+            if let context = taskStoreContext() {
+                for taskId in taskIds {
+                    if let model = fetchTaskModel(taskId: taskId, in: context) {
+                        context.delete(model)
+                    }
+                    lastProgressPublishAt.removeValue(forKey: taskId)
+                }
+                try? context.save()
+                lastTaskSaveAt = CFAbsoluteTimeGetCurrent()
+            }
+        }
+        let storedPaths = finishedExports.compactMap(\.exportFilePath)
+        let orphanKeeping: [String]? = tasks.contains { $0.taskType.isExport } ? nil : tasks.compactMap(\.exportFilePath)
+        let removed = await Task.detached(priority: .utility) { () -> Int in
+            var removed = ExportFileCleaner.removeExports(storedPaths: storedPaths, taskIds: taskIds)
+            if let orphanKeeping {
+                removed += ExportFileCleaner.removeOrphans(keepingStoredPaths: orphanKeeping)
+            }
+            return removed
+        }.value
+        if removed > 0 {
+            AppLogger.shared.log("🧹 [DownloadManager] Màn Dung lượng xoá \(removed) bản xuất trong Documents/Exports")
+        }
+        return removed
+    }
+
     /// Xoá file xuất của các tác vụ vừa bị xoá / dọn — trên luồng nền (thư mục video có thể hàng nghìn đoạn HLS) và **sau**
     /// khi CSDL đã lưu, cùng thứ tự với `BookStorageManager`. `orphanKeeping != nil` ⇒ xoá luôn mọi mục khác trong
     /// `Exports/` không thuộc các đường dẫn đó. Có xoá bản xuất nào thì báo một toast.

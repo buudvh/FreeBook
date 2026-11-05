@@ -105,6 +105,11 @@ public actor ComicImageLoader {
         memoryCache.removeAll()
     }
 
+    /// Xoá cache đĩa `Caches/comic_images/` (nút "Xoá" của màn Dung lượng), chờ xoá xong. Ảnh tải offline không đụng.
+    public func clearDiskCache() {
+        diskCache.removeAllAndWait()
+    }
+
     // MARK: - Nguồn byte
 
     private nonisolated func loadData(
