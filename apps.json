@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.764",
+          "buildVersion": "1176",
+          "date": "2026-11-06T10:14:24Z",
+          "localizedDescription": "- feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng\n- feat: màn xem phim có nút Trình duyệt mở link chi tiết của phim, kể cả khi không lỗi\n- feat: màn khoá khi phát phim hiện tên phim, tác giả và bìa, phim 18+ chỉ hiện Đang phát với icon app",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1176/TangCongCac-1.3.764-1176.ipa",
+          "size": 38168380,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.762",
           "buildVersion": "1174",
           "date": "2026-11-06T10:08:50Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1171/TangCongCac-1.3.758-1171.ipa",
           "size": 37877956,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.757",
-          "buildVersion": "1170",
-          "date": "2026-11-06T08:02:53Z",
-          "localizedDescription": "- refactor: mọi chỗ đọc plugin.json, script và icon tiện ích đi qua một bộ đọc chung\n- feat: mỗi tiện ích JS và mỗi nguồn Legado là một file JSON trong extensions/js và extensions/legado\n- feat: màn Dung lượng tách hàng Tiện ích JS và Nguồn Legado",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1170/TangCongCac-1.3.757-1170.ipa",
-          "size": 37877404,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.762",
-      "versionDate": "2026-11-06T10:08:50Z",
-      "versionDescription": "- feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1174/TangCongCac-1.3.762-1174.ipa",
-      "size": 38032016,
+      "version": "1.3.764",
+      "versionDate": "2026-11-06T10:14:24Z",
+      "versionDescription": "- feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng\n- feat: màn xem phim có nút Trình duyệt mở link chi tiết của phim, kể cả khi không lỗi\n- feat: màn khoá khi phát phim hiện tên phim, tác giả và bìa, phim 18+ chỉ hiện Đang phát với icon app",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1176/TangCongCac-1.3.764-1176.ipa",
+      "size": 38168380,
       "appPermissions": {}
     }
   ],
