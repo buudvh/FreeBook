@@ -76,7 +76,13 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
 
     // MARK: - Chạm nút hub
 
-    /// Chạm nút hub khi menu **đang đóng** (người dùng chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
+    /// Chạm nút hub khi menu **đang đóng**, theo cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`, đọc lúc chạm):
+    ///
+    /// **Luôn hiện tất cả mục** (mặc định, người dùng chốt 2026-11-06): bung (nếu đang nép) và mở menu ở trang chính,
+    /// dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang
+    /// "Tác vụ AI").
+    ///
+    /// **Mở thẳng khi chỉ có 1 tác vụ** (bảng chạm chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
     /// chạm**, kể cả khi hub đang nép:
     /// - 0 ⇒ màn Thông báo.
     /// - 1 ⇒ mở thẳng mục đó, đúng như chạm dòng của nó trong menu. Thông báo/Video đi thẳng `open(_:)` (tự đóng
@@ -86,6 +92,10 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     ///
     /// Tập tiến trình đổi đúng lúc chạm (AI vừa xong) thì `open(_:)` đã guard `isItemEnabled`.
     func activateByRunningTasks() {
+        if FloatingHubTapBehavior.current == .alwaysMenu {
+            revealAndOpenMenu()
+            return
+        }
         let button = presentationReader.snapshot.button
         switch button.runningCount {
         case 0:

@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.720] - 2026-11-05
+
+### feat: mở lại theo Lịch sử đọc khi chưa có danh sách gần nhất
+
+Tiếp 1.3.718. Danh sách mở gần nhất chỉ bắt đầu ghi từ bản đó, nên lần mở app đầu tiên sau khi cài sẽ không mở gì. Anh Bửu chọn thêm dự phòng.
+
+- `ReaderSessionRestoreStore.takeLaunchCandidates()` trả `[String]?`:
+  - `nil` = không mở lại (công tắc tắt, lần mở lại trước chết sớm, đổi nguồn dở);
+  - mảng rỗng = chưa có danh sách.
+- `ShelfView+LaunchRestore`: danh sách rỗng ⇒ duyệt truyện `isHistory` theo `lastReadDate` giảm dần (thứ tự sẵn của `@Query`), cùng các điều kiện còn trên máy, ở Kệ/Lịch sử, không phải 18+.
+  - `isHistory` bật mỗi lần tiến độ được ghi, kể cả truyện trên kệ đã đọc ⇒ không chỉ là truyện ở tab Lịch sử.
+  - Mở xong thì màn đọc tự ghi vào danh sách, lần sau dùng danh sách như thường.
+- `CLAUDE.md`/`AGENTS.md`: ghi thêm phần dự phòng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.719] - 2026-11-05
 
 ### feat: icon app mới Tàng Công Các kiểu thư pháp thủy mặc

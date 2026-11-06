@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Cài đặt → Chung → **Giao diện** (1.3.636): gom các màn cài đặt về hiển thị (màu nhấn, kiểu danh sách, nội dung nhạy
-/// cảm, bàn phím), công tắc số thứ tự ở các danh sách chương, và chỉnh độ trong suốt / độ đục của nút nổi (tai nghe
-/// Reader, nút "+") cùng ngăn kéo menu ba chấm.
+/// cảm, bàn phím), công tắc số thứ tự ở các danh sách chương, cách chạm hub nổi (`FloatingHubTapBehavior`), và chỉnh
+/// độ trong suốt / độ đục của nút nổi (tai nghe Reader, nút "+") cùng ngăn kéo menu ba chấm.
 ///
 /// Thanh kéo ghi thẳng `UserDefaults` qua `@AppStorage` cùng khoá với `FloatingGlassBackground` /
 /// `SideDrawerGlassBackground`, nên ô xem trước (dựng bằng đúng hai view đó) và mọi nút thật đổi theo ngay khi kéo.
@@ -19,6 +19,8 @@ struct AppearanceSettingsView: View {
     private var storedAccent = AppAccentColor.defaultValue.rawValue
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
     private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
+    @AppStorage(FloatingHubTapBehavior.storageKey)
+    private var hubTapBehavior: FloatingHubTapBehavior = FloatingHubTapBehavior.defaultValue
 
     /// Nền ô xem trước — cùng màu nền chủ đề Tối của Reader.
     private static let previewBackground = Color(red: 0.08, green: 0.08, blue: 0.09)
@@ -55,6 +57,26 @@ struct AppearanceSettingsView: View {
                 }
             } header: {
                 SectionHelpHeader("Danh sách chương", paragraphs: ["Cột số đứng trước tên chương ở mục lục Chi tiết truyện, danh sách chương trong Reader, mục lục truyện tranh và màn chọn chương bắt đầu.", "Số đánh từ 1 theo mục lục, không đổi khi tìm hay đảo thứ tự; dòng tên nhóm tập không có số. Tắt thì bỏ hẳn cột số."])
+            }
+
+            Section {
+                // Inline: hai lựa chọn hiện sẵn có dấu chọn — tên lựa chọn dài, kiểu menu sẽ bị cắt chữ ở bên phải.
+                // Kiểu inline không hiện nhãn của Picker (chỉ VoiceOver đọc) ⇒ tiêu đề nhóm nói rõ "khi chạm".
+                Picker(selection: $hubTapBehavior) {
+                    ForEach(FloatingHubTapBehavior.allCases) { behavior in
+                        Text(behavior.title).tag(behavior)
+                    }
+                } label: {
+                    Label("Khi chạm hub", systemImage: "square.stack.3d.up")
+                }
+                .pickerStyle(.inline)
+            } header: {
+                SectionHelpHeader("Khi chạm hub nổi", paragraphs: [
+                    "Hub nổi là nút tròn nhỏ nép ở mép màn hình, gom Trợ lý AI, Thông báo, Video và Kiểm tra nguồn.",
+                    "**Luôn hiện tất cả mục**: chạm hub là mở menu đủ các mục, dù đang có bao nhiêu tác vụ. Mục không có việc thì xám.",
+                    "**Mở thẳng khi chỉ có 1 tác vụ**: không có tác vụ thì mở màn Thông báo; đúng 1 tác vụ (AI đang chạy, video thu nhỏ, tải/xuất truyện, kiểm tra nguồn) thì mở thẳng mục đó; từ 2 tác vụ thì mở menu.",
+                    "Icon và nháy đỏ của hub giữ như cũ ở cả hai lựa chọn."
+                ])
             }
 
             Section {

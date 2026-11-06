@@ -16,6 +16,9 @@ import SwiftUI
 ///   Lượt kiểm tra nguồn thu nhỏ đã xong, chưa xem (1.3.697) không nháy, như kết quả AI chưa xem.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
+/// Icon và nháy như trên ở **cả hai** lựa chọn của cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`); cài đặt chỉ đổi
+/// việc chạm làm gì (mặc định luôn mở menu — xem `activateByRunningTasks`).
+///
 /// Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu chưa đọc nào lên hình: không badge số, không chấm
 /// đỏ, không viền tím. Số chưa đọc chỉ còn ở badge của dòng Thông báo trong menu và ở nhãn VoiceOver.
 ///

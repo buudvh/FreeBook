@@ -1,8 +1,10 @@
 import SwiftUI
 import UIKit
 
-/// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ ba dòng. Từ 2026-10-22 chạm hub chỉ mở menu khi có
-/// từ 2 tiến trình, hoặc đúng 1 tiến trình là AI (mở thẳng trang "Tác vụ AI") — xem `activateByRunningTasks`.
+/// Thẻ menu của nút hub nổi (1.3.524). Từ 1.3.533 menu luôn đủ các dòng. Chạm hub mở menu hay không do cài đặt "Khi
+/// chạm hub" (`FloatingHubTapBehavior`): mặc định luôn mở menu ở trang chính; lựa chọn "Mở thẳng khi chỉ có 1 tác vụ"
+/// chỉ mở menu khi có từ 2 tiến trình, hoặc đúng 1 tiến trình là AI (mở thẳng trang "Tác vụ AI") — xem
+/// `activateByRunningTasks`.
 ///
 /// Menu sống trong **chính cửa sổ hub**: lớp nền trong suốt `menuBackdropView` phủ toàn màn và thẻ
 /// `menuContainerView` cạnh nút. Khi menu mở, `FloatingHubUIWindow.hitTest` nhường **mọi** chạm cho cây view

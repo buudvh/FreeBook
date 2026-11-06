@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.750] - 2026-11-06
+
+### feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục
+
+Người dùng: *"thêm config cho hub, 2 option, hiển thị hub con khi chỉ có 1 hub action và hiển thị tất cả hub con mọi lúc"*. Chốt qua mockup inline + bảng chọn: hiểu theo **cách chạm hub**, đặt ở Giao diện, mặc định "Luôn hiện tất cả", không có tác vụ thì vẫn mở menu. Anh Bửu duyệt plan (gồm cả việc sửa `rules.md`).
+
+- **`FloatingHubTapBehavior`** (file mới, `Views/FloatingHub/`): `alwaysMenu` = "Luôn hiện tất cả mục" (**mặc định**) / `directWhenSingle` = "Mở thẳng khi chỉ có 1 tác vụ". Khoá `floatingHubTapBehavior` (không dấu chấm); chưa ghi hoặc giá trị lạ ⇒ mặc định.
+- **Chạm hub** (`activateByRunningTasks`, `+Actions`): "Luôn hiện tất cả mục" ⇒ bung (nếu đang nép) và mở menu ở **trang chính** dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang "Tác vụ AI"). "Mở thẳng khi chỉ có 1 tác vụ" ⇒ y nguyên bảng chạm 0/1/≥2 chốt 2026-10-22. Đọc `UserDefaults` lúc chạm ⇒ đổi là có hiệu lực ngay, không publisher, nút không vẽ lại.
+- **Nút hub giữ nguyên**: icon (chuông / icon mục / chồng thẻ) và nháy vẫn theo số tiến trình ở cả hai lựa chọn.
+- **Cài đặt › Chung › Giao diện**: nhóm mới "Khi chạm hub nổi" sau "Danh sách chương" — `Picker` kiểu inline hai dòng có dấu chọn (tên lựa chọn dài, kiểu menu sẽ cắt chữ), nút "?" giải thích.
+- **Hệ quả**: sau khi cập nhật, chạm hub lúc 0/1 tác vụ mở menu thay vì mở thẳng Thông báo / mục đó; muốn cách cũ thì chọn lại trong Giao diện.
+- Comment bảng chạm ở `FloatingHubContainerViewController`, `+Actions`, `+Menu`, `FloatingHubButton` cập nhật theo. **`rules.md`** § Nút hub nổi (a) + (e): phần chạm theo số tiến trình chỉ áp ở lựa chọn "Mở thẳng"; câu "0/1 tiến trình thì chạm không mở được menu" thành hệ quả của lựa chọn đó. `CLAUDE.md` / `AGENTS.md` không nhắc bảng chạm hub ⇒ không sửa. Chuyển `[1.3.720]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; `activateByRunningTasks` chỉ có một chỗ gọi (`handlePrimaryAction`, đường chung của chạm và VoiceOver). Không đụng `FloatingHubWindowManager`, `FloatingHubUIWindow`, vị trí hub (việc video đang làm).
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: chạm hub lúc rảnh / 1 video / 1 AI ⇒ menu trang chính; đổi sang "Mở thẳng" ⇒ chạm lại có hiệu lực ngay; dòng Video vẫn phát/dừng/đóng được trong menu.
+
 ## [1.3.749] - 2026-11-06
 
 ### feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài
@@ -757,19 +774,3 @@ Người dùng: *"Thanh chip màn hình dịch và nội dung trong màn hình q
   - Đối chiếu file VietPhrase + Pronouns của người dùng với logic dựng chip.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.720] - 2026-11-05
-
-### feat: mở lại theo Lịch sử đọc khi chưa có danh sách gần nhất
-
-Tiếp 1.3.718. Danh sách mở gần nhất chỉ bắt đầu ghi từ bản đó, nên lần mở app đầu tiên sau khi cài sẽ không mở gì. Anh Bửu chọn thêm dự phòng.
-
-- `ReaderSessionRestoreStore.takeLaunchCandidates()` trả `[String]?`:
-  - `nil` = không mở lại (công tắc tắt, lần mở lại trước chết sớm, đổi nguồn dở);
-  - mảng rỗng = chưa có danh sách.
-- `ShelfView+LaunchRestore`: danh sách rỗng ⇒ duyệt truyện `isHistory` theo `lastReadDate` giảm dần (thứ tự sẵn của `@Query`), cùng các điều kiện còn trên máy, ở Kệ/Lịch sử, không phải 18+.
-  - `isHistory` bật mỗi lần tiến độ được ghi, kể cả truyện trên kệ đã đọc ⇒ không chỉ là truyện ở tab Lịch sử.
-  - Mở xong thì màn đọc tự ghi vào danh sách, lần sau dùng danh sách như thường.
-- `CLAUDE.md`/`AGENTS.md`: ghi thêm phần dự phòng.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.

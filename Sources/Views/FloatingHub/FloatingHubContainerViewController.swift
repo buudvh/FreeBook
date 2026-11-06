@@ -18,10 +18,11 @@ import UIKit
 /// 2. `widgetContainerView` — nút hub.
 /// 3. `menuContainerView` — thẻ menu, cạnh nút về phía xa mép.
 ///
-/// ## Bảng chạm (người dùng chốt 2026-10-22)
-/// Menu đang mở ⇒ đóng. Còn lại rẽ theo **số tiến trình** của snapshot lúc chạm (`activateByRunningTasks`,
-/// `+Actions.swift`), áp như nhau cho `.peeking` và `.revealed`: 0 ⇒ mở màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒
-/// bung + menu ở trang "Tác vụ AI"); từ 2 ⇒ bung (nếu đang nép) **và** mở menu.
+/// ## Bảng chạm (cài đặt "Khi chạm hub", `FloatingHubTapBehavior`)
+/// Menu đang mở ⇒ đóng. Còn lại do `activateByRunningTasks` (`+Actions.swift`) quyết, áp như nhau cho `.peeking` và
+/// `.revealed`. **Luôn hiện tất cả mục** (mặc định, 2026-11-06): bung (nếu đang nép) và mở menu ở trang chính.
+/// **Mở thẳng khi chỉ có 1 tác vụ** (bảng chốt 2026-10-22) rẽ theo **số tiến trình** của snapshot lúc chạm: 0 ⇒ mở
+/// màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒ bung + menu ở trang "Tác vụ AI"); từ 2 ⇒ bung **và** mở menu.
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
