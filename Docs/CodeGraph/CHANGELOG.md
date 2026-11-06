@@ -10,8 +10,8 @@ Người dùng muốn phim hết tập cuối thì tự sang phim đề xuất t
 
 - **Tự sang phim đề xuất** (`VideoAutoNextPolicy`, khoá `videoAutoNextSuggest`, mặc định bật; Cài đặt › Đọc & Nghe › Video nhóm mới "Khi hết phim" + hàng thứ hai ngăn kéo ⋯ — công tắc, không nằm trong lưới vì lưới là chọn một-trong-nhiều):
   - `VideoAutoNextCoordinator` tải sẵn khi phiên bắt đầu nạp **tập cuối**: nhóm đề xuất lấy từ model màn xem → cache chi tiết (5 phút) → tải chi tiết `isInteractive: false`; chạy trang 1 của nhóm đầu có script (đề xuất trên màn chỉ tải khi cuộn tới nên không dựa được).
-  - Phim = mục đầu tiên khác phim vừa hết và chưa phát trong chuỗi tự sang hiện tại (chống A → B → A).
-  - Hết tập cuối (`handlePlayedToEnd`): màn xem đang hiện đúng phim ⇒ `VideoWatchModel.replace(with:autoNext:)`; không có màn (cửa sổ nhỏ, hub, nền) ⇒ `VideoWatchModel` không màn, giữ tối đa 90 giây; cả lượt nằm trong background task.
+  - Phim = mục đầu tiên khác phim vừa hết và chưa phát trong chuỗi tự sang hiện tại (chống A → B → A). Lượt tải sẵn rỗng (mạng chập chờn) ⇒ lúc hết phim tải lại một lần.
+  - Hết tập cuối (`handlePlayedToEnd`): màn xem đang hiện đúng phim ⇒ `VideoWatchModel.replace(with:autoNext:)`; không có màn (cửa sổ nhỏ, hub, nền) ⇒ `VideoWatchModel` không màn, giữ tối đa 90 giây, mở phiên xong thì chỉ thả (không huỷ, để lượt làm mới mục lục chạy nốt); cả lượt nằm trong background task.
   - Phát luôn dù tắt "Tự phát khi mở phim" (`autoNext`), giữ tiếng của phim vừa hết (`open(muteOverride:)`), báo "Tự sang: <tên>" khi phim mới **bắt đầu phát** (`open(startNotice:)` → `pendingStartNotice`; hiện ngay lúc mở sẽ bị lượt nạp tập xoá).
   - Phim nhúng trang không báo hết ⇒ không tự sang; phim nhập từ file không có đề xuất.
 - **Bỏ PiP hệ thống**: xoá `VideoPictureInPictureCoordinator` cùng mọi trạng thái PiP của session / màn / stage; trang nhúng `allowsPictureInPictureMediaPlayback = false`. Vào nền ⇒ tách hình ngay, phát tiếp chỉ tiếng nếu đang phát lúc rời active (`wasPlayingWhenResigned`).

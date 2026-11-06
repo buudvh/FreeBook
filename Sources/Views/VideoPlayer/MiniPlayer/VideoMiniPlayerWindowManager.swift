@@ -53,12 +53,14 @@ final class VideoMiniPlayerWindowManager {
         session.onFullScreenAttached = { [weak self] in
             self?.hide(reason: "màn trình phát đã mở lại")
         }
-        session.onDidStop = { [weak self] in
+        session.onDidStop = {
             // Tự sang phim đề xuất dừng phim cũ rồi mở phim mới trong cùng nhịp ⇒ chỉ ẩn khi phiên vẫn rảnh ở nhịp sau.
+            // Singleton ⇒ đọc qua `shared`, không bắt `weak self` vào closure lồng.
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    guard let self, self.isShowing, !self.session.isActive else { return }
-                    self.hide(reason: "phim đã tắt")
+                    let manager = VideoMiniPlayerWindowManager.shared
+                    guard manager.isShowing, !manager.session.isActive else { return }
+                    manager.hide(reason: "phim đã tắt")
                 }
             }
         }
@@ -85,10 +87,11 @@ final class VideoMiniPlayerWindowManager {
     /// đi hẳn. `adoptLayer` tự bỏ qua khi màn to đang gắn.
     private func reclaimLayerSoon() {
         for delay in [0.1, 0.5] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 MainActor.assumeIsolated {
-                    guard let self, self.isShowing else { return }
-                    self.controller?.adoptLayer()
+                    let manager = VideoMiniPlayerWindowManager.shared
+                    guard manager.isShowing else { return }
+                    manager.controller?.adoptLayer()
                 }
             }
         }
@@ -101,14 +104,15 @@ final class VideoMiniPlayerWindowManager {
         let metrics = Self.screenMetrics()
         let target = VideoMiniPlayerLayout.expandedVideoFrame(in: metrics.bounds, safeInsets: metrics.safeInsets)
         AppLogger.shared.log("🎬 [VideoMini] Chạm cửa sổ nhỏ ⇒ mở lại màn xem")
-        controller.animateExpand(to: target) { [weak self] in
-            self?.session.requestScreen(animated: false) {
+        controller.animateExpand(to: target) {
+            VideoMiniPlayerWindowManager.shared.session.requestScreen(animated: false) {
                 // Màn xem gắn vào phiên thì cửa sổ tự ẩn (`onFullScreenAttached`). Chưa gắn sau một nhịp ⇒ không mở được.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     MainActor.assumeIsolated {
-                        guard let self, self.isShowing, !self.session.isFullScreenAttached else { return }
+                        let manager = VideoMiniPlayerWindowManager.shared
+                        guard manager.isShowing, !manager.session.isFullScreenAttached else { return }
                         AppLogger.shared.log("❌ [VideoMini] Không mở lại được màn xem ⇒ thu cửa sổ về chỗ đậu")
-                        self.controller?.collapse(to: self.dockFrame())
+                        manager.controller?.collapse(to: manager.dockFrame())
                     }
                 }
             }

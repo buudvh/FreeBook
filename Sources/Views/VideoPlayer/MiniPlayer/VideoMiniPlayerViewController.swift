@@ -141,12 +141,14 @@ final class VideoMiniPlayerViewController: UIViewController {
         overlayHost?.view.alpha = 1
         noticeHost?.view.alpha = 1
         setPlayerFrame(frame)
-        adoptLayer()
+        // Lúc này màn trình phát đang thu nhỏ vẫn còn gắn (chỉ gỡ ở `onDisappear`) ⇒ phải lấy hình ngay, không chờ.
+        adoptLayer(force: true)
     }
 
-    /// Đưa `session.layerView` vào cửa sổ (nếu đang nằm chỗ khác) — trừ khi màn to đang gắn (màn đó giữ hình).
-    func adoptLayer() {
-        guard !session.isFullScreenAttached else { return }
+    /// Đưa `session.layerView` vào cửa sổ (nếu đang nằm chỗ khác). Lượt lấy lại sau (`force == false`) bỏ qua khi màn to
+    /// đang gắn — màn đó giữ hình (vd vừa mở lại từ cửa sổ nhỏ).
+    func adoptLayer(force: Bool = false) {
+        guard force || !session.isFullScreenAttached else { return }
         let layerView = session.layerView
         guard layerView.superview !== layerHost else { return }
         layerView.removeFromSuperview()

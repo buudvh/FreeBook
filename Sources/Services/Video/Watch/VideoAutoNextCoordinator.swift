@@ -60,7 +60,7 @@ final class VideoAutoNextCoordinator {
         if preparedBookId == launch.bookId, let prepareTask { return prepareTask }
         preparedBookId = launch.bookId
         prepareTask?.cancel()
-        let task = Task { [weak self] () -> [ExtensionItemResult] in
+        let task = Task { [weak self] () async -> [ExtensionItemResult] in
             guard let self else { return [] }
             return await self.loadSuggestions(for: launch)
         }
@@ -139,12 +139,23 @@ final class VideoAutoNextCoordinator {
         beginBackgroundTask()
         endTask?.cancel()
         endTask = Task { [weak self] in
-            let items = await task.value
+            var items = await task.value
             guard let self, !Task.isCancelled else { return }
+            // Lượt tải sẵn rỗng (mạng chập chờn lúc nạp tập cuối) ⇒ thử lại một lần.
+            if items.isEmpty, let retry = self.restartPrepare(for: launch) {
+                items = await retry.value
+                guard !Task.isCancelled else { return }
+            }
             if !self.openNext(after: launch, items: items, isMuted: isMuted, container: container) {
                 self.endBackgroundTask()
             }
         }
+    }
+
+    private func restartPrepare(for launch: BookContentLaunch) -> Task<[ExtensionItemResult], Never>? {
+        preparedBookId = nil
+        prepareTask = nil
+        return prepare(for: launch)
     }
 
     /// `true` ⇒ đã bắt đầu mở phim mới (background task kết thúc ở `didOpen` / hết hạn).
@@ -183,11 +194,14 @@ final class VideoAutoNextCoordinator {
         return true
     }
 
-    /// Model (có màn hoặc không) vừa mở phiên phát cho phim tự sang.
+    /// Model (có màn hoặc không) vừa mở phiên phát cho phim tự sang. Model không màn chỉ bị **thả** (không huỷ): phim đã
+    /// có mục lục trên máy thì phát trước khi làm mới mục lục xong — lượt làm mới đó chạy nốt rồi model tự giải phóng.
     func didOpen(bookId: String) {
         lastAutoOpenedBookId = bookId
         if headlessModel?.bookId == bookId {
-            releaseHeadless()
+            headlessTimeoutTask?.cancel()
+            headlessTimeoutTask = nil
+            headlessModel = nil
         }
         endBackgroundTask()
     }
