@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.758",
+          "buildVersion": "1171",
+          "date": "2026-11-06T08:23:11Z",
+          "localizedDescription": "- refactor: bỏ code chết standardEntrypoint và extensionRootURL của trình sửa script",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1171/TangCongCac-1.3.758-1171.ipa",
+          "size": 37877956,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.757",
           "buildVersion": "1170",
           "date": "2026-11-06T08:02:53Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1167/TangCongCac-1.3.752-1167.ipa",
           "size": 37840229,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.751",
-          "buildVersion": "1166",
-          "date": "2026-11-06T05:24:26Z",
-          "localizedDescription": "- feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài\n- feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục\n- feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1166/TangCongCac-1.3.751-1166.ipa",
-          "size": 37841428,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.757",
-      "versionDate": "2026-11-06T08:02:53Z",
-      "versionDescription": "- refactor: mọi chỗ đọc plugin.json, script và icon tiện ích đi qua một bộ đọc chung\n- feat: mỗi tiện ích JS và mỗi nguồn Legado là một file JSON trong extensions/js và extensions/legado\n- feat: màn Dung lượng tách hàng Tiện ích JS và Nguồn Legado",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1170/TangCongCac-1.3.757-1170.ipa",
-      "size": 37877404,
+      "version": "1.3.758",
+      "versionDate": "2026-11-06T08:23:11Z",
+      "versionDescription": "- refactor: bỏ code chết standardEntrypoint và extensionRootURL của trình sửa script",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1171/TangCongCac-1.3.758-1171.ipa",
+      "size": 37877956,
       "appPermissions": {}
     }
   ],
