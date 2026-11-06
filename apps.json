@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.751",
+          "buildVersion": "1166",
+          "date": "2026-11-06T05:24:26Z",
+          "localizedDescription": "- feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài\n- feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục\n- feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1166/TangCongCac-1.3.751-1166.ipa",
+          "size": 37841428,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.750",
           "buildVersion": "1165",
           "date": "2026-11-06T05:15:37Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1162/TangCongCac-1.3.747-1162.ipa",
           "size": 37783453,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.744",
-          "buildVersion": "1161",
-          "date": "2026-11-05T17:04:52Z",
-          "localizedDescription": "- fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn\n- fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình\n- feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+\n- feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc\n- feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc\n- feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động\n- feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1161/TangCongCac-1.3.744-1161.ipa",
-          "size": 37822290,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.750",
-      "versionDate": "2026-11-06T05:15:37Z",
-      "versionDescription": "- feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài\n- feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1165/TangCongCac-1.3.750-1165.ipa",
-      "size": 37798345,
+      "version": "1.3.751",
+      "versionDate": "2026-11-06T05:24:26Z",
+      "versionDescription": "- feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài\n- feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục\n- feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1166/TangCongCac-1.3.751-1166.ipa",
+      "size": 37841428,
       "appPermissions": {}
     }
   ],
