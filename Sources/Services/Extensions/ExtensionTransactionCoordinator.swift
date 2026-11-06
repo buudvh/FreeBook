@@ -175,8 +175,8 @@ public final class ExtensionTransactionCoordinator {
         return .changed
     }
 
-    /// Cờ NSFW của dòng registry khớp tiện ích (tên + tác giả → `packageId` → tên, 1.3.753) trong cache registry của
-    /// kho `repositoryUrl`.
+    /// Cờ NSFW của dòng registry khớp tiện ích (tên + tác giả → `packageId`, 1.3.753) trong cache registry của kho
+    /// `repositoryUrl`.
     private func registryNsfwFlag(command: UpsertExtensionCommand, repositoryUrl: String?) -> Bool? {
         library.registryItem(
             repositoryUrl: repositoryUrl,

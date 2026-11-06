@@ -20,11 +20,14 @@ enum ExtensionCatalogIdentity {
         let entries: [Entry]
         private let byKey: [String: ExtensionRegistryItem]
         private let byBase: [String: ExtensionRegistryItem]
+        /// Khoá `<mã>__<tác giả>` — đúng mã mà `packageId(base:author:taken:)` cấp cho bản trùng tên.
+        private let bySuffixedId: [String: ExtensionRegistryItem]
 
         init(items: [ExtensionRegistryItem]) {
             var entries: [Entry] = []
             var byKey: [String: ExtensionRegistryItem] = [:]
             var byBase: [String: ExtensionRegistryItem] = [:]
+            var bySuffixedId: [String: ExtensionRegistryItem] = [:]
             entries.reserveCapacity(items.count)
             for item in items {
                 let base = ExtensionSyncCommandBuilder.packageId(forName: item.name)
@@ -32,19 +35,24 @@ enum ExtensionCatalogIdentity {
                 entries.append(Entry(item: item, base: base, key: key))
                 if byKey[key] == nil { byKey[key] = item }
                 if byBase[base] == nil { byBase[base] = item }
+                let suffixed = ExtensionCatalogIdentity.suffixedId(base: base, author: item.author)
+                if bySuffixedId[suffixed] == nil { bySuffixedId[suffixed] = item }
             }
             self.entries = entries
             self.byKey = byKey
             self.byBase = byBase
+            self.bySuffixedId = bySuffixedId
         }
 
-        /// Mục của một tiện ích trong kho của nó: tên + tác giả → mã đã lưu (cách ghép trước 1.3.753) → tên. Bậc sau
-        /// đỡ cho tiện ích đã cài có tác giả trong `plugin.json` khác chữ với registry.
+        /// Mục của một tiện ích trong kho của nó: tên + tác giả → mã trơn (cách ghép trước 1.3.753) → mã
+        /// `<mã>__<tác giả>`. Hai bậc sau đỡ cho tiện ích đã cài có tác giả trong `plugin.json` khác chữ với registry.
+        /// **Không** ghép chỉ theo tên: kho có nhiều tác giả cùng tên thì bậc đó trả nhầm bản của tác giả khác ⇒ báo cập
+        /// nhật sai và nút Cập nhật tải zip của tiện ích khác đè vào thư mục. Không khớp ⇒ `nil` (chỉ mất báo cập nhật).
         func item(packageId: String, name: String, author: String?) -> ExtensionRegistryItem? {
             let base = ExtensionSyncCommandBuilder.packageId(forName: name)
             return byKey[ExtensionCatalogIdentity.key(base: base, author: author)]
                 ?? byBase[packageId]
-                ?? byBase[base]
+                ?? bySuffixedId[packageId]
         }
     }
 
@@ -60,8 +68,12 @@ enum ExtensionCatalogIdentity {
     static func packageId(base: String, author: String?, taken: Set<String>) -> String? {
         guard !base.isEmpty else { return nil }
         if !taken.contains(base) { return base }
-        let suffixed = base + "__" + authorSlug(author)
+        let suffixed = suffixedId(base: base, author: author)
         return taken.contains(suffixed) ? nil : suffixed
+    }
+
+    static func suffixedId(base: String, author: String?) -> String {
+        base + "__" + authorSlug(author)
     }
 
     /// Tác giả thành một đoạn tên thư mục: chữ thường, khoảng trắng ⇒ `_`, ký tự đường dẫn ⇒ `_`; rỗng ⇒ `an_danh`.

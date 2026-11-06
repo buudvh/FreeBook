@@ -77,7 +77,8 @@ public final class ExtensionLibraryRepository {
     }
 
     /// Dòng registry của một tiện ích (đã cài hoặc mục danh mục) trong cache **chính** kho `repositoryUrl` của nó:
-    /// tên + tác giả → `packageId` → tên. `nil` khi không thuộc kho nào hoặc kho chưa có cache.
+    /// tên + tác giả → `packageId` (mã trơn hoặc `<mã>__<tác giả>`). `nil` khi không thuộc kho nào, kho chưa có cache
+    /// hoặc không khớp.
     public func registryItem(for ext: Extension) -> ExtensionRegistryItem? {
         registryItem(repositoryUrl: ext.repositoryUrl, packageId: ext.packageId, name: ext.name, author: ext.author)
     }
