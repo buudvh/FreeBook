@@ -75,7 +75,7 @@ struct AppearanceSettingsView: View {
                     "Hub nổi là nút tròn nhỏ nép ở mép màn hình, gom Trợ lý AI, Thông báo, Video và Kiểm tra nguồn.",
                     "**Luôn hiện tất cả mục**: chạm hub là mở menu đủ các mục, dù đang có bao nhiêu tác vụ. Mục không có việc thì xám.",
                     "**Mở thẳng khi chỉ có 1 tác vụ**: không có tác vụ thì mở màn Thông báo; đúng 1 tác vụ (AI đang chạy, video thu nhỏ, tải/xuất truyện, kiểm tra nguồn) thì mở thẳng mục đó; từ 2 tác vụ thì mở menu.",
-                    "Icon và nháy đỏ của hub giữ như cũ ở cả hai lựa chọn."
+                    "Icon của hub: **Luôn hiện tất cả mục** luôn là icon chồng thẻ; **Mở thẳng khi chỉ có 1 tác vụ** là chuông khi rảnh, icon của mục khi có 1 tác vụ, chồng thẻ khi từ 2 tác vụ. Hub nháy đỏ khi có tác vụ đang chạy, ở cả hai lựa chọn."
                 ])
             }
 

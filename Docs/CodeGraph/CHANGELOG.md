@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.754] - 2026-11-06
+
+### feat: hub luôn hiện tất cả thì icon luôn là chồng thẻ
+
+Người dùng: *"Cài đặt hub: luôn hiện tất cả thì đừng đổi icon khi có 1 tác vụ đang chạy"*, rồi chốt: *"luôn là chồng thẻ bất cứ lúc nào Ở chế độ “Luôn hiện tất cả mục”"*; vẫn nháy khi có tác vụ. Anh Bửu duyệt plan.
+
+- **`FloatingHubButton.glyphName`**: cài đặt "Khi chạm hub" là **Luôn hiện tất cả mục** (mặc định) ⇒ icon **luôn** `square.stack.3d.up`, kể cả lúc 0 tiến trình, tác vụ nền hay chỉ còn kết quả AI chưa xem. **Mở thẳng khi chỉ có 1 tác vụ** ⇒ bảng icon cũ (chuông / icon của mục / chồng thẻ).
+- **Nháy không đổi** ở cả hai lựa chọn: chỉ nháy khi có tiến trình thật sự đang chạy (`ButtonState.isPulsing`); lúc rảnh chồng thẻ đứng yên, màu chữ hệ thống.
+- Nút đọc cài đặt bằng `@AppStorage(FloatingHubTapBehavior.storageKey)` ngay trong view ⇒ đổi cài đặt là icon đổi ngay; nút chỉ vẽ lại thêm khi đổi cài đặt, `ButtonState` không đổi. Nhãn VoiceOver giữ nguyên.
+- Câu "?" của nhóm "Khi chạm hub nổi" (Giao diện) nói icon của từng lựa chọn; doc comment `FloatingHubTapBehavior` / `FloatingHubButton` và **`rules.md`** § Nút hub nổi (a) cập nhật theo (bỏ câu "Icon và nháy không đổi theo cài đặt"). `CLAUDE.md` / `AGENTS.md` không nhắc icon hub ⇒ không sửa. Chuyển `[1.3.724]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; `glyphName` chỉ dùng trong `FloatingHubButton.body`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: hub hiện chồng thẻ lúc rảnh (không nháy) và lúc có 1 video (nháy); đổi sang "Mở thẳng" ⇒ icon về chuông / icon của mục ngay, không cần mở lại app.
+
 ## [1.3.753] - 2026-11-06
 
 ### fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được
@@ -743,31 +758,3 @@ Người dùng (qua /grill-me): chia việc cho session con thì *"việc push v
 - **Kiểm chứng:**
   - Tại chỗ: API so sánh `4cefa5f7...a7a5aba2` trả đúng 3 subject. Caption 3 commit đúng dạng. 40 commit cắt còn 978/1024 đơn vị UTF-16 kèm "… và 28 commit khác". `tg_call` với curl giả (lỗi 2 lần rồi ok ⇒ gửi ở lần 3; luôn lỗi ⇒ trả 1 sau 3 lần). YAML hợp lệ.
   - Commit này không đổi `Sources/**`/`project.yml` ⇒ không kích hoạt build. Lượt build thật kế tiếp là lần kiểm đầu tiên trên CI.
-
-## [1.3.724] - 2026-11-05
-
-### feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất
-
-Người dùng: *"có cách tạo nguồn app để livecontainer update không?"*. Duyệt plan: *"Chỉ giữ 5 bản gần nhất là ok, không bỏ GOOGLE_CLOUD_TTS_API_KEY đâu"*.
-
-- **LiveContainer** có tab Sources đọc nguồn kiểu AltStore: thêm bằng URL hoặc link `livecontainer://source?url=…`; `Refresh` rồi `Install` cài bản mới nhất của nguồn.
-- **CI** (`build-ipa.yml`), bước mới `Publish GitHub Release + LiveContainer Source`. Chỉ chạy với push lên `main`, không chạy với PR. `continue-on-error` ⇒ lỗi đăng không làm đỏ build, IPA vẫn gửi Telegram.
-  - Script `Scripts/ci/publish_altstore_source.py` (mới):
-    - Tạo release `build-<số build>` kèm `TangCongCac-<version>-<số build>.ipa`, ghi chú = subject commit. Chạy lại workflow (cùng số build) ⇒ xoá release cũ cùng tag rồi tạo lại.
-    - Chỉ giữ **5** release `build-*` mới nhất; release cũ hơn xoá kèm tag (`--cleanup-tag`).
-    - Dựng `apps.json` (định dạng nguồn AltStore: `versions` + các trường một bản kiểu cũ) từ 5 release còn lại. Ghi kèm `icon.png` (`icon_60_3x.png`) và `README.md` lên nhánh riêng **`source`** (orphan, không phải `main` ⇒ không kích hoạt build, không đụng lịch sử code).
-    - Push bị từ chối (hai lượt build đẩy cùng lúc) ⇒ tải lại nhánh, dựng lại từ danh sách release mới nhất, thử tối đa 3 lần.
-  - Job có `permissions: contents: write`.
-  - Caption Telegram thêm dòng `🔗 Release: …` khi đăng thành công; file quá 50 MB thì gửi link release thay cho transfer.sh.
-- **URL nguồn cố định:** `https://raw.githubusercontent.com/buudvh/FreeBook/source/apps.json`.
-- **App:**
-  - `AppDistributionSource` mới (`Sources/Common/Utils/`) giữ URL nguồn và dựng link `livecontainer://source?url=…`.
-  - Cài đặt › Thông Tin thêm hàng "Thêm nguồn cập nhật vào LiveContainer" (mở LiveContainer; không mở được ⇒ toast lỗi) và nút sao chép link nguồn (`ClipboardCopier`, toast "Đã sao chép link nguồn").
-- **Khoá Google Cloud TTS:** repo công khai ⇒ IPA trên Release ai cũng tải được và đọc được `GOOGLE_CLOUD_TTS_API_KEY` trong `Info.plist`. Người dùng chọn giữ khoá trong IPA.
-- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Nguồn cập nhật LiveContainer" ở mục CI.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; cú pháp script Python và YAML hợp lệ; thử đọc danh sách release thật bằng `gh` (chỉ đọc).
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Lượt CI của chính commit này là lượt đầu tiên tạo release và nhánh `source`.
-  - Chưa thử trên máy: thêm nguồn trong LiveContainer, cài đè bản mới có giữ dữ liệu không (tài liệu LiveContainer không nói).

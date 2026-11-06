@@ -16,8 +16,11 @@ import SwiftUI
 ///   Lượt kiểm tra nguồn thu nhỏ đã xong, chưa xem (1.3.697) không nháy, như kết quả AI chưa xem.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
-/// Icon và nháy như trên ở **cả hai** lựa chọn của cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`); cài đặt chỉ đổi
-/// việc chạm làm gì (mặc định luôn mở menu — xem `activateByRunningTasks`).
+/// Bảng icon trên chỉ áp cho lựa chọn **Mở thẳng khi chỉ có 1 tác vụ** của cài đặt "Khi chạm hub"
+/// (`FloatingHubTapBehavior`). Lựa chọn **Luôn hiện tất cả mục** (mặc định; người dùng chốt 2026-11-06): icon **luôn**
+/// là `square.stack.3d.up`, kể cả lúc 0 tiến trình — chạm luôn mở menu nên icon không báo mục nào. Nháy như nhau ở cả
+/// hai lựa chọn. Cài đặt đọc bằng `@AppStorage` ngay trong view ⇒ đổi là icon đổi ngay; nút chỉ vẽ lại thêm khi đổi
+/// cài đặt (hiếm), `ButtonState` không mang cài đặt này.
 ///
 /// Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu chưa đọc nào lên hình: không badge số, không chấm
 /// đỏ, không viền tím. Số chưa đọc chỉ còn ở badge của dòng Thông báo trong menu và ở nhãn VoiceOver.
@@ -36,6 +39,9 @@ struct FloatingHubButton: View {
     let state: FloatingHubPresentationReader.ButtonState
     /// Hành động chính (cùng đường với chạm) — rẽ theo số tiến trình, hoặc đóng menu.
     let onActivate: () -> Void
+
+    @AppStorage(FloatingHubTapBehavior.storageKey)
+    private var tapBehavior: FloatingHubTapBehavior = FloatingHubTapBehavior.defaultValue
 
     var body: some View {
         ZStack {
@@ -68,6 +74,10 @@ struct FloatingHubButton: View {
     // MARK: - Glyph
 
     private var glyphName: String {
+        // "Luôn hiện tất cả mục": một icon cố định, không đổi theo số tiến trình (chỉ nháy mới báo đang chạy).
+        if tapBehavior == .alwaysMenu {
+            return "square.stack.3d.up"
+        }
         switch state.runningCount {
         case 0:
             return "bell"

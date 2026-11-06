@@ -7,9 +7,11 @@ import Foundation
 /// - `directWhenSingle`: bảng chạm theo số tiến trình chốt 2026-10-22 — 0 ⇒ màn Thông báo, 1 ⇒ mở thẳng mục đó, từ 2
 ///   ⇒ menu (`FloatingHubContainerViewController.activateByRunningTasks`).
 ///
-/// Chỉ đổi hành vi chạm: icon và nháy của nút vẫn theo số tiến trình ở cả hai lựa chọn. Đọc `UserDefaults` lúc chạm
-/// (`current`) nên đổi cài đặt là có hiệu lực ngay, không cần publisher và nút không vẽ lại. Khoá không có dấu chấm
-/// (`@AppStorage` theo dõi bằng KVO); khoá chưa ghi hoặc giá trị lạ ⇒ `defaultValue`.
+/// Icon của nút cũng theo cài đặt (người dùng chốt 2026-11-06): `alwaysMenu` ⇒ **luôn** `square.stack.3d.up`;
+/// `directWhenSingle` ⇒ icon theo số tiến trình như cũ (`FloatingHubButton.glyphName`). Nháy như nhau ở cả hai.
+/// Chạm đọc `UserDefaults` lúc chạm (`current`), nút đọc bằng `@AppStorage` ⇒ đổi cài đặt là có hiệu lực ngay, không
+/// cần publisher. Khoá không có dấu chấm (`@AppStorage` theo dõi bằng KVO); khoá chưa ghi hoặc giá trị lạ ⇒
+/// `defaultValue`.
 enum FloatingHubTapBehavior: String, CaseIterable, Identifiable {
     case alwaysMenu
     case directWhenSingle
