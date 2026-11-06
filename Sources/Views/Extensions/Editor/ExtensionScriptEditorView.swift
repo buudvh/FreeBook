@@ -1,21 +1,20 @@
 import SwiftUI
 import JavaScriptCore
 
+/// Một file sửa được của gói: `id` = `fileName` = đường dẫn tương đối trong gói (`plugin.json`, `src/search.js`).
 public struct ScriptFileInfo: Identifiable, Hashable, Sendable {
     public let id: String
     public let fileName: String
-    public let fileUrl: URL
     public let isPluginJson: Bool
 
     public var displayName: String {
-        fileUrl.lastPathComponent
+        (fileName as NSString).lastPathComponent
     }
 
-    public init(id: String, fileName: String, fileUrl: URL, isPluginJson: Bool) {
-        self.id = id
-        self.fileName = fileName
-        self.fileUrl = fileUrl
-        self.isPluginJson = isPluginJson
+    public init(relativePath: String) {
+        self.id = relativePath
+        self.fileName = relativePath
+        self.isPluginJson = relativePath == ExtensionPackageBundle.manifestPath
     }
 }
 
@@ -60,6 +59,11 @@ public struct ExtensionScriptEditorView: View {
 
     internal var currentScriptFile: ScriptFileInfo? {
         scriptFiles.first(where: { $0.id == selectedScriptId })
+    }
+
+    /// Gói đang sửa (file `js/<id>.json` hoặc thư mục cũ); bản ghi thiếu `localPath` ⇒ dò trên đĩa theo `packageId`.
+    internal var packagePath: String {
+        ext.localPath.isEmpty ? (ExtensionFolderLocator.packagePath(packageId: ext.packageId) ?? "") : ext.localPath
     }
 
     public var body: some View {
@@ -258,48 +262,15 @@ public struct ExtensionScriptEditorView: View {
         isLoading = true
         errorMessage = ""
 
-        let folderUrl: URL
-        if !ext.localPath.isEmpty {
-            folderUrl = URL(fileURLWithPath: ext.localPath)
-        } else {
-            let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            folderUrl = paths[0].appendingPathComponent("extensions", isDirectory: true).appendingPathComponent(ext.packageId, isDirectory: true)
-        }
-
-        guard FileManager.default.fileExists(atPath: folderUrl.path) else {
+        let path = packagePath
+        guard !path.isEmpty, ExtensionPackageReader.layout(localPath: path) != nil else {
             isLoading = false
-            errorMessage = "Thư mục không tồn tại tại: \(folderUrl.path)"
+            errorMessage = "Không tìm thấy gói tiện ích tại: \(path.isEmpty ? ext.packageId : path)"
             return
         }
 
-        var files: [ScriptFileInfo] = []
-        let fileManager = FileManager.default
-        // iOS: `/var` là symlink tới `/private/var` — enumerator trả đường thật `/private/var/…` còn thư mục tiện ích
-        // là `/var/…`. Giải symlink cả hai về cùng dạng rồi cắt theo tiền tố (trước đây `replacingOccurrences` cắt
-        // giữa chuỗi, để sót `/private` thành "/privatesrc/chap.js"; `+Toolbars` so đường với `ext.localPath` cũng lệch).
-        let rootPath = folderUrl.resolvingSymlinksInPath().standardizedFileURL.path
-
-        if let enumerator = fileManager.enumerator(at: folderUrl, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
-            for case let rawUrl as URL in enumerator {
-                let fileUrl = rawUrl.resolvingSymlinksInPath().standardizedFileURL
-                let fileName = fileUrl.lastPathComponent
-                let extStr = fileUrl.pathExtension.lowercased()
-
-                if extStr == "js" || fileName == "plugin.json" {
-                    let filePath = fileUrl.path
-                    let relativePath = filePath.hasPrefix(rootPath + "/")
-                        ? String(filePath.dropFirst(rootPath.count + 1))
-                        : fileName
-                    let info = ScriptFileInfo(
-                        id: relativePath,
-                        fileName: relativePath,
-                        fileUrl: fileUrl,
-                        isPluginJson: fileName == "plugin.json"
-                    )
-                    files.append(info)
-                }
-            }
-        }
+        // `plugin.json` + mọi file `.js` của gói, đường dẫn tương đối (thư mục cũ hay gói một file đều như nhau).
+        var files = ExtensionPackageReader.listFiles(localPath: path).map(ScriptFileInfo.init(relativePath:))
 
         files.sort { a, b in
             if a.isPluginJson { return true }
@@ -310,27 +281,27 @@ public struct ExtensionScriptEditorView: View {
         self.scriptFiles = files
         if let first = files.first {
             self.selectedScriptId = first.id
-            loadScriptContent(from: first.fileUrl)
+            loadScriptContent(of: first)
         }
 
         isLoading = false
     }
 
-    internal func loadScriptContent(from url: URL) {
-        do {
-            let content = try String(contentsOf: url, encoding: .utf8)
+    internal func loadScriptContent(of file: ScriptFileInfo) {
+        if let data = ExtensionPackageReader.fileData(relativePath: file.fileName, localPath: packagePath),
+           let content = String(data: data, encoding: .utf8) {
             self.scriptContent = content
             self.originalScriptContent = content
             self.syntaxStatusMessage = nil
-        } catch {
-            self.scriptContent = "// Lỗi đọc file: \(error.localizedDescription)"
+        } else {
+            self.scriptContent = "// Lỗi đọc file: không đọc được \(file.fileName) dạng UTF-8"
             self.originalScriptContent = scriptContent
         }
     }
 
     internal func switchScript(to file: ScriptFileInfo) {
         self.selectedScriptId = file.id
-        loadScriptContent(from: file.fileUrl)
+        loadScriptContent(of: file)
     }
 
     @discardableResult
@@ -338,7 +309,8 @@ public struct ExtensionScriptEditorView: View {
         guard let currentFile = currentScriptFile else { return false }
 
         do {
-            try scriptContent.write(to: currentFile.fileUrl, atomically: true, encoding: .utf8)
+            // Hàng đợi ghi gói (`ExtensionPackageWriter`): gói một file thì ghi lại cả gói, thư mục cũ thì ghi file.
+            try ExtensionPackageWriter.writeFile(relativePath: currentFile.fileName, text: scriptContent, localPath: packagePath)
             self.originalScriptContent = scriptContent
             self.modifiedFileIds.remove(currentFile.id)
             ToastManager.shared.show(message: "Đã lưu \(currentFile.fileName) thành công!", type: .success)
@@ -352,7 +324,7 @@ public struct ExtensionScriptEditorView: View {
 
     internal func revertCurrentScript() {
         guard let currentFile = currentScriptFile else { return }
-        loadScriptContent(from: currentFile.fileUrl)
+        loadScriptContent(of: currentFile)
         self.modifiedFileIds.remove(currentFile.id)
         ToastManager.shared.show(message: "Đã khôi phục \(currentFile.fileName)", type: .info)
     }
@@ -376,13 +348,7 @@ public struct ExtensionScriptEditorView: View {
             return
         }
 
-        let folderPath: String
-        if !ext.localPath.isEmpty {
-            folderPath = ext.localPath
-        } else {
-            folderPath = currentFile.fileUrl.deletingLastPathComponent().path
-        }
-
+        let folderPath = packagePath
         let executor = JSExecutor(localPath: folderPath)
         let configs = ExtensionManager.shared.getCombinedConfigs(localPath: folderPath, configJson: ext.configJson)
         executor.injectGlobals(configs)

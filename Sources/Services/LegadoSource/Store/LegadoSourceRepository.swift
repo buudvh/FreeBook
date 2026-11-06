@@ -80,12 +80,16 @@ public final class LegadoSourceRepository {
         }
     }
 
-    /// Tóm tắt + tập nguồn 18+ + command bù cờ `nsfw` của `plugin.json` (chỉ lượt nạp đầu mỗi phiên chạy app).
+    /// Tóm tắt + tập nguồn 18+ + command sửa cờ 18+ của bản ghi.
+    ///
+    /// Sửa cờ: `Extension.isNsfw` của bản ghi lệch với luật phân loại trên nội dung nguồn (`LegadoSourceStore.isNsfw` —
+    /// cùng công thức `makeCommand`) ⇒ upsert lại. Thay cho cờ `nsfw` từng ghi trong `plugin.json` tự sinh (bỏ ở
+    /// 1.3.756): nguồn nhập trước khi có cờ, hay đổi nhóm (🔞) sau khi nhập, tự khớp lại ở lượt nạp kế tiếp. So
+    /// `isNsfw == true` để bản ghi `nil` (không khai) không bị upsert hàng loạt khi kết quả là "không 18+".
     nonisolated private static func readAllSummaries() -> (
         summaries: [LegadoSourceSummary], nsfwIds: Set<String>, backfill: [UpsertExtensionCommand]
     ) {
         let records = ExtensionLibraryRepository.installedSnapshot().filter { LegadoSourceIdentity.isLegado($0) }
-        let shouldBackfill = LegadoSourceNsfwBackfill.beginIfNeeded()
         var result: [LegadoSourceSummary] = []
         result.reserveCapacity(records.count)
         var nsfwIds = Set<String>()
@@ -96,7 +100,11 @@ public final class LegadoSourceRepository {
                 let source = try LegadoSourceStore.loadSource(localPath: ext.localPath)
                 result.append(LegadoSourceSummary(packageId: ext.packageId, source: source, version: ext.version))
                 if ExtensionNsfwClassifier.isLegadoNsfw(ext, groups: source.groups) { nsfwIds.insert(ext.packageId) }
-                if shouldBackfill, let command = LegadoSourceNsfwBackfill.command(for: ext, source: source) {
+                let expected = LegadoSourceStore.isNsfw(source)
+                if (ext.isNsfw == true) != expected,
+                   let command = LegadoSourceStore.makeCommand(
+                    source: source, packageId: ext.packageId, version: ext.version, location: URL(fileURLWithPath: ext.localPath)
+                   ) {
                     backfill.append(command)
                 }
             } catch {
@@ -115,7 +123,7 @@ public final class LegadoSourceRepository {
         backfill: [UpsertExtensionCommand],
         generation: Int
     ) {
-        // Áp kể cả khi lượt này bị bỏ: manifest đã được ghi lại trên đĩa, bản ghi phải theo kịp. Theo lô ở các vòng
+        // Áp kể cả khi lượt này bị bỏ: cờ tính từ nội dung đã đọc trên đĩa, bản ghi phải theo kịp. Theo lô ở các vòng
         // runloop sau — không chặn main lúc danh sách vừa hiện.
         if !backfill.isEmpty {
             DispatchQueue.main.async {
@@ -138,13 +146,13 @@ public final class LegadoSourceRepository {
         scheduleTranslation()
     }
 
-    /// Số command upsert mỗi lô khi bù cờ `nsfw` (lần mở app đầu sau khi cập nhật có thể vài nghìn nguồn).
+    /// Số command upsert mỗi lô khi sửa cờ 18+ (có thể vài nghìn nguồn).
     private static let backfillChunkSize = 200
 
     /// Upsert một lô rồi hẹn lô kế ở vòng runloop sau.
     private static func applyBackfill(_ commands: [UpsertExtensionCommand], from start: Int) {
         guard start < commands.count else {
-            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Đã bù cờ 18+ trong plugin.json cho \(commands.count) nguồn")
+            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Đã sửa cờ 18+ của \(commands.count) nguồn")
             return
         }
         let end = min(start + backfillChunkSize, commands.count)

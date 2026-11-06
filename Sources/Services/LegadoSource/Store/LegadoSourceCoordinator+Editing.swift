@@ -20,10 +20,10 @@ extension LegadoSourceCoordinator {
 
     /// `source.json` của nguồn đã cài (bản đang lưu, kể cả khoá lạ).
     func loadSource(packageId: String) async -> Result<LegadoBookSource, LegadoSourceError> {
-        let directory = Self.directory(forPackageId: packageId)
+        guard let location = Self.location(forPackageId: packageId) else { return .failure(.notFound(packageId)) }
         return await Self.runOnFileQueue {
             do {
-                let data = try LegadoSourceStore.readSourceData(directory: directory)
+                let data = try LegadoSourceStore.readSourceData(at: location)
                 return .success(try LegadoBookSource(data: data))
             } catch let error as LegadoSourceError {
                 return .failure(error)
@@ -36,7 +36,7 @@ extension LegadoSourceCoordinator {
     // MARK: - Sửa JSON
 
     /// Lưu JSON đã sửa của nguồn `packageId`: kiểm (`LegadoSourceJSONValidator`) → cùng `bookSourceUrl` ⇒ ghi qua
-    /// đường nhập sẵn có (ghi `source.json` mới, sinh lại `plugin.json`, `version` + 1, upsert, nạp lại danh sách;
+    /// đường nhập sẵn có (ghi `legado/<id>.json` mới, `version` + 1, upsert, nạp lại danh sách;
     /// runtime tự bỏ bản nguồn đã đệm vì đệm theo `version`). `lastUpdateTime` = lúc lưu (spec §12.5).
     func saveEditedJSON(_ text: String, packageId: String) async -> JSONSaveOutcome {
         let source: LegadoBookSource
@@ -46,8 +46,8 @@ extension LegadoSourceCoordinator {
         }
         let newPackageId = LegadoSourceIdentity.packageId(forSourceUrl: source.bookSourceUrl)
         guard newPackageId == packageId else { return .sourceURLChanged(newPackageId: newPackageId) }
-        let directory = Self.directory(forPackageId: packageId)
-        let stored: Data? = await Self.runOnFileQueue { try? LegadoSourceStore.readSourceData(directory: directory) }
+        let location = Self.location(forPackageId: packageId)
+        let stored: Data? = await Self.runOnFileQueue { location.flatMap { try? LegadoSourceStore.readSourceData(at: $0) } }
         if let stored, stored == source.rawJSON { return .unchanged }
         return await importEdited(source, origin: "trình sửa JSON")
     }
@@ -90,14 +90,15 @@ extension LegadoSourceCoordinator {
     func addGroup(_ group: String, packageIds: [String]) async -> Result<Int, LegadoSourceError> {
         let name = group.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return .failure(.emptyInput) }
-        let directories = Array(Set(packageIds)).map(Self.directory(forPackageId:))
-        guard !directories.isEmpty else { return .success(0) }
+        let locations = Array(Set(packageIds)).map(Self.location(forPackageId:))
+        guard !locations.isEmpty else { return .success(0) }
         let outcome: (changed: Int, failed: Int) = await Self.runOnFileQueue {
             var changed = 0
             var failed = 0
-            for directory in directories {
+            for location in locations {
                 do {
-                    if try LegadoSourceStore.addGroup(name, directory: directory) { changed += 1 }
+                    guard let location else { throw LegadoSourceError.unsafePath }
+                    if try LegadoSourceStore.addGroup(name, at: location) { changed += 1 }
                 } catch {
                     failed += 1
                 }
@@ -117,12 +118,12 @@ extension LegadoSourceCoordinator {
         var seen = Set<String>()
         let ids = packageIds.filter { seen.insert($0).inserted }
         guard let firstId = ids.first else { return .failure(.noSourcesFound) }
-        let directories = ids.map(Self.directory(forPackageId:))
+        let locations = ids.compactMap(Self.location(forPackageId:))
         let singleName = ids.count == 1 ? repository.summaries.first(where: { $0.packageId == firstId })?.name : nil
         let fileName = LegadoSourceExporter.fileName(singleSourceName: singleName, count: ids.count)
         let result: Result<LegadoSourceExportFile, LegadoSourceError> = await Self.runOnFileQueue {
             do {
-                let output = try LegadoSourceExporter.export(directories: directories, fileName: fileName)
+                let output = try LegadoSourceExporter.export(locations: locations, fileName: fileName)
                 return .success(LegadoSourceExportFile(url: output.url, count: output.count, skipped: output.skipped))
             } catch let error as LegadoSourceError {
                 return .failure(error)

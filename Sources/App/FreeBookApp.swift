@@ -24,7 +24,10 @@ struct FreeBookApp: App {
             // Tiện ích & kho đã rời SwiftData sang `extension_store/` (JSON). Phải chuyển dữ liệu cũ TRƯỚC khi
             // mở container: schema mới không còn `Extension`/`Repository`, mở xong SwiftData có thể drop hai bảng.
             LegacyExtensionSQLiteMigrator.runIfNeeded(databaseURL: dbURL)
+            // Gói tiện ích thư mục → một file `extensions/js|legado/<id>.json`; dọn thư mục cũ trên nền sau khi nạp.
+            ExtensionPackageLayoutMigrator.runIfNeeded()
             ExtensionLibraryRepository.shared.load()
+            ExtensionPackageLayoutMigrator.scheduleCleanup()
             let config = ModelConfiguration(url: dbURL)
             container = try ModelContainer(
                 for: Book.self,

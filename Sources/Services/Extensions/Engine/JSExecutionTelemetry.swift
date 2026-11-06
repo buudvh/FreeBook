@@ -60,7 +60,7 @@ enum JSExecutionTelemetry {
 
         let cores = ProcessInfo.processInfo.activeProcessorCount
         if token.concurrentAtStart >= 2 {
-            let source = localPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "-"
+            let source = localPath.map { ExtensionPackageReader.packageName(localPath: $0) } ?? "-"
             AppLogger.shared.log(String(
                 format: "[JSPerf] SyncCall source=%@ fn=%@ ms=%.1f concurrent=%d cores=%d",
                 source, functionName, (now - token.startedAt) * 1000.0, token.concurrentAtStart, cores

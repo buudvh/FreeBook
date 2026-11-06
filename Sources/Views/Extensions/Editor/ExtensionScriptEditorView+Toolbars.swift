@@ -28,13 +28,10 @@ extension ExtensionScriptEditorView {
         return nil
     }
 
+    /// Gói đang sửa (`packagePath`: file `js/<id>.json` hoặc thư mục cũ).
     private var extensionRootURL: URL? {
-        if !ext.localPath.isEmpty { return URL(fileURLWithPath: ext.localPath) }
-        guard let current = currentScriptFile else { return nil }
-        let path = current.fileUrl.path
-        let marker = "/extensions/\(ext.packageId)/"
-        guard let range = path.range(of: marker) else { return current.fileUrl.deletingLastPathComponent() }
-        return URL(fileURLWithPath: String(path[..<range.upperBound].dropLast()))
+        let path = packagePath
+        return path.isEmpty ? nil : URL(fileURLWithPath: path)
     }
 
     internal var quickSymbolToolbar: some View {

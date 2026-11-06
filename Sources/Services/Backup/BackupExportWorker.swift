@@ -233,8 +233,9 @@ public actor BackupExportWorker {
         }
     }
 
+    /// Gói theo `Extension.folder` (`BackupPaths.extensionPackage`): file `extensions/js|legado/<id>.json`, bản ghi chưa
+    /// chuyển thì cả thư mục `extensions/<packageId>/`. Không gói `extensions/common/` nữa.
     private func stageExtensionFolders(records: [BackupPayload.ExtensionRecord], into staging: URL) throws {
-        let root = ExtensionManager.shared.extensionsDirectory
         for (index, record) in records.enumerated() {
             report(BackupProgress(
                 phase: .copyingExtensions,
@@ -242,22 +243,16 @@ public actor BackupExportWorker {
                 totalUnits: records.count,
                 detail: record.name
             ))
-            let folder = root.appendingPathComponent(record.packageId, isDirectory: true)
-            guard BackupExportWorker.isDirectory(folder) else { continue }
-            try BackupZipArchive.stage(
-                directoryAt: folder,
-                entryName: BackupPaths.extensionFolder(packageId: record.packageId),
-                in: staging
-            )
-        }
-
-        let common = root.appendingPathComponent(BackupPaths.extensionCommonFolderName, isDirectory: true)
-        if BackupExportWorker.isDirectory(common) {
-            try BackupZipArchive.stage(
-                directoryAt: common,
-                entryName: BackupPaths.extensionCommonFolder,
-                in: staging
-            )
+            guard let package = BackupPaths.extensionPackage(packageId: record.packageId, folder: record.localPathRelative) else {
+                continue
+            }
+            if package.isFile {
+                guard FileManager.default.fileExists(atPath: package.url.path) else { continue }
+                try BackupZipArchive.stage(fileAt: package.url, entryName: package.entryName, in: staging)
+            } else {
+                guard BackupExportWorker.isDirectory(package.url) else { continue }
+                try BackupZipArchive.stage(directoryAt: package.url, entryName: package.entryName, in: staging)
+            }
         }
     }
 

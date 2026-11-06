@@ -1,16 +1,39 @@
 import Foundation
 
-/// Cài lại file extension từ archive rồi dựng `UpsertExtensionCommand` cho `ExtensionTransactionCoordinator`.
+/// Cài lại gói tiện ích từ archive rồi dựng `UpsertExtensionCommand` cho `ExtensionTransactionCoordinator`.
 ///
-/// Nguyên tắc: **giữ bản của máy**. Thư mục đã có chỉ bị thay khi `version` trong backup lớn hơn
-/// bản đang cài. `localPath` của command luôn tính lại từ thư mục thật trên máy này (coordinator đổi nó sang
-/// `folder` tương đối và từ chối thư mục thiếu `plugin.json`) — không dùng đường dẫn của máy tạo backup.
+/// Nhận cả hai dạng archive:
+/// - **mới** (1.3.756): `extensions/js/<id>.json` (gói JS) / `extensions/legado/<id>.json` (nguồn Legado);
+/// - **cũ**: thư mục `extensions/<id>/` — JS thì gom thư mục `plugin.json` thành gói, Legado thì lấy `source.json`.
+/// Luôn cài ra bố cục mới. `extensions/common/` của archive cũ bị bỏ qua (không code nào đọc nó từ 02/07/2026).
+///
+/// Nguyên tắc: **giữ bản của máy**. Gói đã có chỉ bị thay khi `version` trong backup lớn hơn bản đang cài; bản backup
+/// được kiểm đọc được (gói JSON hợp lệ / nguồn parse được) **trước** khi ghi đè. `localPath` của command luôn là gói thật
+/// trên máy này — không dùng đường dẫn của máy tạo backup.
 public enum BackupExtensionInstaller {
     public struct Outcome: Sendable {
         public var commands: [UpsertExtensionCommand] = []
         public var installedFolders = 0
         public var keptLocalFolders = 0
         public var errors: [String] = []
+    }
+
+    /// Gói của một bản ghi trong archive đã giải nén.
+    private enum ArchivedPackage {
+        /// File một gói (`extensions/js|legado/<id>.json`).
+        case file(URL)
+        /// Thư mục kiểu cũ `extensions/<id>/`.
+        case directory(URL)
+    }
+
+    private enum InstallError: LocalizedError {
+        case unreadable(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable(let message): return message
+            }
+        }
     }
 
     /// - Parameter existingVersions: packageId → version đang cài (`BackupLibraryWriter.existingExtensionVersions`).
@@ -20,30 +43,26 @@ public enum BackupExtensionInstaller {
         existingVersions: [String: Int]
     ) -> Outcome {
         var outcome = Outcome()
-        let root = ExtensionManager.shared.extensionsDirectory
-
-        installCommonFolder(from: extractedDirectory, root: root, into: &outcome)
 
         for record in records {
-            let source = extractedDirectory
-                .appendingPathComponent(BackupPaths.extensionFolder(packageId: record.packageId), isDirectory: true)
-            let target = root.appendingPathComponent(record.packageId, isDirectory: true)
+            let isLegado = LegadoSourceIdentity.isLegado(type: record.type)
+            let archived = archivedPackage(record.packageId, isLegado: isLegado, in: extractedDirectory)
+            var packagePath = localPackagePath(packageId: record.packageId)
+            let hasTarget = packagePath != nil
 
-            let hasSource = isDirectory(source)
-            let hasTarget = isDirectory(target)
+            // Không có gói ở cả hai phía thì bản ghi sẽ trỏ vào chỗ rỗng — bỏ qua. Archive cũ (bản SwiftData) còn chứa
+            // hàng registry **chưa cài** (`localPathRelative` rỗng, không kèm thư mục): bỏ qua cả khi máy này đang cài
+            // tiện ích đó, để metadata registry không đè bản ghi đang cài. Danh mục chưa cài tự có lại khi làm mới kho.
+            guard archived != nil || (hasTarget && !record.localPathRelative.isEmpty) else { continue }
 
-            // Không có file ở cả hai phía thì bản ghi sẽ trỏ vào thư mục rỗng — bỏ qua. Archive cũ (bản SwiftData)
-            // còn chứa hàng registry **chưa cài** (`localPathRelative` rỗng, không kèm thư mục): bỏ qua cả khi máy
-            // này đang cài tiện ích đó, để metadata registry không đè bản ghi đang cài. Danh mục chưa cài tự có
-            // lại khi làm mới kho.
-            guard hasSource || (hasTarget && !record.localPathRelative.isEmpty) else { continue }
-
-            if hasSource {
-                let localVersion = existingVersions[record.packageId]
+            let localVersion = existingVersions[record.packageId]
+            var version = localVersion ?? record.version
+            if let archived {
                 let shouldReplace = !hasTarget || record.version > (localVersion ?? Int.min)
                 if shouldReplace {
                     do {
-                        try replace(source: source, target: target)
+                        packagePath = try install(archived, packageId: record.packageId, isLegado: isLegado)
+                        version = record.version
                         outcome.installedFolders += 1
                     } catch {
                         outcome.errors.append("Extension \(record.packageId): \(error.localizedDescription)")
@@ -54,19 +73,21 @@ public enum BackupExtensionInstaller {
                     outcome.keptLocalFolders += 1
                 }
             }
+            guard let packagePath else { continue }
 
-            // Nguồn Legado: bản ghi dựng từ thư mục **thật** sau bước thay (type/version theo `plugin.json`, kèm
-            // `installOrigin` riêng) — không lấy metadata của archive khi máy giữ bản mới hơn.
-            if LegadoSourceIdentity.isLegado(type: record.type) {
-                if let command = LegadoSourceStore.restoreCommand(directory: target, packageId: record.packageId) {
+            // Nguồn Legado: bản ghi dựng từ nguồn **thật** sau bước thay (loại theo nội dung, kèm `installOrigin` riêng và
+            // cờ 18+); `version` theo bản ghi backup khi bản backup thay vào, theo bản ghi máy này khi giữ bản của máy.
+            if isLegado {
+                if let command = LegadoSourceStore.restoreCommand(
+                    location: URL(fileURLWithPath: packagePath), packageId: record.packageId, version: version
+                ) {
                     outcome.commands.append(command)
                 } else {
-                    outcome.errors.append("Nguồn Legado \(record.name): thư mục thiếu source.json/plugin.json")
+                    outcome.errors.append("Nguồn Legado \(record.name): không đọc được nguồn")
                 }
                 continue
             }
 
-            let mainFolder = ExtensionPackageInstaller.findMainFolder(at: target)
             outcome.commands.append(
                 UpsertExtensionCommand(
                     packageId: record.packageId,
@@ -78,7 +99,7 @@ public enum BackupExtensionInstaller {
                     desc: record.desc,
                     type: record.type,
                     locale: record.locale,
-                    localPath: mainFolder.path,
+                    localPath: packagePath,
                     downloadUrl: record.downloadUrl,
                     configJson: record.configJson,
                     repositoryUrl: record.repositoryUrl
@@ -89,46 +110,61 @@ public enum BackupExtensionInstaller {
         return outcome
     }
 
-    /// `extensions/common` là thư mục JS dùng chung (`load(...)` của script), không thuộc packageId nào.
-    /// Gộp theo từng file: chỉ thêm file máy còn thiếu, không đụng bản đang có.
-    private static func installCommonFolder(from extractedDirectory: URL, root: URL, into outcome: inout Outcome) {
-        let source = extractedDirectory
-            .appendingPathComponent(BackupPaths.extensionCommonFolder, isDirectory: true)
-        guard isDirectory(source) else { return }
-
-        let target = root.appendingPathComponent(BackupPaths.extensionCommonFolderName, isDirectory: true)
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: source.path) else { return }
-
-        do {
-            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
-        } catch {
-            outcome.errors.append("Extension common: \(error.localizedDescription)")
-            return
+    /// Gói đang có trên máy: theo bản ghi đã cài (khi gói còn trên đĩa), không có bản ghi ⇒ dò trên đĩa theo `packageId`.
+    private static func localPackagePath(packageId: String) -> String? {
+        if let path = ExtensionLibraryRepository.snapshot(packageId: packageId)?.localPath,
+           !path.isEmpty, ExtensionPackageReader.isPresent(localPath: path) {
+            return path
         }
-
-        for name in names.sorted() {
-            let fileTarget = target.appendingPathComponent(name)
-            guard !FileManager.default.fileExists(atPath: fileTarget.path) else { continue }
-            do {
-                try FileManager.default.copyItem(at: source.appendingPathComponent(name), to: fileTarget)
-            } catch {
-                outcome.errors.append("Extension common/\(name): \(error.localizedDescription)")
-            }
-        }
+        return ExtensionFolderLocator.packagePath(packageId: packageId)
     }
 
-    private static func replace(source: URL, target: URL) throws {
-        if FileManager.default.fileExists(atPath: target.path) {
-            try FileManager.default.removeItem(at: target)
-        }
-        try FileManager.default.createDirectory(
-            at: target.deletingLastPathComponent(),
-            withIntermediateDirectories: true
+    /// Dạng mới trước (`extensions/js|legado/<id>.json`), rồi thư mục cũ `extensions/<id>/`.
+    private static func archivedPackage(_ packageId: String, isLegado: Bool, in extractedDirectory: URL) -> ArchivedPackage? {
+        guard ExtensionFolderLocator.isSafePackageId(packageId) else { return nil }
+        let parent = isLegado ? ExtensionFolderLocator.legadoFolderName : ExtensionFolderLocator.jsFolderName
+        let file = extractedDirectory.appendingPathComponent(
+            BackupPaths.extensionPackageEntry(folder: parent + "/" + packageId + "." + ExtensionFolderLocator.packageFileExtension)
         )
-        try FileManager.default.copyItem(at: source, to: target)
+        if isRegularFile(file) { return .file(file) }
+        let directory = extractedDirectory
+            .appendingPathComponent(BackupPaths.extensionFolder(packageId: packageId), isDirectory: true)
+        return isDirectory(directory) ? .directory(directory) : nil
+    }
+
+    /// Ghi gói từ archive ra bố cục mới; trả đường dẫn file đã ghi. Kiểm nội dung đọc được trước khi ghi đè.
+    private static func install(_ archived: ArchivedPackage, packageId: String, isLegado: Bool) throws -> String {
+        if isLegado {
+            let sourceURL: URL
+            switch archived {
+            case .file(let url): sourceURL = url
+            case .directory(let url): sourceURL = url.appendingPathComponent(ExtensionPackageReader.legadoSourceFileName)
+            }
+            guard let data = try? Data(contentsOf: sourceURL), (try? LegadoBookSource(data: data)) != nil else {
+                throw InstallError.unreadable("nguồn Legado trong backup hỏng")
+            }
+            return try LegadoSourceStore.writeSource(sourceJSON: data, packageId: packageId).path
+        }
+
+        switch archived {
+        case .file(let url):
+            guard let target = ExtensionFolderLocator.jsPackageURL(packageId: packageId) else {
+                throw ExtensionPackageWriter.WriteError.unsafePackageId(packageId)
+            }
+            guard let data = try? Data(contentsOf: url) else { throw InstallError.unreadable("không đọc được gói trong backup") }
+            try ExtensionPackageWriter.writePackageData(data, to: target)
+            return target.path
+        case .directory(let url):
+            let mainFolder = ExtensionPackageInstaller.findMainFolder(at: url)
+            return try ExtensionPackageWriter.install(directory: mainFolder, packageId: packageId).path
+        }
     }
 
     private static func isDirectory(_ url: URL) -> Bool {
         (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+    }
+
+    private static func isRegularFile(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
     }
 }

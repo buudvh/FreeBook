@@ -1,8 +1,9 @@
 import Foundation
 
-/// Nhập nguồn Legado: đọc dữ liệu (tệp / URL / chuỗi), phân loại từng nguồn, ghi thư mục, dựng `UpsertExtensionCommand`.
+/// Nhập nguồn Legado: đọc dữ liệu (tệp / URL / chuỗi), phân loại từng nguồn, ghi `legado/<id>.json`, dựng
+/// `UpsertExtensionCommand`.
 ///
-/// **Nonisolated**: `importBatch` chạy trên `LegadoSourceStore.fileQueue` (parse + ghi vài nghìn thư mục không bao
+/// **Nonisolated**: `importBatch` chạy trên `LegadoSourceStore.fileQueue` (parse + ghi vài nghìn file không bao
 /// giờ chạm main). Main chỉ nhận `Outcome` rồi gửi coordinator **một** lời gọi `upsertExtensions(commands:)`.
 ///
 /// Luật (spec §1.1, §1.6, §1.8, §1.9 + plan đã duyệt):
@@ -10,7 +11,7 @@ import Foundation
 /// - Bỏ trùng theo `bookSourceUrl` đã trim trong cùng lượt, giữ bản gặp trước.
 /// - Loại 0 → chữ, 2 → tranh, 4 → video; 1 (audio), 3 (tệp) và số lạ → bỏ qua kèm lý do. Vắng / không parse được → 0.
 /// - Nguồn chữ phải đạt rule tối thiểu (bản nới §1.9); tranh/video chỉ cần URL + tên (chưa chạy ở đợt 1).
-/// - Nhập lại cùng khoá = cập nhật: ghi đè nội dung (kể cả `enabled` theo tệp), `version` của `plugin.json` + 1.
+/// - Nhập lại cùng khoá = cập nhật: ghi đè nội dung (kể cả `enabled` theo tệp), `version` của bản ghi + 1.
 ///   Bytes trùng khít ⇒ "giống hệt", không ghi lại.
 public enum LegadoSourceImporter {
     struct Outcome: Sendable {
@@ -148,16 +149,20 @@ public enum LegadoSourceImporter {
         record: Extension?,
         into outcome: inout Outcome
     ) {
-        let directory = LegadoSourceStore.directoryURL(packageId: packageId)
-        let oldData = try? LegadoSourceStore.readSourceData(directory: directory)
-        let manifestVersion = LegadoSourceStore.manifestVersion(directory: directory)
+        // Bản đang có: theo bản ghi (file mới hoặc thư mục cũ chưa chuyển), không có bản ghi ⇒ file mới (mồ côi).
+        let recordPath = record?.localPath ?? ""
+        let existingLocation: URL? = recordPath.isEmpty
+            ? LegadoSourceStore.fileURL(packageId: packageId)
+            : URL(fileURLWithPath: recordPath)
+        let oldData = existingLocation.flatMap { try? LegadoSourceStore.readSourceData(at: $0) }
 
-        if let oldData, oldData == sourceJSON, let manifestVersion {
+        if let oldData, oldData == sourceJSON, let existingLocation {
             outcome.summary.unchanged += 1
-            // File đủ mà index mất bản ghi (vd index hỏng) ⇒ vẫn gửi command để bản ghi quay lại.
+            // File đủ mà index mất bản ghi (vd index hỏng) ⇒ vẫn gửi command để bản ghi quay lại (`version` 1: không còn
+            // `plugin.json` giữ version, bản ghi là nơi duy nhất).
             if record == nil,
                let command = LegadoSourceStore.makeCommand(
-                source: source, packageId: packageId, version: manifestVersion, directory: directory
+                source: source, packageId: packageId, version: 1, location: existingLocation
                ) {
                 outcome.commands.append(command)
             }
@@ -165,16 +170,19 @@ public enum LegadoSourceImporter {
         }
 
         let isUpdate = oldData != nil || record != nil
-        let version = max(manifestVersion ?? 0, record?.version ?? 0) + 1
+        let version = (record?.version ?? 0) + 1
+        // Luôn ghi file mới; bản ghi còn ở thư mục cũ thì upsert đổi `folder` sang file, thư mục cũ thành mồ côi và được
+        // lượt dọn lúc mở app sau xoá (`ExtensionPackageLayoutMigrator`).
+        let location: URL
         do {
-            try LegadoSourceStore.writeSource(sourceJSON: sourceJSON, source: source, packageId: packageId, version: version)
+            location = try LegadoSourceStore.writeSource(sourceJSON: sourceJSON, packageId: packageId)
         } catch {
             outcome.summary.skip(.writeFailed)
             outcome.summary.writeErrors.append("\(source.bookSourceName): \(error.localizedDescription)")
             return
         }
         guard let command = LegadoSourceStore.makeCommand(
-            source: source, packageId: packageId, version: version, directory: directory
+            source: source, packageId: packageId, version: version, location: location
         ) else { return }
         outcome.commands.append(command)
         if isUpdate {

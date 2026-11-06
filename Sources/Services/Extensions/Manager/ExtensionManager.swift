@@ -87,14 +87,6 @@ public final class ExtensionManager: ObservableObject {
         return directory
     }
     
-    public var commonDirectory: URL {
-        let directory = extensionsDirectory.appendingPathComponent("common", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: directory.path) {
-            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
-        }
-        return directory
-    }
-    
     // Tải danh sách registry từ một URL kho (plugin.json)
     /// Bỏ cache URLSession cục bộ: đây là lượt kiểm tra cập nhật, bản cũ trong cache sẽ giấu phiên bản mới của kho.
     public func fetchRegistry(from urlString: String, timeout: TimeInterval = 60) async throws -> [ExtensionRegistryItem] {
@@ -112,9 +104,8 @@ public final class ExtensionManager: ObservableObject {
         return try JSONDecoder().decode(RegistryResponse.self, from: data)
     }
     
-    // Cài đặt/Cập nhật một extension. Giải nén + giải mã ở thư mục tạm rồi mới thay `extensions/<packageId>/`
-    // (`ExtensionPackageInstaller`) ⇒ lỗi giữa chừng không làm mất bản đang cài.
-    // Trả về thư mục chứa plugin.json — có thể là thư mục con khi zip bọc mọi thứ trong 1 folder.
+    // Cài đặt/Cập nhật một extension. Giải nén + giải mã ở thư mục tạm rồi mới gom thành `extensions/js/<packageId>.json`
+    // (`ExtensionPackageInstaller`) ⇒ lỗi giữa chừng không làm mất bản đang cài. Trả về đường dẫn file gói.
     public func install(item: ExtensionRegistryItem, packageId: String) async throws -> String {
         guard let zipUrl = URL(string: item.path) else {
             throw NSError(domain: "ExtensionManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid ZIP URL"])
@@ -123,9 +114,8 @@ public final class ExtensionManager: ObservableObject {
         // 1. Tải file ZIP về thư mục tạm
         let (tempZipUrl, _) = try await URLSession.shared.download(from: zipUrl)
         
-        // 2. Dựng ở thư mục tạm, thành công mới đổi chỗ vào thư mục cài
-        let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
-        return try ExtensionPackageInstaller.install(archive: tempZipUrl, replacing: destFolder).path
+        // 2. Dựng ở thư mục tạm, thành công mới gom thành file gói
+        return try ExtensionPackageInstaller.install(archive: tempZipUrl, packageId: packageId).path
     }
     
     // Cài đặt extension từ tệp local .zip được chọn từ máy
@@ -148,11 +138,10 @@ public final class ExtensionManager: ObservableObject {
             }
         }
 
-        // Giải nén, kiểm plugin.json và giải mã ở thư mục tạm; chỉ đổi chỗ vào `extensions/` ở bước cuối
-        // (`ExtensionPackageInstaller.replace`) ⇒ plugin.json hỏng hay script không giải mã được không làm mất bản đang cài.
+        // Giải nén, kiểm plugin.json và giải mã ở thư mục tạm; chỉ ghi `extensions/js/<packageId>.json` ở bước cuối
+        // (`ExtensionPackageWriter`) ⇒ plugin.json hỏng hay script không giải mã được không làm mất bản đang cài.
         return try ExtensionPackageInstaller.withStagedPackage(archive: fileUrl) { _, mainFolder in
-            let jsonData = try Data(contentsOf: mainFolder.appendingPathComponent("plugin.json"))
-            guard let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            guard let json = ExtensionPackageReader.manifest(localPath: mainFolder.path) else {
                 throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Tệp plugin.json không hợp lệ"])
             }
 
@@ -178,11 +167,11 @@ public final class ExtensionManager: ObservableObject {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
 
-            let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
-            try ExtensionPackageInstaller.replace(destFolder, with: mainFolder)
+            // `packageId` suy từ tên có `/` (vd "A/B") trước đây tạo thư mục lồng; giờ là lỗi (không làm được tên file).
+            let packageFile = try ExtensionPackageWriter.install(directory: mainFolder, packageId: packageId)
 
             return (
-                mainFolderPath: destFolder.path,
+                mainFolderPath: packageFile.path,
                 packageId: packageId,
                 name: name,
                 author: author,

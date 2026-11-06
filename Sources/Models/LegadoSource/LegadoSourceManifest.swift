@@ -7,8 +7,9 @@ import Foundation
 /// (nguyên văn `source.json`, không có `plugin.json` đi kèm). Hai hằng `author` / `locale` là nguồn duy nhất:
 /// `LegadoSourceIdentity` (Services) trỏ tới đây.
 ///
-/// Không có `version` (nằm ở bản ghi `installed.json`) và `nsfw` (do `ExtensionNsfwClassifier` ở Services tính) — khác
-/// `plugin.json` mà `LegadoSourceStore.manifestData` ghi cạnh `source.json` ở bố cục thư mục cũ.
+/// Không có `version` (nằm ở bản ghi `installed.json`) và `nsfw` (do `ExtensionNsfwClassifier` ở Services tính, mang
+/// trong command upsert của `LegadoSourceStore.makeCommand`). Bố cục thư mục cũ còn `plugin.json` tự sinh (có hai trường
+/// đó); từ 1.3.756 app không ghi nó nữa.
 public enum LegadoSourceManifest {
     /// `metadata.author` của mọi nguồn Legado.
     public static let author = "Legado"

@@ -11,7 +11,8 @@ import Foundation
 /// ## Ghi phải MERGE, tuyệt đối không ghi đè cả file
 /// `plugin.json` còn chứa `config` — nguồn mặc định cho `getCombinedConfigs` — và các khoá trỏ tới file
 /// script. Ghi lại cả file bằng một dict mới là xoá sạch chúng, tức hỏng cấu hình và hỏng cả tiện ích. Ở đây
-/// chỉ **sửa đúng những khoá được truyền vào** rồi ghi `.atomic`.
+/// chỉ **sửa đúng những khoá được truyền vào** rồi ghi qua `ExtensionPackageWriter.modifyFile` (đọc – sửa – ghi trong
+/// hàng đợi ghi gói, nguyên tử): gói JS một file thì chỉ thay mục `plugin.json` trong gói, thư mục cũ thì ghi file.
 ///
 /// Hệ quả đã biết: `JSONSerialization` ghi lại file với thứ tự khoá sắp xếp (`sortedKeys`) và thụt lề đều, nên
 /// `plugin.json` bị **định dạng lại** sau lần sửa đầu tiên. Nội dung vẫn tương đương về ngữ nghĩa; đây là giá
@@ -56,13 +57,9 @@ enum ExtensionMetadataEditor {
         }
     }
 
-    static func pluginJsonURL(localPath: String) -> URL {
-        URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-    }
-
-    /// Đọc 9 trường. `version` có thể là số hoặc chuỗi trong file nên được ép về chuỗi.
+    /// Đọc 9 trường (`ExtensionPackageReader`). `version` có thể là số hoặc chuỗi trong file nên được ép về chuỗi.
     static func read(localPath: String) throws -> Metadata {
-        guard let data = try? Data(contentsOf: pluginJsonURL(localPath: localPath)) else {
+        guard let data = ExtensionPackageReader.manifestData(localPath: localPath) else {
             throw EditorError.missingPluginJson
         }
         guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
@@ -93,10 +90,27 @@ enum ExtensionMetadataEditor {
     /// sai không ghi được `author`/`version`/`language` (ba trường chỉ đọc).
     @discardableResult
     static func write(changes: [String: String], localPath: String) throws -> [String] {
-        let url = pluginJsonURL(localPath: localPath)
-        guard let data = try? Data(contentsOf: url) else {
-            throw EditorError.missingPluginJson
+        var changed: [String] = []
+        do {
+            try ExtensionPackageWriter.modifyFile(
+                relativePath: ExtensionPackageBundle.manifestPath,
+                localPath: localPath
+            ) { data -> String? in
+                changed = []
+                guard let data else { throw EditorError.missingPluginJson }
+                guard let output = try merged(changes, into: data, changed: &changed) else { return nil }
+                return String(decoding: output, as: UTF8.self)
+            }
+        } catch let error as EditorError {
+            throw error
+        } catch {
+            throw EditorError.writeFailed(error.localizedDescription)
         }
+        return changed
+    }
+
+    /// Bytes `plugin.json` mới sau khi gộp `changes`; `nil` khi không khoá nào đổi.
+    private static func merged(_ changes: [String: String], into data: Data, changed: inout [String]) throws -> Data? {
         guard var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw EditorError.invalidPluginJson
         }
@@ -104,14 +118,13 @@ enum ExtensionMetadataEditor {
         let hasMetadataBlock = json["metadata"] is [String: Any]
         var block = (json["metadata"] as? [String: Any]) ?? json
 
-        var changed: [String] = []
         for key in editableKeys {
             guard let newValue = changes[key] else { continue }
             if (block[key] as? String) == newValue { continue }
             block[key] = newValue
             changed.append(key)
         }
-        guard !changed.isEmpty else { return [] }
+        guard !changed.isEmpty else { return nil }
 
         if hasMetadataBlock {
             json["metadata"] = block
@@ -125,11 +138,6 @@ enum ExtensionMetadataEditor {
         ) else {
             throw EditorError.invalidPluginJson
         }
-        do {
-            try output.write(to: url, options: .atomic)
-        } catch {
-            throw EditorError.writeFailed(error.localizedDescription)
-        }
-        return changed
+        return output
     }
 }

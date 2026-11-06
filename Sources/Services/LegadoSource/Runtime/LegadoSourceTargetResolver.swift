@@ -1,10 +1,12 @@
 import Foundation
 
-/// `localPath` (thư mục tiện ích, đúng tham số mà call site truyền cho `SourceRuntime`) → nguồn Legado đã nạp.
+/// `localPath` (gói tiện ích — file `legado/<id>.json` hoặc thư mục cũ, đúng tham số mà call site truyền cho
+/// `SourceRuntime`) → nguồn Legado đã nạp.
 ///
-/// - Nhận diện theo `Extension.type` họ `legado*` của bản ghi đã cài (bảng chụp có lock, không `await`). Thư mục ngoài
-///   kho (bản nháp của công cụ gỡ lỗi) thì đọc `metadata.type` của `plugin.json`.
-/// - `source.json` được parse một lần cho mỗi `(localPath, version)` rồi giữ trong bộ nhớ: chương đọc liên tục
+/// - Nhận diện theo `Extension.type` họ `legado*` của bản ghi đã cài (bảng chụp có lock, không `await`). Gói ngoài
+///   kho (bản nháp của công cụ gỡ lỗi) thì đọc `metadata.type` qua `ExtensionManifestReader` (manifest dựng trong RAM
+///   với file nguồn Legado).
+/// - Nguồn được parse một lần cho mỗi `(localPath, version)` rồi giữ trong bộ nhớ: chương đọc liên tục
 ///   (Reader, TTS, tải truyện) không phải parse lại JSON nguồn mỗi lần.
 /// - Nguồn đang **tắt** vẫn chạy được thông tin/mục lục/nội dung (sách đã ở trên kệ vẫn đọc tiếp); việc lọc nguồn tắt
 ///   khỏi Tìm kiếm/Khám phá là của call site (`LegadoSourcePolicy`).

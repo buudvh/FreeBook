@@ -4,7 +4,7 @@ import Foundation
 /// xoá tất cả. View không đụng file — chỉ gọi các hàm ở đây và hiện `Result`.
 ///
 /// Luật:
-/// - **File trước, bản ghi sau**: ghi/xoá thư mục trên `LegadoSourceStore.fileQueue`, xong mới gọi
+/// - **File trước, bản ghi sau**: ghi/xoá file nguồn trên `LegadoSourceStore.fileQueue`, xong mới gọi
 ///   `ExtensionTransactionCoordinator` (một lời gọi cho cả lô), rồi nạp lại `LegadoSourceRepository`.
 /// - Mọi thao tác file đi qua cùng một hàng đợi tuần tự ⇒ bấm bật/tắt liên tiếp được ghi đúng thứ tự; kết quả về main
 ///   bằng `DispatchQueue.main.async` từ chính hàng đợi đó ⇒ áp đúng thứ tự với các lượt nạp.
@@ -97,10 +97,10 @@ public final class LegadoSourceCoordinator {
             return isEnabled != enabled
         }
         guard !targets.isEmpty else { return .success(0) }
-        let directories = targets.map(Self.directory(forPackageId:))
+        let locations = targets.map(Self.location(forPackageId:))
         let token = repository.beginEnabledChange(targets, enabled: enabled)
         let failed: [String] = await withCheckedContinuation { continuation in
-            Self.enqueuePatch(enabled: enabled, packageIds: targets, directories: directories, token: token) { failures in
+            Self.enqueuePatch(enabled: enabled, packageIds: targets, locations: locations, token: token) { failures in
                 continuation.resume(returning: failures)
             }
         }
@@ -114,15 +114,16 @@ public final class LegadoSourceCoordinator {
     nonisolated private static func enqueuePatch(
         enabled: Bool,
         packageIds: [String],
-        directories: [URL],
+        locations: [URL?],
         token: Int,
         completion: @escaping @Sendable ([String]) -> Void
     ) {
         LegadoSourceStore.fileQueue.async {
             var failures: [String] = []
-            for (id, directory) in zip(packageIds, directories) {
+            for (id, location) in zip(packageIds, locations) {
                 do {
-                    try LegadoSourceStore.setEnabled(enabled, directory: directory)
+                    guard let location else { throw LegadoSourceError.unsafePath }
+                    try LegadoSourceStore.setEnabled(enabled, at: location)
                 } catch {
                     failures.append(id)
                 }
@@ -141,7 +142,7 @@ public final class LegadoSourceCoordinator {
 
     // MARK: - Xoá
 
-    /// Xoá một nguồn: ẩn ngay, xoá thư mục trên nền, rồi xoá bản ghi.
+    /// Xoá một nguồn: ẩn ngay, xoá file trên nền, rồi xoá bản ghi.
     public func delete(packageId: String) async -> Result<Void, LegadoSourceError> {
         switch await deleteSources([packageId]) {
         case .success: return .success(())
@@ -164,8 +165,8 @@ public final class LegadoSourceCoordinator {
     }
 
     func deleteSources(_ packageIds: [String]) async -> Result<Int, LegadoSourceError> {
-        let directories = packageIds.map(Self.directory(forPackageId:))
-        // Khoá đăng nhập của engine là `bookSourceUrl` — đọc trước khi thư mục và bản tóm tắt biến mất.
+        let locations = packageIds.map(Self.location(forPackageId:))
+        // Khoá đăng nhập của engine là `bookSourceUrl` — đọc trước khi file và bản tóm tắt biến mất.
         var loginKeys: [String: String] = [:]
         for id in packageIds {
             if let url = LegadoSourceRepository.summarySnapshot(packageId: id)?.bookSourceUrl, !url.isEmpty {
@@ -175,9 +176,10 @@ public final class LegadoSourceCoordinator {
         let token = repository.beginRemoval(packageIds)
         let failed: [String] = await Self.runOnFileQueue {
             var failures: [String] = []
-            for (id, directory) in zip(packageIds, directories) {
+            for (id, location) in zip(packageIds, locations) {
                 do {
-                    try LegadoSourceStore.removeDirectory(directory)
+                    guard let location else { throw LegadoSourceError.unsafePath }
+                    try LegadoSourceStore.remove(at: location)
                 } catch {
                     failures.append(id)
                 }
@@ -200,20 +202,18 @@ public final class LegadoSourceCoordinator {
         AppLogger.shared.log("🧹 📚 [LegadoStore] Đã xoá \(removed.count)/\(packageIds.count) nguồn Legado")
         if let indexError { return .failure(.index(indexError)) }
         guard failed.isEmpty else {
-            AppLogger.shared.log("❌ 📚 [LegadoStore] Không xoá được thư mục của \(failed.count) nguồn")
-            return .failure(.fileWrite("không xoá được \(failed.count) thư mục"))
+            AppLogger.shared.log("❌ 📚 [LegadoStore] Không xoá được file của \(failed.count) nguồn")
+            return .failure(.fileWrite("không xoá được \(failed.count) nguồn"))
         }
         return .success(removed.count)
     }
 
     // MARK: - Helpers
 
-    /// Thư mục của bản ghi trong kho tiện ích; dự phòng `extensions/<packageId>/`.
-    nonisolated static func directory(forPackageId packageId: String) -> URL {
-        if let ext = ExtensionLibraryRepository.snapshot(packageId: packageId), !ext.localPath.isEmpty {
-            return URL(fileURLWithPath: ext.localPath, isDirectory: true)
-        }
-        return LegadoSourceStore.directoryURL(packageId: packageId)
+    /// Vị trí nguồn của bản ghi trong kho tiện ích (file `legado/<id>.json` hoặc thư mục cũ); dự phòng file mới.
+    /// `nil` khi `packageId` không làm được tên file.
+    nonisolated static func location(forPackageId packageId: String) -> URL? {
+        LegadoSourceStore.location(packageId: packageId)
     }
 
     /// Chạy `work` trên `fileQueue` (tuần tự với mọi thao tác file khác) và chờ kết quả.

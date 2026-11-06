@@ -7,7 +7,8 @@ import Foundation
 /// file). Vẫn trả `Result<_, ExtensionTransactionError>` để View xử lý lỗi như cũ.
 ///
 /// Luật giữ nguyên từ bản SwiftData:
-/// - Cài/cập nhật: **file trước, bản ghi sau** — `upsertExtension` chỉ nhận `localPath` có `plugin.json`.
+/// - Cài/cập nhật: **file trước, bản ghi sau** — `upsertExtension` chỉ nhận `localPath` là gói có trên đĩa (file
+///   `js/<id>.json` / `legado/<id>.json`, hoặc thư mục cũ có `plugin.json` — `ExtensionFolderLocator`).
 /// - Gỡ (`uninstallExtension`): xoá file rồi xoá bản ghi + `localStorage` (xoá sạch). Xoá kho (`deleteRepository`)
 ///   **không** gỡ tiện ích nào (1.3.749).
 @MainActor
@@ -68,7 +69,7 @@ public final class ExtensionTransactionCoordinator {
     /// - command có `localPath` (tuyệt đối) ⇒ insert/update, `localPath` được đổi sang `folder` tương đối;
     /// - command không có `localPath` mà chưa có bản ghi ⇒ no-op thành công (mục catalog chưa cài không lưu).
     ///
-    /// `localPath` không tìm được thư mục có `plugin.json` ⇒ command đó lỗi; các command khác vẫn được ghi,
+    /// `localPath` không tìm được gói nào trên đĩa ⇒ command đó lỗi; các command khác vẫn được ghi,
     /// kết quả là `.failure` liệt kê tên lỗi.
     public func upsertExtensions(commands: [UpsertExtensionCommand]) -> Result<Void, ExtensionTransactionError> {
         guard !commands.isEmpty else { return .success(()) }
@@ -89,8 +90,8 @@ public final class ExtensionTransactionCoordinator {
         if changed { library.setInstalled(list) }
         guard failedNames.isEmpty else {
             let names = failedNames.joined(separator: ", ")
-            AppLogger.shared.log("❌ 🧩 [ExtStore] Không tìm thấy thư mục cài (plugin.json) của: \(names)")
-            return .failure(.saveFailed("Không tìm thấy thư mục cài của tiện ích: \(names)"))
+            AppLogger.shared.log("❌ 🧩 [ExtStore] Không tìm thấy gói cài trên đĩa của: \(names)")
+            return .failure(.saveFailed("Không tìm thấy gói cài của tiện ích: \(names)"))
         }
         return .success(())
     }
@@ -124,8 +125,15 @@ public final class ExtensionTransactionCoordinator {
         let existingIndex = list.firstIndex(where: { $0.packageId == command.packageId })
         // Cờ NSFW tiện ích tự khai: `plugin.json` vừa cài (mọi đường cài: kho, zip, Debug, khôi phục) → registry
         // của kho. Không khai ⇒ giữ cờ cũ khi cập nhật. `savesHistory` là lựa chọn của người dùng: không đụng.
-        let manifestNsfw = resolvedFolder.flatMap { folder in
-            ExtensionManifestReader.nsfwFlag(localPath: ExtensionFolderLocator.absolutePath(forFolder: folder))
+        // Nguồn Legado: cờ do `LegadoSourceStore.makeCommand` tính sẵn — **không** đọc manifest (parse cả nguồn mỗi lần
+        // upsert, nhân vài nghìn nguồn lúc nhập).
+        let manifestNsfw: Bool?
+        if LegadoSourceIdentity.isLegado(type: command.type) {
+            manifestNsfw = command.declaredNsfw
+        } else {
+            manifestNsfw = command.declaredNsfw ?? resolvedFolder.flatMap { folder in
+                ExtensionManifestReader.nsfwFlag(localPath: ExtensionFolderLocator.absolutePath(forFolder: folder))
+            }
         }
         let existingRepositoryUrl = existingIndex.flatMap { list[$0].repositoryUrl }
         let declaredNsfw = manifestNsfw
@@ -302,7 +310,7 @@ public final class ExtensionTransactionCoordinator {
         return deleteExtension(packageId: packageId)
     }
 
-    /// Xoá bản ghi đã cài mà thư mục mất `plugin.json` (`ExtensionInstallAudit`). Trả số bản ghi đã xoá.
+    /// Xoá bản ghi đã cài mà gói không còn trên đĩa (`ExtensionInstallAudit`). Trả số bản ghi đã xoá.
     ///
     /// Giữ `localStorage` của chúng: đây không phải người dùng gỡ, cài lại thì dữ liệu đăng nhập còn nguyên.
     @discardableResult
@@ -315,7 +323,7 @@ public final class ExtensionTransactionCoordinator {
         let deleteSet = Set(plan.deletePackageIds)
         library.setInstalled(library.installed.filter { !deleteSet.contains($0.packageId) })
         // ❌: dữ liệu mất — phải hiện trong log kể cả khi công tắc log đang tắt.
-        AppLogger.shared.log("❌ 🧹 [ExtAudit] Xoá \(plan.deletePackageIds.count) tiện ích mất plugin.json: \(plan.deletedNames.joined(separator: ", "))")
+        AppLogger.shared.log("❌ 🧹 [ExtAudit] Xoá \(plan.deletePackageIds.count) tiện ích mất gói cài: \(plan.deletedNames.joined(separator: ", "))")
         return .success(plan.deletePackageIds.count)
     }
 
@@ -335,8 +343,8 @@ public final class ExtensionTransactionCoordinator {
         return .success(())
     }
 
-    /// Xoá thư mục cài. Chỉ xoá khi path nằm **trong** `extensions/` — `folder` rỗng/`..` không bao giờ dẫn tới
-    /// xoá nhầm thư mục khác (`URL(fileURLWithPath: "")` là thư mục làm việc hiện tại).
+    /// Xoá gói cài (file `js|legado/<id>.json` hoặc thư mục cũ). Chỉ xoá khi path nằm **trong** `extensions/` —
+    /// `folder` rỗng/`..` không bao giờ dẫn tới xoá nhầm chỗ khác (`URL(fileURLWithPath: "")` là thư mục làm việc).
     private func removeFiles(of ext: Extension) {
         guard ext.isInstalled else { return }
         let path = ext.localPath

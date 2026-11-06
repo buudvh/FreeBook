@@ -15,12 +15,13 @@ enum LegadoSourceExporter {
         FileManager.default.temporaryDirectory.appendingPathComponent(directoryName, isDirectory: true)
     }
 
-    /// Đọc `source.json` của từng thư mục rồi ghi một tệp mảng. Thư mục đọc lỗi bị bỏ qua (đếm ở `skipped`).
-    static func export(directories: [URL], fileName: String) throws -> (url: URL, count: Int, skipped: Int) {
+    /// Đọc nguồn ở từng vị trí (file `legado/<id>.json` hoặc thư mục cũ) rồi ghi một tệp mảng. Vị trí đọc lỗi bị bỏ qua
+    /// (đếm ở `skipped`).
+    static func export(locations: [URL], fileName: String) throws -> (url: URL, count: Int, skipped: Int) {
         var entries: [(order: Int, name: String, object: [String: Any])] = []
         var skipped = 0
-        for directory in directories {
-            guard let data = try? LegadoSourceStore.readSourceData(directory: directory),
+        for location in locations {
+            guard let data = try? LegadoSourceStore.readSourceData(at: location),
                   let object = LegadoModelJSON.parseDocument(data: data) as? [String: Any] else {
                 skipped += 1
                 continue

@@ -25,12 +25,24 @@ public enum BackupPaths {
     public static func content(slug: String) -> String { "content/\(slug).bin" }
     /// Ảnh bìa nằm trong `covers/` như file gốc trên máy (`ImageCacheManager` luôn ghi JPEG).
     public static func cover(slug: String) -> String { "covers/\(slug).jpg" }
+    /// Thư mục kiểu cũ của một tiện ích trong archive (bản ghi chưa chuyển sang bố cục một file, và archive cũ).
     public static func extensionFolder(packageId: String) -> String { "extensions/\(packageId)" }
+    /// Entry của một gói một file theo `Extension.folder`: `extensions/js/<id>.json` / `extensions/legado/<id>.json`.
+    public static func extensionPackageEntry(folder: String) -> String { "extensions/\(folder)" }
 
-    /// `extensions/common` — thư viện JS dùng chung mà extension `load()` tới. Không phải một
-    /// package nên được xử lý riêng ở cả hai chiều.
-    public static let extensionCommonFolder = "extensions/common"
-    public static let extensionCommonFolderName = "common"
+    /// Gói của một tiện ích trên máy + tên entry trong archive — **một** định nghĩa cho cả export lẫn vân tay sao lưu.
+    /// `folder` là file gói ⇒ file đó; bản ghi chưa chuyển ⇒ cả thư mục `extensions/<packageId>/` như trước. `nil` khi
+    /// `folder` rỗng (chưa cài).
+    public static func extensionPackage(packageId: String, folder: String) -> (url: URL, entryName: String, isFile: Bool)? {
+        let trimmed = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if ExtensionFolderLocator.isPackageFileFolder(trimmed) {
+            let url = URL(fileURLWithPath: ExtensionFolderLocator.absolutePath(forFolder: trimmed))
+            return (url, extensionPackageEntry(folder: trimmed), true)
+        }
+        let directory = ExtensionFolderLocator.extensionsRoot.appendingPathComponent(packageId, isDirectory: true)
+        return (directory, extensionFolder(packageId: packageId), false)
+    }
 
     public static let globalDictionaryFolder = "dict/global"
     public static let sharedDictionaryFolder = "dict/shared"

@@ -18,8 +18,9 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     public var desc: String?
     public var type: String // "novel", "chinese_novel", "comic" hoặc "tts"
     public var locale: String // "vi_VN", "zh_CN", ...
-    /// Thư mục **tương đối** dưới `ExtensionFolderLocator.extensionsRoot` (vd `twkan`, `twkan/twkan`).
-    /// `""` = mục catalog chưa cài.
+    /// Vị trí gói **tương đối** dưới `ExtensionFolderLocator.extensionsRoot`: file `js/<packageId>.json` /
+    /// `legado/<packageId>.json` (1.3.756), hoặc thư mục cũ chưa chuyển (`twkan`, `twkan/twkan`). Tên khoá giữ
+    /// `folder` — đổi là vỡ `installed.json`. `""` = mục catalog chưa cài.
     public var folder: String
     public var configJson: String // Cấu hình đã chỉnh sửa dạng JSON
     public var downloadUrl: String // Đường dẫn tải file zip tiện ích

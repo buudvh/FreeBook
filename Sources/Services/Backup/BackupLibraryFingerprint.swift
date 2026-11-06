@@ -214,18 +214,18 @@ enum BackupLibraryFingerprint {
         }
     }
 
-    /// Thư mục `extensions/<packageId>/` của từng extension trong `extensions.json`, cộng `extensions/common`.
+    /// Gói của từng extension trong `extensions.json`, đúng thứ export gói (`BackupPaths.extensionPackage`): file gói
+    /// băm theo file, bản ghi chưa chuyển băm cả thư mục `extensions/<packageId>/`.
     private static func feedExtensionFolders(records: [BackupPayload.ExtensionRecord], into hasher: inout SHA256) {
-        let root = ExtensionManager.shared.extensionsDirectory
         feed("extensionFolders", into: &hasher)
         for record in records {
-            feedDirectoryTree(label: record.packageId, at: root.appendingPathComponent(record.packageId, isDirectory: true), into: &hasher)
+            guard let package = BackupPaths.extensionPackage(packageId: record.packageId, folder: record.localPathRelative) else { continue }
+            if package.isFile {
+                feedFile(label: package.entryName, at: package.url, into: &hasher)
+            } else {
+                feedDirectoryTree(label: record.packageId, at: package.url, into: &hasher)
+            }
         }
-        feedDirectoryTree(
-            label: BackupPaths.extensionCommonFolderName,
-            at: root.appendingPathComponent(BackupPaths.extensionCommonFolderName, isDirectory: true),
-            into: &hasher
-        )
     }
 
     /// Cùng danh sách file `BackupDictionaryArchiver.stage` gom theo từng nhóm.

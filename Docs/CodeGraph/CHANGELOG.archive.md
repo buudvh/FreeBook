@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.726] - 2026-11-05
+
+### chore: bỏ nút thêm nguồn LiveContainer, tin Telegram gửi link apps.json thay link release
+
+Người dùng: *"không cần nút này, bỏ nút này và nút copy đi giúp tôi, gửi chung link app.json với tele là được, cũng không cần gửi link realase chung tele"*.
+
+- **Cài đặt › Thông Tin**: bỏ hàng "Thêm nguồn cập nhật vào LiveContainer" và nút sao chép link nguồn (thêm ở 1.3.724). Chỉ còn dòng "Phiên bản ứng dụng".
+  - Xoá `AppDistributionSource` (`Sources/Common/Utils/`), không còn nơi dùng.
+- **Tin Telegram** (`build-ipa.yml`):
+  - Bước Publish ghi `SOURCE_URL` (link `apps.json` ở nhánh `source`) thay cho `RELEASE_URL`.
+  - Caption gửi IPA kết thúc bằng `📲 Nguồn LiveContainer: <link apps.json>`, **không** còn link release.
+  - File quá 50 MB: link tải transfer.sh như trước, kèm dòng nguồn LiveContainer.
+  - Dòng thừa đổi thành `… và K commit khác` (bỏ "(xem release)").
+- Release `build-*` vẫn tạo như cũ (để `apps.json` có link tải IPA), chỉ không gửi link của nó qua Telegram.
+- `CLAUDE.md` / `AGENTS.md`: sửa đoạn "Nguồn cập nhật LiveContainer" và "Tin Telegram + ghi chú release liệt kê mọi commit".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; YAML hợp lệ; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Commit này đổi `Sources/**` ⇒ kích hoạt build. Lượt đó cũng là lần đầu chạy thật phần liệt kê mọi commit của 1.3.725: tin Telegram phải có 2 commit (1.3.725, 1.3.726) và dòng nguồn LiveContainer.
+  - Chưa thử trên máy.
+
 ## [1.3.725] - 2026-11-05
 
 ### feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi

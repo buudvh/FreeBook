@@ -7,10 +7,14 @@ import Foundation
 /// có ba chốt:
 /// 1. **Không tự chạy.** `install`/`installNew` chỉ được gọi sau khi `ExtensionDebugInstallGate` báo
 ///    người dùng đã bấm đồng ý trên thiết bị. Không có auto-commit khi VS Code save.
-/// 2. **Bản cũ được giữ trước khi thay.** Bản installed được copy sang `.backup/<packageId>/` *trước*
-///    khi swap; `rollback` đưa lại đúng bản đó.
-/// 3. **Swap nguyên tử.** Dùng `FileManager.replaceItemAt` trên cùng volume (cả hai đều trong
-///    `applicationSupportDirectory`), nên không tồn tại trạng thái nửa vời: hoặc bản cũ, hoặc bản mới.
+/// 2. **Bản cũ được giữ trước khi thay.** Bản installed được chép sang `.backup/` *trước* khi thay:
+///    gói một file ⇒ `.backup/<packageId>.json`, thư mục cũ ⇒ `.backup/<packageId>/`; `rollback` đưa lại đúng bản đó.
+/// 3. **Thay nguyên tử.** Gói một file: gom thư mục nháp rồi ghi qua `ExtensionPackageWriter` (hàng đợi ghi gói, file tạm
+///    cùng thư mục rồi thay). Thư mục cũ: `FileManager.replaceItemAt` trên cùng volume. Không có trạng thái nửa vời.
+///
+/// Thư mục nháp (vùng staging) **giữ dạng thư mục**. Cài đè luôn ghi theo **đúng dạng** của bản đang cài (router không
+/// đổi `folder` của bản ghi ở đường này): gói một file ⇒ ghi lại file đó; bản ghi chưa chuyển (thư mục cũ) ⇒ thay thư mục.
+/// Cài mới luôn ra `extensions/js/<packageId>.json`.
 ///
 /// Ranh giới cố ý giữ: installer **chỉ đụng file**. Bản ghi `Extension` trong thư viện (`installed.json`)
 /// do `ExtensionDebugCommandRouter` ghi qua `ExtensionTransactionCoordinator` — luật của repo là mọi ghi
@@ -34,9 +38,9 @@ public actor ExtensionDraftInstaller {
             case .draftMissing: return "Không tìm thấy bản nháp đã validate"
             case .installedMissing: return "Không tìm thấy extension đang cài"
             case .backupFailed(let reason): return "Không sao lưu được bản cũ: \(reason)"
-            case .swapFailed(let reason): return "Không thay được thư mục extension: \(reason)"
+            case .swapFailed(let reason): return "Không thay được gói extension: \(reason)"
             case .noBackup: return "Không có bản sao lưu để rollback"
-            case .unsafePackageId: return "packageId không dùng được làm tên thư mục"
+            case .unsafePackageId: return "packageId không dùng được làm tên file"
             }
         }
     }
@@ -47,14 +51,19 @@ public actor ExtensionDraftInstaller {
         ExtensionDraftStagingStore.rootDirectory.appendingPathComponent(".backup", isDirectory: true)
     }
 
-    public func backupDirectory(packageId: String) -> URL? {
-        guard ExtensionDraftManifest.pathIssue(packageId) == nil else { return nil }
-        return Self.backupRoot.appendingPathComponent(packageId, isDirectory: true)
+    /// Hai chỗ có thể của bản sao lưu: `<id>.json` (gói một file) và `<id>/` (thư mục cũ).
+    private func backupLocations(packageId: String) -> (file: URL, directory: URL)? {
+        guard ExtensionFolderLocator.isSafePackageId(packageId) else { return nil }
+        return (
+            Self.backupRoot.appendingPathComponent(packageId + "." + ExtensionFolderLocator.packageFileExtension),
+            Self.backupRoot.appendingPathComponent(packageId, isDirectory: true)
+        )
     }
 
     public func hasBackup(packageId: String) -> Bool {
-        guard let directory = backupDirectory(packageId: packageId) else { return false }
-        return FileManager.default.fileExists(atPath: directory.appendingPathComponent("plugin.json").path)
+        guard let locations = backupLocations(packageId: packageId) else { return false }
+        return ExtensionPackageReader.isPresent(localPath: locations.file.path)
+            || ExtensionPackageReader.isPresent(localPath: locations.directory.path)
     }
 
     /// Nơi ghi dấu "hàng này do `draft.install` **cài mới**", cùng gốc với `.backup` nên cùng vòng đời:
@@ -85,12 +94,12 @@ public actor ExtensionDraftInstaller {
         return FileManager.default.fileExists(atPath: marker.path)
     }
 
-    /// Tháo hẳn một bản **do debug cài mới**: xoá thư mục extension rồi bỏ dấu. Bản ghi `Extension` trong
+    /// Tháo hẳn một bản **do debug cài mới**: xoá file gói rồi bỏ dấu. Bản ghi `Extension` trong
     /// thư viện do router xoá qua coordinator (ghi thư viện không thuộc tầng này).
     public func uninstallNewInstall(packageId: String) throws {
-        guard ExtensionDraftManifest.pathIssue(packageId) == nil else { throw InstallError.unsafePackageId }
-        let target = ExtensionManager.shared.extensionsDirectory
-            .appendingPathComponent(packageId, isDirectory: true)
+        guard let target = ExtensionFolderLocator.jsPackageURL(packageId: packageId) else {
+            throw InstallError.unsafePackageId
+        }
         if FileManager.default.fileExists(atPath: target.path) {
             do {
                 try FileManager.default.removeItem(at: target)
@@ -103,21 +112,22 @@ public actor ExtensionDraftInstaller {
         }
     }
 
-    /// Danh sách file **khác nhau** giữa bản nháp và bản đang cài, để UI hiện trước khi xin xác nhận.
-    /// So bằng SHA-256 nội dung; chỉ trả path tương đối.
+    /// Danh sách file **khác nhau** giữa bản nháp và bản đang cài (đọc qua `ExtensionPackageReader`, cả gói một file lẫn
+    /// thư mục), để UI hiện trước khi xin xác nhận. Chỉ so phần **được gom vào gói** (`plugin.json`, `*.js`, `icon.png`):
+    /// chữ so sau khi giải mã như lúc gom, icon so bytes. Chỉ trả path tương đối.
     public func changeSummary(draftDirectory: URL, installedPath: String) -> [String] {
-        let installedUrl = URL(fileURLWithPath: installedPath)
-        let draftFiles = Self.relativeFiles(in: draftDirectory)
-        let installedFiles = Self.relativeFiles(in: installedUrl)
+        let draftPath = draftDirectory.path
+        let draftFiles = Self.packagedFiles(localPath: draftPath)
+        let installedFiles = Self.packagedFiles(localPath: installedPath)
         var lines: [String] = []
         for path in draftFiles.sorted() {
             if !installedFiles.contains(path) {
                 lines.append("+ \(path)")
                 continue
             }
-            let left = try? Data(contentsOf: draftDirectory.appendingPathComponent(path))
-            let right = try? Data(contentsOf: installedUrl.appendingPathComponent(path))
-            if left?.sha256Hex() != right?.sha256Hex() {
+            let left = ExtensionPackageReader.fileData(relativePath: path, localPath: draftPath)
+            let right = ExtensionPackageReader.fileData(relativePath: path, localPath: installedPath)
+            if Self.comparable(left, path: path) != Self.comparable(right, path: path) {
                 lines.append("~ \(path)")
             }
         }
@@ -127,92 +137,97 @@ public actor ExtensionDraftInstaller {
         return lines
     }
 
-    /// Toàn bộ file của bản nháp dưới dạng dòng `+ path`, cho cửa xác nhận của đường **cài mới** — ở đó
+    /// Toàn bộ file sẽ được gom của bản nháp dưới dạng dòng `+ path`, cho cửa xác nhận của đường **cài mới** — ở đó
     /// không có bản cũ nào để so, nên mọi file đều là file thêm.
     public func newInstallSummary(draftDirectory: URL) -> [String] {
-        Self.relativeFiles(in: draftDirectory).sorted().map { "+ \($0)" }
+        Self.packagedFiles(localPath: draftDirectory.path).sorted().map { "+ \($0)" }
     }
 
     public func install(draftDirectory: URL, installedPath: String, packageId: String) throws {
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: draftDirectory.appendingPathComponent("plugin.json").path) else {
-            throw InstallError.draftMissing
-        }
+        guard ExtensionPackageReader.isPresent(localPath: draftDirectory.path) else { throw InstallError.draftMissing }
         let installedUrl = URL(fileURLWithPath: installedPath)
-        guard fileManager.fileExists(atPath: installedUrl.path) else { throw InstallError.installedMissing }
-
-        try backup(installedUrl: installedUrl, packageId: packageId)
-        try Self.atomicReplace(target: installedUrl, withContentsOf: draftDirectory, suffix: "incoming")
+        switch ExtensionPackageReader.layout(localPath: installedPath) {
+        case .jsBundle:
+            try backup(installedUrl: installedUrl, packageId: packageId)
+            try Self.writeBundle(from: draftDirectory, to: installedUrl)
+        case .directory:
+            try backup(installedUrl: installedUrl, packageId: packageId)
+            try Self.atomicReplace(target: installedUrl, withContentsOf: draftDirectory, suffix: "incoming")
+        case .legadoSource, nil:
+            throw InstallError.installedMissing
+        }
     }
 
-    /// Cài **mới**: dựng `extensions/<packageId>/` từ bản nháp và trả path đích cho người gọi ghi vào
-    /// bản ghi `Extension` của thư viện (qua `ExtensionTransactionCoordinator`).
+    /// Cài **mới**: gom bản nháp thành `extensions/js/<packageId>.json` và trả path đích cho người gọi ghi vào bản ghi
+    /// `Extension` của thư viện (qua `ExtensionTransactionCoordinator`).
     ///
-    /// Thư mục đích có thể đã tồn tại dù app chưa có hàng nào trỏ tới nó (lần cài trước chết giữa
-    /// đường, bản ghi bị xoá mà file còn lại — đúng lớp lệch mà `ExtensionInstallAudit` đi tìm). Trường
-    /// hợp đó đi cùng một đường với `install`: sao lưu bản cũ rồi thay nguyên tử, nên vẫn rollback được
-    /// và không bao giờ có hai bản trộn vào nhau.
+    /// File đích có thể đã tồn tại dù app chưa có hàng nào trỏ tới nó (lần cài trước chết giữa đường, bản ghi bị xoá mà
+    /// file còn lại). Trường hợp đó sao lưu bản cũ rồi ghi đè, nên vẫn rollback được; rollback của nó là *trả lại bản
+    /// cũ*, không phải tháo ra.
     ///
-    /// Thư mục nháp được **copy**, không move: `run.start` với `sourceMode: "draft"` phải còn chạy được
-    /// sau khi cài, và vùng staging vẫn do `ExtensionDraftStagingStore` sở hữu (nó xoá sạch khi tắt
-    /// server hoặc mở lại app).
+    /// Thư mục nháp chỉ được **đọc**: `run.start` với `sourceMode: "draft"` phải còn chạy được sau khi cài, và vùng
+    /// staging vẫn do `ExtensionDraftStagingStore` sở hữu (nó xoá sạch khi tắt server hoặc mở lại app).
     public func installNew(draftDirectory: URL, packageId: String) throws -> String {
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: draftDirectory.appendingPathComponent("plugin.json").path) else {
-            throw InstallError.draftMissing
-        }
-        guard ExtensionDraftManifest.pathIssue(packageId) == nil else {
+        guard ExtensionPackageReader.isPresent(localPath: draftDirectory.path) else { throw InstallError.draftMissing }
+        guard let destination = ExtensionFolderLocator.jsPackageURL(packageId: packageId) else {
             throw InstallError.unsafePackageId
         }
-        let destination = ExtensionManager.shared.extensionsDirectory
-            .appendingPathComponent(packageId, isDirectory: true)
-
-        if fileManager.fileExists(atPath: destination.path) {
-            try backup(installedUrl: destination, packageId: packageId)
-            try Self.atomicReplace(target: destination, withContentsOf: draftDirectory, suffix: "incoming")
-            return destination.path
-        }
-
-        do {
-            try fileManager.copyItem(at: draftDirectory, to: destination)
-        } catch {
-            throw InstallError.swapFailed(error.localizedDescription)
-        }
-        // Chỉ nhánh **tạo mới** mới đánh dấu: nhánh trên đã ghi đè một bản có sẵn nên nó có backup, và
-        // rollback của nó là *trả lại bản cũ*, không phải tháo ra.
-        markNewInstall(packageId: packageId)
+        let existed = FileManager.default.fileExists(atPath: destination.path)
+        if existed { try backup(installedUrl: destination, packageId: packageId) }
+        try Self.writeBundle(from: draftDirectory, to: destination)
+        // Chỉ nhánh **tạo mới** mới đánh dấu: nhánh ghi đè có backup.
+        if !existed { markNewInstall(packageId: packageId) }
         return destination.path
     }
 
-    /// Sao lưu bản đang có sang `.backup/<packageId>/`. Dùng chung cho cả hai đường ghi đè, nên chỉ có
-    /// **một** chỗ quyết định "bản cũ được giữ ở đâu".
+    /// Sao lưu bản đang có sang `.backup/` (dạng giống bản đang có). Dùng chung cho mọi đường ghi đè, nên chỉ có
+    /// **một** chỗ quyết định "bản cũ được giữ ở đâu". Bản sao lưu dạng kia (nếu còn từ lần trước) bị xoá.
     private func backup(installedUrl: URL, packageId: String) throws {
         let fileManager = FileManager.default
-        guard let backupUrl = backupDirectory(packageId: packageId) else {
+        guard let locations = backupLocations(packageId: packageId) else {
             throw InstallError.backupFailed("packageId không an toàn")
         }
+        let isFile = ExtensionPackageReader.layout(localPath: installedUrl.path) != .directory
         do {
             try fileManager.createDirectory(at: Self.backupRoot, withIntermediateDirectories: true)
-            if fileManager.fileExists(atPath: backupUrl.path) {
-                try fileManager.removeItem(at: backupUrl)
+            for stale in [locations.file, locations.directory] where fileManager.fileExists(atPath: stale.path) {
+                try fileManager.removeItem(at: stale)
             }
-            try fileManager.copyItem(at: installedUrl, to: backupUrl)
+            try fileManager.copyItem(at: installedUrl, to: isFile ? locations.file : locations.directory)
         } catch {
             throw InstallError.backupFailed(error.localizedDescription)
         }
     }
 
     public func rollback(installedPath: String, packageId: String) throws {
-        guard let backupUrl = backupDirectory(packageId: packageId),
-              FileManager.default.fileExists(atPath: backupUrl.path) else {
-            throw InstallError.noBackup
-        }
+        guard let locations = backupLocations(packageId: packageId) else { throw InstallError.noBackup }
         let installedUrl = URL(fileURLWithPath: installedPath)
-        try Self.atomicReplace(target: installedUrl, withContentsOf: backupUrl, suffix: "rollback")
+        if FileManager.default.fileExists(atPath: locations.file.path) {
+            do {
+                let data = try Data(contentsOf: locations.file)
+                try ExtensionPackageWriter.writePackageData(data, to: installedUrl)
+            } catch {
+                throw InstallError.swapFailed(error.localizedDescription)
+            }
+            return
+        }
+        guard FileManager.default.fileExists(atPath: locations.directory.path) else { throw InstallError.noBackup }
+        try Self.atomicReplace(target: installedUrl, withContentsOf: locations.directory, suffix: "rollback")
+    }
+
+    /// Gom thư mục nháp rồi ghi gói qua hàng đợi ghi gói (nguyên tử, ghi đè).
+    private static func writeBundle(from draftDirectory: URL, to target: URL) throws {
+        do {
+            let bundle = try ExtensionPackageWriter.makeBundle(fromDirectory: draftDirectory)
+            try ExtensionPackageWriter.write(bundle, to: target)
+        } catch {
+            throw InstallError.swapFailed(error.localizedDescription)
+        }
     }
 
     /// Copy sang thư mục tạm **cùng cha** với đích rồi `replaceItemAt`. Cùng cha là điều kiện để swap
-    /// nằm trong một volume; `replaceItemAt` tự dọn thư mục tạm sau khi thay xong.
+    /// nằm trong một volume; `replaceItemAt` tự dọn thư mục tạm sau khi thay xong. Tên tạm có `.incoming-` /
+    /// `.rollback-` để lượt dọn `extensions/` (`ExtensionPackageLayoutMigrator`) không xoá nhầm.
     private static func atomicReplace(target: URL, withContentsOf source: URL, suffix: String) throws {
         let fileManager = FileManager.default
         let staging = target
@@ -230,21 +245,19 @@ public actor ExtensionDraftInstaller {
         }
     }
 
-    private static func relativeFiles(in directory: URL) -> Set<String> {
-        let fileManager = FileManager.default
-        guard let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey]) else {
-            return []
+    /// File được gom vào gói: `plugin.json`, `*.js` (`listFiles`) và `icon.png` khi có.
+    private static func packagedFiles(localPath: String) -> Set<String> {
+        var files = Set(ExtensionPackageReader.listFiles(localPath: localPath))
+        if ExtensionPackageReader.iconData(localPath: localPath) != nil {
+            files.insert(ExtensionPackageReader.iconFileName)
         }
-        let rootPath = directory.standardizedFileURL.path
-        let rootWithSlash = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-        var result: Set<String> = []
-        for case let url as URL in enumerator {
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
-            guard values?.isRegularFile == true else { continue }
-            let path = url.standardizedFileURL.path
-            guard path.hasPrefix(rootWithSlash) else { continue }
-            result.insert(String(path.dropFirst(rootWithSlash.count)))
-        }
-        return result
+        return files
+    }
+
+    /// Dạng để so: icon so bytes; file chữ so sau khi giải mã như lúc gom (gói một file lưu chữ UTF-8).
+    private static func comparable(_ data: Data?, path: String) -> String? {
+        guard let data else { return nil }
+        guard path != ExtensionPackageReader.iconFileName else { return data.sha256Hex() }
+        return (try? ExtensionPackageWriter.text(from: data, relativePath: path)) ?? data.sha256Hex()
     }
 }

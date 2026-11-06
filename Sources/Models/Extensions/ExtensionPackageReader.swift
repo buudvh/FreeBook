@@ -48,12 +48,12 @@ public enum ExtensionPackageReader {
     public static let manifestFileName = ExtensionPackageBundle.manifestPath
     public static let iconFileName = ExtensionPackageBundle.iconPath
     /// Thư mục cha của file nguồn Legado (`extensions/legado/<packageId>.json`).
-    public static let legadoFolderName = "legado"
+    public static let legadoFolderName = ExtensionFolderLocator.legadoFolderName
     /// Tên file nguồn trong thư mục Legado cũ; với dạng một file thì chính là file gói (`fileData(relativePath:)`).
     public static let legadoSourceFileName = "source.json"
     /// Thư mục dự phòng của script, sau gốc gói.
     public static let scriptFolderName = "src"
-    private static let packageFileExtension = "json"
+    private static let packageFileExtension = ExtensionFolderLocator.packageFileExtension
 
     // MARK: - Nhận dạng
 

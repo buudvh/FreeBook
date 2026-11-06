@@ -132,18 +132,11 @@ public final class TranslationConfigStore: @unchecked Sendable {
         }
         lock.unlock()
 
-        // Gói ở `extensions/<packageId>/`, hoặc một thư mục con trực tiếp của nó (zip bọc mọi thứ trong một thư mục).
-        let extDir = ExtensionFolderLocator.extensionsRoot.appendingPathComponent(packageId, isDirectory: true)
-        var packagePath = extDir.path
-        if !ExtensionPackageReader.isPresent(localPath: packagePath),
-           let contents = try? FileManager.default.contentsOfDirectory(at: extDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]),
-           let sub = contents.first(where: {
-               ExtensionPackageReader.layout(localPath: $0.path) == .directory && ExtensionPackageReader.isPresent(localPath: $0.path)
-           }) {
-            packagePath = sub.path
-        }
-
-        guard let json = ExtensionPackageReader.manifest(localPath: packagePath) else {
+        // Gói theo bản ghi đã cài; không có bản ghi ⇒ dò trên đĩa: `js/<id>.json` → `legado/<id>.json` → thư mục cũ
+        // `<id>/` (hoặc thư mục con một cấp có `plugin.json`, zip bọc mọi thứ trong một thư mục).
+        let recordPath = ExtensionLibraryRepository.snapshot(packageId: packageId)?.localPath ?? ""
+        guard let packagePath = recordPath.isEmpty ? ExtensionFolderLocator.packagePath(packageId: packageId) : recordPath,
+              let json = ExtensionPackageReader.manifest(localPath: packagePath) else {
             return false
         }
         let meta = json["metadata"] as? [String: Any] ?? json

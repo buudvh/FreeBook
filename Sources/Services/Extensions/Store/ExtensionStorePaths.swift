@@ -12,7 +12,10 @@ import CryptoKit
 ///   legacy/library-pre-ext.sqlite   bản chép library.db trước khi gỡ @Model Extension/Repository
 /// ```
 ///
-/// Script/icon **không** nằm ở đây — vẫn ở `extensions/<folder>/` (`ExtensionFolderLocator`).
+/// Gói tiện ích (`plugin.json` + script + icon) **không** nằm ở đây mà ở `extensions/` theo `Extension.folder`
+/// (`ExtensionFolderLocator`): mỗi tiện ích JS một file `extensions/js/<packageId>.json`, mỗi nguồn Legado một file
+/// `extensions/legado/<packageId>.json` (1.3.756; bản ghi chuyển lỗi còn thư mục cũ). Đọc qua `ExtensionPackageReader`,
+/// ghi gói JS qua `ExtensionPackageWriter`.
 /// `sha256` và `validatePathSafety` được cài riêng theo quy ước "mỗi owner tự cài" của repo.
 public enum ExtensionStorePaths {
     /// Gốc thư mục dữ liệu không đổi trong một tiến trình ⇒ tính một lần.

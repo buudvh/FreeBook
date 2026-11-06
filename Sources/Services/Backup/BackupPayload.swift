@@ -147,7 +147,8 @@ public enum BackupPayload {
         /// Bản app cũ chỉ hiểu cờ này; bản mới ghi `pinnedAt != nil` và đọc `pinnedAt` trước.
         public let isPinned: Bool
         public let repositoryUrl: String?
-        /// `Extension.folder` — thư mục tương đối dưới `extensions/`. Khi restore vẫn tính lại từ thư mục thật.
+        /// `Extension.folder` — vị trí gói tương đối dưới `extensions/` (`js/<id>.json`, `legado/<id>.json` hoặc thư mục
+        /// cũ). Export chọn file / thư mục theo nó (`BackupPaths.extensionPackage`); restore tính lại từ gói thật.
         public let localPathRelative: String
         /// `Optional` **có chủ đích** (như `BookRecord.isPinned`): archive cũ không có hai khoá này.
         public let pinnedAt: Date?
