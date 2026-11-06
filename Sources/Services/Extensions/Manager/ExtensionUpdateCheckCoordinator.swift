@@ -31,8 +31,6 @@ final class ExtensionUpdateCheckCoordinator {
 
     static let autoCheckInterval: TimeInterval = 5 * 60
     nonisolated static let registryTimeout: TimeInterval = 20
-    static let defaultRepositoryName = "Kho mặc định (buudvh)"
-    static let defaultRepositoryUrl = "https://raw.githubusercontent.com/buudvh/leech_story_ext/main/plugin.json"
     /// Công tắc "Báo cập nhật khi mở app" (ngăn kéo … tab Tiện Ích). Tắt ⇒ không kiểm lúc mở app, không toast; lượt tự
     /// kiểm khi vào "Tất cả tiện ích" vẫn chạy.
     nonisolated static let launchCheckEnabledKey = "extensionUpdateLaunchCheckEnabled"
@@ -175,6 +173,7 @@ final class ExtensionUpdateCheckCoordinator {
     // MARK: - Thêm kho
 
     /// Tải registry trước, được mới lưu kho + cache. Trả câu báo cho màn gọi hiện (rỗng khi URL rỗng).
+    /// App không gieo sẵn kho nào (1.3.749): người dùng tự dán link kho.
     func addRepository(name: String, url: String) async -> String {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty else { return "" }
@@ -204,9 +203,5 @@ final class ExtensionUpdateCheckCoordinator {
         case .failure(let error):
             return "Lỗi lưu danh mục kho '\(repoName)': \(error.localizedDescription)"
         }
-    }
-
-    func addDefaultRepository() async -> String {
-        await addRepository(name: Self.defaultRepositoryName, url: Self.defaultRepositoryUrl)
     }
 }

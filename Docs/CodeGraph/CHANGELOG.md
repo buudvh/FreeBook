@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.749] - 2026-11-06
+
+### feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài
+
+Người dùng: *"bỏ url mặc định của tôi trong danh sách kho js"*, rồi nói rõ: người dùng phải tự tìm link để nhập, không có sẵn link để bấm cài; *"gỡ kho đừng có gỡ tiện ích của kho đó đang cài đi"*. Anh Bửu duyệt plan (gồm cả câu chỉ đường ở tab trống).
+
+- **Bỏ kho có sẵn** (`buudvh/leech_story_ext`):
+  - `ExtensionUpdateCheckCoordinator`: xoá `defaultRepositoryName` / `defaultRepositoryUrl` / `addDefaultRepository()`.
+  - `RepositoryManagerView.onAppear`: không còn tự thêm kho khi danh sách kho trống (trước đây xoá hết kho thì lần vào tab sau kho tự quay lại); chỉ còn `checkOnEntry` ở tab Tất cả tiện ích.
+  - Trang Danh sách kho trống: bỏ nút "Nhập kho tiện ích mặc định", câu hướng dẫn thêm "Bấm + ở góc trên để dán link kho".
+  - Tab Tất cả tiện ích trống khi chưa có kho nào: "Chưa có kho tiện ích. Mở … › Danh sách kho để nhập link kho."
+  - Kho đã lưu trên máy giữ nguyên. Nguồn cập nhật app `buudvh/FreeBook/source/apps.json` (LiveContainer) không đổi — không phải kho tiện ích.
+- **Xoá kho giữ tiện ích** (`ExtensionTransactionCoordinator.deleteRepository`): chỉ xoá bản ghi kho + cache registry; file, bản ghi, cấu hình, `localStorage` và `repositoryUrl` của tiện ích đã cài giữ nguyên (không ghi lại `installed.json`).
+  - Hệ quả: tiện ích của kho đã xoá vẫn chạy nhưng không báo bản mới, không vào "Cập nhật tất cả" (không có `remoteVersion`) cho tới khi nhập lại đúng link kho đó; gỡ tiện ích sau đó là mất hẳn. Mục chưa cài của kho mất cùng cache registry.
+  - Hộp xác nhận: "Kho X sẽ bị xóa khỏi danh sách. Tiện ích đã cài từ kho này vẫn giữ nguyên." Bỏ chặn "kho đang được TTS sử dụng" vì xoá kho không còn gỡ gì TTS đang dùng.
+- `CLAUDE.md` / `AGENTS.md` / `rules.md` không nhắc kho mặc định hay luật xoá kho gỡ tiện ích ⇒ không sửa. Chuyển `[1.3.719]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep `Sources/` không còn `addDefaultRepository` / `leech_story_ext`; `deleteRepository` chỉ có một chỗ gọi (trang Danh sách kho).
+  - `check_architecture.py` chỉ còn lỗi có sẵn (`JSDom.swift`, `VideoPlaybackSession+Playback.swift` của việc video đang làm), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: cài mới ⇒ tab Tiện Ích không tự có kho, hiện câu chỉ đường; xoá kho ⇒ tiện ích đã cài còn, chạy được; nhập lại kho ⇒ báo cập nhật trở lại.
+
 ## [1.3.748] - 2026-11-06
 
 ### feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích
@@ -752,26 +773,3 @@ Tiếp 1.3.718. Danh sách mở gần nhất chỉ bắt đầu ghi từ bản �
 - `CLAUDE.md`/`AGENTS.md`: ghi thêm phần dự phòng.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.719] - 2026-11-05
-
-### feat: icon app mới Tàng Công Các kiểu thư pháp thủy mặc
-
-Người dùng: *"tạo lại icon app mới, tàng công các kiểu chữ tiếng việt thư pháp, phong cách tranh thủy mặc, đơn giản"*. Trong 3 phương án phác, người dùng chọn PA2 (đủ ba chữ xếp dọc) với font Kolker Brush.
-
-- **Hình**: nền giấy ngà, ba chữ "Tàng / Công / Các" viết bút lông xếp so le, trăng nhạt, một nhánh tre bên phải, núi xa mờ phía dưới. Ảnh vuông đặc, không trong suốt, không tự bo góc (iOS tự bo).
-- **Đánh đổi đã biết**: ở cỡ nhỏ nhất (20–29pt: Cài đặt, thông báo), ba dòng chữ chỉ còn như hoa văn. Người dùng chấp nhận để có đủ tên.
-- **Chữ "Tàng"**: tách "T" khỏi "àng" và hạ "àng" xuống 0,13 em, để dấu huyền không bị gạch ngang chữ T che.
-- **Ảnh** (`Sources/Assets.xcassets/AppIcon.appiconset/`):
-  - Thay cả 12 PNG, giữ tên file và cỡ pixel cũ (40–1024 px), thu nhỏ từ bản 1024 bằng LANCZOS.
-  - Giờ là RGB không kênh alpha (bản cũ RGBA), sRGB.
-  - `Contents.json` giữ nguyên, không thêm biến thể dark/tinted.
-  - Ảnh dựng từ SVG sinh bằng script, chụp bằng Edge headless; script và SVG không đưa vào repo.
-- **Font**: Kolker Brush (SIL OFL 1.1), chữ đã render sẵn vào PNG; app không đóng gói file font. Giấy phép ở `Docs/ThirdParty/KolkerBrush-OFL.txt`.
-- Không đổi tên hiển thị hay bundle id (thuộc việc đổi tên riêng).
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**:
-  - Soát ảnh 1024 và 180 px. So với một bản render bằng font giả để chắc font thật đã nạp.
-  - Kiểm từng PNG: `mode == RGB`, không có `transparency`, đúng cỡ.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy.

@@ -61,7 +61,7 @@ struct ExtensionRepositoryListView: View {
                 repositoryToDelete = nil
             }
         } message: { repo in
-            Text("Kho \(repo.name) và các tiện ích đã cài từ kho này sẽ bị xóa khỏi ứng dụng.")
+            Text("Kho \(repo.name) sẽ bị xóa khỏi danh sách. Tiện ích đã cài từ kho này vẫn giữ nguyên.")
         }
         .sheet(isPresented: $showingAddRepo) {
             AddRepositoryView { name, url in
@@ -104,22 +104,11 @@ struct ExtensionRepositoryListView: View {
             Image(systemName: "square.stack.3d.up.slash")
                 .font(.system(size: 40))
                 .foregroundColor(.gray)
-            Text("Bạn có thể nhập link kho tiện ích (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
+            // Không còn nút nhập kho có sẵn (1.3.749): người dùng tự dán link.
+            Text("Bạn có thể nhập link kho tiện ích (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện. Bấm + ở góc trên để dán link kho.")
                 .font(.subheadline)
                 .foregroundColor(.gray)
-            Button(action: { addRepository { await checker.addDefaultRepository() } }) {
-                Text("Nhập kho tiện ích mặc định (buudvh)")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.18))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(checker.isBusy)
-            .padding(.top, 5)
+                .multilineTextAlignment(.center)
         }
         .padding(.vertical)
     }
@@ -169,14 +158,8 @@ struct ExtensionRepositoryListView: View {
             return
         }
 
-        if (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget),
-           let playingPackageId = TTSManager.shared.extensionInfo?.packageId,
-           library.installed.contains(where: { $0.packageId == playingPackageId && $0.repositoryUrl == repo.url }) {
-            statusMessage = "Không thể xóa kho đang được TTS sử dụng. Hãy dừng TTS trước."
-            return
-        }
-
-        // Coordinator gỡ file + bản ghi + localStorage của các tiện ích thuộc kho, rồi xoá kho và cache registry.
+        // Chỉ xoá kho + cache registry; tiện ích đã cài từ kho giữ nguyên (1.3.749) ⇒ không cần chặn khi TTS đang
+        // dùng một tiện ích của kho.
         switch ExtensionTransactionCoordinator.shared.deleteRepository(url: repo.url) {
         case .success:
             statusMessage = "Đã xóa kho tiện ích."

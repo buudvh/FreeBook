@@ -8,7 +8,8 @@ import Foundation
 ///
 /// Luật giữ nguyên từ bản SwiftData:
 /// - Cài/cập nhật: **file trước, bản ghi sau** — `upsertExtension` chỉ nhận `localPath` có `plugin.json`.
-/// - Gỡ (`uninstallExtension`, `deleteRepository`): xoá file rồi xoá bản ghi + `localStorage` (xoá sạch).
+/// - Gỡ (`uninstallExtension`): xoá file rồi xoá bản ghi + `localStorage` (xoá sạch). Xoá kho (`deleteRepository`)
+///   **không** gỡ tiện ích nào (1.3.749).
 @MainActor
 public final class ExtensionTransactionCoordinator {
     public static let shared = ExtensionTransactionCoordinator()
@@ -31,19 +32,14 @@ public final class ExtensionTransactionCoordinator {
         return .success(())
     }
 
-    /// Xoá kho: gỡ file các tiện ích đã cài thuộc kho, xoá bản ghi + `localStorage` của chúng, xoá kho và
-    /// cache registry. Kho không tồn tại vẫn dọn phần còn sót (thành công).
+    /// Xoá kho: chỉ xoá bản ghi kho + cache registry. Kho không tồn tại vẫn dọn cache còn sót (thành công).
     ///
-    /// Không chặn khi TTS đang dùng một tiện ích của kho — View kiểm tra trước khi gọi (như cũ).
+    /// Tiện ích đã cài từ kho **giữ nguyên** (1.3.749; trước đó bị gỡ sạch cùng kho): file, bản ghi, cấu hình,
+    /// `localStorage` và cả `repositoryUrl` — kho không còn trong `repositories` nên chúng không có `remoteVersion`
+    /// (không báo cập nhật); nhập lại đúng URL kho đó là nhận cập nhật trở lại. Mục catalog **chưa cài** của kho mất
+    /// theo cache registry.
     public func deleteRepository(url: String) -> Result<Void, ExtensionTransactionError> {
         let key = Self.trimmed(url)
-        let owned = library.installed.filter { $0.repositoryUrl == key }
-        if !owned.isEmpty {
-            for ext in owned { removeFiles(of: ext) }
-            let ids = Set(owned.map(\.packageId))
-            library.setInstalled(library.installed.filter { !ids.contains($0.packageId) })
-            for id in ids { ExtensionLocalStorageStore.shared.removeAll(namespace: id) }
-        }
         let remaining = library.repositories.filter { $0.url != key }
         if remaining.count != library.repositories.count {
             library.setRepositories(remaining)

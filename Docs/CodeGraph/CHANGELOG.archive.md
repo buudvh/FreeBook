@@ -2,6 +2,29 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.719] - 2026-11-05
+
+### feat: icon app mới Tàng Công Các kiểu thư pháp thủy mặc
+
+Người dùng: *"tạo lại icon app mới, tàng công các kiểu chữ tiếng việt thư pháp, phong cách tranh thủy mặc, đơn giản"*. Trong 3 phương án phác, người dùng chọn PA2 (đủ ba chữ xếp dọc) với font Kolker Brush.
+
+- **Hình**: nền giấy ngà, ba chữ "Tàng / Công / Các" viết bút lông xếp so le, trăng nhạt, một nhánh tre bên phải, núi xa mờ phía dưới. Ảnh vuông đặc, không trong suốt, không tự bo góc (iOS tự bo).
+- **Đánh đổi đã biết**: ở cỡ nhỏ nhất (20–29pt: Cài đặt, thông báo), ba dòng chữ chỉ còn như hoa văn. Người dùng chấp nhận để có đủ tên.
+- **Chữ "Tàng"**: tách "T" khỏi "àng" và hạ "àng" xuống 0,13 em, để dấu huyền không bị gạch ngang chữ T che.
+- **Ảnh** (`Sources/Assets.xcassets/AppIcon.appiconset/`):
+  - Thay cả 12 PNG, giữ tên file và cỡ pixel cũ (40–1024 px), thu nhỏ từ bản 1024 bằng LANCZOS.
+  - Giờ là RGB không kênh alpha (bản cũ RGBA), sRGB.
+  - `Contents.json` giữ nguyên, không thêm biến thể dark/tinted.
+  - Ảnh dựng từ SVG sinh bằng script, chụp bằng Edge headless; script và SVG không đưa vào repo.
+- **Font**: Kolker Brush (SIL OFL 1.1), chữ đã render sẵn vào PNG; app không đóng gói file font. Giấy phép ở `Docs/ThirdParty/KolkerBrush-OFL.txt`.
+- Không đổi tên hiển thị hay bundle id (thuộc việc đổi tên riêng).
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**:
+  - Soát ảnh 1024 và 180 px. So với một bản render bằng font giả để chắc font thật đã nạp.
+  - Kiểm từng PNG: `mode == RGB`, không có `transparency`, đúng cỡ.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.718] - 2026-11-05
 
 ### feat: mở lại mục đọc/xem gần nhất không phải 18+ khi mở app

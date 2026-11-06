@@ -16,8 +16,8 @@ struct RepositoryManagerView: View {
     @State internal var renderedTab = 0
     @State internal var legadoState = LegadoSourceTabState()
     @State internal var showingRepositoryList = false
-    /// Đặt khi đẩy trang Danh sách kho: back về thì gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không tự
-    /// thêm lại kho mặc định vừa bị xoá hết, không kiểm tra lại).
+    /// Đặt khi đẩy trang Danh sách kho: back về thì gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không
+    /// kiểm tra lại).
     @State internal var isReturningFromRepositoryList = false
 
     // Trạng thái của tab Tất cả tiện ích
@@ -185,9 +185,8 @@ struct RepositoryManagerView: View {
                 }
                 // Dọn trước khi kiểm tra cập nhật: hàng đã mất file mà không có nguồn tải lại chỉ gây lỗi.
                 auditInstalledExtensions()
-                if library.repositories.isEmpty {
-                    Task { statusMessage = await updateChecker.addDefaultRepository() }
-                } else if selectedTab == 0 {
+                // Không tự thêm kho nào khi danh sách kho trống (1.3.749) — người dùng tự dán link ở Danh sách kho.
+                if selectedTab == 0 {
                     updateChecker.checkOnEntry()
                 }
             }
@@ -220,7 +219,7 @@ struct RepositoryManagerView: View {
                 Divider()
                 updateAllBanner
 
-                // Kết quả "Cập nhật tất cả", Import zip, tự thêm kho mặc định — trước 1.3.673 chỉ hiện ở tab Danh sách kho.
+                // Kết quả "Cập nhật tất cả", Import zip — trước 1.3.673 chỉ hiện ở tab Danh sách kho.
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
                         .foregroundColor(.secondary)
@@ -242,8 +241,13 @@ struct RepositoryManagerView: View {
                         Image(systemName: "puzzlepiece.extension")
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
-                        Text("Không tìm thấy tiện ích nào")
+                        // App không gieo sẵn kho (1.3.749) ⇒ chỉ đường cho người mới cài.
+                        Text(library.repositories.isEmpty
+                             ? "Chưa có kho tiện ích. Mở … › Danh sách kho để nhập link kho."
+                             : "Không tìm thấy tiện ích nào")
                             .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                         Spacer()
                     }
                 } else {
