@@ -34,7 +34,7 @@ extension VideoPlaybackSession {
         reachedEndOfItem = false
         pendingResumeSeconds = resumeSeconds > 5 ? resumeSeconds : nil
         // Màn khoá không chạy tiếp đồng hồ của item cũ trong lúc nạp item mới.
-        VideoNowPlayingCoordinator.shared.publishLoading(title: currentEpisodeLabel, album: bookTitle)
+        publishNowPlayingLoading()
         loadGeneration += 1
         return loadGeneration
     }

@@ -189,20 +189,4 @@ extension VideoPlaybackSession {
             pauseForTTS: { [weak self] in self?.pauseForTTS() }
         )
     }
-
-    /// Bỏ qua khi video không giữ phiên (coordinator tự kiểm).
-    func publishNowPlaying() {
-        guard launch != nil, embedContent == nil, player.currentItem != nil else { return }
-        let rate = player.timeControlStatus == .playing ? Double(player.rate) : 0
-        VideoNowPlayingCoordinator.shared.publish(
-            title: currentEpisodeLabel,
-            album: bookTitle,
-            elapsed: currentPlaybackTime,
-            duration: durationSeconds,
-            rate: rate,
-            defaultRate: Double(playbackRate),
-            isPlaying: isPlaying,
-            hasNextEpisode: nextEpisode != nil
-        )
-    }
 }

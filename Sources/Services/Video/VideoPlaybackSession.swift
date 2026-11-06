@@ -166,6 +166,10 @@ final class VideoPlaybackSession {
     /// Dòng báo hiện khi phim vừa mở **bắt đầu phát** (`open(startNotice:)` — tự sang phim đề xuất). Hiện ngay lúc mở thì
     /// lượt nạp tập (`prepareForNewLoad` → `resetPlaybackSource`) xoá mất.
     @ObservationIgnored var pendingStartNotice: String?
+    /// Màn khoá (`+NowPlaying`): bìa của phim đang mở, tác giả, lượt nạp bìa.
+    @ObservationIgnored var nowPlayingCover: (bookId: String, image: UIImage)?
+    @ObservationIgnored var nowPlayingAuthor = ""
+    @ObservationIgnored var nowPlayingCoverTask: Task<Void, Never>?
     /// Tắt NSFW ⇒ dừng phim 18+ (`+NsfwGuard`): observer + giá trị công tắc lần trước (chỉ xử lý lúc chuyển bật → tắt).
     @ObservationIgnored var nsfwDefaultsObserver: NSObjectProtocol?
     @ObservationIgnored var lastIncludesNsfw = false
@@ -240,6 +244,7 @@ final class VideoPlaybackSession {
         bookTitle = newLaunch.bookTitle ?? ""
         currentEpisodeIndex = max(0, newLaunch.chapterIndex)
         pendingStartNotice = startNotice
+        loadNowPlayingCover(for: newLaunch)
         // Chỉ phim mới mới áp tuỳ chọn tắt tiếng; đặt TRƯỚC `beginUserRequestedPlayback` (tắt tiếng ⇒ không dừng TTS).
         let startMuted = muteOverride
             ?? VideoMutePolicy.shouldStartMuted(bookId: newLaunch.bookId, packageId: newLaunch.extensionPackageId)
@@ -330,6 +335,7 @@ final class VideoPlaybackSession {
         lastSavedProgress = nil
         autoplayBlockedByTTS = false
         pendingStartNotice = nil
+        resetNowPlayingCover()
         resetOfflineState()
         qualityTask?.cancel()
         qualityTask = nil

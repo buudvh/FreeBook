@@ -35,6 +35,8 @@ final class VideoNowPlayingCoordinator {
     var actions: Actions?
 
     private var registrations: [(command: MPRemoteCommand, token: Any)] = []
+    /// Ảnh màn khoá lần ghi trước — cùng ảnh thì dùng lại `MPMediaItemArtwork`, không dựng mới mỗi lần ghi.
+    private var cachedArtwork: (image: UIImage, artwork: MPMediaItemArtwork)?
 
     private init() {}
 
@@ -94,10 +96,9 @@ final class VideoNowPlayingCoordinator {
 
     // MARK: - Now Playing
 
-    /// Không giữ phiên thì bỏ qua (video đang nhường TTS).
+    /// Không giữ phiên thì bỏ qua (video đang nhường TTS). Chữ + ảnh theo `VideoNowPlayingMetadata` (1.3.764).
     func publish(
-        title: String,
-        album: String,
+        metadata: VideoNowPlayingMetadata,
         elapsed: Double,
         duration: Double,
         rate: Double,
@@ -107,10 +108,7 @@ final class VideoNowPlayingCoordinator {
     ) {
         guard isHoldingSession else { return }
         var info: [String: Any] = [:]
-        info[MPMediaItemPropertyTitle] = title
-        info[MPMediaItemPropertyAlbumTitle] = album
-        info[MPMediaItemPropertyArtist] = album
-        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.video.rawValue
+        apply(metadata, to: &info)
         if duration > 0 {
             info[MPMediaItemPropertyPlaybackDuration] = duration
         } else {
@@ -128,13 +126,10 @@ final class VideoNowPlayingCoordinator {
 
     /// Đang nạp item mới (đổi tập / đổi server / thử lại) mà video vẫn giữ phiên: báo dừng (`rate 0`, `.paused`) với tên
     /// tập mới — màn khoá không chạy tiếp đồng hồ của item cũ. Không đặt độ dài (thiếu độ dài ≠ phát trực tiếp).
-    func publishLoading(title: String, album: String) {
+    func publishLoading(metadata: VideoNowPlayingMetadata) {
         guard isHoldingSession else { return }
         var info: [String: Any] = [:]
-        info[MPMediaItemPropertyTitle] = title
-        info[MPMediaItemPropertyAlbumTitle] = album
-        info[MPMediaItemPropertyArtist] = album
-        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.video.rawValue
+        apply(metadata, to: &info)
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = 0.0
         info[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
         let infoCenter = MPNowPlayingInfoCenter.default()
@@ -147,6 +142,29 @@ final class VideoNowPlayingCoordinator {
     func needsRepublish() -> Bool {
         guard isHoldingSession else { return false }
         return !Self.isVideoInfo(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+    }
+
+    /// Tiêu đề, dòng phụ (Artist; không có ⇒ không ghi), ảnh, loại media. Không ghi Album (anh Bửu: chỉ tên phim + tác giả).
+    private func apply(_ metadata: VideoNowPlayingMetadata, to info: inout [String: Any]) {
+        info[MPMediaItemPropertyTitle] = metadata.title
+        if let subtitle = metadata.subtitle {
+            info[MPMediaItemPropertyArtist] = subtitle
+        }
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.video.rawValue
+        guard let image = metadata.artwork else { return }
+        if let cachedArtwork, cachedArtwork.image === image {
+            info[MPMediaItemPropertyArtwork] = cachedArtwork.artwork
+            return
+        }
+        let artwork = Self.makeArtwork(image)
+        cachedArtwork = (image: image, artwork: artwork)
+        info[MPMediaItemPropertyArtwork] = artwork
+    }
+
+    /// `nonisolated`: closure trả ảnh được hệ thống gọi ở luồng bất kỳ — dựng ngoài ngữ cảnh main actor để closure không
+    /// bị gắn main actor.
+    private nonisolated static func makeArtwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 
     private static func isVideoInfo(_ info: [String: Any]?) -> Bool {

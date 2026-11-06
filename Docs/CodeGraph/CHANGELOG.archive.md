@@ -2,6 +2,58 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.734] - 2026-11-05
+
+### feat: giao diện màn xem video kiểu trình phát dọc, nút Home và mở lại từ hub
+
+Phần 2 của plan "Màn xem video kiểu trình phát dọc" (anh Bửu đã duyệt). Kèm hai việc dọn của phần 1 (1.3.733).
+
+- **Id truyện chữ / truyện tranh trả về như cũ** (sửa rủi ro của 1.3.733):
+  - `BookDetailView.resolveBookId` chỉ dùng id xác định theo (tiện ích, link) cho **video**.
+  - Truyện chữ / tranh chưa lưu lại nhận UUID ngẫu nhiên một lần mỗi màn (`fallbackBookId`), hoặc chính id caller khi nó dạng UUID.
+  - Lý do: xoá rồi thêm lại cùng truyện sẽ dùng lại id cũ. Hàng đợi xoá lỗi của `BookStorageManager` (`failed_file_deletions_queue`, `failed_chapterstore_deletions_queue`) còn mục của lần xoá trước thì lần mở app sau có thể xoá nhầm file / mục lục của bản mới.
+  - **Rủi ro còn lại, cố ý giữ**: video vẫn dùng id xác định (để mở cùng phim từ nhiều lối không ra hai `Book`), nên rủi ro trên vẫn còn với phim. Chỉ xảy ra khi lần xoá phim trước **lỗi file** rồi phim được thêm lại trước lần mở app kế tiếp. Lối nhập từ trình duyệt vốn đã dùng id xác định từ trước.
+- **Mở lại từ hub / PiP dùng giao diện mới**:
+  - `VideoPlayerPresenter` chuyển sang `VideoWatchPresenter.present(VideoWatchRequest(launch: session.launch))` (có `completion` cho PiP).
+  - Id lấy nguyên từ phiên ⇒ màn gắn ngay vào phim đang chạy, không tự phát lại.
+  - Màn xem đang hiện bìa phim B mà hub mở lại phim A ⇒ đóng màn cũ rồi mới mở, **không chồng** trình phát.
+  - Lối trình bày cũ chỉ còn làm dự phòng khi phiên thiếu `modelContainer`.
+- **Phần dưới khung phim** (`VideoWatchDetailsView`, thay `VideoPlayerDetailsView` ở màn xem; thư mục mới `Views/VideoPlayer/Watch/`):
+  - **Nhãn thể loại** `#KiếmHiệp #CổTrang` trên tên phim (`VideoWatchTitleBlock`): tối đa 4 nhãn, một dòng, bỏ khoảng trắng sau `#`, dài thì cắt đuôi. Thể loại không có script chỉ là chữ.
+  - Tên phim + dòng meta `nguồn · N tập · tác giả` + "…thêm" ⇒ sheet **Thông tin** (`VideoWatchInfoSheet`: bìa, tác giả, nguồn, số tập, đủ chip thể loại, giới thiệu đầy đủ).
+  - **Hàng nút** viên thuốc 38pt (`VideoWatchActionRow`):
+    - **Trên kệ**: bật = `setOnShelf` (phim chưa lưu ⇒ tạo `Book` trên kệ cùng mục lục đủ) rồi mời chọn bộ sưu tập. Tắt = `removeFromShelf` (phim về Lịch sử). **Không** dùng `deleteBookAsync`, cũng không `setOnShelf(false)` (hạ cả cờ Lịch sử).
+    - **Tải**: sheet tải nhiều tập của **phim này** (`TaskOptionsSheet`), phim chưa lưu thì tạo trên kệ như Chi tiết.
+    - **Đổi nguồn**: `SearchView` chế độ đổi nguồn trong sheet; xong thì đóng sheet rồi đóng màn.
+    - **Chia sẻ**: link chi tiết tuyệt đối (ghép host), không có link http(s) thì ẩn.
+    - Phim nhập từ file không có Tải / Đổi nguồn.
+  - **Giới thiệu** 3 dòng, chạm ⇒ sheet Thông tin.
+  - **Lưới Server** 3 cột (`VideoPlayerOptionGrid` + `VideoServerOptions`, mới, dùng chung với ngăn kéo ⋯). Chỉ hiện khi phiên đang phát đúng phim này. **Chất lượng không hiện** ở màn xem.
+  - **Dải tập** (`VideoWatchEpisodeStrip`): chip nhóm (chỉ khi ≥ 2 nhóm, chọn sẵn nhóm chứa tập đang xem) + dải ngang ô số tập + "Tất cả ›" ⇒ sheet lưới **6 cột** (`VideoWatchEpisodeSheet`), dấu ⬇ cho tập đã tải (`VideoOfflineLibrary` theo id phim của màn).
+  - **Bình luận** (`VideoWatchCommentsCard`): xem trước 2 bình luận, chạm ⇒ sheet `AllCommentsView` (có `NavigationStack` riêng).
+  - **Đề xuất kiểu bảng tin** (`VideoWatchSuggestFeed` / `Section` / `Card`):
+    - Mỗi nhóm đề xuất một tiêu đề, xếp liền nhau. Nhóm tải khi cuộn tới; nhóm **cuối** nạp thêm trang khi tới thẻ cuối, nhóm giữa một trang. Bỏ chính phim đang xem.
+    - Thẻ: ảnh 16:9 rộng hết màn (bìa dọc đặt giữa trên nền mờ), nhãn `tag` góc ảnh; dưới là icon nguồn tròn, tên 2 dòng, dòng phụ `nguồn · tác giả / mô tả`, và ⋮.
+    - ⋮ › **Thêm vào kệ** (`VideoWatchShelfAdder`, mới: tải chi tiết + đủ mục lục rồi tạo `Book` trên kệ; đã có thì bật cờ kệ) / **Mở trang chi tiết**.
+    - Bấm phim ⇒ `replace(with:)` đổi phim **ngay tại màn** (cuộn về đầu).
+  - Chi tiết lỗi ⇒ một dòng báo + Thử lại + "Mở link lỗi" (trình duyệt riêng, thử lại bằng `VideoWatchModel`, không đụng phiên phát).
+- **Nút Home nổi** (`.floatingAddButton(systemImage: "house")`, chỉ trên màn xem):
+  1. Phim **đang phát** là 18+ (`RepositoryFilterPolicy.isNsfwBook`) ⇒ dừng hẳn. Còn lại ⇒ thu nhỏ, phát tiếp ở hub.
+  2. Công tắc NSFW đang bật ⇒ tắt.
+  3. Đóng màn (và trang phụ của màn nếu có), sang tab **Khám phá**, về **trang gốc**.
+  - Báo qua `MainTabNavigationEvents` (AsyncStream mới, `Views/Common/MainTabBar/`), không thêm notification chuỗi. `MainTabView` tự tạo lại tab Khám phá khi tab đó đang có trang đẩy vào (`tabHasPushedPages`, mới — không bỏ qua khi có màn phủ như `shouldResetTab`).
+- **Lối rời màn xem** (`VideoWatchExit`): thể loại, Chi tiết của đề xuất, Home, đổi nguồn xong.
+  - `VideoPlayerScreen.leave(then:)` chạy trang tiếp theo **sau khi** màn đã đóng (`onDisappear`).
+  - **Quyết định cần anh xác nhận**: danh sách thể loại và Chi tiết mở từ màn xem hiện ở **sheet lớn** (`VideoWatchPresenter.presentPage`, vuốt xuống để đóng), không đẩy vào tab đang mở. Các tab dùng `NavigationStack` không `path` nên không đẩy trang được từ ngoài cây tab.
+- **Gộp thuật toán chia nhóm tập** thành `VideoEpisodeGrouping` (mới), dùng cho lưới tập trình phát, màn xem và tab Mục lục của Chi tiết. `Group.id` = vị trí **sau khi** bỏ nhóm rỗng: bản cũ đánh số trước khi bỏ nên lệch khi hai section liền nhau. `VideoEpisodeGridView` thêm `columnCount` + `downloadedIndexes`.
+- **Đổi nguồn dừng phim trước**: `SearchView+SourceChange` dừng `VideoPlaybackSession` nếu đang phát truyện cũ, trước khi chạy `BookSourceChangeCoordinator`. Áp cho mọi lối đổi nguồn, kể cả từ Chi tiết.
+- **Bấm ▶ không bị "dừng sẵn"**: tự tay bấm phát bỏ lệnh dừng sẵn của lượt mở lại lúc khởi động (`consumePausedVideoStart`). Chỉ lượt tự phát mới giữ lệnh đó.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo mọi chỗ gọi `VideoEpisodeGridView(`, `leave(`, `SearchView(`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**; file mới ≤ 400 dòng, mỗi file 1 type.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.733] - 2026-11-05
 
 ### feat: nền màn xem video: định danh phim, tải chi tiết + mục lục, tự phát và lưới tuỳ chọn trình phát
