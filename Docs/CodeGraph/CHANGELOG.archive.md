@@ -2,6 +2,30 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.725] - 2026-11-05
+
+### feat: tin Telegram và ghi chú release liệt kê mọi commit của lượt build, gửi lại khi lỗi
+
+Người dùng (qua /grill-me): chia việc cho session con thì *"việc push và build làm cuối cùng sau khi các việc của session con đã xong hết … nội dung commit phải chứa đủ những thứ đã sửa"*. Chốt: giữ commit riêng, session chính push một lần. Thêm: *"nhớ cắt tin nhắn trước khi gửi tele để đảm bảo không bị lỗi tin quá dài nhé. và nhớ check tin nhắn đã được gửi, nếu chưa được thì thử lại 2 lần"*.
+
+- **Trước đây**: CI chỉ đọc `git log -1`. Một lượt push mang nhiều commit thì caption Telegram, ghi chú release và `localizedDescription` của `apps.json` chỉ có commit cuối. `curl … || echo` coi mọi phản hồi là đã gửi, kể cả 400/429.
+- **Bước mới `Collect Commit List`** (`build-ipa.yml`):
+  - SHA lần build xanh trước trên `main` lấy qua `gh run list` (job thêm `permissions: actions: read`).
+  - Danh sách commit lấy qua `gh api repos/…/compare/<cũ>...<mới>` (checkout chỉ có 1 commit). Mỗi commit lấy dòng đầu, cũ → mới, ghi `build/commit_subjects.txt`.
+  - Không lấy được ⇒ commit cuối như trước.
+- **`Scripts/ci/telegram_commit_summary.py`** (mới): dựng tin `💬 N commit:` + `• <subject>`; một commit giữ dạng `💬 Commit: …`.
+  - **Cắt vừa giới hạn trước khi gửi**, đếm theo UTF-16 như Telegram (emoji = 2): caption gửi IPA 1024, tin 4096. Có chừa chỗ cho dòng link. Thừa ⇒ `… và K commit khác (xem release)`.
+  - `--format notes` ⇒ danh sách đầy đủ cho ghi chú release, nên LiveContainer cũng thấy đủ.
+  - In UTF-8 bất kể bảng mã console.
+- **`Scripts/ci/telegram_send.sh`** (mới, `tg_call`): coi là đã gửi **chỉ khi** phản hồi có `"ok":true`. Lỗi ⇒ thử lại **2 lần** (nghỉ 5 s, 10 s). Hết lượt ⇒ `::warning::`, không làm đỏ build (để không gửi nhầm tin "Build Thất Bại").
+  - Dùng cho cả 3 tin: gửi IPA, file quá 50 MB, build thất bại.
+  - Caption/`chat_id` gửi bằng `--form-string` ⇒ subject có `@`, `<`, `;type=` không bị curl hiểu nhầm.
+- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Tin Telegram + ghi chú release liệt kê mọi commit" ở mục CI.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Tại chỗ: API so sánh `4cefa5f7...a7a5aba2` trả đúng 3 subject. Caption 3 commit đúng dạng. 40 commit cắt còn 978/1024 đơn vị UTF-16 kèm "… và 28 commit khác". `tg_call` với curl giả (lỗi 2 lần rồi ok ⇒ gửi ở lần 3; luôn lỗi ⇒ trả 1 sau 3 lần). YAML hợp lệ.
+  - Commit này không đổi `Sources/**`/`project.yml` ⇒ không kích hoạt build. Lượt build thật kế tiếp là lần kiểm đầu tiên trên CI.
+
 ## [1.3.724] - 2026-11-05
 
 ### feat: CI đăng IPA lên GitHub Release và cập nhật nguồn LiveContainer, giữ 5 bản mới nhất

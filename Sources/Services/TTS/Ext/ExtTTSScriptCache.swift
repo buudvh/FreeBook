@@ -10,7 +10,8 @@ import Foundation
 /// bộ đều cho ra cùng một kết quả. `getTTSRuntimeFingerprint` cũ còn đọc script **trước** khi tra
 /// cache nên cache chỉ tiết kiệm SHA256, không tiết kiệm I/O.
 ///
-/// Đường nóng bây giờ là **hai lần `stat()`** (plugin.json + script) để kiểm hạn cache.
+/// Đường nóng bây giờ là mốc kiểm hạn của `ExtensionPackageReader.modificationStamp`: thư mục ⇒ `stat()` gói +
+/// plugin.json + script; gói một file ⇒ một `stat()` (mtime, cỡ) của file.
 final class ExtTTSScriptCache: @unchecked Sendable {
     static let shared = ExtTTSScriptCache()
 
@@ -24,16 +25,12 @@ final class ExtTTSScriptCache: @unchecked Sendable {
     }
 
     /// Mốc kiểm hạn. `plugin.json` cũng phải được canh: nó quyết định *tên* file script, nên đổi nó
-    /// mà chỉ canh `tts.js` là dùng mãi script cũ.
-    private struct Stamp: Equatable {
-        let configJson: String
-        let pluginModifiedAt: TimeInterval
-        let scriptModifiedAt: TimeInterval
-    }
-
+    /// mà chỉ canh `tts.js` là dùng mãi script cũ. Gói một file: cả hai nằm trong mốc của file.
     private struct Entry {
-        let stamp: Stamp
-        let scriptURL: URL
+        let configJson: String
+        let packageStamp: ExtensionPackageReader.Stamp
+        /// Path tương đối của script trong gói — để lần sau canh đúng file đó (bố cục thư mục).
+        let scriptPath: String
         let payload: Payload
     }
 
@@ -43,22 +40,19 @@ final class ExtTTSScriptCache: @unchecked Sendable {
     private init() {}
 
     func payload(localPath: String, configJson: String) throws -> Payload {
-        let pluginModifiedAt = Self.modifiedAt(
-            URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json").path
-        )
-
         lock.lock()
         let cached = entries[localPath]
         lock.unlock()
 
-        if let cached, cached.stamp.configJson == configJson,
-           cached.stamp.pluginModifiedAt == pluginModifiedAt,
-           cached.stamp.scriptModifiedAt == Self.modifiedAt(cached.scriptURL.path) {
+        // Mốc `nil` (gói đã mất / `stat` lỗi) ⇒ không bao giờ dùng bản đã nhớ.
+        if let cached, cached.configJson == configJson,
+           let stamp = Self.stamp(localPath: localPath, scriptPath: cached.scriptPath),
+           stamp == cached.packageStamp {
             return cached.payload
         }
 
-        let scriptURL = try ExtensionManager.shared.getScriptPath(extensionPath: localPath, scriptKey: "tts")
-        let scriptData = try Data(contentsOf: scriptURL)
+        let script = try ExtensionManager.shared.entryScript(localPath: localPath, scriptKey: "tts")
+        let scriptData = script.data
         guard let scriptContent = String(data: scriptData, encoding: .utf8) else {
             throw NSError(
                 domain: "ExtTTSScriptCache",
@@ -78,15 +72,16 @@ final class ExtTTSScriptCache: @unchecked Sendable {
                 localPath: localPath
             )
         )
-        let stamp = Stamp(
-            configJson: configJson,
-            pluginModifiedAt: pluginModifiedAt,
-            scriptModifiedAt: Self.modifiedAt(scriptURL.path)
-        )
-
-        lock.lock()
-        entries[localPath] = Entry(stamp: stamp, scriptURL: scriptURL, payload: payload)
-        lock.unlock()
+        if let stamp = Self.stamp(localPath: localPath, scriptPath: script.relativePath) {
+            lock.lock()
+            entries[localPath] = Entry(
+                configJson: configJson,
+                packageStamp: stamp,
+                scriptPath: script.relativePath,
+                payload: payload
+            )
+            lock.unlock()
+        }
         return payload
     }
 
@@ -98,12 +93,12 @@ final class ExtTTSScriptCache: @unchecked Sendable {
 
     // MARK: - Phụ trợ
 
-    /// `0` khi không đọc được thuộc tính: coi như "mốc lạ" nên cache tự dựng lại, không bao giờ
-    /// giữ bản cũ vì một lần `stat` thất bại.
-    private static func modifiedAt(_ path: String) -> TimeInterval {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: path)
-        let date = attributes?[.modificationDate] as? Date
-        return date?.timeIntervalSince1970 ?? 0
+    /// Thư mục: mtime của `plugin.json` + script; gói một file: (mtime, cỡ) của file.
+    private static func stamp(localPath: String, scriptPath: String) -> ExtensionPackageReader.Stamp? {
+        ExtensionPackageReader.modificationStamp(
+            localPath: localPath,
+            relativePaths: [ExtensionPackageReader.manifestFileName, scriptPath]
+        )
     }
 
     /// Băm có độ dài đi kèm từng phần để hai chuỗi ghép khác nhau không ra cùng digest.

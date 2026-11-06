@@ -94,10 +94,7 @@ enum ExtensionUrlMatcher {
         lock.unlock()
         if let cached { return cached }
 
-        let pluginJsonUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path),
-              let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        guard let json = ExtensionPackageReader.manifest(localPath: localPath),
               let metadata = json["metadata"] as? [String: Any],
               let regexp = metadata["regexp"] as? String else {
             return nil

@@ -132,26 +132,18 @@ public final class TranslationConfigStore: @unchecked Sendable {
         }
         lock.unlock()
 
-        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        guard let appSupport = paths.first else { return false }
-        let extDir = appSupport.appendingPathComponent("extensions", isDirectory: true)
-            .appendingPathComponent(packageId, isDirectory: true)
-
-        var pluginJsonUrl = extDir.appendingPathComponent("plugin.json")
-        if !FileManager.default.fileExists(atPath: pluginJsonUrl.path) {
-            if let contents = try? FileManager.default.contentsOfDirectory(at: extDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-                for item in contents {
-                    let sub = item.appendingPathComponent("plugin.json")
-                    if FileManager.default.fileExists(atPath: sub.path) {
-                        pluginJsonUrl = sub
-                        break
-                    }
-                }
-            }
+        // Gói ở `extensions/<packageId>/`, hoặc một thư mục con trực tiếp của nó (zip bọc mọi thứ trong một thư mục).
+        let extDir = ExtensionFolderLocator.extensionsRoot.appendingPathComponent(packageId, isDirectory: true)
+        var packagePath = extDir.path
+        if !ExtensionPackageReader.isPresent(localPath: packagePath),
+           let contents = try? FileManager.default.contentsOfDirectory(at: extDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]),
+           let sub = contents.first(where: {
+               ExtensionPackageReader.layout(localPath: $0.path) == .directory && ExtensionPackageReader.isPresent(localPath: $0.path)
+           }) {
+            packagePath = sub.path
         }
 
-        guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let json = ExtensionPackageReader.manifest(localPath: packagePath) else {
             return false
         }
         let meta = json["metadata"] as? [String: Any] ?? json

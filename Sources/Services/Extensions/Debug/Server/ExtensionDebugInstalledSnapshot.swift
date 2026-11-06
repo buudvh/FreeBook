@@ -38,11 +38,8 @@ public struct ExtensionDebugInstalledSnapshot: Sendable, Equatable {
     }
 
     private static func readScriptKeys(localPath: String) -> [String] {
-        guard !localPath.isEmpty else { return [] }
-        let pluginUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: pluginUrl),
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let scripts = json["script"] as? [String: Any] else {
+        guard !localPath.isEmpty,
+              let scripts = ExtensionPackageReader.manifest(localPath: localPath)?["script"] as? [String: Any] else {
             return []
         }
         return scripts.keys.sorted()

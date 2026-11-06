@@ -76,8 +76,7 @@ actor ComicImageScriptRunner {
         if let existing = executors[key] {
             return existing
         }
-        let scriptURL = try Self.scriptURL(localPath: key.localPath, fileName: key.script)
-        let content = try String(contentsOf: scriptURL, encoding: .utf8)
+        let content = try Self.scriptContent(localPath: key.localPath, fileName: key.script)
 
         let executor = JSExecutor(localPath: key.localPath, downloadUrl: downloadUrl)
         // Script ảnh cần byte ảnh: trang HTML của browser ẩn không thay được ⇒ fetch lỗi trả lỗi ngay.
@@ -93,21 +92,15 @@ actor ComicImageScriptRunner {
         executor.context.evaluateScript("if (typeof _nativeGraphicsReset === 'function') { _nativeGraphicsReset(); }")
     }
 
-    /// Tìm script ở gốc tiện ích rồi `src/` — cùng quy tắc với `ExtensionManager.executeCustomScript`.
-    static func scriptURL(localPath: String, fileName: String) throws -> URL {
+    /// Nội dung script ở gốc gói rồi `src/` (`ExtensionPackageReader`) — cùng quy tắc với `ExtensionManager.executeCustomScript`.
+    static func scriptContent(localPath: String, fileName: String) throws -> String {
         guard !fileName.contains(".."), !fileName.hasPrefix("/") else {
             throw error("Tên script ảnh không hợp lệ: \(fileName)")
         }
-        let extUrl = URL(fileURLWithPath: localPath)
-        let rootUrl = extUrl.appendingPathComponent(fileName)
-        if FileManager.default.fileExists(atPath: rootUrl.path) {
-            return rootUrl
+        guard let script = ExtensionPackageReader.script(named: fileName, localPath: localPath) else {
+            throw error("Script file '\(fileName)' not found in root or src/")
         }
-        let srcUrl = extUrl.appendingPathComponent("src").appendingPathComponent(fileName)
-        if FileManager.default.fileExists(atPath: srcUrl.path) {
-            return srcUrl
-        }
-        throw error("Script file '\(fileName)' not found in root or src/")
+        return try script.text()
     }
 
     // MARK: - Lượt chạy

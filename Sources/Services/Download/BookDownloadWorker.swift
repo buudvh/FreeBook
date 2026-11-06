@@ -25,8 +25,7 @@ public actor BookDownloadWorker {
         guard !isPrepared else { return }
         guard !isCancelled else { throw CancellationError() }
 
-        let scriptUrl = try ExtensionManager.shared.getScriptPath(extensionPath: localPath, scriptKey: "chap")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try ExtensionManager.shared.entryScript(localPath: localPath, scriptKey: "chap").text()
 
         let newExecutor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = ExtensionManager.shared.getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -59,7 +58,7 @@ public actor BookDownloadWorker {
             try Task.checkCancellation()
             guard !isCancelled else { throw CancellationError() }
 
-            let extName = URL(fileURLWithPath: localPath).lastPathComponent
+            let extName = ExtensionPackageReader.packageName(localPath: localPath)
             let cleanVal = try ExtensionManager.shared.verifyJSResponse(jsValue, extName: extName, scriptName: "chap")
 
             var resultStr = ""

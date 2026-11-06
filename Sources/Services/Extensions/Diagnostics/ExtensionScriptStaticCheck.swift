@@ -2,7 +2,7 @@ import Foundation
 import JavaScriptCore
 
 /// Tầng tĩnh của Kiểm tra tiện ích: với **mọi** khoá trong mục `script` của `plugin.json`, kiểm (không mạng, không chạy
-/// script) rằng giá trị là tên file, file có ở gốc tiện ích hoặc `src/` (cùng thứ tự `ExtensionManager.getScriptPath`),
+/// script) rằng giá trị là tên file, file có ở gốc tiện ích hoặc `src/` (cùng thứ tự `ExtensionManager.entryScript`),
 /// đọc được UTF-8, đúng cú pháp, có hàm `execute`, và mọi `load("x")` chữ cố định trỏ tới file có thật.
 ///
 /// Cú pháp kiểm bằng `JSCheckScriptSyntax` — chỉ phân tích, **không** thực thi (khác `JSExecutor.validateSyntax` vốn
@@ -37,9 +37,7 @@ enum ExtensionScriptStaticCheck {
     )
 
     static func scan(localPath: String) -> Scan {
-        let pluginURL = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: pluginURL),
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+        guard let json = ExtensionPackageReader.manifest(localPath: localPath) else {
             return Scan(entries: [], manifestIssue: "Không đọc được plugin.json")
         }
         guard let map = json["script"] as? [String: Any], !map.isEmpty else {
@@ -61,10 +59,10 @@ enum ExtensionScriptStaticCheck {
 
     /// Lỗi tĩnh của một file script tìm theo tên (gốc rồi `src/`); `nil` ⇒ đạt. Dùng cả cho script phụ của tab/thể loại.
     static func fileIssue(_ fileName: String, localPath: String, context: JSContext? = nil) -> String? {
-        guard let url = resolve(fileName, localPath: localPath) else {
+        guard let script = ExtensionPackageReader.script(named: fileName, localPath: localPath) else {
             return "Không có file \(fileName) ở gốc tiện ích hay src/"
         }
-        guard let source = try? String(contentsOf: url, encoding: .utf8) else {
+        guard let source = try? script.text() else {
             return "Không đọc được \(fileName) dạng UTF-8"
         }
         let checker: JSContext? = context ?? JSContext()
@@ -76,19 +74,9 @@ enum ExtensionScriptStaticCheck {
         }
         // Tên thư viện dựng sẵn (`crypto.js`) không cần file: app tự cấp khi tiện ích không mang.
         if let missing = loadTargets(in: source).first(where: {
-            resolve($0, localPath: localPath) == nil && !JSBuiltInLibrary.isBuiltIn($0)
+            ExtensionPackageReader.script(named: $0, localPath: localPath) == nil && !JSBuiltInLibrary.isBuiltIn($0)
         }) {
             return "load(\"\(missing)\") trỏ tới file không có"
-        }
-        return nil
-    }
-
-    /// File theo tên ở gốc tiện ích rồi `src/`; không có ⇒ `nil`.
-    static func resolve(_ fileName: String, localPath: String) -> URL? {
-        let root = URL(fileURLWithPath: localPath)
-        for candidate in [root.appendingPathComponent(fileName), root.appendingPathComponent("src").appendingPathComponent(fileName)]
-        where FileManager.default.fileExists(atPath: candidate.path) {
-            return candidate
         }
         return nil
     }

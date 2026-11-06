@@ -1,7 +1,7 @@
 import Foundation
 
-/// Quét thư mục extension để tìm **mọi script có hàm `execute`**, không chỉ những khoá khai trong
-/// `plugin.json`.
+/// Quét gói extension (thư mục hoặc gói một file, qua `ExtensionPackageReader`) để tìm **mọi script có hàm
+/// `execute`**, không chỉ những khoá khai trong `plugin.json`.
 ///
 /// Vì sao cần: `scriptKeys` chỉ có những gì extension **khai** ở mục `script`. Nhưng script phụ do
 /// `home`/`genre` trả về — và script tác giả đang viết dở — không nằm trong đó, nên màn debug không có
@@ -25,23 +25,13 @@ public enum ExtensionDebugScriptScanner {
     )
 
     /// Path **tương đối** của mọi `.js` có `execute`, sắp xếp để thứ tự ổn định giữa các lượt gọi.
-    /// Rỗng khi `localPath` rỗng hoặc thư mục không đọc được — không throw, vì đây là đường liệt kê
+    /// Rỗng khi `localPath` rỗng hoặc gói không đọc được — không throw, vì đây là đường liệt kê
     /// phục vụ UI, không phải cổng kiểm tra.
     public static func executableScripts(at localPath: String) -> [String] {
         guard !localPath.isEmpty else { return [] }
-        let root = URL(fileURLWithPath: localPath)
-        var found: [String] = []
-
-        for folder in ["", "src"] {
-            let directory = folder.isEmpty ? root : root.appendingPathComponent(folder)
-            guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else { continue }
-            for name in names where name.hasSuffix(".js") {
-                guard hasExecute(at: directory.appendingPathComponent(name)) else { continue }
-                found.append(folder.isEmpty ? name : "\(folder)/\(name)")
-            }
-        }
-
-        return found.sorted()
+        return ExtensionPackageReader.listFiles(localPath: localPath)
+            .filter { isRootOrSrcScript($0) && hasExecute(relativePath: $0, localPath: localPath) }
+            .sorted()
     }
 
     public static func containsExecute(in source: String) -> Bool {
@@ -49,11 +39,16 @@ public enum ExtensionDebugScriptScanner {
         return executeRegex.firstMatch(in: source, options: [], range: range) != nil
     }
 
-    private static func hasExecute(at fileUrl: URL) -> Bool {
-        guard let handle = try? FileHandle(forReadingFrom: fileUrl) else { return false }
-        defer { try? handle.close() }
-        guard let data = try? handle.read(upToCount: maxBytesPerFile),
-              let source = String(data: data, encoding: .utf8) else { return false }
+    /// `x.js` ở gốc hoặc `src/x.js` — hai chỗ duy nhất runtime resolve.
+    private static func isRootOrSrcScript(_ relativePath: String) -> Bool {
+        guard relativePath.hasSuffix(".js") else { return false }
+        let parts = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+        return parts.count == 1 || (parts.count == 2 && parts[0] == Substring(ExtensionPackageReader.scriptFolderName))
+    }
+
+    private static func hasExecute(relativePath: String, localPath: String) -> Bool {
+        guard let data = ExtensionPackageReader.fileData(relativePath: relativePath, localPath: localPath),
+              let source = String(data: data.prefix(maxBytesPerFile), encoding: .utf8) else { return false }
         return containsExecute(in: source)
     }
 }

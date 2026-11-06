@@ -14,10 +14,10 @@ extension ExtensionManager {
     /// Một trang kết quả tìm kiếm [ExtensionItemResult] kèm token trang kế (`nil` ⇒ hết trang).
     public func searchPage(localPath: String, downloadUrl: String = "", query: String, pageToken: String, configJson: String = "{}") async throws -> (results: [ExtensionItemResult], nextPage: String?) {
         // Lấy đường dẫn file script JS tìm kiếm ("search")
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "search")
+        let scriptName = script.fileName
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(query), \(pageToken)], query=\(query), page=\(pageToken), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
 
         // Khởi tạo bộ thực thi Javascript (JSExecutor)
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
@@ -30,7 +30,7 @@ extension ExtensionManager {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, pageToken])
             // Token đọc trên object gốc: `verifyJSResponse` chỉ trả phần `data`.
             let nextPage = Self.searchNextPageToken(jsValue, executor: executor)
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "search")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "search")
 
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)

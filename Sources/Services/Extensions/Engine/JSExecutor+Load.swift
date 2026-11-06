@@ -62,15 +62,9 @@ extension JSExecutor {
         if filename == JSBuiltInLibrary.cryptoJS.rawValue { context.evaluateScript(JSCryptoJSBootstrapScript.addons) }
     }
 
-    /// File theo tên ở gốc tiện ích rồi `src/`; không có (hoặc executor không gắn tiện ích) ⇒ `nil`.
+    /// File theo tên ở gốc gói rồi `src/` (`ExtensionPackageReader`); không có (hoặc executor không gắn tiện ích) ⇒ `nil`.
     private func extensionLibraryData(named filename: String) -> Data? {
         guard let localPath else { return nil }
-        let extUrl = URL(fileURLWithPath: localPath)
-        var fileUrl = extUrl.appendingPathComponent(filename)
-        if !FileManager.default.fileExists(atPath: fileUrl.path) {
-            fileUrl = extUrl.appendingPathComponent("src").appendingPathComponent(filename)
-            guard FileManager.default.fileExists(atPath: fileUrl.path) else { return nil }
-        }
-        return try? Data(contentsOf: fileUrl)
+        return ExtensionPackageReader.scriptData(named: filename, localPath: localPath)
     }
 }

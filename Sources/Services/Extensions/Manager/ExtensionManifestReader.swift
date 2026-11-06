@@ -1,18 +1,13 @@
 import Foundation
 
-/// Đọc vài trường của `<localPath>/plugin.json` mà tầng nền cần — `metadata.source` (host mặc định) và cờ
-/// nội dung người lớn (`metadata.nsfw`, kiểu cũ `"tag": "nsfw"`/`tags`).
+/// Đọc vài trường của `plugin.json` (qua `ExtensionPackageReader`) mà tầng nền cần — `metadata.source` (host mặc định)
+/// và cờ nội dung người lớn (`metadata.nsfw`, kiểu cũ `"tag": "nsfw"`/`tags`).
 ///
 /// `metadata` thiếu thì dùng gốc file, giống luồng cài (`ExtensionManager.installFromLocalZip`). Đọc lỗi ⇒ `nil`,
 /// không ném. Mỗi lần gọi là một lần đọc đĩa: caller gọi **một lần cho mỗi lượt chạy script**, không gọi theo dòng.
 enum ExtensionManifestReader {
     nonisolated static func metadata(localPath: String) -> [String: Any]? {
-        let path = localPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !path.isEmpty else { return nil }
-        let url = URL(fileURLWithPath: path).appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        return json["metadata"] as? [String: Any] ?? json
+        ExtensionPackageReader.metadata(localPath: localPath)
     }
 
     /// `metadata.source` đã trim, khác rỗng.

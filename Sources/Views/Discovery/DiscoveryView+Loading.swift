@@ -52,7 +52,7 @@ extension DiscoveryView {
         return home ?? genre
     }
 
-    /// `nil` khi lỗi không đáng báo: bị huỷ, hoặc tiện ích JS không khai script `scriptKey` (`getScriptPath` ném
+    /// `nil` khi lỗi không đáng báo: bị huỷ, hoặc tiện ích JS không khai script `scriptKey` (`entryScript` ném
     /// "not defined" — nguồn thiếu `home`/`genre` là chuyện bình thường). Nguồn Legado: mọi lỗi đều là lỗi thật.
     private static func failure(of error: Error, scriptKey: String, localPath: String, sourceUrl: String) -> CatalogFailure? {
         if error is CancellationError { return nil }

@@ -8,7 +8,7 @@ extension SourceRuntime {
         do {
             return try LegadoSourceTargetResolver.shared.target(localPath: localPath)
         } catch {
-            AppLogger.shared.log("❌ [SourceRuntime][Legado] \(URL(fileURLWithPath: localPath).lastPathComponent): \(LegadoCorpusErrorClassifier.redact(error.localizedDescription))")
+            AppLogger.shared.log("❌ [SourceRuntime][Legado] \(ExtensionPackageReader.packageName(localPath: localPath)): \(LegadoCorpusErrorClassifier.redact(error.localizedDescription))")
             throw error
         }
     }

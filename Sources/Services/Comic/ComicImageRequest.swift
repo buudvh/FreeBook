@@ -58,11 +58,12 @@ public struct ComicImageRequest: Sendable, Hashable {
         return script
     }
 
-    /// Danh tính ảnh cho cache đĩa/RAM: `link` chính (không phải fallback nào tải được), cộng thư mục
+    /// Danh tính ảnh cho cache đĩa/RAM: `link` chính (không phải fallback nào tải được), cộng tên gói
     /// tiện ích + tên script khi ảnh do script dựng (cùng `link` qua hai script là hai ảnh khác nhau).
+    /// Tên gói (`ExtensionPackageReader.packageName`) bỏ đuôi `.json` ⇒ chuyển thư mục sang gói một file không đổi khoá.
     var cacheKey: String {
         if let script = scriptName {
-            let folder = URL(fileURLWithPath: extensionLocalPath).lastPathComponent
+            let folder = ExtensionPackageReader.packageName(localPath: extensionLocalPath)
             return "script|\(folder)|\(script)|\(source.link)"
         }
         return source.link.trimmingCharacters(in: .whitespacesAndNewlines)

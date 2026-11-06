@@ -91,10 +91,13 @@ struct ExtensionConfigSchema {
 
     static func load(localPath: String) throws -> ExtensionConfigSchema {
         guard !localPath.isEmpty else { throw LoadError.notInstalled }
-        let pluginJsonUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else { throw LoadError.missingPluginJson }
+        guard ExtensionPackageReader.isPresent(localPath: localPath) else { throw LoadError.missingPluginJson }
+        // Bytes nguyên văn (`ExtensionPackageReader`): `parse` đọc thứ tự khoá gốc của mục `config`.
+        guard let data = ExtensionPackageReader.manifestData(localPath: localPath) else {
+            throw LoadError.unreadable("không đọc được nội dung")
+        }
         do {
-            return try parse(try Data(contentsOf: pluginJsonUrl))
+            return try parse(data)
         } catch {
             throw LoadError.unreadable(error.localizedDescription)
         }

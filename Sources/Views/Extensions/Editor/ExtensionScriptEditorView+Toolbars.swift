@@ -4,13 +4,17 @@ import UIKit
 /// Hai thanh dưới cùng của trình soạn script (phím ký tự nhanh + footer công cụ) và tiện ích tắt
 /// bàn phím. Tách khỏi `ExtensionScriptEditorView` để file gốc chỉ giảm dòng.
 extension ExtensionScriptEditorView {
+    /// So **path tương đối** của file đang mở (`ScriptFileInfo.id`) với script mà mục `script` của `plugin.json` khai
+    /// cho từng khoá, resolve qua `ExtensionPackageReader` (gốc gói rồi `src/`, path đã chuẩn hoá `./`).
     private func standardEntrypoint(for file: ScriptFileInfo) -> ExtensionDebugEntrypoint? {
-        guard let root = extensionRootURL else { return nil }
-        let currentPath = file.fileUrl.standardizedFileURL.path
+        guard let root = extensionRootURL,
+              let scripts = ExtensionPackageReader.manifest(localPath: root.path)?["script"] as? [String: Any] else { return nil }
+        let currentPath = ExtensionPackageReader.normalizedRelativePath(file.id) ?? file.id
         let keys = ["search", "detail", "toc", "chap", "genre", "home"]
         for key in keys {
-            guard let script = try? ExtensionManager.shared.getScriptPath(extensionPath: root.path, scriptKey: key),
-                  script.standardizedFileURL.path == currentPath else { continue }
+            guard let name = scripts[key] as? String,
+                  let script = ExtensionPackageReader.script(named: name, localPath: root.path),
+                  script.relativePath == currentPath else { continue }
             switch key {
             case "search": return .search(keyword: "", page: 1)
             case "detail": return .detail(url: "")

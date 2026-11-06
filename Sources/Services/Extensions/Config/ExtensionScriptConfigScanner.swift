@@ -52,15 +52,10 @@ enum ExtensionScriptConfigScanner {
         }
     }
 
-    /// File theo tên ở gốc tiện ích rồi `src/`. Tên có `..` (ra ngoài thư mục tiện ích) ⇒ bỏ qua.
+    /// File theo tên ở gốc gói rồi `src/` (`ExtensionPackageReader`). Tên có `..` (ra ngoài gói) ⇒ bỏ qua.
     private static func scriptData(named name: String, localPath: String) -> Data? {
         guard !name.contains("..") else { return nil }
-        let root = URL(fileURLWithPath: localPath, isDirectory: true)
-        for url in [root.appendingPathComponent(name), root.appendingPathComponent("src").appendingPathComponent(name)]
-        where FileManager.default.fileExists(atPath: url.path) {
-            return try? Data(contentsOf: url)
-        }
-        return nil
+        return ExtensionPackageReader.scriptData(named: name, localPath: localPath)
     }
 
     // MARK: - Bỏ comment

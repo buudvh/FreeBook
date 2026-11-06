@@ -65,12 +65,8 @@ enum BypassBrowserHomePage {
     }
 
     private static func iconSource(for ext: Extension) -> String {
-        if !ext.localPath.isEmpty {
-            let iconPath = URL(fileURLWithPath: ext.localPath).appendingPathComponent("icon.png").path
-            if FileManager.default.fileExists(atPath: iconPath),
-               let data = try? Data(contentsOf: URL(fileURLWithPath: iconPath)) {
-                return "data:image/png;base64,\(data.base64EncodedString())"
-            }
+        if !ext.localPath.isEmpty, let data = ExtensionPackageReader.iconData(localPath: ext.localPath) {
+            return "data:image/png;base64,\(data.base64EncodedString())"
         }
         if let iconUrl = ext.iconUrl, !iconUrl.isEmpty {
             return iconUrl

@@ -202,49 +202,28 @@ public final class ExtensionManager: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
     
-    // getScriptPath: Đọc cấu trúc tệp cấu hình plugin.json để xác định đường dẫn thực tế của file script JS cần chạy
-    // Hỗ trợ tìm kiếm dự phòng (fallback) cả ở thư mục gốc của extension lẫn thư mục src/
-    internal func getScriptPath(extensionPath: String, scriptKey: String) throws -> URL {
-        let extUrl = URL(fileURLWithPath: extensionPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        
-        // Kiểm tra sự tồn tại của file cấu hình plugin.json
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
-            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "plugin.json not found inside extension (\(extensionPath.isEmpty ? "localPath rỗng" : extensionPath))"])
+    // entryScript: script mà mục `script` của plugin.json khai cho `scriptKey` (search, detail, chap…), tìm ở gốc gói
+    // rồi `src/` — đọc qua `ExtensionPackageReader` nên chạy được cả thư mục lẫn gói một file.
+    internal func entryScript(localPath: String, scriptKey: String) throws -> ExtensionPackageReader.Script {
+        guard let data = ExtensionPackageReader.manifestData(localPath: localPath) else {
+            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "plugin.json not found inside extension (\(localPath.isEmpty ? "localPath rỗng" : localPath))"])
         }
-        
-        // Đọc nội dung plugin.json và lấy tên file script tương ứng với scriptKey (ví dụ: search, detail, chap)
-        let data = try Data(contentsOf: pluginJsonUrl)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let script = json["script"] as? [String: Any],
               let scriptFileName = script[scriptKey] as? String else {
             throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Script key '\(scriptKey)' not defined"])
         }
-        
-        // Cách 1: Thử tìm trực tiếp ở thư mục gốc của extension
-        let scriptUrl = extUrl.appendingPathComponent(scriptFileName)
-        if FileManager.default.fileExists(atPath: scriptUrl.path) {
-            return scriptUrl
+        guard let found = ExtensionPackageReader.script(named: scriptFileName, localPath: localPath) else {
+            throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
         }
-        
-        // Cách 2: Tìm dự phòng bên trong thư mục con src/ (cấu trúc phổ biến của extension)
-        let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
-        if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
-            return srcScriptUrl
-        }
-        
-        // Trả về lỗi nếu không tìm thấy file script ở cả 2 vị trí trên
-        throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
+        return found
     }
-    
+
     public func getCombinedConfigs(localPath: String, configJson: String) -> [String: Any] {
         var combined: [String: Any] = [:]
-        
-        // 1. Đọc default config từ plugin.json trong thư mục localPath
-        let extUrl = URL(fileURLWithPath: localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        if let data = try? Data(contentsOf: pluginJsonUrl),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+
+        // 1. Đọc default config từ plugin.json của gói ở localPath
+        if let json = ExtensionPackageReader.manifest(localPath: localPath),
            let configSection = json["config"] as? [String: Any] {
             
             for (key, val) in configSection {
@@ -277,13 +256,13 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy thông tin chi tiết truyện
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> NovelDetailResult {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "detail")
+        let scriptName = script.fileName
         let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         let requestHost = ExtensionHostResolver.nonEmpty(host) ?? sourceHost
         let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: requestHost)
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -291,7 +270,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "detail")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "detail")
             
             guard let dict = parseJSObject(cleanVal) else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
@@ -332,12 +311,12 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy mục lục chương
     public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [ChapterResult] {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "toc")
+        let scriptName = script.fileName
         let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
         let resolvedUrl = hasScript(localPath: localPath, scriptKey: "page") ? url : JSExecutor.cleanAndResolveUrl(url, host: ExtensionHostResolver.nonEmpty(host) ?? sourceHost)
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -345,7 +324,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "toc")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "toc")
             
             let jsArray = toDictionaryArray(cleanVal)
 
@@ -400,11 +379,11 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
     public func chap(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> String {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "chap")
+        let scriptName = script.fileName
         let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: Self.scriptHost(host, localPath: localPath))
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -412,7 +391,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "chap")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "chap")
             
             var resultStr = ""
             if cleanVal.isArray {
@@ -434,14 +413,14 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy danh mục thể loại (Khám phá)
     public func genre(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "genre")
+        let scriptName = script.fileName
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
 
         // Khai ngoài `do` để `catch` đọc được dấu vết fetch (`ExtensionLoadError.wrapping`).
         var executor: JSExecutor?
         do {
-            let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+            let scriptContent = try script.text()
 
             let runner = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
             executor = runner
@@ -449,7 +428,7 @@ public final class ExtensionManager: ObservableObject {
             runner.injectGlobals(configs)
 
             let jsValue = try await runner.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "genre")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "genre")
             
             var results: [CategoryResult] = []
             
@@ -479,11 +458,11 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy danh sách tab trang chủ (Home)
     public func home(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "home")
+        let scriptName = script.fileName
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
 
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -491,7 +470,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "home")
 
             let results = cleanVal.isArray ? Self.categoryItems(from: toDictionaryArray(cleanVal)) : []
 
@@ -514,27 +493,20 @@ public final class ExtensionManager: ObservableObject {
         let pageArg = (page == 1) ? "" : (pageUrl ?? "")
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptFileName)]: arguments=[\(formattedInput), \(pageArg)], input=\(input), page=\(page), pageUrl=\(pageUrl ?? "nil"), configJson=\(configJson)")
         
-        let extUrl = URL(fileURLWithPath: localPath)
-        // Tìm file script trong thư mục gốc hoặc src/
-        var scriptUrl = extUrl.appendingPathComponent(scriptFileName)
-        if !FileManager.default.fileExists(atPath: scriptUrl.path) {
-            let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
-            if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
-                scriptUrl = srcScriptUrl
-            } else {
-                let errorDesc = "Script file '\(scriptFileName)' not found in root or src/"
-                updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Error", details: errorDesc)
-                throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: errorDesc])
-            }
+        // Tìm file script ở gốc gói rồi src/
+        guard let script = ExtensionPackageReader.script(named: scriptFileName, localPath: localPath) else {
+            let errorDesc = "Script file '\(scriptFileName)' not found in root or src/"
+            updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Error", details: errorDesc)
+            throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: errorDesc])
         }
-        
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+
+        let scriptContent = try script.text()
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: scriptFileName)
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: scriptFileName)
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
@@ -556,24 +528,18 @@ public final class ExtensionManager: ObservableObject {
         }
     }
     
-    /// Khớp cách đọc của `getScriptPath`: map `script` có thể lẫn giá trị không phải chuỗi — ép `[String: String]`
+    /// Khớp cách đọc của `entryScript`: map `script` có thể lẫn giá trị không phải chuỗi — ép `[String: String]`
     /// sẽ hỏng cả map và báo thiếu mọi script.
     public func hasScript(localPath: String, scriptKey: String) -> Bool {
-        let extUrl = URL(fileURLWithPath: localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return false
-        }
-        return (json["script"] as? [String: Any])?[scriptKey] is String
+        ExtensionPackageReader.scriptFileName(forKey: scriptKey, localPath: localPath) != nil
     }
     
     public func page(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [String] {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "page")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "page")
+        let scriptName = script.fileName
         let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: Self.scriptHost(host, localPath: localPath))
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -581,7 +547,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "page")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "page")
             
             // Bỏ phần tử undefined/null/"null"/"undefined"/rỗng: mỗi trang sẽ được gọi `toc` một lần.
             let results = JSValueReader.stringArray(cleanVal).filter { !JSValueReader.isNullLiteral($0) }
@@ -597,10 +563,10 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy danh sách giọng đọc từ extension TTS
     public func ttsVoices(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [[String: String]] {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "voice")
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: "voice")
+        let scriptName = script.fileName
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -608,7 +574,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "voice")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "voice")
             var results: [[String: String]] = []
             
             if let jsArray = cleanVal.toArray() {
@@ -646,7 +612,7 @@ public final class ExtensionManager: ObservableObject {
                 fingerprint: payload.fingerprint,
                 text: text,
                 voice: voice,
-                extensionName: URL(fileURLWithPath: localPath).lastPathComponent
+                extensionName: ExtensionPackageReader.packageName(localPath: localPath)
             )
             updateDiagnostics(action: "tts", input: text, status: "Success", details: "Base64 string length: \(resultStr.count)")
             return resultStr

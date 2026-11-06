@@ -16,10 +16,7 @@ enum ExtensionFilterScope: Hashable, Sendable {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         case .pluginScript(let key):
-            let pluginJsonUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-            guard let data = try? Data(contentsOf: pluginJsonUrl),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let name = (json["script"] as? [String: Any])?[key] as? String else { return nil }
+            guard let name = ExtensionPackageReader.scriptFileName(forKey: key, localPath: localPath) else { return nil }
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         }

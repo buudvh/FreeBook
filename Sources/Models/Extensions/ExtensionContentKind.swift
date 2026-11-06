@@ -52,15 +52,12 @@ public enum ExtensionContentKind: String, Sendable {
         return nil
     }
 
-    /// Loại theo `metadata.type` trong `<localPath>/plugin.json` (dự phòng `type` ở gốc file, giống luồng cài).
-    /// Không đọc được file ⇒ `text`.
+    /// Loại theo `metadata.type` trong `plugin.json` của gói (dự phòng `type` ở gốc file, giống luồng cài) — đọc qua
+    /// `ExtensionPackageReader`. Không đọc được ⇒ `text`.
     nonisolated public static func resolve(localPath: String) -> ExtensionContentKind {
-        guard !localPath.isEmpty else { return .text }
-        let pluginUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-        guard let data = try? Data(contentsOf: pluginUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return .text }
-        let meta = json["metadata"] as? [String: Any] ?? json
-        guard let type = meta["type"] as? String else { return .text }
+        guard !localPath.isEmpty,
+              let meta = ExtensionPackageReader.metadata(localPath: localPath),
+              let type = meta["type"] as? String else { return .text }
         return ExtensionContentKind(typeString: type)
     }
 

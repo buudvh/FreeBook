@@ -7,7 +7,7 @@ import JavaScriptCore
 /// Hai điều kiện thiết kế:
 /// 1. **Không có shared executor.** Mỗi run tạo một `JSExecutor` mới rồi thả — đúng kiến trúc hiện
 ///    tại; `ExtTTSRuntime` (executor sống lâu) không nằm trong phạm vi debug ở Phase 1.
-/// 2. **Không sửa đường production.** Runner gọi lại `ExtensionManager.getScriptPath` /
+/// 2. **Không sửa đường production.** Runner gọi lại `ExtensionManager.entryScript` /
 ///    `getCombinedConfigs` / `verifyJSResponse` (đều `internal`, cùng module) thay vì thêm tham số sink
 ///    cho 9 hàm public của manager. Nhờ vậy `search`/`detail`/… production không đổi một dòng nào.
 public actor ExtensionDebugRunner {
@@ -78,11 +78,11 @@ public actor ExtensionDebugRunner {
 
         // Giai đoạn resolve chưa có session (chưa biết revision) nên lỗi ở đây được báo bằng một
         // session tối thiểu — vẫn đúng runId để UI ghép được vào cùng một run.
-        let scriptUrl: URL
+        let script: ExtensionPackageReader.Script
         let scriptContent: String
         do {
-            scriptUrl = try Self.resolveScript(entrypoint: entrypoint, localPath: localPath, manager: manager)
-            scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+            script = try Self.resolveScript(entrypoint: entrypoint, localPath: localPath, manager: manager)
+            scriptContent = try script.text()
         } catch {
             let session = ExtensionDebugSession(
                 runId: runId,
@@ -100,7 +100,7 @@ public actor ExtensionDebugRunner {
             runId: runId,
             packageId: packageId,
             script: scriptKey,
-            scriptPath: Self.relativePath(of: scriptUrl, under: localPath),
+            scriptPath: script.relativePath,
             sourceRevision: ExtensionDebugRedactor.revision(of: scriptContent),
             hub: hub
         )
@@ -127,7 +127,7 @@ public actor ExtensionDebugRunner {
             )
             let clean = try manager.verifyJSResponse(
                 jsValue,
-                extName: URL(fileURLWithPath: localPath).lastPathComponent,
+                extName: ExtensionPackageReader.packageName(localPath: localPath),
                 scriptName: scriptKey
             )
             let responseString = manager.stringify(clean)
@@ -166,14 +166,15 @@ public actor ExtensionDebugRunner {
     }
 
     /// Hai đường resolve, đúng như production: sáu entrypoint chuẩn tra khoá `script` trong
-    /// `plugin.json`, còn custom script tìm theo **tên file** ở gốc extension rồi `src/`.
+    /// `plugin.json`, còn custom script tìm theo **tên file** ở gốc gói rồi `src/`. `relativePath` của
+    /// script là path tương đối trong gói — không bao giờ đưa path tuyệt đối ra event.
     private static func resolveScript(
         entrypoint: ExtensionDebugEntrypoint,
         localPath: String,
         manager: ExtensionManager
-    ) throws -> URL {
+    ) throws -> ExtensionPackageReader.Script {
         guard entrypoint.resolvesByFileName else {
-            return try manager.getScriptPath(extensionPath: localPath, scriptKey: entrypoint.scriptKey)
+            return try manager.entryScript(localPath: localPath, scriptKey: entrypoint.scriptKey)
         }
         let fileName = entrypoint.scriptKey
         guard !fileName.isEmpty else {
@@ -183,23 +184,11 @@ public actor ExtensionDebugRunner {
                 userInfo: [NSLocalizedDescriptionKey: "Chưa nhập tên file script"]
             )
         }
-        let extUrl = URL(fileURLWithPath: localPath)
-        let rootUrl = extUrl.appendingPathComponent(fileName)
-        if FileManager.default.fileExists(atPath: rootUrl.path) { return rootUrl }
-        let srcUrl = extUrl.appendingPathComponent("src").appendingPathComponent(fileName)
-        if FileManager.default.fileExists(atPath: srcUrl.path) { return srcUrl }
+        if let script = ExtensionPackageReader.script(named: fileName, localPath: localPath) { return script }
         throw NSError(
             domain: "ExtensionDebugRunner",
             code: -5,
             userInfo: [NSLocalizedDescriptionKey: "Script file '\(fileName)' not found in root or src/"]
         )
-    }
-
-    /// Path tương đối so với gốc extension. Không bao giờ trả path tuyệt đối ra event.
-    private static func relativePath(of scriptUrl: URL, under localPath: String) -> String {
-        let root = localPath.hasSuffix("/") ? localPath : localPath + "/"
-        let full = scriptUrl.path
-        guard full.hasPrefix(root) else { return scriptUrl.lastPathComponent }
-        return String(full.dropFirst(root.count))
     }
 }

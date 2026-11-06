@@ -60,10 +60,7 @@ extension RepositoryManagerView {
             var localAuthor = ext.author
             var localSource = ext.sourceUrl
 
-            let localJsonUrl = URL(fileURLWithPath: localFolder).appendingPathComponent("plugin.json")
-            if let jsonData = try? Data(contentsOf: localJsonUrl),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                let meta = json["metadata"] as? [String: Any] ?? json
+            if let meta = ExtensionPackageReader.metadata(localPath: localFolder) {
                 if let v = meta["source"] as? String, !v.isEmpty { localSource = v }
                 if let v = meta["locale"] as? String, !v.isEmpty { localLocale = v }
                 if let v = meta["type"] as? String, !v.isEmpty { localType = v }

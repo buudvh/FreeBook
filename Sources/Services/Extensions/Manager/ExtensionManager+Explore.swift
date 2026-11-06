@@ -18,10 +18,10 @@ extension ExtensionManager {
         // Khai ngoài `do` để `catch` đọc được dấu vết fetch (`ExtensionLoadError.wrapping`).
         var executor: JSExecutor?
         do {
-            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "explore")
-            let scriptName = scriptUrl.lastPathComponent
+            let script = try entryScript(localPath: localPath, scriptKey: "explore")
+            let scriptName = script.fileName
             AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
-            let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+            let scriptContent = try script.text()
 
             let runner = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
             executor = runner
@@ -29,7 +29,7 @@ extension ExtensionManager {
             runner.injectGlobals(configs)
 
             let jsValue = try await runner.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "explore")
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: "explore")
             let sourceHost = ExtensionHostResolver.sourceUrl(localPath: localPath)
             // JSValue gắn với JSContext của executor: ánh xạ xong trong lúc executor còn sống.
             let sections = withExtendedLifetime(runner) {

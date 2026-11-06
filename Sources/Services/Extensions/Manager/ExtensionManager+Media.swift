@@ -99,10 +99,10 @@ extension ExtensionManager {
         configJson: String,
         map: (JSValue) throws -> (T, String)
     ) async throws -> T {
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: action)
-        let scriptName = scriptUrl.lastPathComponent
+        let script = try entryScript(localPath: localPath, scriptKey: action)
+        let scriptName = script.fileName
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: \(logArguments)")
-        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let scriptContent = try script.text()
 
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
@@ -110,7 +110,7 @@ extension ExtensionManager {
 
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [argument])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: action)
+            let cleanVal = try verifyJSResponse(jsValue, extName: ExtensionPackageReader.packageName(localPath: localPath), scriptName: action)
             let (result, details) = try map(cleanVal)
             updateDiagnostics(action: action, input: diagnosticsInput, status: "Success", details: details)
             return result
@@ -121,7 +121,7 @@ extension ExtensionManager {
     }
 
     private static func emptyMediaError(_ message: String, localPath: String, script: String) -> ExtensionManagerError {
-        let extName = URL(fileURLWithPath: localPath).lastPathComponent
+        let extName = ExtensionPackageReader.packageName(localPath: localPath)
         AppLogger.shared.log("❌ [\(extName) - \(script)] \(message)")
         return ExtensionManagerError.sourceResponse(message: message)
     }
