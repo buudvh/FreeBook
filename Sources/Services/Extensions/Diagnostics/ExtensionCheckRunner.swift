@@ -4,8 +4,10 @@ import Foundation
 /// trượt như `LegadoCorpusRunner`), bên trong một tiện ích các script chạy **lần lượt** (`ExtensionCheckProbe`) — mỗi
 /// trang nguồn chỉ nhận một request một lúc. Một lượt tại một thời điểm; màn trình bày thăm dò `status()`.
 ///
-/// Không ghi ra đĩa, không đụng thư viện: kết quả chỉ ở bộ nhớ (chia sẻ qua `ExtensionCheckReportShare`). Từ khoá tìm
-/// thử đọc một lần lúc bắt đầu từ lịch sử tìm kiếm (`SearchHistoryStore`).
+/// Không đụng thư viện. Kết quả sống ở bộ nhớ trong lúc chạy; xong/dừng (kể cả sau "Chạy lại" một tiện ích) thì ghi
+/// một file vào `extension_check_reports/` (`CheckReportStore`, 1.3.759 — trước đó không ghi ra đĩa) để xem lại ở trang
+/// Báo cáo kiểm tra; chia sẻ qua `ExtensionCheckReportShare`. Từ khoá tìm thử đọc một lần lúc bắt đầu từ lịch sử tìm
+/// kiếm (`SearchHistoryStore`).
 actor ExtensionCheckRunner {
     static let shared = ExtensionCheckRunner()
     static let maxParallelExtensions = 3
@@ -37,6 +39,8 @@ actor ExtensionCheckRunner {
         let startedAt: Date
         let targets: [Target]
         let keywords: [String]
+        /// Tên phạm vi của màn kiểm tra — tên báo cáo đã lưu.
+        let title: String?
         var results: [String: ExtensionCheckReport.ExtensionResult] = [:]
         var state: ExtensionCheckReport.State = .running
         var finishedAt: Date?
@@ -50,15 +54,16 @@ actor ExtensionCheckRunner {
 
     // MARK: - Lệnh
 
-    /// Bắt đầu một lượt và trả trạng thái ngay (không chờ chạy xong).
-    func start(_ targets: [Target]) throws -> ExtensionCheckReport {
+    /// Bắt đầu một lượt và trả trạng thái ngay (không chờ chạy xong). `title` = tên phạm vi của màn kiểm tra.
+    func start(_ targets: [Target], title: String? = nil) throws -> ExtensionCheckReport {
         if let current = job, current.state == .running {
             throw StartError.busy
         }
         guard !targets.isEmpty else { throw StartError.noTargets }
         let keywords = Self.historyKeywords()
-        let newJob = Job(runId: UUID().uuidString, startedAt: Date(), targets: targets, keywords: keywords)
+        let newJob = Job(runId: UUID().uuidString, startedAt: Date(), targets: targets, keywords: keywords, title: title)
         job = newJob
+        CheckReportStore.markActive(.script, startedAt: newJob.startedAt)
         launch(targets, runId: newJob.runId, keywords: keywords)
         AppLogger.shared.log(
             "🧪 [ExtCheck] Bắt đầu \(newJob.runId): \(targets.count) tiện ích, song song \(Self.maxParallelExtensions), "
@@ -80,6 +85,7 @@ actor ExtensionCheckRunner {
         current.finishedAt = nil
         current.cancelRequested = false
         job = current
+        CheckReportStore.markActive(.script, startedAt: current.startedAt)
         launch([target], runId: current.runId, keywords: current.keywords)
         return Self.makeReport(current)
     }
@@ -121,10 +127,23 @@ actor ExtensionCheckRunner {
         current.task = nil
         job = current
         let report = Self.makeReport(current)
+        writeReport(report, startedAt: current.startedAt)
         AppLogger.shared.log(
             "🧪 [ExtCheck] \(report.state.rawValue): đạt đủ \(report.fullyPassed), có lỗi \(report.withProblems), "
                 + "tổng \(report.totalExtensions)"
         )
+    }
+
+    /// Ghi bản cuối (cùng file cho mọi lần "Chạy lại" của lượt). Dừng trước khi có kết quả nào ⇒ không ghi. Lỗi ghi
+    /// chỉ log — không làm hỏng lượt chạy.
+    private func writeReport(_ report: ExtensionCheckReport, startedAt: Date) {
+        defer { CheckReportStore.markInactive(.script, startedAt: startedAt) }
+        guard !report.results.isEmpty else { return }
+        do {
+            try CheckReportStore.write(report, kind: .script, startedAt: startedAt)
+        } catch {
+            AppLogger.shared.log("❌ [ExtCheck] Không ghi được báo cáo: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Dựng báo cáo / chạy song song
@@ -136,7 +155,8 @@ actor ExtensionCheckRunner {
             startedAt: LegadoCorpusReport.isoString(job.startedAt),
             finishedAt: job.finishedAt.map { LegadoCorpusReport.isoString($0) },
             totalExtensions: job.targets.count,
-            results: job.targets.compactMap { job.results[$0.packageId] }
+            results: job.targets.compactMap { job.results[$0.packageId] },
+            title: job.title
         )
     }
 

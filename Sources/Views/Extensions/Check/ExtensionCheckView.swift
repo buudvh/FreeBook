@@ -231,7 +231,7 @@ struct ExtensionCheckView: View {
             await attach(to: attachRunId)
             return
         }
-        await begin { try await ExtensionCheckRunner.shared.start(targets) }
+        await begin { try await ExtensionCheckRunner.shared.start(targets, title: scopeTitle) }
     }
 
     /// Màn mở lại từ hub: không chạy lượt mới, đọc ngay kết quả hiện có của lượt đang thu nhỏ.
@@ -300,7 +300,7 @@ struct ExtensionCheckView: View {
     private func restartAll() {
         let remaining = targets.filter { !removedIds.contains($0.packageId) }
         Task { @MainActor in
-            await begin { try await ExtensionCheckRunner.shared.start(remaining) }
+            await begin { try await ExtensionCheckRunner.shared.start(remaining, title: scopeTitle) }
             pollGeneration += 1
         }
     }

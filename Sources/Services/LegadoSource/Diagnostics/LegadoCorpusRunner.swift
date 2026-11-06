@@ -8,7 +8,8 @@ import Foundation
 ///
 /// Vòng đời: lượt chạy **không** gắn với kết nối debug — client rớt mạng thì lượt vẫn chạy tiếp, nối lại rồi hỏi
 /// `legado.corpus.status`. Huỷ bằng `legado.corpus.cancel`. Báo cáo ghi ở `applicationSupport/legado_reports/` mỗi
-/// `checkpointInterval` nguồn và khi kết thúc/huỷ (app có thể bị iOS treo giữa chừng khi khoá màn hình).
+/// `checkpointInterval` nguồn và khi kết thúc/huỷ (app có thể bị iOS treo giữa chừng khi khoá màn hình); giữ 20 bản mới
+/// nhất, xem ở trang Báo cáo kiểm tra (`CheckReportStore`, 1.3.759).
 ///
 /// Không ghi dữ liệu người dùng: chỉ thư mục báo cáo, cùng trạng thái engine mà một lượt duyệt nguồn thường cũng ghi
 /// (cookie, biến/cache nguồn); trạng thái truyện dùng `bookId` có namespace `corpus-runner:<packageId>` (xem
@@ -46,6 +47,8 @@ actor LegadoCorpusRunner {
     private struct Job {
         let runId: String
         let request: LegadoCorpusRequest
+        /// Tên phạm vi của màn kiểm tra (`nil` khi chạy từ Debug server) — tên báo cáo đã lưu.
+        let title: String?
         let startedAt: Date
         let totalSources: Int
         var results: [LegadoCorpusReport.SourceResult]
@@ -65,7 +68,8 @@ actor LegadoCorpusRunner {
     // MARK: - Lệnh
 
     /// Bắt đầu một lượt và trả trạng thái ngay (không chờ chạy xong — client debug timeout sau 30 giây).
-    func start(_ request: LegadoCorpusRequest) async throws -> LegadoCorpusReport {
+    /// `title` = tên phạm vi của màn kiểm tra, ghi vào báo cáo để trang Báo cáo kiểm tra hiện.
+    func start(_ request: LegadoCorpusRequest, title: String? = nil) async throws -> LegadoCorpusReport {
         if let current = job, current.state == .running {
             throw StartError.busy(runId: current.runId)
         }
@@ -88,11 +92,14 @@ actor LegadoCorpusRunner {
         let newJob = Job(
             runId: runId,
             request: request,
+            title: title,
             startedAt: Date(),
             totalSources: candidates.count + selection.skipped.count,
             results: selection.skipped
         )
         job = newJob
+        // Lượt đang chạy: `CheckReportStore` không xoá file của nó (tự dọn, Xoá hết) — kẻo checkpoint kế tiếp ghi lại.
+        CheckReportStore.markActive(.legado, startedAt: newJob.startedAt)
 
         let runner = self
         let task = Task {
@@ -166,6 +173,7 @@ actor LegadoCorpusRunner {
         current.task = nil
         job = current
         writeReport()
+        CheckReportStore.markInactive(.legado, startedAt: current.startedAt)
         if let finished = job {
             AppLogger.shared.log(Self.makeReport(finished, includeSources: false).summaryLine)
         }
@@ -201,7 +209,8 @@ actor LegadoCorpusRunner {
             results: job.results,
             inFlight: job.inFlight.values.sorted(),
             reportPath: job.reportPath,
-            includeSources: includeSources
+            includeSources: includeSources,
+            title: job.title
         )
     }
 

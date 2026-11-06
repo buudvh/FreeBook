@@ -214,7 +214,7 @@ struct LegadoSourceCheckView: View {
             startError = issue.message
         case .success(let request):
             do {
-                let initial = try await LegadoCorpusRunner.shared.start(request)
+                let initial = try await LegadoCorpusRunner.shared.start(request, title: scopeTitle)
                 runId = initial.runId
                 report = initial
                 track(initial)

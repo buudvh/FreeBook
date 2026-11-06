@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.729] - 2026-11-05
+
+### fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên
+
+Người dùng chọn *"Có, lọc trùng"*. Lượt build 1155 liệt kê 5 dòng: commit sửa lỗi biên dịch (`705bbf3e`) dùng lại đúng message của commit hỏng (`71aaf405`) theo quy trình sửa CI. Vì vậy dòng "feat: màn Dung lượng…" hiện hai lần.
+
+- `Scripts/ci/telegram_commit_summary.py`: `read_subjects` bỏ subject trùng (so nguyên văn), giữ thứ tự cũ → mới, giữ lần đầu. Áp cho cả tin Telegram lẫn ghi chú release / `apps.json`. Số "N commit" đếm sau khi lọc.
+- Bước `Collect Commit List` của CI không đổi (log vẫn in đủ danh sách thô).
+- Ghi chú của release `build-1155` đã đăng giữ nguyên; từ lượt build sau mới lọc.
+- `CLAUDE.md` / `AGENTS.md`: đoạn "Tin Telegram + ghi chú release liệt kê mọi commit" ghi thêm việc bỏ dòng trùng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Tại chỗ với đúng danh sách của lượt 1155 (API so sánh `a7a5aba2...705bbf3e`, 5 dòng) ⇒ tin "💬 4 commit:" không trùng, ghi chú 4 dòng.
+  - Commit này chỉ đổi `Scripts/` + tài liệu ⇒ không kích hoạt build; lượt build kế tiếp dùng bản lọc.
+
 ## [1.3.728] - 2026-11-05
 
 ### feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log

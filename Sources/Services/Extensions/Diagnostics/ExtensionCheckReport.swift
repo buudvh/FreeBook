@@ -5,18 +5,19 @@ import Foundation
 /// `ScriptResult`.
 ///
 /// Khác báo cáo nguồn Legado (`LegadoCorpusReport` — một kết quả mỗi nguồn, dừng ở bước hỏng đầu): lỗi một nhánh không
-/// dừng nhánh khác, nên kết quả tính **theo script**. Chỉ `Encodable` (chia sẻ JSON, `ExtensionCheckReportShare`); không
+/// dừng nhánh khác, nên kết quả tính **theo script**. `Codable` từ 1.3.759: chia sẻ JSON (`ExtensionCheckReportShare`) và
+/// lưu mỗi lượt vào `extension_check_reports/` (`CheckReportStore`, trang Báo cáo kiểm tra); không
 /// chứa nội dung chương, cookie, header hay thân phản hồi — thông điệp lỗi đã redact (`LegadoCorpusErrorClassifier`).
-/// `errorLink` (URL có thể mang token) **không** vào JSON.
-struct ExtensionCheckReport: Encodable, Sendable {
-    enum State: String, Encodable, Sendable {
+/// `errorLink` (URL có thể mang token) **không** vào JSON ⇒ báo cáo đọc lại từ file không có nút "Mở link lỗi".
+struct ExtensionCheckReport: Codable, Sendable {
+    enum State: String, Codable, Sendable {
         case running
         case finished
         case cancelled
     }
 
     /// Loại tiện ích theo cách bộ kiểm chạy: chữ/tranh/video đi chuỗi lối vào → truyện thử; TTS chỉ chạy `voice`.
-    enum Kind: String, Encodable, Sendable {
+    enum Kind: String, Codable, Sendable {
         case text
         case comic
         case video
@@ -24,7 +25,7 @@ struct ExtensionCheckReport: Encodable, Sendable {
         case other
     }
 
-    enum Outcome: String, Encodable, Sendable {
+    enum Outcome: String, Codable, Sendable {
         case pending
         case running
         case passed
@@ -37,7 +38,7 @@ struct ExtensionCheckReport: Encodable, Sendable {
     }
 
     /// Nhóm hiển thị của dòng.
-    enum Group: String, Encodable, Sendable, CaseIterable {
+    enum Group: String, Codable, Sendable, CaseIterable {
         /// `home`, `explore`, `genre`, `search` và script phụ của tab/thể loại.
         case entry
         /// `detail`, `page`, `toc`, `chap`, `track` — chạy trên truyện thử.
@@ -48,7 +49,7 @@ struct ExtensionCheckReport: Encodable, Sendable {
         case other
     }
 
-    struct ScriptResult: Encodable, Sendable, Identifiable {
+    struct ScriptResult: Codable, Sendable, Identifiable {
         /// Khoá script, hoặc `<khoá>.item` cho script phụ của mục đầu `home`/`genre`.
         let id: String
         let key: String
@@ -66,14 +67,14 @@ struct ExtensionCheckReport: Encodable, Sendable {
         var verdict: ExtensionCheckVerdict?
         /// Câu lỗi (đã redact) hoặc lý do bỏ qua.
         var message: String?
-        var errorLink: SourceErrorLink?
+        var errorLink: SourceErrorLink? = nil
 
         private enum CodingKeys: String, CodingKey {
             case id, key, fileName, subtitle, group, outcome, staticIssue, summary, durationMs, failureClass, verdict, message
         }
     }
 
-    struct ExtensionResult: Encodable, Sendable, Identifiable {
+    struct ExtensionResult: Codable, Sendable, Identifiable {
         let packageId: String
         let name: String
         let kind: Kind
@@ -115,6 +116,8 @@ struct ExtensionCheckReport: Encodable, Sendable {
     let totalExtensions: Int
     /// Theo thứ tự giao; chỉ tiện ích đã bắt đầu chạy.
     let results: [ExtensionResult]
+    /// Phạm vi do màn kiểm tra đặt (tên tiện ích, "Tất cả tiện ích đã cài"…) — tên báo cáo đã lưu; `nil` ở bản cũ.
+    var title: String? = nil
 
     /// Tiện ích đã có kết quả cuối (xong hoặc dừng).
     var completed: Int { results.filter { $0.state != .running }.count }

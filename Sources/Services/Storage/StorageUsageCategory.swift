@@ -4,7 +4,8 @@ import Foundation
 /// ghi (xem mục lưu trữ của `CLAUDE.md`). Thêm thư mục dữ liệu mới thì thêm vào đây, không thì nó rơi vào `other`.
 ///
 /// `other` = tổng thư mục nhà của app trừ các loại đã liệt kê (WebKit, `tmp`, cache khác, trí nhớ AI…) ⇒ tổng trên màn
-/// luôn khớp dung lượng thật. Chỉ ba loại xoá được (`isClearable`): tải lại được hoặc chỉ là bản sao để chia sẻ.
+/// luôn khớp dung lượng thật. Chỉ bốn loại xoá được (`isClearable`): tải lại được, chỉ là bản sao để chia sẻ, hoặc chỉ
+/// để tìm lỗi (log, báo cáo kiểm tra).
 public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, Codable {
     case books
     case videos
@@ -22,6 +23,8 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
     case library
     case exports
     case logs
+    /// Báo cáo kiểm tra tiện ích JS / nguồn Legado đã lưu (1.3.759; trước đó `legado_reports/` rơi vào `other`).
+    case checkReports
     case other
 
     public var id: String { rawValue }
@@ -49,14 +52,16 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .library: return "Thư viện (danh sách truyện)"
         case .exports: return "File xuất (TXT, EPUB…)"
         case .logs: return "Nhật ký (log)"
+        case .checkReports: return "Báo cáo kiểm tra"
         case .other: return "Khác"
         }
     }
 
-    /// Xoá được mà không mất dữ liệu người dùng: cache ảnh tải lại được, file xuất chỉ là bản để chia sẻ, log.
+    /// Xoá được mà không mất dữ liệu người dùng: cache ảnh tải lại được, file xuất chỉ là bản để chia sẻ, log, báo cáo
+    /// kiểm tra.
     public var isClearable: Bool {
         switch self {
-        case .comicImageCache, .exports, .logs: return true
+        case .comicImageCache, .exports, .logs, .checkReports: return true
         default: return false
         }
     }
@@ -67,6 +72,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .comicImageCache: return "Ảnh sẽ tải lại khi đọc truyện tranh online. Truyện tranh đã tải offline không bị đụng."
         case .exports: return "Xoá bản xuất của các tác vụ xuất đã xong, kèm hàng của chúng trong Tải xuống. Bản đang xuất giữ nguyên."
         case .logs: return "Nhật ký dùng để tìm lỗi; xoá rồi không lấy lại được."
+        case .checkReports: return "Xoá mọi báo cáo kiểm tra tiện ích JS và nguồn Legado đã lưu. Lượt kiểm tra đang chạy giữ nguyên."
         default: return ""
         }
     }
@@ -93,6 +99,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .library: return [.filesWithPrefix(directory: support, prefix: "library.db")]
         case .exports: return [.directory(ExportFileNaming.exportsDirectoryURL())]
         case .logs: return [.filesWithPrefix(directory: support, prefix: "app_logs")]
+        case .checkReports: return CheckReportKind.allCases.map { .directory($0.directoryURL) }
         case .other: return []
         }
     }

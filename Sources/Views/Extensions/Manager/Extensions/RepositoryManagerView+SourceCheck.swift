@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Ngăn kéo ⋯ của tab "Tất cả tiện ích" (**Danh sách kho** · Import .zip · **Kiểm tra tiện ích** · Xóa tất cả) và sheet Kiểm tra tiện ích
+/// Ngăn kéo ⋯ của tab "Tất cả tiện ích" (**Danh sách kho** · Import .zip · **Kiểm tra tiện ích** · **Báo cáo kiểm tra** ·
+/// Xóa tất cả) và sheet Kiểm tra tiện ích
 /// hàng loạt (`ExtensionCheckView`) — chạy đủ script khai trong `plugin.json` của mọi tiện ích **đã cài** đang hiện (sau
 /// ô tìm + bộ lọc), không gồm nguồn Legado (tab riêng có bộ kiểm tra riêng).
 ///
@@ -36,6 +37,11 @@ extension RepositoryManagerView {
                 detail: isBusy ? MinimizedSourceCheck.shortBusyLabel : nil, action: checkVisibleExtensions
             )
             .disabled(!filteredExtensions.contains { $0.isInstalled } || isBusy)
+        }
+        // Trang con xem lại / xoá báo cáo đã lưu (1.3.759), mở sẵn loại JS.
+        SideDrawerActionRow("Báo cáo kiểm tra", systemImage: "doc.text.magnifyingglass") {
+            isReturningFromRepositoryList = true // back về không dọn / kiểm tra lại, như Danh sách kho
+            checkReportsKind = .script
         }
         SideDrawerDivider()
         SideDrawerActionRow("Xóa tất cả tiện ích", systemImage: "trash", role: .destructive) {

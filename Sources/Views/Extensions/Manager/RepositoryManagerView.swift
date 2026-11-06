@@ -16,6 +16,8 @@ struct RepositoryManagerView: View {
     @State internal var renderedTab = 0
     @State internal var legadoState = LegadoSourceTabState()
     @State internal var showingRepositoryList = false
+    /// Trang con "Báo cáo kiểm tra" (1.3.759), mở từ ngăn kéo … của tab JS / Legado với loại tương ứng.
+    @State internal var checkReportsKind: CheckReportKind?
     /// Đặt khi đẩy trang Danh sách kho: back về thì gốc nhận lại `onAppear` ⇒ bỏ qua đúng một lần (không dọn, không
     /// kiểm tra lại).
     @State internal var isReturningFromRepositoryList = false
@@ -156,6 +158,9 @@ struct RepositoryManagerView: View {
             }
             .navigationDestination(isPresented: $showingRepositoryList) {
                 ExtensionRepositoryListView()
+            }
+            .navigationDestination(item: $checkReportsKind) { kind in
+                CheckReportListView(initialKind: kind)
             }
             .sheet(item: $selectedExtensionForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
                 ExtensionConfigView(ext: ext)

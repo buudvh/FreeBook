@@ -145,6 +145,11 @@ extension RepositoryManagerView {
             )
             .disabled(isEmpty || isBusy)
         }
+        // Trang con xem lại / xoá báo cáo đã lưu (1.3.759), mở sẵn loại Legado.
+        SideDrawerActionRow("Báo cáo kiểm tra", systemImage: "doc.text.magnifyingglass") {
+            isReturningFromRepositoryList = true // back về không dọn / kiểm tra lại, như Danh sách kho
+            checkReportsKind = .legado
+        }
         SideDrawerActionRow("Xuất nguồn (theo nhóm đang lọc)", systemImage: "square.and.arrow.up", action: exportVisibleLegadoSources)
             .disabled(isEmpty)
 

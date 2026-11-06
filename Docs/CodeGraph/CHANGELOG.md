@@ -2,6 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.759] - 2026-11-06
+
+### feat: trang Báo cáo kiểm tra cho tiện ích JS và nguồn Legado, tự giữ 20 báo cáo mới nhất
+
+Anh Bửu: *"nên có trang quản lý các report của js và legado. tôi thôi legado reports hoàn toàn không được dọn dẹp"*. Đã chọn: lưu cả báo cáo JS, giữ 20 bản mới nhất mỗi loại, áp luật cho đống Legado cũ lúc mở app, thêm vào màn Dung lượng (xoá được), lối vào ở ngăn kéo … tab Tiện Ích. Anh duyệt plan.
+
+- **Nguyên nhân:** `LegadoCorpusRunner` ghi mỗi lượt kiểm tra (menu ⋯, từng nguồn ở màn chi tiết, Debug server) một file `legado_reports/<yyyyMMdd-HHmmss>.json` kèm kết quả từng nguồn (~1 KB/nguồn, ước tính). `LegadoCorpusReportStore` chỉ có `write`, không ai xoá hay đọc lại. Thư mục cũng không có trong `StorageUsageCategory` nên bị tính vào "Khác". Còn báo cáo JS (`ExtensionCheckRunner`) chỉ nằm trong RAM.
+- **`CheckReportStore`** (`Services/Extensions/Diagnostics/Reports/`) là chủ duy nhất của hai thư mục `legado_reports/` (giữ tên cũ, không chuyển dữ liệu) và `extension_check_reports/` (mới). Nó lo ghi, liệt kê, đọc, xoá và tự dọn:
+  - Giữ `retainedCount` = 20 bản mới nhất mỗi loại. Dọn sau mỗi lần ghi và một lần lúc mở app (`MainTabView`, `Task.detached`).
+  - Lượt đang chạy (`markActive` / `markInactive`, sổ trong RAM) không bị xoá, kẻo checkpoint 50 nguồn ghi lại file vừa xoá.
+  - Có `validatePathSafety` riêng; chỉ đụng file `.json`.
+  - `LegadoCorpusReportStore` thành lớp mỏng gọi sang store này.
+- **Báo cáo JS được lưu:** `ExtensionCheckReport` + `ExtensionCheckVerdict` chuyển `Codable`. `errorLink` vẫn không vào JSON, nên báo cáo đọc lại không có nút "Mở link lỗi". Runner ghi khi xong hoặc dừng; "Chạy lại" ghi đè cùng file; dừng trước khi có kết quả thì không ghi.
+- **Tên báo cáo:** thêm trường tuỳ chọn `title` vào `LegadoCorpusReport` và `ExtensionCheckReport`. Hai màn kiểm tra truyền `scopeTitle` qua `start(…, title:)`. Bản cũ và lượt từ Debug server không có tên ⇒ hiện "N nguồn".
+- **`CheckReportRepository`** (`@MainActor @Observable`) + `CheckReportCatalog` lo phần đọc. Tóm tắt Legado chỉ giải mã các trường đầu, không dựng mảng `sources`. `reload()` dọn theo luật trước khi đọc. View không đụng đĩa.
+- **Trang Báo cáo kiểm tra** (`Views/Extensions/CheckReports/`) mở từ hàng "Báo cáo kiểm tra" ở ngăn kéo … của tab JS (mở sẵn loại JS) và tab Legado (mở sẵn loại Legado):
+  - Hai chip chọn loại. Hàng panel gồm tên + nhãn (Đang chạy / Dở · app đã thoát / Đã dừng / File hỏng), dòng giờ · số đếm · dung lượng, và [Chia sẻ][Xoá].
+  - Ngăn kéo … có "Xoá hết" cho từng loại, hỏi xác nhận, chừa lượt đang chạy. Kéo xuống để làm mới.
+  - Màn chi tiết chỉ để xem, header có [Chia sẻ][Xoá]:
+    - Legado: dùng lại ô đếm, `LegadoSourceCheckVerdictPanel`, `LegadoSourceCheckRow`. Nút 🐞 chỉ hiện khi nguồn còn cài (`onDebug` thành tuỳ chọn).
+    - JS: dùng lại `ExtensionCheckBatchRow` → `ExtensionCheckDetailContent`.
+    - Không chạy lại, không có nút Tắt/Xoá nguồn lỗi.
+- **Dung lượng:** thêm loại `checkReports` "Báo cáo kiểm tra", xoá được, đo cả hai thư mục. `StorageUsageCleaner` gọi `CheckReportRepository.deleteAll`.
+- `CLAUDE.md` / `AGENTS.md`: thêm hai thư mục vào danh sách lưu trữ, cập nhật danh sách xoá được ở màn Dung lượng, thêm đoạn "Báo cáo kiểm tra lưu trên máy".
+- Chuyển `[1.3.729]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Grep: chỉ `CheckReportStore` đụng hai thư mục; mọi lời gọi `start(` của hai bộ chạy đã xem lại.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: lần mở app đầu dọn còn 20 báo cáo Legado; kiểm tra JS xong có file mới; xoá/xoá hết/chia sẻ; hàng mới ở màn Dung lượng.
+
 ## [1.3.758] - 2026-11-06
 
 ### refactor: bỏ code chết standardEntrypoint và extensionRootURL của trình sửa script
@@ -728,18 +758,3 @@ Người dùng: *"mỗi lần vào dung lượng đều phải chờ à?"*, rồ
   - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows).
   - Chưa thử trên máy: mở lại màn thấy số ngay, thoát giữa lúc đo rồi vào lại thấy số mới.
-
-## [1.3.729] - 2026-11-05
-
-### fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên
-
-Người dùng chọn *"Có, lọc trùng"*. Lượt build 1155 liệt kê 5 dòng: commit sửa lỗi biên dịch (`705bbf3e`) dùng lại đúng message của commit hỏng (`71aaf405`) theo quy trình sửa CI. Vì vậy dòng "feat: màn Dung lượng…" hiện hai lần.
-
-- `Scripts/ci/telegram_commit_summary.py`: `read_subjects` bỏ subject trùng (so nguyên văn), giữ thứ tự cũ → mới, giữ lần đầu. Áp cho cả tin Telegram lẫn ghi chú release / `apps.json`. Số "N commit" đếm sau khi lọc.
-- Bước `Collect Commit List` của CI không đổi (log vẫn in đủ danh sách thô).
-- Ghi chú của release `build-1155` đã đăng giữ nguyên; từ lượt build sau mới lọc.
-- `CLAUDE.md` / `AGENTS.md`: đoạn "Tin Telegram + ghi chú release liệt kê mọi commit" ghi thêm việc bỏ dòng trùng.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Tại chỗ với đúng danh sách của lượt 1155 (API so sánh `a7a5aba2...705bbf3e`, 5 dòng) ⇒ tin "💬 4 commit:" không trùng, ghi chú 4 dòng.
-  - Commit này chỉ đổi `Scripts/` + tài liệu ⇒ không kích hoạt build; lượt build kế tiếp dùng bản lọc.

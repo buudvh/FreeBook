@@ -2,11 +2,12 @@ import SwiftUI
 
 /// Một dòng kết quả của màn "Kiểm tra nguồn": icon trạng thái, tên nguồn, dòng chi tiết và nút 🐞 mở "Gỡ lỗi từng
 /// bước" của nguồn đó. Nguồn lỗi có kết luận ⇒ dòng "Kết luận · bước · lý do" theo màu kết luận (icon cũng vậy), dưới
-/// là dòng kỹ thuật (lớp lỗi, HTTP, thông điệp) màu phụ.
+/// là dòng kỹ thuật (lớp lỗi, HTTP, thông điệp) màu phụ. `onDebug == nil` ⇒ không có nút 🐞 (báo cáo đã lưu mà nguồn đã
+/// gỡ — trang Báo cáo kiểm tra).
 struct LegadoSourceCheckRow: View {
     let result: LegadoCorpusReport.SourceResult
     let displayName: String
-    let onDebug: () -> Void
+    let onDebug: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -33,14 +34,16 @@ struct LegadoSourceCheckRow: View {
                 }
             }
             Spacer(minLength: 4)
-            Button(action: onDebug) {
-                Image(systemName: "ladybug")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+            if let onDebug {
+                Button(action: onDebug) {
+                    Image(systemName: "ladybug")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .background(Color(.tertiarySystemFill), in: Circle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Gỡ lỗi từng bước \(displayName)")
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Gỡ lỗi từng bước \(displayName)")
         }
         .padding(.vertical, 2)
     }

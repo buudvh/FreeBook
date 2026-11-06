@@ -9,8 +9,8 @@ import Foundation
 /// - thiếu file, sai cú pháp, ngoại lệ JS (`TypeError`, `ReferenceError`…) ⇒ lỗi script;
 /// - còn lại (script tự báo `Response.error` mà không có fetch lỗi…) ⇒ chưa rõ.
 ///
-/// `rawValue` đi vào JSON chia sẻ.
-enum ExtensionCheckVerdict: String, Encodable, Sendable, CaseIterable {
+/// `rawValue` đi vào JSON chia sẻ và báo cáo đã lưu (`CheckReportStore`).
+enum ExtensionCheckVerdict: String, Codable, Sendable, CaseIterable {
     case web
     case needsUser
     case sourceOutdated

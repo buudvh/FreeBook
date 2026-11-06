@@ -184,6 +184,9 @@ public struct LegadoCorpusReport: Codable, Sendable {
     /// Đường dẫn **tương đối** so với `applicationSupport` của file báo cáo gần nhất đã ghi.
     public let reportPath: String?
     public let sources: [SourceResult]?
+    /// Phạm vi do màn kiểm tra đặt ("Tất cả nguồn…", tên nguồn) — tên báo cáo ở trang Báo cáo kiểm tra (1.3.759);
+    /// `nil` ở lượt từ Debug server và báo cáo cũ.
+    public let title: String?
 }
 
 extension LegadoCorpusReport {
@@ -199,7 +202,8 @@ extension LegadoCorpusReport {
         results: [SourceResult],
         inFlight: [String],
         reportPath: String?,
-        includeSources: Bool
+        includeSources: Bool,
+        title: String? = nil
     ) -> LegadoCorpusReport {
         var byFailureClass: [String: Int] = [:]
         var byVerdict: [String: Int] = [:]
@@ -271,7 +275,8 @@ extension LegadoCorpusReport {
             abandonedSteps: abandoned,
             inFlight: inFlight,
             reportPath: reportPath,
-            sources: includeSources ? results : nil
+            sources: includeSources ? results : nil,
+            title: title
         )
     }
 

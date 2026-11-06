@@ -140,6 +140,11 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await AdBlockRuleListProvider.shared.warmUp()
         }
+        // Báo cáo kiểm tra tiện ích JS / nguồn Legado (1.3.759): giữ 20 bản mới nhất mỗi loại — lần đầu dọn luôn đống
+        // `legado_reports/` tích từ trước (trước đó không có code nào xoá). Đụng đĩa ⇒ ngoài main.
+        .task(priority: .utility) {
+            await Task.detached(priority: .utility) { CheckReportStore.pruneAll() }.value
+        }
         // Có bản app mới không (`apps.json` của nguồn LiveContainer): mở app là kiểm, không giãn cách (1.3.732).
         .task(priority: .utility) {
             await AppUpdateRepository.shared.checkOnLaunch()
