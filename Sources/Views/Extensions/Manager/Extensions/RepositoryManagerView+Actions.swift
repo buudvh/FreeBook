@@ -146,11 +146,19 @@ extension RepositoryManagerView {
                 }
             }
             let updatedCount = targets.count - failures.count
+            let failedCount = failures.count
             let summary = failures.isEmpty ? nil : updateAllErrorMessage(failures)
             await MainActor.run {
                 isUpdatingAll = false
                 statusMessage = "Đã cập nhật \(updatedCount)/\(targets.count) tiện ích."
                 if let summary { errorMessage = summary }
+                // Toast (1.3.748): dòng chữ trên chỉ thấy khi còn đứng ở trang này (không ở trang con, sheet, tab khác).
+                ToastManager.shared.show(
+                    message: failedCount == 0
+                        ? "Đã cập nhật \(updatedCount) tiện ích"
+                        : "Đã cập nhật \(updatedCount)/\(targets.count) tiện ích, \(failedCount) lỗi",
+                    type: failedCount == 0 ? .success : .error
+                )
             }
         }
     }

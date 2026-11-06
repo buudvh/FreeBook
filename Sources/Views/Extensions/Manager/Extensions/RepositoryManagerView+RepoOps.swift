@@ -6,9 +6,22 @@ import SwiftUI
 /// (1.3.673). Làm mới/thêm kho vẫn chỉ tốn **1 request registry/kho**: lưu nguyên văn registry vào cache
 /// (`saveRegistry`), danh mục tiện ích chưa cài được `ExtensionLibraryRepository.catalog` dựng từ cache đó.
 extension RepositoryManagerView {
+    /// Nút cài / cập nhật trên hàng. Cập nhật ⇒ toast kết quả (1.3.748; dòng chữ đỏ chỉ thấy khi còn đứng ở trang này);
+    /// cài mới thì hàng tự đổi nút, không toast.
     internal func installExtension(_ ext: Extension) {
+        let isUpdate = ext.hasUpdate
+        let targetVersion = ext.remoteVersion
         Task {
-            await installExtensionAsync(ext)
+            let failure = await installExtensionAsync(ext)
+            guard isUpdate else { return }
+            await MainActor.run {
+                if let failure {
+                    ToastManager.shared.show(message: failure.message, type: .error)
+                } else {
+                    let version = targetVersion.map { " lên v\($0)" } ?? ""
+                    ToastManager.shared.show(message: "Đã cập nhật \(ext.name)\(version)", type: .success)
+                }
+            }
         }
     }
 

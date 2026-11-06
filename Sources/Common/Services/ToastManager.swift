@@ -16,7 +16,11 @@ public final class ToastManager: ObservableObject {
     @Published public var showingToast = false
     @Published public var toastMessage = ""
     @Published public var toastType: ToastType = .info
-    
+    /// Hành động khi bấm toast đang hiện (1.3.748). `nil` = toast chỉ để đọc, chạm xuyên qua như cũ.
+    @Published public private(set) var tapAction: (@MainActor () -> Void)?
+    /// Khung viên thuốc theo toạ độ cửa sổ toast — `ToastUIWindow` chỉ nhận chạm trong khung này khi có `tapAction`.
+    var tappableFrame: CGRect = .null
+
     private var currentTask: Task<Void, Never>?
     private var window: ToastUIWindow?
     private var hostingController: UIHostingController<ToastOverlayView>?
@@ -44,32 +48,57 @@ public final class ToastManager: ObservableObject {
     
     /// `recordsInInbox: false` cho phản hồi tức thời không đáng lưu (vd "Đã sao chép" của thanh bàn phím): không ghi vào
     /// Trung tâm thông báo, không tăng badge chưa đọc.
-    public func show(message: String, type: ToastType = .info, recordsInInbox: Bool = true) {
+    ///
+    /// `onTap` (1.3.748): toast nhận chạm **trong viên thuốc** (có dấu `›`), bấm ⇒ ẩn ngay rồi chạy hành động. Mục ghi ở
+    /// Trung tâm thông báo vẫn chỉ là chữ.
+    public func show(
+        message: String,
+        type: ToastType = .info,
+        recordsInInbox: Bool = true,
+        onTap: (@MainActor () -> Void)? = nil
+    ) {
         // Choke point duy nhất mọi toast đi qua ⇒ ghi vào nhật ký Trung tâm thông báo tại đây.
         if recordsInInbox {
             NotificationInboxManager.shared.record(message: message, type: type)
         }
 
         currentTask?.cancel()
-        
+
         self.toastMessage = message
         self.toastType = type
+        self.tapAction = onTap
         self.showingToast = true
         ensureWindow()
-        
+
         // Auto hide after 3 seconds
         currentTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: 3_000_000_000)
                 if !Task.isCancelled {
-                    self.showingToast = false
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    if !Task.isCancelled && !self.showingToast {
-                        self.window?.isHidden = true
-                    }
+                    self.hideAnimated()
                 }
             } catch {
                 // Task was cancelled, do nothing
+            }
+        }
+    }
+
+    /// Bấm vào viên thuốc của toast có `onTap`.
+    func handleTap() {
+        guard showingToast, let action = tapAction else { return }
+        currentTask?.cancel()
+        hideAnimated()
+        action()
+    }
+
+    /// Ẩn toast; cửa sổ ẩn sau hiệu ứng (0,3 s) nếu không có toast mới chen vào.
+    private func hideAnimated() {
+        showingToast = false
+        tapAction = nil
+        currentTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            if !Task.isCancelled && !self.showingToast {
+                self.window?.isHidden = true
             }
         }
     }
@@ -131,12 +160,15 @@ public final class ToastManager: ObservableObject {
     }
 }
 
-/// Window hiển thị Toast nổi trên tất cả các màn hình, hoàn toàn passthrough touch xuống bên dưới.
+/// Window hiển thị Toast nổi trên tất cả các màn hình, passthrough touch xuống bên dưới.
 @MainActor
 final class ToastUIWindow: UIWindow, AppOverlayWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        // Toasts are purely informational HUDs, always pass touch through
-        return nil
+        // Toast chỉ để đọc ⇒ luôn chạm xuyên qua. Toast có `onTap` (1.3.748) chỉ nhận chạm **trong viên thuốc**: cửa sổ ở
+        // level `.alert` phủ cả màn, trả `super` cho mọi điểm là nuốt hết chạm của app trong 3 giây.
+        let manager = ToastManager.shared
+        guard manager.showingToast, manager.tapAction != nil, manager.tappableFrame.contains(point) else { return nil }
+        return super.hitTest(point, with: event)
     }
 }
 
@@ -164,6 +196,12 @@ public struct ToastOverlayView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(.white)
+
+                        if toastManager.tapAction != nil {
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -172,6 +210,18 @@ public struct ToastOverlayView: View {
                             .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
                             .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
                     )
+                    // Khung cho `ToastUIWindow.hitTest` (cửa sổ phủ cả màn từ gốc toạ độ ⇒ `.global` = toạ độ cửa sổ).
+                    // Đo bằng `GeometryReader`: deployment iOS 17, `onGeometryChange` chỉ có từ iOS 18.
+                    .background(
+                        GeometryReader { proxy in
+                            let frame = proxy.frame(in: .global)
+                            Color.clear
+                                .onAppear { toastManager.tappableFrame = frame }
+                                .onChange(of: frame) { _, newFrame in toastManager.tappableFrame = newFrame }
+                        }
+                    )
+                    .contentShape(Capsule())
+                    .onTapGesture { toastManager.handleTap() }
                     .padding(.bottom, 100)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }

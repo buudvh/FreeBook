@@ -2,6 +2,33 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.748] - 2026-11-06
+
+### feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích
+
+Người dùng: *"thông toast thông báo khi cập nhật ext, mở app lên thì hãy check ext update và thông báo"*. Anh Bửu chọn: chỉ kiểm khi mở app; lần nào còn bản chưa cập nhật thì báo; bấm toast mở tab Tiện Ích; thêm công tắc tắt và toast khi cập nhật xong; toast hiện ở `MainTabView` (không thêm event center); duyệt plan.
+
+- **Kiểm khi mở app** (`ExtensionUpdateCheckCoordinator.checkOnLaunch`):
+  - Một lượt đủ mọi kho mỗi lần khởi động (cờ trong RAM), tính vào giãn cách 5 phút ⇒ vào "Tất cả tiện ích" ngay sau đó không tải lại.
+  - Trả tiện ích đã cài có bản mới (loại Legado — nguồn Legado không có `remoteVersion`), dùng gần nhất trước. Mất mạng ⇒ vẫn theo cache registry cũ.
+  - Lõi `run` tách thành `perform` (async) để chờ được; `checkOnEntry` / ↻ / "Thử lại" giữ nguyên hành vi.
+- **Toast** (`MainTabView.announceExtensionUpdatesOnLaunch`, cùng khuôn tự sao lưu / dọn truyện cũ — service chỉ trả kết quả, không gọi `ToastManager`):
+  - 1 tiện ích: "Tiện ích X có bản mới (vA → vB)"; nhiều: "Có bản mới cho N tiện ích: A, B, C…" (tối đa 3 tên).
+  - Bấm ⇒ dựng lại tab Tiện Ích về trang gốc "Tất cả tiện ích" (kể cả đang ở Legado / trang con) rồi chọn tab.
+  - Màn đọc tự mở lại lúc khởi động che toàn màn ⇒ bấm toast thì tab đổi phía sau, đóng màn đọc mới thấy.
+- **Toast bấm được** (`ToastManager.show(..., onTap:)`, mặc định `nil` ⇒ mọi chỗ gọi cũ không đổi):
+  - Cửa sổ toast vẫn chạm xuyên qua. Chỉ toast có `onTap` nhận chạm, và chỉ trong viên thuốc (khung đo bằng `GeometryReader` — deployment iOS 17), có dấu `›`.
+  - Bấm ⇒ ẩn ngay rồi chạy hành động. Mục ở Trung tâm thông báo vẫn chỉ là chữ.
+- **Công tắc** "Báo cập nhật khi mở app" ở ngăn kéo … tab Tiện Ích (`ExtensionLaunchUpdateToggleRow`, khoá `extensionUpdateLaunchCheckEnabled`, thiếu khoá = bật, được sao lưu): tắt ⇒ không kiểm lúc mở app, không toast; lượt tự kiểm khi vào tab vẫn chạy.
+- **Toast khi cập nhật xong**:
+  - "Cập nhật tất cả" ⇒ "Đã cập nhật N tiện ích" / "Đã cập nhật x/N tiện ích, k lỗi" — luôn hiện (dòng chữ dưới danh sách chỉ thấy khi còn đứng ở trang đó), dòng chữ cũ giữ.
+  - Nút cập nhật từng tiện ích ⇒ "Đã cập nhật X lên vB" hoặc câu lỗi. Cài mới không toast.
+- `rules.md` (mục 7 + luật toast bấm được), `CLAUDE.md` + `AGENTS.md` thêm luật. Chuyển `[1.3.718]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep không có chỗ nào truyền `ToastManager.shared.show` như giá trị hàm (thêm tham số an toàn).
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: mở app khi có tiện ích chưa cập nhật ⇒ toast có `›`, bấm sang tab Tiện Ích; chạm cạnh toast vẫn bấm được màn dưới; tắt công tắc ⇒ mở app không toast; "Cập nhật tất cả" xong ⇒ toast.
+
 ## [1.3.747] - 2026-11-06
 
 ### feat: phim không còn mở trang Chi tiết cũ, ⋮ thẻ đề xuất chỉ còn Thêm vào kệ
@@ -748,27 +775,3 @@ Người dùng: *"tạo lại icon app mới, tàng công các kiểu chữ ti�
   - Kiểm từng PNG: `mode == RGB`, không có `transparency`, đúng cỡ.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.718] - 2026-11-05
-
-### feat: mở lại mục đọc/xem gần nhất không phải 18+ khi mở app
-
-Người dùng đổi phạm vi tính năng của 1.3.716: *"tôi đổi ý, mở lại chương thì mở lại truyện, comic, video không phải nfsw cuối cùng được đọc, xem"*. Trước đây chỉ mở lại khi lúc tắt app đang ở màn đọc; giờ lần nào mở app cũng mở mục gần nhất. Mục gần nhất là 18+ thì bỏ qua, lấy mục kế tiếp.
-
-- **`ReaderSessionRestoreStore`**:
-  - Bỏ dấu "đang ở màn đọc". Thay bằng danh sách 20 `bookId` mở gần nhất (`readerSessionRecentBookIds`, mới nhất đứng đầu), ghi ở `BookContentDestination.onAppear` cho cả chữ, truyện tranh, phim.
-  - Không dựa `Book.lastReadDate`, vì thêm/bỏ khỏi kệ, chọn chương ở Chi tiết hay tạo bản ghi mới cũng đẩy nó lên.
-  - Xoá khoá cũ `readerSessionOpenBookId` lúc khởi động.
-- **`ShelfView+LaunchRestore`**: duyệt danh sách và mở mục đầu tiên thoả cả ba điều kiện, theo đúng lối bấm trên Kệ:
-  - còn trên máy;
-  - nằm ở Kệ, Lịch sử hoặc là truyện nhập file (bản ghi mồ côi của tiện ích tắt lưu lịch sử bị dọn lúc mở app);
-  - không phải 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật Kệ dùng để ẩn).
-- **Gỡ các phần chỉ phục vụ dấu cũ**: `onDismiss` xoá dấu ở 4 cover màn đọc (Kệ, Tìm trên kệ, Bộ sưu tập, Chi tiết) và chỗ bảo vệ truyện mang dấu trong `HistoryOrphanBookSweeper`. Các file này về lại như trước 1.3.716.
-- **Giữ nguyên**: công tắc mặc định bật, chống vòng lặp crash 10 s, bỏ qua khi đổi nguồn dở, phim dừng sẵn, TTS không tự phát.
-- **Tự chuyển truyện mất nguồn không đụng truyện đang được mở lại**:
-  - Cờ "đang thử" giờ lưu `bookId`. `MissingSourceRebindRunner.isBookOpen` xét thêm `ReaderSessionRestoreStore.isRestoring(bookId:)`.
-  - Lý do: dải báo và lượt mở lại cùng chạy ở trang gốc Kệ lúc mở app, còn màn truyện tranh / phim không đặt `ReaderView.activeBookId`.
-- **Sao lưu**: `BackupSettingsArchiver` chặn khoá cờ "đang thử" (`readerSessionRestorePending`, trạng thái của một lần chạy). Danh sách mở gần nhất vẫn được sao lưu vì truyện cũng được khôi phục theo.
-- Cài đặt: công tắc đổi tên thành "Mở lại truyện đọc gần nhất", sửa giải thích ở nút "?". Cập nhật ghi chú ở `CLAUDE.md`/`AGENTS.md`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.

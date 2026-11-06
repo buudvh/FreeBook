@@ -26,6 +26,7 @@ extension RepositoryManagerView {
             isReturningFromRepositoryList = true
             showingRepositoryList = true
         }
+        ExtensionLaunchUpdateToggleRow() // 1.3.748
         SideDrawerDivider()
         SideDrawerActionRow("Import tiện ích (.zip)", systemImage: "doc.badge.plus") { showingZipImporter = true }
         // Đang có lượt kiểm tra tiện ích chạy ở nền ⇒ khoá + ghi lý do (1.3.704).

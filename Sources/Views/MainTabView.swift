@@ -144,6 +144,11 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await AppUpdateRepository.shared.checkOnLaunch()
         }
+        // Tiện ích có bản mới (1.3.748): mở app là kiểm một lần (công tắc ở ngăn kéo … tab Tiện Ích); bấm toast ⇒ tab
+        // Tiện Ích, trang gốc "Tất cả tiện ích".
+        .task(priority: .utility) {
+            await announceExtensionUpdatesOnLaunch()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại
@@ -185,6 +190,24 @@ extension MainTabView {
             }
             selectedTab = discovery
         }
+    }
+
+    /// Toast "có bản mới" của lượt kiểm khi mở app — service chỉ trả danh sách (`SERVICE_TOAST_COUPLING`).
+    private func announceExtensionUpdatesOnLaunch() async {
+        let checker = ExtensionUpdateCheckCoordinator.shared
+        let pending = await checker.checkOnLaunch()
+        guard !pending.isEmpty, !Task.isCancelled else { return }
+        ToastManager.shared.show(message: ExtensionUpdateCheckCoordinator.availableMessage(for: pending)) {
+            showExtensionsRoot()
+        }
+    }
+
+    /// Sang tab Tiện Ích ở trang gốc, ô chọn "Tất cả tiện ích": dựng lại tab (kể cả đang đứng ở Legado / trang con) — danh
+    /// sách xếp tiện ích có bản mới lên đầu, kèm banner "Cập nhật tất cả".
+    private func showExtensionsRoot() {
+        let extensions = 2
+        tabResetTokens[extensions] += 1
+        selectedTab = extensions
     }
 
     /// Lượt tự động sao lưu tới các đích đã bật. Cửa mở/đóng thuộc `DriveAutoBackupPolicy`; ở đây

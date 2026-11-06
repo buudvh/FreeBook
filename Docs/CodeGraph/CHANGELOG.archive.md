@@ -2,6 +2,30 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.718] - 2026-11-05
+
+### feat: mở lại mục đọc/xem gần nhất không phải 18+ khi mở app
+
+Người dùng đổi phạm vi tính năng của 1.3.716: *"tôi đổi ý, mở lại chương thì mở lại truyện, comic, video không phải nfsw cuối cùng được đọc, xem"*. Trước đây chỉ mở lại khi lúc tắt app đang ở màn đọc; giờ lần nào mở app cũng mở mục gần nhất. Mục gần nhất là 18+ thì bỏ qua, lấy mục kế tiếp.
+
+- **`ReaderSessionRestoreStore`**:
+  - Bỏ dấu "đang ở màn đọc". Thay bằng danh sách 20 `bookId` mở gần nhất (`readerSessionRecentBookIds`, mới nhất đứng đầu), ghi ở `BookContentDestination.onAppear` cho cả chữ, truyện tranh, phim.
+  - Không dựa `Book.lastReadDate`, vì thêm/bỏ khỏi kệ, chọn chương ở Chi tiết hay tạo bản ghi mới cũng đẩy nó lên.
+  - Xoá khoá cũ `readerSessionOpenBookId` lúc khởi động.
+- **`ShelfView+LaunchRestore`**: duyệt danh sách và mở mục đầu tiên thoả cả ba điều kiện, theo đúng lối bấm trên Kệ:
+  - còn trên máy;
+  - nằm ở Kệ, Lịch sử hoặc là truyện nhập file (bản ghi mồ côi của tiện ích tắt lưu lịch sử bị dọn lúc mở app);
+  - không phải 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật Kệ dùng để ẩn).
+- **Gỡ các phần chỉ phục vụ dấu cũ**: `onDismiss` xoá dấu ở 4 cover màn đọc (Kệ, Tìm trên kệ, Bộ sưu tập, Chi tiết) và chỗ bảo vệ truyện mang dấu trong `HistoryOrphanBookSweeper`. Các file này về lại như trước 1.3.716.
+- **Giữ nguyên**: công tắc mặc định bật, chống vòng lặp crash 10 s, bỏ qua khi đổi nguồn dở, phim dừng sẵn, TTS không tự phát.
+- **Tự chuyển truyện mất nguồn không đụng truyện đang được mở lại**:
+  - Cờ "đang thử" giờ lưu `bookId`. `MissingSourceRebindRunner.isBookOpen` xét thêm `ReaderSessionRestoreStore.isRestoring(bookId:)`.
+  - Lý do: dải báo và lượt mở lại cùng chạy ở trang gốc Kệ lúc mở app, còn màn truyện tranh / phim không đặt `ReaderView.activeBookId`.
+- **Sao lưu**: `BackupSettingsArchiver` chặn khoá cờ "đang thử" (`readerSessionRestorePending`, trạng thái của một lần chạy). Danh sách mở gần nhất vẫn được sao lưu vì truyện cũng được khôi phục theo.
+- Cài đặt: công tắc đổi tên thành "Mở lại truyện đọc gần nhất", sửa giải thích ở nút "?". Cập nhật ghi chú ở `CLAUDE.md`/`AGENTS.md`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đọc code + diff; `check_architecture.py` 1 violation nền (`JSDom.swift`), **0 mới**. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.717] - 2026-11-05
 
 ### chore: đổi FreeBook thành Tàng Công Các ở tài liệu, chữ hiển thị và comment
