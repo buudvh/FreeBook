@@ -2,7 +2,8 @@ import Foundation
 import AVFoundation
 
 /// Dựng `AVPlayerItem` từ `VideoPlaybackPlan`, quan sát trạng thái item / tick 0,5 giây (thời gian, phần đã đệm,
-/// nút "Bỏ qua", phụ đề, lưu tiến độ định kỳ) và tự sang tập kế khi hết tập (bỏ qua dòng section).
+/// nút "Bỏ qua", phụ đề, lưu tiến độ định kỳ) và tự sang tập kế khi hết tập (bỏ qua dòng section). Hết tập cuối ⇒
+/// `VideoAutoNextCoordinator` (tự sang phim đề xuất).
 extension VideoPlaybackSession {
     // MARK: - Chuẩn bị lượt nạp mới
 
@@ -273,11 +274,12 @@ extension VideoPlaybackSession {
                 wasPlaying = true
                 // Xem lại sau khi hết tập cuối ⇒ lượt tạm dừng sau đó lại được lưu.
                 reachedEndOfItem = false
-                // Phát thật (kể cả nút phát của PiP, đi thẳng vào `AVPlayer`) ⇒ không còn nhường TTS.
+                // Phát thật (kể cả nút phát của màn khoá, đi thẳng vào `AVPlayer`) ⇒ không còn nhường TTS.
                 autoplayBlockedByTTS = false
                 // Phát lại từ màn khoá / hub sau khi TTS được bật lại ⇒ kiểm tra mỗi lần.
                 prepareAudioForPlayback()
                 if phase == .buffering { phase = .playing }
+                showPendingStartNotice()
             }
             scheduleAudioCheckIfNeeded()
         case .paused:
@@ -299,6 +301,9 @@ extension VideoPlaybackSession {
         guard let next = nextEpisode else {
             AppLogger.shared.log("🏁 [VideoPlayer] Đã xem hết tập cuối")
             saveProgress(reason: "hết tập cuối", seconds: 0)
+            if let launch {
+                VideoAutoNextCoordinator.shared.lastEpisodeDidEnd(launch: launch, isMuted: isMuted, modelContainer: modelContainer)
+            }
             return
         }
         AppLogger.shared.log("⏭️ [VideoPlayer] Hết tập \(currentEpisodeIndex) ⇒ sang tập \(next.index)")

@@ -42,7 +42,7 @@ final class VideoVolumeObserver {
         observation = AVAudioSession.sharedInstance().observe(\.outputVolume, options: [.new]) { [weak self] _, change in
             guard let volume = change.newValue else { return }
             let level = Double(volume)
-            // Chụp `self` (weak) vào hằng trước khi đưa sang closure khác (mẫu `VideoPictureInPictureCoordinator`).
+            // Chụp `self` (weak) vào hằng trước khi đưa sang closure khác (tránh bắt `weak var` trong closure lồng).
             let observer = self
             Task { @MainActor in
                 observer?.owners.last?.onChange(level)

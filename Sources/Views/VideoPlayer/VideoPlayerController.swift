@@ -6,7 +6,7 @@ import UIKit
 /// Tầng **màn hình** của trình phát — trạng thái chỉ sống khi màn đang hiện: ẩn/hiện điều khiển (tự ẩn 4 giây), khoá
 /// cảm ứng, toàn màn ở màn dọc, khoá xoay, Vừa/Lấp đầy/Phóng, xem trước khi tua, HUD cử chỉ, bảng danh sách tập.
 ///
-/// Phát / nạp / tiến độ / PiP thuộc `VideoPlaybackSession` (sống lâu hơn màn hình) — controller chỉ gọi hàm của session.
+/// Phát / nạp / tiến độ thuộc `VideoPlaybackSession` (sống lâu hơn màn hình) — controller chỉ gọi hàm của session.
 @MainActor
 @Observable
 final class VideoPlayerController {
@@ -57,8 +57,10 @@ final class VideoPlayerController {
     var scrubSeconds: Double?
     var feedback: Feedback?
 
-    /// Màn hình gắn: vuốt xuống ở khung dọc ⇒ thu nhỏ.
-    @ObservationIgnored var onMinimizeRequest: (() -> Void)?
+    /// Co khung phim khi thu nhỏ (vuốt xuống, ⌄, nút Cửa sổ nhỏ) — `VideoMinimizeDragContainer` đọc.
+    let minimizeDrag = VideoMinimizeDragState()
+    /// Màn hình gắn: nhả tay của vuốt xuống ở khung dọc (điểm dịch, tốc độ) ⇒ màn quyết định thu nhỏ hay bật về.
+    @ObservationIgnored var onMinimizeRelease: ((CGFloat, CGFloat) -> Void)?
     @ObservationIgnored private var autoHideTask: Task<Void, Never>?
     @ObservationIgnored private var feedbackTask: Task<Void, Never>?
     @ObservationIgnored private var tapStreak: (forward: Bool, until: TimeInterval, seconds: Int)?
@@ -186,12 +188,14 @@ final class VideoPlayerController {
 
     // MARK: - Vuốt
 
-    /// Tua / độ sáng / âm lượng: ẩn **cả** lớp điều khiển (kiểu YouTube, người dùng chốt 2026-10-24) để HUD không đè
-    /// lên timeline và cụm nút giữa; nhả tay vẫn ẩn, chạm để hiện lại.
+    /// Tua / độ sáng / âm lượng / vuốt thu nhỏ: ẩn **cả** lớp điều khiển (kiểu YouTube, người dùng chốt 2026-10-24) để
+    /// HUD không đè lên timeline và cụm nút giữa; nhả tay vẫn ẩn, chạm để hiện lại. Vuốt thu nhỏ chốt đích trung gian là
+    /// chỗ đậu của cửa sổ nhỏ (khung phim co theo tay về đó).
     func handlePanBegan(_ kind: VideoGestureView.PanKind) {
-        if kind != .dismiss {
-            autoHideTask?.cancel()
-            controlsVisible = false
+        autoHideTask?.cancel()
+        controlsVisible = false
+        if kind == .dismiss {
+            minimizeDrag.begin(target: VideoMiniPlayerWindowManager.shared.dockFrame())
         }
         // Vuốt chỉnh âm lượng = muốn nghe ⇒ bỏ tắt tiếng. Bật tiếng khi video đang phát sẽ dừng TTS đang đọc
         // (đúng hành vi của `setMuted(false)`). Nút âm lượng cứng đi đường riêng (`VideoVolumeObserver` →
@@ -216,7 +220,16 @@ final class VideoPlayerController {
         case .volume:
             showFeedback(.volume(Double(value)), duration: 0.8)
         case .dismiss:
-            break
+            minimizeDrag.update(offset: value)
+        }
+    }
+
+    /// Nhả tay của vuốt thu nhỏ: màn chưa gắn handler ⇒ bật về.
+    func handleDismissEnded(translation: CGFloat, velocity: CGFloat) {
+        if let onMinimizeRelease {
+            onMinimizeRelease(translation, velocity)
+        } else {
+            VideoMinimizeAnimator.springBack(minimizeDrag)
         }
     }
 
@@ -228,9 +241,7 @@ final class VideoPlayerController {
             session.seek(to: target)
             showFeedback(feedback ?? .seek(target: target, delta: 0), duration: 0.5)
             scheduleAutoHide()
-        case .dismiss:
-            if value > 80 { onMinimizeRequest?() }
-        case .brightness, .volume:
+        case .dismiss, .brightness, .volume:
             break
         }
     }

@@ -3,13 +3,16 @@ import SwiftUI
 /// Màn **Video** (Cài đặt › Đọc & Nghe › Video, 1.3.740) — gom cài đặt của trình phát phim:
 /// - Nhóm **Khi mở phim**: "Tự phát khi mở phim" (`VideoAutoplayPolicy`, cùng khoá với hàng đầu ngăn kéo `⋯` của trình
 ///   phát; dời từ section Đọc & Nghe) và "Tắt tiếng khi mở phim" (`VideoMutePolicy`; dời từ màn Nội dung nhạy cảm).
-/// - Nhóm **Vuốt xuống trình phát**: kiểu thu nhỏ khi vuốt xuống khung phim ở màn dọc, riêng phim thường / phim 18+
+/// - Nhóm **Khi hết phim**: "Tự sang phim đề xuất" (`VideoAutoNextPolicy`, cùng khoá với hàng thứ hai ngăn kéo `⋯`).
+/// - Nhóm **Vuốt xuống trình phát**: kiểu thu nhỏ (hub / cửa sổ nhỏ) khi vuốt xuống khung phim ở màn dọc, riêng phim thường / phim 18+
 ///   (`VideoMinimizePolicy`). Tiện ích ghi đè được ở mục Video của Cấu hình tiện ích. Nút ⌄ luôn thu nhỏ vào hub.
 ///
 /// Mọi giá trị đọc/ghi bằng `@AppStorage` trên đúng khoá tầng nền đọc — đổi là có hiệu lực từ lượt kế tiếp.
 struct VideoSettingsView: View {
     /// Mặc định bật — khớp `VideoAutoplayPolicy.isEnabled` (khoá chưa ghi = bật).
     @AppStorage(VideoAutoplayPolicy.defaultsKey) private var autoplaysOnOpen = VideoAutoplayPolicy.defaultValue
+    /// Mặc định bật — khớp `VideoAutoNextPolicy.isEnabled`.
+    @AppStorage(VideoAutoNextPolicy.defaultsKey) private var autoNextSuggest = VideoAutoNextPolicy.defaultValue
     /// Cùng khoá `VideoMutePolicy` đọc lúc mở phim mới; mặc định `nsfwOnly`.
     @AppStorage(VideoMutePolicy.defaultsKey) private var mutePolicy: VideoMutePolicy = VideoMutePolicy.defaultValue
     @AppStorage(VideoMinimizePolicy.normalDefaultsKey) private var normalMinimize: VideoMinimizeStyle = VideoMinimizePolicy.defaultValue
@@ -37,12 +40,23 @@ struct VideoSettingsView: View {
             }
 
             Section {
+                Toggle(isOn: $autoNextSuggest) {
+                    Label("Tự sang phim đề xuất", systemImage: "forward.end.circle")
+                }
+            } header: {
+                SectionHelpHeader("Khi hết phim", paragraphs: [
+                    "**Tự sang phim đề xuất**: xem hết tập cuối thì phát ngay phim đầu tiên của nhóm đề xuất đầu tiên, ở mọi nơi: màn xem, cửa sổ nhỏ, hub hay khi app chạy nền. Phát luôn dù tắt \"Tự phát khi mở phim\", giữ tiếng như phim vừa xem.",
+                    "Phim đã phát trong cùng một chuỗi tự sang bị bỏ qua để không lặp qua lại. Phim nhúng trang web không báo lúc hết phim nên không tự sang."
+                ])
+            }
+
+            Section {
                 minimizePicker("Phim thường", systemImage: "film", selection: $normalMinimize)
                 minimizePicker("Phim 18+", systemImage: "eye.slash", selection: $nsfwMinimize)
             } header: {
                 SectionHelpHeader("Vuốt xuống trình phát", paragraphs: [
-                    "Vuốt xuống khung phim ở màn dọc thì thu nhỏ trình phát. **Thu nhỏ vào hub**: phim chạy nền, điều khiển ở mục Video của hub. **Hình trong hình**: phim chuyển sang khung nổi của hệ thống.",
-                    "Không bật được Hình trong hình (phim nhúng, phim chưa tải xong) thì thu nhỏ vào hub. Nút ⌄ luôn thu nhỏ vào hub.",
+                    "Vuốt xuống khung phim ở màn dọc thì khung phim co theo tay. **Thu nhỏ vào hub**: nhả tay thì phim bay vào nút hub, chạy nền, điều khiển ở mục Video của hub. **Cửa sổ nhỏ**: phim thành cửa sổ nhỏ nổi trên mọi màn, kéo bám mép trái/phải, thả vào vòng ✕ ở đáy để tắt, chạm để mở lại.",
+                    "Phim nhúng trang web không vào được cửa sổ nhỏ, thu nhỏ vào hub. Nút ⌄ luôn thu nhỏ vào hub. Rời app thì phim chỉ phát tiếng.",
                     "Từng tiện ích chỉnh riêng được ở mục Video của Cấu hình tiện ích."
                 ])
             }

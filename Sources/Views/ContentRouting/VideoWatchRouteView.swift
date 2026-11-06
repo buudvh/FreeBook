@@ -15,11 +15,13 @@ struct VideoWatchRouteView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Màn tự vẽ nền đen (nhạt dần khi thu nhỏ để lộ màn phía sau) ⇒ ở đây chỉ phủ đen trước khi model có.
+            Color.black.opacity(model == nil ? 1 : 0).ignoresSafeArea()
             if let model {
                 VideoPlayerScreen(watch: model)
             }
         }
+        .presentationBackground(.clear)
         .onAppear {
             guard model == nil else { return }
             model = VideoWatchModel(request: VideoWatchRequest(launch: launch), modelContainer: modelContext.container)

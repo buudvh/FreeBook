@@ -3,9 +3,9 @@ import AVFoundation
 
 /// `UIView` có `AVPlayerLayer` làm layer gốc.
 ///
-/// `VideoPlaybackSession` giữ **một** instance suốt đời: PiP (`AVPictureInPictureController`) gắn với chính layer này,
-/// nên layer phải sống qua lúc màn hình bị gỡ (thu nhỏ). Màn hình chỉ chuyển view này vào khung của nó
-/// (`VideoPlayerSurfaceView`), không tự dựng layer riêng.
+/// `VideoPlaybackSession` giữ **một** instance suốt đời: màn trình phát (`VideoPlayerSurfaceView`) và cửa sổ nhỏ
+/// (`VideoMiniPlayerViewController`) chỉ chuyển view này vào khung của mình, không tự dựng layer riêng ⇒ thu nhỏ / mở lại
+/// không ngắt phim.
 final class VideoPlayerLayerView: UIView {
     override class var layerClass: AnyClass { AVPlayerLayer.self }
 

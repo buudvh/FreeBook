@@ -12,7 +12,7 @@ import AVFoundation
 /// - Chỉ link `VideoMediaSniffer` dò từ trang mới có dự phòng: sang phương án kế, giữ giây đang xem. Phương án dự phòng
 ///   phải có **cả** tiếng lẫn hình (playlist con chỉ có tiếng ⇒ màn đen); lỗi phát cũng sang phương án kế. Nhúng trang
 ///   là bước cuối; hết phương án thì giữ nguyên. Chỉ tự đổi khi màn trình phát đang hiện ở trước và không PiP — thay
-///   item lúc PiP / chạy nền / thu nhỏ làm hỏng các ca đó.
+///   item lúc chạy nền / thu nhỏ vào hub làm hỏng các ca đó.
 /// - Playlist ghép luồng hình + `audios` (`VideoAudioRenditionComposer`): tiếng là rendition `#EXT-X-MEDIA` ⇒ có lựa
 ///   chọn `.audible` đang được chọn cũng tính là có tiếng. Mất tiếng thì chỉ ghi log, không đổi (dự phòng là luồng gốc
 ///   không tiếng); item **lỗi** thì sang dự phòng đó để vẫn xem được hình như trước.
@@ -60,6 +60,13 @@ extension VideoPlaybackSession {
         noticeTask?.cancel()
         noticeTask = nil
         if playbackNotice != nil { playbackNotice = nil }
+    }
+
+    /// Dòng báo chờ của `open(startNotice:)` (tự sang phim đề xuất) — hiện khi phim mới bắt đầu phát.
+    func showPendingStartNotice() {
+        guard let notice = pendingStartNotice else { return }
+        pendingStartNotice = nil
+        showPlaybackNotice(notice)
     }
 
     func showPlaybackNotice(_ text: String) {
@@ -151,9 +158,10 @@ extension VideoPlaybackSession {
 
     // MARK: - Đổi phương án
 
-    /// Đổi item lúc PiP / chạy nền / màn đã thu nhỏ làm hỏng PiP và phát nền ⇒ chỉ tự đổi khi màn đang hiện ở trước.
+    /// Đổi item lúc chạy nền / đã thu nhỏ vào hub làm hỏng phát nền ⇒ chỉ tự đổi khi màn (hoặc cửa sổ nhỏ) đang hiện ở
+    /// trước.
     private var canSwitchSourceAutomatically: Bool {
-        isScreenAttached && !isInBackground && pictureInPicture?.isActiveOrStarting != true
+        isScreenAttached && !isInBackground
     }
 
     private func fallbackAction(canSwitch: Bool) -> String {
@@ -162,7 +170,7 @@ extension VideoPlaybackSession {
                 ? "⇒ đã hết phương án dự phòng, giữ nguyên"
                 : "⇒ không có phương án dự phòng (chỉ link dò từ trang mới có)"
         }
-        guard canSwitch else { return "⇒ chưa tự đổi link (đang PiP / chạy nền / thu nhỏ)" }
+        guard canSwitch else { return "⇒ chưa tự đổi link (đang chạy nền / thu nhỏ vào hub)" }
         let note = next.note.map { " [\($0)]" } ?? ""
         return "⇒ thử phương án \(resolution.attemptNumber + 1)/\(resolution.totalAttempts): \(next.origin.label)\(note)"
     }

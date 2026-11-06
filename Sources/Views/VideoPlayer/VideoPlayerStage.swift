@@ -14,6 +14,8 @@ struct VideoPlayerStage: View {
     let isFullscreen: Bool
     let onMinimize: () -> Void
     let onClose: () -> Void
+    /// Nút "Cửa sổ nhỏ" của thanh trên.
+    let onMiniPlayer: () -> Void
 
     var body: some View {
         ZStack {
@@ -30,9 +32,6 @@ struct VideoPlayerStage: View {
             } else {
                 VideoPlayerSurfaceView(layerView: session.layerView, gravity: controller.gravity.layerGravity)
                     .ignoresSafeArea(.all, edges: bleedEdges)
-                if session.isPictureInPictureActive {
-                    pictureInPicturePlaceholder
-                }
                 VideoSubtitleOverlay(session: session, liftsAboveControls: controller.controlsVisible && !controller.isTouchLocked)
                 VideoGestureLayer(
                     verticalMode: isFullscreen ? .levels : .dismiss,
@@ -56,7 +55,8 @@ struct VideoPlayerStage: View {
                 isLandscape: isLandscape,
                 isFullscreen: isFullscreen,
                 onMinimize: onMinimize,
-                onClose: onClose
+                onClose: onClose,
+                onMiniPlayer: onMiniPlayer
             )
 
             if !controller.isTouchLocked {
@@ -81,17 +81,6 @@ struct VideoPlayerStage: View {
     }
 
     private var bleedEdges: Edge.Set { isFullscreen ? .all : [] }
-
-    private var pictureInPicturePlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "pip")
-                .font(.system(size: 28, weight: .semibold))
-            Text("Đang phát trong cửa sổ hình trong hình")
-                .font(.footnote)
-        }
-        .foregroundStyle(.white.opacity(0.7))
-        .allowsHitTesting(false)
-    }
 
     /// Nằm dưới thanh trên, không nhận chạm (cả khi đang nhúng trang).
     private func noticeBanner(_ text: String) -> some View {
@@ -119,6 +108,7 @@ struct VideoPlayerStage: View {
         handlers.panBegan = { owner.handlePanBegan($0) }
         handlers.panChanged = { owner.handlePanChanged($0, value: $1) }
         handlers.panEnded = { owner.handlePanEnded($0, value: $1) }
+        handlers.dismissEnded = { owner.handleDismissEnded(translation: $0, velocity: $1) }
         handlers.longPress = { owner.handleLongPress($0) }
         return handlers
     }

@@ -41,7 +41,18 @@ extension VideoWatchModel {
         let seconds = (target == request.episodeIndex) ? request.initialSeconds : nil
         let launch = makeLaunch(episodeIndex: target, initialSeconds: seconds)
         AppLogger.shared.log("🎬 [VideoWatch] Phát tập \(target) (bookId=\(bookId))")
-        session.open(launch, modelContainer: modelContainer)
+        // Tự sang phim đề xuất: giữ tiếng của phim vừa hết, báo tên phim khi phim mới bắt đầu phát.
+        let autoNextStart = autoNext
+        autoNext = nil
+        session.open(
+            launch,
+            modelContainer: modelContainer,
+            muteOverride: autoNextStart?.muted,
+            startNotice: autoNextStart == nil ? nil : "Tự sang: \(displayTitle)"
+        )
+        if autoNextStart != nil {
+            VideoAutoNextCoordinator.shared.didOpen(bookId: bookId)
+        }
         // Như `BookContentDestination`: lượt "Mở lại truyện đọc gần nhất" lúc khởi động thấy phim này.
         ReaderSessionRestoreStore.recordOpened(bookId: bookId)
     }

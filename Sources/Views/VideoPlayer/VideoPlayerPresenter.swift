@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Presenter toàn cục **mở lại** trình phát gắn với `VideoPlaybackSession` đang chạy — từ mục Video của hub
-/// (`VideoMiniPlayerState.onReopen`) hoặc khi khôi phục từ PiP. Phiên có `launch` + `modelContainer` (luôn có khi đang
+/// (`VideoMiniPlayerState.onReopen`) hoặc khi chạm cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`). Phiên có `launch` + `modelContainer` (luôn có khi đang
 /// phát) ⇒ chuyển sang `VideoWatchPresenter` (giao diện màn xem); phần trình bày bên dưới chỉ còn là dự phòng.
 ///
 /// Cách tìm chỗ trình bày giống `VisibleBrowserTabManager.reopenContainer`: chỉ nhận window level `.normal` (widget TTS
@@ -24,14 +24,16 @@ final class VideoPlayerPresenter {
 
     /// Gắn handler vào session. Gọi mỗi lần màn trình phát xuất hiện (rẻ, idempotent).
     static func install() {
-        VideoPlaybackSession.shared.presentScreenHandler = { completion in
-            VideoPlayerPresenter.shared.presentPlayer(retryCount: 0, completion: completion)
+        VideoPlaybackSession.shared.presentScreenHandler = { animated, completion in
+            VideoPlayerPresenter.shared.presentPlayer(retryCount: 0, animated: animated, completion: completion)
         }
     }
 
-    private func presentPlayer(retryCount: Int, completion: @escaping () -> Void) {
+    /// `animated == false`: cửa sổ nhỏ đã tự nở lên chỗ khung phim (`VideoMiniPlayerWindowManager`). Cửa sổ nhỏ gắn vào
+    /// phiên không chặn việc mở lại — chỉ màn to (`isFullScreenAttached`).
+    private func presentPlayer(retryCount: Int, animated: Bool, completion: @escaping () -> Void) {
         let session = VideoPlaybackSession.shared
-        guard session.isActive, !session.isScreenAttached else {
+        guard session.isActive, !session.isFullScreenAttached else {
             completion()
             return
         }
@@ -44,7 +46,7 @@ final class VideoPlayerPresenter {
         // đang chạy, không tự phát lại.
         if let launch = session.launch, let container = session.modelContainer {
             AppLogger.shared.log("🎬 [VideoPlayer] Mở lại trình phát từ phiên đang chạy (màn xem)")
-            VideoWatchPresenter.presentRunningSession(launch, modelContainer: container, completion: completion)
+            VideoWatchPresenter.presentRunningSession(launch, modelContainer: container, animated: animated, completion: completion)
             return
         }
         guard let top = Self.findTopViewController() else {
@@ -60,7 +62,7 @@ final class VideoPlayerPresenter {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 MainActor.assumeIsolated {
-                    VideoPlayerPresenter.shared.presentPlayer(retryCount: retryCount + 1, completion: completion)
+                    VideoPlayerPresenter.shared.presentPlayer(retryCount: retryCount + 1, animated: animated, completion: completion)
                 }
             }
             return
@@ -69,11 +71,12 @@ final class VideoPlayerPresenter {
         let host = VideoPlayerHostingController(rootView: AnyView(EmptyView()))
         host.modalPresentationStyle = .overFullScreen
         host.modalPresentationCapturesStatusBarAppearance = true
-        host.view.backgroundColor = .black
+        // Trong suốt: màn tự vẽ nền đen, nhạt dần khi khung phim co lại (thu nhỏ) để lộ màn bên dưới.
+        host.view.backgroundColor = .clear
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`; gắn lại màu nhấn để sheet / menu của
         // trình phát cùng màu với lối mở qua `BookContentDestination`.
-        let screen = VideoPlayerScreen(onDismiss: { [weak host] in
-            host?.dismiss(animated: true)
+        let screen = VideoPlayerScreen(onDismiss: { [weak host] animated in
+            host?.dismiss(animated: animated)
         })
         .appAccentTint()
         if let container = session.modelContainer {
@@ -83,7 +86,7 @@ final class VideoPlayerPresenter {
         }
         hostController = host
         AppLogger.shared.log("🎬 [VideoPlayer] Mở lại trình phát từ phiên đang chạy")
-        top.present(host, animated: true) {
+        top.present(host, animated: animated) {
             completion()
         }
     }

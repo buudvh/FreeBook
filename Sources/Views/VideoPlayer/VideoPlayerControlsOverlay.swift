@@ -15,6 +15,7 @@ struct VideoPlayerControlsOverlay: View {
     let isFullscreen: Bool
     let onMinimize: () -> Void
     let onClose: () -> Void
+    let onMiniPlayer: () -> Void
 
     var body: some View {
         ZStack {
@@ -45,7 +46,8 @@ struct VideoPlayerControlsOverlay: View {
                     controller: controller,
                     isLandscape: isLandscape,
                     onMinimize: onMinimize,
-                    onClose: onClose
+                    onClose: onClose,
+                    onMiniPlayer: onMiniPlayer
                 )
                 Spacer(minLength: 0)
                 if session.hasPlayableItem {

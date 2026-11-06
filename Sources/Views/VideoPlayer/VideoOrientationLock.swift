@@ -5,7 +5,7 @@ import UIKit
 /// - Nút **Xoay**: `requestGeometryUpdate` sang ngang/dọc ngay, không cần nghiêng máy. Hướng giữ nguyên tới khi máy
 ///   được xoay thật.
 /// - **Khoá xoay**: `supportedMask` chỉ còn hướng hiện tại.
-///   - `VideoPlayerHostingController` (đường mở lại từ hub/PiP, trình bày `.overFullScreen`) trả mask này — có hiệu
+///   - `VideoPlayerHostingController` (đường mở lại từ hub / cửa sổ nhỏ, trình bày `.overFullScreen`) trả mask này — có hiệu
 ///     lực khi UIKit hỏi VC được trình bày; không chắc với mọi phiên bản iOS nên vẫn có dự phòng bên dưới.
 ///   - Đường `fullScreenCover` của router do SwiftUI giữ view controller, không đọc mask ⇒ dự phòng (cả hai đường):
 ///     máy xoay khi đang khoá thì xin lại hướng đã khoá (có thể thấy giật một nhịp). Muốn khoá cứng mọi đường, app

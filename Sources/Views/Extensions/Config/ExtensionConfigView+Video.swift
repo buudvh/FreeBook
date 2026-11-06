@@ -44,9 +44,9 @@ extension ExtensionConfigView {
                 .pickerStyle(.menu)
             } header: {
                 SectionHelpHeader("Video", paragraphs: [
-                    "**Vuốt xuống trình phát**: vuốt xuống khung phim ở màn dọc thì thu nhỏ vào hub hoặc bật Hình trong hình. Nút ⌄ luôn thu nhỏ vào hub.",
+                    "**Vuốt xuống trình phát**: vuốt xuống khung phim ở màn dọc thì khung phim co theo tay rồi thu vào hub hoặc thành cửa sổ nhỏ trong app. Nút ⌄ luôn thu nhỏ vào hub.",
                     "«Theo cài đặt chung» lấy dòng «Phim thường» hoặc «Phim 18+» ở Cài đặt › Đọc & Nghe › Video.",
-                    "Không bật được Hình trong hình (phim nhúng, phim chưa tải xong) thì thu nhỏ vào hub."
+                    "Phim nhúng trang web không vào được cửa sổ nhỏ, thu nhỏ vào hub."
                 ])
             }
         }

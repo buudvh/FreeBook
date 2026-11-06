@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Trái: thu nhỏ, đóng. Phải: tốc độ (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
 /// (`aspectratio`), khoá xoay (khi ngang, hoặc khi đang khoá — khoá ở ngang rồi bấm Xoay dọc thì vẫn còn nút để mở
-/// khoá), phụ đề, PiP, server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
+/// khoá), phụ đề, Cửa sổ nhỏ (thay nút Hình trong hình từ 1.3.751), server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
 /// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`.
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
@@ -12,10 +12,14 @@ struct VideoPlayerTopBar: View {
     let isLandscape: Bool
     let onMinimize: () -> Void
     let onClose: () -> Void
+    /// Thu thành cửa sổ phim nhỏ trong app (`VideoMiniPlayerWindowManager`).
+    let onMiniPlayer: () -> Void
 
     @State private var showingMoreMenu = false // Ngăn kéo `⋯`
     /// Hàng đầu ngăn kéo `⋯` — cùng khoá với Cài đặt › Đọc & Nghe (`VideoAutoplayPolicy`).
     @AppStorage(VideoAutoplayPolicy.defaultsKey) private var autoplayOnOpen = VideoAutoplayPolicy.defaultValue
+    /// Hàng thứ hai ngăn kéo `⋯` — cùng khoá với Cài đặt › Đọc & Nghe › Video (`VideoAutoNextPolicy`).
+    @AppStorage(VideoAutoNextPolicy.defaultsKey) private var autoNextSuggest = VideoAutoNextPolicy.defaultValue
 
     var body: some View {
         HStack(spacing: 6) {
@@ -73,13 +77,9 @@ struct VideoPlayerTopBar: View {
                     controller.showControls()
                 }
             }
-            if session.isPictureInPicturePossible || session.isPictureInPictureActive {
-                VideoPlayerIconButton(
-                    systemName: session.isPictureInPictureActive ? "pip.exit" : "pip.enter",
-                    label: "Hình trong hình"
-                ) {
-                    session.togglePictureInPicture()
-                }
+            // Phim nhúng trang không vào được cửa sổ nhỏ (trang web chết cùng màn).
+            if session.embedContent == nil {
+                VideoPlayerIconButton(systemName: "pip.enter", label: "Cửa sổ nhỏ", action: onMiniPlayer)
             }
             if isLandscape, session.hasSourceChoices {
                 Menu {
@@ -185,7 +185,8 @@ struct VideoPlayerTopBar: View {
         .accessibilityLabel("Thêm")
     }
 
-    /// Đầu ngăn kéo: công tắc "Tự phát khi mở phim". Sau đó ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba lưới
+    /// Đầu ngăn kéo: công tắc "Tự phát khi mở phim" và "Tự sang phim đề xuất" (lưới chỉ dành cho chọn một-trong-nhiều).
+    /// Sau đó ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba lưới
     /// chọn 3 cột (`VideoPlayerOptionGrid`): bấm là áp dụng ngay, ngăn kéo vẫn mở.
     @ViewBuilder
     private var moreMenuItems: some View {
@@ -195,6 +196,7 @@ struct VideoPlayerTopBar: View {
         // Danh sách chỉ xoá khi item mới vào ⇒ chặn thêm lúc nhúng trang / không có item để không hiện mục cũ.
         let showsQuality = session.embedContent == nil && session.hasPlayableItem && !session.qualityOptions.isEmpty
         SideDrawerToggleRow("Tự phát khi mở phim", systemImage: "play.circle", isOn: $autoplayOnOpen)
+        SideDrawerToggleRow("Tự sang phim đề xuất", systemImage: "forward.end.circle", isOn: $autoNextSuggest)
         SideDrawerDivider()
         if showsGravity {
             SideDrawerSectionHeader("Khung hình")

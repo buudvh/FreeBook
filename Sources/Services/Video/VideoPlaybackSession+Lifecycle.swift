@@ -2,7 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 
-/// Vòng đời phiên xem: lưu tiến độ (số giây vào `paragraphIndex`), vào nền / về trước (PiP hoặc chỉ phát tiếng),
+/// Vòng đời phiên xem: lưu tiến độ (số giây vào `paragraphIndex`), vào nền / về trước (chỉ phát tiếng),
 /// `AVAudioSession`, nhường TTS và `isIdleTimerDisabled`.
 extension VideoPlaybackSession {
     // MARK: - Tiến độ
@@ -62,60 +62,28 @@ extension VideoPlaybackSession {
                 self?.handleWillEnterForeground()
             }
         }
-        lifecycleTokens = [background, foreground]
+        // Chỉ ghi nhớ đang phát hay không — không tách hình ở đây (kéo Trung tâm điều khiển cũng làm app rời active).
+        let resign = center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.wasPlayingWhenResigned = self.isPlaying
+            }
+        }
+        lifecycleTokens = [background, foreground, resign]
     }
 
-    /// Tách `playerLayer.player` khi vào nền mà không có PiP — iOS tự dừng player còn gắn hình ⇒ tách ra để chỉ phát
-    /// tiếng. Không tách ở `willResignActive` (giết PiP tự bật). Màn hình đang hiện và đang phát thì PiP sắp tự bật:
-    /// chờ một nhịp, PiP không lên thì mới tách và phát tiếp. Nhịp chờ nằm trong background task: lúc đó iOS đã dừng
-    /// player (còn gắn hình) nên không còn tiếng giữ app sống — thiếu task thì app có thể bị treo trước khi kịp phát lại.
+    /// Vào nền (không còn Hình trong hình của hệ thống, 1.3.751) ⇒ luôn chỉ phát tiếng: tách `playerLayer.player` ngay — iOS
+    /// tự dừng player còn gắn hình. Lúc thông báo này tới, iOS có thể đã dừng player ⇒ đang phát lúc rời active
+    /// (`wasPlayingWhenResigned`) thì phát tiếp. Trang nhúng không điều khiển được ⇒ để nguyên.
     private func handleDidEnterBackground() {
         isInBackground = true
         guard launch != nil else { return }
         saveProgress(reason: "vào nền")
         guard embedContent == nil else { return }
-        let pip = pictureInPicture
-        let expectsAutomaticPiP = isScreenAttached && (pip?.isActiveOrStarting == true || (pip?.isPossible == true && isPlaying))
-        guard expectsAutomaticPiP else {
-            refreshLayerAttachment()
-            return
-        }
-        let shouldResume = isPlaying
-        let backgroundTask = beginAudioFallbackBackgroundTask()
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            self?.fallBackToAudioOnlyIfNeeded(resume: shouldResume)
-            self?.endAudioFallbackBackgroundTask(backgroundTask)
-        }
-    }
-
-    /// Mỗi lượt vào nền một task; task cũ (nền → trước → nền trong vòng 1 giây) được kết thúc trước.
-    private func beginAudioFallbackBackgroundTask() -> UIBackgroundTaskIdentifier {
-        endAudioFallbackBackgroundTask(audioFallbackBackgroundTask)
-        let task = UIApplication.shared.beginBackgroundTask(withName: "VideoAudioFallback") { [weak self] in
-            // iOS gọi trên main khi hết hạn ⇒ kết thúc task đang giữ (helper kiểm `.invalid`, không kết thúc hai lần).
-            let owner = self
-            MainActor.assumeIsolated {
-                guard let owner else { return }
-                owner.endAudioFallbackBackgroundTask(owner.audioFallbackBackgroundTask)
-            }
-        }
-        audioFallbackBackgroundTask = task
-        return task
-    }
-
-    /// Chỉ kết thúc khi `task` vẫn là task đang giữ: nhịp chờ của lượt vào nền cũ không được kết thúc task của lượt mới.
-    private func endAudioFallbackBackgroundTask(_ task: UIBackgroundTaskIdentifier) {
-        guard task != .invalid, task == audioFallbackBackgroundTask else { return }
-        audioFallbackBackgroundTask = .invalid
-        UIApplication.shared.endBackgroundTask(task)
-    }
-
-    private func fallBackToAudioOnlyIfNeeded(resume: Bool) {
-        guard isInBackground, launch != nil, pictureInPicture?.isActiveOrStarting != true else { return }
+        let shouldResume = isPlaying || wasPlayingWhenResigned
         refreshLayerAttachment()
-        if resume, player.timeControlStatus == .paused {
-            AppLogger.shared.log("🎧 [VideoPlayer] PiP không bật được khi vào nền ⇒ phát tiếp chỉ tiếng")
+        if shouldResume, player.timeControlStatus == .paused, !reachedEndOfItem, !autoplayBlockedByTTS {
+            AppLogger.shared.log("🎧 [VideoPlayer] Vào nền ⇒ phát tiếp chỉ tiếng")
             player.play()
         }
     }
@@ -125,11 +93,10 @@ extension VideoPlaybackSession {
         refreshLayerAttachment()
     }
 
-    /// Gắn hình khi: màn hình đang hiện và app ở trước, hoặc PiP đang bật/đang bật dở. Còn lại (đã thu nhỏ, hoặc nền
-    /// không PiP) thì tách — player vẫn phát tiếng.
+    /// Gắn hình khi màn trình phát hoặc cửa sổ nhỏ đang hiện và app ở trước. Còn lại (thu nhỏ vào hub, hoặc nền) thì
+    /// tách — player vẫn phát tiếng.
     func refreshLayerAttachment() {
-        let pipBusy = pictureInPicture?.isActiveOrStarting ?? false
-        let shouldAttach = pipBusy || (isScreenAttached && !isInBackground)
+        let shouldAttach = isScreenAttached && !isInBackground
         let isAttached = layerView.playerLayer.player != nil
         guard shouldAttach != isAttached else { return }
         layerView.playerLayer.player = shouldAttach ? player : nil
@@ -139,11 +106,11 @@ extension VideoPlaybackSession {
         }
     }
 
-    /// Đang chỉ phát tiếng (đã tách hình: thu nhỏ / nền không PiP) ⇒ `preferredPeakBitRate = 1` để HLS xuống biến thể
+    /// Đang chỉ phát tiếng (đã tách hình: thu nhỏ vào hub / nền) ⇒ `preferredPeakBitRate = 1` để HLS xuống biến thể
     /// bitrate thấp nhất, đỡ tải hình không ai xem; gắn lại hình ⇒ trần theo mục Chất lượng (`appliedQuality`, `+Quality`)
     /// hoặc `0` (không giới hạn) khi Tự động — chất lượng tự leo lại sau vài đoạn. Chỉ có tác dụng với HLS **nhiều** mức
     /// chất lượng — mp4, playlist một mức hay playlist ghép hình + tiếng (`VideoAudioRenditionComposer`) không giảm được.
-    /// Không đổi sang luồng chỉ tiếng: thay item lúc PiP / nền / thu nhỏ làm hỏng các ca đó (xem `+AudioFallback`). Gọi
+    /// Không đổi sang luồng chỉ tiếng: thay item lúc nền / thu nhỏ làm hỏng các ca đó (xem `+AudioFallback`). Gọi
     /// cả khi item mới vào (item mới mặc định không giới hạn).
     func refreshBandwidthLimit() {
         guard let item = player.currentItem else { return }
@@ -206,7 +173,7 @@ extension VideoPlaybackSession {
 
     // MARK: - Khoá màn hình
 
-    /// Giữ màn sáng chỉ khi màn trình phát đang hiện và đang phát (native) hoặc đang nhúng trang. Đi qua
+    /// Giữ màn sáng chỉ khi màn trình phát (hoặc cửa sổ nhỏ) đang hiện và đang phát (native) hoặc đang nhúng trang. Đi qua
     /// `ScreenIdleTimerLock` (dùng chung với màn đọc truyện tranh): video chỉ trả phần của chính nó, không ghi đè giá
     /// trị gốc lẫn nhau. Gọi lặp an toàn.
     func refreshIdleTimer() {

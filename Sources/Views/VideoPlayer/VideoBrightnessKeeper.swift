@@ -4,7 +4,7 @@ import UIKit
 ///
 /// Một mức chung cho mọi phim, mọi nguồn: mức cuối người dùng vuốt chỉnh (`VideoGestureView`), lưu ở UserDefaults.
 /// - Màn phim hiện (`VideoPlayerScreen.onAppear`) ⇒ chụp độ sáng của máy **rồi** áp mức đã nhớ. Chưa từng vuốt ⇒ không đụng.
-/// - Rời màn (đóng / thu nhỏ / PiP) hoặc app mất active ⇒ trả độ sáng của máy (độ sáng là của cả máy, iOS không tự trả).
+/// - Rời màn (đóng / thu nhỏ) hoặc app mất active ⇒ trả độ sáng của máy (độ sáng là của cả máy, iOS không tự trả).
 /// - Active lại khi màn còn mở ⇒ chụp lại (người dùng có thể vừa chỉnh ở Trung tâm điều khiển) rồi áp lại.
 ///
 /// Chụp độ sáng gốc chỉ ở đây: nếu cử chỉ tự chụp lần nữa thì nó sẽ chụp nhầm mức của phim làm "gốc".
@@ -16,7 +16,7 @@ final class VideoBrightnessKeeper {
     private static let savedLevelKey = "videoPlayerBrightness"
 
     /// Màn phim đang hiện (giữa `activate` và `deactivate`) — tập như `VideoPlaybackSession.attachedScreens`: màn mới có
-    /// thể hiện trước khi màn cũ kịp `onDisappear` (mở lại từ hub / PiP) ⇒ chỉ trả độ sáng khi màn **cuối cùng** rời đi.
+    /// thể hiện trước khi màn cũ kịp `onDisappear` (mở lại từ hub / cửa sổ nhỏ) ⇒ chỉ trả độ sáng khi màn **cuối cùng** rời đi.
     private var owners = Set<ObjectIdentifier>()
     /// Độ sáng của máy trước khi trình phát đổi (kèm màn hình đã đổi); `nil` = chưa đổi hoặc đã trả lại.
     private var original: (screen: UIScreen, value: CGFloat)?

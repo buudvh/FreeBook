@@ -53,7 +53,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// tên miền đã chỉnh riêng (`BrowserTranslatePolicy`); `nil` = không. Tắt công tắc ghi `nil`, không ghi `false`.
     public var translateOverride: Bool?
     /// Kiểu thu nhỏ khi **vuốt xuống** trình phát phim của tiện ích này: raw value của `VideoMinimizeStyle`
-    /// (`"hub"` / `"pictureInPicture"`); `nil` = theo cài đặt chung (`VideoMinimizePolicy`). Mục Video của Cấu hình
+    /// (`"hub"` / `"pictureInPicture"` = Cửa sổ nhỏ); `nil` = theo cài đặt chung (`VideoMinimizePolicy`). Mục Video của Cấu hình
     /// tiện ích, chỉ tiện ích loại video.
     public var videoMinimizeOverride: String?
 

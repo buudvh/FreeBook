@@ -5,10 +5,12 @@ import SwiftData
 import UIKit
 
 /// Chủ **duy nhất** giữ `AVPlayer` của trình phát video (bất biến 4 plan đợt 2), sống lâu hơn màn hình:
-/// - Màn hình (`VideoPlayerScreen`) chỉ `attachScreen(_:)` / `detachScreen(_:)` (theo từng màn). Thu nhỏ màn thì phim
-///   vẫn phát; hub đọc trạng thái qua cầu nối `VideoMiniPlayerState` (không observe session này).
-/// - Chỉ `stop()` (nút Đóng X, đóng từ hub, hoặc mở phim khác) mới dừng hẳn.
-/// - Giữ luôn `layerView` (`AVPlayerLayer`) và PiP: thu nhỏ màn không làm chết PiP, khôi phục từ PiP gắn lại đúng layer.
+/// - Màn hình (`VideoPlayerScreen`) và cửa sổ nhỏ (`VideoMiniPlayerWindowManager`) chỉ `attachScreen(_:isMiniPlayer:)` /
+///   `detachScreen(_:)` (`+Screens`). Thu nhỏ vào hub thì phim vẫn phát; hub đọc trạng thái qua cầu nối
+///   `VideoMiniPlayerState` (không observe session này).
+/// - Chỉ `stop()` (nút Đóng X, ✕ của cửa sổ nhỏ, đóng từ hub, hoặc mở phim khác) mới dừng hẳn.
+/// - Giữ luôn `layerView` (`AVPlayerLayer`): màn hình và cửa sổ nhỏ chỉ chuyển view này qua lại, phim không ngắt.
+/// - Không có Hình trong hình của hệ thống (bỏ ở 1.3.751): rời app thì chỉ phát tiếng.
 ///
 /// Pipeline nạp: mục lục tập → `chap` (server) → `track` → `VideoSourceResolver` → `AVPlayerItem` hoặc trang nhúng.
 /// Media không đi qua pipeline text (`ChapterContentRepository.load`, `ChapterTextNormalizer`…); `data` của server
@@ -82,10 +84,6 @@ final class VideoPlaybackSession {
     /// Tốc độ người dùng chọn (`player.defaultRate`); nhấn giữ 2× không đổi giá trị này.
     var playbackRate: Float = 1
     var isBoosting = false
-    var isPictureInPicturePossible = false
-    var isPictureInPictureActive = false
-    /// Tăng mỗi lần PiP bật xong (`didStart`) — `VideoPlayerScreen` tự thu nhỏ khi người dùng bấm PiP lúc app đang mở.
-    var pictureInPictureStartCount = 0
     /// Tăng mỗi lần cần dừng media của trang nhúng đang hiện (TTS bắt đầu đọc) — `VideoEmbedWebView` so giá trị này.
     var embedPauseRequest = 0
     /// Thông báo ngắn trên khung phim khi tự đổi link vì mất tiếng; `nil` = không hiện. Tự ẩn sau vài giây.
@@ -105,19 +103,26 @@ final class VideoPlaybackSession {
 
     let player: AVPlayer
     let layerView: VideoPlayerLayerView
-    @ObservationIgnored var pictureInPicture: VideoPictureInPictureCoordinator?
     /// Container của lượt mở đầu tiên — presenter dùng để bơm `.modelContainer` khi mở lại màn từ hub/PiP.
     @ObservationIgnored var modelContainer: ModelContainer?
-    /// Presenter toàn cục gắn vào (`VideoPlayerPresenter.install`): trình bày lại màn hình gắn với session đang chạy.
-    @ObservationIgnored var presentScreenHandler: ((@escaping () -> Void) -> Void)?
-    /// Các màn đang gắn (khoá = controller của từng màn). Hai màn có thể cùng gắn trong chốc lát khi mở lại trình phát.
+    /// Presenter toàn cục gắn vào (`VideoPlayerPresenter.install`): trình bày lại màn hình gắn với session đang chạy
+    /// (`animated == false` khi cửa sổ nhỏ đã tự nở lên chỗ khung phim).
+    @ObservationIgnored var presentScreenHandler: ((_ animated: Bool, _ completion: @escaping () -> Void) -> Void)?
+    /// Các màn đang gắn (khoá = controller của từng màn, hoặc cửa sổ nhỏ). Hai màn có thể cùng gắn trong chốc lát khi mở
+    /// lại trình phát.
     @ObservationIgnored var attachedScreens = Set<ObjectIdentifier>()
+    /// Phần của `attachedScreens` là cửa sổ nhỏ (`+Screens`).
+    @ObservationIgnored var miniPlayerScreens = Set<ObjectIdentifier>()
+    /// Cửa sổ nhỏ gắn vào: màn to vừa gắn (mở lại / mở phim) ⇒ cửa sổ nhỏ tự ẩn.
+    @ObservationIgnored var onFullScreenAttached: (() -> Void)?
+    /// Cửa sổ nhỏ gắn vào: phiên vừa `stop()` (có thể ngay sau đó mở phim mới — tự sang phim đề xuất).
+    @ObservationIgnored var onDidStop: (() -> Void)?
     @ObservationIgnored var isInBackground = false
+    /// Đang phát lúc app rời trạng thái active — vào nền thì phát tiếp chỉ tiếng (`+Lifecycle`).
+    @ObservationIgnored var wasPlayingWhenResigned = false
     /// Video đã nhường TTS (`pauseForTTS`): item nạp xong không tự phát. Người dùng bấm phát / chọn tập / chọn server /
-    /// thử lại, hoặc player thật sự chuyển sang phát (PiP, màn khoá) thì xoá. Video đang tắt tiếng không bật cờ này.
+    /// thử lại, hoặc player thật sự chuyển sang phát (màn khoá, hub) thì xoá. Video đang tắt tiếng không bật cờ này.
     @ObservationIgnored var autoplayBlockedByTTS = false
-    /// Background task giữ app sống trong nhịp chờ PiP lúc vào nền (`+Lifecycle`).
-    @ObservationIgnored var audioFallbackBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored var qualityTask: Task<Void, Never>?
     /// Tập người dùng chọn xem trực tuyến dù đã có bản tải (chip "Trực tuyến"); đổi tập thì bỏ (`+Offline`).
     @ObservationIgnored var onlineOverrideEpisodeIndex: Int?
@@ -158,6 +163,9 @@ final class VideoPlaybackSession {
     @ObservationIgnored var noticeTask: Task<Void, Never>?
     /// Giây ghi vào Lịch sử khi đang nhúng trang: 0, trừ khi tự chuyển sang nhúng vì mất tiếng (giữ giây đang xem).
     @ObservationIgnored var embedProgressSeconds = 0
+    /// Dòng báo hiện khi phim vừa mở **bắt đầu phát** (`open(startNotice:)` — tự sang phim đề xuất). Hiện ngay lúc mở thì
+    /// lượt nạp tập (`prepareForNewLoad` → `resetPlaybackSource`) xoá mất.
+    @ObservationIgnored var pendingStartNotice: String?
     /// Tắt NSFW ⇒ dừng phim 18+ (`+NsfwGuard`): observer + giá trị công tắc lần trước (chỉ xử lý lúc chuyển bật → tắt).
     @ObservationIgnored var nsfwDefaultsObserver: NSObjectProtocol?
     @ObservationIgnored var lastIncludesNsfw = false
@@ -170,7 +178,6 @@ final class VideoPlaybackSession {
         self.layerView = layerView
         installPlayerObservers()
         installLifecycleObservers()
-        installPictureInPicture()
         installRemoteActions()
         installNsfwGuard()
     }
@@ -216,7 +223,13 @@ final class VideoPlaybackSession {
 
     /// Mở phim từ router. Cùng phim đang chạy ⇒ giữ nguyên phiên (router chỉ tập khác thì chuyển tập);
     /// phim khác ⇒ dừng hẳn phim cũ (lưu tiến độ) rồi nạp phim mới.
-    func open(_ newLaunch: BookContentLaunch, modelContainer: ModelContainer) {
+    /// `muteOverride` (tự sang phim đề xuất) thay `VideoMutePolicy` cho phim mới; `startNotice` hiện khi phim bắt đầu phát.
+    func open(
+        _ newLaunch: BookContentLaunch,
+        modelContainer: ModelContainer,
+        muteOverride: Bool? = nil,
+        startNotice: String? = nil
+    ) {
         self.modelContainer = modelContainer
         if let current = launch, current.bookId == newLaunch.bookId {
             reuseRunningSession(for: newLaunch)
@@ -226,9 +239,12 @@ final class VideoPlaybackSession {
         launch = newLaunch
         bookTitle = newLaunch.bookTitle ?? ""
         currentEpisodeIndex = max(0, newLaunch.chapterIndex)
+        pendingStartNotice = startNotice
         // Chỉ phim mới mới áp tuỳ chọn tắt tiếng; đặt TRƯỚC `beginUserRequestedPlayback` (tắt tiếng ⇒ không dừng TTS).
-        let startMuted = VideoMutePolicy.shouldStartMuted(bookId: newLaunch.bookId, packageId: newLaunch.extensionPackageId)
-        AppLogger.shared.log("🎬 [VideoPlayer] Mở phim mới: \(startMuted ? "tắt tiếng" : "có tiếng") theo tuỳ chọn «\(VideoMutePolicy.current.title)»")
+        let startMuted = muteOverride
+            ?? VideoMutePolicy.shouldStartMuted(bookId: newLaunch.bookId, packageId: newLaunch.extensionPackageId)
+        let reason = muteOverride == nil ? "theo tuỳ chọn «\(VideoMutePolicy.current.title)»" : "giữ như phim vừa xem (tự sang)"
+        AppLogger.shared.log("🎬 [VideoPlayer] Mở phim mới: \(startMuted ? "tắt tiếng" : "có tiếng") \(reason)")
         setMuted(startMuted)
         beginUserRequestedPlayback()
         beginStart()
@@ -275,16 +291,14 @@ final class VideoPlaybackSession {
 
         player.pause()
         detachCurrentItem()
-        // Gỡ `launch` TRƯỚC khi tắt PiP: AVKit có thể hỏi khôi phục giao diện ngay trong `stop()` — guard
-        // `launch != nil` của `restoreFromPictureInPicture` chặn việc mở lại màn của phim vừa đóng.
         launch = nil
-        pictureInPicture?.stop()
         resetPlaybackState()
         refreshIdleTimer()
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
         deactivateAudioSessionIfIdle()
         VideoMiniPlayerState.shared.reset()
         AppLogger.shared.log("🎬 [VideoPlayer] Đóng trình phát (bookId=\(stopped.bookId))")
+        onDidStop?()
     }
 
     private func resetPlaybackState() {
@@ -315,68 +329,12 @@ final class VideoPlaybackSession {
         reachedEndOfItem = false
         lastSavedProgress = nil
         autoplayBlockedByTTS = false
+        pendingStartNotice = nil
         resetOfflineState()
         qualityTask?.cancel()
         qualityTask = nil
         qualityOptions = []
         selectedQuality = nil
         resetPlaybackSource()
-    }
-
-    // MARK: - Màn hình gắn / gỡ
-
-    /// `owner` = controller riêng của từng màn (`VideoPlayerController`). Mở lại trình phát khi màn cũ chưa gỡ xong thì
-    /// `onAppear` của màn mới có thể tới trước `onDisappear` của màn cũ ⇒ đếm theo từng màn, không dùng một cờ chung.
-    func attachScreen(_ owner: AnyObject) {
-        attachedScreens.insert(ObjectIdentifier(owner))
-        refreshLayerAttachment()
-        refreshIdleTimer()
-        VideoMiniPlayerState.shared.isActive = false
-    }
-
-    /// Màn **cuối cùng** biến mất mà session chưa `stop()` ⇒ thu nhỏ: phim chạy nền, hub hiện mục Video.
-    /// Gỡ màn không có trong danh sách (gọi lặp) thì bỏ qua.
-    func detachScreen(_ owner: AnyObject) {
-        guard attachedScreens.remove(ObjectIdentifier(owner)) != nil, attachedScreens.isEmpty else { return }
-        refreshLayerAttachment()
-        refreshIdleTimer()
-        guard launch != nil else {
-            VideoMiniPlayerState.shared.reset()
-            return
-        }
-        saveProgress(reason: "thu nhỏ")
-        syncMiniPlayerState()
-        AppLogger.shared.log("🎬 [VideoPlayer] Thu nhỏ trình phát, phim vẫn chạy nền")
-    }
-
-    /// Ghi cầu nối cho hub. Chỉ bật `isActive` khi màn hình không hiện; closure gán lại mỗi lần vì `reset()` xoá chúng.
-    /// Trang nhúng chết cùng màn (WKWebView bị huỷ khi thu nhỏ) ⇒ hub không báo "đang phát" mà mời chạm để mở lại.
-    func syncMiniPlayerState() {
-        guard launch != nil, !isScreenAttached else { return }
-        let mini = VideoMiniPlayerState.shared
-        let isEmbed = embedContent != nil
-        let subtitle = isEmbed
-            ? [currentEpisodeLabel, "Chạm để mở lại"].filter { !$0.isEmpty }.joined(separator: " · ")
-            : currentEpisodeLabel
-        let playing = isEmbed ? false : isPlaying
-        mini.packageId = launch?.extensionPackageId ?? ""
-        if mini.title != bookTitle { mini.title = bookTitle }
-        if mini.subtitle != subtitle { mini.subtitle = subtitle }
-        if mini.isPlaying != playing { mini.isPlaying = playing }
-        mini.onTogglePlay = { [weak self] in self?.togglePlayPause() }
-        mini.onReopen = { [weak self] in self?.requestScreen() }
-        mini.onStop = { [weak self] in self?.stop() }
-        if !mini.isActive { mini.isActive = true }
-    }
-
-    /// Trình bày lại màn hình gắn với phiên đang chạy (hub, PiP, nút phát của mục Video khi đang nhúng).
-    func requestScreen(completion: (() -> Void)? = nil) {
-        guard launch != nil, !isScreenAttached, let handler = presentScreenHandler else {
-            completion?()
-            return
-        }
-        handler {
-            completion?()
-        }
     }
 }

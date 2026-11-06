@@ -1,7 +1,7 @@
 import Foundation
 
 /// Phim **native** (không nhúng) đang phát — kể cả đang tắt tiếng phát cùng TTS. Cờ nhẹ để tầng TTS hỏi mà không phải
-/// chạm `VideoPlaybackSession.shared` (chạm là dựng cả `AVPlayer` + PiP nếu phiên chưa từng mở).
+/// chạm `VideoPlaybackSession.shared` (chạm là dựng cả `AVPlayer` nếu phiên chưa từng mở).
 ///
 /// Chỉ `VideoPlaybackSession` ghi (`handleTimeControlChange`, `stop`). `TTSAudioSessionController.deactivateUnlessVideoPlaying`
 /// đọc: TTS dừng hẳn mà phim còn phát thì không `setActive(false)` — tắt phiên lúc đó thì KVO `outputVolume` của

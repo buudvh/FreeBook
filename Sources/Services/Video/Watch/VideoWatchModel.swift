@@ -33,6 +33,12 @@ final class VideoWatchModel {
         let seconds: Int
     }
 
+    /// Lượt mở do **tự sang phim đề xuất** (`VideoAutoNextCoordinator`): phát luôn dù tắt "Tự phát khi mở phim", giữ trạng
+    /// thái tiếng `muted` của phim vừa hết.
+    struct AutoNextStart: Equatable {
+        let muted: Bool
+    }
+
     private(set) var request: VideoWatchRequest
     /// Chỉ đổi khi thay phim (`replace`) hoặc khi lúc phát thấy nơi khác đã tạo `Book` cùng link (`+Playback`).
     var bookId: String
@@ -83,6 +89,8 @@ final class VideoWatchModel {
     /// `Book` do chính màn này tạo lúc bấm phát (có thể trước khi chi tiết về) ⇒ chi tiết về thì điền nốt metadata.
     @ObservationIgnored var createdBookId: String?
     @ObservationIgnored var didConsiderAutoplay = false
+    /// Khác `nil` ⇒ lượt tự phát kế tiếp là tự sang phim đề xuất (`considerAutoplay`, `+Playback`). Dùng xong thì về `nil`.
+    @ObservationIgnored var autoNext: AutoNextStart?
 
     init(request: VideoWatchRequest, modelContainer: ModelContainer) {
         self.request = request
@@ -142,9 +150,11 @@ final class VideoWatchModel {
         playTask = nil
     }
 
-    /// Thay sang phim khác **ngay tại màn** (Đề xuất): phiên phát giữ phim cũ tới khi phim mới được phát.
-    func replace(with newRequest: VideoWatchRequest) {
+    /// Thay sang phim khác **ngay tại màn** (Đề xuất): phiên phát giữ phim cũ tới khi phim mới được phát. `autoNext` khác
+    /// `nil` ⇒ tự sang phim đề xuất khi hết phim (`VideoAutoNextCoordinator`): phim mới phát ngay khi sẵn sàng.
+    func replace(with newRequest: VideoWatchRequest, autoNext newAutoNext: AutoNextStart? = nil) {
         cancel()
+        autoNext = newAutoNext
         request = newRequest
         bookId = Self.resolvedBookId(for: newRequest, in: modelContainer)
         title = newRequest.title ?? ""
@@ -183,12 +193,13 @@ final class VideoWatchModel {
 
     // MARK: - Tự phát
 
-    /// Mục lục vừa sẵn sàng lần đầu: bật công tắc ⇒ phát; tắt ⇒ để bìa + ▶. Phim đang chạy trong phiên thì thôi.
+    /// Mục lục vừa sẵn sàng lần đầu: bật công tắc ⇒ phát; tắt ⇒ để bìa + ▶. Phim đang chạy trong phiên thì thôi. Lượt tự
+    /// sang phim đề xuất (`autoNext`) phát cả khi công tắc tắt.
     func considerAutoplay() {
         guard !didConsiderAutoplay, phase == .ready else { return }
         didConsiderAutoplay = true
         guard !ownsSession else { return }
-        guard VideoAutoplayPolicy.isEnabled else {
+        guard VideoAutoplayPolicy.isEnabled || autoNext != nil else {
             AppLogger.shared.log("🎬 [VideoWatch] Tắt tự phát ⇒ hiện bìa, chờ bấm phát")
             return
         }

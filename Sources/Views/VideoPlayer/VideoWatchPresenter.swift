@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 /// Mở **màn xem phim** (`VideoPlayerScreen(watch:onDismiss:)`) từ mọi lối vào phim (Khám phá, Tìm, Thể loại, Đề xuất…)
-/// và khi mở lại trình phát từ hub / PiP (`VideoPlayerPresenter` chuyển sang đây).
+/// và khi mở lại trình phát từ hub / cửa sổ nhỏ (`VideoPlayerPresenter` chuyển sang đây).
 ///
 /// Trình bày bằng UIKit `.overFullScreen` như `VideoPlayerPresenter` (cùng `VideoPlayerHostingController`, cùng cách tìm
 /// VC trên cùng): màn bên dưới vẫn sống, và trình phát **không** nằm trong `NavigationStack` — đẩy một màn khác lên
@@ -24,13 +24,24 @@ final class VideoWatchPresenter {
 
     private init() {}
 
-    static func present(_ request: VideoWatchRequest, modelContainer: ModelContainer, completion: (() -> Void)? = nil) {
-        shared.present(request, container: modelContainer, retryCount: 0, completion: completion)
+    static func present(
+        _ request: VideoWatchRequest,
+        modelContainer: ModelContainer,
+        animated: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        shared.present(request, container: modelContainer, animated: animated, retryCount: 0, completion: completion)
     }
 
-    /// Mở lại phim đang chạy (hub / PiP). Màn xem của router đang hiện bìa phim khác ⇒ đổi chính màn đó sang phim đang
-    /// chạy (`replace`), không trình bày thêm một màn chồng lên; còn lại ⇒ `present`.
-    static func presentRunningSession(_ launch: BookContentLaunch, modelContainer: ModelContainer, completion: @escaping () -> Void) {
+    /// Mở lại phim đang chạy (hub / cửa sổ nhỏ). Màn xem của router đang hiện bìa phim khác ⇒ đổi chính màn đó sang phim
+    /// đang chạy (`replace`), không trình bày thêm một màn chồng lên; còn lại ⇒ `present` (`animated == false` khi cửa sổ
+    /// nhỏ đã tự nở lên chỗ khung phim).
+    static func presentRunningSession(
+        _ launch: BookContentLaunch,
+        modelContainer: ModelContainer,
+        animated: Bool = true,
+        completion: @escaping () -> Void
+    ) {
         let request = VideoWatchRequest(launch: launch)
         if let model = shared.coverModel, !model.ownsSession {
             AppLogger.shared.log("🎬 [VideoWatch] Màn xem trong cover đang hiện bìa ⇒ đổi sang phim đang chạy")
@@ -38,7 +49,7 @@ final class VideoWatchPresenter {
             completion()
             return
         }
-        present(request, modelContainer: modelContainer, completion: completion)
+        present(request, modelContainer: modelContainer, animated: animated, completion: completion)
     }
 
     /// `VideoPlayerScreen` của router báo hiện / ẩn (chỉ màn không do presenter trình bày).
@@ -52,33 +63,42 @@ final class VideoWatchPresenter {
 
     // MARK: - Màn xem
 
-    private func present(_ request: VideoWatchRequest, container: ModelContainer, retryCount: Int, completion: (() -> Void)?) {
+    private func present(
+        _ request: VideoWatchRequest,
+        container: ModelContainer,
+        animated: Bool,
+        retryCount: Int,
+        completion: (() -> Void)?
+    ) {
         if let host = hostController, host.presentingViewController != nil, !host.isBeingDismissed {
             host.dismiss(animated: false) {
                 MainActor.assumeIsolated {
-                    VideoWatchPresenter.shared.present(request, container: container, retryCount: retryCount, completion: completion)
+                    VideoWatchPresenter.shared.present(
+                        request, container: container, animated: animated, retryCount: retryCount, completion: completion
+                    )
                 }
             }
             return
         }
         guard let top = Self.readyTopViewController(retryCount: retryCount, retry: { next in
-            VideoWatchPresenter.shared.present(request, container: container, retryCount: next, completion: completion)
+            VideoWatchPresenter.shared.present(request, container: container, animated: animated, retryCount: next, completion: completion)
         }, onGiveUp: { completion?() }) else { return }
 
         let model = VideoWatchModel(request: request, modelContainer: container)
         let host = VideoPlayerHostingController(rootView: AnyView(EmptyView()))
         host.modalPresentationStyle = .overFullScreen
         host.modalPresentationCapturesStatusBarAppearance = true
-        host.view.backgroundColor = .black
+        // Trong suốt: màn tự vẽ nền đen, nhạt dần khi khung phim co lại (thu nhỏ) để lộ màn bên dưới.
+        host.view.backgroundColor = .clear
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` / `.modelContainer` của `MainTabView`: gắn lại cả hai.
-        let screen = VideoPlayerScreen(watch: model, onDismiss: { [weak host] in
-            host?.dismiss(animated: true)
+        let screen = VideoPlayerScreen(watch: model, onDismiss: { [weak host] animated in
+            host?.dismiss(animated: animated)
         })
         .appAccentTint()
         .modelContainer(container)
         host.rootView = AnyView(screen)
         hostController = host
-        top.present(host, animated: true) {
+        top.present(host, animated: animated) {
             completion?()
         }
     }

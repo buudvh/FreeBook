@@ -26,7 +26,8 @@ struct VideoEmbedWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        configuration.allowsPictureInPictureMediaPlayback = true
+        // Bỏ Hình trong hình của hệ thống khỏi app (1.3.751) — kể cả nút PiP của trình phát trong trang.
+        configuration.allowsPictureInPictureMediaPlayback = false
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.isOpaque = false

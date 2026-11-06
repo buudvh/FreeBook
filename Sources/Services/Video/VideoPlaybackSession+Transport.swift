@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-/// Điều khiển phát (phát/dừng, tua, tốc độ, nhấn giữ 2×), Now Playing và nối với màn khoá / PiP.
+/// Điều khiển phát (phát/dừng, tua, tốc độ, nhấn giữ 2×), Now Playing và nối với màn khoá.
 extension VideoPlaybackSession {
     // MARK: - Phát / dừng
 
@@ -204,59 +204,5 @@ extension VideoPlaybackSession {
             isPlaying: isPlaying,
             hasNextEpisode: nextEpisode != nil
         )
-    }
-
-    // MARK: - PiP
-
-    func installPictureInPicture() {
-        guard let coordinator = VideoPictureInPictureCoordinator(playerLayer: layerView.playerLayer) else {
-            AppLogger.shared.log("⚠️ [VideoPiP] Máy không hỗ trợ PiP")
-            return
-        }
-        coordinator.onPossibleChange = { [weak self] possible in
-            guard let self, self.isPictureInPicturePossible != possible else { return }
-            self.isPictureInPicturePossible = possible
-        }
-        coordinator.onActiveChange = { [weak self] active in
-            self?.handlePictureInPictureChange(active: active)
-        }
-        coordinator.onDidStart = { [weak self] in
-            self?.pictureInPictureStartCount += 1
-        }
-        coordinator.onRestoreRequest = { [weak self] completion in
-            self?.restoreFromPictureInPicture(completion: completion)
-        }
-        pictureInPicture = coordinator
-    }
-
-    func togglePictureInPicture() {
-        pictureInPicture?.toggle()
-    }
-
-    private func handlePictureInPictureChange(active: Bool) {
-        if isPictureInPictureActive != active { isPictureInPictureActive = active }
-        refreshLayerAttachment()
-        if !active { syncMiniPlayerState() }
-    }
-
-    /// Khôi phục từ cửa sổ PiP: màn hình còn hiện thì xong ngay; đã thu nhỏ thì mở lại trình phát, xong mới báo AVKit
-    /// (layer phải nằm trong cửa sổ để PiP thu về đúng chỗ). `stop()` gỡ `launch` trước khi tắt PiP ⇒ phim vừa đóng
-    /// rơi vào guard đầu, không bị mở lại màn.
-    private func restoreFromPictureInPicture(completion: @escaping (Bool) -> Void) {
-        guard launch != nil else {
-            completion(false)
-            return
-        }
-        guard !isScreenAttached else {
-            completion(true)
-            return
-        }
-        guard presentScreenHandler != nil else {
-            completion(false)
-            return
-        }
-        requestScreen {
-            completion(true)
-        }
     }
 }

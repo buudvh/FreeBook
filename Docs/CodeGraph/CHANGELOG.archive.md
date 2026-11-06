@@ -2,6 +2,30 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.721] - 2026-11-05
+
+### fix: chip nghĩa theo đúng thứ tự màn quản lý, chỉ còn Name/VP
+
+Người dùng: *"Thanh chip màn hình dịch và nội dung trong màn hình quản lý nghĩa khác nhau (xem hình). Ngoài ra có trường hợp chip không hiển thị badge (như hình 3), xảy ra với chữ ngươi"*. Người dùng chọn: chip chỉ còn Name/VP, Phiên âm giữ ở cuối hàng.
+
+- **Nguyên nhân**:
+  - `suggestionChips(from:)` dựng chip theo thứ tự của `dictionaryMatches`: Name → Xưng hô → Luật nhân → VP → Phiên âm.
+  - `dictionaryMatches` luôn có Xưng hô / Luật nhân, kể cả khi công tắc dịch của chúng tắt. Pipeline (`lookupRawTranslation`) chỉ dùng hai nguồn này khi bật.
+  - Pronouns của người dùng có `县丞=huyện thừa` ⇒ chip đầu là "huyện thừa" của Xưng hô. Nghĩa thứ 3 của VP Chung trùng chữ, gộp vào và nâng chip đó lên badge C ⇒ trông như VP Chung xếp "huyện thừa" đầu. Màn Quản lý nghĩa (chỉ 4 mục Name/VP Riêng/Chung) thì ghi `Huyện Thừa/Huyện thừa/huyện thừa`.
+  - Nghĩa chỉ có ở Xưng hô không mượn được badge nên nằm giữa hàng mà không có badge (vd `你们` → "các người", "mọi người").
+- **Sửa** (`ReaderView+Suggestions.swift`):
+  - Chip chỉ lấy Name R → Name C → VP R → VP C (`ManageDefinitionsDraft.editableSources`, đúng thứ tự mục của màn quản lý), rồi Phiên âm ở cuối.
+  - Xếp theo danh sách cố định này, không theo thứ tự của `matches` (màn quản lý nối nguồn mới thêm vào cuối danh sách).
+  - Bỏ chip Xưng hô / Luật nhân. Gộp nghĩa trùng và luật badge "Riêng thắng Chung" giữ nguyên.
+- Hàm dùng chung nên áp cho cả sheet Dịch của Reader, sheet Sửa từ VP/Name và sheet Tra từ điển của trình duyệt (nhóm VietPhrase ở đó không còn nghĩa Xưng hô / Luật nhân).
+- `dictionaryMatches(for:bookId:)` giữ nguyên vì màn quản lý và phần ghi nghĩa dựa vào nó. Chỉ sửa comment mô tả thứ tự cũ ở `ReaderView+Selection`, `SuggestionChip`, `MeaningSuggestionChipRow`, `BrowserDictionaryLookup`.
+- "huyền thừa" ở mục Phiên âm của màn quản lý không phải lỗi code: file phiên âm của người dùng ghi `县=huyền`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**:
+  - Đối chiếu file VietPhrase + Pronouns của người dùng với logic dựng chip.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.720] - 2026-11-05
 
 ### feat: mở lại theo Lịch sử đọc khi chưa có danh sách gần nhất

@@ -206,6 +206,10 @@ extension VideoPlaybackSession {
         loadTask = Task { [weak self] in
             await self?.runEpisodeLoad(generation: generation)
         }
+        // Tập cuối ⇒ tải sẵn phim đề xuất cho lượt tự sang lúc hết phim.
+        if nextEpisode == nil, let launch {
+            VideoAutoNextCoordinator.shared.prepare(for: launch)
+        }
     }
 
     private func beginServerLoad(at index: Int, resumeSeconds: Int) {

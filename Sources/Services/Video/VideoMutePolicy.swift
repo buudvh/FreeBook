@@ -1,8 +1,9 @@
 import Foundation
 
 /// Tuỳ chọn "Tắt tiếng khi mở phim" (Cài đặt › Đọc & Nghe › Video, từ 1.3.740). Chỉ áp lúc **mở một phim mới**
-/// (`VideoPlaybackSession.open` với phim khác phim đang chạy); mở lại trình phát đang thu nhỏ (hub, PiP) hay đổi tập
-/// giữ nguyên trạng thái tiếng hiện tại (`AVPlayer.isMuted` gắn với player).
+/// (`VideoPlaybackSession.open` với phim khác phim đang chạy); mở lại trình phát đang thu nhỏ (hub, cửa sổ nhỏ) hay đổi
+/// tập giữ nguyên trạng thái tiếng hiện tại (`AVPlayer.isMuted` gắn với player). Tự sang phim đề xuất cũng giữ tiếng của
+/// phim vừa hết (`open(muteOverride:)`).
 ///
 /// Lưu `UserDefaults` bằng raw value; khoá chưa ghi hoặc giá trị lạ ⇒ `nsfwOnly`. Màn Cài đặt ghi cùng khoá qua
 /// `@AppStorage(VideoMutePolicy.defaultsKey)`.

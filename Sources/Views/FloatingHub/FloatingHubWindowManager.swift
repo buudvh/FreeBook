@@ -199,6 +199,33 @@ final class FloatingHubWindowManager {
     private var activeWindowScene: UIWindowScene? {
         AppMainWindowScene.current()
     }
+
+    // MARK: - Đích bay của trình phát video (1.3.751)
+
+    /// Khung nút hub (toạ độ màn hình — cửa sổ hub phủ cả màn): đích bay của khung phim khi thu nhỏ vào hub
+    /// (`VideoMinimizeAnimator`). `nil` khi nút đang ẩn.
+    var visibleButtonFrame: CGRect? {
+        guard let window, !window.isHidden, let containerViewController,
+              !containerViewController.widgetContainerView.isHidden else { return nil }
+        let button = containerViewController.widgetContainerView
+        return button.convert(button.bounds, to: nil)
+    }
+
+    /// Nháy nút một nhịp khi khung phim vừa bay vào hub. Bố cục nút đặt bằng `bounds` + `center` nên `transform` không
+    /// làm lệch chỗ.
+    func bounceButton() {
+        guard visibleButtonFrame != nil, let button = containerViewController?.widgetContainerView else { return }
+        UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+            button.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
+        } completion: { _ in
+            UIView.animate(
+                withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.45, initialSpringVelocity: 0,
+                options: [.allowUserInteraction]
+            ) {
+                button.transform = .identity
+            }
+        }
+    }
 }
 
 extension Notification.Name {

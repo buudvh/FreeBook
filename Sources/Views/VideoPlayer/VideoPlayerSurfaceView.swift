@@ -4,7 +4,7 @@ import UIKit
 
 /// Khung hình của trình phát: nhận `VideoPlayerLayerView` của session (một instance suốt đời, PiP gắn vào nó) và chuyển
 /// vào container của mình. Không giữ player — dựng lại view này (đổi bố cục dọc ↔ toàn màn, mở lại màn) không làm
-/// gián đoạn phát.
+/// gián đoạn phát. Cửa sổ phim nhỏ cũng nhận chính view này (`VideoMiniPlayerViewController`).
 struct VideoPlayerSurfaceView: UIViewRepresentable {
     let layerView: VideoPlayerLayerView
     let gravity: AVLayerVideoGravity
@@ -18,8 +18,13 @@ struct VideoPlayerSurfaceView: UIViewRepresentable {
         return container
     }
 
+    /// Cửa sổ nhỏ đang hiện (`VideoMiniPlayerWindowManager`) ⇒ hình là của nó: màn đang đóng sau hiệu ứng thu nhỏ có thể
+    /// vẽ lại một nhịp, giành lại hình là cửa sổ nhỏ chớp đen. Màn **mới** (mở lại từ cửa sổ nhỏ) vẫn nhận hình ở
+    /// `makeUIView`.
     func updateUIView(_ container: UIView, context: Context) {
-        adopt(into: container)
+        if !VideoMiniPlayerWindowManager.shared.isShowing {
+            adopt(into: container)
+        }
         if layerView.playerLayer.videoGravity != gravity {
             layerView.playerLayer.videoGravity = gravity
         }

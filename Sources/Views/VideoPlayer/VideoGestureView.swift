@@ -5,7 +5,8 @@ import AVFoundation
 /// Bắt cử chỉ trên khung phim bằng UIKit (chạm 1 lần chờ chạm đúp thất bại; hướng vuốt quyết định lúc bắt đầu):
 /// - Chạm 1 lần: ẩn/hiện điều khiển. Chạm đúp nửa trái/phải: lùi/tới.
 /// - Vuốt ngang: tua có xem trước. Vuốt dọc: toàn màn thì trái = độ sáng, phải = âm lượng hệ thống; khung dọc nhỏ thì
-///   vuốt xuống = thu nhỏ (tránh đụng cử chỉ thu nhỏ).
+///   vuốt xuống = thu nhỏ: báo khoảng kéo liên tục và tốc độ lúc nhả (`dismissEnded`), đo theo **toạ độ cửa sổ** vì khung
+///   phim (cả view này) co / dời theo tay — đo theo chính view sẽ tự kéo lệch số đo.
 /// - Nhấn giữ: tạm phát 2×.
 ///
 /// Âm lượng hệ thống chỉ chỉnh được qua `UISlider` của `MPVolumeView` ⇒ giữ một `MPVolumeView` gần như trong suốt
@@ -39,7 +40,10 @@ final class VideoGestureView: UIView {
         var panBegan: (PanKind) -> Void = { _ in }
         /// `seek`: tỉ lệ dịch ngang / bề rộng (âm = lùi); `brightness`/`volume`: mức mới 0…1; `dismiss`: điểm dịch dọc.
         var panChanged: (PanKind, CGFloat) -> Void = { _, _ in }
+        /// Mọi kiểu trừ `dismiss` (đi `dismissEnded`).
         var panEnded: (PanKind, CGFloat) -> Void = { _, _ in }
+        /// Nhả tay của vuốt thu nhỏ: (điểm dịch dọc, tốc độ dọc); bị huỷ ⇒ (0, 0).
+        var dismissEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
         var longPress: (Bool) -> Void = { _ in }
     }
 
@@ -124,11 +128,22 @@ final class VideoGestureView: UIView {
             handlers.panBegan(kind)
         case .changed:
             guard let kind = activePan else { return }
-            handlers.panChanged(kind, value(for: kind, translation: translation))
+            if kind == .dismiss {
+                handlers.panChanged(kind, recognizer.translation(in: nil).y)
+            } else {
+                handlers.panChanged(kind, value(for: kind, translation: translation))
+            }
         case .ended, .cancelled, .failed:
             guard let kind = activePan else { return }
             activePan = nil
             let finished = recognizer.state == .ended
+            if kind == .dismiss {
+                handlers.dismissEnded(
+                    finished ? recognizer.translation(in: nil).y : 0,
+                    finished ? recognizer.velocity(in: nil).y : 0
+                )
+                return
+            }
             handlers.panEnded(kind, finished ? value(for: kind, translation: translation) : 0)
             // Sau `value(for:)`: nhịp nhả tay cũng đặt mức, phải lưu đúng mức cuối đó.
             if kind == .brightness { VideoBrightnessKeeper.shared.commitLevel() }
