@@ -2,6 +2,36 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.728] - 2026-11-05
+
+### feat: màn Dung lượng xem app chiếm bao nhiêu theo loại dữ liệu, xoá cache ảnh, file xuất và log
+
+Người dùng: *"tôi muốn thêm kiểm tra dung lượng đã dùng trên máy có là được không?"*. Chốt theo mockup: xoá mục an toàn (có hỏi xác nhận), chưa cần xem theo từng truyện.
+
+- **Cài đặt › Thư Viện** thêm hàng **Dung lượng** (icon `cylinder.split.1x2` như mockup), đặt trên "Sao lưu & khôi phục dữ liệu". Hàng không hiện số: đo cả cây thư mục mỗi lần mở Cài đặt là tốn.
+- **Màn Dung lượng** (`StorageUsageView`, trang đẩy vào, tiêu đề giữa, nút ↻ đo lại):
+  - Thẻ đầu: "App đang dùng" + số lớn. Thanh chia theo tỉ lệ: 3 loại lớn nhất màu riêng (teal/tím/cam, không dùng màu nhấn), còn lại xám. Dòng "Máy đã dùng X / Y · Còn trống Z".
+  - Danh sách panel (`.bookListPanelRow()`), xếp lớn → nhỏ, bỏ loại 0 byte.
+  - Ba loại xoá được có nút chữ đỏ **Xoá** + `confirmationDialog` kèm lời nhắc; xoá xong đo lại và toast "Đã xoá … (số đã giải phóng)".
+- **`Services/Storage/`** (mới):
+  - `StorageUsageCategory`: 15 loại theo đúng thư mục app ghi: `books/`, `videos/`, `comics/`, `Caches/comic_images/`, `chapters/`, `translate/`, `covers/`, `extensions/` + `extension_store/`, `FreeBook/`, `adblock/`, `backups/`, `library.db*`, `Documents/Exports/`, `app_logs*`, Khác.
+  - `StorageUsageScanner`:
+    - Đo dung lượng thật trên đĩa (`totalFileAllocatedSize`), đếm cả file ẩn, không theo symlink. `BackupPaths.directorySize` giữ nguyên cho Sao lưu.
+    - **Khác** = cả thư mục nhà của app trừ các loại đã liệt kê ⇒ tổng khớp dung lượng thật.
+    - Dung lượng máy qua `volumeAvailableCapacityForImportantUsage` / `volumeTotalCapacity`.
+  - `StorageUsageSnapshot`: kết quả bất biến.
+  - `StorageUsageCleaner`: chỉ gọi đường xoá có sẵn của từng owner.
+- **Đường xoá**:
+  - `ComicImageLoader.clearDiskCache()` → `ComicImageDiskCache.removeAllAndWait()` (mới, chờ xoá xong; `removeAll()` cũ dùng chung thân).
+  - `DownloadManager.clearFinishedExportTasks()` (mới, `@MainActor`): như `clearFinishedTasks()` nhưng **chỉ tác vụ xuất** đã xong/lỗi/huỷ — xoá hàng + file của chúng. Không còn tác vụ xuất nào chạy ⇒ dọn mục mồ côi trong `Exports/`. Đợi xoá file xong, không tự báo toast.
+  - `AppLogger.shared.clear()` (có sẵn).
+- `CLAUDE.md` / `AGENTS.md`: mục lưu trữ ghi thêm "thêm thư mục dữ liệu mới thì thêm vào `StorageUsageCategory`".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DownloadManager+TaskStore.swift` 387/400 dòng.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy: số liệu so với Cài đặt iOS (app chạy trong LiveContainer nên iOS tính chung vào LiveContainer), xoá ba loại, bản đang xuất không bị xoá.
+
 ## [1.3.727] - 2026-11-05
 
 ### feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt

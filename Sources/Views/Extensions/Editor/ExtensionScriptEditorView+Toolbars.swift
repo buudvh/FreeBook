@@ -4,36 +4,6 @@ import UIKit
 /// Hai thanh dưới cùng của trình soạn script (phím ký tự nhanh + footer công cụ) và tiện ích tắt
 /// bàn phím. Tách khỏi `ExtensionScriptEditorView` để file gốc chỉ giảm dòng.
 extension ExtensionScriptEditorView {
-    /// So **path tương đối** của file đang mở (`ScriptFileInfo.id`) với script mà mục `script` của `plugin.json` khai
-    /// cho từng khoá, resolve qua `ExtensionPackageReader` (gốc gói rồi `src/`, path đã chuẩn hoá `./`).
-    private func standardEntrypoint(for file: ScriptFileInfo) -> ExtensionDebugEntrypoint? {
-        guard let root = extensionRootURL,
-              let scripts = ExtensionPackageReader.manifest(localPath: root.path)?["script"] as? [String: Any] else { return nil }
-        let currentPath = ExtensionPackageReader.normalizedRelativePath(file.id) ?? file.id
-        let keys = ["search", "detail", "toc", "chap", "genre", "home"]
-        for key in keys {
-            guard let name = scripts[key] as? String,
-                  let script = ExtensionPackageReader.script(named: name, localPath: root.path),
-                  script.relativePath == currentPath else { continue }
-            switch key {
-            case "search": return .search(keyword: "", page: 1)
-            case "detail": return .detail(url: "")
-            case "toc": return .toc(url: "")
-            case "chap": return .chap(url: "")
-            case "genre": return .genre
-            case "home": return .home
-            default: break
-            }
-        }
-        return nil
-    }
-
-    /// Gói đang sửa (`packagePath`: file `js/<id>.json` hoặc thư mục cũ).
-    private var extensionRootURL: URL? {
-        let path = packagePath
-        return path.isEmpty ? nil : URL(fileURLWithPath: path)
-    }
-
     internal var quickSymbolToolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
