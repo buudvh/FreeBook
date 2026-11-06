@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.748",
+          "buildVersion": "1163",
+          "date": "2026-11-06T04:55:49Z",
+          "localizedDescription": "- feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1163/TangCongCac-1.3.748-1163.ipa",
+          "size": 37799906,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.747",
           "buildVersion": "1162",
           "date": "2026-11-05T18:24:27Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1157/TangCongCac-1.3.732-1157.ipa",
           "size": 37600529,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.730",
-          "buildVersion": "1156",
-          "date": "2026-11-05T09:23:01Z",
-          "localizedDescription": "- fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên\n- feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1156/TangCongCac-1.3.730-1156.ipa",
-          "size": 37581425,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.747",
-      "versionDate": "2026-11-05T18:24:27Z",
-      "versionDescription": "- docs: cập nhật README theo tính năng hiện tại của app\n- feat: bộ lọc chỉ hiện config mà script của tab dùng tới\n- feat: phim không còn mở trang Chi tiết cũ, ⋮ thẻ đề xuất chỉ còn Thêm vào kệ",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1162/TangCongCac-1.3.747-1162.ipa",
-      "size": 37783453,
+      "version": "1.3.748",
+      "versionDate": "2026-11-06T04:55:49Z",
+      "versionDescription": "- feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1163/TangCongCac-1.3.748-1163.ipa",
+      "size": 37799906,
       "appPermissions": {}
     }
   ],
