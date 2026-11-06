@@ -13,7 +13,9 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
     case chapterStore
     case translation
     case covers
+    /// Tiện ích JS — giữ rawValue `extensions` (từ trước khi tách Legado) để bản đo đã lưu vẫn đọc được.
     case extensions
+    case legadoSources
     case tts
     case adBlock
     case backups
@@ -39,7 +41,8 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .chapterStore: return "Mục lục chương"
         case .translation: return "Từ điển & dịch"
         case .covers: return "Bìa truyện"
-        case .extensions: return "Tiện ích"
+        case .extensions: return "Tiện ích JS"
+        case .legadoSources: return "Nguồn Legado"
         case .tts: return "Giọng đọc & từ điển TTS"
         case .adBlock: return "Bộ lọc quảng cáo"
         case .backups: return "Bản sao lưu"
@@ -81,7 +84,9 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .chapterStore: return [dir("chapters")]
         case .translation: return [dir("translate")]
         case .covers: return [dir("covers")]
-        case .extensions: return [dir("extensions"), .directory(ExtensionStorePaths.rootURL)]
+        // Thư mục cũ còn sót ở gốc `extensions/` (chờ dọn / chuyển lỗi) rơi vào `other`.
+        case .extensions: return [.directory(ExtensionFolderLocator.jsRoot), .directory(ExtensionStorePaths.rootURL)]
+        case .legadoSources: return [.directory(ExtensionFolderLocator.legadoRoot), dir("legado_state")]
         case .tts: return [dir("FreeBook")]
         case .adBlock: return [dir("adblock")]
         case .backups: return [dir("backups")]

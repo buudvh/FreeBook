@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.757] - 2026-11-06
+
+### feat: màn Dung lượng tách hàng Tiện ích JS và Nguồn Legado
+
+Anh Bửu chọn "Tách 2 hàng" khi phỏng vấn về bố cục `extensions/js` + `extensions/legado`; duyệt plan, đây là bước 3.
+
+- `StorageUsageCategory`:
+  - **`.extensions`** giữ rawValue (bản đo đã lưu vẫn đọc được), đổi nhãn thành **"Tiện ích JS"**, đo `extensions/js/` + `extension_store/`.
+  - Thêm **`.legadoSources`** "Nguồn Legado", đo `extensions/legado/` + `legado_state/` (trước đây `legado_state/` rơi vào "Khác").
+- Thư mục cũ còn sót ở gốc `extensions/` (chờ dọn trên nền, hoặc bản ghi chuyển lỗi) tạm tính vào "Khác". Trước khi dọn, file Legado hard link có thể bị đếm hai lần (ở "Nguồn Legado" và "Khác").
+- Chuyển `[1.3.727]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code: `StorageUsageCleaner` dùng `default` nên không phải sửa; màn hình liệt kê theo `allCases`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: màn Dung lượng có hai hàng mới, tổng vẫn khớp.
+
 ## [1.3.756] - 2026-11-06
 
 ### feat: mỗi tiện ích JS và mỗi nguồn Legado là một file JSON trong extensions/js và extensions/legado
@@ -744,42 +760,3 @@ Người dùng: *"tôi muốn thêm kiểm tra dung lượng đã dùng trên m�
   - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `DownloadManager+TaskStore.swift` 387/400 dòng.
   - Không build tại chỗ (Windows).
   - Chưa thử trên máy: số liệu so với Cài đặt iOS (app chạy trong LiveContainer nên iOS tính chung vào LiveContainer), xoá ba loại, bản đang xuất không bị xoá.
-
-## [1.3.727] - 2026-11-05
-
-### feat: báo có bản cập nhật mới trong app, dải báo ở Kệ và hàng ở Cài đặt
-
-Người dùng: *"có thể thì thông báo có bản cập nhập mới trong app để user biết"*. Chốt theo mockup bản 4:
-- Dải báo không có nút cập nhật; phải bấm vào xem thay đổi.
-- Icon cập nhật kiểu mockup (`arrow.down.square`), không dùng chuông, không ghi vào Trung tâm thông báo, không ghi số thay đổi.
-- Thêm hàng ở Cài đặt và chấm đỏ tab Cài Đặt.
-- Kiểm tra khi mở app và khi quay lại app, giãn cách 6 giờ.
-- Giữ nút "Mở LiveContainer" để thử trên máy.
-
-- **`Services/AppUpdate/`** (mới, không `import SwiftUI`):
-  - `AppUpdateSourceClient`: đọc `apps.json` ở nhánh `source` (raw GitHub, timeout 15 s, bỏ cache cục bộ). Lấy `apps[0].versions[0]`.
-  - `AppUpdateInfo`: `version`, `buildNumber`, `date`, `notes` (mỗi commit một dòng, bỏ tiền tố `- `).
-  - `AppUpdateRepository` (`@MainActor @Observable`, nguồn sự thật duy nhất):
-    - Có bản mới ⇔ số build của nguồn > `CFBundleVersion` đang chạy. Bản build tay (số build 1) luôn thấy báo.
-    - `checkIfNeeded()` giãn cách 6 giờ (`appUpdateLastCheckAt`). Bản đọc được cuối lưu ở `appUpdateLatestJSON`. Lỗi ⇒ log `❌ [AppUpdate]`, giữ kết quả cũ.
-    - Ẩn / bỏ qua / đã xem nhớ **theo số build** (`appUpdateDismissedBuild`, `appUpdateSkippedBuild`, `appUpdateSeenBuild`) ⇒ bản mới hơn nữa ra là báo lại.
-- **Dải báo Kệ** (`AppUpdateBanner`, dưới dải "mất nguồn", chỉ tab Kệ sách):
-  - Dòng "Có bản mới 1.3.NNN · xem thay đổi ›" + ×, cùng kiểu panel `MissingSourceRebindBanner`.
-  - Bấm ⇒ sheet. × ⇒ ẩn tới bản sau.
-- **Sheet** (`AppUpdateSheet`):
-  - Tiêu đề + "bản mới · đang dùng".
-  - Danh sách thay đổi.
-  - "Cách cập nhật: Mở LiveContainer › Sources › Refresh › Install, chọn thay app cũ để giữ dữ liệu".
-  - Nút **Mở LiveContainer** và **Bỏ qua bản này**. Mở sheet ⇒ đánh dấu đã xem.
-- **Cài đặt › Thông Tin**: hàng "Có bản mới 1.3.NNN" (chấm đỏ khi chưa xem) mở cùng sheet. Hàng vẫn còn sau khi bấm × ở Kệ, chỉ mất khi bỏ qua hoặc đã lên bản đó.
-- **Tab Cài Đặt** (`MainTabBar`): chấm đỏ 8pt khi có bản mới chưa xem. Badge chương mới của tab Kệ giữ nguyên.
-- **Kích hoạt** (`MainTabView`): `.task(priority: .utility)` lúc mở app + khi `scenePhase` về `.active`.
-- **Vì sao không có nút "Cập nhật ngay"** (đọc mã LiveContainer `TweakLoader/UIKit+GuestHooks.m`):
-  - App đang chạy bên trong LiveContainer gọi `livecontainer://install?url=…` ⇒ LiveContainer chỉ báo "Vui lòng mở lại LiveContainer để cài app", không cài.
-  - Nút "Mở LiveContainer" dùng `livecontainer://livecontainer-launch?bundle-name=ui` (hộp xác nhận rồi về màn chính LiveContainer). Không mở được ⇒ toast lỗi.
-- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Báo có bản mới trong app".
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows).
-  - Chưa thử trên máy: dải báo / × / bỏ qua, chấm đỏ, và nút "Mở LiveContainer" có chuyển về màn chính LiveContainer không.
