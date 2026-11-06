@@ -129,7 +129,7 @@ public final class ExtensionTransactionCoordinator {
         }
         let existingRepositoryUrl = existingIndex.flatMap { list[$0].repositoryUrl }
         let declaredNsfw = manifestNsfw
-            ?? registryNsfwFlag(packageId: command.packageId, repositoryUrl: repositoryUrl ?? existingRepositoryUrl)
+            ?? registryNsfwFlag(command: command, repositoryUrl: repositoryUrl ?? existingRepositoryUrl)
 
         if let index = existingIndex {
             var ext = list[index]
@@ -175,11 +175,15 @@ public final class ExtensionTransactionCoordinator {
         return .changed
     }
 
-    /// Cờ NSFW của dòng registry cùng `packageId` trong cache registry của kho `repositoryUrl`.
-    private func registryNsfwFlag(packageId: String, repositoryUrl: String?) -> Bool? {
-        guard let repositoryUrl, let snapshot = library.registries[repositoryUrl] else { return nil }
-        let item = snapshot.items.first(where: { ExtensionSyncCommandBuilder.packageId(forName: $0.name) == packageId })
-        return item?.isNsfw
+    /// Cờ NSFW của dòng registry khớp tiện ích (tên + tác giả → `packageId` → tên, 1.3.753) trong cache registry của
+    /// kho `repositoryUrl`.
+    private func registryNsfwFlag(command: UpsertExtensionCommand, repositoryUrl: String?) -> Bool? {
+        library.registryItem(
+            repositoryUrl: repositoryUrl,
+            packageId: command.packageId,
+            name: command.name,
+            author: command.author
+        )?.isNsfw
     }
 
     // MARK: - Sửa một tiện ích đã cài

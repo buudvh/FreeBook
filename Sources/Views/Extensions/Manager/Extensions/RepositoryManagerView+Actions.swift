@@ -119,14 +119,10 @@ extension RepositoryManagerView {
         }
     }
 
-    /// `path` của dòng registry cùng `packageId` trong cache của kho đã cài tiện ích; `nil` nếu không có.
+    /// `path` của dòng registry khớp tiện ích (tên + tác giả, 1.3.753) trong cache của kho đã cài nó; `nil` nếu không có.
     @MainActor
     internal func registryDownloadUrl(for ext: Extension) -> String? {
-        guard let repoUrl = ext.repositoryUrl,
-              let item = library.registries[repoUrl]?.items.first(where: {
-                  ExtensionSyncCommandBuilder.packageId(forName: $0.name) == ext.packageId
-              }),
-              !item.path.isEmpty else { return nil }
+        guard let item = library.registryItem(for: ext), !item.path.isEmpty else { return nil }
         return item.path
     }
 

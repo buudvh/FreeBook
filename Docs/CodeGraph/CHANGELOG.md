@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.753] - 2026-11-06
+
+### fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được
+
+Người dùng: nhập kho `buudvh/leech_story_ext` báo 32 tiện ích mà chỉ hiện 18, trước đó đã nhập kho thứ hai (kho tổng hợp 781 mục) — *"tôi nghi bạn xử lý sai các nguồn trùng tên"*, rồi *"so sánh tác giả nữa"*. Anh Bửu duyệt plan (gồm sửa `rules.md`).
+
+- **Nguyên nhân:** danh mục dedupe theo `packageId` = tên viết thường (`ExtensionSyncCommandBuilder.packageId(forName:)`), kho nhập trước thắng. 15/32 tiện ích của kho anh trùng tên với bản của tác giả khác trong kho thứ hai (txt520, 101kks, shuhaige, ixdzs, 69shuba, qidian, twkan, Book QQ, uukanshu, idejian, html5.qq.com, Google TTS, Bing TTS, sudugu, YouTube) nên bị che; chính kho thứ hai cũng tự che 98 bản cùng tên khác tác giả. Không phải lọc NSFW / loại.
+- **Danh tính mới = tên + tác giả** (`ExtensionCatalogIdentity`, file mới; tác giả so không phân biệt hoa thường, bỏ khoảng trắng hai đầu):
+  - Cùng tên cùng tác giả ⇒ một hàng, kho đứng trước thắng như cũ.
+  - Cùng tên khác tác giả ⇒ hai hàng, cài song song được. Mã theo tên giữ cho bản chiếm trước (đã cài, hoặc kho đứng trước); bản sau nhận `<mã>__<tác giả>` (vd `qidian__huongmt`; tác giả rỗng ⇒ `an_danh`, ký tự `/ \ :` ⇒ `_`).
+  - Tiện ích đã cài **không** đổi mã ⇒ truyện trên kệ, TTS, cấu hình, `localStorage` giữ nguyên.
+- **`ExtensionLibraryRepository`:** chỉ mục registry theo kho (`registryIndexes`, dựng lại khi cache kho đổi); `buildCatalog` đánh dấu khoá của bản đã cài lẫn khoá dòng registry khớp nó trong kho của nó (tác giả trong `plugin.json` khác chữ registry không làm hiện thêm hàng); `remoteVersion` ghép đúng dòng của kho mình theo tên + tác giả → mã → tên. Hàm mới `registryItem(for:)` / `registryItem(repositoryUrl:packageId:name:author:)` dùng chung cho `registryDownloadUrl` (nút cài/cập nhật) và `registryNsfwFlag` (`ExtensionTransactionCoordinator`).
+- **`rules.md`:** dòng ghép `remoteVersion` và luật "ba đường cài cùng mã" ghi ngoại lệ: import zip / Debug vẫn chỉ theo tên ⇒ import zip một tiện ích trùng tên bản đã cài vẫn đè bản cùng mã như trước.
+- Giới hạn: mã của mục **chưa cài** phụ thuộc thứ tự kho (xoá kho đứng trước ⇒ bản sau lấy lại mã trơn); chỉ mã lúc cài được lưu.
+- Chuyển `[1.3.723]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Mô phỏng thuật toán bằng Python trên `plugin.json` thật của hai kho (thứ tự kho thứ hai → kho anh): 807 hàng (trước 695), kho anh đủ 32, mã không trùng; cài cả hai bản qidian ⇒ vẫn đúng hai hàng qidian. Một dòng tên rỗng của kho thứ hai bị bỏ như trước.
+  - Đọc code + diff; grep `Sources/`: không còn chỗ ghép registry bằng `packageId(forName:)` ngoài chỉ mục mới (còn lại là bản mirror của Debug/zip).
+  - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: tab Tất cả tiện ích hiện đủ 32 tiện ích của kho anh (lọc tác giả HuongMT); cài qidian của hai tác giả cùng lúc, mỗi bản đọc truyện riêng; nút cập nhật báo đúng phiên bản từng bản.
+
 ## [1.3.752] - 2026-11-06
 
 ### feat: nhập kho tiện ích chỉ cần link, tên kho lấy từ metadata của plugin.json
@@ -750,28 +771,3 @@ Người dùng: *"có cách tạo nguồn app để livecontainer update không?
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Lượt CI của chính commit này là lượt đầu tiên tạo release và nhánh `source`.
   - Chưa thử trên máy: thêm nguồn trong LiveContainer, cài đè bản mới có giữ dữ liệu không (tài liệu LiveContainer không nói).
-
-## [1.3.723] - 2026-11-05
-
-### feat: version app tự nâng theo số bản CHANGELOG mỗi lần CI build
-
-Người dùng: *"tôi muốn tự nâng ver mỗi khi build thành công"*. Người dùng chọn phương án "Theo CHANGELOG" (không dùng bộ đếm riêng có CI commit ngược).
-
-- **Trước đây**: `project.yml` không khai version ⇒ app mang mặc định của Xcode. Màn Cài đặt › Thông Tin ghi cứng `1.0.0`; caption Telegram không có version.
-- **CI** (`build-ipa.yml`):
-  - Bước mới `Resolve App Version` lấy số bản đầu `Docs/CodeGraph/CHANGELOG.md` (`## [1.3.NNN]`) làm `APP_VERSION` và `github.run_number` làm `BUILD_NUMBER`. Không đọc được số bản ⇒ cảnh báo + dùng `1.3.0`.
-  - `xcodebuild archive` nhận thêm `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`.
-  - Bước đóng gói chốt lại `CFBundleShortVersionString` / `CFBundleVersion` trong `Info.plist` của IPA bằng `plutil` và in ra log.
-  - Caption Telegram (thành công, file quá 50 MB, thất bại) có `1.3.NNN (số build)`.
-  - CI **không** commit ngược về repo ⇒ không có vòng build lặp, không xung đột với các session commit trên main.
-- **`project.yml`**: `CFBundleShortVersionString: "$(MARKETING_VERSION)"`, `CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"`. Mặc định cho bản build tay: `MARKETING_VERSION: "1.3.0"`, `CURRENT_PROJECT_VERSION: "1"`.
-- **App**:
-  - `AppVersionInfo` mới (`Sources/Common/Utils/`) đọc hai khoá trên, dạng hiển thị `1.3.723 (412)`.
-  - Màn Cài đặt › Thông Tin hiện version thật thay cho `1.0.0`.
-  - `BackupManifest.runningAppVersion` dùng chung `AppVersionInfo.display` (kết quả như cũ).
-- **Hệ quả**: commit quên thêm entry CHANGELOG mới thì version không đổi, chỉ số build tăng.
-- `CLAUDE.md` / `AGENTS.md`: thêm đoạn "Version app tự nâng theo CHANGELOG" ở mục CI.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Lượt CI của chính commit này là lượt kiểm đầu tiên: log bước `Resolve App Version` và dòng `Info.plist version:` phải ra `1.3.723 (<số lượt>)`. Chưa thử trên máy.
