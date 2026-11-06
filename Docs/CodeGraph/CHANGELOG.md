@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.761] - 2026-11-06
+
+### feat: rule dịch viết hoa tên token chữ thì viết hoa phần nghĩa
+
+Người dùng: *"token chữ của rule dịch, thêm viết hoa phần nghĩa"*; chốt: *"token gốc viết hoa thì cũng viết hoa ví dụ vp thì như thường, VP thì ép viết hoa"*, mọi token chữ trừ `<any>`, chỉ kiểu AA.
+
+- **Cú pháp**: viết HOA cả tên token chữ `<NE> <PN> <VP> <W> <HV> <HN> <M> <A>` ⇒ nghĩa ép kiểu AA của `TextCaseFormatter` (hoa chữ đầu mọi từ, phần còn lại thành thường): `<VP>宗 = {0} Tông` trên `天剑宗` ra `Thiên Kiếm Tông`. Vẫn kèm độ dài, `?` và `|` (`<VP:1-4>`, `<NE|PN>?`). Trộn hoa thường trong một token (`<NE|pn>`) ⇒ `UNKNOWN_TOKEN_NAME` kèm câu giải thích. `<N> <Y> <H> <D> <ANY>` vẫn là lỗi như trước (chữ số / chữ Hán nguyên văn không có hoa thường); `<L>` vốn đã ra nhãn viết hoa.
+- **`QuickTranslationRuleParser+TitleCase`** (file mới): `normalizedTokenNames` hạ tên về thường ngay khi tách + trả cờ; `parseToken` gắn `capitalizesMeaning` lên `QuickTranslationRuleElement` của token số/ký tự và từ điển. Mọi chỗ phía sau (công tắc token, cấu hình riêng truyện, độ hẹp token số, `<m>` đầu mẫu) thấy token thường ⇒ `<VP>` theo công tắc VietPhrase như `<vp>`.
+- **`QuickTranslationRuleElement.renderedMeaning`**: chỗ duy nhất áp chữ hoa, matcher gọi trong `store`. Các bước sau rule không hạ thường lại và span dò bản dịch không phân biệt hoa thường. Không thêm cấu hình runtime ⇒ khoá cache không đổi (sửa file rule đã làm generation đổi).
+- **Màn sửa rule**: thanh chỉnh token đang chọn có nút **"AA hoa nghĩa"** cạnh "? vắng mặt được" (chỉ token chữ) — bấm là viết lại tên token hoa/thường (`TokenSpec.isTitleCase` / `supportsTitleCase` / `setTitleCase`). Thanh độ dài coi `<HV>`/`<M>` như `<hv>`/`<m>` (không có độ dài).
+- **Hướng dẫn** (`QuickTranslationRuleGuide`): mục mới "Viết hoa nghĩa"; dòng `<a>` thêm `<A>`; lỗi `UNKNOWN_TOKEN_NAME` thêm ví dụ `<Vp>`, `<NE|pn>`. Popover "Mẫu" nhắc nút AA.
+- `CLAUDE.md` + `AGENTS.md` (mục Dịch thuật VietPhrase) + `rules.md` (luật chỉ viết hoa ở `renderedMeaning`).
+- Hệ quả: `<vp>宗` và `<VP>宗` là hai mẫu khác nhau (mẫu là định danh rule) — đổi trên rule đã có thì Lưu hỏi Thay rule cũ / Lưu thêm; bản app cũ đọc `<VP>` báo lỗi và bỏ dòng.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep mọi chỗ dựng `QuickTranslationRuleElement(` và gọi `store(` trong matcher.
+  - `check_architecture.py` chỉ còn lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: rule `<VP>`, `<NE|PN>?`, nút AA ở thanh chỉnh token.
+
 ## [1.3.760] - 2026-11-06
 
 ### fix: kiểm tra bản mới đọc nguồn qua API GitHub, không còn trễ tới 5 phút sau khi CI đăng
@@ -717,38 +736,3 @@ Người dùng: *"1.3.728 tôi mở nhưng lại không báo cập nhật ver m�
 - **Kiểm chứng:**
   - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.731] - 2026-11-05
-
-### feat: nhập phim nhiều tập từ file ZIP, mỗi video trong file là một tập
-
-Người dùng: *"Hãy cho phép nhập video từ zip, tất cả video trong đó là các tập của 1 phim"*.
-
-- **Trước đây**: một file `.zip`/`.cbz` ở Kệ sách › Nhập truyện › Từ file luôn đi luồng truyện tranh ⇒ ZIP chỉ có video báo "Không tìm thấy ảnh nào trong file". Nhập phim chỉ nhận chọn thẳng các file MP4/MOV/M4V.
-- **`LocalMediaArchiveImporter`** (mới, `Services/Import/Media/`): giải nén **một lần** rồi mới quyết định.
-  - Phần chuyển file vào thư mục làm việc, kiểm chỗ trống (cỡ file + 50 MB), `BackupZipArchive.extract`, xoá bản nén: **chuyển nguyên** từ đầu `LocalComicImporter.prepare`, không đổi hành vi.
-  - Có ít nhất một file MP4/MOV/M4V ⇒ **một phim**. Ảnh lẫn trong ZIP bị bỏ qua.
-  - Không có video ⇒ truyện tranh như cũ.
-  - Lỗi bất kỳ bước nào ⇒ xoá cả thư mục làm việc.
-- **`LocalVideoImporter.plan(fromExtracted:workDirectory:archiveName:)`** (mới):
-  - Tập = mọi file MP4/MOV/M4V ở mọi cấp thư mục, xếp theo đường dẫn tên tự nhiên (từng cấp, "Tập 2" trước "Tập 10").
-  - Tên tập = tên file bỏ đuôi. Tên phim mặc định = tên file ZIP bỏ đuôi.
-  - Cùng lớp an toàn với bước quét ảnh: có symlink ⇒ huỷ; bỏ file ẩn, `__MACOSX/`, file nằm ngoài thư mục giải nén.
-  - Video không phát được (MKV, AVI, WEBM, FLV, WMV, TS, 3GP, MPG, RMVB, VOB…):
-    - Có cả file phát được ⇒ bỏ qua, sheet hiện "Bỏ qua N file không hỗ trợ (chỉ MP4/MOV/M4V)".
-    - Chỉ toàn file không phát được ⇒ báo lỗi "File nén chỉ có video … — app chỉ phát được MP4/MOV/M4V".
-  - File đã nằm trong thư mục làm việc ⇒ `commit` có sẵn **chuyển** thẳng vào `VideoOfflineStore`, không chép bản thứ hai.
-- `LocalComicImporter.prepare(pickedURL:)` → `plan(fromExtracted:workDirectory:fileName:)` (chỉ còn quét ảnh). Luật chương / ảnh / thông báo lỗi giữ nguyên.
-- `LocalMediaImportRoute`: case `.comic` đổi tên `.archive` (phim hay truyện tranh chỉ biết sau khi giải nén). EPUB đội lốt `.zip` vẫn đi luồng chữ.
-- `LocalVideoImportPlan` thêm `skippedCount` (mặc định 0).
-- `ShelfView+MediaImport`: nhánh `.archive` mở sheet "Nhập phim" có sẵn (`LocalVideoImportSheet`) hoặc sheet truyện tranh theo kết quả.
-- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm dòng nhập từ file.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep chéo mọi chỗ gọi `LocalComicImporter.prepare` / case route (chỉ `ShelfView+MediaImport`). `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows).
-  - Chưa thử trên máy:
-    - ZIP nhiều tập MP4: thứ tự tập, tên phim, phát offline, ảnh bìa.
-    - ZIP truyện tranh vẫn như cũ.
-    - ZIP lẫn MKV.
-    - ZIP lớn: cần chỗ trống cho cả bản nén lẫn bản giải nén lúc giải nén.

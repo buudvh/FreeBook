@@ -380,6 +380,7 @@ public final class QuickTranslationRuleMatcher {
         allowsEnclosedNames: Bool = false
     ) {
         guard let index = element.captureIndex, index < captures.count else { return }
-        captures[index] = Capture(text: value, sourceRange: sourceRange, allowsEnclosedNames: allowsEnclosedNames)
+        let text = element.renderedMeaning(value) // `<VP>`… ép viết hoa nghĩa (1.3.761)
+        captures[index] = Capture(text: text, sourceRange: sourceRange, allowsEnclosedNames: allowsEnclosedNames)
     }
 }

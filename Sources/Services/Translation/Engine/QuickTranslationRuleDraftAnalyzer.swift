@@ -210,6 +210,29 @@ public enum QuickTranslationRuleDraftAnalyzer {
 
         public var isAnyRun: Bool { names == ["any"] }
 
+        /// Token chữ đang viết HOA tên (`<VP>`, `<NE|PN>`…) = ép viết hoa nghĩa (1.3.761). Hỏi đúng hàm của parser
+        /// (`QuickTranslationRuleParser+TitleCase`) để màn sửa rule và runtime hiểu cùng một luật.
+        public var isTitleCase: Bool {
+            !names.isEmpty && names.allSatisfy(QuickTranslationRuleParser.isTitleCaseTokenName)
+        }
+
+        /// Mọi tên đều là token chữ (bỏ qua hoa/thường) ⇒ thanh chỉnh hiện nút "AA viết hoa nghĩa". Token số,
+        /// `<any>`, `<L>`, neo và ngoặc không có.
+        public var supportsTitleCase: Bool {
+            !names.isEmpty && names.allSatisfy { QuickTranslationRuleParser.titleCaseTokenNames.contains($0.lowercased()) }
+        }
+
+        /// Bật/tắt viết hoa nghĩa = viết lại tên token HOA/thường; token không hỗ trợ thì giữ nguyên.
+        public mutating func setTitleCase(_ isOn: Bool) {
+            guard supportsTitleCase else { return }
+            names = names.map { isOn ? $0.uppercased() : $0.lowercased() }
+        }
+
+        /// Tên đã hạ về token thường cho các so sánh loại token: `<HV>`/`<M>` cùng luật độ dài với `<hv>`/`<m>`.
+        private var baseNames: [String] {
+            isTitleCase ? names.map { $0.lowercased() } : names
+        }
+
         /// Mặc định khi token không ghi `:min-max` — theo loại token, khớp parser.
         public var defaultRangeMax: Int {
             isAnyRun ? Self.anyRunDefaultMaxLength : Self.defaultMaxLength
@@ -226,8 +249,8 @@ public enum QuickTranslationRuleDraftAnalyzer {
         /// độ dài.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }
-            if names == ["hv"] { return false }
-            if names == ["m"] { return false }
+            if baseNames == ["hv"] { return false }
+            if baseNames == ["m"] { return false }
             if names.contains(where: { QuickTranslationRuleTokenSettings.Kind.kind(forTokenName: $0)?.isUncaptured == true }) {
                 return false
             }

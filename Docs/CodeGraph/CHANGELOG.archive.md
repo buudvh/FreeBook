@@ -2,6 +2,41 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.731] - 2026-11-05
+
+### feat: nhập phim nhiều tập từ file ZIP, mỗi video trong file là một tập
+
+Người dùng: *"Hãy cho phép nhập video từ zip, tất cả video trong đó là các tập của 1 phim"*.
+
+- **Trước đây**: một file `.zip`/`.cbz` ở Kệ sách › Nhập truyện › Từ file luôn đi luồng truyện tranh ⇒ ZIP chỉ có video báo "Không tìm thấy ảnh nào trong file". Nhập phim chỉ nhận chọn thẳng các file MP4/MOV/M4V.
+- **`LocalMediaArchiveImporter`** (mới, `Services/Import/Media/`): giải nén **một lần** rồi mới quyết định.
+  - Phần chuyển file vào thư mục làm việc, kiểm chỗ trống (cỡ file + 50 MB), `BackupZipArchive.extract`, xoá bản nén: **chuyển nguyên** từ đầu `LocalComicImporter.prepare`, không đổi hành vi.
+  - Có ít nhất một file MP4/MOV/M4V ⇒ **một phim**. Ảnh lẫn trong ZIP bị bỏ qua.
+  - Không có video ⇒ truyện tranh như cũ.
+  - Lỗi bất kỳ bước nào ⇒ xoá cả thư mục làm việc.
+- **`LocalVideoImporter.plan(fromExtracted:workDirectory:archiveName:)`** (mới):
+  - Tập = mọi file MP4/MOV/M4V ở mọi cấp thư mục, xếp theo đường dẫn tên tự nhiên (từng cấp, "Tập 2" trước "Tập 10").
+  - Tên tập = tên file bỏ đuôi. Tên phim mặc định = tên file ZIP bỏ đuôi.
+  - Cùng lớp an toàn với bước quét ảnh: có symlink ⇒ huỷ; bỏ file ẩn, `__MACOSX/`, file nằm ngoài thư mục giải nén.
+  - Video không phát được (MKV, AVI, WEBM, FLV, WMV, TS, 3GP, MPG, RMVB, VOB…):
+    - Có cả file phát được ⇒ bỏ qua, sheet hiện "Bỏ qua N file không hỗ trợ (chỉ MP4/MOV/M4V)".
+    - Chỉ toàn file không phát được ⇒ báo lỗi "File nén chỉ có video … — app chỉ phát được MP4/MOV/M4V".
+  - File đã nằm trong thư mục làm việc ⇒ `commit` có sẵn **chuyển** thẳng vào `VideoOfflineStore`, không chép bản thứ hai.
+- `LocalComicImporter.prepare(pickedURL:)` → `plan(fromExtracted:workDirectory:fileName:)` (chỉ còn quét ảnh). Luật chương / ảnh / thông báo lỗi giữ nguyên.
+- `LocalMediaImportRoute`: case `.comic` đổi tên `.archive` (phim hay truyện tranh chỉ biết sau khi giải nén). EPUB đội lốt `.zip` vẫn đi luồng chữ.
+- `LocalVideoImportPlan` thêm `skippedCount` (mặc định 0).
+- `ShelfView+MediaImport`: nhánh `.archive` mở sheet "Nhập phim" có sẵn (`LocalVideoImportSheet`) hoặc sheet truyện tranh theo kết quả.
+- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm dòng nhập từ file.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo mọi chỗ gọi `LocalComicImporter.prepare` / case route (chỉ `ShelfView+MediaImport`). `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy:
+    - ZIP nhiều tập MP4: thứ tự tập, tên phim, phát offline, ảnh bìa.
+    - ZIP truyện tranh vẫn như cũ.
+    - ZIP lẫn MKV.
+    - ZIP lớn: cần chỗ trống cho cả bản nén lẫn bản giải nén lúc giải nén.
+
 ## [1.3.730] - 2026-11-05
 
 ### feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn

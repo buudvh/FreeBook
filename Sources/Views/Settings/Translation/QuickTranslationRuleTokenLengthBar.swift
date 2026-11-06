@@ -41,6 +41,10 @@ struct QuickTranslationRuleTokenLengthBar: View {
 
                 Spacer(minLength: 0)
 
+                if spec.supportsTitleCase {
+                    titleCaseToggle
+                }
+
                 optionalToggle
             }
 
@@ -105,6 +109,27 @@ struct QuickTranslationRuleTokenLengthBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(spec.isOptional ? "Bỏ dấu ? của token" : "Cho token vắng mặt vẫn khớp")
+    }
+
+    /// Token chữ (1.3.761): bật = viết HOA tên token (`<vp>` → `<VP>`) ⇒ nghĩa ép kiểu AA (hoa chữ đầu mọi từ).
+    /// Chỉ hiện khi `TokenSpec.supportsTitleCase`; đổi qua `adjust` như mọi nút khác của thanh.
+    private var titleCaseToggle: some View {
+        Button {
+            adjust { $0.setTitleCase(!$0.isTitleCase) }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: spec.isTitleCase ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 11))
+                Text("AA hoa nghĩa")
+                    .font(.caption2)
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.12))
+            .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(spec.isTitleCase ? "Bỏ viết hoa nghĩa của token" : "Viết hoa chữ đầu mọi từ trong nghĩa của token")
     }
 
     /// `[−] ──o── giá trị [+]`. Nút đi qua `adjust` ngay; thanh kéo chỉ cập nhật state cục bộ và ghi

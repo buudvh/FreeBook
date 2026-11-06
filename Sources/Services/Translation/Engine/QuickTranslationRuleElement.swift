@@ -107,6 +107,9 @@ public struct QuickTranslationRuleElement: Sendable {
     public var bracketSlot: Int?
     /// Chỉ `<]>`: ô của `<[>` gần nhất còn mở theo thứ tự nguồn; `nil` = không có `<[>` đi cặp.
     public var bracketPartnerSlot: Int?
+    /// Token chữ viết HOA tên (`<VP>`, `<HN>`, `<A>`…, 1.3.761 — `QuickTranslationRuleParser+TitleCase`): nghĩa ép
+    /// kiểu AA qua `renderedMeaning`. Parser đã hạ tên về chữ thường nên `kind`/`sourceTokenKinds` y như token thường.
+    public var capitalizesMeaning: Bool
 
     public init(
         kind: Kind,
@@ -119,7 +122,8 @@ public struct QuickTranslationRuleElement: Sendable {
         guardsRight: Bool = false,
         leadsPattern: Bool = false,
         bracketSlot: Int? = nil,
-        bracketPartnerSlot: Int? = nil
+        bracketPartnerSlot: Int? = nil,
+        capitalizesMeaning: Bool = false
     ) {
         self.kind = kind
         self.sourceTokenKinds = sourceTokenKinds
@@ -132,6 +136,17 @@ public struct QuickTranslationRuleElement: Sendable {
         self.leadsPattern = leadsPattern
         self.bracketSlot = bracketSlot
         self.bracketPartnerSlot = bracketPartnerSlot
+        self.capitalizesMeaning = capitalizesMeaning
+    }
+
+    /// Chuỗi capture **đã render** của token này — chỗ duy nhất áp viết hoa nghĩa (matcher gọi qua `store`).
+    ///
+    /// Kiểu AA của `TextCaseFormatter` (cùng luật nút AA ở panel Dịch / màn sửa rule): hoa chữ đầu mọi từ, phần còn lại
+    /// của từ thành thường (`<A>` trên `SSS` ra `Sss`). Các bước sau rule (tách từ, đổi dấu câu, `postProcessText`)
+    /// không bao giờ hạ thường lại, và span dò bản dịch không phân biệt hoa thường, nên chữ hoa giữ tới bản dịch cuối.
+    public func renderedMeaning(_ value: String) -> String {
+        guard capitalizesMeaning, !value.isEmpty else { return value }
+        return TextCaseFormatter.format(value, style: "AA")
     }
 
     /// Token có sinh capture hay không (literal, group, neo dòng và ngoặc thì không).

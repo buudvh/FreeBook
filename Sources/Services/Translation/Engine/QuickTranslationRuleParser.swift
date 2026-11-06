@@ -226,7 +226,8 @@ public enum QuickTranslationRuleParser {
         if let uncaptured = try parseUncapturedToken(spec: spec, isOptional: isOptional) { return uncaptured }
 
         let parts = spec.components(separatedBy: ":")
-        let names = parts[0].components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+        // Tên token chữ viết HOA (`<VP>`) = ép viết hoa nghĩa (`+TitleCase`, 1.3.761); từ đây `names` là tên thường.
+        let (names, capitalizesMeaning) = try normalizedTokenNames(parts[0], spec: spec)
         guard !names.isEmpty, !names.contains(where: { $0.isEmpty }) else {
             throw ParseError(code: .unknownTokenName, message: "Token <\(spec)> không có tên")
         }
@@ -289,7 +290,8 @@ public enum QuickTranslationRuleParser {
                 minLength: minLength,
                 maxLength: maxLength,
                 isOptional: isOptional,
-                captureIndex: index
+                captureIndex: index,
+                capitalizesMeaning: capitalizesMeaning
             )
         }
 
@@ -333,7 +335,8 @@ public enum QuickTranslationRuleParser {
             minLength: minLength,
             maxLength: maxLength,
             isOptional: isOptional,
-            captureIndex: index
+            captureIndex: index,
+            capitalizesMeaning: capitalizesMeaning
         )
     }
 
