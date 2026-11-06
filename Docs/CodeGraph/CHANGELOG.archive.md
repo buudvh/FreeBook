@@ -2,6 +2,29 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.730] - 2026-11-05
+
+### feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn
+
+Người dùng: *"mỗi lần vào dung lượng đều phải chờ à?"*, rồi *"ngoài ra tôi vào rồi thoát ra thì vẫn đo ẩn đi nhé"*.
+
+- **Trước đây**: kết quả đo là `@State` của `StorageUsageView`. Mỗi lần mở màn phải đo lại cả cây thư mục từ đầu (có thể vài giây khi có phim HLS hay nhiều ảnh comic). Thoát màn là huỷ luôn lượt đo.
+- **`StorageUsageRepository`** (mới, `Services/Storage/`, `@MainActor @Observable`, nguồn sự thật duy nhất của số liệu):
+  - Giữ lần đo gần nhất và lưu xuống máy (`UserDefaults` `storageUsageLastSnapshot`, JSON) ⇒ còn sau khi tắt app.
+  - `refresh()` chạy lượt đo bằng `Task` của repository, **không** gắn vòng đời màn ⇒ thoát màn giữa chừng vẫn đo tiếp và lưu kết quả. Đang có lượt chạy thì bỏ qua, không đo chồng.
+  - `refreshAfterChange()` (sau khi xoá): chờ lượt đang chạy rồi đo một lượt mới, chờ xong.
+- `StorageUsageSnapshot` thêm `measuredAt`, cùng `Entry` và `StorageUsageCategory` thành `Codable`.
+- **Màn Dung lượng**:
+  - Mở màn ⇒ hiện ngay số cũ kèm dòng "Đo lúc 14:32" (khác ngày thì thêm "dd/MM"), rồi đo lại ngầm. Đang đo thì nút ↻ thành vòng xoay, dòng giờ thêm "· đang đo lại"; đo xong số tự cập nhật.
+  - Chỉ lần đầu tiên (chưa có số cũ) mới hiện vòng chờ thay cho số.
+  - Xoá vẫn đo lại ngay rồi mới báo số đã giải phóng.
+- `CLAUDE.md` / `AGENTS.md`: đoạn màn Dung lượng ghi thêm `StorageUsageRepository`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows).
+  - Chưa thử trên máy: mở lại màn thấy số ngay, thoát giữa lúc đo rồi vào lại thấy số mới.
+
 ## [1.3.729] - 2026-11-05
 
 ### fix: tin Telegram và ghi chú bản bỏ dòng commit trùng tên

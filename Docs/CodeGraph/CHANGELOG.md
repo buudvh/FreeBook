@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.760] - 2026-11-06
+
+### fix: kiểm tra bản mới đọc nguồn qua API GitHub, không còn trễ tới 5 phút sau khi CI đăng
+
+Người dùng: *"tôi bấm kiểm tra ver trên app không được nhưng trên livecontainer lại đúng"* — app 1.3.754 (1169) báo "Đang dùng bản mới nhất" dù `apps.json` đã có 1.3.757 (1170).
+
+- **Nguyên nhân**: `raw.githubusercontent.com` đi qua CDN (`Cache-Control: max-age=300`), mỗi máy chủ đệm giữ bản sao tới 5 phút. CI đăng 1.3.757 lúc 08:02:57 UTC; trong 5 phút sau đó máy chủ còn bản cũ vẫn trả danh sách có 1.3.754 đứng đầu ⇒ so build 1169 với 1169 ⇒ "mới nhất". Đã thử: thêm tham số vào link (`?t=…`) CDN vẫn trả bản đệm. So build không sai.
+- **`AppUpdateSourceClient`**: đọc `https://api.github.com/repos/buudvh/FreeBook/contents/apps.json?ref=source` trước, header `Accept: application/vnd.github.raw+json` (API trả thẳng nội dung file, cùng định dạng ⇒ giữ bộ giải mã cũ) + `User-Agent`. API đệm tối đa 60 s.
+- API lỗi (hết 60 lượt/giờ mỗi IP: 403/429, mạng, file hỏng) ⇒ log `⚠️ [AppUpdate]` rồi đọc link raw như trước. Huỷ thì không lùi.
+- LiveContainer vẫn đọc link raw theo cách của nó (không đổi).
+- `CLAUDE.md` + `AGENTS.md`: ghi đường đọc mới ở mục "Báo có bản mới trong app".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Gọi thử API bằng curl: trả 1.3.757 (1170), `Content-Type: application/vnd.github.raw+json`, `X-RateLimit-Limit: 60`.
+  - Đọc code + diff; `check_architecture.py` chỉ còn lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: bấm "Phiên bản ứng dụng" ngay sau khi CI đăng bản mới.
+
 ## [1.3.759] - 2026-11-06
 
 ### feat: trang Báo cáo kiểm tra cho tiện ích JS và nguồn Legado, tự giữ 20 báo cáo mới nhất
@@ -735,26 +752,3 @@ Người dùng: *"Hãy cho phép nhập video từ zip, tất cả video trong �
     - ZIP truyện tranh vẫn như cũ.
     - ZIP lẫn MKV.
     - ZIP lớn: cần chỗ trống cho cả bản nén lẫn bản giải nén lúc giải nén.
-
-## [1.3.730] - 2026-11-05
-
-### feat: màn Dung lượng hiện ngay lần đo gần nhất, đo lại ngầm kể cả khi đã thoát màn
-
-Người dùng: *"mỗi lần vào dung lượng đều phải chờ à?"*, rồi *"ngoài ra tôi vào rồi thoát ra thì vẫn đo ẩn đi nhé"*.
-
-- **Trước đây**: kết quả đo là `@State` của `StorageUsageView`. Mỗi lần mở màn phải đo lại cả cây thư mục từ đầu (có thể vài giây khi có phim HLS hay nhiều ảnh comic). Thoát màn là huỷ luôn lượt đo.
-- **`StorageUsageRepository`** (mới, `Services/Storage/`, `@MainActor @Observable`, nguồn sự thật duy nhất của số liệu):
-  - Giữ lần đo gần nhất và lưu xuống máy (`UserDefaults` `storageUsageLastSnapshot`, JSON) ⇒ còn sau khi tắt app.
-  - `refresh()` chạy lượt đo bằng `Task` của repository, **không** gắn vòng đời màn ⇒ thoát màn giữa chừng vẫn đo tiếp và lưu kết quả. Đang có lượt chạy thì bỏ qua, không đo chồng.
-  - `refreshAfterChange()` (sau khi xoá): chờ lượt đang chạy rồi đo một lượt mới, chờ xong.
-- `StorageUsageSnapshot` thêm `measuredAt`, cùng `Entry` và `StorageUsageCategory` thành `Codable`.
-- **Màn Dung lượng**:
-  - Mở màn ⇒ hiện ngay số cũ kèm dòng "Đo lúc 14:32" (khác ngày thì thêm "dd/MM"), rồi đo lại ngầm. Đang đo thì nút ↻ thành vòng xoay, dòng giờ thêm "· đang đo lại"; đo xong số tự cập nhật.
-  - Chỉ lần đầu tiên (chưa có số cũ) mới hiện vòng chờ thay cho số.
-  - Xoá vẫn đo lại ngay rồi mới báo số đã giải phóng.
-- `CLAUDE.md` / `AGENTS.md`: đoạn màn Dung lượng ghi thêm `StorageUsageRepository`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows).
-  - Chưa thử trên máy: mở lại màn thấy số ngay, thoát giữa lúc đo rồi vào lại thấy số mới.
