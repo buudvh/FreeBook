@@ -5,7 +5,7 @@ import Combine
 import CryptoKit
 
 // MARK: - Helper Structs for Registry
-public struct RegistryResponse: Codable {
+public struct RegistryResponse: Codable, Sendable {
     public let metadata: RegistryMetadata?
     public let data: [ExtensionRegistryItem]
 
@@ -35,9 +35,22 @@ public enum ExtensionManagerError: LocalizedError, Equatable {
     }
 }
 
-public struct RegistryMetadata: Codable {
+/// Khối `metadata` của `plugin.json` kho. `name` / `author` đặt tên kho lúc thêm (1.3.752,
+/// `ExtensionRepositoryNaming`).
+public struct RegistryMetadata: Codable, Sendable {
+    public let name: String?
     public let author: String?
     public let description: String?
+
+    private enum CodingKeys: String, CodingKey { case name, author, description }
+
+    /// Đọc từng trường riêng: một trường sai kiểu (vd `name` là số) chỉ thành `nil`, không làm mất các trường khác.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try? c.decodeIfPresent(String.self, forKey: .name)
+        author = try? c.decodeIfPresent(String.self, forKey: .author)
+        description = try? c.decodeIfPresent(String.self, forKey: .description)
+    }
 }
 
 // MARK: - Helper Structs for JavaScript results
@@ -85,14 +98,18 @@ public final class ExtensionManager: ObservableObject {
     // Tải danh sách registry từ một URL kho (plugin.json)
     /// Bỏ cache URLSession cục bộ: đây là lượt kiểm tra cập nhật, bản cũ trong cache sẽ giấu phiên bản mới của kho.
     public func fetchRegistry(from urlString: String, timeout: TimeInterval = 60) async throws -> [ExtensionRegistryItem] {
+        try await fetchRegistryResponse(from: urlString, timeout: timeout).data
+    }
+
+    /// Như `fetchRegistry` nhưng trả cả `metadata` của kho — lúc thêm kho cần nó để đặt tên.
+    public func fetchRegistryResponse(from urlString: String, timeout: TimeInterval = 60) async throws -> RegistryResponse {
         guard let url = URL(string: urlString) else {
             throw NSError(domain: "ExtensionManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Registry URL"])
         }
 
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(RegistryResponse.self, from: data)
-        return response.data
+        return try JSONDecoder().decode(RegistryResponse.self, from: data)
     }
     
     // Cài đặt/Cập nhật một extension. Giải nén + giải mã ở thư mục tạm rồi mới thay `extensions/<packageId>/`

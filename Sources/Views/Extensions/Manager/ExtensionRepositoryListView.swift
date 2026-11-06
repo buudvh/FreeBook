@@ -64,8 +64,8 @@ struct ExtensionRepositoryListView: View {
             Text("Kho \(repo.name) sẽ bị xóa khỏi danh sách. Tiện ích đã cài từ kho này vẫn giữ nguyên.")
         }
         .sheet(isPresented: $showingAddRepo) {
-            AddRepositoryView { name, url in
-                addRepository { await checker.addRepository(name: name, url: url) }
+            AddRepositoryView { url in
+                addRepository { await checker.addRepository(url: url) }
             }
         }
     }

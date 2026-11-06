@@ -173,8 +173,9 @@ final class ExtensionUpdateCheckCoordinator {
     // MARK: - Thêm kho
 
     /// Tải registry trước, được mới lưu kho + cache. Trả câu báo cho màn gọi hiện (rỗng khi URL rỗng).
-    /// App không gieo sẵn kho nào (1.3.749): người dùng tự dán link kho.
-    func addRepository(name: String, url: String) async -> String {
+    /// App không gieo sẵn kho nào (1.3.749): người dùng tự dán link kho. Tên kho lấy từ `metadata` của `plugin.json`
+    /// (`ExtensionRepositoryNaming`, 1.3.752) — sheet nhập không còn ô tên.
+    func addRepository(url: String) async -> String {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty else { return "" }
         if library.repositories.contains(where: { $0.url == trimmedUrl }) {
@@ -185,14 +186,15 @@ final class ExtensionUpdateCheckCoordinator {
         isAddingRepository = true
         defer { isAddingRepository = false }
 
-        let items: [ExtensionRegistryItem]
+        let response: RegistryResponse
         do {
-            items = try await ExtensionManager.shared.fetchRegistry(from: trimmedUrl, timeout: Self.registryTimeout)
+            response = try await ExtensionManager.shared.fetchRegistryResponse(from: trimmedUrl, timeout: Self.registryTimeout)
         } catch {
             return "Lỗi khi tải kho truyện: \(error.localizedDescription)"
         }
 
-        let repoName = name.isEmpty ? "Kho Tiện Ích Mới" : name
+        let items = response.data
+        let repoName = ExtensionRepositoryNaming.name(metadata: response.metadata, url: trimmedUrl)
         let coordinator = ExtensionTransactionCoordinator.shared
         if case .failure(let error) = coordinator.addRepository(url: trimmedUrl, name: repoName) {
             return "Lỗi khi lưu kho truyện: \(error.localizedDescription)"

@@ -2,6 +2,26 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.722] - 2026-11-05
+
+### fix: Khám phá đổi nguồn thì tab trùng tên tải lại theo nguồn mới
+
+Người dùng: *"Có lỗi khi chuyển ext mở lại tab cũ không được load lại. Ví dụ đang xem tab đồng nhân ext qidian rồi chuyển sang ext stv mở lại tab đồng nhân vẫn hiển thị dữ liệu cũ"*.
+
+- **Nguyên nhân** (`DiscoveryView`):
+  - Trang tab trong `TabView` được nhận diện bằng `CategoryResult.id` (= `title + "_" + input`) cộng `.id(catalogConfigStamp)`, không có nguồn.
+  - Bộ nạp của tab (`PaginatedNovelLoader`, `@StateObject` của `DiscoveryCategoryTabView`) chỉ tạo một lần, với `localPath`/`configJson` của lần dựng đầu.
+  - Đổi nguồn có xoá `homeItems`, nhưng nguồn mới có `explore` thì `loadDiscoveryData` thêm lại tab section **ngay** ⇒ màn chờ không hiện, khung tab không bị dựng lại.
+  - Tab của nguồn mới trùng tên + input với tab của nguồn cũ (vd "Đồng nhân" của qidian và STV) ⇒ SwiftUI giữ nguyên trang, kèm bộ nạp vẫn trỏ vào nguồn cũ. Tab section (`ExploreSectionsView`, id cố định) bị y như vậy.
+- **Sửa**:
+  - Trang tab danh mục và tab section gắn `.id("\(packageId)#\(catalogConfigStamp)")` ⇒ đổi nguồn hay đổi config đều dựng lại với bộ nạp mới.
+  - Tab Thể loại gắn `.id(selectedExtensionId)` ⇒ đổi nguồn thì ô tìm thể loại về rỗng.
+  - Tải lại khi đổi config giữ nguyên như cũ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử trên máy: đổi qua lại hai nguồn có tab trùng tên, đổi config của nguồn đang xem.
+
 ## [1.3.721] - 2026-11-05
 
 ### fix: chip nghĩa theo đúng thứ tự màn quản lý, chỉ còn Name/VP

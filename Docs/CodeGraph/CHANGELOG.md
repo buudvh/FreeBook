@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.752] - 2026-11-06
+
+### feat: nhập kho tiện ích chỉ cần link, tên kho lấy từ metadata của plugin.json
+
+Người dùng: *"phần nhập kho tiện ích mới bỏ nhập tên kho đi, tên kho lấy từ metadata.name || metadata.author"*. Anh Bửu chọn: thiếu cả hai ⇒ `owner/repo` (link GitHub) hoặc tên miền; kho đã lưu giữ tên cũ; không có chỗ sửa tên tay; duyệt plan.
+
+- **Sheet "Nhập kho tiện ích"** (`AddRepositoryView`): bỏ ô "Tên kho (tuỳ chọn)", chỉ còn ô link; `onAdd` nhận mỗi URL.
+- **Đặt tên** (`ExtensionRepositoryNaming`, file mới): `metadata.name` → `metadata.author` → `owner/repo` khi link là `raw.githubusercontent.com/<owner>/<repo>/…` hoặc `github.com/<owner>/<repo>/…` → tên miền (bỏ `www.`) → nguyên link. Thay chữ cố định "Kho Tiện Ích Mới".
+- **Đọc metadata kho** (`ExtensionManager.swift`): `RegistryMetadata` thêm `name`, đọc từng trường riêng (một trường sai kiểu chỉ thành `nil`); hàm mới `fetchRegistryResponse` trả cả `metadata`, `fetchRegistry` gọi qua nó ⇒ lượt kiểm tra cập nhật không đổi.
+- `ExtensionUpdateCheckCoordinator.addRepository(url:)` bỏ tham số tên. Lượt kiểm tra cập nhật **không** đổi tên kho đã lưu.
+- Lưu ý: hai kho của anh (`leech_story_ext`, `tangcongcac_ext`) chưa có `metadata.name` và cùng `author: "HuongMT"` ⇒ nhập mới cả hai sẽ cùng tên, phân biệt bằng dòng link; muốn tên riêng thì thêm `name` vào `metadata` của kho.
+- Chuyển `[1.3.722]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep `Sources/`: `AddRepositoryView` và `addRepository(url:)` mỗi thứ một chỗ gọi; không ai dựng `RegistryMetadata(` bằng tay (thêm `init(from:)` an toàn).
+  - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: nhập kho có `metadata.author` ⇒ tên = tác giả; kho không có metadata trên GitHub ⇒ `owner/repo`; câu báo "Đã nhập thành công kho '…'" đúng tên.
+
 ## [1.3.751] - 2026-11-06
 
 ### feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống
@@ -758,23 +775,3 @@ Người dùng: *"tôi muốn tự nâng ver mỗi khi build thành công"*. Ng�
 - **Kiểm chứng:**
   - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Lượt CI của chính commit này là lượt kiểm đầu tiên: log bước `Resolve App Version` và dòng `Info.plist version:` phải ra `1.3.723 (<số lượt>)`. Chưa thử trên máy.
-
-## [1.3.722] - 2026-11-05
-
-### fix: Khám phá đổi nguồn thì tab trùng tên tải lại theo nguồn mới
-
-Người dùng: *"Có lỗi khi chuyển ext mở lại tab cũ không được load lại. Ví dụ đang xem tab đồng nhân ext qidian rồi chuyển sang ext stv mở lại tab đồng nhân vẫn hiển thị dữ liệu cũ"*.
-
-- **Nguyên nhân** (`DiscoveryView`):
-  - Trang tab trong `TabView` được nhận diện bằng `CategoryResult.id` (= `title + "_" + input`) cộng `.id(catalogConfigStamp)`, không có nguồn.
-  - Bộ nạp của tab (`PaginatedNovelLoader`, `@StateObject` của `DiscoveryCategoryTabView`) chỉ tạo một lần, với `localPath`/`configJson` của lần dựng đầu.
-  - Đổi nguồn có xoá `homeItems`, nhưng nguồn mới có `explore` thì `loadDiscoveryData` thêm lại tab section **ngay** ⇒ màn chờ không hiện, khung tab không bị dựng lại.
-  - Tab của nguồn mới trùng tên + input với tab của nguồn cũ (vd "Đồng nhân" của qidian và STV) ⇒ SwiftUI giữ nguyên trang, kèm bộ nạp vẫn trỏ vào nguồn cũ. Tab section (`ExploreSectionsView`, id cố định) bị y như vậy.
-- **Sửa**:
-  - Trang tab danh mục và tab section gắn `.id("\(packageId)#\(catalogConfigStamp)")` ⇒ đổi nguồn hay đổi config đều dựng lại với bộ nạp mới.
-  - Tab Thể loại gắn `.id(selectedExtensionId)` ⇒ đổi nguồn thì ô tìm thể loại về rỗng.
-  - Tải lại khi đổi config giữ nguyên như cũ.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử trên máy: đổi qua lại hai nguồn có tab trùng tên, đổi config của nguồn đang xem.

@@ -1,16 +1,16 @@
 import SwiftUI
 import UIKit
 
-/// Sheet "Nhập kho tiện ích". Từ 1.3.624 mở nửa màn (vuốt lên được toàn màn); mỗi ô có nhãn ở trên kèm bộ nút
-/// xoá · sao chép · dán (`TextFieldClipboardButtons`, dán thay cả giá trị).
+/// Sheet "Nhập kho tiện ích". Từ 1.3.624 mở nửa màn (vuốt lên được toàn màn); ô có nhãn ở trên kèm bộ nút
+/// xoá · sao chép · dán (`TextFieldClipboardButtons`, dán thay cả giá trị). Chỉ còn ô link (1.3.752): tên kho lấy từ
+/// `metadata.name` / `metadata.author` của `plugin.json` (`ExtensionRepositoryNaming`).
 public struct AddRepositoryView: View {
     @Environment(\.dismiss) internal var dismiss
-    @State internal var name = ""
     @State internal var url = ""
 
-    public var onAdd: (String, String) -> Void
+    public var onAdd: (String) -> Void
 
-    public init(onAdd: @escaping (String, String) -> Void) {
+    public init(onAdd: @escaping (String) -> Void) {
         self.onAdd = onAdd
     }
 
@@ -18,7 +18,6 @@ public struct AddRepositoryView: View {
         NavigationStack {
             Form {
                 Section(header: Text("Thông tin kho mới")) {
-                    fieldRow("Tên kho (tuỳ chọn)", placeholder: "Tên kho truyện", text: $name)
                     fieldRow("Link plugin.json", placeholder: "https://…/plugin.json", text: $url, keyboard: .URL)
                 }
             }
@@ -26,7 +25,7 @@ public struct AddRepositoryView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Nhập") {
-                        onAdd(name, url)
+                        onAdd(url)
                         dismiss()
                     }
                     .headerTextButton()
