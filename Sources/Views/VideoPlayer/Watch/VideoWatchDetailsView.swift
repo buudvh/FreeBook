@@ -17,6 +17,8 @@ struct VideoWatchDetailsView: View {
     let session: VideoPlaybackSession
     /// "Mở link lỗi" của lỗi tải chi tiết — trình duyệt gắn ở `VideoPlayerScreen` (để màn biết mình bị che, không thu nhỏ).
     @Binding var openingDetailErrorLink: SourceErrorLink?
+    /// Nút "Trình duyệt" của hàng nút (trang chi tiết của phim) — trình duyệt cũng gắn ở `VideoPlayerScreen`, cùng lý do.
+    @Binding var openingDetailPage: SourceErrorLink?
     let onExit: (VideoWatchExit) -> Void
 
     @State private var showingInfo = false
@@ -63,7 +65,11 @@ struct VideoWatchDetailsView: View {
                     onSelectGenre: { VideoWatchPagePresenter.openCategory($0, model: model) }
                 )
                 .id(Self.topAnchor)
-                VideoWatchActionRow(model: model, onSourceChanged: { onExit(.close) })
+                VideoWatchActionRow(
+                    model: model,
+                    openingDetailPage: $openingDetailPage,
+                    onSourceChanged: { onExit(.close) }
+                )
                 detailErrorRow
                 descriptionBlock
                 serverGrid

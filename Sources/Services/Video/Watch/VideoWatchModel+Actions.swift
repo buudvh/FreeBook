@@ -81,6 +81,20 @@ extension VideoWatchModel {
         return URL(string: resolved)
     }
 
+    // MARK: - Trình duyệt
+
+    /// Trang chi tiết của **phim** (không phải link tập) cho nút "Trình duyệt" luôn hiện (1.3.763): `request.detailUrl`
+    /// chuẩn hoá như URL đầu vào của "Mở link lỗi" (bỏ khối option Legado, ghép host cho `/…`), không được thì lùi về
+    /// `shareURL` (ghép host kiểu link tài nguyên). Phim nhập từ file / không có link http(s) ⇒ `nil` (nút ẩn).
+    var detailPageLink: SourceErrorLink? {
+        guard !LocalMediaPackage.isLocalMedia(packageId: request.packageId) else { return nil }
+        return SourceErrorLink.resolve(
+            from: nil,
+            fallbacks: [request.detailUrl, shareURL?.absoluteString],
+            host: ExtensionHostResolver.nonEmpty(host)
+        )
+    }
+
     // MARK: - Home
 
     /// Phần dịch vụ của nút Home (View lo đóng màn + chuyển tab sau đó):

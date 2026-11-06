@@ -21,12 +21,15 @@ import SwiftUI
 ///
 /// Giới hạn: nguồn Legado gửi request bằng UA Android Chrome (`LegadoHTTPClient.defaultUserAgent`), khác UA Safari iPhone
 /// mà trình duyệt này ép ⇒ clearance Cloudflare gắn UA có thể không dùng được cho nguồn Legado (cookie vẫn được gộp).
+///
+/// `onRetry == nil` (`.sourcePageBrowser`, 1.3.763): đóng trình duyệt ⇒ **chỉ** chép cookie, không toast, không thử lại —
+/// dùng cho nút luôn hiện mở trang nguồn khi màn không lỗi (nút "Trình duyệt" của màn xem phim).
 struct ErrorLinkBrowserModifier: ViewModifier {
     @Binding var link: SourceErrorLink?
     /// Tiện ích/nguồn mà màn đang dùng — nguồn Legado thì cookie được gộp thêm vào kho cookie của nguồn (engine Legado
     /// không đọc `HTTPCookieStorage.shared`). `nil` / tiện ích JS ⇒ chỉ chép sang `fetch`.
     let packageId: String?
-    let onRetry: () -> Void
+    let onRetry: (() -> Void)?
 
     /// Bản sao link đang mở: `onDismiss` của `fullScreenCover(item:)` chạy khi binding đã về `nil`, mà vẫn cần host.
     @State private var presented: SourceErrorLink?
@@ -56,6 +59,7 @@ struct ErrorLinkBrowserModifier: ViewModifier {
             if let host = dismissed.host {
                 await WebKitCookieBridge.copyCookies(toURLSessionFor: host, sourcePackageId: sourcePackageId)
             }
+            guard let retry else { return }
             ToastManager.shared.show(message: "Đang thử lại…", type: .info)
             retry()
         }
@@ -67,5 +71,12 @@ extension View {
     func errorLinkBrowser(link: Binding<SourceErrorLink?>, packageId: String? = nil,
                           onRetry: @escaping () -> Void) -> some View {
         modifier(ErrorLinkBrowserModifier(link: link, packageId: packageId, onRetry: onRetry))
+    }
+
+    /// Trình duyệt của nút luôn hiện mở trang nguồn (không phải lỗi): cùng trình duyệt chế độ điện thoại với
+    /// `errorLinkBrowser`, đóng lại chỉ chép cookie của host sang `fetch` (và kho cookie của nguồn Legado) — không thử lại.
+    /// Màn có dọn dẹp ở `onDisappear` phải coi `link != nil` là "đang bị trình duyệt che" như với `errorLinkBrowser`.
+    func sourcePageBrowser(link: Binding<SourceErrorLink?>, packageId: String? = nil) -> some View {
+        modifier(ErrorLinkBrowserModifier(link: link, packageId: packageId, onRetry: nil))
     }
 }

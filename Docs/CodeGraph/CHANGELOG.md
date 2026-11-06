@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.763] - 2026-11-06
+
+### feat: màn xem phim có nút Trình duyệt mở link chi tiết của phim, kể cả khi không lỗi
+
+Người dùng: *"thêm nút mở link chi tiết trên browser kể cả lỗi hay không"*. Chốt (bảng chọn): chỉ màn xem phim; viên thuốc ở hàng nút; đóng trình duyệt thì chép cookie, không tải lại; tách riêng với "Mở link lỗi" — *"nút này mở link chi tiết chớ không phải link tập"*.
+
+- **Vì sao chỉ phim**: Chi tiết truyện (ngăn kéo `…`), Reader chữ (ngăn kéo) và sheet nhấn giữ ở Kệ đã có "Mở bằng trình duyệt" luôn hiện; phim mất lối này từ 1.3.747 (thôi mở trang Chi tiết), chỉ còn "Mở link lỗi" khi lỗi.
+- **Nút**: `VideoWatchActionRow` thêm viên thuốc **"Trình duyệt"** (icon `safari` như `ErrorLinkButton`) sau Chia sẻ. Link = `VideoWatchModel.detailPageLink` (file `+Actions`): `request.detailUrl` của **phim** đang hiện trên màn (không phải link tập; tự sang phim đề xuất ⇒ đổi theo) chuẩn hoá như URL đầu vào của "Mở link lỗi" (`SourceErrorLink.resolve(from: nil, fallbacks:host:)` — bỏ khối option Legado, ghép host cho `/…`), lùi về `shareURL`. Phim nhập từ file / không có link http(s) ⇒ ẩn nút.
+- **Trình duyệt**: `.sourcePageBrowser(link:packageId:)` (mới, `ErrorLinkBrowserModifier.swift`) = cùng modifier với `.errorLinkBrowser` nhưng `onRetry == nil`: `BypassWebView` chế độ điện thoại, đóng lại chỉ chép cookie WebKit của host sang `fetch` (+ kho cookie nguồn Legado) — không toast "Đang thử lại…", không thử lại, phim đang phát không bị đụng.
+- **Màn không bị gỡ khi trình duyệt che**: `VideoPlayerScreen` giữ `openingDetailPage` (truyền xuống `VideoWatchDetailsView` → `VideoWatchActionRow`) và thêm nó vào chốt `onDisappear` cạnh hai link lỗi ⇒ không thu nhỏ phim vào hub, không trả khoá xoay, `onAppear` lúc quay lại bỏ qua (`isCoveredByErrorBrowser`).
+- **Giới hạn đã biết** (chung với "Mở link lỗi"): lúc trình duyệt đang che, nút âm lượng cứng vẫn có thể hiện thanh âm lượng của phim ở màn bên dưới.
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 1 lỗi có sẵn (`JSDom.swift` vượt baseline); chưa build (máy Windows), chưa thử trên máy.
+
 ## [1.3.762] - 2026-11-06
 
 ### feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng
@@ -690,38 +703,4 @@ Phần 2 của plan "Màn xem video kiểu trình phát dọc" (anh Bửu đã d
 - **Kiểm chứng:**
   - Đọc code + diff; grep chéo mọi chỗ gọi `VideoEpisodeGridView(`, `leave(`, `SearchView(`.
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**; file mới ≤ 400 dòng, mỗi file 1 type.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.733] - 2026-11-05
-
-### feat: nền màn xem video: định danh phim, tải chi tiết + mục lục, tự phát và lưới tuỳ chọn trình phát
-
-Người dùng: *"thiết kế lại màn chi tiết cho video (kiểu như app youtube), bấm vào thì sẽ chiếu dọc luôn"*; duyệt plan 3 phần. Đây là **phần 1** (nền); phần 2 = giao diện dưới khung phim + nút Home, phần 3 = đổi các lối vào. Chưa có lối vào nào gọi màn mới.
-
-- **`VideoWatchRequest`** (mới, `Services/Video/Watch/`): dữ liệu lúc bấm phim (tiện ích, link chi tiết, nguồn, host, tên/bìa của item; `init(book:)`, `init(launch:)` cho `Book` đã có).
-  - **Một quy tắc định danh** cho mọi lối vào: `Book` cùng (link, tiện ích) ⇒ id đó (nhiều bản ⇒ bản xem gần nhất); id caller là `Book` có thật ⇒ giữ; còn lại ⇒ id **xác định** `BookIdUtils.make`. Mở cùng phim từ Khám phá rồi từ Tìm không ra hai `Book`.
-  - `BookDetailView.resolveBookId` dùng chung quy tắc này (bỏ `fallbackBookId`). **Đổi cả truyện chữ / truyện tranh**: truyện mới mở từ Chi tiết trước đây nhận UUID ngẫu nhiên mỗi lần mở màn (hoặc chính link khi link có "-" và dài > 30 ký tự), nay nhận id xác định theo (tiện ích, link). Truyện đã lưu không đổi id.
-- **`VideoWatchModel`** (mới, `@MainActor @Observable`, một phiên mỗi màn xem):
-  - Id chốt trong `init`, trước mọi lần gọi nguồn (`SourceRuntimeContext`, cache chi tiết).
-  - Phim đã có `Book` + mục lục trên máy ⇒ hiện và phát được ngay (kể cả ngoại tuyến / chỉ còn bản tải), rồi làm mới từ nguồn.
-  - Chi tiết: cache 5 phút → `BookDetailLoader.fetchDetail`, chạy song song với mục lục; lỗi chi tiết không chặn phát.
-  - Mục lục **đủ**: `fetchFirstPageTOC` + `fetchRemainingPages` (trang 1 hiện ngay, phát khi đủ). Lỗi khi máy chưa có bản nào ⇒ lỗi + "Mở link lỗi" (`SourceErrorLink`, dự phòng trang mục lục đang tải → link chi tiết).
-  - `Book` chỉ tạo khi **bấm phát** (`isOnShelf: false`, `isHistory: false` — Lịch sử bật ở lần lưu tiến độ đầu), cùng đường `startReading` của Chi tiết (`saveChapterList(.replaceFullTOC)`), ghi xong mới `session.open` (tránh đua với `ensureHistoryBook`). Chi tiết về sau khi đã tạo ⇒ điền nốt metadata cho `Book` vừa tạo (`updateBookMetadata`); `Book` có sẵn thì không đè.
-  - `Book` có sẵn mà nguồn **thêm tập ở cuối** ⇒ ghi lại đủ và phiên phát đang chạy phim đó nhận danh sách tập mới (`VideoPlaybackSession+Watch.adoptRefreshedEpisodes`, mới). Nguồn đổi thứ tự / bớt tập ⇒ giữ bản đã lưu (bản tải, tiến độ, server đã nhớ theo chỉ số tập).
-  - Màn biến mất (kể cả bị đóng bằng code) ⇒ huỷ lượt tải / chuẩn bị phát, không tự mở phim khi không còn màn.
-  - `play(episodeIndex:)` dựng `BookContentLaunch` (thêm trường `host`, mặc định `nil`, mọi chỗ khởi tạo cũ không đổi; phiên phát dùng sau `Book.host`) rồi `VideoPlaybackSession.shared.open`. Ghi "Mở lại truyện đọc gần nhất" như `BookContentDestination`.
-  - Có sẵn `ensureBook(isOnShelf:)` và `replace(with:)` (đổi phim tại màn) cho phần 2.
-- **`VideoWatchPresenter`** (mới): mở màn xem bằng `VideoPlayerHostingController` `.overFullScreen` như `VideoPlayerPresenter` (dùng chung `findTopViewController`), gắn lại màu nhấn + `modelContainer`.
-- **`VideoPlayerScreen(watch:onDismiss:)`** (init mới; hai init cũ giữ nguyên):
-  - Phiên phát chưa chạy phim của màn (đang tải, tắt tự phát, phim khác chạy nền) ⇒ khung phim là **`VideoWatchPosterView`** (mới): bìa đặt giữa trên nền mờ của chính bìa, nút ▶ giữa, nhãn "Xem tiếp Tập N · m:ss" / "Tập 1"; đang tải ⇒ vòng xoay; lỗi ⇒ lớp phủ lỗi chung.
-  - Lúc đó màn **không** gắn vào phiên: phim khác vẫn chạy nền, hub vẫn hiện nó, ⌄/✕ chỉ đóng màn. Phiên chuyển sang phim của màn mới gắn.
-  - Phần dưới khung phim lúc chưa phát tạm là tên phim + lưới tập của model (phần 2 thay).
-- **Công tắc "Tự phát khi mở phim"** (`VideoAutoplayPolicy`, khoá `videoAutoplayOnOpen`, mặc định bật): hàng ở Cài đặt › Đọc & Nghe (cạnh "Mở lại truyện đọc gần nhất", có giải thích ở nút "?") và hàng đầu ngăn kéo ⋯ của trình phát.
-  - Bật ⇒ phát ngay khi có mục lục, đúng tập xem dở; phim khác đang chạy nền bị dừng.
-  - Tắt ⇒ bìa + ▶; phim khác đang chạy nền chạy tiếp tới khi bấm ▶.
-- **Ngăn kéo ⋯ của trình phát**: Khung hình / Server / Chất lượng đổi từ hàng chọn sang **lưới 3 cột** `VideoPlayerOptionGrid` (mới, dùng chung): ô đang chọn chữ màu nhấn + nền nhấn mờ 18% + viền 60%, ô thường nền xám tối, tên dài cắt "…". Bấm là áp dụng, ngăn kéo vẫn mở. Điều kiện hiện từng nhóm giữ nguyên.
-  - `SideDrawerOptionRow` không còn chỗ dùng (để nguyên).
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep chéo mọi chỗ khởi tạo `BookContentLaunch` (chỉ `BookContentDestination`) và `fallbackBookId`. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy.

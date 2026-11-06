@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Hàng nút viên thuốc (cao 38pt) dưới tên phim: **Trên kệ / Tải / Đổi nguồn / Chia sẻ**. Cuộn ngang khi chật.
+/// Hàng nút viên thuốc (cao 38pt) dưới tên phim: **Trên kệ / Tải / Đổi nguồn / Chia sẻ / Trình duyệt**. Cuộn ngang khi
+/// chật.
 ///
 /// - Trên kệ: `VideoWatchModel.toggleShelf` (bật = `setOnShelf` / tạo `Book` trên kệ; tắt = `removeFromShelf`, phim về
 ///   Lịch sử) — không bao giờ xoá `Book` đang phát. Vừa lên kệ ⇒ mời chọn bộ sưu tập (`CollectionPickerSheet`).
@@ -10,9 +11,14 @@ import SwiftUI
 ///   `BookSourceChangeCoordinator`. Xong ⇒ đóng sheet rồi đóng màn (`onSourceChanged`). Phim chưa lưu ⇒ chỉ tìm nguồn
 ///   khác cùng loại (bấm kết quả là mở phim đó).
 /// - Chia sẻ: link chi tiết tuyệt đối (`shareURL`); không có link http(s) thì ẩn.
-/// Phim nhập từ file (`LocalMediaPackage`) không có Tải / Đổi nguồn (không có nguồn).
+/// - Trình duyệt (1.3.763): luôn hiện, có lỗi hay không — mở **trang chi tiết của phim** (`detailPageLink`, không phải
+///   link tập) ở trình duyệt chế độ điện thoại; đóng lại chỉ chép cookie, không thử lại (`.sourcePageBrowser`, gắn ở
+///   `VideoPlayerScreen`). Tách riêng khỏi "Mở link lỗi" của dòng lỗi: link lỗi thường là `fetch` hỏng (host API).
+/// Phim nhập từ file (`LocalMediaPackage`) không có Tải / Đổi nguồn / Trình duyệt (không có nguồn).
 struct VideoWatchActionRow: View {
     let model: VideoWatchModel
+    /// Trang đang mở trong trình duyệt — `VideoPlayerScreen` giữ để biết màn bị che (không thu nhỏ phim).
+    @Binding var openingDetailPage: SourceErrorLink?
     let onSourceChanged: () -> Void
 
     @State private var collectionPickerBookId = ""
@@ -42,6 +48,10 @@ struct VideoWatchActionRow: View {
                 }
                 if model.shareURL != nil {
                     pill(title: "Chia sẻ", systemImage: "square.and.arrow.up") { showingShare = true }
+                }
+                if let page = model.detailPageLink {
+                    pill(title: "Trình duyệt", systemImage: ErrorLinkButton.systemImage) { openingDetailPage = page }
+                        .accessibilityHint(page.displayText)
                 }
             }
             .padding(.horizontal, 16)

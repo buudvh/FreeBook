@@ -36,8 +36,10 @@ struct VideoPlayerScreen: View {
     @State private var pendingExitAction: (() -> Void)? = nil
     /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
     @State private var openingDetailErrorLink: SourceErrorLink? = nil
-    /// Trình duyệt "Mở link lỗi" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp là quay lại từ
-    /// trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
+    /// Nút "Trình duyệt" của hàng nút màn xem (1.3.763): trang chi tiết của phim, đóng lại chỉ chép cookie, không thử lại.
+    @State private var openingDetailPage: SourceErrorLink? = nil
+    /// Trình duyệt "Mở link lỗi" / "Trình duyệt" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp
+    /// là quay lại từ trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
     @State private var isCoveredByErrorBrowser = false
 
     init(launch: BookContentLaunch) {
@@ -90,6 +92,8 @@ struct VideoPlayerScreen: View {
         // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.
         .errorLinkBrowser(link: $controller.openingErrorLink, packageId: errorLinkPackageId) { retryAfterErrorLink() }
         .errorLinkBrowser(link: $openingDetailErrorLink, packageId: watch?.request.packageId) { watch?.retry() }
+        // Nút "Trình duyệt": không lỗi nên không thử lại gì — phim đang phát giữ nguyên.
+        .sourcePageBrowser(link: $openingDetailPage, packageId: watch?.request.packageId)
         .onAppear {
             if isCoveredByErrorBrowser {
                 isCoveredByErrorBrowser = false
@@ -142,9 +146,10 @@ struct VideoPlayerScreen: View {
             }
         }
         .onDisappear {
-            // Trình duyệt "Mở link lỗi" che màn (không phải rời màn): gỡ màn lúc này sẽ thu nhỏ trình phát (hub hiện mục
-            // Video) và trả khoá xoay; khi quay lại, `open` lại tự `retry()` trước khi kịp chép cookie. Giữ nguyên hết.
-            if controller.openingErrorLink != nil || openingDetailErrorLink != nil {
+            // Trình duyệt "Mở link lỗi" / "Trình duyệt" che màn (không phải rời màn): gỡ màn lúc này sẽ thu nhỏ trình phát
+            // (hub hiện mục Video) và trả khoá xoay; khi quay lại, `open` lại tự `retry()` trước khi kịp chép cookie. Giữ
+            // nguyên hết.
+            if controller.openingErrorLink != nil || openingDetailErrorLink != nil || openingDetailPage != nil {
                 isCoveredByErrorBrowser = true
                 return
             }
@@ -311,6 +316,7 @@ struct VideoPlayerScreen: View {
                 model: watch,
                 session: session,
                 openingDetailErrorLink: $openingDetailErrorLink,
+                openingDetailPage: $openingDetailPage,
                 onExit: handleExit
             )
         } else {
