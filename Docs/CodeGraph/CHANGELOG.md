@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.762] - 2026-11-06
+
+### feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng
+
+Người dùng: *"nên có dọn dẹp bìa truyện, hiện tại bìa truyện lên tới 1.01 GB"* (màn Dung lượng), rồi *"đặt thời gian dọn dọn như kiểu thời gian tự backup vậy, có config nhé"*. Chốt: nút Dọn chỉ xoá bìa mồ côi; thu nhỏ bìa mới + bìa cũ về 1024 px; không giới hạn dung lượng; lịch tự dọn áp cho mọi mục dọn được (công tắc riêng), mặc định bật chỉ bìa, mỗi ngày sau 03:00, lối vào ở đầu màn Dung lượng.
+
+- **Nguyên nhân (đọc code, chưa đo trên máy)**: trang Chi tiết của truyện chưa lưu dùng `bookId` ngẫu nhiên mỗi lần mở (`BookDetailView.resolveBookId`, có từ 2026-07-20), mà bìa lớn + nền mờ (`BookDetailHeroView` → `BookCoverView`) ghi `covers/<sha256(id)>.jpg` ⇒ mỗi lần xem một truyện chưa lưu là một file không `Book` nào giữ, không bao giờ bị xoá. Thêm nữa `storeDownloadedCover` ghi bìa **nguyên cỡ**; `saveCover` "thu nhỏ 1024" nhưng `UIGraphicsImageRenderer` mặc định nhân scale màn hình ⇒ thực tế tới 3072 px.
+- **Chặn từ gốc**: `BookCoverView(persistsCover:)` — `false` ⇒ tải qua `ImageCacheManager.fetchTransientCoverData` (gộp lượt trùng bìa lớn/nền mờ, giữ byte vài trang gần nhất trong `NSCache` 8 mục / 8 MB), giải mã thẳng ra thumbnail đúng cỡ khung (`CoverThumbnailCache.makeThumbnail(data:)`), **không** ghi `covers/`, **không** vào cache thumbnail dùng chung. `BookDetailView` truyền `localBook != nil` qua `BookDetailHeaderView` → `BookDetailHeroView`; truyện vừa được lưu ngay trên trang (thêm kệ, đọc, tải) ⇒ `.task` chạy lại, tải + ghi file như cũ (EPUB vẫn có bìa). Đang hiện bìa chỉ RAM thì không nháy placeholder khi chuyển sang lưu.
+- **Thu nhỏ khi lưu**: `CoverImageEncoder` (file mới, ImageIO `CGImageSourceCreateThumbnailAtIndex`): cạnh dài ≤ 1024 **pixel thật**, JPEG 0.8, xoay theo EXIF, không giữ ảnh nguyên cỡ trong RAM. Dùng cho bìa tải về (`storeDownloadedCover`) và bìa tự chọn / nhập file (`saveCover`, bỏ `downscaled`). Tách bước tải thành `fetchCoverBytes` (Referer + UA + `coverDecodeJs` của Legado) dùng chung cho đường ghi đĩa và đường chỉ RAM.
+- **Quét + dọn `covers/`** (`ImageCacheManager+Maintenance`, file mới; `coversDirectory`, `fileManager`, `validatePathSafety`, `sha256Hex`, `getNewFileName`, `getLegacyFileName` từ `private` thành `internal` cho file này): file **có chủ** khi trùng `sha256(bookId).jpg` hoặc tên kiểu cũ của một `Book` bất kỳ (kể cả truyện ẩn — không ở Kệ/Lịch sử). File ghi / chuyển vào chưa quá 10 phút (lấy lớn nhất của ngày sửa, ngày đổi thuộc tính, ngày tạo) không bị coi là mồ côi. `scanCoverFolder` đếm trước (`CoverFolderScan`, file mới); `removeOrphanCovers` kiểm lại chủ + tuổi từng file trước khi xoá; `shrinkOversizedCovers` ghi lại bản ≤ 1024 px cho bìa có chủ quá cỡ (chỉ khi nhỏ hơn) rồi `invalidateCover`. Mọi thao tác file qua `validatePathSafety`.
+- **`CoverCleanupCoordinator`** (`Services/Cleanup/`, file mới): đọc mọi `Book.bookId` trên `ModelContext` riêng ngoài main (`propertiesToFetch`); fetch lỗi ⇒ **không dọn gì**. `preview` / `run` (đọc lại thư viện ngay trước khi xoá) / `runUnattended`; cờ `isRunning` chặn hai lượt chồng nhau.
+- **Màn Dung lượng**: hàng "Bìa truyện" có nút **Dọn** (`StorageUsageCategory.isTrimmable`, không gắn `isClearable`): vòng xoay lúc đếm ⇒ hộp xác nhận "N bìa không còn truyện nào · X MB" + "M bìa đang dùng lớn quá cỡ (Y MB) sẽ thu nhỏ" ⇒ dọn, đo lại, toast "Đã dọn bìa truyện (Z)". Không có gì ⇒ "Bìa truyện đã gọn"; đang sao lưu/khôi phục ⇒ báo dọn sau. Hàng **Tự động dọn** (`StorageAutoCleanupRow`, file mới) đầu danh sách ghi nhịp đang đặt.
+- **Lịch tự dọn**: `StorageAutoCleanupPolicy` (file mới, khuôn `DriveAutoBackupPolicy`: bật/tắt mặc định bật, "Mỗi ngày một lần" sau 03:00 hoặc "Theo chu kỳ" 6–168 giờ, mục được dọn mặc định chỉ bìa, `lastRunAt` + `lastFreedBytes`); `StorageAutoCleanupCoordinator` (file mới): `runIfDue` gọi từ `MainTabView` lúc mở app — hoãn 45 s, chờ `BackupCoordinator.isBusy` xong (bìa vừa khôi phục chưa có `Book`), đánh dấu kỳ lúc bắt đầu; bìa ⇒ `CoverCleanupCoordinator.runUnattended` (mồ côi + thu nhỏ), cache ảnh truyện tranh / file xuất / nhật ký / báo cáo kiểm tra ⇒ `StorageUsageCleaner.clear`; đo dung lượng trước/sau bằng `StorageUsageScanner`; chạy im lặng, chỉ log `🧹 [StorageAutoCleanup]`. Màn `StorageAutoCleanupSettingsView` (file mới, Cài đặt › Thư Viện › Dung lượng › Tự động dọn): công tắc, nhịp chạy, công tắc từng mục (nút "?" giải thích, nhắc log là kênh tìm lỗi), trạng thái + "Dọn ngay theo các mục đã bật" có xác nhận.
+- **Phụ hiệu ứng**: dọn bìa làm đổi `BackupLibraryFingerprint` (băm cả file bìa) ⇒ tự sao lưu có thể chạy thêm một lượt. Bìa của truyện chưa lưu mở lại thì tải lại qua mạng (như trước — mỗi lần mở vốn đã ra id mới).
+- **Kiểm chứng**: `check_architecture.py` chỉ còn 1 lỗi có sẵn (`JSDom.swift` vượt baseline); chưa build (máy Windows), chưa thử trên máy.
+
 ## [1.3.761] - 2026-11-06
 
 ### feat: rule dịch viết hoa tên token chữ thì viết hoa phần nghĩa
@@ -708,31 +724,4 @@ Người dùng: *"thiết kế lại màn chi tiết cho video (kiểu như app 
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff; grep chéo mọi chỗ khởi tạo `BookContentLaunch` (chỉ `BookContentDestination`) và `fallbackBookId`. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.732] - 2026-11-05
-
-### fix: mở app là kiểm tra bản mới, bấm dòng phiên bản ở Cài đặt để kiểm tay
-
-Người dùng: *"1.3.728 tôi mở nhưng lại không báo cập nhật ver mới cho tôi"*. Chốt: kiểm mỗi lần mở app, thêm kiểm tay ở dòng phiên bản.
-
-- **Nguyên nhân** (đối chiếu giờ đăng release với code 1.3.727):
-  - `checkIfNeeded()` giãn cách **6 giờ cho mọi lần**.
-  - Mở 1.3.728 (1155, đăng 15:51) thì lần kiểm thấy nguồn cũng là 1155 ⇒ không báo, nhưng vẫn ghi `appUpdateLastCheckAt`.
-  - 1.3.730 (1156) đăng 16:23 ⇒ phải chờ 6 giờ mới tới lần kiểm kế.
-  - Lần kiểm "đang dùng bản mới nhất" không ghi log nên không soát được trên máy.
-- **`AppUpdateRepository`**:
-  - `checkOnLaunch()`: mở app (`.task` của `MainTabView`) là kiểm, **không giãn cách**.
-  - `checkOnForeground()`: quay lại app kiểm nếu lần trước đã quá **30 phút** (thay 6 giờ).
-  - `checkNow() -> CheckOutcome` (`upToDate` / `updateAvailable` / `failed`): kiểm tay.
-  - Gọi dồn khi đang có lượt đọc nguồn thì chờ chung lượt đó, không đọc chồng.
-  - `isChecking` thành thuộc tính quan sát được.
-  - Mỗi lần kiểm đều ghi log: "✅ Đang dùng bản mới nhất … (nguồn: …)" / "⬆️ Có bản mới …" / "❌ Không đọc được nguồn cập nhật".
-- **Cài đặt › Thông Tin**: dòng "Phiên bản ứng dụng" bấm được ⇒ kiểm ngay (vòng xoay thay số version khi đang kiểm).
-  - Kết quả: toast "Đang dùng bản mới nhất", hoặc "Có bản mới 1.3.NNN" + mở sheet bản mới, hoặc "Không kiểm tra được bản mới".
-- **Lưu ý**: bản 1.3.728 / 1.3.730 đang cài vẫn giữ giãn cách 6 giờ cũ; từ bản này trở đi mới kiểm khi mở app.
-- `CLAUDE.md` / `AGENTS.md`: sửa đoạn "Báo có bản mới trong app".
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy.

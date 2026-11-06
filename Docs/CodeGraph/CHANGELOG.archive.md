@@ -2,6 +2,33 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.732] - 2026-11-05
+
+### fix: mở app là kiểm tra bản mới, bấm dòng phiên bản ở Cài đặt để kiểm tay
+
+Người dùng: *"1.3.728 tôi mở nhưng lại không báo cập nhật ver mới cho tôi"*. Chốt: kiểm mỗi lần mở app, thêm kiểm tay ở dòng phiên bản.
+
+- **Nguyên nhân** (đối chiếu giờ đăng release với code 1.3.727):
+  - `checkIfNeeded()` giãn cách **6 giờ cho mọi lần**.
+  - Mở 1.3.728 (1155, đăng 15:51) thì lần kiểm thấy nguồn cũng là 1155 ⇒ không báo, nhưng vẫn ghi `appUpdateLastCheckAt`.
+  - 1.3.730 (1156) đăng 16:23 ⇒ phải chờ 6 giờ mới tới lần kiểm kế.
+  - Lần kiểm "đang dùng bản mới nhất" không ghi log nên không soát được trên máy.
+- **`AppUpdateRepository`**:
+  - `checkOnLaunch()`: mở app (`.task` của `MainTabView`) là kiểm, **không giãn cách**.
+  - `checkOnForeground()`: quay lại app kiểm nếu lần trước đã quá **30 phút** (thay 6 giờ).
+  - `checkNow() -> CheckOutcome` (`upToDate` / `updateAvailable` / `failed`): kiểm tay.
+  - Gọi dồn khi đang có lượt đọc nguồn thì chờ chung lượt đó, không đọc chồng.
+  - `isChecking` thành thuộc tính quan sát được.
+  - Mỗi lần kiểm đều ghi log: "✅ Đang dùng bản mới nhất … (nguồn: …)" / "⬆️ Có bản mới …" / "❌ Không đọc được nguồn cập nhật".
+- **Cài đặt › Thông Tin**: dòng "Phiên bản ứng dụng" bấm được ⇒ kiểm ngay (vòng xoay thay số version khi đang kiểm).
+  - Kết quả: toast "Đang dùng bản mới nhất", hoặc "Có bản mới 1.3.NNN" + mở sheet bản mới, hoặc "Không kiểm tra được bản mới".
+- **Lưu ý**: bản 1.3.728 / 1.3.730 đang cài vẫn giữ giãn cách 6 giờ cũ; từ bản này trở đi mới kiểm khi mở app.
+- `CLAUDE.md` / `AGENTS.md`: sửa đoạn "Báo có bản mới trong app".
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.731] - 2026-11-05
 
 ### feat: nhập phim nhiều tập từ file ZIP, mỗi video trong file là một tập

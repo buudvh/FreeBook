@@ -469,6 +469,7 @@ struct BookDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     BookDetailHeaderView(
                         actualBookId: actualBookId,
+                        persistsCover: localBook != nil,
                         coverUrl: coverUrl,
                         title: title,
                         author: author,

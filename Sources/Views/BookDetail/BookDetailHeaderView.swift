@@ -6,6 +6,8 @@ import SwiftUI
 /// Khối đầu phải sát thanh tab: `BookDetailView` chỉ đệm đáy cho danh sách, nên trạng thái tải/lỗi tự đệm trên.
 struct BookDetailHeaderView: View {
     let actualBookId: String
+    /// Truyện đã có trên máy ⇒ bìa ghi `covers/`; chưa lưu ⇒ chỉ RAM (`BookCoverView.persistsCover`).
+    let persistsCover: Bool
     let coverUrl: String
     let title: String
     let author: String
@@ -50,6 +52,7 @@ struct BookDetailHeaderView: View {
                     bookId: actualBookId,
                     coverUrl: coverUrl,
                     extensionPackageId: extensionPackageId,
+                    persistsCover: persistsCover,
                     title: DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)),
                     author: formattedAuthor,
                     sourceHost: sourceHost,

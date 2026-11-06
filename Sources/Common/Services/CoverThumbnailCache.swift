@@ -59,7 +59,18 @@ final class CoverThumbnailCache: @unchecked Sendable {
     static func makeThumbnail(contentsOf url: URL, pixelSize: CGSize, scale: CGFloat) -> UIImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else { return nil }
+        return makeThumbnail(source: source, pixelSize: pixelSize, scale: scale)
+    }
 
+    /// Như `makeThumbnail(contentsOf:)` nhưng từ byte trong RAM — bìa chỉ RAM của trang Chi tiết truyện chưa lưu
+    /// (`ImageCacheManager.fetchTransientCoverData`): giải mã thẳng ra cỡ khung, không qua ảnh nguyên cỡ.
+    static func makeThumbnail(data: Data, pixelSize: CGSize, scale: CGFloat) -> UIImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else { return nil }
+        return makeThumbnail(source: source, pixelSize: pixelSize, scale: scale)
+    }
+
+    private static func makeThumbnail(source: CGImageSource, pixelSize: CGSize, scale: CGFloat) -> UIImage? {
         var options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,

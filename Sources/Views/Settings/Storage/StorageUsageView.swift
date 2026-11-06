@@ -1,15 +1,21 @@
+import SwiftData
 import SwiftUI
 
 /// Màn **Dung lượng** (Cài đặt › Thư Viện, 1.3.728): app đang chiếm bao nhiêu, máy còn trống bao nhiêu, và từng loại
-/// dữ liệu xếp lớn → nhỏ (`StorageUsageScanner`). Ba loại xoá được (cache ảnh truyện tranh, file xuất, nhật ký) có
-/// nút "Xoá" kèm hộp xác nhận (`StorageUsageCleaner`); xoá xong đo lại.
+/// dữ liệu xếp lớn → nhỏ (`StorageUsageScanner`). Bốn loại xoá được (cache ảnh truyện tranh, file xuất, nhật ký, báo
+/// cáo kiểm tra) có nút "Xoá" kèm hộp xác nhận (`StorageUsageCleaner`); bìa truyện có nút "Dọn" (1.3.762): đếm bìa mồ côi
+/// + bìa quá cỡ trước, hộp xác nhận hiện số thật rồi mới dọn (`CoverCleanupCoordinator`). Xoá / dọn xong đo lại. Hàng
+/// "Tự động dọn" đầu danh sách mở lịch tự dọn (`StorageAutoCleanupSettingsView`).
 ///
 /// Số liệu nằm ở `StorageUsageRepository` (1.3.730): mở màn hiện ngay lần đo gần nhất kèm giờ đo, rồi đo lại ngầm; thoát
 /// màn giữa chừng vẫn đo tiếp. Cả cây thư mục có thể hàng chục nghìn file (đoạn HLS, ảnh comic), nên hàng "Dung lượng"
 /// ở Cài đặt không hiện số.
 struct StorageUsageView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var clearingCategory: StorageUsageCategory? = nil
     @State private var pendingClear: StorageUsageSnapshot.Entry? = nil
+    /// Bản đếm bìa đang chờ người dùng xác nhận dọn.
+    @State private var pendingCoverTrim: CoverFolderScan? = nil
 
     /// Màu riêng cho 3 loại lớn nhất (thanh + ô màu của hàng); còn lại xám. Màu cố định, không dùng màu nhấn
     /// (luật `WHITE_TINT_FILL` cấm tô nền đặc bằng `Color.accentColor`).
@@ -23,6 +29,8 @@ struct StorageUsageView: View {
     var body: some View {
         List {
             summaryCard
+                .bookListPanelRow()
+            StorageAutoCleanupRow()
                 .bookListPanelRow()
             if let snapshot {
                 ForEach(Array(snapshot.entries.enumerated()), id: \.element.id) { index, entry in
@@ -66,6 +74,18 @@ struct StorageUsageView: View {
             }
         } message: { entry in
             Text(entry.category.clearNote)
+        }
+        .confirmationDialog(
+            "Dọn bìa truyện?",
+            isPresented: Binding(get: { pendingCoverTrim != nil }, set: { if !$0 { pendingCoverTrim = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingCoverTrim
+        ) { scan in
+            Button("Dọn", role: .destructive) {
+                Task { await runCoverTrim(scan) }
+            }
+        } message: { scan in
+            Text(coverTrimMessage(scan))
         }
     }
 
@@ -134,16 +154,22 @@ struct StorageUsageView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
-            if entry.category.isClearable {
+            if entry.category.isClearable || entry.category.isTrimmable {
                 if clearingCategory == entry.category {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Button("Xoá") { pendingClear = entry }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.red)
-                        .buttonStyle(.borderless)
-                        .disabled(isScanning || clearingCategory != nil)
+                    Button(entry.category.isTrimmable ? "Dọn" : "Xoá") {
+                        if entry.category.isTrimmable {
+                            Task { await prepareCoverTrim() }
+                        } else {
+                            pendingClear = entry
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .buttonStyle(.borderless)
+                    .disabled(isScanning || clearingCategory != nil)
                 }
             }
         }
@@ -174,6 +200,61 @@ struct StorageUsageView: View {
         let freed = max(0, before - (snapshot?.bytes(of: category) ?? 0))
         ToastManager.shared.show(
             message: "Đã xoá \(category.title.lowercased()) (\(StorageUsageSnapshot.format(freed)))",
+            type: .success,
+            recordsInInbox: false
+        )
+    }
+
+    // MARK: - Dọn bìa
+
+    /// Bấm "Dọn": đếm bìa mồ côi + bìa quá cỡ (vòng xoay trên hàng), có việc thì mở hộp xác nhận với số thật.
+    @MainActor
+    private func prepareCoverTrim() async {
+        guard clearingCategory == nil else { return }
+        guard !BackupCoordinator.shared.isBusy else {
+            ToastManager.shared.show(message: "Đang sao lưu hoặc khôi phục, dọn bìa sau nhé", type: .info, recordsInInbox: false)
+            return
+        }
+        clearingCategory = .covers
+        let scan = await CoverCleanupCoordinator.preview(container: modelContext.container, includeOversized: true)
+        clearingCategory = nil
+        guard let scan else {
+            ToastManager.shared.show(message: "Không đọc được thư viện, chưa dọn bìa nào", type: .error, recordsInInbox: false)
+            return
+        }
+        guard !scan.isEmpty else {
+            ToastManager.shared.show(message: "Bìa truyện đã gọn", type: .info, recordsInInbox: false)
+            return
+        }
+        pendingCoverTrim = scan
+    }
+
+    private func coverTrimMessage(_ scan: CoverFolderScan) -> String {
+        var lines: [String] = []
+        if scan.orphanCount > 0 {
+            lines.append("\(scan.orphanCount) bìa không còn truyện nào · \(StorageUsageSnapshot.format(scan.orphanBytes))")
+        }
+        if scan.oversizedCount > 0 {
+            lines.append("\(scan.oversizedCount) bìa đang dùng lớn quá cỡ (\(StorageUsageSnapshot.format(scan.oversizedBytes))) sẽ thu nhỏ")
+        }
+        lines.append("Bìa của truyện còn trong thư viện không bị xoá.")
+        return lines.joined(separator: "\n")
+    }
+
+    @MainActor
+    private func runCoverTrim(_ scan: CoverFolderScan) async {
+        let before = snapshot?.bytes(of: .covers) ?? 0
+        clearingCategory = .covers
+        let result = await CoverCleanupCoordinator.run(scan, container: modelContext.container)
+        await repository.refreshAfterChange()
+        clearingCategory = nil
+        guard result != nil else {
+            ToastManager.shared.show(message: "Chưa dọn được bìa, thử lại sau", type: .error, recordsInInbox: false)
+            return
+        }
+        let freed = max(0, before - (snapshot?.bytes(of: .covers) ?? 0))
+        ToastManager.shared.show(
+            message: "Đã dọn bìa truyện (\(StorageUsageSnapshot.format(freed)))",
             type: .success,
             recordsInInbox: false
         )

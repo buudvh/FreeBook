@@ -8,6 +8,9 @@ import Foundation
 /// - Nhật ký ⇒ `AppLogger.shared.clear()`.
 /// - Báo cáo kiểm tra ⇒ `CheckReportRepository.deleteAll` (chừa lượt đang chạy; trang Báo cáo kiểm tra đọc lại luôn).
 ///
+/// Lịch tự động dọn (`StorageAutoCleanupCoordinator`, 1.3.762) cũng gọi vào đây cho các mục này. Bìa truyện **không** đi
+/// qua đây (chỉ dọn mồ côi / thu nhỏ, không xoá cả loại) — xem `CoverCleanupCoordinator`.
+///
 /// Không báo toast (Services không gọi `ToastManager`); màn gọi đo lại rồi tự báo.
 public enum StorageUsageCleaner {
     @MainActor

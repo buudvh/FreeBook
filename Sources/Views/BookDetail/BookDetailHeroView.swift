@@ -8,11 +8,14 @@ import SwiftUI
 /// dựng dọc (phim không mở màn này nên không còn đoán bìa ngang).
 ///
 /// Cả hai lớp bìa đều là `BookCoverView` theo `bookId` (cùng file `covers/`, `ImageCacheManager` gộp lượt tải trùng).
-/// Lớp nền dựng thumbnail nhỏ rồi phóng: đã làm mờ thì không cần ảnh to.
+/// Lớp nền dựng thumbnail nhỏ rồi phóng: đã làm mờ thì không cần ảnh to. Truyện chưa lưu (`persistsCover == false`) thì
+/// cả hai chỉ giữ bìa trong RAM, không ghi `covers/` (1.3.762).
 struct BookDetailHeroView: View {
     let bookId: String
     let coverUrl: String
     let extensionPackageId: String
+    /// Truyện đã có trên máy (`BookDetailView.localBook`) ⇒ ghi bìa xuống `covers/`; chưa lưu ⇒ chỉ RAM.
+    let persistsCover: Bool
     /// Tên đã dịch + in hoa đầu từ.
     let title: String
     /// Tác giả đã dịch + in hoa đầu từ; rỗng ⇒ không có chip tác giả.
@@ -98,6 +101,7 @@ struct BookDetailHeroView: View {
                             width: proxy.size.width,
                             height: proxy.size.height,
                             extensionPackageId: extensionPackageId,
+                            persistsCover: persistsCover,
                             onImageSize: updateImageAspect
                         )
                     }
@@ -126,7 +130,8 @@ struct BookDetailHeroView: View {
                     coverUrl: coverUrl,
                     width: Self.backdropSize.width,
                     height: Self.backdropSize.height,
-                    extensionPackageId: extensionPackageId
+                    extensionPackageId: extensionPackageId,
+                    persistsCover: persistsCover
                 )
                 // Làm mờ ở cỡ thumbnail **rồi** mới phóng: `scaleEffect` không đổi khung layout (vẫn 40×56), làm mờ
                 // sau khi phóng có thể chỉ phủ đúng khung nhỏ đó ở góc trên-trái.

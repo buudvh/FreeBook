@@ -145,6 +145,11 @@ struct MainTabView: View {
         .task(priority: .utility) {
             await Task.detached(priority: .utility) { CheckReportStore.pruneAll() }.value
         }
+        // Lịch tự động dọn dung lượng (1.3.762; mặc định bật, chỉ bìa truyện, mỗi ngày sau 03:00): tự hoãn ~45 s và chờ
+        // sao lưu / khôi phục xong. Chạy im lặng — kết quả xem ở Cài đặt › Thư Viện › Dung lượng › Tự động dọn.
+        .task(priority: .utility) {
+            _ = await StorageAutoCleanupCoordinator.runIfDue(container: modelContext.container)
+        }
         // Có bản app mới không (`apps.json` của nguồn LiveContainer): mở app là kiểm, không giãn cách (1.3.732).
         .task(priority: .utility) {
             await AppUpdateRepository.shared.checkOnLaunch()

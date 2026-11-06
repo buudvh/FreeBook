@@ -4,8 +4,9 @@ import Foundation
 /// ghi (xem mục lưu trữ của `CLAUDE.md`). Thêm thư mục dữ liệu mới thì thêm vào đây, không thì nó rơi vào `other`.
 ///
 /// `other` = tổng thư mục nhà của app trừ các loại đã liệt kê (WebKit, `tmp`, cache khác, trí nhớ AI…) ⇒ tổng trên màn
-/// luôn khớp dung lượng thật. Chỉ bốn loại xoá được (`isClearable`): tải lại được, chỉ là bản sao để chia sẻ, hoặc chỉ
-/// để tìm lỗi (log, báo cáo kiểm tra).
+/// luôn khớp dung lượng thật. Chỉ bốn loại xoá cả loại được (`isClearable`): tải lại được, chỉ là bản sao để chia sẻ,
+/// hoặc chỉ để tìm lỗi (log, báo cáo kiểm tra). Bìa truyện thì chỉ **dọn** (`isTrimmable`, 1.3.762): xoá bìa mồ côi +
+/// thu nhỏ bìa quá cỡ qua `CoverCleanupCoordinator`, không bao giờ xoá bìa của truyện còn trong thư viện.
 public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, Codable {
     case books
     case videos
@@ -65,6 +66,9 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         default: return false
         }
     }
+
+    /// Có nút "Dọn" (đếm trước rồi hỏi) thay cho "Xoá": chỉ bìa truyện.
+    public var isTrimmable: Bool { self == .covers }
 
     /// Lời nhắc của hộp xác nhận xoá (chỉ loại xoá được).
     public var clearNote: String {

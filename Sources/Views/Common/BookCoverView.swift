@@ -10,6 +10,10 @@ struct BookCoverView: View {
     var host: String? = nil
     /// Tiện ích nguồn. Rỗng (sách local, chỗ gọi không biết nguồn) ⇒ chỉ tải được bìa tuyệt đối, không `Referer`.
     var extensionPackageId: String = ""
+    /// `false` ⇒ bìa tải về chỉ giữ trong RAM của view (1.3.762) — trang Chi tiết của truyện chưa lưu, `bookId` ngẫu nhiên
+    /// mỗi lần mở: ghi `covers/` là thành file mồ côi vĩnh viễn. Không ghi đĩa, không vào cache thumbnail dùng chung.
+    /// Đổi sang `true` (truyện vừa được lưu) ⇒ `.task` chạy lại, tải + ghi file như thường.
+    var persistsCover: Bool = true
     /// Báo kích thước (điểm) của ảnh bìa mỗi khi ảnh hiển thị đổi — thumbnail giữ tỉ lệ ảnh gốc, nên nơi dùng biết
     /// bìa ngang hay dọc (`BookDetailHeroView`). `nil` ở mọi chỗ khác.
     var onImageSize: ((CGSize) -> Void)? = nil
@@ -18,8 +22,9 @@ struct BookCoverView: View {
     @State private var localImage: UIImage? = nil
     /// bookId đã kiểm tra đĩa xong (có hay không có file). Chưa khớp `bookId` = đang kiểm tra.
     @State private var checkedBookId: String? = nil
-    /// bookId đang có lượt tải bìa do view này khởi động — đổi cỡ khung chạy lại `.task` không tải lần hai.
-    @State private var downloadingBookId: String? = nil
+    /// "bookId|persistsCover" của lượt tải bìa do view này khởi động — đổi cỡ khung chạy lại `.task` không tải lần hai,
+    /// còn đổi sang lưu đĩa thì vẫn tải được dù lượt chỉ RAM chưa xong.
+    @State private var downloadingKey: String? = nil
     /// bookId mà view đang hiển thị, đọc qua @State nên luôn mới — closure của `.task`/`Task`
     /// giữ bản sao struct cũ, so với `bookId` trong đó sẽ không phát hiện được sách đã đổi.
     @State private var activeBookId: String? = nil
@@ -50,7 +55,7 @@ struct BookCoverView: View {
             }
         }
         // Khóa theo cả cỡ pixel: khung đổi cỡ (xoay ngang/dọc) thì dựng lại thumbnail đúng cỡ, không kéo giãn ảnh nhỏ.
-        .task(id: "\(bookId)|\(Int(pixelSize.width))x\(Int(pixelSize.height))") {
+        .task(id: "\(bookId)|\(Int(pixelSize.width))x\(Int(pixelSize.height))|\(persistsCover)") {
             await loadLocalImage()
         }
     }
@@ -102,7 +107,11 @@ struct BookCoverView: View {
         }.value
         // Task bị hủy (đổi cỡ/đổi sách): bỏ kết quả cũ để không đè thumbnail sai cỡ của lượt mới.
         guard !Task.isCancelled, requestedId == activeBookId else { return }
-        localImage = image
+        // Đĩa chưa có file mà đang hiện bìa của chính sách này (bìa chỉ RAM, vừa đổi sang lưu đĩa / đổi cỡ khung) ⇒ giữ
+        // ảnh đang hiện tới khi lượt tải xong, khỏi nháy placeholder.
+        if image != nil || checkedBookId != requestedId {
+            localImage = image
+        }
         checkedBookId = requestedId
 
         // Nếu chưa có local, có thể tải ngầm luôn nếu có URL hợp lệ
@@ -111,22 +120,27 @@ struct BookCoverView: View {
         }
     }
 
-    /// `ImageCacheManager` đã gộp lượt tải trùng bookId; cờ `downloadingBookId` chặn `.task` chạy lại (đổi cỡ
+    /// `ImageCacheManager` đã gộp lượt tải trùng bookId; cờ `downloadingKey` chặn `.task` chạy lại (đổi cỡ
     /// khung) xếp thêm lượt chờ khi lượt trước còn đang bay.
     @MainActor
     private func downloadCover(for requestedId: String) async {
         let urlStr = CoverRequestResolver.displayURL(coverUrl, itemHost: host, packageId: extensionPackageId)
-        guard !urlStr.isEmpty, downloadingBookId != requestedId else { return }
-        downloadingBookId = requestedId
+        let key = "\(requestedId)|\(persistsCover)"
+        guard !urlStr.isEmpty, downloadingKey != key else { return }
+        downloadingKey = key
+        defer {
+            if downloadingKey == key { downloadingKey = nil }
+        }
         let referer = CoverRequestResolver.referer(itemHost: host, packageId: extensionPackageId)
+        guard persistsCover else {
+            await showTransientCover(for: requestedId, urlStr: urlStr, referer: referer)
+            return
+        }
         let downloaded: UIImage? = await withCheckedContinuation { continuation in
             ImageCacheManager.shared.downloadAndSaveCover(urlStr: urlStr, bookId: requestedId, referer: referer,
                                                           packageId: extensionPackageId) { image in
                 continuation.resume(returning: image)
             }
-        }
-        if downloadingBookId == requestedId {
-            downloadingBookId = nil
         }
         guard let downloaded, requestedId == activeBookId else { return }
 
@@ -138,6 +152,28 @@ struct BookCoverView: View {
         }.value
         guard requestedId == activeBookId else { return }
         localImage = thumbnail ?? downloaded
+        checkedBookId = requestedId
+    }
+
+    /// Bìa chỉ RAM (`persistsCover == false`): giải mã thẳng byte tải về ra thumbnail đúng cỡ khung ở luồng nền — không
+    /// ghi `covers/`, không cất vào cache thumbnail dùng chung (lướt nhiều truyện không đẩy bìa trên Kệ ra khỏi cache).
+    @MainActor
+    private func showTransientCover(for requestedId: String, urlStr: String, referer: String?) async {
+        let packageId = extensionPackageId
+        let data: Data? = await withCheckedContinuation { continuation in
+            ImageCacheManager.shared.fetchTransientCoverData(urlStr: urlStr, bookId: requestedId, referer: referer,
+                                                             packageId: packageId) { data in
+                continuation.resume(returning: data)
+            }
+        }
+        guard let data, requestedId == activeBookId else { return }
+        let size = pixelSize
+        let scale = displayScale
+        let thumbnail = await Task.detached(priority: .userInitiated) {
+            CoverThumbnailCache.makeThumbnail(data: data, pixelSize: size, scale: scale)
+        }.value
+        guard let thumbnail, requestedId == activeBookId else { return }
+        localImage = thumbnail
         checkedBookId = requestedId
     }
 }

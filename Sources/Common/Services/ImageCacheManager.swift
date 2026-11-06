@@ -5,10 +5,11 @@ import CryptoKit
 public final class ImageCacheManager: @unchecked Sendable {
     public static let shared = ImageCacheManager()
 
-    private let fileManager = FileManager.default
+    /// `internal` (không `private`) cho các phần `ImageCacheManager+…` ở file khác — vẫn chỉ owner này đụng `covers/`.
+    let fileManager = FileManager.default
 
     /// Tính một lần lúc khởi tạo (trước đây mỗi lần truy cập lại gọi `urls(for:)` + `fileExists`).
-    private let coversDirectory: URL
+    let coversDirectory: URL
     /// Gốc đã chuẩn hoá của `coversDirectory` cho `validatePathSafety`, khỏi resolve symlink lại mỗi lần.
     private let canonicalRootComponents: [String]
     /// Thumbnail đã giải mã cho `BookCoverView`; xoá ở mọi chỗ ghi/xoá `covers/<sha>.jpg`.
@@ -22,6 +23,16 @@ public final class ImageCacheManager: @unchecked Sendable {
     private var validatedCoverURLs: [String: URL] = [:]
     /// bookId → các completion đang chờ chung một lượt tải bìa.
     private var inFlightDownloads: [String: [(UIImage?) -> Void]] = [:]
+    /// bookId → các completion đang chờ chung một lượt tải bìa **chỉ RAM** (`fetchTransientCoverData`).
+    private var inFlightTransientFetches: [String: [(Data?) -> Void]] = [:]
+    /// Byte bìa chỉ RAM vừa tải (trang Chi tiết của truyện chưa lưu): bìa lớn và nền mờ dùng chung, đổi cỡ khung không
+    /// tải lại. Vài trang gần nhất, iOS tự nhả khi thiếu bộ nhớ.
+    private let transientCoverData: NSCache<NSString, NSData> = {
+        let cache = NSCache<NSString, NSData>()
+        cache.countLimit = 8
+        cache.totalCostLimit = 8 * 1024 * 1024
+        return cache
+    }()
 
     private static let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)
 
@@ -43,7 +54,7 @@ public final class ImageCacheManager: @unchecked Sendable {
     }
 
     /// Hex chữ thường qua bảng tra — cùng kết quả byte-for-byte với `String(format: "%02x")`.
-    private func sha256Hex(_ string: String) -> String {
+    func sha256Hex(_ string: String) -> String {
         let inputData = Data(string.utf8)
         let hashed = SHA256.hash(data: inputData)
         var hexBytes = [UInt8]()
@@ -55,17 +66,17 @@ public final class ImageCacheManager: @unchecked Sendable {
         return String(decoding: hexBytes, as: UTF8.self)
     }
 
-    private func getNewFileName(for bookId: String) -> String {
+    func getNewFileName(for bookId: String) -> String {
         return sha256Hex(bookId) + ".jpg"
     }
 
-    private func getLegacyFileName(for bookId: String) -> String {
+    func getLegacyFileName(for bookId: String) -> String {
         // Sanitize bookId to be a safe filename by replacing non-alphanumeric characters with underscores
         let safeName = bookId.replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
         return "\(safeName).jpg"
     }
 
-    private func validatePathSafety(for targetURL: URL) throws {
+    func validatePathSafety(for targetURL: URL) throws {
         let canonicalTarget = targetURL.standardized.resolvingSymlinksInPath()
         guard canonicalTarget.pathComponents.starts(with: canonicalRootComponents) else {
             throw NSError(domain: "SecurityError", code: 403, userInfo: [NSLocalizedDescriptionKey: "Truy cập file ngoài thư mục Sandbox bị từ chối."])
@@ -221,35 +232,22 @@ public final class ImageCacheManager: @unchecked Sendable {
     }
 
     /// Ghi ảnh bìa do người dùng chọn từ máy vào đúng chỗ mà `loadLocalCover` đọc.
-    /// Ảnh được thu nhỏ về cạnh dài ≤ `maxDimension` px rồi nén JPEG để không phình thư mục `covers/`.
+    /// Ảnh được thu nhỏ về cạnh dài ≤ `maxDimension` **pixel** rồi nén JPEG (`CoverImageEncoder`) để không phình `covers/`.
     @discardableResult
     public func saveCover(data: Data, for bookId: String, maxDimension: CGFloat = 1024, quality: CGFloat = 0.85) -> UIImage? {
-        guard let image = UIImage(data: data) else { return nil }
-        let resized = downscaled(image, maxDimension: maxDimension)
-        guard let jpegData = resized.jpegData(compressionQuality: quality) else { return nil }
+        guard let encoded = CoverImageEncoder.encode(data, maxPixelSize: Int(maxDimension), quality: quality) else { return nil }
 
         ensureCoversDirectory()
         let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
         do {
             try validatePathSafety(for: destinationURL)
-            try jpegData.write(to: destinationURL, options: .atomic)
+            try encoded.jpeg.write(to: destinationURL, options: .atomic)
             invalidateCover(for: bookId)
             AppLogger.shared.log("💾 Đã lưu ảnh bìa do người dùng chọn cho sách: \(bookId)")
-            return resized
+            return encoded.image
         } catch {
             AppLogger.shared.log("❌ Lỗi ghi ảnh bìa người dùng chọn: \(error.localizedDescription)")
             return nil
-        }
-    }
-
-    private func downscaled(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let longestSide = max(image.size.width, image.size.height)
-        guard longestSide > maxDimension, longestSide > 0 else { return image }
-        let scale = maxDimension / longestSide
-        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 
@@ -284,44 +282,86 @@ public final class ImageCacheManager: @unchecked Sendable {
         inFlightDownloads[bookId] = [completion]
         stateLock.unlock()
 
+        fetchCoverBytes(url: url, urlStr: urlStr, referer: referer, packageId: packageId) { data in
+            guard let data else {
+                self.finishDownload(for: bookId, image: nil)
+                return
+            }
+            self.storeDownloadedCover(data, bookId: bookId, destinationURL: destinationURL)
+        }
+    }
+
+    /// Tải bìa **chỉ giữ trong RAM** (1.3.762) cho trang Chi tiết của truyện chưa lưu: `bookId` của nó ngẫu nhiên mỗi
+    /// lần mở, ghi `covers/` là thành file mồ côi vĩnh viễn. Trả byte ảnh (đã giải mã `coverDecodeJs` nếu có) qua
+    /// `completion` trên luồng nền; caller tự dựng thumbnail. Không ghi đĩa, không vào cache thumbnail dùng chung.
+    /// Lượt trùng `bookId` (bìa lớn + nền mờ) gộp chung; byte vừa tải giữ ở `transientCoverData` cho lần đổi cỡ khung.
+    public func fetchTransientCoverData(urlStr: String, bookId: String, referer: String? = nil, packageId: String? = nil, completion: @escaping (Data?) -> Void) {
+        if let cached = transientCoverData.object(forKey: bookId as NSString) {
+            completion(cached as Data)
+            return
+        }
+        guard !urlStr.isEmpty, let url = URL(string: urlStr), url.scheme != nil else {
+            completion(nil)
+            return
+        }
+
+        stateLock.lock()
+        if inFlightTransientFetches[bookId] != nil {
+            inFlightTransientFetches[bookId]?.append(completion)
+            stateLock.unlock()
+            return
+        }
+        inFlightTransientFetches[bookId] = [completion]
+        stateLock.unlock()
+
+        fetchCoverBytes(url: url, urlStr: urlStr, referer: referer, packageId: packageId) { data in
+            if let data {
+                self.transientCoverData.setObject(data as NSData, forKey: bookId as NSString, cost: data.count)
+            }
+            self.stateLock.lock()
+            let waiters = self.inFlightTransientFetches.removeValue(forKey: bookId) ?? []
+            self.stateLock.unlock()
+            for waiter in waiters {
+                waiter(data)
+            }
+        }
+    }
+
+    /// Một lượt tải byte bìa (kèm `Referer` + UA) rồi giải mã `coverDecodeJs` của nguồn Legado nếu có. `nil` khi lỗi
+    /// mạng / HTTP không 2xx. `completion` chạy trên luồng nền.
+    private func fetchCoverBytes(url: URL, urlStr: String, referer: String?, packageId: String?, completion: @escaping @Sendable (Data?) -> Void) {
         let request = CoverRequestResolver.request(for: url, referer: referer, timeout: 30)
         URLSession.shared.dataTask(with: request) { data, response, error in
             let statusOK = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? true
             guard let data = data, error == nil, statusOK else {
-                self.finishDownload(for: bookId, image: nil)
+                completion(nil)
                 return
             }
             // Tra ở queue của URLSession (lần đầu có thể đọc `source.json` của nguồn), không trên main.
             if let plan = LegadoCoverDecoder.shared.plan(url: urlStr, packageId: packageId) {
                 Task.detached(priority: .utility) {
-                    let decoded = await LegadoCoverDecoder.shared.decode(data, plan: plan)
-                    self.storeDownloadedCover(decoded, bookId: bookId, destinationURL: destinationURL)
+                    completion(await LegadoCoverDecoder.shared.decode(data, plan: plan))
                 }
                 return
             }
-            self.storeDownloadedCover(data, bookId: bookId, destinationURL: destinationURL)
+            completion(data)
         }.resume()
     }
 
-    /// Dựng ảnh từ byte đã tải (đã giải mã nếu cần), ghi `covers/<sha>.jpg` rồi trả cho mọi completion đang chờ.
+    /// Thu nhỏ + nén byte đã tải (`CoverImageEncoder`, cạnh dài ≤ 1024 px), ghi `covers/<sha>.jpg` rồi trả cho mọi
+    /// completion đang chờ. Trước 1.3.762 ghi nguyên cỡ — nguồn trả bìa lớn thì mỗi file vài trăm KB.
     private func storeDownloadedCover(_ data: Data, bookId: String, destinationURL: URL) {
-        guard let image = UIImage(data: data) else {
+        guard let encoded = CoverImageEncoder.encode(data) else {
             finishDownload(for: bookId, image: nil)
             return
         }
-
-        // Nén ảnh JPEG ở mức chất lượng 80% để tiết kiệm tài nguyên bộ nhớ
-        if let jpegData = image.jpegData(compressionQuality: 0.8) {
-            do {
-                try jpegData.write(to: destinationURL, options: .atomic)
-                invalidateCover(for: bookId)
-                AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
-                finishDownload(for: bookId, image: image)
-            } catch {
-                AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
-                finishDownload(for: bookId, image: nil)
-            }
-        } else {
+        do {
+            try encoded.jpeg.write(to: destinationURL, options: .atomic)
+            invalidateCover(for: bookId)
+            AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
+            finishDownload(for: bookId, image: encoded.image)
+        } catch {
+            AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
             finishDownload(for: bookId, image: nil)
         }
     }
