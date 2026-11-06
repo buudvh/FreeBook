@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.753",
+          "buildVersion": "1168",
+          "date": "2026-11-06T06:19:52Z",
+          "localizedDescription": "- fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1168/TangCongCac-1.3.753-1168.ipa",
+          "size": 37847220,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.752",
           "buildVersion": "1167",
           "date": "2026-11-06T05:30:08Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1164/TangCongCac-1.3.749-1164.ipa",
           "size": 37793742,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.748",
-          "buildVersion": "1163",
-          "date": "2026-11-06T04:55:49Z",
-          "localizedDescription": "- feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1163/TangCongCac-1.3.748-1163.ipa",
-          "size": 37799906,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.752",
-      "versionDate": "2026-11-06T05:30:08Z",
-      "versionDescription": "- feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài\n- feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục\n- feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống\n- feat: nhập kho tiện ích chỉ cần link, tên kho lấy từ metadata của plugin.json",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1167/TangCongCac-1.3.752-1167.ipa",
-      "size": 37840229,
+      "version": "1.3.753",
+      "versionDate": "2026-11-06T06:19:52Z",
+      "versionDescription": "- fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1168/TangCongCac-1.3.753-1168.ipa",
+      "size": 37847220,
       "appPermissions": {}
     }
   ],
