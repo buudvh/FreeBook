@@ -77,7 +77,6 @@ struct BookDetailView: View {
 
     // Cấu hình tab và FAB
     @State internal var selectedTab = 0
-    @State private var isMenuExpanded = false
     @State internal var loadingTask: Task<Void, Never>? = nil
     /// Truyện vừa được đưa lên kệ, đang chờ người dùng chọn bộ sưu tập (chọn hay không đều được).
     @State internal var collectionPickerBook: Book? = nil
@@ -690,137 +689,26 @@ struct BookDetailView: View {
 
 
 
-    @ViewBuilder
+    /// Nút "+" nổi + menu xổ (Đọc / kệ / Tải / Xuất / Về trang gốc) — `BookDetailFloatingActions`.
     private var floatingActionButton: some View {
-        let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (ChapterStoreConfiguration.enableSwiftDataTOCWrite ? (localBook?.chapters.count ?? onlineChapters.count) : onlineChapters.count)
-        if totalChaps > 0 {
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        if isMenuExpanded {
-                            let activeChapterIndex = localBook?.currentChapterIndex ?? 0
-                            Button(action: {
-                                isMenuExpanded = false
-                                startReading(at: activeChapterIndex)
-                            }) {
-                                HStack {
-                                    Text(readActionTitle(isResuming: localBook != nil))
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                    Image(systemName: localBook == nil ? "play.fill" : "book.fill")
-                                        .resizable()
-                                        .frame(width: 16, height: 16)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color(white: 0.22))
-                                .foregroundColor(.white)
-                                .cornerRadius(20)
-                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                .shadow(radius: 3)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-
-                            Button(action: {
-                                isMenuExpanded = false
-                                if let book = localBook, book.isOnShelf {
-                                    removeFromShelf(book)
-                                } else {
-                                    addToShelf()
-                                }
-                            }) {
-                                HStack {
-                                    Text(localBook?.isOnShelf == true ? "Đã ở kệ" : "Thêm vào kệ")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                    Image(systemName: localBook?.isOnShelf == true ? "checkmark.circle.fill" : "plus.circle.fill")
-                                        .resizable()
-                                        .frame(width: 16, height: 16)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(localBook?.isOnShelf == true ? Color(red: 0.15, green: 0.45, blue: 0.25) : Color(white: 0.22))
-                                .foregroundColor(.white)
-                                .cornerRadius(20)
-                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                .shadow(radius: 3)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-
-                            if let downloadTitle = downloadActionTitle {
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    prepareForTask(taskType: .download)
-                                }) {
-                                    HStack {
-                                        Text(downloadTitle)
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: "arrow.down.circle.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color(white: 0.22))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                            }
-
-                            if showsExport {
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    prepareForTask(taskType: .exportTxt)
-                                }) {
-                                    HStack {
-                                        Text(exportActionTitle)
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: "square.and.arrow.up.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color(white: 0.22))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.35), lineWidth: 1))
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                        }
-
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                isMenuExpanded.toggle()
-                            }
-                        }) {
-                            Image(systemName: "plus")
-                                .resizable()
-                                .frame(width: 20, height: 20)
-                                .foregroundColor(.white)
-                                .padding(16)
-                                .background(Color(white: 0.22))
-                                .clipShape(Circle())
-                                .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
-                                .shadow(radius: 5)
-                                .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
-                        }
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+        BookDetailFloatingActions(
+            hasChapters: totalChaptersCount > 0,
+            readTitle: readActionTitle(isResuming: localBook != nil),
+            readSystemImage: localBook == nil ? "play.fill" : "book.fill",
+            isOnShelf: localBook?.isOnShelf == true,
+            downloadTitle: downloadActionTitle,
+            exportTitle: showsExport ? exportActionTitle : nil,
+            onRead: { startReading(at: localBook?.currentChapterIndex ?? 0) },
+            onToggleShelf: {
+                if let book = localBook, book.isOnShelf {
+                    removeFromShelf(book)
+                } else {
+                    addToShelf()
                 }
-            }
-            .floatingHomeHostedByPage() // FAB riêng giữ chỗ nút Home nổi (tiêu đề không vẽ Home đè lên)
-        }
+            },
+            onDownload: { prepareForTask(taskType: .download) },
+            onExport: { prepareForTask(taskType: .exportTxt) }
+        )
     }
 
 

@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.742] - 2026-11-05
+
+### feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc
+
+Plan đợt 2 trình phát video, mục 5 (anh Bửu đã duyệt).
+
+- **`VideoPlayerController.toggleFullscreenForVideoShape()`** (nút "Toàn màn" của `VideoPlayerBottomBar` ở màn dọc): đọc `player.currentItem.presentationSize` lúc bấm.
+  - Ngang (rộng > cao) ⇒ `rotate(currentlyLandscape: false)`: xoay ngang như nút Xoay.
+  - Dọc hoặc vuông ⇒ toàn màn dọc như cũ (`togglePortraitFullscreen`).
+  - Chưa biết khung (đang tải, trang nhúng — kích thước 0) ⇒ xoay ngang, vì phần lớn phim là ngang.
+  - Đang toàn màn dọc ⇒ nút là "Thoát toàn màn" như cũ.
+  - Log thường `🎬 [VideoPlayer] Toàn màn: …` ghi khung + lựa chọn.
+- Nút Xoay giữ nguyên.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: "Toàn màn" với phim ngang (xoay ngang) và phim dọc (giữ dọc), lúc đang khoá xoay.
+
 ## [1.3.741] - 2026-11-05
 
 ### feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.772] - 2026-11-07
+
+### feat: nút + của Chi tiết theo cấu hình nút nổi, Home nằm trong menu xổ của nút +
+
+Người dùng: *"Cho phép nút home, các nút + (kể cả nút + của detail) hiển thị UI theo config nút nổi (ở cài đặt giao diện)"*.
+
+- Nút "+" nổi của Chi tiết truyện (nút tròn + pill Đọc / Thêm vào kệ / Tải / Xuất) đổi sang **nền kính** theo cấu hình nút nổi ở Cài đặt › Giao diện (độ trong suốt / độ đục), canh lề 16 / 12 như nút "+" chung; "Đã ở kệ" là viền + icon xanh thay cho nền xanh đặc; pill canh phải nên nút không xê dịch khi mở menu.
+- Chi tiết đủ điều kiện nút Home (trang đẩy vào trong tab Kệ / Khám phá / Tiện ích, hoặc mở từ màn xem phim): thêm pill "Về trang gốc" dưới cùng menu; chưa có mục lục (đang tải / lỗi) thì còn nút Home tròn ở góc.
+- Tách FAB khỏi `BookDetailView` sang `BookDetailFloatingActions` (1177 → 1066 dòng), dùng chung `FloatingActionMenu` với nút "+" của màn danh sách. Các nút "+" nổi khác vốn đã dùng `FloatingGlassBackground`; nút "+" trên header không phải nút nổi nên giữ nguyên.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: chạm trúng pill của menu xổ.
+
 ## [1.3.771] - 2026-11-07
 
 ### feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab
@@ -565,21 +576,3 @@ Plan đợt 2 trình phát video, mục 6 (anh Bửu đã duyệt).
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: chọn 720p ở phim A, mở phim B cùng tiện ích ⇒ 720p hoặc mức thấp hơn gần nhất, không có thì Tự động; tắt app mở lại vẫn nhớ.
-
-## [1.3.742] - 2026-11-05
-
-### feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc
-
-Plan đợt 2 trình phát video, mục 5 (anh Bửu đã duyệt).
-
-- **`VideoPlayerController.toggleFullscreenForVideoShape()`** (nút "Toàn màn" của `VideoPlayerBottomBar` ở màn dọc): đọc `player.currentItem.presentationSize` lúc bấm.
-  - Ngang (rộng > cao) ⇒ `rotate(currentlyLandscape: false)`: xoay ngang như nút Xoay.
-  - Dọc hoặc vuông ⇒ toàn màn dọc như cũ (`togglePortraitFullscreen`).
-  - Chưa biết khung (đang tải, trang nhúng — kích thước 0) ⇒ xoay ngang, vì phần lớn phim là ngang.
-  - Đang toàn màn dọc ⇒ nút là "Thoát toàn màn" như cũ.
-  - Log thường `🎬 [VideoPlayer] Toàn màn: …` ghi khung + lựa chọn.
-- Nút Xoay giữ nguyên.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: "Toàn màn" với phim ngang (xoay ngang) và phim dọc (giữ dọc), lúc đang khoá xoay.
