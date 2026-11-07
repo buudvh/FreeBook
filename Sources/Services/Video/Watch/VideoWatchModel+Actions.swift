@@ -97,20 +97,12 @@ extension VideoWatchModel {
 
     // MARK: - Home
 
-    /// Phần dịch vụ của nút Home (View lo đóng màn + chuyển tab sau đó):
-    /// 1. Phim **đang phát** là 18+ (`RepositoryFilterPolicy.isNsfwBook`) ⇒ dừng hẳn — tắt NSFW xong hub ẩn mục Video của
-    ///    nguồn NSFW, để chạy nền là không còn chỗ điều khiển. Phim thường ⇒ View thu nhỏ, phim phát tiếp ở hub.
-    /// 2. Công tắc NSFW chung đang bật ⇒ tắt.
+    /// Phần dịch vụ của nút Home (View đóng màn **trước** — thu nhỏ, phim phát tiếp ở hub — rồi mới gọi hàm này, sau đó
+    /// chuyển tab): luật chung `VideoLeaveToHubCoordinator.applyLeaveRules` — phim 18+ đang phát **không dừng** nữa mà tắt
+    /// tiếng theo `VideoMutePolicy`; công tắc NSFW đang bật ⇒ tắt.
     func prepareGoHome() {
-        if let playing = session.launch,
-           RepositoryFilterPolicy.isNsfwBook(bookId: playing.bookId, packageId: playing.extensionPackageId) {
-            AppLogger.shared.log("🏠 [VideoWatch] Nút Home: phim đang phát là 18+ ⇒ dừng hẳn")
-            session.stop()
-        }
-        if RepositoryFilterPolicy.includesNsfwPreference {
-            AppLogger.shared.log("🏠 [VideoWatch] Nút Home: tắt công tắc NSFW")
-            UserDefaults.standard.set(false, forKey: RepositoryFilterPolicy.includeNsfwDefaultsKey)
-        }
+        AppLogger.shared.log("🏠 [VideoWatch] Nút Home: áp luật chung về Home")
+        VideoLeaveToHubCoordinator.shared.applyLeaveRules(source: "Nút Home")
     }
 
     // MARK: - Dịch

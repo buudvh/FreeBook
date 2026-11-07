@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.739] - 2026-11-05
+
+### fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình
+
+Người dùng: xem phim → bật PiP → tắt PiP ⇒ **mất cả hub** tới khi tắt app mở lại (có lúc thấy widget hiện trong khung PiP).
+
+- **Nguyên nhân nhiều khả năng nhất** (đọc code, chưa xác nhận trên máy):
+  - Bật PiP thì iOS (trong LiveContainer) có thể nối thêm một `UIWindowScene` cũng báo `didActivate`.
+  - `handleSceneDidActivate` của các window manager chuyển cửa sổ nổi sang **bất kỳ** scene nào báo `didActivate`; `activeWindowScene` lấy scene active **đầu tiên** của một `Set` không thứ tự.
+  - ⇒ Hub bị chuyển sang scene của PiP. Tắt PiP thì scene đó mất, không còn gì gọi `refreshState` (app không rời `.active`, cờ ẩn không đổi, scene chính không báo `didActivate` lại).
+- **`AppMainWindowScene`** (mới, `Sources/Common/Utils/`): chọn scene chứa giao diện chính theo hạng:
+  1. scene có key window không phải lớp phủ, level `.normal`;
+  2. scene có cửa sổ `.normal` đang hiện không phải lớp phủ;
+  3. cách chọn cũ (active → inactive → bất kỳ), để không bao giờ trả `nil` khi còn scene.
+  - Lớp phủ đánh dấu bằng protocol `AppOverlayWindow`: `FloatingHubUIWindow`, `FloatingWidgetUIWindow`, `BrowserFloatingWidgetUIWindow`, `ToastUIWindow`, `SideDrawerMenuOverlayWindow`.
+  - `isMainInterface(_:)` = scene đó có đúng là `current()` không (không chỉ xét "có cửa sổ `.normal`", vì cửa sổ của PiP là lớp riêng của hệ thống).
+- **`FloatingHubWindowManager`, `TTSFloatingWidgetWindowManager`, `BrowserFloatingWidgetWindowManager`, `ToastManager`**:
+  - `activeWindowScene` = `AppMainWindowScene.current()`.
+  - `handleSceneDidActivate` bỏ qua scene không phải scene chính.
+  - Nghe `UIScene.didDisconnectNotification`: scene đang giữ cửa sổ bị ngắt (hoặc `windowScene == nil`) ⇒ chuyển cửa sổ về scene chính rồi `refreshState()` ở lượt sau (lúc ngắt, scene cũ có thể còn trong `connectedScenes`).
+  - Log thường `🪟 [FloatingHub]` / `🪟 [TTSWidget]` / `🪟 [BrowserWidget]` khi chuyển scene, bỏ qua scene hoặc scene bị ngắt: vai trò, trạng thái, số scene, lớp + level từng cửa sổ (phải bật log trong Cài đặt mới thấy).
+- Cùng hàm chọn scene cho `VideoPlayerPresenter.findTopViewController` (cả `VideoWatchPresenter` dùng chung), `VideoOrientationLock.activeScene`, và — ngoài brief, cùng lỗi — `SideDrawerMenuWindowManager` (ngăn kéo `…`) và `GeminiWebHiddenWindowHost` (webview ẩn).
+- Không nối phiên video vào hub.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: bật PiP rồi tắt bằng ✕ (hub còn); bật PiP rồi bấm nút về app (hub còn, không có widget trong PiP); lặp lại với widget TTS và trình duyệt thu nhỏ đang hiện. Nếu vẫn mất, bật log và gửi các dòng `🪟`.
+
 ## [1.3.738] - 2026-11-05
 
 ### fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn

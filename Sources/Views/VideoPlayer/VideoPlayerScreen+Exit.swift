@@ -1,20 +1,25 @@
 import SwiftUI
 
-/// Lối **rời màn xem** (`VideoWatchExit`) mà phần dưới khung phim yêu cầu — tách khỏi `VideoPlayerScreen.swift` để file gốc
-/// dưới giới hạn dòng. Việc tiếp theo (chuyển tab, mở trang) luôn chạy **sau khi** màn đã đóng (`leave(then:)` →
-/// `pendingExitAction` ở `onDisappear`).
+/// Lối **rời màn xem** (`VideoWatchExit`) mà phần dưới khung phim yêu cầu, và lời xin **thu vào hub** của
+/// `VideoLeaveToHubCoordinator` (tắt NSFW lúc phát phim 18+) — tách khỏi `VideoPlayerScreen.swift` để file gốc dưới giới
+/// hạn dòng. Việc tiếp theo (chuyển tab, mở trang) luôn chạy **sau khi** màn đã đóng (`leave(then:)` → `pendingExitAction`
+/// ở `onDisappear`).
 extension VideoPlayerScreen {
-    /// - Home: thu nhỏ phim (phim 18+ thì `prepareGoHome` đã dừng hẳn) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
+    /// - Home: thu nhỏ phim vào hub (phim 18+ cũng phát tiếp, tắt tiếng theo cài đặt) rồi, khi màn đã đóng, về trang gốc tab
+    ///   Khám phá.
     /// - Đổi nguồn xong: đóng hẳn.
     /// - Thể loại / Xem thêm: xem `openCategory(_:from:)`.
     func handleExit(_ exit: VideoWatchExit) {
         guard let watch else { return }
         switch exit {
         case .home:
-            watch.prepareGoHome()
+            guard !isLeaving else { return }
+            // Rời màn TRƯỚC rồi mới áp luật: `prepareGoHome` tắt NSFW ⇒ guard NSFW của phiên xin thu phim vào hub ngay trong
+            // lượt ghi. Màn đã `isLeaving` nên bỏ qua lời xin đó — không rời hai lần, không nuốt lượt chuyển Khám phá.
             leave(stopPlayback: false) {
                 MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
             }
+            watch.prepareGoHome()
         case .close:
             leave(stopPlayback: true)
         case .openCategory(let category):
@@ -48,5 +53,29 @@ extension VideoPlayerScreen {
                 modelContainer: container
             )
         }
+    }
+
+    // MARK: - Thu vào hub theo yêu cầu của dịch vụ
+
+    /// Gọi ở `onAppear`; `onDisappear` gỡ (khoá = `controller`, cùng khoá với `attachScreen`).
+    func registerHubCollapse() {
+        VideoLeaveToHubCoordinator.shared.register(controller) { reason, then in
+            collapseToHub(for: reason, then: then)
+        }
+    }
+
+    /// Chỉ màn **đang sở hữu phiên** và chưa rời mới thu (màn hiện bìa không gắn phiên — phim chạy nền không thuộc nó).
+    /// Trình duyệt "Mở link lỗi" / "Trình duyệt" đang che màn ⇒ bỏ qua: đóng màn lúc đó kéo theo đóng trình duyệt, mà
+    /// `onDisappear` vẫn tưởng bị che nên không gỡ màn khỏi phiên (hub mất dòng Video). Tắt NSFW ⇒ y như nút ⌄ (dọc thì
+    /// khung phim bay vào hub, ngang / toàn màn thì đóng), không nhận `then`.
+    private func collapseToHub(for reason: VideoLeaveToHubCoordinator.Reason, then: (() -> Void)?) -> Bool {
+        guard !isLeaving, watchOwnsSession, !controller.minimizeDrag.isCommitted else { return false }
+        guard controller.openingErrorLink == nil, openingDetailErrorLink == nil, openingDetailPage == nil else {
+            AppLogger.shared.log("⚠️ [VideoPlayer] Xin thu vào hub (\(reason.logLabel)) lúc trình duyệt đang che màn ⇒ bỏ qua")
+            return false
+        }
+        AppLogger.shared.log("🔞 [VideoPlayer] Thu màn xem vào hub (\(reason.logLabel)), phim phát tiếp")
+        minimizeToHub()
+        return false
     }
 }

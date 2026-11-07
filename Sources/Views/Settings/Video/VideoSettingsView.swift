@@ -35,7 +35,8 @@ struct VideoSettingsView: View {
             } header: {
                 SectionHelpHeader("Khi mở phim", paragraphs: [
                     "**Tự phát khi mở phim**: bấm vào phim là phát ngay, đúng tập đang xem dở. Tắt thì khung phim hiện bìa và nút ▶, bấm mới phát; phim khác đang chạy nền vẫn chạy tiếp tới lúc đó.",
-                    "**Tắt tiếng khi mở phim**: chỉ áp khi mở một phim mới. Mở lại phim đang thu nhỏ hay đổi tập giữ nguyên tiếng. Phim tắt tiếng thì TTS vẫn đọc tiếp."
+                    "**Tắt tiếng khi mở phim**: chỉ áp khi mở một phim mới. Mở lại phim đang thu nhỏ hay đổi tập giữ nguyên tiếng. Phim tắt tiếng thì TTS vẫn đọc tiếp.",
+                    "Phim 18+ đang phát còn tắt tiếng theo tuỳ chọn này khi bấm Home của màn xem hoặc khi tắt công tắc NSFW: phim thu vào hub và phát tiếp, không dừng. Chọn «Không» thì giữ tiếng."
                 ])
             }
 

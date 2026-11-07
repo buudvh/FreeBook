@@ -11,6 +11,8 @@ import UIKit
 /// - Tự ẩn khi màn to gắn lại (`onFullScreenAttached`) hoặc phiên dừng hẳn (`onDidStop`, xét ở nhịp main sau: tự sang
 ///   phim đề xuất `stop()` rồi mở phim mới ngay trong cùng nhịp — cửa sổ phải ở lại).
 /// - Chạm ⇒ nở lên chỗ khung phim của màn xem rồi mở lại màn **không animation** (`requestScreen(animated: false)`).
+/// - Tắt NSFW lúc phát phim 18+ ⇒ thu vào hub như thả lên nút hub (`VideoLeaveToHubCoordinator`, đăng ký lúc hiện, gỡ lúc
+///   ẩn), phim phát tiếp.
 /// - Rời app ⇒ chỉ phát tiếng (session tách hình khi vào nền), như mọi kiểu thu nhỏ.
 @MainActor
 final class VideoMiniPlayerWindowManager {
@@ -64,6 +66,10 @@ final class VideoMiniPlayerWindowManager {
                 }
             }
         }
+        VideoLeaveToHubCoordinator.shared.register(self) { reason, _ in
+            VideoMiniPlayerWindowManager.shared.collapseToHub(reason: "\(reason.logLabel) ⇒ thu vào hub", bounces: true)
+            return false
+        }
         window?.isHidden = false
         isShowing = true
         controller.present(at: frame)
@@ -75,6 +81,7 @@ final class VideoMiniPlayerWindowManager {
     func hide(reason: String) {
         guard isShowing, let controller else { return }
         isShowing = false
+        VideoLeaveToHubCoordinator.shared.unregister(self)
         controller.releaseLayer()
         window?.isHidden = true
         session.onFullScreenAttached = nil
@@ -122,10 +129,19 @@ final class VideoMiniPlayerWindowManager {
     /// Thả cửa sổ lên nút hub (1.3.765): như nút ⌄ của màn to — phim chạy tiếp chỉ tiếng, hub hiện dòng Video.
     private func minimizeToHub() {
         AppLogger.shared.log("🎬 [VideoMini] Kéo cửa sổ nhỏ vào hub ⇒ phim chạy nền")
+        collapseToHub(reason: "thu vào hub", bounces: true)
+    }
+
+    /// Thu cửa sổ vào hub, phim phát tiếp (không bao giờ dừng ở đây): thả lên nút hub, hoặc theo
+    /// `VideoLeaveToHubCoordinator`. Cửa sổ đang ẩn ⇒ bỏ qua (gọi lặp an toàn).
+    func collapseToHub(reason: String, bounces: Bool) {
+        guard isShowing else { return }
         session.noteMinimizing()
         FloatingHubWindowManager.shared.setDropTargetHighlighted(false)
-        hide(reason: "thu vào hub")
-        FloatingHubWindowManager.shared.bounceButton()
+        hide(reason: reason)
+        if bounces {
+            FloatingHubWindowManager.shared.bounceButton()
+        }
     }
 
     private func close() {

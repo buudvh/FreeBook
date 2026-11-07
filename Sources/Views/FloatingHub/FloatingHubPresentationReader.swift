@@ -131,8 +131,8 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// Tab Kệ Sách là tab 0 của `MainTabView`; mặc định `true` vì app luôn khởi động ở tab đó. Tab Kệ đã có
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
     private var isShelfTabActive = true
-    /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "Tác vụ AI" và coi phim NSFW thu nhỏ như
-    /// không có video (chỉ ẩn, tác vụ / phim vẫn chạy).
+    /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "Tác vụ AI" (chỉ ẩn, tác vụ vẫn chạy). Dòng Video
+    /// **không** lọc: phim 18+ đang phát vẫn hiện để điều khiển / tắt được (tắt NSFW thu phim vào hub, không dừng nó).
     private var includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
     private var cancellables = Set<AnyCancellable>()
 
@@ -353,11 +353,10 @@ final class FloatingHubPresentationReader: ObservableObject {
         )
     }
 
-    /// Video dùng được khi trình phát đã thu nhỏ mà vẫn còn phiên (`VideoMiniPlayerState.isActive`).
+    /// Video dùng được khi trình phát đã thu nhỏ mà vẫn còn phiên (`VideoMiniPlayerState.isActive`) — kể cả phim 18+ lúc
+    /// công tắc NSFW tắt: tắt NSFW / nút Home thu phim vào hub chứ không dừng, hub là chỗ điều khiển còn lại.
     private func videoItem() -> FloatingHubItem {
-        let hidesNsfwVideo = !includeNsfw
-            && RepositoryFilterPolicy.isNsfwSource(packageId: VideoMiniPlayerState.shared.packageId)
-        guard videoState.isActive, !hidesNsfwVideo else {
+        guard videoState.isActive else {
             return FloatingHubItem(kind: .video, detail: "Không có video đang phát")
         }
         let fallback = videoState.isPlaying ? "Đang phát" : "Đã dừng"

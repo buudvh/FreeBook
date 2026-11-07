@@ -37,9 +37,9 @@ struct VideoPlayerScreen: View {
     /// Việc chạy sau khi màn đã đóng hẳn (chuyển tab Khám phá…) — `leave(then:)`.
     @State private var pendingExitAction: (() -> Void)? = nil
     /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
-    @State private var openingDetailErrorLink: SourceErrorLink? = nil
+    @State var openingDetailErrorLink: SourceErrorLink? = nil
     /// Nút "Trình duyệt" của hàng nút màn xem (1.3.763): trang chi tiết của phim, đóng lại chỉ chép cookie, không thử lại.
-    @State private var openingDetailPage: SourceErrorLink? = nil
+    @State var openingDetailPage: SourceErrorLink? = nil
     /// Trình duyệt "Mở link lỗi" / "Trình duyệt" (`fullScreenCover`) đã che màn lúc `onDisappear` ⇒ lần `onAppear` kế tiếp
     /// là quay lại từ trình duyệt, không phải mở màn — bỏ qua cả hai (xem chú thích ở `onDisappear`).
     @State private var isCoveredByErrorBrowser = false
@@ -120,6 +120,8 @@ struct VideoPlayerScreen: View {
             controller.onMinimizeRelease = { translation, velocity in
                 handleMinimizeRelease(translation: translation, velocity: velocity)
             }
+            // Tắt NSFW lúc phát phim 18+ ⇒ thu màn vào hub (`+Exit`).
+            registerHubCollapse()
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets
             // Độ sáng lần vuốt chỉnh gần nhất (mọi phim, mọi nguồn); rời màn thì trả độ sáng của máy.
@@ -157,6 +159,7 @@ struct VideoPlayerScreen: View {
             }
             controller.cancelTimers()
             controller.onMinimizeRelease = nil
+            VideoLeaveToHubCoordinator.shared.unregister(controller)
             FloatingWidgetSuppression.shared.isSuppressed = false
             VideoOrientationLock.resetForExit()
             // `resetForExit` vừa bỏ khoá ⇒ đồng bộ nút khoá xoay nếu màn này hiện lại.
@@ -249,7 +252,7 @@ struct VideoPlayerScreen: View {
     }
 
     /// Nút ⌄: luôn vào hub — màn dọc thì khung phim bay vào nút hub, ngang / toàn màn thì đóng như cũ.
-    private func minimizeToHub() {
+    func minimizeToHub() {
         guard !isLeaving, !controller.minimizeDrag.isCommitted else { return }
         guard !isFullscreen else {
             leave(stopPlayback: false)

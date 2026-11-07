@@ -88,7 +88,6 @@ extension VideoPlaybackSession {
             ? [currentEpisodeLabel, "Chạm để mở lại"].filter { !$0.isEmpty }.joined(separator: " · ")
             : currentEpisodeLabel
         let playing = isEmbed ? false : isPlaying
-        mini.packageId = launch?.extensionPackageId ?? ""
         if mini.title != bookTitle { mini.title = bookTitle }
         if mini.subtitle != subtitle { mini.subtitle = subtitle }
         if mini.isPlaying != playing { mini.isPlaying = playing }
