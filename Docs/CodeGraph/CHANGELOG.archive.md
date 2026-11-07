@@ -2,6 +2,25 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.743] - 2026-11-05
+
+### feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động
+
+Plan đợt 2 trình phát video, mục 6 (anh Bửu đã duyệt).
+
+- **`VideoQualityPreferenceStore`** (mới, `Services/Video`): một dictionary `UserDefaults` `videoQualityPreferenceByPackage` dạng `[packageId: {height, bitrate}]`. Lưu chiều cao, kèm bitrate cho playlist không khai độ phân giải; không lưu `id`.
+- **`VideoPlaybackSession+Quality`**:
+  - `selectQuality` ghi vào kho theo `launch.extensionPackageId`; chọn "Tự động" ⇒ xoá. `refreshBandwidthLimit` (ép thấp nhất khi phát ẩn) **không** ghi.
+  - Mỗi item mới (mở phim, đổi tập) ⇒ `selectedQuality` đọc lại từ kho. `stop()` chỉ xoá bản trong RAM, không xoá kho.
+  - `appliedQuality` = mức cao nhất ≤ đã chọn; **không có** ⇒ Tự động (thay cho "mức thấp nhất").
+- **Lưới Chất lượng ở ngăn kéo ⋮**: ô sáng theo mức đang áp — áp Tự động (kể cả khi mức đã nhớ không có ở phim này) ⇒ ô "Tự động" sáng.
+- "Nguồn" hiểu là **tiện ích**: phim nào cùng tiện ích thì cùng mức. AVPlayer chỉ đặt được trần, mạng yếu vẫn có thể xuống thấp hơn. Bản tải offline vẫn theo `videoDownloadQuality` riêng.
+- Commit sửa thêm (cùng tiêu đề, trước khi đẩy): mục ghi vào kho khai kiểu `[String: Any]` tường minh — literal dictionary trộn `Int` + `Double` không khai kiểu có thể bị trình biên dịch từ chối.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: chọn 720p ở phim A, mở phim B cùng tiện ích ⇒ 720p hoặc mức thấp hơn gần nhất, không có thì Tự động; tắt app mở lại vẫn nhớ.
+
 ## [1.3.742] - 2026-11-05
 
 ### feat: nút Toàn màn tự xoay ngang khi phim ngang, giữ dọc khi phim dọc

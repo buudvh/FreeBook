@@ -192,6 +192,14 @@ extension MainTabView {
     /// thường; tab Khám phá thì tự đặt lại ở đây (đang đứng sẵn ở Khám phá thì không có `onChange` nào chạy).
     /// `.showCurrentTabRoot`: tạo lại tab đang chọn (tab Khám phá dựng lại = tải lại nguồn đang xem).
     private func handleNavigationEvent(_ event: MainTabNavigationEvents.Event) {
+        // Trang thể loại / Chi tiết của màn xem phim trình bày bằng UIKit (có thể nằm dưới màn xem mở lại từ cửa sổ nhỏ):
+        // dựng lại tab không đóng được chúng ⇒ đóng trước, chuyển tab sau.
+        VideoWatchPagePresenter.closeAllPages {
+            applyNavigationEvent(event)
+        }
+    }
+
+    private func applyNavigationEvent(_ event: MainTabNavigationEvents.Event) {
         switch event {
         case .showDiscoveryRoot:
             let discovery = 1

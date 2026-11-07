@@ -93,7 +93,9 @@ final class VideoWatchPresenter {
         host.view.backgroundColor = .clear
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` / `.modelContainer` của `MainTabView`: gắn lại cả hai.
         let screen = VideoPlayerScreen(watch: model, onDismiss: { [weak host] animated in
-            host?.dismiss(animated: animated)
+            // Đóng từ VC đã trình bày host: host đang có sheet / alert con thì `host.dismiss` chỉ đóng con, màn xem kẹt lại
+            // (`isLeaving` = true ⇒ mọi nút chết) — vd rời app lúc sheet Thông tin đang mở.
+            (host?.presentingViewController ?? host)?.dismiss(animated: animated)
         })
         .appAccentTint()
         .modelContainer(container)

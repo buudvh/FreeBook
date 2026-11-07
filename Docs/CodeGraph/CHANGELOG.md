@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.773] - 2026-11-07
+
+### fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn
+
+Sửa theo review phản biện (2 agent) của đợt 1.3.766–772, trước khi push.
+
+- **Màn xem kẹt khi rời app lúc đang mở sheet** (Thông tin, Tải nhiều tập, chia sẻ…): `host.dismiss` chỉ đóng sheet con, màn xem ở lại với `isLeaving = true` (mọi nút chết, khung phim đen). `VideoWatchPresenter` / `VideoPlayerPresenter` giờ đóng từ VC đã trình bày host (`host.presentingViewController ?? host`).
+- **Trang thể loại nằm dưới màn xem mở lại** (bấm Thể loại ⇒ cửa sổ nhỏ ⇒ chạm mở lại màn xem ⇒ "Về Khám phá") còn che tab vừa đổi: `VideoWatchPagePresenter.closeAllPages` đóng mọi trang của màn xem (giữ danh sách yếu `openPages`), `MainTabView` gọi nó trước mỗi lệnh chuyển tab (`showDiscoveryRoot`, `showCurrentTabRoot`).
+- **Rời app khi phim chỉ đang ở hub** (không màn xem / cửa sổ nhỏ gắn phiên) không còn tắt NSFW và nhảy Khám phá — chỉ áp khi đang xem (`session.isScreenAttached`).
+- Nút Home của trang đè lên màn xem không thu cửa sổ nhỏ của phim khác (`VideoMiniPlayerWindowManager` bỏ qua lý do `.homeButton`).
+- **Nút Home tròn bám góc màn**: nội dung trang được kéo giãn trước khi phủ nút (`FloatingHomeButtonModifier`), trước đó trang chỉ có vòng xoay "Đang tải…" (vd tất cả bình luận) đặt nút gần giữa đáy màn.
+- Đầu dò Home không đọc được vị trí ⇒ bỏ đăng ký cũ (`FloatingHomeProbe`); bỏ `floatingHomeHostedByPage()` không còn chỗ gọi.
+- Sheet "Kiểu hiển thị" của Khám phá chỉ hiện nhóm "Trang Khám phá" khi nguồn có trang `explore`.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.772] - 2026-11-07
 
 ### feat: nút + của Chi tiết theo cấu hình nút nổi, Home nằm trong menu xổ của nút +
@@ -557,22 +572,3 @@ Plan đợt 2 trình phát video, mục 7–8 (anh Bửu đã duyệt).
 - **Kiểm chứng:**
   - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu `presentPage` / `dismissPage` / `VideoWatchExit.genre` / `.openDetail` của màn xem. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: tiêu đề nhóm dễ thấy; "Xem thêm" từng nhóm mở trang, phim vẫn phát tiếng; bấm phim trong trang ⇒ trang đóng, màn đổi phim tại chỗ; bấm thể loại (nhãn # và sheet Thông tin); "Mở trang chi tiết" ở ⋮; nút ‹ về màn xem; trang không xoay ngang.
-
-## [1.3.743] - 2026-11-05
-
-### feat: nhớ chất lượng phim đã chọn theo tiện ích, phim sau không có mức đó thì lấy mức thấp hơn hoặc Tự động
-
-Plan đợt 2 trình phát video, mục 6 (anh Bửu đã duyệt).
-
-- **`VideoQualityPreferenceStore`** (mới, `Services/Video`): một dictionary `UserDefaults` `videoQualityPreferenceByPackage` dạng `[packageId: {height, bitrate}]`. Lưu chiều cao, kèm bitrate cho playlist không khai độ phân giải; không lưu `id`.
-- **`VideoPlaybackSession+Quality`**:
-  - `selectQuality` ghi vào kho theo `launch.extensionPackageId`; chọn "Tự động" ⇒ xoá. `refreshBandwidthLimit` (ép thấp nhất khi phát ẩn) **không** ghi.
-  - Mỗi item mới (mở phim, đổi tập) ⇒ `selectedQuality` đọc lại từ kho. `stop()` chỉ xoá bản trong RAM, không xoá kho.
-  - `appliedQuality` = mức cao nhất ≤ đã chọn; **không có** ⇒ Tự động (thay cho "mức thấp nhất").
-- **Lưới Chất lượng ở ngăn kéo ⋮**: ô sáng theo mức đang áp — áp Tự động (kể cả khi mức đã nhớ không có ở phim này) ⇒ ô "Tự động" sáng.
-- "Nguồn" hiểu là **tiện ích**: phim nào cùng tiện ích thì cùng mức. AVPlayer chỉ đặt được trần, mạng yếu vẫn có thể xuống thấp hơn. Bản tải offline vẫn theo `videoDownloadQuality` riêng.
-- Commit sửa thêm (cùng tiêu đề, trước khi đẩy): mục ghi vào kho khai kiểu `[String: Any]` tường minh — literal dictionary trộn `Int` + `Double` không khai kiểu có thể bị trình biên dịch từ chối.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: chọn 720p ở phim A, mở phim B cùng tiện ích ⇒ 720p hoặc mức thấp hơn gần nhất, không có thì Tự động; tắt app mở lại vẫn nhớ.

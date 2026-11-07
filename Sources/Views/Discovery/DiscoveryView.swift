@@ -492,7 +492,7 @@ struct DiscoveryView: View {
             }
             .sheet(isPresented: $showingLayoutSheet) {
                 // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
-                BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension), showsExploreSizes: true)
+                BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension), showsExploreSizes: homeItems.contains(where: ExploreSectionsView.isTab))
             }
             // Đóng trình duyệt "Mở link lỗi" của khối lỗi danh mục ⇒ chép cookie rồi tải lại danh mục.
             .errorLinkBrowser(link: $openingErrorLink, packageId: selectedExtension?.packageId) { loadDiscoveryData() }

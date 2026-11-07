@@ -39,6 +39,9 @@ final class VideoWatchPagePresenter {
     private weak var pageController: UIViewController?
     /// `pageController` được mở đè lên màn xem (màn vẫn gắn bên dưới).
     private var pageCoversWatchScreen = false
+    /// Mọi trang đã mở (cũ → mới, tham chiếu yếu) — `closeAllPages` cần cả trang nằm dưới màn xem mở lại, mà
+    /// `pageController` chỉ giữ trang mở sau cùng.
+    private var openPages: [WeakPage] = []
 
     private init() {}
 
@@ -162,6 +165,26 @@ final class VideoWatchPagePresenter {
         }
     }
 
+    /// Đóng **mọi** trang còn hiện (kể cả trang nằm dưới màn xem mở lại từ cửa sổ nhỏ) cùng mọi thứ đè lên chúng, rồi gọi
+    /// `completion` ở nhịp main kế tiếp — `MainTabView` gọi trước mỗi lệnh chuyển tab (Home, rời app tắt NSFW…): dựng lại
+    /// tab không đóng được VC trình bày bằng UIKit, trang sẽ còn nằm trên tab vừa đổi. Không có trang ⇒ gọi ngay.
+    static func closeAllPages(completion: @escaping @MainActor () -> Void) {
+        let live = shared.openPages
+            .compactMap(\.controller)
+            .filter { $0.presentingViewController != nil && !$0.isBeingDismissed }
+        shared.openPages.removeAll()
+        guard let bottom = live.first, let presenter = bottom.presentingViewController else {
+            completion()
+            return
+        }
+        AppLogger.shared.log("🎬 [VideoWatch] Đóng \(live.count) trang của màn xem trước khi chuyển tab")
+        presenter.dismiss(animated: false) {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { completion() }
+            }
+        }
+    }
+
     private func present(_ root: AnyView, handle: PageHandle, coversWatchScreen: Bool, retryCount: Int) {
         if let page = pageController, page.presentingViewController != nil, !page.isBeingDismissed,
            page.presentedViewController == nil {
@@ -185,10 +208,16 @@ final class VideoWatchPagePresenter {
         handle.controller = page
         pageController = page
         pageCoversWatchScreen = coversWatchScreen
+        openPages.removeAll { $0.controller?.presentingViewController == nil }
+        openPages.append(WeakPage(controller: page))
         top.present(page, animated: true)
     }
 
     // MARK: - Kiểu con
+
+    private struct WeakPage {
+        weak var controller: UIViewController?
+    }
 
     /// Tham chiếu yếu tới VC của **chính trang** — nút `‹` và lượt chọn phim đóng đúng trang của mình (trang mở sau có thể
     /// đã thay `pageController`).

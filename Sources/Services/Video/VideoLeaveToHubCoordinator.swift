@@ -126,6 +126,12 @@ final class VideoLeaveToHubCoordinator {
 
     private func handleAppDidEnterBackground() {
         guard session.isActive else { return }
+        // Chỉ khi đang **xem** (màn xem / cửa sổ nhỏ gắn phiên): phim đã nằm sẵn ở hub (hoặc màn đang hiện bìa phim khác)
+        // thì rời app không thu gì, không tắt NSFW, không chuyển tab — kẻo khoá máy lúc đang đọc truyện cũng nhảy Khám phá.
+        guard session.isScreenAttached else {
+            AppLogger.shared.log("🎬 [VideoLeave] Rời app: phim không có màn xem / cửa sổ nhỏ (đang ở hub) ⇒ giữ nguyên")
+            return
+        }
         guard VideoLeaveAppPolicy.isEnabled else {
             AppLogger.shared.log("🎬 [VideoLeave] Rời app: công tắc thu vào hub đang tắt ⇒ giữ nguyên, phim chỉ phát tiếng")
             return

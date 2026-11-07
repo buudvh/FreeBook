@@ -12,7 +12,7 @@ import UIKit
 /// ```swift
 /// private final class PortraitHostingController: UIHostingController<AnyView>, FloatingHomeActionProviding {
 ///     func performFloatingHome() {
-///         VideoWatchPagePresenter.dismiss { MainTabNavigationEvents.shared.send(.showCurrentTabRoot) }
+///         dismiss(animated: true) { MainTabNavigationEvents.shared.send(.showCurrentTabRoot) }
 ///     }
 /// }
 /// ```

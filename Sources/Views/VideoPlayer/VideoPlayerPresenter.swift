@@ -80,7 +80,9 @@ final class VideoPlayerPresenter {
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`; gắn lại màu nhấn để sheet / menu của
         // trình phát cùng màu với lối mở qua `BookContentDestination`.
         let screen = VideoPlayerScreen(onDismiss: { [weak host] animated in
-            host?.dismiss(animated: animated)
+            // Đóng từ VC đã trình bày host: host đang có sheet / alert con thì `host.dismiss` chỉ đóng con, màn xem kẹt lại
+            // (`isLeaving` = true ⇒ mọi nút chết) — vd rời app lúc sheet Thông tin đang mở.
+            (host?.presentingViewController ?? host)?.dismiss(animated: animated)
         })
         .appAccentTint()
         if let container = session.modelContainer {

@@ -6,10 +6,12 @@ import UIKit
 /// (mọi kiểu tiêu đề) nên trang mới tự có; hiện hay không do cây UIKit quyết định lúc chạy — luật ở
 /// `FloatingHomePlacement`.
 ///
-/// - Trang có nút "+" nổi (`.floatingAddButton`) hoặc FAB riêng (`.floatingHomeHostedByPage()`, FAB Chi tiết) ⇒ không vẽ
+/// - Trang có nút "+" nổi (`.floatingAddButton`) hoặc FAB riêng (FAB Chi tiết, đọc `FloatingHomeReader`) ⇒ không vẽ
 ///   nút này: Home là pill **dưới cùng** trong menu xổ của nút "+" (`FloatingHomeRegistry`).
 /// - Vẽ bằng `overlay`, **không** `safeAreaInset`: điều kiện chỉ có sau một nhịp nên inset sẽ đẩy nội dung giật sau khi
-///   trang đã hiện, và inset cưỡi lên bàn phím. Đổi lại nút có thể đè phần cuối góc phải của trang.
+///   trang đã hiện, và inset cưỡi lên bàn phím. Đổi lại nút có thể đè phần cuối góc phải của trang. Nội dung được kéo
+///   giãn cả trang trước khi phủ (nội dung vẫn căn giữa như cũ) ⇒ nút bám góc **màn**, không bám khung nội dung hẹp
+///   (vd trang chỉ có vòng xoay "Đang tải…").
 /// - Bàn phím hiện ⇒ ẩn (trang con có ô nhập, thanh gợi ý bàn phím), theo mẫu của `MainTabBarModifier`.
 struct FloatingHomeButtonModifier: ViewModifier {
     @State private var token = UUID()
@@ -19,6 +21,7 @@ struct FloatingHomeButtonModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 FloatingHomeProbe(token: token, role: .pageTitle) { placement = $0 }
                     .frame(width: 0, height: 0)
@@ -62,11 +65,5 @@ extension View {
     /// Nút Home nổi riêng — `PageTitleModifier` đã tự gắn; chỉ gắn tay cho trang không dùng tiêu đề chuẩn.
     func floatingHomeButton() -> some View {
         modifier(FloatingHomeButtonModifier())
-    }
-
-    /// Trang **tự** đặt Home trong nút nổi của nó (FAB riêng, không phải `.floatingAddButton`) ⇒ tiêu đề không vẽ Home
-    /// tròn riêng. Gắn lên view của FAB (view thật, không rỗng); FAB tự đọc `FloatingHomeReader` để biết có hiện pill Home.
-    func floatingHomeHostedByPage() -> some View {
-        FloatingHomeReader(role: .addButton) { _ in self }
     }
 }

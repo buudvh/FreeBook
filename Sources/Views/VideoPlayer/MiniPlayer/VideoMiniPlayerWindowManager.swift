@@ -67,6 +67,8 @@ final class VideoMiniPlayerWindowManager {
             }
         }
         VideoLeaveToHubCoordinator.shared.register(self) { reason, _ in
+            // Nút Home của trang đè lên màn xem chỉ thu phim **của màn đó**; cửa sổ nhỏ (phim khác) giữ nguyên.
+            guard reason != .homeButton else { return false }
             // Rời app: không nảy nút hub (đang ở nền).
             VideoMiniPlayerWindowManager.shared.collapseToHub(
                 reason: "\(reason.logLabel) ⇒ thu vào hub",

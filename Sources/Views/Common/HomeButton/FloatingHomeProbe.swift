@@ -66,6 +66,8 @@ struct FloatingHomeProbe: UIViewRepresentable {
         private func resolve() {
             guard window != nil else { return }
             guard let resolved = FloatingHomePlacement.resolve(from: self) else {
+                // Không đọc được vị trí ⇒ bỏ cả đăng ký cũ (nếu có), kẻo một nút "+" đã rời vẫn che Home của tiêu đề.
+                FloatingHomeRegistry.shared.unregister(token)
                 report(nil)
                 return
             }
