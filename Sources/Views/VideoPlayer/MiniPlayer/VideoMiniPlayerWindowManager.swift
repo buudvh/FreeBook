@@ -80,6 +80,9 @@ final class VideoMiniPlayerWindowManager {
         isShowing = true
         controller.present(at: frame)
         session.attachScreen(controller, isMiniPlayer: true)
+        // Giữ mức sáng đã vuốt chỉnh của trình phát khi phim ở cửa sổ nhỏ (1.3.779). Mở **trước** khi màn to rời đi ⇒
+        // `VideoBrightnessKeeper` luôn còn một chủ, độ sáng không nháy về mức của máy rồi lên lại.
+        VideoBrightnessKeeper.shared.activate(self)
         reclaimLayerSoon()
         AppLogger.shared.log("🎬 [VideoMini] Thu nhỏ thành cửa sổ nhỏ")
     }
@@ -93,6 +96,8 @@ final class VideoMiniPlayerWindowManager {
         session.onFullScreenAttached = nil
         session.onDidStop = nil
         session.detachScreen(controller)
+        // Thu vào hub / tắt phim ⇒ trả độ sáng của máy; mở lại màn xem ⇒ màn đã giữ độ sáng trước khi cửa sổ ẩn.
+        VideoBrightnessKeeper.shared.deactivate(self)
         AppLogger.shared.log("🎬 [VideoMini] Ẩn cửa sổ nhỏ (\(reason))")
     }
 

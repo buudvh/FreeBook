@@ -4,6 +4,7 @@ import UIKit
 ///
 /// Một mức chung cho mọi phim, mọi nguồn: mức cuối người dùng vuốt chỉnh (`VideoGestureView`), lưu ở UserDefaults.
 /// - Màn phim hiện (`VideoPlayerScreen.onAppear`) ⇒ chụp độ sáng của máy **rồi** áp mức đã nhớ. Chưa từng vuốt ⇒ không đụng.
+///   Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`, 1.3.779) cũng là một chủ: phim ở cửa sổ nhỏ vẫn giữ mức sáng.
 /// - Rời màn (đóng / thu nhỏ) hoặc app mất active ⇒ trả độ sáng của máy (độ sáng là của cả máy, iOS không tự trả).
 /// - Active lại khi màn còn mở ⇒ chụp lại (người dùng có thể vừa chỉnh ở Trung tâm điều khiển) rồi áp lại.
 ///
