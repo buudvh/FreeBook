@@ -29,11 +29,15 @@ final class VideoLeaveToHubCoordinator {
         case nsfwTurnedOff
         /// App vào nền, công tắc `VideoLeaveAppPolicy` bật — thu không hiệu ứng.
         case appBackground
+        /// Nút Home nổi của trang đè lên màn xem (`VideoWatchPagePresenter`) — trang đã đóng; màn xem (kể cả đang hiện bìa)
+        /// đóng theo, phim của nó vào hub, rồi về trang gốc tab đang đứng. Không áp luật NSFW.
+        case homeButton
 
         var logLabel: String {
             switch self {
             case .nsfwTurnedOff: return "tắt NSFW"
             case .appBackground: return "rời app"
+            case .homeButton: return "nút Home của trang"
             }
         }
     }

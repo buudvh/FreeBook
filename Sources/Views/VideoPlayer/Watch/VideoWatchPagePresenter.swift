@@ -179,6 +179,7 @@ final class VideoWatchPagePresenter {
         }, onGiveUp: {}) else { return }
 
         let page = PortraitHostingController(rootView: root)
+        page.coversWatchScreen = coversWatchScreen
         page.modalPresentationStyle = .overFullScreen
         page.modalPresentationCapturesStatusBarAppearance = true
         handle.controller = page
@@ -209,9 +210,42 @@ final class VideoWatchPagePresenter {
         }
     }
 
-    /// Trang chỉ dọc (UIKit hỏi VC được trình bày `.overFullScreen` trên cùng).
-    private final class PortraitHostingController: UIHostingController<AnyView> {
+    /// Trang chỉ dọc (UIKit hỏi VC được trình bày `.overFullScreen` trên cùng). Là gốc tầng trình bày ⇒ bật nút Home nổi cho
+    /// mọi trang trong nó (`FloatingHomeActionProviding`, 1.3.771): đóng trang; trang đè lên màn xem thì màn xem đóng theo
+    /// (phim của nó vào hub — `VideoLeaveToHubCoordinator` lý do `.homeButton`); rồi về trang gốc tab đang đứng.
+    private final class PortraitHostingController: UIHostingController<AnyView>, FloatingHomeActionProviding {
+        var coversWatchScreen = false
+
         override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
+
+        func performFloatingHome() {
+            let covers = coversWatchScreen
+            AppLogger.shared.log("🏠 [VideoWatch] Nút Home ở trang \(covers ? "đè lên màn xem" : "mở sau màn xem") ⇒ về trang gốc tab")
+            let goToTabRoot = { MainTabNavigationEvents.shared.send(.showCurrentTabRoot) }
+            closeSelf {
+                guard covers else {
+                    goToTabRoot()
+                    return
+                }
+                // Không màn xem nào nhận (đã đóng sẵn) ⇒ về gốc tab ngay.
+                if !VideoLeaveToHubCoordinator.shared.collapseToHub(reason: .homeButton, then: goToTabRoot) {
+                    goToTabRoot()
+                }
+            }
+        }
+
+        /// Đóng chính trang này rồi gọi `completion` ở nhịp main kế tiếp (màn bên dưới đã đứng yên).
+        private func closeSelf(completion: @escaping () -> Void) {
+            guard presentingViewController != nil, !isBeingDismissed else {
+                completion()
+                return
+            }
+            dismiss(animated: true) {
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { completion() }
+                }
+            }
+        }
     }
 
     /// `NavigationStack` riêng + nút `‹` đóng trang (gốc stack không có nút back của hệ thống).

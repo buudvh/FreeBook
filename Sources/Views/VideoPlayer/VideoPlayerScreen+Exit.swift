@@ -71,19 +71,26 @@ extension VideoPlayerScreen {
     /// - Rời app ⇒ đóng **không hiệu ứng** (ở nền, completion của animation có thể không bao giờ chạy; hiệu ứng bay đang
     ///   dở cũng bị vượt — completion của nó gọi `leave` lần nữa là no-op), nhận `then` (về Khám phá sau khi màn đã đóng);
     ///   trang đè lên màn (nếu có) tự đóng nhờ `performDismiss`. Không dừng phim.
+    /// - Nút Home của trang đè (trang đã đóng) ⇒ màn đóng **kể cả đang hiện bìa** (phim chạy nền của màn khác không bị
+    ///   dừng — `leave` chỉ dừng khi được yêu cầu), phim của màn vào hub, nhận `then` (về trang gốc tab).
     private func collapseToHub(for reason: VideoLeaveToHubCoordinator.Reason, then: (() -> Void)?) -> Bool {
-        guard !isLeaving, watchOwnsSession else { return false }
+        guard !isLeaving else { return false }
         guard controller.openingErrorLink == nil, openingDetailErrorLink == nil, openingDetailPage == nil else {
             AppLogger.shared.log("⚠️ [VideoPlayer] Xin thu vào hub (\(reason.logLabel)) lúc trình duyệt đang che màn ⇒ bỏ qua")
             return false
         }
         switch reason {
+        case .homeButton:
+            AppLogger.shared.log("🏠 [VideoPlayer] \(reason.logLabel) ⇒ đóng màn xem, phim (nếu có) vào hub, về trang gốc tab")
+            leave(stopPlayback: false, then: then)
+            return true
         case .nsfwTurnedOff:
-            guard !controller.minimizeDrag.isCommitted else { return false }
+            guard watchOwnsSession, !controller.minimizeDrag.isCommitted else { return false }
             AppLogger.shared.log("🔞 [VideoPlayer] Thu màn xem vào hub (\(reason.logLabel)), phim phát tiếp")
             minimizeToHub()
             return false
         case .appBackground:
+            guard watchOwnsSession else { return false }
             AppLogger.shared.log("🎬 [VideoPlayer] Rời app ⇒ đóng màn xem không hiệu ứng, phim vào hub, phát tiếp")
             leave(stopPlayback: false, animated: false, then: then)
             // `onDisappear` có thể bị hoãn tới lúc app quay lại ⇒ gỡ màn khỏi phiên ngay (hub có dòng Video, mở lại được).

@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.741] - 2026-11-05
+
+### feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc
+
+Plan đợt 2 trình phát video, mục 4 (anh Bửu đã duyệt).
+
+- **Vì sao không hiện gì**: khung phim native giữ một `MPVolumeView` gần như vô hình (`VideoGestureView`) để vuốt chỉnh âm lượng, và nó ẩn luôn thanh âm lượng của iOS. Không chỗ nào theo dõi `AVAudioSession.outputVolume`.
+- **`VideoVolumeObserver`** (mới, `Services/Video`): KVO `AVAudioSession.outputVolume`, bật/tắt theo màn trình phát cùng chỗ `VideoBrightnessKeeper.activate/deactivate` (`VideoPlayerScreen.onAppear/onDisappear`), đếm theo từng màn, màn mới nhất nhận sự kiện.
+  - Mỗi lần đổi ⇒ `controller.showFeedback(.volume(level))`: thanh âm lượng sẵn có của trình phát, ở màn dọc lẫn toàn màn.
+  - Màn xem đang hiện bìa (chưa phát phim của nó) ⇒ bỏ qua. Thu nhỏ vào hub / PiP ⇒ không còn màn ⇒ nút cứng không đụng tới phim.
+- **Bỏ tắt tiếng** (`VideoPlaybackSession.handleHardwareVolumeChange`): chỉ khi phim native đang tắt tiếng + màn trình phát đang hiện + TTS **không** đọc ⇒ `setMuted(false)`. TTS đang đọc ⇒ giữ tắt tiếng, chỉ hiện thanh (anh chọn).
+- **Lỗ phiên âm thanh**: phim tắt tiếng phát cùng TTS, rồi TTS dừng hẳn ⇒ TTS `setActive(false)` ⇒ KVO im luôn.
+  - `VideoNativePlaybackFlag` (mới): cờ "phim native đang phát", `VideoPlaybackSession` ghi ở `handleTimeControlChange` và `stop`. Tầng TTS đọc cờ mà không phải chạm `VideoPlaybackSession.shared`.
+  - `TTSAudioSessionController.deactivateUnlessVideoPlaying()`: phim native còn phát thì không tắt phiên.
+  - `TTSManager.stopPlayback` gọi hàm này thay cho dòng `setActive(false)` (đổi 1 dòng lấy 1 dòng, không thêm dòng vào file sát baseline). Hai chỗ tắt phiên khi có cuộc gọi / ngắt âm thanh giữ nguyên.
+- **Giới hạn iOS**: đang 100% mà bấm tăng, hay đang 0% mà bấm giảm, thì iOS không báo đổi ⇒ không hiện thanh, không bật tiếng.
+- `CLAUDE.md` + `AGENTS.md`: thay dòng "nút âm lượng cứng thì không" bằng luật mới. Sửa comment ở `VideoPlayerController.handlePanBegan`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `TTSManager.swift` giữ 3468 dòng.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: bấm nút cứng ở màn dọc và toàn màn (hiện thanh); phim tắt tiếng, TTS không đọc ⇒ bật tiếng; TTS đang đọc ⇒ chỉ hiện thanh; phim tắt tiếng phát cùng TTS, dừng hẳn TTS rồi bấm nút cứng ⇒ vẫn hiện thanh.
+
 ## [1.3.740] - 2026-11-05
 
 ### feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+

@@ -11,6 +11,9 @@ import SwiftUI
 /// - Thanh tab **hệ thống** luôn ẩn ở mọi kiểu (1.3.668): thanh thật là `MainTabBar`, chỉ nằm trong trang gốc của tab
 ///   (`.mainTabBar()`), nên trang đẩy vào phủ lên nó. Ẩn/hiện theo kiểu (bản 1.3.660) làm thanh hiện lại trễ lúc back ⇒
 ///   trang gốc giật — đừng đổi giá trị này theo trang.
+/// - Gắn **nút Home nổi** (`FloatingHomeButtonModifier`) ở mọi kiểu: trang đẩy vào trong tab Kệ / Khám phá / Tiện ích có
+///   nút tròn góc dưới phải về trang gốc của tab (trang có nút "+" nổi thì Home nằm trong menu xổ của "+"). Có hiện hay
+///   không do cây UIKit quyết định lúc chạy (`FloatingHomePlacement`), không do kiểu tiêu đề.
 ///
 /// ```swift
 /// SettingsList()
@@ -28,6 +31,7 @@ struct PageTitleModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .floatingHomeButton()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .tabBar)

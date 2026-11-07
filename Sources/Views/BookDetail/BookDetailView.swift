@@ -819,6 +819,7 @@ struct BookDetailView: View {
                     .padding(.bottom, 20)
                 }
             }
+            .floatingHomeHostedByPage() // FAB riêng giữ chỗ nút Home nổi (tiêu đề không vẽ Home đè lên)
         }
     }
 

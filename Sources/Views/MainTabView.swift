@@ -190,6 +190,7 @@ struct MainTabView: View {
 extension MainTabView {
     /// `.showDiscoveryRoot`: sang tab Khám phá rồi về trang gốc. Tab vừa rời được `onChange(of: selectedTab)` đặt lại như
     /// thường; tab Khám phá thì tự đặt lại ở đây (đang đứng sẵn ở Khám phá thì không có `onChange` nào chạy).
+    /// `.showCurrentTabRoot`: tạo lại tab đang chọn (tab Khám phá dựng lại = tải lại nguồn đang xem).
     private func handleNavigationEvent(_ event: MainTabNavigationEvents.Event) {
         switch event {
         case .showDiscoveryRoot:
@@ -199,6 +200,12 @@ extension MainTabView {
                 tabResetTokens[discovery] += 1
             }
             selectedTab = discovery
+        case .showCurrentTabRoot:
+            let tab = selectedTab
+            guard tabResetTokens.indices.contains(tab),
+                  Self.tabHasPushedPages(at: tab, of: tabResetTokens.count) else { return }
+            AppLogger.shared.log("🏠 [TabReset] Nút Home nổi ⇒ tạo lại tab \(tab) về trang gốc")
+            tabResetTokens[tab] += 1
         }
     }
 

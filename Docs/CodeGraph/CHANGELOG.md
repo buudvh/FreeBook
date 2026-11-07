@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.771] - 2026-11-07
+
+### feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab
+
+Người dùng: *"Thêm nút home vào tất cả màn hình trừ reader và xem commic và các màn hình của tab cài đặt."* Anh Bửu chọn: về **trang gốc của tab đang đứng**; nút ở **góc dưới phải**, trang có nút "+" thì Home nằm trong menu xổ của "+", ở **dưới cùng**.
+
+- Trang đẩy vào trong tab Kệ Sách, Khám Phá, Tiện Ích có nút Home tròn nổi góc dưới phải (52pt, nền kính theo Cài đặt › Giao diện, nhãn "Về trang gốc"); bấm ⇒ về trang gốc của tab đang đứng (tab Khám phá dựng lại = tải lại nguồn đang xem). Bàn phím hiện thì ẩn.
+- Trang có nút "+" nổi: bấm "+" xổ menu pill (kính) gồm hành động gốc của "+" và "Về trang gốc" ở dưới cùng; trang không có Home thì "+" vẫn bấm một chạm.
+- Không hiện ở trang gốc các tab, tab Cài Đặt, Reader / truyện tranh / màn xem phim và mọi trang trong chúng, sheet / form / trình soạn, trình duyệt, hub / widget. Quyết định lúc chạy bằng đầu dò UIKit (`FloatingHomePlacement`, `FloatingHomeProbe`), gắn tự động ở `PageTitleModifier`; nút "+" và tiêu đề ghép theo trang qua `FloatingHomeRegistry` (đúng với mọi thứ tự modifier).
+- Trang trình bày bằng UIKit ngoài cây tab bật Home bằng cách cho VC được present conform `FloatingHomeActionProviding`: trang thể loại / Xem thêm / Chi tiết của màn xem phim (`VideoWatchPagePresenter`) — Home đóng trang (trang đè lên màn xem thì màn xem cũng thu vào hub) rồi về trang gốc tab đang đứng.
+- Lệnh mới `MainTabNavigationEvents.showCurrentTabRoot`; FAB riêng của Chi tiết tạm giữ chỗ Home (`.floatingHomeHostedByPage()`).
+- `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: bấm pill của menu xổ (vẽ lòi ngoài khung nút 52pt); Home đè góc phải cuối trang con; cửa sổ phim nhỏ / hub / widget TTS đậu góc dưới phải che nút.
+
 ## [1.3.770] - 2026-11-07
 
 ### feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video
@@ -569,25 +583,3 @@ Plan đợt 2 trình phát video, mục 5 (anh Bửu đã duyệt).
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: "Toàn màn" với phim ngang (xoay ngang) và phim dọc (giữ dọc), lúc đang khoá xoay.
-
-## [1.3.741] - 2026-11-05
-
-### feat: nút âm lượng cứng hiện thanh âm lượng trên trình phát và bỏ tắt tiếng phim khi TTS không đọc
-
-Plan đợt 2 trình phát video, mục 4 (anh Bửu đã duyệt).
-
-- **Vì sao không hiện gì**: khung phim native giữ một `MPVolumeView` gần như vô hình (`VideoGestureView`) để vuốt chỉnh âm lượng, và nó ẩn luôn thanh âm lượng của iOS. Không chỗ nào theo dõi `AVAudioSession.outputVolume`.
-- **`VideoVolumeObserver`** (mới, `Services/Video`): KVO `AVAudioSession.outputVolume`, bật/tắt theo màn trình phát cùng chỗ `VideoBrightnessKeeper.activate/deactivate` (`VideoPlayerScreen.onAppear/onDisappear`), đếm theo từng màn, màn mới nhất nhận sự kiện.
-  - Mỗi lần đổi ⇒ `controller.showFeedback(.volume(level))`: thanh âm lượng sẵn có của trình phát, ở màn dọc lẫn toàn màn.
-  - Màn xem đang hiện bìa (chưa phát phim của nó) ⇒ bỏ qua. Thu nhỏ vào hub / PiP ⇒ không còn màn ⇒ nút cứng không đụng tới phim.
-- **Bỏ tắt tiếng** (`VideoPlaybackSession.handleHardwareVolumeChange`): chỉ khi phim native đang tắt tiếng + màn trình phát đang hiện + TTS **không** đọc ⇒ `setMuted(false)`. TTS đang đọc ⇒ giữ tắt tiếng, chỉ hiện thanh (anh chọn).
-- **Lỗ phiên âm thanh**: phim tắt tiếng phát cùng TTS, rồi TTS dừng hẳn ⇒ TTS `setActive(false)` ⇒ KVO im luôn.
-  - `VideoNativePlaybackFlag` (mới): cờ "phim native đang phát", `VideoPlaybackSession` ghi ở `handleTimeControlChange` và `stop`. Tầng TTS đọc cờ mà không phải chạm `VideoPlaybackSession.shared`.
-  - `TTSAudioSessionController.deactivateUnlessVideoPlaying()`: phim native còn phát thì không tắt phiên.
-  - `TTSManager.stopPlayback` gọi hàm này thay cho dòng `setActive(false)` (đổi 1 dòng lấy 1 dòng, không thêm dòng vào file sát baseline). Hai chỗ tắt phiên khi có cuộc gọi / ngắt âm thanh giữ nguyên.
-- **Giới hạn iOS**: đang 100% mà bấm tăng, hay đang 0% mà bấm giảm, thì iOS không báo đổi ⇒ không hiện thanh, không bật tiếng.
-- `CLAUDE.md` + `AGENTS.md`: thay dòng "nút âm lượng cứng thì không" bằng luật mới. Sửa comment ở `VideoPlayerController.handlePanBegan`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `TTSManager.swift` giữ 3468 dòng.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: bấm nút cứng ở màn dọc và toàn màn (hiện thanh); phim tắt tiếng, TTS không đọc ⇒ bật tiếng; TTS đang đọc ⇒ chỉ hiện thanh; phim tắt tiếng phát cùng TTS, dừng hẳn TTS rồi bấm nút cứng ⇒ vẫn hiện thanh.
