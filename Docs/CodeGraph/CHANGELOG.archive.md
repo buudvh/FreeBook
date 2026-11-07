@@ -2,6 +2,44 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.745] - 2026-11-05
+
+### docs: cập nhật README theo tính năng hiện tại của app
+
+Người dùng: *"cập nhật lại readme.md giúp tôi"*.
+
+- **Mở đầu**: app đọc truyện chữ, truyện tranh **và xem phim**. Nguồn là tiện ích JavaScript hoặc nguồn Legado.
+- **Mục mới "Cài đặt và cập nhật"**:
+  - nguồn LiveContainer `apps.json`;
+  - Release giữ 5 bản;
+  - số phiên bản theo CHANGELOG, số build theo CI;
+  - báo bản mới trong app, kèm lưu ý app không tự cài được.
+- **Tính năng — bổ sung**:
+  - tiện ích ba loại nội dung, cấu hình riêng từng tiện ích, bộ kiểm tra tiện ích, nguồn Legado, lọc NSFW;
+  - đổi nguồn có nhật ký, gắn lại nguồn khi tiện ích đã gỡ;
+  - tải nhiều luồng theo nguồn;
+  - nhập ZIP/CBZ / video nhiều tập, xuất CBZ/PDF / video;
+  - màn Dung lượng, mở lại mục đọc dở.
+- **Tính năng — mục mới**:
+  - Truyện tranh.
+  - Video: màn xem dọc, tự phát, tắt tiếng, PiP / hub, chất lượng nhớ theo tiện ích, tải offline HLS.
+  - Trình duyệt: AdGuard, chỉnh riêng theo tên miền, dịch trang.
+  - Giao diện.
+- **Tính năng — mục cũ cập nhật**:
+  - luật dịch nhanh: rule tên chương, các token, trang hướng dẫn;
+  - TTS: hẹn giờ;
+  - AI: Chế độ AI của Google, AI theo truyện.
+- **Build / CI**:
+  - thêm SafariConverterLib (GPL-3.0, `-skipPackagePluginValidation`);
+  - phiên bản mặc định `1.3.0 (1)` khi build tay;
+  - các bước CI mới: version, Release + `apps.json` nhánh `source`, Telegram liệt kê commit.
+- **Cấu trúc mã nguồn**:
+  - cây thư mục `Services/` / `Views/` đúng hiện tại;
+  - `Models/` chỉ còn 4 `@Model`, tiện ích là JSON;
+  - bảng thư mục dữ liệu đủ `extension_store/`, `comics/`, `videos/`, `adblock/`, `Caches/comic_images/`.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng**: đối chiếu với `CLAUDE.md`, `project.yml`, cây `Sources/`. Chỉ đổi tài liệu, không đụng code.
+
 ## [1.3.744] - 2026-11-05
 
 ### feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim

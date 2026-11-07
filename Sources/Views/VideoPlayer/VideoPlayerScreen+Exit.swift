@@ -5,18 +5,19 @@ import SwiftUI
 /// hạn dòng. Việc tiếp theo (chuyển tab, mở trang) luôn chạy **sau khi** màn đã đóng (`leave(then:)` → `pendingExitAction`
 /// ở `onDisappear`).
 extension VideoPlayerScreen {
-    /// - Home: thu nhỏ phim vào hub (phim 18+ cũng phát tiếp, tắt tiếng theo cài đặt) rồi, khi màn đã đóng, về trang gốc tab
-    ///   Khám phá.
+    /// - Home: thu nhỏ phim **theo cài đặt "Vuốt xuống trình phát"** (cửa sổ nhỏ hoặc hub — `minimizeByPolicy`, 1.3.775;
+    ///   phim 18+ cũng phát tiếp, tắt tiếng theo cài đặt) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
     /// - Đổi nguồn xong: đóng hẳn.
     /// - Thể loại / Xem thêm: xem `openCategory(_:from:)`.
     func handleExit(_ exit: VideoWatchExit) {
         guard let watch else { return }
         switch exit {
         case .home:
-            guard !isLeaving else { return }
-            // Rời màn TRƯỚC rồi mới áp luật: `prepareGoHome` tắt NSFW ⇒ guard NSFW của phiên xin thu phim vào hub ngay trong
-            // lượt ghi. Màn đã `isLeaving` nên bỏ qua lời xin đó — không rời hai lần, không nuốt lượt chuyển Khám phá.
-            leave(stopPlayback: false) {
+            guard !isLeaving, !controller.minimizeDrag.isCommitted else { return }
+            // Thu nhỏ TRƯỚC rồi mới áp luật: `prepareGoHome` tắt NSFW ⇒ guard NSFW của phiên xin thu phim vào hub; khung phim
+            // đã `isCommitted` / màn đã `isLeaving` nên màn bỏ qua lời xin đó, và coordinator chặn nó vài giây
+            // (`keepsPlacement`) để cửa sổ nhỏ vừa mở theo cài đặt không bị kéo vào hub.
+            minimizeByPolicy("Nút Home") {
                 MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
             }
             watch.prepareGoHome()
@@ -24,6 +25,27 @@ extension VideoPlayerScreen {
             leave(stopPlayback: true)
         case .openCategory(let category):
             openCategory(category, from: watch)
+        }
+    }
+
+    /// Thu nhỏ theo cài đặt "Vuốt xuống trình phát" (`VideoMinimizePolicy`: phim thường / 18+ / ghi đè của tiện ích) — nút
+    /// Home của màn xem và nút Home của trang đè. Cửa sổ nhỏ chỉ khi màn đang phát phim của nó và không nhúng trang; còn lại
+    /// vào hub (dọc: khung phim bay vào nút hub; ngang / toàn màn: đóng). Màn đang hiện bìa ⇒ chỉ đóng màn. `then` chạy sau
+    /// khi màn đã đóng hẳn.
+    func minimizeByPolicy(_ source: String, then action: (() -> Void)?) {
+        guard watchOwnsSession, !controller.minimizeDrag.isCommitted else {
+            leave(stopPlayback: false, then: action)
+            return
+        }
+        let style = session.launch.map {
+            VideoMinimizePolicy.style(bookId: $0.bookId, packageId: $0.extensionPackageId)
+        } ?? VideoMinimizePolicy.defaultValue
+        if style == .miniPlayer, session.embedContent == nil {
+            AppLogger.shared.log("🎬 [VideoPlayer] \(source) ⇒ cửa sổ nhỏ theo cài đặt vuốt xuống")
+            minimizeToMiniPlayer(then: action)
+        } else {
+            AppLogger.shared.log("🎬 [VideoPlayer] \(source) ⇒ vào hub theo cài đặt vuốt xuống")
+            minimizeToHub(then: action)
         }
     }
 
@@ -72,7 +94,7 @@ extension VideoPlayerScreen {
     ///   dở cũng bị vượt — completion của nó gọi `leave` lần nữa là no-op), nhận `then` (về Khám phá sau khi màn đã đóng);
     ///   trang đè lên màn (nếu có) tự đóng nhờ `performDismiss`. Không dừng phim.
     /// - Nút Home của trang đè (trang đã đóng) ⇒ màn đóng **kể cả đang hiện bìa** (phim chạy nền của màn khác không bị
-    ///   dừng — `leave` chỉ dừng khi được yêu cầu), phim của màn vào hub, nhận `then` (về trang gốc tab).
+    ///   dừng — `leave` chỉ dừng khi được yêu cầu), phim của màn thu nhỏ theo cài đặt vuốt xuống, nhận `then` (về gốc tab).
     private func collapseToHub(for reason: VideoLeaveToHubCoordinator.Reason, then: (() -> Void)?) -> Bool {
         guard !isLeaving else { return false }
         guard controller.openingErrorLink == nil, openingDetailErrorLink == nil, openingDetailPage == nil else {
@@ -81,8 +103,8 @@ extension VideoPlayerScreen {
         }
         switch reason {
         case .homeButton:
-            AppLogger.shared.log("🏠 [VideoPlayer] \(reason.logLabel) ⇒ đóng màn xem, phim (nếu có) vào hub, về trang gốc tab")
-            leave(stopPlayback: false, then: then)
+            AppLogger.shared.log("🏠 [VideoPlayer] \(reason.logLabel) ⇒ đóng màn xem, phim (nếu có) thu nhỏ theo cài đặt, về gốc tab")
+            minimizeByPolicy(reason.logLabel, then: then)
             return true
         case .nsfwTurnedOff:
             guard watchOwnsSession, !controller.minimizeDrag.isCommitted else { return false }

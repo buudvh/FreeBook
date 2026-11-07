@@ -251,14 +251,15 @@ struct VideoPlayerScreen: View {
         }
     }
 
-    /// Nút ⌄: luôn vào hub — màn dọc thì khung phim bay vào nút hub, ngang / toàn màn thì đóng như cũ.
-    func minimizeToHub() {
+    /// Nút ⌄: luôn vào hub — màn dọc thì khung phim bay vào nút hub, ngang / toàn màn thì đóng như cũ. `then` chạy sau khi
+    /// màn đã đóng hẳn (nút Home, `+Exit`).
+    func minimizeToHub(then action: (() -> Void)? = nil) {
         guard !isLeaving, !controller.minimizeDrag.isCommitted else { return }
         guard !isFullscreen else {
-            leave(stopPlayback: false)
+            leave(stopPlayback: false, then: action)
             return
         }
-        flyToHub()
+        flyToHub(then: action)
     }
 
     /// Nút "Cửa sổ nhỏ" của thanh trên (và thể loại / Xem thêm, `+Exit`). Đang ngang / toàn màn dọc ⇒ về khung dọc trước
@@ -281,9 +282,9 @@ struct VideoPlayerScreen: View {
         }
     }
 
-    private func flyToHub() {
+    private func flyToHub(then action: (() -> Void)? = nil) {
         VideoMinimizeAnimator.flyToHub(controller.minimizeDrag) {
-            leave(stopPlayback: false, animated: false)
+            leave(stopPlayback: false, animated: false, then: action)
         }
     }
 

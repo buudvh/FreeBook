@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.775] - 2026-11-07
+
+### feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống
+
+Người dùng: *"khi bấm vào home thì tình trạng video là pip hay vào hub sẽ theo config vuốt xuống trình phát"*.
+
+- Nút Home "Về Khám phá" của màn xem phim và nút Home nổi của trang đè lên màn xem (thể loại / Chi tiết) thu nhỏ phim theo **Cài đặt › Video › Vuốt xuống trình phát** (`VideoMinimizePolicy`: riêng phim thường / phim 18+, tiện ích ghi đè được): cửa sổ nhỏ (đang ngang / toàn màn thì xoay về dọc trước) hoặc hub (khung phim bay vào nút hub). Phim nhúng trang luôn vào hub; màn đang hiện bìa chỉ đóng màn. Trước đây Home luôn đóng màn ⇒ hub.
+- `VideoPlayerScreen+Exit.minimizeByPolicy`; `minimizeToHub` / `flyToHub` nhận `then` (về Khám phá / gốc tab sau khi màn đã đóng hẳn).
+- Phim 18+: Home vẫn tắt NSFW (1.3.769) — guard NSFW xin thu vào hub bị `VideoLeaveToHubCoordinator` bỏ qua trong 2 giây sau Home (`applyLeaveRules(keepsPlacement:)`) để cửa sổ nhỏ vừa mở theo cài đặt không bị kéo vào hub.
+- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: Home lúc đang ngang với cài đặt cửa sổ nhỏ.
+
 ## [1.3.774] - 2026-11-07
 
 ### feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt
@@ -523,41 +535,3 @@ Người dùng: *"Chỉ hiển thị những config dùng trong danh sách trong
   - Đọc code + diff. Mô phỏng cùng thuật toán bằng Python trên 9 tiện ích của anh ⇒ kết quả khớp phân tích ở trên.
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: nút lọc đổi theo tab ở Khám phá, trang Xem thêm, Tìm một nguồn; áp dụng xong danh sách tải lại.
-
-## [1.3.745] - 2026-11-05
-
-### docs: cập nhật README theo tính năng hiện tại của app
-
-Người dùng: *"cập nhật lại readme.md giúp tôi"*.
-
-- **Mở đầu**: app đọc truyện chữ, truyện tranh **và xem phim**. Nguồn là tiện ích JavaScript hoặc nguồn Legado.
-- **Mục mới "Cài đặt và cập nhật"**:
-  - nguồn LiveContainer `apps.json`;
-  - Release giữ 5 bản;
-  - số phiên bản theo CHANGELOG, số build theo CI;
-  - báo bản mới trong app, kèm lưu ý app không tự cài được.
-- **Tính năng — bổ sung**:
-  - tiện ích ba loại nội dung, cấu hình riêng từng tiện ích, bộ kiểm tra tiện ích, nguồn Legado, lọc NSFW;
-  - đổi nguồn có nhật ký, gắn lại nguồn khi tiện ích đã gỡ;
-  - tải nhiều luồng theo nguồn;
-  - nhập ZIP/CBZ / video nhiều tập, xuất CBZ/PDF / video;
-  - màn Dung lượng, mở lại mục đọc dở.
-- **Tính năng — mục mới**:
-  - Truyện tranh.
-  - Video: màn xem dọc, tự phát, tắt tiếng, PiP / hub, chất lượng nhớ theo tiện ích, tải offline HLS.
-  - Trình duyệt: AdGuard, chỉnh riêng theo tên miền, dịch trang.
-  - Giao diện.
-- **Tính năng — mục cũ cập nhật**:
-  - luật dịch nhanh: rule tên chương, các token, trang hướng dẫn;
-  - TTS: hẹn giờ;
-  - AI: Chế độ AI của Google, AI theo truyện.
-- **Build / CI**:
-  - thêm SafariConverterLib (GPL-3.0, `-skipPackagePluginValidation`);
-  - phiên bản mặc định `1.3.0 (1)` khi build tay;
-  - các bước CI mới: version, Release + `apps.json` nhánh `source`, Telegram liệt kê commit.
-- **Cấu trúc mã nguồn**:
-  - cây thư mục `Services/` / `Views/` đúng hiện tại;
-  - `Models/` chỉ còn 4 `@Model`, tiện ích là JSON;
-  - bảng thư mục dữ liệu đủ `extension_store/`, `comics/`, `videos/`, `adblock/`, `Caches/comic_images/`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng**: đối chiếu với `CLAUDE.md`, `project.yml`, cây `Sources/`. Chỉ đổi tài liệu, không đụng code.

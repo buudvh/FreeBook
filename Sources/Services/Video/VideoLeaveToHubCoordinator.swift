@@ -46,11 +46,16 @@ final class VideoLeaveToHubCoordinator {
     typealias CollapseHandler = (_ reason: Reason, _ then: (() -> Void)?) -> Bool
 
     static let shared = VideoLeaveToHubCoordinator()
+    /// Đủ cho xoay về dọc (0,45 s) + hiệu ứng co vào cửa sổ nhỏ / hub.
+    private static let homeNsfwCollapseGrace: TimeInterval = 2
 
     private var handlers: [ObjectIdentifier: CollapseHandler] = [:]
     /// Về trang gốc tab Khám phá — tầng View cấp (`VideoPlayerPresenter.install`).
     private var showDiscoveryRoot: (() -> Void)?
     private var backgroundObserver: NSObjectProtocol?
+    /// Hạn bỏ qua lời xin thu vào hub của guard NSFW — nút Home thu nhỏ theo cài đặt vuốt xuống (cửa sổ nhỏ / hub) rồi mới
+    /// tắt NSFW; guard không được kéo cửa sổ nhỏ vừa mở vào hub (cửa sổ chỉ hiện sau hiệu ứng co / xoay về dọc).
+    private var nsfwCollapseSuppressedUntil: Date?
     /// Đọc lười (không trong `init`): session có thể gọi tới coordinator ngay trong lúc nó đang khởi tạo.
     private var session: VideoPlaybackSession { VideoPlaybackSession.shared }
 
@@ -72,6 +77,10 @@ final class VideoLeaveToHubCoordinator {
     /// màn đã đóng); trả `true` khi có chủ nhận — không ai nhận thì chỗ gọi tự chạy việc tiếp theo.
     @discardableResult
     func collapseToHub(reason: Reason, then: (() -> Void)? = nil) -> Bool {
+        if reason == .nsfwTurnedOff, let until = nsfwCollapseSuppressedUntil, Date() < until {
+            AppLogger.shared.log("🔞 [VideoLeave] Tắt NSFW do nút Home ⇒ giữ chỗ thu nhỏ theo cài đặt, không kéo vào hub")
+            return false
+        }
         var pending = then
         var accepted = false
         // Chép ra trước: cửa sổ nhỏ tự `unregister` lúc ẩn ngay trong handler.
@@ -89,7 +98,9 @@ final class VideoLeaveToHubCoordinator {
     /// công tắc NSFW đang bật ⇒ tắt (guard NSFW của phiên sẽ xin thu phim vào hub — chỗ gọi phải rời màn **trước**). Trả
     /// `true` khi công tắc NSFW vừa được tắt ở đây.
     @discardableResult
-    func applyLeaveRules(source: String) -> Bool {
+    /// `keepsPlacement` (nút Home): vài giây sau đó lời xin thu vào hub của guard NSFW bị bỏ qua — chỗ thu nhỏ do cài đặt
+    /// vuốt xuống quyết định.
+    func applyLeaveRules(source: String, keepsPlacement: Bool = false) -> Bool {
         if let playing = session.launch,
            RepositoryFilterPolicy.isNsfwBook(bookId: playing.bookId, packageId: playing.extensionPackageId) {
             let policy = VideoMutePolicy.current.title
@@ -101,6 +112,9 @@ final class VideoLeaveToHubCoordinator {
             }
         }
         guard RepositoryFilterPolicy.includesNsfwPreference else { return false }
+        if keepsPlacement {
+            nsfwCollapseSuppressedUntil = Date().addingTimeInterval(Self.homeNsfwCollapseGrace)
+        }
         AppLogger.shared.log("🔞 [VideoLeave] \(source): tắt công tắc NSFW")
         UserDefaults.standard.set(false, forKey: RepositoryFilterPolicy.includeNsfwDefaultsKey)
         return true
