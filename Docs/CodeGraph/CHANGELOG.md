@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.776] - 2026-11-07
+
+### feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang
+
+Người dùng: *"phần genres ở trình xem video (thanh các tag dạng #tên tag) hãy hiển thị đầy đủ trên 1 hàng, không đủ thì scroll ngang"*.
+
+- `VideoWatchTitleBlock`: hàng nhãn `#ThểLoại` hiện **mọi** thể loại (bỏ giới hạn 4), mỗi nhãn đủ chữ (bỏ cắt đuôi), nằm trong `ScrollView` ngang không thanh cuộn; hàng cuộn tràn sát hai mép màn, nhãn đầu vẫn thẳng lề 16 với tên phim.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.775] - 2026-11-07
 
 ### feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống
@@ -511,27 +520,3 @@ Người dùng: *"Bỏ luôn màn hình xem chi tiết cũ của video đi"* —
   - Đọc code + diff; grep `Sources/` không còn `BookDetailVideoTOCGrid` / `VideoDownloadsDeletePill` / `onOpenDetail` / `prefersLandscapeCover` / `episodeNoun`.
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: ⋮ của thẻ đề xuất chỉ có "Thêm vào kệ"; Nhập link phim từ trình duyệt của màn đọc ⇒ màn xem phim; Chi tiết truyện chữ / tranh hiện như cũ.
-
-## [1.3.746] - 2026-11-06
-
-### feat: bộ lọc chỉ hiện config mà script của tab dùng tới
-
-Người dùng: *"Chỉ hiển thị những config dùng trong danh sách trong bộ lọc"*. Anh Bửu chốt qua grill-me: tab chạy `gen.js`, trong `gen.js` (cùng các file nó `load()`) có nhắc tới config B thì bấm lọc ở tab đó mới có B. Chỉ sửa app, không sửa tiện ích.
-
-- **`ExtensionScriptConfigScanner`** (mới, `Services/Extensions/Config`): quét chữ, không chạy script.
-  - Đọc file script của tab cùng mọi `load('x.js')` chữ cố định (đệ quy, chống lặp, tối đa 30 file). File tìm ở gốc tiện ích rồi `src/` như `JSExecutor+Load`; thư viện dựng sẵn không có file thì bỏ qua.
-  - Bỏ comment `//`, `/* */` ngoài chuỗi (chuỗi giữ nguyên; ngoài chuỗi `\` bỏ qua ký tự kế để `/https?:\/\//` không thành comment).
-  - Khớp **nguyên tên** khoá: `(?<![A-Za-z0-9_$])KEY(?![A-Za-z0-9_$])` ⇒ `FILTER_SORT` không khớp `FILTER_SORT_NAME`.
-- **`ExtensionFilterScope`** (mới): `.file(tên)` hoặc `.pluginScript(khoá)` (đổi ra tên file lúc quét, ngoài main).
-  - Khám phá theo tab đang chọn: Trang chủ ⇒ `explore`, Thể loại ⇒ `genre`, tab home ⇒ `script` của mục. Sheet giữ tab lúc bấm.
-  - Danh sách thể loại / Xem thêm (`CategoryNovelsListView`) ⇒ `category.script`; Tìm một nguồn ⇒ `search`.
-- `ExtensionConfigSchema.tabFilterKeys(for:localPath:)`; `hasActiveFilter(values:keys:)` chỉ xét khoá của tab.
-- `ExtensionFilterCatalog`: khoá bảng gồm cả tab; chỉ dọn bản của version/config cũ, không dọn tab khác. Chấm "đang lọc" theo khoá của tab.
-- `ExtensionFilterButton(ext:scope:…)`, `ExtensionFilterSheet(packageId:scope:…)`: sheet chỉ hiện / đặt lại / ghi khoá của tab, khoá khác giữ nguyên trong `configJson`. Đọc `plugin.json` + quét chạy ngoài main. Tab không dùng khoá nào ⇒ ẩn nút.
-- **Giới hạn đã báo anh**: quét chữ không theo luồng dữ liệu. Tiện ích đọc mọi khoá trong file dùng chung (`config.js` của sto9, missav, 123av) thì mọi tab vẫn hiện đủ; qimao / wikidich thừa `COMMENT_MODE` / `FILTER_REVIEW_SORT`. qidian, STV, youtube hiện đúng theo tab.
-- `CLAUDE.md` + `AGENTS.md`: thêm luật bộ lọc theo tab ở mục Extension JavaScript.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. Mô phỏng cùng thuật toán bằng Python trên 9 tiện ích của anh ⇒ kết quả khớp phân tích ở trên.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: nút lọc đổi theo tab ở Khám phá, trang Xem thêm, Tìm một nguồn; áp dụng xong danh sách tải lại.

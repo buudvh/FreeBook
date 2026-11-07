@@ -3,16 +3,18 @@ import SwiftUI
 /// Đầu phần dưới khung phim: **dòng nhãn thể loại** `#KiếmHiệp #CổTrang` (trên tên phim, kiểu trình phát dọc), tên phim,
 /// dòng meta `nguồn · N tập` + "…thêm" (sheet Thông tin).
 ///
-/// Nhãn: tối đa `maxTags`, một dòng, tên thể loại bỏ khoảng trắng sau dấu `#`, dài quá thì cắt đuôi. Thể loại có script
-/// ⇒ bấm được (thu nhỏ phim, mở danh sách thể loại); không có script (nhãn trơn của nguồn Legado) ⇒ chỉ hiện chữ. Đủ thể
-/// loại ở sheet Thông tin.
+/// Nhãn (1.3.776): **mọi** thể loại trên **một hàng**, mỗi nhãn đủ chữ (không cắt đuôi), không đủ chỗ thì cuộn ngang — hàng
+/// cuộn tràn sát hai mép màn, chữ đầu vẫn thẳng lề 16 với tên phim. Tên thể loại bỏ khoảng trắng sau dấu `#`. Thể loại có
+/// script ⇒ bấm được (phim vào cửa sổ nhỏ, mở danh sách thể loại); không có script (nhãn trơn của nguồn Legado) ⇒ chỉ hiện
+/// chữ.
 struct VideoWatchTitleBlock: View {
     let model: VideoWatchModel
     let episodeCount: Int
     let onShowInfo: () -> Void
     let onSelectGenre: (CategoryResult) -> Void
 
-    private static let maxTags = 4
+    /// Lề ngang của khối — hàng nhãn cuộn bù lại để chạm hai mép màn.
+    private static let horizontalInset: CGFloat = 16
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -25,25 +27,28 @@ struct VideoWatchTitleBlock: View {
                 .fixedSize(horizontal: false, vertical: true)
             metaRow
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Self.horizontalInset)
     }
 
     private var tagRow: some View {
-        HStack(spacing: 10) {
-            ForEach(Array(model.genres.prefix(Self.maxTags))) { genre in
-                if genre.script.isEmpty {
-                    tagLabel(genre)
-                } else {
-                    Button {
-                        onSelectGenre(genre)
-                    } label: {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(model.genres) { genre in
+                    if genre.script.isEmpty {
                         tagLabel(genre)
+                    } else {
+                        Button {
+                            onSelectGenre(genre)
+                        } label: {
+                            tagLabel(genre)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, Self.horizontalInset)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, -Self.horizontalInset)
     }
 
     private func tagLabel(_ genre: CategoryResult) -> some View {
@@ -51,7 +56,7 @@ struct VideoWatchTitleBlock: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(Color.accentColor)
             .lineLimit(1)
-            .truncationMode(.tail)
+            .fixedSize()
     }
 
     /// "Kiếm hiệp" ⇒ "KiếmHiệp": viết hoa đầu mỗi từ rồi bỏ khoảng trắng (kiểu hashtag).
