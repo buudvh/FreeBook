@@ -120,6 +120,7 @@ final class FloatingHubPresentationReader: ObservableObject {
         var title = ""
         var subtitle = ""
         var isPlaying = false
+        var isNsfw = false
     }
 
     @Published private(set) var snapshot = Snapshot()
@@ -147,7 +148,8 @@ final class FloatingHubPresentationReader: ObservableObject {
             isActive: video.isActive,
             title: video.title,
             subtitle: video.subtitle,
-            isPlaying: video.isPlaying
+            isPlaying: video.isPlaying,
+            isNsfw: video.isNsfw
         )
         let sourceCheckCoordinator = MinimizedSourceCheckCoordinator.shared
         sourceChecks = sourceCheckCoordinator.entries.filter(\.isMinimized)
@@ -167,15 +169,20 @@ final class FloatingHubPresentationReader: ObservableObject {
         }
         .store(in: &cancellables)
 
-        Publishers.CombineLatest4(video.$isActive, video.$title, video.$subtitle, video.$isPlaying)
+        Publishers.CombineLatest(
+            Publishers.CombineLatest4(video.$isActive, video.$title, video.$subtitle, video.$isPlaying),
+            video.$isNsfw
+        )
             .receive(on: RunLoop.main)
-            .sink { [weak self] isActive, title, subtitle, isPlaying in
+            .sink { [weak self] values, isNsfw in
                 guard let self else { return }
+                let (isActive, title, subtitle, isPlaying) = values
                 self.videoState = VideoState(
                     isActive: isActive,
                     title: title,
                     subtitle: subtitle,
-                    isPlaying: isPlaying
+                    isPlaying: isPlaying,
+                    isNsfw: isNsfw
                 )
                 self.refresh()
             }
@@ -355,11 +362,22 @@ final class FloatingHubPresentationReader: ObservableObject {
 
     /// Video dùng được khi trình phát đã thu nhỏ mà vẫn còn phiên (`VideoMiniPlayerState.isActive`) — kể cả phim 18+ lúc
     /// công tắc NSFW tắt: tắt NSFW / nút Home / rời app thu phim vào hub chứ không dừng, hub là chỗ điều khiển còn lại.
+    /// Khi đó tên phim / tập bị che thành "Đang phát" như màn khoá (1.3.774).
     private func videoItem() -> FloatingHubItem {
         guard videoState.isActive else {
             return FloatingHubItem(kind: .video, detail: "Không có video đang phát")
         }
         let fallback = videoState.isPlaying ? "Đang phát" : "Đã dừng"
+        if videoState.isNsfw, !includeNsfw {
+            return FloatingHubItem(
+                kind: .video,
+                isEnabled: true,
+                headline: "Đang phát",
+                detail: videoState.isPlaying ? "Chạm để mở lại" : "Đã dừng",
+                isPlaying: videoState.isPlaying,
+                isActive: true
+            )
+        }
         return FloatingHubItem(
             kind: .video,
             isEnabled: true,

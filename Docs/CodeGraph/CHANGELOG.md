@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.774] - 2026-11-07
+
+### feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt
+
+Anh Bửu chọn *"Che thành Đang phát"* cho câu hỏi còn treo của 1.3.769 (NSFW đã tắt mà phim 18+ vẫn chạy ở hub thì dòng Video hiện tên phim thật).
+
+- Dòng Video của hub: phim 18+ (`RepositoryFilterPolicy.isNsfwBook`) lúc công tắc NSFW **tắt** ⇒ dòng chính "Đang phát" (như màn khoá 1.3.764), dòng phụ "Chạm để mở lại" / "Đã dừng" — không lộ tên phim, tên tập. NSFW bật ⇒ hiện tên như cũ.
+- `VideoMiniPlayerState.isNsfw` (phiên ghi ở `syncMiniPlayerState`), `FloatingHubPresentationReader` đọc cùng công tắc NSFW đang theo dõi sẵn ⇒ gạt NSFW là dòng đổi ngay.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.773] - 2026-11-07
 
 ### fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn
@@ -551,24 +561,3 @@ Người dùng: *"cập nhật lại readme.md giúp tôi"*.
   - bảng thư mục dữ liệu đủ `extension_store/`, `comics/`, `videos/`, `adblock/`, `Caches/comic_images/`.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng**: đối chiếu với `CLAUDE.md`, `project.yml`, cây `Sources/`. Chỉ đổi tài liệu, không đụng code.
-
-## [1.3.744] - 2026-11-05
-
-### feat: màn xem video: tiêu đề nhóm đề xuất nổi bật có Xem thêm, thể loại và Xem thêm mở trang toàn màn đè lên phim
-
-Plan đợt 2 trình phát video, mục 7–8 (anh Bửu đã duyệt).
-
-- **Tiêu đề nhóm đề xuất kiểu A** (`VideoWatchSuggestSection.header`): khoảng trống + đường ngăn mờ phía trên, vạch màu nhấn 3 pt bên trái (không bo góc), chữ `.title3` đậm (to hơn tên phim trong thẻ), "Xem thêm ›" màu nhấn bên phải. Mọi nhóm có "Xem thêm"; nhóm cuối vẫn nạp thêm khi cuộn.
-- **`VideoWatchPagePresenter`** (mới, `Views/VideoPlayer/Watch`): trang **toàn màn** đè lên màn xem.
-  - `UIHostingController` `.overFullScreen` (không `.fullScreen`: kiểu đó gỡ màn xem ⇒ `onDisappear` ⇒ phim thu nhỏ). Màn xem vẫn gắn bên dưới, phim chạy tiếng như cũ.
-  - `NavigationStack` riêng (trong trang vẫn đẩy tiếp Chi tiết, thể loại khác), nút `‹` đóng trang về lại màn xem, `.appAccentTint()` + `modelContainer` ở gốc.
-  - Chỉ dọc (VC con trả `.portrait`); đang ngang thì xin xoay dọc rồi mới mở.
-  - Dùng cho 3 lối: thể loại (nhãn `#` trên tên + chip của sheet Thông tin, mở sau khi sheet đóng), "Xem thêm" của đề xuất (`CategoryNovelsListView`), "Mở trang chi tiết" ở `⋮` của thẻ đề xuất (và đề xuất không phải phim) (`BookDetailView`).
-- **`CategoryNovelsListView(onSelectVideo:)`** (mặc định `nil` = hành vi cũ ở mọi chỗ khác): trong trang, bấm phim của nguồn video ⇒ đóng trang trước, lượt sau đổi phim tại chỗ (`VideoWatchModel.replace`, mẫu `BookActionSheet.emit`). Nguồn khác ⇒ đẩy Chi tiết trong trang như cũ.
-- **Bỏ đường sheet cũ**: `VideoWatchExit` chỉ còn `.home` / `.close`; `VideoPlayerScreen.handleExit` bỏ hai nhánh thu nhỏ rồi mở sheet; `VideoWatchPresenter` bỏ `presentPage` / `dismissPage`, `readyTopViewController` dùng chung với trang mới. `performDismiss` đóng trang đang đè (nếu có) trước khi đóng màn.
-- **Nút âm lượng cứng khi trang đang che màn xem**: màn không "đang hiện" ⇒ không hiện thanh, không bỏ tắt tiếng (`VideoWatchPagePresenter.isPresenting`).
-- Commit sửa thêm (cùng tiêu đề, trước khi đẩy): gọi `VideoWatchPagePresenter.dismiss` / `.shared` bằng tên kiểu trong closure thoát của hàm `static`.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu `presentPage` / `dismissPage` / `VideoWatchExit.genre` / `.openDetail` của màn xem. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: tiêu đề nhóm dễ thấy; "Xem thêm" từng nhóm mở trang, phim vẫn phát tiếng; bấm phim trong trang ⇒ trang đóng, màn đổi phim tại chỗ; bấm thể loại (nhãn # và sheet Thông tin); "Mở trang chi tiết" ở ⋮; nút ‹ về màn xem; trang không xoay ngang.

@@ -81,8 +81,9 @@ extension VideoPlaybackSession {
     /// `reset()` xoá chúng. Trang nhúng chết cùng màn (WKWebView bị huỷ khi thu nhỏ) ⇒ hub không báo "đang phát" mà mời
     /// chạm để mở lại.
     func syncMiniPlayerState() {
-        guard launch != nil, !isScreenAttached else { return }
+        guard let launch, !isScreenAttached else { return }
         let mini = VideoMiniPlayerState.shared
+        let nsfw = RepositoryFilterPolicy.isNsfwBook(bookId: launch.bookId, packageId: launch.extensionPackageId)
         let isEmbed = embedContent != nil
         let subtitle = isEmbed
             ? [currentEpisodeLabel, "Chạm để mở lại"].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -91,6 +92,7 @@ extension VideoPlaybackSession {
         if mini.title != bookTitle { mini.title = bookTitle }
         if mini.subtitle != subtitle { mini.subtitle = subtitle }
         if mini.isPlaying != playing { mini.isPlaying = playing }
+        if mini.isNsfw != nsfw { mini.isNsfw = nsfw }
         mini.onTogglePlay = { [weak self] in self?.togglePlayPause() }
         mini.onReopen = { [weak self] in self?.requestScreen() }
         mini.onStop = { [weak self] in self?.stop() }
