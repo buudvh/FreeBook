@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.777",
+          "buildVersion": "1180",
+          "date": "2026-11-07T05:16:28Z",
+          "localizedDescription": "- feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt\n- feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống\n- feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang\n- feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1180/TangCongCac-1.3.777-1180.ipa",
+          "size": 38225124,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.773",
           "buildVersion": "1178",
           "date": "2026-11-07T04:31:46Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1174/TangCongCac-1.3.762-1174.ipa",
           "size": 38032016,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.761",
-          "buildVersion": "1173",
-          "date": "2026-11-06T09:04:42Z",
-          "localizedDescription": "- feat: rule dịch viết hoa tên token chữ thì viết hoa phần nghĩa",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1173/TangCongCac-1.3.761-1173.ipa",
-          "size": 37984182,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.773",
-      "versionDate": "2026-11-07T04:31:46Z",
-      "versionDescription": "- feat: kiểu Lưới và Chỉ bìa chọn được 1 cột\n- feat: chỉnh cỡ hiển thị từng bố cục của trang Khám phá\n- feat: bấm Thể loại hoặc Xem thêm khi đang xem phim thì phim vào cửa sổ nhỏ\n- fix: tắt NSFW không còn dừng phim 18+ mà thu vào hub và tắt tiếng theo cài đặt\n- feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video\n- feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab\n- feat: nút + của Chi tiết theo cấu hình nút nổi, Home nằm trong menu xổ của nút +\n- fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1178/TangCongCac-1.3.773-1178.ipa",
-      "size": 38221507,
+      "version": "1.3.777",
+      "versionDate": "2026-11-07T05:16:28Z",
+      "versionDescription": "- feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt\n- feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống\n- feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang\n- feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1180/TangCongCac-1.3.777-1180.ipa",
+      "size": 38225124,
       "appPermissions": {}
     }
   ],
