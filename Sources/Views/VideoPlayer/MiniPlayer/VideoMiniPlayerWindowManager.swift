@@ -11,9 +11,9 @@ import UIKit
 /// - Tự ẩn khi màn to gắn lại (`onFullScreenAttached`) hoặc phiên dừng hẳn (`onDidStop`, xét ở nhịp main sau: tự sang
 ///   phim đề xuất `stop()` rồi mở phim mới ngay trong cùng nhịp — cửa sổ phải ở lại).
 /// - Chạm ⇒ nở lên chỗ khung phim của màn xem rồi mở lại màn **không animation** (`requestScreen(animated: false)`).
-/// - Tắt NSFW lúc phát phim 18+ ⇒ thu vào hub như thả lên nút hub (`VideoLeaveToHubCoordinator`, đăng ký lúc hiện, gỡ lúc
-///   ẩn), phim phát tiếp.
-/// - Rời app ⇒ chỉ phát tiếng (session tách hình khi vào nền), như mọi kiểu thu nhỏ.
+/// - Tắt NSFW lúc phát phim 18+, hoặc rời app (công tắc `VideoLeaveAppPolicy`, mặc định bật) ⇒ thu vào hub như thả lên nút
+///   hub, phim phát tiếp (`VideoLeaveToHubCoordinator`, đăng ký lúc hiện, gỡ lúc ẩn). Công tắc rời app tắt ⇒ cửa sổ ở lại,
+///   phim chỉ phát tiếng (session tách hình khi vào nền).
 @MainActor
 final class VideoMiniPlayerWindowManager {
     static let shared = VideoMiniPlayerWindowManager()
@@ -67,7 +67,11 @@ final class VideoMiniPlayerWindowManager {
             }
         }
         VideoLeaveToHubCoordinator.shared.register(self) { reason, _ in
-            VideoMiniPlayerWindowManager.shared.collapseToHub(reason: "\(reason.logLabel) ⇒ thu vào hub", bounces: true)
+            // Rời app: không nảy nút hub (đang ở nền).
+            VideoMiniPlayerWindowManager.shared.collapseToHub(
+                reason: "\(reason.logLabel) ⇒ thu vào hub",
+                bounces: reason != .appBackground
+            )
             return false
         }
         window?.isHidden = false

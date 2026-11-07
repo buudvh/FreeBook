@@ -22,10 +22,14 @@ final class VideoPlayerPresenter {
 
     private init() {}
 
-    /// Gắn handler vào session. Gọi mỗi lần màn trình phát xuất hiện (rẻ, idempotent).
+    /// Gắn handler vào session. Gọi mỗi lần màn trình phát xuất hiện (rẻ, idempotent). Kèm theo: rời app ⇒ thu phim vào
+    /// hub (`VideoLeaveToHubCoordinator`) — chuyển tab Khám phá là việc của tầng View nên cấp ở đây.
     static func install() {
         VideoPlaybackSession.shared.presentScreenHandler = { animated, completion in
             VideoPlayerPresenter.shared.presentPlayer(retryCount: 0, animated: animated, completion: completion)
+        }
+        VideoLeaveToHubCoordinator.shared.installAppLeaveObserver {
+            MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
         }
     }
 

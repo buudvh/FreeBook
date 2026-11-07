@@ -10,7 +10,8 @@ import UIKit
 ///   `VideoMiniPlayerState` (không observe session này).
 /// - Chỉ `stop()` (nút Đóng X, ✕ của cửa sổ nhỏ, đóng từ hub, hoặc mở phim khác) mới dừng hẳn.
 /// - Giữ luôn `layerView` (`AVPlayerLayer`): màn hình và cửa sổ nhỏ chỉ chuyển view này qua lại, phim không ngắt.
-/// - Không có Hình trong hình của hệ thống (bỏ ở 1.3.751): rời app thì chỉ phát tiếng.
+/// - Không có Hình trong hình của hệ thống (bỏ ở 1.3.751): rời app thì chỉ phát tiếng; công tắc `VideoLeaveAppPolicy` (mặc
+///   định bật) còn thu màn xem / cửa sổ nhỏ vào hub (`VideoLeaveToHubCoordinator`), không dừng phim.
 ///
 /// Pipeline nạp: mục lục tập → `chap` (server) → `track` → `VideoSourceResolver` → `AVPlayerItem` hoặc trang nhúng.
 /// Media không đi qua pipeline text (`ChapterContentRepository.load`, `ChapterTextNormalizer`…); `data` của server

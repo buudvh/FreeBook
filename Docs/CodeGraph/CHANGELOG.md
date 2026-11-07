@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.770] - 2026-11-07
+
+### feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video
+
+Người dùng: *"Khi người dùng đang xem video mà tắt màn hình thì tự động cho video và hub widget (nếu đang ở nfsw thì tắt và chuyển sang nguồn khác không nfsw), video thu vào hub không cần pause đâu (tính năng này có thể config bật tắt)"*. Anh Bửu chọn kích hoạt **khi rời app** (khoá màn hình hoặc về màn hình chính), phim 18+ làm giống nút Home mới (1.3.769).
+
+- Cài đặt › Đọc & Nghe › Video thêm nhóm "Khi rời app" với công tắc "Rời app thì thu phim vào hub" (`VideoLeaveAppPolicy`, khoá `videoCollapseToHubOnLeaveApp`, mặc định **bật**).
+- App vào nền (`didEnterBackground`: khoá màn hình, vuốt về màn hình chính — kéo Trung tâm điều khiển không tính) lúc có phim: màn xem đóng **không hiệu ứng**, cửa sổ nhỏ thu vào hub; phim phát tiếp chỉ tiếng, không bao giờ bị dừng vì việc này. Trang đè lên màn xem đóng theo.
+- Rồi như nút Home: phim 18+ tắt tiếng theo "Tắt tiếng khi mở phim"; công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá (sau khi màn xem đã đóng hẳn) ⇒ Khám phá đổi sang nguồn không 18+. NSFW đang tắt thì không chuyển tab. Gọi lặp an toàn; log `🎬` / `🔞` cho từng bước, lỗi có `❌`.
+- Màn xem gỡ khỏi phiên ngay khi rời app (không chờ `onDisappear`, có thể bị hoãn ở nền); trình duyệt "Mở link lỗi" / "Trình duyệt" đang che màn thì giữ nguyên màn. Phim nhúng trang cũng bị thu (trang web huỷ, hub hiện "Chạm để mở lại" như nút ⌄).
+- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: đóng màn xem khi app đã ở nền (lượt chuyển Khám phá chờ `onDisappear`); đang xem ngang mà rời app.
+
 ## [1.3.769] - 2026-11-07
 
 ### fix: tắt NSFW không còn dừng phim 18+ mà thu vào hub và tắt tiếng theo cài đặt
@@ -578,31 +591,3 @@ Plan đợt 2 trình phát video, mục 4 (anh Bửu đã duyệt).
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**. `TTSManager.swift` giữ 3468 dòng.
   - Không build tại chỗ (Windows). Chưa thử trên máy: bấm nút cứng ở màn dọc và toàn màn (hiện thanh); phim tắt tiếng, TTS không đọc ⇒ bật tiếng; TTS đang đọc ⇒ chỉ hiện thanh; phim tắt tiếng phát cùng TTS, dừng hẳn TTS rồi bấm nút cứng ⇒ vẫn hiện thanh.
-
-## [1.3.740] - 2026-11-05
-
-### feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+
-
-Plan đợt 2 trình phát video, mục 1–3 (anh Bửu đã duyệt).
-
-- **Trang Cài đặt › Đọc & Nghe › Video** (`VideoSettingsView`, `Sources/Views/Settings/Video/`; hàng `NavigationLink` icon `play.rectangle` trong `ReadingSettingsSection`):
-  - Nhóm **Khi mở phim**: "Tự phát khi mở phim" (dời từ section Đọc & Nghe, bỏ hàng cũ) và "Tắt tiếng khi mở phim" (dời từ màn Nội dung nhạy cảm, bỏ hàng cũ). Cùng khoá cũ, không mất lựa chọn.
-  - Nhóm **Vuốt xuống trình phát** (nút "?"): "Phim thường" / "Phim 18+", mỗi dòng chọn Thu nhỏ vào hub / Hình trong hình. Mặc định cả hai là hub (giữ hành vi cũ).
-  - Sửa comment sai ở `NsfwSettingsView` (màn nằm ở Cài đặt › Chung › Giao diện, không phải Thư Viện), `VideoMutePolicy`, `VideoAutoplayPolicy`, `ReadingSettingsSection`.
-- **`VideoMinimizeStyle` + `VideoMinimizePolicy`** (`Services/Video`): khoá `videoSwipeMinimizeNormal` / `videoSwipeMinimizeNsfw`; luật `Extension.videoMinimizeOverride ?? (RepositoryFilterPolicy.isNsfwBook ? "Phim 18+" : "Phim thường")`.
-- **Vuốt xuống** (`VideoPlayerScreen.minimizeBySwipe`, gắn vào `controller.onMinimizeRequest`):
-  - Kiểu hub ⇒ thu nhỏ như cũ.
-  - Kiểu PiP và `isPictureInPicturePossible` ⇒ chỉ `togglePictureInPicture()`; handler `pictureInPictureStartCount` có sẵn tự thu nhỏ khi PiP đã bật (không đóng màn trực tiếp vì PiP cần layer còn gắn).
-  - PiP không được (phim nhúng, item chưa sẵn sàng) ⇒ hub. PiP không lên sau 1,5 giây (bị từ chối, lỗi) ⇒ hub.
-  - Nút ⌄ không đổi: luôn thu nhỏ vào hub.
-- **Ghi đè theo tiện ích**:
-  - `Extension.videoMinimizeOverride: String?` (`nil` = theo cài đặt chung; decode khoan dung).
-  - `ExtensionTransactionCoordinator.setVideoMinimizeOverride`.
-  - Mục **Video** trong Cấu hình tiện ích (`ExtensionConfigView+Video`), chỉ tiện ích loại video: Picker menu "Theo cài đặt chung (…)" / Thu nhỏ vào hub / Hình trong hình (mẫu `NsfwChoice`). Nhãn "Theo cài đặt chung" ghi giá trị chung đang áp (tiện ích 18+ theo dòng "Phim 18+").
-  - Backup: `BackupPayload.ExtensionRecord`, `BackupLibraryReader`, `BackupLibraryWriter` (chỉ áp khi máy này chưa tự chọn), `BackupLibraryFingerprint`. Optional mặc định `nil` ⇒ vân tay backup cũ không đổi.
-- **Tắt NSFW thì dừng phim 18+** (`VideoPlaybackSession+NsfwGuard`): nghe `UserDefaults.didChangeNotification` (nhận trên main), chỉ xử lý lúc khoá `RepositoryFilterPolicy.includeNsfwDefaultsKey` chuyển từ bật sang tắt; phim đang phát là `isNsfwBook` ⇒ `stop()`, kể cả khi đang ở hub hay PiP.
-- `CLAUDE.md` + `AGENTS.md`: cập nhật chỗ đặt "Tắt tiếng khi mở phim", thêm luật vuốt xuống và dừng phim 18+.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: vuốt xuống ở màn dọc theo từng cài đặt (phim thường / 18+ / tiện ích đặt riêng, PiP được và không được); tắt NSFW lúc phim 18+ đang ở hub hoặc PiP ⇒ phim dừng.

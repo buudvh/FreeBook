@@ -4,8 +4,8 @@ import Foundation
 /// (`VideoPlaybackSession.open` với phim khác phim đang chạy); mở lại trình phát đang thu nhỏ (hub, cửa sổ nhỏ) hay đổi
 /// tập giữ nguyên trạng thái tiếng hiện tại (`AVPlayer.isMuted` gắn với player). Tự sang phim đề xuất cũng giữ tiếng của
 /// phim vừa hết (`open(muteOverride:)`). Ngoài lúc mở phim, phim **18+ đang phát** còn tắt tiếng theo cùng tuỳ chọn khi
-/// bấm Home của màn xem hoặc tắt công tắc NSFW (`VideoLeaveToHubCoordinator`, `VideoPlaybackSession+NsfwGuard`) — chỉ tắt,
-/// không bao giờ tự bật lại tiếng.
+/// bấm Home của màn xem, tắt công tắc NSFW hoặc rời app (`VideoLeaveToHubCoordinator`, `VideoPlaybackSession+NsfwGuard`)
+/// — chỉ tắt, không bao giờ tự bật lại tiếng.
 ///
 /// Lưu `UserDefaults` bằng raw value; khoá chưa ghi hoặc giá trị lạ ⇒ `nsfwOnly`. Màn Cài đặt ghi cùng khoá qua
 /// `@AppStorage(VideoMutePolicy.defaultsKey)`.

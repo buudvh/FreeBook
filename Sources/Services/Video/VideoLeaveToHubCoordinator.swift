@@ -1,7 +1,8 @@
 import Foundation
+import UIKit
 
 /// **Thu phim vào hub** theo luật chung — nút Home của màn xem, tắt công tắc NSFW lúc đang phát phim 18+
-/// (`VideoPlaybackSession+NsfwGuard`). Không bao giờ dừng / tạm dừng phim.
+/// (`VideoPlaybackSession+NsfwGuard`) và rời app (`VideoLeaveAppPolicy`). Không bao giờ dừng / tạm dừng phim.
 ///
 /// ## Xin thu vào hub (`collapseToHub`)
 /// Tầng dịch vụ không đóng được màn ⇒ màn xem (`VideoPlayerScreen`, khoá = controller của màn) và cửa sổ nhỏ
@@ -9,19 +10,30 @@ import Foundation
 /// rời (`isLeaving`) / không sở hữu phiên, cửa sổ đã ẩn ⇒ tự bỏ qua, nên xin lặp là an toàn (Home tắt NSFW ⇒ guard NSFW
 /// xin thu thêm một lần nữa).
 ///
-/// ## Luật chung của Home (`applyLeaveRules`)
+/// ## Luật chung của Home / rời app (`applyLeaveRules`)
 /// Phim **đang phát** là 18+ (`RepositoryFilterPolicy.isNsfwBook`) ⇒ tắt tiếng nếu `VideoMutePolicy.shouldStartMuted`
 /// (chỉ tắt, không bao giờ bật lại tiếng); công tắc NSFW đang bật ⇒ tắt. Không cần `VideoWatchModel` (phim ở cửa sổ nhỏ /
 /// hub vẫn dùng được). Không toast, không SwiftUI.
+///
+/// ## Rời app (`installAppLeaveObserver`)
+/// App **vào nền** (`didEnterBackgroundNotification`: khoá màn hình, vuốt về màn hình chính — **không** dùng `.inactive`:
+/// kéo Trung tâm điều khiển cũng ra inactive), công tắc bật, phiên đang có phim ⇒ thu màn xem / cửa sổ nhỏ vào hub
+/// **không hiệu ứng** (đang ở nền, completion của animation có thể không bao giờ chạy), rồi luật chung; công tắc NSFW vừa
+/// được tắt ⇒ về trang gốc Khám phá — sau khi màn xem đã đóng hẳn (`then`), hoặc ngay nếu không có màn nào nhận. Kênh
+/// chuyển tab thuộc tầng View nên `VideoPlayerPresenter.install` cấp closure. Gọi lặp an toàn (màn đang rời / đã ở hub
+/// tự bỏ qua, tắt tiếng / tắt NSFW lặp lại không đổi gì).
 @MainActor
 final class VideoLeaveToHubCoordinator {
     enum Reason {
         /// Tắt công tắc NSFW lúc đang phát phim 18+.
         case nsfwTurnedOff
+        /// App vào nền, công tắc `VideoLeaveAppPolicy` bật — thu không hiệu ứng.
+        case appBackground
 
         var logLabel: String {
             switch self {
             case .nsfwTurnedOff: return "tắt NSFW"
+            case .appBackground: return "rời app"
             }
         }
     }
@@ -32,6 +44,9 @@ final class VideoLeaveToHubCoordinator {
     static let shared = VideoLeaveToHubCoordinator()
 
     private var handlers: [ObjectIdentifier: CollapseHandler] = [:]
+    /// Về trang gốc tab Khám phá — tầng View cấp (`VideoPlayerPresenter.install`).
+    private var showDiscoveryRoot: (() -> Void)?
+    private var backgroundObserver: NSObjectProtocol?
     /// Đọc lười (không trong `init`): session có thể gọi tới coordinator ngay trong lúc nó đang khởi tạo.
     private var session: VideoPlaybackSession { VideoPlaybackSession.shared }
 
@@ -85,5 +100,52 @@ final class VideoLeaveToHubCoordinator {
         AppLogger.shared.log("🔞 [VideoLeave] \(source): tắt công tắc NSFW")
         UserDefaults.standard.set(false, forKey: RepositoryFilterPolicy.includeNsfwDefaultsKey)
         return true
+    }
+
+    // MARK: - Rời app
+
+    /// Gắn theo dõi vào nền (một lần) + cách về Khám phá. `VideoPlayerPresenter.install` gọi mỗi lần màn trình phát xuất
+    /// hiện — phiên chỉ có phim sau khi một màn trình phát đã hiện trong tiến trình này.
+    func installAppLeaveObserver(showDiscoveryRoot: @escaping () -> Void) {
+        self.showDiscoveryRoot = showDiscoveryRoot
+        guard backgroundObserver == nil else { return }
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                VideoLeaveToHubCoordinator.shared.handleAppDidEnterBackground()
+            }
+        }
+    }
+
+    private func handleAppDidEnterBackground() {
+        guard session.isActive else { return }
+        guard VideoLeaveAppPolicy.isEnabled else {
+            AppLogger.shared.log("🎬 [VideoLeave] Rời app: công tắc thu vào hub đang tắt ⇒ giữ nguyên, phim chỉ phát tiếng")
+            return
+        }
+        // Chụp trước: `applyLeaveRules` sẽ tắt công tắc này.
+        let turnsOffNsfw = RepositoryFilterPolicy.includesNsfwPreference
+        AppLogger.shared.log("🎬 [VideoLeave] Rời app ⇒ thu phim vào hub (không dừng)\(turnsOffNsfw ? ", tắt NSFW rồi về Khám phá" : "")")
+        let navigate: (() -> Void)? = turnsOffNsfw
+            ? { VideoLeaveToHubCoordinator.shared.navigateToDiscoveryRoot() }
+            : nil
+        // Thu TRƯỚC khi tắt NSFW: guard NSFW xin thu lần nữa thì màn đã `isLeaving` / cửa sổ đã ẩn ⇒ không chạy hiệu ứng bay.
+        let deferred = collapseToHub(reason: .appBackground, then: navigate)
+        applyLeaveRules(source: "Rời app")
+        if !deferred {
+            navigate?()
+        }
+    }
+
+    private func navigateToDiscoveryRoot() {
+        guard let showDiscoveryRoot else {
+            AppLogger.shared.log("❌ [VideoLeave] Chưa có kênh chuyển tab ⇒ không về được Khám phá")
+            return
+        }
+        AppLogger.shared.log("🔞 [VideoLeave] Rời app ⇒ về trang gốc Khám phá")
+        showDiscoveryRoot()
     }
 }

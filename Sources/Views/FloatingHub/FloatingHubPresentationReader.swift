@@ -354,7 +354,7 @@ final class FloatingHubPresentationReader: ObservableObject {
     }
 
     /// Video dùng được khi trình phát đã thu nhỏ mà vẫn còn phiên (`VideoMiniPlayerState.isActive`) — kể cả phim 18+ lúc
-    /// công tắc NSFW tắt: tắt NSFW / nút Home thu phim vào hub chứ không dừng, hub là chỗ điều khiển còn lại.
+    /// công tắc NSFW tắt: tắt NSFW / nút Home / rời app thu phim vào hub chứ không dừng, hub là chỗ điều khiển còn lại.
     private func videoItem() -> FloatingHubItem {
         guard videoState.isActive else {
             return FloatingHubItem(kind: .video, detail: "Không có video đang phát")

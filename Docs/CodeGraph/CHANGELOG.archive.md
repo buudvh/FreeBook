@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.740] - 2026-11-05
+
+### feat: trang Cài đặt Video, vuốt xuống thu nhỏ vào hub hoặc Hình trong hình, tắt NSFW thì dừng phim 18+
+
+Plan đợt 2 trình phát video, mục 1–3 (anh Bửu đã duyệt).
+
+- **Trang Cài đặt › Đọc & Nghe › Video** (`VideoSettingsView`, `Sources/Views/Settings/Video/`; hàng `NavigationLink` icon `play.rectangle` trong `ReadingSettingsSection`):
+  - Nhóm **Khi mở phim**: "Tự phát khi mở phim" (dời từ section Đọc & Nghe, bỏ hàng cũ) và "Tắt tiếng khi mở phim" (dời từ màn Nội dung nhạy cảm, bỏ hàng cũ). Cùng khoá cũ, không mất lựa chọn.
+  - Nhóm **Vuốt xuống trình phát** (nút "?"): "Phim thường" / "Phim 18+", mỗi dòng chọn Thu nhỏ vào hub / Hình trong hình. Mặc định cả hai là hub (giữ hành vi cũ).
+  - Sửa comment sai ở `NsfwSettingsView` (màn nằm ở Cài đặt › Chung › Giao diện, không phải Thư Viện), `VideoMutePolicy`, `VideoAutoplayPolicy`, `ReadingSettingsSection`.
+- **`VideoMinimizeStyle` + `VideoMinimizePolicy`** (`Services/Video`): khoá `videoSwipeMinimizeNormal` / `videoSwipeMinimizeNsfw`; luật `Extension.videoMinimizeOverride ?? (RepositoryFilterPolicy.isNsfwBook ? "Phim 18+" : "Phim thường")`.
+- **Vuốt xuống** (`VideoPlayerScreen.minimizeBySwipe`, gắn vào `controller.onMinimizeRequest`):
+  - Kiểu hub ⇒ thu nhỏ như cũ.
+  - Kiểu PiP và `isPictureInPicturePossible` ⇒ chỉ `togglePictureInPicture()`; handler `pictureInPictureStartCount` có sẵn tự thu nhỏ khi PiP đã bật (không đóng màn trực tiếp vì PiP cần layer còn gắn).
+  - PiP không được (phim nhúng, item chưa sẵn sàng) ⇒ hub. PiP không lên sau 1,5 giây (bị từ chối, lỗi) ⇒ hub.
+  - Nút ⌄ không đổi: luôn thu nhỏ vào hub.
+- **Ghi đè theo tiện ích**:
+  - `Extension.videoMinimizeOverride: String?` (`nil` = theo cài đặt chung; decode khoan dung).
+  - `ExtensionTransactionCoordinator.setVideoMinimizeOverride`.
+  - Mục **Video** trong Cấu hình tiện ích (`ExtensionConfigView+Video`), chỉ tiện ích loại video: Picker menu "Theo cài đặt chung (…)" / Thu nhỏ vào hub / Hình trong hình (mẫu `NsfwChoice`). Nhãn "Theo cài đặt chung" ghi giá trị chung đang áp (tiện ích 18+ theo dòng "Phim 18+").
+  - Backup: `BackupPayload.ExtensionRecord`, `BackupLibraryReader`, `BackupLibraryWriter` (chỉ áp khi máy này chưa tự chọn), `BackupLibraryFingerprint`. Optional mặc định `nil` ⇒ vân tay backup cũ không đổi.
+- **Tắt NSFW thì dừng phim 18+** (`VideoPlaybackSession+NsfwGuard`): nghe `UserDefaults.didChangeNotification` (nhận trên main), chỉ xử lý lúc khoá `RepositoryFilterPolicy.includeNsfwDefaultsKey` chuyển từ bật sang tắt; phim đang phát là `isNsfwBook` ⇒ `stop()`, kể cả khi đang ở hub hay PiP.
+- `CLAUDE.md` + `AGENTS.md`: cập nhật chỗ đặt "Tắt tiếng khi mở phim", thêm luật vuốt xuống và dừng phim 18+.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: vuốt xuống ở màn dọc theo từng cài đặt (phim thường / 18+ / tiện ích đặt riêng, PiP được và không được); tắt NSFW lúc phim 18+ đang ở hub hoặc PiP ⇒ phim dừng.
+
 ## [1.3.739] - 2026-11-05
 
 ### fix: hub và widget nổi không còn mất sau khi tắt Hình trong hình

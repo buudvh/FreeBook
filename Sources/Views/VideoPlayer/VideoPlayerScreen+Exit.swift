@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Lối **rời màn xem** (`VideoWatchExit`) mà phần dưới khung phim yêu cầu, và lời xin **thu vào hub** của
-/// `VideoLeaveToHubCoordinator` (tắt NSFW lúc phát phim 18+) — tách khỏi `VideoPlayerScreen.swift` để file gốc dưới giới
+/// `VideoLeaveToHubCoordinator` (tắt NSFW lúc phát phim 18+, rời app) — tách khỏi `VideoPlayerScreen.swift` để file gốc dưới giới
 /// hạn dòng. Việc tiếp theo (chuyển tab, mở trang) luôn chạy **sau khi** màn đã đóng (`leave(then:)` → `pendingExitAction`
 /// ở `onDisappear`).
 extension VideoPlayerScreen {
@@ -66,16 +66,30 @@ extension VideoPlayerScreen {
 
     /// Chỉ màn **đang sở hữu phiên** và chưa rời mới thu (màn hiện bìa không gắn phiên — phim chạy nền không thuộc nó).
     /// Trình duyệt "Mở link lỗi" / "Trình duyệt" đang che màn ⇒ bỏ qua: đóng màn lúc đó kéo theo đóng trình duyệt, mà
-    /// `onDisappear` vẫn tưởng bị che nên không gỡ màn khỏi phiên (hub mất dòng Video). Tắt NSFW ⇒ y như nút ⌄ (dọc thì
-    /// khung phim bay vào hub, ngang / toàn màn thì đóng), không nhận `then`.
+    /// `onDisappear` vẫn tưởng bị che nên không gỡ màn khỏi phiên (hub mất dòng Video).
+    /// - Tắt NSFW ⇒ y như nút ⌄ (dọc thì khung phim bay vào hub, ngang / toàn màn thì đóng), không nhận `then`.
+    /// - Rời app ⇒ đóng **không hiệu ứng** (ở nền, completion của animation có thể không bao giờ chạy; hiệu ứng bay đang
+    ///   dở cũng bị vượt — completion của nó gọi `leave` lần nữa là no-op), nhận `then` (về Khám phá sau khi màn đã đóng);
+    ///   trang đè lên màn (nếu có) tự đóng nhờ `performDismiss`. Không dừng phim.
     private func collapseToHub(for reason: VideoLeaveToHubCoordinator.Reason, then: (() -> Void)?) -> Bool {
-        guard !isLeaving, watchOwnsSession, !controller.minimizeDrag.isCommitted else { return false }
+        guard !isLeaving, watchOwnsSession else { return false }
         guard controller.openingErrorLink == nil, openingDetailErrorLink == nil, openingDetailPage == nil else {
             AppLogger.shared.log("⚠️ [VideoPlayer] Xin thu vào hub (\(reason.logLabel)) lúc trình duyệt đang che màn ⇒ bỏ qua")
             return false
         }
-        AppLogger.shared.log("🔞 [VideoPlayer] Thu màn xem vào hub (\(reason.logLabel)), phim phát tiếp")
-        minimizeToHub()
-        return false
+        switch reason {
+        case .nsfwTurnedOff:
+            guard !controller.minimizeDrag.isCommitted else { return false }
+            AppLogger.shared.log("🔞 [VideoPlayer] Thu màn xem vào hub (\(reason.logLabel)), phim phát tiếp")
+            minimizeToHub()
+            return false
+        case .appBackground:
+            AppLogger.shared.log("🎬 [VideoPlayer] Rời app ⇒ đóng màn xem không hiệu ứng, phim vào hub, phát tiếp")
+            leave(stopPlayback: false, animated: false, then: then)
+            // `onDisappear` có thể bị hoãn tới lúc app quay lại ⇒ gỡ màn khỏi phiên ngay (hub có dòng Video, mở lại được).
+            // `onDisappear` gỡ lại là no-op.
+            session.detachScreen(controller)
+            return true
+        }
     }
 }
