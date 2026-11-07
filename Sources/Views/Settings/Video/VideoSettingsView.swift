@@ -55,8 +55,8 @@ struct VideoSettingsView: View {
                 minimizePicker("Phim 18+", systemImage: "eye.slash", selection: $nsfwMinimize)
             } header: {
                 SectionHelpHeader("Vuốt xuống trình phát", paragraphs: [
-                    "Vuốt xuống khung phim ở màn dọc thì khung phim co theo tay. **Thu nhỏ vào hub**: nhả tay thì phim bay vào nút hub, chạy nền, điều khiển ở mục Video của hub. **Cửa sổ nhỏ**: phim thành cửa sổ nhỏ nổi trên mọi màn, kéo bám mép trái/phải, thả vào vòng ✕ ở đáy để tắt, chạm để mở lại.",
-                    "Phim nhúng trang web không vào được cửa sổ nhỏ, thu nhỏ vào hub. Nút ⌄ luôn thu nhỏ vào hub. Rời app thì phim chỉ phát tiếng.",
+                    "Vuốt xuống khung phim ở màn dọc thì khung phim co theo tay. **Thu nhỏ vào hub**: nhả tay thì phim bay vào nút hub, chạy nền, điều khiển ở mục Video của hub. **Cửa sổ nhỏ**: phim thành cửa sổ nhỏ ở góc dưới phải, nổi trên mọi màn; kéo bám mép trái/phải, thả lên nút hub để thu vào hub, thả vào vòng ✕ ở đáy để tắt, chạm để mở lại.",
+                    "Phim nhúng trang web không vào được cửa sổ nhỏ, thu nhỏ vào hub. Nút ⌄ luôn thu nhỏ vào hub. Thu nhỏ không dừng phim; rời app thì phim chỉ phát tiếng.",
                     "Từng tiện ích chỉnh riêng được ở mục Video của Cấu hình tiện ích."
                 ])
             }

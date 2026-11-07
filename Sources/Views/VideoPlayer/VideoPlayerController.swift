@@ -195,7 +195,10 @@ final class VideoPlayerController {
         autoHideTask?.cancel()
         controlsVisible = false
         if kind == .dismiss {
-            minimizeDrag.begin(target: VideoMiniPlayerWindowManager.shared.dockFrame())
+            // Mép trên khung phim (màn dọc) = mép trên vùng an toàn ⇒ quãng dọc tới chỗ đậu, để khung đi đúng theo tay.
+            let dock = VideoMiniPlayerWindowManager.shared.dockFrame()
+            let safeTop = VideoMiniPlayerWindowManager.screenMetrics().safeInsets.top
+            minimizeDrag.begin(target: dock, travel: dock.minY - safeTop)
         }
         // Vuốt chỉnh âm lượng = muốn nghe ⇒ bỏ tắt tiếng. Bật tiếng khi video đang phát sẽ dừng TTS đang đọc
         // (đúng hành vi của `setMuted(false)`). Nút âm lượng cứng đi đường riêng (`VideoVolumeObserver` →

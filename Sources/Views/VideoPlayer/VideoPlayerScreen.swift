@@ -200,6 +200,10 @@ struct VideoPlayerScreen: View {
         guard !isLeaving else { return }
         isLeaving = true
         pendingExitAction = action
+        // Thu nhỏ khi đang phát ⇒ phiên giữ phát lúc màn rời đi (1.3.765, `noteMinimizing`).
+        if !stopPlayback, watchOwnsSession {
+            session.noteMinimizing()
+        }
         // Màn xem chưa phát phim của nó: ✕ chỉ đóng màn, không dừng phim khác đang chạy nền.
         if stopPlayback, watchOwnsSession {
             session.stop()

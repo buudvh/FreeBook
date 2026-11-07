@@ -2,6 +2,35 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.735] - 2026-11-05
+
+### feat: mọi lối vào phim mở thẳng màn xem phát dọc thay cho trang Chi tiết
+
+Phần 3 (cuối) của plan "Màn xem video kiểu trình phát dọc" (anh Bửu đã duyệt): bấm phim ở đâu cũng vào màn xem, phát dọc ngay theo công tắc "Tự phát khi mở phim". Truyện chữ / truyện tranh giữ `BookDetailView` như cũ.
+
+- **`ContentDetailRouter`** (mới, `Views/ContentRouting/`): loại nội dung suy từ tiện ích lúc bấm (`ExtensionContentKind.resolve(packageId:)`).
+  - Video ⇒ `VideoWatchPresenter.present(VideoWatchRequest(...))` với tên / bìa của item, trả `true`.
+  - Loại khác ⇒ `false`, chỗ gọi đẩy `BookDetailView` như cũ.
+  - Id phim không lấy từ chỗ gọi (mỗi màn tự chế một kiểu) mà do `VideoWatchRequest.resolveBookId` phân giải.
+- **`ContentDetailLink`** (mới): thay `NavigationLink(destination: BookDetailView(...))` của item danh sách — phim ⇒ `Button` mở màn xem, loại khác ⇒ `NavigationLink` y như cũ.
+- **Chỗ gọi đã đổi** (grep chéo mọi `BookDetailView(` trong `Sources/`):
+  - Khám phá: `openNovel` (tab danh mục `DiscoveryCategoryTabView` + tab "Trang chủ" `ExploreSectionsView`) và nhập từ trình duyệt của nguồn (`showImportedBook`).
+  - Tìm nhiều nguồn (`SearchView`): ô kết quả. Chế độ đổi nguồn giữ nguyên.
+  - Tìm một nguồn (`SearchSingleSourceResultsView`): hàng danh sách (phim là nút thường, không mũi tên `>`) và ô lưới.
+  - Danh sách thể loại (`CategoryNovelsListView`), Đề xuất trong Chi tiết (`SuggestRowView`).
+  - Nhập từ trình duyệt / "Từ URL" ở Kệ (`ShelfView+ImportEntry`), ở Cấu hình tiện ích (`ExtensionConfigView+Browser`), ở Chi tiết (`BookDetailView` `onImport`, +3 dòng, còn dưới baseline 1201).
+- **Kệ / Lịch sử / Bộ sưu tập / Tìm trên kệ / mở lại lúc khởi động / chạm tập ở Chi tiết** (qua router `BookContentDestination`):
+  - Nhánh `.video` thành `VideoWatchRouteView` (mới): cùng màn xem, trong `fullScreenCover` sẵn có, model dựng một lần từ `VideoWatchRequest(launch:)` (id `Book` thật, tập / giây của launch).
+  - Tự phát theo công tắc như mọi lối vào. Lượt mở lại lúc khởi động vẫn dừng sẵn.
+  - Màn xem trong cover đang hiện bìa mà hub / PiP mở lại phim đang chạy ⇒ đổi chính màn đó sang phim đang chạy (`VideoWatchPresenter.presentRunningSession`), không chồng màn mới.
+- **Giữ nguyên `BookDetailView`**: nhấn giữ "Xem chi tiết" ở Kệ / Bộ sưu tập / Tìm trên kệ (lối duy nhất xem trang chi tiết đầy đủ kiểu cũ cho phim), Chi tiết mở từ Reader / màn truyện tranh, và "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem.
+- `VideoPlayerScreen(launch:)` không còn chỗ gọi, giữ lại.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep chéo `BookDetailView(`, `VideoPlayerScreen(`, `navigateToImportedBook = true`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.734] - 2026-11-05
 
 ### feat: giao diện màn xem video kiểu trình phát dọc, nút Home và mở lại từ hub

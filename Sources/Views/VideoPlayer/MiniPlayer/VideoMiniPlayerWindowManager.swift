@@ -119,6 +119,15 @@ final class VideoMiniPlayerWindowManager {
         }
     }
 
+    /// Thả cửa sổ lên nút hub (1.3.765): như nút ⌄ của màn to — phim chạy tiếp chỉ tiếng, hub hiện dòng Video.
+    private func minimizeToHub() {
+        AppLogger.shared.log("🎬 [VideoMini] Kéo cửa sổ nhỏ vào hub ⇒ phim chạy nền")
+        session.noteMinimizing()
+        FloatingHubWindowManager.shared.setDropTargetHighlighted(false)
+        hide(reason: "thu vào hub")
+        FloatingHubWindowManager.shared.bounceButton()
+    }
+
     private func close() {
         AppLogger.shared.log("🎬 [VideoMini] Tắt phim từ cửa sổ nhỏ")
         session.stop()
@@ -138,6 +147,7 @@ final class VideoMiniPlayerWindowManager {
         let controller = VideoMiniPlayerViewController(session: session)
         controller.onExpand = { [weak self] in self?.expand() }
         controller.onClose = { [weak self] in self?.close() }
+        controller.onMinimizeToHub = { [weak self] in self?.minimizeToHub() }
         let win = VideoMiniPlayerUIWindow(windowScene: scene)
         win.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 2.5)
         win.backgroundColor = .clear

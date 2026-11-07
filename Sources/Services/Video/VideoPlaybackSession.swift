@@ -170,6 +170,9 @@ final class VideoPlaybackSession {
     @ObservationIgnored var nowPlayingCover: (bookId: String, image: UIImage)?
     @ObservationIgnored var nowPlayingAuthor = ""
     @ObservationIgnored var nowPlayingCoverTask: Task<Void, Never>?
+    /// Thu nhỏ lúc đang phát (`noteMinimizing`, `+Screens`): tới mốc uptime này, màn cuối rời phiên mà player bị dừng thì
+    /// phát tiếp. `0` = không giữ (người dùng bấm dừng xoá ngay).
+    @ObservationIgnored var keepPlayingDeadline: TimeInterval = 0
     /// Tắt NSFW ⇒ dừng phim 18+ (`+NsfwGuard`): observer + giá trị công tắc lần trước (chỉ xử lý lúc chuyển bật → tắt).
     @ObservationIgnored var nsfwDefaultsObserver: NSObjectProtocol?
     @ObservationIgnored var lastIncludesNsfw = false

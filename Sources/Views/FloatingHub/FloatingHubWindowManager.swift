@@ -211,6 +211,18 @@ final class FloatingHubWindowManager {
         return button.convert(button.bounds, to: nil)
     }
 
+    /// Nút hub làm chỗ thả cửa sổ phim nhỏ (1.3.765): phóng to + viền màu nhấn khi cửa sổ đang kéo tới.
+    func setDropTargetHighlighted(_ highlighted: Bool) {
+        guard let button = containerViewController?.widgetContainerView else { return }
+        let layer = button.layer
+        layer.cornerRadius = highlighted ? button.bounds.width / 2 : 0
+        layer.borderColor = AppAccentColor.current.uiColor.cgColor
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            button.transform = highlighted ? CGAffineTransform(scaleX: 1.35, y: 1.35) : .identity
+            layer.borderWidth = highlighted ? 2 : 0
+        }
+    }
+
     /// Nháy nút một nhịp khi khung phim vừa bay vào hub. Bố cục nút đặt bằng `bounds` + `center` nên `transform` không
     /// làm lệch chỗ.
     func bounceButton() {

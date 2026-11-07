@@ -23,7 +23,9 @@ extension VideoPlaybackSession {
         player.play()
     }
 
+    /// Dừng do người dùng (nút, hub, màn khoá) ⇒ thôi giữ phát sau thu nhỏ.
     func pause() {
+        keepPlayingDeadline = 0
         player.pause()
     }
 

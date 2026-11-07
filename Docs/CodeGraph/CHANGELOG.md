@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.765] - 2026-11-07
+
+### feat: kéo cửa sổ phim nhỏ lên nút hub để thu vào hub, vuốt xuống theo tay, không nhớ vị trí, thu nhỏ không dừng phim
+
+Người dùng: *"thêm hành động chuyển pip vào hub"*, *"khi vuốt pip hãy xuống dưới theo tay như youtube, đừng nhớ vị trí pip trước đó"*, *"bị nút thu nhỏ đừng pause"*. Anh Bửu duyệt mockup + plan gộp, chọn: kéo thả lên nút hub (không thêm nút, không hất ra mép); vào hub thì phim chạy tiếp chỉ tiếng; chỗ đậu mặc định góc dưới phải; giữ ngoại lệ nút Home dừng phim 18+.
+
+- **Kéo vào hub** (`VideoMiniPlayerViewController`): kéo tới gần nút hub (tâm cửa sổ cách tâm nút < 60 pt, `VideoMiniPlayerLayout.isOverHub`) ⇒ nút hub phóng to + viền màu nhấn (`FloatingHubWindowManager.setDropTargetHighlighted`), máy rung nhẹ, cửa sổ mờ. Thả ⇒ cửa sổ co nhỏ bay vào nút hub (`shrinkAway`, dùng chung với vòng ✕), `VideoMiniPlayerWindowManager.minimizeToHub` ẩn cửa sổ + gỡ khỏi phiên (phiên tự tách hình, lưu tiến độ, hiện dòng Video ở hub) rồi hub nháy. Cửa sổ đậu mép phải ngang hub không tự lọt (tâm cách ~100 pt).
+- **Vuốt theo tay** (`VideoMinimizeDragState.travel`): quãng kéo = khoảng dọc từ mép trên khung phim (mép trên vùng an toàn) tới mép trên chỗ đậu, thay hằng 420 pt ⇒ mép trên khung phim đi đúng theo ngón tay, khung co dần và dịch về mép phải.
+- **Không nhớ vị trí** (`VideoMiniPlayerLayout`): mỗi lần thu nhỏ đậu góc dưới phải ngay trên thanh tab; kéo bám mép trong lúc hiện không ghi lại. Khoá `videoMiniPlayerDock` thôi đọc/ghi (giá trị cũ còn trên máy, vô hại).
+- **Thu nhỏ không dừng phim**: code không có chỗ nào dừng phim khi bấm ⌄ / vuốt (đã kiểm: chỉ tách hình + hạ chất lượng HLS). Thêm lớp giữ phát: `VideoPlayerScreen.leave` (thu nhỏ) và kéo vào hub gọi `noteMinimizing()` chụp "đang phát" **trước** khi màn đóng; màn cuối rời phiên (`detachScreen`) mà player bị dừng ⇒ phát tiếp ngay và kiểm lại sau 1,5 giây, log `⏯️ Thu nhỏ: phim bị dừng … ⇒ phát tiếp` để biết nguyên nhân thật. Người dùng bấm dừng (`pause()`) xoá mốc; TTS đang đọc mà phim có tiếng / phim đã nhường TTS / hết phim ⇒ không phát tiếp. Ngoại lệ giữ nguyên: nút Home khi xem phim 18+ dừng hẳn + tắt NSFW; phim nhúng trang thu nhỏ vẫn im (trang web huỷ cùng màn).
+- Câu hướng dẫn Cài đặt › Video; `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: kéo trúng hub đang nép mép; độ mượt khi vuốt theo tay; lớp giữ phát có phải chạy không (xem log).
+
 ## [1.3.764] - 2026-11-06
 
 ### feat: màn khoá khi phát phim hiện tên phim, tác giả và bìa, phim 18+ chỉ hiện Đang phát với icon app
@@ -634,33 +647,4 @@ Rà lại phần 2–3 của màn xem video (1.3.734–735) trước khi đẩy 
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.735] - 2026-11-05
-
-### feat: mọi lối vào phim mở thẳng màn xem phát dọc thay cho trang Chi tiết
-
-Phần 3 (cuối) của plan "Màn xem video kiểu trình phát dọc" (anh Bửu đã duyệt): bấm phim ở đâu cũng vào màn xem, phát dọc ngay theo công tắc "Tự phát khi mở phim". Truyện chữ / truyện tranh giữ `BookDetailView` như cũ.
-
-- **`ContentDetailRouter`** (mới, `Views/ContentRouting/`): loại nội dung suy từ tiện ích lúc bấm (`ExtensionContentKind.resolve(packageId:)`).
-  - Video ⇒ `VideoWatchPresenter.present(VideoWatchRequest(...))` với tên / bìa của item, trả `true`.
-  - Loại khác ⇒ `false`, chỗ gọi đẩy `BookDetailView` như cũ.
-  - Id phim không lấy từ chỗ gọi (mỗi màn tự chế một kiểu) mà do `VideoWatchRequest.resolveBookId` phân giải.
-- **`ContentDetailLink`** (mới): thay `NavigationLink(destination: BookDetailView(...))` của item danh sách — phim ⇒ `Button` mở màn xem, loại khác ⇒ `NavigationLink` y như cũ.
-- **Chỗ gọi đã đổi** (grep chéo mọi `BookDetailView(` trong `Sources/`):
-  - Khám phá: `openNovel` (tab danh mục `DiscoveryCategoryTabView` + tab "Trang chủ" `ExploreSectionsView`) và nhập từ trình duyệt của nguồn (`showImportedBook`).
-  - Tìm nhiều nguồn (`SearchView`): ô kết quả. Chế độ đổi nguồn giữ nguyên.
-  - Tìm một nguồn (`SearchSingleSourceResultsView`): hàng danh sách (phim là nút thường, không mũi tên `>`) và ô lưới.
-  - Danh sách thể loại (`CategoryNovelsListView`), Đề xuất trong Chi tiết (`SuggestRowView`).
-  - Nhập từ trình duyệt / "Từ URL" ở Kệ (`ShelfView+ImportEntry`), ở Cấu hình tiện ích (`ExtensionConfigView+Browser`), ở Chi tiết (`BookDetailView` `onImport`, +3 dòng, còn dưới baseline 1201).
-- **Kệ / Lịch sử / Bộ sưu tập / Tìm trên kệ / mở lại lúc khởi động / chạm tập ở Chi tiết** (qua router `BookContentDestination`):
-  - Nhánh `.video` thành `VideoWatchRouteView` (mới): cùng màn xem, trong `fullScreenCover` sẵn có, model dựng một lần từ `VideoWatchRequest(launch:)` (id `Book` thật, tập / giây của launch).
-  - Tự phát theo công tắc như mọi lối vào. Lượt mở lại lúc khởi động vẫn dừng sẵn.
-  - Màn xem trong cover đang hiện bìa mà hub / PiP mở lại phim đang chạy ⇒ đổi chính màn đó sang phim đang chạy (`VideoWatchPresenter.presentRunningSession`), không chồng màn mới.
-- **Giữ nguyên `BookDetailView`**: nhấn giữ "Xem chi tiết" ở Kệ / Bộ sưu tập / Tìm trên kệ (lối duy nhất xem trang chi tiết đầy đủ kiểu cũ cho phim), Chi tiết mở từ Reader / màn truyện tranh, và "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem.
-- `VideoPlayerScreen(launch:)` không còn chỗ gọi, giữ lại.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep chéo `BookDetailView(`, `VideoPlayerScreen(`, `navigateToImportedBook = true`.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy.

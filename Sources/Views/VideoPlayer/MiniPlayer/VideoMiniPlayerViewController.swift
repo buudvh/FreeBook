@@ -9,11 +9,13 @@ import UIKit
 /// 4. `noticeHost` — dòng báo dưới cửa sổ (`VideoMiniPlayerNotice`).
 ///
 /// Kéo bằng UIKit (tay không trễ theo vòng cập nhật SwiftUI, như hub): thả ⇒ bám mép gần nhất ở độ cao thả tay
-/// (`VideoMiniPlayerLayout.snap`); thả trên vòng ✕ ⇒ thu vào vòng rồi `onClose` (dừng hẳn phim).
+/// (`VideoMiniPlayerLayout.snap`); thả trên vòng ✕ ⇒ thu vào vòng rồi `onClose` (dừng hẳn phim); thả trên nút hub
+/// (1.3.765) ⇒ hub phóng to + sáng lúc kéo tới, thả thì cửa sổ bay vào hub rồi `onMinimizeToHub` (phim chạy tiếp, chỉ tiếng).
 @MainActor
 final class VideoMiniPlayerViewController: UIViewController {
     var onExpand: (() -> Void)?
     var onClose: (() -> Void)?
+    var onMinimizeToHub: (() -> Void)?
 
     private let session: VideoPlaybackSession
     private let backdrop = UIView()
@@ -26,6 +28,7 @@ final class VideoMiniPlayerViewController: UIViewController {
     private var noticeHost: UIHostingController<AnyView>?
     private var dragStartFrame: CGRect = .zero
     private var isOverClose = false
+    private var isOverHub = false
     /// Đang nở lại thành màn xem: cả màn chặn chạm (nền đen đang phủ).
     private var isExpanding = false
 
@@ -206,12 +209,18 @@ final class VideoMiniPlayerViewController: UIViewController {
         case .began:
             dragStartFrame = playerContainer.frame
             isOverClose = false
+            isOverHub = false
             setDragChrome(visible: true)
         case .changed:
             setPlayerFrame(dragStartFrame.offsetBy(dx: translation.x, dy: translation.y))
             updateDragChrome()
         case .ended, .cancelled, .failed:
             setDragChrome(visible: false)
+            if gesture.state == .ended, isOverHub, let hubFrame = FloatingHubWindowManager.shared.visibleButtonFrame {
+                shrinkAway(to: CGPoint(x: hubFrame.midX, y: hubFrame.midY)) { [weak self] in self?.onMinimizeToHub?() }
+                return
+            }
+            setHubHighlighted(false)
             if gesture.state == .ended, isOverClose {
                 closeAnimated(toTarget: true)
                 return
@@ -251,29 +260,50 @@ final class VideoMiniPlayerViewController: UIViewController {
         let accent = AppAccentColor.current.uiColor
         leftEdge.backgroundColor = nearest == .left ? accent : UIColor.white.withAlphaComponent(0.35)
         rightEdge.backgroundColor = nearest == .right ? accent : UIColor.white.withAlphaComponent(0.35)
-        let over = VideoMiniPlayerLayout.isOverCloseTarget(frame, in: view.bounds, safeInsets: view.safeAreaInsets)
-        guard over != isOverClose else { return }
-        isOverClose = over
-        if over { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-        UIView.animate(withDuration: 0.15) {
-            self.closeTarget.transform = over ? CGAffineTransform(scaleX: 1.25, y: 1.25) : .identity
-            self.closeTarget.backgroundColor = over
-                ? UIColor.systemRed.withAlphaComponent(0.85)
-                : UIColor.black.withAlphaComponent(0.6)
-            self.playerContainer.alpha = over ? 0.6 : 1
+        let overHub = VideoMiniPlayerLayout.isOverHub(frame, hubFrame: FloatingHubWindowManager.shared.visibleButtonFrame)
+        if overHub != isOverHub {
+            isOverHub = overHub
+            if overHub { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+            setHubHighlighted(overHub)
         }
+        let over = !overHub && VideoMiniPlayerLayout.isOverCloseTarget(frame, in: view.bounds, safeInsets: view.safeAreaInsets)
+        if over != isOverClose {
+            isOverClose = over
+            if over { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+            UIView.animate(withDuration: 0.15) {
+                self.closeTarget.transform = over ? CGAffineTransform(scaleX: 1.25, y: 1.25) : .identity
+                self.closeTarget.backgroundColor = over
+                    ? UIColor.systemRed.withAlphaComponent(0.85)
+                    : UIColor.black.withAlphaComponent(0.6)
+            }
+        }
+        let dims = isOverClose || isOverHub
+        guard (playerContainer.alpha < 1) != dims else { return }
+        UIView.animate(withDuration: 0.15) {
+            self.playerContainer.alpha = dims ? 0.6 : 1
+        }
+    }
+
+    /// Nút hub làm chỗ thả (phóng to + viền màu nhấn) khi cửa sổ đang kéo tới.
+    private func setHubHighlighted(_ highlighted: Bool) {
+        FloatingHubWindowManager.shared.setDropTargetHighlighted(highlighted)
     }
 
     /// ✕ của cửa sổ, hoặc thả vào vòng ✕ (`toTarget`): thu nhỏ rồi tắt hẳn phim.
     private func closeAnimated(toTarget: Bool) {
         let end = toTarget ? closeTarget.center : CGPoint(x: playerContainer.frame.midX, y: playerContainer.frame.midY)
-        UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseIn]) {
-            self.playerContainer.center = end
-            self.playerContainer.transform = CGAffineTransform(scaleX: 0.2, y: 0.2)
+        shrinkAway(to: end) { [weak self] in self?.onClose?() }
+    }
+
+    /// Cửa sổ co nhỏ dần về `point` rồi tan (vòng ✕ / nút hub).
+    private func shrinkAway(to point: CGPoint, completion: @escaping () -> Void) {
+        UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseIn]) {
+            self.playerContainer.center = point
+            self.playerContainer.transform = CGAffineTransform(scaleX: 0.15, y: 0.15)
             self.playerContainer.alpha = 0
             self.noticeHost?.view.alpha = 0
         } completion: { _ in
-            self.onClose?()
+            completion()
         }
     }
 
