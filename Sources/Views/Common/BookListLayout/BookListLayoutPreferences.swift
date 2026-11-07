@@ -16,7 +16,8 @@ import Observation
 final class BookListLayoutPreferences {
     static let shared = BookListLayoutPreferences()
 
-    nonisolated static let columnRange = 2...5
+    /// 1 cột = bìa tràn bề ngang (truyện chữ/tranh đứng 2:3, video ngang 16:9).
+    nonisolated static let columnRange = 1...5
     nonisolated static let defaultColumns = 3
 
     private(set) var layouts: [BookListLayoutScope: BookListLayout] = [:]

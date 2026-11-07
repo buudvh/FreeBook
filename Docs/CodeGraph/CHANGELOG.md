@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.766] - 2026-11-07
+
+### feat: kiểu Lưới và Chỉ bìa chọn được 1 cột
+
+Người dùng: *"Cho kiểu hiển thị lưới và chỉ bìa hiển thị được số cột là 1 luôn"*.
+
+- Bước "Số cột" của kiểu Lưới / Chỉ bìa (sheet Kiểu hiển thị và Cài đặt › Giao diện › Kiểu hiển thị) chọn được **1…5** cột (trước 2…5; `BookListLayoutPreferences.columnRange`). 1 cột = bìa tràn bề ngang, truyện chữ/tranh đứng 2:3, video ngang 16:9.
+- Đã rà các lưới dùng số cột (Kệ / Lịch sử / Bộ sưu tập, Khám phá, Thể loại / Xem thêm, Tìm trong một nguồn, khung chờ lưới): không chỗ nào ngầm đòi từ 2 cột; ảnh bìa tải theo cỡ khung nên không mờ.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.765] - 2026-11-07
 
 ### feat: kéo cửa sổ phim nhỏ lên nút hub để thu vào hub, vuốt xuống theo tay, không nhớ vị trí, thu nhỏ không dừng phim
@@ -626,24 +636,6 @@ Người dùng: *"bỏ bấm vào chi tiết từ contextmenu ở kệ và lịc
   - Nhấn giữ để ghim, nút Sửa thông tin, nút Kệ và mọi hàng khác giữ nguyên.
   - Sheet dùng chung ⇒ áp cả ở Bộ sưu tập và Tìm trên kệ.
 - Đảo một phần quyết định của 1.3.735 (giữ "Xem chi tiết" cho phim làm lối vào trang Chi tiết kiểu cũ). "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem vẫn giữ.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.736] - 2026-11-05
-
-### fix: màn xem video: đề xuất và bình luận không kẹt khi cuộn nhanh, khai rõ giá trị đầu của state
-
-Rà lại phần 2–3 của màn xem video (1.3.734–735) trước khi đẩy lên.
-
-- **Đề xuất kẹt "Không có đề xuất nào"**:
-  - Nhóm đề xuất tải trang 1 bằng `.task` trong `LazyVStack`. Cuộn nhanh qua nhóm thì `.task` bị huỷ.
-  - `PaginatedNovelLoader` coi lượt bị huỷ là "không lỗi, không mục", còn cờ đã bắt đầu chặn mọi lần thử lại.
-  - Sửa: `VideoWatchSuggestSection` tải bằng `Task` riêng trong `onAppear`, rời màn không huỷ.
-- **Bình luận tải lại mỗi lần cuộn qua**: `VideoWatchCommentsCard` nhớ nhóm đã tải xong (thành công hoặc lỗi thật). Lượt bị huỷ thì lần hiện sau tải tiếp.
-- **Lỗi biên dịch của 1.3.734** (CI: "unable to type-check this expression in reasonable time"): chip nhóm ở dải tập (`VideoWatchEpisodeStrip.chip`) gộp màu chọn / màu thường trong một biểu thức ⇒ tách màu, nhãn, trait ra hằng có kiểu rõ + hàm vẽ nhãn riêng.
-- **Khai rõ `= nil`** cho các `@State` optional mới (`VideoPlayerScreen`, `VideoWatchActionRow`, `VideoWatchDetailsView`, `VideoWatchRouteView`), theo cách viết của repo. Thiếu giá trị đầu, thuộc tính `private` có thể làm init tự sinh thành `private` ⇒ chỗ dựng view ở file khác không gọi được.
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
