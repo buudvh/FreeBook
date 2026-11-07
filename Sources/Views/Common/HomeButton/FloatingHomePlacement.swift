@@ -47,13 +47,28 @@ struct FloatingHomePlacement: Equatable {
     }
 
     /// Hành động của nút Home trên trang này; `nil` = không hiện Home.
+    /// Mọi lối Home (nút tròn, pill trong menu "+", FAB Chi tiết) đều tắt NSFW trước (`applyHomeRules`).
     var homeAction: (@MainActor () -> Void)? {
         if isPresented {
             guard providerID != nil, let provider else { return nil }
-            return { [weak provider] in provider?.performFloatingHome() }
+            return { [weak provider] in
+                Self.applyHomeRules()
+                provider?.performFloatingHome()
+            }
         }
         guard isPushed, let tabIndex, Self.homeTabs.contains(tabIndex) else { return nil }
-        return { MainTabNavigationEvents.shared.send(.showCurrentTabRoot) }
+        return {
+            Self.applyHomeRules()
+            MainTabNavigationEvents.shared.send(.showCurrentTabRoot)
+        }
+    }
+
+    /// Bấm Home ở đâu cũng như nút Home của màn xem phim 18+ (1.3.777): công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang
+    /// nguồn không 18+), phim 18+ đang phát tắt tiếng theo `VideoMutePolicy`. `keepsPlacement`: phim đang / sắp thu nhỏ giữ
+    /// chỗ theo cài đặt vuốt xuống — guard NSFW không kéo cửa sổ nhỏ vào hub.
+    @MainActor
+    private static func applyHomeRules() {
+        VideoLeaveToHubCoordinator.shared.applyLeaveRules(source: "Nút Home nổi", keepsPlacement: true)
     }
 
     static func == (lhs: FloatingHomePlacement, rhs: FloatingHomePlacement) -> Bool {

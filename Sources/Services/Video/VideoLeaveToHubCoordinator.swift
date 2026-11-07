@@ -97,9 +97,9 @@ final class VideoLeaveToHubCoordinator {
     /// Phần dịch vụ của nút Home (View lo đóng màn + chuyển tab): phim 18+ đang phát ⇒ tắt tiếng theo `VideoMutePolicy`;
     /// công tắc NSFW đang bật ⇒ tắt (guard NSFW của phiên sẽ xin thu phim vào hub — chỗ gọi phải rời màn **trước**). Trả
     /// `true` khi công tắc NSFW vừa được tắt ở đây.
+    /// `keepsPlacement` (mọi nút Home): vài giây sau đó lời xin thu vào hub của guard NSFW bị bỏ qua — chỗ thu nhỏ do cài
+    /// đặt vuốt xuống quyết định.
     @discardableResult
-    /// `keepsPlacement` (nút Home): vài giây sau đó lời xin thu vào hub của guard NSFW bị bỏ qua — chỗ thu nhỏ do cài đặt
-    /// vuốt xuống quyết định.
     func applyLeaveRules(source: String, keepsPlacement: Bool = false) -> Bool {
         if let playing = session.launch,
            RepositoryFilterPolicy.isNsfwBook(bookId: playing.bookId, packageId: playing.extensionPackageId) {

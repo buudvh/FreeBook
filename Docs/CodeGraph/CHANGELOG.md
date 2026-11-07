@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.777] - 2026-11-07
+
+### feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim
+
+Người dùng: *"ở mọi nơi, chỉ cần nhấn nút home thì phải tắt nfsw (giống như đang ở màn hình xem phim của nfsw vậy)"*.
+
+- Mọi lối Home nổi (nút tròn của trang con, pill "Về trang gốc" trong menu "+", FAB Chi tiết, trang đè lên màn xem phim) chạy luật chung `VideoLeaveToHubCoordinator.applyLeaveRules` **trước** khi về trang gốc tab: công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang nguồn không 18+), phim 18+ đang phát tắt tiếng theo "Tắt tiếng khi mở phim" — như nút Home của màn xem phim. Gắn một chỗ ở `FloatingHomePlacement.homeAction`.
+- `keepsPlacement`: phim đang ở cửa sổ nhỏ / vừa thu nhỏ theo cài đặt vuốt xuống giữ nguyên chỗ, guard NSFW không kéo vào hub.
+- `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.776] - 2026-11-07
 
 ### feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang
@@ -498,25 +509,3 @@ Người dùng: *"thông toast thông báo khi cập nhật ext, mở app lên t
   - Đọc code + diff; grep không có chỗ nào truyền `ToastManager.shared.show` như giá trị hàm (thêm tham số an toàn).
   - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: mở app khi có tiện ích chưa cập nhật ⇒ toast có `›`, bấm sang tab Tiện Ích; chạm cạnh toast vẫn bấm được màn dưới; tắt công tắc ⇒ mở app không toast; "Cập nhật tất cả" xong ⇒ toast.
-
-## [1.3.747] - 2026-11-06
-
-### feat: phim không còn mở trang Chi tiết cũ, ⋮ thẻ đề xuất chỉ còn Thêm vào kệ
-
-Người dùng: *"Bỏ luôn màn hình xem chi tiết cũ của video đi"* — *"đừng dùng màn cũ đấy nữa"*. Anh Bửu chốt: ⋮ chỉ còn "Thêm vào kệ", không thêm chốt chặn trong `BookDetailView`, tra hết lối còn mở trang cũ cho phim.
-
-- **Rà 15 chỗ gọi `BookDetailView(`**: với phim chỉ còn 2 lối lọt, đã đóng cả hai.
-  - ⋮ "Mở trang chi tiết" của thẻ đề xuất ở màn xem: bỏ mục, gỡ `onOpenDetail` qua `VideoWatchSuggestCard` / `Section` / `Feed` / `VideoWatchDetailsView`. Bấm đề xuất không phải phim vẫn mở Chi tiết của truyện đó (`VideoWatchPagePresenter.openDetail`).
-  - Nút "Nhập" trong trình duyệt mở từ màn đọc chữ (`ReaderView` `BypassWebView.onImport`): gọi `ContentDetailRouter.openIfVideo` trước ⇒ link của tiện ích phim mở màn xem phim.
-  - Các lối khác đã đi router từ trước: Kệ, Lịch sử, nhấn giữ, Bộ sưu tập, Tìm trên kệ, Khám phá, Trang chủ, Tìm một nguồn, đề xuất ở Chi tiết, nút Nhập ở Kệ / Khám phá / Cấu hình / Chi tiết, nhập phim từ file.
-- **Xoá code chỉ dành cho phim trong Chi tiết** (grep chéo `Sources/` trước khi xoá):
-  - `BookDetailVideoTOCGrid` (+`+Groups`), nhánh `isVideo` / `videoRows` / `episodeNoun` của `BookDetailTOCView` (+`DownloadEvents`).
-  - `VideoDownloadsDeletePill` (dời `detailText` sang `VideoDownloadsActionRow` — sheet nhấn giữ vẫn xoá được bản tải).
-  - `prefersLandscapeCover` của `BookDetailHeaderView` / `BookDetailHeroView`, `VideoOfflineLibrary.refresh` lúc mở, nhánh video của `resolveBookId` và của `+Media` (nhãn tải / xuất / "Xem ngay").
-  - `BookDetailView.swift` còn 1176 dòng (baseline 1201).
-- `CLAUDE.md` + `AGENTS.md`: thêm luật "phim không bao giờ mở `BookDetailView`" ở mục Comic & Video.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep `Sources/` không còn `BookDetailVideoTOCGrid` / `VideoDownloadsDeletePill` / `onOpenDetail` / `prefersLandscapeCover` / `episodeNoun`.
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: ⋮ của thẻ đề xuất chỉ có "Thêm vào kệ"; Nhập link phim từ trình duyệt của màn đọc ⇒ màn xem phim; Chi tiết truyện chữ / tranh hiện như cũ.

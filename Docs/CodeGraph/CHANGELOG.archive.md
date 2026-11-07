@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.747] - 2026-11-06
+
+### feat: phim không còn mở trang Chi tiết cũ, ⋮ thẻ đề xuất chỉ còn Thêm vào kệ
+
+Người dùng: *"Bỏ luôn màn hình xem chi tiết cũ của video đi"* — *"đừng dùng màn cũ đấy nữa"*. Anh Bửu chốt: ⋮ chỉ còn "Thêm vào kệ", không thêm chốt chặn trong `BookDetailView`, tra hết lối còn mở trang cũ cho phim.
+
+- **Rà 15 chỗ gọi `BookDetailView(`**: với phim chỉ còn 2 lối lọt, đã đóng cả hai.
+  - ⋮ "Mở trang chi tiết" của thẻ đề xuất ở màn xem: bỏ mục, gỡ `onOpenDetail` qua `VideoWatchSuggestCard` / `Section` / `Feed` / `VideoWatchDetailsView`. Bấm đề xuất không phải phim vẫn mở Chi tiết của truyện đó (`VideoWatchPagePresenter.openDetail`).
+  - Nút "Nhập" trong trình duyệt mở từ màn đọc chữ (`ReaderView` `BypassWebView.onImport`): gọi `ContentDetailRouter.openIfVideo` trước ⇒ link của tiện ích phim mở màn xem phim.
+  - Các lối khác đã đi router từ trước: Kệ, Lịch sử, nhấn giữ, Bộ sưu tập, Tìm trên kệ, Khám phá, Trang chủ, Tìm một nguồn, đề xuất ở Chi tiết, nút Nhập ở Kệ / Khám phá / Cấu hình / Chi tiết, nhập phim từ file.
+- **Xoá code chỉ dành cho phim trong Chi tiết** (grep chéo `Sources/` trước khi xoá):
+  - `BookDetailVideoTOCGrid` (+`+Groups`), nhánh `isVideo` / `videoRows` / `episodeNoun` của `BookDetailTOCView` (+`DownloadEvents`).
+  - `VideoDownloadsDeletePill` (dời `detailText` sang `VideoDownloadsActionRow` — sheet nhấn giữ vẫn xoá được bản tải).
+  - `prefersLandscapeCover` của `BookDetailHeaderView` / `BookDetailHeroView`, `VideoOfflineLibrary.refresh` lúc mở, nhánh video của `resolveBookId` và của `+Media` (nhãn tải / xuất / "Xem ngay").
+  - `BookDetailView.swift` còn 1176 dòng (baseline 1201).
+- `CLAUDE.md` + `AGENTS.md`: thêm luật "phim không bao giờ mở `BookDetailView`" ở mục Comic & Video.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep `Sources/` không còn `BookDetailVideoTOCGrid` / `VideoDownloadsDeletePill` / `onOpenDetail` / `prefersLandscapeCover` / `episodeNoun`.
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: ⋮ của thẻ đề xuất chỉ có "Thêm vào kệ"; Nhập link phim từ trình duyệt của màn đọc ⇒ màn xem phim; Chi tiết truyện chữ / tranh hiện như cũ.
+
 ## [1.3.746] - 2026-11-06
 
 ### feat: bộ lọc chỉ hiện config mà script của tab dùng tới
