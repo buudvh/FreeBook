@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.778] - 2026-11-07
+
+### feat: bộ lọc NSFW riêng của tab Kệ sách: Không hiển thị, Tất cả, Chỉ NSFW
+
+Người dùng: *"thêm filter, chỉ nfsw, không hiển thị nfsw, tất cả ở phần tùy chọn kệ của tab kệ sách"*; anh Bửu chốt: *"Độc lập, ba công tắc này dành riêng cho tab kệ sách thôi. Tắt app, tắt màn hình, về home mở lên lại sẽ về không hiển thị nfsw"*, bấm nút Home trong app cũng về "Không hiển thị NSFW".
+
+- Ngăn kéo "…" của tab Kệ Sách: công tắc NSFW chung được thay bằng nhóm **"NSFW"** ba hàng chọn (`SideDrawerOptionRow`): **Không hiển thị NSFW** (mặc định) · **Tất cả** · **Chỉ NSFW** (`ShelfNsfwFilter`). Công tắc NSFW chung vẫn ở Khám phá / Cài đặt.
+- **Độc lập** với công tắc chung: chỉ quyết định danh sách Kệ + Lịch sử (`ShelfBookPartition(nsfwFilter:)`); Bộ sưu tập / Tải / Tìm trên kệ vẫn theo công tắc chung. "NSFW" = truyện của nguồn NSFW hoặc truyện tự đánh dấu NSFW.
+- **Không lưu**: `ShelfNsfwFilterState` (singleton trong bộ nhớ, sống qua lần dựng lại tab) — mở app, app vào nền (khoá màn hình / về màn hình chính) hay bấm nút Home trong app (nút Home nổi, "Về Khám phá" của màn xem phim) đều về "Không hiển thị NSFW".
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.777] - 2026-11-07
 
 ### feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim
@@ -482,30 +493,3 @@ Người dùng: *"bỏ url mặc định của tôi trong danh sách kho js"*, r
   - Đọc code + diff; grep `Sources/` không còn `addDefaultRepository` / `leech_story_ext`; `deleteRepository` chỉ có một chỗ gọi (trang Danh sách kho).
   - `check_architecture.py` chỉ còn lỗi có sẵn (`JSDom.swift`, `VideoPlaybackSession+Playback.swift` của việc video đang làm), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: cài mới ⇒ tab Tiện Ích không tự có kho, hiện câu chỉ đường; xoá kho ⇒ tiện ích đã cài còn, chạy được; nhập lại kho ⇒ báo cập nhật trở lại.
-
-## [1.3.748] - 2026-11-06
-
-### feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích
-
-Người dùng: *"thông toast thông báo khi cập nhật ext, mở app lên thì hãy check ext update và thông báo"*. Anh Bửu chọn: chỉ kiểm khi mở app; lần nào còn bản chưa cập nhật thì báo; bấm toast mở tab Tiện Ích; thêm công tắc tắt và toast khi cập nhật xong; toast hiện ở `MainTabView` (không thêm event center); duyệt plan.
-
-- **Kiểm khi mở app** (`ExtensionUpdateCheckCoordinator.checkOnLaunch`):
-  - Một lượt đủ mọi kho mỗi lần khởi động (cờ trong RAM), tính vào giãn cách 5 phút ⇒ vào "Tất cả tiện ích" ngay sau đó không tải lại.
-  - Trả tiện ích đã cài có bản mới (loại Legado — nguồn Legado không có `remoteVersion`), dùng gần nhất trước. Mất mạng ⇒ vẫn theo cache registry cũ.
-  - Lõi `run` tách thành `perform` (async) để chờ được; `checkOnEntry` / ↻ / "Thử lại" giữ nguyên hành vi.
-- **Toast** (`MainTabView.announceExtensionUpdatesOnLaunch`, cùng khuôn tự sao lưu / dọn truyện cũ — service chỉ trả kết quả, không gọi `ToastManager`):
-  - 1 tiện ích: "Tiện ích X có bản mới (vA → vB)"; nhiều: "Có bản mới cho N tiện ích: A, B, C…" (tối đa 3 tên).
-  - Bấm ⇒ dựng lại tab Tiện Ích về trang gốc "Tất cả tiện ích" (kể cả đang ở Legado / trang con) rồi chọn tab.
-  - Màn đọc tự mở lại lúc khởi động che toàn màn ⇒ bấm toast thì tab đổi phía sau, đóng màn đọc mới thấy.
-- **Toast bấm được** (`ToastManager.show(..., onTap:)`, mặc định `nil` ⇒ mọi chỗ gọi cũ không đổi):
-  - Cửa sổ toast vẫn chạm xuyên qua. Chỉ toast có `onTap` nhận chạm, và chỉ trong viên thuốc (khung đo bằng `GeometryReader` — deployment iOS 17), có dấu `›`.
-  - Bấm ⇒ ẩn ngay rồi chạy hành động. Mục ở Trung tâm thông báo vẫn chỉ là chữ.
-- **Công tắc** "Báo cập nhật khi mở app" ở ngăn kéo … tab Tiện Ích (`ExtensionLaunchUpdateToggleRow`, khoá `extensionUpdateLaunchCheckEnabled`, thiếu khoá = bật, được sao lưu): tắt ⇒ không kiểm lúc mở app, không toast; lượt tự kiểm khi vào tab vẫn chạy.
-- **Toast khi cập nhật xong**:
-  - "Cập nhật tất cả" ⇒ "Đã cập nhật N tiện ích" / "Đã cập nhật x/N tiện ích, k lỗi" — luôn hiện (dòng chữ dưới danh sách chỉ thấy khi còn đứng ở trang đó), dòng chữ cũ giữ.
-  - Nút cập nhật từng tiện ích ⇒ "Đã cập nhật X lên vB" hoặc câu lỗi. Cài mới không toast.
-- `rules.md` (mục 7 + luật toast bấm được), `CLAUDE.md` + `AGENTS.md` thêm luật. Chuyển `[1.3.718]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep không có chỗ nào truyền `ToastManager.shared.show` như giá trị hàm (thêm tham số an toàn).
-  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: mở app khi có tiện ích chưa cập nhật ⇒ toast có `›`, bấm sang tab Tiện Ích; chạm cạnh toast vẫn bấm được màn dưới; tắt công tắc ⇒ mở app không toast; "Cập nhật tất cả" xong ⇒ toast.

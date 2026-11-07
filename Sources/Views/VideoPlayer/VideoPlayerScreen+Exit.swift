@@ -21,6 +21,7 @@ extension VideoPlayerScreen {
                 MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
             }
             watch.prepareGoHome()
+            ShelfNsfwFilterState.shared.resetToHidden(reason: "Nút Home của màn xem phim")
         case .close:
             leave(stopPlayback: true)
         case .openCategory(let category):

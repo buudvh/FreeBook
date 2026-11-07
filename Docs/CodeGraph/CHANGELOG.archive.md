@@ -2,6 +2,33 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.748] - 2026-11-06
+
+### feat: mở app tự kiểm tra cập nhật tiện ích, có bản mới thì toast, bấm mở tab Tiện Ích
+
+Người dùng: *"thông toast thông báo khi cập nhật ext, mở app lên thì hãy check ext update và thông báo"*. Anh Bửu chọn: chỉ kiểm khi mở app; lần nào còn bản chưa cập nhật thì báo; bấm toast mở tab Tiện Ích; thêm công tắc tắt và toast khi cập nhật xong; toast hiện ở `MainTabView` (không thêm event center); duyệt plan.
+
+- **Kiểm khi mở app** (`ExtensionUpdateCheckCoordinator.checkOnLaunch`):
+  - Một lượt đủ mọi kho mỗi lần khởi động (cờ trong RAM), tính vào giãn cách 5 phút ⇒ vào "Tất cả tiện ích" ngay sau đó không tải lại.
+  - Trả tiện ích đã cài có bản mới (loại Legado — nguồn Legado không có `remoteVersion`), dùng gần nhất trước. Mất mạng ⇒ vẫn theo cache registry cũ.
+  - Lõi `run` tách thành `perform` (async) để chờ được; `checkOnEntry` / ↻ / "Thử lại" giữ nguyên hành vi.
+- **Toast** (`MainTabView.announceExtensionUpdatesOnLaunch`, cùng khuôn tự sao lưu / dọn truyện cũ — service chỉ trả kết quả, không gọi `ToastManager`):
+  - 1 tiện ích: "Tiện ích X có bản mới (vA → vB)"; nhiều: "Có bản mới cho N tiện ích: A, B, C…" (tối đa 3 tên).
+  - Bấm ⇒ dựng lại tab Tiện Ích về trang gốc "Tất cả tiện ích" (kể cả đang ở Legado / trang con) rồi chọn tab.
+  - Màn đọc tự mở lại lúc khởi động che toàn màn ⇒ bấm toast thì tab đổi phía sau, đóng màn đọc mới thấy.
+- **Toast bấm được** (`ToastManager.show(..., onTap:)`, mặc định `nil` ⇒ mọi chỗ gọi cũ không đổi):
+  - Cửa sổ toast vẫn chạm xuyên qua. Chỉ toast có `onTap` nhận chạm, và chỉ trong viên thuốc (khung đo bằng `GeometryReader` — deployment iOS 17), có dấu `›`.
+  - Bấm ⇒ ẩn ngay rồi chạy hành động. Mục ở Trung tâm thông báo vẫn chỉ là chữ.
+- **Công tắc** "Báo cập nhật khi mở app" ở ngăn kéo … tab Tiện Ích (`ExtensionLaunchUpdateToggleRow`, khoá `extensionUpdateLaunchCheckEnabled`, thiếu khoá = bật, được sao lưu): tắt ⇒ không kiểm lúc mở app, không toast; lượt tự kiểm khi vào tab vẫn chạy.
+- **Toast khi cập nhật xong**:
+  - "Cập nhật tất cả" ⇒ "Đã cập nhật N tiện ích" / "Đã cập nhật x/N tiện ích, k lỗi" — luôn hiện (dòng chữ dưới danh sách chỉ thấy khi còn đứng ở trang đó), dòng chữ cũ giữ.
+  - Nút cập nhật từng tiện ích ⇒ "Đã cập nhật X lên vB" hoặc câu lỗi. Cài mới không toast.
+- `rules.md` (mục 7 + luật toast bấm được), `CLAUDE.md` + `AGENTS.md` thêm luật. Chuyển `[1.3.718]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep không có chỗ nào truyền `ToastManager.shared.show` như giá trị hàm (thêm tham số an toàn).
+  - `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: mở app khi có tiện ích chưa cập nhật ⇒ toast có `›`, bấm sang tab Tiện Ích; chạm cạnh toast vẫn bấm được màn dưới; tắt công tắc ⇒ mở app không toast; "Cập nhật tất cả" xong ⇒ toast.
+
 ## [1.3.747] - 2026-11-06
 
 ### feat: phim không còn mở trang Chi tiết cũ, ⋮ thẻ đề xuất chỉ còn Thêm vào kệ

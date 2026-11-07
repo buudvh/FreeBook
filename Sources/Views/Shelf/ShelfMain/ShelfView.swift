@@ -24,7 +24,6 @@ struct ShelfView: View {
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
     // `internal` vì khối kiểm tra chương mới đã tách sang `Extensions/ShelfView+NewChapters.swift`.
     @Query(sort: \Book.lastReadDate, order: .reverse) internal var allBooks: [Book]
-    @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     /// `catalog` (gồm cả nguồn chưa cài) — giữ đúng tập hàng `@Query` cũ: icon nguồn trên kệ vẫn lấy được
     /// từ registry. `internal` vì `ShelfView+NewChapters.swift` dùng tới.
     internal var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
@@ -135,8 +134,8 @@ struct ShelfView: View {
         SideDrawerDivider()
         SideDrawerSectionHeader("Hiển thị")
         SideDrawerToggleRow("Dịch nghĩa", glyph: .translate, isOn: $isTranslationEnabled)
-        // Công tắc NSFW toàn app — chung khoá với Cài đặt › Nội dung nhạy cảm và nút NSFW của Khám phá.
-        SideDrawerToggleRow("Nội dung NSFW", systemImage: "eye", isOn: $includeNsfw)
+        // Bộ lọc NSFW riêng của Kệ + Lịch sử (1.3.778), không phải công tắc NSFW chung — `ShelfView+NsfwFilter`.
+        shelfNsfwFilterRows()
 
         SideDrawerDivider()
         SideDrawerSectionHeader("Thao tác")
@@ -169,7 +168,7 @@ struct ShelfView: View {
     }
 
     var body: some View {
-        let parts = ShelfBookPartition(allBooks, hidesNsfw: !includeNsfw)
+        let parts = ShelfBookPartition(allBooks, nsfwFilter: ShelfNsfwFilterState.shared.mode)
         let kindFilter = ShelfKindFilter(parts, kindFilter: shelfKindFilter)
         let badgeCount = notificationBadgeCount
         NavigationStack {
