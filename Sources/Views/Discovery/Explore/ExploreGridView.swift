@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// Section `grid`: lưới nhiều cột, số cột theo `shape` (movie 2, circle 4, còn lại 3). Thẻ canh đầu hàng để
-/// tên dài/ngắn khác nhau không làm lệch bìa.
+/// Section `grid`: lưới nhiều cột, số cột theo `shape` (movie 2, circle 4, còn lại 3 ở cỡ mặc định; cỡ to hơn bớt
+/// cột, nhỏ hơn thêm cột — `ExploreLayoutSize`). Thẻ canh đầu hàng để tên dài/ngắn khác nhau không làm lệch bìa.
 struct ExploreGridView: View {
     let items: [ExploreItem]
     let shape: ExploreSection.Shape
     let context: ExploreRenderContext
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: shape.gridColumnCount)
+        Array(
+            repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+            count: shape.scaledGridColumnCount(context.sizes.grid)
+        )
     }
 
     var body: some View {

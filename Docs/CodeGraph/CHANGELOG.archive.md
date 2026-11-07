@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.737] - 2026-11-05
+
+### fix: nhấn giữ phim ở Kệ và Lịch sử không còn mở trang Chi tiết
+
+Người dùng: *"bỏ bấm vào chi tiết từ contextmenu ở kệ và lịch sử đối với video"*.
+
+- **`BookActionSheet.canOpenDetail`**: phim (`ExtensionContentKind.resolve(packageId:) == .video`) trả `false` ⇒ chạm phần đầu (bìa + tên) của sheet nhấn giữ không mở `BookDetailView` nữa.
+  - Dòng gợi ý "?" và trait nút của phần đầu đổi theo (không còn "Chạm phần trên để xem chi tiết").
+  - Nhấn giữ để ghim, nút Sửa thông tin, nút Kệ và mọi hàng khác giữ nguyên.
+  - Sheet dùng chung ⇒ áp cả ở Bộ sưu tập và Tìm trên kệ.
+- Đảo một phần quyết định của 1.3.735 (giữ "Xem chi tiết" cho phim làm lối vào trang Chi tiết kiểu cũ). "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem vẫn giữ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.736] - 2026-11-05
 
 ### fix: màn xem video: đề xuất và bình luận không kẹt khi cuộn nhanh, khai rõ giá trị đầu của state

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Section `banner`: carousel ảnh tràn ngang (16:9), vuốt chuyển trang và tự chuyển sau mỗi 5 giây.
+/// Section `banner`: carousel ảnh tràn ngang, vuốt chuyển trang và tự chuyển sau mỗi 5 giây.
 ///
-/// Tỉ lệ cố định 16:9 bất kể `shape`: banner thường không khai `shape` (mặc định `book`) dù ảnh là ảnh ngang.
+/// Tỉ lệ theo nấc cỡ Banner (`ExploreLayoutSize.bannerAspectRatio`, mặc định 16:9) bất kể `shape`: banner thường
+/// không khai `shape` (mặc định `book`) dù ảnh là ảnh ngang.
 /// `TabView` kiểu trang nằm trong `overlay` của một khung có tỉ lệ cố định — đặt thẳng trong `ScrollView` dọc thì nó
 /// không có chiều cao.
 struct ExploreBannerView: View {
@@ -15,7 +16,7 @@ struct ExploreBannerView: View {
 
     var body: some View {
         Color(.secondarySystemBackground)
-            .aspectRatio(16.0 / 9.0, contentMode: .fit)
+            .aspectRatio(context.sizes.banner.bannerAspectRatio, contentMode: .fit)
             .overlay {
                 TabView(selection: $selectedId) {
                     ForEach(items) { item in

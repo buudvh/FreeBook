@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.767] - 2026-11-07
+
+### feat: chỉnh cỡ hiển thị từng bố cục của trang Khám phá
+
+Người dùng: *"thêm size hiển thị của các layout của explore"*. Anh Bửu duyệt plan: mỗi bố cục một mức "Cỡ" 7 nấc, lưu theo loại nguồn.
+
+- Trang Khám phá (`explore`) có mức **"Cỡ" 7 nấc** cho từng bố cục, nấc 4 = mặc định = hiển thị y như trước: **Lưới** (nấc to bớt cột, nhỏ thêm cột: số cột gốc theo hình thẻ − (nấc − 4), kẹp 1…6), **Hàng ngang** (bề rộng thẻ ×0,7…1,5), **Danh sách & Xếp hạng** chung một mức (ảnh nhỏ ×0,7…1,5, chữ tên/mô tả phóng như "Cỡ dòng"), **Banner** (tỉ lệ 2,4:1 … 16:9 … 1,3:1). Hàng chip không có mức cỡ.
+- Lưu theo loại nguồn truyện chữ / truyện tranh / video (`ExploreLayoutSizePreferences`, khoá `exploreLayoutSize_<bố cục>_<loại>`, tự vào bản sao lưu); truyền xuống các section qua `ExploreRenderContext`.
+- Chỉnh ở sheet "Kiểu hiển thị" mở từ Khám phá (thêm nhóm "Trang Khám phá", sheet cao nửa màn, kéo lên được, cuộn được) và Cài đặt › Giao diện › Kiểu hiển thị (mỗi loại chữ/tranh/video thêm nhóm "<loại> · Trang Khám phá"); "Đặt lại mặc định" đặt lại cả cỡ Khám phá. Sheet của Kệ / Thể loại / Bộ sưu tập / Tìm giữ nguyên.
+- Thanh trượt nấc dùng chung `LayoutLevelSlider` (cả "Cỡ dòng" của kiểu Danh sách).
+- Vài nấc trùng kết quả do kẹp 1…6 cột: lưới phim ngang ra 1 cột ở nấc 5–7, lưới tròn ra 6 cột ở nấc 1–2.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: kéo thanh trượt trong vùng cuộn của sheet nửa màn.
+
 ## [1.3.766] - 2026-11-07
 
 ### feat: kiểu Lưới và Chỉ bìa chọn được 1 cột
@@ -623,20 +636,4 @@ Người dùng: *"bỏ hỏi khi bấm nút bỏ khỏi kệ (nhớ tất cả m
 - Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
 - **Kiểm chứng:**
   - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu tới hộp cũ. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.737] - 2026-11-05
-
-### fix: nhấn giữ phim ở Kệ và Lịch sử không còn mở trang Chi tiết
-
-Người dùng: *"bỏ bấm vào chi tiết từ contextmenu ở kệ và lịch sử đối với video"*.
-
-- **`BookActionSheet.canOpenDetail`**: phim (`ExtensionContentKind.resolve(packageId:) == .video`) trả `false` ⇒ chạm phần đầu (bìa + tên) của sheet nhấn giữ không mở `BookDetailView` nữa.
-  - Dòng gợi ý "?" và trait nút của phần đầu đổi theo (không còn "Chạm phần trên để xem chi tiết").
-  - Nhấn giữ để ghim, nút Sửa thông tin, nút Kệ và mọi hàng khác giữ nguyên.
-  - Sheet dùng chung ⇒ áp cả ở Bộ sưu tập và Tìm trên kệ.
-- Đảo một phần quyết định của 1.3.735 (giữ "Xem chi tiết" cho phim làm lối vào trang Chi tiết kiểu cũ). "Mở trang chi tiết" ở ⋮ của thẻ đề xuất trên màn xem vẫn giữ.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy.

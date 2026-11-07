@@ -6,6 +6,8 @@ struct ExploreRenderContext {
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
     let isTranslationEnabled: Bool
+    /// Cỡ từng bố cục theo loại nguồn (`ExploreLayoutSizePreferences`).
+    var sizes: ExploreLayoutSizes = .default
     let onSelect: (ExploreItem) -> Void
 
     /// Referer gửi kèm khi tải bìa: host của item → `source` của tiện ích (nhiều CDN trả 403 khi thiếu Referer).

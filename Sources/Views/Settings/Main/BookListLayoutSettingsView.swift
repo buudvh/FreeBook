@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Cài đặt → Chung → Giao diện → **Kiểu hiển thị danh sách**: chỉnh cả 4 scope ở một chỗ. Sheet nhanh trên từng màn chỉ
-/// chỉnh scope đang xem; màn này để xem/đặt lại toàn bộ.
+/// Cài đặt → Chung → Giao diện → **Kiểu hiển thị danh sách**: chỉnh cả 4 scope ở một chỗ, kèm cỡ từng bố cục trang
+/// Khám phá cho truyện chữ / truyện tranh / video. Sheet nhanh trên từng màn chỉ chỉnh scope đang xem; màn này để
+/// xem/đặt lại toàn bộ.
 struct BookListLayoutSettingsView: View {
     var body: some View {
         Form {
@@ -15,11 +16,26 @@ struct BookListLayoutSettingsView: View {
                         Text(scope.settingsTitle)
                     }
                 }
+
+                if ExploreLayoutSizePreferences.scopes.contains(scope) {
+                    Section {
+                        ExploreLayoutSizeControls(scope: scope)
+                    } header: {
+                        SectionHelpHeader(
+                            "\(scope.label) · Trang Khám phá",
+                            paragraphs: [
+                                "Cỡ thẻ ở tab Trang chủ của nguồn có trang Khám phá. Nấc 4 là mặc định.",
+                                "Lưới: to hơn thì ít cột hơn. Banner: to hơn thì cao hơn. Hàng chip không đổi cỡ."
+                            ]
+                        )
+                    }
+                }
             }
 
             Section {
                 Button("Đặt lại mặc định") {
                     BookListLayoutPreferences.shared.resetAll()
+                    ExploreLayoutSizePreferences.shared.resetAll()
                 }
                 .frame(maxWidth: .infinity)
             } header: {

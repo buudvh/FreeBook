@@ -40,9 +40,12 @@ struct ExploreSectionsView: View {
     @State private var sourceHost: String? = nil
 
     var body: some View {
+        // Cỡ bố cục theo loại nguồn; đọc trong `body` nên chỉnh ở sheet "Kiểu hiển thị" là trang vẽ lại ngay.
+        let sizeScope = BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of: ext))
         let context = ExploreRenderContext(
             sourceHost: sourceHost,
             isTranslationEnabled: isTranslationEnabled,
+            sizes: ExploreLayoutSizePreferences.shared.sizes(for: sizeScope),
             onSelect: { handleTap($0) }
         )
         ScrollView(.vertical, showsIndicators: false) {

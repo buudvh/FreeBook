@@ -9,6 +9,8 @@ struct ExploreListRow: View {
     var rank: Int? = nil
 
     var body: some View {
+        // `list` và `ranking` dùng chung một nấc cỡ: ảnh nhỏ + chữ tên/mô tả (nấc mặc định giữ nguyên font cũ).
+        let size = context.sizes.list
         Button {
             context.onSelect(item)
         } label: {
@@ -29,17 +31,17 @@ struct ExploreListRow: View {
                     tag: context.display(item.tag),
                     tagFontSize: 8
                 )
-                .frame(width: shape.thumbnailWidth)
+                .frame(width: shape.scaledThumbnailWidth(size))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(context.display(item.name))
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .font(size.font(.system(size: 14.5, weight: .semibold), base: 14.5, weight: .semibold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
 
                     if !item.description.isEmpty {
                         Text(context.display(item.description.cleanHTML()))
-                            .font(.caption)
+                            .font(size.font(.caption, base: 12))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                     }
