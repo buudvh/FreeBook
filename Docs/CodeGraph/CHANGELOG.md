@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.768] - 2026-11-07
+
+### feat: bấm Thể loại hoặc Xem thêm khi đang xem phim thì phim vào cửa sổ nhỏ
+
+Người dùng: *"KHi đang xem video mà bấm xem thêm suggest hoặc bấm vào genres thì tự động cho video thì pip (nếu làm cái này có xung đột thì báo tôi)"*. Đã báo xung đột: PiP hệ thống bỏ từ 1.3.751 ⇒ "pip" = cửa sổ phim nhỏ trong app; đảo thiết kế 1.3.744 (trang đè lên màn xem, ‹ về màn xem). Anh Bửu duyệt.
+
+- Màn xem phim: bấm nhãn thể loại, thể loại trong sheet Thông tin hoặc "Xem thêm ›" của nhóm đề xuất lúc màn đang phát phim của nó (không phải phim nhúng trang) ⇒ khung phim co vào **cửa sổ nhỏ** trong app (đang ngang / toàn màn thì xoay về dọc trước), màn xem đóng rồi mới mở trang danh sách. Chạm cửa sổ nhỏ để mở lại màn xem (nằm trên trang, đóng màn là về trang).
+- Màn đang hiện bìa (phim khác chạy nền) hoặc phim nhúng trang: giữ kiểu cũ — trang đè lên màn xem, chọn phim thì đổi tại chỗ. Chi tiết của đề xuất không phải phim giữ nguyên.
+- Trang mở sau khi màn xem đóng: chọn một phim ⇒ đóng trang rồi mở màn xem mới theo lối thường; truyện chữ / tranh vẫn đẩy Chi tiết trong trang. Nút ‹ đọc "Quay lại" (trang đè lên màn xem vẫn là "Quay lại màn xem phim").
+- Ba lối đi chung `VideoWatchExit.openCategory`; `VideoWatchPagePresenter` chỉ coi là "đang che màn xem" trang mở đè lên màn (nút âm lượng cứng, đóng màn xem không đụng trang nằm dưới), nút ‹ và lượt chọn phim đóng đúng trang của mình. Lối rời màn tách sang `VideoPlayerScreen+Exit`.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự co vào cửa sổ nhỏ → đóng màn → mở trang; khoá máy đúng lúc khung phim đang co.
+
 ## [1.3.767] - 2026-11-07
 
 ### feat: chỉnh cỡ hiển thị từng bố cục của trang Khám phá
@@ -609,31 +621,3 @@ Người dùng: xem phim → bật PiP → tắt PiP ⇒ **mất cả hub** tớ
 - **Kiểm chứng:**
   - Đọc code + diff. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: bật PiP rồi tắt bằng ✕ (hub còn); bật PiP rồi bấm nút về app (hub còn, không có widget trong PiP); lặp lại với widget TTS và trình duyệt thu nhỏ đang hiện. Nếu vẫn mất, bật log và gửi các dòng `🪟`.
-
-## [1.3.738] - 2026-11-05
-
-### fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn
-
-Người dùng: *"bỏ hỏi khi bấm nút bỏ khỏi kệ (nhớ tất cả màn hình có nút này) trực tiếp bỏ khỏi kệ"*.
-
-- **Grep mọi nút bỏ kệ**:
-  - 5 chỗ có hộp "Bỏ … khỏi kệ?":
-    - danh sách chương Reader chữ;
-    - mục lục truyện tranh;
-    - nút kệ của sheet nhấn giữ ở Kệ sách / Lịch sử;
-    - Tìm trên kệ;
-    - Bộ sưu tập.
-  - Không hỏi sẵn từ trước:
-    - nút "Trên kệ" của màn xem video;
-    - nút "Đã ở kệ" của màn Chi tiết.
-- **`ShelfToggleFlowModifier.toggle`**: đã ở kệ ⇒ `BookActionRunner.removeFromShelfOnly` ngay (tự toast, truyện về Lịch sử, rời bộ sưu tập, bỏ ghim — y như nút "Bỏ khỏi kệ" của hộp cũ).
-  - Modifier chỉ còn sheet chọn bộ sưu tập: `shelfToggleFlow(collectionPickerBook:)`.
-  - Bỏ `isConfirmingShelfRemoval` ở `ReaderChapterListView` / `ComicChapterListSheet`.
-- **`ShelfView` / `ShelfSearchView(+Actions)` / `CollectionDetailView`**:
-  - `.removeFromShelfOnly` gọi thẳng `removeFromShelfOnly`.
-  - Bỏ hàng chờ `queuedShelfRemovalBook` / `pendingShelfRemovalBook`: chúng chỉ để bật hộp sau khi sheet nhấn giữ đóng hẳn.
-- Xoá `ShelfRemovalConfirmationModifier.swift` (không còn chỗ dùng). Sửa comment nhắc tới hàng chờ cũ.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu tới hộp cũ. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.

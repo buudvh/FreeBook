@@ -8,10 +8,11 @@ import SwiftUI
 /// nhóm đã dịch, tập đổi theo lúc phát). Phiên trống / chạy phim khác ⇒ chỉ dữ liệu của `VideoWatchModel`, không có
 /// lưới Server (server chỉ có sau khi nạp một tập).
 ///
-/// Lối rời màn (Home, đổi nguồn xong) đi qua `onExit`. Thể loại, "Xem thêm" của nhóm đề xuất và Chi tiết của đề xuất
-/// không phải phim mở
-/// trang toàn màn đè lên màn (`VideoWatchPagePresenter`, phim vẫn phát bên dưới). Thể loại bấm trong sheet Thông tin thì
-/// đóng sheet trước rồi mới mở trang (`onDismiss` của sheet) — trình bày lúc sheet còn hiện là trình bày lên sheet.
+/// Lối rời màn (Home, đổi nguồn xong, thể loại, "Xem thêm" của nhóm đề xuất) đi qua `onExit` — `VideoPlayerScreen` quyết
+/// định: thể loại / Xem thêm lúc màn đang phát phim của nó ⇒ phim vào cửa sổ nhỏ rồi mới mở trang danh sách; còn lại ⇒
+/// trang đè lên màn. Chi tiết của đề xuất không phải phim mở trang toàn màn đè lên màn (`VideoWatchPagePresenter`, phim
+/// vẫn phát bên dưới). Thể loại bấm trong sheet Thông tin thì đóng sheet trước rồi mới gửi `onExit` (`onDismiss` của
+/// sheet) — trình bày lúc sheet còn hiện là trình bày lên sheet.
 struct VideoWatchDetailsView: View {
     let model: VideoWatchModel
     let session: VideoPlaybackSession
@@ -62,7 +63,7 @@ struct VideoWatchDetailsView: View {
                     model: model,
                     episodeCount: episodes.filter { !$0.isSection }.count,
                     onShowInfo: { showingInfo = true },
-                    onSelectGenre: { VideoWatchPagePresenter.openCategory($0, model: model) }
+                    onSelectGenre: { onExit(.openCategory($0)) }
                 )
                 .id(Self.topAnchor)
                 VideoWatchActionRow(
@@ -94,7 +95,7 @@ struct VideoWatchDetailsView: View {
                             VideoWatchPagePresenter.openDetail(request, modelContainer: model.modelContainer)
                         }
                     },
-                    onShowMore: { VideoWatchPagePresenter.openCategory($0, model: model) }
+                    onShowMore: { onExit(.openCategory($0)) }
                 )
             }
             .padding(.top, 14)
@@ -107,7 +108,7 @@ struct VideoWatchDetailsView: View {
     private func openPendingGenre() {
         guard let genre = pendingGenre else { return }
         pendingGenre = nil
-        VideoWatchPagePresenter.openCategory(genre, model: model)
+        onExit(.openCategory(genre))
     }
 
     // MARK: - Lỗi chi tiết

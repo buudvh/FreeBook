@@ -18,9 +18,11 @@ import SwiftData
 /// rồi màn mới đóng, **không** animation. Presenter để nền trong suốt, router dùng `presentationBackground(.clear)`.
 /// Bố cục: màn dọc = khung 16:9 + phần dưới (màn xem: `VideoWatchDetailsView`; lối cũ: `VideoPlayerDetailsView`); ngang
 /// hoặc "toàn màn" ở màn dọc = khung phim phủ cả màn. Toàn màn / khoá cảm ứng thì ẩn mọi widget nổi
-/// (`FloatingWidgetSuppression`). Lối rời màn của màn xem (`VideoWatchExit`: Home, đổi nguồn) làm việc tiếp theo **sau
-/// khi** màn đã đóng (`onDisappear`): trình bày lúc màn còn đang đóng dở sẽ bị UIKit bỏ qua. Thể loại / Xem thêm / Chi tiết
-/// của đề xuất mở trang toàn màn đè lên màn (`VideoWatchPagePresenter`), màn vẫn gắn, phim vẫn phát.
+/// (`FloatingWidgetSuppression`). Lối rời màn của màn xem (`VideoWatchExit`: Home, đổi nguồn, thể loại / Xem thêm — xử lý
+/// ở `+Exit`) làm việc tiếp theo **sau khi** màn đã đóng (`onDisappear`): trình bày lúc màn còn đang đóng dở sẽ bị UIKit
+/// bỏ qua. Thể loại / Xem thêm lúc màn đang phát phim của nó ⇒ phim vào cửa sổ nhỏ, màn đóng rồi mới mở trang danh sách;
+/// màn hiện bìa / phim nhúng trang ⇒ trang đè lên màn. Chi tiết của đề xuất không phải phim mở trang đè lên màn
+/// (`VideoWatchPagePresenter`), màn vẫn gắn, phim vẫn phát.
 struct VideoPlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -29,9 +31,9 @@ struct VideoPlayerScreen: View {
     private let launch: BookContentLaunch?
     /// Tham số = có animation khi đóng (thu nhỏ có hiệu ứng riêng thì đóng không animation).
     private let onDismiss: ((Bool) -> Void)?
-    @State private var controller: VideoPlayerController
-    @State private var watch: VideoWatchModel? = nil
-    @State private var isLeaving = false
+    @State var controller: VideoPlayerController
+    @State var watch: VideoWatchModel? = nil
+    @State var isLeaving = false
     /// Việc chạy sau khi màn đã đóng hẳn (chuyển tab Khám phá…) — `leave(then:)`.
     @State private var pendingExitAction: (() -> Void)? = nil
     /// "Mở link lỗi" của lỗi tải chi tiết phim (màn xem) — thử lại bằng `VideoWatchModel`, không đụng phiên phát.
@@ -65,13 +67,13 @@ struct VideoPlayerScreen: View {
         _watch = State(initialValue: watch)
     }
 
-    private var session: VideoPlaybackSession { controller.session }
+    var session: VideoPlaybackSession { controller.session }
     /// iPhone: chiều dọc compact ⇔ đang ngang.
     private var isLandscape: Bool { verticalSizeClass == .compact }
     private var isFullscreen: Bool { isLandscape || controller.isPortraitFullscreen }
     private var suppressesFloatingWidgets: Bool { isFullscreen || controller.isTouchLocked }
     /// Màn thường (router / presenter) luôn sở hữu phiên; màn xem chỉ khi phiên đang chạy đúng phim của nó.
-    private var watchOwnsSession: Bool { watch?.ownsSession ?? true }
+    var watchOwnsSession: Bool { watch?.ownsSession ?? true }
 
     var body: some View {
         // Khung phim co theo tay khi thu nhỏ (1.3.751) — chỉ container vẽ lại theo nhịp kéo.
@@ -196,7 +198,7 @@ struct VideoPlayerScreen: View {
     /// Thu nhỏ (`stopPlayback == false`): phim chạy nền, `onDisappear` gỡ màn khỏi session. Đóng: dừng hẳn trước.
     /// Đang ngang thì trả về dọc rồi mới đóng màn để phần còn lại của app không nằm ngang. `then` chạy sau khi màn đã đóng.
     /// `animated == false` khi khung phim đã tự co tới đích (hub / cửa sổ nhỏ).
-    private func leave(stopPlayback: Bool, animated: Bool = true, then action: (() -> Void)? = nil) {
+    func leave(stopPlayback: Bool, animated: Bool = true, then action: (() -> Void)? = nil) {
         guard !isLeaving else { return }
         isLeaving = true
         pendingExitAction = action
@@ -256,11 +258,12 @@ struct VideoPlayerScreen: View {
         flyToHub()
     }
 
-    /// Nút "Cửa sổ nhỏ" của thanh trên. Đang ngang / toàn màn dọc ⇒ về khung dọc trước rồi mới co.
-    private func minimizeToMiniPlayer() {
+    /// Nút "Cửa sổ nhỏ" của thanh trên (và thể loại / Xem thêm, `+Exit`). Đang ngang / toàn màn dọc ⇒ về khung dọc trước
+    /// rồi mới co. `then` chạy sau khi màn đã đóng hẳn.
+    func minimizeToMiniPlayer(then action: (() -> Void)? = nil) {
         guard !isLeaving, !controller.minimizeDrag.isCommitted, session.embedContent == nil else { return }
         guard isFullscreen else {
-            dockToMiniPlayer()
+            dockToMiniPlayer(then: action)
             return
         }
         if isLandscape {
@@ -271,7 +274,7 @@ struct VideoPlayerScreen: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard !isLeaving else { return }
-            dockToMiniPlayer()
+            dockToMiniPlayer(then: action)
         }
     }
 
@@ -281,9 +284,9 @@ struct VideoPlayerScreen: View {
         }
     }
 
-    private func dockToMiniPlayer() {
+    private func dockToMiniPlayer(then action: (() -> Void)? = nil) {
         VideoMinimizeAnimator.dockToMiniPlayer(controller.minimizeDrag) {
-            leave(stopPlayback: false, animated: false)
+            leave(stopPlayback: false, animated: false, then: action)
         }
     }
 
@@ -343,26 +346,12 @@ struct VideoPlayerScreen: View {
         }
     }
 
-    // MARK: - Lối rời màn xem
+    // MARK: - Đóng màn
 
-    /// Home: thu nhỏ phim (phim 18+ thì `prepareGoHome` đã dừng hẳn) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
-    /// Đổi nguồn xong: đóng hẳn.
-    private func handleExit(_ exit: VideoWatchExit) {
-        guard let watch else { return }
-        switch exit {
-        case .home:
-            watch.prepareGoHome()
-            leave(stopPlayback: false) {
-                MainTabNavigationEvents.shared.send(.showDiscoveryRoot)
-            }
-        case .close:
-            leave(stopPlayback: true)
-        }
-    }
-
-    /// Đóng trang toàn màn đang đè lên màn (nếu có) trước: gọi đóng màn khi còn trang chỉ đóng được trang.
+    /// Đóng trang toàn màn đang đè lên màn (nếu có) trước: gọi đóng màn khi còn trang chỉ đóng được trang. Trang nằm dưới
+    /// màn (mở sau khi màn đóng, màn mở lại từ cửa sổ nhỏ phủ lên) giữ nguyên — đóng màn là về trang đó.
     private func performDismiss(animated: Bool = true) {
-        VideoWatchPagePresenter.dismiss(animated: false) {
+        VideoWatchPagePresenter.dismissCoveringPage(animated: false) {
             if let onDismiss {
                 onDismiss(animated)
             } else if animated {

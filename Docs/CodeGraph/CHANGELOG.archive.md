@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.738] - 2026-11-05
+
+### fix: bấm nút bỏ khỏi kệ là bỏ ngay, không hỏi lại ở mọi màn
+
+Người dùng: *"bỏ hỏi khi bấm nút bỏ khỏi kệ (nhớ tất cả màn hình có nút này) trực tiếp bỏ khỏi kệ"*.
+
+- **Grep mọi nút bỏ kệ**:
+  - 5 chỗ có hộp "Bỏ … khỏi kệ?":
+    - danh sách chương Reader chữ;
+    - mục lục truyện tranh;
+    - nút kệ của sheet nhấn giữ ở Kệ sách / Lịch sử;
+    - Tìm trên kệ;
+    - Bộ sưu tập.
+  - Không hỏi sẵn từ trước:
+    - nút "Trên kệ" của màn xem video;
+    - nút "Đã ở kệ" của màn Chi tiết.
+- **`ShelfToggleFlowModifier.toggle`**: đã ở kệ ⇒ `BookActionRunner.removeFromShelfOnly` ngay (tự toast, truyện về Lịch sử, rời bộ sưu tập, bỏ ghim — y như nút "Bỏ khỏi kệ" của hộp cũ).
+  - Modifier chỉ còn sheet chọn bộ sưu tập: `shelfToggleFlow(collectionPickerBook:)`.
+  - Bỏ `isConfirmingShelfRemoval` ở `ReaderChapterListView` / `ComicChapterListSheet`.
+- **`ShelfView` / `ShelfSearchView(+Actions)` / `CollectionDetailView`**:
+  - `.removeFromShelfOnly` gọi thẳng `removeFromShelfOnly`.
+  - Bỏ hàng chờ `queuedShelfRemovalBook` / `pendingShelfRemovalBook`: chúng chỉ để bật hộp sau khi sheet nhấn giữ đóng hẳn.
+- Xoá `ShelfRemovalConfirmationModifier.swift` (không còn chỗ dùng). Sửa comment nhắc tới hàng chờ cũ.
+- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
+- **Kiểm chứng:**
+  - Đọc code + diff, grep chéo `Sources/` không còn tham chiếu tới hộp cũ. `check_architecture.py` chỉ còn 1 lỗi nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.737] - 2026-11-05
 
 ### fix: nhấn giữ phim ở Kệ và Lịch sử không còn mở trang Chi tiết

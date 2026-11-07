@@ -11,8 +11,9 @@ import UIKit
 ///
 /// - `present`: màn xem đang mở thì đóng nó trước rồi mới mở màn mới — không bao giờ chồng hai màn xem (kể cả lúc màn
 ///   đang hiện bìa phim B mà hub mở lại phim A đang chạy nền).
-/// - Trang phụ của màn xem (thể loại, Xem thêm, Chi tiết của đề xuất) không còn ở đây: từ 1.3.744 là trang toàn màn đè
-///   lên màn xem (`VideoWatchPagePresenter`, dùng chung `readyTopViewController`).
+/// - Trang phụ của màn xem (thể loại, Xem thêm, Chi tiết của đề xuất) không còn ở đây: từ 1.3.744 là trang toàn màn của
+///   `VideoWatchPagePresenter` (đè lên màn xem, hoặc mở sau khi màn đóng và phim vào cửa sổ nhỏ — khi đó màn xem mở lại
+///   nằm trên trang; dùng chung `readyTopViewController`).
 @MainActor
 final class VideoWatchPresenter {
     static let shared = VideoWatchPresenter()
