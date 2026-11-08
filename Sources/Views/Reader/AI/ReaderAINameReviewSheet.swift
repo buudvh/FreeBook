@@ -24,9 +24,13 @@ public struct ReaderAINameReviewSheet: View {
     public let onSave: ([AIExtractedName], Bool, Bool) -> Void
     /// Bấm ✕ một name: nhận **khoá** (`original`) để nơi gọi xoá hẳn dòng đó khỏi tin nguồn.
     public let onDeleteName: (String) -> Void
+    /// Bấm "Cập nhật" ở màn Sửa từ của một name (1.3.780, `+Edit`): nhận phép sửa để nơi gọi ghi vào tin nguồn.
+    public let onEditName: (AINameEdit) -> Void
 
     @State private var isLoading: Bool = true
-    @State private var names: [AIExtractedName] = []
+    // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
+    @State var names: [AIExtractedName] = []
+    @State var editingName: AIExtractedName? = nil
     @State private var pendingIsName: Bool = true
     @State private var showingModeDialog: Bool = false
 
@@ -34,12 +38,14 @@ public struct ReaderAINameReviewSheet: View {
         content: String,
         bookId: String,
         onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
-        onDeleteName: @escaping (String) -> Void = { _ in }
+        onDeleteName: @escaping (String) -> Void = { _ in },
+        onEditName: @escaping (AINameEdit) -> Void = { _ in }
     ) {
         self.content = content
         self.bookId = bookId
         self.onSave = onSave
         self.onDeleteName = onDeleteName
+        self.onEditName = onEditName
     }
 
     private var selectedCount: Int {
@@ -73,6 +79,9 @@ public struct ReaderAINameReviewSheet: View {
                                     onDeleteName(key)
                                 }
                                 names.removeAll(where: { $0.id == deletedId })
+                            },
+                            onEdit: { editedId in
+                                editingName = names.first(where: { $0.id == editedId })
                             }
                         )
                         .padding(.vertical, 8)
@@ -108,6 +117,9 @@ public struct ReaderAINameReviewSheet: View {
                      ? "Chế độ Gộp sẽ thêm các tên mới vào Names.txt và giữ nguyên các tên cũ. Chế độ Thay thế sẽ làm mới hoàn toàn Names.txt của truyện."
                      : "Chế độ Gộp sẽ thêm các từ mới vào VietPhrase.txt và giữ nguyên các từ cũ. Chế độ Thay thế sẽ làm mới hoàn toàn VietPhrase.txt của truyện."
                 )
+            }
+            .sheet(item: $editingName) { item in
+                editSheet(for: item)
             }
             .task {
                 await loadAndDecorateNames()

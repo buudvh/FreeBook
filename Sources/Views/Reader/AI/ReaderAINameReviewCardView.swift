@@ -4,10 +4,12 @@ import SwiftUI
 ///
 /// Từ 1.3.469 card **không** còn nút Lưu: nút Lưu là `Menu` 2 mục trên thanh điều hướng của
 /// `ReaderAINameReviewSheet` (đúng khuôn `AddWordSheet`). Card chỉ còn hiển thị danh sách, sắp xếp,
-/// chọn/bỏ chọn và xoá từng mục.
+/// chọn/bỏ chọn, sửa (1.3.780: nút bút chì ⇒ nơi dùng mở màn Sửa từ) và xoá từng mục.
 public struct ReaderAINameReviewCardView: View {
     @Binding public var names: [AIExtractedName]
     public var onDelete: ((UUID) -> Void)? = nil
+    /// Bấm bút chì của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ ẩn nút.
+    public var onEdit: ((UUID) -> Void)? = nil
 
     public enum SortMode {
         case selectedFirst
@@ -18,10 +20,12 @@ public struct ReaderAINameReviewCardView: View {
 
     public init(
         names: Binding<[AIExtractedName]>,
-        onDelete: ((UUID) -> Void)? = nil
+        onDelete: ((UUID) -> Void)? = nil,
+        onEdit: ((UUID) -> Void)? = nil
     ) {
         self._names = names
         self.onDelete = onDelete
+        self.onEdit = onEdit
     }
 
     public var body: some View {
@@ -178,6 +182,21 @@ public struct ReaderAINameReviewCardView: View {
                         }
 
                         Spacer(minLength: 4)
+
+                        // Nút sửa từng mục — icon như nút Sửa của hàng VP/Name (`DictionaryEntryRow`), vùng chạm 36 pt.
+                        if let onEdit {
+                            Button(action: {
+                                onEdit(item.id)
+                            }) {
+                                Image(systemName: "pencil")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                    .frame(width: 36, height: 36)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Sửa \(item.original)")
+                        }
 
                         // Nút xóa từng mục
                         Button(action: {

@@ -29,6 +29,11 @@ extension AIRuntimeCoordinator {
     /// context "Thử lại" khi context thuộc đúng tin này.
     func forgetName(_ key: String, inMessage messageId: UUID, bookId: String) {
         removedNameKeys[messageId, default: []].insert(key)
+        // Tin đã có lần sửa (1.3.780): bộ lọc trên chạy **trước** chuỗi sửa, nên name vừa xoá do một lần sửa tạo ra
+        // (đổi khoá / thêm mục) sẽ quay lại — ghi phép xoá vào cuối chuỗi để nó chạy sau.
+        if nameEdits[messageId]?.isEmpty == false {
+            nameEdits[messageId, default: []].append(.remove(key: key))
+        }
         updateMessage(messageId, bookId: bookId) { message in
             message.content = Self.contentRemovingNameLines(message.content, key: key)
         }

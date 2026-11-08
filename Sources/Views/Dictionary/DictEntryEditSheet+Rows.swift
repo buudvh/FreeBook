@@ -11,6 +11,7 @@ extension DictEntryEditSheet {
     // MARK: - Header
 
     var dictBadgeText: String {
+        if let badgeText { return badgeText }
         let typeLabel = dictType == .names ? "Name" : "VP"
         let scopeLabel = scopeBookId == nil ? "Chung" : "Riêng truyện"
         return "\(typeLabel) · \(scopeLabel)"
@@ -26,7 +27,7 @@ extension DictEntryEditSheet {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(Color.secondary.opacity(0.15), in: Capsule())
-                .accessibilityLabel("Từ điển \(dictType.displayName), \(scopeBookId == nil ? "chung" : "riêng của truyện")")
+                .accessibilityLabel(badgeText ?? "Từ điển \(dictType.displayName), \(scopeBookId == nil ? "chung" : "riêng của truyện")")
 
             Button(action: toggleKeyEditing) {
                 Image(systemName: isEditingKey ? "pencil.circle.fill" : "pencil")

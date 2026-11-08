@@ -34,6 +34,9 @@ struct DictEntryEditSheet: View {
     let onUpdate: (String, String) -> Void
     let onAddEntry: (String, String) -> Void
     let onDefinitionsChanged: () -> Void
+    /// Chữ thay cho badge "loại · phạm vi" ở header; `nil` = suy từ `dictType` + `scopeBookId`. Danh sách name AI
+    /// (`ReaderAINameReviewSheet+Edit`, 1.3.780) chưa có loại — Name hay VP chọn lúc Lưu — nên ghi "AI · Riêng truyện".
+    let badgeText: String?
 
     // `internal` (không `private`): các hàng ở `DictEntryEditSheet+Rows.swift` dùng chung trạng thái này.
     @State var workingKey: String
@@ -72,8 +75,10 @@ struct DictEntryEditSheet: View {
         existingValue: @escaping (String) -> String?,
         onUpdate: @escaping (String, String) -> Void,
         onAddEntry: @escaping (String, String) -> Void,
-        onDefinitionsChanged: @escaping () -> Void
+        onDefinitionsChanged: @escaping () -> Void,
+        badgeText: String? = nil
     ) {
+        self.badgeText = badgeText
         self.originalKey = originalKey
         self.originalValue = originalValue
         self.dictType = dictType

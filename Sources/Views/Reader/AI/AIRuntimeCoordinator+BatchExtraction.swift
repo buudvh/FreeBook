@@ -135,8 +135,8 @@ extension AIRuntimeCoordinator {
     /// Ghi tiến độ của lượt quét hiện hành lên dải batch, tiêu đề trang "Tác vụ AI" và (khi tên đổi) tin trợ lý
     /// đang chạy — trong **một** lần ghi entry.
     func applyBatchProgress(_ progress: AINameScanProgress, names: [AIExtractedName]?, bookId: String, assistantMsgId: UUID?) {
-        // Name người dùng đã ✕ trong tin này không được quay lại qua nhịp tiến độ (`+NameRemoval`).
-        let keptNames = names.map { keepingUnremovedNames($0, messageId: assistantMsgId) }
+        // Name người dùng đã ✕ / đã sửa trong tin này không bị nhịp tiến độ đè (`+NameRemoval`, `+NameEdits`).
+        let keptNames = names.map { applyingUserNameChanges($0, messageId: assistantMsgId) }
         // Lần quét vừa chuyển sang Gemini Web vì Chế độ AI bị giới hạn (1.3.612): toast một lần, cả khi màn AI đang mở.
         if let switched = progress.switchedProviderName, runs[bookId]?.batchProgress?.switchedProviderName == nil {
             let bookTitle = runs[bookId]?.bookTitle ?? ""
@@ -170,8 +170,8 @@ extension AIRuntimeCoordinator {
 
     /// Ghi danh sách `Tên=Nghĩa` cuối cùng vào tin kết quả và đánh dấu tin đã xong.
     func writeNames(_ names: [AIExtractedName], toMessage messageId: UUID?, bookId: String) {
-        // Name người dùng đã ✕ trong tin này không được quay lại lúc ghi danh sách cuối (`+NameRemoval`).
-        let keptNames = keepingUnremovedNames(names, messageId: messageId)
+        // Name người dùng đã ✕ / đã sửa trong tin này không bị danh sách cuối đè (`+NameRemoval`, `+NameEdits`).
+        let keptNames = applyingUserNameChanges(names, messageId: messageId)
         let text = keptNames.map { "\($0.original)=\($0.suggestedMeaning)" }.joined(separator: "\n")
         updateMessage(messageId, bookId: bookId) {
             $0.content = text.isEmpty ? "Không có name" : text

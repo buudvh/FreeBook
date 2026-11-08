@@ -252,6 +252,9 @@ public struct ReaderAIFullScreenView: View {
                     },
                     onDeleteName: { key in
                         removeNameLine(key: key, fromMessage: target.messageId)
+                    },
+                    onEditName: { edit in
+                        applyNameEdit(edit, toMessage: target.messageId)
                     }
                 )
             }

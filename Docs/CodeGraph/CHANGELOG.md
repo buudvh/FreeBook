@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.780] - 2026-11-08
+
+### feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name
+
+Người dùng: *"thêm nút edit cho mỗi tên trong danh sách name của AI, bấm vào sẽ hiển ra màn hình giống sửa vp/name trong từ điển. Bấm cập nhật sẽ tuỳ theo vế trái mà sửa nghĩa hoặc thêm từ mới"*, rồi chọn *"lưu vào tin luôn"*.
+
+- **Nút bút chì** trên mỗi hàng của sheet "Duyệt tên riêng & VP" (`ReaderAINameReviewCardView`, trước nút ✕, kiểu nút Sửa của `DictionaryEntryRow`, vùng chạm 36 pt) ⇒ mở **đúng màn Sửa từ** của danh sách VP/Name (`DictEntryEditSheet`): nới/thu vùng chọn, token, chip nghĩa, aa…AA, tra cứu, gõ lại từ gốc. Token / nghĩa gợi ý / chip tra theo từ điển của truyện. Badge header ghi **"AI · Riêng truyện"** (tham số mới `badgeText`, mặc định `nil` ⇒ màn từ điển không đổi) vì danh sách AI chưa có loại — Name hay VP chọn lúc Lưu.
+- **"Cập nhật" theo vế trái**, đúng luật màn Sửa từ: chọn cả từ gốc ⇒ sửa nghĩa; gõ lại cả từ gốc ⇒ đổi khoá; chọn một phần ⇒ thêm name mới ngay dưới name đang sửa. Khoá đích đã có trong danh sách ⇒ ghi đè nghĩa mục đó (màn báo trước), không tạo bản trùng. Mục sửa / thêm được chọn sẵn; đổi khoá / thêm mục ⇒ tra lại cờ NE/VP ngoài main (chỉ chép cờ, không đổi trạng thái chọn); sửa nghĩa ở màn ⚙ cũng tra lại. Chưa ghi từ điển — nút "Lưu" vẫn lo.
+- **Lưu vào tin nguồn**: `AINameEdit` (`Services/AI/`, mới) là một phép áp **cùng lúc** lên danh sách của sheet, nội dung tin (dòng `từ=nghĩa` thay tại chỗ, dòng khác giữ nguyên, dòng trùng khoá cũ/mới bỏ như nút ✕) và `extractedNames` của tin cũ (`ReaderAIFullScreenView+NameEdit`). Như nút ✕ (1.3.611), coordinator nhớ chuỗi sửa **theo tin** (`AIRuntimeCoordinator.nameEdits`, `+NameEdits`) và `applyBatchProgress` / `writeNames` áp lại sau bộ lọc khoá đã ✕ (`applyingUserNameChanges`) ⇒ lượt quét đang chạy và "Thử lại k lượt lỗi" không đè mất; context thử lại của đúng tin đó sửa luôn. ✕ một name sau khi đã sửa ⇒ ghi thêm phép xoá vào cuối chuỗi (`forgetName`), kẻo name do lần sửa tạo ra quay lại.
+- **Kiểm chứng:** đọc code + diff; `keepingUnremovedNames` chỉ còn được gọi qua `applyingUserNameChanges`; `ReaderAINameReviewSheet` chỉ dựng ở màn AI; `DictEntryEditSheet` thêm chỗ dựng thứ hai, chỗ cũ (`DictEntrySheet`) không truyền `badgeText`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: sửa trong lúc lượt quét đang ghi vào chính tin đó; mở lại sheet sau khi sửa.
+
 ## [1.3.779] - 2026-11-07
 
 ### feat: độ sáng chỉnh khi xem phim vẫn giữ khi phim ở cửa sổ nhỏ
@@ -464,20 +475,3 @@ Người dùng muốn phim hết tập cuối thì tự sang phim đề xuất t
   - Đọc code + diff; grep `Sources/` không còn tham chiếu PiP cũ (`togglePictureInPicture`, `isPictureInPicture…`, `.pictureInPicture`).
   - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`+Playback` giữ dưới 400 dòng).
   - Không build tại chỗ (Windows). Chưa thử trên máy: lộ màn phía sau khi kéo ở lối mở từ Kệ / Lịch sử (`fullScreenCover` + `presentationBackground(.clear)`); tự sang khi app chạy nền (iOS có thể treo app trước khi tải xong); phát tiếp chỉ tiếng khi rời app; cửa sổ nhỏ nằm trên sheet / bàn phím.
-
-## [1.3.750] - 2026-11-06
-
-### feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục
-
-Người dùng: *"thêm config cho hub, 2 option, hiển thị hub con khi chỉ có 1 hub action và hiển thị tất cả hub con mọi lúc"*. Chốt qua mockup inline + bảng chọn: hiểu theo **cách chạm hub**, đặt ở Giao diện, mặc định "Luôn hiện tất cả", không có tác vụ thì vẫn mở menu. Anh Bửu duyệt plan (gồm cả việc sửa `rules.md`).
-
-- **`FloatingHubTapBehavior`** (file mới, `Views/FloatingHub/`): `alwaysMenu` = "Luôn hiện tất cả mục" (**mặc định**) / `directWhenSingle` = "Mở thẳng khi chỉ có 1 tác vụ". Khoá `floatingHubTapBehavior` (không dấu chấm); chưa ghi hoặc giá trị lạ ⇒ mặc định.
-- **Chạm hub** (`activateByRunningTasks`, `+Actions`): "Luôn hiện tất cả mục" ⇒ bung (nếu đang nép) và mở menu ở **trang chính** dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang "Tác vụ AI"). "Mở thẳng khi chỉ có 1 tác vụ" ⇒ y nguyên bảng chạm 0/1/≥2 chốt 2026-10-22. Đọc `UserDefaults` lúc chạm ⇒ đổi là có hiệu lực ngay, không publisher, nút không vẽ lại.
-- **Nút hub giữ nguyên**: icon (chuông / icon mục / chồng thẻ) và nháy vẫn theo số tiến trình ở cả hai lựa chọn.
-- **Cài đặt › Chung › Giao diện**: nhóm mới "Khi chạm hub nổi" sau "Danh sách chương" — `Picker` kiểu inline hai dòng có dấu chọn (tên lựa chọn dài, kiểu menu sẽ cắt chữ), nút "?" giải thích.
-- **Hệ quả**: sau khi cập nhật, chạm hub lúc 0/1 tác vụ mở menu thay vì mở thẳng Thông báo / mục đó; muốn cách cũ thì chọn lại trong Giao diện.
-- Comment bảng chạm ở `FloatingHubContainerViewController`, `+Actions`, `+Menu`, `FloatingHubButton` cập nhật theo. **`rules.md`** § Nút hub nổi (a) + (e): phần chạm theo số tiến trình chỉ áp ở lựa chọn "Mở thẳng"; câu "0/1 tiến trình thì chạm không mở được menu" thành hệ quả của lựa chọn đó. `CLAUDE.md` / `AGENTS.md` không nhắc bảng chạm hub ⇒ không sửa. Chuyển `[1.3.720]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code + diff; `activateByRunningTasks` chỉ có một chỗ gọi (`handlePrimaryAction`, đường chung của chạm và VoiceOver). Không đụng `FloatingHubWindowManager`, `FloatingHubUIWindow`, vị trí hub (việc video đang làm).
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: chạm hub lúc rảnh / 1 video / 1 AI ⇒ menu trang chính; đổi sang "Mở thẳng" ⇒ chạm lại có hiệu lực ngay; dòng Video vẫn phát/dừng/đóng được trong menu.

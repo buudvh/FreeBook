@@ -70,6 +70,9 @@ public final class AIRuntimeCoordinator: ObservableObject {
     /// Khoá name người dùng đã bấm ✕ xoá, **theo tin** — mọi đường dựng lại nội dung tin kết quả từ danh sách tên
     /// đều lọc qua đây (`AIRuntimeCoordinator+NameRemoval`). Giữ trong bộ nhớ suốt phiên app.
     var removedNameKeys: [UUID: Set<String>] = [:]
+    /// Các lần sửa name bằng nút bút chì, **theo tin**, đúng thứ tự — áp lại sau `removedNameKeys` ở mọi đường dựng lại
+    /// nội dung tin (`AIRuntimeCoordinator+NameEdits`). Giữ trong bộ nhớ suốt phiên app.
+    var nameEdits: [UUID: [AINameEdit]] = [:]
     /// Ngữ cảnh mở màn AI theo truyện — nút nổi mở đúng màn AI của truyện được chạm. Chỉ giữ truyện còn entry trong
     /// `runs` và truyện mở AI gần nhất (`pruneContexts`), vì ngữ cảnh mang cả nội dung chương. `internal` cho
     /// `+UnseenResults` (dựng lại ngữ cảnh của kết quả chưa xem lúc mở app).

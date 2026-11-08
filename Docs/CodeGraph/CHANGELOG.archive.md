@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.750] - 2026-11-06
+
+### feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục
+
+Người dùng: *"thêm config cho hub, 2 option, hiển thị hub con khi chỉ có 1 hub action và hiển thị tất cả hub con mọi lúc"*. Chốt qua mockup inline + bảng chọn: hiểu theo **cách chạm hub**, đặt ở Giao diện, mặc định "Luôn hiện tất cả", không có tác vụ thì vẫn mở menu. Anh Bửu duyệt plan (gồm cả việc sửa `rules.md`).
+
+- **`FloatingHubTapBehavior`** (file mới, `Views/FloatingHub/`): `alwaysMenu` = "Luôn hiện tất cả mục" (**mặc định**) / `directWhenSingle` = "Mở thẳng khi chỉ có 1 tác vụ". Khoá `floatingHubTapBehavior` (không dấu chấm); chưa ghi hoặc giá trị lạ ⇒ mặc định.
+- **Chạm hub** (`activateByRunningTasks`, `+Actions`): "Luôn hiện tất cả mục" ⇒ bung (nếu đang nép) và mở menu ở **trang chính** dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang "Tác vụ AI"). "Mở thẳng khi chỉ có 1 tác vụ" ⇒ y nguyên bảng chạm 0/1/≥2 chốt 2026-10-22. Đọc `UserDefaults` lúc chạm ⇒ đổi là có hiệu lực ngay, không publisher, nút không vẽ lại.
+- **Nút hub giữ nguyên**: icon (chuông / icon mục / chồng thẻ) và nháy vẫn theo số tiến trình ở cả hai lựa chọn.
+- **Cài đặt › Chung › Giao diện**: nhóm mới "Khi chạm hub nổi" sau "Danh sách chương" — `Picker` kiểu inline hai dòng có dấu chọn (tên lựa chọn dài, kiểu menu sẽ cắt chữ), nút "?" giải thích.
+- **Hệ quả**: sau khi cập nhật, chạm hub lúc 0/1 tác vụ mở menu thay vì mở thẳng Thông báo / mục đó; muốn cách cũ thì chọn lại trong Giao diện.
+- Comment bảng chạm ở `FloatingHubContainerViewController`, `+Actions`, `+Menu`, `FloatingHubButton` cập nhật theo. **`rules.md`** § Nút hub nổi (a) + (e): phần chạm theo số tiến trình chỉ áp ở lựa chọn "Mở thẳng"; câu "0/1 tiến trình thì chạm không mở được menu" thành hệ quả của lựa chọn đó. `CLAUDE.md` / `AGENTS.md` không nhắc bảng chạm hub ⇒ không sửa. Chuyển `[1.3.720]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; `activateByRunningTasks` chỉ có một chỗ gọi (`handlePrimaryAction`, đường chung của chạm và VoiceOver). Không đụng `FloatingHubWindowManager`, `FloatingHubUIWindow`, vị trí hub (việc video đang làm).
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: chạm hub lúc rảnh / 1 video / 1 AI ⇒ menu trang chính; đổi sang "Mở thẳng" ⇒ chạm lại có hiệu lực ngay; dòng Video vẫn phát/dừng/đóng được trong menu.
+
 ## [1.3.749] - 2026-11-06
 
 ### feat: bỏ link kho tiện ích có sẵn, xoá kho không gỡ tiện ích đã cài
