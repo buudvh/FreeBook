@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.780",
+          "buildVersion": "1182",
+          "date": "2026-11-08T05:22:08Z",
+          "localizedDescription": "- feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1182/TangCongCac-1.3.780-1182.ipa",
+          "size": 38244422,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.779",
           "buildVersion": "1181",
           "date": "2026-11-07T05:52:53Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1177/TangCongCac-1.3.765-1177.ipa",
           "size": 38170606,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.764",
-          "buildVersion": "1176",
-          "date": "2026-11-06T10:14:24Z",
-          "localizedDescription": "- feat: dọn bìa truyện mồ côi, thu nhỏ bìa khi lưu và lịch tự dọn dung lượng\n- feat: màn xem phim có nút Trình duyệt mở link chi tiết của phim, kể cả khi không lỗi\n- feat: màn khoá khi phát phim hiện tên phim, tác giả và bìa, phim 18+ chỉ hiện Đang phát với icon app",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1176/TangCongCac-1.3.764-1176.ipa",
-          "size": 38168380,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.779",
-      "versionDate": "2026-11-07T05:52:53Z",
-      "versionDescription": "- feat: bộ lọc NSFW riêng của tab Kệ sách: Không hiển thị, Tất cả, Chỉ NSFW\n- feat: độ sáng chỉnh khi xem phim vẫn giữ khi phim ở cửa sổ nhỏ",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1181/TangCongCac-1.3.779-1181.ipa",
-      "size": 38225598,
+      "version": "1.3.780",
+      "versionDate": "2026-11-08T05:22:08Z",
+      "versionDescription": "- feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1182/TangCongCac-1.3.780-1182.ipa",
+      "size": 38244422,
       "appPermissions": {}
     }
   ],
