@@ -2,7 +2,7 @@ import SwiftUI
 
 /// **Màn nghe** của trình nghe âm thanh (tiện ích loại `audio`), bố cục tham khảo các app nghe nhạc phổ biến: nền tối lấy
 /// màu bìa, header (⌄ · "Phát từ album" + tên album · `…`), chấm chỉ trang và **3 trang vuốt ngang** — Danh sách phát,
-/// Đĩa (mở vào trang này), Lời bài hát.
+/// Đĩa (mở vào trang này, trừ khi chỗ gọi truyền `initialPage`), Lời bài hát.
 ///
 /// Màn chỉ đọc `AudioPlaybackSession` (`@Observable`) và gọi hàm của nó; giây phát (tick 0,5 s) chỉ được đọc ở các view nhỏ
 /// (`AudioPlayerSeekRow`) để cả màn không vẽ lại mỗi tick.
@@ -29,7 +29,7 @@ struct AudioPlayerScreen: View {
 
     @State private var token = ScreenToken()
     @State private var drag = AudioMinimizeDragState()
-    @State private var page: AudioPlayerPage = .disc
+    @State private var page: AudioPlayerPage
     @State private var showingMenu = false
     @State private var isOnShelf = false
     @State private var hasBook = false
@@ -41,8 +41,11 @@ struct AudioPlayerScreen: View {
 
     private static let slideOutDuration: Double = 0.22
 
-    init(onDismiss: ((Bool) -> Void)? = nil) {
+    /// `initialPage`: trang mở vào — mặc định Đĩa; sheet điều khiển nhanh của Reader mở thẳng Danh sách / Lời
+    /// (`AudioPlayerPresenter.reopen(at:)`).
+    init(initialPage: AudioPlayerPage = .disc, onDismiss: ((Bool) -> Void)? = nil) {
         self.onDismiss = onDismiss
+        _page = State(initialValue: initialPage)
     }
 
     private var session: AudioPlaybackSession { .shared }

@@ -8,6 +8,7 @@ import UIKit
 ///   như `VideoWatchPresenter`).
 /// - `install()`: gắn `presentScreenHandler` vào session — mở lại màn nghe gắn với album đang chạy từ thanh mini, dòng
 ///   Âm thanh của hub. Gọi lặp an toàn (`present`, `openInPlace` và màn nghe lúc hiện đều gọi).
+/// - `reopen(at:)`: như mở lại từ thanh mini nhưng vào thẳng một trang (sheet điều khiển nhanh của Reader).
 /// - `openInPlace(_:modelContainer:autoplay:)`: lối của router (`AudioListenRouteView`, màn nằm sẵn trong
 ///   `fullScreenCover` của chỗ gọi) — chỉ mở album, không trình bày gì.
 ///
@@ -18,6 +19,8 @@ final class AudioPlayerPresenter {
     static let shared = AudioPlayerPresenter()
 
     private weak var hostController: UIViewController?
+    /// Trang mở vào của lượt trình bày kế tiếp (`reopen(at:)`); `nil` ⇒ trang Đĩa. Dùng một lần.
+    private var requestedPage: AudioPlayerPage?
     private static let maxRetryCount = 6
 
     private init() {}
@@ -39,6 +42,16 @@ final class AudioPlayerPresenter {
     ) {
         openInPlace(request, modelContainer: modelContainer, autoplay: autoplay)
         shared.presentScreen(animated: animated, retryCount: 0, completion: {})
+    }
+
+    /// Mở lại màn nghe của album đang chạy ở trang chỉ định (sheet điều khiển nhanh của Reader: ⤢ / Danh sách / Lời).
+    /// Không có album / màn nghe đang hiện ⇒ không làm gì; trang chỉ áp cho đúng lượt trình bày này (xoá ở `completion`).
+    static func reopen(at page: AudioPlayerPage) {
+        install()
+        shared.requestedPage = page
+        AudioPlaybackSession.shared.requestScreen {
+            AudioPlayerPresenter.shared.requestedPage = nil
+        }
     }
 
     /// Chỉ mở album trong session (màn nghe do chỗ gọi tự dựng — router).
@@ -84,8 +97,10 @@ final class AudioPlayerPresenter {
         host.modalPresentationCapturesStatusBarAppearance = true
         // Trong suốt: màn tự vẽ nền, trượt xuống theo tay khi thu nhỏ để lộ màn bên dưới.
         host.view.backgroundColor = .clear
+        let page = requestedPage ?? .disc
+        requestedPage = nil
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` / `.modelContainer` của `MainTabView`: gắn lại cả hai.
-        let screen = AudioPlayerScreen(onDismiss: { [weak host] animated in
+        let screen = AudioPlayerScreen(initialPage: page, onDismiss: { [weak host] animated in
             // Đóng từ VC đã trình bày host: host đang có menu / trình duyệt con thì `host.dismiss` chỉ đóng con.
             (host?.presentingViewController ?? host)?.dismiss(animated: animated)
         })
@@ -96,7 +111,7 @@ final class AudioPlayerPresenter {
             host.rootView = AnyView(screen)
         }
         hostController = host
-        AppLogger.shared.log("🎵 [AudioPlayerUI] Trình bày màn nghe (bookId=\(session.bookId))")
+        AppLogger.shared.log("🎵 [AudioPlayerUI] Trình bày màn nghe (bookId=\(session.bookId), trang \(page))")
         top.present(host, animated: animated) {
             completion()
         }

@@ -969,7 +969,7 @@ struct ReaderView: View {
 
                 ZStack(alignment: .bottomTrailing) {
                     readerContentView
-                    readerTTSControl(geometry: geometry)
+                    readerEdgeControls(geometry: geometry)
                 }
 
                 Spacer().frame(height: 52)
