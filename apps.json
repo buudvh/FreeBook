@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.807",
+          "buildVersion": "1187",
+          "date": "2026-11-09T10:27:17Z",
+          "localizedDescription": "- fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí\n- feat: trang Danh sách của màn nghe hiện bài gợi ý của nguồn, chạm để nghe ngay, nhãn Tiếp theo cho mục sẽ tự phát\n- docs: ghi phần gợi ý ở trang Danh sách của màn nghe vào CLAUDE.md và AGENTS.md\n- feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ\n- fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá\n- fix: thanh widget TTS kiểu nghe nhạc chỉ ghi tên chương, bỏ tiền tố Ch. N\n- feat: phát playlist nhạc và video, hết bài hoặc tập sang mục kế, lặp và xáo cả playlist, bỏ qua mục hỏng\n- feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ\n- feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1187/TangCongCac-1.3.807-1187.ipa",
+          "size": 38929060,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.798",
           "buildVersion": "1186",
           "date": "2026-11-09T07:20:29Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1183/TangCongCac-1.3.781-1183.ipa",
           "size": 38244532,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.780",
-          "buildVersion": "1182",
-          "date": "2026-11-08T05:22:08Z",
-          "localizedDescription": "- feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1182/TangCongCac-1.3.780-1182.ipa",
-          "size": 38244422,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.798",
-      "versionDate": "2026-11-09T07:20:29Z",
-      "versionDescription": "- feat: nhạc và TTS không bao giờ cùng phát: nghe nhạc tắt TTS, đọc TTS dừng nhạc\n- feat: nút đĩa nhạc trong Reader trên nút tai nghe, chạm mở sheet điều khiển gọn theo độ trong suốt\n- fix: TTS không còn phát lặp một câu khi âm thanh Google/tiện ích lỗi giải mã\n- fix: sheet chọn truyện nguồn / truyện đích của từ điển VP/Name chỉ hiện truyện chữ\n- feat: hẹn giờ tắt cho xem phim và nghe nhạc giống TTS\n- feat: widget TTS thêm kiểu Thanh nghe nhạc trên thanh tab, thu gọn được, chọn ở Cài đặt\n- fix: đĩa bìa ở màn nghe nhạc xoay khi đang phát, bìa trang Lời cũng là đĩa xoay\n- feat: trình nghe tự phát bài gợi ý khi hết bài hoặc album, công tắc ở Cài đặt › Âm thanh và ngăn kéo màn nghe",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1186/TangCongCac-1.3.798-1186.ipa",
-      "size": 38653167,
+      "version": "1.3.807",
+      "versionDate": "2026-11-09T10:27:17Z",
+      "versionDescription": "- fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí\n- feat: trang Danh sách của màn nghe hiện bài gợi ý của nguồn, chạm để nghe ngay, nhãn Tiếp theo cho mục sẽ tự phát\n- docs: ghi phần gợi ý ở trang Danh sách của màn nghe vào CLAUDE.md và AGENTS.md\n- feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ\n- fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá\n- fix: thanh widget TTS kiểu nghe nhạc chỉ ghi tên chương, bỏ tiền tố Ch. N\n- feat: phát playlist nhạc và video, hết bài hoặc tập sang mục kế, lặp và xáo cả playlist, bỏ qua mục hỏng\n- feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ\n- feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1187/TangCongCac-1.3.807-1187.ipa",
+      "size": 38929060,
       "appPermissions": {}
     }
   ],
