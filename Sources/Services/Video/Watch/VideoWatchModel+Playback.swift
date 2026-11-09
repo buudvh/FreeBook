@@ -48,7 +48,8 @@ extension VideoWatchModel {
             launch,
             modelContainer: modelContainer,
             muteOverride: autoNextStart?.muted,
-            startNotice: autoNextStart == nil ? nil : "Tự sang: \(displayTitle)"
+            startNotice: autoNextStart == nil ? nil : "Tự sang: \(displayTitle)",
+            keepsSleepTimer: autoNextStart != nil
         )
         if autoNextStart != nil {
             VideoAutoNextCoordinator.shared.didOpen(bookId: bookId)

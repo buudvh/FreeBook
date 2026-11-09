@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.795] - 2026-11-09
+
+### feat: hẹn giờ tắt cho xem phim và nghe nhạc giống TTS
+
+Anh Bửu duyệt plan: phim và nhạc có hẹn giờ tắt như TTS (mốc phút, ô cuối riêng, tuỳ chỉnh).
+
+- **Bộ đếm** `MediaSleepTimer` (`Services/Media/`, mới; mỗi phiên một bộ: `VideoPlaybackSession.sleepTimer`, `AudioPlaybackSession.sleepTimer`): mốc 15/30/45/60/90 phút, tuỳ chỉnh 1–180 phút, ô cuối **"Hết tập"** (phim) / **"Hết bài"** (nhạc). Chỉ đếm khi đang phát (app ở nền vẫn đếm; tạm dừng giữ số giây còn lại), đếm theo mốc `systemUptime` nên tick trễ không làm lệch giờ. Hết giờ ⇒ `pause()` của phiên (màn khoá cập nhật qua đường KVO sẵn có) + toast "⏱️ Hẹn giờ (N phút): đã tạm dừng phim/nhạc." qua kênh mới `MediaPresentationEventCenter` (subscriber ở `FreeBookApp`, cùng khuôn `TTSPresentationEventCenter`; Services không gọi `ToastManager`).
+- **Sau khi kích hoạt — giống TTS**: chế độ giữ nguyên tới khi người dùng tắt. Mốc phút hết giờ thì lần phát sau đếm lại một vòng đủ; "Hết tập" / "Hết bài" dừng ở cuối mỗi tập / bài.
+- **Hết tập** (`VideoPlaybackSession+SleepTimer`, chặn ở đầu `handlePlayedToEnd`): không sang tập kế, không sang phim đề xuất (`VideoAutoNextCoordinator`); lưu tập ở giây 0 như nhánh hết tập cuối. **Hết bài** (`AudioPlaybackSession+SleepTimer`, dòng đầu `advanceAfterTrackEnded`): dừng ở cuối bài kể cả đang lặp một / lặp album, không nạp sẵn bài kế; lưu bài ở giây 0.
+- **Gắn với lượt đang phát**: `stop()` (đóng hẳn, mở phim / album khác, TTS giành phiên nhạc) huỷ hẹn giờ. **Ngoại lệ Javis tự chốt**: tự sang phim đề xuất (`open(keepsSleepTimer:)`, truyền từ `VideoWatchModel+Playback`) **giữ** hẹn giờ — ngủ quên thì chuỗi phim đề xuất vẫn dừng đúng giờ.
+- **Đếm phim**: `refreshIdleTimer()` (điểm mọi lần trạng thái phát đổi đi qua) gọi `syncSleepTimerCounting()` với điều kiện riêng `launch != nil && isPlaying && không nhúng` — không phụ thuộc màn có hiện (hub, cửa sổ nhỏ, nền vẫn đếm). Phim **nhúng trang** không có trạng thái phát ⇒ không đếm; hàng "Hẹn giờ tắt" ẩn khi đang nhúng mà chưa hẹn. Nhạc: `handleTimeControlChange`.
+- **UI**: tách lưới mốc + tuỳ chỉnh của `TTSQuickTimerSheet` thành `SleepTimerOptionsView` (`Views/Common/SleepTimer/`) — sheet TTS giữ nguyên giao diện, hành vi và ô "Hết chương". Phim / nhạc dùng sheet gọn `MediaSleepTimerSheet` (tiêu đề + dòng trạng thái + "Tắt hẹn giờ" khi đang hẹn; vuốt xuống để đóng). Lối vào: **nhạc** — nút ⏱ ở hàng phụ trang Đĩa (đang hẹn ⇒ viên thuốc màu nhấn "m:ss"), hàng "Hẹn giờ tắt" trong ngăn kéo `…` của màn nghe, nút ⏱ cạnh ⤢ trong sheet nhạc của Reader (sheet hẹn giờ mở chồng lên); **phim** — hàng "Hẹn giờ tắt" đầu ngăn kéo `⋯` của trình phát, đang hẹn ⇒ badge ⏱ + số phút còn lại ("Np") ở thanh trên. Số giây chỉ đọc ở view lá `MediaSleepTimerCountdownText`.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoPlaybackSession+Playback.swift` đúng 400 dòng). Không build tại chỗ (Windows). Chưa thử máy: đếm khi app ở nền / khoá màn; hết giờ có tạm dừng + toast; sheet hẹn giờ chồng lên sheet nhạc của Reader; badge thanh trên trình phát.
+
 ## [1.3.794] - 2026-11-09
 
 ### fix: sheet chọn truyện nguồn / truyện đích của từ điển VP/Name chỉ hiện truyện chữ
@@ -364,40 +378,3 @@ Người dùng: *"Cho kiểu hiển thị lưới và chỉ bìa hiển thị đ
 - Đã rà các lưới dùng số cột (Kệ / Lịch sử / Bộ sưu tập, Khám phá, Thể loại / Xem thêm, Tìm trong một nguồn, khung chờ lưới): không chỗ nào ngầm đòi từ 2 cột; ảnh bìa tải theo cỡ khung nên không mờ.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
 
-## [1.3.765] - 2026-11-07
-
-### feat: kéo cửa sổ phim nhỏ lên nút hub để thu vào hub, vuốt xuống theo tay, không nhớ vị trí, thu nhỏ không dừng phim
-
-Người dùng: *"thêm hành động chuyển pip vào hub"*, *"khi vuốt pip hãy xuống dưới theo tay như youtube, đừng nhớ vị trí pip trước đó"*, *"bị nút thu nhỏ đừng pause"*. Anh Bửu duyệt mockup + plan gộp, chọn: kéo thả lên nút hub (không thêm nút, không hất ra mép); vào hub thì phim chạy tiếp chỉ tiếng; chỗ đậu mặc định góc dưới phải; giữ ngoại lệ nút Home dừng phim 18+.
-
-- **Kéo vào hub** (`VideoMiniPlayerViewController`): kéo tới gần nút hub (tâm cửa sổ cách tâm nút < 60 pt, `VideoMiniPlayerLayout.isOverHub`) ⇒ nút hub phóng to + viền màu nhấn (`FloatingHubWindowManager.setDropTargetHighlighted`), máy rung nhẹ, cửa sổ mờ. Thả ⇒ cửa sổ co nhỏ bay vào nút hub (`shrinkAway`, dùng chung với vòng ✕), `VideoMiniPlayerWindowManager.minimizeToHub` ẩn cửa sổ + gỡ khỏi phiên (phiên tự tách hình, lưu tiến độ, hiện dòng Video ở hub) rồi hub nháy. Cửa sổ đậu mép phải ngang hub không tự lọt (tâm cách ~100 pt).
-- **Vuốt theo tay** (`VideoMinimizeDragState.travel`): quãng kéo = khoảng dọc từ mép trên khung phim (mép trên vùng an toàn) tới mép trên chỗ đậu, thay hằng 420 pt ⇒ mép trên khung phim đi đúng theo ngón tay, khung co dần và dịch về mép phải.
-- **Không nhớ vị trí** (`VideoMiniPlayerLayout`): mỗi lần thu nhỏ đậu góc dưới phải ngay trên thanh tab; kéo bám mép trong lúc hiện không ghi lại. Khoá `videoMiniPlayerDock` thôi đọc/ghi (giá trị cũ còn trên máy, vô hại).
-- **Thu nhỏ không dừng phim**: code không có chỗ nào dừng phim khi bấm ⌄ / vuốt (đã kiểm: chỉ tách hình + hạ chất lượng HLS). Thêm lớp giữ phát: `VideoPlayerScreen.leave` (thu nhỏ) và kéo vào hub gọi `noteMinimizing()` chụp "đang phát" **trước** khi màn đóng; màn cuối rời phiên (`detachScreen`) mà player bị dừng ⇒ phát tiếp ngay và kiểm lại sau 1,5 giây, log `⏯️ Thu nhỏ: phim bị dừng … ⇒ phát tiếp` để biết nguyên nhân thật. Người dùng bấm dừng (`pause()`) xoá mốc; TTS đang đọc mà phim có tiếng / phim đã nhường TTS / hết phim ⇒ không phát tiếp. Ngoại lệ giữ nguyên: nút Home khi xem phim 18+ dừng hẳn + tắt NSFW; phim nhúng trang thu nhỏ vẫn im (trang web huỷ cùng màn).
-- Câu hướng dẫn Cài đặt › Video; `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: kéo trúng hub đang nép mép; độ mượt khi vuốt theo tay; lớp giữ phát có phải chạy không (xem log).
-
-## [1.3.764] - 2026-11-06
-
-### feat: màn khoá khi phát phim hiện tên phim, tác giả và bìa, phim 18+ chỉ hiện Đang phát với icon app
-
-Người dùng: *"custom hiển thị ở màn hình lock luôn giúp tôi, dùng cover của video, đối với nfsw thì đừng dùng. Hiển thị tên video và tác giả"*. Anh Bửu duyệt mockup + plan, chọn: dòng phụ "Tác giả · Tập N"; thiếu tác giả thì bỏ phần tác giả; phim 18+ dùng icon app và chỉ **một** dòng "Đang phát" (bỏ chữ "Ẩn danh").
-
-- **Hiển thị** (`VideoNowPlayingMetadata`): phim thường = tiêu đề tên phim, dòng phụ "Tác giả · Tập N" (tên tập chỉ khi phim có từ 2 tập phát được; thiếu tác giả ⇒ chỉ tên tập; phim một tập không tác giả ⇒ không dòng phụ), ảnh = bìa phim. Phim 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật tắt tiếng / thu nhỏ, xét lại mỗi lần ghi) = "Đang phát", không dòng phụ, không tên tập, ảnh = icon app. Không ghi Album nữa (trước: tiêu đề = tên tập, Album/Artist = tên phim, không ảnh).
-- **Bìa** (`VideoPlaybackSession+NowPlaying`, `publishNowPlaying` dời từ `+Transport`): nạp một lần mỗi phim lúc `open` — bìa trên máy (`covers/`, đọc ngoài main) → chưa có thì `ImageCacheManager.downloadAndSaveCover` rồi ghi lại màn khoá; phim 18+ không đọc, không tải. Tác giả lấy từ lượt mở, trống thì từ `Book` (màn xem điền khi chi tiết về muộn).
-- **Icon app**: `LockScreenAppIcon.imageset` (bản 512 px của icon) — không đọc icon app lúc chạy (không chắc chắn trong LiveContainer).
-- `VideoNowPlayingCoordinator.publish` / `publishLoading` nhận `metadata`; `MPMediaItemArtwork` dựng ở hàm `nonisolated` (closure trả ảnh bị hệ thống gọi ngoài main), cùng ảnh thì dùng lại.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: ảnh có hiện trên màn khoá với loại media video không; bìa tải chậm có cập nhật lên sau không.
-
-## [1.3.763] - 2026-11-06
-
-### feat: màn xem phim có nút Trình duyệt mở link chi tiết của phim, kể cả khi không lỗi
-
-Người dùng: *"thêm nút mở link chi tiết trên browser kể cả lỗi hay không"*. Chốt (bảng chọn): chỉ màn xem phim; viên thuốc ở hàng nút; đóng trình duyệt thì chép cookie, không tải lại; tách riêng với "Mở link lỗi" — *"nút này mở link chi tiết chớ không phải link tập"*.
-
-- **Vì sao chỉ phim**: Chi tiết truyện (ngăn kéo `…`), Reader chữ (ngăn kéo) và sheet nhấn giữ ở Kệ đã có "Mở bằng trình duyệt" luôn hiện; phim mất lối này từ 1.3.747 (thôi mở trang Chi tiết), chỉ còn "Mở link lỗi" khi lỗi.
-- **Nút**: `VideoWatchActionRow` thêm viên thuốc **"Trình duyệt"** (icon `safari` như `ErrorLinkButton`) sau Chia sẻ. Link = `VideoWatchModel.detailPageLink` (file `+Actions`): `request.detailUrl` của **phim** đang hiện trên màn (không phải link tập; tự sang phim đề xuất ⇒ đổi theo) chuẩn hoá như URL đầu vào của "Mở link lỗi" (`SourceErrorLink.resolve(from: nil, fallbacks:host:)` — bỏ khối option Legado, ghép host cho `/…`), lùi về `shareURL`. Phim nhập từ file / không có link http(s) ⇒ ẩn nút.
-- **Trình duyệt**: `.sourcePageBrowser(link:packageId:)` (mới, `ErrorLinkBrowserModifier.swift`) = cùng modifier với `.errorLinkBrowser` nhưng `onRetry == nil`: `BypassWebView` chế độ điện thoại, đóng lại chỉ chép cookie WebKit của host sang `fetch` (+ kho cookie nguồn Legado) — không toast "Đang thử lại…", không thử lại, phim đang phát không bị đụng.
-- **Màn không bị gỡ khi trình duyệt che**: `VideoPlayerScreen` giữ `openingDetailPage` (truyền xuống `VideoWatchDetailsView` → `VideoWatchActionRow`) và thêm nó vào chốt `onDisappear` cạnh hai link lỗi ⇒ không thu nhỏ phim vào hub, không trả khoá xoay, `onAppear` lúc quay lại bỏ qua (`isCoveredByErrorBrowser`).
-- **Giới hạn đã biết** (chung với "Mở link lỗi"): lúc trình duyệt đang che, nút âm lượng cứng vẫn có thể hiện thanh âm lượng của phim ở màn bên dưới.
-- **Kiểm chứng**: `check_architecture.py` chỉ còn 1 lỗi có sẵn (`JSDom.swift` vượt baseline); chưa build (máy Windows), chưa thử trên máy.

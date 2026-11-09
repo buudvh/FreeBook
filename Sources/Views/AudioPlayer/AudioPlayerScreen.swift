@@ -31,6 +31,8 @@ struct AudioPlayerScreen: View {
     @State private var drag = AudioMinimizeDragState()
     @State private var page: AudioPlayerPage
     @State private var showingMenu = false
+    /// Sheet hẹn giờ tắt mở từ ngăn kéo `…` (nút ⏱ của trang Đĩa có sheet riêng — `AudioSecondaryControls`).
+    @State private var showingSleepTimer = false
     @State private var isOnShelf = false
     @State private var hasBook = false
     @State private var isLeaving = false
@@ -75,6 +77,9 @@ struct AudioPlayerScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .sideDrawerMenu(isPresented: $showingMenu, title: "Trình nghe") {
             drawerMenu
+        }
+        .sheet(isPresented: $showingSleepTimer) {
+            MediaSleepTimerSheet(timer: AudioPlaybackSession.shared.sleepTimer)
         }
         // Bài lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ thử lại bài.
         .errorLinkBrowser(link: $openingErrorLink, packageId: session.packageId) {
@@ -147,9 +152,11 @@ struct AudioPlayerScreen: View {
             lyricSources: session.lyricSources,
             selectedLyricSourceId: session.selectedLyricSourceId,
             playbackRate: session.playbackRate,
+            sleepTimerSummary: session.sleepTimer.modeSummary,
             onOpenSourcePage: { openingSourcePage = sourcePageLink },
             onSelectLyricSource: { AudioPlaybackSession.shared.selectLyricSource($0) },
             onSelectRate: { AudioPlaybackSession.shared.setPlaybackRate($0) },
+            onOpenSleepTimer: { showingSleepTimer = true },
             onStop: { stopAndClose() }
         )
     }

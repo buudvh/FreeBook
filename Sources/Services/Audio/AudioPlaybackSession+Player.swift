@@ -191,6 +191,8 @@ extension AudioPlaybackSession {
         let playing = status != .paused
         if isPlaying != playing { isPlaying = playing }
         AudioPlaybackFlag.set(playing && isActive)
+        // Hẹn giờ tắt chỉ đếm khi đang phát (kể cả nền, kể cả lúc chờ đệm giữa chừng).
+        sleepTimer.updatePlaybackState(isPlaying: playing && isActive)
         guard isActive, player.currentItem != nil else {
             syncMiniPlayerState()
             return

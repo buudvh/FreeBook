@@ -3,7 +3,8 @@ import SwiftUI
 /// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ nút đĩa nhạc của Reader (`ReaderAudioDiscButton`), cao vừa
 /// nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
 /// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với nút đĩa / thanh mini) · tên bài +
-///   "nghệ sĩ · album" · ⤢ (mở màn nghe đầy đủ, trang Đĩa).
+///   "nghệ sĩ · album" · ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet` mở **đè lên** sheet này; đang hẹn ⇒ màu nhấn kèm thời
+///   gian còn lại) · ⤢ (mở màn nghe đầy đủ, trang Đĩa).
 /// - Một dòng lời đang hát (`AudioCurrentLyricLine`, chỉ có chữ khi lời có mốc giờ) hoặc chữ lỗi của bài.
 /// - Thanh tua (`AudioPlayerSeekRow`) + cụm nút Xáo · ⏮ · ⏯ · ⏭ · Lặp (`AudioTransportControls(.full)`) của màn nghe.
 /// - Hàng dưới: Danh sách / Lời (mở màn nghe ở trang đó) · Tắt nhạc.
@@ -26,6 +27,7 @@ struct AudioQuickControlSheet: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+    @State private var showingSleepTimer = false
 
     private var session: AudioPlaybackSession { .shared }
 
@@ -51,6 +53,9 @@ struct AudioQuickControlSheet: View {
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(16)
             .presentationBackground { GlassBackground() }
+            .sheet(isPresented: $showingSleepTimer) {
+                MediaSleepTimerSheet(timer: session.sleepTimer)
+            }
     }
 
     /// Một nấc cao đúng nội dung (`.medium` trong lúc chờ đo lần đầu, tránh nháy cao 0).
@@ -112,6 +117,7 @@ struct AudioQuickControlSheet: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            sleepTimerButton
             Button {
                 onOpenScreen(.disc)
             } label: {
@@ -124,6 +130,28 @@ struct AudioQuickControlSheet: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Mở màn nghe")
         }
+    }
+
+    /// ⏱ cạnh ⤢: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại (view lá `MediaSleepTimerCountdownText`) màu nhấn.
+    private var sleepTimerButton: some View {
+        let timer = session.sleepTimer
+        return Button {
+            showingSleepTimer = true
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "timer")
+                    .font(.system(size: 17, weight: .semibold))
+                if timer.isActive {
+                    MediaSleepTimerCountdownText(timer: timer)
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .foregroundStyle(timer.isActive ? Color.accentColor : Color.primary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(timer.modeSummary.map { "Hẹn giờ tắt: \($0)" } ?? "Hẹn giờ tắt")
     }
 
     // MARK: - Lời / lỗi

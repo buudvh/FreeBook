@@ -9,6 +9,7 @@ import Foundation
 /// - `autoAdvanceTarget()` là nguồn **duy nhất** cho "bài kế khi hết bài" — lượt nạp sẵn (`+TrackLoading`) và lúc hết bài
 ///   dùng chung nên luôn chọn cùng một bài (vòng xáo kế dựng sẵn một lần ở `upcomingCycleOrder`).
 /// - Bài sau / bài trước do người dùng (nút, màn khoá, tai nghe): lặp một không áp; hết thứ tự chỉ quay vòng khi lặp album.
+/// - Hẹn giờ "Hết bài" (`MediaSleepTimer`): hết bài thì dừng ở cuối bài, không sang bài kế kể cả đang lặp.
 extension AudioPlaybackSession {
     /// Chỉ số mục lục của các bài theo thứ tự mục lục.
     var naturalOrder: [Int] { tracks.map(\.index) }
@@ -139,9 +140,13 @@ extension AudioPlaybackSession {
         beginTrackLoad(index, resumeSeconds: 0, autoplay: true)
     }
 
-    /// Hết bài (`AVPlayerItem.didPlayToEndTime`).
+    /// Hết bài (`AVPlayerItem.didPlayToEndTime`). Hẹn giờ "Hết bài" xét **trước** cả lặp một bài: dừng ở cuối bài.
     func advanceAfterTrackEnded() {
         guard let current = currentTrackIndex else { return }
+        if sleepTimer.stopsAfterItemEnded() {
+            stopAtEndOfTrackForSleepTimer()
+            return
+        }
         if repeatMode == .one {
             AppLogger.shared.log("🔁 [AudioPlayer] Lặp một bài ⇒ phát lại bài \(current)")
             reachedEndOfItem = false

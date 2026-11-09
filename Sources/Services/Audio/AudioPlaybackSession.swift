@@ -126,6 +126,8 @@ final class AudioPlaybackSession {
     // MARK: - Engine
 
     let player: AVPlayer
+    /// Hẹn giờ tắt của lượt đang nghe (`+SleepTimer`); `stopSession` huỷ.
+    let sleepTimer: MediaSleepTimer
     /// Container của lượt mở — presenter dùng để bơm `.modelContainer` khi mở lại màn từ hub / thanh mini.
     @ObservationIgnored var modelContainer: ModelContainer?
     /// Presenter UI gắn vào: trình bày lại màn nghe gắn với phiên đang chạy (hub, thanh mini, màn khoá).
@@ -202,10 +204,12 @@ final class AudioPlaybackSession {
     @ObservationIgnored var lastMiniProgress: Double = -1
 
     private init() {
+        self.sleepTimer = MediaSleepTimer(medium: .audio)
         self.player = AVPlayer()
         installPlayerObservers()
         installLifecycleObservers()
         installRemoteActions()
+        installSleepTimer()
     }
 
     // MARK: - Trạng thái suy ra
@@ -318,6 +322,7 @@ final class AudioPlaybackSession {
         player.pause()
         detachCurrentItem()
         resetState()
+        sleepTimer.reset()
         AudioPlaybackFlag.set(false)
         AudioNowPlayingCoordinator.shared.release(handBackToTTS: !handingOverToTTS)
         if handingOverToTTS {

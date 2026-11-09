@@ -298,6 +298,7 @@ extension VideoPlaybackSession {
     private func handlePlayedToEnd(itemId: ObjectIdentifier) {
         guard isCurrentItem(itemId) else { return }
         reachedEndOfItem = true
+        guard !stopAtEndOfEpisodeForSleepTimer() else { return }
         guard let next = nextEpisode else {
             AppLogger.shared.log("🏁 [VideoPlayer] Đã xem hết tập cuối")
             saveProgress(reason: "hết tập cuối", seconds: 0)

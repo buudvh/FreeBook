@@ -104,6 +104,8 @@ final class VideoPlaybackSession {
 
     let player: AVPlayer
     let layerView: VideoPlayerLayerView
+    /// Hẹn giờ tắt của lượt đang xem (`+SleepTimer`); `stop()` huỷ, trừ lượt tự sang phim đề xuất (`open(keepsSleepTimer:)`).
+    let sleepTimer: MediaSleepTimer
     /// Container của lượt mở đầu tiên — presenter dùng để bơm `.modelContainer` khi mở lại màn từ hub/PiP.
     @ObservationIgnored var modelContainer: ModelContainer?
     /// Presenter toàn cục gắn vào (`VideoPlayerPresenter.install`): trình bày lại màn hình gắn với session đang chạy
@@ -180,6 +182,7 @@ final class VideoPlaybackSession {
     @ObservationIgnored var lastIncludesNsfw = false
 
     private init() {
+        self.sleepTimer = MediaSleepTimer(medium: .video)
         let player = AVPlayer()
         self.player = player
         let layerView = VideoPlayerLayerView()
@@ -189,6 +192,7 @@ final class VideoPlaybackSession {
         installLifecycleObservers()
         installRemoteActions()
         installNsfwGuard()
+        installSleepTimer()
     }
 
     // MARK: - Trạng thái suy ra
@@ -233,18 +237,25 @@ final class VideoPlaybackSession {
     /// Mở phim từ router. Cùng phim đang chạy ⇒ giữ nguyên phiên (router chỉ tập khác thì chuyển tập);
     /// phim khác ⇒ dừng hẳn phim cũ (lưu tiến độ) rồi nạp phim mới.
     /// `muteOverride` (tự sang phim đề xuất) thay `VideoMutePolicy` cho phim mới; `startNotice` hiện khi phim bắt đầu phát.
+    /// `keepsSleepTimer` (tự sang phim đề xuất): giữ hẹn giờ tắt của phim vừa hết — ngủ quên thì chuỗi phim đề xuất vẫn dừng
+    /// đúng giờ. Người dùng tự mở phim khác ⇒ hẹn giờ huỷ cùng `stop()`.
     func open(
         _ newLaunch: BookContentLaunch,
         modelContainer: ModelContainer,
         muteOverride: Bool? = nil,
-        startNotice: String? = nil
+        startNotice: String? = nil,
+        keepsSleepTimer: Bool = false
     ) {
         self.modelContainer = modelContainer
         if let current = launch, current.bookId == newLaunch.bookId {
             reuseRunningSession(for: newLaunch)
             return
         }
-        if launch != nil { stop() }
+        if launch != nil {
+            let carriedTimer = keepsSleepTimer ? sleepTimer.schedule : nil
+            stop()
+            if let carriedTimer { sleepTimer.restore(carriedTimer) }
+        }
         launch = newLaunch
         bookTitle = newLaunch.bookTitle ?? ""
         currentEpisodeIndex = max(0, newLaunch.chapterIndex)
@@ -304,6 +315,7 @@ final class VideoPlaybackSession {
         launch = nil
         resetPlaybackState()
         refreshIdleTimer()
+        sleepTimer.reset()
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
         deactivateAudioSessionIfIdle()
         VideoMiniPlayerState.shared.reset()

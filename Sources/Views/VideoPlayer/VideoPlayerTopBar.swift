@@ -2,10 +2,12 @@ import SwiftUI
 
 /// Thanh trên của trình phát — **chỉ biểu tượng**, chữ duy nhất là tên phim + tập.
 ///
-/// Trái: thu nhỏ, đóng. Phải: tốc độ (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
+/// Trái: thu nhỏ, đóng. Phải: ⏱ hẹn giờ tắt (chỉ khi đang hẹn, số phút còn lại như số tốc độ — chạm mở sheet), tốc độ
+/// (`gauge…`, bung menu 0.5–2×, chỉ hiện số nhỏ khi khác 1×), Vừa/Lấp đầy/Phóng
 /// (`aspectratio`), khoá xoay (khi ngang, hoặc khi đang khoá — khoá ở ngang rồi bấm Xoay dọc thì vẫn còn nút để mở
 /// khoá), phụ đề, Cửa sổ nhỏ (thay nút Hình trong hình từ 1.3.751), server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
-/// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`.
+/// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`. Hẹn giờ tắt
+/// (`MediaSleepTimerSheet`, `VideoPlayerController.showsSleepTimerSheet`) mở từ hàng "Hẹn giờ tắt" của `⋯` hoặc badge ⏱.
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
@@ -53,6 +55,9 @@ struct VideoPlayerTopBar: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            if session.sleepTimer.isActive {
+                sleepTimerBadge
+            }
             if session.embedContent == nil {
                 speedMenu
                 if isLandscape {
@@ -122,6 +127,26 @@ struct VideoPlayerTopBar: View {
         .accessibilityLabel("Tốc độ phát")
     }
 
+    /// ⏱ + số phút còn lại (chữ nhỏ trên nền trắng như số tốc độ; view lá `MediaSleepTimerCountdownText` để thanh không vẽ
+    /// lại mỗi giây). Chạm mở sheet hẹn giờ.
+    private var sleepTimerBadge: some View {
+        Button {
+            controller.showsSleepTimerSheet = true
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                VideoPlayerIconLabel(systemName: "timer")
+                MediaSleepTimerCountdownText(timer: session.sleepTimer, compact: true)
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 3)
+                    .background(Capsule().fill(Color.white))
+                    .offset(x: 2, y: -2)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(session.sleepTimer.modeSummary.map { "Hẹn giờ tắt: \($0)" } ?? "Hẹn giờ tắt")
+    }
+
     private var gravityMenu: some View {
         Menu {
             gravityPicker
@@ -185,7 +210,8 @@ struct VideoPlayerTopBar: View {
         .accessibilityLabel("Thêm")
     }
 
-    /// Đầu ngăn kéo: công tắc "Tự phát khi mở phim" và "Tự sang phim đề xuất" (lưới chỉ dành cho chọn một-trong-nhiều).
+    /// Đầu ngăn kéo: công tắc "Tự phát khi mở phim" và "Tự sang phim đề xuất" (lưới chỉ dành cho chọn một-trong-nhiều),
+    /// rồi "Hẹn giờ tắt" (mở sheet; ẩn khi đang nhúng trang mà chưa hẹn — trang nhúng không đếm được giờ phát).
     /// Sau đó ba menu con cũ (Khung hình / Server / Chất lượng) ⇒ ba lưới
     /// chọn 3 cột (`VideoPlayerOptionGrid`): bấm là áp dụng ngay, ngăn kéo vẫn mở.
     @ViewBuilder
@@ -197,6 +223,11 @@ struct VideoPlayerTopBar: View {
         let showsQuality = session.embedContent == nil && session.hasPlayableItem && !session.qualityOptions.isEmpty
         SideDrawerToggleRow("Tự phát khi mở phim", systemImage: "play.circle", isOn: $autoplayOnOpen)
         SideDrawerToggleRow("Tự sang phim đề xuất", systemImage: "forward.end.circle", isOn: $autoNextSuggest)
+        if session.embedContent == nil || session.sleepTimer.isActive {
+            SideDrawerActionRow("Hẹn giờ tắt", systemImage: "timer", detail: session.sleepTimer.modeSummary ?? "Tắt") {
+                controller.showsSleepTimerSheet = true
+            }
+        }
         SideDrawerDivider()
         if showsGravity {
             SideDrawerSectionHeader("Khung hình")

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, chọn nguồn lời (≥ 2 nguồn), tốc độ phát, dừng hẳn.
+/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, chọn nguồn lời (≥ 2 nguồn), tốc độ phát, hẹn giờ
+/// tắt (mở `MediaSleepTimerSheet` của màn), dừng hẳn.
 ///
 /// Ngăn kéo nằm ở cửa sổ nổi riêng (`SideDrawerMenuWindowManager`) ⇒ không thừa hưởng environment của màn: mọi giá trị và
 /// hành động truyền vào từ màn (màn vẽ lại thì ngăn kéo nhận bản mới).
@@ -13,9 +14,12 @@ struct AudioPlayerDrawerMenu: View {
     let lyricSources: [AudioLyricSource]
     let selectedLyricSourceId: Int?
     let playbackRate: Float
+    /// `MediaSleepTimer.modeSummary` — chỉ theo chế độ, không đổi mỗi giây; `nil` = chưa hẹn.
+    let sleepTimerSummary: String?
     let onOpenSourcePage: () -> Void
     let onSelectLyricSource: (AudioLyricSource) -> Void
     let onSelectRate: (Float) -> Void
+    let onOpenSleepTimer: () -> Void
     let onStop: () -> Void
 
     var body: some View {
@@ -40,6 +44,7 @@ struct AudioPlayerDrawerMenu: View {
                 }
             }
             SideDrawerDivider()
+            SideDrawerActionRow("Hẹn giờ tắt", systemImage: "timer", detail: sleepTimerSummary ?? "Tắt", action: onOpenSleepTimer)
             SideDrawerActionRow("Dừng hẳn", systemImage: "stop.circle", role: .destructive, action: onStop)
         }
     }

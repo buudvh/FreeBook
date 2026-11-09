@@ -90,6 +90,9 @@ struct VideoPlayerScreen: View {
         .sheet(isPresented: $controller.showsBatchDownloadSheet) {
             batchDownloadSheet
         }
+        .sheet(isPresented: $controller.showsSleepTimerSheet) {
+            MediaSleepTimerSheet(timer: session.sleepTimer)
+        }
         // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
         // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.
         .errorLinkBrowser(link: $controller.openingErrorLink, packageId: errorLinkPackageId) { retryAfterErrorLink() }

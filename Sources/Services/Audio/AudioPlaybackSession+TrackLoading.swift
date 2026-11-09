@@ -133,8 +133,9 @@ extension AudioPlaybackSession {
 
     /// Gọi từ tick: bài hiện còn ≤ `prefetchLeadSeconds` ⇒ nạp sẵn bài kế (một lượt một lúc, mỗi bài một lần).
     func prefetchNextIfNeeded() {
+        // Hẹn giờ "Hết bài" ⇒ không sang bài kế, khỏi nạp sẵn.
         guard isActive, durationSeconds > 0, durationSeconds - currentSeconds <= Self.prefetchLeadSeconds,
-              prefetchingIndex == nil,
+              prefetchingIndex == nil, !sleepTimer.stopsAtEndOfItem,
               let next = autoAdvanceTarget(), next != currentTrackIndex, next != prefetchAttemptedIndex,
               let track = self.track(at: next) else { return }
         let now = ProcessInfo.processInfo.systemUptime

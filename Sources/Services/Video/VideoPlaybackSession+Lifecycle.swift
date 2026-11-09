@@ -183,7 +183,11 @@ extension VideoPlaybackSession {
     /// Giữ màn sáng chỉ khi màn trình phát (hoặc cửa sổ nhỏ) đang hiện và đang phát (native) hoặc đang nhúng trang. Đi qua
     /// `ScreenIdleTimerLock` (dùng chung với màn đọc truyện tranh): video chỉ trả phần của chính nó, không ghi đè giá
     /// trị gốc lẫn nhau. Gọi lặp an toàn.
+    ///
+    /// Đây là điểm mọi lần trạng thái phát đổi đều đi qua (KVO `timeControlStatus`, gắn / gỡ màn, nhúng trang, `stop()`)
+    /// ⇒ cũng báo trạng thái phát cho hẹn giờ tắt (`+SleepTimer`, không phụ thuộc màn có hiện hay không).
     func refreshIdleTimer() {
+        syncSleepTimerCounting()
         let owner = ObjectIdentifier(self)
         if launch != nil, isScreenAttached, isPlaying || embedContent != nil {
             ScreenIdleTimerLock.acquire(owner)

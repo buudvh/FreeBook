@@ -134,5 +134,14 @@ struct AppLaunchRootView: View {
                 }
             }
         }
+        // Lời báo của trình phát phim / nhạc (hẹn giờ tắt) — không chạm phiên phát (chạm là dựng `AVPlayer`).
+        .task {
+            for await event in MediaPresentationEventCenter.shared.stream {
+                switch event {
+                case .showToast(let msg, let type):
+                    ToastManager.shared.show(message: msg, type: type)
+                }
+            }
+        }
     }
 }
