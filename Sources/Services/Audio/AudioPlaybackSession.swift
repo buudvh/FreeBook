@@ -14,7 +14,8 @@ import UIKit
 /// nhúng được trang ⇒ lỗi) → `AVPlayerItem`. Media không đi qua pipeline text.
 ///
 /// Phân xử với TTS và phim (`+AudioSession`): tại một thời điểm một bên giữ màn khoá — `AudioNowPlayingCoordinator`,
-/// `VideoNowPlayingCoordinator`, `MediaNowPlayingOwnership`.
+/// `VideoNowPlayingCoordinator`, `MediaNowPlayingOwnership`. Nhạc và TTS **không bao giờ cùng phát**: bên nào bắt đầu thì
+/// bên kia dừng hẳn.
 ///
 /// Stored property không `private` vì các file `+` nằm ở file khác. View chỉ đọc; mọi thay đổi đi qua hàm của session.
 @MainActor
@@ -179,8 +180,8 @@ final class AudioPlaybackSession {
     @ObservationIgnored var upcomingCycleOrder: [Int]?
     /// Lượt nạp hiện tại tự phát khi item sẵn sàng (`false`: mở lại lúc khởi động / người dùng bấm dừng lúc đang nạp).
     @ObservationIgnored var shouldAutoplay = true
-    /// TTS / phim vừa giành âm thanh (`pauseForOtherMedia`): item nạp xong không tự phát. Người dùng bấm phát / chọn bài,
-    /// hoặc player thật sự chuyển sang phát (màn khoá) thì xoá.
+    /// Phim vừa giành âm thanh (`pauseForOtherMedia`; TTS thì dừng hẳn trình nghe — `stopForTTS`): item nạp xong không tự
+    /// phát. Người dùng bấm phát / chọn bài, hoặc player thật sự chuyển sang phát (màn khoá) thì xoá.
     @ObservationIgnored var autoplayBlockedByOtherMedia = false
     /// Giây cần tua tới khi item sẵn sàng (chỉ khi > 2 giây); dùng xong thì về `nil`.
     @ObservationIgnored var pendingResumeSeconds: Int?
@@ -284,6 +285,12 @@ final class AudioPlaybackSession {
 
     /// Dừng hẳn: lưu tiến độ, gỡ item, trả màn khoá + phiên âm thanh, xoá trạng thái mini. Idempotent.
     func stop() {
+        stopSession(handingOverToTTS: false)
+    }
+
+    /// Thân chung của `stop()` và `stopForTTS()` (`+AudioSession`). `handingOverToTTS`: TTS đang giành phiên — không dựng
+    /// lại lệnh / Now Playing của TTS và không tắt `AVAudioSession` (TTS vừa cấu hình nó).
+    func stopSession(handingOverToTTS: Bool) {
         guard isActive else {
             AudioMiniPlayerState.shared.reset()
             return
@@ -312,10 +319,15 @@ final class AudioPlaybackSession {
         detachCurrentItem()
         resetState()
         AudioPlaybackFlag.set(false)
-        AudioNowPlayingCoordinator.shared.release(handBackToTTS: true)
-        deactivateAudioSessionIfIdle()
+        AudioNowPlayingCoordinator.shared.release(handBackToTTS: !handingOverToTTS)
+        if handingOverToTTS {
+            // Phiên âm thanh dùng chung giờ là của TTS: chỉ bỏ cờ, tắt lúc này là TTS câm.
+            didActivateAudioSession = false
+        } else {
+            deactivateAudioSessionIfIdle()
+        }
         AudioMiniPlayerState.shared.reset()
-        AppLogger.shared.log("🎵 [AudioPlayer] Đóng trình nghe (bookId=\(stoppedId))")
+        AppLogger.shared.log("🎵 [AudioPlayer] Đóng trình nghe (bookId=\(stoppedId)\(handingOverToTTS ? ", nhường TTS" : ""))")
     }
 
     private func resetState() {

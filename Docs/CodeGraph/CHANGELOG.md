@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.791] - 2026-11-09
+
+### feat: nhạc và TTS không bao giờ cùng phát: nghe nhạc tắt TTS, đọc TTS dừng nhạc
+
+Anh Bửu duyệt plan: không bao giờ cùng lúc có thanh nhạc mini lẫn widget TTS. Trước đây (1.3.784) nhạc bắt đầu chỉ **tạm dừng** TTS và TTS bắt đầu chỉ **tạm dừng** nhạc ⇒ cả hai thanh cùng nằm trên màn. Phim giữ nguyên luật nhường cũ với cả hai.
+
+- **Nhạc bắt đầu phát ⇒ tắt hẳn TTS** (`AudioPlaybackSession+AudioSession`, helper `stopTTSForMusic`): `beginUserRequestedPlayback` (mở album, chọn bài, bấm phát, thử lại) và `prepareAudioForPlayback` (bài sẵn sàng tự phát — kể cả tự sang bài —, `play()`, chuyển sang phát từ màn khoá / tai nghe) gọi `TTSManager.stop()` như nút ✕ của widget (lưu tiến độ đọc, ẩn widget, xoá Now Playing) khi TTS có phiên (`isPlaying || showFloatingWidget`). Vẫn chạy **trước** `setActive(true)` + `claim()` như cũ. Mở lại mục nghe lúc khởi động (`autoplay: false`) không đụng TTS.
+- **TTS bắt đầu / tiếp tục đọc ⇒ dừng hẳn trình nghe**: `AudioNowPlayingCoordinator.yieldToTTS()` (hai hook có sẵn ở `TTSManager+NowPlaying`, không đổi code TTS) giờ trả phiên màn khoá **trước** (`release(handBackToTTS: false)`) rồi gọi action mới `stopForTTS` ⇒ `AudioPlaybackSession.stopForTTS()`: như `stop()` (lưu tiến độ, gỡ item, `AudioMiniPlayerState.reset()` ⇒ thanh mini + dòng hub ẩn, màn nghe đang mở tự đóng) nhưng **không** dựng lại lệnh / Now Playing của TTS (tránh đệ quy `reclaimRemoteControlsAfterVideo` → `setRemoteCommandsEnabled` lúc `startSpeaking` / `resume` đang chạy) và **không** tắt `AVAudioSession` (hook chạy sau `configureAudioSession()` của TTS nhưng trước `isPlaying = true` — tắt lúc đó là TTS câm). Không có album ⇒ không làm gì; chưa từng mở trình nghe ⇒ `actions == nil`, không dựng `AVPlayer`.
+- `stop()` tách thân thành `stopSession(handingOverToTTS:)`; `yieldToOtherMedia()` (phim) giữ hành vi tạm dừng + trả phiên, bỏ hàm chung `yield(reason:)`.
+- Log mới: `⏹️ [AudioPlayer] … ⇒ tắt hẳn TTS`, `⏹️ [AudioPlayer] TTS bắt đầu đọc ⇒ dừng hẳn trình nghe`, `⏹️ [AudioNowPlaying] TTS bắt đầu đọc ⇒ nhường điều khiển màn khoá, dừng hẳn nhạc`; log đóng trình nghe ghi thêm ", nhường TTS".
+- Doc comment `AudioNowPlayingCoordinator`, `MediaNowPlayingOwnership`, `AudioPlaybackSession(+AudioSession)`, `TTSManager+NowPlaying` và dòng "Màn khoá ba bên" của `CLAUDE.md` / `AGENTS.md` theo luật mới.
+- Chuyển `[1.3.757]`–`[1.3.761]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code: `TTSManager.stop` không đi qua `setSystemNowPlayingPlaybackState(.playing)` (không gọi ngược vào trình nghe); `prepareSpeaking` không hiện widget nên widget TTS chỉ xuất hiện qua `startSpeaking` (đã dừng nhạc); `Actions` chỉ dựng ở `installRemoteActions`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: đang nghe nhạc bấm tai nghe Reader ⇒ thanh nhạc + hub biến mất, TTS đọc có tiếng; đang đọc TTS mở album ⇒ widget TTS biến mất; màn khoá đúng bên.
+
 ## [1.3.790] - 2026-11-09
 
 ### docs: ghi phân hệ âm thanh vào CLAUDE.md và AGENTS.md
@@ -361,98 +378,3 @@ Người dùng: *"nên có dọn dẹp bìa truyện, hiện tại bìa truyện
 - **Lịch tự dọn**: `StorageAutoCleanupPolicy` (file mới, khuôn `DriveAutoBackupPolicy`: bật/tắt mặc định bật, "Mỗi ngày một lần" sau 03:00 hoặc "Theo chu kỳ" 6–168 giờ, mục được dọn mặc định chỉ bìa, `lastRunAt` + `lastFreedBytes`); `StorageAutoCleanupCoordinator` (file mới): `runIfDue` gọi từ `MainTabView` lúc mở app — hoãn 45 s, chờ `BackupCoordinator.isBusy` xong (bìa vừa khôi phục chưa có `Book`), đánh dấu kỳ lúc bắt đầu; bìa ⇒ `CoverCleanupCoordinator.runUnattended` (mồ côi + thu nhỏ), cache ảnh truyện tranh / file xuất / nhật ký / báo cáo kiểm tra ⇒ `StorageUsageCleaner.clear`; đo dung lượng trước/sau bằng `StorageUsageScanner`; chạy im lặng, chỉ log `🧹 [StorageAutoCleanup]`. Màn `StorageAutoCleanupSettingsView` (file mới, Cài đặt › Thư Viện › Dung lượng › Tự động dọn): công tắc, nhịp chạy, công tắc từng mục (nút "?" giải thích, nhắc log là kênh tìm lỗi), trạng thái + "Dọn ngay theo các mục đã bật" có xác nhận.
 - **Phụ hiệu ứng**: dọn bìa làm đổi `BackupLibraryFingerprint` (băm cả file bìa) ⇒ tự sao lưu có thể chạy thêm một lượt. Bìa của truyện chưa lưu mở lại thì tải lại qua mạng (như trước — mỗi lần mở vốn đã ra id mới).
 - **Kiểm chứng**: `check_architecture.py` chỉ còn 1 lỗi có sẵn (`JSDom.swift` vượt baseline); chưa build (máy Windows), chưa thử trên máy.
-
-## [1.3.761] - 2026-11-06
-
-### feat: rule dịch viết hoa tên token chữ thì viết hoa phần nghĩa
-
-Người dùng: *"token chữ của rule dịch, thêm viết hoa phần nghĩa"*; chốt: *"token gốc viết hoa thì cũng viết hoa ví dụ vp thì như thường, VP thì ép viết hoa"*, mọi token chữ trừ `<any>`, chỉ kiểu AA.
-
-- **Cú pháp**: viết HOA cả tên token chữ `<NE> <PN> <VP> <W> <HV> <HN> <M> <A>` ⇒ nghĩa ép kiểu AA của `TextCaseFormatter` (hoa chữ đầu mọi từ, phần còn lại thành thường): `<VP>宗 = {0} Tông` trên `天剑宗` ra `Thiên Kiếm Tông`. Vẫn kèm độ dài, `?` và `|` (`<VP:1-4>`, `<NE|PN>?`). Trộn hoa thường trong một token (`<NE|pn>`) ⇒ `UNKNOWN_TOKEN_NAME` kèm câu giải thích. `<N> <Y> <H> <D> <ANY>` vẫn là lỗi như trước (chữ số / chữ Hán nguyên văn không có hoa thường); `<L>` vốn đã ra nhãn viết hoa.
-- **`QuickTranslationRuleParser+TitleCase`** (file mới): `normalizedTokenNames` hạ tên về thường ngay khi tách + trả cờ; `parseToken` gắn `capitalizesMeaning` lên `QuickTranslationRuleElement` của token số/ký tự và từ điển. Mọi chỗ phía sau (công tắc token, cấu hình riêng truyện, độ hẹp token số, `<m>` đầu mẫu) thấy token thường ⇒ `<VP>` theo công tắc VietPhrase như `<vp>`.
-- **`QuickTranslationRuleElement.renderedMeaning`**: chỗ duy nhất áp chữ hoa, matcher gọi trong `store`. Các bước sau rule không hạ thường lại và span dò bản dịch không phân biệt hoa thường. Không thêm cấu hình runtime ⇒ khoá cache không đổi (sửa file rule đã làm generation đổi).
-- **Màn sửa rule**: thanh chỉnh token đang chọn có nút **"AA hoa nghĩa"** cạnh "? vắng mặt được" (chỉ token chữ) — bấm là viết lại tên token hoa/thường (`TokenSpec.isTitleCase` / `supportsTitleCase` / `setTitleCase`). Thanh độ dài coi `<HV>`/`<M>` như `<hv>`/`<m>` (không có độ dài).
-- **Hướng dẫn** (`QuickTranslationRuleGuide`): mục mới "Viết hoa nghĩa"; dòng `<a>` thêm `<A>`; lỗi `UNKNOWN_TOKEN_NAME` thêm ví dụ `<Vp>`, `<NE|pn>`. Popover "Mẫu" nhắc nút AA.
-- `CLAUDE.md` + `AGENTS.md` (mục Dịch thuật VietPhrase) + `rules.md` (luật chỉ viết hoa ở `renderedMeaning`).
-- Hệ quả: `<vp>宗` và `<VP>宗` là hai mẫu khác nhau (mẫu là định danh rule) — đổi trên rule đã có thì Lưu hỏi Thay rule cũ / Lưu thêm; bản app cũ đọc `<VP>` báo lỗi và bỏ dòng.
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep mọi chỗ dựng `QuickTranslationRuleElement(` và gọi `store(` trong matcher.
-  - `check_architecture.py` chỉ còn lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: rule `<VP>`, `<NE|PN>?`, nút AA ở thanh chỉnh token.
-
-## [1.3.760] - 2026-11-06
-
-### fix: kiểm tra bản mới đọc nguồn qua API GitHub, không còn trễ tới 5 phút sau khi CI đăng
-
-Người dùng: *"tôi bấm kiểm tra ver trên app không được nhưng trên livecontainer lại đúng"* — app 1.3.754 (1169) báo "Đang dùng bản mới nhất" dù `apps.json` đã có 1.3.757 (1170).
-
-- **Nguyên nhân**: `raw.githubusercontent.com` đi qua CDN (`Cache-Control: max-age=300`), mỗi máy chủ đệm giữ bản sao tới 5 phút. CI đăng 1.3.757 lúc 08:02:57 UTC; trong 5 phút sau đó máy chủ còn bản cũ vẫn trả danh sách có 1.3.754 đứng đầu ⇒ so build 1169 với 1169 ⇒ "mới nhất". Đã thử: thêm tham số vào link (`?t=…`) CDN vẫn trả bản đệm. So build không sai.
-- **`AppUpdateSourceClient`**: đọc `https://api.github.com/repos/buudvh/FreeBook/contents/apps.json?ref=source` trước, header `Accept: application/vnd.github.raw+json` (API trả thẳng nội dung file, cùng định dạng ⇒ giữ bộ giải mã cũ) + `User-Agent`. API đệm tối đa 60 s.
-- API lỗi (hết 60 lượt/giờ mỗi IP: 403/429, mạng, file hỏng) ⇒ log `⚠️ [AppUpdate]` rồi đọc link raw như trước. Huỷ thì không lùi.
-- LiveContainer vẫn đọc link raw theo cách của nó (không đổi).
-- `CLAUDE.md` + `AGENTS.md`: ghi đường đọc mới ở mục "Báo có bản mới trong app".
-- Chuyển entry cũ nhất sang `CHANGELOG.archive.md` để giữ 30 entry.
-- **Kiểm chứng:**
-  - Gọi thử API bằng curl: trả 1.3.757 (1170), `Content-Type: application/vnd.github.raw+json`, `X-RateLimit-Limit: 60`.
-  - Đọc code + diff; `check_architecture.py` chỉ còn lỗi nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: bấm "Phiên bản ứng dụng" ngay sau khi CI đăng bản mới.
-
-## [1.3.759] - 2026-11-06
-
-### feat: trang Báo cáo kiểm tra cho tiện ích JS và nguồn Legado, tự giữ 20 báo cáo mới nhất
-
-Anh Bửu: *"nên có trang quản lý các report của js và legado. tôi thôi legado reports hoàn toàn không được dọn dẹp"*. Đã chọn: lưu cả báo cáo JS, giữ 20 bản mới nhất mỗi loại, áp luật cho đống Legado cũ lúc mở app, thêm vào màn Dung lượng (xoá được), lối vào ở ngăn kéo … tab Tiện Ích. Anh duyệt plan.
-
-- **Nguyên nhân:** `LegadoCorpusRunner` ghi mỗi lượt kiểm tra (menu ⋯, từng nguồn ở màn chi tiết, Debug server) một file `legado_reports/<yyyyMMdd-HHmmss>.json` kèm kết quả từng nguồn (~1 KB/nguồn, ước tính). `LegadoCorpusReportStore` chỉ có `write`, không ai xoá hay đọc lại. Thư mục cũng không có trong `StorageUsageCategory` nên bị tính vào "Khác". Còn báo cáo JS (`ExtensionCheckRunner`) chỉ nằm trong RAM.
-- **`CheckReportStore`** (`Services/Extensions/Diagnostics/Reports/`) là chủ duy nhất của hai thư mục `legado_reports/` (giữ tên cũ, không chuyển dữ liệu) và `extension_check_reports/` (mới). Nó lo ghi, liệt kê, đọc, xoá và tự dọn:
-  - Giữ `retainedCount` = 20 bản mới nhất mỗi loại. Dọn sau mỗi lần ghi và một lần lúc mở app (`MainTabView`, `Task.detached`).
-  - Lượt đang chạy (`markActive` / `markInactive`, sổ trong RAM) không bị xoá, kẻo checkpoint 50 nguồn ghi lại file vừa xoá.
-  - Có `validatePathSafety` riêng; chỉ đụng file `.json`.
-  - `LegadoCorpusReportStore` thành lớp mỏng gọi sang store này.
-- **Báo cáo JS được lưu:** `ExtensionCheckReport` + `ExtensionCheckVerdict` chuyển `Codable`. `errorLink` vẫn không vào JSON, nên báo cáo đọc lại không có nút "Mở link lỗi". Runner ghi khi xong hoặc dừng; "Chạy lại" ghi đè cùng file; dừng trước khi có kết quả thì không ghi.
-- **Tên báo cáo:** thêm trường tuỳ chọn `title` vào `LegadoCorpusReport` và `ExtensionCheckReport`. Hai màn kiểm tra truyền `scopeTitle` qua `start(…, title:)`. Bản cũ và lượt từ Debug server không có tên ⇒ hiện "N nguồn".
-- **`CheckReportRepository`** (`@MainActor @Observable`) + `CheckReportCatalog` lo phần đọc. Tóm tắt Legado chỉ giải mã các trường đầu, không dựng mảng `sources`. `reload()` dọn theo luật trước khi đọc. View không đụng đĩa.
-- **Trang Báo cáo kiểm tra** (`Views/Extensions/CheckReports/`) mở từ hàng "Báo cáo kiểm tra" ở ngăn kéo … của tab JS (mở sẵn loại JS) và tab Legado (mở sẵn loại Legado):
-  - Hai chip chọn loại. Hàng panel gồm tên + nhãn (Đang chạy / Dở · app đã thoát / Đã dừng / File hỏng), dòng giờ · số đếm · dung lượng, và [Chia sẻ][Xoá].
-  - Ngăn kéo … có "Xoá hết" cho từng loại, hỏi xác nhận, chừa lượt đang chạy. Kéo xuống để làm mới.
-  - Màn chi tiết chỉ để xem, header có [Chia sẻ][Xoá]:
-    - Legado: dùng lại ô đếm, `LegadoSourceCheckVerdictPanel`, `LegadoSourceCheckRow`. Nút 🐞 chỉ hiện khi nguồn còn cài (`onDebug` thành tuỳ chọn).
-    - JS: dùng lại `ExtensionCheckBatchRow` → `ExtensionCheckDetailContent`.
-    - Không chạy lại, không có nút Tắt/Xoá nguồn lỗi.
-- **Dung lượng:** thêm loại `checkReports` "Báo cáo kiểm tra", xoá được, đo cả hai thư mục. `StorageUsageCleaner` gọi `CheckReportRepository.deleteAll`.
-- `CLAUDE.md` / `AGENTS.md`: thêm hai thư mục vào danh sách lưu trữ, cập nhật danh sách xoá được ở màn Dung lượng, thêm đoạn "Báo cáo kiểm tra lưu trên máy".
-- Chuyển `[1.3.729]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Grep: chỉ `CheckReportStore` đụng hai thư mục; mọi lời gọi `start(` của hai bộ chạy đã xem lại.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: lần mở app đầu dọn còn 20 báo cáo Legado; kiểm tra JS xong có file mới; xoá/xoá hết/chia sẻ; hàng mới ở màn Dung lượng.
-
-## [1.3.758] - 2026-11-06
-
-### refactor: bỏ code chết standardEntrypoint và extensionRootURL của trình sửa script
-
-Anh Bửu: *"Xoá đi"*. Đây là hai hàm Javis báo là không còn ai gọi, sau đợt gói tiện ích một file (1.3.755–757).
-
-- `ExtensionScriptEditorView+Toolbars`: xoá `standardEntrypoint(for:)` (đoán script đang mở ứng với `search`/`detail`/`toc`/`chap`/`genre`/`home`) và `extensionRootURL`. Cả hai đều `private` và chỉ gọi lẫn nhau; grep toàn `Sources/` không còn tham chiếu. `packagePath` vẫn được trình sửa dùng, giữ nguyên.
-- Chuyển `[1.3.728]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Grep `standardEntrypoint|extensionRootURL` toàn `Sources/`: 0 kết quả.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Hành vi không đổi.
-
-## [1.3.757] - 2026-11-06
-
-### feat: màn Dung lượng tách hàng Tiện ích JS và Nguồn Legado
-
-Anh Bửu chọn "Tách 2 hàng" khi phỏng vấn về bố cục `extensions/js` + `extensions/legado`; duyệt plan, đây là bước 3.
-
-- `StorageUsageCategory`:
-  - **`.extensions`** giữ rawValue (bản đo đã lưu vẫn đọc được), đổi nhãn thành **"Tiện ích JS"**, đo `extensions/js/` + `extension_store/`.
-  - Thêm **`.legadoSources`** "Nguồn Legado", đo `extensions/legado/` + `legado_state/` (trước đây `legado_state/` rơi vào "Khác").
-- Thư mục cũ còn sót ở gốc `extensions/` (chờ dọn trên nền, hoặc bản ghi chuyển lỗi) tạm tính vào "Khác". Trước khi dọn, file Legado hard link có thể bị đếm hai lần (ở "Nguồn Legado" và "Khác").
-- Chuyển `[1.3.727]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code: `StorageUsageCleaner` dùng `default` nên không phải sửa; màn hình liệt kê theo `allCases`.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: màn Dung lượng có hai hàng mới, tổng vẫn khớp.

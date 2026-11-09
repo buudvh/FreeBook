@@ -106,7 +106,8 @@ extension AudioPlaybackSession {
             nextTrack: { [weak self] in self?.next() },
             previousTrack: { [weak self] in self?.previous() },
             seek: { [weak self] seconds in self?.seek(to: seconds) },
-            pauseForOtherMedia: { [weak self] in self?.pauseForOtherMedia() }
+            pauseForOtherMedia: { [weak self] in self?.pauseForOtherMedia() },
+            stopForTTS: { [weak self] in self?.stopForTTS() }
         )
     }
 }

@@ -5,8 +5,10 @@ import UIKit
 /// Phân xử với phim (`VideoNowPlayingCoordinator`) và trình nghe âm thanh (`AudioNowPlayingCoordinator`): khi một trong
 /// hai giữ phiên điều khiển màn khoá (`MediaNowPlayingOwnership.isHeldByMedia`), mọi hàm ghi Now Playing / bật-tắt lệnh ở
 /// file này bỏ qua để không ghi đè trạng thái của bên đó. TTS bắt đầu/tiếp tục phát (bật lệnh, hoặc đặt trạng thái
-/// `.playing`) thì bên đang giữ tạm dừng và trả phiên trước, rồi TTS cấu hình như thường. Riêng trạng thái `.playing` luôn
-/// báo cả phim lẫn nhạc (kể cả khi không giữ phiên) để item đang nạp không tự phát chồng và trang nhúng dừng.
+/// `.playing`) thì bên đang giữ trả phiên trước — phim tạm dừng, còn trình nghe nhạc **dừng hẳn** (nhạc và TTS không bao
+/// giờ cùng phát, `AudioNowPlayingCoordinator.yieldToTTS`) — rồi TTS cấu hình như thường. Riêng trạng thái `.playing` luôn
+/// báo cả phim lẫn nhạc (kể cả khi không giữ phiên) để item đang nạp không tự phát chồng, trang nhúng dừng và album đang
+/// dừng cũng đóng hẳn (thanh nhạc mini không nằm cạnh widget TTS).
 extension TTSManager {
     internal func setRemoteCommandsEnabled(_ enabled: Bool) {
         let video = VideoNowPlayingCoordinator.shared

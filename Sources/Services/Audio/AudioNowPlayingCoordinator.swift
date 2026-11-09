@@ -7,9 +7,11 @@ import UIKit
 ///
 /// `MPRemoteCommandCenter` dùng chung với TTS (target gắn một lần, không gỡ) và phim ⇒ phân xử bằng cờ
 /// `isHoldingSession` (`MediaNowPlayingOwnership` gộp cờ của phim + nhạc cho TTS hỏi):
-/// - Nhạc giữ phiên từ lúc bắt đầu phát (`claim()`, sau khi phim đã nhường — `AudioPlaybackSession.prepareAudioForPlayback`)
-///   tới khi đóng hẳn / bài lỗi (`release(handBackToTTS: true)`), hoặc khi TTS bắt đầu/tiếp tục đọc (`yieldToTTS()`), hoặc
-///   khi phim giành âm thanh (`yieldToOtherMedia()`) — hai lối sau: nhạc tạm dừng rồi trả phiên, không dựng lại TTS.
+/// - Nhạc giữ phiên từ lúc bắt đầu phát (`claim()`, sau khi TTS đã tắt hẳn + phim đã nhường —
+///   `AudioPlaybackSession.prepareAudioForPlayback`) tới khi đóng hẳn / bài lỗi (`release(handBackToTTS: true)`), hoặc khi
+///   TTS bắt đầu/tiếp tục đọc (`yieldToTTS()` — trả phiên rồi **dừng hẳn** trình nghe: nhạc và TTS không bao giờ cùng
+///   phát), hoặc khi phim giành âm thanh (`yieldToOtherMedia()` — nhạc chỉ tạm dừng rồi trả phiên). Cả hai lối đều không
+///   dựng lại TTS.
 /// - Chỉ gỡ đúng token target của nhạc (`removeTarget(token)`), không bao giờ `removeTarget(nil)`.
 /// - Now Playing của nhạc đánh dấu bằng `MPNowPlayingInfoPropertyExternalContentIdentifier` (tiền tố `contentIdPrefix`):
 ///   TTS cũng ghi loại media `.audio` nên không phân biệt được theo loại như phim. Trả phiên thì xoá Now Playing nếu đang
@@ -27,8 +29,11 @@ final class AudioNowPlayingCoordinator {
         let previousTrack: () -> Void
         /// Tua tới giây tuyệt đối (kéo thanh tiến độ trên màn khoá).
         let seek: (Double) -> Void
-        /// TTS / phim chiếm âm thanh: tạm dừng + bài đang nạp không tự phát, không lưu gì thêm.
+        /// Phim chiếm âm thanh: tạm dừng + bài đang nạp không tự phát, không lưu gì thêm.
         let pauseForOtherMedia: () -> Void
+        /// TTS bắt đầu / tiếp tục đọc: dừng hẳn trình nghe (`AudioPlaybackSession.stopForTTS`) — không dựng lại TTS, không
+        /// tắt `AVAudioSession`. Không có album ⇒ không làm gì.
+        let stopForTTS: () -> Void
     }
 
     static let shared = AudioNowPlayingCoordinator()
@@ -90,21 +95,28 @@ final class AudioNowPlayingCoordinator {
         }
     }
 
-    /// TTS bắt đầu/tiếp tục đọc (hook ở `TTSManager+NowPlaying`). Nhạc luôn được báo — kể cả khi chưa giữ phiên (bài đang
-    /// nạp không tự phát dập TTS); đang giữ phiên thì trả luôn.
+    /// TTS bắt đầu/tiếp tục đọc (hook ở `TTSManager+NowPlaying`: `setRemoteCommandsEnabled(true)` khi nhạc đang giữ phiên,
+    /// và mọi lần `setSystemNowPlayingPlaybackState(.playing)`) ⇒ trình nghe **dừng hẳn** — nhạc và TTS không bao giờ cùng
+    /// phát, không bao giờ cùng lúc có thanh nhạc mini lẫn widget TTS. Nhạc luôn được báo, kể cả khi chưa giữ phiên (album
+    /// đang dừng / bài đang nạp).
+    ///
+    /// Thứ tự cố ý: trả phiên **trước** (`release(handBackToTTS: false)`) rồi mới dừng session — `release` bên trong
+    /// `stopForTTS` gặp `guard isHoldingSession` và thôi, không bao giờ gọi `reclaimRemoteControlsAfterVideo` (đệ quy vào
+    /// `setRemoteCommandsEnabled` lúc TTS đang tự cấu hình). Chưa từng mở trình nghe ⇒ `actions == nil`, chỉ trả phiên (nếu có).
     func yieldToTTS() {
-        yield(reason: "TTS bắt đầu đọc")
+        if isHoldingSession {
+            AppLogger.shared.log("⏹️ [AudioNowPlaying] TTS bắt đầu đọc ⇒ nhường điều khiển màn khoá, dừng hẳn nhạc")
+            release(handBackToTTS: false)
+        }
+        actions?.stopForTTS()
     }
 
-    /// Phim giành âm thanh (`VideoPlaybackSession.prepareAudioForPlayback` / người dùng chọn phát phim có tiếng).
+    /// Phim giành âm thanh (`VideoPlaybackSession.prepareAudioForPlayback` / người dùng chọn phát phim có tiếng): nhạc chỉ
+    /// tạm dừng (album vẫn mở), luôn được báo kể cả khi chưa giữ phiên (bài đang nạp không tự phát chồng).
     func yieldToOtherMedia() {
-        yield(reason: "phim bắt đầu phát")
-    }
-
-    private func yield(reason: String) {
         actions?.pauseForOtherMedia()
         guard isHoldingSession else { return }
-        AppLogger.shared.log("⏸️ [AudioNowPlaying] \(reason) ⇒ tạm dừng nhạc, nhường điều khiển màn khoá")
+        AppLogger.shared.log("⏸️ [AudioNowPlaying] Phim bắt đầu phát ⇒ tạm dừng nhạc, nhường điều khiển màn khoá")
         release(handBackToTTS: false)
     }
 
