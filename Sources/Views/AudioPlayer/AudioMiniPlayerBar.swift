@@ -2,10 +2,11 @@ import SwiftUI
 
 /// Thanh phát mini của trình nghe âm thanh, nằm **ngay trên `MainTabBar`** ở trang gốc các tab (gắn trong
 /// `MainTabBarModifier`, cùng khối `safeAreaInset` ⇒ nội dung trang gốc tự chừa chỗ, không bị che; ẩn cùng thanh tab khi
-/// bàn phím hiện). Trang đẩy vào / sheet / cover không có thanh này — ở đó dùng dòng Âm thanh của hub.
+/// bàn phím hiện). Trang đẩy vào / sheet / cover không có thanh này; hub cũng không có dòng Âm thanh (bỏ ở 1.3.803) —
+/// trong Reader dùng nút đĩa (`ReaderAudioDiscButton`), ngoài ra màn khoá.
 ///
 /// Chỉ đọc cầu nối `AudioMiniPlayerState` (không chạm `AudioPlaybackSession` — chạm là dựng `AVPlayer`). Ẩn khi không có
-/// album đang mở hoặc màn nghe đang hiện. Album 18+ lúc công tắc NSFW tắt ⇒ tên "Đang phát", không bìa (như hub).
+/// album đang mở hoặc màn nghe đang hiện. Album 18+ lúc công tắc NSFW tắt ⇒ tên "Đang phát", không bìa (như màn khoá).
 /// Bố cục: đĩa bìa tròn 40pt xoay khi đang phát (`AudioRotatingCover`, cơ chế xoay của widget TTS) · tên bài + nghệ sĩ ·
 /// ⏯ · ⏭ · ✕ (dừng hẳn); vạch tiến độ mảnh ở mép trên; chạm phần còn lại ⇒ mở lại màn nghe.
 struct AudioMiniPlayerBar: View {

@@ -87,7 +87,7 @@ struct FloatingHubButton: View {
             case .notifications:
                 // Tác vụ nền: chuông viền như lúc rảnh, chỉ khác ở chỗ nháy.
                 return "bell"
-            case .ai, .video, .audio, .sourceCheck:
+            case .ai, .video, .sourceCheck:
                 return state.runningKinds[0].systemImage(unreadCount: 0)
             }
         default:

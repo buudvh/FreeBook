@@ -17,8 +17,7 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     /// trạng thái vừa đổi.
     ///
     /// AI tự tìm view controller trên cùng **chỉ trong window `.normal`** (`AIRuntimeCoordinator.presentFullScreen`),
-    /// Video / Âm thanh giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`,
-    /// `AudioMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính
+    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính
     /// cửa sổ này.
     func open(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
@@ -48,12 +47,6 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         case .video:
             guard let reopen = VideoMiniPlayerState.shared.onReopen else {
                 AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onReopen")
-                return
-            }
-            reopen()
-        case .audio:
-            guard let reopen = AudioMiniPlayerState.shared.onReopen else {
-                AppLogger.shared.log("❌ [FloatingHub] Mục Âm thanh đang hoạt động nhưng chưa gắn onReopen")
                 return
             }
             reopen()
@@ -130,17 +123,15 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         openMenu()
     }
 
-    // MARK: - Nút của dòng Video / Âm thanh
+    // MARK: - Nút của dòng Video
 
-    /// Phát/dừng video nền / trình nghe. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
+    /// Phát/dừng video nền. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
     func togglePlayback(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         let toggle: (() -> Void)?
         switch kind {
         case .video:
             toggle = VideoMiniPlayerState.shared.onTogglePlay
-        case .audio:
-            toggle = AudioMiniPlayerState.shared.onTogglePlay
         case .ai, .notifications, .sourceCheck:
             return
         }
@@ -151,15 +142,13 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         toggle()
     }
 
-    /// Dừng hẳn video nền / trình nghe. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng tự chuyển xám.
+    /// Dừng hẳn video nền. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng tự chuyển xám.
     func stopPlayback(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         let stop: (() -> Void)?
         switch kind {
         case .video:
             stop = VideoMiniPlayerState.shared.onStop
-        case .audio:
-            stop = AudioMiniPlayerState.shared.onStop
         case .ai, .notifications, .sourceCheck:
             return
         }

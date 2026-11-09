@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.803] - 2026-11-09
+
+### fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá
+
+Anh Bửu: *"bỏ hub âm thanh đi"*.
+
+- `FloatingHubItem.Kind` bỏ case `.audio` ⇒ menu hub còn AI → Thông báo → Video → Kiểm tra nguồn. Gỡ theo: `AudioState` / `subscribeToAudio()` / `audioItem()` của `FloatingHubPresentationReader(+Media)`, nhánh `.audio` ở `open` / `togglePlayback` / `stopPlayback` (`FloatingHubContainerViewController+Actions`), glyph của nút hub, cụm nút phát của `FloatingHubMenuRow`. Nhạc không còn là tiến trình của nút hub (không đổi icon, không nháy, không tính vào "mở thẳng khi chỉ có 1 tác vụ").
+- `AudioMiniPlayerState` giữ nguyên (thanh mini, nút đĩa Reader, tự sang bài vẫn đọc nó). Chú thích phần âm thanh bỏ chữ "hub".
+- Hệ quả: ở trang đẩy vào / sheet / cover không còn lối mở lại màn nghe (thanh mini chỉ ở trang gốc tab); Reader dùng nút đĩa, còn lại màn khoá.
+- `CLAUDE.md` / `AGENTS.md`: mục Âm thanh ghi hub không có dòng "Âm thanh". Chuyển entry cũ nhất sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo `FloatingHubItem.Kind` / `.audio` toàn `Sources/`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.802] - 2026-11-09
 
 ### feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ
@@ -369,19 +381,4 @@ Anh Bửu chọn *"Che thành Đang phát"* cho câu hỏi còn treo của 1.3.7
 
 - Dòng Video của hub: phim 18+ (`RepositoryFilterPolicy.isNsfwBook`) lúc công tắc NSFW **tắt** ⇒ dòng chính "Đang phát" (như màn khoá 1.3.764), dòng phụ "Chạm để mở lại" / "Đã dừng" — không lộ tên phim, tên tập. NSFW bật ⇒ hiện tên như cũ.
 - `VideoMiniPlayerState.isNsfw` (phiên ghi ở `syncMiniPlayerState`), `FloatingHubPresentationReader` đọc cùng công tắc NSFW đang theo dõi sẵn ⇒ gạt NSFW là dòng đổi ngay.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.773] - 2026-11-07
-
-### fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn
-
-Sửa theo review phản biện (2 agent) của đợt 1.3.766–772, trước khi push.
-
-- **Màn xem kẹt khi rời app lúc đang mở sheet** (Thông tin, Tải nhiều tập, chia sẻ…): `host.dismiss` chỉ đóng sheet con, màn xem ở lại với `isLeaving = true` (mọi nút chết, khung phim đen). `VideoWatchPresenter` / `VideoPlayerPresenter` giờ đóng từ VC đã trình bày host (`host.presentingViewController ?? host`).
-- **Trang thể loại nằm dưới màn xem mở lại** (bấm Thể loại ⇒ cửa sổ nhỏ ⇒ chạm mở lại màn xem ⇒ "Về Khám phá") còn che tab vừa đổi: `VideoWatchPagePresenter.closeAllPages` đóng mọi trang của màn xem (giữ danh sách yếu `openPages`), `MainTabView` gọi nó trước mỗi lệnh chuyển tab (`showDiscoveryRoot`, `showCurrentTabRoot`).
-- **Rời app khi phim chỉ đang ở hub** (không màn xem / cửa sổ nhỏ gắn phiên) không còn tắt NSFW và nhảy Khám phá — chỉ áp khi đang xem (`session.isScreenAttached`).
-- Nút Home của trang đè lên màn xem không thu cửa sổ nhỏ của phim khác (`VideoMiniPlayerWindowManager` bỏ qua lý do `.homeButton`).
-- **Nút Home tròn bám góc màn**: nội dung trang được kéo giãn trước khi phủ nút (`FloatingHomeButtonModifier`), trước đó trang chỉ có vòng xoay "Đang tải…" (vd tất cả bình luận) đặt nút gần giữa đáy màn.
-- Đầu dò Home không đọc được vị trí ⇒ bỏ đăng ký cũ (`FloatingHomeProbe`); bỏ `floatingHomeHostedByPage()` không còn chỗ gọi.
-- Sheet "Kiểu hiển thị" của Khám phá chỉ hiện nhóm "Trang Khám phá" khi nguồn có trang `explore`.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.

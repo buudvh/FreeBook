@@ -1,6 +1,6 @@
 import Foundation
 
-/// Cầu nối cho thanh mini / hub (`AudioMiniPlayerState`) và lối mở lại màn nghe.
+/// Cầu nối cho thanh mini (`AudioMiniPlayerState`) và lối mở lại màn nghe.
 ///
 /// - Màn nghe gắn / gỡ bằng `attachScreen(_:)` / `detachScreen(_:)` (khoá = đối tượng riêng của từng màn; mở lại màn khi
 ///   màn cũ chưa gỡ xong thì hai màn cùng gắn trong chốc lát ⇒ đếm theo từng màn). Gỡ màn **không** dừng nhạc.
@@ -13,14 +13,14 @@ extension AudioPlaybackSession {
         syncMiniPlayerState()
     }
 
-    /// Màn cuối cùng rời ⇒ lưu tiến độ; nhạc vẫn phát (thanh mini / hub điều khiển).
+    /// Màn cuối cùng rời ⇒ lưu tiến độ; nhạc vẫn phát (thanh mini điều khiển).
     func detachScreen(_ owner: AnyObject) {
         guard attachedScreens.remove(ObjectIdentifier(owner)) != nil, attachedScreens.isEmpty else { return }
         saveProgress(reason: "đóng màn nghe")
         syncMiniPlayerState()
     }
 
-    /// Trình bày lại màn nghe gắn với phiên đang chạy (thanh mini, hub, màn khoá). Không có presenter / màn đang hiện ⇒ chỉ
+    /// Trình bày lại màn nghe gắn với phiên đang chạy (thanh mini, nút đĩa Reader, màn khoá). Không có presenter / màn đang hiện ⇒ chỉ
     /// gọi `completion`.
     func requestScreen(animated: Bool = true, completion: (() -> Void)? = nil) {
         guard isActive, !isScreenAttached, let handler = presentScreenHandler else {
@@ -66,7 +66,7 @@ extension AudioPlaybackSession {
         if !mini.isActive { mini.isActive = true }
     }
 
-    /// Tiến độ `0…1` của bài đang phát — chỉ ghi khi lệch ≥ 0,5% (tránh vẽ lại hub mỗi tick).
+    /// Tiến độ `0…1` của bài đang phát — chỉ ghi khi lệch ≥ 0,5% (tránh vẽ lại thanh mini mỗi tick).
     func syncMiniProgress() {
         guard isActive else { return }
         let progress = durationSeconds > 0 ? min(1, max(0, currentSeconds / durationSeconds)) : 0

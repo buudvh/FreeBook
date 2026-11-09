@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Nhánh âm thanh của router `BookContentDestination` (Kệ, Lịch sử, Bộ sưu tập, Tìm trên kệ, mở lại lúc khởi động, chạm
 /// bài ở Chi tiết): **cùng màn nghe** với lối item danh sách, nằm trong `fullScreenCover` sẵn có của chỗ gọi (như
-/// `VideoWatchRouteView`) — đóng / thu nhỏ bằng `dismiss` của cover, nhạc vẫn phát (thanh mini / hub).
+/// `VideoWatchRouteView`) — đóng / thu nhỏ bằng `dismiss` của cover, nhạc vẫn phát (thanh mini).
 ///
 /// Album mở **một lần** lúc màn hiện (cần `modelContainer` của environment) từ `AudioListenRequest(launch:)`: id của
 /// launch là id `Book` thật nên dùng nguyên; `chapterIndex` = bài, `initialParagraphIndex` = giây. Lượt mở lại lúc khởi

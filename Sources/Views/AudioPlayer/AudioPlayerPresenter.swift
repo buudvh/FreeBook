@@ -6,8 +6,8 @@ import UIKit
 /// - `present(_:modelContainer:autoplay:)`: lối vào từ item danh sách (Khám phá, Tìm, Thể loại…) — mở album trong
 ///   `AudioPlaybackSession` rồi trình bày màn nghe bằng UIKit `.overFullScreen` (host trong suốt, màn bên dưới vẫn sống,
 ///   như `VideoWatchPresenter`).
-/// - `install()`: gắn `presentScreenHandler` vào session — mở lại màn nghe gắn với album đang chạy từ thanh mini, dòng
-///   Âm thanh của hub. Gọi lặp an toàn (`present`, `openInPlace` và màn nghe lúc hiện đều gọi).
+/// - `install()`: gắn `presentScreenHandler` vào session — mở lại màn nghe gắn với album đang chạy từ thanh mini, nút
+///   đĩa của Reader. Gọi lặp an toàn (`present`, `openInPlace` và màn nghe lúc hiện đều gọi).
 /// - `reopen(at:)`: như mở lại từ thanh mini nhưng vào thẳng một trang (sheet điều khiển nhanh của Reader).
 /// - `openInPlace(_:modelContainer:autoplay:)`: lối của router (`AudioListenRouteView`, màn nằm sẵn trong
 ///   `fullScreenCover` của chỗ gọi) — chỉ mở album, không trình bày gì.

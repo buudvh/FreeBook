@@ -4,7 +4,7 @@ import SwiftData
 import UIKit
 
 /// Tự phát **mục gợi ý đầu tiên** của nguồn khi trình nghe hết bài lẻ / hết album lúc đang tắt lặp (công tắc
-/// `AudioAutoNextPolicy`) — bản tương đương `VideoAutoNextCoordinator` của phim, ở mọi nơi: màn nghe, thanh mini, hub,
+/// `AudioAutoNextPolicy`) — bản tương đương `VideoAutoNextCoordinator` của phim, ở mọi nơi: màn nghe, thanh mini,
 /// app chạy nền / màn khoá. Sang ngay, không đếm ngược.
 ///
 /// - **Tải trước**: `AudioPlaybackSession.beginTrackLoad` báo `trackLoadDidBegin`; bài đang nạp là bài cuối (lặp tắt,
@@ -22,7 +22,7 @@ import UIKit
 ///   đang hiện tự vẽ theo session. Giữ phiên vì ở nền / màn khoá, tắt `AVAudioSession` rồi bật lại có thể không phát được.
 ///   Hẹn giờ tắt (mốc phút) được giữ qua lượt tự sang; hẹn "Hết bài" thì dừng ở cuối bài, không tự sang.
 /// - **Báo "Tự sang: <tên>"** khi album mới bắt đầu phát (`AudioPlaybackNotice`: màn nghe + trên thanh mini). "Bắt đầu
-///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho thanh mini / hub) — không thêm hook vào session. Album 18+ lúc
+///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho thanh mini) — không thêm hook vào session. Album 18+ lúc
 ///   công tắc NSFW tắt ⇒ không ghi tên.
 /// - Cả lượt (tải gợi ý → mở → chờ phát) nằm trong background task: lúc hết album không còn tiếng giữ app sống khi chạy
 ///   nền. Kết thúc khi album mới phát, lỗi, người dùng đổi / đóng album, hoặc sau 90 giây.
@@ -198,8 +198,8 @@ final class AudioAutoNextCoordinator {
         }
     }
 
-    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album 18+ lúc công tắc NSFW tắt ⇒ không ghi tên (thanh mini, hub, màn
-    /// khoá đều che).
+    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album 18+ lúc công tắc NSFW tắt ⇒ không ghi tên (thanh mini, màn khoá
+    /// đều che).
     private func noticeText(fallbackTitle: String) -> String {
         let mini = AudioMiniPlayerState.shared
         if mini.isNsfw, !RepositoryFilterPolicy.includesNsfwPreference { return "Tự sang bài gợi ý" }

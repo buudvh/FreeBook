@@ -11,8 +11,8 @@ import SwiftUI
 /// `isEnabled == false` ⇒ cả dòng mờ 0,4 và các nút `disabled`. Dùng `.disabled` chứ **không**
 /// `allowsHitTesting(false)`: tắt hit-test thì cú chạm xuyên xuống lớp nền `menuBackdropView` và đóng luôn menu.
 ///
-/// Cụm nút phát chỉ có ở dòng `.video` và `.audio` — nhánh theo `kind`, là **hằng** của dòng, không đổi theo trạng
-/// thái. Khi không có video / album, cụm này trong suốt và `disabled`, vẫn nằm trong cây view.
+/// Cụm nút phát chỉ có ở dòng `.video` — nhánh theo `kind`, là **hằng** của dòng, không đổi theo trạng thái. Khi
+/// không có video, cụm này trong suốt và `disabled`, vẫn nằm trong cây view.
 struct FloatingHubMenuRow: View {
     let item: FloatingHubItem
     let showsSeparator: Bool
@@ -54,7 +54,7 @@ struct FloatingHubMenuRow: View {
             .disabled(!item.isEnabled)
             .accessibilityHint(Text("Mở \(item.kind.title)"))
 
-            if item.kind == .video || item.kind == .audio {
+            if item.kind == .video {
                 playbackControls
             }
         }
@@ -69,9 +69,7 @@ struct FloatingHubMenuRow: View {
     }
 
     /// Tên loại media cho nhãn VoiceOver của cụm nút phát.
-    private var mediaName: String {
-        item.kind == .audio ? "trình nghe" : "video"
-    }
+    private var mediaName: String { "video" }
 
     /// Chấm đỏ trên icon khi còn tin chưa đọc (số cụ thể nằm ở dòng phụ). Luôn trong cây view, 0 ⇒ trong suốt.
     private var unreadDot: some View {

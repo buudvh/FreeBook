@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// Cầu nối trạng thái trình nghe âm thanh cho thanh mini / hub nổi / các màn ngoài trình nghe — `ObservableObject` để đọc
+/// Cầu nối trạng thái trình nghe âm thanh cho thanh mini / các màn ngoài trình nghe — `ObservableObject` để đọc
 /// được mà không observe `AudioPlaybackSession` (`@Observable`, giữ `AVPlayer`) và không dựng `AVPlayer` khi chưa từng mở.
 ///
 /// Chủ duy nhất ghi là `AudioPlaybackSession` (`syncMiniPlayerState`, mỗi tick 0,5 s chỉ ghi giá trị **đổi**; tiến độ chỉ
@@ -39,7 +39,7 @@ final class AudioMiniPlayerState: ObservableObject {
     var onTogglePlay: (() -> Void)?
     var onNext: (() -> Void)?
     var onPrevious: (() -> Void)?
-    /// Chạm thanh mini / dòng hub ⇒ mở lại màn nghe (`AudioPlaybackSession.requestScreen`).
+    /// Chạm thanh mini / nút đĩa Reader ⇒ mở lại màn nghe (`AudioPlaybackSession.requestScreen`).
     var onReopen: (() -> Void)?
     /// Nút đóng ⇒ dừng hẳn (`AudioPlaybackSession.stop`).
     var onStop: (() -> Void)?

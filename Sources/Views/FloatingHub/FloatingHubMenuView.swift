@@ -36,7 +36,7 @@ struct FloatingHubMenuView: View {
     let aiTasks: [FloatingHubPresentationReader.AITask]
     let sourceChecks: [MinimizedSourceCheck]
     let onSelect: (FloatingHubItem.Kind) -> Void
-    /// Nút phát/dừng và ✕ của dòng Video / Âm thanh — tham số là loại dòng.
+    /// Nút phát/dừng và ✕ của dòng Video — tham số là loại dòng.
     let onTogglePlayback: (FloatingHubItem.Kind) -> Void
     let onStopPlayback: (FloatingHubItem.Kind) -> Void
     let onSelectAITask: (String) -> Void

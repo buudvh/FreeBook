@@ -1,9 +1,9 @@
 import Combine
 import Foundation
 
-/// Gộp các nguồn (AI, thông báo, video phát nền, trình nghe âm thanh, lượt kiểm tra nguồn thu nhỏ) thành **một** snapshot
-/// cho nút hub nổi (1.3.524; 1.3.533 bỏ trình duyệt, thêm Video; 1.3.697 thêm Kiểm tra nguồn — `+SourceCheck`; dòng Video
-/// và Âm thanh ở `+Media`).
+/// Gộp các nguồn (AI, thông báo, video phát nền, lượt kiểm tra nguồn thu nhỏ) thành **một** snapshot cho nút hub nổi
+/// (1.3.524; 1.3.533 bỏ trình duyệt, thêm Video; 1.3.697 thêm Kiểm tra nguồn — `+SourceCheck`; dòng Video ở `+Media`;
+/// 1.3.803 bỏ dòng Âm thanh).
 ///
 /// ## Tập dòng cố định
 /// `snapshot.items` **luôn** có đủ `FloatingHubItem.Kind.allCases`, đúng thứ tự. Điều kiện từng có/vắng của
@@ -39,7 +39,7 @@ final class FloatingHubPresentationReader: ObservableObject {
         /// hành vi chạm của nút hub.
         var runningKinds: [FloatingHubItem.Kind] = []
         /// Mục có trong `runningKinds` nhưng không có gì **đang chạy** — `.ai` / `.sourceCheck` chỉ còn kết quả chưa
-        /// xem (1.3.630), `.audio` khi album đang dừng. Vẫn quyết định icon và hành vi chạm, không làm nút nháy.
+        /// xem (1.3.630). Vẫn quyết định icon và hành vi chạm, không làm nút nháy.
         var quietKinds: [FloatingHubItem.Kind] = []
         /// Số chưa đọc — bằng 0 ở tab Kệ Sách hoặc khi không có gì. Chỉ để đọc VoiceOver: nút không đưa tín hiệu
         /// chưa đọc nào lên hình.
@@ -129,8 +129,6 @@ final class FloatingHubPresentationReader: ObservableObject {
     private let inboxReader = NotificationInboxPresenceReader()
     private var aiState = AIState()
     private(set) var videoState = VideoState()
-    /// Trình nghe âm thanh (`AudioMiniPlayerState`) — ghi ở `subscribeToAudio()` (`+Media`).
-    var audioState = AudioState()
     private var sourceChecks: [MinimizedSourceCheck] = []
     /// Tab Kệ Sách là tab 0 của `MainTabView`; mặc định `true` vì app luôn khởi động ở tab đó. Tab Kệ đã có
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
@@ -156,7 +154,6 @@ final class FloatingHubPresentationReader: ObservableObject {
         )
         let sourceCheckCoordinator = MinimizedSourceCheckCoordinator.shared
         sourceChecks = sourceCheckCoordinator.entries.filter(\.isMinimized)
-        subscribeToAudio()
         snapshot = makeSnapshot()
 
         // `@Published` phát ở willSet ⇒ mọi sink đi qua `receive(on:)` rồi mới tính lại. Nhánh AI và Video dùng
@@ -266,13 +263,11 @@ final class FloatingHubPresentationReader: ObservableObject {
                 )
             case .video:
                 return videoItem()
-            case .audio:
-                return audioItem()
             case .sourceCheck:
                 return Self.sourceCheckItem(entries: sourceChecks)
             }
         }
-        // Tiến trình của nút hub, theo thứ tự `items` (= `Kind.allCases`): AI, Video, Âm thanh lấy `isActive` của dòng;
+        // Tiến trình của nút hub, theo thứ tự `items` (= `Kind.allCases`): AI, Video lấy `isActive` của dòng;
         // Thông báo chỉ tính tác vụ nền, bỏ qua tin chưa đọc và không xét tab.
         let runningKinds = items
             .filter { $0.kind == .notifications ? inbox.hasRunningTask : $0.isActive }
@@ -285,10 +280,6 @@ final class FloatingHubPresentationReader: ObservableObject {
         }
         if runningKinds.contains(.sourceCheck), !sourceChecks.contains(where: \.isRunning) {
             quietKinds.append(.sourceCheck)
-        }
-        // Album đang dừng (chưa đóng) vẫn là mục của nút nhưng không nháy.
-        if runningKinds.contains(.audio), !audioState.isPlaying, !audioState.isLoading {
-            quietKinds.append(.audio)
         }
         return Snapshot(
             items: items,
