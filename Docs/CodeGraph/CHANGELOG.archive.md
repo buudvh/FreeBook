@@ -2,6 +2,34 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.751] - 2026-11-06
+
+### feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống
+
+Người dùng muốn phim hết tập cuối thì tự sang phim đề xuất thứ nhất (có công tắc ở Cài đặt › Video và ngăn kéo ⋯ của trình phát), và thấy vuốt xuống vào PiP *"chưa mượt"* ⇒ muốn trình phát thu nhỏ tự dựng kiểu YouTube. Anh Bửu duyệt mockup + plan, chọn: tự sang **ở mọi nơi**, **sang ngay** (không đếm ngược), mặc định bật, có dòng báo ngắn; kiểu "Hình trong hình" thành **cửa sổ nhỏ tự dựng**, kiểu hub thì khung phim **bay vào nút hub**; cửa sổ nhỏ **bám mép trái/phải, cao tuỳ ý**, thả vào vòng ✕ để tắt; **bỏ hẳn PiP hệ thống**, rời app chỉ phát tiếng.
+
+- **Tự sang phim đề xuất** (`VideoAutoNextPolicy`, khoá `videoAutoNextSuggest`, mặc định bật; Cài đặt › Đọc & Nghe › Video nhóm mới "Khi hết phim" + hàng thứ hai ngăn kéo ⋯ — công tắc, không nằm trong lưới vì lưới là chọn một-trong-nhiều):
+  - `VideoAutoNextCoordinator` tải sẵn khi phiên bắt đầu nạp **tập cuối**: nhóm đề xuất lấy từ model màn xem → cache chi tiết (5 phút) → tải chi tiết `isInteractive: false`; chạy trang 1 của nhóm đầu có script (đề xuất trên màn chỉ tải khi cuộn tới nên không dựa được).
+  - Phim = mục đầu tiên khác phim vừa hết và chưa phát trong chuỗi tự sang hiện tại (chống A → B → A). Lượt tải sẵn rỗng (mạng chập chờn) ⇒ lúc hết phim tải lại một lần.
+  - Hết tập cuối (`handlePlayedToEnd`): màn xem đang hiện đúng phim ⇒ `VideoWatchModel.replace(with:autoNext:)`; không có màn (cửa sổ nhỏ, hub, nền) ⇒ `VideoWatchModel` không màn, giữ tối đa 90 giây, mở phiên xong thì chỉ thả (không huỷ, để lượt làm mới mục lục chạy nốt); cả lượt nằm trong background task.
+  - Phát luôn dù tắt "Tự phát khi mở phim" (`autoNext`), giữ tiếng của phim vừa hết (`open(muteOverride:)`), báo "Tự sang: <tên>" khi phim mới **bắt đầu phát** (`open(startNotice:)` → `pendingStartNotice`; hiện ngay lúc mở sẽ bị lượt nạp tập xoá).
+  - Phim nhúng trang không báo hết ⇒ không tự sang; phim nhập từ file không có đề xuất.
+- **Bỏ PiP hệ thống**: xoá `VideoPictureInPictureCoordinator` cùng mọi trạng thái PiP của session / màn / stage; trang nhúng `allowsPictureInPictureMediaPlayback = false`. Vào nền ⇒ tách hình ngay, phát tiếp chỉ tiếng nếu đang phát lúc rời active (`wasPlayingWhenResigned`).
+- **Co khung phim theo tay** (`Views/VideoPlayer/Minimize/`):
+  - `VideoGestureView` báo khoảng kéo + tốc độ theo **toạ độ cửa sổ** (khung phim đang co nên đo theo chính view sẽ lệch).
+  - `VideoMinimizeDragState` (controller giữ) + `VideoMinimizeDragContainer` (chỉ container vẽ lại mỗi nhịp): khung phim co và trôi tới chỗ đậu cửa sổ nhỏ, phần dưới mờ dần, nền đen nhạt dần lộ màn phía sau (presenter để nền trong suốt, router `presentationBackground(.clear)`).
+  - Nhả tay quá 110 pt hoặc hất nhanh ⇒ theo `VideoMinimizePolicy`; chưa tới ⇒ bật về. Kiểu hub và nút ⌄: bay vào nút hub (`FloatingHubWindowManager.visibleButtonFrame`) rồi tan, hub nháy (`bounceButton`). Kiểu Cửa sổ nhỏ (`VideoMinimizeStyle.miniPlayer`, raw value giữ `"pictureInPicture"` ⇒ lựa chọn đã lưu không mất): co đúng vào chỗ đậu. Tới đích rồi mới đóng màn, không animation.
+- **Cửa sổ nhỏ** (`Views/VideoPlayer/MiniPlayer/`):
+  - `UIWindow` lớp phủ ở level `alert - 2.5` (dưới hub, trên widget trình duyệt), chạm ngoài cửa sổ rơi xuống app; 50% cạnh ngắn, 16:9; ‖/▶, ✕, vạch tiến độ, dòng báo dưới cửa sổ.
+  - Kéo ⇒ bám mép trái/phải ở độ cao thả tay (nhớ ở `videoMiniPlayerDock`); thả vào vòng ✕ ở đáy ⇒ tắt hẳn phim; chạm ⇒ nở lên chỗ khung phim rồi mở lại màn xem không animation (`requestScreen(animated:)`).
+  - Gắn vào phiên như một màn (`attachScreen(_:isMiniPlayer:)`, phần gắn/gỡ tách sang `VideoPlaybackSession+Screens`): hình giữ gắn, dòng Video của hub ẩn; chỉ màn to (`isFullScreenAttached`) chặn mở lại. Ẩn khi màn to gắn (`onFullScreenAttached`) hoặc phiên vẫn rảnh ở nhịp sau `stop()` (`onDidStop` — tự sang dừng rồi mở phim mới ngay).
+  - Nút PiP trên thanh trên ⇒ "Cửa sổ nhỏ" (ngang / toàn màn dọc thì về khung dọc trước). Phim nhúng trang ⇒ hub. `VideoPlayerSurfaceView` không giành lại hình khi cửa sổ nhỏ đang hiện.
+- `CLAUDE.md` / `AGENTS.md`: sửa mục Comic & Video (bỏ PiP, thêm cửa sổ nhỏ + tự sang). Chuyển `[1.3.721]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep `Sources/` không còn tham chiếu PiP cũ (`togglePictureInPicture`, `isPictureInPicture…`, `.pictureInPicture`).
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`+Playback` giữ dưới 400 dòng).
+  - Không build tại chỗ (Windows). Chưa thử trên máy: lộ màn phía sau khi kéo ở lối mở từ Kệ / Lịch sử (`fullScreenCover` + `presentationBackground(.clear)`); tự sang khi app chạy nền (iOS có thể treo app trước khi tải xong); phát tiếp chỉ tiếng khi rời app; cửa sổ nhỏ nằm trên sheet / bàn phím.
+
 ## [1.3.750] - 2026-11-06
 
 ### feat: cài đặt chạm hub, mặc định luôn hiện tất cả mục

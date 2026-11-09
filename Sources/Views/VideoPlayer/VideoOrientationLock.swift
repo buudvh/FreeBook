@@ -46,21 +46,22 @@ enum VideoOrientationLock {
         }
         if lockedMask != nil {
             lockedMask = target
-            refreshSupportedOrientations()
         }
         request(target)
     }
 
-    /// Rời trình phát: bỏ khoá; đang ngang thì trả về dọc để phần còn lại của app không nằm ngang.
+    /// Rời trình phát: bỏ khoá; đang ngang thì trả về dọc để phần còn lại của app không nằm ngang. Luôn báo UIKit hỏi lại
+    /// hướng được phép (1.3.781): màn xem rời đi thì trang chỉ dọc nằm dưới nó (`VideoWatchPagePresenter`) lấy lại `.portrait`.
     static func resetForExit() {
         let wasLandscape = activeScene?.interfaceOrientation.isLandscape ?? false
         if lockedMask != nil {
             lockedMask = nil
             stopFallbackObserver()
-            refreshSupportedOrientations()
         }
         if wasLandscape {
             request(.portrait)
+        } else {
+            refreshSupportedOrientations()
         }
     }
 
@@ -75,14 +76,19 @@ enum VideoOrientationLock {
         AppMainWindowScene.current()
     }
 
+    /// Báo UIKit hỏi lại hướng được phép **trước** mỗi lần xin xoay (1.3.781): UIKit giữ mask cũ tới khi được báo — vd màn
+    /// xem mở lại đè lên trang chỉ dọc mà mask còn `.portrait` của trang ⇒ xin ngang bị từ chối.
     private static func request(_ mask: UIInterfaceOrientationMask) {
         guard let scene = activeScene else { return }
+        refreshSupportedOrientations()
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
             AppLogger.shared.log("❌ [VideoPlayer] Không xoay được màn hình: \(error.localizedDescription)")
         }
     }
 
-    private static func refreshSupportedOrientations() {
+    /// Báo mọi VC của các cửa sổ trong scene chính hỏi lại hướng được phép. Gọi thêm sau khi trình bày xong màn xem
+    /// (`VideoWatchPresenter`) — màn có thể nằm trên trang chỉ dọc, nghiêng máy thật cũng phải xoay được.
+    static func refreshSupportedOrientations() {
         guard let scene = activeScene else { return }
         for window in scene.windows {
             var controller = window.rootViewController

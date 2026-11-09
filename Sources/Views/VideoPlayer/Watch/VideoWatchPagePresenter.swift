@@ -31,7 +31,9 @@ import UIKit
 ///   `dismissCoveringPage` (màn xem đóng thì đóng trang đè lên nó trước) chỉ tính trang **đè lên** màn xem;
 /// - mở trang mới: trang cũ đang trên cùng thì đóng nó trước; có màn khác phủ lên nó thì để nguyên — `dismiss` lên trang cũ
 ///   lúc đó sẽ đóng chính màn đang phủ lên nó;
-/// - nút `‹` và lượt chọn phim đóng **đúng trang của mình** (`PageHandle`), không phải trang mở sau cùng.
+/// - nút `‹` và lượt chọn phim đóng **đúng trang của mình** (`PageHandle`), không phải trang mở sau cùng;
+/// - hướng xoay: trang nhường cho màn xem nằm trên nó (`PortraitHostingController.supportedInterfaceOrientations`, 1.3.781),
+///   kẻo nút Toàn màn / Xoay của màn xem không xoay ngang được.
 @MainActor
 final class VideoWatchPagePresenter {
     static let shared = VideoWatchPagePresenter()
@@ -245,7 +247,21 @@ final class VideoWatchPagePresenter {
     private final class PortraitHostingController: UIHostingController<AnyView>, FloatingHomeActionProviding {
         var coversWatchScreen = false
 
-        override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
+        /// Màn xem mở lại từ cửa sổ nhỏ / hub nằm **trên** trang (trang mở sau khi màn xem đóng) ⇒ nhường hướng cho trình
+        /// phát (1.3.781): trang chỉ dọc còn trong chuỗi trình bày làm nút Toàn màn / Xoay không xoay ngang được. Chỉ tính
+        /// `VideoPlayerHostingController` chưa bị gỡ — sheet Bộ lọc / nhấn giữ của trang không được mở khoá ngang.
+        override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+            hasVideoPlayerAbove ? VideoOrientationLock.supportedMask : .portrait
+        }
+
+        private var hasVideoPlayerAbove: Bool {
+            var current = presentedViewController
+            while let controller = current {
+                if controller is VideoPlayerHostingController, !controller.isBeingDismissed { return true }
+                current = controller.presentedViewController
+            }
+            return false
+        }
 
         func performFloatingHome() {
             let covers = coversWatchScreen
