@@ -55,7 +55,9 @@ final class AudioAutoNextCoordinator {
         // Kiểm `repeatMode` trước: lặp một / lặp album thì album không bao giờ hết, và `autoAdvanceTarget()` ở chế độ lặp
         // album còn dựng sẵn vòng xáo kế. Hẹn giờ "Hết bài" ⇒ dừng ở cuối bài, khỏi tải (tắt hẹn sau đó thì
         // `albumDidEnd` tự tải).
-        guard session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem, session.autoAdvanceTarget() == nil,
+        // Đang phát playlist ⇒ hết bài sang mục kế của playlist, không tự phát gợi ý (`PlaylistPlaybackCoordinator`).
+        guard !PlaylistPlaybackCoordinator.shared.isAudioActive(in: session),
+              session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem, session.autoAdvanceTarget() == nil,
               let album = Album.snapshot(of: session) else { return }
         prepare(for: album)
     }
@@ -85,7 +87,8 @@ final class AudioAutoNextCoordinator {
     /// Link của mục sẽ tự phát khi album đang mở hết (nhãn "Tiếp theo" ở trang Danh sách); `nil` khi sẽ không tự phát:
     /// đang lặp, hẹn giờ "Hết bài", trình nghe rảnh. Công tắc do View kiểm (đọc `@AppStorage` để vẽ lại khi đổi).
     func upNextLink(in session: AudioPlaybackSession, firstGroupItems items: [ExtensionItemResult]) -> String? {
-        guard session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem,
+        guard !PlaylistPlaybackCoordinator.shared.isAudioActive(in: session),
+              session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem,
               let album = Album.snapshot(of: session) else { return nil }
         return pick(after: album, items: items)?.link
     }
@@ -94,7 +97,8 @@ final class AudioAutoNextCoordinator {
 
     /// `AudioPlaybackSession.advanceAfterTrackEnded` gọi khi bài cuối phát hết mà không lặp.
     func albumDidEnd(in session: AudioPlaybackSession) {
-        guard AudioAutoNextPolicy.isEnabled, let album = Album.snapshot(of: session) else { return }
+        guard AudioAutoNextPolicy.isEnabled, !PlaylistPlaybackCoordinator.shared.isAudioActive(in: session),
+              let album = Album.snapshot(of: session) else { return }
         guard let container = session.modelContainer else {
             AppLogger.shared.log("❌ [AudioAutoNext] Thiếu ModelContainer ⇒ không tự phát bài gợi ý được")
             return

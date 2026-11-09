@@ -38,21 +38,33 @@ extension VideoWatchModel {
         let target = targetEpisodeIndex(requested)
         await ensureBook(currentEpisodeIndex: target)
         guard isCurrent(generation) else { return }
-        let seconds = (target == request.episodeIndex) ? request.initialSeconds : nil
+        // Mục playlist luôn từ giây 0 (kể cả khi tập khớp theo link khác `request.episodeIndex`).
+        let playlist = playlistStart
+        let seconds = playlist != nil ? 0 : ((target == request.episodeIndex) ? request.initialSeconds : nil)
         let launch = makeLaunch(episodeIndex: target, initialSeconds: seconds)
-        AppLogger.shared.log("🎬 [VideoWatch] Phát tập \(target) (bookId=\(bookId))")
         // Tự sang phim đề xuất: giữ tiếng của phim vừa hết, báo tên phim khi phim mới bắt đầu phát.
         let autoNextStart = autoNext
         autoNext = nil
+        playlistStart = nil
+        // Coordinator đã sang mục khác / thôi phát playlist trong lúc chuẩn bị ⇒ không mở phiên cho lượt cũ.
+        if let playlist, !PlaylistPlaybackCoordinator.shared.acceptsVideoStart(playlist.token) {
+            AppLogger.shared.log("⏭️ [VideoWatch] Lượt mở mục playlist đã cũ ⇒ không phát (bookId=\(bookId))")
+            return
+        }
+        AppLogger.shared.log("🎬 [VideoWatch] Phát tập \(target) (bookId=\(bookId))")
         session.open(
             launch,
             modelContainer: modelContainer,
-            muteOverride: autoNextStart?.muted,
-            startNotice: autoNextStart == nil ? nil : "Tự sang: \(displayTitle)",
-            keepsSleepTimer: autoNextStart != nil
+            muteOverride: autoNextStart?.muted ?? playlist?.muted,
+            startNotice: autoNextStart == nil ? playlist?.notice : "Tự sang: \(displayTitle)",
+            keepsSleepTimer: autoNextStart != nil || playlist?.keepsSleepTimer == true,
+            fromPlaylist: playlist != nil
         )
         if autoNextStart != nil {
             VideoAutoNextCoordinator.shared.didOpen(bookId: bookId)
+        }
+        if let playlist {
+            PlaylistPlaybackCoordinator.shared.videoDidOpen(token: playlist.token, bookId: bookId)
         }
         // Như `BookContentDestination`: lượt "Mở lại truyện đọc gần nhất" lúc khởi động thấy phim này.
         ReaderSessionRestoreStore.recordOpened(bookId: bookId)

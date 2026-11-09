@@ -169,6 +169,8 @@ final class VideoPlaybackSession {
     /// Dòng báo hiện khi phim vừa mở **bắt đầu phát** (`open(startNotice:)` — tự sang phim đề xuất). Hiện ngay lúc mở thì
     /// lượt nạp tập (`prepareForNewLoad` → `resetPlaybackSource`) xoá mất.
     @ObservationIgnored var pendingStartNotice: String?
+    /// `open(fromPlaylist: true)` đang dừng phim cũ để mở mục kế của playlist ⇒ `stop()` không thôi chế độ playlist.
+    @ObservationIgnored var isSwitchingPlaylistItem = false
     /// Màn khoá (`+NowPlaying`): bìa của phim đang mở, tác giả, lượt nạp bìa.
     @ObservationIgnored var nowPlayingCover: (bookId: String, image: UIImage)?
     @ObservationIgnored var nowPlayingAuthor = ""
@@ -238,14 +240,17 @@ final class VideoPlaybackSession {
     /// phim khác ⇒ dừng hẳn phim cũ (lưu tiến độ) rồi nạp phim mới.
     /// `muteOverride` (tự sang phim đề xuất) thay `VideoMutePolicy` cho phim mới; `startNotice` hiện khi phim bắt đầu phát.
     /// `keepsSleepTimer` (tự sang phim đề xuất): giữ hẹn giờ tắt của phim vừa hết — ngủ quên thì chuỗi phim đề xuất vẫn dừng
-    /// đúng giờ. Người dùng tự mở phim khác ⇒ hẹn giờ huỷ cùng `stop()`.
+    /// đúng giờ. Người dùng tự mở phim khác ⇒ hẹn giờ huỷ cùng `stop()`. `fromPlaylist` chỉ lượt mở mục playlist
+    /// (`VideoWatchModel.PlaylistStart`) truyền; lượt mở thường thoát chế độ playlist.
     func open(
         _ newLaunch: BookContentLaunch,
         modelContainer: ModelContainer,
         muteOverride: Bool? = nil,
         startNotice: String? = nil,
-        keepsSleepTimer: Bool = false
+        keepsSleepTimer: Bool = false,
+        fromPlaylist: Bool = false
     ) {
+        if !fromPlaylist { PlaylistPlaybackCoordinator.shared.endVideo(reason: "mở phim thường") }
         self.modelContainer = modelContainer
         if let current = launch, current.bookId == newLaunch.bookId {
             reuseRunningSession(for: newLaunch)
@@ -253,7 +258,9 @@ final class VideoPlaybackSession {
         }
         if launch != nil {
             let carriedTimer = keepsSleepTimer ? sleepTimer.schedule : nil
+            isSwitchingPlaylistItem = fromPlaylist
             stop()
+            isSwitchingPlaylistItem = false
             if let carriedTimer { sleepTimer.restore(carriedTimer) }
         }
         launch = newLaunch
@@ -299,6 +306,7 @@ final class VideoPlaybackSession {
             return
         }
         saveProgress(reason: "đóng trình phát")
+        if !isSwitchingPlaylistItem { PlaylistPlaybackCoordinator.shared.endVideo(reason: "đóng trình phát") }
         openGeneration += 1
         loadGeneration += 1
         startTask?.cancel()

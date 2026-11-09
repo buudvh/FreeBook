@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Phần dưới khung phim của **màn xem** (màn dọc, không toàn màn), từ trên xuống: nhãn thể loại · tên · meta "…thêm"
-/// (`VideoWatchTitleBlock`) → hàng nút (`VideoWatchActionRow`) → giới thiệu thu gọn → lưới Server → dải tập
+/// (`VideoWatchTitleBlock`) → dải "Playlist <tên> · i/n" (`VideoWatchPlaylistBar`, chỉ khi phát playlist) → hàng nút (`VideoWatchActionRow`) → giới thiệu thu gọn → lưới Server → dải tập
 /// (`VideoWatchEpisodeStrip`) → Bình luận → Đề xuất (`VideoWatchSuggestFeed`). Nút Home nổi góc phải dưới.
 ///
 /// Phiên phát đang chạy đúng phim này (`model.ownsSession`) ⇒ danh sách tập, tập đang xem và server đọc từ phiên (tên
@@ -66,6 +66,8 @@ struct VideoWatchDetailsView: View {
                     onSelectGenre: { onExit(.openCategory($0)) }
                 )
                 .id(Self.topAnchor)
+                // Đang phát playlist phim ⇒ "Playlist <tên> · 3/12" + nút mục kế.
+                VideoWatchPlaylistBar(model: model)
                 VideoWatchActionRow(
                     model: model,
                     openingDetailPage: $openingDetailPage,

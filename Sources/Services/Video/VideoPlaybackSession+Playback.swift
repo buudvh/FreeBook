@@ -257,6 +257,7 @@ extension VideoPlaybackSession {
         phase = .failed("Không phát được video: \(message)", link: episodeErrorLink(for: nil))
         // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
+        notePlaylistFailure("Không phát được video: \(message)")
     }
 
     func handleTimeControlChange() {
@@ -280,6 +281,7 @@ extension VideoPlaybackSession {
                 prepareAudioForPlayback()
                 if phase == .buffering { phase = .playing }
                 showPendingStartNotice()
+                PlaylistPlaybackCoordinator.shared.videoItemDidStartPlaying(in: self)
             }
             scheduleAudioCheckIfNeeded()
         case .paused:
@@ -298,18 +300,8 @@ extension VideoPlaybackSession {
     private func handlePlayedToEnd(itemId: ObjectIdentifier) {
         guard isCurrentItem(itemId) else { return }
         reachedEndOfItem = true
-        guard !stopAtEndOfEpisodeForSleepTimer() else { return }
-        guard let next = nextEpisode else {
-            AppLogger.shared.log("🏁 [VideoPlayer] Đã xem hết tập cuối")
-            saveProgress(reason: "hết tập cuối", seconds: 0)
-            if let launch {
-                VideoAutoNextCoordinator.shared.lastEpisodeDidEnd(launch: launch, isMuted: isMuted, modelContainer: modelContainer)
-            }
-            return
-        }
-        AppLogger.shared.log("⏭️ [VideoPlayer] Hết tập \(currentEpisodeIndex) ⇒ sang tập \(next.index)")
-        beginEpisodeLoad(next.index, resumeSeconds: 0)
-        saveProgress(reason: "sang tập kế", seconds: 0)
+        // Hẹn giờ "Hết tập" → chế độ playlist → tập kế → tự sang phim đề xuất (`+Playlist`).
+        advanceAfterEpisodeEnded()
     }
 
     // MARK: - Tick 0,5 giây

@@ -10,18 +10,22 @@ import Foundation
 ///   dùng chung nên luôn chọn cùng một bài (vòng xáo kế dựng sẵn một lần ở `upcomingCycleOrder`).
 /// - Bài sau / bài trước do người dùng (nút, màn khoá, tai nghe): lặp một không áp; hết thứ tự chỉ quay vòng khi lặp album.
 /// - Hẹn giờ "Hết bài" (`MediaSleepTimer`): hết bài thì dừng ở cuối bài, không sang bài kế kể cả đang lặp.
+/// - Chế độ playlist (`isInPlaylistMode`, `+Playlist`): bài sau / bài trước / có bài sau / hết bài / xáo hỏi
+///   `PlaylistPlaybackCoordinator` (thứ tự playlist, `album` = lặp playlist); lặp một bài và hẹn giờ vẫn xét ở đây trước.
 extension AudioPlaybackSession {
     /// Chỉ số mục lục của các bài theo thứ tự mục lục.
     var naturalOrder: [Int] { tracks.map(\.index) }
 
     /// Có bài sau cho nút "bài sau" (màn khoá bật/tắt lệnh theo giá trị này).
     var hasNextTrack: Bool {
+        if isInPlaylistMode { return PlaylistPlaybackCoordinator.shared.audioHasNext(in: self) }
         guard let position = currentOrderPosition else { return !playOrder.isEmpty }
         return position + 1 < playOrder.count || (repeatMode == .album && playOrder.count > 1)
     }
 
     /// Có bài trước (không tính "về đầu bài").
     var hasPreviousTrack: Bool {
+        if isInPlaylistMode { return PlaylistPlaybackCoordinator.shared.audioHasPrevious(in: self) }
         guard let position = currentOrderPosition else { return false }
         return position > 0 || (repeatMode == .album && playOrder.count > 1)
     }
@@ -73,6 +77,8 @@ extension AudioPlaybackSession {
     func autoAdvanceTarget() -> Int? {
         guard let current = currentTrackIndex else { return nil }
         if repeatMode == .one { return current }
+        // Playlist: chỉ bài kế cùng album (để nạp sẵn); hết bài thì coordinator quyết.
+        if isInPlaylistMode { return PlaylistPlaybackCoordinator.shared.audioPrefetchTarget(in: self) }
         guard let position = currentOrderPosition else { return playOrder.first }
         if position + 1 < playOrder.count { return playOrder[position + 1] }
         guard repeatMode == .album else { return nil }
@@ -85,6 +91,8 @@ extension AudioPlaybackSession {
     /// thì thử lại, đang dừng thì phát.
     func playTrack(at index: Int) {
         guard isActive, track(at: index) != nil else { return }
+        // Bài của album (ngoài hàng đợi playlist) ⇒ thôi chế độ playlist, về thứ tự album.
+        if isInPlaylistMode { PlaylistPlaybackCoordinator.shared.endAudio(reason: "chọn bài của album") }
         if index == currentTrackIndex {
             if case .failed = phase {
                 retry()
@@ -99,6 +107,10 @@ extension AudioPlaybackSession {
 
     /// Bài sau (nút, màn khoá, tai nghe). Hết thứ tự: lặp album ⇒ sang vòng kế; còn lại không làm gì.
     func next() {
+        if isInPlaylistMode {
+            PlaylistPlaybackCoordinator.shared.audioNext(in: self)
+            return
+        }
         guard isActive, let position = currentOrderPosition ?? (playOrder.isEmpty ? nil : -1) else { return }
         if position + 1 < playOrder.count {
             moveToTrack(playOrder[position + 1], reason: "bài sau")
@@ -117,6 +129,10 @@ extension AudioPlaybackSession {
         guard isActive else { return }
         if player.currentItem != nil, currentPlaybackTime > Self.restartThresholdSeconds {
             seek(to: 0)
+            return
+        }
+        if isInPlaylistMode {
+            if !PlaylistPlaybackCoordinator.shared.audioPrevious(in: self) { seek(to: 0) }
             return
         }
         guard let position = currentOrderPosition else {
@@ -154,6 +170,8 @@ extension AudioPlaybackSession {
             player.play()
             return
         }
+        // Playlist: sang mục kế của playlist — không sang bài kế của album, không tự phát gợi ý.
+        if PlaylistPlaybackCoordinator.shared.audioTrackDidEnd(in: self) { return }
         guard let target = autoAdvanceTarget() else {
             AppLogger.shared.log("🏁 [AudioPlayer] Hết album (không lặp) ⇒ dừng ở cuối")
             saveProgress(reason: "hết album", seconds: 0)
@@ -181,7 +199,7 @@ extension AudioPlaybackSession {
         repeatMode = repeatMode.next
         AudioPlaybackPreferences.repeatMode = repeatMode
         upcomingCycleOrder = nil
-        AppLogger.shared.log("🔁 [AudioPlayer] Chế độ lặp: \(repeatMode.title)")
+        AppLogger.shared.log("🔁 [AudioPlayer] Chế độ lặp: \(repeatModeTitle)")
         syncMiniPlayerState()
         publishNowPlaying()
     }
@@ -191,6 +209,7 @@ extension AudioPlaybackSession {
         isShuffled.toggle()
         AudioPlaybackPreferences.isShuffled = isShuffled
         resetPlayOrder(startingWith: currentTrackIndex ?? tracks.first?.index ?? 0)
+        PlaylistPlaybackCoordinator.shared.audioShuffleDidChange(isShuffled)
         AppLogger.shared.log("🔀 [AudioPlayer] Xáo trộn: \(isShuffled ? "bật" : "tắt")")
         syncMiniPlayerState()
         publishNowPlaying()

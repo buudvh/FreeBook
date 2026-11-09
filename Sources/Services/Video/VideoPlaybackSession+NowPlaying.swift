@@ -20,7 +20,7 @@ extension VideoPlaybackSession {
             rate: rate,
             defaultRate: Double(playbackRate),
             isPlaying: isPlaying,
-            hasNextEpisode: nextEpisode != nil
+            hasNextEpisode: canPlayNext
         )
     }
 

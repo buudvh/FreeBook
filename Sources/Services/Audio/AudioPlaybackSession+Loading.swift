@@ -88,6 +88,7 @@ extension AudioPlaybackSession {
         phase = .failed(message, link: link)
         AudioNowPlayingCoordinator.shared.release(handBackToTTS: true)
         syncMiniPlayerState()
+        notePlaylistFailure(message)
     }
 
     /// Bài + giây bắt đầu: bài request chỉ định (giây request → giây đã lưu nếu trùng bài nghe dở → 0) → bài + giây nghe
@@ -105,6 +106,17 @@ extension AudioPlaybackSession {
     }
 
     private func beginPlayback(book: Book?) {
+        // Mở từ playlist: đúng bài của mục, từ giây 0 — album không còn bài đó ⇒ lỗi (bỏ qua mục), không phát bài khác.
+        if let url = request?.playlistTrackUrl {
+            guard let index = playlistTrackIndex(index: request?.trackIndex ?? -1, url: url) else {
+                AppLogger.shared.log("❌ [AudioPlayer] Album không còn bài của mục playlist (chỉ số \(request?.trackIndex ?? -1))")
+                failOpen("Album không còn bài này.", link: nil)
+                return
+            }
+            resetPlayOrder(startingWith: index)
+            beginTrackLoad(index, resumeSeconds: 0, autoplay: shouldAutoplay)
+            return
+        }
         let start = startPoint(book: book)
         resetPlayOrder(startingWith: start.index)
         beginTrackLoad(start.index, resumeSeconds: start.seconds, autoplay: shouldAutoplay)

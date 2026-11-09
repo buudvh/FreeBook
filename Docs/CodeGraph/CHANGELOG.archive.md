@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.775] - 2026-11-07
+
+### feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống
+
+Người dùng: *"khi bấm vào home thì tình trạng video là pip hay vào hub sẽ theo config vuốt xuống trình phát"*.
+
+- Nút Home "Về Khám phá" của màn xem phim và nút Home nổi của trang đè lên màn xem (thể loại / Chi tiết) thu nhỏ phim theo **Cài đặt › Video › Vuốt xuống trình phát** (`VideoMinimizePolicy`: riêng phim thường / phim 18+, tiện ích ghi đè được): cửa sổ nhỏ (đang ngang / toàn màn thì xoay về dọc trước) hoặc hub (khung phim bay vào nút hub). Phim nhúng trang luôn vào hub; màn đang hiện bìa chỉ đóng màn. Trước đây Home luôn đóng màn ⇒ hub.
+- `VideoPlayerScreen+Exit.minimizeByPolicy`; `minimizeToHub` / `flyToHub` nhận `then` (về Khám phá / gốc tab sau khi màn đã đóng hẳn).
+- Phim 18+: Home vẫn tắt NSFW (1.3.769) — guard NSFW xin thu vào hub bị `VideoLeaveToHubCoordinator` bỏ qua trong 2 giây sau Home (`applyLeaveRules(keepsPlacement:)`) để cửa sổ nhỏ vừa mở theo cài đặt không bị kéo vào hub.
+- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: Home lúc đang ngang với cài đặt cửa sổ nhỏ.
+
 ## [1.3.774] - 2026-11-07
 
 ### feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt

@@ -23,6 +23,9 @@ struct AudioListenRequest: Equatable {
     let trackIndex: Int?
     /// Giây muốn tua tới ở `trackIndex`; `nil` = giây đã lưu khi `trackIndex` trùng bài nghe dở, khác thì từ đầu.
     let initialSeconds: Int?
+    /// Khác `nil` (kể cả rỗng) = lượt mở của `PlaylistPlaybackCoordinator`: bài phải đúng mục playlist — link bài này trước,
+    /// `trackIndex` sau; album không còn bài đó ⇒ báo lỗi (coordinator bỏ qua), không phát bài khác.
+    let playlistTrackUrl: String?
 
     init(
         packageId: String,
@@ -33,7 +36,8 @@ struct AudioListenRequest: Equatable {
         coverUrl: String? = nil,
         knownBookId: String? = nil,
         trackIndex: Int? = nil,
-        initialSeconds: Int? = nil
+        initialSeconds: Int? = nil,
+        playlistTrackUrl: String? = nil
     ) {
         self.packageId = packageId
         self.detailUrl = detailUrl
@@ -44,6 +48,7 @@ struct AudioListenRequest: Equatable {
         self.knownBookId = knownBookId
         self.trackIndex = trackIndex
         self.initialSeconds = initialSeconds
+        self.playlistTrackUrl = playlistTrackUrl
     }
 
     /// Album đã có `Book` (Kệ, Lịch sử, Bộ sưu tập…): mở đúng `Book` được bấm, tiếp bài + giây đang nghe dở.

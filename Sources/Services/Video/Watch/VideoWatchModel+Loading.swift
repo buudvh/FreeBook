@@ -109,6 +109,7 @@ extension VideoWatchModel {
         if !hasStoredTOC, isCurrent(generation) {
             AppLogger.shared.log("❌ [VideoWatch] Không có tiện ích chạy được và chưa có mục lục trên máy (tiện ích=\(packageId))")
             phase = .failed(fallback, link: nil)
+            notePlaylistFailure(fallback)
         }
         return nil
     }
@@ -201,6 +202,7 @@ extension VideoWatchModel {
                 return
             }
             phase = .failed("Không lấy được danh sách tập: \(error.localizedDescription)", link: link)
+            notePlaylistFailure("Không lấy được danh sách tập: \(error.localizedDescription)")
         }
     }
 
@@ -252,6 +254,7 @@ extension VideoWatchModel {
         guard episodes.contains(where: { !$0.isSection }) else {
             AppLogger.shared.log("❌ [VideoWatch] Phim không có tập nào để phát (bookId=\(bookId))")
             phase = .failed("Phim chưa có tập nào.", link: nil)
+            notePlaylistFailure("Phim chưa có tập nào.")
             return
         }
         phase = .ready

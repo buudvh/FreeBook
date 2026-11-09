@@ -2,8 +2,9 @@ import Combine
 import Foundation
 
 /// Dòng báo ngắn của trình nghe âm thanh — hiện ở màn nghe và ngay trên thanh phát mini (`AudioPlaybackNoticeBanner`),
-/// tự ẩn sau 5 giây. Hiện chỉ có "Tự sang: <tên>" của `AudioAutoNextCoordinator` (khuôn `playbackNotice` của
-/// `VideoPlaybackSession`, báo khi phim tự sang bắt đầu phát).
+/// tự ẩn sau 5 giây: "Tự sang: <tên>" của `AudioAutoNextCoordinator` (khuôn `playbackNotice` của `VideoPlaybackSession`,
+/// báo khi phim tự sang bắt đầu phát) và "Bỏ qua <tên>: <lý do>" / "Không phát được mục nào…" của
+/// `PlaylistPlaybackCoordinator` khi phát playlist.
 ///
 /// Tách khỏi `AudioPlaybackSession` để thanh mini đọc được mà không chạm session (chạm là dựng `AVPlayer`) — như
 /// `AudioMiniPlayerState`. Chỉ tầng nền ghi (`show`); View chỉ đọc `text`.

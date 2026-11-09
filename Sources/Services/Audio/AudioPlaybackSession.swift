@@ -242,8 +242,9 @@ final class AudioPlaybackSession {
     /// Mở album. Cùng album đang mở ⇒ giữ nguyên phiên, không nạp lại (request chỉ bài khác thì chuyển bài, đang lỗi thì
     /// thử lại); album khác ⇒ dừng hẳn album cũ (lưu tiến độ) rồi nạp album mới.
     /// `autoplay == false` (app mở lại mục nghe gần nhất lúc khởi động): nạp tới bài + giây đã lưu rồi **dừng sẵn**, không
-    /// dừng TTS / phim đang phát.
-    func open(_ newRequest: AudioListenRequest, modelContainer: ModelContainer, autoplay: Bool = true) {
+    /// dừng TTS / phim đang phát. `fromPlaylist` chỉ `PlaylistPlaybackCoordinator` truyền; lượt mở thường thoát chế độ playlist.
+    func open(_ newRequest: AudioListenRequest, modelContainer: ModelContainer, autoplay: Bool = true, fromPlaylist: Bool = false) {
+        if !fromPlaylist { PlaylistPlaybackCoordinator.shared.endAudio(reason: "mở album thường") }
         self.modelContainer = modelContainer
         let resolvedId = Self.resolvedBookId(for: newRequest, in: modelContainer)
         if isActive, bookId == resolvedId {
@@ -294,7 +295,7 @@ final class AudioPlaybackSession {
 
     /// Thân chung của `stop()` và `stopForTTS()` (`+AudioSession`). `handingOverToTTS`: TTS đang giành phiên — không dựng
     /// lại lệnh / Now Playing của TTS và không tắt `AVAudioSession` (TTS vừa cấu hình nó).
-    /// `keepsPlaybackSession` (chỉ `AudioAutoNextCoordinator`, ngay trước `open` album gợi ý): giữ màn khoá + phiên âm
+    /// `keepsPlaybackSession` (`AudioAutoNextCoordinator` / `PlaylistPlaybackCoordinator`, ngay trước `open`): giữ màn khoá + phiên âm
     /// thanh + cầu nối mini — ở nền, tắt `AVAudioSession` rồi bật lại có thể không phát được nữa.
     func stopSession(handingOverToTTS: Bool, keepsPlaybackSession: Bool = false) {
         guard isActive else {
@@ -302,6 +303,8 @@ final class AudioPlaybackSession {
             return
         }
         saveProgress(reason: "đóng trình nghe")
+        // Đóng hẳn / TTS giành ⇒ thôi chế độ playlist; lượt chuyển mục của playlist / tự sang thì giữ phiên (`keeps…`).
+        if !keepsPlaybackSession { PlaylistPlaybackCoordinator.shared.endAudio(reason: handingOverToTTS ? "TTS giành phiên" : "đóng trình nghe") }
         let stoppedId = bookId
         openGeneration += 1
         loadGeneration += 1

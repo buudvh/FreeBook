@@ -207,6 +207,7 @@ extension AudioPlaybackSession {
                 autoplayBlockedByOtherMedia = false
                 prepareAudioForPlayback()
                 saveProgress(reason: "bắt đầu phát")
+                PlaylistPlaybackCoordinator.shared.audioItemDidStartPlaying(in: self)
             }
         case .waitingToPlayAtSpecifiedRate:
             if phase == .playing || phase == .paused { phase = .buffering }

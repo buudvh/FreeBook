@@ -39,6 +39,20 @@ final class VideoWatchModel {
         let muted: Bool
     }
 
+    /// Lượt mở một mục của **playlist phim** (`PlaylistPlaybackCoordinator`): phát luôn dù tắt "Tự phát khi mở phim", đúng
+    /// tập của mục (link tập trước, `request.episodeIndex` sau — không có ⇒ báo lỗi, coordinator bỏ qua), từ giây 0
+    /// (`+Playlist`). `token` đổi mỗi lượt chuyển mục: coordinator đã sang mục khác ⇒ model này không mở phiên nữa.
+    struct PlaylistStart: Equatable {
+        let token: UUID
+        let episodeUrl: String
+        /// `nil` ⇒ theo `VideoMutePolicy` (mục đầu); còn lại giữ tiếng của phim vừa xem.
+        let muted: Bool?
+        let keepsSleepTimer: Bool
+        let isUserInitiated: Bool
+        /// Dòng báo khi phim bắt đầu phát ("Bỏ qua <tên>: <lý do>" của mục lỗi trước đó).
+        let notice: String?
+    }
+
     private(set) var request: VideoWatchRequest
     /// Chỉ đổi khi thay phim (`replace`) hoặc khi lúc phát thấy nơi khác đã tạo `Book` cùng link (`+Playback`).
     var bookId: String
@@ -91,6 +105,8 @@ final class VideoWatchModel {
     @ObservationIgnored var didConsiderAutoplay = false
     /// Khác `nil` ⇒ lượt tự phát kế tiếp là tự sang phim đề xuất (`considerAutoplay`, `+Playback`). Dùng xong thì về `nil`.
     @ObservationIgnored var autoNext: AutoNextStart?
+    /// Khác `nil` ⇒ lượt tự phát kế tiếp là mục của playlist phim (`+Playlist`). Dùng xong (mở phiên / lỗi) thì về `nil`.
+    @ObservationIgnored var playlistStart: PlaylistStart?
 
     init(request: VideoWatchRequest, modelContainer: ModelContainer) {
         self.request = request
@@ -152,9 +168,15 @@ final class VideoWatchModel {
 
     /// Thay sang phim khác **ngay tại màn** (Đề xuất): phiên phát giữ phim cũ tới khi phim mới được phát. `autoNext` khác
     /// `nil` ⇒ tự sang phim đề xuất khi hết phim (`VideoAutoNextCoordinator`): phim mới phát ngay khi sẵn sàng.
-    func replace(with newRequest: VideoWatchRequest, autoNext newAutoNext: AutoNextStart? = nil) {
+    /// `playlistStart` khác `nil` ⇒ mục kế của playlist phim (`PlaylistPlaybackCoordinator`), cũng phát ngay.
+    func replace(
+        with newRequest: VideoWatchRequest,
+        autoNext newAutoNext: AutoNextStart? = nil,
+        playlistStart newPlaylistStart: PlaylistStart? = nil
+    ) {
         cancel()
         autoNext = newAutoNext
+        playlistStart = newPlaylistStart
         request = newRequest
         bookId = Self.resolvedBookId(for: newRequest, in: modelContainer)
         title = newRequest.title ?? ""
@@ -198,6 +220,10 @@ final class VideoWatchModel {
     func considerAutoplay() {
         guard !didConsiderAutoplay, phase == .ready else { return }
         didConsiderAutoplay = true
+        if playlistStart != nil {
+            startPlaylistItem()
+            return
+        }
         guard !ownsSession else { return }
         guard VideoAutoplayPolicy.isEnabled || autoNext != nil else {
             AppLogger.shared.log("🎬 [VideoWatch] Tắt tự phát ⇒ hiện bìa, chờ bấm phát")

@@ -129,6 +129,7 @@ extension AudioPlaybackSession {
         if player.timeControlStatus != .paused { player.pause() }
         AudioNowPlayingCoordinator.shared.release(handBackToTTS: true)
         syncMiniPlayerState()
+        notePlaylistFailure(message)
     }
 
     // MARK: - Nạp sẵn

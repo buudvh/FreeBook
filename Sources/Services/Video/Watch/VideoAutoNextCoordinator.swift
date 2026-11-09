@@ -41,6 +41,9 @@ final class VideoAutoNextCoordinator {
 
     // MARK: - Màn xem
 
+    /// Model của màn xem đang hiện — `PlaylistPlaybackCoordinator` đổi chính màn đó sang mục kế của playlist phim.
+    var visibleScreenModel: VideoWatchModel? { screenModel }
+
     func noteScreen(_ model: VideoWatchModel, isVisible: Bool) {
         if isVisible {
             screenModel = model

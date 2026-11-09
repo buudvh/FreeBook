@@ -27,8 +27,8 @@ struct VideoPlayerBottomBar: View {
                     controller.showControls()
                 }
                 Spacer(minLength: 0)
-                if session.nextEpisode != nil {
-                    VideoPlayerIconButton(systemName: "forward.end.fill", label: "Tập kế") {
+                if session.canPlayNext {
+                    VideoPlayerIconButton(systemName: "forward.end.fill", label: session.isInPlaylistMode ? "Mục kế trong playlist" : "Tập kế") {
                         session.playNextEpisode()
                         controller.showControls()
                     }

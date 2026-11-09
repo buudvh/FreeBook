@@ -7,11 +7,13 @@ import SwiftUI
 ///   tay nắm đổi thứ tự, "Xong" ở header để thoát. Header chỉ có quay lại + `…` (chuẩn màn danh sách).
 /// - Ngăn kéo `…`: Sắp xếp lại, Đổi tên, Xoá playlist (hỏi trước — `PlaylistManageAlertsModifier`).
 /// - Công tắc NSFW tắt ⇒ ẩn mục của nguồn NSFW; xoá / đổi thứ tự theo **id** nên mục đang ẩn giữ nguyên chỗ.
-/// - Chạm một mục chưa làm gì (phát playlist là phần sau).
+/// - Phát (`PlaylistPlaybackLauncher`): hàng "Phát tất cả" / "Phát ngẫu nhiên" dưới đầu trang; chạm một mục ⇒ phát playlist
+///   từ mục đó (tra theo id — vị trí trên màn ≠ vị trí trong `items`). Mục đang phát của playlist này tô màu nhấn.
 struct PlaylistDetailView: View {
     let playlistId: UUID
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     @State private var editMode: EditMode = .inactive
     @State private var showingMenu = false
@@ -65,24 +67,34 @@ struct PlaylistDetailView: View {
 
     private func content(_ playlist: Playlist) -> some View {
         let items = PlaylistRepository.visibleItems(of: playlist, includeNsfw: includeNsfw)
+        let playingId = playingItemId(of: playlist)
         return List {
             PlaylistDetailHeader(playlist: playlist, visibleItems: items)
                 .bookListPanelRowChrome()
-            // Hàng nút phát playlist (Phát tất cả / Phát ngẫu nhiên) đặt ngay dưới đầu trang này.
             if items.isEmpty {
                 emptyRow(playlist.kind)
                     .bookListPanelRowChrome()
             } else {
+                PlaylistPlayButtonsRow(isDisabled: editMode.isEditing) { shuffled in
+                    play(playlist, from: nil, shuffled: shuffled)
+                }
+                .bookListPanelRowChrome()
                 ForEach(Array(items.enumerated()), id: \.element.id) { offset, item in
-                    PlaylistItemRow(item: item, kind: playlist.kind, position: offset + 1)
-                        .bookListPanelRow()
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                remove([item.id])
-                            } label: {
-                                Label("Xoá khỏi playlist", systemImage: "trash")
-                            }
+                    Button {
+                        guard !editMode.isEditing else { return }
+                        play(playlist, from: item.id, shuffled: nil)
+                    } label: {
+                        PlaylistItemRow(item: item, kind: playlist.kind, position: offset + 1, isCurrent: item.id == playingId)
+                    }
+                    .buttonStyle(.plain)
+                    .bookListPanelRow()
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            remove([item.id])
+                        } label: {
+                            Label("Xoá khỏi playlist", systemImage: "trash")
                         }
+                    }
                 }
                 .onDelete { offsets in
                     remove(Set(offsets.map { items[$0].id }))
@@ -149,6 +161,20 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Thao tác
+
+    /// `shuffled`: "Phát tất cả" (`false`) / "Phát ngẫu nhiên" (`true`); chạm một mục (`nil`) — nhạc giữ xáo đang dùng,
+    /// phim phát theo thứ tự.
+    private func play(_ playlist: Playlist, from itemId: UUID?, shuffled: Bool?) {
+        PlaylistPlaybackLauncher.play(playlist, startingAt: itemId, shuffled: shuffled, modelContainer: modelContext.container)
+    }
+
+    /// Mục đang phát nếu playlist này đang được phát (theo loại).
+    private func playingItemId(of playlist: Playlist) -> UUID? {
+        let coordinator = PlaylistPlaybackCoordinator.shared
+        let queue = playlist.kind == .audio ? coordinator.audioQueue : coordinator.videoQueue
+        guard let queue, queue.playlistId == playlist.id else { return nil }
+        return queue.currentItemId
+    }
 
     private func remove(_ ids: Set<UUID>) {
         if case .failure(let error) = PlaylistCoordinator.shared.removeItems(ids: ids, from: playlistId) {

@@ -20,6 +20,7 @@ extension VideoPlaybackSession {
         guard !episodes.isEmpty else {
             AppLogger.shared.log("❌ [VideoPlayer] Phim không có tập nào để phát (bookId=\(launch.bookId))")
             phase = .failed("Phim chưa có tập nào.")
+            notePlaylistFailure("Phim chưa có tập nào.")
             return
         }
         if currentEpisode == nil || currentEpisode?.isSection == true {
@@ -158,12 +159,19 @@ extension VideoPlaybackSession {
             if case .failed = phase { retry() }
             return
         }
+        // Tập người dùng chọn ⇒ ngoài hàng đợi playlist: thôi chế độ playlist (chuyển mục của playlist đi `playPlaylistEpisode`).
+        if isInPlaylistMode { PlaylistPlaybackCoordinator.shared.endVideo(reason: "chọn tập khác") }
         saveProgress(reason: "đổi tập")
         beginUserRequestedPlayback()
         beginEpisodeLoad(episode.index, resumeSeconds: 0)
     }
 
     func playNextEpisode() {
+        // Chế độ playlist: ⏭ (thanh dưới, màn khoá) sang mục kế của playlist.
+        if isInPlaylistMode {
+            PlaylistPlaybackCoordinator.shared.videoNext(in: self)
+            return
+        }
         guard let next = nextEpisode else { return }
         AppLogger.shared.log("⏭️ [VideoPlayer] Sang tập kế: \(next.index)")
         selectEpisode(next)
@@ -206,8 +214,8 @@ extension VideoPlaybackSession {
         loadTask = Task { [weak self] in
             await self?.runEpisodeLoad(generation: generation)
         }
-        // Tập cuối ⇒ tải sẵn phim đề xuất cho lượt tự sang lúc hết phim.
-        if nextEpisode == nil, let launch {
+        // Tập cuối ⇒ tải sẵn phim đề xuất cho lượt tự sang lúc hết phim (phát playlist thì không tự sang).
+        if nextEpisode == nil, !isInPlaylistMode, let launch {
             VideoAutoNextCoordinator.shared.prepare(for: launch)
         }
     }
@@ -330,5 +338,6 @@ extension VideoPlaybackSession {
         phase = .failed(message, link: link)
         // Không còn item phát ⇒ không giữ phiên màn khoá (TTS dựng lại lệnh của nó nếu đang có widget).
         VideoNowPlayingCoordinator.shared.release(handBackToTTS: true)
+        notePlaylistFailure(message)
     }
 }

@@ -25,13 +25,17 @@ final class VideoWatchPresenter {
 
     private init() {}
 
+    /// `playlistStart` (phát playlist phim — `PlaylistPlaybackLauncher`): model mở đúng mục đó, phát luôn dù tắt tự phát.
     static func present(
         _ request: VideoWatchRequest,
         modelContainer: ModelContainer,
         animated: Bool = true,
+        playlistStart: VideoWatchModel.PlaylistStart? = nil,
         completion: (() -> Void)? = nil
     ) {
-        shared.present(request, container: modelContainer, animated: animated, retryCount: 0, completion: completion)
+        shared.present(
+            request, container: modelContainer, animated: animated, playlistStart: playlistStart, retryCount: 0, completion: completion
+        )
     }
 
     /// Mở lại phim đang chạy (hub / cửa sổ nhỏ). Màn xem của router đang hiện bìa phim khác ⇒ đổi chính màn đó sang phim
@@ -68,6 +72,7 @@ final class VideoWatchPresenter {
         _ request: VideoWatchRequest,
         container: ModelContainer,
         animated: Bool,
+        playlistStart: VideoWatchModel.PlaylistStart?,
         retryCount: Int,
         completion: (() -> Void)?
     ) {
@@ -75,17 +80,21 @@ final class VideoWatchPresenter {
             host.dismiss(animated: false) {
                 MainActor.assumeIsolated {
                     VideoWatchPresenter.shared.present(
-                        request, container: container, animated: animated, retryCount: retryCount, completion: completion
+                        request, container: container, animated: animated, playlistStart: playlistStart,
+                        retryCount: retryCount, completion: completion
                     )
                 }
             }
             return
         }
         guard let top = Self.readyTopViewController(retryCount: retryCount, retry: { next in
-            VideoWatchPresenter.shared.present(request, container: container, animated: animated, retryCount: next, completion: completion)
+            VideoWatchPresenter.shared.present(
+                request, container: container, animated: animated, playlistStart: playlistStart, retryCount: next, completion: completion
+            )
         }, onGiveUp: { completion?() }) else { return }
 
         let model = VideoWatchModel(request: request, modelContainer: container)
+        model.playlistStart = playlistStart
         let host = VideoPlayerHostingController(rootView: AnyView(EmptyView()))
         host.modalPresentationStyle = .overFullScreen
         host.modalPresentationCapturesStatusBarAppearance = true

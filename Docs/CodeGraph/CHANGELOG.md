@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.805] - 2026-11-09
+
+### feat: phát playlist nhạc và video, hết bài hoặc tập sang mục kế, lặp và xáo cả playlist, bỏ qua mục hỏng
+
+Phần 2 của plan "Playlist nhạc và video (tạo, sửa, xoá, phát)" anh Bửu đã duyệt (phần 1 = 1.3.802): **phát playlist** bằng trình nghe / màn xem sẵn có, đúng bài / tập đã lưu.
+
+- **`PlaylistPlaybackCoordinator`** (mới, `Services/Playlists/`, `@MainActor @Observable`, + `+Audio` / `+Video`): chủ duy nhất của chế độ phát playlist — một hàng đợi nhạc, một hàng đợi phim (`PlaylistPlaybackQueue`, mới: mục còn hiện đã lọc NSFW theo thứ tự người dùng xếp + thứ tự phát của vòng hiện tại; xáo = hoán vị bắt đầu bằng mục đang phát; tra lại playlist **theo id** mỗi lần chuyển mục — mục bị xoá giữa chừng thì mục kế là mục đứng ở chỗ đó, playlist bị xoá ⇒ phát nốt mục hiện tại rồi dừng). Chỉ ở RAM. Hai phiên phát chỉ **hỏi** coordinator ở các chỗ chuyển bài / tập nên nút trên màn, thanh mini, màn khoá, tai nghe đều đi theo playlist.
+- **Trang chi tiết playlist**: hàng **Phát tất cả** (`.appFilled`) / **Phát ngẫu nhiên** (`PlaylistPlayButtonsRow`) ngay dưới đầu trang; chạm một mục ⇒ phát playlist từ mục đó (tra theo id; không chạy khi đang "Sắp xếp lại"); mục đang phát tô màu nhấn + icon loa. Lối vào duy nhất từ View: `PlaylistPlaybackLauncher` (nhạc ⇒ màn nghe trang Đĩa qua `AudioPlayerPresenter.reopen`; phim ⇒ `VideoWatchPresenter.present(playlistStart:)`).
+- **Nhạc**: mục cùng album đang mở ⇒ chuyển bài trong phiên (`AudioPlaybackSession+Playlist.playPlaylistTrack`, nạp sẵn được bài kế cùng album); khác album ⇒ `stopSession(keepsPlaybackSession: true)` + giữ hẹn giờ mốc phút + `open(fromPlaylist: true)` như `AudioAutoNextCoordinator` (giữ `AVAudioSession` + màn khoá, cả khi ở nền — lượt chuyển trong background task tới khi mục mới phát). `AudioListenRequest.playlistTrackUrl` (mới): bài phải đúng mục — link bài trước, chỉ số sau, không còn ⇒ lỗi chứ không phát bài khác; luôn từ giây 0. Lặp **Tắt / Playlist / Một bài** (`album` của phiên đọc là "Lặp playlist" — `AudioRepeatMode.title(inPlaylist:)`, `repeatModeTitle`), xáo áp cho cả playlist; ngoài playlist giữ Tắt / Album / Một bài. Hết bài ⇒ mục kế, **không** sang bài kế của album, **không** tự phát gợi ý (`AudioAutoNextCoordinator` đứng ngoài ở `trackLoadDidBegin` / `albumDidEnd` / `upNextLink`). Trang **Danh sách** của màn nghe ⇒ `AudioPlaylistQueueList` (mới): "Phát từ playlist <tên>", các mục theo thứ tự playlist, mục đang phát theo id, chạm ⇒ nhảy tới mục; không có phần gợi ý.
+- **Phim**: mục cùng phim đang mở ⇒ chuyển tập trong phiên (`VideoPlaybackSession+Playlist.playPlaylistEpisode`, không thoát chế độ như `selectEpisode`); phim khác ⇒ màn xem đang hiện mục của playlist đổi tại chỗ (`VideoWatchModel.replace(playlistStart:)`), không màn ⇒ `VideoWatchModel` không màn (khuôn `VideoAutoNextCoordinator`; lấy màn đang hiện qua `visibleScreenModel`). `VideoWatchModel.PlaylistStart` (mới): phát luôn dù tắt tự phát, đúng tập (link trước, chỉ số sau — `VideoWatchModel+Playlist`), giây 0, giữ tiếng + hẹn giờ của phim vừa xem; `token` mỗi lượt — coordinator đã sang mục khác ⇒ model cũ không mở phiên. Hết tập ⇒ mục kế (không lặp, không sang tập kế, không tự sang phim đề xuất — nhánh "hết tập" dời sang `+Playlist.advanceAfterEpisodeEnded` cho `+Playback` dưới 400 dòng). Màn xem có dải **"Playlist <tên> · 3/12"** + nút mục kế ngay dưới khối tên (`VideoWatchPlaylistBar`); ⏭ của thanh dưới và màn khoá cũng sang mục kế (`canPlayNext`). Phim chưa mở phiên sau 90 giây mà không còn màn xem đang hiện ⇒ thôi chế độ playlist.
+- **Mục hỏng** (tiện ích gỡ, link / nạp lỗi, không còn bài / tập): chờ 0,7 s, vẫn lỗi (người dùng chưa "Thử lại") ⇒ "Bỏ qua <tên>: <lý do>" (nhạc: `AudioPlaybackNotice`; phim: `playbackNotice`, phim mới hiện khi bắt đầu phát) rồi mục kế; hỏng liên tiếp đủ số mục ⇒ "Không phát được mục nào trong playlist <tên>", thôi chế độ playlist — không lặp vô hạn kể cả khi lặp playlist. Phim đang giữ âm thanh (nhạc) / TTS đang đọc (phim) ⇒ không tự mở mục kế (mở là bắt bên kia nhường): để mục lỗi, hết bài thì dừng ở cuối. Hẹn giờ "Hết bài" / "Hết tập" vẫn dừng ở cuối, không sang mục kế.
+- **Thoát chế độ playlist**: mở album / phim bình thường (`open` không cờ playlist — Kệ, Khám phá, Tìm, gợi ý, đề xuất), chọn bài của album / chọn tập khác, đóng hẳn trình nghe / trình phát, TTS giành trình nghe.
+- `CLAUDE.md` / `AGENTS.md`: gạch "Phát playlist" ở mục Âm thanh + một gạch ở Comic & Video. Chuyển `[1.3.775]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo mọi nơi gọi `AudioPlaybackSession.open`, `VideoPlaybackSession.open`, `VideoWatchModel.replace`, `VideoWatchPresenter.present`, `AudioListenRequest(`, `selectEpisode`, `playNextEpisode`, `nextEpisode`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 299 dòng, một type chính; `VideoPlaybackSession+Playback` 392, `AudioPlaybackSession` 389). Không build tại chỗ (Windows), chưa thử máy: chuyển mục khác album / khác phim khi app ở nền và trên màn khoá, bỏ qua mục lỗi, mở lại màn xem từ hub giữa lúc mục phim kế đang tải.
+
 ## [1.3.804] - 2026-11-09
 
 ### fix: thanh widget TTS kiểu nghe nhạc chỉ ghi tên chương, bỏ tiền tố Ch. N
@@ -369,15 +384,3 @@ Người dùng: *"phần genres ở trình xem video (thanh các tag dạng #tê
 
 - `VideoWatchTitleBlock`: hàng nhãn `#ThểLoại` hiện **mọi** thể loại (bỏ giới hạn 4), mỗi nhãn đủ chữ (bỏ cắt đuôi), nằm trong `ScrollView` ngang không thanh cuộn; hàng cuộn tràn sát hai mép màn, nhãn đầu vẫn thẳng lề 16 với tên phim.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.775] - 2026-11-07
-
-### feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống
-
-Người dùng: *"khi bấm vào home thì tình trạng video là pip hay vào hub sẽ theo config vuốt xuống trình phát"*.
-
-- Nút Home "Về Khám phá" của màn xem phim và nút Home nổi của trang đè lên màn xem (thể loại / Chi tiết) thu nhỏ phim theo **Cài đặt › Video › Vuốt xuống trình phát** (`VideoMinimizePolicy`: riêng phim thường / phim 18+, tiện ích ghi đè được): cửa sổ nhỏ (đang ngang / toàn màn thì xoay về dọc trước) hoặc hub (khung phim bay vào nút hub). Phim nhúng trang luôn vào hub; màn đang hiện bìa chỉ đóng màn. Trước đây Home luôn đóng màn ⇒ hub.
-- `VideoPlayerScreen+Exit.minimizeByPolicy`; `minimizeToHub` / `flyToHub` nhận `then` (về Khám phá / gốc tab sau khi màn đã đóng hẳn).
-- Phim 18+: Home vẫn tắt NSFW (1.3.769) — guard NSFW xin thu vào hub bị `VideoLeaveToHubCoordinator` bỏ qua trong 2 giây sau Home (`applyLeaveRules(keepsPlacement:)`) để cửa sổ nhỏ vừa mở theo cài đặt không bị kéo vào hub.
-- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: Home lúc đang ngang với cài đặt cửa sổ nhỏ.

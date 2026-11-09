@@ -28,6 +28,11 @@ enum AudioRepeatMode: String, CaseIterable, Sendable {
         }
     }
 
+    /// Tên trên nút lặp; đang phát playlist (`PlaylistPlaybackCoordinator`) thì `album` lặp cả playlist.
+    func title(inPlaylist: Bool) -> String {
+        inPlaylist && self == .album ? "Lặp playlist" : title
+    }
+
     /// SF Symbol của nút lặp (`off` dùng cùng icon với `album`, UI làm mờ).
     var symbolName: String {
         switch self {

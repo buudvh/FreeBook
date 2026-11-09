@@ -40,7 +40,7 @@ struct AudioTransportControls: View {
                 modeButton(
                     systemImage: session.repeatMode.symbolName,
                     isOn: session.repeatMode != .off,
-                    label: session.repeatMode.title
+                    label: session.repeatModeTitle
                 ) { session.cycleRepeatMode() }
             }
         }
