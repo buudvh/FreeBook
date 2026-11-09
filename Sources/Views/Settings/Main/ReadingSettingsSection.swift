@@ -9,6 +9,8 @@ struct ReadingSettingsSection: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// `TTSManager` ghi khoá này mỗi khi đổi engine; mặc định `"system"` giống `TTSManager.init`.
     @AppStorage("ttsTool") private var ttsTool = "system"
+    /// Kiểu widget TTS (`TTSWidgetSettingsView`); khoá vắng ⇒ Đĩa nổi.
+    @AppStorage(TTSWidgetPreferences.styleKey) private var ttsWidgetStyle: TTSWidgetStyle = TTSWidgetPreferences.defaultStyle
     /// Mặc định `true` khớp `WebContentSettings.registerDefaults()`.
     @AppStorage(WebContentSettings.adBlockEnabledKey) private var adBlockEnabled = true
     /// Mặc định bật — khớp `ReaderSessionRestoreStore.isEnabled` (khoá chưa ghi = bật).
@@ -28,6 +30,13 @@ struct ReadingSettingsSection: View {
                     Text(TTSSettingsHubView.engineName(for: ttsTool))
                 } label: {
                     Label("Nghe truyện (TTS)", systemImage: "headphones")
+                }
+            }
+            NavigationLink(destination: TTSWidgetSettingsView()) {
+                LabeledContent {
+                    Text(ttsWidgetStyle.title)
+                } label: {
+                    Label("Widget TTS", systemImage: "rectangle.bottomthird.inset.filled")
                 }
             }
             NavigationLink(destination: AISettingsView()) {

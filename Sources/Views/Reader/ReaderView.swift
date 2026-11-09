@@ -821,6 +821,7 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
+            ReaderPresenceTracker.shared.readerDidAppear(bookId: bookId)
             AIRuntimeCoordinator.shared.activeReaderBookId = bookId
             isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
@@ -830,6 +831,7 @@ struct ReaderView: View {
             if let vm = viewModel { viewModelRelay.observe(vm) }
         }
         .onDisappear {
+            ReaderPresenceTracker.shared.readerDidDisappear(bookId: bookId)
             // Trình duyệt "Mở link lỗi" che màn (không phải rời Reader): không `shutdown`, không tải lại khi hiện lại.
             if openingChapterErrorLink != nil {
                 skipsReappearBootstrap = true

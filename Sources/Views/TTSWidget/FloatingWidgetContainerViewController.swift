@@ -5,10 +5,10 @@ import SwiftData
 
 /// View controller quản lý widget container, cử chỉ UIPan / UITap và animation chuyển đổi vị trí/kích thước.
 @MainActor
-final class FloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate {
+final class FloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate, TTSFloatingWidgetContaining {
     private let viewModel = FloatingWidgetViewModel()
-    private let rotationState = CoverRotationState()
-    private var lastDistinctBookId: String = ""
+    /// Góc đĩa dùng chung với kiểu Thanh nghe nhạc (đổi kiểu không giật về 0); đồng bộ phát/đổi truyện nằm ở đó.
+    private let rotationState = TTSWidgetCoverRotation.shared.state
     let widgetContainerView = UIView()
     private var hostingController: UIHostingController<AnyView>?
     private var panStartCenter: CGPoint = .zero
@@ -94,29 +94,6 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
             .sink { [weak self] _ in
                 guard let self, !self.viewModel.isDragging else { return }
                 self.updateLayoutForCurrentMode(animated: true)
-            }
-            .store(in: &cancellables)
-
-        TTSManager.shared.$isPlaying
-            .receive(on: RunLoop.main)
-            .sink { [weak self] isPlaying in
-                self?.rotationState.syncPlaybackState(isPlaying: isPlaying, at: Date())
-            }
-            .store(in: &cancellables)
-
-        TTSManager.shared.$playingBookId
-            .receive(on: RunLoop.main)
-            .sink { [weak self] newBookId in
-                guard let self else { return }
-                guard !newBookId.isEmpty else { return }
-                if !self.lastDistinctBookId.isEmpty {
-                    if self.lastDistinctBookId != newBookId {
-                        self.lastDistinctBookId = newBookId
-                        self.rotationState.resetAngle(isPlaying: TTSManager.shared.isPlaying, at: Date())
-                    }
-                } else {
-                    self.lastDistinctBookId = newBookId
-                }
             }
             .store(in: &cancellables)
     }

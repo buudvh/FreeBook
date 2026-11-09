@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.766] - 2026-11-07
+
+### feat: kiểu Lưới và Chỉ bìa chọn được 1 cột
+
+Người dùng: *"Cho kiểu hiển thị lưới và chỉ bìa hiển thị được số cột là 1 luôn"*.
+
+- Bước "Số cột" của kiểu Lưới / Chỉ bìa (sheet Kiểu hiển thị và Cài đặt › Giao diện › Kiểu hiển thị) chọn được **1…5** cột (trước 2…5; `BookListLayoutPreferences.columnRange`). 1 cột = bìa tràn bề ngang, truyện chữ/tranh đứng 2:3, video ngang 16:9.
+- Đã rà các lưới dùng số cột (Kệ / Lịch sử / Bộ sưu tập, Khám phá, Thể loại / Xem thêm, Tìm trong một nguồn, khung chờ lưới): không chỗ nào ngầm đòi từ 2 cột; ảnh bìa tải theo cỡ khung nên không mờ.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.765] - 2026-11-07
 
 ### feat: kéo cửa sổ phim nhỏ lên nút hub để thu vào hub, vuốt xuống theo tay, không nhớ vị trí, thu nhỏ không dừng phim

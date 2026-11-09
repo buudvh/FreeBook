@@ -12,8 +12,6 @@ struct AudioMiniPlayerBar: View {
     @ObservedObject private var state = AudioMiniPlayerState.shared
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
-    private static let cornerRadius: CGFloat = 14
-
     var body: some View {
         if state.isActive, !state.isScreenPresented {
             bar
@@ -59,26 +57,23 @@ struct AudioMiniPlayerBar: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityHint("Mở màn nghe")
 
-            controlButton(
+            MiniPlayerControlButton(
                 systemImage: state.isPlaying ? "pause.fill" : "play.fill",
                 label: state.isPlaying ? "Tạm dừng" : "Phát",
                 showsProgress: state.isLoading && !state.isPlaying
             ) { state.onTogglePlay?() }
-            controlButton(systemImage: "forward.end.fill", label: "Bài sau") { state.onNext?() }
+            MiniPlayerControlButton(systemImage: "forward.end.fill", label: "Bài sau") { state.onNext?() }
                 .disabled(!state.hasNextTrack)
                 .opacity(state.hasNextTrack ? 1 : 0.4)
-            controlButton(systemImage: "xmark", label: "Dừng hẳn trình nghe") {
+            MiniPlayerControlButton(systemImage: "xmark", label: "Dừng hẳn trình nghe") {
                 AppLogger.shared.log("🎵 [AudioPlayerUI] Dừng hẳn từ thanh mini")
                 state.onStop?()
             }
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 4)
-        .frame(height: 56)
-        .background(FloatingGlassBackground(shape: AnyShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))))
-        .overlay(alignment: .top) { progressLine }
-        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
-        .environment(\.colorScheme, .dark)
+        // Dáng chung với kiểu "Thanh nghe nhạc" của widget TTS (1.3.796): 56 pt, bo 14, nền kính, vạch tiến độ trên.
+        .miniPlayerBarChrome {
+            MiniPlayerProgressLine(fraction: state.progress)
+        }
     }
 
     /// Đĩa tròn 40 pt xoay khi đang phát (cùng góc với trang Đĩa); album 18+ lúc NSFW tắt ⇒ không tải / không hiện bìa.
@@ -90,40 +85,5 @@ struct AudioMiniPlayerBar: View {
             isRotating: state.isPlaying,
             isConcealed: isConcealed
         )
-    }
-
-    private var progressLine: some View {
-        GeometryReader { proxy in
-            Capsule()
-                .fill(.tint)
-                .frame(width: proxy.size.width * min(1, max(0, state.progress)), height: 2)
-        }
-        .frame(height: 2)
-        .padding(.horizontal, Self.cornerRadius / 2)
-        .accessibilityHidden(true)
-    }
-
-    private func controlButton(
-        systemImage: String,
-        label: String,
-        showsProgress: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            ZStack {
-                if showsProgress {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                }
-            }
-            .frame(width: 38, height: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 }

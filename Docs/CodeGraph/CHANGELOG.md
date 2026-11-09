@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.796] - 2026-11-09
+
+### feat: widget TTS thêm kiểu Thanh nghe nhạc trên thanh tab, thu gọn được, chọn ở Cài đặt
+
+Anh Bửu duyệt plan: widget TTS có thêm kiểu giống thanh phát mini nghe nhạc (đĩa tròn xoay), có nút thu gọn, chọn trong cài đặt. Kiểu cũ giữ nguyên làm mặc định.
+
+- **Cài đặt › Đọc & Nghe › Widget TTS** (`TTSWidgetSettingsView`, mới; hàng mới ở `ReadingSettingsSection` hiện kiểu đang chọn): Kiểu widget = **Đĩa nổi** (như trước, mặc định) / **Thanh nghe nhạc**; chọn Thanh thì có thêm "Thu gọn khi mở Reader" (mặc định bật) và "Tự thu gọn sau 5 giây" (mặc định tắt). Khoá `ttsWidgetStyle`, `ttsWidgetBarCollapsesInReader`, `ttsWidgetBarAutoCollapse` (không dấu chấm); tầng chạy đọc qua `TTSWidgetPreferences` (nạp lại theo `UserDefaults.didChangeNotification`, chỉ phát khi giá trị khác). Đổi kiểu ⇒ `TTSFloatingWidgetWindowManager` thay root view controller của cửa sổ widget ngay (cửa sổ, luật hiện/ẩn giữ nguyên).
+- **Cửa sổ dùng chung**: `FloatingWidgetUIWindow` giữ `any TTSFloatingWidgetContaining` (protocol mới) và hit-test theo `widgetContainerView` của container ⇒ chỉ nhận chạm trong thanh / viên, phần còn lại chạm xuyên xuống app. Góc đĩa bìa dời ra `TTSWidgetCoverRotation.shared` (trước nằm trong container Đĩa nổi) để đổi kiểu không giật góc; container Đĩa nổi chỉ đổi chỗ lấy `CoverRotationState`, hành vi giữ nguyên.
+- **Thanh** (`TTSWidgetBarContainerViewController` + `TTSWidgetBarView`): cùng dáng thanh mini nhạc — tách dáng chung ra `Views/Common/MiniPlayerBar/` (`MiniPlayerBarChrome` 56 pt bo 14 nền kính theo độ trong suốt đã cài, `MiniPlayerProgressLine`, `MiniPlayerControlButton`); `AudioMiniPlayerBar` chuyển sang dùng, hiển thị không đổi. Nội dung: đĩa bìa xoay · tên truyện / "Ch. N · tên chương" (đã dịch theo phiên TTS, `TTSWidgetBarInfoReader` chỉ tính lại khi đổi truyện/chương) + viên phút hẹn giờ còn lại · ⏯ · ⏭ (đoạn kế) · ⏱ (sheet Hẹn giờ, Cài đặt TTS mở từ đó như cũ) · ✕ (dừng) · vạch mảnh · ô » hẹp sát mép phải. Vạch tiến độ chương (đoạn đang đọc / tổng đoạn) ở mép trên là view riêng tự observe (`TTSWidgetBarProgressLine`) — thân thanh không vẽ lại theo từng đoạn. Chạm bìa hoặc chữ ⇒ mở chương đang đọc (`openCurrentlyPlayingReader`).
+- **Vị trí**: mặc định ngay trên `MainTabBar` (khe 6 pt, lề ngang 8 pt như thanh nhạc — nhạc và TTS không cùng phát nên không đè). Kéo dọc để đổi chỗ, thả tay thì nhớ (khoảng cách tới đáy vùng an toàn: `ttsWidgetBarBottomGap`, viên riêng `ttsWidgetBarPillBottomGap`), luôn kẹp trong vùng an toàn; xoay màn / đổi vùng an toàn đặt lại khung.
+- **Thu gọn** (`TTSWidgetBarViewModel`): » hoặc vuốt thanh sang ngang ⇒ **viên nép mép phải** (`TTSWidgetBarPillView`: đĩa xoay + ⏯, chỉ kéo dọc), chạm đĩa ⇒ bung lại; nhớ đang thu hay bung (`ttsWidgetBarCollapsed`). "Thu gọn khi mở Reader": cờ nhẹ `ReaderPresenceTracker` (mới; `ReaderView` thêm đúng hai dòng ở đầu `onAppear` / `onDisappear`) ⇒ mở Reader tự thu, rời Reader bung lại nếu trước đó đang bung (cờ Reader không lưu); bấm đĩa trong Reader thì bung tới khi rời Reader. "Tự thu gọn sau 5 giây": bung mà 5 giây không bấm nút / không kéo ⇒ thu; sheet Hẹn giờ đang mở thì không đếm (sheet gắn ở gốc nội dung nên thu/bung không làm mất sheet).
+- **Giữ chỗ với widget nổi khác**: viên giữ chỗ mép phải trong `FloatingWidgetLayoutCoordinator`; thanh rộng cả hai mép nên gỡ chỗ `.tts`, nút hub tự né khi được thả / hiện ra.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ReaderView.swift` +2 dòng, dưới baseline). Không build tại chỗ (Windows). Chưa thử máy. Cần thử: thanh mặc định so với nút Home / "+" nổi ở trang đẩy vào và nút hub; viên thu gọn so với nút tai nghe / đĩa nhạc góc dưới phải của Reader; kéo dọc và vuốt ngang không cướp chạm của các nút trên thanh; Reader truyện tranh **không** tính là Reader (chỉ màn đọc truyện chữ).
+
 ## [1.3.795] - 2026-11-09
 
 ### feat: hẹn giờ tắt cho xem phim và nghe nhạc giống TTS
@@ -367,14 +381,3 @@ Người dùng: *"thêm size hiển thị của các layout của explore"*. Anh
 - Thanh trượt nấc dùng chung `LayoutLevelSlider` (cả "Cỡ dòng" của kiểu Danh sách).
 - Vài nấc trùng kết quả do kẹp 1…6 cột: lưới phim ngang ra 1 cột ở nấc 5–7, lưới tròn ra 6 cột ở nấc 1–2.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: kéo thanh trượt trong vùng cuộn của sheet nửa màn.
-
-## [1.3.766] - 2026-11-07
-
-### feat: kiểu Lưới và Chỉ bìa chọn được 1 cột
-
-Người dùng: *"Cho kiểu hiển thị lưới và chỉ bìa hiển thị được số cột là 1 luôn"*.
-
-- Bước "Số cột" của kiểu Lưới / Chỉ bìa (sheet Kiểu hiển thị và Cài đặt › Giao diện › Kiểu hiển thị) chọn được **1…5** cột (trước 2…5; `BookListLayoutPreferences.columnRange`). 1 cột = bìa tràn bề ngang, truyện chữ/tranh đứng 2:3, video ngang 16:9.
-- Đã rà các lưới dùng số cột (Kệ / Lịch sử / Bộ sưu tập, Khám phá, Thể loại / Xem thêm, Tìm trong một nguồn, khung chờ lưới): không chỗ nào ngầm đòi từ 2 cột; ảnh bìa tải theo cỡ khung nên không mờ.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-

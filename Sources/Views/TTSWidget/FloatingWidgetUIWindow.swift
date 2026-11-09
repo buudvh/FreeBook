@@ -4,7 +4,8 @@ import UIKit
 /// Overlay UIWindow có nền trong suốt, là ranh giới hit-testing duy nhất có thẩm quyền.
 @MainActor
 final class FloatingWidgetUIWindow: UIWindow, AppOverlayWindow {
-    weak var containerViewController: FloatingWidgetContainerViewController?
+    /// Kiểu Đĩa nổi hoặc Thanh nghe nhạc (`TTSFloatingWidgetContaining`); hit-test theo `widgetContainerView` của nó.
+    weak var containerViewController: (any TTSFloatingWidgetContaining)?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         // Khi container đang hiển thị confirmationDialog, alert hoặc sheet, cho phép touch đầy đủ để tương tác dialog
