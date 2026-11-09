@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.813] - 2026-11-09
+
+### fix: đĩa nghe góc dưới giống nút nổi khác, vòng kính theo độ trong suốt và độ đục, bìa luôn rõ
+
+Anh Bửu: *"áp dụng theo cài độ trong suốt, độ đục như nút khác"*. Bản 1.3.812 cho cả **bìa** mờ theo "Độ trong suốt" (bìa hiện `1 − độ trong suốt`) ⇒ ở mức mặc định 90% bìa chỉ còn thấy ~10%, gần như tàng hình.
+
+- `MediaDiscFaceButton(.corner)`: bỏ lớp mờ của bìa. Vòng kính `FloatingGlassBackground` vẫn theo "Độ trong suốt" + "Độ đục" của nút nổi (Cài đặt › Chung › Giao diện); bìa luôn rõ như icon của nút "+" / Home.
+- `CLAUDE.md` / `AGENTS.md`: sửa câu mô tả độ trong suốt của đĩa góc.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.812] - 2026-11-09
 
 ### feat: đĩa nghe ở ô giữa thanh tab, đĩa góc chỉ hiện ở màn không có thanh tab, nhấn giữ đĩa góc tạm lên header 5 giây
@@ -383,17 +393,3 @@ Phần 2/3 của tính năng trình nghe âm thanh cho tiện ích JS loại `au
 - **Tiến độ + Lịch sử**: `ReadingProgressStore.checkpoint` — `chapterIndex` = bài, `paragraphIndex` = **số giây**; lúc bắt đầu phát, tạm dừng, đổi bài, mỗi ~10 s, vào nền, đóng. Mở lại album ⇒ tiếp đúng bài + giây (request chỉ định bài thì theo request; `-1` = đầu bài).
 - **Cầu nối** `AudioMiniPlayerState` (`ObservableObject`, như `VideoMiniPlayerState`) + `presentScreenHandler` / `requestScreen` / `attachScreen` / `detachScreen` cho phần 3. `AudioListenRequest` dùng lại quy tắc id của `VideoWatchRequest`.
 - **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối UI/định tuyến (phần sau).
-
-## [1.3.783] - 2026-11-09
-
-### feat: danh sách tập phim chọn kiểu Lưới hoặc Danh sách như mục lục truyện, nhớ theo tiện ích
-
-Người dùng: *"sửa sheet danh sách tập có nút chọn layout của danh sách tập (có 2 loại là danh sách và lưới, danh sách thì giống mục lục truyện) nhớ lựa chọn layout theo tiện ích"*. Anh Bửu chọn: nhóm theo chip như Lưới; panel tập toàn màn dùng chung lựa chọn; duyệt mockup.
-
-- **Nút đổi kiểu** (`VideoPlayerIconButton`, 17 pt nửa đậm, 36 × 38; icon = kiểu sẽ chuyển sang: `list.bullet` / `square.grid.2x2`): sheet "Tất cả tập" (`VideoWatchEpisodeSheet`) — kiểu Lưới ở cạnh tiêu đề "Danh sách tập (N)", kiểu Danh sách đứng trước ↓↑ của đầu panel; panel tập khi xem toàn màn (`VideoEpisodePanel`) — cạnh nút ✕.
-- **Nhớ theo tiện ích** (`VideoEpisodeLayoutMode`, mới): từ điển UserDefaults `videoEpisodeLayoutByPackage` (`packageId` → `"list"`); chưa chọn / `packageId` rỗng ⇒ Lưới như cũ, chọn lại Lưới thì xoá mục. Sheet đọc `packageId` của phim của màn xem (`model.request.packageId`, truyền qua `VideoWatchEpisodeStrip`), panel đọc `session.launch?.extensionPackageId`. Thứ tự ↓↑ và từ khoá tìm không nhớ.
-- **Kiểu Danh sách** (`VideoEpisodeListView`, mới): hàng như mục lục comic/Reader — cột số `ChapterOrdinalLabel` (theo công tắc "Hiện số thứ tự chương"), tên tập 2 dòng, tập đang phát đậm + nền mờ, đã xem mờ, đã tải ⬇ xanh trong ô 30 × 30, nhấn giữ "Tải tập này / Xoá bản tải" (khi có `downloadActions`). Phim nhiều nhóm: chip nhóm như Lưới, mỗi nhóm đánh số lại từ 1; tìm và ↓↑ áp lên nhóm đang chọn. Sheet bọc trong panel Mục lục dùng chung (`ChapterTOCPanelHeader` "Mục lục (N tập)" + ô tìm, `.chapterTOCPanel(.reader(.dark))`); panel toàn màn hẹp nên chỉ chip + hàng. Dựng bằng `ScrollView` + `LazyVStack`, không tự `dismiss` (trong panel toàn màn sẽ đóng cả trình phát).
-- **Hàng chip nhóm** tách khỏi `VideoEpisodeGridView` thành `VideoEpisodeGroupTabs` (mới) để hai kiểu dùng chung; Lưới giữ y giao diện cũ, `VideoEpisodeGridView.label(of:)` chuyển tiếp sang đó.
-- Giữ nguyên: dải tập ngang của màn xem; lưới tập của `VideoPlayerDetailsView` (màn dọc cũ khi chưa có màn xem). "N" ở tiêu đề / ô tìm của kiểu Danh sách là mọi tập phát được (như tiêu đề Lưới), còn tìm chỉ trong nhóm đang chọn.
-- Chuyển `[1.3.753]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.

@@ -6,9 +6,8 @@ import SwiftUI
 /// Chạm ⇒ `MediaDiscWindowManager.presentQuickControls()`: sheet điều khiển nhanh luôn trình bày từ **cửa sổ của đĩa**
 /// (`MediaDiscSheetHost`) — một chỗ giữ sheet cho cả hai lối, và sheet không dính vào màn đang trình bày của cửa sổ chính.
 ///
-/// - `.corner`: nút 52 pt, vòng kính `FloatingGlassBackground` + bìa 44 pt. Cả vòng kính lẫn bìa theo **Độ trong suốt** của
-///   nút nổi (Cài đặt › Chung › Giao diện): bìa hiện `1 − độ trong suốt`, đúng như lớp màu của vòng kính; **Độ đục** là nhoè
-///   của vòng kính. Mờ gắn lên lớp bìa, **không** lên lớp cha của kính (alpha < 1 tắt nhoè).
+/// - `.corner`: nút 52 pt, vòng kính `FloatingGlassBackground` + bìa 44 pt. Giống hệt nút "+" / Home (1.3.813, anh Bửu): vòng
+///   kính theo **Độ trong suốt** và **Độ đục** của nút nổi (Cài đặt › Chung › Giao diện), bìa luôn rõ như icon của các nút đó.
 /// - `.tabBar`: bìa 32 pt gọn trong chiều cao thanh tab, không vòng kính, không mờ.
 struct MediaDiscFaceButton: View {
     enum Style {
@@ -19,8 +18,6 @@ struct MediaDiscFaceButton: View {
     let style: Style
 
     @ObservedObject private var manager = MediaDiscWindowManager.shared
-    @AppStorage(GlassChromeSettings.floatingTransparencyKey)
-    private var transparency = GlassChromeSettings.defaultFloatingTransparency
 
     static let tabBarDiscSize: CGFloat = 32
     private static let cornerCoverSize: CGFloat = 44
@@ -42,7 +39,6 @@ struct MediaDiscFaceButton: View {
             ZStack {
                 FloatingGlassBackground()
                 face(size: Self.cornerCoverSize, isOnScreen: manager.isDiscOnScreen)
-                    .opacity(coverOpacity)
             }
             .frame(width: MediaDiscPlacement.discSize, height: MediaDiscPlacement.discSize)
             .contentShape(Circle())
@@ -54,11 +50,6 @@ struct MediaDiscFaceButton: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
-    }
-
-    /// Bìa đĩa góc hiện theo đúng lớp màu của vòng kính: trong suốt 0 ⇒ rõ hẳn, 1 ⇒ trong hẳn.
-    private var coverOpacity: Double {
-        min(1, max(0, 1 - transparency))
     }
 
     @ViewBuilder
