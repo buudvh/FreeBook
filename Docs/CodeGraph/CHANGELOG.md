@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.807] - 2026-11-09
+
+### feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt
+
+Anh Bửu: *"thêm nút hẹn giờ vào thanh nghe nhạc mini của nghe nhạc"* và *"chỉ cần cao hơn browser được rồi"* (không làm cửa sổ nổi toàn app).
+
+- `AudioMiniPlayerBar`: thêm ⏱ giữa ⏭ và ✕ (4 nút rộng 36 pt như thanh widget TTS), chạm mở `MediaSleepTimerSheet` của trình nghe; đang hẹn ⇒ viên "⏱ m:ss" cạnh tên ca sĩ (`AudioMiniPlayerTimerBadge`, view riêng đọc `MediaSleepTimer` ⇒ thân thanh không vẽ lại mỗi giây).
+- Trình duyệt người dùng (`BypassWebView.browserArea`): đang có album ⇒ thanh nhạc mini nằm ngay trên thanh dưới, trang co lại chừa chỗ (không che); ẩn lúc gõ địa chỉ. Trang đẩy vào / sheet giữ như cũ.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.806] - 2026-11-09
 
 ### feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ
@@ -377,15 +387,4 @@ Người dùng: *"thêm filter, chỉ nfsw, không hiển thị nfsw, tất cả
 - Ngăn kéo "…" của tab Kệ Sách: công tắc NSFW chung được thay bằng nhóm **"NSFW"** ba hàng chọn (`SideDrawerOptionRow`): **Không hiển thị NSFW** (mặc định) · **Tất cả** · **Chỉ NSFW** (`ShelfNsfwFilter`). Công tắc NSFW chung vẫn ở Khám phá / Cài đặt.
 - **Độc lập** với công tắc chung: chỉ quyết định danh sách Kệ + Lịch sử (`ShelfBookPartition(nsfwFilter:)`); Bộ sưu tập / Tải / Tìm trên kệ vẫn theo công tắc chung. "NSFW" = truyện của nguồn NSFW hoặc truyện tự đánh dấu NSFW.
 - **Không lưu**: `ShelfNsfwFilterState` (singleton trong bộ nhớ, sống qua lần dựng lại tab) — mở app, app vào nền (khoá màn hình / về màn hình chính) hay bấm nút Home trong app (nút Home nổi, "Về Khám phá" của màn xem phim) đều về "Không hiển thị NSFW".
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.777] - 2026-11-07
-
-### feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim
-
-Người dùng: *"ở mọi nơi, chỉ cần nhấn nút home thì phải tắt nfsw (giống như đang ở màn hình xem phim của nfsw vậy)"*.
-
-- Mọi lối Home nổi (nút tròn của trang con, pill "Về trang gốc" trong menu "+", FAB Chi tiết, trang đè lên màn xem phim) chạy luật chung `VideoLeaveToHubCoordinator.applyLeaveRules` **trước** khi về trang gốc tab: công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang nguồn không 18+), phim 18+ đang phát tắt tiếng theo "Tắt tiếng khi mở phim" — như nút Home của màn xem phim. Gắn một chỗ ở `FloatingHomePlacement.homeAction`.
-- `keepsPlacement`: phim đang ở cửa sổ nhỏ / vừa thu nhỏ theo cài đặt vuốt xuống giữ nguyên chỗ, guard NSFW không kéo vào hub.
-- `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
