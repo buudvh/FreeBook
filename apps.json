@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.781",
+          "buildVersion": "1183",
+          "date": "2026-11-09T03:39:53Z",
+          "localizedDescription": "- fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1183/TangCongCac-1.3.781-1183.ipa",
+          "size": 38244532,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.780",
           "buildVersion": "1182",
           "date": "2026-11-08T05:22:08Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1178/TangCongCac-1.3.773-1178.ipa",
           "size": 38221507,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.765",
-          "buildVersion": "1177",
-          "date": "2026-11-07T03:19:49Z",
-          "localizedDescription": "- feat: kéo cửa sổ phim nhỏ lên nút hub để thu vào hub, vuốt xuống theo tay, không nhớ vị trí, thu nhỏ không dừng phim",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1177/TangCongCac-1.3.765-1177.ipa",
-          "size": 38170606,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.780",
-      "versionDate": "2026-11-08T05:22:08Z",
-      "versionDescription": "- feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1182/TangCongCac-1.3.780-1182.ipa",
-      "size": 38244422,
+      "version": "1.3.781",
+      "versionDate": "2026-11-09T03:39:53Z",
+      "versionDescription": "- fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1183/TangCongCac-1.3.781-1183.ipa",
+      "size": 38244532,
       "appPermissions": {}
     }
   ],
