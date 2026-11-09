@@ -8,15 +8,15 @@ import SwiftUI
 /// (`AudioPlayerSeekRow`) để cả màn không vẽ lại mỗi tick.
 ///
 /// Hai lối trình bày:
-/// - Presenter (`AudioPlayerPresenter`, item danh sách / mở lại từ thanh mini): `init(onDismiss:)` — đóng bằng closure
+/// - Presenter (`AudioPlayerPresenter`, item danh sách / mở lại từ đĩa góc dưới): `init(onDismiss:)` — đóng bằng closure
 ///   của presenter (UIKit `.overFullScreen`).
 /// - Router (`AudioListenRouteView`, trong `fullScreenCover` + `NavigationStack` của chỗ gọi): `onDismiss == nil` ⇒
 ///   `@Environment(\.dismiss)`.
 ///
-/// Gắn / gỡ màn vào session (`attachScreen` / `detachScreen`) theo `onAppear` / `onDisappear` — thanh mini ẩn khi có màn
+/// Gắn / gỡ màn vào session (`attachScreen` / `detachScreen`) theo `onAppear` / `onDisappear` — đĩa góc dưới ẩn khi có màn
 /// gắn. Thu nhỏ (⌄ hoặc vuốt xuống ở header / đĩa / tên bài / đầu trang Danh sách, Lời) chỉ đóng màn, nhạc vẫn phát.
 /// Trình duyệt "Mở link lỗi" / "Mở trang nguồn" che màn (cover) cũng gây `onDisappear` ⇒ bỏ qua lượt gỡ đó (như
-/// `VideoPlayerScreen`). Session dừng hẳn lúc màn đang hiện (✕ ở thanh mini, màn khoá) ⇒ màn tự đóng.
+/// `VideoPlayerScreen`). Session dừng hẳn lúc màn đang hiện (✕ ở đĩa góc dưới, màn khoá) ⇒ màn tự đóng.
 struct AudioPlayerScreen: View {
     /// Khoá gắn màn vào session (`attachScreen` cần một đối tượng; view là struct).
     final class ScreenToken {}
@@ -189,7 +189,7 @@ struct AudioPlayerScreen: View {
     }
 
     private func handleDisappear() {
-        // Trình duyệt che màn (không phải rời màn): gỡ lúc này thì thanh mini hiện dưới trình duyệt và tiến độ bị lưu thừa.
+        // Trình duyệt che màn (không phải rời màn): gỡ lúc này thì đĩa góc dưới hiện dưới trình duyệt và tiến độ bị lưu thừa.
         if openingErrorLink != nil || openingSourcePage != nil {
             isCoveredByBrowser = true
             return
@@ -239,7 +239,7 @@ struct AudioPlayerScreen: View {
         }
     }
 
-    /// "Dừng hẳn" của ngăn kéo: dừng phiên (thanh mini tắt theo) rồi đóng màn.
+    /// "Dừng hẳn" của ngăn kéo: dừng phiên (đĩa góc dưới tắt theo) rồi đóng màn.
     private func stopAndClose() {
         AppLogger.shared.log("🎵 [AudioPlayerUI] Dừng hẳn từ màn nghe")
         let shouldClose = !isLeaving

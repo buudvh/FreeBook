@@ -7,7 +7,7 @@ import UIKit
 /// mỗi hàng đợi một mục = một bài / một tập (`PlaylistPlaybackQueue`).
 ///
 /// Hai phiên phát giữ nguyên trình phát sẵn có, chỉ **hỏi** coordinator ở các chỗ chuyển bài / tập:
-/// - Nhạc (`+Audio`): `AudioPlaybackSession` hết bài, bài sau / bài trước (nút, thanh mini, màn khoá), có bài sau không,
+/// - Nhạc (`+Audio`): `AudioPlaybackSession` hết bài, bài sau / bài trước (nút, đĩa góc dưới, màn khoá), có bài sau không,
 ///   xáo, lỗi, bắt đầu phát. Hết mục ⇒ sang mục kế của playlist, **không** sang bài kế của album, **không** tự phát gợi ý
 ///   (`AudioAutoNextCoordinator` đứng ngoài). Lặp `album` của phiên đọc là "Lặp playlist", xáo áp cho cả playlist.
 /// - Phim (`+Video`): `VideoPlaybackSession` hết tập, tập kế (nút, màn khoá), lỗi, bắt đầu phát; `VideoWatchModel` báo mở

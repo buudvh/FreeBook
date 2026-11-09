@@ -10,6 +10,7 @@ import SwiftUI
 ///   kính gần trong suốt.
 /// - Chuyển cảnh chỉ `scale` — **không** `.opacity`: alpha < 1 trên lớp cha tắt nhoè của kính (lỗi 1.3.640, ghi ở
 ///   `FloatingGlassBackground`).
+/// - Cụm pill đang xổ là neo của đĩa nghe góc dưới phải (1.3.808): đĩa lên trên cụm, không che pill "Về trang gốc".
 struct FloatingActionMenu: View {
     private static let animation = Animation.spring(response: 0.3, dampingFraction: 0.7)
 
@@ -35,6 +36,7 @@ struct FloatingActionMenu: View {
                     }
                 }
                 .fixedSize()
+                .mediaDiscAnchor(.button)
                 .padding(.bottom, FloatingRoundButton.size + 10)
                 .transition(.scale(scale: 0.4, anchor: .bottomTrailing))
             }

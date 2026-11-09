@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.778] - 2026-11-07
+
+### feat: bộ lọc NSFW riêng của tab Kệ sách: Không hiển thị, Tất cả, Chỉ NSFW
+
+Người dùng: *"thêm filter, chỉ nfsw, không hiển thị nfsw, tất cả ở phần tùy chọn kệ của tab kệ sách"*; anh Bửu chốt: *"Độc lập, ba công tắc này dành riêng cho tab kệ sách thôi. Tắt app, tắt màn hình, về home mở lên lại sẽ về không hiển thị nfsw"*, bấm nút Home trong app cũng về "Không hiển thị NSFW".
+
+- Ngăn kéo "…" của tab Kệ Sách: công tắc NSFW chung được thay bằng nhóm **"NSFW"** ba hàng chọn (`SideDrawerOptionRow`): **Không hiển thị NSFW** (mặc định) · **Tất cả** · **Chỉ NSFW** (`ShelfNsfwFilter`). Công tắc NSFW chung vẫn ở Khám phá / Cài đặt.
+- **Độc lập** với công tắc chung: chỉ quyết định danh sách Kệ + Lịch sử (`ShelfBookPartition(nsfwFilter:)`); Bộ sưu tập / Tải / Tìm trên kệ vẫn theo công tắc chung. "NSFW" = truyện của nguồn NSFW hoặc truyện tự đánh dấu NSFW.
+- **Không lưu**: `ShelfNsfwFilterState` (singleton trong bộ nhớ, sống qua lần dựng lại tab) — mở app, app vào nền (khoá màn hình / về màn hình chính) hay bấm nút Home trong app (nút Home nổi, "Về Khám phá" của màn xem phim) đều về "Không hiển thị NSFW".
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.777] - 2026-11-07
 
 ### feat: bấm nút Home ở bất kỳ đâu cũng tắt NSFW như nút Home của màn xem phim

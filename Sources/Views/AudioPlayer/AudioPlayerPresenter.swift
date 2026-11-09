@@ -6,9 +6,9 @@ import UIKit
 /// - `present(_:modelContainer:autoplay:)`: lối vào từ item danh sách (Khám phá, Tìm, Thể loại…) — mở album trong
 ///   `AudioPlaybackSession` rồi trình bày màn nghe bằng UIKit `.overFullScreen` (host trong suốt, màn bên dưới vẫn sống,
 ///   như `VideoWatchPresenter`).
-/// - `install()`: gắn `presentScreenHandler` vào session — mở lại màn nghe gắn với album đang chạy từ thanh mini, nút
-///   đĩa của Reader. Gọi lặp an toàn (`present`, `openInPlace` và màn nghe lúc hiện đều gọi).
-/// - `reopen(at:)`: như mở lại từ thanh mini nhưng vào thẳng một trang (sheet điều khiển nhanh của Reader).
+/// - `install()`: gắn `presentScreenHandler` vào session — mở lại màn nghe gắn với album đang chạy (sheet điều khiển
+///   nhanh của đĩa góc dưới, màn khoá). Gọi lặp an toàn (`present`, `openInPlace` và màn nghe lúc hiện đều gọi).
+/// - `reopen(at:)`: mở lại nhưng vào thẳng một trang (sheet điều khiển nhanh của đĩa góc dưới).
 /// - `openInPlace(_:modelContainer:autoplay:)`: lối của router (`AudioListenRouteView`, màn nằm sẵn trong
 ///   `fullScreenCover` của chỗ gọi) — chỉ mở album, không trình bày gì.
 ///
@@ -44,7 +44,8 @@ final class AudioPlayerPresenter {
         shared.presentScreen(animated: animated, retryCount: 0, completion: {})
     }
 
-    /// Mở lại màn nghe của album đang chạy ở trang chỉ định (sheet điều khiển nhanh của Reader: ⤢ / Danh sách / Lời).
+    /// Mở lại màn nghe của album đang chạy ở trang chỉ định (sheet điều khiển nhanh của đĩa góc dưới: khối bìa + tên /
+    /// Danh sách / Lời).
     /// Không có album / màn nghe đang hiện ⇒ không làm gì; trang chỉ áp cho đúng lượt trình bày này (xoá ở `completion`).
     static func reopen(at page: AudioPlayerPage) {
         install()

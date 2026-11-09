@@ -5,7 +5,7 @@ import AVFoundation
 extension AudioPlaybackSession {
     // MARK: - Phát / dừng
 
-    /// Phát (nút, thanh mini, màn khoá). Đang lỗi ⇒ thử lại; bài đang nạp ⇒ tự phát khi sẵn sàng; đã hết bài ⇒ về đầu.
+    /// Phát (nút, đĩa góc dưới, màn khoá). Đang lỗi ⇒ thử lại; bài đang nạp ⇒ tự phát khi sẵn sàng; đã hết bài ⇒ về đầu.
     func play() {
         guard isActive else { return }
         shouldAutoplay = true

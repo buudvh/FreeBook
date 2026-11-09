@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Trang giữa của màn nghe: đĩa bìa xoay (`AudioRotatingCover`, cùng góc với đĩa của thanh mini), tên bài + nghệ sĩ + ♡
+/// Trang giữa của màn nghe: đĩa bìa xoay (`AudioRotatingCover`, cùng góc với đĩa của đĩa góc dưới), tên bài + nghệ sĩ + ♡
 /// (kệ), một dòng lời đang hát (hoặc khối lỗi), thanh tua, cụm nút và hàng phụ (tốc độ, sang trang Danh sách / Lời).
 ///
 /// Vuốt xuống trên đĩa / dòng tên bài ⇒ thu nhỏ màn (`audioMinimizeDrag`); thanh tua không gắn cử chỉ đó.

@@ -1,9 +1,9 @@
 import Combine
 import Foundation
 
-/// Góc xoay **dùng chung** của đĩa bìa widget TTS (1.3.796) — cả kiểu Đĩa nổi lẫn Thanh nghe nhạc. Trước đây
-/// `FloatingWidgetContainerViewController` tự giữ `CoverRotationState`; đổi kiểu widget là dựng container mới nên góc
-/// phải sống ngoài container (khuôn `AudioCoverRotation` của trình nghe).
+/// Góc xoay **dùng chung** của đĩa bìa widget TTS (1.3.796) — kiểu Đĩa nổi, đĩa góc dưới (`MediaDiscTTSFace`) và sheet điều
+/// khiển nhanh. Trước đây `FloatingWidgetContainerViewController` tự giữ `CoverRotationState`; góc phải sống ngoài
+/// container để mọi nơi vẽ đĩa TTS cùng một góc (khuôn `AudioCoverRotation` của trình nghe).
 ///
 /// Đồng bộ y như bản cũ trong container: `isPlaying` đổi ⇒ `syncPlaybackState`; đổi sang truyện **khác** (bỏ qua chuỗi rỗng
 /// lúc dừng) ⇒ `resetAngle` cho đĩa mới bắt đầu từ góc 0.

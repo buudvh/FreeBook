@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Bìa album dạng **đĩa tròn** xoay khi đang phát — thanh phát mini (40 pt) và trang Đĩa của màn nghe. Xoay bằng đúng cơ
+/// Bìa album dạng **đĩa tròn** xoay khi đang phát — đĩa nghe góc dưới (44 pt), sheet điều khiển nhanh và trang Đĩa của màn nghe. Xoay bằng đúng cơ
 /// chế của widget TTS: `TTSRotatingCoverView` (Core Animation trên render server, body SwiftUI không đánh giá lại theo
 /// frame, gỡ animation khi `isRotating == false`) + góc dùng chung `AudioCoverRotation.shared.state`
 /// (`CoverRotationState`: dừng thì giữ góc, không giật về 0).

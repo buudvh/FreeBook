@@ -29,7 +29,7 @@ struct AudioLyricsPage: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            // Đĩa tròn xoay khi đang phát, cùng góc với trang Đĩa / thanh mini (`AudioCoverRotation`); không có bìa ⇒ nốt nhạc.
+            // Đĩa tròn xoay khi đang phát, cùng góc với trang Đĩa / đĩa góc dưới (`AudioCoverRotation`); không có bìa ⇒ nốt nhạc.
             AudioRotatingCover(
                 coverUrl: session.coverUrl,
                 referer: referer,

@@ -7,7 +7,7 @@ import SwiftData
 @MainActor
 final class FloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate, TTSFloatingWidgetContaining {
     private let viewModel = FloatingWidgetViewModel()
-    /// Góc đĩa dùng chung với kiểu Thanh nghe nhạc (đổi kiểu không giật về 0); đồng bộ phát/đổi truyện nằm ở đó.
+    /// Góc đĩa dùng chung với đĩa góc dưới / sheet điều khiển nhanh (đổi kiểu không giật về 0); đồng bộ phát/đổi truyện nằm ở đó.
     private let rotationState = TTSWidgetCoverRotation.shared.state
     let widgetContainerView = UIView()
     private var hostingController: UIHostingController<AnyView>?

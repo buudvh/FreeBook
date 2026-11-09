@@ -6,8 +6,8 @@ import WebKit
 /// - Dải tab viên thuốc luôn hiện (`BypassBrowserTabBar`) + vạch tiến độ 2pt (`BrowserLoadProgressLine`).
 /// - Trang (web hoặc Home) chiếm phần giữa và **kết thúc ngay trên thanh dưới** (không bị che); dải báo tự dịch nổi
 ///   ở đầu trang, dải báo popup bị chặn nổi ở cuối trang.
-/// - Thanh dưới gắn sát đáy (`BrowserBottomBar`): lùi, tiến, ô URL, nút Import, nút ⋮ mở ngăn kéo. Đang nghe nhạc ⇒ thanh
-///   nghe nhạc mini (`AudioMiniPlayerBar`) nằm ngay trên thanh dưới (1.3.807).
+/// - Thanh dưới gắn sát đáy (`BrowserBottomBar`): lùi, tiến, ô URL, nút Import, nút ⋮ mở ngăn kéo. Thanh là neo của đĩa
+///   nghe góc dưới phải (1.3.808): đang nghe nhạc / TTS kiểu Đĩa góc dưới ⇒ đĩa đứng ngay trên thanh.
 ///
 /// Thành phần giao diện ở `Sources/Views/Common/Browser/Chrome/`; thao tác (tab, Home, nạp URL, import, sao chép link)
 /// ở `BypassWebView+Actions`. Menu nhấn giữ / sheet dịch-tra / bảng chia sẻ do phần menu nhấn giữ gắn thêm.
@@ -125,12 +125,6 @@ struct BypassWebView: View {
                 BypassBrowserPopupBanner(store: store) // tự đệm đáy 10pt, tự ẩn sau ~5 s
             }
 
-            // Thanh nghe nhạc mini (1.3.807): đang có album ⇒ nằm ngay trên thanh dưới, trang co lại chừa chỗ (không che).
-            // Tự trống khi không có nhạc / màn nghe đang hiện; ẩn lúc gõ địa chỉ để bàn phím không bị đẩy cao thêm.
-            if !isEditingUrl {
-                AudioMiniPlayerBar()
-            }
-
             BrowserBottomBar(
                 store: store,
                 tab: tab,
@@ -146,6 +140,7 @@ struct BypassWebView: View {
                 onImport: { match in importBook(with: match) },
                 onOpenMenu: { showingMenu = true }
             )
+            .mediaDiscAnchor(.bar)
         }
     }
 

@@ -5,8 +5,8 @@ import SwiftUI
 ///
 /// ## Tập dòng cố định
 /// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video → Kiểm tra nguồn), mục nào không dùng được thì **xám** chứ không
-/// biến mất. Trình nghe âm thanh **không** có dòng ở hub (bỏ ở 1.3.803 theo anh Bửu): điều khiển ở thanh mini, nút đĩa
-/// của Reader và màn khoá. `FloatingHubPresentationReader` là nơi duy nhất quyết định trạng thái từng dòng; type này chỉ mô
+/// biến mất. Trình nghe âm thanh **không** có dòng ở hub (bỏ ở 1.3.803 theo anh Bửu): điều khiển ở đĩa nghe góc dưới
+/// phải (1.3.808) và màn khoá. `FloatingHubPresentationReader` là nơi duy nhất quyết định trạng thái từng dòng; type này chỉ mô
 /// tả dòng trông ra sao. Trình duyệt thu nhỏ đã rời hub, quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
 ///
 /// Mọi thứ hàng cần vẽ đều nằm trên item (`isEnabled`, `title`, `detail`, `badgeCount`, `isPlaying`), nên

@@ -4,8 +4,8 @@ import Foundation
 /// Câu đang đọc + tiến độ chương cho sheet điều khiển nhanh TTS (`TTSQuickControlSheet`, 1.3.806). Tách khỏi sheet để chỉ
 /// phần chữ này vẽ lại theo từng đoạn, không kéo theo cả sheet.
 ///
-/// `currentParagraphIndex` là chỉ số trong mảng **chunk** `TTSManager.paragraphs` (không phải id dòng thưa — xem
-/// `TTSWidgetBarProgressLine`). `paragraphs` không `@Published` ⇒ đọc ở lượt sau (`receive(on:)`) của các tín hiệu có phát.
+/// `currentParagraphIndex` là chỉ số trong mảng **chunk** `TTSManager.paragraphs` (không phải id dòng thưa `ChapterTextLine.id`).
+/// `paragraphs` không `@Published` ⇒ đọc ở lượt sau (`receive(on:)`) của các tín hiệu có phát.
 @MainActor
 final class TTSQuickControlNowReading: ObservableObject {
     struct Snapshot: Equatable {

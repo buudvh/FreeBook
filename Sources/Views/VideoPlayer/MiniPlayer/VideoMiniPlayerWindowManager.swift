@@ -33,6 +33,13 @@ final class VideoMiniPlayerWindowManager {
         return (bounds, mainWindow?.safeAreaInsets ?? .zero)
     }
 
+    /// Khung phim nhỏ đang hiện (toạ độ màn hình, tính cả lúc đang kéo); `nil` khi cửa sổ ẩn. Đĩa nghe góc dưới phải
+    /// (`MediaDiscPlacement`) đứng lên trên khi khung này đè chỗ của nó (1.3.808).
+    var visiblePlayerFrame: CGRect? {
+        guard isShowing, let window, !window.isHidden, let controller, controller.isViewLoaded else { return nil }
+        return controller.playerFrame
+    }
+
     /// Chỗ đậu hiện tại (toạ độ màn hình) — đích của hiệu ứng co khung phim.
     func dockFrame() -> CGRect {
         let metrics = Self.screenMetrics()

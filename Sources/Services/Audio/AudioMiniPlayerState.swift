@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// Cầu nối trạng thái trình nghe âm thanh cho thanh mini / các màn ngoài trình nghe — `ObservableObject` để đọc
+/// Cầu nối trạng thái trình nghe âm thanh cho đĩa nghe góc dưới (`MediaDiscWindowManager`, 1.3.808 — thay đĩa góc dưới) / các màn ngoài trình nghe — `ObservableObject` để đọc
 /// được mà không observe `AudioPlaybackSession` (`@Observable`, giữ `AVPlayer`) và không dựng `AVPlayer` khi chưa từng mở.
 ///
 /// Chủ duy nhất ghi là `AudioPlaybackSession` (`syncMiniPlayerState`, mỗi tick 0,5 s chỉ ghi giá trị **đổi**; tiến độ chỉ
@@ -13,7 +13,7 @@ final class AudioMiniPlayerState: ObservableObject {
 
     /// Có album đang mở trong trình nghe (đang phát, dừng, đang nạp hoặc lỗi) — `false` sau `stop()`.
     @Published var isActive = false
-    /// Màn nghe đang hiện (`AudioPlaybackSession.attachScreen`) — thanh mini nên ẩn khi `true`.
+    /// Màn nghe đang hiện (`AudioPlaybackSession.attachScreen`) — đĩa góc dưới ẩn khi `true`.
     @Published var isScreenPresented = false
     /// `bookId` của album đang mở.
     @Published var bookId = ""
@@ -27,7 +27,7 @@ final class AudioMiniPlayerState: ObservableObject {
     @Published var isPlaying = false
     /// Đang nạp mục lục / link bài / chờ đệm.
     @Published var isLoading = false
-    /// Bài lỗi (thanh mini mời chạm để mở lại / thử lại).
+    /// Bài lỗi (màn nghe / sheet điều khiển hiện chữ lỗi).
     @Published var isFailed = false
     /// Album 18+ (`RepositoryFilterPolicy.isNsfwBook`).
     @Published var isNsfw = false
@@ -39,7 +39,7 @@ final class AudioMiniPlayerState: ObservableObject {
     var onTogglePlay: (() -> Void)?
     var onNext: (() -> Void)?
     var onPrevious: (() -> Void)?
-    /// Chạm thanh mini / nút đĩa Reader ⇒ mở lại màn nghe (`AudioPlaybackSession.requestScreen`).
+    /// Mở lại màn nghe (`AudioPlaybackSession.requestScreen`).
     var onReopen: (() -> Void)?
     /// Nút đóng ⇒ dừng hẳn (`AudioPlaybackSession.stop`).
     var onStop: (() -> Void)?

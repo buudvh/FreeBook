@@ -1,22 +1,22 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ nút đĩa nhạc của Reader (`ReaderAudioDiscButton`), cao vừa
-/// nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
-/// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với nút đĩa / thanh mini) · tên bài +
+/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ đĩa nghe góc dưới phải (`MediaDiscContentView`, 1.3.808),
+/// cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
+/// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với đĩa góc dưới / trang Đĩa) · tên bài +
 ///   "nghệ sĩ · album" · ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet` mở **đè lên** sheet này; đang hẹn ⇒ màu nhấn kèm thời
-///   gian còn lại) · ⤢ (mở màn nghe đầy đủ, trang Đĩa).
+///   gian còn lại). Chạm **khối bìa + tên** ⇒ mở màn nghe đầy đủ ở trang Đĩa (1.3.808 bỏ nút ⤢ trùng việc).
 /// - Một dòng lời đang hát (`AudioCurrentLyricLine`, chỉ có chữ khi lời có mốc giờ) hoặc chữ lỗi của bài.
 /// - Thanh tua (`AudioPlayerSeekRow`) + cụm nút Xáo · ⏮ · ⏯ · ⏭ · Lặp (`AudioTransportControls(.full)`) của màn nghe.
 /// - Hàng dưới: Danh sách / Lời (mở màn nghe ở trang đó) · Tắt nhạc.
 ///
 /// Nền là kính theo Cài đặt › Chung › Giao diện **của ngăn kéo menu** (`DrawerGlassSheetBackground`, `GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo
 /// `…` của Reader, luôn tông tối) ⇒ nội dung vẽ ở `colorScheme` tối: chữ `.primary` / `.secondary`, còn thanh tua và cụm nút
-/// dùng lại của màn nghe (vốn tông trắng trên nền tối). Điểm nhấn = màu nhấn app (`.appAccentTint()` — Reader không luôn
-/// nằm trong `MainTabView`).
+/// dùng lại của màn nghe (vốn tông trắng trên nền tối). Điểm nhấn = màu nhấn app (`.appAccentTint()` — sheet nằm ở cửa sổ
+/// riêng của đĩa, không trong `MainTabView`).
 ///
 /// Chỉ mở khi có album (`AudioMiniPlayerState.isActive`) ⇒ đọc thẳng `AudioPlaybackSession.shared`. Album 18+ lúc công tắc
-/// NSFW tắt ⇒ như thanh mini: tên "Đang phát", không bìa, không lời. Mở màn nghe / tắt nhạc do chỗ gọi làm (đóng sheet
-/// trước rồi mới trình bày màn nghe — trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới).
+/// NSFW tắt ⇒ tên "Đang phát", không bìa, không lời. Mở màn nghe / tắt nhạc do chỗ gọi làm (đóng sheet trước rồi mới trình
+/// bày màn nghe — trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới).
 struct AudioQuickControlSheet: View {
     /// Chiều cao nội dung đo được — nằm ở **chỗ gọi** (nội dung sheet dựng lại mỗi lần mở, như `FittedSheetDetentModifier`).
     @Binding var height: CGFloat
@@ -97,42 +97,41 @@ struct AudioQuickControlSheet: View {
         ExtensionHostResolver.nonEmpty(session.request?.host) ?? ExtensionHostResolver.nonEmpty(session.bookHost)
     }
 
+    /// Khối bìa + tên là một nút: chạm ⇒ màn nghe đầy đủ, trang Đĩa.
     private var headerRow: some View {
         HStack(spacing: 12) {
-            AudioRotatingCover(
-                coverUrl: session.coverUrl,
-                referer: referer,
-                size: 52,
-                isRotating: session.isPlaying && scenePhase == .active,
-                isConcealed: isConcealed
-            )
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(subtitle.isEmpty ? " " : subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            sleepTimerButton
             Button {
                 onOpenScreen(.disc)
             } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+                HStack(spacing: 12) {
+                    AudioRotatingCover(
+                        coverUrl: session.coverUrl,
+                        referer: referer,
+                        size: 52,
+                        isRotating: session.isPlaying && scenePhase == .active,
+                        isConcealed: isConcealed
+                    )
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(subtitle.isEmpty ? " " : subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Mở màn nghe")
+            .accessibilityHint("Mở màn nghe")
+            sleepTimerButton
         }
     }
 
-    /// ⏱ cạnh ⤢: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại (view lá `MediaSleepTimerCountdownText`) màu nhấn.
+    /// ⏱: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại (view lá `MediaSleepTimerCountdownText`) màu nhấn.
     private var sleepTimerButton: some View {
         let timer = session.sleepTimer
         return Button {

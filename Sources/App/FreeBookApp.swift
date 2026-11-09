@@ -97,6 +97,9 @@ struct AppLaunchRootView: View {
             // Widget trình duyệt thu nhỏ (cửa sổ riêng, tách khỏi hub ở 1.3.533) tự nghe trạng thái trình duyệt;
             // root chỉ gọi lúc khởi động và khi cổng từ điển mở, như trước khi gộp vào hub.
             BrowserFloatingWidgetWindowManager.shared.refreshState()
+            // Đĩa nghe góc dưới phải (nhạc + TTS kiểu Đĩa góc dưới, 1.3.808): cửa sổ riêng, sheet cần `modelContainer`.
+            MediaDiscWindowManager.shared.modelContainer = modelContext.container
+            MediaDiscWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
@@ -104,10 +107,13 @@ struct AppLaunchRootView: View {
             FloatingHubWindowManager.shared.modelContainer = modelContext.container
             FloatingHubWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
+            MediaDiscWindowManager.shared.modelContainer = modelContext.container
+            MediaDiscWindowManager.shared.refreshState()
         }
         .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
+            MediaDiscWindowManager.shared.refreshState()
         }
         .task(id: translationManager.isInitialized) {
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container

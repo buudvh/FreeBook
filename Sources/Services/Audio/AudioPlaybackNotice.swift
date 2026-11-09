@@ -1,12 +1,13 @@
 import Combine
 import Foundation
 
-/// Dòng báo ngắn của trình nghe âm thanh — hiện ở màn nghe và ngay trên thanh phát mini (`AudioPlaybackNoticeBanner`),
+/// Dòng báo ngắn của trình nghe âm thanh — dải báo ở màn nghe (`AudioPlaybackNoticeBanner`), toast ở nơi khác (1.3.808,
+/// `MediaDiscWindowManager` hiện khi màn nghe không hiện),
 /// tự ẩn sau 5 giây: "Tự sang: <tên>" của `AudioAutoNextCoordinator` (khuôn `playbackNotice` của `VideoPlaybackSession`,
 /// báo khi phim tự sang bắt đầu phát) và "Bỏ qua <tên>: <lý do>" / "Không phát được mục nào…" của
 /// `PlaylistPlaybackCoordinator` khi phát playlist.
 ///
-/// Tách khỏi `AudioPlaybackSession` để thanh mini đọc được mà không chạm session (chạm là dựng `AVPlayer`) — như
+/// Tách khỏi `AudioPlaybackSession` để tầng View đọc được mà không chạm session (chạm là dựng `AVPlayer`) — như
 /// `AudioMiniPlayerState`. Chỉ tầng nền ghi (`show`); View chỉ đọc `text`.
 @MainActor
 final class AudioPlaybackNotice: ObservableObject {

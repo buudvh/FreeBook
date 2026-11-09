@@ -95,6 +95,8 @@ struct ComicReaderChromeView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Self.barBackground.ignoresSafeArea(edges: .bottom))
+        // Đĩa nghe góc dưới phải đứng trên thanh, không che "Chương sau" (1.3.808); ẩn thanh ⇒ đĩa về góc.
+        .mediaDiscAnchor(.bar)
     }
 
     private var pageLabel: String {

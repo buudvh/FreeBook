@@ -202,21 +202,11 @@ extension ReaderView {
         viewModel?.reloadDisplayedChapter()
     }
 
-    /// Cột nút nổi góc dưới phải: nút đĩa nhạc (chỉ khi có album đang mở — `ReaderAudioDiscButton`, view riêng nên Reader
-    /// không vẽ lại theo tiến độ bài) hoặc nút đĩa TTS (kiểu widget Thanh nghe nhạc, thanh đang thu gọn —
-    /// `ReaderTTSDiscButton`, 1.3.806) ngay trên nút tai nghe. Nhạc và TTS không cùng phát ⇒ mỗi lúc tối đa một đĩa.
+    /// Nút nổi góc dưới phải của Reader: nút tai nghe. Đĩa nghe góc dưới phải (nhạc / TTS kiểu Đĩa góc dưới, cửa sổ riêng
+    /// của `MediaDiscWindowManager`, 1.3.808) tự đứng ngay trên nó nhờ neo `.mediaDiscAnchor(.button)` — thay hai nút đĩa
+    /// riêng của Reader (1.3.792 / 1.3.806).
     internal func readerEdgeControls(geometry: GeometryProxy) -> some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            ReaderAudioDiscButton(
-                isDark: selectedTheme == .dark,
-                tint: selectedTheme.textColor.opacity(0.9)
-            )
-            ReaderTTSDiscButton(
-                isDark: selectedTheme == .dark,
-                tint: selectedTheme.textColor.opacity(0.9)
-            )
-            readerTTSControl(geometry: geometry)
-        }
+        readerTTSControl(geometry: geometry)
     }
 
     @ViewBuilder
@@ -252,6 +242,7 @@ extension ReaderView {
             }
         )
         .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
+        .mediaDiscAnchor(.button)
         // Tâm nút giữ đúng chỗ cũ (nút cũ 60pt = 44pt + đệm kính 8pt, lề phải 8 / dưới 12).
         .padding(.trailing, 12)
         .padding(.bottom, 16)

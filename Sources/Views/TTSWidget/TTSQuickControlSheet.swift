@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ nút đĩa TTS của Reader (`ReaderTTSDiscButton`, kiểu widget "Thanh nghe
-/// nhạc"), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng), nền kính
-/// theo cài đặt **ngăn kéo** (`DrawerGlassSheetBackground`, luôn tông tối ⇒ nội dung vẽ ở `colorScheme` tối).
+/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ đĩa nghe góc dưới phải (`MediaDiscContentView`, kiểu widget "Đĩa góc
+/// dưới", 1.3.808), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
+/// nền kính theo cài đặt **ngăn kéo** (`DrawerGlassSheetBackground`, luôn tông tối ⇒ nội dung vẽ ở `colorScheme` tối).
 ///
 /// Nội dung:
-/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với thanh / viên / nút đĩa) · tên
+/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với đĩa góc dưới / Đĩa nổi) · tên
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
-///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này).
+///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này). Chạm **khối bìa + tên** ⇒ mở chương đang đọc
+///   (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
 /// - Câu đang đọc + vạch tiến độ chương "Đoạn N / M đoạn" (`NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn).
 /// - ⏮ đoạn trước · ⏯ · ⏭ đoạn kế (`TTSManager.skipBackward` / `pause`/`resume` / `skipForward`).
 /// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Tắt đọc (chỗ gọi dừng hẳn).
@@ -17,7 +18,9 @@ import SwiftUI
 struct TTSQuickControlSheet: View {
     /// Chiều cao nội dung đo được — nằm ở **chỗ gọi** (nội dung sheet dựng lại mỗi lần mở).
     @Binding var height: CGFloat
-    /// "Tắt đọc": dừng hẳn TTS (nút đĩa biến mất, sheet đóng theo).
+    /// Chạm khối bìa + tên: mở chương đang đọc (chỗ gọi đóng sheet trước).
+    let onOpenReader: () -> Void
+    /// "Tắt đọc": dừng hẳn TTS (đĩa thu lại, sheet đóng theo).
     let onStop: () -> Void
 
     @Environment(\.scenePhase) private var scenePhase
@@ -80,25 +83,33 @@ struct TTSQuickControlSheet: View {
 
     // MARK: - Hàng đầu
 
+    /// Khối bìa + tên là một nút: chạm ⇒ mở chương đang đọc.
     private var headerRow: some View {
         HStack(spacing: 12) {
-            TTSCoverView(
-                image: coverLoader.image,
-                size: 52,
-                rotationState: TTSWidgetCoverRotation.shared.state,
-                isRotating: ttsState.snapshot.isPlaying && scenePhase == .active
-            )
-            VStack(alignment: .leading, spacing: 3) {
-                Text(info.bookTitle.isEmpty ? "Đang đọc truyện" : info.bookTitle)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(info.chapterLine.isEmpty ? " " : info.chapterLine)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            Button(action: onOpenReader) {
+                HStack(spacing: 12) {
+                    TTSCoverView(
+                        image: coverLoader.image,
+                        size: 52,
+                        rotationState: TTSWidgetCoverRotation.shared.state,
+                        isRotating: ttsState.snapshot.isPlaying && scenePhase == .active
+                    )
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(info.bookTitle.isEmpty ? "Đang đọc truyện" : info.bookTitle)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(info.chapterLine.isEmpty ? " " : info.chapterLine)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
+            .accessibilityHint("Mở chương đang đọc")
             timerButton
         }
     }

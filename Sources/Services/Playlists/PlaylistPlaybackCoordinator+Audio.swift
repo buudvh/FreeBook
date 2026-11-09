@@ -63,7 +63,7 @@ extension PlaylistPlaybackCoordinator {
 
     // MARK: - Người dùng chuyển mục
 
-    /// Bài sau (nút, thanh mini, màn khoá, tai nghe). Hết thứ tự: lặp playlist ⇒ vòng kế; còn lại không làm gì.
+    /// Bài sau (nút, đĩa góc dưới, màn khoá, tai nghe). Hết thứ tự: lặp playlist ⇒ vòng kế; còn lại không làm gì.
     func audioNext(in session: AudioPlaybackSession) {
         refreshAudioQueue()
         let wraps = session.repeatMode == .album

@@ -10,7 +10,7 @@ import AVFoundation
 ///   nghe) ⇒ `prepareAudioForPlayback`: như trên, cấu hình `.playback` / `.default`, rồi `AudioNowPlayingCoordinator.claim()`
 ///   **sau** khi bên kia đã trả phiên.
 /// - TTS bắt đầu / tiếp tục đọc (`TTSManager+NowPlaying` ⇒ `AudioNowPlayingCoordinator.yieldToTTS`) ⇒ `stopForTTS`: trình
-///   nghe **dừng hẳn** (lưu tiến độ, thanh mini ẩn), không dựng lại TTS, không tắt `AVAudioSession`.
+///   nghe **dừng hẳn** (lưu tiến độ, đĩa góc dưới ẩn), không dựng lại TTS, không tắt `AVAudioSession`.
 /// - Phim giành âm thanh (`VideoPlaybackSession.prepareAudioForPlayback`) ⇒ `pauseForOtherMedia`: nhạc tạm dừng, bài đang
 ///   nạp không tự phát, coordinator trả phiên (không dựng lại TTS).
 /// - Đóng hẳn (`stop`) / bài lỗi ⇒ trả phiên + dựng lại TTS (`release(handBackToTTS: true)`); tắt `AVAudioSession` chỉ khi
@@ -58,7 +58,7 @@ extension AudioPlaybackSession {
     }
 
     /// TTS bắt đầu / tiếp tục đọc (`AudioNowPlayingCoordinator.yieldToTTS`, coordinator đã trả phiên trước) ⇒ dừng hẳn
-    /// trình nghe như `stop()` — lưu tiến độ, gỡ item, thanh mini ẩn (`AudioMiniPlayerState.isActive = false`) — trừ
+    /// trình nghe như `stop()` — lưu tiến độ, gỡ item, đĩa góc dưới ẩn (`AudioMiniPlayerState.isActive = false`) — trừ
     /// hai điểm: không dựng lại lệnh / Now Playing của TTS (TTS đang tự cấu hình, gọi lại là đệ quy vào
     /// `setRemoteCommandsEnabled`) và không tắt `AVAudioSession` (TTS vừa cấu hình). Không có album ⇒ không làm gì (hook
     /// chạy ở mọi lượt TTS bắt đầu / tiếp tục đọc).

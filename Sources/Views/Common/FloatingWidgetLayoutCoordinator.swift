@@ -1,7 +1,7 @@
 import UIKit
 
-/// Giữ chỗ theo mép cho các widget nổi (widget TTS, nút hub, nút mở lại trình duyệt) để chúng **không đè lên
-/// nhau** khi cùng nằm một cạnh.
+/// Giữ chỗ theo mép cho các widget nổi (widget TTS, nút hub, nút mở lại trình duyệt, đĩa nghe góc dưới phải) để chúng
+/// **không đè lên nhau** khi cùng nằm một cạnh.
 ///
 /// ## Cùng một hệ toạ độ
 /// Ba widget sống ở ba `UIWindow` riêng, nhưng cửa sổ nào cũng tạo bằng `UIWindow(windowScene:)` (phủ toàn
@@ -25,6 +25,8 @@ final class FloatingWidgetLayoutCoordinator {
         case tts
         case hub
         case browser
+        /// Đĩa nghe góc dưới phải (1.3.808) — giữ chỗ, không nhường.
+        case mediaDisc
     }
 
     /// Chỗ đặt do `resolve` chọn: cạnh + tâm Y theo toạ độ `view` của container.

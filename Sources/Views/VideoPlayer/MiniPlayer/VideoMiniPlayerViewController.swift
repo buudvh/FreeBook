@@ -32,6 +32,9 @@ final class VideoMiniPlayerViewController: UIViewController {
     /// Đang nở lại thành màn xem: cả màn chặn chạm (nền đen đang phủ).
     private var isExpanding = false
 
+    /// Khung phim nhỏ theo toạ độ cửa sổ (= toạ độ màn) — đĩa nghe góc dưới phải né nó (1.3.808).
+    var playerFrame: CGRect { playerContainer.frame }
+
     init(session: VideoPlaybackSession) {
         self.session = session
         super.init(nibName: nil, bundle: nil)

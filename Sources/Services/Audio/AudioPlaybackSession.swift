@@ -6,7 +6,7 @@ import UIKit
 
 /// Chủ **duy nhất** giữ `AVPlayer` của trình nghe âm thanh (tiện ích loại `audio`, hợp đồng tiện ích: `format` `audio` =
 /// một bài, `album` = mỗi mục `toc` là một bài). `AVPlayer` **riêng**, không dùng chung với phim; sống lâu hơn màn nghe —
-/// đóng màn thì nhạc vẫn phát (thanh mini đọc `AudioMiniPlayerState`), chỉ `stop()` mới dừng hẳn.
+/// đóng màn thì nhạc vẫn phát (đĩa góc dưới đọc `AudioMiniPlayerState`), chỉ `stop()` mới dừng hẳn.
 ///
 /// Pipeline (`+Loading` → `+TrackLoading` → `+Player`): `Book` + mục lục trên máy (phát được ngay) hoặc chi tiết + mục lục
 /// từ nguồn (tạo `Book` để vào Lịch sử) → mỗi bài: `chap` (chỉ nguồn đầu tiên có `data`, không có ⇒ URL bài) → `track`
@@ -94,7 +94,7 @@ final class AudioPlaybackSession {
     /// Tác giả / nghệ sĩ của album (`detail.author`).
     var albumAuthor = ""
     var coverUrl = ""
-    /// Album 18+ (`RepositoryFilterPolicy.isNsfwBook`) — xét lại mỗi lần đồng bộ thanh mini / màn khoá.
+    /// Album 18+ (`RepositoryFilterPolicy.isNsfwBook`) — xét lại mỗi lần đồng bộ đĩa góc dưới / màn khoá.
     var isNsfw = false
     /// Các bài phát được, theo thứ tự mục lục (không có dòng section).
     var tracks: [Track] = []
@@ -128,9 +128,9 @@ final class AudioPlaybackSession {
     let player: AVPlayer
     /// Hẹn giờ tắt của lượt đang nghe (`+SleepTimer`); `stopSession` huỷ.
     let sleepTimer: MediaSleepTimer
-    /// Container của lượt mở — presenter dùng để bơm `.modelContainer` khi mở lại màn từ thanh mini.
+    /// Container của lượt mở — presenter dùng để bơm `.modelContainer` khi mở lại màn từ đĩa góc dưới.
     @ObservationIgnored var modelContainer: ModelContainer?
-    /// Presenter UI gắn vào: trình bày lại màn nghe gắn với phiên đang chạy (thanh mini, màn khoá).
+    /// Presenter UI gắn vào: trình bày lại màn nghe gắn với phiên đang chạy (đĩa góc dưới, màn khoá).
     @ObservationIgnored var presentScreenHandler: ((_ animated: Bool, _ completion: @escaping () -> Void) -> Void)?
     /// Các màn nghe đang hiện (`attachScreen` / `detachScreen`, `+MiniPlayer`).
     @ObservationIgnored var attachedScreens = Set<ObjectIdentifier>()
@@ -336,7 +336,7 @@ final class AudioPlaybackSession {
         } else if !keepsPlaybackSession {
             deactivateAudioSessionIfIdle()
         }
-        // Giữ cầu nối mini: `open` ngay sau ghi đè hết — reset ở giữa làm thanh mini nhận một nhịp `isActive == false`.
+        // Giữ cầu nối mini: `open` ngay sau ghi đè hết — reset ở giữa làm đĩa góc dưới nhận một nhịp `isActive == false`.
         if !keepsPlaybackSession { AudioMiniPlayerState.shared.reset() }
         AppLogger.shared.log("🎵 [AudioPlayer] Đóng trình nghe (bookId=\(stoppedId)\(handingOverToTTS ? ", nhường TTS" : ""))")
     }

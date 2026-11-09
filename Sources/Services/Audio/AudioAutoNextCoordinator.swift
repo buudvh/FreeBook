@@ -4,7 +4,7 @@ import SwiftData
 import UIKit
 
 /// Tự phát **mục gợi ý đầu tiên** của nguồn khi trình nghe hết bài lẻ / hết album lúc đang tắt lặp (công tắc
-/// `AudioAutoNextPolicy`) — bản tương đương `VideoAutoNextCoordinator` của phim, ở mọi nơi: màn nghe, thanh mini,
+/// `AudioAutoNextPolicy`) — bản tương đương `VideoAutoNextCoordinator` của phim, ở mọi nơi: màn nghe, đĩa góc dưới,
 /// app chạy nền / màn khoá. Sang ngay, không đếm ngược.
 ///
 /// - **Tải trước**: `AudioPlaybackSession.beginTrackLoad` báo `trackLoadDidBegin`; bài đang nạp là bài cuối (lặp tắt,
@@ -21,8 +21,8 @@ import UIKit
 ///   `open(autoplay: true)` bằng tiện ích của album ⇒ mục gợi ý mở thẳng trình nghe và vào Lịch sử như khi tự mở; màn nghe
 ///   đang hiện tự vẽ theo session. Giữ phiên vì ở nền / màn khoá, tắt `AVAudioSession` rồi bật lại có thể không phát được.
 ///   Hẹn giờ tắt (mốc phút) được giữ qua lượt tự sang; hẹn "Hết bài" thì dừng ở cuối bài, không tự sang.
-/// - **Báo "Tự sang: <tên>"** khi album mới bắt đầu phát (`AudioPlaybackNotice`: màn nghe + trên thanh mini). "Bắt đầu
-///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho thanh mini) — không thêm hook vào session. Album 18+ lúc
+/// - **Báo "Tự sang: <tên>"** khi album mới bắt đầu phát (`AudioPlaybackNotice`: dải báo ở màn nghe, toast ở nơi khác). "Bắt đầu
+///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho đĩa góc dưới) — không thêm hook vào session. Album 18+ lúc
 ///   công tắc NSFW tắt ⇒ không ghi tên.
 /// - Cả lượt (tải gợi ý → mở → chờ phát) nằm trong background task: lúc hết album không còn tiếng giữ app sống khi chạy
 ///   nền. Kết thúc khi album mới phát, lỗi, người dùng đổi / đóng album, hoặc sau 90 giây.
@@ -170,7 +170,7 @@ final class AudioAutoNextCoordinator {
 
     // MARK: - Chờ album mới phát
 
-    /// Theo dõi cầu nối thanh mini: album mới phát (kể cả đang đệm sau `play()`) ⇒ báo "Tự sang"; lỗi / album đổi
+    /// Theo dõi cầu nối đĩa góc dưới: album mới phát (kể cả đang đệm sau `play()`) ⇒ báo "Tự sang"; lỗi / album đổi
     /// (người dùng mở album khác, đóng trình nghe, TTS giành) ⇒ thôi. Dùng giá trị **được phát ra** (`@Published` phát ở
     /// willSet).
     private func watchStart(of bookId: String, fallbackTitle: String) {
@@ -194,7 +194,7 @@ final class AudioAutoNextCoordinator {
         if bookId != pending.bookId {
             finishStartWatch("⏭️ [AudioAutoNext] Album đã đổi / trình nghe đã đóng trước khi mục gợi ý phát ⇒ thôi chờ")
         } else if isFailed {
-            // Lỗi nguồn đã được log ❌ ở tầng dưới; màn nghe / thanh mini hiện lỗi như khi tự mở.
+            // Lỗi nguồn đã được log ❌ ở tầng dưới; màn nghe / đĩa góc dưới hiện lỗi như khi tự mở.
             finishStartWatch("⏭️ [AudioAutoNext] Mục gợi ý không phát được ⇒ thôi chờ")
         } else if isPlaying {
             AudioPlaybackNotice.shared.show(noticeText(fallbackTitle: pending.fallbackTitle))
@@ -202,7 +202,7 @@ final class AudioAutoNextCoordinator {
         }
     }
 
-    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album 18+ lúc công tắc NSFW tắt ⇒ không ghi tên (thanh mini, màn khoá
+    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album 18+ lúc công tắc NSFW tắt ⇒ không ghi tên (đĩa góc dưới, màn khoá
     /// đều che).
     private func noticeText(fallbackTitle: String) -> String {
         let mini = AudioMiniPlayerState.shared

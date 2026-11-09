@@ -6,6 +6,9 @@ import SwiftData
 /// Điều phối UIWindow riêng cho widget TTS nổi trên toàn bộ màn hình (Reader, Bypass WebView, Visible Browser, Sheets...).
 /// Cửa sổ này luôn là non-key window (không bao giờ gọi makeKeyAndVisible), nền trong suốt,
 /// và passthrough touch chuẩn xác để không chặn thao tác ở màn hình bên dưới.
+///
+/// Chỉ lo kiểu **Đĩa nổi** (`TTSWidgetStyle.disc`). Kiểu **Đĩa góc dưới** (1.3.808) không dựng cửa sổ này: đĩa chung của
+/// `MediaDiscWindowManager` lo, nên đổi sang kiểu đó là ẩn widget ở đây.
 @MainActor
 public final class TTSFloatingWidgetWindowManager: ObservableObject {
     public static let shared = TTSFloatingWidgetWindowManager()
@@ -14,8 +17,6 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     public var modelContainer: ModelContainer?
     private var window: FloatingWidgetUIWindow?
     private var containerViewController: (any TTSFloatingWidgetContaining)?
-    /// Kiểu của `containerViewController` đang dựng — so với `TTSWidgetPreferences.style` để biết có phải dựng lại.
-    private var containerStyle: TTSWidgetStyle?
     private var isPresented = false
     private var shouldRevealOnNextShow = false
     private var cancellables = Set<AnyCancellable>()
@@ -48,7 +49,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
                 self?.refreshState()
             }
             .store(in: &cancellables)
-        // Đổi kiểu widget ở Cài đặt (Đĩa nổi ↔ Thanh nghe nhạc) ⇒ thay container ngay, cửa sổ giữ nguyên.
+        // Đổi kiểu widget ở Cài đặt (Đĩa nổi ↔ Đĩa góc dưới) ⇒ hiện / ẩn ngay.
         TTSWidgetPreferences.shared.$style
             .removeDuplicates()
             .dropFirst()
@@ -62,6 +63,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     public func refreshState() {
         let shouldShow = TranslationManager.shared.isInitialized
             && TTSManager.shared.showFloatingWidget
+            && TTSWidgetPreferences.shared.style == .disc
             && !FloatingWidgetSuppression.shared.isSuppressed
 
         if shouldShow {
@@ -89,7 +91,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
             return
         }
 
-        let containerVC = makeContainer()
+        let containerVC = FloatingWidgetContainerViewController()
         let win = FloatingWidgetUIWindow(windowScene: windowScene)
         win.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1)
         win.backgroundColor = .clear
@@ -106,6 +108,8 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     }
 
     func requestRevealOnNextShow() {
+        // Kiểu Đĩa góc dưới không có capsule để bung — đừng để cờ treo tới lần đổi về Đĩa nổi.
+        guard TTSWidgetPreferences.shared.style == .disc else { return }
         shouldRevealOnNextShow = true
         revealIfRequested(animated: isWidgetActuallyVisible)
     }
@@ -116,33 +120,13 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
         FloatingWidgetLayoutCoordinator.shared.unregister(.tts)
     }
 
-    /// Container theo kiểu đang chọn ở Cài đặt › Đọc & Nghe › Widget TTS.
-    private func makeContainer() -> any TTSFloatingWidgetContaining {
-        let style = TTSWidgetPreferences.shared.style
-        containerStyle = style
-        switch style {
-        case .disc:
-            return FloatingWidgetContainerViewController()
-        case .bar:
-            return TTSWidgetBarContainerViewController()
-        }
-    }
-
-    /// Thay root view controller của cửa sổ đang có bằng container của kiểu mới. Chưa có cửa sổ ⇒ lần hiện kế tiếp tự
-    /// dựng đúng kiểu. Góc đĩa sống ở `TTSWidgetCoverRotation` nên không giật về 0.
+    /// Đổi sang Đĩa góc dưới ⇒ đóng sheet / hộp thoại của Đĩa nổi rồi ẩn; đổi về Đĩa nổi ⇒ hiện lại nếu TTS có phiên.
     private func applyStyleChange() {
-        guard let window, containerStyle != TTSWidgetPreferences.shared.style else { return }
         AppLogger.shared.log("🪟 [TTSWidget] Đổi kiểu widget: \(TTSWidgetPreferences.shared.style.rawValue)")
-        containerViewController?.presentedViewController?.dismiss(animated: false)
-        FloatingWidgetLayoutCoordinator.shared.unregister(.tts)
-        let containerVC = makeContainer()
-        window.containerViewController = containerVC
-        window.rootViewController = containerVC
-        containerViewController = containerVC
-        if isPresented, !window.isHidden {
-            containerVC.requestPlacementResolve()
-            containerVC.updateLayoutForCurrentMode(animated: false)
+        if TTSWidgetPreferences.shared.style != .disc {
+            containerViewController?.presentedViewController?.dismiss(animated: false)
         }
+        refreshState()
     }
 
     private func updateWindowVisibility(hidden: Bool) {

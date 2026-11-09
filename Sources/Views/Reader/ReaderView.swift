@@ -821,7 +821,6 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
-            ReaderPresenceTracker.shared.readerDidAppear(bookId: bookId)
             AIRuntimeCoordinator.shared.activeReaderBookId = bookId
             isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
@@ -831,7 +830,6 @@ struct ReaderView: View {
             if let vm = viewModel { viewModelRelay.observe(vm) }
         }
         .onDisappear {
-            ReaderPresenceTracker.shared.readerDidDisappear(bookId: bookId)
             // Trình duyệt "Mở link lỗi" che màn (không phải rời Reader): không `shutdown`, không tải lại khi hiện lại.
             if openingChapterErrorLink != nil {
                 skipsReappearBootstrap = true
@@ -974,8 +972,7 @@ struct ReaderView: View {
                     readerEdgeControls(geometry: geometry)
                 }
 
-                // Thanh TTS bung trong Reader (kiểu Thanh nghe nhạc) ⇒ chừa đúng chỗ của thanh, chữ không bị che.
-                ReaderTTSBarBottomSpacer(baseHeight: 52)
+                Spacer().frame(height: 52)
             }
 
             ReaderHeaderFooterOverlayView(

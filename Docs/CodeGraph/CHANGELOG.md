@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.808] - 2026-11-09
+
+### feat: đĩa xoay góc dưới phải cho nhạc và TTS trên mọi màn, bỏ thanh nghe nhạc mini và kiểu thanh của widget TTS
+
+Plan anh Bửu đã duyệt (mockup 2026-11-09): thay thanh nghe nhạc mini và kiểu "Thanh nghe nhạc" của widget TTS bằng **một đĩa xoay tròn ở góc dưới phải trên mọi màn**, dùng chung cho nhạc và TTS; giữ kiểu "Đĩa nổi" của TTS; đĩa hiện ở trang gốc tab, trang đẩy vào, sheet, trình duyệt, Reader.
+
+- **Đĩa chung** (`Views/MediaDisc/`, mới): `MediaDiscWindowManager` dựng cửa sổ lớp phủ `MediaDiscWindow` (level `alert − 1.75`, chỉ khung đĩa nhận chạm) khi trình nghe có album hoặc TTS có phiên + kiểu "Đĩa góc dưới"; nút 52 pt nền kính `FloatingGlassBackground`, bìa tròn 44 pt xoay khi đang phát (`MediaDiscMusicFace` — `AudioRotatingCover`, album 18+ lúc NSFW tắt không bìa; `MediaDiscTTSFace` — `TTSCoverView` + `TTSWidgetCoverRotation`). Chờ cổng từ điển như các cửa sổ nổi khác; hết nguồn ⇒ đóng sheet, thu đĩa rồi ẩn cửa sổ.
+- **Vị trí** (`MediaDiscPlacement`): đĩa đứng ngay trên **neo cao nhất** của tầng trình bày trên cùng của cửa sổ chính (khe 12 pt), không neo ⇒ góc dưới phải trên vùng an toàn 12 pt, lề phải 16 pt. Neo = `.mediaDiscAnchor(_:)` (`MediaDiscAnchorProbe` + `MediaDiscAnchorRegistry`): `FloatingRoundButton` (mọi nút "+", Home, menu xổ, FAB Chi tiết), cụm pill đang xổ của `FloatingActionMenu` (đĩa lên trên, không che "Về trang gốc"), nút tai nghe Reader (mép phải trùng nút), `MainTabBar`, `BrowserBottomBar`, thanh dưới truyện tranh. Neo trong sheet thắng neo trang dưới; trang con ngoài màn của `TabView` dạng trang không tính. Cửa sổ phim nhỏ đè chỗ ⇒ đĩa lên trên nó (`VideoMiniPlayerWindowManager.visiblePlayerFrame`).
+- **Ẩn** khi bàn phím hiện, màn nghe hiện, phim toàn màn (`FloatingWidgetSuppression`), màn xem phim ở trên cùng (neo `.blocker` ở `VideoPlayerScreen`), hộp thoại / bảng chọn (`UIAlertController`) hay bảng chia sẻ ở trên cùng.
+- **Tính lại** khi neo vào / rời cửa sổ / đổi cỡ, bàn phím, xoay màn, đổi trạng thái, cộng lượt hỏi 0,4 s (chế độ `.common`) chỉ khi cửa sổ hiện và app không ở nền. Giữ chỗ mép phải ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`, mới) để nút hub vừa thả / vừa hiện né đĩa.
+- **Chạm đĩa** ⇒ sheet điều khiển nhanh từ cửa sổ của đĩa (`.appAccentTint()` + `.modelContainer` ở gốc): `AudioQuickControlSheet` — chạm khối bìa + tên ⇒ đóng sheet rồi mở màn nghe trang Đĩa (`AudioPlayerPresenter.reopen(at: .disc)` trong `onDismiss`), **bỏ nút ⤢**; `TTSQuickControlSheet` (thêm `onOpenReader`) — chạm khối bìa + tên ⇒ đóng sheet rồi Reader của truyện đó đang mở thì `navigateReaderToPlayingChapter` (không đổi tab), chưa mở thì `openCurrentlyPlayingReader`. Sheet Hẹn giờ TTS mở Reader ⇒ đóng mọi sheet của đĩa.
+- **Bỏ**: `AudioMiniPlayerBar`, `AudioMiniPlayerTimerBadge` (khỏi `MainTabBarModifier` và `BypassWebView`), `MiniPlayerBarChrome` / `MiniPlayerControlButton` / `MiniPlayerProgressLine`, toàn bộ kiểu thanh TTS (`TTSWidgetBarContainerViewController`, `TTSWidgetBarContentView`, `TTSWidgetBarView`, `TTSWidgetBarPillView`, `TTSWidgetBarViewModel`, `TTSWidgetBarProgressLine`, `TTSWidgetBarPresence`), `ReaderAudioDiscButton`, `ReaderTTSDiscButton`, `ReaderTTSBarBottomSpacer` (đáy Reader về `Spacer().frame(height: 52)`), `ReaderPresenceTracker` (chỉ thanh TTS dùng). Giữ `TTSWidgetBarInfoReader` (sheet TTS dùng).
+- **Dòng báo trình nghe** (`AudioPlaybackNotice`: "Tự sang: <tên>", "Bỏ qua …") trước nổi trên thanh mini ⇒ nay là **toast** (`recordsInInbox: false`) khi màn nghe không hiện; màn nghe vẫn có dải báo.
+- **Cài đặt › Đọc & Nghe › Widget TTS**: **Đĩa nổi** (giữ nguyên) / **Đĩa góc dưới** (`TTSWidgetStyle.cornerDisc`, raw value `"bar"` cũ ⇒ ai đang chọn "Thanh nghe nhạc" tự sang); bỏ hai công tắc "Thu gọn khi mở Reader" / "Tự thu gọn sau 5 giây" và khoá của chúng ở `TTSWidgetPreferences`. Kiểu Đĩa góc dưới ⇒ `TTSFloatingWidgetWindowManager` không dựng cửa sổ.
+- **Kiểm chứng:** đọc code + grep chéo mọi type / khoá bị xoá; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.807] - 2026-11-09
 
 ### feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt
@@ -376,15 +392,4 @@ Người dùng: *"thêm nút edit cho mỗi tên trong danh sách name của AI,
 Người dùng: *"chỉnh độ sáng theo video vẫn giữ kể cả ở chế độ pip"*.
 
 - Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) là một chủ của `VideoBrightnessKeeper` như màn xem phim: hiện ⇒ giữ mức sáng đã vuốt chỉnh của trình phát; thu vào hub / tắt phim ⇒ trả độ sáng của máy. Mở cửa sổ **trước** khi màn to rời đi và màn to mở lại **trước** khi cửa sổ ẩn ⇒ độ sáng không nháy khi chuyển qua lại. App vào nền vẫn trả độ sáng của máy như cũ, quay lại lúc cửa sổ còn hiện thì áp lại.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.778] - 2026-11-07
-
-### feat: bộ lọc NSFW riêng của tab Kệ sách: Không hiển thị, Tất cả, Chỉ NSFW
-
-Người dùng: *"thêm filter, chỉ nfsw, không hiển thị nfsw, tất cả ở phần tùy chọn kệ của tab kệ sách"*; anh Bửu chốt: *"Độc lập, ba công tắc này dành riêng cho tab kệ sách thôi. Tắt app, tắt màn hình, về home mở lên lại sẽ về không hiển thị nfsw"*, bấm nút Home trong app cũng về "Không hiển thị NSFW".
-
-- Ngăn kéo "…" của tab Kệ Sách: công tắc NSFW chung được thay bằng nhóm **"NSFW"** ba hàng chọn (`SideDrawerOptionRow`): **Không hiển thị NSFW** (mặc định) · **Tất cả** · **Chỉ NSFW** (`ShelfNsfwFilter`). Công tắc NSFW chung vẫn ở Khám phá / Cài đặt.
-- **Độc lập** với công tắc chung: chỉ quyết định danh sách Kệ + Lịch sử (`ShelfBookPartition(nsfwFilter:)`); Bộ sưu tập / Tải / Tìm trên kệ vẫn theo công tắc chung. "NSFW" = truyện của nguồn NSFW hoặc truyện tự đánh dấu NSFW.
-- **Không lưu**: `ShelfNsfwFilterState` (singleton trong bộ nhớ, sống qua lần dựng lại tab) — mở app, app vào nền (khoá màn hình / về màn hình chính) hay bấm nút Home trong app (nút Home nổi, "Về Khám phá" của màn xem phim) đều về "Không hiển thị NSFW".
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.

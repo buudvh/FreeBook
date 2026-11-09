@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-/// Góc xoay **dùng chung** của bìa đĩa trình nghe (thanh phát mini ở mọi tab + trang Đĩa của màn nghe): một
+/// Góc xoay **dùng chung** của bìa đĩa trình nghe (đĩa nghe góc dưới ở mọi màn + sheet điều khiển nhanh + trang Đĩa của màn nghe): một
 /// `CoverRotationState` của widget TTS (cùng cơ chế, không nhân bản) sống suốt tiến trình, nên đổi tab / mở màn nghe / thu
 /// nhỏ đều giữ đúng góc, dừng thì đứng yên ở góc đang có.
 ///

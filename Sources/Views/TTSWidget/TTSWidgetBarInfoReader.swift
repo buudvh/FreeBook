@@ -1,7 +1,8 @@
 import Combine
 import Foundation
 
-/// Chữ của kiểu Thanh nghe nhạc (1.3.796): dòng 1 tên truyện, dòng 2 tên chương (1.3.804 bỏ tiền tố "Ch. N"). Lấy từ
+/// Chữ của sheet điều khiển nhanh TTS (`TTSQuickControlSheet`; có từ kiểu Thanh nghe nhạc 1.3.796, thanh bỏ ở 1.3.808): dòng 1
+/// tên truyện, dòng 2 tên chương (1.3.804 bỏ tiền tố "Ch. N"). Lấy từ
 /// `TTSManager.displayedBookTitle` / `displayedChapterTitle` (đã dịch theo phiên TTS) — hai hàm này dịch **đồng bộ** nên chỉ
 /// tính lại khi (truyện, chương, tên thô) đổi hoặc từ điển vừa cập nhật, không theo từng đoạn / từng giây hẹn giờ.
 ///

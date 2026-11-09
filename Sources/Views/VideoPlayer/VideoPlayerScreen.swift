@@ -83,6 +83,8 @@ struct VideoPlayerScreen: View {
             detailsArea
         }
         .preferredColorScheme(.dark)
+        // Màn xem phim đang ở trên cùng ⇒ ẩn đĩa nghe góc dưới phải (1.3.808); trang đè lên màn xem thì đĩa hiện lại.
+        .mediaDiscAnchor(.blocker)
         .toolbar(.hidden, for: .navigationBar)
         .statusBarHidden(isFullscreen)
         .persistentSystemOverlays(isFullscreen ? .hidden : .automatic)

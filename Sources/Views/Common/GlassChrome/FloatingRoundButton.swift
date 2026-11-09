@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Nút tròn nổi 52pt nền kính (`FloatingGlassBackground` ⇒ theo độ trong suốt / độ đục ở Cài đặt › Giao diện), icon
 /// trắng 20pt nửa đậm — một khuôn cho nút "+" của màn danh sách, nút Home nổi và nút bật menu xổ (`FloatingActionMenu`).
-/// Không tự đệm lề: người gọi đặt `trailingInset` / `bottomInset` (16 / 12) như nút "+" chung.
+/// Không tự đệm lề: người gọi đặt `trailingInset` / `bottomInset` (16 / 12) như nút "+" chung. Mọi nút kiểu này là neo
+/// của đĩa nghe góc dưới phải (`.mediaDiscAnchor(.button)`, 1.3.808): đĩa đứng ngay trên nút.
 struct FloatingRoundButton: View {
     static let size: CGFloat = 52
     static let trailingInset: CGFloat = 16
@@ -27,5 +28,6 @@ struct FloatingRoundButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+        .mediaDiscAnchor(.button)
     }
 }
