@@ -9,12 +9,13 @@ extension AudioPlaybackSession {
     func play() {
         guard isActive else { return }
         shouldAutoplay = true
+        // Bài lỗi (kể cả lỗi giữa chừng: item hỏng vẫn còn gắn) ⇒ thử lại — `retry` gỡ item hỏng, nạp lại ở giây đang nghe.
+        if case .failed = phase {
+            retry()
+            return
+        }
         guard let item = player.currentItem else {
-            if case .failed = phase {
-                retry()
-            } else {
-                beginUserRequestedPlayback()
-            }
+            beginUserRequestedPlayback()
             return
         }
         guard item.status == .readyToPlay else {

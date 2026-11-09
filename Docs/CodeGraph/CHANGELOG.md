@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.785] - 2026-11-09
+
+### fix: bấm phát sau khi bài nhạc lỗi giữa chừng thì thử lại bài đó
+
+Rà lại 1.3.784: bài lỗi lúc đang phát (`AVPlayerItem` báo `failed` / `failedToPlayToEndTime`) để item hỏng vẫn gắn vào player ⇒ `AudioPlaybackSession.play()` thấy có item chưa `readyToPlay` nên chỉ chờ, không làm gì; nút phát/dừng của thanh mini / hub / màn khoá (`togglePlayPause`) cũng vậy.
+
+- `play()`: đang `.failed` ⇒ `retry()` trước mọi nhánh khác (gỡ item hỏng, nạp lại bài ở giây đang nghe).
+- **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy.
+
 ## [1.3.784] - 2026-11-09
 
 ### feat: lõi phát âm thanh riêng cho tiện ích loại audio: lặp, xáo, lời bài hát, màn khoá
