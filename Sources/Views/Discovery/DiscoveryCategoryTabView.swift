@@ -17,6 +17,8 @@ struct DiscoveryCategoryTabView: View {
     /// Tiện ích/nguồn của tab — nguồn Legado thì cookie của trình duyệt "Mở link lỗi" được gộp vào kho của nguồn.
     let packageId: String?
     let onSelectNovel: (ExtensionItemResult) -> Void
+    /// Container cho ⋮ "Thêm vào playlist / Thêm vào kệ" của item nguồn âm thanh / phim.
+    @Environment(\.modelContext) private var modelContext
     /// Referer dự phòng cho bìa khi item không có `host`. Tra lười khi tab xuất hiện, không trong `init` — `init`
     /// chạy lại mỗi lần `DiscoveryView` dựng lại body.
     @State private var sourceHost: String? = nil
@@ -121,6 +123,7 @@ struct DiscoveryCategoryTabView: View {
                         scrollAnchors: scrollAnchors,
                         anchorCategoryId: category.id,
                         itemNoun: layoutScope.itemNoun,
+                        playlistContext: PlaylistListAddContext.make(packageId: packageId, modelContainer: modelContext.container),
                         onSelectNovel: onSelectNovel
                     )
                     // Neo có thể được đặt lúc dữ liệu chưa nạp xong, nên phải thử lại khi danh sách

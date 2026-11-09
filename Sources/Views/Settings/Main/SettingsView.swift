@@ -7,6 +7,8 @@ import SwiftUI
 struct SettingsView: View {
     /// Bản mới đang mở trong sheet `AppUpdateSheet` (hàng "Có bản mới" của section Thông Tin).
     @State private var sheetUpdate: AppUpdateInfo? = nil
+    /// Sheet "Có gì mới ở bản này" (nút "?" cạnh "Phiên bản ứng dụng").
+    @State private var showingReleaseNotes = false
 
     var body: some View {
         NavigationStack {
@@ -32,29 +34,53 @@ struct SettingsView: View {
     }
 
     /// Dòng "Phiên bản ứng dụng": bấm ⇒ kiểm tra bản mới ngay (1.3.732). Đang kiểm thì vòng xoay thay cho số version;
-    /// xong thì toast "Đang dùng bản mới nhất" / mở sheet bản mới / báo lỗi.
+    /// xong thì toast "Đang dùng bản mới nhất" / mở sheet bản mới / báo lỗi. Nút "?" ngay sau chữ (1.3.810) ⇒ sheet "Có gì
+    /// mới ở bản này" — nút **anh em** đặt chồng phía trước (chữ ẩn giữ đúng chỗ), không nằm trong `label` của nút kiểm.
     private var versionRow: some View {
         let isChecking = AppUpdateRepository.shared.isChecking
-        return Button {
-            Task { await checkForUpdate() }
-        } label: {
-            HStack {
-                Text("Phiên bản ứng dụng")
-                    .foregroundStyle(.primary)
-                Spacer()
-                if isChecking {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Text(AppVersionInfo.display)
-                        .foregroundColor(.secondary)
+        return ZStack(alignment: .leading) {
+            Button {
+                Task { await checkForUpdate() }
+            } label: {
+                HStack {
+                    Text("Phiên bản ứng dụng")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if isChecking {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Text(AppVersionInfo.display)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .disabled(isChecking)
+            .accessibilityHint("Bấm để kiểm tra bản mới")
+
+            HStack(spacing: 0) {
+                Text("Phiên bản ứng dụng")
+                    .hidden()
+                    .allowsHitTesting(false)
+                // Cùng kiểu glyph / vùng chạm với `SectionHelpButton` (nút đó tự mở popover nên không dùng lại được).
+                Button {
+                    showingReleaseNotes = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Có gì mới ở bản này")
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(isChecking)
-        .accessibilityHint("Bấm để kiểm tra bản mới")
+        .sheet(isPresented: $showingReleaseNotes) {
+            AppReleaseNotesSheet()
+        }
     }
 
     private func checkForUpdate() async {

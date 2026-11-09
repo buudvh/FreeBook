@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Hàng "Thêm cả album / phim vào playlist" của sheet nhấn giữ (`BookActionSheet`) — chỉ cho album âm thanh và phim.
 ///
-/// Tự lo trọn: bấm ⇒ lấy mọi bài / tập của mục lục (`PlaylistAlbumItemsLoader`: mục lục trên máy, chưa có thì tải từ tiện
-/// ích; có vòng chờ trên hàng, lỗi thì toast) ⇒ mở `PlaylistAddSheet` chồng lên sheet nhấn giữ. Sheet nhấn giữ không cần
-/// thêm case `BookSheetAction` (cùng kiểu `VideoDownloadsActionRow`).
+/// Tự lo trọn: bấm ⇒ lấy mọi bài / tập của mục lục (`PlaylistAlbumItemsLoader.addRequest`: mục lục trên máy, chưa có thì
+/// tải từ tiện ích — cùng đường với ⋮ của item danh sách; có vòng chờ trên hàng, lỗi thì toast `PlaylistAddFeedback`) ⇒
+/// mở `PlaylistAddSheet` chồng lên sheet nhấn giữ. Sheet nhấn giữ không cần thêm case `BookSheetAction` (cùng kiểu
+/// `VideoDownloadsActionRow`).
 struct PlaylistAddBookActionRow: View {
     let book: Book
     let kind: PlaylistKind
@@ -42,19 +43,14 @@ struct PlaylistAddBookActionRow: View {
         isLoading = true
         loadTask = Task { @MainActor in
             do {
-                let items = try await PlaylistAlbumItemsLoader.items(for: album, kind: playlistKind)
+                let built = try await PlaylistAlbumItemsLoader.addRequest(for: album, kind: playlistKind)
                 isLoading = false
                 loadTask = nil
-                let summary = album.title.isEmpty ? (playlistKind == .audio ? "Cả album" : "Cả phim") : album.title
-                request = PlaylistAddRequest(kind: playlistKind, items: items, summary: summary)
+                request = built
             } catch {
                 isLoading = false
                 loadTask = nil
-                // Lỗi của tiện ích được bọc trong `ExtensionLoadError` ⇒ bóc ra trước khi so huỷ.
-                guard !(ExtensionLoadError.unwrapped(error) is CancellationError) else { return }
-                AppLogger.shared.log("❌ [Playlist] Không lấy được danh sách để thêm vào playlist (bookId=\(album.bookId)): \(error.localizedDescription)")
-                let noun = playlistKind.itemNoun
-                ToastManager.shared.show(message: "Không lấy được danh sách \(noun): \(error.localizedDescription)", type: .error)
+                PlaylistAddFeedback.reportLoadFailure(error, album: album, kind: playlistKind)
             }
         }
     }

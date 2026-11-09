@@ -21,6 +21,9 @@ struct DiscoveryNovelGridCardView: View {
     let mode: BookListLayoutMode
     /// Tỉ lệ rộng : cao của bìa (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
+    /// Nơi dùng đè ⋮ "Thêm vào playlist" ở góc dưới phải thẻ (`PlaylistListItemMenu`, 1.3.810) ⇒ chừa lề phải cho tên /
+    /// mô tả để chữ không chạy dưới ⋮. Kiểu chỉ bìa đặt ⋮ trên góc bìa nên không cần.
+    var reservesMenuSpace: Bool = false
 
     private static let coverCornerRadius: CGFloat = 8
 
@@ -34,12 +37,14 @@ struct DiscoveryNovelGridCardView: View {
                     .foregroundColor(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .padding(.trailing, reservesMenuSpace ? 18 : 0)
 
                 if !item.description.isEmpty {
                     Text(translateIfNeeded(item.description.cleanHTML()))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        .padding(.trailing, reservesMenuSpace ? 18 : 0)
                 }
             }
         }

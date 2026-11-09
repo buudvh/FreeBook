@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// Hàng chip chọn loại playlist ở tab Playlist của Kệ sách: **Nhạc · Video** (không có "Tất cả" — hai loại tách hẳn).
-/// Cùng kiểu chip đang chọn của `ExtensionKindFilterBar`: chữ màu nhấn, nền nhấn mờ 18%, viền nhấn 60%.
+/// Hàng chip chọn loại playlist ở tab Playlist của Kệ sách: **Tất cả · Nhạc · Video** (1.3.810 thêm "Tất cả", đứng đầu,
+/// mặc định). Cùng kiểu chip đang chọn của `ExtensionKindFilterBar`: chữ màu nhấn, nền nhấn mờ 18%, viền nhấn 60%.
 struct PlaylistKindChipBar: View {
-    @Binding var selection: PlaylistKind
-    /// Số playlist mỗi loại — hiện cạnh nhãn khi > 0.
-    let counts: [PlaylistKind: Int]
+    @Binding var selection: PlaylistKindFilter
+    /// Số playlist mỗi chip — hiện cạnh nhãn khi > 0.
+    let counts: [PlaylistKindFilter: Int]
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(PlaylistKind.allCases) { kind in
-                chip(kind)
+            ForEach(PlaylistKindFilter.allCases) { filter in
+                chip(filter)
             }
             Spacer(minLength: 0)
         }
@@ -18,20 +18,22 @@ struct PlaylistKindChipBar: View {
         .padding(.vertical, 6)
     }
 
-    private func chip(_ kind: PlaylistKind) -> some View {
-        let isSelected = selection == kind
-        let count = counts[kind] ?? 0
+    private func chip(_ filter: PlaylistKindFilter) -> some View {
+        let isSelected = selection == filter
+        let count = counts[filter] ?? 0
         let foreground: Color = isSelected ? .accentColor : .primary
         let fill: Color = isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground)
         let stroke: Color = isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.12)
         return Button {
-            guard selection != kind else { return }
-            withAnimation(.easeInOut(duration: 0.18)) { selection = kind }
+            guard selection != filter else { return }
+            withAnimation(.easeInOut(duration: 0.18)) { selection = filter }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: kind.symbolName)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(count > 0 ? "\(kind.title) · \(count)" : kind.title)
+                if let symbol = filter.symbolName {
+                    Image(systemName: symbol)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                Text(count > 0 ? "\(filter.title) · \(count)" : filter.title)
                     .font(.subheadline)
                     .lineLimit(1)
             }
@@ -44,7 +46,7 @@ struct PlaylistKindChipBar: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(count > 0 ? "\(kind.title), \(count) playlist" : kind.title)
+        .accessibilityLabel(count > 0 ? "\(filter.title), \(count) playlist" : filter.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

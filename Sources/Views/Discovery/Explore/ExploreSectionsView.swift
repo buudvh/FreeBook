@@ -29,6 +29,8 @@ struct ExploreSectionsView: View {
     let onSelectNovel: (ExtensionItemResult) -> Void
     let onSelectCategory: (CategoryResult) -> Void
 
+    /// Container cho ⋮ "Thêm vào playlist / Thêm vào kệ" của item nguồn âm thanh / phim.
+    @Environment(\.modelContext) private var modelContext
     @State private var sections: [ExploreSection] = []
     @State private var isLoading = false
     @State private var hasLoaded = false
@@ -46,7 +48,8 @@ struct ExploreSectionsView: View {
             sourceHost: sourceHost,
             isTranslationEnabled: isTranslationEnabled,
             sizes: ExploreLayoutSizePreferences.shared.sizes(for: sizeScope),
-            onSelect: { handleTap($0) }
+            onSelect: { handleTap($0) },
+            playlist: PlaylistListAddContext.make(packageId: ext.packageId, sourceName: ext.name, modelContainer: modelContext.container)
         )
         ScrollView(.vertical, showsIndicators: false) {
             if sections.isEmpty {
@@ -193,15 +196,7 @@ struct ExploreSectionsView: View {
 
     private func openDetail(_ item: ExploreItem, url: String) {
         guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        onSelectNovel(ExtensionItemResult(
-            name: item.name,
-            description: item.description,
-            cover: item.cover,
-            link: url,
-            host: item.host,
-            tag: item.tag,
-            type: item.type
-        ))
+        onSelectNovel(ExploreRenderContext.listItem(item, detailUrl: url))
     }
 
     private func openList(_ action: ExploreAction, fallbackTitle: String) {

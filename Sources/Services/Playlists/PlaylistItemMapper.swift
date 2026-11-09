@@ -1,7 +1,9 @@
 import Foundation
+import SwiftData
 
 /// Converter thuần: dựng `PlaylistAlbumInfo` / `PlaylistItem` / `PlaylistAddRequest` từ chỗ đang mở — phiên nghe
-/// (`AudioPlaybackSession`), phiên phát phim (`VideoPlaybackSession`), màn xem (`VideoWatchModel`) hoặc `Book` trên Kệ.
+/// (`AudioPlaybackSession`), phiên phát phim (`VideoPlaybackSession`), màn xem (`VideoWatchModel`), `Book` trên Kệ hoặc
+/// một item danh sách chưa mở (Khám phá, Tìm, Thể loại, gợi ý nhạc, đề xuất phim).
 ///
 /// Quy ước mục:
 /// - Nhạc: dòng phụ = nghệ sĩ của bài (`Track.artist`), không có thì tác giả album; `albumTitle` = tên album.
@@ -65,6 +67,38 @@ enum PlaylistItemMapper {
             coverUrl: book.coverUrl,
             host: ExtensionHostResolver.nonEmpty(book.host),
             sourceName: nonEmpty(book.sourceName)
+        )
+    }
+
+    /// Item danh sách chưa mở (không có `Book` trong tay). Id album = id mà trình nghe / màn xem sẽ dùng khi mở chính item
+    /// này (`VideoWatchRequest.resolveBookId`, cùng quy tắc với `AudioListenRequest`): album / phim đã có trên máy thì
+    /// `PlaylistAlbumItemsLoader` đọc đúng mục lục đã lưu ⇒ chỉ số mục khớp với lúc phát. `detailUrl` khác `item.link`
+    /// khi mục Khám phá có action `detail` (link chi tiết = `input`).
+    static func album(
+        of item: ExtensionItemResult,
+        detailUrl: String? = nil,
+        packageId: String,
+        sourceName: String,
+        in context: ModelContext
+    ) -> PlaylistAlbumInfo {
+        let url = detailUrl ?? item.link
+        let request = VideoWatchRequest(
+            packageId: packageId,
+            detailUrl: url,
+            sourceName: sourceName,
+            host: item.host,
+            title: item.name,
+            coverUrl: item.cover
+        )
+        return PlaylistAlbumInfo(
+            bookId: request.resolveBookId(in: context),
+            packageId: packageId,
+            detailUrl: url,
+            title: item.name,
+            author: item.author,
+            coverUrl: item.cover,
+            host: ExtensionHostResolver.nonEmpty(item.host),
+            sourceName: nonEmpty(sourceName)
         )
     }
 

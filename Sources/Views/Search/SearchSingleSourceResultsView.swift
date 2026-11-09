@@ -28,6 +28,8 @@ struct SearchSingleSourceResultsView: View {
     let footer: LoadMoreFooter.Phase?
     let onLoadMore: () -> Void
     let onRetry: () -> Void
+    /// Nguồn âm thanh / phim (không đổi nguồn) ⇒ mỗi hàng / thẻ có ⋮ "Thêm vào playlist / Thêm vào kệ" (1.3.810).
+    var playlistContext: PlaylistListAddContext? = nil
 
     private static let preloadDistance = 5
 
@@ -65,10 +67,14 @@ struct SearchSingleSourceResultsView: View {
     private func listTappable(_ item: ExtensionItemResultWithExt) -> some View {
         if isChangingSource || ContentDetailRouter.opensPlayer(packageId: item.ext.packageId) {
             // Đổi nguồn / phim / âm thanh (mở màn xem phim / màn nghe): nút thường, không có mũi tên `>` của `NavigationLink`.
+            // ⋮ đè lên nút (không nằm trong `label`), chữ chừa lề phải.
             tappable(item) {
-                listRow(item).bookListPanel(layout.rowSize)
+                listRow(item)
+                    .padding(.trailing, playlistContext == nil ? 0 : 24)
+                    .bookListPanel(layout.rowSize)
             }
             .buttonStyle(.plain)
+            .playlistListItemMenuOverlay(item: item.result, context: playlistContext, style: .row)
         } else {
             ZStack {
                 NavigationLink(destination: detailView(item)) {
@@ -137,9 +143,15 @@ struct SearchSingleSourceResultsView: View {
                                 sourceHost: ExtensionHostResolver.nonEmpty(item.ext.sourceUrl),
                                 isTranslationEnabled: isTranslationEnabled,
                                 mode: layout.mode,
-                                aspectRatio: aspectRatio
+                                aspectRatio: aspectRatio,
+                                reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly
                             )
                         }
+                        .playlistListItemMenuOverlay(
+                            item: item.result,
+                            context: playlistContext,
+                            style: layout.mode == .coverOnly ? .onCover : .card
+                        )
                         .onAppear { preloadIfNeeded(item, triggerIds: preloadIds) }
                     }
                 } footer: {

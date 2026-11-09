@@ -53,6 +53,48 @@ enum AppUpdateSourceClient {
     }
 
     private static func fetch(from url: URL, headers: [String: String]) async throws -> AppUpdateInfo {
+        let source = try await fetchSource(from: url, headers: headers)
+        guard let latest = source.apps.first?.versions?.first,
+              let latestInfo = info(of: latest) else {
+            throw FetchError.noVersion
+        }
+        return latestInfo
+    }
+
+    /// Bản có `buildVersion` = `build` trong nguồn (dự phòng của "Có gì mới ở bản này" khi IPA không mang
+    /// `ReleaseNotes.txt`). Nguồn chỉ giữ 5 bản gần nhất (`publish_altstore_source.py`) ⇒ bản cũ hơn trả `nil`. Cùng thứ
+    /// tự đọc với `fetchLatest`: API GitHub trước, lỗi thì link raw.
+    static func fetchVersion(build: Int) async throws -> AppUpdateInfo? {
+        do {
+            let source = try await fetchSource(from: apiURL, headers: [
+                "Accept": "application/vnd.github.raw+json",
+                "User-Agent": "TangCongCac"
+            ])
+            return version(build: build, in: source)
+        } catch {
+            if error is CancellationError { throw error }
+            AppLogger.shared.log("⚠️ [AppUpdate] API GitHub lỗi khi tìm ghi chú bản \(build) (\(error.localizedDescription)) ⇒ đọc link raw")
+            let source = try await fetchSource(from: rawURL, headers: [:])
+            return version(build: build, in: source)
+        }
+    }
+
+    private static func version(build: Int, in source: Source) -> AppUpdateInfo? {
+        let versions = source.apps.first?.versions ?? []
+        return versions.compactMap { info(of: $0) }.first(where: { $0.buildNumber == build })
+    }
+
+    private static func info(of version: Version) -> AppUpdateInfo? {
+        guard let build = Int(version.buildVersion.trimmingCharacters(in: .whitespaces)) else { return nil }
+        return AppUpdateInfo(
+            version: version.version,
+            buildNumber: build,
+            date: version.date.flatMap { ISO8601DateFormatter().date(from: $0) },
+            notes: AppUpdateInfo.notes(fromDescription: version.localizedDescription ?? "")
+        )
+    }
+
+    private static func fetchSource(from url: URL, headers: [String: String]) async throws -> Source {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.httpMethod = "GET"
         for (name, value) in headers {
@@ -62,16 +104,6 @@ enum AppUpdateSourceClient {
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw FetchError.badStatus(http.statusCode)
         }
-        let source = try JSONDecoder().decode(Source.self, from: data)
-        guard let latest = source.apps.first?.versions?.first,
-              let build = Int(latest.buildVersion.trimmingCharacters(in: .whitespaces)) else {
-            throw FetchError.noVersion
-        }
-        return AppUpdateInfo(
-            version: latest.version,
-            buildNumber: build,
-            date: latest.date.flatMap { ISO8601DateFormatter().date(from: $0) },
-            notes: AppUpdateInfo.notes(fromDescription: latest.localizedDescription ?? "")
-        )
+        return try JSONDecoder().decode(Source.self, from: data)
     }
 }

@@ -114,6 +114,11 @@ struct CategoryNovelsListView: View {
                     sourceHost: sourceHost,
                     isTranslationEnabled: isTranslationEnabled,
                     itemNoun: scope.itemNoun,
+                    playlistContext: PlaylistListAddContext.make(
+                        packageId: extensionPackageId,
+                        sourceName: sourceName,
+                        modelContainer: modelContext.container
+                    ),
                     onSelectNovel: { novel in
                         if let onSelectVideo, ContentDetailRouter.isVideo(packageId: extensionPackageId) {
                             onSelectVideo(novel)

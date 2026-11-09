@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.780] - 2026-11-08
+
+### feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name
+
+Người dùng: *"thêm nút edit cho mỗi tên trong danh sách name của AI, bấm vào sẽ hiển ra màn hình giống sửa vp/name trong từ điển. Bấm cập nhật sẽ tuỳ theo vế trái mà sửa nghĩa hoặc thêm từ mới"*, rồi chọn *"lưu vào tin luôn"*.
+
+- **Nút bút chì** trên mỗi hàng của sheet "Duyệt tên riêng & VP" (`ReaderAINameReviewCardView`, trước nút ✕, kiểu nút Sửa của `DictionaryEntryRow`, vùng chạm 36 pt) ⇒ mở **đúng màn Sửa từ** của danh sách VP/Name (`DictEntryEditSheet`): nới/thu vùng chọn, token, chip nghĩa, aa…AA, tra cứu, gõ lại từ gốc. Token / nghĩa gợi ý / chip tra theo từ điển của truyện. Badge header ghi **"AI · Riêng truyện"** (tham số mới `badgeText`, mặc định `nil` ⇒ màn từ điển không đổi) vì danh sách AI chưa có loại — Name hay VP chọn lúc Lưu.
+- **"Cập nhật" theo vế trái**, đúng luật màn Sửa từ: chọn cả từ gốc ⇒ sửa nghĩa; gõ lại cả từ gốc ⇒ đổi khoá; chọn một phần ⇒ thêm name mới ngay dưới name đang sửa. Khoá đích đã có trong danh sách ⇒ ghi đè nghĩa mục đó (màn báo trước), không tạo bản trùng. Mục sửa / thêm được chọn sẵn; đổi khoá / thêm mục ⇒ tra lại cờ NE/VP ngoài main (chỉ chép cờ, không đổi trạng thái chọn); sửa nghĩa ở màn ⚙ cũng tra lại. Chưa ghi từ điển — nút "Lưu" vẫn lo.
+- **Lưu vào tin nguồn**: `AINameEdit` (`Services/AI/`, mới) là một phép áp **cùng lúc** lên danh sách của sheet, nội dung tin (dòng `từ=nghĩa` thay tại chỗ, dòng khác giữ nguyên, dòng trùng khoá cũ/mới bỏ như nút ✕) và `extractedNames` của tin cũ (`ReaderAIFullScreenView+NameEdit`). Như nút ✕ (1.3.611), coordinator nhớ chuỗi sửa **theo tin** (`AIRuntimeCoordinator.nameEdits`, `+NameEdits`) và `applyBatchProgress` / `writeNames` áp lại sau bộ lọc khoá đã ✕ (`applyingUserNameChanges`) ⇒ lượt quét đang chạy và "Thử lại k lượt lỗi" không đè mất; context thử lại của đúng tin đó sửa luôn. ✕ một name sau khi đã sửa ⇒ ghi thêm phép xoá vào cuối chuỗi (`forgetName`), kẻo name do lần sửa tạo ra quay lại.
+- **Kiểm chứng:** đọc code + diff; `keepingUnremovedNames` chỉ còn được gọi qua `applyingUserNameChanges`; `ReaderAINameReviewSheet` chỉ dựng ở màn AI; `DictEntryEditSheet` thêm chỗ dựng thứ hai, chỗ cũ (`DictEntrySheet`) không truyền `badgeText`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: sửa trong lúc lượt quét đang ghi vào chính tin đó; mở lại sheet sau khi sửa.
+
 ## [1.3.779] - 2026-11-07
 
 ### feat: độ sáng chỉnh khi xem phim vẫn giữ khi phim ở cửa sổ nhỏ

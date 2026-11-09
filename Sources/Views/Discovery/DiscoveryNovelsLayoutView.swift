@@ -36,6 +36,8 @@ struct DiscoveryNovelsLayoutView: View {
     let anchorCategoryId: String
     /// Từ gọi mục ở dòng "Đã hết · N …" (`BookListLayoutScope.itemNoun`).
     let itemNoun: String
+    /// Nguồn âm thanh / phim ⇒ mỗi hàng / thẻ có ⋮ "Thêm vào playlist / Thêm vào kệ" (1.3.810); `nil` ⇒ không có.
+    let playlistContext: PlaylistListAddContext?
     let onSelectNovel: (ExtensionItemResult) -> Void
 
     init(
@@ -47,6 +49,7 @@ struct DiscoveryNovelsLayoutView: View {
         scrollAnchors: DiscoveryScrollAnchorStore? = nil,
         anchorCategoryId: String = "",
         itemNoun: String = "truyện",
+        playlistContext: PlaylistListAddContext? = nil,
         onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         _loader = ObservedObject(wrappedValue: loader)
@@ -57,6 +60,7 @@ struct DiscoveryNovelsLayoutView: View {
         self.scrollAnchors = scrollAnchors
         self.anchorCategoryId = anchorCategoryId
         self.itemNoun = itemNoun
+        self.playlistContext = playlistContext
         self.onSelectNovel = onSelectNovel
     }
 
@@ -82,9 +86,12 @@ struct DiscoveryNovelsLayoutView: View {
                         isTranslationEnabled: isTranslationEnabled,
                         rowSize: layout.rowSize
                     )
+                    .padding(.trailing, playlistContext == nil ? 0 : 24)
                     .bookListPanel(layout.rowSize)
                 }
                 .buttonStyle(.plain)
+                // ⋮ đè lên nút (không nằm trong `label`), chữ đã chừa lề phải.
+                .playlistListItemMenuOverlay(item: novel, context: playlistContext, style: .row)
                 .bookListPanelRowChrome()
                 .id(novel.link)
                 .onAppear { setVisible(novel.link, true) }
@@ -129,10 +136,16 @@ struct DiscoveryNovelsLayoutView: View {
                                 sourceHost: sourceHost,
                                 isTranslationEnabled: isTranslationEnabled,
                                 mode: layout.mode,
-                                aspectRatio: aspectRatio
+                                aspectRatio: aspectRatio,
+                                reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly
                             )
                         }
                         .buttonStyle(.plain)
+                        .playlistListItemMenuOverlay(
+                            item: novel,
+                            context: playlistContext,
+                            style: layout.mode == .coverOnly ? .onCover : .card
+                        )
                         .id(novel.link)
                         .onAppear { setVisible(novel.link, true) }
                         .onDisappear { setVisible(novel.link, false) }

@@ -340,6 +340,7 @@ struct SearchView: View {
                                     
                                 case .found(let results):
                                     let displayResults = changeSourceTargetBook != nil ? results.filter { !isSameBookSource(result: $0, ext: ext) } : results
+                                    let playlist = playlistContext(for: ext) // ⋮ của nguồn âm thanh / phim (1.3.810)
                                     if !displayResults.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
                                             HStack {
@@ -411,6 +412,7 @@ struct SearchView: View {
                                                                         .foregroundColor(.primary)
                                                                         .lineLimit(2)
                                                                         .multilineTextAlignment(.leading)
+                                                                        .padding(.trailing, playlist == nil ? 0 : 18)
                                                                         .frame(width: 90, alignment: .leading)
                                                                     
                                                                     // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
@@ -421,6 +423,7 @@ struct SearchView: View {
                                                                     //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
+                                                            .playlistListItemMenuOverlay(item: result, context: playlist, style: .card)
                                                         }
                                                     }
                                                 }
@@ -483,7 +486,8 @@ struct SearchView: View {
                 showingChangeSourceAlert = true
             },
             footer: singleSourceFooterPhase(shownCount: displayResults.count, noun: scope.itemNoun),
-            onLoadMore: { loadMoreSearchResults() }, onRetry: { retryLoadMoreSearchResults() }
+            onLoadMore: { loadMoreSearchResults() }, onRetry: { retryLoadMoreSearchResults() },
+            playlistContext: playlistContext(for: displayResults.first?.ext ?? selectedExtension)
         )
     }
     

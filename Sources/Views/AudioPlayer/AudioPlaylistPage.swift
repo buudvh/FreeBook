@@ -3,7 +3,8 @@ import SwiftUI
 /// Trang trái của màn nghe: "Danh sách phát · N bài". Thứ tự hiển thị **luôn** theo mục lục (`tracks`), không theo thứ
 /// tự xáo; số thứ tự = vị trí trong danh sách (không phải `Track.index` thưa). Chạm hàng ⇒ `playTrack(at: track.index)`.
 /// Trang hiện ra (và khi đổi bài lúc đang xem) ⇒ cuộn bài đang phát vào giữa. Dưới danh sách bài là phần gợi ý của nguồn
-/// (`AudioSuggestionSection`), tải khi trang hiện. Nhấn giữ một bài ⇒ "Thêm vào playlist" (`PlaylistAddSheet`).
+/// (`AudioSuggestionSection`), tải khi trang hiện. Icon cuối hàng (1.3.810) hoặc nhấn giữ một bài ⇒ "Thêm vào playlist"
+/// (`PlaylistAddSheet`).
 /// Đang phát playlist (`PlaylistPlaybackCoordinator.audioQueue`) ⇒ cả trang là các mục của playlist
 /// (`AudioPlaylistQueueList`), không có danh sách bài của album lẫn phần gợi ý.
 struct AudioPlaylistPage: View {
@@ -74,11 +75,15 @@ struct AudioPlaylistPage: View {
                             position: position + 1,
                             title: track.displayTitle,
                             artist: track.artist.isEmpty ? fallbackArtist : track.artist,
-                            isCurrent: track.index == current
-                        ) {
-                            AppLogger.shared.log("🎵 [AudioPlayerUI] Chọn bài \(track.index) ở danh sách phát")
-                            session.playTrack(at: track.index)
-                        }
+                            isCurrent: track.index == current,
+                            onSelect: {
+                                AppLogger.shared.log("🎵 [AudioPlayerUI] Chọn bài \(track.index) ở danh sách phát")
+                                session.playTrack(at: track.index)
+                            },
+                            onAddToPlaylist: {
+                                playlistRequest = PlaylistItemMapper.addRequest(track: track, in: session)
+                            }
+                        )
                         .contextMenu {
                             Button {
                                 playlistRequest = PlaylistItemMapper.addRequest(track: track, in: session)

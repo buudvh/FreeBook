@@ -9,6 +9,7 @@ import SwiftUI
 ///   — màn nghe đang mở nên đổi album tại chỗ, không chồng màn.
 /// - Công tắc "Tự phát bài gợi ý" bật ⇒ mục `AudioAutoNextCoordinator` sẽ tự phát (đã trừ mục đã phát trong chuỗi) có
 ///   nhãn "Tiếp theo"; tắt / đang lặp / hẹn "Hết bài" ⇒ không nhãn.
+/// - Icon "Thêm vào playlist" cuối mỗi dòng (1.3.810) ⇒ mọi bài của album gợi ý vào `PlaylistAddSheet`.
 struct AudioSuggestionSection: View {
     /// Mặc định bật — khớp `AudioAutoNextPolicy.isEnabled`; đọc bằng `@AppStorage` để nhãn đổi ngay khi bật / tắt.
     @AppStorage(AudioAutoNextPolicy.defaultsKey) private var autoNextSuggest = AudioAutoNextPolicy.defaultValue
@@ -33,9 +34,12 @@ struct AudioSuggestionSection: View {
                         .padding(.top, 20)
                         .padding(.bottom, 4)
                     ForEach(rows(of: group, upNext: upNext)) { item in
-                        AudioSuggestionRow(item: item, isUpNext: group.id == 0 && item.link == upNext) {
-                            open(item)
-                        }
+                        AudioSuggestionRow(
+                            item: item,
+                            isUpNext: group.id == 0 && item.link == upNext,
+                            onSelect: { open(item) },
+                            makeAlbum: { album(of: item) }
+                        )
                     }
                 }
             }
@@ -55,6 +59,20 @@ struct AudioSuggestionSection: View {
             rows.append(item)
         }
         return rows
+    }
+
+    /// Album của một gợi ý cho icon "Thêm vào playlist" (cùng tiện ích với album đang nghe); thiếu container ⇒ `nil`.
+    private func album(of item: ExtensionItemResult) -> PlaylistAlbumInfo? {
+        guard let container = session.modelContainer, !session.packageId.isEmpty else {
+            AppLogger.shared.log("❌ [AudioPlayerUI] Thiếu ModelContainer / tiện ích ⇒ không thêm được gợi ý «\(item.name)» vào playlist")
+            return nil
+        }
+        return PlaylistItemMapper.album(
+            of: item,
+            packageId: session.packageId,
+            sourceName: session.request?.sourceName ?? "",
+            in: container.mainContext
+        )
     }
 
     private func open(_ item: ExtensionItemResult) {

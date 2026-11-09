@@ -12,7 +12,8 @@ import SwiftUI
 /// - "N" của tiêu đề = mọi tập phát được (như tiêu đề kiểu Lưới), kể cả khi có nhiều nhóm.
 /// - Chỉ báo chọn qua `onSelect` — **không** tự `dismiss` (trong panel toàn màn `dismiss` sẽ đóng cả trình phát); nơi
 ///   gọi tự đóng sheet / panel. Nhấn giữ hàng (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải" như ô Lưới;
-///   có `onAddToPlaylist` ⇒ thêm "Thêm vào playlist".
+///   có `onAddToPlaylist` ⇒ thêm "Thêm vào playlist", kèm icon "Thêm vào playlist" ở cuối hàng sau ô ⬇ (1.3.810, chỉ
+///   sheet "Tất cả tập" truyền; panel toàn màn không có).
 /// - Hàng dựng bằng `ScrollView` + `LazyVStack` (không `List`) và giữ `.id(episode.index)` để cuộn tới tập đang phát.
 struct VideoEpisodeListView<Accessory: View>: View {
     typealias Episode = VideoPlaybackSession.Episode
@@ -175,46 +176,64 @@ struct VideoEpisodeListView<Accessory: View>: View {
         let titleColor: Color = isCurrent ? palette.title : (isWatched ? palette.text.opacity(0.4) : palette.text)
         let rowFill: Color = isCurrent ? palette.currentRowFill : .clear
         let traits: AccessibilityTraits = isCurrent ? .isSelected : []
-        return Button {
-            onSelect(episode)
-        } label: {
-            HStack(spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let numbering {
-                        ChapterOrdinalLabel(
-                            ordinal: numbering.ordinal(forIndex: episode.index),
-                            digits: numbering.digits,
-                            palette: palette,
-                            isCurrent: isCurrent,
-                            isRead: isWatched
-                        )
+        // Nền tập đang phát + vạch ngăn gắn ở hàng ngoài để phủ cả icon "Thêm vào playlist" (nút anh em, 1.3.810).
+        return HStack(spacing: 0) {
+            Button {
+                onSelect(episode)
+            } label: {
+                HStack(spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        if let numbering {
+                            ChapterOrdinalLabel(
+                                ordinal: numbering.ordinal(forIndex: episode.index),
+                                digits: numbering.digits,
+                                palette: palette,
+                                isCurrent: isCurrent,
+                                isRead: isWatched
+                            )
+                        }
+                        Text(episode.displayTitle)
+                            .font(.body)
+                            .fontWeight(isCurrent ? .semibold : .regular)
+                            .foregroundColor(titleColor)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
                     }
-                    Text(episode.displayTitle)
-                        .font(.body)
-                        .fontWeight(isCurrent ? .semibold : .regular)
-                        .foregroundColor(titleColor)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    downloadMark(isDownloaded)
                 }
-                Spacer(minLength: 8)
-                downloadMark(isDownloaded)
+                .padding(.leading, 16)
+                .padding(.trailing, onAddToPlaylist == nil ? 10 : 0)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
             }
-            .padding(.leading, 16)
-            .padding(.trailing, 10)
-            .padding(.vertical, 7)
-            .background(rowFill)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(palette.divider)
-                    .frame(height: 0.5)
-                    .padding(.leading, 16)
+            .buttonStyle(.plain)
+            .accessibilityLabel(episode.displayTitle)
+            .accessibilityValue(isCurrent ? "Đang phát" : (isDownloaded ? "Đã tải" : ""))
+            .accessibilityAddTraits(traits)
+
+            if let onAddToPlaylist {
+                Button {
+                    onAddToPlaylist(episode)
+                } label: {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(palette.secondaryText)
+                        .frame(width: 32, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 6)
+                .accessibilityLabel("Thêm \(episode.displayTitle) vào playlist")
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(episode.displayTitle)
-        .accessibilityValue(isCurrent ? "Đang phát" : (isDownloaded ? "Đã tải" : ""))
-        .accessibilityAddTraits(traits)
+        .background(rowFill)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(palette.divider)
+                .frame(height: 0.5)
+                .padding(.leading, 16)
+        }
     }
 
     /// Khung 30 × 30 cố định để hàng không đổi chiều cao khi tập vừa tải xong.

@@ -2,9 +2,11 @@ import SwiftUI
 
 /// Thẻ đề xuất kiểu bảng tin của màn xem: ảnh **16:9 rộng hết màn** (bìa dọc đặt giữa trên nền mờ của chính bìa), nhãn
 /// góc ảnh khi nguồn trả `tag` (thường là số tập); dưới ảnh: icon tiện ích nguồn tròn, tên 2 dòng, dòng phụ
-/// `nguồn · tác giả / mô tả ngắn`, và `⋮` (chỉ "Thêm vào kệ" — phim không còn trang Chi tiết kiểu cũ).
+/// `nguồn · tác giả / mô tả ngắn`, và `⋮` ("Thêm vào playlist" đứng trên "Thêm vào kệ" — phim không còn trang Chi tiết
+/// kiểu cũ).
 ///
 /// Chạm ảnh hoặc chữ ⇒ `onSelect`. "Thêm vào kệ" tự tải chi tiết + mục lục rồi tạo `Book` (`VideoWatchShelfAdder`).
+/// "Thêm vào playlist" (1.3.810) tải mọi tập của phim (`PlaylistAlbumItemsLoader.addRequest`) rồi mở `PlaylistAddSheet`.
 struct VideoWatchSuggestCard: View {
     let item: ExtensionItemResult
     let model: VideoWatchModel
@@ -12,6 +14,9 @@ struct VideoWatchSuggestCard: View {
     let makeRequest: () -> VideoWatchRequest
 
     @State private var isAddingToShelf = false
+    @State private var isLoadingPlaylist = false
+    @State private var playlistTask: Task<Void, Never>? = nil
+    @State private var playlistRequest: PlaylistAddRequest? = nil
 
     private var packageId: String { model.request.packageId }
 
@@ -113,6 +118,12 @@ struct VideoWatchSuggestCard: View {
     private var moreMenu: some View {
         Menu {
             Button {
+                addToPlaylist()
+            } label: {
+                Label("Thêm vào playlist", systemImage: "text.badge.plus")
+            }
+            .disabled(isLoadingPlaylist)
+            Button {
                 addToShelf()
             } label: {
                 Label("Thêm vào kệ", systemImage: "plus.circle")
@@ -120,7 +131,7 @@ struct VideoWatchSuggestCard: View {
             .disabled(isAddingToShelf)
         } label: {
             Group {
-                if isAddingToShelf {
+                if isAddingToShelf || isLoadingPlaylist {
                     ProgressView()
                         .tint(.white)
                 } else {
@@ -134,6 +145,40 @@ struct VideoWatchSuggestCard: View {
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Tuỳ chọn phim đề xuất")
+        .sheet(item: $playlistRequest) { request in
+            PlaylistAddSheet(request: request)
+        }
+        .onDisappear {
+            playlistTask?.cancel()
+            playlistTask = nil
+        }
+    }
+
+    /// Mọi tập của phim đề xuất ⇒ `PlaylistAddSheet` (id phim = id màn xem sẽ dùng khi mở phim này).
+    private func addToPlaylist() {
+        guard !isLoadingPlaylist else { return }
+        let request = makeRequest()
+        let album = PlaylistItemMapper.album(
+            of: item,
+            detailUrl: request.detailUrl,
+            packageId: request.packageId,
+            sourceName: request.sourceName,
+            in: model.modelContainer.mainContext
+        )
+        isLoadingPlaylist = true
+        playlistTask = Task { @MainActor in
+            do {
+                let built = try await PlaylistAlbumItemsLoader.addRequest(for: album, kind: .video)
+                isLoadingPlaylist = false
+                playlistTask = nil
+                guard !Task.isCancelled else { return }
+                playlistRequest = built
+            } catch {
+                isLoadingPlaylist = false
+                playlistTask = nil
+                PlaylistAddFeedback.reportLoadFailure(error, album: album, kind: .video)
+            }
+        }
     }
 
     private func addToShelf() {

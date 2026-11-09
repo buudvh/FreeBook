@@ -288,7 +288,22 @@ jobs:
           echo "Error: $DEST_DATA_PATH does not exist!"
           exit 1
         fi
-        
+
+        # Ghi chú "Có gì mới ở bản này" trong app (Cài đặt › Thông Tin › "?", `AppReleaseNotesLoader`): danh sách commit
+        # của lượt build (bước Collect Commit List), định dạng `- <subject>` + bỏ dòng trùng như ghi chú release.
+        # Thiếu danh sách / lỗi ⇒ bỏ qua (app tự dự phòng bằng apps.json), không bao giờ làm đỏ build.
+        NOTES_PATH="build/Payload/FreeBook.app/ReleaseNotes.txt"
+        if [ -s build/commit_subjects.txt ]; then
+          if python3 Scripts/ci/telegram_commit_summary.py --list build/commit_subjects.txt --format notes > "$NOTES_PATH"; then
+            echo "ReleaseNotes.txt: $(grep -c . "$NOTES_PATH" || true) dòng"
+          else
+            echo "::warning::Không ghi được ReleaseNotes.txt — bỏ qua"
+            rm -f "$NOTES_PATH" || true
+          fi
+        else
+          echo "Không có build/commit_subjects.txt ⇒ không ghi ReleaseNotes.txt"
+        fi
+
         cd build
         zip -r FreeBook.ipa Payload
         echo "IPA packaged successfully at build/FreeBook.ipa"
