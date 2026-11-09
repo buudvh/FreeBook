@@ -269,7 +269,15 @@ final class MediaDiscWindowManager: ObservableObject {
     }
 
     /// Reader sắp mở ở cửa sổ chính (sheet Hẹn giờ TTS, hub…) ⇒ sheet của đĩa không được che nó.
+    ///
+    /// Chờ một nhịp (1.3.809): lối hay gặp là chọn chương ở sheet Hẹn giờ TTS — sheet **lớp hai** đè lên sheet điều khiển
+    /// nhanh, đang tự đóng. Đóng sheet cha ngay lúc sheet con còn đang trượt xuống thì UIKit có thể bỏ qua lệnh, sheet nhanh
+    /// kẹt lại che Reader. Đợi sheet con đóng xong (~0,35 s) rồi mới đóng.
     @objc private func openCurrentlyPlayingReader() {
-        requestCloseSheets()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.closeSheetsAfterChildDelay) { [weak self] in
+            MainActor.assumeIsolated { self?.requestCloseSheets() }
+        }
     }
+
+    private static let closeSheetsAfterChildDelay: TimeInterval = 0.45
 }

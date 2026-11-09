@@ -23,7 +23,9 @@ struct TTSQuickControlSheet: View {
     /// "Tắt đọc": dừng hẳn TTS (đĩa thu lại, sheet đóng theo).
     let onStop: () -> Void
 
-    @Environment(\.scenePhase) private var scenePhase
+    /// App đang hoạt động ⇒ đĩa đầu sheet được xoay. Sheet trình bày từ cửa sổ riêng của đĩa nghe (1.3.808) nên không
+    /// dựa `scenePhase` (không chắc lan tới cây SwiftUI của cửa sổ UIKit riêng — cùng lý do `AudioPlayerScreen`, 1.3.797).
+    @State private var isAppActive = UIApplication.shared.applicationState != .background
     @StateObject private var ttsState = TTSWidgetStateReader()
     @StateObject private var info = TTSWidgetBarInfoReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
@@ -36,6 +38,12 @@ struct TTSQuickControlSheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 26)
             .padding(.bottom, 12)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                isAppActive = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                isAppActive = false
+            }
             .environment(\.colorScheme, .dark)
             .fixedSize(horizontal: false, vertical: true)
             .background(
@@ -92,7 +100,7 @@ struct TTSQuickControlSheet: View {
                         image: coverLoader.image,
                         size: 52,
                         rotationState: TTSWidgetCoverRotation.shared.state,
-                        isRotating: ttsState.snapshot.isPlaying && scenePhase == .active
+                        isRotating: ttsState.snapshot.isPlaying && isAppActive
                     )
                     VStack(alignment: .leading, spacing: 3) {
                         Text(info.bookTitle.isEmpty ? "Đang đọc truyện" : info.bookTitle)

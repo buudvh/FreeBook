@@ -2,6 +2,15 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.779] - 2026-11-07
+
+### feat: độ sáng chỉnh khi xem phim vẫn giữ khi phim ở cửa sổ nhỏ
+
+Người dùng: *"chỉnh độ sáng theo video vẫn giữ kể cả ở chế độ pip"*.
+
+- Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) là một chủ của `VideoBrightnessKeeper` như màn xem phim: hiện ⇒ giữ mức sáng đã vuốt chỉnh của trình phát; thu vào hub / tắt phim ⇒ trả độ sáng của máy. Mở cửa sổ **trước** khi màn to rời đi và màn to mở lại **trước** khi cửa sổ ẩn ⇒ độ sáng không nháy khi chuyển qua lại. App vào nền vẫn trả độ sáng của máy như cũ, quay lại lúc cửa sổ còn hiện thì áp lại.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.778] - 2026-11-07
 
 ### feat: bộ lọc NSFW riêng của tab Kệ sách: Không hiển thị, Tất cả, Chỉ NSFW

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.809] - 2026-11-09
+
+### fix: sheet của đĩa nghe không kẹt khi mở Reader từ sheet Hẹn giờ, bìa trong sheet xoay theo trạng thái app
+
+Rà commit 1.3.808 (đĩa nghe góc dưới phải), sửa hai chỗ session làm đĩa đã nêu là chưa chắc:
+
+- `MediaDiscWindowManager.openCurrentlyPlayingReader`: chờ 0,45 s rồi mới xin đóng sheet của đĩa. Chọn chương ở sheet Hẹn giờ TTS (sheet lớp hai đè lên sheet điều khiển nhanh) gửi `openCurrentlyPlayingReader` lúc sheet con còn đang trượt xuống; đóng sheet cha ngay khi đó UIKit có thể bỏ qua ⇒ sheet nhanh kẹt lại che Reader.
+- `AudioQuickControlSheet` / `TTSQuickControlSheet`: đĩa đầu sheet xoay theo `isAppActive` (thông báo `didBecomeActive` / `willResignActive`) thay cho `scenePhase` — sheet giờ trình bày từ cửa sổ riêng của đĩa, `scenePhase` không chắc lan tới (cùng lỗi màn nghe đứng đĩa đã sửa ở 1.3.797).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.808] - 2026-11-09
 
 ### feat: đĩa xoay góc dưới phải cho nhạc và TTS trên mọi màn, bỏ thanh nghe nhạc mini và kiểu thanh của widget TTS
@@ -384,12 +394,3 @@ Người dùng: *"thêm nút edit cho mỗi tên trong danh sách name của AI,
 - **"Cập nhật" theo vế trái**, đúng luật màn Sửa từ: chọn cả từ gốc ⇒ sửa nghĩa; gõ lại cả từ gốc ⇒ đổi khoá; chọn một phần ⇒ thêm name mới ngay dưới name đang sửa. Khoá đích đã có trong danh sách ⇒ ghi đè nghĩa mục đó (màn báo trước), không tạo bản trùng. Mục sửa / thêm được chọn sẵn; đổi khoá / thêm mục ⇒ tra lại cờ NE/VP ngoài main (chỉ chép cờ, không đổi trạng thái chọn); sửa nghĩa ở màn ⚙ cũng tra lại. Chưa ghi từ điển — nút "Lưu" vẫn lo.
 - **Lưu vào tin nguồn**: `AINameEdit` (`Services/AI/`, mới) là một phép áp **cùng lúc** lên danh sách của sheet, nội dung tin (dòng `từ=nghĩa` thay tại chỗ, dòng khác giữ nguyên, dòng trùng khoá cũ/mới bỏ như nút ✕) và `extractedNames` của tin cũ (`ReaderAIFullScreenView+NameEdit`). Như nút ✕ (1.3.611), coordinator nhớ chuỗi sửa **theo tin** (`AIRuntimeCoordinator.nameEdits`, `+NameEdits`) và `applyBatchProgress` / `writeNames` áp lại sau bộ lọc khoá đã ✕ (`applyingUserNameChanges`) ⇒ lượt quét đang chạy và "Thử lại k lượt lỗi" không đè mất; context thử lại của đúng tin đó sửa luôn. ✕ một name sau khi đã sửa ⇒ ghi thêm phép xoá vào cuối chuỗi (`forgetName`), kẻo name do lần sửa tạo ra quay lại.
 - **Kiểm chứng:** đọc code + diff; `keepingUnremovedNames` chỉ còn được gọi qua `applyingUserNameChanges`; `ReaderAINameReviewSheet` chỉ dựng ở màn AI; `DictEntryEditSheet` thêm chỗ dựng thứ hai, chỗ cũ (`DictEntrySheet`) không truyền `badgeText`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: sửa trong lúc lượt quét đang ghi vào chính tin đó; mở lại sheet sau khi sửa.
-
-## [1.3.779] - 2026-11-07
-
-### feat: độ sáng chỉnh khi xem phim vẫn giữ khi phim ở cửa sổ nhỏ
-
-Người dùng: *"chỉnh độ sáng theo video vẫn giữ kể cả ở chế độ pip"*.
-
-- Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) là một chủ của `VideoBrightnessKeeper` như màn xem phim: hiện ⇒ giữ mức sáng đã vuốt chỉnh của trình phát; thu vào hub / tắt phim ⇒ trả độ sáng của máy. Mở cửa sổ **trước** khi màn to rời đi và màn to mở lại **trước** khi cửa sổ ẩn ⇒ độ sáng không nháy khi chuyển qua lại. App vào nền vẫn trả độ sáng của máy như cũ, quay lại lúc cửa sổ còn hiện thì áp lại.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.

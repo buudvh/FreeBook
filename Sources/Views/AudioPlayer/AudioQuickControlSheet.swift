@@ -25,7 +25,9 @@ struct AudioQuickControlSheet: View {
     /// "Tắt nhạc": dừng hẳn trình nghe.
     let onStop: () -> Void
 
-    @Environment(\.scenePhase) private var scenePhase
+    /// App đang hoạt động ⇒ đĩa đầu sheet được xoay. Sheet trình bày từ cửa sổ riêng của đĩa nghe (1.3.808) nên không
+    /// dựa `scenePhase` (không chắc lan tới cây SwiftUI của cửa sổ UIKit riêng — cùng lý do `AudioPlayerScreen`, 1.3.797).
+    @State private var isAppActive = UIApplication.shared.applicationState != .background
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
     @State private var showingSleepTimer = false
 
@@ -36,6 +38,12 @@ struct AudioQuickControlSheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 26)
             .padding(.bottom, 12)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                isAppActive = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                isAppActive = false
+            }
             .environment(\.colorScheme, .dark)
             .fixedSize(horizontal: false, vertical: true)
             .background(
@@ -108,7 +116,7 @@ struct AudioQuickControlSheet: View {
                         coverUrl: session.coverUrl,
                         referer: referer,
                         size: 52,
-                        isRotating: session.isPlaying && scenePhase == .active,
+                        isRotating: session.isPlaying && isAppActive,
                         isConcealed: isConcealed
                     )
                     VStack(alignment: .leading, spacing: 3) {
