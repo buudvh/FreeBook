@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.782",
+          "buildVersion": "1184",
+          "date": "2026-11-09T03:42:26Z",
+          "localizedDescription": "- fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại\n- fix: chỉ báo hỏi lại hướng xoay khi còn trang thể loại, rời trình phát không bị bật ngang lại",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1184/TangCongCac-1.3.782-1184.ipa",
+          "size": 38244887,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.781",
           "buildVersion": "1183",
           "date": "2026-11-09T03:39:53Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1180/TangCongCac-1.3.777-1180.ipa",
           "size": 38225124,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.773",
-          "buildVersion": "1178",
-          "date": "2026-11-07T04:31:46Z",
-          "localizedDescription": "- feat: kiểu Lưới và Chỉ bìa chọn được 1 cột\n- feat: chỉnh cỡ hiển thị từng bố cục của trang Khám phá\n- feat: bấm Thể loại hoặc Xem thêm khi đang xem phim thì phim vào cửa sổ nhỏ\n- fix: tắt NSFW không còn dừng phim 18+ mà thu vào hub và tắt tiếng theo cài đặt\n- feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video\n- feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab\n- feat: nút + của Chi tiết theo cấu hình nút nổi, Home nằm trong menu xổ của nút +\n- fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1178/TangCongCac-1.3.773-1178.ipa",
-          "size": 38221507,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.781",
-      "versionDate": "2026-11-09T03:39:53Z",
-      "versionDescription": "- fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1183/TangCongCac-1.3.781-1183.ipa",
-      "size": 38244532,
+      "version": "1.3.782",
+      "versionDate": "2026-11-09T03:42:26Z",
+      "versionDescription": "- fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại\n- fix: chỉ báo hỏi lại hướng xoay khi còn trang thể loại, rời trình phát không bị bật ngang lại",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1184/TangCongCac-1.3.782-1184.ipa",
+      "size": 38244887,
       "appPermissions": {}
     }
   ],
