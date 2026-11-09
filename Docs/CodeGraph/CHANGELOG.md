@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.800] - 2026-11-09
+
+### feat: trang Danh sách của màn nghe hiện bài gợi ý của nguồn, chạm để nghe ngay, nhãn Tiếp theo cho mục sẽ tự phát
+
+Anh Bửu hỏi *"phần suggest của nhạc hiển thị ở đâu"* — trước đây gợi ý chỉ chạy ngầm cho tự phát (1.3.798). Anh duyệt: hiện gợi ý ở trang Danh sách kiểu "Có thể bạn muốn nghe" của Zing MP3.
+
+- **`AudioSuggestionStore`** (mới, `Services/Audio/`, `@MainActor @Observable`): **một nguồn** gợi ý của album đang mở cho cả tự phát lẫn màn nghe. Nhóm gợi ý = `suggests` của chi tiết (chờ chi tiết trình nghe đang tải → cache `BookDetailCacheManager` → tải chi tiết không tương tác), mỗi nhóm có `script` chạy trang 1 **một lần** cho mỗi album; gọi lại cùng album dùng kết quả cũ, album khác ⇒ huỷ lượt cũ. Nhóm đầu tải trước (tự phát cần); các nhóm sau (tới 3 nhóm) chỉ tải khi trang Danh sách hiện (`loadForDisplay`). Phần tải chi tiết / chạy nhóm chuyển từ `AudioAutoNextCoordinator` sang đây (không nhân bản); `Album` chụp album đang mở chuyển theo (`AudioSuggestionStore.Album.snapshot(of:)`, coordinator dùng `typealias`).
+- **`AudioAutoNextCoordinator`**: tải trước / thử lại qua store (`firstGroupItems` / `reloadFirstGroup`). Cách chọn mục tự phát gom về **`pick(after:items:)`** — dùng cho cả lúc hết album lẫn nhãn "Tiếp theo" (`upNextLink(in:firstGroupItems:)`: `nil` khi đang lặp / hẹn "Hết bài" / trình nghe rảnh), nên nhãn luôn trùng mục sẽ phát (đã trừ mục đã phát trong chuỗi).
+- **Trang Danh sách** (`AudioPlaylistPage`): dưới danh sách bài là **`AudioSuggestionSection`** (mới): mỗi nhóm một tiêu đề (tên nhóm của tiện ích, vd "Bài gợi ý", "Playlist liên quan") + các dòng **`AudioSuggestionRow`** (mới: bìa nhỏ `RemoteCoverImage` — không ghi `covers/`, tên, nghệ sĩ / mô tả, chữ trắng trên nền tối). Mỗi nhóm tối đa 20 dòng (Zing trả tới 100 bài); mục "Tiếp theo" luôn hiện. Chưa tải xong / lỗi / không có gợi ý ⇒ không vẽ gì. Trang hiện / đổi album lúc đang xem ⇒ `loadForDisplay`.
+- **Chạm dòng** ⇒ `ContentDetailRouter.openIfVideo` với tiện ích của album: tiện ích âm thanh ⇒ `AudioPlayerPresenter.present` — màn nghe đang mở nên đổi album **tại chỗ**, không chồng màn.
+- **Nhãn "Tiếp theo"** (viên thuốc chữ màu nhấn) trên mục sẽ tự phát khi công tắc "Tự phát bài gợi ý" bật (đọc `@AppStorage` ⇒ bật / tắt là đổi ngay); tắt công tắc, đang lặp album / một bài hoặc hẹn "Hết bài" ⇒ không nhãn.
+- Log: `⏭️ [AudioSuggest] …` (lỗi tải ghi `❌ [AudioSuggest] …`), `🎵 [AudioPlayerUI] Chọn mục gợi ý …`.
+- Chuyển `[1.3.770]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo (`AudioSuggestionStore.Album.snapshot` thay `albumSnapshot`, không còn chỗ gọi `prepareTask` / `loadSuggestions` cũ; chữ ký `ContentDetailRouter.openIfVideo(_:packageId:sourceName:modelContainer:)`, `RemoteCoverImage(url:referer:placeholderSymbol:)`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 216 dòng, một type chính). Không build tại chỗ (Windows). Chưa thử máy: phần gợi ý ở trang Danh sách với Zing MP3 / NhacCuaTui, chạm đổi album tại chỗ, nhãn "Tiếp theo" đổi theo công tắc.
+
 ## [1.3.799] - 2026-11-09
 
 ### fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí
@@ -373,15 +388,3 @@ Người dùng: *"Thêm nút home vào tất cả màn hình trừ reader và xe
 - `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: bấm pill của menu xổ (vẽ lòi ngoài khung nút 52pt); Home đè góc phải cuối trang con; cửa sổ phim nhỏ / hub / widget TTS đậu góc dưới phải che nút.
 
-## [1.3.770] - 2026-11-07
-
-### feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video
-
-Người dùng: *"Khi người dùng đang xem video mà tắt màn hình thì tự động cho video và hub widget (nếu đang ở nfsw thì tắt và chuyển sang nguồn khác không nfsw), video thu vào hub không cần pause đâu (tính năng này có thể config bật tắt)"*. Anh Bửu chọn kích hoạt **khi rời app** (khoá màn hình hoặc về màn hình chính), phim 18+ làm giống nút Home mới (1.3.769).
-
-- Cài đặt › Đọc & Nghe › Video thêm nhóm "Khi rời app" với công tắc "Rời app thì thu phim vào hub" (`VideoLeaveAppPolicy`, khoá `videoCollapseToHubOnLeaveApp`, mặc định **bật**).
-- App vào nền (`didEnterBackground`: khoá màn hình, vuốt về màn hình chính — kéo Trung tâm điều khiển không tính) lúc có phim: màn xem đóng **không hiệu ứng**, cửa sổ nhỏ thu vào hub; phim phát tiếp chỉ tiếng, không bao giờ bị dừng vì việc này. Trang đè lên màn xem đóng theo.
-- Rồi như nút Home: phim 18+ tắt tiếng theo "Tắt tiếng khi mở phim"; công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá (sau khi màn xem đã đóng hẳn) ⇒ Khám phá đổi sang nguồn không 18+. NSFW đang tắt thì không chuyển tab. Gọi lặp an toàn; log `🎬` / `🔞` cho từng bước, lỗi có `❌`.
-- Màn xem gỡ khỏi phiên ngay khi rời app (không chờ `onDisappear`, có thể bị hoãn ở nền); trình duyệt "Mở link lỗi" / "Trình duyệt" đang che màn thì giữ nguyên màn. Phim nhúng trang cũng bị thu (trang web huỷ, hub hiện "Chạm để mở lại" như nút ⌄).
-- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: đóng màn xem khi app đã ở nền (lượt chuyển Khám phá chờ `onDisappear`); đang xem ngang mà rời app.

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Trang trái của màn nghe: "Danh sách phát · N bài". Thứ tự hiển thị **luôn** theo mục lục (`tracks`), không theo thứ
 /// tự xáo; số thứ tự = vị trí trong danh sách (không phải `Track.index` thưa). Chạm hàng ⇒ `playTrack(at: track.index)`.
-/// Trang hiện ra (và khi đổi bài lúc đang xem) ⇒ cuộn bài đang phát vào giữa.
+/// Trang hiện ra (và khi đổi bài lúc đang xem) ⇒ cuộn bài đang phát vào giữa. Dưới danh sách bài là phần gợi ý của nguồn
+/// (`AudioSuggestionSection`), tải khi trang hiện.
 struct AudioPlaylistPage: View {
     let isVisible: Bool
     let drag: AudioMinimizeDragState
@@ -63,20 +64,35 @@ struct AudioPlaylistPage: View {
                         }
                         .id(track.index)
                     }
+                    AudioSuggestionSection()
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 24)
             }
             .onAppear {
                 scrollToCurrent(proxy, animated: false)
+                loadSuggestionsIfVisible()
             }
             .onChange(of: isVisible) { _, visible in
-                if visible { scrollToCurrent(proxy, animated: false) }
+                if visible {
+                    scrollToCurrent(proxy, animated: false)
+                    loadSuggestionsIfVisible()
+                }
             }
             .onChange(of: current) { _, _ in
                 if isVisible { scrollToCurrent(proxy, animated: true) }
             }
+            .onChange(of: session.bookId) { _, _ in
+                loadSuggestionsIfVisible()
+            }
         }
+    }
+
+    /// Trang đang hiện ⇒ tải gợi ý của album (nhóm đầu thường đã có sẵn từ lượt tải trước của tự phát; các nhóm sau tải
+    /// lúc này). Cùng album gọi lại không gọi nguồn lần nữa.
+    private func loadSuggestionsIfVisible() {
+        guard isVisible, let album = AudioSuggestionStore.Album.snapshot(of: session) else { return }
+        AudioSuggestionStore.shared.loadForDisplay(album)
     }
 
     private func scrollToCurrent(_ proxy: ScrollViewProxy, animated: Bool) {

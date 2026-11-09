@@ -8,9 +8,11 @@ import UIKit
 /// app chạy nền / màn khoá. Sang ngay, không đếm ngược.
 ///
 /// - **Tải trước**: `AudioPlaybackSession.beginTrackLoad` báo `trackLoadDidBegin`; bài đang nạp là bài cuối (lặp tắt,
-///   `autoAdvanceTarget() == nil` — gồm album một bài) ⇒ lấy nhóm gợi ý của album (chi tiết trình nghe đang tải → cache
-///   chi tiết → tải chi tiết, `isInteractive: false`) rồi chạy trang 1 của **nhóm đầu tiên có script**. Tiện ích âm thanh
-///   đặt nhóm đầu là bài gợi ý (bài lẻ) hoặc playlist liên quan (playlist).
+///   `autoAdvanceTarget() == nil` — gồm album một bài) ⇒ `AudioSuggestionStore` tải trang 1 của **nhóm gợi ý đầu tiên có
+///   script** (cùng kết quả trang Danh sách của màn nghe hiện). Tiện ích âm thanh đặt nhóm đầu là bài gợi ý (bài lẻ) hoặc
+///   playlist liên quan (playlist).
+/// - **Mục sẽ tự phát** (`pick(after:items:)`) là một nguồn cho cả lúc hết album lẫn nhãn "Tiếp theo" ở trang Danh sách
+///   (`upNextLink(in:firstGroupItems:)`).
 /// - **Hết album** (`advanceAfterTrackEnded`, nhánh không lặp ⇒ `albumDidEnd`): chọn mục đầu tiên có link, khác album vừa
 ///   hết và chưa phát trong chuỗi tự sang hiện tại (chống A → B → A; chuỗi bắt đầu lại khi album vừa hết không phải album
 ///   tự sang gần nhất). Lượt tải sẵn rỗng ⇒ thử lại một lần. Trước khi mở kiểm lại: vẫn đúng album đó và vẫn đứng ở cuối
@@ -29,21 +31,10 @@ import UIKit
 final class AudioAutoNextCoordinator {
     static let shared = AudioAutoNextCoordinator()
 
-    /// Album của một lượt — chụp lúc gọi (session có thể đã đổi album khi gợi ý về).
-    struct Album {
-        let bookId: String
-        let packageId: String
-        let detailUrl: String
-        let sourceName: String
-        let host: String
-        let title: String
-    }
+    typealias Album = AudioSuggestionStore.Album
 
     private static let startTimeoutNanoseconds: UInt64 = 90_000_000_000
 
-    /// Album đã (đang) tải trước gợi ý + lượt tải đó (kết quả = trang 1 của nhóm gợi ý đầu tiên).
-    private var preparedBookId: String?
-    private var prepareTask: Task<[ExtensionItemResult], Never>?
     private var endTask: Task<Void, Never>?
     /// Link chi tiết của các album trong chuỗi tự sang hiện tại.
     private var chainLinks: Set<String> = []
@@ -65,97 +56,45 @@ final class AudioAutoNextCoordinator {
         // album còn dựng sẵn vòng xáo kế. Hẹn giờ "Hết bài" ⇒ dừng ở cuối bài, khỏi tải (tắt hẹn sau đó thì
         // `albumDidEnd` tự tải).
         guard session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem, session.autoAdvanceTarget() == nil,
-              let album = albumSnapshot(of: session) else { return }
+              let album = Album.snapshot(of: session) else { return }
         prepare(for: album)
     }
 
-    /// Tải trước gợi ý của `album`. Gọi lặp cho cùng album thì giữ lượt cũ.
+    /// Tải trước gợi ý của `album` (nhóm đầu, qua `AudioSuggestionStore`). Gọi lặp cho cùng album thì giữ lượt cũ.
     @discardableResult
     private func prepare(for album: Album) -> Task<[ExtensionItemResult], Never>? {
         guard AudioAutoNextPolicy.isEnabled, !LocalMediaPackage.isLocalMedia(packageId: album.packageId) else { return nil }
-        if preparedBookId == album.bookId, let prepareTask { return prepareTask }
-        preparedBookId = album.bookId
-        prepareTask?.cancel()
-        let task = Task { [weak self] () async -> [ExtensionItemResult] in
-            guard let self else { return [] }
-            return await self.loadSuggestions(for: album)
-        }
-        prepareTask = task
-        return task
+        return AudioSuggestionStore.shared.firstGroupItems(for: album)
     }
 
     private func restartPrepare(for album: Album) -> Task<[ExtensionItemResult], Never>? {
-        preparedBookId = nil
-        prepareTask = nil
-        return prepare(for: album)
+        guard AudioAutoNextPolicy.isEnabled else { return nil }
+        return AudioSuggestionStore.shared.reloadFirstGroup(for: album)
     }
 
-    private func loadSuggestions(for album: Album) async -> [ExtensionItemResult] {
-        guard let ext = ExtensionLibraryRepository.snapshot(packageId: album.packageId), !ext.localPath.isEmpty else {
-            AppLogger.shared.log("⚠️ [AudioAutoNext] Tiện ích của album chưa cài ⇒ không tải gợi ý")
-            return []
-        }
-        let categories = await suggestCategories(for: album, ext: ext)
-        guard let category = categories.first(where: { !$0.script.isEmpty }) else {
-            AppLogger.shared.log("⏭️ [AudioAutoNext] Album không có nhóm gợi ý (bookId=\(album.bookId))")
-            return []
-        }
-        do {
-            let (results, _) = try await SourceRuntime.shared.executeCustomScript(
-                localPath: ext.localPath,
-                downloadUrl: ext.downloadUrl,
-                scriptFileName: category.script,
-                input: category.input,
-                page: 1,
-                pageUrl: nil,
-                configJson: ext.configJson
-            )
-            AppLogger.shared.log("⏭️ [AudioAutoNext] Tải sẵn nhóm gợi ý «\(category.title)»: \(results.count) mục")
-            return results
-        } catch {
-            if !AudioPlaybackSession.isCancellation(error) {
-                AppLogger.shared.log("❌ [AudioAutoNext] Không tải được nhóm gợi ý «\(category.title)»: \(error.localizedDescription)")
-            }
-            return []
-        }
+    // MARK: - Mục sẽ tự phát
+
+    /// Mục đầu tiên có link, khác album vừa hết và chưa phát trong chuỗi tự sang (chuỗi chỉ tính khi `album` chính là
+    /// album tự sang gần nhất — khác thì chuỗi bắt đầu lại, như `albumDidEnd`).
+    func pick(after album: Album, items: [ExtensionItemResult]) -> ExtensionItemResult? {
+        var chain = lastAutoOpenedBookId == album.bookId ? chainLinks : []
+        if !album.detailUrl.isEmpty { chain.insert(album.detailUrl) }
+        return items.first { !$0.link.isEmpty && $0.link != album.detailUrl && !chain.contains($0.link) }
     }
 
-    /// Chi tiết trình nghe đang tải (chờ nó ghi cache thay vì tải trùng — album một bài tải trước ngay lúc mở) → cache chi
-    /// tiết (5 phút, `AudioPlaybackSession.apply(detail:)` ghi) → tải chi tiết không tương tác.
-    private func suggestCategories(for album: Album, ext: Extension) async -> [CategoryResult] {
-        let session = AudioPlaybackSession.shared
-        if session.bookId == album.bookId, let detailTask = session.detailTask {
-            await detailTask.value
-        }
-        if let cached = BookDetailCacheManager.shared.getCache(for: album.bookId), !cached.suggests.isEmpty {
-            return cached.suggests
-        }
-        guard !album.detailUrl.isEmpty else { return [] }
-        let snapshot = ExtensionExecutionSnapshot(
-            packageId: ext.packageId,
-            name: ext.name,
-            localPath: ext.localPath,
-            downloadUrl: ext.downloadUrl,
-            configJson: ext.configJson
-        )
-        let host = ExtensionHostResolver.nonEmpty(album.host) ?? ext.sourceUrl
-        let bookName = album.title.isEmpty ? nil : album.title
-        let context = SourceRuntimeContext(bookId: album.bookId, bookUrl: album.detailUrl, bookName: bookName, isInteractive: false)
-        do {
-            return try await BookDetailLoader.shared.fetchDetail(snapshot: snapshot, url: album.detailUrl, host: host, context: context).suggests
-        } catch {
-            if !AudioPlaybackSession.isCancellation(error) {
-                AppLogger.shared.log("❌ [AudioAutoNext] Không tải được chi tiết album để lấy gợi ý: \(error.localizedDescription)")
-            }
-            return []
-        }
+    /// Link của mục sẽ tự phát khi album đang mở hết (nhãn "Tiếp theo" ở trang Danh sách); `nil` khi sẽ không tự phát:
+    /// đang lặp, hẹn giờ "Hết bài", trình nghe rảnh. Công tắc do View kiểm (đọc `@AppStorage` để vẽ lại khi đổi).
+    func upNextLink(in session: AudioPlaybackSession, firstGroupItems items: [ExtensionItemResult]) -> String? {
+        guard session.repeatMode == .off, !session.sleepTimer.stopsAtEndOfItem,
+              let album = Album.snapshot(of: session) else { return nil }
+        return pick(after: album, items: items)?.link
     }
 
     // MARK: - Hết album
 
     /// `AudioPlaybackSession.advanceAfterTrackEnded` gọi khi bài cuối phát hết mà không lặp.
     func albumDidEnd(in session: AudioPlaybackSession) {
-        guard AudioAutoNextPolicy.isEnabled, let album = albumSnapshot(of: session) else { return }
+        guard AudioAutoNextPolicy.isEnabled, let album = Album.snapshot(of: session) else { return }
         guard let container = session.modelContainer else {
             AppLogger.shared.log("❌ [AudioAutoNext] Thiếu ModelContainer ⇒ không tự phát bài gợi ý được")
             return
@@ -199,7 +138,7 @@ final class AudioAutoNextCoordinator {
             AppLogger.shared.log("⏭️ [AudioAutoNext] Album đã đổi / đang nghe lại / phim đang giữ âm thanh ⇒ không tự phát bài gợi ý")
             return false
         }
-        guard let item = items.first(where: { !$0.link.isEmpty && $0.link != ended.detailUrl && !chainLinks.contains($0.link) }) else {
+        guard let item = pick(after: ended, items: items) else {
             AppLogger.shared.log("⏭️ [AudioAutoNext] Không còn mục gợi ý chưa phát trong chuỗi ⇒ dừng ở album này")
             return false
         }
@@ -280,21 +219,6 @@ final class AudioAutoNextCoordinator {
         startWatch = nil
         startTimeoutTask?.cancel()
         startTimeoutTask = nil
-    }
-
-    // MARK: - Bản chụp album
-
-    /// `nil` khi trình nghe rảnh.
-    private func albumSnapshot(of session: AudioPlaybackSession) -> Album? {
-        guard session.isActive, let request = session.request, !session.bookId.isEmpty else { return nil }
-        return Album(
-            bookId: session.bookId,
-            packageId: session.packageId,
-            detailUrl: request.detailUrl,
-            sourceName: request.sourceName,
-            host: ExtensionHostResolver.nonEmpty(session.bookHost) ?? request.host ?? "",
-            title: session.albumTitle
-        )
     }
 
     // MARK: - Background task
