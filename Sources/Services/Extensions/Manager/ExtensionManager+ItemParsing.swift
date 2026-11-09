@@ -108,7 +108,8 @@ extension ExtensionManager {
             name: firstString(dict, ["name"]) ?? "",
             url: firstString(dict, ["url", "link"]) ?? "",
             host: JSValueReader.cleanString(dict["host"]) ?? (sourceHost ?? ""),
-            isSection: isSection
+            isSection: isSection,
+            itemDescription: JSValueReader.cleanString(dict["description"])?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         )
     }
 

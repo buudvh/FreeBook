@@ -142,6 +142,13 @@ extension VideoPlaybackSession {
             AppLogger.shared.log("⏸️ [VideoPlayer] TTS đang đọc ⇒ tạm dừng để phát video")
             tts.pause()
         }
+        // Trình nghe âm thanh: như TTS — video tắt tiếng phát cùng nhạc, không giành; có tiếng thì nhạc tạm dừng + trả màn
+        // khoá TRƯỚC khi video giữ phiên (`release` của nhạc tắt lệnh tua, chạy sau `claim` là mất nút của video).
+        if AudioPlaybackFlag.isPlaying, isEffectivelyMuted {
+            AppLogger.shared.log("🔇 [VideoPlayer] Video đang tắt tiếng, trình nghe âm thanh đang phát ⇒ không dừng nhạc, giữ màn khoá cho nhạc")
+            return
+        }
+        AudioNowPlayingCoordinator.shared.yieldToOtherMedia()
 
         let session = AVAudioSession.sharedInstance()
         do {
@@ -162,8 +169,8 @@ extension VideoPlaybackSession {
     func deactivateAudioSessionIfIdle() {
         guard didActivateAudioSession else { return }
         didActivateAudioSession = false
-        // TTS được bật lại trong lúc xem (widget nổi) thì giữ nguyên session cho nó.
-        guard !TTSManager.shared.isPlaying else { return }
+        // TTS được bật lại trong lúc xem (widget nổi) / trình nghe âm thanh đang phát thì giữ nguyên session cho nó.
+        guard !TTSManager.shared.isPlaying, !AudioPlaybackFlag.isPlaying else { return }
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {

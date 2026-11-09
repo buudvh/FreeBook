@@ -85,6 +85,58 @@ extension ExtensionManager {
         }
     }
 
+    // MARK: - Âm thanh (tiện ích loại `audio`)
+
+    /// `data` của nguồn phát **đầu tiên** có `data` khác rỗng trong kết quả `chap` của một bài (hợp đồng tiện ích: trình
+    /// nghe chỉ dùng nguồn đầu); `chap` trả danh sách rỗng ⇒ URL bài đã `cleanAndResolveUrl`. Dạng nhận như
+    /// `videoServers` (`VideoTrackMapper.servers`); `data` giữ nguyên văn. Script lỗi (`Response.error`…) vẫn ném.
+    public func audioStreamData(
+        localPath: String,
+        downloadUrl: String = "",
+        url: String,
+        host: String? = nil,
+        configJson: String = "{}"
+    ) async throws -> String {
+        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: host)
+        return try await runMediaScript(
+            action: "chap",
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            argument: resolvedUrl,
+            logArguments: "arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)",
+            diagnosticsInput: url,
+            configJson: configJson
+        ) { cleanVal in
+            guard let first = VideoTrackMapper.servers(from: cleanVal).first else {
+                return (resolvedUrl, "Không có nguồn phát ⇒ dùng URL bài")
+            }
+            return (first.data, "Nguồn phát «\(first.title)»")
+        }
+    }
+
+    /// Nguồn phát của một bài — script `track`, `data` truyền **nguyên văn** như `videoTrack`. Ánh xạ cả lời bài hát
+    /// (`lyrics` / `lyric` + `lyricType`, `AudioLyricMapper`) trong lúc executor còn sống. Log chỉ ghi độ dài `data`.
+    public func audioTrack(
+        localPath: String,
+        downloadUrl: String = "",
+        data: String,
+        configJson: String = "{}"
+    ) async throws -> AudioTrackResult {
+        try await runMediaScript(
+            action: "track",
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            argument: data,
+            logArguments: "arguments=[data: \(data.utf16.count) ký tự], configJson=\(configJson)",
+            diagnosticsInput: "data: \(data.utf16.count) ký tự",
+            configJson: configJson
+        ) { cleanVal in
+            let track = try VideoTrackMapper.track(from: cleanVal)
+            let lyrics = AudioLyricMapper.sources(of: cleanVal)
+            return (AudioTrackResult(track: track, lyrics: lyrics), "Audio \(track.kind.rawValue), \(track.audios.count) audios, \(lyrics.count) lyrics")
+        }
+    }
+
     // MARK: - Helpers
 
     /// Chạy `execute(argument)` của script `action` rồi ánh xạ **trong lúc executor còn sống** (JSValue gắn với

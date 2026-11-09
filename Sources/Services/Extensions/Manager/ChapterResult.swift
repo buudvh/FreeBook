@@ -10,11 +10,15 @@ public struct ChapterResult: Equatable {
     /// Dòng `type: "section"` — tiêu đề nhóm tập (nhiều server), không mở được. Chỉ gắn cho truyện tranh/video;
     /// truyện chữ giữ dòng này như chương thường để chỉ số chương đã lưu không lệch.
     public let isSection: Bool
+    /// Mô tả ngắn của dòng (khoá `description` của `toc`; thiếu ⇒ `""`). Trình nghe âm thanh hiện làm tên nghệ sĩ của bài.
+    /// **Không** lưu vào `ChapterStore` — chỉ có khi mục lục vừa tải từ nguồn.
+    public let itemDescription: String
 
-    public init(name: String, url: String, host: String, isSection: Bool = false) {
+    public init(name: String, url: String, host: String, isSection: Bool = false, itemDescription: String = "") {
         self.name = name
         self.url = url
         self.host = host
         self.isSection = isSection
+        self.itemDescription = itemDescription
     }
 }

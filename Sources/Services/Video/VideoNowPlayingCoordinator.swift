@@ -94,6 +94,16 @@ final class VideoNowPlayingCoordinator {
         release(handBackToTTS: false)
     }
 
+    /// Trình nghe âm thanh bắt đầu phát / người dùng mở album (`AudioPlaybackSession`): như `yieldToTTS` — video tạm dừng
+    /// (item đang nạp không tự phát, trang nhúng dừng media, phim **tắt tiếng** phát tiếp cùng nhạc) rồi trả phiên, không
+    /// dựng lại TTS. Phiên phát phim chưa từng mở ⇒ `actions == nil`, không dựng `AVPlayer` của phim.
+    func yieldToOtherMedia() {
+        actions?.pauseForTTS()
+        guard isHoldingSession else { return }
+        AppLogger.shared.log("⏸️ [VideoNowPlaying] Trình nghe âm thanh bắt đầu phát ⇒ tạm dừng video, nhường điều khiển màn khoá")
+        release(handBackToTTS: false)
+    }
+
     // MARK: - Now Playing
 
     /// Không giữ phiên thì bỏ qua (video đang nhường TTS). Chữ + ảnh theo `VideoNowPlayingMetadata` (1.3.764).

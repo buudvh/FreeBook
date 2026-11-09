@@ -1,9 +1,9 @@
 import Foundation
 import MediaPlayer
 
-/// Target remote command của TTS, gắn một lần lúc khởi động. `MPRemoteCommandCenter` dùng chung với video: khi video
-/// giữ phiên điều khiển màn khoá (`VideoNowPlayingCoordinator.isHoldingSession`) mọi lệnh ở đây bị bỏ qua — target của
-/// video xử lý.
+/// Target remote command của TTS, gắn một lần lúc khởi động. `MPRemoteCommandCenter` dùng chung với phim và trình nghe
+/// âm thanh: khi một trong hai giữ phiên điều khiển màn khoá (`MediaNowPlayingOwnership.isHeldByMedia`) mọi lệnh ở đây bị
+/// bỏ qua — target của bên đó xử lý.
 @MainActor
 public final class TTSNowPlayingController {
     public var onPlayCommand: (() -> Void)?
@@ -19,7 +19,7 @@ public final class TTSNowPlayingController {
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+                guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
                 self?.onPlayCommand?()
             }
             return .success
@@ -28,7 +28,7 @@ public final class TTSNowPlayingController {
         commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+                guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
                 self?.onPauseCommand?()
             }
             return .success
@@ -37,7 +37,7 @@ public final class TTSNowPlayingController {
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+                guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
                 if MPNowPlayingInfoCenter.default().playbackState == .playing {
                     self?.onPauseCommand?()
                 } else {
@@ -50,7 +50,7 @@ public final class TTSNowPlayingController {
         commandCenter.nextTrackCommand.isEnabled = true
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+                guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
                 self?.onNextCommand?()
             }
             return .success
@@ -59,7 +59,7 @@ public final class TTSNowPlayingController {
         commandCenter.previousTrackCommand.isEnabled = true
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in
-                guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+                guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
                 self?.onPreviousCommand?()
             }
             return .success

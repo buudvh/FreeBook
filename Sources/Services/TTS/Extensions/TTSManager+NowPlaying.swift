@@ -2,17 +2,20 @@ import Foundation
 import MediaPlayer
 import UIKit
 
-/// Phân xử với video (`VideoNowPlayingCoordinator`): khi video giữ phiên điều khiển màn khoá, mọi hàm ghi Now Playing /
-/// bật-tắt lệnh ở file này bỏ qua để không ghi đè trạng thái của video. TTS bắt đầu/tiếp tục phát (bật lệnh, hoặc đặt
-/// trạng thái `.playing`) thì video tạm dừng và trả phiên trước, rồi TTS cấu hình như thường. Riêng trạng thái
-/// `.playing` luôn báo video (kể cả khi video không giữ phiên) để item đang nạp không tự phát chồng và trang nhúng dừng.
+/// Phân xử với phim (`VideoNowPlayingCoordinator`) và trình nghe âm thanh (`AudioNowPlayingCoordinator`): khi một trong
+/// hai giữ phiên điều khiển màn khoá (`MediaNowPlayingOwnership.isHeldByMedia`), mọi hàm ghi Now Playing / bật-tắt lệnh ở
+/// file này bỏ qua để không ghi đè trạng thái của bên đó. TTS bắt đầu/tiếp tục phát (bật lệnh, hoặc đặt trạng thái
+/// `.playing`) thì bên đang giữ tạm dừng và trả phiên trước, rồi TTS cấu hình như thường. Riêng trạng thái `.playing` luôn
+/// báo cả phim lẫn nhạc (kể cả khi không giữ phiên) để item đang nạp không tự phát chồng và trang nhúng dừng.
 extension TTSManager {
     internal func setRemoteCommandsEnabled(_ enabled: Bool) {
         let video = VideoNowPlayingCoordinator.shared
-        if video.isHoldingSession {
-            // Chỉ TTS bắt đầu/tiếp tục phát mới bật lệnh ⇒ video nhường; lệnh tắt thì bỏ qua (giữ nút của video).
+        let audio = AudioNowPlayingCoordinator.shared
+        if video.isHoldingSession || audio.isHoldingSession {
+            // Chỉ TTS bắt đầu/tiếp tục phát mới bật lệnh ⇒ bên đang giữ nhường; lệnh tắt thì bỏ qua (giữ nút của bên đó).
             guard enabled else { return }
-            video.yieldToTTS()
+            if video.isHoldingSession { video.yieldToTTS() }
+            if audio.isHoldingSession { audio.yieldToTTS() }
         }
         #if DEBUG
         logRemoteTrace("setRemoteCommandsEnabled(\(enabled))")
@@ -35,7 +38,7 @@ extension TTSManager {
     }
 
     internal func syncRemoteCommandState() {
-        guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+        guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
         let playing = active && isPlaying
@@ -52,13 +55,13 @@ extension TTSManager {
 
     @MainActor
     internal func setSystemNowPlayingPlaybackState(_ state: MPNowPlayingPlaybackState) {
-        let video = VideoNowPlayingCoordinator.shared
         if state == .playing {
-            // TTS thật sự bắt đầu/tiếp tục đọc ⇒ báo video cả khi video chưa giữ phiên (đang nạp item, đang nhúng
+            // TTS thật sự bắt đầu/tiếp tục đọc ⇒ báo phim + nhạc cả khi chưa giữ phiên (đang nạp item / bài, đang nhúng
             // trang). Không hook ở `setRemoteCommandsEnabled(true)`: `reclaimRemoteControlsAfterVideo` cũng gọi nó
             // khi TTS chỉ đang tạm dừng.
-            video.yieldToTTS()
-        } else if video.isHoldingSession {
+            VideoNowPlayingCoordinator.shared.yieldToTTS()
+            AudioNowPlayingCoordinator.shared.yieldToTTS()
+        } else if MediaNowPlayingOwnership.isHeldByMedia {
             return
         }
         let center = MPNowPlayingInfoCenter.default()
@@ -81,8 +84,8 @@ extension TTSManager {
     }
 
     internal func publishNowPlayingInfo(using metadata: NowPlayingStaticMetadata) {
-        // Metadata nạp bất đồng bộ có thể về sau khi video đã giữ phiên ⇒ không ghi đè.
-        guard !VideoNowPlayingCoordinator.shared.isHoldingSession else { return }
+        // Metadata nạp bất đồng bộ có thể về sau khi phim / nhạc đã giữ phiên ⇒ không ghi đè.
+        guard !MediaNowPlayingOwnership.isHeldByMedia else { return }
         let paragraphIndex = currentParagraphIndex
         let paragraphCount = paragraphs.count
         let liveIsPlaying = isPlaying
@@ -116,8 +119,8 @@ extension TTSManager {
         MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
     }
 
-    /// Video vừa trả phiên (đóng trình phát): dựng lại lệnh / Now Playing của TTS — lúc video giữ phiên các hàm ghi ở
-    /// file này đều bỏ qua nên trạng thái hệ thống đang là của video.
+    /// Phim hoặc trình nghe âm thanh vừa trả phiên (đóng trình phát / trình nghe): dựng lại lệnh / Now Playing của TTS —
+    /// lúc bên đó giữ phiên các hàm ghi ở file này đều bỏ qua nên trạng thái hệ thống đang là của bên đó.
     internal func reclaimRemoteControlsAfterVideo() {
         guard !playingBookId.isEmpty, showFloatingWidget else {
             setRemoteCommandsEnabled(false)

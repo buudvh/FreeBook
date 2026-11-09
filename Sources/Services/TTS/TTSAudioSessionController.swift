@@ -13,10 +13,15 @@ public final class TTSAudioSessionController: @unchecked Sendable {
     /// thường là phim tắt tiếng phát cùng TTS). Tắt phiên lúc đó thì KVO `outputVolume` của trình phát im luôn: nút âm
     /// lượng cứng không hiện thanh, không bỏ tắt tiếng phim được nữa. Phim dừng sau đó thì
     /// `VideoPlaybackSession.deactivateAudioSessionIfIdle` (phiên do phim bật) hoặc lượt dừng TTS kế tiếp trả phiên.
+    /// Trình nghe âm thanh đang phát (`AudioPlaybackFlag`) cũng giữ phiên — tắt lúc đó là nhạc câm.
     @MainActor
     public func deactivateUnlessVideoPlaying() {
         guard !VideoNativePlaybackFlag.isPlaying else {
             AppLogger.shared.log("🔊 [TTSAudioSessionController] TTS dừng nhưng phim còn phát ⇒ giữ phiên âm thanh")
+            return
+        }
+        guard !AudioPlaybackFlag.isPlaying else {
+            AppLogger.shared.log("🔊 [TTSAudioSessionController] TTS dừng nhưng trình nghe âm thanh còn phát ⇒ giữ phiên âm thanh")
             return
         }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)

@@ -72,6 +72,10 @@ extension VideoPlaybackSession {
     /// `apply(plan:)` tự dừng TTS (`prepareAudioForPlayback`).
     func beginUserRequestedPlayback() {
         autoplayBlockedByTTS = false
+        if !isMuted {
+            // Video có tiếng ⇒ trình nghe âm thanh nhường ngay (tạm dừng, bài đang nạp không tự phát), không chờ item sẵn sàng.
+            AudioNowPlayingCoordinator.shared.yieldToOtherMedia()
+        }
         let tts = TTSManager.shared
         guard tts.isPlaying else { return }
         guard !isMuted else {
@@ -117,6 +121,11 @@ extension VideoPlaybackSession {
         guard isEffectivelyMuted, launch != nil, isScreenAttached else { return }
         guard !TTSManager.shared.isPlaying else {
             AppLogger.shared.log("🔇 [VideoPlayer] Nút âm lượng cứng: TTS đang đọc ⇒ giữ tắt tiếng phim, chỉ hiện thanh")
+            return
+        }
+        // Như TTS: đang nghe nhạc thì bấm âm lượng là chỉnh tiếng nhạc, không giành âm thanh cho phim.
+        guard !AudioPlaybackFlag.isPlaying else {
+            AppLogger.shared.log("🔇 [VideoPlayer] Nút âm lượng cứng: trình nghe âm thanh đang phát ⇒ giữ tắt tiếng phim, chỉ hiện thanh")
             return
         }
         AppLogger.shared.log("🔊 [VideoPlayer] Nút âm lượng cứng ⇒ bỏ tắt tiếng phim")

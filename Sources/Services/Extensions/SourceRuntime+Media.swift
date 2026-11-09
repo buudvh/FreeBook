@@ -61,6 +61,39 @@ extension SourceRuntime {
         return try await ExtensionManager.shared.videoTrack(localPath: localPath, downloadUrl: downloadUrl, data: data, configJson: configJson)
     }
 
+    /// `data` của nguồn phát đầu tiên của một bài (tiện ích loại `audio`); `chap` không có nguồn ⇒ URL bài. Nguồn Legado
+    /// chưa hỗ trợ phát âm thanh ⇒ ném lỗi.
+    public func audioStreamData(
+        localPath: String,
+        downloadUrl: String = "",
+        url: String,
+        host: String? = nil,
+        configJson: String = "{}"
+    ) async throws -> String {
+        if try legadoTarget(localPath) != nil {
+            throw Self.legadoAudioUnsupported()
+        }
+        return try await ExtensionManager.shared.audioStreamData(localPath: localPath, downloadUrl: downloadUrl, url: url, host: host, configJson: configJson)
+    }
+
+    /// Nguồn phát + lời bài hát của một bài (tiện ích loại `audio`). Nguồn Legado chưa hỗ trợ ⇒ ném lỗi.
+    public func audioTrack(
+        localPath: String,
+        downloadUrl: String = "",
+        data: String,
+        configJson: String = "{}"
+    ) async throws -> AudioTrackResult {
+        if try legadoTarget(localPath) != nil {
+            throw Self.legadoAudioUnsupported()
+        }
+        return try await ExtensionManager.shared.audioTrack(localPath: localPath, downloadUrl: downloadUrl, data: data, configJson: configJson)
+    }
+
+    private static func legadoAudioUnsupported() -> ExtensionManagerError {
+        AppLogger.shared.log("❌ [SourceRuntime][Legado] Nguồn Legado chưa hỗ trợ phát âm thanh")
+        return ExtensionManagerError.sourceResponse(message: "Nguồn Legado chưa hỗ trợ phát âm thanh.")
+    }
+
     /// Byte ảnh (đã chạy `imageDecode`) của một trang tranh nguồn Legado — `link` là `ComicPageSource.link` nguyên văn.
     /// Chỉ ghi log khi lỗi, và chỉ tên miền (URL ảnh có thể mang token).
     func legadoDecodedImage(localPath: String, link: String) async throws -> Data {
