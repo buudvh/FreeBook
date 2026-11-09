@@ -12,6 +12,7 @@ import UIKit
 ///   bị trang đẩy vào che: bàn phím của trang con mà làm trang gốc bỏ thanh thì lúc back thanh hiện lại giữa nhịp trượt
 ///   ⇒ giật đúng chỗ cần mượt. Trang gốc không có ô nhập để `false`.
 /// - Tab đang chọn đọc từ environment `mainTabSelection` do `MainTabView` truyền xuống.
+/// - Thanh phát mini của trình nghe (`AudioMiniPlayerBar`) đứng ngay trên thanh tab, cùng ẩn theo bàn phím.
 struct MainTabBarModifier: ViewModifier {
     let hidesWithKeyboard: Bool
     @Environment(\.mainTabSelection) private var selection
@@ -23,7 +24,12 @@ struct MainTabBarModifier: ViewModifier {
             .toolbar(.hidden, for: .tabBar)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !isKeyboardVisible {
-                    MainTabBar(selection: selection)
+                    // Thanh phát mini của trình nghe nằm ngay trên thanh tab, cùng khối inset ⇒ nội dung trang gốc tự chừa
+                    // chỗ; thanh tự ẩn khi không có album / màn nghe đang hiện (chỉ view đó observe trạng thái nghe).
+                    VStack(spacing: 0) {
+                        AudioMiniPlayerBar()
+                        MainTabBar(selection: selection)
+                    }
                 }
             }
             .onAppear { isOnScreen = true }

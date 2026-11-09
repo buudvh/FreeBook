@@ -4,7 +4,7 @@ import SwiftUI
 /// nền mà người dùng có thể quay lại.
 ///
 /// ## Tập dòng cố định
-/// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video → Kiểm tra nguồn), mục nào không dùng được thì **xám** chứ không
+/// Menu luôn có đủ `Kind.allCases` (AI → Thông báo → Video → Âm thanh → Kiểm tra nguồn), mục nào không dùng được thì **xám** chứ không
 /// biến mất. `FloatingHubPresentationReader` là nơi duy nhất quyết định trạng thái từng dòng; type này chỉ mô
 /// tả dòng trông ra sao. Trình duyệt thu nhỏ đã rời hub, quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
 ///
@@ -13,12 +13,13 @@ import SwiftUI
 /// này **không** đi vào `FloatingHubPresentationReader.ButtonState`: tiêu đề AI đổi theo từng batch hay video
 /// phát/dừng không làm vẽ lại nút.
 struct FloatingHubItem: Equatable, Identifiable {
-    /// Loại dòng. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Thông báo → Video → Kiểm tra nguồn
-    /// (lượt kiểm tra nguồn / tiện ích đang thu nhỏ, 1.3.697).
+    /// Loại dòng. Thứ tự khai báo là **thứ tự hiển thị cố định** trong menu: AI → Thông báo → Video → Âm thanh (trình
+    /// nghe của tiện ích loại `audio`) → Kiểm tra nguồn (lượt kiểm tra nguồn / tiện ích đang thu nhỏ, 1.3.697).
     enum Kind: Int, CaseIterable {
         case ai
         case notifications
         case video
+        case audio
         case sourceCheck
 
         var title: String {
@@ -29,6 +30,8 @@ struct FloatingHubItem: Equatable, Identifiable {
                 return "Thông báo"
             case .video:
                 return "Video"
+            case .audio:
+                return "Âm thanh"
             case .sourceCheck:
                 return "Kiểm tra nguồn"
             }
@@ -45,6 +48,8 @@ struct FloatingHubItem: Equatable, Identifiable {
                 return unreadCount > 0 ? "bell.fill" : "bell"
             case .video:
                 return "play.rectangle"
+            case .audio:
+                return "music.note"
             case .sourceCheck:
                 return "checkmark.seal"
             }
@@ -55,7 +60,7 @@ struct FloatingHubItem: Equatable, Identifiable {
             switch self {
             case .ai:
                 return .white
-            case .notifications, .video, .sourceCheck:
+            case .notifications, .video, .audio, .sourceCheck:
                 return .primary
             }
         }
@@ -90,7 +95,7 @@ struct FloatingHubItem: Equatable, Identifiable {
     var detailTone = DetailTone.normal
     /// Số trên badge của dòng (Thông báo: số chưa đọc). 0 ⇒ badge trong suốt, không bị bỏ khỏi cây view.
     var badgeCount = 0
-    /// Chỉ mục Video dùng: đang phát hay đang dừng (glyph của nút phát/dừng).
+    /// Chỉ mục Video / Âm thanh dùng: đang phát hay đang dừng (glyph của nút phát/dừng).
     var isPlaying = false
     /// Đang có việc. Với AI và Video, cờ này là "tiến trình" của nút hub (icon, nháy, chạm); Thông báo thì nút hub
     /// chỉ tính tác vụ nền, không đọc cờ này. Tách khỏi `isEnabled` vì Thông báo **luôn** chạm được nhưng chỉ tính

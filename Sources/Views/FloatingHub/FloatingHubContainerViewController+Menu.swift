@@ -96,11 +96,11 @@ extension FloatingHubContainerViewController {
             onSelect: { [weak self] kind in
                 self?.open(kind)
             },
-            onToggleVideoPlayback: { [weak self] in
-                self?.toggleVideoPlayback()
+            onTogglePlayback: { [weak self] kind in
+                self?.togglePlayback(kind)
             },
-            onStopVideo: { [weak self] in
-                self?.stopVideo()
+            onStopPlayback: { [weak self] kind in
+                self?.stopPlayback(kind)
             },
             onSelectAITask: { [weak self] bookId in
                 self?.openAITask(bookId: bookId)

@@ -36,8 +36,9 @@ struct FloatingHubMenuView: View {
     let aiTasks: [FloatingHubPresentationReader.AITask]
     let sourceChecks: [MinimizedSourceCheck]
     let onSelect: (FloatingHubItem.Kind) -> Void
-    let onToggleVideoPlayback: () -> Void
-    let onStopVideo: () -> Void
+    /// Nút phát/dừng và ✕ của dòng Video / Âm thanh — tham số là loại dòng.
+    let onTogglePlayback: (FloatingHubItem.Kind) -> Void
+    let onStopPlayback: (FloatingHubItem.Kind) -> Void
     let onSelectAITask: (String) -> Void
     let onSelectSourceCheck: (MinimizedSourceCheck.Kind) -> Void
     let onBack: () -> Void
@@ -64,8 +65,8 @@ struct FloatingHubMenuView: View {
                         // Đường kẻ trên mọi dòng trừ dòng đầu — hằng theo `kind`, ẩn bằng opacity chứ không bằng `if`.
                         showsSeparator: kind != FloatingHubItem.Kind.allCases.first,
                         onSelect: { onSelect(kind) },
-                        onTogglePlayback: onToggleVideoPlayback,
-                        onStop: onStopVideo
+                        onTogglePlayback: { onTogglePlayback(kind) },
+                        onStop: { onStopPlayback(kind) }
                     )
                 }
             }

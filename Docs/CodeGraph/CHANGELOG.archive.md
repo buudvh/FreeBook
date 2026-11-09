@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.754] - 2026-11-06
+
+### feat: hub luôn hiện tất cả thì icon luôn là chồng thẻ
+
+Người dùng: *"Cài đặt hub: luôn hiện tất cả thì đừng đổi icon khi có 1 tác vụ đang chạy"*, rồi chốt: *"luôn là chồng thẻ bất cứ lúc nào Ở chế độ “Luôn hiện tất cả mục”"*; vẫn nháy khi có tác vụ. Anh Bửu duyệt plan.
+
+- **`FloatingHubButton.glyphName`**: cài đặt "Khi chạm hub" là **Luôn hiện tất cả mục** (mặc định) ⇒ icon **luôn** `square.stack.3d.up`, kể cả lúc 0 tiến trình, tác vụ nền hay chỉ còn kết quả AI chưa xem. **Mở thẳng khi chỉ có 1 tác vụ** ⇒ bảng icon cũ (chuông / icon của mục / chồng thẻ).
+- **Nháy không đổi** ở cả hai lựa chọn: chỉ nháy khi có tiến trình thật sự đang chạy (`ButtonState.isPulsing`); lúc rảnh chồng thẻ đứng yên, màu chữ hệ thống.
+- Nút đọc cài đặt bằng `@AppStorage(FloatingHubTapBehavior.storageKey)` ngay trong view ⇒ đổi cài đặt là icon đổi ngay; nút chỉ vẽ lại thêm khi đổi cài đặt, `ButtonState` không đổi. Nhãn VoiceOver giữ nguyên.
+- Câu "?" của nhóm "Khi chạm hub nổi" (Giao diện) nói icon của từng lựa chọn; doc comment `FloatingHubTapBehavior` / `FloatingHubButton` và **`rules.md`** § Nút hub nổi (a) cập nhật theo (bỏ câu "Icon và nháy không đổi theo cài đặt"). `CLAUDE.md` / `AGENTS.md` không nhắc icon hub ⇒ không sửa. Chuyển `[1.3.724]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; `glyphName` chỉ dùng trong `FloatingHubButton.body`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: hub hiện chồng thẻ lúc rảnh (không nháy) và lúc có 1 video (nháy); đổi sang "Mở thẳng" ⇒ icon về chuông / icon của mục ngay, không cần mở lại app.
+
 ## [1.3.753] - 2026-11-06
 
 ### fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được

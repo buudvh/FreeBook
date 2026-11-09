@@ -7,12 +7,13 @@ import SwiftUI
 /// đang toàn màn), kể cả khi không có tiến trình nào.
 ///
 /// ## Icon và nháy theo số tiến trình (người dùng chốt 2026-10-22)
-/// "Tiến trình" = AI đang chạy, video thu nhỏ, tác vụ nền (tải/xuất/nhập truyện, sao lưu, tải model) — xem
-/// `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
+/// "Tiến trình" = AI đang chạy, video thu nhỏ, album đang mở ở trình nghe, tác vụ nền (tải/xuất/nhập truyện, sao lưu,
+/// tải model) — xem `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
 /// - 0 tiến trình: `bell` (viền), màu chữ hệ thống, không nháy.
 /// - Chỉ còn kết quả AI chưa xem (1.3.630): tính là một mục `.ai` (`sparkles`, chạm mở trang "Tác vụ AI") nhưng nằm
 ///   trong `quietKinds` nên **không** nháy, icon màu chữ hệ thống.
-/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle` / `checkmark.seal`; tác vụ nền ⇒ `bell`), nháy.
+/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle` / `music.note` / `checkmark.seal`; tác vụ nền ⇒
+///   `bell`), nháy.
 ///   Lượt kiểm tra nguồn thu nhỏ đã xong, chưa xem (1.3.697) không nháy, như kết quả AI chưa xem.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
@@ -86,7 +87,7 @@ struct FloatingHubButton: View {
             case .notifications:
                 // Tác vụ nền: chuông viền như lúc rảnh, chỉ khác ở chỗ nháy.
                 return "bell"
-            case .ai, .video, .sourceCheck:
+            case .ai, .video, .audio, .sourceCheck:
                 return state.runningKinds[0].systemImage(unreadCount: 0)
             }
         default:

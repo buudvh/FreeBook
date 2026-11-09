@@ -17,8 +17,9 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     /// trạng thái vừa đổi.
     ///
     /// AI tự tìm view controller trên cùng **chỉ trong window `.normal`** (`AIRuntimeCoordinator.presentFullScreen`),
-    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên cả hai không phụ thuộc
-    /// cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính cửa sổ này.
+    /// Video / Âm thanh giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`,
+    /// `AudioMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính
+    /// cửa sổ này.
     func open(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         if kind == .ai {
@@ -47,6 +48,12 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         case .video:
             guard let reopen = VideoMiniPlayerState.shared.onReopen else {
                 AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onReopen")
+                return
+            }
+            reopen()
+        case .audio:
+            guard let reopen = AudioMiniPlayerState.shared.onReopen else {
+                AppLogger.shared.log("❌ [FloatingHub] Mục Âm thanh đang hoạt động nhưng chưa gắn onReopen")
                 return
             }
             reopen()
@@ -123,23 +130,41 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         openMenu()
     }
 
-    // MARK: - Nút của dòng Video
+    // MARK: - Nút của dòng Video / Âm thanh
 
-    /// Phát/dừng video nền. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
-    func toggleVideoPlayback() {
-        guard isItemEnabled(.video) else { return }
-        guard let toggle = VideoMiniPlayerState.shared.onTogglePlay else {
-            AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onTogglePlay")
+    /// Phát/dừng video nền / trình nghe. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
+    func togglePlayback(_ kind: FloatingHubItem.Kind) {
+        guard isItemEnabled(kind) else { return }
+        let toggle: (() -> Void)?
+        switch kind {
+        case .video:
+            toggle = VideoMiniPlayerState.shared.onTogglePlay
+        case .audio:
+            toggle = AudioMiniPlayerState.shared.onTogglePlay
+        case .ai, .notifications, .sourceCheck:
+            return
+        }
+        guard let toggle else {
+            AppLogger.shared.log("❌ [FloatingHub] Mục \(kind.title) đang hoạt động nhưng chưa gắn onTogglePlay")
             return
         }
         toggle()
     }
 
-    /// Dừng hẳn video nền. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng Video tự chuyển xám.
-    func stopVideo() {
-        guard isItemEnabled(.video) else { return }
-        guard let stop = VideoMiniPlayerState.shared.onStop else {
-            AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onStop")
+    /// Dừng hẳn video nền / trình nghe. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng tự chuyển xám.
+    func stopPlayback(_ kind: FloatingHubItem.Kind) {
+        guard isItemEnabled(kind) else { return }
+        let stop: (() -> Void)?
+        switch kind {
+        case .video:
+            stop = VideoMiniPlayerState.shared.onStop
+        case .audio:
+            stop = AudioMiniPlayerState.shared.onStop
+        case .ai, .notifications, .sourceCheck:
+            return
+        }
+        guard let stop else {
+            AppLogger.shared.log("❌ [FloatingHub] Mục \(kind.title) đang hoạt động nhưng chưa gắn onStop")
             return
         }
         stop()

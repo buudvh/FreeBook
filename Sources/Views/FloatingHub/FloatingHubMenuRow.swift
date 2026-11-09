@@ -4,15 +4,15 @@ import SwiftUI
 /// trạng thái chỉ đổi opacity / `disabled` / chữ — đúng bất biến "hub không vẽ lại".
 ///
 /// ## Bố cục
-/// `HStack { nút chính (icon + hai dòng chữ + badge); cụm nút video }`. Hai nút phát/dừng và đóng là **anh em**
+/// `HStack { nút chính (icon + hai dòng chữ + badge); cụm nút phát }`. Hai nút phát/dừng và đóng là **anh em**
 /// của nút chính, không lồng trong `label` của nó: `Button` lồng `Button` thì chạm rơi vào nút ngoài.
 ///
 /// ## Dòng xám
 /// `isEnabled == false` ⇒ cả dòng mờ 0,4 và các nút `disabled`. Dùng `.disabled` chứ **không**
 /// `allowsHitTesting(false)`: tắt hit-test thì cú chạm xuyên xuống lớp nền `menuBackdropView` và đóng luôn menu.
 ///
-/// Cụm nút video chỉ có ở dòng `.video` — nhánh theo `kind`, là **hằng** của dòng, không đổi theo trạng thái.
-/// Khi không có video, cụm này trong suốt và `disabled`, vẫn nằm trong cây view.
+/// Cụm nút phát chỉ có ở dòng `.video` và `.audio` — nhánh theo `kind`, là **hằng** của dòng, không đổi theo trạng
+/// thái. Khi không có video / album, cụm này trong suốt và `disabled`, vẫn nằm trong cây view.
 struct FloatingHubMenuRow: View {
     let item: FloatingHubItem
     let showsSeparator: Bool
@@ -54,8 +54,8 @@ struct FloatingHubMenuRow: View {
             .disabled(!item.isEnabled)
             .accessibilityHint(Text("Mở \(item.kind.title)"))
 
-            if item.kind == .video {
-                videoControls
+            if item.kind == .video || item.kind == .audio {
+                playbackControls
             }
         }
         .padding(.leading, 12)
@@ -66,6 +66,11 @@ struct FloatingHubMenuRow: View {
                 .padding(.leading, 52)
                 .opacity(showsSeparator ? 1 : 0)
         }
+    }
+
+    /// Tên loại media cho nhãn VoiceOver của cụm nút phát.
+    private var mediaName: String {
+        item.kind == .audio ? "trình nghe" : "video"
     }
 
     /// Chấm đỏ trên icon khi còn tin chưa đọc (số cụ thể nằm ở dòng phụ). Luôn trong cây view, 0 ⇒ trong suốt.
@@ -79,7 +84,7 @@ struct FloatingHubMenuRow: View {
     }
 
     /// Nút phát/dừng và nút đóng — cỡ "cụm nút menu phụ" của chuẩn header (icon 14pt, khung 32×32, cách 4pt).
-    private var videoControls: some View {
+    private var playbackControls: some View {
         HStack(spacing: 4) {
             Button(action: onTogglePlayback) {
                 Image(systemName: item.isPlaying ? "pause.fill" : "play.fill")
@@ -89,7 +94,7 @@ struct FloatingHubMenuRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text(item.isPlaying ? "Tạm dừng video" : "Phát video"))
+            .accessibilityLabel(Text(item.isPlaying ? "Tạm dừng \(mediaName)" : "Phát \(mediaName)"))
 
             Button(action: onStop) {
                 Image(systemName: "xmark")
@@ -99,7 +104,7 @@ struct FloatingHubMenuRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("Đóng video"))
+            .accessibilityLabel(Text("Đóng \(mediaName)"))
         }
         .disabled(!item.isEnabled)
         .opacity(item.isEnabled ? 1 : 0)
