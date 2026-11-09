@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.783] - 2026-11-09
+
+### feat: danh sách tập phim chọn kiểu Lưới hoặc Danh sách như mục lục truyện, nhớ theo tiện ích
+
+Người dùng: *"sửa sheet danh sách tập có nút chọn layout của danh sách tập (có 2 loại là danh sách và lưới, danh sách thì giống mục lục truyện) nhớ lựa chọn layout theo tiện ích"*. Anh Bửu chọn: nhóm theo chip như Lưới; panel tập toàn màn dùng chung lựa chọn; duyệt mockup.
+
+- **Nút đổi kiểu** (`VideoPlayerIconButton`, 17 pt nửa đậm, 36 × 38; icon = kiểu sẽ chuyển sang: `list.bullet` / `square.grid.2x2`): sheet "Tất cả tập" (`VideoWatchEpisodeSheet`) — kiểu Lưới ở cạnh tiêu đề "Danh sách tập (N)", kiểu Danh sách đứng trước ↓↑ của đầu panel; panel tập khi xem toàn màn (`VideoEpisodePanel`) — cạnh nút ✕.
+- **Nhớ theo tiện ích** (`VideoEpisodeLayoutMode`, mới): từ điển UserDefaults `videoEpisodeLayoutByPackage` (`packageId` → `"list"`); chưa chọn / `packageId` rỗng ⇒ Lưới như cũ, chọn lại Lưới thì xoá mục. Sheet đọc `packageId` của phim của màn xem (`model.request.packageId`, truyền qua `VideoWatchEpisodeStrip`), panel đọc `session.launch?.extensionPackageId`. Thứ tự ↓↑ và từ khoá tìm không nhớ.
+- **Kiểu Danh sách** (`VideoEpisodeListView`, mới): hàng như mục lục comic/Reader — cột số `ChapterOrdinalLabel` (theo công tắc "Hiện số thứ tự chương"), tên tập 2 dòng, tập đang phát đậm + nền mờ, đã xem mờ, đã tải ⬇ xanh trong ô 30 × 30, nhấn giữ "Tải tập này / Xoá bản tải" (khi có `downloadActions`). Phim nhiều nhóm: chip nhóm như Lưới, mỗi nhóm đánh số lại từ 1; tìm và ↓↑ áp lên nhóm đang chọn. Sheet bọc trong panel Mục lục dùng chung (`ChapterTOCPanelHeader` "Mục lục (N tập)" + ô tìm, `.chapterTOCPanel(.reader(.dark))`); panel toàn màn hẹp nên chỉ chip + hàng. Dựng bằng `ScrollView` + `LazyVStack`, không tự `dismiss` (trong panel toàn màn sẽ đóng cả trình phát).
+- **Hàng chip nhóm** tách khỏi `VideoEpisodeGridView` thành `VideoEpisodeGroupTabs` (mới) để hai kiểu dùng chung; Lưới giữ y giao diện cũ, `VideoEpisodeGridView.label(of:)` chuyển tiếp sang đó.
+- Giữ nguyên: dải tập ngang của màn xem; lưới tập của `VideoPlayerDetailsView` (màn dọc cũ khi chưa có màn xem). "N" ở tiêu đề / ô tìm của kiểu Danh sách là mọi tập phát được (như tiêu đề Lưới), còn tìm chỉ trong nhóm đang chọn.
+- Chuyển `[1.3.753]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.782] - 2026-11-09
 
 ### fix: chỉ báo hỏi lại hướng xoay khi còn trang thể loại, rời trình phát không bị bật ngang lại
@@ -432,24 +446,3 @@ Người dùng: *"Cài đặt hub: luôn hiện tất cả thì đừng đổi i
   - Đọc code + diff; `glyphName` chỉ dùng trong `FloatingHubButton.body`.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: hub hiện chồng thẻ lúc rảnh (không nháy) và lúc có 1 video (nháy); đổi sang "Mở thẳng" ⇒ icon về chuông / icon của mục ngay, không cần mở lại app.
-
-## [1.3.753] - 2026-11-06
-
-### fix: tiện ích cùng tên khác tác giả ở các kho không còn che nhau, cài song song được
-
-Người dùng: nhập kho `buudvh/leech_story_ext` báo 32 tiện ích mà chỉ hiện 18, trước đó đã nhập kho thứ hai (kho tổng hợp 781 mục) — *"tôi nghi bạn xử lý sai các nguồn trùng tên"*, rồi *"so sánh tác giả nữa"*. Anh Bửu duyệt plan (gồm sửa `rules.md`).
-
-- **Nguyên nhân:** danh mục dedupe theo `packageId` = tên viết thường (`ExtensionSyncCommandBuilder.packageId(forName:)`), kho nhập trước thắng. 15/32 tiện ích của kho anh trùng tên với bản của tác giả khác trong kho thứ hai (txt520, 101kks, shuhaige, ixdzs, 69shuba, qidian, twkan, Book QQ, uukanshu, idejian, html5.qq.com, Google TTS, Bing TTS, sudugu, YouTube) nên bị che; chính kho thứ hai cũng tự che 98 bản cùng tên khác tác giả. Không phải lọc NSFW / loại.
-- **Danh tính mới = tên + tác giả** (`ExtensionCatalogIdentity`, file mới; tác giả so không phân biệt hoa thường, bỏ khoảng trắng hai đầu):
-  - Cùng tên cùng tác giả ⇒ một hàng, kho đứng trước thắng như cũ.
-  - Cùng tên khác tác giả ⇒ hai hàng, cài song song được. Mã theo tên giữ cho bản chiếm trước (đã cài, hoặc kho đứng trước); bản sau nhận `<mã>__<tác giả>` (vd `qidian__huongmt`; tác giả rỗng ⇒ `an_danh`, ký tự `/ \ :` ⇒ `_`).
-  - Tiện ích đã cài **không** đổi mã ⇒ truyện trên kệ, TTS, cấu hình, `localStorage` giữ nguyên.
-- **`ExtensionLibraryRepository`:** chỉ mục registry theo kho (`registryIndexes`, dựng lại khi cache kho đổi); `buildCatalog` đánh dấu khoá của bản đã cài lẫn khoá dòng registry khớp nó trong kho của nó (tác giả trong `plugin.json` khác chữ registry không làm hiện thêm hàng); `remoteVersion` ghép đúng dòng của kho mình theo tên + tác giả → mã (mã trơn, rồi `<mã>__<tác giả>` qua chỉ mục `bySuffixedId`). **Không** ghép chỉ theo tên: bản đầu của commit có bậc này và rà soát chỉ ra kho nhiều tác giả cùng tên sẽ trả nhầm bản (báo cập nhật sai, nút Cập nhật tải zip tiện ích khác đè vào thư mục) — sửa ở commit tiếp theo cùng tiêu đề; không khớp ⇒ `nil`, chỉ mất báo cập nhật. Hàm mới `registryItem(for:)` / `registryItem(repositoryUrl:packageId:name:author:)` dùng chung cho `registryDownloadUrl` (nút cài/cập nhật) và `registryNsfwFlag` (`ExtensionTransactionCoordinator`).
-- **`rules.md`:** dòng ghép `remoteVersion` và luật "ba đường cài cùng mã" ghi ngoại lệ: import zip / Debug vẫn chỉ theo tên ⇒ import zip một tiện ích trùng tên bản đã cài vẫn đè bản cùng mã như trước.
-- Giới hạn: mã của mục **chưa cài** phụ thuộc thứ tự kho (xoá kho đứng trước ⇒ bản sau lấy lại mã trơn); chỉ mã lúc cài được lưu.
-- Chuyển `[1.3.723]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Mô phỏng thuật toán bằng Python trên `plugin.json` thật của hai kho (thứ tự kho thứ hai → kho anh): 807 hàng (trước 695), kho anh đủ 32, mã không trùng; cài cả hai bản qidian ⇒ vẫn đúng hai hàng qidian. Một dòng tên rỗng của kho thứ hai bị bỏ như trước.
-  - Đọc code + diff; grep `Sources/`: không còn chỗ ghép registry bằng `packageId(forName:)` ngoài chỉ mục mới (còn lại là bản mirror của Debug/zip).
-  - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: tab Tất cả tiện ích hiện đủ 32 tiện ích của kho anh (lọc tác giả HuongMT); cài qidian của hai tác giả cùng lúc, mỗi bản đọc truyện riêng; nút cập nhật báo đúng phiên bản từng bản.

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Dải tập của màn xem: tiêu đề "Danh sách tập" + "Tất cả ›", hàng chip nhóm (`VideoEpisodeGrouping`; chỉ hiện khi có
 /// từ 2 nhóm, chọn sẵn nhóm chứa tập đang xem), rồi một dải ngang các ô số tập của nhóm đang chọn. Chạm ô ⇒ phát tập đó
-/// ngay tại chỗ. "Tất cả ›" ⇒ sheet lưới 6 cột (`VideoWatchEpisodeSheet`) có dấu ⬇ cho tập đã tải.
+/// ngay tại chỗ. "Tất cả ›" ⇒ sheet `VideoWatchEpisodeSheet` (Lưới 6 cột hoặc Danh sách như mục lục truyện, nhớ theo
+/// tiện ích) có dấu ⬇ cho tập đã tải.
 ///
 /// Đổi chip **không** đổi tập đang phát; tập đang phát đổi (tự sang tập kế…) thì chip nhảy theo và dải cuộn tới ô đó.
 struct VideoWatchEpisodeStrip: View {
@@ -10,6 +11,8 @@ struct VideoWatchEpisodeStrip: View {
     let currentIndex: Int
     /// Phim của màn xem — dấu đã tải đọc theo id này, không theo phim đang chạy trong phiên.
     let bookId: String
+    /// Tiện ích của phim của màn xem — sheet "Tất cả tập" nhớ kiểu Lưới / Danh sách theo id này.
+    let packageId: String
     let onSelect: (VideoPlaybackSession.Episode) -> Void
 
     @State private var selectedGroup = 0
@@ -43,6 +46,7 @@ struct VideoWatchEpisodeStrip: View {
                 episodes: episodes,
                 currentIndex: currentIndex,
                 bookId: bookId,
+                packageId: packageId,
                 onSelect: { episode in
                     showingAll = false
                     onSelect(episode)

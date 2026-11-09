@@ -79,6 +79,7 @@ struct VideoWatchDetailsView: View {
                         episodes: episodes,
                         currentIndex: currentEpisodeIndex,
                         bookId: model.bookId,
+                        packageId: model.request.packageId,
                         onSelect: { model.play(episodeIndex: $0.index) }
                     )
                 }

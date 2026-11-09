@@ -3,7 +3,8 @@ import SwiftUI
 /// Lưới tập phim **chia tab theo section**: mỗi dòng `type: "section"` của `toc` (extension nhiều server) là một tab
 /// ("Vietsub", "Thuyết minh"…). Chọn tab nào thì lưới hiện đúng bộ tập của nhóm đó, số tập đánh lại từ 1.
 ///
-/// Dùng chung cho panel toàn màn (`VideoEpisodePanel`) và màn dọc (`VideoPlayerDetailsView`); trước đây hai chỗ này
+/// Dùng chung cho panel toàn màn (`VideoEpisodePanel`), sheet "Tất cả tập" (`VideoWatchEpisodeSheet`) — hai chỗ này còn
+/// có kiểu Danh sách (`VideoEpisodeListView`, `VideoEpisodeLayoutMode`) — và màn dọc (`VideoPlayerDetailsView`); trước đây hai chỗ này
 /// vẽ tiêu đề nhóm chen giữa lưới nên phải cuộn qua cả bộ tập của nhóm khác. Ô giữ `.id(episode.index)` để màn cha
 /// vẫn `scrollTo` tới tập đang phát được.
 ///
@@ -22,8 +23,6 @@ struct VideoEpisodeGridView: View {
 
     @State private var selectedGroup: Int
 
-    /// Tối đa chừng này tab thì chia đều bề ngang; nhiều hơn thì cho cuộn ngang để tên không bị cắt.
-    private static let maxEvenTabs = 3
     private static let cellHeight: CGFloat = 46
 
     private let columns: [GridItem]
@@ -50,7 +49,7 @@ struct VideoEpisodeGridView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if groups.count > 1 {
-                tabs
+                VideoEpisodeGroupTabs(groups: groups, selection: $selectedGroup)
             }
 
             LazyVGrid(columns: columns, spacing: 7) {
@@ -64,57 +63,6 @@ struct VideoEpisodeGridView: View {
         .onAppear(perform: syncGroupToCurrent)
         .onChange(of: currentIndex) { _, _ in syncGroupToCurrent() }
         .onChange(of: episodes) { _, _ in syncGroupToCurrent() }
-    }
-
-    // MARK: - Tab
-
-    @ViewBuilder
-    private var tabs: some View {
-        if groups.count <= Self.maxEvenTabs {
-            HStack(spacing: 4) {
-                ForEach(groups) { group in
-                    tab(group, fillsWidth: true)
-                }
-            }
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(groups) { group in
-                        tab(group, fillsWidth: false)
-                    }
-                }
-            }
-        }
-    }
-
-    private func tab(_ group: SectionTab, fillsWidth: Bool) -> some View {
-        let isSelected = group.id == selectedGroup
-        let label = Self.label(of: group)
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selectedGroup = group.id }
-        } label: {
-            HStack(spacing: 6) {
-                Text(label)
-                    .lineLimit(1)
-                Text("\(group.items.count)")
-                    .font(.caption2.weight(.bold))
-                    .monospacedDigit()
-                    .opacity(0.55)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.72))
-            .padding(.horizontal, 12)
-            .frame(maxWidth: fillsWidth ? .infinity : nil)
-            .frame(height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(isSelected ? Color.white : Color.white.opacity(0.07))
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(label), \(group.items.count) tập")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Ô tập
@@ -187,9 +135,9 @@ struct VideoEpisodeGridView: View {
         return groups[min(max(selectedGroup, 0), groups.count - 1)].items
     }
 
-    /// Nhóm đứng trước section đầu tiên không có tên ⇒ "Tập".
+    /// Nhóm đứng trước section đầu tiên không có tên ⇒ "Tập" (`VideoEpisodeGroupTabs.label`).
     static func label(of group: SectionTab) -> String {
-        group.title.isEmpty ? "Tập" : group.title
+        VideoEpisodeGroupTabs.label(of: group)
     }
 
     /// Chỉ đồng bộ tab khi tập đang phát đổi — người dùng đổi tab để xem thì không bị kéo lại.
