@@ -276,13 +276,13 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         Task { @MainActor [weak self] in
             guard let self = self else { return }
-            let message = error?.localizedDescription ?? "Unknown AVAudioPlayer decode error"
-            AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \(message)")
-
+            // Ghi một lần cho mỗi player: player đã bị gỡ (lỗi trước đó của chính nó) thì không ghi lại.
             if player === self.currentPlayer, let currentItem = self.currentItem {
+                AppLogger.shared.log("❌ [NghiQueue] Lỗi giải mã đoạn đang phát \(currentItem.paragraphIndex) id=\(currentItem.playbackId) \(TTSManager.describeFailedPlayer(player, error: error))")
                 self.onFinished?(currentItem, false)
                 self.stop()
             } else if player === self.nextPlayer, let nextItem = self.nextItem {
+                AppLogger.shared.log("❌ [NghiQueue] Lỗi giải mã đoạn kế \(nextItem.paragraphIndex) id=\(nextItem.playbackId) \(TTSManager.describeFailedPlayer(player, error: error))")
                 self.onFinished?(nextItem, false)
                 self.discardNext()
             }

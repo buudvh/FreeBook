@@ -430,6 +430,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal let autoAdvancePerf = TTSAutoAdvancePerfTracker()
     internal let nghiEnergyTelemetry = NghiEnergyTelemetry()
     internal var audioPlayer: AVAudioPlayer?
+    internal let playbackFailureTracker = TTSPlaybackFailureTracker() // lỗi phát giữa chừng: thử lại / bỏ qua / dừng
     internal let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
     internal let callObserver = TTSCallObserver()
     internal var isAudioSessionConfigured = false
@@ -2815,7 +2816,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 preloadedDurations.removeValue(forKey: item.paragraphIndex)
                 if isPlaying,
                    item.paragraphIndex > currentParagraphIndex,
-                   item.paragraphIndex < paragraphs.count {
+                   item.paragraphIndex < paragraphs.count,
+                   playbackFailureTracker.allowNghiRefill(.init(sessionID: sessionID, chapterIndex: playingChapterIndex, paragraphIndex: item.paragraphIndex)) {
                     scheduleNghiRefill()
                 }
             }
@@ -2992,7 +2994,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         FileDescriptorStepProbe.measure("nowPlaying") { updateNowPlayingInfo() }
     }
 
-    private func stopCurrentHardwarePlayer() {
+    internal func stopCurrentHardwarePlayer() {
         nghiAudioPlayerQueue.stop()
 
         if let player = audioPlayer {
@@ -3451,18 +3453,15 @@ extension TTSManager {
             }
             FileDescriptorStepProbe.measure("finish.stop") { self.stopCurrentHardwarePlayer() }
             if flag {
+                self.playbackFailureTracker.recordSuccess()
                 FileDescriptorStepProbe.measure("finish.next") { self.nextParagraph() }
             } else {
-                AppLogger.shared.log("⚠️ [TTSManager] AVAudioPlayer phát kết thúc không thành công")
-                self.isPlaying = false
+                self.recoverFromRemotePlaybackFailure(reason: "phát kết thúc không thành công") // TTSManager+PlaybackFailure
             }
         }
     }
 
     public nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        Task { @MainActor in
-            AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \(error?.localizedDescription ?? "unknown")")
-            self.isPlaying = false
-        }
+        Task { @MainActor in self.handleRemoteDecodeError(player, error: error) } // TTSManager+PlaybackFailure
     }
 }
