@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.771] - 2026-11-07
+
+### feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab
+
+Người dùng: *"Thêm nút home vào tất cả màn hình trừ reader và xem commic và các màn hình của tab cài đặt."* Anh Bửu chọn: về **trang gốc của tab đang đứng**; nút ở **góc dưới phải**, trang có nút "+" thì Home nằm trong menu xổ của "+", ở **dưới cùng**.
+
+- Trang đẩy vào trong tab Kệ Sách, Khám Phá, Tiện Ích có nút Home tròn nổi góc dưới phải (52pt, nền kính theo Cài đặt › Giao diện, nhãn "Về trang gốc"); bấm ⇒ về trang gốc của tab đang đứng (tab Khám phá dựng lại = tải lại nguồn đang xem). Bàn phím hiện thì ẩn.
+- Trang có nút "+" nổi: bấm "+" xổ menu pill (kính) gồm hành động gốc của "+" và "Về trang gốc" ở dưới cùng; trang không có Home thì "+" vẫn bấm một chạm.
+- Không hiện ở trang gốc các tab, tab Cài Đặt, Reader / truyện tranh / màn xem phim và mọi trang trong chúng, sheet / form / trình soạn, trình duyệt, hub / widget. Quyết định lúc chạy bằng đầu dò UIKit (`FloatingHomePlacement`, `FloatingHomeProbe`), gắn tự động ở `PageTitleModifier`; nút "+" và tiêu đề ghép theo trang qua `FloatingHomeRegistry` (đúng với mọi thứ tự modifier).
+- Trang trình bày bằng UIKit ngoài cây tab bật Home bằng cách cho VC được present conform `FloatingHomeActionProviding`: trang thể loại / Xem thêm / Chi tiết của màn xem phim (`VideoWatchPagePresenter`) — Home đóng trang (trang đè lên màn xem thì màn xem cũng thu vào hub) rồi về trang gốc tab đang đứng.
+- Lệnh mới `MainTabNavigationEvents.showCurrentTabRoot`; FAB riêng của Chi tiết tạm giữ chỗ Home (`.floatingHomeHostedByPage()`).
+- `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: bấm pill của menu xổ (vẽ lòi ngoài khung nút 52pt); Home đè góc phải cuối trang con; cửa sổ phim nhỏ / hub / widget TTS đậu góc dưới phải che nút.
+
 ## [1.3.770] - 2026-11-07
 
 ### feat: rời app thì thu phim vào hub, có công tắc ở Cài đặt Video
