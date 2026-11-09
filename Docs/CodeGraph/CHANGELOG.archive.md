@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.774] - 2026-11-07
+
+### feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt
+
+Anh Bửu chọn *"Che thành Đang phát"* cho câu hỏi còn treo của 1.3.769 (NSFW đã tắt mà phim 18+ vẫn chạy ở hub thì dòng Video hiện tên phim thật).
+
+- Dòng Video của hub: phim 18+ (`RepositoryFilterPolicy.isNsfwBook`) lúc công tắc NSFW **tắt** ⇒ dòng chính "Đang phát" (như màn khoá 1.3.764), dòng phụ "Chạm để mở lại" / "Đã dừng" — không lộ tên phim, tên tập. NSFW bật ⇒ hiện tên như cũ.
+- `VideoMiniPlayerState.isNsfw` (phiên ghi ở `syncMiniPlayerState`), `FloatingHubPresentationReader` đọc cùng công tắc NSFW đang theo dõi sẵn ⇒ gạt NSFW là dòng đổi ngay.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.773] - 2026-11-07
 
 ### fix: rời app lúc màn xem mở sheet không kẹt màn, chuyển tab đóng cả trang của màn xem, nút Home bám góc màn

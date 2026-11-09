@@ -3,7 +3,7 @@ import SwiftUI
 /// Thanh bung của kiểu **Thanh nghe nhạc** (1.3.796) — cùng dáng thanh phát mini nghe nhạc (`MiniPlayerBarChrome`: 56 pt,
 /// bo 14, nền đặc tối — giống hệt thanh nhạc, vạch tiến độ chương ở mép trên).
 ///
-/// Bố cục: đĩa bìa 40 pt xoay (góc chung với kiểu Đĩa nổi) · tên truyện / "Ch. N · tên chương" + viên phút hẹn giờ còn lại
+/// Bố cục: đĩa bìa 40 pt xoay (góc chung với kiểu Đĩa nổi) · tên truyện / tên chương + viên phút hẹn giờ còn lại
 /// · ⏯ · ⏭ (đoạn kế) · ⏱ (sheet Hẹn giờ, Cài đặt TTS mở từ đó) · ✕ (dừng) · vạch mảnh · ô » hẹp sát mép phải (thu gọn).
 /// Chạm bìa hoặc chữ ⇒ mở chương đang đọc.
 struct TTSWidgetBarView: View {

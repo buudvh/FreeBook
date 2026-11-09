@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-/// Chữ của kiểu Thanh nghe nhạc (1.3.796): dòng 1 tên truyện, dòng 2 "Ch. N · tên chương". Lấy từ
+/// Chữ của kiểu Thanh nghe nhạc (1.3.796): dòng 1 tên truyện, dòng 2 tên chương (1.3.804 bỏ tiền tố "Ch. N"). Lấy từ
 /// `TTSManager.displayedBookTitle` / `displayedChapterTitle` (đã dịch theo phiên TTS) — hai hàm này dịch **đồng bộ** nên chỉ
 /// tính lại khi (truyện, chương, tên thô) đổi hoặc từ điển vừa cập nhật, không theo từng đoạn / từng giây hẹn giờ.
 ///
@@ -58,8 +58,10 @@ final class TTSWidgetBarInfoReader: ObservableObject {
         let title = manager.displayedBookTitle
         if title != bookTitle { bookTitle = title }
 
-        let chapter = manager.displayedChapterTitle
-        let line = manager.playingChapterIndex >= 0 ? "Ch. \(manager.playingChapterIndex + 1) · \(chapter)" : chapter
+        // Chỉ tên chương, không thêm "Ch. N" phía trước (1.3.804, anh Bửu). Tên rỗng mới lùi về "Chương N".
+        let chapter = manager.displayedChapterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let index = manager.playingChapterIndex
+        let line = chapter.isEmpty && index >= 0 ? "Chương \(index + 1)" : chapter
         if line != chapterLine { chapterLine = line }
     }
 }

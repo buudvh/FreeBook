@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.804] - 2026-11-09
+
+### fix: thanh widget TTS kiểu nghe nhạc chỉ ghi tên chương, bỏ tiền tố Ch. N
+
+Anh Bửu: *"bỏ dòng ch. x trong hàng tên chương giúp tôi"*.
+
+- `TTSWidgetBarInfoReader.refresh`: dòng 2 của kiểu **Thanh nghe nhạc** chỉ còn tên chương (đã dịch theo phiên TTS, cắt khoảng trắng), không còn "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N". Nhãn "Ch. N" của thẻ Kệ (`BookListRowSize`) không phải hàng tên chương ⇒ giữ nguyên.
+- **Kiểm chứng:** đọc code (`displayedChapterTitle` là `String`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.803] - 2026-11-09
 
 ### fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá
@@ -372,13 +381,3 @@ Người dùng: *"khi bấm vào home thì tình trạng video là pip hay vào 
 - Phim 18+: Home vẫn tắt NSFW (1.3.769) — guard NSFW xin thu vào hub bị `VideoLeaveToHubCoordinator` bỏ qua trong 2 giây sau Home (`applyLeaveRules(keepsPlacement:)`) để cửa sổ nhỏ vừa mở theo cài đặt không bị kéo vào hub.
 - `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: Home lúc đang ngang với cài đặt cửa sổ nhỏ.
-
-## [1.3.774] - 2026-11-07
-
-### feat: hub che tên phim 18+ thành Đang phát khi NSFW đã tắt
-
-Anh Bửu chọn *"Che thành Đang phát"* cho câu hỏi còn treo của 1.3.769 (NSFW đã tắt mà phim 18+ vẫn chạy ở hub thì dòng Video hiện tên phim thật).
-
-- Dòng Video của hub: phim 18+ (`RepositoryFilterPolicy.isNsfwBook`) lúc công tắc NSFW **tắt** ⇒ dòng chính "Đang phát" (như màn khoá 1.3.764), dòng phụ "Chạm để mở lại" / "Đã dừng" — không lộ tên phim, tên tập. NSFW bật ⇒ hiện tên như cũ.
-- `VideoMiniPlayerState.isNsfw` (phiên ghi ở `syncMiniPlayerState`), `FloatingHubPresentationReader` đọc cùng công tắc NSFW đang theo dõi sẵn ⇒ gạt NSFW là dòng đổi ngay.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
