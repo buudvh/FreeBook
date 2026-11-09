@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Trang giữa của màn nghe: đĩa bìa xoay, tên bài + nghệ sĩ + ♡ (kệ), một dòng lời đang hát (hoặc khối lỗi), thanh tua,
-/// cụm nút và hàng phụ (tốc độ, sang trang Danh sách / Lời).
+/// Trang giữa của màn nghe: đĩa bìa xoay (`AudioRotatingCover`, cùng góc với đĩa của thanh mini), tên bài + nghệ sĩ + ♡
+/// (kệ), một dòng lời đang hát (hoặc khối lỗi), thanh tua, cụm nút và hàng phụ (tốc độ, sang trang Danh sách / Lời).
 ///
 /// Vuốt xuống trên đĩa / dòng tên bài ⇒ thu nhỏ màn (`audioMinimizeDrag`); thanh tua không gắn cử chỉ đó.
 struct AudioDiscPage: View {
@@ -23,12 +23,14 @@ struct AudioDiscPage: View {
             let side = max(120, min(proxy.size.width * 0.7, proxy.size.height * 0.44))
             VStack(spacing: 0) {
                 Spacer(minLength: 8)
-                AudioSpinningDisc(
+                AudioRotatingCover(
                     coverUrl: session.coverUrl,
                     referer: referer,
-                    isSpinning: isOnScreen && session.isPlaying
+                    size: side,
+                    isRotating: isOnScreen && session.isPlaying
                 )
-                .frame(width: side, height: side)
+                .shadow(color: .black.opacity(0.35), radius: 18, x: 0, y: 10)
+                .contentShape(Circle())
                 .audioMinimizeDrag(drag, onCommit: onMinimize)
                 Spacer(minLength: 16)
                 titleRow

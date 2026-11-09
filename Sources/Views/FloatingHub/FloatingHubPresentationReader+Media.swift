@@ -15,6 +15,8 @@ extension FloatingHubPresentationReader {
         var isLoading = false
         var isFailed = false
         var isNsfw = false
+        /// Màn nghe đang hiện ⇒ dòng vẫn chạm được nhưng không tính là tiến trình của nút hub (không nháy đè lên màn nghe).
+        var isScreenPresented = false
     }
 
     /// Ghi trạng thái hiện tại rồi theo dõi `AudioMiniPlayerState` (gọi một lần trong `init`).
@@ -27,11 +29,12 @@ extension FloatingHubPresentationReader {
             isPlaying: audio.isPlaying,
             isLoading: audio.isLoading,
             isFailed: audio.isFailed,
-            isNsfw: audio.isNsfw
+            isNsfw: audio.isNsfw,
+            isScreenPresented: audio.isScreenPresented
         )
         Publishers.CombineLatest(
             Publishers.CombineLatest4(audio.$isActive, audio.$trackTitle, audio.$albumTitle, audio.$isPlaying),
-            Publishers.CombineLatest3(audio.$isLoading, audio.$isFailed, audio.$isNsfw)
+            Publishers.CombineLatest4(audio.$isLoading, audio.$isFailed, audio.$isNsfw, audio.$isScreenPresented)
         )
         .map { first, second in
             AudioState(
@@ -41,7 +44,8 @@ extension FloatingHubPresentationReader {
                 isPlaying: first.3,
                 isLoading: second.0,
                 isFailed: second.1,
-                isNsfw: second.2
+                isNsfw: second.2,
+                isScreenPresented: second.3
             )
         }
         .removeDuplicates()
@@ -85,17 +89,20 @@ extension FloatingHubPresentationReader {
     /// Âm thanh dùng được khi trình nghe có album đang mở (đang phát, dừng, nạp hoặc lỗi) — kể cả lúc màn nghe đang hiện.
     /// Dòng chính "Âm thanh", dòng phụ = tên bài (chưa có ⇒ tên album). Album 18+ lúc công tắc NSFW tắt ⇒ dòng phụ chỉ
     /// "Đang phát" / "Đã dừng" như dòng Video. Chạm ⇒ mở lại màn nghe; nút phát/dừng và ✕ (dừng hẳn) như dòng Video.
+    /// Màn nghe đang hiện ⇒ dòng vẫn sáng nhưng `isActive == false` (như Video chỉ tính khi đã thu nhỏ): nút hub không
+    /// nháy / không đổi icon đè lên màn nghe.
     func audioItem() -> FloatingHubItem {
         guard audioState.isActive else {
             return FloatingHubItem(kind: .audio, detail: "Không có album đang mở")
         }
+        let countsAsRunning = !audioState.isScreenPresented
         if audioState.isNsfw, !includeNsfw {
             return FloatingHubItem(
                 kind: .audio,
                 isEnabled: true,
                 detail: audioState.isPlaying ? "Đang phát" : "Đã dừng",
                 isPlaying: audioState.isPlaying,
-                isActive: true
+                isActive: countsAsRunning
             )
         }
         if audioState.isFailed {
@@ -105,7 +112,7 @@ extension FloatingHubPresentationReader {
                 detail: "Lỗi phát — chạm để mở",
                 detailTone: .failure,
                 isPlaying: false,
-                isActive: true
+                isActive: countsAsRunning
             )
         }
         let name = audioState.trackTitle.isEmpty ? audioState.albumTitle : audioState.trackTitle
@@ -115,7 +122,7 @@ extension FloatingHubPresentationReader {
             isEnabled: true,
             detail: name.isEmpty ? fallback : name,
             isPlaying: audioState.isPlaying,
-            isActive: true
+            isActive: countsAsRunning
         )
     }
 }

@@ -6,8 +6,8 @@ import SwiftUI
 ///
 /// Chỉ đọc cầu nối `AudioMiniPlayerState` (không chạm `AudioPlaybackSession` — chạm là dựng `AVPlayer`). Ẩn khi không có
 /// album đang mở hoặc màn nghe đang hiện. Album 18+ lúc công tắc NSFW tắt ⇒ tên "Đang phát", không bìa (như hub).
-/// Bố cục: bìa vuông 40pt · tên bài + nghệ sĩ · ⏯ · ⏭ · ✕ (dừng hẳn); vạch tiến độ mảnh ở mép trên; chạm phần còn lại ⇒
-/// mở lại màn nghe.
+/// Bố cục: đĩa bìa tròn 40pt xoay khi đang phát (`AudioRotatingCover`, cơ chế xoay của widget TTS) · tên bài + nghệ sĩ ·
+/// ⏯ · ⏭ · ✕ (dừng hẳn); vạch tiến độ mảnh ở mép trên; chạm phần còn lại ⇒ mở lại màn nghe.
 struct AudioMiniPlayerBar: View {
     @ObservedObject private var state = AudioMiniPlayerState.shared
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
@@ -81,22 +81,15 @@ struct AudioMiniPlayerBar: View {
         .environment(\.colorScheme, .dark)
     }
 
-    @ViewBuilder
+    /// Đĩa tròn 40 pt xoay khi đang phát (cùng góc với trang Đĩa); album 18+ lúc NSFW tắt ⇒ không tải / không hiện bìa.
     private var cover: some View {
-        Group {
-            if isConcealed || state.coverUrl.isEmpty {
-                ZStack {
-                    Color.white.opacity(0.12)
-                    Image(systemName: "music.note")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.7))
-                }
-            } else {
-                RemoteCoverImage(url: state.coverUrl, referer: nil, placeholderSymbol: "music.note")
-            }
-        }
-        .frame(width: 40, height: 40)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        AudioRotatingCover(
+            coverUrl: state.coverUrl,
+            referer: nil,
+            size: 40,
+            isRotating: state.isPlaying,
+            isConcealed: isConcealed
+        )
     }
 
     private var progressLine: some View {

@@ -2,6 +2,35 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.755] - 2026-11-06
+
+### refactor: mọi chỗ đọc plugin.json, script và icon tiện ích đi qua một bộ đọc chung
+
+Người dùng: *"chia folder extension ra 2 sub folder cho legado và js, bạn nghĩ sao nếu js gom tất cả script vào json?"*, rồi chốt: *"ý tôi là mỗi tiện ích js là 1 json ấy"*, mục tiêu "Nhìn thư mục cho gọn". Anh Bửu duyệt plan 3 bước; đây là bước 1. Bố cục trên đĩa **chưa đổi**.
+
+- **`ExtensionPackageReader`** (`Sources/Models/Extensions/`, mới) là nơi **duy nhất** đọc gói tiện ích theo `localPath`, hiểu ba dạng:
+  - thư mục cũ (`plugin.json` + script ở gốc hoặc `src/` + `icon.png`), vẫn dùng cho thư mục nháp của debug server;
+  - file gói JS `…/js/<id>.json` (`ExtensionPackageBundle`: `bundleFormat`, `files` đường dẫn tương đối → chữ, `icon` base64);
+  - file nguồn Legado `…/legado/<id>.json` = nguyên văn `source.json`, manifest dựng trong RAM (`LegadoSourceManifest`, không có `version` / `nsfw`).
+- `script(named:)` giữ đúng luật **gốc rồi `src/`** của `load()` và mục `script` trong `plugin.json`.
+- Gói JS đã parse được nhớ trong RAM (`ExtensionPackageBundleCache`), khoá theo đường dẫn + mtime + cỡ, tối đa 96 mục / 24 MiB. `stat()` lỗi thì coi như không có gói, không bao giờ trả bản đã nhớ. Nguồn Legado không nhớ.
+- Hằng `author` "Legado" / `locale` "zh_CN" dời xuống `LegadoSourceManifest`; `LegadoSourceIdentity` trỏ tới đó (một nguồn sự thật).
+- **Đổi chữ ký:**
+  - `ExtensionManager.getScriptPath(extensionPath:scriptKey:) -> URL` thành `entryScript(localPath:scriptKey:) -> ExtensionPackageReader.Script`. Giữ mã lỗi -3/-4/-5 và câu lỗi.
+  - `ComicImageScriptRunner.scriptURL` thành `scriptContent(localPath:fileName:)`.
+  - Bỏ `ExtensionScriptStaticCheck.resolve` và `ExtensionDebugRunner.relativePath(of:under:)` (không còn caller).
+- **Chuyển sang bộ đọc:**
+  - Lõi: `JSExecutor+Load`, `ExtensionManager` (+Search/Explore/Media), `ComicImageScriptRunner`, `BookDownloadWorker`, `ExtTTSScriptCache` (mốc kiểm hạn lấy từ `modificationStamp`).
+  - Quét và kiểm tra: `ExtensionScriptConfigScanner`, `ExtensionDebugRunner`, `ExtensionDebugScriptScanner`, `ExtensionDebugInstalledSnapshot`, `ExtensionScriptStaticCheck`.
+  - Manifest: `ExtensionManifestReader`, `ExtensionUrlMatcher`, `ExtensionContentKind`, `TranslationConfigStore`.
+  - View: `ExtensionConfigSchema`, `ExtensionFilterScope`, `RepositoryManagerView+Actions`, `ExtensionIconImageCache`, `BypassBrowserHomePage`, `ExtensionScriptEditorView+Toolbars` (so đường dẫn tương đối của script thay cho URL).
+- Tên tiện ích trong log/lỗi và khoá cache ảnh comic dùng `packageName` (tên thư mục, hoặc tên file bỏ `.json`), để khoá không đổi khi gói thành một file.
+- Chuyển `[1.3.725]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc diff; grep chéo caller của các hàm đổi chữ ký.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**; `ExtensionManager.swift` giảm 799 → 765 dòng.
+  - Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.754] - 2026-11-06
 
 ### feat: hub luôn hiện tất cả thì icon luôn là chồng thẻ

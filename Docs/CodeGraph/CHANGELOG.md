@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.788] - 2026-11-09
+
+### feat: bìa thanh phát mini và trang Đĩa là đĩa tròn xoay như widget TTS, hub không nháy khi màn nghe đang mở
+
+Anh Bửu đổi yêu cầu thanh phát mini (1.3.787): bìa là **đĩa tròn** (không còn vuông bo góc) và **xoay** khi đang phát, dừng thì đứng yên ở góc đang có — dùng lại đúng cơ chế xoay của widget TTS.
+
+- `AudioRotatingCover` (mới): đĩa bìa tròn dùng `TTSRotatingCoverView` (Core Animation trên render server, gỡ animation khi không xoay ⇒ không tốn CPU lúc không hiện, không giật về 0) + `CoverRotationState` của widget TTS — **không** sửa file nào ở `Sources/Views/TTSWidget/`, không nhân bản cơ chế. Ảnh qua `CoverImageLoader` (downsample theo cỡ khung, không ghi `covers/`); chưa có ảnh / không bìa / album 18+ lúc NSFW tắt (không tải bìa) ⇒ nốt nhạc tĩnh.
+- `AudioCoverRotation` (mới): **một** `CoverRotationState` dùng chung cho đĩa của thanh mini ở mọi tab và trang Đĩa ⇒ cùng góc; theo `AudioMiniPlayerState.isPlaying` (`syncPlaybackState`), đổi album ⇒ `resetAngle`. Tốc độ theo widget TTS: 15 s/vòng (trước là 20 s/vòng của bản `TimelineView`).
+- Thanh mini: bìa 40 pt thành đĩa tròn xoay khi đang phát. Trang Đĩa của màn nghe dùng cùng view (xoay khi trang hiện, app mở và nhạc đang phát); bỏ `AudioSpinningDisc` / `AudioDiscArtwork` (`TimelineView`).
+- Hub: dòng Âm thanh vẫn sáng lúc màn nghe đang hiện nhưng không tính là tiến trình của nút hub (`AudioState.isScreenPresented` ⇒ `isActive == false`, như Video chỉ tính khi đã thu nhỏ) ⇒ nút hub không nháy / không đổi icon đè lên màn nghe.
+- Chuyển `[1.3.755]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
+
 ## [1.3.787] - 2026-11-09
 
 ### feat: màn nghe âm thanh ba trang kiểu Zing MP3, thanh phát mini và dòng Âm thanh ở hub
@@ -15,7 +28,7 @@ Phần 3/3 của trình nghe âm thanh cho tiện ích JS loại `audio` (plan a
   - Giây phát chỉ đọc ở `AudioPlayerSeekRow` ⇒ cả màn không vẽ lại mỗi tick. Màn gắn / gỡ session bằng token (`attachScreen` / `detachScreen`); trình duyệt lỗi / trang nguồn che màn không tính là rời màn; session dừng ở nơi khác ⇒ màn tự đóng.
   - **Vuốt xuống để thu nhỏ** (`AudioMinimizeDragState` / `AudioMinimizeDragContainer` / `AudioMinimizeDragGesture`): kéo xuống ở header, đĩa, dòng tên bài, đầu trang Danh sách / Lời (không ở thanh tua, vùng cuộn) ⇒ cả màn trôi theo tay, quá 140 pt hoặc vuốt nhanh ⇒ trượt nốt rồi đóng, nhạc vẫn phát.
 - **Presenter** `AudioPlayerPresenter`: `present(_ request: AudioListenRequest, modelContainer:, autoplay: Bool = true, animated: Bool = true)` mở album rồi trình bày bằng UIKit `.overFullScreen` (`AudioPlayerHostingController`, chỉ dọc; gắn lại `.appAccentTint()` + `.modelContainer`); màn nghe đang hiện ⇒ chỉ đổi album, không chồng màn. `install()` gắn `presentScreenHandler` (thanh mini / hub mở lại màn), gọi ở `present`, `openInPlace` và lúc màn hiện. `AudioListenRouteView(launch:)` cho router: màn nằm trong `fullScreenCover` sẵn có (như `VideoWatchRouteView`), mở album một lần, lượt mở lại lúc khởi động (`ReaderSessionRestoreStore.consumePausedVideoStart`) ⇒ `autoplay: false`.
-- **Thanh phát mini** `AudioMiniPlayerBar`: ngay trên `MainTabBar` ở trang gốc các tab (cùng khối `safeAreaInset` của `MainTabBarModifier` ⇒ nội dung tự chừa chỗ, ẩn cùng thanh tab khi bàn phím hiện); bìa 40 pt, tên bài + nghệ sĩ, ⏯, ⏭, ✕ (dừng hẳn), vạch tiến độ màu nhấn ở mép trên, chạm phần còn lại ⇒ mở lại màn nghe; nền `FloatingGlassBackground`. Ẩn khi không có album / màn nghe đang hiện. Album 18+ lúc NSFW tắt ⇒ "Đang phát", không bìa. Chỉ đọc `AudioMiniPlayerState`.
+- **Thanh phát mini** `AudioMiniPlayerBar`: ngay trên `MainTabBar` ở trang gốc các tab (cùng khối `safeAreaInset` của `MainTabBarModifier` ⇒ nội dung tự chừa chỗ, ẩn cùng thanh tab khi bàn phím hiện); bìa 40 pt (1.3.788 đổi thành đĩa tròn xoay), tên bài + nghệ sĩ, ⏯, ⏭, ✕ (dừng hẳn), vạch tiến độ màu nhấn ở mép trên, chạm phần còn lại ⇒ mở lại màn nghe; nền `FloatingGlassBackground`. Ẩn khi không có album / màn nghe đang hiện. Album 18+ lúc NSFW tắt ⇒ "Đang phát", không bìa. Chỉ đọc `AudioMiniPlayerState`.
 - **Hub**: `FloatingHubItem.Kind.audio` ("Âm thanh", `music.note`) ngay sau Video — xám khi không có album; có album ⇒ dòng phụ = tên bài (18+ lúc NSFW tắt ⇒ "Đang phát" / "Đã dừng"; lỗi ⇒ chữ đỏ), nút phát/dừng + ✕ như dòng Video (`FloatingHubMenuView` / `FloatingHubMenuRow` / `+Actions` đổi sang `togglePlayback(_:)` / `stopPlayback(_:)` theo loại dòng), chạm ⇒ mở lại màn nghe. Album đang dừng vẫn là mục của nút hub nhưng không nháy (`quietKinds`). Dòng Video + Âm thanh dựng ở `FloatingHubPresentationReader+Media` (giữ file chính dưới 400 dòng); trạng thái nghe theo dõi không gồm tiến độ ⇒ hub không vẽ lại theo nhịp phát.
 - Chuyển `[1.3.754]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
@@ -454,32 +467,3 @@ Người dùng: *"chia folder extension ra 2 sub folder cho legado và js"*, *"�
   - Grep: ngoài reader, writer, migrator, staging debug và `ExtensionScriptDecoder` (thư mục tạm), không còn chỗ ghép `plugin.json` / `src` / `icon.png` vào `localPath`.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**. `ExtensionManager` 765 → 754 dòng, `ExtensionScriptEditorView` 399 → 365.
   - Không build tại chỗ (Windows). Chưa thử trên máy: mở app lần đầu sau khi cập nhật, Kho đủ tiện ích, ghim và cấu hình còn; app Tệp chỉ thấy `js/` + `legado/`; tìm kiếm, đọc chương, comic có script, TTS tiện ích, sửa script tay, nguồn Legado bật/tắt/nhóm/xoá, backup + khôi phục (cả bản cũ), debug cài nháp + rollback.
-
-## [1.3.755] - 2026-11-06
-
-### refactor: mọi chỗ đọc plugin.json, script và icon tiện ích đi qua một bộ đọc chung
-
-Người dùng: *"chia folder extension ra 2 sub folder cho legado và js, bạn nghĩ sao nếu js gom tất cả script vào json?"*, rồi chốt: *"ý tôi là mỗi tiện ích js là 1 json ấy"*, mục tiêu "Nhìn thư mục cho gọn". Anh Bửu duyệt plan 3 bước; đây là bước 1. Bố cục trên đĩa **chưa đổi**.
-
-- **`ExtensionPackageReader`** (`Sources/Models/Extensions/`, mới) là nơi **duy nhất** đọc gói tiện ích theo `localPath`, hiểu ba dạng:
-  - thư mục cũ (`plugin.json` + script ở gốc hoặc `src/` + `icon.png`), vẫn dùng cho thư mục nháp của debug server;
-  - file gói JS `…/js/<id>.json` (`ExtensionPackageBundle`: `bundleFormat`, `files` đường dẫn tương đối → chữ, `icon` base64);
-  - file nguồn Legado `…/legado/<id>.json` = nguyên văn `source.json`, manifest dựng trong RAM (`LegadoSourceManifest`, không có `version` / `nsfw`).
-- `script(named:)` giữ đúng luật **gốc rồi `src/`** của `load()` và mục `script` trong `plugin.json`.
-- Gói JS đã parse được nhớ trong RAM (`ExtensionPackageBundleCache`), khoá theo đường dẫn + mtime + cỡ, tối đa 96 mục / 24 MiB. `stat()` lỗi thì coi như không có gói, không bao giờ trả bản đã nhớ. Nguồn Legado không nhớ.
-- Hằng `author` "Legado" / `locale` "zh_CN" dời xuống `LegadoSourceManifest`; `LegadoSourceIdentity` trỏ tới đó (một nguồn sự thật).
-- **Đổi chữ ký:**
-  - `ExtensionManager.getScriptPath(extensionPath:scriptKey:) -> URL` thành `entryScript(localPath:scriptKey:) -> ExtensionPackageReader.Script`. Giữ mã lỗi -3/-4/-5 và câu lỗi.
-  - `ComicImageScriptRunner.scriptURL` thành `scriptContent(localPath:fileName:)`.
-  - Bỏ `ExtensionScriptStaticCheck.resolve` và `ExtensionDebugRunner.relativePath(of:under:)` (không còn caller).
-- **Chuyển sang bộ đọc:**
-  - Lõi: `JSExecutor+Load`, `ExtensionManager` (+Search/Explore/Media), `ComicImageScriptRunner`, `BookDownloadWorker`, `ExtTTSScriptCache` (mốc kiểm hạn lấy từ `modificationStamp`).
-  - Quét và kiểm tra: `ExtensionScriptConfigScanner`, `ExtensionDebugRunner`, `ExtensionDebugScriptScanner`, `ExtensionDebugInstalledSnapshot`, `ExtensionScriptStaticCheck`.
-  - Manifest: `ExtensionManifestReader`, `ExtensionUrlMatcher`, `ExtensionContentKind`, `TranslationConfigStore`.
-  - View: `ExtensionConfigSchema`, `ExtensionFilterScope`, `RepositoryManagerView+Actions`, `ExtensionIconImageCache`, `BypassBrowserHomePage`, `ExtensionScriptEditorView+Toolbars` (so đường dẫn tương đối của script thay cho URL).
-- Tên tiện ích trong log/lỗi và khoá cache ảnh comic dùng `packageName` (tên thư mục, hoặc tên file bỏ `.json`), để khoá không đổi khi gói thành một file.
-- Chuyển `[1.3.725]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc diff; grep chéo caller của các hàm đổi chữ ký.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**; `ExtensionManager.swift` giảm 799 → 765 dòng.
-  - Không build tại chỗ (Windows). Chưa thử trên máy.
