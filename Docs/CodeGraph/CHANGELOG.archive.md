@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.782] - 2026-11-09
+
+### fix: chỉ báo hỏi lại hướng xoay khi còn trang thể loại, rời trình phát không bị bật ngang lại
+
+Rà lại 1.3.781 trước khi thử máy: `resetForExit` và lúc trình bày xong màn xem **luôn** báo UIKit hỏi lại hướng (`setNeedsUpdateOfSupportedInterfaceOrientations`). Ở lối thường (màn bên dưới là tab gốc, cho xoay ngang), cầm máy ngang rồi bấm ⌄ ⇒ `leave` xin dọc, nhưng lần báo hỏi lại ở `onDisappear` có thể làm iOS xoay Kệ / Khám phá ngang trở lại theo cảm biến — trước 1.3.781 không có.
+
+- `VideoWatchPagePresenter.hasOpenPage` (mới): còn trang nào đang hiện (kể cả trang nằm dưới màn xem mở lại).
+- `VideoOrientationLock.resetForExit`: hết ngang thì như cũ (xin dọc, `request` vẫn báo hỏi lại trước khi xin); không ngang thì chỉ báo hỏi lại khi vừa bỏ khoá xoay (như trước 1.3.781) hoặc còn trang chỉ dọc.
+- `VideoWatchPresenter.present`: chỉ báo hỏi lại sau khi trình bày khi còn trang.
+- Giữ nguyên: `request` luôn báo hỏi lại ngay trước `requestGeometryUpdate` (sửa nút Toàn màn / Xoay; có lời xin tường minh theo sau nên không xoay lạc); `PortraitHostingController` nhường hướng cho màn xem phía trên.
+- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.781] - 2026-11-09
 
 ### fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại

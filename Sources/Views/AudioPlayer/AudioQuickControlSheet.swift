@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ đĩa nghe góc dưới phải (`MediaDiscContentView`, 1.3.808),
+/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ đĩa nghe (góc dưới phải hoặc ô giữa thanh tab, 1.3.808 / 1.3.812 — `MediaDiscSheetHost`),
 /// cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
 /// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với đĩa góc dưới / trang Đĩa) · tên bài +
 ///   "nghệ sĩ · album" · ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet` mở **đè lên** sheet này; đang hẹn ⇒ màu nhấn kèm thời

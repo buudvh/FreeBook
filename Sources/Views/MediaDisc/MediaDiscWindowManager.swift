@@ -19,6 +19,13 @@ import UIKit
 ///   **toast** khi màn nghe không hiện (màn nghe vẫn có dải báo riêng).
 /// - Sheet Hẹn giờ TTS mở Reader (`openCurrentlyPlayingReader`) từ trong sheet của đĩa ⇒ đóng hết sheet của đĩa, kẻo Reader
 ///   mở ở cửa sổ chính mà vẫn bị sheet che.
+///
+/// ## Hai chỗ đặt đĩa (1.3.812)
+/// - **Trang gốc các tab** (có `.mainTabBar()`): đĩa 32 pt ở ô giữa của `MainTabBar` (`MediaDiscTabBarSlot`, theo `kind` —
+///   biết ngay từ khung đầu). Thanh tab là neo `.hostsDisc` ⇒ đĩa góc ẩn **ngay** khi màn trên cùng có thanh tab.
+/// - **Mọi màn khác**: đĩa góc dưới phải như trên; hiện lại sau khi màn trên cùng thôi có thanh tab ~0,3 s (chống lóe lúc
+///   đẩy trang). Nhấn giữ đĩa góc ⇒ tạm lên góc phải vùng header 5 giây (container).
+/// - Chạm đĩa ở đâu cũng `presentQuickControls()` ⇒ sheet điều khiển nhanh trình bày từ cửa sổ này (`MediaDiscSheetHost`).
 @MainActor
 final class MediaDiscWindowManager: ObservableObject {
     static let shared = MediaDiscWindowManager()
@@ -31,13 +38,16 @@ final class MediaDiscWindowManager: ObservableObject {
     @Published private(set) var isDiscOnScreen = false
     /// Tăng mỗi lần cần đóng mọi sheet đang mở từ đĩa.
     @Published private(set) var closeSheetsToken = 0
+    /// Tăng mỗi lần đĩa (góc hay ô giữa thanh tab) xin mở sheet điều khiển nhanh — `MediaDiscSheetHost` nghe.
+    @Published private(set) var presentRequestToken = 0
+    /// App không ở nền — bìa đĩa ở thanh tab chỉ xoay khi `true`.
+    @Published private(set) var isAppActive = true
 
     var modelContainer: ModelContainer?
 
     private var window: MediaDiscWindow?
     private var container: MediaDiscContainerViewController?
     private var isKeyboardVisible = false
-    private var isAppActive = true
     private var isHideScheduled = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -111,6 +121,18 @@ final class MediaDiscWindowManager: ObservableObject {
             && !isKeyboardVisible
             && !FloatingWidgetSuppression.shared.isSuppressed
             && !AudioMiniPlayerState.shared.isScreenPresented
+    }
+
+    /// Chạm đĩa (góc hoặc ô giữa thanh tab) ⇒ mở sheet điều khiển nhanh ở cửa sổ của đĩa. Cửa sổ có mặt mỗi khi có nguồn
+    /// (kể cả lúc đĩa góc đang ẩn vì màn có thanh tab).
+    func presentQuickControls() {
+        guard kind != nil, let window, !window.isHidden else { return }
+        presentRequestToken &+= 1
+    }
+
+    /// Sheet điều khiển nhanh vừa đóng ⇒ đĩa đang tạm đứng ở header về chỗ.
+    func quickControlsDidDismiss() {
+        container?.endElevation(animated: true)
     }
 
     /// Container báo đĩa đang hiện / đã ẩn. Ghi ở nhịp main sau — có thể được gọi giữa lượt layout.

@@ -11,13 +11,15 @@ import UIKit
 ///    trên cùng (neo trong sheet thắng neo của trang dưới sheet), và khung nằm trong màn (trang bên cạnh của `TabView`
 ///    dạng trang, trang đang trượt ra ngoài thì không). Không xét `isHidden` / alpha: SwiftUI `.opacity` không chắc chạm tới
 ///    view của đầu dò — neo có điều kiện tự biến mất khỏi cây.
-/// 3. Có neo `.blocker` hợp lệ (màn xem phim) ⇒ ẩn.
+/// 3. Có neo `.blocker` hợp lệ (màn xem phim) hoặc `.hostsDisc` (thanh tab tự có ô đĩa, 1.3.812) ⇒ ẩn.
 /// 4. Trong các neo `.button` / `.bar` hợp lệ lấy neo **cao nhất** (mép trên nhỏ nhất): trang gốc Kệ Sách có cả nút "+" lẫn
 ///    thanh tab ⇒ đĩa trên nút "+"; Lịch Sử chỉ có thanh tab ⇒ đĩa trên thanh tab; menu "+" đang xổ ⇒ đĩa trên cụm pill.
 ///    Mép dưới đĩa = mép trên neo − 12 pt. Mép phải: neo `.button` ⇒ trùng mép phải neo (nút tai nghe Reader lề 12 pt vẫn
 ///    thẳng cột); neo `.bar` ⇒ lề phải 16 pt.
 /// 5. Không neo nào ⇒ góc dưới phải: lề phải 16 pt, trên vùng an toàn đáy 12 pt (chỗ nút "+" thường đứng).
 /// 6. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) đè lên chỗ đó ⇒ đĩa lên trên nó.
+///
+/// `elevatedFrame` = chỗ tạm khi nhấn giữ đĩa (1.3.812): góc phải vùng header, mép trên ngay dưới thanh trạng thái.
 struct MediaDiscPlacement: Equatable {
     static let discSize: CGFloat = 52
     /// Khe giữa đĩa và neo bên dưới.
@@ -46,7 +48,7 @@ struct MediaDiscPlacement: Equatable {
         var highest: (rect: CGRect, role: MediaDiscAnchorRegistry.Role)?
         for anchor in MediaDiscAnchorRegistry.shared.anchors {
             guard let rect = validFrame(of: anchor.view, in: mainWindow, top: top) else { continue }
-            if anchor.role == .blocker {
+            if anchor.role == .blocker || anchor.role == .hostsDisc {
                 return MediaDiscPlacement(frame: corner, isBlocked: true)
             }
             if let current = highest, rect.minY >= current.rect.minY { continue }
@@ -65,6 +67,13 @@ struct MediaDiscPlacement: Equatable {
             result = discFrame(trailing: trailing, bottom: mini.minY - gap, bounds: bounds, safeInsets: safeInsets)
         }
         return MediaDiscPlacement(frame: result, isBlocked: false)
+    }
+
+    /// Chỗ tạm ở góc phải vùng header (nhấn giữ đĩa): lề phải 16 pt như nút header, mép trên ngay dưới thanh trạng thái.
+    @MainActor
+    static func elevatedFrame(bounds: CGRect, safeInsets: UIEdgeInsets) -> CGRect {
+        let x = bounds.width - safeInsets.right - FloatingRoundButton.trailingInset - discSize
+        return CGRect(x: max(safeInsets.left, x), y: safeInsets.top, width: discSize, height: discSize)
     }
 
     // MARK: - Nội bộ

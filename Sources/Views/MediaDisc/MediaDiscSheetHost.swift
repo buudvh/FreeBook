@@ -1,20 +1,20 @@
 import SwiftUI
 
-/// Nội dung SwiftUI của đĩa nghe góc dưới phải (1.3.808), nằm trong khung 52×52 của `MediaDiscContainerViewController`:
-/// nút tròn 52 pt nền kính `FloatingGlassBackground` (theo Cài đặt › Chung › Giao diện, như nút "+" nổi), trong là mặt
-/// đĩa của nguồn đang chạy (`MediaDiscMusicFace` / `MediaDiscTTSFace`).
+/// Chỗ giữ **sheet điều khiển nhanh** của đĩa nghe (1.3.812, tách từ `MediaDiscContentView` của 1.3.808): một view 1×1 trong
+/// cửa sổ riêng của đĩa (`MediaDiscContainerViewController`), luôn hiện, không nhận chạm. Cả đĩa góc lẫn đĩa ở ô giữa thanh
+/// tab đều xin mở qua `MediaDiscWindowManager.presentQuickControls()` (`presentRequestToken`) ⇒ một chỗ giữ sheet duy nhất,
+/// sheet luôn ở cửa sổ của đĩa (không đụng màn đang trình bày của cửa sổ chính).
 ///
-/// Chạm ⇒ sheet điều khiển nhanh trình bày từ cửa sổ của đĩa: nhạc `AudioQuickControlSheet`, TTS `TTSQuickControlSheet`.
-/// Chạm khối đầu sheet (bìa + tên):
+/// Sheet theo nguồn: nhạc `AudioQuickControlSheet`, TTS `TTSQuickControlSheet`. Chạm khối đầu sheet (bìa + tên):
 /// - Nhạc ⇒ đóng sheet **rồi** mở màn nghe ở trang Đĩa (`AudioPlayerPresenter.reopen(at:)` trong `onDismiss`); Danh sách /
 ///   Lời cũng vậy, ở trang tương ứng.
 /// - TTS ⇒ đóng sheet rồi mở chương đang đọc: Reader của truyện đó đang mở ⇒ chỉ về chương / đoạn đang đọc
 ///   (`navigateReaderToPlayingChapter`, không đổi tab); chưa mở ⇒ đường "mở chương đang đọc" sẵn có
 ///   (`openCurrentlyPlayingReader`).
 ///
-/// `.sheet` gắn ở nút luôn tồn tại; nguồn đổi / hết (nhạc dừng, TTS bắt đầu…) hoặc manager xin đóng ⇒ sheet **đóng** chứ
-/// không bị gỡ ngang.
-struct MediaDiscContentView: View {
+/// Nguồn đổi / hết hoặc manager xin đóng (`closeSheetsToken`) ⇒ sheet **đóng** chứ không bị gỡ ngang. Sheet đóng ⇒ báo
+/// manager (`quickControlsDidDismiss`) để đĩa đang tạm đứng ở header về chỗ.
+struct MediaDiscSheetHost: View {
     @ObservedObject private var manager = MediaDiscWindowManager.shared
     @State private var openSheet: MediaDiscKind?
     /// Chiều cao nội dung từng sheet đo được — giữ qua các lần mở (xem `AudioQuickControlSheet.height`).
@@ -25,35 +25,22 @@ struct MediaDiscContentView: View {
     @State private var pendingOpensReader = false
 
     var body: some View {
-        Button(action: openQuickControls) {
-            face
-                .frame(width: MediaDiscPlacement.discSize, height: MediaDiscPlacement.discSize)
-                .background { FloatingGlassBackground() }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(manager.faceKind == .music ? "Mở điều khiển nhạc" : "Mở điều khiển nhanh của giọng đọc")
-        .sheet(item: $openSheet, onDismiss: runPendingAction) { kind in
-            sheetContent(for: kind)
-        }
-        .onChange(of: manager.kind) { _, newKind in
-            guard let shown = openSheet, shown != newKind else { return }
-            closeSheet()
-        }
-        .onChange(of: manager.closeSheetsToken) { _, _ in
-            guard openSheet != nil else { return }
-            closeSheet()
-        }
-    }
-
-    @ViewBuilder
-    private var face: some View {
-        switch manager.faceKind {
-        case .music:
-            MediaDiscMusicFace(isOnScreen: manager.isDiscOnScreen)
-        case .tts:
-            MediaDiscTTSFace(isOnScreen: manager.isDiscOnScreen)
-        }
+        Color.clear
+            .frame(width: 1, height: 1)
+            .sheet(item: $openSheet, onDismiss: sheetDidDismiss) { kind in
+                sheetContent(for: kind)
+            }
+            .onChange(of: manager.presentRequestToken) { _, _ in
+                openQuickControls()
+            }
+            .onChange(of: manager.kind) { _, newKind in
+                guard let shown = openSheet, shown != newKind else { return }
+                closeSheet()
+            }
+            .onChange(of: manager.closeSheetsToken) { _, _ in
+                guard openSheet != nil else { return }
+                closeSheet()
+            }
     }
 
     @ViewBuilder
@@ -83,7 +70,7 @@ struct MediaDiscContentView: View {
     // MARK: - Hành động
 
     private func openQuickControls() {
-        guard let kind = manager.kind else { return }
+        guard openSheet == nil, let kind = manager.kind else { return }
         AppLogger.shared.log("💿 [MediaDisc] Mở sheet điều khiển nhanh: \(kind.rawValue)")
         pendingAudioPage = nil
         pendingOpensReader = false
@@ -110,7 +97,8 @@ struct MediaDiscContentView: View {
         TTSManager.shared.stop()
     }
 
-    private func runPendingAction() {
+    private func sheetDidDismiss() {
+        manager.quickControlsDidDismiss()
         if let page = pendingAudioPage {
             pendingAudioPage = nil
             guard AudioMiniPlayerState.shared.isActive else { return }

@@ -19,6 +19,8 @@ final class MediaDiscAnchorRegistry {
         case bar
         /// Màn che đĩa (màn xem phim): neo này hợp lệ ⇒ ẩn đĩa.
         case blocker
+        /// Màn tự có chỗ đặt đĩa (thanh tab `MainTabBar` có ô đĩa ở giữa, 1.3.812): neo này hợp lệ ⇒ ẩn đĩa góc **ngay**.
+        case hostsDisc
     }
 
     struct Anchor {
