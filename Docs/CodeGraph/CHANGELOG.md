@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.789] - 2026-11-09
+
+### feat: nhận loại tiện ích âm thanh: hiện ở Khám phá, Tìm, Kệ và mở thẳng màn nghe
+
+Phần 1/3 (phần cuối) của trình nghe âm thanh cho tiện ích JS loại `audio` (plan anh Bửu đã duyệt): app nhận loại `audio` ở mọi nơi và nối định tuyến tới màn nghe đã có (1.3.784–788). Không sửa lõi `Sources/Services/Audio/` lẫn giao diện `Sources/Views/AudioPlayer/`.
+
+- **`ExtensionContentKind.audio`** (nhóm `audio`/`music` của `ExtensionFilterGroups`, hằng mới `audioGroup`): nhãn "Âm thanh", icon `music.note`. `isMedia` gồm âm thanh (mục lục gắn `isSection`, không đi pipeline chữ); `isPlayable` (mới) = phim hoặc âm thanh.
+- **Chip + bố cục**:
+  - `SearchExtensionScopePolicy.browsableKinds` thêm `.audio` (sau `.video`) ⇒ chip "Âm thanh" ở Khám phá, Tìm, Kệ; Đổi nguồn / gắn lại nguồn mất chỉ cùng loại.
+  - `BookListLayoutScope.audio`: nhãn "Âm thanh", "album", bìa lưới vuông 1:1 (ghi chú ở sheet Kiểu hiển thị và Cài đặt › Kiểu hiển thị danh sách); `ExploreLayoutSizePreferences.scopes` thêm `.audio` (thiếu thì cỡ trang Khám phá của âm thanh không lưu được).
+  - Badge loại màu cam. Dòng danh sách (`BookListItemView`): bìa vuông qua `BookListRowSize.coverHeight(for:)` — badge loại + ghim của `ShelfBookRowView` canh theo cùng khung; "Bài N" / "Đang nghe". Thẻ lưới kệ "Bài N" (`BookListRowSize.progressLabel`).
+- **Định tuyến — mở thẳng màn nghe, không bao giờ Chi tiết**:
+  - `ContentDetailRouter.openIfVideo` giữ tên (8 lối gọi tự nhận): âm thanh ⇒ `AudioPlayerPresenter.present(AudioListenRequest(…))`. `opensPlayer(packageId:)` (mới) cho `ContentDetailLink` và `SearchSingleSourceResultsView`; `isVideo` giữ chỉ phim (đổi phim tại chỗ ở trang thể loại của màn xem).
+  - `VideoWatchPagePresenter.openDetail`: đề xuất âm thanh ⇒ màn nghe thay cho trang Chi tiết.
+  - `BookContentDestination` `.audio` ⇒ `AudioListenRouteView` (Kệ, Tìm trên kệ, Bộ sưu tập, chạm bài ở Chi tiết, mở lại lúc khởi động — `ShelfView+LaunchRestore` không lọc theo loại nên không phải sửa).
+  - `WebViewLoader`: tiện ích âm thanh cũng được tự phát media tắt tiếng (bước dò link `auto`/`webview`).
+- **Ẩn tải / xuất của album**: sheet nhấn giữ `BookActionSheet` (ẩn Tải + Xuất, không mở Chi tiết), Chi tiết (`showsExport`, `downloadActionTitle`), `TaskOptionsSheet` (chốt chặn: báo chưa hỗ trợ, khoá "Bắt đầu"), `DownloadTrackerView` (không có "Xuất … đã tải"), `BookExportFormat.formats(.audio) = []`, `DownloadManager+Comic` báo thất bại ngay tác vụ của album (không rơi vào nhánh truyện tranh hay pipeline chữ).
+- **Kiểm tra tiện ích**: `ExtensionCheckReport.Kind.audio` ("Âm thanh"); truyện thử chạy `chap` bằng `audioStreamData` rồi `track` bằng `audioTrack` (`runAudio`, đúng đường của trình nghe), mục lục đếm "bài".
+- `ExtensionConfigHeaderCard`: âm thanh hiện badge loại như các loại được hỗ trợ (không phải sửa file).
+- Chuyển `[1.3.756]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; grep lại mọi `switch` / so sánh `.video` theo loại nội dung; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy.
+
 ## [1.3.788] - 2026-11-09
 
 ### feat: bìa thanh phát mini và trang Đĩa là đĩa tròn xoay như widget TTS, hub không nháy khi màn nghe đang mở
@@ -426,44 +448,3 @@ Anh Bửu chọn "Tách 2 hàng" khi phỏng vấn về bố cục `extensions/j
   - Đọc code: `StorageUsageCleaner` dùng `default` nên không phải sửa; màn hình liệt kê theo `allCases`.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: màn Dung lượng có hai hàng mới, tổng vẫn khớp.
-
-## [1.3.756] - 2026-11-06
-
-### feat: mỗi tiện ích JS và mỗi nguồn Legado là một file JSON trong extensions/js và extensions/legado
-
-Người dùng: *"chia folder extension ra 2 sub folder cho legado và js"*, *"ý tôi là mỗi tiện ích js là 1 json ấy"*. Đã chốt qua phỏng vấn: nguồn Legado cũng một file, icon nhúng base64, tự chuyển khi mở app, xoá ngay thư mục cũ, bỏ `common/`. Anh Bửu duyệt plan; đây là bước 2.
-
-- **Bố cục mới** dưới `applicationSupport/extensions/`:
-  - `js/<packageId>.json` = `ExtensionPackageBundle`: `plugin.json` nguyên văn, mọi `*.js` theo đường dẫn tương đối, `icon.png` base64. Gom **lúc cài**; kho ngoài vẫn phát zip.
-  - `legado/<packageId>.json` = nguyên văn `source.json`, không còn `plugin.json` tự sinh. `version` nằm ở bản ghi, cờ 18+ đi trong `UpsertExtensionCommand.declaredNsfw`; coordinator không đọc manifest Legado.
-- **`ExtensionPackageWriter`** (mới) là cửa ghi duy nhất của gói JS:
-  - Gom thư mục: đổi bytes sang chữ bằng `TextEncodingDecoder` (như `JSExecutor.decodeData`); không giải được thì ném lỗi, không gom thiếu.
-  - Ghi nguyên tử, mọi lần ghi (cài, cài nháp, trình sửa script, sửa metadata, khôi phục) đi qua một hàng đợi tuần tự.
-- **`ExtensionFolderLocator`** nhận file gói, có `jsRoot`/`legadoRoot`/`jsPackageURL`/`legadoPackageURL`/`packagePath(packageId:)`; dự phòng theo `packageId` thử file mới trước thư mục cũ. `packageId` không làm được tên file ⇒ báo lỗi. **`ExtensionInstallAudit`** dùng `ExtensionPackageReader.isPresent`.
-- **`ExtensionPackageLayoutMigrator`** (mới), gọi trong `FreeBookApp.init` giữa `LegacyExtensionSQLiteMigrator` và `ExtensionLibraryRepository.load()`. Không có cờ hoàn tất, xét từng bản ghi:
-  1. Thư mục cũ trùng tên gốc mới (`js`, `legado`) ⇒ đổi sang `<tên>.legacy` và ghi `installed.json` ngay.
-  2. JS gom thành `js/<id>.json`; Legado **hard link** `source.json` sang `legado/<id>.json` (lỗi thì chép, đích có sẵn thì xoá trước). Không parse nguồn Legado lúc khởi động.
-  3. Ghi `installed.json` một lần.
-  4. Sau `load()`, quét một cấp `extensions/` trên luồng nền và xoá thư mục cũ không bản ghi nào trỏ tới (kể cả `common/`). Chỉ quét khi đọc được `installed.json` và không còn bản cách ly `installed.json.corrupt-*`.
-
-  Chết ở bước nào cũng chạy lại được; bản ghi chuyển lỗi giữ dạng thư mục và vẫn chạy nhờ bộ đọc ba dạng, log `❌ [ExtLayout]`.
-- **Legado:**
-  - `LegadoSourceStore` đọc, ghi, vá `enabled`/nhóm, xoá trên file (vẫn đọc được thư mục cũ); `makeCommand` mang cờ 18+.
-  - `LegadoSourceNsfwBackfill` bị xoá, thay bằng bước sửa cờ trong `LegadoSourceRepository.readAllSummaries`: cờ bản ghi lệch nội dung nguồn ⇒ upsert lại.
-  - Importer tính `version` theo bản ghi; Coordinator, Exporter, `TranslationConfigStore` theo vị trí gói của bản ghi.
-- **Cài:**
-  - `ExtensionPackageInstaller.install(archive:packageId:)` dựng, giải mã rồi gom ở thư mục tạm, trả file gói.
-  - `ExtensionDraftInstaller`: cài nháp gom thư mục nháp; `.backup/<id>.json`; rollback hiểu cả bản sao lưu dạng thư mục.
-  - Trình sửa script (`ScriptFileInfo(relativePath:)`) và `ExtensionMetadataEditor` đọc/ghi qua reader + writer, giao diện như cũ.
-- **Backup:** gói đúng file theo `Extension.folder` (bản ghi chưa chuyển thì gói thư mục). Khôi phục nhận cả archive cũ (gom thư mục JS, lấy `source.json` của Legado) lẫn mới. Bỏ `extensions/common` (`BackupPaths.extensionCommonFolder*`, `installCommonFolder`, `ExtensionManager.commonDirectory`). Vân tay backup đổi một lần ⇒ có một lần sao lưu tự động.
-- **Hành vi đổi:**
-  - Gói JS chỉ mang `plugin.json`, `*.js`, `icon.png`.
-  - `load('../x.js')` không với ra ngoài gói.
-  - Zip có `packageId` chứa `/` báo lỗi.
-- **Tài liệu:** `rules.md` § Extension store invariants, `CLAUDE.md` + `AGENTS.md` (mục lưu trữ, tiện ích JS), chú thích `ExtensionStorePaths`.
-- Chuyển `[1.3.726]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc diff, nhất là các điểm chết giữa chừng của migrator.
-  - Grep: ngoài reader, writer, migrator, staging debug và `ExtensionScriptDecoder` (thư mục tạm), không còn chỗ ghép `plugin.json` / `src` / `icon.png` vào `localPath`.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**. `ExtensionManager` 765 → 754 dòng, `ExtensionScriptEditorView` 399 → 365.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: mở app lần đầu sau khi cập nhật, Kho đủ tiện ích, ghim và cấu hình còn; app Tệp chỉ thấy `js/` + `legado/`; tìm kiếm, đọc chương, comic có script, TTS tiện ích, sửa script tay, nguồn Legado bật/tắt/nhóm/xoá, backup + khôi phục (cả bản cũ), debug cài nháp + rollback.

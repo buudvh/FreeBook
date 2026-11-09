@@ -92,9 +92,9 @@ struct BookActionSheet: View {
     // MARK: - Phần đầu
 
     /// Chi tiết chỉ mở được khi truyện có nguồn để mở: đúng điều kiện của hàng "Xem chi tiết" cũ.
-    /// Phim thì không (1.3.737): bấm phim đã mở thẳng màn xem có đủ thông tin, trang Chi tiết kiểu cũ không còn lối vào từ đây.
+    /// Phim / âm thanh thì không (1.3.737): bấm đã mở thẳng màn xem / màn nghe, trang Chi tiết không có lối vào từ đây.
     private var canOpenDetail: Bool {
-        guard ExtensionContentKind.resolve(packageId: book.extensionPackageId) != .video else { return false }
+        guard !ExtensionContentKind.resolve(packageId: book.extensionPackageId).isPlayable else { return false }
         return target.mode == .history || !book.isLocalBook
     }
 
@@ -318,12 +318,15 @@ struct BookActionSheet: View {
 
         // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh xuất CBZ/PDF, video xuất tập đã tải. Truyện/phim
         // nhập từ file (`LocalMediaPackage`) chỉ có bản trên máy ⇒ không tải offline, không xoá bản tải (vẫn xuất được).
+        // Âm thanh chưa có tải / xuất ⇒ ẩn cả hai hàng.
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
         let isLocalMedia = LocalMediaPackage.isLocalMedia(packageId: book.extensionPackageId)
-        if !isLocalMedia {
+        if !isLocalMedia, kind != .audio {
             actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
         }
-        actionRow(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
+        if kind != .audio {
+            actionRow(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
+        }
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
 
         if currentCollectionId != nil {

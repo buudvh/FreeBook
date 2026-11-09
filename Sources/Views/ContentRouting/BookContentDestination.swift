@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Router **duy nhất** chọn màn mở nội dung cho một cuốn sách (bất biến 5 của plan comic/video).
+/// Router **duy nhất** chọn màn mở nội dung cho một cuốn sách (bất biến 5 của plan comic/video): Reader chữ, màn đọc
+/// truyện tranh, màn xem phim hoặc màn nghe âm thanh.
 ///
 /// Nhãn tham số trùng hệt `ReaderView(...)` nên 4 call site (`BookDetailView`, `ShelfView`, `ShelfSearchView`,
 /// `CollectionDetailView`) chỉ đổi tên type, giữ nguyên số dòng và modifier (`.id(route.id)`).
@@ -64,6 +65,9 @@ struct BookContentDestination: View {
         case .video:
             // Màn xem phim (tên, nút, tập, đề xuất…) như lối mở từ danh sách — `VideoWatchRouteView`.
             VideoWatchRouteView(launch: launch)
+        case .audio:
+            // Màn nghe (đĩa, danh sách bài, lời) như lối mở từ danh sách — `AudioListenRouteView`.
+            AudioListenRouteView(launch: launch)
         case .text, .unsupported:
             ReaderView(
                 bookId: launch.bookId,

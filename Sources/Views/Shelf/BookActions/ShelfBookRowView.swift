@@ -11,6 +11,9 @@ struct ShelfBookRowView: View {
 
     var body: some View {
         let ext = extensions.first(where: { $0.packageId == book.extensionPackageId })
+        let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
+        // Cùng cỡ bìa với `BookListItemView` (album âm thanh bìa vuông).
+        let coverHeight = rowSize.coverHeight(for: kind)
         HStack(spacing: 8) {
             BookListItemView(
                 item: book,
@@ -18,12 +21,12 @@ struct ShelfBookRowView: View {
                 extensionLocalPath: ext?.localPath ?? "",
                 extensionIconUrl: ext?.iconUrl
             )
-            // Badge truyện tranh/video ở góc dưới phải bìa (cỡ bìa theo `rowSize`). Bìa nằm giữa theo chiều dọc của
-            // dòng nên khung cùng cỡ căn `.leading` trùng đúng bìa.
+            // Badge truyện tranh/video/âm thanh ở góc dưới phải bìa (cỡ bìa theo `rowSize`). Bìa nằm giữa theo chiều dọc
+            // của dòng nên khung cùng cỡ căn `.leading` trùng đúng bìa.
             .overlay(alignment: .leading) {
-                BookKindBadge(kind: ExtensionContentKind.resolve(packageId: book.extensionPackageId))
+                BookKindBadge(kind: kind)
                     .padding(2)
-                    .frame(width: rowSize.coverWidth, height: rowSize.coverHeight, alignment: .bottomTrailing)
+                    .frame(width: rowSize.coverWidth, height: coverHeight, alignment: .bottomTrailing)
                     .allowsHitTesting(false)
             }
             // Ghim chéo nhô nhẹ ra ngoài góc trên trái bìa (cùng khung cỡ bìa như badge loại).
@@ -31,7 +34,7 @@ struct ShelfBookRowView: View {
                 if book.isPinned {
                     CoverPinBadge(diameter: CoverPinBadge.diameter(forCoverWidth: rowSize.coverWidth))
                         .offset(x: -5, y: -5)
-                        .frame(width: rowSize.coverWidth, height: rowSize.coverHeight, alignment: .topLeading)
+                        .frame(width: rowSize.coverWidth, height: coverHeight, alignment: .topLeading)
                 }
             }
 

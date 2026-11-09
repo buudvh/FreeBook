@@ -121,10 +121,10 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         }
     }
 
-    /// Chỉ ext loại video mới được autoplay (tắt tiếng, inline) và gắn cửa sổ ẩn với khung khác 0; mọi ext khác giữ
-    /// `.all`, khung 0 và không nằm trong window như cũ. `JSExecutor` luôn tạo loader trên main thread.
+    /// Chỉ ext loại video / âm thanh mới được autoplay (tắt tiếng, inline) và gắn cửa sổ ẩn với khung khác 0; mọi ext
+    /// khác giữ `.all`, khung 0 và không nằm trong window như cũ. `JSExecutor` luôn tạo loader trên main thread.
     init(extensionLocalPath: String? = nil) {
-        let allowsAutoplay = extensionLocalPath.map { ExtensionContentKind.resolve(localPath: $0) == .video } ?? false
+        let allowsAutoplay = extensionLocalPath.map { ExtensionContentKind.resolve(localPath: $0).isPlayable } ?? false
         let config = WKWebViewConfiguration()
         config.mediaTypesRequiringUserActionForPlayback = allowsAutoplay ? [] : .all
         if allowsAutoplay { config.allowsInlineMediaPlayback = true }

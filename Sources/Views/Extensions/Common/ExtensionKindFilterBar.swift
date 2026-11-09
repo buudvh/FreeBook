@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Hàng chip chọn **một** loại nội dung: "Tất cả · Truyện chữ · Truyện tranh · Phim/Video".
+/// Hàng chip chọn **một** loại nội dung: "Tất cả · Truyện chữ · Truyện tranh · Phim/Video · Âm thanh".
 ///
 /// Lựa chọn là chuỗi để gắn thẳng vào `@AppStorage`: `""` = tất cả, còn lại là `ExtensionContentKind.rawValue`
 /// (luật đọc ở `SearchExtensionScopePolicy.selectedKind`). Nhãn dùng chung nhãn nhóm thể loại của kho

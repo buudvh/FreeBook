@@ -9,6 +9,7 @@ enum BookListLayoutScope: String, CaseIterable, Identifiable {
     case text
     case comic
     case video
+    case audio
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum BookListLayoutScope: String, CaseIterable, Identifiable {
         switch kind {
         case .comic: self = .comic
         case .video: self = .video
+        case .audio: self = .audio
         case .text, .unsupported: self = .text
         }
     }
@@ -37,6 +39,7 @@ enum BookListLayoutScope: String, CaseIterable, Identifiable {
         case .text: return ExtensionContentKind.text.label
         case .comic: return ExtensionContentKind.comic.label
         case .video: return ExtensionContentKind.video.label
+        case .audio: return ExtensionContentKind.audio.label
         }
     }
 
@@ -50,12 +53,20 @@ enum BookListLayoutScope: String, CaseIterable, Identifiable {
 
     /// Từ gọi một mục ở dòng "Đã hết · N …" của chân danh sách (`LoadMoreFooter`).
     var itemNoun: String {
-        self == .video ? "phim" : "truyện"
+        switch self {
+        case .video: return "phim"
+        case .audio: return "album"
+        case .all, .text, .comic: return "truyện"
+        }
     }
 
-    /// Tỉ lệ rộng : cao của bìa trong lưới. Video luôn ngang 16:9; còn lại (kể cả `all`) đứng 2:3 để các hàng
-    /// lưới trộn loại cao bằng nhau.
+    /// Tỉ lệ rộng : cao của bìa trong lưới. Video luôn ngang 16:9, âm thanh vuông 1:1; còn lại (kể cả `all`) đứng 2:3
+    /// để các hàng lưới trộn loại cao bằng nhau.
     var coverAspectRatio: CGFloat {
-        self == .video ? 16.0 / 9.0 : 2.0 / 3.0
+        switch self {
+        case .video: return 16.0 / 9.0
+        case .audio: return 1
+        case .all, .text, .comic: return 2.0 / 3.0
+        }
     }
 }

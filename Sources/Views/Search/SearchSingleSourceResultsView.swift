@@ -63,8 +63,8 @@ struct SearchSingleSourceResultsView: View {
     /// hệ thống vẽ mũi tên `>` ở mép phải, nằm ngoài panel. Chạm hàng vẫn mở link như cũ.
     @ViewBuilder
     private func listTappable(_ item: ExtensionItemResultWithExt) -> some View {
-        if isChangingSource || ContentDetailRouter.isVideo(packageId: item.ext.packageId) {
-            // Đổi nguồn / phim (mở màn xem phim): nút thường, không có mũi tên `>` của `NavigationLink`.
+        if isChangingSource || ContentDetailRouter.opensPlayer(packageId: item.ext.packageId) {
+            // Đổi nguồn / phim / âm thanh (mở màn xem phim / màn nghe): nút thường, không có mũi tên `>` của `NavigationLink`.
             tappable(item) {
                 listRow(item).bookListPanel(layout.rowSize)
             }
@@ -173,7 +173,7 @@ struct SearchSingleSourceResultsView: View {
         LoadMoreFooter(phase: phase, onAppear: onLoadMore, onRetry: onRetry)
     }
 
-    /// Bọc nội dung một item thành nút đổi nguồn, hoặc `ContentDetailLink`: phim ⇒ nút mở màn xem phim, loại khác ⇒ link
+    /// Bọc nội dung một item thành nút đổi nguồn, hoặc `ContentDetailLink`: phim / âm thanh ⇒ nút mở màn phát, loại khác ⇒ link
     /// mở Chi tiết truyện (`bookId` giữ đúng dạng cũ của màn này).
     @ViewBuilder
     private func tappable<Label: View>(_ item: ExtensionItemResultWithExt, @ViewBuilder label: () -> Label) -> some View {

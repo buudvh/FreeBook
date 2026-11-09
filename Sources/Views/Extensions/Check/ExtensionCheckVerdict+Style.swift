@@ -32,6 +32,7 @@ extension ExtensionCheckReport.Kind {
         case .text: return "Truyện chữ"
         case .comic: return "Truyện tranh"
         case .video: return "Video"
+        case .audio: return "Âm thanh"
         case .tts: return "TTS"
         case .other: return "Khác"
         }

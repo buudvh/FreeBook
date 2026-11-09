@@ -88,34 +88,26 @@ struct TaskOptionsSheet: View {
         return isExport ? exportFormat.taskType : taskType
     }
 
+    /// Âm thanh chưa có tải / xuất (mọi lối mở sheet của album đã ẩn; đây là chốt chặn nếu có lối khác lọt tới).
+    private var isUnsupportedKind: Bool { contentKind == .audio }
+
     var body: some View {
         NavigationStack {
             Form {
                 bookInfoSection
 
-                if isExport {
+                if isUnsupportedKind {
                     Section {
-                        Picker("Định dạng", selection: $exportFormat) {
-                            ForEach(BookExportFormat.formats(for: contentKind), id: \.self) { format in
-                                Text(format.displayName).tag(format)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    } header: {
-                        helpHeader("Định dạng bản xuất", paragraphs: [LocalizedStringKey(exportFormat.summary)])
+                        Text("Âm thanh chưa hỗ trợ tải về hay xuất file.")
+                            .foregroundColor(.secondary)
                     }
-                }
-
-                startChapterSection
-
-                taskOptionsSection
-
-                if showsSpeedSection {
-                    speedSection
+                } else {
+                    taskSections
                 }
             }
             .pageTitle(sheetTitle)
             .task {
+                guard !isUnsupportedKind else { return }
                 await loadChapterCatalog()
             }
             .toolbar {
@@ -125,12 +117,37 @@ struct TaskOptionsSheet: View {
                         dismiss()
                     }
                     .headerTextButton()
+                    .disabled(isUnsupportedKind)
                 }
             }
         }
         // Toàn màn (1.3.625): người dùng bỏ nửa màn của 1.3.624 — đừng thêm lại `.medium`.
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private var taskSections: some View {
+        if isExport {
+            Section {
+                Picker("Định dạng", selection: $exportFormat) {
+                    ForEach(BookExportFormat.formats(for: contentKind), id: \.self) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                .pickerStyle(.menu)
+            } header: {
+                helpHeader("Định dạng bản xuất", paragraphs: [LocalizedStringKey(exportFormat.summary)])
+            }
+        }
+
+        startChapterSection
+
+        taskOptionsSection
+
+        if showsSpeedSection {
+            speedSection
+        }
     }
 
     private var bookInfoSection: some View {
@@ -166,7 +183,7 @@ struct TaskOptionsSheet: View {
             }
             .padding(.vertical, 4)
         } header: {
-            Text(contentKind == .video ? "Thông tin phim" : "Thông tin truyện")
+            Text(contentKind == .video ? "Thông tin phim" : (contentKind == .audio ? "Thông tin album" : "Thông tin truyện"))
         }
     }
 
@@ -236,6 +253,7 @@ struct TaskOptionsSheet: View {
     }
 
     private func startTask() {
+        guard !isUnsupportedKind else { return }
         let placementResult = displayInShelf
             ? BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
             : BookTransactionCoordinator.shared.removeFromShelf(bookId: book.bookId, in: modelContext)

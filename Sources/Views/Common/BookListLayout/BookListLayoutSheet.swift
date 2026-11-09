@@ -48,6 +48,10 @@ struct BookListLayoutSheet: View {
                 Text("Loại Video có bìa ngang 16:9.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            } else if scope == .audio {
+                Text("Loại Âm thanh có bìa vuông 1:1.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             if showsExploreSizes {

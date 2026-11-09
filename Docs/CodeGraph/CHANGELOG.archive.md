@@ -2,6 +2,47 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.756] - 2026-11-06
+
+### feat: mỗi tiện ích JS và mỗi nguồn Legado là một file JSON trong extensions/js và extensions/legado
+
+Người dùng: *"chia folder extension ra 2 sub folder cho legado và js"*, *"ý tôi là mỗi tiện ích js là 1 json ấy"*. Đã chốt qua phỏng vấn: nguồn Legado cũng một file, icon nhúng base64, tự chuyển khi mở app, xoá ngay thư mục cũ, bỏ `common/`. Anh Bửu duyệt plan; đây là bước 2.
+
+- **Bố cục mới** dưới `applicationSupport/extensions/`:
+  - `js/<packageId>.json` = `ExtensionPackageBundle`: `plugin.json` nguyên văn, mọi `*.js` theo đường dẫn tương đối, `icon.png` base64. Gom **lúc cài**; kho ngoài vẫn phát zip.
+  - `legado/<packageId>.json` = nguyên văn `source.json`, không còn `plugin.json` tự sinh. `version` nằm ở bản ghi, cờ 18+ đi trong `UpsertExtensionCommand.declaredNsfw`; coordinator không đọc manifest Legado.
+- **`ExtensionPackageWriter`** (mới) là cửa ghi duy nhất của gói JS:
+  - Gom thư mục: đổi bytes sang chữ bằng `TextEncodingDecoder` (như `JSExecutor.decodeData`); không giải được thì ném lỗi, không gom thiếu.
+  - Ghi nguyên tử, mọi lần ghi (cài, cài nháp, trình sửa script, sửa metadata, khôi phục) đi qua một hàng đợi tuần tự.
+- **`ExtensionFolderLocator`** nhận file gói, có `jsRoot`/`legadoRoot`/`jsPackageURL`/`legadoPackageURL`/`packagePath(packageId:)`; dự phòng theo `packageId` thử file mới trước thư mục cũ. `packageId` không làm được tên file ⇒ báo lỗi. **`ExtensionInstallAudit`** dùng `ExtensionPackageReader.isPresent`.
+- **`ExtensionPackageLayoutMigrator`** (mới), gọi trong `FreeBookApp.init` giữa `LegacyExtensionSQLiteMigrator` và `ExtensionLibraryRepository.load()`. Không có cờ hoàn tất, xét từng bản ghi:
+  1. Thư mục cũ trùng tên gốc mới (`js`, `legado`) ⇒ đổi sang `<tên>.legacy` và ghi `installed.json` ngay.
+  2. JS gom thành `js/<id>.json`; Legado **hard link** `source.json` sang `legado/<id>.json` (lỗi thì chép, đích có sẵn thì xoá trước). Không parse nguồn Legado lúc khởi động.
+  3. Ghi `installed.json` một lần.
+  4. Sau `load()`, quét một cấp `extensions/` trên luồng nền và xoá thư mục cũ không bản ghi nào trỏ tới (kể cả `common/`). Chỉ quét khi đọc được `installed.json` và không còn bản cách ly `installed.json.corrupt-*`.
+
+  Chết ở bước nào cũng chạy lại được; bản ghi chuyển lỗi giữ dạng thư mục và vẫn chạy nhờ bộ đọc ba dạng, log `❌ [ExtLayout]`.
+- **Legado:**
+  - `LegadoSourceStore` đọc, ghi, vá `enabled`/nhóm, xoá trên file (vẫn đọc được thư mục cũ); `makeCommand` mang cờ 18+.
+  - `LegadoSourceNsfwBackfill` bị xoá, thay bằng bước sửa cờ trong `LegadoSourceRepository.readAllSummaries`: cờ bản ghi lệch nội dung nguồn ⇒ upsert lại.
+  - Importer tính `version` theo bản ghi; Coordinator, Exporter, `TranslationConfigStore` theo vị trí gói của bản ghi.
+- **Cài:**
+  - `ExtensionPackageInstaller.install(archive:packageId:)` dựng, giải mã rồi gom ở thư mục tạm, trả file gói.
+  - `ExtensionDraftInstaller`: cài nháp gom thư mục nháp; `.backup/<id>.json`; rollback hiểu cả bản sao lưu dạng thư mục.
+  - Trình sửa script (`ScriptFileInfo(relativePath:)`) và `ExtensionMetadataEditor` đọc/ghi qua reader + writer, giao diện như cũ.
+- **Backup:** gói đúng file theo `Extension.folder` (bản ghi chưa chuyển thì gói thư mục). Khôi phục nhận cả archive cũ (gom thư mục JS, lấy `source.json` của Legado) lẫn mới. Bỏ `extensions/common` (`BackupPaths.extensionCommonFolder*`, `installCommonFolder`, `ExtensionManager.commonDirectory`). Vân tay backup đổi một lần ⇒ có một lần sao lưu tự động.
+- **Hành vi đổi:**
+  - Gói JS chỉ mang `plugin.json`, `*.js`, `icon.png`.
+  - `load('../x.js')` không với ra ngoài gói.
+  - Zip có `packageId` chứa `/` báo lỗi.
+- **Tài liệu:** `rules.md` § Extension store invariants, `CLAUDE.md` + `AGENTS.md` (mục lưu trữ, tiện ích JS), chú thích `ExtensionStorePaths`.
+- Chuyển `[1.3.726]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc diff, nhất là các điểm chết giữa chừng của migrator.
+  - Grep: ngoài reader, writer, migrator, staging debug và `ExtensionScriptDecoder` (thư mục tạm), không còn chỗ ghép `plugin.json` / `src` / `icon.png` vào `localPath`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**. `ExtensionManager` 765 → 754 dòng, `ExtensionScriptEditorView` 399 → 365.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: mở app lần đầu sau khi cập nhật, Kho đủ tiện ích, ghim và cấu hình còn; app Tệp chỉ thấy `js/` + `legado/`; tìm kiếm, đọc chương, comic có script, TTS tiện ích, sửa script tay, nguồn Legado bật/tắt/nhóm/xoá, backup + khôi phục (cả bản cũ), debug cài nháp + rollback.
+
 ## [1.3.755] - 2026-11-06
 
 ### refactor: mọi chỗ đọc plugin.json, script và icon tiện ích đi qua một bộ đọc chung

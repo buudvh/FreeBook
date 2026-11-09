@@ -2,11 +2,11 @@ import Foundation
 
 /// Phạm vi tiện ích được duyệt/tìm ở Khám phá và Tìm kiếm — policy thuần, không I/O ngoài bảng chụp tiện ích.
 ///
-/// - Chỉ tiện ích nội dung (`text`/`comic`/`video`) được duyệt; TTS, dịch, AI, âm thanh… bị loại.
+/// - Chỉ tiện ích nội dung (`text`/`comic`/`video`/`audio`) được duyệt; TTS, dịch, AI, công cụ… bị loại.
 /// - Hàng chip loại (`ExtensionKindFilterBar`) lưu lựa chọn dạng chuỗi: `""` = tất cả, còn lại là
 ///   `ExtensionContentKind.rawValue`. Giá trị lạ/hỏng coi như tất cả.
 /// - **Đổi nguồn**: chỉ tiện ích **cùng loại** với sách (mục lục, tiến độ và chương đã tải không chuyển được
-///   giữa chữ/tranh/video); hàng chip bị bỏ qua. Áp cả cho "Thay đổi nguồn" ở Chi tiết truyện **chưa lưu**: khi đó
+///   giữa chữ/tranh/video/âm thanh); hàng chip bị bỏ qua. Áp cả cho "Thay đổi nguồn" ở Chi tiết truyện **chưa lưu**: khi đó
 ///   `changeSourcePackageId` là tiện ích của trang chi tiết (`SearchView.kindScopePackageId`).
 /// - **NSFW**: tìm mọi nguồn (kể cả đổi nguồn) bỏ tiện ích NSFW khi công tắc NSFW toàn app đang tắt
 ///   (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, mặc định tắt). Ngoại lệ: đổi nguồn cho sách của chính một
@@ -16,13 +16,13 @@ import Foundation
 ///   `isSearchScoped` — nguồn tắt, loại không hỗ trợ hay thiếu rule không bao giờ lọt vào.
 public enum SearchExtensionScopePolicy {
     /// Các loại hiện trên hàng chip, theo thứ tự cố định.
-    public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video]
+    public static let browsableKinds: [ExtensionContentKind] = [.text, .comic, .video, .audio]
 
     public static func kind(of ext: Extension) -> ExtensionContentKind {
         ExtensionContentKind(typeString: ext.type)
     }
 
-    /// Tiện ích nội dung (chữ/tranh/video).
+    /// Tiện ích nội dung (chữ/tranh/video/âm thanh).
     public static func isBrowsable(_ ext: Extension) -> Bool {
         browsableKinds.contains(kind(of: ext))
     }

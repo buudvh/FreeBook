@@ -248,6 +248,7 @@ struct DownloadTrackerView: View {
         switch ExtensionContentKind.resolve(packageId: task.extensionPackageId) {
         case .video: return "Xuất video đã tải"
         case .comic: return "Xuất chương đã tải"
+        case .audio: return nil  // Âm thanh chưa xuất được.
         case .text, .unsupported: return "Xuất ebook từ truyện đã tải"
         }
     }

@@ -95,8 +95,21 @@ final class VideoWatchPagePresenter {
         }
     }
 
-    /// Trang Chi tiết của một đề xuất không phải phim.
+    /// Trang Chi tiết của một đề xuất không phải phim. Album âm thanh không có trang Chi tiết ⇒ mở thẳng màn nghe
+    /// (`ContentDetailRouter`), trình bày lên trên màn xem.
     static func openDetail(_ request: VideoWatchRequest, modelContainer: ModelContainer) {
+        if ExtensionContentKind.resolve(packageId: request.packageId) == .audio {
+            ContentDetailRouter.openIfVideo(
+                packageId: request.packageId,
+                detailUrl: request.detailUrl,
+                sourceName: request.sourceName,
+                host: request.host,
+                title: request.title,
+                coverUrl: request.coverUrl,
+                modelContainer: modelContainer
+            )
+            return
+        }
         AppLogger.shared.log("🎬 [VideoWatch] Mở trang Chi tiết đè lên màn xem, phim vẫn phát")
         present(modelContainer: modelContainer, coversWatchScreen: true) { _ in
             BookDetailView(

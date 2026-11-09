@@ -15,7 +15,7 @@ extension WebViewLoader {
         return interceptedUrls + capturedRequestUrls.filter { !navigation.contains($0) }
     }
 
-    /// `mediaMode` chỉ bật cho ext video (đi cùng `mediaTypesRequiringUserActionForPlayback = []`): hook chủ động + ép tắt tiếng.
+    /// `mediaMode` chỉ bật cho ext video / âm thanh (đi cùng `mediaTypesRequiringUserActionForPlayback = []`): hook chủ động + ép tắt tiếng.
     func installNetworkCapture(mediaMode: Bool) {
         WebNetworkCaptureScript.install(
             into: webView.configuration.userContentController,

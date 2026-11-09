@@ -75,14 +75,17 @@ struct BookListItemView<Item: BookDisplayable>: View {
     }
 
     var body: some View {
+        let packageId = coverPackageId
+        let kind = ExtensionContentKind.resolve(packageId: packageId)
         HStack(spacing: 12) {
+            // Album âm thanh bìa vuông (`BookListRowSize.coverHeight(for:)`, cùng khung với lớp phủ của `ShelfBookRowView`).
             BookCoverView(
                 bookId: item.bookId,
                 coverUrl: item.coverUrl,
                 width: rowSize.coverWidth,
-                height: rowSize.coverHeight,
+                height: rowSize.coverHeight(for: kind),
                 host: item.coverHost,
-                extensionPackageId: coverPackageId
+                extensionPackageId: packageId
             )
             .overlay(alignment: .bottomLeading) {
                 CoverTagBadge(tag: item.coverTag)
@@ -95,7 +98,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     .lineLimit(rowSize.titleLineLimit)
 
                 if rowSize.isCompact {
-                    compactSubtitle
+                    compactSubtitle(kind: kind)
                 } else if showDescription, !item.description.isEmpty {
                     Text(translateIfNeeded(item.description.cleanHTML()))
                         .font(rowSize.font(.caption2, base: 11))
@@ -123,15 +126,16 @@ struct BookListItemView<Item: BookDisplayable>: View {
                 }
 
                 if showChapter, !rowSize.isCompact {
+                    let isAudio = kind == .audio
                     let rawChapterTitle = item.currentChapterTitle.isEmpty
-                        ? "Chương \(item.currentChapterIndex + 1)"
+                        ? "\(isAudio ? "Bài" : "Chương") \(item.currentChapterIndex + 1)"
                         : item.currentChapterTitle
                     let chapterTitle = isTranslationEnabled
                         ? translateChapterTitleIfNeeded(rawChapterTitle, bookId: item.bookId)
                         : rawChapterTitle
 
                     if !chapterTitle.isEmpty {
-                        Text("Đang đọc: \(chapterTitle)")
+                        Text("\(isAudio ? "Đang nghe" : "Đang đọc"): \(chapterTitle)")
                             .font(rowSize.font(.caption2, base: 11))
                             .foregroundColor(.white)
                             .lineLimit(1)
@@ -144,10 +148,10 @@ struct BookListItemView<Item: BookDisplayable>: View {
     }
 
     /// Dòng gọn (nấc 1–2) thay cho dòng phụ + "Đang đọc": mô tả (kiểu Khám phá) hoặc "tác giả · Ch. N" (kiểu kệ;
-    /// video ghi "Tập N" như thẻ lưới).
+    /// video ghi "Tập N", âm thanh "Bài N" như thẻ lưới).
     @ViewBuilder
-    private var compactSubtitle: some View {
-        let text = compactSubtitleText
+    private func compactSubtitle(kind: ExtensionContentKind) -> some View {
+        let text = compactSubtitleText(kind: kind)
         if !text.isEmpty {
             Text(text)
                 .font(rowSize.font(.caption2, base: 11))
@@ -156,7 +160,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
         }
     }
 
-    private var compactSubtitleText: String {
+    private func compactSubtitleText(kind: ExtensionContentKind) -> String {
         if showDescription, !item.description.isEmpty {
             return translateIfNeeded(item.description.cleanHTML())
         }
@@ -165,8 +169,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
             parts.append(DisplayTextFormatter.titleCase(displayedAuthor))
         }
         if showChapter {
-            let isVideo = ExtensionContentKind.resolve(packageId: coverPackageId) == .video
-            parts.append("\(isVideo ? "Tập" : "Ch.") \(item.currentChapterIndex + 1)")
+            parts.append(BookListRowSize.progressLabel(kind: kind, chapterIndex: item.currentChapterIndex))
         }
         return parts.joined(separator: " · ")
     }

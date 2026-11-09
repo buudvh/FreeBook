@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Cờ hiển thị của màn chi tiết theo **loại nội dung** của nguồn (truyện chữ / truyện tranh). Phim không mở màn này
-/// (mọi lối vào phim đi `ContentDetailRouter` ⇒ màn xem phim).
+/// Cờ hiển thị của màn chi tiết theo **loại nội dung** của nguồn (truyện chữ / truyện tranh). Phim và album âm thanh không
+/// mở màn này (mọi lối vào đi `ContentDetailRouter` ⇒ màn xem phim / màn nghe); nếu lọt tới đây thì âm thanh vẫn không có
+/// tải / xuất.
 ///
 /// Loại suy lúc chạy qua `ExtensionContentKind.resolve(packageId:)` — không lưu vào `Book` (bất biến 4 của plan
 /// comic/video). Dịch tên truyện và tên chương vẫn giữ cho mọi loại (có ích với manhua).
@@ -15,9 +16,9 @@ extension BookDetailView {
         LocalMediaPackage.isLocalMedia(packageId: extensionPackageId)
     }
 
-    /// Xuất file có ở mọi loại: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh).
+    /// Xuất file: truyện chữ ra ebook, truyện tranh ra CBZ/PDF (chương đã tải ảnh). Âm thanh chưa xuất được.
     internal var showsExport: Bool {
-        true
+        contentKind != .audio
     }
 
     internal var exportActionTitle: String {
@@ -29,9 +30,9 @@ extension BookDetailView {
         !contentKind.isMedia
     }
 
-    /// Nhãn nút tải.
+    /// Nhãn nút tải; `nil` = ẩn nút (truyện nhập từ file, âm thanh).
     internal var downloadActionTitle: String? {
-        guard !isLocalMediaBook else { return nil }
+        guard !isLocalMediaBook, contentKind != .audio else { return nil }
         return contentKind == .comic ? "Tải ảnh offline" : "Tải truyện"
     }
 

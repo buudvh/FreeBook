@@ -6,7 +6,7 @@ import SwiftUI
 /// - `.coverOnly`: tên + "Ch. N" trên dải tối ở đáy bìa (`CoverCaptionStrip`), không có icon nguồn.
 ///
 /// Góc bìa: ghim cam (trên-trái, khi `isPinned`), badge chương mới (trên-phải), badge loại (dưới-phải — chỉ truyện
-/// tranh/video, như `ShelfBookRowView`). Video ghi "Tập N" thay "Ch. N".
+/// tranh/video/âm thanh, như `ShelfBookRowView`). Video ghi "Tập N", âm thanh "Bài N" thay "Ch. N".
 ///
 /// Bìa vẫn là `BookCoverView` (đọc/ghi bìa ở `covers/` như hàng danh sách), đặt trong một khung màu tỉ lệ cố định
 /// giống `ExploreCoverView`: ảnh `.fill` nằm trong `overlay` nên không làm phình bố cục; bề rộng do cột lưới quyết
@@ -145,9 +145,8 @@ struct ShelfBookGridCardView: View {
         }
     }
 
-    /// `Book` không có tổng số chương ⇒ chỉ hiện chương/tập đang đọc (`currentChapterIndex` tính từ 0).
+    /// `Book` không có tổng số chương ⇒ chỉ hiện chương/tập/bài đang đọc (`currentChapterIndex` tính từ 0).
     private func progressLabel(kind: ExtensionContentKind) -> String {
-        let number = book.currentChapterIndex + 1
-        return kind == .video ? "Tập \(number)" : "Ch. \(number)"
+        BookListRowSize.progressLabel(kind: kind, chapterIndex: book.currentChapterIndex)
     }
 }

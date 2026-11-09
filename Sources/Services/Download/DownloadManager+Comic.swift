@@ -12,6 +12,7 @@ import SwiftData
 /// - Video + `.download`: `DownloadManager+Video` (tải tuần tự từng tập vào `VideoOfflineStore`).
 /// - Comic + xuất CBZ/PDF: `DownloadManager+ComicExport` (chỉ chương đã tải ảnh). Video + xuất video:
 ///   `DownloadManager+VideoExport` (chỉ tập đã tải về máy). Định dạng lệch loại: báo thất bại (UI đã lọc theo loại).
+/// - Âm thanh: chưa có tải / xuất ⇒ báo thất bại ngay (UI đã ẩn mọi lối; chốt chặn để album không rơi vào pipeline chữ).
 extension DownloadManager {
     /// `true` khi tác vụ thuộc sách media và đã được xử lý trọn ở đây — caller phải `return` ngay.
     internal func executeMediaTaskIfNeeded(
@@ -21,6 +22,12 @@ extension DownloadManager {
     ) async -> Bool {
         let kind = ExtensionContentKind.resolve(packageId: task.extensionPackageId)
         guard kind.isMedia else { return false }
+
+        if kind == .audio {
+            AppLogger.shared.log("❌ [DownloadManager] Từ chối \(task.taskType.rawValue) cho album âm thanh: \(task.bookTitle)")
+            await markFailed(taskId: task.id, error: "Âm thanh chưa hỗ trợ tải về hay xuất file.")
+            return true
+        }
 
         if task.taskType.isExport {
             if kind == .comic, let format = task.taskType.exportFormat, format.isComicFormat {

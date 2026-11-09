@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Nơi đọc/ghi cỡ từng bố cục của trang Khám phá theo loại nguồn (truyện chữ / truyện tranh / video), lưu trong
+/// Nơi đọc/ghi cỡ từng bố cục của trang Khám phá theo loại nguồn (truyện chữ / truyện tranh / video / âm thanh), lưu trong
 /// `UserDefaults`. Cùng khuôn với `BookListLayoutPreferences`: `@Observable` để View đọc `sizes(for:)` trong `body`
 /// là tự vẽ lại khi sheet "Kiểu hiển thị" hay màn Cài đặt ghi.
 ///
@@ -14,7 +14,7 @@ final class ExploreLayoutSizePreferences {
     static let shared = ExploreLayoutSizePreferences()
 
     /// Trang Khám phá luôn thuộc đúng một loại nguồn ⇒ không có `.all`. `sizes(for: .all)` trả cỡ mặc định.
-    nonisolated static let scopes: [BookListLayoutScope] = [.text, .comic, .video]
+    nonisolated static let scopes: [BookListLayoutScope] = [.text, .comic, .video, .audio]
 
     private(set) var table: [BookListLayoutScope: ExploreLayoutSizes] = [:]
 

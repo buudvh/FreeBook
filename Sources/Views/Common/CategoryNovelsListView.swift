@@ -119,7 +119,7 @@ struct CategoryNovelsListView: View {
                             onSelectVideo(novel)
                             return
                         }
-                        // Nguồn video ⇒ màn xem phim (phát dọc ngay), không đẩy Chi tiết.
+                        // Nguồn video / âm thanh ⇒ màn xem phim / màn nghe (phát ngay), không đẩy Chi tiết.
                         if ContentDetailRouter.openIfVideo(
                             novel, packageId: extensionPackageId, sourceName: sourceName,
                             modelContainer: modelContext.container

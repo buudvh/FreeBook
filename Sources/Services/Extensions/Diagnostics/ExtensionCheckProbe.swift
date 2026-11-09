@@ -102,7 +102,7 @@ final class ExtensionCheckProbe {
         result.scripts = scan.entries.map(makeRow)
         await publish()
         switch kind {
-        case .text, .comic, .video:
+        case .text, .comic, .video, .audio:
             try await runEntries()
             try await runBookChain()
         case .tts:
@@ -118,7 +118,7 @@ final class ExtensionCheckProbe {
     private var runtimeKeys: Set<String> {
         switch kind {
         case .text, .comic: return ["home", "explore", "genre", "search", "detail", "page", "toc", "chap"]
-        case .video: return ["home", "explore", "genre", "search", "detail", "page", "toc", "chap", "track"]
+        case .video, .audio: return ["home", "explore", "genre", "search", "detail", "page", "toc", "chap", "track"]
         case .tts: return ["voice"]
         case .other: return []
         }
@@ -268,6 +268,7 @@ final class ExtensionCheckProbe {
         case .text: return .text
         case .comic: return .comic
         case .video: return .video
+        case .audio: return .audio
         case .unsupported: return .other
         }
     }

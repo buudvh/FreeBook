@@ -40,6 +40,23 @@ struct BookListRowSize: Equatable {
     var coverWidth: CGFloat { Self.coverSizes[level - 1].width }
     var coverHeight: CGFloat { Self.coverSizes[level - 1].height }
 
+    /// Cao bìa theo loại: album âm thanh bìa **vuông** (cạnh = rộng của nấc), còn lại theo nấc. Mọi lớp phủ canh theo bìa
+    /// (badge loại, ghim ở `ShelfBookRowView`) phải dùng đúng giá trị này.
+    func coverHeight(for kind: ExtensionContentKind) -> CGFloat {
+        let size = Self.coverSizes[level - 1]
+        return kind == .audio ? size.width : size.height
+    }
+
+    /// Nhãn mục đang đọc ở thẻ / dòng gọn của kệ: "Ch. N", phim "Tập N", âm thanh "Bài N" (`chapterIndex` tính từ 0).
+    static func progressLabel(kind: ExtensionContentKind, chapterIndex: Int) -> String {
+        let number = chapterIndex + 1
+        switch kind {
+        case .video: return "Tập \(number)"
+        case .audio: return "Bài \(number)"
+        case .text, .comic, .unsupported: return "Ch. \(number)"
+        }
+    }
+
     /// Hệ số phóng chữ so với nấc mặc định.
     var scale: CGFloat { Self.titleSizes[level - 1] / Self.titleSizes[Self.defaultLevel - 1] }
 

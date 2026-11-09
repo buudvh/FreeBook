@@ -82,6 +82,9 @@ enum DownloadStartChapterCatalog {
             return ComicOfflineStore.downloadedChapterIndexes(bookId: bookId)
         case .video:
             return VideoOfflineStore.downloadedEpisodeIndexes(bookId: bookId)
+        case .audio:
+            // Âm thanh chưa có bản tải trên máy ⇒ không bài nào "đã tải".
+            return []
         case .text, .unsupported:
             return nil
         }

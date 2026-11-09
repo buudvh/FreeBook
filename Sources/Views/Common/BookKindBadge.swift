@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Badge loại nội dung (truyện chữ / truyện tranh / video).
+/// Badge loại nội dung (truyện chữ / truyện tranh / video / âm thanh).
 ///
-/// - Góc bìa sách ở Kệ / bộ sưu tập (`ShelfBookRowView`): chỉ icon, và **chỉ** với truyện tranh/video — truyện
+/// - Góc bìa sách ở Kệ / bộ sưu tập (`ShelfBookRowView`): chỉ icon, và **chỉ** với truyện tranh/video/âm thanh — truyện
 ///   chữ là mặc định, gắn badge chỉ thêm nhiễu (`hidesText = true`).
 /// - Dòng tiện ích ở bảng chọn nguồn Khám phá: icon + nhãn cho mọi loại (`showsLabel = true`, `hidesText = false`).
 struct BookKindBadge: View {
@@ -35,6 +35,7 @@ struct BookKindBadge: View {
         switch kind {
         case .comic: return .purple
         case .video: return .red
+        case .audio: return .orange
         case .text, .unsupported: return .gray
         }
     }

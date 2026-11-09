@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Cài đặt → Chung → Giao diện → **Kiểu hiển thị danh sách**: chỉnh cả 4 scope ở một chỗ, kèm cỡ từng bố cục trang
-/// Khám phá cho truyện chữ / truyện tranh / video. Sheet nhanh trên từng màn chỉ chỉnh scope đang xem; màn này để
-/// xem/đặt lại toàn bộ.
+/// Cài đặt → Chung → Giao diện → **Kiểu hiển thị danh sách**: chỉnh cả 5 scope ở một chỗ, kèm cỡ từng bố cục trang
+/// Khám phá cho truyện chữ / truyện tranh / video / âm thanh. Sheet nhanh trên từng màn chỉ chỉnh scope đang xem; màn
+/// này để xem/đặt lại toàn bộ.
 struct BookListLayoutSettingsView: View {
     var body: some View {
         Form {
@@ -12,6 +12,8 @@ struct BookListLayoutSettingsView: View {
                 } header: {
                     if scope == .video {
                         SectionHelpHeader(scope.settingsTitle, paragraphs: ["Bìa phim/video luôn ngang 16:9."])
+                    } else if scope == .audio {
+                        SectionHelpHeader(scope.settingsTitle, paragraphs: ["Bìa album âm thanh luôn vuông 1:1."])
                     } else {
                         Text(scope.settingsTitle)
                     }

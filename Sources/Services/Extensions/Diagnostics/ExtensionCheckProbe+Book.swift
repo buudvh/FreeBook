@@ -56,7 +56,8 @@ extension ExtensionCheckProbe {
         switch kind {
         case .comic: try await runComic(chapter, book: book)
         case .video: try await runVideo(chapter, book: book)
-        default: try await runText(chapter, book: book)
+        case .audio: try await runAudio(chapter, book: book)
+        case .text, .tts, .other: try await runText(chapter, book: book)
         }
     }
 
@@ -101,7 +102,7 @@ extension ExtensionCheckProbe {
         let path = target.localPath
         let downloadUrl = target.downloadUrl
         let config = target.configJson
-        let unit = kind == .video ? "tập" : "chương"
+        let unit = kind == .video ? "tập" : (kind == .audio ? "bài" : "chương")
         let output = try await perform("toc", seconds: Self.tocSeconds, fallbackURL: url, host: book.host, operation: { () async throws -> TocOutput in
             let chapters = try await SourceRuntime.shared.toc(
                 localPath: path, downloadUrl: downloadUrl, url: url, host: book.host, configJson: config
@@ -194,6 +195,46 @@ extension ExtensionCheckProbe {
             let track = try await SourceRuntime.shared.videoTrack(
                 localPath: path, downloadUrl: downloadUrl, data: data, configJson: config
             )
+            let link = track.data.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard track.kind == .native, let url = URL(string: link), let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" else {
+                return TrackOutput(kind: track.kind.rawValue, probedBytes: nil)
+            }
+            let bytes = try await LegadoCorpusProbe.probeMedia(url: url, headers: track.headers)
+            return TrackOutput(kind: track.kind.rawValue, probedBytes: bytes)
+        }, check: { output in
+            guard let bytes = output.probedBytes else { return .pass("Nguồn phát \(output.kind)") }
+            return .pass("Nguồn phát \(output.kind) · tải thử \(bytes) byte đầu")
+        })
+    }
+
+    /// Âm thanh — đúng đường của trình nghe (`AudioPlaybackSession`): `chap` lấy `data` nguồn phát đầu
+    /// (`audioStreamData`; không có nguồn ⇒ URL bài, hợp đồng cho phép nên không tính lỗi) rồi `track` ra nguồn phát + lời
+    /// bài hát; nguồn `native` http(s) ⇒ tải 1 KB đầu như video.
+    private func runAudio(_ chapter: ChapterRef, book: BookRef) async throws {
+        guard isRunnable("chap") else { return }
+        let path = target.localPath
+        let downloadUrl = target.downloadUrl
+        let config = target.configJson
+        let host = chapter.host ?? book.host
+        let streamData = try await perform("chap", seconds: Self.contentSeconds, fallbackURL: chapter.url, host: host, operation: { () async throws -> String in
+            try await SourceRuntime.shared.audioStreamData(
+                localPath: path, downloadUrl: downloadUrl, url: chapter.url, host: host, configJson: config
+            )
+        }, check: { data in
+            data.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .empty("Bài không có nguồn phát") : .pass("Có nguồn phát")
+        })
+        guard let data = streamData, !data.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            skipPending(["track"], reason: "Bỏ qua — vì chap không ra nguồn phát")
+            await publish()
+            return
+        }
+        guard isRunnable("track") else { return }
+        _ = try await perform("track", seconds: Self.mediaSeconds, fallbackURL: chapter.url, host: host, operation: { () async throws -> TrackOutput in
+            let result = try await SourceRuntime.shared.audioTrack(
+                localPath: path, downloadUrl: downloadUrl, data: data, configJson: config
+            )
+            let track = result.track
             let link = track.data.trimmingCharacters(in: .whitespacesAndNewlines)
             guard track.kind == .native, let url = URL(string: link), let scheme = url.scheme?.lowercased(),
                   scheme == "http" || scheme == "https" else {

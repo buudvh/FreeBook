@@ -92,7 +92,7 @@ struct VideoWatchDetailsView: View {
                         if ExtensionContentKind.resolve(packageId: request.packageId) == .video {
                             model.replace(with: request)
                         } else {
-                            // Đề xuất không phải phim (truyện chữ / tranh) ⇒ trang Chi tiết của truyện đó.
+                            // Đề xuất không phải phim (truyện chữ / tranh) ⇒ trang Chi tiết của truyện đó; âm thanh ⇒ màn nghe.
                             VideoWatchPagePresenter.openDetail(request, modelContainer: model.modelContainer)
                         }
                     },

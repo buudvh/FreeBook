@@ -22,10 +22,11 @@ enum ExtensionFilterGroups {
     static let novelGroup = "novel"
     static let comicGroup = "comic"
     static let videoGroup = "video"
+    static let audioGroup = "audio"
     static let otherGroup = "other"
 
     /// Thứ tự cố định của chip thể loại.
-    static let typeGroupOrder = [novelGroup, comicGroup, videoGroup, "audio", "tts", "translate", "tool", "ai", otherGroup]
+    static let typeGroupOrder = [novelGroup, comicGroup, videoGroup, audioGroup, "tts", "translate", "tool", "ai", otherGroup]
 
     /// Giá trị `type` thô → khoá nhóm. Rỗng ⇒ `novel` (hợp đồng extension coi thiếu `metadata.type` là novel).
     static func typeGroup(for rawType: String) -> String {
@@ -33,7 +34,7 @@ enum ExtensionFilterGroups {
         if value.isEmpty || value.contains("novel") || value.contains("text") { return novelGroup }
         if value.contains("comic") || value.contains("image") { return comicGroup }
         if value.contains("video") || value == "phim" { return videoGroup }
-        if value == "audio" || value == "music" { return "audio" }
+        if value == "audio" || value == "music" { return audioGroup }
         if value == "tts" { return "tts" }
         if value.contains("trans") || value.contains("dịch") { return "translate" }
         if value == "tool" || value == "tools" { return "tool" }
@@ -46,7 +47,7 @@ enum ExtensionFilterGroups {
         case novelGroup: return "Truyện chữ"
         case comicGroup: return "Truyện tranh"
         case videoGroup: return "Phim/Video"
-        case "audio": return "Âm thanh"
+        case audioGroup: return "Âm thanh"
         case "tts": return "Giọng đọc (TTS)"
         case "translate": return "Dịch thuật"
         case "tool": return "Công cụ"
@@ -60,7 +61,7 @@ enum ExtensionFilterGroups {
         switch group {
         case comicGroup: return "photo.on.rectangle"
         case videoGroup: return "play.rectangle"
-        case "audio": return "music.note"
+        case audioGroup: return "music.note"
         case "tts": return "waveform"
         case "translate": return "character.bubble"
         case "tool": return "wrench.and.screwdriver"

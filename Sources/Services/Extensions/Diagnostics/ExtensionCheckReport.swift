@@ -16,11 +16,12 @@ struct ExtensionCheckReport: Codable, Sendable {
         case cancelled
     }
 
-    /// Loại tiện ích theo cách bộ kiểm chạy: chữ/tranh/video đi chuỗi lối vào → truyện thử; TTS chỉ chạy `voice`.
+    /// Loại tiện ích theo cách bộ kiểm chạy: chữ/tranh/video/âm thanh đi chuỗi lối vào → truyện thử; TTS chỉ chạy `voice`.
     enum Kind: String, Codable, Sendable {
         case text
         case comic
         case video
+        case audio
         case tts
         case other
     }

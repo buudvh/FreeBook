@@ -19,11 +19,12 @@ public enum BookExportFormat: String, CaseIterable, Sendable {
     case pdf
     case video
 
-    /// Các định dạng hợp với loại nội dung của sách.
+    /// Các định dạng hợp với loại nội dung của sách. Âm thanh chưa xuất được ⇒ rỗng (mọi lối xuất của album đã ẩn).
     public static func formats(for kind: ExtensionContentKind) -> [BookExportFormat] {
         switch kind {
         case .comic: return [.cbz, .pdf]
         case .video: return [.video]
+        case .audio: return []
         case .text, .unsupported: return [.txt, .epub3, .fb2, .mobi]
         }
     }
