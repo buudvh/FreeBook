@@ -14,6 +14,9 @@ public enum BackupPaths {
     /// riêng: rawValue của scope được ghi vào `manifest.scopes` nên thêm case mới làm bản app cũ
     /// decode manifest lỗi. File thiếu (archive tạo trước 1.3.328) chỉ đơn giản là không có bộ nào.
     public static let collections = "library/collections.json"
+    /// Playlist nhạc / video (`BackupPlaylistArchiver`). **Đi kèm nhóm `.books`**, không có `BackupScope` riêng (cùng lý
+    /// do `collections`). Archive tạo trước 1.3.802 không có file này.
+    public static let playlists = "library/playlists.json"
     public static let repositories = "library/repositories.json"
     public static let extensions = "library/extensions.json"
     /// `localStorage` của tiện ích (`[packageId: [key: value]]`), chỉ các tiện ích có trong `extensions.json`.

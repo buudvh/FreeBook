@@ -36,6 +36,8 @@ struct AudioPlayerScreen: View {
     @State private var showingMenu = false
     /// Sheet hẹn giờ tắt mở từ ngăn kéo `…` (nút ⏱ của trang Đĩa có sheet riêng — `AudioSecondaryControls`).
     @State private var showingSleepTimer = false
+    /// Sheet "Thêm vào playlist" của hàng ngăn kéo (bài đang phát).
+    @State private var playlistRequest: PlaylistAddRequest? = nil
     @State private var isOnShelf = false
     @State private var hasBook = false
     @State private var isLeaving = false
@@ -84,6 +86,7 @@ struct AudioPlayerScreen: View {
         .sheet(isPresented: $showingSleepTimer) {
             MediaSleepTimerSheet(timer: AudioPlaybackSession.shared.sleepTimer)
         }
+        .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
         // Bài lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ thử lại bài.
         .errorLinkBrowser(link: $openingErrorLink, packageId: session.packageId) {
             AudioPlaybackSession.shared.retry()
@@ -153,11 +156,13 @@ struct AudioPlayerScreen: View {
             sourceName: session.request?.sourceName ?? "",
             trackCount: session.tracks.count,
             hasSourcePage: sourcePageLink != nil,
+            hasCurrentTrack: session.currentTrackIndex != nil,
             lyricSources: session.lyricSources,
             selectedLyricSourceId: session.selectedLyricSourceId,
             playbackRate: session.playbackRate,
             sleepTimerSummary: session.sleepTimer.modeSummary,
             onOpenSourcePage: { openingSourcePage = sourcePageLink },
+            onAddToPlaylist: { playlistRequest = PlaylistItemMapper.addRequestForCurrentTrack(of: AudioPlaybackSession.shared) },
             onSelectLyricSource: { AudioPlaybackSession.shared.selectLyricSource($0) },
             onSelectRate: { AudioPlaybackSession.shared.setPlaybackRate($0) },
             onOpenSleepTimer: { showingSleepTimer = true },

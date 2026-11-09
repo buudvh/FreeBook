@@ -1,6 +1,9 @@
 import Foundation
 
-/// Bốn tab của Kệ sách, theo **đúng thứ tự hiển thị**.
+/// Năm tab của Kệ sách, theo **đúng thứ tự hiển thị** (thứ tự khai báo case = thứ tự `allCases`).
+///
+/// `rawValue` **không** theo thứ tự hiển thị: Playlist (1.3.802) mang số 4 nhưng đứng cạnh Bộ sưu tập — đánh số lại case cũ
+/// là đổi nghĩa payload `userInfo["shelfTab"]`.
 ///
 /// Có kiểu riêng thay vì `Int` trần vì số tab là **hợp đồng liên màn**: `SearchView` gửi nó qua
 /// `userInfo["shelfTab"]` của notification `sourceChangedNavigateToShelf`, và `ShelfView+BookImport`
@@ -12,6 +15,7 @@ import Foundation
 enum ShelfTab: Int, CaseIterable, Identifiable {
     case downloads = 0
     case collections = 1
+    case playlists = 4
     case shelf = 2
     case history = 3
 
@@ -22,6 +26,7 @@ enum ShelfTab: Int, CaseIterable, Identifiable {
         switch self {
         case .downloads: return "Downloads"
         case .collections: return "Bộ Sưu Tập"
+        case .playlists: return "Playlist"
         case .shelf: return "Kệ Sách"
         case .history: return "Lịch Sử"
         }
@@ -32,6 +37,7 @@ enum ShelfTab: Int, CaseIterable, Identifiable {
         switch self {
         case .downloads: return "Tải xuống"
         case .collections: return "Bộ sưu tập"
+        case .playlists: return "Playlist"
         case .shelf: return "Kệ sách"
         case .history: return "Lịch sử"
         }
@@ -39,12 +45,13 @@ enum ShelfTab: Int, CaseIterable, Identifiable {
 
     /// Tab hiện dưới dạng **nút icon** thay cho pill chữ; `nil` ⇒ hiện `pickerTitle`.
     ///
-    /// Downloads và Bộ Sưu Tập thu về icon để nhường chiều ngang cho hai tab dùng nhiều nhất. Đây là
+    /// Downloads, Bộ Sưu Tập và Playlist thu về icon để nhường chiều ngang cho hai tab dùng nhiều nhất. Đây là
     /// quyết định trình bày, **không** đụng `rawValue` — payload `userInfo["shelfTab"]` giữ nguyên.
     var iconName: String? {
         switch self {
         case .downloads: return "arrow.down.circle"
         case .collections: return "square.grid.2x2"
+        case .playlists: return "music.note.list"
         case .shelf, .history: return nil
         }
     }

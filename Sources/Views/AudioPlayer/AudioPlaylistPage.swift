@@ -3,11 +3,13 @@ import SwiftUI
 /// Trang trái của màn nghe: "Danh sách phát · N bài". Thứ tự hiển thị **luôn** theo mục lục (`tracks`), không theo thứ
 /// tự xáo; số thứ tự = vị trí trong danh sách (không phải `Track.index` thưa). Chạm hàng ⇒ `playTrack(at: track.index)`.
 /// Trang hiện ra (và khi đổi bài lúc đang xem) ⇒ cuộn bài đang phát vào giữa. Dưới danh sách bài là phần gợi ý của nguồn
-/// (`AudioSuggestionSection`), tải khi trang hiện.
+/// (`AudioSuggestionSection`), tải khi trang hiện. Nhấn giữ một bài ⇒ "Thêm vào playlist" (`PlaylistAddSheet`).
 struct AudioPlaylistPage: View {
     let isVisible: Bool
     let drag: AudioMinimizeDragState
     let onMinimize: () -> Void
+
+    @State private var playlistRequest: PlaylistAddRequest? = nil
 
     private var session: AudioPlaybackSession { .shared }
 
@@ -27,6 +29,9 @@ struct AudioPlaylistPage: View {
             } else {
                 trackList
             }
+        }
+        .sheet(item: $playlistRequest) { request in
+            PlaylistAddSheet(request: request)
         }
     }
 
@@ -61,6 +66,13 @@ struct AudioPlaylistPage: View {
                         ) {
                             AppLogger.shared.log("🎵 [AudioPlayerUI] Chọn bài \(track.index) ở danh sách phát")
                             session.playTrack(at: track.index)
+                        }
+                        .contextMenu {
+                            Button {
+                                playlistRequest = PlaylistItemMapper.addRequest(track: track, in: session)
+                            } label: {
+                                Label("Thêm vào playlist", systemImage: "text.badge.plus")
+                            }
                         }
                         .id(track.index)
                     }

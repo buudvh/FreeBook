@@ -41,7 +41,7 @@ struct ShelfView: View {
     @State private var navigateToChangeSource = false
 
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
-    // Thứ tự tab: Downloads → Bộ Sưu Tập → Kệ Sách → Lịch Sử (xem `ShelfTab`).
+    // Thứ tự tab: Downloads → Bộ Sưu Tập → Playlist → Kệ Sách → Lịch Sử (xem `ShelfTab`).
     @State internal var selectedTab: ShelfTab = .shelf
     @State private var showingClearHistoryAlert = false // Hiện hộp chọn khoảng thời gian để xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
@@ -174,7 +174,7 @@ struct ShelfView: View {
         NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
-                // Hàng nút rời: Downloads + Bộ Sưu Tập thu về icon, Kệ Sách + Lịch Sử giữ pill chữ.
+                // Hàng nút rời: Downloads + Bộ Sưu Tập + Playlist thu về icon, Kệ Sách + Lịch Sử giữ pill chữ.
                 // Xem `ShelfTabSelectorView`; thứ tự vẫn theo `ShelfTab`.
                 ShelfTabSelectorView(selection: $selectedTab)
                     .padding(.horizontal)
@@ -193,6 +193,10 @@ struct ShelfView: View {
                         // TAB BỘ SƯU TẬP
                         CollectionsTabView()
                             .tag(ShelfTab.collections)
+
+                        // TAB PLAYLIST — trang đứng cạnh Bộ sưu tập (thứ tự trang theo thứ tự con, không theo tag).
+                        PlaylistsTabView()
+                            .tag(ShelfTab.playlists)
 
                         // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống).
                         shelfTabView(parts, kindFilter)
@@ -217,7 +221,8 @@ struct ShelfView: View {
                 // Một `ToolbarItem` cho cả cụm để 🔍 và "…" đứng sát nhau (`HeaderButtonMetrics`).
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: HeaderButtonMetrics.pairSpacing) {
-                        if selectedTab != .downloads {
+                        // 🔍 tìm truyện trên kệ / lịch sử — vô nghĩa ở tab Tải xuống và Playlist.
+                        if selectedTab != .downloads && selectedTab != .playlists {
                             Button(action: {
                                 showingShelfSearch = true
                             }) {

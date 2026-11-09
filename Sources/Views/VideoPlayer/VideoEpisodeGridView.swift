@@ -9,7 +9,8 @@ import SwiftUI
 /// vẫn `scrollTo` tới tập đang phát được.
 ///
 /// Hợp đồng: chỉ đọc `episodes` + `currentIndex`, mọi thao tác đi qua `onSelect` — đổi tab **không** đổi tập đang phát.
-/// Nhấn giữ ô tập (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải". `downloadedIndexes` (sheet "Tất cả tập"
+/// Nhấn giữ ô tập (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải"; có `onAddToPlaylist` ⇒ thêm "Thêm vào
+/// playlist". `downloadedIndexes` (sheet "Tất cả tập"
 /// của màn xem) ⇒ ô tập đã tải có dấu ⬇ ở góc. Chia nhóm bằng `VideoEpisodeGrouping`.
 struct VideoEpisodeGridView: View {
     typealias SectionTab = VideoEpisodeGrouping.Group<VideoPlaybackSession.Episode>
@@ -20,6 +21,8 @@ struct VideoEpisodeGridView: View {
     let downloadActions: VideoEpisodeDownloadActions?
     /// Chỉ số mục lục của các tập đã tải trọn (`VideoOfflineLibrary`) — rỗng thì không vẽ dấu.
     let downloadedIndexes: Set<Int>
+    /// Có ⇒ nhấn giữ ô tập thêm mục "Thêm vào playlist" (sheet "Tất cả tập" của màn xem).
+    let onAddToPlaylist: ((VideoPlaybackSession.Episode) -> Void)?
 
     @State private var selectedGroup: Int
 
@@ -33,13 +36,15 @@ struct VideoEpisodeGridView: View {
         columnCount: Int = 4,
         downloadedIndexes: Set<Int> = [],
         downloadActions: VideoEpisodeDownloadActions? = nil,
-        onSelect: @escaping (VideoPlaybackSession.Episode) -> Void
+        onSelect: @escaping (VideoPlaybackSession.Episode) -> Void,
+        onAddToPlaylist: ((VideoPlaybackSession.Episode) -> Void)? = nil
     ) {
         self.episodes = episodes
         self.currentIndex = currentIndex
         self.onSelect = onSelect
         self.downloadActions = downloadActions
         self.downloadedIndexes = downloadedIndexes
+        self.onAddToPlaylist = onAddToPlaylist
         self.columns = Array(repeating: GridItem(.flexible(), spacing: 7), count: max(1, columnCount))
         // Mở đúng tab chứa tập đang phát ngay từ lần vẽ đầu, để `scrollTo` của màn cha tìm thấy ô.
         let initial = VideoEpisodeGrouping.groupPosition(of: currentIndex, in: VideoEpisodeGrouping.groups(episodes)) ?? 0
@@ -69,20 +74,29 @@ struct VideoEpisodeGridView: View {
 
     @ViewBuilder
     private func cellWithMenu(_ episode: VideoPlaybackSession.Episode, number: Int) -> some View {
-        if let actions = downloadActions {
+        if downloadActions != nil || onAddToPlaylist != nil {
             cell(episode, number: number)
                 .contextMenu {
-                    if actions.isDownloaded(episode) {
-                        Button(role: .destructive) {
-                            actions.deleteDownload(episode)
-                        } label: {
-                            Label("Xoá bản tải", systemImage: "trash")
+                    if let actions = downloadActions {
+                        if actions.isDownloaded(episode) {
+                            Button(role: .destructive) {
+                                actions.deleteDownload(episode)
+                            } label: {
+                                Label("Xoá bản tải", systemImage: "trash")
+                            }
+                        } else {
+                            Button {
+                                actions.download(episode)
+                            } label: {
+                                Label("Tải tập này", systemImage: "arrow.down.circle")
+                            }
                         }
-                    } else {
+                    }
+                    if let onAddToPlaylist {
                         Button {
-                            actions.download(episode)
+                            onAddToPlaylist(episode)
                         } label: {
-                            Label("Tải tập này", systemImage: "arrow.down.circle")
+                            Label("Thêm vào playlist", systemImage: "text.badge.plus")
                         }
                     }
                 }

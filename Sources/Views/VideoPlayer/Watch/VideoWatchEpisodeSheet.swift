@@ -6,28 +6,34 @@ import SwiftUI
 /// - **Danh sách**: panel Mục lục như mục lục truyện (`VideoEpisodeListView`) — nút đổi kiểu đứng trước ↓↑.
 ///
 /// Tập đã tải có dấu ⬇ (`VideoOfflineLibrary` theo phim của màn xem — cờ `isCached` của `ChapterStore` không đúng cho
-/// video). Chạm tập ⇒ đóng sheet (nơi gọi), phát tập đó; khung phim vẫn phát phía trên suốt lúc mở.
+/// video). Chạm tập ⇒ đóng sheet (nơi gọi), phát tập đó; khung phim vẫn phát phía trên suốt lúc mở. Nhấn giữ tập (khi có
+/// `playlistAlbum`) ⇒ "Thêm vào playlist" — sheet `PlaylistAddSheet` mở chồng lên sheet này.
 struct VideoWatchEpisodeSheet: View {
     let episodes: [VideoPlaybackSession.Episode]
     let currentIndex: Int
     let bookId: String
     /// Tiện ích của phim — kiểu Lưới / Danh sách nhớ theo id này.
     let packageId: String
+    /// Phim của màn xem — có ⇒ nhấn giữ tập thêm được vào playlist.
+    let playlistAlbum: PlaylistAlbumInfo?
     let onSelect: (VideoPlaybackSession.Episode) -> Void
 
     @State private var layout: VideoEpisodeLayoutMode
+    @State private var playlistRequest: PlaylistAddRequest? = nil
 
     init(
         episodes: [VideoPlaybackSession.Episode],
         currentIndex: Int,
         bookId: String,
         packageId: String,
+        playlistAlbum: PlaylistAlbumInfo? = nil,
         onSelect: @escaping (VideoPlaybackSession.Episode) -> Void
     ) {
         self.episodes = episodes
         self.currentIndex = currentIndex
         self.bookId = bookId
         self.packageId = packageId
+        self.playlistAlbum = playlistAlbum
         self.onSelect = onSelect
         _layout = State(initialValue: VideoEpisodeLayoutMode.load(packageId: packageId))
     }
@@ -45,6 +51,15 @@ struct VideoWatchEpisodeSheet: View {
             .preferredColorScheme(.dark)
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
+    }
+
+    /// `nil` khi không có phim để dựng mục (lưới / danh sách không hiện mục "Thêm vào playlist").
+    private var addToPlaylist: ((VideoPlaybackSession.Episode) -> Void)? {
+        guard let album = playlistAlbum else { return nil }
+        return { episode in
+            playlistRequest = PlaylistItemMapper.addRequest(episode: episode, album: album)
+        }
     }
 
     @ViewBuilder
@@ -59,6 +74,7 @@ struct VideoWatchEpisodeSheet: View {
                 downloadedIndexes: downloadedIndexes,
                 showsTOCHeader: true,
                 onSelect: onSelect,
+                onAddToPlaylist: addToPlaylist,
                 accessory: { layoutButton }
             )
             .padding(.top, 16)
@@ -85,7 +101,8 @@ struct VideoWatchEpisodeSheet: View {
                         currentIndex: currentIndex,
                         columnCount: 6,
                         downloadedIndexes: downloadedIndexes,
-                        onSelect: onSelect
+                        onSelect: onSelect,
+                        onAddToPlaylist: addToPlaylist
                     )
                 }
                 .padding(.vertical, 20)

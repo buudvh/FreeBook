@@ -11,7 +11,8 @@ import SwiftUI
 ///   Lưới). Tìm và ↓↑ chỉ áp lên nhóm đang chọn, giữ số của từng tập; hai trạng thái này không lưu.
 /// - "N" của tiêu đề = mọi tập phát được (như tiêu đề kiểu Lưới), kể cả khi có nhiều nhóm.
 /// - Chỉ báo chọn qua `onSelect` — **không** tự `dismiss` (trong panel toàn màn `dismiss` sẽ đóng cả trình phát); nơi
-///   gọi tự đóng sheet / panel. Nhấn giữ hàng (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải" như ô Lưới.
+///   gọi tự đóng sheet / panel. Nhấn giữ hàng (khi có `downloadActions`) ⇒ "Tải tập này" / "Xoá bản tải" như ô Lưới;
+///   có `onAddToPlaylist` ⇒ thêm "Thêm vào playlist".
 /// - Hàng dựng bằng `ScrollView` + `LazyVStack` (không `List`) và giữ `.id(episode.index)` để cuộn tới tập đang phát.
 struct VideoEpisodeListView<Accessory: View>: View {
     typealias Episode = VideoPlaybackSession.Episode
@@ -24,6 +25,8 @@ struct VideoEpisodeListView<Accessory: View>: View {
     let downloadActions: VideoEpisodeDownloadActions?
     let showsTOCHeader: Bool
     let onSelect: (Episode) -> Void
+    /// Có ⇒ nhấn giữ hàng thêm mục "Thêm vào playlist" (sheet "Tất cả tập" của màn xem).
+    let onAddToPlaylist: ((Episode) -> Void)?
     let accessory: Accessory
 
     @State private var selectedGroup: Int
@@ -43,6 +46,7 @@ struct VideoEpisodeListView<Accessory: View>: View {
         downloadActions: VideoEpisodeDownloadActions? = nil,
         showsTOCHeader: Bool,
         onSelect: @escaping (Episode) -> Void,
+        onAddToPlaylist: ((Episode) -> Void)? = nil,
         @ViewBuilder accessory: () -> Accessory
     ) {
         self.episodes = episodes
@@ -51,6 +55,7 @@ struct VideoEpisodeListView<Accessory: View>: View {
         self.downloadActions = downloadActions
         self.showsTOCHeader = showsTOCHeader
         self.onSelect = onSelect
+        self.onAddToPlaylist = onAddToPlaylist
         self.accessory = accessory()
         // Mở đúng nhóm chứa tập đang phát ngay từ lần vẽ đầu, để lần cuộn đầu tìm thấy hàng.
         let initial = VideoEpisodeGrouping.groupPosition(of: currentIndex, in: VideoEpisodeGrouping.groups(episodes)) ?? 0
@@ -131,20 +136,29 @@ struct VideoEpisodeListView<Accessory: View>: View {
 
     @ViewBuilder
     private func rowWithMenu(_ episode: Episode, numbering: ChapterOrdinalNumbering?) -> some View {
-        if let actions = downloadActions {
+        if downloadActions != nil || onAddToPlaylist != nil {
             row(episode, numbering: numbering)
                 .contextMenu {
-                    if actions.isDownloaded(episode) {
-                        Button(role: .destructive) {
-                            actions.deleteDownload(episode)
-                        } label: {
-                            Label("Xoá bản tải", systemImage: "trash")
+                    if let actions = downloadActions {
+                        if actions.isDownloaded(episode) {
+                            Button(role: .destructive) {
+                                actions.deleteDownload(episode)
+                            } label: {
+                                Label("Xoá bản tải", systemImage: "trash")
+                            }
+                        } else {
+                            Button {
+                                actions.download(episode)
+                            } label: {
+                                Label("Tải tập này", systemImage: "arrow.down.circle")
+                            }
                         }
-                    } else {
+                    }
+                    if let onAddToPlaylist {
                         Button {
-                            actions.download(episode)
+                            onAddToPlaylist(episode)
                         } label: {
-                            Label("Tải tập này", systemImage: "arrow.down.circle")
+                            Label("Thêm vào playlist", systemImage: "text.badge.plus")
                         }
                     }
                 }
@@ -285,7 +299,8 @@ extension VideoEpisodeListView where Accessory == EmptyView {
         downloadedIndexes: Set<Int> = [],
         downloadActions: VideoEpisodeDownloadActions? = nil,
         showsTOCHeader: Bool,
-        onSelect: @escaping (Episode) -> Void
+        onSelect: @escaping (Episode) -> Void,
+        onAddToPlaylist: ((Episode) -> Void)? = nil
     ) {
         self.init(
             episodes: episodes,
@@ -294,6 +309,7 @@ extension VideoEpisodeListView where Accessory == EmptyView {
             downloadActions: downloadActions,
             showsTOCHeader: showsTOCHeader,
             onSelect: onSelect,
+            onAddToPlaylist: onAddToPlaylist,
             accessory: { EmptyView() }
         )
     }

@@ -52,6 +52,8 @@ final class VideoPlayerController {
     var showsBatchDownloadSheet = false
     /// Sheet "Hẹn giờ tắt" (ngăn kéo `⋯` / badge ⏱ của thanh trên) — `VideoPlayerScreen` trình bày `MediaSleepTimerSheet`.
     var showsSleepTimerSheet = false
+    /// Sheet "Thêm vào playlist" (ngăn kéo `⋯`, tập đang phát) — `VideoPlayerScreen` trình bày `PlaylistAddSheet`.
+    var playlistAddRequest: PlaylistAddRequest?
     /// Trình duyệt "Mở link lỗi" của lớp phủ lỗi đang mở — `VideoPlayerScreen` trình bày (`.errorLinkBrowser`).
     var openingErrorLink: SourceErrorLink?
     var gravity: Gravity = .fit

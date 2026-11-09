@@ -3,7 +3,7 @@ import SwiftUI
 /// Thanh chọn tab của Kệ sách: **hàng nút rời**, không phải `Picker(.segmented)`.
 ///
 /// Lý do đổi: segmented control chia đều chiều ngang cho cả 4 tab, nên Downloads và Bộ Sưu Tập chiếm
-/// đúng bằng Kệ Sách và Lịch Sử dù chữ dài và ít được bấm. Hai tab đó nay là nút icon 40×40
+/// đúng bằng Kệ Sách và Lịch Sử dù chữ dài và ít được bấm. Hai tab đó (và Playlist, 1.3.802) nay là nút icon 40×40
 /// (`ShelfTab.isIconOnly`), hai tab còn lại là pill chữ co theo nội dung.
 ///
 /// Không đổi gì ở `TabView`/`.tag()` bên dưới: `selection` vẫn là `ShelfTab` nên đường điều hướng từ

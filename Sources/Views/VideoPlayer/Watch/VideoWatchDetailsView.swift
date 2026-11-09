@@ -80,6 +80,7 @@ struct VideoWatchDetailsView: View {
                         currentIndex: currentEpisodeIndex,
                         bookId: model.bookId,
                         packageId: model.request.packageId,
+                        playlistAlbum: PlaylistItemMapper.album(of: model),
                         onSelect: { model.play(episodeIndex: $0.index) }
                     )
                 }

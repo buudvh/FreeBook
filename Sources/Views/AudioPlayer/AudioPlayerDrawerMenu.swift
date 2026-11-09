@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, công tắc tự phát bài gợi ý, chọn nguồn lời
+/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, thêm bài đang phát vào playlist, công tắc tự phát
+/// bài gợi ý, chọn nguồn lời
 /// (≥ 2 nguồn), tốc độ phát, hẹn giờ tắt (mở `MediaSleepTimerSheet` của màn), dừng hẳn.
 ///
 /// Ngăn kéo nằm ở cửa sổ nổi riêng (`SideDrawerMenuWindowManager`) ⇒ không thừa hưởng environment của màn: mọi giá trị và
@@ -15,12 +16,15 @@ struct AudioPlayerDrawerMenu: View {
     let sourceName: String
     let trackCount: Int
     let hasSourcePage: Bool
+    /// Có bài đang phát / đang nạp ⇒ hiện hàng "Thêm bài này vào playlist".
+    let hasCurrentTrack: Bool
     let lyricSources: [AudioLyricSource]
     let selectedLyricSourceId: Int?
     let playbackRate: Float
     /// `MediaSleepTimer.modeSummary` — chỉ theo chế độ, không đổi mỗi giây; `nil` = chưa hẹn.
     let sleepTimerSummary: String?
     let onOpenSourcePage: () -> Void
+    let onAddToPlaylist: () -> Void
     let onSelectLyricSource: (AudioLyricSource) -> Void
     let onSelectRate: (Float) -> Void
     let onOpenSleepTimer: () -> Void
@@ -32,6 +36,9 @@ struct AudioPlayerDrawerMenu: View {
             albumInfo
             if hasSourcePage {
                 SideDrawerActionRow("Mở trang nguồn", systemImage: "safari", action: onOpenSourcePage)
+            }
+            if hasCurrentTrack {
+                SideDrawerActionRow("Thêm bài này vào playlist", systemImage: "text.badge.plus", action: onAddToPlaylist)
             }
             SideDrawerToggleRow("Tự phát bài gợi ý", systemImage: "forward.end.circle", isOn: $autoNextSuggest)
             if lyricSources.count >= 2 {

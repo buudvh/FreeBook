@@ -328,6 +328,10 @@ struct BookActionSheet: View {
             actionRow(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
         }
         actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
+        // Album / phim ⇒ thêm mọi bài / tập vào playlist (hàng tự tải mục lục + mở sheet chọn playlist).
+        if let playlistKind = PlaylistKind(contentKind: BookContentKindResolver.kind(bookId: book.bookId, packageId: book.extensionPackageId)) {
+            PlaylistAddBookActionRow(book: book, kind: playlistKind)
+        }
 
         if currentCollectionId != nil {
             actionRow(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")

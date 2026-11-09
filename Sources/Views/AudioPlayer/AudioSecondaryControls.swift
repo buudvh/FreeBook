@@ -1,11 +1,13 @@
 import SwiftUI
 
 /// Hàng phụ dưới cụm nút của trang Đĩa: tốc độ đang dùng (bấm mở menu 0,5–2×), ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet`;
-/// đang hẹn ⇒ viên thuốc màu nhấn kèm thời gian còn lại như badge TTS), nút sang trang Danh sách, nút sang trang Lời.
+/// đang hẹn ⇒ viên thuốc màu nhấn kèm thời gian còn lại như badge TTS), nút thêm bài đang phát vào playlist
+/// (`PlaylistAddSheet`), nút sang trang Danh sách, nút sang trang Lời.
 struct AudioSecondaryControls: View {
     let onShowPage: (AudioPlayerPage) -> Void
 
     @State private var showingSleepTimer = false
+    @State private var playlistRequest: PlaylistAddRequest? = nil
 
     private var session: AudioPlaybackSession { .shared }
 
@@ -13,6 +15,7 @@ struct AudioSecondaryControls: View {
         HStack(spacing: 4) {
             rateMenu
             sleepTimerButton
+            playlistButton
             Spacer(minLength: 8)
             pageButton(systemImage: "list.bullet", label: "Danh sách phát", page: .playlist)
             pageButton(systemImage: "quote.bubble", label: "Lời bài hát", page: .lyrics)
@@ -20,6 +23,26 @@ struct AudioSecondaryControls: View {
         .buttonStyle(.plain)
         .sheet(isPresented: $showingSleepTimer) {
             MediaSleepTimerSheet(timer: session.sleepTimer)
+        }
+        .sheet(item: $playlistRequest) { request in
+            PlaylistAddSheet(request: request)
+        }
+    }
+
+    /// Thêm bài đang phát vào playlist — ẩn khi chưa có bài (đang nạp mục lục).
+    @ViewBuilder
+    private var playlistButton: some View {
+        if session.currentTrackIndex != nil {
+            Button {
+                playlistRequest = PlaylistItemMapper.addRequestForCurrentTrack(of: session)
+            } label: {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Thêm bài đang phát vào playlist")
         }
     }
 

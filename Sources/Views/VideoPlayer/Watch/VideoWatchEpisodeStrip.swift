@@ -6,6 +6,7 @@ import SwiftUI
 /// tiện ích) có dấu ⬇ cho tập đã tải.
 ///
 /// Đổi chip **không** đổi tập đang phát; tập đang phát đổi (tự sang tập kế…) thì chip nhảy theo và dải cuộn tới ô đó.
+/// Nhấn giữ ô tập (khi có `playlistAlbum`) ⇒ "Thêm vào playlist" (`PlaylistAddSheet`).
 struct VideoWatchEpisodeStrip: View {
     let episodes: [VideoPlaybackSession.Episode]
     let currentIndex: Int
@@ -13,10 +14,13 @@ struct VideoWatchEpisodeStrip: View {
     let bookId: String
     /// Tiện ích của phim của màn xem — sheet "Tất cả tập" nhớ kiểu Lưới / Danh sách theo id này.
     let packageId: String
+    /// Phim của màn xem — dựng mục playlist cho tập được nhấn giữ; `nil` ⇒ không có mục "Thêm vào playlist".
+    let playlistAlbum: PlaylistAlbumInfo?
     let onSelect: (VideoPlaybackSession.Episode) -> Void
 
     @State private var selectedGroup = 0
     @State private var showingAll = false
+    @State private var playlistRequest: PlaylistAddRequest? = nil
 
     private static let cellSize = CGSize(width: 58, height: 46)
 
@@ -47,12 +51,14 @@ struct VideoWatchEpisodeStrip: View {
                 currentIndex: currentIndex,
                 bookId: bookId,
                 packageId: packageId,
+                playlistAlbum: playlistAlbum,
                 onSelect: { episode in
                     showingAll = false
                     onSelect(episode)
                 }
             )
         }
+        .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
     }
 
     private var header: some View {
@@ -133,7 +139,7 @@ struct VideoWatchEpisodeStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 7) {
                     ForEach(Array(activeEpisodes.enumerated()), id: \.element.id) { offset, episode in
-                        cell(episode, number: offset + 1)
+                        cellWithMenu(episode, number: offset + 1)
                             .id(episode.index)
                     }
                 }
@@ -143,6 +149,22 @@ struct VideoWatchEpisodeStrip: View {
             .onAppear { scrollToCurrent(proxy, animated: false) }
             .onChange(of: currentIndex) { _, _ in scrollToCurrent(proxy, animated: true) }
             .onChange(of: selectedGroup) { _, _ in scrollToCurrent(proxy, animated: false) }
+        }
+    }
+
+    @ViewBuilder
+    private func cellWithMenu(_ episode: VideoPlaybackSession.Episode, number: Int) -> some View {
+        if let album = playlistAlbum {
+            cell(episode, number: number)
+                .contextMenu {
+                    Button {
+                        playlistRequest = PlaylistItemMapper.addRequest(episode: episode, album: album)
+                    } label: {
+                        Label("Thêm vào playlist", systemImage: "text.badge.plus")
+                    }
+                }
+        } else {
+            cell(episode, number: number)
         }
     }
 

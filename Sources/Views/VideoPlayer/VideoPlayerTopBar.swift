@@ -8,6 +8,7 @@ import SwiftUI
 /// khoá), phụ đề, Cửa sổ nhỏ (thay nút Hình trong hình từ 1.3.751), server, `⋯`. Màn dọc hẹp nên khung hình và server dồn vào
 /// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`. Hẹn giờ tắt
 /// (`MediaSleepTimerSheet`, `VideoPlayerController.showsSleepTimerSheet`) mở từ hàng "Hẹn giờ tắt" của `⋯` hoặc badge ⏱.
+/// "Thêm tập này vào playlist" của `⋯` mở `PlaylistAddSheet` (`VideoPlayerController.playlistAddRequest`).
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
@@ -249,6 +250,11 @@ struct VideoPlayerTopBar: View {
             SideDrawerDivider()
         }
         downloadItems
+        if session.currentEpisode != nil {
+            SideDrawerActionRow("Thêm tập này vào playlist", systemImage: "text.badge.plus") {
+                controller.playlistAddRequest = PlaylistItemMapper.addRequestForCurrentEpisode(of: session)
+            }
+        }
         SideDrawerActionRow("Tải lại", systemImage: "arrow.clockwise") { session.retry() }
         if session.canTryAnotherServer {
             SideDrawerActionRow("Thử server khác", systemImage: "arrow.triangle.2.circlepath") { session.tryAnotherServer() }

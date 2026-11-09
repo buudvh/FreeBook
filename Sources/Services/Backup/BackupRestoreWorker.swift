@@ -135,6 +135,9 @@ public actor BackupRestoreWorker {
             }
             library.merge(collectionReport)
         }
+        // Playlist đi kèm nhóm `.books`, gộp chứ không ghi đè (`BackupPlaylistArchiver`).
+        let playlistErrors = await BackupPlaylistArchiver.restore(from: prepared.directory)
+        library.errors.append(contentsOf: playlistErrors)
 
         await restoreChapters(books: books, library: &library, chapters: &chapters)
 

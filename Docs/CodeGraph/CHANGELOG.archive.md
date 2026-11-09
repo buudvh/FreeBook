@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.772] - 2026-11-07
+
+### feat: nút + của Chi tiết theo cấu hình nút nổi, Home nằm trong menu xổ của nút +
+
+Người dùng: *"Cho phép nút home, các nút + (kể cả nút + của detail) hiển thị UI theo config nút nổi (ở cài đặt giao diện)"*.
+
+- Nút "+" nổi của Chi tiết truyện (nút tròn + pill Đọc / Thêm vào kệ / Tải / Xuất) đổi sang **nền kính** theo cấu hình nút nổi ở Cài đặt › Giao diện (độ trong suốt / độ đục), canh lề 16 / 12 như nút "+" chung; "Đã ở kệ" là viền + icon xanh thay cho nền xanh đặc; pill canh phải nên nút không xê dịch khi mở menu.
+- Chi tiết đủ điều kiện nút Home (trang đẩy vào trong tab Kệ / Khám phá / Tiện ích, hoặc mở từ màn xem phim): thêm pill "Về trang gốc" dưới cùng menu; chưa có mục lục (đang tải / lỗi) thì còn nút Home tròn ở góc.
+- Tách FAB khỏi `BookDetailView` sang `BookDetailFloatingActions` (1177 → 1066 dòng), dùng chung `FloatingActionMenu` với nút "+" của màn danh sách. Các nút "+" nổi khác vốn đã dùng `FloatingGlassBackground`; nút "+" trên header không phải nút nổi nên giữ nguyên.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: chạm trúng pill của menu xổ.
+
 ## [1.3.771] - 2026-11-07
 
 ### feat: nút Home nổi ở trang con của Kệ, Khám phá và Tiện ích về trang gốc của tab
