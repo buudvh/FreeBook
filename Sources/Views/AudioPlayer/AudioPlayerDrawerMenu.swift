@@ -1,11 +1,15 @@
 import SwiftUI
 
-/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, chọn nguồn lời (≥ 2 nguồn), tốc độ phát, hẹn giờ
-/// tắt (mở `MediaSleepTimerSheet` của màn), dừng hẳn.
+/// Nội dung ngăn kéo `…` của màn nghe: thông tin album, mở trang nguồn, công tắc tự phát bài gợi ý, chọn nguồn lời
+/// (≥ 2 nguồn), tốc độ phát, hẹn giờ tắt (mở `MediaSleepTimerSheet` của màn), dừng hẳn.
 ///
 /// Ngăn kéo nằm ở cửa sổ nổi riêng (`SideDrawerMenuWindowManager`) ⇒ không thừa hưởng environment của màn: mọi giá trị và
-/// hành động truyền vào từ màn (màn vẽ lại thì ngăn kéo nhận bản mới).
+/// hành động truyền vào từ màn (màn vẽ lại thì ngăn kéo nhận bản mới). Ngoại lệ: công tắc "Tự phát bài gợi ý" tự đọc
+/// `@AppStorage` (không cần environment) — cùng khoá với Cài đặt › Đọc & Nghe › Âm thanh.
 struct AudioPlayerDrawerMenu: View {
+    /// Mặc định bật — khớp `AudioAutoNextPolicy.isEnabled`.
+    @AppStorage(AudioAutoNextPolicy.defaultsKey) private var autoNextSuggest = AudioAutoNextPolicy.defaultValue
+
     let albumTitle: String
     let albumAuthor: String
     let sourceName: String
@@ -29,6 +33,7 @@ struct AudioPlayerDrawerMenu: View {
             if hasSourcePage {
                 SideDrawerActionRow("Mở trang nguồn", systemImage: "safari", action: onOpenSourcePage)
             }
+            SideDrawerToggleRow("Tự phát bài gợi ý", systemImage: "forward.end.circle", isOn: $autoNextSuggest)
             if lyricSources.count >= 2 {
                 SideDrawerSectionHeader("Nguồn lời")
                 ForEach(lyricSources) { source in

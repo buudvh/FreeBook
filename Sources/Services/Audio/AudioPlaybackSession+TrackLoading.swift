@@ -19,6 +19,8 @@ extension AudioPlaybackSession {
         phase = .loading
         syncMiniPlayerState()
         publishNowPlayingLoading()
+        // Bài cuối (lặp tắt) ⇒ tải sẵn mục gợi ý cho lúc hết album.
+        AudioAutoNextCoordinator.shared.trackLoadDidBegin(in: self)
         if prefetchingIndex == index {
             // Lượt nạp sẵn chính bài này chưa xong ⇒ bỏ, nạp thẳng (một nguồn sự thật cho lượt nạp).
             cancelPrefetch()

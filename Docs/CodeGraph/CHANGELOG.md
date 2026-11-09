@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.798] - 2026-11-09
+
+### feat: trình nghe tự phát bài gợi ý khi hết bài hoặc album, công tắc ở Cài đặt › Âm thanh và ngăn kéo màn nghe
+
+Anh Bửu duyệt: trình nghe âm thanh có "Tự phát bài gợi ý", làm **như phim** (`VideoAutoNextCoordinator`, 1.3.751).
+
+- **Công tắc** `AudioAutoNextPolicy` (mới, khoá `audioAutoNextSuggest`, mặc định **bật**): Cài đặt › Đọc & Nghe › **Âm thanh** (`AudioSettingsView`, trang mới; hàng mới ở `ReadingSettingsSection` ngay dưới Video), nhóm "Khi hết bài" có nút "?"; hàng công tắc cùng khoá trong ngăn kéo `…` của màn nghe (`AudioPlayerDrawerMenu` tự đọc `@AppStorage`, không cần environment).
+- **`AudioAutoNextCoordinator`** (mới, `Services/Audio/`):
+  - **Tải trước**: `beginTrackLoad` báo `trackLoadDidBegin`; bài đang nạp là bài cuối (lặp tắt, `autoAdvanceTarget() == nil` — gồm album một bài; không hẹn "Hết bài") ⇒ lấy nhóm gợi ý của album (chờ chi tiết trình nghe đang tải để khỏi tải trùng → cache chi tiết → tải chi tiết `isInteractive: false`) rồi chạy trang 1 của **nhóm đầu tiên có `script`**.
+  - **Hết album** (nhánh "Hết album (không lặp)" của `advanceAfterTrackEnded` ⇒ `albumDidEnd`): mục đầu tiên có link, khác album vừa hết và chưa phát trong chuỗi tự sang (chống A → B → A; chuỗi bắt đầu lại khi album vừa hết không phải album tự sang gần nhất). Tải sẵn rỗng ⇒ thử lại một lần. Trước khi mở kiểm: còn đúng album, vẫn đứng ở cuối (`reachedEndOfItem` — bấm phát lại / tua / chọn bài xoá cờ ngay; không dựa `isPlaying` vì KVO `.paused` của lúc hết bài về qua một nhịp Task), phim có tiếng không giành âm thanh, công tắc còn bật. Mở bằng `AudioListenRequest` cùng tiện ích ⇒ mở thẳng trình nghe, vào Lịch sử như khi tự mở; màn nghe đang hiện tự vẽ theo session. Album nhập từ file / tiện ích chưa cài ⇒ bỏ qua.
+  - Background task từ lúc hết album tới khi album mới phát / lỗi / người dùng đổi album / 90 giây (lúc hết album không còn tiếng giữ app sống khi chạy nền).
+  - Hẹn giờ tắt mốc phút được giữ qua lượt tự sang (`sleepTimer.schedule` → `restore`, như `open(keepsSleepTimer:)` của phim); hẹn "Hết bài" dừng ở cuối bài, không tự sang.
+- **Giữ phiên âm thanh khi chuyển album**: `stopSession(handingOverToTTS:keepsPlaybackSession:)` (tham số mới, mặc định `false`, chỉ coordinator dùng ngay trước `open`) bỏ qua `AudioNowPlayingCoordinator.release`, `deactivateAudioSessionIfIdle` và `AudioMiniPlayerState.reset` ⇒ ở nền / màn khoá không tắt rồi bật lại `AVAudioSession` (có thể không phát được nữa), màn khoá giữ lệnh (`claim()` của album mới thành no-op, `publishNowPlayingLoading` ghi tên bài mới), hub không nhận nhịp `isActive == false`. `open` ngay sau ghi đè hết cầu nối mini; album mới lỗi thì `fail` / `failOpen` trả phiên như thường.
+- **Dòng báo "Tự sang: <tên>"** khi album mới bắt đầu phát: `AudioPlaybackNotice` (mới, `ObservableObject`, tự ẩn sau 5 giây) + `AudioPlaybackNoticeBanner` (mới, kiểu `VideoMiniPlayerNotice`) ở đầu vùng trang của màn nghe và ngay trên thanh phát mini. "Bắt đầu phát" lấy từ cầu nối `AudioMiniPlayerState` (Combine) — không thêm hook vào session. Album 18+ lúc NSFW tắt ⇒ "Tự sang bài gợi ý", không ghi tên.
+- File chung của trình nghe chỉ thêm dòng gọi: `+TrackLoading` và `+Queue` (mỗi file 1 dòng gọi coordinator), `AudioPlaybackSession.swift` (tham số `keepsPlaybackSession` + 3 điều kiện), `AudioPlayerScreen` / `AudioMiniPlayerBar` (1 overlay mỗi file), `AudioPlayerDrawerMenu` (khoá + 1 hàng).
+- Log: `⏭️ [AudioAutoNext] …`; lỗi tải gợi ý / chi tiết ghi `❌ [AudioAutoNext] …`.
+- `CLAUDE.md` / `AGENTS.md` mục Âm thanh thêm một gạch đầu dòng.
+- Chuyển `[1.3.768]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + diff (grep chéo chữ ký `stopSession`, `executeCustomScript`, `fetchDetail`, `MediaSleepTimer.restore`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 386 dòng). Không build tại chỗ (Windows). Chưa thử máy: tự sang ở nền / màn khoá, dòng báo, giữ hẹn giờ qua lượt tự sang.
+
 ## [1.3.797] - 2026-11-09
 
 ### fix: đĩa bìa ở màn nghe nhạc xoay khi đang phát, bìa trang Lời cũng là đĩa xoay
@@ -367,16 +387,4 @@ Người dùng: *"sửa lại hành động đối với video về home của n
 - Thêm `VideoLeaveToHubCoordinator` (tầng dịch vụ, không SwiftUI, không toast): màn xem và cửa sổ nhỏ đăng ký nhận lời xin thu vào hub; luật chung của Home (`applyLeaveRules`) dùng được cả khi không có `VideoWatchModel`, `prepareGoHome` gọi lại nó.
 - `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự guard NSFW với nút Home; dòng Video ở hub hiện tên thật của phim 18+ khi NSFW đã tắt (màn khoá vẫn che thành "Đang phát").
-
-## [1.3.768] - 2026-11-07
-
-### feat: bấm Thể loại hoặc Xem thêm khi đang xem phim thì phim vào cửa sổ nhỏ
-
-Người dùng: *"KHi đang xem video mà bấm xem thêm suggest hoặc bấm vào genres thì tự động cho video thì pip (nếu làm cái này có xung đột thì báo tôi)"*. Đã báo xung đột: PiP hệ thống bỏ từ 1.3.751 ⇒ "pip" = cửa sổ phim nhỏ trong app; đảo thiết kế 1.3.744 (trang đè lên màn xem, ‹ về màn xem). Anh Bửu duyệt.
-
-- Màn xem phim: bấm nhãn thể loại, thể loại trong sheet Thông tin hoặc "Xem thêm ›" của nhóm đề xuất lúc màn đang phát phim của nó (không phải phim nhúng trang) ⇒ khung phim co vào **cửa sổ nhỏ** trong app (đang ngang / toàn màn thì xoay về dọc trước), màn xem đóng rồi mới mở trang danh sách. Chạm cửa sổ nhỏ để mở lại màn xem (nằm trên trang, đóng màn là về trang).
-- Màn đang hiện bìa (phim khác chạy nền) hoặc phim nhúng trang: giữ kiểu cũ — trang đè lên màn xem, chọn phim thì đổi tại chỗ. Chi tiết của đề xuất không phải phim giữ nguyên.
-- Trang mở sau khi màn xem đóng: chọn một phim ⇒ đóng trang rồi mở màn xem mới theo lối thường; truyện chữ / tranh vẫn đẩy Chi tiết trong trang. Nút ‹ đọc "Quay lại" (trang đè lên màn xem vẫn là "Quay lại màn xem phim").
-- Ba lối đi chung `VideoWatchExit.openCategory`; `VideoWatchPagePresenter` chỉ coi là "đang che màn xem" trang mở đè lên màn (nút âm lượng cứng, đóng màn xem không đụng trang nằm dưới), nút ‹ và lượt chọn phim đóng đúng trang của mình. Lối rời màn tách sang `VideoPlayerScreen+Exit`.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự co vào cửa sổ nhỏ → đóng màn → mở trang; khoá máy đúng lúc khung phim đang co.
 

@@ -160,6 +160,8 @@ extension AudioPlaybackSession {
             phase = .paused
             syncMiniPlayerState()
             publishNowPlaying()
+            // Công tắc "Tự phát bài gợi ý" bật ⇒ phát mục gợi ý đầu tiên của nguồn.
+            AudioAutoNextCoordinator.shared.albumDidEnd(in: self)
             return
         }
         if let position = currentOrderPosition, position + 1 >= playOrder.count {

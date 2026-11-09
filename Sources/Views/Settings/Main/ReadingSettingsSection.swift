@@ -3,7 +3,8 @@ import SwiftUI
 /// Section "Đọc & Nghe" của tab Cài đặt (1.3.520): mỗi nhóm cài đặt là **một dòng** dẫn vào màn riêng, chữ phụ
 /// bên phải là trạng thái hiện tại. Đọc trạng thái qua `@AppStorage` (cùng khoá các màn con ghi) — không
 /// observe `TTSManager` (View không được observe trực tiếp manager). Cài đặt phim ("Tự phát khi mở phim", "Tắt tiếng khi
-/// mở phim", vuốt xuống trình phát) nằm ở màn riêng `VideoSettingsView` (1.3.740). Ngoại lệ là công tắc "Mở lại truyện
+/// mở phim", vuốt xuống trình phát) nằm ở màn riêng `VideoSettingsView` (1.3.740), trình nghe âm thanh ở
+/// `AudioSettingsView` (1.3.798). Ngoại lệ là công tắc "Mở lại truyện
 /// đọc gần nhất" (1.3.716, `ReaderSessionRestoreStore`) nằm ngay trong section, giải thích ở nút "?" của tiêu đề.
 struct ReadingSettingsSection: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -51,6 +52,9 @@ struct ReadingSettingsSection: View {
             }
             NavigationLink(destination: VideoSettingsView()) {
                 Label("Video", systemImage: "play.rectangle")
+            }
+            NavigationLink(destination: AudioSettingsView()) {
+                Label("Âm thanh", systemImage: "music.note")
             }
             Toggle(isOn: $restoresReaderOnLaunch) {
                 Label("Mở lại truyện đọc gần nhất", systemImage: "arrow.uturn.backward.circle")

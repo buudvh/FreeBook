@@ -72,7 +72,7 @@ struct AudioPlayerScreen: View {
                     )
                     .audioMinimizeDrag(drag) { minimize(bySwipe: true) }
                     AudioPageIndicator(selection: $page)
-                    pages
+                    pages.overlay(alignment: .top) { AudioPlaybackNoticeBanner().padding(.top, 6) }
                 }
             }
         }

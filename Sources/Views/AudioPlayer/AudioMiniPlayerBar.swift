@@ -15,6 +15,8 @@ struct AudioMiniPlayerBar: View {
     var body: some View {
         if state.isActive, !state.isScreenPresented {
             bar
+                // Dòng báo "Tự sang: <tên>" nằm ngay trên thanh (đáy viên thuốc cách mép trên thanh 6 pt).
+                .overlay(alignment: .top) { AudioPlaybackNoticeBanner().alignmentGuide(.top) { $0[.bottom] + 6 } }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

@@ -294,7 +294,9 @@ final class AudioPlaybackSession {
 
     /// Thân chung của `stop()` và `stopForTTS()` (`+AudioSession`). `handingOverToTTS`: TTS đang giành phiên — không dựng
     /// lại lệnh / Now Playing của TTS và không tắt `AVAudioSession` (TTS vừa cấu hình nó).
-    func stopSession(handingOverToTTS: Bool) {
+    /// `keepsPlaybackSession` (chỉ `AudioAutoNextCoordinator`, ngay trước `open` album gợi ý): giữ màn khoá + phiên âm
+    /// thanh + cầu nối mini — ở nền, tắt `AVAudioSession` rồi bật lại có thể không phát được nữa.
+    func stopSession(handingOverToTTS: Bool, keepsPlaybackSession: Bool = false) {
         guard isActive else {
             AudioMiniPlayerState.shared.reset()
             return
@@ -324,14 +326,15 @@ final class AudioPlaybackSession {
         resetState()
         sleepTimer.reset()
         AudioPlaybackFlag.set(false)
-        AudioNowPlayingCoordinator.shared.release(handBackToTTS: !handingOverToTTS)
+        if !keepsPlaybackSession { AudioNowPlayingCoordinator.shared.release(handBackToTTS: !handingOverToTTS) }
         if handingOverToTTS {
             // Phiên âm thanh dùng chung giờ là của TTS: chỉ bỏ cờ, tắt lúc này là TTS câm.
             didActivateAudioSession = false
-        } else {
+        } else if !keepsPlaybackSession {
             deactivateAudioSessionIfIdle()
         }
-        AudioMiniPlayerState.shared.reset()
+        // Giữ cầu nối mini: `open` ngay sau ghi đè hết — reset ở giữa làm hub nhận một nhịp `isActive == false`.
+        if !keepsPlaybackSession { AudioMiniPlayerState.shared.reset() }
         AppLogger.shared.log("🎵 [AudioPlayer] Đóng trình nghe (bookId=\(stoppedId)\(handingOverToTTS ? ", nhường TTS" : ""))")
     }
 
