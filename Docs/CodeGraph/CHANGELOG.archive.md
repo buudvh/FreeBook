@@ -2,6 +2,15 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.776] - 2026-11-07
+
+### feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang
+
+Người dùng: *"phần genres ở trình xem video (thanh các tag dạng #tên tag) hãy hiển thị đầy đủ trên 1 hàng, không đủ thì scroll ngang"*.
+
+- `VideoWatchTitleBlock`: hàng nhãn `#ThểLoại` hiện **mọi** thể loại (bỏ giới hạn 4), mỗi nhãn đủ chữ (bỏ cắt đuôi), nằm trong `ScrollView` ngang không thanh cuộn; hàng cuộn tràn sát hai mép màn, nhãn đầu vẫn thẳng lề 16 với tên phim.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.775] - 2026-11-07
 
 ### feat: nút Home của màn xem phim thu phim vào cửa sổ nhỏ hay hub theo cài đặt vuốt xuống

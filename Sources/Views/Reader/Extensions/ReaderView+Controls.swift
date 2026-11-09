@@ -203,10 +203,15 @@ extension ReaderView {
     }
 
     /// Cột nút nổi góc dưới phải: nút đĩa nhạc (chỉ khi có album đang mở — `ReaderAudioDiscButton`, view riêng nên Reader
-    /// không vẽ lại theo tiến độ bài) ngay trên nút tai nghe. Nút tai nghe giữ đúng chỗ cũ.
+    /// không vẽ lại theo tiến độ bài) hoặc nút đĩa TTS (kiểu widget Thanh nghe nhạc, thanh đang thu gọn —
+    /// `ReaderTTSDiscButton`, 1.3.806) ngay trên nút tai nghe. Nhạc và TTS không cùng phát ⇒ mỗi lúc tối đa một đĩa.
     internal func readerEdgeControls(geometry: GeometryProxy) -> some View {
         VStack(alignment: .trailing, spacing: 0) {
             ReaderAudioDiscButton(
+                isDark: selectedTheme == .dark,
+                tint: selectedTheme.textColor.opacity(0.9)
+            )
+            ReaderTTSDiscButton(
                 isDark: selectedTheme == .dark,
                 tint: selectedTheme.textColor.opacity(0.9)
             )

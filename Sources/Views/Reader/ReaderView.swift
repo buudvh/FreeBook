@@ -974,7 +974,8 @@ struct ReaderView: View {
                     readerEdgeControls(geometry: geometry)
                 }
 
-                Spacer().frame(height: 52)
+                // Thanh TTS bung trong Reader (kiểu Thanh nghe nhạc) ⇒ chừa đúng chỗ của thanh, chữ không bị che.
+                ReaderTTSBarBottomSpacer(baseHeight: 52)
             }
 
             ReaderHeaderFooterOverlayView(

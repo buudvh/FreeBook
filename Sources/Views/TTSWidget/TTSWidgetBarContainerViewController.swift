@@ -9,6 +9,8 @@ import UIKit
 ///   kéo đổi chỗ được (1.3.799, anh Bửu: cố định vị trí); khoá vị trí cũ `ttsWidgetBarBottomGap` /
 ///   `ttsWidgetBarPillBottomGap` bỏ qua.
 /// - **Viên thu gọn** nép sát mép phải vùng an toàn, ngang tâm thanh, cũng không kéo được.
+/// - **Trong Reader** (1.3.806): thu gọn ⇒ viên ẩn (alpha 0, chạm xuyên), Reader hiện nút đĩa TTS; bung ⇒ thanh hạ sát đáy,
+///   Reader chừa chỗ (`TTSWidgetBarPresence`).
 /// - Vuốt thanh **ngang** quá 64 pt (hoặc vuốt nhanh) ⇒ thu gọn — cử chỉ duy nhất ở UIKit. Không có tap recognizer: chạm
 ///   nút / đĩa / chữ là nút SwiftUI.
 /// - Mọi khung kẹp trong vùng an toàn; `widgetContainerView` = đúng khung thanh/viên ⇒ cửa sổ chỉ nhận chạm trong đó.
@@ -70,9 +72,8 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
         widgetContainerView.addGestureRecognizer(pan)
         panGesture = pan
 
-        // `@Published` phát ở willSet ⇒ đặt khung ở lượt sau, lúc `isCollapsed` đã là giá trị mới.
-        model.$isCollapsed
-            .removeDuplicates()
+        // `@Published` phát ở willSet ⇒ đặt khung ở lượt sau, lúc `isCollapsed` / `isReaderVisible` đã là giá trị mới.
+        Publishers.CombineLatest(model.$isCollapsed.removeDuplicates(), model.$isReaderVisible.removeDuplicates())
             .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -113,19 +114,22 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
     }
 
     func reveal(animated: Bool) {
-        model.expandByUser()
+        model.revealRequested()
         updateLayoutForCurrentMode(animated: animated)
     }
 
     func updateLayoutForCurrentMode(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
         let frame = restingFrame()
-        registerSlot(frame: frame)
+        let hidesPill = hidesPillInReader
+        registerSlot(frame: frame, hidesPill: hidesPill)
 
         let applyLayout = {
             self.widgetContainerView.bounds = CGRect(origin: .zero, size: frame.size)
             self.widgetContainerView.center = CGPoint(x: frame.midX, y: frame.midY)
             self.hostingController?.view.frame = self.widgetContainerView.bounds
+            // Alpha 0 ⇒ `FloatingWidgetUIWindow.hitTest` trả nil: chạm xuyên xuống Reader.
+            self.widgetContainerView.alpha = hidesPill ? 0 : 1
             self.view.layoutIfNeeded()
         }
 
@@ -150,9 +154,18 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
         model.isCollapsed ? TTSWidgetBarPillView.height : MiniPlayerBarChrome.height
     }
 
+    /// Thu gọn trong Reader (1.3.806): không hiện viên — Reader có nút đĩa TTS trên nút tai nghe (`ReaderTTSDiscButton`).
+    private var hidesPillInReader: Bool {
+        model.isCollapsed && model.isReaderVisible
+    }
+
     /// Khoảng từ mép dưới widget tới mép dưới vùng an toàn — **cố định**: thanh ngay trên `MainTabBar` như
-    /// `AudioMiniPlayerBar` (khe 6 pt), viên ngang tâm thanh.
+    /// `AudioMiniPlayerBar` (khe 6 pt), viên ngang tâm thanh. Trong Reader (không có thanh tab) thanh bung nằm **sát đáy**,
+    /// thấp hơn nút tai nghe; Reader chừa chỗ theo `TTSWidgetBarPresence.readerBottomInset` nên không che chữ.
     private var fixedBottomGap: CGFloat {
+        if model.isReaderVisible, !model.isCollapsed {
+            return TTSWidgetBarPresence.readerBarBottomGap
+        }
         let barGap = MainTabBar.barHeight + Layout.tabBarGap
         guard model.isCollapsed else { return barGap }
         return barGap + (MiniPlayerBarChrome.height - TTSWidgetBarPillView.height) / 2
@@ -193,9 +206,10 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
 
     /// Viên giữ chỗ mép phải; thanh gỡ chỗ. Cửa sổ đang ẩn (TTS dừng) thì không mở chỗ — cờ Reader vẫn có thể đổi dạng
     /// lúc đó, nút hub không được né một viên không có trên màn.
-    private func registerSlot(frame: CGRect) {
+    private func registerSlot(frame: CGRect, hidesPill: Bool) {
         let coordinator = FloatingWidgetLayoutCoordinator.shared
-        guard model.isCollapsed else {
+        // Viên đang ẩn (trong Reader) không giữ chỗ — nút hub không né một viên không có trên màn.
+        guard model.isCollapsed, !hidesPill else {
             coordinator.unregister(.tts)
             needsSlotClaim = true
             return

@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.806] - 2026-11-09
+
+### feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ
+
+Anh Bửu: *"kiểu widget tts thanh nghe nhạc bạn làm thiếu đĩa xoay tròn ở reader"*, chọn "nút đĩa như nhạc", rồi *"để cho thanh nghe nhạc thấp hơn nút nghe truyện. Đừng che nội dung truyện"* và *"bấm vào đĩa ở reader thì hiển thị sheet"* (mockup duyệt 2026-11-09).
+
+- **Cầu nối** `TTSWidgetBarPresence` (`Views/TTSWidget/`): gộp trạng thái thu gọn của thanh (`TTSWidgetBarViewModel` ghi qua `didSet`), cửa sổ widget đang hiện và kiểu widget thành hai cờ cho Reader: `showsReaderDisc` (thanh thu gọn) và `readerBottomInset` (thanh bung). Reader không đọc thẳng view model của container hay `TTSManager`.
+- **Trong Reader, thanh thu gọn ⇒ không còn viên nép mép**: `TTSWidgetBarContainerViewController` để viên alpha 0 (cửa sổ chạm xuyên) và không giữ chỗ ở `FloatingWidgetLayoutCoordinator`; thay bằng `ReaderTTSDiscButton` ngay trên nút tai nghe, cùng chỗ / dáng nút đĩa nhạc (52 pt, kính `FloatingGlassBackground`, bìa truyện xoay theo góc chung `TTSWidgetCoverRotation`).
+- **Chạm đĩa ⇒ `TTSQuickControlSheet`** (khuôn sheet nhạc, nền kính ngăn kéo): đĩa bìa · tên truyện + tên chương · ⏱ (đang hẹn ⇒ giờ còn lại màu nhấn, mở `TTSQuickTimerSheet`); câu đang đọc + vạch "Đoạn N / M đoạn" (`TTSQuickControlNowReading`, chỉ khối này vẽ lại theo đoạn); ⏮ đoạn trước · ⏯ · ⏭ đoạn kế; Mục lục (`TTSQuickTimerSheet(initialTab: 1)`) · Giọng đọc (Cài đặt TTS, state riêng — không qua `showingSettingsSheet` để không tranh host với sheet Hẹn giờ) · Tắt đọc. Không bung thanh.
+- **Bấm tai nghe bắt đầu đọc trong Reader giữ thu gọn** khi bật "Thu gọn khi mở Reader" (`TTSWidgetBarViewModel.revealRequested`; trước đây `reveal` bung thanh đè lên chữ).
+- **Thanh bung trong Reader** (tắt "Thu gọn khi mở Reader"): nằm sát đáy (khe 6 pt, `readerBarBottomGap`), thấp hơn nút tai nghe; `ReaderTTSBarBottomSpacer` thay khoảng đáy 52 pt của `ReaderView` bằng chiều cao thanh + khe ⇒ chữ dừng ngay trên thanh, nút tai nghe đẩy lên trên thanh. Ra khỏi Reader như cũ (thanh trên thanh tab, viên nép mép).
+- Nền kính của sheet nhạc tách ra `DrawerGlassSheetBackground` (`Views/Common/GlassChrome/`), sheet nhạc và sheet TTS dùng chung.
+- **Kiểm chứng:** đọc code + grep chéo chữ ký (`TTSQuickTimerSheet()` vẫn gọi được nhờ tham số mặc định, `registerSlot` chỉ một chỗ gọi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.805] - 2026-11-09
 
 ### feat: phát playlist nhạc và video, hết bài hoặc tập sang mục kế, lặp và xáo cả playlist, bỏ qua mục hỏng
@@ -374,13 +388,4 @@ Người dùng: *"ở mọi nơi, chỉ cần nhấn nút home thì phải tắt
 - Mọi lối Home nổi (nút tròn của trang con, pill "Về trang gốc" trong menu "+", FAB Chi tiết, trang đè lên màn xem phim) chạy luật chung `VideoLeaveToHubCoordinator.applyLeaveRules` **trước** khi về trang gốc tab: công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang nguồn không 18+), phim 18+ đang phát tắt tiếng theo "Tắt tiếng khi mở phim" — như nút Home của màn xem phim. Gắn một chỗ ở `FloatingHomePlacement.homeAction`.
 - `keepsPlacement`: phim đang ở cửa sổ nhỏ / vừa thu nhỏ theo cài đặt vuốt xuống giữ nguyên chỗ, guard NSFW không kéo vào hub.
 - `CLAUDE.md` / `AGENTS.md` mục quy ước UI.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.776] - 2026-11-07
-
-### feat: hàng thể loại ở màn xem phim hiện đủ trên một hàng, thiếu chỗ thì cuộn ngang
-
-Người dùng: *"phần genres ở trình xem video (thanh các tag dạng #tên tag) hãy hiển thị đầy đủ trên 1 hàng, không đủ thì scroll ngang"*.
-
-- `VideoWatchTitleBlock`: hàng nhãn `#ThểLoại` hiện **mọi** thể loại (bỏ giới hạn 4), mỗi nhãn đủ chữ (bỏ cắt đuôi), nằm trong `ScrollView` ngang không thanh cuộn; hàng cuộn tràn sát hai mép màn, nhãn đầu vẫn thẳng lề 16 với tên phim.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.

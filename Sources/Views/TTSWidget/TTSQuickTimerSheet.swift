@@ -10,8 +10,13 @@ import UIKit
 struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var ttsManager = TTSManager.shared
-    @State private var selectedTab: Int = 0 // 0: Hẹn giờ tắt, 1: Danh sách chương
+    @State private var selectedTab: Int // 0: Hẹn giờ tắt, 1: Danh sách chương
     @State private var customMinutes: Double = 90.0
+
+    /// `initialTab` 1 ⇒ mở thẳng tab Danh sách chương (nút "Mục lục" của `TTSQuickControlSheet`, 1.3.806).
+    init(initialTab: Int = 0) {
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     /// Dải trên cùng: thanh kéo của sheet hệ thống + nút ⚙ (vòng 28pt, vùng chạm 38×38) — header bắt đầu ngay dưới
     /// nên nút không lấn bề ngang của tên truyện.

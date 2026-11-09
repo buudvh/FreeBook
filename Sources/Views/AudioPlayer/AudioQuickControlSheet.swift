@@ -9,7 +9,7 @@ import SwiftUI
 /// - Thanh tua (`AudioPlayerSeekRow`) + cụm nút Xáo · ⏮ · ⏯ · ⏭ · Lặp (`AudioTransportControls(.full)`) của màn nghe.
 /// - Hàng dưới: Danh sách / Lời (mở màn nghe ở trang đó) · Tắt nhạc.
 ///
-/// Nền là kính theo Cài đặt › Chung › Giao diện **của ngăn kéo menu** (`GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo
+/// Nền là kính theo Cài đặt › Chung › Giao diện **của ngăn kéo menu** (`DrawerGlassSheetBackground`, `GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo
 /// `…` của Reader, luôn tông tối) ⇒ nội dung vẽ ở `colorScheme` tối: chữ `.primary` / `.secondary`, còn thanh tua và cụm nút
 /// dùng lại của màn nghe (vốn tông trắng trên nền tối). Điểm nhấn = màu nhấn app (`.appAccentTint()` — Reader không luôn
 /// nằm trong `MainTabView`).
@@ -52,7 +52,7 @@ struct AudioQuickControlSheet: View {
             .presentationDetents(detents)
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(16)
-            .presentationBackground { GlassBackground() }
+            .presentationBackground { DrawerGlassSheetBackground() }
             .sheet(isPresented: $showingSleepTimer) {
                 MediaSleepTimerSheet(timer: session.sleepTimer)
             }
@@ -207,30 +207,6 @@ struct AudioQuickControlSheet: View {
         static let defaultValue: CGFloat = 0
         static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
             value = max(value, nextValue())
-        }
-    }
-
-    /// Kính của ngăn kéo menu (`SideDrawerGlassBackground`) nhưng hình chữ nhật phủ hết sheet (sheet tự bo góc): nấc kính
-    /// iOS + lớp tối theo "Độ trong suốt" / "Độ đục" của ngăn kéo. Không gắn `.opacity` lên lớp kính (kính chỉ nhoè khi
-    /// hiện đủ 100%).
-    private struct GlassBackground: View {
-        @AppStorage(GlassChromeSettings.drawerTransparencyKey)
-        private var transparency = GlassChromeSettings.defaultDrawerTransparency
-        @AppStorage(GlassChromeSettings.drawerFrostKey)
-        private var frost = GlassChromeSettings.defaultDrawerFrost
-
-        var body: some View {
-            ZStack {
-                if let material = GlassFrostLevel(frost: frost).material {
-                    Rectangle()
-                        .fill(material)
-                        .environment(\.colorScheme, .dark)
-                }
-                Rectangle()
-                    .fill(Color(white: 0.16).opacity(1 - transparency))
-            }
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
         }
     }
 }

@@ -8,7 +8,8 @@ import Foundation
 /// ## Thu gọn
 /// - Hiển thị thu gọn = người dùng chọn thu (`userCollapsed`, **nhớ** qua khoá `ttsWidgetBarCollapsed`) **hoặc** Reader đang
 ///   hiện mà bật "Thu gọn khi mở Reader" (`readerForcedCollapse`, **không** nhớ). Ra khỏi Reader thì cờ Reader tắt ⇒ về lại
-///   đúng lựa chọn trước đó (đang bung thì bung lại). Chạm đĩa để bung trong Reader ⇒ bỏ cờ Reader tới khi rời Reader.
+///   đúng lựa chọn trước đó (đang bung thì bung lại). Trong Reader không có viên (1.3.806): thu gọn = nút đĩa TTS của Reader
+///   (chạm mở sheet điều khiển nhanh, không bung thanh); bấm tai nghe bắt đầu đọc cũng giữ thu gọn (`revealRequested`).
 /// - "Tự thu gọn sau 5 giây": đang bung mà 5 giây không chạm nút nào / không vuốt ⇒ thu (tính như người dùng thu). Đang mở
 ///   sheet Hẹn giờ thì không đếm, đóng sheet đếm lại từ đầu.
 @MainActor
@@ -16,7 +17,12 @@ final class TTSWidgetBarViewModel: ObservableObject {
     nonisolated static let collapsedKey = "ttsWidgetBarCollapsed"
     nonisolated static let autoCollapseDelay: UInt64 = 5_000_000_000
 
-    @Published private(set) var isCollapsed: Bool
+    @Published private(set) var isCollapsed: Bool {
+        didSet { TTSWidgetBarPresence.shared.updateBarCollapsed(isCollapsed) }
+    }
+    /// Reader đang hiện (1.3.806): thu gọn thì container **ẩn** viên nép mép (Reader có nút đĩa TTS thay), bung thì thanh hạ
+    /// xuống sát đáy (Reader chừa chỗ theo `TTSWidgetBarPresence.readerBottomInset`).
+    @Published private(set) var isReaderVisible: Bool
     /// Sheet Hẹn giờ (`TTSQuickTimerSheet`) — gắn ở gốc nội dung nên thu/bung không làm mất sheet.
     @Published var isTimerSheetPresented = false {
         didSet {
@@ -44,10 +50,14 @@ final class TTSWidgetBarViewModel: ObservableObject {
         let collapsed = defaults.bool(forKey: Self.collapsedKey)
         // Đọc cờ Reader ngay (không chờ lượt phát của publisher) — widget thường được dựng lúc bấm nghe **trong** Reader,
         // chờ thì thanh hiện bung rồi mới co lại.
-        let forced = ReaderPresenceTracker.shared.isReaderVisible && TTSWidgetPreferences.shared.collapsesInReader
+        let readerVisible = ReaderPresenceTracker.shared.isReaderVisible
+        let forced = readerVisible && TTSWidgetPreferences.shared.collapsesInReader
         userCollapsed = collapsed
         readerForcedCollapse = forced
         isCollapsed = collapsed || forced
+        isReaderVisible = readerVisible
+        // `didSet` không chạy trong `init` ⇒ báo cầu nối lần đầu bằng tay.
+        TTSWidgetBarPresence.shared.updateBarCollapsed(collapsed || forced)
 
         // `@Published` phát ở willSet ⇒ dùng giá trị được phát ra.
         ReaderPresenceTracker.shared.$isReaderVisible
@@ -89,8 +99,17 @@ final class TTSWidgetBarViewModel: ObservableObject {
         setUserCollapsed(true)
     }
 
-    /// Chạm đĩa của viên thu gọn (hoặc window manager yêu cầu mở rộng). Trong Reader thì bỏ cờ thu gọn của Reader tới khi
-    /// rời Reader.
+    /// Window manager yêu cầu mở rộng (Reader bấm tai nghe bắt đầu đọc — `requestRevealOnNextShow`). Đang trong Reader mà
+    /// bật "Thu gọn khi mở Reader" ⇒ giữ thu gọn (Reader hiện nút đĩa TTS); còn lại bung như chạm đĩa của viên.
+    func revealRequested() {
+        if isReaderVisible, preferences.collapsesInReader {
+            restartAutoCollapseTimer()
+            return
+        }
+        expandByUser()
+    }
+
+    /// Chạm đĩa của viên thu gọn (ngoài Reader). Trong Reader thì bỏ cờ thu gọn của Reader tới khi rời Reader.
     func expandByUser() {
         readerForcedCollapse = false
         setUserCollapsed(false)
@@ -106,6 +125,7 @@ final class TTSWidgetBarViewModel: ObservableObject {
     }
 
     private func handleReaderVisibility(_ visible: Bool) {
+        if visible != isReaderVisible { isReaderVisible = visible }
         let forced = visible && preferences.collapsesInReader
         guard forced != readerForcedCollapse else { return }
         readerForcedCollapse = forced
