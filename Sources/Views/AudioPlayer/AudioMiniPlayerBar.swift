@@ -72,7 +72,7 @@ struct AudioMiniPlayerBar: View {
                 state.onStop?()
             }
         }
-        // Dáng chung với kiểu "Thanh nghe nhạc" của widget TTS (1.3.796): 56 pt, bo 14, nền kính, vạch tiến độ trên.
+        // Dáng chung, giống hệt kiểu "Thanh nghe nhạc" của widget TTS (1.3.796): 56 pt, bo 14, nền đặc tối (1.3.799), vạch tiến độ.
         .miniPlayerBarChrome {
             MiniPlayerProgressLine(fraction: state.progress)
         }

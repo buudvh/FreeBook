@@ -28,7 +28,7 @@ struct TTSWidgetSettingsView: View {
             } header: {
                 SectionHelpHeader("Kiểu widget", paragraphs: [
                     "**Đĩa nổi**: đĩa bìa nép mép màn hình, chạm để bung nút điều khiển, tự ẩn sau 3 giây. Kéo đi đâu cũng được.",
-                    "**Thanh nghe nhạc**: thanh như thanh nghe nhạc, nằm ngay trên thanh tab: bìa, tên truyện, chương đang đọc, phút hẹn giờ còn lại, nút ⏯ ⏭ ⏱ ✕. Chạm bìa hoặc chữ để mở chương đang đọc. Kéo lên xuống để đổi chỗ.",
+                    "**Thanh nghe nhạc**: thanh như thanh nghe nhạc, nằm ngay trên thanh tab: bìa, tên truyện, chương đang đọc, phút hẹn giờ còn lại, nút ⏯ ⏭ ⏱ ✕. Chạm bìa hoặc chữ để mở chương đang đọc. Thanh đứng cố định ở chỗ thanh nghe nhạc, nền đặc như thanh nghe nhạc.",
                     "Bấm » ở mép phải (hoặc vuốt thanh sang ngang) để thu gọn thành viên nép mép phải; chạm đĩa để bung lại."
                 ])
             }

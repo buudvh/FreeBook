@@ -4,15 +4,17 @@ import UIKit
 
 /// Root view controller của cửa sổ widget TTS khi chọn kiểu **Thanh nghe nhạc** (1.3.796). Cùng cửa sổ, cùng luật hiện/ẩn
 /// với kiểu Đĩa nổi (`TTSFloatingWidgetWindowManager`); chỉ khác khung và cử chỉ:
-/// - **Thanh** rộng hết bề ngang vùng an toàn trừ lề 8 pt (như thanh phát mini nghe nhạc), mặc định ngay trên `MainTabBar`
-///   — đúng chỗ thanh nghe nhạc đứng; nhạc và TTS không bao giờ cùng phát (1.3.791) nên không đè nhau.
-/// - **Viên thu gọn** nép sát mép phải vùng an toàn.
-/// - Kéo **dọc** để đổi chỗ (thả tay thì nhớ, mỗi dạng một chỗ); vuốt thanh **ngang** quá 64 pt (hoặc vuốt nhanh) ⇒ thu
-///   gọn. Viên chỉ kéo dọc. Không có tap recognizer ở UIKit: chạm nút / đĩa / chữ là nút SwiftUI.
+/// - **Thanh** rộng hết bề ngang vùng an toàn trừ lề 8 pt (như thanh phát mini nghe nhạc), **cố định** ngay trên
+///   `MainTabBar` — đúng chỗ thanh nghe nhạc đứng; nhạc và TTS không bao giờ cùng phát (1.3.791) nên không đè nhau. Không
+///   kéo đổi chỗ được (1.3.799, anh Bửu: cố định vị trí); khoá vị trí cũ `ttsWidgetBarBottomGap` /
+///   `ttsWidgetBarPillBottomGap` bỏ qua.
+/// - **Viên thu gọn** nép sát mép phải vùng an toàn, ngang tâm thanh, cũng không kéo được.
+/// - Vuốt thanh **ngang** quá 64 pt (hoặc vuốt nhanh) ⇒ thu gọn — cử chỉ duy nhất ở UIKit. Không có tap recognizer: chạm
+///   nút / đĩa / chữ là nút SwiftUI.
 /// - Mọi khung kẹp trong vùng an toàn; `widgetContainerView` = đúng khung thanh/viên ⇒ cửa sổ chỉ nhận chạm trong đó.
 ///
-/// Giữ chỗ với widget nổi khác (`FloatingWidgetLayoutCoordinator`): viên giữ chỗ mép phải (không tự dời); thanh rộng cả
-/// hai mép nên không giữ chỗ (gỡ `.tts`). Nút hub tự né chỗ của viên khi nó được thả / hiện ra.
+/// Giữ chỗ với widget nổi khác (`FloatingWidgetLayoutCoordinator`): viên giữ chỗ mép phải (không dời); thanh rộng cả hai
+/// mép nên không giữ chỗ (gỡ `.tts`). Nút hub tự né chỗ của viên khi nó được thả / hiện ra.
 @MainActor
 final class TTSWidgetBarContainerViewController: UIViewController, UIGestureRecognizerDelegate,
     TTSFloatingWidgetContaining {
@@ -21,23 +23,17 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
     private let model = TTSWidgetBarViewModel()
     private var hostingController: UIHostingController<AnyView>?
     private var panGesture: UIPanGestureRecognizer?
-    private var panAxis: PanAxis = .vertical
     private var panStartCenter: CGPoint = .zero
     /// Viên cần **mở** chỗ ở `FloatingWidgetLayoutCoordinator` (chỉ `resolve` mở được; `refresh` chỉ cập nhật chỗ đã có):
     /// lúc mới dựng, lúc widget hiện lại (window manager đã gỡ chỗ khi ẩn), lúc vừa thu gọn.
     private var needsSlotClaim = true
     private var cancellables = Set<AnyCancellable>()
 
-    private enum PanAxis {
-        case vertical
-        case horizontal
-    }
-
     private enum Layout {
         static let sideMargin: CGFloat = 8
         /// Khe giữa thanh và `MainTabBar` — bằng khe dưới của `AudioMiniPlayerBar`.
         static let tabBarGap: CGFloat = 6
-        /// Lề tối thiểu tới mép trên / dưới vùng an toàn.
+        /// Lề tối thiểu tới mép trên / dưới vùng an toàn (màn ngang quá thấp thì kẹp).
         static let edgeMargin: CGFloat = 4
         static let collapseSwipeDistance: CGFloat = 64
         static let collapseSwipeVelocity: CGFloat = 700
@@ -154,16 +150,12 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
         model.isCollapsed ? TTSWidgetBarPillView.height : MiniPlayerBarChrome.height
     }
 
-    /// Mặc định của thanh: ngay trên `MainTabBar`, như `AudioMiniPlayerBar` (khe 6 pt).
-    private var defaultBarGap: CGFloat {
-        MainTabBar.barHeight + Layout.tabBarGap
-    }
-
-    /// Khoảng từ mép dưới widget tới mép dưới vùng an toàn — đã lưu, hoặc mặc định (viên: ngang tâm thanh).
-    private var storedBottomGap: CGFloat {
-        let barGap = model.barBottomGap ?? defaultBarGap
+    /// Khoảng từ mép dưới widget tới mép dưới vùng an toàn — **cố định**: thanh ngay trên `MainTabBar` như
+    /// `AudioMiniPlayerBar` (khe 6 pt), viên ngang tâm thanh.
+    private var fixedBottomGap: CGFloat {
+        let barGap = MainTabBar.barHeight + Layout.tabBarGap
         guard model.isCollapsed else { return barGap }
-        return model.pillBottomGap ?? (barGap + (MiniPlayerBarChrome.height - TTSWidgetBarPillView.height) / 2)
+        return barGap + (MiniPlayerBarChrome.height - TTSWidgetBarPillView.height) / 2
     }
 
     /// Khoảng đáy hợp lệ để widget cao `height` nằm trọn trong vùng an toàn (chừa `edgeMargin` hai đầu).
@@ -188,7 +180,7 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
         let bounds = view.bounds
         let insets = view.safeAreaInsets
         let height = currentHeight
-        let gap = clampedBottomGap(storedBottomGap, height: height)
+        let gap = clampedBottomGap(fixedBottomGap, height: height)
         let originY = centerY(forBottomGap: gap, height: height) - height / 2
 
         if model.isCollapsed {
@@ -211,7 +203,7 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
         guard let window = view.window, !window.isHidden else { return }
         if needsSlotClaim {
             needsSlotClaim = false
-            // Viên không nhường (đứng đúng chỗ người dùng đặt): khoảng tìm chỉ một điểm ⇒ `resolve` chỉ để mở chỗ,
+            // Viên không nhường (chỗ cố định): khoảng tìm chỉ một điểm ⇒ `resolve` chỉ để mở chỗ,
             // cạnh / tâm thật ghi lại ngay bằng `refresh` bên dưới.
             _ = coordinator.resolve(
                 id: .tts,
@@ -227,63 +219,39 @@ final class TTSWidgetBarContainerViewController: UIViewController, UIGestureReco
 
     // MARK: - Cử chỉ
 
+    /// Vuốt thanh sang ngang: thanh đi theo tay theo chiều ngang (không đổi độ cao); thả quá ngưỡng ⇒ thu gọn, chưa tới ⇒
+    /// trượt về chỗ cũ.
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
-            let velocity = gesture.velocity(in: view)
-            panAxis = (!model.isCollapsed && abs(velocity.x) > abs(velocity.y)) ? .horizontal : .vertical
             panStartCenter = widgetContainerView.center
             model.beginDrag()
         case .changed:
             let translation = gesture.translation(in: view)
-            switch panAxis {
-            case .vertical:
-                let height = widgetContainerView.bounds.height
-                let range = bottomGapRange(height: height)
-                let minY = centerY(forBottomGap: range.upperBound, height: height)
-                let maxY = centerY(forBottomGap: range.lowerBound, height: height)
-                let y = min(max(panStartCenter.y + translation.y, minY), maxY)
-                widgetContainerView.center = CGPoint(x: panStartCenter.x, y: y)
-            case .horizontal:
-                widgetContainerView.center = CGPoint(x: panStartCenter.x + translation.x, y: panStartCenter.y)
-            }
+            widgetContainerView.center = CGPoint(x: panStartCenter.x + translation.x, y: panStartCenter.y)
         case .ended, .cancelled, .failed:
-            finishPan(gesture)
+            model.endDrag()
+            let translation = gesture.translation(in: view).x
+            let velocity = gesture.velocity(in: view).x
+            if gesture.state == .ended,
+               abs(translation) > Layout.collapseSwipeDistance || abs(velocity) > Layout.collapseSwipeVelocity {
+                model.collapseByUser()
+            }
+            updateLayoutForCurrentMode(animated: true)
         default:
             break
         }
     }
 
-    private func finishPan(_ gesture: UIPanGestureRecognizer) {
-        let didEnd = gesture.state == .ended
-        switch panAxis {
-        case .vertical:
-            var gap: CGFloat?
-            if didEnd {
-                let height = widgetContainerView.bounds.height
-                let raw = view.bounds.height - view.safeAreaInsets.bottom - (widgetContainerView.center.y + height / 2)
-                gap = clampedBottomGap(raw, height: height)
-            }
-            model.endDrag(savingBottomGap: gap)
-        case .horizontal:
-            model.endDrag(savingBottomGap: nil)
-            let translation = gesture.translation(in: view).x
-            let velocity = gesture.velocity(in: view).x
-            if didEnd, abs(translation) > Layout.collapseSwipeDistance || abs(velocity) > Layout.collapseSwipeVelocity {
-                model.collapseByUser()
-            }
-        }
-        updateLayoutForCurrentMode(animated: true)
-    }
-
     // MARK: - UIGestureRecognizerDelegate
 
-    /// Viên thu gọn chỉ kéo dọc; vuốt ngang trên viên không làm gì.
+    /// Chỉ vuốt **ngang** trên thanh đang bung mới bắt đầu (vị trí cố định — không kéo dọc); viên thu gọn không có cử chỉ.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === panGesture, model.isCollapsed,
+        guard gestureRecognizer === panGesture,
               let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        guard !model.isCollapsed else { return false }
         let velocity = pan.velocity(in: view)
-        return abs(velocity.y) >= abs(velocity.x)
+        return abs(velocity.x) > abs(velocity.y)
     }
 
     func gestureRecognizer(

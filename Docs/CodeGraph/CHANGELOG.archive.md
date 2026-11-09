@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.769] - 2026-11-07
+
+### fix: tắt NSFW không còn dừng phim 18+ mà thu vào hub và tắt tiếng theo cài đặt
+
+Người dùng: *"sửa lại hành động đối với video về home của nfsw, video được thu vào hub, tùy theo cài đặt tắt tiếng sẽ tự tắt tiếng hoặc không (các hành động khác giữ nguyên)"*; khi được báo luật 1.3.740 (tắt NSFW ⇒ dừng phim 18+, hub ẩn phim): *"vậy bỏ luật dừng, sửa lại thu vào hub và tắt tiếng theo config"*.
+
+- **Đảo luật 1.3.740**: tắt công tắc NSFW lúc phim 18+ đang phát **không dừng** phim nữa. Phim đang ở màn xem / cửa sổ nhỏ ⇒ thu vào hub và phát tiếp; tắt tiếng nếu "Tắt tiếng khi mở phim" (`VideoMutePolicy`) không phải «Không». Phim đang ở hub sẵn ⇒ chỉ áp tắt tiếng.
+- Nút Home của màn xem: phim 18+ không dừng — như phim thường, màn xem thu nhỏ vào hub, phim 18+ tắt tiếng theo cài đặt, công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá (Khám phá tự đổi sang nguồn không 18+ đầu tiên). Màn rời trước rồi mới tắt NSFW nên lời xin thu của guard NSFW không làm rời màn hai lần, không mất lượt chuyển Khám phá. (Thay ngoại lệ "nút Home dừng phim 18+" còn ghi ở 1.3.765.)
+- Hub luôn hiện dòng Video (điều khiển, tắt được) cho phim 18+ đang phát dù NSFW đã tắt; các chỗ ẩn nội dung 18+ khác giữ nguyên. Bỏ `VideoMiniPlayerState.packageId` (chỉ dùng để ẩn dòng này).
+- Thêm `VideoLeaveToHubCoordinator` (tầng dịch vụ, không SwiftUI, không toast): màn xem và cửa sổ nhỏ đăng ký nhận lời xin thu vào hub; luật chung của Home (`applyLeaveRules`) dùng được cả khi không có `VideoWatchModel`, `prepareGoHome` gọi lại nó.
+- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự guard NSFW với nút Home; dòng Video ở hub hiện tên thật của phim 18+ khi NSFW đã tắt (màn khoá vẫn che thành "Đang phát").
+
 ## [1.3.768] - 2026-11-07
 
 ### feat: bấm Thể loại hoặc Xem thêm khi đang xem phim thì phim vào cửa sổ nhỏ

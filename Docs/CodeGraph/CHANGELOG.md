@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.799] - 2026-11-09
+
+### fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí
+
+Anh Bửu: *"cho widget tts thanh nghe nhạc giống hệt thanh nghe nhạc mini, đừng có trong suốt, tôi nói trong suốt là đĩa trong reader ấy. đừng cho nó có thể di chuyển lên xuống, cố định vị trí"*.
+
+- **Nền đặc**: khung chung `MiniPlayerBarChrome` bỏ `FloatingGlassBackground` (độ trong suốt / độ đục của Cài đặt › Giao diện), dùng nền **đặc tối cố định** (`Color(white: 0.12)`) + viền trắng mờ 0,75 pt (`solidBackground(_:)`) ⇒ thanh nghe nhạc mini (`AudioMiniPlayerBar`) và kiểu "Thanh nghe nhạc" của widget TTS giống hệt nhau, chữ trắng đọc rõ trên mọi nền. Viên thu gọn (`TTSWidgetBarPillView`) cùng nền. Nút đĩa nhạc trong Reader và sheet gọn của nó (`ReaderAudioDiscButton`, `AudioQuickControlSheet`) **giữ** theo độ trong suốt — không đổi.
+- **Cố định vị trí**: bỏ kéo dọc của thanh và viên (`TTSWidgetBarContainerViewController` chỉ còn cử chỉ vuốt ngang để thu gọn; viên không có cử chỉ). Thanh luôn ngay trên `MainTabBar` (khe 6 pt, đúng chỗ thanh nhạc), viên nép mép phải ngang tâm thanh. Bỏ lưu/đọc vị trí: khoá cũ `ttsWidgetBarBottomGap` / `ttsWidgetBarPillBottomGap` (1.3.796) bỏ qua. Nút » và vuốt ngang để thu gọn giữ nguyên.
+- Chữ giải thích ở Cài đặt › Widget TTS bỏ câu "Kéo lên xuống để đổi chỗ"; `CLAUDE.md` / `AGENTS.md` sửa ghi chú widget TTS theo.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — cần xem thanh nhạc + thanh TTS trên nền Kệ sáng/tối, và thanh TTS ở trang đẩy vào (không có thanh tab, vẫn đứng ở độ cao đó) có đè nút Home / "+" nổi không.
+
 ## [1.3.798] - 2026-11-09
 
 ### feat: trình nghe tự phát bài gợi ý khi hết bài hoặc album, công tắc ở Cài đặt › Âm thanh và ngăn kéo màn nghe
@@ -374,17 +385,3 @@ Người dùng: *"Khi người dùng đang xem video mà tắt màn hình thì t
 - Màn xem gỡ khỏi phiên ngay khi rời app (không chờ `onDisappear`, có thể bị hoãn ở nền); trình duyệt "Mở link lỗi" / "Trình duyệt" đang che màn thì giữ nguyên màn. Phim nhúng trang cũng bị thu (trang web huỷ, hub hiện "Chạm để mở lại" như nút ⌄).
 - `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: đóng màn xem khi app đã ở nền (lượt chuyển Khám phá chờ `onDisappear`); đang xem ngang mà rời app.
-
-## [1.3.769] - 2026-11-07
-
-### fix: tắt NSFW không còn dừng phim 18+ mà thu vào hub và tắt tiếng theo cài đặt
-
-Người dùng: *"sửa lại hành động đối với video về home của nfsw, video được thu vào hub, tùy theo cài đặt tắt tiếng sẽ tự tắt tiếng hoặc không (các hành động khác giữ nguyên)"*; khi được báo luật 1.3.740 (tắt NSFW ⇒ dừng phim 18+, hub ẩn phim): *"vậy bỏ luật dừng, sửa lại thu vào hub và tắt tiếng theo config"*.
-
-- **Đảo luật 1.3.740**: tắt công tắc NSFW lúc phim 18+ đang phát **không dừng** phim nữa. Phim đang ở màn xem / cửa sổ nhỏ ⇒ thu vào hub và phát tiếp; tắt tiếng nếu "Tắt tiếng khi mở phim" (`VideoMutePolicy`) không phải «Không». Phim đang ở hub sẵn ⇒ chỉ áp tắt tiếng.
-- Nút Home của màn xem: phim 18+ không dừng — như phim thường, màn xem thu nhỏ vào hub, phim 18+ tắt tiếng theo cài đặt, công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá (Khám phá tự đổi sang nguồn không 18+ đầu tiên). Màn rời trước rồi mới tắt NSFW nên lời xin thu của guard NSFW không làm rời màn hai lần, không mất lượt chuyển Khám phá. (Thay ngoại lệ "nút Home dừng phim 18+" còn ghi ở 1.3.765.)
-- Hub luôn hiện dòng Video (điều khiển, tắt được) cho phim 18+ đang phát dù NSFW đã tắt; các chỗ ẩn nội dung 18+ khác giữ nguyên. Bỏ `VideoMiniPlayerState.packageId` (chỉ dùng để ẩn dòng này).
-- Thêm `VideoLeaveToHubCoordinator` (tầng dịch vụ, không SwiftUI, không toast): màn xem và cửa sổ nhỏ đăng ký nhận lời xin thu vào hub; luật chung của Home (`applyLeaveRules`) dùng được cả khi không có `VideoWatchModel`, `prepareGoHome` gọi lại nó.
-- `CLAUDE.md` / `AGENTS.md` mục Comic & Video.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự guard NSFW với nút Home; dòng Video ở hub hiện tên thật của phim 18+ khi NSFW đã tắt (màn khoá vẫn che thành "Đang phát").
-

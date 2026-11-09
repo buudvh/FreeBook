@@ -1,25 +1,19 @@
 import Combine
 import Foundation
 
-/// Trạng thái kiểu **Thanh nghe nhạc** của widget TTS (1.3.796): thu gọn hay bung, vị trí dọc của thanh / viên, và các nút
-/// điều khiển. Container (`TTSWidgetBarContainerViewController`) đặt khung theo `isCollapsed` + khoảng cách đáy.
+/// Trạng thái kiểu **Thanh nghe nhạc** của widget TTS (1.3.796): thu gọn hay bung và các nút điều khiển. Container
+/// (`TTSWidgetBarContainerViewController`) đặt khung theo `isCollapsed`; vị trí **cố định** (1.3.799 — không kéo dọc, không
+/// lưu chỗ; khoá cũ `ttsWidgetBarBottomGap` / `ttsWidgetBarPillBottomGap` bỏ qua).
 ///
 /// ## Thu gọn
 /// - Hiển thị thu gọn = người dùng chọn thu (`userCollapsed`, **nhớ** qua khoá `ttsWidgetBarCollapsed`) **hoặc** Reader đang
 ///   hiện mà bật "Thu gọn khi mở Reader" (`readerForcedCollapse`, **không** nhớ). Ra khỏi Reader thì cờ Reader tắt ⇒ về lại
 ///   đúng lựa chọn trước đó (đang bung thì bung lại). Chạm đĩa để bung trong Reader ⇒ bỏ cờ Reader tới khi rời Reader.
-/// - "Tự thu gọn sau 5 giây": đang bung mà 5 giây không chạm nút nào / không kéo ⇒ thu (tính như người dùng thu). Đang mở
+/// - "Tự thu gọn sau 5 giây": đang bung mà 5 giây không chạm nút nào / không vuốt ⇒ thu (tính như người dùng thu). Đang mở
 ///   sheet Hẹn giờ thì không đếm, đóng sheet đếm lại từ đầu.
-///
-/// ## Vị trí
-/// Lưu **khoảng cách từ mép dưới widget tới mép dưới vùng an toàn** (thanh: `ttsWidgetBarBottomGap`, viên:
-/// `ttsWidgetBarPillBottomGap`) để xoay màn / đổi máy vẫn đúng chỗ. Khoá vắng ⇒ `nil`, container dùng mặc định: thanh ngay
-/// trên thanh tab, viên ngang tâm thanh.
 @MainActor
 final class TTSWidgetBarViewModel: ObservableObject {
     nonisolated static let collapsedKey = "ttsWidgetBarCollapsed"
-    nonisolated static let barGapKey = "ttsWidgetBarBottomGap"
-    nonisolated static let pillGapKey = "ttsWidgetBarPillBottomGap"
     nonisolated static let autoCollapseDelay: UInt64 = 5_000_000_000
 
     @Published private(set) var isCollapsed: Bool
@@ -35,8 +29,7 @@ final class TTSWidgetBarViewModel: ObservableObject {
         }
     }
 
-    private(set) var barBottomGap: CGFloat?
-    private(set) var pillBottomGap: CGFloat?
+    /// Đang vuốt ngang thanh (container không đặt lại khung, không đếm 5 giây).
     private(set) var isDragging = false
 
     private var userCollapsed: Bool
@@ -55,8 +48,6 @@ final class TTSWidgetBarViewModel: ObservableObject {
         userCollapsed = collapsed
         readerForcedCollapse = forced
         isCollapsed = collapsed || forced
-        barBottomGap = (defaults.object(forKey: Self.barGapKey) as? Double).map { CGFloat($0) }
-        pillBottomGap = (defaults.object(forKey: Self.pillGapKey) as? Double).map { CGFloat($0) }
 
         // `@Published` phát ở willSet ⇒ dùng giá trị được phát ra.
         ReaderPresenceTracker.shared.$isReaderVisible
@@ -149,25 +140,16 @@ final class TTSWidgetBarViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Kéo dọc
+    // MARK: - Vuốt ngang để thu gọn
 
     func beginDrag() {
         isDragging = true
         autoCollapseTask?.cancel()
     }
 
-    /// Thả tay sau khi kéo dọc: lưu khoảng cách đáy của kiểu đang hiện (container đã kẹp trong vùng an toàn).
-    func endDrag(savingBottomGap gap: CGFloat?) {
+    /// Thả tay sau khi vuốt ngang (container tự quyết thu gọn hay trượt về).
+    func endDrag() {
         isDragging = false
-        if let gap {
-            if isCollapsed {
-                pillBottomGap = gap
-                UserDefaults.standard.set(Double(gap), forKey: Self.pillGapKey)
-            } else {
-                barBottomGap = gap
-                UserDefaults.standard.set(Double(gap), forKey: Self.barGapKey)
-            }
-        }
         restartAutoCollapseTimer()
     }
 

@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Viên thu gọn của kiểu **Thanh nghe nhạc** (1.3.796): nép sát mép phải (bo tròn bên trái, phẳng bên phải), đĩa bìa xoay
-/// + ⏯. Chạm đĩa ⇒ bung lại thanh; kéo dọc để đổi chỗ (cử chỉ ở container). Nền kính theo độ trong suốt đã cài.
+/// + ⏯. Chạm đĩa ⇒ bung lại thanh. Đứng cố định ngang tâm thanh (không kéo được, 1.3.799). Nền đặc tối như thanh
+/// (`MiniPlayerBarChrome.solidBackground`), không theo độ trong suốt.
 struct TTSWidgetBarPillView: View {
     static let height: CGFloat = 52
     static let width: CGFloat = 98
@@ -45,7 +46,7 @@ struct TTSWidgetBarPillView: View {
         }
         .padding(.trailing, 6)
         .frame(width: Self.width, height: Self.height, alignment: .leading)
-        .background(FloatingGlassBackground(shape: AnyShape(shape)))
+        .background(MiniPlayerBarChrome.solidBackground(shape))
         .clipShape(shape)
         .environment(\.colorScheme, .dark)
     }
