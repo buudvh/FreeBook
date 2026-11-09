@@ -33,7 +33,6 @@ final class AudioNowPlayingCoordinator {
 
     static let shared = AudioNowPlayingCoordinator()
     static let contentIdPrefix = "audioPlayer:"
-    static let skipInterval: Double = 15
 
     /// Nhạc đang giữ màn khoá / Trung tâm điều khiển.
     private(set) var isHoldingSession = false
@@ -58,8 +57,10 @@ final class AudioNowPlayingCoordinator {
         center.pauseCommand.isEnabled = true
         center.togglePlayPauseCommand.isEnabled = true
         center.previousTrackCommand.isEnabled = true
-        center.skipForwardCommand.isEnabled = true
-        center.skipBackwardCommand.isEnabled = true
+        // Không bật tua ±15 s: có lệnh tua thì iOS hiện nút ±15 trên màn khoá **thay** cho nút bài trước/sau. Album nhạc cần
+        // nút chuyển bài (plan đã duyệt); tua chỉ có trong màn nghe. Tắt tường minh vì TTS có thể đã bật trước đó.
+        center.skipForwardCommand.isEnabled = false
+        center.skipBackwardCommand.isEnabled = false
         center.changePlaybackPositionCommand.isEnabled = true
         UIApplication.shared.beginReceivingRemoteControlEvents()
         AppLogger.shared.log("🎛️ [AudioNowPlaying] Trình nghe âm thanh giữ phiên điều khiển màn khoá")
@@ -192,20 +193,12 @@ final class AudioNowPlayingCoordinator {
     private func registerTargets() {
         guard registrations.isEmpty else { return }
         let center = MPRemoteCommandCenter.shared()
-        center.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.skipInterval)]
-        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.skipInterval)]
 
         add(center.playCommand) { actions, _ in actions.play() }
         add(center.pauseCommand) { actions, _ in actions.pause() }
         add(center.togglePlayPauseCommand) { actions, _ in actions.togglePlayPause() }
         add(center.nextTrackCommand) { actions, _ in actions.nextTrack() }
         add(center.previousTrackCommand) { actions, _ in actions.previousTrack() }
-        add(center.skipForwardCommand, payload: Self.skipPayload) { actions, interval in
-            actions.skip(interval)
-        }
-        add(center.skipBackwardCommand, payload: Self.skipPayload) { actions, interval in
-            actions.skip(-interval)
-        }
         add(center.changePlaybackPositionCommand, payload: Self.positionTime) { actions, position in
             guard position >= 0 else { return }
             actions.seek(position)
@@ -218,11 +211,6 @@ final class AudioNowPlayingCoordinator {
 
     private nonisolated static func noPayload(_ event: MPRemoteCommandEvent) -> Double {
         0
-    }
-
-    private nonisolated static func skipPayload(_ event: MPRemoteCommandEvent) -> Double {
-        let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15
-        return interval > 0 ? interval : 15
     }
 
     /// `payload` đọc dữ liệu của event ngay trong handler (event không được mang sang Task).

@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.786] - 2026-11-09
+
+### fix: màn khoá của trình nghe hiện nút bài trước/sau thay vì tua ±15 giây
+
+Rà lại 1.3.784: `AudioNowPlayingCoordinator.claim` bật cả `skipForward/skipBackwardCommand` ⇒ iOS hiện nút tua ±15 s trên màn khoá **thay chỗ** nút bài trước/sau, lệch plan đã duyệt (màn khoá: phát/dừng, bài trước/sau, kéo thanh tua).
+
+- `claim`: tắt tường minh hai lệnh tua (TTS có thể đã bật), bỏ đăng ký target tua và `preferredIntervals`; bỏ `skipInterval` / `skipPayload`. Tua ±15 s chỉ còn trong màn nghe; tai nghe / AirPods vẫn chuyển bài qua `next/previousTrackCommand`.
+- **Kiểm chứng:** đọc code; không build tại chỗ (Windows); chưa thử máy.
+
 ## [1.3.785] - 2026-11-09
 
 ### fix: bấm phát sau khi bài nhạc lỗi giữa chừng thì thử lại bài đó
