@@ -22,7 +22,10 @@ struct AudioPlayerScreen: View {
     final class ScreenToken {}
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
+    /// App đang active — đĩa chỉ xoay khi app ở trước. **Không** dùng `@Environment(\.scenePhase)`: màn này trình bày bằng
+    /// UIKit (`AudioPlayerPresenter`, host riêng ngoài cây SwiftUI của scene) nên giá trị đó có thể không tới ⇒ đĩa đứng im
+    /// dù đang phát. Theo dõi thẳng thông báo của `UIApplication`.
+    @State private var isAppActive = UIApplication.shared.applicationState != .background
 
     /// Tham số = có animation khi đóng (vuốt xuống đã tự trượt màn đi thì đóng không animation).
     private let onDismiss: ((Bool) -> Void)?
@@ -88,6 +91,8 @@ struct AudioPlayerScreen: View {
         // "Mở trang nguồn": không lỗi nên không thử lại gì.
         .sourcePageBrowser(link: $openingSourcePage, packageId: session.packageId)
         .onAppear { handleAppear() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in isAppActive = true }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in isAppActive = false }
         .onDisappear { handleDisappear() }
         .onChange(of: session.isActive) { _, active in
             if !active { closeAfterStop() }
@@ -100,8 +105,7 @@ struct AudioPlayerScreen: View {
     // MARK: - Trang
 
     private var pages: some View {
-        let isAppActive = scenePhase == .active
-        return TabView(selection: $page) {
+        TabView(selection: $page) {
             AudioPlaylistPage(
                 isVisible: page == .playlist,
                 drag: drag,
@@ -126,7 +130,7 @@ struct AudioPlayerScreen: View {
 
             AudioLyricsPage(
                 referer: referer,
-                isVisible: page == .lyrics,
+                isVisible: isAppActive && page == .lyrics && !isLeaving,
                 drag: drag,
                 onMinimize: { minimize(bySwipe: true) }
             )

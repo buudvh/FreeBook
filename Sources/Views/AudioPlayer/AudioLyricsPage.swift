@@ -29,20 +29,13 @@ struct AudioLyricsPage: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Group {
-                if session.coverUrl.isEmpty {
-                    ZStack {
-                        Color.white.opacity(0.1)
-                        Image(systemName: "music.note")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.6))
-                    }
-                } else {
-                    RemoteCoverImage(url: session.coverUrl, referer: referer, placeholderSymbol: "music.note")
-                }
-            }
-            .frame(width: 48, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            // Đĩa tròn xoay khi đang phát, cùng góc với trang Đĩa / thanh mini (`AudioCoverRotation`); không có bìa ⇒ nốt nhạc.
+            AudioRotatingCover(
+                coverUrl: session.coverUrl,
+                referer: referer,
+                size: 48,
+                isRotating: isVisible && session.isPlaying
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.currentTrack?.displayTitle ?? session.albumTitle)
                     .font(.headline)

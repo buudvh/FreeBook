@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.797] - 2026-11-09
+
+### fix: đĩa bìa ở màn nghe nhạc xoay khi đang phát, bìa trang Lời cũng là đĩa xoay
+
+Người dùng: *"cho màn hình phát nghe nhạc cũng làm cover xoay tròn khi đang phát nhạc"*.
+
+- **Nguyên nhân nghi nhất**: trang Đĩa chỉ xoay khi `isOnScreen` = app active (`@Environment(\.scenePhase)`) + đang ở trang Đĩa; màn nghe trình bày bằng UIKit (`AudioPlayerPresenter`, host ngoài cây SwiftUI của scene) nên `scenePhase` có thể không tới ⇒ đĩa đứng im dù đang phát (thanh mini và sheet nhạc trong Reader nằm trong cây SwiftUI nên không bị).
+- `AudioPlayerScreen`: bỏ `scenePhase`, tự theo dõi `UIApplication.didBecomeActive` / `willResignActive` (`isAppActive`, khởi tạo theo `applicationState`). Trang Lời cũng nhận cờ này (`isVisible` = app active + đang ở trang Lời + chưa rời màn).
+- `AudioLyricsPage`: bìa nhỏ đầu trang (ảnh vuông tĩnh) ⇒ `AudioRotatingCover` 48 pt, xoay khi đang phát, cùng góc `AudioCoverRotation` với trang Đĩa / thanh mini.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.796] - 2026-11-09
 
 ### feat: widget TTS thêm kiểu Thanh nghe nhạc trên thanh tab, thu gọn được, chọn ở Cài đặt
@@ -369,15 +380,3 @@ Người dùng: *"KHi đang xem video mà bấm xem thêm suggest hoặc bấm v
 - Ba lối đi chung `VideoWatchExit.openCategory`; `VideoWatchPagePresenter` chỉ coi là "đang che màn xem" trang mở đè lên màn (nút âm lượng cứng, đóng màn xem không đụng trang nằm dưới), nút ‹ và lượt chọn phim đóng đúng trang của mình. Lối rời màn tách sang `VideoPlayerScreen+Exit`.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: thứ tự co vào cửa sổ nhỏ → đóng màn → mở trang; khoá máy đúng lúc khung phim đang co.
 
-## [1.3.767] - 2026-11-07
-
-### feat: chỉnh cỡ hiển thị từng bố cục của trang Khám phá
-
-Người dùng: *"thêm size hiển thị của các layout của explore"*. Anh Bửu duyệt plan: mỗi bố cục một mức "Cỡ" 7 nấc, lưu theo loại nguồn.
-
-- Trang Khám phá (`explore`) có mức **"Cỡ" 7 nấc** cho từng bố cục, nấc 4 = mặc định = hiển thị y như trước: **Lưới** (nấc to bớt cột, nhỏ thêm cột: số cột gốc theo hình thẻ − (nấc − 4), kẹp 1…6), **Hàng ngang** (bề rộng thẻ ×0,7…1,5), **Danh sách & Xếp hạng** chung một mức (ảnh nhỏ ×0,7…1,5, chữ tên/mô tả phóng như "Cỡ dòng"), **Banner** (tỉ lệ 2,4:1 … 16:9 … 1,3:1). Hàng chip không có mức cỡ.
-- Lưu theo loại nguồn truyện chữ / truyện tranh / video (`ExploreLayoutSizePreferences`, khoá `exploreLayoutSize_<bố cục>_<loại>`, tự vào bản sao lưu); truyền xuống các section qua `ExploreRenderContext`.
-- Chỉnh ở sheet "Kiểu hiển thị" mở từ Khám phá (thêm nhóm "Trang Khám phá", sheet cao nửa màn, kéo lên được, cuộn được) và Cài đặt › Giao diện › Kiểu hiển thị (mỗi loại chữ/tranh/video thêm nhóm "<loại> · Trang Khám phá"); "Đặt lại mặc định" đặt lại cả cỡ Khám phá. Sheet của Kệ / Thể loại / Bộ sưu tập / Tìm giữ nguyên.
-- Thanh trượt nấc dùng chung `LayoutLevelSlider` (cả "Cỡ dòng" của kiểu Danh sách).
-- Vài nấc trùng kết quả do kẹp 1…6 cột: lưới phim ngang ra 1 cột ở nấc 5–7, lưới tròn ra 6 cột ở nấc 1–2.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy: kéo thanh trượt trong vùng cuộn của sheet nửa màn.
