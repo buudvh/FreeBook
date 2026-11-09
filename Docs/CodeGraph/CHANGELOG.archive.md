@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.781] - 2026-11-09
+
+### fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại
+
+Người dùng: *"Có lỗi video -> mở danh sách video từ genres -> mở lại video pip -> bấm nút video full screen -> không xay ngang lại"*.
+
+- **Nguyên nhân**: bấm thể loại / "Xem thêm ›" lúc màn xem đang phát ⇒ phim vào cửa sổ nhỏ, màn đóng, trang danh sách mở bằng `PortraitHostingController` (chỉ dọc). Chạm cửa sổ nhỏ ⇒ màn xem mở lại **đè lên** trang đó (`VideoWatchPresenter` trình bày lên VC trên cùng), trang chỉ dọc vẫn trong chuỗi trình bày; `VideoOrientationLock.rotate` lại chỉ báo UIKit hỏi lại hướng khi đang khoá xoay ⇒ xin ngang bị từ chối (hoặc UIKit dùng mask `.portrait` cũ).
+- **Trang nhường hướng cho màn xem nằm trên nó**: `PortraitHostingController.supportedInterfaceOrientations` trả `VideoOrientationLock.supportedMask` khi trong chuỗi `presentedViewController` của trang có `VideoPlayerHostingController` chưa bị gỡ; còn lại vẫn `.portrait` (sheet Bộ lọc / nhấn giữ của trang không mở khoá ngang; trang đè lên màn xem giữ như cũ).
+- **Luôn báo UIKit hỏi lại hướng**: `VideoOrientationLock.request` gọi `refreshSupportedOrientations()` trước mỗi `requestGeometryUpdate` (nút Toàn màn, Xoay, dự phòng khoá xoay); `resetForExit` luôn báo hỏi lại (màn xem rời đi ⇒ trang lấy lại `.portrait`); `VideoWatchPresenter.present` báo hỏi lại khi trình bày xong ⇒ nghiêng máy thật cũng xoay được. `refreshSupportedOrientations` bỏ `private`.
+- **Kiểm chứng:** đọc code; bấm thể loại lần nữa ở màn xem mở lại ⇒ phim vào cửa sổ nhỏ, trang cũ (không còn màn xem phía trên) về `.portrait` rồi mới bị đóng. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy; nếu vẫn không xoay, log `❌ [VideoPlayer] Không xoay được màn hình: …` (luôn ghi) cho biết mask UIKit đang dùng.
+
 ## [1.3.780] - 2026-11-08
 
 ### feat: nút sửa từng name trong danh sách name AI, mở màn Sửa từ như VP/Name

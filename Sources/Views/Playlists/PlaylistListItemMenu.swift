@@ -61,6 +61,9 @@ struct PlaylistListItemMenu: View {
                 .frame(width: 32, height: 36)
                 .contentShape(Rectangle())
         }
+        // Như menu chuyển từ của `DictionaryEntryRow`: trong hàng `List`, Menu kiểu mặc định có thể nhận chạm của cả hàng
+        // (chạm item lại mở ⋮) — kiểu không viền chỉ nhận chạm trong khung nút.
+        .menuStyle(.borderlessButton)
         .accessibilityLabel(context.kind == .audio ? "Tuỳ chọn album" : "Tuỳ chọn phim")
         // Thẻ hẹp: vùng chạm vẫn 32 × 36 nhưng chỉ chiếm 20 × 16 trong bố cục (tràn sang khe giữa các thẻ) ⇒ tên dưới
         // bìa không bị ép hẹp, ⋮ ngang dòng tên đầu.

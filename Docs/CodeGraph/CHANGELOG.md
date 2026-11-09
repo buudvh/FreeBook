@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.811] - 2026-11-09
+
+### fix: nút ⋮ thêm playlist trong hàng danh sách không nhận chạm của cả hàng
+
+Rà commit 1.3.810 trước khi push:
+
+- `PlaylistListItemMenu` gắn `.menuStyle(.borderlessButton)` như menu chuyển từ của `DictionaryEntryRow` / `QuickTranslationRuleEntryRow`: ở kiểu Danh sách của Khám phá / Thể loại và Tìm một nguồn, ⋮ đè lên nút mở item **trong hàng `List`** — Menu kiểu mặc định có thể nhận chạm của cả hàng (chạm item lại mở ⋮). Lưới, Trang chủ Khám phá, Tìm nhiều nguồn không nằm trong `List`, không đổi gì.
+- Comment của `PlaylistAddRequest` / `PlaylistAddSheet` hết ghi "ba lối" — liệt kê thêm icon cuối hàng và ⋮ / icon của item danh sách chưa mở.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.810] - 2026-11-09
 
 ### feat: thêm vào playlist ngay trên danh sách nhạc và phim, nút ? xem thay đổi của bản đang dùng, chip Tất cả ở tab Playlist
@@ -386,14 +396,3 @@ Rà lại 1.3.781 trước khi thử máy: `resetForExit` và lúc trình bày x
 - `VideoWatchPresenter.present`: chỉ báo hỏi lại sau khi trình bày khi còn trang.
 - Giữ nguyên: `request` luôn báo hỏi lại ngay trước `requestGeometryUpdate` (sửa nút Toàn màn / Xoay; có lời xin tường minh theo sau nên không xoay lạc); `PortraitHostingController` nhường hướng cho màn xem phía trên.
 - **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
-
-## [1.3.781] - 2026-11-09
-
-### fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại
-
-Người dùng: *"Có lỗi video -> mở danh sách video từ genres -> mở lại video pip -> bấm nút video full screen -> không xay ngang lại"*.
-
-- **Nguyên nhân**: bấm thể loại / "Xem thêm ›" lúc màn xem đang phát ⇒ phim vào cửa sổ nhỏ, màn đóng, trang danh sách mở bằng `PortraitHostingController` (chỉ dọc). Chạm cửa sổ nhỏ ⇒ màn xem mở lại **đè lên** trang đó (`VideoWatchPresenter` trình bày lên VC trên cùng), trang chỉ dọc vẫn trong chuỗi trình bày; `VideoOrientationLock.rotate` lại chỉ báo UIKit hỏi lại hướng khi đang khoá xoay ⇒ xin ngang bị từ chối (hoặc UIKit dùng mask `.portrait` cũ).
-- **Trang nhường hướng cho màn xem nằm trên nó**: `PortraitHostingController.supportedInterfaceOrientations` trả `VideoOrientationLock.supportedMask` khi trong chuỗi `presentedViewController` của trang có `VideoPlayerHostingController` chưa bị gỡ; còn lại vẫn `.portrait` (sheet Bộ lọc / nhấn giữ của trang không mở khoá ngang; trang đè lên màn xem giữ như cũ).
-- **Luôn báo UIKit hỏi lại hướng**: `VideoOrientationLock.request` gọi `refreshSupportedOrientations()` trước mỗi `requestGeometryUpdate` (nút Toàn màn, Xoay, dự phòng khoá xoay); `resetForExit` luôn báo hỏi lại (màn xem rời đi ⇒ trang lấy lại `.portrait`); `VideoWatchPresenter.present` báo hỏi lại khi trình bày xong ⇒ nghiêng máy thật cũng xoay được. `refreshSupportedOrientations` bỏ `private`.
-- **Kiểm chứng:** đọc code; bấm thể loại lần nữa ở màn xem mở lại ⇒ phim vào cửa sổ nhỏ, trang cũ (không còn màn xem phía trên) về `.portrait` rồi mới bị đóng. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy; nếu vẫn không xoay, log `❌ [VideoPlayer] Không xoay được màn hình: …` (luôn ghi) cho biết mask UIKit đang dùng.

@@ -3,7 +3,9 @@ import Foundation
 /// Đầu vào của sheet "Thêm vào playlist" (`PlaylistAddSheet`): các mục sắp thêm + loại playlist nhận chúng. Dùng cho
 /// `.sheet(item:)` nên `Identifiable` — mỗi lần mở là một id mới.
 ///
-/// Ba lối tạo: bài/tập đang phát (màn nghe, màn xem phim), nhấn giữ một bài/tập, nhấn giữ album/phim trên Kệ (cả mục lục).
+/// Các lối tạo: bài/tập đang phát (màn nghe, màn xem phim), nhấn giữ hoặc icon cuối hàng của một bài/tập, nhấn giữ
+/// album/phim trên Kệ (cả mục lục), ⋮ / icon của item danh sách chưa mở — Khám phá, Thể loại, Tìm, gợi ý nhạc, đề xuất phim
+/// (cả mục lục, 1.3.810; dựng bằng `PlaylistAlbumItemsLoader.addRequest`).
 struct PlaylistAddRequest: Identifiable, Sendable {
     let id = UUID()
     let kind: PlaylistKind

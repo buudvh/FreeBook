@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Sheet "Thêm vào playlist" dùng chung cho cả ba lối (bài / tập đang phát, nhấn giữ một bài / tập, nhấn giữ album / phim
-/// trên Kệ): mô tả mục sắp thêm, hàng "Tạo playlist mới" (tạo xong thêm luôn) và các playlist **cùng loại** (mới sửa
+/// Sheet "Thêm vào playlist" dùng chung cho mọi lối (bài / tập đang phát, nhấn giữ hoặc icon cuối hàng của một bài / tập,
+/// nhấn giữ album / phim trên Kệ, ⋮ / icon của item danh sách chưa mở — xem `PlaylistAddRequest`): mô tả mục sắp thêm, hàng "Tạo playlist mới" (tạo xong thêm luôn) và các playlist **cùng loại** (mới sửa
 /// trước). Chạm một playlist ⇒ thêm (bỏ mục trùng), đóng sheet, toast "Đã thêm N mục vào <tên>" / "Đã có sẵn trong <tên>".
 ///
 /// Không có nút chỉ để đóng: vuốt xuống. Mở được từ màn trình bày bằng UIKit (màn nghe, màn xem phim) — các màn đó đã gắn
