@@ -50,17 +50,20 @@ enum VideoOrientationLock {
         request(target)
     }
 
-    /// Rời trình phát: bỏ khoá; đang ngang thì trả về dọc để phần còn lại của app không nằm ngang. Luôn báo UIKit hỏi lại
-    /// hướng được phép (1.3.781): màn xem rời đi thì trang chỉ dọc nằm dưới nó (`VideoWatchPagePresenter`) lấy lại `.portrait`.
+    /// Rời trình phát: bỏ khoá; đang ngang thì trả về dọc để phần còn lại của app không nằm ngang. Còn trang chỉ dọc của
+    /// `VideoWatchPagePresenter` (màn xem nằm trên nó) ⇒ báo UIKit hỏi lại hướng để trang lấy lại `.portrait` (1.3.781).
+    /// Không có trang thì **không** báo (1.3.782): màn bên dưới cho xoay ngang, báo lại lúc máy đang cầm ngang thì iOS có
+    /// thể xoay màn đó ngang trở lại sau lần xin dọc ở trên.
     static func resetForExit() {
         let wasLandscape = activeScene?.interfaceOrientation.isLandscape ?? false
-        if lockedMask != nil {
+        let wasLocked = lockedMask != nil
+        if wasLocked {
             lockedMask = nil
             stopFallbackObserver()
         }
         if wasLandscape {
             request(.portrait)
-        } else {
+        } else if wasLocked || VideoWatchPagePresenter.hasOpenPage {
             refreshSupportedOrientations()
         }
     }

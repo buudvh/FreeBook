@@ -53,6 +53,15 @@ final class VideoWatchPagePresenter {
         return page.presentingViewController != nil && !page.isBeingDismissed
     }
 
+    /// Còn trang (chỉ dọc) nào đang hiện, kể cả trang nằm dưới màn xem mở lại. `VideoOrientationLock.resetForExit` và
+    /// `VideoWatchPresenter` chỉ báo UIKit hỏi lại hướng khi có trang (1.3.782) — lối thường của trình phát giữ như trước.
+    static var hasOpenPage: Bool {
+        shared.openPages.contains { page in
+            guard let controller = page.controller else { return false }
+            return controller.presentingViewController != nil && !controller.isBeingDismissed
+        }
+    }
+
     // MARK: - Lối của màn xem
 
     /// Danh sách một thể loại / một nhóm đề xuất, **đè lên** màn xem (màn hiện bìa hoặc phim nhúng trang). Chọn phim ⇒

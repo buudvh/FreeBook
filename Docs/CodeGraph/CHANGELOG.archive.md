@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.752] - 2026-11-06
+
+### feat: nhập kho tiện ích chỉ cần link, tên kho lấy từ metadata của plugin.json
+
+Người dùng: *"phần nhập kho tiện ích mới bỏ nhập tên kho đi, tên kho lấy từ metadata.name || metadata.author"*. Anh Bửu chọn: thiếu cả hai ⇒ `owner/repo` (link GitHub) hoặc tên miền; kho đã lưu giữ tên cũ; không có chỗ sửa tên tay; duyệt plan.
+
+- **Sheet "Nhập kho tiện ích"** (`AddRepositoryView`): bỏ ô "Tên kho (tuỳ chọn)", chỉ còn ô link; `onAdd` nhận mỗi URL.
+- **Đặt tên** (`ExtensionRepositoryNaming`, file mới): `metadata.name` → `metadata.author` → `owner/repo` khi link là `raw.githubusercontent.com/<owner>/<repo>/…` hoặc `github.com/<owner>/<repo>/…` → tên miền (bỏ `www.`) → nguyên link. Thay chữ cố định "Kho Tiện Ích Mới".
+- **Đọc metadata kho** (`ExtensionManager.swift`): `RegistryMetadata` thêm `name`, đọc từng trường riêng (một trường sai kiểu chỉ thành `nil`); hàm mới `fetchRegistryResponse` trả cả `metadata`, `fetchRegistry` gọi qua nó ⇒ lượt kiểm tra cập nhật không đổi.
+- `ExtensionUpdateCheckCoordinator.addRepository(url:)` bỏ tham số tên. Lượt kiểm tra cập nhật **không** đổi tên kho đã lưu.
+- Lưu ý: hai kho của anh (`leech_story_ext`, `tangcongcac_ext`) chưa có `metadata.name` và cùng `author: "HuongMT"` ⇒ nhập mới cả hai sẽ cùng tên, phân biệt bằng dòng link; muốn tên riêng thì thêm `name` vào `metadata` của kho.
+- Chuyển `[1.3.722]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code + diff; grep `Sources/`: `AddRepositoryView` và `addRepository(url:)` mỗi thứ một chỗ gọi; không ai dựng `RegistryMetadata(` bằng tay (thêm `init(from:)` an toàn).
+  - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: nhập kho có `metadata.author` ⇒ tên = tác giả; kho không có metadata trên GitHub ⇒ `owner/repo`; câu báo "Đã nhập thành công kho '…'" đúng tên.
+
 ## [1.3.751] - 2026-11-06
 
 ### feat: hết phim tự sang phim đề xuất, vuốt xuống co khung phim vào cửa sổ nhỏ hoặc hub, bỏ PiP hệ thống

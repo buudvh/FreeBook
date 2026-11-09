@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.782] - 2026-11-09
+
+### fix: chỉ báo hỏi lại hướng xoay khi còn trang thể loại, rời trình phát không bị bật ngang lại
+
+Rà lại 1.3.781 trước khi thử máy: `resetForExit` và lúc trình bày xong màn xem **luôn** báo UIKit hỏi lại hướng (`setNeedsUpdateOfSupportedInterfaceOrientations`). Ở lối thường (màn bên dưới là tab gốc, cho xoay ngang), cầm máy ngang rồi bấm ⌄ ⇒ `leave` xin dọc, nhưng lần báo hỏi lại ở `onDisappear` có thể làm iOS xoay Kệ / Khám phá ngang trở lại theo cảm biến — trước 1.3.781 không có.
+
+- `VideoWatchPagePresenter.hasOpenPage` (mới): còn trang nào đang hiện (kể cả trang nằm dưới màn xem mở lại).
+- `VideoOrientationLock.resetForExit`: hết ngang thì như cũ (xin dọc, `request` vẫn báo hỏi lại trước khi xin); không ngang thì chỉ báo hỏi lại khi vừa bỏ khoá xoay (như trước 1.3.781) hoặc còn trang chỉ dọc.
+- `VideoWatchPresenter.present`: chỉ báo hỏi lại sau khi trình bày khi còn trang.
+- Giữ nguyên: `request` luôn báo hỏi lại ngay trước `requestGeometryUpdate` (sửa nút Toàn màn / Xoay; có lời xin tường minh theo sau nên không xoay lạc); `PortraitHostingController` nhường hướng cho màn xem phía trên.
+- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử trên máy.
+
 ## [1.3.781] - 2026-11-09
 
 ### fix: nút Toàn màn xoay ngang được khi mở lại phim từ cửa sổ nhỏ trên trang thể loại
@@ -441,20 +453,3 @@ Người dùng: nhập kho `buudvh/leech_story_ext` báo 32 tiện ích mà ch�
   - Đọc code + diff; grep `Sources/`: không còn chỗ ghép registry bằng `packageId(forName:)` ngoài chỉ mục mới (còn lại là bản mirror của Debug/zip).
   - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: tab Tất cả tiện ích hiện đủ 32 tiện ích của kho anh (lọc tác giả HuongMT); cài qidian của hai tác giả cùng lúc, mỗi bản đọc truyện riêng; nút cập nhật báo đúng phiên bản từng bản.
-
-## [1.3.752] - 2026-11-06
-
-### feat: nhập kho tiện ích chỉ cần link, tên kho lấy từ metadata của plugin.json
-
-Người dùng: *"phần nhập kho tiện ích mới bỏ nhập tên kho đi, tên kho lấy từ metadata.name || metadata.author"*. Anh Bửu chọn: thiếu cả hai ⇒ `owner/repo` (link GitHub) hoặc tên miền; kho đã lưu giữ tên cũ; không có chỗ sửa tên tay; duyệt plan.
-
-- **Sheet "Nhập kho tiện ích"** (`AddRepositoryView`): bỏ ô "Tên kho (tuỳ chọn)", chỉ còn ô link; `onAdd` nhận mỗi URL.
-- **Đặt tên** (`ExtensionRepositoryNaming`, file mới): `metadata.name` → `metadata.author` → `owner/repo` khi link là `raw.githubusercontent.com/<owner>/<repo>/…` hoặc `github.com/<owner>/<repo>/…` → tên miền (bỏ `www.`) → nguyên link. Thay chữ cố định "Kho Tiện Ích Mới".
-- **Đọc metadata kho** (`ExtensionManager.swift`): `RegistryMetadata` thêm `name`, đọc từng trường riêng (một trường sai kiểu chỉ thành `nil`); hàm mới `fetchRegistryResponse` trả cả `metadata`, `fetchRegistry` gọi qua nó ⇒ lượt kiểm tra cập nhật không đổi.
-- `ExtensionUpdateCheckCoordinator.addRepository(url:)` bỏ tham số tên. Lượt kiểm tra cập nhật **không** đổi tên kho đã lưu.
-- Lưu ý: hai kho của anh (`leech_story_ext`, `tangcongcac_ext`) chưa có `metadata.name` và cùng `author: "HuongMT"` ⇒ nhập mới cả hai sẽ cùng tên, phân biệt bằng dòng link; muốn tên riêng thì thêm `name` vào `metadata` của kho.
-- Chuyển `[1.3.722]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code + diff; grep `Sources/`: `AddRepositoryView` và `addRepository(url:)` mỗi thứ một chỗ gọi; không ai dựng `RegistryMetadata(` bằng tay (thêm `init(from:)` an toàn).
-  - `check_architecture.py` chỉ còn lỗi nền `JSDom.swift`, **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: nhập kho có `metadata.author` ⇒ tên = tác giả; kho không có metadata trên GitHub ⇒ `owner/repo`; câu báo "Đã nhập thành công kho '…'" đúng tên.

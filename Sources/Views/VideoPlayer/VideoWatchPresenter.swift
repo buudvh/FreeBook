@@ -102,9 +102,13 @@ final class VideoWatchPresenter {
         host.rootView = AnyView(screen)
         hostController = host
         top.present(host, animated: animated) {
-            // Màn xem có thể nằm trên trang chỉ dọc (mở lại từ cửa sổ nhỏ lúc trang thể loại đang hiện) ⇒ báo UIKit hỏi lại
-            // hướng được phép, nghiêng máy thật mới xoay ngang được (1.3.781).
-            MainActor.assumeIsolated { VideoOrientationLock.refreshSupportedOrientations() }
+            // Màn xem nằm trên trang chỉ dọc (mở lại từ cửa sổ nhỏ lúc trang thể loại đang hiện) ⇒ báo UIKit hỏi lại hướng
+            // được phép, nghiêng máy thật mới xoay ngang được (1.3.781). Không có trang thì giữ như cũ (1.3.782).
+            MainActor.assumeIsolated {
+                if VideoWatchPagePresenter.hasOpenPage {
+                    VideoOrientationLock.refreshSupportedOrientations()
+                }
+            }
             completion?()
         }
     }
