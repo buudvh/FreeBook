@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.794] - 2026-11-09
+
+### fix: sheet chọn truyện nguồn / truyện đích của từ điển VP/Name chỉ hiện truyện chữ
+
+Người dùng: *"danh sách chọn truyện nguồn, chọn truyện đích chỉ được hiển thị truyện chữ (hiện tại video, commic, nhạc đều được hiển thị)"* — hai sheet của từ điển VP/Name.
+
+- `BookImportSourceSheet` (nhập từ truyện khác) và `BookShareTargetSheet` (chia sẻ sang truyện khác — cũng dùng ở chia sẻ bộ rule dịch nhanh riêng) bỏ truyện tranh, phim và âm thanh; luật NSFW giữ nguyên.
+- Loại sách suy **đúng như router mở sách**: tách `BookContentDestination.resolveKind` thành `BookContentKindResolver` (`Services/Books/`, mới) — ghi đè loại của sách ở nguồn Legado → loại của tiện ích → tiện ích đã gỡ thì xét bản tải truyện tranh / phim. `.unsupported` vẫn tính là chữ (router mở bằng Reader chữ).
+- **Kiểm chứng:** đọc code; router gọi resolver mới, hành vi không đổi. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.793] - 2026-11-09
 
 ### fix: TTS không còn phát lặp một câu khi âm thanh Google/tiện ích lỗi giải mã

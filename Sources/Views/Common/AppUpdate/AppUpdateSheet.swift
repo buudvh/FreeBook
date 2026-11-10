@@ -91,11 +91,17 @@ struct AppUpdateSheet: View {
             .background(Color(UIColor.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 
+    /// Dừng phát nền trước (`LiveContainerSwitchPreparer`, 1.3.824): đang nghe mà chuyển thì LiveContainer tự tắt app nhưng
+    /// iOS không mở lại.
     private func openLiveContainer() {
         guard let url = AppUpdateRepository.shared.openLiveContainerURL else { return }
-        openURL(url) { accepted in
-            if !accepted {
-                ToastManager.shared.show(message: "Không mở được LiveContainer", type: .error, recordsInInbox: false)
+        let openURL = openURL
+        Task {
+            await LiveContainerSwitchPreparer.prepare()
+            openURL(url) { accepted in
+                if !accepted {
+                    ToastManager.shared.show(message: "Không mở được LiveContainer", type: .error, recordsInInbox: false)
+                }
             }
         }
     }

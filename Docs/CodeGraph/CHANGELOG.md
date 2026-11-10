@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.824] - 2026-11-10
+
+### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
+
+Anh Bửu: có bản cập nhật, bấm "Mở LiveContainer" lúc đang nghe truyện / nhạc thì app chỉ tắt, không mở lại LiveContainer.
+
+- **Nguyên nhân (đọc mã LiveContainer `UIKit+GuestHooks.m` / `LCSharedUtils.m`, chưa thử máy):** link `livecontainer-launch?bundle-name=ui` ⇒ hộp xác nhận ⇒ `launchToGuestAppWithClassicMode` xin `LSApplicationWorkspace` mở lại chính LiveContainer **hai lần**, lần trả lời đầu thì tự `SIGKILL`, trông vào yêu cầu thứ hai để iOS dựng app lại. App đang giữ phiên âm thanh nền ⇒ iOS còn coi tiến trình đang chạy ⇒ yêu cầu thứ hai coi như xong ⇒ app chết, không ai mở lại.
+- `LiveContainerSwitchPreparer` (file mới, `Services/AppUpdate/`): trước khi mở link, dừng TTS (`TTSManager.stop()` khi đang đọc / có widget), nhạc (`AudioPlaybackSession.stop()` khi `AudioMiniPlayerState.isActive`), phim (`VideoPlaybackSession.stop()` khi có phim) — chỉ chạm phiên nhạc / phim khi có, tránh dựng `AVPlayer` — rồi `AVAudioSession.setActive(false)` và chờ 0,4 s; không phát gì ⇒ mở ngay. Log `📲 [AppUpdate] Dừng … trước khi mở LiveContainer`.
+- `AppUpdateSheet`: nút "Mở LiveContainer" chờ bước trên rồi mới `openURL`. Bấm Huỷ ở hộp xác nhận của LiveContainer thì việc nghe vẫn đã dừng (anh duyệt).
+- `CLAUDE.md` / `AGENTS.md` mục báo bản mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.823] - 2026-11-10
 
 ### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ
@@ -357,13 +369,3 @@ Anh Bửu duyệt plan: phim và nhạc có hẹn giờ tắt như TTS (mốc ph
 - **Đếm phim**: `refreshIdleTimer()` (điểm mọi lần trạng thái phát đổi đi qua) gọi `syncSleepTimerCounting()` với điều kiện riêng `launch != nil && isPlaying && không nhúng` — không phụ thuộc màn có hiện (hub, cửa sổ nhỏ, nền vẫn đếm). Phim **nhúng trang** không có trạng thái phát ⇒ không đếm; hàng "Hẹn giờ tắt" ẩn khi đang nhúng mà chưa hẹn. Nhạc: `handleTimeControlChange`.
 - **UI**: tách lưới mốc + tuỳ chỉnh của `TTSQuickTimerSheet` thành `SleepTimerOptionsView` (`Views/Common/SleepTimer/`) — sheet TTS giữ nguyên giao diện, hành vi và ô "Hết chương". Phim / nhạc dùng sheet gọn `MediaSleepTimerSheet` (tiêu đề + dòng trạng thái + "Tắt hẹn giờ" khi đang hẹn; vuốt xuống để đóng). Lối vào: **nhạc** — nút ⏱ ở hàng phụ trang Đĩa (đang hẹn ⇒ viên thuốc màu nhấn "m:ss"), hàng "Hẹn giờ tắt" trong ngăn kéo `…` của màn nghe, nút ⏱ cạnh ⤢ trong sheet nhạc của Reader (sheet hẹn giờ mở chồng lên); **phim** — hàng "Hẹn giờ tắt" đầu ngăn kéo `⋯` của trình phát, đang hẹn ⇒ badge ⏱ + số phút còn lại ("Np") ở thanh trên. Số giây chỉ đọc ở view lá `MediaSleepTimerCountdownText`.
 - **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoPlaybackSession+Playback.swift` đúng 400 dòng). Không build tại chỗ (Windows). Chưa thử máy: đếm khi app ở nền / khoá màn; hết giờ có tạm dừng + toast; sheet hẹn giờ chồng lên sheet nhạc của Reader; badge thanh trên trình phát.
-
-## [1.3.794] - 2026-11-09
-
-### fix: sheet chọn truyện nguồn / truyện đích của từ điển VP/Name chỉ hiện truyện chữ
-
-Người dùng: *"danh sách chọn truyện nguồn, chọn truyện đích chỉ được hiển thị truyện chữ (hiện tại video, commic, nhạc đều được hiển thị)"* — hai sheet của từ điển VP/Name.
-
-- `BookImportSourceSheet` (nhập từ truyện khác) và `BookShareTargetSheet` (chia sẻ sang truyện khác — cũng dùng ở chia sẻ bộ rule dịch nhanh riêng) bỏ truyện tranh, phim và âm thanh; luật NSFW giữ nguyên.
-- Loại sách suy **đúng như router mở sách**: tách `BookContentDestination.resolveKind` thành `BookContentKindResolver` (`Services/Books/`, mới) — ghi đè loại của sách ở nguồn Legado → loại của tiện ích → tiện ích đã gỡ thì xét bản tải truyện tranh / phim. `.unsupported` vẫn tính là chữ (router mở bằng Reader chữ).
-- **Kiểm chứng:** đọc code; router gọi resolver mới, hành vi không đổi. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
