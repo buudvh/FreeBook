@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.820] - 2026-11-10
+
+### fix: đĩa góc thu tại chỗ khi đổi màn rồi hiện thẳng ở chỗ mới, không trượt ngang qua màn
+
+Anh Bửu: Chi tiết → "+" → "Đọc" ⇒ đĩa (đang đứng cao trên cụm pill của menu xổ) hiện giữa Reader rồi trượt xuống trên nút tai nghe; mở trang không có thanh tab từ trang có thanh tab cũng giật.
+
+- **Nguyên nhân:** `MediaDiscContainerViewController.updateDisc` thấy chỗ mới khác chỗ cũ ⇒ trượt đĩa (lò xo) kể cả khi đó là **màn khác**, và tính chỗ cả lúc màn còn đang chuyển cảnh (khung neo đang chạy).
+- `MediaDiscScreenContext` (file mới): "trang đang hiện" = trang trên cùng của `UINavigationController` đầu tiên đang hiện trong tầng trình bày trên cùng (không có nav ⇒ chính tầng đó; chỉ đi cây VC, không quét view) + cờ đang chuyển cảnh (`isBeingPresented` / `isBeingDismissed` trong chuỗi trình bày, `transitionCoordinator` của tầng hoặc nav — kể cả vuốt back).
+- Container: trang khác trang lúc đĩa hiện ⇒ **thu ngay tại chỗ**; đang chuyển cảnh ⇒ đĩa đang ẩn thì chưa đếm 0,3 s (hỏi lại mỗi 0,1 s), đĩa đang hiện cùng màn thì đứng yên; hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng trang (menu "+" bung / thu, Home hiện muộn) vẫn trượt như cũ. Đang nằm trong header (nhấn giữ) mà đổi màn ⇒ cũng thu rồi hiện trong header màn mới.
+- `CLAUDE.md` / `AGENTS.md` mục đĩa nghe.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — rủi ro: NavigationStack của SwiftUI không lộ `UINavigationController` ở chỗ dò ⇒ đẩy trang không được coi là đổi màn (đĩa trượt như cũ, chỉ mở Reader / sheet là thu).
+
 ## [1.3.819] - 2026-11-10
 
 ### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang
@@ -367,11 +379,3 @@ Anh Bửu duyệt plan: không bao giờ cùng lúc có thanh nhạc mini lẫn 
   - Đọc code: `TTSManager.stop` không đi qua `setSystemNowPlayingPlaybackState(.playing)` (không gọi ngược vào trình nghe); `prepareSpeaking` không hiện widget nên widget TTS chỉ xuất hiện qua `startSpeaking` (đã dừng nhạc); `Actions` chỉ dựng ở `installRemoteActions`.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: đang nghe nhạc bấm tai nghe Reader ⇒ thanh nhạc + hub biến mất, TTS đọc có tiếng; đang đọc TTS mở album ⇒ widget TTS biến mất; màn khoá đúng bên.
-
-## [1.3.790] - 2026-11-09
-
-### docs: ghi phân hệ âm thanh vào CLAUDE.md và AGENTS.md
-
-- Mục mới **Âm thanh (1.3.784–789)**: loại `audio` mở thẳng màn nghe, lõi `AudioPlaybackSession` (nguồn đầu tiên có `data`, `audios[0]`, lời), màn khoá ba bên qua `MediaNowPlayingOwnership`, giao diện `Views/AudioPlayer/` + thanh mini + hub, những gì chưa có (tải/xuất, Legado âm thanh, dò mp3 trong trang).
-- Sửa ba câu đã lệch code: router chọn thêm `AudioListenRouteView`; `currentChapterPage` = số giây cả với âm thanh; autoplay tắt tiếng của trình duyệt tiện ích bật cho cả loại âm thanh.
-- **Kiểm chứng:** chỉ sửa tài liệu; `CLAUDE.md` và `AGENTS.md` vẫn trùng nhau trừ 3 dòng đầu.

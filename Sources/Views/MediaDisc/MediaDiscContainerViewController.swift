@@ -11,6 +11,10 @@ import UIKit
 /// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (thanh tab tự có ô đĩa, màn xem phim, bàn phím…) ⇒ thu
 ///   ngay; đĩa đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s — đẩy trang khỏi trang gốc tab không làm đĩa
 ///   lóe lên.
+/// - **Đổi màn ⇒ thu tại chỗ, hiện thẳng ở chỗ mới** (1.3.820, `MediaDiscScreenContext`): trang đang hiện khác trang lúc
+///   đĩa hiện (đẩy trang, mở Reader / sheet, quay lại) ⇒ thu ngay, không trượt ngang qua màn mới; màn còn đang chuyển cảnh
+///   ⇒ chưa hiện, chưa đếm 0,3 s (hỏi lại mỗi 0,1 s); hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng
+///   một trang (menu "+" bung / thu, nút Home hiện muộn) vẫn trượt như cũ.
 /// - **Nhấn giữ 0,4 s** (1.3.812): rung nhẹ, đĩa trượt (lò xo mềm) **vào header** 5 giây để bấm được nút đang bị che, rồi
 ///   về chỗ. Từ 1.3.815 đĩa nằm trong header như một nút header (`MediaDiscHeaderSlot`: ngay trái cụm nút phải, giữa hàng
 ///   nút); vòng kính tan + bìa rõ hẳn (`MediaDiscWindowManager.isDiscElevated`), vùng chạm chỉ còn tròn 38 pt
@@ -34,6 +38,8 @@ final class MediaDiscContainerViewController: UIViewController {
     private var isShowingDisc = false
     /// Chỗ ở `FloatingWidgetLayoutCoordinator` phải **mở** lại (chỉ `resolve` mở được; `refresh` chỉ cập nhật chỗ đã có).
     private var needsSlotClaim = true
+    /// Trang đang hiện lúc đĩa hiện — khác trang hiện tại ⇒ đổi màn (`MediaDiscScreenContext`).
+    private var shownPage: ObjectIdentifier?
     /// Lúc đĩa đang ẩn bắt đầu được phép hiện — hiện thật khi đã giữ đủ `showDelay`.
     private var pendingShowSince: Date?
     private var pendingShowWork: DispatchWorkItem?
@@ -47,6 +53,8 @@ final class MediaDiscContainerViewController: UIViewController {
         /// Lệch dưới mức này coi như đứng yên (không chạy hiệu ứng mỗi lượt hỏi).
         static let moveTolerance: CGFloat = 0.5
         static let showDelay: TimeInterval = 0.3
+        /// Màn đang chuyển cảnh: hỏi lại sau nhịp này.
+        static let transitionRecheck: TimeInterval = 0.1
         static let elevationDuration: TimeInterval = 5
         /// Vùng chạm khi đĩa nằm trong header: tròn 38 pt như nút header.
         static let elevatedHitRadius: CGFloat = 19
@@ -163,9 +171,24 @@ final class MediaDiscContainerViewController: UIViewController {
             setDiscShown(false, frame: nil, animated: animated)
             return
         }
+        let screen = MediaDiscScreenContext.current()
+        if isShowingDisc, screen.page != shownPage {
+            // Đổi màn: thu ngay tại chỗ, không trượt ngang qua màn mới; hiện lại qua luồng hiện chậm.
+            cancelPendingShow()
+            setDiscShown(false, frame: nil, animated: animated)
+        }
+        if screen.isTransitioning {
+            // Khung các neo còn đang chạy: đĩa đang hiện (cùng màn) thì đứng yên; đĩa đang ẩn thì chưa đếm thời gian chờ.
+            if !isShowingDisc {
+                pendingShowSince = nil
+                scheduleShowCheck(after: Layout.transitionRecheck)
+            }
+            return
+        }
         if !isShowingDisc, !isShowDelayElapsed() { return }
         let frame = isElevated ? elevatedFrame().frame : placement.frame
         setDiscShown(true, frame: frame, animated: animated, softSpring: softSpring)
+        shownPage = screen.page
     }
 
     // MARK: - Hiện chậm
