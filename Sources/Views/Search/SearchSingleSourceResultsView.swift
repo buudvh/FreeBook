@@ -11,8 +11,9 @@ import SwiftUI
 ///
 /// Chạm item: đang đổi nguồn ⇒ `onChangeSource` (hộp xác nhận nằm ở `SearchView`); ngược lại mở Chi tiết truyện.
 ///
-/// Tải thêm trang (`footer == .loading`): `LoadMoreFooter` cuối danh sách / footer của lưới (cùng mẹo `.id(count)`
-/// với `DiscoveryNovelsLayoutView`), và gọi sớm khi một trong `preloadDistance` mục cuối hiện ra — tải trước khi chạm đáy.
+/// Tải thêm trang (`footer == .loading`): `LoadMoreFooter` cuối danh sách / footer của lưới (hàng chân id cố định, vòng
+/// xoay + kích hoạt lại theo `token` = số mục — 1.3.819, như `DiscoveryNovelsLayoutView`), và gọi sớm khi một trong
+/// `preloadDistance` mục cuối hiện ra — tải trước khi chạm đáy.
 struct SearchSingleSourceResultsView: View {
     let items: [ExtensionItemResultWithExt]
     let layout: BookListLayout
@@ -32,6 +33,7 @@ struct SearchSingleSourceResultsView: View {
     var playlistContext: PlaylistListAddContext? = nil
 
     private static let preloadDistance = 5
+    private static let footerId = "loadMoreFooter"
 
     var body: some View {
         if layout.mode.isGrid {
@@ -52,10 +54,11 @@ struct SearchSingleSourceResultsView: View {
                     .onAppear { preloadIfNeeded(item, triggerIds: preloadIds) }
             }
 
+            // Hàng chân id cố định (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng (trắng xoá, lệch vị trí).
             if let footer {
                 footerView(footer)
                     .bookListPanelRowChrome()
-                    .id(items.count)
+                    .id(Self.footerId)
             }
         }
         .listStyle(.plain)
@@ -155,11 +158,11 @@ struct SearchSingleSourceResultsView: View {
                         .onAppear { preloadIfNeeded(item, triggerIds: preloadIds) }
                     }
                 } footer: {
-                    // Footer của section được dựng lười (chỉ hiện khi cuộn tới cuối). `.id(count)`: lưới chưa đầy màn
-                    // sau một trang thì mỗi lượt nối thêm đổi id ⇒ sentinel mới ⇒ tải tiếp tới khi đầy màn.
+                    // Footer của section được dựng lười (chỉ hiện khi cuộn tới cuối). Lưới chưa đầy màn sau một trang thì
+                    // `LoadMoreFooter` tự kích hoạt lại theo `token` (số mục) ⇒ tải tiếp tới khi đầy màn.
                     if let footer {
                         footerView(footer)
-                            .id(items.count)
+                            .id(Self.footerId)
                     }
                 }
             }
@@ -182,7 +185,7 @@ struct SearchSingleSourceResultsView: View {
     }
 
     private func footerView(_ phase: LoadMoreFooter.Phase) -> some View {
-        LoadMoreFooter(phase: phase, onAppear: onLoadMore, onRetry: onRetry)
+        LoadMoreFooter(phase: phase, token: items.count, onAppear: onLoadMore, onRetry: onRetry)
     }
 
     /// Bọc nội dung một item thành nút đổi nguồn, hoặc `ContentDetailLink`: phim / âm thanh ⇒ nút mở màn phát, loại khác ⇒ link

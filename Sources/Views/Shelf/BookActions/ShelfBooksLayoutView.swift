@@ -78,11 +78,12 @@ struct ShelfBooksLayoutView: View {
                 }
             }
 
-            // `.id` theo số truyện đã hiện như kiểu lưới: mỗi lượt nạp thêm là hàng chân mới ⇒ vòng xoay mới.
+            // Hàng chân id cố định (1.3.819): đổi id mỗi lượt nạp làm `List` nạp lại cả bảng (trắng xoá, lệch vị trí).
+            // Vòng xoay mới + kích hoạt lại do `LoadMoreFooter` lo theo `token` (số truyện đã hiện).
             if let phase = footerPhase {
-                footer(phase)
+                footer(phase, token: groups.reduce(0) { $0 + $1.books.count })
                     .bookListPanelRowChrome()
-                    .id(groups.reduce(0) { $0 + $1.books.count })
+                    .id("loadMoreFooter")
             }
         }
         .listStyle(.plain)
@@ -156,12 +157,12 @@ struct ShelfBooksLayoutView: View {
                     Section {
                         EmptyView()
                     } footer: {
-                        footer(phase)
+                        // Tải thêm xong mà sentinel vẫn trong màn hình (lưới bìa ngang nhiều cột rất thấp) ⇒
+                        // `LoadMoreFooter` tự kích hoạt lại theo `token` (số truyện đã hiện), không kẹt tới khi người
+                        // dùng cuộn; id hàng chân cố định (1.3.819).
+                        footer(phase, token: loadedCount)
                             .padding(.vertical, 4)
-                            // `id` theo số truyện đã hiện, đặt **ngoài** `onAppear`: tải thêm xong mà sentinel vẫn trong
-                            // màn hình (lưới bìa ngang nhiều cột rất thấp) thì nó được dựng lại và `onAppear` chạy tiếp,
-                            // không kẹt tới khi người dùng cuộn.
-                            .id(loadedCount)
+                            .id("loadMoreFooter")
                     }
                 }
             }
@@ -209,8 +210,8 @@ struct ShelfBooksLayoutView: View {
         return endCaption.map(LoadMoreFooter.Phase.finished)
     }
 
-    private func footer(_ phase: LoadMoreFooter.Phase) -> some View {
-        LoadMoreFooter(phase: phase, onAppear: { scheduleLoadMore() })
+    private func footer(_ phase: LoadMoreFooter.Phase, token: Int) -> some View {
+        LoadMoreFooter(phase: phase, token: token, onAppear: { scheduleLoadMore() })
     }
 
     /// Như bản cũ của Kệ/Lịch sử: nhích 0,3 s rồi mới tăng giới hạn, để lượt tải thêm không chen vào giữa lượt vẽ

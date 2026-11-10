@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.789] - 2026-11-09
+
+### feat: nhận loại tiện ích âm thanh: hiện ở Khám phá, Tìm, Kệ và mở thẳng màn nghe
+
+Phần 1/3 (phần cuối) của trình nghe âm thanh cho tiện ích JS loại `audio` (plan anh Bửu đã duyệt): app nhận loại `audio` ở mọi nơi và nối định tuyến tới màn nghe đã có (1.3.784–788). Không sửa lõi `Sources/Services/Audio/` lẫn giao diện `Sources/Views/AudioPlayer/`.
+
+- **`ExtensionContentKind.audio`** (nhóm `audio`/`music` của `ExtensionFilterGroups`, hằng mới `audioGroup`): nhãn "Âm thanh", icon `music.note`. `isMedia` gồm âm thanh (mục lục gắn `isSection`, không đi pipeline chữ); `isPlayable` (mới) = phim hoặc âm thanh.
+- **Chip + bố cục**:
+  - `SearchExtensionScopePolicy.browsableKinds` thêm `.audio` (sau `.video`) ⇒ chip "Âm thanh" ở Khám phá, Tìm, Kệ; Đổi nguồn / gắn lại nguồn mất chỉ cùng loại.
+  - `BookListLayoutScope.audio`: nhãn "Âm thanh", "album", bìa lưới vuông 1:1 (ghi chú ở sheet Kiểu hiển thị và Cài đặt › Kiểu hiển thị danh sách); `ExploreLayoutSizePreferences.scopes` thêm `.audio` (thiếu thì cỡ trang Khám phá của âm thanh không lưu được).
+  - Badge loại màu cam. Dòng danh sách (`BookListItemView`): bìa vuông qua `BookListRowSize.coverHeight(for:)` — badge loại + ghim của `ShelfBookRowView` canh theo cùng khung; "Bài N" / "Đang nghe". Thẻ lưới kệ "Bài N" (`BookListRowSize.progressLabel`).
+- **Định tuyến — mở thẳng màn nghe, không bao giờ Chi tiết**:
+  - `ContentDetailRouter.openIfVideo` giữ tên (8 lối gọi tự nhận): âm thanh ⇒ `AudioPlayerPresenter.present(AudioListenRequest(…))`. `opensPlayer(packageId:)` (mới) cho `ContentDetailLink` và `SearchSingleSourceResultsView`; `isVideo` giữ chỉ phim (đổi phim tại chỗ ở trang thể loại của màn xem).
+  - `VideoWatchPagePresenter.openDetail`: đề xuất âm thanh ⇒ màn nghe thay cho trang Chi tiết.
+  - `BookContentDestination` `.audio` ⇒ `AudioListenRouteView` (Kệ, Tìm trên kệ, Bộ sưu tập, chạm bài ở Chi tiết, mở lại lúc khởi động — `ShelfView+LaunchRestore` không lọc theo loại nên không phải sửa).
+  - `WebViewLoader`: tiện ích âm thanh cũng được tự phát media tắt tiếng (bước dò link `auto`/`webview`).
+- **Ẩn tải / xuất của album**: sheet nhấn giữ `BookActionSheet` (ẩn Tải + Xuất, không mở Chi tiết), Chi tiết (`showsExport`, `downloadActionTitle`), `TaskOptionsSheet` (chốt chặn: báo chưa hỗ trợ, khoá "Bắt đầu"), `DownloadTrackerView` (không có "Xuất … đã tải"), `BookExportFormat.formats(.audio) = []`, `DownloadManager+Comic` báo thất bại ngay tác vụ của album (không rơi vào nhánh truyện tranh hay pipeline chữ).
+- **Kiểm tra tiện ích**: `ExtensionCheckReport.Kind.audio` ("Âm thanh"); truyện thử chạy `chap` bằng `audioStreamData` rồi `track` bằng `audioTrack` (`runAudio`, đúng đường của trình nghe), mục lục đếm "bài".
+- `ExtensionConfigHeaderCard`: âm thanh hiện badge loại như các loại được hỗ trợ (không phải sửa file).
+- Chuyển `[1.3.756]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; grep lại mọi `switch` / so sánh `.video` theo loại nội dung; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy.
+
 ## [1.3.788] - 2026-11-09
 
 ### feat: bìa thanh phát mini và trang Đĩa là đĩa tròn xoay như widget TTS, hub không nháy khi màn nghe đang mở

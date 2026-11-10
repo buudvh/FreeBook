@@ -132,10 +132,14 @@ struct VideoWatchSuggestSection: View {
                     )
                     .onAppear { loadMoreIfNeeded(after: item) }
                 }
-                if loader.isLoadingMore {
+                // Hàng vòng xoay giữ chỗ 44 pt suốt lúc còn trang (1.3.819), chỉ hiện / ẩn bằng độ mờ ⇒ chiều cao danh
+                // sách không đổi mỗi lượt tải (trước đây hàng mọc ra / biến mất ⇒ nội dung giật).
+                if loader.canLoadMore || loader.isLoadingMore {
                     ProgressView()
                         .tint(.white)
                         .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .opacity(loader.isLoadingMore ? 1 : 0)
                 }
             }
         }
@@ -153,7 +157,9 @@ struct VideoWatchSuggestSection: View {
     }
 
     private func loadMoreIfNeeded(after item: ExtensionItemResult) {
-        guard loadsMore, item.id == loader.novels.last?.id, loader.canLoadMore, !loader.isLoadingMore else { return }
+        // Tải trước (1.3.819): một trong 3 thẻ cuối hiện ra ⇒ tải trang kế, không đợi chạm đáy.
+        guard loadsMore, loader.canLoadMore, !loader.isLoadingMore,
+              loader.novels.suffix(3).contains(where: { $0.id == item.id }) else { return }
         Task { await loader.loadMore() }
     }
 }

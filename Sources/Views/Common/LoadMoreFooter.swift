@@ -5,12 +5,18 @@ import SwiftUI
 ///
 /// Ba trạng thái (mockup đã duyệt): vòng xoay lúc đang nạp trang kế; "Không tải được trang kế" + "Thử lại" khi trang kế
 /// lỗi hết lượt tự thử; "Đã hết · N truyện" giữa hai vạch mờ khi hết trang. Không có nút "Xem thêm" — nạp vẫn tự chạy
-/// khi cuộn tới (bộ nạp của nơi dùng tự chặn gọi trùng; `onAppear` ở đây chỉ là lưới an toàn).
+/// khi cuộn tới (bộ nạp của nơi dùng tự chặn gọi trùng). Nơi dùng nên tải trước vài mục trước khi tới chân (1.3.819);
+/// kích hoạt ở đây là lưới an toàn.
 ///
-/// **Không giữ state** (1.3.679): `ProgressView` trong hàng `List` bị tái dùng hiện trống / đứng yên từ lần thứ hai, nên
-/// nơi dùng gắn `.id(số mục)` cho chân ⇒ mỗi trang mới về là một vòng xoay mới. Đừng ghi state trong `onAppear` ở đây
-/// (1.3.678 ghi `UUID()` mới mỗi lần hiện ⇒ hàng cuối vẽ lại → "hiện" lại → ghi tiếp, vòng lặp trên main thread làm đơ
-/// app khi cuộn tới cuối). Màu theo màu nhấn của app.
+/// **Hàng chân giữ id cố định** (1.3.819): nơi dùng **không** gắn `.id(số mục)` cho hàng chân nữa. Mẹo đó (1.3.679) làm
+/// mỗi trang mới về thì hàng chân đang hiện bị xoá + chèn hàng id mới cùng lúc N hàng mới ⇒ `List` nạp lại cả bảng:
+/// trắng xoá một nhịp, bìa dựng lại, lệch vị trí cuộn. Thay vào đó nơi dùng truyền `token` (số mục):
+/// - vòng xoay mới mỗi trang bằng `.id(token)` **chỉ trên `ProgressView`** (trong hàng `List` tái dùng nó hiện trống /
+///   đứng yên từ lần thứ hai);
+/// - kích hoạt tải bằng `.task(id:)` theo `token` ⇒ trang về mà chân vẫn trên màn (lưới chưa đầy) tự tải tiếp.
+///
+/// **Không giữ state**: đừng ghi state khi chân hiện (1.3.678 ghi `UUID()` mới mỗi lần hiện ⇒ hàng cuối vẽ lại → "hiện"
+/// lại → ghi tiếp, vòng lặp trên main thread làm đơ app khi cuộn tới cuối). Màu theo màu nhấn của app.
 struct LoadMoreFooter: View {
     enum Phase: Equatable {
         case loading
@@ -21,13 +27,16 @@ struct LoadMoreFooter: View {
     }
 
     let phase: Phase
+    /// Số mục hiện có của danh sách: đổi ⇒ vòng xoay mới + kích hoạt tải lại nếu chân còn trên màn.
+    var token = 0
     var onAppear: () -> Void = {}
     var onRetry: () -> Void = {}
 
     var body: some View {
         content
             .frame(maxWidth: .infinity)
-            .onAppear {
+            // Chạy khi chân hiện, và chạy lại khi `token` đổi lúc chân vẫn trên màn. Không ghi state.
+            .task(id: phase == .loading ? token : -1) {
                 if phase == .loading { onAppear() }
             }
     }
@@ -37,6 +46,7 @@ struct LoadMoreFooter: View {
         switch phase {
         case .loading:
             ProgressView()
+                .id(token)
                 .frame(height: 44)
                 .accessibilityLabel("Đang tải thêm")
         case .failed(let message):

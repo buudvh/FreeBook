@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.819] - 2026-11-10
+
+### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang
+
+Anh Bửu (video Khám phá › qidian, kiểu Danh sách): kéo tới cuối, lúc tải trang kế cả danh sách trắng xoá ~0,2–0,3 s rồi hiện lại ở chỗ khác (bìa xám tải lại), nối mục mới thì nhảy lên ~1 hàng; xảy ra ở mọi danh sách tải vô hạn.
+
+- **Nguyên nhân (đọc code + video, chưa thử máy):** mọi nơi dùng `LoadMoreFooter` gắn `.id(số mục)` cho hàng chân (mẹo 1.3.679 để vòng xoay không đứng hình) ⇒ mỗi trang về, hàng chân **đang hiện** bị xoá + hàng id mới chèn cùng N hàng mới phía trên ⇒ `List` nạp lại cả bảng. Lại chỉ tải khi chạm chân ⇒ lần nối nào cũng rơi đúng lúc đang nhìn đáy.
+- `LoadMoreFooter`: thêm `token` (số mục) — vòng xoay mới bằng `.id(token)` **chỉ trên `ProgressView`**, kích hoạt tải bằng `.task(id:)` theo `token` (chân còn trên màn sau khi nối ⇒ tự tải tiếp, thay mẹo đổi id). Không ghi state.
+- Hàng chân **id cố định** ở `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm, danh sách + lưới), `SearchSingleSourceResultsView` (danh sách + lưới), `AllCommentsView`, `ShelfBooksLayoutView` (Kệ / Lịch sử, danh sách + lưới).
+- **Tải trước:** Khám phá / Thể loại tải trang kế khi một trong 5 mục cuối hiện ra; Tất cả bình luận cũng vậy (trước: đúng bình luận cuối). Tìm đã có sẵn.
+- Danh sách Khám phá: `ForEach(loader.novels, id: \.link)` như lưới (id `UUID()` đổi mỗi lần nạp lại ⇒ kéo làm mới dựng lại mọi bìa).
+- Tất cả bình luận: đặt cờ đang tải **trước** điểm chờ đầu tiên ⇒ hai lần kích hoạt cùng khung không nối một trang hai lần. (Không lọc trùng theo `id`: id bình luận là `UUID()` mỗi lần bóc tách, lọc không có tác dụng.)
+- Phim đề xuất (`VideoWatchSuggestSection`): hàng vòng xoay giữ 44 pt suốt lúc còn trang (ẩn / hiện bằng độ mờ) ⇒ chiều cao không đổi mỗi lượt; tải trước khi một trong 3 thẻ cuối hiện ra.
+- `CLAUDE.md` / `AGENTS.md`: luật hàng chân id cố định + `token`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.818] - 2026-11-10
 
 ### feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet
@@ -359,25 +375,3 @@ Anh Bửu duyệt plan: không bao giờ cùng lúc có thanh nhạc mini lẫn 
 - Mục mới **Âm thanh (1.3.784–789)**: loại `audio` mở thẳng màn nghe, lõi `AudioPlaybackSession` (nguồn đầu tiên có `data`, `audios[0]`, lời), màn khoá ba bên qua `MediaNowPlayingOwnership`, giao diện `Views/AudioPlayer/` + thanh mini + hub, những gì chưa có (tải/xuất, Legado âm thanh, dò mp3 trong trang).
 - Sửa ba câu đã lệch code: router chọn thêm `AudioListenRouteView`; `currentChapterPage` = số giây cả với âm thanh; autoplay tắt tiếng của trình duyệt tiện ích bật cho cả loại âm thanh.
 - **Kiểm chứng:** chỉ sửa tài liệu; `CLAUDE.md` và `AGENTS.md` vẫn trùng nhau trừ 3 dòng đầu.
-
-## [1.3.789] - 2026-11-09
-
-### feat: nhận loại tiện ích âm thanh: hiện ở Khám phá, Tìm, Kệ và mở thẳng màn nghe
-
-Phần 1/3 (phần cuối) của trình nghe âm thanh cho tiện ích JS loại `audio` (plan anh Bửu đã duyệt): app nhận loại `audio` ở mọi nơi và nối định tuyến tới màn nghe đã có (1.3.784–788). Không sửa lõi `Sources/Services/Audio/` lẫn giao diện `Sources/Views/AudioPlayer/`.
-
-- **`ExtensionContentKind.audio`** (nhóm `audio`/`music` của `ExtensionFilterGroups`, hằng mới `audioGroup`): nhãn "Âm thanh", icon `music.note`. `isMedia` gồm âm thanh (mục lục gắn `isSection`, không đi pipeline chữ); `isPlayable` (mới) = phim hoặc âm thanh.
-- **Chip + bố cục**:
-  - `SearchExtensionScopePolicy.browsableKinds` thêm `.audio` (sau `.video`) ⇒ chip "Âm thanh" ở Khám phá, Tìm, Kệ; Đổi nguồn / gắn lại nguồn mất chỉ cùng loại.
-  - `BookListLayoutScope.audio`: nhãn "Âm thanh", "album", bìa lưới vuông 1:1 (ghi chú ở sheet Kiểu hiển thị và Cài đặt › Kiểu hiển thị danh sách); `ExploreLayoutSizePreferences.scopes` thêm `.audio` (thiếu thì cỡ trang Khám phá của âm thanh không lưu được).
-  - Badge loại màu cam. Dòng danh sách (`BookListItemView`): bìa vuông qua `BookListRowSize.coverHeight(for:)` — badge loại + ghim của `ShelfBookRowView` canh theo cùng khung; "Bài N" / "Đang nghe". Thẻ lưới kệ "Bài N" (`BookListRowSize.progressLabel`).
-- **Định tuyến — mở thẳng màn nghe, không bao giờ Chi tiết**:
-  - `ContentDetailRouter.openIfVideo` giữ tên (8 lối gọi tự nhận): âm thanh ⇒ `AudioPlayerPresenter.present(AudioListenRequest(…))`. `opensPlayer(packageId:)` (mới) cho `ContentDetailLink` và `SearchSingleSourceResultsView`; `isVideo` giữ chỉ phim (đổi phim tại chỗ ở trang thể loại của màn xem).
-  - `VideoWatchPagePresenter.openDetail`: đề xuất âm thanh ⇒ màn nghe thay cho trang Chi tiết.
-  - `BookContentDestination` `.audio` ⇒ `AudioListenRouteView` (Kệ, Tìm trên kệ, Bộ sưu tập, chạm bài ở Chi tiết, mở lại lúc khởi động — `ShelfView+LaunchRestore` không lọc theo loại nên không phải sửa).
-  - `WebViewLoader`: tiện ích âm thanh cũng được tự phát media tắt tiếng (bước dò link `auto`/`webview`).
-- **Ẩn tải / xuất của album**: sheet nhấn giữ `BookActionSheet` (ẩn Tải + Xuất, không mở Chi tiết), Chi tiết (`showsExport`, `downloadActionTitle`), `TaskOptionsSheet` (chốt chặn: báo chưa hỗ trợ, khoá "Bắt đầu"), `DownloadTrackerView` (không có "Xuất … đã tải"), `BookExportFormat.formats(.audio) = []`, `DownloadManager+Comic` báo thất bại ngay tác vụ của album (không rơi vào nhánh truyện tranh hay pipeline chữ).
-- **Kiểm tra tiện ích**: `ExtensionCheckReport.Kind.audio` ("Âm thanh"); truyện thử chạy `chap` bằng `audioStreamData` rồi `track` bằng `audioTrack` (`runAudio`, đúng đường của trình nghe), mục lục đếm "bài".
-- `ExtensionConfigHeaderCard`: âm thanh hiện badge loại như các loại được hỗ trợ (không phải sửa file).
-- Chuyển `[1.3.756]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; grep lại mọi `switch` / so sánh `.video` theo loại nội dung; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy.

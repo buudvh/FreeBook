@@ -23,6 +23,9 @@ struct DiscoveryNovelsLayoutView: View {
     static let columnSpacing: CGFloat = 10
     static let rowSpacing: CGFloat = 14
     static let gridPadding: CGFloat = 16
+    /// Số mục cuối: hiện ra là tải trước trang kế.
+    private static let preloadDistance = 5
+    private static let footerId = "loadMoreFooter"
 
     @ObservedObject var loader: PaginatedNovelLoader
     let layout: BookListLayout
@@ -76,7 +79,9 @@ struct DiscoveryNovelsLayoutView: View {
 
     private var listBody: some View {
         List {
-            ForEach(loader.novels) { novel in
+            // Định danh theo `link` như lưới (1.3.819): `ExtensionItemResult.id` là `UUID()` mới mỗi lần bóc tách ⇒ kéo làm
+            // mới dựng lại mọi hàng + bìa.
+            ForEach(loader.novels, id: \.link) { novel in
                 Button {
                     onSelectNovel(novel)
                 } label: {
@@ -94,16 +99,19 @@ struct DiscoveryNovelsLayoutView: View {
                 .playlistListItemMenuOverlay(item: novel, context: playlistContext, style: .row)
                 .bookListPanelRowChrome()
                 .id(novel.link)
-                .onAppear { setVisible(novel.link, true) }
+                .onAppear {
+                    setVisible(novel.link, true)
+                    preloadIfNeeded(novel)
+                }
                 .onDisappear { setVisible(novel.link, false) }
             }
 
-            // `.id(count)` như lưới: mỗi trang mới về là hàng chân mới ⇒ vòng xoay mới (`ProgressView` trong hàng tái
-            // dùng hiện trống). Trang không thêm mục nào thì `count` đứng yên, không kích hoạt lại.
+            // Hàng chân **id cố định** (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng (trắng xoá, lệch vị trí).
+            // Vòng xoay mới + kích hoạt lại do `LoadMoreFooter` lo theo `token`.
             if let phase = footerPhase {
                 footer(phase)
                     .bookListPanelRowChrome()
-                    .id(loader.novels.count)
+                    .id(Self.footerId)
             }
         }
         .listStyle(.plain)
@@ -147,18 +155,21 @@ struct DiscoveryNovelsLayoutView: View {
                             style: layout.mode == .coverOnly ? .onCover : .card
                         )
                         .id(novel.link)
-                        .onAppear { setVisible(novel.link, true) }
+                        .onAppear {
+                            setVisible(novel.link, true)
+                            preloadIfNeeded(novel)
+                        }
                         .onDisappear { setVisible(novel.link, false) }
                     }
                 } footer: {
-                    // Footer của section trải hết bề ngang lưới và cũng được dựng lười: `onAppear` chỉ nổ khi cuộn
-                    // tới cuối — đặt ngoài vùng lazy (VStack thường) thì nó nổ ngay lượt vẽ đầu.
-                    // `.id(count)`: lưới nhiều cột / chỉ bìa có thể chưa đầy màn sau một trang, footer vẫn trong
-                    // màn nên `onAppear` không nổ lại và không cuộn được để kích hoạt. Mỗi lượt nối thêm đổi id ⇒
-                    // sentinel mới ⇒ tải tiếp tới khi đầy màn. Trang toàn mục trùng thì `count` đứng yên, không lặp.
+                    // Footer của section trải hết bề ngang lưới và cũng được dựng lười: chỉ hiện khi cuộn tới cuối —
+                    // đặt ngoài vùng lazy (VStack thường) thì nó hiện ngay lượt vẽ đầu.
+                    // Lưới nhiều cột / chỉ bìa có thể chưa đầy màn sau một trang, footer vẫn trong màn: `LoadMoreFooter`
+                    // tự kích hoạt lại theo `token` (số mục) ⇒ tải tiếp tới khi đầy màn. Trang toàn mục trùng thì
+                    // `token` đứng yên, không lặp.
                     if let phase = footerPhase {
                         footer(phase)
-                            .id(loader.novels.count)
+                            .id(Self.footerId)
                     }
                 }
             }
@@ -181,9 +192,18 @@ struct DiscoveryNovelsLayoutView: View {
     private func footer(_ phase: LoadMoreFooter.Phase) -> some View {
         LoadMoreFooter(
             phase: phase,
+            token: loader.novels.count,
             onAppear: { Task { await loader.loadMore() } },
             onRetry: { Task { await loader.retryLoadMore() } }
         )
+    }
+
+    /// Tải trang kế khi một trong `preloadDistance` mục cuối hiện ra (1.3.819) ⇒ mục mới nối vào lúc người dùng còn ở
+    /// phía trên, không đợi chạm chân. `loadMore()` tự chặn gọi trùng / khi hết trang.
+    private func preloadIfNeeded(_ novel: ExtensionItemResult) {
+        guard loader.canLoadMore, !loader.isLoadingMore, loader.loadMoreError == nil else { return }
+        guard loader.novels.suffix(Self.preloadDistance).contains(where: { $0.link == novel.link }) else { return }
+        Task { await loader.loadMore() }
     }
 
     private func setVisible(_ link: String, _ isVisible: Bool) {

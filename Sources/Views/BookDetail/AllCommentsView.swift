@@ -68,8 +68,9 @@ struct AllCommentsView: View {
                         // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
                         .bookListPanelRow()
                         .onAppear {
-                            // Infinite Scroll: Khi cuộn tới phần tử cuối cùng và có trang tiếp theo
-                            if comment.id == comments.last?.id && nextPageUrl != nil {
+                            // Tải trước (1.3.819): một trong 5 bình luận cuối hiện ra mà còn trang ⇒ tải trang kế, không
+                            // đợi chạm chân danh sách.
+                            if nextPageUrl != nil, comments.suffix(5).contains(where: { $0.id == comment.id }) {
                                 Task {
                                     await loadMoreComments()
                                 }
@@ -80,11 +81,13 @@ struct AllCommentsView: View {
                     if let phase = footerPhase {
                         LoadMoreFooter(
                             phase: phase,
+                            token: comments.count,
                             onAppear: { Task { await loadMoreComments() } },
                             onRetry: { Task { await retryLoadMoreComments() } }
                         )
                         .bookListPanelRowChrome()
-                        .id(comments.count) // mỗi trang mới về là hàng chân mới ⇒ vòng xoay mới
+                        // Id cố định (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng; vòng xoay mới theo `token`.
+                        .id("loadMoreFooter")
                     }
                 }
                 .listStyle(.plain)
@@ -173,6 +176,9 @@ struct AllCommentsView: View {
     
     private func loadMoreComments() async {
         guard !isLoadingMore && nextPageUrl != nil && loadMoreError == nil else { return }
+        // Đặt cờ ngay, trước điểm chờ đầu tiên (1.3.819): `loadComments` chỉ đặt sau `await MainActor.run` ⇒ hai lần
+        // kích hoạt cùng khung (hàng tải trước + chân) lọt cả hai, nối một trang hai lần.
+        isLoadingMore = true
         await loadComments(page: currentPage + 1)
     }
 
