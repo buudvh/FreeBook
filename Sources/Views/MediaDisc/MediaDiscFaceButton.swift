@@ -11,9 +11,10 @@ import SwiftUI
 ///   (1.3.814, kiểu anh Bửu chọn). Mờ gắn lên lớp bìa, **không** lên lớp cha của kính (alpha < 1 tắt nhoè).
 ///   **Nhấn giữ 0,4 s** ⇒ `onLongPress` (container đưa đĩa tạm lên header). Cử chỉ nằm ở đây, không phải
 ///   `UILongPressGestureRecognizer` gắn ở lớp UIKit bên ngoài: nút SwiftUI bắt chạm ngay lúc chạm xuống nên bộ nhận của
-///   UIKit không bao giờ chạy (lỗi 1.3.812). Chạm nhanh và nhấn giữ do SwiftUI tự phân xử ⇒ giữ lâu không mở sheet.
-/// - `.tabBar`: bìa 44 pt (1.3.814, bằng bìa của đĩa góc), không vòng kính, không mờ; chỗ đứng + gờ nền do
-///   `MediaDiscTabBarSlot` lo.
+///   UIKit không bao giờ chạy (lỗi 1.3.812). Nhấn giữ và chạm là **một** cử chỉ ghép, nhấn giữ được ưu tiên ⇒ giữ lâu
+///   không mở sheet.
+/// - `.tabBar`: bìa 44 pt (1.3.814, bằng bìa của đĩa góc), không vòng kính, không mờ; vùng chạm 52 pt phủ cả gờ nền;
+///   chỗ đứng + gờ nền do `MediaDiscTabBarSlot` lo.
 struct MediaDiscFaceButton: View {
     enum Style {
         case corner
@@ -56,12 +57,13 @@ struct MediaDiscFaceButton: View {
         }
         .frame(width: MediaDiscPlacement.discSize, height: MediaDiscPlacement.discSize)
         .contentShape(Circle())
-        .onTapGesture {
-            manager.presentQuickControls()
-        }
-        .onLongPressGesture(minimumDuration: Self.longPressDuration) {
-            onLongPress?()
-        }
+        // Một cử chỉ ghép, nhấn giữ **được ưu tiên**: giữ đủ 0,4 s ⇒ chỉ lên header, thả tay không mở sheet; thả sớm hơn ⇒
+        // nhấn giữ hỏng, chạm mới được nhận. Đừng tách thành `.onTapGesture` + `.onLongPressGesture` (thứ tự ưu tiên ngầm).
+        .gesture(
+            LongPressGesture(minimumDuration: Self.longPressDuration)
+                .onEnded { _ in onLongPress?() }
+                .exclusively(before: TapGesture().onEnded { manager.presentQuickControls() })
+        )
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(accessibilityHint)
@@ -81,6 +83,8 @@ struct MediaDiscFaceButton: View {
                 .overlay {
                     Circle().stroke(Color.primary.opacity(0.18), lineWidth: 0.75)
                 }
+                // Vùng chạm phủ cả vòng nền 52 pt của `MediaDiscTabBarSlot` ⇒ chạm phần gờ nhô lên cũng mở sheet.
+                .frame(width: MediaDiscPlacement.discSize, height: MediaDiscPlacement.discSize)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

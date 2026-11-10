@@ -11,7 +11,8 @@ import SwiftUI
 /// Có đĩa hay không đọc thẳng **trạng thái phát** của manager ⇒ đúng ngay từ khung hình đầu, không chờ đầu dò. View riêng
 /// để chỉ ô này vẽ lại theo manager, thân `MainTabBar` thì không.
 struct MediaDiscTabBarSlot: View {
-    private static let ringSize: CGFloat = 52
+    /// Bằng đĩa góc và vùng chạm của `MediaDiscFaceButton(.tabBar)`.
+    private static let ringSize: CGFloat = MediaDiscPlacement.discSize
     /// Chân chữ tab cách mép trên thanh: cụm icon 26 + khe 3 + chữ 10 pt (~12) cao ~41 pt canh giữa thanh 49 pt ⇒ chữ từ
     /// ~33 tới ~45, đường chân chữ ~42,5. Đổi cỡ icon / chữ của `MainTabBar` thì đo lại số này.
     private static let discBottomFromBarTop: CGFloat = 42.5
