@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.788] - 2026-11-09
+
+### feat: bìa thanh phát mini và trang Đĩa là đĩa tròn xoay như widget TTS, hub không nháy khi màn nghe đang mở
+
+Anh Bửu đổi yêu cầu thanh phát mini (1.3.787): bìa là **đĩa tròn** (không còn vuông bo góc) và **xoay** khi đang phát, dừng thì đứng yên ở góc đang có — dùng lại đúng cơ chế xoay của widget TTS.
+
+- `AudioRotatingCover` (mới): đĩa bìa tròn dùng `TTSRotatingCoverView` (Core Animation trên render server, gỡ animation khi không xoay ⇒ không tốn CPU lúc không hiện, không giật về 0) + `CoverRotationState` của widget TTS — **không** sửa file nào ở `Sources/Views/TTSWidget/`, không nhân bản cơ chế. Ảnh qua `CoverImageLoader` (downsample theo cỡ khung, không ghi `covers/`); chưa có ảnh / không bìa / album 18+ lúc NSFW tắt (không tải bìa) ⇒ nốt nhạc tĩnh.
+- `AudioCoverRotation` (mới): **một** `CoverRotationState` dùng chung cho đĩa của thanh mini ở mọi tab và trang Đĩa ⇒ cùng góc; theo `AudioMiniPlayerState.isPlaying` (`syncPlaybackState`), đổi album ⇒ `resetAngle`. Tốc độ theo widget TTS: 15 s/vòng (trước là 20 s/vòng của bản `TimelineView`).
+- Thanh mini: bìa 40 pt thành đĩa tròn xoay khi đang phát. Trang Đĩa của màn nghe dùng cùng view (xoay khi trang hiện, app mở và nhạc đang phát); bỏ `AudioSpinningDisc` / `AudioDiscArtwork` (`TimelineView`).
+- Hub: dòng Âm thanh vẫn sáng lúc màn nghe đang hiện nhưng không tính là tiến trình của nút hub (`AudioState.isScreenPresented` ⇒ `isActive == false`, như Video chỉ tính khi đã thu nhỏ) ⇒ nút hub không nháy / không đổi icon đè lên màn nghe.
+- Chuyển `[1.3.755]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
+
 ## [1.3.787] - 2026-11-09
 
 ### feat: màn nghe âm thanh ba trang kiểu Zing MP3, thanh phát mini và dòng Âm thanh ở hub

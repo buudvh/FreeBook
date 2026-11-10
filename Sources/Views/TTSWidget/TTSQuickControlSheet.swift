@@ -11,7 +11,8 @@ import SwiftUI
 ///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
 /// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn).
 /// - ⏮ đoạn trước · ⏯ · ⏭ đoạn kế (`TTSManager.skipBackward` / `pause`/`resume` / `skipForward`).
-/// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Tắt đọc (chỗ gọi dừng hẳn).
+/// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Dừng (chữ đỏ, chỗ gọi
+///   dừng hẳn; 1.3.818 đổi từ "Tắt đọc").
 ///
 /// Cài đặt TTS mở bằng state **riêng** của sheet, không qua `TTSManager.showingSettingsSheet`: cờ đó do
 /// `TTSSettingsSheetHost` của `TTSQuickTimerSheet` giữ — hai host cùng nghe một cờ sẽ tranh nhau trình bày.
@@ -20,7 +21,7 @@ struct TTSQuickControlSheet: View {
     @Binding var height: CGFloat
     /// Chạm khối bìa + tên: mở chương đang đọc (chỗ gọi đóng sheet trước).
     let onOpenReader: () -> Void
-    /// "Tắt đọc": dừng hẳn TTS (đĩa thu lại, sheet đóng theo).
+    /// "Dừng": dừng hẳn TTS (đĩa thu lại, sheet đóng theo).
     let onStop: () -> Void
 
     /// App đang hoạt động ⇒ đĩa đầu sheet được xoay. Sheet trình bày từ cửa sổ riêng của đĩa nghe (1.3.808) nên không
@@ -225,7 +226,7 @@ struct TTSQuickControlSheet: View {
         HStack(spacing: 10) {
             actionButton(title: "Mục lục", systemImage: "list.bullet", tint: .primary) { openTimerSheet(tab: 1) }
             actionButton(title: "Giọng đọc", systemImage: "waveform", tint: .primary) { showingSettings = true }
-            actionButton(title: "Tắt đọc", systemImage: "stop.circle", tint: Color.red) { onStop() }
+            actionButton(title: "Dừng", systemImage: "stop.circle", tint: Color.red) { onStop() }
         }
         .buttonStyle(.plain)
     }

@@ -4,10 +4,11 @@ import SwiftUI
 /// cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
 /// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với đĩa góc dưới / trang Đĩa) · tên bài +
 ///   "nghệ sĩ · album" · ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet` mở **đè lên** sheet này; đang hẹn ⇒ màu nhấn kèm thời
-///   gian còn lại). Chạm **khối bìa + tên** ⇒ mở màn nghe đầy đủ ở trang Đĩa (1.3.808 bỏ nút ⤢ trùng việc).
+///   gian còn lại + viên "Hủy" ngay cạnh, 1.3.818). Chạm **khối bìa + tên** ⇒ mở màn nghe đầy đủ ở trang Đĩa (1.3.808 bỏ
+///   nút ⤢ trùng việc).
 /// - Một dòng lời đang hát (`AudioCurrentLyricLine`, chỉ có chữ khi lời có mốc giờ) hoặc chữ lỗi của bài.
 /// - Thanh tua (`AudioPlayerSeekRow`) + cụm nút Xáo · ⏮ · ⏯ · ⏭ · Lặp (`AudioTransportControls(.full)`) của màn nghe.
-/// - Hàng dưới: Danh sách / Lời (mở màn nghe ở trang đó) · Tắt nhạc.
+/// - Hàng dưới: Danh sách / Lời (mở màn nghe ở trang đó) · Dừng (chữ đỏ, 1.3.818).
 ///
 /// Nền là kính theo Cài đặt › Chung › Giao diện **của ngăn kéo menu** (`DrawerGlassSheetBackground`, `GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo
 /// `…` của Reader, luôn tông tối) ⇒ nội dung vẽ ở `colorScheme` tối: chữ `.primary` / `.secondary`, còn thanh tua và cụm nút
@@ -22,7 +23,7 @@ struct AudioQuickControlSheet: View {
     @Binding var height: CGFloat
     /// Mở màn nghe đầy đủ ở trang chỉ định.
     let onOpenScreen: (AudioPlayerPage) -> Void
-    /// "Tắt nhạc": dừng hẳn trình nghe.
+    /// "Dừng": dừng hẳn trình nghe.
     let onStop: () -> Void
 
     /// App đang hoạt động ⇒ đĩa đầu sheet được xoay. Sheet trình bày từ cửa sổ riêng của đĩa nghe (1.3.808) nên không
@@ -135,7 +136,12 @@ struct AudioQuickControlSheet: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint("Mở màn nghe")
-            sleepTimerButton
+            HStack(spacing: 4) {
+                sleepTimerButton
+                if session.sleepTimer.isActive {
+                    cancelSleepTimerButton
+                }
+            }
         }
     }
 
@@ -159,6 +165,29 @@ struct AudioQuickControlSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(timer.modeSummary.map { "Hẹn giờ tắt: \($0)" } ?? "Hẹn giờ tắt")
+    }
+
+    /// "Hủy" ngay cạnh ⏱ khi đang hẹn (1.3.818, anh Bửu) — huỷ hẹn giờ tắt mà không phải mở sheet hẹn giờ; cùng kiểu viên
+    /// "Hủy" của sheet nghe truyện (`TTSQuickControlSheet`).
+    private var cancelSleepTimerButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                session.sleepTimer.cancel()
+            }
+        } label: {
+            Text("Hủy")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.red)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.red.opacity(0.12)))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hủy hẹn giờ tắt")
+        .transition(.scale.combined(with: .opacity))
     }
 
     // MARK: - Lời / lỗi
@@ -186,19 +215,25 @@ struct AudioQuickControlSheet: View {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            actionButton(title: "Danh sách", systemImage: "list.bullet") { onOpenScreen(.playlist) }
-            actionButton(title: "Lời", systemImage: "quote.bubble") { onOpenScreen(.lyrics) }
-            actionButton(title: "Tắt nhạc", systemImage: "stop.circle") { onStop() }
+            actionButton(title: "Danh sách", systemImage: "list.bullet", tint: .primary) { onOpenScreen(.playlist) }
+            actionButton(title: "Lời", systemImage: "quote.bubble", tint: .primary) { onOpenScreen(.lyrics) }
+            actionButton(title: "Dừng", systemImage: "stop.circle", tint: Color.red) { onStop() }
         }
         .buttonStyle(.plain)
     }
 
-    /// Viên thuốc cao 38 pt (chuẩn nút capsule cùng hàng), nền mờ theo màu chữ — không tô nền đặc màu nhấn.
-    private func actionButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    /// Viên thuốc cao 38 pt (chuẩn nút capsule cùng hàng), nền mờ theo màu chữ — không tô nền đặc màu nhấn. `tint` = màu
+    /// chữ + icon (Dừng đỏ, như sheet nghe truyện).
+    private func actionButton(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity)

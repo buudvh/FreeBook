@@ -83,14 +83,14 @@ struct MediaDiscSheetHost: View {
         openSheet = nil
     }
 
-    /// "Tắt nhạc": đóng sheet và dừng hẳn trình nghe (đĩa thu lại theo nguồn).
+    /// "Dừng" của sheet nhạc: đóng sheet và dừng hẳn trình nghe (đĩa thu lại theo nguồn).
     private func stopMusic() {
         AppLogger.shared.log("💿 [MediaDisc] Tắt nhạc từ sheet điều khiển")
         closeSheet()
         AudioMiniPlayerState.shared.onStop?()
     }
 
-    /// "Tắt đọc": đóng sheet rồi dừng hẳn TTS.
+    /// "Dừng" của sheet nghe truyện: đóng sheet rồi dừng hẳn TTS.
     private func stopReading() {
         AppLogger.shared.log("💿 [MediaDisc] Tắt đọc từ sheet điều khiển")
         closeSheet()
