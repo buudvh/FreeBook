@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.822] - 2026-11-10
+
+### fix: danh sách tải vô hạn không còn nhảy lên khi nối trang
+
+Anh Bửu thử 1.3.819: hết trắng xoá nhưng danh sách (kiểu Danh sách) vẫn **nhảy lên khi nối trang**; đổi cùng danh sách sang kiểu **Lưới thì không nhảy** ⇒ lỗi ở `List`.
+
+- **Nguyên nhân:** hàng kiểu Danh sách cao thấp khác nhau (tên / mô tả 1–2 dòng). `List` (UICollectionView tự đo) chỉ **ước chừng** chiều cao hàng đã cuộn qua, mỗi lần chèn trang mới nó tính lại và chỉnh vị trí cuộn ⇒ nội dung đang xem bị đẩy lên ~1 hàng. Lưới (`ScrollView` + `LazyVGrid`) giữ chiều cao thật của ô đã dựng nên không bị.
+- Đổi kiểu Danh sách sang **`ScrollView` + `LazyVStack`** như lưới ở: `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm), `SearchSingleSourceResultsView` (Tìm trong một nguồn), `AllCommentsView` (Tất cả bình luận). Giữ y giao diện: panel bo góc, cách nhau 8 pt (`BookListPanelModifier.stackSpacing`), lề 16 / 4 (`bookListPanelStackPadding()`), kéo làm mới, `ScrollViewReader` theo `link`, chân `LoadMoreFooter` id cố định + tải trước.
+- Tìm trong một nguồn: bỏ mẹo `NavigationLink` ẩn dưới panel (chỉ cần trong `List` để không có mũi tên `>`); hàng dùng `tappable` như lưới (`ContentDetailLink` / nút đổi nguồn), ⋮ playlist như cũ.
+- Kệ / Lịch sử giữ `List` (vuốt ngang, tiêu đề nhóm dính; nạp trên máy 50 truyện mỗi lượt).
+- `BookListPanelModifier` / `CLAUDE.md` / `AGENTS.md`: luật danh sách tải vô hạn không dùng `List`.
+- **Kiểm chứng:** đọc code + anh thử kiểu Lưới (không nhảy); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Đánh đổi: `LazyVStack` không tái dùng ô như `List` ⇒ danh sách rất dài tốn bộ nhớ hơn chút (như kiểu lưới hiện nay).
+
 ## [1.3.821] - 2026-11-10
 
 ### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì
@@ -356,20 +369,3 @@ Người dùng (Google TTS): *"tts bị phát lại 1 câu nhiều lần, phải
 - **NghiTTS/VieNeu**: đoạn kế lỗi giải mã chỉ được tổng hợp lại tối đa một lần mỗi đoạn (trước đó có thể tổng hợp lại mãi).
 - **Log chẩn đoán** (luôn ghi vì có `❌`): engine, chương, đoạn, id, số byte, 8 byte đầu, sample rate, số kênh, độ dài, vị trí, domain#mã lỗi — không ghi nội dung chương. Nhánh Nghi ghi `❌ [NghiQueue]` một lần cho mỗi player.
 - **Kiểm chứng:** đọc code; `TTSManager.swift` 3467 dòng (baseline 3470); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — lỗi hiếm (anh gặp một lần), dòng log mới sẽ cho biết dữ liệu hỏng hay phiên âm thanh lỗi nếu gặp lại.
-
-## [1.3.792] - 2026-11-09
-
-### feat: nút đĩa nhạc trong Reader trên nút tai nghe, chạm mở sheet điều khiển gọn theo độ trong suốt
-
-Anh Bửu duyệt plan (kiểu A): khi đang có album trong trình nghe, Reader có nút riêng để điều khiển nhạc mà không phải rời màn đọc.
-
-- **Nút đĩa nhạc** `ReaderAudioDiscButton` (file mới, `Views/Reader/Components/`): tròn 52 pt, nền `FloatingGlassBackground(isDark:outline:)` như nút tai nghe (theo Cài đặt › Chung › Giao diện), nằm ngay **trên** nút tai nghe, cách 12 pt; chỉ hiện khi `AudioMiniPlayerState.isActive` (không có album thì không chiếm chỗ — nút tai nghe đứng nguyên chỗ cũ). Trong nút là bìa đĩa tròn 44 pt **xoay khi đang phát**, đứng yên khi dừng (`AudioRotatingCover`, góc chung `AudioCoverRotation` với thanh mini / trang Đĩa), đặt trên nền tối riêng để nốt nhạc dự phòng vẫn thấy ở nền đọc sáng; album 18+ lúc NSFW tắt ⇒ chỉ nốt nhạc, không tải bìa. View riêng chỉ đọc cầu nối `AudioMiniPlayerState` (không chạm `AudioPlaybackSession` khi chưa mở, `ReaderView` không vẽ lại theo tiến độ bài). Gắn qua `readerEdgeControls(geometry:)` mới ở `ReaderView+Controls` (`ReaderView.swift` chỉ đổi một dòng).
-- **Sheet điều khiển gọn** `AudioQuickControlSheet` (file mới, `Views/AudioPlayer/`): cao vừa nội dung (đo như `FittedSheetDetentModifier`, chiều cao giữ ở nút), thanh kéo hệ thống, không nút chỉ để đóng. Nền kính theo "Độ trong suốt" / "Độ đục" **của ngăn kéo menu** (`GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo `…` của Reader, tông tối; mặc định nút nổi 90% trong suốt không nhoè sẽ không đọc được chữ trên trang truyện) qua `.presentationBackground`, nội dung ở `colorScheme` tối, màu nhấn app (`.appAccentTint()`). Nội dung: đĩa bìa xoay + tên bài + "nghệ sĩ · album" + ⤢ (màn nghe đầy đủ); một dòng lời đang hát (`AudioCurrentLyricLine`) hoặc chữ lỗi; thanh tua `AudioPlayerSeekRow` + cụm Xáo · ⏮ · ⏯ · ⏭ · Lặp `AudioTransportControls(.full)` dùng lại của màn nghe (tông trắng trên nền kính tối, không phải sửa); hàng Danh sách · Lời · Tắt nhạc (viên thuốc cao 38 pt, nền mờ, không tô nền đặc màu nhấn). Album 18+ lúc NSFW tắt ⇒ "Đang phát", không bìa, không lời.
-- **Mở màn nghe ở trang chỉ định**: `AudioPlayerScreen(initialPage:onDismiss:)` (mặc định Đĩa) + `AudioPlayerPresenter.reopen(at:)` (đặt trang cho đúng một lượt trình bày rồi `requestScreen`). Nút chờ sheet **đóng xong** (`onDismiss`) mới gọi — trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới. "Tắt nhạc" đóng sheet rồi `AudioMiniPlayerState.onStop` (dừng hẳn). Album bị dừng nơi khác (bấm tai nghe đọc TTS — 1.3.791) ⇒ nút biến mất, sheet đang mở tự đóng.
-- Log: `🎵 [AudioPlayerUI] Mở sheet điều khiển nhạc từ nút đĩa Reader`, `… Mở màn nghe từ sheet điều khiển của Reader (trang …)`, `… Tắt nhạc từ sheet điều khiển của Reader`; log trình bày màn nghe ghi thêm trang.
-- `CLAUDE.md` / `AGENTS.md` mục Âm thanh thêm một câu về nút đĩa + sheet + `reopen(at:)`.
-- Chuyển `[1.3.762]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code: `.sheet` gắn ở khung ngoài luôn tồn tại của nút (không trong nhánh `if mini.isActive`); vùng đệm giữa hai nút không nhận chạm; `AudioPlayerScreen()` của router vẫn dịch được nhờ tham số mặc định.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: đĩa xoay / đứng yên theo nhạc, chiều cao sheet vừa nội dung, nút Danh sách / Lời mở đúng trang, nền sheet đổi theo cài đặt ngăn kéo.

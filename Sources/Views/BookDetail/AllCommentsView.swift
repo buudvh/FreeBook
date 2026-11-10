@@ -54,43 +54,46 @@ struct AllCommentsView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(comments) { comment in
-                        CommentRowView(
-                            comment: comment,
-                            avatarSize: 36,
-                            localPath: localPath,
-                            downloadUrl: downloadUrl,
-                            configJson: configJson,
-                            isTranslationEnabled: isTranslationEnabled,
-                            host: host
-                        )
-                        // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
-                        .bookListPanelRow()
-                        .onAppear {
-                            // Tải trước (1.3.819): một trong 5 bình luận cuối hiện ra mà còn trang ⇒ tải trang kế, không
-                            // đợi chạm chân danh sách.
-                            if nextPageUrl != nil, comments.suffix(5).contains(where: { $0.id == comment.id }) {
-                                Task {
-                                    await loadMoreComments()
+                // `ScrollView` + `LazyVStack`, không `List` (1.3.822): bình luận dài ngắn rất khác nhau ⇒ `List` chỉnh vị trí cuộn
+                // mỗi lần nối trang, nội dung nhảy lên.
+                ScrollView {
+                    LazyVStack(spacing: BookListPanelModifier.stackSpacing) {
+                        ForEach(comments) { comment in
+                            CommentRowView(
+                                comment: comment,
+                                avatarSize: 36,
+                                localPath: localPath,
+                                downloadUrl: downloadUrl,
+                                configJson: configJson,
+                                isTranslationEnabled: isTranslationEnabled,
+                                host: host
+                            )
+                            // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
+                            .bookListPanel()
+                            .onAppear {
+                                // Tải trước (1.3.819): một trong 5 bình luận cuối hiện ra mà còn trang ⇒ tải trang kế, không
+                                // đợi chạm chân danh sách.
+                                if nextPageUrl != nil, comments.suffix(5).contains(where: { $0.id == comment.id }) {
+                                    Task {
+                                        await loadMoreComments()
+                                    }
                                 }
                             }
                         }
-                    }
                     
-                    if let phase = footerPhase {
-                        LoadMoreFooter(
-                            phase: phase,
-                            token: comments.count,
-                            onAppear: { Task { await loadMoreComments() } },
-                            onRetry: { Task { await retryLoadMoreComments() } }
-                        )
-                        .bookListPanelRowChrome()
-                        // Id cố định (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng; vòng xoay mới theo `token`.
-                        .id("loadMoreFooter")
+                        if let phase = footerPhase {
+                            LoadMoreFooter(
+                                phase: phase,
+                                token: comments.count,
+                                onAppear: { Task { await loadMoreComments() } },
+                                onRetry: { Task { await retryLoadMoreComments() } }
+                            )
+                            // Id cố định (1.3.819); vòng xoay mới + kích hoạt lại theo `token`.
+                            .id("loadMoreFooter")
+                        }
                     }
+                    .bookListPanelStackPadding()
                 }
-                .listStyle(.plain)
                 .refreshable {
                     await loadComments(page: 1)
                 }

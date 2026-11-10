@@ -4,8 +4,9 @@ import SwiftUI
 /// Thể loại / Xem thêm (`CategoryNovelsListView`), dựng theo `BookListLayout` của loại nguồn.
 ///
 /// Two branches that never mix:
-/// - `.list` → `List` of `DiscoveryNovelRowView` as rounded panels (`bookListPanel`, no separators), sized by
-///   `layout.rowSize`.
+/// - `.list` → `ScrollView` + `LazyVStack` of `DiscoveryNovelRowView` as rounded panels (`bookListPanel`, no
+///   separators), sized by `layout.rowSize`. Not a `List` (1.3.822): rows differ in height, `List` only estimates the
+///   rows scrolled past and re-adjusts the offset on every appended page ⇒ content jumped up ~1 row.
 /// - `.grid` / `.coverOnly` → `ScrollView` + `LazyVGrid` of `DiscoveryNovelGridCardView`. A `LazyVGrid` must never be
 ///   nested inside a `List` row (crashed with `EXC_BREAKPOINT` in 1.3.269, see `CollectionsTabView`).
 ///
@@ -78,45 +79,49 @@ struct DiscoveryNovelsLayoutView: View {
     // MARK: - Danh sách
 
     private var listBody: some View {
-        List {
-            // Định danh theo `link` như lưới (1.3.819): `ExtensionItemResult.id` là `UUID()` mới mỗi lần bóc tách ⇒ kéo làm
-            // mới dựng lại mọi hàng + bìa.
-            ForEach(loader.novels, id: \.link) { novel in
-                Button {
-                    onSelectNovel(novel)
-                } label: {
-                    DiscoveryNovelRowView(
-                        item: novel,
-                        sourceHost: sourceHost,
-                        isTranslationEnabled: isTranslationEnabled,
-                        rowSize: layout.rowSize
-                    )
-                    .padding(.trailing, playlistContext == nil ? 0 : 24)
-                    .bookListPanel(layout.rowSize)
-                }
-                .buttonStyle(.plain)
-                // ⋮ đè lên nút (không nằm trong `label`), chữ đã chừa lề phải.
-                .playlistListItemMenuOverlay(item: novel, context: playlistContext, style: .row)
-                .bookListPanelRowChrome()
-                .id(novel.link)
-                .onAppear {
-                    setVisible(novel.link, true)
-                    preloadIfNeeded(novel)
-                }
-                .onDisappear { setVisible(novel.link, false) }
+        ScrollView {
+            LazyVStack(spacing: BookListPanelModifier.stackSpacing) {
+                listRows
             }
-
-            // Hàng chân **id cố định** (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng (trắng xoá, lệch vị trí).
-            // Vòng xoay mới + kích hoạt lại do `LoadMoreFooter` lo theo `token`.
-            if let phase = footerPhase {
-                footer(phase)
-                    .bookListPanelRowChrome()
-                    .id(Self.footerId)
-            }
+            .bookListPanelStackPadding()
         }
-        .listStyle(.plain)
         .refreshable {
             await loader.reload()
+        }
+    }
+
+    @ViewBuilder
+    private var listRows: some View {
+        // Định danh theo `link` như lưới (1.3.819): `ExtensionItemResult.id` là `UUID()` mới mỗi lần bóc tách ⇒ kéo làm
+        // mới dựng lại mọi hàng + bìa.
+        ForEach(loader.novels, id: \.link) { novel in
+            Button {
+                onSelectNovel(novel)
+            } label: {
+                DiscoveryNovelRowView(
+                    item: novel,
+                    sourceHost: sourceHost,
+                    isTranslationEnabled: isTranslationEnabled,
+                    rowSize: layout.rowSize
+                )
+                .padding(.trailing, playlistContext == nil ? 0 : 24)
+                .bookListPanel(layout.rowSize)
+            }
+            .buttonStyle(.plain)
+            // ⋮ đè lên nút (không nằm trong `label`), chữ đã chừa lề phải.
+            .playlistListItemMenuOverlay(item: novel, context: playlistContext, style: .row)
+            .id(novel.link)
+            .onAppear {
+                setVisible(novel.link, true)
+                preloadIfNeeded(novel)
+            }
+            .onDisappear { setVisible(novel.link, false) }
+        }
+
+        // Hàng chân **id cố định** (1.3.819); vòng xoay mới + kích hoạt lại do `LoadMoreFooter` lo theo `token`.
+        if let phase = footerPhase {
+            footer(phase)
+                .id(Self.footerId)
         }
     }
 

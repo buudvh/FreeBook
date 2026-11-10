@@ -45,49 +45,34 @@ struct SearchSingleSourceResultsView: View {
 
     // MARK: - Danh sách
 
+    /// `ScrollView` + `LazyVStack`, không `List` (1.3.822): hàng cao thấp khác nhau ⇒ `List` chỉnh vị trí cuộn mỗi lần nối
+    /// trang, nội dung nhảy lên. Ngoài `List` nên `NavigationLink` (trong `tappable`) không vẽ mũi tên `>` — không cần mẹo
+    /// link ẩn dưới panel như trước.
     private var listBody: some View {
         let preloadIds = preloadTriggerIds
-        return List {
-            ForEach(items) { item in
-                listTappable(item)
-                    .bookListPanelRowChrome()
+        return ScrollView {
+            LazyVStack(spacing: BookListPanelModifier.stackSpacing) {
+                ForEach(items) { item in
+                    // ⋮ đè lên nút (không nằm trong `label`), chữ chừa lề phải.
+                    tappable(item) {
+                        listRow(item)
+                            .padding(.trailing, playlistContext == nil ? 0 : 24)
+                            .bookListPanel(layout.rowSize)
+                    }
+                    .playlistListItemMenuOverlay(item: item.result, context: playlistContext, style: .row)
                     .onAppear { preloadIfNeeded(item, triggerIds: preloadIds) }
-            }
-
-            // Hàng chân id cố định (1.3.819): đổi id mỗi trang làm `List` nạp lại cả bảng (trắng xoá, lệch vị trí).
-            if let footer {
-                footerView(footer)
-                    .bookListPanelRowChrome()
-                    .id(Self.footerId)
-            }
-        }
-        .listStyle(.plain)
-    }
-
-    /// Hàng panel: link mở Chi tiết nằm **ẩn** dưới panel (`opacity(0)`) — `NavigationLink` làm hàng của `List` thì
-    /// hệ thống vẽ mũi tên `>` ở mép phải, nằm ngoài panel. Chạm hàng vẫn mở link như cũ.
-    @ViewBuilder
-    private func listTappable(_ item: ExtensionItemResultWithExt) -> some View {
-        if isChangingSource || ContentDetailRouter.opensPlayer(packageId: item.ext.packageId) {
-            // Đổi nguồn / phim / âm thanh (mở màn xem phim / màn nghe): nút thường, không có mũi tên `>` của `NavigationLink`.
-            // ⋮ đè lên nút (không nằm trong `label`), chữ chừa lề phải.
-            tappable(item) {
-                listRow(item)
-                    .padding(.trailing, playlistContext == nil ? 0 : 24)
-                    .bookListPanel(layout.rowSize)
-            }
-            .buttonStyle(.plain)
-            .playlistListItemMenuOverlay(item: item.result, context: playlistContext, style: .row)
-        } else {
-            ZStack {
-                NavigationLink(destination: detailView(item)) {
-                    EmptyView()
                 }
-                .opacity(0)
 
-                listRow(item).bookListPanel(layout.rowSize)
+                // Hàng chân id cố định (1.3.819); vòng xoay mới + kích hoạt lại theo `token`.
+                if let footer {
+                    footerView(footer)
+                        .id(Self.footerId)
+                }
             }
+            .bookListPanelStackPadding()
         }
+        // Link không nhuộm màu nhấn (như lưới).
+        .buttonStyle(.plain)
     }
 
     /// Cỡ theo `layout.rowSize`; nấc mặc định giữ đúng dòng cũ. Nấc gọn (1–2) bỏ chip tên nguồn, mô tả 1 dòng.
@@ -211,16 +196,6 @@ struct SearchSingleSourceResultsView: View {
                 content
             }
         }
-    }
-
-    private func detailView(_ item: ExtensionItemResultWithExt) -> BookDetailView {
-        BookDetailView(
-            bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-            extensionPackageId: item.ext.packageId,
-            initialDetailUrl: item.result.link,
-            sourceName: item.ext.name,
-            initialHost: item.result.host
-        )
     }
 
     private func translateIfNeeded(_ text: String) -> String {

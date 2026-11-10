@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.792] - 2026-11-09
+
+### feat: nút đĩa nhạc trong Reader trên nút tai nghe, chạm mở sheet điều khiển gọn theo độ trong suốt
+
+Anh Bửu duyệt plan (kiểu A): khi đang có album trong trình nghe, Reader có nút riêng để điều khiển nhạc mà không phải rời màn đọc.
+
+- **Nút đĩa nhạc** `ReaderAudioDiscButton` (file mới, `Views/Reader/Components/`): tròn 52 pt, nền `FloatingGlassBackground(isDark:outline:)` như nút tai nghe (theo Cài đặt › Chung › Giao diện), nằm ngay **trên** nút tai nghe, cách 12 pt; chỉ hiện khi `AudioMiniPlayerState.isActive` (không có album thì không chiếm chỗ — nút tai nghe đứng nguyên chỗ cũ). Trong nút là bìa đĩa tròn 44 pt **xoay khi đang phát**, đứng yên khi dừng (`AudioRotatingCover`, góc chung `AudioCoverRotation` với thanh mini / trang Đĩa), đặt trên nền tối riêng để nốt nhạc dự phòng vẫn thấy ở nền đọc sáng; album 18+ lúc NSFW tắt ⇒ chỉ nốt nhạc, không tải bìa. View riêng chỉ đọc cầu nối `AudioMiniPlayerState` (không chạm `AudioPlaybackSession` khi chưa mở, `ReaderView` không vẽ lại theo tiến độ bài). Gắn qua `readerEdgeControls(geometry:)` mới ở `ReaderView+Controls` (`ReaderView.swift` chỉ đổi một dòng).
+- **Sheet điều khiển gọn** `AudioQuickControlSheet` (file mới, `Views/AudioPlayer/`): cao vừa nội dung (đo như `FittedSheetDetentModifier`, chiều cao giữ ở nút), thanh kéo hệ thống, không nút chỉ để đóng. Nền kính theo "Độ trong suốt" / "Độ đục" **của ngăn kéo menu** (`GlassChromeSettings.drawer*` — cùng kiểu ngăn kéo `…` của Reader, tông tối; mặc định nút nổi 90% trong suốt không nhoè sẽ không đọc được chữ trên trang truyện) qua `.presentationBackground`, nội dung ở `colorScheme` tối, màu nhấn app (`.appAccentTint()`). Nội dung: đĩa bìa xoay + tên bài + "nghệ sĩ · album" + ⤢ (màn nghe đầy đủ); một dòng lời đang hát (`AudioCurrentLyricLine`) hoặc chữ lỗi; thanh tua `AudioPlayerSeekRow` + cụm Xáo · ⏮ · ⏯ · ⏭ · Lặp `AudioTransportControls(.full)` dùng lại của màn nghe (tông trắng trên nền kính tối, không phải sửa); hàng Danh sách · Lời · Tắt nhạc (viên thuốc cao 38 pt, nền mờ, không tô nền đặc màu nhấn). Album 18+ lúc NSFW tắt ⇒ "Đang phát", không bìa, không lời.
+- **Mở màn nghe ở trang chỉ định**: `AudioPlayerScreen(initialPage:onDismiss:)` (mặc định Đĩa) + `AudioPlayerPresenter.reopen(at:)` (đặt trang cho đúng một lượt trình bày rồi `requestScreen`). Nút chờ sheet **đóng xong** (`onDismiss`) mới gọi — trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới. "Tắt nhạc" đóng sheet rồi `AudioMiniPlayerState.onStop` (dừng hẳn). Album bị dừng nơi khác (bấm tai nghe đọc TTS — 1.3.791) ⇒ nút biến mất, sheet đang mở tự đóng.
+- Log: `🎵 [AudioPlayerUI] Mở sheet điều khiển nhạc từ nút đĩa Reader`, `… Mở màn nghe từ sheet điều khiển của Reader (trang …)`, `… Tắt nhạc từ sheet điều khiển của Reader`; log trình bày màn nghe ghi thêm trang.
+- `CLAUDE.md` / `AGENTS.md` mục Âm thanh thêm một câu về nút đĩa + sheet + `reopen(at:)`.
+- Chuyển `[1.3.762]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code: `.sheet` gắn ở khung ngoài luôn tồn tại của nút (không trong nhánh `if mini.isActive`); vùng đệm giữa hai nút không nhận chạm; `AudioPlayerScreen()` của router vẫn dịch được nhờ tham số mặc định.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: đĩa xoay / đứng yên theo nhạc, chiều cao sheet vừa nội dung, nút Danh sách / Lời mở đúng trang, nền sheet đổi theo cài đặt ngăn kéo.
+
 ## [1.3.791] - 2026-11-09
 
 ### feat: nhạc và TTS không bao giờ cùng phát: nghe nhạc tắt TTS, đọc TTS dừng nhạc
