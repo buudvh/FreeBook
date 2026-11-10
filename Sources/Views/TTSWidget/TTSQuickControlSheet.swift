@@ -7,8 +7,8 @@ import SwiftUI
 /// Nội dung:
 /// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với đĩa góc dưới / Đĩa nổi) · tên
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
-///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này). Chạm **khối bìa + tên** ⇒ mở chương đang đọc
-///   (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
+///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này; đang hẹn ⇒ viên "Hủy" ngay cạnh, 1.3.816). Chạm
+///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
 /// - Câu đang đọc + vạch tiến độ chương "Đoạn N / M đoạn" (`NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn).
 /// - ⏮ đoạn trước · ⏯ · ⏭ đoạn kế (`TTSManager.skipBackward` / `pause`/`resume` / `skipForward`).
 /// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Tắt đọc (chỗ gọi dừng hẳn).
@@ -118,7 +118,12 @@ struct TTSQuickControlSheet: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint("Mở chương đang đọc")
-            timerButton
+            HStack(spacing: 4) {
+                timerButton
+                if isTimerOn {
+                    cancelTimerButton
+                }
+            }
         }
     }
 
@@ -144,6 +149,29 @@ struct TTSQuickControlSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isTimerOn ? "Hẹn giờ tắt: còn \(ttsState.snapshot.sleepTimerBadgeText)" : "Hẹn giờ tắt")
+    }
+
+    /// "Hủy" ngay cạnh ⏱ khi đang hẹn (1.3.816, anh Bửu) — huỷ hẹn giờ tắt mà không phải mở sheet Hẹn giờ; cùng kiểu viên
+    /// "Hủy" của `TTSQuickTimerHeader`.
+    private var cancelTimerButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                TTSManager.shared.cancelSleepTimer()
+            }
+        } label: {
+            Text("Hủy")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.red)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.red.opacity(0.12)))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hủy hẹn giờ tắt")
+        .transition(.scale.combined(with: .opacity))
     }
 
     // MARK: - Điều khiển

@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.816] - 2026-11-10
+
+### feat: nút Hủy hẹn giờ ngay cạnh đồng hồ đếm giờ trong sheet nghe truyện
+
+Anh Bửu: *"thêm nút huỷ ngay bên cạnh đếm giờ của sheet nghe truyện"*.
+
+- `TTSQuickControlSheet` (sheet điều khiển nhanh mở từ đĩa nghe TTS): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên "Hủy" của `TTSQuickTimerHeader`; chạm ⇒ rung nhẹ + `TTSManager.cancelSleepTimer()`, viên thu lại. Không hẹn ⇒ không có viên. Vùng chạm cao 44 pt; VoiceOver "Hủy hẹn giờ tắt".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.815] - 2026-11-10
 
 ### fix: đĩa góc giống y nút +, bìa mờ đúng theo độ trong suốt, nhấn giữ thì đĩa nằm trong header như một nút header
@@ -383,12 +392,3 @@ Phần 3/3 của trình nghe âm thanh cho tiện ích JS loại `audio` (plan a
 - **Hub**: `FloatingHubItem.Kind.audio` ("Âm thanh", `music.note`) ngay sau Video — xám khi không có album; có album ⇒ dòng phụ = tên bài (18+ lúc NSFW tắt ⇒ "Đang phát" / "Đã dừng"; lỗi ⇒ chữ đỏ), nút phát/dừng + ✕ như dòng Video (`FloatingHubMenuView` / `FloatingHubMenuRow` / `+Actions` đổi sang `togglePlayback(_:)` / `stopPlayback(_:)` theo loại dòng), chạm ⇒ mở lại màn nghe. Album đang dừng vẫn là mục của nút hub nhưng không nháy (`quietKinds`). Dòng Video + Âm thanh dựng ở `FloatingHubPresentationReader+Media` (giữ file chính dưới 400 dòng); trạng thái nghe theo dõi không gồm tiến độ ⇒ hub không vẽ lại theo nhịp phát.
 - Chuyển `[1.3.754]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
-
-## [1.3.786] - 2026-11-09
-
-### fix: màn khoá của trình nghe hiện nút bài trước/sau thay vì tua ±15 giây
-
-Rà lại 1.3.784: `AudioNowPlayingCoordinator.claim` bật cả `skipForward/skipBackwardCommand` ⇒ iOS hiện nút tua ±15 s trên màn khoá **thay chỗ** nút bài trước/sau, lệch plan đã duyệt (màn khoá: phát/dừng, bài trước/sau, kéo thanh tua).
-
-- `claim`: tắt tường minh hai lệnh tua (TTS có thể đã bật), bỏ đăng ký target tua và `preferredIntervals`; bỏ `skipInterval` / `skipPayload`. Tua ±15 s chỉ còn trong màn nghe; tai nghe / AirPods vẫn chuyển bài qua `next/previousTrackCommand`.
-- **Kiểm chứng:** đọc code; không build tại chỗ (Windows); chưa thử máy.
