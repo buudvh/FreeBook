@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.791] - 2026-11-09
+
+### feat: nhạc và TTS không bao giờ cùng phát: nghe nhạc tắt TTS, đọc TTS dừng nhạc
+
+Anh Bửu duyệt plan: không bao giờ cùng lúc có thanh nhạc mini lẫn widget TTS. Trước đây (1.3.784) nhạc bắt đầu chỉ **tạm dừng** TTS và TTS bắt đầu chỉ **tạm dừng** nhạc ⇒ cả hai thanh cùng nằm trên màn. Phim giữ nguyên luật nhường cũ với cả hai.
+
+- **Nhạc bắt đầu phát ⇒ tắt hẳn TTS** (`AudioPlaybackSession+AudioSession`, helper `stopTTSForMusic`): `beginUserRequestedPlayback` (mở album, chọn bài, bấm phát, thử lại) và `prepareAudioForPlayback` (bài sẵn sàng tự phát — kể cả tự sang bài —, `play()`, chuyển sang phát từ màn khoá / tai nghe) gọi `TTSManager.stop()` như nút ✕ của widget (lưu tiến độ đọc, ẩn widget, xoá Now Playing) khi TTS có phiên (`isPlaying || showFloatingWidget`). Vẫn chạy **trước** `setActive(true)` + `claim()` như cũ. Mở lại mục nghe lúc khởi động (`autoplay: false`) không đụng TTS.
+- **TTS bắt đầu / tiếp tục đọc ⇒ dừng hẳn trình nghe**: `AudioNowPlayingCoordinator.yieldToTTS()` (hai hook có sẵn ở `TTSManager+NowPlaying`, không đổi code TTS) giờ trả phiên màn khoá **trước** (`release(handBackToTTS: false)`) rồi gọi action mới `stopForTTS` ⇒ `AudioPlaybackSession.stopForTTS()`: như `stop()` (lưu tiến độ, gỡ item, `AudioMiniPlayerState.reset()` ⇒ thanh mini + dòng hub ẩn, màn nghe đang mở tự đóng) nhưng **không** dựng lại lệnh / Now Playing của TTS (tránh đệ quy `reclaimRemoteControlsAfterVideo` → `setRemoteCommandsEnabled` lúc `startSpeaking` / `resume` đang chạy) và **không** tắt `AVAudioSession` (hook chạy sau `configureAudioSession()` của TTS nhưng trước `isPlaying = true` — tắt lúc đó là TTS câm). Không có album ⇒ không làm gì; chưa từng mở trình nghe ⇒ `actions == nil`, không dựng `AVPlayer`.
+- `stop()` tách thân thành `stopSession(handingOverToTTS:)`; `yieldToOtherMedia()` (phim) giữ hành vi tạm dừng + trả phiên, bỏ hàm chung `yield(reason:)`.
+- Log mới: `⏹️ [AudioPlayer] … ⇒ tắt hẳn TTS`, `⏹️ [AudioPlayer] TTS bắt đầu đọc ⇒ dừng hẳn trình nghe`, `⏹️ [AudioNowPlaying] TTS bắt đầu đọc ⇒ nhường điều khiển màn khoá, dừng hẳn nhạc`; log đóng trình nghe ghi thêm ", nhường TTS".
+- Doc comment `AudioNowPlayingCoordinator`, `MediaNowPlayingOwnership`, `AudioPlaybackSession(+AudioSession)`, `TTSManager+NowPlaying` và dòng "Màn khoá ba bên" của `CLAUDE.md` / `AGENTS.md` theo luật mới.
+- Chuyển `[1.3.757]`–`[1.3.761]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code: `TTSManager.stop` không đi qua `setSystemNowPlayingPlaybackState(.playing)` (không gọi ngược vào trình nghe); `prepareSpeaking` không hiện widget nên widget TTS chỉ xuất hiện qua `startSpeaking` (đã dừng nhạc); `Actions` chỉ dựng ở `installRemoteActions`.
+  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
+  - Không build tại chỗ (Windows). Chưa thử trên máy: đang nghe nhạc bấm tai nghe Reader ⇒ thanh nhạc + hub biến mất, TTS đọc có tiếng; đang đọc TTS mở album ⇒ widget TTS biến mất; màn khoá đúng bên.
+
 ## [1.3.790] - 2026-11-09
 
 ### docs: ghi phân hệ âm thanh vào CLAUDE.md và AGENTS.md

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Ô **giữa** của `MainTabBar` (1.3.812): thanh tab luôn 5 ô (Kệ Sách · Khám Phá · [ô này] · Tiện Ích · Cài Đặt) để icon các
 /// tab không bao giờ đổi chỗ. Có nguồn đĩa (`MediaDiscWindowManager.kind` — nhạc có album, hoặc TTS có phiên + kiểu "Đĩa góc
-/// dưới") ⇒ đĩa (`MediaDiscFaceButton(.tabBar)`), chạm mở sheet điều khiển nhanh; không có ⇒ ô trống, không bấm được.
+/// dưới") ⇒ đĩa (`MediaDiscFaceButton(.tabBar)`), chạm mở sheet điều khiển nhanh; không có ⇒ **đĩa xám đứng yên**
+/// (`MediaDiscIdleFace`, 1.3.821), không bấm được. Gờ nền luôn có ⇒ thanh tab không đổi dáng; đổi qua lại bằng mờ chéo.
 ///
 /// Dáng (1.3.814, anh Bửu chọn): bìa 44 pt có **mép dưới ngang chân chữ** của các tab, đặt giữa một vòng nền 52 pt cùng
 /// chất liệu thanh (`.bar`) có viền mảnh như vạch trên của thanh ⇒ nhô lên khỏi thanh khoảng 5,5 pt thành một gờ tròn.
@@ -20,21 +21,22 @@ struct MediaDiscTabBarSlot: View {
     @ObservedObject private var manager = MediaDiscWindowManager.shared
 
     var body: some View {
-        ZStack(alignment: .top) {
-            if manager.kind != nil {
-                disc
-                    .transition(.scale(scale: 0.6))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.easeInOut(duration: 0.2), value: manager.kind)
+        disc
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .animation(.easeInOut(duration: 0.2), value: manager.kind != nil)
     }
 
     /// Khung vòng nền 52 pt; mép trên đặt cao hơn mép trên thanh đúng phần nhô.
     private var disc: some View {
         ZStack {
             ringCap
-            MediaDiscFaceButton(style: .tabBar)
+            if manager.kind != nil {
+                MediaDiscFaceButton(style: .tabBar)
+                    .transition(.opacity)
+            } else {
+                MediaDiscIdleFace(size: MediaDiscFaceButton.coverSize)
+                    .transition(.opacity)
+            }
         }
         .frame(width: Self.ringSize, height: Self.ringSize)
         .offset(y: -Self.protrusion)

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.821] - 2026-11-10
+
+### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì
+
+Anh Bửu: *"mặc định không có nghe truyện/nhạc thì để hình cd dừng ở tab"* — chọn kiểu **đĩa xám mờ**, **chạm không làm gì**.
+
+- `MediaDiscIdleFace` (file mới): đĩa than 44 pt đứng yên — nền + 3 vòng rãnh + nhãn giữa theo tông `systemGray4` / `systemGray3` / `systemGray2` (như icon tab chưa chọn, tự đổi theo nền sáng / tối), lỗ giữa, viền mảnh như đĩa đang nghe. Không nhận chạm, VoiceOver bỏ qua.
+- `MediaDiscTabBarSlot`: gờ nền 52 pt **luôn có** (thanh tab không đổi dáng khi bật / tắt nghe); không có nguồn ⇒ đĩa xám, có nguồn ⇒ `MediaDiscFaceButton(.tabBar)` như cũ; đổi qua lại bằng mờ chéo 0,2 s (bỏ hiệu ứng phóng vì gờ luôn đứng đó).
+- Comment `MainTabBar` / `MediaDiscWindowManager`, `CLAUDE.md` / `AGENTS.md`: "ô giữa trống" ⇒ "đĩa xám đứng yên".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.820] - 2026-11-10
 
 ### fix: đĩa góc thu tại chỗ khi đổi màn rồi hiện thẳng ở chỗ mới, không trượt ngang qua màn
@@ -362,20 +373,3 @@ Anh Bửu duyệt plan (kiểu A): khi đang có album trong trình nghe, Reader
   - Đọc code: `.sheet` gắn ở khung ngoài luôn tồn tại của nút (không trong nhánh `if mini.isActive`); vùng đệm giữa hai nút không nhận chạm; `AudioPlayerScreen()` của router vẫn dịch được nhờ tham số mặc định.
   - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
   - Không build tại chỗ (Windows). Chưa thử trên máy: đĩa xoay / đứng yên theo nhạc, chiều cao sheet vừa nội dung, nút Danh sách / Lời mở đúng trang, nền sheet đổi theo cài đặt ngăn kéo.
-
-## [1.3.791] - 2026-11-09
-
-### feat: nhạc và TTS không bao giờ cùng phát: nghe nhạc tắt TTS, đọc TTS dừng nhạc
-
-Anh Bửu duyệt plan: không bao giờ cùng lúc có thanh nhạc mini lẫn widget TTS. Trước đây (1.3.784) nhạc bắt đầu chỉ **tạm dừng** TTS và TTS bắt đầu chỉ **tạm dừng** nhạc ⇒ cả hai thanh cùng nằm trên màn. Phim giữ nguyên luật nhường cũ với cả hai.
-
-- **Nhạc bắt đầu phát ⇒ tắt hẳn TTS** (`AudioPlaybackSession+AudioSession`, helper `stopTTSForMusic`): `beginUserRequestedPlayback` (mở album, chọn bài, bấm phát, thử lại) và `prepareAudioForPlayback` (bài sẵn sàng tự phát — kể cả tự sang bài —, `play()`, chuyển sang phát từ màn khoá / tai nghe) gọi `TTSManager.stop()` như nút ✕ của widget (lưu tiến độ đọc, ẩn widget, xoá Now Playing) khi TTS có phiên (`isPlaying || showFloatingWidget`). Vẫn chạy **trước** `setActive(true)` + `claim()` như cũ. Mở lại mục nghe lúc khởi động (`autoplay: false`) không đụng TTS.
-- **TTS bắt đầu / tiếp tục đọc ⇒ dừng hẳn trình nghe**: `AudioNowPlayingCoordinator.yieldToTTS()` (hai hook có sẵn ở `TTSManager+NowPlaying`, không đổi code TTS) giờ trả phiên màn khoá **trước** (`release(handBackToTTS: false)`) rồi gọi action mới `stopForTTS` ⇒ `AudioPlaybackSession.stopForTTS()`: như `stop()` (lưu tiến độ, gỡ item, `AudioMiniPlayerState.reset()` ⇒ thanh mini + dòng hub ẩn, màn nghe đang mở tự đóng) nhưng **không** dựng lại lệnh / Now Playing của TTS (tránh đệ quy `reclaimRemoteControlsAfterVideo` → `setRemoteCommandsEnabled` lúc `startSpeaking` / `resume` đang chạy) và **không** tắt `AVAudioSession` (hook chạy sau `configureAudioSession()` của TTS nhưng trước `isPlaying = true` — tắt lúc đó là TTS câm). Không có album ⇒ không làm gì; chưa từng mở trình nghe ⇒ `actions == nil`, không dựng `AVPlayer`.
-- `stop()` tách thân thành `stopSession(handingOverToTTS:)`; `yieldToOtherMedia()` (phim) giữ hành vi tạm dừng + trả phiên, bỏ hàm chung `yield(reason:)`.
-- Log mới: `⏹️ [AudioPlayer] … ⇒ tắt hẳn TTS`, `⏹️ [AudioPlayer] TTS bắt đầu đọc ⇒ dừng hẳn trình nghe`, `⏹️ [AudioNowPlaying] TTS bắt đầu đọc ⇒ nhường điều khiển màn khoá, dừng hẳn nhạc`; log đóng trình nghe ghi thêm ", nhường TTS".
-- Doc comment `AudioNowPlayingCoordinator`, `MediaNowPlayingOwnership`, `AudioPlaybackSession(+AudioSession)`, `TTSManager+NowPlaying` và dòng "Màn khoá ba bên" của `CLAUDE.md` / `AGENTS.md` theo luật mới.
-- Chuyển `[1.3.757]`–`[1.3.761]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code: `TTSManager.stop` không đi qua `setSystemNowPlayingPlaybackState(.playing)` (không gọi ngược vào trình nghe); `prepareSpeaking` không hiện widget nên widget TTS chỉ xuất hiện qua `startSpeaking` (đã dừng nhạc); `Actions` chỉ dựng ở `installRemoteActions`.
-  - `check_architecture.py`: 1 violation nền (`JSDom.swift`), **0 mới**.
-  - Không build tại chỗ (Windows). Chưa thử trên máy: đang nghe nhạc bấm tai nghe Reader ⇒ thanh nhạc + hub biến mất, TTS đọc có tiếng; đang đọc TTS mở album ⇒ widget TTS biến mất; màn khoá đúng bên.

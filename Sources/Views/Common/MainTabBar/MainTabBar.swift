@@ -10,7 +10,8 @@ import SwiftUI
 /// `.tint` của `MainTabView` (màu nhấn người dùng chọn, `appAccentTint()`), mục khác xám; badge đỏ = số truyện có chương mới ở Kệ Sách.
 ///
 /// **Luôn 5 ô** (1.3.812): Kệ Sách · Khám Phá · [ô giữa] · Tiện Ích · Cài Đặt. Ô giữa là đĩa nghe 44 pt có gờ nền nhô lên (1.3.814) khi có nhạc / TTS kiểu
-/// "Đĩa góc dưới" (`MediaDiscTabBarSlot`), trống và không bấm được khi không nghe — icon các tab không bao giờ đổi chỗ.
+/// "Đĩa góc dưới" (`MediaDiscTabBarSlot`); không nghe ⇒ đĩa xám đứng yên, không bấm được (1.3.821) — icon các tab không
+/// bao giờ đổi chỗ.
 struct MainTabBar: View {
     struct Item {
         let title: String
