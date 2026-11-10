@@ -18,8 +18,10 @@ import UIKit
 ///    thẳng cột); neo `.bar` ⇒ lề phải 16 pt.
 /// 5. Không neo nào ⇒ góc dưới phải: lề phải 16 pt, trên vùng an toàn đáy 12 pt (chỗ nút "+" thường đứng).
 /// 6. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) đè lên chỗ đó ⇒ đĩa lên trên nó.
+/// 7. Neo `.headerTrailing` (cụm nút phải của header tự dựng) **không** dự phần chỗ ở góc — chỉ `MediaDiscHeaderSlot` đọc.
 ///
-/// `elevatedFrame` = chỗ tạm khi nhấn giữ đĩa (1.3.812): góc phải vùng header, mép trên ngay dưới thanh trạng thái.
+/// Chỗ tạm khi nhấn giữ đĩa (đĩa nằm trong header) do `MediaDiscHeaderSlot` tính (1.3.815), dùng chung `mainWindow` /
+/// `topLayer` / `validFrame` ở đây.
 struct MediaDiscPlacement: Equatable {
     static let discSize: CGFloat = 52
     /// Khe giữa đĩa và neo bên dưới.
@@ -46,7 +48,7 @@ struct MediaDiscPlacement: Equatable {
         }
 
         var highest: (rect: CGRect, role: MediaDiscAnchorRegistry.Role)?
-        for anchor in MediaDiscAnchorRegistry.shared.anchors {
+        for anchor in MediaDiscAnchorRegistry.shared.anchors where anchor.role != .headerTrailing {
             guard let rect = validFrame(of: anchor.view, in: mainWindow, top: top) else { continue }
             if anchor.role == .blocker || anchor.role == .hostsDisc {
                 return MediaDiscPlacement(frame: corner, isBlocked: true)
@@ -67,13 +69,6 @@ struct MediaDiscPlacement: Equatable {
             result = discFrame(trailing: trailing, bottom: mini.minY - gap, bounds: bounds, safeInsets: safeInsets)
         }
         return MediaDiscPlacement(frame: result, isBlocked: false)
-    }
-
-    /// Chỗ tạm ở góc phải vùng header (nhấn giữ đĩa): lề phải 16 pt như nút header, mép trên ngay dưới thanh trạng thái.
-    @MainActor
-    static func elevatedFrame(bounds: CGRect, safeInsets: UIEdgeInsets) -> CGRect {
-        let x = bounds.width - safeInsets.right - FloatingRoundButton.trailingInset - discSize
-        return CGRect(x: max(safeInsets.left, x), y: safeInsets.top, width: discSize, height: discSize)
     }
 
     // MARK: - Nội bộ
@@ -97,7 +92,7 @@ struct MediaDiscPlacement: Equatable {
 
     /// Cửa sổ giao diện chính của app (level `.normal`, không phải lớp phủ), ưu tiên cửa sổ key.
     @MainActor
-    private static func mainWindow() -> UIWindow? {
+    static func mainWindow() -> UIWindow? {
         guard let scene = AppMainWindowScene.current() else { return nil }
         let candidates = scene.windows.filter { !($0 is AppOverlayWindow) && $0.windowLevel == .normal && !$0.isHidden }
         return candidates.first { $0.isKeyWindow } ?? candidates.first
@@ -105,7 +100,7 @@ struct MediaDiscPlacement: Equatable {
 
     /// VC trình bày sâu nhất (bỏ qua VC đang bị đóng); không có gì trình bày ⇒ root.
     @MainActor
-    private static func topLayer(of window: UIWindow) -> UIViewController? {
+    static func topLayer(of window: UIWindow) -> UIViewController? {
         var top = window.rootViewController
         while let presented = top?.presentedViewController, !presented.isBeingDismissed {
             top = presented
@@ -115,7 +110,7 @@ struct MediaDiscPlacement: Equatable {
 
     /// Khung neo theo toạ độ cửa sổ nếu neo hợp lệ (đúng cửa sổ, đúng tầng trên cùng, nằm trong màn).
     @MainActor
-    private static func validFrame(of view: UIView, in window: UIWindow, top: UIViewController?) -> CGRect? {
+    static func validFrame(of view: UIView, in window: UIWindow, top: UIViewController?) -> CGRect? {
         guard view.window === window, let top, layerRoot(of: view) === top else { return nil }
         let rect = view.convert(view.bounds, to: nil)
         let screen = window.bounds

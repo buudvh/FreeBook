@@ -42,6 +42,8 @@ final class MediaDiscWindowManager: ObservableObject {
     @Published private(set) var presentRequestToken = 0
     /// App không ở nền — bìa đĩa ở thanh tab chỉ xoay khi `true`.
     @Published private(set) var isAppActive = true
+    /// Đĩa góc đang tạm nằm trong header (nhấn giữ, 1.3.815) ⇒ vòng kính tan, bìa rõ hẳn như icon header.
+    @Published private(set) var isDiscElevated = false
 
     var modelContainer: ModelContainer?
 
@@ -133,6 +135,12 @@ final class MediaDiscWindowManager: ObservableObject {
     /// Sheet điều khiển nhanh vừa đóng ⇒ đĩa đang tạm đứng ở header về chỗ.
     func quickControlsDidDismiss() {
         container?.endElevation(animated: true)
+    }
+
+    /// Container báo đĩa góc vừa lên / rời header (nhấn giữ).
+    func noteDiscElevated(_ elevated: Bool) {
+        guard elevated != isDiscElevated else { return }
+        isDiscElevated = elevated
     }
 
     /// Container báo đĩa đang hiện / đã ẩn. Ghi ở nhịp main sau — có thể được gọi giữa lượt layout.

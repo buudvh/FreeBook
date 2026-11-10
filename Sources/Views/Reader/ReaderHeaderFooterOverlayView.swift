@@ -108,6 +108,8 @@ struct ReaderHeaderFooterOverlayView: View {
                         }
                         .accessibilityLabel("Tùy chọn trình đọc")
                     }
+                    // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái cụm nút này (1.3.815).
+                    .mediaDiscAnchor(.headerTrailing)
                 }
 
                 HStack(alignment: .center, spacing: 8) {

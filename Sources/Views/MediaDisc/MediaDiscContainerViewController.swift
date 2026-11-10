@@ -11,9 +11,11 @@ import UIKit
 /// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (thanh tab tự có ô đĩa, màn xem phim, bàn phím…) ⇒ thu
 ///   ngay; đĩa đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s — đẩy trang khỏi trang gốc tab không làm đĩa
 ///   lóe lên.
-/// - **Nhấn giữ 0,4 s** (1.3.812): rung nhẹ, đĩa trượt (lò xo mềm) lên góc phải vùng header 5 giây
-///   (`MediaDiscPlacement.elevatedFrame`) để bấm được nút đang bị che, rồi về chỗ. Trong lúc đó vẫn chạm mở sheet; đóng
-///   sheet ⇒ về chỗ ngay; đổi màn ⇒ vẫn ở trên cho đủ 5 giây. Chỉ dời khung trong cửa sổ này, không đụng layout của app.
+/// - **Nhấn giữ 0,4 s** (1.3.812): rung nhẹ, đĩa trượt (lò xo mềm) **vào header** 5 giây để bấm được nút đang bị che, rồi
+///   về chỗ. Từ 1.3.815 đĩa nằm trong header như một nút header (`MediaDiscHeaderSlot`: ngay trái cụm nút phải, giữa hàng
+///   nút); vòng kính tan + bìa rõ hẳn (`MediaDiscWindowManager.isDiscElevated`), vùng chạm chỉ còn tròn 38 pt
+///   (`elevatedHitRadius`) để không lấn nút header bên cạnh. Trong lúc đó vẫn chạm mở sheet; đóng sheet ⇒ về chỗ ngay; đổi
+///   màn ⇒ vẫn trong header (của màn mới) cho đủ 5 giây. Chỉ dời khung trong cửa sổ này, không đụng layout của app.
 ///   Cử chỉ nằm trong `MediaDiscFaceButton` (gọi `beginElevation`, 1.3.814) — **đừng** gắn lại `UILongPressGestureRecognizer`
 ///   lên `discView`: nút SwiftUI bên trong bắt chạm ngay lúc chạm xuống nên bộ nhận đó không bao giờ chạy.
 /// - Lượt tính lại: neo đổi (`MediaDiscAnchorRegistry.onChange`), manager báo đổi trạng thái, xoay màn / đổi vùng an toàn,
@@ -46,6 +48,8 @@ final class MediaDiscContainerViewController: UIViewController {
         static let moveTolerance: CGFloat = 0.5
         static let showDelay: TimeInterval = 0.3
         static let elevationDuration: TimeInterval = 5
+        /// Vùng chạm khi đĩa nằm trong header: tròn 38 pt như nút header.
+        static let elevatedHitRadius: CGFloat = 19
     }
 
     override func viewDidLoad() {
@@ -160,9 +164,7 @@ final class MediaDiscContainerViewController: UIViewController {
             return
         }
         if !isShowingDisc, !isShowDelayElapsed() { return }
-        let frame = isElevated
-            ? MediaDiscPlacement.elevatedFrame(bounds: view.bounds, safeInsets: view.safeAreaInsets)
-            : placement.frame
+        let frame = isElevated ? elevatedFrame().frame : placement.frame
         setDiscShown(true, frame: frame, animated: animated, softSpring: softSpring)
     }
 
@@ -209,13 +211,27 @@ final class MediaDiscContainerViewController: UIViewController {
         return elevatedUntil > Date()
     }
 
+    /// Bán kính vùng chạm khi đĩa đang nằm trong header; `nil` ⇒ cả khung đĩa (`MediaDiscWindow.hitTest`).
+    var elevatedHitRadius: CGFloat? {
+        isElevated && isShowingDisc ? Layout.elevatedHitRadius : nil
+    }
+
+    /// Khung đĩa 52 pt đặt tâm vào chỗ trong header (bìa 32 pt nằm đúng ô nút).
+    private func elevatedFrame() -> (frame: CGRect, source: MediaDiscHeaderSlot.Source) {
+        let slot = MediaDiscHeaderSlot.resolve(bounds: view.bounds, safeInsets: view.safeAreaInsets)
+        let size = MediaDiscPlacement.discSize
+        let frame = CGRect(x: slot.center.x - size / 2, y: slot.center.y - size / 2, width: size, height: size)
+        return (frame, slot.source)
+    }
+
     /// Nhấn giữ đĩa góc (`MediaDiscFaceButton(.corner)` gọi) ⇒ đĩa lên header 5 giây; nhấn giữ lần nữa ⇒ tính lại 5 giây.
     func beginElevation() {
         guard isShowingDisc else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        AppLogger.shared.log("💿 [MediaDisc] Nhấn giữ ⇒ đĩa lên header 5 giây")
+        AppLogger.shared.log("💿 [MediaDisc] Nhấn giữ ⇒ đĩa vào header 5 giây (chỗ: \(elevatedFrame().source.rawValue))")
         elevationWork?.cancel()
         elevatedUntil = Date().addingTimeInterval(Layout.elevationDuration)
+        MediaDiscWindowManager.shared.noteDiscElevated(true)
         let work = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 self?.endElevation(animated: true)
@@ -232,6 +248,7 @@ final class MediaDiscContainerViewController: UIViewController {
         elevationWork?.cancel()
         elevationWork = nil
         elevatedUntil = nil
+        MediaDiscWindowManager.shared.noteDiscElevated(false)
         updateDisc(animated: animated, softSpring: true)
     }
 

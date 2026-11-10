@@ -21,6 +21,9 @@ final class MediaDiscAnchorRegistry {
         case blocker
         /// Màn tự có chỗ đặt đĩa (thanh tab `MainTabBar` có ô đĩa ở giữa, 1.3.812): neo này hợp lệ ⇒ ẩn đĩa góc **ngay**.
         case hostsDisc
+        /// Cụm nút bên phải của **header tự dựng** (Reader, màn truyện tranh — không có `UINavigationBar`, 1.3.815): nhấn giữ
+        /// đĩa góc ⇒ đĩa vào header, đứng ngay trái neo này (`MediaDiscHeaderSlot`). Không ảnh hưởng chỗ đứng ở góc dưới.
+        case headerTrailing
     }
 
     struct Anchor {

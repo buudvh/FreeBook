@@ -16,6 +16,13 @@ final class MediaDiscWindow: UIWindow, AppOverlayWindow {
         guard container.isDiscInteractive, !disc.isHidden else { return nil }
         let localPoint = disc.convert(point, from: self)
         guard disc.point(inside: localPoint, with: event) else { return nil }
+        // Đĩa đang nằm trong header (nhấn giữ, 1.3.815): chỉ nhận chạm trong vòng 38 pt quanh tâm — khung 52 pt lấn nút
+        // header bên cạnh.
+        if let radius = container.elevatedHitRadius {
+            let dx = localPoint.x - disc.bounds.midX
+            let dy = localPoint.y - disc.bounds.midY
+            guard dx * dx + dy * dy <= radius * radius else { return nil }
+        }
         return super.hitTest(point, with: event)
     }
 }

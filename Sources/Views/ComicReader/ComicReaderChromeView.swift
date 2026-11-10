@@ -56,6 +56,8 @@ struct ComicReaderChromeView: View {
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Mục lục")
+            // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút này (1.3.815).
+            .mediaDiscAnchor(.headerTrailing)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)
