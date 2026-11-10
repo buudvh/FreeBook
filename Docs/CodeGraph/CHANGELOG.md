@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.817] - 2026-11-10
+
+### fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải
+
+Anh Bửu tự sửa `TTSQuickControlSheet` (`NowReadingBlock`), Javis rà + commit.
+
+- Dưới vạch tiến độ chương: bỏ "Đoạn N" bên trái (giữ `Text(" ")` làm chỗ), bên phải đổi "M đoạn" ⇒ **"N/M"**, chỉ hiện khi có cả vị trí lẫn tổng (> 0), không thì trống. Comment đầu file theo chữ mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.816] - 2026-11-10
 
 ### feat: nút Hủy hẹn giờ ngay cạnh đồng hồ đếm giờ trong sheet nghe truyện
@@ -373,22 +382,4 @@ Anh Bửu đổi yêu cầu thanh phát mini (1.3.787): bìa là **đĩa tròn**
 - Thanh mini: bìa 40 pt thành đĩa tròn xoay khi đang phát. Trang Đĩa của màn nghe dùng cùng view (xoay khi trang hiện, app mở và nhạc đang phát); bỏ `AudioSpinningDisc` / `AudioDiscArtwork` (`TimelineView`).
 - Hub: dòng Âm thanh vẫn sáng lúc màn nghe đang hiện nhưng không tính là tiến trình của nút hub (`AudioState.isScreenPresented` ⇒ `isActive == false`, như Video chỉ tính khi đã thu nhỏ) ⇒ nút hub không nháy / không đổi icon đè lên màn nghe.
 - Chuyển `[1.3.755]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
-
-## [1.3.787] - 2026-11-09
-
-### feat: màn nghe âm thanh ba trang kiểu Zing MP3, thanh phát mini và dòng Âm thanh ở hub
-
-Phần 3/3 của trình nghe âm thanh cho tiện ích JS loại `audio` (plan anh Bửu đã duyệt): giao diện trên lõi `AudioPlaybackSession` (1.3.784–786). **Chưa** nối định tuyến / `ExtensionContentKind.audio` (phần 1 gọi presenter / route view dưới đây). Không sửa lõi `Sources/Services/Audio/`.
-
-- **Màn nghe** `AudioPlayerScreen` (`Sources/Views/AudioPlayer/`, bố cục tham khảo Zing MP3, không dùng logo / asset của họ): nền tối lấy màu trung bình của bìa (`AudioCoverBackdrop`, ảnh 64 px, làm tối, nhớ theo URL; không bìa ⇒ xám-ngọc tối), chữ trắng, điểm nhấn = màu nhấn của app. Header ⌄ (thu nhỏ) · "Phát từ album" + tên album · `…` (ngăn kéo: thông tin album, Mở trang nguồn `.sourcePageBrowser`, chọn nguồn lời khi ≥ 2, tốc độ phát, Dừng hẳn). Chấm chỉ trang + 3 trang vuốt ngang (`TabView` `.page`), mở vào trang giữa:
-  - **Danh sách phát** (`AudioPlaylistPage`): "Danh sách phát · N bài", số thứ tự theo vị trí, luôn theo mục lục (không theo thứ tự xáo); bài đang phát chữ màu nhấn + nền nhấn mờ 18% + loa; chạm ⇒ `playTrack(at: track.index)`; trang hiện ⇒ cuộn bài đang phát vào giữa.
-  - **Đĩa** (`AudioDiscPage`): bìa tròn ~70% bề ngang xoay 20 s/vòng khi đang phát (`AudioSpinningDisc`: `TimelineView` 30 nhịp/s, dừng thì đứng ở góc đang có, ngưng hẳn khi trang khác / app ở nền / nhạc dừng); tên bài + nghệ sĩ + ♡ (thêm / bỏ kệ qua `BookTransactionCoordinator` — `AudioShelfToggle`, bỏ kệ = `removeFromShelf`; mờ khi album chưa có `Book`); một dòng lời đang hát; thanh tua (`VideoSeekBar`, nhả tay mới `seek`) + `mm:ss`; Xáo · ⏮ · ⏯ (vòng xoay khi đang nạp / đệm) · ⏭ · Lặp; hàng phụ tốc độ (menu 0,5–2×), sang trang Danh sách / Lời. Bài lỗi ⇒ câu lỗi + "Thử lại" + `ErrorLinkButton` (`.errorLinkBrowser` thử lại bài).
-  - **Lời** (`AudioLyricsPage` + `AudioLyricsScrollView`): bìa nhỏ + tên bài; lời có mốc giờ ⇒ dòng đang hát to + màu nhấn, dòng đã qua mờ, tự cuộn giữ giữa (cuộn tay ⇒ ngưng 3 s), chạm dòng ⇒ tua tới mốc; lời chữ thường cuộn tay; đang tải / không có lời / lỗi (+ Thử lại) báo ngắn; chọn nguồn lời; cuối trang thanh tua + cụm nút gọn.
-  - Giây phát chỉ đọc ở `AudioPlayerSeekRow` ⇒ cả màn không vẽ lại mỗi tick. Màn gắn / gỡ session bằng token (`attachScreen` / `detachScreen`); trình duyệt lỗi / trang nguồn che màn không tính là rời màn; session dừng ở nơi khác ⇒ màn tự đóng.
-  - **Vuốt xuống để thu nhỏ** (`AudioMinimizeDragState` / `AudioMinimizeDragContainer` / `AudioMinimizeDragGesture`): kéo xuống ở header, đĩa, dòng tên bài, đầu trang Danh sách / Lời (không ở thanh tua, vùng cuộn) ⇒ cả màn trôi theo tay, quá 140 pt hoặc vuốt nhanh ⇒ trượt nốt rồi đóng, nhạc vẫn phát.
-- **Presenter** `AudioPlayerPresenter`: `present(_ request: AudioListenRequest, modelContainer:, autoplay: Bool = true, animated: Bool = true)` mở album rồi trình bày bằng UIKit `.overFullScreen` (`AudioPlayerHostingController`, chỉ dọc; gắn lại `.appAccentTint()` + `.modelContainer`); màn nghe đang hiện ⇒ chỉ đổi album, không chồng màn. `install()` gắn `presentScreenHandler` (thanh mini / hub mở lại màn), gọi ở `present`, `openInPlace` và lúc màn hiện. `AudioListenRouteView(launch:)` cho router: màn nằm trong `fullScreenCover` sẵn có (như `VideoWatchRouteView`), mở album một lần, lượt mở lại lúc khởi động (`ReaderSessionRestoreStore.consumePausedVideoStart`) ⇒ `autoplay: false`.
-- **Thanh phát mini** `AudioMiniPlayerBar`: ngay trên `MainTabBar` ở trang gốc các tab (cùng khối `safeAreaInset` của `MainTabBarModifier` ⇒ nội dung tự chừa chỗ, ẩn cùng thanh tab khi bàn phím hiện); bìa 40 pt (1.3.788 đổi thành đĩa tròn xoay), tên bài + nghệ sĩ, ⏯, ⏭, ✕ (dừng hẳn), vạch tiến độ màu nhấn ở mép trên, chạm phần còn lại ⇒ mở lại màn nghe; nền `FloatingGlassBackground`. Ẩn khi không có album / màn nghe đang hiện. Album 18+ lúc NSFW tắt ⇒ "Đang phát", không bìa. Chỉ đọc `AudioMiniPlayerState`.
-- **Hub**: `FloatingHubItem.Kind.audio` ("Âm thanh", `music.note`) ngay sau Video — xám khi không có album; có album ⇒ dòng phụ = tên bài (18+ lúc NSFW tắt ⇒ "Đang phát" / "Đã dừng"; lỗi ⇒ chữ đỏ), nút phát/dừng + ✕ như dòng Video (`FloatingHubMenuView` / `FloatingHubMenuRow` / `+Actions` đổi sang `togglePlayback(_:)` / `stopPlayback(_:)` theo loại dòng), chạm ⇒ mở lại màn nghe. Album đang dừng vẫn là mục của nút hub nhưng không nháy (`quietKinds`). Dòng Video + Âm thanh dựng ở `FloatingHubPresentationReader+Media` (giữ file chính dưới 400 dòng); trạng thái nghe theo dõi không gồm tiến độ ⇒ hub không vẽ lại theo nhịp phát.
-- Chuyển `[1.3.754]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối định tuyến — Phần 1.
