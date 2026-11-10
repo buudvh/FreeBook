@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Mặt đĩa của trình nghe nhạc (1.3.808), dáng nút đĩa nhạc cũ của Reader: bìa album tròn (44 pt ở đĩa góc, 32 pt ở thanh tab) trên nền tối riêng (nốt
+/// Mặt đĩa của trình nghe nhạc (1.3.808), dáng nút đĩa nhạc cũ của Reader: bìa album tròn (44 pt ở đĩa góc lẫn thanh tab) trên nền tối riêng (nốt
 /// nhạc dự phòng trắng mờ vẫn thấy trên nền sáng), **xoay khi đang phát** và đĩa đang hiện (`AudioRotatingCover`, góc chung
 /// `AudioCoverRotation`). Album 18+ lúc công tắc NSFW tắt ⇒ không tải / không hiện bìa, chỉ nốt nhạc.
 ///
 /// Chỉ đọc cầu nối `AudioMiniPlayerState` — không chạm `AudioPlaybackSession` (chạm là dựng `AVPlayer`).
 struct MediaDiscMusicFace: View {
-    /// Đường kính bìa (44 pt ở đĩa góc, 32 pt ở ô giữa thanh tab).
+    /// Đường kính bìa (44 pt ở đĩa góc lẫn ô giữa thanh tab).
     let size: CGFloat
     /// Đĩa đang hiện trên màn và app không ở nền.
     let isOnScreen: Bool

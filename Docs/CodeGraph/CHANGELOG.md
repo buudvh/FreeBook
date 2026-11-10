@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.814] - 2026-11-10
+
+### fix: nhấn giữ đĩa góc lên header được, bìa đĩa góc mờ theo nút nổi, đĩa thanh tab 44 pt có gờ, đĩa không đè menu xổ
+
+Anh Bửu thử 1.3.813 (build 1190): nhấn giữ đĩa góc không có tác dụng; đĩa góc không theo cài đặt nút nổi; muốn đĩa ở thanh tab to bằng đĩa góc; bấm "+" ở Chi tiết thì đĩa đè lên cụm pill một lúc rồi mới chạy lên.
+
+- **Nhấn giữ:** `UILongPressGestureRecognizer` gắn trên `discView` của `MediaDiscContainerViewController` không bao giờ chạy vì nút SwiftUI bên trong bắt chạm ngay lúc chạm xuống. Bỏ nó; `MediaDiscFaceButton(.corner)` tự lo `.onTapGesture` (mở sheet) + `.onLongPressGesture(minimumDuration: 0.4)` ⇒ `onLongPress` ⇒ `beginElevation()` (rung nhẹ, lên header 5 giây). Giữ lâu không mở sheet. VoiceOver: thao tác mặc định mở điều khiển + thao tác "Đưa đĩa lên trên".
+- **Đĩa góc theo nút nổi (kiểu C anh chọn):** vòng kính vẫn theo Độ trong suốt / Độ đục; **bìa** (cả nền tối dưới bìa) hiện `0,45 + 0,55 × (1 − độ trong suốt)` ⇒ đổi đều trên cả thanh trượt, mặc định 90% ⇒ ~50%, 100% ⇒ 45%. Mờ gắn lên lớp bìa, không lên lớp cha của kính.
+- **Đĩa thanh tab:** bìa 44 pt (bằng bìa đĩa góc, `MediaDiscFaceButton.coverSize`), mép dưới ngang chân chữ của các tab (42,5 pt dưới mép trên thanh), giữa vòng nền 52 pt `.bar` + viền vạch ngăn — chỉ vẽ phần nhô ~5,5 pt trên thanh (`MediaDiscTabBarSlot`). Không nghe ⇒ ô trống như cũ.
+- **Menu xổ (`FloatingActionMenu`, FAB Chi tiết + nút "+" có Home):** neo đĩa gắn lên cụm pill đang phóng từ 40% ⇒ đầu dò đo khung nhỏ, đĩa đè pill tới lần đo lại sau 0,35 s. Nay neo gắn lên **bản ẩn** của cụm (cùng bố cục, không vẽ, không chạm, không VoiceOver, không chuyển cảnh) ⇒ đĩa chạy lên cùng lúc pill bung ra, về cùng lúc pill thu lại.
+- `CLAUDE.md` / `AGENTS.md` + comment các file đĩa theo cỡ và cử chỉ mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.813] - 2026-11-09
 
 ### fix: đĩa nghe góc dưới giống nút nổi khác, vòng kính theo độ trong suốt và độ đục, bìa luôn rõ
@@ -377,19 +390,3 @@ Rà lại 1.3.784: bài lỗi lúc đang phát (`AVPlayerItem` báo `failed` / `
 
 - `play()`: đang `.failed` ⇒ `retry()` trước mọi nhánh khác (gỡ item hỏng, nạp lại bài ở giây đang nghe).
 - **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy.
-
-## [1.3.784] - 2026-11-09
-
-### feat: lõi phát âm thanh riêng cho tiện ích loại audio: lặp, xáo, lời bài hát, màn khoá
-
-Phần 2/3 của tính năng trình nghe âm thanh cho tiện ích JS loại `audio` (plan anh Bửu đã duyệt): chỉ lõi phát ở `Sources/Services/Audio/`, **chưa** có màn nghe / thanh mini / hub (phần 3) và **chưa** nối định tuyến / `ExtensionContentKind.audio` (phần 1).
-
-- **`AudioPlaybackSession`** (`@MainActor @Observable`, `shared`, `AVPlayer` riêng; chia `+Loading`, `+TrackLoading`, `+Player`, `+Transport`, `+Queue`, `+Progress`, `+AudioSession`, `+NowPlaying`, `+Lyrics`, `+MiniPlayer`): `open(_:modelContainer:autoplay:)` — album khác ⇒ dừng album cũ; cùng album ⇒ không nạp lại (chỉ chuyển bài / thử lại); `autoplay: false` (mở lại lúc khởi động) ⇒ nạp tới bài + giây đã lưu rồi dừng sẵn. Album: `Book` + mục lục trên máy phát ngay rồi làm mới từ nguồn ở nền (lấy nghệ sĩ, nhận bài thêm ở cuối); chưa có thì chi tiết + mục lục đủ từ nguồn, tạo `Book` + ghi mục lục (`ChapterContentRepository.saveChapterList`, như màn xem phim) trước lần lưu tiến độ đầu. Dòng `section` bị bỏ; `Track.index` là chỉ số mục lục thật (thưa).
-- **Mỗi bài**: `chap` chỉ lấy nguồn đầu tiên có `data` (không có ⇒ URL bài — `ExtensionManager/SourceRuntime.audioStreamData`) → `track` (`audioTrack`: `VideoTrack` + nguồn lời, ánh xạ trong cùng `runMediaScript`) → áp `audios[0]` (`data`, `headers` khi khác rỗng), bỏ `audios` để `VideoSourceResolver` không ghép tiếng vào hình; `auto`/`webview` trỏ thẳng file nghe (`.mp3`, `.m4a`…) ⇒ `native` → chỉ nhúng được trang ⇒ lỗi "Nguồn này chỉ phát được trong trang web.". Nguồn Legado ⇒ lỗi chưa hỗ trợ. Lượt nạp gắn generation, `CancellationError` không là lỗi.
-- **Nạp sẵn** bài kế khi bài hiện còn ≤ 15 s (resolver riêng, cache theo chỉ số + lượt mở, quá 10 phút bỏ; lỗi thì không thử lại mỗi tick). **Lặp** `AudioRepeatMode` `off` → `album` → `one` + **xáo trộn** (hoán vị bắt đầu bằng bài đang phát; hết vòng lặp album thì xáo lại, vòng kế dựng sẵn để nạp sẵn và lúc hết bài chọn cùng một bài), nhớ toàn app (`AudioPlaybackPreferences`: `audioPlayerRepeatMode`, `audioPlayerShuffle`). Bài trước khi đã quá 3 s ⇒ về đầu bài. Tốc độ 0,5–2× (`defaultRate`).
-- **Lời bài hát**: model `AudioLyricSource` / `AudioLyrics` / `AudioLyricLine` (`Models/Extensions/Media/`), `AudioLyricMapper` (`lyrics` mảng / chuỗi trần, `lyric` + `lyricType`), `AudioLyricLoader` (URL http(s) tải kèm header track, URI `data:`, chữ trực tiếp), `AudioLyricParser` (LRC nhiều nhãn / `[offset:]` / bỏ nhãn meta và `<mm:ss.xx>`; VTT/SRT qua `VideoSubtitleParser`; còn lại chữ thường bỏ HTML). Nạp sau khi bài sẵn sàng, nguồn đầu có nội dung thắng, `selectLyricSource`, `currentLyricLineIndex` theo tick.
-- **Màn khoá** — `AudioNowPlayingCoordinator` (khuôn `VideoNowPlayingCoordinator`): tên bài, nghệ sĩ (`description` của mục `toc` — thêm `ChapterResult.itemDescription`, không lưu `ChapterStore`) / tác giả album, tên album, bìa cắt vuông; phát/dừng, bài trước/sau, kéo thanh tua, tua ±15 s; nguồn 18+ ⇒ "Đang phát" + `LockScreenAppIcon`. Now Playing đánh dấu bằng `MPNowPlayingInfoPropertyExternalContentIdentifier` (TTS cũng ghi loại `.audio`), trả phiên thì xoá.
-- **Phân xử ba bên**: `MediaNowPlayingOwnership.isHeldByMedia` (phim **hoặc** nhạc giữ phiên) thay 9 chỗ `VideoNowPlayingCoordinator…isHoldingSession` ở `TTSManager+NowPlaying` / `TTSNowPlayingController`; TTS bắt đầu đọc ⇒ nhạc `yieldToTTS`. Nhạc do người dùng phát ⇒ dừng TTS + `VideoNowPlayingCoordinator.yieldToOtherMedia` (mới) rồi mới `claim`. Phim có tiếng bắt đầu / người dùng chọn phát phim ⇒ `AudioNowPlayingCoordinator.yieldToOtherMedia`; phim **tắt tiếng** phát cùng nhạc như với TTS (cả nút âm lượng cứng). Cờ nhẹ `AudioPlaybackFlag` (không dựng `AVPlayer`): TTS dừng / phim đóng không tắt `AVAudioSession` khi nhạc còn phát; nhạc đóng chỉ tắt khi TTS và phim native đều không phát. `AVAudioSession` `.playback` / `.default`; ngắt (cuộc gọi) ⇒ dừng, hết ngắt + `shouldResume` ⇒ phát tiếp.
-- **Tiến độ + Lịch sử**: `ReadingProgressStore.checkpoint` — `chapterIndex` = bài, `paragraphIndex` = **số giây**; lúc bắt đầu phát, tạm dừng, đổi bài, mỗi ~10 s, vào nền, đóng. Mở lại album ⇒ tiếp đúng bài + giây (request chỉ định bài thì theo request; `-1` = đầu bài).
-- **Cầu nối** `AudioMiniPlayerState` (`ObservableObject`, như `VideoMiniPlayerState`) + `presentScreenHandler` / `requestScreen` / `attachScreen` / `detachScreen` cho phần 3. `AudioListenRequest` dùng lại quy tắc id của `VideoWatchRequest`.
-- **Kiểm chứng:** đọc code; check_architecture 0 lỗi mới (chỉ còn lỗi có sẵn `JSDom.swift`); không build tại chỗ (Windows); chưa thử máy; chưa nối UI/định tuyến (phần sau).

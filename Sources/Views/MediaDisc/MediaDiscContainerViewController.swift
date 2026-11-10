@@ -14,6 +14,8 @@ import UIKit
 /// - **Nhấn giữ 0,4 s** (1.3.812): rung nhẹ, đĩa trượt (lò xo mềm) lên góc phải vùng header 5 giây
 ///   (`MediaDiscPlacement.elevatedFrame`) để bấm được nút đang bị che, rồi về chỗ. Trong lúc đó vẫn chạm mở sheet; đóng
 ///   sheet ⇒ về chỗ ngay; đổi màn ⇒ vẫn ở trên cho đủ 5 giây. Chỉ dời khung trong cửa sổ này, không đụng layout của app.
+///   Cử chỉ nằm trong `MediaDiscFaceButton` (gọi `beginElevation`, 1.3.814) — **đừng** gắn lại `UILongPressGestureRecognizer`
+///   lên `discView`: nút SwiftUI bên trong bắt chạm ngay lúc chạm xuống nên bộ nhận đó không bao giờ chạy.
 /// - Lượt tính lại: neo đổi (`MediaDiscAnchorRegistry.onChange`), manager báo đổi trạng thái, xoay màn / đổi vùng an toàn,
 ///   và đồng hồ 0,4 s (`setPolling`, chế độ `.common` để chạy cả lúc đang cuộn) chỉ khi cửa sổ đang hiện.
 /// - Giữ chỗ mép phải ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`) khi đĩa hiện: nút hub vừa thả / vừa hiện sẽ né
@@ -43,7 +45,6 @@ final class MediaDiscContainerViewController: UIViewController {
         /// Lệch dưới mức này coi như đứng yên (không chạy hiệu ứng mỗi lượt hỏi).
         static let moveTolerance: CGFloat = 0.5
         static let showDelay: TimeInterval = 0.3
-        static let longPressDuration: TimeInterval = 0.4
         static let elevationDuration: TimeInterval = 5
     }
 
@@ -66,18 +67,15 @@ final class MediaDiscContainerViewController: UIViewController {
         discView.isHidden = true
         view.addSubview(discView)
 
-        let disc = makeHost(MediaDiscFaceButton(style: .corner))
+        let disc = makeHost(MediaDiscFaceButton(style: .corner) { [weak self] in
+            self?.beginElevation()
+        })
         addChild(disc)
         disc.view.frame = discView.bounds
         disc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         discView.addSubview(disc.view)
         disc.didMove(toParent: self)
         discHost = disc
-
-        let press = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        press.minimumPressDuration = Layout.longPressDuration
-        press.cancelsTouchesInView = true
-        discView.addGestureRecognizer(press)
 
         MediaDiscAnchorRegistry.shared.onChange = { [weak self] in
             self?.updateDisc(animated: true)
@@ -211,8 +209,9 @@ final class MediaDiscContainerViewController: UIViewController {
         return elevatedUntil > Date()
     }
 
-    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began, isShowingDisc else { return }
+    /// Nhấn giữ đĩa góc (`MediaDiscFaceButton(.corner)` gọi) ⇒ đĩa lên header 5 giây; nhấn giữ lần nữa ⇒ tính lại 5 giây.
+    func beginElevation() {
+        guard isShowingDisc else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         AppLogger.shared.log("💿 [MediaDisc] Nhấn giữ ⇒ đĩa lên header 5 giây")
         elevationWork?.cancel()

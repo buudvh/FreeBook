@@ -21,7 +21,7 @@ import UIKit
 ///   mở ở cửa sổ chính mà vẫn bị sheet che.
 ///
 /// ## Hai chỗ đặt đĩa (1.3.812)
-/// - **Trang gốc các tab** (có `.mainTabBar()`): đĩa 32 pt ở ô giữa của `MainTabBar` (`MediaDiscTabBarSlot`, theo `kind` —
+/// - **Trang gốc các tab** (có `.mainTabBar()`): đĩa 44 pt (gờ nền nhô 5,5 pt, 1.3.814) ở ô giữa của `MainTabBar` (`MediaDiscTabBarSlot`, theo `kind` —
 ///   biết ngay từ khung đầu). Thanh tab là neo `.hostsDisc` ⇒ đĩa góc ẩn **ngay** khi màn trên cùng có thanh tab.
 /// - **Mọi màn khác**: đĩa góc dưới phải như trên; hiện lại sau khi màn trên cùng thôi có thanh tab ~0,3 s (chống lóe lúc
 ///   đẩy trang). Nhấn giữ đĩa góc ⇒ tạm lên góc phải vùng header 5 giây (container).

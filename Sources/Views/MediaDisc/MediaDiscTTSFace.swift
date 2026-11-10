@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Mặt đĩa của TTS (1.3.808, kiểu widget "Đĩa góc dưới"), dáng nút đĩa TTS cũ của Reader: bìa truyện tròn (44 pt ở đĩa góc, 32 pt ở thanh tab) trên nền
+/// Mặt đĩa của TTS (1.3.808, kiểu widget "Đĩa góc dưới"), dáng nút đĩa TTS cũ của Reader: bìa truyện tròn (44 pt ở đĩa góc lẫn thanh tab) trên nền
 /// tối, **xoay khi đang đọc** và đĩa đang hiện (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với kiểu Đĩa nổi và sheet
 /// điều khiển nhanh). Bìa nạp qua `TTSCoverImageLoader` của kiểu Đĩa nổi.
 ///
 /// Đọc trạng thái qua projection `TTSWidgetStateReader` — không observe `TTSManager` (vẽ lại theo từng đoạn).
 struct MediaDiscTTSFace: View {
-    /// Đường kính bìa (44 pt ở đĩa góc, 32 pt ở ô giữa thanh tab).
+    /// Đường kính bìa (44 pt ở đĩa góc lẫn ô giữa thanh tab).
     let size: CGFloat
     /// Đĩa đang hiện trên màn và app không ở nền.
     let isOnScreen: Bool

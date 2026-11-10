@@ -11,6 +11,9 @@ import SwiftUI
 /// - Chuyển cảnh chỉ `scale` — **không** `.opacity`: alpha < 1 trên lớp cha tắt nhoè của kính (lỗi 1.3.640, ghi ở
 ///   `FloatingGlassBackground`).
 /// - Cụm pill đang xổ là neo của đĩa nghe góc dưới phải (1.3.808): đĩa lên trên cụm, không che pill "Về trang gốc".
+///   Neo gắn lên một **bản ẩn** của cụm, không chuyển cảnh (1.3.814): gắn lên cụm thật thì đầu dò đo được khung đang
+///   phóng từ 40% ⇒ đĩa đứng thấp, đè lên pill tới lần đo lại sau 0,35 s mới chạy lên. Bản ẩn có ngay khung cuối ⇒ đĩa
+///   chạy lên cùng lúc pill bung ra; đóng menu ⇒ bản ẩn rời ngay, đĩa về cùng lúc pill thu lại.
 struct FloatingActionMenu: View {
     private static let animation = Animation.spring(response: 0.3, dampingFraction: 0.7)
 
@@ -30,18 +33,32 @@ struct FloatingActionMenu: View {
         }
         .overlay(alignment: .bottomTrailing) {
             if isExpanded {
-                VStack(alignment: .trailing, spacing: 10) {
-                    ForEach(items) { item in
-                        pill(item)
-                    }
-                }
-                .fixedSize()
-                .mediaDiscAnchor(.button)
-                .padding(.bottom, FloatingRoundButton.size + 10)
-                .transition(.scale(scale: 0.4, anchor: .bottomTrailing))
+                pillStack
+                    .padding(.bottom, FloatingRoundButton.size + 10)
+                    .transition(.scale(scale: 0.4, anchor: .bottomTrailing))
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if isExpanded {
+                pillStack
+                    .hidden()
+                    .mediaDiscAnchor(.button)
+                    .padding(.bottom, FloatingRoundButton.size + 10)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .transition(.identity)
             }
         }
         .onDisappear { isExpanded = false }
+    }
+
+    private var pillStack: some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            ForEach(items) { item in
+                pill(item)
+            }
+        }
+        .fixedSize()
     }
 
     private func pill(_ item: FloatingActionItem) -> some View {
