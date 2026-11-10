@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.823] - 2026-11-10
+
+### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ
+
+Anh Bửu: phần "Trang Khám phá" của sheet "Kiểu hiển thị" làm giống phần Danh sách / Lưới / Chỉ bìa (duyệt mockup).
+
+- `ExploreLayoutSizePicker` (file mới, chỉ dùng ở `BookListLayoutSheet(showsExploreSizes: true)`): **hàng chọn bố cục** Lưới · Hàng ngang · Danh sách · Banner dáng y `Picker(.segmented)` ở trên (tự vẽ: nền `tertiarySystemFill`, ô chọn trắng / `systemGray2`, chữ 13 pt) + **một** thanh cỡ của bố cục đang chọn + dòng ghi chú — thay bốn thanh xếp chồng (sheet nửa màn phải cuộn). Tên thanh theo bố cục: Lưới / Hàng ngang "Cỡ thẻ", Danh sách "Cỡ dòng" (áp cả mục Xếp hạng), Banner "Chiều cao". Bố cục đang khác mặc định có **chấm màu nhấn** ở góc ô (thanh của nó đang ẩn); VoiceOver đọc tên đầy đủ + "Khác mặc định".
+- `ExploreLayoutSizeKind`: thêm `shortLabel`, `sliderTitle`, `sliderNote`. Màn Cài đặt › Kiểu hiển thị giữ bốn thanh (`ExploreLayoutSizeControls`, đủ chỗ).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.822] - 2026-11-10
 
 ### fix: danh sách tải vô hạn không còn nhảy lên khi nối trang
@@ -357,15 +367,3 @@ Người dùng: *"danh sách chọn truyện nguồn, chọn truyện đích ch�
 - `BookImportSourceSheet` (nhập từ truyện khác) và `BookShareTargetSheet` (chia sẻ sang truyện khác — cũng dùng ở chia sẻ bộ rule dịch nhanh riêng) bỏ truyện tranh, phim và âm thanh; luật NSFW giữ nguyên.
 - Loại sách suy **đúng như router mở sách**: tách `BookContentDestination.resolveKind` thành `BookContentKindResolver` (`Services/Books/`, mới) — ghi đè loại của sách ở nguồn Legado → loại của tiện ích → tiện ích đã gỡ thì xét bản tải truyện tranh / phim. `.unsupported` vẫn tính là chữ (router mở bằng Reader chữ).
 - **Kiểm chứng:** đọc code; router gọi resolver mới, hành vi không đổi. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
-
-## [1.3.793] - 2026-11-09
-
-### fix: TTS không còn phát lặp một câu khi âm thanh Google/tiện ích lỗi giải mã
-
-Người dùng (Google TTS): *"tts bị phát lại 1 câu nhiều lần, phải dừng mở lại mới được"*. Log: ~107 dòng `AVAudioPlayer decode error` (OSStatus 560164718 = `'!con'`) trong 11 giây, header vẫn qua (không có lỗi khởi tạo player).
-
-- **Nguyên nhân**: `audioPlayerDecodeErrorDidOccur` của engine remote chỉ hạ `isPlaying` ⇒ player hỏng vẫn chạy (lỗi ~10 lần/giây), `pause()` thoát ngay ở `guard isPlaying` nên nút Dừng / màn khoá không ăn, còn dữ liệu hỏng nằm lại trong `preloadedData` ⇒ bấm phát là `speakCurrent` phát lại đúng câu đó từ đầu. Chỉ dừng hẳn (`clearPrefetchCache`) mới thoát.
-- **Sửa** (`TTSManager+PlaybackFailure`, `TTSPlaybackFailureTracker` — mới): lỗi giải mã của player đang phát ⇒ ghi một dòng `❌ [TTSRemote]`, dừng hẳn player (gỡ delegate), bỏ dữ liệu đệm của đoạn, rồi: lần đầu ⇒ tổng hợp lại đoạn đó **một** lần; vẫn lỗi ⇒ **bỏ qua đoạn, đọc tiếp**; bỏ qua liền **3** đoạn ⇒ dừng đọc + thông báo "Âm thanh TTS bị lỗi liên tục, đã tạm dừng đọc.". Đoạn phát trọn ⇒ đếm lại. Player cũ còn bắn lỗi ⇒ gỡ delegate, không xử lý lại. "Phát kết thúc không thành công" (`successfully == false`) đi cùng lối phục hồi thay vì chỉ hạ cờ.
-- **NghiTTS/VieNeu**: đoạn kế lỗi giải mã chỉ được tổng hợp lại tối đa một lần mỗi đoạn (trước đó có thể tổng hợp lại mãi).
-- **Log chẩn đoán** (luôn ghi vì có `❌`): engine, chương, đoạn, id, số byte, 8 byte đầu, sample rate, số kênh, độ dài, vị trí, domain#mã lỗi — không ghi nội dung chương. Nhánh Nghi ghi `❌ [NghiQueue]` một lần cho mỗi player.
-- **Kiểm chứng:** đọc code; `TTSManager.swift` 3467 dòng (baseline 3470); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — lỗi hiếm (anh gặp một lần), dòng log mới sẽ cho biết dữ liệu hỏng hay phiên âm thanh lỗi nếu gặp lại.

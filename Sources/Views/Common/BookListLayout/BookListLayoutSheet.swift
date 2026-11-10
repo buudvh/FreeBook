@@ -4,8 +4,9 @@ import SwiftUI
 /// thanh điều hướng màn Thể loại và menu của Bộ sưu tập. Ghi thẳng vào `BookListLayoutPreferences`, nên danh
 /// sách phía sau (vẫn thấy được vì sheet thấp) đổi ngay khi bấm.
 ///
-/// Khám phá truyền `showsExploreSizes: true` ⇒ thêm nhóm "Trang Khám phá" (cỡ từng bố cục, `ExploreLayoutSizeControls`):
-/// sheet cao nửa màn, kéo lên được, nội dung cuộn — nửa trên vẫn thấy trang để xem cỡ đổi ngay.
+/// Khám phá truyền `showsExploreSizes: true` ⇒ thêm nhóm "Trang Khám phá" (`ExploreLayoutSizePicker`, 1.3.823: hàng chọn
+/// bố cục + một thanh cỡ của bố cục đang chọn): sheet cao nửa màn, kéo lên được, nội dung cuộn — nửa trên vẫn thấy trang
+/// để xem cỡ đổi ngay.
 struct BookListLayoutSheet: View {
     let scope: BookListLayoutScope
     var showsExploreSizes: Bool = false
@@ -67,7 +68,7 @@ struct BookListLayoutSheet: View {
             Divider()
             Text("Trang Khám phá")
                 .font(.headline)
-            ExploreLayoutSizeControls(scope: scope)
+            ExploreLayoutSizePicker(scope: scope)
         }
     }
 }
