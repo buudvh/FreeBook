@@ -56,6 +56,12 @@ struct MediaDiscFaceButton: View {
                 .opacity(manager.isDiscElevated ? 0 : 1)
             face(size: MediaDiscHeaderSlot.coverSize, isOnScreen: manager.isDiscOnScreen)
                 .opacity(manager.isDiscElevated ? 1 : cornerCoverOpacity)
+                .overlay {
+                    // Trong header kính đã tan ⇒ viền mảnh như đĩa thanh tab để bìa tối vẫn rõ mép trên header tối.
+                    Circle()
+                        .stroke(Color.primary.opacity(0.18), lineWidth: 0.75)
+                        .opacity(manager.isDiscElevated ? 1 : 0)
+                }
         }
         .animation(Self.elevationAnimation, value: manager.isDiscElevated)
         .frame(width: MediaDiscPlacement.discSize, height: MediaDiscPlacement.discSize)
