@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.818",
+          "buildVersion": "1194",
+          "date": "2026-11-10T03:02:43Z",
+          "localizedDescription": "- fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải\n- feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1194/TangCongCac-1.3.818-1194.ipa",
+          "size": 38982659,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.817",
           "buildVersion": "1193",
           "date": "2026-11-10T02:48:45Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1190/TangCongCac-1.3.813-1190.ipa",
           "size": 38966776,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.811",
-          "buildVersion": "1189",
-          "date": "2026-11-09T14:52:50Z",
-          "localizedDescription": "- feat: thêm vào playlist ngay trên danh sách nhạc và phim, nút ? xem thay đổi của bản đang dùng, chip Tất cả ở tab Playlist\n- fix: nút ⋮ thêm playlist trong hàng danh sách không nhận chạm của cả hàng",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1189/TangCongCac-1.3.811-1189.ipa",
-          "size": 38960388,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.817",
-      "versionDate": "2026-11-10T02:48:45Z",
-      "versionDescription": "- fix: đĩa góc giống y nút +, bìa mờ đúng theo độ trong suốt, nhấn giữ thì đĩa nằm trong header như một nút header\n- feat: nút Hủy hẹn giờ ngay cạnh đồng hồ đếm giờ trong sheet nghe truyện\n- fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1193/TangCongCac-1.3.817-1193.ipa",
-      "size": 38981805,
+      "version": "1.3.818",
+      "versionDate": "2026-11-10T03:02:43Z",
+      "versionDescription": "- fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải\n- feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1194/TangCongCac-1.3.818-1194.ipa",
+      "size": 38982659,
       "appPermissions": {}
     }
   ],
