@@ -2,6 +2,15 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.817] - 2026-11-10
+
+### fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải
+
+Anh Bửu tự sửa `TTSQuickControlSheet` (`NowReadingBlock`), Javis rà + commit.
+
+- Dưới vạch tiến độ chương: bỏ "Đoạn N" bên trái (giữ `Text(" ")` làm chỗ), bên phải đổi "M đoạn" ⇒ **"N/M"**, chỉ hiện khi có cả vị trí lẫn tổng (> 0), không thì trống. Comment đầu file theo chữ mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.816] - 2026-11-10
 
 ### feat: nút Hủy hẹn giờ ngay cạnh đồng hồ đếm giờ trong sheet nghe truyện

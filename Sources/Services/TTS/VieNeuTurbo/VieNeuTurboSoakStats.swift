@@ -11,6 +11,7 @@ struct VieNeuTurboSoakStats {
         var startedAt: TimeInterval
         var startedCPUMs: Double
         var chunks = 0
+        var characters = 0
         var audioSeconds = 0.0
         var synthesisMs = 0.0
         var underruns = 0
@@ -42,6 +43,7 @@ struct VieNeuTurboSoakStats {
         self.synthesisMs += synthesisMs
         synthesisCPUMs += cpuMs
         window.chunks += 1
+        window.characters += characters
         window.audioSeconds += audioSeconds
         window.synthesisMs += synthesisMs
     }
@@ -67,13 +69,14 @@ struct VieNeuTurboSoakStats {
         let cpuSeconds = (cpuMs - window.startedCPUMs) / 1_000
         let wallSeconds = max(0.001, now - window.startedAt)
         let line = String(
-            format: "Phút %d · %d đoạn · tiếng %.1f s · CPU %.1f s (%.0f%% một lõi) · CPU/tiếng %@ · hụt %d · %@",
+            format: "Phút %d · %d đoạn · tiếng %.1f s · CPU %.1f s (%.0f%% một lõi) · CPU/tiếng %@ · CPU/1k ký tự %@ · hụt %d · %@",
             minuteIndex,
             window.chunks,
             window.audioSeconds,
             cpuSeconds,
             cpuSeconds / wallSeconds * 100,
             Self.ratio(cpuSeconds, window.audioSeconds),
+            Self.ratio(cpuSeconds, Double(window.characters) / 1_000),
             window.underruns,
             Self.thermalName(thermal)
         )
@@ -96,6 +99,7 @@ struct VieNeuTurboSoakStats {
         tiếng         \(String(format: "%.1f", audioSeconds)) s
         CPU tiến trình \(String(format: "%.1f", cpuSeconds)) s (\(String(format: "%.0f", cpuSeconds / wallSeconds * 100))% một lõi)
         CPU/tiếng     \(Self.ratio(cpuSeconds, audioSeconds))   (CPU-s mỗi giây tiếng, cả tiến trình)
+        CPU/1k ký tự  \(Self.ratio(cpuSeconds, Double(characters) / 1_000))   (không lệ thuộc giọng nói nhanh hay chậm)
         CPU tổng hợp  \(Self.ratio(synthesisCPUMs / 1_000, audioSeconds))   (chỉ trong lúc tổng hợp)
         RTF           \(Self.ratio(synthesisSeconds, audioSeconds))   (tổng hợp / tiếng)
         hụt tiếng     \(underruns) lần, chờ \(String(format: "%.1f", underrunWaitMs / 1_000)) s

@@ -51,6 +51,7 @@ final class VieNeuTurboSoakRunner {
     @ObservationIgnored private var keepAlivePlayer: AVAudioPlayer?
     private let playerDelegate = PlayerDelegate()
     @ObservationIgnored private var underrunStartedAt: TimeInterval?
+    @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
 
     /// Văn bản (đã qua thay thế ký tự) ⇒ các đoạn ≤ 150 ký tự theo câu, mỗi dòng một đoạn văn.
     static func chunks(from text: String) -> [TTSParagraph] {
@@ -81,9 +82,22 @@ final class VieNeuTurboSoakRunner {
         summaryText = stats.summary()
         statusLine = "Đang chuẩn bị đoạn đầu…"
         playerDelegate.onFinish = { [weak self] finished in self?.playerDidFinish(finished) }
+        // Cuộc gọi / Siri tạm dừng AVAudioPlayer mà không gọi `didFinish` ⇒ lượt đo đứng im trong khi đồng hồ vẫn chạy.
+        // Dừng hẳn để tổng kết không bị kéo sai.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard rawType.flatMap(AVAudioSession.InterruptionType.init(rawValue:)) == .began else { return }
+            Task { @MainActor in self?.stop(reason: "bị ngắt âm thanh (cuộc gọi, Siri…)") }
+        }
         startKeepAlive()
 
-        producerTask = Task { [weak self] in
+        // `.utility` = cùng QoS với hàng đợi của `VieNeuTurboRuntime`; lượt Nano (`PiperSynthesisCoordinator`) thừa hưởng
+        // mức này từ task gọi nó ⇒ hai engine đo ở cùng một mức ưu tiên.
+        producerTask = Task(priority: .utility) { [weak self] in
             await self?.produce(chunks: chunks, generation: runGeneration, synthesize: synthesize)
         }
         clockTask = Task { [weak self] in
@@ -109,6 +123,10 @@ final class VieNeuTurboSoakRunner {
         player?.stop()
         player = nil
         stopKeepAlive()
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+            self.interruptionObserver = nil
+        }
         ready.removeAll()
         if let started = underrunStartedAt {
             stats.recordUnderrunEnd(waitMs: (ProcessInfo.processInfo.systemUptime - started) * 1_000)

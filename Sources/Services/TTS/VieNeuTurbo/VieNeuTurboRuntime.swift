@@ -60,7 +60,14 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     static let family = "vieneu_v3_turbo"
 
-    private let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: .userInitiated)
+    /// QoS của hàng đợi — và của luồng ggml (luồng CPU của ggml dựng từ luồng gọi). Để `.utility` cho **cùng mức** với
+    /// Nano: session ORT của Nano dựng ở `Task.detached(priority: .utility)`, và màn thử chạy lượt Nano ở `.utility`
+    /// (`VieNeuTurboSoakRunner`). Trên iPhone, QoS ảnh hưởng chuyện chạy lõi hiệu năng hay lõi tiết kiệm — đúng biến số
+    /// đang đo — nên hai engine phải chung một mức.
+    static let qos: DispatchQoS = .utility
+    static let qosName = "utility"
+
+    private let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: VieNeuTurboRuntime.qos)
     // Chỉ đọc / ghi trong `queue`.
     private var registry: OpaquePointer?
     private var model: OpaquePointer?

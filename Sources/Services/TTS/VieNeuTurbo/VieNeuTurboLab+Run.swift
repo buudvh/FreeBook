@@ -104,7 +104,7 @@ extension VieNeuTurboLab {
         let sessionText = load.sessionCreateMs.map { "\(format($0, 0)) ms" } ?? "dùng lại"
         statusMessage = "Xong: \(format(audioSeconds, 2)) giây tiếng, tổng hợp \(format(totalMs / 1_000, 2)) giây."
         lastReport = """
-        luồng         \(load.threads) (CPU)
+        luồng         \(load.threads) (CPU, QoS \(VieNeuTurboRuntime.qosName))
         nạp model     \(loadText)
         dựng session  \(sessionText)
         chữ / âm vị   \(characters) / \(prepared.phonemes.count) ký tự
@@ -259,7 +259,7 @@ extension VieNeuTurboLab {
             )
         }
         let voiceName = selectedVoice?.name ?? voiceId
-        return ("Turbo q8_0 · \(threads) luồng · giọng \(voiceName)", synthesize)
+        return ("Turbo q8_0 · \(threads) luồng · giọng \(voiceName) · QoS \(VieNeuTurboRuntime.qosName)", synthesize)
     }
 
     /// Nano qua đúng API một đoạn của nó (`VieNeuTTSService.synthesizeWithDuration`) — không sửa engine. Service tự chạy
@@ -270,19 +270,27 @@ extension VieNeuTurboLab {
         }
         let voice = service.defaultVoiceName ?? (try? service.availableVoices().first?.name) ?? ""
         guard !voice.isEmpty else { throw TTSError.modelNotCached("Không đọc được danh sách giọng của Nano.") }
+        // Nhả Turbo (~188 MB + bộ đệm ggml) trước khi đo Nano: bớt áp lực bộ nhớ khi session ORT của Nano cũng nằm trong
+        // RAM, và cửa sổ CPU của Nano không lẫn gì của Turbo. Nano thì không nhả được kiểu này (service sống suốt app) —
+        // muốn so sạch tuyệt đối thì đo mỗi engine sau một lần mở app mới.
+        await runtime.release()
+        frontend?.unload()
+        isRuntimeLoaded = false
         if !service.isPrepared {
             workingMessage = "Đang nạp engine Nano…"
             try await service.prepare(voice: voice)
         }
         let synthesize: VieNeuTurboSoakRunner.Synthesizer = { text, boundaryKind in
             let cpuStarted = ProcessCPUClock.nowMs()
-            // Tốc độ tổng hợp 1× (không theo cài đặt) — Turbo không có tốc độ tổng hợp, so phải cùng điều kiện.
+            // Tốc độ tổng hợp 1× (không theo cài đặt) — Turbo không có tốc độ tổng hợp, so phải cùng điều kiện. Khoá tổng
+            // hợp ngẫu nhiên: văn bản lặp nhiều vòng, không để vòng sau dùng lại kết quả theo khoá tự sinh của service.
             let result = try await service.synthesizeWithDuration(
                 text: text,
                 voice: voice,
                 speed: 1.0,
                 boundaryKind: boundaryKind,
-                priority: .demand
+                priority: .demand,
+                synthesisKey: UUID().uuidString
             )
             return VieNeuTurboSoakRunner.ChunkAudio(
                 wav: result.data,
@@ -293,7 +301,10 @@ extension VieNeuTurboLab {
             )
         }
         let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
-        return ("Nano · chế độ \(service.currentMode.rawValue) · \(threads) luồng ORT · giọng \(voice)", synthesize)
+        return (
+            "Nano · chế độ \(service.currentMode.rawValue) · \(threads) luồng ORT · giọng \(voice) · QoS \(VieNeuTurboRuntime.qosName)",
+            synthesize
+        )
     }
 
     // MARK: - Phiên âm thanh / rời màn
