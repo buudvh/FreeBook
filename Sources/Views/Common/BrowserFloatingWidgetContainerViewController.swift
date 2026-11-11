@@ -4,18 +4,14 @@ import UIKit
 
 /// View controller của widget trình duyệt thu nhỏ (dựng lại ở 1.3.533 sau khi tách khỏi hub nổi): sở hữu
 /// `UIPanGestureRecognizer` / `UITapGestureRecognizer` và cập nhật frame trực tiếp trên `UIView`, đúng kiến
-/// trúc hub và widget TTS — ngón tay không bị trễ theo vòng cập nhật state của SwiftUI.
+/// trúc nút hub — ngón tay không bị trễ theo vòng cập nhật state của SwiftUI.
 ///
-/// ## Một cỡ, hai vị trí
-/// Nút tròn **36px**: `.peeking` là nút **ngậm vào mép** (tâm nằm đúng trên mép nên một nửa ra ngoài),
-/// `.revealed` là nút nằm trong màn với lề ngang nhỏ. Animation thu/bung chỉ là **dịch chuyển**.
+/// ## Nửa viên thuốc dính mép (anh Bửu duyệt mockup 2026-11-11)
+/// Nút là nửa viên 38 × 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu,
+/// cũng không còn mờ 0,7 cố định khi nghỉ (icon nay mờ theo Độ trong suốt của nút nổi, trong `VisibleBrowserReopenButton`).
+/// Bắt đầu kéo ⇒ co thành hình tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, né widget nổi khác, lưu chỗ.
 ///
-/// ## Trong suốt hơn
-/// Hosting view của nút mờ **0,7** khi nghỉ, đậm **1,0** khi đang chạm hoặc kéo (`setTouchActive`, do
-/// `BrowserFloatingWidgetUIWindow.sendEvent` báo). Chỉ hạ alpha trên **hosting view**, không bao giờ trên
-/// `widgetContainerView` hay cửa sổ — `hitTest` của cửa sổ có guard `alpha > 0.01` trên `widgetContainerView`.
-///
-/// Chạm ở cả hai trạng thái là mở lại trình duyệt (`VisibleBrowserTabManager.reopenContainer()`).
+/// Chạm là mở lại trình duyệt (`VisibleBrowserTabManager.reopenContainer()`).
 @MainActor
 final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     let widgetContainerView = UIView()
@@ -26,7 +22,6 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private var panStartCenter: CGPoint = .zero
     private var cancellables = Set<AnyCancellable>()
     private var tabCount = 0
-    private var isTouchActive = false
 
     private var panGesture: UIPanGestureRecognizer!
     private var tapGesture: UITapGestureRecognizer!
@@ -35,16 +30,12 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private var needsPlacementResolve = true
 
     enum Layout {
-        static let size: CGFloat = VisibleBrowserReopenButton.size
-        /// Lề ngang khi nút ở dạng bung — nhỏ, vì nút vốn đã nhỏ.
-        static let horizontalMargin: CGFloat = 8
+        /// Nửa viên lúc dính mép.
+        static let size: CGSize = VisibleBrowserReopenButton.size
+        static let height: CGFloat = VisibleBrowserReopenButton.size.height
+        /// Hình tròn lúc đang kéo.
+        static let dragDiameter: CGFloat = VisibleBrowserReopenButton.dragDiameter
         static let verticalMargin: CGFloat = 12
-        /// Thả trong khoảng này tính là "dán mép" ⇒ thu gọn.
-        static let edgeSnapDistance: CGFloat = 26
-        /// Alpha của hosting view khi nghỉ / khi đang chạm-kéo.
-        static let restingContentAlpha: CGFloat = 0.7
-        static let activeContentAlpha: CGFloat = 1.0
-        static let alphaAnimationDuration: TimeInterval = 0.15
     }
 
     init(presentationReader: VisibleBrowserPresentationReader) {
@@ -71,7 +62,6 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         hosting.view.backgroundColor = .clear
         hosting.view.clipsToBounds = false
         hosting.view.layer.masksToBounds = false
-        hosting.view.alpha = Layout.restingContentAlpha
 
         addChild(hosting)
         widgetContainerView.addSubview(hosting.view)
@@ -86,8 +76,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private func makeButton() -> VisibleBrowserReopenButton {
         VisibleBrowserReopenButton(
             tabCount: tabCount,
-            mode: viewModel.mode,
-            edge: viewModel.edgeDirection,
+            edge: viewModel.isDragging ? nil : viewModel.edgeDirection,
             onActivate: { [weak self] in
                 self?.reopenBrowser()
             }
@@ -118,20 +107,8 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             }
             .store(in: &cancellables)
 
-        // Nút phải vẽ lại khi bung/thu: badge đổi giữa **số tab** và **chấm đỏ**.
-        viewModel.$mode
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.refreshContent()
-                if !self.viewModel.isDragging {
-                    self.updateLayout(animated: true)
-                }
-            }
-            .store(in: &cancellables)
-
-        // Badge đổi phía theo mép ⇒ chỉ vẽ lại khi cạnh đổi (chỉ xảy ra lúc nhả tay).
-        viewModel.$edgeDirection
+        // Mép đổi / bắt đầu – thôi kéo ⇒ nút vẽ lại hình (nửa viên đúng mép hoặc hình tròn).
+        Publishers.CombineLatest(viewModel.$edgeDirection.removeDuplicates(), viewModel.$isDragging.removeDuplicates())
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshContent()
@@ -157,34 +134,14 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         }
     }
 
-    // MARK: - Hiện lại & độ trong suốt
+    // MARK: - Hiện lại
 
-    /// Đưa widget về trạng thái xuất hiện chuẩn: nép mép, mờ 0,7. Window manager gọi mỗi lần widget hiện lại
-    /// sau khi bị ẩn — kể cả khi bị ẩn giữa lúc đang chạm (ẩn cửa sổ thì không còn sự kiện `.ended` nào về).
+    /// Đưa widget về trạng thái xuất hiện chuẩn (không kéo dở). Window manager gọi mỗi lần widget hiện lại sau khi bị
+    /// ẩn — kể cả khi bị ẩn giữa lúc đang kéo (ẩn cửa sổ thì không còn sự kiện `.ended` nào về).
     func prepareForAppearance() {
         viewModel.prepareForAppearance()
-        setTouchActive(false, animated: false)
         needsPlacementResolve = true
         updateLayout(animated: false)
-    }
-
-    /// Đậm khi đang chạm/kéo, mờ khi nghỉ. Idempotent — `sendEvent` gọi ở mọi sự kiện chạm.
-    func setTouchActive(_ active: Bool, animated: Bool = true) {
-        guard isTouchActive != active || !animated else { return }
-        isTouchActive = active
-        let targetAlpha = active ? Layout.activeContentAlpha : Layout.restingContentAlpha
-        let apply: () -> Void = { self.hostingController?.view.alpha = targetAlpha }
-        guard animated else {
-            apply()
-            return
-        }
-        UIView.animate(
-            withDuration: Layout.alphaAnimationDuration,
-            delay: 0,
-            options: [.allowUserInteraction, .beginFromCurrentState],
-            animations: apply,
-            completion: nil
-        )
     }
 
     // MARK: - Layout
@@ -193,7 +150,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private func clampedY(_ value: CGFloat, screenHeight: CGFloat) -> CGFloat {
         FloatingWidgetGeometry.clampedCenterY(
             value,
-            widgetHeight: Layout.size,
+            widgetHeight: Layout.height,
             screenHeight: screenHeight,
             topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
             bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
@@ -203,23 +160,12 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private func restingCenter(in bounds: CGRect) -> CGPoint {
         guard bounds.width > 0, bounds.height > 0 else { return .zero }
         let y = clampedY(viewModel.verticalRatio * bounds.height, screenHeight: bounds.height)
-
-        if viewModel.mode == .peeking {
-            // Tâm nằm **đúng trên mép** ⇒ một nửa nút ra ngoài, đúng dáng "cất vào mép".
-            let x = viewModel.edgeDirection == .left ? 0 : bounds.width
-            return CGPoint(x: x, y: y)
-        }
-
-        let x = FloatingWidgetGeometry.restingCenterX(
-            edge: viewModel.edgeDirection,
-            widgetWidth: Layout.size,
-            screenWidth: bounds.width,
-            horizontalMargin: Layout.horizontalMargin
-        )
+        let halfWidth = Layout.size.width / 2
+        let x = viewModel.edgeDirection == .left ? halfWidth : bounds.width - halfWidth
         return CGPoint(x: x, y: y)
     }
 
-    /// Vẽ lại vị trí theo `mode` hiện tại. `internal` để window manager gọi được.
+    /// Vẽ lại vị trí dính mép. `internal` để window manager gọi được.
     func updateLayout(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
         // Chỉ xếp lại khi đã nằm trong cửa sổ (bounds thật) và không đang kéo — thả tay tự xếp ở `handlePan`.
@@ -227,13 +173,13 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             resolvePlacement()
         }
         let targetCenter = restingCenter(in: view.bounds)
-        let targetSize = CGSize(width: Layout.size, height: Layout.size)
+        let targetSize = Layout.size
         // Báo lại khung nghỉ (xoay màn, đổi vùng an toàn) — không xếp lại; widget đang ẩn thì coordinator bỏ qua.
         FloatingWidgetLayoutCoordinator.shared.refresh(
             id: .browser,
             edge: viewModel.edgeDirection,
             centerY: targetCenter.y,
-            height: Layout.size
+            height: Layout.height
         )
 
         let applyLayout = {
@@ -266,7 +212,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         guard view.bounds.width > 0, screenHeight > 0 else { return }
 
         let range = FloatingWidgetGeometry.centerYRange(
-            widgetHeight: Layout.size,
+            widgetHeight: Layout.height,
             screenHeight: screenHeight,
             topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
             bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
@@ -276,7 +222,7 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             id: .browser,
             edge: viewModel.edgeDirection,
             proposedCenterY: proposed,
-            height: Layout.size,
+            height: Layout.height,
             minY: range.lowerBound,
             maxY: range.upperBound
         )
@@ -290,32 +236,38 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         guard let container = self.view else { return }
         switch gesture.state {
         case .began:
+            // Co thành hình tròn đặt đúng tâm icon (tâm đầu bo) ⇒ không giật dưới tay.
+            let frame = widgetContainerView.frame
+            let radius = Layout.height / 2
+            let iconX = viewModel.edgeDirection == .left ? frame.maxX - radius : frame.minX + radius
+            let start = CGPoint(x: iconX, y: frame.midY)
+            panStartCenter = start
             viewModel.handleDragStart()
-            panStartCenter = widgetContainerView.center
-            // Kéo từ trạng thái thu gọn là bung ra ngay: kéo một nửa nút đang ngậm mép là thao tác khó.
-            if viewModel.mode == .peeking {
-                viewModel.reveal()
-                updateLayout(animated: true)
-                panStartCenter = widgetContainerView.center
+            let diameter = Layout.dragDiameter
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.widgetContainerView.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+                self.widgetContainerView.center = start
+                self.hostingController?.view.frame = self.widgetContainerView.bounds
             }
         case .changed:
             let translation = gesture.translation(in: container)
-            let rawX = panStartCenter.x + translation.x
+            let half = Layout.dragDiameter / 2
+            let rawX = min(max(panStartCenter.x + translation.x, half), container.bounds.width - half)
             let rawY = panStartCenter.y + translation.y
             widgetContainerView.center = CGPoint(
                 x: rawX,
                 y: clampedY(rawY, screenHeight: container.bounds.height)
             )
-        case .ended, .cancelled:
+        case .ended, .cancelled, .failed:
+            guard viewModel.isDragging else { return }
             let bounds = container.bounds
             viewModel.handleDragEnd(
                 finalPosition: widgetContainerView.center,
-                widgetSize: Layout.size,
+                widgetHeight: Layout.height,
                 screenWidth: bounds.width,
                 screenHeight: bounds.height,
                 topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin,
-                edgeSnapDistance: Layout.edgeSnapDistance
+                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
             )
             resolvePlacement()
             updateLayout(animated: true)

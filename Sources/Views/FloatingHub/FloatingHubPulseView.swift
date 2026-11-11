@@ -2,8 +2,8 @@ import Combine
 import SwiftUI
 import UIKit
 
-/// Lớp nháy đỏ của nút hub nổi khi có tiến trình đang chạy (người dùng chốt 2026-10-22), đặt trong vòng tròn của
-/// `FloatingHubButton`, dưới icon.
+/// Lớp nháy đỏ của nút hub nổi khi có tiến trình đang chạy (người dùng chốt 2026-10-22), phủ nửa viên của
+/// `FloatingHubButton` (thay nền kính khi nháy), dưới icon.
 ///
 /// ## Một chỗ hằng số cho cả hai nút nháy
 /// Màu và nhịp nằm ở đây dưới dạng `static`; `VisibleBrowserReopenButton` (trình duyệt thu nhỏ) đọc lại đúng các
@@ -41,14 +41,18 @@ struct FloatingHubPulseView: UIViewRepresentable {
     }
 
     let isPulsing: Bool
+    /// Mép nửa viên đang dính (2026-11-11): chỉ bo hai góc phía đầu bo; `nil` (đang kéo) ⇒ bo cả bốn góc.
+    var edge: EdgeDirection?
 
     func makeUIView(context: Context) -> PulseUIView {
         let view = PulseUIView(frame: .zero)
+        view.setEdge(edge)
         view.setPulsing(isPulsing)
         return view
     }
 
     func updateUIView(_ uiView: PulseUIView, context: Context) {
+        uiView.setEdge(edge)
         uiView.setPulsing(isPulsing)
     }
 
@@ -60,6 +64,9 @@ struct FloatingHubPulseView: UIViewRepresentable {
 
         private let pulseLayer = CALayer()
         private var isPulsing = false
+        private var roundedCorners: CACornerMask = [
+            .layerMinXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMinYCorner, .layerMaxXMaxYCorner
+        ]
         private var cancellables = Set<AnyCancellable>()
 
         override init(frame: CGRect) {
@@ -92,7 +99,21 @@ struct FloatingHubPulseView: UIViewRepresentable {
             pulseLayer.frame = bounds
             // `backgroundColor` của layer tự cắt theo `cornerRadius` ⇒ không cần mask.
             pulseLayer.cornerRadius = min(bounds.width, bounds.height) / 2
+            pulseLayer.maskedCorners = roundedCorners
             CATransaction.commit()
+        }
+
+        /// Nửa viên dính mép phải ⇒ bo hai góc trái (cạnh phẳng áp mép không bo); mép trái ⇒ ngược lại.
+        func setEdge(_ edge: EdgeDirection?) {
+            let corners: CACornerMask
+            switch edge {
+            case .right: corners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+            case .left: corners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+            case nil: corners = [.layerMinXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+            }
+            guard corners != roundedCorners else { return }
+            roundedCorners = corners
+            setNeedsLayout()
         }
 
         /// Rời cửa sổ ⇒ gỡ để render server không vẽ vô ích; quay lại mà vẫn nháy ⇒ gắn lại.

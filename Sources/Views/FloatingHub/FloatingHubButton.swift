@@ -1,68 +1,69 @@
 import SwiftUI
 
-/// Nút tròn 36px của hub nổi (1.3.524) — cùng khuôn nút trình duyệt thu nhỏ: nền `.ultraThinMaterial`,
-/// viền trắng 20 %, bóng đen 24 %.
+/// Nút hub nổi — **nửa viên thuốc nhỏ 38 × 36 dính mép** (anh Bửu duyệt mockup 2026-11-11, thay nút tròn 36px nép
+/// mép của 1.3.524): cùng khuôn `EdgePillShape` với đĩa nghe và nút trình duyệt thu nhỏ. Nền kính
+/// `FloatingGlassBackground` theo **Độ trong suốt** + **Độ đục** của nút nổi; icon 17 pt trắng đồng tâm đầu bo, **mờ đúng
+/// số** theo Độ trong suốt (`1 − độ trong suốt`, không sàn — như bìa đĩa nghe). Đang kéo (`edge == nil`) ⇒ hình tròn.
 ///
 /// Từ 1.3.533 hub **luôn hiện** (trừ lúc cổng từ điển chưa mở, sheet của hub đang mở, hoặc trình phát video
 /// đang toàn màn), kể cả khi không có tiến trình nào.
 ///
 /// ## Icon và nháy theo số tiến trình (người dùng chốt 2026-10-22)
-/// "Tiến trình" = AI đang chạy, video thu nhỏ, album đang mở ở trình nghe, tác vụ nền (tải/xuất/nhập truyện, sao lưu,
-/// tải model) — xem `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
-/// - 0 tiến trình: `bell` (viền), màu chữ hệ thống, không nháy.
-/// - Chỉ còn kết quả AI chưa xem (1.3.630): tính là một mục `.ai` (`sparkles`, chạm mở trang "Tác vụ AI") nhưng nằm
-///   trong `quietKinds` nên **không** nháy, icon màu chữ hệ thống.
-/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle` / `music.note` / `checkmark.seal`; tác vụ nền ⇒
-///   `bell`), nháy.
-///   Lượt kiểm tra nguồn thu nhỏ đã xong, chưa xem (1.3.697) không nháy, như kết quả AI chưa xem.
+/// "Tiến trình" = AI đang chạy, video thu nhỏ, tác vụ nền (tải/xuất/nhập truyện, sao lưu, tải model), lượt kiểm tra nguồn
+/// thu nhỏ — xem `FloatingHubPresentationReader.ButtonState.runningKinds`. Tin chưa đọc **không** tính.
+/// - 0 tiến trình: `bell` (viền), không nháy.
+/// - Chỉ còn kết quả AI / kiểm tra nguồn chưa xem: tính là tiến trình nhưng nằm trong `quietKinds` nên **không** nháy.
+/// - 1 tiến trình: icon của chính mục đó (`sparkles` / `play.rectangle` / `checkmark.seal`; tác vụ nền ⇒ `bell`), nháy.
 /// - Từ 2 tiến trình: `square.stack.3d.up`, nháy.
 ///
 /// Bảng icon trên chỉ áp cho lựa chọn **Mở thẳng khi chỉ có 1 tác vụ** của cài đặt "Khi chạm hub"
 /// (`FloatingHubTapBehavior`). Lựa chọn **Luôn hiện tất cả mục** (mặc định; người dùng chốt 2026-11-06): icon **luôn**
-/// là `square.stack.3d.up`, kể cả lúc 0 tiến trình — chạm luôn mở menu nên icon không báo mục nào. Nháy như nhau ở cả
-/// hai lựa chọn. Cài đặt đọc bằng `@AppStorage` ngay trong view ⇒ đổi là icon đổi ngay; nút chỉ vẽ lại thêm khi đổi
-/// cài đặt (hiếm), `ButtonState` không mang cài đặt này.
-///
-/// Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu chưa đọc nào lên hình: không badge số, không chấm
-/// đỏ, không viền tím. Số chưa đọc chỉ còn ở badge của dòng Thông báo trong menu và ở nhãn VoiceOver.
+/// là `square.stack.3d.up`. Nháy như nhau ở cả hai lựa chọn. Nút **không bao giờ** dùng `bell.fill` và không đưa tín hiệu
+/// chưa đọc nào lên hình (không badge số, không chấm đỏ); số chưa đọc chỉ ở dòng Thông báo và nhãn VoiceOver.
 ///
 /// ## Nháy
-/// `FloatingHubPulseView` đổi **màu** nền tròn đỏ sẫm ↔ đỏ tươi bằng Core Animation (cùng hằng màu/nhịp với nút
-/// trình duyệt thu nhỏ); icon trắng khi đang nháy. Lớp nháy luôn nằm trong cây view (không bọc `if`) để vẽ lại
-/// nút không huỷ/tạo lại animation. Không dùng `repeatForever` của SwiftUI: chạy theo từng frame, tốn năng lượng.
+/// `FloatingHubPulseView` đổi **màu** nền đỏ sẫm ↔ đỏ tươi bằng Core Animation, phủ nửa viên (bo đúng hai góc phía đầu bo).
+/// Nền nháy giữ rõ, không mờ theo Độ trong suốt — nó là thứ báo có việc đang chạy. Lớp nháy luôn nằm trong cây view.
 ///
 /// View này **chỉ vẽ**: vị trí, kéo/thả và chạm do `FloatingHubContainerViewController` (UIKit) xử lý, nhờ vậy
 /// ngón tay không trễ theo vòng cập nhật state của SwiftUI. `onActivate` chỉ dùng cho VoiceOver.
 struct FloatingHubButton: View {
-    /// Cỡ nút, dùng chung cho cả hai trạng thái.
-    static let size: CGFloat = 36
+    /// Cỡ nửa viên lúc dính mép.
+    static let size = EdgePillShape.smallSize
+    /// Đường kính lúc đang kéo.
+    static let dragDiameter: CGFloat = EdgePillShape.smallSize.height
+    private static let iconBox: CGFloat = 24
 
     let state: FloatingHubPresentationReader.ButtonState
+    /// Mép đang dính; `nil` ⇒ đang kéo (hình tròn).
+    let edge: EdgeDirection?
     /// Hành động chính (cùng đường với chạm) — rẽ theo số tiến trình, hoặc đóng menu.
     let onActivate: () -> Void
 
     @AppStorage(FloatingHubTapBehavior.storageKey)
     private var tapBehavior: FloatingHubTapBehavior = FloatingHubTapBehavior.defaultValue
+    @AppStorage(GlassChromeSettings.floatingTransparencyKey)
+    private var transparency = GlassChromeSettings.defaultFloatingTransparency
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .frame(width: Self.size, height: Self.size)
-                .overlay {
-                    FloatingHubPulseView(isPulsing: state.isPulsing)
-                        .allowsHitTesting(false)
-                }
-                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 3)
-
+        let shape = EdgePillShape(edge: edge)
+        let inset = EdgePillShape.contentInset(
+            for: CGSize(width: Self.dragDiameter, height: Self.dragDiameter),
+            content: Self.iconBox
+        )
+        return ZStack(alignment: EdgePillShape.contentAlignment(for: edge)) {
+            FloatingGlassBackground(shape: AnyShape(shape))
+            FloatingHubPulseView(isPulsing: state.isPulsing, edge: edge)
+                .allowsHitTesting(false)
             Image(systemName: glyphName)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(state.isPulsing ? Color.white : Color.primary)
-                .frame(width: Self.size, height: Self.size)
+                .foregroundStyle(Color.white)
+                .opacity(iconOpacity)
+                .frame(width: Self.iconBox, height: Self.iconBox)
+                .padding(edge == .right ? Edge.Set.leading : Edge.Set.trailing, edge == nil ? 0 : inset)
         }
-        .frame(width: Self.size, height: Self.size)
-        .contentShape(Circle())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(shape)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
@@ -70,6 +71,11 @@ struct FloatingHubButton: View {
         .accessibilityAction {
             onActivate()
         }
+    }
+
+    /// Icon theo đúng lớp màu của nút nổi: trong suốt 0% ⇒ rõ hẳn, 100% ⇒ trong hẳn (không sàn).
+    private var iconOpacity: Double {
+        1 - min(1, max(0, transparency))
     }
 
     // MARK: - Glyph

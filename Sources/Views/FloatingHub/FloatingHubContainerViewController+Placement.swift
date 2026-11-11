@@ -3,7 +3,7 @@ import UIKit
 /// Giữ chỗ của nút hub với các widget nổi khác (`FloatingWidgetLayoutCoordinator`) để chúng không đè lên nhau.
 ///
 /// Hub chỉ **nhường** ở hai lúc: vừa thả tay sau khi kéo (`handlePan`) và vừa hiện ra (`needsPlacementResolve`,
-/// tiêu thụ ở `updateLayout`). Giữ chỗ đúng cỡ nút 36pt; menu bung **chưa** được tính.
+/// tiêu thụ ở `updateLayout`). Giữ chỗ đúng chiều cao nửa viên 36 pt; menu bung **chưa** được tính.
 extension FloatingHubContainerViewController {
     /// Né widget nổi khác cùng mép. Dời thì lưu như khi kéo tay; khung mới do lượt `updateLayout` kế tiếp đặt (có
     /// hiệu ứng khi vừa thả tay). Lề trên/dưới phải trùng `clampedY`.
@@ -13,17 +13,17 @@ extension FloatingHubContainerViewController {
         guard view.bounds.width > 0, screenHeight > 0 else { return }
 
         let range = FloatingWidgetGeometry.centerYRange(
-            widgetHeight: Layout.size,
+            widgetHeight: Layout.height,
             screenHeight: screenHeight,
             topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
             bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
         )
-        let proposed = clampedY(viewModel.verticalRatio * screenHeight, height: Layout.size, screenHeight: screenHeight)
+        let proposed = clampedY(viewModel.verticalRatio * screenHeight, height: Layout.height, screenHeight: screenHeight)
         let placement = FloatingWidgetLayoutCoordinator.shared.resolve(
             id: .hub,
             edge: viewModel.edgeDirection,
             proposedCenterY: proposed,
-            height: Layout.size,
+            height: Layout.height,
             minY: range.lowerBound,
             maxY: range.upperBound
         )
@@ -37,7 +37,7 @@ extension FloatingHubContainerViewController {
             id: .hub,
             edge: viewModel.edgeDirection,
             centerY: centerY,
-            height: Layout.size
+            height: Layout.height
         )
     }
 }

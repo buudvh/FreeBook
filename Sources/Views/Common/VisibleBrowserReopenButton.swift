@@ -1,62 +1,67 @@
 import SwiftUI
 
-/// Nút nổi của widget trình duyệt thu nhỏ: **nút tròn 36px**, cùng khuôn nút hub (dựng lại ở 1.3.533).
+/// Nút nổi của widget trình duyệt thu nhỏ — **nửa viên thuốc nhỏ 38 × 36 dính mép** (anh Bửu duyệt mockup 2026-11-11,
+/// thay nút tròn 36px nép mép của 1.3.533): cùng khuôn `EdgePillShape` với đĩa nghe và nút hub. Nền kính
+/// `FloatingGlassBackground` theo **Độ trong suốt** + **Độ đục** của nút nổi; icon `safari` 17 pt trắng đồng tâm đầu bo,
+/// **mờ đúng số** theo Độ trong suốt (không sàn). Đang kéo (`edge == nil`) ⇒ hình tròn.
 ///
-/// - Bung (`.revealed`): icon `safari` 17pt + badge **số tab** (`> 99` ⇒ `99+`).
-/// - Dán mép (`.peeking`): badge thu thành **chấm đỏ 9px**, và badge **lật phía** theo mép — ở trạng thái
-///   thu gọn tâm nút nằm đúng trên mép nên badge đặt cố định sẽ ra ngoài màn.
+/// - Badge **số tab** (`> 99` ⇒ `99+`) đỏ ở góc trên của icon — luôn rõ, không mờ theo Độ trong suốt; không lật phía
+///   (nằm trong nửa viên nên mép nào cũng thấy).
 ///
 /// ## Nhịp nháy
-/// `VisibleBrowserPulseMonitor` báo tab đã thu nhỏ quá 10 giây ⇒ nút nháy đỏ. Nhịp nháy đổi bằng **màu**
-/// (nội suy đỏ sẫm ↔ đỏ tươi, alpha luôn 1), **không** bằng opacity của view này.
+/// `VisibleBrowserPulseMonitor` báo tab đã thu nhỏ quá 10 giây ⇒ nền nửa viên nháy đỏ (thay kính, giữ rõ). Nhịp nháy đổi
+/// bằng **màu** (nội suy đỏ sẫm ↔ đỏ tươi, alpha luôn 1), **không** bằng opacity của view này.
 ///
-/// ## Độ trong suốt
-/// Độ mờ khi nghỉ (0,7) do container đặt trên **hosting view** của nút, không nằm ở đây và không đặt trên
-/// `widgetContainerView` hay cửa sổ: `BrowserFloatingWidgetUIWindow.hitTest` có guard `alpha > 0.01` trên
-/// `widgetContainerView`.
-///
-/// View này **chỉ vẽ**: vị trí, kéo/thả, snap cạnh và chạm-để-mở do
-/// `BrowserFloatingWidgetContainerViewController` (UIKit) xử lý. `onActivate` chỉ dùng cho VoiceOver.
+/// View này **chỉ vẽ**: vị trí, kéo/thả, bám mép và chạm-để-mở do `BrowserFloatingWidgetContainerViewController` (UIKit)
+/// xử lý. `onActivate` chỉ dùng cho VoiceOver.
 struct VisibleBrowserReopenButton: View {
-    /// Cỡ nút, dùng chung cho cả hai trạng thái.
-    static let size: CGFloat = 36
+    /// Cỡ nửa viên lúc dính mép.
+    static let size = EdgePillShape.smallSize
+    /// Đường kính lúc đang kéo.
+    static let dragDiameter: CGFloat = EdgePillShape.smallSize.height
+    private static let iconBox: CGFloat = 24
 
     let tabCount: Int
-    let mode: WidgetMode
-    /// Mép nút đang dán — quyết định phía đặt badge.
-    let edge: EdgeDirection
+    /// Mép đang dính; `nil` ⇒ đang kéo (hình tròn).
+    let edge: EdgeDirection?
     /// Mở lại trình duyệt — cùng đường với chạm.
     let onActivate: () -> Void
 
     @ObservedObject private var pulseMonitor = VisibleBrowserPulseMonitor.shared
+    @AppStorage(GlassChromeSettings.floatingTransparencyKey)
+    private var transparency = GlassChromeSettings.defaultFloatingTransparency
 
     /// Pha của nhịp nháy: `true` = đỏ tươi, `false` = đỏ sẫm. Chỉ có nghĩa khi `pulseMonitor.isPulsing == true`.
     @State private var isPulseBright = false
 
     var body: some View {
-        ZStack(alignment: badgeAlignment) {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .frame(width: Self.size, height: Self.size)
+        let shape = EdgePillShape(edge: edge)
+        let inset = EdgePillShape.contentInset(
+            for: CGSize(width: Self.dragDiameter, height: Self.dragDiameter),
+            content: Self.iconBox
+        )
+        return ZStack(alignment: EdgePillShape.contentAlignment(for: edge)) {
+            FloatingGlassBackground(shape: AnyShape(shape))
                 .overlay {
                     if pulseMonitor.isPulsing {
-                        Circle().fill(pulseColor)
+                        shape.fill(pulseColor)
                     }
                 }
-                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 3)
 
             // Icon Safari thay cho `globe`: nó là thứ người dùng nhận ra ngay là "trình duyệt".
             Image(systemName: "safari")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(pulseMonitor.isPulsing ? Color.white : Color.primary)
-                .frame(width: Self.size, height: Self.size)
-
-            if tabCount > 0 {
-                badge
-            }
+                .foregroundStyle(Color.white)
+                .opacity(iconOpacity)
+                .frame(width: Self.iconBox, height: Self.iconBox)
+                .overlay(alignment: .topTrailing) {
+                    if tabCount > 0 {
+                        badge
+                    }
+                }
+                .padding(edge == .right ? Edge.Set.leading : Edge.Set.trailing, edge == nil ? 0 : inset)
         }
-        .frame(width: Self.size, height: Self.size)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(
             pulseMonitor.isPulsing
                 ? .easeInOut(duration: FloatingHubPulseView.pulseHalfPeriod).repeatForever(autoreverses: true)
@@ -67,7 +72,7 @@ struct VisibleBrowserReopenButton: View {
         .onChange(of: pulseMonitor.isPulsing) { _, newValue in
             isPulseBright = newValue
         }
-        .contentShape(Circle())
+        .contentShape(shape)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mở lại trình duyệt (\(tabCount) tab)")
         .accessibilityAddTraits(.isButton)
@@ -77,37 +82,22 @@ struct VisibleBrowserReopenButton: View {
         }
     }
 
-    /// Bung: badge **số tab** ở góc trên-phải. Thu gọn: **chấm đỏ**, lật về phía còn nhìn thấy.
-    @ViewBuilder
+    /// Số tab, đỏ, ở góc trên-phải của icon (đẩy ra ngoài một chút để không che icon).
     private var badge: some View {
-        if mode == .revealed {
-            Text(tabCount > 99 ? "99+" : "\(tabCount)")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(Color.red, in: Capsule())
-                .offset(badgeOffset)
-        } else {
-            Circle()
-                .fill(Color.red)
-                .frame(width: 9, height: 9)
-                .offset(badgeOffset)
-        }
+        Text(tabCount > 99 ? "99+" : "\(tabCount)")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.white)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(Color.red, in: Capsule())
+            .offset(x: 7, y: -5)
     }
 
-    private var badgeAlignment: Alignment {
-        guard mode == .peeking, edge == .right else { return .topTrailing }
-        return .topLeading
-    }
-
-    private var badgeOffset: CGSize {
-        let out: CGFloat = mode == .peeking ? 3 : 6
-        // `.topLeading` + offset âm = đẩy ra ngoài về bên trái (phía còn thấy khi dán mép phải).
-        let horizontal = (mode == .peeking && edge == .right) ? -out : out
-        return CGSize(width: horizontal, height: -out)
+    /// Icon theo đúng lớp màu của nút nổi: trong suốt 0% ⇒ rõ hẳn, 100% ⇒ trong hẳn (không sàn).
+    private var iconOpacity: Double {
+        1 - min(1, max(0, transparency))
     }
 
     /// 0 = đỏ sẫm nhất, 1 = đỏ tươi nhất. Dùng làm giá trị cho `animation(value:)` và để nội suy màu —

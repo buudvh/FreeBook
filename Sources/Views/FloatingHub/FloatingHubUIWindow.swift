@@ -7,7 +7,7 @@ import UIKit
 /// 2. Menu đang mở và nút đang hiện ⇒ touch đi đủ đường: lớp nền trong suốt toàn màn nhận chạm ngoài thẻ để
 ///    đóng menu. Đây là lúc duy nhất cửa sổ nuốt chạm của app, nên cờ menu phải được hạ ở mọi đường (xem
 ///    `FloatingHubViewModel.isMenuOpen`).
-/// 3. Còn lại: chỉ nhận chạm trong vòng tròn của nút; ngoài đó trả `nil` để rơi xuống cửa sổ bên dưới.
+/// 3. Còn lại: chỉ nhận chạm trong khung nửa viên của nút; ngoài đó trả `nil` để rơi xuống cửa sổ bên dưới.
 ///
 /// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính.
 @MainActor
@@ -31,7 +31,7 @@ final class FloatingHubUIWindow: UIWindow, AppOverlayWindow {
             return super.hitTest(point, with: event)
         }
 
-        // (3) Chỉ vòng tròn của nút.
+        // (3) Chỉ khung nửa viên của nút.
         guard !widgetView.isHidden,
               widgetView.alpha > 0.01,
               widgetView.isUserInteractionEnabled else {

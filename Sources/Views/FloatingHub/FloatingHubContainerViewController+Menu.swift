@@ -141,7 +141,7 @@ extension FloatingHubContainerViewController {
         )
         let size = CGSize(width: FloatingHubMenuView.width, height: ceil(fitting.height))
         let hubCenter = widgetContainerView.center
-        let halfHub = Layout.size / 2
+        let halfHub = widgetContainerView.bounds.width / 2
 
         var x = viewModel.edgeDirection == .right
             ? hubCenter.x - halfHub - Layout.menuSpacing - size.width / 2

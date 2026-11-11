@@ -10,7 +10,7 @@ import UIKit
 /// + `presentationControllerDidDismiss` (luật 26), `.modelContainer` (thiếu là crash), gán delegate trong
 /// completion, và cửa sổ sống suốt lúc sheet mở (`FloatingHubWindowManager.setSheetPresented`).
 extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDelegate {
-    /// Mở một mục: menu đóng, hub thu về nép mép ngay (việc đã xong), rồi giao cho chủ của mục đó. Riêng AI
+    /// Mở một mục: menu đóng rồi giao cho chủ của mục đó. Riêng AI
     /// (1.3.558): menu **giữ mở** và chuyển sang trang "Tác vụ AI" để chọn truyện (`openAITask`).
     ///
     /// Dòng xám đã `disabled` trong menu; guard ở đây chặn thêm đường VoiceOver và lượt chạm lọt vào đúng lúc
@@ -36,8 +36,6 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
             return
         }
         closeMenu(animated: false)
-        viewModel.hide()
-        updateLayout(animated: true)
 
         switch kind {
         case .ai, .sourceCheck:
@@ -53,24 +51,20 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         }
     }
 
-    /// Chạm một truyện ở trang "Tác vụ AI": đóng menu, hub nép mép, mở màn AI của **đúng** truyện đó.
+    /// Chạm một truyện ở trang "Tác vụ AI": đóng menu, mở màn AI của **đúng** truyện đó.
     func openAITask(bookId: String) {
         guard isItemEnabled(.ai),
               presentationReader.snapshot.aiTasks.contains(where: { $0.bookId == bookId }) else { return }
         closeMenu(animated: false)
-        viewModel.hide()
-        updateLayout(animated: true)
         AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
     }
 
-    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng menu, hub nép mép, `MinimizedSourceCheckCoordinator` trình bày
+    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng menu, `MinimizedSourceCheckCoordinator` trình bày
     /// màn từ cửa sổ mức thường (không phụ thuộc cửa sổ của hub).
     func openSourceCheck(_ kind: MinimizedSourceCheck.Kind) {
         guard isItemEnabled(.sourceCheck),
               presentationReader.snapshot.sourceChecks.contains(where: { $0.kind == kind }) else { return }
         closeMenu(animated: false)
-        viewModel.hide()
-        updateLayout(animated: true)
         MinimizedSourceCheckCoordinator.shared.reopen(kind)
     }
 
@@ -78,17 +72,16 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
 
     /// Chạm nút hub khi menu **đang đóng**, theo cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`, đọc lúc chạm):
     ///
-    /// **Luôn hiện tất cả mục** (mặc định, người dùng chốt 2026-11-06): bung (nếu đang nép) và mở menu ở trang chính,
+    /// **Luôn hiện tất cả mục** (mặc định, người dùng chốt 2026-11-06): mở menu ở trang chính,
     /// dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang
     /// "Tác vụ AI").
     ///
     /// **Mở thẳng khi chỉ có 1 tác vụ** (bảng chạm chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
-    /// chạm**, kể cả khi hub đang nép:
+    /// chạm**:
     /// - 0 ⇒ màn Thông báo.
     /// - 1 ⇒ mở thẳng mục đó, đúng như chạm dòng của nó trong menu. Thông báo/Video đi thẳng `open(_:)` (tự đóng
-    ///   menu, thu hub về mép rồi mới trình bày). AI phải bung + mở menu trước vì `open(.ai)` chỉ chuyển thẻ menu
-    ///   đang mở sang trang "Tác vụ AI".
-    /// - Từ 2 ⇒ bung (nếu đang nép) và mở menu.
+    ///   menu rồi mới trình bày). AI phải mở menu trước vì `open(.ai)` chỉ chuyển thẻ menu đang mở sang trang "Tác vụ AI".
+    /// - Từ 2 ⇒ mở menu.
     ///
     /// Tập tiến trình đổi đúng lúc chạm (AI vừa xong) thì `open(_:)` đã guard `isItemEnabled`.
     func activateByRunningTasks() {
@@ -113,13 +106,6 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     }
 
     private func revealAndOpenMenu() {
-        if viewModel.mode == .peeking {
-            viewModel.reveal()
-            // `updateLayout` gán ngay vị trí đích cho `widgetContainerView` (animation chỉ chạy ở lớp hiển thị) ⇒
-            // `layoutMenu` đặt thẻ đúng cạnh nút đã bung.
-            updateLayout(animated: true)
-        }
-        // Mở menu bật `isMenuOpen` ⇒ huỷ hẹn giờ tự thu.
         openMenu()
     }
 
@@ -167,7 +153,6 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
 
     private func presentInbox() {
         guard presentedViewController == nil else { return }
-        viewModel.cancelTasks()
 
         let inbox = NotificationInboxView(onOpenBook: { [weak self] book in
             guard let self else { return }

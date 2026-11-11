@@ -6,12 +6,12 @@ import UIKit
 /// `UIView`. Menu nằm ở `+Menu.swift`; hành động mở mục, nút của dòng Video và sheet Thông báo ở
 /// `+Actions.swift`; giữ chỗ với widget nổi khác ở `+Placement.swift`.
 ///
-/// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI) đúng như widget TTS: ngón tay không bị trễ theo vòng cập
-/// nhật state.
+/// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI): ngón tay không bị trễ theo vòng cập nhật state.
 ///
-/// ## Một cỡ, hai vị trí
-/// Nút 36px ở cả hai trạng thái: `.peeking` là nút **ngậm vào mép** (tâm nằm đúng trên mép nên một nửa ra
-/// ngoài), `.revealed` là nút nằm trong màn với lề ngang 8pt. Animation thu/bung chỉ là dịch chuyển.
+/// ## Nửa viên thuốc dính mép (anh Bửu duyệt mockup 2026-11-11)
+/// Nút là nửa viên 38 × 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu.
+/// Bắt đầu kéo ⇒ co thành hình tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, né widget nổi khác
+/// (`+Placement.swift`), lưu chỗ.
 ///
 /// ## Cây view (từ dưới lên)
 /// 1. `menuBackdropView` — phủ toàn màn, trong suốt, chỉ hiện khi menu mở; chạm vào là đóng menu.
@@ -19,10 +19,10 @@ import UIKit
 /// 3. `menuContainerView` — thẻ menu, cạnh nút về phía xa mép.
 ///
 /// ## Bảng chạm (cài đặt "Khi chạm hub", `FloatingHubTapBehavior`)
-/// Menu đang mở ⇒ đóng. Còn lại do `activateByRunningTasks` (`+Actions.swift`) quyết, áp như nhau cho `.peeking` và
-/// `.revealed`. **Luôn hiện tất cả mục** (mặc định, 2026-11-06): bung (nếu đang nép) và mở menu ở trang chính.
+/// Menu đang mở ⇒ đóng. Còn lại do `activateByRunningTasks` (`+Actions.swift`) quyết. **Luôn hiện tất cả mục** (mặc
+/// định, 2026-11-06): mở menu ở trang chính.
 /// **Mở thẳng khi chỉ có 1 tác vụ** (bảng chốt 2026-10-22) rẽ theo **số tiến trình** của snapshot lúc chạm: 0 ⇒ mở
-/// màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒ bung + menu ở trang "Tác vụ AI"); từ 2 ⇒ bung **và** mở menu.
+/// màn Thông báo; 1 ⇒ mở thẳng mục đó (AI ⇒ menu ở trang "Tác vụ AI"); từ 2 ⇒ mở menu.
 @MainActor
 final class FloatingHubContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     /// `internal` (không `private`): file `+Actions`/`+Menu` cần dùng, mà `private` của Swift chỉ có hiệu lực
@@ -49,17 +49,17 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     var needsPlacementResolve = true
 
     enum Layout {
-        static let size: CGFloat = FloatingHubButton.size
-        /// Lề ngang khi nút ở dạng bung — nhỏ, vì nút vốn đã nhỏ.
+        /// Nửa viên lúc dính mép.
+        static let size: CGSize = FloatingHubButton.size
+        static let height: CGFloat = FloatingHubButton.size.height
+        /// Hình tròn lúc đang kéo.
+        static let dragDiameter: CGFloat = FloatingHubButton.dragDiameter
+        /// Lề ngang của thẻ menu với mép màn.
         static let horizontalMargin: CGFloat = 8
         static let verticalMargin: CGFloat = 12
-        /// Thả trong khoảng này tính là "dán mép" ⇒ thu gọn.
-        static let edgeSnapDistance: CGFloat = 26
         /// Khoảng cách giữa nút và thẻ menu.
         static let menuSpacing: CGFloat = 8
         static let menuAnimationDuration: TimeInterval = 0.18
-        /// Độ đậm của nút khi đang nép mép (người dùng chốt 2026-10-17: nép thì trong suốt).
-        static let peekingContentAlpha: CGFloat = 0.5
     }
 
     /// Cửa sổ đọc cờ này trong `hitTest`.
@@ -111,12 +111,12 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         setupGestures()
         bindState()
         updateLayout(animated: false)
-        applyEdgeTransparency(animated: false)
     }
 
     private func makeButton() -> FloatingHubButton {
         FloatingHubButton(
             state: presentationReader.snapshot.button,
+            edge: viewModel.isDragging ? nil : viewModel.edgeDirection,
             onActivate: { [weak self] in
                 self?.handlePrimaryAction()
             }
@@ -137,7 +137,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
 
     private func bindState() {
         // Nút chỉ vẽ lại khi tập tiến trình hoặc số chưa đọc đổi — tiêu đề AI đổi theo batch không chạm tới đây.
-        // Nút không còn phụ thuộc `mode`/`edgeDirection` (hết badge lật phía) nên hai sink đó không vẽ lại nút.
+        // Hình nút (nửa viên theo mép / tròn lúc kéo) vẽ lại ở sink `edgeDirection` + `isDragging` bên dưới.
         presentationReader.$snapshot
             .map(\.button)
             .removeDuplicates()
@@ -160,31 +160,17 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             }
             .store(in: &cancellables)
 
-        viewModel.$mode
+        // Mép đổi / bắt đầu – thôi kéo ⇒ nút vẽ lại hình (nửa viên đúng mép hoặc hình tròn).
+        Publishers.CombineLatest(viewModel.$edgeDirection.removeDuplicates(), viewModel.$isDragging.removeDuplicates())
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                guard let self else { return }
-                self.applyEdgeTransparency(animated: true)
-                if !self.viewModel.isDragging {
-                    self.updateLayout(animated: true)
-                }
+                self?.refreshButton()
             }
             .store(in: &cancellables)
     }
 
     private func refreshButton() {
         buttonHostingController?.rootView = makeButton()
-    }
-
-    /// Nép vào mép ⇒ nút mờ (`peekingContentAlpha`); bung ra/kéo (kéo từ mép là bung ngay) ⇒ đậm lại. Chỉ hạ alpha
-    /// trên hosting view — `hitTest` của cửa sổ có guard `alpha > 0.01` trên `widgetContainerView`.
-    private func applyEdgeTransparency(animated: Bool) {
-        let target: CGFloat = viewModel.mode == .peeking ? Layout.peekingContentAlpha : 1
-        guard let hostingView = buttonHostingController?.view, hostingView.alpha != target else { return }
-        guard animated else { hostingView.alpha = target; return }
-        UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-            hostingView.alpha = target
-        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -218,26 +204,16 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         )
     }
 
+    /// Tâm nửa viên dính mép đã nhớ (cạnh phẳng áp sát mép màn).
     private func restingCenter(in bounds: CGRect) -> CGPoint {
         guard bounds.width > 0, bounds.height > 0 else { return .zero }
-        let y = clampedY(viewModel.verticalRatio * bounds.height, height: Layout.size, screenHeight: bounds.height)
-
-        if viewModel.mode == .peeking {
-            // Tâm nằm **đúng trên mép** ⇒ một nửa nút ra ngoài, đúng dáng "cất vào mép" của widget TTS.
-            let x = viewModel.edgeDirection == .left ? 0 : bounds.width
-            return CGPoint(x: x, y: y)
-        }
-
-        let x = FloatingWidgetGeometry.restingCenterX(
-            edge: viewModel.edgeDirection,
-            widgetWidth: Layout.size,
-            screenWidth: bounds.width,
-            horizontalMargin: Layout.horizontalMargin
-        )
+        let y = clampedY(viewModel.verticalRatio * bounds.height, height: Layout.height, screenHeight: bounds.height)
+        let halfWidth = Layout.size.width / 2
+        let x = viewModel.edgeDirection == .left ? halfWidth : bounds.width - halfWidth
         return CGPoint(x: x, y: y)
     }
 
-    /// Vẽ lại vị trí theo `mode` hiện tại. `internal` để window manager và file `+Actions` gọi được.
+    /// Vẽ lại vị trí dính mép. `internal` để window manager và file `+Actions` gọi được.
     func updateLayout(animated: Bool) {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
         // Chỉ xếp lại khi đã nằm trong cửa sổ (bounds thật) và không đang kéo — thả tay tự xếp ở `handlePan`.
@@ -245,7 +221,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             resolvePlacement()
         }
         let targetCenter = restingCenter(in: view.bounds)
-        let targetSize = CGSize(width: Layout.size, height: Layout.size)
+        let targetSize = Layout.size
         refreshPlacementSlot(centerY: targetCenter.y)
 
         let applyLayout = {
@@ -270,8 +246,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         }
     }
 
-    /// Đưa hub về trạng thái xuất hiện chuẩn — menu đóng, dạng nép mép. Window manager gọi mỗi lần hub hiện
-    /// lại sau khi bị ẩn (cả cửa sổ hoặc chỉ nút).
+    /// Đưa hub về trạng thái xuất hiện chuẩn — menu đóng. Window manager gọi mỗi lần hub hiện lại sau khi bị ẩn (cả
+    /// cửa sổ hoặc chỉ nút).
     func prepareForAppearance() {
         closeMenu(animated: false)
         viewModel.prepareForAppearance()
@@ -297,7 +273,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     }
 
     @objc private func handleBackdropTap(_ gesture: UITapGestureRecognizer) {
-        // Chạm ngoài thẻ chỉ đóng menu (chạm bị nuốt, kiểu popover); hub vẫn bung và tự thu sau 3 s.
+        // Chạm ngoài thẻ chỉ đóng menu (chạm bị nuốt, kiểu popover).
         closeMenu(animated: true)
     }
 
@@ -307,32 +283,38 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         case .began:
             // Hạ cờ menu trước tiên: đang kéo mà lớp nền còn sống là nuốt chạm của cả app.
             closeMenu(animated: false)
+            // Co thành hình tròn đặt đúng tâm icon (tâm đầu bo) ⇒ không giật dưới tay.
+            let frame = widgetContainerView.frame
+            let radius = Layout.height / 2
+            let iconX = viewModel.edgeDirection == .left ? frame.maxX - radius : frame.minX + radius
+            let start = CGPoint(x: iconX, y: frame.midY)
+            panStartCenter = start
             viewModel.handleDragStart()
-            panStartCenter = widgetContainerView.center
-            // Kéo từ trạng thái thu gọn là bung ra ngay: kéo một nửa nút đang ngậm mép là thao tác khó.
-            if viewModel.mode == .peeking {
-                viewModel.reveal()
-                updateLayout(animated: true)
-                panStartCenter = widgetContainerView.center
+            let diameter = Layout.dragDiameter
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.widgetContainerView.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+                self.widgetContainerView.center = start
+                self.buttonHostingController?.view.frame = self.widgetContainerView.bounds
             }
         case .changed:
             let translation = gesture.translation(in: container)
-            let rawX = panStartCenter.x + translation.x
+            let half = Layout.dragDiameter / 2
+            let rawX = min(max(panStartCenter.x + translation.x, half), container.bounds.width - half)
             let rawY = panStartCenter.y + translation.y
             widgetContainerView.center = CGPoint(
                 x: rawX,
-                y: clampedY(rawY, height: Layout.size, screenHeight: container.bounds.height)
+                y: clampedY(rawY, height: Layout.dragDiameter, screenHeight: container.bounds.height)
             )
-        case .ended, .cancelled:
+        case .ended, .cancelled, .failed:
+            guard viewModel.isDragging else { return }
             let bounds = container.bounds
             viewModel.handleDragEnd(
                 finalPosition: widgetContainerView.center,
-                widgetSize: Layout.size,
+                widgetHeight: Layout.height,
                 screenWidth: bounds.width,
                 screenHeight: bounds.height,
                 topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin,
-                edgeSnapDistance: Layout.edgeSnapDistance
+                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
             )
             resolvePlacement()
             updateLayout(animated: true)

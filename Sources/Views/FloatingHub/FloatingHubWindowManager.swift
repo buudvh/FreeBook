@@ -21,9 +21,9 @@ import UIKit
 /// Màn Thông báo được trình bày **từ chính cửa sổ này**, nên khi sheet mở mà ta ẩn cửa sổ thì sheet biến
 /// mất theo. Vì vậy `setSheetPresented(true)` chỉ **giấu nút**, không hạ cửa sổ.
 ///
-/// ## Luôn xuất hiện ở dạng nép mép
+/// ## Mỗi lần hiện lại
 /// Mỗi lần hub hiện lại sau khi bị ẩn (cả cửa sổ hoặc chỉ nút), container được `prepareForAppearance()` —
-/// menu đóng, nút về `.peeking`. Không còn `shouldRevealOnNextShow` của widget thông báo cũ.
+/// menu đóng. Không còn `shouldRevealOnNextShow` của widget thông báo cũ.
 @MainActor
 final class FloatingHubWindowManager {
     static let shared = FloatingHubWindowManager()
@@ -215,7 +215,7 @@ final class FloatingHubWindowManager {
     func setDropTargetHighlighted(_ highlighted: Bool) {
         guard let button = containerViewController?.widgetContainerView else { return }
         let layer = button.layer
-        layer.cornerRadius = highlighted ? button.bounds.width / 2 : 0
+        layer.cornerRadius = highlighted ? min(button.bounds.width, button.bounds.height) / 2 : 0
         layer.borderColor = AppAccentColor.current.uiColor.cgColor
         UIView.animate(withDuration: 0.15, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
             button.transform = highlighted ? CGAffineTransform(scaleX: 1.35, y: 1.35) : .identity
