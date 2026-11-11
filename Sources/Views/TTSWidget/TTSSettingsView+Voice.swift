@@ -50,11 +50,15 @@ extension TTSSettingsView {
                     }
                 }
                 Slider(value: $ttsManager.speed, in: TTSSpeedPolicy.playbackRange, step: 0.1)
+                // Turbo: cảnh báo khi tốc độ vượt mức tổng hợp kịp + chú thích thay hàng "Tốc độ tổng hợp".
+                if isVieNeuTurboSelected {
+                    vieNeuTurboSpeedNotes
+                }
             }
 
-            // Thanh riêng của VieNeu: đặt **cạnh** thanh Tốc độ để hai thứ cộng hưởng vào nhau được nhìn
-            // thấy ngay (tốc độ nghe = tổng hợp × phát). Chỉ hiện khi đang chọn VieNeu.
-            if ttsManager.tool == "vieneu" {
+            // Thanh riêng của VieNeu Nano: đặt **cạnh** thanh Tốc độ để hai thứ cộng hưởng vào nhau được nhìn
+            // thấy ngay (tốc độ nghe = tổng hợp × phát). Chỉ hiện khi đang chọn Nano — Turbo không có tốc độ tổng hợp.
+            if ttsManager.tool == "vieneu" && !isVieNeuTurboSelected {
                 vieneuSynthesisSpeedRow
             }
 

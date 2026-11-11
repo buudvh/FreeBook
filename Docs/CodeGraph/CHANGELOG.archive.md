@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.820] - 2026-11-10
+
+### fix: đĩa góc thu tại chỗ khi đổi màn rồi hiện thẳng ở chỗ mới, không trượt ngang qua màn
+
+Anh Bửu: Chi tiết → "+" → "Đọc" ⇒ đĩa (đang đứng cao trên cụm pill của menu xổ) hiện giữa Reader rồi trượt xuống trên nút tai nghe; mở trang không có thanh tab từ trang có thanh tab cũng giật.
+
+- **Nguyên nhân:** `MediaDiscContainerViewController.updateDisc` thấy chỗ mới khác chỗ cũ ⇒ trượt đĩa (lò xo) kể cả khi đó là **màn khác**, và tính chỗ cả lúc màn còn đang chuyển cảnh (khung neo đang chạy).
+- `MediaDiscScreenContext` (file mới): "trang đang hiện" = trang trên cùng của `UINavigationController` đầu tiên đang hiện trong tầng trình bày trên cùng (không có nav ⇒ chính tầng đó; chỉ đi cây VC, không quét view) + cờ đang chuyển cảnh (`isBeingPresented` / `isBeingDismissed` trong chuỗi trình bày, `transitionCoordinator` của tầng hoặc nav — kể cả vuốt back).
+- Container: trang khác trang lúc đĩa hiện ⇒ **thu ngay tại chỗ**; đang chuyển cảnh ⇒ đĩa đang ẩn thì chưa đếm 0,3 s (hỏi lại mỗi 0,1 s), đĩa đang hiện cùng màn thì đứng yên; hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng trang (menu "+" bung / thu, Home hiện muộn) vẫn trượt như cũ. Đang nằm trong header (nhấn giữ) mà đổi màn ⇒ cũng thu rồi hiện trong header màn mới.
+- `CLAUDE.md` / `AGENTS.md` mục đĩa nghe.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — rủi ro: NavigationStack của SwiftUI không lộ `UINavigationController` ở chỗ dò ⇒ đẩy trang không được coi là đổi màn (đĩa trượt như cũ, chỉ mở Reader / sheet là thu).
+
 ## [1.3.819] - 2026-11-10
 
 ### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang

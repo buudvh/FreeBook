@@ -88,7 +88,7 @@ struct TTSSettingsView: View {
         Form {
             // Section 1: Chọn trình đọc
             Section("Trình đọc") {
-                Picker("Trình đọc", selection: $ttsManager.tool) {
+                Picker("Trình đọc", selection: readerPickerSelection) {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
                     vieNeuPickerRows

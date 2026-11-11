@@ -13,6 +13,26 @@ struct VieNeuTurboVoiceManifest: Decodable, Sendable {
         let frames: Int?
 
         var displayName: String { label ?? name }
+
+        /// Giọng tác giả tuyển chọn — `label` mở đầu bằng ⭐ (10/25 giọng ở revision đang ghim).
+        var isFeatured: Bool { label?.hasPrefix("⭐") ?? false }
+
+        /// "Nam · Bắc · tự nhiên" rút từ `label` dạng "⭐ Minh Quân Pro — Nam · Bắc · Phong cách tự nhiên": lấy phần sau
+        /// gạch dài, bỏ chữ "Phong cách" / "Giọng đọc" ở mục phong cách. `nil` khi `label` không đúng khuôn đó.
+        var traitsSummary: String? {
+            guard let label, let separator = label.range(of: " — ") else { return nil }
+            let parts = label[separator.upperBound...]
+                .components(separatedBy: " · ")
+                .map { part -> String in
+                    var trimmed = part.trimmingCharacters(in: .whitespaces)
+                    for prefix in ["Phong cách ", "Giọng đọc "] where trimmed.hasPrefix(prefix) {
+                        trimmed = String(trimmed.dropFirst(prefix.count))
+                    }
+                    return trimmed
+                }
+                .filter { !$0.isEmpty }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
     }
 
     let defaultVoiceId: String?

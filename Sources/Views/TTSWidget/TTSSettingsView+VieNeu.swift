@@ -17,15 +17,18 @@ extension TTSSettingsView {
         VieNeuTTSService.shared?.modelStore.isReady ?? false
     }
 
-    /// Dòng Picker cho VieNeu + lối tải model khi còn thiếu.
+    /// Dòng Picker cho VieNeu (Nano, rồi Turbo ngay dưới — mỗi mục chỉ hiện khi model của nó đã tải đủ).
     @ViewBuilder
     var vieNeuPickerRows: some View {
         if vieNeuModelReady {
             Text("VieNeu-TTS v3 Nano (Offline)").tag("vieneu")
         }
+        if vieNeuTurboReady {
+            vieNeuTurboPickerRow
+        }
     }
 
-    /// Lối tải model, hiện ngay dưới Picker khi chưa có model.
+    /// Lối tải model, hiện ngay dưới Picker khi chưa có model (Nano: sang màn thử giọng; Turbo: tải tại chỗ).
     @ViewBuilder
     var vieNeuDownloadRow: some View {
         if !vieNeuModelReady {
@@ -33,6 +36,7 @@ extension TTSSettingsView {
                 Label("Tải model VieNeu-TTS (343 MB)", systemImage: "arrow.down.circle")
             }
         }
+        vieNeuTurboDownloadRow
     }
 
     /// Danh sách giọng của VieNeu.
@@ -42,7 +46,9 @@ extension TTSSettingsView {
     /// có đủ giọng rồi.
     @ViewBuilder
     var vieNeuVoicePicker: some View {
-        if availableVoices.isEmpty {
+        if isVieNeuTurboSelected {
+            vieNeuTurboVoicePicker
+        } else if availableVoices.isEmpty {
             Text("Chưa đọc được danh sách giọng VieNeu")
                 .foregroundColor(.secondary)
         } else {
@@ -81,6 +87,8 @@ extension TTSSettingsView {
         vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
         // Hai cờ tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do như ba giá trị trên.
         vieNeuJapaneseFlags.refresh()
+        // Model Turbo có trên máy chưa + danh sách giọng — quyết định mục Turbo của Picker "Trình đọc".
+        VieNeuTurboLab.shared.refreshStatus()
     }
 
     // MARK: - Tốc độ tổng hợp (1.3.465)
@@ -129,7 +137,8 @@ extension TTSSettingsView {
 
     /// Đưa tốc độ tổng hợp về 1,0× — dùng cho nút "Đặt lại" của Section 4.
     func resetVieNeuSynthesisSpeed() {
-        guard ttsManager.tool == "vieneu" else { return }
+        // Turbo không có tốc độ tổng hợp (hàng bị ẩn) ⇒ đừng âm thầm đặt lại giá trị của Nano.
+        guard ttsManager.tool == "vieneu", !isVieNeuTurboSelected else { return }
         vieNeuSynthesisSpeed = 1.0
         UserDefaults.standard.set(1.0, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
         ttsManager.invalidateVieNeuSynthesisSpeed()
@@ -153,8 +162,57 @@ extension TTSSettingsView {
     ///
     /// **Tốc độ và cao độ không lặp lại ở đây**: chúng đã có slider ở Section 4, chỉ khác khoá lưu
     /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
+    ///
+    /// Turbo (đợt B): bốn hàng hiệu năng của Nano thay bằng một hàng "Tổng hợp Turbo"; giữ hai công tắc tiếng Nhật + từ
+    /// điển; ẩn "Giọng của tôi" (giọng nhân bản chỉ dùng với Nano), thay bằng chú thích.
     @ViewBuilder
     var vieNeuReaderSection: some View {
+        if isVieNeuTurboSelected {
+            vieNeuTurboEngineRow
+        } else {
+            vieNeuNanoEngineRows
+        }
+        // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật (dùng chung cho Nano và Turbo). Cả hai mặc định
+        //    **TẮT** nên mặc định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
+        //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
+        Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
+        Toggle("Tự động phiên âm tiếng Nhật", isOn: $vieNeuJapaneseFlags.transliterationEnabled)
+
+        // 6. Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì
+        //    người dùng không biết phải làm gì.
+        if vieNeuJapaneseFlags.dictionaryDownloaded {
+            NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
+                Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
+            }
+        } else {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
+            }
+            Button {
+                downloadJapaneseDictionary()
+            } label: {
+                Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
+            }
+        }
+
+        // 7. Lối vào **giọng nhân bản** (chỉ Nano; Turbo hiện chú thích thay vào).
+        //
+        // Chỉ hiện khi đã có `voices_v3_nano.json`: màn đó đọc catalog để dựng danh sách, mà thiếu file
+        // ấy thì nó chỉ hiện được một câu báo lỗi — vào được cũng không làm gì. Điều kiện **không** gồm
+        // gói graph clone: màn đó tự có nút tải gói ấy, nên chặn ở đây là chặn đúng đường tải.
+        if isVieNeuTurboSelected {
+            vieNeuTurboReaderNote
+        } else if vieNeuModelReady {
+            NavigationLink(destination: VieNeuVoiceLibraryView()) {
+                Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
+            }
+        }
+    }
+
+    /// Bốn hàng hiệu năng **chỉ của Nano**: Tiết kiệm pin, Chế độ tạo audio, Số luồng tổng hợp, spin ORT.
+    @ViewBuilder
+    private var vieNeuNanoEngineRows: some View {
         // 1. Tiết kiệm pin (LÊN TRÊN): bật ⇒ ghim "Cân bằng" + 2 luồng, khoá 2 picker bên dưới.
         Toggle("Tiết kiệm pin", isOn: Binding(
             get: { vieNeuPowerSaving },
@@ -198,40 +256,6 @@ extension TTSSettingsView {
             .foregroundColor(.secondary)
         // 4b. Spin của pool luồng ORT (1.3.488) — mặc định tắt, bật chỉ để so A/B năng lượng.
         VieNeuOrtSpinToggle()
-        // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật. Cả hai mặc định **TẮT** nên mặc
-        //    định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
-        //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
-        Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
-        Toggle("Tự động phiên âm tiếng Nhật", isOn: $vieNeuJapaneseFlags.transliterationEnabled)
-
-        // 6. Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì
-        //    người dùng không biết phải làm gì.
-        if vieNeuJapaneseFlags.dictionaryDownloaded {
-            NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
-                Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
-            }
-        } else {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
-            }
-            Button {
-                downloadJapaneseDictionary()
-            } label: {
-                Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
-            }
-        }
-
-        // 7. Lối vào **giọng nhân bản**.
-        //
-        // Chỉ hiện khi đã có `voices_v3_nano.json`: màn đó đọc catalog để dựng danh sách, mà thiếu file
-        // ấy thì nó chỉ hiện được một câu báo lỗi — vào được cũng không làm gì. Điều kiện **không** gồm
-        // gói graph clone: màn đó tự có nút tải gói ấy, nên chặn ở đây là chặn đúng đường tải.
-        if vieNeuModelReady {
-            NavigationLink(destination: VieNeuVoiceLibraryView()) {
-                Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
-            }
-        }
     }
 
     /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).

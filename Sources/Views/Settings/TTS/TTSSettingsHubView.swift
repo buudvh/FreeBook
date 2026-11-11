@@ -36,7 +36,7 @@ struct TTSSettingsHubView: View {
         switch tool {
         case "google": return "Google"
         case "nghitts": return "NghiTTS"
-        case "vieneu": return "VieNeu"
+        case "vieneu": return VieNeuModelChoice.current == .turbo ? "VieNeu Turbo" : "VieNeu"
         case "system": return "Siri"
         default: return "Extension"
         }
