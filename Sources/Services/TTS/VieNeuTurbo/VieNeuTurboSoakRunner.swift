@@ -24,6 +24,10 @@ final class VieNeuTurboSoakRunner {
         let cpuMs: Double
         /// Số ký tự phiên âm (Turbo); `nil` với Nano.
         let phonemeCount: Int?
+        /// Phân rã text / vòng Euler / codec (Nano, 1.3.849); `nil` với Turbo.
+        var split: VieNeuTurboSoakStats.StageSplit? = nil
+        /// QoS **đo được** (Nano): "tổng hợp X · session Y" — để biết lựa chọn QoS có tới nơi thật không.
+        var qosNote: String? = nil
     }
 
     typealias Synthesizer = @Sendable (String, TTSBoundaryKind) async throws -> ChunkAudio
@@ -31,6 +35,8 @@ final class VieNeuTurboSoakRunner {
     static let maxReadyAhead = 2
     static let maxChunkLength = 150
     private static let maxChunkLines = 40
+    /// Trần số dòng từng đoạn giữ cho **file chia sẻ** (~ vài giờ đọc) — màn hình chỉ hiện `maxChunkLines`.
+    private static let maxReportChunkLines = 5_000
 
     private(set) var isRunning = false
     private(set) var engineDescription = ""
@@ -42,6 +48,10 @@ final class VieNeuTurboSoakRunner {
     private(set) var chunkLines: [String] = []
     private(set) var summaryText = ""
 
+    /// Mọi dòng từng đoạn theo thứ tự thời gian — chỉ để dựng file chia sẻ (`reportText`).
+    @ObservationIgnored private var allChunkLines: [String] = []
+    /// QoS đo được ở đoạn gần nhất (Nano) — in ở đầu file chia sẻ.
+    @ObservationIgnored private var lastQoSNote: String?
     @ObservationIgnored private var stats = VieNeuTurboSoakStats()
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var producerTask: Task<Void, Never>?
@@ -68,7 +78,14 @@ final class VieNeuTurboSoakRunner {
 
     // MARK: - Điều khiển
 
-    func start(chunks: [TTSParagraph], engineDescription: String, synthesize: @escaping Synthesizer) {
+    /// `priority` = mức ưu tiên của task tổng hợp. Turbo giữ `.utility` (cùng hàng đợi của `VieNeuTurboRuntime`); lượt
+    /// Nano dùng QoS chọn ở màn thử (1.3.849) — `PiperSynthesisCoordinator` thừa hưởng mức này từ task gọi nó.
+    func start(
+        chunks: [TTSParagraph],
+        engineDescription: String,
+        priority: TaskPriority = .utility,
+        synthesize: @escaping Synthesizer
+    ) {
         guard !chunks.isEmpty else { return }
         stop(reason: "bắt đầu lượt mới")
         generation += 1
@@ -78,6 +95,8 @@ final class VieNeuTurboSoakRunner {
         errorMessage = nil
         minuteLines = []
         chunkLines = []
+        allChunkLines = []
+        lastQoSNote = nil
         stats = VieNeuTurboSoakStats()
         summaryText = stats.summary()
         statusLine = "Đang chuẩn bị đoạn đầu…"
@@ -95,9 +114,7 @@ final class VieNeuTurboSoakRunner {
         }
         startKeepAlive()
 
-        // `.utility` = cùng QoS với hàng đợi của `VieNeuTurboRuntime`; lượt Nano (`PiperSynthesisCoordinator`) thừa hưởng
-        // mức này từ task gọi nó ⇒ hai engine đo ở cùng một mức ưu tiên.
-        producerTask = Task(priority: .utility) { [weak self] in
+        producerTask = Task(priority: priority) { [weak self] in
             await self?.produce(chunks: chunks, generation: runGeneration, synthesize: synthesize)
         }
         clockTask = Task { [weak self] in
@@ -161,7 +178,8 @@ final class VieNeuTurboSoakRunner {
                     characters: chunk.text.count,
                     audioSeconds: audio.audioSeconds,
                     synthesisMs: audio.synthesisMs,
-                    cpuMs: audio.cpuMs
+                    cpuMs: audio.cpuMs,
+                    split: audio.split
                 )
                 recordChunkLine(number: index + 1, round: index / chunks.count + 1, characters: chunk.text.count, audio: audio)
                 ready.append(audio)
@@ -180,24 +198,60 @@ final class VieNeuTurboSoakRunner {
     private func recordChunkLine(number: Int, round: Int, characters: Int, audio: ChunkAudio) {
         let thermal = VieNeuTurboSoakStats.thermalName(ProcessInfo.processInfo.thermalState)
         let phonemes = audio.phonemeCount.map { " · \($0) âm vị" } ?? ""
+        // Nano: giây tường của vòng Euler / codec / text_encoder (CPU-s trong ngoặc).
+        let split = audio.split.map {
+            String(
+                format: " · Euler %.2f (%.2f) · codec %.2f (%.2f) · text %.2f (%.2f) s",
+                $0.vectorMs / 1_000, $0.vectorCPUMs / 1_000, $0.codecMs / 1_000, $0.codecCPUMs / 1_000,
+                $0.textMs / 1_000, $0.textCPUMs / 1_000
+            )
+        } ?? ""
+        if let note = audio.qosNote { lastQoSNote = note }
+        let qos = audio.qosNote.map { " · QoS \($0)" } ?? ""
         let line = String(
-            format: "#%d (vòng %d) · %d ký tự%@ · tổng hợp %.2f s · tiếng %.2f s · RTF %@ · CPU/tiếng %@ · %@ · %@",
+            format: "#%d (vòng %d) · %d ký tự%@ · tổng hợp %.2f s%@ · tiếng %.2f s · RTF %@ · CPU/tiếng %@ · %@ · %@%@",
             number,
             round,
             characters,
             phonemes,
             audio.synthesisMs / 1_000,
+            split,
             audio.audioSeconds,
             VieNeuTurboSoakStats.ratio(audio.synthesisMs / 1_000, audio.audioSeconds),
             VieNeuTurboSoakStats.ratio(audio.cpuMs / 1_000, audio.audioSeconds),
             thermal,
             // Bộ nhớ sau mỗi đoạn: thấy được nó có tăng dần theo thời gian không (lỗi cấp phát của 1.3.847).
-            ProcessMemoryProbe.snapshot().summary
+            ProcessMemoryProbe.snapshot().summary,
+            qos
         )
         chunkLines.insert(line, at: 0)
         if chunkLines.count > Self.maxChunkLines { chunkLines.removeLast(chunkLines.count - Self.maxChunkLines) }
+        allChunkLines.append(line)
+        if allChunkLines.count > Self.maxReportChunkLines {
+            allChunkLines.removeFirst(allChunkLines.count - Self.maxReportChunkLines)
+        }
         summaryText = stats.summary()
         AppLogger.shared.log("🎙️ [VieNeuTurbo] [\(engineDescription)] \(line)")
+    }
+
+    /// Nội dung file chia sẻ của lượt đọc liên tục: engine + trạng thái + tổng kết + **mọi** phút và **mọi** đoạn theo
+    /// thứ tự thời gian (màn hình chỉ hiện 40 đoạn gần nhất). Dựng lúc bấm chia sẻ (`VieNeuTurboReportFile`).
+    func reportText() -> String {
+        // Đang chạy thì tính lại cho tới giây này; đã dừng thì giữ bản chốt lúc dừng (tính lại sẽ kéo dài "thời gian").
+        var parts = [engineDescription]
+        // Mô tả engine ghi QoS **đã chọn**; dòng này là QoS **đo được** trên luồng thật (Nano).
+        if let lastQoSNote { parts.append("QoS đo được: \(lastQoSNote)") }
+        parts += [statusLine, isRunning ? stats.summary() : summaryText]
+        if let errorMessage { parts.append("Lỗi: \(errorMessage)") }
+        if !minuteLines.isEmpty {
+            parts.append("— Từng phút —")
+            parts.append(contentsOf: minuteLines.reversed())
+        }
+        if !allChunkLines.isEmpty {
+            parts.append("— Từng đoạn (\(allChunkLines.count)) —")
+            parts.append(contentsOf: allChunkLines)
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
     private func closeMinute(generation runGeneration: Int) {

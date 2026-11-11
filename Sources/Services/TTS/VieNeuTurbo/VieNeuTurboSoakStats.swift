@@ -7,6 +7,36 @@ import Foundation
 /// với CPU-time chứ không với thời gian tường, nên đây là con số đáng so giữa Turbo và Nano. Khi bộ sinh chạy kịp, số
 /// giây đã tổng hợp ≈ số giây đã phát (bộ sinh chỉ đi trước tối đa 2 đoạn).
 struct VieNeuTurboSoakStats {
+    /// Thời gian tường + CPU-time từng giai đoạn của **Nano** (text_encoder + duration, vòng Euler, codec) — đọc từ
+    /// `VieNeuTTSService.lastTiming` sau mỗi lượt (1.3.849). Turbo không có ⇒ `nil`.
+    struct StageSplit: Sendable {
+        var textMs = 0.0
+        var vectorMs = 0.0
+        var codecMs = 0.0
+        var textCPUMs = 0.0
+        var vectorCPUMs = 0.0
+        var codecCPUMs = 0.0
+
+        mutating func add(_ other: StageSplit) {
+            textMs += other.textMs
+            vectorMs += other.vectorMs
+            codecMs += other.codecMs
+            textCPUMs += other.textCPUMs
+            vectorCPUMs += other.vectorCPUMs
+            codecCPUMs += other.codecCPUMs
+        }
+
+        /// "Euler 81% · codec 17% · text 2%" theo thời gian tường (`cpu == false`) hoặc CPU-time.
+        func shares(cpu: Bool) -> String {
+            let parts = cpu ? [vectorCPUMs, codecCPUMs, textCPUMs] : [vectorMs, codecMs, textMs]
+            let total = max(0.001, parts.reduce(0, +))
+            return String(
+                format: "Euler %.0f%% · codec %.0f%% · text %.0f%%",
+                parts[0] / total * 100, parts[1] / total * 100, parts[2] / total * 100
+            )
+        }
+    }
+
     struct Window {
         var startedAt: TimeInterval
         var startedCPUMs: Double
@@ -29,6 +59,8 @@ struct VieNeuTurboSoakStats {
     private(set) var underrunWaitMs = 0.0
     private(set) var minuteIndex = 0
     private(set) var window: Window
+    /// Cộng dồn phân rã của Nano; `nil` khi engine không báo (Turbo).
+    private(set) var split: StageSplit?
 
     init(now: TimeInterval = ProcessInfo.processInfo.systemUptime, cpuMs: Double = ProcessCPUClock.nowMs()) {
         startedAt = now
@@ -36,7 +68,18 @@ struct VieNeuTurboSoakStats {
         window = Window(startedAt: now, startedCPUMs: cpuMs)
     }
 
-    mutating func recordChunk(characters: Int, audioSeconds: Double, synthesisMs: Double, cpuMs: Double) {
+    mutating func recordChunk(
+        characters: Int,
+        audioSeconds: Double,
+        synthesisMs: Double,
+        cpuMs: Double,
+        split chunkSplit: StageSplit? = nil
+    ) {
+        if let chunkSplit {
+            var total = split ?? StageSplit()
+            total.add(chunkSplit)
+            split = total
+        }
         chunks += 1
         self.characters += characters
         self.audioSeconds += audioSeconds
@@ -93,6 +136,10 @@ struct VieNeuTurboSoakStats {
         let wallSeconds = max(0.001, now - startedAt)
         let cpuSeconds = (cpuMs - startedCPUMs) / 1_000
         let synthesisSeconds = synthesisMs / 1_000
+        // Nano: chậm ở đâu — vòng Euler (16 lượt vector_estimator), codec_decoder hay text_encoder.
+        let splitLines = split.map {
+            "\nphân rã       \($0.shares(cpu: false))   (thời gian tổng hợp)\nphân rã CPU   \($0.shares(cpu: true))"
+        } ?? ""
         return """
         thời gian     \(Self.clock(wallSeconds))
         đoạn          \(chunks) (\(characters) ký tự)
@@ -103,7 +150,7 @@ struct VieNeuTurboSoakStats {
         CPU tổng hợp  \(Self.ratio(synthesisCPUMs / 1_000, audioSeconds))   (chỉ trong lúc tổng hợp)
         RTF           \(Self.ratio(synthesisSeconds, audioSeconds))   (tổng hợp / tiếng)
         hụt tiếng     \(underruns) lần, chờ \(String(format: "%.1f", underrunWaitMs / 1_000)) s
-        nhiệt         \(Self.thermalName(thermal))
+        nhiệt         \(Self.thermalName(thermal))\(splitLines)
         """
     }
 

@@ -30,6 +30,22 @@ final class VieNeuTurboLab {
         }
     }
 
+    /// Mức ưu tiên luồng của lượt Nano trong "Đọc liên tục" (1.3.849). iPhone chỉ có 2 lõi hiệu năng; QoS thấp hay bị
+    /// xếp sang lõi tiết kiệm (chậm hơn nhưng tốn ít năng lượng hơn) — đo A/B để biết mức nào mát hơn mà không hụt tiếng.
+    enum SoakQoS: String, CaseIterable, Identifiable {
+        case utility
+        case userInitiated
+
+        var id: String { rawValue }
+
+        var priority: TaskPriority {
+            switch self {
+            case .utility: return .utility
+            case .userInitiated: return .userInitiated
+            }
+        }
+    }
+
     // `let` không bị `@Observable` theo dõi — không cần `@ObservationIgnored`.
     let store: VieNeuTurboModelStore?
     let client: VieNeuTurboModelClient?
@@ -65,6 +81,9 @@ final class VieNeuTurboLab {
     var text = VieNeuTurboSampleText.short
     var longText = VieNeuTurboSampleText.long
     var soakEngine: SoakEngine = .turbo
+    /// Số luồng ORT và QoS cho lượt Nano — chỉ áp trong lúc đo, **không** ghi vào cài đặt (`+Nano`).
+    var nanoThreadCount = Int(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
+    var nanoQoS: SoakQoS = .utility
 
     // MARK: Lượt chạy (ghi ở `+Run`)
 
@@ -83,9 +102,13 @@ final class VieNeuTurboLab {
     @ObservationIgnored var runGeneration = 0
     @ObservationIgnored var releaseTask: Task<Void, Never>?
     @ObservationIgnored var didActivateAudioSession = false
+    /// Engine Nano đang mang số luồng ghi đè của màn thử — phải trả lại khi dừng / rời màn (`endNanoOverride`).
+    @ObservationIgnored var isNanoOverrideActive = false
     @ObservationIgnored private var thermalObserver: NSObjectProtocol?
 
     static let threadChoices = [1, 2, 3, 4]
+    /// Nano: 1 luồng đã bỏ ở 1.3.509 (CPU-time như 2 luồng mà chậm gấp đôi).
+    static let nanoThreadChoices = [2, 3, 4]
 
     private init() {
         let store = try? VieNeuTurboModelStore()
@@ -141,6 +164,18 @@ final class VieNeuTurboLab {
         defaultVoiceId = manifest.defaultVoice?.id
         if !voices.contains(where: { $0.id == selectedVoiceId }) {
             selectedVoiceId = manifest.defaultVoice?.id ?? ""
+        }
+    }
+
+    // MARK: - Chia sẻ kết quả
+
+    /// Thân file `.txt` của nút chia sẻ (`VieNeuTurboReportFile` thêm phần đầu: app, máy, giờ).
+    func reportText(for kind: VieNeuTurboReportFile.Kind) -> String {
+        switch kind {
+        case .sample:
+            return [statusMessage, lastReport].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        case .soak:
+            return soak.reportText()
         }
     }
 

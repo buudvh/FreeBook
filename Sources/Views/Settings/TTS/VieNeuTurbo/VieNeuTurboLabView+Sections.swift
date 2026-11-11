@@ -154,14 +154,11 @@ extension VieNeuTurboLabView {
                     Label("Chia sẻ audio", systemImage: "square.and.arrow.up")
                 }
             }
-            Button {
-                ClipboardCopier.copy([lab.statusMessage, lab.lastReport].joined(separator: "\n"))
-            } label: {
-                Label {
-                    Text("Sao chép số đo")
-                } icon: {
-                    AppGlyph.copy.image(size: 17)
-                }
+            ShareLink(
+                item: VieNeuTurboReportFile(kind: .sample, engineName: "turbo"),
+                preview: SharePreview("Số đo đọc thử")
+            ) {
+                Label("Chia sẻ file số đo (.txt)", systemImage: "doc.text")
             }
         } header: {
             Text("Số đo đọc thử")

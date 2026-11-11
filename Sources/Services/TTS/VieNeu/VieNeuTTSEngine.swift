@@ -101,6 +101,9 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     private var requestedMode: VieNeuSynthesisPolicy.Mode?
     var consecutiveSlow = 0
     var consecutiveFast = 0
+    /// Màn thử VieNeu Turbo: số luồng ORT ghi đè (`nil` = theo cài đặt) + cờ buộc dựng lại session (`+Reload`).
+    var labThreadOverride: Int32?
+    var labForceReload = false
 
     init(store: VieNeuModelStore) {
         self.store = store
@@ -154,7 +157,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // khi `NPZReader` còn đọc sai kích thước entry. `nullContext`/`nullMask`/`nullSpeaker`/`nullStyle`
         // bất biến suốt vòng đời **một runtime** (chỉ gán ở đây; nạp lại ở `+Reload` hủy runtime cũ — kèm tensor
         // cache A2b, `VieNeuORTDestroy` — **trước** khi gán lại) ⇒ buffer nguồn luôn sống lâu hơn tensor.
-        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard), allowSpinning: VieNeuSynthesisPolicy.allowSpinning(from: .standard))
+        let newRuntime = try VieNeuONNXRuntime(modelStore: store, threadCount: wantedThreadCountLocked(), allowSpinning: VieNeuSynthesisPolicy.allowSpinning(from: .standard))
         let newConfig = try VieNeuConfig.load(modelStore: store)
         let newCatalog = try VieNeuVoiceCatalog.load(modelStore: store)
         let newPhonemizer = try SeaG2P(binURL: store.url(for: "sea_g2p.bin"))
@@ -168,7 +171,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)) spin=\(VieNeuSynthesisPolicy.allowSpinning(from: .standard) ? "on" : "off")")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(newRuntime.threadCount) spin=\(newRuntime.allowSpinning ? "on" : "off") qos=\(Self.currentQoSName())\(labThreadOverride == nil ? "" : " (màn thử)")")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
@@ -314,7 +317,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // Số token không cần biến riêng: `mask` lấy từ `ids`, còn shape của `ctx` đọc từ model.
         let mask = ids.map { $0 == config.padID ? UInt8(0) : UInt8(1) }
 
-        let chunkStarted = ProcessInfo.processInfo.systemUptime
+        var clock = StageClock() // ba giai đoạn nối tiếp: text → vòng Euler → codec (`+Timing`)
 
         // 1. text_encoder → ctx, kèm **shape thật** để hai bước sau dùng lại
         let context = try runtime.textEncoder(
@@ -339,8 +342,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         Self.fillStandardNormal(&latent)
         let steps = max(1, tuning.steps)
         let grid = Self.timeGrid(steps: steps, sway: tuning.sway)
-
-        let vectorStarted = ProcessInfo.processInfo.systemUptime
+        clock.lap(&timing.text)
 
         for step in 0..<steps {
             try Task.checkCancellation()
@@ -378,20 +380,18 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             }
         }
 
+        clock.lap(&timing.vector) // chốt TRƯỚC codec — trước 1.3.849 chốt sau nên codec bị tính vào vòng Euler
+
         // 4. codec_decoder → PCM
         let waveform = try runtime.codecDecoder(
             latent: latent,
             latentChannels: config.latentChannels,
             frames: frames
         )
-        // `otherMs` = phần còn lại của chunk, đo bằng `chunkMs - vectorMs` chứ **không** đo riêng
-        // text_encoder/codec rồi cộng (đo cả chunk mà không trừ là đếm phần vector hai lần).
-        let vectorMs = (ProcessInfo.processInfo.systemUptime - vectorStarted) * 1_000
-        let chunkMs = (ProcessInfo.processInfo.systemUptime - chunkStarted) * 1_000
-        timing.vectorMs += vectorMs
-        timing.otherMs += max(0, chunkMs - vectorMs)
+        clock.lap(&timing.codec)
         // Phụ trợ ở bridge C, cộng dồn cả đoạn (RTF không phản ánh phần này — xem doc `Timing`).
         (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
+        timing.sessionQoS = runtime.buildQoS
 
         return Self.trimAndFade(waveform, sampleRate: config.sampleRate)
     }

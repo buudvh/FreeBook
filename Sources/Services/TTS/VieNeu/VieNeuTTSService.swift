@@ -41,8 +41,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     private var _lastChunkCount = 0
     private var _lastPhonemeSample = ""
     private var _lastSpeechDuration = 0.0
-    private var _lastVectorMs = 0.0
-    private var _lastOtherMs = 0.0
+    private var _lastTiming = VieNeuTTSEngine.Timing()
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -75,9 +74,20 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Độ dài audio trừ khoảng nghỉ đã chèn — mẫu số đúng để tính RTF thật.
     var lastSpeechDuration: Double { syncQueue.sync { _lastSpeechDuration } }
 
-    /// Thời gian `vector_estimator` và phần còn lại của lượt gần nhất (ms) — để biết chậm ở đâu.
-    var lastVectorMs: Double { syncQueue.sync { _lastVectorMs } }
-    var lastOtherMs: Double { syncQueue.sync { _lastOtherMs } }
+    /// Thời gian từng giai đoạn của lượt gần nhất (text / vòng Euler / codec, cả CPU) — để biết chậm ở đâu.
+    var lastTiming: VieNeuTTSEngine.Timing { syncQueue.sync { _lastTiming } }
+    var lastVectorMs: Double { lastTiming.vectorMs }
+    var lastOtherMs: Double { lastTiming.otherMs }
+
+    /// Màn thử VieNeu Turbo ghi đè số luồng ORT (`nil` = bỏ ghi đè). Xem `VieNeuTTSEngine.setLabThreadOverride`.
+    ///
+    /// Chạy ở luồng nền: hàm của engine chờ khoá tổng hợp, mà lúc bấm Dừng có thể còn một đoạn đang chạy dở (ORT không
+    /// huỷ giữa chừng) ⇒ gọi thẳng từ main thread là đơ màn vài giây.
+    func setLabThreadOverride(_ threads: Int32?) async {
+        await Task.detached(priority: .utility) { [engine] in
+            engine.setLabThreadOverride(threads)
+        }.value
+    }
 
     /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với hai khoá
     /// kia) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
@@ -126,12 +136,19 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Nạp 4 session ONNX + `sea_g2p.bin` (62,8 MB). Chạy ở `Task.detached` vì đây là việc nặng và
     /// đồng bộ — cùng lý do và cùng mức ưu tiên với `PiperTTSService.prepare` (`:35`).
     func prepare(voice: String) async throws {
+        try await prepare(voice: voice, priority: .utility)
+    }
+
+    /// Như `prepare(voice:)` nhưng chọn mức ưu tiên — chỉ màn thử VieNeu Turbo dùng (1.3.849). Luồng phụ của pool ORT
+    /// sinh ra lúc dựng session, nên dựng ở mức nào thì pool chạy ở mức đó. Hàm riêng (không thêm tham số mặc định vào
+    /// hàm trên) vì `LocalTTSEngine` đòi đúng chữ ký `prepare(voice:)`.
+    func prepare(voice: String, priority: TaskPriority) async throws {
         // Trình đọc đang ở Nano ⇒ nhả model Turbo (188 MB + bộ đệm ggml) trước khi nạp ORT — hai model không nên cùng nằm
         // trong RAM. Trình đọc đang ở Turbo (màn thử Nano / giọng nhân bản nạp Nano) thì giữ Turbo: nó là thứ đang đọc.
         if VieNeuModelChoice.current == .nano {
             await VieNeuTurboTTSService.releaseForNano()
         }
-        try await Task.detached(priority: .utility) { [engine] in
+        try await Task.detached(priority: priority) { [engine] in
             try engine.prepare()
         }.value
         // Áp lựa chọn đã lưu sau khi engine sẵn sàng — lần mở app sau vẫn giữ đúng chế độ người dùng đặt.
@@ -294,8 +311,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             _lastChunkCount = output.chunkCount
             _lastPhonemeSample = output.phonemeSample
             _lastSpeechDuration = output.speechDuration
-            _lastVectorMs = output.timing.vectorMs
-            _lastOtherMs = output.timing.otherMs
+            _lastTiming = output.timing
         }
         // `synthesisMs` của engine đo bên trong (chỉ gồm ONNX), còn ở đây đo trọn lượt gọi — lấy số của
         // engine để RTF phản ánh đúng chi phí suy luận chứ không lẫn thời gian chờ khoá.

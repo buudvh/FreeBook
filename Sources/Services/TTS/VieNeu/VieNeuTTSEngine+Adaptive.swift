@@ -52,7 +52,10 @@ extension VieNeuTTSEngine {
     /// nên câu hỏi "vì sao chất lượng kém hơn hẳn màn thử giọng" không thể trả lời bằng số.
     ///
     /// `churn=create/release/bytes` là **số đo duy nhất** chứng minh một lượt giảm churn bộ nhớ có tác
-    /// dụng: `rtf` gần như không đổi vì `Run` chiếm 98% thời gian. Xem doc của `Timing`.
+    /// dụng: `rtf` gần như không đổi vì `Run` chiếm gần hết thời gian. Xem doc của `Timing`.
+    ///
+    /// Từ 1.3.849: `vectorMs` chỉ còn vòng Euler, `codecMs`/`textMs` tách riêng, `cpuSplit=text/vector/codec` (CPU-time
+    /// cả tiến trình từng giai đoạn), `qos=` là QoS của luồng tổng hợp, `sessionQos=` là QoS lúc dựng session ORT.
     func logSynthesisPerf(
         mode: VieNeuSynthesisPolicy.Mode,
         chunkCount: Int,
@@ -81,23 +84,36 @@ extension VieNeuTTSEngine {
                 + " speech=\(String(format: "%.2f", speechDuration))s"
                 + " synth=\(String(format: "%.0f", synthesisMs))ms"
                 + " rtf=\(String(format: "%.2f", synthesisMs / 1_000 / max(0.01, pcmDuration)))"
-                + " vectorMs=\(String(format: "%.0f", timing.vectorMs)) otherMs=\(String(format: "%.0f", timing.otherMs))"
+                + " vectorMs=\(String(format: "%.0f", timing.vector.wallMs)) codecMs=\(String(format: "%.0f", timing.codec.wallMs))"
+                + " textMs=\(String(format: "%.0f", timing.text.wallMs))"
+                + " cpuSplit=\(String(format: "%.0f/%.0f/%.0f", timing.text.cpuMs, timing.vector.cpuMs, timing.codec.cpuMs))ms"
                 + " churn=\(timing.tensorCreates)/\(timing.tensorReleases)/\(timing.copiedBytes)"
                 + " boundary=\(boundaryKind.rawValue)"
                 + " cpu=\(String(format: "%.0f", cpuMs))ms cpuPerAudio=\(String(format: "%.2f", cpuMs / 1_000 / max(0.01, pcmDuration)))"
                 + " cores=\(String(format: "%.2f", cpuMs / max(1, synthesisMs)))"
                 + " threads=\(runtime.threadCount) spin=\(runtime.allowSpinning ? "on" : "off")"
+                + " qos=\(timing.synthesisQoS) sessionQos=\(runtime.buildQoS)"
         )
     }
 
-    /// Thời gian tách theo **hai nhóm việc**, cộng dồn cho cả đoạn.
+    /// Thời gian tách theo **ba giai đoạn** (`StageClock`), cộng dồn cho cả đoạn.
     ///
-    /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán: nếu `vectorMs` chiếm gần hết thì
-    /// đòn bẩy là số bước / CFG / số luồng ORT; nếu `otherMs` đáng kể thì đó là **chi phí cố định theo
-    /// chunk** (text_encoder + duration_predictor + codec_decoder) và cách giảm là giảm số chunk.
+    /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán. Trước 1.3.849 chỉ có hai nhóm và `vectorMs`
+    /// được chốt **sau** `codec_decoder` ⇒ codec bị tính vào vòng Euler (doc cũ nói nó nằm trong `otherMs` — sai).
     struct Timing {
-        var vectorMs: Double = 0
-        var otherMs: Double = 0
+        /// text_encoder + duration_predictor + nhiễu khởi tạo (mọi thứ trước vòng Euler).
+        var text = StageTime()
+        /// Vòng Euler: 8 hoặc 16 bước × 2 lượt `vector_estimator` (CFG) — **không** gồm codec.
+        var vector = StageTime()
+        var codec = StageTime()
+        var vectorMs: Double { vector.wallMs }
+        /// Mọi thứ ngoài vòng Euler (text + codec) — giữ cho màn Nghe thử ("vector | khác").
+        var otherMs: Double { text.wallMs + codec.wallMs }
+        /// QoS **đo được** của luồng tổng hợp: giá trị mặc định tính lúc `synthesize` dựng `Timing()`, tức trên luồng
+        /// đang tổng hợp. `sessionQoS` = QoS lúc dựng session ORT (`VieNeuONNXRuntime.buildQoS`). Màn thử ghi cả hai
+        /// vào file kết quả để biết lựa chọn QoS có tới nơi thật không.
+        var synthesisQoS = VieNeuTTSEngine.currentQoSName()
+        var sessionQoS = ""
         /// Số `OrtValue` tạo / giải phóng và số byte output đã copy ở tầng bridge C, **cộng dồn cả đoạn**.
         ///
         /// Đây là số đo **công việc phụ trợ** mà `Run` không phản ánh: mỗi bước Euler tạo 6 `OrtValue`

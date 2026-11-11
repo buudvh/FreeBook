@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.822] - 2026-11-10
+
+### fix: danh sách tải vô hạn không còn nhảy lên khi nối trang
+
+Anh Bửu thử 1.3.819: hết trắng xoá nhưng danh sách (kiểu Danh sách) vẫn **nhảy lên khi nối trang**; đổi cùng danh sách sang kiểu **Lưới thì không nhảy** ⇒ lỗi ở `List`.
+
+- **Nguyên nhân:** hàng kiểu Danh sách cao thấp khác nhau (tên / mô tả 1–2 dòng). `List` (UICollectionView tự đo) chỉ **ước chừng** chiều cao hàng đã cuộn qua, mỗi lần chèn trang mới nó tính lại và chỉnh vị trí cuộn ⇒ nội dung đang xem bị đẩy lên ~1 hàng. Lưới (`ScrollView` + `LazyVGrid`) giữ chiều cao thật của ô đã dựng nên không bị.
+- Đổi kiểu Danh sách sang **`ScrollView` + `LazyVStack`** như lưới ở: `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm), `SearchSingleSourceResultsView` (Tìm trong một nguồn), `AllCommentsView` (Tất cả bình luận). Giữ y giao diện: panel bo góc, cách nhau 8 pt (`BookListPanelModifier.stackSpacing`), lề 16 / 4 (`bookListPanelStackPadding()`), kéo làm mới, `ScrollViewReader` theo `link`, chân `LoadMoreFooter` id cố định + tải trước.
+- Tìm trong một nguồn: bỏ mẹo `NavigationLink` ẩn dưới panel (chỉ cần trong `List` để không có mũi tên `>`); hàng dùng `tappable` như lưới (`ContentDetailLink` / nút đổi nguồn), ⋮ playlist như cũ.
+- Kệ / Lịch sử giữ `List` (vuốt ngang, tiêu đề nhóm dính; nạp trên máy 50 truyện mỗi lượt).
+- `BookListPanelModifier` / `CLAUDE.md` / `AGENTS.md`: luật danh sách tải vô hạn không dùng `List`.
+- **Kiểm chứng:** đọc code + anh thử kiểu Lưới (không nhảy); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Đánh đổi: `LazyVStack` không tái dùng ô như `List` ⇒ danh sách rất dài tốn bộ nhớ hơn chút (như kiểu lưới hiện nay).
+
 ## [1.3.821] - 2026-11-10
 
 ### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì

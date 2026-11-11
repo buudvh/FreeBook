@@ -17,6 +17,10 @@ extension VieNeuTurboLabView {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            if lab.soakEngine == .nano {
+                nanoTuningRows
+            }
+
             TextEditor(text: $lab.longText)
                 .frame(minHeight: 160)
                 .font(.callout)
@@ -72,7 +76,9 @@ extension VieNeuTurboLabView {
             SectionHelpHeader("Đọc liên tục (đo nhiệt)", paragraphs: [
                 "Lặp văn bản dài, cắt **≤ 150 ký tự theo câu** bằng đúng bộ cắt Reader dùng, tổng hợp trước tối đa **2 đoạn** và phát nối tiếp. Khoá màn hình vẫn chạy; rời màn này là dừng.",
                 "Mỗi đoạn và mỗi phút ghi: giây tiếng, CPU-s (cả tiến trình), **CPU/tiếng**, số lần **hụt tiếng** (trình phát phải chờ) và trạng thái nhiệt. Số liệu cũng vào log `[VieNeuTurbo]` (bật ghi log ở Cài đặt).",
-                "Chọn **Nano** để chạy engine hiện tại trên cùng văn bản, cùng máy — so CPU/tiếng và nhiệt của hai engine."
+                "Chọn **Nano** để chạy engine hiện tại trên cùng văn bản, cùng máy — so CPU/tiếng và nhiệt của hai engine. Nano còn ghi **phân rã** từng đoạn: vòng Euler / codec / text_encoder.",
+                "**Số luồng** và **QoS** của Nano chỉ áp trong lúc đo, không đổi cài đặt; dừng hoặc rời màn là trả lại như cũ. QoS thấp hay chạy ở lõi tiết kiệm: chậm hơn nhưng có thể mát hơn — so diễn biến nhiệt, đừng so CPU-s giữa hai mức QoS.",
+                "Nút **Chia sẻ file kết quả** gửi một file .txt đủ tổng kết, từng phút và mọi đoạn."
             ])
         } footer: {
             if let reason = soakBlockedReason {
@@ -87,8 +93,27 @@ extension VieNeuTurboLabView {
             return "Turbo dùng giọng và số luồng chọn ở trên."
         case .nano:
             let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
-            return "Nano dùng giọng mặc định, chế độ và số luồng ORT ở Cài đặt VieNeu (hiện \(threads) luồng); tốc độ tổng hợp ép 1× cho cùng điều kiện với Turbo."
+            return "Nano dùng giọng mặc định và chế độ ở Cài đặt VieNeu; số luồng + QoS chọn dưới đây chỉ cho lượt đo (cài đặt hiện \(threads) luồng). Tốc độ tổng hợp ép 1× cho cùng điều kiện với Turbo."
         }
+    }
+
+    /// Số luồng ORT + QoS cho lượt Nano (1.3.849) — đo A/B lõi hiệu năng / lõi tiết kiệm.
+    @ViewBuilder
+    var nanoTuningRows: some View {
+        Picker("Số luồng ORT", selection: $lab.nanoThreadCount) {
+            ForEach(VieNeuTurboLab.nanoThreadChoices, id: \.self) { count in
+                Text("\(count) luồng").tag(count)
+            }
+        }
+        .pickerStyle(.segmented)
+        .disabled(lab.isBusy)
+        Picker("QoS", selection: $lab.nanoQoS) {
+            ForEach(VieNeuTurboLab.SoakQoS.allCases) { qos in
+                Text(qos.rawValue).tag(qos)
+            }
+        }
+        .pickerStyle(.segmented)
+        .disabled(lab.isBusy)
     }
 
     /// Lý do không bấm được "Bắt đầu" — chỉ khi không bận (đang bận thì nút Dừng đã nói đủ).
@@ -114,14 +139,15 @@ extension VieNeuTurboLabView {
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
-            Button {
-                ClipboardCopier.copy(soakDiagnosticText)
-            } label: {
-                Label {
-                    Text("Sao chép kết quả đọc liên tục")
-                } icon: {
-                    AppGlyph.copy.image(size: 17)
-                }
+            ShareLink(
+                // Tên theo engine của lượt vừa chạy, không theo ô chọn (đổi ô chọn sau khi dừng không đổi kết quả).
+                item: VieNeuTurboReportFile(
+                    kind: .soak,
+                    engineName: lab.soak.engineDescription.hasPrefix("Nano") ? "nano" : "turbo"
+                ),
+                preview: SharePreview("Kết quả đọc liên tục")
+            ) {
+                Label("Chia sẻ file kết quả (.txt)", systemImage: "square.and.arrow.up")
             }
         } header: {
             Text("Tổng kết đọc liên tục")
@@ -145,19 +171,5 @@ extension VieNeuTurboLabView {
                 }
             }
         }
-    }
-
-    /// Một khối chữ để dán vào chat: engine + tổng kết + từng phút + từng đoạn.
-    var soakDiagnosticText: String {
-        var parts = [lab.soak.engineDescription, lab.soak.summaryText]
-        if !lab.soak.minuteLines.isEmpty {
-            parts.append("— Từng phút —")
-            parts.append(contentsOf: lab.soak.minuteLines.reversed())
-        }
-        if !lab.soak.chunkLines.isEmpty {
-            parts.append("— Từng đoạn —")
-            parts.append(contentsOf: lab.soak.chunkLines.reversed())
-        }
-        return parts.joined(separator: "\n")
     }
 }

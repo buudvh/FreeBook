@@ -9,10 +9,16 @@ extension VieNeuTTSEngine {
     /// ngay lượt này (~3 s). Runtime cũ bị giải phóng (session + tensor cache, `VieNeuORTDestroy`) **trước**
     /// khi dựng cái mới ⇒ không nhân đôi bộ nhớ, và không cache nào còn trỏ vào `nullContext` cũ khi nó bị gán lại.
     func runtimeNeedsLoadLocked() -> Bool {
+        let forced = labForceReload
+        labForceReload = false // xoá cả khi chưa có runtime, kẻo lượt sau dựng lại lần nữa vô cớ
         guard let current = runtime else { return true }
-        let defaults = UserDefaults.standard
-        let wantedThreads = VieNeuSynthesisPolicy.effectiveThreadCount(from: defaults)
-        let wantedSpinning = VieNeuSynthesisPolicy.allowSpinning(from: defaults)
+        if forced {
+            AppLogger.shared.log("🎙️ [VieNeu] Màn thử đổi cấu hình (threads \(wantedThreadCountLocked())) — dựng lại session")
+            runtime = nil
+            return true
+        }
+        let wantedThreads = wantedThreadCountLocked()
+        let wantedSpinning = VieNeuSynthesisPolicy.allowSpinning(from: .standard)
         guard current.threadCount != wantedThreads || current.allowSpinning != wantedSpinning else { return false }
         AppLogger.shared.log(
             "🎙️ [VieNeu] Cài đặt đổi (threads \(current.threadCount)→\(wantedThreads), spin "
@@ -34,5 +40,21 @@ extension VieNeuTTSEngine {
         runtime = nil
         phonemizer = nil
         return true
+    }
+
+    /// Số luồng ORT muốn dùng: ghi đè của màn thử nếu có, không thì theo cài đặt. **Chỉ gọi khi đang giữ `lock`.**
+    func wantedThreadCountLocked() -> Int32 {
+        labThreadOverride ?? VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
+    }
+
+    /// Màn thử VieNeu Turbo đặt / bỏ số luồng ORT riêng (1.3.849) — **không** ghi vào cài đặt của người dùng.
+    ///
+    /// Đặt hay bỏ đều buộc dựng lại session ở lần nạp kế tiếp. Luồng phụ của pool ORT sinh ra lúc dựng session nên mang
+    /// QoS của luồng đang dựng; màn thử dựng ngay ở QoS mình chọn (`VieNeuTTSService.prepare(voice:priority:)`), và khi
+    /// bỏ ghi đè thì dựng lại ở `.utility` như lúc app nạp engine bình thường.
+    func setLabThreadOverride(_ threads: Int32?) {
+        lock.lock(); defer { lock.unlock() }
+        labThreadOverride = threads.map { max(1, $0) }
+        labForceReload = true
     }
 }
