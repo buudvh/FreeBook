@@ -205,23 +205,37 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
         var sessionCreateMs: Double?
         if session == nil || sessionThreads != threads {
-            audiocpp_session_free(session)
-            session = nil
-            let started = ProcessInfo.processInfo.systemUptime
-            var created: OpaquePointer?
-            let status: audiocpp_status = "cpu".withCString { backendName in
-                var backend = audiocpp_backend_config(backend: backendName, device: 0, threads: Int32(threads))
-                return audiocpp_session_create(model, "tts", "offline", &backend, nil, &created)
-            }
-            try Self.check(status, "audiocpp_session_create")
-            session = created
-            sessionThreads = threads
-            sessionCreateMs = Self.elapsedMs(since: started)
-            AppLogger.shared.log(
-                "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng: \(String(format: "%.0f", sessionCreateMs ?? 0)) ms"
-            )
+            sessionCreateMs = try createSessionLocked(threads: threads)
         }
         return LoadReport(modelLoadMs: modelLoadMs, sessionCreateMs: sessionCreateMs, threads: threads)
+    }
+
+    /// Nhả session cũ (kèm mọi graph + bộ đệm audio.cpp giữ trong nó) rồi dựng session CPU mới. Trả ms dựng.
+    @discardableResult
+    private func createSessionLocked(threads: Int) throws -> Double {
+        audiocpp_session_free(session)
+        session = nil
+        sessionThreads = 0
+        let started = ProcessInfo.processInfo.systemUptime
+        var created: OpaquePointer?
+        let status: audiocpp_status = "cpu".withCString { backendName in
+            var backend = audiocpp_backend_config(backend: backendName, device: 0, threads: Int32(threads))
+            return audiocpp_session_create(model, "tts", "offline", &backend, nil, &created)
+        }
+        try Self.check(status, "audiocpp_session_create")
+        session = created
+        sessionThreads = threads
+        let createMs = Self.elapsedMs(since: started)
+        AppLogger.shared.log(
+            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng: \(String(format: "%.0f", createMs)) ms — \(ProcessMemoryProbe.snapshot().summary)"
+        )
+        return createMs
+    }
+
+    /// Lỗi cấp phát bộ nhớ của audio.cpp/ggml ("failed to allocate …") — loại lỗi đáng dựng lại session rồi thử lại;
+    /// lỗi khác (đầu vào sai, model hỏng) thử lại cũng vô ích.
+    private static func isAllocationFailure(_ status: audiocpp_status, _ detail: String) -> Bool {
+        status == AUDIOCPP_ERR_OUT_OF_MEMORY || detail.localizedCaseInsensitiveContains("allocate")
     }
 
     private func synthesizeLocked(
@@ -229,7 +243,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         referenceCodesPath: String,
         speakerEmbeddingPath: String
     ) throws -> Output {
-        guard let session else { throw RuntimeError.notLoaded }
+        guard session != nil else { throw RuntimeError.notLoaded }
         guard let request = audiocpp_request_create() else {
             throw RuntimeError.call("audiocpp_request_create", "không cấp phát được request")
         }
@@ -249,10 +263,27 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         var result: OpaquePointer?
         let started = ProcessInfo.processInfo.systemUptime
         let cpuStarted = ProcessCPUClock.nowMs()
-        let status = audiocpp_session_run(session, request, &result)
+        var status = audiocpp_session_run(session, request, &result)
+        if status != AUDIOCPP_OK {
+            // Đọc lỗi NGAY (thread-local), trước mọi lời gọi audio.cpp khác.
+            let detail = String(cString: audiocpp_last_error())
+            let name = String(cString: audiocpp_status_string(status))
+            AppLogger.shared.log(
+                "❌ [VieNeuTurbo] audiocpp_session_run lỗi: \(name) — \(detail) — \(ProcessMemoryProbe.snapshot().summary)"
+            )
+            guard Self.isAllocationFailure(status, detail) else {
+                throw RuntimeError.call("audiocpp_session_run", "\(name) — \(detail)")
+            }
+            // Thiếu bộ nhớ: nhả session (graph + bộ đệm của nó) rồi dựng lại, thử lại đúng đoạn này **một** lần.
+            // Thời gian / CPU đo gồm cả lần hỏng + dựng lại — số đo không đẹp hơn thực tế.
+            try createSessionLocked(threads: max(1, sessionThreads))
+            result = nil
+            status = audiocpp_session_run(session, request, &result)
+            try Self.check(status, "audiocpp_session_run (thử lại sau khi dựng lại session)")
+            AppLogger.shared.log("🎙️ [VieNeuTurbo] Thử lại sau lỗi cấp phát: thành công — \(ProcessMemoryProbe.snapshot().summary)")
+        }
         let runMs = Self.elapsedMs(since: started)
         let cpuMs = ProcessCPUClock.nowMs() - cpuStarted
-        try Self.check(status, "audiocpp_session_run")
         guard let result else { throw RuntimeError.noAudio }
         defer { audiocpp_result_free(result) }
 

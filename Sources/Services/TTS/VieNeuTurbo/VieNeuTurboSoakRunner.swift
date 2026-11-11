@@ -181,7 +181,7 @@ final class VieNeuTurboSoakRunner {
         let thermal = VieNeuTurboSoakStats.thermalName(ProcessInfo.processInfo.thermalState)
         let phonemes = audio.phonemeCount.map { " · \($0) âm vị" } ?? ""
         let line = String(
-            format: "#%d (vòng %d) · %d ký tự%@ · tổng hợp %.2f s · tiếng %.2f s · RTF %@ · CPU/tiếng %@ · %@",
+            format: "#%d (vòng %d) · %d ký tự%@ · tổng hợp %.2f s · tiếng %.2f s · RTF %@ · CPU/tiếng %@ · %@ · %@",
             number,
             round,
             characters,
@@ -190,7 +190,9 @@ final class VieNeuTurboSoakRunner {
             audio.audioSeconds,
             VieNeuTurboSoakStats.ratio(audio.synthesisMs / 1_000, audio.audioSeconds),
             VieNeuTurboSoakStats.ratio(audio.cpuMs / 1_000, audio.audioSeconds),
-            thermal
+            thermal,
+            // Bộ nhớ sau mỗi đoạn: thấy được nó có tăng dần theo thời gian không (lỗi cấp phát của 1.3.847).
+            ProcessMemoryProbe.snapshot().summary
         )
         chunkLines.insert(line, at: 0)
         if chunkLines.count > Self.maxChunkLines { chunkLines.removeLast(chunkLines.count - Self.maxChunkLines) }
@@ -208,7 +210,9 @@ final class VieNeuTurboSoakRunner {
 
     private func fail(_ error: Error) {
         errorMessage = error.localizedDescription
-        AppLogger.shared.log("❌ [VieNeuTurbo] Đọc liên tục lỗi — \(engineDescription): \(error.localizedDescription)")
+        AppLogger.shared.log(
+            "❌ [VieNeuTurbo] Đọc liên tục lỗi — \(engineDescription): \(error.localizedDescription) — \(ProcessMemoryProbe.snapshot().summary)"
+        )
         stop(reason: "lỗi")
     }
 
