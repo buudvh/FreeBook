@@ -42,7 +42,7 @@ struct TranslationTraditionalDraft {
         }
         let changed = zip(candidates, before)
             .filter { store.convertsTraditionalToSimplified(bookId: $0.0.bookId, packageId: $0.0.packageId) != $0.1 }
-            .map(\.0)
+            .map { $0.0 }
         guard !changed.isEmpty else { return }
         guard TranslationManager.shared.isVietPhraseLoaded else {
             AppLogger.shared.log("⚠️ [ChapterTitle] Từ điển chưa nạp — bỏ lượt dịch lại tên chương sau khi đổi phồn→giản")
