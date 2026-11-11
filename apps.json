@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.834",
+          "buildVersion": "1207",
+          "date": "2026-11-11T04:08:27Z",
+          "localizedDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1207/TangCongCac-1.3.834-1207.ipa",
+          "size": 39236958,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.833",
           "buildVersion": "1206",
           "date": "2026-11-11T03:45:00Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1200/TangCongCac-1.3.826-1200.ipa",
           "size": 39059460,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.825",
-          "buildVersion": "1199",
-          "date": "2026-11-11T02:14:55Z",
-          "localizedDescription": "- feat: DNS mã hoá trong app chống nhà mạng chặn tên miền",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1199/TangCongCac-1.3.825-1199.ipa",
-          "size": 39020435,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.833",
-      "versionDate": "2026-11-11T03:45:00Z",
-      "versionDescription": "- feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt\n- feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc\n- feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado\n- feat: lõi dịch truyện bằng tiện ích loại translate\n- feat: dịch phụ đề phim và lời bài hát tiếng Trung\n- feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1206/TangCongCac-1.3.833-1206.ipa",
-      "size": 39228347,
+      "version": "1.3.834",
+      "versionDate": "2026-11-11T04:08:27Z",
+      "versionDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1207/TangCongCac-1.3.834-1207.ipa",
+      "size": 39236958,
       "appPermissions": {}
     }
   ],
