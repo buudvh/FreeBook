@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Tên truyện / tên chương ở đầu trang, màn đang tải, màn lỗi và sheet mục lục của Reader (1.3.853).
 ///
@@ -36,6 +37,14 @@ extension ReaderView {
         let packageId = localBook?.extensionPackageId ?? extensionPackageId
         return "\(TranslationDisplayRevision.shared.value)|\(isTranslationEnabled)|\(shouldConvertTraditionalToSimplified)"
             + "|\(localBook != nil)|\(packageId)"
+    }
+
+    /// `readerSheetLayer` + hai móc đồng bộ lượt dịch tên — tách khỏi chuỗi modifier dài của `readerObserverLayer`
+    /// (gắn thẳng vào chuỗi đó thì trình biên dịch quá thời gian suy kiểu, CI 1.3.853).
+    internal var readerTitleSyncLayer: some View {
+        readerSheetLayer
+            .task(id: titleTranslationKey) { syncTitleTranslations() }
+            .onChange(of: currentOnlineChapters) { _, _ in syncTitleTranslations() }
     }
 
     /// Đẩy cấu hình hiện tại vào `titleTranslations` — chỉ gọi ngoài `body`.

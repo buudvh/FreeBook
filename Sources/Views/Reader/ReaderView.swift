@@ -406,7 +406,7 @@ struct ReaderView: View {
     }
 
     /// Ba panel bôi đen (Dịch, Xoá từ rác, Copy gốc) là sheet gốc gắn ở đây — xem `ReaderView+SelectionSheets`.
-    private var readerSheetLayer: some View {
+    internal var readerSheetLayer: some View {
         withTTSSameChapterPrompt(withSelectionSheets(readerOverlayStack))
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
@@ -465,7 +465,7 @@ struct ReaderView: View {
     }
 
     private var readerObserverLayer: some View {
-        readerSheetLayer
+        readerTitleSyncLayer
         .onChange(of: showingDefinitionSheet) { _, newValue in
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
@@ -519,8 +519,6 @@ struct ReaderView: View {
             )
             scheduleCoalescedTranslationRefresh()
         }
-        .task(id: titleTranslationKey) { syncTitleTranslations() } // tên đầu trang / mục lục bằng tiện ích dịch
-        .onChange(of: currentOnlineChapters) { _, _ in syncTitleTranslations() }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
             TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
             applyTranslation()
