@@ -96,7 +96,10 @@ final class EncryptedDNSRelayTunnel: @unchecked Sendable {
                 return name != "connection" && name != "proxy-connection" && name != "proxy-authorization"
             }
             let rebuilt = ([method + " " + path + " " + parts[2]] + kept + ["Connection: close", "", ""]).joined(separator: "\r\n")
-            openUpstream(host: host, port: url.port ?? 80) { [weak self] in
+            guard let upstreamPort = UInt16(exactly: url.port ?? 80) else {
+                return reject("400 Bad Request", why: "cổng sai")
+            }
+            openUpstream(host: host, port: upstreamPort) { [weak self] in
                 guard let self else { return }
                 self.upstream?.send(content: Data(rebuilt.utf8) + rest, completion: .contentProcessed { _ in })
                 self.startPumps()
