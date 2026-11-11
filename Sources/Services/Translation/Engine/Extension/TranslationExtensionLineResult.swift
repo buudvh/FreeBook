@@ -13,6 +13,9 @@ public struct TranslationExtensionLineResult: Sendable {
     public let errorMessage: String?
     /// Số dòng đã gửi (hoặc lấy từ cache) để dịch — mẫu số của "N/M đoạn".
     public let requestedLineCount: Int
+    /// Có lần gọi tiện ích bị lỗi (mạng, giới hạn lượt, `Response.error`, script hỏng) hoặc lỗi còn nhớ trong cache —
+    /// caller khỏi gọi thêm (vd tên chương) mà lùi QT luôn.
+    public let hadCallError: Bool
 
     public var hasFailures: Bool { !failedLineIds.isEmpty }
 }

@@ -41,7 +41,8 @@ enum TranslationExtensionChapterTranslator {
         var titleOutcome: (result: TranslatedTextResult, failed: Bool, error: String?)?
         if let title, !title.isEmpty {
             titleOutcome = try await translateTitle(
-                title, chapterIndex: chapterIndex, bookId: bookId, engine: engine, convertsTraditional: convertsTraditional
+                title, chapterIndex: chapterIndex, bookId: bookId, engine: engine, convertsTraditional: convertsTraditional,
+                skipsExtension: result.hadCallError
             )
         }
 
@@ -79,18 +80,27 @@ enum TranslationExtensionChapterTranslator {
     }
 
     /// Tên chương theo thứ tự `title_trans` ⇒ tiện ích ⇒ QT / giữ nguyên. Spans rỗng trừ khi lùi về QT.
+    ///
+    /// `title_trans` là bản QT (tiếng Việt) nên chỉ dùng khi tiện ích cũng dịch sang tiếng Việt — dịch sang ngôn ngữ
+    /// khác mà hiện tên chương tiếng Việt là sai. `skipsExtension` (nội dung vừa gặp lỗi gọi tiện ích, vd bị giới hạn
+    /// lượt) ⇒ khỏi gọi thêm, lùi QT luôn và tính là lỗi.
     static func translateTitle(
         _ title: String,
         chapterIndex: Int,
         bookId: String,
         engine: ResolvedTranslationEngine,
-        convertsTraditional: Bool
+        convertsTraditional: Bool,
+        skipsExtension: Bool = false
     ) async throws -> (result: TranslatedTextResult, failed: Bool, error: String?) {
-        if let stored = await storedTitleTranslation(title, chapterIndex: chapterIndex, bookId: bookId) {
+        if Self.targetsVietnamese(engine),
+           let stored = await storedTitleTranslation(title, chapterIndex: chapterIndex, bookId: bookId) {
             return (TranslatedTextResult(text: stored, spans: []), false, nil)
         }
         guard let job = TranslationExtensionRunner.Job(engine: engine, bookId: bookId, source: .tableOfContent) else {
             return (qtTitle(title, bookId: bookId, convertsTraditional: convertsTraditional), false, nil)
+        }
+        if skipsExtension {
+            return (qtTitle(title, bookId: bookId, convertsTraditional: convertsTraditional), true, nil)
         }
         let input = TranslateUtils.textForTranslation(title, shouldConvertTraditionalToSimplified: convertsTraditional)
         guard TranslationExtensionBatchPlanner.needsTranslation(input) else {
@@ -105,6 +115,11 @@ enum TranslationExtensionChapterTranslator {
             AppLogger.shared.log("❌ [ExtTranslate] Tên chương \(chapterIndex + 1) lỗi — \(message)")
             return (qtTitle(title, bookId: bookId, convertsTraditional: convertsTraditional), true, message)
         }
+    }
+
+    private static func targetsVietnamese(_ engine: ResolvedTranslationEngine) -> Bool {
+        let target = engine.selection.to.lowercased()
+        return target == "vi" || target.hasPrefix("vi-") || target.hasPrefix("vi_")
     }
 
     private static func qtTitle(_ title: String, bookId: String, convertsTraditional: Bool) -> TranslatedTextResult {

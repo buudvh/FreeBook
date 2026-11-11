@@ -1,7 +1,7 @@
 import Foundation
 
 /// Thiết lập theo `bookId` phải đi theo truyện khi đổi nguồn (bookId đổi): từ điển + rule riêng, phiên AI chat, trí nhớ
-/// AI, phạm vi + điểm tiếp nối quét tên riêng, chế độ dịch riêng. Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
+/// AI, phạm vi + điểm tiếp nối quét tên riêng, chế độ dịch riêng, bộ dịch riêng (`TranslationEngineStore`). Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
 ///
 /// Từ 1.3.689 tách hai bước: `copyBookScopedSettings` chỉ **chép** (không đụng bản cũ; truyện đích đã có bản riêng thì giữ
 /// của đích), `removeBookScopedSettings` xoá bản của một truyện sau mốc chốt (hoặc của truyện mới khi lùi lại). Trước đây
@@ -41,6 +41,11 @@ public actor BookSourceMigrator {
         if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: newBookId, mode: oldOverride)
         }
+        // Bộ dịch (QT / tiện ích + ngôn ngữ) riêng của truyện.
+        if let engine = TranslationEngineStore.shared.bookSelection(bookId: oldBookId),
+           TranslationEngineStore.shared.bookSelection(bookId: newBookId) == nil {
+            TranslationEngineStore.shared.setBookSelection(engine, bookId: newBookId)
+        }
     }
 
     /// Xoá mọi thiết lập riêng của một truyện (truyện cũ sau mốc chốt, hoặc truyện mới khi lùi lại).
@@ -61,6 +66,9 @@ public actor BookSourceMigrator {
         AINameScanScopeStore.shared.remove(bookId: bookId)
         if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
+        }
+        if TranslationEngineStore.shared.bookSelection(bookId: bookId) != nil {
+            TranslationEngineStore.shared.setBookSelection(nil, bookId: bookId)
         }
     }
 

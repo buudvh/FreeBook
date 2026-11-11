@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.836] - 2026-11-11
+
+### fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch
+
+Sửa lõi phần A (1.3.832) theo review phản biện, trước khi nối vào Reader / TTS / giao diện.
+
+- **Gộp lượt trùng** (`TranslationExtensionInflight`, mới). Reader và TTS (hoặc hai lượt nạp trước chương kế) xin dịch cùng các dòng với cùng cấu hình thì chỉ một lượt gọi tiện ích chạy, mọi bên nhận cùng kết quả.
+  - Trước đây hai bên cùng trượt cache, gọi tiện ích hai lần. Với máy dịch kiểu AI, hai lần ra hai chữ khác nhau nên vệt highlight lệch.
+  - Lượt chạy là `Task` riêng: bên cuối cùng rời đi vì huỷ thì lượt bị huỷ theo.
+- **Nhớ lỗi gần đây** (`TranslationExtensionLineCache`, 90 s). Dòng vừa lỗi ở Reader thì TTS cũng lùi QT, không gọi lại rồi ra chữ khác. Đang bị giới hạn lượt thì không gọi dồn. "Thử lại" / tải lại chương xoá luôn phần này.
+- **Thế hệ cache theo từng truyện**: xoá cache của truyện A không còn làm rơi lượt ghi đang chạy của truyện B.
+- **Chia lô**:
+  - Lỗi ở nửa sau không còn làm mất bản dịch của nửa đầu.
+  - `max_length ≤ 0` (hợp đồng: không chia gì) ⇒ lệch số dòng thì cả lô tính lỗi, không chia đôi.
+  - Gặp lỗi gọi tiện ích (không phải lệch dòng) ⇒ dừng gọi tiếp.
+- **Tên chương**:
+  - `title_trans` (bản QT tiếng Việt) chỉ dùng khi tiện ích dịch sang tiếng Việt. Dịch sang ngôn ngữ khác thì hiện tên tiếng Việt là sai.
+  - Nội dung vừa gặp lỗi gọi tiện ích ⇒ tên chương lùi QT luôn, không tốn thêm một lượt gọi.
+- `translateText(_:job:bypassCache:)`: ô Dịch thử luôn gọi script. Lỗi của tên chương cũng được nhớ.
+- `BookSourceMigrator`: Đổi nguồn chép bộ dịch riêng của truyện sang truyện mới và xoá bản của truyện cũ (luật "thêm kho theo `bookId` ⇒ thêm vào cả hai hàm").
+- **Kiểm chứng:**
+  - Đọc code + 2 agent review.
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.835] - 2026-11-11
 
 ### fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng
@@ -370,17 +395,3 @@ Anh Bửu: *"thêm nút hẹn giờ vào thanh nghe nhạc mini của nghe nhạ
 - `AudioMiniPlayerBar`: thêm ⏱ giữa ⏭ và ✕ (4 nút rộng 36 pt như thanh widget TTS), chạm mở `MediaSleepTimerSheet` của trình nghe; đang hẹn ⇒ viên "⏱ m:ss" cạnh tên ca sĩ (`AudioMiniPlayerTimerBadge`, view riêng đọc `MediaSleepTimer` ⇒ thân thanh không vẽ lại mỗi giây).
 - Trình duyệt người dùng (`BypassWebView.browserArea`): đang có album ⇒ thanh nhạc mini nằm ngay trên thanh dưới, trang co lại chừa chỗ (không che); ẩn lúc gõ địa chỉ. Trang đẩy vào / sheet giữ như cũ.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.806] - 2026-11-09
-
-### feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ
-
-Anh Bửu: *"kiểu widget tts thanh nghe nhạc bạn làm thiếu đĩa xoay tròn ở reader"*, chọn "nút đĩa như nhạc", rồi *"để cho thanh nghe nhạc thấp hơn nút nghe truyện. Đừng che nội dung truyện"* và *"bấm vào đĩa ở reader thì hiển thị sheet"* (mockup duyệt 2026-11-09).
-
-- **Cầu nối** `TTSWidgetBarPresence` (`Views/TTSWidget/`): gộp trạng thái thu gọn của thanh (`TTSWidgetBarViewModel` ghi qua `didSet`), cửa sổ widget đang hiện và kiểu widget thành hai cờ cho Reader: `showsReaderDisc` (thanh thu gọn) và `readerBottomInset` (thanh bung). Reader không đọc thẳng view model của container hay `TTSManager`.
-- **Trong Reader, thanh thu gọn ⇒ không còn viên nép mép**: `TTSWidgetBarContainerViewController` để viên alpha 0 (cửa sổ chạm xuyên) và không giữ chỗ ở `FloatingWidgetLayoutCoordinator`; thay bằng `ReaderTTSDiscButton` ngay trên nút tai nghe, cùng chỗ / dáng nút đĩa nhạc (52 pt, kính `FloatingGlassBackground`, bìa truyện xoay theo góc chung `TTSWidgetCoverRotation`).
-- **Chạm đĩa ⇒ `TTSQuickControlSheet`** (khuôn sheet nhạc, nền kính ngăn kéo): đĩa bìa · tên truyện + tên chương · ⏱ (đang hẹn ⇒ giờ còn lại màu nhấn, mở `TTSQuickTimerSheet`); câu đang đọc + vạch "Đoạn N / M đoạn" (`TTSQuickControlNowReading`, chỉ khối này vẽ lại theo đoạn); ⏮ đoạn trước · ⏯ · ⏭ đoạn kế; Mục lục (`TTSQuickTimerSheet(initialTab: 1)`) · Giọng đọc (Cài đặt TTS, state riêng — không qua `showingSettingsSheet` để không tranh host với sheet Hẹn giờ) · Tắt đọc. Không bung thanh.
-- **Bấm tai nghe bắt đầu đọc trong Reader giữ thu gọn** khi bật "Thu gọn khi mở Reader" (`TTSWidgetBarViewModel.revealRequested`; trước đây `reveal` bung thanh đè lên chữ).
-- **Thanh bung trong Reader** (tắt "Thu gọn khi mở Reader"): nằm sát đáy (khe 6 pt, `readerBarBottomGap`), thấp hơn nút tai nghe; `ReaderTTSBarBottomSpacer` thay khoảng đáy 52 pt của `ReaderView` bằng chiều cao thanh + khe ⇒ chữ dừng ngay trên thanh, nút tai nghe đẩy lên trên thanh. Ra khỏi Reader như cũ (thanh trên thanh tab, viên nép mép).
-- Nền kính của sheet nhạc tách ra `DrawerGlassSheetBackground` (`Views/Common/GlassChrome/`), sheet nhạc và sheet TTS dùng chung.
-- **Kiểm chứng:** đọc code + grep chéo chữ ký (`TTSQuickTimerSheet()` vẫn gọi được nhờ tham số mặc định, `registerSlot` chỉ một chỗ gọi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
