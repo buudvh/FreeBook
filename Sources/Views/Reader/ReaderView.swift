@@ -201,6 +201,9 @@ struct ReaderView: View {
     @StateObject internal var ttsState = ReaderTTSStateReader()
     /// Phần mịn (đoạn đang đọc, vệt highlight): `@State`, KHÔNG `@StateObject` — ReaderView không được quan sát nó (1.3.513).
     @State internal var ttsHighlight = ReaderTTSHighlightReader()
+    /// Sheet hỏi khi nút tai nghe trúng chương TTS đang phát + chiều cao đo được của nó (`ReaderView+TTSSameChapterPrompt`).
+    @State var ttsSameChapterPrompt: ReaderTTSSameChapterSheet.Prompt?
+    @State var ttsSameChapterSheetHeight: CGFloat = 0
     /// `viewModel` nằm trong `@State` nên SwiftUI không tự subscribe nó — relay này mới là
     /// thứ làm `@Published` của view model invalidate được `ReaderView`.
     @StateObject internal var viewModelRelay = ReaderViewModelInvalidationRelay()
@@ -409,7 +412,7 @@ struct ReaderView: View {
 
     /// Ba panel bôi đen (Dịch, Xoá từ rác, Copy gốc) là sheet gốc gắn ở đây — xem `ReaderView+SelectionSheets`.
     private var readerSheetLayer: some View {
-        withSelectionSheets(readerOverlayStack)
+        withTTSSameChapterPrompt(withSelectionSheets(readerOverlayStack))
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 bookId: bookId,
@@ -926,17 +929,7 @@ struct ReaderView: View {
 
             let paragraphIndex = (userInfo["paragraphIndex"] as? Int).flatMap { $0 >= 0 ? $0 : nil } ?? 0
             AIRuntimeCoordinator.shared.dismissFullScreen()
-            reenableTTSAutoScrollFromWidgetJump()
-            if targetIndex != chapterIndex {
-                requestChapter(
-                    at: targetIndex,
-                    paragraphIndex: paragraphIndex,
-                    source: .ttsSync,
-                    persistProgress: false
-                )
-            } else if paragraphIndex >= 0 {
-                scrollTarget = ScrollTarget(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
-            }
+            jumpToPlayingTTSPosition(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
         }
         .background(ReaderTTSParagraphChangeObserver(reader: ttsHighlight) { newValue in
             guard isSceneActive else { return }

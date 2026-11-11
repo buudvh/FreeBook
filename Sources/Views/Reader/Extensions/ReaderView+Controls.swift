@@ -218,55 +218,14 @@ extension ReaderView {
         readerEdgeButton(
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
-            action: {
-                if canResumePausedTTSInPlace {
-                    ttsManager.resume()
-                    return
-                }
-                if ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget {
-                    ttsManager.stop()
-                }
-                let viewportTopY = geometry.frame(in: .global).minY + geometry.safeAreaInsets.top + 20
-                if let top = paragraphTracker.getTopVisible(viewportTopY: viewportTopY, currentBookId: bookId, currentChapterIndex: chapterIndex) {
-                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
-                } else if let top = paragraphTracker.topVisible {
-                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
-                } else {
-                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                    let targetPIdx: Int
-                    if savedPIdx >= 0 {
-                        targetPIdx = savedPIdx
-                    } else if let vm = viewModel, vm.readingContext.chapterIndex == chapterIndex, vm.readingContext.paragraphIndex >= 0 {
-                        targetPIdx = vm.readingContext.paragraphIndex
-                    } else {
-                        targetPIdx = -1
-                    }
-                    startTTS(at: chapterIndex, paragraphIndex: targetPIdx)
-                }
-            }
+            // Tạm dừng tại chỗ ⇒ phát tiếp; trúng chương đang phát ⇒ sheet hỏi; còn lại đọc từ đoạn trên cùng màn hình.
+            action: { handleReaderHeadphoneTap(geometry: geometry) }
         )
         .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
         .mediaDiscAnchor(.button)
         // Tâm nút giữ đúng chỗ cũ (nút cũ 60pt = 44pt + đệm kính 8pt, lề phải 8 / dưới 12).
         .padding(.trailing, 12)
         .padding(.bottom, 16)
-    }
-
-    /// TTS đang **tạm dừng** truyện này và đoạn đang dừng vẫn nằm trong vùng an toàn của màn hình (cùng điều kiện
-    /// tự cuộn) ⇒ nút tai nghe phát tiếp đúng chunk đang dừng. Người dùng đã kéo trang đi chỗ khác thì giữ hành vi
-    /// cũ: dừng phiên và đọc từ đoạn trên cùng màn hình.
-    private var canResumePausedTTSInPlace: Bool {
-        let state = ttsState.snapshot
-        guard !state.isPlaying, state.showFloatingWidget,
-              state.playingBookId == bookId,
-              state.playingChapterIndex == chapterIndex else { return false }
-        return paragraphTracker.isParagraphInsideSafeViewport(
-            bookId: bookId,
-            chapterIndex: chapterIndex,
-            paragraphIndex: ttsHighlight.currentParentParagraphIndex,
-            viewportMinY: readerViewportMinY,
-            viewportMaxY: readerViewportMaxY
-        )
     }
 
     /// Nút tròn 52pt nền kính theo Cài đặt › Giao diện (1.3.636) — cùng kiểu với nút "+" nổi của màn danh sách.
@@ -334,5 +293,22 @@ extension ReaderView {
         isAutoScrollDisabled = false
         ttsAutoScrollGeneration += 1
         AppLogger.shared.log("[Reader] Widget TTS yêu cầu nhảy tới highlight — bật lại cuộn theo highlight")
+    }
+
+    /// Đưa Reader về chỗ TTS đang đọc: bật lại cuộn theo highlight, khác chương ⇒ mở chương đó, cùng chương ⇒ cuộn tới
+    /// đoạn. Dùng chung cho lệnh nhảy của widget (`navigateReaderToPlayingChapter`) và "Đọc tiếp chỗ đang đọc" của sheet
+    /// hỏi khi bấm nút tai nghe trúng chương đang phát.
+    internal func jumpToPlayingTTSPosition(chapterIndex targetIndex: Int, paragraphIndex: Int) {
+        reenableTTSAutoScrollFromWidgetJump()
+        if targetIndex != chapterIndex {
+            requestChapter(
+                at: targetIndex,
+                paragraphIndex: paragraphIndex,
+                source: .ttsSync,
+                persistProgress: false
+            )
+        } else if paragraphIndex >= 0 {
+            scrollTarget = ScrollTarget(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
+        }
     }
 }

@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.811] - 2026-11-09
+
+### fix: nút ⋮ thêm playlist trong hàng danh sách không nhận chạm của cả hàng
+
+Rà commit 1.3.810 trước khi push:
+
+- `PlaylistListItemMenu` gắn `.menuStyle(.borderlessButton)` như menu chuyển từ của `DictionaryEntryRow` / `QuickTranslationRuleEntryRow`: ở kiểu Danh sách của Khám phá / Thể loại và Tìm một nguồn, ⋮ đè lên nút mở item **trong hàng `List`** — Menu kiểu mặc định có thể nhận chạm của cả hàng (chạm item lại mở ⋮). Lưới, Trang chủ Khám phá, Tìm nhiều nguồn không nằm trong `List`, không đổi gì.
+- Comment của `PlaylistAddRequest` / `PlaylistAddSheet` hết ghi "ba lối" — liệt kê thêm icon cuối hàng và ⋮ / icon của item danh sách chưa mở.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.810] - 2026-11-09
 
 ### feat: thêm vào playlist ngay trên danh sách nhạc và phim, nút ? xem thay đổi của bản đang dùng, chip Tất cả ở tab Playlist
