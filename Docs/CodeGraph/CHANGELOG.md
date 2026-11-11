@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.862] - 2026-11-11
+
+### feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu
+
+Anh Bửu: "chuyển popup khi bấm vào hub thành dạng sheet như sheet tts và nghe" (đã duyệt mockup). Thẻ menu nổi cạnh nút hub + lớp nền trong suốt nuốt chạm toàn màn được thay bằng **sheet hub**.
+
+- **Sheet** `FloatingHubSheet` (mới): nền kính tối theo cài đặt ngăn kéo (`DrawerGlassSheetBackground`), bo 16, cao vừa nội dung (đo chiều cao như `AudioQuickControlSheet`), thanh kéo, vuốt xuống để đóng — không nút đóng. Trang chính: dòng đầu "Lối tắt nổi" + "N đang chạy", **bốn dòng cố định** AI → Thông báo → Video → Kiểm tra nguồn dạng ô bo góc (`hubSheetPanelRow`), dòng xám mờ 40% không biến mất, dòng Video giữ ⏸ / ✕ (sheet không đóng), các dòng khác có ›. Trang con "Tác vụ AI" / "Kiểm tra nguồn" (hai lượt) nằm trong sheet với nút ‹, danh sách rỗng ⇒ tự về trang chính.
+- **Chỗ giữ sheet** `FloatingHubSheetHost` (view 1×1 trong cửa sổ hub, khuôn `MediaDiscSheetHost`) + trạng thái `FloatingHubSheetState`. Sheet mở ⇒ `setSheetPresented(true)` (giữ cửa sổ, giấu nút). Mọi đường đóng đi qua `onDismiss` ⇒ báo `false` trước, rồi mới chạy việc kèm theo (`dismiss(then:)`): màn Thông báo / AI / phim / màn kiểm tra mở **sau** khi sheet đóng xong.
+- `+Actions`: `open(_:)`, `openAITask`, `openSourceCheck`, `activateByRunningTasks` dùng sheet (AI / hai lượt kiểm tra ⇒ trang con). Cài đặt "Khi chạm hub" giữ nguyên ý: "Luôn hiện tất cả mục" ⇒ sheet trang chính; "Mở thẳng khi chỉ có 1 tác vụ" ⇒ như cũ, chỗ trước mở menu nay mở sheet.
+- **Xoá** `FloatingHubMenuView`, `FloatingHubContainerViewController+Menu`, `menuBackdropView` / `menuContainerView`, cờ `isMenuOpen` và mọi `closeMenu` ở `FloatingHubWindowManager`; `FloatingHubUIWindow.hitTest` còn hai nhánh (sheet đang trình bày ⇒ cả cửa sổ; còn lại chỉ khung nút).
+- `FloatingHubMenuRow`, `FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`: đổi sang kiểu ô của sheet (cao 56, không vạch ngăn, tiêu đề trang con 17 pt). Chữ cài đặt "Khi chạm hub" đổi "menu" ⇒ "sheet".
+- `rules.md`: viết lại luật hub (a) (nửa viên dính mép), (b) (sheet thay menu + cờ / thứ tự đóng), (e), (f), thứ tự `hitTest`. `CLAUDE.md` / `AGENTS.md`: câu sheet hub ở đoạn đĩa nghe.
+- **Kiểm chứng:**
+  - Đọc code + grep chéo `isMenuOpen` / `closeMenu` / `openMenu` / `FloatingHubMenuView` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Chạm hub ⇒ sheet bốn dòng; vuốt xuống ⇒ đóng, nút hub hiện lại.
+    2. Chạm Thông báo ⇒ sheet hub đóng rồi màn Thông báo mở; đóng màn Thông báo ⇒ nút hub hiện lại.
+    3. Có AI đang chạy ⇒ chạm Trợ lý AI ⇒ trang "Tác vụ AI" trong sheet, ‹ quay lại; chạm truyện ⇒ màn AI của truyện đó.
+    4. Phim thu nhỏ vào hub ⇒ dòng Video ⏸ đổi glyph ngay, ✕ dừng phim, chạm dòng ⇒ mở lại màn xem.
+    5. Cài đặt "Mở thẳng khi chỉ có 1 tác vụ" + 1 AI đang chạy ⇒ chạm hub mở thẳng trang "Tác vụ AI".
+
 ## [1.3.861] - 2026-11-11
 
 ### feat: nút hub và nút trình duyệt thu nhỏ thành nửa viên thuốc nhỏ dính mép

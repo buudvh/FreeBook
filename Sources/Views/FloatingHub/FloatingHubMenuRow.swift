@@ -1,21 +1,19 @@
 import SwiftUI
 
-/// Một dòng của thẻ menu hub nổi (1.3.533). Cấu trúc cây view của dòng **cố định**: mọi phần tử luôn có mặt,
-/// trạng thái chỉ đổi opacity / `disabled` / chữ — đúng bất biến "hub không vẽ lại".
+/// Một dòng của **sheet hub** (1.3.533; thẻ menu ⇒ sheet 2026-11-11): ô bo góc nền mờ (`hubSheetPanelRow`), không vạch
+/// ngăn. Cấu trúc cây view của dòng **cố định**: mọi phần tử luôn có mặt, trạng thái chỉ đổi opacity / `disabled` / chữ.
 ///
 /// ## Bố cục
 /// `HStack { nút chính (icon + hai dòng chữ + badge); cụm nút phát }`. Hai nút phát/dừng và đóng là **anh em**
 /// của nút chính, không lồng trong `label` của nó: `Button` lồng `Button` thì chạm rơi vào nút ngoài.
 ///
 /// ## Dòng xám
-/// `isEnabled == false` ⇒ cả dòng mờ 0,4 và các nút `disabled`. Dùng `.disabled` chứ **không**
-/// `allowsHitTesting(false)`: tắt hit-test thì cú chạm xuyên xuống lớp nền `menuBackdropView` và đóng luôn menu.
+/// `isEnabled == false` ⇒ cả dòng mờ 0,4 và các nút `disabled` (dòng vẫn nằm đó, không biến mất).
 ///
 /// Cụm nút phát chỉ có ở dòng `.video` — nhánh theo `kind`, là **hằng** của dòng, không đổi theo trạng thái. Khi
 /// không có video, cụm này trong suốt và `disabled`, vẫn nằm trong cây view.
 struct FloatingHubMenuRow: View {
     let item: FloatingHubItem
-    let showsSeparator: Bool
     let onSelect: () -> Void
     let onTogglePlayback: () -> Void
     let onStop: () -> Void
@@ -44,10 +42,17 @@ struct FloatingHubMenuRow: View {
                     }
 
                     Spacer(minLength: 0)
+
+                    if item.kind != .video {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.trailing, 6)
+                    }
                 }
-                // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (48pt) đều bấm được.
+                // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (56 pt) đều bấm được.
                 .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -58,14 +63,8 @@ struct FloatingHubMenuRow: View {
                 playbackControls
             }
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
+        .hubSheetPanelRow()
         .opacity(item.isEnabled ? 1 : 0.4)
-        .overlay(alignment: .top) {
-            Divider()
-                .padding(.leading, 52)
-                .opacity(showsSeparator ? 1 : 0)
-        }
     }
 
     /// Tên loại media cho nhãn VoiceOver của cụm nút phát.

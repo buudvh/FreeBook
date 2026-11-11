@@ -2,12 +2,10 @@ import UIKit
 
 /// Overlay `UIWindow` nền trong suốt của nút hub nổi (1.3.524) — ranh giới hit-testing duy nhất có thẩm quyền.
 ///
-/// Thứ tự ba nhánh dưới đây là **bắt buộc**:
-/// 1. Container đang trình bày sheet màn Thông báo ⇒ touch đi đủ đường (luật 25, `rules.md`).
-/// 2. Menu đang mở và nút đang hiện ⇒ touch đi đủ đường: lớp nền trong suốt toàn màn nhận chạm ngoài thẻ để
-///    đóng menu. Đây là lúc duy nhất cửa sổ nuốt chạm của app, nên cờ menu phải được hạ ở mọi đường (xem
-///    `FloatingHubViewModel.isMenuOpen`).
-/// 3. Còn lại: chỉ nhận chạm trong khung nửa viên của nút; ngoài đó trả `nil` để rơi xuống cửa sổ bên dưới.
+/// Thứ tự hai nhánh dưới đây là **bắt buộc**:
+/// 1. Container đang trình bày sheet (sheet hub, màn Thông báo) ⇒ touch đi đủ đường (luật 25, `rules.md`).
+/// 2. Còn lại: chỉ nhận chạm trong khung nửa viên của nút; ngoài đó trả `nil` để rơi xuống cửa sổ bên dưới.
+/// Thẻ menu nổi + lớp nền nuốt chạm toàn màn (nhánh "menu đang mở") bỏ từ 2026-11-11 khi menu thành sheet.
 ///
 /// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính.
 @MainActor
@@ -17,21 +15,16 @@ final class FloatingHubUIWindow: UIWindow, AppOverlayWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard let container = containerViewController else { return nil }
 
-        // (1) Sheet màn Thông báo được trình bày từ chính cửa sổ này nên view của nó nằm trong cây của cửa
+        // (1) Sheet hub / màn Thông báo được trình bày từ chính cửa sổ này nên view của nó nằm trong cây của cửa
         // sổ, mà lúc đó `widgetContainerView` lại bị `isHidden = true` (xem `setSheetPresented`). Thiếu nhánh
-        // này, guard bên dưới thất bại ⇒ mọi cú chạm trên sheet rơi xuống app phía dưới: không bấm được "Đóng".
+        // này, guard bên dưới thất bại ⇒ mọi cú chạm trên sheet rơi xuống app phía dưới.
         if container.presentedViewController != nil {
             return super.hitTest(point, with: event)
         }
 
         let widgetView = container.widgetContainerView
 
-        // (2) Menu mở: thẻ menu, nút hub và lớp nền đều nằm trong cây của cửa sổ — `super` chọn đúng view.
-        if container.isMenuOpen && !widgetView.isHidden {
-            return super.hitTest(point, with: event)
-        }
-
-        // (3) Chỉ khung nửa viên của nút.
+        // (2) Chỉ khung nửa viên của nút.
         guard !widgetView.isHidden,
               widgetView.alpha > 0.01,
               widgetView.isUserInteractionEnabled else {

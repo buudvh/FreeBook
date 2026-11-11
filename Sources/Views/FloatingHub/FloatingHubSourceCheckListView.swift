@@ -1,17 +1,17 @@
 import SwiftUI
 
-/// Trang "Kiểm tra nguồn" trong thẻ menu của nút hub nổi (1.3.697) — chỉ dùng khi có **hai** lượt cùng thu nhỏ (một lượt
+/// Trang "Kiểm tra nguồn" trong sheet hub (thẻ menu nổi trước 2026-11-11) (1.3.697) — chỉ dùng khi có **hai** lượt cùng thu nhỏ (một lượt
 /// kiểm tra nguồn Legado, một lượt kiểm tra tiện ích JS). Mỗi lượt một dòng: tên bộ kiểm tra và tiến độ / kết quả; chạm
 /// dòng nào thì mở lại màn kiểm tra của lượt đó; nút ‹ quay về trang chính.
 ///
-/// Cùng khung dòng với `FloatingHubAITaskListView` (icon 28pt, hai dòng chữ, cao tối thiểu 48pt).
+/// Cùng khung dòng với `FloatingHubAITaskListView` (icon 28pt, hai dòng chữ, cao tối thiểu 56 pt, ô bo góc).
 struct FloatingHubSourceCheckListView: View {
     let entries: [MinimizedSourceCheck]
     let onSelect: (MinimizedSourceCheck.Kind) -> Void
     let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             header
             ForEach(entries) { entry in
                 row(entry)
@@ -33,14 +33,14 @@ struct FloatingHubSourceCheckListView: View {
             .accessibilityLabel(Text("Quay lại"))
 
             Text(FloatingHubItem.Kind.sourceCheck.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.headline)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
         }
-        .padding(.leading, 4)
-        .padding(.trailing, 8)
+        // Chữ "‹" thẳng mép trái nội dung sheet (khung nút 38 có lề trong ~10).
+        .padding(.leading, -10)
     }
 
     private func row(_ entry: MinimizedSourceCheck) -> some View {
@@ -66,18 +66,13 @@ struct FloatingHubSourceCheckListView: View {
 
                 Spacer(minLength: 0)
             }
-            // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (48pt) đều bấm được.
+            // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (56 pt) đều bấm được.
             .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityHint(Text("Mở lại màn kiểm tra của lượt này"))
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .overlay(alignment: .top) {
-            Divider()
-                .padding(.leading, 52)
-        }
+        .hubSheetPanelRow()
     }
 }

@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Mở một mục của hub và toàn bộ luồng sheet màn Thông báo.
+/// Mở một mục của hub (từ sheet hub hoặc chạm thẳng nút) và toàn bộ luồng sheet màn Thông báo.
 ///
 /// Phần sheet chuyển **nguyên văn** từ container của widget thông báo nổi cũ (đã xoá ở 1.3.524),
 /// chỉ đổi chủ của khoá/`modelContainer`/`setSheetPresented` sang `FloatingHubWindowManager`. Năm điểm không
@@ -10,83 +10,88 @@ import UIKit
 /// + `presentationControllerDidDismiss` (luật 26), `.modelContainer` (thiếu là crash), gán delegate trong
 /// completion, và cửa sổ sống suốt lúc sheet mở (`FloatingHubWindowManager.setSheetPresented`).
 extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDelegate {
-    /// Mở một mục: menu đóng rồi giao cho chủ của mục đó. Riêng AI
-    /// (1.3.558): menu **giữ mở** và chuyển sang trang "Tác vụ AI" để chọn truyện (`openAITask`).
+    /// Mở một mục: sheet hub đóng **xong** rồi mới giao cho chủ của mục đó (`FloatingHubSheetState.dismiss(then:)` — trình
+    /// bày từ sheet đang đóng thì UIKit đóng luôn màn mới). Sheet không mở (cài đặt "Mở thẳng") ⇒ mở ngay. Riêng AI
+    /// (1.3.558) và Kiểm tra nguồn có hai lượt (1.3.697): sang trang con của sheet để chọn (`showSheetPage`).
     ///
-    /// Dòng xám đã `disabled` trong menu; guard ở đây chặn thêm đường VoiceOver và lượt chạm lọt vào đúng lúc
+    /// Dòng xám đã `disabled` trong sheet; guard ở đây chặn thêm đường VoiceOver và lượt chạm lọt vào đúng lúc
     /// trạng thái vừa đổi.
     ///
     /// AI tự tìm view controller trên cùng **chỉ trong window `.normal`** (`AIRuntimeCoordinator.presentFullScreen`),
-    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ màn Thông báo được trình bày từ chính
-    /// cửa sổ này.
+    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ
+    /// màn Thông báo được trình bày từ chính cửa sổ này.
     func open(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
-        if kind == .ai {
-            showMenuPage(.aiTasks)
-            return
-        }
-        // Kiểm tra nguồn (1.3.697): hai lượt thu nhỏ ⇒ trang chọn lượt (menu giữ mở); một lượt ⇒ mở thẳng màn của nó.
-        if kind == .sourceCheck {
+        switch kind {
+        case .ai:
+            showSheetPage(.aiTasks)
+        case .sourceCheck:
             let entries = presentationReader.snapshot.sourceChecks
             if entries.count > 1 {
-                showMenuPage(.sourceChecks)
+                showSheetPage(.sourceChecks)
             } else if let entry = entries.first {
                 openSourceCheck(entry.kind)
             }
-            return
-        }
-        closeMenu(animated: false)
-
-        switch kind {
-        case .ai, .sourceCheck:
-            break
         case .notifications:
-            presentInbox()
-        case .video:
-            guard let reopen = VideoMiniPlayerState.shared.onReopen else {
-                AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onReopen")
-                return
+            sheetState.dismiss { [weak self] in
+                self?.presentInbox()
             }
-            reopen()
+        case .video:
+            sheetState.dismiss {
+                guard let reopen = VideoMiniPlayerState.shared.onReopen else {
+                    AppLogger.shared.log("❌ [FloatingHub] Mục Video đang hoạt động nhưng chưa gắn onReopen")
+                    return
+                }
+                reopen()
+            }
         }
     }
 
-    /// Chạm một truyện ở trang "Tác vụ AI": đóng menu, mở màn AI của **đúng** truyện đó.
+    /// Chạm một truyện ở trang "Tác vụ AI": đóng sheet, mở màn AI của **đúng** truyện đó.
     func openAITask(bookId: String) {
         guard isItemEnabled(.ai),
               presentationReader.snapshot.aiTasks.contains(where: { $0.bookId == bookId }) else { return }
-        closeMenu(animated: false)
-        AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
+        sheetState.dismiss {
+            AIRuntimeCoordinator.shared.presentFullScreen(bookId: bookId)
+        }
     }
 
-    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng menu, `MinimizedSourceCheckCoordinator` trình bày
+    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng sheet, `MinimizedSourceCheckCoordinator` trình bày
     /// màn từ cửa sổ mức thường (không phụ thuộc cửa sổ của hub).
     func openSourceCheck(_ kind: MinimizedSourceCheck.Kind) {
         guard isItemEnabled(.sourceCheck),
               presentationReader.snapshot.sourceChecks.contains(where: { $0.kind == kind }) else { return }
-        closeMenu(animated: false)
-        MinimizedSourceCheckCoordinator.shared.reopen(kind)
+        sheetState.dismiss {
+            MinimizedSourceCheckCoordinator.shared.reopen(kind)
+        }
+    }
+
+    /// Sheet đang mở ⇒ chuyển trang; chưa mở ⇒ mở thẳng ở trang đó.
+    private func showSheetPage(_ page: FloatingHubSheet.Page) {
+        if sheetState.isPresented {
+            sheetState.page = page
+        } else {
+            sheetState.present(page: page)
+        }
     }
 
     // MARK: - Chạm nút hub
 
-    /// Chạm nút hub khi menu **đang đóng**, theo cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`, đọc lúc chạm):
+    /// Chạm nút hub (sheet đang đóng), theo cài đặt "Khi chạm hub" (`FloatingHubTapBehavior`, đọc lúc chạm):
     ///
-    /// **Luôn hiện tất cả mục** (mặc định, người dùng chốt 2026-11-06): mở menu ở trang chính,
-    /// dù có 0, 1 hay nhiều tiến trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang
-    /// "Tác vụ AI").
+    /// **Luôn hiện tất cả mục** (mặc định, người dùng chốt 2026-11-06): sheet ở trang chính, dù có 0, 1 hay nhiều tiến
+    /// trình — kể cả khi tiến trình duy nhất là AI (chạm dòng Trợ lý AI mới sang trang "Tác vụ AI").
     ///
     /// **Mở thẳng khi chỉ có 1 tác vụ** (bảng chạm chốt 2026-10-22) — rẽ theo số tiến trình của snapshot **lúc
     /// chạm**:
     /// - 0 ⇒ màn Thông báo.
-    /// - 1 ⇒ mở thẳng mục đó, đúng như chạm dòng của nó trong menu. Thông báo/Video đi thẳng `open(_:)` (tự đóng
-    ///   menu rồi mới trình bày). AI phải mở menu trước vì `open(.ai)` chỉ chuyển thẻ menu đang mở sang trang "Tác vụ AI".
-    /// - Từ 2 ⇒ mở menu.
+    /// - 1 ⇒ mở thẳng mục đó, đúng như chạm dòng của nó trong sheet (AI / Kiểm tra nguồn hai lượt ⇒ sheet ở trang con).
+    /// - Từ 2 ⇒ sheet ở trang chính.
     ///
     /// Tập tiến trình đổi đúng lúc chạm (AI vừa xong) thì `open(_:)` đã guard `isItemEnabled`.
     func activateByRunningTasks() {
         if FloatingHubTapBehavior.current == .alwaysMenu {
-            revealAndOpenMenu()
+            sheetState.present(page: .main)
             return
         }
         let button = presentationReader.snapshot.button
@@ -94,24 +99,15 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         case 0:
             open(.notifications)
         case 1:
-            let kind = button.runningKinds[0]
-            // AI và Kiểm tra nguồn có hai lượt chỉ chuyển trang của menu ⇒ menu phải mở trước.
-            if kind == .ai || (kind == .sourceCheck && presentationReader.snapshot.sourceChecks.count > 1) {
-                revealAndOpenMenu()
-            }
-            open(kind)
+            open(button.runningKinds[0])
         default:
-            revealAndOpenMenu()
+            sheetState.present(page: .main)
         }
-    }
-
-    private func revealAndOpenMenu() {
-        openMenu()
     }
 
     // MARK: - Nút của dòng Video
 
-    /// Phát/dừng video nền. Menu **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
+    /// Phát/dừng video nền. Sheet **giữ nguyên** để người dùng thấy glyph đổi ngay trên dòng.
     func togglePlayback(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         let toggle: (() -> Void)?
@@ -128,7 +124,7 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         toggle()
     }
 
-    /// Dừng hẳn video nền. Menu giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng tự chuyển xám.
+    /// Dừng hẳn video nền. Sheet giữ nguyên: phiên phát `reset()` cầu nối ⇒ dòng tự chuyển xám.
     func stopPlayback(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         let stop: (() -> Void)?

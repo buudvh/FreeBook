@@ -92,9 +92,8 @@ final class FloatingHubWindowManager {
         if shouldShowButton {
             showWidget()
         } else if isSheetPresented {
-            // Cửa sổ phải sống để giữ sheet đang mở; chỉ giấu nút (và chắc chắn menu đã đóng).
+            // Cửa sổ phải sống để giữ sheet đang mở; chỉ giấu nút.
             window?.isHidden = false
-            containerViewController?.closeMenu(animated: false)
             containerViewController?.widgetContainerView.isHidden = true
             FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
         } else {
@@ -106,7 +105,6 @@ final class FloatingHubWindowManager {
         guard isSheetPresented != presented else { return }
         isSheetPresented = presented
         if presented {
-            containerViewController?.closeMenu(animated: false)
             containerViewController?.widgetContainerView.isHidden = true
         }
         refreshState()
@@ -143,9 +141,7 @@ final class FloatingHubWindowManager {
         win.isHidden = false
     }
 
-    /// Đóng menu **trước** khi ẩn cửa sổ: cờ menu kẹt ở `true` là lớp nền nuốt chạm của cả app khi hub hiện lại.
     private func hideWidget() {
-        containerViewController?.closeMenu(animated: false)
         window?.isHidden = true
         isPresented = false
         FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
@@ -154,8 +150,6 @@ final class FloatingHubWindowManager {
     /// Chỉ theo scene chứa giao diện chính (`AppMainWindowScene`): scene của PiP cũng báo `didActivate`, chuyển hub
     /// sang đó là hub hiện trong khung PiP rồi mất hẳn khi tắt PiP.
     @objc private func handleSceneDidActivate(_ notification: Notification) {
-        // Đổi/quay lại scene: menu luôn đóng — không để lớp nền nuốt chạm sống qua lượt chuyển cảnh.
-        containerViewController?.closeMenu(animated: false)
         guard isPresented || isSheetPresented, let scene = notification.object as? UIWindowScene else { return }
         guard AppMainWindowScene.isMainInterface(scene) else {
             if window?.windowScene !== scene {
@@ -168,7 +162,6 @@ final class FloatingHubWindowManager {
     }
 
     @objc private func handleDidBecomeActive() {
-        containerViewController?.closeMenu(animated: false)
         guard isPresented || isSheetPresented, let scene = activeWindowScene else { return }
         move(to: scene)
         window?.isHidden = false

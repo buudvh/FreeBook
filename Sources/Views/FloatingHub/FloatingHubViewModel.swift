@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-/// Trạng thái kéo/thả, mép và menu của **nút hub nổi** (1.3.524).
+/// Trạng thái kéo/thả và mép của **nút hub nổi** (1.3.524). Menu nổi đã thành sheet (`FloatingHubSheetState`, 2026-11-11).
 ///
 /// Chuyển từ view model của widget thông báo nổi cũ (xoá ở 1.3.524). Khoá vị trí riêng (`floatingHub*`) — không dùng
 /// chung với widget nổi khác, kẻo kéo cái này là cái kia nhảy theo. Phần hình học dùng chung `FloatingWidgetGeometry`.
@@ -14,9 +14,6 @@ final class FloatingHubViewModel: ObservableObject {
     @Published var verticalRatio: CGFloat
     @Published var edgeDirection: EdgeDirection
     @Published var isDragging = false
-    /// Menu đang mở. Khi `true`, cửa sổ hub nhận **mọi** chạm (lớp nền trong suốt đóng menu) — nên cờ này phải
-    /// được hạ ở mọi đường: ẩn hub, bắt đầu kéo, mở sheet, mở một mục, đổi scene. Xem `rules.md` mục 1.3.524.
-    @Published private(set) var isMenuOpen = false
 
     static let storedRatioKey = "floatingHubVerticalRatio"
     static let storedEdgeKey = "floatingHubEdge"
@@ -49,17 +46,6 @@ final class FloatingHubViewModel: ObservableObject {
 
         defaults.set(ratio, forKey: storedRatioKey)
         defaults.set(edge, forKey: storedEdgeKey)
-    }
-
-    /// Mở/đóng menu. Idempotent.
-    func setMenuOpen(_ open: Bool) {
-        guard isMenuOpen != open else { return }
-        isMenuOpen = open
-    }
-
-    /// Đưa hub về trạng thái xuất hiện chuẩn: menu đóng.
-    func prepareForAppearance() {
-        isMenuOpen = false
     }
 
     func handleDragStart() {
