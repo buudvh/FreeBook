@@ -20,7 +20,7 @@ struct ComicReaderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.displayScale) private var displayScale
 
-    /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`), tính y như trang Chi tiết (`translationEnabled(for:)`).
+    /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`), tính y như trang Chi tiết (`ComicTranslationStatus`).
     /// Quyết định cả tên chương lẫn dịch ảnh (1.3.833 — trước đó dịch ảnh có công tắc riêng theo tiện ích).
     @State private var isTranslationEnabled: Bool
     /// Tăng khi từ điển / rule / cấu hình dịch đổi ⇒ các ảnh đang hiện dịch lại (`ComicImageTranslationContext.revision`).
@@ -38,6 +38,8 @@ struct ComicReaderView: View {
     /// `Book` đọc một lần lúc mở màn — chỉ để mục lục có thể mở `TaskOptionsSheet` (tải ảnh offline).
     @State private var localBook: Book?
     @State private var zoomImage: UIImage?
+    /// Yêu cầu ảnh của trang đang phóng to — trình xem lấy lại khối chữ đã nhận để vẽ lớp dịch (1.3.834).
+    @State private var zoomRequest: ComicImageRequest?
     @State private var isZoomPresented = false
     /// Trình duyệt "Mở link lỗi" đang mở (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trình xem phóng to).
     @State private var openingErrorLink: SourceErrorLink?
@@ -47,7 +49,7 @@ struct ComicReaderView: View {
 
     init(launch: BookContentLaunch) {
         self.launch = launch
-        _isTranslationEnabled = State(initialValue: Self.translationEnabled(for: launch))
+        _isTranslationEnabled = State(initialValue: ComicTranslationStatus.isEnabled(for: launch))
         _viewModel = State(initialValue: ComicReaderViewModel(launch: launch))
     }
 
@@ -65,7 +67,7 @@ struct ComicReaderView: View {
                     viewModel: viewModel,
                     isTranslationEnabled: isTranslationEnabled,
                     sourceName: sourceDisplayName,
-                    isChineseSourceHint: Self.chineseSourceHint(packageId: launch.extensionPackageId),
+                    isChineseSourceHint: ComicTranslationStatus.chineseSourceHint(packageId: launch.extensionPackageId),
                     onBack: { dismiss() },
                     onOpenChapterList: { showsChapterList = true },
                     onOpenMenu: { showsTranslationMenu = true }
@@ -86,7 +88,7 @@ struct ComicReaderView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-            let newState = Self.translationEnabled(for: launch)
+            let newState = ComicTranslationStatus.isEnabled(for: launch)
             // Bật/tắt đổi ⇒ `onChange` bên dưới dịch lại tên chương; không đổi thì phồn→giản có thể vừa đổi.
             if isTranslationEnabled != newState { isTranslationEnabled = newState } else { refreshTranslations() }
         }
@@ -130,7 +132,7 @@ struct ComicReaderView: View {
                 initialHost: localBook?.host
             )
         }
-        .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil }) {
+        .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil; zoomRequest = nil }) {
             zoomCover
         }
         // Đóng ⇒ chép cookie rồi nạp lại đúng chương lỗi (`retry` dùng `chapterIndex` = chương đang nạp).
@@ -140,7 +142,7 @@ struct ComicReaderView: View {
             bookId: launch.bookId,
             packageId: launch.extensionPackageId,
             sourceName: sourceDisplayName,
-            isChineseSourceHint: Self.chineseSourceHint(packageId: launch.extensionPackageId),
+            isChineseSourceHint: ComicTranslationStatus.chineseSourceHint(packageId: launch.extensionPackageId),
             bookTitle: localBook?.title ?? launch.bookTitle ?? "",
             hasLocalBook: localBook != nil,
             isTranslationEnabled: isTranslationEnabled,
@@ -216,7 +218,7 @@ struct ComicReaderView: View {
                                     viewModel.recordAspectRatio(ratio, at: index, generation: generation)
                                 },
                                 onSingleTap: toggleChrome,
-                                onDoubleTap: openZoom
+                                onDoubleTap: { openZoom($0, request: request) }
                             )
                             .id(index)
                             .onAppear { viewModel.pageDidAppear(index, generation: generation) }
@@ -279,7 +281,12 @@ struct ComicReaderView: View {
     @ViewBuilder
     private var zoomCover: some View {
         if let zoomImage {
-            ComicZoomViewer(image: zoomImage, onClose: { isZoomPresented = false })
+            ComicZoomViewer(
+                image: zoomImage,
+                request: zoomRequest,
+                translation: imageTranslationContext,
+                onClose: { isZoomPresented = false }
+            )
                 .ignoresSafeArea()
                 .statusBarHidden(true)
         } else {
@@ -297,34 +304,20 @@ struct ComicReaderView: View {
         }
     }
 
-    private func openZoom(_ image: UIImage) {
+    private func openZoom(_ image: UIImage, request: ComicImageRequest) {
         zoomImage = image
+        zoomRequest = request
         isZoomPresented = true
     }
 
-    // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện)
-
-    /// Bật dịch của truyện — **đúng cách trang Chi tiết tính** (cùng gợi ý "nguồn tiếng Trung" từ bản ghi tiện ích), để nút
-    /// dịch ở Chi tiết và ở màn này luôn khớp: truyện này > nguồn > nguồn tự khai tiếng Trung > toàn cục.
-    private static func translationEnabled(for launch: BookContentLaunch) -> Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: launch.bookId,
-            packageId: launch.extensionPackageId,
-            isChineseSourceHint: chineseSourceHint(packageId: launch.extensionPackageId)
-        )
-    }
-
-    /// Như `BookDetailView.ext?.isChineseSource`: tra bản cài rồi catalog; không thấy ⇒ `nil` (dò `plugin.json`).
-    private static func chineseSourceHint(packageId: String) -> Bool? {
-        ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId)?.isChineseSource
-    }
+    // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện — `ComicTranslationStatus`)
 
     private var sourceDisplayName: String {
         ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)?.name
             ?? localBook?.sourceName ?? ""
     }
 
-    /// `nil` khi truyện đang tắt dịch. Trình xem phóng to không có lớp dịch (v1).
+    /// `nil` khi truyện đang tắt dịch. Dùng cho cả trang lẫn trình xem phóng to (1.3.834).
     private var imageTranslationContext: ComicImageTranslationContext? {
         guard isTranslationEnabled else { return nil }
         return ComicImageTranslationContext(

@@ -11,6 +11,7 @@ import UIKit
 /// - Chạm một khối ⇒ ẩn bản dịch, lộ chữ gốc của ảnh (viền nét đứt để còn chạm lại). Cử chỉ của khối là cử chỉ con nên thắng
 ///   chạm-bật-thanh và chạm-đúp-phóng-to của trang; chạm ngoài khối vẫn như cũ (vùng trống của lớp này không nhận chạm).
 /// - Nhận chữ lâu hơn `progressDelayNanoseconds` mới hiện viên "Đang nhận chữ" — ảnh đã có trong cache không nháy viên.
+/// - Khung, cỡ chữ, màu ở `ComicTranslationLayout` — dùng chung với lớp dịch của trình xem phóng to (1.3.834).
 @MainActor
 struct ComicTranslationOverlay: View {
     let request: ComicImageRequest
@@ -27,12 +28,6 @@ struct ComicTranslationOverlay: View {
     }
 
     private static let progressDelayNanoseconds: UInt64 = 600_000_000
-    /// Bản dịch tiếng Việt dài hơn chữ Hán: cho khung nở ngang thêm chừng này (vẫn trong biên ảnh).
-    private static let widthGrowth: CGFloat = 0.15
-    private static let fontScale: CGFloat = 0.85
-    private static let minimumFontSize: CGFloat = 9
-    private static let maximumFontSize: CGFloat = 22
-    private static let minimumScaleFactor: CGFloat = 0.4
 
     var body: some View {
         GeometryReader { geometry in
@@ -58,7 +53,7 @@ struct ComicTranslationOverlay: View {
     // MARK: - Khối
 
     private func blockView(_ item: ComicPageTextTranslator.Item, in size: CGSize) -> some View {
-        let frame = Self.displayFrame(for: item.block, in: size)
+        let frame = ComicTranslationLayout.displayFrame(for: item.block, in: size)
         let isRevealed = revealedOriginals.contains(item.id)
         let isDark = item.block.isDarkBackground
         return ZStack {
@@ -67,16 +62,21 @@ struct ComicTranslationOverlay: View {
                     .strokeBorder(Color.accentColor.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             } else {
                 Text(item.translated)
-                    .font(.system(size: Self.fontSize(for: item.block, imageHeight: size.height), weight: .medium))
-                    .minimumScaleFactor(Self.minimumScaleFactor)
+                    .font(.system(
+                        size: ComicTranslationLayout.fontSize(for: item.block, imageHeight: size.height),
+                        weight: .medium
+                    ))
+                    .minimumScaleFactor(ComicTranslationLayout.minimumScaleFactor)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(isDark ? Color.white : Color.black)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, ComicTranslationLayout.horizontalPadding)
+                    .padding(.vertical, ComicTranslationLayout.verticalPadding)
                     .frame(width: frame.width, height: frame.height)
                     .background(
-                        isDark ? Color.black.opacity(0.85) : Color.white.opacity(0.95),
-                        in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        isDark
+                            ? Color.black.opacity(ComicTranslationLayout.darkBackgroundOpacity)
+                            : Color.white.opacity(ComicTranslationLayout.lightBackgroundOpacity),
+                        in: RoundedRectangle(cornerRadius: ComicTranslationLayout.cornerRadius, style: .continuous)
                     )
             }
         }
@@ -138,28 +138,5 @@ struct ComicTranslationOverlay: View {
               ),
               !Task.isCancelled else { return }
         items = translated
-    }
-
-    // MARK: - Đo đạc
-
-    /// Khung vẽ của khối theo điểm: khung chữ gốc nở ngang `widthGrowth` (+ 6 pt) và cao thêm 4 pt quanh tâm, kẹp trong ảnh.
-    private static func displayFrame(for block: ComicTextBlock, in size: CGSize) -> CGRect {
-        let base = CGRect(
-            x: CGFloat(block.x) * size.width,
-            y: CGFloat(block.y) * size.height,
-            width: CGFloat(block.width) * size.width,
-            height: CGFloat(block.height) * size.height
-        )
-        let width = min(size.width, base.width * (1 + widthGrowth) + 6)
-        let height = min(size.height, base.height + 4)
-        let minX = min(max(0, base.midX - width / 2), max(0, size.width - width))
-        let minY = min(max(0, base.midY - height / 2), max(0, size.height - height))
-        return CGRect(x: minX, y: minY, width: width, height: height)
-    }
-
-    /// Cỡ chữ khởi điểm theo chiều cao dòng của chữ gốc trên ảnh đang vẽ; chữ dài hơn khung thì `minimumScaleFactor` thu nhỏ.
-    private static func fontSize(for block: ComicTextBlock, imageHeight: CGFloat) -> CGFloat {
-        let raw = CGFloat(block.lineHeight) * imageHeight * fontScale
-        return min(max(raw, minimumFontSize), maximumFontSize)
     }
 }

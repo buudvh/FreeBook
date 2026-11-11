@@ -43,7 +43,8 @@ struct ComicReaderChromeView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 if let bookTitle = viewModel.launch.bookTitle, !bookTitle.isEmpty {
-                    Text(bookTitle)
+                    // Dịch như đầu mục lục truyện tranh và tên truyện ở header Reader (1.3.834).
+                    Text(BookDisplayTranslation.title(bookTitle, bookId: viewModel.launch.bookId, isEnabled: isTranslationEnabled))
                         .font(.caption2)
                         .foregroundStyle(Color.white.opacity(0.6))
                         .lineLimit(1)

@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.834] - 2026-11-11
+
+### feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh
+
+Anh Bửu hỏi màn đọc truyện tranh đã dịch hết các mục khi bật dịch chưa. Javis rà thì còn hai chỗ: tên truyện ở thanh trên hiện nguyên văn, trình xem phóng to không có lớp dịch. Anh chọn sửa cả hai.
+
+- **Tên truyện ở thanh trên** (`ComicReaderChromeView`): dịch bằng `BookDisplayTranslation.title` theo công tắc dịch của truyện — như đầu mục lục truyện tranh và tên truyện ở header Reader.
+- **Trình xem phóng to** (`ComicZoomViewer`): truyện đang bật dịch ⇒ có lớp dịch như trên trang. View được zoom đổi từ `imageView` sang `contentView` (chứa ảnh + lớp dịch, cùng khung) ⇒ khối phóng / cuộn theo ảnh. Khối lấy từ `ComicPageTextRepository` theo yêu cầu ảnh của trang vừa chạm đúp (trúng RAM, không nhận chữ lại) rồi dịch như trên trang; task huỷ khi đóng trình xem.
+- `ComicZoomTranslationLayer` (mới, UIKit): khối = nền + `UILabel`, cỡ chữ đo một lần ở 1× (thu nhỏ dần tới khi vừa khung); zoom xong đặt `contentScaleFactor` của chữ theo mức zoom để vẽ lại sắc nét (trong lúc chụm hai ngón hơi mờ). Chạm khối ⇒ lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch; chạm khối chờ chạm đúp phóng to thất bại; vùng trống không nhận chạm.
+- `ComicTranslationLayout` (mới): khung, cỡ chữ, màu của lớp dịch — một nguồn cho `ComicTranslationOverlay` (SwiftUI, trên trang) và lớp UIKit của trình xem.
+- `ComicTranslationStatus` (mới): cách tính bật dịch y Chi tiết, chuyển từ `ComicReaderView` ra (file đó về 392 dòng).
+- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh bỏ câu "trình xem phóng to chưa có lớp dịch".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm đúp một trang đã dịch ⇒ trình xem có đúng các khối, đúng chỗ; (2) phóng 2,5× / 4× chữ có sắc lại sau khi buông tay; (3) chạm khối đổi gốc ↔ dịch, chạm đúp vẫn phóng / thu; (4) tên truyện ở thanh trên đổi khi bật / tắt dịch.
+
 ## [1.3.833] - 2026-11-11
 
 ### feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc
@@ -375,12 +389,3 @@ Phần 2 của plan "Playlist nhạc và video (tạo, sửa, xoá, phát)" anh 
 - **Thoát chế độ playlist**: mở album / phim bình thường (`open` không cờ playlist — Kệ, Khám phá, Tìm, gợi ý, đề xuất), chọn bài của album / chọn tập khác, đóng hẳn trình nghe / trình phát, TTS giành trình nghe.
 - `CLAUDE.md` / `AGENTS.md`: gạch "Phát playlist" ở mục Âm thanh + một gạch ở Comic & Video. Chuyển `[1.3.775]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code + grep chéo mọi nơi gọi `AudioPlaybackSession.open`, `VideoPlaybackSession.open`, `VideoWatchModel.replace`, `VideoWatchPresenter.present`, `AudioListenRequest(`, `selectEpisode`, `playNextEpisode`, `nextEpisode`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 299 dòng, một type chính; `VideoPlaybackSession+Playback` 392, `AudioPlaybackSession` 389). Không build tại chỗ (Windows), chưa thử máy: chuyển mục khác album / khác phim khi app ở nền và trên màn khoá, bỏ qua mục lỗi, mở lại màn xem từ hub giữa lúc mục phim kế đang tải.
-
-## [1.3.804] - 2026-11-09
-
-### fix: thanh widget TTS kiểu nghe nhạc chỉ ghi tên chương, bỏ tiền tố Ch. N
-
-Anh Bửu: *"bỏ dòng ch. x trong hàng tên chương giúp tôi"*.
-
-- `TTSWidgetBarInfoReader.refresh`: dòng 2 của kiểu **Thanh nghe nhạc** chỉ còn tên chương (đã dịch theo phiên TTS, cắt khoảng trắng), không còn "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N". Nhãn "Ch. N" của thẻ Kệ (`BookListRowSize`) không phải hàng tên chương ⇒ giữ nguyên.
-- **Kiểm chứng:** đọc code (`displayedChapterTitle` là `String`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

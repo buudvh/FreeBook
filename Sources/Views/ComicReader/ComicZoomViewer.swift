@@ -6,8 +6,15 @@ import UIKit
 /// - `UIScrollView` zoom 1–4×; ảnh vừa bề ngang màn (ảnh webtoon dài thì cuộn dọc được), ngắn hơn màn thì căn giữa.
 /// - Chạm đúp: đang zoom thì thu về 1×, chưa zoom thì phóng 2,5× quanh điểm chạm. Nút đóng góc trên phải.
 /// - Ảnh nhận vào là bản đã downsample theo bề ngang màn (không giữ ảnh gốc trên RAM), nên zoom sâu sẽ hơi mờ.
+/// - Dịch ảnh (1.3.834): truyện đang bật dịch (`translation` khác `nil`) ⇒ `ComicZoomTranslationLayer` phủ lên ảnh, **bên trong**
+///   view được zoom (`contentView` chứa ảnh + lớp dịch) nên khối phóng theo ảnh. Khối lấy từ `ComicPageTextRepository` (ảnh vừa
+///   hiện trên trang ⇒ trúng RAM, không nhận chữ lại) rồi dịch như trên trang.
 struct ComicZoomViewer: UIViewRepresentable {
     let image: UIImage
+    /// Yêu cầu ảnh của trang đang phóng to — khoá của kết quả nhận chữ.
+    let request: ComicImageRequest?
+    /// `nil` = truyện đang tắt dịch.
+    let translation: ComicImageTranslationContext?
     let onClose: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -20,6 +27,7 @@ struct ComicZoomViewer: UIViewRepresentable {
         context.coordinator.container = view
         view.closeHandler = onClose
         view.setImage(image)
+        context.coordinator.loadTranslation(into: view, image: image, request: request, translation: translation)
         return view
     }
 
@@ -27,24 +35,61 @@ struct ComicZoomViewer: UIViewRepresentable {
         uiView.closeHandler = onClose
         if uiView.imageView.image !== image {
             uiView.setImage(image)
+            context.coordinator.loadTranslation(into: uiView, image: image, request: request, translation: translation)
         }
     }
 
+    static func dismantleUIView(_ uiView: ZoomContainerView, coordinator: Coordinator) {
+        coordinator.translationTask?.cancel()
+    }
+
+    @MainActor
     final class Coordinator: NSObject, UIScrollViewDelegate {
         weak var container: ZoomContainerView?
+        var translationTask: Task<Void, Never>?
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-            container?.imageView
+            container?.contentView
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             container?.centerImage()
         }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            container?.translationLayer.setZoomScale(scale)
+        }
+
+        /// Khối chữ của ảnh (RAM nếu trang vừa nhận) → dịch → lớp dịch. Tắt dịch / thiếu yêu cầu ảnh ⇒ không có lớp dịch.
+        func loadTranslation(
+            into view: ZoomContainerView,
+            image: UIImage,
+            request: ComicImageRequest?,
+            translation: ComicImageTranslationContext?
+        ) {
+            translationTask?.cancel()
+            view.translationLayer.setItems([])
+            guard let request, let translation, let cgImage = image.cgImage else { return }
+            translationTask = Task { @MainActor [weak view] in
+                guard let blocks = try? await ComicPageTextRepository.shared.blocks(for: request, image: cgImage),
+                      !Task.isCancelled,
+                      let items = await ComicPageTextTranslator.translate(
+                          blocks,
+                          bookId: translation.bookId,
+                          convertsTraditional: translation.convertsTraditional
+                      ),
+                      !Task.isCancelled else { return }
+                view?.translationLayer.setItems(items)
+            }
+        }
     }
 
     final class ZoomContainerView: UIView {
         let scrollView = UIScrollView()
+        /// View được zoom: chứa ảnh và lớp dịch, cùng khung — khối dịch phóng / cuộn theo ảnh.
+        let contentView = UIView()
         let imageView = UIImageView()
+        let translationLayer = ComicZoomTranslationLayer()
         var closeHandler: (() -> Void)?
 
         private let closeButton = UIButton(type: .system)
@@ -70,11 +115,14 @@ struct ComicZoomViewer: UIViewRepresentable {
 
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
-            scrollView.addSubview(imageView)
+            scrollView.addSubview(contentView)
+            contentView.addSubview(imageView)
+            contentView.addSubview(translationLayer)
 
             let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
             doubleTap.numberOfTapsRequired = 2
             scrollView.addGestureRecognizer(doubleTap)
+            translationLayer.attach(doubleTap: doubleTap)
 
             configureCloseButton()
         }
@@ -97,8 +145,11 @@ struct ComicZoomViewer: UIViewRepresentable {
                 laidOutSize = bounds.size
                 // Đặt frame khi đang có transform zoom là không xác định — luôn về 1× trước.
                 scrollView.zoomScale = scrollView.minimumZoomScale
-                imageView.frame = fittedImageFrame()
-                scrollView.contentSize = imageView.frame.size
+                contentView.frame = fittedImageFrame()
+                imageView.frame = contentView.bounds
+                translationLayer.frame = contentView.bounds
+                translationLayer.setZoomScale(scrollView.zoomScale)
+                scrollView.contentSize = contentView.frame.size
                 centerImage()
                 // Đổi inset không tự dời offset — đặt offset theo inset để ảnh ngắn hiện giữa màn ngay từ đầu.
                 scrollView.contentOffset = CGPoint(x: -scrollView.contentInset.left, y: -scrollView.contentInset.top)
@@ -127,7 +178,7 @@ struct ComicZoomViewer: UIViewRepresentable {
 
         /// Ảnh nhỏ hơn khung (theo chiều nào) thì đệm inset để nằm giữa chiều đó.
         func centerImage() {
-            let content = imageView.frame.size
+            let content = contentView.frame.size
             let horizontal = max(0, (scrollView.bounds.width - content.width) / 2)
             let vertical = max(0, (scrollView.bounds.height - content.height) / 2)
             scrollView.contentInset = UIEdgeInsets(top: vertical, left: horizontal, bottom: vertical, right: horizontal)
@@ -138,8 +189,8 @@ struct ComicZoomViewer: UIViewRepresentable {
                 scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
                 return
             }
-            // `zoom(to:)` nhận rect trong hệ toạ độ của view zoom (imageView, chưa nhân transform).
-            let point = gesture.location(in: imageView)
+            // `zoom(to:)` nhận rect trong hệ toạ độ của view zoom (`contentView`, chưa nhân transform).
+            let point = gesture.location(in: contentView)
             let scale = min(Self.doubleTapZoomScale, scrollView.maximumZoomScale)
             let size = CGSize(width: scrollView.bounds.width / scale, height: scrollView.bounds.height / scale)
             let rect = CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2, width: size.width, height: size.height)
