@@ -101,9 +101,11 @@ extension ReaderChapterListView {
     }
 
     /// `chapter.title` đã là tên hiển thị (worker chọn bản lưu / dịch sống / gốc theo công tắc + phồn→giản) — không dịch
-    /// lớp thứ hai, không ghi `@State` trong `body`.
+    /// lớp thứ hai, không ghi `@State` trong `body`. Bộ dịch là tiện ích ⇒ bản tiện ích của chương (hoặc `title_trans`)
+    /// khi đã có — `title(at:)` chỉ xếp chương **đang dựng hàng** vào lô kế tiếp (1.3.853); chưa có / lỗi ⇒ `chapter.title`.
     internal func displayTitle(for chapter: ReaderChapterRowState) -> String {
-        chapter.isPlaceholder ? "Đang tải..." : chapter.title
+        guard !chapter.isPlaceholder else { return "Đang tải..." }
+        return titleTranslations?.title(at: chapter.index) ?? chapter.title
     }
 
     internal func scrollToCurrentChapter(proxy: ScrollViewProxy) {

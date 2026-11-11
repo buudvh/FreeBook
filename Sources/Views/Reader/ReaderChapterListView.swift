@@ -15,6 +15,8 @@ public struct ReaderChapterListView: View {
     public let shouldConvertTraditionalToSimplified: Bool
     public let theme: ReaderTheme
     public let store: ReaderChapterListStore
+    /// Tên chương (hàng) + tên truyện (đầu sheet) bằng tiện ích dịch — `nil` ⇒ chỉ bản QT / `title_trans` của worker.
+    let titleTranslations: ReaderTitleTranslationStore?
     @Binding public var onlineChapters: [ChapterResult]
     public let isLocalTXTBook: Bool
     public let onSelectChapter: (Int) -> Void
@@ -37,6 +39,7 @@ public struct ReaderChapterListView: View {
         shouldConvertTraditionalToSimplified: Bool = false,
         theme: ReaderTheme,
         store: ReaderChapterListStore,
+        titleTranslations: ReaderTitleTranslationStore? = nil,
         onlineChapters: Binding<[ChapterResult]>,
         isLocalTXTBook: Bool = false,
         onSelectChapter: @escaping (Int) -> Void,
@@ -57,6 +60,7 @@ public struct ReaderChapterListView: View {
         self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.theme = theme
         self.store = store
+        self.titleTranslations = titleTranslations
         self._onlineChapters = onlineChapters
         self.isLocalTXTBook = isLocalTXTBook
         self.onSelectChapter = onSelectChapter
@@ -86,7 +90,10 @@ public struct ReaderChapterListView: View {
     /// Tên / tác giả ở đầu sheet: phồn → giản chạy cả khi tắt dịch, dịch theo ba cấp (1.3.846, `BookDisplayTranslation`).
     internal var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "Tàng Công Các"
-        return BookDisplayTranslation.title(original, metadataTextOptions)
+        // Bộ dịch tiện ích ⇒ cùng bản với đầu trang Reader (`ReaderTitleTranslationStore.book`, 1.3.853).
+        guard let book = titleTranslations?.book else { return BookDisplayTranslation.title(original, metadataTextOptions) }
+        let quick = ChineseTextPipeline.meta(original, metadataTextOptions)
+        return DisplayTextFormatter.titleCase(book.text(original, kind: .meta, quick: quick))
     }
 
     private var metadataAuthor: String {

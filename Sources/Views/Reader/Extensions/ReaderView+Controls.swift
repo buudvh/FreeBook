@@ -11,7 +11,7 @@ extension ReaderView {
                 .font(.system(size: 34))
                 .foregroundColor(.red)
 
-            Text(translateChapterTitleIfNeeded(failure.chapterTitle))
+            Text(chapterHeaderTitle(at: failure.targetChapterIndex, rawTitle: failure.chapterTitle))
                 .font(.title3.weight(.semibold))
                 .foregroundColor(selectedTheme.textColor)
                 .multilineTextAlignment(.center)
@@ -160,8 +160,11 @@ extension ReaderView {
         }
     }
 
+    /// Bộ dịch tiện ích ⇒ bản tiện ích (`source = detail`) khi đã có, tạm hiện bản QT (1.3.853).
     internal var readerBookDisplayTitle: String {
-        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "Tàng Công Các"))
+        let original = localBook?.title ?? bookTitle ?? "Tàng Công Các"
+        let shown = titleTranslations.book.text(original, kind: .meta, quick: translateMetaIfNeeded(original))
+        return DisplayTextFormatter.titleCase(shown)
     }
 
     internal var readerPresentedChapterIndex: Int {

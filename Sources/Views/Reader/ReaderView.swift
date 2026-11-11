@@ -247,6 +247,7 @@ struct ReaderView: View {
     @State internal var showingBookDictionary = false
     @State internal var currentOnlineChapters: [ChapterResult] = []
     @State internal var chapterListStore: ReaderChapterListStore? = nil
+    @State internal var titleTranslations = ReaderTitleTranslationStore() // tên đầu trang / mục lục (`+TitleTranslation`)
     @State internal var localBookSnapshot: Book? = nil
 
     internal var localBook: Book? {
@@ -323,7 +324,7 @@ struct ReaderView: View {
             }
         }
 
-        return translateChapterTitleIfNeeded(title)
+        return chapterHeaderTitle(at: index, rawTitle: title)
     }
 
     var body: some View {
@@ -518,6 +519,8 @@ struct ReaderView: View {
             )
             scheduleCoalescedTranslationRefresh()
         }
+        .task(id: titleTranslationKey) { syncTitleTranslations() } // tên đầu trang / mục lục bằng tiện ích dịch
+        .onChange(of: currentOnlineChapters) { _, _ in syncTitleTranslations() }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
             TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
             applyTranslation()
@@ -1234,6 +1237,7 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                 theme: selectedTheme,
                 store: chapterListStore,
+                titleTranslations: titleTranslations,
                 onlineChapters: $currentOnlineChapters,
                 isLocalTXTBook: isLocalTXTBook,
                 onSelectChapter: { selectedIdx in
@@ -1274,22 +1278,6 @@ struct ReaderView: View {
             .presentationDragIndicator(.visible)
             .presentationBackground(selectedTheme.backgroundColor)
         }
-    }
-
-    /// Tên truyện / chữ meta: phồn → giản chạy cả khi tắt dịch, dịch theo ba cấp (1.3.846, `ChineseTextPipeline`).
-    internal func translateMetaIfNeeded(_ text: String) -> String {
-        let options = ChineseTextPipeline.Options(
-            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
-        )
-        return ChineseTextPipeline.meta(text, options)
-    }
-
-    /// Tên chương: phồn → giản chạy cả khi tắt dịch, rồi dịch nếu bật (1.3.846, `ChineseTextPipeline`).
-    internal func translateChapterTitleIfNeeded(_ text: String) -> String {
-        let options = ChineseTextPipeline.Options(
-            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
-        )
-        return ChineseTextPipeline.chapterTitle(text, options)
     }
 
     func applyTranslation() {
