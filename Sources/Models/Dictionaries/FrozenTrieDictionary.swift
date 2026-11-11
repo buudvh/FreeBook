@@ -186,6 +186,74 @@ public struct FrozenTrieDictionary: TrieDictionary, Sendable {
         return results
     }
 
+    /// Trần số cạnh thử của `keys(matchingCharacterSets:limit:)` — chặn trên thời gian khi tập chữ rất lớn
+    /// (gõ không dấu: một âm tiết ra cả trăm chữ).
+    private static let characterSetWalkBudget = 200_000
+
+    /// Mọi khoá **có thật** dài `1...sets.count` mà đơn vị UTF-16 thứ `k` thuộc `sets[k]` — các khoá "bắt đầu tại
+    /// đây" của một dãy âm tiết (gợi ý chữ Hán ở màn Tìm, `ChineseQuerySuggester`). Khoá dài trước, cùng độ dài theo
+    /// thứ tự mã; tối đa `limit` khoá.
+    ///
+    /// Nhánh `.dat` đi cây theo **đúng** phép tính của `trieTerminals` (cạnh `next = base[state] + charMap[unit]`
+    /// khi `check[next] == state`; nút kết thúc `base[next]` khi `check[base[next]] == next` và `base[base[next]] >= 0`)
+    /// nhưng ở mỗi độ sâu thử **mọi** đơn vị của tập: nhánh không có con thì dừng ngay, nên chỉ đi qua tiền tố có
+    /// trong từ điển thay vì mọi tổ hợp. Khoá có nghĩa không giải mã được bị loại như ở `trieMatches`.
+    /// Nhánh `entries` (từ điển tuỳ chỉnh, nhỏ) lọc khoá đúng độ dài.
+    public func keys(matchingCharacterSets sets: [Set<UInt16>], limit: Int) -> [String] {
+        guard !sets.isEmpty, limit > 0 else { return [] }
+        var found: [[UInt16]] = []
+        if let dat {
+            found = datKeys(matching: sets, dat: dat)
+        } else {
+            for key in entries.keys {
+                var units: [UInt16] = []
+                for unit in key.utf16 {
+                    guard units.count < sets.count, sets[units.count].contains(unit) else { units = []; break }
+                    units.append(unit)
+                }
+                if !units.isEmpty { found.append(units) }
+            }
+        }
+        found.sort { $0.count != $1.count ? $0.count > $1.count : $0.lexicographicallyPrecedes($1) }
+        return found.prefix(limit).map { String(decoding: $0, as: UTF16.self) }
+    }
+
+    private func datKeys(matching sets: [Set<UInt16>], dat: DAT) -> [[UInt16]] {
+        // Mã nén của từng đơn vị (đơn vị không có trong cây ⇒ bỏ ngay), sắp theo mã điểm để kết quả ổn định.
+        let choices: [[(unit: UInt16, code: Int)]] = sets.map { units in
+            units.sorted().compactMap { unit in
+                let index = Int(unit)
+                guard index < dat.charMap.count, dat.charMap[index] != 0 else { return nil }
+                return (unit, Int(dat.charMap[index]))
+            }
+        }
+        var found: [[UInt16]] = []
+        var path: [UInt16] = []
+        var budget = Self.characterSetWalkBudget
+
+        func visit(state: Int, depth: Int) {
+            guard depth < choices.count, dat.base.indices.contains(state) else { return }
+            let base = Int(dat.base[state])
+            for choice in choices[depth] {
+                guard budget > 0 else { return }
+                budget -= 1
+                let next = base + choice.code
+                guard dat.base.indices.contains(next), dat.check[next] == Int32(state) else { continue }
+                path.append(choice.unit)
+                let term = Int(dat.base[next])
+                if dat.base.indices.contains(term), dat.check[term] == Int32(next), dat.base[term] >= 0,
+                   Self.poolValueIsDecodable(at: dat.poolOffset + Int(dat.base[term]), dat: dat) {
+                    found.append(path)
+                }
+                visit(state: next, depth: depth + 1)
+                path.removeLast()
+            }
+        }
+
+        visit(state: 1, depth: 0)
+        return found
+    }
+
     private func trieMatches(
         _ text: String, at start: Int, dat: DAT, longestOnly: Bool
     ) -> [(length: Int, value: String)] {

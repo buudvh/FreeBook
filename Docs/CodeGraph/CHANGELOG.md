@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.829] - 2026-11-11
+
+### feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt
+
+Anh Bửu duyệt ý 7 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-ca-truyen.md`: gõ tên truyện bằng âm Hán Việt ở màn Tìm, app gợi ý dạng chữ Hán để chọn khi nguồn Trung chỉ tìm được bằng chữ Hán; chip **tự hiện khi gõ**.
+
+- `SearchChineseSuggestionBar` (mới) ngay dưới ô tìm của `SearchView` (tìm một nguồn và mọi nguồn; `SearchView` chỉ chèn một dòng): hàng **"Chữ Hán:"** tối đa 6 chip cuộn ngang, kiểu chip nhấn như `ExtensionKindFilterBar` (chữ màu nhấn, nền nhấn 18%, viền 60%). Bấm Tìm vẫn tìm đúng chữ đã gõ; chạm chip ⇒ tắt bàn phím, ô tìm thành chữ Hán đó và tìm ngay (lịch sử lưu chữ Hán). Tính sau khi ngừng gõ 300 ms, ngoài main (`Task.detached`), gõ tiếp ⇒ `.task(id:)` huỷ lượt cũ, kết quả muộn bị bỏ; truy vấn chắc chắn không gợi ý được (rỗng, có chữ Hán, 1 hoặc hơn 8 âm tiết, có số…) ⇒ ẩn ngay, không chờ.
+- `Services/Translation/Reverse/` (mới): `HanVietReverseIndex` = bảng `phienAm` đảo ngược (âm ⇒ chữ; chỉ khoá đúng một chữ Hán BMP; một chữ nhiều âm ngăn `/` `,` `;` `|`), hai bảng có dấu / bỏ dấu, nhớ theo `TranslationDictionaryState.revision()`. Chuẩn hoá âm: không tính vị trí dấu thanh (`hoà` = `hòa`), `đ` bỏ dấu là `d`, `y` đứng một mình sau phụ âm = `i` (`lý` = `lí`, `quý` = `quí`). Xét từng âm tiết: âm có dấu ⇒ khớp đúng dấu (không ra chữ thì lùi về bỏ dấu), âm không dấu ⇒ khớp bỏ dấu — gõ dấu một phần vẫn ra.
+- `ChineseQuerySuggester` (mới): mỗi vị trí bắt đầu hỏi Name (tuỳ chỉnh, chung) + VietPhrase (tuỳ chỉnh, chung) các khoá có thật dài tới 6 chữ; bỏ khoá đã xoá của từ điển chung như `VietPhraseTokenizer`; không dùng từ điển riêng truyện. Quy hoạch động giữ 16 đường mỗi vị trí, xếp: ít đoạn ⇒ ít đoạn một chữ ⇒ Name trước VietPhrase ⇒ giản thể trước phồn thể (ICU `Traditional-Simplified`) ⇒ thứ tự mã. Bỏ đường trộn giản + phồn, đường có quá nửa số âm tiết là đoạn một chữ (chỉ là đoán chữ đồng âm), đường nhiều hơn đường tốt nhất quá một đoạn. Log `🔎 [HanSuggest]` (số âm tiết / cạnh / kết quả / ms; không log từ khoá).
+- `FrozenTrieDictionary.keys(matchingCharacterSets:limit:)` (mới): đi cây đôi theo đúng phép tính của `trieTerminals`, mỗi độ sâu thử mọi chữ của tập, nhánh không có con thì dừng ⇒ chỉ đi qua tiền tố có thật, không gọi `allEntries()`; trần 200 000 cạnh thử; kho `entries` (từ điển tuỳ chỉnh) lọc khoá đúng độ dài.
+- Giới hạn: chỉ màn Tìm Kiếm (ô tìm nhanh của Khám phá chưa có); chữ Việt thuần không phải âm Hán Việt không ra gợi ý; thứ tự là đoán theo từ điển (không có tần suất); chạm một chip xong ô tìm là chữ Hán ⇒ hàng chip ẩn, muốn thử cách viết khác phải gõ lại âm Việt.
+- Chuyển `[1.3.799]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + review phản biện bằng agent; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `SearchView.swift` 701 dòng ≤ baseline 872). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) `đấu phá thương khung` và `dau pha thuong khung` ra chip hợp lý; (2) log `🔎 [HanSuggest]` (bật log) xem ms — lần đầu sau khi từ điển đổi có thêm bước dựng bảng đảo; (3) gõ nhanh không giật, không bấm nhầm chip cũ.
+
 ## [1.3.828] - 2026-11-11
 
 ### fix: DNS mã hoá cho cả app mặc định tắt
@@ -352,14 +366,3 @@ Anh Bửu hỏi *"phần suggest của nhạc hiển thị ở đâu"* — trư�
 - Log: `⏭️ [AudioSuggest] …` (lỗi tải ghi `❌ [AudioSuggest] …`), `🎵 [AudioPlayerUI] Chọn mục gợi ý …`.
 - Chuyển `[1.3.770]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code + grep chéo (`AudioSuggestionStore.Album.snapshot` thay `albumSnapshot`, không còn chỗ gọi `prepareTask` / `loadSuggestions` cũ; chữ ký `ContentDetailRouter.openIfVideo(_:packageId:sourceName:modelContainer:)`, `RemoteCoverImage(url:referer:placeholderSymbol:)`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 216 dòng, một type chính). Không build tại chỗ (Windows). Chưa thử máy: phần gợi ý ở trang Danh sách với Zing MP3 / NhacCuaTui, chạm đổi album tại chỗ, nhãn "Tiếp theo" đổi theo công tắc.
-
-## [1.3.799] - 2026-11-09
-
-### fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí
-
-Anh Bửu: *"cho widget tts thanh nghe nhạc giống hệt thanh nghe nhạc mini, đừng có trong suốt, tôi nói trong suốt là đĩa trong reader ấy. đừng cho nó có thể di chuyển lên xuống, cố định vị trí"*.
-
-- **Nền đặc**: khung chung `MiniPlayerBarChrome` bỏ `FloatingGlassBackground` (độ trong suốt / độ đục của Cài đặt › Giao diện), dùng nền **đặc tối cố định** (`Color(white: 0.12)`) + viền trắng mờ 0,75 pt (`solidBackground(_:)`) ⇒ thanh nghe nhạc mini (`AudioMiniPlayerBar`) và kiểu "Thanh nghe nhạc" của widget TTS giống hệt nhau, chữ trắng đọc rõ trên mọi nền. Viên thu gọn (`TTSWidgetBarPillView`) cùng nền. Nút đĩa nhạc trong Reader và sheet gọn của nó (`ReaderAudioDiscButton`, `AudioQuickControlSheet`) **giữ** theo độ trong suốt — không đổi.
-- **Cố định vị trí**: bỏ kéo dọc của thanh và viên (`TTSWidgetBarContainerViewController` chỉ còn cử chỉ vuốt ngang để thu gọn; viên không có cử chỉ). Thanh luôn ngay trên `MainTabBar` (khe 6 pt, đúng chỗ thanh nhạc), viên nép mép phải ngang tâm thanh. Bỏ lưu/đọc vị trí: khoá cũ `ttsWidgetBarBottomGap` / `ttsWidgetBarPillBottomGap` (1.3.796) bỏ qua. Nút » và vuốt ngang để thu gọn giữ nguyên.
-- Chữ giải thích ở Cài đặt › Widget TTS bỏ câu "Kéo lên xuống để đổi chỗ"; `CLAUDE.md` / `AGENTS.md` sửa ghi chú widget TTS theo.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — cần xem thanh nhạc + thanh TTS trên nền Kệ sáng/tối, và thanh TTS ở trang đẩy vào (không có thanh tab, vẫn đứng ở độ cao đó) có đè nút Home / "+" nổi không.

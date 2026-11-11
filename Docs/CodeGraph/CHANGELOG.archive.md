@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.799] - 2026-11-09
+
+### fix: thanh nghe nhạc mini và thanh widget TTS nền đặc giống hệt nhau, thanh TTS cố định vị trí
+
+Anh Bửu: *"cho widget tts thanh nghe nhạc giống hệt thanh nghe nhạc mini, đừng có trong suốt, tôi nói trong suốt là đĩa trong reader ấy. đừng cho nó có thể di chuyển lên xuống, cố định vị trí"*.
+
+- **Nền đặc**: khung chung `MiniPlayerBarChrome` bỏ `FloatingGlassBackground` (độ trong suốt / độ đục của Cài đặt › Giao diện), dùng nền **đặc tối cố định** (`Color(white: 0.12)`) + viền trắng mờ 0,75 pt (`solidBackground(_:)`) ⇒ thanh nghe nhạc mini (`AudioMiniPlayerBar`) và kiểu "Thanh nghe nhạc" của widget TTS giống hệt nhau, chữ trắng đọc rõ trên mọi nền. Viên thu gọn (`TTSWidgetBarPillView`) cùng nền. Nút đĩa nhạc trong Reader và sheet gọn của nó (`ReaderAudioDiscButton`, `AudioQuickControlSheet`) **giữ** theo độ trong suốt — không đổi.
+- **Cố định vị trí**: bỏ kéo dọc của thanh và viên (`TTSWidgetBarContainerViewController` chỉ còn cử chỉ vuốt ngang để thu gọn; viên không có cử chỉ). Thanh luôn ngay trên `MainTabBar` (khe 6 pt, đúng chỗ thanh nhạc), viên nép mép phải ngang tâm thanh. Bỏ lưu/đọc vị trí: khoá cũ `ttsWidgetBarBottomGap` / `ttsWidgetBarPillBottomGap` (1.3.796) bỏ qua. Nút » và vuốt ngang để thu gọn giữ nguyên.
+- Chữ giải thích ở Cài đặt › Widget TTS bỏ câu "Kéo lên xuống để đổi chỗ"; `CLAUDE.md` / `AGENTS.md` sửa ghi chú widget TTS theo.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — cần xem thanh nhạc + thanh TTS trên nền Kệ sáng/tối, và thanh TTS ở trang đẩy vào (không có thanh tab, vẫn đứng ở độ cao đó) có đè nút Home / "+" nổi không.
+
 ## [1.3.798] - 2026-11-09
 
 ### feat: trình nghe tự phát bài gợi ý khi hết bài hoặc album, công tắc ở Cài đặt › Âm thanh và ngăn kéo màn nghe

@@ -121,7 +121,9 @@ struct SearchView: View {
             VStack(spacing: 0) {
                 // Thanh Tìm Kiếm
                 searchBarView
-                
+                // Gõ âm Hán Việt ⇒ chip "Chữ Hán:"; chạm ⇒ tìm bằng chữ Hán đó (`SearchChineseSuggestionBar`).
+                SearchChineseSuggestionBar(query: searchQuery) { searchQuery = $0; performSearch() }
+
                 searchOptionsView
                 
                 Divider()
