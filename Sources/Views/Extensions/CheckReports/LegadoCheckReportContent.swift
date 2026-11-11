@@ -32,8 +32,7 @@ struct LegadoCheckReportContent: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(Array(rows.enumerated()), id: \.offset) { Group {
-_, result in
+                List(Array(rows.enumerated()), id: \.offset) { _, result in Group {
                     LegadoSourceCheckRow(
                         result: result,
                         displayName: installed[result.packageId] ?? result.name,
