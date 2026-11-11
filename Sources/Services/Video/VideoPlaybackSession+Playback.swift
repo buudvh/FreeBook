@@ -27,6 +27,8 @@ extension VideoPlaybackSession {
         timeSkips = []
         hasSubtitles = false
         if !currentCueText.isEmpty { currentCueText = "" }
+        if currentCueTranslation != nil { currentCueTranslation = nil }
+        if hasTranslatedSubtitles { hasTranslatedSubtitles = false }
         if skipTargetSeconds != nil { skipTargetSeconds = nil }
         currentSeconds = 0
         durationSeconds = 0
@@ -348,14 +350,17 @@ extension VideoPlaybackSession {
         if target != skipTargetSeconds { skipTargetSeconds = target }
     }
 
-    private func updateCue(at seconds: Double) {
-        var text = ""
+    /// Dòng đang chiếu + bản dịch của nó (gán riêng: lô dịch về giữa dòng thì bản dịch hiện ngay — `+Subtitles` gọi lại).
+    func updateCue(at seconds: Double) {
+        var cue: VideoSubtitleCue?
         if subtitlesEnabled {
-            text = cues.first { cue in
+            cue = cues.first { cue in
                 seconds >= Double(cue.start) && seconds < Double(cue.end)
-            }?.text ?? ""
+            }
         }
+        let text = cue?.text ?? ""
         if text != currentCueText { currentCueText = text }
+        if cue?.translation != currentCueTranslation { currentCueTranslation = cue?.translation }
     }
 
     func skipCurrentSegment() {
@@ -363,30 +368,5 @@ extension VideoPlaybackSession {
         skipTargetSeconds = nil
         AppLogger.shared.log("⏭️ [VideoPlayer] Bỏ qua đoạn, tua tới \(Int(target))s")
         seek(to: target)
-    }
-
-    // MARK: - Phụ đề
-
-    func toggleSubtitles() {
-        subtitlesEnabled.toggle()
-        if !subtitlesEnabled, !currentCueText.isEmpty { currentCueText = "" }
-    }
-
-    private func loadSubtitles(for track: VideoTrack, generation: Int) {
-        guard let subtitle = track.subtitles.first else { return }
-        let headers = track.headers
-        subtitleTask = Task { [weak self] in
-            do {
-                let loaded = try await VideoSubtitleParser.load(subtitle, headers: headers)
-                guard let self, self.isCurrent(generation) else { return }
-                self.cues = loaded
-                self.hasSubtitles = !loaded.isEmpty
-                AppLogger.shared.log("💬 [VideoPlayer] Đã nạp phụ đề: \(loaded.count) dòng")
-            } catch {
-                guard !(error is CancellationError) else { return }
-                // Lỗi phụ đề không chặn việc phát.
-                AppLogger.shared.log("❌ [VideoPlayer] Không nạp được phụ đề: \(error.localizedDescription)")
-            }
-        }
     }
 }

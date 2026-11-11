@@ -40,6 +40,8 @@ public final class TranslationConfigStore: @unchecked Sendable {
     private let bookOverridesKey = "FreeBook_Translation_Book_Overrides_V1"
     private let sourceOverridesKey = "FreeBook_Translation_Source_Overrides_V1"
     private let globalKey = "isTranslationEnabled"
+    /// Phồn→giản theo nguồn — chỉ phụ đề / lời / tên nhóm tập phim đọc (`convertsTraditionalToSimplified(bookId:packageId:)`).
+    private let sourceTraditionalKey = "FreeBook_Translation_Source_TraditionalToSimplified_V1"
     private var sourceIsChineseMap: [String: Bool] = [:]
 
     private init() {}
@@ -184,7 +186,58 @@ public final class TranslationConfigStore: @unchecked Sendable {
     /// Công tắc "chuyển phồn thể sang giản thể" của truyện — Reader ghi khoá `convertTraditionalToSimplified_<bookId>`;
     /// chưa từng đặt ⇒ `false`. Đọc thẳng `UserDefaults` mỗi lần gọi nên luôn theo giá trị mới nhất.
     public func convertsTraditionalToSimplified(bookId: String) -> Bool {
-        UserDefaults.standard.bool(forKey: "convertTraditionalToSimplified_\(bookId)")
+        UserDefaults.standard.bool(forKey: Self.bookTraditionalKey(bookId))
+    }
+
+    /// Phồn→giản của **phụ đề phim / lời bài hát / tên nhóm tập phim** (anh Bửu chốt phạm vi A): phim/album này
+    /// (cùng khoá theo truyện, đọc ba trạng thái — vắng = theo nguồn) ⇒ nguồn (`setSourceConvertsTraditional`) ⇒ tắt.
+    /// Reader, TTS, truyện tranh, xuất, AI vẫn dùng `convertsTraditionalToSimplified(bookId:)`.
+    public func convertsTraditionalToSimplified(bookId: String, packageId: String) -> Bool {
+        let override = traditionalOverride(bookId: bookId)
+        guard override == .inherited else { return override == .enabled }
+        return sourceConvertsTraditional(packageId: packageId)
+    }
+
+    /// Phồn→giản riêng của phim/album: `.inherited` = khoá theo truyện chưa từng đặt.
+    public func traditionalOverride(bookId: String) -> ScopeOverride {
+        let key = Self.bookTraditionalKey(bookId)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return .inherited }
+        return UserDefaults.standard.bool(forKey: key) ? .enabled : .disabled
+    }
+
+    public func setTraditionalOverride(bookId: String, mode: ScopeOverride) {
+        let key = Self.bookTraditionalKey(bookId)
+        switch mode {
+        case .inherited: UserDefaults.standard.removeObject(forKey: key)
+        case .enabled: UserDefaults.standard.set(true, forKey: key)
+        case .disabled: UserDefaults.standard.set(false, forKey: key)
+        }
+        notifyChange()
+    }
+
+    public func sourceConvertsTraditional(packageId: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let dict = UserDefaults.standard.dictionary(forKey: sourceTraditionalKey) as? [String: Bool] ?? [:]
+        return dict[packageId.isEmpty ? "local" : packageId] ?? false
+    }
+
+    public func setSourceConvertsTraditional(packageId: String, enabled: Bool) {
+        lock.lock()
+        let normalized = packageId.isEmpty ? "local" : packageId
+        var dict = UserDefaults.standard.dictionary(forKey: sourceTraditionalKey) as? [String: Bool] ?? [:]
+        if enabled {
+            dict[normalized] = true
+        } else {
+            dict.removeValue(forKey: normalized)
+        }
+        UserDefaults.standard.set(dict, forKey: sourceTraditionalKey)
+        lock.unlock()
+        notifyChange()
+    }
+
+    private static func bookTraditionalKey(_ bookId: String) -> String {
+        "convertTraditionalToSimplified_\(bookId)"
     }
 
     // MARK: - Management Listing

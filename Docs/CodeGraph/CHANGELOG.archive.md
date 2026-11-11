@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.797] - 2026-11-09
+
+### fix: đĩa bìa ở màn nghe nhạc xoay khi đang phát, bìa trang Lời cũng là đĩa xoay
+
+Người dùng: *"cho màn hình phát nghe nhạc cũng làm cover xoay tròn khi đang phát nhạc"*.
+
+- **Nguyên nhân nghi nhất**: trang Đĩa chỉ xoay khi `isOnScreen` = app active (`@Environment(\.scenePhase)`) + đang ở trang Đĩa; màn nghe trình bày bằng UIKit (`AudioPlayerPresenter`, host ngoài cây SwiftUI của scene) nên `scenePhase` có thể không tới ⇒ đĩa đứng im dù đang phát (thanh mini và sheet nhạc trong Reader nằm trong cây SwiftUI nên không bị).
+- `AudioPlayerScreen`: bỏ `scenePhase`, tự theo dõi `UIApplication.didBecomeActive` / `willResignActive` (`isAppActive`, khởi tạo theo `applicationState`). Trang Lời cũng nhận cờ này (`isVisible` = app active + đang ở trang Lời + chưa rời màn).
+- `AudioLyricsPage`: bìa nhỏ đầu trang (ảnh vuông tĩnh) ⇒ `AudioRotatingCover` 48 pt, xoay khi đang phát, cùng góc `AudioCoverRotation` với trang Đĩa / thanh mini.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.796] - 2026-11-09
 
 ### feat: widget TTS thêm kiểu Thanh nghe nhạc trên thanh tab, thu gọn được, chọn ở Cài đặt

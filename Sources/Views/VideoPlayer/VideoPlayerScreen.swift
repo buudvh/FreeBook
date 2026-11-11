@@ -95,6 +95,14 @@ struct VideoPlayerScreen: View {
         .sheet(isPresented: $controller.showsSleepTimerSheet) {
             MediaSleepTimerSheet(timer: session.sleepTimer)
         }
+        .sheet(isPresented: $controller.showsCaptionTranslationSheet) {
+            if let launch = session.launch {
+                MediaCaptionTranslationSheet(
+                    medium: .video, bookId: launch.bookId, packageId: launch.extensionPackageId,
+                    sourceName: launch.bookSourceName ?? ""
+                ) { session.retranslateSubtitles() }
+            }
+        }
         .sheet(item: $controller.playlistAddRequest) { PlaylistAddSheet(request: $0) }
         // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
         // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.

@@ -156,6 +156,8 @@ final class AudioPlaybackSession {
     @ObservationIgnored var loadTask: Task<Void, Never>?
     @ObservationIgnored var prefetchTask: Task<Void, Never>?
     @ObservationIgnored var lyricsTask: Task<Void, Never>?
+    /// Lượt dịch lời đã nạp (`+Lyrics`, `MediaCaptionTranslator`) — tách khỏi `lyricsTask` (nạp) để dịch lại không huỷ lượt nạp.
+    @ObservationIgnored var lyricsTranslationTask: Task<Void, Never>?
     @ObservationIgnored var coverTask: Task<Void, Never>?
     @ObservationIgnored var resolver: VideoSourceResolver?
     /// Resolver riêng của lượt nạp sẵn — `resolveSource` của một resolver huỷ lượt trước của chính nó.

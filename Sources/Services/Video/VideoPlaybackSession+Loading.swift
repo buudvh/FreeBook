@@ -37,14 +37,17 @@ extension VideoPlaybackSession {
         await translateSectionTitles(launch: launch, generation: generation)
     }
 
-    /// Tên nhóm tập (`isSection`) dịch một lần lúc nạp, ngoài main, theo công tắc dịch của truyện + phồn→giản. Tập thường
-    /// giữ nguyên (ô tập chỉ hiện số). Chạy **sau** `ensureHistoryBook`: hàm đó ghi `episodes` vào mục lục làm tên gốc.
+    /// Tên nhóm tập (`isSection`) dịch một lần lúc nạp, ngoài main, theo công tắc dịch của truyện + phồn→giản (phim/nguồn,
+    /// cùng hàm với phụ đề — `convertsTraditionalToSimplified(bookId:packageId:)`). Tập thường giữ nguyên (ô tập chỉ hiện
+    /// số). Chạy **sau** `ensureHistoryBook`: hàm đó ghi `episodes` vào mục lục làm tên gốc.
     private func translateSectionTitles(launch: BookContentLaunch, generation: Int) async {
         let sections = episodes.filter(\.isSection).map { (index: $0.index, title: $0.title) }
         guard !sections.isEmpty,
               TranslationConfigStore.shared.isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId) else { return }
         let bookId = launch.bookId
-        let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
+        let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(
+            bookId: bookId, packageId: launch.extensionPackageId
+        )
         let translated: [Int: String] = await Task.detached(priority: .userInitiated) {
             var titles: [Int: String] = [:]
             for section in sections where TranslateUtils.containsChinese(section.title) {

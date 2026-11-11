@@ -16,6 +16,22 @@ public struct AudioLyrics: Sendable, Equatable {
         lines.contains { $0.time != nil }
     }
 
+    /// Có ít nhất một dòng đã dịch ⇒ màn nghe cho chọn kiểu hiện lời (Gốc / Bản dịch / Song ngữ).
+    public var hasTranslation: Bool {
+        lines.contains { $0.translation != nil }
+    }
+
+    /// Bản sao gán bản dịch theo offset trong `lines` (`translations.count` phải bằng `lines.count`, lệch thì giữ nguyên).
+    /// Truyền toàn `nil` để bỏ hết bản dịch.
+    public func withTranslations(_ translations: [String?]) -> AudioLyrics {
+        guard translations.count == lines.count else { return self }
+        var updated = lines
+        for offset in updated.indices {
+            updated[offset].translation = translations[offset]
+        }
+        return AudioLyrics(lines: updated)
+    }
+
     /// Dòng cuối cùng có `time <= seconds` (tìm nhị phân trên các dòng đã sắp); `nil` khi chưa tới dòng đầu hoặc lời không
     /// có mốc giờ. Chỉ số là offset trong `lines`.
     public func lineIndex(at seconds: Double) -> Int? {

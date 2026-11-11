@@ -36,6 +36,8 @@ struct AudioPlayerScreen: View {
     @State private var showingMenu = false
     /// Sheet hẹn giờ tắt mở từ ngăn kéo `…` (nút ⏱ của trang Đĩa có sheet riêng — `AudioSecondaryControls`).
     @State private var showingSleepTimer = false
+    /// Sheet "Dịch lời" mở từ ngăn kéo `…`.
+    @State private var showingLyricsTranslation = false
     /// Sheet "Thêm vào playlist" của hàng ngăn kéo (bài đang phát).
     @State private var playlistRequest: PlaylistAddRequest? = nil
     @State private var isOnShelf = false
@@ -85,6 +87,12 @@ struct AudioPlayerScreen: View {
         }
         .sheet(isPresented: $showingSleepTimer) {
             MediaSleepTimerSheet(timer: AudioPlaybackSession.shared.sleepTimer)
+        }
+        .sheet(isPresented: $showingLyricsTranslation) {
+            MediaCaptionTranslationSheet(
+                medium: .audio, bookId: session.bookId, packageId: session.packageId,
+                sourceName: session.request?.sourceName ?? ""
+            ) { AudioPlaybackSession.shared.retranslateLyrics() }
         }
         .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
         // Bài lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ thử lại bài.
@@ -159,11 +167,16 @@ struct AudioPlayerScreen: View {
             hasCurrentTrack: session.currentTrackIndex != nil,
             lyricSources: session.lyricSources,
             selectedLyricSourceId: session.selectedLyricSourceId,
+            hasTranslatedLyrics: session.lyrics?.hasTranslation == true,
+            lyricsTranslationStatus: session.lyricSources.isEmpty
+                ? nil
+                : (MediaCaptionTranslator.shouldTranslate(bookId: session.bookId, packageId: session.packageId) ? "Đang bật" : "Đang tắt"),
             playbackRate: session.playbackRate,
             sleepTimerSummary: session.sleepTimer.modeSummary,
             onOpenSourcePage: { openingSourcePage = sourcePageLink },
             onAddToPlaylist: { playlistRequest = PlaylistItemMapper.addRequestForCurrentTrack(of: AudioPlaybackSession.shared) },
             onSelectLyricSource: { AudioPlaybackSession.shared.selectLyricSource($0) },
+            onOpenLyricsTranslation: { showingLyricsTranslation = true },
             onSelectRate: { AudioPlaybackSession.shared.setPlaybackRate($0) },
             onOpenSleepTimer: { showingSleepTimer = true },
             onStop: { stopAndClose() }

@@ -9,6 +9,8 @@ import SwiftUI
 /// ngăn kéo `⋯` (server còn có hàng chip dưới khung phim). Chất lượng (HLS nhiều mức) luôn nằm trong `⋯`. Hẹn giờ tắt
 /// (`MediaSleepTimerSheet`, `VideoPlayerController.showsSleepTimerSheet`) mở từ hàng "Hẹn giờ tắt" của `⋯` hoặc badge ⏱.
 /// "Thêm tập này vào playlist" của `⋯` mở `PlaylistAddSheet` (`VideoPlayerController.playlistAddRequest`).
+/// Phụ đề đã dịch ⇒ nút phụ đề thành menu kiểu hiển thị (`subtitleMenu`); "Dịch phụ đề" của `⋯` mở
+/// `MediaCaptionTranslationSheet` (`VideoPlayerController.showsCaptionTranslationSheet`).
 struct VideoPlayerTopBar: View {
     let session: VideoPlaybackSession
     let controller: VideoPlayerController
@@ -23,6 +25,8 @@ struct VideoPlayerTopBar: View {
     @AppStorage(VideoAutoplayPolicy.defaultsKey) private var autoplayOnOpen = VideoAutoplayPolicy.defaultValue
     /// Hàng thứ hai ngăn kéo `⋯` — cùng khoá với Cài đặt › Đọc & Nghe › Video (`VideoAutoNextPolicy`).
     @AppStorage(VideoAutoNextPolicy.defaultsKey) private var autoNextSuggest = VideoAutoNextPolicy.defaultValue
+    /// Kiểu hiện phụ đề có bản dịch — cùng khoá với `VideoSubtitleOverlay`.
+    @AppStorage(MediaCaptionDisplayMode.videoDefaultsKey) private var subtitleDisplayMode = MediaCaptionDisplayMode.defaultValue
 
     var body: some View {
         HStack(spacing: 6) {
@@ -74,7 +78,9 @@ struct VideoPlayerTopBar: View {
                     controller.toggleOrientationLock()
                 }
             }
-            if session.hasSubtitles {
+            if session.hasTranslatedSubtitles {
+                subtitleMenu
+            } else if session.hasSubtitles {
                 VideoPlayerIconButton(
                     systemName: session.subtitlesEnabled ? "captions.bubble.fill" : "captions.bubble",
                     label: session.subtitlesEnabled ? "Tắt phụ đề" : "Bật phụ đề"
@@ -126,6 +132,27 @@ struct VideoPlayerTopBar: View {
             }
         }
         .accessibilityLabel("Tốc độ phát")
+    }
+
+    /// Phụ đề đã có bản dịch (`hasTranslatedSubtitles`) ⇒ nút phụ đề thành menu: Tắt phụ đề · Gốc · Bản dịch · Song ngữ.
+    /// Chọn một kiểu là bật lại phụ đề; kiểu nhớ toàn app (`MediaCaptionDisplayMode.videoDefaultsKey`).
+    private var subtitleMenu: some View {
+        Menu {
+            checkmarkButton("Tắt phụ đề", isSelected: !session.subtitlesEnabled) {
+                session.setSubtitlesEnabled(false)
+                controller.showControls()
+            }
+            ForEach(MediaCaptionDisplayMode.allCases) { mode in
+                checkmarkButton(mode.title, isSelected: session.subtitlesEnabled && mode == subtitleDisplayMode) {
+                    subtitleDisplayMode = mode
+                    session.setSubtitlesEnabled(true)
+                    controller.showControls()
+                }
+            }
+        } label: {
+            VideoPlayerIconLabel(systemName: session.subtitlesEnabled ? "captions.bubble.fill" : "captions.bubble")
+        }
+        .accessibilityLabel("Phụ đề")
     }
 
     /// ⏱ + số phút còn lại (chữ nhỏ trên nền trắng như số tốc độ; view lá `MediaSleepTimerCountdownText` để thanh không vẽ
@@ -227,6 +254,17 @@ struct VideoPlayerTopBar: View {
         if session.embedContent == nil || session.sleepTimer.isActive {
             SideDrawerActionRow("Hẹn giờ tắt", systemImage: "timer", detail: session.sleepTimer.modeSummary ?? "Tắt") {
                 controller.showsSleepTimerSheet = true
+            }
+        }
+        // Chỉ khi phim có phụ đề (không xét đã dịch hay chưa: đây là chỗ bật dịch cho nguồn không tự nhận tiếng Trung).
+        if session.hasSubtitles, let launch = session.launch {
+            SideDrawerActionRow(
+                "Dịch phụ đề",
+                systemImage: "character.bubble",
+                detail: MediaCaptionTranslator.shouldTranslate(bookId: launch.bookId, packageId: launch.extensionPackageId)
+                    ? "Đang bật" : "Đang tắt"
+            ) {
+                controller.showsCaptionTranslationSheet = true
             }
         }
         SideDrawerDivider()

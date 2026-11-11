@@ -73,6 +73,10 @@ final class VideoPlaybackSession {
     /// Giây cần tua tới khi bấm "Bỏ qua"; `nil` = không nằm trong khoảng `timeSkip` nào.
     var skipTargetSeconds: Double?
     var currentCueText = ""
+    /// Bản dịch của dòng đang chiếu (`+Subtitles`); `nil` = dòng chưa / không có bản dịch. View chọn chuỗi theo kiểu hiển thị.
+    var currentCueTranslation: String?
+    /// Phụ đề có ít nhất một dòng đã dịch ⇒ nút phụ đề của thanh trên thành menu Tắt · Gốc · Bản dịch · Song ngữ.
+    var hasTranslatedSubtitles = false
     var hasSubtitles = false
     var subtitlesEnabled = true
     /// `timeControlStatus != .paused` (gồm cả lúc chờ đệm).
@@ -342,6 +346,8 @@ final class VideoPlaybackSession {
         embedContent = nil
         skipTargetSeconds = nil
         currentCueText = ""
+        currentCueTranslation = nil
+        hasTranslatedSubtitles = false
         hasSubtitles = false
         cues = []
         timeSkips = []

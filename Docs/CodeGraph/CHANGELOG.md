@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.827] - 2026-11-11
+
+### feat: dịch phụ đề phim và lời bài hát tiếng Trung
+
+Anh Bửu duyệt Ý 6 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-ca-truyen.md`: cổng bật dịch **giống truyện chữ**, kiểu hiển thị mặc định **Bản dịch**, phồn→giản phạm vi **A** (chỉ phim/nhạc).
+
+- `Services/Media/Captions/` (mới): `MediaCaptionTranslator` — `prepare(bookId:packageId:)` (cổng `isTranslationEnabled(bookId:packageId:)` + phồn→giản + chụp `TranslationReadContext` **một lần** cho cả lượt, ngoài main) và `translate(_:pass:)` (bọc `TranslationReadContext.$current.withValue`, dòng nhiều hàng tách `\n` dịch từng hàng bằng `translateContent`, dòng không có chữ Hán / dịch ra y nguyên ⇒ `nil`, kiểm huỷ mỗi 20 dòng, huỷ giữa chừng ⇒ trả `nil` cả lô). Gọi từ **trong** task sẵn có của session, không `Task.detached`. `MediaCaptionDisplayMode` (Gốc / Bản dịch / Song ngữ; khoá `@AppStorage` `videoSubtitleDisplayMode`, `audioLyricsDisplayMode`; mặc định Bản dịch).
+- Phép dịch **chỉ để hiển thị, chạy sau parse**: `VideoSubtitleCue.translation`, `AudioLyricLine.translation` (mặc định `nil`, init cũ giữ nguyên — `AudioLyricParser` vẫn dựng như trước); `AudioLyrics.hasTranslation` + `withTranslations(_:)`. `track.subtitles[].data` và nguồn lời giữ nguyên văn, không qua `ChapterTextNormalizer` / JunkFilter / bin / TTS.
+- `TranslationConfigStore`: `convertsTraditionalToSimplified(bookId:packageId:)` = phim/album này (khoá sẵn có `convertTraditionalToSimplified_<bookId>` đọc **ba trạng thái** — vắng = theo nguồn) ⇒ nguồn (khoá mới `FreeBook_Translation_Source_TraditionalToSimplified_V1`) ⇒ tắt; kèm `traditionalOverride` / `setTraditionalOverride` / `sourceConvertsTraditional` / `setSourceConvertsTraditional`. Chỉ phụ đề, lời và tên nhóm tập phim (`translateSectionTitles`) dùng; Reader, TTS, truyện tranh, xuất, AI giữ `convertsTraditionalToSimplified(bookId:)`.
+- **Phim**: `toggleSubtitles` + `loadSubtitles` dời từ `VideoPlaybackSession+Playback` (392 → 372 dòng) sang `VideoPlaybackSession+Subtitles` (mới): sau `cues = loaded` dịch trong **cùng** `subtitleTask`, lô 50 dòng bắt đầu từ dòng đang chiếu rồi quay về đầu, mỗi lô công bố ngay (`updateCue` gán cả `currentCueTranslation`); sau mỗi `await` kiểm `isCurrent(generation)` (gồm cờ huỷ). `currentCueTranslation`, `hasTranslatedSubtitles` reset ở `prepareForNewLoad` / `stop()`. `setSubtitlesEnabled(_:)`. `VideoSubtitleOverlay` vẽ theo kiểu (song ngữ: dòng dịch to, dòng gốc nhỏ mờ bên dưới; chưa có bản dịch ⇒ nguyên văn). `VideoPlayerTopBar`: nút phụ đề thành `Menu` Tắt phụ đề · Gốc · Bản dịch · Song ngữ khi `hasTranslatedSubtitles` (chọn kiểu là bật lại phụ đề), còn lại giữ nút bật/tắt; ngăn kéo `⋯` thêm hàng "Dịch phụ đề" (Đang bật / Đang tắt; chỉ khi phim có phụ đề).
+- **Nhạc**: `applyLyrics` ⇒ `translateLyrics` trong task riêng `lyricsTranslationTask` (gác `lyricsGeneration` + cờ huỷ + lời không đổi; huỷ ở `resetLyrics` / `loadLyrics`), xong gán `lyrics` mới có bản dịch. `AudioLyricsScrollView` (song ngữ: bản dịch dưới mỗi dòng gốc), `AudioCurrentLyricLine` (trang Đĩa + sheet điều khiển nhanh: bản dịch khi kiểu ≠ Gốc), `AudioPlayerDrawerMenu` thêm mục "Lời bài hát" (chỉ khi lời có bản dịch) + hàng "Dịch lời" (khi bài có nguồn lời).
+- Sheet chung `MediaCaptionTranslationSheet` (`Views/Common/MediaCaption/`, bám mục dịch của `ReaderSettingsView`, picker phân đoạn, `.pageTitle`, vuốt xuống để đóng, tự gắn `.preferredColorScheme(.dark)` + `.appAccentTint()` vì hai màn trình bày bằng UIKit): Dịch · Phim/album này (Theo nguồn / Bật / Tắt) + · Nguồn (Toàn cục / Bật / Tắt); Phồn → giản · Phim/album này (Theo nguồn / Bật / Tắt) + · Nguồn (Tắt / Bật). Mở từ hai hàng mới theo đường của "Hẹn giờ tắt" (`VideoPlayerController.showsCaptionTranslationSheet` ⇒ `VideoPlayerScreen`; `AudioPlayerScreen` từ callback ngăn kéo). Đóng mà kết quả (bật dịch, phồn→giản) khác lúc mở ⇒ `retranslateSubtitles()` / `retranslateLyrics()`: bỏ bản dịch cũ rồi dịch lại phụ đề / lời đã nạp, không nạp lại phim / bài; phụ đề / lời chưa nạp xong thì không đụng lượt nạp.
+- Giới hạn giữ nguyên: chỉ `track.subtitles.first`; tập tải offline và phim nhúng trang không có phụ đề; sửa từ điển giữa chừng áp từ tập / bài sau.
+- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm một gạch đầu dòng. Chuyển `[1.3.797]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo chữ ký (`VideoSubtitleCue`, `AudioLyricLine`, `updateCue`, `loadSubtitles`, `AudioPlayerDrawerMenu`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 391, `VideoPlayerScreen.swift` 384, `VideoPlaybackSession.swift` 377). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề tiếng Trung từ nguồn khai zh: bản dịch hiện gần như ngay ở dòng đang chiếu, menu phụ đề đổi kiểu tức thì; (2) nguồn không khai zh: mặc định không dịch, bật ở "Dịch phụ đề" ⇒ đóng sheet là dịch; tắt ⇒ về nguyên văn, menu về nút bật/tắt; (3) lời LRC tiếng Trung: trang Lời song ngữ, dòng ở trang Đĩa, mục "Lời bài hát" ở ngăn kéo; (4) phồn→giản theo phim / nguồn.
+
 ## [1.3.826] - 2026-11-11
 
 ### feat: dịch ảnh truyện tranh raw bằng nhận chữ trên máy, phủ bản dịch lên bong bóng
@@ -357,14 +373,3 @@ Anh Bửu duyệt: trình nghe âm thanh có "Tự phát bài gợi ý", làm **
 - `CLAUDE.md` / `AGENTS.md` mục Âm thanh thêm một gạch đầu dòng.
 - Chuyển `[1.3.768]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code + diff (grep chéo chữ ký `stopSession`, `executeCustomScript`, `fetchDetail`, `MediaSleepTimer.restore`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 386 dòng). Không build tại chỗ (Windows). Chưa thử máy: tự sang ở nền / màn khoá, dòng báo, giữ hẹn giờ qua lượt tự sang.
-
-## [1.3.797] - 2026-11-09
-
-### fix: đĩa bìa ở màn nghe nhạc xoay khi đang phát, bìa trang Lời cũng là đĩa xoay
-
-Người dùng: *"cho màn hình phát nghe nhạc cũng làm cover xoay tròn khi đang phát nhạc"*.
-
-- **Nguyên nhân nghi nhất**: trang Đĩa chỉ xoay khi `isOnScreen` = app active (`@Environment(\.scenePhase)`) + đang ở trang Đĩa; màn nghe trình bày bằng UIKit (`AudioPlayerPresenter`, host ngoài cây SwiftUI của scene) nên `scenePhase` có thể không tới ⇒ đĩa đứng im dù đang phát (thanh mini và sheet nhạc trong Reader nằm trong cây SwiftUI nên không bị).
-- `AudioPlayerScreen`: bỏ `scenePhase`, tự theo dõi `UIApplication.didBecomeActive` / `willResignActive` (`isAppActive`, khởi tạo theo `applicationState`). Trang Lời cũng nhận cờ này (`isVisible` = app active + đang ở trang Lời + chưa rời màn).
-- `AudioLyricsPage`: bìa nhỏ đầu trang (ảnh vuông tĩnh) ⇒ `AudioRotatingCover` 48 pt, xoay khi đang phát, cùng góc `AudioCoverRotation` với trang Đĩa / thanh mini.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy.
