@@ -8,7 +8,8 @@ import SwiftUI
 ///   item Khám phá chỉ là danh sách tạm (xem comment đầu `DiscoveryNovelRowView`). Referer = host item → `source`.
 /// - `.grid`: tên 2 dòng + mô tả 1 dòng dưới bìa (như `ExploreItemCard`).
 /// - `.coverOnly`: tên đè lên dải tối ở đáy bìa (`CoverCaptionStrip`).
-/// - Chữ Trung theo cùng luật với `DiscoveryNovelRowView`: phồn → giản rồi dịch **theo nguồn** (`textOptions`).
+/// - Chữ Trung theo cùng luật với `DiscoveryNovelRowView`: phồn → giản rồi dịch **theo nguồn** (`textOptions`); có
+///   `textStore` (Khám phá / Thể loại) ⇒ bộ dịch tiện ích dịch tên / mô tả / nhãn (QT hiện trước).
 ///
 /// Bề rộng do cột lưới quyết định; chiều cao bìa suy ra từ `aspectRatio`. Nơi dùng bọc thẻ trong `Button`.
 struct DiscoveryNovelGridCardView: View {
@@ -24,6 +25,8 @@ struct DiscoveryNovelGridCardView: View {
     /// Nơi dùng đè ⋮ "Thêm vào playlist" ở góc dưới phải thẻ (`PlaylistListItemMenu`, 1.3.810) ⇒ chừa lề phải cho tên /
     /// mô tả để chữ không chạy dưới ⋮. Kiểu chỉ bìa đặt ⋮ trên góc bìa nên không cần.
     var reservesMenuSpace: Bool = false
+    /// Khám phá / Thể loại / Xem thêm: store của màn cha (bộ dịch tiện ích). `nil` (Tìm kiếm) ⇒ chỉ QT theo `textOptions`.
+    var textStore: ExtensionTextTranslationStore? = nil
 
     private static let coverCornerRadius: CGFloat = 8
 
@@ -40,7 +43,7 @@ struct DiscoveryNovelGridCardView: View {
                     .padding(.trailing, reservesMenuSpace ? 18 : 0)
 
                 if !item.description.isEmpty {
-                    Text(ChineseTextPipeline.meta(item.description.cleanHTML(), textOptions))
+                    Text(display(item.description.cleanHTML()))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -69,7 +72,7 @@ struct DiscoveryNovelGridCardView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: Self.coverCornerRadius, style: .continuous))
             .overlay(alignment: .topLeading) {
-                CoverTagBadge(tag: ChineseTextPipeline.meta(item.tag, textOptions), fontSize: 10, inset: 4)
+                CoverTagBadge(tag: display(item.tag), fontSize: 10, inset: 4)
             }
     }
 
@@ -84,10 +87,17 @@ struct DiscoveryNovelGridCardView: View {
         )
     }
 
-    /// Tên tra từ điển riêng theo `link` như trước (chép struct, không tra cấu hình).
+    /// Tên: bộ dịch tiện ích ⇒ bản tiện ích (QT trước); QT ⇒ tra từ điển riêng theo `link` như trước.
     private var displayedTitle: String {
+        if let textStore, textStore.request != nil {
+            return DisplayTextFormatter.titleCase(textStore.text(item.name, kind: .meta))
+        }
         var nameOptions = textOptions
         nameOptions.dictionaryBookId = item.link
         return DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(item.name, nameOptions))
+    }
+
+    private func display(_ text: String) -> String {
+        textStore?.text(text, kind: .meta) ?? ChineseTextPipeline.meta(text, textOptions)
     }
 }

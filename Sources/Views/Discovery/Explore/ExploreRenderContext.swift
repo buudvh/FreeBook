@@ -5,8 +5,8 @@ import Foundation
 struct ExploreRenderContext {
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
-    /// Phồn → giản + dịch của nguồn (Nguồn ⇒ Tất cả, `ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
-    let textOptions: ChineseTextPipeline.Options
+    /// Chữ Trung của nguồn (phồn → giản + QT, bộ dịch tiện ích) — `DiscoveryView` giữ và cập nhật.
+    let textStore: ExtensionTextTranslationStore
     /// Cỡ từng bố cục theo loại nguồn (`ExploreLayoutSizePreferences`).
     var sizes: ExploreLayoutSizes = .default
     let onSelect: (ExploreItem) -> Void
@@ -20,9 +20,11 @@ struct ExploreRenderContext {
         ExtensionHostResolver.nonEmpty(item.host) ?? sourceHost
     }
 
-    /// Chuỗi hiển thị: phồn → giản nếu nguồn bật, rồi dịch nếu nguồn bật dịch (giống các tab Khám phá cũ).
+    /// Chuỗi hiển thị: phồn → giản nếu nguồn bật, rồi dịch nếu nguồn bật dịch — bộ dịch tiện ích ⇒ bản QT hiện trước, bản
+    /// tiện ích thay khi về. Chỉ gọi trong `body` của view đang hiện (section / thẻ dựng lười) ⇒ không xin mẩu chưa hiện.
+    @MainActor
     func display(_ text: String) -> String {
-        ChineseTextPipeline.meta(text, textOptions)
+        textStore.text(text, kind: .meta)
     }
 
     /// Item cho ⋮ "Thêm vào playlist": chỉ khi nguồn có playlist và item mở chi tiết được (không action / action

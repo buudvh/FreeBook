@@ -5,8 +5,9 @@ import SwiftUI
 struct DiscoveryGenresTabView: View {
     let genreItems: [CategoryResult]
     let homeItems: [CategoryResult]
-    /// Phồn → giản + dịch của nguồn (`ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
-    let textOptions: ChineseTextPipeline.Options
+    /// Chữ Trung của nguồn (`options` = phồn → giản + QT, Nguồn ⇒ Tất cả; bộ dịch tiện ích ⇒ bản tiện ích hiện sau bản
+    /// QT) — màn cha giữ và cập nhật, view này chỉ đọc `text(_:kind:)` trong `body`.
+    let textStore: ExtensionTextTranslationStore
     @Binding var selectedCategoryId: String
     let onSelectGenre: (CategoryResult) -> Void
     /// Nguồn Legado đang xem ⇒ tab vẽ mục khám phá có kiểu (tiêu đề nhóm, ô bấm, điều khiển — `LegadoExploreTabView`)
@@ -14,8 +15,8 @@ struct DiscoveryGenresTabView: View {
     var legadoExtension: Extension? = nil
 
     @State private var searchText = ""
-    /// Tiêu đề đã dịch theo `CategoryResult.id` — dựng một lần khi bắt đầu tìm (không dịch lại mỗi phím gõ); danh sách
-    /// hoặc cấu hình dịch / phồn → giản đổi thì bỏ.
+    /// Tiêu đề bản QT theo `CategoryResult.id` — khoá tìm, dựng một lần khi bắt đầu tìm (không dịch lại mỗi phím gõ);
+    /// danh sách hoặc cấu hình dịch / phồn → giản đổi thì bỏ. Bản tiện ích (nếu đã có) tra thẳng `textStore`.
     @State private var translatedTitles: [String: String] = [:]
 
     private var filteredItems: [CategoryResult] {
@@ -24,6 +25,7 @@ struct DiscoveryGenresTabView: View {
         return genreItems.filter { item in
             Self.searchKey(item.title).contains(query)
                 || Self.searchKey(translatedTitles[item.id] ?? translateIfNeeded(item.title)).contains(query)
+                || textStore.translation(of: item.title, kind: .meta).map { Self.searchKey($0).contains(query) } == true
         }
     }
 
@@ -32,7 +34,8 @@ struct DiscoveryGenresTabView: View {
             LegadoExploreTabView(
                 localPath: legadoExtension.localPath,
                 packageId: legadoExtension.packageId,
-                textOptions: textOptions,
+                // Ô của Legado dựng hết một lượt (bố cục flex, không lười) ⇒ chỉ QT, không xin tiện ích cả danh sách.
+                textOptions: textStore.options,
                 onSelectGenre: onSelectGenre
             )
             // Sửa JSON nguồn ⇒ phiên bản đổi ⇒ dựng lại tab (không giữ mục khám phá của JSON cũ).
@@ -75,7 +78,7 @@ struct DiscoveryGenresTabView: View {
                                     onSelectGenre(item)
                                 }
                             }) {
-                                Text(translatedTitles[item.id] ?? translateIfNeeded(item.title))
+                                Text(textStore.text(item.title, kind: .meta)) // lưới lười ⇒ chỉ xin ô đang hiện
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -100,7 +103,7 @@ struct DiscoveryGenresTabView: View {
             if !text.isEmpty && translatedTitles.isEmpty { rebuildTranslatedTitles() }
         }
         .onChange(of: genreItems.map(\.id)) { _, _ in translatedTitles = [:] }
-        .onChange(of: textOptions) { _, _ in translatedTitles = [:] }
+        .onChange(of: textStore.options) { _, _ in translatedTitles = [:] }
     }
 
     private func rebuildTranslatedTitles() {
@@ -118,7 +121,8 @@ struct DiscoveryGenresTabView: View {
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
+    /// Bản QT (khoá tìm) — không xin tiện ích: tìm duyệt cả danh sách.
     private func translateIfNeeded(_ text: String) -> String {
-        ChineseTextPipeline.meta(text, textOptions)
+        ChineseTextPipeline.meta(text, textStore.options)
     }
 }

@@ -78,8 +78,8 @@ struct DiscoveryView: View {
     @State private var showingFilterSheet = false
     /// Tab lúc bấm nút lọc — sheet giữ đúng tab đó dù người dùng vuốt sang tab khác phía sau.
     @State private var filterSheetScope: ExtensionFilterScope = .file("")
-    /// Phồn → giản + dịch của nguồn đang xem (Nguồn ⇒ Tất cả) — `refreshTextOptions`, không tra từng hàng.
-    @State private var textOptions: ChineseTextPipeline.Options = .passthrough
+    /// Chữ Trung của nguồn đang xem: phồn → giản + QT (Nguồn ⇒ Tất cả) + bộ dịch tiện ích — `refreshTextOptions`.
+    @State private var textStore = ExtensionTextTranslationStore()
 
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
@@ -173,7 +173,7 @@ struct DiscoveryView: View {
                                     packageId: ext.packageId,
                                     sourceName: ext.name,
                                     isChineseSourceHint: ext.isChineseSource,
-                                    isTranslationEnabled: textOptions.translates,
+                                    isTranslationEnabled: textStore.options.translates,
                                     layoutSymbol: layout.mode.symbolName,
                                     canOpenBrowser: !ext.sourceUrl.isEmpty,
                                     onOpenBrowser: { showingSourceBrowser = true },
@@ -236,7 +236,7 @@ struct DiscoveryView: View {
                                             Button(action: {
                                                 selectedCategoryId = item.id
                                             }) {
-                                                Text(ChineseTextPipeline.meta(item.title, textOptions))
+                                                Text(textStore.text(item.title, kind: .meta))
                                                     .font(.subheadline)
                                                     .fontWeight(isSelected ? .bold : .regular)
                                                     .padding(.horizontal, 14)
@@ -297,7 +297,7 @@ struct DiscoveryView: View {
                                         DiscoveryGenresTabView(
                                             genreItems: genreItems,
                                             homeItems: homeItems,
-                                            textOptions: textOptions,
+                                            textStore: textStore,
                                             selectedCategoryId: $selectedCategoryId,
                                             onSelectGenre: { item in
                                                 selectedGenre = item
@@ -333,7 +333,7 @@ struct DiscoveryView: View {
                                                 )
                                             }
                                             if ExploreSectionsView.isTab(item) {
-                                                ExploreSectionsView(ext: ext, textOptions: textOptions, onSelectNovel: openNovel,
+                                                ExploreSectionsView(ext: ext, textStore: textStore, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
                                                     .id(pageIdentity) // đổi nguồn/config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
@@ -343,7 +343,7 @@ struct DiscoveryView: View {
                                                     localPath: ext.localPath,
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
-                                                    textOptions: textOptions,
+                                                    textStore: textStore,
                                                     layoutScope: layoutScope,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
@@ -603,11 +603,11 @@ struct DiscoveryView: View {
         }
     }
     
-    /// Tính lại `textOptions` của nguồn đang xem (đổi nguồn, màn hiện lại, cấu hình đổi); giữ nguyên nếu không khác.
+    /// Dựng lại cấu hình chữ + lượt dịch tiện ích của nguồn đang xem (đổi nguồn, màn hiện lại, cấu hình / bộ dịch đổi —
+    /// ngoài `body`); giống cũ ⇒ store bỏ qua (`textStoreConfiguration` ở `DiscoveryView+TextTranslation`).
     private func refreshTextOptions() {
-        let packageId = selectedExtensionId.isEmpty ? nil : selectedExtensionId
-        let options = ChineseTextPipeline.sourceOptions(packageId: packageId, isChineseSourceHint: selectedExtension?.isChineseSource)
-        if textOptions != options { textOptions = options }
+        let config = Self.textStoreConfiguration(packageId: selectedExtensionId, isChineseSourceHint: selectedExtension?.isChineseSource)
+        textStore.update(options: config.options, request: config.request)
     }
 }
 

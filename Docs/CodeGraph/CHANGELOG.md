@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.856] - 2026-11-11
+
+### feat: Khám phá dịch tên và mô tả truyện bằng tiện ích dịch theo từng trang danh sách
+
+Anh Bửu: *"thực hiện thêm dịch bằng tiện ích vào những chỗ có pop còn thiếu"*. Phần Khám phá: ngăn kéo "Dịch văn bản" đã chọn được BỘ DỊCH nhưng danh sách vẫn dịch QT. Anh đã được báo số lượt gọi tiện ích là chỗ rủi ro nhất ⇒ chỉ xin dịch mẩu đang hiện.
+
+- **Một store mỗi màn**: `DiscoveryView` (và `CategoryNovelsListView` của riêng nó) giữ một `ExtensionTextTranslationStore` thay cho cờ `textOptions`, truyền xuống `ExploreSectionsView` → `ExploreRenderContext`, `DiscoveryGenresTabView`, `DiscoveryCategoryTabView` → `DiscoveryNovelsLayoutView` → `DiscoveryNovelRowView` / `DiscoveryNovelGridCardView`. Bộ dịch của nguồn / toàn cục là tiện ích dịch (`ChineseTextExtensionTranslator.request(bookId: nil, packageId:, options:, source: .discovery)` khác `nil`) ⇒ tên truyện, mô tả, nhãn tag, tên tab danh mục, tên thể loại, tiêu đề / dòng phụ / chip của trang section và tiêu đề trang Thể loại / Xem thêm hiện **bản QT trước** rồi được thay bằng bản tiện ích; bộ dịch QT hoặc tắt dịch ⇒ y như trước (phồn → giản + QT theo nguồn).
+- **Chỉ xin mẩu đang hiện**: hàng / thẻ đọc `store.text(_, kind: .meta)` trong `body`; danh sách vẫn dựng lười (`ScrollView` + `LazyVStack` / `LazyVGrid` / `LazyHStack`, chân `LoadMoreFooter`, cách nạp trang giữ nguyên) nên chỉ hàng đang dựng xin dịch, store gom các mẩu của một nhịp vẽ thành một lô. Không duyệt cả mảng item để xin trước. Ô tìm thể loại so khớp bằng bản QT + bản tiện ích **đã có**, không xin thêm.
+- **Dựng lại lượt dịch** ngoài `body`: `DiscoveryView.refreshTextOptions()` (đổi nguồn, màn hiện lại, `TranslationDisplayRevision` đổi — nay tăng cả khi đổi bộ dịch); `CategoryNovelsListView` dùng `.onChange(of: TranslationDisplayRevision.shared.value, initial: true)`. Cấu hình + `Request` dựng ở `DiscoveryView.textStoreConfiguration` (file mới `DiscoveryView+TextTranslation.swift`, `DiscoveryView` không tăng dòng). Store giống cũ thì bỏ qua (back từ Chi tiết không dịch lại).
+- **Tác giả** giữ phiên âm Hán Việt, không gửi tiện ích. Tên truyện khi dịch QT vẫn tra từ điển theo `link` như trước.
+- **Tiện ích lỗi** ⇒ mẩu đó giữ bản QT; lỗi chỉ ghi log (`❌ [ExtTranslate]` của `TranslationExtensionRunner`), không dải báo.
+- **Chưa dịch bằng tiện ích**: tab Thể loại của nguồn **Legado** (bố cục flex dựng mọi ô một lượt, không lười ⇒ giữ QT để không xin cả danh sách); Tìm kiếm và sheet Bộ lọc (ngoài phạm vi, vẫn QT).
+- **Kiểm chứng:** đọc code + grep chéo mọi chỗ gọi các view đổi tham số (`DiscoveryNovelRowView`, `DiscoveryNovelsLayoutView`, `DiscoveryCategoryTabView`, `DiscoveryGenresTabView`, `ExploreSectionsView`, `ExploreRenderContext`; `DiscoveryNovelGridCardView` thêm `textStore` tuỳ chọn nên Tìm kiếm không đổi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`DiscoveryView` giữ 674 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chọn tiện ích dịch ở popup dịch của Khám phá (Nguồn này) ⇒ tên / mô tả hiện QT rồi đổi sang bản tiện ích, tác giả vẫn phiên âm; (2) cuộn dài một tab danh mục: log `🌐 [ExtTranslate] … N dòng mới, M lần gọi` chỉ tăng theo trang đang xem, không gửi cả danh sách; (3) đổi lại QT / đổi nguồn ⇒ danh sách về QT ngay; (4) tiện ích lỗi ⇒ vẫn thấy QT, log `❌ [ExtTranslate]`; (5) Thể loại / Xem thêm (cả mở từ Chi tiết) dịch theo bộ dịch của nguồn.
+
 ## [1.3.855] - 2026-11-11
 
 ### feat: trang Chi tiết dịch tên, giới thiệu, thể loại, bình luận, đề xuất và mục lục bằng tiện ích dịch

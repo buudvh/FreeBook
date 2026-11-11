@@ -8,8 +8,9 @@ struct DiscoveryCategoryTabView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    /// Phồn → giản + dịch của nguồn (`ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
-    let textOptions: ChineseTextPipeline.Options
+    /// Chữ Trung của nguồn (`options` = phồn → giản + QT, Nguồn ⇒ Tất cả; bộ dịch tiện ích ⇒ bản tiện ích hiện sau bản
+    /// QT) — màn cha giữ và cập nhật, view này chỉ đọc `text(_:kind:)` trong `body`.
+    let textStore: ExtensionTextTranslationStore
     /// Loại của nguồn đang xem — chọn kiểu hiển thị (`BookListLayoutPreferences`) và tỉ lệ bìa.
     let layoutScope: BookListLayoutScope
     @Binding var selectedCategoryId: String
@@ -36,7 +37,7 @@ struct DiscoveryCategoryTabView: View {
         localPath: String,
         downloadUrl: String,
         configJson: String,
-        textOptions: ChineseTextPipeline.Options,
+        textStore: ExtensionTextTranslationStore,
         layoutScope: BookListLayoutScope,
         selectedCategoryId: Binding<String>,
         scrollAnchors: DiscoveryScrollAnchorStore,
@@ -47,7 +48,7 @@ struct DiscoveryCategoryTabView: View {
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
-        self.textOptions = textOptions
+        self.textStore = textStore
         self.layoutScope = layoutScope
         self._selectedCategoryId = selectedCategoryId
         self.scrollAnchors = scrollAnchors
@@ -120,7 +121,7 @@ struct DiscoveryCategoryTabView: View {
                         layout: layout,
                         aspectRatio: layoutScope.coverAspectRatio,
                         sourceHost: sourceHost,
-                        textOptions: textOptions,
+                        textStore: textStore,
                         scrollAnchors: scrollAnchors,
                         anchorCategoryId: category.id,
                         itemNoun: layoutScope.itemNoun,
