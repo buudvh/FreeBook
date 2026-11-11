@@ -2,7 +2,7 @@ import UIKit
 
 /// Sổ các **neo** của đĩa nghe (`MediaDiscWindowManager`, 1.3.808): những thứ ở đáy màn mà nửa viên đĩa dính mép phải
 /// **né** — đè lên thì tạm đẩy lên ngay trên (nút "+" / Home / menu xổ / FAB Chi tiết, nút tai nghe Reader, thanh dưới trình
-/// duyệt, thanh dưới truyện tranh, thanh tab) — và những màn phải **ẩn** đĩa (màn xem phim, sheet "đang đọc chương này").
+/// duyệt, thanh dưới truyện tranh, thanh tab) — và những màn phải **ẩn** đĩa (màn xem phim).
 ///
 /// Mỗi neo là một `MediaDiscAnchorProbe` (UIView 0 chạm, nằm sau view thật nên khung = khung neo) tự đăng ký khi vào cửa sổ
 /// và tự gỡ khi SwiftUI bỏ view. Sổ chỉ giữ tham chiếu **yếu**; neo nào hợp lệ lúc này (đúng cửa sổ chính, đúng tầng trình
@@ -17,7 +17,8 @@ final class MediaDiscAnchorRegistry {
         case button
         /// Thanh ngang sát đáy màn: đĩa đè lên (ở mép nào cũng vậy) ⇒ tạm đẩy lên trên thanh.
         case bar
-        /// Màn che đĩa (màn xem phim, sheet "đang đọc chương này" của Reader): neo này hợp lệ ⇒ ẩn đĩa.
+        /// Màn che đĩa (màn xem phim): neo này hợp lệ ⇒ ẩn đĩa. Sheet "đang đọc chương này" của Reader bỏ neo này ở 1.3.868 —
+        /// nó nằm trên đĩa qua `OverlaySheetPresenter`.
         case blocker
     }
 

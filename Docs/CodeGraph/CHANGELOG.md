@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.868] - 2026-11-11
+
+### feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe
+
+Anh Bửu: "Sheet 'đang đọc chương này' hiển thị đừng có ẩn nửa viên thuốc, cho nó dưới sheet thôi, cho luôn nửa viên thuốc hub ở dưới sheet luôn… mọi sheet mở ra từ viên thuốc đều không ẩn các viên thuốc mà chỉ hiển thị cao hơn viên thuốc thôi, tránh trường hợp mở sheet từ viên thuốc rồi lại mở sheet mới khác từ viên thuốc đè lên" (đã duyệt mockup + plan).
+
+- **Cửa sổ sheet phủ** (mới, `Views/Common/OverlaySheet/`): `OverlaySheetPresenter` + `OverlaySheetWindow` (level `alert − 1.6`: trên đĩa nghe `− 1.75`, hub `− 2` / `− 1.7`, nút trình duyệt `− 3`; dưới ngăn kéo `…` `− 1.5` và toast) + `OverlaySheetHost` (view 1×1 giữ `.sheet`, khuôn `MediaDiscSheetHost`). Cửa sổ chỉ hiện lúc có sheet, không bao giờ key, hit-test chỉ nhận chạm khi đang trình bày (luật 25); `onDismiss` là đường đóng chung (luật 26); `dismiss(then:)` đóng sheet **xong** mới chạy việc kèm theo. Sheet của cửa sổ chính luôn nằm dưới các cửa sổ viên thuốc nên đây là cách duy nhất để một sheet che được chúng.
+- **Sheet "đang đọc chương này" của Reader** trình bày qua cửa sổ này (vỏ `ReaderTTSSameChapterPromptHost`: tự giữ chiều cao + tự đọc "đang phát" qua `TTSWidgetStateReader`) ⇒ đĩa nghe, hub, nút trình duyệt, cửa sổ phim nhỏ nằm dưới lớp mờ của sheet, **không bị ẩn**, không bấm được để mở chồng sheet. Bỏ neo `.blocker` của sheet này. Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của Reader như cũ.
+- Sheet của chính đĩa nghe và sheet hub / màn Thông báo vốn đã nằm trên mọi viên thuốc (cửa sổ của chúng) — giữ nguyên.
+- `CLAUDE.md` / `AGENTS.md`: đoạn đĩa nghe thêm luật "sheet nằm trên mọi viên thuốc".
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: đang nghe truyện, bấm tai nghe trúng chương đang đọc ⇒ sheet hiện, đĩa nghe + hub vẫn thấy mờ dưới lớp tối; chọn "Đọc tiếp chỗ đang đọc" / "Đọc từ đoạn đang xem" / "Đọc lại từ đầu chương" ⇒ Reader làm đúng như cũ; vuốt sheet xuống ⇒ không làm gì, đĩa vẫn ở đó.
+
 ## [1.3.867] - 2026-11-11
 
 ### feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn
@@ -556,51 +571,4 @@ Phần C (giao diện) của plan tiện ích dịch truyện, gộp commit gố
   3. Truyện tắt dịch riêng ⇒ chọn bộ dịch ở "Nguồn này" ⇒ nguồn vẫn bật dịch.
   4. Chấm cam + hàng báo + Thử lại.
   5. Dịch thử ngay sau khi nhập khoá API.
-
-## [1.3.838] - 2026-11-11
-
-### feat: dịch nội dung chương bằng tiện ích dịch trong Reader và TTS, báo khi dùng QT thay thế
-
-Phần B của plan tiện ích dịch truyện (lõi 1.3.832 / 1.3.836). Gộp commit gốc và bản sửa theo review phản biện. Bộ dịch là tiện ích ⇒ nội dung chương truyện chữ và tên chương ở header Reader / TTS được dịch bằng tiện ích. Mục lục, Chi tiết, Khám phá, xuất TXT vẫn QT. Phần chọn bộ dịch ở popup là phần C (bản kế).
-
-**Reader**
-- Khi dịch bật và bộ dịch của truyện là tiện ích, `ReaderViewModel+ExtensionTranslation` (mới) gọi `TranslationExtensionChapterTranslator` với đúng các dòng sẽ dựng đoạn và tên chương. Bộ dịch tra lại mỗi lượt dựng qua `TranslationEngineStore.resolve` với `extensionPackageId`.
-- `buildCancellable` nhận bản dịch sẵn theo `line.id`; không có thì chạy QT như cũ. Bản dịch của tiện ích không có span.
-- Bỏ tên chương trùng gom về **một** hàm, `ChapterTextNormalizer.contentLines(of:removingDuplicatedTitle:)` (mới), dùng chung cho Reader, `TTSBackgroundProcessor` và lượt dịch bằng tiện ích. `getTTSChapterContent` trả nội dung chưa bỏ tên trùng, nên không còn bỏ hai lần.
-- **Báo QT thay thế:**
-  - Mỗi lần áp bản dựng, `applyPreparedTranslation` ghi `TranslationFallbackStatusStore`.
-  - Dải báo đầu chương `ReaderTranslationFallbackBanner` (mới): nền cam 14%, icon tam giác, "Đang dịch bằng QT thay thế" + "<tiện ích> lỗi: <lỗi> · N/M đoạn", nút "Thử lại".
-  - Dải vẽ trong `ParagraphCardView` của mục đầu chương (`chapterIndex` + `isChapterStart`). `ReaderView.swift` chỉ sửa tại chỗ.
-- `ReaderExtensionTranslationObserver` (mới):
-  - Đổi bộ dịch / ngôn ngữ / model / kiểu ⇒ chương đang hiện dựng lại.
-  - "Thử lại" ⇒ dựng lại dù generation không đổi.
-- `requestRetry` xoá cache dịch của truyện (cả lỗi đã nhớ) **ngay lúc xin**, để Reader và TTS dịch lại cùng một lượt. "Tải lại chương" cũng xoá cache dịch của truyện.
-- `ParagraphCardView.displayText` hiện `translated` cả với dòng không có chữ Hán: tiện ích dịch được cả truyện tiếng Anh, và TTS đọc đúng chữ đó. Đường QT không đổi vì dòng không có chữ Hán có `translated == original`.
-
-**TTS**
-- 4 chỗ gọi `processChapter` đi qua `TTSExtensionTranslationPreparer.processChapterWithEngine` (mới).
-  - Có snapshot hợp lệ của Reader thì dùng y, kể cả tên chương (`TTSPretranslatedSnapshot.originalTitle` / `translatedTitle`).
-  - Không có thì dịch bằng translator rồi dựng snapshot.
-  - Lượt chuẩn bị sẵn không bao giờ tự gọi tiện ích.
-- TTS tra bộ dịch và công tắc dịch theo đúng `packageId` của Reader (`translationPackageId`; TXT tự nhập là `"local"`). Giá trị này đi theo khoá nạp trước chương kế.
-- `TTSExtensionTranslationObserver` (mới):
-  - Đổi bộ dịch của truyện đang phát (vân tay: tiện ích + ngôn ngữ + model + kiểu) ⇒ bỏ bản chuẩn bị sẵn, đọc lại chương đang phát từ đầu đoạn đang đọc.
-  - "Thử lại" đúng chương đang đọc cũng vậy (`TTSManager+ExtensionTranslation`, khuôn `updateTranslationSetting`).
-- `TTSTranslationFallbackNotifier` (mới):
-  - TTS phải đọc bản QT ⇒ toast "<tiện ích> lỗi, TTS đọc bản QT thay thế", một lần mỗi chương, **chỉ lúc bắt đầu đọc chương đó** qua `TTSPresentationEventCenter`.
-  - Ẩn khi Reader đã báo cho chương.
-- `TTSPreparedChapter.chapterTitle`: bắt đầu đọc từ bản chuẩn bị sẵn thì không dịch QT lại tên chương.
-
-**Kiểm chứng:**
-- Đọc code, có 2 agent review phản biện. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**: 8 file mới, `TTSManager.swift` 3467 ⇒ 3458, `ReaderView.swift` 1957 ⇒ 1952.
-- Không build tại chỗ (Windows), chưa thử máy.
-- Cần thử:
-  1. Bộ dịch là tiện ích ⇒ chương hiện bản tiện ích, header đúng tên chương.
-  2. Tiện ích lỗi (sai khoá / tắt mạng) ⇒ dải báo; Thử lại khi TTS đang đọc ⇒ Reader và TTS cùng đổi, vệt khớp.
-  3. Đổi model / ngôn ngữ khi đang nghe ⇒ TTS đọc lại từ đoạn đang đọc.
-  4. TTS tự sang chương khi Reader đóng mà tiện ích lỗi ⇒ toast một lần.
-  5. Truyện tiếng Anh dịch sang Việt ⇒ vệt highlight khớp cả dòng không có chữ Hán.
-- Rủi ro còn lại:
-  - Tiện ích treo thì Reader kẹt ở khung chờ.
-  - Thử lại xoá cache dịch cả truyện.
 

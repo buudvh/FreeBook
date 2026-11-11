@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Nút tai nghe nổi của Reader + sheet hỏi khi bấm trúng chương TTS đang phát (`ReaderTTSSameChapterSheet`).
+/// Nút tai nghe nổi của Reader + sheet hỏi khi bấm trúng chương TTS đang phát (`ReaderTTSSameChapterSheet`, trình bày qua
+/// `OverlaySheetPresenter` ⇒ nằm trên mọi viên thuốc từ 1.3.868).
 ///
 /// Thứ tự quyết định của nút — chỉ thêm bước 3, các bước khác giữ nguyên hành vi cũ:
 /// 1. TTS đang **tạm dừng** truyện này và đoạn đang dừng còn trong vùng an toàn của màn hình ⇒ phát tiếp đúng chunk.
@@ -18,7 +19,7 @@ extension ReaderView {
         let target = headphoneTTSTarget(geometry: geometry)
         let state = ttsState.snapshot
         if state.isPlaying, state.playingBookId == bookId, state.playingChapterIndex == target.chapterIndex {
-            ttsSameChapterPrompt = ReaderTTSSameChapterSheet.Prompt(
+            let prompt = ReaderTTSSameChapterSheet.Prompt(
                 chapterIndex: target.chapterIndex,
                 viewingParagraphIndex: target.paragraphIndex,
                 bookId: bookId,
@@ -27,12 +28,25 @@ extension ReaderView {
                 coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                 readsChapterTitle: showChapterTitle
             )
+            // Sheet nằm trên mọi viên thuốc (2026-11-11, anh Bửu: không ẩn đĩa, cho nó dưới sheet); chọn ⇒ đóng sheet xong
+            // mới làm. Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ sheet thường của Reader như cũ.
+            let presented = OverlaySheetPresenter.shared.present {
+                ReaderTTSSameChapterPromptHost(prompt: prompt) { choice in
+                    OverlaySheetPresenter.shared.dismiss {
+                        applyTTSSameChapterChoice(choice, prompt: prompt)
+                    }
+                }
+            }
+            if !presented {
+                ttsSameChapterPrompt = prompt
+            }
             return
         }
         restartTTS(at: target.chapterIndex, paragraphIndex: target.paragraphIndex)
     }
 
-    /// Gắn sheet hỏi lên tầng sheet gốc của Reader (cùng chỗ với `withSelectionSheets`).
+    /// Đường lùi: sheet hỏi gắn lên tầng sheet gốc của Reader (cùng chỗ với `withSelectionSheets`) — chỉ dùng khi
+    /// `OverlaySheetPresenter` không trình bày được; đường chính là sheet phủ trên mọi viên thuốc.
     internal func withTTSSameChapterPrompt<Base: View>(_ base: Base) -> some View {
         base.sheet(item: $ttsSameChapterPrompt) { prompt in
             ReaderTTSSameChapterSheet(

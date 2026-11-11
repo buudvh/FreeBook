@@ -5,8 +5,9 @@ import SwiftUI
 ///
 /// Khuôn `TTSQuickControlSheet`: cao vừa nội dung (chiều cao đo được giữ ở **chỗ gọi** vì nội dung sheet dựng lại mỗi lần
 /// mở), vuốt xuống để đóng (không nút Huỷ — luật sheet của repo), nền kính ngăn kéo `DrawerGlassSheetBackground` ⇒ nội
-/// dung vẽ ở `colorScheme` tối. Neo `.blocker` ẩn đĩa nghe góc dưới trong lúc sheet mở (không neo thì đĩa đứng đè lên
-/// hàng cuối). Sheet chỉ trình bày; việc của từng lựa chọn ở `ReaderView+TTSSameChapterPrompt`.
+/// dung vẽ ở `colorScheme` tối. Trình bày qua `OverlaySheetPresenter` (vỏ `ReaderTTSSameChapterPromptHost`) ⇒ nằm **trên**
+/// mọi viên thuốc, không ẩn đĩa nghe nữa (1.3.868 — trước đó neo `.blocker` ẩn đĩa). Sheet chỉ trình bày; việc của từng lựa
+/// chọn ở `ReaderView+TTSSameChapterPrompt`.
 struct ReaderTTSSameChapterSheet: View {
     /// Chụp lúc bấm nút: trong lúc sheet mở TTS vẫn đọc và trang vẫn tự cuộn, nên lúc chọn không đọc lại vị trí màn hình.
     struct Prompt: Identifiable {
@@ -53,7 +54,6 @@ struct ReaderTTSSameChapterSheet: View {
                 height = newHeight
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .mediaDiscAnchor(.blocker)
             .appAccentTint()
             .presentationDetents(height > 0 ? [.height(height)] : [.medium])
             .presentationDragIndicator(.visible)

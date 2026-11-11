@@ -9,7 +9,7 @@ import UIKit
 ///    (`UIAlertController`, kể cả `confirmationDialog`) hay bảng chia sẻ ⇒ **ẩn** đĩa.
 /// 2. Một neo (`MediaDiscAnchorRegistry`) chỉ được tính khi: nằm trong cửa sổ chính, VC gốc tầng của nó **chính là** tầng
 ///    trên cùng, và khung nằm trong màn. Không xét `isHidden` / alpha: neo có điều kiện tự biến mất khỏi cây.
-/// 3. Có neo `.blocker` hợp lệ (màn xem phim, sheet "đang đọc chương này") ⇒ ẩn. (Neo `.hostsDisc` của ô đĩa giữa thanh tab
+/// 3. Có neo `.blocker` hợp lệ (màn xem phim) ⇒ ẩn. (Neo `.hostsDisc` của ô đĩa giữa thanh tab
 ///    bỏ ở 1.3.865: thanh tab nay là neo `.bar`.)
 /// 4. Đĩa ở mép + độ cao đã nhớ, kẹp trong **vùng đứng cố định** `EdgePillZone` (1.3.867, anh Bửu: "tránh header và thanh
 ///    tab dù có hay không, tránh nó chạy lên chạy xuống"): dưới vùng header, trên vùng nút "+" / thanh tab — kể cả màn
