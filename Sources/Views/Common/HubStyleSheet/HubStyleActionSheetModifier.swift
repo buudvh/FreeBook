@@ -6,6 +6,7 @@ import SwiftUI
 ///   thuốc không bị ẩn, chỉ nằm dưới lớp mờ, không bấm được để mở chồng sheet khác.
 /// - Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của màn này (nằm dưới viên thuốc).
 /// - Chạm một dòng ⇒ đóng sheet **xong** mới chạy `action` của dòng (trình bày từ sheet đang đóng thì UIKit bỏ màn mới).
+@MainActor
 struct HubStyleActionSheetModifier: ViewModifier {
     @Binding var request: HubStyleActionSheetContent?
 
@@ -19,7 +20,7 @@ struct HubStyleActionSheetModifier: ViewModifier {
                 request = nil
                 present(sheet)
             }
-            .sheet(item: $fallback, onDismiss: runPendingAction) { sheet in
+            .sheet(item: $fallback, onDismiss: { runPendingAction() }) { sheet in
                 HubStyleActionSheet(content: sheet) { item in
                     guard fallback != nil else { return }
                     pendingAction = item.action

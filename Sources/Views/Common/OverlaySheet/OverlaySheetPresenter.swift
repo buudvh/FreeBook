@@ -32,7 +32,7 @@ final class OverlaySheetPresenter: ObservableObject {
     private var window: OverlaySheetWindow?
     /// Đã nhận một lượt trình bày (kể cả lúc `request` chưa gán — gán ở nhịp sau) ⇒ từ chối lượt khác.
     private var isBusy = false
-    private var afterDismiss: (() -> Void)?
+    private var afterDismiss: (@MainActor () -> Void)?
 
     private init() {}
 
@@ -55,7 +55,7 @@ final class OverlaySheetPresenter: ObservableObject {
 
     /// Đóng sheet rồi mới chạy `action`; không có sheet ⇒ chạy luôn. Sheet **đang đóng** (chạm dòng thứ hai trong lúc
     /// sheet trượt xuống) ⇒ bỏ qua, kẻo việc chạy hai lần.
-    func dismiss(then action: (() -> Void)? = nil) {
+    func dismiss(then action: (@MainActor () -> Void)? = nil) {
         guard isBusy else {
             action?()
             return
