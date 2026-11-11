@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.832",
+          "buildVersion": "1205",
+          "date": "2026-11-11T03:40:15Z",
+          "localizedDescription": "- feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt\n- feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc\n- feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado\n- feat: lõi dịch truyện bằng tiện ích loại translate\n- feat: dịch phụ đề phim và lời bài hát tiếng Trung",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1205/TangCongCac-1.3.832-1205.ipa",
+          "size": 39208141,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.828",
           "buildVersion": "1201",
           "date": "2026-11-11T03:15:02Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1198/TangCongCac-1.3.824-1198.ipa",
           "size": 38989274,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.823",
-          "buildVersion": "1197",
-          "date": "2026-11-10T04:49:24Z",
-          "localizedDescription": "- fix: danh sách tải vô hạn không còn nhảy lên khi nối trang\n- feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1197/TangCongCac-1.3.823-1197.ipa",
-          "size": 38985787,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.828",
-      "versionDate": "2026-11-11T03:15:02Z",
-      "versionDescription": "- feat: dịch phụ đề phim và lời bài hát tiếng Trung\n- fix: DNS mã hoá cho cả app mặc định tắt",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1201/TangCongCac-1.3.828-1201.ipa",
-      "size": 39095679,
+      "version": "1.3.832",
+      "versionDate": "2026-11-11T03:40:15Z",
+      "versionDescription": "- feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt\n- feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc\n- feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado\n- feat: lõi dịch truyện bằng tiện ích loại translate\n- feat: dịch phụ đề phim và lời bài hát tiếng Trung",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1205/TangCongCac-1.3.832-1205.ipa",
+      "size": 39208141,
       "appPermissions": {}
     }
   ],
