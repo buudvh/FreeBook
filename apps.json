@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.835",
+          "buildVersion": "1208",
+          "date": "2026-11-11T04:29:07Z",
+          "localizedDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh\n- fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1208/TangCongCac-1.3.835-1208.ipa",
+          "size": 39238975,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.834",
           "buildVersion": "1207",
           "date": "2026-11-11T04:08:27Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1201/TangCongCac-1.3.828-1201.ipa",
           "size": 39095679,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.826",
-          "buildVersion": "1200",
-          "date": "2026-11-11T02:36:53Z",
-          "localizedDescription": "- feat: dịch ảnh truyện tranh raw bằng nhận chữ trên máy, phủ bản dịch lên bong bóng",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1200/TangCongCac-1.3.826-1200.ipa",
-          "size": 39059460,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.834",
-      "versionDate": "2026-11-11T04:08:27Z",
-      "versionDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1207/TangCongCac-1.3.834-1207.ipa",
-      "size": 39236958,
+      "version": "1.3.835",
+      "versionDate": "2026-11-11T04:29:07Z",
+      "versionDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh\n- fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1208/TangCongCac-1.3.835-1208.ipa",
+      "size": 39238975,
       "appPermissions": {}
     }
   ],
