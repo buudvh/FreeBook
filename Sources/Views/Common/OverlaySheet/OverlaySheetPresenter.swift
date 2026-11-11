@@ -12,8 +12,8 @@ import UIKit
 ///
 /// - Nội dung tự gắn kiểu sheet (`presentationDetents`, nền kính…) như mọi sheet SwiftUI; host gắn màu nhấn ở gốc.
 /// - `dismiss(then:)` đóng sheet **xong** mới chạy việc kèm theo (trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới).
-/// - Không có ô nhập chữ trong sheet ở đây: cửa sổ phủ không bao giờ key. Bước cần bàn phím (Kệ › "Từ URL") đóng sheet rồi mở
-///   sheet thường ở cửa sổ chính.
+/// - Cửa sổ **nhận bàn phím** (key) trong lúc có sheet — trang con có ô nhập (Kệ › "Từ URL") gõ được (1.3.872; 1.3.868–871
+///   không bao giờ key). Đóng sheet ⇒ trả key về cửa sổ đã giữ trước đó (hoặc cửa sổ chính) **trước** khi chạy việc kèm theo.
 /// - Cửa sổ chỉ hiện trong lúc có sheet; rảnh thì ẩn.
 @MainActor
 final class OverlaySheetPresenter: ObservableObject {
@@ -30,6 +30,8 @@ final class OverlaySheetPresenter: ObservableObject {
     static let windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1.6)
 
     private var window: OverlaySheetWindow?
+    /// Cửa sổ đang key lúc mở sheet — trả key lại khi đóng.
+    private weak var previousKeyWindow: UIWindow?
     /// Đã nhận một lượt trình bày (kể cả lúc `request` chưa gán — gán ở nhịp sau) ⇒ từ chối lượt khác.
     private var isBusy = false
     private var afterDismiss: (@MainActor () -> Void)?
@@ -42,7 +44,9 @@ final class OverlaySheetPresenter: ObservableObject {
         guard !isBusy, let window = ensureWindow() else { return false }
         isBusy = true
         afterDismiss = nil
+        previousKeyWindow = window.windowScene?.windows.first { $0.isKeyWindow && $0 !== window }
         window.isHidden = false
+        window.makeKey()
         let view = AnyView(content())
         // Chờ một nhịp: cửa sổ vừa hiện, host chưa kịp vào cây hiển thị ⇒ trình bày ngay có thể bị UIKit bỏ qua.
         DispatchQueue.main.async { [weak self] in
@@ -69,9 +73,20 @@ final class OverlaySheetPresenter: ObservableObject {
     func didDismiss() {
         isBusy = false
         window?.isHidden = true
+        restoreKeyWindow()
         let action = afterDismiss
         afterDismiss = nil
         action?()
+    }
+
+    /// Trả key cho cửa sổ đã giữ trước khi mở sheet; cửa sổ đó đã ẩn / không còn ⇒ cửa sổ giao diện chính.
+    private func restoreKeyWindow() {
+        if let previous = previousKeyWindow, !previous.isHidden {
+            previous.makeKey()
+        } else {
+            MediaDiscPlacement.mainWindow()?.makeKey()
+        }
+        previousKeyWindow = nil
     }
 
     private func ensureWindow() -> OverlaySheetWindow? {
@@ -95,7 +110,7 @@ final class OverlaySheetPresenter: ObservableObject {
         win.windowLevel = Self.windowLevel
         win.backgroundColor = .clear
         win.rootViewController = controller
-        // Không bao giờ `makeKeyAndVisible()`: lớp phủ không giành key của cửa sổ chính.
+        // Rảnh thì ẩn; `present` mới hiện + nhận key (trả lại ở `didDismiss`).
         win.isHidden = true
         window = win
         return win

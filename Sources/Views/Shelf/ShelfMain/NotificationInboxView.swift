@@ -13,6 +13,8 @@ struct NotificationInboxView: View {
     let onOpenBook: (Book) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    /// Có ⇒ màn là trang con của sheet hub (1.3.872): tiêu đề giữa + nút ‹ về trang chính của hub.
+    @Environment(\.sheetPageBack) private var sheetPageBack
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
@@ -137,7 +139,8 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
-            .pageTitle("Thông báo")
+            .pageTitle("Thông báo", style: sheetPageBack == nil ? .leading : .centered)
+            .sheetPageBackButton()
             .presentationDragIndicator(.visible) // sheet của Kệ; bản mở từ hub (UIKit) đặt thanh kéo ở chỗ trình bày
             .toolbar { toolbarContent }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Thông báo") { optionsMenuItems }

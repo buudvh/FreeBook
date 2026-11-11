@@ -122,7 +122,9 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             onTogglePlayback: { [weak self] kind in self?.togglePlayback(kind) },
             onStopPlayback: { [weak self] kind in self?.stopPlayback(kind) },
             onSelectAITask: { [weak self] bookId in self?.openAITask(bookId: bookId) },
-            onSelectSourceCheck: { [weak self] kind in self?.openSourceCheck(kind) }
+            onSelectSourceCheck: { [weak self] kind in self?.openSourceCheck(kind) },
+            onOpenInboxBook: { [weak self] book in self?.openInboxBook(book) },
+            onLeaveSourceCheck: { [weak self] kind in self?.leaveSourceCheck(kind) }
         )
     }
 

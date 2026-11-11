@@ -47,6 +47,8 @@ final class FloatingHubWindowManager {
     private(set) var isSheetPresented = false
 
     private var window: FloatingHubUIWindow?
+    /// Cửa sổ đang key lúc mở sheet hub — trả key lại khi đóng (1.3.872).
+    private weak var keyWindowBeforeSheet: UIWindow?
     private var containerViewController: FloatingHubContainerViewController?
     private var isPresented = false
     private var cancellables = Set<AnyCancellable>()
@@ -113,6 +115,20 @@ final class FloatingHubWindowManager {
         // đè và cướp chạm. Lúc trình bày sheet hub nâng lên trên đĩa (1.3.865: đĩa hiện ở mọi màn, kể cả lúc sheet hub mở —
         // sheet nằm đè lên đĩa như sheet của chính đĩa); đóng sheet thì hạ về, để nút hub nằm dưới sheet của đĩa.
         window?.windowLevel = presented ? Self.sheetWindowLevel : Self.restingWindowLevel
+        // Sheet hub có trang con lớn (Thông báo, màn kiểm tra nguồn — 1.3.872): cửa sổ hub nhận key trong lúc có sheet để
+        // ô nhập / bảng chia sẻ / trình duyệt mở từ trong sheet nằm đúng cửa sổ này; đóng ⇒ trả key **trước** khi chạy việc
+        // kèm theo (`FloatingHubSheetState.didDismiss` báo `false` trước).
+        if presented {
+            keyWindowBeforeSheet = window?.windowScene?.windows.first { $0.isKeyWindow && $0 !== window }
+            window?.makeKey()
+        } else {
+            if let previous = keyWindowBeforeSheet, !previous.isHidden {
+                previous.makeKey()
+            } else {
+                MediaDiscPlacement.mainWindow()?.makeKey()
+            }
+            keyWindowBeforeSheet = nil
+        }
         refreshState()
     }
 

@@ -7,7 +7,9 @@ import UIKit
 /// 2. Còn lại: chỉ nhận chạm trong khung nửa viên của nút; ngoài đó trả `nil` để rơi xuống cửa sổ bên dưới.
 /// Thẻ menu nổi + lớp nền nuốt chạm toàn màn (nhánh "menu đang mở") bỏ từ 2026-11-11 khi menu thành sheet.
 ///
-/// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính.
+/// Cửa sổ này **không bao giờ** gọi `makeKeyAndVisible()`: nó là lớp phủ, không phải cửa sổ chính. Ngoại lệ (1.3.872):
+/// trong lúc trình bày sheet hub nó nhận key (`FloatingHubWindowManager.setSheetPresented`) để trang con có ô nhập / bảng
+/// chia sẻ dùng được, đóng sheet thì trả key.
 @MainActor
 final class FloatingHubUIWindow: UIWindow, AppOverlayWindow {
     weak var containerViewController: FloatingHubContainerViewController?

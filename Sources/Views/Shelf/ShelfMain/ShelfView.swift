@@ -49,15 +49,12 @@ struct ShelfView: View {
 
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
-    // `internal` từ đây tới `queuedImportChoice`: lối nhập truyện nằm ở `Extensions/ShelfView+ImportEntry.swift`.
+    // `internal` từ đây tới `importActionSheet`: lối nhập truyện nằm ở `Extensions/ShelfView+ImportEntry.swift`.
     @State internal var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
     /// Trang đầu của trình duyệt nhập truyện (`"home"` = trang chủ); mọi lối mở đều đặt lại qua `openImportBrowser`.
     @State internal var bypassBrowserStartUrl = "home"
     @State internal var showingFilePicker = false // Bộ chọn file: sách chữ, CBZ/ZIP, video (`LocalMediaImportRoute`)
     @State internal var importActionSheet: HubStyleActionSheetContent? // Sheet "Nhập truyện" kiểu hub (`presentImportSheet`)
-    @State internal var showingImportSheet = false // Sheet "Nhập từ URL" (dòng "Từ URL" của sheet "Nhập truyện")
-    /// Việc sheet "Nhập từ URL" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
-    @State internal var queuedImportChoice: ShelfImportSheet.Choice? = nil
 
     // Tiến độ nhập file truyện nằm ở `BookImportProgressCenter` (màn Thông báo cũng đọc), không còn là
     // `@State` ở đây. Các `@State` bên dưới `internal` vì khối nhập file đã tách sang
@@ -406,12 +403,6 @@ struct ShelfView: View {
                 )
             }
             .hubStyleActionSheet($importActionSheet)
-            .sheet(isPresented: $showingImportSheet, onDismiss: { runQueuedImportChoice() }) {
-                ShelfImportSheet { choice in
-                    queuedImportChoice = choice
-                    showingImportSheet = false
-                }
-            }
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
                     bookId: importedBookId,

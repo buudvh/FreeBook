@@ -5,7 +5,8 @@ import SwiftUI
 /// - Bình thường qua `OverlaySheetPresenter` ⇒ sheet nằm **trên** mọi viên thuốc (đĩa nghe, hub, nút trình duyệt) — viên
 ///   thuốc không bị ẩn, chỉ nằm dưới lớp mờ, không bấm được để mở chồng sheet khác.
 /// - Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của màn này (nằm dưới viên thuốc).
-/// - Chạm một dòng ⇒ đóng sheet **xong** mới chạy `action` của dòng (trình bày từ sheet đang đóng thì UIKit bỏ màn mới).
+/// - Chạm một dòng ⇒ đóng sheet **xong** mới chạy `action` của dòng (trình bày từ sheet đang đóng thì UIKit bỏ màn mới);
+///   trang con đóng sheet qua cùng đường (`CloseSheet`).
 @MainActor
 struct HubStyleActionSheetModifier: ViewModifier {
     @Binding var request: HubStyleActionSheetContent?
@@ -21,9 +22,9 @@ struct HubStyleActionSheetModifier: ViewModifier {
                 present(sheet)
             }
             .sheet(item: $fallback, onDismiss: { runPendingAction() }) { sheet in
-                HubStyleActionSheet(content: sheet) { item in
+                HubStyleActionSheet(content: sheet) { action in
                     guard fallback != nil else { return }
-                    pendingAction = item.action
+                    pendingAction = action
                     fallback = nil
                 }
             }
@@ -31,8 +32,8 @@ struct HubStyleActionSheetModifier: ViewModifier {
 
     private func present(_ sheet: HubStyleActionSheetContent) {
         let shown = OverlaySheetPresenter.shared.present {
-            HubStyleActionSheet(content: sheet) { item in
-                OverlaySheetPresenter.shared.dismiss(then: item.action)
+            HubStyleActionSheet(content: sheet) { action in
+                OverlaySheetPresenter.shared.dismiss(then: action)
             }
         }
         guard !shown else { return }

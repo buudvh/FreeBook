@@ -4,25 +4,64 @@ import SwiftUI
 /// TTS — nền kính tối theo cài đặt ngăn kéo (`DrawerGlassSheetBackground`), bo 16, cao vừa nội dung, vuốt xuống để đóng
 /// (không nút chỉ để đóng). Dòng đầu tiêu đề + chú thích; các dòng `HubStyleActionSheetRow`.
 ///
+/// - Dòng thường: chạm ⇒ `close(then: action)` — người trình bày đóng sheet xong mới chạy việc.
+/// - Dòng có `page`: chạm ⇒ **chuyển trang ngay trong sheet** (khuôn trang "Tác vụ AI" của sheet hub): sheet lên nấc
+///   large, header có tiêu đề giữa + nút ‹ (`sheetPageBack`) về trang chính (về lại chiều cao vừa nội dung). Nền danh sách
+///   của trang ẩn (`scrollContentBackground(.hidden)`) để thấy kính của sheet.
+///
 /// Không tự trình bày: dùng `.hubStyleActionSheet(_:)` (`HubStyleActionSheetModifier`) ⇒ sheet nằm trên mọi viên thuốc
-/// (`OverlaySheetPresenter`). Chạm một dòng ⇒ `onSelect` (người trình bày đóng sheet xong mới chạy `action` của dòng).
+/// (`OverlaySheetPresenter`, cửa sổ nhận bàn phím trong lúc có sheet nên trang con có ô nhập được).
 struct HubStyleActionSheet: View {
     let content: HubStyleActionSheetContent
-    let onSelect: (HubStyleActionSheetContent.Item) -> Void
+    let close: HubStyleActionSheetContent.CloseSheet
 
     @State private var contentHeight: CGFloat = 0
+    @State private var openPageId: String?
 
     var body: some View {
+        Group {
+            if let page = openPage {
+                NavigationStack {
+                    page.content(close)
+                        .scrollContentBackground(.hidden)
+                        .pageTitle(page.title, style: .centered)
+                        .sheetPageBackButton()
+                }
+                .environment(\.sheetPageBack, {
+                    withAnimation(.easeInOut(duration: 0.25)) { openPageId = nil }
+                })
+            } else {
+                mainPage
+            }
+        }
+        .environment(\.colorScheme, .dark)
+        .appAccentTint()
+        .presentationDetents(openPage != nil ? [.large] : mainDetents)
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(16)
+        .presentationBackground { DrawerGlassSheetBackground() }
+    }
+
+    private var openPage: HubStyleActionSheetContent.Page? {
+        guard let openPageId else { return nil }
+        return content.items.first(where: { $0.id == openPageId })?.page
+    }
+
+    /// Một nấc cao đúng nội dung (`.medium` trong lúc chờ đo lần đầu).
+    private var mainDetents: Set<PresentationDetent> {
+        contentHeight > 0 ? [.height(contentHeight)] : [.medium]
+    }
+
+    private var mainPage: some View {
         VStack(spacing: 8) {
             header
             ForEach(content.items) { item in
-                HubStyleActionSheetRow(item: item) { onSelect(item) }
+                HubStyleActionSheetRow(item: item) { select(item) }
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 26)
         .padding(.bottom, 12)
-        .environment(\.colorScheme, .dark)
         .fixedSize(horizontal: false, vertical: true)
         .background(
             GeometryReader { proxy in
@@ -34,11 +73,14 @@ struct HubStyleActionSheet: View {
             contentHeight = newHeight
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .appAccentTint()
-        .presentationDetents(contentHeight > 0 ? [.height(contentHeight)] : [.medium])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(16)
-        .presentationBackground { DrawerGlassSheetBackground() }
+    }
+
+    private func select(_ item: HubStyleActionSheetContent.Item) {
+        if item.page != nil {
+            withAnimation(.easeInOut(duration: 0.25)) { openPageId = item.id }
+        } else {
+            close(item.action)
+        }
     }
 
     private var header: some View {

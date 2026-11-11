@@ -4,10 +4,9 @@ import SwiftUI
 /// **kiểu hub** (`presentImportSheet`, anh Bửu duyệt mockup 2026-11-11 — nằm trên mọi viên thuốc); hàng "Mở trình duyệt
 /// web" của ngăn kéo mở thẳng trình duyệt.
 ///
-/// Sheet kiểu hub đóng xong mới chạy việc của dòng. "Từ URL" mở tiếp sheet "Nhập từ URL" (`ShelfImportSheet`, cửa sổ
-/// chính, có bàn phím); sheet đó chỉ **chọn** việc (`queuedImportChoice`), việc thật — mở Chi tiết, trình duyệt — chạy
-/// trong `onDismiss` khi sheet đã đóng hẳn: bật một lớp trình bày khác lúc sheet còn đang trượt xuống thì lớp mới không
-/// hiện (cùng lý do với `queuedBrowserBook`).
+/// Sheet kiểu hub đóng xong mới chạy việc của dòng. "Từ URL" là **trang con ngay trong sheet** (1.3.872, như sheet hub
+/// sang "Tác vụ AI"): trang chọn được việc (`ShelfImportChoice`) thì đóng sheet rồi mới làm (`runImportChoice`) — bật một
+/// lớp trình bày khác lúc sheet còn đang trượt xuống thì lớp mới không hiện (cùng lý do với `queuedBrowserBook`).
 ///
 /// Tách khỏi `ShelfView.swift` để file gốc không phình thêm (baseline dòng); các `@State` mà khối này chạm tới là
 /// `internal`.
@@ -20,13 +19,19 @@ extension ShelfView {
         showingBypassBrowser = true
     }
 
-    /// Sheet "Nhập truyện" kiểu hub: Từ URL ⇒ sheet "Nhập từ URL"; Mở trình duyệt ⇒ trang chủ trình duyệt; Từ file ⇒ bộ
-    /// chọn file (sách chữ, CBZ/ZIP, video).
+    /// Sheet "Nhập truyện" kiểu hub: Từ URL ⇒ trang con "Từ URL" trong sheet; Mở trình duyệt ⇒ trang chủ trình duyệt; Từ
+    /// file ⇒ bộ chọn file (sách chữ, CBZ/ZIP, video).
     internal func presentImportSheet() {
+        let urlPage = HubStyleActionSheetContent.Page(title: "Từ URL") { close in
+            AnyView(ShelfImportURLStep { choice in
+                close { runImportChoice(choice) }
+            })
+        }
         importActionSheet = HubStyleActionSheetContent(title: "Nhập truyện", items: [
             HubStyleActionSheetContent.Item(
-                id: "url", title: "Từ URL", detail: "Dán link, chọn nguồn khớp", systemImage: "link", showsChevron: true
-            ) { showingImportSheet = true },
+                id: "url", title: "Từ URL", detail: "Dán link, chọn nguồn khớp", systemImage: "link", showsChevron: true,
+                page: urlPage
+            ) {},
             HubStyleActionSheetContent.Item(
                 id: "browser", title: "Mở trình duyệt", detail: "Trang chủ trình duyệt", systemImage: "safari",
                 showsChevron: true
@@ -38,11 +43,8 @@ extension ShelfView {
         ])
     }
 
-    /// Chạy việc mà sheet "Nhập từ URL" đã chọn — gọi từ `onDismiss` của sheet. Đóng sheet bằng cách vuốt (không
-    /// chọn gì) thì không có việc chờ.
-    internal func runQueuedImportChoice() {
-        guard let choice = queuedImportChoice else { return }
-        queuedImportChoice = nil
+    /// Chạy việc trang "Từ URL" đã chọn — sau khi sheet "Nhập truyện" đã đóng xong.
+    internal func runImportChoice(_ choice: ShelfImportChoice) {
         switch choice {
         case .openBook(let detailUrl, let packageId, let sourceName):
             openImportedBook(detailUrl: detailUrl, packageId: packageId, sourceName: sourceName)
@@ -59,7 +61,7 @@ extension ShelfView {
     }
 
     /// Mở Chi tiết của truyện nhận từ một link, qua tiện ích `packageId` — dùng chung cho nút "Nhập" của trình duyệt và
-    /// sheet "Nhập từ URL". `bookId` dựng bằng `BookIdUtils.make` như mọi chỗ khác; `host` = scheme + host của link.
+    /// trang "Từ URL" của sheet "Nhập truyện". `bookId` dựng bằng `BookIdUtils.make` như mọi chỗ khác; `host` = scheme + host của link.
     /// `navigationDelay > 0`: chờ lớp trình bày đang đóng (cover trình duyệt) rồi mới đẩy Chi tiết.
     internal func openImportedBook(
         detailUrl: String,

@@ -2,14 +2,12 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Mở một mục của hub (từ sheet hub hoặc chạm thẳng nút) và toàn bộ luồng sheet màn Thông báo.
-///
-/// Phần sheet chuyển **nguyên văn** từ container của widget thông báo nổi cũ (đã xoá ở 1.3.524),
-/// chỉ đổi chủ của khoá/`modelContainer`/`setSheetPresented` sang `FloatingHubWindowManager`. Năm điểm không
-/// được bỏ: nhánh `presentedViewController` trong `FloatingHubUIWindow.hitTest` (luật 25), móc `.onDisappear`
-/// + `presentationControllerDidDismiss` (luật 26), `.modelContainer` (thiếu là crash), gán delegate trong
-/// completion, và cửa sổ sống suốt lúc sheet mở (`FloatingHubWindowManager.setSheetPresented`).
-extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDelegate {
+/// Mở một mục của hub (từ sheet hub hoặc chạm thẳng nút). Màn Thông báo và màn kiểm tra nguồn là **trang con ngay trong
+/// sheet hub** từ 1.3.872 (`FloatingHubSheet.Page.notifications` / `.sourceCheck`) — không còn sheet UIKit riêng trình bày
+/// từ cửa sổ hub (bỏ `presentInbox` và delegate vuốt-để-đóng của nó). Sheet hub vẫn giữ các điểm không được bỏ: nhánh
+/// `presentedViewController` trong `FloatingHubUIWindow.hitTest` (luật 25), `onDismiss` hạ cờ (luật 26),
+/// `.modelContainer` cho trang Thông báo (thiếu là crash), cửa sổ sống suốt lúc sheet mở.
+extension FloatingHubContainerViewController {
     /// Mở một mục: sheet hub đóng **xong** rồi mới giao cho chủ của mục đó (`FloatingHubSheetState.dismiss(then:)` — trình
     /// bày từ sheet đang đóng thì UIKit đóng luôn màn mới). Sheet không mở (cài đặt "Mở thẳng") ⇒ mở ngay. Riêng AI
     /// (1.3.558) và Kiểm tra nguồn có hai lượt (1.3.697): sang trang con của sheet để chọn (`showSheetPage`).
@@ -18,8 +16,8 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
     /// trạng thái vừa đổi.
     ///
     /// AI tự tìm view controller trên cùng **chỉ trong window `.normal`** (`AIRuntimeCoordinator.presentFullScreen`),
-    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Chỉ
-    /// màn Thông báo được trình bày từ chính cửa sổ này.
+    /// Video giao cho closure do phiên phát gắn (`VideoMiniPlayerState.onReopen`), nên không phụ thuộc cửa sổ của hub. Thông
+    /// báo và Kiểm tra nguồn sang trang con của sheet (1.3.872).
     func open(_ kind: FloatingHubItem.Kind) {
         guard isItemEnabled(kind) else { return }
         switch kind {
@@ -33,9 +31,7 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
                 openSourceCheck(entry.kind)
             }
         case .notifications:
-            sheetState.dismiss { [weak self] in
-                self?.presentInbox()
-            }
+            showSheetPage(.notifications)
         case .video:
             sheetState.dismiss {
                 guard let reopen = VideoMiniPlayerState.shared.onReopen else {
@@ -56,13 +52,34 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
         }
     }
 
-    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ: đóng sheet, `MinimizedSourceCheckCoordinator` trình bày
-    /// màn từ cửa sổ mức thường (không phụ thuộc cửa sổ của hub).
+    /// Mở lại màn kiểm tra của một lượt đang thu nhỏ **ngay trong sheet hub** (trang con, 1.3.872) thay cho sheet riêng.
     func openSourceCheck(_ kind: MinimizedSourceCheck.Kind) {
         guard isItemEnabled(.sourceCheck),
-              presentationReader.snapshot.sourceChecks.contains(where: { $0.kind == kind }) else { return }
+              presentationReader.snapshot.sourceChecks.contains(where: { $0.kind == kind }),
+              let page = MinimizedSourceCheckCoordinator.shared.embeddedPage(kind) else { return }
+        showSheetPage(.sourceCheck(page))
+    }
+
+    /// Nút ‹ của trang kiểm tra: giao lượt cho hub **trước** (như nút ⌄, không trông vào `onDisappear` — 1.3.702) rồi về
+    /// trang chính. Lượt đã xong ⇒ coordinator bỏ bản ghi (đã xem kết quả).
+    func leaveSourceCheck(_ kind: MinimizedSourceCheck.Kind) {
+        MinimizedSourceCheckCoordinator.shared.screenDidClose(kind, screenId: nil)
+        sheetState.page = .main
+    }
+
+    /// Chạm một truyện ở trang Thông báo: đóng sheet hub rồi bàn giao cho `ShelfView` (nơi duy nhất giữ `fullScreenCover`
+    /// của Reader). Màn Thông báo tự gọi `dismiss` trước khi báo ⇒ sheet có thể đã đang đóng: việc chạy ngay — Reader ở cửa
+    /// sổ chính, khác cửa sổ của sheet hub nên hai lớp trình bày không tranh nhau.
+    func openInboxBook(_ book: Book) {
+        let payload: [String: Any] = [
+            FloatingHubWindowManager.bookIdUserInfoKey: book.bookId,
+            FloatingHubWindowManager.extensionPackageIdUserInfoKey: book.extensionPackageId,
+            FloatingHubWindowManager.chapterIndexUserInfoKey: book.currentChapterIndex,
+            FloatingHubWindowManager.detailUrlUserInfoKey: book.detailUrl,
+            FloatingHubWindowManager.sourceNameUserInfoKey: book.sourceName
+        ]
         sheetState.dismiss {
-            MinimizedSourceCheckCoordinator.shared.reopen(kind)
+            NotificationCenter.default.post(name: .openReaderFromNotification, object: nil, userInfo: payload)
         }
     }
 
@@ -143,87 +160,5 @@ extension FloatingHubContainerViewController: UIAdaptivePresentationControllerDe
 
     private func isItemEnabled(_ kind: FloatingHubItem.Kind) -> Bool {
         presentationReader.snapshot.items.first(where: { $0.kind == kind })?.isEnabled == true
-    }
-
-    // MARK: - Màn Thông báo
-
-    private func presentInbox() {
-        guard presentedViewController == nil else { return }
-
-        let inbox = NotificationInboxView(onOpenBook: { [weak self] book in
-            guard let self else { return }
-            self.openReader(for: book)
-        })
-        // Móc bắt **mọi** đường đóng sheet. `presentationControllerDidDismiss` chỉ chạy khi người dùng **vuốt
-        // xuống**, còn đường lập trình (chạm một truyện ⇒ `openReader`, `@Environment(\.dismiss)` của màn Thông báo)
-        // không có callback nào của UIKit. Thiếu móc này thì `isSheetPresented` kẹt ở `true`, nút nổi **biến mất
-        // vĩnh viễn** sau lần đầu đóng sheet bằng đường lập trình. Hai cơ chế cố ý chồng nhau: `setSheetPresented` idempotent,
-        // và hậu quả của việc kẹt cờ đủ nặng để đáng trả giá một lời gọi thừa.
-        let content = inbox.onDisappear {
-            FloatingHubWindowManager.shared.setSheetPresented(false)
-        }
-        // Trình bày bằng UIKit từ cửa sổ hub ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
-        .appAccentTint()
-        let root: AnyView
-        if let container = FloatingHubWindowManager.shared.modelContainer {
-            // Bắt buộc: cửa sổ phụ **không** có `modelContainer` trong environment, mà `NotificationInboxView`
-            // `@Query` bảng `Book` — thiếu dòng này là crash ngay khi mở.
-            root = AnyView(content.modelContainer(container))
-        } else {
-            root = AnyView(content)
-        }
-
-        let hosting = UIHostingController(rootView: root)
-        hosting.view.backgroundColor = .clear
-        // Màn Thông báo không còn nút Đóng (1.3.641) ⇒ thanh kéo là gợi ý vuốt xuống. `.presentationDragIndicator`
-        // của SwiftUI không tới được sheet trình bày bằng UIKit. `.pageSheet` tường minh (iPhone vốn ra đúng kiểu này)
-        // để `sheetPresentationController` có sẵn trước khi trình bày.
-        hosting.modalPresentationStyle = .pageSheet
-        hosting.sheetPresentationController?.prefersGrabberVisible = true
-
-        FloatingHubWindowManager.shared.setSheetPresented(true)
-        present(hosting, animated: true) { [weak self] in
-            // Gán **sau** khi trình bày: `presentationController` chỉ tồn tại từ lúc trình bày trở đi, gán
-            // trước đó là gán vào `nil` và mất luôn đường bắt sự kiện vuốt-để-đóng.
-            hosting.presentationController?.delegate = self
-        }
-    }
-
-    /// Mở truyện vừa chạm trong màn Thông báo: đóng sheet rồi bàn giao cho `ShelfView` — nó là nơi duy nhất
-    /// giữ `fullScreenCover` của Reader. Chờ đóng xong mới phát thông báo, cùng lý do đã ghi ở
-    /// `ShelfView.swift:306-307`: hai lớp trình bày không được tranh nhau.
-    private func openReader(for book: Book) {
-        let payload: [String: Any] = [
-            FloatingHubWindowManager.bookIdUserInfoKey: book.bookId,
-            FloatingHubWindowManager.extensionPackageIdUserInfoKey: book.extensionPackageId,
-            FloatingHubWindowManager.chapterIndexUserInfoKey: book.currentChapterIndex,
-            FloatingHubWindowManager.detailUrlUserInfoKey: book.detailUrl,
-            FloatingHubWindowManager.sourceNameUserInfoKey: book.sourceName
-        ]
-
-        let finish = { [weak self] in
-            self?.handleSheetDismissed()
-            NotificationCenter.default.post(
-                name: .openReaderFromNotification,
-                object: nil,
-                userInfo: payload
-            )
-        }
-
-        if let presented = presentedViewController {
-            presented.dismiss(animated: true) { finish() }
-        } else {
-            finish()
-        }
-    }
-
-    /// Vuốt xuống để đóng sheet cũng phải trả nút về đúng trạng thái — nếu chỉ xử lý ở đường đóng lập trình thì nút
-    /// nổi sẽ biến mất vĩnh viễn sau một lần vuốt.
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        handleSheetDismissed()
-    }
-
-    private func handleSheetDismissed() {
-        FloatingHubWindowManager.shared.setSheetPresented(false)
     }
 }

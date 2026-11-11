@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// Sheet "Nhập từ URL" (dòng "Từ URL" của sheet "Nhập truyện" kiểu hub, gốc của `ShelfImportSheet`): dán / gõ link
-/// trang truyện rồi dò tiện ích nhận link bằng `ExtensionUrlMatcher` — cùng bộ dò (và cùng tập tiện ích, bỏ nguồn
-/// Legado) với nút "Nhập" của trình duyệt.
+/// Trang **"Từ URL"** — trang con ngay trong sheet "Nhập truyện" kiểu hub của Kệ sách (1.3.872, như sheet hub sang "Tác vụ
+/// AI"; tiêu đề + nút ‹ do sheet gắn): dán / gõ link trang truyện rồi dò tiện ích nhận link bằng `ExtensionUrlMatcher` —
+/// cùng bộ dò (và cùng tập tiện ích, bỏ nguồn Legado) với nút "Nhập" của trình duyệt. Ô link tự focus khi trang hiện
+/// (cửa sổ sheet nhận bàn phím trong lúc có sheet).
 ///
 /// - Chỉ dò khi bấm "Mở link", nhấn Go trên bàn phím, hoặc dán bằng nút dán: dò theo từng phím gõ thì dòng "chưa có
 ///   tiện ích" nháy liên tục khi link còn dở.
 /// - 1 tiện ích khớp ⇒ báo `openBook` ngay; nhiều ⇒ liệt kê để chọn; 0 ⇒ báo + nút mở link trong trình duyệt (trình
 ///   duyệt nhập truyện của Kệ, vẫn có nút "Nhập").
 struct ShelfImportURLStep: View {
-    let onChoose: (ShelfImportSheet.Choice) -> Void
+    let onChoose: (ShelfImportChoice) -> Void
 
     /// Kết quả một lần dò khi **không** đi thẳng được tới Chi tiết.
     private enum Outcome {
@@ -61,7 +62,11 @@ struct ShelfImportURLStep: View {
             outcomeSection
         }
         .listStyle(.insetGrouped)
-        .pageTitle("Nhập từ URL")
+        .task {
+            // Chờ sheet lên xong nấc large rồi mới gọi bàn phím (gọi ngay lúc đang chuyển trang thì có lúc bị bỏ qua).
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if urlText.isEmpty { isFieldFocused = true }
+        }
     }
 
     @ViewBuilder

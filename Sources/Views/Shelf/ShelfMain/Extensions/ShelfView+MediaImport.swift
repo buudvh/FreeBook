@@ -6,7 +6,7 @@ import SwiftData
 ///
 /// - `onPick` của bộ chọn file chỉ **ghi lại** các file (`queuedPickedFiles`); việc thật chạy khi sheet bộ chọn đã đóng
 ///   hẳn (`onDismiss`, dự phòng 1 giây nếu `onDismiss` không tới) — mở sheet xác nhận lúc sheet bộ chọn còn đang trượt
-///   xuống thì sheet mới không hiện (cùng lý do với `queuedImportChoice`).
+///   xuống thì sheet mới không hiện (cùng lý do với `queuedBrowserBook`).
 /// - Phân loại theo đuôi (`LocalMediaImportRoute`): sách chữ đi luồng cũ `importLocalBook`; chọn nhiều file lẫn loại ⇒
 ///   báo lỗi, không nhập gì.
 /// - Sách được tạo **trước** (qua `BookTransactionCoordinator`, như truyện chữ) rồi mới chuyển ảnh/phim; lỗi giữa chừng

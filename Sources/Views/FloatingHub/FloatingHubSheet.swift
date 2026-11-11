@@ -9,15 +9,31 @@ import SwiftUI
 ///   Video giữ ⏸ / ✕ ngay trên dòng (sheet không đóng).
 /// - Trang con trong sheet: "Tác vụ AI" (`FloatingHubAITaskListView`) và "Kiểm tra nguồn" khi có hai lượt
 ///   (`FloatingHubSourceCheckListView`), nút ‹ quay lại; danh sách rỗng ⇒ tự về trang chính.
+/// - **Trang con lớn** (1.3.872, anh Bửu: Thông báo / Kiểm tra nguồn "chuyển giống vậy"): `.notifications`
+///   (`NotificationInboxView`) và `.sourceCheck` (màn kiểm tra gắn vào lượt đang thu nhỏ,
+///   `MinimizedSourceCheckCoordinator.embeddedScreen`) — sheet lên nấc large, nút ‹ (`sheetPageBack`) về trang chính
+///   (về lại chiều cao vừa nội dung). Trước đó hai màn này mở bằng sheet riêng sau khi đóng sheet hub.
 /// - Chạm một dòng mở mục ⇒ container đóng sheet **xong** mới mở (`FloatingHubSheetState.dismiss(then:)`).
 ///
 /// Đọc thẳng `FloatingHubPresentationReader` (chỉ sống khi sheet mở nên vẽ lại theo snapshot là chấp nhận được).
 struct FloatingHubSheet: View {
-    enum Page {
+    enum Page: Equatable {
         case main
         case aiTasks
         /// Hai lượt kiểm tra nguồn cùng thu nhỏ (1.3.697).
         case sourceChecks
+        /// Màn Thông báo ngay trong sheet (1.3.872).
+        case notifications
+        /// Màn kiểm tra của một lượt ngay trong sheet (1.3.872).
+        case sourceCheck(MinimizedSourceCheckCoordinator.EmbeddedPage)
+
+        /// Trang lớn (nấc large, nội dung tự cuộn) — không đo chiều cao.
+        var isFullPage: Bool {
+            switch self {
+            case .notifications, .sourceCheck: return true
+            case .main, .aiTasks, .sourceChecks: return false
+            }
+        }
     }
 
     /// Lời gọi về container (`FloatingHubContainerViewController+Actions`).
@@ -27,6 +43,10 @@ struct FloatingHubSheet: View {
         let onStopPlayback: (FloatingHubItem.Kind) -> Void
         let onSelectAITask: (String) -> Void
         let onSelectSourceCheck: (MinimizedSourceCheck.Kind) -> Void
+        /// Chạm một truyện ở trang Thông báo: đóng sheet rồi mở Reader.
+        let onOpenInboxBook: (Book) -> Void
+        /// Nút ‹ / ⌄ của trang kiểm tra: giao lượt cho hub rồi về trang chính.
+        let onLeaveSourceCheck: (MinimizedSourceCheck.Kind) -> Void
     }
 
     @ObservedObject var reader: FloatingHubPresentationReader
@@ -34,11 +54,28 @@ struct FloatingHubSheet: View {
     let actions: Actions
 
     var body: some View {
+        Group {
+            if shownPage.isFullPage {
+                fullPage
+            } else {
+                compactPage
+            }
+        }
+        .environment(\.colorScheme, .dark)
+        .appAccentTint()
+        .presentationDetents(shownPage.isFullPage ? [.large] : detents)
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(16)
+        .presentationBackground { DrawerGlassSheetBackground() }
+        .animation(.easeInOut(duration: 0.2), value: shownPage)
+    }
+
+    /// Trang chính và trang con nhỏ: cao vừa nội dung (đo).
+    private var compactPage: some View {
         content
             .padding(.horizontal, 20)
             .padding(.top, 26)
             .padding(.bottom, 12)
-            .environment(\.colorScheme, .dark)
             .fixedSize(horizontal: false, vertical: true)
             .background(
                 GeometryReader { proxy in
@@ -50,12 +87,38 @@ struct FloatingHubSheet: View {
                 state.contentHeight = newHeight
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .appAccentTint()
-            .presentationDetents(detents)
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(16)
-            .presentationBackground { DrawerGlassSheetBackground() }
-            .animation(.easeInOut(duration: 0.2), value: shownPage)
+    }
+
+    /// Trang lớn: màn có sẵn trong `NavigationStack` riêng, nền danh sách ẩn để thấy kính của sheet. Cửa sổ hub không có
+    /// `modelContainer` ⇒ gắn ở đây (màn Thông báo `@Query` bảng `Book`, thiếu là crash).
+    @ViewBuilder
+    private var fullPage: some View {
+        let page = pageContent
+            .scrollContentBackground(.hidden)
+        if let container = FloatingHubWindowManager.shared.modelContainer {
+            page.modelContainer(container)
+        } else {
+            page
+        }
+    }
+
+    @ViewBuilder
+    private var pageContent: some View {
+        switch shownPage {
+        case .notifications:
+            // `NotificationInboxView` tự có `NavigationStack` và tự gắn nút ‹ (`sheetPageBackButton`).
+            NotificationInboxView(onOpenBook: actions.onOpenInboxBook)
+                .environment(\.sheetPageBack, { state.page = .main })
+        case .sourceCheck(let embedded):
+            let leave = { actions.onLeaveSourceCheck(embedded.kind) }
+            NavigationStack {
+                MinimizedSourceCheckCoordinator.shared.embeddedScreen(embedded, onClose: { state.page = .main })
+                    .sheetPageBackButton()
+            }
+            .environment(\.sheetPageBack, leave)
+        case .main, .aiTasks, .sourceChecks:
+            EmptyView()
+        }
     }
 
     /// Một nấc cao đúng nội dung (`.medium` trong lúc chờ đo lần đầu).
@@ -102,6 +165,8 @@ struct FloatingHubSheet: View {
                 onSelect: actions.onSelectSourceCheck,
                 onBack: { state.page = .main }
             )
+        case .notifications, .sourceCheck:
+            EmptyView()
         }
     }
 
