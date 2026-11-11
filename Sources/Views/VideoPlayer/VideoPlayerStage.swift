@@ -32,8 +32,8 @@ struct VideoPlayerStage: View {
             } else {
                 VideoPlayerSurfaceView(layerView: session.layerView, gravity: controller.gravity.layerGravity)
                     .ignoresSafeArea(.all, edges: bleedEdges)
-                // Dịch phụ đề cứng bật ⇒ phụ đề mềm của tiện ích nhường chỗ (hai lớp chữ chồng nhau khó đọc).
-                if !VideoHardSubtitleEngine.shared.isEnabled {
+                // Đang đọc + dịch phụ đề cứng ⇒ phụ đề mềm của tiện ích nhường chỗ (hai lớp chữ chồng nhau khó đọc).
+                if !(VideoHardSubtitleEngine.shared.isEnabled && VideoHardSubtitleEngine.shared.isTranslationActive) {
                     VideoSubtitleOverlay(session: session, liftsAboveControls: controller.controlsVisible && !controller.isTouchLocked)
                 }
                 VideoHardSubtitleOverlay(engine: .shared, gravity: controller.gravity)

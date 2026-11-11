@@ -3,30 +3,36 @@ import Foundation
 import Observation
 import UIKit
 
-/// Dịch phụ đề cứng bằng OCR (1.3.830): đọc chữ Trung in sẵn ở dải dưới khung phim, dịch VietPhrase, phủ bản dịch lên đúng
-/// chỗ chữ gốc (`VideoHardSubtitleOverlay`).
+/// Đọc phụ đề cứng bằng OCR (1.3.830): đọc chữ Trung in sẵn ở dải dưới khung phim, dịch VietPhrase **theo công tắc dịch của
+/// phim** (1.3.840, như truyện chữ / truyện tranh — `+Translation`), phủ bản dịch lên đúng chỗ chữ gốc
+/// (`VideoHardSubtitleOverlay`).
 ///
 /// **Vòng đời** — không sửa `VideoPlaybackSession` (file `+Playback` đã sát 400 dòng):
 /// - Lớp phủ của màn xem to gọi `screenDidAppear()` / `screenDidDisappear()` (đếm số màn) ⇒ chỉ chạy khi màn to đang hiện.
-/// - Trong lúc đó engine tự KVO `player.currentItem`: item mới ⇒ đọc lại công tắc theo tiện ích, tăng `generation` (kết quả về
-///   muộn của item cũ bị bỏ), gắn `AVPlayerItemVideoOutput` vào item mới. `stop()` của session thay item bằng `nil` ⇒ tự gỡ.
+/// - Trong lúc đó engine tự KVO `player.currentItem`: item mới ⇒ đọc lại công tắc "Đọc phụ đề cứng" theo tiện ích, tăng
+///   `generation` (kết quả về muộn của item cũ bị bỏ), gắn `AVPlayerItemVideoOutput` vào item mới, dựng lại cổng dịch.
+///   `stop()` của session thay item bằng `nil` ⇒ tự gỡ.
 /// - Mỗi `tickInterval` (timer ở run loop `.common` để cuộn danh sách tập không làm ngưng): bỏ qua khi đang nhúng trang, không
-///   còn màn to (chỉ cửa sổ nhỏ), app ở nền, hoặc đang tạm dừng mà khung đã đọc rồi.
+///   còn màn to (chỉ cửa sổ nhỏ), app ở nền, hoặc đang tạm dừng mà khung đã đọc rồi. Phim tắt dịch hoặc kiểu hiển thị là
+///   "Gốc" ⇒ ngưng đọc hẳn (không có gì để phủ, đỡ tốn pin).
 ///
 /// **Một lượt** (`VideoHardSubtitleFrameJob` trên hàng đợi nền tuần tự, lượt trước chưa xong thì bỏ nhịp): lấy khung → mặt nạ →
 /// giống lần Vision trước ⇒ giữ nguyên; rỗng ⇒ coi như không có chữ, trừ khi đã quá `emptyProbeInterval` hoặc item này từng có
 /// chữ mà mặt nạ không thấy (chữ màu nhạt) → Vision → `VideoHardSubtitleCueTracker` → dịch ngoài main (đệm theo câu gốc).
 ///
-/// Log `🔤 [VideoOCR]`: bật / tắt, tóm tắt mỗi `summaryInterval` giây (số lượt, số lần Vision, ms trung bình, bỏ qua, số câu);
-/// lỗi có `❌`. Không tự giảm nhịp theo nhiệt — đo trên máy rồi mới quyết.
+/// Log `🔤 [VideoOCR]`: bật / tắt, tóm tắt mỗi `summaryInterval` giây (số lượt, số lần Vision, ms trung bình, bỏ qua, số câu),
+/// từng câu «chữ Trung» ⇒ «bản dịch»; lỗi có `❌`. Không tự giảm nhịp theo nhiệt — đo trên máy rồi mới quyết.
 @MainActor
 @Observable
 final class VideoHardSubtitleEngine {
     static let shared = VideoHardSubtitleEngine()
 
-    /// Bản dịch đang hiện cùng khung chữ gốc để lớp phủ che đúng chỗ.
+    /// Câu đang hiện cùng khung chữ gốc để lớp phủ che đúng chỗ.
     struct DisplayedCue: Equatable {
-        let text: String
+        /// Câu Trung đọc được (đã ghép) — kiểu Song ngữ vẽ làm dòng phụ để đối chiếu.
+        let original: String
+        /// Bản dịch; `nil` = không dịch được / dịch ra y nguyên ⇒ lớp phủ không vẽ, chữ gốc của phim lộ ra.
+        let translation: String?
         /// Khung chữ gốc, chuẩn hoá theo cả khung hình, gốc trên-trái.
         let rect: CGRect
         /// Cỡ khung hình (điểm ảnh) — lớp phủ tự tính vùng hình theo kiểu khung đang chọn.
@@ -46,9 +52,11 @@ final class VideoHardSubtitleEngine {
 
     // MARK: - Trạng thái View đọc
 
-    /// Công tắc của tiện ích đang phát (`VideoHardSubtitlePreferenceStore`).
+    /// Công tắc "Đọc phụ đề cứng" của tiện ích đang phát (`VideoHardSubtitlePreferenceStore`).
     private(set) var isEnabled = false
-    private(set) var displayedCue: DisplayedCue?
+    /// Cổng dịch của phim đang bật (`+Translation`). Stage chỉ ẩn phụ đề mềm khi đọc phụ đề cứng **và** đang dịch.
+    var isTranslationActive = false
+    var displayedCue: DisplayedCue?
     /// Dòng báo ngắn trên khung phim (không đọc được hình, máy không hỗ trợ); tự ẩn sau vài giây.
     private(set) var statusMessage: String?
 
@@ -66,14 +74,21 @@ final class VideoHardSubtitleEngine {
 
     private static let workQueue = DispatchQueue(label: "com.tangcongcac.video-hard-subtitle", qos: .userInitiated)
 
-    // MARK: - Nội bộ
+    // MARK: - Nội bộ (phần dùng ở `+Translation` không `private`: file khác)
 
     @ObservationIgnored private let sampler = VideoHardSubtitleFrameSampler()
-    @ObservationIgnored private var tracker = VideoHardSubtitleCueTracker()
+    @ObservationIgnored var tracker = VideoHardSubtitleCueTracker()
+    @ObservationIgnored var generation = 0
+    @ObservationIgnored var translationPass: MediaCaptionTranslator.Pass?
+    @ObservationIgnored var passTask: Task<Void, Never>?
+    @ObservationIgnored var passEpoch = 0
+    /// Bản dịch theo câu gốc; `""` = câu đó không có bản dịch. Xoá mỗi lần dựng lại cổng dịch.
+    @ObservationIgnored var translations: [String: String] = [:]
+    @ObservationIgnored var translationOrder: [String] = []
+    @ObservationIgnored var notificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var screenCount = 0
     @ObservationIgnored private var itemObservation: NSKeyValueObservation?
     @ObservationIgnored private var tickTimer: Timer?
-    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var lastMask: VideoHardSubtitleBrightMask?
     @ObservationIgnored private var lastVisionUptime: TimeInterval = 0
@@ -83,18 +98,25 @@ final class VideoHardSubtitleEngine {
     @ObservationIgnored private var hasWarnedNoFrame = false
     @ObservationIgnored private var hasLoggedFailure = false
     @ObservationIgnored private var isLanguageSupported: Bool?
-    @ObservationIgnored private var translations: [String: String] = [:]
-    @ObservationIgnored private var translationOrder: [String] = []
-    @ObservationIgnored private var translationBookId: String?
     @ObservationIgnored private var stats = Stats()
     @ObservationIgnored private var statsSinceUptime: TimeInterval = 0
     @ObservationIgnored private var statusTask: Task<Void, Never>?
 
-    private init() {}
+    private init() {
+        observeTranslationChanges()
+    }
 
-    private var session: VideoPlaybackSession { .shared }
+    var session: VideoPlaybackSession { .shared }
+    /// Đang đọc (đã gắn output, timer chạy).
+    var isRunning: Bool { tickTimer != nil }
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+    /// Kiểu hiển thị phụ đề phim — cùng khoá với phụ đề mềm (`MediaCaptionDisplayMode.videoDefaultsKey`).
+    private static var displayMode: MediaCaptionDisplayMode {
+        MediaCaptionDisplayMode(rawValue: UserDefaults.standard.string(forKey: MediaCaptionDisplayMode.videoDefaultsKey) ?? "")
+            ?? .defaultValue
+    }
 
     // MARK: - Màn xem
 
@@ -121,7 +143,7 @@ final class VideoHardSubtitleEngine {
         VideoHardSubtitlePreferenceStore.setEnabled(enabled, packageId: session.launch?.extensionPackageId)
         guard enabled != isEnabled else { return }
         isEnabled = enabled
-        AppLogger.shared.log("🔤 [VideoOCR] \(enabled ? "Bật" : "Tắt") dịch phụ đề cứng (nhớ theo tiện ích)")
+        AppLogger.shared.log("🔤 [VideoOCR] \(enabled ? "Bật" : "Tắt") đọc phụ đề cứng (nhớ theo tiện ích)")
         restart()
     }
 
@@ -138,12 +160,6 @@ final class VideoHardSubtitleEngine {
         resetRun(reason: nil)
         guard isEnabled, screenCount > 0, let item = session.player.currentItem else { return }
         guard languageSupported() else { return }
-        let bookId = session.launch?.bookId
-        if bookId != translationBookId {
-            translationBookId = bookId
-            translations = [:]
-            translationOrder = []
-        }
         sampler.attach(to: item)
         lastFrameUptime = Self.now
         statsSinceUptime = Self.now
@@ -152,6 +168,7 @@ final class VideoHardSubtitleEngine {
         }
         RunLoop.main.add(timer, forMode: .common)
         tickTimer = timer
+        refreshTranslationPass()
         AppLogger.shared.log("🔤 [VideoOCR] Bắt đầu đọc phụ đề cứng («\(session.bookTitle)»)")
     }
 
@@ -162,18 +179,27 @@ final class VideoHardSubtitleEngine {
         tickTimer?.invalidate()
         tickTimer = nil
         sampler.detach()
-        tracker.reset()
+        passTask?.cancel()
+        passTask = nil
+        translationPass = nil
+        if isTranslationActive { isTranslationActive = false }
         isProcessing = false
-        lastMask = nil
-        lastVisionUptime = 0
+        clearCurrentCue()
         maskMissesText = false
         lastProcessedItemSeconds = nil
         hasWarnedNoFrame = false
         hasLoggedFailure = false
-        if displayedCue != nil { displayedCue = nil }
         if wasRunning {
             logSummary(reason: reason ?? "đổi item / công tắc")
         }
+    }
+
+    /// Bỏ câu đang hiện và mặt nạ so sánh ⇒ lượt kế đọc lại từ đầu.
+    private func clearCurrentCue() {
+        tracker.reset()
+        lastMask = nil
+        lastVisionUptime = 0
+        if displayedCue != nil { displayedCue = nil }
     }
 
     private func languageSupported() -> Bool {
@@ -184,7 +210,7 @@ final class VideoHardSubtitleEngine {
             supported = VideoHardSubtitleRecognizer.supportsChinese()
             isLanguageSupported = supported
             if !supported {
-                AppLogger.shared.log("❌ [VideoOCR] Vision trên máy này không nhận được chữ Trung (zh-Hans) ⇒ không dịch phụ đề cứng")
+                AppLogger.shared.log("❌ [VideoOCR] Vision trên máy này không nhận được chữ Trung (zh-Hans) ⇒ không đọc phụ đề cứng")
             }
         }
         if !supported { showStatus("Máy chưa hỗ trợ nhận chữ Trung") }
@@ -196,6 +222,10 @@ final class VideoHardSubtitleEngine {
     private func tick() {
         guard !isProcessing else {
             stats.busySkips += 1
+            return
+        }
+        guard isTranslationActive, Self.displayMode != .original else {
+            if tracker.current != nil || displayedCue != nil { clearCurrentCue() }
             return
         }
         guard session.embedContent == nil,
@@ -286,49 +316,16 @@ final class VideoHardSubtitleEngine {
             if displayedCue != nil { displayedCue = nil }
         case .moved(let recognition):
             guard let cue = displayedCue else { return }
-            displayedCue = DisplayedCue(text: cue.text, rect: recognition.rect, frameSize: frameSize ?? cue.frameSize, lineCount: cue.lineCount)
+            displayedCue = DisplayedCue(
+                original: cue.original,
+                translation: cue.translation,
+                rect: recognition.rect,
+                frameSize: frameSize ?? cue.frameSize,
+                lineCount: cue.lineCount
+            )
         case .started(let recognition):
             stats.cues += 1
             translate(recognition, frameSize: frameSize ?? displayedCue?.frameSize ?? .zero)
-        }
-    }
-
-    private func translate(_ recognition: VideoHardSubtitleRecognizer.Recognition, frameSize: CGSize) {
-        if let cached = translations[recognition.text] {
-            show(cached, for: recognition, frameSize: frameSize)
-            return
-        }
-        let runGeneration = generation
-        let text = recognition.text
-        let bookId = session.launch?.bookId
-        Task {
-            let translated = await Task.detached(priority: .userInitiated) { () -> String in
-                // Từng dòng một: `<START>` / `<END>` của rule dịch nhanh là đầu / cuối dòng phụ đề.
-                text.split(separator: "\n").map { line in
-                    TranslateUtils.translateContent(String(line), bookId: bookId, shouldConvertTraditionalToSimplified: true)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                }
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            }.value
-            guard runGeneration == generation else { return }
-            remember(translated, for: text)
-            guard let current = tracker.current, current.text == text else { return }
-            show(translated, for: current, frameSize: frameSize)
-        }
-    }
-
-    private func show(_ translated: String, for recognition: VideoHardSubtitleRecognizer.Recognition, frameSize: CGSize) {
-        guard !translated.isEmpty else { return }
-        displayedCue = DisplayedCue(text: translated, rect: recognition.rect, frameSize: frameSize, lineCount: recognition.lineCount)
-    }
-
-    private func remember(_ translated: String, for text: String) {
-        guard translations[text] == nil else { return }
-        translations[text] = translated
-        translationOrder.append(text)
-        if translationOrder.count > Self.translationCacheLimit {
-            translations[translationOrder.removeFirst()] = nil
         }
     }
 

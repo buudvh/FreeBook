@@ -54,6 +54,8 @@ final class VideoPlayerController {
     var showsSleepTimerSheet = false
     /// Sheet "Dịch phụ đề" (ngăn kéo `⋯`) — `VideoPlayerScreen` trình bày `MediaCaptionTranslationSheet`.
     var showsCaptionTranslationSheet = false
+    /// Sheet "Từ điển truyện" (ngăn kéo `⋯`) — `VideoPlayerScreen` trình bày qua `VideoBookDictionarySheetModifier`.
+    var showsBookDictionarySheet = false
     /// Sheet "Thêm vào playlist" (ngăn kéo `⋯`, tập đang phát) — `VideoPlayerScreen` trình bày `PlaylistAddSheet`.
     var playlistAddRequest: PlaylistAddRequest?
     /// Trình duyệt "Mở link lỗi" của lớp phủ lỗi đang mở — `VideoPlayerScreen` trình bày (`.errorLinkBrowser`).

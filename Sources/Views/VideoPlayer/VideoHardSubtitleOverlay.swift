@@ -9,9 +9,13 @@ import SwiftUI
 ///   Chữ dịch thường dài hơn chữ gốc ⇒ nền chữ dịch có thể rộng hơn dải che, tối đa gần hết bề ngang.
 /// - Phim Phóng cắt mất dải dưới ⇒ ép dải vào vùng nhìn thấy.
 /// - Có mặt trong cây view = có màn xem to ⇒ `onAppear` / `onDisappear` bật / tắt engine (cửa sổ nhỏ không có lớp phủ này).
+/// - Kiểu hiển thị dùng chung với phụ đề mềm (`MediaCaptionDisplayMode`, 1.3.840): Bản dịch / Song ngữ (bản dịch + chữ Trung
+///   đọc được làm dòng phụ nhỏ, để đối chiếu) / Gốc (không vẽ gì — chữ gốc in sẵn trong phim). Câu không có bản dịch ⇒ không vẽ.
 struct VideoHardSubtitleOverlay: View {
     let engine: VideoHardSubtitleEngine
     let gravity: VideoPlayerController.Gravity
+
+    @AppStorage(MediaCaptionDisplayMode.videoDefaultsKey) private var displayMode = MediaCaptionDisplayMode.defaultValue
 
     private static let coverPadding = CGSize(width: 8, height: 5)
     private static let edgeMargin: CGFloat = 12
@@ -20,7 +24,7 @@ struct VideoHardSubtitleOverlay: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
-                if let cue = engine.displayedCue {
+                if displayMode != .original, let cue = engine.displayedCue, cue.translation != nil {
                     band(cue, in: proxy.size)
                 }
                 if let message = engine.statusMessage {
@@ -54,6 +58,7 @@ struct VideoHardSubtitleOverlay: View {
         let halfBand = max(source.height / 2, 14)
         let centerY = min(max(source.midY, Self.edgeMargin + halfBand), size.height - Self.edgeMargin - halfBand)
         let centerX = min(max(source.midX, Self.edgeMargin + 30), size.width - Self.edgeMargin - 30)
+        let lines = displayMode.lines(original: cue.original, translation: cue.translation)
 
         return ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
@@ -64,35 +69,43 @@ struct VideoHardSubtitleOverlay: View {
                         .position(x: cover.midX, y: cover.midY)
                 }
                 // Chữ trong suốt chỉ để nền đo đúng cỡ chữ dịch vẽ phía trên.
-                translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth, color: .clear, fillsBackground: true)
+                captionText(lines, fontSize: fontSize, maxWidth: maxTextWidth, isVisible: false)
                     .position(x: centerX, y: centerY)
             }
             .compositingGroup()
             .opacity(Self.backgroundOpacity)
 
-            translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth, color: .white, fillsBackground: false)
+            captionText(lines, fontSize: fontSize, maxWidth: maxTextWidth, isVisible: true)
                 .position(x: centerX, y: centerY)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
-    /// Nền gắn **trước** `frame(maxWidth:)` ⇒ ôm sát chữ (gắn sau thì nền rộng bằng cả khung linh hoạt — gần hết màn).
-    private func translatedText(
-        _ text: String,
+    /// Dòng chính (bản dịch) + dòng phụ nhỏ mờ (chữ Trung, kiểu Song ngữ). `isVisible == false` ⇒ chữ trong suốt trên nền đen
+    /// (lớp nền); `true` ⇒ chữ trắng, không nền. Nền gắn **trước** `frame(maxWidth:)` ⇒ ôm sát chữ (gắn sau thì nền rộng bằng
+    /// cả khung linh hoạt — gần hết màn).
+    private func captionText(
+        _ lines: (primary: String, secondary: String?),
         fontSize: CGFloat,
         maxWidth: CGFloat,
-        color: Color,
-        fillsBackground: Bool
+        isVisible: Bool
     ) -> some View {
-        Text(text)
-            .font(.system(size: fontSize, weight: .semibold))
-            .foregroundStyle(color)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(fillsBackground ? Color.black : Color.clear))
-            .frame(maxWidth: maxWidth)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 2) {
+            Text(lines.primary)
+                .font(.system(size: fontSize, weight: .semibold))
+                .foregroundStyle(isVisible ? Color.white : Color.clear)
+            if let secondary = lines.secondary {
+                Text(secondary)
+                    .font(.system(size: max(fontSize * 0.72, 11), weight: .medium))
+                    .foregroundStyle(isVisible ? Color.white.opacity(0.7) : Color.clear)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(isVisible ? Color.clear : Color.black))
+        .frame(maxWidth: maxWidth)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func statusCapsule(_ message: String) -> some View {

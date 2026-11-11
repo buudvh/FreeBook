@@ -256,8 +256,9 @@ struct VideoPlayerTopBar: View {
                 controller.showsSleepTimerSheet = true
             }
         }
-        // Chỉ khi phim có phụ đề (không xét đã dịch hay chưa: đây là chỗ bật dịch cho nguồn không tự nhận tiếng Trung).
-        if session.hasSubtitles, let launch = session.launch {
+        // Khi phim có phụ đề mềm hoặc đang đọc phụ đề cứng (không xét đã dịch hay chưa: đây là chỗ bật dịch cho nguồn không tự
+        // nhận tiếng Trung). "Từ điển truyện" như Reader / truyện tranh: phim đang phát luôn có `Book` (ẩn) nên luôn mở được.
+        if session.hasSubtitles || VideoHardSubtitleEngine.shared.isEnabled, let launch = session.launch {
             SideDrawerActionRow(
                 "Dịch phụ đề",
                 systemImage: "character.bubble",
@@ -266,9 +267,12 @@ struct VideoPlayerTopBar: View {
             ) {
                 controller.showsCaptionTranslationSheet = true
             }
+            SideDrawerActionRow("Từ điển truyện", systemImage: "book.closed") {
+                controller.showsBookDictionarySheet = true
+            }
         }
         // Phụ đề in sẵn trong hình (OCR) — khác "Dịch phụ đề" ở trên (phụ đề mềm VTT/SRT của tiện ích).
-        VideoHardSubtitleDrawerRow(session: session)
+        VideoHardSubtitleDrawerRow(session: session, controller: controller)
         SideDrawerDivider()
         if showsGravity {
             SideDrawerSectionHeader("Khung hình")
