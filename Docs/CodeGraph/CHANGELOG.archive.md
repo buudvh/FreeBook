@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.837] - 2026-11-11
+
+### feat: chạm khối dịch trong truyện tranh mở màn Dịch của Reader với chữ Trung gốc đã nhận
+
+Anh Bửu: *"khi tôi nhấn vào vùng dịch trong trang đọc commic hãy hiển thị màn hình giống màn hình dịch của reader, đầu vào là đoạn tiếng trung gốc đã OCR"*.
+
+- **Chạm một khối dịch** (trên trang và trong trình xem phóng to) ⇒ sheet **Dịch** = nguyên `ReaderDefinitionOverlayView` của Reader (nền xám đậm, cao vừa nội dung `fittedSheetDetent`, vuốt xuống để đóng), câu gốc = chữ Trung OCR của khối, lúc mở chọn sẵn cả câu. Đủ như Reader: chạm chữ / mũi tên nới thu vùng chọn, nghĩa VP / Hán-Việt, chip gợi ý, ⚙ quản lý nghĩa, lưu Name / VP riêng / chung kèm ghim mặc định (cùng khoá `@AppStorage` với Reader), chip rule + bật tắt / sửa / xoá / chuyển rule, nút `+` thêm rule, tra nhanh bằng công cụ tìm. **Nhấn giữ** khối ⇒ đổi gốc ↔ dịch (chức năng chạm cũ).
+- `ComicDefinitionSheet` (mới, `Views/ComicReader/Definition/`, + `+Selection`, `+Rules`): giữ trạng thái như `ReaderView` và **chép** phần ráp nối của Reader (`ReaderView+Selection` / `+RuleTools` / `+DefinitionLoading` / `+SelectionSheets`, gắn chặt vào trạng thái của `ReaderView`); lõi dùng lại nguyên `ReaderDefinitionOverlayView`, `ReaderDefinitionWorker`, `ReaderDefinitionSession`, `QuickTranslationRuleEditorSheet`, `QuickTranslationRuleMutation`, `TranslationManager.saveCustomEntry`. **Không sửa `ReaderView`.** Câu gốc là bong bóng nên không soi bộ rule tên chương.
+- Trên trang: `ComicTranslationOverlay` chạm ⇒ `onOpenDefinition`, nhấn giữ 0,4 s ⇒ đổi gốc / dịch; sheet gắn ở `ComicTranslationToolsModifier` (`definitionRequest`), mọi sheet của nó đóng ⇒ dịch lại bong bóng + tên chương.
+- Trình xem phóng to: cover giờ là `ComicZoomScreen` (mới) = `ComicZoomViewer` + sheet Dịch của chính nó (sheet phải gắn trong cover). `ComicZoomTranslationLayer`: chạm ⇒ `onTapBlock`, nhấn giữ ⇒ đổi gốc / dịch. Đóng sheet Dịch ⇒ `revision` mới ⇒ trình xem dịch lại lớp của nó (giữ khối cũ tới khi có bản mới).
+- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 395 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm bong bóng ⇒ màn Dịch đúng câu gốc; (2) chạm một chữ / mũi tên đổi cụm, nghĩa đổi theo; (3) lưu một name ⇒ sheet đóng, bong bóng đang hiện đổi theo (cả trong trình xem phóng to); (4) nhấn giữ đổi gốc ↔ dịch, chạm ngoài khối vẫn bật / tắt thanh, chạm đúp vẫn phóng to.
+
 ## [1.3.836] - 2026-11-11
 
 ### fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch

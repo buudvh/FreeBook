@@ -15,8 +15,8 @@ extension FloatingHubContainerViewController {
         let range = FloatingWidgetGeometry.centerYRange(
             widgetHeight: Layout.height,
             screenHeight: screenHeight,
-            topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-            bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+            topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+            bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
         )
         let proposed = clampedY(viewModel.verticalRatio * screenHeight, height: Layout.height, screenHeight: screenHeight)
         let placement = FloatingWidgetLayoutCoordinator.shared.resolve(

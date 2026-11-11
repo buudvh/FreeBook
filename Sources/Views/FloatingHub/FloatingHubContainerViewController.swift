@@ -50,7 +50,6 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
         static let height: CGFloat = FloatingHubButton.size.height
         /// Hình tròn lúc đang kéo.
         static let dragDiameter: CGFloat = FloatingHubButton.dragDiameter
-        static let verticalMargin: CGFloat = 12
     }
 
     init(presentationReader: FloatingHubPresentationReader) {
@@ -182,15 +181,15 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
 
     // MARK: - Layout nút
 
-    /// Kẹp tâm Y trong vùng an toàn — nút không bao giờ chui vào thanh trạng thái hay thanh tab. `internal` vì
-    /// `+Placement.swift` dùng.
+    /// Kẹp tâm Y trong vùng đứng cố định `EdgePillZone` (1.3.867): dưới vùng header, trên vùng nút "+" / thanh tab — kể cả
+    /// màn không có chúng, để nút không nhảy khi đổi màn. `internal` vì `+Placement.swift` dùng.
     func clampedY(_ value: CGFloat, height: CGFloat, screenHeight: CGFloat) -> CGFloat {
         FloatingWidgetGeometry.clampedCenterY(
             value,
             widgetHeight: height,
             screenHeight: screenHeight,
-            topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-            bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+            topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+            bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
         )
     }
 
@@ -289,8 +288,8 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
                 widgetHeight: Layout.height,
                 screenWidth: bounds.width,
                 screenHeight: bounds.height,
-                topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+                topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+                bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
             )
             resolvePlacement()
             updateLayout(animated: true)

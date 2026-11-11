@@ -35,7 +35,6 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         static let height: CGFloat = VisibleBrowserReopenButton.size.height
         /// Hình tròn lúc đang kéo.
         static let dragDiameter: CGFloat = VisibleBrowserReopenButton.dragDiameter
-        static let verticalMargin: CGFloat = 12
     }
 
     init(presentationReader: VisibleBrowserPresentationReader) {
@@ -146,14 +145,15 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
 
     // MARK: - Layout
 
-    /// Kẹp theo safe area để widget không bao giờ ra ngoài vùng hiển thị hợp lệ.
+    /// Kẹp trong vùng đứng cố định `EdgePillZone` (1.3.867): dưới vùng header, trên vùng nút "+" / thanh tab — kể cả màn
+    /// không có chúng, để nút không nhảy khi đổi màn.
     private func clampedY(_ value: CGFloat, screenHeight: CGFloat) -> CGFloat {
         FloatingWidgetGeometry.clampedCenterY(
             value,
             widgetHeight: Layout.height,
             screenHeight: screenHeight,
-            topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-            bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+            topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+            bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
         )
     }
 
@@ -214,8 +214,8 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
         let range = FloatingWidgetGeometry.centerYRange(
             widgetHeight: Layout.height,
             screenHeight: screenHeight,
-            topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-            bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+            topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+            bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
         )
         let proposed = clampedY(viewModel.verticalRatio * screenHeight, screenHeight: screenHeight)
         let placement = FloatingWidgetLayoutCoordinator.shared.resolve(
@@ -266,8 +266,8 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
                 widgetHeight: Layout.height,
                 screenWidth: bounds.width,
                 screenHeight: bounds.height,
-                topMargin: view.safeAreaInsets.top + Layout.verticalMargin,
-                bottomMargin: view.safeAreaInsets.bottom + Layout.verticalMargin
+                topMargin: view.safeAreaInsets.top + EdgePillZone.topClearance,
+                bottomMargin: view.safeAreaInsets.bottom + EdgePillZone.bottomClearance
             )
             resolvePlacement()
             updateLayout(animated: true)

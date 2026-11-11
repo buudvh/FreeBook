@@ -11,11 +11,13 @@ import UIKit
 ///    trên cùng, và khung nằm trong màn. Không xét `isHidden` / alpha: neo có điều kiện tự biến mất khỏi cây.
 /// 3. Có neo `.blocker` hợp lệ (màn xem phim, sheet "đang đọc chương này") ⇒ ẩn. (Neo `.hostsDisc` của ô đĩa giữa thanh tab
 ///    bỏ ở 1.3.865: thanh tab nay là neo `.bar`.)
-/// 4. Đĩa ở mép + độ cao đã nhớ, kẹp trong dải dọc: **dưới header** (vùng an toàn trên + 52 = header 44 + 8) tới **trên
-///    vùng an toàn đáy 12 pt**. Chưa kéo lần nào ⇒ mép phải, thấp nhất.
-/// 5. Neo `.button` / `.bar` hợp lệ **chồng cột** với đĩa (nút "+" / Home / FAB / tai nghe Reader ở mép phải; thanh dưới
-///    trình duyệt / truyện tranh / thanh tab ở cả hai mép) mà đĩa đè lên (kể khe 12 pt) ⇒ **tạm đẩy lên** trên neo 12 pt.
-///    Chỉ dời lúc vẽ, không ghi đè chỗ đã nhớ. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) tính như một neo.
+/// 4. Đĩa ở mép + độ cao đã nhớ, kẹp trong **vùng đứng cố định** `EdgePillZone` (1.3.867, anh Bửu: "tránh header và thanh
+///    tab dù có hay không, tránh nó chạy lên chạy xuống"): dưới vùng header, trên vùng nút "+" / thanh tab — kể cả màn
+///    không có chúng. Chưa kéo lần nào ⇒ mép phải, thấp nhất của vùng (ngay trên chỗ nút "+").
+/// 5. Chỉ neo / cửa sổ phim nhỏ **lấn vào vùng** (mép trên cao hơn đáy vùng — cụm pill của menu "+" đang xổ, cửa sổ phim
+///    nhỏ được kéo lên) mà chồng cột với đĩa (kể khe 12 pt) mới **tạm đẩy** đĩa lên trên nó. Nút "+", Home, tai nghe Reader,
+///    thanh tab, thanh dưới trình duyệt / truyện tranh nằm dưới vùng ⇒ không bao giờ đẩy ⇒ đĩa không nhảy khi đổi màn.
+///    Chỉ dời lúc vẽ, không ghi đè chỗ đã nhớ.
 struct MediaDiscPlacement: Equatable {
     /// Cao của đĩa (= nút "+") — cũng là đường kính lúc đang kéo.
     static let discSize: CGFloat = 52
@@ -23,10 +25,8 @@ struct MediaDiscPlacement: Equatable {
     static let pillSize = EdgePillShape.largeSize
     /// Bìa trong đĩa (như icon của nút "+").
     static let coverSize: CGFloat = 32
-    /// Khe giữa đĩa và neo bên dưới.
+    /// Khe giữa đĩa và neo lấn vào vùng.
     static let gap: CGFloat = 12
-    /// Khoảng chừa dưới vùng an toàn trên: header 44 + 8 ⇒ đĩa không che nút quay lại / cụm nút phải.
-    static let headerClearance: CGFloat = 52
 
     /// Khung đĩa theo toạ độ cửa sổ.
     let frame: CGRect
@@ -34,11 +34,9 @@ struct MediaDiscPlacement: Equatable {
     /// Màn trên cùng không cho hiện đĩa.
     let isBlocked: Bool
 
-    /// Dải mép trên của nửa viên được phép (trước khi né neo).
+    /// Dải mép trên của nửa viên được phép (`EdgePillZone`, trước khi né neo lấn vào vùng).
     static func topRange(bounds: CGRect, safeInsets: UIEdgeInsets) -> ClosedRange<CGFloat> {
-        let minTop = safeInsets.top + headerClearance
-        let maxTop = bounds.height - safeInsets.bottom - FloatingRoundButton.bottomInset - pillSize.height
-        return minTop...max(minTop, maxTop)
+        EdgePillZone.topRange(height: pillSize.height, bounds: bounds, safeInsets: safeInsets)
     }
 
     /// Khung nửa viên dính mép `edge`, mép trên `top`.
@@ -73,6 +71,8 @@ struct MediaDiscPlacement: Equatable {
             return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
         }
 
+        // Chỉ thứ lấn vào vùng đứng (mép trên cao hơn đáy vùng) mới phải né — xem luật 5.
+        let zoneBottom = EdgePillZone.maxBottom(bounds: bounds, safeInsets: safeInsets)
         var obstacles: [CGRect] = []
         for anchor in MediaDiscAnchorRegistry.shared.anchors {
             guard let rect = validFrame(of: anchor.view, in: mainWindow, top: topVC) else { continue }
@@ -80,10 +80,10 @@ struct MediaDiscPlacement: Equatable {
             case .blocker:
                 return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
             case .button, .bar:
-                obstacles.append(rect)
+                if rect.minY < zoneBottom { obstacles.append(rect) }
             }
         }
-        if let mini = VideoMiniPlayerWindowManager.shared.visiblePlayerFrame {
+        if let mini = VideoMiniPlayerWindowManager.shared.visiblePlayerFrame, mini.minY < zoneBottom {
             obstacles.append(mini)
         }
         frame.origin.y = liftedTop(of: frame, above: obstacles, minTop: range.lowerBound)
