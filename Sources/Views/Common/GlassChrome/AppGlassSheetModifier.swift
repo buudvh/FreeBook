@@ -49,13 +49,18 @@ struct AppGlassSheetModifier: ViewModifier {
         static var defaultValue: Bool { false }
     }
 
-    /// Ô danh sách mờ khi nằm trong sheet kính; ngoài sheet kính ⇒ nền ô mặc định.
+    /// Ô danh sách mờ khi nằm trong sheet kính; ngoài sheet kính **không ghi gì** (không cả `listRowBackground(nil)`) ⇒
+    /// trang thường giữ y nguyên nền ô, kể cả dòng tự đặt nền riêng.
     struct Rows: ViewModifier {
         @Environment(\.isGlassSheet) private var isGlassSheet
 
+        @ViewBuilder
         func body(content: Content) -> some View {
-            let fill: Color? = isGlassSheet ? AppGlassSheetModifier.rowFill : nil
-            return content.listRowBackground(fill)
+            if isGlassSheet {
+                content.listRowBackground(AppGlassSheetModifier.rowFill)
+            } else {
+                content
+            }
         }
     }
 
