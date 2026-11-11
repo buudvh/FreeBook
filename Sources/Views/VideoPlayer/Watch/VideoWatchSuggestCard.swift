@@ -146,7 +146,10 @@ struct VideoWatchSuggestCard: View {
         }
         .accessibilityLabel("Tuỳ chọn phim đề xuất")
         .sheet(item: $playlistRequest) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
         .onDisappear {
             playlistTask?.cancel()

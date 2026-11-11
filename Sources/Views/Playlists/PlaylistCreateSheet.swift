@@ -22,7 +22,7 @@ struct PlaylistCreateSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("Tên") {
                     TextField("Tên playlist", text: $name)
                         .textInputAutocapitalization(.sentences)
@@ -39,7 +39,7 @@ struct PlaylistCreateSheet: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Playlist mới")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

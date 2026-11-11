@@ -11,10 +11,13 @@ struct BookDetailActionSheetModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: $taskSheetRequest) { request in
-                TaskOptionsSheet(
-                    book: request.book,
-                    taskType: request.taskType
-                )
+                Group {
+                    TaskOptionsSheet(
+                        book: request.book,
+                        taskType: request.taskType
+                    )
+                }
+                .appGlassSheet()
             }
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(

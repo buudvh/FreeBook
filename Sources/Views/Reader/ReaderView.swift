@@ -439,10 +439,13 @@ struct ReaderView: View {
             readerChapterListSheet
         }
         .sheet(isPresented: $showingBookDictionary) {
-            NavigationStack {
-                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "", isPresentedAsSheet: true)
+            Group {
+                NavigationStack {
+                    BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "", isPresentedAsSheet: true)
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingReaderSearch) {
             let snapshot = buildReaderSearchSnapshot()
@@ -563,23 +566,29 @@ struct ReaderView: View {
     private var readerPresentationNavigationLayer: some View {
         readerObserverLayer
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
-            // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
-            AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
-                Task {
-                    let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)
-                    if result.wroteNghiTTS { await TextPreprocessor.shared.loadResources() }
-                    ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
+            Group {
+                // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
+                AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
+                    Task {
+                        let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)
+                        if result.wroteNghiTTS { await TextPreprocessor.shared.loadResources() }
+                        ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
+                    }
                 }
             }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingAddTTSReplacementSheet) {
-            AddTTSReplacementSheet(
-                initialPattern: pendingTTSReplacementPattern,
-                existingRules: TTSReplacementManager.shared.rules,
-                bookRules: TTSReplacementManager.shared.rules(bookId: bookId),
-                bookId: bookId,
-                onSave: handleAddTTSReplacement
-            )
+            Group {
+                AddTTSReplacementSheet(
+                    initialPattern: pendingTTSReplacementPattern,
+                    existingRules: TTSReplacementManager.shared.rules,
+                    bookRules: TTSReplacementManager.shared.rules(bookId: bookId),
+                    bookId: bookId,
+                    onSave: handleAddTTSReplacement
+                )
+            }
+            .appGlassSheet()
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             let browserUrl: String = {

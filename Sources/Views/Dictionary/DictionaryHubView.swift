@@ -11,7 +11,7 @@ struct DictionaryHubView: View {
     @State private var refreshToken = UUID()
 
     var body: some View {
-        List {
+        List { Group {
             // Names đứng trên VietPhrase ở cả hai section.
             Section(header: Text("Từ Điển Riêng (Truyện)")) {
                 NavigationLink(destination: DictionaryListView(type: .names, bookId: bookId, bookName: bookName)) {
@@ -116,7 +116,7 @@ struct DictionaryHubView: View {
             } header: {
                 Text("Thay thế từ (TTS)")
             }
-        }
+        }.glassSheetRows() }
         .id(refreshToken)
         .pageTitle("Từ Điển", style: isPresentedAsSheet ? .leading : .centered)
         .onAppear {

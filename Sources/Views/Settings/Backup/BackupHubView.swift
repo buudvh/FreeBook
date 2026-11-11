@@ -32,7 +32,7 @@ struct BackupHubView: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             if coordinator.progress.isActive {
                 progressSection
             }
@@ -51,13 +51,16 @@ struct BackupHubView: View {
             )
 
             driveSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Sao lưu & khôi phục")
         .onAppear { coordinator.refreshLocal() }
         .sheet(isPresented: $showingImporter) { importer }
         .sheet(item: $sharingItem) { ShareSheet(activityItems: [$0.url]) }
         .sheet(isPresented: $showingRestoreOptions, onDismiss: discardPreparedRestore) {
-            restoreSheet.presentationDragIndicator(.visible)
+            Group {
+                restoreSheet.presentationDragIndicator(.visible)
+            }
+            .appGlassSheet()
         }
         // Toast kết quả sao lưu / khôi phục **không** còn ở đây: `MainTabView` (root) đã observe
         // `lastMessage`/`lastError`, nên toast hiện kể cả khi người dùng đã rời màn này giữa chừng. Giữ

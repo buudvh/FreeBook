@@ -64,10 +64,16 @@ struct TTSQuickControlSheet: View {
             .presentationCornerRadius(16)
             .presentationBackground { DrawerGlassSheetBackground() }
             .sheet(isPresented: $showingTimerSheet) {
-                TTSQuickTimerSheet(initialTab: timerSheetTab)
+                Group {
+                    TTSQuickTimerSheet(initialTab: timerSheetTab)
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingSettings) {
-                settingsSheet
+                Group {
+                    settingsSheet
+                }
+                .appGlassSheet()
             }
             .onAppear { refreshCover() }
             .onChange(of: ttsState.snapshot.playingBookId) { _, _ in refreshCover() }

@@ -91,9 +91,12 @@ struct ComicChapterListSheet: View {
         }
         .background(Self.theme.backgroundColor.ignoresSafeArea())
         .sheet(isPresented: $showingDownloadOptions) {
-            if let book {
-                TaskOptionsSheet(book: book, taskType: .download)
+            Group {
+                if let book {
+                    TaskOptionsSheet(book: book, taskType: .download)
+                }
             }
+            .appGlassSheet()
         }
         .shelfToggleFlow(collectionPickerBook: $collectionPickerBook)
     }

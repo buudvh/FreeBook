@@ -59,14 +59,14 @@ struct StaleBookCleanupSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             enableSection
             thresholdSection
             if isEnabled {
                 scheduleSection
             }
             statusSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Dọn truyện cũ")
         // Chạy lúc mở màn và mỗi khi ngưỡng đổi; kéo slider huỷ lượt cũ nên chỉ nấc dừng cuối cùng
         // mới đếm lại (debounce ~300 ms) thay vì mỗi nấc ngày một lượt fetch toàn bảng.

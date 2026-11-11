@@ -22,7 +22,7 @@ struct VideoSettingsView: View {
     @AppStorage(VideoMinimizePolicy.nsfwDefaultsKey) private var nsfwMinimize: VideoMinimizeStyle = VideoMinimizePolicy.defaultValue
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle(isOn: $autoplaysOnOpen) {
                     Label("Tự phát khi mở phim", systemImage: "play.circle")
@@ -75,7 +75,7 @@ struct VideoSettingsView: View {
                     "Từng tiện ích chỉnh riêng được ở mục Video của Cấu hình tiện ích."
                 ])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Video")
     }
 

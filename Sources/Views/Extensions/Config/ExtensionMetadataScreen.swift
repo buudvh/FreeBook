@@ -8,9 +8,9 @@ struct ExtensionMetadataScreen: View {
     let ext: Extension
 
     var body: some View {
-        Form {
+        Form { Group {
             ExtensionMetadataSection(ext: ext)
-        }
+        }.glassSheetRows() }
         .scrollDismissesKeyboard(.interactively)
         .backPageTitle("Thông tin plugin.json")
     }

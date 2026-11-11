@@ -29,7 +29,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @State private var bracketSummary = ""
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle(QuickTranslationRuleTokenSettings.Kind.numeral.label, isOn: invalidating($isNumeralEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.digitwise.label, isOn: invalidating($isDigitwiseEnabled))
@@ -74,7 +74,7 @@ struct QuickTranslationRuleTokenSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cấu hình token rule")
         .onAppear {
             let pairs = QuickTranslationRuleBracketStore.shared.globalPairs()

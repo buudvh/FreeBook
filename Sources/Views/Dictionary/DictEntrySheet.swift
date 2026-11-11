@@ -86,7 +86,7 @@ public struct DictEntrySheet: View {
 
     private var addSheet: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     clipboardToolbar(for: $rawText)
 
@@ -105,7 +105,7 @@ public struct DictEntrySheet: View {
                 } header: {
                     SectionHelpHeader("Nhập danh sách từ", paragraphs: ["Mỗi dòng một từ theo format: Từ gốc=Nghĩa dịch.\nDòng trống hoặc không chứa dấu '=' sẽ tự động được bỏ qua."])
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Thêm từ mới")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

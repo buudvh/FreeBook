@@ -24,14 +24,14 @@ struct DriveAutoBackupSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             enableSection
             if isEnabled || isTelegramEnabled {
                 scheduleSection
             }
             BackupScopeToggleList(selection: $scopes, header: "Nội dung sao lưu tự động")
             statusSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Tự động sao lưu")
         .onChange(of: scopes) { _, newValue in
             DriveAutoBackupPolicy.scopes = newValue

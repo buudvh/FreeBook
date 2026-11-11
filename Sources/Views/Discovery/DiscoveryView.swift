@@ -475,13 +475,19 @@ struct DiscoveryView: View {
                 onConfigClosed: { _ = reloadAfterConfigChangeIfPending() }
             )
             .sheet(isPresented: $showingFilterSheet) {
-                if let packageId = selectedExtension?.packageId {
-                    ExtensionFilterSheet(packageId: packageId, scope: filterSheetScope)
+                Group {
+                    if let packageId = selectedExtension?.packageId {
+                        ExtensionFilterSheet(packageId: packageId, scope: filterSheetScope)
+                    }
                 }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingLayoutSheet) {
-                // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
-                BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension), showsExploreSizes: homeItems.contains(where: ExploreSectionsView.isTab))
+                Group {
+                    // Tính scope lúc mở từ nguồn hiện tại, không bắt `layoutScope` của lượt body cũ.
+                    BookListLayoutSheet(scope: Self.layoutScope(for: selectedExtension), showsExploreSizes: homeItems.contains(where: ExploreSectionsView.isTab))
+                }
+                .appGlassSheet()
             }
             // Đóng trình duyệt "Mở link lỗi" của khối lỗi danh mục ⇒ chép cookie rồi tải lại danh mục.
             .errorLinkBrowser(link: $openingErrorLink, packageId: selectedExtension?.packageId) { loadDiscoveryData() }

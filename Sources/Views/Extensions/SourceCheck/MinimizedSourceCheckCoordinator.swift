@@ -245,7 +245,9 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
             ))
         }
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
-        let root = NavigationStack { screen }.appAccentTint()
+        // Nền kính như mọi sheet (1.3.873): hosting trong suốt, kính vẽ ở gốc SwiftUI.
+        let root = NavigationStack { screen }.appAccentTint().appGlassUIKitSheet()
+        hosting.view.backgroundColor = .clear
         if let container = FloatingHubWindowManager.shared.modelContainer {
             hosting.rootView = AnyView(root.modelContainer(container))
         } else {
@@ -253,6 +255,7 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         }
         hosting.modalPresentationStyle = .pageSheet
         hosting.sheetPresentationController?.prefersGrabberVisible = true
+        hosting.sheetPresentationController?.preferredCornerRadius = 16
         return hosting
     }
 

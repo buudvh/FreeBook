@@ -27,7 +27,7 @@ struct StorageUsageView: View {
     private var isScanning: Bool { repository.isScanning }
 
     var body: some View {
-        List {
+        List { Group {
             summaryCard
                 .bookListPanelRow()
             StorageAutoCleanupRow()
@@ -38,7 +38,7 @@ struct StorageUsageView: View {
                         .bookListPanelRow()
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
         .backPageTitle("Dung lượng")
         .toolbar {

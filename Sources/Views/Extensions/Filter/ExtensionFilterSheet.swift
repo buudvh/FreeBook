@@ -78,7 +78,7 @@ struct ExtensionFilterSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             let resetKey = resetRowKey
-            Form {
+            Form { Group {
                 Section {
                     if filterKeys.isEmpty {
                         Text(isScanned ? "Danh sách này không dùng mục lọc nào." : "Đang đọc bộ lọc...")
@@ -110,7 +110,7 @@ struct ExtensionFilterSheet: View {
                             .foregroundColor(.red)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .listSectionSpacing(.compact)
         }
     }

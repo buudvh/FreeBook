@@ -54,7 +54,7 @@ struct TTSModelManagerView: View {
 
     var body: some View {
         ZStack {
-            List {
+            List { Group {
                 Section {
                     Button(action: {
                         isShowingFileImporter = true
@@ -98,7 +98,7 @@ struct TTSModelManagerView: View {
                         .textCase(.none)
                         .font(.caption)
                         .foregroundColor(.white)
-                        
+                    
                         Button("Xóa tất cả", role: .destructive) {
                             deleteAll(in: systemVoices)
                         }
@@ -120,7 +120,7 @@ struct TTSModelManagerView: View {
                         }
                     }
                 }
-                
+            
                 let custom = customVoices
                 if !custom.isEmpty {
                     Section(header: HStack {
@@ -139,7 +139,7 @@ struct TTSModelManagerView: View {
                         }
                     }
                 }
-            }
+            }.glassSheetRows() }
             .backPageTitle("Quản lý model")
             .background {
                 DocumentPickerPresenter(

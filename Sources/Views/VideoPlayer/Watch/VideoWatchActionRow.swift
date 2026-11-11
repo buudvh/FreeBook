@@ -57,27 +57,36 @@ struct VideoWatchActionRow: View {
             .padding(.horizontal, 16)
         }
         .sheet(isPresented: $showingCollectionPicker) {
-            CollectionPickerSheet(bookId: collectionPickerBookId)
+            Group {
+                CollectionPickerSheet(bookId: collectionPickerBookId)
+            }
+            .appGlassSheet()
         }
         .sheet(item: $downloadBook) { book in
-            TaskOptionsSheet(book: book, taskType: .download)
+            Group {
+                TaskOptionsSheet(book: book, taskType: .download)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingChangeSource, onDismiss: finishSourceChangeIfNeeded) {
-            NavigationStack {
-                SearchView(
-                    activeExtensions: ExtensionLibraryRepository.shared.installed,
-                    selectedExtension: nil,
-                    initialSearchQuery: model.displayTitle,
-                    changeSourceTargetBook: model.fetchBook(),
-                    kindScopePackageId: model.request.packageId,
-                    onSourceChanged: {
-                        didChangeSource = true
-                        showingChangeSource = false
-                    },
-                    isPresentedAsSheet: true
-                )
+            Group {
+                NavigationStack {
+                    SearchView(
+                        activeExtensions: ExtensionLibraryRepository.shared.installed,
+                        selectedExtension: nil,
+                        initialSearchQuery: model.displayTitle,
+                        changeSourceTargetBook: model.fetchBook(),
+                        kindScopePackageId: model.request.packageId,
+                        onSourceChanged: {
+                            didChangeSource = true
+                            showingChangeSource = false
+                        },
+                        isPresentedAsSheet: true
+                    )
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingShare) {
             if let url = model.shareURL {

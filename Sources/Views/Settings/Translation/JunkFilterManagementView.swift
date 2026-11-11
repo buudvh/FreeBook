@@ -53,7 +53,7 @@ struct JunkFilterManagementView: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 Text("Các từ và biểu thức trong danh sách này sẽ bị tự động xoá khỏi văn bản gốc trước khi tiến hành chuẩn hoá và dịch chương.")
                     .font(.caption)
@@ -101,7 +101,7 @@ struct JunkFilterManagementView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         // "Thêm quy tắc" là nút "+" nổi góc dưới phải như các màn danh sách khác (trước đây là mục đầu ngăn kéo).
         .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
         .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
@@ -135,7 +135,10 @@ struct JunkFilterManagementView: View {
             SideDrawerActionRow("Xóa tất cả quy tắc", systemImage: "trash", role: .destructive) { showingClearAlert = true }
         }
         .sheet(isPresented: $showingEditSheet) {
-            editRuleSheet
+            Group {
+                editRuleSheet
+            }
+            .appGlassSheet()
         }
         .background(
             DocumentPickerPresenter(
@@ -266,7 +269,7 @@ struct JunkFilterManagementView: View {
     @ViewBuilder
     private var editRuleSheet: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section(header: Text("Thông tin quy tắc lọc rác")) {
                     TextField("Từ / Chuỗi cần xoá khỏi văn bản gốc", text: $patternInput)
                         .textInputAutocapitalization(.never)
@@ -277,7 +280,7 @@ struct JunkFilterManagementView: View {
                     Toggle("Biểu thức chính quy (Regex)", isOn: $isRegexInput)
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(selectedRule == nil ? "Thêm từ lọc rác" : "Sửa từ lọc rác")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

@@ -154,7 +154,10 @@ struct RepositoryManagerView: View {
                 Text("Hành động này sẽ gỡ cài đặt toàn bộ các tiện ích đã cài trong ứng dụng. Bạn có chắc chắn không?")
             }
             .sheet(isPresented: $showingFilterSheet) {
-                makeFilterSheet()
+                Group {
+                    makeFilterSheet()
+                }
+                .appGlassSheet()
             }
             .navigationDestination(isPresented: $showingRepositoryList) {
                 ExtensionRepositoryListView()
@@ -163,12 +166,18 @@ struct RepositoryManagerView: View {
                 CheckReportListView(initialKind: kind)
             }
             .sheet(item: $selectedExtensionForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
-                ExtensionConfigView(ext: ext)
+                Group {
+                    ExtensionConfigView(ext: ext)
+                }
+                .appGlassSheet()
             }
             .sheet(item: $selectedExtensionForScriptEditor) { ext in
-                ExtensionScriptEditorView(ext: ext)
+                Group {
+                    ExtensionScriptEditorView(ext: ext)
+                }
+                .appGlassSheet()
             }
-            .sheet(item: $sourceCheckRoute, onDismiss: stopSourceCheck) { route in sourceCheckSheet(route) }
+            .sheet(item: $sourceCheckRoute, onDismiss: stopSourceCheck) { route in sourceCheckSheet(route).appGlassSheet() }
             .background {
                 DocumentPickerPresenter(
                     isPresented: $showingZipImporter,
@@ -256,10 +265,10 @@ struct RepositoryManagerView: View {
                         Spacer()
                     }
                 } else {
-                    List(extensions) { ext in
+                    List(extensions) { ext in Group {
                         extensionRow(ext)
                             .contextMenu { nsfwContextMenu(ext) }
-                    }
+                    }.glassSheetRows() }
                     .listStyle(.plain)
                 }
             }

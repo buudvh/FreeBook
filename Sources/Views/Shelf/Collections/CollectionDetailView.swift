@@ -120,28 +120,40 @@ struct CollectionDetailView: View {
                 browserBook = book
             }
         }) { target in
-            BookActionSheet(
-                target: target,
-                isCheckingNewChapters: newChapters.isChecking,
-                onAction: { action in
-                    handle(action, for: target.book)
-                }
-            )
+            Group {
+                BookActionSheet(
+                    target: target,
+                    isCheckingNewChapters: newChapters.isChecking,
+                    onAction: { action in
+                        handle(action, for: target.book)
+                    }
+                )
+            }
+            .appGlassSheet()
         }
         .sheet(item: $taskSheetRequest) { request in
-            TaskOptionsSheet(book: request.book, taskType: request.taskType)
+            Group {
+                TaskOptionsSheet(book: request.book, taskType: request.taskType)
+            }
+            .appGlassSheet()
         }
         .bookBrowserPresentation($browserBook)
         .sheet(isPresented: $showingLayoutSheet) {
-            BookListLayoutSheet(scope: .all)
+            Group {
+                BookListLayoutSheet(scope: .all)
+            }
+            .appGlassSheet()
         }
         .sheet(item: $editingInfoBook) { book in
-            BookInfoEditView(
-                bookId: book.bookId,
-                title: book.title,
-                author: book.author,
-                coverUrl: book.coverUrl
-            )
+            Group {
+                BookInfoEditView(
+                    bookId: book.bookId,
+                    title: book.title,
+                    author: book.author,
+                    coverUrl: book.coverUrl
+                )
+            }
+            .appGlassSheet()
         }
         .navigationDestination(isPresented: $navigateToBookDetail) {
             bookDetailDestinationView

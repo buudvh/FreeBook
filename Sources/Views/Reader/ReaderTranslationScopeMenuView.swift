@@ -173,7 +173,7 @@ public struct ReaderTranslationScopeMenuView: View {
                 }
             )
             .presentationCompactAdaptation(.popover)
-            .preferredColorScheme(.dark)
+            .appGlassPopover()
         }
         .onAppear {
             refreshStatus()

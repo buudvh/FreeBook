@@ -87,15 +87,21 @@ struct BypassWebView: View {
                 store.reapplyConvertPolicyFollowingGlobal()
             }
             .sheet(isPresented: $showingAllHistorySheet) {
-                BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
-                    if let tab = store.activeTab, let target = URL(string: selectedUrl) {
-                        tab.load(target)
+                Group {
+                    BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
+                        if let tab = store.activeTab, let target = URL(string: selectedUrl) {
+                            tab.load(target)
+                        }
                     }
                 }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingBrowserSettings) {
-                NavigationStack { BrowserSettingsView(showsDoneButton: true) }
-                    .presentationDragIndicator(.visible)
+                Group {
+                    NavigationStack { BrowserSettingsView(showsDoneButton: true) }
+                        .presentationDragIndicator(.visible)
+                }
+                .appGlassSheet()
             }
             // Sheet Dịch QT / Tra từ điển của menu nhấn giữ + bảng chia sẻ (`store.shareRequest`, cả mục "Chia sẻ" của
             // ngăn kéo lẫn menu link).

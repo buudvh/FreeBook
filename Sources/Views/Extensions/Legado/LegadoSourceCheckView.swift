@@ -151,13 +151,14 @@ struct LegadoSourceCheckView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            List(Array(rows.enumerated()), id: \.offset) { _, result in
+            List(Array(rows.enumerated()), id: \.offset) { Group {
+_, result in
                 LegadoSourceCheckRow(
                     result: result,
                     displayName: names[result.packageId] ?? result.name,
                     onDebug: { debugPackageId = result.packageId }
                 )
-            }
+            }.glassSheetRows() }
             .listStyle(.plain)
         }
     }

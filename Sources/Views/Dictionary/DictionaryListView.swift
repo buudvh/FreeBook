@@ -165,27 +165,33 @@ struct DictionaryListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            DictEntrySheet(mode: .add, onSaveBatch: { entries in
-                upsertBatchEntries(entries: entries)
-            })
+            Group {
+                DictEntrySheet(mode: .add, onSaveBatch: { entries in
+                    upsertBatchEntries(entries: entries)
+                })
+            }
+            .appGlassSheet()
         }
         .sheet(item: $editingEntry) { entry in
-            DictEntrySheet(
-                mode: .edit(key: entry.key, value: entry.value), chipBookId: bookId ?? contextBookId,
-                dictType: type, scopeBookId: bookId,
-                existingValue: { key in allEntries.first { $0.key == key }?.value },
-                onSaveSingle: { newKey, newValue in
-                    if newKey == entry.key {
-                        upsertEntry(key: newKey, value: newValue)
-                    } else {
-                        updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
-                    }
-                },
-                // Lưu một phần từ gốc: thêm mục mới, mục đang sửa giữ nguyên ("Giữ từ cũ").
-                onAddEntry: { newKey, newValue in upsertEntry(key: newKey, value: newValue) },
-                // Danh sách Chung tự làm mới qua `DictionaryCache.refreshIfLoaded`; Riêng phải đọc lại file.
-                onDefinitionsChanged: { if !isGlobal { Task { bookEntries = await loadBookEntries() } } }
-            )
+            Group {
+                DictEntrySheet(
+                    mode: .edit(key: entry.key, value: entry.value), chipBookId: bookId ?? contextBookId,
+                    dictType: type, scopeBookId: bookId,
+                    existingValue: { key in allEntries.first { $0.key == key }?.value },
+                    onSaveSingle: { newKey, newValue in
+                        if newKey == entry.key {
+                            upsertEntry(key: newKey, value: newValue)
+                        } else {
+                            updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
+                        }
+                    },
+                    // Lưu một phần từ gốc: thêm mục mới, mục đang sửa giữ nguyên ("Giữ từ cũ").
+                    onAddEntry: { newKey, newValue in upsertEntry(key: newKey, value: newValue) },
+                    // Danh sách Chung tự làm mới qua `DictionaryCache.refreshIfLoaded`; Riêng phải đọc lại file.
+                    onDefinitionsChanged: { if !isGlobal { Task { bookEntries = await loadBookEntries() } } }
+                )
+            }
+            .appGlassSheet()
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
@@ -197,14 +203,20 @@ struct DictionaryListView: View {
             }
         }
         .sheet(isPresented: $showingShareBookSheet) {
-            BookShareTargetSheet(excludedBookId: bookId) { targetBook, isMerge in
-                shareToBook(targetBook: targetBook, isMerge: isMerge)
+            Group {
+                BookShareTargetSheet(excludedBookId: bookId) { targetBook, isMerge in
+                    shareToBook(targetBook: targetBook, isMerge: isMerge)
+                }
             }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingImportBookSheet) {
-            BookImportSourceSheet(excludedBookId: bookId) { sourceBook, isMerge in
-                importFromBook(sourceBook: sourceBook, isMerge: isMerge)
+            Group {
+                BookImportSourceSheet(excludedBookId: bookId) { sourceBook, isMerge in
+                    importFromBook(sourceBook: sourceBook, isMerge: isMerge)
+                }
             }
+            .appGlassSheet()
         }
         .task {
             await loadData()
@@ -240,7 +252,7 @@ struct DictionaryListView: View {
 
     @ViewBuilder
     private var customEntriesView: some View {
-        List {
+        List { Group {
             // Tính MỘT lần mỗi lượt vẽ: lọc cả từ điển và dò mốc nạp sớm không chạy lại trong `onAppear` của từng hàng.
             let matched = matchedEntries
             let shown = Array(matched.prefix(visibleCount))
@@ -285,7 +297,7 @@ struct DictionaryListView: View {
             } header: {
                 Text("Từ vựng")
             }
-        }
+        }.glassSheetRows() }
         .searchable(text: $searchText, prompt: "Tìm từ...")
         .onChange(of: searchText) { _, _ in
             visibleCount = Self.pageSize
@@ -322,7 +334,7 @@ struct DictionaryListView: View {
 
     @ViewBuilder
     private var deletedEntriesView: some View {
-        List {
+        List { Group {
             Section {
                 Text("Tổng cộng \(deletedWordsList.count) từ đã xóa. Từ mới bị xóa nằm ở trên cùng.")
                     .font(.caption)
@@ -350,7 +362,7 @@ struct DictionaryListView: View {
             } header: {
                 Text("Danh sách từ đã xóa")
             }
-        }
+        }.glassSheetRows() }
         .searchable(text: $searchText, prompt: "Tìm từ đã xóa...")
         .overlay {
             if deletedWordsList.isEmpty {

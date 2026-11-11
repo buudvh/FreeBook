@@ -151,7 +151,7 @@ struct NotificationInboxView: View {
     // MARK: - Danh sách
 
     private var inboxList: some View {
-        List {
+        List { Group {
             // Hàng tiến độ (truyện / sao lưu / khôi phục / tải model) ghim ở đầu, **ngoài** nhóm theo ngày — xem
             // `NotificationInboxView+Activity.swift` để biết vì sao không nhập vào `InboxItem`.
             activityRows()
@@ -165,7 +165,7 @@ struct NotificationInboxView: View {
                     Text(dayTitle(group.day))
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
     }
 

@@ -23,7 +23,7 @@ public struct AISettingsView: View {
     }
 
     public var body: some View {
-        Form {
+        Form { Group {
             // SECTION 1: DANH SÁCH CÁC PROFILE ĐÃ LƯU
             AISettingsProfileSectionView(
                 profiles: config.profiles,
@@ -268,7 +268,7 @@ public struct AISettingsView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .pageTitle("Cấu hình AI", style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -279,14 +279,17 @@ public struct AISettingsView: View {
             }
         }
         .sheet(isPresented: $showingAddProviderSheet) {
-            AddProviderProfileSheet(existingProfiles: config.profiles) { newProfile in
-                config.updateActiveProfile(newProfile)
-                config.activeProfileId = newProfile.id
-                modelsText = newProfile.availableModels.joined(separator: "\n")
-                apiKeysText = newProfile.allEffectiveApiKeys().joined(separator: "\n")
-                saveConfigSilently()
+            Group {
+                AddProviderProfileSheet(existingProfiles: config.profiles) { newProfile in
+                    config.updateActiveProfile(newProfile)
+                    config.activeProfileId = newProfile.id
+                    modelsText = newProfile.availableModels.joined(separator: "\n")
+                    apiKeysText = newProfile.allEffectiveApiKeys().joined(separator: "\n")
+                    saveConfigSilently()
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .alert("Dọn dẹp tất cả phiên chat?", isPresented: $showingClearAllSessionsAlert) {
             Button("Dọn dẹp tất cả", role: .destructive) {

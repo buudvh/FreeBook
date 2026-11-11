@@ -9,7 +9,7 @@ struct ExtensionCheckDetailContent: View {
 
     var body: some View {
         if let result {
-            List {
+            List { Group {
                 Section {
                     tiles(result)
                         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
@@ -29,7 +29,7 @@ struct ExtensionCheckDetailContent: View {
                         }
                     }
                 }
-            }
+            }.glassSheetRows() }
             .listStyle(.insetGrouped)
         } else {
             VStack(spacing: 10) {

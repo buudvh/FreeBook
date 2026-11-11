@@ -75,7 +75,7 @@ struct AddWordSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("Thông tin từ mới") {
                     TextField("Từ gốc (tiếng Anh/Nhật, e.g. apple)", text: $key)
                         .textInputAutocapitalization(.never)
@@ -98,7 +98,7 @@ struct AddWordSheet: View {
                             .font(.caption)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Thêm từ mới")
             .onAppear {
                 // Lượt đầu **không** chờ debounce: khoá đã có sẵn từ cụm bôi đen ở Reader.

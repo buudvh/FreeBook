@@ -8,7 +8,7 @@ import SwiftUI
 /// `QuickTranslationRuleGuide` để các nút "?" cùng đổi theo.
 struct QuickTranslationRuleGuideView: View {
     var body: some View {
-        List {
+        List { Group {
             ForEach(QuickTranslationRuleGuide.topics) { topic in
                 Section {
                     ForEach(Array(topic.points.enumerated()), id: \.offset) { _, point in
@@ -18,7 +18,7 @@ struct QuickTranslationRuleGuideView: View {
                     Text(verbatim: topic.title)
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Hướng dẫn viết rule")
     }
 

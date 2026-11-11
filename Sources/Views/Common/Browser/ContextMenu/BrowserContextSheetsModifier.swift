@@ -13,13 +13,16 @@ struct BrowserContextSheetsModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: $actions.sheet) { sheet in
-                switch sheet.kind {
-                case .translate(let source):
-                    // `source` đã qua phồn → giản của tab lúc bấm (`BypassBrowserTabStore+ContextActions`, 1.3.846).
-                    BrowserTranslateSheet(source: source)
-                case .lookup(let request):
-                    BrowserDictionarySheet(request: request)
+                Group {
+                    switch sheet.kind {
+                    case .translate(let source):
+                        // `source` đã qua phồn → giản của tab lúc bấm (`BypassBrowserTabStore+ContextActions`, 1.3.846).
+                        BrowserTranslateSheet(source: source)
+                    case .lookup(let request):
+                        BrowserDictionarySheet(request: request)
+                    }
                 }
+                .appGlassSheet()
             }
             .sheet(item: $store.shareRequest) { request in
                 ShareSheet(activityItems: request.items)

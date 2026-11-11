@@ -26,7 +26,7 @@ struct RestoreSkeletonView: View {
 
     var body: some View {
         NavigationView {
-            List {
+            List { Group {
                 Section {
                     HStack(spacing: 10) {
                         ProgressView()
@@ -62,7 +62,7 @@ struct RestoreSkeletonView: View {
                     skeletonToggleRow(labelWidth: 150)
                     skeletonToggleRow(labelWidth: 178)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Khôi phục")
         }
     }

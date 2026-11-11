@@ -52,12 +52,12 @@ struct ComicTranslationSettingsSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 scopeSection
                 if isEnabled {
                     methodSection
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Cài đặt dịch")
         }
         .preferredColorScheme(.dark)

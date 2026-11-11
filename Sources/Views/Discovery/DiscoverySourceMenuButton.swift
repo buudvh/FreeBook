@@ -61,7 +61,7 @@ struct DiscoverySourceMenuButton: View {
                 onDone: { showingTranslationPopup = false }
             )
             .presentationCompactAdaptation(.popover)
-            .preferredColorScheme(.dark)
+            .appGlassPopover()
         }
     }
 }

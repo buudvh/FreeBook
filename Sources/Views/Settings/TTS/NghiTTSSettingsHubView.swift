@@ -40,14 +40,14 @@ struct NghiTTSSettingsHubView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             managementSection
             textSection
             voiceSection
             speedSection
             playSection
             resultSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cài đặt NghiTTS")
         .onAppear(perform: loadStoredSettings)
         .onDisappear(perform: stopSample)

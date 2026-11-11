@@ -82,7 +82,10 @@ struct LegadoSourceDebugStepCard: View {
                 .stroke(step.isFailure ? Color.red : Color.clear, lineWidth: 1.5)
         )
         .sheet(isPresented: $showingBody) {
-            bodySheet
+            Group {
+                bodySheet
+            }
+            .appGlassSheet()
         }
     }
 

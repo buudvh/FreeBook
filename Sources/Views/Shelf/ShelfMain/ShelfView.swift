@@ -291,7 +291,10 @@ struct ShelfView: View {
             }
             // Scope = chip đang áp ("Tất cả" khi thanh chip ẩn), cùng scope mà hai trang đang vẽ theo.
             .sheet(isPresented: $showingLayoutSheet) {
-                BookListLayoutSheet(scope: kindFilter.scope)
+                Group {
+                    BookListLayoutSheet(scope: kindFilter.scope)
+                }
+                .appGlassSheet()
             }
             .sheet(item: $actionTarget, onDismiss: {
                 if let book = queuedBrowserBook {
@@ -299,32 +302,38 @@ struct ShelfView: View {
                     browserBook = book
                 }
             }) { target in
-                BookActionSheet(
-                    target: target,
-                    isCheckingNewChapters: newChapters.isChecking,
-                    onAction: { action in
-                        handleBookAction(action, for: target.book)
-                    }
-                )
+                Group {
+                    BookActionSheet(
+                        target: target,
+                        isCheckingNewChapters: newChapters.isChecking,
+                        onAction: { action in
+                            handleBookAction(action, for: target.book)
+                        }
+                    )
+                }
+                .appGlassSheet()
             }
             .navigationDestination(isPresented: $navigateToBookDetail) {
                 bookDetailDestinationView
             }
             .sheet(isPresented: $showingNotificationInbox) {
-                NotificationInboxView(onOpenBook: { book in
-                    // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
-                    DispatchQueue.main.async {
-                        self.selectedTab = .shelf
-                        self.readerPresentationRoute = ShelfReaderRoute(
-                            bookId: book.bookId,
-                            extensionPackageId: book.extensionPackageId,
-                            chapterIndex: book.currentChapterIndex,
-                            paragraphIndex: nil,
-                            detailUrl: book.detailUrl,
-                            sourceName: book.sourceName
-                        )
-                    }
-                })
+                Group {
+                    NotificationInboxView(onOpenBook: { book in
+                        // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
+                        DispatchQueue.main.async {
+                            self.selectedTab = .shelf
+                            self.readerPresentationRoute = ShelfReaderRoute(
+                                bookId: book.bookId,
+                                extensionPackageId: book.extensionPackageId,
+                                chapterIndex: book.currentChapterIndex,
+                                paragraphIndex: nil,
+                                detailUrl: book.detailUrl,
+                                sourceName: book.sourceName
+                            )
+                        }
+                    })
+                }
+                .appGlassSheet()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
                 guard !ttsManager.playingBookId.isEmpty else {
@@ -378,18 +387,27 @@ struct ShelfView: View {
                 )
             }
             .sheet(item: $taskSheetRequest) { request in
-                TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                Group {
+                    TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                }
+                .appGlassSheet()
             }
             .sheet(item: $editingInfoBook) { book in
-                BookInfoEditView(
-                    bookId: book.bookId,
-                    title: book.title,
-                    author: book.author,
-                    coverUrl: book.coverUrl
-                )
+                Group {
+                    BookInfoEditView(
+                        bookId: book.bookId,
+                        title: book.title,
+                        author: book.author,
+                        coverUrl: book.coverUrl
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(item: $collectionPickerBook) { book in
-                CollectionPickerSheet(bookId: book.bookId)
+                Group {
+                    CollectionPickerSheet(bookId: book.bookId)
+                }
+                .appGlassSheet()
             }
             .bookBrowserPresentation($browserBook)
             // Trình duyệt nhập truyện: trang chủ, hoặc link của bước "Từ URL" khi chưa tiện ích nào nhận
@@ -426,25 +444,28 @@ struct ShelfView: View {
                 )
             }
             .sheet(item: $pendingImport) { pending in
-                BookImportConfirmationSheet(
-                    fileName: pending.fileName,
-                    format: pending.format,
-                    initialParsed: pending.parsed,
-                    autoDecodeID: pending.autoDecodeID,
-                    matchedRuleIDs: pending.matchedRuleIDs,
-                    onReanalyze: { decodeID, ruleIDs, structure in
-                        await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: pending.password)
-                    },
-                    onCancel: {
-                        cancelImport()
-                    },
-                    onConfirm: { parsed in
-                        performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
+                Group {
+                    BookImportConfirmationSheet(
+                        fileName: pending.fileName,
+                        format: pending.format,
+                        initialParsed: pending.parsed,
+                        autoDecodeID: pending.autoDecodeID,
+                        matchedRuleIDs: pending.matchedRuleIDs,
+                        onReanalyze: { decodeID, ruleIDs, structure in
+                            await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: pending.password)
+                        },
+                        onCancel: {
+                            cancelImport()
+                        },
+                        onConfirm: { parsed in
+                            performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
+                        }
+                    )
+                    .onAppear {
+                        isParsingImport = false
                     }
-                )
-                .onAppear {
-                    isParsingImport = false
                 }
+                .appGlassSheet()
             }
             // Tài liệu khoá: chỉ mở được bằng đúng mật khẩu người dùng nhập, app không dò/vượt bảo vệ.
             .alert("File có mật khẩu", isPresented: $showingPasswordPrompt) {

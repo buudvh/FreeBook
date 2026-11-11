@@ -25,7 +25,10 @@ struct AudioPlaylistPage: View {
             }
         }
         .sheet(item: $playlistRequest) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
     }
 

@@ -43,11 +43,14 @@ struct LegadoSourceDetailView: View {
             BypassWebView(urlString: browserURL)
         }
         .sheet(isPresented: $showingEditor) {
-            LegadoSourceJSONEditorView(
-                packageId: packageId,
-                sourceName: summary?.displayName ?? packageId,
-                onFinish: handleEditorFinish
-            )
+            Group {
+                LegadoSourceJSONEditorView(
+                    packageId: packageId,
+                    sourceName: summary?.displayName ?? packageId,
+                    onFinish: handleEditorFinish
+                )
+            }
+            .appGlassSheet()
         }
         .sheet(item: $exportFile) { file in
             ShareSheet(activityItems: [file.url])
@@ -89,7 +92,7 @@ struct LegadoSourceDetailView: View {
     }
 
     private func detailForm(_ summary: LegadoSourceSummary) -> some View {
-        Form {
+        Form { Group {
             Section {
                 LegadoSourceDetailHeaderCard(
                     summary: summary,
@@ -108,7 +111,7 @@ struct LegadoSourceDetailView: View {
             }
             activitySection(summary)
             toolsSection(summary)
-        }
+        }.glassSheetRows() }
         .listSectionSpacing(.compact)
         .disabled(isWorking)
     }

@@ -59,7 +59,7 @@ extension ExtensionScriptEditorView {
     }
 
     private var pickerList: some View {
-        List {
+        List { Group {
             ForEach(filteredScriptFiles) { file in
                 let isSelected = file.id == selectedScriptId
                 let isModified = (isSelected && hasUnsavedChanges) || modifiedFileIds.contains(file.id)
@@ -105,7 +105,7 @@ extension ExtensionScriptEditorView {
                     .padding(.vertical, 4)
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
     }
 }

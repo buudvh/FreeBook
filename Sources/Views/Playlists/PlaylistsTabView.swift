@@ -46,12 +46,15 @@ struct PlaylistsTabView: View {
         }
         .floatingAddButton("Tạo playlist") { showingCreateSheet = true }
         .sheet(isPresented: $showingCreateSheet) {
-            // "Tất cả" ⇒ chọn sẵn Nhạc, đổi được trong sheet.
-            PlaylistCreateSheet(initialKind: current.kind ?? .audio) { created in
-                // Đang ở "Tất cả" thì thẻ mới đã hiện ⇒ giữ chip; chip loại khác ⇒ sang chip của loại vừa tạo.
-                guard filter != .all else { return }
-                kindRaw = PlaylistKindFilter(kind: created.kind).rawValue
+            Group {
+                // "Tất cả" ⇒ chọn sẵn Nhạc, đổi được trong sheet.
+                PlaylistCreateSheet(initialKind: current.kind ?? .audio) { created in
+                    // Đang ở "Tất cả" thì thẻ mới đã hiện ⇒ giữ chip; chip loại khác ⇒ sang chip của loại vừa tạo.
+                    guard filter != .all else { return }
+                    kindRaw = PlaylistKindFilter(kind: created.kind).rawValue
+                }
             }
+            .appGlassSheet()
         }
         .playlistManageAlerts(renameTarget: $renameTarget, renameText: $renameText, deleteTarget: $deleteTarget)
     }

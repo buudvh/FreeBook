@@ -185,12 +185,12 @@ struct ExtensionCheckView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(rows) { result in
+                List(rows) { result in Group {
                     Button(action: { openedPackageId = result.packageId }) {
                         ExtensionCheckBatchRow(result: result)
                     }
                     .buttonStyle(.plain)
-                }
+                }.glassSheetRows() }
                 .listStyle(.plain)
             }
         }

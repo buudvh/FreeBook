@@ -52,7 +52,10 @@ struct BrowserTranslateSheet: View {
         .preferredColorScheme(.dark)
         .task { await translate() }
         .sheet(item: $lookupRequest) { request in
-            BrowserDictionarySheet(request: request)
+            Group {
+                BrowserDictionarySheet(request: request)
+            }
+            .appGlassSheet()
         }
     }
 

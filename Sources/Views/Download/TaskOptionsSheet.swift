@@ -92,7 +92,7 @@ struct TaskOptionsSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 bookInfoSection
 
                 if isUnsupportedKind {
@@ -103,7 +103,7 @@ struct TaskOptionsSheet: View {
                 } else {
                     taskSections
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(sheetTitle)
             .task {
                 guard !isUnsupportedKind else { return }

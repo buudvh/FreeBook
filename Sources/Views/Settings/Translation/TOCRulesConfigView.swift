@@ -68,7 +68,7 @@ struct TOCRulesConfigView: View {
                         .padding(.horizontal, 32)
                 }
             } else {
-                List {
+                List { Group {
                     Section {
                         ForEach(rules) { rule in
                             ruleRow(for: rule)
@@ -79,7 +79,7 @@ struct TOCRulesConfigView: View {
                     } header: {
                         SectionHelpHeader("Quy tắc TOC", paragraphs: ["Các quy tắc TOC trên cùng sẽ được kiểm tra trước khi nhận diện tiêu đề chương TXT."])
                     }
-                }
+                }.glassSheetRows() }
                 .environment(\.editMode, isEditingMode ? .constant(.active) : .constant(.inactive))
             }
         }
@@ -120,7 +120,10 @@ struct TOCRulesConfigView: View {
             await loadRules()
         }
         .sheet(isPresented: $showingAddEditSheet) {
-            addEditSheet
+            Group {
+                addEditSheet
+            }
+            .appGlassSheet()
         }
         .alert("Khôi Phục Mặc Định", isPresented: $showingResetConfirmation) {
             Button("Hủy", role: .cancel) {}
@@ -189,7 +192,7 @@ struct TOCRulesConfigView: View {
         let isRuleValid = !trimmedRule.isEmpty && TranslateUtils.validateTOCRulePattern(trimmedRule) == nil
 
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Tên quy tắc (ví dụ: Quyển x)", text: $inputName)
@@ -215,7 +218,7 @@ struct TOCRulesConfigView: View {
                 } header: {
                     SectionHelpHeader("Thông tin quy tắc TOC", paragraphs: ["Biểu thức chính quy Regex cần phù hợp với định dạng dòng tiêu đề chương trong file TXT."])
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(editingRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

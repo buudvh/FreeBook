@@ -51,19 +51,22 @@ struct QuickTranslationRulesView: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             statusSection
             actionSection
             toolsSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Quản lý rule dịch")
         .onAppear {
             store.prewarm()
             dictionaryIssues = store.dictionaryIssues()
         }
         .sheet(isPresented: $showingIssues) {
-            QuickTranslationRuleIssueSheet(issues: allIssues)
-                .presentationDragIndicator(.visible)
+            Group {
+                QuickTranslationRuleIssueSheet(issues: allIssues)
+                    .presentationDragIndicator(.visible)
+            }
+            .appGlassSheet()
         }
         .sheet(item: $sharedFile) { file in
             ShareSheet(activityItems: [file.url]) { _, completed, _, error in

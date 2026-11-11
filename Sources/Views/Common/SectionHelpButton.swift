@@ -54,6 +54,7 @@ struct SectionHelpButton: View {
             .frame(maxHeight: Self.maxHeight)
             .textCase(nil)
             .presentationCompactAdaptation(.popover)
+            .appGlassPopover()
         }
     }
 

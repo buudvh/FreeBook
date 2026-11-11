@@ -29,7 +29,7 @@ struct ManageDefinitionsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section(header: Text("Từ đang chọn")) {
                     Text(word)
                         .font(.title2)
@@ -45,7 +45,7 @@ struct ManageDefinitionsView: View {
                 makeDictionarySection(title: "Name (Chung)", source: "Names (Chung)")
                 makeDictionarySection(title: "VietPhrase (Riêng)", source: "VietPhrase (Riêng)")
                 makeDictionarySection(title: "VietPhrase (Chung)", source: "VietPhrase (Chung)")
-            }
+            }.glassSheetRows() }
             .pageTitle("Quản lý nghĩa từ")
             .presentationDragIndicator(.visible)
             .onDisappear {

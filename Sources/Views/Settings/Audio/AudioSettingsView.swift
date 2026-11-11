@@ -11,7 +11,7 @@ struct AudioSettingsView: View {
     @AppStorage(AudioAutoNextPolicy.defaultsKey) private var autoNextSuggest = AudioAutoNextPolicy.defaultValue
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle(isOn: $autoNextSuggest) {
                     Label("Tự phát bài gợi ý", systemImage: "forward.end.circle")
@@ -22,7 +22,7 @@ struct AudioSettingsView: View {
                     "Mục đã phát trong cùng một chuỗi tự phát bị bỏ qua để không lặp qua lại. Mỗi mục tự phát được lưu vào Lịch sử như khi tự mở. Đang lặp album hoặc lặp một bài thì album không bao giờ hết nên không tự phát."
                 ])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Âm thanh")
     }
 }

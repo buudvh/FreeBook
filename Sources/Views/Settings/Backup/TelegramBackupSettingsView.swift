@@ -7,7 +7,7 @@ struct TelegramBackupSettingsView: View {
     @State private var isChecking = false
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 SecureField(hasStoredToken ? "Bot Token đã lưu (để trống nếu giữ nguyên)" : "Bot Token", text: $token)
                     .textInputAutocapitalization(.never)
@@ -39,7 +39,7 @@ struct TelegramBackupSettingsView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Telegram")
     }
 

@@ -30,7 +30,7 @@ struct ShelfImportURLStep: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 HStack(spacing: 8) {
                     TextField("Dán link trang truyện", text: $urlText)
@@ -60,7 +60,7 @@ struct ShelfImportURLStep: View {
             }
 
             outcomeSection
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
         .task {
             // Chờ sheet lên xong nấc large rồi mới gọi bàn phím (gọi ngay lúc đang chuyển trang thì có lúc bị bỏ qua).

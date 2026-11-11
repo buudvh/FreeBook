@@ -176,12 +176,18 @@ struct CategoryNovelsListView: View {
             }
         }
         .sheet(isPresented: $showingLayoutSheet) {
-            BookListLayoutSheet(scope: layoutScope)
+            Group {
+                BookListLayoutSheet(scope: layoutScope)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingFilterSheet) {
-            ExtensionFilterSheet(packageId: extensionPackageId, scope: filterScope) { configJson in
-                Task { await loader.reset(configJson: configJson) }
+            Group {
+                ExtensionFilterSheet(packageId: extensionPackageId, scope: filterScope) { configJson in
+                    Task { await loader.reset(configJson: configJson) }
+                }
             }
+            .appGlassSheet()
         }
         .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
             Task { await loader.loadInitial() }

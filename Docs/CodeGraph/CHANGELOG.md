@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.873] - 2026-11-11
+
+### feat: mọi sheet và popup dùng nền kính, ô mờ như sheet hub, độ đục thấp nhất 20%
+
+Anh Bửu: "sửa nền các loại sheet như các sheet gần đây", "như hub, nút + kệ sách… hạn chế mức thấp nhất độ đục là 20% nhé", "mấy pop up như bật tắt dịch cũng vậy nhé" (đã duyệt mockup + plan).
+
+- **Modifier dùng chung** (mới, `Views/Common/GlassChrome/AppGlassSheetModifier.swift`): `.appGlassSheet()` (sheet — nền `DrawerGlassSheetBackground`, bo 16), `.appGlassPopover()` (popup), `.appGlassUIKitSheet()` (sheet trình bày bằng UIKit — kính vẽ bằng `.background`); cả ba ẩn nền danh sách, tông tối, đặt environment `isGlassSheet`. `.glassSheetRows()` cho ô danh sách mờ `Color.primary.opacity(0.08)` (màu dòng của sheet hub) — chỉ có tác dụng trong sheet kính nên trang thường dùng chung view không đổi; `.glassAwareBackground(_:)` cho nền đặc tự tô trong view dùng chung (thanh tìm của `SearchView`).
+- **122 chỗ mở sheet** (khoảng 60 loại) bọc `Group { … }.appGlassSheet()` bằng script có kiểm cân bằng ngoặc. Không gắn: sheet chia sẻ / chọn file của hệ thống, bảng mục lục / cài đặt / tra từ / tìm của Reader và truyện tranh (theo nền đọc), trang đăng nhập web, sheet đã có nền riêng (sheet hub, sheet nghe / TTS, sheet kiểu hub, sheet "đang đọc chương này").
+- **114 `List` / `Form`** bọc `Group { … }.glassSheetRows()` dạng gọn (`List { Group {` … `}.glassSheetRows() }`, không thêm dòng — giữ baseline dòng của file legacy). Bỏ nền đặc tự tô ở `MediaSleepTimerSheet`, `TTSQuickTimerSheet`, `FilterSheet`; ô thông tin `AppUpdateSheet`, thẻ `TTSQuickTimerSheet` và dòng chưa chọn của `DictionaryImportConflictView` dùng màu ô mờ khi ở sheet kính.
+- **5 popup** gắn `.appGlassPopover()`: bật tắt dịch (Reader / truyện tranh, Khám phá), "?" giải thích, bảng khiên và bảng chọn tiện ích của nút "Nhập" ở trình duyệt.
+- **Màn kiểm tra nguồn mở lại bằng UIKit** (`MinimizedSourceCheckCoordinator.reopen`): kính `.appGlassUIKitSheet()`, hosting trong suốt, bo 16.
+- **Độ đục thấp nhất 20%** (`GlassChromeSettings.minimumDrawerFrost` / `effectiveDrawerFrost`): thanh "Độ đục" của Menu ba chấm bắt đầu từ 20%; nền sheet / popup, ngăn kéo `…` và thanh kính trình duyệt kẹp giá trị cũ dưới 20% lên 20%. Giải thích của mục Menu ba chấm ghi rõ mọi sheet / popup dùng chung nền này.
+- `CLAUDE.md` / `AGENTS.md`: luật nền kính cho sheet / popup mới.
+- **Kiểm chứng:**
+  - Đọc code + script kiểm cân bằng ngoặc mọi file sửa. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: mở các sheet hay dùng (nhấn giữ truyện, tải / xuất, kiểu hiển thị, bộ sưu tập, playlist, bộ lọc tiện ích, cập nhật app, từ điển, cài đặt TTS, hẹn giờ) ⇒ nền kính bo 16, ô mờ, chữ đọc rõ; popup dịch / "?" ⇒ nền kính; Cài đặt › Giao diện › Menu ba chấm › Độ đục thấp nhất 20%; trang Cài đặt thường (không phải sheet) giữ nền cũ.
+
 ## [1.3.872] - 2026-11-11
 
 ### feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI
@@ -533,19 +551,4 @@ Anh Bửu: *"nếu dùng title_trans thì nên thêm nút dịch lại tên chư
 - Xong ⇒ thông báo `chapterTitlesDidRetranslate` (đã có) ⇒ `ComicReaderView` gọi `ComicReaderViewModel.reloadStoredTitleTranslations()` (mới, file `+TitleTranslation`: nạp lại `titleTrans` từ `ChapterStore`, bỏ tên dịch cũ) rồi dịch lại tên đang hiện ⇒ mục lục và thanh trên đổi ngay.
 - `CLAUDE.md` / `AGENTS.md`: mục màn đọc comic (mục lục 1.3.843–844).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: sửa một name có trong tên chương ⇒ bấm Dịch lại tên chương ⇒ toast xong, mục lục + tên chương ở thanh trên đổi theo.
-
-## [1.3.843] - 2026-11-11
-
-### perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự
-
-Anh Bửu: *"vì sao mở danh sách chương ở commic hiển thị lâu vậy?"*, *"xem cách hiển thị khác gì danh sách chương của reader"*, *"nếu có group thì vẫn nên để group"*.
-
-- **Nguyên nhân có khả năng (đọc code, so với mục lục Reader; chưa đo trên máy):** mỗi lượt vẽ, `ComicChapterListSheet` lọc / đảo / đánh số **cả** mục lục trên main; mỗi hàng bọc `Group { if dòng nhóm … else hàng chương … }` (Reader ghi rõ kiểu bọc này có thể buộc `List` dựng mọi hàng để đếm); không có vỏ chặn vẽ lại nên mỗi lượt vẽ của màn đọc (ảnh tải xong, dịch xong tên chương…) kéo cả mục lục tính lại; tìm thì lọc toàn bộ trên main mỗi phím.
-- `ComicChapterListRows` (mới, hàm thuần): dựng hàng + số thứ tự **một lần** mỗi khi mục lục / ô tìm / thứ tự / công tắc "Hiện số thứ tự" đổi (`.task(id:)`); mục lục > 400 dòng dựng ngoài main kèm vòng xoay, lượt mới huỷ lượt cũ.
-- **Dòng nhóm luôn giữ** (trước đây ẩn khi tìm hoặc xếp giảm dần): mục lục chia nhóm theo thứ tự gốc; giảm dần ⇒ đảo thứ tự nhóm và chương trong nhóm, tiêu đề vẫn trên chương của nó; tìm ⇒ giữ tiêu đề trên các chương khớp của nhóm (tiêu đề tự khớp ⇒ giữ cả nhóm, nhóm không còn gì ⇒ ẩn). Số thứ tự vẫn theo mục lục đầy đủ.
-- `ComicChapterListRow` (mới): một kiểu hàng cho mọi phần tử (dòng nhóm hoặc chương, cùng dáng như trước); nền hàng / màu vạch gắn ở `List`.
-- `ComicChapterListHost` (mới): vỏ không trạng thái `.equatable()` như `ReaderChapterListHost` (`==` so mục lục, chương đang đọc, chương đã tải, bật dịch, `Book` theo identity, launch, thứ tự).
-- Log `📚 [ComicTOC] Mở mục lục N dòng (M hiện): có hàng sau X ms` (bật log) để đo trên máy.
-- `ComicTranslationStatus` nhận thêm `sourceName` / `definitionRequest` (chuyển từ `ComicReaderView`, giữ file đó dưới 400 dòng).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) mở mục lục truyện dài — xem log `📚 [ComicTOC]`; (2) truyện có nhóm: đảo thứ tự, tìm — tiêu đề nhóm vẫn đúng chỗ; (3) gõ tìm liên tục không giật; (4) cuộn tới đúng chương đang đọc khi mở.
 

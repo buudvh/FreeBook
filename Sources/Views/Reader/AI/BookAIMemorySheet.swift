@@ -28,7 +28,7 @@ public struct BookAIMemorySheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
 
-                Form {
+                Form { Group {
                     if selectedTab == 0 {
                         // TAB 0: TRÍ NHỚ RIÊNG CỦA TRUYỆN NÀY
                         Section {
@@ -151,7 +151,7 @@ public struct BookAIMemorySheet: View {
                             }
                         }
                     }
-                }
+                }.glassSheetRows() }
             }
             .pageTitle("Trí nhớ AI")
             .presentationDragIndicator(.visible)

@@ -32,14 +32,14 @@ struct StorageAutoCleanupSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             enableSection
             if isEnabled {
                 scheduleSection
             }
             categorySection
             statusSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Tự động dọn")
         .onChange(of: categories) { _, newValue in
             StorageAutoCleanupPolicy.categories = newValue

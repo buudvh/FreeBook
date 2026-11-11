@@ -5,7 +5,7 @@ import SwiftUI
 /// này để xem/đặt lại toàn bộ.
 struct BookListLayoutSettingsView: View {
     var body: some View {
-        Form {
+        Form { Group {
             ForEach(BookListLayoutScope.allCases) { scope in
                 Section {
                     BookListLayoutControls(scope: scope)
@@ -43,7 +43,7 @@ struct BookListLayoutSettingsView: View {
             } header: {
                 SectionHelpHeader("Phạm vi áp dụng", paragraphs: ["Dùng chung cho Kệ và Khám phá. \"Tất cả\" dùng bìa đứng cho mọi truyện để các hàng lưới cao bằng nhau."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Kiểu hiển thị danh sách")
     }
 }

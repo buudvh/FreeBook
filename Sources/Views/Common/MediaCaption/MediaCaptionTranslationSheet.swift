@@ -87,11 +87,11 @@ struct MediaCaptionTranslationSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 translationSection
                 engineSection
                 traditionalSection
-            }
+            }.glassSheetRows() }
             .pageTitle(medium.title)
         }
         .preferredColorScheme(.dark)

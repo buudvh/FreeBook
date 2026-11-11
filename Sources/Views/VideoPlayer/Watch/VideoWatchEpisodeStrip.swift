@@ -46,19 +46,22 @@ struct VideoWatchEpisodeStrip: View {
         .onChange(of: currentIndex) { _, _ in syncGroupToCurrent() }
         .onChange(of: episodes) { _, _ in syncGroupToCurrent() }
         .sheet(isPresented: $showingAll) {
-            VideoWatchEpisodeSheet(
-                episodes: episodes,
-                currentIndex: currentIndex,
-                bookId: bookId,
-                packageId: packageId,
-                playlistAlbum: playlistAlbum,
-                onSelect: { episode in
-                    showingAll = false
-                    onSelect(episode)
-                }
-            )
+            Group {
+                VideoWatchEpisodeSheet(
+                    episodes: episodes,
+                    currentIndex: currentIndex,
+                    bookId: bookId,
+                    packageId: packageId,
+                    playlistAlbum: playlistAlbum,
+                    onSelect: { episode in
+                        showingAll = false
+                        onSelect(episode)
+                    }
+                )
+            }
+            .appGlassSheet()
         }
-        .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
+        .sheet(item: $playlistRequest) { presentedItem in PlaylistAddSheet(request: presentedItem).appGlassSheet() }
     }
 
     private var header: some View {

@@ -154,12 +154,18 @@ struct SearchView: View {
                 }
             }
             .sheet(item: $layoutSheetScope) { scope in
-                BookListLayoutSheet(scope: scope)
+                Group {
+                    BookListLayoutSheet(scope: scope)
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingFilterSheet) {
-                if let packageId = selectedExtension?.packageId {
-                    ExtensionFilterSheet(packageId: packageId, scope: .pluginScript("search")) { _ in performSearch() }
+                Group {
+                    if let packageId = selectedExtension?.packageId {
+                        ExtensionFilterSheet(packageId: packageId, scope: .pluginScript("search")) { _ in performSearch() }
+                    }
                 }
+                .appGlassSheet()
             }
             .errorLinkBrowser(link: $openingErrorLink, packageId: statusErrorLink?.packageId) { retryStatusError() }
             .onAppear {
@@ -251,7 +257,7 @@ struct SearchView: View {
         .padding(.leading, 16)
         .padding(.trailing, 10)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .glassAwareBackground(Color(.systemBackground))
     }
 
     private func clearSearch() {

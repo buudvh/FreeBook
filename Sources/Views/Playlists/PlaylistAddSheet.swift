@@ -20,7 +20,7 @@ struct PlaylistAddSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     summaryRow
                 }
@@ -37,7 +37,7 @@ struct PlaylistAddSheet: View {
                 } header: {
                     Text("Playlist \(request.kind.title.lowercased())")
                 }
-            }
+            }.glassSheetRows() }
             .listStyle(.insetGrouped)
             .pageTitle("Thêm vào playlist")
         }

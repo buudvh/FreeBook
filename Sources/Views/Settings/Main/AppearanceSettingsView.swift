@@ -35,7 +35,7 @@ struct AppearanceSettingsView: View {
     ]
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 NavigationLink(destination: AccentColorSettingsView()) {
                     accentRowLabel
@@ -100,7 +100,13 @@ struct AppearanceSettingsView: View {
             Section {
                 percentSlider("Độ trong suốt", value: $drawerTransparency)
                 // Cùng 6 nấc kính với nút nổi (1.3.647).
-                percentSlider("Độ đục", value: $drawerFrost, step: GlassFrostLevel.step) { value in
+                // Thấp nhất 20% (1.3.873): sheet / popup / ngăn kéo dùng chung cài đặt này, không cho kính trong hẳn.
+                percentSlider(
+                    "Độ đục",
+                    value: drawerFrostBinding,
+                    step: GlassFrostLevel.step,
+                    range: GlassChromeSettings.minimumDrawerFrost...1
+                ) { value in
                     GlassFrostLevel(frost: value).title
                 }
                 drawerPreview
@@ -110,9 +116,9 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                SectionHelpHeader("Menu ba chấm", paragraphs: ["Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn."])
+                SectionHelpHeader("Menu ba chấm", paragraphs: ["Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn.", "Mọi sheet và popup (bật tắt dịch, giải thích \"?\"…) dùng chung nền kính này. Độ đục thấp nhất 20%."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Giao diện")
     }
 
@@ -133,10 +139,19 @@ struct AppearanceSettingsView: View {
     // MARK: - Thanh kéo
 
     /// `levelName` ≠ nil ⇒ giá trị hiện kèm tên nấc ("60% · Vừa"), phần trăm làm tròn theo `step`.
+    /// Giá trị lưu từ trước 1.3.873 dưới 20% hiện và kéo như 20%.
+    private var drawerFrostBinding: Binding<Double> {
+        Binding(
+            get: { GlassChromeSettings.effectiveDrawerFrost(drawerFrost) },
+            set: { drawerFrost = $0 }
+        )
+    }
+
     private func percentSlider(
         _ title: String,
         value: Binding<Double>,
         step: Double = 0.05,
+        range: ClosedRange<Double> = 0...1,
         levelName: ((Double) -> String)? = nil
     ) -> some View {
         let snapped = (value.wrappedValue / step).rounded() * step
@@ -149,7 +164,7 @@ struct AppearanceSettingsView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Slider(value: value, in: 0...1, step: step)
+            Slider(value: value, in: range, step: step)
                 .accessibilityLabel(title)
         }
     }

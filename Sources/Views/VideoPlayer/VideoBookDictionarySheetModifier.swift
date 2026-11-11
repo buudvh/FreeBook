@@ -12,18 +12,21 @@ struct VideoBookDictionarySheetModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $isPresented, onDismiss: { session.retranslateSubtitles() }) {
-            if let launch = session.launch {
-                NavigationStack {
-                    BookDictionaryView(
-                        bookId: launch.bookId,
-                        bookName: launch.bookTitle ?? session.bookTitle,
-                        isPresentedAsSheet: true
-                    )
+            Group {
+                if let launch = session.launch {
+                    NavigationStack {
+                        BookDictionaryView(
+                            bookId: launch.bookId,
+                            bookName: launch.bookTitle ?? session.bookTitle,
+                            isPresentedAsSheet: true
+                        )
+                    }
+                    .presentationDragIndicator(.visible)
+                    .preferredColorScheme(.dark)
+                    .appAccentTint()
                 }
-                .presentationDragIndicator(.visible)
-                .preferredColorScheme(.dark)
-                .appAccentTint()
             }
+            .appGlassSheet()
         }
     }
 }

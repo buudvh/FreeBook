@@ -79,20 +79,26 @@ extension ShelfView {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
             .sheet(item: $pendingComicImport) { plan in
-                LocalComicImportSheet(
-                    plan: plan,
-                    onConfirm: { title in performComicImport(plan, title: title) },
-                    onDiscard: { LocalMediaImportWorkspace.discard(plan.workDirectory) }
-                )
-                .onAppear { isParsingImport = false }
+                Group {
+                    LocalComicImportSheet(
+                        plan: plan,
+                        onConfirm: { title in performComicImport(plan, title: title) },
+                        onDiscard: { LocalMediaImportWorkspace.discard(plan.workDirectory) }
+                    )
+                    .onAppear { isParsingImport = false }
+                }
+                .appGlassSheet()
             }
             .sheet(item: $pendingVideoImport) { plan in
-                LocalVideoImportSheet(
-                    plan: plan,
-                    onConfirm: { title in performVideoImport(plan, title: title) },
-                    onDiscard: { LocalMediaImportWorkspace.discard(plan.workDirectory) }
-                )
-                .onAppear { isParsingImport = false }
+                Group {
+                    LocalVideoImportSheet(
+                        plan: plan,
+                        onConfirm: { title in performVideoImport(plan, title: title) },
+                        onDiscard: { LocalMediaImportWorkspace.discard(plan.workDirectory) }
+                    )
+                    .onAppear { isParsingImport = false }
+                }
+                .appGlassSheet()
             }
     }
 

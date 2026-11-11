@@ -119,7 +119,10 @@ public struct ReaderAINameReviewSheet: View {
                 )
             }
             .sheet(item: $editingName) { item in
-                editSheet(for: item)
+                Group {
+                    editSheet(for: item)
+                }
+                .appGlassSheet()
             }
             .task {
                 await loadAndDecorateNames()

@@ -16,7 +16,7 @@ struct CollectionsReorderSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     ForEach(collections) { collection in
                         HStack(spacing: 10) {
@@ -35,7 +35,7 @@ struct CollectionsReorderSheet: View {
                 } header: {
                     SectionHelpHeader("Bộ sưu tập", paragraphs: ["Kéo tay nắm bên phải để đổi thứ tự. Thứ tự này là thứ tự hiện ở tab Bộ sưu tập."])
                 }
-            }
+            }.glassSheetRows() }
             // Luôn ở chế độ sửa: màn này chỉ có một việc, không cần bấm thêm nút Sửa.
             .environment(\.editMode, .constant(.active))
             .pageTitle("Sắp xếp lại")

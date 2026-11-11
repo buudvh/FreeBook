@@ -76,12 +76,12 @@ struct QuickTranslationRuleBracketListView: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             if inheritsGlobal {
                 inheritBanner
             }
             pairsSection
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
         // Không dùng `.floatingAddButton`: nút chỉ có khi sửa được, mà modifier đó luôn gắn nút.
         .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
@@ -107,13 +107,16 @@ struct QuickTranslationRuleBracketListView: View {
             menuItems
         }
         .sheet(item: $editorTarget) { target in
-            QuickTranslationRuleBracketEditorSheet(
-                original: target.pair,
-                existingPairs: pairs,
-                editingIndex: target.index
-            ) { pair in
-                save(pair, at: target.index)
+            Group {
+                QuickTranslationRuleBracketEditorSheet(
+                    original: target.pair,
+                    existingPairs: pairs,
+                    editingIndex: target.index
+                ) { pair in
+                    save(pair, at: target.index)
+                }
             }
+            .appGlassSheet()
         }
         .confirmationDialog("Khôi phục bộ ngoặc mặc định?", isPresented: $confirmingResetGlobal, titleVisibility: .visible) {
             Button("Khôi phục mặc định", role: .destructive) { resetGlobal() }

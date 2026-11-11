@@ -51,7 +51,7 @@ struct BookActionSheet: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 header
             } header: {
@@ -67,7 +67,7 @@ struct BookActionSheet: View {
             Section {
                 actionRows
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
         .task(id: book.bookId) {
             // Hàng "Xoá bản tải" của phim đọc tóm tắt từ `VideoOfflineLibrary`.

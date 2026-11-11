@@ -110,28 +110,40 @@ struct ShelfSearchView: View {
                     browserBook = book
                 }
             }) { target in
-                BookActionSheet(
-                    target: target,
-                    isCheckingNewChapters: newChapters.isChecking,
-                    onAction: { action in
-                        handle(action, for: target.book)
-                    }
-                )
+                Group {
+                    BookActionSheet(
+                        target: target,
+                        isCheckingNewChapters: newChapters.isChecking,
+                        onAction: { action in
+                            handle(action, for: target.book)
+                        }
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(item: $taskSheetRequest) { request in
-                TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                Group {
+                    TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                }
+                .appGlassSheet()
             }
             .bookBrowserPresentation($browserBook)
             .sheet(item: $editingInfoBook) { book in
-                BookInfoEditView(
-                    bookId: book.bookId,
-                    title: book.title,
-                    author: book.author,
-                    coverUrl: book.coverUrl
-                )
+                Group {
+                    BookInfoEditView(
+                        bookId: book.bookId,
+                        title: book.title,
+                        author: book.author,
+                        coverUrl: book.coverUrl
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(item: $collectionPickerBook) { book in
-                CollectionPickerSheet(bookId: book.bookId)
+                Group {
+                    CollectionPickerSheet(bookId: book.bookId)
+                }
+                .appGlassSheet()
             }
             .navigationDestination(isPresented: $navigateToBookDetail) {
                 bookDetailDestinationView

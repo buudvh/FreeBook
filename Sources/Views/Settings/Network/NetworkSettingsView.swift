@@ -15,10 +15,10 @@ struct NetworkSettingsView: View {
     private var repository: EncryptedDNSRepository { EncryptedDNSRepository.shared }
 
     var body: some View {
-        Form {
+        Form { Group {
             dnsSection
             systemSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Mạng & DNS")
         .onAppear {
             repository.refreshSourceCount()

@@ -52,11 +52,14 @@ struct ComicTranslationToolsModifier: ViewModifier {
                 )
             }
             .sheet(isPresented: $showsDictionary, onDismiss: onToolClosed) {
-                NavigationStack {
-                    BookDictionaryView(bookId: bookId, bookName: bookTitle, isPresentedAsSheet: true)
+                Group {
+                    NavigationStack {
+                        BookDictionaryView(bookId: bookId, bookName: bookTitle, isPresentedAsSheet: true)
+                    }
+                    .presentationDragIndicator(.visible)
+                    .preferredColorScheme(.dark)
                 }
-                .presentationDragIndicator(.visible)
-                .preferredColorScheme(.dark)
+                .appGlassSheet()
             }
     }
 }

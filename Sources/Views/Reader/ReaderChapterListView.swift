@@ -146,9 +146,12 @@ public struct ReaderChapterListView: View {
             onClose()
         }
         .sheet(isPresented: $showingDownloadOptions) {
-            if let book = localBook {
-                TaskOptionsSheet(book: book, taskType: .download)
+            Group {
+                if let book = localBook {
+                    TaskOptionsSheet(book: book, taskType: .download)
+                }
             }
+            .appGlassSheet()
         }
         .shelfToggleFlow(collectionPickerBook: $collectionPickerBook)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("chapterTitlesDidRetranslate"))) { notification in

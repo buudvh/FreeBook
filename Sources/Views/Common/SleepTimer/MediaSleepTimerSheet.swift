@@ -29,7 +29,6 @@ struct MediaSleepTimerSheet: View {
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .preferredColorScheme(.dark)
         .appAccentTint()
         .presentationDetents([.fraction(0.64), .large])

@@ -17,7 +17,7 @@ struct ThermalMonitorView: View {
     private static let historyRefreshTicks = 15
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 LabeledContent("Mức nhiệt") {
                     Text(Self.levelName(thermalLevel))
@@ -47,7 +47,7 @@ struct ThermalMonitorView: View {
             } header: {
                 SectionHelpHeader("CPU app và pin", paragraphs: ["Mẫu mỗi 30 giây từ lúc mở app, giữ 12 giờ trong RAM, tắt app là mất."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Theo dõi nhiệt")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

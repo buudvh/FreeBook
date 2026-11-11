@@ -20,7 +20,7 @@ struct NghiTTSSettingsView: View {
     @AppStorage("paragraphPauseDuration") private var paragraphPause = 0.5
     
     var body: some View {
-        Form {
+        Form { Group {
             // Phải là `Section { } header: { }` — `Section("…") { } header:/footer:` KHÔNG tồn tại
             // (`Section(_:content:)` không có tham số `footer`), và đó đúng là lỗi CI đã mắc ở lượt 1.3.459.
             Section {
@@ -69,7 +69,7 @@ struct NghiTTSSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cấu hình NghiTTS")
     }
 }

@@ -11,7 +11,7 @@ extension BookImportConfirmationSheet {
 
     internal var decodePickerView: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section("Tự động") {
                     Button {
                         decodeID = nil
@@ -59,7 +59,7 @@ extension BookImportConfirmationSheet {
                         }
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Chọn bảng mã")
         }
         .presentationDetents([.medium, .large])
@@ -69,7 +69,7 @@ extension BookImportConfirmationSheet {
 
     internal var rulePickerView: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section("Tự động") {
                     Button {
                         selectedRuleIDs = []
@@ -134,7 +134,7 @@ extension BookImportConfirmationSheet {
                     .frame(maxWidth: .infinity)
                     .disabled(isReanalyzing)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Chọn quy tắc TOC")
         }
         .presentationDetents([.medium, .large])
@@ -146,7 +146,7 @@ extension BookImportConfirmationSheet {
     /// ích khi mục lục nhúng trong file bị rút gọn hoặc lệch so với nội dung thật.
     internal var structurePickerView: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section("Cách tách chương") {
                     ForEach(BookImportService.StructureMode.allCases) { mode in
                         Button {
@@ -179,7 +179,7 @@ extension BookImportConfirmationSheet {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Chọn cấu trúc")
         }
         .presentationDetents([.medium, .large])

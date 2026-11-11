@@ -28,14 +28,14 @@ struct BrowserSettingsView: View {
     @AppStorage(BrowserTranslatePolicy.convertsTraditionalKey) private var convertsTraditional = false
 
     var body: some View {
-        Form {
+        Form { Group {
             adBlockSection
             BrowserFilterListSection()
             displayModeSection
             pageTranslateSection
             BrowserSitePreferencesSection()
             extensionBrowserSection
-        }
+        }.glassSheetRows() }
         .pageTitle("Trình duyệt", style: showsDoneButton ? .leading : .centered)
         .onAppear {
             // Menu khiên có thể vừa ghi theo tên miền từ trình duyệt — đọc lại cho chắc.

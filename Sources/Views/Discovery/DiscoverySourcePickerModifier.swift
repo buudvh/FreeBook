@@ -44,15 +44,21 @@ struct DiscoverySourcePickerModifier: ViewModifier {
             }
             // Hai sheet có thể chứa màn kiểm tra nguồn: đóng khi lượt còn chạy ⇒ thu nhỏ vào hub (1.3.702).
             .sheet(item: $configExtension, onDismiss: { closeSheet(.script) }) { ext in
-                ExtensionConfigView(ext: ext, onImport: { detailUrl, packageId, sourceName in
-                    configExtension = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        onImport(detailUrl, packageId, sourceName)
-                    }
-                })
+                Group {
+                    ExtensionConfigView(ext: ext, onImport: { detailUrl, packageId, sourceName in
+                        configExtension = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            onImport(detailUrl, packageId, sourceName)
+                        }
+                    })
+                }
+                .appGlassSheet()
             }
             .sheet(item: $legadoDetailExtension, onDismiss: { closeSheet(.legado) }) { ext in
-                LegadoSourceDetailView(packageId: ext.packageId)
+                Group {
+                    LegadoSourceDetailView(packageId: ext.packageId)
+                }
+                .appGlassSheet()
             }
     }
 

@@ -43,20 +43,23 @@ struct DownloadTrackerView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List {
+                List { Group {
                     ForEach(tasks) { task in
                         taskRow(task)
                     }
-                }
+                }.glassSheetRows() }
                 .listStyle(.plain)
             }
         }
         .sheet(item: $taskSheetRequest) { request in
-            TaskOptionsSheet(
-                book: request.book,
-                taskType: request.taskType,
-                defaultOnlyExportCached: request.defaultOnlyExportCached
-            )
+            Group {
+                TaskOptionsSheet(
+                    book: request.book,
+                    taskType: request.taskType,
+                    defaultOnlyExportCached: request.defaultOnlyExportCached
+                )
+            }
+            .appGlassSheet()
         }
     }
     

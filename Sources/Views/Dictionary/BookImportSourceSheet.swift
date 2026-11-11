@@ -31,7 +31,7 @@ struct BookImportSourceSheet: View {
             VStack(spacing: 0) {
                 BookSearchBarView(text: $searchQuery)
                 Divider()
-                List(filteredBooks) { book in
+                List(filteredBooks) { book in Group {
                     Button {
                         pendingSource = book
                         showingModeDialog = true
@@ -47,7 +47,7 @@ struct BookImportSourceSheet: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                }
+                }.glassSheetRows() }
                 .overlay {
                     if filteredBooks.isEmpty {
                         VStack(spacing: 8) {

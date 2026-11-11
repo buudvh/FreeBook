@@ -207,14 +207,17 @@ struct BookImportConfirmationSheet: View {
             }
             .pageTitle("Xác nhận nhập truyện")
             .sheet(item: $activePicker) { picker in
-                switch picker {
-                case .decode:
-                    decodePickerView
-                case .rules:
-                    rulePickerView
-                case .structure:
-                    structurePickerView
+                Group {
+                    switch picker {
+                    case .decode:
+                        decodePickerView
+                    case .rules:
+                        rulePickerView
+                    case .structure:
+                        structurePickerView
+                    }
                 }
+                .appGlassSheet()
             }
         }
     }

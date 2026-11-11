@@ -20,14 +20,14 @@ struct ExtensionDebugServerView: View {
     @State private var isBusy = false
 
     var body: some View {
-        Form {
+        Form { Group {
             stateSection
             autoApproveSection
             if let pending = reader.pendingInstall {
                 installSection(pending: pending)
             }
             safetySection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Debug Server (LAN)")
         .task { reader.attach() }
     }

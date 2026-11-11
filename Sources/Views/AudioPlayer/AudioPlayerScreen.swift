@@ -86,15 +86,21 @@ struct AudioPlayerScreen: View {
             drawerMenu
         }
         .sheet(isPresented: $showingSleepTimer) {
-            MediaSleepTimerSheet(timer: AudioPlaybackSession.shared.sleepTimer)
+            Group {
+                MediaSleepTimerSheet(timer: AudioPlaybackSession.shared.sleepTimer)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingLyricsTranslation) {
-            MediaCaptionTranslationSheet(
-                medium: .audio, bookId: session.bookId, packageId: session.packageId,
-                sourceName: session.request?.sourceName ?? ""
-            ) { AudioPlaybackSession.shared.retranslateLyrics() }
+            Group {
+                MediaCaptionTranslationSheet(
+                    medium: .audio, bookId: session.bookId, packageId: session.packageId,
+                    sourceName: session.request?.sourceName ?? ""
+                ) { AudioPlaybackSession.shared.retranslateLyrics() }
+            }
+            .appGlassSheet()
         }
-        .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
+        .sheet(item: $playlistRequest) { presentedItem in PlaylistAddSheet(request: presentedItem).appGlassSheet() }
         // Bài lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ thử lại bài.
         .errorLinkBrowser(link: $openingErrorLink, packageId: session.packageId) {
             AudioPlaybackSession.shared.retry()

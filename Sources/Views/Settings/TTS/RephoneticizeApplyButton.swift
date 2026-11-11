@@ -58,16 +58,19 @@ struct RephoneticizeApplyButton: View {
             Text("**Trộn** giữ từ điển đang có rồi hỏi bạn từng mục trùng khoá nhưng khác nghĩa; khoá mới được thêm tự động. **Thay thế toàn bộ** xoá sạch từ điển hiện tại — cả hai đều có sao lưu `.bak-rephoneticize`.")
         }
         .sheet(isPresented: $showingMergeSheet) {
-            if let url = task.resultFileURL {
-                DictionaryImportConflictView(
-                    fileURL: url,
-                    title: "Chọn mục cần thay",
-                    normalizedKey: task.normalizedKey,
-                    currentProvider: task.currentWordsProvider,
-                    onApply: applyMerged
-                )
-                .presentationDragIndicator(.visible)
+            Group {
+                if let url = task.resultFileURL {
+                    DictionaryImportConflictView(
+                        fileURL: url,
+                        title: "Chọn mục cần thay",
+                        normalizedKey: task.normalizedKey,
+                        currentProvider: task.currentWordsProvider,
+                        onApply: applyMerged
+                    )
+                    .presentationDragIndicator(.visible)
+                }
             }
+            .appGlassSheet()
         }
     }
 

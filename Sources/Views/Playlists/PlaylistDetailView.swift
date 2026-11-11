@@ -68,7 +68,7 @@ struct PlaylistDetailView: View {
     private func content(_ playlist: Playlist) -> some View {
         let items = PlaylistRepository.visibleItems(of: playlist, includeNsfw: includeNsfw)
         let playingId = playingItemId(of: playlist)
-        return List {
+        return List { Group {
             PlaylistDetailHeader(playlist: playlist, visibleItems: items)
                 .bookListPanelRowChrome()
             if items.isEmpty {
@@ -103,7 +103,7 @@ struct PlaylistDetailView: View {
                     move(items, from: source, to: destination)
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
         .environment(\.editMode, $editMode)
     }

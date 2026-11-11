@@ -27,7 +27,7 @@ public struct AddProviderProfileSheet: View {
 
     public var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section(header: Text("Mẫu Thiết Lập Nhanh")) {
                     Picker("Mẫu Provider", selection: $selectedTemplateKey) {
                         Section("Mẫu có sẵn (Built-in)") {
@@ -167,7 +167,7 @@ public struct AddProviderProfileSheet: View {
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Thêm Option Provider Mới")
         }
     }

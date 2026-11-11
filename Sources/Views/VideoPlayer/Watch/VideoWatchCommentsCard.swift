@@ -35,18 +35,21 @@ struct VideoWatchCommentsCard: View {
             await load()
         }
         .sheet(isPresented: $showingAll) {
-            NavigationStack {
-                AllCommentsView(
-                    category: category,
-                    localPath: ext?.localPath ?? "",
-                    downloadUrl: ext?.downloadUrl ?? "",
-                    configJson: ext?.configJson ?? "{}",
-                    isTranslationEnabled: model.isTranslationEnabled,
-                    host: host,
-                    extensionPackageId: model.request.packageId
-                )
+            Group {
+                NavigationStack {
+                    AllCommentsView(
+                        category: category,
+                        localPath: ext?.localPath ?? "",
+                        downloadUrl: ext?.downloadUrl ?? "",
+                        configJson: ext?.configJson ?? "{}",
+                        isTranslationEnabled: model.isTranslationEnabled,
+                        host: host,
+                        extensionPackageId: model.request.packageId
+                    )
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
     }
 

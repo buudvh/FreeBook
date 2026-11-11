@@ -245,7 +245,10 @@ public struct ExtensionScriptEditorView: View {
         .padding(.vertical, 6)
         .background(Color(uiColor: .systemBackground))
         .sheet(isPresented: $showingScriptPickerSheet) {
-            scriptPickerSheetView
+            Group {
+                scriptPickerSheetView
+            }
+            .appGlassSheet()
         }
     }
 

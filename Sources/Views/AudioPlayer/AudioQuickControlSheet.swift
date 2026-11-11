@@ -63,7 +63,10 @@ struct AudioQuickControlSheet: View {
             .presentationCornerRadius(16)
             .presentationBackground { DrawerGlassSheetBackground() }
             .sheet(isPresented: $showingSleepTimer) {
-                MediaSleepTimerSheet(timer: session.sleepTimer)
+                Group {
+                    MediaSleepTimerSheet(timer: session.sleepTimer)
+                }
+                .appGlassSheet()
             }
     }
 

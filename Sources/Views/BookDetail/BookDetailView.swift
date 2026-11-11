@@ -339,7 +339,10 @@ struct BookDetailView: View {
             }
         }
         .sheet(item: $collectionPickerBook) { book in
-            CollectionPickerSheet(bookId: book.bookId)
+            Group {
+                CollectionPickerSheet(bookId: book.bookId)
+            }
+            .appGlassSheet()
         }
         // Lỗi chi tiết thường kéo theo lỗi mục lục (cùng trang chặn) ⇒ thử lại cả mục lục nếu nó cũng đang lỗi.
         .errorLinkBrowser(link: $openingDetailErrorLink, packageId: extensionPackageId) {

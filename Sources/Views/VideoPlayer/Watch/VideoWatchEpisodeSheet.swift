@@ -51,7 +51,7 @@ struct VideoWatchEpisodeSheet: View {
             .preferredColorScheme(.dark)
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .sheet(item: $playlistRequest) { PlaylistAddSheet(request: $0) }
+            .sheet(item: $playlistRequest) { presentedItem in PlaylistAddSheet(request: presentedItem).appGlassSheet() }
     }
 
     /// `nil` khi không có phim để dựng mục (lưới / danh sách không hiện mục "Thêm vào playlist").

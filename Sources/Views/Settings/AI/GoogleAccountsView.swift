@@ -27,7 +27,7 @@ public struct GoogleAccountsView: View {
     }
 
     public var body: some View {
-        Form {
+        Form { Group {
             Section {
                 if let displayProfile {
                     Text("Provider: \(displayProfile.name)")
@@ -84,7 +84,7 @@ public struct GoogleAccountsView: View {
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Tài khoản Google")
         .toolbar { EditButton().headerTextButton() }
         .task { await refresh() }

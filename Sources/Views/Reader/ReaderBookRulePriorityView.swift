@@ -18,7 +18,7 @@ struct ReaderBookRulePriorityView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle("Đặt riêng cho truyện này", isOn: $isUsingBookConfiguration)
             } header: {
@@ -30,7 +30,7 @@ struct ReaderBookRulePriorityView: View {
             if isUsingBookConfiguration {
                 QuickTranslationRulePriorityListView(configuration: $configuration)
             }
-        }
+        }.glassSheetRows() }
         .pageTitle("Thứ tự ưu tiên rule") // gốc sheet mở từ Cài đặt đọc (không phải trang đẩy vào)
         .toolbar { if isUsingBookConfiguration { EditButton().headerTextButton() } }
         .onChange(of: isUsingBookConfiguration) { _, isOn in

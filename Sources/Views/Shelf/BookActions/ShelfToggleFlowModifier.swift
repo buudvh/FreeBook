@@ -15,7 +15,10 @@ struct ShelfToggleFlowModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: $collectionPickerBook) { book in
-                CollectionPickerSheet(bookId: book.bookId)
+                Group {
+                    CollectionPickerSheet(bookId: book.bookId)
+                }
+                .appGlassSheet()
             }
     }
 
