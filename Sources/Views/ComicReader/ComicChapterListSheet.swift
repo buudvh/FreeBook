@@ -13,6 +13,8 @@ import SwiftUI
 ///   mục lục dài thì ngoài main) chứ không trong mỗi lượt vẽ; dòng nhóm luôn giữ, kể cả khi tìm hay xếp giảm dần (1.3.843).
 ///   Mỗi phần tử một kiểu hàng (`ComicChapterListRow`). `ComicReaderView` bọc sheet trong `ComicChapterListHost`
 ///   (`.equatable()`) để màn đọc vẽ lại không kéo mục lục tính lại.
+/// - Bộ dịch là tiện ích dịch: hàng / dòng nhóm / tên truyện ở đầu đọc `extensionText` trong `body` của chính nó ⇒ chỉ tên
+///   đang hiện xin dịch, theo lô. Ô tìm vẫn khớp tên QT, tên gốc, tên đã chuyển (dựng hàng ngoài main, không thấy store).
 @MainActor
 struct ComicChapterListSheet: View {
     /// Màu nền/chữ của sheet — `ComicReaderView` dùng cùng màu cho `presentationBackground`.
@@ -22,6 +24,7 @@ struct ComicChapterListSheet: View {
     let currentIndex: Int
     let downloadedIndexes: Set<Int>
     let isTranslationEnabled: Bool
+    let extensionText: ComicExtensionTextTranslation
     let book: Book?
     let launch: BookContentLaunch
     @Binding var isAscending: Bool
@@ -117,6 +120,7 @@ struct ComicChapterListSheet: View {
                 ComicChapterListRow(
                     chapter: chapter,
                     isTranslationEnabled: isTranslationEnabled,
+                    extensionText: extensionText,
                     currentIndex: currentIndex,
                     isDownloaded: downloadedIndexes.contains(chapter.index),
                     numbering: numbering,

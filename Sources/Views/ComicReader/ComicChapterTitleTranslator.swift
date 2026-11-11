@@ -7,6 +7,9 @@ import Foundation
 ///   (`ChapterTitleRetranslator`, 1.3.845); không có ⇒ dịch sống tên đã chuyển ⇒ `Titles.translated`.
 ///
 /// Gọi khi bật dịch **hoặc** phồn → giản; cả hai tắt thì màn đọc hiện tên gốc.
+///
+/// Bộ dịch là **tiện ích dịch**: tên ở đây (QT) là chữ tạm / đường lùi — tên đang hiện dịch tiếp bằng tiện ích ở
+/// `ComicExtensionTextTranslation.chapterTitle` (theo lô, không ghi vào `ComicChapterEntry`).
 enum ComicChapterTitleTranslator {
     /// Kết quả một lượt, theo `index` chương.
     struct Titles: Sendable {

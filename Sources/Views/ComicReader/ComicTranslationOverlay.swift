@@ -6,8 +6,8 @@ import UIKit
 /// - Gắn ngay trên `Image` đã `scaledToFit` (không phải khung giữ chỗ theo tỉ lệ ước lượng của `ComicPageView`) ⇒ toạ độ
 ///   chuẩn hoá của khối nhân thẳng với cỡ ảnh đang vẽ.
 /// - Task theo (`cacheKey`, ngữ cảnh dịch): lấy khối chữ (`ComicPageTextRepository`: RAM → đĩa → Vision) rồi dịch ngoài main.
-///   Hàng rời màn ⇒ view biến mất ⇒ task huỷ. Đổi `revision` (từ điển / rule đổi) ⇒ dịch lại, giữ bản cũ tới khi có bản
-///   mới (không nháy).
+///   Hàng rời màn ⇒ view biến mất ⇒ task huỷ. Đổi `revision` (từ điển / rule đổi) hoặc bộ dịch (`extensionRequest`,
+///   `extensionRevision`) ⇒ dịch lại, giữ bản cũ tới khi có bản mới (không nháy). Bộ dịch là tiện ích ⇒ cả ảnh một lô.
 /// - Chạm một khối ⇒ màn **Dịch** của Reader với câu gốc = chữ Trung OCR của khối (`onOpenDefinition`, 1.3.837). Nhấn giữ ⇒
 ///   ẩn bản dịch, lộ chữ gốc của ảnh (viền nét đứt), nhấn giữ lại ⇒ dịch. Cử chỉ của khối là cử chỉ con nên thắng
 ///   chạm-bật-thanh và chạm-đúp-phóng-to của trang; chạm ngoài khối vẫn như cũ (vùng trống của lớp này không nhận chạm).
@@ -25,7 +25,7 @@ struct ComicTranslationOverlay: View {
     @State private var revealedOriginals: Set<Int> = []
     @State private var showsProgress = false
 
-    private struct TaskKey: Hashable {
+    private struct TaskKey: Equatable {
         let cacheKey: String
         let context: ComicImageTranslationContext
     }
@@ -138,7 +138,8 @@ struct ComicTranslationOverlay: View {
               let translated = await ComicPageTextTranslator.translate(
                   blocks,
                   bookId: context.bookId,
-                  convertsTraditional: context.convertsTraditional
+                  convertsTraditional: context.convertsTraditional,
+                  extensionRequest: context.extensionRequest
               ),
               !Task.isCancelled else { return }
         items = translated

@@ -9,6 +9,8 @@ import SwiftUI
 struct ComicReaderChromeView: View {
     let viewModel: ComicReaderViewModel
     let isTranslationEnabled: Bool
+    /// Tên chương / tên truyện dịch bằng tiện ích dịch khi bộ dịch là tiện ích (QT thì giữ bản QT).
+    let extensionText: ComicExtensionTextTranslation
     /// Tên nguồn + gợi ý "nguồn tiếng Trung" cho nút dịch — cùng giá trị trang Chi tiết truyền cho nút của nó (1.3.833).
     let sourceName: String
     let isChineseSourceHint: Bool?
@@ -43,11 +45,15 @@ struct ComicReaderChromeView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 if let bookTitle = viewModel.launch.bookTitle, !bookTitle.isEmpty {
-                    // Như đầu mục lục truyện tranh và tên truyện ở header Reader: phồn → giản + dịch ba cấp (1.3.846).
-                    Text(BookDisplayTranslation.title(bookTitle, BookDisplayTranslation.screenOptions(
-                        bookId: viewModel.launch.bookId,
-                        packageId: viewModel.launch.extensionPackageId,
-                        translates: isTranslationEnabled
+                    // Như đầu mục lục truyện tranh và tên truyện ở header Reader: phồn → giản + dịch ba cấp (1.3.846);
+                    // bộ dịch là tiện ích ⇒ bản tiện ích, bản QT là chữ tạm / đường lùi.
+                    Text(extensionText.bookTitle(bookTitle, quick: BookDisplayTranslation.title(
+                        bookTitle,
+                        BookDisplayTranslation.screenOptions(
+                            bookId: viewModel.launch.bookId,
+                            packageId: viewModel.launch.extensionPackageId,
+                            translates: isTranslationEnabled
+                        )
                     )))
                         .font(.caption2)
                         .foregroundStyle(Color.white.opacity(0.6))
@@ -60,7 +66,8 @@ struct ComicReaderChromeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Nút dịch của Reader / Chi tiết, dùng nguyên (bảng "Dịch văn bản" + phạm vi + Lưu lại). Một công tắc cho cả tên
-            // chương lẫn dịch ảnh (1.3.833).
+            // chương lẫn dịch ảnh (1.3.833). Popup có BỘ DỊCH / NGÔN NGỮ: bộ dịch tiện ích dịch khối chữ OCR, tên chương
+            // và tên truyện (`ComicExtensionTextTranslation`).
             ReaderTranslationScopeMenuView(
                 bookId: viewModel.launch.bookId,
                 packageId: viewModel.launch.extensionPackageId,
@@ -70,9 +77,7 @@ struct ComicReaderChromeView: View {
                 isChineseSourceHint: isChineseSourceHint,
                 iconSize: 17,
                 frameWidth: 36,
-                frameHeight: 38,
-                // Bộ dịch tiện ích không áp cho truyện tranh ⇒ popup không có BỘ DỊCH / NGÔN NGỮ.
-                showsEngineSection: false
+                frameHeight: 38
             )
             // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút trái nhất của cụm phải (1.3.815) — nay là nút dịch.
             .mediaDiscAnchor(.headerTrailing)
@@ -100,7 +105,7 @@ struct ComicReaderChromeView: View {
 
     private var chapterTitle: String {
         if let chapter = viewModel.currentChapter {
-            return chapter.displayTitle(translated: isTranslationEnabled)
+            return extensionText.chapterTitle(chapter, translated: isTranslationEnabled)
         }
         return "Chương \(viewModel.chapterIndex + 1)"
     }

@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.854] - 2026-11-11
+
+### feat: truyện tranh dịch khối chữ OCR và tên chương bằng tiện ích dịch, popup có lại mục bộ dịch
+
+Anh Bửu: *"thực hiện thêm dịch bằng tiện ích vào những chỗ có pop còn thiếu"* — phần truyện tranh: khối chữ OCR, tên chương (thanh trên + mục lục) và tên truyện dịch bằng tiện ích dịch khi bộ dịch của truyện là tiện ích; popup dịch của màn đọc truyện tranh có lại mục BỘ DỊCH / NGÔN NGỮ.
+
+- **Popup dịch**: bỏ `showsEngineSection: false` ở `ComicReaderChromeView` ⇒ chọn bộ dịch + ngôn ngữ ngay ở màn đọc truyện tranh (3 cấp Truyện > Nguồn > Toàn cục như truyện chữ).
+- **`ComicExtensionTextTranslation`** (mới, `Views/ComicReader/`, `@MainActor @Observable`): giữ hai `ExtensionTextTranslationStore` (tên chương `source: .tableOfContent`, tên truyện `.detail`) + lượt dịch khối chữ OCR (`.chapterContent`). Dựng lại lượt dịch qua `.comicExtensionText(…)` — `.task(id:)` khoá công tắc dịch + `TranslationDisplayRevision`, không gọi `store.update` trong `body`. Đổi cấu hình tiện ích (model, kiểu dịch) không làm lượt dịch khác đi ⇒ thông báo `TranslationEngineStore.didChangeNotification` bỏ hết bản cũ (cache runner tính cả cấu hình nên lấy bản mới) và tăng `engineRevision` ⇒ ảnh đang hiện dịch lại. `init` không có tác dụng phụ.
+- **Khối chữ OCR** (`ComicPageTextTranslator`, thêm tham số `extensionRequest`): bộ dịch là tiện ích ⇒ mọi khối có chữ Hán của một ảnh đi **một** lượt `ChineseTextExtensionTranslator.translateWithFallback(kind: .content)` ngoài main (runner gom lô theo `max_line` / `max_length`); khối lỗi lùi QT, runner ghi log ❌. `Item.id` vẫn là vị trí khối gốc. Đường QT đổi sang `ChineseTextPipeline.content` (cùng kết quả). Lớp dịch vẫn chỉ khi bật dịch; trình xem phóng to dùng cùng lượt ⇒ trúng cache RAM của runner. `ComicImageTranslationContext` thêm `extensionRequest` + `extensionRevision`, chỉ còn `Equatable` (`Request` không `Hashable`).
+- **Tên chương** (thanh trên + mục lục, cả dòng nhóm) — luật như Reader: bộ dịch sang tiếng Việt và chương có `title_trans` ⇒ `title_trans`; không thì tiện ích (kind `.chapterTitle`); lỗi ⇒ QT. Chỉ tên **đang hiện** xin dịch, theo lô: mỗi hàng `ComicChapterListRow` đọc store trong `body` của chính nó; bản tiện ích **không** ghi vào `ComicChapterEntry` nên vỏ `.equatable()` của `ComicChapterListHost` không bị phá (host so `extensionText` bằng `===`). Chữ tạm khi chờ = tên QT dựng sẵn ngoài main.
+- **Tên truyện** (thanh trên + đầu mục lục): store riêng `.detail`, kind `.meta`, viết hoa chữ đầu mỗi từ như bản QT. Tác giả vẫn phiên Hán-Việt QT.
+- Ô tìm của mục lục vẫn khớp tên QT, tên gốc, tên đã chuyển phồn → giản (dựng hàng ngoài main, không thấy bản tiện ích).
+- **Kiểm chứng:** đọc code + grep chéo mọi chỗ gọi `ComicPageTextTranslator.translate` (lớp dịch trang, trình xem phóng to), `ComicChapterListHost(` / `ComicReaderChromeView(` / `ComicChapterListSheet(` / `ComicChapterListRow(` / `ComicImageTranslationContext(`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView` vẫn 393 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) truyện tranh nguồn Trung, chọn bộ dịch tiện ích ở popup ⇒ khối chữ trên ảnh, tên chương thanh trên + mục lục, tên truyện đổi sang bản tiện ích; (2) phóng to ảnh ⇒ cùng bản dịch, không gọi tiện ích lần hai (log `🌐 [ExtTranslate]`); (3) đổi model / kiểu dịch ở cấu hình tiện ích ⇒ ảnh + tên dịch lại; (4) tiện ích lỗi (tắt mạng) ⇒ khối / tên hiện QT, log ❌; (5) bộ dịch sang tiếng Việt + truyện đã lưu có `title_trans` ⇒ tên chương dùng `title_trans`; (6) mục lục dài cuộn nhanh ⇒ chỉ tên đang hiện được dịch, không giật; (7) bộ dịch QT ⇒ mọi thứ như cũ.
+
 ## [1.3.853] - 2026-11-11
 
 ### feat: đầu trang và mục lục Reader dịch tên chương, tên truyện bằng tiện ích dịch như trong chương
