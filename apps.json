@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.871",
+          "buildVersion": "1227",
+          "date": "2026-11-11T14:48:14Z",
+          "localizedDescription": "- feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1227/TangCongCac-1.3.871-1227.ipa",
+          "size": 39622321,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.870",
           "buildVersion": "1226",
           "date": "2026-11-11T14:04:57Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1223/TangCongCac-1.3.864-1223.ipa",
           "size": 39586152,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.857",
-          "buildVersion": "1219",
-          "date": "2026-11-11T09:37:33Z",
-          "localizedDescription": "- feat: đầu trang và mục lục Reader dịch tên chương, tên truyện bằng tiện ích dịch như trong chương\n- feat: truyện tranh dịch khối chữ OCR và tên chương bằng tiện ích dịch, popup có lại mục bộ dịch\n- feat: trang Chi tiết dịch tên, giới thiệu, thể loại, bình luận, đề xuất và mục lục bằng tiện ích dịch\n- feat: Khám phá dịch tên và mô tả truyện bằng tiện ích dịch theo từng trang danh sách\n- feat: phụ đề và lời bài hát dịch được bằng tiện ích dịch, sheet dịch có mục bộ dịch và ngôn ngữ",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1219/TangCongCac-1.3.857-1219.ipa",
-          "size": 39624995,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.870",
-      "versionDate": "2026-11-11T14:04:57Z",
-      "versionDescription": "- feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn\n- feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe\n- feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên\n- feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1226/TangCongCac-1.3.870-1226.ipa",
-      "size": 39602294,
+      "version": "1.3.871",
+      "versionDate": "2026-11-11T14:48:14Z",
+      "versionDescription": "- feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1227/TangCongCac-1.3.871-1227.ipa",
+      "size": 39622321,
       "appPermissions": {}
     }
   ],
