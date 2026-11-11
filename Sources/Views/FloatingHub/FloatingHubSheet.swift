@@ -112,7 +112,9 @@ struct FloatingHubSheet: View {
         case .sourceCheck(let embedded):
             let leave = { actions.onLeaveSourceCheck(embedded.kind) }
             NavigationStack {
-                MinimizedSourceCheckCoordinator.shared.embeddedScreen(embedded, onClose: { state.page = .main })
+                // Màn tự đóng (⌄ đã ẩn ⇒ chủ yếu "Mở lượt đang chạy", sau đó `reopen` trình bày từ cửa sổ chính) ⇒ đóng hẳn
+                // sheet hub, kẻo màn mở lại nằm dưới sheet.
+                MinimizedSourceCheckCoordinator.shared.embeddedScreen(embedded, onClose: { state.dismiss() })
                     .sheetPageBackButton()
             }
             .environment(\.sheetPageBack, leave)
