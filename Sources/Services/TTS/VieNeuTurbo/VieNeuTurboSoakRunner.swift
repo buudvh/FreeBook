@@ -1,0 +1,268 @@
+import AVFoundation
+import Foundation
+import Observation
+
+/// Chế độ **"Đọc liên tục (đo nhiệt)"** của màn thử VieNeu Turbo: lặp một văn bản dài, tổng hợp từng đoạn, phát nối
+/// tiếp, và ghi số đo từng đoạn + tổng kết mỗi phút — để biết sau 10–20 phút máy nóng tới đâu.
+///
+/// - **Cắt đoạn** bằng `NghiUtteranceSegmenter.expand(…, maximumLength: 150)` — đúng bộ cắt Reader dùng cho engine
+///   local, nên Turbo và Nano nhận **cùng** các đoạn khi so.
+/// - **Tổng hợp trước tối đa 2 đoạn** (`maxReadyAhead`), từng lượt một (không chạy song song) ⇒ CPU đo quanh mỗi lượt
+///   là của riêng lượt đó.
+/// - **Hụt tiếng**: trình phát hết đoạn mà đoạn kế chưa xong. Trong lúc chờ phát một vòng lặng (`keepAlivePlayer`) để
+///   iOS không treo app khi đang khoá màn (app có background audio, nhưng không phát gì là bị treo).
+/// - Engine nào cũng đi qua `Synthesizer` do `VieNeuTurboLab` dựng ⇒ runner không biết Turbo hay Nano.
+@MainActor
+@Observable
+final class VieNeuTurboSoakRunner {
+    struct ChunkAudio: Sendable {
+        let wav: Data
+        let audioSeconds: Double
+        /// Thời gian tường của lượt tổng hợp (Turbo: tiền xử lý + phiên âm + audio.cpp; Nano: số của engine).
+        let synthesisMs: Double
+        /// CPU-time cả tiến trình quanh lượt tổng hợp.
+        let cpuMs: Double
+        /// Số ký tự phiên âm (Turbo); `nil` với Nano.
+        let phonemeCount: Int?
+    }
+
+    typealias Synthesizer = @Sendable (String, TTSBoundaryKind) async throws -> ChunkAudio
+
+    static let maxReadyAhead = 2
+    static let maxChunkLength = 150
+    private static let maxChunkLines = 40
+
+    private(set) var isRunning = false
+    private(set) var engineDescription = ""
+    private(set) var statusLine = ""
+    private(set) var errorMessage: String?
+    /// Tổng kết từng phút, **mới nhất ở đầu**.
+    private(set) var minuteLines: [String] = []
+    /// Số đo từng đoạn, mới nhất ở đầu, giữ tối đa `maxChunkLines` dòng.
+    private(set) var chunkLines: [String] = []
+    private(set) var summaryText = ""
+
+    @ObservationIgnored private var stats = VieNeuTurboSoakStats()
+    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var producerTask: Task<Void, Never>?
+    @ObservationIgnored private var clockTask: Task<Void, Never>?
+    @ObservationIgnored private var ready: [ChunkAudio] = []
+    @ObservationIgnored private var player: AVAudioPlayer?
+    @ObservationIgnored private var keepAlivePlayer: AVAudioPlayer?
+    private let playerDelegate = PlayerDelegate()
+    @ObservationIgnored private var underrunStartedAt: TimeInterval?
+
+    /// Văn bản (đã qua thay thế ký tự) ⇒ các đoạn ≤ 150 ký tự theo câu, mỗi dòng một đoạn văn.
+    static func chunks(from text: String) -> [TTSParagraph] {
+        let paragraphs = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .enumerated()
+            .map { index, line in
+                TTSParagraph(text: line, range: NSRange(location: 0, length: line.utf16.count), paragraphIndex: index)
+            }
+        return NghiUtteranceSegmenter.expand(paragraphs, maximumLength: maxChunkLength)
+    }
+
+    // MARK: - Điều khiển
+
+    func start(chunks: [TTSParagraph], engineDescription: String, synthesize: @escaping Synthesizer) {
+        guard !chunks.isEmpty else { return }
+        stop(reason: "bắt đầu lượt mới")
+        generation += 1
+        let runGeneration = generation
+        isRunning = true
+        self.engineDescription = engineDescription
+        errorMessage = nil
+        minuteLines = []
+        chunkLines = []
+        stats = VieNeuTurboSoakStats()
+        summaryText = stats.summary()
+        statusLine = "Đang chuẩn bị đoạn đầu…"
+        playerDelegate.onFinish = { [weak self] finished in self?.playerDidFinish(finished) }
+        startKeepAlive()
+
+        producerTask = Task { [weak self] in
+            await self?.produce(chunks: chunks, generation: runGeneration, synthesize: synthesize)
+        }
+        clockTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled else { return }
+                self?.closeMinute(generation: runGeneration)
+            }
+        }
+        AppLogger.shared.log(
+            "🎙️ [VieNeuTurbo] Bắt đầu đọc liên tục — \(engineDescription), \(chunks.count) đoạn mỗi vòng, nhiệt \(VieNeuTurboSoakStats.thermalName(ProcessInfo.processInfo.thermalState))"
+        )
+    }
+
+    func stop(reason: String = "bấm Dừng") {
+        guard isRunning else { return }
+        isRunning = false
+        generation += 1
+        producerTask?.cancel()
+        producerTask = nil
+        clockTask?.cancel()
+        clockTask = nil
+        player?.stop()
+        player = nil
+        stopKeepAlive()
+        ready.removeAll()
+        if let started = underrunStartedAt {
+            stats.recordUnderrunEnd(waitMs: (ProcessInfo.processInfo.systemUptime - started) * 1_000)
+            underrunStartedAt = nil
+        }
+        summaryText = stats.summary()
+        statusLine = "Đã dừng (\(reason))."
+        let oneLine = summaryText
+            .split(separator: "\n")
+            .map { $0.split(whereSeparator: { $0 == " " }).joined(separator: " ") }
+            .joined(separator: " | ")
+        AppLogger.shared.log("🎙️ [VieNeuTurbo] Kết thúc đọc liên tục (\(reason)) — \(engineDescription): \(oneLine)")
+    }
+
+    // MARK: - Bộ sinh
+
+    private func produce(chunks: [TTSParagraph], generation runGeneration: Int, synthesize: Synthesizer) async {
+        var index = 0
+        while isRunning, generation == runGeneration, !Task.isCancelled {
+            if ready.count >= Self.maxReadyAhead {
+                try? await Task.sleep(for: .milliseconds(150))
+                continue
+            }
+            let chunk = chunks[index % chunks.count]
+            if player == nil, underrunStartedAt == nil {
+                statusLine = "Đang tổng hợp đoạn \(index + 1)…"
+            }
+            do {
+                let audio = try await synthesize(chunk.text, chunk.boundaryKind)
+                guard isRunning, generation == runGeneration else { return }
+                stats.recordChunk(
+                    characters: chunk.text.count,
+                    audioSeconds: audio.audioSeconds,
+                    synthesisMs: audio.synthesisMs,
+                    cpuMs: audio.cpuMs
+                )
+                recordChunkLine(number: index + 1, round: index / chunks.count + 1, characters: chunk.text.count, audio: audio)
+                ready.append(audio)
+                if player == nil { playNext() }
+                index += 1
+            } catch is CancellationError {
+                return
+            } catch {
+                guard isRunning, generation == runGeneration else { return }
+                fail(error)
+                return
+            }
+        }
+    }
+
+    private func recordChunkLine(number: Int, round: Int, characters: Int, audio: ChunkAudio) {
+        let thermal = VieNeuTurboSoakStats.thermalName(ProcessInfo.processInfo.thermalState)
+        let phonemes = audio.phonemeCount.map { " · \($0) âm vị" } ?? ""
+        let line = String(
+            format: "#%d (vòng %d) · %d ký tự%@ · tổng hợp %.2f s · tiếng %.2f s · RTF %@ · CPU/tiếng %@ · %@",
+            number,
+            round,
+            characters,
+            phonemes,
+            audio.synthesisMs / 1_000,
+            audio.audioSeconds,
+            VieNeuTurboSoakStats.ratio(audio.synthesisMs / 1_000, audio.audioSeconds),
+            VieNeuTurboSoakStats.ratio(audio.cpuMs / 1_000, audio.audioSeconds),
+            thermal
+        )
+        chunkLines.insert(line, at: 0)
+        if chunkLines.count > Self.maxChunkLines { chunkLines.removeLast(chunkLines.count - Self.maxChunkLines) }
+        summaryText = stats.summary()
+        AppLogger.shared.log("🎙️ [VieNeuTurbo] [\(engineDescription)] \(line)")
+    }
+
+    private func closeMinute(generation runGeneration: Int) {
+        guard isRunning, generation == runGeneration else { return }
+        let line = stats.closeMinute()
+        minuteLines.insert(line, at: 0)
+        summaryText = stats.summary()
+        AppLogger.shared.log("🎙️ [VieNeuTurbo] [\(engineDescription)] \(line)")
+    }
+
+    private func fail(_ error: Error) {
+        errorMessage = error.localizedDescription
+        AppLogger.shared.log("❌ [VieNeuTurbo] Đọc liên tục lỗi — \(engineDescription): \(error.localizedDescription)")
+        stop(reason: "lỗi")
+    }
+
+    // MARK: - Trình phát
+
+    private func playNext() {
+        guard isRunning, !ready.isEmpty else { return }
+        let next = ready.removeFirst()
+        if let started = underrunStartedAt {
+            let waitMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
+            stats.recordUnderrunEnd(waitMs: waitMs)
+            underrunStartedAt = nil
+            AppLogger.shared.log("🎙️ [VieNeuTurbo] Hết hụt tiếng sau \(String(format: "%.0f", waitMs)) ms")
+        }
+        stopKeepAlive()
+        do {
+            let newPlayer = try AVAudioPlayer(data: next.wav)
+            newPlayer.delegate = playerDelegate
+            newPlayer.prepareToPlay()
+            guard newPlayer.play() else {
+                fail(NSError(domain: "VieNeuTurbo", code: 1, userInfo: [NSLocalizedDescriptionKey: "AVAudioPlayer không phát được"]))
+                return
+            }
+            player = newPlayer
+            statusLine = "Đang phát · \(stats.chunks) đoạn đã tổng hợp · chờ sẵn \(ready.count)"
+        } catch {
+            fail(error)
+        }
+    }
+
+    private func playerDidFinish(_ finished: AVAudioPlayer) {
+        guard isRunning, finished === player else { return }
+        player = nil
+        if ready.isEmpty {
+            underrunStartedAt = ProcessInfo.processInfo.systemUptime
+            stats.recordUnderrunStart()
+            startKeepAlive()
+            statusLine = "Hụt tiếng — đang chờ đoạn kế…"
+            AppLogger.shared.log("🎙️ [VieNeuTurbo] Hụt tiếng: trình phát chờ đoạn kế (lần \(stats.underruns))")
+        } else {
+            playNext()
+        }
+    }
+
+    /// Vòng lặng 1 s lặp vô hạn — giữ phiên âm thanh "đang phát" trong lúc chờ đoạn (khi khoá màn).
+    private func startKeepAlive() {
+        if keepAlivePlayer == nil {
+            let silence = [Float](repeating: 0, count: 24_000)
+            keepAlivePlayer = try? AVAudioPlayer(data: WAVEncoder.encodePCM16(samples: silence, sampleRate: 24_000))
+            keepAlivePlayer?.numberOfLoops = -1
+            keepAlivePlayer?.volume = 0
+        }
+        keepAlivePlayer?.play()
+    }
+
+    private func stopKeepAlive() {
+        keepAlivePlayer?.stop()
+    }
+
+    /// Delegate tách riêng vì `@Observable` class không kế thừa `NSObject` được gọn. AVAudioPlayer gọi delegate trên
+    /// main thread; vẫn nhảy qua `MainActor` cho chắc.
+    private final class PlayerDelegate: NSObject, AVAudioPlayerDelegate {
+        var onFinish: (@MainActor (AVAudioPlayer) -> Void)?
+
+        func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+            let callback = onFinish
+            Task { @MainActor in callback?(player) }
+        }
+
+        func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+            let callback = onFinish
+            Task { @MainActor in callback?(player) }
+        }
+    }
+}

@@ -50,6 +50,18 @@ extension VieNeuTTSTestView {
         }
     }
 
+    /// Lối vào màn thử **VieNeu Turbo (GGUF qua audio.cpp)**. Không cần model Nano nên nằm ngoài điều kiện `isModelReady`.
+    @ViewBuilder
+    var turboLabSection: some View {
+        Section {
+            NavigationLink(destination: VieNeuTurboLabView()) {
+                Label("Thử VieNeu Turbo (GGUF) — thử nghiệm", systemImage: "flask")
+            }
+        } header: {
+            SectionHelpHeader("Thử nghiệm", paragraphs: ["Màn đo riêng cho VieNeu-TTS v3 **Turbo** chạy bằng audio.cpp: model GGUF q8_0 (~188 MB) tải riêng, đọc thử, đọc liên tục để đo CPU và nhiệt, và so với Nano trên cùng văn bản."])
+        }
+    }
+
     @ViewBuilder
     var voiceSection: some View {
         Section("Giọng đọc") {

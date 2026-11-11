@@ -68,6 +68,7 @@ struct VieNeuTTSTestView: View {
     var body: some View {
         Form {
             modelSection
+            turboLabSection
             voiceSection
             japaneseDictionarySection
             textSection

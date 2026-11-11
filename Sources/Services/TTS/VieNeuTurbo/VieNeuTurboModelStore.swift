@@ -1,0 +1,132 @@
+import Foundation
+
+/// Kho file của **bước thử VieNeu-TTS v3 Turbo** (GGUF q8_0 chạy qua audio.cpp).
+///
+/// Bố cục, tách hẳn khỏi `VieNeu/` của Nano để xoá bên này không đụng bên kia:
+/// - `Application Support/FreeBook/TTS/VieNeuTurbo/Models/vieneu-v3-turbo-q8_0.gguf` (187.917.664 byte)
+/// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/manifest.json`
+/// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/<id>/ref_codes.txt` + `speaker.emb.txt`
+///
+/// `sea_g2p.bin` **không** nằm ở đây: Turbo đọc đúng bộ phiên âm của Nano (`VieNeuModelStore.url(for:)`), chung một
+/// file 62,8 MB thay vì hai bản. Màn Dung lượng đã phủ thư mục này qua `StorageUsageCategory.tts` (= cả `FreeBook/`).
+///
+/// Mọi file ghim **một revision** của HuggingFace: upstream đổi file cũng không làm bước thử tự hỏng.
+final class VieNeuTurboModelStore: Sendable {
+    /// Revision của `pnnbao-ump/VieNeu-TTS-v3-Turbo` (2026-11-11).
+    static let revision = "61b85e3d937fbbacb387714180e8182823512523"
+    static let modelFileName = "vieneu-v3-turbo-q8_0.gguf"
+    /// Dung lượng đúng của file GGUF ở revision trên (header `X-Linked-Size` của HuggingFace).
+    static let modelByteCount: Int64 = 187_917_664
+    static let manifestFileName = "manifest.json"
+    static let referenceCodesFileName = "ref_codes.txt"
+    static let speakerEmbeddingFileName = "speaker.emb.txt"
+    /// Giọng mặc định của manifest — tải cùng model để bấm "Đọc thử" được ngay.
+    static let fallbackVoiceId = "minh_quan_pro"
+
+    let rootURL: URL
+    let modelsURL: URL
+    let voicesURL: URL
+
+    init(fileManager: FileManager = .default) throws {
+        let appSupport = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        self.rootURL = appSupport.appendingPathComponent("FreeBook/TTS/VieNeuTurbo", isDirectory: true)
+        self.modelsURL = rootURL.appendingPathComponent("Models", isDirectory: true)
+        self.voicesURL = rootURL.appendingPathComponent("Voices", isDirectory: true)
+        try fileManager.createDirectory(at: modelsURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: voicesURL, withIntermediateDirectories: true)
+    }
+
+    // MARK: - Nguồn tải
+
+    static func remoteURL(path: String) -> URL? {
+        URL(string: "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo/resolve/\(revision)/\(path)")
+    }
+
+    static var modelRemotePath: String { "gguf/\(modelFileName)" }
+    static var manifestRemotePath: String { "gguf/voices/\(manifestFileName)" }
+
+    static func voiceRemotePath(voiceId: String, fileName: String) -> String {
+        "gguf/voices/\(voiceId)/\(fileName)"
+    }
+
+    /// Id giọng đi thẳng vào đường dẫn file ⇒ chỉ nhận chữ ASCII, số, `_`, `-` (chặn `..` / `/` từ manifest).
+    static func isSafeVoiceId(_ id: String) -> Bool {
+        !id.isEmpty && id.count <= 64 && id.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || scalar == "_" || scalar == "-")
+        }
+    }
+
+    // MARK: - Đường dẫn
+
+    var modelURL: URL { modelsURL.appendingPathComponent(Self.modelFileName) }
+    var manifestURL: URL { voicesURL.appendingPathComponent(Self.manifestFileName) }
+
+    func voiceDirectory(voiceId: String) -> URL {
+        voicesURL.appendingPathComponent(voiceId, isDirectory: true)
+    }
+
+    func referenceCodesURL(voiceId: String) -> URL {
+        voiceDirectory(voiceId: voiceId).appendingPathComponent(Self.referenceCodesFileName)
+    }
+
+    func speakerEmbeddingURL(voiceId: String) -> URL {
+        voiceDirectory(voiceId: voiceId).appendingPathComponent(Self.speakerEmbeddingFileName)
+    }
+
+    // MARK: - Trạng thái
+
+    /// Đủ **đúng** 187.917.664 byte mới tính là có model — file cụt (tải đứt rồi ai đó chép tay) không lọt qua.
+    var hasModel: Bool {
+        Self.fileSize(at: modelURL) == Self.modelByteCount
+    }
+
+    var hasManifest: Bool {
+        FileManager.default.fileExists(atPath: manifestURL.path)
+    }
+
+    func hasVoice(voiceId: String) -> Bool {
+        let fileManager = FileManager.default
+        return fileManager.fileExists(atPath: referenceCodesURL(voiceId: voiceId).path)
+            && fileManager.fileExists(atPath: speakerEmbeddingURL(voiceId: voiceId).path)
+    }
+
+    /// Dung lượng cả thư mục `VieNeuTurbo/` (model + manifest + mọi giọng đã tải, kể cả file `.partial` đang dở).
+    var totalBytes: Int64 {
+        guard let enumerator = FileManager.default.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]
+        ) else { return 0 }
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            if values?.isRegularFile == true {
+                total += Int64(values?.fileSize ?? 0)
+            }
+        }
+        return total
+    }
+
+    // MARK: - Xoá
+
+    /// Xoá model + manifest + mọi giọng. Lượt tải đang chạy bị màn thử chặn nút xoá, nên xoá cả cây con ở đây an
+    /// toàn (khác `VieNeuModelStore.deleteAll`, nơi lượt tải nền có thể chạy song song). `sea_g2p.bin` của Nano giữ
+    /// nguyên — engine Nano vẫn cần nó.
+    func deleteAll() throws {
+        let fileManager = FileManager.default
+        for directory in [modelsURL, voicesURL] {
+            let children = (try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+            for child in children {
+                try fileManager.removeItem(at: child)
+            }
+        }
+    }
+
+    static func fileSize(at url: URL) -> Int64 {
+        Int64(((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0)
+    }
+}
