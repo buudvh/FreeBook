@@ -15,7 +15,7 @@ actor ComicTextRecognizer {
     static let shared = ComicTextRecognizer()
 
     /// Một dòng Vision trả về: khung chuẩn hoá theo **cả ảnh**, gốc trên-trái.
-    struct Line: Hashable, Sendable {
+    struct Line: Sendable {
         let rect: CGRect
         let text: String
         let confidence: Float
