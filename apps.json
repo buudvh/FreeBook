@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.842",
+          "buildVersion": "1211",
+          "date": "2026-11-11T04:58:32Z",
+          "localizedDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1211/TangCongCac-1.3.842-1211.ipa",
+          "size": 39472047,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.840",
           "buildVersion": "1210",
           "date": "2026-11-11T04:36:55Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1207/TangCongCac-1.3.834-1207.ipa",
           "size": 39236958,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.833",
-          "buildVersion": "1206",
-          "date": "2026-11-11T03:45:00Z",
-          "localizedDescription": "- feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt\n- feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc\n- feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado\n- feat: lõi dịch truyện bằng tiện ích loại translate\n- feat: dịch phụ đề phim và lời bài hát tiếng Trung\n- feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1206/TangCongCac-1.3.833-1206.ipa",
-          "size": 39228347,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.840",
-      "versionDate": "2026-11-11T04:36:55Z",
-      "versionDescription": "- fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng\n- fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch\n- feat: chạm khối dịch trong truyện tranh mở màn Dịch của Reader với chữ Trung gốc đã nhận\n- feat: dịch nội dung chương bằng tiện ích dịch trong Reader và TTS, báo khi dùng QT thay thế\n- feat: chọn bộ dịch tiện ích và ngôn ngữ trong popup dịch, màn cấu hình tiện ích dịch có model, kiểu dịch, dịch thử\n- fix: phụ đề cứng ghép chữ đúng kiểu phụ đề Trung, dịch theo công tắc dịch của phim, thêm Từ điển truyện vào trình phát",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1210/TangCongCac-1.3.840-1210.ipa",
-      "size": 39451474,
+      "version": "1.3.842",
+      "versionDate": "2026-11-11T04:58:32Z",
+      "versionDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1211/TangCongCac-1.3.842-1211.ipa",
+      "size": 39472047,
       "appPermissions": {}
     }
   ],
