@@ -286,6 +286,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         boundaryKind: TTSBoundaryKind
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) {
+            // Đoạn im lặng không chạy engine ⇒ xoá số đo của đoạn trước, kẻo màn thử đọc `lastTiming` cộng trùng nó.
+            syncQueue.sync { _lastTiming = VieNeuTTSEngine.Timing() }
             return silencePayload(text: text, speed: speed)
         }
         // Mở rộng số/ngày/tháng trước khi đưa cho engine — `sea_g2p.bin` không có chữ số, nếu không

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.853] - 2026-11-11
+
+### fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo
+
+Rà soát độc lập (agent) cả đợt 1.3.849–1.3.852 trước khi build lần đầu: không thấy lỗi biên dịch chắc chắn, có 4 lỗi logic — sửa cả 4.
+
+- **Xoá model Nano xoá luôn `sea_g2p.bin`** — bộ phiên âm dùng chung với Turbo ⇒ model hiệu lực lật về Nano (vừa bị xoá), trình đọc đang chọn Turbo hỏng ngầm, mỗi đoạn lỗi thiếu model. `VieNeuModelStore.deleteAll` nay giữ `sea_g2p.bin` khi máy còn model Turbo.
+- **Đua ở màn thử**: lượt trả engine Nano về cấu hình người dùng (`endNanoOverride`) chạy Task không giữ lại, có thể chặn vài giây rồi nhả Turbo / xoá ghi đè luồng chen vào lượt "Đọc thử" hay "Đọc liên tục" vừa bấm. Nay giữ ở `nanoRestoreTask`, hai lượt đó chờ nó xong mới chạy.
+- **Số đo Nano cộng trùng ở đoạn im lặng**: đường im lặng của `VieNeuTTSService` không chạy engine nhưng để nguyên `lastTiming` của đoạn trước ⇒ màn thử cộng lại lần nữa. Nay xoá `lastTiming` trên đường đó.
+- **"Xoá model" Turbo ở màn thử** đưa trình đọc về `"vieneu"` cả khi máy chưa có model Nano ⇒ trình đọc trỏ vào engine thiếu model. Nay chưa có Nano thì về Siri (`"system"`, mặc định của app).
+- Bỏ cảnh báo kết quả không dùng (`_ = await Task.detached { … }.value`).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Lượt CI kế tiếp là lần biên dịch đầu của cả đợt; chưa thử máy.
+
 ## [1.3.852] - 2026-11-11
 
 ### feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả
@@ -465,14 +478,4 @@ Anh Bửu: có bản cập nhật, bấm "Mở LiveContainer" lúc đang nghe tr
 - `LiveContainerSwitchPreparer` (file mới, `Services/AppUpdate/`): trước khi mở link, dừng TTS (`TTSManager.stop()` khi đang đọc / có widget), nhạc (`AudioPlaybackSession.stop()` khi `AudioMiniPlayerState.isActive`), phim (`VideoPlaybackSession.stop()` khi có phim) — chỉ chạm phiên nhạc / phim khi có, tránh dựng `AVPlayer` — rồi `AVAudioSession.setActive(false)` và chờ 0,4 s; không phát gì ⇒ mở ngay. Log `📲 [AppUpdate] Dừng … trước khi mở LiveContainer`.
 - `AppUpdateSheet`: nút "Mở LiveContainer" chờ bước trên rồi mới `openURL`. Bấm Huỷ ở hộp xác nhận của LiveContainer thì việc nghe vẫn đã dừng (anh duyệt).
 - `CLAUDE.md` / `AGENTS.md` mục báo bản mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.823] - 2026-11-10
-
-### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ
-
-Anh Bửu: phần "Trang Khám phá" của sheet "Kiểu hiển thị" làm giống phần Danh sách / Lưới / Chỉ bìa (duyệt mockup).
-
-- `ExploreLayoutSizePicker` (file mới, chỉ dùng ở `BookListLayoutSheet(showsExploreSizes: true)`): **hàng chọn bố cục** Lưới · Hàng ngang · Danh sách · Banner dáng y `Picker(.segmented)` ở trên (tự vẽ: nền `tertiarySystemFill`, ô chọn trắng / `systemGray2`, chữ 13 pt) + **một** thanh cỡ của bố cục đang chọn + dòng ghi chú — thay bốn thanh xếp chồng (sheet nửa màn phải cuộn). Tên thanh theo bố cục: Lưới / Hàng ngang "Cỡ thẻ", Danh sách "Cỡ dòng" (áp cả mục Xếp hạng), Banner "Chiều cao". Bố cục đang khác mặc định có **chấm màu nhấn** ở góc ô (thanh của nó đang ẩn); VoiceOver đọc tên đầy đủ + "Khác mặc định".
-- `ExploreLayoutSizeKind`: thêm `shortLabel`, `sliderTitle`, `sliderNote`. Màn Cài đặt › Kiểu hiển thị giữ bốn thanh (`ExploreLayoutSizeControls`, đủ chỗ).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

@@ -48,6 +48,7 @@ extension VieNeuTurboLab {
             defer { if generation == runGeneration { isWorking = false } }
             do {
                 await releaseTask?.value
+                await nanoRestoreTask?.value
                 try await ensureVoice(voiceId)
                 workingMessage = isRuntimeLoaded ? "Đang dựng session…" : "Đang nạp model Turbo (lần đầu)…"
                 let load = try await runtime.prepare(modelURL: store.modelURL, threads: threads)
@@ -198,6 +199,7 @@ extension VieNeuTurboLab {
             guard let self else { return }
             do {
                 await releaseTask?.value
+                await nanoRestoreTask?.value
                 let prepared: (String, VieNeuTurboSoakRunner.Synthesizer)
                 if engine == .turbo {
                     prepared = try await makeTurboSynthesizer()

@@ -101,6 +101,9 @@ final class VieNeuTurboLab {
     @ObservationIgnored var oneShotTask: Task<Void, Never>?
     @ObservationIgnored var runGeneration = 0
     @ObservationIgnored var releaseTask: Task<Void, Never>?
+    /// Lượt trả engine Nano về cấu hình người dùng (`endNanoOverride`). Lượt chạy mới phải chờ nó xong, kẻo nó nhả Turbo
+    /// / xoá ghi đè luồng giữa chừng lượt vừa bắt đầu.
+    @ObservationIgnored var nanoRestoreTask: Task<Void, Never>?
     @ObservationIgnored var didActivateAudioSession = false
     /// Engine Nano đang mang số luồng ghi đè của màn thử — phải trả lại khi dừng / rời màn (`endNanoOverride`).
     @ObservationIgnored var isNanoOverrideActive = false
@@ -251,7 +254,12 @@ final class VieNeuTurboLab {
             if VieNeuModelChoice.stored == .turbo {
                 VieNeuModelChoice.store(.nano)
                 let tts = TTSManager.shared
-                if tts.tool == "vieneu" { tts.tool = "vieneu" }
+                if tts.tool == "vieneu" {
+                    // Máy chưa có model Nano thì "vieneu" không còn engine nào đọc được ⇒ về Siri (mặc định của app,
+                    // luôn có) thay vì để trình đọc trỏ vào engine thiếu model.
+                    let nanoReady = VieNeuTTSService.shared?.modelStore.isReady == true
+                    tts.tool = nanoReady ? "vieneu" : "system"
+                }
             }
         }
     }

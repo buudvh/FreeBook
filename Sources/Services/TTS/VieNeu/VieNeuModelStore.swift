@@ -132,7 +132,13 @@ final class VieNeuModelStore {
     /// graph mồ côi thì lần sau tải lại cũng vô ích. **Không** đụng giọng user — chúng nằm ở thư mục riêng
     /// `CustomVoices/` (xem `VieNeuCustomVoiceStore`), không phải `Models/`/`Assets/`.
     func deleteAll() throws {
-        try delete(names: Self.requiredNames + Self.cloneGraphNames)
+        var names = Self.requiredNames + Self.cloneGraphNames
+        // `sea_g2p.bin` là bộ phiên âm **dùng chung** với VieNeu Turbo (`VieNeuTurboTextFrontend`). Máy còn model Turbo
+        // thì giữ lại: xoá đi là Turbo hỏng ngầm — model hiệu lực lật về Nano (vừa bị xoá), trình đọc không còn engine.
+        if (try? VieNeuTurboModelStore())?.hasModel == true {
+            names.removeAll { $0 == "sea_g2p.bin" }
+        }
+        try delete(names: names)
     }
 
     /// Xoá **chỉ 3 graph clone** — dùng khi người dùng muốn thu hồi riêng gói tuỳ chọn này.

@@ -77,13 +77,15 @@ extension VieNeuTurboLab {
         isNanoOverrideActive = false
         let voice = service.currentVoice ?? service.defaultVoiceName ?? ""
         let readerUsesNano = VieNeuModelChoice.current == .nano
-        Task {
+        // Giữ lại Task: `readSampleOnce` / `startSoak` chờ nó xong rồi mới chạy (nó có thể chặn vài giây chờ đoạn Nano dở,
+        // rồi nhả Turbo hoặc xoá ghi đè luồng — chạy chen vào lượt mới là hỏng lượt đó).
+        nanoRestoreTask = Task {
             do {
                 await service.setLabThreadOverride(nil)
                 if readerUsesNano {
                     try await service.prepare(voice: voice)
                 } else {
-                    await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
+                    _ = await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
                 }
             } catch {
                 AppLogger.shared.log("❌ [VieNeuTurbo] Dựng lại session Nano sau màn thử lỗi: \(error.localizedDescription)")

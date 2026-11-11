@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.823] - 2026-11-10
+
+### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ
+
+Anh Bửu: phần "Trang Khám phá" của sheet "Kiểu hiển thị" làm giống phần Danh sách / Lưới / Chỉ bìa (duyệt mockup).
+
+- `ExploreLayoutSizePicker` (file mới, chỉ dùng ở `BookListLayoutSheet(showsExploreSizes: true)`): **hàng chọn bố cục** Lưới · Hàng ngang · Danh sách · Banner dáng y `Picker(.segmented)` ở trên (tự vẽ: nền `tertiarySystemFill`, ô chọn trắng / `systemGray2`, chữ 13 pt) + **một** thanh cỡ của bố cục đang chọn + dòng ghi chú — thay bốn thanh xếp chồng (sheet nửa màn phải cuộn). Tên thanh theo bố cục: Lưới / Hàng ngang "Cỡ thẻ", Danh sách "Cỡ dòng" (áp cả mục Xếp hạng), Banner "Chiều cao". Bố cục đang khác mặc định có **chấm màu nhấn** ở góc ô (thanh của nó đang ẩn); VoiceOver đọc tên đầy đủ + "Khác mặc định".
+- `ExploreLayoutSizeKind`: thêm `shortLabel`, `sliderTitle`, `sliderNote`. Màn Cài đặt › Kiểu hiển thị giữ bốn thanh (`ExploreLayoutSizeControls`, đủ chỗ).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.822] - 2026-11-10
 
 ### fix: danh sách tải vô hạn không còn nhảy lên khi nối trang
