@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.846] - 2026-11-11
+
+### refactor: thêm hàm chung chuyển phồn → giản rồi dịch cho mọi chữ Trung
+
+Anh Bửu: *"dù bật hay không thì cũng gói trong 1 function, nếu bật phồn->giản thì chuyển phồn giản sang bước dịch -> nếu bật dịch thì dịch khi thì return luôn"*, *"nếu bật phồn giản thì chữ gốc bạn hãy để kết quả sau phồn → giản"*. Đây là phần nền; các màn chuyển sang dùng nó ở các bản kế tiếp.
+
+- **`ChineseTextPipeline`** (mới, `Services/Translation/Pipeline/`): một đường cho mọi chữ Trung — phồn → giản nếu bật (bước riêng, chạy cả khi tắt dịch) ⇒ dịch QT nếu bật ⇒ trả chữ đã chuyển. `Options` (`converts`, `translates`, `dictionaryBookId`) đọc một lần: `options(bookId:packageId:)` cho màn có truyện (Truyện ⇒ Nguồn ⇒ Tất cả, như popup dịch), `sourceOptions(packageId:)` cho màn chưa có truyện (Nguồn ⇒ Tất cả); gợi ý "nguồn tiếng Trung" lấy từ bản ghi tiện ích trong RAM, không dò `plugin.json` trên đĩa. Hàm chữ: `convert`, `meta`, `author`, `chapterTitle` (có bản ưu tiên `title_trans`), `chapterTitleWithMapping`, `content`, `contentWithMapping`, `normalizeChapter` (chuyển **trước** khi chuẩn hoá ⇒ line ID / range UTF-16 tính trên chữ đã chuyển, Reader và TTS cùng toạ độ). Chuỗi ngắn nhớ kết quả chuyển (`NSCache`, ≤ 512 UTF-16).
+- **`TranslationConfigSnapshot`** (mới): bản chụp các cấp dịch + phồn → giản, là nơi **duy nhất** giữ luật phân cấp — `TranslationConfigStore.resolveStatus` và `convertsTraditionalToSimplified` chỉ chụp rồi gọi vào. Danh sách dài chụp một lần mỗi lượt dựng (`TranslationConfigStore.shared.snapshot()`). Thêm `convertsTraditionalToSimplified(packageId:)` (Nguồn ⇒ Tất cả).
+- **`TranslationDisplayRevision`** (mới, `@MainActor @Observable`): mốc tăng khi cấu hình dịch đổi ở bất kỳ cấp nào, khi công tắc dịch Tất cả đổi (Cài đặt ghi thẳng `UserDefaults`) và khi từ điển / rule đổi — cho danh sách vẽ lại theo popup dịch.
+- **Sửa:** `bookId` rỗng không còn đọc / ghi được cấp truyện (`getBookOverride`, `setBookOverride`, `traditionalOverride`, `setTraditionalOverride`) — trước đó ghi "Truyện này" với `bookId` rỗng sẽ thành khoá chung cho mọi item chưa lưu.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa có màn nào gọi hàm mới — hành vi app không đổi ngoài sửa `bookId` rỗng.
+
 ## [1.3.845] - 2026-11-11
 
 ### fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi
