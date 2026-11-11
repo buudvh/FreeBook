@@ -63,7 +63,8 @@ extension VieNeuTurboLab {
                 let output = try await runtime.synthesize(
                     phonemes: prepared.phonemes,
                     referenceCodesURL: store.referenceCodesURL(voiceId: voiceId),
-                    speakerEmbeddingURL: store.speakerEmbeddingURL(voiceId: voiceId)
+                    speakerEmbeddingURL: store.speakerEmbeddingURL(voiceId: voiceId),
+                    qos: turboQoS.dispatchClass
                 )
                 let cpuMs = ProcessCPUClock.nowMs() - cpuStarted
                 let totalMs = (ProcessInfo.processInfo.systemUptime - wallStarted) * 1_000
@@ -194,7 +195,7 @@ extension VieNeuTurboLab {
         statusMessage = ""
         let engine = soakEngine
         // Lượt Nano chạy ở QoS chọn trên màn (session ORT cũng dựng lại ở mức đó — `+Nano`); Turbo giữ `.utility`.
-        let priority = engine == .nano ? nanoQoS.priority : .utility
+        let priority = engine == .nano ? nanoQoS.priority : turboQoS.priority
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -244,6 +245,7 @@ extension VieNeuTurboLab {
         let runtime = self.runtime
         let referenceCodesURL = store.referenceCodesURL(voiceId: voiceId)
         let speakerEmbeddingURL = store.speakerEmbeddingURL(voiceId: voiceId)
+        let qos = turboQoS
         let synthesize: VieNeuTurboSoakRunner.Synthesizer = { text, boundaryKind in
             let wallStarted = ProcessInfo.processInfo.systemUptime
             let cpuStarted = ProcessCPUClock.nowMs()
@@ -251,7 +253,8 @@ extension VieNeuTurboLab {
             let output = try await runtime.synthesize(
                 phonemes: prepared.phonemes,
                 referenceCodesURL: referenceCodesURL,
-                speakerEmbeddingURL: speakerEmbeddingURL
+                speakerEmbeddingURL: speakerEmbeddingURL,
+                qos: qos.dispatchClass
             )
             // Khoảng nghỉ cuối đoạn đúng như engine Nano tự chèn (`VieNeuTTSEngine.pauseSeconds`, tốc độ 1×) — để "giây
             // tiếng" của hai engine cùng nghĩa khi so.
@@ -264,11 +267,12 @@ extension VieNeuTurboLab {
                 audioSeconds: Double(samples.count) / Double(max(1, output.sampleRate)),
                 synthesisMs: (ProcessInfo.processInfo.systemUptime - wallStarted) * 1_000,
                 cpuMs: ProcessCPUClock.nowMs() - cpuStarted,
-                phonemeCount: prepared.phonemes.count
+                phonemeCount: prepared.phonemes.count,
+                qosNote: "tổng hợp \(output.qosName)"
             )
         }
         let voiceName = selectedVoice?.name ?? voiceId
-        return ("Turbo q8_0 · \(threads) luồng · giọng \(voiceName) · QoS \(VieNeuTurboRuntime.qosName)", synthesize)
+        return ("Turbo q8_0 · \(threads) luồng · giọng \(voiceName) · QoS \(qos.rawValue)", synthesize)
     }
 
     // MARK: - Phiên âm thanh / rời màn

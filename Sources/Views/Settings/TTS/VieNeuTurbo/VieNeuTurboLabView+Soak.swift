@@ -19,6 +19,15 @@ extension VieNeuTurboLabView {
 
             if lab.soakEngine == .nano {
                 nanoTuningRows
+            } else {
+                // QoS cho lượt Turbo (1.3.854): userInitiated được xếp lên lõi hiệu năng — đo RTF ở tốc độ phát 1,4×.
+                Picker("QoS", selection: $lab.turboQoS) {
+                    ForEach(VieNeuTurboLab.SoakQoS.allCases) { qos in
+                        Text(qos.rawValue).tag(qos)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(lab.isBusy)
             }
 
             TextEditor(text: $lab.longText)
@@ -90,7 +99,7 @@ extension VieNeuTurboLabView {
     var engineNote: String {
         switch lab.soakEngine {
         case .turbo:
-            return "Turbo dùng giọng và số luồng chọn ở trên."
+            return "Turbo dùng giọng và số luồng chọn ở trên; QoS chọn dưới đây chỉ cho lượt đo (trình đọc vẫn chạy utility). Nghe ở 1,4× cần RTF dưới 0,71."
         case .nano:
             let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
             return "Nano dùng giọng mặc định và chế độ ở Cài đặt VieNeu; số luồng + QoS chọn dưới đây chỉ cho lượt đo (cài đặt hiện \(threads) luồng). Tốc độ tổng hợp ép 1× cho cùng điều kiện với Turbo."

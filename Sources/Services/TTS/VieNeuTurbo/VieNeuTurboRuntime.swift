@@ -54,6 +54,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         let runMs: Double
         /// CPU-time **cả tiến trình** trong lúc `audiocpp_session_run` chạy (`ProcessCPUClock`).
         let cpuMs: Double
+        /// QoS **đo được** của luồng chạy lượt này (`qos_class_self()`), không phải mức đã xin — để log / màn thử ghi đúng.
+        var qosName = ""
 
         var durationSeconds: Double { Double(samples.count) / Double(max(1, sampleRate)) }
     }
@@ -111,13 +113,24 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     /// Tổng hợp **một** chuỗi phiên âm sea-g2p với một giọng đóng gói (mã tham chiếu + speaker embedding).
     /// Không huỷ được giữa chừng — audio.cpp không có cổng huỷ; người gọi tự bỏ kết quả nếu đã dừng.
-    func synthesize(phonemes: String, referenceCodesURL: URL, speakerEmbeddingURL: URL) async throws -> Output {
-        try await perform { [self] in
-            try synthesizeLocked(
+    ///
+    /// `qos`: mức của **lượt này**. Không có OpenMP nên ggml tạo luồng tính mới cho mỗi lượt tính từ chính luồng gọi, và
+    /// luồng mới mang QoS của luồng tạo ra nó ⇒ nâng QoS cho một lượt là cả lượt (kể cả luồng ggml) chạy ở mức đó. Mức
+    /// cao hơn được xếp lên lõi hiệu năng (nhanh hơn, nóng hơn). `.enforceQoS` để hàng đợi `.utility` không kéo nó xuống.
+    func synthesize(
+        phonemes: String,
+        referenceCodesURL: URL,
+        speakerEmbeddingURL: URL,
+        qos: DispatchQoS.QoSClass = .utility
+    ) async throws -> Output {
+        try await perform(qos: qos) { [self] in
+            var output = try synthesizeLocked(
                 phonemes: phonemes,
                 referenceCodesPath: referenceCodesURL.path,
                 speakerEmbeddingPath: speakerEmbeddingURL.path
             )
+            output.qosName = VieNeuTTSEngine.currentQoSName()
+            return output
         }
     }
 
@@ -133,9 +146,12 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     // MARK: - Nội bộ
 
-    private func perform<T>(_ work: @escaping () throws -> T) async throws -> T {
+    private func perform<T>(
+        qos: DispatchQoS.QoSClass = .utility,
+        _ work: @escaping () throws -> T
+    ) async throws -> T {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
-            queue.async {
+            queue.async(qos: DispatchQoS(qosClass: qos, relativePriority: 0), flags: .enforceQoS) {
                 continuation.resume(with: Result { try work() })
             }
         }

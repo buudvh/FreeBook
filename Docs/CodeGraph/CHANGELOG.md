@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.854] - 2026-11-11
+
+### feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng
+
+Anh Bửu nghe Turbo trên truyện thật ở tốc độ phát **1,4×**: Minh Quân Pro hụt ít, Mai Anh và Adam bựa hụt nhiều. Ở 1,4× cần RTF < 0,714, Turbo đang ~0,70 (QoS utility) ⇒ sát mép. Anh duyệt plan: đo QoS cao hơn ở màn thử trước, đạt RTF ≲ 0,55 mới đưa vào trình đọc. Lượt này chỉ là phần đo; **trình đọc không đổi** (vẫn utility).
+
+- `VieNeuTurboRuntime.synthesize(…, qos:)` (mặc định `.utility`): mỗi lượt chạy trên hàng đợi tuần tự với QoS riêng (`async(qos:flags: .enforceQoS)`). Không OpenMP ⇒ ggml tạo luồng tính mới mỗi lượt từ chính luồng gọi, luồng mới mang QoS của nó ⇒ nâng QoS một lượt là cả lượt chạy ở mức đó. `Output.qosName` = QoS **đo được** (`qos_class_self()`).
+- Màn thử › Đọc liên tục (Turbo): Picker QoS utility / userInitiated (`VieNeuTurboLab.turboQoS`, chỉ cho lượt đo); "Đọc thử một lần" cũng theo lựa chọn này. Mỗi dòng đoạn ghi "QoS tổng hợp …" đo được; mô tả engine ghi QoS đã chọn; chú thích "Nghe ở 1,4× cần RTF dưới 0,71".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
+
 ## [1.3.853] - 2026-11-11
 
 ### fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo
@@ -467,15 +477,3 @@ Anh Bửu: *"tôi muốn thêm dns, proxy, vpn hay gì đó để tránh trườ
 - Cài đặt › Chung › **Mạng & DNS** (`NetworkSettingsView`): công tắc, máy chủ, dòng trạng thái ("Máy chủ DoH tới được" — lượt dò không chứng minh URLSession thật sự theo context mặc định nên không ghi "đang dùng"), "Kiểm tra lại", nút "?" nói rõ phạm vi + bật rồi vẫn bị chặn là chặn theo SNI/IP. Trang `SystemDNSGuideView`: đổi DNS cho cả máy (app 1.1.1.1 của Cloudflare, profile của AdGuard DNS — đều chính chủ) và đổi IP bằng chế độ WARP khi bị chặn IP.
 - `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ở "Ràng buộc runtime cần nhớ".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) nguồn bị nhà mạng chặn tải được qua `fetch`, tắt công tắc + mở lại app thì lại bị chặn; (2) mạng chặn 1.1.1.1 ⇒ lùi, fetch / bìa **vẫn tải được**; (3) phim từ tên miền bị chặn có phát được không.
-
-## [1.3.824] - 2026-11-10
-
-### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
-
-Anh Bửu: có bản cập nhật, bấm "Mở LiveContainer" lúc đang nghe truyện / nhạc thì app chỉ tắt, không mở lại LiveContainer.
-
-- **Nguyên nhân (đọc mã LiveContainer `UIKit+GuestHooks.m` / `LCSharedUtils.m`, chưa thử máy):** link `livecontainer-launch?bundle-name=ui` ⇒ hộp xác nhận ⇒ `launchToGuestAppWithClassicMode` xin `LSApplicationWorkspace` mở lại chính LiveContainer **hai lần**, lần trả lời đầu thì tự `SIGKILL`, trông vào yêu cầu thứ hai để iOS dựng app lại. App đang giữ phiên âm thanh nền ⇒ iOS còn coi tiến trình đang chạy ⇒ yêu cầu thứ hai coi như xong ⇒ app chết, không ai mở lại.
-- `LiveContainerSwitchPreparer` (file mới, `Services/AppUpdate/`): trước khi mở link, dừng TTS (`TTSManager.stop()` khi đang đọc / có widget), nhạc (`AudioPlaybackSession.stop()` khi `AudioMiniPlayerState.isActive`), phim (`VideoPlaybackSession.stop()` khi có phim) — chỉ chạm phiên nhạc / phim khi có, tránh dựng `AVPlayer` — rồi `AVAudioSession.setActive(false)` và chờ 0,4 s; không phát gì ⇒ mở ngay. Log `📲 [AppUpdate] Dừng … trước khi mở LiveContainer`.
-- `AppUpdateSheet`: nút "Mở LiveContainer" chờ bước trên rồi mới `openURL`. Bấm Huỷ ở hộp xác nhận của LiveContainer thì việc nghe vẫn đã dừng (anh duyệt).
-- `CLAUDE.md` / `AGENTS.md` mục báo bản mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

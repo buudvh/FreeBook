@@ -44,6 +44,14 @@ final class VieNeuTurboLab {
             case .userInitiated: return .userInitiated
             }
         }
+
+        /// Mức cho hàng đợi của `VieNeuTurboRuntime` (lượt Turbo).
+        var dispatchClass: DispatchQoS.QoSClass {
+            switch self {
+            case .utility: return .utility
+            case .userInitiated: return .userInitiated
+            }
+        }
     }
 
     // `let` không bị `@Observable` theo dõi — không cần `@ObservationIgnored`.
@@ -84,6 +92,9 @@ final class VieNeuTurboLab {
     /// Số luồng ORT và QoS cho lượt Nano — chỉ áp trong lúc đo, **không** ghi vào cài đặt (`+Nano`).
     var nanoThreadCount = Int(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
     var nanoQoS: SoakQoS = .utility
+    /// QoS cho lượt Turbo của "Đọc liên tục" — chỉ màn thử; trình đọc vẫn chạy `.utility` (1.3.854). Mức cao hơn được
+    /// xếp lên lõi hiệu năng: đo xem RTF có xuống đủ cho tốc độ phát 1,4× không, đổi lại nóng tới đâu.
+    var turboQoS: SoakQoS = .utility
 
     // MARK: Lượt chạy (ghi ở `+Run`)
 

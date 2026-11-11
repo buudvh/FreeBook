@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.824] - 2026-11-10
+
+### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
+
+Anh Bửu: có bản cập nhật, bấm "Mở LiveContainer" lúc đang nghe truyện / nhạc thì app chỉ tắt, không mở lại LiveContainer.
+
+- **Nguyên nhân (đọc mã LiveContainer `UIKit+GuestHooks.m` / `LCSharedUtils.m`, chưa thử máy):** link `livecontainer-launch?bundle-name=ui` ⇒ hộp xác nhận ⇒ `launchToGuestAppWithClassicMode` xin `LSApplicationWorkspace` mở lại chính LiveContainer **hai lần**, lần trả lời đầu thì tự `SIGKILL`, trông vào yêu cầu thứ hai để iOS dựng app lại. App đang giữ phiên âm thanh nền ⇒ iOS còn coi tiến trình đang chạy ⇒ yêu cầu thứ hai coi như xong ⇒ app chết, không ai mở lại.
+- `LiveContainerSwitchPreparer` (file mới, `Services/AppUpdate/`): trước khi mở link, dừng TTS (`TTSManager.stop()` khi đang đọc / có widget), nhạc (`AudioPlaybackSession.stop()` khi `AudioMiniPlayerState.isActive`), phim (`VideoPlaybackSession.stop()` khi có phim) — chỉ chạm phiên nhạc / phim khi có, tránh dựng `AVPlayer` — rồi `AVAudioSession.setActive(false)` và chờ 0,4 s; không phát gì ⇒ mở ngay. Log `📲 [AppUpdate] Dừng … trước khi mở LiveContainer`.
+- `AppUpdateSheet`: nút "Mở LiveContainer" chờ bước trên rồi mới `openURL`. Bấm Huỷ ở hộp xác nhận của LiveContainer thì việc nghe vẫn đã dừng (anh duyệt).
+- `CLAUDE.md` / `AGENTS.md` mục báo bản mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.823] - 2026-11-10
 
 ### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ

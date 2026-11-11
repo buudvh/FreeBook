@@ -26,7 +26,8 @@ final class VieNeuTurboSoakRunner {
         let phonemeCount: Int?
         /// Phân rã text / vòng Euler / codec (Nano, 1.3.849); `nil` với Turbo.
         var split: VieNeuTurboSoakStats.StageSplit? = nil
-        /// QoS **đo được** (Nano): "tổng hợp X · session Y" — để biết lựa chọn QoS có tới nơi thật không.
+        /// QoS **đo được**: Nano "tổng hợp X · session Y", Turbo "tổng hợp X" (1.3.854) — để biết lựa chọn QoS có tới
+        /// nơi thật không.
         var qosNote: String? = nil
     }
 
