@@ -8,7 +8,8 @@ import Foundation
 /// kiểu Gốc đổi ngay; rồi khi bật dịch, `translation` gán dần theo lô (`MediaCaptionTranslator.batchSize`), bắt đầu từ dòng
 /// đang chiếu trở đi rồi quay về đầu, nên dòng đang xem đổi sang bản dịch gần như ngay. Dòng nào chưa có bản dịch thì View
 /// hiện `displayText` (chữ đã chuyển, hoặc nguyên văn). Đổi cấu hình dịch (sheet "Dịch phụ đề") ⇒ `retranslateSubtitles()`
-/// xử lý lại phụ đề đã nạp, không nạp lại phim; sửa từ điển giữa chừng thì áp từ tập sau.
+/// xử lý lại phụ đề đã nạp, không nạp lại phim; sửa từ điển giữa chừng thì áp từ tập sau. Bộ dịch của phim là tiện ích
+/// dịch ⇒ mỗi lô 50 dòng là một lượt gửi tiện ích (dòng lỗi lùi QT, chỉ ghi log); đổi bộ dịch ở sheet cũng dịch lại.
 extension VideoPlaybackSession {
     func toggleSubtitles() {
         setSubtitlesEnabled(!subtitlesEnabled)
@@ -64,8 +65,10 @@ extension VideoPlaybackSession {
         guard let launch, isCurrent(generation) else { return }
         let texts = cues.map(\.text)
         guard texts.contains(where: { TranslateUtils.containsChinese($0) }) else { return }
-        guard let pass = await MediaCaptionTranslator.prepare(bookId: launch.bookId, packageId: launch.extensionPackageId),
-              isCurrent(generation), cues.count == texts.count else { return }
+        // Bộ dịch là tiện ích ⇒ mỗi lô gửi tiện ích (dòng lỗi lùi QT); phụ đề cứng không xin nên luôn QT.
+        guard let pass = await MediaCaptionTranslator.prepare(
+            bookId: launch.bookId, packageId: launch.extensionPackageId, extensionSource: .chapterContent
+        ), isCurrent(generation), cues.count == texts.count else { return }
         if pass.options.converts {
             guard await applyConversion(texts: texts, pass: pass, generation: generation) else { return }
         }

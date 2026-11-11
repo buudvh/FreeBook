@@ -6,7 +6,7 @@ import Foundation
 /// chọn nguồn khác thì kết quả cũ bị bỏ. Dòng đang hát (`currentLyricLineIndex`) cập nhật theo tick.
 /// Lời có chữ Hán ⇒ chuyển phồn → giản (cả khi tắt dịch) rồi dịch để hiển thị sau khi parse (`translateLyrics`, task riêng
 /// `lyricsTranslationTask`); nguồn lời và `AudioLyricLine.text` giữ nguyên văn, View vẽ `displayText` / `translation` theo
-/// `MediaCaptionDisplayMode`.
+/// `MediaCaptionDisplayMode`. Bộ dịch của album là tiện ích dịch ⇒ cả bài một lượt gửi tiện ích (dòng lỗi lùi QT).
 extension AudioPlaybackSession {
     /// Gán nguồn lời của bài mới (rỗng ⇒ không có lời) và huỷ lượt nạp lời đang chạy.
     func resetLyrics(sources: [AudioLyricSource], headers: [String: String]) {
@@ -110,8 +110,10 @@ extension AudioPlaybackSession {
         let targetBookId = bookId
         let targetPackageId = packageId
         lyricsTranslationTask = Task { [weak self] in
-            guard let pass = await MediaCaptionTranslator.prepare(bookId: targetBookId, packageId: targetPackageId),
-                  let results = await MediaCaptionTranslator.translate(texts, pass: pass) else { return }
+            // Bộ dịch là tiện ích ⇒ cả bài một lô gửi tiện ích (dòng lỗi lùi QT).
+            guard let pass = await MediaCaptionTranslator.prepare(
+                bookId: targetBookId, packageId: targetPackageId, extensionSource: .chapterContent
+            ), let results = await MediaCaptionTranslator.translate(texts, pass: pass) else { return }
             guard let self, !Task.isCancelled, self.lyricsGeneration == generation,
                   let latest = self.lyrics, latest.lines.map(\.text) == texts else { return }
             self.lyricsTranslationTask = nil

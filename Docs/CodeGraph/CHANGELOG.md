@@ -2,6 +2,40 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.857] - 2026-11-11
+
+### feat: phụ đề và lời bài hát dịch được bằng tiện ích dịch, sheet dịch có mục bộ dịch và ngôn ngữ
+
+Anh Bửu duyệt: phụ đề phim và lời bài hát dịch được bằng tiện ích dịch như nội dung truyện chữ; sheet "Dịch phụ đề" / "Dịch lời" có BỘ DỊCH + NGÔN NGỮ giống popup dịch truyện. Dựa trên phần nền `ChineseTextExtensionTranslator`.
+
+- **Phụ đề mềm + lời bài hát** (`MediaCaptionTranslator`):
+  - `prepare(…, extensionSource:)` mới: chỗ gọi xin nhãn `source` thì lượt tra bộ dịch của phim / album (`ChineseTextExtensionTranslator.request`, truyện ⇒ nguồn ⇒ toàn cục như popup dịch). Bộ dịch là tiện ích ⇒ lượt mang `extensionRequest`; QT ⇒ như cũ.
+  - Phụ đề phim: mỗi lô 50 dòng là **một** lượt gửi tiện ích (`source: chapterContent`). Lời bài hát: cả bài một lượt.
+  - Chỉ dòng có chữ Hán được gửi — giữ cổng dịch như QT; dòng khác giữ nguyên.
+  - Phồn → giản vẫn chạy trước: `converted` giữ cho kiểu Gốc / Song ngữ; bản dịch so với chữ đã chuyển.
+  - Dòng tiện ích lỗi ⇒ dịch QT (cùng ảnh chụp từ điển của lượt), chỉ ghi log `❌ [MediaCaption]`, không báo người dùng.
+  - Vẫn chạy trong `subtitleTask` / `lyricsTranslationTask`, huỷ được, không `Task.detached`; huỷ giữa lượt ⇒ bỏ cả lô.
+- **Phụ đề cứng (OCR)**: không đổi — `prepare` không xin nhãn ⇒ luôn QT.
+- **Sheet "Dịch phụ đề" / "Dịch lời"**: mục mới **Bộ dịch** (`MediaCaptionEngineRow`, `Views/Common/MediaCaption/`) gồm hai hàng, đúng hai cấp mà công tắc dịch của sheet đang ghi:
+  - "Phim này" / "Album này" ⇒ `TranslationEngineStore.setBookSelection` ("Theo cấp trên" = theo nguồn).
+  - "Nguồn" ⇒ `setSourceSelection` ("Theo cấp trên" = toàn cục).
+  - Mỗi hàng: BỘ DỊCH (`TranslationEnginePickerSection`) + NGÔN NGỮ (`TranslationLanguagePickerRow`), dùng lại nguyên bản của popup dịch truyện. Không phải đổi `private` ⇒ `internal` nào: hai view này và `TranslationEngineDraft` vốn đã `internal`. Phần đọc danh sách ngôn ngữ chép theo popup vì hàm ở đó `private`, gắn state của popup.
+  - Như mọi lựa chọn khác của sheet: chọn là ghi ngay (chỉ khi khác giá trị đang lưu). Tiện ích vừa chọn chưa có cặp ngôn ngữ thì chờ danh sách đọc xong rồi ghi cùng ngôn ngữ mặc định.
+  - Ghi xong ⇒ đóng sheet thì `retranslateSubtitles()` / `retranslateLyrics()` dịch lại (không nạp lại phim / bài).
+  - Nút "?" của mục giải thích ba cấp, lùi QT khi lỗi, và phụ đề cứng luôn QT.
+- **Kiểm chứng:**
+  - Đọc code + grep. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows, không build tại chỗ). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Phim có phụ đề chữ Trung, bật dịch, chọn tiện ích dịch ở "Phim này" ⇒ đóng sheet ⇒ phụ đề dịch bằng tiện ích, từ dòng đang chiếu trở đi.
+    2. Đổi ngôn ngữ đích ⇒ dịch lại.
+    3. Chọn "Theo cấp trên" ⇒ theo bộ dịch của nguồn.
+    4. Tắt mạng / tiện ích lỗi ⇒ phụ đề vẫn có bản dịch QT, log có `❌ [MediaCaption]`.
+    5. Lời bài hát: tương tự với sheet "Dịch lời".
+    6. Đọc phụ đề cứng vẫn dịch QT khi bộ dịch là tiện ích.
+    7. Bật phồn → giản: kiểu Gốc vẫn hiện chữ đã chuyển.
+- `CLAUDE.md` / `AGENTS.md` (cả đợt 1.3.846–857): đoạn **Một đường cho mọi chữ Trung** (`ChineseTextPipeline`, `TranslationConfigSnapshot`, `TranslationDisplayRevision`, chữ gốc = chữ đã chuyển) ở mục Dịch thuật; phồn → giản "là bước riêng — cả khi tắt dịch"; bộ dịch tiện ích cho chữ ngoài nội dung chương (`ChineseTextExtensionTranslator`, `ExtensionTextTranslationStore`, chỗ nào vẫn QT); phụ đề / lời (1.3.851) và trình duyệt (1.3.850). Chuyển 12 mục CHANGELOG cũ nhất (1.3.816–827) sang `CHANGELOG.archive.md`.
+
 ## [1.3.856] - 2026-11-11
 
 ### feat: Khám phá dịch tên và mô tả truyện bằng tiện ích dịch theo từng trang danh sách
@@ -529,151 +563,4 @@ Anh Bửu (sau 1.3.825): *"sai ý tôi rồi, mặc định tắt DNS, cho bật
 
 - `EncryptedDNSPolicy.defaultEnabled = false`. Máy chưa từng bật tay ⇒ tắt (khoá chưa ghi); ai đã bật tay ở Mạng & DNS thì giữ.
 - `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ghi mặc định tắt.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.827] - 2026-11-11
-
-### feat: dịch phụ đề phim và lời bài hát tiếng Trung
-
-Anh Bửu duyệt Ý 6 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-ca-truyen.md`: cổng bật dịch **giống truyện chữ**, kiểu hiển thị mặc định **Bản dịch**, phồn→giản phạm vi **A** (chỉ phim/nhạc).
-
-- `Services/Media/Captions/` (mới): `MediaCaptionTranslator` — `prepare(bookId:packageId:)` (cổng `isTranslationEnabled(bookId:packageId:)` + phồn→giản + chụp `TranslationReadContext` **một lần** cho cả lượt, ngoài main) và `translate(_:pass:)` (bọc `TranslationReadContext.$current.withValue`, dòng nhiều hàng tách `\n` dịch từng hàng bằng `translateContent`, dòng không có chữ Hán / dịch ra y nguyên ⇒ `nil`, kiểm huỷ mỗi 20 dòng, huỷ giữa chừng ⇒ trả `nil` cả lô). Gọi từ **trong** task sẵn có của session, không `Task.detached`. `MediaCaptionDisplayMode` (Gốc / Bản dịch / Song ngữ; khoá `@AppStorage` `videoSubtitleDisplayMode`, `audioLyricsDisplayMode`; mặc định Bản dịch).
-- Phép dịch **chỉ để hiển thị, chạy sau parse**: `VideoSubtitleCue.translation`, `AudioLyricLine.translation` (mặc định `nil`, init cũ giữ nguyên — `AudioLyricParser` vẫn dựng như trước); `AudioLyrics.hasTranslation` + `withTranslations(_:)`. `track.subtitles[].data` và nguồn lời giữ nguyên văn, không qua `ChapterTextNormalizer` / JunkFilter / bin / TTS.
-- `TranslationConfigStore`: `convertsTraditionalToSimplified(bookId:packageId:)` = phim/album này (khoá sẵn có `convertTraditionalToSimplified_<bookId>` đọc **ba trạng thái** — vắng = theo nguồn) ⇒ nguồn (khoá mới `FreeBook_Translation_Source_TraditionalToSimplified_V1`) ⇒ tắt; kèm `traditionalOverride` / `setTraditionalOverride` / `sourceConvertsTraditional` / `setSourceConvertsTraditional`. Chỉ phụ đề, lời và tên nhóm tập phim (`translateSectionTitles`) dùng; Reader, TTS, truyện tranh, xuất, AI giữ `convertsTraditionalToSimplified(bookId:)`.
-- **Phim**: `toggleSubtitles` + `loadSubtitles` dời từ `VideoPlaybackSession+Playback` (392 → 372 dòng) sang `VideoPlaybackSession+Subtitles` (mới): sau `cues = loaded` dịch trong **cùng** `subtitleTask`, lô 50 dòng bắt đầu từ dòng đang chiếu rồi quay về đầu, mỗi lô công bố ngay (`updateCue` gán cả `currentCueTranslation`); sau mỗi `await` kiểm `isCurrent(generation)` (gồm cờ huỷ). `currentCueTranslation`, `hasTranslatedSubtitles` reset ở `prepareForNewLoad` / `stop()`. `setSubtitlesEnabled(_:)`. `VideoSubtitleOverlay` vẽ theo kiểu (song ngữ: dòng dịch to, dòng gốc nhỏ mờ bên dưới; chưa có bản dịch ⇒ nguyên văn). `VideoPlayerTopBar`: nút phụ đề thành `Menu` Tắt phụ đề · Gốc · Bản dịch · Song ngữ khi `hasTranslatedSubtitles` (chọn kiểu là bật lại phụ đề), còn lại giữ nút bật/tắt; ngăn kéo `⋯` thêm hàng "Dịch phụ đề" (Đang bật / Đang tắt; chỉ khi phim có phụ đề).
-- **Nhạc**: `applyLyrics` ⇒ `translateLyrics` trong task riêng `lyricsTranslationTask` (gác `lyricsGeneration` + cờ huỷ + lời không đổi; huỷ ở `resetLyrics` / `loadLyrics`), xong gán `lyrics` mới có bản dịch. `AudioLyricsScrollView` (song ngữ: bản dịch dưới mỗi dòng gốc), `AudioCurrentLyricLine` (trang Đĩa + sheet điều khiển nhanh: bản dịch khi kiểu ≠ Gốc), `AudioPlayerDrawerMenu` thêm mục "Lời bài hát" (chỉ khi lời có bản dịch) + hàng "Dịch lời" (khi bài có nguồn lời).
-- Sheet chung `MediaCaptionTranslationSheet` (`Views/Common/MediaCaption/`, bám mục dịch của `ReaderSettingsView`, picker phân đoạn, `.pageTitle`, vuốt xuống để đóng, tự gắn `.preferredColorScheme(.dark)` + `.appAccentTint()` vì hai màn trình bày bằng UIKit): Dịch · Phim/album này (Theo nguồn / Bật / Tắt) + · Nguồn (Toàn cục / Bật / Tắt); Phồn → giản · Phim/album này (Theo nguồn / Bật / Tắt) + · Nguồn (Tắt / Bật). Mở từ hai hàng mới theo đường của "Hẹn giờ tắt" (`VideoPlayerController.showsCaptionTranslationSheet` ⇒ `VideoPlayerScreen`; `AudioPlayerScreen` từ callback ngăn kéo). Đóng mà kết quả (bật dịch, phồn→giản) khác lúc mở ⇒ `retranslateSubtitles()` / `retranslateLyrics()`: bỏ bản dịch cũ rồi dịch lại phụ đề / lời đã nạp, không nạp lại phim / bài; phụ đề / lời chưa nạp xong thì không đụng lượt nạp.
-- Sửa tiếp sau review (cùng tiêu đề): sheet đánh dấu "đã đổi" ở mỗi lựa chọn thay vì so cấu hình lúc mở — màn cha vẽ lại (xoay máy, hết bài, kéo Trung tâm điều khiển) là `init` chạy lại ⇒ mất mốc so, tắt / bật dịch không có tác dụng tới tập / bài sau; chụp `bookId` / `packageId` vào `@State` một lần ⇒ phim / album tự sang lúc sheet đang mở thì lựa chọn vẫn ghi cho đúng mục đang hiện trên sheet.
-- Giới hạn giữ nguyên: chỉ `track.subtitles.first`; tập tải offline và phim nhúng trang không có phụ đề; sửa từ điển giữa chừng áp từ tập / bài sau.
-- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm một gạch đầu dòng. Chuyển `[1.3.797]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + grep chéo chữ ký (`VideoSubtitleCue`, `AudioLyricLine`, `updateCue`, `loadSubtitles`, `AudioPlayerDrawerMenu`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 391, `VideoPlayerScreen.swift` 384, `VideoPlaybackSession.swift` 377). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề tiếng Trung từ nguồn khai zh: bản dịch hiện gần như ngay ở dòng đang chiếu, menu phụ đề đổi kiểu tức thì; (2) nguồn không khai zh: mặc định không dịch, bật ở "Dịch phụ đề" ⇒ đóng sheet là dịch; tắt ⇒ về nguyên văn, menu về nút bật/tắt; (3) lời LRC tiếng Trung: trang Lời song ngữ, dòng ở trang Đĩa, mục "Lời bài hát" ở ngăn kéo; (4) phồn→giản theo phim / nguồn.
-
-## [1.3.826] - 2026-11-11
-
-### feat: dịch ảnh truyện tranh raw bằng nhận chữ trên máy, phủ bản dịch lên bong bóng
-
-Anh Bửu chọn ý "dịch ảnh truyện tranh raw ngay trên ảnh" trong năm ý tưởng chức năng mới, duyệt plan, công tắc nhớ **theo tiện ích**.
-
-- Nút **Dịch ảnh** (`character.bubble`, bật ⇒ `.fill` trên nền trắng 18%) ở thanh trên màn đọc truyện tranh, ngay trái ☰; bấm ⇒ toast "Đã bật dịch ảnh cho nguồn này" / "Đã tắt dịch ảnh". Nhớ theo tiện ích (`ComicImageTranslationPolicy`, khoá `comicImageTranslate_<packageId>`, mặc định tắt) ⇒ Đổi nguồn / xoá truyện không phải chép hay dọn gì; độc lập công tắc dịch tên chương. Neo `.mediaDiscAnchor(.headerTrailing)` dời từ ☰ sang nút mới (nút trái nhất của cụm phải), kẻo đĩa nghe vào header đè lên nó. Trạng thái giữ ở `ComicReaderView`, không ở `ComicReaderViewModel` (397 dòng).
-- `Services/Comic/ImageText/` (mới): `ComicTextRecognizer` (actor; Vision `VNRecognizeTextRequest` accurate, `zh-Hans`/`zh-Hant`, `minimumTextHeight` đặt tường minh; ảnh dài cắt lát cao ≤ 1,5× bề ngang chồng 12%, dòng chỉ giữ ở lát có tâm dòng trong "lõi" ⇒ không trùng; mỗi lúc một ảnh, hàng rời màn ⇒ rời hàng chờ / `cancel()` request; log một lần ngôn ngữ Vision có trên máy) → `ComicTextBlockGrouper` (gom dòng cùng bong bóng: cao gần bằng, khe dọc ≤ 0,8 dòng, chồng ngang ≥ 30%; ghép chữ Hán liền; đo nền tối/sáng trên 8×8 điểm) → `ComicPageTextRepository` (RAM → `Caches/comic_ocr/` JSON `ComicTextPage` có `schemaVersion` → nhận chữ; khoá = `ComicImageRequest.cacheKey`; giới hạn 30 MB; ảnh không chữ cũng lưu) → `ComicPageTextTranslator` (VietPhrase **từng khối** ngoài main theo `bookId` + phồn→giản của truyện, bỏ khối không có chữ Hán; **không** lưu bản dịch ⇒ sửa name thấy ngay).
-- `ComicTranslationOverlay` (mới) phủ lên `Image` đã `scaledToFit` của `ComicPageView` (tham số `translation: ComicImageTranslationContext?`): khung chữ gốc nở ngang 15%, nền trắng 95% chữ đen (nền tối ⇒ đen 85% chữ trắng), cỡ chữ theo dòng gốc (9–22 pt) tự thu tới 40%; chạm khối ⇒ ẩn bản dịch, lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch; chạm ngoài khối vẫn bật/tắt thanh; viên "Đang nhận chữ" khi quá 0,6 s. Từ điển (`.translationDictionariesDidUpdate`), rule (`.quickTranslationRulesDidUpdate`), cấu hình dịch đổi ⇒ ảnh đang hiện dịch lại (`revision`), không nhận chữ lại.
-- `ComicImageDiskCache`: `init(directoryName:byteLimit:)` (mặc định giữ `comic_images` / 400 MB; `byteLimit` / `trimTarget` thành thuộc tính) để dùng lại cho `comic_ocr`. Màn Dung lượng: `comic_ocr` thuộc "Cache ảnh truyện tranh" (`StorageUsageCategory`), nút "Xoá" và lịch tự dọn xoá cả hai (`StorageUsageCleaner` → `ComicPageTextRepository.clearAll`).
-- Chưa làm ở v1: trình xem phóng to, nhận chữ trước lúc tải offline, chữ dọc, tiếng Nhật/Hàn (VietPhrase chỉ dịch tiếng Trung), sửa name từ khối.
-- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ComicReaderView.swift` 377 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) manhua chữ ngang nhận đủ, bản dịch nằm đúng bong bóng; (2) chữ nhỏ trên dải webtoon cao, chữ dọc — hằng ở `ComicTextRecognizer`, chỉnh xong tăng `ComicTextPage.currentSchemaVersion`; (3) log `🈶 [ComicOCR]` (bật log) thời gian mỗi ảnh + ngôn ngữ Vision có trên máy; (4) chạm khối không bật/tắt thanh, chạm đúp ngoài khối vẫn phóng to.
-
-## [1.3.825] - 2026-11-11
-
-### feat: DNS mã hoá trong app chống nhà mạng chặn tên miền
-
-Anh Bửu: *"tôi muốn thêm dns, proxy, vpn hay gì đó để tránh trường hợp bị web chặn"* — phỏng vấn /grill-me chốt: đợt này chỉ chống **nhà mạng chặn tên miền** (anh chưa có proxy); bị trang nguồn chặn IP thì thử WARP; proxy để sau (hướng đã chốt, ghi ở `CLAUDE.md`). VPN thật (Network Extension) không làm được vì app không ký, chạy trong LiveContainer.
-
-- `Services/Network/EncryptedDNS/` (mới): `EncryptedDNSRepository` (`@MainActor @Observable`) đặt `NWParameters.PrivacyContext.default.requireEncryptedNameResolution` ⇒ phủ mọi kết nối **trong tiến trình** (URLSession: fetch của tiện ích JS, Legado, ảnh bìa, ảnh truyện tranh, tải phim offline); WebView (tiến trình WebKit) và AVPlayer **không** ăn. Mặc định bật, Cloudflare (`EncryptedDNSPolicy`); 4 máy chủ kèm IP khởi động (`EncryptedDNSResolver`: Cloudflare, Google, AdGuard không lọc, Quad9).
-- `EncryptedDNSProbe`: `NWConnection` TCP tới `captive.apple.com:80` với privacy context **riêng** bắt buộc DoH, hết giờ 6 s. Lỗi ⇒ lùi về DNS thường, log `❌ [DNS]`, nhớ lại để lần mở app sau dò trước rồi mới bật (bình thường thì bật ngay lúc mở app rồi mới dò). Dò lại khi đổi đường mạng (`NWPathMonitor`, giãn 2 s), đổi cài đặt, bấm "Kiểm tra lại"; mất mạng thì chờ, không lùi.
-- `FreeBookApp.init` gọi `EncryptedDNSRepository.shared.start()` ngay sau `WebContentSettings.registerDefaults()`.
-- Cài đặt › Chung › **Mạng & DNS** (`NetworkSettingsView`): công tắc, máy chủ, dòng trạng thái ("Máy chủ DoH tới được" — lượt dò không chứng minh URLSession thật sự theo context mặc định nên không ghi "đang dùng"), "Kiểm tra lại", nút "?" nói rõ phạm vi + bật rồi vẫn bị chặn là chặn theo SNI/IP. Trang `SystemDNSGuideView`: đổi DNS cho cả máy (app 1.1.1.1 của Cloudflare, profile của AdGuard DNS — đều chính chủ) và đổi IP bằng chế độ WARP khi bị chặn IP.
-- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ở "Ràng buộc runtime cần nhớ".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) nguồn bị nhà mạng chặn tải được qua `fetch`, tắt công tắc + mở lại app thì lại bị chặn; (2) mạng chặn 1.1.1.1 ⇒ lùi, fetch / bìa **vẫn tải được**; (3) phim từ tên miền bị chặn có phát được không.
-
-## [1.3.824] - 2026-11-10
-
-### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
-
-Anh Bửu: có bản cập nhật, bấm "Mở LiveContainer" lúc đang nghe truyện / nhạc thì app chỉ tắt, không mở lại LiveContainer.
-
-- **Nguyên nhân (đọc mã LiveContainer `UIKit+GuestHooks.m` / `LCSharedUtils.m`, chưa thử máy):** link `livecontainer-launch?bundle-name=ui` ⇒ hộp xác nhận ⇒ `launchToGuestAppWithClassicMode` xin `LSApplicationWorkspace` mở lại chính LiveContainer **hai lần**, lần trả lời đầu thì tự `SIGKILL`, trông vào yêu cầu thứ hai để iOS dựng app lại. App đang giữ phiên âm thanh nền ⇒ iOS còn coi tiến trình đang chạy ⇒ yêu cầu thứ hai coi như xong ⇒ app chết, không ai mở lại.
-- `LiveContainerSwitchPreparer` (file mới, `Services/AppUpdate/`): trước khi mở link, dừng TTS (`TTSManager.stop()` khi đang đọc / có widget), nhạc (`AudioPlaybackSession.stop()` khi `AudioMiniPlayerState.isActive`), phim (`VideoPlaybackSession.stop()` khi có phim) — chỉ chạm phiên nhạc / phim khi có, tránh dựng `AVPlayer` — rồi `AVAudioSession.setActive(false)` và chờ 0,4 s; không phát gì ⇒ mở ngay. Log `📲 [AppUpdate] Dừng … trước khi mở LiveContainer`.
-- `AppUpdateSheet`: nút "Mở LiveContainer" chờ bước trên rồi mới `openURL`. Bấm Huỷ ở hộp xác nhận của LiveContainer thì việc nghe vẫn đã dừng (anh duyệt).
-- `CLAUDE.md` / `AGENTS.md` mục báo bản mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.823] - 2026-11-10
-
-### feat: sheet Kiểu hiển thị ở Khám phá chọn bố cục bằng hàng chọn, chỉ hiện một thanh cỡ
-
-Anh Bửu: phần "Trang Khám phá" của sheet "Kiểu hiển thị" làm giống phần Danh sách / Lưới / Chỉ bìa (duyệt mockup).
-
-- `ExploreLayoutSizePicker` (file mới, chỉ dùng ở `BookListLayoutSheet(showsExploreSizes: true)`): **hàng chọn bố cục** Lưới · Hàng ngang · Danh sách · Banner dáng y `Picker(.segmented)` ở trên (tự vẽ: nền `tertiarySystemFill`, ô chọn trắng / `systemGray2`, chữ 13 pt) + **một** thanh cỡ của bố cục đang chọn + dòng ghi chú — thay bốn thanh xếp chồng (sheet nửa màn phải cuộn). Tên thanh theo bố cục: Lưới / Hàng ngang "Cỡ thẻ", Danh sách "Cỡ dòng" (áp cả mục Xếp hạng), Banner "Chiều cao". Bố cục đang khác mặc định có **chấm màu nhấn** ở góc ô (thanh của nó đang ẩn); VoiceOver đọc tên đầy đủ + "Khác mặc định".
-- `ExploreLayoutSizeKind`: thêm `shortLabel`, `sliderTitle`, `sliderNote`. Màn Cài đặt › Kiểu hiển thị giữ bốn thanh (`ExploreLayoutSizeControls`, đủ chỗ).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.822] - 2026-11-10
-
-### fix: danh sách tải vô hạn không còn nhảy lên khi nối trang
-
-Anh Bửu thử 1.3.819: hết trắng xoá nhưng danh sách (kiểu Danh sách) vẫn **nhảy lên khi nối trang**; đổi cùng danh sách sang kiểu **Lưới thì không nhảy** ⇒ lỗi ở `List`.
-
-- **Nguyên nhân:** hàng kiểu Danh sách cao thấp khác nhau (tên / mô tả 1–2 dòng). `List` (UICollectionView tự đo) chỉ **ước chừng** chiều cao hàng đã cuộn qua, mỗi lần chèn trang mới nó tính lại và chỉnh vị trí cuộn ⇒ nội dung đang xem bị đẩy lên ~1 hàng. Lưới (`ScrollView` + `LazyVGrid`) giữ chiều cao thật của ô đã dựng nên không bị.
-- Đổi kiểu Danh sách sang **`ScrollView` + `LazyVStack`** như lưới ở: `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm), `SearchSingleSourceResultsView` (Tìm trong một nguồn), `AllCommentsView` (Tất cả bình luận). Giữ y giao diện: panel bo góc, cách nhau 8 pt (`BookListPanelModifier.stackSpacing`), lề 16 / 4 (`bookListPanelStackPadding()`), kéo làm mới, `ScrollViewReader` theo `link`, chân `LoadMoreFooter` id cố định + tải trước.
-- Tìm trong một nguồn: bỏ mẹo `NavigationLink` ẩn dưới panel (chỉ cần trong `List` để không có mũi tên `>`); hàng dùng `tappable` như lưới (`ContentDetailLink` / nút đổi nguồn), ⋮ playlist như cũ.
-- Kệ / Lịch sử giữ `List` (vuốt ngang, tiêu đề nhóm dính; nạp trên máy 50 truyện mỗi lượt).
-- `BookListPanelModifier` / `CLAUDE.md` / `AGENTS.md`: luật danh sách tải vô hạn không dùng `List`.
-- **Kiểm chứng:** đọc code + anh thử kiểu Lưới (không nhảy); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Đánh đổi: `LazyVStack` không tái dùng ô như `List` ⇒ danh sách rất dài tốn bộ nhớ hơn chút (như kiểu lưới hiện nay).
-
-## [1.3.821] - 2026-11-10
-
-### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì
-
-Anh Bửu: *"mặc định không có nghe truyện/nhạc thì để hình cd dừng ở tab"* — chọn kiểu **đĩa xám mờ**, **chạm không làm gì**.
-
-- `MediaDiscIdleFace` (file mới): đĩa than 44 pt đứng yên — nền + 3 vòng rãnh + nhãn giữa theo tông `systemGray4` / `systemGray3` / `systemGray2` (như icon tab chưa chọn, tự đổi theo nền sáng / tối), lỗ giữa, viền mảnh như đĩa đang nghe. Không nhận chạm, VoiceOver bỏ qua.
-- `MediaDiscTabBarSlot`: gờ nền 52 pt **luôn có** (thanh tab không đổi dáng khi bật / tắt nghe); không có nguồn ⇒ đĩa xám, có nguồn ⇒ `MediaDiscFaceButton(.tabBar)` như cũ; đổi qua lại bằng mờ chéo 0,2 s (bỏ hiệu ứng phóng vì gờ luôn đứng đó).
-- Comment `MainTabBar` / `MediaDiscWindowManager`, `CLAUDE.md` / `AGENTS.md`: "ô giữa trống" ⇒ "đĩa xám đứng yên".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.820] - 2026-11-10
-
-### fix: đĩa góc thu tại chỗ khi đổi màn rồi hiện thẳng ở chỗ mới, không trượt ngang qua màn
-
-Anh Bửu: Chi tiết → "+" → "Đọc" ⇒ đĩa (đang đứng cao trên cụm pill của menu xổ) hiện giữa Reader rồi trượt xuống trên nút tai nghe; mở trang không có thanh tab từ trang có thanh tab cũng giật.
-
-- **Nguyên nhân:** `MediaDiscContainerViewController.updateDisc` thấy chỗ mới khác chỗ cũ ⇒ trượt đĩa (lò xo) kể cả khi đó là **màn khác**, và tính chỗ cả lúc màn còn đang chuyển cảnh (khung neo đang chạy).
-- `MediaDiscScreenContext` (file mới): "trang đang hiện" = trang trên cùng của `UINavigationController` đầu tiên đang hiện trong tầng trình bày trên cùng (không có nav ⇒ chính tầng đó; chỉ đi cây VC, không quét view) + cờ đang chuyển cảnh (`isBeingPresented` / `isBeingDismissed` trong chuỗi trình bày, `transitionCoordinator` của tầng hoặc nav — kể cả vuốt back).
-- Container: trang khác trang lúc đĩa hiện ⇒ **thu ngay tại chỗ**; đang chuyển cảnh ⇒ đĩa đang ẩn thì chưa đếm 0,3 s (hỏi lại mỗi 0,1 s), đĩa đang hiện cùng màn thì đứng yên; hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng trang (menu "+" bung / thu, Home hiện muộn) vẫn trượt như cũ. Đang nằm trong header (nhấn giữ) mà đổi màn ⇒ cũng thu rồi hiện trong header màn mới.
-- `CLAUDE.md` / `AGENTS.md` mục đĩa nghe.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — rủi ro: NavigationStack của SwiftUI không lộ `UINavigationController` ở chỗ dò ⇒ đẩy trang không được coi là đổi màn (đĩa trượt như cũ, chỉ mở Reader / sheet là thu).
-
-## [1.3.819] - 2026-11-10
-
-### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang
-
-Anh Bửu (video Khám phá › qidian, kiểu Danh sách): kéo tới cuối, lúc tải trang kế cả danh sách trắng xoá ~0,2–0,3 s rồi hiện lại ở chỗ khác (bìa xám tải lại), nối mục mới thì nhảy lên ~1 hàng; xảy ra ở mọi danh sách tải vô hạn.
-
-- **Nguyên nhân (đọc code + video, chưa thử máy):** mọi nơi dùng `LoadMoreFooter` gắn `.id(số mục)` cho hàng chân (mẹo 1.3.679 để vòng xoay không đứng hình) ⇒ mỗi trang về, hàng chân **đang hiện** bị xoá + hàng id mới chèn cùng N hàng mới phía trên ⇒ `List` nạp lại cả bảng. Lại chỉ tải khi chạm chân ⇒ lần nối nào cũng rơi đúng lúc đang nhìn đáy.
-- `LoadMoreFooter`: thêm `token` (số mục) — vòng xoay mới bằng `.id(token)` **chỉ trên `ProgressView`**, kích hoạt tải bằng `.task(id:)` theo `token` (chân còn trên màn sau khi nối ⇒ tự tải tiếp, thay mẹo đổi id). Không ghi state.
-- Hàng chân **id cố định** ở `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm, danh sách + lưới), `SearchSingleSourceResultsView` (danh sách + lưới), `AllCommentsView`, `ShelfBooksLayoutView` (Kệ / Lịch sử, danh sách + lưới).
-- **Tải trước:** Khám phá / Thể loại tải trang kế khi một trong 5 mục cuối hiện ra; Tất cả bình luận cũng vậy (trước: đúng bình luận cuối). Tìm đã có sẵn.
-- Danh sách Khám phá: `ForEach(loader.novels, id: \.link)` như lưới (id `UUID()` đổi mỗi lần nạp lại ⇒ kéo làm mới dựng lại mọi bìa).
-- Tất cả bình luận: đặt cờ đang tải **trước** điểm chờ đầu tiên ⇒ hai lần kích hoạt cùng khung không nối một trang hai lần. (Không lọc trùng theo `id`: id bình luận là `UUID()` mỗi lần bóc tách, lọc không có tác dụng.)
-- Phim đề xuất (`VideoWatchSuggestSection`): hàng vòng xoay giữ 44 pt suốt lúc còn trang (ẩn / hiện bằng độ mờ) ⇒ chiều cao không đổi mỗi lượt; tải trước khi một trong 3 thẻ cuối hiện ra.
-- `CLAUDE.md` / `AGENTS.md`: luật hàng chân id cố định + `token`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.818] - 2026-11-10
-
-### feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet
-
-Anh Bửu: *"bạn chưa thêm nút huỷ cho AudioQuickControlSheet à"* + tự sửa hàng dưới của hai sheet điều khiển nhanh, Javis rà + commit chung.
-
-- `AudioQuickControlSheet` (sheet nghe nhạc mở từ đĩa nghe): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên của sheet nghe truyện (1.3.816); chạm ⇒ rung nhẹ + `MediaSleepTimer.cancel()`. Không hẹn ⇒ không có viên.
-- Sửa của anh: nút cuối hàng dưới đổi **"Tắt nhạc" / "Tắt đọc" ⇒ "Dừng"** chữ đỏ ở cả hai sheet; sheet nhạc truyền `tint` cho từng nút như sheet nghe truyện. `actionButton` của sheet nhạc chưa có tham số `tint` (sẽ lỗi biên dịch) ⇒ Javis thêm, chữ + icon theo `tint`.
-- Comment `TTSQuickControlSheet` / `AudioQuickControlSheet` / `MediaDiscSheetHost` theo chữ "Dừng".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.817] - 2026-11-10
-
-### fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải
-
-Anh Bửu tự sửa `TTSQuickControlSheet` (`NowReadingBlock`), Javis rà + commit.
-
-- Dưới vạch tiến độ chương: bỏ "Đoạn N" bên trái (giữ `Text(" ")` làm chỗ), bên phải đổi "M đoạn" ⇒ **"N/M"**, chỉ hiện khi có cả vị trí lẫn tổng (> 0), không thì trống. Comment đầu file theo chữ mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.816] - 2026-11-10
-
-### feat: nút Hủy hẹn giờ ngay cạnh đồng hồ đếm giờ trong sheet nghe truyện
-
-Anh Bửu: *"thêm nút huỷ ngay bên cạnh đếm giờ của sheet nghe truyện"*.
-
-- `TTSQuickControlSheet` (sheet điều khiển nhanh mở từ đĩa nghe TTS): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên "Hủy" của `TTSQuickTimerHeader`; chạm ⇒ rung nhẹ + `TTSManager.cancelSleepTimer()`, viên thu lại. Không hẹn ⇒ không có viên. Vùng chạm cao 44 pt; VoiceOver "Hủy hẹn giờ tắt".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
