@@ -29,8 +29,8 @@ struct BookDetailHeaderView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    /// Phồn → giản + dịch ba cấp của truyện đang mở (`BookDetailView.metaTextOptions`).
-    let textOptions: ChineseTextPipeline.Options
+    /// Phồn → giản + QT ba cấp của truyện đang mở, hoặc tiện ích dịch khi popup chọn (`BookDetailView.detailText`).
+    let chineseText: BookDetailText
 
     let onLoadBookDetailOnly: () -> Void
 
@@ -150,11 +150,12 @@ struct BookDetailHeaderView: View {
     private var formattedAuthor: String {
         let trimmed = author.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        return DisplayTextFormatter.titleCase(BookDisplayTranslation.author(trimmed, textOptions))
+        // Tác giả không gửi tiện ích dịch: giữ phiên âm Hán Việt (1.3.853).
+        return DisplayTextFormatter.titleCase(BookDisplayTranslation.author(trimmed, chineseText.options))
     }
 
     private func meta(_ text: String) -> String {
-        ChineseTextPipeline.meta(text, textOptions)
+        chineseText.meta(text)
     }
 
     private var genresFlow: some View {

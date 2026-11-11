@@ -12,9 +12,9 @@ struct CommentRowView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    /// Phồn → giản + dịch (1.3.846): Chi tiết truyền cấu hình của truyện đang mở (`BookDetailView.relatedTextOptions`);
-    /// màn xem phim còn đi init `isTranslationEnabled:` (chỉ dịch, như trước).
-    let textOptions: ChineseTextPipeline.Options
+    /// Phồn → giản + QT hoặc tiện ích dịch (1.3.853): Chi tiết truyền chữ của truyện đang mở (`BookDetailView.relatedText`);
+    /// màn xem phim còn đi init `isTranslationEnabled:` (chỉ QT, như trước).
+    let chineseText: BookDetailText
     /// Host sách — `Referer` khi tải avatar.
     let host: String?
 
@@ -26,14 +26,14 @@ struct CommentRowView: View {
             CommentAvatarView(url: comment.avatar, referer: host, size: avatarSize)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(Self.displayText(comment.name, options: textOptions, stripsHTML: false))
+                Text(Self.displayText(comment.name, chineseText: chineseText, stripsHTML: false))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
 
                 // Không có nội dung thì mô tả là thân bình luận — không lặp lại ở dòng dưới tên.
                 if !comment.content.isEmpty, !comment.description.isEmpty {
-                    Text(Self.displayText(comment.description, options: textOptions))
+                    Text(Self.displayText(comment.description, chineseText: chineseText))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -47,7 +47,7 @@ struct CommentRowView: View {
                         localPath: localPath,
                         downloadUrl: downloadUrl,
                         configJson: configJson,
-                        textOptions: textOptions,
+                        chineseText: chineseText,
                         host: host,
                         onCollapse: toggleReplies
                     )
@@ -62,7 +62,7 @@ struct CommentRowView: View {
     @ViewBuilder
     private var bodyText: some View {
         let raw = !comment.content.isEmpty ? comment.content : comment.description
-        let text = Self.displayText(raw, options: textOptions)
+        let text = Self.displayText(raw, chineseText: chineseText)
         let accessory = hasReplies ? AnyView(repliesToggle) : nil
         if !text.isEmpty {
             ExpandableTextView(
@@ -113,10 +113,14 @@ struct CommentRowView: View {
         }
     }
 
-    /// Chữ hiển thị của bình luận / trả lời: bỏ HTML (trừ tên) rồi phồn → giản / dịch theo `options`.
+    /// Chữ hiển thị của bình luận / trả lời: bỏ HTML (trừ tên) rồi phồn → giản / QT hoặc tiện ích dịch.
+    static func displayText(_ raw: String, chineseText: BookDetailText, stripsHTML: Bool = true) -> String {
+        chineseText.meta(stripsHTML ? raw.cleanHTML() : raw)
+    }
+
+    /// Chỉ QT theo `options` (không tiện ích dịch).
     static func displayText(_ raw: String, options: ChineseTextPipeline.Options, stripsHTML: Bool = true) -> String {
-        let text = stripsHTML ? raw.cleanHTML() : raw
-        return ChineseTextPipeline.meta(text, options)
+        displayText(raw, chineseText: .quickOnly(options), stripsHTML: stripsHTML)
     }
 
     /// Đường cũ (chỉ dịch, không phồn → giản, từ điển chung) — giữ cho chỗ gọi chưa có cấu hình ba cấp.
@@ -146,7 +150,7 @@ extension CommentRowView {
             localPath: localPath,
             downloadUrl: downloadUrl,
             configJson: configJson,
-            textOptions: Self.legacyOptions(translating: isTranslationEnabled),
+            chineseText: .quickOnly(Self.legacyOptions(translating: isTranslationEnabled)),
             host: host
         )
     }

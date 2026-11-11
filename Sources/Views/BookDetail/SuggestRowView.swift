@@ -11,8 +11,8 @@ struct SuggestRowView: View {
     let configJson: String
     let extensionPackageId: String
     let sourceName: String
-    /// Phồn → giản + dịch theo truyện đang mở (`BookDetailView.relatedTextOptions`, 1.3.846).
-    let textOptions: ChineseTextPipeline.Options
+    /// Phồn → giản + QT theo truyện đang mở, hoặc tiện ích dịch khi popup chọn (`BookDetailView.relatedText`, 1.3.853).
+    let chineseText: BookDetailText
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
     /// Lượt kéo làm mới của màn Chi tiết — đổi số thì tải lại; back về (số không đổi) thì giữ kết quả.
@@ -132,7 +132,7 @@ struct SuggestRowView: View {
                                 .cornerRadius(6)
                                 .shadow(radius: 1)
                                 
-                                let displayName = ChineseTextPipeline.meta(novel.name, textOptions)
+                                let displayName = chineseText.meta(novel.name)
                                 Text(DisplayTextFormatter.titleCase(displayName))
                                     .font(.caption)
                                     .fontWeight(.medium)

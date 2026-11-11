@@ -66,6 +66,7 @@ struct BookDetailView: View {
     @State internal var onlineOrdinalNumbering = ChapterOrdinalNumbering.empty // số thứ tự từ toàn bộ `onlineChapters`
     @State internal var host = ""
     @State internal var isTranslationEnabled = false
+    @State internal var textStores = BookDetailText.Stores() // dịch bằng tiện ích: Chi tiết + Mục lục (`+TextOptions`)
 
     var totalChaptersCount: Int {
         if chapterSnapshots.count > 0 { return chapterSnapshots.count }
@@ -144,16 +145,12 @@ struct BookDetailView: View {
         return ext?.sourceUrl
     }
 
-    internal func cleanDetailText(_ html: String) -> String {
-        return html.cleanHTML()
-    }
+    internal func cleanDetailText(_ html: String) -> String { html.cleanHTML() }
 
-    private var cleanedDetailText: String {
-        cleanDetailText(detail)
-    }
+    private var cleanedDetailText: String { cleanDetailText(detail) }
 
     private func translateMetaIfNeeded(_ text: String) -> String {
-        ChineseTextPipeline.meta(text, metaTextOptions) // phồn → giản + dịch ba cấp — `BookDetailView+TextOptions`
+        detailText.meta(text) // phồn → giản + QT ba cấp hoặc tiện ích dịch — `BookDetailView+TextOptions`
     }
 
     // Tên chương của mục lục (`tocTitleOptions`, `tocTitle(for:_:)`): `BookDetailView+ChapterTitles.swift` (1.3.846 —
@@ -313,6 +310,7 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
+        .onChange(of: textSyncKey, initial: true) { syncTextStores() }
         // Reader đóng: màn này **không** chạy lại `onAppear` (cover phủ lên, không pop navigation), nên phải tự
         // đọc lại danh sách cục bộ. Sách vừa được `startReading` tạo ⇒ `localBook` đã khác nil nhưng
         // `chapterSnapshots`/`chaptersList` còn rỗng; không đồng bộ ở đây thì tab mục lục trắng (chỉ đọc DB,
@@ -453,7 +451,7 @@ struct BookDetailView: View {
                         localPath: ext?.localPath ?? "",
                         downloadUrl: ext?.downloadUrl ?? "",
                         configJson: ext?.configJson ?? "{}",
-                        textOptions: metaTextOptions,
+                        chineseText: detailText,
                         onLoadBookDetailOnly: loadBookDetailOnly
                     )
 
@@ -491,7 +489,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                textOptions: relatedTextOptions,
+                                chineseText: relatedText,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
@@ -527,7 +525,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                textOptions: relatedTextOptions,
+                                chineseText: relatedText,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
@@ -583,7 +581,7 @@ struct BookDetailView: View {
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
                     isTranslationEnabled: isTranslationEnabled,
-                    titleOptions: tocTitleOptions,
+                    titleText: tocText,
                     onLoadTOCDataOnly: loadTOCDataOnly,
                     onStartReading: startReading,
                     onLoadMoreChapters: loadMoreChapters

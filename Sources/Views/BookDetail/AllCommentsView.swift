@@ -5,9 +5,9 @@ struct AllCommentsView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    /// Phồn → giản + dịch (1.3.846): Chi tiết truyền cấu hình của truyện đang mở; màn xem phim còn đi init
-    /// `isTranslationEnabled:` (chỉ dịch, như trước).
-    let textOptions: ChineseTextPipeline.Options
+    /// Phồn → giản + QT hoặc tiện ích dịch (1.3.853): Chi tiết truyền chữ của truyện đang mở; màn xem phim còn đi init
+    /// `isTranslationEnabled:` (chỉ QT, như trước).
+    let chineseText: BookDetailText
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
     /// Tiện ích/nguồn của truyện — nguồn Legado thì cookie của trình duyệt "Mở link lỗi" được gộp vào kho của nguồn.
@@ -67,7 +67,7 @@ struct AllCommentsView: View {
                                 localPath: localPath,
                                 downloadUrl: downloadUrl,
                                 configJson: configJson,
-                                textOptions: textOptions,
+                                chineseText: chineseText,
                                 host: host
                             )
                             // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
@@ -101,7 +101,7 @@ struct AllCommentsView: View {
                 }
             }
         }
-        .backPageTitle(ChineseTextPipeline.meta(category.title, textOptions))
+        .backPageTitle(chineseText.meta(category.title))
         .task {
             if skipsReappearLoad {
                 skipsReappearLoad = false
@@ -218,7 +218,7 @@ extension AllCommentsView {
             localPath: localPath,
             downloadUrl: downloadUrl,
             configJson: configJson,
-            textOptions: CommentRowView.legacyOptions(translating: isTranslationEnabled),
+            chineseText: .quickOnly(CommentRowView.legacyOptions(translating: isTranslationEnabled)),
             host: host,
             extensionPackageId: extensionPackageId
         )

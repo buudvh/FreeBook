@@ -16,7 +16,7 @@ extension BookDetailView {
     /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (phồn → giản + dịch ba cấp), chưa có thì tên màn.
     internal var ellipsisMenuTitle: String {
         guard !title.isEmpty else { return "Chi tiết truyện" }
-        return DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(title, metaTextOptions))
+        return DisplayTextFormatter.titleCase(detailText.meta(title))
     }
 
     @ViewBuilder
@@ -206,9 +206,13 @@ extension BookDetailView {
         let query = appliedChapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
         let converts = query.isEmpty ? false : tocTitleOptions.converts
+        let text = tocText
         filteredLocalChapters = sorted.filter { chap in
             query.isEmpty || ChapterTitleSearchMatcher.matches(
-                query, anyOf: [chap.title, ChineseTextPipeline.convert(chap.title, converts: converts), chap.titleTrans]
+                query, anyOf: [
+                    chap.title, ChineseTextPipeline.convert(chap.title, converts: converts), chap.titleTrans,
+                    text.chapterTranslation(of: chap.title)
+                ]
             )
         }
     }
@@ -225,10 +229,13 @@ extension BookDetailView {
         // Số thứ tự dựng từ mục lục đủ (trước khi lọc) ⇒ tìm/đảo thứ tự vẫn giữ số, dòng tiêu đề nhóm không chiếm số.
         onlineOrdinalNumbering = ChapterOrdinalNumbering(enumeratedChaps, index: { $0.offset }, isSection: { $0.element.isSection })
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
+        let text = tocText
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             if query.isEmpty { return true }
-            // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại.
-            return ChapterTitleSearchMatcher.matches(query, anyOf: [chap.name, translatedTitles?[index]])
+            // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại. Khớp thêm bản tiện ích đã có.
+            return ChapterTitleSearchMatcher.matches(
+                query, anyOf: [chap.name, translatedTitles?[index], text.chapterTranslation(of: chap.name)]
+            )
         }
     }
 

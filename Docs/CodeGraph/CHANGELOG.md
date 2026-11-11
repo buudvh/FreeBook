@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.855] - 2026-11-11
+
+### feat: trang Chi tiết dịch tên, giới thiệu, thể loại, bình luận, đề xuất và mục lục bằng tiện ích dịch
+
+Anh Bửu duyệt: popup dịch ở thanh trên Chi tiết có mục BỘ DỊCH nhưng cả trang vẫn dịch QT — chọn tiện ích dịch thì chữ của trang phải dịch bằng tiện ích đó. Dùng phần nền `ChineseTextExtensionTranslator` + `ExtensionTextTranslationStore`.
+
+- **Hai store** của trang (`BookDetailText.Stores`, một `@State` của `BookDetailView`): `source: .detail` cho tên, giới thiệu, thể loại, tiêu đề thẻ đề xuất / bình luận, tiêu đề ngăn kéo `…`, tên truyện đề xuất, bình luận + trả lời (cả màn Tất cả bình luận); `source: .tableOfContent` cho tab Mục lục. `syncTextStores()` (`BookDetailView+TextOptions`) dựng lại lượt dịch bằng `ChineseTextExtensionTranslator.request(bookId: actualBookId, …)` trong `.onChange(of: textSyncKey, initial: true)` — khoá gồm `TranslationDisplayRevision` (tăng cả khi đổi bộ dịch), cờ dịch của trang và truyện; không gọi `update` trong `body`. Bộ dịch QT / tắt dịch ⇒ `request` `nil`, trang y như trước.
+- **`BookDetailText`** (mới): chữ của một chỗ hiện = bản QT theo `options` (đúng ngay lượt vẽ đầu; đề xuất / bình luận vẫn chỉ từ điển chung) hoặc bản tiện ích của store. Chưa có ⇒ hiện bản QT rồi thay; store gom mẩu **đang hiện** thành lô (danh sách lười: đề xuất, bình luận, mục lục). Tiện ích lỗi ⇒ giữ bản QT, chỉ log (`❌ [ExtTranslate]` của runner).
+- **Tác giả** giữ phiên âm Hán Việt, không gửi tiện ích.
+- **Tab Mục lục**, luật như tên chương trong Reader: bộ dịch ra tiếng Việt (`targetsVietnamese`) và có `title_trans` ⇒ bản lưu, không gọi tiện ích; không thì tiện ích (cả dòng nhóm, mục lục online); lỗi / chưa xong ⇒ bản QT. Chỉ tên đang hiện, theo lô. Ô tìm chương khớp thêm bản tiện ích đã có (mục lục đã lưu và online; chỉ mục tên online để tìm vẫn là QT).
+- `BookDetailHeaderView`, `SuggestRowView`, `CommentSectionView`, `CommentRowView`, `CommentRepliesBlock`, `AllCommentsView`, `BookDetailTOCView` nhận `BookDetailText` thay `ChineseTextPipeline.Options`. Màn xem phim: init `isTranslationEnabled:` của `CommentRowView` / `AllCommentsView` giữ QT như cũ (`BookDetailText.quickOnly`).
+- **Kiểm chứng:** đọc code + grep (Chi tiết không còn chỗ hiện chữ Trung đi thẳng QT ngoài `BookDetailText`, trừ lượt điền `title_trans` để lưu); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`BookDetailView` 1029 ⇒ 1027). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) popup dịch ở Chi tiết chọn một tiện ích dịch ⇒ tên, giới thiệu, thể loại, đề xuất, bình luận hiện QT rồi đổi sang bản tiện ích, log `🌐 [ExtTranslate] … dòng mới`; (2) tab Mục lục: truyện đã lưu có `title_trans` + bộ dịch ra tiếng Việt ⇒ không gọi tiện ích; truyện chưa lưu ⇒ tên chương đang hiện dịch theo lô khi cuộn; (3) tiện ích lỗi ⇒ trang giữ QT, có log ❌; (4) chọn lại QT ⇒ trang về QT ngay; (5) bình luận ở màn xem phim vẫn QT.
+
 ## [1.3.854] - 2026-11-11
 
 ### feat: truyện tranh dịch khối chữ OCR và tên chương bằng tiện ích dịch, popup có lại mục bộ dịch

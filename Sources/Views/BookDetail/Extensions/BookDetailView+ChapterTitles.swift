@@ -5,7 +5,7 @@ import Foundation
 /// phồn → giản là bước riêng chạy **cả khi tắt dịch**; bật dịch ⇒ bản lưu `title_trans` (đã qua bước chuyển, còn chữ Hán
 /// thì dịch tiếp) hoặc dịch sống. Tách khỏi `BookDetailView.swift` (file legacy, không được dài thêm).
 ///
-/// Cấu hình đọc **một lần** mỗi lượt vẽ của trang (`tocTitleOptions`, truyền xuống `BookDetailTOCView.titleOptions`);
+/// Cấu hình đọc **một lần** mỗi lượt vẽ của trang (`tocTitleOptions`, truyền xuống `BookDetailTOCView.titleText`);
 /// từng hàng chỉ gọi các hàm `static` dưới đây — không tra `TranslationConfigStore` theo từng hàng.
 extension BookDetailView {
     /// Cờ chữ của mục lục: dịch theo công tắc của trang (`isTranslationEnabled`), phồn → giản ba cấp Truyện ⇒ Nguồn ⇒ Tất
