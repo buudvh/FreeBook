@@ -7,8 +7,9 @@ import UIKit
 /// - Chữ là `UILabel`, cỡ chữ đo một lần ở 1× (thu nhỏ dần tới khi vừa khung, như `minimumScaleFactor` của bản SwiftUI).
 ///   Zoom xong (`setZoomScale`) đặt `contentScaleFactor` của chữ = scale màn × mức zoom để vẽ lại sắc nét; trong lúc đang
 ///   chụm hai ngón thì hơi mờ — cách làm thường của `UIScrollView`.
-/// - Chạm một khối ⇒ ẩn bản dịch, lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch. Cử chỉ chạm chờ chạm đúp phóng to
-///   thất bại. Vùng trống không nhận chạm (kéo / zoom đi thẳng xuống `UIScrollView`).
+/// - Chạm một khối ⇒ `onTapBlock` (màn Dịch, 1.3.837); nhấn giữ ⇒ ẩn bản dịch, lộ chữ gốc (viền nét đứt màu nhấn), nhấn giữ
+///   lại ⇒ dịch — như bản SwiftUI trên trang. Cử chỉ chạm chờ chạm đúp phóng to thất bại. Vùng trống không nhận chạm (kéo /
+///   zoom đi thẳng xuống `UIScrollView`).
 final class ComicZoomTranslationLayer: UIView {
     /// Một khối dịch: nền + chữ, hoặc chỉ viền nét đứt khi đang lộ chữ gốc.
     private final class BlockView: UIView {
@@ -69,6 +70,9 @@ final class ComicZoomTranslationLayer: UIView {
         }
     }
 
+    /// Chạm một khối (sau khi chạm đúp đã thất bại).
+    var onTapBlock: ((ComicPageTextTranslator.Item) -> Void)?
+
     private var items: [ComicPageTextTranslator.Item] = []
     private var revealed: Set<Int> = []
     private var blockViews: [BlockView] = []
@@ -103,6 +107,9 @@ final class ComicZoomTranslationLayer: UIView {
                 tap.require(toFail: doubleTapGesture)
             }
             view.addGestureRecognizer(tap)
+            let hold = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+            hold.minimumPressDuration = 0.4
+            view.addGestureRecognizer(hold)
             addSubview(view)
             return view
         }
@@ -151,6 +158,11 @@ final class ComicZoomTranslationLayer: UIView {
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         guard let view = gesture.view as? BlockView else { return }
+        onTapBlock?(view.item)
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, let view = gesture.view as? BlockView else { return }
         let id = view.item.id
         if revealed.contains(id) {
             revealed.remove(id)

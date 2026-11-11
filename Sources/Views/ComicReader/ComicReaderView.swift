@@ -28,6 +28,8 @@ struct ComicReaderView: View {
     @State private var imageTranslationRevision = 0
     /// Ngăn kéo `⋯` (Cài đặt dịch, Từ điển truyện) — nội dung + hai sheet ở `ComicTranslationToolsModifier`.
     @State private var showsTranslationMenu = false
+    /// Màn Dịch của khối vừa chạm trên trang (1.3.837) — sheet ở `ComicTranslationToolsModifier`.
+    @State private var definitionRequest: ComicDefinitionSheet.Request?
     /// Lượt dịch tên chương đang chạy — lượt mới huỷ lượt cũ để kết quả cũ không ghi đè.
     @State private var titleTranslationTask: Task<Void, Never>?
     @State private var viewModel: ComicReaderViewModel
@@ -138,6 +140,7 @@ struct ComicReaderView: View {
         .errorLinkBrowser(link: $openingErrorLink, packageId: launch.extensionPackageId) { viewModel.retry() }
         .modifier(ComicTranslationToolsModifier(
             isMenuPresented: $showsTranslationMenu,
+            definitionRequest: $definitionRequest,
             bookId: launch.bookId,
             packageId: launch.extensionPackageId,
             sourceName: sourceDisplayName,
@@ -145,7 +148,7 @@ struct ComicReaderView: View {
             bookTitle: localBook?.title ?? launch.bookTitle ?? "",
             hasLocalBook: localBook != nil,
             isTranslationEnabled: isTranslationEnabled,
-            onSettingsClosed: refreshTranslations
+            onToolClosed: refreshTranslations
         ))
     }
 
@@ -217,7 +220,8 @@ struct ComicReaderView: View {
                                     viewModel.recordAspectRatio(ratio, at: index, generation: generation)
                                 },
                                 onSingleTap: toggleChrome,
-                                onDoubleTap: { openZoom($0, request: request) }
+                                onDoubleTap: { openZoom($0, request: request) },
+                                onOpenDefinition: { definitionRequest = makeDefinitionRequest(for: $0) }
                             )
                             .id(index)
                             .onAppear { viewModel.pageDidAppear(index, generation: generation) }
@@ -277,15 +281,15 @@ struct ComicReaderView: View {
         .buttonStyle(.plain)
     }
 
+    /// Cover phóng to kèm sheet Dịch của chính nó (sheet phải gắn trong cover) — `ComicZoomScreen`, 1.3.837.
     private func zoomCover(_ target: ComicZoomViewer.Target) -> some View {
-        ComicZoomViewer(
-            image: target.image,
-            request: target.request,
+        ComicZoomScreen(
+            target: target,
             translation: imageTranslationContext,
-            onClose: { zoomTarget = nil }
+            makeDefinitionRequest: makeDefinitionRequest(for:),
+            onClose: { zoomTarget = nil },
+            onDefinitionClosed: refreshTranslations
         )
-        .ignoresSafeArea()
-        .statusBarHidden(true)
     }
 
     // MARK: - Hành động
@@ -298,6 +302,15 @@ struct ComicReaderView: View {
 
     private func openZoom(_ image: UIImage, request: ComicImageRequest) {
         zoomTarget = ComicZoomViewer.Target(image: image, request: request)
+    }
+
+    /// Màn Dịch cho chữ Trung gốc của một khối — phồn→giản theo truyện, như lớp dịch.
+    private func makeDefinitionRequest(for sentence: String) -> ComicDefinitionSheet.Request {
+        ComicDefinitionSheet.Request(
+            sentence: sentence,
+            bookId: launch.bookId,
+            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId)
+        )
     }
 
     // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện — `ComicTranslationStatus`)

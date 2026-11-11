@@ -8,7 +8,8 @@ import UIKit
 /// - Task theo (`cacheKey`, ngữ cảnh dịch): lấy khối chữ (`ComicPageTextRepository`: RAM → đĩa → Vision) rồi dịch ngoài main.
 ///   Hàng rời màn ⇒ view biến mất ⇒ task huỷ. Đổi `revision` (từ điển / rule đổi) ⇒ dịch lại, giữ bản cũ tới khi có bản
 ///   mới (không nháy).
-/// - Chạm một khối ⇒ ẩn bản dịch, lộ chữ gốc của ảnh (viền nét đứt để còn chạm lại). Cử chỉ của khối là cử chỉ con nên thắng
+/// - Chạm một khối ⇒ màn **Dịch** của Reader với câu gốc = chữ Trung OCR của khối (`onOpenDefinition`, 1.3.837). Nhấn giữ ⇒
+///   ẩn bản dịch, lộ chữ gốc của ảnh (viền nét đứt), nhấn giữ lại ⇒ dịch. Cử chỉ của khối là cử chỉ con nên thắng
 ///   chạm-bật-thanh và chạm-đúp-phóng-to của trang; chạm ngoài khối vẫn như cũ (vùng trống của lớp này không nhận chạm).
 /// - Nhận chữ lâu hơn `progressDelayNanoseconds` mới hiện viên "Đang nhận chữ" — ảnh đã có trong cache không nháy viên.
 /// - Khung, cỡ chữ, màu ở `ComicTranslationLayout` — dùng chung với lớp dịch của trình xem phóng to (1.3.834).
@@ -17,6 +18,8 @@ struct ComicTranslationOverlay: View {
     let request: ComicImageRequest
     let image: UIImage
     let context: ComicImageTranslationContext
+    /// Chạm một khối: chữ Trung gốc của khối ⇒ màn Dịch.
+    let onOpenDefinition: (String) -> Void
 
     @State private var items: [ComicPageTextTranslator.Item] = []
     @State private var revealedOriginals: Set<Int> = []
@@ -82,7 +85,8 @@ struct ComicTranslationOverlay: View {
         }
         .frame(width: frame.width, height: frame.height)
         .contentShape(Rectangle())
-        .onTapGesture { toggleOriginal(item.id) }
+        .onTapGesture { onOpenDefinition(item.block.text) }
+        .onLongPressGesture(minimumDuration: 0.4) { toggleOriginal(item.id) }
         .position(x: frame.midX, y: frame.midY)
         .accessibilityLabel(isRevealed ? item.block.text : item.translated)
     }

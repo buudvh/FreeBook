@@ -23,6 +23,8 @@ struct ComicZoomViewer: UIViewRepresentable {
     let request: ComicImageRequest?
     /// `nil` = truyện đang tắt dịch.
     let translation: ComicImageTranslationContext?
+    /// Chạm một khối dịch: chữ Trung gốc của khối ⇒ màn Dịch (1.3.837, `ComicZoomScreen` trình bày).
+    let onOpenDefinition: (String) -> Void
     let onClose: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -34,6 +36,7 @@ struct ComicZoomViewer: UIViewRepresentable {
         view.scrollView.delegate = context.coordinator
         context.coordinator.container = view
         view.closeHandler = onClose
+        view.translationLayer.onTapBlock = { onOpenDefinition($0.block.text) }
         view.setImage(image)
         context.coordinator.loadTranslation(into: view, image: image, request: request, translation: translation)
         return view
@@ -41,9 +44,19 @@ struct ComicZoomViewer: UIViewRepresentable {
 
     func updateUIView(_ uiView: ZoomContainerView, context: Context) {
         uiView.closeHandler = onClose
+        uiView.translationLayer.onTapBlock = { onOpenDefinition($0.block.text) }
         if uiView.imageView.image !== image {
             uiView.setImage(image)
             context.coordinator.loadTranslation(into: uiView, image: image, request: request, translation: translation)
+        } else if context.coordinator.loadedTranslation != translation {
+            // Từ điển / rule vừa đổi (vd lưu name ở màn Dịch) ⇒ dịch lại, giữ khối cũ tới khi có bản mới.
+            context.coordinator.loadTranslation(
+                into: uiView,
+                image: image,
+                request: request,
+                translation: translation,
+                clearsCurrent: false
+            )
         }
     }
 
@@ -55,6 +68,8 @@ struct ComicZoomViewer: UIViewRepresentable {
     final class Coordinator: NSObject, UIScrollViewDelegate {
         weak var container: ZoomContainerView?
         var translationTask: Task<Void, Never>?
+        /// Ngữ cảnh dịch của lượt nạp gần nhất — đổi (`revision` mới) thì `updateUIView` dịch lại.
+        private(set) var loadedTranslation: ComicImageTranslationContext?
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             container?.contentView
@@ -73,10 +88,14 @@ struct ComicZoomViewer: UIViewRepresentable {
             into view: ZoomContainerView,
             image: UIImage,
             request: ComicImageRequest?,
-            translation: ComicImageTranslationContext?
+            translation: ComicImageTranslationContext?,
+            clearsCurrent: Bool = true
         ) {
             translationTask?.cancel()
-            view.translationLayer.setItems([])
+            loadedTranslation = translation
+            if clearsCurrent || translation == nil {
+                view.translationLayer.setItems([])
+            }
             guard let request, let translation, let cgImage = image.cgImage else { return }
             translationTask = Task { @MainActor [weak view] in
                 guard let blocks = try? await ComicPageTextRepository.shared.blocks(for: request, image: cgImage),

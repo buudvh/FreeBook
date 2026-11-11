@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.807] - 2026-11-09
+
+### feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt
+
+Anh Bửu: *"thêm nút hẹn giờ vào thanh nghe nhạc mini của nghe nhạc"* và *"chỉ cần cao hơn browser được rồi"* (không làm cửa sổ nổi toàn app).
+
+- `AudioMiniPlayerBar`: thêm ⏱ giữa ⏭ và ✕ (4 nút rộng 36 pt như thanh widget TTS), chạm mở `MediaSleepTimerSheet` của trình nghe; đang hẹn ⇒ viên "⏱ m:ss" cạnh tên ca sĩ (`AudioMiniPlayerTimerBadge`, view riêng đọc `MediaSleepTimer` ⇒ thân thanh không vẽ lại mỗi giây).
+- Trình duyệt người dùng (`BypassWebView.browserArea`): đang có album ⇒ thanh nhạc mini nằm ngay trên thanh dưới, trang co lại chừa chỗ (không che); ẩn lúc gõ địa chỉ. Trang đẩy vào / sheet giữ như cũ.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.806] - 2026-11-09
 
 ### feat: nút đĩa TTS trong Reader cho kiểu Thanh nghe nhạc, chạm mở sheet điều khiển nhanh, thanh bung nằm sát đáy không che chữ

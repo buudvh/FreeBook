@@ -25,6 +25,8 @@ struct ComicPageView: View {
     /// Chạm một lần (ở đâu trên ảnh cũng vậy) — màn đọc bật/tắt thanh điều khiển.
     let onSingleTap: () -> Void
     let onDoubleTap: (UIImage) -> Void
+    /// Chạm một khối dịch: chữ Trung gốc của khối ⇒ màn Dịch (1.3.837).
+    let onOpenDefinition: (String) -> Void
 
     @State private var image: UIImage?
     @State private var measuredAspectRatio: CGFloat?
@@ -60,7 +62,12 @@ struct ComicPageView: View {
                 .scaledToFit()
                 .overlay {
                     if let translation {
-                        ComicTranslationOverlay(request: request, image: image, context: translation)
+                        ComicTranslationOverlay(
+                            request: request,
+                            image: image,
+                            context: translation,
+                            onOpenDefinition: onOpenDefinition
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity)
