@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.865",
+          "buildVersion": "1224",
+          "date": "2026-11-11T13:14:00Z",
+          "localizedDescription": "- feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1224/TangCongCac-1.3.865-1224.ipa",
+          "size": 39578362,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.864",
           "buildVersion": "1223",
           "date": "2026-11-11T12:36:58Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1214/TangCongCac-1.3.845-1214.ipa",
           "size": 39497613,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.844",
-          "buildVersion": "1212",
-          "date": "2026-11-11T05:06:30Z",
-          "localizedDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo\n- perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự\n- feat: mục lục truyện tranh có nút dịch lại tên chương như Reader",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1212/TangCongCac-1.3.844-1212.ipa",
-          "size": 39488226,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.864",
-      "versionDate": "2026-11-11T12:36:58Z",
-      "versionDescription": "- feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header\n- feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt\n- feat: sheet nghe truyện thêm nút chương trước và chương kế ở hai đầu\n- feat: nút hub và nút trình duyệt thu nhỏ thành nửa viên thuốc nhỏ dính mép\n- feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu\n- feat: icon nút nổi mờ theo độ trong suốt như nền kính\n- fix: ẩn đĩa nghe khi sheet hub hoặc màn Thông báo của hub đang mở",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1223/TangCongCac-1.3.864-1223.ipa",
-      "size": 39586152,
+      "version": "1.3.865",
+      "versionDate": "2026-11-11T13:14:00Z",
+      "versionDescription": "- feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1224/TangCongCac-1.3.865-1224.ipa",
+      "size": 39578362,
       "appPermissions": {}
     }
   ],
