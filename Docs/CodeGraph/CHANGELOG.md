@@ -2,6 +2,43 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.832] - 2026-11-11
+
+### feat: lõi dịch truyện bằng tiện ích loại translate
+
+Anh Bửu duyệt plan "tiện ích dịch truyện" theo `extension-api.md` của Darkrai9x (loại `translate`). Đây là phần A: lõi Services, **chưa nối** vào Reader, TTS hay giao diện (phần B và C ở các commit sau), nên bản này chưa đổi gì người dùng thấy.
+
+- `Services/Translation/Engine/` (mới):
+  - `TranslationEngineSelection`: QT, hoặc một tiện ích kèm ngôn ngữ nguồn → đích.
+  - `TranslationEngineStore`: 3 cấp Truyện > Nguồn > Toàn cục như `TranslationConfigStore`, độc lập với công tắc bật/tắt dịch, lưu JSON trong `UserDefaults`. Tiện ích đã gỡ ⇒ `resolve` lùi về QT. Đổi lựa chọn ⇒ `TranslateUtils.invalidateCache` + `didChangeNotification`.
+  - `TranslationExtensionSettingsStore`: model / kiểu dịch theo từng tiện ích.
+  - `TranslationFallbackStatus` + `TranslationFallbackStatusStore` (`@MainActor @Observable`): báo "đang dịch bằng QT thay thế" theo từng chương, cộng yêu cầu Thử lại.
+- `Services/Translation/Engine/Extension/` (mới):
+  - `TranslationExtensionContext`: đọc một lần mỗi lượt — config đã trộn, ba khoá thô `support_auto_detect` / `max_line` / `max_length`, model / kiểu, dấu vân tay.
+  - `TranslationExtensionRunner`: một `JSExecutor` mỗi lượt; lô tuần tự nối bằng `\n`; lệch số dòng ⇒ chia đôi tới mức từng dòng; lô lỗi ⇒ dừng gọi tiếp; chỉ ném `CancellationError`.
+  - `TranslationExtensionBatchPlanner`, `TranslationExtensionResultParser` (nhận chuỗi hoặc `{ text }`; `segments` chưa dùng).
+  - `TranslationExtensionLineCache`: chỉ RAM; khoá gồm tiện ích + phiên bản/config + ngôn ngữ + model + kiểu + `source` + truyện + dòng; chỉ lưu bản dịch khác rỗng.
+  - `TranslationExtensionCatalog` (actor): chạy `language.js` / `model.js` / `style.js`, nhớ theo dấu vân tay; mặc định Trung → Việt.
+  - `TranslationExtensionChapterTranslator`: điểm vào chung của Reader và TTS. Dòng lỗi có chữ Hán ⇒ QT, không có ⇒ giữ chữ gốc. Tên chương: `title_trans` ⇒ tiện ích (`tableOfContent`) ⇒ QT. Phồn → giản áp trước khi gửi.
+- Không giữ executor lâu dài (không thêm ngoại lệ cạnh `ExtTTSRuntime`). Không sửa `TranslateUtils.swift` (đang chạm baseline dòng).
+- Chưa làm (đúng plan): `localBook`, các khoá `localConfig` dành riêng (`translate_model`…), `segments`, Kiểm tra tiện ích cho loại này.
+- Chuyển `[1.3.801]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới** (17 file mới, lớn nhất 194 dòng, mỗi file một type chính). Không build tại chỗ (Windows), chưa thử máy.
+
+## [1.3.831] - 2026-11-11
+
+### feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado
+
+Anh Bửu: *"mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"* — chốt thêm: giữ công tắc chung (mặc định tắt, 1.3.828), nguồn Legado cũng có công tắc, phạm vi = request trong script / engine của nguồn, một máy chủ chung cho mọi nguồn.
+
+- `Extension.encryptedDNSEnabled` (tắt ghi `nil`) + `ExtensionTransactionCoordinator.setEncryptedDNSEnabled`; cập nhật tiện ích giữ cờ; backup (`BackupPayload` / Writer / Reader / Fingerprint) như `adBlockOverride`.
+- Apple không có DoH theo từng `URLSession` ⇒ **proxy HTTP CONNECT nội bộ 127.0.0.1**: `EncryptedDNSRelay` (listener loopback, cổng ngẫu nhiên, khuôn `VideoOfflineHTTPServer`) + `EncryptedDNSRelayTunnel` (CONNECT và `GET http://` tuyệt đối — viết lại dòng đầu, ép `Connection: close`; ra ngoài bằng `NWConnection` với privacy context riêng bắt buộc DoH, dùng lại theo máy chủ; hạn kết nối 10 s, `.waiting` = 502/504; đứng yên 60 s; một bên đóng ⇒ đóng cả hai; log `[DNS-Relay] → host:port`, lỗi `❌`).
+- `EncryptedDNSSessionRouter`: `JSExecutor` `fetch` đổi `URLSession.shared` ⇒ `session(forExtensionPath:)` (session `.default` + `proxyConfigurations`, chung cookie/cache); `LegadoHTTPClient(cancellation:proxyConfigurations:)` qua `LegadoEngineSource.packageId` (đặt ở `LegadoSourceRuntime.Target`). Không ai bật cờ / đang lùi / đang bật cho cả app / proxy chưa sẵn ⇒ đi thẳng như cũ. Bản chụp cho thread nền: `EncryptedDNSRouting`.
+- `EncryptedDNSRepository`: cần DNS ⇔ công tắc chung **hoặc** có nguồn bật cờ; chỉ công tắc chung đụng context mặc định; có nguồn bật cờ ⇒ bật proxy ngay; `sourcesDidChange()` / `refreshSourceCount()`. `FreeBookApp.init` gọi `start()` **sau** khi nạp bảng tiện ích.
+- Giao diện (theo mockup): công tắc "DNS mã hoá (DoH)" trong mục **Mạng** của Cấu hình tiện ích (dưới "Xử lý cookie hệ thống", chân mục theo trạng thái) và mục **Hoạt động** của Chi tiết nguồn Legado (`ExtensionEncryptedDNSToggle`); đang bật cho cả app ⇒ bật + mờ. Mạng & DNS: "Bật cho cả app", máy chủ luôn hiện, dòng "Bật riêng: N tiện ích / nguồn", trạng thái khi có ai cần.
+- `CLAUDE.md` / `AGENTS.md`: viết lại mục DNS mã hoá.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật cờ cho tiện ích có nguồn bị nhà mạng chặn ⇒ tải được **và** log có `[DNS-Relay] → <host của nguồn>` (thiếu ⇒ request vòng qua proxy, vd QUIC); tắt ⇒ lại bị chặn; tiện ích khác không đổi; (2) như trên với nguồn Legado; (3) nguồn `http://`; (4) bật chung ⇒ công tắc riêng mờ, tắt chung ⇒ cờ riêng vẫn chạy.
+
 ## [1.3.830] - 2026-11-11
 
 ### feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc
@@ -344,26 +381,3 @@ Anh Bửu: *"bỏ hub âm thanh đi"*.
 - Hệ quả: ở trang đẩy vào / sheet / cover không còn lối mở lại màn nghe (thanh mini chỉ ở trang gốc tab); Reader dùng nút đĩa, còn lại màn khoá.
 - `CLAUDE.md` / `AGENTS.md`: mục Âm thanh ghi hub không có dòng "Âm thanh". Chuyển entry cũ nhất sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code + grep chéo `FloatingHubItem.Kind` / `.audio` toàn `Sources/`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.802] - 2026-11-09
-
-### feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ
-
-Anh Bửu duyệt plan "Playlist nhạc và video (tạo, sửa, xoá, phát)" và chốt: playlist gồm **từng bài / từng tập** (không phải cả album), **tách riêng Nhạc và Video**, ở **tab con mới của Kệ sách**, thêm được từ **cả 3 lối**. Đây là **phần 1** (kho + tab + thêm vào playlist); phát playlist (Phát tất cả, xáo, sang mục kế…) là phần sau — chạm một mục chưa làm gì.
-
-- **Kho** (không đụng `@Model`): `playlists/playlists.json` (`PlaylistLibraryFile` có `schemaVersion`). Model ở `Models/Playlists/`: `PlaylistKind` (`audio` / `video`, rawValue là hợp đồng file), `Playlist`, `PlaylistItem` (`packageId`, `detailUrl`, `index` = chỉ số thưa của mục lục đủ, `chapterUrl`, tên, dòng phụ, bìa, tên album, `host` / `sourceName` tuỳ chọn, `addedAt`; giải mã khoan dung — trường vắng lấy mặc định), `PlaylistAlbumInfo`, `PlaylistAddRequest`. Chống trùng = tiện ích + `chapterUrl` (rỗng ⇒ `detailUrl` + `index`), cả trong một lượt thêm.
-- **Services/Playlists/**: `PlaylistStore` (chủ file duy nhất, ghi `.atomic`; file hỏng ⇒ cất sang `playlists.broken-<thời điểm>.json`, log `❌`), `PlaylistRepository` (`@MainActor @Observable`, nạp đồng bộ trong `init`, `commit` ghi đĩa trước RAM sau), `PlaylistCoordinator` (tạo / đổi tên / xoá; thêm nhiều mục trả số mục thực sự thêm; bỏ mục và đổi thứ tự **theo id**; gộp từ sao lưu), `PlaylistItemMapper` (dựng mục từ phiên nghe, phiên phim, màn xem, `Book`), `PlaylistAlbumItemsLoader` (mọi bài / tập của album: mục lục trên máy, chưa có thì `BookDetailLoader.fetchFullTOC`, không ghi), `PlaylistError`.
-- **Sao lưu**: `BackupPlaylistArchiver` — entry `library/playlists.json` đi kèm nhóm `.books` (không thêm `BackupScope`), luôn ghi, khôi phục là **gộp** (playlist mới theo `id` thêm nguyên; đã có ⇒ thêm mục còn thiếu, giữ tên trên máy), không phụ thuộc công tắc khôi phục cài đặt. **Dung lượng**: loại mới "Playlist" (`StorageUsageCategory.playlists`).
-- **Tab Playlist** (`ShelfTab.playlists`, rawValue **4**, khai ngay sau `.collections` ⇒ nút icon `music.note.list` cạnh Bộ sưu tập; trang của `TabView` đặt sau Bộ sưu tập; 🔍 ẩn ở tab này như Tải xuống): chip Nhạc / Video (nhớ bằng `@AppStorage` `shelfPlaylistKind`), lưới thẻ (`PlaylistGridCardView`, bìa ghép `PlaylistCoverMosaicView` = 4 bìa **khác nhau** đầu tiên 2 × 2 qua `RemoteCoverImage`, ít hơn ⇒ một bìa), nhấn giữ thẻ ⇒ Đổi tên / Xoá; trống ⇒ màn mời tạo; nút "+" nổi ⇒ `PlaylistCreateSheet` (tên + loại, mặc định theo chip).
-- **Trang chi tiết** `PlaylistDetailView` (trang đẩy vào, `.backPageTitle`): `PlaylistDetailHeader` (bìa ghép, tên, "Nhạc · 12 bài") — hàng nút phát của phần sau đặt ngay dưới; hàng `PlaylistItemRow` (bìa vuông cho nhạc / ngang cho phim, `.headline` + `.subheadline` phụ); vuốt hoặc nhấn giữ ⇒ bỏ mục; ngăn kéo `…`: Sắp xếp lại (chế độ sửa của `List`, "Xong" ở header), Đổi tên, Xoá playlist (hỏi trước — `PlaylistManageAlertsModifier`, dùng chung với thẻ).
-- **Sheet "Thêm vào playlist"** (`PlaylistAddSheet`, một sheet cho mọi lối): playlist **cùng loại** (mới sửa trước) + "Tạo playlist mới" (tạo xong thêm luôn); toast "Đã thêm N mục vào <tên>" / "Đã có sẵn trong <tên>". Ba lối: (1) bài / tập đang phát — ngăn kéo `…` + nút `text.badge.plus` ở trang Đĩa của màn nghe, ngăn kéo `⋯` của trình phát phim ("Thêm tập này vào playlist", `VideoPlayerController.playlistAddRequest`); (2) nhấn giữ một bài ở trang Danh sách màn nghe, một tập ở dải tập + sheet "Tất cả tập" của màn xem (Lưới / Danh sách nhận `onAddToPlaylist`); (3) nhấn giữ album / phim trên Kệ ⇒ hàng "Thêm cả album / phim vào playlist" (`PlaylistAddBookActionRow`, vòng chờ trên hàng, lỗi ⇒ toast) — không thêm case `BookSheetAction`.
-- Công tắc NSFW tắt ⇒ bìa, số mục và danh sách bỏ mục của nguồn NSFW (như Bộ sưu tập); mục ẩn giữ nguyên chỗ khi xoá / đổi thứ tự.
-- `CLAUDE.md` / `AGENTS.md`: thêm `playlists/` vào danh sách thư mục dữ liệu + gạch "Playlist" ở mục Âm thanh. Chuyển `[1.3.772]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + grep chéo chữ ký (`RemoteCoverImage`, `BookDetailLoader.fetchFullTOC`, `ChapterStore.fetchOrderedTOC`, `SourceRuntimeContext`, `BackupZipArchive.stage/readStaged`, mọi nơi gọi `VideoEpisodeGridView` / `VideoEpisodeListView` / `AudioPlayerDrawerMenu` / `VideoWatchEpisodeSheet`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 200 dòng, một type chính; `BookActionSheet` 389, `BackupRestoreWorker` 398, `VideoPlayerScreen` 374). Không build tại chỗ (Windows). Chưa thử máy: thêm từ ba lối, sheet chồng lên sheet (Tất cả tập, nhấn giữ trên Kệ), kéo đổi thứ tự, sao lưu / khôi phục playlist.
-
-## [1.3.801] - 2026-11-09
-
-### docs: ghi phần gợi ý ở trang Danh sách của màn nghe vào CLAUDE.md và AGENTS.md
-
-- Mục Âm thanh, gạch "Tự phát bài gợi ý": thêm `AudioSuggestionSection` (1.3.800) và `AudioSuggestionStore` dùng chung với `AudioAutoNextCoordinator`.
-- **Kiểm chứng:** chỉ sửa tài liệu; `CLAUDE.md` và `AGENTS.md` vẫn trùng nhau trừ 3 dòng đầu.

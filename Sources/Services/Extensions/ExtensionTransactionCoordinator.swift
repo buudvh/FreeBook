@@ -264,6 +264,12 @@ public final class ExtensionTransactionCoordinator {
         mutateInstalled(packageId: packageId) { $0.videoMinimizeOverride = value }
     }
 
+    /// Công tắc "DNS mã hoá (DoH)" của nguồn (tiện ích JS hoặc nguồn Legado, 1.3.831). Công tắc tắt phải truyền `nil`.
+    /// Áp từ request kế tiếp (`EncryptedDNSSessionRouter` / `LegadoHTTPClient` đọc cờ lúc tạo request / phiên).
+    public func setEncryptedDNSEnabled(packageId: String, _ value: Bool?) -> Result<Void, ExtensionTransactionError> {
+        mutateInstalled(packageId: packageId) { $0.encryptedDNSEnabled = value }
+    }
+
     /// Đánh dấu vừa **duyệt chủ động** bằng nguồn này (chọn nguồn Khám phá, tìm bằng một nguồn, mở chi tiết).
     /// Ghi file gom ~3 s.
     @discardableResult

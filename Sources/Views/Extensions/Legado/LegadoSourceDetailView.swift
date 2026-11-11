@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Màn **Chi tiết nguồn Legado** (sheet từ tab "Nguồn Legado", có `NavigationStack` riêng như màn Cấu hình tiện ích):
-/// thẻ đầu + hàng nút tròn **Trình duyệt · Đăng nhập · Xoá**; mục "Hoạt động" (Bật nguồn, Biến của nguồn); mục "Công
+/// thẻ đầu + hàng nút tròn **Trình duyệt · Đăng nhập · Xoá**; mục "Hoạt động" (Bật nguồn, DNS mã hoá, Biến của nguồn); mục "Công
 /// cụ" (Sửa JSON nguồn, Gỡ lỗi từng bước, Kiểm tra nguồn này, Chia sẻ nguồn (JSON)).
 ///
 /// Bản tóm tắt (bật/tắt, tên dịch, nhóm, phiên bản) đọc từ `LegadoSourceRepository` trong `body` nên tự vẽ lại;
@@ -118,6 +118,8 @@ struct LegadoSourceDetailView: View {
             Toggle(isOn: Binding(get: { summary.isEnabled }, set: { setEnabled($0) })) {
                 Label("Bật nguồn", systemImage: "power")
             }
+            // DNS mã hoá riêng của nguồn (1.3.831): request của `LegadoHTTPClient` đi qua proxy nội bộ tra DoH.
+            ExtensionEncryptedDNSToggle(packageId: packageId, showsIcon: true)
             NavigationLink {
                 LegadoSourceVariablesView(
                     sourceName: summary.displayName,

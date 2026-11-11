@@ -157,7 +157,9 @@ final class LegadoEngineSession {
 
     var http: LegadoHTTPClient {
         if let httpStorage { return httpStorage }
-        let client = LegadoHTTPClient(cancellation: cancellation)
+        // DNS mã hoá riêng của nguồn (1.3.831): đọc cờ lúc mở phiên ⇒ bật/tắt có hiệu lực từ phiên kế tiếp.
+        let proxies = EncryptedDNSSessionRouter.proxyConfigurations(forPackageId: source.packageId)
+        let client = LegadoHTTPClient(cancellation: cancellation, proxyConfigurations: proxies)
         httpStorage = client
         return client
     }

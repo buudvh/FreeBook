@@ -19,7 +19,7 @@ enum LegadoSourceRuntime {
         init(packageId: String, source: LegadoBookSource) {
             self.packageId = packageId
             self.source = source
-            self.engineSource = LegadoEngineSource(
+            var engineSource = LegadoEngineSource(
                 key: source.bookSourceUrl,
                 name: source.bookSourceName,
                 group: source.bookSourceGroup,
@@ -31,6 +31,8 @@ enum LegadoSourceRuntime {
                 loginUrl: source.loginUrl,
                 rawJSON: source.rawJSONString
             )
+            engineSource.packageId = packageId
+            self.engineSource = engineSource
         }
 
         /// Nguồn đọc thẳng từ JSON (chưa cài): `packageId` theo công thức đóng băng của kho.

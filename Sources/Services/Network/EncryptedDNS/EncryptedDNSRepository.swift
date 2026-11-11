@@ -2,18 +2,20 @@ import Foundation
 import Network
 import Observation
 
-/// Nguồn sự thật **duy nhất** của DNS mã hoá trong app (1.3.825): áp cài đặt lên
-/// `NWParameters.PrivacyContext.default` và giữ trạng thái cho màn Mạng & DNS.
+/// Nguồn sự thật **duy nhất** của DNS mã hoá trong app: giữ trạng thái cho màn Mạng & DNS, áp công tắc chung lên
+/// `NWParameters.PrivacyContext.default`, và cập nhật `EncryptedDNSRouting` cho proxy nội bộ của các nguồn bật cờ riêng.
 ///
-/// - **Phạm vi**: context mặc định áp cho mọi kết nối trong tiến trình không dùng context riêng — `URLSession` (fetch của
-///   tiện ích JS, Legado, ảnh bìa, ảnh truyện tranh, tải phim offline…). WebView tải mạng ở tiến trình WebKit riêng và
-///   AVPlayer không có đường cấu hình ⇒ **không** ăn; Cài đặt hướng dẫn đổi DNS cho cả máy. Máy đã cài DNS mã hoá cấp
-///   hệ thống thì hệ thống thắng.
-/// - **Mở app** (`start`, gọi ở `FreeBookApp.init`): bật **ngay** (lạc quan — lượt mở lại truyện đọc gần nhất cần DoH
-///   từ request đầu) rồi dò (`EncryptedDNSProbe`). Ngoại lệ: lần trước kết thúc ở trạng thái lùi
-///   (`EncryptedDNSPolicy.lastProbeFailed`) ⇒ khởi động bằng DNS thường, dò xong mới bật.
-/// - **Dò lỗi** ⇒ lùi về DNS thường, log `❌ [DNS]`. Dò lại khi mạng có lại / đổi đường mạng (Wi-Fi ↔ 4G, bật VPN),
-///   khi đổi cài đặt và khi bấm "Kiểm tra lại". Mất mạng không lùi — chờ có mạng rồi dò.
+/// - **Cần DNS mã hoá** ⇔ công tắc "Bật cho cả app" (`EncryptedDNSPolicy`, mặc định tắt từ 1.3.828) **hoặc** có tiện
+///   ích / nguồn Legado bật `Extension.encryptedDNSEnabled` (1.3.831). Không ai cần ⇒ không dò, không đụng gì.
+/// - **Công tắc chung** áp context mặc định ⇒ mọi kết nối trong tiến trình (`URLSession`: fetch, Legado, ảnh…). WebView
+///   (tiến trình WebKit) và AVPlayer không ăn ⇒ Cài đặt hướng dẫn đổi DNS cả máy.
+/// - **Cờ riêng** đi qua proxy nội bộ `EncryptedDNSRelay` (`EncryptedDNSSessionRouter` chọn session); có nguồn bật cờ
+///   ⇒ khởi động proxy ngay, để request đầu tiên sau khi mở app không âm thầm đi đường thường.
+/// - **Mở app** (`start`, gọi ở `FreeBookApp.init` sau khi nạp bảng tiện ích): bật máy chủ **ngay** (lạc quan) rồi dò
+///   (`EncryptedDNSProbe`). Ngoại lệ: lần trước kết thúc ở trạng thái lùi (`EncryptedDNSPolicy.lastProbeFailed`) ⇒
+///   khởi động bằng DNS thường, dò xong mới bật.
+/// - **Dò lỗi** ⇒ lùi về DNS thường (cả công tắc chung lẫn proxy), log `❌ [DNS]`. Dò lại khi đổi đường mạng (Wi-Fi ↔
+///   4G, bật VPN), đổi cài đặt / cờ nguồn, bấm "Kiểm tra lại". Mất mạng không lùi — chờ có mạng rồi dò.
 /// - Đổi context mặc định giữa chừng (lùi / tắt) Apple không ghi rõ có tác dụng với kết nối mới hay không — kiểm trên máy.
 @MainActor
 @Observable
@@ -24,8 +26,10 @@ final class EncryptedDNSRepository {
     private static let pathChangeProbeDelay: UInt64 = 2_000_000_000
 
     private(set) var state: EncryptedDNSState = .off
+    /// Số tiện ích / nguồn Legado đang bật DNS riêng (dòng "Bật riêng" của màn Mạng & DNS).
+    private(set) var enabledSourceCount = 0
 
-    /// Máy chủ mà context mặc định đang bắt buộc; `nil` = DNS thường.
+    /// Máy chủ mà context mặc định đang bắt buộc (chỉ khi công tắc chung bật); `nil` = DNS thường.
     @ObservationIgnored private var appliedResolver: EncryptedDNSResolver? = nil
     @ObservationIgnored private var probeTask: Task<Void, Never>? = nil
     @ObservationIgnored private var pathMonitor: NWPathMonitor? = nil
@@ -36,43 +40,78 @@ final class EncryptedDNSRepository {
 
     private init() {}
 
-    /// Gọi một lần lúc mở app, trước mọi chỗ có thể mở kết nối.
+    /// Có ai cần DNS mã hoá không (công tắc chung hoặc cờ riêng).
+    var isNeeded: Bool { EncryptedDNSPolicy.isEnabled || enabledSourceCount > 0 }
+
+    /// Gọi một lần lúc mở app, sau khi nạp bảng tiện ích và trước mọi chỗ có thể mở kết nối.
     func start() {
         guard !didStart else { return }
         didStart = true
         startPathMonitor()
-        guard EncryptedDNSPolicy.isEnabled else {
-            state = .off
-            AppLogger.shared.log("[DNS] DNS mã hoá đang tắt — dùng DNS của nhà mạng")
-            return
-        }
-        let resolver = EncryptedDNSPolicy.resolver
-        if EncryptedDNSPolicy.lastProbeFailed {
-            AppLogger.shared.log("[DNS] Lần trước đã lùi về DNS thường — dò \(resolver.shortTitle) trước rồi mới bật")
-        } else {
-            apply(resolver)
-        }
-        scheduleProbe(resolver: resolver, delay: 0, reason: "mở app")
+        refresh(reason: "mở app", isLaunch: true)
     }
 
-    /// Màn Mạng & DNS đổi công tắc / máy chủ. Bật ⇒ áp ngay rồi dò (người dùng đang nhìn kết quả).
+    /// Màn Mạng & DNS đổi công tắc chung / máy chủ.
     func applySettings() {
-        probeTask?.cancel()
-        guard EncryptedDNSPolicy.isEnabled else {
-            apply(nil)
-            state = .off
-            AppLogger.shared.log("[DNS] Tắt DNS mã hoá — dùng DNS của nhà mạng")
-            return
-        }
-        let resolver = EncryptedDNSPolicy.resolver
-        apply(resolver)
-        scheduleProbe(resolver: resolver, delay: 0, reason: "đổi cài đặt")
+        refresh(reason: "đổi cài đặt", isLaunch: false)
+    }
+
+    /// Một nguồn vừa bật / tắt cờ riêng.
+    func sourcesDidChange() {
+        refresh(reason: "đổi nguồn bật DNS riêng", isLaunch: false)
+    }
+
+    /// Mở màn Mạng & DNS: đếm lại (tiện ích có cờ có thể vừa bị gỡ) — chỉ làm mới khi số đổi.
+    func refreshSourceCount() {
+        guard Self.countEnabledSources() != enabledSourceCount else { return }
+        sourcesDidChange()
     }
 
     /// Nút "Kiểm tra lại".
     func recheck() {
-        guard EncryptedDNSPolicy.isEnabled else { return }
+        guard isNeeded else { return }
         scheduleProbe(resolver: EncryptedDNSPolicy.resolver, delay: 0, reason: "kiểm tra tay")
+    }
+
+    // MARK: - Làm mới
+
+    private func refresh(reason: String, isLaunch: Bool) {
+        probeTask?.cancel()
+        enabledSourceCount = Self.countEnabledSources()
+        guard isNeeded else {
+            route(nil)
+            EncryptedDNSRelay.shared.stop()
+            state = .off
+            AppLogger.shared.log("[DNS] DNS mã hoá đang tắt (\(reason)) — dùng DNS của nhà mạng")
+            return
+        }
+        if enabledSourceCount > 0 {
+            EncryptedDNSRelay.shared.start()
+        } else {
+            EncryptedDNSRelay.shared.stop()
+        }
+        let resolver = EncryptedDNSPolicy.resolver
+        if isLaunch && EncryptedDNSPolicy.lastProbeFailed {
+            route(nil)
+            AppLogger.shared.log("[DNS] Lần trước đã lùi về DNS thường — dò \(resolver.shortTitle) trước rồi mới bật")
+        } else {
+            route(resolver)
+        }
+        scheduleProbe(resolver: resolver, delay: 0, reason: reason)
+    }
+
+    /// Đặt máy chủ đang dùng (`nil` = DNS thường) cho công tắc chung (context mặc định) + proxy nội bộ.
+    private func route(_ resolver: EncryptedDNSResolver?) {
+        apply(EncryptedDNSPolicy.isEnabled ? resolver : nil)
+        EncryptedDNSRouting.update(EncryptedDNSRouting.Snapshot(
+            activeResolver: resolver,
+            isGlobalApplied: appliedResolver != nil,
+            hasEnabledSources: enabledSourceCount > 0
+        ))
+    }
+
+    private static func countEnabledSources() -> Int {
+        ExtensionLibraryRepository.installedSnapshot().reduce(0) { $0 + ($1.encryptedDNSEnabled == true ? 1 : 0) }
     }
 
     // MARK: - Dò
@@ -97,11 +136,11 @@ final class EncryptedDNSRepository {
 
     private func handle(_ outcome: EncryptedDNSProbe.Outcome, resolver: EncryptedDNSResolver, reason: String) {
         // Cài đặt đã đổi trong lúc dò ⇒ kết quả này không còn đúng chỗ.
-        guard EncryptedDNSPolicy.isEnabled, EncryptedDNSPolicy.resolver == resolver else { return }
+        guard isNeeded, EncryptedDNSPolicy.resolver == resolver else { return }
         switch outcome {
         case .reachable:
             EncryptedDNSPolicy.lastProbeFailed = false
-            apply(resolver)
+            route(resolver)
             state = .reachable(resolver)
             AppLogger.shared.log("[DNS] Máy chủ \(resolver.shortTitle) tới được (\(reason))")
         case .failed(let why):
@@ -110,13 +149,13 @@ final class EncryptedDNSRepository {
                 return
             }
             EncryptedDNSPolicy.lastProbeFailed = true
-            apply(nil)
+            route(nil)
             state = .fallback(resolver, reason: why)
             AppLogger.shared.log("❌ [DNS] Không tới được máy chủ \(resolver.shortTitle) (\(reason)): \(why) — lùi về DNS thường")
         }
     }
 
-    // MARK: - Context mặc định
+    // MARK: - Context mặc định (chỉ công tắc chung)
 
     private func apply(_ resolver: EncryptedDNSResolver?) {
         guard resolver != appliedResolver else { return }
@@ -126,10 +165,10 @@ final class EncryptedDNSRepository {
                 true,
                 fallbackResolver: resolver.resolverConfiguration
             )
-            AppLogger.shared.log("[DNS] Bắt buộc DNS mã hoá qua \(resolver.shortTitle)")
+            AppLogger.shared.log("[DNS] Cả app: bắt buộc DNS mã hoá qua \(resolver.shortTitle)")
         } else {
             NWParameters.PrivacyContext.default.requireEncryptedNameResolution(false, fallbackResolver: nil)
-            AppLogger.shared.log("[DNS] Về DNS thường")
+            AppLogger.shared.log("[DNS] Cả app: về DNS thường")
         }
     }
 
@@ -153,7 +192,7 @@ final class EncryptedDNSRepository {
         let hadNetwork = hasNetwork
         hasNetwork = satisfied
         pathSignature = signature
-        guard EncryptedDNSPolicy.isEnabled else { return }
+        guard isNeeded else { return }
         let resolver = EncryptedDNSPolicy.resolver
         guard satisfied else {
             probeTask?.cancel()

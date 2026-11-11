@@ -147,7 +147,8 @@ public struct BackupLibraryReader {
                     adBlockOverride: ext.adBlockOverride,
                     desktopModeOverride: ext.desktopModeOverride,
                     translateOverride: ext.translateOverride,
-                    videoMinimizeOverride: ext.videoMinimizeOverride
+                    videoMinimizeOverride: ext.videoMinimizeOverride,
+                    encryptedDNSEnabled: ext.encryptedDNSEnabled
                 )
             }
     }

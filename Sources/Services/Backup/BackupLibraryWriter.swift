@@ -159,6 +159,12 @@ public struct BackupLibraryWriter {
                ) {
                 report.errors.append("Vuốt xuống trình phát \(record.name): \(error.localizedDescription)")
             }
+            if let encryptedDNS = record.encryptedDNSEnabled, ext.encryptedDNSEnabled == nil,
+               case .failure(let error) = ExtensionTransactionCoordinator.shared.setEncryptedDNSEnabled(
+                   packageId: record.packageId, encryptedDNS
+               ) {
+                report.errors.append("DNS mã hoá \(record.name): \(error.localizedDescription)")
+            }
         }
         return report
     }

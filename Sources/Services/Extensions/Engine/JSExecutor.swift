@@ -317,7 +317,7 @@ public final class JSExecutor: @unchecked Sendable {
             let fetchStartedAt = Date()
             self.emitDebugFetchStarted(taskID: taskID, url: resolvedUrlString, method: request.httpMethod ?? "GET")
             var responseByteCount = 0
-            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            let task = EncryptedDNSSessionRouter.session(forExtensionPath: self.localPath).dataTask(with: request) { data, response, error in
                 defer {
                     self.unregisterNetworkTask(id: taskID)
                     semaphore.signal()

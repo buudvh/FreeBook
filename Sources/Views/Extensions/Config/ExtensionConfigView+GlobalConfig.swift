@@ -49,9 +49,20 @@ extension ExtensionConfigView {
                 get: { (userValues[key] ?? "true") == "true" },
                 set: { userValues[key] = $0 ? "true" : "false" }
             ))
+            // DNS mã hoá riêng của tiện ích (1.3.831) — lưu ngay qua coordinator, không qua `configJson`.
+            if current.isInstalled {
+                ExtensionEncryptedDNSToggle(packageId: ext.packageId)
+            }
             configSaveErrorRow
         } header: {
-            SectionHelpHeader("Mạng", paragraphs: ["Mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS)."])
+            SectionHelpHeader("Mạng", paragraphs: [
+                "Xử lý cookie hệ thống: mặc định bật. Tắt tính năng này nếu tiện ích bị lỗi HTTP 400 do dính cookie đăng nhập Google/hệ thống (ví dụ: Google TTS).",
+                "DNS mã hoá (DoH): mọi request trong script của tiện ích này tra tên miền qua máy chủ DNS mã hoá, để vào được trang bị nhà mạng chặn theo tên miền. Không áp cho trình duyệt, webview và trình phát phim/nhạc. Máy chủ chọn ở Cài đặt › Mạng & DNS; máy chủ không tới được thì tự đi DNS thường."
+            ])
+        } footer: {
+            if current.isInstalled {
+                ExtensionEncryptedDNSToggle.Footnote(packageId: ext.packageId)
+            }
         }
     }
 

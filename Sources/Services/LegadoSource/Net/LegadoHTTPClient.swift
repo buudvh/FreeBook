@@ -1,4 +1,5 @@
 import Foundation
+import Network
 
 /// HTTP client của **một** phiên engine: `URLSession` ephemeral riêng, không kho cookie hệ thống (cookie do
 /// `LegadoCookieJar` quản), không cache, **không tự theo chuyển hướng** — `LegadoEngineSession` tự đi từng chặng để
@@ -27,7 +28,8 @@ final class LegadoHTTPClient {
     private let session: URLSession
     private let cancellation: LegadoEngineCancellation
 
-    init(cancellation: LegadoEngineCancellation) {
+    /// `proxyConfigurations`: proxy nội bộ DNS mã hoá khi nguồn bật cờ (`EncryptedDNSSessionRouter`), rỗng = đi thẳng.
+    init(cancellation: LegadoEngineCancellation, proxyConfigurations: [ProxyConfiguration] = []) {
         self.cancellation = cancellation
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
@@ -38,6 +40,9 @@ final class LegadoHTTPClient {
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 120
         configuration.httpMaximumConnectionsPerHost = 4
+        if !proxyConfigurations.isEmpty {
+            configuration.proxyConfigurations = proxyConfigurations
+        }
         session = URLSession(configuration: configuration, delegate: LegadoHTTPSessionDelegate(), delegateQueue: nil)
     }
 

@@ -9,8 +9,6 @@ struct FreeBookApp: App {
     init() {
         // Mặc định chặn quảng cáo/cửa sổ bật lên phải có TRƯỚC mọi chỗ tạo webview (và mọi `@AppStorage` đọc chúng).
         WebContentSettings.registerDefaults()
-        // DNS mã hoá phải áp lên context mặc định TRƯỚC mọi chỗ có thể mở kết nối (1.3.825).
-        EncryptedDNSRepository.shared.start()
         RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch()
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithDefaultBackground()
@@ -29,6 +27,9 @@ struct FreeBookApp: App {
             // Gói tiện ích thư mục → một file `extensions/js|legado/<id>.json`; dọn thư mục cũ trên nền sau khi nạp.
             ExtensionPackageLayoutMigrator.runIfNeeded()
             ExtensionLibraryRepository.shared.load()
+            // DNS mã hoá: sau khi nạp bảng tiện ích (cần biết nguồn nào bật cờ riêng — 1.3.831), trước mọi chỗ có thể
+            // mở kết nối.
+            EncryptedDNSRepository.shared.start()
             ExtensionPackageLayoutMigrator.scheduleCleanup()
             let config = ModelConfiguration(url: dbURL)
             container = try ModelContainer(

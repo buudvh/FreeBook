@@ -2,6 +2,29 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.802] - 2026-11-09
+
+### feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ
+
+Anh Bửu duyệt plan "Playlist nhạc và video (tạo, sửa, xoá, phát)" và chốt: playlist gồm **từng bài / từng tập** (không phải cả album), **tách riêng Nhạc và Video**, ở **tab con mới của Kệ sách**, thêm được từ **cả 3 lối**. Đây là **phần 1** (kho + tab + thêm vào playlist); phát playlist (Phát tất cả, xáo, sang mục kế…) là phần sau — chạm một mục chưa làm gì.
+
+- **Kho** (không đụng `@Model`): `playlists/playlists.json` (`PlaylistLibraryFile` có `schemaVersion`). Model ở `Models/Playlists/`: `PlaylistKind` (`audio` / `video`, rawValue là hợp đồng file), `Playlist`, `PlaylistItem` (`packageId`, `detailUrl`, `index` = chỉ số thưa của mục lục đủ, `chapterUrl`, tên, dòng phụ, bìa, tên album, `host` / `sourceName` tuỳ chọn, `addedAt`; giải mã khoan dung — trường vắng lấy mặc định), `PlaylistAlbumInfo`, `PlaylistAddRequest`. Chống trùng = tiện ích + `chapterUrl` (rỗng ⇒ `detailUrl` + `index`), cả trong một lượt thêm.
+- **Services/Playlists/**: `PlaylistStore` (chủ file duy nhất, ghi `.atomic`; file hỏng ⇒ cất sang `playlists.broken-<thời điểm>.json`, log `❌`), `PlaylistRepository` (`@MainActor @Observable`, nạp đồng bộ trong `init`, `commit` ghi đĩa trước RAM sau), `PlaylistCoordinator` (tạo / đổi tên / xoá; thêm nhiều mục trả số mục thực sự thêm; bỏ mục và đổi thứ tự **theo id**; gộp từ sao lưu), `PlaylistItemMapper` (dựng mục từ phiên nghe, phiên phim, màn xem, `Book`), `PlaylistAlbumItemsLoader` (mọi bài / tập của album: mục lục trên máy, chưa có thì `BookDetailLoader.fetchFullTOC`, không ghi), `PlaylistError`.
+- **Sao lưu**: `BackupPlaylistArchiver` — entry `library/playlists.json` đi kèm nhóm `.books` (không thêm `BackupScope`), luôn ghi, khôi phục là **gộp** (playlist mới theo `id` thêm nguyên; đã có ⇒ thêm mục còn thiếu, giữ tên trên máy), không phụ thuộc công tắc khôi phục cài đặt. **Dung lượng**: loại mới "Playlist" (`StorageUsageCategory.playlists`).
+- **Tab Playlist** (`ShelfTab.playlists`, rawValue **4**, khai ngay sau `.collections` ⇒ nút icon `music.note.list` cạnh Bộ sưu tập; trang của `TabView` đặt sau Bộ sưu tập; 🔍 ẩn ở tab này như Tải xuống): chip Nhạc / Video (nhớ bằng `@AppStorage` `shelfPlaylistKind`), lưới thẻ (`PlaylistGridCardView`, bìa ghép `PlaylistCoverMosaicView` = 4 bìa **khác nhau** đầu tiên 2 × 2 qua `RemoteCoverImage`, ít hơn ⇒ một bìa), nhấn giữ thẻ ⇒ Đổi tên / Xoá; trống ⇒ màn mời tạo; nút "+" nổi ⇒ `PlaylistCreateSheet` (tên + loại, mặc định theo chip).
+- **Trang chi tiết** `PlaylistDetailView` (trang đẩy vào, `.backPageTitle`): `PlaylistDetailHeader` (bìa ghép, tên, "Nhạc · 12 bài") — hàng nút phát của phần sau đặt ngay dưới; hàng `PlaylistItemRow` (bìa vuông cho nhạc / ngang cho phim, `.headline` + `.subheadline` phụ); vuốt hoặc nhấn giữ ⇒ bỏ mục; ngăn kéo `…`: Sắp xếp lại (chế độ sửa của `List`, "Xong" ở header), Đổi tên, Xoá playlist (hỏi trước — `PlaylistManageAlertsModifier`, dùng chung với thẻ).
+- **Sheet "Thêm vào playlist"** (`PlaylistAddSheet`, một sheet cho mọi lối): playlist **cùng loại** (mới sửa trước) + "Tạo playlist mới" (tạo xong thêm luôn); toast "Đã thêm N mục vào <tên>" / "Đã có sẵn trong <tên>". Ba lối: (1) bài / tập đang phát — ngăn kéo `…` + nút `text.badge.plus` ở trang Đĩa của màn nghe, ngăn kéo `⋯` của trình phát phim ("Thêm tập này vào playlist", `VideoPlayerController.playlistAddRequest`); (2) nhấn giữ một bài ở trang Danh sách màn nghe, một tập ở dải tập + sheet "Tất cả tập" của màn xem (Lưới / Danh sách nhận `onAddToPlaylist`); (3) nhấn giữ album / phim trên Kệ ⇒ hàng "Thêm cả album / phim vào playlist" (`PlaylistAddBookActionRow`, vòng chờ trên hàng, lỗi ⇒ toast) — không thêm case `BookSheetAction`.
+- Công tắc NSFW tắt ⇒ bìa, số mục và danh sách bỏ mục của nguồn NSFW (như Bộ sưu tập); mục ẩn giữ nguyên chỗ khi xoá / đổi thứ tự.
+- `CLAUDE.md` / `AGENTS.md`: thêm `playlists/` vào danh sách thư mục dữ liệu + gạch "Playlist" ở mục Âm thanh. Chuyển `[1.3.772]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo chữ ký (`RemoteCoverImage`, `BookDetailLoader.fetchFullTOC`, `ChapterStore.fetchOrderedTOC`, `SourceRuntimeContext`, `BackupZipArchive.stage/readStaged`, mọi nơi gọi `VideoEpisodeGridView` / `VideoEpisodeListView` / `AudioPlayerDrawerMenu` / `VideoWatchEpisodeSheet`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 200 dòng, một type chính; `BookActionSheet` 389, `BackupRestoreWorker` 398, `VideoPlayerScreen` 374). Không build tại chỗ (Windows). Chưa thử máy: thêm từ ba lối, sheet chồng lên sheet (Tất cả tập, nhấn giữ trên Kệ), kéo đổi thứ tự, sao lưu / khôi phục playlist.
+
+## [1.3.801] - 2026-11-09
+
+### docs: ghi phần gợi ý ở trang Danh sách của màn nghe vào CLAUDE.md và AGENTS.md
+
+- Mục Âm thanh, gạch "Tự phát bài gợi ý": thêm `AudioSuggestionSection` (1.3.800) và `AudioSuggestionStore` dùng chung với `AudioAutoNextCoordinator`.
+- **Kiểm chứng:** chỉ sửa tài liệu; `CLAUDE.md` và `AGENTS.md` vẫn trùng nhau trừ 3 dòng đầu.
+
 ## [1.3.800] - 2026-11-09
 
 ### feat: trang Danh sách của màn nghe hiện bài gợi ý của nguồn, chạm để nghe ngay, nhãn Tiếp theo cho mục sẽ tự phát

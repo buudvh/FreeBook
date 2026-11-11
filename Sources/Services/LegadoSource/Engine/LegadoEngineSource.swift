@@ -20,6 +20,9 @@ struct LegadoEngineSource: Sendable {
     var enabledCookieJar: Bool
     var loginUrl: String
     var rawJSON: String
+    /// `packageId` của bản ghi tiện ích khi nguồn đã cài (`LegadoSourceRuntime.Target`); `nil` với nguồn đọc thẳng từ
+    /// JSON. Chỉ để tra cờ riêng của nguồn lúc mở phiên (DNS mã hoá — `LegadoEngineSession.http`).
+    var packageId: String? = nil
 
     init(key: String, name: String = "", group: String = "", type: Int = 0, header: String = "", jsLib: String = "",
          concurrentRate: String = "", enabledCookieJar: Bool = false, loginUrl: String = "", rawJSON: String = "") {

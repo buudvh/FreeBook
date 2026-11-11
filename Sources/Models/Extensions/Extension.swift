@@ -57,6 +57,10 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
     /// (`"hub"` / `"pictureInPicture"` = Cửa sổ nhỏ); `nil` = theo cài đặt chung (`VideoMinimizePolicy`). Mục Video của Cấu hình
     /// tiện ích, chỉ tiện ích loại video.
     public var videoMinimizeOverride: String?
+    /// `true` = mọi request trong script / engine của nguồn này (fetch của tiện ích JS, `LegadoHTTPClient` của nguồn
+    /// Legado) tra tên miền qua DNS mã hoá, đi qua proxy nội bộ `EncryptedDNSRelay` (1.3.831); `nil` = DNS thường.
+    /// Tắt công tắc ghi `nil`, không ghi `false`. Công tắc chung "Bật cho cả app" thắng (xem `EncryptedDNSSessionRouter`).
+    public var encryptedDNSEnabled: Bool?
 
     public static let installOriginRepository = "repository"
     public static let installOriginImportZip = "importZip"
@@ -114,7 +118,8 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         adBlockOverride: Bool? = nil,
         desktopModeOverride: Bool? = nil,
         translateOverride: Bool? = nil,
-        videoMinimizeOverride: String? = nil
+        videoMinimizeOverride: String? = nil,
+        encryptedDNSEnabled: Bool? = nil
     ) {
         self.packageId = packageId
         self.name = name
@@ -142,6 +147,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         self.desktopModeOverride = desktopModeOverride
         self.translateOverride = translateOverride
         self.videoMinimizeOverride = videoMinimizeOverride
+        self.encryptedDNSEnabled = encryptedDNSEnabled
     }
 
     // MARK: - Codable
@@ -153,7 +159,7 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         case pinnedAt, lastUsedAt, installedAt, updatedAt
         case isNsfw, savesHistory, nsfwOverride
         case adBlockOverride, desktopModeOverride, translateOverride
-        case videoMinimizeOverride
+        case videoMinimizeOverride, encryptedDNSEnabled
     }
 
     /// Decode khoan dung: chỉ `packageId` là bắt buộc, trường thiếu rơi về mặc định — file do bản app khác
@@ -187,5 +193,6 @@ public struct Extension: Codable, Identifiable, Hashable, Sendable {
         desktopModeOverride = try? c.decodeIfPresent(Bool.self, forKey: .desktopModeOverride)
         translateOverride = try? c.decodeIfPresent(Bool.self, forKey: .translateOverride)
         videoMinimizeOverride = try? c.decodeIfPresent(String.self, forKey: .videoMinimizeOverride)
+        encryptedDNSEnabled = try? c.decodeIfPresent(Bool.self, forKey: .encryptedDNSEnabled)
     }
 }

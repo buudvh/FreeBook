@@ -169,6 +169,9 @@ public enum BackupPayload {
         /// `Extension.videoMinimizeOverride` (mục Video của Cấu hình tiện ích); archive cũ không có ⇒ `nil`, bỏ khoá khi
         /// `nil` như trên.
         public let videoMinimizeOverride: String?
+        /// `Extension.encryptedDNSEnabled` (công tắc "DNS mã hoá (DoH)" của nguồn); archive cũ không có ⇒ `nil`, bỏ khoá
+        /// khi `nil` như trên.
+        public let encryptedDNSEnabled: Bool?
 
         public init(
             packageId: String,
@@ -194,7 +197,8 @@ public enum BackupPayload {
             adBlockOverride: Bool? = nil,
             desktopModeOverride: Bool? = nil,
             translateOverride: Bool? = nil,
-            videoMinimizeOverride: String? = nil
+            videoMinimizeOverride: String? = nil,
+            encryptedDNSEnabled: Bool? = nil
         ) {
             self.packageId = packageId
             self.name = name
@@ -220,6 +224,7 @@ public enum BackupPayload {
             self.desktopModeOverride = desktopModeOverride
             self.translateOverride = translateOverride
             self.videoMinimizeOverride = videoMinimizeOverride
+            self.encryptedDNSEnabled = encryptedDNSEnabled
         }
 
         /// Archive cũ chỉ có `isPinned`, archive mới có thêm `pinnedAt` — một trong hai là đủ.
