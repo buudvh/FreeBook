@@ -92,16 +92,22 @@ public final class ChapterListSearchCoordinator {
                 }
             } else {
                 var count = 0
+                // Khớp cả tên đã chuyển phồn → giản (rẻ, có memo); tên hiển thị của dòng khớp như trang mục lục
+                // (`ReaderChapterListPageFetcher`: phồn → giản cả khi tắt dịch, dịch sống khi bật — 1.3.846).
+                let options = ChineseTextPipeline.Options(
+                    converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
+                )
                 for (index, chapter) in onlineChapters.enumerated() {
                     if count >= 100 { break }
                     let trimmedUrl = chapter.url.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmedUrl.isEmpty else { continue }
-                    if ChapterTitleSearchMatcher.matches(trimmed, anyOf: [chapter.name]) {
+                    let convertedName = ChineseTextPipeline.convert(chapter.name, converts: options.converts)
+                    if ChapterTitleSearchMatcher.matches(trimmed, anyOf: [convertedName, chapter.name]) {
                         let displayPos = isAscending ? index : (totalCount - 1 - index)
                         let state = ReaderChapterRowState(
                             id: displayPos,
                             index: index,
-                            title: chapter.name,
+                            title: ChineseTextPipeline.chapterTitle(convertedName, options.alreadyConverted),
                             url: trimmedUrl,
                             isCached: false,
                             isPlaceholder: false

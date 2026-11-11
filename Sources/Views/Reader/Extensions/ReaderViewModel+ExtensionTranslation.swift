@@ -18,6 +18,8 @@ extension ReaderViewModel {
 
     /// Dịch các dòng sẽ dựng đoạn (đã bỏ tên chương trùng — **cùng** hàm với `buildCancellable`) + tên chương.
     /// Chạy trong `context` đã chụp để phần lùi QT dùng đúng bộ từ điển mà lượt dựng dùng. `nil` khi không dùng tiện ích.
+    /// `normalizedText` đã qua phồn → giản (`ChineseTextPipeline.normalizeChapter`) nên dòng gửi đi y như dòng Reader dựng;
+    /// tên chương còn thô ⇒ phồn → giản chỉ áp cho tên (`titleConvertsTraditional`).
     nonisolated func translateChapterWithExtension(
         _ normalizedText: NormalizedChapterText,
         originalTitle: String,
@@ -38,7 +40,7 @@ extension ReaderViewModel {
                 chapterIndex: chapterIndex,
                 bookId: bookId,
                 engine: engine,
-                convertsTraditional: shouldConvertTraditionalToSimplified
+                titleConvertsTraditional: shouldConvertTraditionalToSimplified
             )
         }
     }

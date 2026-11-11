@@ -323,13 +323,7 @@ struct ReaderView: View {
             }
         }
 
-        return isTranslationEnabled && TranslateUtils.containsChinese(title)
-            ? TranslateUtils.translateChapterTitle(
-                title,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            : title
+        return translateChapterTitleIfNeeded(title)
     }
 
     var body: some View {
@@ -1293,15 +1287,12 @@ struct ReaderView: View {
         )
     }
 
+    /// Tên chương: phồn → giản chạy cả khi tắt dịch, rồi dịch nếu bật (1.3.846, `ChineseTextPipeline`).
     internal func translateChapterTitleIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateChapterTitle(
-            text,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        let options = ChineseTextPipeline.Options(
+            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
         )
+        return ChineseTextPipeline.chapterTitle(text, options)
     }
 
     func applyTranslation() {

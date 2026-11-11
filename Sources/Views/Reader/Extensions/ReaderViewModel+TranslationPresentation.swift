@@ -3,7 +3,10 @@ import Foundation
 extension ReaderViewModel {
     func chapterTitle(at index: Int) -> String {
         if let cached = cache.cache[index], !cached.title.isEmpty { return cached.title }
-        if onlineChapters.indices.contains(index) { return onlineChapters[index].name }
+        if onlineChapters.indices.contains(index) {
+            // Chương chưa dựng: tên đã chuyển phồn → giản (chạy cả khi tắt dịch, 1.3.846), chưa dịch như trước.
+            return ChineseTextPipeline.convert(onlineChapters[index].name, converts: shouldConvertTraditionalToSimplified)
+        }
         return "Chương \(index + 1)"
     }
 

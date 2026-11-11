@@ -167,18 +167,14 @@ struct TTSQuickTimerChapterList: View {
             return
         }
         let chapters = ttsManager.chaptersQueue
-        let bookId = ttsManager.playingBookId
-        let translates = ttsManager.sessionTranslationEnabled
-        let converts = ttsManager.sessionShouldConvertTraditionalToSimplified
+        let options = ttsManager.sessionTextOptions
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             let matched = await Self.matchingChapters(
                 in: chapters,
                 query: trimmed,
-                bookId: bookId,
-                translates: translates,
-                convertsTraditionalToSimplified: converts
+                options: options
             )
             guard !Task.isCancelled else { return }
             filteredChapters = matched
@@ -186,25 +182,18 @@ struct TTSQuickTimerChapterList: View {
     }
 
     /// `nonisolated async` ⇒ chạy ngoài main; huỷ theo task gọi. Tên hiển thị chọn **y như**
-    /// `TTSManager.displayTitle(for:)` (dịch sống khi phiên TTS bật dịch và tên có chữ Hán) — sửa một bên thì sửa cả hai.
+    /// `TTSManager.displayTitle(for:)` (cùng `sessionTextOptions`: phồn → giản cả khi tắt dịch, dịch sống khi phiên bật
+    /// dịch) — sửa một bên thì sửa cả hai.
     nonisolated private static func matchingChapters(
         in chapters: [TTSChapterInfo],
         query: String,
-        bookId: String,
-        translates: Bool,
-        convertsTraditionalToSimplified: Bool
+        options: ChineseTextPipeline.Options
     ) async -> [TTSChapterInfo] {
         var matched: [TTSChapterInfo] = []
         for (offset, chapter) in chapters.enumerated() {
             if offset % 200 == 0, Task.isCancelled { return [] }
             let raw = chapter.title
-            let display = translates && TranslateUtils.containsChinese(raw)
-                ? TranslateUtils.translateChapterTitle(
-                    raw,
-                    bookId: bookId,
-                    shouldConvertTraditionalToSimplified: convertsTraditionalToSimplified
-                )
-                : raw
+            let display = ChineseTextPipeline.chapterTitle(raw, options)
             if ChapterTitleSearchMatcher.matches(query, anyOf: [display, raw]) {
                 matched.append(chapter)
             }

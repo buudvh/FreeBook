@@ -6,9 +6,10 @@ import Foundation
 /// Trước 1.3.602 mỗi chương một lần nhảy actor `BookBinManager` + `fileExists` + mở/seek/đọc/đóng `FileHandle`, rồi
 /// chuẩn hoá (lọc rác bằng regex của người dùng + tách dòng) **tuần tự** — truyện vài nghìn chương chờ rất lâu. Nay đọc
 /// theo khối `chunkSize` chương, mỗi khối **một** lần gọi actor với một `FileHandle` (không giữ actor suốt cả lần quét),
-/// chuẩn hoá khối đó song song (tối đa `maxNormalizeWidth` luồng), giữ nguyên thứ tự chương. Chuẩn hoá vẫn chỉ qua
-/// `ChapterTextNormalizer.normalize` (an toàn đa luồng: `JunkFilterManager` chụp luật dưới lock, `NSRegularExpression`
-/// dùng chung được giữa các luồng).
+/// chuẩn hoá khối đó song song (tối đa `maxNormalizeWidth` luồng), giữ nguyên thứ tự chương. Chuẩn hoá qua
+/// `ChineseTextPipeline.normalizeChapter` — AI đọc **đúng chữ Reader hiện** (phồn → giản theo truyện, cả khi tắt dịch,
+/// 1.3.846) ⇒ tên quét ra khớp chữ trong truyện và khoá từ điển (an toàn đa luồng: `JunkFilterManager` chụp luật dưới
+/// lock, `NSRegularExpression` dùng chung được giữa các luồng).
 enum AINameScanTextLoader {
     /// Văn bản đã chuẩn hoá của một chương, kèm chỉ số 0-based theo mục lục và tên gốc (`rawTitle(of:)`, có thể rỗng)
     /// để dải tiến độ báo lượt đang gửi gồm những chương nào.
@@ -31,10 +32,12 @@ enum AINameScanTextLoader {
     private static let apiChaptersPerBatch = 5
 
     /// Đọc + chuẩn hoá `chapters` theo khối. `onChunkLoaded(k)` báo số chương đã đọc xong sau mỗi khối.
-    /// Bị huỷ ⇒ trả `nil` ngay giữa các khối và **không** báo tiến độ nữa.
+    /// Bị huỷ ⇒ trả `nil` ngay giữa các khối và **không** báo tiến độ nữa. `convertsTraditional`: phồn → giản của truyện
+    /// (cờ Reader đã giải ba cấp, mang theo `AINameScanChapterTitleStyle`).
     static func loadTexts(
         bookId: String,
         chapters: [StoredChapterSnapshot],
+        convertsTraditional: Bool = false,
         onChunkLoaded: (Int) -> Void
     ) async -> LoadResult? {
         var texts: [ChapterText] = []
@@ -64,7 +67,7 @@ enum AINameScanTextLoader {
             let normalizeStart = CFAbsoluteTimeGetCurrent()
             readTime += normalizeStart - readStart
             if Task.isCancelled { return nil }
-            let normalized = await normalizeConcurrently(raws)
+            let normalized = await normalizeConcurrently(raws, convertsTraditional: convertsTraditional)
             normalizeTime += CFAbsoluteTimeGetCurrent() - normalizeStart
             for (chapter, text) in zip(chunk, normalized) {
                 guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
@@ -88,7 +91,7 @@ enum AINameScanTextLoader {
     }
 
     /// Chuẩn hoá song song, tối đa `min(maxNormalizeWidth, số lõi đang hoạt động)` việc cùng lúc; kết quả đúng thứ tự.
-    private static func normalizeConcurrently(_ raws: [String?]) async -> [String?] {
+    private static func normalizeConcurrently(_ raws: [String?], convertsTraditional: Bool) async -> [String?] {
         let width = max(1, min(maxNormalizeWidth, ProcessInfo.processInfo.activeProcessorCount))
         return await withTaskGroup(of: (Int, String?).self, returning: [String?].self) { group in
             var results = [String?](repeating: nil, count: raws.count)
@@ -96,7 +99,9 @@ enum AINameScanTextLoader {
             while next < min(width, raws.count) {
                 let position = next
                 let raw = raws[position]
-                group.addTask { (position, raw.map { ChapterTextNormalizer.normalize($0).content }) }
+                group.addTask {
+                    (position, raw.map { ChineseTextPipeline.normalizeChapter($0, converts: convertsTraditional).content })
+                }
                 next += 1
             }
             while let finished = await group.next() {
@@ -104,7 +109,9 @@ enum AINameScanTextLoader {
                 guard next < raws.count else { continue }
                 let nextPosition = next
                 let raw = raws[nextPosition]
-                group.addTask { (nextPosition, raw.map { ChapterTextNormalizer.normalize($0).content }) }
+                group.addTask {
+                    (nextPosition, raw.map { ChineseTextPipeline.normalizeChapter($0, converts: convertsTraditional).content })
+                }
                 next += 1
             }
             return results

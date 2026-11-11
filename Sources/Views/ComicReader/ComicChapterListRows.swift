@@ -5,7 +5,8 @@ import Foundation
 /// - Dòng nhóm (`isSection`) **luôn giữ**. Mục lục chia thành từng nhóm theo thứ tự gốc: mỗi dòng nhóm mở một nhóm, các
 ///   chương trước dòng nhóm đầu tiên là một nhóm không tiêu đề.
 /// - Xếp giảm dần ⇒ đảo thứ tự các nhóm **và** các chương trong nhóm; tiêu đề nhóm vẫn đứng ngay trên chương của nó.
-/// - Tìm ⇒ trong mỗi nhóm chỉ giữ chương khớp (tên đang hiển thị hoặc tên gốc, `ChapterTitleSearchMatcher`); tiêu đề
+/// - Tìm ⇒ trong mỗi nhóm chỉ giữ chương khớp (tên đang hiển thị, tên gốc hoặc tên đã chuyển phồn → giản,
+///   `ChapterTitleSearchMatcher`); tiêu đề
 ///   nhóm tự khớp ⇒ giữ cả nhóm; nhóm không còn gì ⇒ ẩn luôn tiêu đề.
 /// - Số thứ tự dựng từ **toàn bộ** mục lục (`ChapterOrdinalNumbering`) ⇒ tìm / đảo vẫn giữ số; dòng nhóm không chiếm số.
 ///
@@ -66,6 +67,8 @@ enum ComicChapterListRows {
     }
 
     private static func matches(_ query: String, _ chapter: ComicChapterEntry, translated: Bool) -> Bool {
-        ChapterTitleSearchMatcher.matches(query, anyOf: [chapter.displayTitle(translated: translated), chapter.title])
+        ChapterTitleSearchMatcher.matches(
+            query, anyOf: [chapter.displayTitle(translated: translated), chapter.title, chapter.convertedTitle]
+        )
     }
 }

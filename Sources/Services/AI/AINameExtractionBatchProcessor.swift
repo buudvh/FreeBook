@@ -223,7 +223,10 @@ public final class AINameExtractionBatchProcessor: Sendable {
         onProgress(preparing, nil)
 
         let base = preparing
-        let loaded = await AINameScanTextLoader.loadTexts(bookId: bookId, chapters: downloaded) { done in
+        let loaded = await AINameScanTextLoader.loadTexts(
+            bookId: bookId, chapters: downloaded,
+            convertsTraditional: chapterTitleStyle?.convertsTraditionalToSimplified ?? false
+        ) { done in
             var chunkProgress = base
             chunkProgress.preparedChapters = done
             onProgress(chunkProgress, nil)

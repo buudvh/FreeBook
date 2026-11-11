@@ -22,6 +22,11 @@ public actor BackgroundPagingWorker {
     ) async throws -> [Int: (title: String, url: String, isCached: Bool)] {
         let count = maxLogicalIndex - minLogicalIndex + 1
         guard count > 0 else { return [:] }
+        // Tên hiển thị: dịch ⇒ bản lưu `title_trans` (đã qua phồn → giản của truyện) / dịch sống; tắt dịch ⇒ tên đã chuyển
+        // phồn → giản (chạy cả khi tắt dịch, 1.3.846).
+        let options = ChineseTextPipeline.Options(
+            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
+        )
 
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
             let storeChaps = try await ChapterStore.shared.fetchRange(bookId: bookId, startIndex: minLogicalIndex, count: count)
@@ -36,22 +41,7 @@ public actor BackgroundPagingWorker {
                 guard !trimmedUrl.isEmpty else {
                     throw BackgroundPagingError.incompletePage
                 }
-                let displayTitle: String
-                if isTranslationEnabled {
-                    if let trans = chap.titleTrans, !trans.isEmpty { // bản lưu đã qua phồn→giản của truyện (1.3.845)
-                        displayTitle = trans
-                    } else if TranslateUtils.containsChinese(chap.title) {
-                        displayTitle = TranslateUtils.translateChapterTitle(
-                            chap.title,
-                            bookId: bookId,
-                            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                        )
-                    } else {
-                        displayTitle = chap.title
-                    }
-                } else {
-                    displayTitle = chap.title
-                }
+                let displayTitle = ChineseTextPipeline.chapterTitle(chap.title, storedTranslation: chap.titleTrans, options)
                 map[chap.index] = (displayTitle, trimmedUrl, chap.isCached)
             }
             return map
@@ -71,22 +61,7 @@ public actor BackgroundPagingWorker {
                 guard !trimmedUrl.isEmpty else {
                     throw BackgroundPagingError.incompletePage
                 }
-                let displayTitle: String
-                if isTranslationEnabled {
-                    if let trans = chap.titleTrans, !trans.isEmpty { // bản lưu đã qua phồn→giản của truyện (1.3.845)
-                        displayTitle = trans
-                    } else if TranslateUtils.containsChinese(chap.title) {
-                        displayTitle = TranslateUtils.translateChapterTitle(
-                            chap.title,
-                            bookId: bookId,
-                            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                        )
-                    } else {
-                        displayTitle = chap.title
-                    }
-                } else {
-                    displayTitle = chap.title
-                }
+                let displayTitle = ChineseTextPipeline.chapterTitle(chap.title, storedTranslation: chap.titleTrans, options)
                 map[chap.index] = (displayTitle, trimmedUrl, chap.isCached)
             }
             return map

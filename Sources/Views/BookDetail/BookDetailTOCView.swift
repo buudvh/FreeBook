@@ -20,13 +20,13 @@ struct BookDetailTOCView: View {
     let tocPages: [String]
     let remainingPagesLoaded: Bool
     let isTranslationEnabled: Bool
+    /// Cờ chữ của mục lục (`BookDetailView.tocTitleOptions`, đọc một lần mỗi lượt vẽ của trang — 1.3.846): tên hàng qua
+    /// `BookDetailView.tocTitle(for:_:)` / `ChineseTextPipeline.chapterTitle` (phồn → giản cả khi tắt dịch); ô tìm khớp
+    /// cả tên đã chuyển.
+    let titleOptions: ChineseTextPipeline.Options
 
     let onLoadTOCDataOnly: () -> Void
     let onStartReading: (Int) -> Void
-    let onTranslateChapterTitleIfNeeded: (Chapter) -> String
-    let onTranslateTitleIfNeeded: (String) -> String
-    /// Tên hiển thị của một dòng mục lục đã lưu — `BookDetailView.displayTitle(for:)` (bản lưu / dịch sống / phồn→giản).
-    let onDisplayTitle: (StoredChapterSnapshot) -> String
     let onLoadMoreChapters: () -> Void
 
     /// Danh sách chương đã đảo chiều/lọc. Giữ trong `@State` vì view này bị vẽ lại theo mọi lần vẽ của
@@ -112,9 +112,13 @@ struct BookDetailTOCView: View {
             : Self.liftSectionHeaders(Array(chapterSnapshots.reversed()), isSection: { $0.isSection })
         let query = appliedSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
-        // Khớp tên gốc + bản lưu (không dịch sống từng dòng trên main mỗi lần gõ), bỏ qua hoa/thường và dấu như Reader.
+        // Khớp tên gốc + tên đã chuyển phồn → giản (rẻ, có memo) + bản lưu (không dịch sống từng dòng trên main mỗi lần
+        // gõ), bỏ qua hoa/thường và dấu như Reader.
+        let converts = titleOptions.converts
         return sorted.filter { chap in
-            ChapterTitleSearchMatcher.matches(query, anyOf: [chap.title, chap.titleTrans])
+            ChapterTitleSearchMatcher.matches(
+                query, anyOf: [chap.title, ChineseTextPipeline.convert(chap.title, converts: converts), chap.titleTrans]
+            )
         }
     }
 
@@ -146,7 +150,7 @@ struct BookDetailTOCView: View {
                     if !chapterSnapshots.isEmpty {
                         let ordinalDigits = showsChapterOrdinal ? snapshotNumbering.digits : 0
                         ForEach(visibleSnapshots, id: \.id) { chap in
-                            let displayTitle = onDisplayTitle(chap)
+                            let displayTitle = BookDetailView.tocTitle(for: chap, titleOptions)
                             if chap.isSection {
                                 sectionHeader(displayTitle)
                             } else {
@@ -171,7 +175,7 @@ struct BookDetailTOCView: View {
                         let ordinalDigits = showsChapterOrdinal ? ChapterOrdinalNumbering(chapterCount: localCount).digits : 0
                         ForEach(filteredLocalChapters) { chap in
                             BookDetailTOCRow(
-                                title: onTranslateChapterTitleIfNeeded(chap),
+                                title: BookDetailView.tocTitle(for: chap, titleOptions),
                                 ordinal: chap.index + 1,
                                 ordinalDigits: ordinalDigits,
                                 isCurrent: book.currentChapterIndex == chap.index,
@@ -185,10 +189,10 @@ struct BookDetailTOCView: View {
                         let ordinalDigits = showsChapterOrdinal ? onlineNumbering.digits : 0
                         ForEach(onlineRows, id: \.offset) { index, chap in
                             if chap.isSection {
-                                sectionHeader(onTranslateTitleIfNeeded(chap.name))
+                                sectionHeader(ChineseTextPipeline.chapterTitle(chap.name, titleOptions))
                             } else {
                                 BookDetailTOCRow(
-                                    title: onTranslateTitleIfNeeded(chap.name),
+                                    title: ChineseTextPipeline.chapterTitle(chap.name, titleOptions),
                                     ordinal: onlineNumbering.ordinal(forIndex: index),
                                     ordinalDigits: ordinalDigits,
                                     isCurrent: currentIdx == index,

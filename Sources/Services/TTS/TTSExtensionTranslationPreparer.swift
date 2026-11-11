@@ -36,7 +36,9 @@ enum TTSExtensionTranslationPreparer {
         requiresReaderSnapshot: Bool = false,
         token: Int
     ) async throws -> Prepared {
-        let normalized = ChapterTextNormalizer.normalize(rawContent)
+        // Dòng đã qua phồn → giản như Reader (`ChineseTextPipeline.normalizeChapter`) ⇒ snapshot của Reader khớp, và
+        // translator không chuyển lại dòng; tên chương còn thô (so khớp tên Reader / `title_trans`).
+        let normalized = ChineseTextPipeline.normalizeChapter(rawContent, converts: convertsTraditional)
         let lines = ChapterTextNormalizer.contentLines(of: normalized, removingDuplicatedTitle: removeDuplicatedTitle)
         let title = chapterTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : chapterTitle
         try Task.checkCancellation()
@@ -71,7 +73,7 @@ enum TTSExtensionTranslationPreparer {
             chapterIndex: chapterIndex,
             bookId: bookId,
             engine: engine,
-            convertsTraditional: convertsTraditional
+            titleConvertsTraditional: convertsTraditional
         )
         let entries = lines.map { line -> TTSLineEntry in
             let result = output.lines[line.id] ?? TranslateUtils.untranslatedTextResult(line.text)
@@ -163,7 +165,8 @@ extension TTSBackgroundProcessor {
 
 extension TTSPretranslatedSnapshot {
     /// Snapshot dùng được cho đúng dãy dòng này: cùng công tắc dịch, phồn → giản, generation dịch, và id + chữ gốc của
-    /// từng dòng khớp. `TTSBackgroundProcessor` và `TTSExtensionTranslationPreparer` kiểm bằng cùng hàm này.
+    /// từng dòng khớp. `TTSBackgroundProcessor` và `TTSExtensionTranslationPreparer` kiểm bằng cùng hàm này. Chữ gốc hai
+    /// bên đều là chữ **đã** chuyển (dòng của `ChineseTextPipeline.normalizeChapter`, `ParagraphItem.original`).
     func matches(lines: [ChapterTextLine], isTranslationEnabled: Bool, convertsTraditional: Bool, token: Int) -> Bool {
         self.isTranslationEnabled == isTranslationEnabled
             && shouldConvertTraditionalToSimplified == convertsTraditional

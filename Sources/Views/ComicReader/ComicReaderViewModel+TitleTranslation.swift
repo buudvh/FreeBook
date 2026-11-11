@@ -1,27 +1,37 @@
 import Foundation
 
-/// Tên chương dịch của màn đọc comic (tách khỏi file chính để giữ dưới giới hạn dòng). Dịch ngoài main bằng
-/// `ComicChapterTitleTranslator`, ghi kết quả vào `ComicChapterEntry.translatedTitle`.
+/// Tên chương dịch / đã chuyển phồn → giản của màn đọc comic (tách khỏi file chính để giữ dưới giới hạn dòng). Dựng ngoài
+/// main bằng `ComicChapterTitleTranslator`, ghi vào `ComicChapterEntry.translatedTitle` / `convertedTitle`.
 extension ComicReaderViewModel {
-    /// `ComicReaderView` gọi sau khi mục lục nạp xong và mỗi lần công tắc dịch của truyện bật lại. Tắt dịch ⇒ không
-    /// làm gì (`displayTitle(translated: false)` luôn là tên gốc). Task gọi bị huỷ ⇒ bỏ kết quả.
+    /// `ComicReaderView` gọi sau khi mục lục nạp xong, mỗi lần công tắc dịch của truyện đổi, và khi cấu hình dịch /
+    /// phồn → giản / từ điển đổi. Phồn → giản chạy cả khi tắt dịch (1.3.846) ⇒ tắt dịch vẫn dựng tên đã chuyển; tắt cả
+    /// hai ⇒ bỏ tên đã chuyển (hiện tên gốc). Task gọi bị huỷ ⇒ bỏ kết quả.
     func translateChapterTitles(enabled: Bool) async {
-        guard enabled, !chapters.isEmpty else { return }
+        guard !chapters.isEmpty else { return }
         let source = chapters
-        guard let titles = await ComicChapterTitleTranslator.translatedTitles(
-            for: source,
-            bookId: launch.bookId,
-            packageId: launch.extensionPackageId
-        ),
-              !Task.isCancelled else { return }
+        let options = ChineseTextPipeline.Options(
+            converts: TranslationConfigStore.shared.convertsTraditionalToSimplified(
+                bookId: launch.bookId, packageId: launch.extensionPackageId
+            ),
+            translates: enabled,
+            dictionaryBookId: launch.bookId
+        )
+        var titles = ComicChapterTitleTranslator.Titles()
+        if options.converts || options.translates {
+            guard let built = await ComicChapterTitleTranslator.displayTitles(for: source, options: options),
+                  !Task.isCancelled else { return }
+            titles = built
+        }
         // Chỉ gán cho dòng còn đúng chương đã dịch (cùng chỉ số + tên gốc + bản lưu `titleTrans`, 1.3.845): một lượt cũ về
         // muộn sau "Dịch lại tên chương" không được đè bản mới.
         let sourceTitles = Dictionary(source.map { ($0.index, ($0.title, $0.titleTrans)) }, uniquingKeysWith: { first, _ in first })
         chapters = chapters.map { entry in
-            guard let origin = sourceTitles[entry.index], origin.0 == entry.title, origin.1 == entry.titleTrans,
-                  let title = titles[entry.index] else { return entry }
+            guard let origin = sourceTitles[entry.index], origin.0 == entry.title, origin.1 == entry.titleTrans else {
+                return entry
+            }
             var updated = entry
-            updated.translatedTitle = title
+            updated.convertedTitle = titles.converted[entry.index]
+            if options.translates, let title = titles.translated[entry.index] { updated.translatedTitle = title }
             return updated
         }
     }

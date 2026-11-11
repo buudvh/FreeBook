@@ -538,21 +538,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         triggerNextChapterPrefetch()
     }
 
-    public func updateTraditionalToSimplifiedSetting(for bookId: String, enabled: Bool) {
-        guard playingBookId == bookId,
-              sessionShouldConvertTraditionalToSimplified != enabled else { return }
-
-        sessionShouldConvertTraditionalToSimplified = enabled
-        nextChapterPrefetcher.cancel()
-        nowPlayingUpdateGeneration &+= 1
-        nowPlayingMetadataTask?.cancel()
-        nowPlayingMetadataTask = nil
-        nowPlayingMetadataTaskKey = nil
-        nowPlayingStaticMetadata = nil
-        updateNowPlayingInfo()
-        triggerNextChapterPrefetch()
-    }
-
     public func refreshChaptersQueueInBackground(
         bookId: String,
         onlineChapters: [TTSChapterInfo]? = nil
@@ -3230,7 +3215,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterIndex: playingChapterIndex,
             chapterTitle: chapterTitle,
             coverUrl: playingCoverUrl,
-            isTranslationEnabled: TranslateUtils.isTranslationEnabled,
+            isTranslationEnabled: sessionTranslationEnabled,
             shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId)
         )
@@ -3251,30 +3236,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         nowPlayingMetadataTask = Task { [weak self] in
             let prepared = await Task.detached(priority: .background) {
-                let rawChapterTitle = key.chapterTitle.isEmpty ? "Chương hiện tại" : key.chapterTitle
-                let displayBookTitle: String
-                let displayChapterTitle: String
-
-                if key.isTranslationEnabled {
-                    displayBookTitle = TranslateUtils.containsChinese(key.bookTitle)
-                        ? TranslateUtils.translateMeta(
-                            key.bookTitle,
-                            bookId: key.bookId,
-                            shouldConvertTraditionalToSimplified: key.shouldConvertTraditionalToSimplified
-                        )
-                        : key.bookTitle
-                    displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
-                        ? TranslateUtils.translateChapterTitle(
-                            rawChapterTitle,
-                            bookId: key.bookId,
-                            shouldConvertTraditionalToSimplified: key.shouldConvertTraditionalToSimplified
-                        )
-                        : rawChapterTitle
-                } else {
-                    displayBookTitle = key.bookTitle
-                    displayChapterTitle = rawChapterTitle
-                }
-
+                // Phồn → giản chạy cả khi tắt dịch (1.3.846), cùng cờ phiên với widget (`sessionTextOptions`).
+                let options = ChineseTextPipeline.Options(converts: key.shouldConvertTraditionalToSimplified,
+                                                          translates: key.isTranslationEnabled, dictionaryBookId: key.bookId)
+                let displayBookTitle = ChineseTextPipeline.meta(key.bookTitle, options)
+                let displayChapterTitle = ChineseTextPipeline.chapterTitle(key.chapterTitle.isEmpty ? "Chương hiện tại" : key.chapterTitle, options)
                 let image = ImageCacheManager.shared.loadLocalCover(for: key.bookId)
                 return (displayBookTitle, displayChapterTitle, image)
             }.value

@@ -331,9 +331,8 @@ struct ComicReaderView: View {
 
     /// Từ điển / rule / phồn→giản / cài đặt dịch đổi ⇒ dịch lại tên chương và các ảnh đang hiện (chữ đã nhận lấy từ RAM).
     private func refreshTranslations() {
-        guard isTranslationEnabled else { return }
-        imageTranslationRevision += 1
-        translateChapterTitles()
+        if isTranslationEnabled { imageTranslationRevision += 1 } // lớp dịch ảnh chỉ khi bật dịch
+        translateChapterTitles() // tên chương: phồn → giản chạy cả khi tắt dịch (1.3.846)
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),
@@ -363,7 +362,7 @@ struct ComicReaderView: View {
         translateChapterTitles() // `start` chờ nạp xong mục lục mới trả về
     }
 
-    /// Dịch tên chương ngoài main theo công tắc hiện tại (tắt dịch ⇒ VM bỏ qua, màn hiện tên gốc).
+    /// Dựng tên chương ngoài main theo công tắc hiện tại (tắt dịch ⇒ chỉ phồn → giản nếu bật, không thì tên gốc).
     private func translateChapterTitles() {
         titleTranslationTask?.cancel()
         let enabled = isTranslationEnabled

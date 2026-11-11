@@ -159,39 +159,8 @@ struct BookDetailView: View {
         return TranslateUtils.translateMeta(text, bookId: actualBookId)
     }
 
-    private func translateTitleIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateChapterTitle(
-            text,
-            bookId: actualBookId,
-            shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId, packageId: extensionPackageId)
-        )
-    }
-
-    /// Tên chương của mục lục đã lưu — cùng luật với sheet mục lục Reader (`BackgroundPagingWorker`): tắt dịch ⇒ tên gốc;
-    /// có bản lưu ⇒ dùng nó, kể cả khi bật phồn→giản (bản lưu đã qua bước chuyển, 1.3.845; còn chữ Hán thì dịch tiếp);
-    /// không có ⇒ dịch sống (có chuyển phồn→giản nếu bật).
-    internal func displayTitle(for chap: StoredChapterSnapshot) -> String {
-        guard isTranslationEnabled else { return chap.title }
-        if let trans = chap.titleTrans, !trans.isEmpty {
-            return translateTitleIfNeeded(trans)
-        }
-        return translateTitleIfNeeded(chap.title)
-    }
-
-    internal func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
-        if isTranslationEnabled {
-            if let trans = chap.titleTrans, !trans.isEmpty {
-                return trans
-            }
-            if TranslateUtils.containsChinese(chap.title) {
-                return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
-            }
-        }
-        return chap.title
-    }
+    // Tên chương của mục lục (`tocTitleOptions`, `tocTitle(for:_:)`): `BookDetailView+ChapterTitles.swift` (1.3.846 —
+    // phồn → giản cả khi tắt dịch).
 
     var body: some View {
         ZStack {
@@ -618,11 +587,9 @@ struct BookDetailView: View {
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
                     isTranslationEnabled: isTranslationEnabled,
+                    titleOptions: tocTitleOptions,
                     onLoadTOCDataOnly: loadTOCDataOnly,
                     onStartReading: startReading,
-                    onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
-                    onTranslateTitleIfNeeded: translateTitleIfNeeded,
-                    onDisplayTitle: displayTitle(for:),
                     onLoadMoreChapters: loadMoreChapters
                 )
             } else {
@@ -1004,13 +971,13 @@ struct BookDetailView: View {
                     let title: String
                 }
                 let items = toTranslate.map { Item(index: $0.index, url: $0.url, title: $0.title) }
-                let converts = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: targetBookId, packageId: extensionPackageId)
+                let options = ChineseTextPipeline.Options(converts: tocTitleOptions.converts, translates: true, dictionaryBookId: targetBookId)
 
                 let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .utility) {
                     var list: [(index: Int, url: String, titleTrans: String)] = []
                     for item in items {
                         if Task.isCancelled { break }
-                        let trans = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId, shouldConvertTraditionalToSimplified: converts)
+                        let trans = ChineseTextPipeline.chapterTitle(item.title, options) // tên đã chuyển rồi dịch (1.3.846)
                         list.append((index: item.index, url: item.url, titleTrans: trans))
                     }
                     return list
@@ -1039,13 +1006,13 @@ struct BookDetailView: View {
             let title: String
         }
         let items = chaptersToTranslate.map { ChapItem(id: $0.id, title: $0.title) }
-
+        let options = ChineseTextPipeline.Options(converts: tocTitleOptions.converts, translates: true, dictionaryBookId: targetBookId)
         Task {
             let translatedMap: [String: String] = await Task.detached(priority: .utility) {
                 var map: [String: String] = [:]
                 for item in items {
                     if Task.isCancelled { break }
-                    map[item.id] = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                    map[item.id] = ChineseTextPipeline.chapterTitle(item.title, options)
                 }
                 return map
             }.value

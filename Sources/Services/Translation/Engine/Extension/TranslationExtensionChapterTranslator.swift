@@ -4,10 +4,12 @@ import Foundation
 /// dòng (vệt highlight TTS là offset trên chữ đang hiển thị).
 ///
 /// - Nội dung: mọi dòng có chữ gửi tiện ích (`source = chapterContent`), không chỉ dòng có chữ Hán. Dòng lỗi ⇒ có chữ
-///   Hán thì dịch QT (`translateContentWithMapping`), không thì giữ chữ gốc. Bản dịch tiện ích không có span (`[]`).
+///   Hán thì dịch QT (`ChineseTextPipeline.contentWithMapping`), không thì giữ chữ gốc. Bản dịch tiện ích không có span.
 /// - Tên chương: `title_trans` đã lưu (khớp đúng tên gốc) ⇒ dùng; không có ⇒ tiện ích (`source = tableOfContent`); lỗi
 ///   ⇒ QT (`translateChapterTitle`) nếu có chữ Hán, không thì giữ nguyên.
-/// - Phồn → giản của truyện áp **trước** khi gửi tiện ích (như QT).
+/// - Phồn → giản của truyện áp **trước** khi gửi tiện ích (như QT): dòng nội dung nhận vào **đã** chuyển (dòng của
+///   `ChineseTextPipeline.normalizeChapter`, Reader và TTS cùng dựng — 1.3.846) nên không chuyển lại; tên chương nhận
+///   vào còn thô (để so `title_trans` với tên gốc đã lưu) ⇒ chuyển ở đây theo `titleConvertsTraditional`.
 /// - Chỉ ném `CancellationError` (và lỗi dạng khi caller gọi với bộ dịch QT — caller phải kiểm `usesExtension` trước).
 enum TranslationExtensionChapterTranslator {
     struct Output: Sendable {
@@ -25,37 +27,31 @@ enum TranslationExtensionChapterTranslator {
         chapterIndex: Int,
         bookId: String,
         engine: ResolvedTranslationEngine,
-        convertsTraditional: Bool
+        titleConvertsTraditional: Bool
     ) async throws -> Output {
         guard let job = TranslationExtensionRunner.Job(engine: engine, bookId: bookId, source: .chapterContent) else {
             throw TranslationExtensionResultParser.ShapeError(detail: "Bộ dịch đang là QT")
         }
-        let requests = lines.map {
-            TranslationExtensionBatchPlanner.Line(
-                id: $0.id,
-                text: TranslateUtils.textForTranslation($0.text, shouldConvertTraditionalToSimplified: convertsTraditional)
-            )
-        }
+        let requests = lines.map { TranslationExtensionBatchPlanner.Line(id: $0.id, text: $0.text) }
         let result = try await TranslationExtensionRunner.translateLines(requests, job: job)
 
         var titleOutcome: (result: TranslatedTextResult, failed: Bool, error: String?)?
         if let title, !title.isEmpty {
             titleOutcome = try await translateTitle(
-                title, chapterIndex: chapterIndex, bookId: bookId, engine: engine, convertsTraditional: convertsTraditional,
+                title, chapterIndex: chapterIndex, bookId: bookId, engine: engine, convertsTraditional: titleConvertsTraditional,
                 skipsExtension: result.hadCallError
             )
         }
 
         var output: [Int: TranslatedTextResult] = [:]
         var keptOriginal = 0
+        let qtLineOptions = ChineseTextPipeline.Options(converts: false, translates: true, dictionaryBookId: bookId)
         TranslationReadContext.withSnapshot(bookId: bookId) { () -> Void in
             for line in lines {
                 if let translated = result.translations[line.id] {
                     output[line.id] = TranslatedTextResult(text: translated, spans: [])
                 } else if result.failedLineIds.contains(line.id) && TranslateUtils.containsChinese(line.text) {
-                    output[line.id] = TranslateUtils.translateContentWithMapping(
-                        line.text, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
-                    )
+                    output[line.id] = ChineseTextPipeline.contentWithMapping(line.text, qtLineOptions)
                 } else {
                     if result.failedLineIds.contains(line.id) { keptOriginal += 1 }
                     output[line.id] = TranslateUtils.untranslatedTextResult(line.text)
@@ -102,9 +98,9 @@ enum TranslationExtensionChapterTranslator {
         if skipsExtension {
             return (qtTitle(title, bookId: bookId, convertsTraditional: convertsTraditional), true, nil)
         }
-        let input = TranslateUtils.textForTranslation(title, shouldConvertTraditionalToSimplified: convertsTraditional)
+        let input = ChineseTextPipeline.convert(title, converts: convertsTraditional)
         guard TranslationExtensionBatchPlanner.needsTranslation(input) else {
-            return (TranslateUtils.untranslatedTextResult(title), false, nil)
+            return (TranslateUtils.untranslatedTextResult(input), false, nil)
         }
         do {
             let translated = try await TranslationExtensionRunner.translateText(input, job: job)
@@ -122,10 +118,10 @@ enum TranslationExtensionChapterTranslator {
         return target == "vi" || target.hasPrefix("vi-") || target.hasPrefix("vi_")
     }
 
+    /// Tên thô ⇒ chuyển (nếu bật) rồi QT; không có chữ Hán ⇒ tên đã chuyển nguyên văn.
     private static func qtTitle(_ title: String, bookId: String, convertsTraditional: Bool) -> TranslatedTextResult {
-        guard TranslateUtils.containsChinese(title) else { return TranslateUtils.untranslatedTextResult(title) }
-        return TranslateUtils.translateChapterTitleWithMapping(
-            title, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
+        ChineseTextPipeline.chapterTitleWithMapping(
+            title, ChineseTextPipeline.Options(converts: convertsTraditional, translates: true, dictionaryBookId: bookId)
         )
     }
 

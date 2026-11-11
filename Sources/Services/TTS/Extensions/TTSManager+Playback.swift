@@ -206,28 +206,33 @@ extension TTSManager {
 
     // MARK: - Displayed Metadata for UI & Widgets
 
+    /// Cờ chữ của phiên cho tên truyện / tác giả / tên chương ở widget, sheet điều khiển, danh sách chương: phồn → giản chạy
+    /// cả khi tắt dịch (1.3.846) — cùng cờ phiên với chữ TTS đọc (`sessionShouldConvertTraditionalToSimplified`).
+    internal var sessionTextOptions: ChineseTextPipeline.Options {
+        ChineseTextPipeline.Options(
+            converts: sessionShouldConvertTraditionalToSimplified,
+            translates: sessionTranslationEnabled,
+            dictionaryBookId: playingBookId.isEmpty ? nil : playingBookId
+        )
+    }
+
     public var displayedBookTitle: String {
-        let title = bookTitle.isEmpty ? "Tàng Công Các" : bookTitle
-        guard sessionTranslationEnabled && TranslateUtils.containsChinese(title) else { return title }
-        return TranslateUtils.translateMeta(title, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+        ChineseTextPipeline.meta(bookTitle.isEmpty ? "Tàng Công Các" : bookTitle, sessionTextOptions)
     }
 
     public var displayedAuthor: String {
         guard !playingAuthor.isEmpty else { return "" }
-        guard sessionTranslationEnabled && TranslateUtils.containsChinese(playingAuthor) else { return playingAuthor }
-        return TranslateUtils.translateMeta(playingAuthor, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+        return ChineseTextPipeline.author(playingAuthor, sessionTextOptions)
     }
 
     public var displayedChapterTitle: String {
         let raw = chapterTitle.isEmpty ? (chaptersQueue.first(where: { $0.index == playingChapterIndex })?.title ?? "Chương hiện tại") : chapterTitle
-        guard sessionTranslationEnabled && TranslateUtils.containsChinese(raw) else { return raw }
-        return TranslateUtils.translateChapterTitle(raw, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+        return ChineseTextPipeline.chapterTitle(raw, sessionTextOptions)
     }
 
+    /// Ô tìm của `TTSQuickTimerChapterList.matchingChapters` chọn tên y như hàm này — sửa một bên thì sửa cả hai.
     public func displayTitle(for chapter: TTSChapterInfo) -> String {
-        let raw = chapter.title
-        guard sessionTranslationEnabled && TranslateUtils.containsChinese(raw) else { return raw }
-        return TranslateUtils.translateChapterTitle(raw, bookId: playingBookId, shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified)
+        ChineseTextPipeline.chapterTitle(chapter.title, sessionTextOptions)
     }
 
     // MARK: - Navigation Control

@@ -202,6 +202,8 @@ extension ShelfView {
         Task {
             do {
                 progressCenter.update(message: "Đang dịch tên chương...", fraction: nil)
+                // `title_trans` luôn đã qua phồn → giản của truyện (1.3.845): truyện TXT mới theo nguồn "local" ⇒ Tất cả.
+                let convertsTitles = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: newBookId, packageId: "local")
                 let snapshots = await Task.detached(priority: .userInitiated) {
                     importChapters.enumerated().map { index, chapter in
                         ChapterMetadataSnapshot(
@@ -210,7 +212,8 @@ extension ShelfView {
                             index: index,
                             titleTrans: TranslateUtils.translateChapterTitle(
                                 chapter.title,
-                                bookId: newBookId
+                                bookId: newBookId,
+                                shouldConvertTraditionalToSimplified: convertsTitles
                             )
                         )
                     }

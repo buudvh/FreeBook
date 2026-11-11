@@ -416,8 +416,11 @@ public final class DownloadManager: ObservableObject {
             let packageId = bgBook.extensionPackageId
             let skipUncached = exportFormat != nil && task.onlyExportCached
             let bookContext = SourceRuntimeContext(bookId: bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
-            // Phồn→giản của truyện áp cho cả tên chương lẫn nội dung xuất — đọc một lần cho cả tác vụ.
-            let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
+            // Phồn→giản của truyện áp cho cả tên chương lẫn nội dung xuất, **có dịch hay không** (1.3.846) — đọc một lần.
+            let textOptions = ChineseTextPipeline.Options(
+                converts: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId),
+                translates: task.translate, dictionaryBookId: bookId
+            )
             var processedCount = 0
 
             let tally = try await acquireChaptersInOrder(
@@ -438,18 +441,8 @@ public final class DownloadManager: ObservableObject {
                 }
             ) { chapter, acquisition in
                 if case .content(let originalContent) = acquisition, renderer != nil {
-                    var titleToExport = chapter.title
-                    var contentToExport = originalContent
-
-                    if task.translate {
-                        titleToExport = TranslateUtils.translateChapterTitle(
-                            titleToExport, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
-                        )
-                        contentToExport = TranslateUtils.translateContent(
-                            contentToExport, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
-                        )
-                    }
-
+                    let titleToExport = ChineseTextPipeline.chapterTitle(chapter.title, textOptions)
+                    let contentToExport = ChineseTextPipeline.content(originalContent, textOptions)
                     let payload = ExportChapterPayload(
                         ordinal: (renderer?.writtenChapterCount ?? 0) + 1,
                         title: titleToExport,

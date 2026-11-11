@@ -152,10 +152,11 @@ enum ChineseTextPipeline {
 
     // MARK: - Chương truyện chữ
 
-    /// Chuẩn hoá chương **sau** bước chuyển (lọc rác chạy trên chữ đã chuyển). Reader và TTS cùng gọi hàm này; chỗ khác
-    /// cần dòng như Reader thấy (AI, xuất) cũng vậy. Kho lưu trữ / `ChapterDocument` vẫn giữ chữ thô.
+    /// Chuẩn hoá chương **sau** bước chuyển (lọc rác chạy trên chữ đã chuyển, bằng bộ mẫu đã chuyển — mẫu người dùng viết
+    /// bằng chữ phồn vẫn khớp). Reader và TTS cùng gọi hàm này; chỗ khác cần dòng như Reader thấy (AI, xuất) cũng vậy. Kho
+    /// lưu trữ / `ChapterDocument` vẫn giữ chữ thô.
     static func normalizeChapter(_ rawContent: String, converts: Bool) -> NormalizedChapterText {
-        ChapterTextNormalizer.normalize(convert(rawContent, converts: converts))
+        ChapterTextNormalizer.normalize(convert(rawContent, converts: converts), convertsTraditional: converts)
     }
 
     // MARK: - Memo

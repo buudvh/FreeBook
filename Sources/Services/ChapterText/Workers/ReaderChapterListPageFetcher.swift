@@ -116,16 +116,10 @@ extension ReaderChapterListStore {
                     let chap = onlineChapters[idx]
                     let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedUrl.isEmpty {
-                        let displayTitle: String
-                        if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
-                            displayTitle = TranslateUtils.translateChapterTitle(
-                                chap.name,
-                                bookId: bookId,
-                                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                            )
-                        } else {
-                            displayTitle = chap.name
-                        }
+                        // Phồn → giản cả khi tắt dịch (1.3.846), dịch sống khi bật — như `BackgroundPagingWorker`.
+                        let displayTitle = ChineseTextPipeline.chapterTitle(chap.name, ChineseTextPipeline.Options(
+                            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
+                        ))
                         data[idx] = (displayTitle, trimmedUrl, false)
                     }
                 }

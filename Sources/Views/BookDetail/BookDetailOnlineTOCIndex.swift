@@ -1,6 +1,6 @@
 import Foundation
 
-/// Chỉ mục tên chương online đã dịch cho ô "Tìm kiếm chương..." của BookDetail.
+/// Chỉ mục tên chương online đã dịch / đã chuyển phồn → giản cho ô "Tìm kiếm chương..." của BookDetail.
 /// Dựng MỘT lần ngoài main (Task.detached) khi mục lục online / bật dịch / phồn→giản / generation dịch đổi,
 /// để mỗi phím gõ không phải dịch lại toàn bộ tên chương trên main (cache tên 1024 entry bị đẩy hết
 /// với mục lục dài). Chưa dựng xong thì caller tạm khớp tên gốc.
@@ -10,7 +10,8 @@ struct BookDetailOnlineTOCIndex {
     struct Key: Equatable {
         let generation: Int
         let bookId: String
-        let convertsTraditionalToSimplified: Bool
+        /// Cờ chữ của mục lục (`BookDetailView.tocTitleOptions`): phồn → giản chạy cả khi tắt dịch (1.3.846).
+        let options: ChineseTextPipeline.Options
         let source: [ChapterResult]
     }
 
@@ -46,19 +47,16 @@ struct BookDetailOnlineTOCIndex {
         pendingTask = nil
     }
 
-    /// Dịch toàn bộ tên chương ngoài main, cùng hàm `translateChapterTitle` mà bộ lọc cũ gọi từng phím gõ,
-    /// nên kết quả khớp y hệt. Trả `nil` khi bị huỷ; huỷ task gọi lan xuống task detached.
-    static func translateTitles(_ names: [String], bookId: String, convertsTraditionalToSimplified: Bool) async -> [String]? {
+    /// Dựng toàn bộ tên chương ngoài main, cùng hàm `ChineseTextPipeline.chapterTitle` mà hàng mục lục online dùng
+    /// (`BookDetailView.translateTitleIfNeeded`), nên kết quả khớp y hệt. Trả `nil` khi bị huỷ; huỷ task gọi lan xuống
+    /// task detached.
+    static func translateTitles(_ names: [String], options: ChineseTextPipeline.Options) async -> [String]? {
         let worker = Task.detached(priority: .userInitiated) { () -> [String]? in
             var titles: [String] = []
             titles.reserveCapacity(names.count)
             for name in names {
                 if Task.isCancelled { return nil }
-                titles.append(TranslateUtils.translateChapterTitle(
-                    name,
-                    bookId: bookId,
-                    shouldConvertTraditionalToSimplified: convertsTraditionalToSimplified
-                ))
+                titles.append(ChineseTextPipeline.chapterTitle(name, options))
             }
             return titles
         }

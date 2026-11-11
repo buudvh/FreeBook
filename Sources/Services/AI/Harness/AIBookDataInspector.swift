@@ -29,32 +29,34 @@ final class AIBookDataInspector: Sendable {
 
     /// Danh sách chương đã tải (chỉ số + tên hiển thị) cho sheet chọn phạm vi quét tên riêng (1.3.602) — nạp một lần
     /// khi mở sheet, mọi con số của sheet tính trên RAM từ danh sách này. Tên = `title` đã trim, rỗng thì `titleTrans`.
-    /// `translatesTitles` (1.3.603, cấu hình dịch Reader đang áp cho truyện): tên còn chữ Hán thì dịch bằng
-    /// `TranslateUtils.translateChapterTitle` — đúng luật danh sách chương Reader (`ReaderChapterListView.displayTitle`).
-    /// Chạy ngoài main thread (hàm `async` không gắn actor); bị huỷ (đóng sheet) thì thôi dịch phần còn lại.
+    /// `translatesTitles` / `convertsTraditionalToSimplified` (1.3.603, cấu hình Reader đang áp cho truyện): qua
+    /// `ChineseTextPipeline.chapterTitle(_:storedTranslation:_:)` — đúng luật mục lục Reader (`BackgroundPagingWorker`):
+    /// bật dịch ⇒ bản lưu `title_trans`, không có thì dịch sống; tắt dịch ⇒ tên đã chuyển phồn → giản (1.3.846). Chạy ngoài
+    /// main thread (hàm `async` không gắn actor); bị huỷ (đóng sheet) thì thôi dịch phần còn lại.
     func nameScanChapters(
         bookId: String,
         translatesTitles: Bool = false,
         convertsTraditionalToSimplified: Bool = false
     ) async -> [AINameScanChapter] {
-        await fetchDownloadedChapters(bookId: bookId).map { chapter in
+        let options = ChineseTextPipeline.Options(
+            converts: convertsTraditionalToSimplified, translates: translatesTitles, dictionaryBookId: bookId
+        )
+        return await fetchDownloadedChapters(bookId: bookId).map { chapter in
             let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let fallback = chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let raw = title.isEmpty ? fallback : title
-            guard translatesTitles, !Task.isCancelled, TranslateUtils.containsChinese(raw) else {
-                return AINameScanChapter(index: chapter.index, title: raw, rawTitle: raw)
-            }
-            let translated = TranslateUtils.translateChapterTitle(
-                raw,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: convertsTraditionalToSimplified
-            )
-            return AINameScanChapter(index: chapter.index, title: translated.isEmpty ? raw : translated, rawTitle: raw)
+            let shown = Task.isCancelled
+                ? ChineseTextPipeline.convert(raw, converts: options.converts)
+                : ChineseTextPipeline.chapterTitle(raw, storedTranslation: fallback, options)
+            return AINameScanChapter(index: chapter.index, title: shown.isEmpty ? raw : shown, rawTitle: raw)
         }
     }
 
-    /// Đọc nội dung raw (chưa dịch) từ file binary của một chương đã tải.
-    func readRawChapterContent(bookId: String, snapshot: StoredChapterSnapshot) async -> String? {
+    /// Đọc nội dung (chưa dịch) từ file binary của một chương đã tải — chữ như Reader hiện: phồn → giản theo
+    /// `convertsTraditional` (cờ Reader đã giải ba cấp, chạy cả khi tắt dịch — 1.3.846).
+    func readRawChapterContent(
+        bookId: String, snapshot: StoredChapterSnapshot, convertsTraditional: Bool = false
+    ) async -> String? {
         guard snapshot.isCached, snapshot.length > 0 else { return nil }
         do {
             let raw = try await BookBinManager.shared.readChapterContent(
@@ -62,20 +64,20 @@ final class AIBookDataInspector: Sendable {
                 offset: snapshot.offset,
                 length: snapshot.length
             )
-            return ChapterTextNormalizer.normalize(raw).content
+            return ChineseTextPipeline.normalizeChapter(raw, converts: convertsTraditional).content
         } catch {
             AppLogger.shared.log("❌ Lỗi đọc nội dung raw chương \(snapshot.index): \(error.localizedDescription)")
             return nil
         }
     }
 
-    /// Đọc nội dung raw của một chương theo index.
-    func readRawChapterContent(bookId: String, chapterIndex: Int) async -> String? {
+    /// Đọc nội dung (chưa dịch) của một chương theo index.
+    func readRawChapterContent(bookId: String, chapterIndex: Int, convertsTraditional: Bool = false) async -> String? {
         guard let toc = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId),
               let chapter = toc.first(where: { $0.index == chapterIndex }) else {
             return nil
         }
-        return await readRawChapterContent(bookId: bookId, snapshot: chapter)
+        return await readRawChapterContent(bookId: bookId, snapshot: chapter, convertsTraditional: convertsTraditional)
     }
 
     /// Lấy danh sách các từ/tên riêng đã có trong từ điển riêng của truyện.

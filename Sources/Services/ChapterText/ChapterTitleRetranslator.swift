@@ -5,8 +5,9 @@ import Foundation
 /// lượt một lần lúc mở app — `ChapterTitleConvertMigration`) đều gọi vào đây.
 ///
 /// - Phồn → giản là **bước chuyển trước khi dịch**: tên gốc được chuyển theo cấu hình của truyện
-///   (`TranslationConfigStore.convertsTraditionalToSimplified(bookId:packageId:)`) rồi mới dịch bằng `translateChapterTitle`
-///   (có bộ rule tên chương). Trước 1.3.845 `title_trans` luôn là bản **không** chuyển nên truyện bật phồn → giản bỏ qua nó.
+///   (`TranslationConfigStore.convertsTraditionalToSimplified(bookId:packageId:)`) rồi mới dịch — qua
+///   `ChineseTextPipeline.chapterTitle` (có bộ rule tên chương, 1.3.846). Trước 1.3.845 `title_trans` luôn là bản
+///   **không** chuyển nên truyện bật phồn → giản bỏ qua nó.
 /// - Xong một truyện ⇒ `chapterTitlesDidRetranslate` (`userInfo["bookId"]`) trên main — mục lục Reader và màn đọc truyện
 ///   tranh nạp lại. Không toast (Services không gọi `ToastManager`); caller tự báo.
 /// - Không kiểm từ điển đã nạp: caller kiểm `TranslationManager.isVietPhraseLoaded` trước (từ điển chưa nạp ⇒ "bản dịch"
@@ -23,6 +24,7 @@ enum ChapterTitleRetranslator {
         let bookId = target.bookId
         guard let stored = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !stored.isEmpty else { return 0 }
         let converts = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: target.packageId)
+        let options = ChineseTextPipeline.Options(converts: converts, translates: true, dictionaryBookId: bookId)
         TranslateUtils.clearChapterTitleCache(for: bookId)
 
         struct Item: Sendable {
@@ -37,11 +39,7 @@ enum ChapterTitleRetranslator {
             for item in items {
                 if Task.isCancelled { break }
                 guard !item.title.isEmpty else { continue }
-                let translated = TranslateUtils.translateChapterTitle(
-                    item.title,
-                    bookId: bookId,
-                    shouldConvertTraditionalToSimplified: converts
-                )
+                let translated = ChineseTextPipeline.chapterTitle(item.title, options)
                 list.append((index: item.index, url: item.url, titleTrans: translated))
             }
             return list
