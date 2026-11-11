@@ -36,6 +36,17 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
 AUDIOCPP_SHA="$(git -C "$SRC" rev-parse HEAD)"
 echo "audio.cpp commit: $AUDIOCPP_SHA"
 
+# sentencepiece (vendored) gọi `set_xcode_property` khi CMAKE_SYSTEM_NAME=iOS nhưng macro đó chỉ có trong bộ
+# ios.toolchain.cmake riêng của nó (mình không dùng) ⇒ khai macro rỗng; nó chỉ gắn bundle id cho các tool CLI
+# `spm_*` mà mình không build.
+COMPAT="$(cd "$WORK_DIR" && pwd)/ios_compat.cmake"
+cat > "$COMPAT" <<'EOF'
+if (NOT COMMAND set_xcode_property)
+  macro(set_xcode_property TARGET XCODE_PROPERTY XCODE_VALUE XCODE_RELVERSION)
+  endmacro()
+endif()
+EOF
+
 # OpenMP: Apple clang không có ⇒ tắt (ggml dùng pool pthread của nó).
 # NATIVE_CPU: đang cross-compile, không dò được máy đích ⇒ tắt, cấp cờ ARM tường minh qua GGML_CPU_ARM_ARCH.
 # BLAS: q8_0 không đi qua BLAS; tắt cho bớt một chỗ phải tìm thư viện lúc cross-compile.
@@ -45,6 +56,7 @@ cmake -S "$SRC" -B "$BUILD" \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PROJECT_INCLUDE="$COMPAT" \
   -DAUDIOCPP_VERSION="$AUDIOCPP_REF" \
   -DAUDIOCPP_BUILD_C_API=ON \
   -DAUDIOCPP_DEPLOYMENT_BUILD=ON \
