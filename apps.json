@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.872",
+          "buildVersion": "1228",
+          "date": "2026-11-11T15:12:54Z",
+          "localizedDescription": "- feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1228/TangCongCac-1.3.872-1228.ipa",
+          "size": 39630182,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.871",
           "buildVersion": "1227",
           "date": "2026-11-11T14:48:14Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1224/TangCongCac-1.3.865-1224.ipa",
           "size": 39578362,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.864",
-          "buildVersion": "1223",
-          "date": "2026-11-11T12:36:58Z",
-          "localizedDescription": "- feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header\n- feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt\n- feat: sheet nghe truyện thêm nút chương trước và chương kế ở hai đầu\n- feat: nút hub và nút trình duyệt thu nhỏ thành nửa viên thuốc nhỏ dính mép\n- feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu\n- feat: icon nút nổi mờ theo độ trong suốt như nền kính\n- fix: ẩn đĩa nghe khi sheet hub hoặc màn Thông báo của hub đang mở",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1223/TangCongCac-1.3.864-1223.ipa",
-          "size": 39586152,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.871",
-      "versionDate": "2026-11-11T14:48:14Z",
-      "versionDescription": "- feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1227/TangCongCac-1.3.871-1227.ipa",
-      "size": 39622321,
+      "version": "1.3.872",
+      "versionDate": "2026-11-11T15:12:54Z",
+      "versionDescription": "- feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1228/TangCongCac-1.3.872-1228.ipa",
+      "size": 39630182,
       "appPermissions": {}
     }
   ],
