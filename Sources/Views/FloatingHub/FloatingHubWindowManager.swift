@@ -108,6 +108,9 @@ final class FloatingHubWindowManager {
             containerViewController?.widgetContainerView.isHidden = true
         }
         refreshState()
+        // Cửa sổ đĩa nghe (`alert − 1.75`) nằm **trên** cửa sổ hub (`alert − 2`) ⇒ sheet hub / màn Thông báo mở từ đây
+        // sẽ bị nửa viên đĩa đè và cướp chạm. Báo ngay để đĩa thu / hiện lại (không chờ lượt hỏi 0,4 s).
+        MediaDiscWindowManager.shared.refreshState()
     }
 
     private func showWidget() {

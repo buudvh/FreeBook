@@ -11,7 +11,8 @@ import UIKit
 /// - **Nguồn** (`kind`): trình nghe có album ⇒ nhạc; không thì TTS có phiên ⇒ TTS; chờ cổng từ điển
 ///   mở như các cửa sổ nổi khác. Có nguồn ⇒ dựng/hiện cửa sổ; hết nguồn hoặc phim toàn màn ⇒ (đóng sheet,) thu đĩa rồi ẩn
 ///   cửa sổ.
-/// - **Được hiện** (`isDiscAllowed`): bàn phím ẩn, không phim toàn màn (`FloatingWidgetSuppression`), màn nghe không hiện.
+/// - **Được hiện** (`isDiscAllowed`): bàn phím ẩn, không phim toàn màn (`FloatingWidgetSuppression`), màn nghe không hiện,
+///   sheet hub / màn Thông báo của hub không mở (cửa sổ hub thấp hơn cửa sổ đĩa ⇒ đĩa sẽ đè sheet).
 ///   Chỗ đứng + màn trên cùng (màn xem phim, hộp thoại) do container xét qua `MediaDiscPlacement`.
 /// - **Tính lại chỗ**: neo vào/rời (`MediaDiscAnchorRegistry`), bàn phím, xoay màn, đổi trạng thái — cộng một lượt hỏi nhẹ
 ///   0,4 s chỉ khi cửa sổ đang hiện và app không ở nền (đóng một sheet không có neo thì trang bên dưới không phát sự kiện
@@ -120,6 +121,8 @@ final class MediaDiscWindowManager: ObservableObject {
             && !isKeyboardVisible
             && !FloatingWidgetSuppression.shared.isSuppressed
             && !AudioMiniPlayerState.shared.isScreenPresented
+            // Sheet hub / màn Thông báo trình bày từ cửa sổ hub — thấp hơn cửa sổ đĩa ⇒ đĩa phải ẩn kẻo đè sheet.
+            && !FloatingHubWindowManager.shared.isSheetPresented
     }
 
     /// Chạm đĩa (góc hoặc ô giữa thanh tab) ⇒ mở sheet điều khiển nhanh ở cửa sổ của đĩa. Cửa sổ có mặt mỗi khi có nguồn
