@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.812] - 2026-11-09
+
+### feat: đĩa nghe ở ô giữa thanh tab, đĩa góc chỉ hiện ở màn không có thanh tab, nhấn giữ đĩa góc tạm lên header 5 giây
+
+Plan anh Bửu đã duyệt (thay bản "đĩa trên header" đã bỏ): đĩa nghe nằm ở ô giữa thanh tab ở trang gốc các tab; mọi màn khác giữ đĩa góc dưới phải; nhấn giữ đĩa góc để tạm đưa nó lên header 5 giây.
+
+- **Thanh tab luôn 5 ô** (`MainTabBar`): Kệ Sách · Khám Phá · [giữa] · Tiện Ích · Cài Đặt. Ô giữa (`MediaDiscTabBarSlot`, mới) = đĩa 32 pt gọn trong chiều cao thanh khi có nhạc / TTS kiểu "Đĩa góc dưới", trống và không bấm được khi không nghe — icon tab không đổi chỗ. Có đĩa hay không đọc `MediaDiscWindowManager.kind` ⇒ đúng ngay từ khung đầu.
+- **Đĩa góc chỉ ở màn không có thanh tab**: thanh tab là neo `.hostsDisc` (vai mới của `MediaDiscAnchorRegistry`) ⇒ màn trên cùng có thanh tab thì đĩa góc ẩn **ngay**; đĩa đang ẩn chỉ hiện lại khi điều kiện đã giữ đủ 0,3 s (đẩy trang không làm đĩa lóe). Bàn phím, màn nghe, phim, hộp thoại vẫn ẩn như 1.3.808.
+- **Nút đĩa dùng chung** `MediaDiscFaceButton` (`.corner` / `.tabBar`, mới) cho cả hai chỗ; chạm ⇒ `MediaDiscWindowManager.presentQuickControls()` ⇒ sheet điều khiển nhanh luôn trình bày từ cửa sổ của đĩa qua `MediaDiscSheetHost` (mới, tách từ `MediaDiscContentView` — đã xoá). Chạm đầu sheet giữ như cũ (nhạc ⇒ màn nghe; TTS ⇒ Reader đúng chương, Reader của truyện đang mở thì `navigateReaderToPlayingChapter`).
+- **Bìa đĩa góc mờ theo "Độ trong suốt" của nút nổi**: bìa hiện `1 − độ trong suốt`, đúng như lớp màu của vòng kính; "Độ đục" vẫn là nhoè của vòng kính. Mờ gắn lên lớp bìa, không lên lớp cha của kính.
+- **Nhấn giữ đĩa góc 0,4 s** ⇒ rung nhẹ, trượt lò xo mềm lên góc phải vùng header (mép trên ngay dưới thanh trạng thái, lề phải 16 pt — `MediaDiscPlacement.elevatedFrame`) 5 giây rồi về chỗ; trong lúc đó chạm vẫn mở sheet, đóng sheet ⇒ về ngay, đổi màn ⇒ giữ đủ 5 giây. Chỉ dời khung trong cửa sổ đĩa, không đụng layout app. Thanh tab không có cử chỉ này.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.811] - 2026-11-09
 
 ### fix: nút ⋮ thêm playlist trong hàng danh sách không nhận chạm của cả hàng

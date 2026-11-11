@@ -60,6 +60,19 @@ extension ReaderView {
         case .fromChapterStart:
             // -1 = chunk đầu (tên chương nếu TTS đọc tên chương) — `TTSChunkPositionMapper.targetChunkIndex`.
             restartTTS(at: prompt.chapterIndex, paragraphIndex: -1)
+            showChapterStartForRestartedTTS(chapterIndex: prompt.chapterIndex)
+        }
+    }
+
+    /// Người hỏi thường đang ở giữa chương (hay đã kéo trang ⇒ tự cuộn bị tắt): tiếng đọc về đầu chương thì trang cũng phải
+    /// về và đi theo. Bật lại tự cuộn như lệnh nhảy của widget, rồi cuộn tới đầu chương (`paragraphIndex` -1 ⇒
+    /// `ReaderScrollCoordinator` cuộn tới mốc `chapter-N`) — tên chương không có highlight nên tự cuộn không tự kéo tới.
+    private func showChapterStartForRestartedTTS(chapterIndex index: Int) {
+        reenableTTSAutoScrollFromWidgetJump()
+        if index != chapterIndex {
+            requestChapter(at: index, paragraphIndex: 0, source: .ttsSync, persistProgress: false)
+        } else {
+            scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
         }
     }
 

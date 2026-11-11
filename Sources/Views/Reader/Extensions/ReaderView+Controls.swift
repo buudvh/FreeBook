@@ -221,7 +221,7 @@ extension ReaderView {
             // Tạm dừng tại chỗ ⇒ phát tiếp; trúng chương đang phát ⇒ sheet hỏi; còn lại đọc từ đoạn trên cùng màn hình.
             action: { handleReaderHeadphoneTap(geometry: geometry) }
         )
-        .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
+        .accessibilityLabel("Đọc thành tiếng")
         .mediaDiscAnchor(.button)
         // Tâm nút giữ đúng chỗ cũ (nút cũ 60pt = 44pt + đệm kính 8pt, lề phải 8 / dưới 12).
         .padding(.trailing, 12)

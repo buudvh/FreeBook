@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.842] - 2026-11-11
+
+### fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo
+
+Rà lại 1.3.841 trước khi đẩy: người bấm nút tai nghe giữa lúc nghe thường đang ở giữa chương, hay đã tự kéo trang (kéo trang lúc TTS đọc ⇒ tắt tự cuộn theo highlight, chỉ lệnh nhảy của widget bật lại). Chọn "Đọc lại từ đầu chương" khi đó thì tiếng đọc về tên chương nhưng trang đứng yên giữa chương và không đi theo nữa.
+
+- `ReaderView+TTSSameChapterPrompt`: sau khi đọc lại từ đầu chương ⇒ bật lại tự cuộn (`reenableTTSAutoScrollFromWidgetJump`) rồi cuộn tới đầu chương (`ScrollTarget` đoạn -1 ⇒ `ReaderScrollCoordinator` cuộn tới mốc `chapter-N`; tên chương không có highlight nên tự cuộn không tự kéo tới). Reader đã sang chương khác trong lúc sheet mở ⇒ mở lại chương được hỏi.
+- "Đọc từ đoạn đang xem" giữ đúng hành vi cũ (đoạn đó đang trên màn hình).
+- Nhãn trợ năng của nút tai nghe: bỏ "Dừng đọc thành tiếng" (nút không dừng đọc, giờ mở sheet hỏi) ⇒ luôn "Đọc thành tiếng". Chuyển `[1.3.812]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: đang nghe giữa chương, kéo trang đi, bấm tai nghe → "Đọc lại từ đầu chương" ⇒ trang về đầu chương và cuộn theo đoạn đang đọc.
+
 ## [1.3.841] - 2026-11-11
 
 ### feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương
@@ -458,17 +469,4 @@ Anh Bửu: *"áp dụng theo cài độ trong suốt, độ đục như nút kh�
 
 - `MediaDiscFaceButton(.corner)`: bỏ lớp mờ của bìa. Vòng kính `FloatingGlassBackground` vẫn theo "Độ trong suốt" + "Độ đục" của nút nổi (Cài đặt › Chung › Giao diện); bìa luôn rõ như icon của nút "+" / Home.
 - `CLAUDE.md` / `AGENTS.md`: sửa câu mô tả độ trong suốt của đĩa góc.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.812] - 2026-11-09
-
-### feat: đĩa nghe ở ô giữa thanh tab, đĩa góc chỉ hiện ở màn không có thanh tab, nhấn giữ đĩa góc tạm lên header 5 giây
-
-Plan anh Bửu đã duyệt (thay bản "đĩa trên header" đã bỏ): đĩa nghe nằm ở ô giữa thanh tab ở trang gốc các tab; mọi màn khác giữ đĩa góc dưới phải; nhấn giữ đĩa góc để tạm đưa nó lên header 5 giây.
-
-- **Thanh tab luôn 5 ô** (`MainTabBar`): Kệ Sách · Khám Phá · [giữa] · Tiện Ích · Cài Đặt. Ô giữa (`MediaDiscTabBarSlot`, mới) = đĩa 32 pt gọn trong chiều cao thanh khi có nhạc / TTS kiểu "Đĩa góc dưới", trống và không bấm được khi không nghe — icon tab không đổi chỗ. Có đĩa hay không đọc `MediaDiscWindowManager.kind` ⇒ đúng ngay từ khung đầu.
-- **Đĩa góc chỉ ở màn không có thanh tab**: thanh tab là neo `.hostsDisc` (vai mới của `MediaDiscAnchorRegistry`) ⇒ màn trên cùng có thanh tab thì đĩa góc ẩn **ngay**; đĩa đang ẩn chỉ hiện lại khi điều kiện đã giữ đủ 0,3 s (đẩy trang không làm đĩa lóe). Bàn phím, màn nghe, phim, hộp thoại vẫn ẩn như 1.3.808.
-- **Nút đĩa dùng chung** `MediaDiscFaceButton` (`.corner` / `.tabBar`, mới) cho cả hai chỗ; chạm ⇒ `MediaDiscWindowManager.presentQuickControls()` ⇒ sheet điều khiển nhanh luôn trình bày từ cửa sổ của đĩa qua `MediaDiscSheetHost` (mới, tách từ `MediaDiscContentView` — đã xoá). Chạm đầu sheet giữ như cũ (nhạc ⇒ màn nghe; TTS ⇒ Reader đúng chương, Reader của truyện đang mở thì `navigateReaderToPlayingChapter`).
-- **Bìa đĩa góc mờ theo "Độ trong suốt" của nút nổi**: bìa hiện `1 − độ trong suốt`, đúng như lớp màu của vòng kính; "Độ đục" vẫn là nhoè của vòng kính. Mờ gắn lên lớp bìa, không lên lớp cha của kính.
-- **Nhấn giữ đĩa góc 0,4 s** ⇒ rung nhẹ, trượt lò xo mềm lên góc phải vùng header (mép trên ngay dưới thanh trạng thái, lề phải 16 pt — `MediaDiscPlacement.elevatedFrame`) 5 giây rồi về chỗ; trong lúc đó chạm vẫn mở sheet, đóng sheet ⇒ về ngay, đổi màn ⇒ giữ đủ 5 giây. Chỉ dời khung trong cửa sổ đĩa, không đụng layout app. Thanh tab không có cử chỉ này.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
