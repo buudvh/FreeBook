@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.866",
+          "buildVersion": "1225",
+          "date": "2026-11-11T13:39:37Z",
+          "localizedDescription": "- feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1225/TangCongCac-1.3.866-1225.ipa",
+          "size": 39577399,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.865",
           "buildVersion": "1224",
           "date": "2026-11-11T13:14:00Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1216/TangCongCac-1.3.852-1216.ipa",
           "size": 39549182,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.845",
-          "buildVersion": "1214",
-          "date": "2026-11-11T06:38:15Z",
-          "localizedDescription": "- fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1214/TangCongCac-1.3.845-1214.ipa",
-          "size": 39497613,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.865",
-      "versionDate": "2026-11-11T13:14:00Z",
-      "versionDescription": "- feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1224/TangCongCac-1.3.865-1224.ipa",
-      "size": 39578362,
+      "version": "1.3.866",
+      "versionDate": "2026-11-11T13:39:37Z",
+      "versionDescription": "- feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1225/TangCongCac-1.3.866-1225.ipa",
+      "size": 39577399,
       "appPermissions": {}
     }
   ],
