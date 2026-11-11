@@ -1,14 +1,20 @@
 import Foundation
 import WebKit
 
-/// Script dịch trang QT **tại chỗ** cho trình duyệt người dùng: thay chữ trong text node + thuộc tính `title`/`alt`/
-/// `placeholder` bằng bản dịch, giữ bản gốc để tắt là khôi phục, `MutationObserver` dịch tiếp nội dung nạp thêm.
+/// Script xử lý chữ trang **tại chỗ** cho trình duyệt người dùng: thay chữ trong text node + thuộc tính `title`/`alt`/
+/// `placeholder` bằng chữ native trả về (phồn → giản và/hoặc dịch QT — native quyết theo cờ của tab), giữ bản gốc để
+/// tắt là khôi phục, `MutationObserver` xử lý tiếp nội dung nạp thêm.
 ///
 /// Chạy `atDocumentStart`, **chỉ khung chính**, trong `contentWorld` riêng: trang không thấy `window.__fbPageTranslate`
 /// lẫn handler `fbPageTranslate` (`BrowserPageTranslator`). Script chọn chữ/nhấn giữ (Phần menu nhấn giữ) cài vào
 /// **cùng** world này để gọi `sourceTextForSelection()`.
 ///
-/// API trong world: `window.__fbPageTranslate = { enable(), disable(), isEnabled(), sourceTextForSelection() }`.
+/// API trong world: `window.__fbPageTranslate = { enable(mode), disable(), isEnabled(), isTranslating(),
+/// sourceTextForSelection() }`.
+/// - `mode` (1.3.846): `"c"` chỉ phồn → giản, `"t"` chỉ dịch, `"ct"` cả hai. `enable` cùng chế độ là no-op; khác chế độ ⇒
+///   khôi phục bản gốc rồi quét lại (gạt một trong hai công tắc / trang khôi phục từ bộ đệm lùi-tiến đã xử lý theo chế
+///   độ cũ). `isTranslating()` = đang bật **và** chế độ có dịch — menu nhấn giữ chỉ lấy bản gốc khi chữ đang hiện là
+///   bản dịch; chỉ phồn → giản thì chữ đang hiện đã là câu gốc (đã chuyển).
 /// - `enable()` gọi trước `DOMContentLoaded` (lúc `didCommit`) ⇒ xếp hàng tới khi DOM sẵn sàng rồi mới quét.
 /// - Gửi native theo lô ≤ 120 mục / ≤ 12 000 ký tự UTF-16, **một lô bay một lúc**; mục dài hơn trần đi một mình.
 /// - Tự ghi của script không bị observer dịch lại: so `nodeValue` với bản dịch đã ghi cho node đó (`written`), và
@@ -29,10 +35,13 @@ enum BrowserPageTranslateScript {
         controller.userScripts.contains { $0.source == source }
     }
 
-    /// Script chưa kịp chạy trong document mới ⇒ để cờ chờ, script đọc cờ khi cài xong.
-    static let enableCall = """
-    (function () { var api = window.__fbPageTranslate; if (api) { api.enable(); } else { window.__fbPageTranslatePending = true; } return true; })()
-    """
+    /// `mode` là hằng `"c"` / `"t"` / `"ct"` (`BrowserPageTranslator.enable`). Script chưa kịp chạy trong document mới ⇒
+    /// để chế độ chờ, script đọc khi cài xong.
+    static func enableCall(mode: String) -> String {
+        """
+        (function () { var m = "\(mode)"; var api = window.__fbPageTranslate; if (api) { api.enable(m); } else { window.__fbPageTranslatePending = m; } return true; })()
+        """
+    }
 
     static let disableCall = """
     (function () { window.__fbPageTranslatePending = false; var api = window.__fbPageTranslate; if (api) { api.disable(); } return true; })()
@@ -47,7 +56,7 @@ enum BrowserPageTranslateScript {
             var text = sel ? String(sel.toString()) : "";
             if (!text.trim()) { return empty; }
             var api = window.__fbPageTranslate;
-            var source = api ? api.sourceTextForSelection() : text;
+            var source = api && api.isTranslating() ? api.sourceTextForSelection() : text;
             function linkOf(node) {
                 var el = node && (node.nodeType === 1 ? node : node.parentElement);
                 var a = el && el.closest ? el.closest("a[href]") : null;
@@ -78,7 +87,7 @@ enum BrowserPageTranslateScript {
         var ATTRS = ["title", "alt", "placeholder"];
         var MAX_ITEMS = 120, MAX_CHARS = 12000;
 
-        var enabled = false, waiting = false, inflight = false, generation = 0;
+        var enabled = false, mode = "", waiting = false, inflight = false, generation = 0;
         var observer = null, scanTimer = 0, pumpTimer = 0;
         var queue = [], pendingRoots = new Set();
         var originals = new WeakMap(), written = new WeakMap(), pendingText = new WeakMap();
@@ -279,9 +288,12 @@ enum BrowserPageTranslateScript {
             schedulePump();
         }
 
-        function enable() {
-            if (enabled) { return true; }
+        function enable(m) {
+            m = typeof m === "string" && m ? m : "t";
+            if (enabled && m === mode) { return true; }
+            if (enabled) { disable(); }
             enabled = true;
+            mode = m;
             generation++;
             if (document.readyState === "loading") {
                 if (!waiting) {
@@ -296,6 +308,7 @@ enum BrowserPageTranslateScript {
 
         function disable() {
             enabled = false;
+            mode = "";
             generation++;
             queue = [];
             pendingRoots.clear();
@@ -358,11 +371,13 @@ enum BrowserPageTranslateScript {
             enable: enable,
             disable: disable,
             isEnabled: function () { return enabled; },
+            isTranslating: function () { return enabled && mode.indexOf("t") >= 0; },
             sourceTextForSelection: sourceTextForSelection
         };
-        if (window.__fbPageTranslatePending) {
+        var pendingMode = window.__fbPageTranslatePending;
+        if (pendingMode) {
             window.__fbPageTranslatePending = false;
-            enable();
+            enable(pendingMode);
         }
     })();
     """#

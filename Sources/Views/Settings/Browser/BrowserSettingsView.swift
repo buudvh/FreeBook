@@ -5,14 +5,15 @@ import SwiftUI
 /// 1. Chặn quảng cáo — công tắc chung + chặn cửa sổ bật lên;
 /// 2. Bộ lọc — `BrowserFilterListSection`;
 /// 3. Chế độ hiển thị — mặc định Điện thoại/Máy tính của trình duyệt;
-/// 4. Dịch trang — công tắc chung phồn → giản trước khi dịch (`BrowserTranslatePolicy.convertsTraditionalKey`, 1.3.684);
+/// 4. Dịch trang — công tắc chung phồn → giản (`BrowserTranslatePolicy.convertsTraditionalKey`, 1.3.684; bước riêng,
+///    chạy cả khi không dịch trang từ 1.3.846);
 /// 5. Trang đã chỉnh riêng — `BrowserSitePreferencesSection`;
 /// 6. Trình duyệt của tiện ích — công tắc thu nhỏ cũ (`VisibleBrowserSettings.openMinimizedKey`).
 ///
 /// Công tắc chung ghi thẳng `UserDefaults` qua `@AppStorage` với khoá của `WebContentSettings` (mặc định khớp
 /// `WebContentSettings.registerDefaults()`); có hiệu lực từ lượt nạp trang kế tiếp, không nạp lại tab đang mở. Riêng
-/// phồn → giản: mở từ trình duyệt thì `BypassWebView` dịch lại ngay các tab đang dịch; mở từ Cài đặt thì áp từ lần dịch
-/// kế tiếp.
+/// phồn → giản: mở từ trình duyệt thì `BypassWebView` áp lại ngay cho các tab; mở từ Cài đặt thì áp từ lượt nạp trang kế
+/// tiếp.
 ///
 /// Không tự bọc `NavigationStack`: Cài đặt đẩy màn này vào stack của nó; sheet của trình duyệt tự bọc.
 struct BrowserSettingsView: View {
@@ -84,11 +85,11 @@ struct BrowserSettingsView: View {
 
     private var pageTranslateSection: some View {
         Section {
-            Toggle("Chuyển phồn thể → giản thể trước khi dịch", isOn: $convertsTraditional)
+            Toggle("Chuyển phồn thể → giản thể", isOn: $convertsTraditional)
         } header: {
             SectionHelpHeader("Dịch trang", paragraphs: [
-                "Áp cho dịch QT cả trang (tự dịch hoặc bấm nút dịch) và sheet Dịch QT khi bôi đen chữ trong trình duyệt.",
-                "Bật khi hay đọc trang viết chữ phồn thể: chữ được chuyển sang giản thể trước khi tra từ điển nên dịch sát hơn. Trang giản thể cũng bị chuyển, có thể bị đổi vài chữ mập mờ.",
+                "Phồn → giản là bước riêng, chạy cả khi không dịch trang: bật mà không dịch thì trang hiện chữ giản thể. Khi dịch QT, chữ được chuyển trước rồi mới tra từ điển nên dịch sát hơn.",
+                "Áp cho chữ trên trang, tiêu đề tab và câu gốc của menu bôi đen (Dịch QT, Tra từ điển, Sao chép bản dịch). Trang giản thể cũng bị chuyển, có thể bị đổi vài chữ mập mờ.",
                 "Chỉnh riêng từng trang ở công tắc \"Phồn → giản\" trong menu khiên của trình duyệt."
             ])
         }

@@ -46,7 +46,7 @@ struct BypassWebView: View {
     @State var showingBrowserSettings = false
     /// Công tắc NSFW toàn app: tắt ⇒ Home không hiện ô của nguồn NSFW và ẩn lịch sử duyệt trang của chúng.
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) var includeNsfw = false
-    /// Công tắc chung phồn → giản (sheet Cài đặt trình duyệt): đổi ⇒ dịch lại tab đang dịch theo cờ mới (1.3.684).
+    /// Công tắc chung phồn → giản (sheet Cài đặt trình duyệt): đổi ⇒ áp lại cờ cho các tab ngay (1.3.684, 1.3.846).
     @AppStorage(BrowserTranslatePolicy.convertsTraditionalKey) var convertsTraditionalGlobal = false
 
     var body: some View {
@@ -84,7 +84,7 @@ struct BypassWebView: View {
                 showingSourcePicker = false
             }
             .onChange(of: convertsTraditionalGlobal) { _, _ in
-                store.retranslateTabsFollowingGlobalConvert()
+                store.reapplyConvertPolicyFollowingGlobal()
             }
             .sheet(isPresented: $showingAllHistorySheet) {
                 BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.850] - 2026-11-11
+
+### feat: trình duyệt chuyển phồn → giản riêng, không cần bật dịch trang
+
+Anh Bửu: *"Trình duyệt dịch QT cũng làm thành các bước như tôi yêu cầu"* — phồn → giản là bước riêng chạy trước khi dịch, chạy cả khi tắt dịch; mọi chữ Trung đi qua một hàm (chuyển nếu bật ⇒ dịch nếu bật ⇒ trả); khi bật phồn → giản, "chữ gốc" ở mọi nơi là chữ đã chuyển. Trước đây ở trình duyệt phồn → giản chỉ là bước con của dịch trang.
+
+- **Hai cờ độc lập trên tab** (`BypassBrowserTab`): thêm `isConvertingTraditional` cạnh `isTranslating`, một setter `setPageProcessing(translates:converts:)` (mỗi cờ chỉ gán khi khác giá trị cũ), `pageTextOptions` (`nil` khi cả hai tắt). Trang được xử lý khi bật dịch **hoặc** bật phồn → giản; chỉ bật phồn → giản ⇒ trang hiện giản thể, không dịch.
+- **Handler `fbPageTranslate`** (`BrowserPageTranslator`): hai closure `accepts` + `convertsTraditional` gộp thành một `pageOptions` (đọc hai cờ của tab trên main mỗi lô); xử lý ngoài main bằng `ChineseTextPipeline.content` (chuyển ⇒ dịch ⇒ trả, từ điển chung). Vẫn cài một lần mỗi `WKUserContentController`, cùng content world, handler có trả lời; webview tiện ích không đổi.
+- **Script trang** (`BrowserPageTranslateScript`): `enable(mode)` với chế độ `"c"` / `"t"` / `"ct"` — cùng chế độ là no-op, khác chế độ ⇒ khôi phục chữ gốc rồi xử lý lại (gạt một trong hai công tắc, hoặc trang khôi phục từ bộ đệm lùi/tiến đã xử lý theo chế độ cũ); tắt cả hai ⇒ trả nguyên bản. Thêm `isTranslating()`.
+- **Store** (`BypassBrowserTabStore+Translation`): commit / nút dịch tay / đổi luật nhớ đều đẩy hai cờ (phồn → giản = chỉnh riêng theo tên miền ?? công tắc chung, `BrowserTranslatePolicy.convertsTraditional`). Đổi phồn → giản (khiên hoặc Cài đặt mở từ trình duyệt) áp lại cho **mọi** tab web của tên miền bị đổi, kể cả tab không dịch — `retranslateTabs(underHosts:)` / `retranslateTabsFollowingGlobalConvert()` đổi tên thành `reapplyConvertPolicy(underHosts:)` / `reapplyConvertPolicyFollowingGlobal()`.
+- **Tiêu đề tab** chuyển / dịch theo đúng hai cờ (`ChineseTextPipeline.meta`, nhớ theo tiêu đề gốc + hai cờ).
+- **Menu bôi đen**: Dịch QT / Tra từ điển / Sao chép bản dịch dùng câu gốc **đã chuyển** khi tab đang chuyển, kể cả khi không dịch trang. Script chỉ lấy bản gốc của node khi chữ đang hiện là bản dịch (`isTranslating`); chỉ phồn → giản thì dùng chữ đang hiện (giữ đúng từ + vị trí cho Tra từ điển). Bản gốc của đoạn đã dịch là chữ thô ⇒ store chuyển lúc bấm (`pageSourceText`, `pageLookupRequest`; độ dài đoạn đổi ⇒ bỏ vị trí từ). Sheet Dịch QT nhận câu gốc đã chuyển, bỏ tham số `convertsTraditional`.
+- **Sheet khiên** (`BrowserShieldTranslateSection`): "Phồn → giản" thành hàng ngang hàng, độc lập với "Tự dịch QT" (cùng cột icon, cùng cỡ chữ), vẫn nhớ theo tên miền + "Dùng cài đặt chung".
+- **Cài đặt › Trình duyệt › Dịch trang**: công tắc "Chuyển phồn thể → giản thể" (bỏ "trước khi dịch"), giải thích mới (bước riêng, chạy cả khi không dịch, áp cho chữ trang, tiêu đề tab và câu gốc menu bôi đen). Doc của `BrowserTranslatePolicy`, `BrowserSitePreference`, `BrowserSitePreferenceStore` sửa theo.
+- **Dải báo**: vẫn chỉ báo khi tự **dịch** theo luật nhớ ("Tự dịch QT · theo …"); chỉ phồn → giản thì không báo — cờ đó theo công tắc chung, báo ở mọi tên miền mới là ồn.
+- **Kiểm chứng:** đọc code + grep chéo các tên đổi / bỏ (`setTranslating`, `retranslateTabs…`, `BrowserPageTranslator.translate`, `enableCall`, tham số `convertsTraditional` của sheet Dịch QT); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (script trang 384 dòng, `BypassWebView` không tăng dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) trang phồn thể, tắt dịch, bật Phồn → giản ở khiên ⇒ trang + tiêu đề tab thành giản thể ngay, không dịch; tắt ⇒ về nguyên bản; (2) bật cả hai ⇒ dịch; tắt dịch (ngăn kéo) ⇒ trang còn giản thể; (3) đổi công tắc chung ở Cài đặt mở từ trình duyệt ⇒ tab không có chỉnh riêng đổi theo; (4) chỉ phồn → giản: bôi đen ⇒ Dịch QT "Bản gốc" là giản thể, Tra từ điển tra đúng từ đang chọn; đang dịch + phồn → giản ⇒ "Bản gốc" là giản thể; (5) lùi / tiến giữa trang đã đổi chế độ ⇒ trang xử lý đúng chế độ hiện tại.
+
 ## [1.3.849] - 2026-11-11
 
 ### feat: Khám phá và Tìm kiếm chuyển phồn → giản và dịch tên, tác giả theo nguồn như popup dịch

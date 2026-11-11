@@ -35,10 +35,12 @@ enum BrowserContextMenuScript {
     }
 
     /// Ngữ cảnh của vùng chọn cho sheet Tra từ điển — chuỗi JSON `{text, word, offset}`:
-    /// - trang chưa dịch: `text` = chữ của khối chứa vùng chọn (cắt quanh vùng chọn), `word` = chữ đang chọn, `offset`
-    ///   = vị trí (UTF-16) của `word` trong `text`;
-    /// - vùng chọn chạm đoạn đã dịch: `text` = bản gốc các đoạn đó, `word` rỗng, `offset` = -1 (native tra token Hán
-    ///   đầu tiên — không ánh xạ được chữ Việt đang chọn về đúng từ gốc).
+    /// - trang chưa dịch (kể cả chỉ chuyển phồn → giản — chữ đang hiện đã là câu gốc đã chuyển, 1.3.846): `text` = chữ
+    ///   của khối chứa vùng chọn (cắt quanh vùng chọn), `word` = chữ đang chọn, `offset` = vị trí (UTF-16) của `word`
+    ///   trong `text`;
+    /// - trang đang dịch và vùng chọn chạm đoạn đã dịch: `text` = bản gốc các đoạn đó (chữ thô — native chuyển phồn →
+    ///   giản theo tab), `word` rỗng, `offset` = -1 (native tra token Hán đầu tiên — không ánh xạ được chữ Việt đang
+    ///   chọn về đúng từ gốc).
     static let selectionContextCall = """
     (function () { var api = window.__fbContextMenu; return api ? api.selectionContext() : JSON.stringify({ text: "", word: "", offset: -1 }); })()
     """
@@ -100,9 +102,10 @@ enum BrowserContextMenuScript {
             return a && a.href ? String(a.href) : "";
         }
 
+        // Chữ đang hiện là bản dịch (chế độ có dịch) — chỉ phồn → giản thì chữ đang hiện đã là câu gốc.
         function translating() {
             var api = window.__fbPageTranslate;
-            try { return !!(api && api.isEnabled && api.isEnabled()); } catch (e) { return false; }
+            try { return !!(api && api.isTranslating && api.isTranslating()); } catch (e) { return false; }
         }
 
         var lastKey = null, selTimer = 0, lastRun = 0;

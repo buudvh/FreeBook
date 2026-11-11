@@ -30,9 +30,12 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     /// Tab **ẩn danh**: không ghi Lịch sử truy cập. `BypassBrowserTabStore` bật khi khung chính vào trang của nguồn tắt
     /// "Lưu lịch sử đọc/xem" (`BrowserSourceSiteIndex`); giữ tới khi về Home / mở tab mới, tab mở từ nó thừa hưởng.
     @Published var isIncognito: Bool = false
-    /// Trang hiện tại đang hiển thị bản dịch QT. Chỉ store đổi (qua `setTranslating(_:)`): commit khung chính, công tắc
+    /// Trang hiện tại đang hiển thị bản dịch QT. Chỉ store đổi (qua `setPageProcessing`): commit khung chính, công tắc
     /// "Dịch trang" của ngăn kéo, đổi luật nhớ.
     @Published private(set) var isTranslating: Bool = false
+    /// Trang hiện tại đang chuyển phồn → giản (1.3.846) — bước **riêng**, chạy cả khi không dịch: chỉ cờ này ⇒ trang hiện
+    /// giản thể. Chỉ store đổi (qua `setPageProcessing`): commit khung chính, đổi công tắc phồn → giản (khiên / chung).
+    @Published private(set) var isConvertingTraditional: Bool = false
     /// Chữ dải báo tự dịch ("Tự dịch QT · theo …"). Tự xoá sau 2 s; gán chữ mới trước hạn thì tính lại 2 s.
     @Published var translateHint: String? = nil {
         didSet { scheduleTranslateHintClear() }
@@ -64,8 +67,8 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
     private var observers: [NSKeyValueObservation] = []
     /// Token của lượt hẹn xoá `translateHint`: gán lại thì lượt cũ không xoá nhầm chữ mới.
     private var translateHintToken = 0
-    /// Tiêu đề đã dịch, nhớ theo tiêu đề gốc để `displayTitle` không dịch lại mỗi lần vẽ.
-    private var translatedTitleCache: (source: String, translated: String)?
+    /// Tiêu đề đã xử lý, nhớ theo tiêu đề gốc + hai cờ để `displayTitle` không xử lý lại mỗi lần vẽ.
+    private var processedTitleCache: (source: String, options: ChineseTextPipeline.Options, title: String)?
 
     init(
         id: String = UUID().uuidString,
@@ -87,27 +90,39 @@ final class BypassBrowserTab: ObservableObject, Identifiable {
         observers.removeAll()
     }
 
-    /// Tiêu đề rút gọn cho pill tab / header. Trang đang dịch QT và tiêu đề có chữ Hán ⇒ tiêu đề dịch
-    /// (`TranslateUtils.translateMeta`, nhớ theo tiêu đề gốc).
+    /// Tiêu đề rút gọn cho pill tab / header. Trang đang chuyển / dịch và tiêu đề có chữ Hán ⇒ tiêu đề qua đúng hai bước
+    /// của trang (`ChineseTextPipeline.meta`: chuyển nếu bật ⇒ dịch nếu bật), nhớ theo tiêu đề gốc + hai cờ.
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { return isTranslating ? translatedTitle(trimmed) : trimmed }
+        if !trimmed.isEmpty {
+            guard let options = pageTextOptions else { return trimmed }
+            return processedTitle(trimmed, options: options)
+        }
         if let host = URL(string: urlString)?.host, !host.isEmpty { return host }
         return "Trang mới"
     }
 
-    /// Chỉ `BypassBrowserTabStore` gọi; bỏ qua khi không đổi (xem doc của class).
-    func setTranslating(_ value: Bool) {
-        guard isTranslating != value else { return }
-        isTranslating = value
+    /// Cách xử lý chữ của trang cho handler `fbPageTranslate` và tiêu đề tab; `nil` = trang không chuyển, không dịch
+    /// (trả nguyên văn). Trình duyệt dùng từ điển chung, không gắn truyện.
+    var pageTextOptions: ChineseTextPipeline.Options? {
+        guard isTranslating || isConvertingTraditional else { return nil }
+        return ChineseTextPipeline.Options(
+            converts: isConvertingTraditional, translates: isTranslating, dictionaryBookId: nil
+        )
     }
 
-    private func translatedTitle(_ source: String) -> String {
+    /// Chỉ `BypassBrowserTabStore` gọi; mỗi cờ chỉ gán khi khác giá trị cũ (xem doc của class).
+    func setPageProcessing(translates: Bool, converts: Bool) {
+        if isTranslating != translates { isTranslating = translates }
+        if isConvertingTraditional != converts { isConvertingTraditional = converts }
+    }
+
+    private func processedTitle(_ source: String, options: ChineseTextPipeline.Options) -> String {
         guard TranslateUtils.containsChinese(source) else { return source }
-        if let cache = translatedTitleCache, cache.source == source { return cache.translated }
-        let translated = TranslateUtils.translateMeta(source).trimmingCharacters(in: .whitespacesAndNewlines)
-        let result = translated.isEmpty ? source : translated
-        translatedTitleCache = (source, result)
+        if let cache = processedTitleCache, cache.source == source, cache.options == options { return cache.title }
+        let processed = ChineseTextPipeline.meta(source, options).trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = processed.isEmpty ? source : processed
+        processedTitleCache = (source, options, result)
         return result
     }
 

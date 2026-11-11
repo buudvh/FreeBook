@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Hàng "Tự dịch QT" trong bảng khiên (mockup 2026-10-30, màn "Mới 3"): nhớ tự dịch theo tên miền.
+/// Hai hàng **ngang hàng, độc lập** trong bảng khiên (mockup 2026-10-30, màn "Mới 3"; tách phồn → giản 1.3.846):
+/// "Tự dịch QT" và "Phồn → giản". Mỗi hàng có công tắc + dòng phụ + nút trả về luật gốc riêng.
 ///
+/// **Tự dịch QT** — nhớ tự dịch theo tên miền:
 /// - Công tắc hiện **luật nhớ** (`BrowserTranslatePolicy.resolve(urlString:).isEnabled`), không phải trạng thái dịch
 ///   của tab (cái đó còn tính nút dịch bấm tay, không ghi nhớ).
 /// - Dòng phụ theo nguồn quyết định: "Đang theo tiện ích <tên>" / "Bật cho <tên miền>" / "Tắt cho <tên miền>" /
@@ -10,12 +12,11 @@ import SwiftUI
 ///   hiện dòng "Dùng cấu hình tiện ích"), rồi `reapplyTranslationPolicy` để trang dịch/khôi phục ngay, không nạp lại.
 /// - "Dùng cấu hình tiện ích" (chỉ khi đang có chỉnh riêng) ⇒ ghi `nil`.
 ///
-/// Cài đặt con **"Phồn → giản"** (1.3.684) đứng ngay dưới, thụt vào thẳng chữ "Tự dịch QT", chữ nhỏ hơn một bậc:
-/// - Công tắc hiện cờ có hiệu lực (`BrowserTranslatePolicy.convertsTraditional(urlString:)`); luôn hiện và luôn chỉnh
-///   được kể cả khi "Tự dịch QT" tắt — nút dịch bấm tay và sheet Dịch QT khi bôi đen cũng dùng nó.
+/// **Phồn → giản** — bước riêng, chạy cả khi không dịch (bật mà không dịch ⇒ trang hiện giản thể):
+/// - Công tắc hiện cờ có hiệu lực (`BrowserTranslatePolicy.convertsTraditional(urlString:)`); luôn chỉnh được.
 /// - Dòng phụ: "Theo cài đặt chung" / "Bật cho <tên miền>" / "Tắt cho <tên miền>".
-/// - Đổi ⇒ ghi giá trị tường minh cho tên miền rồi **dịch lại** các tab đang dịch của tên miền đó
-///   (`retranslateTabs(underHosts:)`). Không gọi `reapplyTranslationPolicy`: bật/tắt tay của tab phải giữ nguyên.
+/// - Đổi ⇒ ghi giá trị tường minh cho tên miền rồi áp lại cho **mọi** tab của tên miền đó
+///   (`reapplyConvertPolicy(underHosts:)`). Không gọi `reapplyTranslationPolicy`: bật/tắt tay dịch của tab giữ nguyên.
 /// - "Dùng cài đặt chung" (chỉ khi đang có chỉnh riêng) ⇒ ghi `nil`, xoá cả bản ghi của tên miền cha.
 ///
 /// Ghi qua `BrowserSitePreferenceList` (như chặn QC / bản máy tính) để màn Cài đặt Trình duyệt đồng bộ. Đọc
@@ -29,9 +30,6 @@ struct BrowserShieldTranslateSection: View {
 
     @AppStorage(BrowserTranslatePolicy.convertsTraditionalKey) private var globalConvertsTraditional = false
 
-    /// Lề trái của cài đặt con = cột icon 24pt + khoảng 10pt của hàng "Tự dịch QT" ⇒ thẳng với chữ "Tự dịch QT".
-    private static let childIndent: CGFloat = 34
-
     var body: some View {
         // Chỉ để đăng ký phụ thuộc (xem doc của type) — giá trị thật lấy qua `BrowserTranslatePolicy`.
         let _ = BrowserSitePreferenceList.shared.items
@@ -41,53 +39,78 @@ struct BrowserShieldTranslateSection: View {
         let convertOverride = BrowserSitePreferenceStore.shared.preference(forHost: host)?.convertsTraditional
 
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                Toggle(isOn: binding(resolution.isEnabled)) {
-                    HStack(spacing: 10) {
-                        AppGlyph.translate.image(size: 18)
-                            .foregroundColor(.white)
-                            .frame(width: 24)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Tự dịch QT")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
-                            Text(subtitle(for: resolution))
-                                .font(.system(size: 11.5))
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                        }
-                    }
-                }
-                .tint(.green)
-
-                convertSubsection(isOn: converts, siteOverride: convertOverride)
-                    .padding(.leading, Self.childIndent)
+            toggleRow(title: "Tự dịch QT", subtitle: subtitle(for: resolution), isOn: binding(resolution.isEnabled)) {
+                AppGlyph.translate.image(size: 18)
+            }
+            if resolution.siteOverride != nil {
+                resetButton("Dùng cấu hình tiện ích", action: resetToExtensionRule)
             }
 
-            if resolution.siteOverride != nil {
-                Button {
-                    resetToExtensionRule()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 15, weight: .semibold))
-                            .frame(width: 24)
-                        Text("Dùng cấu hình tiện ích")
-                            .font(.system(size: 13.5, weight: .medium))
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundColor(.white)
-                    .frame(minHeight: 36)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+            toggleRow(
+                title: "Phồn → giản",
+                subtitle: convertSubtitle(siteOverride: convertOverride),
+                isOn: convertBinding(converts)
+            ) {
+                Image(systemName: "textformat")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            if convertOverride != nil {
+                resetButton("Dùng cài đặt chung", action: resetConvertToGlobal)
             }
         }
+    }
+
+    // MARK: - Khung hàng
+
+    /// Hàng công tắc: cột icon 24pt + tiêu đề 14pt nửa đậm + dòng phụ; hai hàng của section dùng chung.
+    private func toggleRow<Icon: View>(
+        title: String,
+        subtitle: String,
+        isOn: Binding<Bool>,
+        @ViewBuilder icon: () -> Icon
+    ) -> some View {
+        let iconView = icon()
+        return Toggle(isOn: isOn) {
+            HStack(spacing: 10) {
+                iconView
+                    .foregroundColor(.white)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.system(size: 11.5))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .tint(.green)
+    }
+
+    private func resetButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 24)
+                Text(title)
+                    .font(.system(size: 13.5, weight: .medium))
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(.white)
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var domainText: String {
         BrowserSitePreferenceStore.normalizedDomain(for: host) ?? host
     }
+
+    // MARK: - Tự dịch QT
 
     private func subtitle(for resolution: BrowserTranslateResolution) -> String {
         switch resolution.source {
@@ -120,7 +143,7 @@ struct BrowserShieldTranslateSection: View {
 
     /// Ghi `nil` cho host của tab. Tra cứu gộp cả tên miền cha (`BrowserSitePreferenceStore.preference(forHost:)`) nên
     /// bản ghi dịch của tên miền cha cũng bị xoá — nếu không, bấm xong trang vẫn theo chỉnh riêng thừa hưởng và nút như
-    /// không có tác dụng. Chỉ xoá trường dịch, chặn QC / bản máy tính của tên miền cha giữ nguyên.
+    /// không có tác dụng. Chỉ xoá trường dịch, chặn QC / bản máy tính / phồn → giản của tên miền cha giữ nguyên.
     private func resetToExtensionRule() {
         MainActor.assumeIsolated {
             let list = BrowserSitePreferenceList.shared
@@ -135,42 +158,7 @@ struct BrowserShieldTranslateSection: View {
         }
     }
 
-    // MARK: - Phồn → giản (cài đặt con)
-
-    private func convertSubsection(isOn: Bool, siteOverride: Bool?) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Toggle(isOn: convertBinding(isOn)) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Phồn → giản")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text(convertSubtitle(siteOverride: siteOverride))
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .tint(.green)
-
-            if siteOverride != nil {
-                Button {
-                    resetConvertToGlobal()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Dùng cài đặt chung")
-                            .font(.system(size: 12.5, weight: .medium))
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundColor(.white)
-                    .frame(minHeight: 32)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
+    // MARK: - Phồn → giản
 
     private func convertSubtitle(siteOverride: Bool?) -> String {
         guard let siteOverride else { return "Theo cài đặt chung" }
@@ -191,12 +179,12 @@ struct BrowserShieldTranslateSection: View {
     @MainActor
     private func rememberConvert(_ value: Bool) {
         BrowserSitePreferenceList.shared.setConvertsTraditional(value, forHost: host)
-        AppLogger.shared.log("🌐 [BypassBrowser] \(value ? "Bật" : "Tắt") phồn → giản trước khi dịch (nhớ theo tên miền)")
-        store.retranslateTabs(underHosts: [host])
+        AppLogger.shared.log("🌐 [BypassBrowser] \(value ? "Bật" : "Tắt") phồn → giản (nhớ theo tên miền)")
+        store.reapplyConvertPolicy(underHosts: [host])
     }
 
     /// Như `resetToExtensionRule`: ghi `nil` cho host và xoá trường phồn → giản của mọi tên miền cha (tra cứu gộp tên
-    /// miền cha), các trường khác giữ nguyên; rồi dịch lại tab đang dịch của các tên miền vừa đổi.
+    /// miền cha), các trường khác giữ nguyên; rồi áp lại cho tab của các tên miền vừa đổi.
     private func resetConvertToGlobal() {
         MainActor.assumeIsolated {
             let list = BrowserSitePreferenceList.shared
@@ -209,7 +197,7 @@ struct BrowserShieldTranslateSection: View {
                 }
             }
             AppLogger.shared.log("🌐 [BypassBrowser] Bỏ chỉnh riêng phồn → giản ⇒ theo cài đặt chung")
-            store.retranslateTabs(underHosts: changedHosts)
+            store.reapplyConvertPolicy(underHosts: changedHosts)
         }
     }
 }

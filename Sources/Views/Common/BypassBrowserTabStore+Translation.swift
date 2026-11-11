@@ -1,22 +1,27 @@
 import Foundation
 import WebKit
 
-/// Dịch trang QT của trình duyệt người dùng: cài script/handler (`installBrowserSupport`), áp luật nhớ khi trang commit,
-/// nút dịch bấm tay và áp lại sau khi đổi công tắc nhớ; dịch lại tab đang dịch khi đổi công tắc phồn → giản (1.3.684 —
-/// cờ phồn → giản do handler đọc theo URL trang ở mỗi lô, `BrowserTranslatePolicy.convertsTraditional`).
+/// Xử lý chữ trang của trình duyệt người dùng: cài script/handler (`installBrowserSupport`), áp luật nhớ khi trang
+/// commit, nút dịch bấm tay và áp lại sau khi đổi công tắc nhớ.
 ///
-/// Trạng thái mong muốn của trang = bật/tắt **tay** của tab (`manualTranslate`, chỉ khi trang còn cùng tên miền chuẩn
-/// hoá lúc bấm) ?? luật nhớ (`BrowserTranslatePolicy.resolve`). Trang Home / `about:blank` / không phải web ⇒ tắt và
-/// quên bật/tắt tay. Trạng thái được **đẩy cả hai chiều** (bật ⇒ `enable`, tắt ⇒ `disable`) ở commit và lúc tải xong:
-/// trang khôi phục từ bộ đệm lùi/tiến giữ nguyên DOM đã dịch nên không thể chỉ "không bật".
+/// **Hai bước độc lập** (1.3.846), mỗi tab giữ hai cờ (`BypassBrowserTab.isConvertingTraditional`, `isTranslating`):
+/// - phồn → giản = chỉnh riêng theo tên miền ?? công tắc chung (`BrowserTranslatePolicy.convertsTraditional`) — chạy
+///   **cả khi không dịch** (trang hiện giản thể);
+/// - dịch QT = bật/tắt **tay** của tab (`manualTranslate`, chỉ khi trang còn cùng tên miền chuẩn hoá lúc bấm) ?? luật
+///   nhớ (`BrowserTranslatePolicy.resolve`).
+/// Trang được xử lý khi một trong hai bật; handler đọc hai cờ của tab ở mỗi lô (chuyển ⇒ dịch ⇒ trả). Đổi một trong
+/// hai ⇒ script khôi phục bản gốc rồi xử lý lại (chế độ của `enable` khác lượt đang chạy); tắt cả hai ⇒ trả nguyên bản.
+/// Trang Home / `about:blank` / không phải web ⇒ tắt cả hai và quên bật/tắt tay. Trạng thái được **đẩy cả hai chiều**
+/// (bật ⇒ `enable(chế độ)`, tắt ⇒ `disable`) ở commit và lúc tải xong: trang khôi phục từ bộ đệm lùi/tiến giữ nguyên DOM
+/// đã xử lý nên không thể chỉ "không bật".
 ///
 /// `BrowserTranslatePolicy` và hàm gọi JS của `BrowserPageTranslator` là `@MainActor`; gọi qua `MainActor.assumeIsolated`
 /// (delegate WebKit chạy trên main) để biên dịch được dù store có được suy luận `@MainActor` hay không.
 extension BypassBrowserTabStore {
     // MARK: - Cài script + handler
 
-    /// Cài script dịch + handler `fbPageTranslate` (và phần menu nhấn giữ) vào `controller`, **một lần** mỗi bộ điều
-    /// khiển. Bỏ qua chỉ khi controller đã có trong `installedControllers` **và** còn đúng script: `ObjectIdentifier`
+    /// Cài script xử lý chữ + handler `fbPageTranslate` (và phần menu nhấn giữ) vào `controller`, **một lần** mỗi bộ
+    /// điều khiển. Bỏ qua chỉ khi controller đã có trong `installedControllers` **và** còn đúng script: `ObjectIdentifier`
     /// có thể bị tái dùng sau khi controller cũ giải phóng.
     func installBrowserSupport(into controller: WKUserContentController) {
         let key = ObjectIdentifier(controller)
@@ -28,16 +33,9 @@ extension BypassBrowserTabStore {
         }
         BrowserPageTranslator.installMessageHandler(
             into: controller,
-            accepts: { [weak self] webView in
-                guard let self, let webView, let tab = self.tab(for: webView) else { return false }
-                return tab.isTranslating
-            },
-            convertsTraditional: { webView in
-                // Handler WebKit chạy trên main; luật là `@MainActor`.
-                MainActor.assumeIsolated {
-                    guard let urlString = webView?.url?.absoluteString else { return false }
-                    return BrowserTranslatePolicy.convertsTraditional(urlString: urlString)
-                }
+            pageOptions: { [weak self] webView in
+                guard let self, let webView, let tab = self.tab(for: webView) else { return nil }
+                return tab.pageTextOptions
             }
         )
         installContextMenuSupport(into: controller)
@@ -45,14 +43,15 @@ extension BypassBrowserTabStore {
 
     // MARK: - API cho View
 
-    /// Công tắc "Dịch trang" của ngăn kéo: bật/tắt cho **tab này**, không ghi nhớ; giữ khi còn cùng tên miền.
+    /// Công tắc "Dịch trang" của ngăn kéo: bật/tắt dịch cho **tab này**, không ghi nhớ; giữ khi còn cùng tên miền.
+    /// Phồn → giản không đổi (tính lại theo luật cho chắc).
     func toggleTranslation(for tab: BypassBrowserTab) {
-        guard let domain = Self.translatableDomain(of: tab.webView.url) else { return }
+        guard let url = tab.webView.url, let domain = Self.translatableDomain(of: url) else { return }
         let isOn = !tab.isTranslating
         tab.manualTranslate = isOn
         tab.manualTranslateDomain = domain
         clearTranslateHint(of: tab)
-        push(isOn, to: tab)
+        push(translates: isOn, converts: Self.policyConverts(for: url), to: tab)
         AppLogger.shared.log("🌐 [BypassBrowser] \(isOn ? "Bật" : "Tắt") dịch QT trang (bấm tay, không ghi nhớ)")
     }
 
@@ -62,55 +61,57 @@ extension BypassBrowserTabStore {
         tab.manualTranslateDomain = nil
         clearTranslateHint(of: tab)
         guard let url = tab.webView.url, Self.translatableDomain(of: url) != nil else {
-            tab.setTranslating(false)
+            tab.setPageProcessing(translates: false, converts: false)
             return
         }
-        push(Self.policyResolution(for: url).isEnabled, to: tab)
+        push(translates: Self.policyResolution(for: url).isEnabled, converts: Self.policyConverts(for: url), to: tab)
     }
 
-    // MARK: - Phồn → giản (1.3.684)
+    // MARK: - Phồn → giản (1.3.684, bước riêng từ 1.3.846)
 
-    /// Sau khi đổi chỉnh riêng phồn → giản của `hosts` (bảng khiên): dịch lại tab đang dịch thuộc các tên miền đó hoặc
-    /// tên miền con của chúng (tra chỉnh riêng gộp tên miền cha). Không đụng bật/tắt tay hay luật nhớ tự dịch.
-    func retranslateTabs(underHosts hosts: [String]) {
+    /// Sau khi đổi chỉnh riêng phồn → giản của `hosts` (bảng khiên): áp lại cờ cho **mọi** tab web thuộc các tên miền
+    /// đó hoặc tên miền con của chúng (tra chỉnh riêng gộp tên miền cha) — kể cả tab không dịch (bật ⇒ trang bắt đầu
+    /// hiện giản thể, tắt ⇒ trả nguyên bản). Không đụng bật/tắt tay hay luật nhớ tự dịch.
+    func reapplyConvertPolicy(underHosts hosts: [String]) {
         let domains = hosts.compactMap { BrowserSitePreferenceStore.normalizedDomain(for: $0) }
         guard !domains.isEmpty else { return }
-        retranslateTabs(where: { domain in
+        reapplyConvertPolicy(where: { domain in
             domains.contains { domain == $0 || domain.hasSuffix("." + $0) }
         })
     }
 
-    /// Sau khi đổi công tắc chung phồn → giản (Cài đặt › Trình duyệt): dịch lại tab đang dịch **không** có chỉnh riêng
-    /// phồn → giản theo tên miền (tab có chỉnh riêng giữ nguyên cờ nên khỏi dịch lại).
-    func retranslateTabsFollowingGlobalConvert() {
-        retranslateTabs(where: { domain in
+    /// Sau khi đổi công tắc chung phồn → giản (Cài đặt › Trình duyệt): áp lại cho tab web **không** có chỉnh riêng phồn →
+    /// giản theo tên miền (tab có chỉnh riêng giữ nguyên cờ).
+    func reapplyConvertPolicyFollowingGlobal() {
+        reapplyConvertPolicy(where: { domain in
             BrowserSitePreferenceStore.shared.preference(forHost: domain)?.convertsTraditional == nil
         })
     }
 
-    /// Tắt rồi bật lại dịch trang trên tab **đang dịch** mà `isAffected(tên miền chuẩn hoá)`: script khôi phục bản gốc
-    /// theo node rồi quét lại, nên chữ được gửi dịch lần nữa và handler đọc cờ mới. Không nạp lại trang, không đổi
-    /// `isTranslating`; lô đang bay của lượt cũ bị script bỏ (đổi `generation`).
-    private func retranslateTabs(where isAffected: (String) -> Bool) {
+    /// Tính lại cờ phồn → giản của tab web mà `isAffected(tên miền chuẩn hoá)`; cờ đổi ⇒ đẩy xuống script (khôi phục bản
+    /// gốc rồi xử lý lại theo chế độ mới, hoặc trả nguyên bản khi cả hai tắt). Không nạp lại trang, giữ cờ dịch; lô đang
+    /// bay của lượt cũ bị script bỏ (đổi `generation`).
+    private func reapplyConvertPolicy(where isAffected: (String) -> Bool) {
         var count = 0
-        for tab in tabs where tab.isTranslating {
-            guard let domain = Self.translatableDomain(of: tab.webView.url), isAffected(domain) else { continue }
-            let webView = tab.webView
-            MainActor.assumeIsolated {
-                BrowserPageTranslator.disable(on: webView)
-                BrowserPageTranslator.enable(on: webView)
+        for tab in tabs {
+            guard let url = tab.webView.url, let domain = Self.translatableDomain(of: url), isAffected(domain) else {
+                continue
             }
+            let converts = Self.policyConverts(for: url)
+            guard converts != tab.isConvertingTraditional else { continue }
+            push(translates: tab.isTranslating, converts: converts, to: tab)
             count += 1
         }
         if count > 0 {
-            AppLogger.shared.log("🌐 [BypassBrowser] Dịch lại \(count) tab sau khi đổi phồn → giản")
+            AppLogger.shared.log("🌐 [BypassBrowser] Áp lại phồn → giản cho \(count) tab")
         }
     }
 
     // MARK: - Điều hướng (gọi từ delegate)
 
-    /// `didCommit` khung chính: tính trạng thái mong muốn cho document mới và đẩy xuống script. Tự bật theo luật nhớ lần
-    /// đầu trên tên miền ⇒ đặt dải báo `translateHint`.
+    /// `didCommit` khung chính: tính hai cờ cho document mới và đẩy xuống script. Tự **dịch** theo luật nhớ lần đầu trên
+    /// tên miền ⇒ đặt dải báo `translateHint` (chỉ phồn → giản thì không báo: cờ đó theo công tắc chung, báo ở mọi tên
+    /// miền mới là ồn).
     func applyTranslationOnCommit(for webView: WKWebView) {
         guard let tab = tab(for: webView) else { return }
         guard let url = webView.url, let domain = Self.translatableDomain(of: url) else {
@@ -118,7 +119,7 @@ extension BypassBrowserTabStore {
             tab.manualTranslateDomain = nil
             tab.autoTranslateHintDomain = nil
             clearTranslateHint(of: tab)
-            tab.setTranslating(false)
+            tab.setPageProcessing(translates: false, converts: false)
             return
         }
         if tab.manualTranslateDomain != domain {
@@ -127,7 +128,7 @@ extension BypassBrowserTabStore {
         }
         let resolution = Self.policyResolution(for: url)
         let isOn = tab.manualTranslate ?? resolution.isEnabled
-        push(isOn, to: tab)
+        push(translates: isOn, converts: Self.policyConverts(for: url), to: tab)
         // Dải báo chỉ ở lần đầu tự dịch trên tên miền này của tab: đọc chương kế tiếp không nháy dải báo mỗi trang.
         if tab.manualTranslate == nil, isOn, let hint = resolution.hintText, tab.autoTranslateHintDomain != domain {
             tab.autoTranslateHintDomain = domain
@@ -140,25 +141,22 @@ extension BypassBrowserTabStore {
         }
     }
 
-    /// `didFinish`: đẩy lại trạng thái hiện tại (idempotent) — lệnh lúc commit có thể tới document trước khi script dịch
-    /// kịp cài, hoặc trang vừa khôi phục từ bộ đệm lùi/tiến.
+    /// `didFinish`: đẩy lại trạng thái hiện tại (idempotent — cùng chế độ thì script bỏ qua) — lệnh lúc commit có thể tới
+    /// document trước khi script kịp cài, hoặc trang vừa khôi phục từ bộ đệm lùi/tiến.
     func syncTranslationState(of tab: BypassBrowserTab) {
         guard Self.translatableDomain(of: tab.webView.url) != nil else { return }
-        push(tab.isTranslating, to: tab)
+        push(translates: tab.isTranslating, converts: tab.isConvertingTraditional, to: tab)
     }
 
     // MARK: - Nội bộ
 
-    private func push(_ isOn: Bool, to tab: BypassBrowserTab) {
+    /// Ghi hai cờ lên tab **trước** khi gọi JS: lô đầu tiên của lượt mới (handler đọc cờ trên main) dùng cờ mới.
+    private func push(translates: Bool, converts: Bool, to tab: BypassBrowserTab) {
+        tab.setPageProcessing(translates: translates, converts: converts)
         let webView = tab.webView
         MainActor.assumeIsolated {
-            if isOn {
-                BrowserPageTranslator.enable(on: webView)
-            } else {
-                BrowserPageTranslator.disable(on: webView)
-            }
+            BrowserPageTranslator.enable(on: webView, translates: translates, converts: converts)
         }
-        tab.setTranslating(isOn)
     }
 
     private func clearTranslateHint(of tab: BypassBrowserTab) {
@@ -168,6 +166,11 @@ extension BypassBrowserTabStore {
     private static func policyResolution(for url: URL) -> BrowserTranslateResolution {
         let urlString = url.absoluteString
         return MainActor.assumeIsolated { BrowserTranslatePolicy.resolve(urlString: urlString) }
+    }
+
+    private static func policyConverts(for url: URL) -> Bool {
+        let urlString = url.absoluteString
+        return MainActor.assumeIsolated { BrowserTranslatePolicy.convertsTraditional(urlString: urlString) }
     }
 
     /// Tên miền chuẩn hoá của trang web http(s); Home / `about:blank` / không phải web ⇒ `nil`.
