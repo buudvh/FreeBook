@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.844] - 2026-11-11
+
+### feat: mục lục truyện tranh có nút dịch lại tên chương như Reader
+
+Anh Bửu: *"nếu dùng title_trans thì nên thêm nút dịch lại tên chương như reader"*.
+
+- Nút **Dịch lại tên chương** (icon dịch 14 pt, khung 32×32, cạnh nút kệ / tải — như mục lục Reader) ở header mục lục truyện tranh; chỉ khi truyện đã lưu (có `Book`, mục lục nằm trong `ChapterStore`) — truyện chưa lưu không có `title_trans`, tên chương vốn dịch thẳng.
+- Bấm ⇒ đúng hàm của Reader / Kệ: `BookActionRunner.retranslateChapterTitles(for:)` (từ điển chưa nạp ⇒ báo lỗi; dịch lại mọi tên chương kể cả dòng nhóm bằng `translateChapterTitle`, ghi `title_trans`, toast).
+- Xong ⇒ thông báo `chapterTitlesDidRetranslate` (đã có) ⇒ `ComicReaderView` gọi `ComicReaderViewModel.reloadStoredTitleTranslations()` (mới, file `+TitleTranslation`: nạp lại `titleTrans` từ `ChapterStore`, bỏ tên dịch cũ) rồi dịch lại tên đang hiện ⇒ mục lục và thanh trên đổi ngay.
+- `CLAUDE.md` / `AGENTS.md`: mục màn đọc comic (mục lục 1.3.843–844).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: sửa một name có trong tên chương ⇒ bấm Dịch lại tên chương ⇒ toast xong, mục lục + tên chương ở thanh trên đổi theo.
+
 ## [1.3.843] - 2026-11-11
 
 ### perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự
@@ -462,16 +474,3 @@ Anh Bửu thử 1.3.814: (1) đĩa góc "độ trong suốt chưa đúng" — ph
 - **Nhấn giữ ⇒ vào header** (`MediaDiscHeaderSlot`, file mới): bìa 32 pt giữa hàng nút, ngay trái cụm nút phải, dò theo thứ tự: neo mới `.headerTrailing` (cụm nút phải của header tự dựng: Reader, nút ☰ màn truyện tranh; khe 6 pt) → `UINavigationBar` đang hiện của tầng trên cùng (mép trái nhỏ nhất của các view nằm hẳn ở nửa phải thanh, khe 2 pt; chỉ đọc khung + cờ hiện, không dựa tên lớp riêng của iOS) → góc phải dải 44 pt dưới thanh trạng thái. Kính tan dần + bìa rõ hẳn + viền mảnh như đĩa thanh tab (`MediaDiscWindowManager.isDiscElevated`); vùng chạm chỉ còn tròn 38 pt (`MediaDiscWindow.hitTest`) để không lấn nút header bên cạnh. Log ghi nguồn chỗ đã dùng. Bỏ `MediaDiscPlacement.elevatedFrame`; `mainWindow` / `topLayer` / `validFrame` mở cho `MediaDiscHeaderSlot` dùng chung; neo `.headerTrailing` không dự phần chỗ ở góc dưới.
 - `CLAUDE.md` / `AGENTS.md` theo dáng + chỗ mới.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — phần đo nút trên `UINavigationBar` là rủi ro chính (đo hỏng ⇒ đĩa về góc phải vùng header).
-
-## [1.3.814] - 2026-11-10
-
-### fix: nhấn giữ đĩa góc lên header được, bìa đĩa góc mờ theo nút nổi, đĩa thanh tab 44 pt có gờ, đĩa không đè menu xổ
-
-Anh Bửu thử 1.3.813 (build 1190): nhấn giữ đĩa góc không có tác dụng; đĩa góc không theo cài đặt nút nổi; muốn đĩa ở thanh tab to bằng đĩa góc; bấm "+" ở Chi tiết thì đĩa đè lên cụm pill một lúc rồi mới chạy lên.
-
-- **Nhấn giữ:** `UILongPressGestureRecognizer` gắn trên `discView` của `MediaDiscContainerViewController` không bao giờ chạy vì nút SwiftUI bên trong bắt chạm ngay lúc chạm xuống. Bỏ nó; `MediaDiscFaceButton(.corner)` tự lo bằng **một** cử chỉ ghép `LongPressGesture(minimumDuration: 0.4).exclusively(before: TapGesture())` — nhấn giữ được ưu tiên ⇒ `onLongPress` ⇒ `beginElevation()` (rung nhẹ, lên header 5 giây), thả tay không mở sheet; thả sớm ⇒ chạm mở sheet. VoiceOver: thao tác mặc định mở điều khiển + thao tác "Đưa đĩa lên trên".
-- **Đĩa góc theo nút nổi (kiểu C anh chọn):** vòng kính vẫn theo Độ trong suốt / Độ đục; **bìa** (cả nền tối dưới bìa) hiện `0,45 + 0,55 × (1 − độ trong suốt)` ⇒ đổi đều trên cả thanh trượt, mặc định 90% ⇒ ~50%, 100% ⇒ 45%. Mờ gắn lên lớp bìa, không lên lớp cha của kính.
-- **Đĩa thanh tab:** bìa 44 pt (bằng bìa đĩa góc, `MediaDiscFaceButton.coverSize`), mép dưới ngang chân chữ của các tab (42,5 pt dưới mép trên thanh), giữa vòng nền 52 pt `.bar` + viền vạch ngăn — chỉ vẽ phần nhô ~5,5 pt trên thanh (`MediaDiscTabBarSlot`). Vùng chạm 52 pt phủ cả gờ. Không nghe ⇒ ô trống như cũ.
-- **Menu xổ (`FloatingActionMenu`, FAB Chi tiết + nút "+" có Home):** neo đĩa gắn lên cụm pill đang phóng từ 40% ⇒ đầu dò đo khung nhỏ, đĩa đè pill tới lần đo lại sau 0,35 s. Nay neo gắn lên **bản ẩn** của cụm (cùng bố cục, không vẽ, không chạm, không VoiceOver, không chuyển cảnh) ⇒ đĩa chạy lên cùng lúc pill bung ra, về cùng lúc pill thu lại.
-- `CLAUDE.md` / `AGENTS.md` + comment các file đĩa theo cỡ và cử chỉ mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

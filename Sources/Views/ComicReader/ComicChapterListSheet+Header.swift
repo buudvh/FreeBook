@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Header của `ComicChapterListSheet`, bám header danh sách chương truyện chữ (`ReaderChapterListView.header`):
 /// bìa 86×120 (chạm mở Chi tiết), bên phải tên + tác giả + nhãn nguồn, hàng nút dồn phải sát đáy bìa (kệ, tải ảnh
-/// offline). Số chương và nút đảo thứ tự nằm ở đầu panel Mục lục (`ChapterTOCPanelHeader`). Không có các nút dịch lại
-/// tên chương / cập nhật mục lục / tải lẻ từng chương của truyện chữ.
+/// offline, dịch lại tên chương — 1.3.844). Số chương và nút đảo thứ tự nằm ở đầu panel Mục lục (`ChapterTOCPanelHeader`).
+/// Không có các nút cập nhật mục lục / tải lẻ từng chương của truyện chữ.
 ///
 /// Metadata ưu tiên `Book` (đã có trong thư viện), thiếu thì lấy từ `launch` — sách mở thẳng từ Chi tiết/Khám phá
 /// chưa có hàng `Book` vẫn có bìa, tên, tác giả. Chuỗi rỗng của `Book` (các trường không optional) coi như thiếu.
@@ -38,6 +38,7 @@ extension ComicChapterListSheet {
                     HStack(spacing: 4) {
                         shelfToggleButton
                         downloadButton
+                        retranslateButton
                     }
                 }
             }
@@ -139,6 +140,24 @@ extension ComicChapterListSheet {
                     .frame(width: 32, height: 32)
             }
             .accessibilityLabel("Tải ảnh offline")
+        }
+    }
+
+    /// "Dịch lại tên chương" như mục lục Reader (1.3.844): đúng hàm của Reader / Kệ (`BookActionRunner.retranslateChapterTitles`
+    /// — dịch lại mọi tên chương kể cả dòng nhóm, ghi `title_trans`, toast). Xong ⇒ `chapterTitlesDidRetranslate` ⇒
+    /// `ComicReaderView` nạp lại `title_trans` và dịch lại tên đang hiện. Chỉ khi truyện đã lưu (mục lục nằm trong
+    /// `ChapterStore`); truyện chưa lưu không có `title_trans`, tên chương vốn dịch thẳng.
+    @ViewBuilder
+    private var retranslateButton: some View {
+        if let book, !chapters.isEmpty {
+            Button {
+                BookActionRunner.retranslateChapterTitles(for: book)
+            } label: {
+                AppGlyph.translate.image(size: 14)
+                    .foregroundColor(Self.theme.textColor)
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Dịch lại tên chương")
         }
     }
 

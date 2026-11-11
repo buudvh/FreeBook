@@ -101,6 +101,11 @@ struct ComicReaderView: View {
             refreshTranslations()
         }
         .onChange(of: isTranslationEnabled) { _, _ in translateChapterTitles() }
+        // Nút "Dịch lại tên chương" của mục lục (1.3.844) ghi `title_trans` xong ⇒ nạp lại rồi dịch lại tên đang hiện.
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("chapterTitlesDidRetranslate"))) { note in
+            guard note.userInfo?["bookId"] as? String == launch.bookId else { return }
+            Task { await viewModel.reloadStoredTitleTranslations(); translateChapterTitles() }
+        }
         // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
         .legadoContentRefresh(packageId: launch.extensionPackageId) { viewModel.retry() }
         // Chạm bìa ở mục lục: đẩy Chi tiết khi sheet đã đóng hẳn (đẩy lúc sheet đang đóng có thể mất lượt đẩy).

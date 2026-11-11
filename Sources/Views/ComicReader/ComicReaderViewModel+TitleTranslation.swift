@@ -19,4 +19,23 @@ extension ComicReaderViewModel {
             return updated
         }
     }
+
+    /// "Dịch lại tên chương" (1.3.844) vừa ghi `title_trans` mới vào `ChapterStore` ⇒ nạp lại `titleTrans` cho mục lục đang
+    /// mở (giữ mọi thứ khác) và bỏ `translatedTitle` cũ; `ComicReaderView` gọi `translateChapterTitles` ngay sau đó. Mục lục
+    /// online (truyện chưa lưu) không có gì để nạp.
+    func reloadStoredTitleTranslations() async {
+        guard let stored = try? await ChapterStore.shared.fetchOrderedTOC(bookId: launch.bookId), !stored.isEmpty else { return }
+        let titleTransByIndex = Dictionary(stored.map { ($0.index, $0.titleTrans) }, uniquingKeysWith: { first, _ in first })
+        chapters = chapters.map { entry in
+            guard let titleTrans = titleTransByIndex[entry.index] else { return entry }
+            return ComicChapterEntry(
+                index: entry.index,
+                title: entry.title,
+                titleTrans: titleTrans,
+                url: entry.url,
+                host: entry.host,
+                isSection: entry.isSection
+            )
+        }
+    }
 }
