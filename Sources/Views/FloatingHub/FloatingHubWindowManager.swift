@@ -6,9 +6,9 @@ import UIKit
 /// và (từ 1.3.533) Video phát nền. Trình duyệt thu nhỏ đã quay về cửa sổ riêng (`BrowserFloatingWidgetWindowManager`).
 ///
 /// ## Luôn hiện (1.3.533)
-/// Hub hiện cả khi không mục nào hoạt động — mục không dùng được thì xám trong menu. Chỉ ẩn ở ba trường hợp:
-/// cổng từ điển chưa mở, sheet của chính hub đang mở (chỉ giấu nút, xem dưới), và
-/// `FloatingWidgetSuppression.isSuppressed` (trình phát video toàn màn / khoá màn).
+/// Hub hiện cả khi không mục nào hoạt động — mục không dùng được thì xám trong sheet. Chỉ ẩn ở hai trường hợp: cổng từ
+/// điển chưa mở, và `FloatingWidgetSuppression.isSuppressed` (trình phát video toàn màn / khoá màn). Sheet của chính hub
+/// đang mở **không** ẩn nút nữa (1.3.866) — nút nằm dưới sheet như đĩa nghe dưới sheet điều khiển nhanh của nó.
 ///
 /// ## Vì sao phải là `UIWindow`, không phải overlay trong `MainTabView`
 /// Reader và trình duyệt bypass đều được trình bày bằng `fullScreenCover`, nên một overlay gắn vào
@@ -20,8 +20,9 @@ import UIKit
 /// hiện ở mọi màn, không còn ẩn theo sheet hub như 1.3.864).
 ///
 /// ## Cửa sổ phải sống trong lúc sheet mở
-/// Màn Thông báo được trình bày **từ chính cửa sổ này**, nên khi sheet mở mà ta ẩn cửa sổ thì sheet biến
-/// mất theo. Vì vậy `setSheetPresented(true)` chỉ **giấu nút**, không hạ cửa sổ.
+/// Sheet hub và màn Thông báo được trình bày **từ chính cửa sổ này**, nên khi sheet mở mà ta ẩn cửa sổ thì sheet biến
+/// mất theo. `setSheetPresented(true)` chỉ ghi cờ + nâng level cửa sổ; nút vẫn hiện dưới sheet (1.3.866 — trước đó giấu
+/// nút). Chỉ khi phim toàn màn (`FloatingWidgetSuppression`) mà sheet còn mở mới giấu nút và giữ cửa sổ.
 ///
 /// ## Mỗi lần hiện lại
 /// Mỗi lần hub hiện lại sau khi bị ẩn (cả cửa sổ hoặc chỉ nút), container được `prepareForAppearance()` —
@@ -84,17 +85,19 @@ final class FloatingHubWindowManager {
     /// Cửa duy nhất để đồng bộ hiển thị. Gọi ở lúc khởi động, khi cổng từ điển mở, khi cờ ẩn widget đổi, và
     /// khi sheet đóng/mở — không nơi nào tự bật/tắt cửa sổ. Rẻ khi gọi lặp: hub đang hiện thì không làm gì thêm.
     ///
-    /// Thứ tự nhánh là bắt buộc: đang ẩn vì trình phát video mà sheet Thông báo còn mở thì rơi vào nhánh
+    /// Thứ tự nhánh là bắt buộc: đang ẩn vì trình phát video mà sheet hub / Thông báo còn mở thì rơi vào nhánh
     /// `isSheetPresented` (giữ cửa sổ, chỉ giấu nút) — `hideWidget()` lúc đó sẽ cuốn mất sheet.
+    ///
+    /// Sheet hub / màn Thông báo đang mở **không** giấu nút (1.3.866, anh Bửu: "đừng ẩn các widget khác, làm giống widget
+    /// đĩa mở sheet nghe"): nút nằm yên dưới sheet (sheet trình bày trong cùng cửa sổ, đè lên nút + lớp mờ chặn chạm).
     func refreshState() {
         let shouldShowButton = TranslationManager.shared.isInitialized
-            && !isSheetPresented
             && !FloatingWidgetSuppression.shared.isSuppressed
 
         if shouldShowButton {
             showWidget()
         } else if isSheetPresented {
-            // Cửa sổ phải sống để giữ sheet đang mở; chỉ giấu nút.
+            // Phim toàn màn mà sheet hub / Thông báo còn mở: cửa sổ phải sống để giữ sheet; chỉ giấu nút.
             window?.isHidden = false
             containerViewController?.widgetContainerView.isHidden = true
             FloatingWidgetLayoutCoordinator.shared.unregister(.hub)
@@ -106,9 +109,6 @@ final class FloatingHubWindowManager {
     func setSheetPresented(_ presented: Bool) {
         guard isSheetPresented != presented else { return }
         isSheetPresented = presented
-        if presented {
-            containerViewController?.widgetContainerView.isHidden = true
-        }
         // Cửa sổ đĩa nghe (`alert − 1.75`) nằm trên cửa sổ hub lúc nghỉ ⇒ sheet hub / màn Thông báo mở từ đây sẽ bị nửa viên
         // đè và cướp chạm. Lúc trình bày sheet hub nâng lên trên đĩa (1.3.865: đĩa hiện ở mọi màn, kể cả lúc sheet hub mở —
         // sheet nằm đè lên đĩa như sheet của chính đĩa); đóng sheet thì hạ về, để nút hub nằm dưới sheet của đĩa.

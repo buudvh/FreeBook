@@ -2,6 +2,31 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.836] - 2026-11-11
+
+### fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch
+
+Sửa lõi phần A (1.3.832) theo review phản biện, trước khi nối vào Reader / TTS / giao diện.
+
+- **Gộp lượt trùng** (`TranslationExtensionInflight`, mới). Reader và TTS (hoặc hai lượt nạp trước chương kế) xin dịch cùng các dòng với cùng cấu hình thì chỉ một lượt gọi tiện ích chạy, mọi bên nhận cùng kết quả.
+  - Trước đây hai bên cùng trượt cache, gọi tiện ích hai lần. Với máy dịch kiểu AI, hai lần ra hai chữ khác nhau nên vệt highlight lệch.
+  - Lượt chạy là `Task` riêng: bên cuối cùng rời đi vì huỷ thì lượt bị huỷ theo.
+- **Nhớ lỗi gần đây** (`TranslationExtensionLineCache`, 90 s). Dòng vừa lỗi ở Reader thì TTS cũng lùi QT, không gọi lại rồi ra chữ khác. Đang bị giới hạn lượt thì không gọi dồn. "Thử lại" / tải lại chương xoá luôn phần này.
+- **Thế hệ cache theo từng truyện**: xoá cache của truyện A không còn làm rơi lượt ghi đang chạy của truyện B.
+- **Chia lô**:
+  - Lỗi ở nửa sau không còn làm mất bản dịch của nửa đầu.
+  - `max_length ≤ 0` (hợp đồng: không chia gì) ⇒ lệch số dòng thì cả lô tính lỗi, không chia đôi.
+  - Gặp lỗi gọi tiện ích (không phải lệch dòng) ⇒ dừng gọi tiếp.
+- **Tên chương**:
+  - `title_trans` (bản QT tiếng Việt) chỉ dùng khi tiện ích dịch sang tiếng Việt. Dịch sang ngôn ngữ khác thì hiện tên tiếng Việt là sai.
+  - Nội dung vừa gặp lỗi gọi tiện ích ⇒ tên chương lùi QT luôn, không tốn thêm một lượt gọi.
+- `translateText(_:job:bypassCache:)`: ô Dịch thử luôn gọi script. Lỗi của tên chương cũng được nhớ.
+- `BookSourceMigrator`: Đổi nguồn chép bộ dịch riêng của truyện sang truyện mới và xoá bản của truyện cũ (luật "thêm kho theo `bookId` ⇒ thêm vào cả hai hàm").
+- **Kiểm chứng:**
+  - Đọc code + 2 agent review.
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.835] - 2026-11-11
 
 ### fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng

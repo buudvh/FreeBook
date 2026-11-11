@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.866] - 2026-11-11
+
+### feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe
+
+Anh Bửu: "Khi mở sheet mở rộng từ widget hub thì đừng ẩn các widget khác (làm giống như widget đĩa mở sheet nghe nhạc/nghe truyện mini)" (đã duyệt).
+
+- Kiểm lúc sheet hub / màn Thông báo mở (sau 1.3.865): nửa viên đĩa nghe, nút trình duyệt thu nhỏ, cửa sổ phim nhỏ đều vẫn hiện; **chỉ nút hub** bị giấu (`setSheetPresented(true)` đặt `widgetContainerView.isHidden = true`, `refreshState` giữ giấu suốt lúc sheet mở).
+- `FloatingHubWindowManager`: thôi giấu nút khi sheet mở — nút nằm yên dưới sheet (sheet trình bày trong cùng cửa sổ hub, đè lên nút; lớp mờ của sheet chặn chạm), y như đĩa nghe dưới sheet điều khiển nhanh của nó. Vẫn giữ: phim toàn màn mà sheet còn mở ⇒ giữ cửa sổ, chỉ giấu nút (`hideWidget()` sẽ cuốn mất sheet). Level cửa sổ hub lúc trình bày sheet giữ như 1.3.865 (`alert − 1.7`, trên cửa sổ đĩa).
+- `rules.md` luật hub (b), `CLAUDE.md` / `AGENTS.md` đoạn đĩa nghe: ghi nút hub không ẩn lúc sheet hub mở.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: chạm hub ⇒ sheet hub mở, nút hub (và nửa viên, nút trình duyệt nếu có) vẫn thấy mờ phía sau lớp tối; chạm vùng tối ⇒ sheet đóng, không mở lại hub; chạm Thông báo ⇒ màn Thông báo, đóng ⇒ nút hub vẫn đúng chỗ.
+
 ## [1.3.865] - 2026-11-11
 
 ### feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet
@@ -587,29 +601,4 @@ Anh Bửu: *"khi tôi nhấn vào vùng dịch trong trang đọc commic hãy hi
 - Trình xem phóng to: cover giờ là `ComicZoomScreen` (mới) = `ComicZoomViewer` + sheet Dịch của chính nó (sheet phải gắn trong cover). `ComicZoomTranslationLayer`: chạm ⇒ `onTapBlock`, nhấn giữ ⇒ đổi gốc / dịch. Đóng sheet Dịch ⇒ `revision` mới ⇒ trình xem dịch lại lớp của nó (giữ khối cũ tới khi có bản mới).
 - `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 395 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm bong bóng ⇒ màn Dịch đúng câu gốc; (2) chạm một chữ / mũi tên đổi cụm, nghĩa đổi theo; (3) lưu một name ⇒ sheet đóng, bong bóng đang hiện đổi theo (cả trong trình xem phóng to); (4) nhấn giữ đổi gốc ↔ dịch, chạm ngoài khối vẫn bật / tắt thanh, chạm đúp vẫn phóng to.
-
-## [1.3.836] - 2026-11-11
-
-### fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch
-
-Sửa lõi phần A (1.3.832) theo review phản biện, trước khi nối vào Reader / TTS / giao diện.
-
-- **Gộp lượt trùng** (`TranslationExtensionInflight`, mới). Reader và TTS (hoặc hai lượt nạp trước chương kế) xin dịch cùng các dòng với cùng cấu hình thì chỉ một lượt gọi tiện ích chạy, mọi bên nhận cùng kết quả.
-  - Trước đây hai bên cùng trượt cache, gọi tiện ích hai lần. Với máy dịch kiểu AI, hai lần ra hai chữ khác nhau nên vệt highlight lệch.
-  - Lượt chạy là `Task` riêng: bên cuối cùng rời đi vì huỷ thì lượt bị huỷ theo.
-- **Nhớ lỗi gần đây** (`TranslationExtensionLineCache`, 90 s). Dòng vừa lỗi ở Reader thì TTS cũng lùi QT, không gọi lại rồi ra chữ khác. Đang bị giới hạn lượt thì không gọi dồn. "Thử lại" / tải lại chương xoá luôn phần này.
-- **Thế hệ cache theo từng truyện**: xoá cache của truyện A không còn làm rơi lượt ghi đang chạy của truyện B.
-- **Chia lô**:
-  - Lỗi ở nửa sau không còn làm mất bản dịch của nửa đầu.
-  - `max_length ≤ 0` (hợp đồng: không chia gì) ⇒ lệch số dòng thì cả lô tính lỗi, không chia đôi.
-  - Gặp lỗi gọi tiện ích (không phải lệch dòng) ⇒ dừng gọi tiếp.
-- **Tên chương**:
-  - `title_trans` (bản QT tiếng Việt) chỉ dùng khi tiện ích dịch sang tiếng Việt. Dịch sang ngôn ngữ khác thì hiện tên tiếng Việt là sai.
-  - Nội dung vừa gặp lỗi gọi tiện ích ⇒ tên chương lùi QT luôn, không tốn thêm một lượt gọi.
-- `translateText(_:job:bypassCache:)`: ô Dịch thử luôn gọi script. Lỗi của tên chương cũng được nhớ.
-- `BookSourceMigrator`: Đổi nguồn chép bộ dịch riêng của truyện sang truyện mới và xoá bản của truyện cũ (luật "thêm kho theo `bookId` ⇒ thêm vào cả hai hàm").
-- **Kiểm chứng:**
-  - Đọc code + 2 agent review.
-  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - Không build tại chỗ (Windows), chưa thử máy.
 
