@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.844",
+          "buildVersion": "1212",
+          "date": "2026-11-11T05:06:30Z",
+          "localizedDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo\n- perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự\n- feat: mục lục truyện tranh có nút dịch lại tên chương như Reader",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1212/TangCongCac-1.3.844-1212.ipa",
+          "size": 39488226,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.842",
           "buildVersion": "1211",
           "date": "2026-11-11T04:58:32Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1208/TangCongCac-1.3.835-1208.ipa",
           "size": 39238975,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.834",
-          "buildVersion": "1207",
-          "date": "2026-11-11T04:08:27Z",
-          "localizedDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1207/TangCongCac-1.3.834-1207.ipa",
-          "size": 39236958,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.842",
-      "versionDate": "2026-11-11T04:58:32Z",
-      "versionDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1211/TangCongCac-1.3.842-1211.ipa",
-      "size": 39472047,
+      "version": "1.3.844",
+      "versionDate": "2026-11-11T05:06:30Z",
+      "versionDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo\n- perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự\n- feat: mục lục truyện tranh có nút dịch lại tên chương như Reader",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1212/TangCongCac-1.3.844-1212.ipa",
+      "size": 39488226,
       "appPermissions": {}
     }
   ],
