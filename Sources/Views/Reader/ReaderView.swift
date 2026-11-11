@@ -1346,7 +1346,7 @@ struct ReaderView: View {
             ParagraphCardView(
                 item: item,
                 isTranslationEnabled: isTrans,
-                bookId: bookId,
+                bookId: bookId, chapterIndex: chapter.index, isChapterStart: item.id == chapter.paragraphItems.first?.id,
                 fontSize: size,
                 lineSpacing: spacing,
                 fontFamily: fontFamily,
@@ -1592,7 +1592,7 @@ struct ReaderView: View {
                 coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                 bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
                 bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
-                extensionInfo: ttsExtensionInfo,
+                extensionInfo: ttsExtensionInfo, translationPackageId: extensionPackageId,
                 snapshot: snapshot,
                 author: localBook?.author ?? bookAuthor ?? ""
             )
@@ -1607,7 +1607,7 @@ struct ReaderView: View {
     private func getPretranslatedSnapshot(for index: Int) -> TTSPretranslatedSnapshot? {
         guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
         let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let isTransEnabled = isTranslationEnabled // cờ dịch của truyện (Truyện > Nguồn > Chung), như TTS tự tra
         guard cached.translationToken == currentToken,
               cached.isTranslationEnabled == isTransEnabled,
               cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
@@ -1627,20 +1627,14 @@ struct ReaderView: View {
             isTranslationEnabled: cached.isTranslationEnabled,
             shouldConvertTraditionalToSimplified: cached.shouldConvertTraditionalToSimplified,
             translationToken: cached.translationToken,
-            entries: entries
+            entries: entries, originalTitle: cached.originalTitle, translatedTitle: cached.title
         )
     }
 
+    /// Đúng chuỗi Reader đã chuẩn hoá để dựng đoạn, **chưa** bỏ tên chương trùng: TTS bỏ đúng một lần ở
+    /// `ChapterTextNormalizer.contentLines` ⇒ dòng + id khớp đoạn của Reader (snapshot dịch sẵn được nhận).
     private func getTTSChapterContent(for index: Int) -> String {
         guard let cached = viewModel?.cache.get(index) else { return "" }
-        if cached.paragraphItems.contains(where: { !$0.isTitle }) {
-            let reconstructed = ChapterTextNormalizer.reconstructContentPreservingLineIDs(
-                from: cached.paragraphItems.filter { !$0.isTitle }.map { (id: $0.id, text: $0.original) }
-            )
-            if !reconstructed.isEmpty {
-                return reconstructed
-            }
-        }
         return cached.originalContent.isEmpty ? cached.content : cached.originalContent
     }
 
@@ -1732,7 +1726,8 @@ struct ReaderView: View {
                 coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                 bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
                 bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
-                extensionInfo: ttsExtensionInfo
+                extensionInfo: ttsExtensionInfo, translationPackageId: extensionPackageId,
+                snapshot: getPretranslatedSnapshot(for: index)
             )
         }
     }

@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.808] - 2026-11-09
+
+### feat: đĩa xoay góc dưới phải cho nhạc và TTS trên mọi màn, bỏ thanh nghe nhạc mini và kiểu thanh của widget TTS
+
+Plan anh Bửu đã duyệt (mockup 2026-11-09): thay thanh nghe nhạc mini và kiểu "Thanh nghe nhạc" của widget TTS bằng **một đĩa xoay tròn ở góc dưới phải trên mọi màn**, dùng chung cho nhạc và TTS; giữ kiểu "Đĩa nổi" của TTS; đĩa hiện ở trang gốc tab, trang đẩy vào, sheet, trình duyệt, Reader.
+
+- **Đĩa chung** (`Views/MediaDisc/`, mới): `MediaDiscWindowManager` dựng cửa sổ lớp phủ `MediaDiscWindow` (level `alert − 1.75`, chỉ khung đĩa nhận chạm) khi trình nghe có album hoặc TTS có phiên + kiểu "Đĩa góc dưới"; nút 52 pt nền kính `FloatingGlassBackground`, bìa tròn 44 pt xoay khi đang phát (`MediaDiscMusicFace` — `AudioRotatingCover`, album 18+ lúc NSFW tắt không bìa; `MediaDiscTTSFace` — `TTSCoverView` + `TTSWidgetCoverRotation`). Chờ cổng từ điển như các cửa sổ nổi khác; hết nguồn ⇒ đóng sheet, thu đĩa rồi ẩn cửa sổ.
+- **Vị trí** (`MediaDiscPlacement`): đĩa đứng ngay trên **neo cao nhất** của tầng trình bày trên cùng của cửa sổ chính (khe 12 pt), không neo ⇒ góc dưới phải trên vùng an toàn 12 pt, lề phải 16 pt. Neo = `.mediaDiscAnchor(_:)` (`MediaDiscAnchorProbe` + `MediaDiscAnchorRegistry`): `FloatingRoundButton` (mọi nút "+", Home, menu xổ, FAB Chi tiết), cụm pill đang xổ của `FloatingActionMenu` (đĩa lên trên, không che "Về trang gốc"), nút tai nghe Reader (mép phải trùng nút), `MainTabBar`, `BrowserBottomBar`, thanh dưới truyện tranh. Neo trong sheet thắng neo trang dưới; trang con ngoài màn của `TabView` dạng trang không tính. Cửa sổ phim nhỏ đè chỗ ⇒ đĩa lên trên nó (`VideoMiniPlayerWindowManager.visiblePlayerFrame`).
+- **Ẩn** khi bàn phím hiện, màn nghe hiện, phim toàn màn (`FloatingWidgetSuppression`), màn xem phim ở trên cùng (neo `.blocker` ở `VideoPlayerScreen`), hộp thoại / bảng chọn (`UIAlertController`) hay bảng chia sẻ ở trên cùng.
+- **Tính lại** khi neo vào / rời cửa sổ / đổi cỡ, bàn phím, xoay màn, đổi trạng thái, cộng lượt hỏi 0,4 s (chế độ `.common`) chỉ khi cửa sổ hiện và app không ở nền. Giữ chỗ mép phải ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`, mới) để nút hub vừa thả / vừa hiện né đĩa.
+- **Chạm đĩa** ⇒ sheet điều khiển nhanh từ cửa sổ của đĩa (`.appAccentTint()` + `.modelContainer` ở gốc): `AudioQuickControlSheet` — chạm khối bìa + tên ⇒ đóng sheet rồi mở màn nghe trang Đĩa (`AudioPlayerPresenter.reopen(at: .disc)` trong `onDismiss`), **bỏ nút ⤢**; `TTSQuickControlSheet` (thêm `onOpenReader`) — chạm khối bìa + tên ⇒ đóng sheet rồi Reader của truyện đó đang mở thì `navigateReaderToPlayingChapter` (không đổi tab), chưa mở thì `openCurrentlyPlayingReader`. Sheet Hẹn giờ TTS mở Reader ⇒ đóng mọi sheet của đĩa.
+- **Bỏ**: `AudioMiniPlayerBar`, `AudioMiniPlayerTimerBadge` (khỏi `MainTabBarModifier` và `BypassWebView`), `MiniPlayerBarChrome` / `MiniPlayerControlButton` / `MiniPlayerProgressLine`, toàn bộ kiểu thanh TTS (`TTSWidgetBarContainerViewController`, `TTSWidgetBarContentView`, `TTSWidgetBarView`, `TTSWidgetBarPillView`, `TTSWidgetBarViewModel`, `TTSWidgetBarProgressLine`, `TTSWidgetBarPresence`), `ReaderAudioDiscButton`, `ReaderTTSDiscButton`, `ReaderTTSBarBottomSpacer` (đáy Reader về `Spacer().frame(height: 52)`), `ReaderPresenceTracker` (chỉ thanh TTS dùng). Giữ `TTSWidgetBarInfoReader` (sheet TTS dùng).
+- **Dòng báo trình nghe** (`AudioPlaybackNotice`: "Tự sang: <tên>", "Bỏ qua …") trước nổi trên thanh mini ⇒ nay là **toast** (`recordsInInbox: false`) khi màn nghe không hiện; màn nghe vẫn có dải báo.
+- **Cài đặt › Đọc & Nghe › Widget TTS**: **Đĩa nổi** (giữ nguyên) / **Đĩa góc dưới** (`TTSWidgetStyle.cornerDisc`, raw value `"bar"` cũ ⇒ ai đang chọn "Thanh nghe nhạc" tự sang); bỏ hai công tắc "Thu gọn khi mở Reader" / "Tự thu gọn sau 5 giây" và khoá của chúng ở `TTSWidgetPreferences`. Kiểu Đĩa góc dưới ⇒ `TTSFloatingWidgetWindowManager` không dựng cửa sổ.
+- **Kiểm chứng:** đọc code + grep chéo mọi type / khoá bị xoá; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.807] - 2026-11-09
 
 ### feat: thanh nghe nhạc mini có nút hẹn giờ và hiện trên trình duyệt

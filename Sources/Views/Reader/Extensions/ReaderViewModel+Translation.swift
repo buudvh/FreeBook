@@ -9,12 +9,19 @@ extension ReaderViewModel {
         shouldConvertTraditionalToSimplified: Bool,
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
-        bookId: String
+        bookId: String,
+        chapterIndex: Int,
+        extensionEngine: ResolvedTranslationEngine?
     ) async throws -> (normalizedContent: String, buildResult: ReaderParagraphBuildResult) {
         try Task.checkCancellation()
         let normalizedText = ChapterTextNormalizer.normalize(originalContent)
         try Task.checkCancellation()
         let context = TranslationReadContext.capture(bookId: bookId)
+        let extensionOutput = try await translateChapterWithExtension(
+            normalizedText, originalTitle: originalTitle, removeDuplicatedTitle: removeDuplicatedTitle,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified, bookId: bookId,
+            chapterIndex: chapterIndex, engine: isTranslationEnabled ? extensionEngine : nil, context: context
+        )
         let buildResult = try TranslationReadContext.$current.withValue(context) { try buildCancellable(
             originalTitle: originalTitle,
             normalizedText: normalizedText,
@@ -22,7 +29,8 @@ extension ReaderViewModel {
             shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             showTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
-            bookId: bookId
+            bookId: bookId,
+            extensionOutput: extensionOutput
         ) }
         try Task.checkCancellation()
         return (normalizedText.content, buildResult)
@@ -35,20 +43,18 @@ extension ReaderViewModel {
         shouldConvertTraditionalToSimplified: Bool,
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
-        bookId: String
+        bookId: String,
+        extensionOutput: TranslationExtensionChapterTranslator.Output? = nil
     ) throws -> ReaderParagraphBuildResult {
         try Task.checkCancellation()
 
-        var buildLines = normalizedText.lines
-        if removeDuplicatedTitle, let first = buildLines.first {
-            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
-            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
-                buildLines.removeFirst()
-            }
-        }
+        let buildLines = ChapterTextNormalizer.contentLines(of: normalizedText, removingDuplicatedTitle: removeDuplicatedTitle)
 
+        // Bộ dịch là tiện ích ⇒ dùng bản đã dịch sẵn (đủ mọi dòng, đã lùi QT / giữ gốc); không có ⇒ QT như cũ.
         let titleResult: TranslatedTextResult
-        if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
+        if isTranslationEnabled, let extensionTitle = extensionOutput?.title {
+            titleResult = extensionTitle
+        } else if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
             titleResult = TranslateUtils.translateChapterTitleWithMapping(
                 originalTitle,
                 bookId: bookId,
@@ -66,7 +72,9 @@ extension ReaderViewModel {
                 try Task.checkCancellation()
             }
             let lineResult: TranslatedTextResult
-            if isTranslationEnabled && TranslateUtils.containsChinese(line.text) {
+            if isTranslationEnabled, let extensionLine = extensionOutput?.lines[line.id] {
+                lineResult = extensionLine
+            } else if isTranslationEnabled && TranslateUtils.containsChinese(line.text) {
                 lineResult = TranslateUtils.translateContentWithMapping(
                     line.text,
                     bookId: bookId,
@@ -106,7 +114,8 @@ extension ReaderViewModel {
         return ReaderParagraphBuildResult(
             translatedTitle: titleResult.text,
             translatedContent: translatedLines.map(\.text).joined(separator: "\n"),
-            paragraphItems: items
+            paragraphItems: items,
+            fallbackStatus: isTranslationEnabled ? extensionOutput?.fallbackStatus : nil
         )
     }
 
@@ -128,6 +137,7 @@ extension ReaderViewModel {
             let shouldConvertTraditionalToSimplified = self.shouldConvertTraditionalToSimplified
             let bookId = self.bookId
             let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+            let extensionEngine = extensionTranslationEngine(isTranslationEnabled: isTranslationEnabled)
             let showTitleKey = "showChapterTitle_\(bookId)"
             let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
                 ? UserDefaults.standard.bool(forKey: showTitleKey)
@@ -145,7 +155,9 @@ extension ReaderViewModel {
                     shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     showTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
-                    bookId: bookId
+                    bookId: bookId,
+                    chapterIndex: index,
+                    extensionEngine: extensionEngine
                 )
 
                 guard !Task.isCancelled else { return }
@@ -180,6 +192,7 @@ extension ReaderViewModel {
     func toggleTranslation(enabled: Bool) {
         guard isTranslationEnabled != enabled else { return }
         self.isTranslationEnabled = enabled
+        if !enabled { TranslationFallbackStatusStore.shared.clear(bookId: bookId) }
         guard let cached = cache.cache[displayedChapterIndex], cached.state == .loaded,
               !cached.isTranslationFresh(token: TranslateUtils.translationGenerationToken(for: bookId),
                                          enabled: enabled,

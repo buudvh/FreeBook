@@ -53,8 +53,8 @@ internal actor TTSChapterTextWorker {
             let loadMs = (loadEnd - loadStart) * 1000
 
             let processStart = ProcessInfo.processInfo.systemUptime
-            guard let processed = try? await processor.processChapter(
-                bookId: key.bookId,
+            guard let processed = try? await processor.processChapterWithEngine(
+                bookId: key.bookId, packageId: key.translationPackageId,
                 chapterIndex: key.chapterIndex,
                 chapterTitle: key.chapterTitle,
                 rawContent: result.document.text.content,

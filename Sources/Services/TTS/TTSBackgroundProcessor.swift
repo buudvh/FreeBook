@@ -26,7 +26,8 @@ public actor TTSBackgroundProcessor {
         removeDuplicatedTitle: Bool,
         sessionID: UUID,
         generation: Int,
-        snapshot: TTSPretranslatedSnapshot? = nil
+        snapshot: TTSPretranslatedSnapshot? = nil,
+        translatedTitleOverride: String? = nil
     ) throws -> ProcessedChapterDTO {
         if TranslationReadContext.current == nil || TranslationReadContext.current?.bookId != bookId {
             return try TranslationReadContext.withSnapshot(bookId: bookId) {
@@ -34,7 +35,8 @@ public actor TTSBackgroundProcessor {
                     rawContent: rawContent, chunkLength: chunkLength, shouldTranslateRawContent: shouldTranslateRawContent,
                     shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     includeChapterTitle: includeChapterTitle, removeDuplicatedTitle: removeDuplicatedTitle,
-                    sessionID: sessionID, generation: generation, snapshot: snapshot)
+                    sessionID: sessionID, generation: generation, snapshot: snapshot,
+                    translatedTitleOverride: translatedTitleOverride)
             }
         }
         try Task.checkCancellation()
@@ -46,13 +48,7 @@ public actor TTSBackgroundProcessor {
 
         // 1b. Optional: drop the first line when it is a chapter title recognized by the
         // active TOC rules (same detection as TXT import), so the title is not read twice.
-        var lines = rawNormalized.lines
-        if removeDuplicatedTitle, let first = lines.first {
-            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
-            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
-                lines.removeFirst()
-            }
-        }
+        let lines = ChapterTextNormalizer.contentLines(of: rawNormalized, removingDuplicatedTitle: removeDuplicatedTitle)
 
         // 2. Per-line processing & title processing
         let lineEntries: [TTSLineEntry]
@@ -60,14 +56,14 @@ public actor TTSBackgroundProcessor {
 
         let currentToken = TranslationReadContext.cacheGeneration(for: bookId)
         if let snapshot = snapshot,
-           snapshot.isTranslationEnabled == shouldTranslateRawContent,
-           snapshot.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
-           snapshot.translationToken == currentToken,
-           snapshot.entries.count == lines.count,
-           zip(snapshot.entries, lines).allSatisfy({ $0.0.lineId == $0.1.id && $0.0.originalText == $0.1.text }) {
+           snapshot.matches(lines: lines, isTranslationEnabled: shouldTranslateRawContent,
+                            convertsTraditional: shouldConvertTraditionalToSimplified, token: currentToken) {
             lineEntries = snapshot.entries
             simpleEntries = snapshot.entries.map { (id: $0.lineId, text: $0.translatedText) }
         } else if shouldTranslateRawContent {
+            if snapshot != nil, translatedTitleOverride != nil {
+                AppLogger.shared.log("❌ [ExtTranslate] TTS chương \(chapterIndex + 1): bản dịch tiện ích lệch dòng ⇒ đọc bản QT")
+            }
             let mapped = try lines.map { line -> (TTSLineEntry, (id: Int, text: String)) in
                 try Task.checkCancellation()
                 if TranslateUtils.containsChinese(line.text) {
@@ -91,7 +87,10 @@ public actor TTSBackgroundProcessor {
         }
 
         let processedTitle: String
-        if !chapterTitle.isEmpty && shouldTranslateRawContent && TranslateUtils.containsChinese(chapterTitle) {
+        if shouldTranslateRawContent, let translatedTitleOverride, !translatedTitleOverride.isEmpty {
+            // Tên chương đã dịch bằng tiện ích dịch (`TTSExtensionTranslationPreparer`) — không dịch QT lại.
+            processedTitle = translatedTitleOverride
+        } else if !chapterTitle.isEmpty && shouldTranslateRawContent && TranslateUtils.containsChinese(chapterTitle) {
             processedTitle = TranslateUtils.translateChapterTitle(
                 chapterTitle,
                 bookId: bookId,

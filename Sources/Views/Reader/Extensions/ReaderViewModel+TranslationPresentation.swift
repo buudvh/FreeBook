@@ -54,5 +54,7 @@ extension ReaderViewModel {
         }
         cached.revision = prepared.revision
         cached.translationToken = prepared.token
+        // Báo "đang dịch bằng QT thay thế" theo bản vừa áp (QT / dịch tắt / tiện ích dịch đủ ⇒ xoá báo).
+        TranslationFallbackStatusStore.shared.record(result.fallbackStatus, bookId: bookId, chapterIndex: prepared.index)
     }
 }

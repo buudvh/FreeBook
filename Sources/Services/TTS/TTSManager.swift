@@ -354,6 +354,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var preparedChapterKey: TTSPreparedChapterKey? = nil
     internal var preparedChapter: TTSPreparedChapter? = nil
     internal var sessionTranslationEnabled: Bool = false
+    internal var sessionTranslationPackageId: String? = nil // tra bộ dịch / công tắc dịch y Reader (TXT tự nhập: "local")
     internal var sessionShouldConvertTraditionalToSimplified: Bool = false
     internal var prefetchTaskGenerations: [Int: UInt64] = [:]
     internal var nextPrefetchTaskGeneration: UInt64 = 0
@@ -824,14 +825,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         coverUrl: String = "",
         bookDetailUrl: String = "",
         bookSourceName: String = "",
-        extensionInfo: TTSExtensionInfo?
+        extensionInfo: TTSExtensionInfo?, translationPackageId: String? = nil, snapshot: TTSPretranslatedSnapshot? = nil
     ) {
         guard !isPlaying else { return }
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
-        let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
+        let packageId = translationPackageId ?? extensionInfo?.packageId
+        let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
         let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
             forKey: "convertTraditionalToSimplified_\(bookId)"
         )
@@ -857,8 +859,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         prepareSpeakingTask = Task(priority: .utility) {
             do {
-                let processed = try await processor.processChapter(
-                    bookId: bookId,
+                let processed = try await processor.processChapterWithEngine(
+                    bookId: bookId, packageId: packageId,
                     chapterIndex: currentIndex,
                     chapterTitle: currentChapter.title,
                     rawContent: chapterContent,
@@ -868,7 +870,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     includeChapterTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: UUID(),
-                    generation: expectedPreparationGeneration
+                    generation: expectedPreparationGeneration, snapshot: snapshot, requiresReaderSnapshot: true
                 )
                 guard !Task.isCancelled,
                       self.preparationGeneration == expectedPreparationGeneration else { return }
@@ -876,7 +878,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.preparedChapterKey = preparedKey
                 self.preparedChapter = TTSPreparedChapter(
                     normalizedContent: processed.normalizedContent,
-                    paragraphs: processed.paragraphs
+                    paragraphs: processed.paragraphs, chapterTitle: processed.chapterTitle
                 )
             } catch is CancellationError {
                 return
@@ -904,7 +906,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         coverUrl: String = "",
         bookDetailUrl: String = "",
         bookSourceName: String = "",
-        extensionInfo: TTSExtensionInfo?,
+        extensionInfo: TTSExtensionInfo?, translationPackageId: String? = nil,
         snapshot: TTSPretranslatedSnapshot? = nil,
         author: String = "",
         translationEnabled: Bool? = nil
@@ -928,8 +930,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true)
+        self.sessionTranslationPackageId = translationPackageId ?? extensionInfo?.packageId
         let isTransEnabled = translationEnabled
-            ?? TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: extensionInfo?.packageId)
+            ?? TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: sessionTranslationPackageId)
         self.sessionTranslationEnabled = isTransEnabled
         let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
             forKey: "convertTraditionalToSimplified_\(bookId)"
@@ -974,13 +977,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         )
 
         if preparedChapterKey == requestedKey, let preparedChapter {
-            self.chapterTitle = isTransEnabled && TranslateUtils.containsChinese(expectedTitle)
-                ? TranslateUtils.translateChapterTitle(
-                    expectedTitle,
-                    bookId: bookId,
-                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                )
-                : expectedTitle
+            self.chapterTitle = preparedChapter.chapterTitle // đã dịch lúc chuẩn bị (QT hoặc tiện ích dịch)
             self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
             self.paragraphs = playbackParagraphs(from: preparedChapter.paragraphs)
@@ -992,8 +989,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let processor = TTSBackgroundProcessor()
         startSpeakingTask = Task(priority: .userInitiated) {
             do {
-                let processed = try await processor.processChapter(
-                    bookId: bookId,
+                let processed = try await processor.processChapterWithEngine(
+                    bookId: bookId, packageId: self.sessionTranslationPackageId,
                     chapterIndex: currentIndex,
                     chapterTitle: expectedTitle,
                     rawContent: chapterContent,
@@ -1015,7 +1012,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.preparedChapterKey = requestedKey
                 self.preparedChapter = TTSPreparedChapter(
                     normalizedContent: processed.normalizedContent,
-                    paragraphs: processed.paragraphs
+                    paragraphs: processed.paragraphs, chapterTitle: processed.chapterTitle
                 )
                 self.chapterTitle = processed.chapterTitle
                 self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(processed.normalizedContent)
@@ -1319,14 +1316,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(chapterContent)
         }
 
-        // Nạp lại phân đoạn
-        var buildLines = normalizedChapterText.lines
-        if readRemoveDuplicatedTitle(for: playingBookId), let first = buildLines.first {
-            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
-            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
-                buildLines.removeFirst()
-            }
-        }
+        // Nạp lại phân đoạn — chữ đã dựng sẵn đã bỏ tên chương trùng (`ChapterTextNormalizer.contentLines`), không bỏ lần nữa
+        let buildLines = normalizedChapterText.lines
         let rebuiltEntries = buildLines.map {
             TTSLineEntry(lineId: $0.id, originalText: $0.text, translatedText: $0.text, spans: [])
         }
@@ -1780,8 +1771,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let processed: ProcessedChapterDTO
             do {
-                processed = try await processor.processChapter(
-                    bookId: expectedBookId,
+                processed = try await processor.processChapterWithEngine(
+                    bookId: expectedBookId, packageId: self.sessionTranslationPackageId,
                     chapterIndex: nextChapter.index,
                     chapterTitle: rawTitle,
                     rawContent: rawContent,

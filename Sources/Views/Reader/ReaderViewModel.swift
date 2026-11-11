@@ -42,6 +42,7 @@ class ReaderViewModel: ObservableObject {
     private var navigationStartUptime: TimeInterval = 0
     internal var translationRefreshTask: Task<Void, Never>? = nil
     internal let translationPresentation = ReaderTranslationPresentation()
+    private let extensionTranslationObserver = ReaderExtensionTranslationObserver()
     private var queuedNavigation: ReaderNavigationRequest?
     private var navigationGeneration = 0
     private let bootstrapChapterIndex: Int
@@ -231,6 +232,7 @@ class ReaderViewModel: ObservableObject {
                     self?.handleMemoryWarning()
                 }
             }
+        extensionTranslationObserver.attach(to: self)
     }
 
     // Cập nhật vị trí đọc trên RAM

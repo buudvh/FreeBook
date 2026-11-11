@@ -143,17 +143,25 @@ public struct TTSPretranslatedSnapshot: Sendable {
     public let shouldConvertTraditionalToSimplified: Bool
     public let translationToken: Int
     public let entries: [TTSLineEntry]
+    /// Tên chương gốc / đã dịch mà Reader đang hiện (`CachedChapter.originalTitle` / `.title`). Bộ dịch là tiện ích ⇒
+    /// TTS dùng thẳng tên đã dịch khi tên gốc khớp, không gọi tiện ích lần nữa. `nil` = không có.
+    public let originalTitle: String?
+    public let translatedTitle: String?
 
     public init(
         isTranslationEnabled: Bool,
         shouldConvertTraditionalToSimplified: Bool = false,
         translationToken: Int,
-        entries: [TTSLineEntry]
+        entries: [TTSLineEntry],
+        originalTitle: String? = nil,
+        translatedTitle: String? = nil
     ) {
         self.isTranslationEnabled = isTranslationEnabled
         self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.translationToken = translationToken
         self.entries = entries
+        self.originalTitle = originalTitle
+        self.translatedTitle = translatedTitle
     }
 }
 

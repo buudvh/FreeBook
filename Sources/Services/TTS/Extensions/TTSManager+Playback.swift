@@ -274,6 +274,7 @@ extension TTSManager {
                     bookDetailUrl: currentDetailUrl,
                     bookSourceName: currentSourceName,
                     extensionInfo: currentExtInfo,
+                    translationPackageId: self.sessionTranslationPackageId,
                     author: currentAuthor
                 )
             } catch {

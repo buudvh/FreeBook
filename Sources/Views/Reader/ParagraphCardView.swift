@@ -4,6 +4,9 @@ struct ParagraphCardView: View {
     let item: ParagraphItem
     let isTranslationEnabled: Bool
     let bookId: String
+    let chapterIndex: Int
+    /// Mục đầu tiên của chương (tên chương, hoặc đoạn đầu khi tắt hiện tên chương) ⇒ chỗ đặt dải báo dịch QT thay thế.
+    let isChapterStart: Bool
     let fontSize: Double
     let lineSpacing: Double
     let fontFamily: ReaderFontFamily
@@ -17,9 +20,24 @@ struct ParagraphCardView: View {
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
+        if isChapterStart {
+            VStack(alignment: .leading, spacing: 0) {
+                if isTranslationEnabled {
+                    ReaderTranslationFallbackBanner(bookId: bookId, chapterIndex: chapterIndex, theme: theme)
+                }
+                textView
+            }
+            .padding(.top, item.isTitle ? 10 : 0)
+        } else {
+            textView
+                .padding(.top, item.isTitle ? 10 : 0)
+        }
+    }
+
+    private var textView: some View {
         let displayText = Self.displayText(for: item, isTranslationEnabled: isTranslationEnabled)
 
-        ReaderTextView(
+        return ReaderTextView(
             text: displayText,
             fontSize: item.isTitle ? fontSize * 1.5 : fontSize,
             lineSpacing: lineSpacing,
@@ -38,17 +56,18 @@ struct ParagraphCardView: View {
             onSpeakFromHere: onSpeakFromHere
         )
         .frame(minHeight: 20)
-        .padding(.top, item.isTitle ? 10 : 0)
     }
 
     /// Chuỗi **đang thật sự hiển thị** của một đoạn. Là nguồn duy nhất của luật "dịch hay gốc" —
     /// mọi nơi cần toạ độ ký tự trên chữ người dùng đang thấy (ví dụ tô vệt kết quả tìm) phải gọi
     /// hàm này thay vì tự lặp lại điều kiện, nếu không range sẽ lệch khỏi chuỗi trong `UITextView`.
+    ///
+    /// Không còn chặn theo "dòng có chữ Hán": tiện ích dịch dịch cả dòng không có chữ Hán (vd truyện tiếng Anh), và TTS
+    /// đọc đúng `translated` của dòng đó. Bản dựng bằng QT không đổi gì: dòng không có chữ Hán (và mọi dòng khi tắt dịch)
+    /// có `translated == original` (`untranslatedTextResult`).
     static func displayText(for item: ParagraphItem, isTranslationEnabled: Bool) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(item.original) else {
-            return item.original
-        }
-        return item.translated.isEmpty ? item.original : item.translated
+        guard isTranslationEnabled, !item.translated.isEmpty else { return item.original }
+        return item.translated
     }
 }
 
@@ -57,6 +76,8 @@ extension ParagraphCardView: Equatable {
         return lhs.item == rhs.item &&
                lhs.isTranslationEnabled == rhs.isTranslationEnabled &&
                lhs.bookId == rhs.bookId &&
+               lhs.chapterIndex == rhs.chapterIndex &&
+               lhs.isChapterStart == rhs.isChapterStart &&
                lhs.fontSize == rhs.fontSize &&
                lhs.lineSpacing == rhs.lineSpacing &&
                lhs.fontFamily == rhs.fontFamily &&

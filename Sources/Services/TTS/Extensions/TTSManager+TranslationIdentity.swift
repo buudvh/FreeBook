@@ -21,7 +21,7 @@ extension TTSManager {
             shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
             extensionLocalPath: extensionLocalPath, extensionConfigJson: extensionConfigJson,
-            extensionFingerprint: extFingerprint)
+            extensionFingerprint: extFingerprint, translationPackageId: sessionTranslationPackageId)
     }
 
     /// Bỏ mọi thứ đã dịch sẵn theo trạng thái cũ của truyện đang phát (chương chuẩn bị trước, chunk đang claim,
@@ -88,6 +88,7 @@ extension TTSManager {
                     bookDetailUrl: self.playingBookDetailUrl,
                     bookSourceName: self.playingBookSourceName,
                     extensionInfo: self.extensionInfo,
+                    translationPackageId: self.sessionTranslationPackageId,
                     author: self.playingAuthor,
                     translationEnabled: enabled
                 )

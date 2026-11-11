@@ -18,6 +18,8 @@ internal struct TTSPreparedNextChapterKey: Equatable, Sendable {
     internal let extensionLocalPath: String
     internal let extensionConfigJson: String
     internal let extensionFingerprint: String?
+    /// `packageId` tra bộ dịch / công tắc dịch y Reader (`TTSManager.sessionTranslationPackageId`).
+    internal let translationPackageId: String?
 }
 
 internal enum TTSNextChapterState: Sendable {

@@ -199,6 +199,10 @@ extension ReaderView {
     internal func reloadCurrentChapterFromMenu() {
         paragraphTracker.removeAll()
         isRestoringReaderPosition = true
+        // Hợp đồng tiện ích dịch: tải lại chương bỏ qua cache bản dịch (cache RAM theo dòng của truyện, cả lỗi đã nhớ).
+        TranslationExtensionLineCache.shared.invalidate(bookId: bookId)
+        // TTS bỏ bản chuẩn bị sẵn; đang đọc đúng chương này bằng tiện ích dịch ⇒ đọc lại theo bản dịch mới.
+        ttsManager.refreshExtensionTranslation(bookId: bookId, chapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex)
         viewModel?.reloadDisplayedChapter()
     }
 
