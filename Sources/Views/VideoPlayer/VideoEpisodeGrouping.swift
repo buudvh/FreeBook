@@ -45,8 +45,9 @@ enum VideoEpisodeGrouping {
             .map { offset, bucket in Group(id: offset, title: bucket.title, items: bucket.items) }
     }
 
+    /// Tên nhóm = tên dòng section đã qua phồn → giản / dịch (`shownTitle`) nếu có, không thì nguyên văn.
     static func groups(_ episodes: [VideoPlaybackSession.Episode]) -> [Group<VideoPlaybackSession.Episode>] {
-        groups(episodes, isSection: { $0.isSection }, title: { $0.title })
+        groups(episodes, isSection: { $0.isSection }, title: { $0.shownTitle ?? $0.title })
     }
 
     /// Vị trí nhóm chứa tập có chỉ số mục lục `episodeIndex`; không nhóm nào chứa ⇒ `nil`.

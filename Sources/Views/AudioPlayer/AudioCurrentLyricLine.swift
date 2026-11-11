@@ -12,7 +12,7 @@ struct AudioCurrentLyricLine: View {
         guard let lyrics = session.lyrics, lyrics.isSynced,
               let index = session.currentLyricLineIndex, lyrics.lines.indices.contains(index) else { return "" }
         let line = lyrics.lines[index]
-        return displayMode.lines(original: line.text, translation: line.translation).primary
+        return displayMode.lines(original: line.displayText, translation: line.translation).primary
     }
 
     var body: some View {

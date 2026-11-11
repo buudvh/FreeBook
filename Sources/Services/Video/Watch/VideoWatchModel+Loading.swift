@@ -258,6 +258,7 @@ extension VideoWatchModel {
             return
         }
         phase = .ready
+        refreshEpisodeDisplayNames()
         considerAutoplay()
     }
 

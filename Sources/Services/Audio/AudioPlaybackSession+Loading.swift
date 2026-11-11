@@ -106,6 +106,7 @@ extension AudioPlaybackSession {
     }
 
     private func beginPlayback(book: Book?) {
+        refreshDisplayNames()
         // Mở từ playlist: đúng bài của mục, từ giây 0 — album không còn bài đó ⇒ lỗi (bỏ qua mục), không phát bài khác.
         if let url = request?.playlistTrackUrl {
             guard let index = playlistTrackIndex(index: request?.trackIndex ?? -1, url: url) else {
@@ -247,6 +248,7 @@ extension AudioPlaybackSession {
             timestamp: Date()
         ))
         if !hadCover { loadNowPlayingCover() }
+        refreshDisplayNames()
         syncMiniPlayerState()
         publishNowPlaying()
     }
@@ -364,6 +366,7 @@ extension AudioPlaybackSession {
                     return updated
                 }
             }
+            refreshDisplayNames()
             syncMiniPlayerState()
             publishNowPlaying()
         } catch {

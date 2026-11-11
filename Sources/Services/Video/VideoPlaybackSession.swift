@@ -32,9 +32,11 @@ final class VideoPlaybackSession {
         let host: String
         /// Dòng tiêu đề nhóm tập (`type: "section"`) — không phát được.
         var isSection: Bool = false
+        /// Tên đã qua phồn → giản / dịch (`+DisplayNames`), chỉ để vẽ; `nil` = như `title` (luôn nguyên văn).
+        var shownTitle: String?
         var id: Int { index }
 
-        var displayTitle: String { title.isEmpty ? "Tập \(index + 1)" : title }
+        var displayTitle: String { shownTitle ?? (title.isEmpty ? "Tập \(index + 1)" : title) }
     }
 
     enum Phase: Equatable {
@@ -63,7 +65,10 @@ final class VideoPlaybackSession {
 
     /// Lượt mở hiện tại; `nil` = session rảnh (chưa mở phim nào hoặc đã `stop()`).
     var launch: BookContentLaunch?
+    /// Tên phim **nguyên văn** (ghi `Book`, ngữ cảnh nguồn, playlist); tên để vẽ là `displayBookTitle` (`+DisplayNames`).
     var bookTitle = ""
+    /// Bảng tên đã qua phồn → giản / dịch của phim đang mở (`+DisplayNames`).
+    var displayNames = MediaDisplayNames.passthrough
     var episodes: [Episode] = []
     var currentEpisodeIndex = 0
     var servers: [VideoServer] = []
@@ -72,6 +77,7 @@ final class VideoPlaybackSession {
     var embedContent: EmbedContent?
     /// Giây cần tua tới khi bấm "Bỏ qua"; `nil` = không nằm trong khoảng `timeSkip` nào.
     var skipTargetSeconds: Double?
+    /// Chữ gốc của dòng đang chiếu (đã chuyển phồn → giản nếu bật — `VideoSubtitleCue.displayText`).
     var currentCueText = ""
     /// Bản dịch của dòng đang chiếu (`+Subtitles`); `nil` = dòng chưa / không có bản dịch. View chọn chuỗi theo kiểu hiển thị.
     var currentCueTranslation: String?
@@ -142,6 +148,7 @@ final class VideoPlaybackSession {
     @ObservationIgnored var startTask: Task<Void, Never>?
     @ObservationIgnored var loadTask: Task<Void, Never>?
     @ObservationIgnored var subtitleTask: Task<Void, Never>?
+    @ObservationIgnored var displayNamesTask: Task<Void, Never>?
     @ObservationIgnored var resolver: VideoSourceResolver?
     /// Phải giữ strong ref: `AVURLAsset` chỉ giữ weak delegate của resource loader.
     @ObservationIgnored var hlsLoader: HLSPlaylistResourceLoader?
@@ -337,6 +344,7 @@ final class VideoPlaybackSession {
 
     private func resetPlaybackState() {
         bookTitle = ""
+        resetDisplayNames()
         bookHost = ""
         episodes = []
         currentEpisodeIndex = 0

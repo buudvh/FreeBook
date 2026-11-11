@@ -94,13 +94,15 @@ struct AudioLyricsScrollView: View {
     }
 
     /// Dòng chính + dòng phụ bên dưới theo kiểu hiện lời. Song ngữ ở trang Lời: dòng **gốc** giữ chỗ cũ, bản dịch nằm dưới
-    /// (khác phụ đề phim — dòng dịch to ở trên). Dòng chưa / không có bản dịch ⇒ chỉ chữ gốc.
+    /// (khác phụ đề phim — dòng dịch to ở trên). Dòng chưa / không có bản dịch ⇒ chỉ chữ gốc. "Chữ gốc" = `displayText`
+    /// (đã chuyển phồn → giản nếu bật, cả khi tắt dịch).
     private func shownText(of line: AudioLyricLine) -> (primary: String, below: String?) {
-        guard let translation = line.translation, !translation.isEmpty else { return (line.text, nil) }
+        let original = line.displayText
+        guard let translation = line.translation, !translation.isEmpty else { return (original, nil) }
         switch displayMode {
-        case .original: return (line.text, nil)
+        case .original: return (original, nil)
         case .translated: return (translation, nil)
-        case .bilingual: return (line.text, translation)
+        case .bilingual: return (original, translation)
         }
     }
 

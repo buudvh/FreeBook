@@ -16,6 +16,7 @@ extension VideoPlaybackSession {
         let book = fetchBook()
         if bookTitle.isEmpty, let title = book?.title { bookTitle = title }
         bookHost = resolveBookHost(book: book, launch: launch)
+        refreshDisplayNames()
 
         guard !episodes.isEmpty else {
             AppLogger.shared.log("❌ [VideoPlayer] Phim không có tập nào để phát (bookId=\(launch.bookId))")
@@ -34,34 +35,6 @@ extension VideoPlaybackSession {
             guard generation == openGeneration, !Task.isCancelled else { return }
         }
         beginEpisodeLoad(currentEpisodeIndex, resumeSeconds: resumeSeconds)
-        await translateSectionTitles(launch: launch, generation: generation)
-    }
-
-    /// Tên nhóm tập (`isSection`) dịch một lần lúc nạp, ngoài main, theo công tắc dịch của truyện + phồn→giản (phim/nguồn,
-    /// cùng hàm với phụ đề — `convertsTraditionalToSimplified(bookId:packageId:)`). Tập thường giữ nguyên (ô tập chỉ hiện
-    /// số). Chạy **sau** `ensureHistoryBook`: hàm đó ghi `episodes` vào mục lục làm tên gốc.
-    private func translateSectionTitles(launch: BookContentLaunch, generation: Int) async {
-        let sections = episodes.filter(\.isSection).map { (index: $0.index, title: $0.title) }
-        guard !sections.isEmpty,
-              TranslationConfigStore.shared.isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId) else { return }
-        let bookId = launch.bookId
-        let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(
-            bookId: bookId, packageId: launch.extensionPackageId
-        )
-        let translated: [Int: String] = await Task.detached(priority: .userInitiated) {
-            var titles: [Int: String] = [:]
-            for section in sections where TranslateUtils.containsChinese(section.title) {
-                titles[section.index] = TranslateUtils.translateChapterTitle(
-                    section.title, bookId: bookId, shouldConvertTraditionalToSimplified: convertsTraditional
-                )
-            }
-            return titles
-        }.value
-        guard generation == openGeneration, !Task.isCancelled, !translated.isEmpty else { return }
-        episodes = episodes.map { episode in
-            guard episode.isSection, let title = translated[episode.index], !title.isEmpty else { return episode }
-            return Episode(index: episode.index, title: title, url: episode.url, host: episode.host, isSection: true)
-        }
     }
 
     private func loadEpisodes(launch: BookContentLaunch) async {

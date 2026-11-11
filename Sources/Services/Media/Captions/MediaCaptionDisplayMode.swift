@@ -3,6 +3,10 @@ import Foundation
 /// Kiểu hiện phụ đề phim / lời bài hát khi dòng có bản dịch (`MediaCaptionTranslator`). Là việc của **View**: session cấp
 /// cả chuỗi gốc lẫn bản dịch, View đọc kiểu qua `@AppStorage` (khoá riêng cho phim và nhạc) rồi chọn chuỗi để vẽ.
 ///
+/// "Chuỗi gốc" = chữ **đã chuyển phồn → giản** khi phim / album bật phồn → giản (chạy cả khi tắt dịch —
+/// `VideoSubtitleCue.displayText`, `AudioLyricLine.displayText`), không thì nguyên văn: Gốc = chữ đã chuyển, Song ngữ = chữ
+/// đã chuyển + bản dịch.
+///
 /// Dòng không có bản dịch (không có chữ Hán, cổng dịch đang tắt, hoặc chưa dịch tới) ⇒ mọi kiểu đều chỉ hiện chuỗi gốc.
 enum MediaCaptionDisplayMode: String, CaseIterable, Identifiable, Sendable {
     case original

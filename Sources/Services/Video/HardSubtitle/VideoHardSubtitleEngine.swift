@@ -29,7 +29,7 @@ final class VideoHardSubtitleEngine {
 
     /// Câu đang hiện cùng khung chữ gốc để lớp phủ che đúng chỗ.
     struct DisplayedCue: Equatable {
-        /// Câu Trung đọc được (đã ghép) — kiểu Song ngữ vẽ làm dòng phụ để đối chiếu.
+        /// Câu Trung đọc được (đã ghép; đã chuyển phồn → giản nếu bật) — kiểu Song ngữ vẽ làm dòng phụ để đối chiếu.
         let original: String
         /// Bản dịch; `nil` = không dịch được / dịch ra y nguyên ⇒ lớp phủ không vẽ, chữ gốc của phim lộ ra.
         let translation: String?
@@ -82,8 +82,8 @@ final class VideoHardSubtitleEngine {
     @ObservationIgnored var translationPass: MediaCaptionTranslator.Pass?
     @ObservationIgnored var passTask: Task<Void, Never>?
     @ObservationIgnored var passEpoch = 0
-    /// Bản dịch theo câu gốc; `""` = câu đó không có bản dịch. Xoá mỗi lần dựng lại cổng dịch.
-    @ObservationIgnored var translations: [String: String] = [:]
+    /// Chữ đã chuyển + bản dịch theo câu OCR (nguyên văn). Xoá mỗi lần dựng lại cổng dịch.
+    @ObservationIgnored var translations: [String: MediaCaptionTranslator.LineResult] = [:]
     @ObservationIgnored var translationOrder: [String] = []
     @ObservationIgnored var notificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var screenCount = 0

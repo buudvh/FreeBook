@@ -4,8 +4,9 @@ import Foundation
 /// sàng (`loadLyricsIfNeeded` ở `readyToPlay`) để không chặn việc phát. Mặc định thử lần lượt từng nguồn, nguồn đầu tiên
 /// có nội dung thắng; người dùng chọn nguồn khác bằng `selectLyricSource`. Mỗi lượt nạp gắn `lyricsGeneration` — đổi bài /
 /// chọn nguồn khác thì kết quả cũ bị bỏ. Dòng đang hát (`currentLyricLineIndex`) cập nhật theo tick.
-/// Lời có chữ Hán ⇒ dịch để hiển thị sau khi parse (`translateLyrics`, task riêng `lyricsTranslationTask`); nguồn lời giữ
-/// nguyên văn, View chọn chuỗi theo `MediaCaptionDisplayMode`.
+/// Lời có chữ Hán ⇒ chuyển phồn → giản (cả khi tắt dịch) rồi dịch để hiển thị sau khi parse (`translateLyrics`, task riêng
+/// `lyricsTranslationTask`); nguồn lời và `AudioLyricLine.text` giữ nguyên văn, View vẽ `displayText` / `translation` theo
+/// `MediaCaptionDisplayMode`.
 extension AudioPlaybackSession {
     /// Gán nguồn lời của bài mới (rỗng ⇒ không có lời) và huỷ lượt nạp lời đang chạy.
     func resetLyrics(sources: [AudioLyricSource], headers: [String: String]) {
@@ -79,15 +80,17 @@ extension AudioPlaybackSession {
 
     // MARK: - Dịch lời
 
-    /// Sheet "Dịch lời" đóng mà cấu hình đổi: bỏ bản dịch cũ (tắt dịch thì dừng ở đây) rồi dịch lại lời đã nạp. Lời chưa
-    /// nạp xong ⇒ không làm gì (không đụng `lyricsTask`): lượt nạp đọc cấu hình mới khi xong.
+    /// Sheet "Dịch lời" đóng mà cấu hình đổi: bỏ chữ đã chuyển + bản dịch cũ (tắt cả chuyển lẫn dịch thì dừng ở đây) rồi
+    /// xử lý lại lời đã nạp. Lời chưa nạp xong ⇒ không làm gì (không đụng `lyricsTask`): lượt nạp đọc cấu hình mới khi xong.
     func retranslateLyrics() {
+        // Tên album / bài / nghệ sĩ cũng theo cấu hình mới — kể cả khi lời chưa nạp xong.
+        refreshDisplayNames()
         guard lyricsStatus == .loaded, let current = lyrics else { return }
         cancelLyricsTranslation()
-        if current.hasTranslation {
-            lyrics = current.withTranslations(Array(repeating: nil, count: current.lines.count))
+        if current.hasCaptionOverrides {
+            lyrics = current.clearingCaptions()
         }
-        AppLogger.shared.log("🎵 [AudioPlayer] Cấu hình dịch đổi ⇒ dịch lại lời")
+        AppLogger.shared.log("🎵 [AudioPlayer] Cấu hình dịch đổi ⇒ chuyển / dịch lại lời")
         translateLyrics()
     }
 
@@ -96,8 +99,8 @@ extension AudioPlaybackSession {
         lyricsTranslationTask = nil
     }
 
-    /// Dịch cả lời một lượt (lời ngắn) bằng `MediaCaptionTranslator`, ngoài main, trong task riêng; xong mới gán `lyrics`
-    /// mới có bản dịch. Gác bằng `lyricsGeneration` + cờ huỷ + lời không đổi trong lúc dịch.
+    /// Chuyển phồn → giản (cả khi tắt dịch) rồi dịch cả lời một lượt (lời ngắn) bằng `MediaCaptionTranslator`, ngoài main,
+    /// trong task riêng; xong mới gán `lyrics` mới. Gác bằng `lyricsGeneration` + cờ huỷ + lời không đổi trong lúc xử lý.
     private func translateLyrics() {
         cancelLyricsTranslation()
         guard let current = lyrics, !bookId.isEmpty else { return }
@@ -112,9 +115,10 @@ extension AudioPlaybackSession {
             guard let self, !Task.isCancelled, self.lyricsGeneration == generation,
                   let latest = self.lyrics, latest.lines.map(\.text) == texts else { return }
             self.lyricsTranslationTask = nil
-            self.lyrics = latest.withTranslations(results)
-            let count = results.reduce(0) { $1 == nil ? $0 : $0 + 1 }
-            AppLogger.shared.log("🎵 [AudioPlayer] Đã dịch lời: \(count)/\(texts.count) dòng")
+            self.lyrics = latest.withCaptions(converted: results.map(\.converted), translations: results.map(\.translation))
+            let converted = results.reduce(0) { $1.converted == nil ? $0 : $0 + 1 }
+            let translated = results.reduce(0) { $1.translation == nil ? $0 : $0 + 1 }
+            AppLogger.shared.log("🎵 [AudioPlayer] Lời: chuyển phồn → giản \(converted), dịch \(translated)/\(texts.count) dòng")
         }
     }
 

@@ -51,7 +51,7 @@ struct AudioDiscPage: View {
 
     private var trackTitle: String {
         if let track = session.currentTrack { return track.displayTitle }
-        if !session.albumTitle.isEmpty { return session.albumTitle }
+        if !session.albumTitle.isEmpty { return session.displayAlbumTitle }
         return "Đang tải…"
     }
 

@@ -56,7 +56,7 @@ extension VideoWatchModel {
             launch,
             modelContainer: modelContainer,
             muteOverride: autoNextStart?.muted ?? playlist?.muted,
-            startNotice: autoNextStart == nil ? playlist?.notice : "Tự sang: \(displayTitle)",
+            startNotice: autoNextStart == nil ? playlist?.notice : "Tự sang: \(meta(displayTitle))",
             keepsSleepTimer: autoNextStart != nil || playlist?.keepsSleepTimer == true,
             fromPlaylist: playlist != nil
         )

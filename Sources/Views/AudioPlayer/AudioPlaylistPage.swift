@@ -65,7 +65,8 @@ struct AudioPlaylistPage: View {
     }
 
     private var trackList: some View {
-        let fallbackArtist = session.albumAuthor
+        let fallbackArtist = session.displayAlbumAuthor
+        let names = session.displayNames
         let current = session.currentTrackIndex
         return ScrollViewReader { proxy in
             ScrollView {
@@ -74,7 +75,7 @@ struct AudioPlaylistPage: View {
                         AudioPlaylistRow(
                             position: position + 1,
                             title: track.displayTitle,
-                            artist: track.artist.isEmpty ? fallbackArtist : track.artist,
+                            artist: track.artist.isEmpty ? fallbackArtist : names.author(track.artist),
                             isCurrent: track.index == current,
                             onSelect: {
                                 AppLogger.shared.log("🎵 [AudioPlayerUI] Chọn bài \(track.index) ở danh sách phát")

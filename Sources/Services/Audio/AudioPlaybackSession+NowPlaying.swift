@@ -29,12 +29,13 @@ extension AudioPlaybackSession {
     func nowPlayingMetadata() -> AudioNowPlayingMetadata {
         let nsfw = RepositoryFilterPolicy.isNsfwBook(bookId: bookId, packageId: packageId)
         let cover = nowPlayingCover.flatMap { $0.bookId == bookId ? $0.image : nil }
+        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); nguồn 18+ thì `make` bỏ hết tên.
         return AudioNowPlayingMetadata.make(
             isNsfw: nsfw,
             trackTitle: currentTrack?.displayTitle ?? "",
-            artist: currentTrack?.artist ?? "",
-            albumAuthor: albumAuthor,
-            albumTitle: albumTitle,
+            artist: displayNames.author(currentTrack?.artist ?? ""),
+            albumAuthor: displayAlbumAuthor,
+            albumTitle: displayAlbumTitle,
             cover: cover
         )
     }

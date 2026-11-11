@@ -107,18 +107,56 @@ extension VideoWatchModel {
 
     // MARK: - Dịch
 
-    /// Bật dịch cho phim này (theo truyện → nguồn), như màn Chi tiết.
-    var isTranslationEnabled: Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: bookId,
-            packageId: request.packageId,
-            isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: request.packageId)?.isChineseSource
-        )
+    /// Cấu hình chữ Trung của phim này (phim ⇒ nguồn ⇒ Tất cả, như popup dịch / màn Chi tiết). Đọc
+    /// `TranslationDisplayRevision` để màn đang vẽ bằng `meta` / `author` tự vẽ lại khi cấu hình / từ điển đổi.
+    var textOptions: ChineseTextPipeline.Options {
+        _ = TranslationDisplayRevision.shared.value
+        return ChineseTextPipeline.options(bookId: bookId, packageId: request.packageId)
     }
 
-    /// Tên phim / thể loại / mô tả ngắn: dịch khi bật dịch và còn chữ Hán, như `translateMetaIfNeeded` của Chi tiết.
+    /// Bật dịch cho phim này (theo truyện → nguồn), như màn Chi tiết — cho hàng bình luận (`CommentRowView`, chỉ nhận cờ dịch).
+    var isTranslationEnabled: Bool { textOptions.translates }
+
+    /// Tên phim / thể loại / mô tả ngắn: phồn → giản nếu bật (cả khi tắt dịch) rồi dịch nếu bật (`ChineseTextPipeline.meta`).
     func meta(_ text: String) -> String {
-        guard isTranslationEnabled, TranslateUtils.containsChinese(text) else { return text }
-        return TranslateUtils.translateMeta(text, bookId: bookId)
+        ChineseTextPipeline.meta(text, textOptions)
+    }
+
+    /// Tác giả: phồn → giản nếu bật rồi phiên âm Hán Việt nếu bật dịch (`ChineseTextPipeline.author`).
+    func displayAuthor(_ text: String) -> String {
+        ChineseTextPipeline.author(text, textOptions)
+    }
+
+    /// Tên tập / nhóm tập của mục lục màn xem (phim chưa phát — phim đang phát thì màn đọc `session.episodes`, phiên tự
+    /// tính): tính ngoài main rồi gắn `shownTitle` (tên gốc giữ nguyên văn để ghi mục lục / playlist). Gọi khi mục lục xong
+    /// (`markReady`); lượt nạp khác chạy trước khi xong ⇒ bỏ kết quả.
+    func refreshEpisodeDisplayNames() {
+        let options = ChineseTextPipeline.options(bookId: bookId, packageId: request.packageId)
+        let generation = loadGeneration
+        let raws = episodes.map(\.title)
+        guard !MediaDisplayNames(options: options).isPassthrough else {
+            applyEpisodeNames(.passthrough)
+            return
+        }
+        Task { [weak self] in
+            let names = await Task.detached(priority: .userInitiated) {
+                MediaDisplayNames.make(titles: [], authors: [], items: raws, options: options)
+            }.value
+            guard let self, self.loadGeneration == generation, self.episodes.map(\.title) == raws else { return }
+            self.applyEpisodeNames(names)
+        }
+    }
+
+    private func applyEpisodeNames(_ names: MediaDisplayNames) {
+        var changed = false
+        let updated = episodes.map { episode -> VideoPlaybackSession.Episode in
+            let shown = names.item(episode.title)
+            guard shown != episode.shownTitle else { return episode }
+            changed = true
+            var copy = episode
+            copy.shownTitle = shown
+            return copy
+        }
+        if changed { episodes = updated }
     }
 }

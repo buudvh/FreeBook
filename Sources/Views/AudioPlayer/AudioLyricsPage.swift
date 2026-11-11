@@ -37,7 +37,7 @@ struct AudioLyricsPage: View {
                 isRotating: isVisible && session.isPlaying
             )
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.currentTrack?.displayTitle ?? session.albumTitle)
+                Text(session.currentTrack?.displayTitle ?? session.displayAlbumTitle)
                     .font(.headline)
                     .foregroundStyle(Color.white)
                     .lineLimit(1)

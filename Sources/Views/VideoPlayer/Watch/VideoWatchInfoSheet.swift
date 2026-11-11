@@ -51,7 +51,7 @@ struct VideoWatchInfoSheet: View {
                     .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
                 if !model.author.isEmpty {
-                    infoRow("person", model.meta(model.author))
+                    infoRow("person", model.displayAuthor(model.author))
                 }
                 if !model.request.sourceName.isEmpty {
                     infoRow("globe", model.request.sourceName)

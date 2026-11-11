@@ -70,7 +70,7 @@ struct AudioPlayerScreen: View {
                 AudioCoverBackdrop(coverUrl: session.coverUrl, referer: referer)
                 VStack(spacing: 0) {
                     AudioPlayerHeader(
-                        albumTitle: session.albumTitle,
+                        albumTitle: session.displayAlbumTitle,
                         onMinimize: { minimize(bySwipe: false) },
                         onMenu: { showingMenu = true }
                     )
@@ -159,8 +159,8 @@ struct AudioPlayerScreen: View {
 
     private var drawerMenu: some View {
         AudioPlayerDrawerMenu(
-            albumTitle: session.albumTitle,
-            albumAuthor: session.albumAuthor,
+            albumTitle: session.displayAlbumTitle,
+            albumAuthor: session.displayAlbumAuthor,
             sourceName: session.request?.sourceName ?? "",
             trackCount: session.tracks.count,
             hasSourcePage: sourcePageLink != nil,

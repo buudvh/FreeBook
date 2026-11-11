@@ -2,6 +2,57 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.851] - 2026-11-11
+
+### feat: phụ đề, lời bài hát và tên phim, tên bài chuyển phồn → giản cả khi tắt dịch
+
+Anh Bửu: *"dù bật hay không thì cũng gói trong 1 function, nếu bật phồn->giản thì chuyển phồn giản sang bước dịch -> nếu bật dịch thì dịch khi thì return luôn"*, *"nếu bật phồn giản thì chữ gốc bạn hãy để kết quả sau phồn → giản"*. Phần này áp luật đó cho phim / nhạc qua `ChineseTextPipeline`.
+
+- **Phụ đề mềm + lời bài hát** (`MediaCaptionTranslator`):
+  - `prepare` đọc `ChineseTextPipeline.options(bookId:packageId:)` (phim / album này ⇒ nguồn ⇒ Tất cả). Lượt mở khi bật phồn → giản **hoặc** bật dịch.
+  - Mỗi dòng trả `LineResult { converted, translation }`: chuyển cả dòng một lần, rồi dịch từng hàng bằng `ChineseTextPipeline.content(…, alreadyConverted)`. Bản dịch so với chữ **đã chuyển**, nên dòng chỉ đổi phồn → giản không bị coi là "bản dịch".
+  - `VideoSubtitleCue` và `AudioLyricLine` thêm `converted` + `displayText`. `text` vẫn nguyên văn, `data` phụ đề / nguồn lời không đổi.
+  - Phim: chuyển cả bộ phụ đề trước (`Pass.convertOnly`) rồi mới dịch theo lô như cũ. Lời bài hát: chuyển + dịch một lượt.
+  - Kiểu Gốc = chữ đã chuyển; Song ngữ = chữ đã chuyển + bản dịch (`currentCueText`, `AudioLyricsScrollView`, `AudioCurrentLyricLine`).
+  - Dịch lại (đóng sheet) bỏ cả chữ đã chuyển lẫn bản dịch (`AudioLyrics.clearingCaptions`).
+  - Vẫn chạy trong `subtitleTask` / `lyricsTranslationTask`, không `Task.detached`.
+- **Phụ đề cứng (OCR)**: vẫn **chỉ** đọc khi bật dịch (`Pass.translates`). Lượt chỉ chuyển phồn → giản coi như cổng dịch tắt: không vẽ chữ Trung lên hình. Khi đang đọc, câu Trung ở Song ngữ là chữ đã chuyển (`DisplayedCue.original`); đệm theo câu lưu `LineResult`.
+- **Tên hiển thị** — `MediaDisplayNames` (mới, `Services/Media/DisplayNames/`):
+  - Bảng tên gốc → tên đã qua pipeline: `meta` cho tên phim / album, `author` cho tác giả / nghệ sĩ, `chapterTitle` cho tên tập / nhóm tập / bài. Tính ngoài main, chụp từ điển một lần.
+  - Tên gốc giữ nguyên văn vì còn ghi `Book`, mục lục, playlist, ngữ cảnh nguồn, từ điển truyện: `bookTitle`, `albumTitle`, `albumAuthor`, `Episode.title`, `Track.title`, `Track.artist`.
+  - `Episode` / `Track` thêm `shownTitle`; `displayTitle` đọc trường này.
+  - **Phim** (`VideoPlaybackSession+DisplayNames`):
+    - Tính lại lúc nạp phim, khi màn xem nhận mục lục làm mới, và khi đóng sheet "Dịch phụ đề" / "Từ điển truyện" (`retranslateSubtitles`).
+    - Thay `translateSectionTitles` (trước chỉ dịch tên nhóm tập khi bật dịch và ghi đè `title`).
+    - Dùng ở: thanh trên, chi tiết trình phát, tên nhóm tập (`VideoEpisodeGrouping`), hub / cửa sổ nhỏ (`VideoMiniPlayerState.title`), màn khoá. Phim 18+ ở màn khoá vẫn chỉ "Đang phát".
+  - **Nhạc** (`AudioPlaybackSession+DisplayNames`):
+    - Tính lại khi bắt đầu phát, khi chi tiết về, khi làm mới mục lục, và khi đóng sheet "Dịch lời".
+    - Dùng ở: đầu màn nghe, ngăn kéo `…`, các trang Đĩa / Lời / Danh sách, sheet điều khiển nhanh, đĩa góc dưới, màn khoá.
+    - `currentArtist` nay là tên để vẽ.
+    - Danh sách gợi ý nhạc cũng đi `meta` / `author`, như thẻ đề xuất phim.
+  - **Màn xem phim** (`VideoWatchModel`):
+    - `meta` = `ChineseTextPipeline.meta` (chuyển cả khi tắt dịch); thêm `displayAuthor`.
+    - Đọc `TranslationDisplayRevision` để vẽ lại khi cấu hình đổi.
+    - Tên tập của mục lục màn xem (phim chưa phát) gắn `shownTitle` lúc `markReady`.
+    - Dòng "Tự sang: <tên>" dùng tên đã chuyển.
+- **Sheet "Dịch phụ đề" / "Dịch lời"**:
+  - Giải thích lại: phồn → giản chạy cả khi tắt dịch và áp cho cả tên.
+  - Dòng "Hiện tại" của sheet và "Đang bật / Đang tắt" của ngăn kéo tính cùng luật với chỗ chạy (`ChineseTextPipeline.options`).
+- **Ngoài phạm vi, giữ nguyên**:
+  - Hàng bình luận (`CommentRowView` / `AllCommentsView` chỉ nhận cờ dịch) ⇒ bình luận phim chưa chuyển phồn → giản khi tắt dịch.
+  - Playlist: trước đây không dịch tên ⇒ vẫn nguyên văn.
+  - Tên tập ở màn tải (`Views/Download`).
+- **Kiểm chứng:**
+  - Đọc code + grep. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows, không build tại chỗ). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Phim có phụ đề phồn thể, tắt dịch, bật phồn → giản ở sheet "Dịch phụ đề" ⇒ phụ đề hiện giản thể. Bật dịch ⇒ Gốc = giản thể, Song ngữ = bản dịch + giản thể.
+    2. Lời bài hát phồn thể: tương tự, với sheet "Dịch lời".
+    3. Đọc phụ đề cứng, tắt dịch + bật phồn → giản ⇒ không vẽ gì lên hình. Bật dịch ⇒ Song ngữ hiện chữ Trung giản thể.
+    4. Chỉ bật phồn → giản ⇒ tên phim / tập / nhóm tập / bài / album / nghệ sĩ phồn thể đổi sang giản thể ở thanh trên, hub, đĩa góc dưới, màn khoá.
+    5. Phim / album 18+: màn khoá vẫn "Đang phát".
+    6. Thêm vào playlist / ghi Lịch sử vẫn lưu tên gốc.
+
 ## [1.3.850] - 2026-11-11
 
 ### feat: trình duyệt chuyển phồn → giản riêng, không cần bật dịch trang

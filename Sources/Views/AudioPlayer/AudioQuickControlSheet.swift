@@ -93,12 +93,12 @@ struct AudioQuickControlSheet: View {
     private var title: String {
         if isConcealed { return "Đang phát" }
         if let track = session.currentTrack { return track.displayTitle }
-        return session.albumTitle.isEmpty ? "Đang tải…" : session.albumTitle
+        return session.albumTitle.isEmpty ? "Đang tải…" : session.displayAlbumTitle
     }
 
     private var subtitle: String {
         if isConcealed { return session.isPlaying ? "" : "Đã dừng" }
-        return [session.currentArtist, session.albumTitle].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [session.currentArtist, session.displayAlbumTitle].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// Host của album — `Referer` khi tải bìa (như màn nghe).
