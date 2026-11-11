@@ -8,8 +8,11 @@ import SwiftUI
 /// - Phồn → giản · Phim/album này: Theo nguồn / Bật / Tắt (khoá theo truyện, ba trạng thái) — · Nguồn: Tắt / Bật. Chỉ
 ///   phụ đề, lời và tên nhóm tập phim đọc (`convertsTraditionalToSimplified(bookId:packageId:)`).
 ///
-/// Chọn là ghi ngay vào `TranslationConfigStore`; sheet đóng mà kết quả (bật dịch, phồn→giản) khác lúc mở ⇒ `onChanged`
-/// để màn dịch lại phụ đề / lời đang mở (không nạp lại phim / bài). Mở từ màn trình bày bằng UIKit (`VideoPlayerPresenter`,
+/// Chọn là ghi ngay vào `TranslationConfigStore`; sheet đóng mà người dùng đã đổi bất kỳ lựa chọn nào ⇒ `onChanged` để màn
+/// dịch lại phụ đề / lời đang mở (không nạp lại phim / bài). Không so "cấu hình lúc mở": màn cha vẽ lại (xoay máy, hết bài…)
+/// là `init` chạy lại, và tập / bài mới nạp lúc sheet đang mở đã dịch theo cấu hình giữa chừng. Hai id chụp vào `@State`
+/// một lần: phim / album tự sang lúc sheet đang mở thì lựa chọn vẫn ghi cho đúng mục đang hiện trên sheet.
+/// Mở từ màn trình bày bằng UIKit (`VideoPlayerPresenter`,
 /// `AudioPlayerPresenter`) ⇒ tự gắn `.preferredColorScheme(.dark)` + `.appAccentTint()` như `MediaSleepTimerSheet`.
 /// Không có nút chỉ để đóng: vuốt xuống.
 struct MediaCaptionTranslationSheet: View {
@@ -24,41 +27,41 @@ struct MediaCaptionTranslationSheet: View {
         var contentNoun: String { self == .video ? "phụ đề" : "lời bài hát" }
     }
 
-    /// Kết quả cấu hình áp cho phim/album — chụp lúc mở, so lúc đóng.
+    /// Kết quả cấu hình áp cho phim/album — dòng "Hiện tại" của sheet.
     private struct Resolved: Equatable {
         let isEnabled: Bool
         let convertsTraditional: Bool
     }
 
     let medium: Medium
-    let bookId: String
-    let packageId: String
     let sourceName: String
     let onChanged: () -> Void
 
+    /// Chụp một lần (giá trị khởi tạo của `@State` chỉ dùng ở lần dựng đầu, `init` chạy lại thì bỏ qua).
+    @State private var bookId: String
+    @State private var packageId: String
     @State private var bookOverride: ScopeOverride
     @State private var sourceOverride: ScopeOverride
     @State private var bookTraditional: ScopeOverride
     @State private var sourceTraditional: Bool
     @State private var resolved: Resolved
-    private let initial: Resolved
+    /// Người dùng đã đổi ít nhất một lựa chọn ⇒ đóng sheet thì dịch lại.
+    @State private var didChange = false
 
     /// Đọc trạng thái lưu ngay trong `init` (không trong `onAppear`): gán `@State` lúc hiện sẽ kích `onChange` ⇒ ghi lại
     /// cùng giá trị và bắn thông báo đổi cấu hình thừa.
     init(medium: Medium, bookId: String, packageId: String, sourceName: String, onChanged: @escaping () -> Void) {
         self.medium = medium
-        self.bookId = bookId
-        self.packageId = packageId
         self.sourceName = sourceName
         self.onChanged = onChanged
         let store = TranslationConfigStore.shared
+        _bookId = State(initialValue: bookId)
+        _packageId = State(initialValue: packageId)
         _bookOverride = State(initialValue: store.getBookOverride(bookId: bookId))
         _sourceOverride = State(initialValue: store.getSourceOverride(packageId: packageId))
         _bookTraditional = State(initialValue: store.traditionalOverride(bookId: bookId))
         _sourceTraditional = State(initialValue: store.sourceConvertsTraditional(packageId: packageId))
-        let current = Self.resolve(bookId: bookId, packageId: packageId)
-        _resolved = State(initialValue: current)
-        initial = current
+        _resolved = State(initialValue: Self.resolve(bookId: bookId, packageId: packageId))
     }
 
     private var store: TranslationConfigStore { .shared }
@@ -78,8 +81,7 @@ struct MediaCaptionTranslationSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .onDisappear {
-            guard Self.resolve(bookId: bookId, packageId: packageId) != initial else { return }
-            onChanged()
+            if didChange { onChanged() }
         }
     }
 
@@ -159,7 +161,9 @@ struct MediaCaptionTranslationSheet: View {
 
     // MARK: - Kết quả
 
+    /// Sau mỗi lựa chọn của người dùng (bốn `onChange`): đánh dấu cần dịch lại + cập nhật dòng "Hiện tại".
     private func refresh() {
+        if !didChange { didChange = true }
         let current = Self.resolve(bookId: bookId, packageId: packageId)
         if current != resolved { resolved = current }
     }
