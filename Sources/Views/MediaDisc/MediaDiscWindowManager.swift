@@ -2,8 +2,9 @@ import Combine
 import SwiftData
 import UIKit
 
-/// Điều phối **đĩa nghe góc dưới phải** (1.3.808) — một đĩa xoay tròn dùng chung cho trình nghe nhạc và TTS (kiểu widget
-/// "Đĩa góc dưới"), nổi trên mọi màn (trang gốc tab, trang đẩy vào, sheet, trình duyệt, Reader) ở cửa sổ lớp phủ riêng
+/// Điều phối **đĩa nghe** (1.3.808; dạng **nửa viên thuốc dính mép**, kéo đổi mép / độ cao từ 2026-11-11) — một đĩa xoay
+/// dùng chung cho trình nghe nhạc và TTS (kiểu widget "Đĩa góc dưới"), nổi trên mọi màn (trang đẩy vào, sheet, trình duyệt,
+/// Reader) ở cửa sổ lớp phủ riêng
 /// (`MediaDiscWindow`, level `alert − 1.75`: trên nút hub `−2`, dưới ngăn kéo `…` `−1.5`, widget TTS `−1` và toast). Thay
 /// thanh nghe nhạc mini, kiểu "Thanh nghe nhạc" của widget TTS và hai nút đĩa riêng của Reader.
 ///
@@ -23,8 +24,8 @@ import UIKit
 /// ## Hai chỗ đặt đĩa (1.3.812)
 /// - **Trang gốc các tab** (có `.mainTabBar()`): đĩa 44 pt (gờ nền nhô 5,5 pt, 1.3.814) ở ô giữa của `MainTabBar` (`MediaDiscTabBarSlot`, theo `kind` —
 ///   biết ngay từ khung đầu; không nghe ⇒ đĩa xám đứng yên `MediaDiscIdleFace`, 1.3.821). Thanh tab là neo `.hostsDisc` ⇒ đĩa góc ẩn **ngay** khi màn trên cùng có thanh tab.
-/// - **Mọi màn khác**: đĩa góc dưới phải như trên; hiện lại sau khi màn trên cùng thôi có thanh tab ~0,3 s (chống lóe lúc
-///   đẩy trang). Nhấn giữ đĩa góc ⇒ tạm lên góc phải vùng header 5 giây (container).
+/// - **Mọi màn khác**: nửa viên dính mép như trên; hiện lại sau khi màn trên cùng thôi có thanh tab ~0,3 s (chống lóe lúc
+///   đẩy trang). Nhấn giữ lên header (1.3.812–857) đã bỏ: đĩa che nút thì kéo nó đi chỗ khác.
 /// - Chạm đĩa ở đâu cũng `presentQuickControls()` ⇒ sheet điều khiển nhanh trình bày từ cửa sổ này (`MediaDiscSheetHost`).
 @MainActor
 final class MediaDiscWindowManager: ObservableObject {
@@ -42,8 +43,10 @@ final class MediaDiscWindowManager: ObservableObject {
     @Published private(set) var presentRequestToken = 0
     /// App không ở nền — bìa đĩa ở thanh tab chỉ xoay khi `true`.
     @Published private(set) var isAppActive = true
-    /// Đĩa góc đang tạm nằm trong header (nhấn giữ, 1.3.815) ⇒ vòng kính tan, bìa rõ hẳn như icon header.
-    @Published private(set) var isDiscElevated = false
+    /// Mép nửa viên đang dính (container ghi lúc hiện / thả tay) — mặt đĩa xoay đầu bo theo mép.
+    @Published private(set) var discEdge: EdgeDirection = MediaDiscPositionStore.load().edge
+    /// Đang kéo nửa viên ⇒ mặt đĩa thành hình tròn.
+    @Published private(set) var isDiscDragging = false
 
     var modelContainer: ModelContainer?
 
@@ -132,15 +135,16 @@ final class MediaDiscWindowManager: ObservableObject {
         presentRequestToken &+= 1
     }
 
-    /// Sheet điều khiển nhanh vừa đóng ⇒ đĩa đang tạm đứng ở header về chỗ.
-    func quickControlsDidDismiss() {
-        container?.endElevation(animated: true)
+    /// Container báo mép nửa viên đang dính.
+    func noteDiscEdge(_ edge: EdgeDirection) {
+        guard edge != discEdge else { return }
+        discEdge = edge
     }
 
-    /// Container báo đĩa góc vừa lên / rời header (nhấn giữ).
-    func noteDiscElevated(_ elevated: Bool) {
-        guard elevated != isDiscElevated else { return }
-        isDiscElevated = elevated
+    /// Container báo bắt đầu / thôi kéo nửa viên.
+    func noteDiscDragging(_ dragging: Bool) {
+        guard dragging != isDiscDragging else { return }
+        isDiscDragging = dragging
     }
 
     /// Container báo đĩa đang hiện / đã ẩn. Ghi ở nhịp main sau — có thể được gọi giữa lượt layout.

@@ -12,8 +12,7 @@ import SwiftUI
 ///   (`navigateReaderToPlayingChapter`, không đổi tab); chưa mở ⇒ đường "mở chương đang đọc" sẵn có
 ///   (`openCurrentlyPlayingReader`).
 ///
-/// Nguồn đổi / hết hoặc manager xin đóng (`closeSheetsToken`) ⇒ sheet **đóng** chứ không bị gỡ ngang. Sheet đóng ⇒ báo
-/// manager (`quickControlsDidDismiss`) để đĩa đang tạm đứng ở header về chỗ.
+/// Nguồn đổi / hết hoặc manager xin đóng (`closeSheetsToken`) ⇒ sheet **đóng** chứ không bị gỡ ngang.
 struct MediaDiscSheetHost: View {
     @ObservedObject private var manager = MediaDiscWindowManager.shared
     @State private var openSheet: MediaDiscKind?
@@ -98,7 +97,6 @@ struct MediaDiscSheetHost: View {
     }
 
     private func sheetDidDismiss() {
-        manager.quickControlsDidDismiss()
         if let page = pendingAudioPage {
             pendingAudioPage = nil
             guard AudioMiniPlayerState.shared.isActive else { return }

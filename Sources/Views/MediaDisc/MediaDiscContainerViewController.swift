@@ -1,51 +1,48 @@
 import SwiftUI
 import UIKit
 
-/// Root view controller của cửa sổ đĩa nghe góc dưới phải (`MediaDiscWindow`, 1.3.808). Giữ hai nội dung SwiftUI:
-/// - `discView` 52×52 — vùng duy nhất nhận chạm — chứa nút đĩa góc (`MediaDiscFaceButton(.corner)`).
-/// - Một view 1×1 không nhận chạm giữ sheet điều khiển nhanh (`MediaDiscSheetHost`, 1.3.812): chạm đĩa góc hay đĩa ở ô giữa
+/// Root view controller của cửa sổ đĩa nghe (`MediaDiscWindow`, 1.3.808). Giữ hai nội dung SwiftUI:
+/// - `discView` — vùng duy nhất nhận chạm — chứa mặt đĩa (`MediaDiscFaceButton(.corner)`): **nửa viên thuốc** 68 × 52 dính
+///   mép trái / phải (anh Bửu duyệt mockup 2026-11-11), lúc đang kéo là hình tròn 52 pt.
+/// - Một view 1×1 không nhận chạm giữ sheet điều khiển nhanh (`MediaDiscSheetHost`, 1.3.812): chạm nửa viên hay đĩa ở ô giữa
 ///   thanh tab đều mở sheet ở đây.
 ///
-/// - Chỗ đứng do `MediaDiscPlacement.resolve` quyết mỗi lượt `updateDisc`; đổi chỗ ⇒ trượt lò xo, hiện / ẩn ⇒ phóng / thu
-///   (chỉ `transform` — alpha < 1 trên lớp cha tắt nhoè của kính `FloatingGlassBackground`).
+/// - Chỗ đứng do `MediaDiscPlacement.resolve` quyết mỗi lượt `updateDisc` từ chỗ đã nhớ (`MediaDiscPositionStore`); đổi chỗ
+///   ⇒ trượt lò xo, hiện / ẩn ⇒ phóng / thu (chỉ `transform` — alpha < 1 trên lớp cha tắt nhoè của kính).
+/// - **Chạm và kéo ở lớp UIKit** (`+Drag`, khuôn nút hub): mặt đĩa SwiftUI không có cử chỉ nào ⇒ bộ nhận của UIKit chạy (bài
+///   học 1.3.812: nút SwiftUI bắt chạm ngay lúc chạm xuống). Chạm ⇒ sheet; kéo ⇒ thành tròn theo tay, thả ⇒ bám mép gần
+///   hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator`), lưu chỗ.
 /// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (thanh tab tự có ô đĩa, màn xem phim, bàn phím…) ⇒ thu
-///   ngay; đĩa đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s — đẩy trang khỏi trang gốc tab không làm đĩa
-///   lóe lên.
-/// - **Đổi màn ⇒ thu tại chỗ, hiện thẳng ở chỗ mới** (1.3.820, `MediaDiscScreenContext`): trang đang hiện khác trang lúc
-///   đĩa hiện (đẩy trang, mở Reader / sheet, quay lại) ⇒ thu ngay, không trượt ngang qua màn mới; màn còn đang chuyển cảnh
-///   ⇒ chưa hiện, chưa đếm 0,3 s (hỏi lại mỗi 0,1 s); hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng
-///   một trang (menu "+" bung / thu, nút Home hiện muộn) vẫn trượt như cũ.
-/// - **Nhấn giữ 0,4 s** (1.3.812): rung nhẹ, đĩa trượt (lò xo mềm) **vào header** 5 giây để bấm được nút đang bị che, rồi
-///   về chỗ. Từ 1.3.815 đĩa nằm trong header như một nút header (`MediaDiscHeaderSlot`: ngay trái cụm nút phải, giữa hàng
-///   nút); vòng kính tan + bìa rõ hẳn (`MediaDiscWindowManager.isDiscElevated`), vùng chạm chỉ còn tròn 38 pt
-///   (`elevatedHitRadius`) để không lấn nút header bên cạnh. Trong lúc đó vẫn chạm mở sheet; đóng sheet ⇒ về chỗ ngay; đổi
-///   màn ⇒ vẫn trong header (của màn mới) cho đủ 5 giây. Chỉ dời khung trong cửa sổ này, không đụng layout của app.
-///   Cử chỉ nằm trong `MediaDiscFaceButton` (gọi `beginElevation`, 1.3.814) — **đừng** gắn lại `UILongPressGestureRecognizer`
-///   lên `discView`: nút SwiftUI bên trong bắt chạm ngay lúc chạm xuống nên bộ nhận đó không bao giờ chạy.
+///   ngay; đĩa đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s.
+/// - **Đổi màn ⇒ thu tại chỗ, hiện thẳng ở chỗ mới** (1.3.820, `MediaDiscScreenContext`); màn còn đang chuyển cảnh ⇒ chưa
+///   hiện, chưa đếm 0,3 s. Trong cùng một trang (menu "+" bung / thu, nút Home hiện muộn) vẫn trượt như cũ.
 /// - Lượt tính lại: neo đổi (`MediaDiscAnchorRegistry.onChange`), manager báo đổi trạng thái, xoay màn / đổi vùng an toàn,
-///   và đồng hồ 0,4 s (`setPolling`, chế độ `.common` để chạy cả lúc đang cuộn) chỉ khi cửa sổ đang hiện.
-/// - Giữ chỗ mép phải ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`) khi đĩa hiện: nút hub vừa thả / vừa hiện sẽ né
-///   (đĩa không nhường — chỗ của nó do neo quyết).
+///   và đồng hồ 0,4 s (`setPolling`, chế độ `.common`) chỉ khi cửa sổ đang hiện. Tay đang giữ đĩa ⇒ không dời.
+/// - Giữ chỗ ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`, đúng mép đang dính) khi đĩa hiện: nút hub / trình duyệt vừa
+///   thả / vừa hiện sẽ né.
 @MainActor
 final class MediaDiscContainerViewController: UIViewController {
     let discView = UIView()
     /// Đĩa đang hiện (không đang thu / đã ẩn) ⇒ cửa sổ nhận chạm trong khung đĩa.
     private(set) var isDiscInteractive = false
 
+    // Trạng thái kéo — `internal` vì `+Drag.swift` dùng.
+    var panGesture: UIPanGestureRecognizer?
+    var isDragging = false
+    var dragStartCenter: CGPoint = .zero
+    /// Chỗ ở `FloatingWidgetLayoutCoordinator` phải **mở** lại (chỉ `resolve` mở được; `refresh` chỉ cập nhật chỗ đã có).
+    /// Thả tay đã `resolve` ⇒ `+Drag` hạ cờ.
+    var needsSlotClaim = true
+
     private var discHost: UIHostingController<AnyView>?
     private var sheetHost: UIHostingController<AnyView>?
     private var pollTimer: Timer?
     private var isShowingDisc = false
-    /// Chỗ ở `FloatingWidgetLayoutCoordinator` phải **mở** lại (chỉ `resolve` mở được; `refresh` chỉ cập nhật chỗ đã có).
-    private var needsSlotClaim = true
     /// Trang đang hiện lúc đĩa hiện — khác trang hiện tại ⇒ đổi màn (`MediaDiscScreenContext`).
     private var shownPage: ObjectIdentifier?
     /// Lúc đĩa đang ẩn bắt đầu được phép hiện — hiện thật khi đã giữ đủ `showDelay`.
     private var pendingShowSince: Date?
     private var pendingShowWork: DispatchWorkItem?
-    /// Đĩa tạm đứng ở header tới lúc này (nhấn giữ).
-    private var elevatedUntil: Date?
-    private var elevationWork: DispatchWorkItem?
 
     private enum Layout {
         static let pollInterval: TimeInterval = 0.4
@@ -55,9 +52,6 @@ final class MediaDiscContainerViewController: UIViewController {
         static let showDelay: TimeInterval = 0.3
         /// Màn đang chuyển cảnh: hỏi lại sau nhịp này.
         static let transitionRecheck: TimeInterval = 0.1
-        static let elevationDuration: TimeInterval = 5
-        /// Vùng chạm khi đĩa nằm trong header: tròn 38 pt như nút header.
-        static let elevatedHitRadius: CGFloat = 19
     }
 
     override func viewDidLoad() {
@@ -73,21 +67,20 @@ final class MediaDiscContainerViewController: UIViewController {
         sheets.didMove(toParent: self)
         sheetHost = sheets
 
-        let size = MediaDiscPlacement.discSize
-        discView.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+        discView.bounds = CGRect(origin: .zero, size: MediaDiscPlacement.pillSize)
         discView.backgroundColor = .clear
         discView.isHidden = true
         view.addSubview(discView)
 
-        let disc = makeHost(MediaDiscFaceButton(style: .corner) { [weak self] in
-            self?.beginElevation()
-        })
+        let disc = makeHost(MediaDiscFaceButton(style: .corner))
         addChild(disc)
         disc.view.frame = discView.bounds
         disc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         discView.addSubview(disc.view)
         disc.didMove(toParent: self)
         discHost = disc
+
+        setupDiscGestures()
 
         MediaDiscAnchorRegistry.shared.onChange = { [weak self] in
             self?.updateDisc(animated: true)
@@ -135,8 +128,9 @@ final class MediaDiscContainerViewController: UIViewController {
     }
 
     func windowDidHide() {
+        cancelDrag()
         cancelPendingShow()
-        setDiscShown(false, frame: nil, animated: false)
+        setDiscShown(false, frame: nil, edge: nil, animated: false)
     }
 
     /// Bật / tắt lượt hỏi định kỳ (cửa sổ hiện và app không ở nền).
@@ -157,25 +151,33 @@ final class MediaDiscContainerViewController: UIViewController {
         pollTimer = timer
     }
 
-    /// Tính lại chỗ + hiện/ẩn đĩa. `softSpring`: lò xo mềm của lượt lên / xuống header.
-    func updateDisc(animated: Bool, softSpring: Bool = false) {
+    /// Tính lại chỗ + hiện/ẩn đĩa.
+    func updateDisc(animated: Bool) {
         guard isViewLoaded, view.bounds.width > 0, view.bounds.height > 0 else { return }
         guard let window = view.window, !window.isHidden else {
+            cancelDrag()
             cancelPendingShow()
-            setDiscShown(false, frame: nil, animated: false)
+            setDiscShown(false, frame: nil, edge: nil, animated: false)
             return
         }
-        let placement = MediaDiscPlacement.resolve(bounds: view.bounds, safeInsets: view.safeAreaInsets)
+        let placement = MediaDiscPlacement.resolve(
+            bounds: view.bounds,
+            safeInsets: view.safeAreaInsets,
+            position: MediaDiscPositionStore.load()
+        )
         guard MediaDiscWindowManager.shared.isDiscAllowed, !placement.isBlocked else {
+            cancelDrag()
             cancelPendingShow()
-            setDiscShown(false, frame: nil, animated: animated)
+            setDiscShown(false, frame: nil, edge: nil, animated: animated)
             return
         }
+        // Tay đang giữ đĩa: không dời, không đổi màn.
+        if isDragging { return }
         let screen = MediaDiscScreenContext.current()
         if isShowingDisc, screen.page != shownPage {
             // Đổi màn: thu ngay tại chỗ, không trượt ngang qua màn mới; hiện lại qua luồng hiện chậm.
             cancelPendingShow()
-            setDiscShown(false, frame: nil, animated: animated)
+            setDiscShown(false, frame: nil, edge: nil, animated: animated)
         }
         if screen.isTransitioning {
             // Khung các neo còn đang chạy: đĩa đang hiện (cùng màn) thì đứng yên; đĩa đang ẩn thì chưa đếm thời gian chờ.
@@ -186,8 +188,7 @@ final class MediaDiscContainerViewController: UIViewController {
             return
         }
         if !isShowingDisc, !isShowDelayElapsed() { return }
-        let frame = isElevated ? elevatedFrame().frame : placement.frame
-        setDiscShown(true, frame: frame, animated: animated, softSpring: softSpring)
+        setDiscShown(true, frame: placement.frame, edge: placement.edge, animated: animated)
         shownPage = screen.page
     }
 
@@ -227,75 +228,33 @@ final class MediaDiscContainerViewController: UIViewController {
         pendingShowWork = nil
     }
 
-    // MARK: - Nhấn giữ ⇒ tạm lên header
-
-    private var isElevated: Bool {
-        guard let elevatedUntil else { return false }
-        return elevatedUntil > Date()
-    }
-
-    /// Bán kính vùng chạm khi đĩa đang nằm trong header; `nil` ⇒ cả khung đĩa (`MediaDiscWindow.hitTest`).
-    var elevatedHitRadius: CGFloat? {
-        isElevated && isShowingDisc ? Layout.elevatedHitRadius : nil
-    }
-
-    /// Khung đĩa 52 pt đặt tâm vào chỗ trong header (bìa 32 pt nằm đúng ô nút).
-    private func elevatedFrame() -> (frame: CGRect, source: MediaDiscHeaderSlot.Source) {
-        let slot = MediaDiscHeaderSlot.resolve(bounds: view.bounds, safeInsets: view.safeAreaInsets)
-        let size = MediaDiscPlacement.discSize
-        let frame = CGRect(x: slot.center.x - size / 2, y: slot.center.y - size / 2, width: size, height: size)
-        return (frame, slot.source)
-    }
-
-    /// Nhấn giữ đĩa góc (`MediaDiscFaceButton(.corner)` gọi) ⇒ đĩa lên header 5 giây; nhấn giữ lần nữa ⇒ tính lại 5 giây.
-    func beginElevation() {
-        guard isShowingDisc else { return }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        AppLogger.shared.log("💿 [MediaDisc] Nhấn giữ ⇒ đĩa vào header 5 giây (chỗ: \(elevatedFrame().source.rawValue))")
-        elevationWork?.cancel()
-        elevatedUntil = Date().addingTimeInterval(Layout.elevationDuration)
-        MediaDiscWindowManager.shared.noteDiscElevated(true)
-        let work = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated {
-                self?.endElevation(animated: true)
-            }
-        }
-        elevationWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Layout.elevationDuration, execute: work)
-        updateDisc(animated: true, softSpring: true)
-    }
-
-    /// Hết 5 giây hoặc sheet điều khiển vừa đóng ⇒ đĩa về chỗ ở góc dưới.
-    func endElevation(animated: Bool) {
-        guard elevatedUntil != nil else { return }
-        elevationWork?.cancel()
-        elevationWork = nil
-        elevatedUntil = nil
-        MediaDiscWindowManager.shared.noteDiscElevated(false)
-        updateDisc(animated: animated, softSpring: true)
-    }
-
     // MARK: - Hiện / ẩn / dời
 
-    private func setDiscShown(_ shown: Bool, frame: CGRect?, animated: Bool, softSpring: Bool = false) {
-        if shown, let frame {
+    private func setDiscShown(_ shown: Bool, frame: CGRect?, edge: EdgeDirection?, animated: Bool) {
+        if shown, let frame, let edge {
+            MediaDiscWindowManager.shared.noteDiscEdge(edge)
             let target = CGPoint(x: frame.midX, y: frame.midY)
+            let size = frame.size
             if !isShowingDisc {
                 isShowingDisc = true
                 discView.layer.removeAllAnimations()
+                discView.bounds = CGRect(origin: .zero, size: size)
                 discView.center = target
                 discView.transform = CGAffineTransform(scaleX: Layout.hiddenScale, y: Layout.hiddenScale)
                 discView.isHidden = false
                 animate(animated, motion: .spring) {
                     self.discView.transform = .identity
                 }
-            } else if hypot(discView.center.x - target.x, discView.center.y - target.y) > Layout.moveTolerance {
-                animate(animated, motion: softSpring ? .softSpring : .spring) {
+            } else if hypot(discView.center.x - target.x, discView.center.y - target.y) > Layout.moveTolerance
+                        || discView.bounds.size != size || discView.transform != .identity {
+                animate(animated, motion: .spring) {
+                    self.discView.bounds = CGRect(origin: .zero, size: size)
                     self.discView.center = target
+                    self.discView.transform = .identity
                 }
             }
             isDiscInteractive = true
-            claimSlot(frame)
+            claimSlot(frame, edge: edge)
         } else if isShowingDisc {
             isShowingDisc = false
             isDiscInteractive = false
@@ -312,14 +271,14 @@ final class MediaDiscContainerViewController: UIViewController {
         MediaDiscWindowManager.shared.noteDiscShown(isShowingDisc)
     }
 
-    private enum Motion {
+    enum Motion {
         case spring
-        /// Lên / xuống header khi nhấn giữ.
-        case softSpring
+        /// Co về hình tròn lúc bắt đầu kéo.
+        case grab
         case collapse
     }
 
-    private func animate(
+    func animate(
         _ animated: Bool,
         motion: Motion,
         changes: @escaping () -> Void,
@@ -338,10 +297,10 @@ final class MediaDiscContainerViewController: UIViewController {
             duration = 0.34
             damping = 0.82
             curve = .curveEaseOut
-        case .softSpring:
-            duration = 0.6
-            damping = 0.72
-            curve = .curveEaseInOut
+        case .grab:
+            duration = 0.18
+            damping = 1
+            curve = .curveEaseOut
         case .collapse:
             duration = 0.18
             damping = 1
@@ -359,23 +318,23 @@ final class MediaDiscContainerViewController: UIViewController {
         }
     }
 
-    // MARK: - Giữ chỗ với nút hub
+    // MARK: - Giữ chỗ với nút hub / trình duyệt
 
-    private func claimSlot(_ frame: CGRect) {
+    private func claimSlot(_ frame: CGRect, edge: EdgeDirection) {
         let coordinator = FloatingWidgetLayoutCoordinator.shared
         if needsSlotClaim {
             needsSlotClaim = false
-            // Đĩa không nhường: khoảng tìm chỉ một điểm ⇒ `resolve` chỉ để mở chỗ.
+            // Lúc hiện đĩa không nhường: khoảng tìm chỉ một điểm ⇒ `resolve` chỉ để mở chỗ. Nhường chỉ lúc thả tay (`+Drag`).
             _ = coordinator.resolve(
                 id: .mediaDisc,
-                edge: .right,
+                edge: edge,
                 proposedCenterY: frame.midY,
                 height: frame.height,
                 minY: frame.midY,
                 maxY: frame.midY
             )
         }
-        coordinator.refresh(id: .mediaDisc, edge: .right, centerY: frame.midY, height: frame.height)
+        coordinator.refresh(id: .mediaDisc, edge: edge, centerY: frame.midY, height: frame.height)
     }
 
     private func releaseSlot() {

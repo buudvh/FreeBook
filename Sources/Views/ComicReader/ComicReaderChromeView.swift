@@ -79,8 +79,6 @@ struct ComicReaderChromeView: View {
                 frameWidth: 36,
                 frameHeight: 38
             )
-            // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút trái nhất của cụm phải (1.3.815) — nay là nút dịch.
-            .mediaDiscAnchor(.headerTrailing)
 
             Button(action: onOpenChapterList) {
                 Image(systemName: "list.bullet")

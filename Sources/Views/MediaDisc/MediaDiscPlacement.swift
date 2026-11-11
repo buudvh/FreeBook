@@ -1,93 +1,107 @@
 import UIKit
 
-/// Chỗ đứng của đĩa nghe góc dưới phải (1.3.808), tính lại mỗi lượt từ cây UIKit của **cửa sổ chính** — đĩa sống ở cửa sổ
-/// riêng nhưng mọi cửa sổ của app đều phủ cả scene nên toạ độ cửa sổ chính dùng thẳng được (như
-/// `FloatingWidgetLayoutCoordinator`).
+/// Chỗ đứng của đĩa nghe — **nửa viên thuốc dính mép** (anh Bửu duyệt mockup 2026-11-11, thay đĩa tròn góc dưới phải của
+/// 1.3.808), tính lại mỗi lượt từ chỗ người dùng kéo tới (`MediaDiscPositionStore`) và cây UIKit của **cửa sổ chính** — đĩa
+/// sống ở cửa sổ riêng nhưng mọi cửa sổ của app đều phủ cả scene nên toạ độ cửa sổ chính dùng thẳng được.
 ///
 /// ## Luật
 /// 1. **Tầng trên cùng** = VC được trình bày sâu nhất của cửa sổ chính, bỏ qua VC đang bị đóng. Là hộp thoại / bảng chọn
-///    (`UIAlertController`, kể cả `confirmationDialog`) hay bảng chia sẻ ⇒ **ẩn** đĩa (chúng mọc từ đáy, đĩa sẽ che nút).
+///    (`UIAlertController`, kể cả `confirmationDialog`) hay bảng chia sẻ ⇒ **ẩn** đĩa.
 /// 2. Một neo (`MediaDiscAnchorRegistry`) chỉ được tính khi: nằm trong cửa sổ chính, VC gốc tầng của nó **chính là** tầng
-///    trên cùng (neo trong sheet thắng neo của trang dưới sheet), và khung nằm trong màn (trang bên cạnh của `TabView`
-///    dạng trang, trang đang trượt ra ngoài thì không). Không xét `isHidden` / alpha: SwiftUI `.opacity` không chắc chạm tới
-///    view của đầu dò — neo có điều kiện tự biến mất khỏi cây.
-/// 3. Có neo `.blocker` hợp lệ (màn xem phim) hoặc `.hostsDisc` (thanh tab tự có ô đĩa, 1.3.812) ⇒ ẩn.
-/// 4. Trong các neo `.button` / `.bar` hợp lệ lấy neo **cao nhất** (mép trên nhỏ nhất): trang gốc Kệ Sách có cả nút "+" lẫn
-///    thanh tab ⇒ đĩa trên nút "+"; Lịch Sử chỉ có thanh tab ⇒ đĩa trên thanh tab; menu "+" đang xổ ⇒ đĩa trên cụm pill.
-///    Mép dưới đĩa = mép trên neo − 12 pt. Mép phải: neo `.button` ⇒ trùng mép phải neo (nút tai nghe Reader lề 12 pt vẫn
-///    thẳng cột); neo `.bar` ⇒ lề phải 16 pt.
-/// 5. Không neo nào ⇒ góc dưới phải: lề phải 16 pt, trên vùng an toàn đáy 12 pt (chỗ nút "+" thường đứng).
-/// 6. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) đè lên chỗ đó ⇒ đĩa lên trên nó.
-/// 7. Neo `.headerTrailing` (cụm nút phải của header tự dựng) **không** dự phần chỗ ở góc — chỉ `MediaDiscHeaderSlot` đọc.
-///
-/// Chỗ tạm khi nhấn giữ đĩa (đĩa nằm trong header) do `MediaDiscHeaderSlot` tính (1.3.815), dùng chung `mainWindow` /
-/// `topLayer` / `validFrame` ở đây.
+///    trên cùng, và khung nằm trong màn. Không xét `isHidden` / alpha: neo có điều kiện tự biến mất khỏi cây.
+/// 3. Có neo `.blocker` hợp lệ (màn xem phim) hoặc `.hostsDisc` (thanh tab tự có ô đĩa) ⇒ ẩn.
+/// 4. Đĩa ở mép + độ cao đã nhớ, kẹp trong dải dọc: **dưới header** (vùng an toàn trên + 52 = header 44 + 8) tới **trên
+///    vùng an toàn đáy 12 pt**. Chưa kéo lần nào ⇒ mép phải, thấp nhất.
+/// 5. Neo `.button` / `.bar` hợp lệ **chồng cột** với đĩa (nút "+" / Home / FAB / tai nghe Reader ở mép phải; thanh dưới
+///    trình duyệt / truyện tranh / thanh tab ở cả hai mép) mà đĩa đè lên (kể khe 12 pt) ⇒ **tạm đẩy lên** trên neo 12 pt.
+///    Chỉ dời lúc vẽ, không ghi đè chỗ đã nhớ. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) tính như một neo.
 struct MediaDiscPlacement: Equatable {
+    /// Cao của đĩa (= nút "+") — cũng là vòng nền 52 pt của ô đĩa thanh tab và đường kính lúc đang kéo.
     static let discSize: CGFloat = 52
+    /// Cỡ nửa viên lúc dính mép.
+    static let pillSize = EdgePillShape.largeSize
+    /// Bìa trong đĩa (như icon của nút "+").
+    static let coverSize: CGFloat = 32
     /// Khe giữa đĩa và neo bên dưới.
     static let gap: CGFloat = 12
+    /// Khoảng chừa dưới vùng an toàn trên: header 44 + 8 ⇒ đĩa không che nút quay lại / cụm nút phải.
+    static let headerClearance: CGFloat = 52
 
     /// Khung đĩa theo toạ độ cửa sổ.
     let frame: CGRect
+    let edge: EdgeDirection
     /// Màn trên cùng không cho hiện đĩa.
     let isBlocked: Bool
 
+    /// Dải mép trên của nửa viên được phép (trước khi né neo).
+    static func topRange(bounds: CGRect, safeInsets: UIEdgeInsets) -> ClosedRange<CGFloat> {
+        let minTop = safeInsets.top + headerClearance
+        let maxTop = bounds.height - safeInsets.bottom - FloatingRoundButton.bottomInset - pillSize.height
+        return minTop...max(minTop, maxTop)
+    }
+
+    /// Khung nửa viên dính mép `edge`, mép trên `top`.
+    static func dockedFrame(edge: EdgeDirection, top: CGFloat, bounds: CGRect) -> CGRect {
+        let size = pillSize
+        let x = edge == .left ? bounds.minX : bounds.maxX - size.width
+        return CGRect(x: x, y: top, width: size.width, height: size.height)
+    }
+
     /// Đọc chỗ đĩa cho màn `bounds` (vùng an toàn `safeInsets`) của cửa sổ đĩa.
     @MainActor
-    static func resolve(bounds: CGRect, safeInsets: UIEdgeInsets) -> MediaDiscPlacement {
-        var bottom = bounds.height - safeInsets.bottom - FloatingRoundButton.bottomInset
-        var trailing = bounds.width - safeInsets.right - FloatingRoundButton.trailingInset
-        let corner = discFrame(trailing: trailing, bottom: bottom, bounds: bounds, safeInsets: safeInsets)
+    static func resolve(
+        bounds: CGRect,
+        safeInsets: UIEdgeInsets,
+        position: MediaDiscPositionStore.Position
+    ) -> MediaDiscPlacement {
+        let range = topRange(bounds: bounds, safeInsets: safeInsets)
+        let wantedTop: CGFloat
+        if let ratio = position.verticalRatio {
+            wantedTop = ratio * bounds.height - pillSize.height / 2
+        } else {
+            wantedTop = range.upperBound
+        }
+        let top = min(max(wantedTop, range.lowerBound), range.upperBound)
+        var frame = dockedFrame(edge: position.edge, top: top, bounds: bounds)
 
         guard let mainWindow = mainWindow() else {
-            return MediaDiscPlacement(frame: corner, isBlocked: false)
+            return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: false)
         }
-        let top = topLayer(of: mainWindow)
-        if top is UIAlertController || top is UIActivityViewController {
-            return MediaDiscPlacement(frame: corner, isBlocked: true)
-        }
-
-        var highest: (rect: CGRect, role: MediaDiscAnchorRegistry.Role)?
-        for anchor in MediaDiscAnchorRegistry.shared.anchors where anchor.role != .headerTrailing {
-            guard let rect = validFrame(of: anchor.view, in: mainWindow, top: top) else { continue }
-            if anchor.role == .blocker || anchor.role == .hostsDisc {
-                return MediaDiscPlacement(frame: corner, isBlocked: true)
-            }
-            if let current = highest, rect.minY >= current.rect.minY { continue }
-            highest = (rect, anchor.role)
-        }
-        if let highest {
-            bottom = highest.rect.minY - gap
-            if highest.role == .button {
-                trailing = highest.rect.maxX
-            }
+        let topVC = topLayer(of: mainWindow)
+        if topVC is UIAlertController || topVC is UIActivityViewController {
+            return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
         }
 
-        var result = discFrame(trailing: trailing, bottom: bottom, bounds: bounds, safeInsets: safeInsets)
-        if let mini = VideoMiniPlayerWindowManager.shared.visiblePlayerFrame,
-           result.insetBy(dx: -gap / 2, dy: -gap / 2).intersects(mini) {
-            result = discFrame(trailing: trailing, bottom: mini.minY - gap, bounds: bounds, safeInsets: safeInsets)
+        var obstacles: [CGRect] = []
+        for anchor in MediaDiscAnchorRegistry.shared.anchors {
+            guard let rect = validFrame(of: anchor.view, in: mainWindow, top: topVC) else { continue }
+            switch anchor.role {
+            case .blocker, .hostsDisc:
+                return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
+            case .button, .bar:
+                obstacles.append(rect)
+            }
         }
-        return MediaDiscPlacement(frame: result, isBlocked: false)
+        if let mini = VideoMiniPlayerWindowManager.shared.visiblePlayerFrame {
+            obstacles.append(mini)
+        }
+        frame.origin.y = liftedTop(of: frame, above: obstacles, minTop: range.lowerBound)
+        return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: false)
     }
 
     // MARK: - Nội bộ
 
-    /// Khung đĩa từ mép phải + mép dưới, kẹp trong vùng an toàn.
-    private static func discFrame(
-        trailing: CGFloat,
-        bottom: CGFloat,
-        bounds: CGRect,
-        safeInsets: UIEdgeInsets
-    ) -> CGRect {
-        let size = discSize
-        let minX = safeInsets.left + 4
-        let maxX = max(minX, bounds.width - safeInsets.right - size)
-        let x = min(max(trailing - size, minX), maxX)
-        let minY = safeInsets.top + 8
-        let maxY = max(minY, bounds.height - safeInsets.bottom - size)
-        let y = min(max(bottom - size, minY), maxY)
-        return CGRect(x: x, y: y, width: size, height: size)
+    /// Đẩy đĩa lên trên mọi vật cản chồng cột mà nó đè (kể khe), lặp tới khi hết đè; không xuống dưới `minTop`.
+    private static func liftedTop(of frame: CGRect, above obstacles: [CGRect], minTop: CGFloat) -> CGFloat {
+        let column = obstacles.filter { $0.maxX > frame.minX && $0.minX < frame.maxX }
+        var top = frame.minY
+        for _ in 0..<8 {
+            let span = top...(top + frame.height)
+            guard let hit = column.first(where: { $0.minY - gap < span.upperBound && $0.maxY + gap > span.lowerBound })
+            else { break }
+            top = hit.minY - gap - frame.height
+        }
+        return max(top, minTop)
     }
 
     /// Cửa sổ giao diện chính của app (level `.normal`, không phải lớp phủ), ưu tiên cửa sổ key.
