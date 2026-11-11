@@ -10,7 +10,7 @@ Anh Bửu: "sửa sheet nút + của kệ cũng giống hub luôn, hiện tại 
 
 - **Sheet "Nhập truyện" kiểu hub** (`ShelfView.presentImportSheet`, dùng `.hubStyleActionSheet` của 1.3.869) cho nút "+" nổi tab Kệ sách và hàng "Nhập truyện" của ngăn kéo: ba dòng dạng ô có `›` — Từ URL ("Dán link, chọn nguồn khớp"), Mở trình duyệt ("Trang chủ trình duyệt"), Từ file ("txt, epub, cbz, mp4…"). Nằm trên mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm. Thay danh sách `insetGrouped` cũ (nấc 300 / large).
 - **"Từ URL"** ⇒ sheet **"Nhập từ URL"** riêng ở cửa sổ chính (`ShelfImportSheet` giờ chỉ bọc `ShelfImportURLStep`, nấc large, tiêu đề trái) — cửa sổ sheet phủ không bao giờ key nên không đặt ô nhập chữ ở đó. Dò ra tiện ích / mở link trong trình duyệt vẫn qua `queuedImportChoice` + `onDismiss` như cũ. Bỏ lựa chọn `pickFile` (Từ file chạy thẳng từ sheet kiểu hub).
-- `CLAUDE.md` / `AGENTS.md`: luật sheet trên viên thuốc ghi thêm sheet của Kệ.
+- `CLAUDE.md` / `AGENTS.md`: luật sheet trên viên thuốc ghi thêm sheet của Kệ. `rules.md` (mục hub + luật 25): thêm cửa sổ `OverlaySheetWindow` (`alert - 1.6`) và sửa câu cũ "`alert - 3` không còn cửa sổ nào dùng" (nút trình duyệt thu nhỏ vẫn ở level này).
 - **Kiểm chứng:**
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
