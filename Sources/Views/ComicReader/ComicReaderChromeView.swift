@@ -66,7 +66,9 @@ struct ComicReaderChromeView: View {
                 isChineseSourceHint: isChineseSourceHint,
                 iconSize: 17,
                 frameWidth: 36,
-                frameHeight: 38
+                frameHeight: 38,
+                // Bộ dịch tiện ích không áp cho truyện tranh ⇒ popup không có BỘ DỊCH / NGÔN NGỮ.
+                showsEngineSection: false
             )
             // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút trái nhất của cụm phải (1.3.815) — nay là nút dịch.
             .mediaDiscAnchor(.headerTrailing)

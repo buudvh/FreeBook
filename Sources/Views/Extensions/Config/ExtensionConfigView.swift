@@ -6,7 +6,9 @@ import SwiftData
 /// Không có nút "Lưu"/"Hủy"/"Đóng" — đóng bằng vuốt xuống (1.3.641). Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
 /// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
 /// + chế độ máy tính của webview ở `+WebContent`, kiểu vuốt xuống trình phát (tiện ích video) ở `+Video`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`, trang đăng
-/// nhập `support_url` ở `+SupportLink`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`.
+/// nhập `support_url` ở `+SupportLink`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`. Tiện ích loại
+/// `translate` có thêm Bộ dịch (model, kiểu dịch) + Dịch thử ở `+TranslateEngine`, không có Trình duyệt / Kiểm tra /
+/// Duyệt và lịch sử / chặn quảng cáo của webview.
 ///
 /// Mọi `@State` để `internal`: các file `+` là extension ở file khác, mà `private` chỉ có phạm vi **file**.
 /// `onImport` có mặc định `nil` nên Quản lý tiện ích và màn TTS vẫn gọi `ExtensionConfigView(ext:)` như cũ.
@@ -48,6 +50,10 @@ struct ExtensionConfigView: View {
     // Trang đăng nhập `support_url` — `ExtensionConfigView+SupportLink`
     @State internal var supportLinkURL: String? = nil
     @State internal var openingSupportLink: SupportLinkRoute? = nil
+    // Tiện ích dịch: danh sách language/model/style + lượt Dịch thử đang chạy — `ExtensionConfigView+TranslateEngine`
+    @State internal var translateOptions: TranslationExtensionCatalog.Options? = nil
+    @State internal var translateOptionsError: String? = nil
+    @State internal var translateTrialTask: Task<Void, Never>? = nil
 
     var body: some View {
         NavigationStack {
@@ -68,6 +74,12 @@ struct ExtensionConfigView: View {
         }
         .onDisappear {
             flushPendingConfigSave() // ghi ngay lượt đang chờ debounce, không bỏ
+            translateTrialTask?.cancel() // rời màn ⇒ dừng lượt Dịch thử
+            translateTrialTask = nil
+        }
+        // Chỉ tiện ích dịch đã cài (khoá `nil` ⇒ không làm gì); config đã lưu đổi ⇒ đọc lại danh sách.
+        .task(id: translateCatalogKey) {
+            await loadTranslateOptions()
         }
     }
 
@@ -107,18 +119,22 @@ struct ExtensionConfigView: View {
     private var configForm: some View {
         Form {
             Section {
+                // Tiện ích dịch không có trang để duyệt hay script nội dung để kiểm tra.
                 ExtensionConfigHeaderCard(
                     ext: current,
-                    onOpenBrowser: openBrowserAction, // `+Browser`
-                    onCheck: sourceCheckAction, // `+SourceCheck`
+                    onOpenBrowser: isTranslateEngine ? nil : openBrowserAction, // `+Browser`
+                    onCheck: isTranslateEngine ? nil : sourceCheckAction, // `+SourceCheck`
                     onUninstall: uninstallAction // `+Uninstall`
                 )
             }
 
+            translateEngineSections // Bộ dịch + Dịch thử, chỉ tiện ích dịch — `ExtensionConfigView+TranslateEngine`
             supportLinkSection // nút mở trang đăng nhập — `ExtensionConfigView+SupportLink`
             globalConfigSection // tự lưu — `ExtensionConfigView+GlobalConfig`
-            browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
-            webContentSection // tự lưu khi bấm — `ExtensionConfigView+WebContent`
+            if !isTranslateEngine {
+                browsingAndHistorySection // tự lưu khi bấm — `ExtensionConfigView+History` / `+Nsfw`
+                webContentSection // tự lưu khi bấm — `ExtensionConfigView+WebContent`
+            }
             videoSection // tự lưu khi chọn, chỉ tiện ích video — `ExtensionConfigView+Video`
             networkSection // tự lưu — `ExtensionConfigView+GlobalConfig`
 

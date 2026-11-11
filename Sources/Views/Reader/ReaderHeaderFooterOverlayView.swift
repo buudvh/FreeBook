@@ -118,7 +118,9 @@ struct ReaderHeaderFooterOverlayView: View {
                         packageId: packageId,
                         sourceName: sourceName,
                         textColor: selectedTheme.textColor,
-                        showBackground: true
+                        showBackground: true,
+                        // Chương đang hiện (cùng chỉ số với tên chương bên cạnh) ⇒ chấm cam + hàng báo "QT thay thế".
+                        chapterIndex: readerPresentedChapterIndex
                     )
 
                     Button(action: onOpenChapterList) {

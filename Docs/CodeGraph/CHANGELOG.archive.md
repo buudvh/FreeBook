@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.809] - 2026-11-09
+
+### fix: sheet của đĩa nghe không kẹt khi mở Reader từ sheet Hẹn giờ, bìa trong sheet xoay theo trạng thái app
+
+Rà commit 1.3.808 (đĩa nghe góc dưới phải), sửa hai chỗ session làm đĩa đã nêu là chưa chắc:
+
+- `MediaDiscWindowManager.openCurrentlyPlayingReader`: chờ 0,45 s rồi mới xin đóng sheet của đĩa. Chọn chương ở sheet Hẹn giờ TTS (sheet lớp hai đè lên sheet điều khiển nhanh) gửi `openCurrentlyPlayingReader` lúc sheet con còn đang trượt xuống; đóng sheet cha ngay khi đó UIKit có thể bỏ qua ⇒ sheet nhanh kẹt lại che Reader.
+- `AudioQuickControlSheet` / `TTSQuickControlSheet`: đĩa đầu sheet xoay theo `isAppActive` (thông báo `didBecomeActive` / `willResignActive`) thay cho `scenePhase` — sheet giờ trình bày từ cửa sổ riêng của đĩa, `scenePhase` không chắc lan tới (cùng lỗi màn nghe đứng đĩa đã sửa ở 1.3.797).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.808] - 2026-11-09
 
 ### feat: đĩa xoay góc dưới phải cho nhạc và TTS trên mọi màn, bỏ thanh nghe nhạc mini và kiểu thanh của widget TTS

@@ -1,8 +1,12 @@
 import SwiftUI
 
 /// Menu điều khiển cấu hình dịch thuật 3 mức: Truyện này > Nguồn này > Toàn cục.
-/// Nút + chấm chỉ báo ở đây; Popover nhỏ gọn (Toggle Bật/Tắt + Dropdown chọn phạm vi + Nút Lưu lại) là
-/// `TranslationScopePopupView`, dùng chung với menu header Khám phá.
+/// Nút + chấm chỉ báo ở đây; Popover nhỏ gọn (Toggle Bật/Tắt + Dropdown chọn phạm vi + Bộ dịch + Ngôn ngữ + Nút Lưu
+/// lại) là `TranslationScopePopupView`, dùng chung với menu header Khám phá.
+///
+/// Hai chấm: chấm xanh/đỏ góc trên phải = truyện có cấu hình bật/tắt riêng; chấm cam "!" góc dưới phải = chương đang
+/// hiện (`chapterIndex`, chỉ Reader truyền) bị tiện ích dịch lỗi, đang dùng QT thay thế (`TranslationFallbackStatusStore`,
+/// `@Observable` nên tự vẽ lại khi Reader ghi báo).
 public struct ReaderTranslationScopeMenuView: View {
     /// Phạm vi của bảng dịch; `TranslationScopePopupView` dùng, giữ chỗ cũ vì là API public của nút.
     public enum TranslationPopupScope: String, CaseIterable, Identifiable {
@@ -22,6 +26,10 @@ public struct ReaderTranslationScopeMenuView: View {
     public let iconSize: CGFloat
     public let frameWidth: CGFloat?
     public let frameHeight: CGFloat?
+    /// Chương đang hiện của Reader — để hiện chấm cam + hàng báo "QT thay thế"; `nil` ⇒ không báo.
+    public let chapterIndex: Int?
+    /// `false` ⇒ popup không có BỘ DỊCH / NGÔN NGỮ (màn truyện tranh: bộ dịch tiện ích không có tác dụng ở đó).
+    public let showsEngineSection: Bool
 
     @State private var status: TranslationConfigStore.ResolvedStatus
     @State private var showingPopup = false
@@ -35,7 +43,9 @@ public struct ReaderTranslationScopeMenuView: View {
         isChineseSourceHint: Bool? = nil,
         iconSize: CGFloat = 19,
         frameWidth: CGFloat? = nil,
-        frameHeight: CGFloat? = nil
+        frameHeight: CGFloat? = nil,
+        chapterIndex: Int? = nil,
+        showsEngineSection: Bool = true
     ) {
         self.bookId = bookId
         self.packageId = packageId
@@ -46,6 +56,8 @@ public struct ReaderTranslationScopeMenuView: View {
         self.iconSize = iconSize
         self.frameWidth = frameWidth
         self.frameHeight = frameHeight
+        self.chapterIndex = chapterIndex
+        self.showsEngineSection = showsEngineSection
         _status = State(initialValue: TranslationConfigStore.shared.resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint))
     }
 
@@ -68,6 +80,32 @@ public struct ReaderTranslationScopeMenuView: View {
                 width: showBackground ? 7 : (iconSize <= 14 ? 4.5 : 6),
                 height: showBackground ? 7 : (iconSize <= 14 ? 4.5 : 6)
             )
+    }
+
+    /// Báo "QT thay thế" của chương đang hiện; đọc store `@Observable` trong lượt vẽ ⇒ Reader ghi là nút vẽ lại.
+    @MainActor
+    private var hasFallbackStatus: Bool {
+        guard let chapterIndex, !bookId.isEmpty else { return false }
+        return TranslationFallbackStatusStore.shared.status(bookId: bookId, chapterIndex: chapterIndex) != nil
+    }
+
+    /// Chấm cam có dấu "!" ở góc dưới phải nút.
+    private var fallbackBadge: some View {
+        Circle()
+            .fill(Color.orange)
+            .frame(width: 13, height: 13)
+            .overlay(
+                Text("!")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.black)
+            )
+            .accessibilityHidden(true)
+    }
+
+    @MainActor
+    private var accessibilityText: String {
+        let state = status.isEnabled ? "Đang bật dịch" : "Đang tắt dịch"
+        return hasFallbackStatus ? state + ", chương này đang dùng QT thay thế" : state
     }
 
     public var body: some View {
@@ -93,6 +131,13 @@ public struct ReaderTranslationScopeMenuView: View {
                             .padding(.trailing, 4)
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if hasFallbackStatus {
+                        fallbackBadge
+                            .padding(.bottom, 6)
+                            .padding(.trailing, 2)
+                    }
+                }
             } else {
                 AppGlyph.translate.image(size: iconSize)
                     .foregroundColor(status.isEnabled ? .white : (textColor?.opacity(0.45) ?? .secondary.opacity(0.6)))
@@ -102,11 +147,17 @@ public struct ReaderTranslationScopeMenuView: View {
                                 .offset(x: iconSize <= 14 ? 3 : 4, y: iconSize <= 14 ? -2 : -3)
                         }
                     }
+                    .overlay(alignment: .bottomTrailing) {
+                        if hasFallbackStatus {
+                            fallbackBadge
+                                .offset(x: 6, y: 5)
+                        }
+                    }
                     .frame(width: resolvedWidth, height: resolvedHeight)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(status.isEnabled ? "Đang bật dịch" : "Đang tắt dịch")
+        .accessibilityLabel(accessibilityText)
         .popover(isPresented: $showingPopup, arrowEdge: .top) {
             // Trạng thái bảng (công tắc, phạm vi) khởi tạo trong `TranslationScopePopupView` mỗi lần mở.
             TranslationScopePopupView(
@@ -114,6 +165,8 @@ public struct ReaderTranslationScopeMenuView: View {
                 packageId: packageId,
                 sourceName: sourceName,
                 isChineseSourceHint: isChineseSourceHint,
+                chapterIndex: chapterIndex,
+                showsEngineSection: showsEngineSection,
                 onDone: {
                     refreshStatus()
                     showingPopup = false
