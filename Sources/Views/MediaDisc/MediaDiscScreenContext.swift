@@ -1,10 +1,8 @@
 import UIKit
 
-/// "Màn" đang hiện của cửa sổ chính (1.3.820) để đĩa góc biết lúc **đổi màn** — đẩy trang, mở Reader / sheet, quay lại.
-///
-/// Lý do: trước đây đổi màn mà chỗ đĩa khác chỗ cũ thì đĩa **trượt** sang chỗ mới (anh Bửu: Chi tiết → "+" → "Đọc" ⇒ đĩa
-/// đang đứng cao trên cụm pill hiện giữa Reader rồi trượt xuống nút tai nghe). Nay container thấy `page` đổi ⇒ thu đĩa
-/// tại chỗ, chờ hết chuyển cảnh + giữ yên 0,3 s rồi hiện thẳng ở chỗ mới.
+/// "Màn" đang hiện của cửa sổ chính (1.3.820). Từ 1.3.865 container chỉ dùng `isTransitioning` (đang chuyển cảnh ⇒ đĩa
+/// đứng yên, khung neo còn đang chạy); luật "đổi màn ⇒ thu đĩa tại chỗ rồi hiện lại" theo `page` đã bỏ vì đĩa nay ở mọi
+/// màn. `page` giữ lại cho log / chẩn đoán.
 ///
 /// - `page` = trang trên cùng của `UINavigationController` **đầu tiên đang hiện** (view trong cửa sổ chính, không ẩn)
 ///   trong tầng trình bày trên cùng — dừng ở đó, không đi sâu vào VC con của trang (`TabView` dạng trang bên trong một

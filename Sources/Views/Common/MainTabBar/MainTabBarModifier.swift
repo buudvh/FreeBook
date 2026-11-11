@@ -12,8 +12,8 @@ import UIKit
 ///   bị trang đẩy vào che: bàn phím của trang con mà làm trang gốc bỏ thanh thì lúc back thanh hiện lại giữa nhịp trượt
 ///   ⇒ giật đúng chỗ cần mượt. Trang gốc không có ô nhập để `false`.
 /// - Tab đang chọn đọc từ environment `mainTabSelection` do `MainTabView` truyền xuống.
-/// - Thanh tab tự có ô đĩa nghe ở giữa (1.3.812) và là neo `.hostsDisc` của `MediaDiscAnchorRegistry`: màn trên cùng có
-///   thanh tab ⇒ đĩa góc dưới phải ẩn ngay. Thanh phát mini nghe nhạc từng đứng ở đây đã bỏ (1.3.808).
+/// - Thanh tab là neo `.bar` của đĩa nghe (`MediaDiscAnchorRegistry`, 1.3.865): nửa viên đè lên thanh thì tự đứng trên nó.
+///   Ô đĩa ở giữa thanh (1.3.812–864) và thanh phát mini (bỏ 1.3.808) không còn.
 struct MainTabBarModifier: ViewModifier {
     let hidesWithKeyboard: Bool
     @Environment(\.mainTabSelection) private var selection
@@ -26,7 +26,7 @@ struct MainTabBarModifier: ViewModifier {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !isKeyboardVisible {
                     MainTabBar(selection: selection)
-                        .mediaDiscAnchor(.hostsDisc)
+                        .mediaDiscAnchor(.bar)
                 }
             }
             .onAppear { isOnScreen = true }

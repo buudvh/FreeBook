@@ -5,14 +5,15 @@ import UIKit
 /// Điều phối **đĩa nghe** (1.3.808; dạng **nửa viên thuốc dính mép**, kéo đổi mép / độ cao từ 2026-11-11) — một đĩa xoay
 /// dùng chung cho trình nghe nhạc và TTS (kiểu widget TTS duy nhất từ 1.3.859), nổi trên mọi màn (trang đẩy vào, sheet, trình duyệt,
 /// Reader) ở cửa sổ lớp phủ riêng
-/// (`MediaDiscWindow`, level `alert − 1.75`: trên nút hub `−2`, dưới ngăn kéo `…` `−1.5` và toast). Thay thanh nghe nhạc
+/// (`MediaDiscWindow`, level `alert − 1.75`: trên nút hub `−2` — trừ lúc hub trình bày sheet thì hub nâng lên `−1.7` —, dưới
+/// ngăn kéo `…` `−1.5` và toast). Thay thanh nghe nhạc
 /// mini, kiểu "Thanh nghe nhạc" / "Đĩa nổi" của widget TTS và hai nút đĩa riêng của Reader.
 ///
 /// - **Nguồn** (`kind`): trình nghe có album ⇒ nhạc; không thì TTS có phiên ⇒ TTS; chờ cổng từ điển
 ///   mở như các cửa sổ nổi khác. Có nguồn ⇒ dựng/hiện cửa sổ; hết nguồn hoặc phim toàn màn ⇒ (đóng sheet,) thu đĩa rồi ẩn
 ///   cửa sổ.
-/// - **Được hiện** (`isDiscAllowed`): bàn phím ẩn, không phim toàn màn (`FloatingWidgetSuppression`), màn nghe không hiện,
-///   sheet hub / màn Thông báo của hub không mở (cửa sổ hub thấp hơn cửa sổ đĩa ⇒ đĩa sẽ đè sheet).
+/// - **Được hiện** (`isDiscAllowed`): bàn phím ẩn, không phim toàn màn (`FloatingWidgetSuppression`), màn nghe không hiện.
+///   Sheet hub / màn Thông báo **không** ẩn đĩa (1.3.865): cửa sổ hub tự nâng lên trên cửa sổ đĩa lúc trình bày sheet.
 ///   Chỗ đứng + màn trên cùng (màn xem phim, hộp thoại) do container xét qua `MediaDiscPlacement`.
 /// - **Tính lại chỗ**: neo vào/rời (`MediaDiscAnchorRegistry`), bàn phím, xoay màn, đổi trạng thái — cộng một lượt hỏi nhẹ
 ///   0,4 s chỉ khi cửa sổ đang hiện và app không ở nền (đóng một sheet không có neo thì trang bên dưới không phát sự kiện
@@ -22,12 +23,11 @@ import UIKit
 /// - Sheet Hẹn giờ TTS mở Reader (`openCurrentlyPlayingReader`) từ trong sheet của đĩa ⇒ đóng hết sheet của đĩa, kẻo Reader
 ///   mở ở cửa sổ chính mà vẫn bị sheet che.
 ///
-/// ## Hai chỗ đặt đĩa (1.3.812)
-/// - **Trang gốc các tab** (có `.mainTabBar()`): đĩa 44 pt (gờ nền nhô 5,5 pt, 1.3.814) ở ô giữa của `MainTabBar` (`MediaDiscTabBarSlot`, theo `kind` —
-///   biết ngay từ khung đầu; không nghe ⇒ đĩa xám đứng yên `MediaDiscIdleFace`, 1.3.821). Thanh tab là neo `.hostsDisc` ⇒ đĩa góc ẩn **ngay** khi màn trên cùng có thanh tab.
-/// - **Mọi màn khác**: nửa viên dính mép như trên; hiện lại sau khi màn trên cùng thôi có thanh tab ~0,3 s (chống lóe lúc
-///   đẩy trang). Nhấn giữ lên header (1.3.812–857) đã bỏ: đĩa che nút thì kéo nó đi chỗ khác.
-/// - Chạm đĩa ở đâu cũng `presentQuickControls()` ⇒ sheet điều khiển nhanh trình bày từ cửa sổ này (`MediaDiscSheetHost`).
+/// ## Một chỗ đặt đĩa (1.3.865)
+/// - **Mọi màn và sheet** (kể cả trang gốc các tab): nửa viên dính mép. Ô đĩa giữa thanh tab (1.3.812–864, đĩa xám khi
+///   không nghe) đã bỏ — anh Bửu: "bỏ luôn tab thứ 5 hiển thị đĩa"; thanh tab còn 4 ô và là neo `.bar`.
+/// - Nhấn giữ lên header (1.3.812–857) đã bỏ: đĩa che nút thì kéo nó đi chỗ khác.
+/// - Chạm đĩa ⇒ `presentQuickControls()` ⇒ sheet điều khiển nhanh trình bày từ cửa sổ này (`MediaDiscSheetHost`).
 @MainActor
 final class MediaDiscWindowManager: ObservableObject {
     static let shared = MediaDiscWindowManager()
@@ -40,9 +40,9 @@ final class MediaDiscWindowManager: ObservableObject {
     @Published private(set) var isDiscOnScreen = false
     /// Tăng mỗi lần cần đóng mọi sheet đang mở từ đĩa.
     @Published private(set) var closeSheetsToken = 0
-    /// Tăng mỗi lần đĩa (góc hay ô giữa thanh tab) xin mở sheet điều khiển nhanh — `MediaDiscSheetHost` nghe.
+    /// Tăng mỗi lần đĩa xin mở sheet điều khiển nhanh — `MediaDiscSheetHost` nghe.
     @Published private(set) var presentRequestToken = 0
-    /// App không ở nền — bìa đĩa ở thanh tab chỉ xoay khi `true`.
+    /// App không ở nền — lượt hỏi định kỳ và cờ `isDiscOnScreen` chỉ chạy / bật khi `true`.
     @Published private(set) var isAppActive = true
     /// Mép nửa viên đang dính (container ghi lúc hiện / thả tay) — mặt đĩa xoay đầu bo theo mép.
     @Published private(set) var discEdge: EdgeDirection = MediaDiscPositionStore.load().edge
@@ -121,12 +121,9 @@ final class MediaDiscWindowManager: ObservableObject {
             && !isKeyboardVisible
             && !FloatingWidgetSuppression.shared.isSuppressed
             && !AudioMiniPlayerState.shared.isScreenPresented
-            // Sheet hub / màn Thông báo trình bày từ cửa sổ hub — thấp hơn cửa sổ đĩa ⇒ đĩa phải ẩn kẻo đè sheet.
-            && !FloatingHubWindowManager.shared.isSheetPresented
     }
 
-    /// Chạm đĩa (góc hoặc ô giữa thanh tab) ⇒ mở sheet điều khiển nhanh ở cửa sổ của đĩa. Cửa sổ có mặt mỗi khi có nguồn
-    /// (kể cả lúc đĩa góc đang ẩn vì màn có thanh tab).
+    /// Chạm đĩa ⇒ mở sheet điều khiển nhanh ở cửa sổ của đĩa. Cửa sổ có mặt mỗi khi có nguồn.
     func presentQuickControls() {
         guard kind != nil, let window, !window.isHidden else { return }
         presentRequestToken &+= 1

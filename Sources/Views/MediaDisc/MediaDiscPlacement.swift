@@ -9,14 +9,15 @@ import UIKit
 ///    (`UIAlertController`, kể cả `confirmationDialog`) hay bảng chia sẻ ⇒ **ẩn** đĩa.
 /// 2. Một neo (`MediaDiscAnchorRegistry`) chỉ được tính khi: nằm trong cửa sổ chính, VC gốc tầng của nó **chính là** tầng
 ///    trên cùng, và khung nằm trong màn. Không xét `isHidden` / alpha: neo có điều kiện tự biến mất khỏi cây.
-/// 3. Có neo `.blocker` hợp lệ (màn xem phim) hoặc `.hostsDisc` (thanh tab tự có ô đĩa) ⇒ ẩn.
+/// 3. Có neo `.blocker` hợp lệ (màn xem phim, sheet "đang đọc chương này") ⇒ ẩn. (Neo `.hostsDisc` của ô đĩa giữa thanh tab
+///    bỏ ở 1.3.865: thanh tab nay là neo `.bar`.)
 /// 4. Đĩa ở mép + độ cao đã nhớ, kẹp trong dải dọc: **dưới header** (vùng an toàn trên + 52 = header 44 + 8) tới **trên
 ///    vùng an toàn đáy 12 pt**. Chưa kéo lần nào ⇒ mép phải, thấp nhất.
 /// 5. Neo `.button` / `.bar` hợp lệ **chồng cột** với đĩa (nút "+" / Home / FAB / tai nghe Reader ở mép phải; thanh dưới
 ///    trình duyệt / truyện tranh / thanh tab ở cả hai mép) mà đĩa đè lên (kể khe 12 pt) ⇒ **tạm đẩy lên** trên neo 12 pt.
 ///    Chỉ dời lúc vẽ, không ghi đè chỗ đã nhớ. Cửa sổ phim nhỏ (`VideoMiniPlayerWindowManager`) tính như một neo.
 struct MediaDiscPlacement: Equatable {
-    /// Cao của đĩa (= nút "+") — cũng là vòng nền 52 pt của ô đĩa thanh tab và đường kính lúc đang kéo.
+    /// Cao của đĩa (= nút "+") — cũng là đường kính lúc đang kéo.
     static let discSize: CGFloat = 52
     /// Cỡ nửa viên lúc dính mép.
     static let pillSize = EdgePillShape.largeSize
@@ -76,7 +77,7 @@ struct MediaDiscPlacement: Equatable {
         for anchor in MediaDiscAnchorRegistry.shared.anchors {
             guard let rect = validFrame(of: anchor.view, in: mainWindow, top: topVC) else { continue }
             switch anchor.role {
-            case .blocker, .hostsDisc:
+            case .blocker:
                 return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
             case .button, .bar:
                 obstacles.append(rect)

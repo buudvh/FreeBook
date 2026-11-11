@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ đĩa nghe (góc dưới phải hoặc ô giữa thanh tab — `MediaDiscSheetHost`,
-/// 1.3.808 / 1.3.812), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
+/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ nửa viên đĩa nghe (`MediaDiscSheetHost`,
+/// 1.3.808; nửa viên dính mép từ 1.3.858), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
 /// nền kính theo cài đặt **ngăn kéo** (`DrawerGlassSheetBackground`, luôn tông tối ⇒ nội dung vẽ ở `colorScheme` tối).
 ///
 /// Nội dung:

@@ -4,18 +4,18 @@ import UIKit
 /// Root view controller của cửa sổ đĩa nghe (`MediaDiscWindow`, 1.3.808). Giữ hai nội dung SwiftUI:
 /// - `discView` — vùng duy nhất nhận chạm — chứa mặt đĩa (`MediaDiscFaceButton(.corner)`): **nửa viên thuốc** 68 × 52 dính
 ///   mép trái / phải (anh Bửu duyệt mockup 2026-11-11), lúc đang kéo là hình tròn 52 pt.
-/// - Một view 1×1 không nhận chạm giữ sheet điều khiển nhanh (`MediaDiscSheetHost`, 1.3.812): chạm nửa viên hay đĩa ở ô giữa
-///   thanh tab đều mở sheet ở đây.
+/// - Một view 1×1 không nhận chạm giữ sheet điều khiển nhanh (`MediaDiscSheetHost`, 1.3.812): chạm nửa viên ⇒ sheet ở đây.
 ///
 /// - Chỗ đứng do `MediaDiscPlacement.resolve` quyết mỗi lượt `updateDisc` từ chỗ đã nhớ (`MediaDiscPositionStore`); đổi chỗ
 ///   ⇒ trượt lò xo, hiện / ẩn ⇒ phóng / thu (chỉ `transform` — alpha < 1 trên lớp cha tắt nhoè của kính).
 /// - **Chạm và kéo ở lớp UIKit** (`+Drag`, khuôn nút hub): mặt đĩa SwiftUI không có cử chỉ nào ⇒ bộ nhận của UIKit chạy (bài
 ///   học 1.3.812: nút SwiftUI bắt chạm ngay lúc chạm xuống). Chạm ⇒ sheet; kéo ⇒ thành tròn theo tay, thả ⇒ bám mép gần
 ///   hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator`), lưu chỗ.
-/// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (thanh tab tự có ô đĩa, màn xem phim, bàn phím…) ⇒ thu
-///   ngay; đĩa đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s.
-/// - **Đổi màn ⇒ thu tại chỗ, hiện thẳng ở chỗ mới** (1.3.820, `MediaDiscScreenContext`); màn còn đang chuyển cảnh ⇒ chưa
-///   hiện, chưa đếm 0,3 s. Trong cùng một trang (menu "+" bung / thu, nút Home hiện muộn) vẫn trượt như cũ.
+/// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (màn xem phim, bàn phím, hộp thoại…) ⇒ thu ngay; đĩa
+///   đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s.
+/// - **Đổi màn ⇒ đĩa đứng yên** (1.3.865, anh Bửu: "mọi màn, sheet đều hiển thị viên thuốc"; thay luật thu tại chỗ của
+///   1.3.820): đĩa ở mọi màn nên không thu / hiện lại; đang chuyển cảnh (`MediaDiscScreenContext.isTransitioning`) ⇒ đứng
+///   yên, hết chuyển cảnh mà màn mới có neo phải né ⇒ trượt tới chỗ mới.
 /// - Lượt tính lại: neo đổi (`MediaDiscAnchorRegistry.onChange`), manager báo đổi trạng thái, xoay màn / đổi vùng an toàn,
 ///   và đồng hồ 0,4 s (`setPolling`, chế độ `.common`) chỉ khi cửa sổ đang hiện. Tay đang giữ đĩa ⇒ không dời.
 /// - Giữ chỗ ở `FloatingWidgetLayoutCoordinator` (`.mediaDisc`, đúng mép đang dính) khi đĩa hiện: nút hub / trình duyệt vừa
@@ -38,8 +38,6 @@ final class MediaDiscContainerViewController: UIViewController {
     private var sheetHost: UIHostingController<AnyView>?
     private var pollTimer: Timer?
     private var isShowingDisc = false
-    /// Trang đang hiện lúc đĩa hiện — khác trang hiện tại ⇒ đổi màn (`MediaDiscScreenContext`).
-    private var shownPage: ObjectIdentifier?
     /// Lúc đĩa đang ẩn bắt đầu được phép hiện — hiện thật khi đã giữ đủ `showDelay`.
     private var pendingShowSince: Date?
     private var pendingShowWork: DispatchWorkItem?
@@ -72,7 +70,7 @@ final class MediaDiscContainerViewController: UIViewController {
         discView.isHidden = true
         view.addSubview(discView)
 
-        let disc = makeHost(MediaDiscFaceButton(style: .corner))
+        let disc = makeHost(MediaDiscFaceButton())
         addChild(disc)
         disc.view.frame = discView.bounds
         disc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -171,14 +169,9 @@ final class MediaDiscContainerViewController: UIViewController {
             setDiscShown(false, frame: nil, edge: nil, animated: animated)
             return
         }
-        // Tay đang giữ đĩa: không dời, không đổi màn.
+        // Tay đang giữ đĩa: không dời.
         if isDragging { return }
         let screen = MediaDiscScreenContext.current()
-        if isShowingDisc, screen.page != shownPage {
-            // Đổi màn: thu ngay tại chỗ, không trượt ngang qua màn mới; hiện lại qua luồng hiện chậm.
-            cancelPendingShow()
-            setDiscShown(false, frame: nil, edge: nil, animated: animated)
-        }
         if screen.isTransitioning {
             // Khung các neo còn đang chạy: đĩa đang hiện (cùng màn) thì đứng yên; đĩa đang ẩn thì chưa đếm thời gian chờ.
             if !isShowingDisc {
@@ -189,7 +182,6 @@ final class MediaDiscContainerViewController: UIViewController {
         }
         if !isShowingDisc, !isShowDelayElapsed() { return }
         setDiscShown(true, frame: placement.frame, edge: placement.edge, animated: animated)
-        shownPage = screen.page
     }
 
     // MARK: - Hiện chậm

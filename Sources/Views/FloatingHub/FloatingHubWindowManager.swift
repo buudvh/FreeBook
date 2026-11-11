@@ -14,8 +14,10 @@ import UIKit
 /// Reader và trình duyệt bypass đều được trình bày bằng `fullScreenCover`, nên một overlay gắn vào
 /// `MainTabView` sẽ **bị che** ngay khi người dùng mở truyện — đúng lúc họ cần nút nhất.
 ///
-/// ## Level cửa sổ: `alert - 2`
-/// TTS (`alert - 1`) nằm trên và nhận chạm trước ở vùng chồng nhau; widget trình duyệt (`alert - 3`) nằm dưới.
+/// ## Level cửa sổ: `alert - 2` (lúc nghỉ) / `alert - 1.7` (lúc trình bày sheet, 1.3.865)
+/// Lúc nghỉ nằm dưới cửa sổ đĩa nghe (`alert - 1.75`) ⇒ sheet điều khiển nhanh của đĩa che nút hub; widget trình duyệt
+/// (`alert - 3`) nằm dưới. Lúc trình bày sheet hub / màn Thông báo thì nâng lên trên đĩa để sheet đè lên nửa viên (đĩa nay
+/// hiện ở mọi màn, không còn ẩn theo sheet hub như 1.3.864).
 ///
 /// ## Cửa sổ phải sống trong lúc sheet mở
 /// Màn Thông báo được trình bày **từ chính cửa sổ này**, nên khi sheet mở mà ta ẩn cửa sổ thì sheet biến
@@ -107,11 +109,17 @@ final class FloatingHubWindowManager {
         if presented {
             containerViewController?.widgetContainerView.isHidden = true
         }
+        // Cửa sổ đĩa nghe (`alert − 1.75`) nằm trên cửa sổ hub lúc nghỉ ⇒ sheet hub / màn Thông báo mở từ đây sẽ bị nửa viên
+        // đè và cướp chạm. Lúc trình bày sheet hub nâng lên trên đĩa (1.3.865: đĩa hiện ở mọi màn, kể cả lúc sheet hub mở —
+        // sheet nằm đè lên đĩa như sheet của chính đĩa); đóng sheet thì hạ về, để nút hub nằm dưới sheet của đĩa.
+        window?.windowLevel = presented ? Self.sheetWindowLevel : Self.restingWindowLevel
         refreshState()
-        // Cửa sổ đĩa nghe (`alert − 1.75`) nằm **trên** cửa sổ hub (`alert − 2`) ⇒ sheet hub / màn Thông báo mở từ đây
-        // sẽ bị nửa viên đĩa đè và cướp chạm. Báo ngay để đĩa thu / hiện lại (không chờ lượt hỏi 0,4 s).
-        MediaDiscWindowManager.shared.refreshState()
     }
+
+    /// Lúc nghỉ: dưới cửa sổ đĩa nghe (`alert − 1.75`), trên cửa sổ phim nhỏ (`alert − 2.5`).
+    private static let restingWindowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 2)
+    /// Lúc trình bày sheet hub / màn Thông báo: trên cửa sổ đĩa nghe, dưới ngăn kéo `…` (`alert − 1.5`) và toast.
+    private static let sheetWindowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1.7)
 
     private func showWidget() {
         guard let windowScene = activeWindowScene else { return }
@@ -131,7 +139,7 @@ final class FloatingHubWindowManager {
 
         let containerVC = FloatingHubContainerViewController(presentationReader: presentationReader)
         let win = FloatingHubUIWindow(windowScene: windowScene)
-        win.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 2)
+        win.windowLevel = isSheetPresented ? Self.sheetWindowLevel : Self.restingWindowLevel
         win.backgroundColor = .clear
         win.containerViewController = containerVC
         win.rootViewController = containerVC

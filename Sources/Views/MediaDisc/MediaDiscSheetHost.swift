@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Chỗ giữ **sheet điều khiển nhanh** của đĩa nghe (1.3.812, tách từ `MediaDiscContentView` của 1.3.808): một view 1×1 trong
-/// cửa sổ riêng của đĩa (`MediaDiscContainerViewController`), luôn hiện, không nhận chạm. Cả đĩa góc lẫn đĩa ở ô giữa thanh
-/// tab đều xin mở qua `MediaDiscWindowManager.presentQuickControls()` (`presentRequestToken`) ⇒ một chỗ giữ sheet duy nhất,
+/// cửa sổ riêng của đĩa (`MediaDiscContainerViewController`), luôn hiện, không nhận chạm. Nửa viên đĩa xin mở qua
+/// `MediaDiscWindowManager.presentQuickControls()` (`presentRequestToken`) ⇒ một chỗ giữ sheet duy nhất,
 /// sheet luôn ở cửa sổ của đĩa (không đụng màn đang trình bày của cửa sổ chính).
 ///
 /// Sheet theo nguồn: nhạc `AudioQuickControlSheet`, TTS `TTSQuickControlSheet`. Chạm khối đầu sheet (bìa + tên):

@@ -9,9 +9,9 @@ import SwiftUI
 /// Bám dáng thanh hệ thống cũ (`configureWithDefaultBackground`): nền `.bar` mờ + vạch mảnh trên, mục đang chọn theo
 /// `.tint` của `MainTabView` (màu nhấn người dùng chọn, `appAccentTint()`), mục khác xám; badge đỏ = số truyện có chương mới ở Kệ Sách.
 ///
-/// **Luôn 5 ô** (1.3.812): Kệ Sách · Khám Phá · [ô giữa] · Tiện Ích · Cài Đặt. Ô giữa là đĩa nghe 44 pt có gờ nền nhô lên (1.3.814) khi có nhạc / TTS
-/// (`MediaDiscTabBarSlot`); không nghe ⇒ đĩa xám đứng yên, không bấm được (1.3.821) — icon các tab không
-/// bao giờ đổi chỗ.
+/// **4 ô** Kệ Sách · Khám Phá · Tiện Ích · Cài Đặt (1.3.865, anh Bửu: "bỏ luôn tab thứ 5 hiển thị đĩa"): ô đĩa nghe ở giữa
+/// (1.3.812–864) đã bỏ — đĩa nghe là nửa viên dính mép ở **mọi** màn, trang gốc tab cũng vậy; thanh tab là neo `.bar` của
+/// đĩa (nửa viên đè lên thì tự đứng trên thanh).
 struct MainTabBar: View {
     struct Item {
         let title: String
@@ -40,7 +40,6 @@ struct MainTabBar: View {
             HStack(spacing: 0) {
                 itemButton(0)
                 itemButton(1)
-                MediaDiscTabBarSlot()
                 itemButton(2)
                 itemButton(3)
             }
