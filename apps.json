@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.852",
+          "buildVersion": "1216",
+          "date": "2026-11-11T09:03:07Z",
+          "localizedDescription": "- refactor: thêm hàm chung chuyển phồn → giản rồi dịch cho mọi chữ Trung\n- fix: phồn → giản chạy cả khi tắt dịch ở Reader, TTS, mục lục, AI và xuất TXT; chữ gốc là chữ đã chuyển\n- feat: tên truyện và tác giả ở Kệ, Lịch sử, Chi tiết theo ba cấp dịch và phồn → giản của popup\n- feat: Khám phá và Tìm kiếm chuyển phồn → giản và dịch tên, tác giả theo nguồn như popup dịch\n- feat: trình duyệt chuyển phồn → giản riêng, không cần bật dịch trang\n- feat: phụ đề, lời bài hát và tên phim, tên bài chuyển phồn → giản cả khi tắt dịch\n- refactor: thêm phần nền dịch chữ ngắn bằng tiện ích dịch theo lô, lùi QT khi lỗi",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1216/TangCongCac-1.3.852-1216.ipa",
+          "size": 39549182,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.845",
           "buildVersion": "1214",
           "date": "2026-11-11T06:38:15Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1210/TangCongCac-1.3.840-1210.ipa",
           "size": 39451474,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.839",
-          "buildVersion": "1209",
-          "date": "2026-11-11T04:34:15Z",
-          "localizedDescription": "- fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng\n- fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch\n- feat: chạm khối dịch trong truyện tranh mở màn Dịch của Reader với chữ Trung gốc đã nhận\n- feat: dịch nội dung chương bằng tiện ích dịch trong Reader và TTS, báo khi dùng QT thay thế\n- feat: chọn bộ dịch tiện ích và ngôn ngữ trong popup dịch, màn cấu hình tiện ích dịch có model, kiểu dịch, dịch thử",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1209/TangCongCac-1.3.839-1209.ipa",
-          "size": 39438748,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.845",
-      "versionDate": "2026-11-11T06:38:15Z",
-      "versionDescription": "- fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1214/TangCongCac-1.3.845-1214.ipa",
-      "size": 39497613,
+      "version": "1.3.852",
+      "versionDate": "2026-11-11T09:03:07Z",
+      "versionDescription": "- refactor: thêm hàm chung chuyển phồn → giản rồi dịch cho mọi chữ Trung\n- fix: phồn → giản chạy cả khi tắt dịch ở Reader, TTS, mục lục, AI và xuất TXT; chữ gốc là chữ đã chuyển\n- feat: tên truyện và tác giả ở Kệ, Lịch sử, Chi tiết theo ba cấp dịch và phồn → giản của popup\n- feat: Khám phá và Tìm kiếm chuyển phồn → giản và dịch tên, tác giả theo nguồn như popup dịch\n- feat: trình duyệt chuyển phồn → giản riêng, không cần bật dịch trang\n- feat: phụ đề, lời bài hát và tên phim, tên bài chuyển phồn → giản cả khi tắt dịch\n- refactor: thêm phần nền dịch chữ ngắn bằng tiện ích dịch theo lô, lùi QT khi lỗi",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1216/TangCongCac-1.3.852-1216.ipa",
+      "size": 39549182,
       "appPermissions": {}
     }
   ],
