@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.870",
+          "buildVersion": "1226",
+          "date": "2026-11-11T14:04:57Z",
+          "localizedDescription": "- feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn\n- feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe\n- feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên\n- feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1226/TangCongCac-1.3.870-1226.ipa",
+          "size": 39602294,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.866",
           "buildVersion": "1225",
           "date": "2026-11-11T13:39:37Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1219/TangCongCac-1.3.857-1219.ipa",
           "size": 39624995,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.852",
-          "buildVersion": "1216",
-          "date": "2026-11-11T09:03:07Z",
-          "localizedDescription": "- refactor: thêm hàm chung chuyển phồn → giản rồi dịch cho mọi chữ Trung\n- fix: phồn → giản chạy cả khi tắt dịch ở Reader, TTS, mục lục, AI và xuất TXT; chữ gốc là chữ đã chuyển\n- feat: tên truyện và tác giả ở Kệ, Lịch sử, Chi tiết theo ba cấp dịch và phồn → giản của popup\n- feat: Khám phá và Tìm kiếm chuyển phồn → giản và dịch tên, tác giả theo nguồn như popup dịch\n- feat: trình duyệt chuyển phồn → giản riêng, không cần bật dịch trang\n- feat: phụ đề, lời bài hát và tên phim, tên bài chuyển phồn → giản cả khi tắt dịch\n- refactor: thêm phần nền dịch chữ ngắn bằng tiện ích dịch theo lô, lùi QT khi lỗi",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1216/TangCongCac-1.3.852-1216.ipa",
-          "size": 39549182,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.866",
-      "versionDate": "2026-11-11T13:39:37Z",
-      "versionDescription": "- feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1225/TangCongCac-1.3.866-1225.ipa",
-      "size": 39577399,
+      "version": "1.3.870",
+      "versionDate": "2026-11-11T14:04:57Z",
+      "versionDescription": "- feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn\n- feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe\n- feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên\n- feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1226/TangCongCac-1.3.870-1226.ipa",
+      "size": 39602294,
       "appPermissions": {}
     }
   ],
