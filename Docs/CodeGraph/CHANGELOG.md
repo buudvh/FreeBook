@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.863] - 2026-11-11
+
+### feat: icon nút nổi mờ theo độ trong suốt như nền kính
+
+Anh Bửu hỏi "hình như icon của các nút nổi chưa làm mờ theo cài đặt đúng không?" — đúng: trước đây "Độ trong suốt" chỉ áp vào nền kính và bìa đĩa nghe. Anh chốt: "Mờ, pill menu rõ".
+
+- `FloatingIconTransparencyModifier` (mới, `Views/Common/GlassChrome/`, `.floatingIconTransparency()`): icon mờ đúng số `1 − độ trong suốt`, không sàn — cùng luật bìa đĩa nghe và icon nút hub / nút trình duyệt. Gắn lên **icon**, không lên nút (mờ lớp cha của kính là tắt nhoè).
+- Áp ở `FloatingRoundButton` (nút "+", Home nổi, nút bật menu xổ, Home ở Chi tiết), nút tai nghe Reader (`readerEdgeButton`) và ô xem trước nút nổi ở Cài đặt › Giao diện (kéo thanh là thấy ngay). **Không** áp cho pill của menu xổ (`FloatingActionMenu`).
+- Hệ quả đã báo anh: mặc định trong suốt 90% ⇒ dấu "+" / Home / tai nghe chỉ còn hiện 10%; muốn rõ thì kéo thanh "Độ trong suốt" xuống.
+- `CLAUDE.md` / `AGENTS.md`: câu icon mờ ở đoạn "Nút Home nổi". Chuyển 6 mục CHANGELOG cũ nhất (1.3.828–833) sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Cài đặt › Giao diện kéo "Độ trong suốt" 0% ↔ 100% ⇒ icon ô xem trước rõ ↔ trong hẳn.
+    2. Màn danh sách có "+" ⇒ icon "+" mờ theo; bấm "+" ⇒ pill "Thêm" / "Home" vẫn rõ.
+    3. Reader ⇒ icon tai nghe mờ theo.
+
 ## [1.3.862] - 2026-11-11
 
 ### feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu
@@ -582,93 +600,3 @@ Anh Bửu hỏi màn đọc truyện tranh đã dịch hết các mục khi bậ
 - `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh bỏ câu "trình xem phóng to chưa có lớp dịch".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm đúp một trang đã dịch ⇒ trình xem có đúng các khối, đúng chỗ; (2) phóng 2,5× / 4× chữ có sắc lại sau khi buông tay; (3) chạm khối đổi gốc ↔ dịch, chạm đúp vẫn phóng / thu; (4) tên truyện ở thanh trên đổi khi bật / tắt dịch.
 
-## [1.3.833] - 2026-11-11
-
-### feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc
-
-Anh Bửu: *"thêm màn hình dịch và từ điển riêng cho truyện giống reader, ngoài ra hãy xác định có bật dịch hay không tương tự như truyện chữ nữa cho dịch OCR"* — bật/tắt dịch ở trang Chi tiết của truyện tranh đã đúng, còn dịch ảnh (1.3.826) thì chưa.
-
-- **Dịch ảnh theo đúng công tắc dịch của truyện:** chạy khi và chỉ khi truyện đang bật dịch — cùng `TranslationConfigStore` với trang Chi tiết và tên chương (truyện này > nguồn > nguồn tự khai tiếng Trung > toàn cục). `ComicReaderView` giờ tính y như `BookDetailView` (kèm `isChineseSourceHint` = `isChineseSource` của bản ghi tiện ích) ⇒ hai nơi luôn khớp. Bỏ `ComicImageTranslationPolicy` (công tắc theo tiện ích của 1.3.826) cùng nút "Dịch ảnh" và toast; khoá cũ `comicImageTranslate_*` không đọc nữa (không dọn). Hệ quả: nguồn tự khai tiếng Trung ⇒ mở là dịch cả ảnh; nguồn khác mặc định không; truyện tranh nhập từ file theo công tắc Mặc định toàn cục.
-- **Thanh trên** (`ComicReaderChromeView`): nút dịch = nguyên `ReaderTranslationScopeMenuView` của Reader / Chi tiết (bảng "Dịch văn bản" + phạm vi + Lưu lại; icon 17, khung 36×38, không nền), rồi ☰, rồi `⋯` mới. Neo `.mediaDiscAnchor(.headerTrailing)` ở nút dịch (nút trái nhất của cụm phải).
-- **Ngăn kéo `⋯`** "Tuỳ chọn truyện tranh" (`ComicTranslationToolsModifier`, file mới; giữ `ComicReaderView` dưới 400 dòng): "Cài đặt dịch" (chữ phụ Đang bật / Đang tắt) và "Từ điển truyện" (`BookDictionaryView` dạng sheet, chỉ khi truyện có `Book` — như Reader). Chỉ có mục dịch, không có gì đổi chương (ngăn kéo cũ đã bỏ ở 1.3.667).
-- **Sheet "Cài đặt dịch"** (`ComicTranslationSettingsSheet`, file mới) bám mục "Dịch thuật Quick Translate" của `ReaderSettingsView`: Hiện tại; Truyện này (Theo nguồn / Bật / Tắt), Nguồn (Toàn cục / Bật / Tắt), Mặc định toàn cục; khi đang bật: văn bản trước khi dịch (Giữ nguyên / Phồn → giản, khoá theo truyện như Reader, ghi qua `setTraditionalOverride` để có thông báo), dịch đại từ / luật nhân hoá (khoá chung của app như Reader, đổi ⇒ `notifyDictionariesDidUpdate`), Thứ tự ưu tiên rule, Token rule của truyện (mở lại `ReaderBookRulePriorityView` / `ReaderBookTokenSettingsView`). Form + `.pageTitle` + nút "?", vuốt xuống để đóng. Không sửa `ReaderSettingsView` / `TranslationScopePopupView` (lặp vài picker là chủ ý).
-- **Dịch lại khi đổi:** cấu hình dịch (`TranslationConfigStore.didChangeNotification` mà bật/tắt không đổi — vd phồn → giản), từ điển (`.translationDictionariesDidUpdate`, chỉ khi không ghi `bookId` hoặc đúng truyện này), rule (`.quickTranslationRulesDidUpdate`), đóng sheet Cài đặt dịch ⇒ dịch lại tên chương **và** ảnh đang hiện (`refreshTranslations`; chữ đã nhận lấy từ RAM). Trước đó tên chương chỉ dịch lại khi bật/tắt dịch.
-- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh + câu "thanh trên chỉ còn ☰" của mục màn đọc comic.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 399 dòng — sát giới hạn, việc sau nên thêm vào file riêng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật/tắt ở Chi tiết, ở nút dịch thanh trên và ở Cài đặt dịch đều bật/tắt dịch ảnh + tên chương ngay; (2) nguồn manhua tự khai tiếng Trung mở là dịch ảnh; (3) thêm name ở Từ điển truyện ⇒ bong bóng đang hiện đổi theo; (4) đĩa nghe nhấn giữ đậu trái nút dịch.
-
-## [1.3.832] - 2026-11-11
-
-### feat: lõi dịch truyện bằng tiện ích loại translate
-
-Anh Bửu duyệt plan "tiện ích dịch truyện" theo `extension-api.md` của Darkrai9x (loại `translate`). Đây là phần A: lõi Services, **chưa nối** vào Reader, TTS hay giao diện (phần B và C ở các commit sau), nên bản này chưa đổi gì người dùng thấy.
-
-- `Services/Translation/Engine/` (mới):
-  - `TranslationEngineSelection`: QT, hoặc một tiện ích kèm ngôn ngữ nguồn → đích.
-  - `TranslationEngineStore`: 3 cấp Truyện > Nguồn > Toàn cục như `TranslationConfigStore`, độc lập với công tắc bật/tắt dịch, lưu JSON trong `UserDefaults`. Tiện ích đã gỡ ⇒ `resolve` lùi về QT. Đổi lựa chọn ⇒ `TranslateUtils.invalidateCache` + `didChangeNotification`.
-  - `TranslationExtensionSettingsStore`: model / kiểu dịch theo từng tiện ích.
-  - `TranslationFallbackStatus` + `TranslationFallbackStatusStore` (`@MainActor @Observable`): báo "đang dịch bằng QT thay thế" theo từng chương, cộng yêu cầu Thử lại.
-- `Services/Translation/Engine/Extension/` (mới):
-  - `TranslationExtensionContext`: đọc một lần mỗi lượt — config đã trộn, ba khoá thô `support_auto_detect` / `max_line` / `max_length`, model / kiểu, dấu vân tay.
-  - `TranslationExtensionRunner`: một `JSExecutor` mỗi lượt; lô tuần tự nối bằng `\n`; lệch số dòng ⇒ chia đôi tới mức từng dòng; lô lỗi ⇒ dừng gọi tiếp; chỉ ném `CancellationError`.
-  - `TranslationExtensionBatchPlanner`, `TranslationExtensionResultParser` (nhận chuỗi hoặc `{ text }`; `segments` chưa dùng).
-  - `TranslationExtensionLineCache`: chỉ RAM; khoá gồm tiện ích + phiên bản/config + ngôn ngữ + model + kiểu + `source` + truyện + dòng; chỉ lưu bản dịch khác rỗng.
-  - `TranslationExtensionCatalog` (actor): chạy `language.js` / `model.js` / `style.js`, nhớ theo dấu vân tay; mặc định Trung → Việt.
-  - `TranslationExtensionChapterTranslator`: điểm vào chung của Reader và TTS. Dòng lỗi có chữ Hán ⇒ QT, không có ⇒ giữ chữ gốc. Tên chương: `title_trans` ⇒ tiện ích (`tableOfContent`) ⇒ QT. Phồn → giản áp trước khi gửi.
-- Không giữ executor lâu dài (không thêm ngoại lệ cạnh `ExtTTSRuntime`). Không sửa `TranslateUtils.swift` (đang chạm baseline dòng).
-- Chưa làm (đúng plan): `localBook`, các khoá `localConfig` dành riêng (`translate_model`…), `segments`, Kiểm tra tiện ích cho loại này.
-- Chuyển `[1.3.802]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới** (17 file mới, lớn nhất 194 dòng, mỗi file một type chính). Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.831] - 2026-11-11
-
-### feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado
-
-Anh Bửu: *"mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"* — chốt thêm: giữ công tắc chung (mặc định tắt, 1.3.828), nguồn Legado cũng có công tắc, phạm vi = request trong script / engine của nguồn, một máy chủ chung cho mọi nguồn.
-
-- `Extension.encryptedDNSEnabled` (tắt ghi `nil`) + `ExtensionTransactionCoordinator.setEncryptedDNSEnabled`; cập nhật tiện ích giữ cờ; backup (`BackupPayload` / Writer / Reader / Fingerprint) như `adBlockOverride`.
-- Apple không có DoH theo từng `URLSession` ⇒ **proxy HTTP CONNECT nội bộ 127.0.0.1**: `EncryptedDNSRelay` (listener loopback, cổng ngẫu nhiên, khuôn `VideoOfflineHTTPServer`) + `EncryptedDNSRelayTunnel` (CONNECT và `GET http://` tuyệt đối — viết lại dòng đầu, ép `Connection: close`; ra ngoài bằng `NWConnection` với privacy context riêng bắt buộc DoH, dùng lại theo máy chủ; hạn kết nối 10 s, `.waiting` = 502/504; đứng yên 60 s; một bên đóng ⇒ đóng cả hai; log `[DNS-Relay] → host:port`, lỗi `❌`).
-- `EncryptedDNSSessionRouter`: `JSExecutor` `fetch` đổi `URLSession.shared` ⇒ `session(forExtensionPath:)` (session `.default` + `proxyConfigurations`, chung cookie/cache); `LegadoHTTPClient(cancellation:proxyConfigurations:)` qua `LegadoEngineSource.packageId` (đặt ở `LegadoSourceRuntime.Target`). Không ai bật cờ / đang lùi / đang bật cho cả app / proxy chưa sẵn ⇒ đi thẳng như cũ. Bản chụp cho thread nền: `EncryptedDNSRouting`.
-- `EncryptedDNSRepository`: cần DNS ⇔ công tắc chung **hoặc** có nguồn bật cờ; chỉ công tắc chung đụng context mặc định; có nguồn bật cờ ⇒ bật proxy ngay; `sourcesDidChange()` / `refreshSourceCount()`. `FreeBookApp.init` gọi `start()` **sau** khi nạp bảng tiện ích.
-- Giao diện (theo mockup): công tắc "DNS mã hoá (DoH)" trong mục **Mạng** của Cấu hình tiện ích (dưới "Xử lý cookie hệ thống", chân mục theo trạng thái) và mục **Hoạt động** của Chi tiết nguồn Legado (`ExtensionEncryptedDNSToggle`); đang bật cho cả app ⇒ bật + mờ. Mạng & DNS: "Bật cho cả app", máy chủ luôn hiện, dòng "Bật riêng: N tiện ích / nguồn", trạng thái khi có ai cần.
-- `CLAUDE.md` / `AGENTS.md`: viết lại mục DNS mã hoá.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật cờ cho tiện ích có nguồn bị nhà mạng chặn ⇒ tải được **và** log có `[DNS-Relay] → <host của nguồn>` (thiếu ⇒ request vòng qua proxy, vd QUIC); tắt ⇒ lại bị chặn; tiện ích khác không đổi; (2) như trên với nguồn Legado; (3) nguồn `http://`; (4) bật chung ⇒ công tắc riêng mờ, tắt chung ⇒ cờ riêng vẫn chạy.
-
-## [1.3.830] - 2026-11-11
-
-### feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc
-
-Anh Bửu duyệt plan OCR phụ đề cứng (chọn thay Whisper vì nhẹ hơn: không model, không tải lại đoạn HLS): phim Trung in sẵn phụ đề trong hình ⇒ đọc bằng Vision, dịch VietPhrase, che chữ gốc. Hai mặc định đã chốt: nhớ bật **theo tiện ích**, **chỉ hiện bản dịch** (che chữ gốc).
-
-- Công tắc **"Dịch phụ đề cứng"** ở ngăn kéo `⋯` của trình phát (`VideoHardSubtitleDrawerRow`, ngay dưới "Dịch phụ đề" của phụ đề mềm; ẩn khi nhúng trang), nhớ theo tiện ích (`VideoHardSubtitlePreferenceStore`, khoá `videoHardSubtitleOCRByPackage`, thiếu = tắt) — không theo phim để khỏi đụng Đổi nguồn. Bật ⇒ phụ đề mềm của tiện ích nhường chỗ (`VideoPlayerStage`).
-- `Services/Video/HardSubtitle/` (mới): `VideoHardSubtitleEngine` (`@MainActor @Observable`, singleton) chạy **chỉ** khi lớp phủ của màn xem to đang hiện (`screenDidAppear` / `screenDidDisappear` đếm màn), tự KVO `player.currentItem` — không sửa `VideoPlaybackSession` (`stop()` thay item bằng `nil` ⇒ tự gỡ); mỗi item một `generation` để kết quả về muộn của tập trước bị bỏ. Nhịp 0,5 s (timer ở run loop `.common`), bỏ qua khi nhúng trang / chỉ còn cửa sổ nhỏ / app ở nền / tạm dừng mà khung đã đọc. `VideoHardSubtitleFrameSampler` gắn `AVPlayerItemVideoOutput` (4:2:0 full range; chạy cả HLS).
-- Một lượt (`VideoHardSubtitleFrameJob`, hàng đợi nền tuần tự, lượt trước chưa xong thì bỏ nhịp): `VideoHardSubtitleBrightMask` (lưới 128×32 điểm trên mặt phẳng độ sáng của dải dưới 30%, ngưỡng theo full / video range) giống lần Vision trước (Jaccard ≥ 0,9) ⇒ giữ nguyên, quá 4 s vẫn đọc lại; rỗng ⇒ coi như không có chữ, trừ khi quá 3 s (dò thưa) hoặc item này từng có chữ mà mặt nạ không thấy (chữ màu nhạt ⇒ Vision mỗi nhịp); còn lại ⇒ `VideoHardSubtitleRecognizer`: cắt dải dưới **trước** rồi đưa vào `VNRecognizeTextRequest` (`.accurate`, `zh-Hans` + `zh-Hant`, chữ cao ≥ 8% dải), giữ dòng ≥ 2 chữ Hán có tâm ngang trong 15–85% (bỏ logo góc), khối = dòng thấp nhất + tối đa một dòng ngay trên.
-- `VideoHardSubtitleCueTracker`: giống ≥ 75% (Levenshtein, bỏ dấu câu) = cùng câu, giữ câu cũ (bản mới nhiều chữ Hán hơn thì thay); trống 2 lượt liên tiếp mới xoá. Dịch `TranslateUtils.translateContent` **từng dòng** ngoài main, Name/VP riêng của phim (`bookId`), **luôn** phồn→giản, không theo cổng dịch của phim; đệm 200 câu, đổi phim thì xoá đệm.
-- `VideoHardSubtitleOverlay` (mới): cùng `ignoresSafeArea` với `VideoPlayerSurfaceView`; vùng hình tự tính theo Vừa / Lấp đầy / Phóng từ cỡ khung (không đọc `AVPlayerLayer.videoRect`); dải che + nền chữ dịch vẽ chung một lớp (`compositingGroup`, mờ 0,86) nên chỗ chồng không đậm hơn; chữ 13–22 pt theo chiều cao dòng gốc, ép vào vùng nhìn thấy. Dòng báo "Không đọc được hình của nguồn này" (đang phát mà 5 s không có khung — nguồn DRM) / "Máy chưa hỗ trợ nhận chữ Trung", tự ẩn sau 4 s.
-- Log `🔤 [VideoOCR]`: bật / tắt, bắt đầu, tóm tắt mỗi 30 s (số lượt, số lần Vision + ms trung bình, bỏ qua giống / rỗng / đang bận, số câu); lỗi có `❌`. Không tự giảm nhịp theo nhiệt — đo trên máy rồi quyết.
-- Chưa làm: lưu câu xuống đĩa (xem lại phải đọc lại), hiện hai dòng gốc / dịch, quét trước tập đã tải, Whisper. Rủi ro đã biết: biển hiệu / thẻ tên ở dải dưới bị dịch nhầm thành phụ đề; HLS tự hạ 360p đọc kém; video có thông tin xoay (quay dọc bằng điện thoại) buffer chưa xoay.
-- `CLAUDE.md` / `AGENTS.md`: thêm gạch đầu dòng ở mục Comic & Video. Chuyển `[1.3.800]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (9 file mới, lớn nhất 364 dòng, mỗi file một type chính; `VideoPlayerTopBar.swift` 352 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim Trung có phụ đề trắng in sẵn — bản dịch che đúng chỗ ở màn dọc và toàn màn, đổi Vừa / Phóng; (2) bật log, xem dòng `🔤 [VideoOCR]` (ms Vision, tỉ lệ bỏ qua) và máy có nóng không; (3) phụ đề vàng / màu nhạt; (4) tạm dừng, tua, đổi tập, thu cửa sổ nhỏ rồi mở lại.
-
-## [1.3.829] - 2026-11-11
-
-### feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt
-
-Anh Bửu duyệt ý 7 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-ca-truyen.md`: gõ tên truyện bằng âm Hán Việt ở màn Tìm, app gợi ý dạng chữ Hán để chọn khi nguồn Trung chỉ tìm được bằng chữ Hán; chip **tự hiện khi gõ**.
-
-- `SearchChineseSuggestionBar` (mới) ngay dưới ô tìm của `SearchView` (tìm một nguồn và mọi nguồn; `SearchView` chỉ chèn một dòng): hàng **"Chữ Hán:"** tối đa 6 chip cuộn ngang, kiểu chip nhấn như `ExtensionKindFilterBar` (chữ màu nhấn, nền nhấn 18%, viền 60%). Bấm Tìm vẫn tìm đúng chữ đã gõ; chạm chip ⇒ tắt bàn phím, ô tìm thành chữ Hán đó và tìm ngay (lịch sử lưu chữ Hán). Tính sau khi ngừng gõ 300 ms, ngoài main (`Task.detached`), gõ tiếp ⇒ `.task(id:)` huỷ lượt cũ, kết quả muộn bị bỏ; truy vấn chắc chắn không gợi ý được (rỗng, có chữ Hán, 1 hoặc hơn 8 âm tiết, có số…) ⇒ ẩn ngay, không chờ.
-- `Services/Translation/Reverse/` (mới): `HanVietReverseIndex` = bảng `phienAm` đảo ngược (âm ⇒ chữ; chỉ khoá đúng một chữ Hán BMP; một chữ nhiều âm ngăn `/` `,` `;` `|`), hai bảng có dấu / bỏ dấu, nhớ theo `TranslationDictionaryState.revision()`. Chuẩn hoá âm: không tính vị trí dấu thanh (`hoà` = `hòa`), `đ` bỏ dấu là `d`, `y` đứng một mình sau phụ âm = `i` (`lý` = `lí`, `quý` = `quí`). Xét từng âm tiết: âm có dấu ⇒ khớp đúng dấu (không ra chữ thì lùi về bỏ dấu), âm không dấu ⇒ khớp bỏ dấu — gõ dấu một phần vẫn ra.
-- `ChineseQuerySuggester` (mới): mỗi vị trí bắt đầu hỏi Name (tuỳ chỉnh, chung) + VietPhrase (tuỳ chỉnh, chung) các khoá có thật dài tới 6 chữ; bỏ khoá đã xoá của từ điển chung như `VietPhraseTokenizer`; không dùng từ điển riêng truyện. Quy hoạch động giữ 16 đường mỗi vị trí, xếp: ít đoạn ⇒ ít đoạn một chữ ⇒ Name trước VietPhrase ⇒ giản thể trước phồn thể (ICU `Traditional-Simplified`) ⇒ thứ tự mã. Bỏ đường trộn giản + phồn, đường có quá nửa số âm tiết là đoạn một chữ (chỉ là đoán chữ đồng âm), đường nhiều hơn đường tốt nhất quá một đoạn. Log `🔎 [HanSuggest]` (số âm tiết / cạnh / kết quả / ms; không log từ khoá).
-- `FrozenTrieDictionary.keys(matchingCharacterSets:limit:)` (mới): đi cây đôi theo đúng phép tính của `trieTerminals`, mỗi độ sâu thử mọi chữ của tập, nhánh không có con thì dừng ⇒ chỉ đi qua tiền tố có thật, không gọi `allEntries()`; trần 200 000 cạnh thử; kho `entries` (từ điển tuỳ chỉnh) lọc khoá đúng độ dài.
-- Giới hạn: chỉ màn Tìm Kiếm (ô tìm nhanh của Khám phá chưa có); chữ Việt thuần không phải âm Hán Việt không ra gợi ý; thứ tự là đoán theo từ điển (không có tần suất); chạm một chip xong ô tìm là chữ Hán ⇒ hàng chip ẩn, muốn thử cách viết khác phải gõ lại âm Việt.
-- Chuyển `[1.3.799]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + review phản biện bằng agent; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `SearchView.swift` 701 dòng ≤ baseline 872). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) `đấu phá thương khung` và `dau pha thuong khung` ra chip hợp lý; (2) log `🔎 [HanSuggest]` (bật log) xem ms — lần đầu sau khi từ điển đổi có thêm bước dựng bảng đảo; (3) gõ nhanh không giật, không bấm nhầm chip cũ.
-
-## [1.3.828] - 2026-11-11
-
-### fix: DNS mã hoá cho cả app mặc định tắt
-
-Anh Bửu (sau 1.3.825): *"sai ý tôi rồi, mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"*. Bước 0 của plan: tắt ngay mặc định đang bật sẵn cho mọi người dùng nguồn LiveContainer; công tắc riêng từng tiện ích / nguồn Legado làm ở bản kế.
-
-- `EncryptedDNSPolicy.defaultEnabled = false`. Máy chưa từng bật tay ⇒ tắt (khoá chưa ghi); ai đã bật tay ở Mạng & DNS thì giữ.
-- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ghi mặc định tắt.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

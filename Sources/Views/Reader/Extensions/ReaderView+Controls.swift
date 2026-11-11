@@ -237,6 +237,8 @@ extension ReaderView {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(tint)
+                // Icon mờ theo "Độ trong suốt" như nút "+" (2026-11-11); mờ chỉ trên icon, không trên lớp kính.
+                .floatingIconTransparency()
                 .frame(width: 52, height: 52)
                 .background { FloatingGlassBackground(isDark: selectedTheme == .dark, outline: tint) }
                 .contentShape(Circle())

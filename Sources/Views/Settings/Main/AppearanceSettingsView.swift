@@ -193,6 +193,7 @@ struct AppearanceSettingsView: View {
         Image(systemName: systemImage)
             .font(.system(size: 17, weight: .semibold))
             .foregroundColor(.white)
+            .floatingIconTransparency()
             .frame(width: 52, height: 52)
             .background { FloatingGlassBackground() }
     }
