@@ -22,6 +22,11 @@ struct ComicReaderView: View {
 
     /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`, như Reader/Chi tiết) — không phải công tắc chung.
     @State private var isTranslationEnabled: Bool
+    /// Công tắc Dịch ảnh (1.3.826) — nhớ **theo tiện ích** (`ComicImageTranslationPolicy`), độc lập với công tắc trên.
+    /// Giữ ở View chứ không ở `ComicReaderViewModel` (file VM đã sát giới hạn 400 dòng).
+    @State private var isImageTranslationEnabled: Bool
+    /// Tăng khi từ điển / rule / cấu hình dịch đổi ⇒ các ảnh đang hiện dịch lại (`ComicImageTranslationContext.revision`).
+    @State private var imageTranslationRevision = 0
     /// Lượt dịch tên chương đang chạy — lượt mới huỷ lượt cũ để kết quả cũ không ghi đè.
     @State private var titleTranslationTask: Task<Void, Never>?
     @State private var viewModel: ComicReaderViewModel
@@ -45,6 +50,7 @@ struct ComicReaderView: View {
             bookId: launch.bookId,
             packageId: launch.extensionPackageId
         ))
+        _isImageTranslationEnabled = State(initialValue: ComicImageTranslationPolicy.isEnabled(packageId: launch.extensionPackageId))
         _viewModel = State(initialValue: ComicReaderViewModel(launch: launch))
     }
 
@@ -61,8 +67,10 @@ struct ComicReaderView: View {
                 ComicReaderChromeView(
                     viewModel: viewModel,
                     isTranslationEnabled: isTranslationEnabled,
+                    isImageTranslationEnabled: isImageTranslationEnabled,
                     onBack: { dismiss() },
-                    onOpenChapterList: { showsChapterList = true }
+                    onOpenChapterList: { showsChapterList = true },
+                    onToggleImageTranslation: toggleImageTranslation
                 )
                 .transition(.opacity)
             }
@@ -82,6 +90,13 @@ struct ComicReaderView: View {
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId)
             if isTranslationEnabled != newState { isTranslationEnabled = newState }
+            bumpImageTranslationRevision() // phồn→giản của truyện có thể vừa đổi
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
+            bumpImageTranslationRevision()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quickTranslationRulesDidUpdate)) { _ in
+            bumpImageTranslationRevision()
         }
         .onChange(of: isTranslationEnabled) { _, _ in translateChapterTitles() }
         // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
@@ -175,6 +190,7 @@ struct ComicReaderView: View {
 
     private func pageList(maxPixelWidth: Int) -> some View {
         let generation = viewModel.loadGeneration
+        let translation = imageTranslationContext
         return ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
@@ -185,6 +201,7 @@ struct ComicReaderView: View {
                                 pageIndex: index,
                                 maxPixelWidth: maxPixelWidth,
                                 estimatedAspectRatio: viewModel.aspectRatio(at: index),
+                                translation: translation,
                                 onAspectRatioMeasured: { ratio in
                                     viewModel.recordAspectRatio(ratio, at: index, generation: generation)
                                 },
@@ -273,6 +290,33 @@ struct ComicReaderView: View {
     private func openZoom(_ image: UIImage) {
         zoomImage = image
         isZoomPresented = true
+    }
+
+    // MARK: - Dịch ảnh (1.3.826)
+
+    /// `nil` khi công tắc tắt. Trình xem phóng to không có lớp dịch (v1).
+    private var imageTranslationContext: ComicImageTranslationContext? {
+        guard isImageTranslationEnabled else { return nil }
+        return ComicImageTranslationContext(
+            bookId: launch.bookId,
+            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId),
+            revision: imageTranslationRevision
+        )
+    }
+
+    private func toggleImageTranslation() {
+        let enabled = !isImageTranslationEnabled
+        isImageTranslationEnabled = enabled
+        ComicImageTranslationPolicy.setEnabled(enabled, packageId: launch.extensionPackageId)
+        ToastManager.shared.show(
+            message: enabled ? "Đã bật dịch ảnh cho nguồn này" : "Đã tắt dịch ảnh",
+            recordsInInbox: false
+        )
+    }
+
+    private func bumpImageTranslationRevision() {
+        guard isImageTranslationEnabled else { return }
+        imageTranslationRevision += 1
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),

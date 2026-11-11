@@ -76,7 +76,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
     /// Lời nhắc của hộp xác nhận xoá (chỉ loại xoá được).
     public var clearNote: String {
         switch self {
-        case .comicImageCache: return "Ảnh sẽ tải lại khi đọc truyện tranh online. Truyện tranh đã tải offline không bị đụng."
+        case .comicImageCache: return "Ảnh sẽ tải lại khi đọc truyện tranh online, chữ đã nhận khi dịch ảnh sẽ nhận lại. Truyện tranh đã tải offline không bị đụng."
         case .exports: return "Xoá bản xuất của các tác vụ xuất đã xong, kèm hàng của chúng trong Tải xuống. Bản đang xuất giữ nguyên."
         case .logs: return "Nhật ký dùng để tìm lỗi; xoá rồi không lấy lại được."
         case .checkReports: return "Xoá mọi báo cáo kiểm tra tiện ích JS và nguồn Legado đã lưu. Lượt kiểm tra đang chạy giữ nguyên."
@@ -93,7 +93,11 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .books: return [dir("books")]
         case .videos: return [dir("videos")]
         case .comics: return [dir("comics")]
-        case .comicImageCache: return [.directory(caches.appendingPathComponent("comic_images", isDirectory: true))]
+        // Kèm kết quả nhận chữ của dịch ảnh (1.3.826) — cùng loại "tải/nhận lại được", cùng nút "Xoá".
+        case .comicImageCache: return [
+            .directory(caches.appendingPathComponent("comic_images", isDirectory: true)),
+            .directory(caches.appendingPathComponent(ComicPageTextRepository.directoryName, isDirectory: true))
+        ]
         case .chapterStore: return [dir("chapters")]
         case .translation: return [dir("translate")]
         case .covers: return [dir("covers")]

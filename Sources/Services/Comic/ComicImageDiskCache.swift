@@ -1,30 +1,36 @@
 import Foundation
 import UIKit
 
-/// Cache đĩa cho byte ảnh comic đọc online: `Caches/comic_images/<sha256(key)>`, giới hạn 400 MB.
+/// Cache đĩa cho byte ảnh comic đọc online: `Caches/comic_images/<sha256(key)>`, giới hạn 400 MB. Dịch ảnh (1.3.826)
+/// dùng lại lớp này cho kết quả nhận chữ: `Caches/comic_ocr/`, giới hạn riêng (`ComicPageTextRepository`).
 ///
 /// Thư mục `Caches` là **chủ ý**: dữ liệu tải lại được, hệ điều hành được phép xoá khi thiếu chỗ. Ảnh tải
 /// offline nằm ở chỗ khác (`ComicOfflineStore`, `applicationSupport/comics/`) và không bao giờ đi qua đây.
 ///
-/// Thread-safe: đọc/ghi file gọi thẳng từ luồng gọi (luôn là luồng nền của `ComicImageLoader`); sổ dung
-/// lượng ước lượng giữ dưới `lock`; dọn file cũ nhất chạy trên `trimQueue` (serial) khi vượt giới hạn hoặc
+/// Thread-safe: đọc/ghi file gọi thẳng từ luồng gọi (luồng nền của `ComicImageLoader` / `ComicPageTextRepository`); sổ
+/// dung lượng ước lượng giữ dưới `lock`; dọn file cũ nhất chạy trên `trimQueue` (serial) khi vượt giới hạn hoặc
 /// khi app vào background.
 final class ComicImageDiskCache: @unchecked Sendable {
-    static let byteLimit: Int64 = 400 * 1024 * 1024
-    /// Dọn về 75% giới hạn để không phải dọn lại ngay sau vài ảnh kế.
-    static let trimTarget: Int64 = byteLimit * 3 / 4
+    static let defaultByteLimit: Int64 = 400 * 1024 * 1024
+
+    let byteLimit: Int64
+    /// Dọn về 75% giới hạn để không phải dọn lại ngay sau vài mục kế.
+    let trimTarget: Int64
 
     private let directory: URL
     private let fileManager = FileManager.default
-    private let trimQueue = DispatchQueue(label: "com.tangcongcac.comic-image-disk-cache", qos: .utility)
+    private let trimQueue: DispatchQueue
     private let lock = NSLock()
     /// Tổng byte ước lượng; `nil` = chưa đo (đo lần đầu trong lượt dọn).
     private var estimatedBytes: Int64?
     private var isTrimScheduled = false
 
-    init() {
+    init(directoryName: String = "comic_images", byteLimit: Int64 = ComicImageDiskCache.defaultByteLimit) {
+        self.byteLimit = byteLimit
+        self.trimTarget = byteLimit * 3 / 4
+        trimQueue = DispatchQueue(label: "com.tangcongcac.comic-disk-cache.\(directoryName)", qos: .utility)
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        directory = caches.appendingPathComponent("comic_images", isDirectory: true)
+        directory = caches.appendingPathComponent(directoryName, isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
 
         // Đăng ký trên MainActor: hằng tên notification thuộc `UIApplication` (@MainActor).
@@ -69,7 +75,7 @@ final class ComicImageDiskCache: @unchecked Sendable {
         if let current = estimatedBytes {
             let updated = current + Int64(data.count)
             estimatedBytes = updated
-            needsTrim = updated > Self.byteLimit
+            needsTrim = updated > byteLimit
         }
         lock.unlock()
         if needsTrim {
@@ -150,10 +156,10 @@ final class ComicImageDiskCache: @unchecked Sendable {
             entries.append((url: url, size: size, date: values.contentModificationDate ?? .distantPast))
         }
 
-        if total > Self.byteLimit {
+        if total > byteLimit {
             entries.sort { $0.date < $1.date }
             var removedCount = 0
-            for entry in entries where total > Self.trimTarget {
+            for entry in entries where total > trimTarget {
                 do {
                     try fileManager.removeItem(at: entry.url)
                     total -= entry.size
@@ -162,7 +168,7 @@ final class ComicImageDiskCache: @unchecked Sendable {
                     continue
                 }
             }
-            AppLogger.shared.log("🧹 [ComicImageDiskCache] Dọn \(removedCount) ảnh cũ, còn \(total / 1_048_576) MB")
+            AppLogger.shared.log("🧹 [ComicImageDiskCache] Dọn \(removedCount) mục cũ ở \(directory.lastPathComponent), còn \(total / 1_048_576) MB")
         }
 
         lock.lock()

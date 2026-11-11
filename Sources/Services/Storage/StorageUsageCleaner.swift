@@ -2,7 +2,8 @@ import Foundation
 
 /// Xoá bốn loại dữ liệu "an toàn" của màn Dung lượng — dùng lại đúng đường xoá đang có của từng owner, không tự xoá
 /// thư mục của người khác:
-/// - Cache ảnh truyện tranh ⇒ `ComicImageLoader.clearDiskCache()` (chính instance cache của loader).
+/// - Cache ảnh truyện tranh ⇒ `ComicImageLoader.clearDiskCache()` (chính instance cache của loader) + kết quả nhận chữ của
+///   dịch ảnh ⇒ `ComicPageTextRepository.clearAll()` (1.3.826).
 /// - File xuất ⇒ `DownloadManager.clearFinishedExportTasks()` (chỉ tác vụ xuất đã xong/lỗi/huỷ + file của chúng; mục mồ
 ///   côi chỉ dọn khi không còn tác vụ xuất nào chạy).
 /// - Nhật ký ⇒ `AppLogger.shared.clear()`.
@@ -18,6 +19,7 @@ public enum StorageUsageCleaner {
         switch category {
         case .comicImageCache:
             await ComicImageLoader.shared.clearDiskCache()
+            await ComicPageTextRepository.shared.clearAll()
         case .exports:
             await DownloadManager.shared.clearFinishedExportTasks()
         case .logs:

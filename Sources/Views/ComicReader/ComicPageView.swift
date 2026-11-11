@@ -12,12 +12,15 @@ import UIKit
 /// - `request.source.imageStyle` (nguồn Legado, spec §8.5): `FULL` = ảnh khớp trọn bề ngang, không lề, không khoảng
 ///   cách giữa ảnh — đúng cách màn này luôn vẽ (`LazyVStack(spacing: 0)` + `.frame(maxWidth: .infinity)`); giá trị
 ///   khác/rỗng (`0`, `DEFAULT`, `TEXT`…) giữ nguyên cách vẽ đó, nên không cần rẽ nhánh.
+/// - Dịch ảnh (1.3.826): `translation` khác `nil` ⇒ `ComicTranslationOverlay` phủ lên đúng khung ảnh đã vẽ.
 @MainActor
 struct ComicPageView: View {
     let request: ComicImageRequest
     let pageIndex: Int
     let maxPixelWidth: Int
     let estimatedAspectRatio: CGFloat
+    /// `nil` = công tắc Dịch ảnh đang tắt.
+    let translation: ComicImageTranslationContext?
     let onAspectRatioMeasured: (CGFloat) -> Void
     /// Chạm một lần (ở đâu trên ảnh cũng vậy) — màn đọc bật/tắt thanh điều khiển.
     let onSingleTap: () -> Void
@@ -55,6 +58,11 @@ struct ComicPageView: View {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
+                .overlay {
+                    if let translation {
+                        ComicTranslationOverlay(request: request, image: image, context: translation)
+                    }
+                }
                 .frame(maxWidth: .infinity)
         } else if hasFailed {
             VStack(spacing: 10) {
