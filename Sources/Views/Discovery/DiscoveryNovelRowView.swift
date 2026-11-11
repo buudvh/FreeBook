@@ -13,9 +13,9 @@ struct DiscoveryNovelRowView: View {
     let item: ExtensionItemResult
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
-    /// Cờ dịch **theo nguồn** (`TranslationConfigStore`, do màn cha tính) — không đọc công tắc dịch toàn app, nếu không
-    /// tắt dịch cho một nguồn thì danh sách vẫn dịch.
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch **theo nguồn** (Nguồn ⇒ Tất cả, `ChineseTextPipeline.sourceOptions`, do màn cha tính một
+    /// lần) — không đọc công tắc dịch toàn app, nếu không tắt dịch cho một nguồn thì danh sách vẫn dịch.
+    let textOptions: ChineseTextPipeline.Options
     /// Cỡ dòng của kiểu Danh sách (`BookListLayout.rowSize`); nấc mặc định giữ đúng bố cục cũ.
     var rowSize: BookListRowSize = .default
 
@@ -32,21 +32,21 @@ struct DiscoveryNovelRowView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .overlay(alignment: .bottomLeading) {
-                    CoverTagBadge(tag: translateIfNeeded(item.tag))
+                    CoverTagBadge(tag: ChineseTextPipeline.meta(item.tag, textOptions))
                 }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.name, bookId: item.link)))
+                Text(DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(item.name, nameOptions)))
                     .font(rowSize.font(.system(size: 14.5, weight: .semibold), base: 14.5, weight: .semibold))
                     .lineLimit(rowSize.titleLineLimit)
 
                 if !item.description.isEmpty {
-                    Text(translateIfNeeded(item.description.cleanHTML()))
+                    Text(ChineseTextPipeline.meta(item.description.cleanHTML(), textOptions))
                         .font(rowSize.font(.caption2, base: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(rowSize.isCompact ? 1 : 2)
                 } else if !item.author.isEmpty {
-                    Text(DisplayTextFormatter.titleCase(displayedAuthor))
+                    Text(DisplayTextFormatter.titleCase(ChineseTextPipeline.author(item.author, textOptions)))
                         .font(rowSize.font(.system(size: 13), base: 13))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -57,15 +57,10 @@ struct DiscoveryNovelRowView: View {
         .contentShape(Rectangle())
     }
 
-    private var displayedAuthor: String {
-        guard isTranslationEnabled else { return item.author }
-        return TranslateUtils.translateAuthorHanViet(item.author)
-    }
-
-    private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text, bookId: bookId)
+    /// Tên tra từ điển riêng theo `link` như trước (chép struct, không tra cấu hình).
+    private var nameOptions: ChineseTextPipeline.Options {
+        var options = textOptions
+        options.dictionaryBookId = item.link
+        return options
     }
 }

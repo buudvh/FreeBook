@@ -78,8 +78,9 @@ struct DiscoveryView: View {
     @State private var showingFilterSheet = false
     /// Tab lúc bấm nút lọc — sheet giữ đúng tab đó dù người dùng vuốt sang tab khác phía sau.
     @State private var filterSheetScope: ExtensionFilterScope = .file("")
-    @State private var isTranslationEnabled = false
-    
+    /// Phồn → giản + dịch của nguồn đang xem (Nguồn ⇒ Tất cả) — `refreshTextOptions`, không tra từng hàng.
+    @State private var textOptions: ChineseTextPipeline.Options = .passthrough
+
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
     @State private var importedExtensionPackageId: String = ""
@@ -172,7 +173,7 @@ struct DiscoveryView: View {
                                     packageId: ext.packageId,
                                     sourceName: ext.name,
                                     isChineseSourceHint: ext.isChineseSource,
-                                    isTranslationEnabled: isTranslationEnabled,
+                                    isTranslationEnabled: textOptions.translates,
                                     layoutSymbol: layout.mode.symbolName,
                                     canOpenBrowser: !ext.sourceUrl.isEmpty,
                                     onOpenBrowser: { showingSourceBrowser = true },
@@ -235,7 +236,7 @@ struct DiscoveryView: View {
                                             Button(action: {
                                                 selectedCategoryId = item.id
                                             }) {
-                                                Text(translateIfNeeded(item.title))
+                                                Text(ChineseTextPipeline.meta(item.title, textOptions))
                                                     .font(.subheadline)
                                                     .fontWeight(isSelected ? .bold : .regular)
                                                     .padding(.horizontal, 14)
@@ -296,7 +297,7 @@ struct DiscoveryView: View {
                                         DiscoveryGenresTabView(
                                             genreItems: genreItems,
                                             homeItems: homeItems,
-                                            isTranslationEnabled: isTranslationEnabled,
+                                            textOptions: textOptions,
                                             selectedCategoryId: $selectedCategoryId,
                                             onSelectGenre: { item in
                                                 selectedGenre = item
@@ -332,7 +333,7 @@ struct DiscoveryView: View {
                                                 )
                                             }
                                             if ExploreSectionsView.isTab(item) {
-                                                ExploreSectionsView(ext: ext, isTranslationEnabled: isTranslationEnabled, onSelectNovel: openNovel,
+                                                ExploreSectionsView(ext: ext, textOptions: textOptions, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
                                                     .id(pageIdentity) // đổi nguồn/config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
@@ -342,7 +343,7 @@ struct DiscoveryView: View {
                                                     localPath: ext.localPath,
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
-                                                    isTranslationEnabled: isTranslationEnabled,
+                                                    textOptions: textOptions,
                                                     layoutScope: layoutScope,
                                                     selectedCategoryId: $selectedCategoryId,
                                                     scrollAnchors: scrollAnchors,
@@ -375,7 +376,7 @@ struct DiscoveryView: View {
                 configReloadPendingId = nil // nguồn mới tải lại từ đầu bên dưới
                 let isChinese = selectedExtension?.isChineseSource ?? false
                 TranslationConfigStore.shared.registerSource(packageId: newValue, isChinese: isChinese)
-                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: "", packageId: newValue, isChineseSourceHint: isChinese)
+                refreshTextOptions()
                 // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
                 homeItems.removeAll()
                 genreItems.removeAll()
@@ -439,11 +440,7 @@ struct DiscoveryView: View {
                 for ext in activeExtensions {
                     TranslationConfigStore.shared.registerSource(packageId: ext.packageId, isChinese: ext.isChineseSource)
                 }
-                isTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(
-                    bookId: "",
-                    packageId: selectedExtensionId,
-                    isChineseSourceHint: selectedExtension?.isChineseSource
-                )
+                refreshTextOptions()
 
                 if !restoredSelection && reloadAfterConfigChangeIfPending() {
                     needsReloadActiveExtension = false
@@ -466,16 +463,8 @@ struct DiscoveryView: View {
                     }
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-                let newState = TranslationConfigStore.shared.isTranslationEnabled(
-                    bookId: "",
-                    packageId: selectedExtensionId,
-                    isChineseSourceHint: selectedExtension?.isChineseSource
-                )
-                if isTranslationEnabled != newState {
-                    isTranslationEnabled = newState
-                }
-            }
+            // Cấu hình dịch / phồn → giản đổi ở bất kỳ cấp nào (popup dịch, công tắc Tất cả, từ điển / rule).
+            .onChange(of: TranslationDisplayRevision.shared.value) { _, _ in refreshTextOptions() }
             .discoverySourcePicker(
                 isPresented: $showingExtensionSelector,
                 selectedExtensionId: $selectedExtensionId,
@@ -614,11 +603,11 @@ struct DiscoveryView: View {
         }
     }
     
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
+    /// Tính lại `textOptions` của nguồn đang xem (đổi nguồn, màn hiện lại, cấu hình đổi); giữ nguyên nếu không khác.
+    private func refreshTextOptions() {
+        let packageId = selectedExtensionId.isEmpty ? nil : selectedExtensionId
+        let options = ChineseTextPipeline.sourceOptions(packageId: packageId, isChineseSourceHint: selectedExtension?.isChineseSource)
+        if textOptions != options { textOptions = options }
     }
 }
 

@@ -33,7 +33,8 @@ struct DiscoveryNovelsLayoutView: View {
     /// Tỉ lệ rộng : cao của bìa ở kiểu lưới (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
     let sourceHost: String?
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch của nguồn (`ChineseTextPipeline.sourceOptions`), màn cha tính một lần.
+    let textOptions: ChineseTextPipeline.Options
     /// Neo cuộn của Khám phá; `nil` ở màn không nhớ vị trí cuộn.
     let scrollAnchors: DiscoveryScrollAnchorStore?
     /// Khoá tab trong `scrollAnchors` (`CategoryResult.id`).
@@ -49,7 +50,7 @@ struct DiscoveryNovelsLayoutView: View {
         layout: BookListLayout,
         aspectRatio: CGFloat,
         sourceHost: String?,
-        isTranslationEnabled: Bool,
+        textOptions: ChineseTextPipeline.Options,
         scrollAnchors: DiscoveryScrollAnchorStore? = nil,
         anchorCategoryId: String = "",
         itemNoun: String = "truyện",
@@ -60,7 +61,7 @@ struct DiscoveryNovelsLayoutView: View {
         self.layout = layout
         self.aspectRatio = aspectRatio
         self.sourceHost = sourceHost
-        self.isTranslationEnabled = isTranslationEnabled
+        self.textOptions = textOptions
         self.scrollAnchors = scrollAnchors
         self.anchorCategoryId = anchorCategoryId
         self.itemNoun = itemNoun
@@ -101,7 +102,7 @@ struct DiscoveryNovelsLayoutView: View {
                 DiscoveryNovelRowView(
                     item: novel,
                     sourceHost: sourceHost,
-                    isTranslationEnabled: isTranslationEnabled,
+                    textOptions: textOptions,
                     rowSize: layout.rowSize
                 )
                 .padding(.trailing, playlistContext == nil ? 0 : 24)
@@ -147,7 +148,7 @@ struct DiscoveryNovelsLayoutView: View {
                             DiscoveryNovelGridCardView(
                                 item: novel,
                                 sourceHost: sourceHost,
-                                isTranslationEnabled: isTranslationEnabled,
+                                textOptions: textOptions,
                                 mode: layout.mode,
                                 aspectRatio: aspectRatio,
                                 reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly

@@ -5,7 +5,8 @@ import SwiftUI
 struct DiscoveryGenresTabView: View {
     let genreItems: [CategoryResult]
     let homeItems: [CategoryResult]
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch của nguồn (`ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
+    let textOptions: ChineseTextPipeline.Options
     @Binding var selectedCategoryId: String
     let onSelectGenre: (CategoryResult) -> Void
     /// Nguồn Legado đang xem ⇒ tab vẽ mục khám phá có kiểu (tiêu đề nhóm, ô bấm, điều khiển — `LegadoExploreTabView`)
@@ -14,7 +15,7 @@ struct DiscoveryGenresTabView: View {
 
     @State private var searchText = ""
     /// Tiêu đề đã dịch theo `CategoryResult.id` — dựng một lần khi bắt đầu tìm (không dịch lại mỗi phím gõ); danh sách
-    /// hoặc công tắc dịch đổi thì bỏ.
+    /// hoặc cấu hình dịch / phồn → giản đổi thì bỏ.
     @State private var translatedTitles: [String: String] = [:]
 
     private var filteredItems: [CategoryResult] {
@@ -31,7 +32,7 @@ struct DiscoveryGenresTabView: View {
             LegadoExploreTabView(
                 localPath: legadoExtension.localPath,
                 packageId: legadoExtension.packageId,
-                isTranslationEnabled: isTranslationEnabled,
+                textOptions: textOptions,
                 onSelectGenre: onSelectGenre
             )
             // Sửa JSON nguồn ⇒ phiên bản đổi ⇒ dựng lại tab (không giữ mục khám phá của JSON cũ).
@@ -99,7 +100,7 @@ struct DiscoveryGenresTabView: View {
             if !text.isEmpty && translatedTitles.isEmpty { rebuildTranslatedTitles() }
         }
         .onChange(of: genreItems.map(\.id)) { _, _ in translatedTitles = [:] }
-        .onChange(of: isTranslationEnabled) { _, _ in translatedTitles = [:] }
+        .onChange(of: textOptions) { _, _ in translatedTitles = [:] }
     }
 
     private func rebuildTranslatedTitles() {
@@ -118,9 +119,6 @@ struct DiscoveryGenresTabView: View {
     }
 
     private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
+        ChineseTextPipeline.meta(text, textOptions)
     }
 }

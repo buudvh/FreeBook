@@ -12,7 +12,8 @@ import SwiftUI
 struct LegadoExploreTabView: View {
     let localPath: String
     let packageId: String
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch của nguồn (`ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
+    let textOptions: ChineseTextPipeline.Options
     let onSelectGenre: (CategoryResult) -> Void
 
     @State private var items: [LegadoEngineExploreItem]? = nil
@@ -243,8 +244,7 @@ struct LegadoExploreTabView: View {
     }
 
     private func display(_ text: String) -> String {
-        guard isTranslationEnabled, TranslateUtils.containsChinese(text) else { return text }
-        return TranslateUtils.translateMeta(text)
+        ChineseTextPipeline.meta(text, textOptions)
     }
 
     // MARK: - Ánh xạ

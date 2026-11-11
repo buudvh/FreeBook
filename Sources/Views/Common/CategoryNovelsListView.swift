@@ -34,11 +34,12 @@ struct CategoryNovelsListView: View {
     /// Bộ lọc chỉ gồm các mục `config` mà script của danh sách (cùng các file nó `load`) dùng tới.
     private var filterScope: ExtensionFilterScope { .file(category.script) }
 
-    /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
-    /// sách và tiêu đề phải hiện nguyên văn.
-    private var isTranslationEnabled: Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: "",
+    /// Phồn → giản + dịch **theo nguồn** (Nguồn ⇒ Tất cả, giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt
+    /// dịch cho nguồn thì danh sách và tiêu đề phải hiện nguyên văn. Đọc **một lần** mỗi lượt `body`; đọc
+    /// `TranslationDisplayRevision` ⇒ popup dịch lưu ở cấp nào cũng vẽ lại.
+    private var textOptions: ChineseTextPipeline.Options {
+        _ = TranslationDisplayRevision.shared.value
+        return ChineseTextPipeline.sourceOptions(
             packageId: extensionPackageId,
             isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: extensionPackageId)?.isChineseSource
         )
@@ -73,6 +74,7 @@ struct CategoryNovelsListView: View {
         let scope = layoutScope
         // Đọc trong `body` ⇒ sheet "Kiểu hiển thị" hay màn Cài đặt ghi là danh sách vẽ lại theo kiểu mới.
         let layout = BookListLayoutPreferences.shared.layout(for: scope)
+        let options = textOptions
         VStack {
             if loader.isLoading && loader.novels.isEmpty {
                 if layout.mode.isGrid {
@@ -112,7 +114,7 @@ struct CategoryNovelsListView: View {
                     layout: layout,
                     aspectRatio: scope.coverAspectRatio,
                     sourceHost: sourceHost,
-                    isTranslationEnabled: isTranslationEnabled,
+                    textOptions: options,
                     itemNoun: scope.itemNoun,
                     playlistContext: PlaylistListAddContext.make(
                         packageId: extensionPackageId,
@@ -144,7 +146,7 @@ struct CategoryNovelsListView: View {
                 initialHost: novel.host
             )
         }
-        .backPageTitle(translateIfNeeded(category.title))
+        .backPageTitle(ChineseTextPipeline.meta(category.title, options))
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng danh sách của nguồn NSFW
         .toolbar {
             // Cụm nút sát nhau trong MỘT `ToolbarItem` (`HeaderButtonMetrics`): Lọc (chỉ khi tiện ích có bộ lọc) · Kiểu hiển thị.
@@ -196,12 +198,5 @@ struct CategoryNovelsListView: View {
             guard loader.novels.isEmpty else { return }
             await loader.loadInitial()
         }
-    }
-
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
     }
 }

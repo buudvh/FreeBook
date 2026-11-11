@@ -1,11 +1,12 @@
 import Foundation
 
-/// Phần dùng chung của mọi view section Khám phá: Referer cho bìa, cờ dịch tiêu đề và hành động khi chạm item.
+/// Phần dùng chung của mọi view section Khám phá: Referer cho bìa, cấu hình chữ Trung và hành động khi chạm item.
 /// Gom lại để các view section chỉ nhận `items` + `shape` + context, không lặp tham số.
 struct ExploreRenderContext {
     /// `source` của tiện ích — Referer dự phòng khi item không có `host`.
     let sourceHost: String?
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch của nguồn (Nguồn ⇒ Tất cả, `ChineseTextPipeline.sourceOptions`), `DiscoveryView` tính một lần.
+    let textOptions: ChineseTextPipeline.Options
     /// Cỡ từng bố cục theo loại nguồn (`ExploreLayoutSizePreferences`).
     var sizes: ExploreLayoutSizes = .default
     let onSelect: (ExploreItem) -> Void
@@ -19,10 +20,9 @@ struct ExploreRenderContext {
         ExtensionHostResolver.nonEmpty(item.host) ?? sourceHost
     }
 
-    /// Chuỗi hiển thị: dịch Hán-Việt khi nguồn bật dịch và chuỗi có chữ Hán (giống các tab Khám phá cũ).
+    /// Chuỗi hiển thị: phồn → giản nếu nguồn bật, rồi dịch nếu nguồn bật dịch (giống các tab Khám phá cũ).
     func display(_ text: String) -> String {
-        guard isTranslationEnabled, TranslateUtils.containsChinese(text) else { return text }
-        return TranslateUtils.translateMeta(text)
+        ChineseTextPipeline.meta(text, textOptions)
     }
 
     /// Item cho ⋮ "Thêm vào playlist": chỉ khi nguồn có playlist và item mở chi tiết được (không action / action

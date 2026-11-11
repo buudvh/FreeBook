@@ -29,7 +29,8 @@ struct ExtensionFilterSheet: View {
     @State private var isScanned = false
     @State private var loadError = ""
     @State private var saveError = ""
-    /// Chữ gốc → bản dịch của tiêu đề / dòng phụ / lựa chọn khi nguồn bật dịch (`translateLabels`, 1.3.685). Chỉ để hiện.
+    /// Chữ gốc → chữ hiện (phồn → giản rồi dịch theo nguồn) của tiêu đề / dòng phụ / lựa chọn (`translateLabels`,
+    /// 1.3.685). Chỉ để hiện.
     @State private var translations: [String: String] = [:]
 
     private var isDirty: Bool {
@@ -165,15 +166,13 @@ struct ExtensionFilterSheet: View {
         }
     }
 
-    /// Nguồn bật dịch (cấu hình dịch của nguồn — `TranslationConfigStore`, nguồn tiếng Trung tự bật) ⇒ dịch tiêu đề /
-    /// dòng phụ / lựa chọn của các mục lọc **ngoài main** để hiển thị; chưa xong thì dòng hiện chữ gốc. Giá trị lưu vẫn là
-    /// chữ gốc (script nhận đúng chuỗi đó). Màn Cấu hình tiện ích không dịch (người dùng chọn).
+    /// Nguồn bật phồn → giản và/hoặc dịch (Nguồn ⇒ Tất cả như popup dịch — `ChineseTextPipeline.sourceOptions`, nguồn
+    /// tiếng Trung tự bật dịch) ⇒ chuyển rồi dịch tiêu đề / dòng phụ / lựa chọn của các mục lọc **ngoài main** để hiển
+    /// thị; chưa xong thì dòng hiện chữ gốc. Giá trị lưu vẫn là chữ gốc (script nhận đúng chuỗi đó). Màn Cấu hình tiện
+    /// ích không dịch (người dùng chọn).
     private func translateLabels(of loaded: ExtensionConfigSchema, keys: [String], isChineseSource: Bool) {
-        guard TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: nil,
-            packageId: packageId,
-            isChineseSourceHint: isChineseSource
-        ) else { return }
+        let options = ChineseTextPipeline.sourceOptions(packageId: packageId, isChineseSourceHint: isChineseSource)
+        guard options.converts || options.translates else { return }
         var texts = Set<String>()
         for key in keys {
             guard let item = loaded.items[key] else { continue }
@@ -186,7 +185,7 @@ struct ExtensionFilterSheet: View {
             let translated = await Task.detached(priority: .userInitiated) { () -> [String: String] in
                 var map: [String: String] = [:]
                 for text in sources {
-                    let result = TranslateUtils.translateMeta(text).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let result = ChineseTextPipeline.meta(text, options).trimmingCharacters(in: .whitespacesAndNewlines)
                     if !result.isEmpty { map[text] = result }
                 }
                 return map
