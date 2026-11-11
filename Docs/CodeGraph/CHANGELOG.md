@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.860] - 2026-11-11
+
+### feat: sheet nghe truyện thêm nút chương trước và chương kế ở hai đầu
+
+Anh Bửu duyệt mockup: sheet điều khiển nhanh TTS (mở từ đĩa nghe) có thêm hai nút đổi chương ở hai đầu ngoài cùng của hàng nút.
+
+- Hàng nút `TTSQuickControlSheet.transportRow`: **chương trước** · đoạn trước · ⏯ · đoạn kế · **chương kế**, chia đều bằng `Spacer` như `AudioTransportControls(.full)` của sheet nhạc. Nút chương icon `backward.end.fill` / `forward.end.fill` 20 pt (khác nút đoạn `backward.fill` / `forward.fill` 22 pt), trắng 85%, khung 44 pt; không có chương đó ⇒ mờ 35%, tắt.
+- `TTSManager+ChapterStep` (mới): `previousChapterIndex(before:)` + `jumpToAdjacentChapter(forward:)` — tra chương liền trước / sau theo `index` thưa trong `chaptersQueue` (cùng luật `nextChapterIndex(after:)`), rồi `jumpToChapter(at:)` có sẵn (toast "Đang chuyển sang …", đọc từ đầu chương).
+- `TTSWidgetBarInfoReader`: thêm `hasPreviousChapter` / `hasNextChapter`, tính lại khi đổi chương và khi số chương trong hàng đợi đổi. Sheet không observe `TTSManager` trực tiếp.
+- Giới hạn đã biết: vừa bấm tai nghe ở Reader, hàng đợi chỉ có vài chương từ chương đang đọc trở đi cho tới khi `refreshChaptersQueueInBackground` nạp đủ (~1 s) ⇒ "chương trước" mờ trong lúc đó.
+- `CLAUDE.md` / `AGENTS.md`: thêm câu hàng nút sheet vào đoạn "Widget TTS chỉ một kiểu".
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Đang nghe chương 128 ⇒ mở sheet ⇒ "chương kế" ⇒ toast "Đang chuyển sang …", đọc từ đầu chương 129; tên chương ở đầu sheet đổi theo.
+    2. "Chương trước" ⇒ chương 127.
+    3. Chương đầu / chương cuối ⇒ nút tương ứng mờ, bấm không có tác dụng.
+    4. Đang tạm dừng mà bấm nút chương ⇒ đọc luôn chương mới (như chọn ở mục lục).
+
 ## [1.3.859] - 2026-11-11
 
 ### feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt
