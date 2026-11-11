@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.845",
+          "buildVersion": "1214",
+          "date": "2026-11-11T06:38:15Z",
+          "localizedDescription": "- fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1214/TangCongCac-1.3.845-1214.ipa",
+          "size": 39497613,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.844",
           "buildVersion": "1212",
           "date": "2026-11-11T05:06:30Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1209/TangCongCac-1.3.839-1209.ipa",
           "size": 39438748,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.835",
-          "buildVersion": "1208",
-          "date": "2026-11-11T04:29:07Z",
-          "localizedDescription": "- feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh\n- fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1208/TangCongCac-1.3.835-1208.ipa",
-          "size": 39238975,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.844",
-      "versionDate": "2026-11-11T05:06:30Z",
-      "versionDescription": "- feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương\n- fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo\n- perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự\n- feat: mục lục truyện tranh có nút dịch lại tên chương như Reader",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1212/TangCongCac-1.3.844-1212.ipa",
-      "size": 39488226,
+      "version": "1.3.845",
+      "versionDate": "2026-11-11T06:38:15Z",
+      "versionDescription": "- fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1214/TangCongCac-1.3.845-1214.ipa",
+      "size": 39497613,
       "appPermissions": {}
     }
   ],
