@@ -29,11 +29,14 @@ enum VideoHardSubtitleFrameJob {
     ) -> Result {
         guard let frame = sampler.copyLatestFrame() else { return .noFrame }
         let mask = VideoHardSubtitleBrightMask(pixelBuffer: frame.pixelBuffer, stripTopRatio: VideoHardSubtitleRecognizer.stripTopRatio)
-        if allowsSimilarSkip, let mask, let previousMask, mask.similarity(to: previousMask) >= VideoHardSubtitleBrightMask.similarThreshold {
+        // Xét rỗng TRƯỚC: hai mặt nạ rỗng có Jaccard = 1 ⇒ nếu xét "giống" trước, khung trống sau một khung trống sẽ thành
+        // `.similar` (tracker không được báo trống ⇒ bản dịch cũ treo tới lần đọc lại bắt buộc). Rỗng mà không được bỏ qua
+        // (dò thưa / chữ màu nhạt) ⇒ chạy Vision.
+        if let mask, mask.isNearlyEmpty {
+            if allowsEmptySkip { return .emptyMask(mask, itemSeconds: frame.itemSeconds) }
+        } else if allowsSimilarSkip, let mask, let previousMask,
+                  mask.similarity(to: previousMask) >= VideoHardSubtitleBrightMask.similarThreshold {
             return .similar(itemSeconds: frame.itemSeconds)
-        }
-        if allowsEmptySkip, let mask, mask.isNearlyEmpty {
-            return .emptyMask(mask, itemSeconds: frame.itemSeconds)
         }
         let started = ProcessInfo.processInfo.systemUptime
         do {

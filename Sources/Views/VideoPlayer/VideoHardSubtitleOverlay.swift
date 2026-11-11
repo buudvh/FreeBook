@@ -64,27 +64,33 @@ struct VideoHardSubtitleOverlay: View {
                         .position(x: cover.midX, y: cover.midY)
                 }
                 // Chữ trong suốt chỉ để nền đo đúng cỡ chữ dịch vẽ phía trên.
-                translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth)
-                    .foregroundStyle(.clear)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth, color: .clear, fillsBackground: true)
                     .position(x: centerX, y: centerY)
             }
             .compositingGroup()
             .opacity(Self.backgroundOpacity)
 
-            translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth)
-                .foregroundStyle(.white)
+            translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth, color: .white, fillsBackground: false)
                 .position(x: centerX, y: centerY)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 
-    private func translatedText(_ text: String, fontSize: CGFloat, maxWidth: CGFloat) -> some View {
+    /// Nền gắn **trước** `frame(maxWidth:)` ⇒ ôm sát chữ (gắn sau thì nền rộng bằng cả khung linh hoạt — gần hết màn).
+    private func translatedText(
+        _ text: String,
+        fontSize: CGFloat,
+        maxWidth: CGFloat,
+        color: Color,
+        fillsBackground: Bool
+    ) -> some View {
         Text(text)
             .font(.system(size: fontSize, weight: .semibold))
+            .foregroundStyle(color)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(fillsBackground ? Color.black : Color.clear))
             .frame(maxWidth: maxWidth)
             .fixedSize(horizontal: false, vertical: true)
     }
