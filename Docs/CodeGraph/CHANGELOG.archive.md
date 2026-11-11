@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.818] - 2026-11-10
+
+### feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet
+
+Anh Bửu: *"bạn chưa thêm nút huỷ cho AudioQuickControlSheet à"* + tự sửa hàng dưới của hai sheet điều khiển nhanh, Javis rà + commit chung.
+
+- `AudioQuickControlSheet` (sheet nghe nhạc mở từ đĩa nghe): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên của sheet nghe truyện (1.3.816); chạm ⇒ rung nhẹ + `MediaSleepTimer.cancel()`. Không hẹn ⇒ không có viên.
+- Sửa của anh: nút cuối hàng dưới đổi **"Tắt nhạc" / "Tắt đọc" ⇒ "Dừng"** chữ đỏ ở cả hai sheet; sheet nhạc truyền `tint` cho từng nút như sheet nghe truyện. `actionButton` của sheet nhạc chưa có tham số `tint` (sẽ lỗi biên dịch) ⇒ Javis thêm, chữ + icon theo `tint`.
+- Comment `TTSQuickControlSheet` / `AudioQuickControlSheet` / `MediaDiscSheetHost` theo chữ "Dừng".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.817] - 2026-11-10
 
 ### fix: vạch tiến độ trong sheet nghe truyện chỉ ghi N/M đoạn ở bên phải

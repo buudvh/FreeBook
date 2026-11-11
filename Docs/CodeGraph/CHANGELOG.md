@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.848] - 2026-11-11
+
+### fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)
+
+Anh Bửu đo 1.3.847 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng, nghe hay hơn Nano — nhưng đoạn thứ 36 lỗi `audiocpp_session_run lỗi: runtime error — failed to allocate VieNeu-TTS talker prefill graph`. Anh duyệt: *"sửa A trước rồi đo lại lần nữa"*.
+
+- **Nguyên nhân** (đọc mã audio.cpp `v0.9.4`, `talker.cpp:1212`): `TalkerPrefillGraph` — bước nạp prompt (phiên âm + mã giọng tham chiếu) qua 12 lớp — gọi `ggml_backend_alloc_ctx_tensors`, tức cấp phát **riêng** cho mọi tensor trung gian của cả 12 lớp (điểm attention S×S, MLP…), không tái sử dụng; graph dựng lại mỗi khi độ dài prompt đổi (gần như mỗi đoạn). Đoạn hỏng chính là đoạn đầu của vòng 2 — vòng 1 vẫn chạy được ⇒ không phải đoạn quá dài mà lúc đó app còn ít bộ nhớ trống.
+- **Vá audio.cpp lúc build** (`Scripts/ci/audiocpp_patches/vieneu_prefill_gallocr.py`, gọi từ `build_audiocpp_ios.sh`; sửa theo mốc chuỗi cố định, mốc lệch ⇒ build đỏ): đầu vào + K/V từng lớp + hidden + logits nằm ở context nhỏ riêng cấp phát cố định (kết quả được `ggml_cpy` sang), mọi tensor trung gian còn lại do `ggml_gallocr` cấp phát có tái sử dụng. Phép tính giữ nguyên.
+- **Kiểm không đổi tiếng** (`Scripts/ci/audiocpp_parity_macos.sh`, job `parity` của `audiocpp-ios.yml`): build `audiocpp_cli` macOS bản gốc + bản vá, đọc câu ngắn và câu dài ~4 lần bằng greedy (`do_sample=false`, seed 1, tắt babble guard), so mã âm thanh + WAV từng byte, in RAM tối đa của mỗi bản. Tag audio.cpp tách ra `Scripts/ci/audiocpp_ref.txt`; khoá cache framework (cả `build-ipa.yml`) gồm script + tag + bản vá.
+
 ## [1.3.847] - 2026-11-11
 
 ### fix: màn thử VieNeu Turbo đo Turbo và Nano cùng mức ưu tiên luồng, dừng khi bị ngắt âm thanh
@@ -468,15 +478,4 @@ Anh Bửu (video Khám phá › qidian, kiểu Danh sách): kéo tới cuối, l
 - Tất cả bình luận: đặt cờ đang tải **trước** điểm chờ đầu tiên ⇒ hai lần kích hoạt cùng khung không nối một trang hai lần. (Không lọc trùng theo `id`: id bình luận là `UUID()` mỗi lần bóc tách, lọc không có tác dụng.)
 - Phim đề xuất (`VideoWatchSuggestSection`): hàng vòng xoay giữ 44 pt suốt lúc còn trang (ẩn / hiện bằng độ mờ) ⇒ chiều cao không đổi mỗi lượt; tải trước khi một trong 3 thẻ cuối hiện ra.
 - `CLAUDE.md` / `AGENTS.md`: luật hàng chân id cố định + `token`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.818] - 2026-11-10
-
-### feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet
-
-Anh Bửu: *"bạn chưa thêm nút huỷ cho AudioQuickControlSheet à"* + tự sửa hàng dưới của hai sheet điều khiển nhanh, Javis rà + commit chung.
-
-- `AudioQuickControlSheet` (sheet nghe nhạc mở từ đĩa nghe): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên của sheet nghe truyện (1.3.816); chạm ⇒ rung nhẹ + `MediaSleepTimer.cancel()`. Không hẹn ⇒ không có viên.
-- Sửa của anh: nút cuối hàng dưới đổi **"Tắt nhạc" / "Tắt đọc" ⇒ "Dừng"** chữ đỏ ở cả hai sheet; sheet nhạc truyền `tint` cho từng nút như sheet nghe truyện. `actionButton` của sheet nhạc chưa có tham số `tint` (sẽ lỗi biên dịch) ⇒ Javis thêm, chữ + icon theo `tint`.
-- Comment `TTSQuickControlSheet` / `AudioQuickControlSheet` / `MediaDiscSheetHost` theo chữ "Dừng".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

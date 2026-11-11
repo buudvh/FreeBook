@@ -76,14 +76,15 @@ jobs:
           ${{ runner.os }}-homebrew-xcodegen-
 
     # audio.cpp (ggml) cho engine VieNeu Turbo GGUF: `Scripts/ci/build_audiocpp_ios.sh` dựng
-    # `Vendor/AudioCpp/AudioCpp.xcframework` (project.yml link + embed). Khoá cache = hash của script (tag audio.cpp
-    # nằm trong script) ⇒ chỉ build lại khi script đổi; cùng khoá với workflow `audiocpp-ios.yml`.
+    # `Vendor/AudioCpp/AudioCpp.xcframework` (project.yml link + embed). Khoá cache = hash của script + tag
+    # (`audiocpp_ref.txt`) + bản vá (`audiocpp_patches/`) ⇒ chỉ build lại khi một trong ba đổi; cùng khoá với
+    # workflow `audiocpp-ios.yml`.
     - name: Cache AudioCpp.xcframework
       id: audiocpp-cache
       uses: actions/cache@v4
       with:
         path: Vendor/AudioCpp
-        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh') }}
+        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh', 'Scripts/ci/audiocpp_ref.txt', 'Scripts/ci/audiocpp_patches/**') }}
 
     - name: Build audio.cpp (iOS)
       if: steps.audiocpp-cache.outputs.cache-hit != 'true'

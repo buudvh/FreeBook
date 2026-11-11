@@ -9,13 +9,14 @@
 # Vì sao chỉ CPU: iOS không cho app chạy nền dùng GPU, mà TTS phải đọc được khi khoá màn hình.
 #
 # Biến môi trường (đều có mặc định):
-#   AUDIOCPP_REF   tag/nhánh audio.cpp (mặc định v0.9.4)
+#   AUDIOCPP_REF   tag/nhánh audio.cpp (mặc định đọc Scripts/ci/audiocpp_ref.txt)
 #   OUT_DIR        nơi đặt AudioCpp.xcframework (mặc định Vendor/AudioCpp — project.yml trỏ vào đây)
 #   WORK_DIR       thư mục tạm (mặc định build/audiocpp-ios)
 #   ARM_ARCH       cờ -march cho kernel ggml (mặc định armv8.2-a+dotprod+fp16 = A13 trở lên)
 set -euo pipefail
 
-AUDIOCPP_REF="${AUDIOCPP_REF:-v0.9.4}"
+CI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUDIOCPP_REF="${AUDIOCPP_REF:-$(tr -d '[:space:]' < "$CI_DIR/audiocpp_ref.txt")}"
 OUT_DIR="${OUT_DIR:-Vendor/AudioCpp}"
 WORK_DIR="${WORK_DIR:-build/audiocpp-ios}"
 ARM_ARCH="${ARM_ARCH:-armv8.2-a+dotprod+fp16}"
@@ -35,6 +36,10 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
   https://github.com/0xShug0/audio.cpp.git "$SRC"
 AUDIOCPP_SHA="$(git -C "$SRC" rev-parse HEAD)"
 echo "audio.cpp commit: $AUDIOCPP_SHA"
+
+# Bản vá của app (Scripts/ci/audiocpp_patches/): bước nạp prompt của Turbo tái sử dụng bộ nhớ trung gian. Kiểm cùng
+# mã âm thanh với bản gốc ở job parity của audiocpp-ios.yml (Scripts/ci/audiocpp_parity_macos.sh).
+python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$SRC"
 
 # sentencepiece (vendored) gọi `set_xcode_property` khi CMAKE_SYSTEM_NAME=iOS nhưng macro đó chỉ có trong bộ
 # ios.toolchain.cmake riêng của nó (mình không dùng) ⇒ khai macro rỗng; nó chỉ gắn bundle id cho các tool CLI

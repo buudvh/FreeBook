@@ -2,11 +2,15 @@ name: Build audio.cpp (iOS)
 
 # Dựng riêng AudioCpp.xcframework (Scripts/ci/build_audiocpp_ios.sh) mà không build cả app, không gửi Telegram —
 # để sửa script nhanh. Dùng chung khoá cache với build-ipa.yml nên lượt build app sau đó lấy lại được framework.
+# Job `parity` kiểm bản vá audio.cpp của app (Scripts/ci/audiocpp_patches/) cho đúng mã âm thanh như bản gốc.
 on:
   push:
     branches: [ feature/vieneu-turbo-gguf ]
     paths:
       - 'Scripts/ci/build_audiocpp_ios.sh'
+      - 'Scripts/ci/audiocpp_ref.txt'
+      - 'Scripts/ci/audiocpp_patches/**'
+      - 'Scripts/ci/audiocpp_parity_macos.sh'
       - '.github/workflows/audiocpp-ios.yml'
   workflow_dispatch:
 
@@ -23,7 +27,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: Vendor/AudioCpp
-        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh') }}
+        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh', 'Scripts/ci/audiocpp_ref.txt', 'Scripts/ci/audiocpp_patches/**') }}
 
     - name: Build audio.cpp (iOS)
       if: steps.audiocpp-cache.outputs.cache-hit != 'true'
@@ -35,3 +39,13 @@ jobs:
         name: AudioCpp-xcframework
         path: Vendor/AudioCpp
         if-no-files-found: error
+
+  parity:
+    name: Parity bản vá audio.cpp (macOS CPU)
+    runs-on: macos-15
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Compare patched vs upstream audio.cpp
+      run: bash Scripts/ci/audiocpp_parity_macos.sh
