@@ -11,7 +11,6 @@ struct ReaderSettingsView: View {
     @Binding var isTranslationEnabled: Bool
     @Binding var isPronounsEnabled: Bool
     @Binding var isLuatNhanEnabled: Bool
-    @Binding var shouldConvertTraditionalToSimplified: Bool
     @Binding var showChapterTitle: Bool
     @Binding var removeDuplicatedTitle: Bool
 
@@ -246,20 +245,6 @@ struct ReaderSettingsView: View {
     @ViewBuilder
     private var translationOptions: some View {
         VStack(spacing: 16) {
-            HStack {
-                Text("Văn bản trước khi dịch:")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Picker("Văn bản trước khi dịch", selection: $shouldConvertTraditionalToSimplified) {
-                    Text("Giữ nguyên").tag(false)
-                    Text("Phồn thể → giản thể").tag(true)
-                }
-                .pickerStyle(.menu)
-            }
-            .padding(.horizontal)
-            .padding(.leading, 12)
-
             Toggle("Bật dịch Đại từ (Pronouns)", isOn: $isPronounsEnabled)
                 .font(.subheadline)
                 .padding(.horizontal)

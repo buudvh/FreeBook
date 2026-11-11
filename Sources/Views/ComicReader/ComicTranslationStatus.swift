@@ -27,11 +27,11 @@ enum ComicTranslationStatus {
     }
 
     /// Màn Dịch cho chữ Trung gốc của một khối (1.3.837) — phồn→giản theo truyện, như lớp dịch.
-    static func definitionRequest(for sentence: String, bookId: String) -> ComicDefinitionSheet.Request {
+    static func definitionRequest(for sentence: String, bookId: String, packageId: String) -> ComicDefinitionSheet.Request {
         ComicDefinitionSheet.Request(
             sentence: sentence,
             bookId: bookId,
-            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
+            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
         )
     }
 }

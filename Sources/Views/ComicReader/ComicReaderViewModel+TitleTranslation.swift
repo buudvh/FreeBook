@@ -8,12 +8,18 @@ extension ComicReaderViewModel {
     func translateChapterTitles(enabled: Bool) async {
         guard enabled, !chapters.isEmpty else { return }
         let source = chapters
-        guard let titles = await ComicChapterTitleTranslator.translatedTitles(for: source, bookId: launch.bookId),
+        guard let titles = await ComicChapterTitleTranslator.translatedTitles(
+            for: source,
+            bookId: launch.bookId,
+            packageId: launch.extensionPackageId
+        ),
               !Task.isCancelled else { return }
-        // Chỉ gán cho dòng còn đúng chương đã dịch (cùng chỉ số + tên gốc).
-        let sourceTitles = Dictionary(source.map { ($0.index, $0.title) }, uniquingKeysWith: { first, _ in first })
+        // Chỉ gán cho dòng còn đúng chương đã dịch (cùng chỉ số + tên gốc + bản lưu `titleTrans`, 1.3.845): một lượt cũ về
+        // muộn sau "Dịch lại tên chương" không được đè bản mới.
+        let sourceTitles = Dictionary(source.map { ($0.index, ($0.title, $0.titleTrans)) }, uniquingKeysWith: { first, _ in first })
         chapters = chapters.map { entry in
-            guard sourceTitles[entry.index] == entry.title, let title = titles[entry.index] else { return entry }
+            guard let origin = sourceTitles[entry.index], origin.0 == entry.title, origin.1 == entry.titleTrans,
+                  let title = titles[entry.index] else { return entry }
             var updated = entry
             updated.translatedTitle = title
             return updated

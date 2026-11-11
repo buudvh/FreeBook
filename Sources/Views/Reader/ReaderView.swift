@@ -423,7 +423,6 @@ struct ReaderView: View {
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
-                shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
                 showChapterTitle: $showChapterTitle,
                 removeDuplicatedTitle: $removeDuplicatedTitle,
                 packageId: localBook?.extensionPackageId ?? "",
@@ -517,7 +516,6 @@ struct ReaderView: View {
             ttsManager.updateTranslationSetting(for: bookId, enabled: newValue)
         }
         .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")
             ttsManager.updateTraditionalToSimplifiedSetting(for: bookId, enabled: newValue)
             viewModel?.setTraditionalToSimplifiedConversion(enabled: newValue)
             chapterListStore?.updateTranslation(
@@ -558,6 +556,7 @@ struct ReaderView: View {
             let targetPkgId = localBook?.extensionPackageId ?? extensionPackageId
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
             if isTranslationEnabled != newState { isTranslationEnabled = newState }
+            refreshTraditionalConversion()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("reopenReaderAI"))) { notification in
             guard (notification.userInfo?["bookId"] as? String) == bookId else { return }
@@ -917,6 +916,7 @@ struct ReaderView: View {
             if isTranslationEnabled != newEnabled {
                 isTranslationEnabled = newEnabled
             }
+            refreshTraditionalConversion()
         }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
             ReaderEnergyDiagnostics.shared.flush(reason: "thermal_change")
@@ -1084,10 +1084,7 @@ struct ReaderView: View {
             removeDuplicatedTitle = true
         }
 
-        let conversionKey = "convertTraditionalToSimplified_\(bookId)"
-        shouldConvertTraditionalToSimplified = UserDefaults.standard.object(forKey: conversionKey) != nil
-            ? UserDefaults.standard.bool(forKey: conversionKey)
-            : false
+        refreshTraditionalConversion() // ba cấp truyện ⇒ nguồn ⇒ Tất cả (1.3.845)
 
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
         searchEngines = SearchEngine.loadEngines()

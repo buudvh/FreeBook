@@ -155,7 +155,13 @@ enum LocalComicImporter {
                 url: url,
                 index: chapter.id,
                 host: nil,
-                titleTrans: TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
+                titleTrans: TranslateUtils.translateChapterTitle(
+                    chapter.title,
+                    bookId: bookId,
+                    shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(
+                        bookId: bookId, packageId: LocalMediaPackage.comicPackageId
+                    )
+                )
             ))
             await progress(chapter.id + 1, total)
         }

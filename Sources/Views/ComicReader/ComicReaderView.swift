@@ -229,7 +229,7 @@ struct ComicReaderView: View {
                                 onSingleTap: toggleChrome,
                                 onDoubleTap: { openZoom($0, request: request) },
                                 onOpenDefinition: {
-                                    definitionRequest = ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId)
+                                    definitionRequest = ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId, packageId: launch.extensionPackageId)
                                 }
                             )
                             .id(index)
@@ -295,7 +295,7 @@ struct ComicReaderView: View {
         ComicZoomScreen(
             target: target,
             translation: imageTranslationContext,
-            makeDefinitionRequest: { ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId) },
+            makeDefinitionRequest: { ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId, packageId: launch.extensionPackageId) },
             onClose: { zoomTarget = nil },
             onDefinitionClosed: refreshTranslations
         )
@@ -324,7 +324,7 @@ struct ComicReaderView: View {
         guard isTranslationEnabled else { return nil }
         return ComicImageTranslationContext(
             bookId: launch.bookId,
-            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId),
+            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId, packageId: launch.extensionPackageId),
             revision: imageTranslationRevision
         )
     }

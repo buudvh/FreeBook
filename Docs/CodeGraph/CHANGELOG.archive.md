@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.815] - 2026-11-10
+
+### fix: đĩa góc giống y nút +, bìa mờ đúng theo độ trong suốt, nhấn giữ thì đĩa nằm trong header như một nút header
+
+Anh Bửu thử 1.3.814: (1) đĩa góc "độ trong suốt chưa đúng" — phải **giống y như các nút +**, bìa cũng theo trong suốt, **bỏ sàn 45%**; (2) nhấn giữ thì đĩa 52 pt đè nút ⋯ và tràn xuống dưới header — phải **nằm trong header, như một nút header** (anh duyệt mockup).
+
+- **Đĩa góc** (`MediaDiscFaceButton(.corner)`): nền kính `FloatingGlassBackground` 52 pt y nút "+" (Độ trong suốt + Độ đục); bìa thu còn **32 pt** nằm trong như icon, hiện `1 − độ trong suốt` (không sàn: mặc định 90% ⇒ 10%, 100% ⇒ trong hẳn). Mờ gắn lên lớp bìa, không lên lớp cha của kính.
+- **Nhấn giữ ⇒ vào header** (`MediaDiscHeaderSlot`, file mới): bìa 32 pt giữa hàng nút, ngay trái cụm nút phải, dò theo thứ tự: neo mới `.headerTrailing` (cụm nút phải của header tự dựng: Reader, nút ☰ màn truyện tranh; khe 6 pt) → `UINavigationBar` đang hiện của tầng trên cùng (mép trái nhỏ nhất của các view nằm hẳn ở nửa phải thanh, khe 2 pt; chỉ đọc khung + cờ hiện, không dựa tên lớp riêng của iOS) → góc phải dải 44 pt dưới thanh trạng thái. Kính tan dần + bìa rõ hẳn + viền mảnh như đĩa thanh tab (`MediaDiscWindowManager.isDiscElevated`); vùng chạm chỉ còn tròn 38 pt (`MediaDiscWindow.hitTest`) để không lấn nút header bên cạnh. Log ghi nguồn chỗ đã dùng. Bỏ `MediaDiscPlacement.elevatedFrame`; `mainWindow` / `topLayer` / `validFrame` mở cho `MediaDiscHeaderSlot` dùng chung; neo `.headerTrailing` không dự phần chỗ ở góc dưới.
+- `CLAUDE.md` / `AGENTS.md` theo dáng + chỗ mới.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — phần đo nút trên `UINavigationBar` là rủi ro chính (đo hỏng ⇒ đĩa về góc phải vùng header).
+
 ## [1.3.814] - 2026-11-10
 
 ### fix: nhấn giữ đĩa góc lên header được, bìa đĩa góc mờ theo nút nổi, đĩa thanh tab 44 pt có gờ, đĩa không đè menu xổ

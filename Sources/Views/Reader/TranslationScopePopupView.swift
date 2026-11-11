@@ -11,6 +11,7 @@ import SwiftUI
 /// Bộ dịch + ngôn ngữ lưu **theo phạm vi đang chọn**; đổi phạm vi ⇒ nạp lựa chọn đã lưu của phạm vi đó
 /// (`TranslationEngineDraft`). Model / kiểu dịch là cài đặt riêng của tiện ích (màn Cấu hình tiện ích), ở đây chỉ hiện.
 /// Màn không dùng bộ dịch (truyện tranh) truyền `showsEngineSection: false` ⇒ không có BỘ DỊCH / NGÔN NGỮ.
+/// Hàng Phồn → giản (1.3.845) lưu theo phạm vi đang chọn + tự dịch lại tên chương — `TranslationTraditionalDraft`.
 ///
 /// Công tắc hiện trạng thái **hiệu lực của truyện**, nên "Lưu lại" chỉ ghi nó vào phạm vi đang chọn khi người dùng
 /// thật sự gạt nó trong lần mở này — đổi sang "Nguồn này" chỉ để chọn bộ dịch không được tắt dịch cả nguồn.
@@ -38,6 +39,8 @@ struct TranslationScopePopupView: View {
     @State private var catalogErrors: [String: String] = [:]
     /// Tăng khi bấm "Thử lại" ở hàng ngôn ngữ ⇒ `task(id:)` đọc lại danh sách của tiện ích đang chọn.
     @State private var catalogReloadToken = 0
+    @State private var traditionalDraft: TranslationTraditionalDraft
+    @Environment(\.modelContext) private var modelContext
 
     init(
         bookId: String,
@@ -68,6 +71,7 @@ struct TranslationScopePopupView: View {
         let initialScope = Self.availableScope(bookId: bookId, packageId: packageId)
         _selectedScope = State(initialValue: initialScope)
         _engineDraft = State(initialValue: TranslationEngineDraft.load(scope: initialScope, bookId: bookId, packageId: packageId))
+        _traditionalDraft = State(initialValue: TranslationTraditionalDraft(bookId: bookId, packageId: packageId))
     }
 
     /// Phạm vi mặc định theo tham số màn gọi — chỉ chọn cấp **đang tồn tại**.
@@ -138,6 +142,8 @@ struct TranslationScopePopupView: View {
                     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
                 }
             }
+
+            TranslationTraditionalToggleRow(isOn: Binding(get: { traditionalDraft.isOn }, set: { traditionalDraft.set($0) }))
 
             if showsEngineSection {
                 // Hàng 3: Bộ dịch của phạm vi đang chọn (danh sách xổ tại chỗ)
@@ -363,6 +369,7 @@ struct TranslationScopePopupView: View {
             // Chỉ ghi khi bộ dịch đổi: mỗi lần ghi là một lượt dựng lại chương ở Reader/TTS.
             engineDraft.save(scope: effectiveScope, bookId: bookId, packageId: packageId)
         }
+        traditionalDraft.commit(scope: effectiveScope, bookId: bookId, packageId: packageId, context: modelContext)
         clearFallbackStatusIfStale(engineBefore: engineBefore)
         onDone()
     }

@@ -150,6 +150,10 @@ struct MainTabView: View {
         .task(priority: .utility) {
             _ = await StorageAutoCleanupCoordinator.runIfDue(container: modelContext.container)
         }
+        // Một lần sau 1.3.845: truyện đang bật phồn → giản dịch lại tên chương theo luật mới (bản lưu qua bước chuyển).
+        .task(priority: .utility) {
+            await ChapterTitleConvertMigration.runIfNeeded(container: modelContext.container)
+        }
         // Có bản app mới không (`apps.json` của nguồn LiveContainer): mở app là kiểm, không giãn cách (1.3.732).
         .task(priority: .utility) {
             await AppUpdateRepository.shared.checkOnLaunch()

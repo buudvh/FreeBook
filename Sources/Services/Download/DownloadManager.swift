@@ -417,7 +417,7 @@ public final class DownloadManager: ObservableObject {
             let skipUncached = exportFormat != nil && task.onlyExportCached
             let bookContext = SourceRuntimeContext(bookId: bookId, bookUrl: bgBook.detailUrl, bookName: bgBook.title, bookAuthor: bgBook.author)
             // Phồn→giản của truyện áp cho cả tên chương lẫn nội dung xuất — đọc một lần cho cả tác vụ.
-            let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
+            let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
             var processedCount = 0
 
             let tally = try await acquireChaptersInOrder(

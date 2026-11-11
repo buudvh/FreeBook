@@ -166,17 +166,16 @@ struct BookDetailView: View {
         return TranslateUtils.translateChapterTitle(
             text,
             bookId: actualBookId,
-            shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId)
+            shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId, packageId: extensionPackageId)
         )
     }
 
     /// Tên chương của mục lục đã lưu — cùng luật với sheet mục lục Reader (`BackgroundPagingWorker`): tắt dịch ⇒ tên gốc;
-    /// bật phồn→giản ⇒ dịch sống từ tên gốc (bản lưu `titleTrans` là bản **không** chuyển); có bản lưu ⇒ dùng nó (còn
-    /// chữ Hán thì dịch tiếp); không có ⇒ dịch sống.
+    /// có bản lưu ⇒ dùng nó, kể cả khi bật phồn→giản (bản lưu đã qua bước chuyển, 1.3.845; còn chữ Hán thì dịch tiếp);
+    /// không có ⇒ dịch sống (có chuyển phồn→giản nếu bật).
     internal func displayTitle(for chap: StoredChapterSnapshot) -> String {
         guard isTranslationEnabled else { return chap.title }
-        if !TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
-           let trans = chap.titleTrans, !trans.isEmpty {
+        if let trans = chap.titleTrans, !trans.isEmpty {
             return translateTitleIfNeeded(trans)
         }
         return translateTitleIfNeeded(chap.title)
@@ -1005,12 +1004,13 @@ struct BookDetailView: View {
                     let title: String
                 }
                 let items = toTranslate.map { Item(index: $0.index, url: $0.url, title: $0.title) }
+                let converts = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: targetBookId, packageId: extensionPackageId)
 
                 let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .utility) {
                     var list: [(index: Int, url: String, titleTrans: String)] = []
                     for item in items {
                         if Task.isCancelled { break }
-                        let trans = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                        let trans = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId, shouldConvertTraditionalToSimplified: converts)
                         list.append((index: item.index, url: item.url, titleTrans: trans))
                     }
                     return list

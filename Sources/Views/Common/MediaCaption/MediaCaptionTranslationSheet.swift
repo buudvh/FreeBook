@@ -139,7 +139,7 @@ struct MediaCaptionTranslationSheet: View {
         } header: {
             SectionHelpHeader("Phồn → giản", texts: [
                 Text("Đổi chữ phồn thể sang giản thể trước khi dịch \(medium.contentNoun) (mặc định tắt)."),
-                Text("Chỉ áp cho phim và nhạc; trình đọc truyện chữ giữ cài đặt riêng của nó.")
+                Text("Cùng công tắc với popup dịch của truyện chữ / truyện tranh: phim / album này ⇒ nguồn ⇒ Tất cả.")
             ])
         }
     }

@@ -195,7 +195,13 @@ enum LocalVideoImporter {
                 url: url,
                 index: episode.id,
                 host: nil,
-                titleTrans: TranslateUtils.translateChapterTitle(episode.title, bookId: bookId)
+                titleTrans: TranslateUtils.translateChapterTitle(
+                    episode.title,
+                    bookId: bookId,
+                    shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(
+                        bookId: bookId, packageId: LocalMediaPackage.videoPackageId
+                    )
+                )
             ))
             await progress(episode.id + 1, total)
         }

@@ -235,7 +235,7 @@ extension BookDetailView {
         let key = BookDetailOnlineTOCIndex.Key(
             generation: TranslateUtils.translationGenerationToken(for: actualBookId),
             bookId: actualBookId,
-            convertsTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
+            convertsTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId, packageId: extensionPackageId),
             source: onlineChapters
         )
         if let titles = onlineTitleIndex.titles(for: key) { return titles }

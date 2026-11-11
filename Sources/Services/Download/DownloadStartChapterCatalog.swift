@@ -43,7 +43,7 @@ enum DownloadStartChapterCatalog {
         let skipsSections = contentKind.isMedia
         let mediaDownloaded = downloadedMediaIndexes(bookId: bookId, contentKind: contentKind)
         let translates = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
-        let convertsTraditional = UserDefaults.standard.bool(forKey: "convertTraditionalToSimplified_\(bookId)")
+        let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
         var result: [AINameScanChapter] = []
         result.reserveCapacity(toc.count)
         // Số thứ tự như mục lục Chi tiết/Reader/comic: đếm chương thường, dòng tiêu đề nhóm không chiếm số.

@@ -30,7 +30,7 @@ public actor BackgroundSearchWorker {
                     guard !trimmedUrl.isEmpty else { continue }
                     let displayTitle: String
                     if isTranslationEnabled {
-                        if !shouldConvertTraditionalToSimplified, let trans = chap.titleTrans, !trans.isEmpty {
+                        if let trans = chap.titleTrans, !trans.isEmpty { // bản lưu đã qua phồn→giản của truyện (1.3.845)
                             displayTitle = trans
                         } else if TranslateUtils.containsChinese(chap.title) {
                             displayTitle = TranslateUtils.translateChapterTitle(
@@ -75,7 +75,7 @@ public actor BackgroundSearchWorker {
                 guard !trimmedUrl.isEmpty else { return nil }
                 let displayTitle: String
                 if isTranslationEnabled {
-                    if !shouldConvertTraditionalToSimplified, let trans = chap.titleTrans, !trans.isEmpty {
+                    if let trans = chap.titleTrans, !trans.isEmpty { // bản lưu đã qua phồn→giản của truyện (1.3.845)
                         displayTitle = trans
                     } else if TranslateUtils.containsChinese(chap.title) {
                         displayTitle = TranslateUtils.translateChapterTitle(

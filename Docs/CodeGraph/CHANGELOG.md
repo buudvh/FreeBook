@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.845] - 2026-11-11
+
+### fix: phồn → giản thành bước chuyển trước khi dịch, title_trans luôn dùng được, chỉnh phồn → giản ở popup dịch theo phạm vi
+
+Anh Bửu: bấm "Dịch lại tên chương" ở truyện tranh thì hiện bản mới rồi về bản cũ — tắt phồn → giản thì không bị; *"Phồn chỉ là bước chuyển đổi trước khi dịch thôi. Logic hiện tại đang có vấn đề"*. Duyệt cách B (tự dịch lại khi đổi phồn → giản + một lượt lúc mở app), *"đem phồn giản vào popup bật tắt dịch"*, phồn → giản **theo phạm vi** đang chọn, bỏ hàng phồn → giản ở hai màn cài đặt.
+
+- **Nguyên nhân:** `title_trans` luôn được dịch **không** chuyển phồn → giản (`BookActionRunner.retranslateChapterTitles`, Chi tiết tự điền tên trống, nhập file), nên mọi danh sách (mục lục / tìm chương Reader, mục lục Chi tiết, truyện tranh) **bỏ qua** `title_trans` khi truyện bật phồn → giản và dịch sống. Truyện tranh còn nháy: nạp lại hiện `title_trans` một thoáng rồi bản dịch sống về.
+- **Ghi:** `ChapterTitleRetranslator` (mới, `Services/ChapterText/`) — chỗ duy nhất dịch lại tên chương: chuyển phồn → giản theo cấu hình của truyện **rồi** dịch (`translateChapterTitle`, có rule tên chương), ghi `title_trans`, báo `chapterTitlesDidRetranslate`. `BookActionRunner` chỉ còn kiểm từ điển + toast. Chi tiết tự điền tên trống và nhập truyện tranh / phim từ file cũng dịch có chuyển.
+- **Hiện:** `BackgroundPagingWorker`, `BackgroundSearchWorker`, `BookDetailView.displayTitle(for:)`, `ComicChapterTitleTranslator` **luôn ưu tiên** `title_trans` (kể cả khi bật phồn → giản); không có thì dịch sống có chuyển. Lượt dịch tên chương của truyện tranh chỉ ghi khi tên gốc **và** `title_trans` còn khớp lúc bắt đầu (lượt cũ về muộn không đè bản mới).
+- **Ba cấp phồn → giản** (`TranslationConfigStore`): truyện này (khoá cũ `convertTraditionalToSimplified_<bookId>`, vắng = theo nguồn) ⇒ nguồn (`sourceTraditionalOverride` ba trạng thái — dict cũ của phim / nhạc, thêm giá trị `false`) ⇒ Tất cả (`globalConvertsTraditional`, khoá mới, mặc định tắt). Một hàm đọc `convertsTraditionalToSimplified(bookId:packageId:)` cho **mọi** chỗ (Reader, TTS, tải / xuất, chọn chương tải, Chi tiết, truyện tranh, phụ đề / lời); bản chỉ có `bookId` và các chỗ đọc thẳng khoá `UserDefaults` (TTS, chọn chương tải, Reader) đã bỏ.
+- **Popup dịch** (`TranslationScopePopupView`): hàng **Phồn → giản** (`TranslationTraditionalToggleRow`) dưới Phạm vi áp dụng; hiện giá trị đang hiệu lực, "Lưu lại" chỉ ghi khi đã gạt, ghi vào **phạm vi đang chọn** (Truyện này / Nguồn này / Tất cả) — `TranslationTraditionalDraft`. Ghi xong ⇒ tự dịch lại tên chương mọi truyện đã lưu có phồn → giản hiệu lực vừa đổi (toast "Đang dịch lại tên chương…"; từ điển chưa nạp ⇒ bỏ lượt).
+- **Bỏ** hàng "Văn bản trước khi dịch" ở Cài đặt trình đọc (`ReaderSettingsView`) và Cài đặt dịch truyện tranh. Reader đọc phồn → giản qua `refreshTraditionalConversion()` (mới, `ReaderView+TraditionalConversion`) lúc mở truyện và mỗi khi cấu hình dịch đổi; **không** ghi ngược khoá theo truyện (ghi ngược sẽ biến giá trị kế thừa thành đặt riêng).
+- **Một lần sau khi cập nhật:** `ChapterTitleConvertMigration` (mới, gọi từ `MainTabView`, hoãn 20 s, chờ từ điển) dịch lại tên chương của mọi truyện đang bật phồn → giản theo luật mới; xong mới ghi cờ.
+- Sheet Dịch phụ đề / Dịch lời: dòng giải thích phồn → giản đổi cho đúng (cùng công tắc với popup dịch). Cấp nguồn của sheet đó vẫn hai trạng thái (Tắt = theo Tất cả).
+- `CLAUDE.md` / `AGENTS.md`: luật `title_trans` + phồn → giản ở mục Dịch thuật.
+- **Kiểm chứng:** đọc code + grep chéo mọi chỗ gọi `convertsTraditionalToSimplified` / khoá `convertTraditionalToSimplified_`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ReaderView` 1942, `TTSManager`, `BookDetailView` không tăng dòng; popup 394). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) truyện bật phồn → giản: Dịch lại tên chương ⇒ tên mới ở lại; (2) popup: bật phồn → giản ở Truyện này / Nguồn này ⇒ toast + tên chương đổi; (3) Reader đổi phồn → giản qua popup ⇒ nội dung + mục lục đổi theo; (4) lần mở app đầu: log `📚 [ChapterTitle] Dịch lại tên chương một lần…`. Chưa làm: trang Chi tiết đang mở không tự nạp lại tên sau lượt dịch lại nền (mở lại là thấy).
+
 ## [1.3.844] - 2026-11-11
 
 ### feat: mục lục truyện tranh có nút dịch lại tên chương như Reader
@@ -463,14 +480,3 @@ Anh Bửu: *"thêm nút huỷ ngay bên cạnh đếm giờ của sheet nghe tru
 
 - `TTSQuickControlSheet` (sheet điều khiển nhanh mở từ đĩa nghe TTS): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên "Hủy" của `TTSQuickTimerHeader`; chạm ⇒ rung nhẹ + `TTSManager.cancelSleepTimer()`, viên thu lại. Không hẹn ⇒ không có viên. Vùng chạm cao 44 pt; VoiceOver "Hủy hẹn giờ tắt".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.815] - 2026-11-10
-
-### fix: đĩa góc giống y nút +, bìa mờ đúng theo độ trong suốt, nhấn giữ thì đĩa nằm trong header như một nút header
-
-Anh Bửu thử 1.3.814: (1) đĩa góc "độ trong suốt chưa đúng" — phải **giống y như các nút +**, bìa cũng theo trong suốt, **bỏ sàn 45%**; (2) nhấn giữ thì đĩa 52 pt đè nút ⋯ và tràn xuống dưới header — phải **nằm trong header, như một nút header** (anh duyệt mockup).
-
-- **Đĩa góc** (`MediaDiscFaceButton(.corner)`): nền kính `FloatingGlassBackground` 52 pt y nút "+" (Độ trong suốt + Độ đục); bìa thu còn **32 pt** nằm trong như icon, hiện `1 − độ trong suốt` (không sàn: mặc định 90% ⇒ 10%, 100% ⇒ trong hẳn). Mờ gắn lên lớp bìa, không lên lớp cha của kính.
-- **Nhấn giữ ⇒ vào header** (`MediaDiscHeaderSlot`, file mới): bìa 32 pt giữa hàng nút, ngay trái cụm nút phải, dò theo thứ tự: neo mới `.headerTrailing` (cụm nút phải của header tự dựng: Reader, nút ☰ màn truyện tranh; khe 6 pt) → `UINavigationBar` đang hiện của tầng trên cùng (mép trái nhỏ nhất của các view nằm hẳn ở nửa phải thanh, khe 2 pt; chỉ đọc khung + cờ hiện, không dựa tên lớp riêng của iOS) → góc phải dải 44 pt dưới thanh trạng thái. Kính tan dần + bìa rõ hẳn + viền mảnh như đĩa thanh tab (`MediaDiscWindowManager.isDiscElevated`); vùng chạm chỉ còn tròn 38 pt (`MediaDiscWindow.hitTest`) để không lấn nút header bên cạnh. Log ghi nguồn chỗ đã dùng. Bỏ `MediaDiscPlacement.elevatedFrame`; `mainWindow` / `topLayer` / `validFrame` mở cho `MediaDiscHeaderSlot` dùng chung; neo `.headerTrailing` không dự phần chỗ ở góc dưới.
-- `CLAUDE.md` / `AGENTS.md` theo dáng + chỗ mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — phần đo nút trên `UINavigationBar` là rủi ro chính (đo hỏng ⇒ đĩa về góc phải vùng header).

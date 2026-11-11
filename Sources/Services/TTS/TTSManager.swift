@@ -834,8 +834,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
         let packageId = translationPackageId ?? extensionInfo?.packageId
         let isTransEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
-        let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
-            forKey: "convertTraditionalToSimplified_\(bookId)"
+        let shouldConvertTraditionalToSimplified = TranslationConfigStore.shared.convertsTraditionalToSimplified(
+            bookId: bookId, packageId: packageId ?? ""
         )
 
         let preparedKey = TTSPreparedChapterKey(
@@ -934,8 +934,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let isTransEnabled = translationEnabled
             ?? TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: sessionTranslationPackageId)
         self.sessionTranslationEnabled = isTransEnabled
-        let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
-            forKey: "convertTraditionalToSimplified_\(bookId)"
+        let shouldConvertTraditionalToSimplified = TranslationConfigStore.shared.convertsTraditionalToSimplified(
+            bookId: bookId, packageId: sessionTranslationPackageId ?? ""
         )
         self.sessionShouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.playingBookId = bookId
