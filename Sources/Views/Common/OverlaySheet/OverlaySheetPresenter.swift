@@ -53,12 +53,14 @@ final class OverlaySheetPresenter: ObservableObject {
         return true
     }
 
-    /// Đóng sheet rồi mới chạy `action`; không có sheet ⇒ chạy luôn.
+    /// Đóng sheet rồi mới chạy `action`; không có sheet ⇒ chạy luôn. Sheet **đang đóng** (chạm dòng thứ hai trong lúc
+    /// sheet trượt xuống) ⇒ bỏ qua, kẻo việc chạy hai lần.
     func dismiss(then action: (() -> Void)? = nil) {
-        guard request != nil else {
+        guard isBusy else {
             action?()
             return
         }
+        guard request != nil else { return }
         afterDismiss = action
         request = nil
     }

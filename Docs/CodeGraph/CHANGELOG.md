@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.869] - 2026-11-11
+
+### feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên
+
+Anh Bửu: "để cho nút + ở chi tiết sẽ mở ra sheet như sheet hub vậy" (đã duyệt mockup + plan).
+
+- **Sheet hành động kiểu hub** dùng chung (mới, `Views/Common/HubStyleSheet/`): `HubStyleActionSheetContent` (tiêu đề + chú thích phải + các dòng: icon, tên, dòng phụ, màu icon, `›`, việc làm), `HubStyleActionSheet` (khuôn sheet hub: nền kính ngăn kéo, bo 16, cao vừa nội dung, vuốt xuống để đóng, nền tối), `HubStyleActionSheetRow` (khuôn dòng của sheet hub: ô bo góc `hubSheetPanelRow`, cao 56) và `.hubStyleActionSheet(_:)` — trình bày qua `OverlaySheetPresenter` ⇒ nằm **trên** mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm việc; không trình bày được ⇒ lùi về sheet thường của màn (log `[HubStyleSheet]`).
+- **Chi tiết truyện** (`BookDetailFloatingActions`): nút "+" là nút tròn thường, chạm ⇒ sheet: dòng đầu tên truyện (bản đang hiện) + "Ch. N/tổng" (truyện chưa lưu ⇒ "N chương"); Đọc ngay / Đọc tiếp (Đọc tiếp kèm tên chương sẽ mở, cùng luật tên chương của tab Mục lục), Thêm vào kệ / Đã ở kệ (icon xanh, "Chạm để bỏ khỏi kệ"), Tải, Xuất, "Về trang gốc" dưới cùng khi trang có Home. Thuộc tính `floatingActionButton` chuyển sang `BookDetailView+FloatingActions` (file legacy ngắn đi 23 dòng).
+- `OverlaySheetPresenter.dismiss(then:)`: chạm dòng thứ hai lúc sheet đang trượt xuống ⇒ bỏ qua (trước đó việc chạy luôn ⇒ hai lần).
+- `CLAUDE.md` / `AGENTS.md`: mục Nút Home nổi + luật sheet trên viên thuốc.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: Chi tiết truyện đã lưu ⇒ "+" ⇒ sheet có tên + "Ch. N/tổng", "Đọc tiếp" có tên chương; chạm từng dòng (đọc, bỏ / thêm kệ, tải, xuất, về trang gốc) ⇒ sheet đóng rồi làm đúng việc; đĩa nghe / hub vẫn thấy dưới lớp tối của sheet; truyện chưa lưu ⇒ "N chương", "Đọc ngay"; Chi tiết mở trong Reader ⇒ không có dòng "Về trang gốc".
+
 ## [1.3.868] - 2026-11-11
 
 ### feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe
@@ -524,51 +539,4 @@ Anh Bửu thử 1.3.830: *"Dịch phụ đề cứng … ra nghĩa gì tầm b�
 - Chưa làm: chạm phụ đề mở màn Dịch (dùng lại sheet của truyện tranh, để sau); giảm trễ / nhớ câu theo thời điểm / quét trước tập đã tải (chờ anh chốt). Không đọc trước được khung của luồng đang phát.
 - `CLAUDE.md` / `AGENTS.md`: viết lại gạch "Đọc phụ đề cứng (OCR)". Chuyển `[1.3.810]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoHardSubtitleEngine.swift` 361 dòng, `VideoPlayerScreen.swift` 385, `VideoPlayerTopBar.swift` 356). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề Trung tách vế bằng dấu cách — bản dịch đọc hiểu được, đặt Song ngữ để so chữ Trung OCR với chữ trong phim; (2) tắt dịch ở sheet "Dịch phụ đề" ⇒ lớp dịch biến mất, phụ đề mềm (nếu có) hiện lại, bật lại ⇒ dịch ngay; (3) thêm name ở "Từ điển truyện" ⇒ câu đang hiện đổi theo; (4) gửi log `🔤 [VideoOCR]`.
-
-## [1.3.839] - 2026-11-11
-
-### feat: chọn bộ dịch tiện ích và ngôn ngữ trong popup dịch, màn cấu hình tiện ích dịch có model, kiểu dịch, dịch thử
-
-Phần C (giao diện) của plan tiện ích dịch truyện, gộp commit gốc và bản sửa theo review phản biện. Bộ dịch chỉ chọn ở popup dịch, không thêm vào Cài đặt (anh Bửu chốt).
-
-**Popup dịch** (`TranslationScopePopupView`: header Reader, Chi tiết, menu Khám phá). Thứ tự: Dịch văn bản → PHẠM VI ÁP DỤNG → **BỘ DỊCH** → **NGÔN NGỮ** → hàng báo QT thay thế → Lưu lại.
-- **Bộ dịch** (`TranslationEnginePickerSection`, mới):
-  - Danh sách xổ tại chỗ, có icon. Không dùng `Menu` hệ thống vì iOS đặt ảnh cuối dòng và tô một màu.
-  - Thứ tự: "Theo cấp trên (…)" (chỉ ở phạm vi Truyện này / Nguồn này; tiện ích cấp trên đã gỡ ⇒ ghi "đã gỡ — đang dùng QT") → "QT (VietPhrase, có sẵn)" với icon app → tiện ích dịch đã cài.
-  - Chưa cài tiện ích dịch nào ⇒ dòng "Chưa cài tiện ích dịch nào".
-- **Ngôn ngữ** (`TranslationLanguagePickerRow`, mới):
-  - Ô Dịch từ → Dịch sang theo `language.js`, có "Tự nhận" nếu tiện ích hỗ trợ. Dòng phụ ghi model · kiểu dịch.
-  - Đang đọc ⇒ vòng xoay; lỗi ⇒ chữ đỏ + "Thử lại".
-  - QT ⇒ hai ô mờ, ghi "QT chỉ dịch Trung → Việt".
-- **Bản nháp** (`TranslationEngineDraft`, mới): mỗi phạm vi một bản nháp, nhớ cặp ngôn ngữ theo từng tiện ích. Chọn tiện ích mới ⇒ cặp mặc định (Trung → Việt nếu có).
-- **Lưu lại**:
-  - Chỉ ghi bộ dịch khi nó thật sự đổi.
-  - Chỉ ghi công tắc bật/tắt khi người dùng gạt nó. Trước bản sửa: đổi phạm vi sang "Nguồn này" để chọn bộ dịch rồi Lưu là tắt dịch cả nguồn.
-  - Khoá khi tiện ích vừa chọn chưa có cặp ngôn ngữ (đang đọc hoặc đọc lỗi).
-- **Báo QT thay thế** (`TranslationFallbackNoticeRow`, mới): dùng chung chữ với dải báo đầu chương, có nút "Thử lại".
-- **Ẩn ở truyện tranh**: tham số `showsEngineSection`; `ComicReaderChromeView` truyền `false` vì bộ dịch tiện ích không áp cho truyện tranh.
-
-**Nút dịch** (`ReaderTranslationScopeMenuView`): nhận `chapterIndex`. Chương đang hiện có báo QT thay thế ⇒ chấm cam "!" ở góc dưới phải (chấm xanh/đỏ góc trên giữ nguyên).
-
-**Màn Cấu hình tiện ích loại `translate`** (`ExtensionConfigView+TranslateEngine`, mới):
-- Ẩn nút Trình duyệt / Kiểm tra, mục Duyệt và lịch sử, chặn quảng cáo / chế độ máy tính.
-- Mục **Bộ dịch**: Model / Kiểu dịch, đầu danh sách là "Mặc định của tiện ích"; ghi ngay qua `TranslationExtensionSettingsStore`.
-- Mục **Dịch thử**:
-  - Ngôn ngữ chỉ dùng để thử, không lưu.
-  - Ô nhập (để trống ⇒ dịch câu mẫu).
-  - Nút "Dịch thử" luôn gọi script (`bypassCache`).
-  - Ghi config đang chờ (khoá API) trước khi chạy.
-
-**Tài liệu**: `CLAUDE.md` / `AGENTS.md` thêm đoạn "Bộ dịch bằng tiện ích loại `translate`" ở mục Dịch thuật.
-
-**Kiểm chứng:**
-- Đọc code + 2 agent review phản biện.
-- `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**. 5 file mới; `TranslationScopePopupView` 387 dòng.
-- Không build tại chỗ (Windows), chưa thử máy.
-- Cần thử:
-  1. Xổ / thu danh sách bộ dịch: popover có giãn theo nội dung không.
-  2. Chọn tiện ích ⇒ ngôn ngữ mặc định. Đổi phạm vi ⇒ nạp đúng lựa chọn đã lưu.
-  3. Truyện tắt dịch riêng ⇒ chọn bộ dịch ở "Nguồn này" ⇒ nguồn vẫn bật dịch.
-  4. Chấm cam + hàng báo + Thử lại.
-  5. Dịch thử ngay sau khi nhập khoá API.
 

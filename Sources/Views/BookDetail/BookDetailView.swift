@@ -649,29 +649,6 @@ struct BookDetailView: View {
 
 
 
-    /// Nút "+" nổi + menu xổ (Đọc / kệ / Tải / Xuất / Về trang gốc) — `BookDetailFloatingActions`.
-    private var floatingActionButton: some View {
-        BookDetailFloatingActions(
-            hasChapters: totalChaptersCount > 0,
-            readTitle: readActionTitle(isResuming: localBook != nil),
-            readSystemImage: localBook == nil ? "play.fill" : "book.fill",
-            isOnShelf: localBook?.isOnShelf == true,
-            downloadTitle: downloadActionTitle,
-            exportTitle: showsExport ? exportActionTitle : nil,
-            onRead: { startReading(at: localBook?.currentChapterIndex ?? 0) },
-            onToggleShelf: {
-                if let book = localBook, book.isOnShelf {
-                    removeFromShelf(book)
-                } else {
-                    addToShelf()
-                }
-            },
-            onDownload: { prepareForTask(taskType: .download) },
-            onExport: { prepareForTask(taskType: .exportTxt) }
-        )
-    }
-
-
     /// Truyện chữ / tranh: id ngẫu nhiên cho truyện chưa lưu — id xác định sẽ trùng id của bản đã xoá, mà hàng đợi xoá lỗi
     /// của `BookStorageManager` có thể còn mục của id đó. (Phim không mở màn này: id phim do `VideoWatchRequest` phân giải.)
     private func resolveBookId() {
@@ -907,7 +884,7 @@ struct BookDetailView: View {
         )
     }
 
-    private func addToShelf() {
+    internal func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
         Task { @MainActor in
             await placeOnShelf(savedDesc: savedDesc)
