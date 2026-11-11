@@ -94,7 +94,7 @@ public final class BookTransactionCoordinator {
     }
 
     /// Người dùng tự sửa thông tin truyện. Tính lại luôn `titleTrans`/`authorTrans` theo đúng công thức
-    /// của `BookTitleTranslationBackfill`, vì kệ sách đọc hai field đó chứ không dịch lại tại chỗ.
+    /// `BookTitleTranslationMigrator.searchTranslations` (phồn → giản của truyện rồi dịch), vì tìm trên kệ đọc hai field đó.
     @discardableResult
     public func updateBookInfo(command: EditBookInfoCommand, in context: ModelContext) -> Result<Void, Error> {
         let bookId = command.bookId
@@ -106,8 +106,11 @@ public final class BookTransactionCoordinator {
         book.title = command.title
         book.author = command.author
         book.coverUrl = command.coverUrl
-        book.titleTrans = TranslateUtils.translateMeta(command.title, bookId: bookId)
-        book.authorTrans = TranslateUtils.translateAuthorHanViet(command.author)
+        let search = BookTitleTranslationMigrator.searchTranslations(
+            title: command.title, author: command.author, bookId: bookId, packageId: book.extensionPackageId
+        )
+        book.titleTrans = search.title
+        book.authorTrans = search.author
         do {
             try context.save()
             return .success(())

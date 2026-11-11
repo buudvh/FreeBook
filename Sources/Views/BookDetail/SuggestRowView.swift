@@ -11,7 +11,8 @@ struct SuggestRowView: View {
     let configJson: String
     let extensionPackageId: String
     let sourceName: String
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch theo truyện đang mở (`BookDetailView.relatedTextOptions`, 1.3.846).
+    let textOptions: ChineseTextPipeline.Options
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
     /// Lượt kéo làm mới của màn Chi tiết — đổi số thì tải lại; back về (số không đổi) thì giữ kết quả.
@@ -131,7 +132,7 @@ struct SuggestRowView: View {
                                 .cornerRadius(6)
                                 .shadow(radius: 1)
                                 
-                                let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
+                                let displayName = ChineseTextPipeline.meta(novel.name, textOptions)
                                 Text(DisplayTextFormatter.titleCase(displayName))
                                     .font(.caption)
                                     .fontWeight(.medium)

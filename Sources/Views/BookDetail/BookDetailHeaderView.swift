@@ -29,9 +29,9 @@ struct BookDetailHeaderView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch ba cấp của truyện đang mở (`BookDetailView.metaTextOptions`).
+    let textOptions: ChineseTextPipeline.Options
 
-    let onTranslateMetaIfNeeded: (String) -> String
     let onLoadBookDetailOnly: () -> Void
 
     var body: some View {
@@ -53,7 +53,7 @@ struct BookDetailHeaderView: View {
                     coverUrl: coverUrl,
                     extensionPackageId: extensionPackageId,
                     persistsCover: persistsCover,
-                    title: DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)),
+                    title: DisplayTextFormatter.titleCase(meta(title)),
                     author: formattedAuthor,
                     sourceHost: sourceHost,
                     sourceName: sourceName,
@@ -65,7 +65,7 @@ struct BookDetailHeaderView: View {
                     if !detail.isEmpty {
                         BookDetailSectionCard(title: "Thông tin") {
                             ExpandableTextView(
-                                text: onTranslateMetaIfNeeded(cleanedDetailText),
+                                text: meta(cleanedDetailText),
                                 lineLimit: 6,
                                 font: .system(size: 14.5),
                                 foregroundColor: .primary,
@@ -81,7 +81,7 @@ struct BookDetailHeaderView: View {
                     if !desc.isEmpty {
                         BookDetailSectionCard(title: "Giới thiệu") {
                             ExpandableTextView(
-                                text: onTranslateMetaIfNeeded(desc),
+                                text: meta(desc),
                                 lineLimit: 4,
                                 font: .system(size: 14.5),
                                 foregroundColor: .primary,
@@ -150,10 +150,11 @@ struct BookDetailHeaderView: View {
     private var formattedAuthor: String {
         let trimmed = author.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        if isTranslationEnabled && TranslateUtils.containsChinese(trimmed) {
-            return DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(trimmed))
-        }
-        return DisplayTextFormatter.titleCase(trimmed)
+        return DisplayTextFormatter.titleCase(BookDisplayTranslation.author(trimmed, textOptions))
+    }
+
+    private func meta(_ text: String) -> String {
+        ChineseTextPipeline.meta(text, textOptions)
     }
 
     private var genresFlow: some View {
@@ -179,7 +180,7 @@ struct BookDetailHeaderView: View {
     }
 
     private func genreChip(_ genre: CategoryResult) -> some View {
-        Text(onTranslateMetaIfNeeded(genre.title))
+        Text(meta(genre.title))
             .font(.caption2)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

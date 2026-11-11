@@ -83,26 +83,21 @@ public struct ReaderChapterListView: View {
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
     internal var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
 
+    /// Tên / tác giả ở đầu sheet: phồn → giản chạy cả khi tắt dịch, dịch theo ba cấp (1.3.846, `BookDisplayTranslation`).
     internal var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "Tàng Công Các"
-        let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
-            ? TranslateUtils.translateMeta(
-                original,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            : original
-        return DisplayTextFormatter.titleCase(translated)
+        return BookDisplayTranslation.title(original, metadataTextOptions)
     }
 
     private var metadataAuthor: String {
         guard let original = firstNonempty(localBook?.author, bookAuthor) else {
             return ""
         }
-        let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
-            ? TranslateUtils.translateAuthorHanViet(original)
-            : original
-        return DisplayTextFormatter.titleCase(translated)
+        return DisplayTextFormatter.titleCase(BookDisplayTranslation.author(original, metadataTextOptions))
+    }
+
+    private var metadataTextOptions: ChineseTextPipeline.Options {
+        .init(converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId)
     }
 
     private var metadataCoverUrl: String {

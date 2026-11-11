@@ -22,11 +22,10 @@ struct ShelfBookGridCardView: View {
     /// Rộng : cao của bìa (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
 
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-
     var body: some View {
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
-        let title = BookDisplayTranslation.title(book.title, bookId: book.bookId, isEnabled: isTranslationEnabled)
+        // Ba cấp của popup dịch + phồn → giản, vẽ lại khi cấu hình đổi (`BookDisplayTranslation`).
+        let title = BookDisplayTranslation.title(book.title, BookDisplayTranslation.listOptions(for: book))
         let progress = progressLabel(kind: kind)
 
         VStack(alignment: .leading, spacing: 6) {

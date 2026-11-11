@@ -153,10 +153,7 @@ struct BookDetailView: View {
     }
 
     private func translateMetaIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text, bookId: actualBookId)
+        ChineseTextPipeline.meta(text, metaTextOptions) // phồn → giản + dịch ba cấp — `BookDetailView+TextOptions`
     }
 
     // Tên chương của mục lục (`tocTitleOptions`, `tocTitle(for:_:)`): `BookDetailView+ChapterTitles.swift` (1.3.846 —
@@ -456,8 +453,7 @@ struct BookDetailView: View {
                         localPath: ext?.localPath ?? "",
                         downloadUrl: ext?.downloadUrl ?? "",
                         configJson: ext?.configJson ?? "{}",
-                        isTranslationEnabled: isTranslationEnabled,
-                        onTranslateMetaIfNeeded: translateMetaIfNeeded,
+                        textOptions: metaTextOptions,
                         onLoadBookDetailOnly: loadBookDetailOnly
                     )
 
@@ -495,7 +491,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                isTranslationEnabled: isTranslationEnabled,
+                                textOptions: relatedTextOptions,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
@@ -531,7 +527,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                isTranslationEnabled: isTranslationEnabled,
+                                textOptions: relatedTextOptions,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )

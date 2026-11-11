@@ -7,9 +7,10 @@ import SwiftUI
 ///
 /// - Hiện giá trị **đang hiệu lực** của màn gọi; "Lưu lại" chỉ ghi khi người dùng gạt trong lần mở này, ghi vào **phạm vi
 ///   đang chọn** (như công tắc "Dịch văn bản").
-/// - Ghi xong ⇒ tự dịch lại tên chương (`ChapterTitleRetranslator`) của mọi truyện đã lưu có phồn → giản hiệu lực vừa đổi:
-///   Truyện này ⇒ chỉ truyện đó; Nguồn ⇒ các truyện của nguồn; Tất cả ⇒ mọi truyện (truyện có đặt riêng thì không đổi nên
-///   không bị dịch lại). Từ điển chưa nạp ⇒ bỏ lượt dịch lại (bản dịch sẽ chỉ là chữ Hán).
+/// - Ghi xong ⇒ tự dịch lại tên chương (`ChapterTitleRetranslator`) và tính lại tên / tác giả để tìm (`titleTrans` /
+///   `authorTrans`, `BookTitleTranslationMigrator.refresh` trên `ModelContext` riêng — 1.3.846) của mọi truyện đã lưu có
+///   phồn → giản hiệu lực vừa đổi: Truyện này ⇒ chỉ truyện đó; Nguồn ⇒ các truyện của nguồn; Tất cả ⇒ mọi truyện (truyện
+///   có đặt riêng thì không đổi nên không bị dịch lại). Từ điển chưa nạp ⇒ bỏ lượt dịch lại (bản dịch sẽ chỉ là chữ Hán).
 struct TranslationTraditionalDraft {
     private(set) var isOn: Bool
     private(set) var didToggle = false
@@ -54,7 +55,10 @@ struct TranslationTraditionalDraft {
                 : "Đang dịch lại tên chương của \(changed.count) truyện theo phồn → giản",
             recordsInInbox: false
         )
+        let container = context.container
+        let bookIds = changed.map(\.bookId)
         Task.detached(priority: .utility) {
+            await BookTitleTranslationMigrator.refresh(bookIds: bookIds, container: container)
             await ChapterTitleRetranslator.retranslate(changed)
         }
     }

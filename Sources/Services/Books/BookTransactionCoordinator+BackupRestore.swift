@@ -25,6 +25,8 @@ extension BookTransactionCoordinator {
     ) -> Result<Void, Error> {
         guard !items.isEmpty else { return .success(()) }
 
+        // Một bản chụp cấu hình dịch / phồn → giản cho cả lô (`titleTrans` / `authorTrans`).
+        let config = TranslationConfigStore.shared.snapshot()
         for item in items {
             let command = item.command
             // Cùng giá trị nhánh "truyện mới" của `addBookToShelf`.
@@ -48,9 +50,13 @@ extension BookTransactionCoordinator {
             book.lastReadDate = command.lastReadDate ?? Date()
             // Cùng việc `setPinned(isPinned: true)` của đường từng truyện.
             if item.isPinned { book.isPinned = true }
-            // Cùng công thức `updateBookInfo`: kệ sách đọc hai field này chứ không dịch lại tại chỗ.
-            book.titleTrans = TranslateUtils.translateMeta(command.title, bookId: command.bookId)
-            book.authorTrans = TranslateUtils.translateAuthorHanViet(command.author)
+            // Cùng công thức `updateBookInfo` (phồn → giản của truyện rồi dịch): tìm trên kệ đọc hai field này.
+            let search = BookTitleTranslationMigrator.searchTranslations(
+                title: command.title, author: command.author, bookId: command.bookId, packageId: command.extensionPackageId,
+                in: config
+            )
+            book.titleTrans = search.title
+            book.authorTrans = search.author
             context.insert(book)
         }
 

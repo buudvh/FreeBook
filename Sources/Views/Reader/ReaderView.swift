@@ -1276,15 +1276,12 @@ struct ReaderView: View {
         }
     }
 
+    /// Tên truyện / chữ meta: phồn → giản chạy cả khi tắt dịch, dịch theo ba cấp (1.3.846, `ChineseTextPipeline`).
     internal func translateMetaIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(
-            text,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        let options = ChineseTextPipeline.Options(
+            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
         )
+        return ChineseTextPipeline.meta(text, options)
     }
 
     /// Tên chương: phồn → giản chạy cả khi tắt dịch, rồi dịch nếu bật (1.3.846, `ChineseTextPipeline`).

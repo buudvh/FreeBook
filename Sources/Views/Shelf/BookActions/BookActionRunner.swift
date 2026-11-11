@@ -106,12 +106,14 @@ struct BookActionRunner {
         let bookTitle = book.title
         Task {
             guard await ChapterTitleRetranslator.retranslate(target) > 0 else { return }
-            ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: target.bookId))")
+            let options = BookDisplayTranslation.options(bookId: target.bookId, packageId: target.packageId)
+            ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(BookDisplayTranslation.text(bookTitle, options))")
         }
     }
 
+    /// Tên truyện trong toast: ba cấp của popup dịch + phồn → giản của truyện.
     static func displayTitle(_ book: Book) -> String {
-        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId)
+        BookDisplayTranslation.text(book.title, BookDisplayTranslation.options(for: book))
     }
 
     // MARK: - Chương mới

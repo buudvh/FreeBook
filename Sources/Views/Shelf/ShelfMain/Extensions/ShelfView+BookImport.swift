@@ -159,8 +159,10 @@ extension ShelfView {
 
         // Tiến độ ghi vào center: overlay của Kệ sách và khối "Đang chạy" của màn Thông báo cùng đọc.
         let progressCenter = BookImportProgressCenter.shared
+        // Chỉ chữ hiển thị (`Book.title` vẫn ghi tên gốc): ba cấp của popup dịch + phồn → giản, nguồn "local".
+        let displayTitle = BookDisplayTranslation.text(parsed.title, BookDisplayTranslation.options(bookId: newBookId, packageId: "local"))
         progressCenter.begin(
-            title: TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId),
+            title: displayTitle,
             message: "Đang chuẩn bị file..."
         )
 
@@ -253,7 +255,7 @@ extension ShelfView {
                 progressCenter.update(message: "Đang ghi dữ liệu xuống bộ nhớ...", fraction: nil)
 
                 AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
-                ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
+                ToastManager.shared.show(message: "Đã nhập thành công: \(displayTitle)")
 
                 try? FileManager.default.removeItem(at: tempFileUrl)
                 progressCenter.end()

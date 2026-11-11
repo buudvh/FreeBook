@@ -37,8 +37,6 @@ struct ShelfSearchView: View {
     /// hàng ở đây, mở trong `onDismiss` của sheet (`bookBrowserPresentation`).
     @State var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
-    /// Cờ dịch cho tên truyện trong hộp xác nhận — cùng khoá các hàng truyện đang đọc.
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
     @State var taskSheetRequest: TaskSheetRequest? = nil
     @State var changeSourceTargetBook: Book? = nil
@@ -95,15 +93,9 @@ struct ShelfSearchView: View {
 
     private var filteredBooks: [Book] {
         guard !trimmedQuery.isEmpty else { return [] }
-        return searchableBooks.filter {
-            ShelfBookSearchMatcher.matches(
-                query: trimmedQuery,
-                title: $0.title,
-                titleTrans: $0.titleTrans,
-                author: $0.author,
-                authorTrans: $0.authorTrans
-            )
-        }
+        // Một bản chụp cấu hình mỗi lượt lọc: khớp cả tên / tác giả đã chuyển phồn → giản của truyện bật chuyển.
+        let config = TranslationConfigStore.shared.snapshot()
+        return searchableBooks.filter { ShelfBookSearchMatcher.matches(query: trimmedQuery, book: $0, config: config) }
     }
 
     var body: some View {

@@ -13,13 +13,10 @@ extension BookDetailView {
         }
     }
 
-    /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (dịch khi bật dịch), chưa có thì tên màn.
+    /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (phồn → giản + dịch ba cấp), chưa có thì tên màn.
     internal var ellipsisMenuTitle: String {
         guard !title.isEmpty else { return "Chi tiết truyện" }
-        let shown = isTranslationEnabled && TranslateUtils.containsChinese(title)
-            ? TranslateUtils.translateMeta(title, bookId: actualBookId)
-            : title
-        return DisplayTextFormatter.titleCase(shown)
+        return DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(title, metaTextOptions))
     }
 
     @ViewBuilder

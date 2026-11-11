@@ -47,8 +47,6 @@ struct BookListItemView<Item: BookDisplayable>: View {
     /// `Referer` (`source`) khi item thiếu `host`. Rỗng ⇒ `item.coverPackageId`, rồi tra theo `extensionLocalPath`.
     var extensionPackageId: String
 
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-
     init(
         item: Item,
         style: BookListItemStyle = .shelfOrHistory,
@@ -77,6 +75,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
     var body: some View {
         let packageId = coverPackageId
         let kind = ExtensionContentKind.resolve(packageId: packageId)
+        // Một lần mỗi hàng: ba cấp của popup dịch + phồn → giản, vẽ lại khi cấu hình đổi (`BookDisplayTranslation`).
+        let options = BookDisplayTranslation.listOptions(bookId: item.bookId, packageId: packageId.isEmpty ? nil : packageId)
         HStack(spacing: 12) {
             // Album âm thanh bìa vuông (`BookListRowSize.coverHeight(for:)`, cùng khung với lớp phủ của `ShelfBookRowView`).
             BookCoverView(
@@ -93,14 +93,14 @@ struct BookListItemView<Item: BookDisplayable>: View {
             .cornerRadius(4)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(BookDisplayTranslation.title(item.title, bookId: item.bookId, isEnabled: isTranslationEnabled))
+                Text(BookDisplayTranslation.title(item.title, options))
                     .font(rowSize.font(.system(size: 14.5, weight: .semibold), base: 14.5, weight: .semibold))
                     .lineLimit(rowSize.titleLineLimit)
 
                 if rowSize.isCompact {
-                    compactSubtitle(kind: kind)
+                    compactSubtitle(kind: kind, options: options)
                 } else if showDescription, !item.description.isEmpty {
-                    Text(translateIfNeeded(item.description.cleanHTML()))
+                    Text(BookDisplayTranslation.text(item.description.cleanHTML(), options))
                         .font(rowSize.font(.caption2, base: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(2)
@@ -110,7 +110,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     if hasAuthor || hasSource {
                         HStack(spacing: 8) {
                             if hasAuthor {
-                                Text(DisplayTextFormatter.titleCase(displayedAuthor))
+                                Text(DisplayTextFormatter.titleCase(BookDisplayTranslation.author(item.author, options)))
                                     .font(rowSize.font(.system(size: 13), base: 13))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -130,9 +130,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     let rawChapterTitle = item.currentChapterTitle.isEmpty
                         ? "\(isAudio ? "Bài" : "Chương") \(item.currentChapterIndex + 1)"
                         : item.currentChapterTitle
-                    let chapterTitle = isTranslationEnabled
-                        ? translateChapterTitleIfNeeded(rawChapterTitle, bookId: item.bookId)
-                        : rawChapterTitle
+                    let chapterTitle = BookDisplayTranslation.chapterTitle(rawChapterTitle, options)
 
                     if !chapterTitle.isEmpty {
                         Text("\(isAudio ? "Đang nghe" : "Đang đọc"): \(chapterTitle)")
@@ -150,8 +148,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
     /// Dòng gọn (nấc 1–2) thay cho dòng phụ + "Đang đọc": mô tả (kiểu Khám phá) hoặc "tác giả · Ch. N" (kiểu kệ;
     /// video ghi "Tập N", âm thanh "Bài N" như thẻ lưới).
     @ViewBuilder
-    private func compactSubtitle(kind: ExtensionContentKind) -> some View {
-        let text = compactSubtitleText(kind: kind)
+    private func compactSubtitle(kind: ExtensionContentKind, options: BookDisplayTranslation.Options) -> some View {
+        let text = compactSubtitleText(kind: kind, options: options)
         if !text.isEmpty {
             Text(text)
                 .font(rowSize.font(.caption2, base: 11))
@@ -160,23 +158,18 @@ struct BookListItemView<Item: BookDisplayable>: View {
         }
     }
 
-    private func compactSubtitleText(kind: ExtensionContentKind) -> String {
+    private func compactSubtitleText(kind: ExtensionContentKind, options: BookDisplayTranslation.Options) -> String {
         if showDescription, !item.description.isEmpty {
-            return translateIfNeeded(item.description.cleanHTML())
+            return BookDisplayTranslation.text(item.description.cleanHTML(), options)
         }
         var parts: [String] = []
         if !item.author.isEmpty {
-            parts.append(DisplayTextFormatter.titleCase(displayedAuthor))
+            parts.append(DisplayTextFormatter.titleCase(BookDisplayTranslation.author(item.author, options)))
         }
         if showChapter {
             parts.append(BookListRowSize.progressLabel(kind: kind, chapterIndex: item.currentChapterIndex))
         }
         return parts.joined(separator: " · ")
-    }
-
-    /// Luật dịch dùng chung với thẻ lưới phía kệ — xem `BookDisplayTranslation`.
-    private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
-        BookDisplayTranslation.translateIfNeeded(text, bookId: bookId, isEnabled: isTranslationEnabled)
     }
 
     /// Tham số tường minh → của item → tra theo thư mục tiện ích (chỉ khi hai nguồn trên rỗng).
@@ -185,18 +178,6 @@ struct BookListItemView<Item: BookDisplayable>: View {
         if !item.coverPackageId.isEmpty { return item.coverPackageId }
         guard !extensionLocalPath.isEmpty else { return "" }
         return ExtensionLibraryRepository.packageId(forLocalPath: extensionLocalPath) ?? ""
-    }
-
-    private var displayedAuthor: String {
-        guard isTranslationEnabled else { return item.author }
-        return TranslateUtils.translateAuthorHanViet(item.author)
-    }
-
-    private func translateChapterTitleIfNeeded(_ text: String, bookId: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
     }
 
     private func sourceBadge(text: String) -> some View {

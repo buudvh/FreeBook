@@ -21,7 +21,7 @@ struct CommentRepliesBlock: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    let isTranslationEnabled: Bool
+    let textOptions: ChineseTextPipeline.Options
     let host: String?
     let onCollapse: () -> Void
 
@@ -37,7 +37,7 @@ struct CommentRepliesBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(replies) { reply in
-                ReplyRow(reply: reply, isTranslationEnabled: isTranslationEnabled, host: host)
+                ReplyRow(reply: reply, textOptions: textOptions, host: host)
             }
             status
             footer
@@ -145,7 +145,7 @@ struct CommentRepliesBlock: View {
     /// Một trả lời: avatar nhỏ, tên, mô tả, nội dung 3 dòng có "Xem thêm" nhỏ.
     private struct ReplyRow: View {
         let reply: ExtensionItemResult
-        let isTranslationEnabled: Bool
+        let textOptions: ChineseTextPipeline.Options
         let host: String?
 
         var body: some View {
@@ -153,19 +153,19 @@ struct CommentRepliesBlock: View {
                 CommentAvatarView(url: reply.avatar, referer: host, size: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(CommentRowView.displayText(reply.name, translating: isTranslationEnabled, stripsHTML: false))
+                    Text(CommentRowView.displayText(reply.name, options: textOptions, stripsHTML: false))
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
 
                     if !reply.content.isEmpty, !reply.description.isEmpty {
-                        Text(CommentRowView.displayText(reply.description, translating: isTranslationEnabled))
+                        Text(CommentRowView.displayText(reply.description, options: textOptions))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
 
                     let raw = !reply.content.isEmpty ? reply.content : reply.description
-                    let text = CommentRowView.displayText(raw, translating: isTranslationEnabled)
+                    let text = CommentRowView.displayText(raw, options: textOptions)
                     if !text.isEmpty {
                         ExpandableTextView(
                             text: text,

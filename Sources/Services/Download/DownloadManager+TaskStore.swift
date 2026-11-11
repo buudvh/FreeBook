@@ -296,7 +296,7 @@ extension DownloadManager {
             }
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
+        let title = tasks[index].displayBookTitle
         let type = tasks[index].displayTypeName
         tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
@@ -347,7 +347,7 @@ extension DownloadManager {
             model.errorMessage = error
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
+        let title = tasks[index].displayBookTitle
         let type = tasks[index].displayTypeName
         tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
@@ -363,7 +363,7 @@ extension DownloadManager {
             model.statusRaw = TaskStatus.cancelled.rawValue
         }
 
-        let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
+        let title = tasks[index].displayBookTitle
         let type = tasks[index].displayTypeName
         tasks[index].mediaDetail = nil
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
@@ -383,5 +383,11 @@ extension DownloadTask {
               let url = ExportFileCleaner.resolvedURL(storedPath: path),
               FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
+    }
+
+    /// Tên truyện trong toast kết quả: phồn → giản + dịch theo ba cấp của popup dịch (`ChineseTextPipeline`) — cùng luật
+    /// với dòng tác vụ ở màn Thông báo.
+    var displayBookTitle: String {
+        ChineseTextPipeline.meta(bookTitle, ChineseTextPipeline.options(bookId: bookId, packageId: extensionPackageId))
     }
 }

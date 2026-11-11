@@ -11,7 +11,8 @@ struct CommentSectionView: View {
     let configJson: String
     let extensionPackageId: String
     let sourceName: String
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch theo truyện đang mở (`BookDetailView.relatedTextOptions`, 1.3.846).
+    let textOptions: ChineseTextPipeline.Options
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
     /// Lượt kéo làm mới của màn Chi tiết — đổi số thì tải lại; back về (số không đổi) thì giữ kết quả.
@@ -98,7 +99,7 @@ struct CommentSectionView: View {
                             localPath: localPath,
                             downloadUrl: downloadUrl,
                             configJson: configJson,
-                            isTranslationEnabled: isTranslationEnabled,
+                            textOptions: textOptions,
                             host: host
                         )
 
@@ -115,7 +116,7 @@ struct CommentSectionView: View {
                             localPath: localPath,
                             downloadUrl: downloadUrl,
                             configJson: configJson,
-                            isTranslationEnabled: isTranslationEnabled,
+                            textOptions: textOptions,
                             host: host,
                             extensionPackageId: extensionPackageId
                         )) {

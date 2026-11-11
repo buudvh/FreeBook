@@ -19,18 +19,11 @@ struct BookShareTargetSheet: View {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Lọc realtime theo tên truyện (kèm tên dịch) và tác giả, dùng chung matcher với Kệ sách.
+    /// Lọc realtime theo tên truyện (kèm tên dịch / đã chuyển phồn → giản) và tác giả, dùng chung matcher với Kệ sách.
     private var filteredBooks: [Book] {
         guard !trimmedQuery.isEmpty else { return books }
-        return books.filter {
-            ShelfBookSearchMatcher.matches(
-                query: trimmedQuery,
-                title: $0.title,
-                titleTrans: $0.titleTrans,
-                author: $0.author,
-                authorTrans: $0.authorTrans
-            )
-        }
+        let config = TranslationConfigStore.shared.snapshot()
+        return books.filter { ShelfBookSearchMatcher.matches(query: trimmedQuery, book: $0, config: config) }
     }
 
     var body: some View {

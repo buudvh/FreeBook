@@ -607,24 +607,23 @@ struct DictionaryListView: View {
         return result
     }
 
-    private func getBookNameFromDB() -> String? {
+    private func getBookFromDB() -> Book? {
         guard let bookId = bookId else { return nil }
         let descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
-        if let books = try? modelContext.fetch(descriptor), let book = books.first {
-            return book.title
-        }
-        return nil
+        return (try? modelContext.fetch(descriptor))?.first
     }
 
     private func generateExportURL() -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
         
         let namePart: String
-        if let dbName = getBookNameFromDB(), !dbName.isEmpty {
-            let translated = TranslateUtils.translateMeta(dbName, bookId: bookId ?? "")
+        let dbBook = getBookFromDB()
+        let nameOptions = Self.exportNameOptions(bookId: bookId, packageId: dbBook?.extensionPackageId)
+        if let dbName = dbBook?.title, !dbName.isEmpty {
+            let translated = ChineseTextPipeline.meta(dbName, nameOptions)
             namePart = translated.isEmpty ? dbName : translated
         } else if !bookName.isEmpty {
-            let translated = TranslateUtils.translateMeta(bookName, bookId: bookId ?? "")
+            let translated = ChineseTextPipeline.meta(bookName, nameOptions)
             namePart = translated.isEmpty ? bookName : translated
         } else {
             namePart = bookId ?? "Chung"

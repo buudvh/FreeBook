@@ -16,7 +16,6 @@ struct MissingSourceRebindBanner: View {
 
     @Environment(\.modelContext) private var modelContext
     @AppStorage(MissingSourceRebindMode.defaultsKey) private var mode: MissingSourceRebindMode = .ask
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var pending: [MissingSourceRebindCoordinator.Candidate] = []
 
     private var coordinator: MissingSourceRebindCoordinator { .shared }
@@ -83,7 +82,11 @@ struct MissingSourceRebindBanner: View {
         guard pending.count == 1, let only = pending.first else {
             return "\(pending.count) truyện mất nguồn có nguồn khớp link"
         }
-        let title = BookDisplayTranslation.title(only.title, bookId: only.bookId, isEnabled: isTranslationEnabled)
+        // Ba cấp của popup dịch + phồn → giản của truyện (nguồn cũ đã gỡ); vẽ lại khi cấu hình đổi.
+        let title = BookDisplayTranslation.title(
+            only.title,
+            BookDisplayTranslation.listOptions(bookId: only.bookId, packageId: only.oldPackageId)
+        )
         let extName = only.packageIds.first.flatMap { ExtensionLibraryRepository.snapshot(packageId: $0)?.name } ?? ""
         return extName.isEmpty ? "“\(title)” mất nguồn, có nguồn khớp link" : "“\(title)” mất nguồn, chuyển sang \(extName)?"
     }
@@ -110,8 +113,7 @@ struct MissingSourceRebindBanner: View {
             candidates,
             isInteractive: isInteractive,
             requiresShelfRoot: true,
-            context: modelContext,
-            translatesTitles: isTranslationEnabled
+            context: modelContext
         )
     }
 }
