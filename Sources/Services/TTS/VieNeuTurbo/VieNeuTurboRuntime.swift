@@ -65,10 +65,9 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     /// Một runtime cho cả app: trình đọc (`VieNeuTurboTTSService`) và màn thử dùng chung ⇒ chỉ một model 188 MB trong RAM.
     static let shared = VieNeuTurboRuntime()
 
-    /// QoS của hàng đợi — và của luồng ggml (luồng CPU của ggml dựng từ luồng gọi). Để `.utility` cho **cùng mức** với
-    /// Nano: session ORT của Nano dựng ở `Task.detached(priority: .utility)`, và màn thử chạy lượt Nano ở `.utility`
-    /// (`VieNeuTurboSoakRunner`). Trên iPhone, QoS ảnh hưởng chuyện chạy lõi hiệu năng hay lõi tiết kiệm — đúng biến số
-    /// đang đo — nên hai engine phải chung một mức.
+    /// QoS mặc định của hàng đợi — và của luồng ggml (luồng CPU của ggml dựng từ luồng gọi). Trên iPhone, QoS quyết chuyện
+    /// chạy lõi hiệu năng hay lõi tiết kiệm. Turbo **còn** ở `.utility` chờ đo A/B ở màn thử (`synthesize(…, qos:)`); Nano
+    /// đọc truyện đã lên `.userInitiated` từ 1.3.855 (`VieNeuTTSService.readerPriority`) sau khi đo nhanh hơn và mát hơn.
     static let qos: DispatchQoS = .utility
     static let qosName = "utility"
 

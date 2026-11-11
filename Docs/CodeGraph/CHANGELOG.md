@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.855] - 2026-11-11
+
+### perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn
+
+Anh Bửu đo P0 trên iPhone 11 (màn thử › Đọc liên tục › Nano, 2 luồng, giọng Minh Quân, cùng văn bản, 1.3.853) rồi duyệt *"làm Nano trước đi"*:
+
+| | userInitiated | utility (cũ) |
+|---|---|---|
+| RTF | **0,28** | 0,55 |
+| CPU-s / giây tiếng | **0,56** | 0,88 |
+| CPU-s / 1.000 ký tự | **30,9** | 48,6 |
+| Nhiệt | 3:45 vẫn "ấm" | "nóng" ở phút 4 |
+
+Lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36% và mát hơn (mỗi cấu hình đo một lượt). Âm thanh giống hệt từng bit — chỉ đổi lõi chạy.
+
+- `VieNeuTTSService.readerPriority = .userInitiated`: `prepare(voice:)` dựng session ORT ở mức này (luồng phụ của pool sinh ra lúc dựng); trước đó `.utility`.
+- Lượt tổng hợp chạy ORT trong `Task.detached(priority:)` ở mức cố định đó, thay vì mức của tác vụ nào xếp hàng trước trong `PiperSynthesisCoordinator` (phần lớn `.utility`). Lệnh huỷ được chuyển xuống task con (`withTaskCancellationHandler`) vì engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
+- Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.852) có `qos=` / `sessionQos=` để kiểm trên máy.
+- Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.854).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
+
 ## [1.3.854] - 2026-11-11
 
 ### feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng
@@ -464,16 +485,3 @@ Anh Bửu chọn ý "dịch ảnh truyện tranh raw ngay trên ảnh" trong nă
 - Chưa làm ở v1: trình xem phóng to, nhận chữ trước lúc tải offline, chữ dọc, tiếng Nhật/Hàn (VietPhrase chỉ dịch tiếng Trung), sửa name từ khối.
 - `CLAUDE.md` / `AGENTS.md`: mục Comic & Video.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ComicReaderView.swift` 377 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) manhua chữ ngang nhận đủ, bản dịch nằm đúng bong bóng; (2) chữ nhỏ trên dải webtoon cao, chữ dọc — hằng ở `ComicTextRecognizer`, chỉnh xong tăng `ComicTextPage.currentSchemaVersion`; (3) log `🈶 [ComicOCR]` (bật log) thời gian mỗi ảnh + ngôn ngữ Vision có trên máy; (4) chạm khối không bật/tắt thanh, chạm đúp ngoài khối vẫn phóng to.
-
-## [1.3.825] - 2026-11-11
-
-### feat: DNS mã hoá trong app chống nhà mạng chặn tên miền
-
-Anh Bửu: *"tôi muốn thêm dns, proxy, vpn hay gì đó để tránh trường hợp bị web chặn"* — phỏng vấn /grill-me chốt: đợt này chỉ chống **nhà mạng chặn tên miền** (anh chưa có proxy); bị trang nguồn chặn IP thì thử WARP; proxy để sau (hướng đã chốt, ghi ở `CLAUDE.md`). VPN thật (Network Extension) không làm được vì app không ký, chạy trong LiveContainer.
-
-- `Services/Network/EncryptedDNS/` (mới): `EncryptedDNSRepository` (`@MainActor @Observable`) đặt `NWParameters.PrivacyContext.default.requireEncryptedNameResolution` ⇒ phủ mọi kết nối **trong tiến trình** (URLSession: fetch của tiện ích JS, Legado, ảnh bìa, ảnh truyện tranh, tải phim offline); WebView (tiến trình WebKit) và AVPlayer **không** ăn. Mặc định bật, Cloudflare (`EncryptedDNSPolicy`); 4 máy chủ kèm IP khởi động (`EncryptedDNSResolver`: Cloudflare, Google, AdGuard không lọc, Quad9).
-- `EncryptedDNSProbe`: `NWConnection` TCP tới `captive.apple.com:80` với privacy context **riêng** bắt buộc DoH, hết giờ 6 s. Lỗi ⇒ lùi về DNS thường, log `❌ [DNS]`, nhớ lại để lần mở app sau dò trước rồi mới bật (bình thường thì bật ngay lúc mở app rồi mới dò). Dò lại khi đổi đường mạng (`NWPathMonitor`, giãn 2 s), đổi cài đặt, bấm "Kiểm tra lại"; mất mạng thì chờ, không lùi.
-- `FreeBookApp.init` gọi `EncryptedDNSRepository.shared.start()` ngay sau `WebContentSettings.registerDefaults()`.
-- Cài đặt › Chung › **Mạng & DNS** (`NetworkSettingsView`): công tắc, máy chủ, dòng trạng thái ("Máy chủ DoH tới được" — lượt dò không chứng minh URLSession thật sự theo context mặc định nên không ghi "đang dùng"), "Kiểm tra lại", nút "?" nói rõ phạm vi + bật rồi vẫn bị chặn là chặn theo SNI/IP. Trang `SystemDNSGuideView`: đổi DNS cho cả máy (app 1.1.1.1 của Cloudflare, profile của AdGuard DNS — đều chính chủ) và đổi IP bằng chế độ WARP khi bị chặn IP.
-- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ở "Ràng buộc runtime cần nhớ".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) nguồn bị nhà mạng chặn tải được qua `fetch`, tắt công tắc + mở lại app thì lại bị chặn; (2) mạng chặn 1.1.1.1 ⇒ lùi, fetch / bìa **vẫn tải được**; (3) phim từ tên miền bị chặn có phát được không.

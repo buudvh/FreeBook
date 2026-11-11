@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.825] - 2026-11-11
+
+### feat: DNS mã hoá trong app chống nhà mạng chặn tên miền
+
+Anh Bửu: *"tôi muốn thêm dns, proxy, vpn hay gì đó để tránh trường hợp bị web chặn"* — phỏng vấn /grill-me chốt: đợt này chỉ chống **nhà mạng chặn tên miền** (anh chưa có proxy); bị trang nguồn chặn IP thì thử WARP; proxy để sau (hướng đã chốt, ghi ở `CLAUDE.md`). VPN thật (Network Extension) không làm được vì app không ký, chạy trong LiveContainer.
+
+- `Services/Network/EncryptedDNS/` (mới): `EncryptedDNSRepository` (`@MainActor @Observable`) đặt `NWParameters.PrivacyContext.default.requireEncryptedNameResolution` ⇒ phủ mọi kết nối **trong tiến trình** (URLSession: fetch của tiện ích JS, Legado, ảnh bìa, ảnh truyện tranh, tải phim offline); WebView (tiến trình WebKit) và AVPlayer **không** ăn. Mặc định bật, Cloudflare (`EncryptedDNSPolicy`); 4 máy chủ kèm IP khởi động (`EncryptedDNSResolver`: Cloudflare, Google, AdGuard không lọc, Quad9).
+- `EncryptedDNSProbe`: `NWConnection` TCP tới `captive.apple.com:80` với privacy context **riêng** bắt buộc DoH, hết giờ 6 s. Lỗi ⇒ lùi về DNS thường, log `❌ [DNS]`, nhớ lại để lần mở app sau dò trước rồi mới bật (bình thường thì bật ngay lúc mở app rồi mới dò). Dò lại khi đổi đường mạng (`NWPathMonitor`, giãn 2 s), đổi cài đặt, bấm "Kiểm tra lại"; mất mạng thì chờ, không lùi.
+- `FreeBookApp.init` gọi `EncryptedDNSRepository.shared.start()` ngay sau `WebContentSettings.registerDefaults()`.
+- Cài đặt › Chung › **Mạng & DNS** (`NetworkSettingsView`): công tắc, máy chủ, dòng trạng thái ("Máy chủ DoH tới được" — lượt dò không chứng minh URLSession thật sự theo context mặc định nên không ghi "đang dùng"), "Kiểm tra lại", nút "?" nói rõ phạm vi + bật rồi vẫn bị chặn là chặn theo SNI/IP. Trang `SystemDNSGuideView`: đổi DNS cho cả máy (app 1.1.1.1 của Cloudflare, profile của AdGuard DNS — đều chính chủ) và đổi IP bằng chế độ WARP khi bị chặn IP.
+- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ở "Ràng buộc runtime cần nhớ".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) nguồn bị nhà mạng chặn tải được qua `fetch`, tắt công tắc + mở lại app thì lại bị chặn; (2) mạng chặn 1.1.1.1 ⇒ lùi, fetch / bìa **vẫn tải được**; (3) phim từ tên miền bị chặn có phát được không.
+
 ## [1.3.824] - 2026-11-10
 
 ### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
