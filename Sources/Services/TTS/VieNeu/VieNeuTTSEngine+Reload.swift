@@ -21,4 +21,18 @@ extension VieNeuTTSEngine {
         runtime = nil
         return true
     }
+
+    /// Nhả 4 session ORT (~280 MB, `VieNeuORTDestroy` ở `deinit` của runtime) + bộ phiên âm của Nano khi trình đọc chuyển
+    /// sang Turbo — hai model không nên cùng nằm trong RAM. Lượt Nano sau tự nạp lại (`prepareLocked` thấy `runtime == nil`).
+    ///
+    /// **Chặn** tới khi lượt Nano đang chạy (nếu có) nhả `lock` ⇒ đừng gọi trên main. Trả `true` khi thật sự có thứ để nhả.
+    @discardableResult
+    func releaseRuntime() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard runtime != nil else { return false }
+        runtime = nil
+        phonemizer = nil
+        return true
+    }
 }

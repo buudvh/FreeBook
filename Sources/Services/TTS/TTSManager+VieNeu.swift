@@ -62,8 +62,12 @@ extension TTSManager {
     ///
     /// **Tính chất an toàn của lượt nối này**: trả `nghiTTSService` cho **mọi** tool trừ `vieneu`, nên
     /// đường NghiTTS đi y hệt code cũ. Nếu sửa hàm này, phải giữ nguyên tính chất đó.
+    ///
+    /// `vieneu` chọn tiếp theo **model hiệu lực** (`VieNeuModelChoice.current`): Turbo ⇒ `VieNeuTurboTTSService`, còn lại
+    /// Nano. Chọn ở đây (không phải trong `VieNeuTTSService`) để các màn chỉ dành cho Nano vẫn gọi thẳng service Nano.
     internal var localEngine: (any LocalTTSEngine)? {
-        tool == "vieneu" ? VieNeuTTSService.shared : nghiTTSService
+        guard tool == "vieneu" else { return nghiTTSService }
+        return VieNeuModelChoice.current == .turbo ? VieNeuTurboTTSService.shared : VieNeuTTSService.shared
     }
 
     /// Nạp tham số riêng của VieNeu.
@@ -93,8 +97,7 @@ extension TTSManager {
         let savedPitch = defaults.double(forKey: VieNeuSettingsKey.pitch)
         self.pitch = savedPitch > 0 ? savedPitch : defaultPitch
 
-        let voices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []
-        self.selectedVoice = defaults.string(forKey: VieNeuSettingsKey.voice) ?? voices.first?.name ?? ""
+        self.selectedVoice = Self.savedVieNeuVoice(for: VieNeuModelChoice.current)
 
         let savedCount = defaults.object(forKey: VieNeuSettingsKey.prefetchCount) != nil
             ? defaults.integer(forKey: VieNeuSettingsKey.prefetchCount)
@@ -118,7 +121,21 @@ extension TTSManager {
         self.chunkLength = savedChunk > 0 ? savedChunk : 100
         self.prefetchDelayMs = 500
 
-        AppLogger.shared.log("[TTSRoute] nap tham so VieNeu voice=\(self.selectedVoice) rate=\(self.speed) pitch=\(self.pitch) prefetch=\(self.vieneuPrefetchCount) nguongAnToan=\(clamped)")
+        AppLogger.shared.log("[TTSRoute] nap tham so VieNeu model=\(VieNeuModelChoice.current.rawValue) voice=\(self.selectedVoice) rate=\(self.speed) pitch=\(self.pitch) prefetch=\(self.vieneuPrefetchCount) nguongAnToan=\(clamped)")
+    }
+
+    /// Giọng đã lưu của **từng model** — Nano khoá `vieneuVoice`, Turbo khoá `vieneuTurboVoice` (mặc định `minh_quan_pro`,
+    /// giọng đã lưu không còn trong manifest thì về mặc định để Picker không trỏ vào tag không tồn tại).
+    private static func savedVieNeuVoice(for model: VieNeuModelChoice) -> String {
+        let saved = UserDefaults.standard.string(forKey: model.voiceDefaultsKey)
+        switch model {
+        case .nano:
+            let voices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []
+            return saved ?? voices.first?.name ?? ""
+        case .turbo:
+            guard let turbo = VieNeuTurboTTSService.shared else { return saved ?? VieNeuTurboModelStore.fallbackVoiceId }
+            return turbo.resolveVoiceId(saved ?? turbo.defaultVoiceId)
+        }
     }
 
     /// Ngưỡng nạp bộ đệm của **engine local đang chọn**.
@@ -156,8 +173,10 @@ extension TTSManager {
     /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ tổng hợp**, các
     /// engine local khác giữ 1,0 như cũ. **Không** có cache nào tự vô hiệu theo giá trị này (khoá prefix
     /// chương kế không chứa nó) ⇒ đổi tốc độ tổng hợp phải đi qua `invalidateVieNeuSynthesisSpeed()`.
+    ///
+    /// Turbo **không** có tốc độ tổng hợp ⇒ 1,0 — nếu không thì tốc độ đã lưu của Nano lọt vào khoá tổng hợp của Turbo.
     nonisolated static func localSynthesisSpeed(forTool tool: String) -> Double {
-        tool == "vieneu" ? vieNeuSynthesisSpeed : 1.0
+        tool == "vieneu" && VieNeuModelChoice.current == .nano ? vieNeuSynthesisSpeed : 1.0
     }
 
     /// Đổi "Tốc độ tổng hợp" **giữa lúc đang đọc**: phát nốt đoạn hiện tại, nạp lại phần còn lại.
@@ -174,7 +193,8 @@ extension TTSManager {
     /// `resetNextChapterPrefixCache()`; (b) đoạn hiện tại **chưa vào player** (đang hụt tiếng chờ tổng hợp) —
     /// audio/lượt đang bay của nó mang tốc độ cũ ⇒ bỏ và tổng hợp lại.
     internal func invalidateVieNeuSynthesisSpeed() {
-        guard tool == "vieneu" else { return }
+        // Turbo luôn tổng hợp 1× ⇒ đổi tốc độ tổng hợp (của Nano) không làm audio nào cũ đi.
+        guard tool == "vieneu", VieNeuModelChoice.current == .nano else { return }
         let currentInPlayer = nghiAudioPlayerQueue.currentItem?.paragraphIndex == currentParagraphIndex
         AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x (doan \(currentParagraphIndex) \(currentInPlayer ? "giu" : "tong hop lai"))")
         cancelNghiRefill()
@@ -263,12 +283,15 @@ extension TTSManager {
     /// **Đây là chỗ sửa một bug thật**: trước lượt này `vieneu` rơi vào nhánh `else` nên giọng được ghi
     /// vào `extVoice_vieneu`, còn `applyVieNeuParamsIfNeeded()` lại **đọc** `vieneuVoice` ⇒ chọn giọng
     /// xong thoát ra vào lại là mất. Hai bên phải cùng một khoá.
+    ///
+    /// VieNeu nhớ giọng **theo model** (`VieNeuModelChoice.voiceDefaultsKey`) — Picker ghi model **trước** rồi mới gán
+    /// `tool`, nên lúc `selectedVoice` đổi theo model mới thì khoá ở đây đã là của model mới.
     internal func persistVoice(_ value: String) {
         let key: String
         switch tool {
         case "system": key = "systemVoice"
         case "nghitts": key = "nghittsVoice"
-        case "vieneu": key = VieNeuSettingsKey.voice
+        case "vieneu": key = VieNeuModelChoice.current.voiceDefaultsKey
         case "google": key = "googleVoice"
         default: key = "extVoice_\(tool)"
         }

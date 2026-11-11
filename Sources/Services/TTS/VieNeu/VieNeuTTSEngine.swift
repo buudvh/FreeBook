@@ -84,7 +84,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     var runtime: VieNeuONNXRuntime? // internal: `+Reload` so cấu hình luồng/spin đang chạy và bỏ runtime cũ
     private var config: VieNeuConfig?
     var catalog: VieNeuVoiceCatalog?
-    private var phonemizer: SeaG2P?
+    var phonemizer: SeaG2P? // internal: `+Reload` nhả cùng runtime khi trình đọc chuyển sang Turbo
     /// `ctx` của nhánh vô điều kiện (CFG) — không phụ thuộc giọng lẫn văn bản nên tính một lần.
     /// Giữ **cả shape** vì shape đó do model quyết định, không suy được từ `config.json`.
     private var nullContext: [Float] = []

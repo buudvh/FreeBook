@@ -39,7 +39,10 @@ internal enum TTSSynthesisIdentity {
         appendInt(chapterIndex)
         appendInt(paragraphIndex)
         appendString(finalText)
-        appendString(engine)
+        // `vieneu` có hai model (Nano / Turbo) dưới cùng một `tool` ⇒ gắn model vào tên engine **tại đây** (một chỗ cho
+        // mọi nơi tính khoá: refill, prefetch chương kế, prefix chương kế). Thiếu nó thì đổi model vẫn trúng audio cũ của
+        // model kia. Nano giữ nguyên `"vieneu"` nên khoá cũ không đổi.
+        appendString(VieNeuModelChoice.synthesisEngineIdentity(forEngine: engine))
         appendString(voice)
 
         let scaledPitch: Int

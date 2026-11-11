@@ -327,14 +327,19 @@ extension VieNeuTurboLab {
     }
 
     /// Rời màn thử: dừng mọi thứ, nhả model audio.cpp + `sea_g2p.bin`. Lượt tải đang chạy vẫn tiếp tục (singleton).
+    ///
+    /// Trình đọc đang chọn Turbo thì **giữ** model: runtime + bộ phiên âm dùng chung với nó, nhả là đoạn kế phải nạp lại.
     func leaveScreen() {
         soak.stop(reason: "rời màn thử")
         stopSample()
         let runtime = self.runtime
         let frontend = self.frontend
+        let keepForReader = TTSManager.shared.tool == "vieneu" && VieNeuModelChoice.current == .turbo
         releaseTask = Task { [weak self] in
-            await runtime.release()
-            frontend?.unload()
+            if !keepForReader {
+                await runtime.release()
+                frontend?.unload()
+            }
             guard let self else { return }
             isRuntimeLoaded = false
             releaseAudioSession()

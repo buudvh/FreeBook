@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.819] - 2026-11-10
+
+### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang
+
+Anh Bửu (video Khám phá › qidian, kiểu Danh sách): kéo tới cuối, lúc tải trang kế cả danh sách trắng xoá ~0,2–0,3 s rồi hiện lại ở chỗ khác (bìa xám tải lại), nối mục mới thì nhảy lên ~1 hàng; xảy ra ở mọi danh sách tải vô hạn.
+
+- **Nguyên nhân (đọc code + video, chưa thử máy):** mọi nơi dùng `LoadMoreFooter` gắn `.id(số mục)` cho hàng chân (mẹo 1.3.679 để vòng xoay không đứng hình) ⇒ mỗi trang về, hàng chân **đang hiện** bị xoá + hàng id mới chèn cùng N hàng mới phía trên ⇒ `List` nạp lại cả bảng. Lại chỉ tải khi chạm chân ⇒ lần nối nào cũng rơi đúng lúc đang nhìn đáy.
+- `LoadMoreFooter`: thêm `token` (số mục) — vòng xoay mới bằng `.id(token)` **chỉ trên `ProgressView`**, kích hoạt tải bằng `.task(id:)` theo `token` (chân còn trên màn sau khi nối ⇒ tự tải tiếp, thay mẹo đổi id). Không ghi state.
+- Hàng chân **id cố định** ở `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm, danh sách + lưới), `SearchSingleSourceResultsView` (danh sách + lưới), `AllCommentsView`, `ShelfBooksLayoutView` (Kệ / Lịch sử, danh sách + lưới).
+- **Tải trước:** Khám phá / Thể loại tải trang kế khi một trong 5 mục cuối hiện ra; Tất cả bình luận cũng vậy (trước: đúng bình luận cuối). Tìm đã có sẵn.
+- Danh sách Khám phá: `ForEach(loader.novels, id: \.link)` như lưới (id `UUID()` đổi mỗi lần nạp lại ⇒ kéo làm mới dựng lại mọi bìa).
+- Tất cả bình luận: đặt cờ đang tải **trước** điểm chờ đầu tiên ⇒ hai lần kích hoạt cùng khung không nối một trang hai lần. (Không lọc trùng theo `id`: id bình luận là `UUID()` mỗi lần bóc tách, lọc không có tác dụng.)
+- Phim đề xuất (`VideoWatchSuggestSection`): hàng vòng xoay giữ 44 pt suốt lúc còn trang (ẩn / hiện bằng độ mờ) ⇒ chiều cao không đổi mỗi lượt; tải trước khi một trong 3 thẻ cuối hiện ra.
+- `CLAUDE.md` / `AGENTS.md`: luật hàng chân id cố định + `token`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.818] - 2026-11-10
 
 ### feat: nút Hủy hẹn giờ cạnh đồng hồ trong sheet nghe nhạc, nút Dừng đỏ ở cả hai sheet

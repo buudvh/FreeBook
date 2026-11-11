@@ -29,6 +29,12 @@ final class VieNeuTurboTextFrontend: @unchecked Sendable {
         let frontendMs: Double
     }
 
+    /// Một bộ phiên âm Turbo cho cả app (trình đọc + màn thử) — mỗi thực thể giữ riêng một bản `sea_g2p.bin` 62,8 MB.
+    /// `nil` khi không dựng được thư mục của Nano (nơi đặt `sea_g2p.bin`).
+    static let shared: VieNeuTurboTextFrontend? = (try? VieNeuModelStore()).map {
+        VieNeuTurboTextFrontend(dictionaryURL: $0.url(for: "sea_g2p.bin"))
+    }
+
     private let dictionaryURL: URL
     private let lock = NSLock()
     private var g2p: SeaG2P?
@@ -72,7 +78,8 @@ final class VieNeuTurboTextFrontend: @unchecked Sendable {
             .joined(separator: "\n")
     }
 
-    /// Nhả bản đồ bộ nhớ của `sea_g2p.bin` (62,8 MB) khi rời màn thử.
+    /// Nhả bản đồ bộ nhớ của `sea_g2p.bin` (62,8 MB) khi rời màn thử / khi trình đọc chuyển về Nano. Lần phiên âm sau tự
+    /// nạp lại.
     func unload() {
         lock.lock()
         g2p = nil

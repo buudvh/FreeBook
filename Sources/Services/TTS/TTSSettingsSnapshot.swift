@@ -5,8 +5,12 @@ import Foundation
 /// dựng lại đoạn. Danh sách trường là **có chủ ý**: cố ý **không** gồm `nghittsSafeCachedTimeThreshold`,
 /// `nghittsPrefetchCount` và `vieneu*` — đổi riêng ngưỡng đệm không được làm phát lại từ đầu (rules.md).
 /// Đừng "bổ sung cho đủ".
+///
+/// Ngoại lệ có chủ ý: `vieneuModel` (Nano / Turbo) — đổi model là đổi engine tổng hợp dù `tool` vẫn là `"vieneu"`, nên
+/// phải dựng lại đoạn như khi đổi engine.
 struct TTSSettingsSnapshot: Equatable {
     let tool: String
+    let vieneuModel: String
     let selectedVoice: String
     let pitch: Double
     let speed: Double
@@ -40,6 +44,7 @@ struct TTSSettingsSnapshot: Equatable {
     ) -> TTSSettingsSnapshot {
         TTSSettingsSnapshot(
             tool: tool,
+            vieneuModel: VieNeuModelChoice.current.rawValue,
             selectedVoice: selectedVoice,
             pitch: pitch,
             speed: speed,

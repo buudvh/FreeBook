@@ -60,6 +60,9 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     static let family = "vieneu_v3_turbo"
 
+    /// Một runtime cho cả app: trình đọc (`VieNeuTurboTTSService`) và màn thử dùng chung ⇒ chỉ một model 188 MB trong RAM.
+    static let shared = VieNeuTurboRuntime()
+
     /// QoS của hàng đợi — và của luồng ggml (luồng CPU của ggml dựng từ luồng gọi). Để `.utility` cho **cùng mức** với
     /// Nano: session ORT của Nano dựng ở `Task.detached(priority: .utility)`, và màn thử chạy lượt Nano ở `.utility`
     /// (`VieNeuTurboSoakRunner`). Trên iPhone, QoS ảnh hưởng chuyện chạy lõi hiệu năng hay lõi tiết kiệm — đúng biến số
@@ -268,12 +271,14 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
             // Đọc lỗi NGAY (thread-local), trước mọi lời gọi audio.cpp khác.
             let detail = String(cString: audiocpp_last_error())
             let name = String(cString: audiocpp_status_string(status))
-            AppLogger.shared.log(
-                "❌ [VieNeuTurbo] audiocpp_session_run lỗi: \(name) — \(detail) — \(ProcessMemoryProbe.snapshot().summary)"
-            )
+            let memory = ProcessMemoryProbe.snapshot().summary
             guard Self.isAllocationFailure(status, detail) else {
+                AppLogger.shared.log("❌ [VieNeuTurbo] audiocpp_session_run lỗi: \(name) — \(detail) — \(memory)")
                 throw RuntimeError.call("audiocpp_session_run", "\(name) — \(detail)")
             }
+            AppLogger.shared.log(
+                "❌ [VieNeuTurbo] audiocpp_session_run lỗi cấp phát — đang dựng lại session và thử lại đoạn này: \(name) — \(detail) — \(memory)"
+            )
             // Thiếu bộ nhớ: nhả session (graph + bộ đệm của nó) rồi dựng lại, thử lại đúng đoạn này **một** lần.
             // Thời gian / CPU đo gồm cả lần hỏng + dựng lại — số đo không đẹp hơn thực tế.
             try createSessionLocked(threads: max(1, sessionThreads))

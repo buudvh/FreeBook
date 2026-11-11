@@ -33,8 +33,9 @@ final class VieNeuTurboLab {
     // `let` không bị `@Observable` theo dõi — không cần `@ObservationIgnored`.
     let store: VieNeuTurboModelStore?
     let client: VieNeuTurboModelClient?
-    let runtime = VieNeuTurboRuntime()
-    /// `nil` khi không dựng được thư mục của Nano (nơi đặt `sea_g2p.bin`).
+    /// Dùng chung với trình đọc (`VieNeuTurboTTSService`) — một model 188 MB trong RAM, không phải hai.
+    let runtime = VieNeuTurboRuntime.shared
+    /// `nil` khi không dựng được thư mục của Nano (nơi đặt `sea_g2p.bin`). Dùng chung với trình đọc như `runtime`.
     let frontend: VieNeuTurboTextFrontend?
     let g2pDictionaryURL: URL?
     let soak = VieNeuTurboSoakRunner()
@@ -45,10 +46,16 @@ final class VieNeuTurboLab {
     private(set) var hasG2PDictionary = false
     private(set) var bytesOnDisk: Int64 = 0
     private(set) var voices: [VieNeuTurboVoiceManifest.Voice] = []
+    private(set) var defaultVoiceId: String?
     private(set) var isDownloading = false
     private(set) var downloadMessage = ""
     /// `nil` = không biết tổng (vòng xoay), còn lại 0…1.
     private(set) var downloadFraction: Double?
+    /// Byte của file đang tải (`0 / 0` khi chưa biết) — hàng tải ở Cài đặt TTS hiện "74 / 188 MB".
+    private(set) var downloadedBytes: Int64 = 0
+    private(set) var downloadTotalBytes: Int64 = 0
+    /// Lỗi của lượt tải gần nhất (riêng, không lẫn lỗi đọc thử) — hàng tải ở Cài đặt TTS hiện dưới nút.
+    private(set) var downloadError: String?
     private(set) var thermalState = ProcessInfo.processInfo.thermalState
 
     // MARK: Lựa chọn của người dùng
@@ -84,9 +91,8 @@ final class VieNeuTurboLab {
         let store = try? VieNeuTurboModelStore()
         self.store = store
         self.client = store.map { VieNeuTurboModelClient(store: $0) }
-        let g2pURL = (try? VieNeuModelStore())?.url(for: "sea_g2p.bin")
-        self.g2pDictionaryURL = g2pURL
-        self.frontend = g2pURL.map { VieNeuTurboTextFrontend(dictionaryURL: $0) }
+        self.g2pDictionaryURL = (try? VieNeuModelStore())?.url(for: "sea_g2p.bin")
+        self.frontend = VieNeuTurboTextFrontend.shared
         thermalObserver = NotificationCenter.default.addObserver(
             forName: ProcessInfo.thermalStateDidChangeNotification,
             object: nil,
@@ -128,9 +134,11 @@ final class VieNeuTurboLab {
         guard let store, store.hasManifest,
               let manifest = try? VieNeuTurboVoiceManifest.load(from: store.manifestURL) else {
             voices = []
+            defaultVoiceId = nil
             return
         }
         voices = manifest.voices
+        defaultVoiceId = manifest.defaultVoice?.id
         if !voices.contains(where: { $0.id == selectedVoiceId }) {
             selectedVoiceId = manifest.defaultVoice?.id ?? ""
         }
@@ -144,6 +152,7 @@ final class VieNeuTurboLab {
         isDownloading = true
         isError = false
         statusMessage = ""
+        downloadError = nil
         let g2pURL = g2pDictionaryURL
         Task { [weak self] in
             guard let self else { return }
@@ -166,11 +175,14 @@ final class VieNeuTurboLab {
             } catch {
                 isError = true
                 statusMessage = "Tải thất bại: \(error.localizedDescription)"
+                downloadError = statusMessage
                 AppLogger.shared.log("❌ [VieNeuTurbo] Tải model lỗi: \(error.localizedDescription)")
             }
             isDownloading = false
             downloadFraction = nil
             downloadMessage = ""
+            downloadedBytes = 0
+            downloadTotalBytes = 0
             refreshStatus()
         }
     }
@@ -193,6 +205,12 @@ final class VieNeuTurboLab {
                 statusMessage = "Xoá thất bại: \(error.localizedDescription)"
             }
             refreshStatus()
+            // Trình đọc đang chọn Turbo ⇒ về Nano (không để tải lại model sau này tự bật lại Turbo), nạp lại giọng / engine.
+            if VieNeuModelChoice.stored == .turbo {
+                VieNeuModelChoice.store(.nano)
+                let tts = TTSManager.shared
+                if tts.tool == "vieneu" { tts.tool = "vieneu" }
+            }
         }
     }
 
@@ -208,6 +226,8 @@ final class VieNeuTurboLab {
     private func setDownload(_ message: String, fraction: Double?) {
         downloadMessage = message
         downloadFraction = fraction
+        downloadedBytes = 0
+        downloadTotalBytes = 0
     }
 
     /// Tiến độ theo byte từ luồng mạng ⇒ nhảy về MainActor.
@@ -216,6 +236,8 @@ final class VieNeuTurboLab {
             Task { @MainActor in
                 guard let self, self.isDownloading, total > 0 else { return }
                 self.downloadFraction = min(1, Double(completed) / Double(total))
+                self.downloadedBytes = completed
+                self.downloadTotalBytes = total
             }
         }
     }

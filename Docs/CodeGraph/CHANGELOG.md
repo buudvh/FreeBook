@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.849] - 2026-11-11
+
+### feat: engine VieNeu Turbo cho trình đọc truyện (chọn model Nano/Turbo, khoá cache theo model, nhả model không dùng)
+
+Đợt B của Turbo GGUF (anh Bửu duyệt mockup, artifact "VieNeu Turbo trong Cài đặt TTS"). Phần engine; giao diện ở 1.3.850. Viết ở session con, cherry-pick sang `feature/vieneu-turbo-gguf`.
+
+- `tool` vẫn là `"vieneu"` (không thêm chuỗi engine mới); model lưu ở khoá `vieneuModel` qua `VieNeuModelChoice`. Model hiệu lực chỉ là Turbo khi bản build có audio.cpp và máy đủ GGUF + manifest giọng + `sea_g2p.bin`, thiếu thì trình đọc rơi về Nano.
+- `VieNeuTurboTTSService` (mới, `LocalTTSEngine`): `TTSManager.localEngine` trả nó khi chọn Turbo. Đi qua `PiperSynthesisCoordinator` như Nano; tiền xử lý bằng `VieNeuTurboTextFrontend` (số/ngày, tiếng Nhật theo cờ VieNeu, sea-g2p); `VieNeuTurboRuntime` CPU 2 luồng cố định; trả WAV mono 48 kHz + khoảng lặng đuôi theo ranh giới (1×) + `pcmDuration` + `synthesisMs`. Không có tốc độ tổng hợp (luôn 1×). Đoạn không đọc được / phiên âm rỗng ⇒ im lặng 48 kHz. Kiểm huỷ trước lượt audio.cpp (không huỷ được giữa chừng). Giọng chưa có file thì tải cặp file vài KB (gộp lượt tải trùng).
+- Màn thử giọng Nano, thư viện giọng nhân bản và lượt Nano của màn thử Turbo vẫn gọi thẳng `VieNeuTTSService` ⇒ luôn là Nano.
+- Khoá tổng hợp gồm model: `TTSSynthesisIdentity.computeKey` gắn `vieneu.turbo` cho Turbo (Nano giữ `vieneu`, khoá cũ không đổi) ⇒ đổi model không phát lại audio của model kia; `localSynthesisSpeed` trả 1× cho Turbo; `TTSSettingsSnapshot` có `vieneuModel` ⇒ đổi model trong Cài đặt TTS dựng lại đoạn như đổi engine.
+- Giọng nhớ riêng theo model: Nano khoá `vieneuVoice`, Turbo khoá `vieneuTurboVoice` (mặc định `minh_quan_pro`, giọng không còn trong manifest ⇒ mặc định).
+- Bộ nhớ: Turbo chuẩn bị / tổng hợp ⇒ nhả engine Nano nếu đang nạp (`VieNeuTTSEngine.releaseRuntime`: 4 session ORT + bộ phiên âm); trình đọc về Nano ⇒ nhả model Turbo + bộ phiên âm Turbo. Trình đọc và màn thử Turbo dùng chung `VieNeuTurboRuntime.shared` + `VieNeuTurboTextFrontend.shared` (một model 188 MB trong RAM); rời màn thử không nhả khi trình đọc đang chọn Turbo; "Xoá model" ở màn thử đưa trình đọc về Nano.
+- `[VieNeuTurbo] Đoạn:` mỗi đoạn: ms phiên âm / audio.cpp / tổng hợp, giây tiếng, RTF, CPU/tiếng, nhiệt, RAM. Dòng ❌ khi lỗi cấp phát ghi rõ "đang dựng lại session và thử lại đoạn này"; lỗi khác giữ như cũ.
+- Màn thử Turbo có thêm số byte đang tải + lỗi tải riêng (cho hàng tải ở Cài đặt TTS).
+
 ## [1.3.848] - 2026-11-11
 
 ### fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)
@@ -466,19 +481,3 @@ Anh Bửu: Chi tiết → "+" → "Đọc" ⇒ đĩa (đang đứng cao trên c�
 - Container: trang khác trang lúc đĩa hiện ⇒ **thu ngay tại chỗ**; đang chuyển cảnh ⇒ đĩa đang ẩn thì chưa đếm 0,3 s (hỏi lại mỗi 0,1 s), đĩa đang hiện cùng màn thì đứng yên; hết chuyển cảnh + giữ yên 0,3 s ⇒ phóng ra đúng chỗ mới. Trong cùng trang (menu "+" bung / thu, Home hiện muộn) vẫn trượt như cũ. Đang nằm trong header (nhấn giữ) mà đổi màn ⇒ cũng thu rồi hiện trong header màn mới.
 - `CLAUDE.md` / `AGENTS.md` mục đĩa nghe.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — rủi ro: NavigationStack của SwiftUI không lộ `UINavigationController` ở chỗ dò ⇒ đẩy trang không được coi là đổi màn (đĩa trượt như cũ, chỉ mở Reader / sheet là thu).
-
-## [1.3.819] - 2026-11-10
-
-### fix: danh sách tải vô hạn không còn trắng xoá và nhảy khi nối trang
-
-Anh Bửu (video Khám phá › qidian, kiểu Danh sách): kéo tới cuối, lúc tải trang kế cả danh sách trắng xoá ~0,2–0,3 s rồi hiện lại ở chỗ khác (bìa xám tải lại), nối mục mới thì nhảy lên ~1 hàng; xảy ra ở mọi danh sách tải vô hạn.
-
-- **Nguyên nhân (đọc code + video, chưa thử máy):** mọi nơi dùng `LoadMoreFooter` gắn `.id(số mục)` cho hàng chân (mẹo 1.3.679 để vòng xoay không đứng hình) ⇒ mỗi trang về, hàng chân **đang hiện** bị xoá + hàng id mới chèn cùng N hàng mới phía trên ⇒ `List` nạp lại cả bảng. Lại chỉ tải khi chạm chân ⇒ lần nối nào cũng rơi đúng lúc đang nhìn đáy.
-- `LoadMoreFooter`: thêm `token` (số mục) — vòng xoay mới bằng `.id(token)` **chỉ trên `ProgressView`**, kích hoạt tải bằng `.task(id:)` theo `token` (chân còn trên màn sau khi nối ⇒ tự tải tiếp, thay mẹo đổi id). Không ghi state.
-- Hàng chân **id cố định** ở `DiscoveryNovelsLayoutView` (Khám phá / Thể loại / Xem thêm, danh sách + lưới), `SearchSingleSourceResultsView` (danh sách + lưới), `AllCommentsView`, `ShelfBooksLayoutView` (Kệ / Lịch sử, danh sách + lưới).
-- **Tải trước:** Khám phá / Thể loại tải trang kế khi một trong 5 mục cuối hiện ra; Tất cả bình luận cũng vậy (trước: đúng bình luận cuối). Tìm đã có sẵn.
-- Danh sách Khám phá: `ForEach(loader.novels, id: \.link)` như lưới (id `UUID()` đổi mỗi lần nạp lại ⇒ kéo làm mới dựng lại mọi bìa).
-- Tất cả bình luận: đặt cờ đang tải **trước** điểm chờ đầu tiên ⇒ hai lần kích hoạt cùng khung không nối một trang hai lần. (Không lọc trùng theo `id`: id bình luận là `UUID()` mỗi lần bóc tách, lọc không có tác dụng.)
-- Phim đề xuất (`VideoWatchSuggestSection`): hàng vòng xoay giữ 44 pt suốt lúc còn trang (ẩn / hiện bằng độ mờ) ⇒ chiều cao không đổi mỗi lượt; tải trước khi một trong 3 thẻ cuối hiện ra.
-- `CLAUDE.md` / `AGENTS.md`: luật hàng chân id cố định + `token`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

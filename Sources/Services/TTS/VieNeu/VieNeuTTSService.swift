@@ -126,6 +126,11 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Nạp 4 session ONNX + `sea_g2p.bin` (62,8 MB). Chạy ở `Task.detached` vì đây là việc nặng và
     /// đồng bộ — cùng lý do và cùng mức ưu tiên với `PiperTTSService.prepare` (`:35`).
     func prepare(voice: String) async throws {
+        // Trình đọc đang ở Nano ⇒ nhả model Turbo (188 MB + bộ đệm ggml) trước khi nạp ORT — hai model không nên cùng nằm
+        // trong RAM. Trình đọc đang ở Turbo (màn thử Nano / giọng nhân bản nạp Nano) thì giữ Turbo: nó là thứ đang đọc.
+        if VieNeuModelChoice.current == .nano {
+            await VieNeuTurboTTSService.releaseForNano()
+        }
         try await Task.detached(priority: .utility) { [engine] in
             try engine.prepare()
         }.value
@@ -133,6 +138,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         // "Tiết kiệm pin" thắng: khi bật thì ép `fast` bất kể `preferredMode`.
         engine.setRequestedMode(powerSaving ? .fast : preferredMode)
         syncQueue.sync { _currentVoice = voice }
+    }
+
+    /// Nhả engine Nano (session ORT + bộ phiên âm) khi trình đọc chuyển sang Turbo — xem
+    /// `VieNeuTTSEngine.releaseRuntime()`. Chặn tới khi lượt Nano đang chạy xong ⇒ đừng gọi trên main.
+    @discardableResult
+    func releaseEngineRuntime() -> Bool {
+        engine.releaseRuntime()
     }
 
     /// Giọng đọc cho Picker: **giọng user (nếu có) rồi 11 giọng preset**. Cần `voices_v3_nano.json` đã
