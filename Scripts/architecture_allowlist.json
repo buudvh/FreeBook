@@ -255,15 +255,6 @@
       "expiresAt": "2026-12-31"
     },
     {
-      "path": "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
-      "rule": "FILE_SIZE_LIMIT",
-      "baseline_value": 460,
-      "owner": "legacy_refactor",
-      "reason": "Oversized legacy TTSFloatingWidgetView file",
-      "createdAt": "2026-08-13",
-      "expiresAt": "2026-12-31"
-    },
-    {
       "path": "Sources/Services/ChapterText/ChapterContentRepository.swift",
       "rule": "FILE_SIZE_LIMIT",
       "baseline_value": 455,
@@ -725,14 +716,6 @@
     },
     {
       "path": "Sources/Views/Shelf/ShelfMain/ShelfView.swift",
-      "rule": "MULTI_PRIMARY_TYPES",
-      "owner": "legacy_refactor",
-      "reason": "Legacy unrefactored multi-type file",
-      "createdAt": "2026-08-13",
-      "expiresAt": "2026-12-31"
-    },
-    {
-      "path": "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
       "rule": "MULTI_PRIMARY_TYPES",
       "owner": "legacy_refactor",
       "reason": "Legacy unrefactored multi-type file",

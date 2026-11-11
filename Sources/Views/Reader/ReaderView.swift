@@ -1543,7 +1543,6 @@ struct ReaderView: View {
             let chapterContentToUse = getTTSChapterContent(for: index)
             let snapshot = getPretranslatedSnapshot(for: index)
 
-            TTSFloatingWidgetWindowManager.shared.requestRevealOnNextShow()
             ttsManager.startSpeaking(
                 bookId: bookId,
                 chapters: initialQueue,

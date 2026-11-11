@@ -16,7 +16,7 @@ struct TTSSettingsSheetHost: ViewModifier {
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $ttsManager.showingSettingsSheet) {
-            if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
+            if let container = MediaDiscWindowManager.shared.modelContainer {
                 TTSSettingsSheet()
                     .modelContainer(container)
             } else {

@@ -209,8 +209,8 @@ extension ReaderView {
         viewModel?.reloadDisplayedChapter()
     }
 
-    /// Nút nổi góc dưới phải của Reader: nút tai nghe. Đĩa nghe góc dưới phải (nhạc / TTS kiểu Đĩa góc dưới, cửa sổ riêng
-    /// của `MediaDiscWindowManager`, 1.3.808) tự đứng ngay trên nó nhờ neo `.mediaDiscAnchor(.button)` — thay hai nút đĩa
+    /// Nút nổi góc dưới phải của Reader: nút tai nghe. Đĩa nghe (nhạc / TTS, nửa viên dính mép, cửa sổ riêng
+    /// của `MediaDiscWindowManager`, 1.3.808) ở mép phải đè lên nút thì tạm đứng ngay trên nó nhờ neo `.mediaDiscAnchor(.button)` — thay hai nút đĩa
     /// riêng của Reader (1.3.792 / 1.3.806).
     internal func readerEdgeControls(geometry: GeometryProxy) -> some View {
         readerTTSControl(geometry: geometry)

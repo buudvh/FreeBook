@@ -3,12 +3,12 @@ import SwiftData
 import UIKit
 
 /// Điều phối **đĩa nghe** (1.3.808; dạng **nửa viên thuốc dính mép**, kéo đổi mép / độ cao từ 2026-11-11) — một đĩa xoay
-/// dùng chung cho trình nghe nhạc và TTS (kiểu widget "Đĩa góc dưới"), nổi trên mọi màn (trang đẩy vào, sheet, trình duyệt,
+/// dùng chung cho trình nghe nhạc và TTS (kiểu widget TTS duy nhất từ 1.3.859), nổi trên mọi màn (trang đẩy vào, sheet, trình duyệt,
 /// Reader) ở cửa sổ lớp phủ riêng
-/// (`MediaDiscWindow`, level `alert − 1.75`: trên nút hub `−2`, dưới ngăn kéo `…` `−1.5`, widget TTS `−1` và toast). Thay
-/// thanh nghe nhạc mini, kiểu "Thanh nghe nhạc" của widget TTS và hai nút đĩa riêng của Reader.
+/// (`MediaDiscWindow`, level `alert − 1.75`: trên nút hub `−2`, dưới ngăn kéo `…` `−1.5` và toast). Thay thanh nghe nhạc
+/// mini, kiểu "Thanh nghe nhạc" / "Đĩa nổi" của widget TTS và hai nút đĩa riêng của Reader.
 ///
-/// - **Nguồn** (`kind`): trình nghe có album ⇒ nhạc; không thì TTS có phiên + kiểu "Đĩa góc dưới" ⇒ TTS; chờ cổng từ điển
+/// - **Nguồn** (`kind`): trình nghe có album ⇒ nhạc; không thì TTS có phiên ⇒ TTS; chờ cổng từ điển
 ///   mở như các cửa sổ nổi khác. Có nguồn ⇒ dựng/hiện cửa sổ; hết nguồn hoặc phim toàn màn ⇒ (đóng sheet,) thu đĩa rồi ẩn
 ///   cửa sổ.
 /// - **Được hiện** (`isDiscAllowed`): bàn phím ẩn, không phim toàn màn (`FloatingWidgetSuppression`), màn nghe không hiện.
@@ -74,13 +74,7 @@ final class MediaDiscWindowManager: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.container?.updateDisc(animated: true) }
             .store(in: &cancellables)
-        TTSWidgetPreferences.shared.$style
-            .removeDuplicates()
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refreshState() }
-            .store(in: &cancellables)
-        // Phim toàn màn / khoá màn ⇒ ẩn hẳn cửa sổ như hub và widget TTS (cửa sổ phủ kín màn không được dính tới thanh
+        // Phim toàn màn / khoá màn ⇒ ẩn hẳn cửa sổ như hub (cửa sổ phủ kín màn không được dính tới thanh
         // trạng thái / hướng xoay của trình phát).
         FloatingWidgetSuppression.shared.$isSuppressed
             .removeDuplicates()
@@ -98,7 +92,7 @@ final class MediaDiscWindowManager: ObservableObject {
     // MARK: - Trạng thái
 
     /// Đọc lại nguồn rồi hiện / ẩn cửa sổ. `FreeBookApp` gọi lúc mở app, khi cổng từ điển mở và khi TTS bật/tắt phiên;
-    /// trình nghe và kiểu widget thì manager tự nghe.
+    /// trình nghe thì manager tự nghe.
     func refreshState() {
         let newKind = Self.resolveKind()
         if newKind != kind {
@@ -162,7 +156,7 @@ final class MediaDiscWindowManager: ObservableObject {
     private static func resolveKind() -> MediaDiscKind? {
         guard TranslationManager.shared.isInitialized else { return nil }
         if AudioMiniPlayerState.shared.isActive { return .music }
-        if TTSManager.shared.showFloatingWidget, TTSWidgetPreferences.shared.style == .cornerDisc { return .tts }
+        if TTSManager.shared.showFloatingWidget { return .tts }
         return nil
     }
 

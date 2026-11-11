@@ -90,8 +90,6 @@ struct AppLaunchRootView: View {
             }
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
-            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
-            TTSFloatingWidgetWindowManager.shared.refreshState()
             // Nút hub nổi (AI / thông báo / video): `modelContainer` là bắt buộc vì màn Thông báo được
             // trình bày từ cửa sổ riêng của hub, mà cửa sổ đó không có environment của app. Hub tự nghe các
             // nguồn của nó; root chỉ còn phải gọi lại khi cổng từ điển mở.
@@ -100,13 +98,11 @@ struct AppLaunchRootView: View {
             // Widget trình duyệt thu nhỏ (cửa sổ riêng, tách khỏi hub ở 1.3.533) tự nghe trạng thái trình duyệt;
             // root chỉ gọi lúc khởi động và khi cổng từ điển mở, như trước khi gộp vào hub.
             BrowserFloatingWidgetWindowManager.shared.refreshState()
-            // Đĩa nghe góc dưới phải (nhạc + TTS kiểu Đĩa góc dưới, 1.3.808): cửa sổ riêng, sheet cần `modelContainer`.
+            // Đĩa nghe (nhạc + TTS, 1.3.808; widget TTS duy nhất từ 1.3.859): cửa sổ riêng, sheet cần `modelContainer`.
             MediaDiscWindowManager.shared.modelContainer = modelContext.container
             MediaDiscWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
-            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
-            TTSFloatingWidgetWindowManager.shared.refreshState()
             FloatingHubWindowManager.shared.modelContainer = modelContext.container
             FloatingHubWindowManager.shared.refreshState()
             BrowserFloatingWidgetWindowManager.shared.refreshState()
@@ -114,12 +110,11 @@ struct AppLaunchRootView: View {
             MediaDiscWindowManager.shared.refreshState()
         }
         .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
-            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
-            TTSFloatingWidgetWindowManager.shared.refreshState()
+            MediaDiscWindowManager.shared.modelContainer = modelContext.container
             MediaDiscWindowManager.shared.refreshState()
         }
         .task(id: translationManager.isInitialized) {
-            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
+            MediaDiscWindowManager.shared.modelContainer = modelContext.container
             guard translationManager.isInitialized else { return }
             // Backfill tên dịch/phương âm cho các sách chưa có (titleTrans/authorTrans),
             // chạy sau khi từ điển đã nạp — mirror pattern nạp dict ban đầu.

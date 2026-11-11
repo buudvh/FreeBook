@@ -7,7 +7,7 @@ import WebKit
 /// - Trang (web hoặc Home) chiếm phần giữa và **kết thúc ngay trên thanh dưới** (không bị che); dải báo tự dịch nổi
 ///   ở đầu trang, dải báo popup bị chặn nổi ở cuối trang.
 /// - Thanh dưới gắn sát đáy (`BrowserBottomBar`): lùi, tiến, ô URL, nút Import, nút ⋮ mở ngăn kéo. Thanh là neo của đĩa
-///   nghe góc dưới phải (1.3.808): đang nghe nhạc / TTS kiểu Đĩa góc dưới ⇒ đĩa đứng ngay trên thanh.
+///   nghe góc dưới phải (1.3.808): đang nghe nhạc / TTS mà nửa viên đĩa đè thanh ⇒ đĩa tạm đứng ngay trên thanh.
 ///
 /// Thành phần giao diện ở `Sources/Views/Common/Browser/Chrome/`; thao tác (tab, Home, nạp URL, import, sao chép link)
 /// ở `BypassWebView+Actions`. Menu nhấn giữ / sheet dịch-tra / bảng chia sẻ do phần menu nhấn giữ gắn thêm.

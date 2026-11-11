@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.859] - 2026-11-11
+
+### feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt
+
+Anh Bửu: "giữ lại 1 kiểu thôi widget thôi nhé, là widget của tts thôi ấy". Widget TTS chỉ còn **đĩa nghe** dùng chung với nhạc (nửa viên thuốc dính mép của 1.3.858 + ô giữa thanh tab); kiểu **Đĩa nổi** (trước là mặc định) bỏ hẳn.
+
+- `MediaDiscWindowManager.resolveKind`: TTS có phiên ⇒ đĩa TTS, không còn xét kiểu widget. Ai đang dùng Đĩa nổi tự sang đĩa nghe; ô giữa thanh tab có đĩa thật khi đang nghe truyện (trước đó là đĩa xám nếu chọn Đĩa nổi).
+- **Xoá 9 file**: `FloatingWidgetContainerViewController`, `FloatingWidgetUIWindow`, `FloatingWidgetViewModel`, `TTSFloatingWidgetView`, `TTSFloatingWidgetWindowManager`, `TTSFloatingWidgetContaining`, `TTSWidgetStyle`, `TTSWidgetPreferences`, `TTSWidgetSettingsView`. Khoá `ttsWidgetStyle` / `ttsWidgetVerticalRatio` / `ttsWidgetEdge` bỏ mặc, không đọc nữa.
+- `TTSCoverView` + `TTSCoverImageLoader` (mặt đĩa TTS và sheet điều khiển nhanh dùng) dời ra file riêng trong `Views/TTSWidget/` trước khi xoá file cũ.
+- Gỡ chỗ gọi: `FreeBookApp` (4 chỗ; `modelContainer` của đĩa nghe nay cũng set trong `.task(id:)` và khi TTS bật/tắt phiên), `ReaderView` (`requestRevealOnNextShow`), `TTSQuickControlSheet` + `TTSSettingsSheetHost` (`modelContainer` lấy từ `MediaDiscWindowManager`), Cài đặt › Đọc & Nghe (bỏ hàng "Widget TTS"), `FloatingWidgetLayoutCoordinator` (bỏ id `.tts`).
+- `architecture_allowlist.json`: gỡ hai entry của `TTSFloatingWidgetView.swift` (file đã xoá).
+- `rules.md`: thay mục "TTS widget reveal-from-Reader invariants (1.3.277)" bằng luật một kiểu widget; luật 25 + mục nút hub nêu cửa sổ còn lại (hub, đĩa nghe, trình duyệt). `CLAUDE.md` / `AGENTS.md`: đoạn "Widget TTS chỉ một kiểu".
+- **Kiểm chứng:**
+  - Đọc code + grep chéo mọi symbol đã xoá (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Bấm tai nghe ở Reader ⇒ nửa viên đĩa TTS hiện (không còn đĩa nổi), chạm ⇒ sheet điều khiển nhanh.
+    2. Về trang gốc tab khi đang đọc ⇒ ô giữa thanh tab là đĩa bìa truyện xoay.
+    3. Sheet điều khiển nhanh ⇒ Giọng đọc / Hẹn giờ mở được (cần `modelContainer`).
+    4. Cài đặt › Đọc & Nghe không còn hàng "Widget TTS".
+
 ## [1.3.858] - 2026-11-11
 
 ### feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header

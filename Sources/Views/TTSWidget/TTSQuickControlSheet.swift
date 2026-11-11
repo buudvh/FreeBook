@@ -1,11 +1,11 @@
 import SwiftUI
 
 /// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ đĩa nghe (góc dưới phải hoặc ô giữa thanh tab — `MediaDiscSheetHost`,
-/// kiểu widget "Đĩa góc dưới", 1.3.808 / 1.3.812), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
+/// 1.3.808 / 1.3.812), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
 /// nền kính theo cài đặt **ngăn kéo** (`DrawerGlassSheetBackground`, luôn tông tối ⇒ nội dung vẽ ở `colorScheme` tối).
 ///
 /// Nội dung:
-/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với đĩa góc dưới / Đĩa nổi) · tên
+/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với mặt đĩa nghe) · tên
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
 ///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này; đang hẹn ⇒ viên "Hủy" ngay cạnh, 1.3.816). Chạm
 ///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
@@ -258,7 +258,7 @@ struct TTSQuickControlSheet: View {
 
     @ViewBuilder
     private var settingsSheet: some View {
-        if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
+        if let container = MediaDiscWindowManager.shared.modelContainer {
             TTSSettingsSheet()
                 .modelContainer(container)
         } else {

@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Ô **giữa** của `MainTabBar` (1.3.812): thanh tab luôn 5 ô (Kệ Sách · Khám Phá · [ô này] · Tiện Ích · Cài Đặt) để icon các
-/// tab không bao giờ đổi chỗ. Có nguồn đĩa (`MediaDiscWindowManager.kind` — nhạc có album, hoặc TTS có phiên + kiểu "Đĩa góc
-/// dưới") ⇒ đĩa (`MediaDiscFaceButton(.tabBar)`), chạm mở sheet điều khiển nhanh; không có ⇒ **đĩa xám đứng yên**
+/// tab không bao giờ đổi chỗ. Có nguồn đĩa (`MediaDiscWindowManager.kind` — nhạc có album, hoặc TTS có phiên) ⇒ đĩa
+/// (`MediaDiscFaceButton(.tabBar)`), chạm mở sheet điều khiển nhanh; không có ⇒ **đĩa xám đứng yên**
 /// (`MediaDiscIdleFace`, 1.3.821), không bấm được. Gờ nền luôn có ⇒ thanh tab không đổi dáng; đổi qua lại bằng mờ chéo.
 ///
 /// Dáng (1.3.814, anh Bửu chọn): bìa 44 pt có **mép dưới ngang chân chữ** của các tab, đặt giữa một vòng nền 52 pt cùng
