@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.851] - 2026-11-11
+
+### fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model
+
+- Màn thử Turbo và trình đọc dùng chung runtime: "Xoá model" lúc trình đọc đang đọc bằng Turbo nay dừng TTS trước (như khi màn thử giành âm thanh), thay vì nhả runtime + xoá file dưới chân trình đọc đang phát.
+
 ## [1.3.850] - 2026-11-11
 
 ### feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS
@@ -471,14 +477,3 @@ Anh Bửu thử 1.3.819: hết trắng xoá nhưng danh sách (kiểu Danh sách
 - Kệ / Lịch sử giữ `List` (vuốt ngang, tiêu đề nhóm dính; nạp trên máy 50 truyện mỗi lượt).
 - `BookListPanelModifier` / `CLAUDE.md` / `AGENTS.md`: luật danh sách tải vô hạn không dùng `List`.
 - **Kiểm chứng:** đọc code + anh thử kiểu Lưới (không nhảy); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Đánh đổi: `LazyVStack` không tái dùng ô như `List` ⇒ danh sách rất dài tốn bộ nhớ hơn chút (như kiểu lưới hiện nay).
-
-## [1.3.821] - 2026-11-10
-
-### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì
-
-Anh Bửu: *"mặc định không có nghe truyện/nhạc thì để hình cd dừng ở tab"* — chọn kiểu **đĩa xám mờ**, **chạm không làm gì**.
-
-- `MediaDiscIdleFace` (file mới): đĩa than 44 pt đứng yên — nền + 3 vòng rãnh + nhãn giữa theo tông `systemGray4` / `systemGray3` / `systemGray2` (như icon tab chưa chọn, tự đổi theo nền sáng / tối), lỗ giữa, viền mảnh như đĩa đang nghe. Không nhận chạm, VoiceOver bỏ qua.
-- `MediaDiscTabBarSlot`: gờ nền 52 pt **luôn có** (thanh tab không đổi dáng khi bật / tắt nghe); không có nguồn ⇒ đĩa xám, có nguồn ⇒ `MediaDiscFaceButton(.tabBar)` như cũ; đổi qua lại bằng mờ chéo 0,2 s (bỏ hiệu ứng phóng vì gờ luôn đứng đó).
-- Comment `MainTabBar` / `MediaDiscWindowManager`, `CLAUDE.md` / `AGENTS.md`: "ô giữa trống" ⇒ "đĩa xám đứng yên".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

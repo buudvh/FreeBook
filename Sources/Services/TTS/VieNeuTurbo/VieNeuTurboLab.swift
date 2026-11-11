@@ -191,6 +191,13 @@ final class VieNeuTurboLab {
     func deleteModel() {
         guard !isBusy, let store else { return }
         stopSample()
+        // Trình đọc đang đọc bằng Turbo (cùng runtime) ⇒ dừng trước khi nhả runtime và xoá file, kẻo đoạn kế nạp lại
+        // đúng file vừa xoá rồi lỗi giữa chừng.
+        let tts = TTSManager.shared
+        if tts.tool == "vieneu", VieNeuModelChoice.current == .turbo, tts.isPlaying || tts.showFloatingWidget {
+            AppLogger.shared.log("⏹️ [VieNeuTurbo] Dừng TTS trước khi xoá model Turbo (trình đọc đang dùng Turbo)")
+            tts.stop()
+        }
         Task { [weak self] in
             guard let self else { return }
             await runtime.release()

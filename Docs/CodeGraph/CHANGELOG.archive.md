@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.821] - 2026-11-10
+
+### feat: ô giữa thanh tab có đĩa xám đứng yên khi không nghe gì
+
+Anh Bửu: *"mặc định không có nghe truyện/nhạc thì để hình cd dừng ở tab"* — chọn kiểu **đĩa xám mờ**, **chạm không làm gì**.
+
+- `MediaDiscIdleFace` (file mới): đĩa than 44 pt đứng yên — nền + 3 vòng rãnh + nhãn giữa theo tông `systemGray4` / `systemGray3` / `systemGray2` (như icon tab chưa chọn, tự đổi theo nền sáng / tối), lỗ giữa, viền mảnh như đĩa đang nghe. Không nhận chạm, VoiceOver bỏ qua.
+- `MediaDiscTabBarSlot`: gờ nền 52 pt **luôn có** (thanh tab không đổi dáng khi bật / tắt nghe); không có nguồn ⇒ đĩa xám, có nguồn ⇒ `MediaDiscFaceButton(.tabBar)` như cũ; đổi qua lại bằng mờ chéo 0,2 s (bỏ hiệu ứng phóng vì gờ luôn đứng đó).
+- Comment `MainTabBar` / `MediaDiscWindowManager`, `CLAUDE.md` / `AGENTS.md`: "ô giữa trống" ⇒ "đĩa xám đứng yên".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.820] - 2026-11-10
 
 ### fix: đĩa góc thu tại chỗ khi đổi màn rồi hiện thẳng ở chỗ mới, không trượt ngang qua màn
