@@ -37,10 +37,9 @@ struct ComicReaderView: View {
     @State private var isChapterListAscending = true
     /// `Book` đọc một lần lúc mở màn — chỉ để mục lục có thể mở `TaskOptionsSheet` (tải ảnh offline).
     @State private var localBook: Book?
-    @State private var zoomImage: UIImage?
-    /// Yêu cầu ảnh của trang đang phóng to — trình xem lấy lại khối chữ đã nhận để vẽ lớp dịch (1.3.834).
-    @State private var zoomRequest: ComicImageRequest?
-    @State private var isZoomPresented = false
+    /// Ảnh đang phóng to — `fullScreenCover(item:)` (1.3.835): cover luôn nhận đúng ảnh ngay lần đầu. Trước đó cờ
+    /// `isPresented` + biến ảnh riêng ⇒ lần đầu cover dựng bằng ảnh cũ (trống) rồi tự đóng.
+    @State private var zoomTarget: ComicZoomViewer.Target?
     /// Trình duyệt "Mở link lỗi" đang mở (cũng là `fullScreenCover` ⇒ bỏ qua dọn dẹp như trình xem phóng to).
     @State private var openingErrorLink: SourceErrorLink?
     /// Chi tiết truyện đang đẩy vào từ bìa ở mục lục (URL chi tiết) — màn đọc vẫn sống bên dưới, bỏ qua dọn dẹp như trên.
@@ -132,8 +131,8 @@ struct ComicReaderView: View {
                 initialHost: localBook?.host
             )
         }
-        .fullScreenCover(isPresented: $isZoomPresented, onDismiss: { zoomImage = nil; zoomRequest = nil }) {
-            zoomCover
+        .fullScreenCover(item: $zoomTarget) { target in
+            zoomCover(target)
         }
         // Đóng ⇒ chép cookie rồi nạp lại đúng chương lỗi (`retry` dùng `chapterIndex` = chương đang nạp).
         .errorLinkBrowser(link: $openingErrorLink, packageId: launch.extensionPackageId) { viewModel.retry() }
@@ -278,22 +277,15 @@ struct ComicReaderView: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
-    private var zoomCover: some View {
-        if let zoomImage {
-            ComicZoomViewer(
-                image: zoomImage,
-                request: zoomRequest,
-                translation: imageTranslationContext,
-                onClose: { isZoomPresented = false }
-            )
-                .ignoresSafeArea()
-                .statusBarHidden(true)
-        } else {
-            Color.black
-                .ignoresSafeArea()
-                .onAppear { isZoomPresented = false }
-        }
+    private func zoomCover(_ target: ComicZoomViewer.Target) -> some View {
+        ComicZoomViewer(
+            image: target.image,
+            request: target.request,
+            translation: imageTranslationContext,
+            onClose: { zoomTarget = nil }
+        )
+        .ignoresSafeArea()
+        .statusBarHidden(true)
     }
 
     // MARK: - Hành động
@@ -305,9 +297,7 @@ struct ComicReaderView: View {
     }
 
     private func openZoom(_ image: UIImage, request: ComicImageRequest) {
-        zoomImage = image
-        zoomRequest = request
-        isZoomPresented = true
+        zoomTarget = ComicZoomViewer.Target(image: image, request: request)
     }
 
     // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện — `ComicTranslationStatus`)
@@ -384,7 +374,7 @@ struct ComicReaderView: View {
 
     private func handleDisappear() {
         // Trình xem phóng to / trình duyệt "Mở link lỗi" đang che màn này — màn đọc vẫn sống, không dọn dẹp.
-        if isZoomPresented || openingErrorLink != nil || bookDetailUrl != nil { return }
+        if zoomTarget != nil || openingErrorLink != nil || bookDetailUrl != nil { return }
         ScreenIdleTimerLock.release(ObjectIdentifier(viewModel))
         titleTranslationTask?.cancel()
         viewModel.shutdown()

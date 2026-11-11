@@ -10,6 +10,14 @@ import UIKit
 ///   view được zoom (`contentView` chứa ảnh + lớp dịch) nên khối phóng theo ảnh. Khối lấy từ `ComicPageTextRepository` (ảnh vừa
 ///   hiện trên trang ⇒ trúng RAM, không nhận chữ lại) rồi dịch như trên trang.
 struct ComicZoomViewer: UIViewRepresentable {
+    /// Một lần mở phóng to: ảnh đang vẽ trên trang + yêu cầu ảnh của trang đó. `ComicReaderView` trình bày bằng
+    /// `fullScreenCover(item:)` (1.3.835) để cover nhận đúng ảnh ngay lần đầu.
+    struct Target: Identifiable {
+        let id = UUID()
+        let image: UIImage
+        let request: ComicImageRequest
+    }
+
     let image: UIImage
     /// Yêu cầu ảnh của trang đang phóng to — khoá của kết quả nhận chữ.
     let request: ComicImageRequest?
