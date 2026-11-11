@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.795] - 2026-11-09
+
+### feat: hẹn giờ tắt cho xem phim và nghe nhạc giống TTS
+
+Anh Bửu duyệt plan: phim và nhạc có hẹn giờ tắt như TTS (mốc phút, ô cuối riêng, tuỳ chỉnh).
+
+- **Bộ đếm** `MediaSleepTimer` (`Services/Media/`, mới; mỗi phiên một bộ: `VideoPlaybackSession.sleepTimer`, `AudioPlaybackSession.sleepTimer`): mốc 15/30/45/60/90 phút, tuỳ chỉnh 1–180 phút, ô cuối **"Hết tập"** (phim) / **"Hết bài"** (nhạc). Chỉ đếm khi đang phát (app ở nền vẫn đếm; tạm dừng giữ số giây còn lại), đếm theo mốc `systemUptime` nên tick trễ không làm lệch giờ. Hết giờ ⇒ `pause()` của phiên (màn khoá cập nhật qua đường KVO sẵn có) + toast "⏱️ Hẹn giờ (N phút): đã tạm dừng phim/nhạc." qua kênh mới `MediaPresentationEventCenter` (subscriber ở `FreeBookApp`, cùng khuôn `TTSPresentationEventCenter`; Services không gọi `ToastManager`).
+- **Sau khi kích hoạt — giống TTS**: chế độ giữ nguyên tới khi người dùng tắt. Mốc phút hết giờ thì lần phát sau đếm lại một vòng đủ; "Hết tập" / "Hết bài" dừng ở cuối mỗi tập / bài.
+- **Hết tập** (`VideoPlaybackSession+SleepTimer`, chặn ở đầu `handlePlayedToEnd`): không sang tập kế, không sang phim đề xuất (`VideoAutoNextCoordinator`); lưu tập ở giây 0 như nhánh hết tập cuối. **Hết bài** (`AudioPlaybackSession+SleepTimer`, dòng đầu `advanceAfterTrackEnded`): dừng ở cuối bài kể cả đang lặp một / lặp album, không nạp sẵn bài kế; lưu bài ở giây 0.
+- **Gắn với lượt đang phát**: `stop()` (đóng hẳn, mở phim / album khác, TTS giành phiên nhạc) huỷ hẹn giờ. **Ngoại lệ Javis tự chốt**: tự sang phim đề xuất (`open(keepsSleepTimer:)`, truyền từ `VideoWatchModel+Playback`) **giữ** hẹn giờ — ngủ quên thì chuỗi phim đề xuất vẫn dừng đúng giờ.
+- **Đếm phim**: `refreshIdleTimer()` (điểm mọi lần trạng thái phát đổi đi qua) gọi `syncSleepTimerCounting()` với điều kiện riêng `launch != nil && isPlaying && không nhúng` — không phụ thuộc màn có hiện (hub, cửa sổ nhỏ, nền vẫn đếm). Phim **nhúng trang** không có trạng thái phát ⇒ không đếm; hàng "Hẹn giờ tắt" ẩn khi đang nhúng mà chưa hẹn. Nhạc: `handleTimeControlChange`.
+- **UI**: tách lưới mốc + tuỳ chỉnh của `TTSQuickTimerSheet` thành `SleepTimerOptionsView` (`Views/Common/SleepTimer/`) — sheet TTS giữ nguyên giao diện, hành vi và ô "Hết chương". Phim / nhạc dùng sheet gọn `MediaSleepTimerSheet` (tiêu đề + dòng trạng thái + "Tắt hẹn giờ" khi đang hẹn; vuốt xuống để đóng). Lối vào: **nhạc** — nút ⏱ ở hàng phụ trang Đĩa (đang hẹn ⇒ viên thuốc màu nhấn "m:ss"), hàng "Hẹn giờ tắt" trong ngăn kéo `…` của màn nghe, nút ⏱ cạnh ⤢ trong sheet nhạc của Reader (sheet hẹn giờ mở chồng lên); **phim** — hàng "Hẹn giờ tắt" đầu ngăn kéo `⋯` của trình phát, đang hẹn ⇒ badge ⏱ + số phút còn lại ("Np") ở thanh trên. Số giây chỉ đọc ở view lá `MediaSleepTimerCountdownText`.
+- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoPlaybackSession+Playback.swift` đúng 400 dòng). Không build tại chỗ (Windows). Chưa thử máy: đếm khi app ở nền / khoá màn; hết giờ có tạm dừng + toast; sheet hẹn giờ chồng lên sheet nhạc của Reader; badge thanh trên trình phát.
+
 ## [1.3.794] - 2026-11-09
 
 ### fix: sheet chọn truyện nguồn / truyện đích của từ điển VP/Name chỉ hiện truyện chữ

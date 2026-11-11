@@ -9,6 +9,10 @@ struct GeneralSettingsSection: View {
             NavigationLink(destination: AppearanceSettingsView()) {
                 Label("Giao diện", systemImage: "paintpalette")
             }
+            // DNS mã hoá + hướng dẫn đổi DNS / IP cho cả máy (1.3.825).
+            NavigationLink(destination: NetworkSettingsView()) {
+                Label("Mạng & DNS", systemImage: "network")
+            }
         }
     }
 }

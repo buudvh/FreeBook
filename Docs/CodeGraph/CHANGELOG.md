@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.825] - 2026-11-11
+
+### feat: DNS mã hoá trong app chống nhà mạng chặn tên miền
+
+Anh Bửu: *"tôi muốn thêm dns, proxy, vpn hay gì đó để tránh trường hợp bị web chặn"* — phỏng vấn /grill-me chốt: đợt này chỉ chống **nhà mạng chặn tên miền** (anh chưa có proxy); bị trang nguồn chặn IP thì thử WARP; proxy để sau (hướng đã chốt, ghi ở `CLAUDE.md`). VPN thật (Network Extension) không làm được vì app không ký, chạy trong LiveContainer.
+
+- `Services/Network/EncryptedDNS/` (mới): `EncryptedDNSRepository` (`@MainActor @Observable`) đặt `NWParameters.PrivacyContext.default.requireEncryptedNameResolution` ⇒ phủ mọi kết nối **trong tiến trình** (URLSession: fetch của tiện ích JS, Legado, ảnh bìa, ảnh truyện tranh, tải phim offline); WebView (tiến trình WebKit) và AVPlayer **không** ăn. Mặc định bật, Cloudflare (`EncryptedDNSPolicy`); 4 máy chủ kèm IP khởi động (`EncryptedDNSResolver`: Cloudflare, Google, AdGuard không lọc, Quad9).
+- `EncryptedDNSProbe`: `NWConnection` TCP tới `captive.apple.com:80` với privacy context **riêng** bắt buộc DoH, hết giờ 6 s. Lỗi ⇒ lùi về DNS thường, log `❌ [DNS]`, nhớ lại để lần mở app sau dò trước rồi mới bật (bình thường thì bật ngay lúc mở app rồi mới dò). Dò lại khi đổi đường mạng (`NWPathMonitor`, giãn 2 s), đổi cài đặt, bấm "Kiểm tra lại"; mất mạng thì chờ, không lùi.
+- `FreeBookApp.init` gọi `EncryptedDNSRepository.shared.start()` ngay sau `WebContentSettings.registerDefaults()`.
+- Cài đặt › Chung › **Mạng & DNS** (`NetworkSettingsView`): công tắc, máy chủ, dòng trạng thái ("Máy chủ DoH tới được" — lượt dò không chứng minh URLSession thật sự theo context mặc định nên không ghi "đang dùng"), "Kiểm tra lại", nút "?" nói rõ phạm vi + bật rồi vẫn bị chặn là chặn theo SNI/IP. Trang `SystemDNSGuideView`: đổi DNS cho cả máy (app 1.1.1.1 của Cloudflare, profile của AdGuard DNS — đều chính chủ) và đổi IP bằng chế độ WARP khi bị chặn IP.
+- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ở "Ràng buộc runtime cần nhớ".
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) nguồn bị nhà mạng chặn tải được qua `fetch`, tắt công tắc + mở lại app thì lại bị chặn; (2) mạng chặn 1.1.1.1 ⇒ lùi, fetch / bìa **vẫn tải được**; (3) phim từ tên miền bị chặn có phát được không.
+
 ## [1.3.824] - 2026-11-10
 
 ### fix: bấm Mở LiveContainer lúc đang nghe thì dừng nghe trước để LiveContainer mở lại được
@@ -355,17 +368,3 @@ Anh Bửu duyệt plan: widget TTS có thêm kiểu giống thanh phát mini ngh
 - **Thu gọn** (`TTSWidgetBarViewModel`): » hoặc vuốt thanh sang ngang ⇒ **viên nép mép phải** (`TTSWidgetBarPillView`: đĩa xoay + ⏯, chỉ kéo dọc), chạm đĩa ⇒ bung lại; nhớ đang thu hay bung (`ttsWidgetBarCollapsed`). "Thu gọn khi mở Reader": cờ nhẹ `ReaderPresenceTracker` (mới; `ReaderView` thêm đúng hai dòng ở đầu `onAppear` / `onDisappear`) ⇒ mở Reader tự thu, rời Reader bung lại nếu trước đó đang bung (cờ Reader không lưu); bấm đĩa trong Reader thì bung tới khi rời Reader. "Tự thu gọn sau 5 giây": bung mà 5 giây không bấm nút / không kéo ⇒ thu; sheet Hẹn giờ đang mở thì không đếm (sheet gắn ở gốc nội dung nên thu/bung không làm mất sheet).
 - **Giữ chỗ với widget nổi khác**: viên giữ chỗ mép phải trong `FloatingWidgetLayoutCoordinator`; thanh rộng cả hai mép nên gỡ chỗ `.tts`, nút hub tự né khi được thả / hiện ra.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ReaderView.swift` +2 dòng, dưới baseline). Không build tại chỗ (Windows). Chưa thử máy. Cần thử: thanh mặc định so với nút Home / "+" nổi ở trang đẩy vào và nút hub; viên thu gọn so với nút tai nghe / đĩa nhạc góc dưới phải của Reader; kéo dọc và vuốt ngang không cướp chạm của các nút trên thanh; Reader truyện tranh **không** tính là Reader (chỉ màn đọc truyện chữ).
-
-## [1.3.795] - 2026-11-09
-
-### feat: hẹn giờ tắt cho xem phim và nghe nhạc giống TTS
-
-Anh Bửu duyệt plan: phim và nhạc có hẹn giờ tắt như TTS (mốc phút, ô cuối riêng, tuỳ chỉnh).
-
-- **Bộ đếm** `MediaSleepTimer` (`Services/Media/`, mới; mỗi phiên một bộ: `VideoPlaybackSession.sleepTimer`, `AudioPlaybackSession.sleepTimer`): mốc 15/30/45/60/90 phút, tuỳ chỉnh 1–180 phút, ô cuối **"Hết tập"** (phim) / **"Hết bài"** (nhạc). Chỉ đếm khi đang phát (app ở nền vẫn đếm; tạm dừng giữ số giây còn lại), đếm theo mốc `systemUptime` nên tick trễ không làm lệch giờ. Hết giờ ⇒ `pause()` của phiên (màn khoá cập nhật qua đường KVO sẵn có) + toast "⏱️ Hẹn giờ (N phút): đã tạm dừng phim/nhạc." qua kênh mới `MediaPresentationEventCenter` (subscriber ở `FreeBookApp`, cùng khuôn `TTSPresentationEventCenter`; Services không gọi `ToastManager`).
-- **Sau khi kích hoạt — giống TTS**: chế độ giữ nguyên tới khi người dùng tắt. Mốc phút hết giờ thì lần phát sau đếm lại một vòng đủ; "Hết tập" / "Hết bài" dừng ở cuối mỗi tập / bài.
-- **Hết tập** (`VideoPlaybackSession+SleepTimer`, chặn ở đầu `handlePlayedToEnd`): không sang tập kế, không sang phim đề xuất (`VideoAutoNextCoordinator`); lưu tập ở giây 0 như nhánh hết tập cuối. **Hết bài** (`AudioPlaybackSession+SleepTimer`, dòng đầu `advanceAfterTrackEnded`): dừng ở cuối bài kể cả đang lặp một / lặp album, không nạp sẵn bài kế; lưu bài ở giây 0.
-- **Gắn với lượt đang phát**: `stop()` (đóng hẳn, mở phim / album khác, TTS giành phiên nhạc) huỷ hẹn giờ. **Ngoại lệ Javis tự chốt**: tự sang phim đề xuất (`open(keepsSleepTimer:)`, truyền từ `VideoWatchModel+Playback`) **giữ** hẹn giờ — ngủ quên thì chuỗi phim đề xuất vẫn dừng đúng giờ.
-- **Đếm phim**: `refreshIdleTimer()` (điểm mọi lần trạng thái phát đổi đi qua) gọi `syncSleepTimerCounting()` với điều kiện riêng `launch != nil && isPlaying && không nhúng` — không phụ thuộc màn có hiện (hub, cửa sổ nhỏ, nền vẫn đếm). Phim **nhúng trang** không có trạng thái phát ⇒ không đếm; hàng "Hẹn giờ tắt" ẩn khi đang nhúng mà chưa hẹn. Nhạc: `handleTimeControlChange`.
-- **UI**: tách lưới mốc + tuỳ chỉnh của `TTSQuickTimerSheet` thành `SleepTimerOptionsView` (`Views/Common/SleepTimer/`) — sheet TTS giữ nguyên giao diện, hành vi và ô "Hết chương". Phim / nhạc dùng sheet gọn `MediaSleepTimerSheet` (tiêu đề + dòng trạng thái + "Tắt hẹn giờ" khi đang hẹn; vuốt xuống để đóng). Lối vào: **nhạc** — nút ⏱ ở hàng phụ trang Đĩa (đang hẹn ⇒ viên thuốc màu nhấn "m:ss"), hàng "Hẹn giờ tắt" trong ngăn kéo `…` của màn nghe, nút ⏱ cạnh ⤢ trong sheet nhạc của Reader (sheet hẹn giờ mở chồng lên); **phim** — hàng "Hẹn giờ tắt" đầu ngăn kéo `⋯` của trình phát, đang hẹn ⇒ badge ⏱ + số phút còn lại ("Np") ở thanh trên. Số giây chỉ đọc ở view lá `MediaSleepTimerCountdownText`.
-- **Kiểm chứng:** đọc code + diff; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoPlaybackSession+Playback.swift` đúng 400 dòng). Không build tại chỗ (Windows). Chưa thử máy: đếm khi app ở nền / khoá màn; hết giờ có tạm dừng + toast; sheet hẹn giờ chồng lên sheet nhạc của Reader; badge thanh trên trình phát.

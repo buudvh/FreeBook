@@ -9,6 +9,8 @@ struct FreeBookApp: App {
     init() {
         // Mặc định chặn quảng cáo/cửa sổ bật lên phải có TRƯỚC mọi chỗ tạo webview (và mọi `@AppStorage` đọc chúng).
         WebContentSettings.registerDefaults()
+        // DNS mã hoá phải áp lên context mặc định TRƯỚC mọi chỗ có thể mở kết nối (1.3.825).
+        EncryptedDNSRepository.shared.start()
         RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch()
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithDefaultBackground()
