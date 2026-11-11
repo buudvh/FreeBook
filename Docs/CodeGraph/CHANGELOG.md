@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.828] - 2026-11-11
+
+### fix: DNS mã hoá cho cả app mặc định tắt
+
+Anh Bửu (sau 1.3.825): *"sai ý tôi rồi, mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"*. Bước 0 của plan: tắt ngay mặc định đang bật sẵn cho mọi người dùng nguồn LiveContainer; công tắc riêng từng tiện ích / nguồn Legado làm ở bản kế.
+
+- `EncryptedDNSPolicy.defaultEnabled = false`. Máy chưa từng bật tay ⇒ tắt (khoá chưa ghi); ai đã bật tay ở Mạng & DNS thì giữ.
+- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ghi mặc định tắt.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.827] - 2026-11-11
 
 ### feat: dịch phụ đề phim và lời bài hát tiếng Trung
@@ -353,23 +363,3 @@ Anh Bửu: *"cho widget tts thanh nghe nhạc giống hệt thanh nghe nhạc mi
 - **Cố định vị trí**: bỏ kéo dọc của thanh và viên (`TTSWidgetBarContainerViewController` chỉ còn cử chỉ vuốt ngang để thu gọn; viên không có cử chỉ). Thanh luôn ngay trên `MainTabBar` (khe 6 pt, đúng chỗ thanh nhạc), viên nép mép phải ngang tâm thanh. Bỏ lưu/đọc vị trí: khoá cũ `ttsWidgetBarBottomGap` / `ttsWidgetBarPillBottomGap` (1.3.796) bỏ qua. Nút » và vuốt ngang để thu gọn giữ nguyên.
 - Chữ giải thích ở Cài đặt › Widget TTS bỏ câu "Kéo lên xuống để đổi chỗ"; `CLAUDE.md` / `AGENTS.md` sửa ghi chú widget TTS theo.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa thử máy — cần xem thanh nhạc + thanh TTS trên nền Kệ sáng/tối, và thanh TTS ở trang đẩy vào (không có thanh tab, vẫn đứng ở độ cao đó) có đè nút Home / "+" nổi không.
-
-## [1.3.798] - 2026-11-09
-
-### feat: trình nghe tự phát bài gợi ý khi hết bài hoặc album, công tắc ở Cài đặt › Âm thanh và ngăn kéo màn nghe
-
-Anh Bửu duyệt: trình nghe âm thanh có "Tự phát bài gợi ý", làm **như phim** (`VideoAutoNextCoordinator`, 1.3.751).
-
-- **Công tắc** `AudioAutoNextPolicy` (mới, khoá `audioAutoNextSuggest`, mặc định **bật**): Cài đặt › Đọc & Nghe › **Âm thanh** (`AudioSettingsView`, trang mới; hàng mới ở `ReadingSettingsSection` ngay dưới Video), nhóm "Khi hết bài" có nút "?"; hàng công tắc cùng khoá trong ngăn kéo `…` của màn nghe (`AudioPlayerDrawerMenu` tự đọc `@AppStorage`, không cần environment).
-- **`AudioAutoNextCoordinator`** (mới, `Services/Audio/`):
-  - **Tải trước**: `beginTrackLoad` báo `trackLoadDidBegin`; bài đang nạp là bài cuối (lặp tắt, `autoAdvanceTarget() == nil` — gồm album một bài; không hẹn "Hết bài") ⇒ lấy nhóm gợi ý của album (chờ chi tiết trình nghe đang tải để khỏi tải trùng → cache chi tiết → tải chi tiết `isInteractive: false`) rồi chạy trang 1 của **nhóm đầu tiên có `script`**.
-  - **Hết album** (nhánh "Hết album (không lặp)" của `advanceAfterTrackEnded` ⇒ `albumDidEnd`): mục đầu tiên có link, khác album vừa hết và chưa phát trong chuỗi tự sang (chống A → B → A; chuỗi bắt đầu lại khi album vừa hết không phải album tự sang gần nhất). Tải sẵn rỗng ⇒ thử lại một lần. Trước khi mở kiểm: còn đúng album, vẫn đứng ở cuối (`reachedEndOfItem` — bấm phát lại / tua / chọn bài xoá cờ ngay; không dựa `isPlaying` vì KVO `.paused` của lúc hết bài về qua một nhịp Task), phim có tiếng không giành âm thanh, công tắc còn bật. Mở bằng `AudioListenRequest` cùng tiện ích ⇒ mở thẳng trình nghe, vào Lịch sử như khi tự mở; màn nghe đang hiện tự vẽ theo session. Album nhập từ file / tiện ích chưa cài ⇒ bỏ qua.
-  - Background task từ lúc hết album tới khi album mới phát / lỗi / người dùng đổi album / 90 giây (lúc hết album không còn tiếng giữ app sống khi chạy nền).
-  - Hẹn giờ tắt mốc phút được giữ qua lượt tự sang (`sleepTimer.schedule` → `restore`, như `open(keepsSleepTimer:)` của phim); hẹn "Hết bài" dừng ở cuối bài, không tự sang.
-- **Giữ phiên âm thanh khi chuyển album**: `stopSession(handingOverToTTS:keepsPlaybackSession:)` (tham số mới, mặc định `false`, chỉ coordinator dùng ngay trước `open`) bỏ qua `AudioNowPlayingCoordinator.release`, `deactivateAudioSessionIfIdle` và `AudioMiniPlayerState.reset` ⇒ ở nền / màn khoá không tắt rồi bật lại `AVAudioSession` (có thể không phát được nữa), màn khoá giữ lệnh (`claim()` của album mới thành no-op, `publishNowPlayingLoading` ghi tên bài mới), hub không nhận nhịp `isActive == false`. `open` ngay sau ghi đè hết cầu nối mini; album mới lỗi thì `fail` / `failOpen` trả phiên như thường.
-- **Dòng báo "Tự sang: <tên>"** khi album mới bắt đầu phát: `AudioPlaybackNotice` (mới, `ObservableObject`, tự ẩn sau 5 giây) + `AudioPlaybackNoticeBanner` (mới, kiểu `VideoMiniPlayerNotice`) ở đầu vùng trang của màn nghe và ngay trên thanh phát mini. "Bắt đầu phát" lấy từ cầu nối `AudioMiniPlayerState` (Combine) — không thêm hook vào session. Album 18+ lúc NSFW tắt ⇒ "Tự sang bài gợi ý", không ghi tên.
-- File chung của trình nghe chỉ thêm dòng gọi: `+TrackLoading` và `+Queue` (mỗi file 1 dòng gọi coordinator), `AudioPlaybackSession.swift` (tham số `keepsPlaybackSession` + 3 điều kiện), `AudioPlayerScreen` / `AudioMiniPlayerBar` (1 overlay mỗi file), `AudioPlayerDrawerMenu` (khoá + 1 hàng).
-- Log: `⏭️ [AudioAutoNext] …`; lỗi tải gợi ý / chi tiết ghi `❌ [AudioAutoNext] …`.
-- `CLAUDE.md` / `AGENTS.md` mục Âm thanh thêm một gạch đầu dòng.
-- Chuyển `[1.3.768]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + diff (grep chéo chữ ký `stopSession`, `executeCustomScript`, `fetchDetail`, `MediaSleepTimer.restore`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 386 dòng). Không build tại chỗ (Windows). Chưa thử máy: tự sang ở nền / màn khoá, dòng báo, giữ hẹn giờ qua lượt tự sang.

@@ -1,6 +1,7 @@
 import Foundation
 
-/// Công tắc "DNS mã hoá" + máy chủ đã chọn (Cài đặt › Chung › Mạng & DNS, 1.3.825), mặc định **bật** với Cloudflare.
+/// Công tắc "DNS mã hoá" + máy chủ đã chọn (Cài đặt › Chung › Mạng & DNS, 1.3.825), mặc định **tắt** (1.3.828 — anh
+/// Bửu: bật cho cả app chỉ khi tự bật), máy chủ mặc định Cloudflare.
 ///
 /// Một nguồn cho khoá + giá trị mặc định như `VideoAutoNextPolicy`: View đọc bằng
 /// `@AppStorage(EncryptedDNSPolicy.enabledKey)` với `= EncryptedDNSPolicy.defaultEnabled` (và `resolverKey` với
@@ -8,7 +9,7 @@ import Foundation
 /// Khoá không có dấu chấm (`@AppStorage` theo dõi bằng KVO). Người áp lên mạng là `EncryptedDNSRepository`.
 enum EncryptedDNSPolicy {
     static let enabledKey = "encryptedDnsEnabled"
-    static let defaultEnabled = true
+    static let defaultEnabled = false
     static let resolverKey = "encryptedDnsResolver"
     static let defaultResolver = EncryptedDNSResolver.cloudflare
     /// Lượt dò gần nhất lỗi (đã lùi về DNS thường) ⇒ lần mở app sau khởi động bằng DNS thường, dò xong mới bật —
