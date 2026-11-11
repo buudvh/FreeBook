@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Nút hub nổi — **nửa viên thuốc nhỏ 38 × 36 dính mép** (anh Bửu duyệt mockup 2026-11-11, thay nút tròn 36px nép
-/// mép của 1.3.524): cùng khuôn `EdgePillShape` với đĩa nghe và nút trình duyệt thu nhỏ. Nền kính
-/// `FloatingGlassBackground` theo **Độ trong suốt** + **Độ đục** của nút nổi; icon 17 pt trắng đồng tâm đầu bo, **mờ đúng
-/// số** theo Độ trong suốt (`1 − độ trong suốt`, không sàn — như bìa đĩa nghe). Đang kéo (`edge == nil`) ⇒ hình tròn.
+/// Nút hub nổi — **nửa viên thuốc nhỏ cao 36 dính mép** (anh Bửu duyệt mockup 2026-11-11, thay nút tròn 36px nép
+/// mép của 1.3.524): cùng khuôn `EdgePillShape` với đĩa nghe và nút trình duyệt thu nhỏ. Độ nhô, **Độ trong suốt** và
+/// **Độ đục** là cài đặt **riêng của hub** (Giao diện › Viên thuốc nổi, `EdgePillSettings`; mặc định 38 pt, 90%, không
+/// nhoè); icon 17 pt trắng đồng tâm đầu bo (gắn bằng `overlay` ⇒ hub hẹp tới bán nguyệt thì icon lọt ra ngoài mép), **mờ
+/// đúng số** theo độ trong suốt của hub (`1 − trong suốt`, không sàn). Đang kéo (`edge == nil`) ⇒ hình tròn.
 ///
 /// Từ 1.3.533 hub **luôn hiện** (trừ lúc cổng từ điển chưa mở, sheet của hub đang mở, hoặc trình phát video
 /// đang toàn màn), kể cả khi không có tiến trình nào.
@@ -22,16 +23,15 @@ import SwiftUI
 /// chưa đọc nào lên hình (không badge số, không chấm đỏ); số chưa đọc chỉ ở dòng Thông báo và nhãn VoiceOver.
 ///
 /// ## Nháy
-/// `FloatingHubPulseView` đổi **màu** nền đỏ sẫm ↔ đỏ tươi bằng Core Animation, phủ nửa viên (bo đúng hai góc phía đầu bo).
-/// Nền nháy giữ rõ, không mờ theo Độ trong suốt — nó là thứ báo có việc đang chạy. Lớp nháy luôn nằm trong cây view.
+/// `FloatingHubPulseView` đổi **màu** nền đỏ sẫm ↔ đỏ tươi bằng Core Animation, phủ nửa viên (cắt đúng hình nửa viên).
+/// Màu nháy có alpha `1 − trong suốt` của hub và nằm **trên** lớp kính (độ đục) của hub ⇒ nháy theo độ trong suốt + độ đục
+/// (anh Bửu 2026-11-11; trước đó nền nháy giữ rõ). Lớp nháy luôn nằm trong cây view.
 ///
 /// View này **chỉ vẽ**: vị trí, kéo/thả và chạm do `FloatingHubContainerViewController` (UIKit) xử lý, nhờ vậy
 /// ngón tay không trễ theo vòng cập nhật state của SwiftUI. `onActivate` chỉ dùng cho VoiceOver.
 struct FloatingHubButton: View {
-    /// Cỡ nửa viên lúc dính mép.
-    static let size = EdgePillShape.smallSize
-    /// Đường kính lúc đang kéo.
-    static let dragDiameter: CGFloat = EdgePillShape.smallSize.height
+    /// Đường kính lúc đang kéo (= chiều cao).
+    static let dragDiameter: CGFloat = EdgePillSettings.Kind.hub.height
     private static let iconBox: CGFloat = 24
 
     let state: FloatingHubPresentationReader.ButtonState
@@ -42,38 +42,37 @@ struct FloatingHubButton: View {
 
     @AppStorage(FloatingHubTapBehavior.storageKey)
     private var tapBehavior: FloatingHubTapBehavior = FloatingHubTapBehavior.defaultValue
-    @AppStorage(GlassChromeSettings.floatingTransparencyKey)
-    private var transparency = GlassChromeSettings.defaultFloatingTransparency
+    @AppStorage(EdgePillSettings.Kind.hub.transparencyKey)
+    private var transparency = EdgePillSettings.defaultTransparency
 
     var body: some View {
         let shape = EdgePillShape(edge: edge)
-        let inset = EdgePillShape.contentInset(
-            for: CGSize(width: Self.dragDiameter, height: Self.dragDiameter),
-            content: Self.iconBox
-        )
-        return ZStack(alignment: EdgePillShape.contentAlignment(for: edge)) {
-            FloatingGlassBackground(shape: AnyShape(shape))
-            FloatingHubPulseView(isPulsing: state.isPulsing, edge: edge)
-                .allowsHitTesting(false)
-            Image(systemName: glyphName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.white)
-                .opacity(iconOpacity)
-                .frame(width: Self.iconBox, height: Self.iconBox)
-                .padding(edge == .right ? Edge.Set.leading : Edge.Set.trailing, edge == nil ? 0 : inset)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(shape)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
-        .accessibilityAddTraits(.isButton)
-        // Kích hoạt bằng VoiceOver không chắc đi qua `UITapGestureRecognizer` của container.
-        .accessibilityAction {
-            onActivate()
-        }
+        let inset = EdgePillShape.contentInset(height: Self.dragDiameter, content: Self.iconBox)
+        return FloatingGlassBackground(shape: AnyShape(shape), pill: .hub)
+            .overlay {
+                FloatingHubPulseView(isPulsing: state.isPulsing, edge: edge, colorAlpha: iconOpacity)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: EdgePillShape.contentAlignment(for: edge)) {
+                Image(systemName: glyphName)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .opacity(iconOpacity)
+                    .frame(width: Self.iconBox, height: Self.iconBox)
+                    .padding(EdgePillShape.contentPadding(for: edge), edge == nil ? 0 : inset)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(shape)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityText)
+            .accessibilityAddTraits(.isButton)
+            // Kích hoạt bằng VoiceOver không chắc đi qua `UITapGestureRecognizer` của container.
+            .accessibilityAction {
+                onActivate()
+            }
     }
 
-    /// Icon theo đúng lớp màu của nút nổi: trong suốt 0% ⇒ rõ hẳn, 100% ⇒ trong hẳn (không sàn).
+    /// Icon (và màu nháy) theo độ trong suốt của hub: 0% ⇒ rõ hẳn, 100% ⇒ trong hẳn (không sàn).
     private var iconOpacity: Double {
         1 - min(1, max(0, transparency))
     }

@@ -1,8 +1,9 @@
+import Combine
 import SwiftUI
 import UIKit
 
 /// Root view controller của cửa sổ đĩa nghe (`MediaDiscWindow`, 1.3.808). Giữ hai nội dung SwiftUI:
-/// - `discView` — vùng duy nhất nhận chạm — chứa mặt đĩa (`MediaDiscFaceButton(.corner)`): **nửa viên thuốc** 68 × 52 dính
+/// - `discView` — vùng duy nhất nhận chạm — chứa mặt đĩa (`MediaDiscFaceButton(.corner)`): **nửa viên thuốc** cao 52 dính
 ///   mép trái / phải (anh Bửu duyệt mockup 2026-11-11), lúc đang kéo là hình tròn 52 pt.
 /// - Một view 1×1 không nhận chạm giữ sheet điều khiển nhanh (`MediaDiscSheetHost`, 1.3.812): chạm nửa viên ⇒ sheet ở đây.
 ///
@@ -41,6 +42,8 @@ final class MediaDiscContainerViewController: UIViewController {
     /// Lúc đĩa đang ẩn bắt đầu được phép hiện — hiện thật khi đã giữ đủ `showDelay`.
     private var pendingShowSince: Date?
     private var pendingShowWork: DispatchWorkItem?
+    /// Theo dõi độ nhô của đĩa (`EdgePillSettings`) — khung đổi ngay khi kéo thanh ở Giao diện.
+    private var widthCancellable: AnyCancellable?
 
     private enum Layout {
         static let pollInterval: TimeInterval = 0.4
@@ -83,6 +86,16 @@ final class MediaDiscContainerViewController: UIViewController {
         MediaDiscAnchorRegistry.shared.onChange = { [weak self] in
             self?.updateDisc(animated: true)
         }
+
+        // Kéo thanh "Độ nhô" của đĩa ở Giao diện ⇒ đổi khung ngay, không chờ lượt hỏi 0,4 s (đang kéo đĩa thì
+        // `updateDisc` tự bỏ qua).
+        widthCancellable = NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in EdgePillSettings.width(of: .disc) }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateDisc(animated: false)
+            }
     }
 
     /// Cửa sổ riêng không thừa hưởng `.tint` / `modelContainer` của `MainTabView` ⇒ gắn ở gốc (sheet thừa hưởng tiếp).

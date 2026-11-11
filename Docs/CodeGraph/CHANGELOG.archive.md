@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.841] - 2026-11-11
+
+### feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương
+
+Anh Bửu: *"nếu như bấm nút nghe truyện mà chương được bấm nghe cũng đang phát thì hãy hiển thị message hỏi"*; chê hộp thoại giữa màn của iOS (*"màn hỏi hơi xấu"*), chọn kiểu sheet kính.
+
+- **Trước đây**: nút tai nghe nổi của Reader, khi TTS đang phát đúng chương đó, dừng phiên rồi đọc lại từ **đoạn trên cùng màn hình** ⇒ bấm nhầm là mất chỗ đang nghe.
+- **Giờ**: TTS **đang phát** đúng truyện + đúng chương mà nút sắp đọc (chương của đoạn trên cùng màn hình, tính như cũ) ⇒ mở sheet `ReaderTTSSameChapterSheet` (mới), chưa đụng phiên TTS. Khuôn `TTSQuickControlSheet`: nền kính ngăn kéo, cao vừa nội dung, vuốt xuống để đóng (không nút Huỷ). Hàng đầu: đĩa bìa xoay + tên truyện + tên chương + nhãn "Đang đọc" / "Tạm dừng". Ba hàng:
+  - **Đọc tiếp chỗ đang đọc** — không dựng lại phiên; trang về đoạn đang đọc + bật lại tự cuộn (cùng đường nhảy của widget, tách thành `jumpToPlayingTTSPosition` dùng chung với `navigateReaderToPlayingChapter`); tạm dừng giữa lúc sheet mở ⇒ phát tiếp; phiên đã tắt ⇒ đọc từ đoạn đang xem.
+  - **Đọc từ đoạn đang xem** — đúng hành vi cũ (đoạn chụp lúc bấm, vì TTS vẫn đọc và trang vẫn tự cuộn khi sheet mở).
+  - **Đọc lại từ đầu chương** — chunk đầu (tên chương nếu TTS đọc tên chương).
+- **Không đổi**: tạm dừng mà đoạn đang dừng còn trên màn hình ⇒ phát tiếp ngay; tạm dừng đã kéo trang đi / chương khác / truyện khác ⇒ đọc từ đoạn trên cùng màn hình; "Nghe" của menu bôi đen đọc ngay chỗ đã bôi. Ngoài Reader không có lối nào bắt đầu đọc một chương (Chi tiết, Kệ, widget, hub chỉ phát tiếp / dừng / mở Reader).
+- Sheet gắn neo `.blocker` ⇒ đĩa nghe góc dưới ẩn trong lúc sheet mở (không thì đè lên hàng cuối). Đĩa nổi (cửa sổ riêng) vẫn có thể che sheet như mọi sheet khác của Reader.
+- Logic nút tai nghe chuyển từ `ReaderView+Controls` sang `ReaderView+TTSSameChapterPrompt` (mới); `ReaderView` thêm 2 `@State` (yêu cầu đang hỏi + chiều cao sheet đo được) và gắn sheet ở tầng sheet gốc. Chuyển `[1.3.811]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) đang nghe, bấm tai nghe ở chương đang đọc ⇒ hiện sheet, ba lựa chọn làm đúng; (2) kéo trang đi rồi chọn "Đọc tiếp" ⇒ trang về đoạn đang đọc và tự cuộn lại; (3) chương khác / đang tạm dừng ⇒ không hỏi như cũ; (4) kiểu widget Đĩa góc dưới ⇒ đĩa ẩn khi sheet mở, hiện lại khi đóng.
+
 ## [1.3.840] - 2026-11-11
 
 ### fix: phụ đề cứng ghép chữ đúng kiểu phụ đề Trung, dịch theo công tắc dịch của phim, thêm Từ điển truyện vào trình phát

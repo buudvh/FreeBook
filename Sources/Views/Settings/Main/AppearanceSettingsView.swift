@@ -92,8 +92,10 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                SectionHelpHeader("Nút nổi (tai nghe, nút +)", paragraphs: ["Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính."])
+                SectionHelpHeader("Nút nổi (tai nghe, nút +)", paragraphs: ["Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính.", "Đĩa nghe, hub và nút trình duyệt thu nhỏ chỉnh riêng ở mục Viên thuốc nổi bên dưới."])
             }
+
+            EdgePillSettingsSection()
 
             Section {
                 percentSlider("Độ trong suốt", value: $drawerTransparency)

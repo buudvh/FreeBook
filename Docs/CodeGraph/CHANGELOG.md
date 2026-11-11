@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.871] - 2026-11-11
+
+### feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt
+
+Anh Bửu: "thêm config độ nhô ra các loại viên thuốc", "làm độ trong suốt riêng luôn", "độ đục riêng luôn", "mỗi viên thuốc có độ trong suốt và đục riêng, nhấp nháy cũng theo trong suốt và đục. Cho độ rộng tối thiểu còn hình bán nguyệt" (đã duyệt mockup kéo thử + plan).
+
+- **Cài đặt riêng từng viên** (mới, `Views/Common/GlassChrome/EdgePillSettings.swift`): đĩa nghe, hub, nút trình duyệt thu nhỏ — mỗi viên ba khoá `edgePill<Disc|Hub|Browser><Transparency|Frost|Width>` (không dấu chấm): độ trong suốt (mặc định 90%), độ đục (6 nấc `GlassFrostLevel`, mặc định không nhoè), độ nhô (đĩa 26–84 pt mặc định 68; hub / trình duyệt 18–50 pt mặc định 38; bước 2; tối thiểu = nửa chiều cao ⇒ bán nguyệt). Độc lập với "Nút nổi" (nút "+", tai nghe Reader giữ nguyên). Ai đã chỉnh "Nút nổi" khác mặc định thì viên thuốc về mặc định tới khi chỉnh ở mục mới.
+- **Cài đặt › Chung › Giao diện › Viên thuốc nổi** (`EdgePillSettingsSection`, ngay dưới "Nút nổi"): thanh phân đoạn Đĩa nghe / Hub / Trình duyệt, ba thanh kéo của viên đang chọn, "Đặt lại <viên>", công tắc "Xem thử nháy đỏ" và ô xem trước vẽ cả ba viên.
+- **Hình** `EdgePillShape`: vẽ tay bằng cung tiếp tuyến, bán kính = nửa chiều cao ⇒ đúng tới bán nguyệt (bỏ `UnevenRoundedRectangle` và hai hằng `largeSize` / `smallSize`; `contentInset(height:content:)`, `contentPadding(for:)`). Bìa / icon gắn bằng `overlay` đồng tâm đầu bo ⇒ viên hẹp thì lọt ra ngoài mép, không đẩy khung kính.
+- **Kính + độ mờ**: `FloatingGlassBackground(shape:pill:)` và `.floatingIconTransparency(pill:)` đọc khoá của viên; `MediaDiscFaceButton`, `FloatingHubButton`, `VisibleBrowserReopenButton` dùng cài đặt riêng của mình.
+- **Nháy đỏ theo trong suốt + đục**: màu nháy có alpha `1 − trong suốt` của viên, nằm trên lớp kính (độ đục) — hub (`FloatingHubPulseView`: alpha của màu trong `CABasicAnimation`, đổi alpha ⇒ gắn lại cùng pha; layer nháy cắt bằng mặt nạ `EdgePillShape` thay `cornerRadius`) và nút trình duyệt. Không đổi opacity của view. Số tab của nút trình duyệt vẫn rõ.
+- **Đổi ngay khi kéo**: độ nhô đọc lúc chạy (`EdgePillSettings.size(of:)`); container đĩa / hub / trình duyệt nghe `UserDefaults.didChangeNotification` ⇒ tính lại khung (đang kéo bằng tay thì để lượt thả tự đặt).
+- `CLAUDE.md` / `AGENTS.md` + `rules.md` (hub (a): luật mới thay "nền nháy giữ rõ"; sửa câu cũ "sheet hub mở thì nút đã giấu" — từ 1.3.866 nút vẫn hiện).
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: Giao diện › Viên thuốc nổi, kéo từng thanh của từng viên ⇒ viên thật (đang hiện) và ô xem trước đổi ngay; độ nhô nhỏ nhất ⇒ bán nguyệt, bìa / icon ló nửa; kéo / thả viên vẫn bám mép đúng; hub đang nháy ⇒ đỏ mờ theo trong suốt, thấy nhoè khi tăng độ đục; "Đặt lại" chỉ đặt lại viên đang chọn.
+
 ## [1.3.870] - 2026-11-11
 
 ### feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng
@@ -523,20 +541,4 @@ Rà lại 1.3.841 trước khi đẩy: người bấm nút tai nghe giữa lúc 
 - "Đọc từ đoạn đang xem" giữ đúng hành vi cũ (đoạn đó đang trên màn hình).
 - Nhãn trợ năng của nút tai nghe: bỏ "Dừng đọc thành tiếng" (nút không dừng đọc, giờ mở sheet hỏi) ⇒ luôn "Đọc thành tiếng". Chuyển `[1.3.812]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: đang nghe giữa chương, kéo trang đi, bấm tai nghe → "Đọc lại từ đầu chương" ⇒ trang về đầu chương và cuộn theo đoạn đang đọc.
-
-## [1.3.841] - 2026-11-11
-
-### feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương
-
-Anh Bửu: *"nếu như bấm nút nghe truyện mà chương được bấm nghe cũng đang phát thì hãy hiển thị message hỏi"*; chê hộp thoại giữa màn của iOS (*"màn hỏi hơi xấu"*), chọn kiểu sheet kính.
-
-- **Trước đây**: nút tai nghe nổi của Reader, khi TTS đang phát đúng chương đó, dừng phiên rồi đọc lại từ **đoạn trên cùng màn hình** ⇒ bấm nhầm là mất chỗ đang nghe.
-- **Giờ**: TTS **đang phát** đúng truyện + đúng chương mà nút sắp đọc (chương của đoạn trên cùng màn hình, tính như cũ) ⇒ mở sheet `ReaderTTSSameChapterSheet` (mới), chưa đụng phiên TTS. Khuôn `TTSQuickControlSheet`: nền kính ngăn kéo, cao vừa nội dung, vuốt xuống để đóng (không nút Huỷ). Hàng đầu: đĩa bìa xoay + tên truyện + tên chương + nhãn "Đang đọc" / "Tạm dừng". Ba hàng:
-  - **Đọc tiếp chỗ đang đọc** — không dựng lại phiên; trang về đoạn đang đọc + bật lại tự cuộn (cùng đường nhảy của widget, tách thành `jumpToPlayingTTSPosition` dùng chung với `navigateReaderToPlayingChapter`); tạm dừng giữa lúc sheet mở ⇒ phát tiếp; phiên đã tắt ⇒ đọc từ đoạn đang xem.
-  - **Đọc từ đoạn đang xem** — đúng hành vi cũ (đoạn chụp lúc bấm, vì TTS vẫn đọc và trang vẫn tự cuộn khi sheet mở).
-  - **Đọc lại từ đầu chương** — chunk đầu (tên chương nếu TTS đọc tên chương).
-- **Không đổi**: tạm dừng mà đoạn đang dừng còn trên màn hình ⇒ phát tiếp ngay; tạm dừng đã kéo trang đi / chương khác / truyện khác ⇒ đọc từ đoạn trên cùng màn hình; "Nghe" của menu bôi đen đọc ngay chỗ đã bôi. Ngoài Reader không có lối nào bắt đầu đọc một chương (Chi tiết, Kệ, widget, hub chỉ phát tiếp / dừng / mở Reader).
-- Sheet gắn neo `.blocker` ⇒ đĩa nghe góc dưới ẩn trong lúc sheet mở (không thì đè lên hàng cuối). Đĩa nổi (cửa sổ riêng) vẫn có thể che sheet như mọi sheet khác của Reader.
-- Logic nút tai nghe chuyển từ `ReaderView+Controls` sang `ReaderView+TTSSameChapterPrompt` (mới); `ReaderView` thêm 2 `@State` (yêu cầu đang hỏi + chiều cao sheet đo được) và gắn sheet ở tầng sheet gốc. Chuyển `[1.3.811]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) đang nghe, bấm tai nghe ở chương đang đọc ⇒ hiện sheet, ba lựa chọn làm đúng; (2) kéo trang đi rồi chọn "Đọc tiếp" ⇒ trang về đoạn đang đọc và tự cuộn lại; (3) chương khác / đang tạm dừng ⇒ không hỏi như cũ; (4) kiểu widget Đĩa góc dưới ⇒ đĩa ẩn khi sheet mở, hiện lại khi đóng.
 

@@ -10,7 +10,7 @@ import UIKit
 /// Kéo/thả bằng UIKit (không phải cử chỉ SwiftUI): ngón tay không bị trễ theo vòng cập nhật state.
 ///
 /// ## Nửa viên thuốc dính mép (anh Bửu duyệt mockup 2026-11-11)
-/// Nút là nửa viên 38 × 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu.
+/// Nút là nửa viên cao 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu.
 /// Bắt đầu kéo ⇒ co thành hình tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, né widget nổi khác
 /// (`+Placement.swift`), lưu chỗ.
 ///
@@ -45,9 +45,9 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
     var needsPlacementResolve = true
 
     enum Layout {
-        /// Nửa viên lúc dính mép.
-        static let size: CGSize = FloatingHubButton.size
-        static let height: CGFloat = FloatingHubButton.size.height
+        /// Nửa viên lúc dính mép — độ nhô đọc lúc chạy (Giao diện › Viên thuốc nổi).
+        static var size: CGSize { EdgePillSettings.size(of: .hub) }
+        static let height: CGFloat = EdgePillSettings.Kind.hub.height
         /// Hình tròn lúc đang kéo.
         static let dragDiameter: CGFloat = FloatingHubButton.dragDiameter
     }
@@ -157,6 +157,17 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshButton()
+            }
+            .store(in: &cancellables)
+
+        // Kéo thanh "Độ nhô" của hub ở Giao diện ⇒ đổi khung ngay (đang kéo hub thì để lượt thả tay tự đặt).
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in EdgePillSettings.width(of: .hub) }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, !self.viewModel.isDragging else { return }
+                self.updateLayout(animated: false)
             }
             .store(in: &cancellables)
     }

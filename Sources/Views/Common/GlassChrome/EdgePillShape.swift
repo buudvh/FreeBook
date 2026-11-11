@@ -4,26 +4,25 @@ import SwiftUI
 /// (bán kính = nửa chiều cao) quay vào trong màn. Một khuôn cho đĩa nghe (`MediaDiscContainerViewController`), nút hub và
 /// nút trình duyệt thu nhỏ — nền là kính `FloatingGlassBackground(shape:)` như nút "+".
 ///
+/// - Chiều rộng (độ nhô) do người dùng chỉnh theo từng viên (`EdgePillSettings`), thấp nhất = nửa chiều cao ⇒ **bán
+///   nguyệt**. Đường viền vẽ tay bằng cung tiếp tuyến (không dùng `UnevenRoundedRectangle`: bán kính lớn hơn nửa cạnh ngắn
+///   có thể bị kẹp ⇒ bán nguyệt thành chữ nhật bo góc).
 /// - `edge == nil` ⇒ viên thuốc / hình tròn đủ (lúc đang kéo theo tay).
 /// - Cạnh phẳng vẽ **tràn 1 pt ra ngoài khung** về phía mép: viền mảnh của kính rơi ra ngoài màn, không thành vạch sáng dọc
 ///   mép (khung view vẫn đúng cỡ, cửa sổ cắt phần tràn).
-/// - Nội dung (bìa / icon) đặt **đồng tâm đầu bo**: cách đầu bo đúng `cornerRadius(for:)` ⇒ dùng `contentInset(for:content:)`.
+/// - Nội dung (bìa / icon) đặt **đồng tâm đầu bo**: cách đầu bo đúng `cornerRadius(for:)` ⇒ dùng `contentInset(height:content:)`
+///   và gắn bằng `overlay(alignment:)` (nội dung rộng hơn viên thì tràn ra phía mép, không đẩy khung kính).
 struct EdgePillShape: Shape {
-    /// Đĩa nghe: rộng 68 = lề 16 + nút "+" 52 ⇒ bìa 32 pt thẳng cột với icon "+" (cách mép 42 pt).
-    static let largeSize = CGSize(width: 68, height: 52)
-    /// Nút hub và nút trình duyệt: cao 36 như nút tròn cũ, rộng 38 (icon cách mép 20 pt).
-    static let smallSize = CGSize(width: 38, height: 36)
-
     var edge: EdgeDirection?
 
-    /// Bán kính đầu bo của khung `size`.
+    /// Bán kính đầu bo của khung `size`: nửa chiều cao, không quá chiều rộng (bán nguyệt).
     static func cornerRadius(for size: CGSize) -> CGFloat {
-        min(size.width, size.height) / 2
+        max(0, min(size.height / 2, size.width))
     }
 
-    /// Lề từ đầu bo tới nội dung cỡ `content` để nội dung đồng tâm đầu bo.
-    static func contentInset(for size: CGSize, content: CGFloat) -> CGFloat {
-        max(0, cornerRadius(for: size) - content / 2)
+    /// Lề từ đầu bo tới nội dung cỡ `content` để nội dung đồng tâm đầu bo — tính theo **chiều cao** của viên (`height`).
+    static func contentInset(height: CGFloat, content: CGFloat) -> CGFloat {
+        height / 2 - content / 2
     }
 
     /// Căn nội dung theo mép đang dính: mép phải ⇒ đầu bo ở bên trái (leading); mép trái ⇒ bên phải; đang kéo ⇒ giữa.
@@ -35,26 +34,52 @@ struct EdgePillShape: Shape {
         }
     }
 
+    /// Lề đặt nội dung theo mép (dùng với `contentAlignment`): `nil` ⇒ không lề (giữa hình tròn).
+    static func contentPadding(for edge: EdgeDirection?) -> Edge.Set {
+        edge == .left ? .trailing : .leading
+    }
+
     func path(in rect: CGRect) -> Path {
         let radius = Self.cornerRadius(for: rect.size)
-        var drawRect = rect
-        let radii: RectangleCornerRadii
+        guard let edge else {
+            return RoundedRectangle(cornerRadius: min(rect.width, rect.height) / 2, style: .circular).path(in: rect)
+        }
+        var path = Path()
         switch edge {
         case .right:
-            drawRect.size.width += 1
-            radii = RectangleCornerRadii(topLeading: radius, bottomLeading: radius, bottomTrailing: 0, topTrailing: 0)
-        case .left:
-            drawRect.origin.x -= 1
-            drawRect.size.width += 1
-            radii = RectangleCornerRadii(topLeading: 0, bottomLeading: 0, bottomTrailing: radius, topTrailing: radius)
-        case nil:
-            radii = RectangleCornerRadii(
-                topLeading: radius,
-                bottomLeading: radius,
-                bottomTrailing: radius,
-                topTrailing: radius
+            // Đầu bo bên trái, cạnh phẳng bên phải (tràn 1 pt).
+            let flatX = rect.maxX + 1
+            path.move(to: CGPoint(x: flatX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.minY))
+            path.addArc(
+                tangent1End: CGPoint(x: rect.minX, y: rect.minY),
+                tangent2End: CGPoint(x: rect.minX, y: rect.maxY),
+                radius: radius
             )
+            path.addArc(
+                tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
+                tangent2End: CGPoint(x: flatX, y: rect.maxY),
+                radius: radius
+            )
+            path.addLine(to: CGPoint(x: flatX, y: rect.maxY))
+        case .left:
+            // Đầu bo bên phải, cạnh phẳng bên trái (tràn 1 pt).
+            let flatX = rect.minX - 1
+            path.move(to: CGPoint(x: flatX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+            path.addArc(
+                tangent1End: CGPoint(x: rect.maxX, y: rect.minY),
+                tangent2End: CGPoint(x: rect.maxX, y: rect.maxY),
+                radius: radius
+            )
+            path.addArc(
+                tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
+                tangent2End: CGPoint(x: flatX, y: rect.maxY),
+                radius: radius
+            )
+            path.addLine(to: CGPoint(x: flatX, y: rect.maxY))
         }
-        return UnevenRoundedRectangle(cornerRadii: radii, style: .circular).path(in: drawRect)
+        path.closeSubpath()
+        return path
     }
 }

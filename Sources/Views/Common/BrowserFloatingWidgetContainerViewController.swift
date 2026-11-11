@@ -7,8 +7,8 @@ import UIKit
 /// trúc nút hub — ngón tay không bị trễ theo vòng cập nhật state của SwiftUI.
 ///
 /// ## Nửa viên thuốc dính mép (anh Bửu duyệt mockup 2026-11-11)
-/// Nút là nửa viên 38 × 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu,
-/// cũng không còn mờ 0,7 cố định khi nghỉ (icon nay mờ theo Độ trong suốt của nút nổi, trong `VisibleBrowserReopenButton`).
+/// Nút là nửa viên cao 36 **luôn dính mép** trái / phải (`EdgePillShape`), không còn nép mép nửa ẩn / bung / tự thu,
+/// cũng không còn mờ 0,7 cố định khi nghỉ (icon nay mờ theo độ trong suốt riêng của nút, trong `VisibleBrowserReopenButton`).
 /// Bắt đầu kéo ⇒ co thành hình tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, né widget nổi khác, lưu chỗ.
 ///
 /// Chạm là mở lại trình duyệt (`VisibleBrowserTabManager.reopenContainer()`).
@@ -30,9 +30,9 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
     private var needsPlacementResolve = true
 
     enum Layout {
-        /// Nửa viên lúc dính mép.
-        static let size: CGSize = VisibleBrowserReopenButton.size
-        static let height: CGFloat = VisibleBrowserReopenButton.size.height
+        /// Nửa viên lúc dính mép — độ nhô đọc lúc chạy (Giao diện › Viên thuốc nổi).
+        static var size: CGSize { EdgePillSettings.size(of: .browser) }
+        static let height: CGFloat = EdgePillSettings.Kind.browser.height
         /// Hình tròn lúc đang kéo.
         static let dragDiameter: CGFloat = VisibleBrowserReopenButton.dragDiameter
     }
@@ -111,6 +111,17 @@ final class BrowserFloatingWidgetContainerViewController: UIViewController, UIGe
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshContent()
+            }
+            .store(in: &cancellables)
+
+        // Kéo thanh "Độ nhô" của nút trình duyệt ở Giao diện ⇒ đổi khung ngay (đang kéo nút thì để lượt thả tay tự đặt).
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in EdgePillSettings.width(of: .browser) }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, !self.viewModel.isDragging else { return }
+                self.updateLayout(animated: false)
             }
             .store(in: &cancellables)
     }

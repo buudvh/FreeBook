@@ -21,8 +21,8 @@ import UIKit
 struct MediaDiscPlacement: Equatable {
     /// Cao của đĩa (= nút "+") — cũng là đường kính lúc đang kéo.
     static let discSize: CGFloat = 52
-    /// Cỡ nửa viên lúc dính mép.
-    static let pillSize = EdgePillShape.largeSize
+    /// Cỡ nửa viên lúc dính mép — độ nhô đọc lúc chạy (Giao diện › Viên thuốc nổi, `EdgePillSettings`).
+    static var pillSize: CGSize { EdgePillSettings.size(of: .disc) }
     /// Bìa trong đĩa (như icon của nút "+").
     static let coverSize: CGFloat = 32
     /// Khe giữa đĩa và neo lấn vào vùng.

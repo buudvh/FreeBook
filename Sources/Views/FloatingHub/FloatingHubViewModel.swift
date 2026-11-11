@@ -7,7 +7,7 @@ import UIKit
 /// chung với widget nổi khác, kẻo kéo cái này là cái kia nhảy theo. Phần hình học dùng chung `FloatingWidgetGeometry`.
 ///
 /// ## Nửa viên thuốc dính mép (anh Bửu duyệt mockup 2026-11-11)
-/// Nút **luôn dính mép** trái / phải (`EdgePillShape`, 38 × 36): không còn hai trạng thái nép mép nửa ẩn (`.peeking`) /
+/// Nút **luôn dính mép** trái / phải (`EdgePillShape`, cao 36, độ nhô theo `EdgePillSettings`): không còn hai trạng thái nép mép nửa ẩn (`.peeking`) /
 /// bung vào trong màn (`.revealed`) và hẹn giờ tự thu 3 s của 1.3.524. Thả tay ⇒ bám mép gần hơn, lưu tỉ lệ dọc + mép.
 @MainActor
 final class FloatingHubViewModel: ObservableObject {
