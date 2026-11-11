@@ -13,3 +13,6 @@ DerivedData/
 /Scripts/__pycache__
 /test
 /.adblock_snapshot_tmp/
+
+# audio.cpp dựng bởi Scripts/ci/build_audiocpp_ios.sh (CI), không commit
+/Vendor/AudioCpp/

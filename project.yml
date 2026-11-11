@@ -53,6 +53,10 @@ targets:
       - sdk: libsqlite3.tbd
       # XPath của nguồn Legado (`LegadoXPathDocument`). Header nằm ở HEADER_SEARCH_PATHS bên dưới.
       - sdk: libxml2.tbd
+      # audio.cpp (ggml) cho VieNeu Turbo GGUF — dynamic framework, Swift `import AudioCpp`. Không commit: CI dựng bằng
+      # `Scripts/ci/build_audiocpp_ios.sh` trước bước `xcodegen generate` (máy Mac chạy script đó trước khi generate).
+      - framework: Vendor/AudioCpp/AudioCpp.xcframework
+        embed: true
     info:
       path: Sources/Info.plist
       properties:

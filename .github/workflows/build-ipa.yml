@@ -75,6 +75,20 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-homebrew-xcodegen-
 
+    # audio.cpp (ggml) cho engine VieNeu Turbo GGUF: `Scripts/ci/build_audiocpp_ios.sh` dựng
+    # `Vendor/AudioCpp/AudioCpp.xcframework` (project.yml link + embed). Khoá cache = hash của script (tag audio.cpp
+    # nằm trong script) ⇒ chỉ build lại khi script đổi; cùng khoá với workflow `audiocpp-ios.yml`.
+    - name: Cache AudioCpp.xcframework
+      id: audiocpp-cache
+      uses: actions/cache@v4
+      with:
+        path: Vendor/AudioCpp
+        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh') }}
+
+    - name: Build audio.cpp (iOS)
+      if: steps.audiocpp-cache.outputs.cache-hit != 'true'
+      run: bash Scripts/ci/build_audiocpp_ios.sh 2>&1 | tee -a build_error.log
+
     - name: Install XcodeGen
       run: |
         brew install xcodegen

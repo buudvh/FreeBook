@@ -1,0 +1,37 @@
+name: Build audio.cpp (iOS)
+
+# Dựng riêng AudioCpp.xcframework (Scripts/ci/build_audiocpp_ios.sh) mà không build cả app, không gửi Telegram —
+# để sửa script nhanh. Dùng chung khoá cache với build-ipa.yml nên lượt build app sau đó lấy lại được framework.
+on:
+  push:
+    branches: [ feature/vieneu-turbo-gguf ]
+    paths:
+      - 'Scripts/ci/build_audiocpp_ios.sh'
+      - '.github/workflows/audiocpp-ios.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build AudioCpp.xcframework
+    runs-on: macos-15
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Cache AudioCpp.xcframework
+      id: audiocpp-cache
+      uses: actions/cache@v4
+      with:
+        path: Vendor/AudioCpp
+        key: audiocpp-ios-${{ hashFiles('Scripts/ci/build_audiocpp_ios.sh') }}
+
+    - name: Build audio.cpp (iOS)
+      if: steps.audiocpp-cache.outputs.cache-hit != 'true'
+      run: bash Scripts/ci/build_audiocpp_ios.sh
+
+    - name: Upload AudioCpp.xcframework
+      uses: actions/upload-artifact@v4
+      with:
+        name: AudioCpp-xcframework
+        path: Vendor/AudioCpp
+        if-no-files-found: error

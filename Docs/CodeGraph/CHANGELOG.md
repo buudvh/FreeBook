@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.845] - 2026-11-11
+
+### ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF
+
+Anh Bửu duyệt bước thử chạy VieNeu-TTS **v3 Turbo** bằng file GGUF q8_0 chính thức qua **audio.cpp** (ggml, Apache-2.0) trên nhánh `feature/vieneu-turbo-gguf` — sau khi thấy một app đọc truyện khác chạy Turbo bằng GGUF mà không nóng máy. Lượt này chỉ là phần build; màn thử Swift đi ở commit sau.
+
+- **`Scripts/ci/build_audiocpp_ios.sh`** (mới): clone audio.cpp tag `v0.9.4`, cross-compile cho iOS 17 arm64 chỉ family `vieneu_v3_turbo`, chỉ CPU (iOS không cho app chạy nền dùng GPU, mà TTS phải đọc khi khoá màn hình), tắt OpenMP (Apple clang không có), kernel ggml `-march=armv8.2-a+dotprod+fp16` (**A13 trở lên**; A12 sẽ lỗi lệnh khi chạy Turbo). Đóng gói target C API (SHARED, chỉ xuất `audiocpp_*` nên ggml / sentencepiece không đụng symbol của app) thành `AudioCpp.framework` có module map ⇒ Swift `import AudioCpp`; kiểm phụ thuộc chỉ còn thư viện hệ thống, biên dịch thử một file Swift gọi `audiocpp_abi_version()` cho iOS, rồi `xcodebuild -create-xcframework` ra `Vendor/AudioCpp/` (gitignore).
+- **`build-ipa.yml`**: cache `Vendor/AudioCpp` theo hash của script, thiếu thì chạy script trước `xcodegen generate`. **`audiocpp-ios.yml`** (mới, chỉ nhánh thử + chạy tay): dựng riêng framework, không build app, không gửi Telegram — để sửa script nhanh; chung khoá cache.
+- **`project.yml`**: link + embed `Vendor/AudioCpp/AudioCpp.xcframework`. Trên Mac muốn generate project thì chạy script trước.
+- **Kiểm chứng:** chưa — Windows không build được; lượt CI `audiocpp-ios.yml` là lần biên dịch đầu.
+
 ## [1.3.844] - 2026-11-11
 
 ### feat: mục lục truyện tranh có nút dịch lại tên chương như Reader
@@ -463,14 +474,3 @@ Anh Bửu: *"thêm nút huỷ ngay bên cạnh đếm giờ của sheet nghe tru
 
 - `TTSQuickControlSheet` (sheet điều khiển nhanh mở từ đĩa nghe TTS): đang hẹn giờ tắt ⇒ viên **"Hủy"** đỏ ngay cạnh ⏱ + thời gian còn lại (khe 4 pt), cùng kiểu viên "Hủy" của `TTSQuickTimerHeader`; chạm ⇒ rung nhẹ + `TTSManager.cancelSleepTimer()`, viên thu lại. Không hẹn ⇒ không có viên. Vùng chạm cao 44 pt; VoiceOver "Hủy hẹn giờ tắt".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.815] - 2026-11-10
-
-### fix: đĩa góc giống y nút +, bìa mờ đúng theo độ trong suốt, nhấn giữ thì đĩa nằm trong header như một nút header
-
-Anh Bửu thử 1.3.814: (1) đĩa góc "độ trong suốt chưa đúng" — phải **giống y như các nút +**, bìa cũng theo trong suốt, **bỏ sàn 45%**; (2) nhấn giữ thì đĩa 52 pt đè nút ⋯ và tràn xuống dưới header — phải **nằm trong header, như một nút header** (anh duyệt mockup).
-
-- **Đĩa góc** (`MediaDiscFaceButton(.corner)`): nền kính `FloatingGlassBackground` 52 pt y nút "+" (Độ trong suốt + Độ đục); bìa thu còn **32 pt** nằm trong như icon, hiện `1 − độ trong suốt` (không sàn: mặc định 90% ⇒ 10%, 100% ⇒ trong hẳn). Mờ gắn lên lớp bìa, không lên lớp cha của kính.
-- **Nhấn giữ ⇒ vào header** (`MediaDiscHeaderSlot`, file mới): bìa 32 pt giữa hàng nút, ngay trái cụm nút phải, dò theo thứ tự: neo mới `.headerTrailing` (cụm nút phải của header tự dựng: Reader, nút ☰ màn truyện tranh; khe 6 pt) → `UINavigationBar` đang hiện của tầng trên cùng (mép trái nhỏ nhất của các view nằm hẳn ở nửa phải thanh, khe 2 pt; chỉ đọc khung + cờ hiện, không dựa tên lớp riêng của iOS) → góc phải dải 44 pt dưới thanh trạng thái. Kính tan dần + bìa rõ hẳn + viền mảnh như đĩa thanh tab (`MediaDiscWindowManager.isDiscElevated`); vùng chạm chỉ còn tròn 38 pt (`MediaDiscWindow.hitTest`) để không lấn nút header bên cạnh. Log ghi nguồn chỗ đã dùng. Bỏ `MediaDiscPlacement.elevatedFrame`; `mainWindow` / `topLayer` / `validFrame` mở cho `MediaDiscHeaderSlot` dùng chung; neo `.headerTrailing` không dự phần chỗ ở góc dưới.
-- `CLAUDE.md` / `AGENTS.md` theo dáng + chỗ mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy — phần đo nút trên `UINavigationBar` là rủi ro chính (đo hỏng ⇒ đĩa về góc phải vùng header).
