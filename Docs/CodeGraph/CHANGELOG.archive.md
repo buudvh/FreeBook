@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.803] - 2026-11-09
+
+### fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá
+
+Anh Bửu: *"bỏ hub âm thanh đi"*.
+
+- `FloatingHubItem.Kind` bỏ case `.audio` ⇒ menu hub còn AI → Thông báo → Video → Kiểm tra nguồn. Gỡ theo: `AudioState` / `subscribeToAudio()` / `audioItem()` của `FloatingHubPresentationReader(+Media)`, nhánh `.audio` ở `open` / `togglePlayback` / `stopPlayback` (`FloatingHubContainerViewController+Actions`), glyph của nút hub, cụm nút phát của `FloatingHubMenuRow`. Nhạc không còn là tiến trình của nút hub (không đổi icon, không nháy, không tính vào "mở thẳng khi chỉ có 1 tác vụ").
+- `AudioMiniPlayerState` giữ nguyên (thanh mini, nút đĩa Reader, tự sang bài vẫn đọc nó). Chú thích phần âm thanh bỏ chữ "hub".
+- Hệ quả: ở trang đẩy vào / sheet / cover không còn lối mở lại màn nghe (thanh mini chỉ ở trang gốc tab); Reader dùng nút đĩa, còn lại màn khoá.
+- `CLAUDE.md` / `AGENTS.md`: mục Âm thanh ghi hub không có dòng "Âm thanh". Chuyển entry cũ nhất sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code + grep chéo `FloatingHubItem.Kind` / `.audio` toàn `Sources/`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.802] - 2026-11-09
 
 ### feat: tab Playlist ở Kệ sách, tạo sửa xoá playlist nhạc và video, thêm bài hoặc tập từ màn nghe, màn xem phim và Kệ

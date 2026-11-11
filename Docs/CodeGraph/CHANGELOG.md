@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.833] - 2026-11-11
+
+### feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc
+
+Anh Bửu: *"thêm màn hình dịch và từ điển riêng cho truyện giống reader, ngoài ra hãy xác định có bật dịch hay không tương tự như truyện chữ nữa cho dịch OCR"* — bật/tắt dịch ở trang Chi tiết của truyện tranh đã đúng, còn dịch ảnh (1.3.826) thì chưa.
+
+- **Dịch ảnh theo đúng công tắc dịch của truyện:** chạy khi và chỉ khi truyện đang bật dịch — cùng `TranslationConfigStore` với trang Chi tiết và tên chương (truyện này > nguồn > nguồn tự khai tiếng Trung > toàn cục). `ComicReaderView` giờ tính y như `BookDetailView` (kèm `isChineseSourceHint` = `isChineseSource` của bản ghi tiện ích) ⇒ hai nơi luôn khớp. Bỏ `ComicImageTranslationPolicy` (công tắc theo tiện ích của 1.3.826) cùng nút "Dịch ảnh" và toast; khoá cũ `comicImageTranslate_*` không đọc nữa (không dọn). Hệ quả: nguồn tự khai tiếng Trung ⇒ mở là dịch cả ảnh; nguồn khác mặc định không; truyện tranh nhập từ file theo công tắc Mặc định toàn cục.
+- **Thanh trên** (`ComicReaderChromeView`): nút dịch = nguyên `ReaderTranslationScopeMenuView` của Reader / Chi tiết (bảng "Dịch văn bản" + phạm vi + Lưu lại; icon 17, khung 36×38, không nền), rồi ☰, rồi `⋯` mới. Neo `.mediaDiscAnchor(.headerTrailing)` ở nút dịch (nút trái nhất của cụm phải).
+- **Ngăn kéo `⋯`** "Tuỳ chọn truyện tranh" (`ComicTranslationToolsModifier`, file mới; giữ `ComicReaderView` dưới 400 dòng): "Cài đặt dịch" (chữ phụ Đang bật / Đang tắt) và "Từ điển truyện" (`BookDictionaryView` dạng sheet, chỉ khi truyện có `Book` — như Reader). Chỉ có mục dịch, không có gì đổi chương (ngăn kéo cũ đã bỏ ở 1.3.667).
+- **Sheet "Cài đặt dịch"** (`ComicTranslationSettingsSheet`, file mới) bám mục "Dịch thuật Quick Translate" của `ReaderSettingsView`: Hiện tại; Truyện này (Theo nguồn / Bật / Tắt), Nguồn (Toàn cục / Bật / Tắt), Mặc định toàn cục; khi đang bật: văn bản trước khi dịch (Giữ nguyên / Phồn → giản, khoá theo truyện như Reader, ghi qua `setTraditionalOverride` để có thông báo), dịch đại từ / luật nhân hoá (khoá chung của app như Reader, đổi ⇒ `notifyDictionariesDidUpdate`), Thứ tự ưu tiên rule, Token rule của truyện (mở lại `ReaderBookRulePriorityView` / `ReaderBookTokenSettingsView`). Form + `.pageTitle` + nút "?", vuốt xuống để đóng. Không sửa `ReaderSettingsView` / `TranslationScopePopupView` (lặp vài picker là chủ ý).
+- **Dịch lại khi đổi:** cấu hình dịch (`TranslationConfigStore.didChangeNotification` mà bật/tắt không đổi — vd phồn → giản), từ điển (`.translationDictionariesDidUpdate`, chỉ khi không ghi `bookId` hoặc đúng truyện này), rule (`.quickTranslationRulesDidUpdate`), đóng sheet Cài đặt dịch ⇒ dịch lại tên chương **và** ảnh đang hiện (`refreshTranslations`; chữ đã nhận lấy từ RAM). Trước đó tên chương chỉ dịch lại khi bật/tắt dịch.
+- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh + câu "thanh trên chỉ còn ☰" của mục màn đọc comic.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 399 dòng — sát giới hạn, việc sau nên thêm vào file riêng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật/tắt ở Chi tiết, ở nút dịch thanh trên và ở Cài đặt dịch đều bật/tắt dịch ảnh + tên chương ngay; (2) nguồn manhua tự khai tiếng Trung mở là dịch ảnh; (3) thêm name ở Từ điển truyện ⇒ bong bóng đang hiện đổi theo; (4) đĩa nghe nhấn giữ đậu trái nút dịch.
+
 ## [1.3.832] - 2026-11-11
 
 ### feat: lõi dịch truyện bằng tiện ích loại translate
@@ -370,15 +384,3 @@ Anh Bửu: *"bỏ dòng ch. x trong hàng tên chương giúp tôi"*.
 
 - `TTSWidgetBarInfoReader.refresh`: dòng 2 của kiểu **Thanh nghe nhạc** chỉ còn tên chương (đã dịch theo phiên TTS, cắt khoảng trắng), không còn "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N". Nhãn "Ch. N" của thẻ Kệ (`BookListRowSize`) không phải hàng tên chương ⇒ giữ nguyên.
 - **Kiểm chứng:** đọc code (`displayedChapterTitle` là `String`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.803] - 2026-11-09
-
-### fix: bỏ dòng Âm thanh khỏi hub nổi, trình nghe điều khiển ở thanh mini, nút đĩa Reader và màn khoá
-
-Anh Bửu: *"bỏ hub âm thanh đi"*.
-
-- `FloatingHubItem.Kind` bỏ case `.audio` ⇒ menu hub còn AI → Thông báo → Video → Kiểm tra nguồn. Gỡ theo: `AudioState` / `subscribeToAudio()` / `audioItem()` của `FloatingHubPresentationReader(+Media)`, nhánh `.audio` ở `open` / `togglePlayback` / `stopPlayback` (`FloatingHubContainerViewController+Actions`), glyph của nút hub, cụm nút phát của `FloatingHubMenuRow`. Nhạc không còn là tiến trình của nút hub (không đổi icon, không nháy, không tính vào "mở thẳng khi chỉ có 1 tác vụ").
-- `AudioMiniPlayerState` giữ nguyên (thanh mini, nút đĩa Reader, tự sang bài vẫn đọc nó). Chú thích phần âm thanh bỏ chữ "hub".
-- Hệ quả: ở trang đẩy vào / sheet / cover không còn lối mở lại màn nghe (thanh mini chỉ ở trang gốc tab); Reader dùng nút đĩa, còn lại màn khoá.
-- `CLAUDE.md` / `AGENTS.md`: mục Âm thanh ghi hub không có dòng "Âm thanh". Chuyển entry cũ nhất sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + grep chéo `FloatingHubItem.Kind` / `.audio` toàn `Sources/`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

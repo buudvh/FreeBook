@@ -20,13 +20,14 @@ struct ComicReaderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.displayScale) private var displayScale
 
-    /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`, như Reader/Chi tiết) — không phải công tắc chung.
+    /// Công tắc dịch **theo truyện/nguồn** (`TranslationConfigStore`), tính y như trang Chi tiết (`translationEnabled(for:)`).
+    /// Quyết định cả tên chương lẫn dịch ảnh (1.3.833 — trước đó dịch ảnh có công tắc riêng theo tiện ích).
     @State private var isTranslationEnabled: Bool
-    /// Công tắc Dịch ảnh (1.3.826) — nhớ **theo tiện ích** (`ComicImageTranslationPolicy`), độc lập với công tắc trên.
-    /// Giữ ở View chứ không ở `ComicReaderViewModel` (file VM đã sát giới hạn 400 dòng).
-    @State private var isImageTranslationEnabled: Bool
     /// Tăng khi từ điển / rule / cấu hình dịch đổi ⇒ các ảnh đang hiện dịch lại (`ComicImageTranslationContext.revision`).
+    /// Giữ ở View chứ không ở `ComicReaderViewModel` (file VM đã sát giới hạn 400 dòng).
     @State private var imageTranslationRevision = 0
+    /// Ngăn kéo `⋯` (Cài đặt dịch, Từ điển truyện) — nội dung + hai sheet ở `ComicTranslationToolsModifier`.
+    @State private var showsTranslationMenu = false
     /// Lượt dịch tên chương đang chạy — lượt mới huỷ lượt cũ để kết quả cũ không ghi đè.
     @State private var titleTranslationTask: Task<Void, Never>?
     @State private var viewModel: ComicReaderViewModel
@@ -46,11 +47,7 @@ struct ComicReaderView: View {
 
     init(launch: BookContentLaunch) {
         self.launch = launch
-        _isTranslationEnabled = State(initialValue: TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: launch.bookId,
-            packageId: launch.extensionPackageId
-        ))
-        _isImageTranslationEnabled = State(initialValue: ComicImageTranslationPolicy.isEnabled(packageId: launch.extensionPackageId))
+        _isTranslationEnabled = State(initialValue: Self.translationEnabled(for: launch))
         _viewModel = State(initialValue: ComicReaderViewModel(launch: launch))
     }
 
@@ -67,10 +64,11 @@ struct ComicReaderView: View {
                 ComicReaderChromeView(
                     viewModel: viewModel,
                     isTranslationEnabled: isTranslationEnabled,
-                    isImageTranslationEnabled: isImageTranslationEnabled,
+                    sourceName: sourceDisplayName,
+                    isChineseSourceHint: Self.chineseSourceHint(packageId: launch.extensionPackageId),
                     onBack: { dismiss() },
                     onOpenChapterList: { showsChapterList = true },
-                    onToggleImageTranslation: toggleImageTranslation
+                    onOpenMenu: { showsTranslationMenu = true }
                 )
                 .transition(.opacity)
             }
@@ -88,15 +86,16 @@ struct ComicReaderView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
-            let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: launch.bookId, packageId: launch.extensionPackageId)
-            if isTranslationEnabled != newState { isTranslationEnabled = newState }
-            bumpImageTranslationRevision() // phồn→giản của truyện có thể vừa đổi
+            let newState = Self.translationEnabled(for: launch)
+            // Bật/tắt đổi ⇒ `onChange` bên dưới dịch lại tên chương; không đổi thì phồn→giản có thể vừa đổi.
+            if isTranslationEnabled != newState { isTranslationEnabled = newState } else { refreshTranslations() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
-            bumpImageTranslationRevision()
+        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { notification in
+            let targetBookId = notification.userInfo?["bookId"] as? String
+            if targetBookId == nil || targetBookId == launch.bookId { refreshTranslations() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .quickTranslationRulesDidUpdate)) { _ in
-            bumpImageTranslationRevision()
+            refreshTranslations()
         }
         .onChange(of: isTranslationEnabled) { _, _ in translateChapterTitles() }
         // `refreshContent()` của nguồn Legado: nạp lại danh sách ảnh chương đang mở (bản offline vẫn được ưu tiên).
@@ -136,6 +135,17 @@ struct ComicReaderView: View {
         }
         // Đóng ⇒ chép cookie rồi nạp lại đúng chương lỗi (`retry` dùng `chapterIndex` = chương đang nạp).
         .errorLinkBrowser(link: $openingErrorLink, packageId: launch.extensionPackageId) { viewModel.retry() }
+        .modifier(ComicTranslationToolsModifier(
+            isMenuPresented: $showsTranslationMenu,
+            bookId: launch.bookId,
+            packageId: launch.extensionPackageId,
+            sourceName: sourceDisplayName,
+            isChineseSourceHint: Self.chineseSourceHint(packageId: launch.extensionPackageId),
+            bookTitle: localBook?.title ?? launch.bookTitle ?? "",
+            hasLocalBook: localBook != nil,
+            isTranslationEnabled: isTranslationEnabled,
+            onSettingsClosed: refreshTranslations
+        ))
     }
 
     // MARK: - Nội dung theo trạng thái
@@ -292,11 +302,31 @@ struct ComicReaderView: View {
         isZoomPresented = true
     }
 
-    // MARK: - Dịch ảnh (1.3.826)
+    // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện)
 
-    /// `nil` khi công tắc tắt. Trình xem phóng to không có lớp dịch (v1).
+    /// Bật dịch của truyện — **đúng cách trang Chi tiết tính** (cùng gợi ý "nguồn tiếng Trung" từ bản ghi tiện ích), để nút
+    /// dịch ở Chi tiết và ở màn này luôn khớp: truyện này > nguồn > nguồn tự khai tiếng Trung > toàn cục.
+    private static func translationEnabled(for launch: BookContentLaunch) -> Bool {
+        TranslationConfigStore.shared.isTranslationEnabled(
+            bookId: launch.bookId,
+            packageId: launch.extensionPackageId,
+            isChineseSourceHint: chineseSourceHint(packageId: launch.extensionPackageId)
+        )
+    }
+
+    /// Như `BookDetailView.ext?.isChineseSource`: tra bản cài rồi catalog; không thấy ⇒ `nil` (dò `plugin.json`).
+    private static func chineseSourceHint(packageId: String) -> Bool? {
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId)?.isChineseSource
+    }
+
+    private var sourceDisplayName: String {
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)?.name
+            ?? localBook?.sourceName ?? ""
+    }
+
+    /// `nil` khi truyện đang tắt dịch. Trình xem phóng to không có lớp dịch (v1).
     private var imageTranslationContext: ComicImageTranslationContext? {
-        guard isImageTranslationEnabled else { return nil }
+        guard isTranslationEnabled else { return nil }
         return ComicImageTranslationContext(
             bookId: launch.bookId,
             convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId),
@@ -304,19 +334,11 @@ struct ComicReaderView: View {
         )
     }
 
-    private func toggleImageTranslation() {
-        let enabled = !isImageTranslationEnabled
-        isImageTranslationEnabled = enabled
-        ComicImageTranslationPolicy.setEnabled(enabled, packageId: launch.extensionPackageId)
-        ToastManager.shared.show(
-            message: enabled ? "Đã bật dịch ảnh cho nguồn này" : "Đã tắt dịch ảnh",
-            recordsInInbox: false
-        )
-    }
-
-    private func bumpImageTranslationRevision() {
-        guard isImageTranslationEnabled else { return }
+    /// Từ điển / rule / phồn→giản / cài đặt dịch đổi ⇒ dịch lại tên chương và các ảnh đang hiện (chữ đã nhận lấy từ RAM).
+    private func refreshTranslations() {
+        guard isTranslationEnabled else { return }
         imageTranslationRevision += 1
+        translateChapterTitles()
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),

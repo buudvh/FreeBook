@@ -9,11 +9,13 @@ import SwiftUI
 struct ComicReaderChromeView: View {
     let viewModel: ComicReaderViewModel
     let isTranslationEnabled: Bool
-    /// Công tắc Dịch ảnh (1.3.826, nhớ theo tiện ích — `ComicImageTranslationPolicy`).
-    let isImageTranslationEnabled: Bool
+    /// Tên nguồn + gợi ý "nguồn tiếng Trung" cho nút dịch — cùng giá trị trang Chi tiết truyền cho nút của nó (1.3.833).
+    let sourceName: String
+    let isChineseSourceHint: Bool?
     let onBack: () -> Void
     let onOpenChapterList: () -> Void
-    let onToggleImageTranslation: () -> Void
+    /// Mở ngăn kéo `⋯` (Cài đặt dịch, Từ điển truyện).
+    let onOpenMenu: () -> Void
 
     private static let barBackground = Color.black.opacity(0.82)
 
@@ -52,19 +54,20 @@ struct ComicReaderChromeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button(action: onToggleImageTranslation) {
-                Image(systemName: isImageTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
-                    .background(
-                        isImageTranslationEnabled ? Color.white.opacity(0.18) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    )
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel(isImageTranslationEnabled ? "Tắt dịch ảnh" : "Dịch ảnh")
-            // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút trái nhất của cụm phải (1.3.815). Từ 1.3.826 nút đó là
-            // Dịch ảnh — để neo ở ☰ thì đĩa đè lên nút này.
+            // Nút dịch của Reader / Chi tiết, dùng nguyên (bảng "Dịch văn bản" + phạm vi + Lưu lại). Một công tắc cho cả tên
+            // chương lẫn dịch ảnh (1.3.833).
+            ReaderTranslationScopeMenuView(
+                bookId: viewModel.launch.bookId,
+                packageId: viewModel.launch.extensionPackageId,
+                sourceName: sourceName,
+                textColor: .white,
+                showBackground: false,
+                isChineseSourceHint: isChineseSourceHint,
+                iconSize: 17,
+                frameWidth: 36,
+                frameHeight: 38
+            )
+            // Nhấn giữ đĩa nghe góc ⇒ đĩa vào header, ngay trái nút trái nhất của cụm phải (1.3.815) — nay là nút dịch.
             .mediaDiscAnchor(.headerTrailing)
 
             Button(action: onOpenChapterList) {
@@ -74,6 +77,14 @@ struct ComicReaderChromeView: View {
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Mục lục")
+
+            Button(action: onOpenMenu) {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 36, height: 38)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Tuỳ chọn truyện tranh")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)
