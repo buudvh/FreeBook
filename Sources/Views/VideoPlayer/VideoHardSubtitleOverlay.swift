@@ -1,0 +1,120 @@
+import SwiftUI
+
+/// Bản dịch phụ đề cứng (OCR, 1.3.830) vẽ đè lên đúng chỗ chữ Trung in trong phim (`VideoHardSubtitleEngine`).
+///
+/// - Đặt cùng vùng với `VideoPlayerSurfaceView` (cùng `ignoresSafeArea` ở toàn màn) ⇒ quy đổi khung chữ gốc (chuẩn hoá theo
+///   khung hình) sang toạ độ màn bằng vùng hình tự tính theo kiểu khung đang chọn (Vừa / Lấp đầy / Phóng) — không đọc
+///   `AVPlayerLayer.videoRect` (không quan sát được, lúc xoay màn còn trả khung cũ).
+/// - Dải che (phủ chữ gốc) và nền của chữ dịch vẽ chung một lớp rồi mới làm mờ ⇒ chỗ hai nền chồng nhau không đậm hơn.
+///   Chữ dịch thường dài hơn chữ gốc ⇒ nền chữ dịch có thể rộng hơn dải che, tối đa gần hết bề ngang.
+/// - Phim Phóng cắt mất dải dưới ⇒ ép dải vào vùng nhìn thấy.
+/// - Có mặt trong cây view = có màn xem to ⇒ `onAppear` / `onDisappear` bật / tắt engine (cửa sổ nhỏ không có lớp phủ này).
+struct VideoHardSubtitleOverlay: View {
+    let engine: VideoHardSubtitleEngine
+    let gravity: VideoPlayerController.Gravity
+
+    private static let coverPadding = CGSize(width: 8, height: 5)
+    private static let edgeMargin: CGFloat = 12
+    private static let backgroundOpacity = 0.86
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                if let cue = engine.displayedCue {
+                    band(cue, in: proxy.size)
+                }
+                if let message = engine.statusMessage {
+                    statusCapsule(message)
+                        .position(x: proxy.size.width / 2, y: max(proxy.size.height - 36, proxy.size.height / 2))
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+        }
+        .allowsHitTesting(false)
+        .onAppear { engine.screenDidAppear() }
+        .onDisappear { engine.screenDidDisappear() }
+    }
+
+    // MARK: - Dải bản dịch
+
+    private func band(_ cue: VideoHardSubtitleEngine.DisplayedCue, in size: CGSize) -> some View {
+        let video = Self.videoRect(frameSize: cue.frameSize, in: size, gravity: gravity)
+        let source = CGRect(
+            x: video.minX + cue.rect.minX * video.width,
+            y: video.minY + cue.rect.minY * video.height,
+            width: cue.rect.width * video.width,
+            height: cue.rect.height * video.height
+        )
+        let cover = source
+            .insetBy(dx: -Self.coverPadding.width, dy: -Self.coverPadding.height)
+            .intersection(CGRect(origin: .zero, size: size))
+        let lineHeight = source.height / CGFloat(max(cue.lineCount, 1))
+        let fontSize = min(max(lineHeight * 0.6, 13), 22)
+        let maxTextWidth = max(size.width - Self.edgeMargin * 2, 60)
+        let halfBand = max(source.height / 2, 14)
+        let centerY = min(max(source.midY, Self.edgeMargin + halfBand), size.height - Self.edgeMargin - halfBand)
+        let centerX = min(max(source.midX, Self.edgeMargin + 30), size.width - Self.edgeMargin - 30)
+
+        return ZStack(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                if !cover.isNull, cover.width > 0, cover.height > 0 {
+                    Rectangle()
+                        .fill(Color.black)
+                        .frame(width: cover.width, height: cover.height)
+                        .position(x: cover.midX, y: cover.midY)
+                }
+                // Chữ trong suốt chỉ để nền đo đúng cỡ chữ dịch vẽ phía trên.
+                translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth)
+                    .foregroundStyle(.clear)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                    .position(x: centerX, y: centerY)
+            }
+            .compositingGroup()
+            .opacity(Self.backgroundOpacity)
+
+            translatedText(cue.text, fontSize: fontSize, maxWidth: maxTextWidth)
+                .foregroundStyle(.white)
+                .position(x: centerX, y: centerY)
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    private func translatedText(_ text: String, fontSize: CGFloat, maxWidth: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: fontSize, weight: .semibold))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .frame(maxWidth: maxWidth)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func statusCapsule(_ message: String) -> some View {
+        Text(message)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color.black.opacity(0.75)))
+    }
+
+    /// Vùng hình trong khung `container` theo kiểu khung của `AVPlayerLayer` (`VideoPlayerController.Gravity.layerGravity`).
+    static func videoRect(frameSize: CGSize, in container: CGSize, gravity: VideoPlayerController.Gravity) -> CGRect {
+        let full = CGRect(origin: .zero, size: container)
+        guard frameSize.width > 0, frameSize.height > 0, container.width > 0, container.height > 0 else { return full }
+        let scaleX = container.width / frameSize.width
+        let scaleY = container.height / frameSize.height
+        let scale: CGFloat
+        switch gravity {
+        case .fill:
+            return full // `.resize`: kéo giãn cho vừa khung
+        case .fit:
+            scale = min(scaleX, scaleY)
+        case .zoom:
+            scale = max(scaleX, scaleY)
+        }
+        let width = frameSize.width * scale
+        let height = frameSize.height * scale
+        return CGRect(x: (container.width - width) / 2, y: (container.height - height) / 2, width: width, height: height)
+    }
+}

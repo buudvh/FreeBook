@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Khung phim (dọc 16:9 hoặc toàn màn), xếp lớp từ dưới lên:
-/// hình (`VideoPlayerSurfaceView`) hoặc trang nhúng → phụ đề → cử chỉ → trạng thái nạp/lỗi → điều khiển → nút
+/// hình (`VideoPlayerSurfaceView`) hoặc trang nhúng → phụ đề (mềm, hoặc bản dịch phụ đề cứng `VideoHardSubtitleOverlay`) → cử chỉ → trạng thái nạp/lỗi → điều khiển → nút
 /// "Bỏ qua" → HUD cử chỉ → thông báo tự đổi link (`playbackNotice`) → bảng danh sách tập (toàn màn).
 ///
 /// Trang nhúng cần chạm trực tiếp nên khi nhúng không có lớp cử chỉ, chỉ còn thanh trên.
@@ -32,7 +32,12 @@ struct VideoPlayerStage: View {
             } else {
                 VideoPlayerSurfaceView(layerView: session.layerView, gravity: controller.gravity.layerGravity)
                     .ignoresSafeArea(.all, edges: bleedEdges)
-                VideoSubtitleOverlay(session: session, liftsAboveControls: controller.controlsVisible && !controller.isTouchLocked)
+                // Dịch phụ đề cứng bật ⇒ phụ đề mềm của tiện ích nhường chỗ (hai lớp chữ chồng nhau khó đọc).
+                if !VideoHardSubtitleEngine.shared.isEnabled {
+                    VideoSubtitleOverlay(session: session, liftsAboveControls: controller.controlsVisible && !controller.isTouchLocked)
+                }
+                VideoHardSubtitleOverlay(engine: .shared, gravity: controller.gravity)
+                    .ignoresSafeArea(.all, edges: bleedEdges)
                 VideoGestureLayer(
                     verticalMode: isFullscreen ? .levels : .dismiss,
                     isTouchLocked: controller.isTouchLocked,

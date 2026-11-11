@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.830] - 2026-11-11
+
+### feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc
+
+Anh Bửu duyệt plan OCR phụ đề cứng (chọn thay Whisper vì nhẹ hơn: không model, không tải lại đoạn HLS): phim Trung in sẵn phụ đề trong hình ⇒ đọc bằng Vision, dịch VietPhrase, che chữ gốc. Hai mặc định đã chốt: nhớ bật **theo tiện ích**, **chỉ hiện bản dịch** (che chữ gốc).
+
+- Công tắc **"Dịch phụ đề cứng"** ở ngăn kéo `⋯` của trình phát (`VideoHardSubtitleDrawerRow`, ngay dưới "Dịch phụ đề" của phụ đề mềm; ẩn khi nhúng trang), nhớ theo tiện ích (`VideoHardSubtitlePreferenceStore`, khoá `videoHardSubtitleOCRByPackage`, thiếu = tắt) — không theo phim để khỏi đụng Đổi nguồn. Bật ⇒ phụ đề mềm của tiện ích nhường chỗ (`VideoPlayerStage`).
+- `Services/Video/HardSubtitle/` (mới): `VideoHardSubtitleEngine` (`@MainActor @Observable`, singleton) chạy **chỉ** khi lớp phủ của màn xem to đang hiện (`screenDidAppear` / `screenDidDisappear` đếm màn), tự KVO `player.currentItem` — không sửa `VideoPlaybackSession` (`stop()` thay item bằng `nil` ⇒ tự gỡ); mỗi item một `generation` để kết quả về muộn của tập trước bị bỏ. Nhịp 0,5 s (timer ở run loop `.common`), bỏ qua khi nhúng trang / chỉ còn cửa sổ nhỏ / app ở nền / tạm dừng mà khung đã đọc. `VideoHardSubtitleFrameSampler` gắn `AVPlayerItemVideoOutput` (4:2:0 full range; chạy cả HLS).
+- Một lượt (`VideoHardSubtitleFrameJob`, hàng đợi nền tuần tự, lượt trước chưa xong thì bỏ nhịp): `VideoHardSubtitleBrightMask` (lưới 128×32 điểm trên mặt phẳng độ sáng của dải dưới 30%, ngưỡng theo full / video range) giống lần Vision trước (Jaccard ≥ 0,9) ⇒ giữ nguyên, quá 4 s vẫn đọc lại; rỗng ⇒ coi như không có chữ, trừ khi quá 3 s (dò thưa) hoặc item này từng có chữ mà mặt nạ không thấy (chữ màu nhạt ⇒ Vision mỗi nhịp); còn lại ⇒ `VideoHardSubtitleRecognizer`: cắt dải dưới **trước** rồi đưa vào `VNRecognizeTextRequest` (`.accurate`, `zh-Hans` + `zh-Hant`, chữ cao ≥ 8% dải), giữ dòng ≥ 2 chữ Hán có tâm ngang trong 15–85% (bỏ logo góc), khối = dòng thấp nhất + tối đa một dòng ngay trên.
+- `VideoHardSubtitleCueTracker`: giống ≥ 75% (Levenshtein, bỏ dấu câu) = cùng câu, giữ câu cũ (bản mới nhiều chữ Hán hơn thì thay); trống 2 lượt liên tiếp mới xoá. Dịch `TranslateUtils.translateContent` **từng dòng** ngoài main, Name/VP riêng của phim (`bookId`), **luôn** phồn→giản, không theo cổng dịch của phim; đệm 200 câu, đổi phim thì xoá đệm.
+- `VideoHardSubtitleOverlay` (mới): cùng `ignoresSafeArea` với `VideoPlayerSurfaceView`; vùng hình tự tính theo Vừa / Lấp đầy / Phóng từ cỡ khung (không đọc `AVPlayerLayer.videoRect`); dải che + nền chữ dịch vẽ chung một lớp (`compositingGroup`, mờ 0,86) nên chỗ chồng không đậm hơn; chữ 13–22 pt theo chiều cao dòng gốc, ép vào vùng nhìn thấy. Dòng báo "Không đọc được hình của nguồn này" (đang phát mà 5 s không có khung — nguồn DRM) / "Máy chưa hỗ trợ nhận chữ Trung", tự ẩn sau 4 s.
+- Log `🔤 [VideoOCR]`: bật / tắt, bắt đầu, tóm tắt mỗi 30 s (số lượt, số lần Vision + ms trung bình, bỏ qua giống / rỗng / đang bận, số câu); lỗi có `❌`. Không tự giảm nhịp theo nhiệt — đo trên máy rồi quyết.
+- Chưa làm: lưu câu xuống đĩa (xem lại phải đọc lại), hiện hai dòng gốc / dịch, quét trước tập đã tải, Whisper. Rủi ro đã biết: biển hiệu / thẻ tên ở dải dưới bị dịch nhầm thành phụ đề; HLS tự hạ 360p đọc kém; video có thông tin xoay (quay dọc bằng điện thoại) buffer chưa xoay.
+- `CLAUDE.md` / `AGENTS.md`: thêm gạch đầu dòng ở mục Comic & Video. Chuyển `[1.3.800]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (9 file mới, lớn nhất 364 dòng, mỗi file một type chính; `VideoPlayerTopBar.swift` 352 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim Trung có phụ đề trắng in sẵn — bản dịch che đúng chỗ ở màn dọc và toàn màn, đổi Vừa / Phóng; (2) bật log, xem dòng `🔤 [VideoOCR]` (ms Vision, tỉ lệ bỏ qua) và máy có nóng không; (3) phụ đề vàng / màu nhạt; (4) tạm dừng, tua, đổi tập, thu cửa sổ nhỏ rồi mở lại.
+
 ## [1.3.829] - 2026-11-11
 
 ### feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt
@@ -351,18 +367,3 @@ Anh Bửu duyệt plan "Playlist nhạc và video (tạo, sửa, xoá, phát)" v
 
 - Mục Âm thanh, gạch "Tự phát bài gợi ý": thêm `AudioSuggestionSection` (1.3.800) và `AudioSuggestionStore` dùng chung với `AudioAutoNextCoordinator`.
 - **Kiểm chứng:** chỉ sửa tài liệu; `CLAUDE.md` và `AGENTS.md` vẫn trùng nhau trừ 3 dòng đầu.
-
-## [1.3.800] - 2026-11-09
-
-### feat: trang Danh sách của màn nghe hiện bài gợi ý của nguồn, chạm để nghe ngay, nhãn Tiếp theo cho mục sẽ tự phát
-
-Anh Bửu hỏi *"phần suggest của nhạc hiển thị ở đâu"* — trước đây gợi ý chỉ chạy ngầm cho tự phát (1.3.798). Anh duyệt: hiện gợi ý ở trang Danh sách kiểu "Có thể bạn muốn nghe" của Zing MP3.
-
-- **`AudioSuggestionStore`** (mới, `Services/Audio/`, `@MainActor @Observable`): **một nguồn** gợi ý của album đang mở cho cả tự phát lẫn màn nghe. Nhóm gợi ý = `suggests` của chi tiết (chờ chi tiết trình nghe đang tải → cache `BookDetailCacheManager` → tải chi tiết không tương tác), mỗi nhóm có `script` chạy trang 1 **một lần** cho mỗi album; gọi lại cùng album dùng kết quả cũ, album khác ⇒ huỷ lượt cũ. Nhóm đầu tải trước (tự phát cần); các nhóm sau (tới 3 nhóm) chỉ tải khi trang Danh sách hiện (`loadForDisplay`). Phần tải chi tiết / chạy nhóm chuyển từ `AudioAutoNextCoordinator` sang đây (không nhân bản); `Album` chụp album đang mở chuyển theo (`AudioSuggestionStore.Album.snapshot(of:)`, coordinator dùng `typealias`).
-- **`AudioAutoNextCoordinator`**: tải trước / thử lại qua store (`firstGroupItems` / `reloadFirstGroup`). Cách chọn mục tự phát gom về **`pick(after:items:)`** — dùng cho cả lúc hết album lẫn nhãn "Tiếp theo" (`upNextLink(in:firstGroupItems:)`: `nil` khi đang lặp / hẹn "Hết bài" / trình nghe rảnh), nên nhãn luôn trùng mục sẽ phát (đã trừ mục đã phát trong chuỗi).
-- **Trang Danh sách** (`AudioPlaylistPage`): dưới danh sách bài là **`AudioSuggestionSection`** (mới): mỗi nhóm một tiêu đề (tên nhóm của tiện ích, vd "Bài gợi ý", "Playlist liên quan") + các dòng **`AudioSuggestionRow`** (mới: bìa nhỏ `RemoteCoverImage` — không ghi `covers/`, tên, nghệ sĩ / mô tả, chữ trắng trên nền tối). Mỗi nhóm tối đa 20 dòng (Zing trả tới 100 bài); mục "Tiếp theo" luôn hiện. Chưa tải xong / lỗi / không có gợi ý ⇒ không vẽ gì. Trang hiện / đổi album lúc đang xem ⇒ `loadForDisplay`.
-- **Chạm dòng** ⇒ `ContentDetailRouter.openIfVideo` với tiện ích của album: tiện ích âm thanh ⇒ `AudioPlayerPresenter.present` — màn nghe đang mở nên đổi album **tại chỗ**, không chồng màn.
-- **Nhãn "Tiếp theo"** (viên thuốc chữ màu nhấn) trên mục sẽ tự phát khi công tắc "Tự phát bài gợi ý" bật (đọc `@AppStorage` ⇒ bật / tắt là đổi ngay); tắt công tắc, đang lặp album / một bài hoặc hẹn "Hết bài" ⇒ không nhãn.
-- Log: `⏭️ [AudioSuggest] …` (lỗi tải ghi `❌ [AudioSuggest] …`), `🎵 [AudioPlayerUI] Chọn mục gợi ý …`.
-- Chuyển `[1.3.770]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + grep chéo (`AudioSuggestionStore.Album.snapshot` thay `albumSnapshot`, không còn chỗ gọi `prepareTask` / `loadSuggestions` cũ; chữ ký `ContentDetailRouter.openIfVideo(_:packageId:sourceName:modelContainer:)`, `RemoteCoverImage(url:referer:placeholderSymbol:)`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 216 dòng, một type chính). Không build tại chỗ (Windows). Chưa thử máy: phần gợi ý ở trang Danh sách với Zing MP3 / NhacCuaTui, chạm đổi album tại chỗ, nhãn "Tiếp theo" đổi theo công tắc.

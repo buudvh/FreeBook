@@ -267,6 +267,8 @@ struct VideoPlayerTopBar: View {
                 controller.showsCaptionTranslationSheet = true
             }
         }
+        // Phụ đề in sẵn trong hình (OCR) — khác "Dịch phụ đề" ở trên (phụ đề mềm VTT/SRT của tiện ích).
+        VideoHardSubtitleDrawerRow(session: session)
         SideDrawerDivider()
         if showsGravity {
             SideDrawerSectionHeader("Khung hình")
