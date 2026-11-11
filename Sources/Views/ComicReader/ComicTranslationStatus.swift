@@ -19,4 +19,19 @@ enum ComicTranslationStatus {
     static func chineseSourceHint(packageId: String) -> Bool? {
         ExtensionLibraryRepository.shared.catalogExtension(packageId: packageId)?.isChineseSource
     }
+
+    /// Tên nguồn cho nút dịch / Cài đặt dịch: tên tiện ích (bản cài rồi catalog) ⇒ tên nguồn lưu trong `Book`.
+    static func sourceName(launch: BookContentLaunch, book: Book?) -> String {
+        ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)?.name
+            ?? book?.sourceName ?? ""
+    }
+
+    /// Màn Dịch cho chữ Trung gốc của một khối (1.3.837) — phồn→giản theo truyện, như lớp dịch.
+    static func definitionRequest(for sentence: String, bookId: String) -> ComicDefinitionSheet.Request {
+        ComicDefinitionSheet.Request(
+            sentence: sentence,
+            bookId: bookId,
+            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
+        )
+    }
 }

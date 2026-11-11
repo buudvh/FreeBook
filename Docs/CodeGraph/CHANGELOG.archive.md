@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.813] - 2026-11-09
+
+### fix: đĩa nghe góc dưới giống nút nổi khác, vòng kính theo độ trong suốt và độ đục, bìa luôn rõ
+
+Anh Bửu: *"áp dụng theo cài độ trong suốt, độ đục như nút khác"*. Bản 1.3.812 cho cả **bìa** mờ theo "Độ trong suốt" (bìa hiện `1 − độ trong suốt`) ⇒ ở mức mặc định 90% bìa chỉ còn thấy ~10%, gần như tàng hình.
+
+- `MediaDiscFaceButton(.corner)`: bỏ lớp mờ của bìa. Vòng kính `FloatingGlassBackground` vẫn theo "Độ trong suốt" + "Độ đục" của nút nổi (Cài đặt › Chung › Giao diện); bìa luôn rõ như icon của nút "+" / Home.
+- `CLAUDE.md` / `AGENTS.md`: sửa câu mô tả độ trong suốt của đĩa góc.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.812] - 2026-11-09
 
 ### feat: đĩa nghe ở ô giữa thanh tab, đĩa góc chỉ hiện ở màn không có thanh tab, nhấn giữ đĩa góc tạm lên header 5 giây

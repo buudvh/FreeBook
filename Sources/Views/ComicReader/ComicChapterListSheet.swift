@@ -9,8 +9,10 @@ import SwiftUI
 ///   nút **thêm/bỏ kệ** (`ShelfToggleFlowModifier`). Sách chưa có trong thư viện thì không có hàng `Book` nên hai nút
 ///   ẩn; bìa/tên/tác giả khi đó lấy từ `launch`.
 /// - Thứ tự sắp xếp là `Binding` từ `ComicReaderView`: giữ suốt phiên đọc, không lưu đĩa.
-/// - Đang tìm hoặc đang xếp giảm dần ⇒ ẩn dòng tiêu đề nhóm (`isSection`): nhãn nhóm chỉ có nghĩa khi đứng ngay trên
-///   các chương của nó theo thứ tự gốc.
+/// - Hàng đang hiện + số thứ tự dựng **một lần** mỗi khi mục lục / ô tìm / thứ tự / công tắc đổi (`ComicChapterListRows`,
+///   mục lục dài thì ngoài main) chứ không trong mỗi lượt vẽ; dòng nhóm luôn giữ, kể cả khi tìm hay xếp giảm dần (1.3.843).
+///   Mỗi phần tử một kiểu hàng (`ComicChapterListRow`). `ComicReaderView` bọc sheet trong `ComicChapterListHost`
+///   (`.equatable()`) để màn đọc vẽ lại không kéo mục lục tính lại.
 @MainActor
 struct ComicChapterListSheet: View {
     /// Màu nền/chữ của sheet — `ComicReaderView` dùng cùng màu cho `presentationBackground`.
@@ -35,6 +37,25 @@ struct ComicChapterListSheet: View {
     /// Công tắc "Hiện số thứ tự chương" — đọc một lần ở danh sách, hàng chỉ nhận số + bề rộng cột.
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
     private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
+    @State private var rows: [ComicChapterEntry] = []
+    @State private var numbering: ChapterOrdinalNumbering?
+    @State private var hasBuiltRows = false
+    @State private var isBuildingRows = false
+    @State private var didScrollToCurrent = false
+    /// Lúc sheet được dựng (≈ lúc bấm ☰) — cho log thời gian mở `📚 [ComicTOC]`.
+    @State private var openedAt = Date()
+
+    /// Đầu vào của lượt dựng hàng; đổi ⇒ `.task(id:)` dựng lại.
+    private struct RowsKey: Equatable {
+        let chapters: [ComicChapterEntry]
+        let query: String
+        let ascending: Bool
+        let translated: Bool
+        let numbered: Bool
+    }
+
+    /// Mục lục ngắn hơn ngưỡng dựng ngay trên main (tức thì); dài hơn thì ngoài main kèm vòng xoay.
+    private static let backgroundBuildThreshold = 400
 
     /// Màu panel Mục lục — cùng bảng màu nền Tối của mục lục truyện chữ.
     static var palette: ChapterTOCPalette { .reader(theme) }
@@ -80,42 +101,48 @@ struct ComicChapterListSheet: View {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Hàng đang hiện: lọc theo tên **đang hiển thị** (đã dịch nếu bật dịch) và tên gốc bằng `ChapterTitleSearchMatcher`
-    /// (không phân biệt hoa thường và dấu, như Reader), rồi xếp theo `isAscending`. Dòng tiêu đề nhóm chỉ giữ khi không
-    /// tìm và xếp tăng dần.
-    private var visibleChapters: [ComicChapterEntry] {
-        let query = trimmedQuery
-        let showsSections = query.isEmpty && isAscending
-        let rows = chapters.filter { chapter in
-            if chapter.isSection { return showsSections }
-            guard !query.isEmpty else { return true }
-            return ChapterTitleSearchMatcher.matches(query, anyOf: [chapter.displayTitle(translated: isTranslationEnabled), chapter.title])
-        }
-        return isAscending ? rows : Array(rows.reversed())
+    private var rowsKey: RowsKey {
+        RowsKey(
+            chapters: chapters,
+            query: trimmedQuery,
+            ascending: isAscending,
+            translated: isTranslationEnabled,
+            numbered: showsChapterOrdinal
+        )
     }
 
     private var chapterList: some View {
         ScrollViewReader { proxy in
-            // Số dựng từ **toàn bộ** `chapters` (không phải `visibleChapters`) ⇒ tìm/đảo thứ tự vẫn giữ số; dòng tiêu đề
-            // nhóm không chiếm số. Dựng một lần cho cả danh sách.
-            let numbering: ChapterOrdinalNumbering? = showsChapterOrdinal
-                ? ChapterOrdinalNumbering(chapters, index: { $0.index }, isSection: { $0.isSection })
-                : nil
-            List(visibleChapters, id: \.index) { chapter in
-                Group {
-                    if chapter.isSection {
-                        sectionHeader(for: chapter)
-                    } else {
-                        row(for: chapter, numbering: numbering)
+            List(rows, id: \.index) { chapter in
+                ComicChapterListRow(
+                    chapter: chapter,
+                    isTranslationEnabled: isTranslationEnabled,
+                    currentIndex: currentIndex,
+                    isDownloaded: downloadedIndexes.contains(chapter.index),
+                    numbering: numbering,
+                    onSelect: { index in
+                        onSelect(index)
+                        dismiss()
                     }
-                }
+                )
                 .id(chapter.index)
+                .listRowBackground(rowBackground(for: chapter))
+                .listRowSeparatorTint(Self.palette.divider)
             }
             .listStyle(.plain)
             // Nằm trong panel Mục lục: nền trong suốt để thấy nền panel (hàng tự đặt nền + màu vạch).
             .scrollContentBackground(.hidden)
-            .onAppear {
-                // Đợi List dựng xong rồi mới cuộn tới chương đang đọc.
+            .overlay {
+                if isBuildingRows && !hasBuiltRows {
+                    ProgressView()
+                        .tint(Self.theme.textColor)
+                }
+            }
+            .task(id: rowsKey) { await rebuildRows() }
+            .onChange(of: hasBuiltRows) { _, built in
+                // Lần đầu có hàng mới cuộn tới chương đang đọc (đợi `List` dựng xong).
+                guard built, !didScrollToCurrent else { return }
+                didScrollToCurrent = true
                 DispatchQueue.main.async {
                     proxy.scrollTo(currentIndex, anchor: .center)
                 }
@@ -123,67 +150,48 @@ struct ComicChapterListSheet: View {
         }
     }
 
-    /// Dòng tiêu đề nhóm tập (`isSection`): chỉ là nhãn, không chạm được.
-    private func sectionHeader(for chapter: ComicChapterEntry) -> some View {
-        Text(chapter.displayTitle(translated: isTranslationEnabled))
-            .font(.subheadline.weight(.bold))
-            .foregroundColor(Self.theme.textColor.opacity(0.6))
-            .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
-            .listRowBackground(Color.white.opacity(0.05))
-            .listRowSeparatorTint(Self.palette.divider)
-            .accessibilityAddTraits(.isHeader)
+    private func rowBackground(for chapter: ComicChapterEntry) -> Color {
+        if chapter.isSection { return Color.white.opacity(0.05) }
+        return chapter.index == currentIndex ? Self.palette.currentRowFill : Color.clear
     }
 
-    /// Cùng kiểu `ReaderChapterRowView`: đang đọc = chữ trắng đậm + nền mờ; đã đọc (index logic nhỏ hơn) = mờ
-    /// 0.4; đã tải offline = icon xanh trong khung 30×30 cố định để hàng không đổi chiều cao.
-    private func row(for chapter: ComicChapterEntry, numbering: ChapterOrdinalNumbering?) -> some View {
-        let isCurrent = chapter.index == currentIndex
-        let isRead = chapter.index < currentIndex
-        let theme = Self.theme
-        let palette = Self.palette
-        return Button {
-            onSelect(chapter.index)
-            dismiss()
-        } label: {
-            HStack(spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let numbering {
-                        ChapterOrdinalLabel(
-                            ordinal: numbering.ordinal(forIndex: chapter.index),
-                            digits: numbering.digits,
-                            palette: palette,
-                            isCurrent: isCurrent,
-                            isRead: isRead
-                        )
-                    }
-                    Text(chapter.displayTitle(translated: isTranslationEnabled))
-                        .font(.body)
-                        .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
-                        .fontWeight(isCurrent ? .semibold : .regular)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 8)
-
-                Color.clear
-                    .frame(width: 30, height: 30)
-                    .overlay {
-                        if downloadedIndexes.contains(chapter.index) {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                                .accessibilityLabel("Đã tải offline")
-                        }
-                    }
+    /// Dựng lại hàng theo `rowsKey`; lượt mới (gõ tiếp, đảo thứ tự) huỷ lượt cũ nhờ `.task(id:)`.
+    private func rebuildRows() async {
+        let key = rowsKey
+        let result: ComicChapterListRows.Result
+        if key.chapters.count <= Self.backgroundBuildThreshold {
+            result = ComicChapterListRows.build(
+                chapters: key.chapters,
+                query: key.query,
+                ascending: key.ascending,
+                translated: key.translated,
+                numbered: key.numbered
+            )
+        } else {
+            isBuildingRows = true
+            let worker = Task.detached(priority: .userInitiated) {
+                ComicChapterListRows.build(
+                    chapters: key.chapters,
+                    query: key.query,
+                    ascending: key.ascending,
+                    translated: key.translated,
+                    numbered: key.numbered
+                )
             }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+            result = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            isBuildingRows = false
         }
-        .buttonStyle(.plain)
-        .listRowBackground(isCurrent ? palette.currentRowFill : Color.clear)
-        .listRowSeparatorTint(palette.divider)
-        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+        guard !Task.isCancelled else { return }
+        rows = result.rows
+        numbering = result.numbering
+        if !hasBuiltRows {
+            hasBuiltRows = true
+            let elapsed = Int(Date().timeIntervalSince(openedAt) * 1000)
+            AppLogger.shared.log("📚 [ComicTOC] Mở mục lục \(key.chapters.count) dòng (\(result.rows.count) hiện): có hàng sau \(elapsed) ms")
+        }
     }
 }

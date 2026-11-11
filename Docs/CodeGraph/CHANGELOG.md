@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.843] - 2026-11-11
+
+### perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự
+
+Anh Bửu: *"vì sao mở danh sách chương ở commic hiển thị lâu vậy?"*, *"xem cách hiển thị khác gì danh sách chương của reader"*, *"nếu có group thì vẫn nên để group"*.
+
+- **Nguyên nhân có khả năng (đọc code, so với mục lục Reader; chưa đo trên máy):** mỗi lượt vẽ, `ComicChapterListSheet` lọc / đảo / đánh số **cả** mục lục trên main; mỗi hàng bọc `Group { if dòng nhóm … else hàng chương … }` (Reader ghi rõ kiểu bọc này có thể buộc `List` dựng mọi hàng để đếm); không có vỏ chặn vẽ lại nên mỗi lượt vẽ của màn đọc (ảnh tải xong, dịch xong tên chương…) kéo cả mục lục tính lại; tìm thì lọc toàn bộ trên main mỗi phím.
+- `ComicChapterListRows` (mới, hàm thuần): dựng hàng + số thứ tự **một lần** mỗi khi mục lục / ô tìm / thứ tự / công tắc "Hiện số thứ tự" đổi (`.task(id:)`); mục lục > 400 dòng dựng ngoài main kèm vòng xoay, lượt mới huỷ lượt cũ.
+- **Dòng nhóm luôn giữ** (trước đây ẩn khi tìm hoặc xếp giảm dần): mục lục chia nhóm theo thứ tự gốc; giảm dần ⇒ đảo thứ tự nhóm và chương trong nhóm, tiêu đề vẫn trên chương của nó; tìm ⇒ giữ tiêu đề trên các chương khớp của nhóm (tiêu đề tự khớp ⇒ giữ cả nhóm, nhóm không còn gì ⇒ ẩn). Số thứ tự vẫn theo mục lục đầy đủ.
+- `ComicChapterListRow` (mới): một kiểu hàng cho mọi phần tử (dòng nhóm hoặc chương, cùng dáng như trước); nền hàng / màu vạch gắn ở `List`.
+- `ComicChapterListHost` (mới): vỏ không trạng thái `.equatable()` như `ReaderChapterListHost` (`==` so mục lục, chương đang đọc, chương đã tải, bật dịch, `Book` theo identity, launch, thứ tự).
+- Log `📚 [ComicTOC] Mở mục lục N dòng (M hiện): có hàng sau X ms` (bật log) để đo trên máy.
+- `ComicTranslationStatus` nhận thêm `sourceName` / `definitionRequest` (chuyển từ `ComicReaderView`, giữ file đó dưới 400 dòng).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) mở mục lục truyện dài — xem log `📚 [ComicTOC]`; (2) truyện có nhóm: đảo thứ tự, tìm — tiêu đề nhóm vẫn đúng chỗ; (3) gõ tìm liên tục không giật; (4) cuộn tới đúng chương đang đọc khi mở.
+
 ## [1.3.842] - 2026-11-11
 
 ### fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo
@@ -459,14 +474,4 @@ Anh Bửu thử 1.3.813 (build 1190): nhấn giữ đĩa góc không có tác d�
 - **Đĩa thanh tab:** bìa 44 pt (bằng bìa đĩa góc, `MediaDiscFaceButton.coverSize`), mép dưới ngang chân chữ của các tab (42,5 pt dưới mép trên thanh), giữa vòng nền 52 pt `.bar` + viền vạch ngăn — chỉ vẽ phần nhô ~5,5 pt trên thanh (`MediaDiscTabBarSlot`). Vùng chạm 52 pt phủ cả gờ. Không nghe ⇒ ô trống như cũ.
 - **Menu xổ (`FloatingActionMenu`, FAB Chi tiết + nút "+" có Home):** neo đĩa gắn lên cụm pill đang phóng từ 40% ⇒ đầu dò đo khung nhỏ, đĩa đè pill tới lần đo lại sau 0,35 s. Nay neo gắn lên **bản ẩn** của cụm (cùng bố cục, không vẽ, không chạm, không VoiceOver, không chuyển cảnh) ⇒ đĩa chạy lên cùng lúc pill bung ra, về cùng lúc pill thu lại.
 - `CLAUDE.md` / `AGENTS.md` + comment các file đĩa theo cỡ và cử chỉ mới.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.813] - 2026-11-09
-
-### fix: đĩa nghe góc dưới giống nút nổi khác, vòng kính theo độ trong suốt và độ đục, bìa luôn rõ
-
-Anh Bửu: *"áp dụng theo cài độ trong suốt, độ đục như nút khác"*. Bản 1.3.812 cho cả **bìa** mờ theo "Độ trong suốt" (bìa hiện `1 − độ trong suốt`) ⇒ ở mức mặc định 90% bìa chỉ còn thấy ~10%, gần như tàng hình.
-
-- `MediaDiscFaceButton(.corner)`: bỏ lớp mờ của bìa. Vòng kính `FloatingGlassBackground` vẫn theo "Độ trong suốt" + "Độ đục" của nút nổi (Cài đặt › Chung › Giao diện); bìa luôn rõ như icon của nút "+" / Home.
-- `CLAUDE.md` / `AGENTS.md`: sửa câu mô tả độ trong suốt của đĩa góc.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

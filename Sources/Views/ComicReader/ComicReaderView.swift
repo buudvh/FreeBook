@@ -107,7 +107,8 @@ struct ComicReaderView: View {
         .sheet(isPresented: $showsChapterList, onDismiss: {
             if let detailUrl = pendingBookDetailUrl { pendingBookDetailUrl = nil; bookDetailUrl = detailUrl }
         }) {
-            ComicChapterListSheet(
+            // Vỏ `.equatable()` (1.3.843): màn đọc vẽ lại mà đầu vào mục lục không đổi thì mục lục không tính lại.
+            ComicChapterListHost(
                 chapters: viewModel.chapters,
                 currentIndex: viewModel.chapterIndex,
                 downloadedIndexes: viewModel.downloadedChapterIndexes,
@@ -118,6 +119,7 @@ struct ComicReaderView: View {
                 onSelect: { viewModel.openChapter($0) },
                 onOpenBookDetail: { pendingBookDetailUrl = $0; showsChapterList = false }
             )
+            .equatable()
             // Cùng cách trình bày với mục lục truyện chữ (`ReaderView.readerChapterListSheet`): kéo xuống để đóng.
             .presentationDetents([.fraction(0.88), .large])
             .presentationDragIndicator(.visible)
@@ -221,7 +223,9 @@ struct ComicReaderView: View {
                                 },
                                 onSingleTap: toggleChrome,
                                 onDoubleTap: { openZoom($0, request: request) },
-                                onOpenDefinition: { definitionRequest = makeDefinitionRequest(for: $0) }
+                                onOpenDefinition: {
+                                    definitionRequest = ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId)
+                                }
                             )
                             .id(index)
                             .onAppear { viewModel.pageDidAppear(index, generation: generation) }
@@ -286,7 +290,7 @@ struct ComicReaderView: View {
         ComicZoomScreen(
             target: target,
             translation: imageTranslationContext,
-            makeDefinitionRequest: makeDefinitionRequest(for:),
+            makeDefinitionRequest: { ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId) },
             onClose: { zoomTarget = nil },
             onDefinitionClosed: refreshTranslations
         )
@@ -304,20 +308,10 @@ struct ComicReaderView: View {
         zoomTarget = ComicZoomViewer.Target(image: image, request: request)
     }
 
-    /// Màn Dịch cho chữ Trung gốc của một khối — phồn→giản theo truyện, như lớp dịch.
-    private func makeDefinitionRequest(for sentence: String) -> ComicDefinitionSheet.Request {
-        ComicDefinitionSheet.Request(
-            sentence: sentence,
-            bookId: launch.bookId,
-            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId)
-        )
-    }
-
     // MARK: - Dịch (1.3.826 dịch ảnh, 1.3.833 theo công tắc dịch của truyện — `ComicTranslationStatus`)
 
     private var sourceDisplayName: String {
-        ExtensionLibraryRepository.shared.catalogExtension(packageId: launch.extensionPackageId)?.name
-            ?? localBook?.sourceName ?? ""
+        ComicTranslationStatus.sourceName(launch: launch, book: localBook)
     }
 
     /// `nil` khi truyện đang tắt dịch. Dùng cho cả trang lẫn trình xem phóng to (1.3.834).
