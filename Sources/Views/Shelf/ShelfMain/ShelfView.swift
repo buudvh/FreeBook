@@ -54,8 +54,9 @@ struct ShelfView: View {
     /// Trang đầu của trình duyệt nhập truyện (`"home"` = trang chủ); mọi lối mở đều đặt lại qua `openImportBrowser`.
     @State internal var bypassBrowserStartUrl = "home"
     @State internal var showingFilePicker = false // Bộ chọn file: sách chữ, CBZ/ZIP, video (`LocalMediaImportRoute`)
-    @State internal var showingImportSheet = false // Sheet "Nhập truyện" (nút "+" nổi, hàng "Nhập truyện" của ngăn kéo)
-    /// Việc sheet "Nhập truyện" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
+    @State internal var importActionSheet: HubStyleActionSheetContent? // Sheet "Nhập truyện" kiểu hub (`presentImportSheet`)
+    @State internal var showingImportSheet = false // Sheet "Nhập từ URL" (dòng "Từ URL" của sheet "Nhập truyện")
+    /// Việc sheet "Nhập từ URL" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
     @State internal var queuedImportChoice: ShelfImportSheet.Choice? = nil
 
     // Tiến độ nhập file truyện nằm ở `BookImportProgressCenter` (màn Thông báo cũng đọc), không còn là
@@ -143,7 +144,7 @@ struct ShelfView: View {
             SideDrawerActionRow("Kiểu hiển thị", systemImage: "square.grid.2x2") { showingLayoutSheet = true }
         }
         // Cùng sheet với nút "+" nổi của tab Kệ sách (Từ URL / Mở trình duyệt / Từ file).
-        SideDrawerActionRow("Nhập truyện", systemImage: "plus") { showingImportSheet = true }
+        SideDrawerActionRow("Nhập truyện", systemImage: "plus") { presentImportSheet() }
         SideDrawerActionRow("Mở trình duyệt web", systemImage: "safari") { openImportBrowser() }
         if selectedTab == .shelf && !parts.isShelfEmpty {
             SideDrawerActionRow("Kiểm tra chương mới", systemImage: "bell.badge") { checkAllNewChapters() }
@@ -200,7 +201,7 @@ struct ShelfView: View {
 
                         // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống).
                         shelfTabView(parts, kindFilter)
-                            .floatingAddButton("Nhập truyện") { showingImportSheet = true }
+                            .floatingAddButton("Nhập truyện") { presentImportSheet() }
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
@@ -404,6 +405,7 @@ struct ShelfView: View {
                     }
                 )
             }
+            .hubStyleActionSheet($importActionSheet)
             .sheet(isPresented: $showingImportSheet, onDismiss: { runQueuedImportChoice() }) {
                 ShelfImportSheet { choice in
                     queuedImportChoice = choice

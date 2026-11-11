@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.840] - 2026-11-11
+
+### fix: phụ đề cứng ghép chữ đúng kiểu phụ đề Trung, dịch theo công tắc dịch của phim, thêm Từ điển truyện vào trình phát
+
+Anh Bửu thử 1.3.830: *"Dịch phụ đề cứng … ra nghĩa gì tầm bậy nhìn không hiểu"*, *"vì sao cùng OCR mà commic đúng còn video sai?"*, rồi *"áp dụng bật tắt dịch và từ điển như truyện tranh và truyện chữ luôn nhé"*; chốt **giữ công tắc "Đọc phụ đề cứng"**, còn dịch thì theo bật/tắt dịch.
+
+- **Nguyên nhân dịch tầm bậy** (cùng Vision + VietPhrase với truyện tranh, khác ở khâu ghép chữ trước khi dịch): (1) xoá mọi khoảng trắng, trong khi phụ đề Trung dùng **dấu cách thay dấu phẩy** ⇒ hai vế dính nhau; (2) mảnh cùng hàng xếp theo chiều dọc và chỉ giữ 2 mảnh cuối ⇒ đảo vế / rơi vế; (3) dịch từng hàng thay vì cả câu. `VideoHardSubtitleRecognizer` giờ: khoảng trắng giữa hai chữ Hán ⇒ `，` (cạnh dấu câu toàn khổ ⇒ nối liền, chữ Latin ⇒ dấu cách); mảnh gom theo hàng (chồng dọc ≥ 50% mảnh thấp hơn), trong hàng xếp trái → phải; bỏ mảnh sát mép (tâm ngang ngoài 5–95%) và mảnh không có chữ Hán; hàng cần ≥ 2 chữ Hán, tâm 15–85%; hàng dưới cùng + hàng gần nhất ngay trên nối thành **một câu**, hàng bắt đầu bằng gạch ngang (thoại hai người) giữ xuống dòng.
+- **Dịch theo công tắc dịch của phim** như truyện chữ / truyện tranh / phụ đề mềm: `VideoHardSubtitleEngine+Translation` (mới) dùng `MediaCaptionTranslator.prepare` (phim này > nguồn > nguồn tự khai tiếng Trung > toàn cục; phồn→giản theo phim / nguồn — bỏ "luôn phồn→giản" của 1.3.830) + `MediaCaptionTranslator.translate`. Phim tắt dịch hoặc kiểu "Gốc" ⇒ engine ngưng đọc (không có gì để phủ, đỡ pin), lớp phủ không vẽ, phụ đề mềm hiện lại (`VideoPlayerStage` chỉ ẩn phụ đề mềm khi đang đọc **và** đang dịch). Đổi cấu hình dịch / từ điển / rule (ba thông báo có sẵn: `TranslationConfigStore.didChangeNotification`, `.translationDictionariesDidUpdate`, `.quickTranslationRulesDidUpdate`) ⇒ dựng lại `Pass`, xoá đệm, dịch lại câu đang hiện. Engine tách phần dịch sang file `+Translation` để file chính dưới 400 dòng.
+- **Ngăn kéo `⋯`** của trình phát: công tắc đổi tên **"Đọc phụ đề cứng"** (khoá cũ `videoHardSubtitleOCRByPackage` giữ nguyên). Đang đọc ⇒ hàng "Phim đang tắt dịch" (khi phim tắt dịch, mở sheet "Dịch phụ đề") + lưới **Gốc / Bản dịch / Song ngữ** (cùng khoá `videoSubtitleDisplayMode` với phụ đề mềm; Song ngữ = bản dịch + chữ Trung OCR nhỏ bên dưới để đối chiếu). Hàng "Dịch phụ đề" hiện cả khi chỉ đọc phụ đề cứng; thêm **"Từ điển truyện"** (`VideoBookDictionarySheetModifier` mới, `BookDictionaryView` dạng sheet theo `bookId` của phim — phim đang phát luôn có `Book` ẩn; đóng ⇒ dịch lại phụ đề mềm).
+- Lớp phủ (`VideoHardSubtitleOverlay`) vẽ theo kiểu hiển thị, câu không có bản dịch ⇒ không vẽ. Log mỗi câu mới `🔤 [VideoOCR] «chữ Trung» ⇒ «bản dịch»` (theo công tắc log).
+- Chưa làm: chạm phụ đề mở màn Dịch (dùng lại sheet của truyện tranh, để sau); giảm trễ / nhớ câu theo thời điểm / quét trước tập đã tải (chờ anh chốt). Không đọc trước được khung của luồng đang phát.
+- `CLAUDE.md` / `AGENTS.md`: viết lại gạch "Đọc phụ đề cứng (OCR)". Chuyển `[1.3.810]` sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoHardSubtitleEngine.swift` 361 dòng, `VideoPlayerScreen.swift` 385, `VideoPlayerTopBar.swift` 356). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề Trung tách vế bằng dấu cách — bản dịch đọc hiểu được, đặt Song ngữ để so chữ Trung OCR với chữ trong phim; (2) tắt dịch ở sheet "Dịch phụ đề" ⇒ lớp dịch biến mất, phụ đề mềm (nếu có) hiện lại, bật lại ⇒ dịch ngay; (3) thêm name ở "Từ điển truyện" ⇒ câu đang hiện đổi theo; (4) gửi log `🔤 [VideoOCR]`.
+
 ## [1.3.839] - 2026-11-11
 
 ### feat: chọn bộ dịch tiện ích và ngôn ngữ trong popup dịch, màn cấu hình tiện ích dịch có model, kiểu dịch, dịch thử

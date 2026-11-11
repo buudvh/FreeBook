@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Bước "Từ URL" của sheet "Nhập truyện": dán / gõ link trang truyện rồi dò tiện ích nhận link bằng
-/// `ExtensionUrlMatcher` — cùng bộ dò (và cùng tập tiện ích, bỏ nguồn Legado) với nút "Nhập" của trình duyệt.
+/// Sheet "Nhập từ URL" (dòng "Từ URL" của sheet "Nhập truyện" kiểu hub, gốc của `ShelfImportSheet`): dán / gõ link
+/// trang truyện rồi dò tiện ích nhận link bằng `ExtensionUrlMatcher` — cùng bộ dò (và cùng tập tiện ích, bỏ nguồn
+/// Legado) với nút "Nhập" của trình duyệt.
 ///
 /// - Chỉ dò khi bấm "Mở link", nhấn Go trên bàn phím, hoặc dán bằng nút dán: dò theo từng phím gõ thì dòng "chưa có
 ///   tiện ích" nháy liên tục khi link còn dở.
@@ -60,7 +61,7 @@ struct ShelfImportURLStep: View {
             outcomeSection
         }
         .listStyle(.insetGrouped)
-        .backPageTitle("Từ URL")
+        .pageTitle("Nhập từ URL")
     }
 
     @ViewBuilder

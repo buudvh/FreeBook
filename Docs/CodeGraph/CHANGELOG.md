@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.870] - 2026-11-11
+
+### feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng
+
+Anh Bửu: "sửa sheet nút + của kệ cũng giống hub luôn, hiện tại chưa giống" (đã duyệt mockup + plan).
+
+- **Sheet "Nhập truyện" kiểu hub** (`ShelfView.presentImportSheet`, dùng `.hubStyleActionSheet` của 1.3.869) cho nút "+" nổi tab Kệ sách và hàng "Nhập truyện" của ngăn kéo: ba dòng dạng ô có `›` — Từ URL ("Dán link, chọn nguồn khớp"), Mở trình duyệt ("Trang chủ trình duyệt"), Từ file ("txt, epub, cbz, mp4…"). Nằm trên mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm. Thay danh sách `insetGrouped` cũ (nấc 300 / large).
+- **"Từ URL"** ⇒ sheet **"Nhập từ URL"** riêng ở cửa sổ chính (`ShelfImportSheet` giờ chỉ bọc `ShelfImportURLStep`, nấc large, tiêu đề trái) — cửa sổ sheet phủ không bao giờ key nên không đặt ô nhập chữ ở đó. Dò ra tiện ích / mở link trong trình duyệt vẫn qua `queuedImportChoice` + `onDismiss` như cũ. Bỏ lựa chọn `pickFile` (Từ file chạy thẳng từ sheet kiểu hub).
+- `CLAUDE.md` / `AGENTS.md`: luật sheet trên viên thuốc ghi thêm sheet của Kệ.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: tab Kệ sách ⇒ "+" ⇒ sheet ba dòng nằm trên đĩa nghe / hub; Từ URL ⇒ sheet "Nhập từ URL" lên, gõ được (bàn phím hiện), dán link ⇒ mở Chi tiết; Mở trình duyệt ⇒ trang chủ trình duyệt; Từ file ⇒ bộ chọn file; ngăn kéo … › Nhập truyện ⇒ cùng sheet.
+
 ## [1.3.869] - 2026-11-11
 
 ### feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên
@@ -525,18 +539,4 @@ Anh Bửu: *"nếu như bấm nút nghe truyện mà chương được bấm ngh
 - Sheet gắn neo `.blocker` ⇒ đĩa nghe góc dưới ẩn trong lúc sheet mở (không thì đè lên hàng cuối). Đĩa nổi (cửa sổ riêng) vẫn có thể che sheet như mọi sheet khác của Reader.
 - Logic nút tai nghe chuyển từ `ReaderView+Controls` sang `ReaderView+TTSSameChapterPrompt` (mới); `ReaderView` thêm 2 `@State` (yêu cầu đang hỏi + chiều cao sheet đo được) và gắn sheet ở tầng sheet gốc. Chuyển `[1.3.811]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) đang nghe, bấm tai nghe ở chương đang đọc ⇒ hiện sheet, ba lựa chọn làm đúng; (2) kéo trang đi rồi chọn "Đọc tiếp" ⇒ trang về đoạn đang đọc và tự cuộn lại; (3) chương khác / đang tạm dừng ⇒ không hỏi như cũ; (4) kiểu widget Đĩa góc dưới ⇒ đĩa ẩn khi sheet mở, hiện lại khi đóng.
-
-## [1.3.840] - 2026-11-11
-
-### fix: phụ đề cứng ghép chữ đúng kiểu phụ đề Trung, dịch theo công tắc dịch của phim, thêm Từ điển truyện vào trình phát
-
-Anh Bửu thử 1.3.830: *"Dịch phụ đề cứng … ra nghĩa gì tầm bậy nhìn không hiểu"*, *"vì sao cùng OCR mà commic đúng còn video sai?"*, rồi *"áp dụng bật tắt dịch và từ điển như truyện tranh và truyện chữ luôn nhé"*; chốt **giữ công tắc "Đọc phụ đề cứng"**, còn dịch thì theo bật/tắt dịch.
-
-- **Nguyên nhân dịch tầm bậy** (cùng Vision + VietPhrase với truyện tranh, khác ở khâu ghép chữ trước khi dịch): (1) xoá mọi khoảng trắng, trong khi phụ đề Trung dùng **dấu cách thay dấu phẩy** ⇒ hai vế dính nhau; (2) mảnh cùng hàng xếp theo chiều dọc và chỉ giữ 2 mảnh cuối ⇒ đảo vế / rơi vế; (3) dịch từng hàng thay vì cả câu. `VideoHardSubtitleRecognizer` giờ: khoảng trắng giữa hai chữ Hán ⇒ `，` (cạnh dấu câu toàn khổ ⇒ nối liền, chữ Latin ⇒ dấu cách); mảnh gom theo hàng (chồng dọc ≥ 50% mảnh thấp hơn), trong hàng xếp trái → phải; bỏ mảnh sát mép (tâm ngang ngoài 5–95%) và mảnh không có chữ Hán; hàng cần ≥ 2 chữ Hán, tâm 15–85%; hàng dưới cùng + hàng gần nhất ngay trên nối thành **một câu**, hàng bắt đầu bằng gạch ngang (thoại hai người) giữ xuống dòng.
-- **Dịch theo công tắc dịch của phim** như truyện chữ / truyện tranh / phụ đề mềm: `VideoHardSubtitleEngine+Translation` (mới) dùng `MediaCaptionTranslator.prepare` (phim này > nguồn > nguồn tự khai tiếng Trung > toàn cục; phồn→giản theo phim / nguồn — bỏ "luôn phồn→giản" của 1.3.830) + `MediaCaptionTranslator.translate`. Phim tắt dịch hoặc kiểu "Gốc" ⇒ engine ngưng đọc (không có gì để phủ, đỡ pin), lớp phủ không vẽ, phụ đề mềm hiện lại (`VideoPlayerStage` chỉ ẩn phụ đề mềm khi đang đọc **và** đang dịch). Đổi cấu hình dịch / từ điển / rule (ba thông báo có sẵn: `TranslationConfigStore.didChangeNotification`, `.translationDictionariesDidUpdate`, `.quickTranslationRulesDidUpdate`) ⇒ dựng lại `Pass`, xoá đệm, dịch lại câu đang hiện. Engine tách phần dịch sang file `+Translation` để file chính dưới 400 dòng.
-- **Ngăn kéo `⋯`** của trình phát: công tắc đổi tên **"Đọc phụ đề cứng"** (khoá cũ `videoHardSubtitleOCRByPackage` giữ nguyên). Đang đọc ⇒ hàng "Phim đang tắt dịch" (khi phim tắt dịch, mở sheet "Dịch phụ đề") + lưới **Gốc / Bản dịch / Song ngữ** (cùng khoá `videoSubtitleDisplayMode` với phụ đề mềm; Song ngữ = bản dịch + chữ Trung OCR nhỏ bên dưới để đối chiếu). Hàng "Dịch phụ đề" hiện cả khi chỉ đọc phụ đề cứng; thêm **"Từ điển truyện"** (`VideoBookDictionarySheetModifier` mới, `BookDictionaryView` dạng sheet theo `bookId` của phim — phim đang phát luôn có `Book` ẩn; đóng ⇒ dịch lại phụ đề mềm).
-- Lớp phủ (`VideoHardSubtitleOverlay`) vẽ theo kiểu hiển thị, câu không có bản dịch ⇒ không vẽ. Log mỗi câu mới `🔤 [VideoOCR] «chữ Trung» ⇒ «bản dịch»` (theo công tắc log).
-- Chưa làm: chạm phụ đề mở màn Dịch (dùng lại sheet của truyện tranh, để sau); giảm trễ / nhớ câu theo thời điểm / quét trước tập đã tải (chờ anh chốt). Không đọc trước được khung của luồng đang phát.
-- `CLAUDE.md` / `AGENTS.md`: viết lại gạch "Đọc phụ đề cứng (OCR)". Chuyển `[1.3.810]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoHardSubtitleEngine.swift` 361 dòng, `VideoPlayerScreen.swift` 385, `VideoPlayerTopBar.swift` 356). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề Trung tách vế bằng dấu cách — bản dịch đọc hiểu được, đặt Song ngữ để so chữ Trung OCR với chữ trong phim; (2) tắt dịch ở sheet "Dịch phụ đề" ⇒ lớp dịch biến mất, phụ đề mềm (nếu có) hiện lại, bật lại ⇒ dịch ngay; (3) thêm name ở "Từ điển truyện" ⇒ câu đang hiện đổi theo; (4) gửi log `🔤 [VideoOCR]`.
 
