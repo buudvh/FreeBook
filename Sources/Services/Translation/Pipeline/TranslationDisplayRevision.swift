@@ -7,7 +7,8 @@ import Observation
 ///
 /// Tăng khi: `TranslationConfigStore.didChangeNotification` (mọi chỗ ghi qua store), công tắc dịch Tất cả đổi (Cài đặt
 /// ghi thẳng `UserDefaults` qua `@AppStorage`, không qua store), từ điển / rule đổi (`translationDictionariesDidUpdate`,
-/// `quickTranslationRulesDidUpdate`).
+/// `quickTranslationRulesDidUpdate`), bộ dịch đổi (`TranslationEngineStore.didChangeNotification`, 1.3.852 — màn dịch
+/// bằng tiện ích dựng lại `ChineseTextExtensionTranslator.Request`).
 @MainActor
 @Observable
 final class TranslationDisplayRevision {
@@ -26,7 +27,11 @@ final class TranslationDisplayRevision {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.bump() }
         })
-        for name in [Notification.Name.translationDictionariesDidUpdate, .quickTranslationRulesDidUpdate] {
+        let names: [Notification.Name] = [
+            .translationDictionariesDidUpdate, .quickTranslationRulesDidUpdate,
+            TranslationEngineStore.didChangeNotification
+        ]
+        for name in names {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.bump() }
             })

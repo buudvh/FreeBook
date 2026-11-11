@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.852] - 2026-11-11
+
+### refactor: thêm phần nền dịch chữ ngắn bằng tiện ích dịch theo lô, lùi QT khi lỗi
+
+Anh Bửu: *"thực hiện thêm dịch bằng tiện ích vào những chỗ có pop còn thiếu"*, duyệt cả 5 chỗ (đầu trang + mục lục Reader, Chi tiết, truyện tranh, Khám phá, phụ đề / lời). Đây là phần nền; các màn chuyển sang dùng nó ở các bản kế tiếp.
+
+- **`ChineseTextExtensionTranslator`** (mới, `Services/Translation/Pipeline/`): bước "dịch" của `ChineseTextPipeline` khi bộ dịch là tiện ích, cho chữ **ngoài** nội dung chương. Cùng thứ tự: phồn → giản trước ⇒ tiện ích (`TranslationExtensionRunner.translateLines`: gom lô theo `max_line` / `max_length`, cache RAM theo dòng + lỗi gần đây 90 s, gộp lượt trùng) ⇒ mẩu lỗi lùi QT theo `Kind` (`meta` / `chapterTitle` / `content`), mẩu lỗi không có chữ Hán giữ chữ đã chuyển. Chữ nhiều dòng tách theo `
+` rồi ghép lại; mẩu trùng gửi một lần. `request(bookId:packageId:options:source:)` tra bộ dịch như popup (truyện ⇒ nguồn ⇒ toàn cục), `nil` khi tắt dịch hoặc bộ dịch là QT; `Request.targetsVietnamese` cho luật `title_trans`.
+- **`ExtensionTextTranslationStore`** (mới, `@MainActor @Observable`): cho màn hiện nhiều mẩu trong `body` — `text(_:kind:quick:)` trả bản tiện ích nếu đã có, không thì bản QT và xếp mẩu vào hàng chờ; sau 0,15 s mọi mẩu của nhịp đó đi một lượt ⇒ màn vẽ lại. Gọi được trong `body` (chỉ ghi trường không quan sát). Mẩu lỗi giữ QT tới khi đổi lượt; giữ tối đa 3000 bản.
+- **`TranslationDisplayRevision`** tăng cả khi đổi bộ dịch (`TranslationEngineStore.didChangeNotification`).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows). Chưa có màn nào gọi phần nền mới — hành vi app không đổi.
+
 ## [1.3.851] - 2026-11-11
 
 ### feat: phụ đề, lời bài hát và tên phim, tên bài chuyển phồn → giản cả khi tắt dịch
