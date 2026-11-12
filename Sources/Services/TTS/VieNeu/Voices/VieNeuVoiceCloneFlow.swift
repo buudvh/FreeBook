@@ -64,7 +64,9 @@ final class VieNeuVoiceCloneFlow {
     var isSaving = false
     var step: Step?
     var completedSteps: Set<Step> = []
+    /// Mọi đích tải của lượt lưu (cộng tiến độ) / đích do chính lượt lưu khởi tạo (huỷ được).
     var downloadTargets: [String] = []
+    var ownedDownloadTargets: [String] = []
     var downloadTotal: Int64 = 0
     var nanoStage: VieNeuVoiceCloner.Stage?
     /// Dòng trạng thái / lỗi của lượt gần nhất (không phải giải thích).
@@ -244,12 +246,27 @@ final class VieNeuVoiceCloneFlow {
     // MARK: - Dọn
 
     /// Sheet đóng: dừng thu / phát, huỷ lượt Lưu dở; chưa lưu thì xoá mẫu tạm.
+    ///
+    /// Đang lưu mà bỏ: `enrollVoice` / `createVoice(fromFile:)` có thể **còn đọc** file mẫu (ORT / audio.cpp không dừng giữa
+    /// chừng) ⇒ chỉ xoá mẫu tạm sau khi lượt lưu dở kết thúc hẳn.
     func cleanUp() {
-        if isSaving { cancelSave() }
         stopSample()
         if isRecording {
             isRecording = false
             _ = recorder.stop()
+        }
+        if isSaving, let running = saveTask {
+            let sample = didSave ? nil : sampleURL
+            cancelSave()
+            sampleURL = nil
+            sampleSeconds = nil
+            if let sample {
+                Task {
+                    await running.value
+                    Self.removeIfTemporary(sample)
+                }
+            }
+            return
         }
         if !didSave { discardSample() }
     }

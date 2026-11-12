@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.874] - 2026-11-11
+
+### ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF
+
+Anh Bửu duyệt bước thử chạy VieNeu-TTS **v3 Turbo** bằng file GGUF q8_0 chính thức qua **audio.cpp** (ggml, Apache-2.0) trên nhánh `feature/vieneu-turbo-gguf` — sau khi thấy một app đọc truyện khác chạy Turbo bằng GGUF mà không nóng máy. Lượt này chỉ là phần build; màn thử Swift đi ở commit sau.
+
+- **`Scripts/ci/build_audiocpp_ios.sh`** (mới): clone audio.cpp tag `v0.9.4`, cross-compile cho iOS 17 arm64 chỉ family `vieneu_v3_turbo`, chỉ CPU (iOS không cho app chạy nền dùng GPU, mà TTS phải đọc khi khoá màn hình), tắt OpenMP (Apple clang không có), kernel ggml `-march=armv8.2-a+dotprod+fp16` (**A13 trở lên**; A12 sẽ lỗi lệnh khi chạy Turbo). sentencepiece (vendored) gọi macro `set_xcode_property` chỉ có trong bộ toolchain iOS riêng của nó ⇒ script khai macro rỗng qua `CMAKE_PROJECT_INCLUDE`. Đóng gói target C API (SHARED, chỉ xuất `audiocpp_*` nên ggml / sentencepiece không đụng symbol của app) thành `AudioCpp.framework` có module map ⇒ Swift `import AudioCpp`; kiểm phụ thuộc chỉ còn thư viện hệ thống, biên dịch thử một file Swift gọi `audiocpp_abi_version()` cho iOS, rồi `xcodebuild -create-xcframework` ra `Vendor/AudioCpp/` (gitignore).
+- **`build-ipa.yml`**: cache `Vendor/AudioCpp` theo hash của script, thiếu thì chạy script trước `xcodegen generate`. **`audiocpp-ios.yml`** (mới, chỉ nhánh thử + chạy tay): dựng riêng framework, không build app, không gửi Telegram — để sửa script nhanh; chung khoá cache.
+- **`project.yml`**: link + embed `Vendor/AudioCpp/AudioCpp.xcframework`. Trên Mac muốn generate project thì chạy script trước.
+- **Kiểm chứng:** chưa — Windows không build được; lượt CI `audiocpp-ios.yml` là lần biên dịch đầu.
+
 ## [1.3.873] - 2026-11-11
 
 ### feat: mọi sheet và popup dùng nền kính, ô mờ như sheet hub, độ đục thấp nhất 20%

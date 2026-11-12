@@ -49,28 +49,40 @@ enum VieNeuClonePackages {
         return true
     }
 
-    /// Bắt đầu mọi lượt tải còn thiếu, báo các đích qua `onStart` (để View cộng tiến độ), rồi chờ lần lượt. Lượt nào lỗi /
-    /// bị huỷ ⇒ ném; xong hết vẫn kiểm lại file trên máy.
-    static func ensure(nano: Bool, turbo: Bool, onStart: ([String]) -> Void) async throws {
+    /// Các đích của một lượt `ensure`: `all` để cộng tiến độ; `owned` = đích **chính lượt này khởi tạo** — huỷ lượt lưu chỉ
+    /// được huỷ các đích này, không huỷ lượt tải người dùng tự bấm ở sheet chọn giọng (lượt đó chỉ được chờ ké).
+    struct Jobs {
+        var all: [String] = []
+        var owned: [String] = []
+    }
+
+    /// Bắt đầu mọi lượt tải còn thiếu, báo các đích qua `onStart` (để View cộng tiến độ / để huỷ), rồi chờ lần lượt. Lượt
+    /// nào lỗi / bị huỷ ⇒ ném; xong hết vẫn kiểm lại file trên máy.
+    static func ensure(nano: Bool, turbo: Bool, onStart: (Jobs) -> Void) async throws {
         typealias Target = ModelDownloadCenter.Target
         let center = ModelDownloadCenter.shared
         guard let nanoStore = try? VieNeuModelStore() else { throw PackageError.incomplete }
-        var jobs: [(id: String, task: Task<Void, Never>?)] = []
+        var jobs: [(id: String, task: Task<Void, Never>?, owned: Bool)] = []
+        func add(_ id: String, _ start: () -> Task<Void, Never>?) {
+            let alreadyRunning = center.isRunning(id: id)
+            jobs.append((id, start(), !alreadyRunning))
+        }
         if nano {
-            if !nanoStore.isReady { jobs.append((Target.vieNeuModel, center.startVieNeuModel())) }
-            if !nanoStore.hasCloneGraphs { jobs.append((Target.vieNeuClone, center.startVieNeuCloneGraphs())) }
+            if !nanoStore.isReady { add(Target.vieNeuModel) { center.startVieNeuModel() } }
+            if !nanoStore.hasCloneGraphs { add(Target.vieNeuClone) { center.startVieNeuCloneGraphs() } }
         }
         if turbo, let turboStore = try? VieNeuTurboModelStore() {
             if !turboStore.hasModel || !turboStore.hasManifest || !nanoStore.exists("sea_g2p.bin") {
-                jobs.append((Target.vieNeuTurboModel, center.startVieNeuTurbo(voiceId: nil, title: "Model VieNeu Turbo")))
+                add(Target.vieNeuTurboModel) { center.startVieNeuTurbo(voiceId: nil, title: "Model VieNeu Turbo") }
             }
-            if !nanoStore.hasTurboCloneGraphs { jobs.append((Target.vieNeuTurboClone, center.startVieNeuTurboClonePack())) }
+            if !nanoStore.hasTurboCloneGraphs { add(Target.vieNeuTurboClone) { center.startVieNeuTurboClonePack() } }
         }
+        let owned = jobs.filter { $0.owned && $0.task != nil }.map { $0.id }
         guard !jobs.contains(where: { $0.task == nil }) else {
-            jobs.forEach { center.cancel(id: $0.id) }
+            owned.forEach { center.cancel(id: $0) }
             throw PackageError.blocked
         }
-        onStart(jobs.map { $0.id })
+        onStart(Jobs(all: jobs.map { $0.id }, owned: owned))
         for job in jobs {
             let state = await center.waitForJob(id: job.id)
             if case .failed(let reason) = state { throw PackageError.failed(reason) }

@@ -15,13 +15,15 @@ extension VieNeuVoiceCloneFlow {
     func cancelSave() {
         guard isSaving else { return }
         AppLogger.shared.log("🎙️ [VieNeuClone] Huỷ lượt lưu (bước \(String(describing: step)))")
-        for id in downloadTargets { ModelDownloadCenter.shared.cancel(id: id) }
+        // Chỉ huỷ đích chính lượt này khởi tạo — lượt tải người dùng tự bấm ở sheet chọn giọng chạy tiếp.
+        for id in ownedDownloadTargets { ModelDownloadCenter.shared.cancel(id: id) }
         saveTask?.cancel()
         saveTask = nil
         isSaving = false
         step = nil
         completedSteps = []
         downloadTargets = []
+        ownedDownloadTargets = []
         downloadTotal = 0
         isError = false
         statusMessage = ""
@@ -50,8 +52,9 @@ extension VieNeuVoiceCloneFlow {
                 if !VieNeuClonePackages.isReady(nano: wantsNano, turbo: wantsTurbo) {
                     step = .downloading
                     downloadTotal = VieNeuClonePackages.missingBytes(nano: wantsNano, turbo: wantsTurbo)
-                    try await VieNeuClonePackages.ensure(nano: wantsNano, turbo: wantsTurbo) { [weak self] targets in
-                        self?.downloadTargets = targets
+                    try await VieNeuClonePackages.ensure(nano: wantsNano, turbo: wantsTurbo) { [weak self] jobs in
+                        self?.downloadTargets = jobs.all
+                        self?.ownedDownloadTargets = jobs.owned
                     }
                     completedSteps.insert(.downloading)
                 }
@@ -127,14 +130,14 @@ extension VieNeuVoiceCloneFlow {
         finishToken += 1
     }
 
-    /// Lỗi giữa chừng: giọng đã tạo xong (vd Nano khi Turbo lỗi) vẫn giữ và được chọn; sheet ở lại để báo lỗi.
+    /// Lỗi giữa chừng: giọng đã tạo xong (vd Nano khi Turbo lỗi) vẫn giữ và được chọn; sheet ở lại để báo lỗi. **Không**
+    /// `markSaved()`: kho Nano / Turbo đã chép mẫu của nó, mẫu tạm vẫn phải bị xoá khi sheet đóng (`cleanUp`).
     private func handleSaveFailure(_ error: Error, created: [VieNeuVoiceSelection]) {
         isSaving = false
         step = nil
         VieNeuVoiceDirectory.shared.reload()
         let prefix: String
         if let first = created.first {
-            markSaved()
             TTSManager.shared.selectVieNeuVoice(first)
             prefix = "Đã tạo giọng \(first.model.label); bản còn lại lỗi: "
         } else {

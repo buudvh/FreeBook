@@ -94,9 +94,12 @@ extension ModelDownloadCenter {
         }
         let token = UUID()
         tokens[id] = token
-        let previous = isVieNeuBusy ? vieNeuTail : nil
-        var entry = Entry(id: id, title: title, message: previous == nil ? "Bắt đầu tải…" : "Đang chờ lượt tải khác…", fraction: 0)
-        entry.isQueued = previous != nil
+        // **Luôn** chờ lượt cuối hàng (đã xong thì `value` trả ngay): lượt vừa bấm ■ không còn dòng (`isVieNeuBusy` sai)
+        // nhưng `Task` của nó có thể còn đang dừng `URLSession` — bấm ⬇ lại ngay mà không chờ là hai lượt cùng ghi `.partial`.
+        let previous = vieNeuTail
+        let isQueued = isVieNeuBusy
+        var entry = Entry(id: id, title: title, message: isQueued ? "Đang chờ lượt tải khác…" : "Bắt đầu tải…", fraction: 0)
+        entry.isQueued = isQueued
         upsert(entry)
 
         let report: VieNeuProgressReport = { progress in
@@ -106,6 +109,7 @@ extension ModelDownloadCenter {
             await previous?.value
             guard let self, self.tokens[id] == token, !Task.isCancelled else { return }
             self.markVieNeuStarted(id: id)
+            let modelBefore = VieNeuModelChoice.current
             var failure: String?
             var cancelled = false
             do {
@@ -128,6 +132,7 @@ extension ModelDownloadCenter {
             }
             VieNeuTurboLab.shared.refreshStatus()
             VieNeuVoiceDirectory.shared.refreshAvailability()
+            Self.reapplyReaderIfModelChanged(from: modelBefore)
         }
         tasks[id] = task
         vieNeuTail = task
@@ -138,6 +143,18 @@ extension ModelDownloadCenter {
     /// mất đường huỷ từ `Task` cha (nút ■).
     private nonisolated static func run(_ work: VieNeuJob, report: @escaping VieNeuProgressReport) async throws {
         try await work(report)
+    }
+
+    /// Tải xong làm model **hiệu lực** đổi (lựa chọn đã lưu là Turbo mà máy thiếu file Turbo nên trình đọc đang lùi về
+    /// Nano; tải đủ ⇒ `current` thành Turbo) ⇒ `selectedVoice` còn là tên giọng Nano, Turbo sẽ đọc giọng mặc định. Nạp lại
+    /// tham số (giọng theo lựa chọn) + nạp sẵn đúng engine, như lúc đổi model.
+    private static func reapplyReaderIfModelChanged(from modelBefore: VieNeuModelChoice) {
+        let tts = TTSManager.shared
+        let modelAfter = VieNeuModelChoice.current
+        guard tts.tool == "vieneu", modelAfter != modelBefore else { return }
+        AppLogger.shared.log("[TTSRoute] tai xong => model VieNeu hieu luc \(modelBefore.rawValue)->\(modelAfter.rawValue), nap lai tham so")
+        tts.applyVieNeuParamsIfNeeded()
+        tts.scheduleNghiWarmUp()
     }
 
     private nonisolated static func isCancellation(_ error: Error) -> Bool {

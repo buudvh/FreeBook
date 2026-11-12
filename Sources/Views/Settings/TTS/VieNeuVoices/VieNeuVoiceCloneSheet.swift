@@ -5,8 +5,9 @@ import SwiftUI
 ///
 /// Segmented "Thu âm" | "Chọn file" → section "Mẫu giọng" (khối thu / chọn file, "Nghe lại mẫu", "Tên giọng") → section
 /// "Dùng cho" (chip Nano | Turbo | Cả hai, "Khử nhiễu mẫu (Turbo)", số liệu "Cần tải") → tiến trình từng bước khi Lưu.
-/// Giải thích chỉ nằm sau nút "?" của hai section. Nút chữ "Lưu" bên phải; vuốt xuống đóng (có mẫu chưa lưu ⇒ hỏi bỏ,
-/// đang lưu ⇒ không đóng được). Logic ở `VieNeuVoiceCloneFlow`.
+/// Giải thích chỉ nằm sau nút "?" của hai section. Nút chữ "Lưu" bên phải; vuốt xuống đóng — có mẫu (kể cả lúc đang lưu)
+/// ⇒ hỏi "Bỏ thay đổi?"; bỏ lúc đang lưu ⇒ huỷ lượt lưu (chỉ các lượt tải nó khởi tạo), mẫu tạm xoá sau khi lượt dở dừng
+/// hẳn (`VieNeuVoiceCloneFlow.cleanUp`). Logic ở `VieNeuVoiceCloneFlow`.
 struct VieNeuVoiceCloneSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var downloads = ModelDownloadCenter.shared

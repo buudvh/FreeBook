@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.904] - 2026-11-12
+
+### fix: giọng VieNeu giữ phiên âm thanh của truyện khi thử giọng, tải lại không chồng lượt, đổi tên giọng Nano không ghi đè lựa chọn Turbo
+
+Session chính đọc soát nhánh giao diện giọng VieNeu (1.3.898–902) trước khi push, thấy vài lỗi logic; sửa cả đợt.
+
+- **Thử giọng làm mất phiên âm thanh của truyện**: `VieNeuVoicePreviewPlayer.releaseSession` tắt `AVAudioSession` cả khi truyện chỉ đang tạm dừng vì mở Cài đặt TTS. Phiên đó là của `TTSManager` (`isAudioSessionConfigured` vẫn `true`), `resume()` không bật lại ⇒ có thể mất tiếng / mất màn khoá. Nay TTS còn phiên (`playingBookId` khác rỗng hoặc phiên đã cấu hình) thì để nguyên, như clip thử của NghiTTS. `sampleText` khai `nonisolated` vì đọc trong hàm `nonisolated`.
+- **Bấm ■ rồi ⬇ ngay là hai lượt cùng ghi `.partial`**: `cancel(id:)` xoá dòng ngay trong khi `Task` cũ còn dừng `URLSession`, mà lượt mới chỉ chờ khi còn dòng đang chạy. Nay lượt mới **luôn** chờ lượt cuối hàng (đã xong thì trả ngay); `isQueued` vẫn theo `isVieNeuBusy`.
+- **Tải xong mà model hiệu lực đổi** (lựa chọn đã lưu là Turbo, máy thiếu file nên đang lùi về Nano; tải đủ ⇒ thành Turbo): `selectedVoice` còn tên giọng Nano ⇒ Turbo đọc giọng mặc định. Nay tải xong mà `VieNeuModelChoice.current` đổi và trình đọc là VieNeu ⇒ `applyVieNeuParamsIfNeeded()` + `scheduleNghiWarmUp()`.
+- **Sheet nhân bản**:
+  - Bỏ sheet lúc đang lưu từng xoá file mẫu tạm trong khi `enrollVoice` / `createVoice(fromFile:)` có thể còn đọc ⇒ nay chỉ xoá sau khi lượt lưu dở dừng hẳn.
+  - Huỷ lượt lưu từng huỷ cả lượt tải người dùng tự bấm ở sheet chọn giọng ⇒ `VieNeuClonePackages.ensure` báo riêng đích **do chính lượt lưu khởi tạo** (`Jobs.owned`), chỉ huỷ các đích đó.
+  - Nano xong mà Turbo lỗi từng `markSaved()` ⇒ file mẫu tạm không bao giờ bị xoá; nay đóng sheet là xoá (kho Nano / Turbo đã chép mẫu riêng). Sửa chú thích "đang lưu ⇒ không đóng được" cho khớp `confirmDiscardOnSwipe`.
+- **Đổi tên / xoá giọng Nano** (`VieNeuCustomVoiceActions.retargetNanoVoice`): lựa chọn đã lưu là Turbo mà đang lùi về Nano bằng giọng đó ⇒ không còn ghi đè mất lựa chọn Turbo, chỉ đổi giọng đang đọc. Đổi tên giọng Nano không đang đọc ⇒ lựa chọn đã lưu / "giọng Nano dùng gần nhất" trỏ tên cũ cũng chuyển sang tên mới. Xoá giọng Turbo tự tạo đang là lựa chọn mà trình đọc không phải VieNeu ⇒ lựa chọn về giọng mặc định. Bỏ `isReaderVoice` (không còn chỗ gọi).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.903] - 2026-11-12
 
 ### chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại
@@ -530,14 +546,3 @@ Phần Swift của bước thử Turbo GGUF (anh Bửu duyệt "làm thử trên
 - **Đọc thử một lần**: thời gian nạp model / dựng session, phiên âm, audio.cpp, độ dài tiếng, RTF, CPU-s mỗi giây tiếng (`ProcessCPUClock`), % một lõi, nhiệt trước → sau; chia sẻ WAV, sao chép số đo.
 - **Đọc liên tục (đo nhiệt)**: lặp văn bản dài (mẫu ~2.600 chữ tự viết, hoặc dán), cắt ≤ 150 ký tự bằng `NghiUtteranceSegmenter`, tổng hợp trước tối đa 2 đoạn, phát nối tiếp (lúc hụt tiếng phát vòng lặng để khoá màn vẫn chạy); ghi từng đoạn + tổng kết mỗi phút (giây tiếng, CPU-s, CPU/tiếng, số lần hụt, nhiệt) lên màn và log `🎙️ [VieNeuTurbo]`. Chọn được **Nano** (qua `VieNeuTTSService.synthesizeWithDuration`, tốc độ 1×, không sửa engine) để so cùng văn bản, cùng máy. Bắt đầu đọc thì dừng TTS chính, giành `AVAudioSession` `.playback`.
 - **Kiểm chứng:** đọc code — mọi chỗ gọi C API khớp `audiocpp.h` tag `v0.9.4` (handle `OpaquePointer`, `audiocpp_status`, struct cấu hình dựng trong `withCString`, con trỏ kết quả mượn được chép trước khi free); chữ ký các API sẵn có (`VieNeuTTSService.synthesizeWithDuration`, `NghiUtteranceSegmenter.expand`, `SeaG2P(binURL:)`, `VieNeuJapanesePreprocessor.applyUsingStoredFlags`, `TTSManager.stop()`) khớp; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa biên dịch tại chỗ (Windows), chưa thử máy.
-
-## [1.3.874] - 2026-11-11
-
-### ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF
-
-Anh Bửu duyệt bước thử chạy VieNeu-TTS **v3 Turbo** bằng file GGUF q8_0 chính thức qua **audio.cpp** (ggml, Apache-2.0) trên nhánh `feature/vieneu-turbo-gguf` — sau khi thấy một app đọc truyện khác chạy Turbo bằng GGUF mà không nóng máy. Lượt này chỉ là phần build; màn thử Swift đi ở commit sau.
-
-- **`Scripts/ci/build_audiocpp_ios.sh`** (mới): clone audio.cpp tag `v0.9.4`, cross-compile cho iOS 17 arm64 chỉ family `vieneu_v3_turbo`, chỉ CPU (iOS không cho app chạy nền dùng GPU, mà TTS phải đọc khi khoá màn hình), tắt OpenMP (Apple clang không có), kernel ggml `-march=armv8.2-a+dotprod+fp16` (**A13 trở lên**; A12 sẽ lỗi lệnh khi chạy Turbo). sentencepiece (vendored) gọi macro `set_xcode_property` chỉ có trong bộ toolchain iOS riêng của nó ⇒ script khai macro rỗng qua `CMAKE_PROJECT_INCLUDE`. Đóng gói target C API (SHARED, chỉ xuất `audiocpp_*` nên ggml / sentencepiece không đụng symbol của app) thành `AudioCpp.framework` có module map ⇒ Swift `import AudioCpp`; kiểm phụ thuộc chỉ còn thư viện hệ thống, biên dịch thử một file Swift gọi `audiocpp_abi_version()` cho iOS, rồi `xcodebuild -create-xcframework` ra `Vendor/AudioCpp/` (gitignore).
-- **`build-ipa.yml`**: cache `Vendor/AudioCpp` theo hash của script, thiếu thì chạy script trước `xcodegen generate`. **`audiocpp-ios.yml`** (mới, chỉ nhánh thử + chạy tay): dựng riêng framework, không build app, không gửi Telegram — để sửa script nhanh; chung khoá cache.
-- **`project.yml`**: link + embed `Vendor/AudioCpp/AudioCpp.xcframework`. Trên Mac muốn generate project thì chạy script trước.
-- **Kiểm chứng:** chưa — Windows không build được; lượt CI `audiocpp-ios.yml` là lần biên dịch đầu.

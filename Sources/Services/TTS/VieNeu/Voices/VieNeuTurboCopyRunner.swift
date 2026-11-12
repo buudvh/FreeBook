@@ -54,8 +54,8 @@ final class VieNeuTurboCopyRunner {
                 if !VieNeuClonePackages.isReady(nano: false, turbo: true) {
                     phase = .downloading
                     downloadTotal = VieNeuClonePackages.missingBytes(nano: false, turbo: true)
-                    try await VieNeuClonePackages.ensure(nano: false, turbo: true) { [weak self] targets in
-                        self?.downloadTargets = targets
+                    try await VieNeuClonePackages.ensure(nano: false, turbo: true) { [weak self] jobs in
+                        self?.downloadTargets = jobs.all
                     }
                 }
                 phase = .creating
