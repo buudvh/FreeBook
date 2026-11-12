@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.905",
+          "buildVersion": "1242",
+          "date": "2026-11-12T06:11:57Z",
+          "localizedDescription": "- feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding\n- feat: VieNeu Turbo mã hoá mẫu giọng bằng audio.cpp và lưu giọng tự tạo\n- feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror\n- feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file\n- chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc\n- fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn\n- fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab\n- feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc\n- refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật\n- feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được\n- feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano\n- fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước\n- chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại\n- fix: giọng VieNeu giữ phiên âm thanh của truyện khi thử giọng, tải lại không chồng lượt, đổi tên giọng Nano không ghi đè lựa chọn Turbo\n- fix: nút Mục lục của sheet nghe truyện mở sheet hẹn giờ đúng tab Danh sách chương",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1242/TangCongCac-1.3.905-1242.ipa",
+          "size": 42125995,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.890",
           "buildVersion": "1239",
           "date": "2026-11-12T05:49:28Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1230/TangCongCac-1.3.873-1230.ipa",
           "size": 39706021,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.872",
-          "buildVersion": "1228",
-          "date": "2026-11-11T15:12:54Z",
-          "localizedDescription": "- feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1228/TangCongCac-1.3.872-1228.ipa",
-          "size": 39630182,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.890",
-      "versionDate": "2026-11-12T05:49:28Z",
-      "versionDescription": "- feat: màn thử VieNeu có Đo tự động ORT ↔ Core ML bằng một nút, chia sẻ kết quả bằng file thật",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1239/TangCongCac-1.3.890-1239.ipa",
-      "size": 41906283,
+      "version": "1.3.905",
+      "versionDate": "2026-11-12T06:11:57Z",
+      "versionDescription": "- feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding\n- feat: VieNeu Turbo mã hoá mẫu giọng bằng audio.cpp và lưu giọng tự tạo\n- feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror\n- feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file\n- chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc\n- fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn\n- fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab\n- feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc\n- refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật\n- feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được\n- feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano\n- fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước\n- chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại\n- fix: giọng VieNeu giữ phiên âm thanh của truyện khi thử giọng, tải lại không chồng lượt, đổi tên giọng Nano không ghi đè lựa chọn Turbo\n- fix: nút Mục lục của sheet nghe truyện mở sheet hẹn giờ đúng tab Danh sách chương",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1242/TangCongCac-1.3.905-1242.ipa",
+      "size": 42125995,
       "appPermissions": {}
     }
   ],
