@@ -279,9 +279,10 @@ final class VieNeuTurboLab {
                 statusMessage = "Xoá thất bại: \(error.localizedDescription)"
             }
             refreshStatus()
-            // Trình đọc đang chọn Turbo ⇒ về Nano (không để tải lại model sau này tự bật lại Turbo), nạp lại giọng / engine.
+            // Trình đọc đang chọn giọng Turbo ⇒ về giọng Nano dùng gần nhất (không để tải lại model sau này tự bật lại
+            // Turbo), nạp lại giọng / engine.
             if VieNeuModelChoice.stored == .turbo {
-                VieNeuModelChoice.store(.nano)
+                VieNeuVoiceSelection.store(VieNeuVoiceSelection(model: .nano, voiceId: VieNeuVoiceSelection.lastNanoVoice ?? ""))
                 let tts = TTSManager.shared
                 if tts.tool == "vieneu" {
                     // Máy chưa có model Nano thì "vieneu" không còn engine nào đọc được ⇒ về Siri (mặc định của app,

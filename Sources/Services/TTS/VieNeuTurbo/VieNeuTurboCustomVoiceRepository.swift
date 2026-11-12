@@ -9,8 +9,8 @@ import Observation
 /// - `rename(id:to:)`, `delete(id:)`
 /// - `voiceFiles(id:)` — cặp `ref_codes.txt` + `speaker.emb.txt` để chia sẻ / so; `sampleURL(id:)` — mẫu gốc nếu giữ
 ///
-/// Id giọng tự tạo dùng thẳng làm giọng của trình đọc Turbo (khoá `vieneuTurboVoice`): `VieNeuTurboTTSService` nhận id
-/// `custom_…` khi cặp file còn trên máy, đã xoá thì tự về giọng mặc định.
+/// Id giọng tự tạo dùng thẳng làm giọng của trình đọc Turbo (`VieNeuVoiceSelection` "turbo:custom_…"):
+/// `VieNeuTurboTTSService` nhận id `custom_…` khi cặp file còn trên máy, đã xoá thì tự về giọng mặc định.
 @MainActor
 @Observable
 final class VieNeuTurboCustomVoiceRepository {

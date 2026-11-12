@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.898] - 2026-11-12
+
+### feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc
+
+Anh Bửu duyệt: VieNeu chỉ còn **một** trình đọc, giọng nào thì model nấy (giọng Nano ⇒ Nano, giọng Turbo ⇒ Turbo). Không gộp đường xử lý chữ / sea-g2p, không đổi đường nhân bản Nano.
+
+- **`VieNeuVoiceSelection`** (mới, `Services/TTS/VieNeu/`): một khoá `vieneuSelectedVoice` = `"nano:<tên giọng>"` / `"turbo:<id>"`; `VieNeuModelChoice.stored` đọc từ đây, `current` / `localEngine` / khoá tổng hợp / `TTSSettingsSnapshot` giữ nguyên cách tính.
+  - Chuyển một lần từ khoá cũ `vieneuModel` + `vieneuVoice` + `vieneuTurboVoice`; khoá cũ giữ nguyên, không xoá.
+  - `vieneuVoice` từ nay là "giọng Nano dùng gần nhất": Turbo thiếu file ⇒ trình đọc lùi về Nano bằng giọng này.
+  - Lùi về Nano **không** ghi đè lựa chọn Turbo: `persistVoice` chỉ ghi khi model hiệu lực trùng model đã lưu (`recordReaderVoice`).
+- **`TTSManager.selectVieNeuVoice`** (`TTSManager+VieNeuVoice`): cùng model ⇒ chỉ đổi `selectedVoice`; khác model ⇒ ghi lựa chọn rồi gán `tool = "vieneu"` (nạp lại tham số, bỏ đệm, `scheduleNghiWarmUp` nạp đúng engine, engine kia nhả trong `prepare`). Đổi giọng ⇒ ảnh chụp cấu hình khác ⇒ đóng Cài đặt TTS là dựng lại đoạn.
+- Cài đặt TTS: Picker "Trình đọc" còn một mục "VieNeu-TTS v3 (Offline)" (luôn hiện); Picker giọng tạm gộp hai nhóm Nano / Turbo (sheet chọn giọng thay ở bản sau). Bỏ `VieNeuModelChoice.store` / `pickerTag` / `voiceDefaultsKey`.
+- Màn thử Turbo "Xoá model" ⇒ về giọng Nano dùng gần nhất.
+- **Kiểm chứng:** đọc code + grep chéo `VieNeuModelChoice` / khoá giọng; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.897] - 2026-11-12
 
 ### fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab
@@ -532,18 +547,3 @@ Anh Bửu: "để cho nút + ở chi tiết sẽ mở ra sheet như sheet hub v�
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: Chi tiết truyện đã lưu ⇒ "+" ⇒ sheet có tên + "Ch. N/tổng", "Đọc tiếp" có tên chương; chạm từng dòng (đọc, bỏ / thêm kệ, tải, xuất, về trang gốc) ⇒ sheet đóng rồi làm đúng việc; đĩa nghe / hub vẫn thấy dưới lớp tối của sheet; truyện chưa lưu ⇒ "N chương", "Đọc ngay"; Chi tiết mở trong Reader ⇒ không có dòng "Về trang gốc".
-
-## [1.3.868] - 2026-11-11
-
-### feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe
-
-Anh Bửu: "Sheet 'đang đọc chương này' hiển thị đừng có ẩn nửa viên thuốc, cho nó dưới sheet thôi, cho luôn nửa viên thuốc hub ở dưới sheet luôn… mọi sheet mở ra từ viên thuốc đều không ẩn các viên thuốc mà chỉ hiển thị cao hơn viên thuốc thôi, tránh trường hợp mở sheet từ viên thuốc rồi lại mở sheet mới khác từ viên thuốc đè lên" (đã duyệt mockup + plan).
-
-- **Cửa sổ sheet phủ** (mới, `Views/Common/OverlaySheet/`): `OverlaySheetPresenter` + `OverlaySheetWindow` (level `alert − 1.6`: trên đĩa nghe `− 1.75`, hub `− 2` / `− 1.7`, nút trình duyệt `− 3`; dưới ngăn kéo `…` `− 1.5` và toast) + `OverlaySheetHost` (view 1×1 giữ `.sheet`, khuôn `MediaDiscSheetHost`). Cửa sổ chỉ hiện lúc có sheet, không bao giờ key, hit-test chỉ nhận chạm khi đang trình bày (luật 25); `onDismiss` là đường đóng chung (luật 26); `dismiss(then:)` đóng sheet **xong** mới chạy việc kèm theo. Sheet của cửa sổ chính luôn nằm dưới các cửa sổ viên thuốc nên đây là cách duy nhất để một sheet che được chúng.
-- **Sheet "đang đọc chương này" của Reader** trình bày qua cửa sổ này (vỏ `ReaderTTSSameChapterPromptHost`: tự giữ chiều cao + tự đọc "đang phát" qua `TTSWidgetStateReader`) ⇒ đĩa nghe, hub, nút trình duyệt, cửa sổ phim nhỏ nằm dưới lớp mờ của sheet, **không bị ẩn**, không bấm được để mở chồng sheet. Bỏ neo `.blocker` của sheet này. Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của Reader như cũ.
-- Sheet của chính đĩa nghe và sheet hub / màn Thông báo vốn đã nằm trên mọi viên thuốc (cửa sổ của chúng) — giữ nguyên.
-- `CLAUDE.md` / `AGENTS.md`: đoạn đĩa nghe thêm luật "sheet nằm trên mọi viên thuốc".
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: đang nghe truyện, bấm tai nghe trúng chương đang đọc ⇒ sheet hiện, đĩa nghe + hub vẫn thấy mờ dưới lớp tối; chọn "Đọc tiếp chỗ đang đọc" / "Đọc từ đoạn đang xem" / "Đọc lại từ đầu chương" ⇒ Reader làm đúng như cũ; vuốt sheet xuống ⇒ không làm gì, đĩa vẫn ở đó.

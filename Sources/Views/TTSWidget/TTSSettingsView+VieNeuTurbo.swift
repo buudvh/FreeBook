@@ -1,64 +1,29 @@
 import SwiftUI
 
-/// Phần **VieNeu Turbo** của màn Cài đặt TTS (đợt B, theo mockup đã duyệt): mục Turbo trong Picker "Trình đọc", hàng tải
-/// model 188 MB tại chỗ, Picker 25 giọng Turbo chia hai nhóm, hàng "Tổng hợp Turbo" + chú thích, và cảnh báo tốc độ.
+/// Phần **VieNeu Turbo** của màn Cài đặt TTS: hàng tải model 188 MB tại chỗ, Picker giọng gộp Nano + Turbo (1.3.897: model
+/// đi theo giọng), hàng "Tổng hợp Turbo" + chú thích, và cảnh báo tốc độ.
 ///
 /// Tách file riêng vì `TTSSettingsView.swift` là file legacy chỉ được giảm dòng — ở đó chỉ đổi đúng một dòng (selection
 /// của Picker "Trình đọc"); `+VieNeu` / `+Voice` chỉ thêm lời gọi tới các khối ở đây.
 ///
-/// Bên trong vẫn là `tool == "vieneu"`: model nằm ở `VieNeuModelChoice` (khoá `vieneuModel`), xem doc của type đó.
+/// Bên trong vẫn là `tool == "vieneu"`: model là phần của giọng đang chọn (`VieNeuVoiceSelection`).
 extension TTSSettingsView {
     /// Turbo đang là trình đọc (model **hiệu lực**, đã xét máy có đủ file).
     var isVieNeuTurboSelected: Bool {
         ttsManager.tool == "vieneu" && VieNeuModelChoice.current == .turbo
     }
 
-    /// Mục Turbo có được hiện trong Picker "Trình đọc" không — như Nano: **chặn ở Picker**, chưa tải model thì không chọn.
-    /// Đọc trạng thái quan sát được của `VieNeuTurboLab` để tải xong là mục hiện ra ngay.
+    /// Máy đủ file để đọc Turbo — quyết định nhóm "Turbo" của Picker giọng. Đọc trạng thái quan sát được của
+    /// `VieNeuTurboLab` để tải xong là nhóm hiện ra ngay.
     var vieNeuTurboReady: Bool {
         VieNeuTurboRuntime.isAvailable && VieNeuTurboLab.shared.isTurboReady
     }
 
     // MARK: - Picker "Trình đọc"
 
-    /// Selection của Picker "Trình đọc": hai mục VieNeu (Nano / Turbo) cùng ánh xạ về `tool = "vieneu"` + model đã lưu.
+    /// Selection của Picker "Trình đọc" — từ 1.3.897 chỉ còn **một** mục VieNeu (`tool = "vieneu"`), model đi theo giọng.
     var readerPickerSelection: Binding<String> {
-        Binding(
-            get: { VieNeuModelChoice.pickerTag(forTool: ttsManager.tool) },
-            set: { selectReader(tag: $0) }
-        )
-    }
-
-    /// Mục Turbo của Picker "Trình đọc" — ngay dưới Nano.
-    var vieNeuTurboPickerRow: some View {
-        VStack(alignment: .leading) {
-            Text("VieNeu-TTS v3 Turbo (Offline)")
-            Text("Hay hơn Nano, tốn CPU khoảng 1,5 lần")
-        }
-        .tag(VieNeuModelChoice.turboPickerTag)
-    }
-
-    /// Đổi trình đọc. Với hai mục VieNeu: ghi model **trước**, rồi mới gán `tool` — `tool.didSet` nạp tham số (giọng theo
-    /// khoá của model), bỏ phần đệm và nạp sẵn engine; `persistVoice` cũng đọc model lúc đó. Gán ngược thứ tự là nạp sẵn
-    /// nhầm engine và giọng Turbo bị ghi vào khoá giọng của Nano.
-    ///
-    /// Đang là `vieneu` mà đổi model thì vẫn gán lại `tool = "vieneu"`: Swift chạy `didSet` cả khi giá trị không đổi ⇒ đi
-    /// đúng luồng đổi engine. Nhưng `onChange(of: ttsManager.tool)` của màn **không** chạy ⇒ tự làm mới phần của màn.
-    private func selectReader(tag: String) {
-        guard let model = VieNeuModelChoice(pickerTag: tag) else {
-            ttsManager.tool = tag
-            return
-        }
-        let wasVieNeu = ttsManager.tool == "vieneu"
-        let unchanged = wasVieNeu && VieNeuModelChoice.current == model
-        VieNeuModelChoice.store(model)
-        guard !unchanged else { return }
-        AppLogger.shared.log("[TTSRoute] chon model VieNeu=\(model.rawValue)")
-        ttsManager.tool = "vieneu"
-        if wasVieNeu {
-            refreshVieNeuSettings()
-            Task { await loadVoicesForCurrentTool() }
-        }
+        Binding(get: { ttsManager.tool }, set: { ttsManager.tool = $0 })
     }
 
     // MARK: - Tải model
@@ -115,35 +80,51 @@ extension TTSSettingsView {
 
     // MARK: - Giọng đọc
 
-    /// 25 giọng Turbo từ manifest: "Tuyển chọn" (10 giọng ⭐) rồi "Giọng khác". Giọng nhớ riêng với Nano
-    /// (`vieneuTurboVoice`). Chọn giọng chưa có file ⇒ tải cặp file vài KB ngay (đoạn đầu tiên cũng tự tải nếu lượt này lỗi).
+    /// Picker giọng VieNeu gộp hai model (1.3.897): chọn giọng Nano ⇒ trình đọc chạy Nano, giọng Turbo ⇒ Turbo. Mỗi nhóm
+    /// chỉ hiện khi model của nó đã tải đủ. Tag = `VieNeuVoiceSelection.key` ("nano:<tên>" / "turbo:<id>").
     @ViewBuilder
-    var vieNeuTurboVoicePicker: some View {
+    var vieNeuMergedVoicePicker: some View {
         let lab = VieNeuTurboLab.shared
-        if lab.voices.isEmpty {
-            Text("Chưa đọc được danh sách giọng VieNeu Turbo")
+        let turboCustom = VieNeuTurboCustomVoiceRepository.shared.voices
+        if availableVoices.isEmpty && !vieNeuTurboReady {
+            Text("Chưa tải giọng VieNeu nào")
                 .foregroundColor(.secondary)
         } else {
-            Picker("Giọng đọc VieNeu", selection: $ttsManager.selectedVoice) {
-                Section("Tuyển chọn") {
-                    ForEach(lab.voices.filter(\.isFeatured)) { voice in
-                        turboVoiceOption(voice, defaultVoiceId: lab.defaultVoiceId)
+            Picker("Giọng đọc VieNeu", selection: vieNeuVoiceSelectionBinding) {
+                if !availableVoices.isEmpty {
+                    Section("Nano") {
+                        ForEach(availableVoices, id: \.name) { voice in
+                            Text(voice.name).tag(VieNeuVoiceSelection(model: .nano, voiceId: voice.name).key)
+                        }
                     }
                 }
-                Section("Giọng khác") {
-                    ForEach(lab.voices.filter { !$0.isFeatured }) { voice in
-                        turboVoiceOption(voice, defaultVoiceId: lab.defaultVoiceId)
+                if vieNeuTurboReady {
+                    Section("Turbo") {
+                        ForEach(turboCustom) { record in
+                            Text(record.name).tag(VieNeuVoiceSelection(model: .turbo, voiceId: record.id).key)
+                        }
+                        ForEach(lab.voices) { voice in
+                            turboVoiceOption(voice, defaultVoiceId: lab.defaultVoiceId)
+                        }
                     }
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: ttsManager.selectedVoice) { _, voiceId in
-                VieNeuTurboTTSService.shared?.prefetchVoice(voiceId)
-            }
         }
     }
 
-    /// Một mục giọng: tên (bỏ ⭐) + dòng phụ "Nam · Bắc · tự nhiên" (thêm "· mặc định" cho giọng mặc định của manifest).
+    /// Đọc: model hiệu lực + giọng đang đọc; ghi: `TTSManager.selectVieNeuVoice` (đổi model thì nạp lại engine).
+    private var vieNeuVoiceSelectionBinding: Binding<String> {
+        Binding(
+            get: { VieNeuVoiceSelection(model: VieNeuModelChoice.current, voiceId: ttsManager.selectedVoice).key },
+            set: { raw in
+                guard let selection = VieNeuVoiceSelection(storageValue: raw) else { return }
+                ttsManager.selectVieNeuVoice(selection)
+            }
+        )
+    }
+
+    /// Một mục giọng Turbo: tên (bỏ ⭐) + dòng phụ "Nam · Bắc · tự nhiên" (thêm "· mặc định" cho giọng mặc định của manifest).
     private func turboVoiceOption(_ voice: VieNeuTurboVoiceManifest.Voice, defaultVoiceId: String?) -> some View {
         let notes = [voice.traitsSummary, voice.id == defaultVoiceId ? "mặc định" : nil]
             .compactMap { $0 }
@@ -154,7 +135,7 @@ extension TTSSettingsView {
                 Text(notes)
             }
         }
-        .tag(voice.id)
+        .tag(VieNeuVoiceSelection(model: .turbo, voiceId: voice.id).key)
     }
 
     // MARK: - Quản lý riêng của trình đọc

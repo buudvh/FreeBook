@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.868] - 2026-11-11
+
+### feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe
+
+Anh Bửu: "Sheet 'đang đọc chương này' hiển thị đừng có ẩn nửa viên thuốc, cho nó dưới sheet thôi, cho luôn nửa viên thuốc hub ở dưới sheet luôn… mọi sheet mở ra từ viên thuốc đều không ẩn các viên thuốc mà chỉ hiển thị cao hơn viên thuốc thôi, tránh trường hợp mở sheet từ viên thuốc rồi lại mở sheet mới khác từ viên thuốc đè lên" (đã duyệt mockup + plan).
+
+- **Cửa sổ sheet phủ** (mới, `Views/Common/OverlaySheet/`): `OverlaySheetPresenter` + `OverlaySheetWindow` (level `alert − 1.6`: trên đĩa nghe `− 1.75`, hub `− 2` / `− 1.7`, nút trình duyệt `− 3`; dưới ngăn kéo `…` `− 1.5` và toast) + `OverlaySheetHost` (view 1×1 giữ `.sheet`, khuôn `MediaDiscSheetHost`). Cửa sổ chỉ hiện lúc có sheet, không bao giờ key, hit-test chỉ nhận chạm khi đang trình bày (luật 25); `onDismiss` là đường đóng chung (luật 26); `dismiss(then:)` đóng sheet **xong** mới chạy việc kèm theo. Sheet của cửa sổ chính luôn nằm dưới các cửa sổ viên thuốc nên đây là cách duy nhất để một sheet che được chúng.
+- **Sheet "đang đọc chương này" của Reader** trình bày qua cửa sổ này (vỏ `ReaderTTSSameChapterPromptHost`: tự giữ chiều cao + tự đọc "đang phát" qua `TTSWidgetStateReader`) ⇒ đĩa nghe, hub, nút trình duyệt, cửa sổ phim nhỏ nằm dưới lớp mờ của sheet, **không bị ẩn**, không bấm được để mở chồng sheet. Bỏ neo `.blocker` của sheet này. Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của Reader như cũ.
+- Sheet của chính đĩa nghe và sheet hub / màn Thông báo vốn đã nằm trên mọi viên thuốc (cửa sổ của chúng) — giữ nguyên.
+- `CLAUDE.md` / `AGENTS.md`: đoạn đĩa nghe thêm luật "sheet nằm trên mọi viên thuốc".
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: đang nghe truyện, bấm tai nghe trúng chương đang đọc ⇒ sheet hiện, đĩa nghe + hub vẫn thấy mờ dưới lớp tối; chọn "Đọc tiếp chỗ đang đọc" / "Đọc từ đoạn đang xem" / "Đọc lại từ đầu chương" ⇒ Reader làm đúng như cũ; vuốt sheet xuống ⇒ không làm gì, đĩa vẫn ở đó.
+
 ## [1.3.867] - 2026-11-11
 
 ### feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn

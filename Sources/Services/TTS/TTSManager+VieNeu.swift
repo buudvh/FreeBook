@@ -97,7 +97,7 @@ extension TTSManager {
         let savedPitch = defaults.double(forKey: VieNeuSettingsKey.pitch)
         self.pitch = savedPitch > 0 ? savedPitch : defaultPitch
 
-        self.selectedVoice = Self.savedVieNeuVoice(for: VieNeuModelChoice.current)
+        self.selectedVoice = Self.effectiveVieNeuVoice()
 
         let savedCount = defaults.object(forKey: VieNeuSettingsKey.prefetchCount) != nil
             ? defaults.integer(forKey: VieNeuSettingsKey.prefetchCount)
@@ -122,20 +122,6 @@ extension TTSManager {
         self.prefetchDelayMs = 500
 
         AppLogger.shared.log("[TTSRoute] nap tham so VieNeu model=\(VieNeuModelChoice.current.rawValue) voice=\(self.selectedVoice) rate=\(self.speed) pitch=\(self.pitch) prefetch=\(self.vieneuPrefetchCount) nguongAnToan=\(clamped)")
-    }
-
-    /// Giọng đã lưu của **từng model** — Nano khoá `vieneuVoice`, Turbo khoá `vieneuTurboVoice` (mặc định `minh_quan_pro`,
-    /// giọng đã lưu không còn trong manifest thì về mặc định để Picker không trỏ vào tag không tồn tại).
-    private static func savedVieNeuVoice(for model: VieNeuModelChoice) -> String {
-        let saved = UserDefaults.standard.string(forKey: model.voiceDefaultsKey)
-        switch model {
-        case .nano:
-            let voices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []
-            return saved ?? voices.first?.name ?? ""
-        case .turbo:
-            guard let turbo = VieNeuTurboTTSService.shared else { return saved ?? VieNeuTurboModelStore.fallbackVoiceId }
-            return turbo.resolveVoiceId(saved ?? turbo.defaultVoiceId)
-        }
     }
 
     /// Ngưỡng nạp bộ đệm của **engine local đang chọn**.
@@ -284,14 +270,17 @@ extension TTSManager {
     /// vào `extVoice_vieneu`, còn `applyVieNeuParamsIfNeeded()` lại **đọc** `vieneuVoice` ⇒ chọn giọng
     /// xong thoát ra vào lại là mất. Hai bên phải cùng một khoá.
     ///
-    /// VieNeu nhớ giọng **theo model** (`VieNeuModelChoice.voiceDefaultsKey`) — Picker ghi model **trước** rồi mới gán
-    /// `tool`, nên lúc `selectedVoice` đổi theo model mới thì khoá ở đây đã là của model mới.
+    /// VieNeu (1.3.897) lưu **giọng kèm model** ở `VieNeuVoiceSelection` (khoá `vieneuSelectedVoice`) — xem
+    /// `recordReaderVoice`: đang lùi về Nano vì Turbo thiếu file thì không ghi đè lựa chọn Turbo.
     internal func persistVoice(_ value: String) {
         let key: String
         switch tool {
         case "system": key = "systemVoice"
         case "nghitts": key = "nghittsVoice"
-        case "vieneu": key = VieNeuModelChoice.current.voiceDefaultsKey
+        case "vieneu":
+            VieNeuVoiceSelection.recordReaderVoice(value, effectiveModel: VieNeuModelChoice.current)
+            AppLogger.shared.logTTSVerbose("[TTSRoute] persistVoice engine=vieneu chon=\(VieNeuVoiceSelection.stored.storageValue) value=\(value)")
+            return
         case "google": key = "googleVoice"
         default: key = "extVoice_\(tool)"
         }

@@ -17,15 +17,10 @@ extension TTSSettingsView {
         VieNeuTTSService.shared?.modelStore.isReady ?? false
     }
 
-    /// Dòng Picker cho VieNeu (Nano, rồi Turbo ngay dưới — mỗi mục chỉ hiện khi model của nó đã tải đủ).
-    @ViewBuilder
+    /// Mục VieNeu của Picker "Trình đọc" — **một** mục cho cả Nano lẫn Turbo (1.3.897): model đi theo giọng chọn ở
+    /// section "Giọng đọc". Luôn hiện: chưa có model nào thì tải ở hàng ngay dưới.
     var vieNeuPickerRows: some View {
-        if vieNeuModelReady {
-            Text("VieNeu-TTS v3 Nano (Offline)").tag("vieneu")
-        }
-        if vieNeuTurboReady {
-            vieNeuTurboPickerRow
-        }
+        Text("VieNeu-TTS v3 (Offline)").tag("vieneu")
     }
 
     /// Lối tải model, hiện ngay dưới Picker khi chưa có model (Nano: sang màn thử giọng; Turbo: tải tại chỗ).
@@ -44,21 +39,8 @@ extension TTSSettingsView {
     /// **Không** lọc theo `isModelDownloaded` như NghiTTS: 11 giọng của VieNeu nằm chung trong
     /// `voices_v3_nano.json` của bộ model, không phải file rời cho từng giọng — nên `isReady` đã bảo đảm
     /// có đủ giọng rồi.
-    @ViewBuilder
     var vieNeuVoicePicker: some View {
-        if isVieNeuTurboSelected {
-            vieNeuTurboVoicePicker
-        } else if availableVoices.isEmpty {
-            Text("Chưa đọc được danh sách giọng VieNeu")
-                .foregroundColor(.secondary)
-        } else {
-            Picker("Giọng đọc VieNeu", selection: $ttsManager.selectedVoice) {
-                ForEach(availableVoices, id: \.name) { voice in
-                    Text(voice.name).tag(voice.name)
-                }
-            }
-            .pickerStyle(.menu)
-        }
+        vieNeuMergedVoicePicker
     }
 
     /// Nạp giọng theo engine đang chọn. VieNeu lấy từ catalog riêng (`voices_v3_nano.json`), NghiTTS lấy
@@ -146,7 +128,8 @@ extension TTSSettingsView {
 
     func loadVoicesForCurrentTool() async {
         if ttsManager.tool == "vieneu" {
-            availableVoices = (try? VieNeuTTSService.shared?.availableVoices()) ?? []
+            // Nano chỉ liệt kê khi đủ model (giọng nằm trong `voices_v3_nano.json` của bộ model).
+            availableVoices = vieNeuModelReady ? ((try? VieNeuTTSService.shared?.availableVoices()) ?? []) : []
         } else {
             availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false))
                 ?? NghiTTSClient.fallbackVietnameseVoices
