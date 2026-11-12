@@ -14,6 +14,9 @@ struct VieNeuAutoRunProgress: Codable, Sendable {
     var version = VieNeuAutoRunProgress.currentVersion
     var startedAt: Date
     var voice: String
+    /// `VieNeuTurboLab.SoakQoS.rawValue` của lượt tổng hợp — Chạy tiếp dùng lại đúng mức này. Thiếu (tiến độ của bản
+    /// 1.3.910) ⇒ `utility`, mức bản đó thực sự chạy.
+    var qosRawValue: String?
     var prepareDone = false
     var prepareLines: [String] = []
     var coreMLPassed = false

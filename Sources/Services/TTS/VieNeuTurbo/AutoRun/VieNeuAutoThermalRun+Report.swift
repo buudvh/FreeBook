@@ -26,6 +26,7 @@ extension VieNeuAutoThermalRun {
             + " · tổng hợp \(Self.synthesisSpeed) · phát \(Self.playbackRate)× · chờ mát liền "
             + "\(VieNeuTurboSoakStats.clock(Self.settleHoldSeconds)) trước mỗi lượt · lượt tối đa "
             + "\(VieNeuTurboSoakStats.clock(Self.legMaxSeconds)), lên nóng thì đọc thêm \(Self.chunksAfterSerious) đoạn")
+        lines.append("QoS tổng hợp \(Self.qosTitle(runQoS)) — mức đã chọn; mức thật của luồng xem dòng \"QoS đo được\" mỗi lượt")
         lines.append("trạng thái   \(statusLine)")
         if !resumeNotes.isEmpty {
             lines.append("chạy tiếp    \(resumeNotes.joined(separator: " · "))")

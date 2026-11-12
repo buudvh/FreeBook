@@ -124,27 +124,63 @@ final class VieNeuCoreMLPackage: Sendable {
         try? FileManager.default.removeItem(at: cacheDirectory)
     }
 
+    /// Kết quả dọn cache: số mục giữ / xoá + một đường dẫn bản biên dịch tìm thấy (tương đối với `Cache/`) để nhật ký
+    /// chứng minh bản lưu được nhận.
+    struct CacheCleanup: Sendable {
+        var kept = 0
+        var removed = 0
+        var sampleCompiledPath: String?
+
+        var summary: String {
+            "giữ \(kept) bản biên dịch, dọn \(removed) bản dở" + (sampleCompiledPath.map { " (vd \($0))" } ?? "")
+        }
+    }
+
     /// Xoá bản biên dịch **dở** (1.3.906): ORT coi graph là "đã có bản lưu" chỉ cần thư mục gói MLProgram tồn tại
     /// (`ModelBuilder`: `FolderExists(model_output_path_)`), mà thư mục đó được ghi **trước** khi biên dịch — app bị giết
-    /// giữa chừng thì lượt sau dùng lại gói dở. Bản xong có `compiled_model.mlmodelc` cạnh gói; thiếu ⇒ xoá cả mục.
+    /// giữa chừng thì lượt sau dùng lại gói dở. Mục xong có `compiled_model.mlmodelc`; thiếu ⇒ xoá cả mục.
+    ///
+    /// Bản 1.3.906–910 tìm `compiled_model.mlmodelc` ngay trong `<id>_static_mlprogram/`, nhưng ORT 1.24.2 đặt gói ở
+    /// `<id>_static_mlprogram/model` (`GetModelOutputPath`) và để bản biên dịch **bên trong gói** (`CompileOrReadCachedModel`
+    /// của model.mm) ⇒ xoá nhầm mọi mục hợp lệ, lần nào cũng biên dịch lại (đo tự động 2026-11-12: chạy tiếp mất 265 s).
+    /// Giờ tìm ở cả tầng 1 lẫn tầng 2 để không phụ thuộc bố cục.
     @discardableResult
-    func removeIncompleteCacheEntries() -> Int {
+    func cleanCacheEntries() -> CacheCleanup {
         let fileManager = FileManager.default
+        var result = CacheCleanup()
         guard let keys = try? fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil) else {
-            return 0
+            return result
         }
-        var removed = 0
         for key in keys {
             guard let entries = try? fileManager.contentsOfDirectory(at: key, includingPropertiesForKeys: nil) else { continue }
             for entry in entries where entry.lastPathComponent.hasSuffix("_mlprogram") {
-                let compiled = entry.appendingPathComponent("compiled_model.mlmodelc", isDirectory: true)
-                if !fileManager.fileExists(atPath: compiled.path) {
+                if let compiled = Self.compiledModelPath(in: entry) {
+                    result.kept += 1
+                    if result.sampleCompiledPath == nil {
+                        result.sampleCompiledPath = "\(key.lastPathComponent)/\(entry.lastPathComponent)/\(compiled)"
+                    }
+                } else {
                     try? fileManager.removeItem(at: entry)
-                    removed += 1
+                    result.removed += 1
                 }
             }
         }
-        return removed
+        return result
+    }
+
+    /// Đường dẫn (tương đối với `entry`) của `compiled_model.mlmodelc` ở tầng 1 hoặc tầng 2; `nil` = chưa biên dịch xong.
+    private static func compiledModelPath(in entry: URL) -> String? {
+        let fileManager = FileManager.default
+        let name = "compiled_model.mlmodelc"
+        if fileManager.fileExists(atPath: entry.appendingPathComponent(name, isDirectory: true).path) {
+            return name
+        }
+        let children = (try? fileManager.contentsOfDirectory(at: entry, includingPropertiesForKeys: nil)) ?? []
+        for child in children
+        where fileManager.fileExists(atPath: child.appendingPathComponent(name, isDirectory: true).path) {
+            return "\(child.lastPathComponent)/\(name)"
+        }
+        return nil
     }
 
     /// Xoá gói + cache + kết quả.

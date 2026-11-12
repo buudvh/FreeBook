@@ -62,10 +62,10 @@ enum VieNeuCoreMLPreparer {
 
         // 1. Biên dịch lạnh, từng graph một — dọn bản biên dịch dở của lượt bị giết trước đó.
         report.lines.append("— Biên dịch Core ML (lần đầu; có bản lưu thì là nạp lại) —")
-        let removed = package.removeIncompleteCacheEntries()
-        if removed > 0 {
-            progress("Dọn \(removed) bản biên dịch dở của lượt trước")
-            report.lines.append("dọn \(removed) bản biên dịch dở của lượt trước")
+        let cleanup = package.cleanCacheEntries()
+        if cleanup.kept + cleanup.removed > 0 {
+            progress("Bản biên dịch có sẵn: \(cleanup.summary)")
+            report.lines.append("bản biên dịch có sẵn: \(cleanup.summary)")
         }
         backend.setSessionCap(64)
         var largestHeldMB = 0.0

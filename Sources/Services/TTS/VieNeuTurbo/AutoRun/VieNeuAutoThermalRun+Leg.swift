@@ -107,7 +107,7 @@ extension VieNeuAutoThermalRun {
             chunks: chunks,
             engineDescription: "Lượt \(index + 1)/\(Self.legPlan.count) · \(engine.title) · giọng \(voice) · "
                 + "tổng hợp \(speed) · phát \(Self.playbackRate)×",
-            priority: lab.nanoQoS.priority,
+            priority: runQoS.priority, // không lấy `lab.nanoQoS` của "Đọc liên tục" (mặc định utility)
             playbackRate: Self.playbackRate,
             synthesize: synthesize
         )

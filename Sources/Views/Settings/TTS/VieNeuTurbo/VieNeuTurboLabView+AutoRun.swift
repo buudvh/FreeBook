@@ -16,6 +16,20 @@ extension VieNeuTurboLabView {
                     .foregroundStyle(.secondary)
             }
             if run.isActive {
+                LabeledContent("QoS tổng hợp") {
+                    Text(VieNeuAutoThermalRun.qosTitle(run.runQoS))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                // Mức cho lượt đo mới (Bắt đầu / Đo lại từ đầu). Chạy tiếp giữ mức đã lưu của lần đo trước.
+                Picker("QoS tổng hợp", selection: Bindable(run).qos) {
+                    Text("Như trình đọc").tag(VieNeuTurboLab.SoakQoS.userInitiated)
+                    Text("Lõi tiết kiệm").tag(VieNeuTurboLab.SoakQoS.utility)
+                }
+                .pickerStyle(.segmented)
+                .disabled(lab.isBusy)
+            }
+            if run.isActive {
                 if let fraction = run.downloadFraction {
                     ProgressView(value: fraction)
                 }
@@ -43,6 +57,12 @@ extension VieNeuTurboLabView {
                     Label("Đo lại từ đầu", systemImage: "arrow.counterclockwise")
                 }
                 .disabled(lab.isBusy || !lab.isNanoReady || run.package == nil)
+                if let resumeQoS = run.resumeQoS {
+                    Text("Chạy tiếp giữ QoS của lần đo trước: \(VieNeuAutoThermalRun.qosTitle(resumeQoS)). "
+                        + "Đo lại từ đầu dùng mức chọn ở trên.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if !run.statusLine.isEmpty {
                     Text(run.statusLine)
                         .font(.footnote)
@@ -104,8 +124,9 @@ extension VieNeuTurboLabView {
             SectionHelpHeader("Đo tự động ORT ↔ Core ML (P1b)", paragraphs: [
                 "Bấm một lần, máy tự làm hết: tải gói Core ML (~270 MB, lần đầu), **biên dịch** cho máy (vài phút, máy ấm lên — màn hình giữ sáng trong lúc này), tự kiểm tiếng, rồi chạy **3 lượt đọc liên tục**: Nano ORT → Nano Core ML → Nano ORT.",
                 "Trước **mỗi** lượt chờ máy mát liền 10 phút. Mỗi lượt đọc cùng văn bản bằng giọng Mai Anh, tổng hợp 1,15, phát 1,5×, tới khi máy lên **nóng** thì đọc thêm 5 đoạn rồi dừng (tối đa 15 phút). Cả lượt có thể mất 1–2 tiếng.",
+                "**QoS tổng hợp**: \"Như trình đọc\" (mặc định) chạy lõi hiệu năng giống lúc nghe truyện thật; \"Lõi tiết kiệm\" chậm hơn nhưng có thể mát hơn — chỉ để so. Mục này riêng cho đo tự động, không theo QoS của \"Đọc liên tục\".",
                 "Sau bước biên dịch cứ **khoá máy, để yên, rút sạc** — app tự giữ chạy (phát tiếng lúc đọc, vòng lặng lúc chờ). Rời màn này vẫn chạy. Mở TTS / nhạc / phim khác giữa chừng thì lượt đo tự dừng.",
-                "Xong (hoặc dừng giữa chừng) bấm \"Chia sẻ file báo cáo\" gửi cho Javis. Bản biên dịch Core ML chiếm khoảng 1 GB, xoá bằng nút Xoá."
+                "Xong (hoặc dừng giữa chừng) bấm \"Chia sẻ file báo cáo\" gửi cho Javis. Bản biên dịch Core ML chiếm khoảng 4 GB, đo xong xoá bằng nút Xoá."
             ])
         }
         .onChange(of: run.phase) { _, phase in

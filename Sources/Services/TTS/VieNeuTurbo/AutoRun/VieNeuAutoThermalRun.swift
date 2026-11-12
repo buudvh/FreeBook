@@ -64,6 +64,13 @@ final class VieNeuAutoThermalRun {
 
     let package: VieNeuCoreMLPackage?
 
+    /// Mức ưu tiên của lượt tổng hợp cho lượt đo **mới** (chọn trên màn thử). Mặc định như trình đọc (1.3.911): bản
+    /// 1.3.890–910 lấy `nanoQoS` của "Đọc liên tục" (mặc định `utility` = lõi tiết kiệm), nên lượt đo 2026-11-12 chạy
+    /// Core ML chậm gấp ~4 lần phép thử P1 (`userInitiated`) — không so được với trình đọc thật.
+    var qos: VieNeuTurboLab.SoakQoS = .userInitiated
+    /// Mức đang dùng của lượt đo hiện tại / gần nhất: lượt mới lấy `qos`, Chạy tiếp lấy mức đã lưu trong tiến độ (để
+    /// các lượt của cùng một lần đo không lẫn hai mức). Ghi ở `start` và `+Resume`.
+    var runQoS: VieNeuTurboLab.SoakQoS = .userInitiated
     private(set) var phase: Phase = .idle
     var statusLine = ""
     var errorMessage: String?
@@ -82,6 +89,8 @@ final class VieNeuAutoThermalRun {
     private(set) var abruptNote: String?
     /// Lượt đo trước chưa xong mà đã qua bước chuẩn bị ⇒ chỉ số lượt sẽ chạy tiếp (0-based); `nil` = không chạy tiếp được.
     private(set) var resumeNextLeg: Int?
+    /// Mức ưu tiên Chạy tiếp sẽ dùng (mức đã lưu của lượt đo trước) — màn thử hiện cạnh nút.
+    private(set) var resumeQoS: VieNeuTurboLab.SoakQoS?
     var resumeNotes: [String] = []
     @ObservationIgnored var startedAt = Date()
     @ObservationIgnored var backend: VieNeuCoreMLFlowBackend?
@@ -108,7 +117,9 @@ final class VieNeuAutoThermalRun {
         packageBytes = package?.packageBytes ?? 0
         cacheBytes = package?.cacheBytes ?? 0
         abruptNote = isActive ? nil : trailURL.flatMap { VieNeuAutoRunTrail.abruptEnding($0) }
-        resumeNextLeg = isActive ? nil : Self.resumableLeg(package: package)
+        let resumable = isActive ? nil : Self.resumableState(package: package)
+        resumeNextLeg = resumable?.leg
+        resumeQoS = resumable?.qos
     }
 
     /// File nhật ký từng bước (`VieNeuAutoRunTrail`) — có ⇒ chia sẻ được kể cả khi lượt đo chết giữa chừng.
@@ -141,8 +152,10 @@ final class VieNeuAutoThermalRun {
         let previous = abruptNote
         abruptNote = nil
         resumeNextLeg = nil
+        resumeQoS = nil
         let resuming = resume && restoreForResume(package: package)
         if !resuming {
+            runQoS = qos
             prepareLines = []
             coreMLPassed = false
             legs = []
@@ -153,7 +166,7 @@ final class VieNeuAutoThermalRun {
             // Lượt trước chết giữa chừng ⇒ giữ dòng cuối của nó vào nhật ký mới trước khi ghi đè.
             VieNeuAutoRunTrail.reset(VieNeuAutoRunTrail.url(in: package), header: VieNeuTurboReportFile.header()
                 + (previous.map { "\nLượt trước dừng đột ngột ở:\n\($0)" } ?? ""))
-            trail("bắt đầu đo tự động")
+            trail("bắt đầu đo tự động · QoS tổng hợp \(Self.qosTitle(runQoS))")
         }
         runTask = Task { [weak self] in
             await self?.run(lab: lab, package: package, resuming: resuming)
@@ -288,6 +301,7 @@ final class VieNeuAutoThermalRun {
         saveReport()
         trail("chuẩn bị xong: \(report.passed ? "qua tự kiểm" : "không qua tự kiểm"), giữ tối đa \(report.sessionCap) session")
         var saved = VieNeuAutoRunProgress(startedAt: startedAt, voice: voice)
+        saved.qosRawValue = runQoS.rawValue
         saved.prepareDone = true
         saved.prepareLines = report.lines
         saved.coreMLPassed = report.passed
@@ -330,6 +344,14 @@ final class VieNeuAutoThermalRun {
         if availableMB < needed {
             throw RunError.message(String(format: "Máy còn trống %.0f MB, cần khoảng %.0f MB cho bản biên dịch Core ML.",
                                           availableMB, needed))
+        }
+    }
+
+    /// Tên mức ưu tiên cho màn thử / báo cáo / nhật ký.
+    static func qosTitle(_ qos: VieNeuTurboLab.SoakQoS) -> String {
+        switch qos {
+        case .userInitiated: return "userInitiated (như trình đọc)"
+        case .utility: return "utility (lõi tiết kiệm)"
         }
     }
 

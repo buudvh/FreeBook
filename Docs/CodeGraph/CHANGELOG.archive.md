@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.881] - 2026-11-11
+
+### feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả
+
+Anh Bửu duyệt P0 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md`): *"làm trước P0 đi"* + *"cho sửa thành share file luôn, copy gửi cực quá"*. Không đổi cách tổng hợp — tiếng ra giữ nguyên.
+
+- **Sửa phép đo engine Nano**: `runChunk` chốt `vectorMs` **sau** `codec_decoder` ⇒ số "vòng Euler 98%" thật ra gồm cả codec (đo PC: Euler ~81%, codec ~17%). Nay `StageClock` (`VieNeuTTSEngine+Timing`, mới) bấm giờ nối tiếp ba giai đoạn text (text_encoder + duration + nhiễu) / vòng Euler / codec, mỗi giai đoạn cả thời gian tường lẫn CPU-time. `Timing` có `text` / `vector` / `codec`; `vectorMs` chỉ còn vòng Euler, `otherMs` = text + codec (màn Nghe thử giữ "vector | khác"). `[VieNeuPerf]` thêm `codecMs= textMs= cpuSplit=text/vector/codec qos= sessionQos=` (QoS **đo được** của luồng tổng hợp và của luồng dựng session — `Timing.synthesisQoS`, `VieNeuONNXRuntime.buildQoS`); dòng "Nạp xong engine" thêm `qos=`. `VieNeuTTSService.lastTiming` cho màn thử đọc.
+- **Ghi đè số luồng cho màn thử** (`VieNeuTTSEngine+Reload`): `setLabThreadOverride` (không ghi vào cài đặt) buộc dựng lại session; `VieNeuTTSService.prepare(voice:priority:)` (hàm riêng — `LocalTTSEngine` đòi đúng `prepare(voice:)`) dựng ở QoS chọn vì luồng phụ của pool ORT sinh ra lúc dựng session. Ghi đè chạy ở luồng nền (khoá tổng hợp có thể đang giữ bởi đoạn chạy dở).
+- **Màn thử VieNeu Turbo** — lượt Nano của "Đọc liên tục" (`VieNeuTurboLab+Nano`, tách khỏi `+Run`): chọn **số luồng ORT** (2/3/4) và **QoS** (utility / userInitiated), dựng lại session ở đúng mức đó rồi tổng hợp ở cùng mức; dừng / rời màn / nạp lỗi ⇒ bỏ ghi đè rồi: trình đọc đang ở Nano thì dựng lại ở `.utility` như lúc app nạp engine, đang ở Turbo thì **nhả** Nano (`releaseEngineRuntime`) — hai model không cùng nằm trong RAM. Đoạn nhả Turbo của `prepare` nằm trong `prepare(voice:priority:)` nên đường của màn thử cũng nhả. Mỗi đoạn ghi "Euler / codec / text" (giây tường + CPU-s) và "QoS tổng hợp X · session Y" đo được, tổng kết thêm **phân rã** theo thời gian và theo CPU. QoS tới được luồng tổng hợp vì `PiperSynthesisCoordinator` chạy việc trong `Task` lồng — kế thừa priority của task gọi; dòng QoS đo được là bằng chứng trên máy.
+- **Chia sẻ file thay sao chép**: hai nút "Sao chép số đo" / "Sao chép kết quả đọc liên tục" ⇒ **"Chia sẻ file … (.txt)"** (`VieNeuTurboReportFile`, dựng lúc bấm như `ThermalCSVExport`): đầu file có bản app, mã máy, giờ, nhiệt; file đọc liên tục có tổng kết + mọi phút + **mọi** đoạn (màn chỉ hiện 40 đoạn gần nhất).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.880] - 2026-11-11
 
 ### fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model

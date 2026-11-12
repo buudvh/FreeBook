@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.911] - 2026-11-12
+
+### fix: Đo tự động chạy Nano ở mức ưu tiên như trình đọc và không xoá nhầm bản biên dịch Core ML đã xong
+
+Anh Bửu gửi kết quả lượt đo 1.3.910 (1248): ORT / Core ML / ORT RTF 0,55 / 0,59 / 0,58, CPU mỗi giây tiếng 0,90 / 0,63 / 0,91, Core ML giữ máy mát cả 15 phút (ORT lên nóng sau 5:00 và 1:50), chạy nền khoá màn được (310 đoạn, không lùi ORT, không bị giết). Anh duyệt plan sửa hai lỗi của màn đo.
+
+- **Mức ưu tiên**: cả ba lượt chạy ở `utility` (lõi tiết kiệm). Lý do: đo tự động lấy `nanoQoS` của "Đọc liên tục", mà mặc định của nó là `utility`. Trình đọc thật chạy ở lõi hiệu năng (RTF 0,28), phép thử P1 tính ở `userInitiated` ⇒ Core ML lượt này chậm ~4 lần P1 (169 so với 43 ms mỗi lượt VE ở T128), không so được với trình đọc.
+  - Đo tự động giờ có mục chọn **"QoS tổng hợp"** riêng: "Như trình đọc" (`userInitiated`, mặc định) hoặc "Lõi tiết kiệm".
+  - Mức được lưu vào tiến độ (`VieNeuAutoRunProgress.qosRawValue`) nên Chạy tiếp giữ đúng mức của lần đo; tiến độ cũ không có trường này ⇒ `utility`, đúng mức bản 1.3.910 đã chạy.
+  - Báo cáo in mức đã chọn ở đầu file, nhật ký từng bước ghi lúc bắt đầu / chạy tiếp.
+- **Dọn cache Core ML xoá nhầm** (`VieNeuCoreMLPackage.cleanCacheEntries`, thay `removeIncompleteCacheEntries`).
+  - Bản cũ tìm `compiled_model.mlmodelc` ngay trong `<id>_static_mlprogram/`. Nhưng ORT 1.24.2 đặt gói ở `…_mlprogram/model` (`GetModelOutputPath`) và để bản biên dịch **bên trong gói** (`CompileOrReadCachedModel`).
+  - Hậu quả: mỗi lần bắt đầu / chạy tiếp xoá cả 10 mục hợp lệ rồi biên dịch lại. Lần chạy tiếp của anh mất 265 s để nạp, đúng bằng thời gian biên dịch lạnh.
+  - Giờ tìm ở tầng 1 và tầng 2; báo cáo / nhật ký ghi "giữ N bản biên dịch, dọn M bản dở" kèm một đường dẫn tìm thấy, để lần đo sau kiểm được là đã sửa.
+- Màn thử: chú thích dung lượng bản biên dịch sửa từ "khoảng 1 GB" thành "khoảng 4 GB" (đo được 4,16 GB).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.910] - 2026-11-12
 
 ### feat: Đo tự động có Chạy tiếp từ lượt chưa xong sau khi dừng, bị gián đoạn hay app bị tắt
@@ -550,15 +567,3 @@ Rà soát độc lập (agent) cả đợt 1.3.878–1.3.881 trước khi build 
 - **"Xoá model" Turbo ở màn thử** đưa trình đọc về `"vieneu"` cả khi máy chưa có model Nano ⇒ trình đọc trỏ vào engine thiếu model. Nay chưa có Nano thì về Siri (`"system"`, mặc định của app).
 - Bỏ cảnh báo kết quả không dùng (`_ = await Task.detached { … }.value`).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Lượt CI kế tiếp là lần biên dịch đầu của cả đợt; chưa thử máy.
-
-## [1.3.881] - 2026-11-11
-
-### feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả
-
-Anh Bửu duyệt P0 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md`): *"làm trước P0 đi"* + *"cho sửa thành share file luôn, copy gửi cực quá"*. Không đổi cách tổng hợp — tiếng ra giữ nguyên.
-
-- **Sửa phép đo engine Nano**: `runChunk` chốt `vectorMs` **sau** `codec_decoder` ⇒ số "vòng Euler 98%" thật ra gồm cả codec (đo PC: Euler ~81%, codec ~17%). Nay `StageClock` (`VieNeuTTSEngine+Timing`, mới) bấm giờ nối tiếp ba giai đoạn text (text_encoder + duration + nhiễu) / vòng Euler / codec, mỗi giai đoạn cả thời gian tường lẫn CPU-time. `Timing` có `text` / `vector` / `codec`; `vectorMs` chỉ còn vòng Euler, `otherMs` = text + codec (màn Nghe thử giữ "vector | khác"). `[VieNeuPerf]` thêm `codecMs= textMs= cpuSplit=text/vector/codec qos= sessionQos=` (QoS **đo được** của luồng tổng hợp và của luồng dựng session — `Timing.synthesisQoS`, `VieNeuONNXRuntime.buildQoS`); dòng "Nạp xong engine" thêm `qos=`. `VieNeuTTSService.lastTiming` cho màn thử đọc.
-- **Ghi đè số luồng cho màn thử** (`VieNeuTTSEngine+Reload`): `setLabThreadOverride` (không ghi vào cài đặt) buộc dựng lại session; `VieNeuTTSService.prepare(voice:priority:)` (hàm riêng — `LocalTTSEngine` đòi đúng `prepare(voice:)`) dựng ở QoS chọn vì luồng phụ của pool ORT sinh ra lúc dựng session. Ghi đè chạy ở luồng nền (khoá tổng hợp có thể đang giữ bởi đoạn chạy dở).
-- **Màn thử VieNeu Turbo** — lượt Nano của "Đọc liên tục" (`VieNeuTurboLab+Nano`, tách khỏi `+Run`): chọn **số luồng ORT** (2/3/4) và **QoS** (utility / userInitiated), dựng lại session ở đúng mức đó rồi tổng hợp ở cùng mức; dừng / rời màn / nạp lỗi ⇒ bỏ ghi đè rồi: trình đọc đang ở Nano thì dựng lại ở `.utility` như lúc app nạp engine, đang ở Turbo thì **nhả** Nano (`releaseEngineRuntime`) — hai model không cùng nằm trong RAM. Đoạn nhả Turbo của `prepare` nằm trong `prepare(voice:priority:)` nên đường của màn thử cũng nhả. Mỗi đoạn ghi "Euler / codec / text" (giây tường + CPU-s) và "QoS tổng hợp X · session Y" đo được, tổng kết thêm **phân rã** theo thời gian và theo CPU. QoS tới được luồng tổng hợp vì `PiperSynthesisCoordinator` chạy việc trong `Task` lồng — kế thừa priority của task gọi; dòng QoS đo được là bằng chứng trên máy.
-- **Chia sẻ file thay sao chép**: hai nút "Sao chép số đo" / "Sao chép kết quả đọc liên tục" ⇒ **"Chia sẻ file … (.txt)"** (`VieNeuTurboReportFile`, dựng lúc bấm như `ThermalCSVExport`): đầu file có bản app, mã máy, giờ, nhiệt; file đọc liên tục có tổng kết + mọi phút + **mọi** đoạn (màn chỉ hiện 40 đoạn gần nhất).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.

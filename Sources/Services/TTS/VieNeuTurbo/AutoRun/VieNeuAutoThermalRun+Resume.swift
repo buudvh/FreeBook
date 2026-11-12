@@ -13,12 +13,19 @@ extension VieNeuAutoThermalRun {
         progress.save(to: VieNeuAutoRunProgress.url(in: package))
     }
 
-    /// Lượt sẽ chạy tiếp nếu lượt đo trước chưa xong mà đã qua bước chuẩn bị; `nil` = chỉ đo mới được.
-    static func resumableLeg(package: VieNeuCoreMLPackage?) -> Int? {
+    /// Lượt sẽ chạy tiếp (kèm mức ưu tiên đã lưu) nếu lượt đo trước chưa xong mà đã qua bước chuẩn bị; `nil` = chỉ đo
+    /// mới được.
+    static func resumableState(package: VieNeuCoreMLPackage?) -> (leg: Int, qos: VieNeuTurboLab.SoakQoS)? {
         guard let package,
               let saved = VieNeuAutoRunProgress.load(from: VieNeuAutoRunProgress.url(in: package)),
-              saved.prepareDone, !saved.finished else { return nil }
-        return saved.nextLegIndex(planCount: legPlan.count)
+              saved.prepareDone, !saved.finished,
+              let next = saved.nextLegIndex(planCount: legPlan.count) else { return nil }
+        return (next, savedQoS(saved))
+    }
+
+    /// Mức ưu tiên của lượt đo đã lưu; tiến độ của bản 1.3.910 không ghi ⇒ `utility` (mức bản đó chạy).
+    static func savedQoS(_ saved: VieNeuAutoRunProgress) -> VieNeuTurboLab.SoakQoS {
+        saved.qosRawValue.flatMap { VieNeuTurboLab.SoakQoS(rawValue: $0) } ?? .utility
     }
 
     /// Nạp lại trạng thái lượt đo trước; `false` = không có gì để chạy tiếp (chỗ gọi đo mới).
@@ -35,6 +42,8 @@ extension VieNeuAutoThermalRun {
         }
         let note = "chạy tiếp \(Self.clockFormatter.string(from: Date())) từ lượt \(next + 1)"
         saved.resumeNotes.append(note)
+        runQoS = Self.savedQoS(saved)
+        saved.qosRawValue = runQoS.rawValue
         startedAt = saved.startedAt
         voiceUsed = saved.voice
         prepareLines = saved.prepareLines
@@ -43,7 +52,7 @@ extension VieNeuAutoThermalRun {
         resumeNotes = saved.resumeNotes
         progress = saved
         saveProgress()
-        trail("— \(note) —")
+        trail("— \(note) · QoS tổng hợp \(Self.qosTitle(runQoS)) —")
         return true
     }
 
@@ -70,14 +79,15 @@ extension VieNeuAutoThermalRun {
         let backend = VieNeuCoreMLFlowBackend(package: package, manifest: manifest, sessionCap: saved.sessionCap)
         backend.sessionEstimateMB = saved.sessionEstimateMB
         self.backend = backend
-        let removed = package.removeIncompleteCacheEntries()
+        let cleanup = package.cleanCacheEntries()
+        trail("chạy tiếp: \(cleanup.summary)")
         let trailURL = VieNeuAutoRunTrail.url(in: package)
         let result = try await Task.detached(priority: .userInitiated) {
             try backend.preload { step in VieNeuAutoRunTrail.append(trailURL, "\(step) (chạy tiếp)") }
         }.value
         var note = String(format: "chạy tiếp: nạp sẵn %ld/%ld session trong %.1f s", result.count,
                           backend.preloadOrder.count, result.ms / 1_000)
-        if removed > 0 { note += " · dọn \(removed) bản biên dịch dở" }
+        note += " · \(cleanup.summary)"
         preloadNote = note
         trail(note)
         statusLine = "Đang nạp lại engine Nano (giọng \(voice))…"
