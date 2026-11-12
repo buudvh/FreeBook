@@ -12,8 +12,9 @@ import Foundation
 /// - `begin()` ở `onAppear` của `TTSSettingsView`: lần đầu mới dừng + chụp cấu hình; hiện lại sau trang con / đổi tab
 ///   thì bỏ qua.
 /// - `finish()` ở mọi lối **đóng thật**:
-///   - `TTSSettingsView.onDisappear` khi `isPresented == false` (bị gỡ khỏi stack / sheet đóng);
-///   - `onDismiss` của sheet (`TTSSettingsSheetHost`), phòng khi sheet đóng lúc đang ở trang con;
+///   - dạng **sheet**: `onDisappear` của vỏ `TTSSettingsSheet` (1.3.907; vỏ chỉ biến mất khi sheet đóng thật, mọi lối
+///     mở đều đi qua nó) + `onDismiss` của `TTSSettingsSheetHost`;
+///   - dạng **trang** ở tab Cài đặt: `TTSSettingsView.onDisappear` khi `isPresented == false` (bị gỡ khỏi stack);
 ///   - `onAppear` của `TTSSettingsHubView` và trang gốc Cài đặt, phòng khi bị pop thẳng về gốc.
 ///
 /// Màn Cài đặt TTS đẩy ở tab Cài đặt mà người dùng sang tab khác, bật đọc **truyện / chương khác** rồi mới quay lại đóng
@@ -25,8 +26,14 @@ enum TTSSettingsPauseSession {
     private static var pendingChapterIndex = -1
 
     static func begin(caller: String = "TTSSettingsView") {
-        guard !isPending else { return }
         let manager = TTSManager.shared
+        if isPending {
+            // Phiên đang mở và TTS đứng yên ⇒ chỉ là hiện lại sau trang con / đổi tab: không dừng lần nữa.
+            // Phiên "đang mở" mà TTS lại đang đọc ⇒ phiên cũ đã đóng mà không ai báo (1.3.905: sheet mở từ đĩa nghe) ⇒
+            // mở phiên mới để **mở Cài đặt là luôn dừng** (1.3.907).
+            guard manager.isPlaying else { return }
+            AppLogger.shared.log("[TTSSettings] Phiên cũ chưa được báo đóng mà TTS đang đọc ⇒ mở phiên mới (\(caller))")
+        }
         isPending = true
         pendingBookId = manager.playingBookId
         pendingChapterIndex = manager.playingChapterIndex

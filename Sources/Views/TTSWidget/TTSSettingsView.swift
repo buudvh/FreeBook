@@ -379,10 +379,11 @@ struct TTSSettingsView: View {
             Task { await loadVoicesForCurrentTool() }
         }
         .onDisappear {
-            // `isPresented` còn `true` ⇒ màn chỉ bị che (trang con đẩy lên, đổi tab), chưa đóng ⇒ chưa đọc tiếp.
-            // Đóng thật ⇒ lưu cấu hình tiện ích + đọc tiếp tại đoạn dở với cấu hình mới (`TTSSettingsPauseSession`).
+            // Chỉ cho **trang đẩy** ở tab Cài đặt: `isPresented` còn `true` ⇒ màn chỉ bị che (trang con, đổi tab), chưa
+            // đóng ⇒ chưa đọc tiếp; `false` ⇒ bị gỡ khỏi stack ⇒ đọc tiếp (`TTSSettingsPauseSession`). Dạng **sheet** thì
+            // vỏ `TTSSettingsSheet` báo kết thúc (1.3.907): ở màn gốc của sheet, `isPresented` không đáng tin lúc đóng.
             AppLogger.shared.log("[TTSSettings] onDisappear isPresented=\(isPresented) sheet=\(isPresentedAsSheet)")
-            if !isPresented {
+            if !isPresentedAsSheet && !isPresented {
                 TTSSettingsPauseSession.finish(caller: "TTSSettingsView.onDisappear")
             }
         }

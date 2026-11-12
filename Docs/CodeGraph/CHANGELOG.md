@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.907] - 2026-11-12
+
+### fix: mở Cài đặt TTS từ đĩa nghe luôn dừng đọc, đóng sheet thì đọc tiếp
+
+Anh Bửu báo ở 1.3.905: *"khi tôi mở sheet cài đặt tts sao không pause được"*.
+
+**Nguyên nhân:**
+- Sheet Cài đặt TTS có hai lối mở:
+  - nút ⚙ của sheet Hẹn giờ, qua `TTSSettingsSheetHost`, có `onDismiss`;
+  - nút "Giọng đọc" của sheet điều khiển đĩa nghe (`TTSQuickControlSheet`), dùng `.sheet` riêng, **không** có `onDismiss`.
+- Với lối thứ hai, phiên Cài đặt (1.3.897) chỉ còn trông vào `TTSSettingsView.onDisappear` khi `isPresented == false`. Nhưng ở màn gốc của sheet, cờ này không về `false` lúc sheet đóng, nên phiên kẹt ở "đang mở":
+  - đóng sheet không đọc tiếp;
+  - lần mở sau `begin()` tưởng phiên cũ còn mở nên **không dừng**;
+  - về trang gốc Cài đặt thì có thể tự đọc.
+
+**Sửa:**
+- Vỏ `TTSSettingsSheet` gọi `finish` ở `onDisappear`. Vỏ chỉ biến mất khi sheet đóng thật (vào trang con thì vỏ còn), và cả hai lối mở đều đi qua vỏ này.
+- `TTSSettingsView.onDisappear` giờ chỉ lo dạng **trang** ở tab Cài đặt (`!isPresentedAsSheet && !isPresented`). Các chốt `onAppear` của hub "Nghe truyện (TTS)" và trang gốc Cài đặt giữ nguyên.
+- Chốt an toàn: `begin()` thấy phiên "đang mở" mà TTS **đang đọc** thì coi phiên cũ đã đóng mà không ai báo, và mở phiên mới. Nhờ vậy mở Cài đặt là luôn dừng.
+
+**Kiểm chứng:** đọc code + grep chéo (`begin` chỉ gọi ở `TTSSettingsView.onAppear`; `finish` ở vỏ sheet, `onDismiss` của host, `TTSSettingsView` dạng trang, hub và trang gốc Cài đặt). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy; log `[TTSSettings]` ghi lối nào đã đóng phiên.
+
 ## [1.3.906] - 2026-11-12
 
 ### fix: Đo tự động không giữ engine Nano lúc biên dịch Core ML, kiểm RAM trước mỗi bước và ghi nhật ký từng bước
@@ -534,16 +556,3 @@ Phần giao diện của đợt B, đúng mockup anh Bửu đã duyệt.
 - Bộ nhớ: Turbo chuẩn bị / tổng hợp ⇒ nhả engine Nano nếu đang nạp (`VieNeuTTSEngine.releaseRuntime`: 4 session ORT + bộ phiên âm); trình đọc về Nano ⇒ nhả model Turbo + bộ phiên âm Turbo. Trình đọc và màn thử Turbo dùng chung `VieNeuTurboRuntime.shared` + `VieNeuTurboTextFrontend.shared` (một model 188 MB trong RAM); rời màn thử không nhả khi trình đọc đang chọn Turbo; "Xoá model" ở màn thử đưa trình đọc về Nano.
 - `[VieNeuTurbo] Đoạn:` mỗi đoạn: ms phiên âm / audio.cpp / tổng hợp, giây tiếng, RTF, CPU/tiếng, nhiệt, RAM. Dòng ❌ khi lỗi cấp phát ghi rõ "đang dựng lại session và thử lại đoạn này"; lỗi khác giữ như cũ.
 - Màn thử Turbo có thêm số byte đang tải + lỗi tải riêng (cho hàng tải ở Cài đặt TTS).
-
-## [1.3.877] - 2026-11-11
-
-### fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)
-
-Anh Bửu đo 1.3.876 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng, nghe hay hơn Nano — nhưng đoạn thứ 36 lỗi `audiocpp_session_run lỗi: runtime error — failed to allocate VieNeu-TTS talker prefill graph`. Anh duyệt: *"sửa A trước rồi đo lại lần nữa"*.
-
-- **Nguyên nhân** (đọc mã audio.cpp `v0.9.4`, `talker.cpp:1212`): `TalkerPrefillGraph` — bước nạp prompt (phiên âm + mã giọng tham chiếu) qua 12 lớp — gọi `ggml_backend_alloc_ctx_tensors`, tức cấp phát **riêng** cho mọi tensor trung gian của cả 12 lớp (điểm attention S×S, MLP…), không tái sử dụng; graph dựng lại mỗi khi độ dài prompt đổi (gần như mỗi đoạn). Đoạn hỏng chính là đoạn đầu của vòng 2 — vòng 1 vẫn chạy được ⇒ không phải đoạn quá dài mà lúc đó app còn ít bộ nhớ trống.
-- **Vá audio.cpp lúc build** (`Scripts/ci/audiocpp_patches/vieneu_prefill_gallocr.py`, gọi từ `build_audiocpp_ios.sh`; sửa theo mốc chuỗi cố định, mốc lệch ⇒ build đỏ): đầu vào + K/V từng lớp + hidden + logits nằm ở context nhỏ riêng cấp phát cố định (kết quả được `ggml_cpy` sang), mọi tensor trung gian còn lại do `ggml_gallocr` cấp phát có tái sử dụng. Phép tính giữ nguyên.
-- **Kiểm không đổi tiếng** (`Scripts/ci/audiocpp_parity_macos.sh`, job `parity` của `audiocpp-ios.yml`): build `audiocpp_cli` macOS bản gốc + bản vá, đọc câu ngắn và câu dài ~4 lần bằng greedy (`do_sample=false`, seed 1, tắt babble guard), so mã âm thanh + WAV từng byte, in RAM tối đa của mỗi bản. Tag audio.cpp tách ra `Scripts/ci/audiocpp_ref.txt`; khoá cache framework (cả `build-ipa.yml`) gồm script + tag + bản vá.
-- **Tự cứu trong app** (`VieNeuTurboRuntime`): `audiocpp_session_run` lỗi cấp phát (`AUDIOCPP_ERR_OUT_OF_MEMORY` hoặc "allocate") ⇒ nhả session (graph + bộ đệm của nó), dựng lại cùng số luồng, đọc lại đúng đoạn đó **một** lần; lỗi khác thì báo như cũ. Thời gian / CPU đo gồm cả lần hỏng.
-- **Đo bộ nhớ**: `ProcessMemoryProbe` (mới, `Services/Diagnostics/`) — `phys_footprint` (số iOS dùng để giết app) + `os_proc_available_memory()`. Mỗi dòng đoạn của "Đọc liên tục" (màn + log) thêm "RAM … MB · trống … MB"; lỗi, dựng session, thử lại đều ghi kèm. audio.cpp `v0.9.4` (ABI 0.2) chưa có `audiocpp_log_set` nên chưa lấy được log của ggml.
-- **Kiểm chứng:** script vá chạy thử trên bản audio.cpp `v0.9.4` tải về (mốc khớp, chạy lần hai tự bỏ qua); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**; job parity trên CI là bằng chứng không đổi tiếng. Chưa thử máy.
