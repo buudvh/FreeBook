@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.893] - 2026-11-12
+
+### feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror
+
+Phần ba của lõi nhân bản giọng Turbo: hai graph ORT mà bước chuẩn bị mẫu (1.3.891) cần giờ tải được trong app.
+
+- **Gói nhân bản Turbo** = `speaker_encoder.onnx` + `denoiser.onnx`, dung lượng hằng **70.964.837 byte** (28.303.423 + 42.661.414, HF API `blobs=true` của kho mirror @ `3486d7da`).
+  - Tải từ `common/` của `raikiri1498/VieNeu-TTS` (`VieNeuModelMirror.nanoStorePath` đã trỏ hai tên này về đó), cất chung `VieNeuModelStore` (`Models/`) như `sea_g2p.bin`.
+  - `speaker_encoder.onnx` dùng chung với gói clone của Nano: có rồi thì không tải lại.
+- **`VieNeuModelStore`**: `turboCloneGraphNames`, `turboCloneByteCount`, `hasTurboCloneGraphs`, `missingTurboCloneGraphNames`, `turboCloneTotalBytes`, `deleteTurboCloneGraphs()`.
+  - Xoá model Nano khi máy còn model Turbo ⇒ **giữ** cả hai file (cùng chỗ giữ `sea_g2p.bin`). Không còn Turbo ⇒ xoá luôn `denoiser.onnx`, không để 42 MB mồ côi.
+  - Xoá gói clone Nano khi gói Turbo còn (`denoiser.onnx` trên đĩa) ⇒ giữ `speaker_encoder.onnx`.
+  - Xoá gói Turbo khi gói clone Nano còn graph khác ⇒ giữ `speaker_encoder.onnx`.
+- **`VieNeuModelClient`**: `turboCloneSources()` + `prefetchTurboCloneGraphs(progressHandler:)`, cùng khuôn tải từng file (file tạm `.partial` → `moveItem` nguyên tử).
+- **`ModelDownloadCenter`**: đích `vieNeu-turbo-clone` + `startVieNeuTurboClonePack()` ⇒ tiến độ sống qua việc rời màn, toast ở `MainTabView` như các gói khác.
+- **API cho UI**: `VieNeuTurboClonePack` — `byteCount`, `isReady`, `missingNames`, `bytesOnDisk`, `download()`, `isDownloading`, `delete()`, `downloadTarget`.
+  - `VieNeuTurboVoiceCloneCoordinator.readinessError` đọc tên file từ `turboCloneGraphNames`; tắt khử nhiễu thì chỉ cần `speaker_encoder.onnx`.
+- **Kiểm chứng:**
+  - Số byte lấy từ HF API, khớp file đã tải ở `D:\1.SOURCE_CODE\VieNeu-TTS\common`.
+  - Grep chéo mọi chỗ gọi `deleteAll()` / `deleteCloneGraphs()` của model store.
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa thử tải trong app.
+
 ## [1.3.892] - 2026-11-12
 
 ### feat: VieNeu Turbo mã hoá mẫu giọng bằng audio.cpp và lưu giọng tự tạo
@@ -514,21 +537,3 @@ Rà lại đợt nút nổi nửa viên (1.3.858–863) thấy: cửa sổ hub �
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows). **Chưa thử trên máy.**
   - Cần thử: đang nghe nhạc (nửa viên ở mép phải) ⇒ chạm hub ⇒ nửa viên thu lại, bấm được ⏸ / ✕ dòng Video; vuốt sheet xuống ⇒ nửa viên hiện lại. Tương tự với màn Thông báo.
-
-## [1.3.863] - 2026-11-11
-
-### feat: icon nút nổi mờ theo độ trong suốt như nền kính
-
-Anh Bửu hỏi "hình như icon của các nút nổi chưa làm mờ theo cài đặt đúng không?" — đúng: trước đây "Độ trong suốt" chỉ áp vào nền kính và bìa đĩa nghe. Anh chốt: "Mờ, pill menu rõ".
-
-- `FloatingIconTransparencyModifier` (mới, `Views/Common/GlassChrome/`, `.floatingIconTransparency()`): icon mờ đúng số `1 − độ trong suốt`, không sàn — cùng luật bìa đĩa nghe và icon nút hub / nút trình duyệt. Gắn lên **icon**, không lên nút (mờ lớp cha của kính là tắt nhoè).
-- Áp ở `FloatingRoundButton` (nút "+", Home nổi, nút bật menu xổ, Home ở Chi tiết), nút tai nghe Reader (`readerEdgeButton`) và ô xem trước nút nổi ở Cài đặt › Giao diện (kéo thanh là thấy ngay). **Không** áp cho pill của menu xổ (`FloatingActionMenu`).
-- Hệ quả đã báo anh: mặc định trong suốt 90% ⇒ dấu "+" / Home / tai nghe chỉ còn hiện 10%; muốn rõ thì kéo thanh "Độ trong suốt" xuống.
-- `CLAUDE.md` / `AGENTS.md`: câu icon mờ ở đoạn "Nút Home nổi". Chuyển 6 mục CHANGELOG cũ nhất (1.3.828–833) sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Cài đặt › Giao diện kéo "Độ trong suốt" 0% ↔ 100% ⇒ icon ô xem trước rõ ↔ trong hẳn.
-    2. Màn danh sách có "+" ⇒ icon "+" mờ theo; bấm "+" ⇒ pill "Thêm" / "Home" vẫn rõ.
-    3. Reader ⇒ icon tai nghe mờ theo.

@@ -47,6 +47,15 @@ final class VieNeuModelStore {
     /// lúc đó chưa có file nào để đo, nên `cloneTotalBytes` trả 0.
     static let cloneApproximateBytes: Int64 = 95_500_985
 
+    /// Gói **nhân bản giọng VieNeu Turbo** (1.3.892, tuỳ chọn): `speaker_encoder.onnx` (chung với gói clone Nano ở trên)
+    /// + `denoiser.onnx` (khử nhiễu mẫu, resemble-enhance). Hai file cùng ở `common/` của kho mirror, cất chung `Models/`
+    /// như `sea_g2p.bin` ở `Assets/` — Turbo không có thư mục model ONNX riêng. Cố ý **không** nằm trong `requiredNames`.
+    static let turboCloneGraphNames = ["speaker_encoder.onnx", "denoiser.onnx"]
+
+    /// Dung lượng gói nhân bản Turbo khi tải đủ — 28.303.423 + 42.661.414 byte (HF API `blobs=true` của kho mirror @
+    /// `3486d7da`). Hằng số vì nhãn nút tải phải nói trước sẽ tốn bao nhiêu.
+    static let turboCloneByteCount: Int64 = 70_964_837
+
     /// Toàn bộ file bắt buộc phải có trước khi engine chạy được.
     static var requiredNames: [String] { graphNames + configNames + assetNames }
 
@@ -123,6 +132,20 @@ final class VieNeuModelStore {
         }
     }
 
+    // MARK: - Gói nhân bản giọng Turbo (tuỳ chọn)
+
+    var hasTurboCloneGraphs: Bool {
+        Self.turboCloneGraphNames.allSatisfy { exists($0) }
+    }
+
+    var missingTurboCloneGraphNames: [String] {
+        Self.turboCloneGraphNames.filter { !exists($0) }
+    }
+
+    var turboCloneTotalBytes: Int64 {
+        byteCount(of: Self.turboCloneGraphNames)
+    }
+
     // MARK: - Xoá
 
     /// Xoá **từng file đã biết**, không xoá cả thư mục: `modelsURL`/`assetsURL` còn có thể chứa file
@@ -132,18 +155,36 @@ final class VieNeuModelStore {
     /// graph mồ côi thì lần sau tải lại cũng vô ích. **Không** đụng giọng user — chúng nằm ở thư mục riêng
     /// `CustomVoices/` (xem `VieNeuCustomVoiceStore`), không phải `Models/`/`Assets/`.
     func deleteAll() throws {
-        var names = Self.requiredNames + Self.cloneGraphNames
+        var names = Self.requiredNames + Self.cloneGraphNames + Self.turboCloneGraphNames
         // `sea_g2p.bin` là bộ phiên âm **dùng chung** với VieNeu Turbo (`VieNeuTurboTextFrontend`). Máy còn model Turbo
         // thì giữ lại: xoá đi là Turbo hỏng ngầm — model hiệu lực lật về Nano (vừa bị xoá), trình đọc không còn engine.
+        // Cùng lý do, giữ gói nhân bản giọng Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.892).
         if (try? VieNeuTurboModelStore())?.hasModel == true {
-            names.removeAll { $0 == "sea_g2p.bin" }
+            let shared = Set(["sea_g2p.bin"] + Self.turboCloneGraphNames)
+            names.removeAll { shared.contains($0) }
+        }
+        try delete(names: Array(Set(names)))
+    }
+
+    /// Xoá **chỉ 3 graph clone** của Nano — dùng khi người dùng muốn thu hồi riêng gói tuỳ chọn này. Gói nhân bản Turbo
+    /// còn (`denoiser.onnx` trên đĩa) thì giữ `speaker_encoder.onnx`: hai gói dùng chung file đó.
+    func deleteCloneGraphs() throws {
+        var names = Self.cloneGraphNames
+        if exists("denoiser.onnx") {
+            names.removeAll { $0 == "speaker_encoder.onnx" }
         }
         try delete(names: names)
     }
 
-    /// Xoá **chỉ 3 graph clone** — dùng khi người dùng muốn thu hồi riêng gói tuỳ chọn này.
-    func deleteCloneGraphs() throws {
-        try delete(names: Self.cloneGraphNames)
+    /// Xoá gói nhân bản giọng **Turbo**: luôn xoá `denoiser.onnx`; giữ `speaker_encoder.onnx` khi gói clone Nano còn
+    /// graph khác (`codec_encoder` / `reference_encoder`) — xoá đi là nhân bản giọng Nano hỏng ngầm.
+    func deleteTurboCloneGraphs() throws {
+        var names = Self.turboCloneGraphNames
+        let nanoCloneInUse = Self.cloneGraphNames.contains { $0 != "speaker_encoder.onnx" && exists($0) }
+        if nanoCloneInUse {
+            names.removeAll { $0 == "speaker_encoder.onnx" }
+        }
+        try delete(names: names)
     }
 
     private func delete(names: [String]) throws {

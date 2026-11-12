@@ -19,7 +19,8 @@ import Foundation
 /// (`NghiTTSClient.swift:104-155`) nên không tạo ra mô hình tải thứ hai trong app.
 final class VieNeuModelClient {
     /// URL trong kho mirror của một file theo **tên** trong `VieNeuModelStore` — `VieNeuModelMirror.nanoStorePath`
-    /// chọn thư mục: `sea_g2p.bin` và `speaker_encoder.onnx` (dùng chung với Turbo) ở `common/`, còn lại ở `nano/`:
+    /// chọn thư mục: `sea_g2p.bin`, `speaker_encoder.onnx`, `denoiser.onnx` (dùng chung với Turbo) ở `common/`, còn lại ở
+    /// `nano/`:
     /// graph / cấu hình = bản sao `pnnbao-ump/VieNeu-TTS-v3-Nano` @ `aba295eb96a6fa6003ebe417cc1f2802a7adc1dc`,
     /// `voices_v3_nano.json` = bản sao `pnnbao97/VieNeu-TTS` @ `2e982ff857bbe23fffa0c314e0f60da2497e2f4b`,
     /// `sea_g2p.bin` (62.829.820 byte) = bản sao `pnnbao97/sea-g2p` @ `e825173f235d08ea19315b2b279fb11153b44cea`.
@@ -75,6 +76,14 @@ final class VieNeuModelClient {
         }
     }
 
+    /// Hai nguồn của **gói nhân bản giọng Turbo** (1.3.892): `speaker_encoder.onnx` + `denoiser.onnx`, cả hai ở `common/`
+    /// của kho mirror. File đã có (vd `speaker_encoder.onnx` của gói clone Nano) thì `downloadAll` bỏ qua.
+    static func turboCloneSources() throws -> [Source] {
+        try VieNeuModelStore.turboCloneGraphNames.map {
+            try source(name: $0, urlString: fileURL($0))
+        }
+    }
+
     private static func source(name: String, urlString: String) throws -> Source {
         guard let url = URL(string: urlString) else { throw DownloadError.badURL(name) }
         return Source(name: name, url: url)
@@ -93,6 +102,12 @@ final class VieNeuModelClient {
     @discardableResult
     func prefetchCloneGraphs(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
         try await downloadAll(try Self.cloneSources(), progressHandler: progressHandler)
+    }
+
+    /// Tải **gói nhân bản giọng Turbo** (2 file, ~71 MB). Cùng khuôn tiến độ với `prefetch`.
+    @discardableResult
+    func prefetchTurboCloneGraphs(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+        try await downloadAll(try Self.turboCloneSources(), progressHandler: progressHandler)
     }
 
     private func downloadAll(

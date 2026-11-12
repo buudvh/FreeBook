@@ -77,9 +77,9 @@ final class VieNeuTurboVoiceCloneCoordinator {
         return missing.isEmpty ? nil : .clonePackMissing(missing)
     }
 
-    /// `speaker_encoder.onnx` luôn cần; `denoiser.onnx` chỉ khi khử nhiễu.
+    /// Gói nhân bản Turbo (`VieNeuModelStore.turboCloneGraphNames`); tắt khử nhiễu thì chỉ cần `speaker_encoder.onnx`.
     static func requiredGraphNames(denoise: Bool) -> [String] {
-        denoise ? ["speaker_encoder.onnx", "denoiser.onnx"] : ["speaker_encoder.onnx"]
+        denoise ? VieNeuModelStore.turboCloneGraphNames : ["speaker_encoder.onnx"]
     }
 
     /// Trình đọc truyện đang phát bằng Turbo ⇒ không tạo giọng: lượt mã hoá chiếm hàng đợi runtime vài giây và chồng

@@ -1,8 +1,8 @@
 import Combine
 import Foundation
 
-/// Trung tâm tiến độ **tải model TTS** cho cả app: nguồn sự thật duy nhất cho ba đường tải
-/// (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu gói graph nhân bản).
+/// Trung tâm tiến độ **tải model TTS** cho cả app: nguồn sự thật duy nhất cho các đường tải
+/// (NghiTTS từng giọng, VieNeu 8 file lõi, VieNeu gói graph nhân bản, gói nhân bản giọng Turbo).
 ///
 /// ## Vì sao phải là singleton, không phải `@State` của View
 /// Trước 1.3.472, mỗi màn tự giữ tiến độ trong `@State` (`TTSModelManagerView.downloadingStatus`,
@@ -28,11 +28,13 @@ import Foundation
 public final class ModelDownloadCenter: ObservableObject {
     public static let shared = ModelDownloadCenter()
 
-    /// Khoá của ba đích tải. `nghiVoice(id:)` ghép tiền tố nên tra theo giọng luôn tất định.
+    /// Khoá của các đích tải. `nghiVoice(id:)` ghép tiền tố nên tra theo giọng luôn tất định.
     public enum Target {
         public static let nghiPrefix = "nghi-"
         public static let vieNeuModel = "vieNeu-model"
         public static let vieNeuClone = "vieNeu-clone"
+        /// Gói nhân bản giọng VieNeu Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.892).
+        public static let vieNeuTurboClone = "vieNeu-turbo-clone"
 
         public static func nghiVoice(_ voiceId: String) -> String { nghiPrefix + voiceId }
     }
@@ -221,6 +223,35 @@ public final class ModelDownloadCenter: ObservableObject {
                 do {
                     _ = try await VieNeuModelClient(store: service.modelStore)
                         .prefetchCloneGraphs(progressHandler: handler)
+                } catch {
+                    failure = error.localizedDescription
+                }
+            } else {
+                failure = "Không dựng được kho model VieNeu (thư mục Application Support không ghi được)."
+            }
+            guard let self else { return }
+            self.finish(id: id, title: title, failure: failure)
+        }
+    }
+
+    /// Tải gói **nhân bản giọng VieNeu Turbo** (2 file, ~71 MB, tuỳ chọn) vào kho của Nano (`Models/`).
+    public func startVieNeuTurboClonePack() {
+        let id = Target.vieNeuTurboClone
+        let title = "Gói nhân bản giọng Turbo"
+        guard tasks[id] == nil else { return }
+        upsert(Entry(id: id, title: title, message: "Bắt đầu tải…", fraction: 0))
+
+        let handler: @Sendable (String, Double) -> Void = { message, fraction in
+            Task { @MainActor in
+                ModelDownloadCenter.shared.update(id: id, message: message, fraction: fraction)
+            }
+        }
+
+        tasks[id] = Task { [weak self] in
+            var failure: String?
+            if let store = try? VieNeuModelStore() {
+                do {
+                    _ = try await VieNeuModelClient(store: store).prefetchTurboCloneGraphs(progressHandler: handler)
                 } catch {
                     failure = error.localizedDescription
                 }
