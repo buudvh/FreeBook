@@ -31,8 +31,9 @@ struct TTSQuickControlSheet: View {
     @StateObject private var ttsState = TTSWidgetStateReader()
     @StateObject private var info = TTSWidgetBarInfoReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
-    @State private var showingTimerSheet = false
-    @State private var timerSheetTab = 0
+    /// Tab mở của sheet Hẹn giờ (`nil` = đóng). Dùng `.sheet(item:)`: trước đây gán tab rồi bật cờ `isPresented` cùng lúc
+    /// ⇒ sheet dựng với tab cũ, "Mục lục" mở ra tab Hẹn giờ.
+    @State private var timerSheet: TimerSheetTab?
     @State private var showingSettings = false
 
     var body: some View {
@@ -63,9 +64,9 @@ struct TTSQuickControlSheet: View {
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(16)
             .presentationBackground { DrawerGlassSheetBackground() }
-            .sheet(isPresented: $showingTimerSheet) {
+            .sheet(item: $timerSheet) { tab in
                 Group {
-                    TTSQuickTimerSheet(initialTab: timerSheetTab)
+                    TTSQuickTimerSheet(initialTab: tab.rawValue)
                 }
                 .appGlassSheet()
             }
@@ -140,7 +141,7 @@ struct TTSQuickControlSheet: View {
     /// ⏱: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại màu nhấn (cùng chữ với viên hẹn giờ của thanh TTS).
     private var timerButton: some View {
         Button {
-            openTimerSheet(tab: 0)
+            timerSheet = .timer
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: "timer")
@@ -272,7 +273,7 @@ struct TTSQuickControlSheet: View {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            actionButton(title: "Mục lục", systemImage: "list.bullet", tint: .primary) { openTimerSheet(tab: 1) }
+            actionButton(title: "Mục lục", systemImage: "list.bullet", tint: .primary) { timerSheet = .chapters }
             actionButton(title: "Giọng đọc", systemImage: "waveform", tint: .primary) { showingSettings = true }
             actionButton(title: "Dừng", systemImage: "stop.circle", tint: Color.red) { onStop() }
         }
@@ -299,11 +300,6 @@ struct TTSQuickControlSheet: View {
         }
     }
 
-    private func openTimerSheet(tab: Int) {
-        timerSheetTab = tab
-        showingTimerSheet = true
-    }
-
     @ViewBuilder
     private var settingsSheet: some View {
         if let container = MediaDiscWindowManager.shared.modelContainer {
@@ -322,6 +318,14 @@ struct TTSQuickControlSheet: View {
     }
 
     // MARK: - Lồng (một type chính mỗi file)
+
+    /// Tab con mở sẵn của `TTSQuickTimerSheet`: ⏱ ⇒ Hẹn giờ tắt, "Mục lục" ⇒ Danh sách chương.
+    private enum TimerSheetTab: Int, Identifiable {
+        case timer = 0
+        case chapters = 1
+
+        var id: Int { rawValue }
+    }
 
     /// Câu đang đọc + vạch tiến độ chương. View riêng giữ `TTSQuickControlNowReading` để chỉ khối này vẽ lại theo đoạn.
     private struct NowReadingBlock: View {
