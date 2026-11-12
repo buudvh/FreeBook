@@ -25,7 +25,8 @@ struct TTSSettingsView: View {
     @State var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
-    @State private var hasResumed = false
+    /// `false` khi màn bị gỡ khỏi stack / sheet đóng; vẫn `true` khi chỉ bị trang con hay tab khác che (1.3.896).
+    @Environment(\.isPresented) private var isPresented
     /// Chế độ chất lượng VieNeu. **Phải là `@State`** — không được đọc thẳng
     /// `VieNeuTTSService.preferredMode` trong `Picker`: `VieNeuTTSService` là class thường (không
     /// `@Observable`) nên SwiftUI **không thấy** nó đổi, và đó đúng là lỗi "chọn xong không đổi ngay" đã gặp
@@ -366,12 +367,11 @@ struct TTSSettingsView: View {
         // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ tiêu đề giữa.
         .pageTitle("Cài đặt TTS", style: isPresentedAsSheet ? .leading : .centered)
         .onAppear {
-            self.hasResumed = false
             // Phải đọc lại mỗi lần mở màn: `@State` chỉ khởi tạo một lần lúc View dựng ⇒ mở lại từ tab
             // Cài đặt hiện giá trị mặc định thay vì giá trị đã lưu (lỗi 1.3.456).
             refreshVieNeuSettings()
-            // Tạm dừng phát để cấu hình
-            ttsManager.prepareForSettings()
+            // Tạm dừng phát để cấu hình — chỉ lần mở đầu; hiện lại sau trang con / đổi tab thì không (1.3.896).
+            TTSSettingsPauseSession.begin()
             Task { await loadSystemVoices() }
             if TTSManager.isExtensionTool(ttsManager.tool) {
                 if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
@@ -387,17 +387,11 @@ struct TTSSettingsView: View {
             Task { await loadVoicesForCurrentTool() }
         }
         .onDisappear {
-            if !hasResumed {
-                hasResumed = true
-                // 1. Tự động lưu cấu hình extension (nếu có thay đổi)
-                if TTSManager.isExtensionTool(ttsManager.tool) {
-                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
-                       ttsManager.extensionConfigJson != ext.configJson {
-                        ttsManager.extensionConfigJson = ext.configJson
-                    }
-                }
-                // 2. Tiếp tục phát truyện ngay tại đoạn dở dang với cấu hình mới
-                ttsManager.resumeAfterSettings()
+            // `isPresented` còn `true` ⇒ màn chỉ bị che (trang con đẩy lên, đổi tab), chưa đóng ⇒ chưa đọc tiếp.
+            // Đóng thật ⇒ lưu cấu hình tiện ích + đọc tiếp tại đoạn dở với cấu hình mới (`TTSSettingsPauseSession`).
+            AppLogger.shared.log("[TTSSettings] onDisappear isPresented=\(isPresented) sheet=\(isPresentedAsSheet)")
+            if !isPresented {
+                TTSSettingsPauseSession.finish(caller: "TTSSettingsView.onDisappear")
             }
         }
         .onChange(of: ttsManager.tool) { _, newVal in

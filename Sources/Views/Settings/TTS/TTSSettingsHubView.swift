@@ -28,6 +28,8 @@ struct TTSSettingsHubView: View {
             }
         }.glassSheetRows() }
         .backPageTitle("Nghe truyện (TTS)")
+        // Hub hiện lại ⇒ Cài đặt TTS đẩy từ đây đã đóng: đọc tiếp nếu chưa (phòng khi `onDisappear` của nó không chạy).
+        .onAppear { TTSSettingsPauseSession.finish(caller: "TTSSettingsHubView.onAppear") }
     }
 
     /// Tên hiển thị của engine theo giá trị `ttsTool` (khoá UserDefaults `TTSManager` ghi): dùng cho chữ phụ của

@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.897] - 2026-11-12
+
+### fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab
+
+Anh Bửu báo: *"nếu như từ cài đặt tts tôi chưa đóng sheet hoặc thoát màn hình đó mà sang màn hình khác mà bấm và nav qua màn khác thì sẽ xảy ra lỗi tts tự phát như đóng sheet"*.
+
+**Nguyên nhân.** `TTSSettingsView.onDisappear` gọi thẳng `resumeAfterSettings()`. `onDisappear` chạy cả khi một trang con được đẩy lên trên (Cài đặt VieNeu, NghiTTS, từ điển…) và khi chuyển tab. Vì vậy TTS đọc lại dù sheet / trang vẫn mở.
+
+Khi hiện lại, màn gọi `prepareForSettings()` lần hai, ghi đè ảnh chụp cấu hình lúc mở. Hệ quả: thay đổi làm trước khi vào trang con bị bỏ qua lúc đóng (không dựng lại đoạn, có thể đọc tiếp audio của cấu hình cũ).
+
+**Sửa.**
+- `TTSSettingsPauseSession` (mới, `Views/TTSWidget/`) giữ một cờ chung, gọi nhiều lần cũng như một.
+  - `begin()`: chỉ lần mở đầu mới dừng + chụp cấu hình.
+  - `finish(caller:)`: chỉ ở lối **đóng thật**:
+    - `onDisappear` khi `@Environment(\.isPresented)` = `false`; còn `true` nghĩa là chỉ bị che;
+    - `onDismiss` của sheet (`TTSSettingsSheetHost`), phòng khi sheet đóng lúc đang ở trang con;
+    - `onAppear` của `TTSSettingsHubView` và trang gốc Cài đặt, phòng khi bị pop thẳng về gốc.
+- Nếu trong lúc màn còn mở người dùng đã bật đọc truyện / chương khác, `finish()` chỉ khép phiên. Không "đọc tiếp đoạn đã lưu", vì sẽ nhảy về vị trí của phiên cũ.
+- Lưu cấu hình tiện ích TTS trước khi đọc tiếp: chuyển từ `onDisappear` vào `finish()`.
+- Log `[TTSSettings]` ghi `isPresented` ở `onDisappear` và ai gọi `begin` / `finish`, để kiểm trên máy.
+- **Kiểm chứng:** đọc code + grep chéo (`prepareForSettings` / `resumeAfterSettings` chỉ còn gọi qua `TTSSettingsPauseSession`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build (Windows), chưa thử máy. Hành vi `isPresented` khi màn gốc của sheet bị trang con che là điểm chưa chắc: log trên máy sẽ cho biết.
+
 ## [1.3.896] - 2026-11-12
 
 ### fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn
@@ -525,18 +547,3 @@ Anh Bửu: "Sheet 'đang đọc chương này' hiển thị đừng có ẩn n�
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: đang nghe truyện, bấm tai nghe trúng chương đang đọc ⇒ sheet hiện, đĩa nghe + hub vẫn thấy mờ dưới lớp tối; chọn "Đọc tiếp chỗ đang đọc" / "Đọc từ đoạn đang xem" / "Đọc lại từ đầu chương" ⇒ Reader làm đúng như cũ; vuốt sheet xuống ⇒ không làm gì, đĩa vẫn ở đó.
-
-## [1.3.867] - 2026-11-11
-
-### feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn
-
-Anh Bửu: "để cho viên thuốc tự tránh header và thanh tab dù có hay không luôn, tránh nó chạy lên chạy xuống" (đã duyệt mockup + plan). Áp cho cả ba viên: đĩa nghe, nút hub, nút trình duyệt thu nhỏ.
-
-- `EdgePillZone` (mới, `Views/Common/GlassChrome/`): vùng đứng cố định — mép trên ≥ vùng an toàn trên + 52 (header 44 + 8), mép dưới ≤ vùng an toàn đáy − 76 (= khe 12 + nút "+" 52 + khe 12). iPhone 15: 111…742 pt ⇒ luôn trên thanh tab (769), nút "+" (754), thanh dưới trình duyệt (766), nút tai nghe Reader (750) — **kể cả màn không có chúng**, nên đổi tab / đẩy trang / mở sheet không làm viên thuốc lên xuống. Chỗ người dùng kéo tới vẫn lưu nguyên; vùng chỉ kẹp lúc vẽ và lúc thả.
-- **Đĩa nghe** (`MediaDiscPlacement`): dải dọc lấy từ `EdgePillZone`; chỉ neo / cửa sổ phim nhỏ **lấn vào vùng** (mép trên cao hơn đáy vùng — cụm pill của menu "+" đang xổ ở màn danh sách có Home, cửa sổ phim nhỏ kéo lên) chồng cột mới tạm đẩy đĩa lên. Nút "+", Home, tai nghe, thanh tab, thanh dưới không còn đẩy đĩa (trước đây đẩy theo từng màn ⇒ nhảy).
-- **Nút hub, nút trình duyệt**: lề trên / dưới đổi từ 12 pt quanh vùng an toàn sang `EdgePillZone` (kẹp lúc vẽ, lúc giữ chỗ với widget khác, lúc thả tay) ⇒ không còn kéo lên được header hay xuống đè thanh tab / thanh dưới. Bỏ hằng `verticalMargin`.
-- `CLAUDE.md` / `AGENTS.md`: câu chỗ đứng của đĩa, câu thanh tab 4 ô, câu "Cùng khuôn" của hub / trình duyệt.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: đang nghe, đi qua lại trang gốc Kệ (thanh tab + "+") ⇄ trang đẩy vào (không thanh tab) ⇄ Reader ⇒ đĩa đứng yên một chỗ. Kéo hub / nút trình duyệt lên sát đỉnh ⇒ dừng dưới header; kéo xuống đáy ⇒ dừng trên thanh tab. Ở màn danh sách có "+" kèm Home, bấm "+" xổ menu ⇒ đĩa mép phải né lên, đóng menu ⇒ về chỗ.

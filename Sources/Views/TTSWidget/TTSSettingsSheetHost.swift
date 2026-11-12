@@ -15,7 +15,11 @@ struct TTSSettingsSheetHost: ViewModifier {
     @ObservedObject private var ttsManager = TTSManager.shared
 
     func body(content: Content) -> some View {
-        content.sheet(isPresented: $ttsManager.showingSettingsSheet) {
+        // `onDismiss`: sheet đóng lúc đang ở trang con thì `TTSSettingsView` không còn `onDisappear` nào nữa ⇒ đọc tiếp ở
+        // đây (gọi trùng với `onDisappear` cũng không sao — `TTSSettingsPauseSession` chỉ chạy một lần, 1.3.896).
+        content.sheet(isPresented: $ttsManager.showingSettingsSheet, onDismiss: {
+            TTSSettingsPauseSession.finish(caller: "sheet.onDismiss")
+        }) {
             Group {
                 if let container = MediaDiscWindowManager.shared.modelContainer {
                     TTSSettingsSheet()
