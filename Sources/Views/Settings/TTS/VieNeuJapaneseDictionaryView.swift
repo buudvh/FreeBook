@@ -9,9 +9,9 @@ import UniformTypeIdentifiers
 /// 2026-10-01). Khoá luôn được **gấp dấu phụ** trước khi lưu — lúc đọc app tra bằng khoá đã gấp, nên khoá
 /// còn macron là mục chết.
 ///
-/// ## Hai công tắc áp dụng **không** nằm ở đây — có ý
-/// "Áp dụng từ điển phiên âm VieNeu" và "Tự động phiên âm tiếng Nhật" chỉ có ở *Cài đặt TTS → Quản lý riêng
-/// của trình đọc*. Màn này chỉ hiện **dòng trạng thái**, vì cả hai cờ mặc định **TẮT** ⇒ vừa thêm từ xong
+/// ## Công tắc áp dụng **không** nằm ở đây — có ý
+/// "Áp dụng từ điển phiên âm VieNeu" chỉ có ở *Cài đặt TTS → Quản lý riêng của trình đọc* ("Tự động phiên âm tiếng
+/// Nhật" bỏ ở 1.3.898, luôn tắt). Màn này chỉ hiện **dòng trạng thái**, vì cờ mặc định **TẮT** ⇒ vừa thêm từ xong
 /// sẽ chưa nghe thấy khác, và đó là chỗ dễ tưởng tính năng hỏng nhất.
 ///
 /// ## Vì sao dùng lại `EditWordSheet` của màn NghiTTS

@@ -27,16 +27,6 @@ struct TTSSettingsView: View {
     @State private var showApiKey: Bool = false
     /// `false` khi màn bị gỡ khỏi stack / sheet đóng; vẫn `true` khi chỉ bị trang con hay tab khác che (1.3.896).
     @Environment(\.isPresented) private var isPresented
-    /// Chế độ chất lượng VieNeu. **Phải là `@State`** — không được đọc thẳng
-    /// `VieNeuTTSService.preferredMode` trong `Picker`: `VieNeuTTSService` là class thường (không
-    /// `@Observable`) nên SwiftUI **không thấy** nó đổi, và đó đúng là lỗi "chọn xong không đổi ngay" đã gặp
-    /// ở màn thử giọng (`VieNeuTTSTestView`). Khởi tạo bằng giá trị đang lưu để mở màn khi đã chọn `vieneu`
-    /// vẫn hiện đúng; `onChange(of: ttsManager.tool)` làm mới khi đổi engine.
-    @State var vieNeuSelectedMode: VieNeuSynthesisPolicy.Mode? = VieNeuTTSService.shared?.preferredMode
-    /// "Tiết kiệm pin" + số luồng ORT (VieNeu). `@State` vì `VieNeuTTSService` không `@Observable`
-    /// (cùng lý do như `vieNeuSelectedMode`); khởi tạo bằng giá trị đang lưu.
-    @State var vieNeuPowerSaving: Bool = VieNeuTTSService.shared?.powerSaving ?? true
-    @State var vieNeuThreadCount: Int = VieNeuTTSService.shared?.threadCount ?? 2
     /// Tốc độ **tổng hợp** của VieNeu (1.3.465) — đưa thẳng vào model, **nhân** với `ttsManager.speed`
     /// thành tốc độ nghe. `@State` vì thanh trượt cần một giá trị quan sát được; giá trị thật nằm ở
     /// `UserDefaults` và được làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).
@@ -157,7 +147,7 @@ struct TTSSettingsView: View {
             }
 
             // Section 3: Quản lý riêng của trình đọc
-            Section("Quản lý riêng của trình đọc") {
+            Section {
                 if ttsManager.tool == "google" {
                     HStack {
                         Text("Trạng thái Key hệ thống:")
@@ -242,6 +232,8 @@ struct TTSSettingsView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
+            } header: {
+                readerManagementHeader
             }
 
             voiceSection
@@ -404,7 +396,6 @@ struct TTSSettingsView: View {
             } else {
                 ttsManager.extensionLocalPath = ""
                 ttsManager.extensionConfigJson = "{}"
-                vieNeuSelectedMode = VieNeuTTSService.shared?.preferredMode
                 Task { await loadVoicesForCurrentTool() }
             }
         }

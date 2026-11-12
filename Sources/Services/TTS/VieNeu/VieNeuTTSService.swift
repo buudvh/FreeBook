@@ -113,24 +113,9 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         }
     }
 
-    /// "Tiết kiệm pin" (mặc định bật): ép `fast` + 2 luồng ORT. Ép `fast` **ngay** (không chờ `prepare()`); tắt
-    /// thì trả về lựa chọn người dùng (`preferredMode`) hoặc để tự thích nghi.
+    /// "Tiết kiệm pin": ép `fast` + 2 luồng ORT — luôn bật từ 1.3.898 (`VieNeuSynthesisPolicy.isPowerSaving`).
     var powerSaving: Bool {
-        get { VieNeuSynthesisPolicy.isPowerSaving(.standard) }
-        set {
-            UserDefaults.standard.set(newValue, forKey: VieNeuSynthesisPolicy.powerSavingKey)
-            if newValue {
-                engine.setRequestedMode(.fast)
-            } else {
-                preferredMode = nil   // tắt Tiết kiệm pin ⇒ về "Tự động"
-            }
-        }
-    }
-
-    /// Số luồng ORT (2...4). Có hiệu lực khi engine **nạp lại** — tự động ở lượt tổng hợp kế tiếp (`VieNeuTTSEngine+Reload`).
-    var threadCount: Int {
-        get { Int(VieNeuSynthesisPolicy.threadCount(from: .standard)) }
-        set { UserDefaults.standard.set(max(2, min(4, newValue)), forKey: VieNeuSynthesisPolicy.threadCountKey) }
+        VieNeuSynthesisPolicy.isPowerSaving(.standard)
     }
 
     init(store: VieNeuModelStore, engine: VieNeuTTSEngine) {

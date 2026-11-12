@@ -13,10 +13,10 @@ import Foundation
 /// một đường — đúng như lớp số/ngày (`normalizeVietnameseText`) đang làm.
 enum VieNeuJapanesePreprocessor {
 
-    /// Khoá `UserDefaults` **riêng của VieNeu** — cố ý **không** dùng `PreprocessorSettingKey` của NghiTTS.
-    /// Cả hai mặc định **TẮT** (`bool(forKey:)` trả `false` khi khoá chưa có).
+    /// Khoá `UserDefaults` **riêng của VieNeu** — cố ý **không** dùng `PreprocessorSettingKey` của NghiTTS. Mặc định
+    /// **TẮT** (`bool(forKey:)` trả `false` khi khoá chưa có). Khoá phiên âm romaji (`vieneuJapaneseTransliterationEnabled`)
+    /// không còn được đọc từ 1.3.898.
     static let dictionaryEnabledKey = "vieneuDictionaryEnabled"
-    static let japaneseTransliterationEnabledKey = "vieneuJapaneseTransliterationEnabled"
 
     /// Gấp 5 nguyên âm macron về ASCII. **An toàn tuyệt đối, không cần cổng chặn**: `ā ī ū ē ō` không tồn
     /// tại trong bảng chữ tiếng Việt (a ă â e ê i o ô ơ u ư y + dấu thanh), nên phép gấp này **không thể**
@@ -30,13 +30,15 @@ enum VieNeuJapanesePreprocessor {
         String(text.map { macronMap[$0] ?? $0 })
     }
 
-    /// Đọc **cả hai** cờ từ `UserDefaults` rồi chạy. Tách ra để tầng service chỉ thêm **một dòng**.
+    /// Đọc cờ từ điển từ `UserDefaults` rồi chạy. Tách ra để tầng service chỉ thêm **một dòng** (Nano và Turbo cùng gọi).
+    ///
+    /// **Phiên âm romaji tự động luôn tắt** từ 1.3.898 (công tắc "Tự động phiên âm tiếng Nhật" ở Cài đặt TTS đã bỏ): giá
+    /// trị cũ ở khoá `vieneuJapaneseTransliterationEnabled` bị bỏ qua, không xoá. Từ điển phiên âm vẫn theo cờ của nó.
     static func applyUsingStoredFlags(text: String) async -> String {
-        let defaults = UserDefaults.standard
-        return await apply(
+        await apply(
             text: text,
-            dictionaryEnabled: defaults.bool(forKey: dictionaryEnabledKey),
-            japaneseTransliterationEnabled: defaults.bool(forKey: japaneseTransliterationEnabledKey)
+            dictionaryEnabled: UserDefaults.standard.bool(forKey: dictionaryEnabledKey),
+            japaneseTransliterationEnabled: false
         )
     }
 

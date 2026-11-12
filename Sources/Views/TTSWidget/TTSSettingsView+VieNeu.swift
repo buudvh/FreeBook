@@ -51,25 +51,16 @@ extension TTSSettingsView {
     /// nguyên tên giọng của VieNeu, rồi nhánh NghiTTS lọc `isModelDownloaded` trên những tên đó ⇒ hiện
     /// "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Lỗi có sẵn từ trước nhưng chỉ lộ ra khi có engine
     /// thứ hai cùng dùng mảng này.
-    /// Đọc lại ba thiết lập VieNeu **thẳng từ `UserDefaults`** mỗi lần mở màn Cài đặt.
+    /// Đọc lại thiết lập VieNeu **thẳng từ `UserDefaults`** mỗi lần mở màn Cài đặt (lỗi 1.3.456: `@State` chỉ khởi
+    /// tạo **một lần** lúc View dựng, nên mở lại màn từ tab Cài đặt thấy giá trị mặc định thay vì giá trị đã lưu).
     ///
-    /// **Vì sao cần** (lỗi 1.3.456 — *"vào cài đặt TTS từ tab setting thì luôn hiển thị giá trị mặc định
-    /// (bật tiết kiệm pin) dù đã thay đổi cài đặt rồi"*): ba giá trị này là `@State` của
-    /// `TTSSettingsView`, nên chỉ được khởi tạo **một lần** lúc View dựng — mà lúc đó
-    /// `VieNeuTTSService.shared` có thể chưa tồn tại ⇒ `?? true` rơi về mặc định "Tiết kiệm pin: BẬT".
-    /// Trước đây chỉ `vieNeuSelectedMode` được làm mới (trong `.onChange(of: ttsManager.tool)`), còn
-    /// `vieNeuPowerSaving` / `vieNeuThreadCount` **không bao giờ** được làm mới ⇒ mở lại màn là thấy sai.
-    ///
-    /// Đọc thẳng `UserDefaults` (không qua service) nên kết quả đúng bất kể service đã dựng chưa.
+    /// Từ 1.3.898 không còn "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn Cân bằng + 2 luồng).
     func refreshVieNeuSettings() {
-        vieNeuPowerSaving = VieNeuSynthesisPolicy.isPowerSaving(.standard)
-        vieNeuThreadCount = Int(VieNeuSynthesisPolicy.threadCount(from: .standard))
-        vieNeuSelectedMode = VieNeuSynthesisPolicy.preferredMode(from: .standard)
-        // Tốc độ tổng hợp (1.3.465) — cùng lý do: đọc thẳng `UserDefaults`, không qua service.
+        // Tốc độ tổng hợp (1.3.465) — đọc thẳng `UserDefaults`, không qua service.
         vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
-        // Hai cờ tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do như ba giá trị trên.
+        // Cờ từ điển tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do.
         vieNeuJapaneseFlags.refresh()
-        // Model Turbo có trên máy chưa + danh sách giọng — quyết định mục Turbo của Picker "Trình đọc".
+        // Model Turbo có trên máy chưa + danh sách giọng — quyết định nhóm Turbo của Picker giọng.
         VieNeuTurboLab.shared.refreshStatus()
     }
 
@@ -104,9 +95,6 @@ extension TTSSettingsView {
             }
             .font(.caption)
             .foregroundColor(.secondary)
-            Text("Model nói nhanh hơn, máy mát hơn. 1.15x ít lặp chữ nhất, quá 1.25x mất chữ.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
         }
         .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
             // Bước 0,05 cộng dồn số thực ra kiểu 1.1500000000000001 ⇒ làm tròn 2 chữ số khi lưu (1.3.502).
@@ -138,31 +126,22 @@ extension TTSSettingsView {
 
     /// Khối **quản lý riêng của trình đọc** cho VieNeu — hiện thẳng trong Section 3 của màn Cài đặt.
     ///
-    /// **Chỉ chứa thứ thật sự thuộc về engine**: chế độ chất lượng (`fast`/`high`/tự động). Các tham số
-    /// *hiệu năng* (số đoạn tải trước, độ dài phân đoạn, ngưỡng nạp bộ đệm) nằm ở Section 5
-    /// "Tải trước dữ liệu" — xem `vieNeuPrefetchSection`. Tách như vậy để **không có hai nguồn sự thật**:
-    /// trước lượt 1.3.435 số đoạn tải trước xuất hiện ở **cả** Section 3 **và** Section 5.
+    /// Từ 1.3.898 chỉ còn công tắc từ điển phiên âm + lối vào / nút tải từ điển tiếng Nhật, chung cho Nano lẫn Turbo. Đã
+    /// bỏ (giá trị cũ giữ nguyên, không đọc nữa): "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn
+    /// Cân bằng 8 bước + 2 luồng — `VieNeuSynthesisPolicy.isPowerSaving`), "Luồng tổng hợp chờ bận (spin)" (luôn tắt),
+    /// "Tự động phiên âm tiếng Nhật" (luôn tắt), hàng "Tổng hợp Turbo" và chú thích. Giải thích nằm sau nút "?" của
+    /// tiêu đề (`readerManagementHeader`).
     ///
-    /// **Tốc độ và cao độ không lặp lại ở đây**: chúng đã có slider ở Section 4, chỉ khác khoá lưu
-    /// (`vieneuRate`/`vieneuPitch` nhờ `persistSpeed`/`persistPitch`). Lặp lại sẽ tạo hai nguồn sự thật.
-    ///
-    /// Turbo (đợt B): bốn hàng hiệu năng của Nano thay bằng một hàng "Tổng hợp Turbo"; giữ hai công tắc tiếng Nhật + từ
-    /// điển; ẩn "Giọng của tôi" (giọng nhân bản chỉ dùng với Nano), thay bằng chú thích.
+    /// Tham số *hiệu năng* (số đoạn tải trước, độ dài phân đoạn, ngưỡng nạp bộ đệm) nằm ở Section 5 "Tải trước dữ liệu"
+    /// — xem `vieNeuPrefetchSection` (một nguồn sự thật, bài học 1.3.435).
     @ViewBuilder
     var vieNeuReaderSection: some View {
-        if isVieNeuTurboSelected {
-            vieNeuTurboEngineRow
-        } else {
-            vieNeuNanoEngineRows
-        }
-        // 5. Hai công tắc **riêng của VieNeu** cho tiền xử lý tiếng Nhật (dùng chung cho Nano và Turbo). Cả hai mặc định
-        //    **TẮT** nên mặc định VieNeu đọc y như trước — chỉ khác đúng một thứ luôn chạy: gấp macron về ASCII
-        //    (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
+        // Công tắc **riêng của VieNeu** cho từ điển phiên âm tiếng Nhật (chung cho Nano và Turbo). Mặc định **TẮT**: VieNeu
+        // chỉ gấp macron về ASCII (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
         Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
-        Toggle("Tự động phiên âm tiếng Nhật", isOn: $vieNeuJapaneseFlags.transliterationEnabled)
 
-        // 6. Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì
-        //    người dùng không biết phải làm gì.
+        // Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì người dùng không
+        // biết phải làm gì.
         if vieNeuJapaneseFlags.dictionaryDownloaded {
             NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
                 Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
@@ -179,66 +158,24 @@ extension TTSSettingsView {
             }
         }
 
-        // 7. Lối vào **giọng nhân bản** (chỉ Nano; Turbo hiện chú thích thay vào).
-        //
-        // Chỉ hiện khi đã có `voices_v3_nano.json`: màn đó đọc catalog để dựng danh sách, mà thiếu file
-        // ấy thì nó chỉ hiện được một câu báo lỗi — vào được cũng không làm gì. Điều kiện **không** gồm
-        // gói graph clone: màn đó tự có nút tải gói ấy, nên chặn ở đây là chặn đúng đường tải.
-        if isVieNeuTurboSelected {
-            vieNeuTurboReaderNote
-        } else if vieNeuModelReady {
+        // Lối vào **giọng nhân bản** của Nano — chuyển vào sheet chọn giọng ở bản sau.
+        if vieNeuModelReady {
             NavigationLink(destination: VieNeuVoiceLibraryView()) {
                 Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
             }
         }
     }
 
-    /// Bốn hàng hiệu năng **chỉ của Nano**: Tiết kiệm pin, Chế độ tạo audio, Số luồng tổng hợp, spin ORT.
+    /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": VieNeu có nút "?" giải thích cấu hình cố định của hai model.
     @ViewBuilder
-    private var vieNeuNanoEngineRows: some View {
-        // 1. Tiết kiệm pin (LÊN TRÊN): bật ⇒ ghim "Cân bằng" + 2 luồng, khoá 2 picker bên dưới.
-        Toggle("Tiết kiệm pin", isOn: Binding(
-            get: { vieNeuPowerSaving },
-            set: { newValue in
-                vieNeuPowerSaving = newValue
-                VieNeuTTSService.shared?.powerSaving = newValue
-                if !newValue { vieNeuSelectedMode = nil }   // tắt ⇒ về "Tự động"
-            }
-        ))
-        // 2. Chế độ tạo audio
-        Picker("Chế độ tạo audio", selection: Binding(
-            get: { vieNeuPowerSaving ? VieNeuSynthesisPolicy.Mode?.some(.fast) : vieNeuSelectedMode },
-            set: { vieNeuSelectedMode = $0 }
-        )) {
-            Text("Tự động").tag(VieNeuSynthesisPolicy.Mode?.none)
-            ForEach(VieNeuSynthesisPolicy.Mode.allCases, id: \.self) { mode in
-                Text(mode.displayName).tag(VieNeuSynthesisPolicy.Mode?.some(mode))
-            }
+    var readerManagementHeader: some View {
+        if ttsManager.tool == "vieneu" {
+            SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
+                "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng."
+            ])
+        } else {
+            Text("Quản lý riêng của trình đọc")
         }
-        .pickerStyle(.menu)
-        .disabled(vieNeuPowerSaving)
-        // Đẩy lựa chọn xuống service. Setter của `preferredMode` gọi `engine.setRequestedMode(...)` nên có
-        // hiệu lực **ngay**. UI giữ giá trị trong `@State` vì `VieNeuTTSService` không `@Observable`.
-        .onChange(of: vieNeuSelectedMode) { _, newValue in
-            VieNeuTTSService.shared?.preferredMode = newValue
-        }
-        // 3. Số luồng tổng hợp (2/3/4, KHÔNG kèm ngoặc bổ nghĩa). Mức 1 bỏ ở 1.3.509: cùng CPU-time với 2 luồng mà chậm gấp đôi.
-        Picker("Số luồng tổng hợp", selection: Binding(
-            get: { vieNeuPowerSaving ? 2 : vieNeuThreadCount },
-            set: { vieNeuThreadCount = $0; VieNeuTTSService.shared?.threadCount = $0 }
-        )) {
-            ForEach([2, 3, 4], id: \.self) { count in
-                Text("\(count) luồng").tag(count)
-            }
-        }
-        .pickerStyle(.menu)
-        .disabled(vieNeuPowerSaving)
-        // 4. Giải thích — LUÔN hiển thị (nối thuyết minh khi bật Tiết kiệm pin).
-        Text("Nhiều luồng ít chờ hơn nhưng nóng máy hơn." + (vieNeuPowerSaving ? " Tiết kiệm pin đang ghim Cân bằng + 2 luồng." : ""))
-            .font(.caption)
-            .foregroundColor(.secondary)
-        // 4b. Spin của pool luồng ORT (1.3.488) — mặc định tắt, bật chỉ để so A/B năng lượng.
-        VieNeuOrtSpinToggle()
     }
 
     /// Khối "Tải trước dữ liệu" của VieNeu (Section 5).
@@ -308,7 +245,7 @@ extension TTSSettingsView {
     }
 }
 
-/// Ba trạng thái của phần **tiếng Nhật** cho VieNeu.
+/// Hai trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.898).
 ///
 /// **Vì sao không dùng `@AppStorage`**: `TTSSettingsView.swift` chỉ còn **3 dòng** tới trần 519 của
 /// `check_architecture.py`, mà hai `@AppStorage` cộng một `@State` là vừa đúng 3 dòng. Gom vào một
@@ -323,18 +260,12 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
         didSet { UserDefaults.standard.set(dictionaryEnabled, forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey) }
     }
 
-    /// "Tự động phiên âm tiếng Nhật" — mặc định **TẮT**.
-    @Published var transliterationEnabled: Bool = false {
-        didSet { UserDefaults.standard.set(transliterationEnabled, forKey: VieNeuJapanesePreprocessor.japaneseTransliterationEnabledKey) }
-    }
-
     /// Từ điển đã có dưới máy chưa — quyết định hiện lối vào hay hiện cảnh báo + nút tải.
     @Published var dictionaryDownloaded: Bool = false
 
     func refresh() {
         let defaults = UserDefaults.standard
         dictionaryEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
-        transliterationEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.japaneseTransliterationEnabledKey)
         dictionaryDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
     }
 }

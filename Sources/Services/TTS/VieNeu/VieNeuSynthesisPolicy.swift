@@ -109,16 +109,19 @@ enum VieNeuSynthesisPolicy {
         Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
     }
 
-    /// Cho luồng pool ORT **spin** (chờ bận) hay không. Mặc định **tắt** (1.3.488): spin đốt CPU-time giữa các
-    /// op mà gần như không đổi tốc độ. Bật chỉ để so A/B. Áp dụng khi **nạp lại engine**. **Hàm thuần**.
+    /// Cho luồng pool ORT **spin** (chờ bận) hay không — **luôn tắt** từ 1.3.898 (công tắc ở Cài đặt TTS đã bỏ): spin
+    /// đốt CPU-time giữa các op mà gần như không đổi tốc độ (đo 1.3.488). Giá trị cũ ở `allowSpinningKey` bị bỏ qua,
+    /// không xoá. Giữ tham số `defaults` để chữ ký không đổi.
     static func allowSpinning(from defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: allowSpinningKey)
+        false
     }
 
-    /// "Tiết kiệm pin": ép `fast` + 2 luồng. **Mặc định BẬT** khi chưa có khoá (user chốt 2026-09-30).
-    /// **Hàm thuần** — nhận `defaults` từ caller.
+    /// "Tiết kiệm pin": ép `fast` (Cân bằng, 8 bước) + 2 luồng — **luôn bật** từ 1.3.898 (công tắc, "Chế độ tạo audio" và
+    /// "Số luồng tổng hợp" ở Cài đặt TTS đã bỏ). Giá trị cũ ở `powerSavingKey` / `threadCountKey` / `preferredModeKey`
+    /// bị bỏ qua, không xoá. Màn thử giọng Nano vẫn đặt được chế độ tạm thời qua `VieNeuTTSService.preferredMode` (tới
+    /// lượt `prepare` kế tiếp), màn thử Turbo vẫn ghi đè số luồng trong lúc đo.
     static func isPowerSaving(_ defaults: UserDefaults) -> Bool {
-        defaults.object(forKey: powerSavingKey) == nil ? true : defaults.bool(forKey: powerSavingKey)
+        true
     }
 
     /// Số luồng ORT **hiệu dụng**: "Tiết kiệm pin" ghim 2 luồng, ngược lại dùng giá trị đã chọn.

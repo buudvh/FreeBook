@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Phần **VieNeu Turbo** của màn Cài đặt TTS: hàng tải model 188 MB tại chỗ, Picker giọng gộp Nano + Turbo (1.3.897: model
-/// đi theo giọng), hàng "Tổng hợp Turbo" + chú thích, và cảnh báo tốc độ.
+/// đi theo giọng), cảnh báo tốc độ và nút "?" của section "Cấu hình giọng nói".
 ///
 /// Tách file riêng vì `TTSSettingsView.swift` là file legacy chỉ được giảm dòng — ở đó chỉ đổi đúng một dòng (selection
 /// của Picker "Trình đọc"); `+VieNeu` / `+Voice` chỉ thêm lời gọi tới các khối ở đây.
@@ -138,24 +138,10 @@ extension TTSSettingsView {
         .tag(VieNeuVoiceSelection(model: .turbo, voiceId: voice.id).key)
     }
 
-    // MARK: - Quản lý riêng của trình đọc
-
-    /// Thay bốn hàng của Nano (Tiết kiệm pin, Chế độ tạo audio, Số luồng, spin ORT): Turbo luôn chạy CPU 2 luồng.
-    var vieNeuTurboEngineRow: some View {
-        LabeledContent("Tổng hợp Turbo", value: "\(VieNeuTurboTTSService.threadCount) luồng, cố định")
-    }
-
-    /// Chú thích cuối nhóm "Quản lý riêng của trình đọc" khi đang chọn Turbo.
-    var vieNeuTurboReaderNote: some View {
-        Text("iPhone chỉ có 2 lõi hiệu năng, thêm luồng làm Turbo chậm hơn. Máy ấm sau vài phút đọc là bình thường. Giọng nhân bản (Giọng của tôi) chỉ dùng với Nano.")
-            .font(.caption)
-            .foregroundColor(.secondary)
-    }
-
     // MARK: - Cấu hình giọng nói
 
-    /// Dưới thanh Tốc độ khi đang chọn Turbo: cảnh báo khi vượt mức Turbo tổng hợp kịp + chú thích thay hàng "Tốc độ tổng
-    /// hợp (VieNeu)" (Turbo không có tốc độ tổng hợp).
+    /// Dưới thanh Tốc độ khi giọng đang chọn là Turbo: **chỉ** cảnh báo cam khi vượt mức Turbo tổng hợp kịp. Giải thích
+    /// (Turbo không có tốc độ tổng hợp) nằm sau nút "?" của section (`voiceSectionHelp`).
     @ViewBuilder
     var vieNeuTurboSpeedNotes: some View {
         let limit = VieNeuTurboTTSService.realtimeSpeedLimit
@@ -170,9 +156,14 @@ extension TTSSettingsView {
             // `.orange` literal có chủ ý (như cảnh báo tốc độ nghe của Nano): màu nhấn do người dùng chọn có thể là cam.
             .foregroundColor(.orange)
         }
-        Text("Turbo luôn tổng hợp ở tốc độ gốc, tốc độ nghe chỉnh bằng thanh trên.")
-            .font(.caption2)
-            .foregroundColor(.secondary)
+    }
+
+    /// Nút "?" của section "Cấu hình giọng nói" khi trình đọc là VieNeu.
+    var voiceSectionHelp: some View {
+        SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: [
+            "Turbo luôn tổng hợp ở tốc độ gốc, tốc độ nghe chỉnh bằng thanh Tốc độ. Turbo theo kịp tới khoảng 2,0×. Giọng Nano có thêm Tốc độ tổng hợp.",
+            "Tốc độ tổng hợp (Nano): model nói nhanh hơn, máy mát hơn. 1,15× ít lặp chữ nhất, quá 1,25× mất chữ. Tốc độ nghe thực tế = tốc độ tổng hợp × Tốc độ."
+        ])
     }
 
     /// "1,6" — dấu phẩy thập phân như chữ trong mockup.

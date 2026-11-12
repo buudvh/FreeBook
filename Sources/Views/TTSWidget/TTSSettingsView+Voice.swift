@@ -13,8 +13,11 @@ extension TTSSettingsView {
     /// Tốc độ / cao độ và — với VieNeu — tốc độ **tổng hợp**.
     @ViewBuilder
     var voiceSection: some View {
-        Section(header: HStack {
+        Section(header: HStack(spacing: 6) {
             Text("Cấu hình giọng nói")
+            if ttsManager.tool == "vieneu" {
+                voiceSectionHelp
+            }
             Spacer()
             Button(action: {
                 ttsManager.speed = 1.0
@@ -50,7 +53,7 @@ extension TTSSettingsView {
                     }
                 }
                 Slider(value: $ttsManager.speed, in: TTSSpeedPolicy.playbackRange, step: 0.1)
-                // Turbo: cảnh báo khi tốc độ vượt mức tổng hợp kịp + chú thích thay hàng "Tốc độ tổng hợp".
+                // Giọng Turbo: chỉ cảnh báo cam khi tốc độ vượt mức tổng hợp kịp (giải thích ở nút "?").
                 if isVieNeuTurboSelected {
                     vieNeuTurboSpeedNotes
                 }

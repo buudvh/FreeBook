@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.899] - 2026-11-12
+
+### refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật
+
+Theo mockup anh Bửu duyệt: Cài đặt TTS khi trình đọc là VieNeu chỉ giữ thứ người dùng thật sự chỉnh, giải thích dời vào nút "?" cạnh tiêu đề section.
+
+- **"Quản lý riêng của trình đọc"** (có "?": Nano luôn Cân bằng 8 bước + 2 luồng, không chờ bận; Turbo luôn 2 luồng trên lõi hiệu năng) chỉ còn công tắc "Áp dụng từ điển phiên âm VieNeu" + lối vào / nút tải "Từ điển phiên âm tiếng Nhật".
+- **Bỏ**, giá trị cũ đã lưu giữ nguyên nhưng không đọc nữa:
+  - "Tiết kiệm pin", "Chế độ tạo audio", "Số luồng tổng hợp": `VieNeuSynthesisPolicy.isPowerSaving` luôn `true` ⇒ Nano luôn `fast` + 2 luồng (`vieneuPowerSaving`, `vieneuPreferredMode`, `vieneuThreadCount` bỏ qua). Màn thử Nano vẫn đặt chế độ tạm tới lượt `prepare` kế.
+  - "Luồng tổng hợp chờ bận (spin)": `allowSpinning` luôn `false` (`vieneuOrtAllowSpinning` bỏ qua); xoá `VieNeuOrtSpinToggle`.
+  - "Tự động phiên âm tiếng Nhật": `VieNeuJapanesePreprocessor.applyUsingStoredFlags` luôn tắt romaji cho cả Nano lẫn Turbo (`vieneuJapaneseTransliterationEnabled` bỏ qua); bỏ dòng trạng thái ở màn từ điển.
+  - Hàng "Tổng hợp Turbo" + chú thích Turbo.
+- **"Cấu hình giọng nói"** có "?" khi trình đọc là VieNeu (Turbo tổng hợp ở tốc độ gốc, theo kịp tới ~2,0×; Nano có Tốc độ tổng hợp, 1,15× ít lặp chữ nhất). Giọng Turbo chỉ còn cảnh báo cam khi tốc độ > 2,0×; hàng "Tốc độ tổng hợp (VieNeu)" của Nano bỏ chú thích dài.
+- **Kiểm chứng:** đọc code + grep chéo các khoá / hàm đã đổi; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, `TTSSettingsView.swift` giảm 449 → 440 dòng. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.898] - 2026-11-12
 
 ### feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc
@@ -532,18 +547,3 @@ Anh Bửu: "sửa sheet nút + của kệ cũng giống hub luôn, hiện tại 
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: tab Kệ sách ⇒ "+" ⇒ sheet ba dòng nằm trên đĩa nghe / hub; Từ URL ⇒ sheet "Nhập từ URL" lên, gõ được (bàn phím hiện), dán link ⇒ mở Chi tiết; Mở trình duyệt ⇒ trang chủ trình duyệt; Từ file ⇒ bộ chọn file; ngăn kéo … › Nhập truyện ⇒ cùng sheet.
-
-## [1.3.869] - 2026-11-11
-
-### feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên
-
-Anh Bửu: "để cho nút + ở chi tiết sẽ mở ra sheet như sheet hub vậy" (đã duyệt mockup + plan).
-
-- **Sheet hành động kiểu hub** dùng chung (mới, `Views/Common/HubStyleSheet/`): `HubStyleActionSheetContent` (tiêu đề + chú thích phải + các dòng: icon, tên, dòng phụ, màu icon, `›`, việc làm), `HubStyleActionSheet` (khuôn sheet hub: nền kính ngăn kéo, bo 16, cao vừa nội dung, vuốt xuống để đóng, nền tối), `HubStyleActionSheetRow` (khuôn dòng của sheet hub: ô bo góc `hubSheetPanelRow`, cao 56) và `.hubStyleActionSheet(_:)` — trình bày qua `OverlaySheetPresenter` ⇒ nằm **trên** mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm việc; không trình bày được ⇒ lùi về sheet thường của màn (log `[HubStyleSheet]`).
-- **Chi tiết truyện** (`BookDetailFloatingActions`): nút "+" là nút tròn thường, chạm ⇒ sheet: dòng đầu tên truyện (bản đang hiện) + "Ch. N/tổng" (truyện chưa lưu ⇒ "N chương"); Đọc ngay / Đọc tiếp (Đọc tiếp kèm tên chương sẽ mở, cùng luật tên chương của tab Mục lục), Thêm vào kệ / Đã ở kệ (icon xanh, "Chạm để bỏ khỏi kệ"), Tải, Xuất, "Về trang gốc" dưới cùng khi trang có Home. Thuộc tính `floatingActionButton` chuyển sang `BookDetailView+FloatingActions` (file legacy ngắn đi 23 dòng).
-- `OverlaySheetPresenter.dismiss(then:)`: chạm dòng thứ hai lúc sheet đang trượt xuống ⇒ bỏ qua (trước đó việc chạy luôn ⇒ hai lần). Việc kèm theo khai `@MainActor () -> Void` (cùng kiểu `action` của dòng — tránh lỗi đổi hàm mất actor khi biên dịch); `HubStyleActionSheetModifier` gắn `@MainActor`.
-- `CLAUDE.md` / `AGENTS.md`: mục Nút Home nổi + luật sheet trên viên thuốc.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: Chi tiết truyện đã lưu ⇒ "+" ⇒ sheet có tên + "Ch. N/tổng", "Đọc tiếp" có tên chương; chạm từng dòng (đọc, bỏ / thêm kệ, tải, xuất, về trang gốc) ⇒ sheet đóng rồi làm đúng việc; đĩa nghe / hub vẫn thấy dưới lớp tối của sheet; truyện chưa lưu ⇒ "N chương", "Đọc ngay"; Chi tiết mở trong Reader ⇒ không có dòng "Về trang gốc".
