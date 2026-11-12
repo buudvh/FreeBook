@@ -248,7 +248,23 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         ).data
     }
 
-    /// `flowBackend` chỉ màn thử truyền (P1b: Core ML cho vòng Euler + codec) — xem doc `VieNeuFlowBackend`.
+    /// Đúng chữ ký của `LocalTTSEngine` (trình đọc) — luôn đường ORT.
+    func synthesizeWithDuration(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
+        priority: SynthesisPriority = .demand,
+        requestID: UUID = UUID(),
+        synthesisKey: String? = nil
+    ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
+        try await synthesizeWithDuration(
+            text: text, voice: voice, speed: speed, boundaryKind: boundaryKind, priority: priority,
+            requestID: requestID, synthesisKey: synthesisKey, flowBackend: nil
+        )
+    }
+
+    /// Bản có `flowBackend` — chỉ màn thử truyền (P1b: Core ML cho vòng Euler + codec), xem doc `VieNeuFlowBackend`.
     func synthesizeWithDuration(
         text: String,
         voice: String,
@@ -257,7 +273,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         synthesisKey: String? = nil,
-        flowBackend: VieNeuFlowBackend? = nil
+        flowBackend: VieNeuFlowBackend?
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
             text: text,

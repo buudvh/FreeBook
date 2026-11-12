@@ -195,7 +195,7 @@ final class VieNeuAutoThermalRun {
                 )
                 legs.append(leg)
                 if engine == .coreML {
-                    backend?.releaseSessions() // lượt ORT sau bắt đầu cùng trạng thái RAM như lượt đầu
+                    backend.releaseSessions() // lượt ORT sau bắt đầu cùng trạng thái RAM như lượt đầu
                 }
                 saveReport()
             }
