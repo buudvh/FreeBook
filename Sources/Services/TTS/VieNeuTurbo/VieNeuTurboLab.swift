@@ -65,6 +65,8 @@ final class VieNeuTurboLab {
     let frontend: VieNeuTurboTextFrontend?
     let g2pDictionaryURL: URL?
     let soak = VieNeuTurboSoakRunner()
+    /// Phép thử P1 "So EP cho Nano" (Core ML / ANE / XNNPACK) — `VieNeuTurboLab+Nano.startEPProbe`.
+    let epProbe = VieNeuNanoEPProbe()
 
     // MARK: File
 
@@ -154,7 +156,7 @@ final class VieNeuTurboLab {
     }
 
     var isBusy: Bool {
-        isDownloading || isWorking || soak.isRunning
+        isDownloading || isWorking || soak.isRunning || epProbe.isRunning
     }
 
     var selectedVoice: VieNeuTurboVoiceManifest.Voice? {
@@ -167,6 +169,7 @@ final class VieNeuTurboLab {
         bytesOnDisk = store?.totalBytes ?? 0
         thermalState = ProcessInfo.processInfo.thermalState
         reloadVoices()
+        epProbe.refresh()
     }
 
     private func reloadVoices() {
@@ -192,6 +195,8 @@ final class VieNeuTurboLab {
             return [statusMessage, lastReport].filter { !$0.isEmpty }.joined(separator: "\n\n")
         case .soak:
             return soak.reportText()
+        case .epProbe:
+            return epProbe.reportText()
         }
     }
 

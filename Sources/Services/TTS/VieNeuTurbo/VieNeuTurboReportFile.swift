@@ -13,6 +13,8 @@ struct VieNeuTurboReportFile: Transferable {
         case sample
         /// Tổng kết + từng phút + mọi đoạn của lượt "Đọc liên tục".
         case soak
+        /// Báo cáo phép thử P1 "So EP cho Nano" (`VieNeuNanoEPProbe`).
+        case epProbe
     }
 
     let kind: Kind
@@ -21,7 +23,12 @@ struct VieNeuTurboReportFile: Transferable {
 
     init(kind: Kind, engineName: String) {
         self.kind = kind
-        let prefix = kind == .sample ? "doc-thu" : "doc-lien-tuc"
+        let prefix: String
+        switch kind {
+        case .sample: prefix = "doc-thu"
+        case .soak: prefix = "doc-lien-tuc"
+        case .epProbe: prefix = "so-ep"
+        }
         fileName = "vieneu-\(engineName)-\(prefix)-\(Self.fileStamp.string(from: Date())).txt"
     }
 

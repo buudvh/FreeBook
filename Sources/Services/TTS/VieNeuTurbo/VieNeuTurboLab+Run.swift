@@ -299,6 +299,7 @@ extension VieNeuTurboLab {
     /// Trình đọc đang chọn Turbo thì **giữ** model: runtime + bộ phiên âm dùng chung với nó, nhả là đoạn kế phải nạp lại.
     func leaveScreen() {
         soak.stop(reason: "rời màn thử")
+        epProbe.stop()
         stopSample()
         endNanoOverride()
         let runtime = self.runtime

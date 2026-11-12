@@ -92,4 +92,24 @@ extension VieNeuTurboLab {
             }
         }
     }
+
+    /// Phép thử P1 "So EP cho Nano": dừng mọi lượt đang chạy + TTS chính, nhả Turbo và engine Nano (~280 MB) để Core ML
+    /// có chỗ biên dịch, rồi mới tính. Lượt đọc truyện kế tiếp tự nạp lại engine của nó.
+    func startEPProbe() {
+        guard !isBusy else { return }
+        epProbe.start { [weak self] in
+            guard let self else { return }
+            stopSample()
+            soak.stop(reason: "chạy So EP")
+            takeOverAudio()
+            await releaseTask?.value
+            await nanoRestoreTask?.value
+            await runtime.release()
+            frontend?.unload()
+            isRuntimeLoaded = false
+            if let service = VieNeuTTSService.shared {
+                _ = await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
+            }
+        }
+    }
 }

@@ -13,6 +13,8 @@
 
 // Cầu nối C API của ONNX Runtime cho engine VieNeu-TTS.
 #include "../../Services/TTS/VieNeu/VieNeuONNXBridge.h"
+// Cầu nối tổng quát (chỉ float32) cho phép thử P1 "So EP cho Nano" ở màn thử VieNeu Turbo.
+#include "../../Services/TTS/VieNeu/VieNeuONNXProbeBridge.h"
 
 // libxml2 hệ thống cho XPath của nguồn Legado.
 #include "../../Services/LegadoSource/Rule/LegadoLibXML2.h"

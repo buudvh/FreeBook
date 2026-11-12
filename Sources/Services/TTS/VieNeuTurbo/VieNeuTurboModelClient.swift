@@ -115,7 +115,8 @@ final class VieNeuTurboModelClient: Sendable {
         )
     }
 
-    private static func transfer(
+    /// `internal` (không `private`) vì gói graph tĩnh của phép thử Nano (`VieNeuNanoStaticPackage`) tải cùng đường này.
+    static func transfer(
         session: URLSession,
         from url: URL,
         to destination: URL,

@@ -2,6 +2,54 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.889] - 2026-11-12
+
+### feat: màn thử VieNeu có phép thử So EP cho Nano (Core ML, Neural Engine, XNNPACK) với graph tĩnh
+
+Anh Bửu duyệt P1 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md` §8): *"làm đi"*. Chỉ thêm phép thử ở màn thử VieNeu Turbo — **đường đọc truyện không đổi** (vẫn ORT CPU, cùng tiếng).
+
+- **Script xuất graph tĩnh** `Scripts/vieneu_nano_static_export.py`:
+  - Đọc model `pnnbao-ump/VieNeu-TTS-v3-Nano` rev `aba295eb` (Apache-2.0). Trọng số giữ nguyên, chỉ sửa graph.
+  - `vector_estimator`:
+    - mở mask khung `/ConstantOfShape` thành input `frame_mask` ⇒ chạy ở T đệm mà trùng kết quả T thật;
+    - đóng băng T + L = 200, gấp hằng (ORT BASIC);
+    - đổi `Where(mask, −FLT_MAX)` thành `Add(bias)`;
+    - tách **prep** (chạy CPU; hai mask nhận float rồi tự `Cast`) và **main** (0 op ngoài danh sách Core ML EP, 0 tensor bool / int).
+  - `codec_decoder` nhân quả ⇒ đệm cuối rồi cắt là trùng bit. Gộp `Pad` vào `Conv.pads`, đổi BatchNorm thành Mul + Add.
+  - Gói P1 (10 file, ~417 MB):
+    - VE + codec T128 nhúng trọng số;
+    - VE T234 / T256 dùng chung `ve_main.weights` (external data) để đối chứng H1 (lỗi T234 tháng 10);
+    - `golden.npz`: 5 đoạn đã qua phonemizer / text_encoder / duration + tham chiếu của graph gốc;
+    - `manifest.json` (sha256), `NOTICE.txt`.
+  - **Tự kiểm** nạp lại từ đĩa và so với graph gốc: v bước 0 ≥ 110 dB, latent ≥ 100 dB, sóng âm ≥ 90 dB (theo sàn fp32 khác kernel). Rớt thì không ghi manifest.
+- **Gói đặt ở kho HF `raikiri1498/VieNeu-TTS`, thư mục `nano-static/`** (anh chọn; cùng kho với model, `VieNeuModelMirror`):
+  - App đọc `resolve/main/nano-static/` — gói mới chưa có commit để ghim như `VieNeuModelMirror.revision`; mọi file kiểm sha256 theo `manifest.json` tải cùng lượt.
+  - Workflow chạy tay `.github/workflows/vieneu-nano-static.yml`: ghim `onnx` / `onnxruntime 1.24.2`, xuất + tự kiểm, rồi `hf upload` bằng **Trusted Publisher** (OIDC, không secret).
+  - Một lần, anh thêm Trusted Publisher ở trang cài đặt của kho HF: Provider GitHub Actions; claim `repository = buudvh/FreeBook`, `branch = main`, `workflow = vieneu-nano-static.yml`.
+- **Cầu nối C tổng quát** `VieNeuONNXProbeBridge.h/.m` (thêm vào `FreeBookBridgingHeader.h`):
+  - Chỉ float32. Session CPU / `CoreML` / `XNNPACK` qua `SessionOptionsAppendExecutionProvider`, chạy theo tên, trả cả shape output.
+  - Bắt stderr lúc tạo session vào file để đọc bảng partition của EP (chẩn đoán, có thể rỗng).
+  - Cầu nối cũ `VieNeuONNXBridge` không đổi.
+- **Phép thử** (`Services/TTS/VieNeu/Probe/`):
+  - `VieNeuNanoStaticPackage`: tải theo manifest, kiểm dung lượng + sha256, cất ở `FreeBook/TTS/VieNeu/Static/` (thuộc loại TTS của màn Dung lượng). `VieNeuTurboModelClient.transfer` hạ `private` thành `internal` để dùng chung.
+  - `VieNeuNanoGolden` đọc golden bằng `NPZReader`.
+  - `VieNeuNanoEPWorker` chạy lần lượt ORT CPU (tham chiếu trên máy) → Core ML CPU-only → GPU → Neural Engine → XNNPACK:
+    - mỗi cấu hình một lượt, nhả session trước khi sang cấu hình kế;
+    - **không** đặt `ModelCacheDirectory`: mỗi lượt chỉ dựng một session mỗi graph; giữ bản biên dịch fp32 của 4 graph × 3 compute unit tốn hơn 1,5 GB đĩa; thư mục tạm của ORT tự xoá; không cache cũng loại hẳn chuyện ANE dùng lại bản biên dịch cho CPU-only (khoá cache của EP chỉ là hash model);
+    - Core ML CPU-only dưới 60 dB ở v bước 0 / có NaN / lỗi ⇒ **tự bỏ qua GPU + ANE**;
+    - ghi ms + CPU-ms mỗi lượt VE và codec, SNR v0 / latent / sóng âm, NaN;
+    - H1: main T234 so với T256.
+  - `VieNeuGEMMBench` đo Accelerate `cblas_sgemm` (kiểm AMX).
+- **Màn thử** — mục "So EP cho Nano (P1)":
+  - Tải / xoá gói (xoá cả WAV + log), chạy / dừng, dòng tóm tắt từng cấu hình.
+  - Chia sẻ báo cáo `.txt` (`VieNeuTurboReportFile.Kind.epProbe`) và WAV tham chiếu / từng cấu hình.
+  - Trước khi chạy: dừng TTS, nhả Turbo + engine Nano (`startEPProbe`).
+  - Màn hình không tự tắt khi đang chạy (rời màn thì trả lại ở `onDisappear`). Rời màn là dừng. `isBusy` tính cả phép thử.
+- **Kiểm chứng:**
+  - Script chạy trên PC: tự kiểm đạt (v0 121–124 dB, latent 111–116 dB, sóng âm 96–109 dB, T234 / T256 123,7 dB).
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - Không build tại chỗ (Windows), chưa thử máy. Gói chưa đăng (cần Trusted Publisher + chạy workflow từ `main`).
+
 ## [1.3.888] - 2026-11-12
 
 ### feat: VieNeu Nano và Turbo tải model từ kho raikiri1498/VieNeu-TTS
@@ -456,24 +504,3 @@ Anh Bửu duyệt mockup: sheet điều khiển nhanh TTS (mở từ đĩa nghe)
     2. "Chương trước" ⇒ chương 127.
     3. Chương đầu / chương cuối ⇒ nút tương ứng mờ, bấm không có tác dụng.
     4. Đang tạm dừng mà bấm nút chương ⇒ đọc luôn chương mới (như chọn ở mục lục).
-
-## [1.3.859] - 2026-11-11
-
-### feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt
-
-Anh Bửu: "giữ lại 1 kiểu thôi widget thôi nhé, là widget của tts thôi ấy". Widget TTS chỉ còn **đĩa nghe** dùng chung với nhạc (nửa viên thuốc dính mép của 1.3.858 + ô giữa thanh tab); kiểu **Đĩa nổi** (trước là mặc định) bỏ hẳn.
-
-- `MediaDiscWindowManager.resolveKind`: TTS có phiên ⇒ đĩa TTS, không còn xét kiểu widget. Ai đang dùng Đĩa nổi tự sang đĩa nghe; ô giữa thanh tab có đĩa thật khi đang nghe truyện (trước đó là đĩa xám nếu chọn Đĩa nổi).
-- **Xoá 9 file**: `FloatingWidgetContainerViewController`, `FloatingWidgetUIWindow`, `FloatingWidgetViewModel`, `TTSFloatingWidgetView`, `TTSFloatingWidgetWindowManager`, `TTSFloatingWidgetContaining`, `TTSWidgetStyle`, `TTSWidgetPreferences`, `TTSWidgetSettingsView`. Khoá `ttsWidgetStyle` / `ttsWidgetVerticalRatio` / `ttsWidgetEdge` bỏ mặc, không đọc nữa.
-- `TTSCoverView` + `TTSCoverImageLoader` (mặt đĩa TTS và sheet điều khiển nhanh dùng) dời ra file riêng trong `Views/TTSWidget/` trước khi xoá file cũ. **Sửa build** (commit cùng tên, CI lượt 43016106688 đỏ): `CoverRotationState` (góc xoay bìa, `AudioCoverRotation` / `TTSWidgetCoverRotation` / `TTSRotatingCoverView` dùng) cũng nằm trong `TTSFloatingWidgetView.swift` mà bị sót ⇒ dời nguyên văn sang `Views/TTSWidget/CoverRotationState.swift`; grep lại mọi type của các file đã xoá trong đợt, không còn chỗ dùng nào khác.
-- Gỡ chỗ gọi: `FreeBookApp` (4 chỗ; `modelContainer` của đĩa nghe nay cũng set trong `.task(id:)` và khi TTS bật/tắt phiên), `ReaderView` (`requestRevealOnNextShow`), `TTSQuickControlSheet` + `TTSSettingsSheetHost` (`modelContainer` lấy từ `MediaDiscWindowManager`), Cài đặt › Đọc & Nghe (bỏ hàng "Widget TTS"), `FloatingWidgetLayoutCoordinator` (bỏ id `.tts`).
-- `architecture_allowlist.json`: gỡ hai entry của `TTSFloatingWidgetView.swift` (file đã xoá).
-- `rules.md`: thay mục "TTS widget reveal-from-Reader invariants (1.3.277)" bằng luật một kiểu widget; luật 25 + mục nút hub nêu cửa sổ còn lại (hub, đĩa nghe, trình duyệt). `CLAUDE.md` / `AGENTS.md`: đoạn "Widget TTS chỉ một kiểu".
-- **Kiểm chứng:**
-  - Đọc code + grep chéo mọi symbol đã xoá (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Bấm tai nghe ở Reader ⇒ nửa viên đĩa TTS hiện (không còn đĩa nổi), chạm ⇒ sheet điều khiển nhanh.
-    2. Về trang gốc tab khi đang đọc ⇒ ô giữa thanh tab là đĩa bìa truyện xoay.
-    3. Sheet điều khiển nhanh ⇒ Giọng đọc / Hẹn giờ mở được (cần `modelContainer`).
-    4. Cài đặt › Đọc & Nghe không còn hàng "Widget TTS".

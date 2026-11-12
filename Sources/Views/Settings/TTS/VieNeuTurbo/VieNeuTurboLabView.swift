@@ -30,10 +30,15 @@ struct VieNeuTurboLabView: View {
             if lab.soak.isRunning || !lab.soak.summaryText.isEmpty {
                 soakResultSection
             }
+            epProbeSection
         }.glassSheetRows() }
         .backPageTitle("Thử VieNeu Turbo")
         .onAppear { lab.refreshStatus() }
-        .onDisappear { lab.leaveScreen() }
+        .onDisappear {
+            // Phép thử So EP tắt tự khoá màn khi chạy; rời màn giữa chừng thì `onChange` của mục đó không kịp chạy.
+            UIApplication.shared.isIdleTimerDisabled = false
+            lab.leaveScreen()
+        }
     }
 
     static func formattedBytes(_ bytes: Int64) -> String {
