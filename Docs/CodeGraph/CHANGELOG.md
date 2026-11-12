@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.906] - 2026-11-12
+
+### fix: Đo tự động không giữ engine Nano lúc biên dịch Core ML, kiểm RAM trước mỗi bước và ghi nhật ký từng bước
+
+Anh Bửu chạy Đo tự động bản 1.3.890 (1239) thì app sập, *"hình như nó crash ở bước 3,4/7 gì đó khi biên dịch Core ML"* (VE T128 / T160). Không có log (app bị giết, log thường tắt mặc định); nghi phạm chính là **hết RAM** (iOS giết app).
+
+- **Nhả engine Nano trong lúc chuẩn bị Core ML**: bản 1.3.890 nạp engine Nano (ORT 4 graph + bộ phiên âm, ~350 MB) **trước** khi biên dịch, còn phép thử P1 (chạy được) thì nhả nó ra. Giờ nhả (`releaseEngineRuntime`) trước bước biên dịch / nạp lại / tự kiểm, nạp lại sau đó; chế độ `fast` vẫn ghim.
+- **Nạp lại (ấm) từng session một rồi nhả**, không giữ cộng dồn tới 7 session như trước. Trần số session giữ lúc đọc tính từ RAM trống lúc nghỉ − engine nạp lại (380 MB) − chừa 600 MB, chia RAM lớn nhất một session đo được; `preload` của lượt Core ML kiểm RAM trống trước mỗi session.
+- **`autoreleasepool` quanh mỗi lần tạo session và mỗi lượt chạy** (`VieNeuONNXProbeSession`): bước chuẩn bị là **một** lời gọi đồng bộ dài trên luồng nền, nên mọi đối tượng ObjC autorelease của Core ML EP (MLModel, kết quả biên dịch, NSData, MLMultiArray) sống tới hết 7 lần biên dịch + nạp + tự kiểm — RAM dồn lên qua từng graph, khớp chuyện chết ở bước 3–4 chứ không ở bước 1. Lượt đọc (16 lượt VE mỗi đoạn trong một lời gọi của engine) cũng dọn sau từng lượt.
+- **Dọn bản biên dịch dở** (`VieNeuCoreMLPackage.removeIncompleteCacheEntries`): ORT coi graph là đã có bản lưu chỉ cần thư mục gói MLProgram tồn tại (`ModelBuilder`: `FolderExists(model_output_path_)`), mà thư mục đó ghi **trước** khi biên dịch ⇒ app bị giết giữa chừng thì lượt sau dùng lại gói dở. Trước khi biên dịch, xoá mọi mục `*_mlprogram` chưa có `compiled_model.mlmodelc`.
+- **Kiểm RAM trước mỗi lần biên dịch**: dưới 1 GB trống ⇒ dừng có báo ("tắt bớt app khác rồi bấm lại") thay vì để iOS giết app.
+- **Nhật ký từng bước sống sót khi app bị giết** (`VieNeuAutoRunTrail`, `Results/do-tu-dong-nhat-ky.txt`): ghi **trước** mỗi bước nặng (biên dịch / nạp từng graph, tự kiểm, nạp sẵn, mỗi lượt, mỗi phút) kèm RAM + nhiệt, mỗi dòng ép xuống đĩa. Mở lại màn thử mà lượt trước không có dấu kết thúc ⇒ dòng cam "Lần đo trước dừng đột ngột ở: …" + nút "Chia sẻ nhật ký từng bước"; lượt sau chép dòng đó vào đầu nhật ký mới.
+- Bản biên dịch Core ML đã xong ở lượt trước vẫn giữ trong cache ⇒ lượt sau không biên dịch lại các graph đó.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.905] - 2026-11-12
 
 ### fix: nút Mục lục của sheet nghe truyện mở sheet hẹn giờ đúng tab Danh sách chương
@@ -532,14 +547,3 @@ Anh Bửu đo 1.3.876 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng
 - **Tự cứu trong app** (`VieNeuTurboRuntime`): `audiocpp_session_run` lỗi cấp phát (`AUDIOCPP_ERR_OUT_OF_MEMORY` hoặc "allocate") ⇒ nhả session (graph + bộ đệm của nó), dựng lại cùng số luồng, đọc lại đúng đoạn đó **một** lần; lỗi khác thì báo như cũ. Thời gian / CPU đo gồm cả lần hỏng.
 - **Đo bộ nhớ**: `ProcessMemoryProbe` (mới, `Services/Diagnostics/`) — `phys_footprint` (số iOS dùng để giết app) + `os_proc_available_memory()`. Mỗi dòng đoạn của "Đọc liên tục" (màn + log) thêm "RAM … MB · trống … MB"; lỗi, dựng session, thử lại đều ghi kèm. audio.cpp `v0.9.4` (ABI 0.2) chưa có `audiocpp_log_set` nên chưa lấy được log của ggml.
 - **Kiểm chứng:** script vá chạy thử trên bản audio.cpp `v0.9.4` tải về (mốc khớp, chạy lần hai tự bỏ qua); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**; job parity trên CI là bằng chứng không đổi tiếng. Chưa thử máy.
-
-## [1.3.876] - 2026-11-11
-
-### fix: màn thử VieNeu Turbo đo Turbo và Nano cùng mức ưu tiên luồng, dừng khi bị ngắt âm thanh
-
-- Turbo (hàng đợi audio.cpp + luồng ggml) và lượt Nano của chế độ đọc liên tục cùng chạy ở QoS `utility` — cùng mức session ORT của Nano được dựng; QoS quyết chuyện lõi hiệu năng hay lõi tiết kiệm nên hai engine phải chung một mức. Mô tả engine, số đo đọc thử và log ghi rõ QoS.
-- Đo Nano thì nhả Turbo trước (model ~188 MB + `sea_g2p.bin` của Turbo) để bớt áp lực bộ nhớ và cửa sổ CPU của Nano không lẫn Turbo; lượt Nano dùng khoá tổng hợp ngẫu nhiên nên vòng lặp sau không dùng lại kết quả vòng trước.
-- Cuộc gọi / Siri ngắt âm thanh ⇒ dừng hẳn lượt đọc liên tục (trước đó trình phát đứng im mà đồng hồ vẫn chạy).
-- Thêm chỉ số **CPU/1k ký tự** (mỗi phút và tổng kết) — không lệ thuộc giọng nói nhanh hay chậm, so hai engine công bằng hơn CPU/tiếng.
-- `build-ipa.yml` build IPA cho nhánh `feature/vieneu-turbo-gguf` (IPA chỉ gửi Telegram; nguồn LiveContainer vẫn chỉ lấy từ `main`).
-- **Kiểm chứng:** đọc code; `check_architecture.py` **0 mới**. Lượt CI của nhánh là lần biên dịch đầu; chưa thử máy.

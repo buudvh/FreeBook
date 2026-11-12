@@ -145,6 +145,7 @@ extension VieNeuAutoThermalRun {
                 nextConditionAt += 60
                 snapshotLeg(leg, lab: lab, started: started)
                 saveReport()
+                trail("lượt \(index + 1) phút \(Int(elapsed / 60)): \(lab.soak.stats.chunks) đoạn")
             }
             if !lab.soak.isRunning {
                 leg.endReason = lab.soak.errorMessage.map { "lỗi: \($0)" } ?? lab.soak.statusLine

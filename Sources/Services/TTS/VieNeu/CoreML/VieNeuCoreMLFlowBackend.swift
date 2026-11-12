@@ -55,6 +55,7 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     /// Thứ tự dùng gần nhất của session Core ML ("ve64", "codec128"…), cũ nhất ở đầu.
     private var recency: [String] = []
     private var stats = Stats()
+    private var estimateMB = 300.0
 
     init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int) {
         self.package = package
@@ -92,16 +93,28 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         return common + rare
     }
 
+    /// RAM một session Core ML chiếm khi giữ (bước chuẩn bị đo) — `preload` kiểm RAM trống trước mỗi lần nạp.
+    var sessionEstimateMB: Double {
+        get { lock.lock(); defer { lock.unlock() }; return estimateMB }
+        set { lock.lock(); estimateMB = newValue; lock.unlock() }
+    }
+
     /// Nạp sẵn (từ bản biên dịch) tới trần `sessionCap` — gọi **trước** lúc chờ mát của lượt Core ML, để chi phí nạp
-    /// (chép ~150 MB trọng số mỗi session) không rơi vào số đo của lượt. Trả số ms tổng.
+    /// (chép ~150 MB trọng số mỗi session) không rơi vào số đo của lượt. Dừng sớm khi RAM trống không đủ cho thêm một
+    /// session + chừa 600 MB (1.3.906). Trả (số session đã nạp, tổng ms).
     @discardableResult
-    func preload() throws -> Double {
+    func preload(onStep: (String) -> Void = { _ in }) throws -> (count: Int, ms: Double) {
         var total = 0.0
+        var count = 0
         for item in preloadOrder.prefix(currentSessionCap) {
             try Task.checkCancellation()
+            let memory = ProcessMemoryProbe.snapshot()
+            if memory.availableMB > 0, memory.availableMB - sessionEstimateMB < 600 { break }
+            onStep("nạp sẵn \(item.kind) T\(item.bucket)")
             total += try loadSession(kind: item.kind, bucket: item.bucket)
+            count += 1
         }
-        return total
+        return (count, total)
     }
 
     /// Nhả mọi session (giải phóng RAM của Core ML); lượt sau tự dựng lại từ cache.

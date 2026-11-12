@@ -124,6 +124,29 @@ final class VieNeuCoreMLPackage: Sendable {
         try? FileManager.default.removeItem(at: cacheDirectory)
     }
 
+    /// Xoá bản biên dịch **dở** (1.3.906): ORT coi graph là "đã có bản lưu" chỉ cần thư mục gói MLProgram tồn tại
+    /// (`ModelBuilder`: `FolderExists(model_output_path_)`), mà thư mục đó được ghi **trước** khi biên dịch — app bị giết
+    /// giữa chừng thì lượt sau dùng lại gói dở. Bản xong có `compiled_model.mlmodelc` cạnh gói; thiếu ⇒ xoá cả mục.
+    @discardableResult
+    func removeIncompleteCacheEntries() -> Int {
+        let fileManager = FileManager.default
+        guard let keys = try? fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil) else {
+            return 0
+        }
+        var removed = 0
+        for key in keys {
+            guard let entries = try? fileManager.contentsOfDirectory(at: key, includingPropertiesForKeys: nil) else { continue }
+            for entry in entries where entry.lastPathComponent.hasSuffix("_mlprogram") {
+                let compiled = entry.appendingPathComponent("compiled_model.mlmodelc", isDirectory: true)
+                if !fileManager.fileExists(atPath: compiled.path) {
+                    try? fileManager.removeItem(at: entry)
+                    removed += 1
+                }
+            }
+        }
+        return removed
+    }
+
     /// Xoá gói + cache + kết quả.
     func deleteAll() throws {
         if FileManager.default.fileExists(atPath: rootURL.path) {

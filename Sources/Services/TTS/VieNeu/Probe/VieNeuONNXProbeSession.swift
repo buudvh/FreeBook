@@ -61,10 +61,14 @@ final class VieNeuONNXProbeSession {
         var weightNamePointers: [UnsafePointer<CChar>?] = cWeightNames.map { UnsafePointer($0) }
         var weightPathPointers: [UnsafePointer<CChar>?] = cWeightPaths.map { UnsafePointer($0) }
         var message: UnsafeMutablePointer<CChar>?
-        let created = VieNeuORTProbeCreate(
-            modelPath, provider, &keyPointers, &valuePointers, Int32(keys.count), threads, logPath,
-            &weightNamePointers, &weightPathPointers, Int32(weights.count), &message
-        )
+        // `autoreleasepool` (1.3.906): Core ML EP tạo nhiều đối tượng ObjC autorelease (MLModel, kết quả biên dịch, NSData)
+        // — gọi từ một lượt đồng bộ dài (chuẩn bị 7 graph) thì chúng sống tới hết lượt, RAM dồn lên tới khi iOS giết app.
+        let created = autoreleasepool {
+            VieNeuORTProbeCreate(
+                modelPath, provider, &keyPointers, &valuePointers, Int32(keys.count), threads, logPath,
+                &weightNamePointers, &weightPathPointers, Int32(weights.count), &message
+            )
+        }
         guard let created else {
             throw ProbeError.failure(Self.consume(message, fallback: "không tạo được session"))
         }
@@ -79,6 +83,12 @@ final class VieNeuONNXProbeSession {
 
     /// Chạy một lượt với input lấy theo tên từ `feeds`; trả mọi output (dữ liệu + shape) theo tên.
     func run(_ feeds: [String: Tensor]) throws -> [String: Tensor] {
+        // Mỗi lượt dự đoán của Core ML cũng autorelease (MLMultiArray, feature provider) — một đoạn văn chạy 16 lượt VE
+        // trong một lời gọi đồng bộ của engine, nên dọn sau từng lượt.
+        try autoreleasepool { try runUnpooled(feeds) }
+    }
+
+    private func runUnpooled(_ feeds: [String: Tensor]) throws -> [String: Tensor] {
         var shapes: [Int64] = []
         var ranks: [Int32] = []
         var buffers: [UnsafeMutableBufferPointer<Float>] = []

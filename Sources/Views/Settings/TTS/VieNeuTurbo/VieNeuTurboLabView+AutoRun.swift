@@ -47,6 +47,20 @@ extension VieNeuTurboLabView {
                     .font(.footnote)
                     .foregroundStyle(Color.red)
             }
+            if let note = run.abruptNote {
+                // App bị giết giữa lượt đo (thường do hết RAM) — dòng cuối của nhật ký cho biết chết ở bước nào.
+                Text("⚠️ Lần đo trước dừng đột ngột ở:\n\(note)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Color.orange)
+                    .textSelection(.enabled)
+            }
+            if run.hasTrail, let url = run.trailURL {
+                Button {
+                    shareItem = ShareItem(urls: [url])
+                } label: {
+                    Label("Chia sẻ nhật ký từng bước", systemImage: "list.bullet.rectangle")
+                }
+            }
             ForEach(run.summaryLines, id: \.self) { line in
                 Text(line)
                     .font(.system(.caption, design: .monospaced))
