@@ -95,8 +95,8 @@ struct DictionaryListView: View {
             showingFileImporter = true
         }
         if !isGlobal {
-            SideDrawerActionRow("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up") { showingShareBookSheet = true }
-            SideDrawerActionRow("Nhập từ truyện khác...", systemImage: "square.and.arrow.down") { showingImportBookSheet = true }
+            SideDrawerActionRow("Chia sẻ sang truyện khác", systemImage: "arrowshape.turn.up.right") { showingShareBookSheet = true }
+            SideDrawerActionRow("Nhập từ truyện khác...", systemImage: "arrowshape.turn.up.left") { showingImportBookSheet = true }
         }
         if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
             SideDrawerActionRow("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up") { exportDictionary() }

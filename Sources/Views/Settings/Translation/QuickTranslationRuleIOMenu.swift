@@ -89,7 +89,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
                         .disabled(!hasRuleFile)
                     if scope.bookId != nil, let onShareAll {
-                        SideDrawerActionRow("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square") {
+                        SideDrawerActionRow("Chia sẻ bộ rule riêng sang truyện khác…", systemImage: "arrowshape.turn.up.right") {
                             onShareAll()
                         }
                         .disabled(!hasRuleFile)

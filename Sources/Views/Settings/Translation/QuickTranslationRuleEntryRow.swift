@@ -115,7 +115,7 @@ struct QuickTranslationRuleEntryRow: View {
                     } label: {
                         // Nhãn phải nói rõ đây là **cả bộ**: mục nằm trong menu của một hàng nên rất dễ
                         // hiểu thành "chia sẻ riêng rule này".
-                        Label("Chia sẻ cả bộ rule riêng sang truyện khác…", systemImage: "square.and.arrow.up.on.square")
+                        Label("Chia sẻ cả bộ rule riêng sang truyện khác…", systemImage: "arrowshape.turn.up.right")
                     }
                 }
             } label: {
