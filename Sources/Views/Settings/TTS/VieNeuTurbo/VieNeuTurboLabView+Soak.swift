@@ -149,14 +149,10 @@ extension VieNeuTurboLabView {
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
-            ShareLink(
+            Button {
                 // Tên theo engine của lượt vừa chạy, không theo ô chọn (đổi ô chọn sau khi dừng không đổi kết quả).
-                item: VieNeuTurboReportFile(
-                    kind: .soak,
-                    engineName: lab.soak.engineDescription.hasPrefix("Nano") ? "nano" : "turbo"
-                ),
-                preview: SharePreview("Kết quả đọc liên tục")
-            ) {
+                shareReport(kind: .soak, engineName: lab.soak.engineDescription.contains("Nano") ? "nano" : "turbo")
+            } label: {
                 Label("Chia sẻ file kết quả (.txt)", systemImage: "square.and.arrow.up")
             }
         } header: {

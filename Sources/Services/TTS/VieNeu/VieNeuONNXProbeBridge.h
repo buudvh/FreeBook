@@ -23,6 +23,10 @@ typedef struct VieNeuORTProbeSession VieNeuORTProbeSession;
 /// - `threads`: số luồng intra-op của session; spin luôn tắt, tối ưu graph `ORT_ENABLE_ALL`.
 /// - `logPath` khác chuỗi rỗng ⇒ log của session ở mức INFO và **stderr được chuyển vào file đó** trong lúc tạo
 ///   session (ORT in bảng chia partition của EP ra stderr). Chỉ là chẩn đoán, có thể rỗng.
+/// - `weightNames` / `weightPaths` / `weightCount` (P1b): file trọng số external data **nạp vào bộ nhớ** trước khi tạo
+///   session (`AddExternalInitializersFromFilesInMemory`, `mmap` chỉ đọc, ORT chép thẳng vào graph rồi gỡ map). Né lỗi
+///   của Core ML EP ORT 1.24.2: nó ghép `<đường dẫn file model>/<tên file trọng số>` ⇒ "Not a directory". `weightNames`
+///   là đúng chuỗi `location` ghi trong graph (vd `ve_main.weights`). `weightCount` = 0 ⇒ đọc external data như cũ.
 /// Trả `NULL` khi lỗi; `*errorMessage` nhận chuỗi `malloc` (giải phóng bằng `VieNeuORTProbeFreeString`).
 VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
                                             const char *provider,
@@ -31,6 +35,9 @@ VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
                                             int32_t optionCount,
                                             int32_t threads,
                                             const char *logPath,
+                                            const char *const *weightNames,
+                                            const char *const *weightPaths,
+                                            int32_t weightCount,
                                             char **errorMessage);
 
 void VieNeuORTProbeDestroy(VieNeuORTProbeSession *session);

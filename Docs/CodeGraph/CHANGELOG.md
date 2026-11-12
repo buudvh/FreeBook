@@ -2,6 +2,32 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.890] - 2026-11-12
+
+### feat: màn thử VieNeu có Đo tự động ORT ↔ Core ML bằng một nút, chia sẻ kết quả bằng file thật
+
+Anh Bửu duyệt P1b sau kết quả So EP trên máy (Core ML CPU-only fp32: VE 43 ms so với ORT 109 ms cùng bucket, tiếng giữ nguyên — báo cáo `Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md` §9), kèm yêu cầu *"chạy từ khi mát đến khi nóng chạy thêm vài đoạn rồi dừng sau đó đợi khi mát tự chạy lại luôn, như vậy tôi chỉ cần nhấn nút 1 lần"*, tốc độ phát 1,5×, tốc độ tạo 1,15, giọng Mai Anh. Vẫn **chỉ ở màn thử** — trình đọc không đổi.
+
+- **Gói Core ML đọc truyện thật** (`Scripts/vieneu_nano_coreml_export.py`, dùng lại các bước mổ graph của P1; đăng ở `raikiri1498/VieNeu-TTS/nano-coreml/`, commit HF `ef20eb2f`):
+  - VE bucket `64 / 96 / 128 / 160`, codec `64 / 128 / 160`, L = 256; trọng số **một bản** (`ve_main.weights` 153 MB, `codec.weights` 99 MB), cả gói 267 MB.
+  - `COREML_CACHE_KEY` trong metadata = tên + băm nội dung (mặc định ORT băm **đường dẫn** — thay file cùng tên là dùng nhầm bản biên dịch cũ).
+  - Tự kiểm mọi bucket vừa với từng đoạn golden (PC, ORT CPU, nạp lại từ đĩa): v bước 0 ≥ 121 dB, latent ≥ 102 dB, sóng âm ≥ 91 dB so với graph gốc.
+  - Bản không cố định độ dài **không làm**: graph T động có 67 phép tính theo shape + tensor int64 / bool — đúng loại làm Core ML hỏng tháng 10.
+- **Né lỗi Core ML EP của ORT 1.24.2** (H1 của P1 lỗi "Not a directory"): `TensorProtoWithExternalDataToTensorProto` nhận đường dẫn file model làm thư mục. Cầu C `VieNeuORTProbeCreate` thêm tham số file trọng số ⇒ `mmap` + `AddExternalInitializersFromFilesInMemory` (ORT chép vào graph trước khi Core ML dựng model). Kiểm trên PC: kết quả trùng từng bit với đọc file thường.
+- **Backend vòng Euler + codec theo từng lượt gọi** (`VieNeuFlowBackend`, `VieNeuTTSEngine+Flow`): `VieNeuTTSService.synthesizeWithDuration(…, flowBackend:)` mặc định `nil` = đường ORT cũ, nguyên văn (vòng Euler chuyển sang `+Flow`). Không gắn backend vào engine (singleton của trình đọc) ⇒ đoạn của trình đọc / hub / màn khoá không bao giờ đi nhầm Core ML.
+- **`VieNeuCoreMLFlowBackend`** (`Services/TTS/VieNeu/CoreML/`): chọn bucket nhỏ nhất ≥ T riêng cho VE và codec, đệm cuối rồi cắt; prep chạy ORT CPU, main + codec chạy Core ML `CPUOnly` + `ModelCacheDirectory`; T > 160 / L > 256 lùi về ORT và được đếm. Session dựng lười, giữ tối đa N session (N do bước chuẩn bị đo RAM đặt); dựng session **ngoài** khoá để màn thử không treo khi Core ML biên dịch.
+- **`VieNeuCoreMLPreparer`**: biên dịch lạnh từng graph (ms, RAM khi giữ session, số partition Core ML từ log ORT) → nạp lại từ bản biên dịch (ms, RAM cộng dồn, trần N theo RAM trống ≥ 700 MB) → tự kiểm golden mọi bucket (cổng latent ≥ 40 dB, sóng âm ≥ 30 dB, không NaN — rác kiểu tháng 10 thì bỏ lượt Core ML).
+- **`VieNeuAutoThermalRun`** (`Services/TTS/VieNeuTurbo/AutoRun/`) — mục **"Đo tự động ORT ↔ Core ML (P1b)"** ở màn thử, một nút:
+  - tải gói (lần đầu), kiểm chỗ trống, chuẩn bị Core ML (giữ sáng màn), rồi **3 lượt A-B-A: ORT → Core ML → ORT**;
+  - ghim chế độ `fast` cho cả lượt đo (`VieNeuTTSService.setLabModeOverride`, không ghi cài đặt — Core ML nhanh sẽ làm bộ tự thích nghi nâng lên `high` 16 bước giữa lượt); báo cáo ghi chế độ đầu / cuối mỗi lượt;
+  - nạp sẵn session Core ML **trước** lúc chờ mát của lượt Core ML (chi phí nạp không rơi vào số đo), nhả sau lượt đó để lượt ORT cuối bắt đầu cùng trạng thái RAM như lượt đầu;
+  - trước **mỗi** lượt chờ `nominal` giữ liền 10 phút (tối đa 45 phút rồi chạy luôn, có ghi chú);
+  - mỗi lượt đọc liên tục cùng văn bản bằng giọng Mai Anh, tổng hợp 1,15, phát 1,5× (`VieNeuTurboSoakRunner` thêm `playbackRate`), tới khi lên "nóng" thì đọc thêm 5 đoạn rồi dừng; "rất nóng" dừng ngay; tối đa 15 phút;
+  - khoá máy / rời màn vẫn chạy (vòng lặng giữ app sống lúc chờ; `leaveScreen` không dừng khi đang đo); TTS / nhạc / phim khác phát ⇒ dừng cả lượt ("bị gián đoạn");
+  - báo cáo một file, ghi lại sau mỗi bước **và mỗi phút trong lượt** (app bị tắt giữa lượt vẫn còn số của lượt dở): bảng so 3 lượt (ấm sau / nóng sau, RTF, CPU/tiếng, bận %, hụt tiếng, phần lùi ORT), bước chuẩn bị, điều kiện máy mỗi phút (nhiệt, mở / khoá màn, sạc, pin, RAM), nguyên văn số đo từng phút + từng đoạn.
+- **Chia sẻ bằng file thật**: anh báo chia sẻ file kết quả So EP qua Nicegram "gửi xong mà không có file". Nút cũ dùng `ShareLink` + `DataRepresentation` (chữ dựng lúc bấm, không phải file). Mọi nút chia sẻ của màn thử (đọc thử, đọc liên tục, So EP, WAV, đo tự động) giờ ghi file `.txt` thật (`VieNeuTurboReportFile.writeTemporaryFile`) rồi mở `ShareSheet` như sao lưu / xuất từ điển. Chưa thử trên máy.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.889] - 2026-11-12
 
 ### feat: màn thử VieNeu có phép thử So EP cho Nano (Core ML, Neural Engine, XNNPACK) với graph tĩnh
@@ -484,23 +510,3 @@ Anh Bửu duyệt mockup ("hub và browser viên nhộng nhỏ thôi", "ngắn l
     3. Hub có việc ⇒ nền nháy đỏ đúng hình nửa viên; trình duyệt thu nhỏ quá 10 s ⇒ nháy đỏ.
     4. Chạm hub ⇒ menu; chạm nút trình duyệt ⇒ mở lại trình duyệt.
     5. Kéo cửa sổ phim nhỏ tới hub ⇒ hub phóng to + viền màu nhấn; thả ⇒ vào hub.
-
-## [1.3.860] - 2026-11-11
-
-### feat: sheet nghe truyện thêm nút chương trước và chương kế ở hai đầu
-
-Anh Bửu duyệt mockup: sheet điều khiển nhanh TTS (mở từ đĩa nghe) có thêm hai nút đổi chương ở hai đầu ngoài cùng của hàng nút.
-
-- Hàng nút `TTSQuickControlSheet.transportRow`: **chương trước** · đoạn trước · ⏯ · đoạn kế · **chương kế**, chia đều bằng `Spacer` như `AudioTransportControls(.full)` của sheet nhạc. Nút chương icon `backward.end.fill` / `forward.end.fill` 20 pt (khác nút đoạn `backward.fill` / `forward.fill` 22 pt), trắng 85%, khung 44 pt; không có chương đó ⇒ mờ 35%, tắt.
-- `TTSManager+ChapterStep` (mới): `previousChapterIndex(before:)` + `jumpToAdjacentChapter(forward:)` — tra chương liền trước / sau theo `index` thưa trong `chaptersQueue` (cùng luật `nextChapterIndex(after:)`), rồi `jumpToChapter(at:)` có sẵn (toast "Đang chuyển sang …", đọc từ đầu chương).
-- `TTSWidgetBarInfoReader`: thêm `hasPreviousChapter` / `hasNextChapter`, tính lại khi đổi chương và khi số chương trong hàng đợi đổi. Sheet không observe `TTSManager` trực tiếp.
-- Giới hạn đã biết: vừa bấm tai nghe ở Reader, hàng đợi chỉ có vài chương từ chương đang đọc trở đi cho tới khi `refreshChaptersQueueInBackground` nạp đủ (~1 s) ⇒ "chương trước" mờ trong lúc đó.
-- `CLAUDE.md` / `AGENTS.md`: thêm câu hàng nút sheet vào đoạn "Widget TTS chỉ một kiểu".
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Đang nghe chương 128 ⇒ mở sheet ⇒ "chương kế" ⇒ toast "Đang chuyển sang …", đọc từ đầu chương 129; tên chương ở đầu sheet đổi theo.
-    2. "Chương trước" ⇒ chương 127.
-    3. Chương đầu / chương cuối ⇒ nút tương ứng mờ, bấm không có tác dụng.
-    4. Đang tạm dừng mà bấm nút chương ⇒ đọc luôn chương mới (như chọn ở mục lục).

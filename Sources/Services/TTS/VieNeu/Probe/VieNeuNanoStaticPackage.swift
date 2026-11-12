@@ -127,8 +127,8 @@ final class VieNeuNanoStaticPackage: Sendable {
         }
     }
 
-    /// sha256 đọc từng khối 1 MiB — file 153 MB không được nạp cả vào RAM.
-    private static func sha256(of url: URL) throws -> String {
+    /// sha256 đọc từng khối 1 MiB — file 153 MB không được nạp cả vào RAM. `internal`: gói Core ML (P1b) dùng chung.
+    static func sha256(of url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         var hasher = SHA256()

@@ -298,6 +298,8 @@ extension VieNeuTurboLab {
     ///
     /// Trình đọc đang chọn Turbo thì **giữ** model: runtime + bộ phiên âm dùng chung với nó, nhả là đoạn kế phải nạp lại.
     func leaveScreen() {
+        // "Đo tự động" chạy tiếp khi rời màn / khoá máy (một lần bấm cho cả lượt dài) — dừng bằng nút Dừng của nó.
+        guard !autoRun.isActive else { return }
         soak.stop(reason: "rời màn thử")
         epProbe.stop()
         stopSample()

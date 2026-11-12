@@ -89,6 +89,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         }.value
     }
 
+    /// Ghim chế độ cho lượt "Đo tự động" (P1b) — chạy nền vì chờ khoá tổng hợp như `setLabThreadOverride`.
+    func setLabModeOverride(_ mode: VieNeuSynthesisPolicy.Mode?) async {
+        await Task.detached(priority: .utility) { [engine] in
+            engine.setLabModeOverride(mode)
+        }.value
+    }
+
     /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với hai khoá
     /// kia) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
     private static let preferredModeKey = VieNeuSynthesisPolicy.preferredModeKey
@@ -241,6 +248,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         ).data
     }
 
+    /// `flowBackend` chỉ màn thử truyền (P1b: Core ML cho vòng Euler + codec) — xem doc `VieNeuFlowBackend`.
     func synthesizeWithDuration(
         text: String,
         voice: String,
@@ -248,7 +256,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
-        synthesisKey: String? = nil
+        synthesisKey: String? = nil,
+        flowBackend: VieNeuFlowBackend? = nil
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
             text: text,
@@ -266,7 +275,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
                 text: text,
                 voice: voice,
                 speed: speed,
-                boundaryKind: boundaryKind
+                boundaryKind: boundaryKind,
+                flowBackend: flowBackend
             )
         }
         return (
@@ -283,7 +293,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
-        boundaryKind: TTSBoundaryKind
+        boundaryKind: TTSBoundaryKind,
+        flowBackend: VieNeuFlowBackend?
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) {
             // Đoạn im lặng không chạy engine ⇒ xoá số đo của đoạn trước, kẻo màn thử đọc `lastTiming` cộng trùng nó.
@@ -305,7 +316,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             text: normalizedText,
             voiceName: voice,
             speed: speed,
-            boundaryKind: boundaryKind
+            boundaryKind: boundaryKind,
+            flowBackend: flowBackend
         )
         syncQueue.sync {
             _currentVoice = voice

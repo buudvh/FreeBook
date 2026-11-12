@@ -53,7 +53,10 @@ final class VieNeuTurboSoakRunner {
     @ObservationIgnored private var allChunkLines: [String] = []
     /// QoS đo được ở đoạn gần nhất (Nano) — in ở đầu file chia sẻ.
     @ObservationIgnored private var lastQoSNote: String?
-    @ObservationIgnored private var stats = VieNeuTurboSoakStats()
+    /// `private(set)`: lượt "Đo tự động" (`VieNeuAutoThermalRun`) đọc số đoạn / số giây để quyết khi nào dừng lượt.
+    @ObservationIgnored private(set) var stats = VieNeuTurboSoakStats()
+    /// Tốc độ phát (1.3.890, "Đo tự động" phát 1,5× như người nghe thật); 1 = như cũ.
+    @ObservationIgnored private var playbackRate: Float = 1
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var producerTask: Task<Void, Never>?
     @ObservationIgnored private var clockTask: Task<Void, Never>?
@@ -86,10 +89,12 @@ final class VieNeuTurboSoakRunner {
         chunks: [TTSParagraph],
         engineDescription: String,
         priority: TaskPriority = .utility,
+        playbackRate: Float = 1,
         synthesize: @escaping Synthesizer
     ) {
         guard !chunks.isEmpty else { return }
         stop(reason: "bắt đầu lượt mới")
+        self.playbackRate = playbackRate
         generation += 1
         let runGeneration = generation
         isRunning = true
@@ -287,6 +292,10 @@ final class VieNeuTurboSoakRunner {
         do {
             let newPlayer = try AVAudioPlayer(data: next.wav)
             newPlayer.delegate = playerDelegate
+            if playbackRate != 1 {
+                newPlayer.enableRate = true // phải bật trước `prepareToPlay`
+                newPlayer.rate = playbackRate
+            }
             newPlayer.prepareToPlay()
             guard newPlayer.play() else {
                 fail(NSError(domain: "VieNeuTurbo", code: 1, userInfo: [NSLocalizedDescriptionKey: "AVAudioPlayer không phát được"]))

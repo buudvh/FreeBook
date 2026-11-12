@@ -29,41 +29,55 @@ extension VieNeuTurboLab {
         isNanoOverrideActive = true
         try await service.prepare(voice: voice, priority: qos.priority)
 
+        // Tốc độ tổng hợp 1× (không theo cài đặt) — Turbo không có tốc độ tổng hợp, so phải cùng điều kiện.
         let synthesize: VieNeuTurboSoakRunner.Synthesizer = { text, boundaryKind in
-            let cpuStarted = ProcessCPUClock.nowMs()
-            // Tốc độ tổng hợp 1× (không theo cài đặt) — Turbo không có tốc độ tổng hợp, so phải cùng điều kiện. Khoá tổng
-            // hợp ngẫu nhiên: văn bản lặp nhiều vòng, không để vòng sau dùng lại kết quả theo khoá tự sinh của service.
-            let result = try await service.synthesizeWithDuration(
-                text: text,
-                voice: voice,
-                speed: 1.0,
-                boundaryKind: boundaryKind,
-                priority: .demand,
-                synthesisKey: UUID().uuidString
-            )
-            // Lượt vừa rồi là lượt duy nhất đang chạy (màn thử đã dừng TTS chính, bộ sinh chạy từng lượt một) ⇒
-            // `lastTiming` là của đúng đoạn này.
-            let timing = service.lastTiming
-            return VieNeuTurboSoakRunner.ChunkAudio(
-                wav: result.data,
-                audioSeconds: result.pcmDuration,
-                synthesisMs: result.synthesisMs,
-                cpuMs: ProcessCPUClock.nowMs() - cpuStarted,
-                phonemeCount: nil,
-                split: VieNeuTurboSoakStats.StageSplit(
-                    textMs: timing.text.wallMs,
-                    vectorMs: timing.vector.wallMs,
-                    codecMs: timing.codec.wallMs,
-                    textCPUMs: timing.text.cpuMs,
-                    vectorCPUMs: timing.vector.cpuMs,
-                    codecCPUMs: timing.codec.cpuMs
-                ),
-                qosNote: "tổng hợp \(timing.synthesisQoS) · session \(timing.sessionQoS)"
-            )
+            try await Self.nanoChunk(service: service, text: text, boundaryKind: boundaryKind, voice: voice, speed: 1.0)
         }
         return (
             "Nano · chế độ \(service.currentMode.rawValue) · \(threads) luồng ORT · giọng \(voice) · QoS \(qos.rawValue)",
             synthesize
+        )
+    }
+
+    /// Một đoạn Nano cho "Đọc liên tục" / "Đo tự động": tổng hợp qua `VieNeuTTSService` (đúng đường của trình đọc, kèm
+    /// `flowBackend` khi đo Core ML) rồi đọc phân rã thời gian. Khoá tổng hợp ngẫu nhiên: văn bản lặp nhiều vòng, không để
+    /// vòng sau dùng lại kết quả theo khoá tự sinh của service.
+    nonisolated static func nanoChunk(
+        service: VieNeuTTSService,
+        text: String,
+        boundaryKind: TTSBoundaryKind,
+        voice: String,
+        speed: Double,
+        flowBackend: VieNeuFlowBackend? = nil
+    ) async throws -> VieNeuTurboSoakRunner.ChunkAudio {
+        let cpuStarted = ProcessCPUClock.nowMs()
+        let result = try await service.synthesizeWithDuration(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: boundaryKind,
+            priority: .demand,
+            synthesisKey: UUID().uuidString,
+            flowBackend: flowBackend
+        )
+        // Lượt vừa rồi là lượt duy nhất đang chạy (màn thử đã dừng TTS chính, bộ sinh chạy từng lượt một) ⇒
+        // `lastTiming` là của đúng đoạn này.
+        let timing = service.lastTiming
+        return VieNeuTurboSoakRunner.ChunkAudio(
+            wav: result.data,
+            audioSeconds: result.pcmDuration,
+            synthesisMs: result.synthesisMs,
+            cpuMs: ProcessCPUClock.nowMs() - cpuStarted,
+            phonemeCount: nil,
+            split: VieNeuTurboSoakStats.StageSplit(
+                textMs: timing.text.wallMs,
+                vectorMs: timing.vector.wallMs,
+                codecMs: timing.codec.wallMs,
+                textCPUMs: timing.text.cpuMs,
+                vectorCPUMs: timing.vector.cpuMs,
+                codecCPUMs: timing.codec.cpuMs
+            ),
+            qosNote: "tổng hợp \(timing.synthesisQoS) · session \(timing.sessionQoS)"
         )
     }
 
@@ -91,6 +105,21 @@ extension VieNeuTurboLab {
                 AppLogger.shared.log("❌ [VieNeuTurbo] Dựng lại session Nano sau màn thử lỗi: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Trước "Đo tự động": dừng mọi lượt của màn thử + TTS chính, giành phiên âm thanh, nhả Turbo, trả ghi đè luồng Nano
+    /// (lượt đo dùng đúng cấu hình của trình đọc).
+    func prepareForAutoRun() async {
+        stopSample()
+        soak.stop(reason: "bắt đầu đo tự động")
+        epProbe.stop()
+        endNanoOverride()
+        takeOverAudio()
+        await releaseTask?.value
+        await nanoRestoreTask?.value
+        await runtime.release()
+        frontend?.unload()
+        isRuntimeLoaded = false
     }
 
     /// Phép thử P1 "So EP cho Nano": dừng mọi lượt đang chạy + TTS chính, nhả Turbo và engine Nano (~280 MB) để Core ML

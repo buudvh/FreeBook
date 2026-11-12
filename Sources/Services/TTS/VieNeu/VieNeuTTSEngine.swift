@@ -103,6 +103,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     var consecutiveFast = 0
     /// Màn thử VieNeu Turbo: số luồng ORT ghi đè (`nil` = theo cài đặt) + cờ buộc dựng lại session (`+Reload`).
     var labThreadOverride: Int32?
+    /// Màn thử (P1b "Đo tự động"): ghim chế độ cho cả lượt đo, **không** ghi cài đặt, tắt tự thích nghi (`+Reload`).
+    var labModeOverride: VieNeuSynthesisPolicy.Mode?
     var labForceReload = false
 
     init(store: VieNeuModelStore) {
@@ -112,7 +114,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Chế độ đang **thực sự** chạy (đã tính cả lựa chọn của người dùng).
     var currentMode: VieNeuSynthesisPolicy.Mode {
         lock.lock(); defer { lock.unlock() }
-        return requestedMode ?? mode
+        return labModeOverride ?? requestedMode ?? mode
     }
 
     /// Đặt chế độ cố định. Truyền `nil` để quay lại tự thích nghi theo RTF.
@@ -196,11 +198,13 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Tổng hợp **một đoạn văn** thành WAV 24 kHz. `text` tới đây đã qua `applyReplacements` (thay thế
     /// ký tự chung, mọi engine) và `normalizeVietnameseText` (mở rộng số/ngày, không espeak) — đều ở
     /// tầng trên — nên engine chỉ tách chunk và tổng hợp, **không** tự tiền xử lý.
+    /// `flowBackend` (P1b, màn thử): chạy vòng Euler + codec bằng backend đó thay ORT (`+Flow`). `nil` = đường cũ.
     func synthesize(
         text: String,
         voiceName: String,
         speed: Double,
-        boundaryKind: TTSBoundaryKind = .paragraphEnd
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
+        flowBackend: VieNeuFlowBackend? = nil
     ) throws -> Output {
         lock.lock()
         defer { lock.unlock() }
@@ -213,7 +217,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             throw EngineError.badOutput("voices_v3_nano.json")
         }
 
-        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: requestedMode, current: mode)
+        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: labModeOverride ?? requestedMode, current: mode)
         let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
         // Văn bản tới đây đã đi qua **hai** lớp tiền xử lý ở tầng trên:
         // 1. `TTSReplacementManager.applyReplacements` (thay thế ký tự chung, mọi engine) — tại
@@ -254,6 +258,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
                 speed: speed,
                 runtime: runtime,
                 config: config,
+                flowBackend: flowBackend,
                 timing: &timing
             ))
         }
@@ -287,7 +292,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             boundaryKind: boundaryKind, timing: timing, synthesisSpeed: speed, cpuMs: cpuMs, runtime: runtime
         )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
-        if requestedMode == nil {
+        if requestedMode == nil, labModeOverride == nil {
             updateMode(synthesisMs: synthesisMs, pcmDuration: pcmDuration)
         }
 
@@ -312,6 +317,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         speed: Double,
         runtime: VieNeuONNXRuntime,
         config: VieNeuConfig,
+        flowBackend: VieNeuFlowBackend?,
         timing: inout Timing
     ) throws -> [Float] {
         // Số token không cần biến riêng: `mask` lấy từ `ids`, còn shape của `ctx` đọc từ model.
@@ -337,58 +343,20 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
         let frames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
 
-        // 3. Vòng Euler + CFG
+        // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend của màn thử)
         var latent = [Float](repeating: 0, count: config.latentChannels * frames)
         Self.fillStandardNormal(&latent)
-        let steps = max(1, tuning.steps)
-        let grid = Self.timeGrid(steps: steps, sway: tuning.sway)
+        let grid = Self.timeGrid(steps: max(1, tuning.steps), sway: tuning.sway)
         clock.lap(&timing.text)
 
-        for step in 0..<steps {
-            try Task.checkCancellation()
-            let conditioned = try runtime.vectorEstimator(
-                latent: latent,
-                time: Float(grid[step]),
-                context: context.values,
-                contextShape: context.shape,
-                mask: mask,
-                speaker: preset.speakerEmbedding,
-                style: preset.style,
-                styleRows: config.nStyle,
-                styleColumns: config.styleDim,
-                latentChannels: config.latentChannels,
-                frames: frames
-            )
-            var velocity = conditioned
-            if tuning.cfg > 0 {
-                let unconditioned = try runtime.vectorEstimatorUnconditioned(
-                    latent: latent, time: Float(grid[step]), nullContext: nullContext,
-                    nullContextShape: nullContextShape, nullMask: nullMask,
-                    nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle,
-                    styleRows: config.nStyle, styleColumns: config.styleDim,
-                    latentChannels: config.latentChannels, frames: frames
-                )
-                // v = vu + cfg × (v − vu)
-                for index in velocity.indices {
-                    velocity[index] = unconditioned[index]
-                        + tuning.cfg * (velocity[index] - unconditioned[index])
-                }
-            }
-            let delta = Float(grid[step + 1] - grid[step])
-            for index in latent.indices {
-                latent[index] += delta * velocity[index]
-            }
-        }
-
-        clock.lap(&timing.vector) // chốt TRƯỚC codec — trước 1.3.878 chốt sau nên codec bị tính vào vòng Euler
-
-        // 4. codec_decoder → PCM
-        let waveform = try runtime.codecDecoder(
-            latent: latent,
-            latentChannels: config.latentChannels,
-            frames: frames
+        let request = VieNeuFlowRequest(
+            latent: latent, frames: frames, latentChannels: config.latentChannels, grid: grid, cfg: tuning.cfg,
+            context: context.values, contextShape: context.shape, mask: mask,
+            speaker: preset.speakerEmbedding, style: preset.style, styleRows: config.nStyle, styleColumns: config.styleDim,
+            nullContext: nullContext, nullContextShape: nullContextShape, nullMask: nullMask,
+            nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle
         )
-        clock.lap(&timing.codec)
+        let waveform = try runFlow(request, backend: flowBackend, runtime: runtime, clock: &clock, timing: &timing)
         // Phụ trợ ở bridge C, cộng dồn cả đoạn (RTF không phản ánh phần này — xem doc `Timing`).
         (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
         timing.sessionQoS = runtime.buildQoS

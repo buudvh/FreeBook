@@ -52,6 +52,15 @@ extension VieNeuTTSEngine {
     /// Đặt hay bỏ đều buộc dựng lại session ở lần nạp kế tiếp. Luồng phụ của pool ORT sinh ra lúc dựng session nên mang
     /// QoS của luồng đang dựng; màn thử dựng ngay ở QoS mình chọn (`VieNeuTTSService.prepare(voice:priority:)`), và khi
     /// bỏ ghi đè thì dựng lại ở `.utility` như lúc app nạp engine bình thường.
+    /// Màn thử ("Đo tự động", P1b) ghim / bỏ ghim chế độ chất lượng — không ghi cài đặt. Core ML chạy RTF ~0,15 sẽ làm
+    /// bộ tự thích nghi nâng lên `high` (16 bước) giữa lượt, hai lượt hết cùng điều kiện.
+    func setLabModeOverride(_ mode: VieNeuSynthesisPolicy.Mode?) {
+        lock.lock(); defer { lock.unlock() }
+        labModeOverride = mode
+        consecutiveSlow = 0
+        consecutiveFast = 0
+    }
+
     func setLabThreadOverride(_ threads: Int32?) {
         lock.lock(); defer { lock.unlock() }
         labThreadOverride = threads.map { max(1, $0) }

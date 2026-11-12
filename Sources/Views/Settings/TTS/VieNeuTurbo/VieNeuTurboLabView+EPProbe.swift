@@ -62,15 +62,16 @@ extension VieNeuTurboLabView {
                     .textSelection(.enabled)
             }
             if probe.hasReport {
-                ShareLink(
-                    item: VieNeuTurboReportFile(kind: .epProbe, engineName: "nano"),
-                    preview: SharePreview("Kết quả So EP")
-                ) {
+                Button {
+                    shareReport(kind: .epProbe, engineName: "nano")
+                } label: {
                     Label("Chia sẻ file kết quả (.txt)", systemImage: "square.and.arrow.up")
                 }
             }
             if !probe.wavURLs.isEmpty {
-                ShareLink(items: probe.wavURLs) {
+                Button {
+                    shareItem = ShareItem(urls: probe.wavURLs)
+                } label: {
                     Label("Chia sẻ WAV để nghe (\(probe.wavURLs.count) file)", systemImage: "waveform")
                 }
             }

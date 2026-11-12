@@ -9,7 +9,14 @@ import SwiftUI
 /// Mọi logic (tải file, chạy model, phát) nằm ở `VieNeuTurboLab` (`Services/TTS/VieNeuTurbo/`); màn chỉ vẽ. Rời màn thì
 /// dừng hết và nhả model; khoá màn hình thì vẫn chạy (không có `onDisappear`).
 struct VieNeuTurboLabView: View {
+    /// Các file đưa vào bảng chia sẻ — luôn là **file thật** trên đĩa (1.3.890, xem `VieNeuTurboReportFile.writeTemporaryFile`).
+    struct ShareItem: Identifiable {
+        let id = UUID()
+        let urls: [URL]
+    }
+
     @State var lab = VieNeuTurboLab.shared
+    @State var shareItem: ShareItem?
 
     var body: some View {
         Form { Group {
@@ -30,15 +37,26 @@ struct VieNeuTurboLabView: View {
             if lab.soak.isRunning || !lab.soak.summaryText.isEmpty {
                 soakResultSection
             }
+            autoRunSection
             epProbeSection
         }.glassSheetRows() }
         .backPageTitle("Thử VieNeu Turbo")
         .onAppear { lab.refreshStatus() }
+        // Bảng chia sẻ của hệ thống — không gắn nền kính.
+        .sheet(item: $shareItem) { item in
+            ShareSheet(activityItems: item.urls)
+        }
         .onDisappear {
             // Phép thử So EP tắt tự khoá màn khi chạy; rời màn giữa chừng thì `onChange` của mục đó không kịp chạy.
             UIApplication.shared.isIdleTimerDisabled = false
             lab.leaveScreen()
         }
+    }
+
+    /// Ghi báo cáo ra file `.txt` thật rồi mở bảng chia sẻ.
+    func shareReport(kind: VieNeuTurboReportFile.Kind, engineName: String) {
+        guard let url = VieNeuTurboReportFile.writeTemporaryFile(kind: kind, engineName: engineName) else { return }
+        shareItem = ShareItem(urls: [url])
     }
 
     static func formattedBytes(_ bytes: Int64) -> String {

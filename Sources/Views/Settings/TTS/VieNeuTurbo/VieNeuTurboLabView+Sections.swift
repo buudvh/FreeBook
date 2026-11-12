@@ -150,14 +150,15 @@ extension VieNeuTurboLabView {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             if let url = lab.lastAudioURL {
-                ShareLink(item: url) {
+                Button {
+                    shareItem = ShareItem(urls: [url])
+                } label: {
                     Label("Chia sẻ audio", systemImage: "square.and.arrow.up")
                 }
             }
-            ShareLink(
-                item: VieNeuTurboReportFile(kind: .sample, engineName: "turbo"),
-                preview: SharePreview("Số đo đọc thử")
-            ) {
+            Button {
+                shareReport(kind: .sample, engineName: "turbo")
+            } label: {
                 Label("Chia sẻ file số đo (.txt)", systemImage: "doc.text")
             }
         } header: {

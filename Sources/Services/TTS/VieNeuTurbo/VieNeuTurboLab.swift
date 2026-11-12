@@ -67,6 +67,8 @@ final class VieNeuTurboLab {
     let soak = VieNeuTurboSoakRunner()
     /// Phép thử P1 "So EP cho Nano" (Core ML / ANE / XNNPACK) — `VieNeuTurboLab+Nano.startEPProbe`.
     let epProbe = VieNeuNanoEPProbe()
+    /// "Đo tự động ORT ↔ Core ML" (P1b) — dùng chung `soak` cho các lượt đọc.
+    let autoRun = VieNeuAutoThermalRun()
 
     // MARK: File
 
@@ -156,7 +158,7 @@ final class VieNeuTurboLab {
     }
 
     var isBusy: Bool {
-        isDownloading || isWorking || soak.isRunning || epProbe.isRunning
+        isDownloading || isWorking || soak.isRunning || epProbe.isRunning || autoRun.isActive
     }
 
     var selectedVoice: VieNeuTurboVoiceManifest.Voice? {
@@ -170,6 +172,7 @@ final class VieNeuTurboLab {
         thermalState = ProcessInfo.processInfo.thermalState
         reloadVoices()
         epProbe.refresh()
+        autoRun.refresh()
     }
 
     private func reloadVoices() {

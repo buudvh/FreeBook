@@ -27,21 +27,43 @@ final class VieNeuONNXProbeSession {
     let outputNames: [String]
     private let handle: OpaquePointer
 
+    /// Một file trọng số external data nạp vào bộ nhớ trước khi tạo session (P1b): `name` = đúng `location` ghi trong
+    /// graph (vd `ve_main.weights`), `path` = file trên máy.
+    struct WeightFile: Sendable {
+        let name: String
+        let path: String
+    }
+
     /// - `provider`: `"CPU"`, `"CoreML"` hoặc `"XNNPACK"`.
     /// - `logPath`: khác rỗng ⇒ bắt stderr lúc tạo session vào file này (bảng partition của EP; có thể rỗng).
-    init(modelPath: String, provider: String, options: [String: String], threads: Int32, logPath: String) throws {
+    /// - `weights`: trọng số nạp từ bộ nhớ — né lỗi Core ML EP ORT 1.24.2 đọc external data sai đường dẫn.
+    init(
+        modelPath: String,
+        provider: String,
+        options: [String: String],
+        threads: Int32,
+        logPath: String,
+        weights: [WeightFile] = []
+    ) throws {
         let keys = options.keys.sorted()
         let cKeys = keys.map { strdup($0) }
         let cValues = keys.map { strdup(options[$0] ?? "") }
+        let cWeightNames = weights.map { strdup($0.name) }
+        let cWeightPaths = weights.map { strdup($0.path) }
         defer {
             cKeys.forEach { free($0) }
             cValues.forEach { free($0) }
+            cWeightNames.forEach { free($0) }
+            cWeightPaths.forEach { free($0) }
         }
         var keyPointers: [UnsafePointer<CChar>?] = cKeys.map { UnsafePointer($0) }
         var valuePointers: [UnsafePointer<CChar>?] = cValues.map { UnsafePointer($0) }
+        var weightNamePointers: [UnsafePointer<CChar>?] = cWeightNames.map { UnsafePointer($0) }
+        var weightPathPointers: [UnsafePointer<CChar>?] = cWeightPaths.map { UnsafePointer($0) }
         var message: UnsafeMutablePointer<CChar>?
         let created = VieNeuORTProbeCreate(
-            modelPath, provider, &keyPointers, &valuePointers, Int32(keys.count), threads, logPath, &message
+            modelPath, provider, &keyPointers, &valuePointers, Int32(keys.count), threads, logPath,
+            &weightNamePointers, &weightPathPointers, Int32(weights.count), &message
         )
         guard let created else {
             throw ProbeError.failure(Self.consume(message, fallback: "không tạo được session"))

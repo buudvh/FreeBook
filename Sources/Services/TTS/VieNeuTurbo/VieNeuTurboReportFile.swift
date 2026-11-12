@@ -32,6 +32,27 @@ struct VieNeuTurboReportFile: Transferable {
         fileName = "vieneu-\(engineName)-\(prefix)-\(Self.fileStamp.string(from: Date())).txt"
     }
 
+    /// Ghi báo cáo ra **file `.txt` thật** trong thư mục tạm rồi trả URL để đưa vào bảng chia sẻ (1.3.890).
+    ///
+    /// Nút chia sẻ cũ (`ShareLink` + `DataRepresentation`) đưa cho app nhận **dữ liệu chữ dựng lúc bấm**, không phải
+    /// một file: AirDrop / Lưu vào Tệp / Telegram gốc tự đóng gói thành file, nhưng Nicegram báo "đã gửi" mà không có
+    /// file. File thật + `UIActivityViewController` là cách các chỗ khác của app (sao lưu, xuất từ điển) đang dùng.
+    @MainActor
+    static func writeTemporaryFile(kind: Kind, engineName: String) -> URL? {
+        let file = VieNeuTurboReportFile(kind: kind, engineName: engineName)
+        let body = VieNeuTurboLab.shared.reportText(for: kind)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("VieNeuLabShare", isDirectory: true)
+        let url = directory.appendingPathComponent(file.fileName, isDirectory: false)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data((header() + "\n\n" + body + "\n").utf8).write(to: url, options: .atomic)
+            return url
+        } catch {
+            AppLogger.shared.log("❌ [VieNeuTurbo] Không ghi được file chia sẻ: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .plainText) { file in
             let body = await MainActor.run { VieNeuTurboLab.shared.reportText(for: file.kind) }

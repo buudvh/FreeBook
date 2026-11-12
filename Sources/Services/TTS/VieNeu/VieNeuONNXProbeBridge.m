@@ -13,7 +13,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+/// Một file trọng số đã `mmap` (chỉ đọc) — sống tới khi tạo session xong.
+typedef struct {
+    void *base;
+    size_t length;
+} ProbeMappedFile;
+
+static void probeUnmapAll(ProbeMappedFile *files, int32_t count) {
+    if (files == NULL) return;
+    for (int32_t index = 0; index < count; index++) {
+        if (files[index].base != NULL && files[index].base != MAP_FAILED) munmap(files[index].base, files[index].length);
+    }
+    free(files);
+}
 
 struct VieNeuORTProbeSession {
     const OrtApi *api;
@@ -74,6 +90,9 @@ VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
                                             int32_t optionCount,
                                             int32_t threads,
                                             const char *logPath,
+                                            const char *const *weightNames,
+                                            const char *const *weightPaths,
+                                            int32_t weightCount,
                                             char **errorMessage) {
     const OrtApiBase *base = OrtGetApiBase();
     const OrtApi *api = base != NULL ? base->GetApi(ORT_API_VERSION) : NULL;
@@ -108,7 +127,58 @@ VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
     if (status == NULL && provider != NULL && strcmp(provider, "CPU") != 0) {
         status = api->SessionOptionsAppendExecutionProvider(options, provider, keys, values, (size_t)optionCount);
     }
+    // Trọng số external data nạp từ bộ nhớ (P1b): mmap từng file, đưa con trỏ cho ORT; ORT chép vào graph trong
+    // `CreateSession` nên gỡ map ngay sau đó.
+    ProbeMappedFile *mapped = NULL;
+    if (status == NULL && weightCount > 0) {
+        mapped = calloc((size_t)weightCount, sizeof(ProbeMappedFile));
+        char **buffers = calloc((size_t)weightCount, sizeof(char *));
+        size_t *lengths = calloc((size_t)weightCount, sizeof(size_t));
+        if (mapped == NULL || buffers == NULL || lengths == NULL) {
+            free(buffers);
+            free(lengths);
+            probeUnmapAll(mapped, weightCount);
+            api->ReleaseSessionOptions(options);
+            probeSetError(errorMessage, "calloc thất bại");
+            VieNeuORTProbeDestroy(probe);
+            return NULL;
+        }
+        for (int32_t index = 0; index < weightCount; index++) {
+            int file = open(weightPaths[index], O_RDONLY);
+            struct stat info;
+            if (file < 0 || fstat(file, &info) != 0 || info.st_size <= 0) {
+                if (file >= 0) close(file);
+                free(buffers);
+                free(lengths);
+                probeUnmapAll(mapped, weightCount);
+                api->ReleaseSessionOptions(options);
+                probeSetError(errorMessage, "không mở được file trọng số");
+                VieNeuORTProbeDestroy(probe);
+                return NULL;
+            }
+            mapped[index].length = (size_t)info.st_size;
+            mapped[index].base = mmap(NULL, mapped[index].length, PROT_READ, MAP_PRIVATE, file, 0);
+            close(file);
+            if (mapped[index].base == MAP_FAILED) {
+                mapped[index].base = NULL;
+                free(buffers);
+                free(lengths);
+                probeUnmapAll(mapped, weightCount);
+                api->ReleaseSessionOptions(options);
+                probeSetError(errorMessage, "mmap file trọng số thất bại");
+                VieNeuORTProbeDestroy(probe);
+                return NULL;
+            }
+            buffers[index] = (char *)mapped[index].base;
+            lengths[index] = mapped[index].length;
+        }
+        status = api->AddExternalInitializersFromFilesInMemory(options, (const ORTCHAR_T *const *)weightNames,
+                                                               (char *const *)buffers, lengths, (size_t)weightCount);
+        free(buffers);
+        free(lengths);
+    }
     if (probeFailed(api, status, errorMessage)) {
+        probeUnmapAll(mapped, weightCount);
         api->ReleaseSessionOptions(options);
         VieNeuORTProbeDestroy(probe);
         return NULL;
@@ -136,6 +206,7 @@ VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
     }
     if (logFile >= 0) close(logFile);
     api->ReleaseSessionOptions(options);
+    probeUnmapAll(mapped, weightCount);
     if (probeFailed(api, status, errorMessage)) {
         VieNeuORTProbeDestroy(probe);
         return NULL;
