@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.888",
+          "buildVersion": "1235",
+          "date": "2026-11-12T03:34:30Z",
+          "localizedDescription": "- ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF\n- feat: màn thử VieNeu Turbo GGUF qua audio.cpp (đo RTF, CPU, nhiệt)\n- fix: màn thử VieNeu Turbo đo Turbo và Nano cùng mức ưu tiên luồng, dừng khi bị ngắt âm thanh\n- fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)\n- feat: engine VieNeu Turbo cho trình đọc truyện (chọn model Nano/Turbo, khoá cache theo model, nhả model không dùng)\n- feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS\n- fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model\n- feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả\n- fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo\n- feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng\n- perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn\n- perf: Turbo đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và mát hơn\n- revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn\n- merge: đưa VieNeu Turbo GGUF vào main\n- feat: VieNeu Nano và Turbo tải model từ kho raikiri1498/VieNeu-TTS",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1235/TangCongCac-1.3.888-1235.ipa",
+          "size": 41758180,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.873",
           "buildVersion": "1230",
           "date": "2026-11-11T16:18:40Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1226/TangCongCac-1.3.870-1226.ipa",
           "size": 39602294,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.866",
-          "buildVersion": "1225",
-          "date": "2026-11-11T13:39:37Z",
-          "localizedDescription": "- feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1225/TangCongCac-1.3.866-1225.ipa",
-          "size": 39577399,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.873",
-      "versionDate": "2026-11-11T16:18:40Z",
-      "versionDescription": "- feat: mọi sheet và popup dùng nền kính, ô mờ như sheet hub, độ đục thấp nhất 20%",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1230/TangCongCac-1.3.873-1230.ipa",
-      "size": 39706021,
+      "version": "1.3.888",
+      "versionDate": "2026-11-12T03:34:30Z",
+      "versionDescription": "- ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF\n- feat: màn thử VieNeu Turbo GGUF qua audio.cpp (đo RTF, CPU, nhiệt)\n- fix: màn thử VieNeu Turbo đo Turbo và Nano cùng mức ưu tiên luồng, dừng khi bị ngắt âm thanh\n- fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)\n- feat: engine VieNeu Turbo cho trình đọc truyện (chọn model Nano/Turbo, khoá cache theo model, nhả model không dùng)\n- feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS\n- fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model\n- feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả\n- fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo\n- feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng\n- perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn\n- perf: Turbo đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và mát hơn\n- revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn\n- merge: đưa VieNeu Turbo GGUF vào main\n- feat: VieNeu Nano và Turbo tải model từ kho raikiri1498/VieNeu-TTS",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1235/TangCongCac-1.3.888-1235.ipa",
+      "size": 41758180,
       "appPermissions": {}
     }
   ],
