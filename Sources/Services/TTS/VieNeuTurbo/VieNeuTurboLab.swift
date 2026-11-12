@@ -30,8 +30,9 @@ final class VieNeuTurboLab {
         }
     }
 
-    /// Mức ưu tiên luồng của lượt Nano trong "Đọc liên tục" (1.3.849). iPhone chỉ có 2 lõi hiệu năng; QoS thấp hay bị
-    /// xếp sang lõi tiết kiệm (chậm hơn nhưng tốn ít năng lượng hơn) — đo A/B để biết mức nào mát hơn mà không hụt tiếng.
+    /// Mức ưu tiên luồng của lượt đo trong "Đọc liên tục" (Nano 1.3.849, Turbo 1.3.854). iPhone chỉ có 2 lõi hiệu năng;
+    /// QoS thấp bị xếp sang lõi tiết kiệm. Đo 1.3.853–855: lõi tiết kiệm chậm gấp đôi **và** tốn CPU hơn (nóng hơn) cho
+    /// cả hai engine ⇒ trình đọc đã lên `userInitiated`; giữ lựa chọn để đo lại trên máy khác.
     enum SoakQoS: String, CaseIterable, Identifiable {
         case utility
         case userInitiated
@@ -91,10 +92,12 @@ final class VieNeuTurboLab {
     var soakEngine: SoakEngine = .turbo
     /// Số luồng ORT và QoS cho lượt Nano — chỉ áp trong lúc đo, **không** ghi vào cài đặt (`+Nano`).
     var nanoThreadCount = Int(VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard))
-    var nanoQoS: SoakQoS = .utility
-    /// QoS cho lượt Turbo của "Đọc liên tục" — chỉ màn thử; trình đọc vẫn chạy `.utility` (1.3.854). Mức cao hơn được
-    /// xếp lên lõi hiệu năng: đo xem RTF có xuống đủ cho tốc độ phát 1,4× không, đổi lại nóng tới đâu.
-    var turboQoS: SoakQoS = .utility
+    /// Mặc định = mức của trình đọc (`VieNeuTTSService.readerPriority`, 1.3.855) ⇒ bấm "Đọc liên tục" là đo đúng thứ
+    /// trình đọc chạy; chọn `utility` để so với lõi tiết kiệm.
+    var nanoQoS: SoakQoS = .userInitiated
+    /// QoS cho lượt Turbo của "Đọc liên tục" (1.3.854) — chỉ áp trong lúc đo. Mặc định = mức của trình đọc
+    /// (`VieNeuTurboTTSService.readerQoS`, 1.3.856); chọn `utility` để so với lõi tiết kiệm.
+    var turboQoS: SoakQoS = .userInitiated
 
     // MARK: Lượt chạy (ghi ở `+Run`)
 

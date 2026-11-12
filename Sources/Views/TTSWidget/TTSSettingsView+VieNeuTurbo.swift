@@ -178,7 +178,7 @@ extension TTSSettingsView {
     @ViewBuilder
     var vieNeuTurboSpeedNotes: some View {
         let limit = VieNeuTurboTTSService.realtimeSpeedLimit
-        // `+ 0.001`: bước 0,1 cộng dồn số thực ra 1.4000000000000001 — không được tính là vượt 1,4.
+        // `+ 0.001`: bước 0,1 cộng dồn số thực ra kiểu 2.0000000000000004 — không được tính là vượt mức.
         if ttsManager.speed > limit + 0.001 {
             Label {
                 Text("Turbo theo kịp tới khoảng \(Self.speedText(limit))×. Ở \(Self.speedText(ttsManager.speed))× có thể hụt tiếng, nhất là khi máy nóng.")

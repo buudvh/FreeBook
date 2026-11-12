@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.826] - 2026-11-11
+
+### feat: dịch ảnh truyện tranh raw bằng nhận chữ trên máy, phủ bản dịch lên bong bóng
+
+Anh Bửu chọn ý "dịch ảnh truyện tranh raw ngay trên ảnh" trong năm ý tưởng chức năng mới, duyệt plan, công tắc nhớ **theo tiện ích**.
+
+- Nút **Dịch ảnh** (`character.bubble`, bật ⇒ `.fill` trên nền trắng 18%) ở thanh trên màn đọc truyện tranh, ngay trái ☰; bấm ⇒ toast "Đã bật dịch ảnh cho nguồn này" / "Đã tắt dịch ảnh". Nhớ theo tiện ích (`ComicImageTranslationPolicy`, khoá `comicImageTranslate_<packageId>`, mặc định tắt) ⇒ Đổi nguồn / xoá truyện không phải chép hay dọn gì; độc lập công tắc dịch tên chương. Neo `.mediaDiscAnchor(.headerTrailing)` dời từ ☰ sang nút mới (nút trái nhất của cụm phải), kẻo đĩa nghe vào header đè lên nó. Trạng thái giữ ở `ComicReaderView`, không ở `ComicReaderViewModel` (397 dòng).
+- `Services/Comic/ImageText/` (mới): `ComicTextRecognizer` (actor; Vision `VNRecognizeTextRequest` accurate, `zh-Hans`/`zh-Hant`, `minimumTextHeight` đặt tường minh; ảnh dài cắt lát cao ≤ 1,5× bề ngang chồng 12%, dòng chỉ giữ ở lát có tâm dòng trong "lõi" ⇒ không trùng; mỗi lúc một ảnh, hàng rời màn ⇒ rời hàng chờ / `cancel()` request; log một lần ngôn ngữ Vision có trên máy) → `ComicTextBlockGrouper` (gom dòng cùng bong bóng: cao gần bằng, khe dọc ≤ 0,8 dòng, chồng ngang ≥ 30%; ghép chữ Hán liền; đo nền tối/sáng trên 8×8 điểm) → `ComicPageTextRepository` (RAM → `Caches/comic_ocr/` JSON `ComicTextPage` có `schemaVersion` → nhận chữ; khoá = `ComicImageRequest.cacheKey`; giới hạn 30 MB; ảnh không chữ cũng lưu) → `ComicPageTextTranslator` (VietPhrase **từng khối** ngoài main theo `bookId` + phồn→giản của truyện, bỏ khối không có chữ Hán; **không** lưu bản dịch ⇒ sửa name thấy ngay).
+- `ComicTranslationOverlay` (mới) phủ lên `Image` đã `scaledToFit` của `ComicPageView` (tham số `translation: ComicImageTranslationContext?`): khung chữ gốc nở ngang 15%, nền trắng 95% chữ đen (nền tối ⇒ đen 85% chữ trắng), cỡ chữ theo dòng gốc (9–22 pt) tự thu tới 40%; chạm khối ⇒ ẩn bản dịch, lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch; chạm ngoài khối vẫn bật/tắt thanh; viên "Đang nhận chữ" khi quá 0,6 s. Từ điển (`.translationDictionariesDidUpdate`), rule (`.quickTranslationRulesDidUpdate`), cấu hình dịch đổi ⇒ ảnh đang hiện dịch lại (`revision`), không nhận chữ lại.
+- `ComicImageDiskCache`: `init(directoryName:byteLimit:)` (mặc định giữ `comic_images` / 400 MB; `byteLimit` / `trimTarget` thành thuộc tính) để dùng lại cho `comic_ocr`. Màn Dung lượng: `comic_ocr` thuộc "Cache ảnh truyện tranh" (`StorageUsageCategory`), nút "Xoá" và lịch tự dọn xoá cả hai (`StorageUsageCleaner` → `ComicPageTextRepository.clearAll`).
+- Chưa làm ở v1: trình xem phóng to, nhận chữ trước lúc tải offline, chữ dọc, tiếng Nhật/Hàn (VietPhrase chỉ dịch tiếng Trung), sửa name từ khối.
+- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ComicReaderView.swift` 377 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) manhua chữ ngang nhận đủ, bản dịch nằm đúng bong bóng; (2) chữ nhỏ trên dải webtoon cao, chữ dọc — hằng ở `ComicTextRecognizer`, chỉnh xong tăng `ComicTextPage.currentSchemaVersion`; (3) log `🈶 [ComicOCR]` (bật log) thời gian mỗi ảnh + ngôn ngữ Vision có trên máy; (4) chạm khối không bật/tắt thanh, chạm đúp ngoài khối vẫn phóng to.
+
 ## [1.3.825] - 2026-11-11
 
 ### feat: DNS mã hoá trong app chống nhà mạng chặn tên miền

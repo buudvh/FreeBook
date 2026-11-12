@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.856] - 2026-11-12
+
+### perf: Turbo đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và mát hơn
+
+Anh Bửu đo Turbo ở màn thử › Đọc liên tục (1.3.855, iPhone 11, 2 luồng, cùng văn bản, mỗi lượt ~3 phút), đúng điều kiện của plan đã duyệt (bước 2 chỉ làm khi RTF ≲ 0,55):
+
+| Giọng · QoS | RTF | CPU-s / giây tiếng | CPU-s / 1.000 ký tự | Nhiệt |
+|---|---|---|---|---|
+| Minh Quân Pro · utility | 0,71 | 1,35 | 71,8 | "nóng" từ ~2:30 |
+| Minh Quân Pro · userInitiated | **0,35** | **0,70** | 37,0 | vẫn "ấm" |
+| Mai Anh · utility | 0,73 | 1,36 | 82,6 | "nóng" từ ~2:00, có đoạn vọt RTF 1,17 |
+| Mai Anh · userInitiated | **0,36** | **0,71** | 42,9 | vẫn "ấm", đoạn chậm nhất 0,41 |
+
+Giống Nano (1.3.855): lõi hiệu năng nhanh gấp đôi và tốn ít CPU hơn ~48% (lõi tiết kiệm phải chạy gấp đôi thời gian). Âm thanh không đổi — chỉ đổi lõi chạy.
+
+- `VieNeuTurboTTSService.readerQoS = .userInitiated`, truyền vào `VieNeuTurboRuntime.synthesize(…, qos:)` ⇒ cả luồng ggml của lượt chạy lõi hiệu năng. Nạp model / dựng session / nhả vẫn ở hàng đợi `.utility`.
+- `realtimeSpeedLimit` 1,4 → **2,0** (RTF phải dưới 0,5; đo được 0,36, chậm nhất 0,41 ⇒ chừa khoảng cho máy nóng khi nghe lâu và giọng chưa đo là Adam bựa). Màn Cài đặt TTS cảnh báo khi tốc độ phát vượt mức này.
+- Dòng log mỗi đoạn `[VieNeuTurbo] Đoạn:` thêm `qos=` (QoS **đo được**) để kiểm khi khoá màn / chạy nền iOS có giữ lõi hiệu năng không.
+- Màn thử: QoS mặc định của lượt Nano và Turbo thành `userInitiated` (= trình đọc), vẫn chọn `utility` để so; "Đọc thử một lần" ghi QoS đo được thay vì chữ "utility" cố định (bỏ `VieNeuTurboRuntime.qosName`); sửa các chú thích còn nói trình đọc chạy utility.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Mới đo ở màn thử, chưa thử trong trình đọc khi khoá màn.
+
 ## [1.3.855] - 2026-11-11
 
 ### perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn
@@ -471,17 +492,3 @@ Anh Bửu duyệt Ý 6 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-
 - Giới hạn giữ nguyên: chỉ `track.subtitles.first`; tập tải offline và phim nhúng trang không có phụ đề; sửa từ điển giữa chừng áp từ tập / bài sau.
 - `CLAUDE.md` / `AGENTS.md`: mục Comic & Video thêm một gạch đầu dòng. Chuyển `[1.3.797]` sang `CHANGELOG.archive.md`.
 - **Kiểm chứng:** đọc code + grep chéo chữ ký (`VideoSubtitleCue`, `AudioLyricLine`, `updateCue`, `loadSubtitles`, `AudioPlayerDrawerMenu`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `AudioPlaybackSession.swift` 391, `VideoPlayerScreen.swift` 384, `VideoPlaybackSession.swift` 377). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề tiếng Trung từ nguồn khai zh: bản dịch hiện gần như ngay ở dòng đang chiếu, menu phụ đề đổi kiểu tức thì; (2) nguồn không khai zh: mặc định không dịch, bật ở "Dịch phụ đề" ⇒ đóng sheet là dịch; tắt ⇒ về nguyên văn, menu về nút bật/tắt; (3) lời LRC tiếng Trung: trang Lời song ngữ, dòng ở trang Đĩa, mục "Lời bài hát" ở ngăn kéo; (4) phồn→giản theo phim / nguồn.
-
-## [1.3.826] - 2026-11-11
-
-### feat: dịch ảnh truyện tranh raw bằng nhận chữ trên máy, phủ bản dịch lên bong bóng
-
-Anh Bửu chọn ý "dịch ảnh truyện tranh raw ngay trên ảnh" trong năm ý tưởng chức năng mới, duyệt plan, công tắc nhớ **theo tiện ích**.
-
-- Nút **Dịch ảnh** (`character.bubble`, bật ⇒ `.fill` trên nền trắng 18%) ở thanh trên màn đọc truyện tranh, ngay trái ☰; bấm ⇒ toast "Đã bật dịch ảnh cho nguồn này" / "Đã tắt dịch ảnh". Nhớ theo tiện ích (`ComicImageTranslationPolicy`, khoá `comicImageTranslate_<packageId>`, mặc định tắt) ⇒ Đổi nguồn / xoá truyện không phải chép hay dọn gì; độc lập công tắc dịch tên chương. Neo `.mediaDiscAnchor(.headerTrailing)` dời từ ☰ sang nút mới (nút trái nhất của cụm phải), kẻo đĩa nghe vào header đè lên nó. Trạng thái giữ ở `ComicReaderView`, không ở `ComicReaderViewModel` (397 dòng).
-- `Services/Comic/ImageText/` (mới): `ComicTextRecognizer` (actor; Vision `VNRecognizeTextRequest` accurate, `zh-Hans`/`zh-Hant`, `minimumTextHeight` đặt tường minh; ảnh dài cắt lát cao ≤ 1,5× bề ngang chồng 12%, dòng chỉ giữ ở lát có tâm dòng trong "lõi" ⇒ không trùng; mỗi lúc một ảnh, hàng rời màn ⇒ rời hàng chờ / `cancel()` request; log một lần ngôn ngữ Vision có trên máy) → `ComicTextBlockGrouper` (gom dòng cùng bong bóng: cao gần bằng, khe dọc ≤ 0,8 dòng, chồng ngang ≥ 30%; ghép chữ Hán liền; đo nền tối/sáng trên 8×8 điểm) → `ComicPageTextRepository` (RAM → `Caches/comic_ocr/` JSON `ComicTextPage` có `schemaVersion` → nhận chữ; khoá = `ComicImageRequest.cacheKey`; giới hạn 30 MB; ảnh không chữ cũng lưu) → `ComicPageTextTranslator` (VietPhrase **từng khối** ngoài main theo `bookId` + phồn→giản của truyện, bỏ khối không có chữ Hán; **không** lưu bản dịch ⇒ sửa name thấy ngay).
-- `ComicTranslationOverlay` (mới) phủ lên `Image` đã `scaledToFit` của `ComicPageView` (tham số `translation: ComicImageTranslationContext?`): khung chữ gốc nở ngang 15%, nền trắng 95% chữ đen (nền tối ⇒ đen 85% chữ trắng), cỡ chữ theo dòng gốc (9–22 pt) tự thu tới 40%; chạm khối ⇒ ẩn bản dịch, lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch; chạm ngoài khối vẫn bật/tắt thanh; viên "Đang nhận chữ" khi quá 0,6 s. Từ điển (`.translationDictionariesDidUpdate`), rule (`.quickTranslationRulesDidUpdate`), cấu hình dịch đổi ⇒ ảnh đang hiện dịch lại (`revision`), không nhận chữ lại.
-- `ComicImageDiskCache`: `init(directoryName:byteLimit:)` (mặc định giữ `comic_images` / 400 MB; `byteLimit` / `trimTarget` thành thuộc tính) để dùng lại cho `comic_ocr`. Màn Dung lượng: `comic_ocr` thuộc "Cache ảnh truyện tranh" (`StorageUsageCategory`), nút "Xoá" và lịch tự dọn xoá cả hai (`StorageUsageCleaner` → `ComicPageTextRepository.clearAll`).
-- Chưa làm ở v1: trình xem phóng to, nhận chữ trước lúc tải offline, chữ dọc, tiếng Nhật/Hàn (VietPhrase chỉ dịch tiếng Trung), sửa name từ khối.
-- `CLAUDE.md` / `AGENTS.md`: mục Comic & Video.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới đều ≤ 400 dòng, một type chính; `ComicReaderView.swift` 377 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) manhua chữ ngang nhận đủ, bản dịch nằm đúng bong bóng; (2) chữ nhỏ trên dải webtoon cao, chữ dọc — hằng ở `ComicTextRecognizer`, chỉnh xong tăng `ComicTextPage.currentSchemaVersion`; (3) log `🈶 [ComicOCR]` (bật log) thời gian mỗi ảnh + ngôn ngữ Vision có trên máy; (4) chạm khối không bật/tắt thanh, chạm đúp ngoài khối vẫn phóng to.

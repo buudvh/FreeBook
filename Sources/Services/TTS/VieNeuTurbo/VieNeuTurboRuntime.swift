@@ -65,11 +65,11 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     /// Một runtime cho cả app: trình đọc (`VieNeuTurboTTSService`) và màn thử dùng chung ⇒ chỉ một model 188 MB trong RAM.
     static let shared = VieNeuTurboRuntime()
 
-    /// QoS mặc định của hàng đợi — và của luồng ggml (luồng CPU của ggml dựng từ luồng gọi). Trên iPhone, QoS quyết chuyện
-    /// chạy lõi hiệu năng hay lõi tiết kiệm. Turbo **còn** ở `.utility` chờ đo A/B ở màn thử (`synthesize(…, qos:)`); Nano
-    /// đọc truyện đã lên `.userInitiated` từ 1.3.855 (`VieNeuTTSService.readerPriority`) sau khi đo nhanh hơn và mát hơn.
+    /// QoS mặc định của hàng đợi — chỉ còn cho nạp model / dựng session / nhả (không nóng). Trên iPhone, QoS quyết chuyện
+    /// chạy lõi hiệu năng hay lõi tiết kiệm, và luồng CPU của ggml mang QoS của luồng gọi ⇒ mức của **lượt tổng hợp** do
+    /// người gọi chọn qua `synthesize(…, qos:)`: trình đọc dùng `.userInitiated` (`VieNeuTurboTTSService.readerQoS`,
+    /// 1.3.856 — đo nhanh gấp đôi và mát hơn `.utility`), màn thử dùng mức chọn trên màn.
     static let qos: DispatchQoS = .utility
-    static let qosName = "utility"
 
     private let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: VieNeuTurboRuntime.qos)
     // Chỉ đọc / ghi trong `queue`.
@@ -115,7 +115,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     ///
     /// `qos`: mức của **lượt này**. Không có OpenMP nên ggml tạo luồng tính mới cho mỗi lượt tính từ chính luồng gọi, và
     /// luồng mới mang QoS của luồng tạo ra nó ⇒ nâng QoS cho một lượt là cả lượt (kể cả luồng ggml) chạy ở mức đó. Mức
-    /// cao hơn được xếp lên lõi hiệu năng (nhanh hơn, nóng hơn). `.enforceQoS` để hàng đợi `.utility` không kéo nó xuống.
+    /// cao hơn được xếp lên lõi hiệu năng (nhanh hơn, và đo trên máy là mát hơn vì xong sớm). `.enforceQoS` để hàng đợi
+    /// `.utility` không kéo nó xuống.
     func synthesize(
         phonemes: String,
         referenceCodesURL: URL,

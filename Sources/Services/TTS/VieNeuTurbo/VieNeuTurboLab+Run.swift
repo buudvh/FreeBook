@@ -106,7 +106,7 @@ extension VieNeuTurboLab {
         let sessionText = load.sessionCreateMs.map { "\(format($0, 0)) ms" } ?? "dùng lại"
         statusMessage = "Xong: \(format(audioSeconds, 2)) giây tiếng, tổng hợp \(format(totalMs / 1_000, 2)) giây."
         lastReport = """
-        luồng         \(load.threads) (CPU, QoS \(VieNeuTurboRuntime.qosName))
+        luồng         \(load.threads) (CPU, QoS tổng hợp \(output.qosName))
         nạp model     \(loadText)
         dựng session  \(sessionText)
         chữ / âm vị   \(characters) / \(prepared.phonemes.count) ký tự
@@ -194,7 +194,7 @@ extension VieNeuTurboLab {
         isError = false
         statusMessage = ""
         let engine = soakEngine
-        // Lượt Nano chạy ở QoS chọn trên màn (session ORT cũng dựng lại ở mức đó — `+Nano`); Turbo giữ `.utility`.
+        // Mỗi engine chạy ở QoS chọn trên màn: Nano dựng lại session ORT ở mức đó (`+Nano`), Turbo truyền vào `synthesize`.
         let priority = engine == .nano ? nanoQoS.priority : turboQoS.priority
         Task { [weak self] in
             guard let self else { return }

@@ -79,8 +79,9 @@ final class VieNeuTurboSoakRunner {
 
     // MARK: - Điều khiển
 
-    /// `priority` = mức ưu tiên của task tổng hợp. Turbo giữ `.utility` (cùng hàng đợi của `VieNeuTurboRuntime`); lượt
-    /// Nano dùng QoS chọn ở màn thử (1.3.849) — `PiperSynthesisCoordinator` thừa hưởng mức này từ task gọi nó.
+    /// `priority` = mức ưu tiên của task tổng hợp, theo QoS chọn ở màn thử (`VieNeuTurboLab.SoakQoS`) —
+    /// `PiperSynthesisCoordinator` thừa hưởng mức này từ task gọi nó. Lượt Turbo còn truyền mức đó vào
+    /// `VieNeuTurboRuntime.synthesize(…, qos:)` để luồng ggml chạy đúng mức.
     func start(
         chunks: [TTSParagraph],
         engineDescription: String,
