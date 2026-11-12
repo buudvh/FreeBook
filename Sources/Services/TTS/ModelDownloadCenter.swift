@@ -12,9 +12,13 @@ import Foundation
 ///
 /// ## Center sở hữu `Task`
 /// `Task` nằm trong `tasks` của center, không nằm ở View: nhờ vậy lượt tải độc lập hoàn toàn với vòng đời
-/// màn, và `guard tasks[id] == nil` chặn được hai lượt tải trùng cho cùng một đích. Đánh đổi đã chọn:
-/// **không** có nút huỷ, vì `NghiTTSClient.prefetchModels` và `VieNeuModelClient.prefetch` đều không nhận
-/// cancellation — thêm nút huỷ giả sẽ nói dối người dùng.
+/// màn, và `guard tasks[id] == nil` chặn được hai lượt tải trùng cho cùng một đích.
+///
+/// **Huỷ** (1.3.899) chỉ có ở các đích VieNeu (`cancel(id:)`, nút ■ của sheet chọn giọng): đường tải của chúng
+/// (`VieNeuTurboModelClient.transfer`) dùng `URLSession` async, huỷ `Task` là dừng file đang tải. NghiTTS vẫn không
+/// huỷ được (`NghiTTSClient.prefetchModels` không nhận cancellation).
+///
+/// Các đích VieNeu (model Nano, gói nhân bản, model / giọng Turbo) **chạy lần lượt** — xem `ModelDownloadCenter+VieNeu`.
 ///
 /// ## Vì sao không phải `TTSManager`
 /// `TTSManager.swift` đang vượt trần ratchet (3970/3470) và bị `check_architecture.py` chặn tăng dòng;
@@ -35,8 +39,14 @@ public final class ModelDownloadCenter: ObservableObject {
         public static let vieNeuClone = "vieNeu-clone"
         /// Gói nhân bản giọng VieNeu Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.892).
         public static let vieNeuTurboClone = "vieNeu-turbo-clone"
+        /// Model Turbo không kèm giọng nào (GGUF + `sea_g2p.bin` + manifest, 1.3.899).
+        public static let vieNeuTurboModel = "vieNeu-turbo-model"
+        public static let vieNeuTurboVoicePrefix = "vieNeu-turbo-voice-"
 
         public static func nghiVoice(_ voiceId: String) -> String { nghiPrefix + voiceId }
+
+        /// Một giọng Turbo (1.3.899): model nếu thiếu + cặp file của giọng — mỗi giọng một dòng tiến độ.
+        public static func vieNeuTurboVoice(_ voiceId: String) -> String { vieNeuTurboVoicePrefix + voiceId }
     }
 
     public enum State: Equatable {
@@ -60,6 +70,11 @@ public final class ModelDownloadCenter: ObservableObject {
         public var fraction: Double?
         public var state: State
         public let startedAt: Date
+        /// Byte đã tải / tổng byte của cả lượt (1.3.899, chỉ đích VieNeu); `0` khi không theo byte.
+        public var completedBytes: Int64 = 0
+        public var totalBytes: Int64 = 0
+        /// Đang chờ lượt tải VieNeu khác xong (các đích VieNeu chạy lần lượt).
+        public var isQueued = false
 
         public init(
             id: String,
@@ -92,11 +107,16 @@ public final class ModelDownloadCenter: ObservableObject {
         }
     }
 
-    /// Mới nhất ở cuối; View vẽ theo thứ tự này.
-    @Published public private(set) var entries: [Entry] = []
-    @Published public private(set) var lastNotice: Notice?
+    /// Mới nhất ở cuối; View vẽ theo thứ tự này. `internal(set)` vì `ModelDownloadCenter+VieNeu.swift` ghi.
+    @Published public internal(set) var entries: [Entry] = []
+    @Published public internal(set) var lastNotice: Notice?
 
-    private var tasks: [String: Task<Void, Never>] = [:]
+    /// `internal` (không `private`) vì `ModelDownloadCenter+VieNeu.swift` dùng — Swift giới hạn `private` theo file.
+    var tasks: [String: Task<Void, Never>] = [:]
+    /// Mã của lượt đang giữ mỗi đích: lượt đã bị huỷ (rồi bấm tải lại cùng đích) không được ghi đè dòng của lượt mới.
+    var tokens: [String: UUID] = [:]
+    /// Lượt VieNeu xếp cuối hàng — lượt mới chờ nó xong mới chạy.
+    var vieNeuTail: Task<Void, Never>?
 
     private init() {}
 
@@ -173,101 +193,11 @@ public final class ModelDownloadCenter: ObservableObject {
         }
     }
 
-    // MARK: - VieNeu (model lõi + gói graph nhân bản)
-
-    /// Tải 8 file lõi của VieNeu-TTS v3 Nano (~343 MB).
-    public func startVieNeuModel() {
-        let id = Target.vieNeuModel
-        let title = "Model VieNeu"
-        guard tasks[id] == nil else { return }
-        upsert(Entry(id: id, title: title, message: "Bắt đầu tải…", fraction: 0))
-
-        let handler: @Sendable (String, Double) -> Void = { message, fraction in
-            Task { @MainActor in
-                ModelDownloadCenter.shared.update(id: id, message: message, fraction: fraction)
-            }
-        }
-
-        tasks[id] = Task { [weak self] in
-            var failure: String?
-            if let service = VieNeuTTSService.shared {
-                do {
-                    _ = try await VieNeuModelClient(store: service.modelStore).prefetch(progressHandler: handler)
-                } catch {
-                    failure = error.localizedDescription
-                }
-            } else {
-                failure = "Không dựng được kho model VieNeu (thư mục Application Support không ghi được)."
-            }
-            guard let self else { return }
-            self.finish(id: id, title: title, failure: failure)
-        }
-    }
-
-    /// Tải gói graph **nhân bản giọng** của VieNeu (3 file, ~91 MB, tuỳ chọn).
-    public func startVieNeuCloneGraphs() {
-        let id = Target.vieNeuClone
-        let title = "Gói graph nhân bản VieNeu"
-        guard tasks[id] == nil else { return }
-        upsert(Entry(id: id, title: title, message: "Bắt đầu tải…", fraction: 0))
-
-        let handler: @Sendable (String, Double) -> Void = { message, fraction in
-            Task { @MainActor in
-                ModelDownloadCenter.shared.update(id: id, message: message, fraction: fraction)
-            }
-        }
-
-        tasks[id] = Task { [weak self] in
-            var failure: String?
-            if let service = VieNeuTTSService.shared {
-                do {
-                    _ = try await VieNeuModelClient(store: service.modelStore)
-                        .prefetchCloneGraphs(progressHandler: handler)
-                } catch {
-                    failure = error.localizedDescription
-                }
-            } else {
-                failure = "Không dựng được kho model VieNeu (thư mục Application Support không ghi được)."
-            }
-            guard let self else { return }
-            self.finish(id: id, title: title, failure: failure)
-        }
-    }
-
-    /// Tải gói **nhân bản giọng VieNeu Turbo** (2 file, ~71 MB, tuỳ chọn) vào kho của Nano (`Models/`).
-    public func startVieNeuTurboClonePack() {
-        let id = Target.vieNeuTurboClone
-        let title = "Gói nhân bản giọng Turbo"
-        guard tasks[id] == nil else { return }
-        upsert(Entry(id: id, title: title, message: "Bắt đầu tải…", fraction: 0))
-
-        let handler: @Sendable (String, Double) -> Void = { message, fraction in
-            Task { @MainActor in
-                ModelDownloadCenter.shared.update(id: id, message: message, fraction: fraction)
-            }
-        }
-
-        tasks[id] = Task { [weak self] in
-            var failure: String?
-            if let store = try? VieNeuModelStore() {
-                do {
-                    _ = try await VieNeuModelClient(store: store).prefetchTurboCloneGraphs(progressHandler: handler)
-                } catch {
-                    failure = error.localizedDescription
-                }
-            } else {
-                failure = "Không dựng được kho model VieNeu (thư mục Application Support không ghi được)."
-            }
-            guard let self else { return }
-            self.finish(id: id, title: title, failure: failure)
-        }
-    }
-
     // MARK: - Cập nhật nội bộ
 
     /// Thêm dòng mới hoặc ghi đè dòng cùng `id` tại **đúng vị trí cũ** — để thứ tự dòng không nhảy khi
     /// một lượt tải cập nhật tiến độ.
-    private func upsert(_ entry: Entry) {
+    func upsert(_ entry: Entry) {
         if let index = entries.firstIndex(where: { $0.id == entry.id }) {
             entries[index] = entry
         } else {
@@ -275,14 +205,14 @@ public final class ModelDownloadCenter: ObservableObject {
         }
     }
 
-    private func update(id: String, message: String, fraction: Double) {
+    func update(id: String, message: String, fraction: Double) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         guard entries[index].state.isRunning else { return }
         entries[index].message = message
         entries[index].fraction = min(1, max(0, fraction))
     }
 
-    private func finish(id: String, title: String, failure: String?) {
+    func finish(id: String, title: String, failure: String?) {
         tasks[id] = nil
         guard let index = entries.firstIndex(where: { $0.id == id }) else {
             // Dòng đã bị dọn giữa chừng: vẫn phải báo kết quả, nếu không người dùng mất thông tin.

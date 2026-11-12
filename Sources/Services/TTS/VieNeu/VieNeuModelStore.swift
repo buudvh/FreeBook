@@ -59,6 +59,29 @@ final class VieNeuModelStore {
     /// Toàn bộ file bắt buộc phải có trước khi engine chạy được.
     static var requiredNames: [String] { graphNames + configNames + assetNames }
 
+    /// Dung lượng đúng của từng file ở kho mirror @ `VieNeuModelMirror.revision` (HF API `tree`, 1.3.899) — để tiến độ
+    /// tải tính **theo byte** cộng dồn mọi file và nhãn "cần tải N MB" nói trước. 8 file lõi cộng lại 346.903.105 byte.
+    /// **Đổi `VieNeuModelMirror.revision` thì đo lại bảng này.**
+    static let fileByteCounts: [String: Int64] = [
+        "text_encoder.onnx": 26_519_943,
+        "duration_predictor.onnx": 727_809,
+        "vector_estimator.onnx": 155_132_418,
+        "codec_decoder.onnx": 99_319_941,
+        "config.json": 2_927,
+        "constants.npz": 53_448,
+        "voices_v3_nano.json": 2_316_799,
+        "sea_g2p.bin": 62_829_820,
+        "speaker_encoder.onnx": 28_303_423,
+        "codec_encoder.onnx": 56_419_417,
+        "reference_encoder.onnx": 10_778_145,
+        "denoiser.onnx": 42_661_414
+    ]
+
+    /// Dung lượng sẽ tải cho các file **chưa có** trong `names` (theo `fileByteCounts`).
+    func missingBytes(of names: [String]) -> Int64 {
+        names.filter { !exists($0) }.reduce(Int64(0)) { $0 + (Self.fileByteCounts[$1] ?? 0) }
+    }
+
     let rootURL: URL
     let modelsURL: URL
     let assetsURL: URL

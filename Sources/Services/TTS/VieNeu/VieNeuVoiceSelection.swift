@@ -20,7 +20,7 @@ import Foundation
 /// ## Chuyển từ khoá cũ (trước 1.3.897)
 /// `vieneuModel` ("nano"/"turbo") + `vieneuVoice` (giọng Nano) + `vieneuTurboVoice` (giọng Turbo) ⇒ một lựa chọn, ghi
 /// một lần khi khoá mới chưa có. Khoá cũ **giữ nguyên**, không xoá (bản cũ của app / bản sao lưu cũ vẫn đọc được).
-struct VieNeuVoiceSelection: Equatable, Sendable {
+struct VieNeuVoiceSelection: Hashable, Sendable {
     let model: VieNeuModelChoice
     /// Nano: `Voice.name`; Turbo: id manifest / `custom_…`. Rỗng = giọng mặc định của model.
     let voiceId: String

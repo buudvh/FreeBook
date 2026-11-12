@@ -9,48 +9,19 @@ import SwiftUI
 /// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
 /// `private` theo file).
 extension TTSSettingsView {
-    /// Model VieNeu đã tải đủ chưa — quyết định có cho chọn `vieneu` trong Picker hay không.
-    ///
-    /// Quyết định grill #2: **chặn ở Picker**. Chọn rồi mới biết không dùng được là trải nghiệm tệ, mà
-    /// model thì 343 MB nên không thể tải ngầm.
-    var vieNeuModelReady: Bool {
-        VieNeuTTSService.shared?.modelStore.isReady ?? false
-    }
-
     /// Mục VieNeu của Picker "Trình đọc" — **một** mục cho cả Nano lẫn Turbo (1.3.897): model đi theo giọng chọn ở
-    /// section "Giọng đọc". Luôn hiện: chưa có model nào thì tải ở hàng ngay dưới.
+    /// section "Giọng đọc". Luôn hiện: chưa có model nào thì tải ở sheet chọn giọng (nút ⬇ của từng giọng).
     var vieNeuPickerRows: some View {
         Text("VieNeu-TTS v3 (Offline)").tag("vieneu")
     }
 
-    /// Lối tải model, hiện ngay dưới Picker khi chưa có model (Nano: sang màn thử giọng; Turbo: tải tại chỗ).
-    @ViewBuilder
-    var vieNeuDownloadRow: some View {
-        if !vieNeuModelReady {
-            NavigationLink(destination: VieNeuTTSTestView()) {
-                Label("Tải model VieNeu-TTS (343 MB)", systemImage: "arrow.down.circle")
-            }
-        }
-        vieNeuTurboDownloadRow
-    }
-
-    /// Danh sách giọng của VieNeu.
-    ///
-    /// **Không** lọc theo `isModelDownloaded` như NghiTTS: 11 giọng của VieNeu nằm chung trong
-    /// `voices_v3_nano.json` của bộ model, không phải file rời cho từng giọng — nên `isReady` đã bảo đảm
-    /// có đủ giọng rồi.
+    /// Section "Giọng đọc" của VieNeu (1.3.899): **một hàng** tóm tắt giọng đang đọc, bấm ⇒ sheet chọn giọng
+    /// (`VieNeuVoicePickerSheet`, gắn ở gốc `Form` qua `showingVieNeuVoicePicker`). Không còn hàng tải model riêng: mỗi
+    /// giọng trong sheet có nút tải của nó.
     var vieNeuVoicePicker: some View {
-        vieNeuMergedVoicePicker
+        VieNeuVoiceSummaryRow { showingVieNeuVoicePicker = true }
     }
 
-    /// Nạp giọng theo engine đang chọn. VieNeu lấy từ catalog riêng (`voices_v3_nano.json`), NghiTTS lấy
-    /// qua `nghiTTSClient`.
-    ///
-    /// **Phải gọi lại mỗi khi `tool` đổi** — và đây là chỗ dễ sót nhất: `availableVoices` là **một** mảng
-    /// dùng chung cho hai engine có sẵn, nên nếu không nạp lại thì đổi từ VieNeu sang NghiTTS sẽ giữ
-    /// nguyên tên giọng của VieNeu, rồi nhánh NghiTTS lọc `isModelDownloaded` trên những tên đó ⇒ hiện
-    /// "Chưa tải giọng đọc NghiTTS nào" dù model đã có. Lỗi có sẵn từ trước nhưng chỉ lộ ra khi có engine
-    /// thứ hai cùng dùng mảng này.
     /// Đọc lại thiết lập VieNeu **thẳng từ `UserDefaults`** mỗi lần mở màn Cài đặt (lỗi 1.3.456: `@State` chỉ khởi
     /// tạo **một lần** lúc View dựng, nên mở lại màn từ tab Cài đặt thấy giá trị mặc định thay vì giá trị đã lưu).
     ///
@@ -60,8 +31,8 @@ extension TTSSettingsView {
         vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
         // Cờ từ điển tiếng Nhật + trạng thái "đã tải từ điển" đọc thẳng kho, cùng lý do.
         vieNeuJapaneseFlags.refresh()
-        // Model Turbo có trên máy chưa + danh sách giọng — quyết định nhóm Turbo của Picker giọng.
-        VieNeuTurboLab.shared.refreshStatus()
+        // Danh sách giọng + trạng thái tải của hàng "Giọng đọc" / sheet chọn giọng (đọc đĩa ngoài main).
+        if ttsManager.tool == "vieneu" { VieNeuVoiceDirectory.shared.reload() }
     }
 
     // MARK: - Tốc độ tổng hợp (1.3.465)
@@ -116,8 +87,8 @@ extension TTSSettingsView {
 
     func loadVoicesForCurrentTool() async {
         if ttsManager.tool == "vieneu" {
-            // Nano chỉ liệt kê khi đủ model (giọng nằm trong `voices_v3_nano.json` của bộ model).
-            availableVoices = vieNeuModelReady ? ((try? VieNeuTTSService.shared?.availableVoices()) ?? []) : []
+            // Giọng VieNeu nằm ở `VieNeuVoiceDirectory` (sheet chọn giọng); mảng chung này chỉ còn cho NghiTTS.
+            availableVoices = []
         } else {
             availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false))
                 ?? NghiTTSClient.fallbackVietnameseVoices
@@ -158,12 +129,7 @@ extension TTSSettingsView {
             }
         }
 
-        // Lối vào **giọng nhân bản** của Nano — chuyển vào sheet chọn giọng ở bản sau.
-        if vieNeuModelReady {
-            NavigationLink(destination: VieNeuVoiceLibraryView()) {
-                Label("Giọng của tôi (nhân bản từ audio mẫu)", systemImage: "person.wave.2")
-            }
-        }
+        // Giọng nhân bản ("Giọng của tôi") nằm trong sheet chọn giọng từ 1.3.899.
     }
 
     /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": VieNeu có nút "?" giải thích cấu hình cố định của hai model.

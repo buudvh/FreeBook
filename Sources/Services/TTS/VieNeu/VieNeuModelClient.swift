@@ -89,72 +89,73 @@ final class VieNeuModelClient {
         return Source(name: name, url: url)
     }
 
+    /// Tiến độ một lượt tải (1.3.899): chữ + byte đã tải / tổng byte của **mọi file còn thiếu** trong lượt (dung lượng từng
+    /// file lấy ở `VieNeuModelStore.fileByteCounts`). Trước đó tiến độ chỉ nhảy theo từng file — file 155 MB đứng yên ở
+    /// cùng một mức suốt mấy phút.
+    struct Progress: Sendable {
+        let message: String
+        let completedBytes: Int64
+        let totalBytes: Int64
+
+        var fraction: Double? {
+            totalBytes > 0 ? min(1, Double(completedBytes) / Double(totalBytes)) : nil
+        }
+    }
+
+    typealias ProgressHandler = @Sendable (Progress) -> Void
+
     /// Tải mọi file còn thiếu. Trả về số file **thực sự tải** trong lượt này.
-    ///
-    /// `progressHandler` nhận `(tên file, tiến độ 0…1)` — tiến độ ở **mức file**, không theo byte, đúng
-    /// khuôn `NghiTTSClient.prefetchModels`.
     @discardableResult
-    func prefetch(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+    func prefetch(progressHandler: ProgressHandler? = nil) async throws -> Int {
         try await downloadAll(try Self.sources(), progressHandler: progressHandler)
     }
 
-    /// Tải **gói graph clone** (3 file, ~91 MB). Cùng khuôn tiến độ với `prefetch`.
+    /// Tải **gói graph clone** (3 file, ~96 MB). Cùng khuôn tiến độ với `prefetch`.
     @discardableResult
-    func prefetchCloneGraphs(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+    func prefetchCloneGraphs(progressHandler: ProgressHandler? = nil) async throws -> Int {
         try await downloadAll(try Self.cloneSources(), progressHandler: progressHandler)
     }
 
     /// Tải **gói nhân bản giọng Turbo** (2 file, ~71 MB). Cùng khuôn tiến độ với `prefetch`.
     @discardableResult
-    func prefetchTurboCloneGraphs(progressHandler: ((String, Double) -> Void)? = nil) async throws -> Int {
+    func prefetchTurboCloneGraphs(progressHandler: ProgressHandler? = nil) async throws -> Int {
         try await downloadAll(try Self.turboCloneSources(), progressHandler: progressHandler)
     }
 
+    /// Tải lần lượt các file còn thiếu. Mỗi file đi qua `VieNeuTurboModelClient.transfer`: tiến độ theo byte (KVO
+    /// `task.progress`), file tạm → `<đích>.partial` cùng thư mục → `moveItem` nguyên tử, nên `store.exists(name)` không
+    /// bao giờ thấy một file `.onnx` cụt. Huỷ `Task` ⇒ `URLSession` dừng file đang tải và ném lỗi huỷ; file đã xong giữ
+    /// nguyên, lượt sau chỉ tải phần còn thiếu.
     private func downloadAll(
         _ all: [Source],
-        progressHandler: ((String, Double) -> Void)?
+        progressHandler: ProgressHandler?
     ) async throws -> Int {
         let background = BackgroundTaskSession.begin(name: "TangCongCac-VieNeuModel")
         defer { background.end() }
 
-        var downloaded = 0
-        for (index, source) in all.enumerated() {
-            let fraction = Double(index) / Double(all.count)
-            if store.exists(source.name) {
-                progressHandler?("Đã có \(source.name)", fraction)
-                continue
-            }
-            progressHandler?("Đang tải \(source.name)…", fraction)
-            try await download(source)
-            downloaded += 1
-            progressHandler?("Xong \(source.name)", Double(index + 1) / Double(all.count))
+        let missing = all.filter { !store.exists($0.name) }
+        let total = missing.reduce(Int64(0)) { $0 + (VieNeuModelStore.fileByteCounts[$1.name] ?? 0) }
+        var completed: Int64 = 0
+        for source in missing {
+            try Task.checkCancellation()
+            let base = completed
+            let message = "Đang tải \(source.name)…"
+            progressHandler?(Progress(message: message, completedBytes: base, totalBytes: total))
+            let destination = store.url(for: source.name)
+            try await VieNeuTurboModelClient.transfer(
+                session: session,
+                from: source.url,
+                to: destination,
+                name: source.name,
+                expectedBytes: nil,
+                progress: { done, _ in
+                    progressHandler?(Progress(message: message, completedBytes: base + done, totalBytes: total))
+                }
+            )
+            completed += VieNeuModelStore.fileByteCounts[source.name] ?? VieNeuTurboModelStore.fileSize(at: destination)
         }
-        progressHandler?("Tải xong", 1.0)
-        return downloaded
-    }
-
-    /// Tải một file qua hai bước move: `URLSession` trả file ở thư mục tạm của hệ thống (có thể khác
-    /// volume, nên bước này là copy+delete chứ không nguyên tử), rồi `staging → destination` **cùng thư
-    /// mục** — chỉ bước cuối mới cần nguyên tử, và chỉ nó mới nguyên tử. Nhờ vậy `store.exists(name)`
-    /// không bao giờ thấy một file `.onnx` cụt.
-    private func download(_ source: Source) async throws {
-        let destination = store.url(for: source.name)
-        let staging = destination.appendingPathExtension("partial")
-
-        let (temporary, response) = try await session.download(from: source.url)
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            throw DownloadError.httpStatus(source.name, http.statusCode)
-        }
-        let size = ((try? temporary.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0
-        guard size > 0 else { throw DownloadError.emptyBody(source.name) }
-
-        let fileManager = FileManager.default
-        try? fileManager.removeItem(at: staging)
-        try fileManager.moveItem(at: temporary, to: staging)
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.moveItem(at: staging, to: destination)
+        progressHandler?(Progress(message: "Tải xong", completedBytes: total, totalBytes: total))
+        return missing.count
     }
 
     /// Xoá 8 file lõi **và** gói graph clone (nếu có). Xem `VieNeuModelStore.deleteAll` để biết vì sao

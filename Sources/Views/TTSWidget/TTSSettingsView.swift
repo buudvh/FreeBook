@@ -34,6 +34,8 @@ struct TTSSettingsView: View {
     /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
     /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
+    /// Sheet chọn giọng VieNeu (1.3.899) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
+    @State var showingVieNeuVoicePicker = false
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath
@@ -89,8 +91,6 @@ struct TTSSettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-
-                vieNeuDownloadRow
             }
             
             // Section 2: Chọn giọng đọc
@@ -405,6 +405,7 @@ struct TTSSettingsView: View {
             }
             .appGlassSheet()
         }
+        .vieNeuVoicePickerSheet(isPresented: $showingVieNeuVoicePicker)
         .sheet(isPresented: $showingReplacementManagerSheet) {
             Group {
                 NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }

@@ -216,6 +216,11 @@ final class VieNeuTurboLab {
     /// Tải những gì còn thiếu: `sea_g2p.bin` (nếu máy chưa có Nano) → manifest giọng → GGUF 188 MB → giọng đang chọn.
     func downloadAll() {
         guard !isDownloading, let client, let store else { return }
+        // Sheet chọn giọng tải qua `ModelDownloadCenter` vào cùng file (GGUF / `sea_g2p.bin`) — không chạy chồng lên.
+        guard !ModelDownloadCenter.shared.isVieNeuBusy else {
+            downloadError = "Đang tải dữ liệu VieNeu ở sheet chọn giọng — chờ lượt đó xong."
+            return
+        }
         isDownloading = true
         isError = false
         statusMessage = ""

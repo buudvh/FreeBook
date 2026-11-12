@@ -26,6 +26,8 @@ import SwiftUI
 struct PageTitleModifier: ViewModifier {
     let title: String
     let style: PageTitleStyle
+    /// Đoạn giải thích sau nút "?" cạnh tiêu đề (1.3.899, sheet "Giọng đọc"); `nil` = không có nút. Chỉ ở kiểu `.leading`.
+    var help: [LocalizedStringKey]? = nil
 
     static let fontSize: CGFloat = 22
 
@@ -47,7 +49,14 @@ struct PageTitleModifier: ViewModifier {
                 }
                 if style == .leading {
                     ToolbarItem(placement: .topBarLeading) {
-                        titleText
+                        if let help {
+                            HStack(spacing: 2) {
+                                titleText
+                                SectionHelpButton(accessibilityLabel: "Giải thích \(title)", paragraphs: help)
+                            }
+                        } else {
+                            titleText
+                        }
                     }
                 }
             }
@@ -68,6 +77,11 @@ extension View {
     /// Tiêu đề 22pt đậm. Mặc định `.leading` (tab gốc, gốc sheet); màn mở được cả hai kiểu truyền `style:`.
     func pageTitle(_ title: String, style: PageTitleStyle = .leading) -> some View {
         modifier(PageTitleModifier(title: title, style: style))
+    }
+
+    /// Tiêu đề trái (gốc sheet) kèm nút "?" mở đoạn giải thích — như `SectionHelpHeader` của section.
+    func pageTitle(_ title: String, help: [LocalizedStringKey]) -> some View {
+        modifier(PageTitleModifier(title: title, style: .leading, help: help))
     }
 
     /// Trang đẩy vào (có nút back): tiêu đề 22pt đậm nằm giữa thanh điều hướng.

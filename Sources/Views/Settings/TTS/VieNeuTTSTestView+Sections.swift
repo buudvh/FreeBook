@@ -20,7 +20,7 @@ extension VieNeuTTSTestView {
                 LabeledContent("Dung lượng", value: formattedBytes(store?.totalBytes ?? 0))
             } else {
                 LabeledContent("Còn thiếu", value: "\(store?.missingNames.count ?? 0) file")
-                Text("Cần tải khoảng 343 MB: 4 graph ONNX + `config.json` + `constants.npz` + `voices_v3_nano.json` + `sea_g2p.bin`, từ kho sao lưu `raikiri1498/VieNeu-TTS` trên HuggingFace (chép nguyên văn từ kho của tác giả `pnnbao-ump` / `pnnbao97`). Kho được **ghim sha** nên đổi file cũng không làm app hỏng. Gói graph **nhân bản giọng** (~91 MB) là tuỳ chọn, tải riêng ở “Giọng của tôi”.")
+                Text("Cần tải khoảng 347 MB: 4 graph ONNX + `config.json` + `constants.npz` + `voices_v3_nano.json` + `sea_g2p.bin`, từ kho sao lưu `raikiri1498/VieNeu-TTS` trên HuggingFace (chép nguyên văn từ kho của tác giả `pnnbao-ump` / `pnnbao97`). Kho được **ghim sha** nên đổi file cũng không làm app hỏng. Gói graph **nhân bản giọng** (~91 MB) là tuỳ chọn, tải riêng ở “Giọng của tôi”.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
