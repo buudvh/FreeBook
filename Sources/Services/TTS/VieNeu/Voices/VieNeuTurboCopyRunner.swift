@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Nút **"Tạo bản Turbo"** của giọng Nano tự tạo trong chip Turbo của sheet chọn giọng (1.3.900): tải model Turbo + gói
+/// Nút **"Tạo bản Turbo"** của giọng Nano tự tạo trong chip Turbo của sheet chọn giọng (1.3.901): tải model Turbo + gói
 /// nhân bản Turbo nếu thiếu (có %), rồi `VieNeuTurboVoiceCloneCoordinator.createVoice(fromNanoVoiceId:)` trên mẫu Nano đã
 /// lưu (khử nhiễu bật như mặc định của sheet nhân bản). Mỗi lúc một giọng.
 ///

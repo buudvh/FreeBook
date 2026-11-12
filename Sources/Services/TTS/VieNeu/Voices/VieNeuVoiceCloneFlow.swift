@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Observation
 
-/// Trạng thái + luồng của **sheet nhân bản giọng VieNeu** (1.3.900, mockup anh Bửu duyệt). View chỉ vẽ; thu âm, chọn file,
+/// Trạng thái + luồng của **sheet nhân bản giọng VieNeu** (1.3.901, mockup anh Bửu duyệt). View chỉ vẽ; thu âm, chọn file,
 /// nghe lại mẫu, tải gói và tạo giọng ở đây. Một thực thể mỗi lần mở sheet.
 ///
 /// - **Mẫu**: thu âm (tự dừng ở 8 s, `VieNeuVoiceRecorder`) hoặc file (`DocumentPickerPresenter` ở View, URL đã chép vào

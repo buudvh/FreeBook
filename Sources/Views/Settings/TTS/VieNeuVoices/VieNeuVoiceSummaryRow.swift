@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Hàng **"Giọng đọc"** của Cài đặt TTS khi trình đọc là VieNeu (1.3.899): vòng tròn icon, tên giọng đang đọc + nhãn nhỏ
+/// Hàng **"Giọng đọc"** của Cài đặt TTS khi trình đọc là VieNeu (1.3.900): vòng tròn icon, tên giọng đang đọc + nhãn nhỏ
 /// "Nano" / "Turbo", dòng phụ thông tin, badge Nhẹ / Vừa / Nặng, chevron. Bấm ⇒ sheet chọn giọng (`onTap`).
 ///
 /// Giọng hiển thị = giọng trình đọc **đang dùng** (model hiệu lực + `selectedVoice`): lựa chọn Turbo mà máy thiếu file

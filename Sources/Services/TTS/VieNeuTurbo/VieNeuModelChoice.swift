@@ -3,7 +3,7 @@ import Foundation
 /// Model VieNeu mà **trình đọc** dùng khi `tool == "vieneu"`: Nano (ONNX, `VieNeuTTSService`) hay Turbo (GGUF qua
 /// audio.cpp, `VieNeuTurboTTSService`).
 ///
-/// ## Model đi theo giọng (1.3.897)
+/// ## Model đi theo giọng (1.3.898)
 /// Không còn chọn model riêng: model là phần của giọng đang chọn (`VieNeuVoiceSelection`, khoá `vieneuSelectedVoice`).
 /// Picker "Trình đọc" chỉ còn một mục VieNeu (`tool = "vieneu"`), chọn giọng ở sheet "Giọng đọc".
 ///

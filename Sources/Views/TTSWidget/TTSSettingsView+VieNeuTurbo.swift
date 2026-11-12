@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Phần **VieNeu Turbo** của màn Cài đặt TTS: selection của Picker "Trình đọc", cảnh báo tốc độ và nút "?" của section
-/// "Cấu hình giọng nói". Giọng (cả Nano lẫn Turbo) chọn ở sheet chọn giọng từ 1.3.899.
+/// "Cấu hình giọng nói". Giọng (cả Nano lẫn Turbo) chọn ở sheet chọn giọng từ 1.3.900.
 ///
 /// Tách file riêng vì `TTSSettingsView.swift` là file legacy chỉ được giảm dòng — ở đó chỉ đổi đúng một dòng (selection
 /// của Picker "Trình đọc"); `+VieNeu` / `+Voice` chỉ thêm lời gọi tới các khối ở đây.
@@ -15,7 +15,7 @@ extension TTSSettingsView {
 
     // MARK: - Picker "Trình đọc"
 
-    /// Selection của Picker "Trình đọc" — từ 1.3.897 chỉ còn **một** mục VieNeu (`tool = "vieneu"`), model đi theo giọng.
+    /// Selection của Picker "Trình đọc" — từ 1.3.898 chỉ còn **một** mục VieNeu (`tool = "vieneu"`), model đi theo giọng.
     var readerPickerSelection: Binding<String> {
         Binding(get: { ttsManager.tool }, set: { ttsManager.tool = $0 })
     }

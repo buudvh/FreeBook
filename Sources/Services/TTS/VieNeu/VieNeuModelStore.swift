@@ -47,7 +47,7 @@ final class VieNeuModelStore {
     /// lúc đó chưa có file nào để đo, nên `cloneTotalBytes` trả 0.
     static let cloneApproximateBytes: Int64 = 95_500_985
 
-    /// Gói **nhân bản giọng VieNeu Turbo** (1.3.892, tuỳ chọn): `speaker_encoder.onnx` (chung với gói clone Nano ở trên)
+    /// Gói **nhân bản giọng VieNeu Turbo** (1.3.893, tuỳ chọn): `speaker_encoder.onnx` (chung với gói clone Nano ở trên)
     /// + `denoiser.onnx` (khử nhiễu mẫu, resemble-enhance). Hai file cùng ở `common/` của kho mirror, cất chung `Models/`
     /// như `sea_g2p.bin` ở `Assets/` — Turbo không có thư mục model ONNX riêng. Cố ý **không** nằm trong `requiredNames`.
     static let turboCloneGraphNames = ["speaker_encoder.onnx", "denoiser.onnx"]
@@ -59,7 +59,7 @@ final class VieNeuModelStore {
     /// Toàn bộ file bắt buộc phải có trước khi engine chạy được.
     static var requiredNames: [String] { graphNames + configNames + assetNames }
 
-    /// Dung lượng đúng của từng file ở kho mirror @ `VieNeuModelMirror.revision` (HF API `tree`, 1.3.899) — để tiến độ
+    /// Dung lượng đúng của từng file ở kho mirror @ `VieNeuModelMirror.revision` (HF API `tree`, 1.3.900) — để tiến độ
     /// tải tính **theo byte** cộng dồn mọi file và nhãn "cần tải N MB" nói trước. 8 file lõi cộng lại 346.903.105 byte.
     /// **Đổi `VieNeuModelMirror.revision` thì đo lại bảng này.**
     static let fileByteCounts: [String: Int64] = [
@@ -181,7 +181,7 @@ final class VieNeuModelStore {
         var names = Self.requiredNames + Self.cloneGraphNames + Self.turboCloneGraphNames
         // `sea_g2p.bin` là bộ phiên âm **dùng chung** với VieNeu Turbo (`VieNeuTurboTextFrontend`). Máy còn model Turbo
         // thì giữ lại: xoá đi là Turbo hỏng ngầm — model hiệu lực lật về Nano (vừa bị xoá), trình đọc không còn engine.
-        // Cùng lý do, giữ gói nhân bản giọng Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.892).
+        // Cùng lý do, giữ gói nhân bản giọng Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.893).
         if (try? VieNeuTurboModelStore())?.hasModel == true {
             let shared = Set(["sea_g2p.bin"] + Self.turboCloneGraphNames)
             names.removeAll { shared.contains($0) }

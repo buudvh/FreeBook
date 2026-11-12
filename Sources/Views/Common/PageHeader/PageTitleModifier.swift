@@ -26,7 +26,7 @@ import SwiftUI
 struct PageTitleModifier: ViewModifier {
     let title: String
     let style: PageTitleStyle
-    /// Đoạn giải thích sau nút "?" cạnh tiêu đề (1.3.899, sheet "Giọng đọc"); `nil` = không có nút. Chỉ ở kiểu `.leading`.
+    /// Đoạn giải thích sau nút "?" cạnh tiêu đề (1.3.900, sheet "Giọng đọc"); `nil` = không có nút. Chỉ ở kiểu `.leading`.
     var help: [LocalizedStringKey]? = nil
 
     static let fontSize: CGFloat = 22

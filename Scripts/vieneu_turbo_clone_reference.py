@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Đối chứng nhân bản giọng VieNeu Turbo của app với pipeline gốc (chạy trên máy tính).
 
-App (1.3.890–893) chép bước chuẩn bị mẫu của `pnnbao97/VieNeu-TTS` sang Swift. Script này chạy **đúng code gốc** (chép
+App (1.3.891–893) chép bước chuẩn bị mẫu của `pnnbao97/VieNeu-TTS` sang Swift. Script này chạy **đúng code gốc** (chép
 lại nguyên văn các hàm cần, không cài cả gói `vieneu`) để ra file tham chiếu, rồi so với file app chia sẻ từ màn thử
 VieNeu Turbo › "Tạo giọng Turbo từ file".
 

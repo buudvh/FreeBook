@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Hàng **giọng Nano tự tạo chưa có bản Turbo** trong nhóm "Giọng của tôi" của chip Turbo (1.3.900): tên + dòng phụ
+/// Hàng **giọng Nano tự tạo chưa có bản Turbo** trong nhóm "Giọng của tôi" của chip Turbo (1.3.901): tên + dòng phụ
 /// "Giọng Nano · mẫu 8 s" + nút "Tạo bản Turbo" (`VieNeuTurboCopyRunner`). Đang chạy ⇒ dòng phụ thành tiến độ tải gói /
 /// "Đang tạo bản Turbo…" kèm thanh mảnh.
 struct VieNeuTurboCopyRow: View {

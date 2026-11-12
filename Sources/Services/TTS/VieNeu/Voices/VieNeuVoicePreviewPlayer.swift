@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Observation
 
-/// **Thử giọng** VieNeu ở sheet chọn giọng (1.3.899): tổng hợp một câu mẫu bằng đúng engine của giọng (Nano / Turbo, cùng
+/// **Thử giọng** VieNeu ở sheet chọn giọng (1.3.900): tổng hợp một câu mẫu bằng đúng engine của giọng (Nano / Turbo, cùng
 /// đường tổng hợp với trình đọc) rồi phát. Khuôn nút ▶ cũ của màn "Giọng của tôi".
 ///
 /// - Chặn khi truyện **đang phát** (`TTSManager.isPlaying`) — không chặn khi chỉ còn widget: Cài đặt TTS đã tạm dừng đọc,

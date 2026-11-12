@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Khối **dòng trạng thái công tắc từ điển** của màn từ điển phiên âm VieNeu-TTS (dòng "Tự động phiên âm tiếng Nhật" bỏ ở
-/// 1.3.898 cùng công tắc của nó).
+/// 1.3.899 cùng công tắc của nó).
 ///
 /// Tách khỏi file chính vì trần **400 dòng**: `VieNeuJapaneseDictionaryView.swift` đang sát trần (banner tiến
 /// độ ở 1.3.463 đẩy nó lên 399/400), nên mọi thứ mới phải ra file `+*.swift`.

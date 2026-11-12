@@ -1,6 +1,6 @@
 import Foundation
 
-/// Danh sách giọng VieNeu **dựng sẵn trong app** (1.3.899) — để sheet chọn giọng hiện đủ hàng (kèm nút ⬇) **trước khi**
+/// Danh sách giọng VieNeu **dựng sẵn trong app** (1.3.900) — để sheet chọn giọng hiện đủ hàng (kèm nút ⬇) **trước khi**
 /// tải gì: tên + mô tả 11 giọng Nano nằm trong `voices_v3_nano.json` (2,3 MB, thuộc gói model 347 MB), 25 giọng Turbo
 /// trong `manifest.json` của model Turbo. Có file trên máy thì `VieNeuVoiceDirectory` đọc file, danh sách này chỉ để lấp.
 ///

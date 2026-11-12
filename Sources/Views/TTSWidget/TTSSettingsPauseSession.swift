@@ -1,6 +1,6 @@
 import Foundation
 
-/// Phiên "đang mở Cài đặt TTS" (1.3.896): mở màn thì tạm dừng đọc, **chỉ khi màn đóng thật** mới đọc tiếp với cấu
+/// Phiên "đang mở Cài đặt TTS" (1.3.897): mở màn thì tạm dừng đọc, **chỉ khi màn đóng thật** mới đọc tiếp với cấu
 /// hình mới.
 ///
 /// Trước đây `TTSSettingsView.onDisappear` gọi thẳng `resumeAfterSettings()`. Nhưng `onDisappear` chạy cả khi một trang

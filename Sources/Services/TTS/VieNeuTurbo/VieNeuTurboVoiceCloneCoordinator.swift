@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Chủ **luồng tạo giọng VieNeu Turbo** từ một mẫu âm thanh (1.3.891): kiểm điều kiện → chuẩn bị mẫu + speaker embedding
+/// Chủ **luồng tạo giọng VieNeu Turbo** từ một mẫu âm thanh (1.3.892): kiểm điều kiện → chuẩn bị mẫu + speaker embedding
 /// (ORT, `VieNeuTurboReferencePreparer`) → mã tham chiếu (audio.cpp, `VieNeuTurboRuntime.encodeReference`) → ghi giọng
 /// (`VieNeuTurboCustomVoiceStore`) → làm mới `VieNeuTurboCustomVoiceRepository`.
 ///

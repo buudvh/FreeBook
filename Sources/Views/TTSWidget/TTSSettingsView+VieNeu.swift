@@ -9,13 +9,13 @@ import SwiftUI
 /// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
 /// `private` theo file).
 extension TTSSettingsView {
-    /// Mục VieNeu của Picker "Trình đọc" — **một** mục cho cả Nano lẫn Turbo (1.3.897): model đi theo giọng chọn ở
+    /// Mục VieNeu của Picker "Trình đọc" — **một** mục cho cả Nano lẫn Turbo (1.3.898): model đi theo giọng chọn ở
     /// section "Giọng đọc". Luôn hiện: chưa có model nào thì tải ở sheet chọn giọng (nút ⬇ của từng giọng).
     var vieNeuPickerRows: some View {
         Text("VieNeu-TTS v3 (Offline)").tag("vieneu")
     }
 
-    /// Section "Giọng đọc" của VieNeu (1.3.899): **một hàng** tóm tắt giọng đang đọc, bấm ⇒ sheet chọn giọng
+    /// Section "Giọng đọc" của VieNeu (1.3.900): **một hàng** tóm tắt giọng đang đọc, bấm ⇒ sheet chọn giọng
     /// (`VieNeuVoicePickerSheet`, gắn ở gốc `Form` qua `showingVieNeuVoicePicker`). Không còn hàng tải model riêng: mỗi
     /// giọng trong sheet có nút tải của nó.
     var vieNeuVoicePicker: some View {
@@ -25,7 +25,7 @@ extension TTSSettingsView {
     /// Đọc lại thiết lập VieNeu **thẳng từ `UserDefaults`** mỗi lần mở màn Cài đặt (lỗi 1.3.456: `@State` chỉ khởi
     /// tạo **một lần** lúc View dựng, nên mở lại màn từ tab Cài đặt thấy giá trị mặc định thay vì giá trị đã lưu).
     ///
-    /// Từ 1.3.898 không còn "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn Cân bằng + 2 luồng).
+    /// Từ 1.3.899 không còn "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn Cân bằng + 2 luồng).
     func refreshVieNeuSettings() {
         // Tốc độ tổng hợp (1.3.465) — đọc thẳng `UserDefaults`, không qua service.
         vieNeuSynthesisSpeed = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
@@ -97,7 +97,7 @@ extension TTSSettingsView {
 
     /// Khối **quản lý riêng của trình đọc** cho VieNeu — hiện thẳng trong Section 3 của màn Cài đặt.
     ///
-    /// Từ 1.3.898 chỉ còn công tắc từ điển phiên âm + lối vào / nút tải từ điển tiếng Nhật, chung cho Nano lẫn Turbo. Đã
+    /// Từ 1.3.899 chỉ còn công tắc từ điển phiên âm + lối vào / nút tải từ điển tiếng Nhật, chung cho Nano lẫn Turbo. Đã
     /// bỏ (giá trị cũ giữ nguyên, không đọc nữa): "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn
     /// Cân bằng 8 bước + 2 luồng — `VieNeuSynthesisPolicy.isPowerSaving`), "Luồng tổng hợp chờ bận (spin)" (luôn tắt),
     /// "Tự động phiên âm tiếng Nhật" (luôn tắt), hàng "Tổng hợp Turbo" và chú thích. Giải thích nằm sau nút "?" của
@@ -129,7 +129,7 @@ extension TTSSettingsView {
             }
         }
 
-        // Giọng nhân bản ("Giọng của tôi") nằm trong sheet chọn giọng từ 1.3.899.
+        // Giọng nhân bản ("Giọng của tôi") nằm trong sheet chọn giọng từ 1.3.900.
     }
 
     /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": VieNeu có nút "?" giải thích cấu hình cố định của hai model.
@@ -211,7 +211,7 @@ extension TTSSettingsView {
     }
 }
 
-/// Hai trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.898).
+/// Hai trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899).
 ///
 /// **Vì sao không dùng `@AppStorage`**: `TTSSettingsView.swift` chỉ còn **3 dòng** tới trần 519 của
 /// `check_architecture.py`, mà hai `@AppStorage` cộng một `@State` là vừa đúng 3 dòng. Gom vào một

@@ -85,7 +85,7 @@ final class VieNeuONNXRuntime {
         self.allowSpinning = allowSpinning
     }
 
-    /// Ngữ cảnh của đường **nhân bản giọng Turbo** (1.3.890): chỉ `speaker_encoder` (+ `denoiser` khi `loadsDenoiser`),
+    /// Ngữ cảnh của đường **nhân bản giọng Turbo** (1.3.891): chỉ `speaker_encoder` (+ `denoiser` khi `loadsDenoiser`),
     /// ~28 / ~71 MB trọng số. Mã tham chiếu của Turbo do audio.cpp tạo nên không cần `codec_encoder` /
     /// `reference_encoder` của Nano. Chỉ dùng được cho `speakerEncoder` và `denoise` (`+Denoiser`).
     init(

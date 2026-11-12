@@ -81,7 +81,7 @@ extension VieNeuTurboLabView {
                     ForEach(lab.voices) { voice in
                         Text(voice.displayName).tag(voice.id)
                     }
-                    // Giọng tạo ở mục "Tạo giọng Turbo từ file" (1.3.893).
+                    // Giọng tạo ở mục "Tạo giọng Turbo từ file" (1.3.894).
                     if !VieNeuTurboCustomVoiceRepository.shared.voices.isEmpty {
                         Section("Giọng tự tạo") {
                             ForEach(VieNeuTurboCustomVoiceRepository.shared.voices) { voice in

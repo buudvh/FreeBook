@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Một hàng giọng của sheet chọn giọng VieNeu (1.3.899).
+/// Một hàng giọng của sheet chọn giọng VieNeu (1.3.900).
 ///
 /// - Nút tròn bên trái: ▶ thử giọng; ■ khi đang thử (tổng hợp / phát) **hoặc** đang tải (bấm = huỷ); ⬇ khi thiếu dữ liệu.
 /// - Thân hàng: tên + dòng phụ (thông tin, " · cần tải N MB" khi chưa tải; đang tải ⇒ "Đang tải 37% · 93 / 251 MB" +

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Một hàng của **sheet chọn giọng VieNeu** (1.3.899) — giọng Nano / Turbo, có sẵn hoặc tự tạo. Bản sao bất biến, dựng ở
+/// Một hàng của **sheet chọn giọng VieNeu** (1.3.900) — giọng Nano / Turbo, có sẵn hoặc tự tạo. Bản sao bất biến, dựng ở
 /// `VieNeuVoiceDirectory` ngoài main; View chỉ vẽ.
 struct VieNeuVoiceEntry: Identifiable, Hashable, Sendable {
     enum Group: Sendable {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// **Sheet chọn giọng VieNeu** (1.3.899, mockup anh Bửu duyệt): chip "Nano | Turbo" (mở ra chọn sẵn model đang dùng),
+/// **Sheet chọn giọng VieNeu** (1.3.900, mockup anh Bửu duyệt): chip "Nano | Turbo" (mở ra chọn sẵn model đang dùng),
 /// rồi "Giọng của tôi" (giọng nhân bản của model đó), rồi Turbo "Tuyển chọn" + "Giọng khác" / Nano "Giọng có sẵn".
 ///
 /// - Không có dòng tải model riêng: mỗi giọng có nút ⬇ của nó. Nano tải chung một gói ⇒ bấm ⬇ một giọng Nano thì **mọi**
@@ -8,7 +8,7 @@ import SwiftUI
 /// - Chọn giọng = `TTSManager.selectVieNeuVoice` ⇒ model đi theo giọng (khác model thì trình đọc nạp lại engine).
 /// - Thử giọng qua `VieNeuVoicePreviewPlayer`; sheet đóng thì dừng câu thử.
 /// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ).
-/// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.900); giọng Nano tự tạo chưa có bản Turbo hiện trong
+/// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.901); giọng Nano tự tạo chưa có bản Turbo hiện trong
 ///   "Giọng của tôi" của chip Turbo với nút "Tạo bản Turbo" (`VieNeuTurboCopyRow`).
 struct VieNeuVoicePickerSheet: View {
     static let helpText: [LocalizedStringKey] = [

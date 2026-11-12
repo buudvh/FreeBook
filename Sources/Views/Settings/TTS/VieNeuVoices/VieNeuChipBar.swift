@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Hàng chip chọn **một** mục (1.3.899): "Nano | Turbo" ở sheet chọn giọng, "Nano | Turbo | Cả hai" ở sheet nhân bản. Kiểu
+/// Hàng chip chọn **một** mục (1.3.900): "Nano | Turbo" ở sheet chọn giọng, "Nano | Turbo | Cả hai" ở sheet nhân bản. Kiểu
 /// chip như `ExtensionKindFilterBar`: đang chọn = chữ màu nhấn, nền nhấn ~18 %, viền ~60 %.
 struct VieNeuChipBar<Option: Hashable>: View {
     let options: [(value: Option, title: String)]

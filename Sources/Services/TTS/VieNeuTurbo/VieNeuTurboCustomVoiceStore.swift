@@ -1,6 +1,6 @@
 import Foundation
 
-/// Kho giọng **người dùng tự tạo** của VieNeu Turbo (1.3.891) — tầng file, không có trạng thái UI.
+/// Kho giọng **người dùng tự tạo** của VieNeu Turbo (1.3.892) — tầng file, không có trạng thái UI.
 ///
 /// ```text
 /// Application Support/FreeBook/TTS/VieNeuTurbo/CustomVoices/

@@ -25,7 +25,7 @@ struct TTSSettingsView: View {
     @State var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
-    /// `false` khi màn bị gỡ khỏi stack / sheet đóng; vẫn `true` khi chỉ bị trang con hay tab khác che (1.3.896).
+    /// `false` khi màn bị gỡ khỏi stack / sheet đóng; vẫn `true` khi chỉ bị trang con hay tab khác che (1.3.897).
     @Environment(\.isPresented) private var isPresented
     /// Tốc độ **tổng hợp** của VieNeu (1.3.465) — đưa thẳng vào model, **nhân** với `ttsManager.speed`
     /// thành tốc độ nghe. `@State` vì thanh trượt cần một giá trị quan sát được; giá trị thật nằm ở
@@ -34,7 +34,7 @@ struct TTSSettingsView: View {
     /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
     /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
-    /// Sheet chọn giọng VieNeu (1.3.899) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
+    /// Sheet chọn giọng VieNeu (1.3.900) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
     @State var showingVieNeuVoicePicker = false
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
@@ -362,7 +362,7 @@ struct TTSSettingsView: View {
             // Phải đọc lại mỗi lần mở màn: `@State` chỉ khởi tạo một lần lúc View dựng ⇒ mở lại từ tab
             // Cài đặt hiện giá trị mặc định thay vì giá trị đã lưu (lỗi 1.3.456).
             refreshVieNeuSettings()
-            // Tạm dừng phát để cấu hình — chỉ lần mở đầu; hiện lại sau trang con / đổi tab thì không (1.3.896).
+            // Tạm dừng phát để cấu hình — chỉ lần mở đầu; hiện lại sau trang con / đổi tab thì không (1.3.897).
             TTSSettingsPauseSession.begin()
             Task { await loadSystemVoices() }
             if TTSManager.isExtensionTool(ttsManager.tool) {

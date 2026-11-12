@@ -15,7 +15,7 @@ struct VieNeuTurboReportFile: Transferable {
         case soak
         /// Báo cáo phép thử P1 "So EP cho Nano" (`VieNeuNanoEPProbe`).
         case epProbe
-        /// Số đo của lượt "Tạo giọng Turbo từ file" (1.3.893).
+        /// Số đo của lượt "Tạo giọng Turbo từ file" (1.3.894).
         case clone
     }
 

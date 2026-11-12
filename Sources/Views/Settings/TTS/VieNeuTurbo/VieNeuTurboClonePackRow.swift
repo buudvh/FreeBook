@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Hàng **gói nhân bản giọng Turbo** (`speaker_encoder.onnx` + `denoiser.onnx`, ~71 MB) trong mục "Tạo giọng Turbo từ
-/// file" của màn thử (1.3.893): trạng thái, nút tải (qua `ModelDownloadCenter` nên rời màn vẫn tải tiếp), tiến độ, nút
+/// file" của màn thử (1.3.894): trạng thái, nút tải (qua `ModelDownloadCenter` nên rời màn vẫn tải tiếp), tiến độ, nút
 /// xoá. Quan sát `ModelDownloadCenter` ở đây để lượt tải xong là mục tạo giọng tự kiểm lại điều kiện.
 struct VieNeuTurboClonePackRow: View {
     @ObservedObject private var center = ModelDownloadCenter.shared

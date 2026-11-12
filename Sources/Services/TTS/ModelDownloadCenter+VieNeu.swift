@@ -1,6 +1,6 @@
 import Foundation
 
-/// Các đích tải **VieNeu** của `ModelDownloadCenter` (1.3.899): model Nano (8 file lõi), gói nhân bản Nano, gói nhân bản
+/// Các đích tải **VieNeu** của `ModelDownloadCenter` (1.3.900): model Nano (8 file lõi), gói nhân bản Nano, gói nhân bản
 /// Turbo, model Turbo và từng giọng Turbo.
 ///
 /// ## Chạy lần lượt

@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 ///
 /// ## Công tắc áp dụng **không** nằm ở đây — có ý
 /// "Áp dụng từ điển phiên âm VieNeu" chỉ có ở *Cài đặt TTS → Quản lý riêng của trình đọc* ("Tự động phiên âm tiếng
-/// Nhật" bỏ ở 1.3.898, luôn tắt). Màn này chỉ hiện **dòng trạng thái**, vì cờ mặc định **TẮT** ⇒ vừa thêm từ xong
+/// Nhật" bỏ ở 1.3.899, luôn tắt). Màn này chỉ hiện **dòng trạng thái**, vì cờ mặc định **TẮT** ⇒ vừa thêm từ xong
 /// sẽ chưa nghe thấy khác, và đó là chỗ dễ tưởng tính năng hỏng nhất.
 ///
 /// ## Vì sao dùng lại `EditWordSheet` của màn NghiTTS

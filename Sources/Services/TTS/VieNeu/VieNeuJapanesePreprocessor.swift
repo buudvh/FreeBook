@@ -15,7 +15,7 @@ enum VieNeuJapanesePreprocessor {
 
     /// Khoá `UserDefaults` **riêng của VieNeu** — cố ý **không** dùng `PreprocessorSettingKey` của NghiTTS. Mặc định
     /// **TẮT** (`bool(forKey:)` trả `false` khi khoá chưa có). Khoá phiên âm romaji (`vieneuJapaneseTransliterationEnabled`)
-    /// không còn được đọc từ 1.3.898.
+    /// không còn được đọc từ 1.3.899.
     static let dictionaryEnabledKey = "vieneuDictionaryEnabled"
 
     /// Gấp 5 nguyên âm macron về ASCII. **An toàn tuyệt đối, không cần cổng chặn**: `ā ī ū ē ō` không tồn
@@ -32,7 +32,7 @@ enum VieNeuJapanesePreprocessor {
 
     /// Đọc cờ từ điển từ `UserDefaults` rồi chạy. Tách ra để tầng service chỉ thêm **một dòng** (Nano và Turbo cùng gọi).
     ///
-    /// **Phiên âm romaji tự động luôn tắt** từ 1.3.898 (công tắc "Tự động phiên âm tiếng Nhật" ở Cài đặt TTS đã bỏ): giá
+    /// **Phiên âm romaji tự động luôn tắt** từ 1.3.899 (công tắc "Tự động phiên âm tiếng Nhật" ở Cài đặt TTS đã bỏ): giá
     /// trị cũ ở khoá `vieneuJapaneseTransliterationEnabled` bị bỏ qua, không xoá. Từ điển phiên âm vẫn theo cờ của nó.
     static func applyUsingStoredFlags(text: String) async -> String {
         await apply(

@@ -1,6 +1,6 @@
 import Foundation
 
-/// **Gói cần cho nhân bản giọng VieNeu** (1.3.900) — dùng chung cho sheet nhân bản và nút "Tạo bản Turbo":
+/// **Gói cần cho nhân bản giọng VieNeu** (1.3.901) — dùng chung cho sheet nhân bản và nút "Tạo bản Turbo":
 /// - Nano: model Nano (8 file — giọng tạo xong mới đọc được, `constants.npz` cũng cần lúc nhân bản) + gói nhân bản Nano
 ///   (`speaker_encoder` / `codec_encoder` / `reference_encoder`).
 /// - Turbo: model Turbo (GGUF + manifest + `sea_g2p.bin`) + gói nhân bản Turbo (`speaker_encoder` + `denoiser`). Luôn tải

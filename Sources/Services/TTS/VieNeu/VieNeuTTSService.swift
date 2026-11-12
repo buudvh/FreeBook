@@ -113,7 +113,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         }
     }
 
-    /// "Tiết kiệm pin": ép `fast` + 2 luồng ORT — luôn bật từ 1.3.898 (`VieNeuSynthesisPolicy.isPowerSaving`).
+    /// "Tiết kiệm pin": ép `fast` + 2 luồng ORT — luôn bật từ 1.3.899 (`VieNeuSynthesisPolicy.isPowerSaving`).
     var powerSaving: Bool {
         VieNeuSynthesisPolicy.isPowerSaving(.standard)
     }

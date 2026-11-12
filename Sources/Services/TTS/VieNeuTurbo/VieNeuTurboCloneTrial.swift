@@ -1,12 +1,12 @@
 import Foundation
 import Observation
 
-/// Mục **"Tạo giọng Turbo từ file"** của màn thử VieNeu Turbo (1.3.893): chạy `VieNeuTurboVoiceCloneCoordinator` trên một
+/// Mục **"Tạo giọng Turbo từ file"** của màn thử VieNeu Turbo (1.3.894): chạy `VieNeuTurboVoiceCloneCoordinator` trên một
 /// file chọn từ Files, báo thời gian từng bước + số khung + RAM, giữ file trung gian để chia sẻ đối chiếu với script
 /// Python (`Scripts/vieneu_turbo_clone_reference.py`), rồi cho đọc thử bằng giọng vừa tạo (chọn giọng đó ở màn thử và
 /// gọi "Đọc thử một lần" của `VieNeuTurboLab`).
 ///
-/// Không phải giao diện người dùng cuối — sheet chọn / nhân bản giọng thật (1.3.899–900) gọi thẳng coordinator +
+/// Không phải giao diện người dùng cuối — sheet chọn / nhân bản giọng thật (1.3.900–900) gọi thẳng coordinator +
 /// `VieNeuTurboCustomVoiceRepository`.
 @MainActor
 @Observable

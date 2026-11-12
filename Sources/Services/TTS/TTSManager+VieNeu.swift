@@ -270,7 +270,7 @@ extension TTSManager {
     /// vào `extVoice_vieneu`, còn `applyVieNeuParamsIfNeeded()` lại **đọc** `vieneuVoice` ⇒ chọn giọng
     /// xong thoát ra vào lại là mất. Hai bên phải cùng một khoá.
     ///
-    /// VieNeu (1.3.897) lưu **giọng kèm model** ở `VieNeuVoiceSelection` (khoá `vieneuSelectedVoice`) — xem
+    /// VieNeu (1.3.898) lưu **giọng kèm model** ở `VieNeuVoiceSelection` (khoá `vieneuSelectedVoice`) — xem
     /// `recordReaderVoice`: đang lùi về Nano vì Turbo thiếu file thì không ghi đè lựa chọn Turbo.
     internal func persistVoice(_ value: String) {
         let key: String

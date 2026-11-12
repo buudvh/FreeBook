@@ -1,6 +1,6 @@
 import Foundation
 
-/// Chữ dung lượng / tiến độ tải của sheet chọn giọng VieNeu (1.3.899). MB **thập phân** như nhãn các gói khác (GGUF
+/// Chữ dung lượng / tiến độ tải của sheet chọn giọng VieNeu (1.3.900). MB **thập phân** như nhãn các gói khác (GGUF
 /// 187.917.664 byte = "188 MB").
 enum VieNeuSizeFormatter {
     /// "347 MB"; dưới 1 MB ⇒ "dưới 1 MB" (file giọng Turbo vài KB).

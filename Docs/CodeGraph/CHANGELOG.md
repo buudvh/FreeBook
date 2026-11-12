@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.903] - 2026-11-12
+
+### chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại
+
+Session Nano đưa P1b ("Đo tự động ORT ↔ Core ML") lên `main` với số **1.3.890** trong lúc đợt này chưa push. Javis ghép lại 12 commit của đợt lên sau commit đó (`a3818664`) và dời mỗi số lên 1:
+- lõi nhân bản Turbo: 1.3.890–895 → **1.3.891–896**;
+- sửa Cài đặt TTS: 1.3.896 → **1.3.897**;
+- giao diện chọn giọng / nhân bản: 1.3.897–901 → **1.3.898–902**.
+
+Entry CHANGELOG đã dời lúc ghép. Commit này chỉ dời số trong **chú thích code**, `CLAUDE.md` / `AGENTS.md` và script của đợt. Dòng nào có y nguyên trong bản `main` thì giữ, ví dụ số 1.3.890 của P1b.
+
+**Kiểm chứng:** so `diff` code giữa bản trước và sau khi ghép: chỉ khác đúng phần P1b mang vào, cộng một dòng `isBusy` của màn thử gộp cả `autoRun` lẫn `cloneTrial`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build.
+
 ## [1.3.902] - 2026-11-12
 
 ### fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước
@@ -528,21 +541,3 @@ Anh Bửu duyệt bước thử chạy VieNeu-TTS **v3 Turbo** bằng file GGUF 
 - **`build-ipa.yml`**: cache `Vendor/AudioCpp` theo hash của script, thiếu thì chạy script trước `xcodegen generate`. **`audiocpp-ios.yml`** (mới, chỉ nhánh thử + chạy tay): dựng riêng framework, không build app, không gửi Telegram — để sửa script nhanh; chung khoá cache.
 - **`project.yml`**: link + embed `Vendor/AudioCpp/AudioCpp.xcframework`. Trên Mac muốn generate project thì chạy script trước.
 - **Kiểm chứng:** chưa — Windows không build được; lượt CI `audiocpp-ios.yml` là lần biên dịch đầu.
-
-## [1.3.873] - 2026-11-11
-
-### feat: mọi sheet và popup dùng nền kính, ô mờ như sheet hub, độ đục thấp nhất 20%
-
-Anh Bửu: "sửa nền các loại sheet như các sheet gần đây", "như hub, nút + kệ sách… hạn chế mức thấp nhất độ đục là 20% nhé", "mấy pop up như bật tắt dịch cũng vậy nhé" (đã duyệt mockup + plan).
-
-- **Modifier dùng chung** (mới, `Views/Common/GlassChrome/AppGlassSheetModifier.swift`): `.appGlassSheet()` (sheet — nền `DrawerGlassSheetBackground`, bo 16), `.appGlassPopover()` (popup), `.appGlassUIKitSheet()` (sheet trình bày bằng UIKit — kính vẽ bằng `.background`); cả ba ẩn nền danh sách, tông tối, đặt environment `isGlassSheet`. `.glassSheetRows()` cho ô danh sách mờ `Color.primary.opacity(0.08)` (màu dòng của sheet hub) — chỉ có tác dụng trong sheet kính (ngoài sheet kính không ghi `listRowBackground` nào, kể cả `nil`) nên trang thường dùng chung view giữ y nguyên, kể cả dòng tự đặt nền riêng; `.glassAwareBackground(_:)` cho nền đặc tự tô trong view dùng chung (thanh tìm của `SearchView`).
-- **122 chỗ mở sheet** (khoảng 60 loại) bọc `Group { … }.appGlassSheet()` bằng script có kiểm cân bằng ngoặc. Không gắn: sheet chia sẻ / chọn file của hệ thống, bảng mục lục / cài đặt / tra từ / tìm của Reader và truyện tranh (theo nền đọc), trang đăng nhập web, sheet đã có nền riêng (sheet hub, sheet nghe / TTS, sheet kiểu hub, sheet "đang đọc chương này").
-- **114 `List` / `Form`** bọc `Group { … }.glassSheetRows()` dạng gọn (`List { Group {` … `}.glassSheetRows() }`, không thêm dòng — giữ baseline dòng của file legacy). CI lượt đầu đỏ ở hai `List(…) { _, result in` (tham số hai tên nằm dòng dưới `{`, script đặt `Group {` trước tham số) ⇒ sửa tay ở `LegadoCheckReportContent` và `LegadoSourceCheckView`. Bỏ nền đặc tự tô ở `MediaSleepTimerSheet`, `TTSQuickTimerSheet`, `FilterSheet`; ô thông tin `AppUpdateSheet`, thẻ `TTSQuickTimerSheet` và dòng chưa chọn của `DictionaryImportConflictView` dùng màu ô mờ khi ở sheet kính.
-- **5 popup** gắn `.appGlassPopover()`: bật tắt dịch (Reader / truyện tranh, Khám phá), "?" giải thích, bảng khiên và bảng chọn tiện ích của nút "Nhập" ở trình duyệt.
-- **Màn kiểm tra nguồn mở lại bằng UIKit** (`MinimizedSourceCheckCoordinator.reopen`): kính `.appGlassUIKitSheet()`, hosting trong suốt, bo 16.
-- **Độ đục thấp nhất 20%** (`GlassChromeSettings.minimumDrawerFrost` / `effectiveDrawerFrost`): thanh "Độ đục" của Menu ba chấm bắt đầu từ 20%; nền sheet / popup, ngăn kéo `…` và thanh kính trình duyệt kẹp giá trị cũ dưới 20% lên 20%. Giải thích của mục Menu ba chấm ghi rõ mọi sheet / popup dùng chung nền này.
-- `CLAUDE.md` / `AGENTS.md`: luật nền kính cho sheet / popup mới.
-- **Kiểm chứng:**
-  - Đọc code + script kiểm cân bằng ngoặc mọi file sửa. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: mở các sheet hay dùng (nhấn giữ truyện, tải / xuất, kiểu hiển thị, bộ sưu tập, playlist, bộ lọc tiện ích, cập nhật app, từ điển, cài đặt TTS, hẹn giờ) ⇒ nền kính bo 16, ô mờ, chữ đọc rõ; popup dịch / "?" ⇒ nền kính; Cài đặt › Giao diện › Menu ba chấm › Độ đục thấp nhất 20%; trang Cài đặt thường, Kệ, Playlist, Dung lượng (không phải sheet) giữ y nền cũ — có đổi là lỗi; nền ô có tới được dòng nằm trong `Section` không (không tới ⇒ ô vẫn xám đặc, chỉ là thẩm mỹ).

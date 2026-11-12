@@ -1,10 +1,10 @@
 import Foundation
 import Observation
 
-/// Nguồn sự thật **danh sách giọng VieNeu Turbo người dùng tự tạo** cho UI (1.3.891). View đọc `voices` trong `body`;
+/// Nguồn sự thật **danh sách giọng VieNeu Turbo người dùng tự tạo** cho UI (1.3.892). View đọc `voices` trong `body`;
 /// tạo giọng đi qua `VieNeuTurboVoiceCloneCoordinator` (xong thì gọi `reload()` ở đây), đổi tên / xoá gọi thẳng.
 ///
-/// API cho sheet chọn giọng / nhân bản giọng (`VieNeuVoiceDirectory`, `VieNeuCustomVoiceActions`, 1.3.899–900):
+/// API cho sheet chọn giọng / nhân bản giọng (`VieNeuVoiceDirectory`, `VieNeuCustomVoiceActions`, 1.3.900–900):
 /// - `voices`, `voice(id:)`, `reload()`, `loadError`
 /// - `rename(id:to:)`, `delete(id:)`
 /// - `voiceFiles(id:)` — cặp `ref_codes.txt` + `speaker.emb.txt` để chia sẻ / so; `sampleURL(id:)` — mẫu gốc nếu giữ

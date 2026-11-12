@@ -3,7 +3,7 @@ import Foundation
 import AudioCpp
 #endif
 
-/// Mã hoá **mẫu giọng** thành mã tham chiếu Turbo bằng chính audio.cpp (1.3.891) — bước "ref_codes" của nhân bản giọng.
+/// Mã hoá **mẫu giọng** thành mã tham chiếu Turbo bằng chính audio.cpp (1.3.892) — bước "ref_codes" của nhân bản giọng.
 ///
 /// audio.cpp có sẵn đường này: `encode_reference_only = true` + `audiocpp_request_set_voice_audio` ⇒ chạy MOSS encoder
 /// (đã nằm trong GGUF), trả artifact `ACOUSTIC_TOKENS` id `vieneu_v3_turbo.reference_codes` mà **nội dung đúng định

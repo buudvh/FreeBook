@@ -26,7 +26,7 @@ struct SettingsView: View {
                 }
             }.glassSheetRows() }
             .pageTitle("Cài đặt")
-            // Về thẳng trang gốc (bấm tab Cài đặt lần nữa) ⇒ Cài đặt TTS đẩy bên trong đã đóng: đọc tiếp nếu chưa (1.3.896).
+            // Về thẳng trang gốc (bấm tab Cài đặt lần nữa) ⇒ Cài đặt TTS đẩy bên trong đã đóng: đọc tiếp nếu chưa (1.3.897).
             .onAppear { TTSSettingsPauseSession.finish(caller: "SettingsView.onAppear") }
             .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
             .sheet(item: $sheetUpdate) { update in

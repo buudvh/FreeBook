@@ -80,7 +80,7 @@ enum VieNeuTurboReferencePreparer {
     /// `_MAX_REF_SECONDS` của Turbo upstream — audio.cpp cũng tự cắt ở đúng 8 giây (`kMaxReferenceSeconds`).
     static let maximumSeconds = 8.0
     /// Sàn sau khi cắt im lặng. Upstream không chặn. 1 giây vì giọng đóng gói ngắn nhất chỉ 12 khung (~0,96 s, đếm 25
-    /// giọng của manifest: 12…98 khung) — sàn 2 giây của bản đầu (1.3.890) chặn cả mẫu cỡ đó.
+    /// giọng của manifest: 12…98 khung) — sàn 2 giây của bản đầu (1.3.891) chặn cả mẫu cỡ đó.
     static let minimumSeconds = 1.0
     /// Chỉ giải mã chừng này giây đầu file (xem doc của type).
     static let maximumDecodeSeconds = 60.0

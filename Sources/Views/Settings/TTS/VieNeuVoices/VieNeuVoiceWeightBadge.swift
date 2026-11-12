@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Badge **Nhẹ / Vừa / Nặng** cạnh tên giọng VieNeu (1.3.899): Nhẹ xanh lá (mọi giọng Nano), Vừa cam hổ phách (Turbo),
+/// Badge **Nhẹ / Vừa / Nặng** cạnh tên giọng VieNeu (1.3.900): Nhẹ xanh lá (mọi giọng Nano), Vừa cam hổ phách (Turbo),
 /// Nặng san hô (Turbo có mẫu dài, `frames` ≥ 85). Màu cố định — không theo màu nhấn (màu nhấn có thể chính là cam).
 struct VieNeuVoiceWeightBadge: View {
     let weight: VieNeuVoiceEntry.Weight

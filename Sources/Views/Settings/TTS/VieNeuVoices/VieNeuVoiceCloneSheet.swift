@@ -1,7 +1,7 @@
 import Combine
 import SwiftUI
 
-/// **Sheet "Nhân bản giọng"** (1.3.900, mockup anh Bửu duyệt) — mở từ hàng "Nhân bản giọng đọc" của sheet chọn giọng.
+/// **Sheet "Nhân bản giọng"** (1.3.901, mockup anh Bửu duyệt) — mở từ hàng "Nhân bản giọng đọc" của sheet chọn giọng.
 ///
 /// Segmented "Thu âm" | "Chọn file" → section "Mẫu giọng" (khối thu / chọn file, "Nghe lại mẫu", "Tên giọng") → section
 /// "Dùng cho" (chip Nano | Turbo | Cả hai, "Khử nhiễu mẫu (Turbo)", số liệu "Cần tải") → tiến trình từng bước khi Lưu.

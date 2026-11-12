@@ -3,7 +3,7 @@ import Foundation
 import Observation
 
 /// Nguồn sự thật **danh sách giọng VieNeu + trạng thái tải** cho sheet chọn giọng và hàng "Giọng đọc" ở Cài đặt TTS
-/// (1.3.899). View đọc các mảng trong `body`; mọi việc đọc đĩa chạy ngoài main (`reload()`), main chỉ gán kết quả.
+/// (1.3.900). View đọc các mảng trong `body`; mọi việc đọc đĩa chạy ngoài main (`reload()`), main chỉ gán kết quả.
 ///
 /// - Nano: 11 giọng có sẵn (`voices_v3_nano.json` khi đã tải, không thì `VieNeuBuiltinVoiceList`) + giọng nhân bản
 ///   (`VieNeuCustomVoiceStore`). Mọi giọng Nano dùng chung một gói model ⇒ một trạng thái tải.

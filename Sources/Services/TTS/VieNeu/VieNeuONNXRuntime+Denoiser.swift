@@ -1,6 +1,6 @@
 import Foundation
 
-/// Graph **khử nhiễu** `denoiser.onnx` (lõi resemble-enhance) cho đường nhân bản giọng VieNeu Turbo (1.3.890).
+/// Graph **khử nhiễu** `denoiser.onnx` (lõi resemble-enhance) cho đường nhân bản giọng VieNeu Turbo (1.3.891).
 ///
 /// Chỉ có trên ngữ cảnh `init(turboCloneModelStore:threadCount:loadsDenoiser: true)`. Tách file vì trần 400 dòng, cùng
 /// khuôn `VieNeuONNXRuntime+Clone` (dùng `handle` / `consume` đã hạ xuống `internal`).

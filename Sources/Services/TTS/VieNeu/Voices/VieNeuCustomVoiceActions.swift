@@ -1,6 +1,6 @@
 import Foundation
 
-/// Đổi tên / xoá **giọng nhân bản** (Nano hoặc Turbo) từ sheet chọn giọng (1.3.899) — thay màn "Giọng của tôi" cũ.
+/// Đổi tên / xoá **giọng nhân bản** (Nano hoặc Turbo) từ sheet chọn giọng (1.3.900) — thay màn "Giọng của tôi" cũ.
 ///
 /// Ngoài việc ghi kho, phải giữ hai thứ khớp nhau:
 /// - Engine Nano nạp catalog **một lần** (`VieNeuTTSEngine.prepareLocked`) ⇒ đổi kho giọng Nano phải `refreshVoiceCatalog`,

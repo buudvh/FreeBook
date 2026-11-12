@@ -76,7 +76,7 @@ final class VieNeuModelClient {
         }
     }
 
-    /// Hai nguồn của **gói nhân bản giọng Turbo** (1.3.892): `speaker_encoder.onnx` + `denoiser.onnx`, cả hai ở `common/`
+    /// Hai nguồn của **gói nhân bản giọng Turbo** (1.3.893): `speaker_encoder.onnx` + `denoiser.onnx`, cả hai ở `common/`
     /// của kho mirror. File đã có (vd `speaker_encoder.onnx` của gói clone Nano) thì `downloadAll` bỏ qua.
     static func turboCloneSources() throws -> [Source] {
         try VieNeuModelStore.turboCloneGraphNames.map {
@@ -89,7 +89,7 @@ final class VieNeuModelClient {
         return Source(name: name, url: url)
     }
 
-    /// Tiến độ một lượt tải (1.3.899): chữ + byte đã tải / tổng byte của **mọi file còn thiếu** trong lượt (dung lượng từng
+    /// Tiến độ một lượt tải (1.3.900): chữ + byte đã tải / tổng byte của **mọi file còn thiếu** trong lượt (dung lượng từng
     /// file lấy ở `VieNeuModelStore.fileByteCounts`). Trước đó tiến độ chỉ nhảy theo từng file — file 155 MB đứng yên ở
     /// cùng một mức suốt mấy phút.
     struct Progress: Sendable {

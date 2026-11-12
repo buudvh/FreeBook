@@ -6,7 +6,7 @@ import Foundation
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Models/vieneu-v3-turbo-q8_0.gguf` (187.917.664 byte)
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/manifest.json`
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/<id>/ref_codes.txt` + `speaker.emb.txt`
-/// - `Application Support/FreeBook/TTS/VieNeuTurbo/CustomVoices/` — giọng **người dùng tự tạo** (1.3.891, id `custom_…`,
+/// - `Application Support/FreeBook/TTS/VieNeuTurbo/CustomVoices/` — giọng **người dùng tự tạo** (1.3.892, id `custom_…`,
 ///   chủ là `VieNeuTurboCustomVoiceStore`): cùng cặp file trong `<id>/` + index `voices_custom.json`. Tách khỏi `Voices/`
 ///   (giọng tải về) nên `deleteAll` không bao giờ chạm tới.
 ///

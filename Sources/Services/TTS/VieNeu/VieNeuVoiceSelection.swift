@@ -1,6 +1,6 @@
 import Foundation
 
-/// **Giọng VieNeu đang chọn kèm model** (1.3.897) — người dùng chọn giọng, model đi theo giọng: giọng Nano ⇒ trình đọc
+/// **Giọng VieNeu đang chọn kèm model** (1.3.898) — người dùng chọn giọng, model đi theo giọng: giọng Nano ⇒ trình đọc
 /// chạy Nano (ONNX), giọng Turbo ⇒ Turbo (GGUF qua audio.cpp). Không còn chọn model riêng ở Picker "Trình đọc".
 ///
 /// ## Lưu ở đâu
@@ -17,7 +17,7 @@ import Foundation
 /// file GGUF là mất hẳn lựa chọn Turbo. Nên chỉ ghi khi model hiệu lực **trùng** model đã lưu
 /// (`recordReaderVoice(_:effectiveModel:)`).
 ///
-/// ## Chuyển từ khoá cũ (trước 1.3.897)
+/// ## Chuyển từ khoá cũ (trước 1.3.898)
 /// `vieneuModel` ("nano"/"turbo") + `vieneuVoice` (giọng Nano) + `vieneuTurboVoice` (giọng Turbo) ⇒ một lựa chọn, ghi
 /// một lần khi khoá mới chưa có. Khoá cũ **giữ nguyên**, không xoá (bản cũ của app / bản sao lưu cũ vẫn đọc được).
 struct VieNeuVoiceSelection: Hashable, Sendable {
@@ -26,7 +26,7 @@ struct VieNeuVoiceSelection: Hashable, Sendable {
     let voiceId: String
 
     static let defaultsKey = "vieneuSelectedVoice"
-    /// Khoá cũ của Nano — từ 1.3.897 là "giọng Nano dùng gần nhất" (xem doc của type).
+    /// Khoá cũ của Nano — từ 1.3.898 là "giọng Nano dùng gần nhất" (xem doc của type).
     static let lastNanoVoiceKey = "vieneuVoice"
     /// Khoá cũ, chỉ đọc khi chuyển dữ liệu.
     static let legacyModelKey = "vieneuModel"

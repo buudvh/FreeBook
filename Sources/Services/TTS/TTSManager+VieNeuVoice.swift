@@ -1,6 +1,6 @@
 import Foundation
 
-/// Chọn giọng VieNeu — **model đi theo giọng** (1.3.897, `VieNeuVoiceSelection`). Tách khỏi `TTSManager+VieNeu.swift`
+/// Chọn giọng VieNeu — **model đi theo giọng** (1.3.898, `VieNeuVoiceSelection`). Tách khỏi `TTSManager+VieNeu.swift`
 /// cho file đó khỏi phình; `TTSManager.swift` là file legacy chỉ được giảm dòng.
 extension TTSManager {
     /// Giọng trình đọc dùng cho **model hiệu lực** (`VieNeuModelChoice.current`):

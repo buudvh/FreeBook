@@ -14,7 +14,7 @@ import Foundation
 /// `Task` nằm trong `tasks` của center, không nằm ở View: nhờ vậy lượt tải độc lập hoàn toàn với vòng đời
 /// màn, và `guard tasks[id] == nil` chặn được hai lượt tải trùng cho cùng một đích.
 ///
-/// **Huỷ** (1.3.899) chỉ có ở các đích VieNeu (`cancel(id:)`, nút ■ của sheet chọn giọng): đường tải của chúng
+/// **Huỷ** (1.3.900) chỉ có ở các đích VieNeu (`cancel(id:)`, nút ■ của sheet chọn giọng): đường tải của chúng
 /// (`VieNeuTurboModelClient.transfer`) dùng `URLSession` async, huỷ `Task` là dừng file đang tải. NghiTTS vẫn không
 /// huỷ được (`NghiTTSClient.prefetchModels` không nhận cancellation).
 ///
@@ -37,15 +37,15 @@ public final class ModelDownloadCenter: ObservableObject {
         public static let nghiPrefix = "nghi-"
         public static let vieNeuModel = "vieNeu-model"
         public static let vieNeuClone = "vieNeu-clone"
-        /// Gói nhân bản giọng VieNeu Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.892).
+        /// Gói nhân bản giọng VieNeu Turbo (`speaker_encoder.onnx` + `denoiser.onnx`, 1.3.893).
         public static let vieNeuTurboClone = "vieNeu-turbo-clone"
-        /// Model Turbo không kèm giọng nào (GGUF + `sea_g2p.bin` + manifest, 1.3.899).
+        /// Model Turbo không kèm giọng nào (GGUF + `sea_g2p.bin` + manifest, 1.3.900).
         public static let vieNeuTurboModel = "vieNeu-turbo-model"
         public static let vieNeuTurboVoicePrefix = "vieNeu-turbo-voice-"
 
         public static func nghiVoice(_ voiceId: String) -> String { nghiPrefix + voiceId }
 
-        /// Một giọng Turbo (1.3.899): model nếu thiếu + cặp file của giọng — mỗi giọng một dòng tiến độ.
+        /// Một giọng Turbo (1.3.900): model nếu thiếu + cặp file của giọng — mỗi giọng một dòng tiến độ.
         public static func vieNeuTurboVoice(_ voiceId: String) -> String { vieNeuTurboVoicePrefix + voiceId }
     }
 
@@ -70,7 +70,7 @@ public final class ModelDownloadCenter: ObservableObject {
         public var fraction: Double?
         public var state: State
         public let startedAt: Date
-        /// Byte đã tải / tổng byte của cả lượt (1.3.899, chỉ đích VieNeu); `0` khi không theo byte.
+        /// Byte đã tải / tổng byte của cả lượt (1.3.900, chỉ đích VieNeu); `0` khi không theo byte.
         public var completedBytes: Int64 = 0
         public var totalBytes: Int64 = 0
         /// Đang chờ lượt tải VieNeu khác xong (các đích VieNeu chạy lần lượt).

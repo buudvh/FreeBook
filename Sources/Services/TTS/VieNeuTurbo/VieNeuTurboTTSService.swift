@@ -74,7 +74,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     }
 
     /// Id có trong manifest thì giữ, không thì giọng mặc định — tên giọng Nano lọt sang (đổi model giữa chừng) không làm
-    /// đoạn nào lỗi. Giọng **tự tạo** (`custom_…`, 1.3.891) giữ khi cặp file còn trên máy; đã xoá thì về mặc định.
+    /// đoạn nào lỗi. Giọng **tự tạo** (`custom_…`, 1.3.892) giữ khi cặp file còn trên máy; đã xoá thì về mặc định.
     func resolveVoiceId(_ requested: String) -> String {
         if VieNeuTurboModelStore.isCustomVoiceId(requested), store.hasVoice(voiceId: requested) {
             return requested
