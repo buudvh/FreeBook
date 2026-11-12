@@ -27,6 +27,9 @@ extension VieNeuAutoThermalRun {
             + "\(VieNeuTurboSoakStats.clock(Self.settleHoldSeconds)) trước mỗi lượt · lượt tối đa "
             + "\(VieNeuTurboSoakStats.clock(Self.legMaxSeconds)), lên nóng thì đọc thêm \(Self.chunksAfterSerious) đoạn")
         lines.append("trạng thái   \(statusLine)")
+        if !resumeNotes.isEmpty {
+            lines.append("chạy tiếp    \(resumeNotes.joined(separator: " · "))")
+        }
         if let errorMessage { lines.append("lỗi         \(errorMessage)") }
         lines.append("")
 
@@ -50,7 +53,7 @@ extension VieNeuAutoThermalRun {
     }
 
     private static func tableLine(_ leg: VieNeuAutoThermalLeg) -> String {
-        let name = "Lượt \(leg.index + 1) \(leg.engine == .ort ? "ORT    " : "Core ML")"
+        let name = "Lượt \(leg.index + 1) \(leg.engine == .ort ? "ORT    " : "Core ML")\(leg.interrupted ? " (dở)" : "")"
         if let skipped = leg.skippedReason { return "\(name): bỏ qua — \(skipped)" }
         let toFair = leg.secondsToFair.map { VieNeuTurboSoakStats.clock($0) } ?? "không"
         let toSerious = leg.secondsToSerious.map { VieNeuTurboSoakStats.clock($0) } ?? "không"
@@ -76,7 +79,7 @@ extension VieNeuAutoThermalRun {
     }
 
     private static func detail(_ leg: VieNeuAutoThermalLeg) -> [String] {
-        var lines = ["== Lượt \(leg.index + 1): \(leg.engine.title)"]
+        var lines = ["== Lượt \(leg.index + 1): \(leg.engine.title)\(leg.interrupted ? " — DỞ (chạy lại ở lần chạy tiếp)" : "")"]
         if let skipped = leg.skippedReason {
             lines.append("bỏ qua — \(skipped)")
             return lines

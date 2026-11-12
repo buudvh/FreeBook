@@ -2,6 +2,12 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.880] - 2026-11-11
+
+### fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model
+
+- Màn thử Turbo và trình đọc dùng chung runtime: "Xoá model" lúc trình đọc đang đọc bằng Turbo nay dừng TTS trước (như khi màn thử giành âm thanh), thay vì nhả runtime + xoá file dưới chân trình đọc đang phát.
+
 ## [1.3.879] - 2026-11-11
 
 ### feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.910] - 2026-11-12
+
+### feat: Đo tự động có Chạy tiếp từ lượt chưa xong sau khi dừng, bị gián đoạn hay app bị tắt
+
+Anh Bửu: *"lần sau nhớ thêm chạy tiếp để lỡ trường hợp có việc thoát ra khỏi chạy từ đầu"*, rồi *"làm luôn Chạy tiếp cho Đo tự động, huỷ CI trước đi"* (đã huỷ lượt build của 1.3.909; lượt này build cả 1.3.909 + 1.3.910).
+
+- **Lưu tiến độ** (`VieNeuAutoRunProgress`, `Results/do-tu-dong-tien-do.json`): chuẩn bị Core ML xong (dòng báo cáo, qua tự kiểm hay không, trần session, RAM ước mỗi session, giọng), mỗi lượt xong / dở, **bản chụp mỗi phút** của lượt đang chạy, và lúc kết thúc. `VieNeuAutoThermalLeg` / `Stats` thành `Codable`; lượt có cờ `interrupted` (bấm Dừng, bị gián đoạn).
+- **Màn thử**: lượt đo trước chưa xong mà đã qua bước chuẩn bị ⇒ hai nút **"Chạy tiếp (từ lượt N/3)"** và **"Đo lại từ đầu"** thay cho "Bắt đầu đo tự động".
+- **Chạy tiếp** (`VieNeuAutoThermalRun+Resume`): không biên dịch / tự kiểm lại; chạy từ lượt đầu tiên chưa xong êm; lượt dở chạy lại cả bước chờ mát; app bị giết giữa lượt ⇒ bản chụp phút cuối của lượt đó vào báo cáo như lượt dở. Còn lượt Core ML thì **nạp sẵn session ngay lúc bấm** (màn còn sáng), dọn bản biên dịch dở, rồi mới chờ mát. Báo cáo và nhật ký từng bước nối tiếp lần trước (cùng file), có dòng "chạy tiếp HH:mm từ lượt N"; lượt dở ghi "(dở)".
+- **Đã xác nhận nguyên nhân sập** bằng file `LiveContainer.cpu_resource_fatal-2026-11-12-144121.ips` anh gửi: *"Action taken: Process killed"*, *"48 seconds cpu time over 54 seconds (90% cpu average), exceeding limit of 80% cpu over 60 seconds"*, *"Non-Frontmost App"*, ngăn xếp CoreML → Espresso → MIL. iOS giết app **chạy nền** dùng CPU quá 80% trong 60 giây; lúc đó app chỉ phát vòng lặng (âm lượng 0), có vẻ không được miễn như khi phát tiếng thật. Biên dịch / nạp model Core ML là việc nặng ⇒ phải làm khi màn còn sáng (1.3.909, và lúc bấm Chạy tiếp).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.909] - 2026-11-12
 
 ### fix: Đo tự động nạp sẵn session Core ML lúc màn còn sáng và giữ tới hết lượt Core ML, không nạp khi khoá màn
@@ -550,9 +562,3 @@ Anh Bửu duyệt P0 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vi
 - **Màn thử VieNeu Turbo** — lượt Nano của "Đọc liên tục" (`VieNeuTurboLab+Nano`, tách khỏi `+Run`): chọn **số luồng ORT** (2/3/4) và **QoS** (utility / userInitiated), dựng lại session ở đúng mức đó rồi tổng hợp ở cùng mức; dừng / rời màn / nạp lỗi ⇒ bỏ ghi đè rồi: trình đọc đang ở Nano thì dựng lại ở `.utility` như lúc app nạp engine, đang ở Turbo thì **nhả** Nano (`releaseEngineRuntime`) — hai model không cùng nằm trong RAM. Đoạn nhả Turbo của `prepare` nằm trong `prepare(voice:priority:)` nên đường của màn thử cũng nhả. Mỗi đoạn ghi "Euler / codec / text" (giây tường + CPU-s) và "QoS tổng hợp X · session Y" đo được, tổng kết thêm **phân rã** theo thời gian và theo CPU. QoS tới được luồng tổng hợp vì `PiperSynthesisCoordinator` chạy việc trong `Task` lồng — kế thừa priority của task gọi; dòng QoS đo được là bằng chứng trên máy.
 - **Chia sẻ file thay sao chép**: hai nút "Sao chép số đo" / "Sao chép kết quả đọc liên tục" ⇒ **"Chia sẻ file … (.txt)"** (`VieNeuTurboReportFile`, dựng lúc bấm như `ThermalCSVExport`): đầu file có bản app, mã máy, giờ, nhiệt; file đọc liên tục có tổng kết + mọi phút + **mọi** đoạn (màn chỉ hiện 40 đoạn gần nhất).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.880] - 2026-11-11
-
-### fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model
-
-- Màn thử Turbo và trình đọc dùng chung runtime: "Xoá model" lúc trình đọc đang đọc bằng Turbo nay dừng TTS trước (như khi màn thử giành âm thanh), thay vì nhả runtime + xoá file dưới chân trình đọc đang phát.

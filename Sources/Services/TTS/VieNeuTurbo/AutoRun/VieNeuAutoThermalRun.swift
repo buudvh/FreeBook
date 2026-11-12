@@ -18,7 +18,7 @@ import Observation
 @MainActor
 @Observable
 final class VieNeuAutoThermalRun {
-    enum Engine: String, Sendable {
+    enum Engine: String, Sendable, Codable {
         case ort
         case coreML
 
@@ -80,8 +80,13 @@ final class VieNeuAutoThermalRun {
     private(set) var cacheBytes: Int64 = 0
     /// Lượt đo trước dừng đột ngột (app bị giết) ⇒ vài dòng cuối của nhật ký từng bước; `nil` khi lượt trước kết thúc êm.
     private(set) var abruptNote: String?
+    /// Lượt đo trước chưa xong mà đã qua bước chuẩn bị ⇒ chỉ số lượt sẽ chạy tiếp (0-based); `nil` = không chạy tiếp được.
+    private(set) var resumeNextLeg: Int?
+    var resumeNotes: [String] = []
     @ObservationIgnored var startedAt = Date()
     @ObservationIgnored var backend: VieNeuCoreMLFlowBackend?
+    /// Tiến độ lưu xuống máy (`VieNeuAutoRunProgress`) — ghi sau mỗi bước để Chạy tiếp.
+    @ObservationIgnored var progress: VieNeuAutoRunProgress?
     @ObservationIgnored private var runTask: Task<Void, Never>?
     @ObservationIgnored private var keepAlivePlayer: AVAudioPlayer?
 
@@ -103,6 +108,7 @@ final class VieNeuAutoThermalRun {
         packageBytes = package?.packageBytes ?? 0
         cacheBytes = package?.cacheBytes ?? 0
         abruptNote = isActive ? nil : trailURL.flatMap { VieNeuAutoRunTrail.abruptEnding($0) }
+        resumeNextLeg = isActive ? nil : Self.resumableLeg(package: package)
     }
 
     /// File nhật ký từng bước (`VieNeuAutoRunTrail`) — có ⇒ chia sẻ được kể cả khi lượt đo chết giữa chừng.
@@ -122,28 +128,35 @@ final class VieNeuAutoThermalRun {
 
     // MARK: - Điều khiển
 
-    func start(lab: VieNeuTurboLab) {
+    /// `resume`: chạy tiếp lượt đo trước (bỏ bước tải + biên dịch, chạy từ lượt chưa xong) — xem `+Resume`.
+    func start(lab: VieNeuTurboLab, resume: Bool = false) {
         guard !isActive, let package else { return }
         phase = .downloading
         statusLine = "Đang chuẩn bị…"
         errorMessage = nil
         downloadFraction = nil
-        prepareLines = []
-        coreMLPassed = false
-        legs = []
         currentLeg = nil
         preloadNote = ""
         savedReportURL = nil
-        startedAt = Date()
-        // Lượt trước chết giữa chừng ⇒ giữ dòng cuối của nó vào báo cáo lượt này trước khi ghi đè nhật ký.
         let previous = abruptNote
         abruptNote = nil
-        let trailURL = VieNeuAutoRunTrail.url(in: package)
-        VieNeuAutoRunTrail.reset(trailURL, header: VieNeuTurboReportFile.header()
-            + (previous.map { "\nLượt trước dừng đột ngột ở:\n\($0)" } ?? ""))
-        trail("bắt đầu đo tự động")
+        resumeNextLeg = nil
+        let resuming = resume && restoreForResume(package: package)
+        if !resuming {
+            prepareLines = []
+            coreMLPassed = false
+            legs = []
+            resumeNotes = []
+            startedAt = Date()
+            progress = nil
+            VieNeuAutoRunProgress.delete(at: VieNeuAutoRunProgress.url(in: package))
+            // Lượt trước chết giữa chừng ⇒ giữ dòng cuối của nó vào nhật ký mới trước khi ghi đè.
+            VieNeuAutoRunTrail.reset(VieNeuAutoRunTrail.url(in: package), header: VieNeuTurboReportFile.header()
+                + (previous.map { "\nLượt trước dừng đột ngột ở:\n\($0)" } ?? ""))
+            trail("bắt đầu đo tự động")
+        }
         runTask = Task { [weak self] in
-            await self?.run(lab: lab, package: package)
+            await self?.run(lab: lab, package: package, resuming: resuming)
         }
     }
 
@@ -158,7 +171,8 @@ final class VieNeuAutoThermalRun {
         guard !isActive, let package else { return }
         backend?.releaseSessions()
         backend = nil
-        try? package.deleteAll()
+        try? package.deleteAll() // gồm cả tiến độ (Results/) ⇒ hết Chạy tiếp
+        progress = nil
         savedReportURL = nil
         refresh()
     }
@@ -169,7 +183,7 @@ final class VieNeuAutoThermalRun {
 
     // MARK: - Lượt chạy
 
-    private func run(lab: VieNeuTurboLab, package: VieNeuCoreMLPackage) async {
+    private func run(lab: VieNeuTurboLab, package: VieNeuCoreMLPackage, resuming: Bool) async {
         do {
             guard let service = VieNeuTTSService.shared, service.modelStore.isReady else {
                 throw RunError.message("Chưa tải model VieNeu Nano — tải ở màn Cài đặt VieNeu TTS.")
@@ -179,42 +193,18 @@ final class VieNeuAutoThermalRun {
             trail("đã dừng TTS / nhả Turbo")
             let manifest = try await ensurePackage(package)
             try checkDiskSpace(package: package, manifest: manifest)
-            let voice = Self.resolveVoice(service: service)
+            let voice = resuming ? voiceUsed : Self.resolveVoice(service: service)
             voiceUsed = voice
             // Ghim `fast` (8 bước, sway −1) cho cả 3 lượt: Core ML nhanh sẽ làm bộ tự thích nghi nâng lên `high`.
             await service.setLabModeOverride(.fast)
 
-            setPhase(.preparing)
-            // Nhả engine Nano (~280 MB) trong lúc biên dịch / tự kiểm như phép thử P1 — bản 1.3.890 giữ nó và app bị giết.
-            statusLine = "Nhả engine Nano để Core ML có chỗ biên dịch…"
-            _ = await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
-            trail("đã nhả engine Nano, bắt đầu chuẩn bị Core ML")
-            let backend = VieNeuCoreMLFlowBackend(package: package, manifest: manifest, sessionCap: 64)
-            self.backend = backend
-            let trailURL = VieNeuAutoRunTrail.url(in: package)
-            let progress: @Sendable (String) -> Void = { [weak self] line in
-                VieNeuAutoRunTrail.append(trailURL, line) // ghi **trước** bước nặng, ngay trên luồng chuẩn bị
-                Task { @MainActor [weak self] in
-                    guard let self, self.phase == .preparing else { return }
-                    self.statusLine = line
-                }
+            if resuming {
+                try await prepareForResume(package: package, manifest: manifest, service: service, voice: voice)
+            } else {
+                try await prepareFresh(package: package, manifest: manifest, service: service, voice: voice)
             }
-            let report = try await Task.detached(priority: .userInitiated) {
-                try VieNeuCoreMLPreparer.prepare(backend: backend, progress: progress)
-            }.value
-            prepareLines = report.lines
-            coreMLPassed = report.passed
-            // Không nhả session: đã nạp sẵn lúc màn còn sáng, giữ qua lượt 1 tới hết lượt Core ML (1.3.909 — nạp lúc
-            // khoá màn làm app chết ở bản 1.3.907). Giữ một session chỉ tốn ~20 MB.
-            preloadNote = report.preloadedSessions > 0 ? "giữ \(report.preloadedSessions) session Core ML từ lúc chuẩn bị" : ""
-            refresh()
-            saveReport()
-            trail("chuẩn bị xong: \(report.passed ? "qua tự kiểm" : "không qua tự kiểm"), giữ tối đa \(report.sessionCap) session")
-            statusLine = "Đang nạp lại engine Nano (giọng \(voice))…"
-            try await service.prepare(voice: voice)
-            trail("đã nạp lại engine Nano")
 
-            for (index, engine) in Self.legPlan.enumerated() {
+            for (index, engine) in Self.legPlan.enumerated() where !completedLegIndices.contains(index) {
                 try Task.checkCancellation()
                 if engine == .coreML, !coreMLPassed {
                     legs.append(VieNeuAutoThermalLeg(index: index, engine: engine, skippedReason: "Core ML không qua tự kiểm"))
@@ -224,15 +214,18 @@ final class VieNeuAutoThermalRun {
                 trail("chờ mát trước lượt \(index + 1) (\(engine.title))")
                 let settle = try await settle(beforeLeg: index)
                 setPhase(.running(index))
-                let sessions = engine == .coreML ? " · giữ \(backend.loadedSessionCount) session Core ML" : ""
+                let sessions = engine == .coreML ? " · giữ \(backend?.loadedSessionCount ?? 0) session Core ML" : ""
                 trail("bắt đầu lượt \(index + 1) (\(engine.title))\(sessions)")
                 let leg = try await runLeg(
                     index: index, engine: engine, settle: settle, lab: lab, service: service, voice: voice
                 )
                 legs.append(leg)
                 if engine == .coreML {
-                    backend.releaseSessions() // lượt ORT sau bắt đầu cùng trạng thái RAM như lượt đầu
+                    backend?.releaseSessions() // lượt ORT sau bắt đầu cùng trạng thái RAM như lượt đầu
                 }
+                progress?.legs = legs
+                progress?.inProgressLeg = nil
+                saveProgress()
                 saveReport()
                 trail("xong lượt \(index + 1): \(leg.endReason)")
             }
@@ -240,21 +233,71 @@ final class VieNeuAutoThermalRun {
             statusLine = "Xong 3 lượt — chia sẻ file báo cáo."
         } catch is CancellationError {
             setPhase(.stopped)
-            statusLine = "Đã dừng giữa chừng — báo cáo giữ phần đã đo."
+            statusLine = "Đã dừng giữa chừng — bấm Chạy tiếp để đo tiếp, báo cáo giữ phần đã đo."
         } catch {
             setPhase(.failed)
             errorMessage = error.localizedDescription
-            statusLine = "Dừng vì lỗi."
+            statusLine = "Dừng vì lỗi — bấm Chạy tiếp để đo tiếp."
             AppLogger.shared.log("❌ [VieNeuAutoRun] \(error.localizedDescription) — \(ProcessMemoryProbe.snapshot().summary)")
         }
         lab.soak.stop(reason: "kết thúc đo tự động")
         await VieNeuTTSService.shared?.setLabModeOverride(nil)
         stopKeepAlive()
         backend?.releaseSessions()
+        progress?.legs = legs
+        progress?.inProgressLeg = nil
+        progress?.finished = phase == .finished
+        saveProgress()
         trail("\(VieNeuAutoRunTrail.endMarker): \(statusLine)\(errorMessage.map { " — \($0)" } ?? "")")
         refresh()
         saveReport()
         AppLogger.shared.log("🎙️ [VieNeuAutoRun] Kết thúc: \(statusLine)")
+    }
+
+    /// Bước chuẩn bị đầy đủ (lượt đo mới): nhả engine Nano, biên dịch / nạp / tự kiểm / nạp sẵn Core ML, nạp lại engine.
+    private func prepareFresh(
+        package: VieNeuCoreMLPackage,
+        manifest: VieNeuCoreMLPackage.Manifest,
+        service: VieNeuTTSService,
+        voice: String
+    ) async throws {
+        setPhase(.preparing)
+        // Nhả engine Nano (~280 MB) trong lúc biên dịch / tự kiểm như phép thử P1 — bản 1.3.890 giữ nó và app bị giết.
+        statusLine = "Nhả engine Nano để Core ML có chỗ biên dịch…"
+        _ = await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
+        trail("đã nhả engine Nano, bắt đầu chuẩn bị Core ML")
+        let backend = VieNeuCoreMLFlowBackend(package: package, manifest: manifest, sessionCap: 64)
+        self.backend = backend
+        let trailURL = VieNeuAutoRunTrail.url(in: package)
+        let onProgress: @Sendable (String) -> Void = { [weak self] line in
+            VieNeuAutoRunTrail.append(trailURL, line) // ghi **trước** bước nặng, ngay trên luồng chuẩn bị
+            Task { @MainActor [weak self] in
+                guard let self, self.phase == .preparing else { return }
+                self.statusLine = line
+            }
+        }
+        let report = try await Task.detached(priority: .userInitiated) {
+            try VieNeuCoreMLPreparer.prepare(backend: backend, progress: onProgress)
+        }.value
+        prepareLines = report.lines
+        coreMLPassed = report.passed
+        // Không nhả session: đã nạp sẵn lúc màn còn sáng, giữ qua lượt 1 tới hết lượt Core ML (1.3.909 — nạp lúc
+        // khoá màn làm app chết ở bản 1.3.907). Giữ một session chỉ tốn ~20 MB.
+        preloadNote = report.preloadedSessions > 0 ? "giữ \(report.preloadedSessions) session Core ML từ lúc chuẩn bị" : ""
+        refresh()
+        saveReport()
+        trail("chuẩn bị xong: \(report.passed ? "qua tự kiểm" : "không qua tự kiểm"), giữ tối đa \(report.sessionCap) session")
+        var saved = VieNeuAutoRunProgress(startedAt: startedAt, voice: voice)
+        saved.prepareDone = true
+        saved.prepareLines = report.lines
+        saved.coreMLPassed = report.passed
+        saved.sessionCap = report.sessionCap
+        saved.sessionEstimateMB = report.sessionEstimateMB
+        self.progress = saved
+        saveProgress()
+        statusLine = "Đang nạp lại engine Nano (giọng \(voice))…"
+        try await service.prepare(voice: voice)
+        trail("đã nạp lại engine Nano")
     }
 
     private func ensurePackage(_ package: VieNeuCoreMLPackage) async throws -> VieNeuCoreMLPackage.Manifest {

@@ -28,6 +28,26 @@ extension VieNeuTurboLabView {
                     Label("Dừng đo tự động", systemImage: "stop.fill")
                 }
                 .buttonStyle(.appFilled(.red))
+            } else if let next = run.resumeNextLeg {
+                // Lượt đo trước dừng giữa chừng (1.3.910): chạy tiếp từ lượt chưa xong, hoặc đo lại từ đầu.
+                Button {
+                    run.start(lab: lab, resume: true)
+                } label: {
+                    Label("Chạy tiếp (từ lượt \(next + 1)/\(VieNeuAutoThermalRun.legPlan.count))", systemImage: "play.fill")
+                }
+                .buttonStyle(.appFilled)
+                .disabled(lab.isBusy || !lab.isNanoReady || run.package == nil)
+                Button {
+                    run.start(lab: lab, resume: false)
+                } label: {
+                    Label("Đo lại từ đầu", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(lab.isBusy || !lab.isNanoReady || run.package == nil)
+                if !run.statusLine.isEmpty {
+                    Text(run.statusLine)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Button {
                     run.start(lab: lab)

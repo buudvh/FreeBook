@@ -27,7 +27,7 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     }
 
     /// Số đo cộng dồn từ lần `resetStats` gần nhất.
-    struct Stats: Sendable {
+    struct Stats: Sendable, Codable {
         var coreMLChunks = 0
         var fallbackChunks = 0
         var coreMLFrames = 0

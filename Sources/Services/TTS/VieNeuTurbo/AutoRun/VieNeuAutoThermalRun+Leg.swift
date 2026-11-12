@@ -1,11 +1,13 @@
 import Foundation
 import UIKit
 
-/// Kết quả một lượt của "Đo tự động" (`VieNeuAutoThermalRun`).
-struct VieNeuAutoThermalLeg: Sendable {
+/// Kết quả một lượt của "Đo tự động" (`VieNeuAutoThermalRun`). `Codable`: lưu trong tiến độ để Chạy tiếp (1.3.910).
+struct VieNeuAutoThermalLeg: Sendable, Codable {
     let index: Int
     let engine: VieNeuAutoThermalRun.Engine
     var skippedReason: String?
+    /// Lượt **dở** (bấm Dừng, bị gián đoạn, app bị giết) — Chạy tiếp sẽ chạy lại lượt này.
+    var interrupted = false
     /// Chờ mát trước lượt: bao lâu, và có đủ 10 phút `nominal` liền không.
     var settleSeconds: TimeInterval = 0
     var settleNote = ""
@@ -126,6 +128,7 @@ extension VieNeuAutoThermalRun {
             } catch {
                 // Giữ phần đã đo của lượt dở (lượt Core ML là lượt quan trọng nhất) rồi mới dừng cả lượt đo.
                 leg.endReason = error is CancellationError ? "bấm Dừng" : "dừng: \(error.localizedDescription)"
+                leg.interrupted = true
                 finishLeg(&leg, lab: lab, service: service, started: started)
                 legs.append(leg)
                 throw error
@@ -145,6 +148,8 @@ extension VieNeuAutoThermalRun {
                 nextConditionAt += 60
                 snapshotLeg(leg, lab: lab, started: started)
                 saveReport()
+                progress?.inProgressLeg = currentLeg
+                saveProgress()
                 trail("lượt \(index + 1) phút \(Int(elapsed / 60)): \(lab.soak.stats.chunks) đoạn")
             }
             if !lab.soak.isRunning {
