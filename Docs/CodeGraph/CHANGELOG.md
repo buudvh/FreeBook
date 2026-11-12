@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.894] - 2026-11-12
+
+### feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file
+
+Phần bốn: chỗ thử lõi nhân bản giọng Turbo (1.3.891–892) trên máy thật. Không phải màn tạo / chọn giọng cho người dùng cuối, màn đó làm sau theo mockup.
+
+- **Mục "Tạo giọng Turbo từ file"** (`VieNeuTurboLabView+Clone`, logic ở `VieNeuTurboCloneTrial`):
+  - Hàng gói nhân bản (`VieNeuTurboClonePackRow`): trạng thái, nút tải ~71 MB qua `ModelDownloadCenter`, tiến độ, nút xoá.
+  - Chọn file bằng `DocumentPickerPresenter` (không dùng `.fileImporter`, vì nó không trả kết quả khi chạy trong LiveContainer), ô tên giọng, công tắc khử nhiễu (mặc định bật). Thiếu audio.cpp / model / gói thì hiện lý do.
+  - Báo cáo: độ dài và tần số mẫu, giây cắt đầu / cuối, độ dài dùng, số khung; thời gian đọc file / cắt / nạp graph / khử nhiễu / embedding / mã hoá audio.cpp (kèm nạp model, dựng lại session hay nhả model) / tổng.
+  - RAM ở 5 mốc (đầu lượt, sau ORT, trước mã hoá, sau mã hoá, sau dọn), nhiệt, bản audio.cpp.
+  - Chia sẻ: file số đo `.txt` (`VieNeuTurboReportFile` thêm loại `.clone`), `ref_codes.txt`, `speaker.emb.txt`, WAV sau cắt (trước khử nhiễu) và WAV đưa vào audio.cpp. Hai WAV đều 16-bit, để so với script Python chạy bản gốc.
+  - "Đọc thử câu mẫu bằng giọng này": chọn giọng vừa tạo rồi chạy "Đọc thử một lần" sẵn có.
+- **Danh sách "Giọng" của màn thử** có thêm mục "Giọng tự tạo" (`VieNeuTurboCustomVoiceRepository.voices`). `reloadVoices` giữ lựa chọn giọng tự tạo khi cặp file còn.
+  - Cài đặt TTS của trình đọc **chưa** hiện giọng tự tạo (UI người dùng cuối làm sau). Id `custom_…` gán vào `vieneuTurboVoice` thì trình đọc đã đọc được.
+- `VieNeuTurboLab.isBusy` tính cả lượt tạo giọng: không đọc thử, đọc liên tục hay xoá model chồng lên lượt đang dùng runtime.
+- **Kiểm chứng:**
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa chạy trên máy.
+  - Cần đo trên máy: thời gian khử nhiễu (DFT ma trận + UNet), đỉnh RAM lúc mã hoá (ước tính +200–250 MB trên model 188 MB), chất lượng giọng có / không khử nhiễu.
+
 ## [1.3.893] - 2026-11-12
 
 ### feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror
@@ -522,18 +543,3 @@ Anh Bửu: "Bỏ luôn tab thứ 5 hiển thị đĩa đi, mọi màn hình, she
     3. Chạm hub ⇒ sheet hub đè lên nửa viên, bấm được mọi dòng; đóng sheet ⇒ nửa viên vẫn ở đó.
     4. Mở một sheet bất kỳ (Cài đặt Reader, mục lục…) ⇒ nửa viên vẫn hiện trên sheet.
     5. Bấm tai nghe trúng chương đang đọc ⇒ sheet "đang đọc chương này" hiện, nửa viên ẩn như cũ.
-
-## [1.3.864] - 2026-11-11
-
-### fix: ẩn đĩa nghe khi sheet hub hoặc màn Thông báo của hub đang mở
-
-Rà lại đợt nút nổi nửa viên (1.3.858–863) thấy: cửa sổ hub ở `alert − 2`, **thấp hơn** cửa sổ đĩa nghe (`alert − 1.75`). Sheet hub (1.3.862) và màn Thông báo trình bày từ cửa sổ hub nên nằm **dưới** nửa viên đĩa nghe — đĩa đè lên mấy dòng cuối của sheet và cướp chạm (đúng chỗ ⏸ / ✕ của dòng Video khi đĩa ở chỗ mặc định). `MediaDiscPlacement` chỉ xét tầng trên cùng của cửa sổ **chính** nên không thấy sheet đó. Màn Thông báo vốn đã bị vậy; sheet hub làm nó xảy ra mỗi lần chạm hub.
-
-- `MediaDiscWindowManager.isDiscAllowed` thêm điều kiện `!FloatingHubWindowManager.shared.isSheetPresented` ⇒ sheet hub / màn Thông báo mở thì đĩa thu lại, đóng thì hiện lại (luồng hiện chậm 0,3 s như cũ).
-- `FloatingHubWindowManager.setSheetPresented` gọi `MediaDiscWindowManager.shared.refreshState()` ⇒ đĩa thu ngay, không chờ lượt hỏi 0,4 s.
-- Ô đĩa ở giữa thanh tab (cửa sổ chính) không đổi — nó nằm dưới cửa sổ hub nên sheet tự che.
-- `CLAUDE.md` / `AGENTS.md`: thêm điều kiện ẩn này vào đoạn đĩa nghe.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử: đang nghe nhạc (nửa viên ở mép phải) ⇒ chạm hub ⇒ nửa viên thu lại, bấm được ⏸ / ✕ dòng Video; vuốt sheet xuống ⇒ nửa viên hiện lại. Tương tự với màn Thông báo.

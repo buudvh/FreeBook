@@ -69,6 +69,8 @@ final class VieNeuTurboLab {
     let epProbe = VieNeuNanoEPProbe()
     /// "Đo tự động ORT ↔ Core ML" (P1b) — dùng chung `soak` cho các lượt đọc.
     let autoRun = VieNeuAutoThermalRun()
+    /// Mục "Tạo giọng Turbo từ file" (1.3.893).
+    let cloneTrial = VieNeuTurboCloneTrial()
 
     // MARK: File
 
@@ -157,8 +159,9 @@ final class VieNeuTurboLab {
         hasModel && hasG2PDictionary && !voices.isEmpty
     }
 
+    /// Gồm cả lượt tạo giọng (1.3.893): nó dùng chung runtime audio.cpp và model, không cho đọc thử / xoá model chồng lên.
     var isBusy: Bool {
-        isDownloading || isWorking || soak.isRunning || epProbe.isRunning || autoRun.isActive
+        isDownloading || isWorking || soak.isRunning || epProbe.isRunning || autoRun.isActive || cloneTrial.isRunning
     }
 
     var selectedVoice: VieNeuTurboVoiceManifest.Voice? {
@@ -173,6 +176,7 @@ final class VieNeuTurboLab {
         reloadVoices()
         epProbe.refresh()
         autoRun.refresh()
+        cloneTrial.refreshReadiness()
     }
 
     private func reloadVoices() {
@@ -184,7 +188,9 @@ final class VieNeuTurboLab {
         }
         voices = manifest.voices
         defaultVoiceId = manifest.defaultVoice?.id
-        if !voices.contains(where: { $0.id == selectedVoiceId }) {
+        // Giọng tự tạo (1.3.893) không nằm trong manifest: giữ lựa chọn khi cặp file của nó còn trên máy.
+        let keepsCustom = VieNeuTurboModelStore.isCustomVoiceId(selectedVoiceId) && store.hasVoice(voiceId: selectedVoiceId)
+        if !keepsCustom, !voices.contains(where: { $0.id == selectedVoiceId }) {
             selectedVoiceId = manifest.defaultVoice?.id ?? ""
         }
     }
@@ -200,6 +206,8 @@ final class VieNeuTurboLab {
             return soak.reportText()
         case .epProbe:
             return epProbe.reportText()
+        case .clone:
+            return cloneTrial.reportFileText()
         }
     }
 

@@ -33,6 +33,7 @@ struct VieNeuTurboLabView: View {
             if !lab.lastReport.isEmpty {
                 sampleReportSection
             }
+            cloneSection
             soakSection
             if lab.soak.isRunning || !lab.soak.summaryText.isEmpty {
                 soakResultSection

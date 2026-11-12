@@ -15,6 +15,8 @@ struct VieNeuTurboReportFile: Transferable {
         case soak
         /// Báo cáo phép thử P1 "So EP cho Nano" (`VieNeuNanoEPProbe`).
         case epProbe
+        /// Số đo của lượt "Tạo giọng Turbo từ file" (1.3.893).
+        case clone
     }
 
     let kind: Kind
@@ -28,6 +30,7 @@ struct VieNeuTurboReportFile: Transferable {
         case .sample: prefix = "doc-thu"
         case .soak: prefix = "doc-lien-tuc"
         case .epProbe: prefix = "so-ep"
+        case .clone: prefix = "tao-giong"
         }
         fileName = "vieneu-\(engineName)-\(prefix)-\(Self.fileStamp.string(from: Date())).txt"
     }
