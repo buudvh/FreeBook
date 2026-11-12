@@ -215,15 +215,19 @@ extension VieNeuAutoThermalRun {
         }
     }
 
+    /// App đang mở màn hay chạy nền / khoá màn — Core ML có thể không nạp được khi app ở nền (lần đo 1.3.907).
+    static func appStateName() -> String {
+        switch UIApplication.shared.applicationState {
+        case .active: return "đang mở màn"
+        case .inactive: return "chuyển cảnh"
+        case .background: return "nền / khoá màn"
+        @unknown default: return "?"
+        }
+    }
+
     /// "nominal (mát) · khoá màn · rút sạc 78% · RAM 512 MB · trống 1.400 MB".
     static func conditionLine() -> String {
-        let app: String
-        switch UIApplication.shared.applicationState {
-        case .active: app = "đang mở màn"
-        case .inactive: app = "chuyển cảnh"
-        case .background: app = "nền / khoá màn"
-        @unknown default: app = "?"
-        }
+        let app = appStateName()
         let device = UIDevice.current
         device.isBatteryMonitoringEnabled = true
         let battery: String

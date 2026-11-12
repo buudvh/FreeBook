@@ -84,6 +84,12 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         return sessionCap
     }
 
+    /// Số session Core ML đang giữ (VE main + codec).
+    var loadedSessionCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return recency.count
+    }
+
     /// Thứ tự nạp sẵn: bucket hay dùng nhất trước (đoạn ≤ 150 ký tự ở tốc độ 1,15 phần lớn T ≤ 128).
     var preloadOrder: [(kind: String, bucket: Int)] {
         let ve = manifest.veBuckets.sorted()

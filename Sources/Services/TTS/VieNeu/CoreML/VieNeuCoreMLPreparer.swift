@@ -15,6 +15,8 @@ enum VieNeuCoreMLPreparer {
         var sessionCap = 2
         /// RAM lớn nhất một session Core ML chiếm khi giữ (đo được), để lượt đọc kiểm RAM trước mỗi lần nạp.
         var sessionEstimateMB = 300.0
+        /// Số session Core ML đã nạp sẵn ở cuối bước chuẩn bị (giữ tới hết lượt Core ML).
+        var preloadedSessions = 0
         var passed = false
     }
 
@@ -103,7 +105,10 @@ enum VieNeuCoreMLPreparer {
         backend.releaseSessions()
         // Trần lúc đọc: RAM trống bây giờ (engine Nano đang nhả) − engine nạp lại − chừa, chia RAM lớn nhất một session.
         let idle = ProcessMemoryProbe.snapshot()
-        report.sessionEstimateMB = max(150, largestHeldMB)
+        // Đo trên máy (1.3.907): giữ một session Core ML chỉ thêm ~20 MB footprint (trọng số đã biên dịch được map từ
+        // đĩa) — sàn 150 MB cũ làm trần ra 6/7, thiếu một bucket phải nạp giữa lượt lúc khoá màn.
+        report.sessionEstimateMB = max(40, largestHeldMB)
+        backend.sessionEstimateMB = report.sessionEstimateMB
         let budget = idle.availableMB - engineReloadMB - minimumHeadroomMB
         let fit = idle.availableMB > 0 ? Int(budget / report.sessionEstimateMB) : 2
         report.sessionCap = min(graphs.count, max(2, fit))
@@ -117,10 +122,21 @@ enum VieNeuCoreMLPreparer {
         // 3. Tự kiểm mọi bucket với golden.
         report.lines.append("— Tự kiểm (so tham chiếu PC, graph gốc) —")
         report.passed = try selfTest(backend: backend, report: &report, progress: progress)
-        backend.resetStats()
         report.lines.append(report.passed
             ? "✅ Core ML qua cổng (latent ≥ \(Int(minimumLatentDB)) dB, sóng âm ≥ \(Int(minimumWaveDB)) dB, không NaN)"
             : "❌ Core ML KHÔNG qua cổng ⇒ bỏ lượt Core ML")
+
+        // 4. Nạp sẵn mọi session **ngay bây giờ** (màn còn sáng) và giữ tới hết lượt Core ML (1.3.909): lần đo 1.3.907
+        // chết đúng lúc nạp session Core ML đầu tiên khi máy đã khoá màn ~17 phút (bước chuẩn bị ở tiền cảnh thì chạy).
+        if report.passed {
+            let loaded = try backend.preload(onStep: { progress("Nạp sẵn \($0) (màn còn sáng)") })
+            report.preloadedSessions = loaded.count
+            report.lines.append(String(
+                format: "nạp sẵn %ld/%ld session trong %.1f s, giữ tới hết lượt Core ML · %@",
+                loaded.count, backend.preloadOrder.count, loaded.ms / 1_000, ProcessMemoryProbe.snapshot().summary
+            ))
+        }
+        backend.resetStats()
         return report
     }
 

@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.879] - 2026-11-11
+
+### feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS
+
+Phần giao diện của đợt B, đúng mockup anh Bửu đã duyệt.
+
+- Picker "Trình đọc" có "VieNeu-TTS v3 Turbo (Offline)" ngay dưới Nano (dòng phụ "Hay hơn Nano, tốn CPU khoảng 1,5 lần"), chỉ hiện khi đã tải model Turbo. Picker dùng binding riêng: hai mục VieNeu cùng ánh xạ về `tool = "vieneu"` + model; ghi model trước rồi gán `tool` ⇒ đổi model đi đúng luồng đổi engine (nạp tham số + giọng của model, bỏ phần đệm, nạp sẵn engine).
+- Chưa tải Turbo ⇒ hàng "Tải model VieNeu Turbo (188 MB)" dưới Picker, bấm là tải tại chỗ (dùng lượt tải của màn thử Turbo): "Đang tải model VieNeu Turbo" + "74 / 188 MB" + thanh tiến độ; lỗi hiện dưới nút. Trong lúc tải trình đọc đang chọn vẫn đọc bình thường.
+- "Giọng đọc VieNeu" khi chọn Turbo: 25 giọng của manifest, nhóm "Tuyển chọn" (10 giọng ⭐, bỏ ⭐) rồi "Giọng khác"; mỗi mục tên + dòng phụ "Nam · Bắc · tự nhiên" (+ "mặc định"). Chọn giọng chưa có file ⇒ tải ngay vài KB.
+- "Quản lý riêng của trình đọc" khi chọn Turbo: hàng "Tổng hợp Turbo — 2 luồng, cố định" thay Tiết kiệm pin / Chế độ tạo audio / Số luồng / spin ORT; giữ hai công tắc tiếng Nhật + từ điển tiếng Nhật; ẩn "Giọng của tôi", thay bằng chú thích về 2 lõi hiệu năng, máy ấm và giọng nhân bản chỉ dùng với Nano.
+- "Cấu hình giọng nói" khi chọn Turbo: ẩn "Tốc độ tổng hợp (VieNeu)", thay chú thích "Turbo luôn tổng hợp ở tốc độ gốc…"; Tốc độ > 1,4× ⇒ cảnh báo cam "Turbo theo kịp tới khoảng 1,4×. Ở 1,6× có thể hụt tiếng…" (ngưỡng `VieNeuTurboTTSService.realtimeSpeedLimit`, từ RTF ~0,70 đo trên máy). "Đặt lại" không đụng tốc độ tổng hợp của Nano khi đang chọn Turbo.
+- "Tải trước dữ liệu" giữ nguyên, dùng chung cho hai model. Dòng "Nghe truyện (TTS)" ở Cài đặt ghi "VieNeu Turbo" khi đang chọn Turbo.
+
 ## [1.3.878] - 2026-11-11
 
 ### feat: engine VieNeu Turbo cho trình đọc truyện (chọn model Nano/Turbo, khoá cache theo model, nhả model không dùng)

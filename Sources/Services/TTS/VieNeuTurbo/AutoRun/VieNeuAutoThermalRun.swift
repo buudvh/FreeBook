@@ -114,10 +114,10 @@ final class VieNeuAutoThermalRun {
         trailURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
     }
 
-    /// Ghi một bước vào nhật ký (ép xuống đĩa).
+    /// Ghi một bước vào nhật ký (ép xuống đĩa), kèm app đang mở màn hay chạy nền / khoá màn.
     func trail(_ step: String) {
         guard let trailURL else { return }
-        VieNeuAutoRunTrail.append(trailURL, step)
+        VieNeuAutoRunTrail.append(trailURL, "\(step) · \(Self.appStateName())")
     }
 
     // MARK: - Điều khiển
@@ -204,8 +204,9 @@ final class VieNeuAutoThermalRun {
             }.value
             prepareLines = report.lines
             coreMLPassed = report.passed
-            backend.sessionEstimateMB = report.sessionEstimateMB
-            backend.releaseSessions() // nhả RAM; lượt Core ML nạp lại (ấm) khi cần
+            // Không nhả session: đã nạp sẵn lúc màn còn sáng, giữ qua lượt 1 tới hết lượt Core ML (1.3.909 — nạp lúc
+            // khoá màn làm app chết ở bản 1.3.907). Giữ một session chỉ tốn ~20 MB.
+            preloadNote = report.preloadedSessions > 0 ? "giữ \(report.preloadedSessions) session Core ML từ lúc chuẩn bị" : ""
             refresh()
             saveReport()
             trail("chuẩn bị xong: \(report.passed ? "qua tự kiểm" : "không qua tự kiểm"), giữ tối đa \(report.sessionCap) session")
@@ -219,14 +220,12 @@ final class VieNeuAutoThermalRun {
                     legs.append(VieNeuAutoThermalLeg(index: index, engine: engine, skippedReason: "Core ML không qua tự kiểm"))
                     continue
                 }
-                if engine == .coreML {
-                    try await preloadCoreML()
-                }
                 setPhase(.settling(index))
                 trail("chờ mát trước lượt \(index + 1) (\(engine.title))")
                 let settle = try await settle(beforeLeg: index)
                 setPhase(.running(index))
-                trail("bắt đầu lượt \(index + 1) (\(engine.title))")
+                let sessions = engine == .coreML ? " · giữ \(backend.loadedSessionCount) session Core ML" : ""
+                trail("bắt đầu lượt \(index + 1) (\(engine.title))\(sessions)")
                 let leg = try await runLeg(
                     index: index, engine: engine, settle: settle, lab: lab, service: service, voice: voice
                 )
@@ -276,25 +275,6 @@ final class VieNeuAutoThermalRun {
             throw RunError.message("Gói Core ML tải về chưa đủ — thử lại.")
         }
         return manifest
-    }
-
-    /// Nạp sẵn session Core ML (từ bản biên dịch) **trước** lúc chờ mát — nhiệt / CPU của bước nạp tan trong 10 phút chờ.
-    private func preloadCoreML() async throws {
-        guard let backend else { return }
-        statusLine = "Nạp sẵn session Core ML (trước lúc chờ mát)…"
-        guard let package else { return }
-        let trailURL = VieNeuAutoRunTrail.url(in: package)
-        let result = try await Task.detached(priority: .userInitiated) {
-            try backend.preload { step in VieNeuAutoRunTrail.append(trailURL, step) }
-        }.value
-        let total = backend.preloadOrder.count
-        var note = String(format: "nạp sẵn %ld/%ld session trong %.1f s · ", result.count, total, result.ms / 1_000)
-        note += ProcessMemoryProbe.snapshot().summary
-        if result.count < total {
-            note += " · ⚠️ RAM chỉ đủ giữ \(result.count) session — bucket hiếm phải nạp lại giữa lượt"
-        }
-        preloadNote = note
-        trail(note)
     }
 
     /// Cache biên dịch cần thêm vài trăm MB; thiếu chỗ thì báo trước thay vì để Core ML lỗi giữa chừng.
