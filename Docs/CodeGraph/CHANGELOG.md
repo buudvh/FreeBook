@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.895] - 2026-11-12
+
+### chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc
+
+Phần năm (khuyến khích) của đợt nhân bản giọng Turbo: kiểm bản Swift của bước chuẩn bị mẫu trên PC, và để anh Bửu so file app chia sẻ với bản gốc.
+
+- **`Scripts/vieneu_turbo_clone_reference.py`** chép nguyên văn thuật toán của `pnnbao97/VieNeu-TTS`: `onnx_denoiser.py`, `speaker/` (soxr + kaldi-native-fbank), `_encode_ref_wav`, trim bằng librosa (kể cả bước ghi PCM_16 rồi đọc lại). Không cài cả gói `vieneu`.
+  - `reference WAV`: cả pipeline ⇒ `speaker.emb.txt`, `ref_codes.txt` (khi có MOSS encoder ONNX của upstream, ~45 MB), `trimmed.wav`, `denoised.wav`, `info.json`.
+  - `denoise` / `embed`: chạy riêng một bước trên WAV trung gian app chia sẻ, để tách sai lệch từng bước.
+  - `compare`: cosine embedding, % mã trùng (cả khung, codebook 0), SNR / tương quan hai WAV.
+- **Kết quả đo** trên PC (một mẫu giọng sạch 8 s; thuật toán bản Swift mô phỏng bằng numpy):
+  - Cắt im lặng (`VieNeuSilenceTrimmer`) ra **đúng** mẫu đầu / cuối như librosa 1.0.
+  - Khử nhiễu (DFT ma trận float32) so bản gốc: SNR 77,5 dB, embedding cosine 0,999998.
+  - Mã tham chiếu rất nhạy: chỉ khác có / không khử nhiễu ⇒ codebook 0 trùng 83 %, đủ 16 mã 8 % khung. Mã của app (audio.cpp lấy lại tần số bằng sinc, upstream dùng soxr) sẽ không trùng từng số; xem codebook 0 + cosine rồi nghe.
+- Cách cài thư viện và cách đọc kết quả ghi ở đầu script.
+- **Không** chạm code app. Chưa so được với file app thật (cần chạy trên máy).
+
 ## [1.3.894] - 2026-11-12
 
 ### feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file
@@ -521,25 +538,3 @@ Anh Bửu: "Khi mở sheet mở rộng từ widget hub thì đừng ẩn các wi
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: chạm hub ⇒ sheet hub mở, nút hub (và nửa viên, nút trình duyệt nếu có) vẫn thấy mờ phía sau lớp tối; chạm vùng tối ⇒ sheet đóng, không mở lại hub; chạm Thông báo ⇒ màn Thông báo, đóng ⇒ nút hub vẫn đúng chỗ.
-
-## [1.3.865] - 2026-11-11
-
-### feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet
-
-Anh Bửu: "Bỏ luôn tab thứ 5 hiển thị đĩa đi, mọi màn hình, sheet đều hiển thị viên thuốc cho tôi" (đã duyệt plan; sheet "đang đọc chương này" của Reader anh chọn giữ ẩn đĩa như cũ).
-
-- **Thanh tab 4 ô** (`MainTabBar`): Kệ Sách · Khám Phá · Tiện Ích · Cài Đặt. Xoá `MediaDiscTabBarSlot`, `MediaDiscIdleFace` (đĩa xám), kiểu `.tabBar` của `MediaDiscFaceButton` (nay chỉ còn mặt nửa viên, `MediaDiscFaceButton()`), vai neo `.hostsDisc`.
-- **Trang gốc các tab có nửa viên**: thanh tab là neo `.bar` (`MainTabBarModifier`) ⇒ nửa viên đè lên thanh thì tự đứng trên nó 12 pt.
-- **Đổi màn ⇒ đĩa đứng yên**: bỏ luật "trang đổi ⇒ thu đĩa tại chỗ, hiện lại sau 0,3 s" (1.3.820, theo `MediaDiscScreenContext.page`). Đang chuyển cảnh vẫn đứng yên; hết chuyển cảnh mà màn mới có neo cần né thì trượt tới chỗ mới. Đĩa đang ẩn (bàn phím, phim…) vẫn chỉ hiện lại khi điều kiện giữ đủ 0,3 s.
-- **Sheet hub / màn Thông báo không ẩn đĩa nữa** (thay cách ẩn của 1.3.864): `FloatingHubWindowManager.setSheetPresented` nâng cửa sổ hub từ `alert − 2` lên `alert − 1.7` (trên cửa sổ đĩa `alert − 1.75`) lúc trình bày sheet ⇒ sheet đè lên nửa viên như sheet của chính đĩa; đóng sheet thì hạ về để nút hub nằm dưới sheet điều khiển nhanh của đĩa.
-- **Vẫn ẩn đĩa** khi: không có gì đang phát, bàn phím hiện, màn nghe nhạc mở, phim toàn màn / màn xem phim, hộp thoại / bảng chọn / bảng chia sẻ, sheet "đang đọc chương này" của Reader (`ReaderTTSSameChapterSheet`, neo `.blocker`). Mọi sheet khác của cửa sổ chính nằm dưới nửa viên (đĩa có thể che mép hàng của sheet — kéo đi chỗ khác).
-- `CLAUDE.md` / `AGENTS.md`: đoạn "Hai chỗ đặt đĩa" ⇒ "Một chỗ đặt đĩa", đoạn đĩa nghe (neo `.bar` ở thanh tab, sheet hub). `rules.md`: level cửa sổ hub, luật widget TTS bỏ "ô giữa thanh tab".
-- **Kiểm chứng:**
-  - Đọc code + grep chéo `MediaDiscTabBarSlot` / `MediaDiscIdleFace` / `hostsDisc` / `MediaDiscFaceButton(style:` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử:
-    1. Thanh tab còn 4 ô, chia đều. Đang nghe ⇒ ở trang gốc Kệ Sách có nửa viên, đứng trên thanh tab (và trên nút "+" nếu có).
-    2. Đẩy trang / mở Reader / quay lại ⇒ nửa viên không thu lại rồi hiện lại; chỉ trượt khi phải né nút.
-    3. Chạm hub ⇒ sheet hub đè lên nửa viên, bấm được mọi dòng; đóng sheet ⇒ nửa viên vẫn ở đó.
-    4. Mở một sheet bất kỳ (Cài đặt Reader, mục lục…) ⇒ nửa viên vẫn hiện trên sheet.
-    5. Bấm tai nghe trúng chương đang đọc ⇒ sheet "đang đọc chương này" hiện, nửa viên ẩn như cũ.
