@@ -11,11 +11,9 @@ import Observation
 @MainActor
 @Observable
 final class VieNeuTurboCloneTrial {
-    /// Khử nhiễu mẫu trước khi nhân bản (mặc định bật, như upstream). Đổi ⇒ kiểm lại gói cần tải (tắt chỉ cần
-    /// `speaker_encoder.onnx`).
-    var denoise = true {
-        didSet { refreshReadiness() }
-    }
+    /// Khử nhiễu mẫu trước khi nhân bản (mặc định bật, như upstream). View gọi `refreshReadiness()` khi đổi (tắt chỉ cần
+    /// `speaker_encoder.onnx`) — không dùng `didSet` trên thuộc tính của lớp `@Observable`.
+    var denoise = true
     var name = ""
     var isPickingFile = false
 

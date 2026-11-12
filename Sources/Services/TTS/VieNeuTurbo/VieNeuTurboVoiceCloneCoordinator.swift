@@ -6,7 +6,8 @@ import Observation
 /// (`VieNeuTurboCustomVoiceStore`) → làm mới `VieNeuTurboCustomVoiceRepository`.
 ///
 /// API cho màn tạo giọng (làm sau theo mockup) và màn thử Turbo:
-/// - `createVoice(fromFile:name:denoise:keepsSample:)` — file âm thanh bất kỳ iOS đọc được
+/// - `createVoice(fromFile:name:denoise:keepsSample:)` — file âm thanh bất kỳ iOS đọc được; `keepsSample` giữ **đoạn đã
+///   cắt** (≤ 8 giây, WAV) chứ không chép cả file
 /// - `createVoice(fromNanoVoiceId:name:denoise:)` — dùng lại mẫu gốc của một giọng Nano tự tạo
 /// - `isRunning`, `stage` — để vẽ tiến trình; `Stage` không mang chữ hiển thị (chữ là việc của View)
 ///
@@ -174,7 +175,7 @@ final class VieNeuTurboVoiceCloneCoordinator {
                     denoise: denoise,
                     modelStore: nanoStore,
                     threadCount: threads,
-                    keepsIntermediate: keepsIntermediate,
+                    keepsIntermediate: keepsIntermediate || keepsSample,
                     onStage: stageHandler
                 )
             }.value
@@ -197,8 +198,8 @@ final class VieNeuTurboVoiceCloneCoordinator {
                 options: .atomic
             )
             var sampleFileName: String?
-            if keepsSample {
-                sampleFileName = try store.copySample(from: sampleURL, intoStagingOf: id)
+            if keepsSample, let trimmed = prepared.trimmedSamples {
+                sampleFileName = try store.writeSample(trimmed, sampleRate: prepared.sourceSampleRate, intoStagingOf: id)
             }
             let record = VieNeuTurboCustomVoiceStore.Record(
                 id: id,

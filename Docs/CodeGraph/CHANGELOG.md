@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.896] - 2026-11-12
+
+### fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn
+
+Rà lại 1.3.891–893 trước khi bàn giao:
+
+- **Giữ mẫu**: `VieNeuTurboCustomVoiceStore` trước chép **cả file** người dùng chọn vào `CustomVoices/<id>/`. File ghi âm dài hàng chục phút thì mỗi giọng tốn hàng trăm MB, trong khi chỉ 8 giây đầu (sau cắt im lặng) được dùng.
+  - Nay ghi `sample.wav` = đúng đoạn đã cắt (tần số gốc, trước khử nhiễu, WAV 16-bit), đủ để tạo lại giọng.
+  - `copySample` thay bằng `writeSample`; coordinator xin preparer trả đoạn đã cắt khi `keepsSample`.
+- **Mã hoá audio.cpp không cần chữ**: đọc thêm `build_preparation_request` (`framework/runtime/session.cpp:432`, v0.9.4) — nó chỉ chép `text_input` (optional), không đọc.
+  - Vì chưa chạy trên máy, nhánh dự phòng nới ra: lỗi lượt đầu không phải lỗi cấp phát ⇒ ghi `❌`, đặt chữ giả (nhánh mã hoá không đọc chữ), thử lại **một** lần.
+  - Bản trước chỉ thử lại khi chữ lỗi có "text input", nên một lỗi khác chữ sẽ không có lần thử lại nào. Hỏng cả hai lần thì báo cả hai lỗi.
+- **Bộ chọn file** của mục "Tạo giọng Turbo từ file" gắn ở **gốc Form** (`VieNeuTurboLabView.background(cloneFilePicker)`), như `VieNeuVoiceCreatorView` — cách đã chạy được trong LiveContainer. Bản trước gắn vào một hàng của Form.
+- `VieNeuTurboCloneTrial.denoise` bỏ `didSet` (repo chưa có lớp `@Observable` nào dùng `didSet`): Toggle gọi `refreshReadiness()` qua `.onChange`.
+- **Kiểm chứng:** `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. **Chưa build** (Windows), chưa chạy trên máy.
+
 ## [1.3.895] - 2026-11-12
 
 ### chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc
@@ -524,17 +540,3 @@ Anh Bửu: "để cho viên thuốc tự tránh header và thanh tab dù có hay
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: đang nghe, đi qua lại trang gốc Kệ (thanh tab + "+") ⇄ trang đẩy vào (không thanh tab) ⇄ Reader ⇒ đĩa đứng yên một chỗ. Kéo hub / nút trình duyệt lên sát đỉnh ⇒ dừng dưới header; kéo xuống đáy ⇒ dừng trên thanh tab. Ở màn danh sách có "+" kèm Home, bấm "+" xổ menu ⇒ đĩa mép phải né lên, đóng menu ⇒ về chỗ.
-
-## [1.3.866] - 2026-11-11
-
-### feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe
-
-Anh Bửu: "Khi mở sheet mở rộng từ widget hub thì đừng ẩn các widget khác (làm giống như widget đĩa mở sheet nghe nhạc/nghe truyện mini)" (đã duyệt).
-
-- Kiểm lúc sheet hub / màn Thông báo mở (sau 1.3.865): nửa viên đĩa nghe, nút trình duyệt thu nhỏ, cửa sổ phim nhỏ đều vẫn hiện; **chỉ nút hub** bị giấu (`setSheetPresented(true)` đặt `widgetContainerView.isHidden = true`, `refreshState` giữ giấu suốt lúc sheet mở).
-- `FloatingHubWindowManager`: thôi giấu nút khi sheet mở — nút nằm yên dưới sheet (sheet trình bày trong cùng cửa sổ hub, đè lên nút; lớp mờ của sheet chặn chạm), y như đĩa nghe dưới sheet điều khiển nhanh của nó. Vẫn giữ: phim toàn màn mà sheet còn mở ⇒ giữ cửa sổ, chỉ giấu nút (`hideWidget()` sẽ cuốn mất sheet). Level cửa sổ hub lúc trình bày sheet giữ như 1.3.865 (`alert − 1.7`, trên cửa sổ đĩa).
-- `rules.md` luật hub (b), `CLAUDE.md` / `AGENTS.md` đoạn đĩa nghe: ghi nút hub không ẩn lúc sheet hub mở.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: chạm hub ⇒ sheet hub mở, nút hub (và nửa viên, nút trình duyệt nếu có) vẫn thấy mờ phía sau lớp tối; chạm vùng tối ⇒ sheet đóng, không mở lại hub; chạm Thông báo ⇒ màn Thông báo, đóng ⇒ nút hub vẫn đúng chỗ.

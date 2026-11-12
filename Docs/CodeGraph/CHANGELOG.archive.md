@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.866] - 2026-11-11
+
+### feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe
+
+Anh Bửu: "Khi mở sheet mở rộng từ widget hub thì đừng ẩn các widget khác (làm giống như widget đĩa mở sheet nghe nhạc/nghe truyện mini)" (đã duyệt).
+
+- Kiểm lúc sheet hub / màn Thông báo mở (sau 1.3.865): nửa viên đĩa nghe, nút trình duyệt thu nhỏ, cửa sổ phim nhỏ đều vẫn hiện; **chỉ nút hub** bị giấu (`setSheetPresented(true)` đặt `widgetContainerView.isHidden = true`, `refreshState` giữ giấu suốt lúc sheet mở).
+- `FloatingHubWindowManager`: thôi giấu nút khi sheet mở — nút nằm yên dưới sheet (sheet trình bày trong cùng cửa sổ hub, đè lên nút; lớp mờ của sheet chặn chạm), y như đĩa nghe dưới sheet điều khiển nhanh của nó. Vẫn giữ: phim toàn màn mà sheet còn mở ⇒ giữ cửa sổ, chỉ giấu nút (`hideWidget()` sẽ cuốn mất sheet). Level cửa sổ hub lúc trình bày sheet giữ như 1.3.865 (`alert − 1.7`, trên cửa sổ đĩa).
+- `rules.md` luật hub (b), `CLAUDE.md` / `AGENTS.md` đoạn đĩa nghe: ghi nút hub không ẩn lúc sheet hub mở.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: chạm hub ⇒ sheet hub mở, nút hub (và nửa viên, nút trình duyệt nếu có) vẫn thấy mờ phía sau lớp tối; chạm vùng tối ⇒ sheet đóng, không mở lại hub; chạm Thông báo ⇒ màn Thông báo, đóng ⇒ nút hub vẫn đúng chỗ.
+
 ## [1.3.865] - 2026-11-11
 
 ### feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet

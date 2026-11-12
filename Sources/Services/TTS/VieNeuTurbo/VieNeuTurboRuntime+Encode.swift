@@ -149,9 +149,11 @@ extension VieNeuTurboRuntime {
     }
 
     /// Một lượt `audiocpp_session_run` chỉ mã hoá. Lỗi cấp phát ⇒ dựng lại session, thử lại một lần (như `synthesize`).
-    /// **UNKNOWN**: tầng framework có đòi chữ khi chỉ mã hoá không — đọc code v0.9.4 thì không (nhánh mã hoá trả về
-    /// trước `make_request`, chỗ duy nhất ném "requires text input"); nếu máy báo lỗi nhắc tới "text input" thì ghi `❌`,
-    /// đặt một chữ giả rồi thử lại một lần.
+    ///
+    /// Không cần chữ: đọc code v0.9.4 thì `build_preparation_request` (`framework/runtime/session.cpp:432`) chỉ **chép**
+    /// `text_input` (optional) chứ không đọc, `VieNeuTTSSession::prepare` bỏ qua request, và nhánh `encode_reference_only`
+    /// trả về trước `make_request` (chỗ duy nhất ném "requires text input"). Chưa chạy thử trên máy ⇒ lỗi khác lỗi cấp
+    /// phát ở lượt đầu: ghi `❌`, đặt một chữ giả (vô hại — nhánh mã hoá không đọc chữ) rồi thử lại **một** lần.
     private func runEncodeLocked(
         samples: [Float],
         sampleRate: Double,
@@ -187,16 +189,23 @@ extension VieNeuTurboRuntime {
             if Self.isAllocationFailure(status, detail) {
                 AppLogger.shared.log("❌ [VieNeuTurbo] Mã hoá giọng mẫu lỗi cấp phát — dựng lại session, thử lại: \(name) — \(detail) — \(memory)")
                 try createSessionLocked(threads: max(1, sessionThreads))
-            } else if detail.localizedCaseInsensitiveContains("text input") {
-                AppLogger.shared.log("❌ [VieNeuTurbo] Mã hoá giọng mẫu đòi chữ (UNKNOWN đã gặp) — đặt chữ giả, thử lại: \(name) — \(detail)")
-                try Self.check(audiocpp_request_set_text(request, ".", nil), "audiocpp_request_set_text")
             } else {
-                AppLogger.shared.log("❌ [VieNeuTurbo] Mã hoá giọng mẫu lỗi: \(name) — \(detail) — \(memory)")
-                throw RuntimeError.call("audiocpp_session_run(encode_reference_only)", "\(name) — \(detail)")
+                AppLogger.shared.log(
+                    "❌ [VieNeuTurbo] Mã hoá giọng mẫu lỗi lượt đầu — đặt chữ giả, thử lại một lần: \(name) — \(detail) — \(memory)"
+                )
+                try Self.check(audiocpp_request_set_text(request, ".", nil), "audiocpp_request_set_text")
             }
             result = nil
             status = audiocpp_session_run(session, request, &result)
-            try Self.check(status, "audiocpp_session_run(encode_reference_only, thử lại)")
+            if status != AUDIOCPP_OK {
+                let retryDetail = String(cString: audiocpp_last_error())
+                let retryName = String(cString: audiocpp_status_string(status))
+                AppLogger.shared.log("❌ [VieNeuTurbo] Mã hoá giọng mẫu lỗi cả lần thử lại: \(retryName) — \(retryDetail)")
+                throw RuntimeError.call(
+                    "audiocpp_session_run(encode_reference_only)",
+                    "\(retryName) — \(retryDetail) (lượt đầu: \(name) — \(detail))"
+                )
+            }
         }
         let encodeMs = Self.elapsedMs(since: started)
         guard let result else { throw RuntimeError.call("encode_reference_only", "audio.cpp không trả kết quả") }

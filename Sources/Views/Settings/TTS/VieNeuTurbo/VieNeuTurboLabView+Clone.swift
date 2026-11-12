@@ -15,24 +15,12 @@ extension VieNeuTurboLabView {
                 Label(trial.sampleURL?.lastPathComponent ?? "Chọn file âm thanh…", systemImage: "waveform")
             }
             .disabled(trial.isRunning)
-            // `DocumentPickerPresenter` thay `.fileImporter` (bản SwiftUI không trả kết quả khi chạy trong
-            // LiveContainer — xem `VieNeuVoiceCreatorView`); `asCopy` ⇒ URL đã nằm trong thư mục tạm của app.
-            .background(
-                DocumentPickerPresenter(
-                    isPresented: Bindable(trial).isPickingFile,
-                    allowedContentTypes: [.audio],
-                    allowsMultipleSelection: false,
-                    onPick: { urls in
-                        if let url = urls.first { trial.acceptPickedFile(url) }
-                    },
-                    onCancel: nil
-                )
-            )
 
             TextField("Tên giọng", text: Bindable(trial).name)
                 .disabled(trial.isRunning)
             Toggle("Khử nhiễu mẫu", isOn: Bindable(trial).denoise)
                 .disabled(trial.isRunning)
+                .onChange(of: trial.denoise) { _, _ in trial.refreshReadiness() }
 
             if let readiness = trial.readinessMessage {
                 Text(readiness)
@@ -78,6 +66,22 @@ extension VieNeuTurboLabView {
         if !trial.report.isEmpty {
             cloneReportSection
         }
+    }
+
+    /// Bộ chọn file của mục tạo giọng — gắn ở **gốc Form** như `VieNeuVoiceCreatorView` (cách đã chạy được trong
+    /// LiveContainer), không gắn vào hàng của Form. `DocumentPickerPresenter` thay `.fileImporter` (bản SwiftUI không trả
+    /// kết quả khi chạy trong LiveContainer); `asCopy` ⇒ URL đã nằm trong thư mục tạm của app.
+    var cloneFilePicker: some View {
+        let trial = lab.cloneTrial
+        return DocumentPickerPresenter(
+            isPresented: Bindable(trial).isPickingFile,
+            allowedContentTypes: [.audio],
+            allowsMultipleSelection: false,
+            onPick: { urls in
+                if let url = urls.first { trial.acceptPickedFile(url) }
+            },
+            onCancel: nil
+        )
     }
 
     @ViewBuilder

@@ -7,7 +7,7 @@ import Foundation
 ///   voices_custom.json            mảng `Record` (tên, ngày tạo, số khung, đã khử nhiễu chưa, mẫu gốc nếu giữ)
 ///   custom_<12 hex>/ref_codes.txt     mã tham chiếu (audio.cpp)
 ///   custom_<12 hex>/speaker.emb.txt   192 số (ORT `speaker_encoder`)
-///   custom_<12 hex>/sample.<đuôi>     mẫu gốc — chỉ khi giữ
+///   custom_<12 hex>/sample.wav        đoạn mẫu đã dùng (sau cắt im lặng + 8 s, trước khử nhiễu, WAV 16-bit) — khi giữ
 ///   .staging-<id>/                    thư mục dở của lượt đang tạo
 /// ```
 ///
@@ -30,7 +30,8 @@ final class VieNeuTurboCustomVoiceStore {
         let isDenoised: Bool
         /// Độ dài mẫu thật sự dùng (sau cắt im lặng + cắt 8 giây).
         let sampleSeconds: Double
-        /// Tên file mẫu gốc trong thư mục giọng; `nil` khi không giữ.
+        /// Tên file mẫu trong thư mục giọng (`sample.wav` = đoạn đã cắt, ≤ 8 giây — không phải cả file người dùng chọn,
+        /// có thể dài hàng chục phút); `nil` khi không giữ. Đủ để tạo lại giọng mà không phải chọn lại file.
         var sampleFileName: String?
         /// Tạo từ mẫu của giọng Nano tự tạo nào (`VieNeuCustomVoiceStore.Record.id`), nếu có.
         let sourceNanoVoiceId: String?
@@ -53,7 +54,7 @@ final class VieNeuTurboCustomVoiceStore {
     }
 
     static let indexFileName = "voices_custom.json"
-    static let sampleBaseName = "sample"
+    static let sampleFileName = "sample.wav"
 
     let directoryURL: URL
     private let modelStore: VieNeuTurboModelStore
@@ -86,7 +87,7 @@ final class VieNeuTurboCustomVoiceStore {
         modelStore.voiceDirectory(voiceId: id)
     }
 
-    /// Mẫu gốc đã giữ, `nil` khi không giữ hoặc file đã mất.
+    /// Đoạn mẫu đã giữ, `nil` khi không giữ hoặc file đã mất.
     func sampleURL(for record: Record) -> URL? {
         guard let name = record.sampleFileName, !name.isEmpty else { return nil }
         let url = voiceDirectory(id: record.id).appendingPathComponent(name)
@@ -123,16 +124,11 @@ final class VieNeuTurboCustomVoiceStore {
         try? fileManager.removeItem(at: stagingDirectory(id: id))
     }
 
-    /// Chép mẫu gốc vào thư mục dở (mở khoá security-scoped cho file chọn từ Files / iCloud). Trả tên file.
-    func copySample(from source: URL, intoStagingOf id: String) throws -> String {
-        let ext = source.pathExtension.isEmpty ? "m4a" : source.pathExtension.lowercased()
-        let name = "\(Self.sampleBaseName).\(ext)"
-        let scoped = source.startAccessingSecurityScopedResource()
-        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        let destination = stagingDirectory(id: id).appendingPathComponent(name)
-        try? fileManager.removeItem(at: destination)
-        try fileManager.copyItem(at: source, to: destination)
-        return name
+    /// Ghi đoạn mẫu đã cắt (mono, tần số gốc) thành `sample.wav` 16-bit trong thư mục dở. Trả tên file.
+    func writeSample(_ samples: [Float], sampleRate: Double, intoStagingOf id: String) throws -> String {
+        let data = WAVEncoder.encodePCM16(samples: samples, sampleRate: Int(sampleRate.rounded()), channels: 1)
+        try data.write(to: stagingDirectory(id: id).appendingPathComponent(Self.sampleFileName), options: .atomic)
+        return Self.sampleFileName
     }
 
     /// Chuyển thư mục dở vào chỗ rồi ghi index. Index ghi hỏng ⇒ dọn luôn thư mục giọng (không để giọng mồ côi).

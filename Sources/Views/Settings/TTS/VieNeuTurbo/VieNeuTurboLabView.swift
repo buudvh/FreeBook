@@ -41,6 +41,7 @@ struct VieNeuTurboLabView: View {
             autoRunSection
             epProbeSection
         }.glassSheetRows() }
+        .background(cloneFilePicker)
         .backPageTitle("Thử VieNeu Turbo")
         .onAppear { lab.refreshStatus() }
         // Bảng chia sẻ của hệ thống — không gắn nền kính.
