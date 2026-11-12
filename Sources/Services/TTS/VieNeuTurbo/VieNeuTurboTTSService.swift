@@ -74,10 +74,14 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     }
 
     /// Id có trong manifest thì giữ, không thì giọng mặc định — tên giọng Nano lọt sang (đổi model giữa chừng) không làm
-    /// đoạn nào lỗi.
+    /// đoạn nào lỗi. Giọng **tự tạo** (`custom_…`, 1.3.891) giữ khi cặp file còn trên máy; đã xoá thì về mặc định.
     func resolveVoiceId(_ requested: String) -> String {
+        if VieNeuTurboModelStore.isCustomVoiceId(requested), store.hasVoice(voiceId: requested) {
+            return requested
+        }
         guard let manifest = manifest() else {
-            return VieNeuTurboModelStore.isSafeVoiceId(requested) ? requested : VieNeuTurboModelStore.fallbackVoiceId
+            let usable = VieNeuTurboModelStore.isSafeVoiceId(requested) && !VieNeuTurboModelStore.isCustomVoiceId(requested)
+            return usable ? requested : VieNeuTurboModelStore.fallbackVoiceId
         }
         if manifest.voices.contains(where: { $0.id == requested }) { return requested }
         return manifest.defaultVoice?.id ?? VieNeuTurboModelStore.fallbackVoiceId

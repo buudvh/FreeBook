@@ -14,6 +14,7 @@ final class VieNeuTurboModelClient: Sendable {
         case emptyBody(String)
         case sizeMismatch(String, expected: Int64, actual: Int64)
         case missingG2PSource
+        case customVoiceMissing(String)
 
         var errorDescription: String? {
             switch self {
@@ -23,6 +24,7 @@ final class VieNeuTurboModelClient: Sendable {
             case .sizeMismatch(let name, let expected, let actual):
                 return "Tải \(name) thất bại: được \(actual) byte, cần đúng \(expected) byte"
             case .missingG2PSource: return "Không tìm thấy nguồn tải sea_g2p.bin của VieNeu Nano"
+            case .customVoiceMissing(let id): return "Giọng tự tạo \(id) không còn trên máy (đã xoá?)"
             }
         }
     }
@@ -63,6 +65,11 @@ final class VieNeuTurboModelClient: Sendable {
     /// Cặp `ref_codes.txt` + `speaker.emb.txt` của một giọng (vài KB mỗi file). Có rồi thì bỏ qua.
     func downloadVoice(voiceId: String) async throws {
         guard VieNeuTurboModelStore.isSafeVoiceId(voiceId) else { throw DownloadError.badURL(voiceId) }
+        // Giọng tự tạo không có trên kho mirror: thiếu file nghĩa là đã bị xoá — báo rõ thay vì HTTP 404.
+        guard !VieNeuTurboModelStore.isCustomVoiceId(voiceId) else {
+            if store.hasVoice(voiceId: voiceId) { return }
+            throw DownloadError.customVoiceMissing(voiceId)
+        }
         try FileManager.default.createDirectory(
             at: store.voiceDirectory(voiceId: voiceId),
             withIntermediateDirectories: true

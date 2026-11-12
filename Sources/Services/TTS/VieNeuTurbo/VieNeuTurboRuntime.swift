@@ -71,13 +71,15 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     /// 1.3.885 — đo nhanh gấp đôi và mát hơn `.utility`), màn thử dùng mức chọn trên màn.
     static let qos: DispatchQoS = .utility
 
-    private let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: VieNeuTurboRuntime.qos)
+    // `internal` (không `private`) vì `VieNeuTurboRuntime+Encode` — file khác — chạy lượt mã hoá giọng mẫu trên cùng hàng
+    // đợi và cùng handle (Swift giới hạn `private` theo file; tách file vì trần 400 dòng). Chỉ chạm trong `queue`.
+    let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: VieNeuTurboRuntime.qos)
     // Chỉ đọc / ghi trong `queue`.
     private var registry: OpaquePointer?
-    private var model: OpaquePointer?
-    private var session: OpaquePointer?
-    private var sessionThreads = 0
-    private var loadedModelPath: String?
+    var model: OpaquePointer?
+    var session: OpaquePointer?
+    var sessionThreads = 0
+    var loadedModelPath: String?
 
     static var isAvailable: Bool {
         #if canImport(AudioCpp)
@@ -146,7 +148,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     // MARK: - Nội bộ
 
-    private func perform<T>(
+    func perform<T>(
         qos: DispatchQoS.QoSClass = .utility,
         _ work: @escaping () throws -> T
     ) async throws -> T {
@@ -157,7 +159,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         }
     }
 
-    private func freeAll() {
+    func freeAll() {
         #if canImport(AudioCpp)
         audiocpp_session_free(session)
         audiocpp_model_free(model)
@@ -170,20 +172,20 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         loadedModelPath = nil
     }
 
-    private static func elapsedMs(since start: TimeInterval) -> Double {
+    static func elapsedMs(since start: TimeInterval) -> Double {
         (ProcessInfo.processInfo.systemUptime - start) * 1_000
     }
 
     #if canImport(AudioCpp)
     /// Status khác `AUDIOCPP_OK` ⇒ đọc `audiocpp_last_error()` **ngay** (thread-local, lời gọi sau có thể xoá nó).
-    private static func check(_ status: audiocpp_status, _ function: String) throws {
+    static func check(_ status: audiocpp_status, _ function: String) throws {
         guard status != AUDIOCPP_OK else { return }
         let detail = String(cString: audiocpp_last_error())
         let name = String(cString: audiocpp_status_string(status))
         throw RuntimeError.call(function, "\(name) — \(detail)")
     }
 
-    private func prepareLocked(modelPath: String, threads: Int) throws -> LoadReport {
+    func prepareLocked(modelPath: String, threads: Int) throws -> LoadReport {
         if registry == nil {
             var created: OpaquePointer?
             try Self.check(audiocpp_registry_create(nil, &created), "audiocpp_registry_create")
@@ -231,7 +233,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     /// Nhả session cũ (kèm mọi graph + bộ đệm audio.cpp giữ trong nó) rồi dựng session CPU mới. Trả ms dựng.
     @discardableResult
-    private func createSessionLocked(threads: Int) throws -> Double {
+    func createSessionLocked(threads: Int) throws -> Double {
         audiocpp_session_free(session)
         session = nil
         sessionThreads = 0
@@ -253,7 +255,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     /// Lỗi cấp phát bộ nhớ của audio.cpp/ggml ("failed to allocate …") — loại lỗi đáng dựng lại session rồi thử lại;
     /// lỗi khác (đầu vào sai, model hỏng) thử lại cũng vô ích.
-    private static func isAllocationFailure(_ status: audiocpp_status, _ detail: String) -> Bool {
+    static func isAllocationFailure(_ status: audiocpp_status, _ detail: String) -> Bool {
         status == AUDIOCPP_ERR_OUT_OF_MEMORY || detail.localizedCaseInsensitiveContains("allocate")
     }
 
@@ -329,7 +331,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         )
     }
     #else
-    private func prepareLocked(modelPath: String, threads: Int) throws -> LoadReport {
+    func prepareLocked(modelPath: String, threads: Int) throws -> LoadReport {
         throw RuntimeError.unavailable
     }
 

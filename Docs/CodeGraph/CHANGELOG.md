@@ -2,6 +2,40 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.892] - 2026-11-12
+
+### feat: VieNeu Turbo mã hoá mẫu giọng bằng audio.cpp và lưu giọng tự tạo
+
+Phần hai của lõi nhân bản giọng Turbo (anh Bửu đã duyệt plan). Chưa có giao diện người dùng cuối; API để sẵn cho màn chọn giọng / tạo giọng làm theo mockup sau.
+
+- **`VieNeuTurboRuntime.encodeReference`** (file mới `VieNeuTurboRuntime+Encode`):
+  - Gọi audio.cpp với `audiocpp_request_set_voice_audio` + option `encode_reference_only = true`, đọc artifact `ACOUSTIC_TOKENS` id `vieneu_v3_turbo.reference_codes`.
+  - Chép đủ `payload_bytes` (con trỏ mượn) trước khi `audiocpp_result_free`. Kiểm 16 số 0…1023 mỗi dòng, 1…100 dòng (25 giọng đóng gói: 12…98 khung, mã 0…1023).
+  - Truyền `speaker_embedding_file` của chính giọng đang tạo: audio.cpp khỏi tự chạy speaker encoder của GGUF (nếu có), và file đi qua bộ đọc của audio.cpp một lần trước khi lưu.
+  - Chạy trên hàng đợi runtime, QoS `.userInitiated`, không chạy chồng lượt tổng hợp. Lỗi cấp phát ⇒ dựng lại session, thử lại một lần.
+  - **UNKNOWN**: framework có đòi chữ khi chỉ mã hoá không. Đọc code v0.9.4 thì không; nếu máy báo lỗi "text input" thì ghi `❌`, đặt chữ giả rồi thử lại.
+  - Xong lượt: model đã nạp sẵn thì **dựng lại session** cùng số luồng (trả vùng encoder + cache prompt); nạp riêng cho lượt này thì **nhả hết**. Kể cả khi lượt hỏng.
+  - `queue`, `model`, `session`, `sessionThreads`, `loadedModelPath`, `perform`, `prepareLocked`, `createSessionLocked`, `freeAll`, `check`, `elapsedMs`, `isAllocationFailure` hạ từ `private` xuống `internal` vì file `+Encode` dùng (tách file vì trần 400 dòng).
+- **Kho giọng tự tạo** `VieNeuTurboCustomVoiceStore`:
+  - Bố cục: `VieNeuTurbo/CustomVoices/<id>/{ref_codes.txt, speaker.emb.txt, sample.<đuôi>?}` + `voices_custom.json` (tên, ngày tạo, số khung, đã khử nhiễu chưa, độ dài mẫu, mẫu gốc nếu giữ, giọng Nano nguồn nếu có).
+  - Tách khỏi `Voices/` tải về; `VieNeuTurboModelStore.deleteAll` không chạm tới.
+  - Id `custom_<12 hex>` ngẫu nhiên, không dùng lại (khoá cache tổng hợp băm theo id giọng).
+  - Ghi vào `.staging-<id>/` rồi chuyển cả thư mục vào chỗ, sau đó mới ghi index (`.tmp` → `replaceItemAt`). Thư mục dở do app chết giữa chừng được dọn khi nạp danh sách.
+- **Đọc giọng tự tạo**:
+  - `VieNeuTurboModelStore.voiceDirectory(voiceId:)` định tuyến id `custom_…` sang `CustomVoices/`, nên `referenceCodesURL` / `speakerEmbeddingURL` / `hasVoice` dùng chung cho cả hai loại.
+  - `VieNeuTurboTTSService.resolveVoiceId` giữ id tự tạo khi cặp file còn, đã xoá thì về giọng mặc định.
+  - `VieNeuTurboModelClient.downloadVoice` không bao giờ tải id tự tạo: thiếu file ⇒ báo rõ "không còn trên máy" thay vì HTTP 404.
+- **API cho UI sau này:**
+  - `VieNeuTurboCustomVoiceRepository` (`@MainActor @Observable`, `shared`): `voices`, `loadError`, `reload()`, `voice(id:)`, `rename(id:to:)`, `delete(id:)`, `voiceFiles(id:)`, `sampleURL(id:)`.
+  - `VieNeuTurboVoiceCloneCoordinator` (`shared`): `createVoice(fromFile:name:denoise:keepsSample:keepsIntermediate:)`, `createVoice(fromNanoVoiceId:name:denoise:)` (dùng mẫu gốc ở `VieNeu/CustomVoices/samples/`), `isRunning`, `stage`, `readinessError(denoise:)`, `isReaderUsingTurbo`.
+  - Trình đọc đang đọc bằng Turbo ⇒ báo lỗi rõ, không chạy.
+  - Thứ tự giữ đỉnh RAM thấp: ORT (khử nhiễu + embedding) nhả xong mới chạy encoder audio.cpp.
+- `VieNeuTurboReferencePreparer.minimumSeconds` hạ 2 → **1 giây**: giọng đóng gói ngắn nhất chỉ 12 khung (~0,96 s).
+- **Kiểm chứng:**
+  - Đọc code audio.cpp v0.9.4: `session.cpp` (nhánh `encode_reference_only`, `parse_speaker_embedding_file`), `prompt_tts_voice_clone.cpp` (cắt 8 s, bỏ khung thừa), `capi/audiocpp.cpp` (artifact, payload mượn).
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa chạy trên máy: ánh xạ kiểu C → Swift của `audiocpp_result_artifact` / `audiocpp_artifact_kind` chưa qua trình biên dịch.
+
 ## [1.3.891] - 2026-11-12
 
 ### feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding
@@ -498,25 +532,3 @@ Anh Bửu hỏi "hình như icon của các nút nổi chưa làm mờ theo cài
     1. Cài đặt › Giao diện kéo "Độ trong suốt" 0% ↔ 100% ⇒ icon ô xem trước rõ ↔ trong hẳn.
     2. Màn danh sách có "+" ⇒ icon "+" mờ theo; bấm "+" ⇒ pill "Thêm" / "Home" vẫn rõ.
     3. Reader ⇒ icon tai nghe mờ theo.
-
-## [1.3.862] - 2026-11-11
-
-### feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu
-
-Anh Bửu: "chuyển popup khi bấm vào hub thành dạng sheet như sheet tts và nghe" (đã duyệt mockup). Thẻ menu nổi cạnh nút hub + lớp nền trong suốt nuốt chạm toàn màn được thay bằng **sheet hub**.
-
-- **Sheet** `FloatingHubSheet` (mới): nền kính tối theo cài đặt ngăn kéo (`DrawerGlassSheetBackground`), bo 16, cao vừa nội dung (đo chiều cao như `AudioQuickControlSheet`), thanh kéo, vuốt xuống để đóng — không nút đóng. Trang chính: dòng đầu "Lối tắt nổi" + "N đang chạy", **bốn dòng cố định** AI → Thông báo → Video → Kiểm tra nguồn dạng ô bo góc (`hubSheetPanelRow`), dòng xám mờ 40% không biến mất, dòng Video giữ ⏸ / ✕ (sheet không đóng), các dòng khác có ›. Trang con "Tác vụ AI" / "Kiểm tra nguồn" (hai lượt) nằm trong sheet với nút ‹, danh sách rỗng ⇒ tự về trang chính.
-- **Chỗ giữ sheet** `FloatingHubSheetHost` (view 1×1 trong cửa sổ hub, khuôn `MediaDiscSheetHost`) + trạng thái `FloatingHubSheetState`. Sheet mở ⇒ `setSheetPresented(true)` (giữ cửa sổ, giấu nút). Mọi đường đóng đi qua `onDismiss` ⇒ báo `false` trước, rồi mới chạy việc kèm theo (`dismiss(then:)`): màn Thông báo / AI / phim / màn kiểm tra mở **sau** khi sheet đóng xong.
-- `+Actions`: `open(_:)`, `openAITask`, `openSourceCheck`, `activateByRunningTasks` dùng sheet (AI / hai lượt kiểm tra ⇒ trang con). Cài đặt "Khi chạm hub" giữ nguyên ý: "Luôn hiện tất cả mục" ⇒ sheet trang chính; "Mở thẳng khi chỉ có 1 tác vụ" ⇒ như cũ, chỗ trước mở menu nay mở sheet.
-- **Xoá** `FloatingHubMenuView`, `FloatingHubContainerViewController+Menu`, `menuBackdropView` / `menuContainerView`, cờ `isMenuOpen` và mọi `closeMenu` ở `FloatingHubWindowManager`; `FloatingHubUIWindow.hitTest` còn hai nhánh (sheet đang trình bày ⇒ cả cửa sổ; còn lại chỉ khung nút).
-- `FloatingHubMenuRow`, `FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`: đổi sang kiểu ô của sheet (cao 56, không vạch ngăn, tiêu đề trang con 17 pt). Chữ cài đặt "Khi chạm hub" đổi "menu" ⇒ "sheet".
-- `rules.md`: viết lại luật hub (a) (nửa viên dính mép), (b) (sheet thay menu + cờ / thứ tự đóng), (e), (f), thứ tự `hitTest`. `CLAUDE.md` / `AGENTS.md`: câu sheet hub ở đoạn đĩa nghe.
-- **Kiểm chứng:**
-  - Đọc code + grep chéo `isMenuOpen` / `closeMenu` / `openMenu` / `FloatingHubMenuView` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Chạm hub ⇒ sheet bốn dòng; vuốt xuống ⇒ đóng, nút hub hiện lại.
-    2. Chạm Thông báo ⇒ sheet hub đóng rồi màn Thông báo mở; đóng màn Thông báo ⇒ nút hub hiện lại.
-    3. Có AI đang chạy ⇒ chạm Trợ lý AI ⇒ trang "Tác vụ AI" trong sheet, ‹ quay lại; chạm truyện ⇒ màn AI của truyện đó.
-    4. Phim thu nhỏ vào hub ⇒ dòng Video ⏸ đổi glyph ngay, ✕ dừng phim, chạm dòng ⇒ mở lại màn xem.
-    5. Cài đặt "Mở thẳng khi chỉ có 1 tác vụ" + 1 AI đang chạy ⇒ chạm hub mở thẳng trang "Tác vụ AI".

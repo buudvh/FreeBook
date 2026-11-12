@@ -6,6 +6,9 @@ import Foundation
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Models/vieneu-v3-turbo-q8_0.gguf` (187.917.664 byte)
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/manifest.json`
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Voices/<id>/ref_codes.txt` + `speaker.emb.txt`
+/// - `Application Support/FreeBook/TTS/VieNeuTurbo/CustomVoices/` — giọng **người dùng tự tạo** (1.3.891, id `custom_…`,
+///   chủ là `VieNeuTurboCustomVoiceStore`): cùng cặp file trong `<id>/` + index `voices_custom.json`. Tách khỏi `Voices/`
+///   (giọng tải về) nên `deleteAll` không bao giờ chạm tới.
 ///
 /// `sea_g2p.bin` **không** nằm ở đây: Turbo đọc đúng bộ phiên âm của Nano (`VieNeuModelStore.url(for:)`), chung một
 /// file 62,8 MB thay vì hai bản. Màn Dung lượng đã phủ thư mục này qua `StorageUsageCategory.tts` (= cả `FreeBook/`).
@@ -22,10 +25,14 @@ final class VieNeuTurboModelStore: Sendable {
     static let speakerEmbeddingFileName = "speaker.emb.txt"
     /// Giọng mặc định của manifest — tải cùng model để bấm "Đọc thử" được ngay.
     static let fallbackVoiceId = "minh_quan_pro"
+    /// Tiền tố id giọng tự tạo — giọng tải về không có id nào như vậy (25 giọng của manifest đang ghim).
+    static let customVoiceIdPrefix = "custom_"
 
     let rootURL: URL
     let modelsURL: URL
     let voicesURL: URL
+    /// Giọng tự tạo — **không** tạo thư mục ở `init` (đường đọc); `VieNeuTurboCustomVoiceStore` tạo lúc ghi.
+    let customVoicesURL: URL
 
     init(fileManager: FileManager = .default) throws {
         let appSupport = try fileManager.url(
@@ -37,6 +44,7 @@ final class VieNeuTurboModelStore: Sendable {
         self.rootURL = appSupport.appendingPathComponent("FreeBook/TTS/VieNeuTurbo", isDirectory: true)
         self.modelsURL = rootURL.appendingPathComponent("Models", isDirectory: true)
         self.voicesURL = rootURL.appendingPathComponent("Voices", isDirectory: true)
+        self.customVoicesURL = rootURL.appendingPathComponent("CustomVoices", isDirectory: true)
         try fileManager.createDirectory(at: modelsURL, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: voicesURL, withIntermediateDirectories: true)
     }
@@ -62,13 +70,21 @@ final class VieNeuTurboModelStore: Sendable {
         }
     }
 
+    /// Id của giọng tự tạo (`custom_…`) — file nằm ở `CustomVoices/<id>/`, không bao giờ tải từ kho mirror.
+    static func isCustomVoiceId(_ id: String) -> Bool {
+        id.hasPrefix(customVoiceIdPrefix) && isSafeVoiceId(id)
+    }
+
     // MARK: - Đường dẫn
 
     var modelURL: URL { modelsURL.appendingPathComponent(Self.modelFileName) }
     var manifestURL: URL { voicesURL.appendingPathComponent(Self.manifestFileName) }
 
+    /// Giọng tải về ⇒ `Voices/<id>/`; giọng tự tạo ⇒ `CustomVoices/<id>/`. Mọi đường đọc giọng (trình đọc, màn thử)
+    /// đi qua đây nên cả hai loại dùng chung `referenceCodesURL` / `speakerEmbeddingURL` / `hasVoice`.
     func voiceDirectory(voiceId: String) -> URL {
-        voicesURL.appendingPathComponent(voiceId, isDirectory: true)
+        let parent = Self.isCustomVoiceId(voiceId) ? customVoicesURL : voicesURL
+        return parent.appendingPathComponent(voiceId, isDirectory: true)
     }
 
     func referenceCodesURL(voiceId: String) -> URL {
@@ -96,7 +112,7 @@ final class VieNeuTurboModelStore: Sendable {
             && fileManager.fileExists(atPath: speakerEmbeddingURL(voiceId: voiceId).path)
     }
 
-    /// Dung lượng cả thư mục `VieNeuTurbo/` (model + manifest + mọi giọng đã tải, kể cả file `.partial` đang dở).
+    /// Dung lượng cả thư mục `VieNeuTurbo/` (model + manifest + mọi giọng đã tải + giọng tự tạo, kể cả file `.partial`).
     var totalBytes: Int64 {
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,
@@ -114,9 +130,10 @@ final class VieNeuTurboModelStore: Sendable {
 
     // MARK: - Xoá
 
-    /// Xoá model + manifest + mọi giọng. Lượt tải đang chạy bị màn thử chặn nút xoá, nên xoá cả cây con ở đây an
-    /// toàn (khác `VieNeuModelStore.deleteAll`, nơi lượt tải nền có thể chạy song song). `sea_g2p.bin` của Nano giữ
-    /// nguyên — engine Nano vẫn cần nó.
+    /// Xoá model + manifest + mọi giọng **tải về**. Lượt tải đang chạy bị màn thử chặn nút xoá, nên xoá cả cây con ở
+    /// đây an toàn (khác `VieNeuModelStore.deleteAll`, nơi lượt tải nền có thể chạy song song). `sea_g2p.bin` của Nano
+    /// giữ nguyên — engine Nano vẫn cần nó. `CustomVoices/` (giọng người dùng tự tạo) **không** bị đụng: tải lại model
+    /// là giọng đó đọc được ngay.
     func deleteAll() throws {
         let fileManager = FileManager.default
         for directory in [modelsURL, voicesURL] {
