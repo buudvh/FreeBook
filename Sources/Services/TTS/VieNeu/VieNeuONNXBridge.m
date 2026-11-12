@@ -48,6 +48,9 @@ enum {
 /// không phải hardcode con số 2 ở nhiều chỗ.
 #define VieNeuCloneMaxInputs 2
 
+/// `denoiser.onnx` (nhân bản giọng Turbo) có đúng 3 input (`mag`/`cos`/`sin`) và 3 output (`sep_*`).
+#define VieNeuDenoiserTensorCount 3
+
 struct VieNeuORT {
     const OrtApi *api;
     OrtEnv *env;
@@ -83,6 +86,14 @@ struct VieNeuORT {
     char *cloneInputNames[VieNeuCloneGraphCount][VieNeuCloneMaxInputs];
     /// Số input mỗi graph clone khai (dùng để phát hiện graph lạ cần nhiều input hơn dự kiến).
     int32_t cloneInputCounts[VieNeuCloneGraphCount];
+
+    /// Graph **khử nhiễu** của đường nhân bản giọng Turbo — `NULL` trừ ngữ cảnh `VieNeuORTCreateTurboClone` có
+    /// `loadDenoiser`. Khai riêng, không nhét vào `cloneSessions`: graph này 3 input + 3 output, còn khuôn graph
+    /// clone của Nano (`createCloneSession`) chỉ nhận tối đa 2 input và đọc mỗi output 0.
+    OrtSession *denoiserSession;
+    /// Tên đã **xếp theo tên** về thứ tự cố định: input `mag, cos, sin`; output `sep_mag, sep_cos, sep_sin`.
+    char *denoiserInputNames[VieNeuDenoiserTensorCount];
+    char *denoiserOutputNames[VieNeuDenoiserTensorCount];
 
     // MARK: - Bộ đếm churn (chỉ để chẩn đoán, không ảnh hưởng kết quả số học)
     //
@@ -532,6 +543,11 @@ void VieNeuORTDestroy(VieNeuORT *context) {
         // `VieNeuGraphCount` để gộp chung sẽ làm `VieNeuORTCreate` đòi đủ 7 file.
         for (int index = 0; index < VieNeuCloneGraphCount; index++) {
             if (context->cloneSessions[index] != NULL) api->ReleaseSession(context->cloneSessions[index]);
+        }
+        if (context->denoiserSession != NULL) api->ReleaseSession(context->denoiserSession);
+        for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+            freeSessionString(context, context->denoiserInputNames[index]);
+            freeSessionString(context, context->denoiserOutputNames[index]);
         }
         // Tên output do allocator mặc định của ORT cấp phát ⇒ phải trả lại bằng chính allocator đó.
         if (context->allocator != NULL) {
@@ -1003,8 +1019,10 @@ int32_t VieNeuORTRunSpeakerEncoder(VieNeuORT *context,
         setError(errorMessage, "context is NULL");
         return -1;
     }
-    if (!VieNeuORTHasCloneGraphs(context)) {
-        setError(errorMessage, "chưa nạp gói graph clone");
+    // Chỉ cần `speaker_encoder`: ngữ cảnh Turbo (`VieNeuORTCreateTurboClone`) không nạp hai graph clone còn lại.
+    // Ngữ cảnh clone của Nano nạp đủ 3 (hoặc không nạp gì) nên điều kiện này không nới gì cho đường đó.
+    if (context->cloneSessions[VieNeuCloneGraphSpeakerEncoder] == NULL) {
+        setError(errorMessage, "chưa nạp speaker_encoder");
         return -1;
     }
     if (outBuffer == NULL) {
@@ -1161,5 +1179,183 @@ int32_t VieNeuORTRunReferenceEncoder(VieNeuORT *context,
                                     NULL, 0, NULL, context, errorMessage);
     api->ReleaseValue(output);
     if (status == 0 && outCount != NULL) *outCount = count;
+    return status;
+}
+
+#pragma mark - Nhân bản giọng VieNeu Turbo
+
+/// Xếp 3 tên (do ORT cấp) theo `order`. Trả `1` khi khớp đủ ba tên (mảng đã xếp lại), `0` khi thiếu tên nào
+/// (mảng giữ nguyên thứ tự khai báo của graph).
+static int reorderDenoiserNames(char *names[VieNeuDenoiserTensorCount],
+                                const char *const order[VieNeuDenoiserTensorCount]) {
+    char *sorted[VieNeuDenoiserTensorCount] = {NULL};
+    for (int slot = 0; slot < VieNeuDenoiserTensorCount; slot++) {
+        for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+            if (names[index] != NULL && strcmp(names[index], order[slot]) == 0) {
+                sorted[slot] = names[index];
+                break;
+            }
+        }
+        if (sorted[slot] == NULL) return 0;
+    }
+    for (int slot = 0; slot < VieNeuDenoiserTensorCount; slot++) names[slot] = sorted[slot];
+    return 1;
+}
+
+/// Nạp `denoiser.onnx` và đọc **mọi** tên input / output. Upstream (`onnx_denoiser.py`) truyền input theo tên dict và
+/// lấy output theo chỉ số 0/1/2 — bản đang ghim khai đúng thứ tự `mag, cos, sin` / `sep_mag, sep_cos, sep_sin`. Ở đây
+/// xếp theo **tên** cho chắc (graph đổi thứ tự khai báo cũng không đảo kênh im lặng); thiếu tên mong đợi thì giữ thứ
+/// tự khai báo, như upstream.
+///
+/// Lỗi ⇒ không gán gì vào `context`, mọi chuỗi đã lấy trả lại ngay.
+static int32_t loadDenoiserSession(VieNeuORT *context, const OrtSessionOptions *options,
+                                   const char *directory, char **errorMessage) {
+    static const char *const inputOrder[VieNeuDenoiserTensorCount] = {"mag", "cos", "sin"};
+    static const char *const outputOrder[VieNeuDenoiserTensorCount] = {"sep_mag", "sep_cos", "sep_sin"};
+    const OrtApi *api = context->api;
+    char path[4096];
+    char *inputNames[VieNeuDenoiserTensorCount] = {NULL};
+    char *outputNames[VieNeuDenoiserTensorCount] = {NULL};
+    size_t inputCount = 0;
+    size_t outputCount = 0;
+    OrtSession *session = NULL;
+
+    snprintf(path, sizeof(path), "%s/%s", directory, "denoiser.onnx");
+    if (check(api->CreateSession(context->env, path, options, &session), api, errorMessage) != 0) return -1;
+
+    if (check(api->SessionGetInputCount(session, &inputCount), api, errorMessage) != 0) goto fail;
+    if (check(api->SessionGetOutputCount(session, &outputCount), api, errorMessage) != 0) goto fail;
+    if (inputCount != VieNeuDenoiserTensorCount || outputCount != VieNeuDenoiserTensorCount) {
+        setError(errorMessage, "denoiser.onnx phải có đúng 3 input và 3 output");
+        goto fail;
+    }
+    for (size_t index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        if (check(api->SessionGetInputName(session, index, context->allocator, &inputNames[index]),
+                  api, errorMessage) != 0) goto fail;
+        if (check(api->SessionGetOutputName(session, index, context->allocator, &outputNames[index]),
+                  api, errorMessage) != 0) goto fail;
+    }
+    reorderDenoiserNames(inputNames, inputOrder);
+    reorderDenoiserNames(outputNames, outputOrder);
+
+    context->denoiserSession = session;
+    for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        context->denoiserInputNames[index] = inputNames[index];
+        context->denoiserOutputNames[index] = outputNames[index];
+    }
+    return 0;
+
+fail:
+    for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        freeSessionString(context, inputNames[index]);
+        freeSessionString(context, outputNames[index]);
+    }
+    api->ReleaseSession(session);
+    return -1;
+}
+
+VieNeuORT *VieNeuORTCreateTurboClone(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning,
+                                     int32_t loadDenoiser, char **errorMessage) {
+    if (modelDirectory == NULL) {
+        setError(errorMessage, "modelDirectory is NULL");
+        return NULL;
+    }
+    OrtSessionOptions *options = NULL;
+    VieNeuORT *context = createBaseContext(threadCount, allowSpinning, &options, errorMessage);
+    if (context == NULL) return NULL;
+    const OrtApi *api = context->api;
+
+    const int graph = VieNeuCloneGraphSpeakerEncoder;
+    context->cloneSessions[graph] = createCloneSession(api, context->env, options, modelDirectory,
+                                                       "speaker_encoder.onnx", graph, context, errorMessage);
+    int32_t status = context->cloneSessions[graph] != NULL ? 0 : -1;
+    if (status == 0 && loadDenoiser) {
+        status = loadDenoiserSession(context, options, modelDirectory, errorMessage);
+    }
+    api->ReleaseSessionOptions(options);
+    if (status != 0) {
+        VieNeuORTDestroy(context);
+        return NULL;
+    }
+    return context;
+}
+
+int32_t VieNeuORTHasDenoiser(const VieNeuORT *context) {
+    return (context != NULL && context->denoiserSession != NULL) ? 1 : 0;
+}
+
+int32_t VieNeuORTRunDenoiser(VieNeuORT *context,
+                             const float *magnitude, const float *cosine, const float *sine,
+                             int32_t bins, int32_t frames,
+                             float *outMagnitude, float *outCosine, float *outSine,
+                             int32_t outCapacity, char **errorMessage) {
+    if (context == NULL) {
+        setError(errorMessage, "context is NULL");
+        return -1;
+    }
+    if (context->denoiserSession == NULL) {
+        setError(errorMessage, "chưa nạp denoiser");
+        return -1;
+    }
+    if (magnitude == NULL || cosine == NULL || sine == NULL
+        || outMagnitude == NULL || outCosine == NULL || outSine == NULL) {
+        setError(errorMessage, "buffer denoiser is NULL");
+        return -1;
+    }
+    if (bins <= 0 || frames <= 0) {
+        setError(errorMessage, "kích thước phổ không hợp lệ");
+        return -1;
+    }
+    const int64_t elementCount = (int64_t)bins * (int64_t)frames;
+    if (elementCount > (int64_t)outCapacity) {
+        setError(errorMessage, "buffer ra quá nhỏ cho denoiser");
+        return -1;
+    }
+    const OrtApi *api = context->api;
+    const int64_t shape[3] = {1, bins, frames};
+    const size_t byteCount = (size_t)elementCount * sizeof(float);
+    const float *sources[VieNeuDenoiserTensorCount] = {magnitude, cosine, sine};
+    float *targets[VieNeuDenoiserTensorCount] = {outMagnitude, outCosine, outSine};
+    OrtValue *inputs[VieNeuDenoiserTensorCount] = {NULL};
+    OrtValue *outputs[VieNeuDenoiserTensorCount] = {NULL};
+    int32_t status = 0;
+
+    for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        inputs[index] = makeTensor(api, context->memoryInfo, sources[index], byteCount, shape, 3,
+                                   ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, errorMessage);
+        if (inputs[index] == NULL) {
+            status = -1;
+            break;
+        }
+    }
+    if (status == 0) {
+        const char *inputNames[VieNeuDenoiserTensorCount] = {
+            context->denoiserInputNames[0], context->denoiserInputNames[1], context->denoiserInputNames[2]
+        };
+        const char *outputNames[VieNeuDenoiserTensorCount] = {
+            context->denoiserOutputNames[0], context->denoiserOutputNames[1], context->denoiserOutputNames[2]
+        };
+        const OrtValue *inputValues[VieNeuDenoiserTensorCount] = {inputs[0], inputs[1], inputs[2]};
+        status = check(api->Run(context->denoiserSession, NULL, inputNames, inputValues, VieNeuDenoiserTensorCount,
+                                outputNames, VieNeuDenoiserTensorCount, outputs),
+                       api, errorMessage);
+    }
+    // `CreateTensorWithDataAsOrtValue` không copy ⇒ chỉ nhả tensor vào **sau** `Run`; buffer nguồn là của bên gọi.
+    for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        if (inputs[index] != NULL) api->ReleaseValue(inputs[index]);
+    }
+
+    for (int index = 0; status == 0 && index < VieNeuDenoiserTensorCount; index++) {
+        int32_t count = 0;
+        status = copyFloatsInto(api, outputs[index], targets[index], outCapacity, &count,
+                                NULL, 0, NULL, NULL, errorMessage);
+        if (status == 0 && (int64_t)count != elementCount) {
+            setError(errorMessage, "denoiser trả số phần tử khác phổ vào");
+            status = -1;
+        }
+    }
+    for (int index = 0; index < VieNeuDenoiserTensorCount; index++) {
+        if (outputs[index] != NULL) api->ReleaseValue(outputs[index]);
+    }
     return status;
 }

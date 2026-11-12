@@ -2,6 +2,37 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.891] - 2026-11-12
+
+### feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding
+
+Anh Bửu duyệt plan nhân bản giọng cho VieNeu Turbo. Đợt này chỉ làm lõi (chưa có giao diện người dùng cuối). Phần này chép bước chuẩn bị mẫu của upstream (`pnnbao97/VieNeu-TTS`: `v3turbo.py` `_preclean_reference_audio`, `onnx_runtime_lite.py` `prepare_reference`, `onnx_denoiser.py`).
+
+- **`VieNeuTurboReferencePreparer`** (thư mục mới `Services/TTS/VieNeuClone/`):
+  - Pipeline: đọc → mono → cắt im lặng → tối đa 8 giây → khử nhiễu (tham số, mặc định bật) → speaker embedding 192 số.
+  - Embedding và buffer đưa cho audio.cpp ra từ **cùng một** buffer: 44,1 kHz khi khử nhiễu, tần số gốc khi tắt (như upstream).
+  - Sàn 2 giây sau khi cắt im lặng. Chỉ giải mã 60 giây đầu file (`VieNeuAudioResampler.loadMono(url:maxSeconds:)`, tham số mới, mặc định đọc cả file như cũ).
+  - Ngữ cảnh ORT nhả khi hàm trả về, trước bước audio.cpp, để hai đỉnh bộ nhớ không chồng nhau.
+- **`VieNeuSilenceTrimmer`** chép `librosa.effects.trim(top_db=30)`:
+  - RMS khung 2048 / hop 512, đệm 0 hai đầu, so với khung mạnh nhất, sàn `amin`.
+  - librosa nằm trong `dependencies` lõi của upstream, nên người dùng upstream chạy nhánh này chứ không phải nhánh dự phòng `|x| > 1e-5`.
+- **`VieNeuReferenceDenoiser`** chép `OnnxDenoiser.denoise`:
+  - Lên 44,1 kHz, chia đỉnh, đệm 441 mẫu 0, chuẩn hoá lần hai như `_forward`.
+  - STFT → `denoiser.onnx` → iSTFT, cắt về độ dài cũ, nhân lại đỉnh.
+- **`VieNeuDenoiserSTFT`**: n_fft 1680 / hop 420, Hann tuần hoàn, đệm reflect, bỏ khung cuối; iSTFT lặp khung cuối, chia Σw².
+  - 1680 có thừa số 7 nên FFT radix-2 của app và `vDSP_DFT` không dùng được. DFT làm bằng **nhân ma trận** (`vDSP_mmul`) với bảng cos/sin 841 × 1680 tính trước.
+  - Bin biên độ 0 cho cos 1 / sin 0 như `np.angle`, không chia cho 0.
+- **Cầu nối ORT** (`VieNeuONNXBridge`):
+  - `VieNeuORTCreateTurboClone` chỉ nạp `speaker_encoder` (+ `denoiser` khi bật), không nạp 3 graph clone của Nano.
+  - `VieNeuORTRunDenoiser`: 3 input / 3 output, tên đọc từ session và xếp theo **tên**.
+  - `VieNeuORTRunSpeakerEncoder` chỉ còn đòi session `speaker_encoder` (ngữ cảnh clone của Nano vẫn nạp đủ 3 nên không đổi gì cho Nano).
+  - Swift: `VieNeuONNXRuntime(turboCloneModelStore:threadCount:loadsDenoiser:)` và `+Denoiser`.
+- **Kiểm chứng:**
+  - Đối chiếu bằng numpy (cùng thuật toán, float32) với `_stft` / `_istft` gốc trên tín hiệu ngẫu nhiên 3 giây: phổ lệch ≤ 1,5e-5 (biên độ tới ~26), iSTFT lệch ≤ 5e-7.
+  - Chữ ký `denoiser.onnx` / `speaker_encoder.onnx` đọc bằng onnxruntime trên file của kho mirror.
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa chạy trên máy.
+
 ## [1.3.890] - 2026-11-12
 
 ### feat: màn thử VieNeu có Đo tự động ORT ↔ Core ML bằng một nút, chia sẻ kết quả bằng file thật
@@ -489,24 +520,3 @@ Anh Bửu: "chuyển popup khi bấm vào hub thành dạng sheet như sheet tts
     3. Có AI đang chạy ⇒ chạm Trợ lý AI ⇒ trang "Tác vụ AI" trong sheet, ‹ quay lại; chạm truyện ⇒ màn AI của truyện đó.
     4. Phim thu nhỏ vào hub ⇒ dòng Video ⏸ đổi glyph ngay, ✕ dừng phim, chạm dòng ⇒ mở lại màn xem.
     5. Cài đặt "Mở thẳng khi chỉ có 1 tác vụ" + 1 AI đang chạy ⇒ chạm hub mở thẳng trang "Tác vụ AI".
-
-## [1.3.861] - 2026-11-11
-
-### feat: nút hub và nút trình duyệt thu nhỏ thành nửa viên thuốc nhỏ dính mép
-
-Anh Bửu duyệt mockup ("hub và browser viên nhộng nhỏ thôi", "ngắn lại chút nữa, phần icon cũng phải theo độ trong suốt"): nút hub và nút mở lại trình duyệt thu nhỏ đổi từ nút tròn 36 px nép mép sang **nửa viên 38 × 36** cùng khuôn `EdgePillShape` với đĩa nghe.
-
-- **Hình** (`FloatingHubButton`, `VisibleBrowserReopenButton`): nền kính `FloatingGlassBackground(shape:)` theo Độ trong suốt / Độ đục của nút nổi (thay `.ultraThinMaterial` + bóng đổ); icon 17 pt trắng đồng tâm đầu bo (cách mép 20 pt), **mờ đúng số** theo Độ trong suốt như bìa đĩa nghe. Nền nháy đỏ (hub có việc / tab thu nhỏ quá 10 s) và badge số tab **giữ rõ**. Badge số tab ở góc trên của icon, không còn lật phía / thu thành chấm.
-- **Luôn dính mép**: bỏ hai trạng thái nép mép nửa ẩn (`.peeking`, mờ 0,5 ở hub) / bung vào trong màn (`.revealed`) và hẹn giờ tự thu 3 s (`FloatingHubViewModel`, `VisibleBrowserReopenViewModel`); bỏ độ mờ 0,7 cố định khi nghỉ của nút trình duyệt (`setTouchActive` + `sendEvent` của `BrowserFloatingWidgetUIWindow`). `WidgetMode` và `FloatingWidgetGeometry.restingCenterX` hết người dùng ⇒ xoá.
-- **Kéo**: bắt đầu kéo ⇒ co tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, kẹp dọc như cũ, né widget nổi khác cùng mép (`FloatingWidgetLayoutCoordinator`, chiều cao 36), lưu vào khoá cũ (`floatingHub*`, `visibleBrowserReopen*`).
-- `FloatingHubPulseView`: thêm `edge` ⇒ layer nháy chỉ bo hai góc phía đầu bo (`maskedCorners`). Chạm hub vẫn mở thẻ menu như cũ (đổi sang sheet ở commit sau); `+Actions` bỏ các lệnh "thu về nép mép". Viền sáng của hub khi kéo cửa sổ phim nhỏ tới bo theo cạnh ngắn.
-- `CLAUDE.md` / `AGENTS.md`: câu "Cùng khuôn" ở đoạn đĩa nghe. `rules.md` mục nút hub sửa ở commit sheet hub ngay sau.
-- **Kiểm chứng:**
-  - Đọc code + grep chéo `WidgetMode` / `mode` / `reveal` / `setTouchActive` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Hub và nút trình duyệt (thu nhỏ trình duyệt có 3 tab) hiện thành nửa viên nhỏ dính mép, icon mờ theo thanh "Độ trong suốt".
-    2. Kéo mỗi nút sang mép kia ⇒ bám mép đúng độ cao; mở lại app vẫn ở đó.
-    3. Hub có việc ⇒ nền nháy đỏ đúng hình nửa viên; trình duyệt thu nhỏ quá 10 s ⇒ nháy đỏ.
-    4. Chạm hub ⇒ menu; chạm nút trình duyệt ⇒ mở lại trình duyệt.
-    5. Kéo cửa sổ phim nhỏ tới hub ⇒ hub phóng to + viền màu nhấn; thả ⇒ vào hub.

@@ -154,6 +154,8 @@ int32_t VieNeuORTHasCloneGraphs(const VieNeuORT *context);
 ///
 /// `fbank` là ma trận **row-major** `frames × melBins` **đã trừ trung bình theo bin** (mean-norm) — đúng
 /// thứ tự phần tử của input `[1, frames, melBins]`. Số phần tử thật của output đọc từ shape graph (192).
+/// Chỉ cần session `speaker_encoder` (không đòi đủ 3 graph clone) — chạy được trên cả ngữ cảnh
+/// `VieNeuORTCreateTurboClone`.
 /// Trả `0` khi thành công, `-1` khi lỗi hoặc buffer không đủ.
 int32_t VieNeuORTRunSpeakerEncoder(VieNeuORT *context,
                                    const float *fbank, int32_t frames, int32_t melBins,
@@ -179,5 +181,31 @@ int32_t VieNeuORTRunReferenceEncoder(VieNeuORT *context,
                                      const float *latent, int32_t channels, int32_t frames,
                                      float *outBuffer, int32_t outCapacity, int32_t *outCount,
                                      char **errorMessage);
+
+#pragma mark - Nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser)
+
+/// Tạo ngữ cảnh cho đường **nhân bản giọng Turbo**: chỉ `speaker_encoder.onnx` và — khi `loadDenoiser` khác 0 —
+/// `denoiser.onnx` (resemble-enhance). Không nạp 4 graph tổng hợp lẫn `codec_encoder` / `reference_encoder` của Nano
+/// (Turbo lấy mã tham chiếu từ audio.cpp), nên đỉnh bộ nhớ chỉ là ~28 / ~71 MB trọng số.
+///
+/// Ngữ cảnh trả về chỉ phục vụ `VieNeuORTRunSpeakerEncoder` và `VieNeuORTRunDenoiser`; các hàm khác báo lỗi rõ vì
+/// session của chúng `NULL`. Thiếu file ⇒ trả `NULL`, không giữ session nào.
+VieNeuORT *VieNeuORTCreateTurboClone(const char *modelDirectory, int32_t threadCount, int32_t allowSpinning,
+                                     int32_t loadDenoiser, char **errorMessage);
+
+/// `1` nếu ngữ cảnh đã nạp `denoiser.onnx`.
+int32_t VieNeuORTHasDenoiser(const VieNeuORT *context);
+
+/// `denoiser(mag, cos, sin)` → `(sep_mag, sep_cos, sep_sin)`, cả sáu tensor `[1, bins, frames]` float, **phẳng theo
+/// tần số** (hàng = bin, cột = khung) — đúng bố cục `(f, t)` của STFT upstream. Tên input / output đọc từ session và
+/// xếp theo **tên** (`mag`/`cos`/`sin`, `sep_mag`/`sep_cos`/`sep_sin`), không theo vị trí khai báo.
+///
+/// Ba buffer ra do bên gọi cấp, mỗi buffer `outCapacity` phần tử (≥ `bins × frames`); graph trả shape khác thì lỗi
+/// chứ không ghi tràn. Trả `0` khi thành công, `-1` khi lỗi.
+int32_t VieNeuORTRunDenoiser(VieNeuORT *context,
+                             const float *magnitude, const float *cosine, const float *sine,
+                             int32_t bins, int32_t frames,
+                             float *outMagnitude, float *outCosine, float *outSine,
+                             int32_t outCapacity, char **errorMessage);
 
 #endif /* VieNeuONNXBridge_h */

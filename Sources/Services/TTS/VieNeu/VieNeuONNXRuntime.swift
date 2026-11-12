@@ -85,6 +85,26 @@ final class VieNeuONNXRuntime {
         self.allowSpinning = allowSpinning
     }
 
+    /// Ngữ cảnh của đường **nhân bản giọng Turbo** (1.3.890): chỉ `speaker_encoder` (+ `denoiser` khi `loadsDenoiser`),
+    /// ~28 / ~71 MB trọng số. Mã tham chiếu của Turbo do audio.cpp tạo nên không cần `codec_encoder` /
+    /// `reference_encoder` của Nano. Chỉ dùng được cho `speakerEncoder` và `denoise` (`+Denoiser`).
+    init(
+        turboCloneModelStore modelStore: VieNeuModelStore,
+        threadCount: Int32,
+        loadsDenoiser: Bool,
+        allowSpinning: Bool = false
+    ) throws {
+        var message: UnsafeMutablePointer<CChar>?
+        guard let handle = VieNeuORTCreateTurboClone(
+            modelStore.modelsURL.path, threadCount, allowSpinning ? 1 : 0, loadsDenoiser ? 1 : 0, &message
+        ) else {
+            throw RuntimeError.failure(Self.consume(message, fallback: "không nạp được graph nhân bản giọng Turbo"))
+        }
+        self.handle = handle
+        self.threadCount = threadCount
+        self.allowSpinning = allowSpinning
+    }
+
     deinit {
         VieNeuORTDestroy(handle)
     }

@@ -50,8 +50,9 @@ enum VieNeuAudioResampler {
         }
     }
 
-    /// Giải mã **toàn bộ** file thành mono float32 ở tần số gốc.
-    static func loadMono(url: URL) throws -> Decoded {
+    /// Giải mã file thành mono float32 ở tần số gốc — **toàn bộ** file, hoặc chỉ `maxSeconds` giây đầu khi truyền vào
+    /// (nhân bản giọng Turbo chỉ cần phần đầu: đọc cả một file dài vào RAM là phí và dễ bị iOS giết vì bộ nhớ).
+    static func loadMono(url: URL, maxSeconds: Double? = nil) throws -> Decoded {
         let secured = try securedCopyIfNeeded(url)
         defer { if secured.isTemporary { try? FileManager.default.removeItem(at: secured.url) } }
 
@@ -65,14 +66,18 @@ enum VieNeuAudioResampler {
         // `processingFormat` của `AVAudioFile` luôn là float32 **không xen kẽ**, đúng thứ `floatChannelData`
         // cần — nên không phải tự dựng `AVAudioFormat` ở đây.
         let format = file.processingFormat
+        var frameLimit = file.length
+        if let maxSeconds, maxSeconds > 0 {
+            frameLimit = min(frameLimit, AVAudioFramePosition((maxSeconds * format.sampleRate).rounded(.up)))
+        }
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format,
-            frameCapacity: AVAudioFrameCount(file.length)
+            frameCapacity: AVAudioFrameCount(frameLimit)
         ) else {
             throw AudioError.bufferAllocation
         }
         do {
-            try file.read(into: buffer)
+            try file.read(into: buffer, frameCount: AVAudioFrameCount(frameLimit))
         } catch {
             throw AudioError.unreadable(error.localizedDescription)
         }
