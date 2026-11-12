@@ -28,7 +28,7 @@ public struct TranslationScopeManagementView: View {
     }
 
     public var body: some View {
-        List {
+        List { Group {
             // Phần 1: Cấu hình theo Nguồn truyện
             Section {
                 if sourcePackageIds.isEmpty {
@@ -78,7 +78,7 @@ public struct TranslationScopeManagementView: View {
                     SectionHelpHeader("Đặt lại", paragraphs: ["Xoá toàn bộ cấu hình riêng của nguồn và truyện, tất cả sẽ tuân theo thiết lập toàn cục."])
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cấu hình dịch riêng biệt")
         .toolbar {
             if !sourcePackageIds.isEmpty || !bookIds.isEmpty {

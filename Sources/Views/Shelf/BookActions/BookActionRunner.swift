@@ -93,57 +93,27 @@ struct BookActionRunner {
         }
     }
 
+    /// Nút "Dịch lại tên chương" (Kệ, Bộ sưu tập, Tìm trên kệ, mục lục Reader / truyện tranh): việc dịch nằm ở
+    /// `ChapterTitleRetranslator` (phồn → giản của truyện áp trước khi dịch, 1.3.845), ở đây chỉ kiểm từ điển + toast.
     static func retranslateChapterTitles(for book: Book) {
         // Từ điển chưa nạp xong ⇒ "bản dịch" chỉ là chữ Hán gốc, ghi đè bản lưu đang đúng.
         guard TranslationManager.shared.isVietPhraseLoaded else {
             ToastManager.shared.show(message: "Từ điển chưa nạp xong, thử lại sau", type: .error)
             return
         }
-        TranslateUtils.clearChapterTitleCache(for: book.bookId)
         ToastManager.shared.show(message: "Đang dịch lại tên chương...")
-
-        let bookId = book.bookId
+        let target = ChapterTitleRetranslator.Target(bookId: book.bookId, packageId: book.extensionPackageId)
         let bookTitle = book.title
-
         Task {
-            guard let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty else { return }
-
-            struct StoreChapterSnapshot: Sendable {
-                let index: Int
-                let url: String
-                let title: String
-            }
-            let snapshots = storeChaps.map { StoreChapterSnapshot(index: $0.index, url: $0.url, title: $0.title) }
-
-            let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .userInitiated) {
-                var list: [(index: Int, url: String, titleTrans: String)] = []
-                for snap in snapshots {
-                    if Task.isCancelled { break }
-                    if !snap.title.isEmpty {
-                        let translated = TranslateUtils.translateChapterTitle(snap.title, bookId: bookId)
-                        list.append((index: snap.index, url: snap.url, titleTrans: translated))
-                    }
-                }
-                return list
-            }.value
-
-            if !updates.isEmpty {
-                try? await ChapterStore.shared.updateTitleTranslations(bookId: bookId, updates: updates)
-            }
-
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("chapterTitlesDidRetranslate"),
-                    object: nil,
-                    userInfo: ["bookId": bookId]
-                )
-                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
-            }
+            guard await ChapterTitleRetranslator.retranslate(target) > 0 else { return }
+            let options = BookDisplayTranslation.options(bookId: target.bookId, packageId: target.packageId)
+            ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(BookDisplayTranslation.text(bookTitle, options))")
         }
     }
 
+    /// Tên truyện trong toast: ba cấp của popup dịch + phồn → giản của truyện.
     static func displayTitle(_ book: Book) -> String {
-        TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId)
+        BookDisplayTranslation.text(book.title, BookDisplayTranslation.options(for: book))
     }
 
     // MARK: - Chương mới

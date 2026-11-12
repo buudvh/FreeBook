@@ -35,8 +35,7 @@ struct SearchView: View {
     @State var searchPaging = SearchPagingState()
     @State var searchAllSources = false
     @AppStorage("searchKindFilter") var searchKindFilter = "" // chip loại nội dung — `SearchView+KindFilter`
-    @State var searchResults: [ExtensionItemResultWithExt] = []
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State var searchResults: [ExtensionItemResultWithExt] = [] // chữ Trung theo nguồn — `SearchView+TextOptions`
     @State var searchStatusMessage = ""
     /// Lỗi tìm/đổi nguồn kèm link "Mở link lỗi" (`SearchView+ErrorLink`) và trình duyệt đang mở cho nó.
     @State var statusErrorLink: StatusErrorLink?
@@ -155,12 +154,18 @@ struct SearchView: View {
                 }
             }
             .sheet(item: $layoutSheetScope) { scope in
-                BookListLayoutSheet(scope: scope)
+                Group {
+                    BookListLayoutSheet(scope: scope)
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingFilterSheet) {
-                if let packageId = selectedExtension?.packageId {
-                    ExtensionFilterSheet(packageId: packageId, scope: .pluginScript("search")) { _ in performSearch() }
+                Group {
+                    if let packageId = selectedExtension?.packageId {
+                        ExtensionFilterSheet(packageId: packageId, scope: .pluginScript("search")) { _ in performSearch() }
+                    }
                 }
+                .appGlassSheet()
             }
             .errorLinkBrowser(link: $openingErrorLink, packageId: statusErrorLink?.packageId) { retryStatusError() }
             .onAppear {
@@ -252,7 +257,7 @@ struct SearchView: View {
         .padding(.leading, 16)
         .padding(.trailing, 10)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .glassAwareBackground(Color(.systemBackground))
     }
 
     private func clearSearch() {
@@ -299,6 +304,7 @@ struct SearchView: View {
             .frame(maxHeight: .infinity)
         } else {
             let sortedSources = searchableExtensions.sorted(by: { $0.name < $1.name })
+            let textOptionsBySource = Self.textOptionsBySource(sortedSources)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
                     ForEach(sortedSources, id: \.packageId) { ext in
@@ -343,6 +349,7 @@ struct SearchView: View {
                                 case .found(let results):
                                     let displayResults = changeSourceTargetBook != nil ? results.filter { !isSameBookSource(result: $0, ext: ext) } : results
                                     let playlist = playlistContext(for: ext) // ⋮ của nguồn âm thanh / phim (1.3.810)
+                                    let options = textOptionsBySource[ext.packageId] ?? .passthrough
                                     if !displayResults.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
                                             HStack {
@@ -380,7 +387,7 @@ struct SearchView: View {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     Self.searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
-                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
+                                                                    Text(DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(result.name, options)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -408,7 +415,7 @@ struct SearchView: View {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     Self.searchResultCover(result, ext: ext, width: 90, height: 125)
                                                                     
-                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
+                                                                    Text(DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(result.name, options)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -480,7 +487,7 @@ struct SearchView: View {
             items: displayResults,
             layout: BookListLayoutPreferences.shared.layout(for: scope),
             aspectRatio: scope.coverAspectRatio,
-            isTranslationEnabled: isTranslationEnabled,
+            textOptions: Self.textOptions(for: displayResults.first?.ext ?? selectedExtension),
             isChangingSource: changeSourceTargetBook != nil,
             onChangeSource: { item in
                 changeSourceTargetResult = item.result
@@ -600,13 +607,6 @@ struct SearchView: View {
             str = String(str.dropLast())
         }
         return str
-    }
-
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
     }
 
     private var foundCountMessage: String {

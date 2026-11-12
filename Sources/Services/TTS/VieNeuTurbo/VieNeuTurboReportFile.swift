@@ -2,7 +2,7 @@ import CoreTransferable
 import Foundation
 import UniformTypeIdentifiers
 
-/// File `.txt` chia sẻ kết quả của màn thử VieNeu Turbo (1.3.849) — thay cho nút "Sao chép": dán một khối chữ dài vào
+/// File `.txt` chia sẻ kết quả của màn thử VieNeu Turbo (1.3.878) — thay cho nút "Sao chép": dán một khối chữ dài vào
 /// chat rất cực, gửi file qua Files / AirDrop / Telegram thì một chạm.
 ///
 /// Nội dung dựng **đúng lúc bấm chia sẻ** (như `ThermalCSVExport`), từ trạng thái của `VieNeuTurboLab` — không có file

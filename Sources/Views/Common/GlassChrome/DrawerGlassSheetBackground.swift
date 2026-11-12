@@ -12,7 +12,7 @@ struct DrawerGlassSheetBackground: View {
 
     var body: some View {
         ZStack {
-            if let material = GlassFrostLevel(frost: frost).material {
+            if let material = GlassFrostLevel(frost: GlassChromeSettings.effectiveDrawerFrost(frost)).material {
                 Rectangle()
                     .fill(material)
                     .environment(\.colorScheme, .dark)

@@ -22,7 +22,7 @@ struct ExtensionConfigListEditor: View {
     @FocusState private var focusedRow: UUID?
 
     var body: some View {
-        List {
+        List { Group {
             if let subtitle, !subtitle.isEmpty {
                 Section {
                     Text(subtitle)
@@ -57,7 +57,7 @@ struct ExtensionConfigListEditor: View {
                     commit()
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
         .scrollDismissesKeyboard(.interactively)
         .backPageTitle(title)

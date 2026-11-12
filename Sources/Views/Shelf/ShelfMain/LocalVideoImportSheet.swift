@@ -27,7 +27,7 @@ struct LocalVideoImportSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     TextField("Tên phim", text: $title)
                         .textInputAutocapitalization(.sentences)
@@ -48,7 +48,7 @@ struct LocalVideoImportSheet: View {
                 } header: {
                     Text("Tập")
                 }
-            }
+            }.glassSheetRows() }
             .listStyle(.insetGrouped)
             .pageTitle("Nhập phim")
             .toolbar {

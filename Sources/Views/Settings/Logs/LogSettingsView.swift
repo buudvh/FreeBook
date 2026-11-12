@@ -25,7 +25,7 @@ struct LogSettingsView: View {
     @State private var showingClearLogAlert = false
 
     var body: some View {
-        Form {
+        Form { Group {
             Section(header: Text("Cấu Hình")) {
                 Toggle(isOn: $isLoggingEnabled) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -132,7 +132,7 @@ struct LogSettingsView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Ghi log hệ thống")
         .onAppear {
             updateLogStatus()

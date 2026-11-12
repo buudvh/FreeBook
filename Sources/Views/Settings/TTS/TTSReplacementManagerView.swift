@@ -64,13 +64,13 @@ struct TTSReplacementManagerView: View {
     }
     
     var body: some View {
-        List {
+        List { Group {
             Section {
                 Text("Các quy tắc thay thế sẽ được áp dụng tuần tự từ trên xuống dưới trước khi chuyển văn bản qua bộ phiên âm và đọc TTS.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
+        
             if currentRules.isEmpty {
                 Section {
                     HStack {
@@ -120,7 +120,7 @@ struct TTSReplacementManagerView: View {
 
             // Chỉ có nội dung ở màn tầng riêng: danh sách rule chung để "Lấy vào riêng".
             globalRulesSection
-        }
+        }.glassSheetRows() }
         // "Thêm quy tắc" là nút "+" nổi góc dưới phải (không còn trong ngăn kéo).
         .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
@@ -158,7 +158,10 @@ struct TTSReplacementManagerView: View {
         }
         // Sheet Thêm/Sửa quy tắc
         .sheet(isPresented: $showingEditSheet) {
-            editRuleSheet
+            Group {
+                editRuleSheet
+            }
+            .appGlassSheet()
         }
         .background(
             DocumentPickerPresenter(
@@ -251,17 +254,17 @@ struct TTSReplacementManagerView: View {
     @ViewBuilder
     private var editRuleSheet: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section(header: Text("Thông tin quy tắc")) {
                     TextField("Ký tự / Chuỗi cần thay thế", text: $patternInput)
                         .textInputAutocapitalization(.never)
-                    
+                
                     TextField("Chuỗi thay thế (để trống nếu muốn xóa bỏ)", text: $replacementInput)
                         .textInputAutocapitalization(.never)
-                    
+                
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

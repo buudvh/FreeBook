@@ -54,17 +54,23 @@ extension ReaderView {
             .padding([.horizontal, .bottom])
             .fittedSheetDetent(height: $definitionSheetHeight, background: selectionSheetBackground)
             .sheet(item: $ruleEditorMode) { mode in
-                QuickTranslationRuleEditorSheet(
-                    mode: mode,
-                    defaultScope: defaultRuleEditorScope(for: mode),
-                    contextBookId: bookId
-                ) { pattern, replacement, scope, replacing in
-                    await saveRuleFromEditor(pattern: pattern, replacement: replacement, scope: scope, replacing: replacing)
+                Group {
+                    QuickTranslationRuleEditorSheet(
+                        mode: mode,
+                        defaultScope: defaultRuleEditorScope(for: mode),
+                        contextBookId: bookId
+                    ) { pattern, replacement, scope, replacing in
+                        await saveRuleFromEditor(pattern: pattern, replacement: replacement, scope: scope, replacing: replacing)
+                    }
                 }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
-                NavigationStack { SearchEnginesConfigView(isPresentedAsSheet: true) }
-                    .presentationDragIndicator(.visible)
+                Group {
+                    NavigationStack { SearchEnginesConfigView(isPresentedAsSheet: true) }
+                        .presentationDragIndicator(.visible)
+                }
+                .appGlassSheet()
             }
             .fullScreenCover(item: $definitionLookupRoute) { route in
                 BypassWebView(

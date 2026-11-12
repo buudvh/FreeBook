@@ -5,11 +5,15 @@ import SwiftUI
 ///
 /// - Dịch · Phim/album này: Theo nguồn / Bật / Tắt (`setBookOverride`) — Dịch · Nguồn: Toàn cục / Bật / Tắt
 ///   (`setSourceOverride`). Cùng kho với truyện chữ nên cổng dịch y như Reader.
-/// - Phồn → giản · Phim/album này: Theo nguồn / Bật / Tắt (khoá theo truyện, ba trạng thái) — · Nguồn: Tắt / Bật. Chỉ
-///   phụ đề, lời và tên nhóm tập phim đọc (`convertsTraditionalToSimplified(bookId:packageId:)`).
+/// - Phồn → giản · Phim/album này: Theo nguồn / Bật / Tắt (khoá theo truyện, ba trạng thái) — · Nguồn: Tắt / Bật. Bước
+///   riêng chạy **trước** khi dịch và chạy **cả khi tắt dịch** (`ChineseTextPipeline`): phụ đề / lời, tên phim / album,
+///   tên tập / bài, tác giả hiện chữ đã chuyển ("Gốc" = chữ đã chuyển). Phụ đề cứng (OCR) vẫn chỉ đọc khi bật dịch.
+/// - Bộ dịch · Phim/album này / · Nguồn: BỘ DỊCH + NGÔN NGỮ như popup dịch truyện (`MediaCaptionEngineRow`, ghi
+///   `TranslationEngineStore` ở hai cấp trên — cùng hai cấp với công tắc dịch). Tiện ích dịch dịch phụ đề / lời theo lô,
+///   dòng lỗi lùi QT; phụ đề cứng luôn QT.
 ///
 /// Chọn là ghi ngay vào `TranslationConfigStore`; sheet đóng mà người dùng đã đổi bất kỳ lựa chọn nào ⇒ `onChanged` để màn
-/// dịch lại phụ đề / lời đang mở (không nạp lại phim / bài). Không so "cấu hình lúc mở": màn cha vẽ lại (xoay máy, hết bài…)
+/// chuyển / dịch lại phụ đề / lời và tên đang mở (không nạp lại phim / bài). Không so "cấu hình lúc mở": màn cha vẽ lại (xoay máy, hết bài…)
 /// là `init` chạy lại, và tập / bài mới nạp lúc sheet đang mở đã dịch theo cấu hình giữa chừng. Hai id chụp vào `@State`
 /// một lần: phim / album tự sang lúc sheet đang mở thì lựa chọn vẫn ghi cho đúng mục đang hiện trên sheet.
 /// Mở từ màn trình bày bằng UIKit (`VideoPlayerPresenter`,
@@ -25,6 +29,19 @@ struct MediaCaptionTranslationSheet: View {
         var title: String { self == .video ? "Dịch phụ đề" : "Dịch lời" }
         var itemLabel: String { self == .video ? "Phim này" : "Album này" }
         var contentNoun: String { self == .video ? "phụ đề" : "lời bài hát" }
+        var namesNoun: String { self == .video ? "tên phim, tên tập" : "tên album, tên bài, nghệ sĩ" }
+
+        /// Giải thích của mục "Bộ dịch" (nút "?").
+        var engineHelpTexts: [Text] {
+            var texts = [
+                Text("Ai dịch \(contentNoun) khi đang bật dịch: QT có sẵn hoặc tiện ích dịch đã cài, kèm ngôn ngữ nguồn → đích — như popup dịch của truyện chữ."),
+                Text("\(itemLabel) ⇒ nguồn ⇒ toàn cục. Tiện ích lỗi thì dòng đó dịch bằng QT.")
+            ]
+            if self == .video {
+                texts.append(Text("Phụ đề in sẵn trong hình (Đọc phụ đề cứng) luôn dịch bằng QT."))
+            }
+            return texts
+        }
     }
 
     /// Kết quả cấu hình áp cho phim/album — dòng "Hiện tại" của sheet.
@@ -70,10 +87,11 @@ struct MediaCaptionTranslationSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 translationSection
+                engineSection
                 traditionalSection
-            }
+            }.glassSheetRows() }
             .pageTitle(medium.title)
         }
         .preferredColorScheme(.dark)
@@ -114,6 +132,19 @@ struct MediaCaptionTranslationSheet: View {
         }
     }
 
+    private var engineSection: some View {
+        Section {
+            MediaCaptionEngineRow(
+                scope: .book, label: medium.itemLabel, bookId: bookId, packageId: packageId, onChanged: markChanged
+            )
+            MediaCaptionEngineRow(
+                scope: .source, label: sourceLabel, bookId: bookId, packageId: packageId, onChanged: markChanged
+            )
+        } header: {
+            SectionHelpHeader("Bộ dịch", texts: medium.engineHelpTexts)
+        }
+    }
+
     private var traditionalSection: some View {
         Section {
             scopePicker(medium.itemLabel, selection: $bookTraditional, inheritedTitle: "Theo nguồn")
@@ -138,8 +169,9 @@ struct MediaCaptionTranslationSheet: View {
             }
         } header: {
             SectionHelpHeader("Phồn → giản", texts: [
-                Text("Đổi chữ phồn thể sang giản thể trước khi dịch \(medium.contentNoun) (mặc định tắt)."),
-                Text("Chỉ áp cho phim và nhạc; trình đọc truyện chữ giữ cài đặt riêng của nó.")
+                Text("Đổi chữ phồn thể sang giản thể cho \(medium.contentNoun) và \(medium.namesNoun) (mặc định tắt)."),
+                Text("Chạy cả khi tắt dịch: kiểu Gốc và dòng gốc của Song ngữ hiện chữ đã chuyển. Bật dịch thì chuyển xong mới dịch."),
+                Text("Cùng công tắc với popup dịch của truyện chữ / truyện tranh: phim / album này ⇒ nguồn ⇒ Tất cả.")
             ])
         }
     }
@@ -161,6 +193,11 @@ struct MediaCaptionTranslationSheet: View {
 
     // MARK: - Kết quả
 
+    /// Bộ dịch vừa ghi (`MediaCaptionEngineRow`) ⇒ đóng sheet thì dịch lại.
+    private func markChanged() {
+        if !didChange { didChange = true }
+    }
+
     /// Sau mỗi lựa chọn của người dùng (bốn `onChange`): đánh dấu cần dịch lại + cập nhật dòng "Hiện tại".
     private func refresh() {
         if !didChange { didChange = true }
@@ -168,11 +205,9 @@ struct MediaCaptionTranslationSheet: View {
         if current != resolved { resolved = current }
     }
 
+    /// Cùng luật với chỗ chạy thật (`MediaCaptionTranslator.prepare`, tên hiển thị): `ChineseTextPipeline.options`.
     private static func resolve(bookId: String, packageId: String) -> Resolved {
-        let store = TranslationConfigStore.shared
-        return Resolved(
-            isEnabled: store.isTranslationEnabled(bookId: bookId, packageId: packageId),
-            convertsTraditional: store.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
-        )
+        let options = ChineseTextPipeline.options(bookId: bookId, packageId: packageId)
+        return Resolved(isEnabled: options.translates, convertsTraditional: options.converts)
     }
 }

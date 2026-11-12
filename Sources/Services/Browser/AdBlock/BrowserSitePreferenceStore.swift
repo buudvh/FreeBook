@@ -2,8 +2,8 @@ import Foundation
 import os
 
 /// Chỉnh riêng theo **tên miền** của trình duyệt người dùng (menu khiên): chặn quảng cáo, xem bản máy tính, tự dịch
-/// QT (`translate`) và phồn → giản trước khi dịch (`convertsTraditional`) — hai trường sau do `BrowserTranslatePolicy`
-/// đọc.
+/// QT (`translate`) và phồn → giản (`convertsTraditional`, bước riêng — 1.3.846) — hai trường sau do
+/// `BrowserTranslatePolicy` đọc.
 /// Chủ sở hữu **duy nhất** của `applicationSupportDirectory/adblock/site_preferences.json` (mảng
 /// `BrowserSitePreference` sắp theo `domain`).
 ///
@@ -111,8 +111,8 @@ final class BrowserSitePreferenceStore: @unchecked Sendable {
         mutate(host: host) { $0.translate = value }
     }
 
-    /// Nhớ phồn → giản trước khi dịch theo tên miền (công tắc con của "Tự dịch QT" trong menu khiên). `nil` = về theo
-    /// công tắc chung ở Cài đặt › Trình duyệt.
+    /// Nhớ phồn → giản theo tên miền (hàng "Phồn → giản" của menu khiên, độc lập với "Tự dịch QT" từ 1.3.846). `nil` =
+    /// về theo công tắc chung ở Cài đặt › Trình duyệt.
     func setConvertsTraditional(_ value: Bool?, forHost host: String) {
         mutate(host: host) { $0.convertsTraditional = value }
     }

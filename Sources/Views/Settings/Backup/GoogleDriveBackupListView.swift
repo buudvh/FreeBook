@@ -16,7 +16,7 @@ struct GoogleDriveBackupListView: View {
     @State private var menuFile: GoogleDriveFile?
 
     var body: some View {
-        List {
+        List { Group {
             if coordinator.progress.isActive {
                 progressSection
             }
@@ -28,7 +28,7 @@ struct GoogleDriveBackupListView: View {
             } else {
                 configurationSection
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Google Drive")
         // Gắn ở `List` (luôn được dựng), không ở header/footer của section — chúng có thể chưa dựng khi cuộn khuất.
         .sideDrawerMenu(item: $menuFile, title: { $0.name }) { file in fileMenuItems(file) }

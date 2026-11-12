@@ -13,14 +13,17 @@ struct ComicChapterEntry: Equatable {
     /// Tên đã dịch khi bật dịch (`ComicChapterTitleTranslator`, cùng luật mục lục Chi tiết: bản lưu `titleTrans` /
     /// dịch sống / phồn→giản). `nil` = chưa dịch xong hoặc đang tắt dịch.
     var translatedTitle: String? = nil
+    /// Tên đã chuyển phồn → giản (1.3.846: bước chuyển chạy cả khi tắt dịch). `nil` = truyện tắt phồn → giản hoặc chưa
+    /// dựng xong.
+    var convertedTitle: String? = nil
 
     /// Tên hiển thị khi bật dịch: tên đã dịch, chưa dịch xong thì tạm bản lưu `titleTrans` (không chớp chữ Hán ở mục
-    /// lục dài); tắt dịch hoặc không có gì thì tên gốc.
+    /// lục dài); tắt dịch hoặc không có gì thì tên đã chuyển phồn → giản (không bật thì tên gốc).
     func displayTitle(translated: Bool) -> String {
-        guard translated else { return title }
+        guard translated else { return convertedTitle ?? title }
         if let translatedTitle, !translatedTitle.isEmpty { return translatedTitle }
         if let trans = titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines), !trans.isEmpty { return trans }
-        return title
+        return convertedTitle ?? title
     }
 
     // MARK: - Điều hướng bỏ qua dòng tiêu đề nhóm

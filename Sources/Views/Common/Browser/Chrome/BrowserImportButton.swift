@@ -39,7 +39,7 @@ struct BrowserImportButton: View {
                 isPickerPresented = false
             }
             .presentationCompactAdaptation(.popover)
-            .preferredColorScheme(.dark)
+            .appGlassPopover()
         }
         .onChange(of: isPickerPresented) { _, isShowing in
             guard !isShowing, let match = chosenMatch else { return }

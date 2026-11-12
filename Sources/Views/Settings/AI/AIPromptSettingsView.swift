@@ -11,7 +11,7 @@ public struct AIPromptSettingsView: View {
     public init() {}
 
     public var body: some View {
-        Form {
+        Form { Group {
             Section {
                 TextEditor(text: $systemPromptText)
                     .frame(minHeight: 120)
@@ -65,7 +65,7 @@ public struct AIPromptSettingsView: View {
             } header: {
                 SectionHelpHeader("Trí Nhớ AI Toàn Cục (Global Memory)", paragraphs: ["Quy tắc lọc tên riêng và ghi chú áp dụng chung cho mọi tác vụ AI trên toàn app."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Tùy chỉnh Prompt AI")
         .onAppear {
             loadPrompts()

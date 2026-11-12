@@ -8,7 +8,8 @@ import UIKit
 /// - Ảnh nhận vào là bản đã downsample theo bề ngang màn (không giữ ảnh gốc trên RAM), nên zoom sâu sẽ hơi mờ.
 /// - Dịch ảnh (1.3.834): truyện đang bật dịch (`translation` khác `nil`) ⇒ `ComicZoomTranslationLayer` phủ lên ảnh, **bên trong**
 ///   view được zoom (`contentView` chứa ảnh + lớp dịch) nên khối phóng theo ảnh. Khối lấy từ `ComicPageTextRepository` (ảnh vừa
-///   hiện trên trang ⇒ trúng RAM, không nhận chữ lại) rồi dịch như trên trang.
+///   hiện trên trang ⇒ trúng RAM, không nhận chữ lại) rồi dịch như trên trang — bộ dịch là tiện ích thì cùng lượt dịch
+///   (`extensionRequest`) ⇒ trúng cache RAM của runner, không gọi tiện ích lần hai.
 struct ComicZoomViewer: UIViewRepresentable {
     /// Một lần mở phóng to: ảnh đang vẽ trên trang + yêu cầu ảnh của trang đó. `ComicReaderView` trình bày bằng
     /// `fullScreenCover(item:)` (1.3.835) để cover nhận đúng ảnh ngay lần đầu.
@@ -103,7 +104,8 @@ struct ComicZoomViewer: UIViewRepresentable {
                       let items = await ComicPageTextTranslator.translate(
                           blocks,
                           bookId: translation.bookId,
-                          convertsTraditional: translation.convertsTraditional
+                          convertsTraditional: translation.convertsTraditional,
+                          extensionRequest: translation.extensionRequest
                       ),
                       !Task.isCancelled else { return }
                 view?.translationLayer.setItems(items)

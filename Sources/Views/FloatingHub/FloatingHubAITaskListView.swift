@@ -1,18 +1,18 @@
 import SwiftUI
 
-/// Trang "Tác vụ AI" trong thẻ menu của nút hub nổi (1.3.558): mỗi truyện đang chạy AI một dòng — tên truyện và
+/// Trang "Tác vụ AI" trong sheet hub (thẻ menu nổi trước 2026-11-11) (1.3.558): mỗi truyện đang chạy AI một dòng — tên truyện và
 /// tác vụ ("AI đang suy nghĩ", "Đang quét: Batch N/T"), truyện bắt đầu gần nhất lên đầu. Từ 1.3.630 thêm truyện có
 /// kết quả chưa xem bên dưới (✓ xanh "Đã xong — bấm để xem", ! đỏ "Lỗi — bấm để xem"). Chạm dòng nào thì mở màn AI
-/// của đúng truyện đó; nút ‹ quay về trang chính của menu.
+/// của đúng truyện đó; nút ‹ quay về trang chính của sheet.
 ///
-/// Cùng khung dòng với `FloatingHubMenuRow` (icon 28pt, hai dòng chữ, cao tối thiểu 48pt) để hai trang trông như một.
+/// Cùng khung dòng với `FloatingHubMenuRow` (icon 28pt, hai dòng chữ, cao tối thiểu 56 pt, ô bo góc) để hai trang trông như một.
 struct FloatingHubAITaskListView: View {
     let tasks: [FloatingHubPresentationReader.AITask]
     let onSelect: (String) -> Void
     let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             header
             ForEach(tasks) { task in
                 row(task)
@@ -34,14 +34,14 @@ struct FloatingHubAITaskListView: View {
             .accessibilityLabel(Text("Quay lại"))
 
             Text("Tác vụ AI")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.headline)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
         }
-        .padding(.leading, 4)
-        .padding(.trailing, 8)
+        // Chữ "‹" thẳng mép trái nội dung sheet (khung nút 38 có lề trong ~10).
+        .padding(.leading, -10)
     }
 
     private func row(_ task: FloatingHubPresentationReader.AITask) -> some View {
@@ -67,19 +67,14 @@ struct FloatingHubAITaskListView: View {
 
                 Spacer(minLength: 0)
             }
-            // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (48pt) đều bấm được.
+            // Lề dọc nằm **trong** vùng chạm để cả chiều cao dòng (56 pt) đều bấm được.
             .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityHint(Text("Mở Trợ lý AI của truyện này"))
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .overlay(alignment: .top) {
-            Divider()
-                .padding(.leading, 52)
-        }
+        .hubSheetPanelRow()
     }
 
     private func iconName(_ task: FloatingHubPresentationReader.AITask) -> String {

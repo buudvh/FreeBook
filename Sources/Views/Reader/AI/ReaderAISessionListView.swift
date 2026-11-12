@@ -26,7 +26,7 @@ public struct ReaderAISessionListView: View {
 
     public var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     Button(action: {
                         onNewSession()
@@ -113,7 +113,7 @@ public struct ReaderAISessionListView: View {
                         }
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Lịch sử phiên chat")
             .presentationDragIndicator(.visible)
             .alert("Xóa toàn bộ phiên chat?", isPresented: $showingClearAllAlert) {

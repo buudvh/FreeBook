@@ -5,7 +5,9 @@ struct AllCommentsView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + QT hoặc tiện ích dịch (1.3.853): Chi tiết truyền chữ của truyện đang mở; màn xem phim còn đi init
+    /// `isTranslationEnabled:` (chỉ QT, như trước).
+    let chineseText: BookDetailText
     /// Host sách — ghép `category.input` tương đối thành URL dự phòng cho nút "Mở link lỗi".
     var host: String? = nil
     /// Tiện ích/nguồn của truyện — nguồn Legado thì cookie của trình duyệt "Mở link lỗi" được gộp vào kho của nguồn.
@@ -65,7 +67,7 @@ struct AllCommentsView: View {
                                 localPath: localPath,
                                 downloadUrl: downloadUrl,
                                 configJson: configJson,
-                                isTranslationEnabled: isTranslationEnabled,
+                                chineseText: chineseText,
                                 host: host
                             )
                             // Mỗi bình luận một panel bo góc như kiểu Danh sách truyện, không vạch ngăn.
@@ -99,7 +101,7 @@ struct AllCommentsView: View {
                 }
             }
         }
-        .backPageTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
+        .backPageTitle(chineseText.meta(category.title))
         .task {
             if skipsReappearLoad {
                 skipsReappearLoad = false
@@ -197,5 +199,28 @@ struct AllCommentsView: View {
         if let loadMoreError { return .failed(loadMoreError) }
         if nextPageUrl != nil { return .loading }
         return comments.isEmpty ? nil : .finished("\(comments.count) bình luận")
+    }
+}
+
+extension AllCommentsView {
+    /// Init cũ của màn xem phim (`VideoWatchCommentsCard`): chỉ dịch theo công tắc, như trước 1.3.846.
+    init(
+        category: CategoryResult,
+        localPath: String,
+        downloadUrl: String,
+        configJson: String,
+        isTranslationEnabled: Bool,
+        host: String? = nil,
+        extensionPackageId: String? = nil
+    ) {
+        self.init(
+            category: category,
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            configJson: configJson,
+            chineseText: .quickOnly(CommentRowView.legacyOptions(translating: isTranslationEnabled)),
+            host: host,
+            extensionPackageId: extensionPackageId
+        )
     }
 }

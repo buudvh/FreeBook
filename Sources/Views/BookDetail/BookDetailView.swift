@@ -66,6 +66,7 @@ struct BookDetailView: View {
     @State internal var onlineOrdinalNumbering = ChapterOrdinalNumbering.empty // số thứ tự từ toàn bộ `onlineChapters`
     @State internal var host = ""
     @State internal var isTranslationEnabled = false
+    @State internal var textStores = BookDetailText.Stores() // dịch bằng tiện ích: Chi tiết + Mục lục (`+TextOptions`)
 
     var totalChaptersCount: Int {
         if chapterSnapshots.count > 0 { return chapterSnapshots.count }
@@ -144,55 +145,16 @@ struct BookDetailView: View {
         return ext?.sourceUrl
     }
 
-    internal func cleanDetailText(_ html: String) -> String {
-        return html.cleanHTML()
-    }
+    internal func cleanDetailText(_ html: String) -> String { html.cleanHTML() }
 
-    private var cleanedDetailText: String {
-        cleanDetailText(detail)
-    }
+    private var cleanedDetailText: String { cleanDetailText(detail) }
 
     private func translateMetaIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text, bookId: actualBookId)
+        detailText.meta(text) // phồn → giản + QT ba cấp hoặc tiện ích dịch — `BookDetailView+TextOptions`
     }
 
-    private func translateTitleIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateChapterTitle(
-            text,
-            bookId: actualBookId,
-            shouldConvertTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId)
-        )
-    }
-
-    /// Tên chương của mục lục đã lưu — cùng luật với sheet mục lục Reader (`BackgroundPagingWorker`): tắt dịch ⇒ tên gốc;
-    /// bật phồn→giản ⇒ dịch sống từ tên gốc (bản lưu `titleTrans` là bản **không** chuyển); có bản lưu ⇒ dùng nó (còn
-    /// chữ Hán thì dịch tiếp); không có ⇒ dịch sống.
-    internal func displayTitle(for chap: StoredChapterSnapshot) -> String {
-        guard isTranslationEnabled else { return chap.title }
-        if !TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
-           let trans = chap.titleTrans, !trans.isEmpty {
-            return translateTitleIfNeeded(trans)
-        }
-        return translateTitleIfNeeded(chap.title)
-    }
-
-    internal func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
-        if isTranslationEnabled {
-            if let trans = chap.titleTrans, !trans.isEmpty {
-                return trans
-            }
-            if TranslateUtils.containsChinese(chap.title) {
-                return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
-            }
-        }
-        return chap.title
-    }
+    // Tên chương của mục lục (`tocTitleOptions`, `tocTitle(for:_:)`): `BookDetailView+ChapterTitles.swift` (1.3.846 —
+    // phồn → giản cả khi tắt dịch).
 
     var body: some View {
         ZStack {
@@ -348,6 +310,7 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
+        .onChange(of: textSyncKey, initial: true) { syncTextStores() }
         // Reader đóng: màn này **không** chạy lại `onAppear` (cover phủ lên, không pop navigation), nên phải tự
         // đọc lại danh sách cục bộ. Sách vừa được `startReading` tạo ⇒ `localBook` đã khác nil nhưng
         // `chapterSnapshots`/`chaptersList` còn rỗng; không đồng bộ ở đây thì tab mục lục trắng (chỉ đọc DB,
@@ -376,7 +339,10 @@ struct BookDetailView: View {
             }
         }
         .sheet(item: $collectionPickerBook) { book in
-            CollectionPickerSheet(bookId: book.bookId)
+            Group {
+                CollectionPickerSheet(bookId: book.bookId)
+            }
+            .appGlassSheet()
         }
         // Lỗi chi tiết thường kéo theo lỗi mục lục (cùng trang chặn) ⇒ thử lại cả mục lục nếu nó cũng đang lỗi.
         .errorLinkBrowser(link: $openingDetailErrorLink, packageId: extensionPackageId) {
@@ -488,8 +454,7 @@ struct BookDetailView: View {
                         localPath: ext?.localPath ?? "",
                         downloadUrl: ext?.downloadUrl ?? "",
                         configJson: ext?.configJson ?? "{}",
-                        isTranslationEnabled: isTranslationEnabled,
-                        onTranslateMetaIfNeeded: translateMetaIfNeeded,
+                        chineseText: detailText,
                         onLoadBookDetailOnly: loadBookDetailOnly
                     )
 
@@ -527,7 +492,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                isTranslationEnabled: isTranslationEnabled,
+                                chineseText: relatedText,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
@@ -563,7 +528,7 @@ struct BookDetailView: View {
                                 configJson: ext?.configJson ?? "{}",
                                 extensionPackageId: extensionPackageId,
                                 sourceName: sourceName,
-                                isTranslationEnabled: isTranslationEnabled,
+                                chineseText: relatedText,
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
@@ -619,11 +584,9 @@ struct BookDetailView: View {
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
                     isTranslationEnabled: isTranslationEnabled,
+                    titleText: tocText,
                     onLoadTOCDataOnly: loadTOCDataOnly,
                     onStartReading: startReading,
-                    onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
-                    onTranslateTitleIfNeeded: translateTitleIfNeeded,
-                    onDisplayTitle: displayTitle(for:),
                     onLoadMoreChapters: loadMoreChapters
                 )
             } else {
@@ -687,29 +650,6 @@ struct BookDetailView: View {
         }
     }
 
-
-
-    /// Nút "+" nổi + menu xổ (Đọc / kệ / Tải / Xuất / Về trang gốc) — `BookDetailFloatingActions`.
-    private var floatingActionButton: some View {
-        BookDetailFloatingActions(
-            hasChapters: totalChaptersCount > 0,
-            readTitle: readActionTitle(isResuming: localBook != nil),
-            readSystemImage: localBook == nil ? "play.fill" : "book.fill",
-            isOnShelf: localBook?.isOnShelf == true,
-            downloadTitle: downloadActionTitle,
-            exportTitle: showsExport ? exportActionTitle : nil,
-            onRead: { startReading(at: localBook?.currentChapterIndex ?? 0) },
-            onToggleShelf: {
-                if let book = localBook, book.isOnShelf {
-                    removeFromShelf(book)
-                } else {
-                    addToShelf()
-                }
-            },
-            onDownload: { prepareForTask(taskType: .download) },
-            onExport: { prepareForTask(taskType: .exportTxt) }
-        )
-    }
 
 
     /// Truyện chữ / tranh: id ngẫu nhiên cho truyện chưa lưu — id xác định sẽ trùng id của bản đã xoá, mà hàng đợi xoá lỗi
@@ -947,7 +887,7 @@ struct BookDetailView: View {
         )
     }
 
-    private func addToShelf() {
+    internal func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
         Task { @MainActor in
             await placeOnShelf(savedDesc: savedDesc)
@@ -1005,12 +945,13 @@ struct BookDetailView: View {
                     let title: String
                 }
                 let items = toTranslate.map { Item(index: $0.index, url: $0.url, title: $0.title) }
+                let options = ChineseTextPipeline.Options(converts: tocTitleOptions.converts, translates: true, dictionaryBookId: targetBookId)
 
                 let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .utility) {
                     var list: [(index: Int, url: String, titleTrans: String)] = []
                     for item in items {
                         if Task.isCancelled { break }
-                        let trans = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                        let trans = ChineseTextPipeline.chapterTitle(item.title, options) // tên đã chuyển rồi dịch (1.3.846)
                         list.append((index: item.index, url: item.url, titleTrans: trans))
                     }
                     return list
@@ -1039,13 +980,13 @@ struct BookDetailView: View {
             let title: String
         }
         let items = chaptersToTranslate.map { ChapItem(id: $0.id, title: $0.title) }
-
+        let options = ChineseTextPipeline.Options(converts: tocTitleOptions.converts, translates: true, dictionaryBookId: targetBookId)
         Task {
             let translatedMap: [String: String] = await Task.detached(priority: .utility) {
                 var map: [String: String] = [:]
                 for item in items {
                     if Task.isCancelled { break }
-                    map[item.id] = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                    map[item.id] = ChineseTextPipeline.chapterTitle(item.title, options)
                 }
                 return map
             }.value

@@ -16,12 +16,15 @@ struct TTSSettingsSheetHost: ViewModifier {
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $ttsManager.showingSettingsSheet) {
-            if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
-                TTSSettingsSheet()
-                    .modelContainer(container)
-            } else {
-                TTSSettingsSheet()
+            Group {
+                if let container = MediaDiscWindowManager.shared.modelContainer {
+                    TTSSettingsSheet()
+                        .modelContainer(container)
+                } else {
+                    TTSSettingsSheet()
+                }
             }
+            .appGlassSheet()
         }
     }
 }

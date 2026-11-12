@@ -64,7 +64,7 @@ struct ShelfBooksLayoutView: View {
     // MARK: - Danh sách
 
     private func listView(_ rowSize: BookListRowSize) -> some View {
-        List {
+        List { Group {
             ForEach(groups) { group in
                 if let header = group.header {
                     Section {
@@ -85,7 +85,7 @@ struct ShelfBooksLayoutView: View {
                     .bookListPanelRowChrome()
                     .id("loadMoreFooter")
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
     }
 

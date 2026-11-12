@@ -47,7 +47,7 @@ struct BypassBrowserShieldButton: View {
                 showingPanel = false
             }
             .presentationCompactAdaptation(.popover)
-            .preferredColorScheme(.dark)
+            .appGlassPopover()
         }
         .onChange(of: showingPanel) { _, isShowing in
             guard !isShowing, opensSettingsAfterDismiss else { return }

@@ -24,9 +24,10 @@ struct AudioSuggestionSection: View {
         let groups = store.bookId == session.bookId ? store.groups : []
         if !groups.isEmpty {
             let upNext = upNextLink(groups)
+            let nameOptions = session.displayNames.options
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(groups) { group in
-                    Text(group.title)
+                    Text(ChineseTextPipeline.meta(group.title, nameOptions))
                         .font(.headline)
                         .foregroundStyle(Color.white)
                         .lineLimit(1)
@@ -37,6 +38,7 @@ struct AudioSuggestionSection: View {
                         AudioSuggestionRow(
                             item: item,
                             isUpNext: group.id == 0 && item.link == upNext,
+                            nameOptions: nameOptions,
                             onSelect: { open(item) },
                             makeAlbum: { album(of: item) }
                         )

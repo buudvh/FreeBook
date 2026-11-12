@@ -28,7 +28,7 @@ struct CheckReportListView: View {
 
     var body: some View {
         let rows = repository.summaries(for: kind)
-        List {
+        List { Group {
             Section {
                 kindChips
                     .listRowSeparator(.hidden)
@@ -62,7 +62,7 @@ struct CheckReportListView: View {
                     .bookListPanelRow()
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
         .backPageTitle("Báo cáo kiểm tra")
         .toolbar {

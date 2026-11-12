@@ -380,7 +380,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             }
         }
 
-        clock.lap(&timing.vector) // chốt TRƯỚC codec — trước 1.3.849 chốt sau nên codec bị tính vào vòng Euler
+        clock.lap(&timing.vector) // chốt TRƯỚC codec — trước 1.3.878 chốt sau nên codec bị tính vào vòng Euler
 
         // 4. codec_decoder → PCM
         let waveform = try runtime.codecDecoder(

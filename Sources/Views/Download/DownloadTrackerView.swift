@@ -7,7 +7,6 @@ struct DownloadTrackerView: View {
     
     /// Sheet xuất — sách + loại tác vụ + cờ "chỉ chương đã tải" đi chung một item (`TaskSheetRequest`, 1.3.654).
     @State private var taskSheetRequest: TaskSheetRequest? = nil
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Công tắc NSFW toàn app — tắt ⇒ ẩn tác vụ tải/xuất của truyện thuộc nguồn NSFW hoặc tự đánh dấu NSFW (tác vụ vẫn
     /// chạy).
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
@@ -44,20 +43,23 @@ struct DownloadTrackerView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List {
+                List { Group {
                     ForEach(tasks) { task in
                         taskRow(task)
                     }
-                }
+                }.glassSheetRows() }
                 .listStyle(.plain)
             }
         }
         .sheet(item: $taskSheetRequest) { request in
-            TaskOptionsSheet(
-                book: request.book,
-                taskType: request.taskType,
-                defaultOnlyExportCached: request.defaultOnlyExportCached
-            )
+            Group {
+                TaskOptionsSheet(
+                    book: request.book,
+                    taskType: request.taskType,
+                    defaultOnlyExportCached: request.defaultOnlyExportCached
+                )
+            }
+            .appGlassSheet()
         }
     }
     
@@ -71,10 +73,9 @@ struct DownloadTrackerView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
-                let rawTitle = isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
-                     ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
-                     : task.bookTitle
-                Text(DisplayTextFormatter.titleCase(rawTitle))
+                // Ba cấp của popup dịch + phồn → giản của truyện; vẽ lại khi cấu hình đổi (`BookDisplayTranslation`).
+                let options = BookDisplayTranslation.listOptions(bookId: task.bookId, packageId: task.extensionPackageId)
+                Text(BookDisplayTranslation.title(task.bookTitle, options))
                     .font(.system(size: 14.5, weight: .semibold))
                     .lineLimit(2)
                 

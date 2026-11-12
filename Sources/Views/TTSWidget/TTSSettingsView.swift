@@ -85,7 +85,7 @@ struct TTSSettingsView: View {
     }
     
     var body: some View {
-        Form {
+        Form { Group {
             // Section 1: Chọn trình đọc
             Section("Trình đọc") {
                 Picker("Trình đọc", selection: readerPickerSelection) {
@@ -362,7 +362,7 @@ struct TTSSettingsView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         // Sheet (Widget TTS) ⇒ tiêu đề trái, đóng bằng vuốt xuống; đẩy từ Cài đặt ⇒ tiêu đề giữa.
         .pageTitle("Cài đặt TTS", style: isPresentedAsSheet ? .leading : .centered)
         .onAppear {
@@ -415,11 +415,17 @@ struct TTSSettingsView: View {
             }
         }
         .sheet(item: $selectedExtForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
-            ExtensionConfigView(ext: ext)
+            Group {
+                ExtensionConfigView(ext: ext)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingReplacementManagerSheet) {
-            NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }
-                .presentationDragIndicator(.visible)
+            Group {
+                NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }
+                    .presentationDragIndicator(.visible)
+            }
+            .appGlassSheet()
         }
     }
 

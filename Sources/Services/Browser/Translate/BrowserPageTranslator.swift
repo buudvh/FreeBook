@@ -1,15 +1,19 @@
 import Foundation
 import WebKit
 
-/// Phía native của dịch trang QT (`BrowserPageTranslateScript`): nhận lô chữ từ handler `fbPageTranslate`, dịch
-/// **ngoài main** bằng `TranslateUtils.translateContent(_, bookId: nil)` (từ điển chưa nạp thì hàm đó tự trả nguyên văn)
-/// và trả mảng cùng độ dài; cộng các hàm gọi JS trong `BrowserPageTranslateScript.contentWorld`.
+/// Phía native của xử lý chữ trang (`BrowserPageTranslateScript`): nhận lô chữ từ handler `fbPageTranslate`, xử lý
+/// **ngoài main** bằng `ChineseTextPipeline.content` — phồn → giản nếu bật ⇒ dịch QT nếu bật ⇒ trả (từ điển chưa nạp
+/// thì bước dịch tự trả nguyên văn) — và trả mảng cùng độ dài; cộng các hàm gọi JS trong
+/// `BrowserPageTranslateScript.contentWorld`.
+///
+/// Hai bước **độc lập** (1.3.846): chỉ bật phồn → giản ⇒ trang hiện giản thể, không dịch. Từ điển chung
+/// (`dictionaryBookId: nil`) — trình duyệt không gắn truyện, không theo luật ba cấp của popup dịch.
 ///
 /// Handler là `MessageHandler` lồng bên trong (proxy **không** giữ chủ): `WKUserContentController` giữ handler bằng
-/// tham chiếu mạnh, nên chủ (`BypassBrowserTabStore`) chỉ truyền closure `accepts` tự `[weak self]` để định tuyến theo
-/// `message.webView`, và closure `convertsTraditional` (phồn → giản theo URL trang, 1.3.684) — cả hai chạy trên main
-/// **trước** khi dịch, chỉ cờ `Bool` đi sang thread nền. Namespace là `enum` để hàm dịch thuần không bị suy luận cô lập
-/// actor theo protocol của WebKit.
+/// tham chiếu mạnh, nên chủ (`BypassBrowserTabStore`) chỉ truyền closure `pageOptions` tự `[weak self]` để định tuyến
+/// theo `message.webView` — chạy trên main **trước** khi xử lý, trả hai cờ của tab (`nil` = tab không xử lý chữ), chỉ
+/// `Options` (Sendable) đi sang thread nền. Namespace là `enum` để hàm xử lý thuần không bị suy luận cô lập actor theo
+/// protocol của WebKit.
 enum BrowserPageTranslator {
     static let messageHandlerName = "fbPageTranslate"
     /// Trần phía native — rộng hơn trần của script (120 mục / 12 000 ký tự) để lô hợp lệ không bao giờ bị cắt; mục
@@ -20,18 +24,17 @@ enum BrowserPageTranslator {
     // MARK: - Cài handler
 
     /// Gỡ handler cùng tên **trong cùng world** trước khi thêm: thêm trùng tên là WebKit ném exception (tab con dùng
-    /// chung `WKUserContentController` của tab mẹ). `accepts(webView)` chạy trên main, trả `false` khi webView không
-    /// thuộc tab nào đang dịch ⇒ trả nguyên văn. `convertsTraditional(webView)` cũng chạy trên main, mỗi lô một lần:
-    /// `true` ⇒ chuyển phồn thể → giản thể trước khi tra từ điển.
+    /// chung `WKUserContentController` của tab mẹ). `pageOptions(webView)` chạy trên main, mỗi lô một lần: cách xử lý chữ
+    /// của tab (`BypassBrowserTab.pageTextOptions`); `nil` khi webView không thuộc tab nào đang chuyển / dịch ⇒ trả
+    /// nguyên văn.
     static func installMessageHandler(
         into controller: WKUserContentController,
-        accepts: @escaping (WKWebView?) -> Bool,
-        convertsTraditional: @escaping (WKWebView?) -> Bool
+        pageOptions: @escaping (WKWebView?) -> ChineseTextPipeline.Options?
     ) {
         let world = BrowserPageTranslateScript.contentWorld
         controller.removeScriptMessageHandler(forName: messageHandlerName, contentWorld: world)
         controller.addScriptMessageHandler(
-            MessageHandler(accepts: accepts, convertsTraditional: convertsTraditional),
+            MessageHandler(pageOptions: pageOptions),
             contentWorld: world,
             name: messageHandlerName
         )
@@ -42,15 +45,22 @@ enum BrowserPageTranslator {
     // `evaluateJavaScript(_:in:in:…)` là overlay Swift của WebKit (cô lập `@MainActor`) nên các hàm gọi JS đều
     // `@MainActor`; store gọi qua `MainActor.assumeIsolated`.
 
-    /// Bật dịch trang đang hiển thị; script chưa sẵn sàng thì xếp hàng. Gọi lặp không sao (idempotent).
+    /// Bật xử lý chữ trang đang hiển thị theo hai cờ; script chưa sẵn sàng thì xếp hàng. Gọi lặp cùng cờ không sao
+    /// (idempotent); khác cờ với lượt đang chạy ⇒ script khôi phục bản gốc rồi xử lý lại. Cả hai tắt ⇒ `disable`.
     @MainActor
-    static func enable(on webView: WKWebView) {
+    static func enable(on webView: WKWebView, translates: Bool, converts: Bool) {
+        guard translates || converts else {
+            disable(on: webView)
+            return
+        }
+        let mode = (converts ? "c" : "") + (translates ? "t" : "")
         webView.evaluateJavaScript(
-            BrowserPageTranslateScript.enableCall, in: nil, in: BrowserPageTranslateScript.contentWorld, completionHandler: nil
+            BrowserPageTranslateScript.enableCall(mode: mode), in: nil, in: BrowserPageTranslateScript.contentWorld,
+            completionHandler: nil
         )
     }
 
-    /// Tắt dịch và khôi phục bản gốc. Gọi trên document mới (chưa dịch) cũng không sao.
+    /// Tắt xử lý và khôi phục bản gốc. Gọi trên document mới (chưa xử lý) cũng không sao.
     @MainActor
     static func disable(on webView: WKWebView) {
         webView.evaluateJavaScript(
@@ -58,7 +68,8 @@ enum BrowserPageTranslator {
         )
     }
 
-    /// Vùng chọn hiện tại của khung chính; `nil` khi không có chữ được chọn hoặc gọi JS lỗi.
+    /// Vùng chọn hiện tại của khung chính; `nil` khi không có chữ được chọn hoặc gọi JS lỗi. `sourceText` là chữ thô của
+    /// trang (bản gốc của đoạn đã dịch) — phồn → giản do store áp lúc bấm (`BypassBrowserTabStore+ContextActions`).
     @MainActor
     static func selectionInfo(in webView: WKWebView) async -> BrowserSelectionInfo? {
         // Bản `async` của overlay (iOS 15+); đoạn JS luôn trả chuỗi JSON nên kết quả không bao giờ rỗng.
@@ -76,12 +87,12 @@ enum BrowserPageTranslator {
         return BrowserSelectionInfo(text: text, sourceText: source, linkURL: link)
     }
 
-    // MARK: - Dịch
+    // MARK: - Xử lý chữ
 
-    /// Dịch từng mục, giữ đúng độ dài và thứ tự. Mục từ vị trí vượt `maxItemsPerBatch`/`maxCharactersPerBatch` trả
-    /// nguyên văn (script sẽ bỏ qua vì bản dịch trùng bản gốc). `convertsTraditional` ⇒ chuyển phồn → giản trước khi
-    /// tra từ điển (cờ đã tính trên main theo URL trang). Hàm thuần — gọi từ thread nền.
-    static func translate(_ texts: [String], convertsTraditional: Bool) -> [String] {
+    /// Xử lý từng mục (`ChineseTextPipeline.content`: chuyển ⇒ dịch ⇒ trả), giữ đúng độ dài và thứ tự. Mục từ vị trí
+    /// vượt `maxItemsPerBatch`/`maxCharactersPerBatch` trả nguyên văn (script sẽ bỏ qua vì chữ trả về trùng bản gốc).
+    /// `options` đã tính trên main theo cờ của tab. Hàm thuần — gọi từ thread nền.
+    static func process(_ texts: [String], options: ChineseTextPipeline.Options) -> [String] {
         var output: [String] = []
         output.reserveCapacity(texts.count)
         var budget = maxCharactersPerBatch
@@ -92,12 +103,8 @@ enum BrowserPageTranslator {
                 continue
             }
             budget -= length
-            let translated = TranslateUtils.translateContent(
-                text,
-                bookId: nil,
-                shouldConvertTraditionalToSimplified: convertsTraditional
-            )
-            output.append(translated.isEmpty ? text : translated)
+            let processed = ChineseTextPipeline.content(text, options)
+            output.append(processed.isEmpty ? text : processed)
         }
         return output
     }
@@ -112,12 +119,10 @@ enum BrowserPageTranslator {
 
     /// Proxy handler có trả lời. **Luôn** gọi `replyHandler` đúng một lần ở mọi nhánh — WebKit kiểm tra việc này.
     final class MessageHandler: NSObject, WKScriptMessageHandlerWithReply {
-        private let accepts: (WKWebView?) -> Bool
-        private let convertsTraditional: (WKWebView?) -> Bool
+        private let pageOptions: (WKWebView?) -> ChineseTextPipeline.Options?
 
-        init(accepts: @escaping (WKWebView?) -> Bool, convertsTraditional: @escaping (WKWebView?) -> Bool) {
-            self.accepts = accepts
-            self.convertsTraditional = convertsTraditional
+        init(pageOptions: @escaping (WKWebView?) -> ChineseTextPipeline.Options?) {
+            self.pageOptions = pageOptions
             super.init()
         }
 
@@ -132,8 +137,9 @@ enum BrowserPageTranslator {
                 replyHandler(nil, "invalid")
                 return
             }
-            guard message.frameInfo.isMainFrame, accepts(message.webView) else {
-                // Tab không còn dịch (vừa tắt / đã đóng): trả nguyên văn, script tự bỏ qua.
+            // Đọc cờ của tab trên main; chỉ `Options` (Sendable) đi sang thread nền.
+            guard message.frameInfo.isMainFrame, let options = pageOptions(message.webView) else {
+                // Tab không còn chuyển / dịch (vừa tắt / đã đóng): trả nguyên văn, script tự bỏ qua.
                 replyHandler(texts, nil)
                 return
             }
@@ -141,13 +147,11 @@ enum BrowserPageTranslator {
                 replyHandler(texts, nil)
                 return
             }
-            // Đọc cờ trên main (luật đọc chỉnh riêng theo tên miền + UserDefaults); chỉ `Bool` đi sang thread nền.
-            let converts = convertsTraditional(message.webView)
             Task { @MainActor in
-                let translated = await Task.detached(priority: .userInitiated) {
-                    BrowserPageTranslator.translate(texts, convertsTraditional: converts)
+                let processed = await Task.detached(priority: .userInitiated) {
+                    BrowserPageTranslator.process(texts, options: options)
                 }.value
-                replyHandler(translated, nil)
+                replyHandler(processed, nil)
             }
         }
     }

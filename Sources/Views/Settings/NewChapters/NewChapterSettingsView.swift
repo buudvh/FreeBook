@@ -18,7 +18,7 @@ struct NewChapterSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle("Tự động kiểm tra chương mới", isOn: $isEnabled)
             } header: {
@@ -69,7 +69,7 @@ struct NewChapterSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Kiểm tra chương mới")
     }
 

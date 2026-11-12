@@ -1,6 +1,6 @@
 import UIKit
 
-/// Giữ chỗ theo mép cho các widget nổi (widget TTS, nút hub, nút mở lại trình duyệt, đĩa nghe góc dưới phải) để chúng
+/// Giữ chỗ theo mép cho các widget nổi (nút hub, nút mở lại trình duyệt, nửa viên đĩa nghe) để chúng
 /// **không đè lên nhau** khi cùng nằm một cạnh.
 ///
 /// ## Cùng một hệ toạ độ
@@ -16,16 +16,15 @@ import UIKit
 /// ## Xếp lại
 /// Chỉ ở hai thời điểm: thả tay sau khi kéo và lúc widget vừa hiện ra (`resolve`). Widget đó là bên **nhường**;
 /// widget đang đứng yên không bao giờ bị đẩy. Chỉ xét widget **cùng cạnh** — hai cạnh khác nhau không chạm
-/// được (widget TTS mở rộng chỉ rộng 212pt). Menu bung của hub chưa được tính.
+/// được (nửa viên rộng nhất 68 pt).
 @MainActor
 final class FloatingWidgetLayoutCoordinator {
     static let shared = FloatingWidgetLayoutCoordinator()
 
     enum WidgetID: String {
-        case tts
         case hub
         case browser
-        /// Đĩa nghe góc dưới phải (1.3.808) — giữ chỗ, không nhường.
+        /// Nửa viên đĩa nghe (1.3.808; kéo được từ 1.3.858) — lúc hiện không nhường, chỉ nhường lúc vừa thả tay.
         case mediaDisc
     }
 

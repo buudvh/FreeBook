@@ -35,7 +35,7 @@ struct SideDrawerGlassBackground: View {
 
     var body: some View {
         ZStack {
-            if let material = GlassFrostLevel(frost: frost).material {
+            if let material = GlassFrostLevel(frost: GlassChromeSettings.effectiveDrawerFrost(frost)).material {
                 shape
                     .fill(material)
                     .environment(\.colorScheme, .dark)

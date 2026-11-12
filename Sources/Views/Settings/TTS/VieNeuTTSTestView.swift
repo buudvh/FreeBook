@@ -66,7 +66,7 @@ struct VieNeuTTSTestView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             modelSection
             turboLabSection
             voiceSection
@@ -114,7 +114,7 @@ struct VieNeuTTSTestView: View {
             } header: {
                 SectionHelpHeader("Chẩn đoán", paragraphs: ["Sao chép cả thông báo lỗi, số đo RTF và trạng thái model — dán vào chat là đủ để tìm nguyên nhân, không cần chụp màn hình."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cài đặt VieNeu TTS")
         .onAppear {
             loadVoices()

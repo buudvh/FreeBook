@@ -13,13 +13,10 @@ extension BookDetailView {
         }
     }
 
-    /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (dịch khi bật dịch), chưa có thì tên màn.
+    /// Tiêu đề ngăn kéo: tên truyện như ở phần đầu tab Chi tiết (phồn → giản + dịch ba cấp), chưa có thì tên màn.
     internal var ellipsisMenuTitle: String {
         guard !title.isEmpty else { return "Chi tiết truyện" }
-        let shown = isTranslationEnabled && TranslateUtils.containsChinese(title)
-            ? TranslateUtils.translateMeta(title, bookId: actualBookId)
-            : title
-        return DisplayTextFormatter.titleCase(shown)
+        return DisplayTextFormatter.titleCase(detailText.meta(title))
     }
 
     @ViewBuilder
@@ -208,34 +205,47 @@ extension BookDetailView {
     internal func updateFilteredLocalChapters() {
         let query = appliedChapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
+        let converts = query.isEmpty ? false : tocTitleOptions.converts
+        let text = tocText
         filteredLocalChapters = sorted.filter { chap in
-            query.isEmpty || ChapterTitleSearchMatcher.matches(query, anyOf: [chap.title, chap.titleTrans])
+            query.isEmpty || ChapterTitleSearchMatcher.matches(
+                query, anyOf: [
+                    chap.title, ChineseTextPipeline.convert(chap.title, converts: converts), chap.titleTrans,
+                    text.chapterTranslation(of: chap.title)
+                ]
+            )
         }
     }
 
+    /// Tên online đã dựng (`BookDetailOnlineTOCIndex`) khi bật dịch **hoặc** phồn → giản (1.3.846: tắt dịch vẫn hiện —
+    /// và tìm được — tên đã chuyển); cả hai tắt ⇒ khớp tên gốc.
     internal func updateFilteredOnlineChapters() {
         let query = appliedChapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let translationEnabled = isTranslationEnabled
-        let translatedTitles = translationEnabled ? onlineTranslatedTitlesOrScheduleBuild() : nil
-        if !translationEnabled && onlineTitleIndex.isBuilding { onlineTitleIndex.cancelBuild() }
+        let options = tocTitleOptions
+        let needsIndex = options.translates || options.converts
+        let translatedTitles = needsIndex ? onlineTranslatedTitlesOrScheduleBuild(options) : nil
+        if !needsIndex && onlineTitleIndex.isBuilding { onlineTitleIndex.cancelBuild() }
         let enumeratedChaps = Array(onlineChapters.enumerated())
         // Số thứ tự dựng từ mục lục đủ (trước khi lọc) ⇒ tìm/đảo thứ tự vẫn giữ số, dòng tiêu đề nhóm không chiếm số.
         onlineOrdinalNumbering = ChapterOrdinalNumbering(enumeratedChaps, index: { $0.offset }, isSection: { $0.element.isSection })
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
+        let text = tocText
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             if query.isEmpty { return true }
-            // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại.
-            return ChapterTitleSearchMatcher.matches(query, anyOf: [chap.name, translatedTitles?[index]])
+            // Chỉ mục tên dịch chưa dựng xong ⇒ tạm khớp tên gốc; dựng xong sẽ tự lọc lại. Khớp thêm bản tiện ích đã có.
+            return ChapterTitleSearchMatcher.matches(
+                query, anyOf: [chap.name, translatedTitles?[index], text.chapterTranslation(of: chap.name)]
+            )
         }
     }
 
     /// Tên chương online đã dịch nếu chỉ mục khớp dữ liệu hiện tại; nếu không thì lên lịch dựng lại
     /// ngoài main (huỷ lượt cũ) và trả `nil`.
-    private func onlineTranslatedTitlesOrScheduleBuild() -> [String]? {
+    private func onlineTranslatedTitlesOrScheduleBuild(_ options: ChineseTextPipeline.Options) -> [String]? {
         let key = BookDetailOnlineTOCIndex.Key(
             generation: TranslateUtils.translationGenerationToken(for: actualBookId),
             bookId: actualBookId,
-            convertsTraditionalToSimplified: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: actualBookId),
+            options: options,
             source: onlineChapters
         )
         if let titles = onlineTitleIndex.titles(for: key) { return titles }
@@ -244,8 +254,7 @@ extension BookDetailView {
               onlineTitleIndex.pendingKey != key else { return nil }
         let names = onlineChapters.map(\.name)
         let task = Task { @MainActor in
-            guard let titles = await BookDetailOnlineTOCIndex.translateTitles(
-                      names, bookId: key.bookId, convertsTraditionalToSimplified: key.convertsTraditionalToSimplified),
+            guard let titles = await BookDetailOnlineTOCIndex.translateTitles(names, options: key.options),
                   !Task.isCancelled, self.onlineTitleIndex.pendingKey == key else { return }
             self.onlineTitleIndex.finish(key: key, titles: titles)
             if !self.appliedChapterSearchQuery.isEmpty { self.updateFilteredOnlineChapters() }

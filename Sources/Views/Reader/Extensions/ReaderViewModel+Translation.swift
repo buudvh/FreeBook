@@ -12,9 +12,12 @@ extension ReaderViewModel {
         bookId: String,
         chapterIndex: Int,
         extensionEngine: ResolvedTranslationEngine?
-    ) async throws -> (normalizedContent: String, buildResult: ReaderParagraphBuildResult) {
+    ) async throws -> (sourceContent: String, buildResult: ReaderParagraphBuildResult) {
         try Task.checkCancellation()
-        let normalizedText = ChapterTextNormalizer.normalize(originalContent)
+        // Phồn → giản là bước riêng trước khi dịch, chạy cả khi tắt dịch (1.3.846): dòng nhận về đã chuyển ⇒ đoạn gốc
+        // (`ParagraphItem.original`) là chữ đã chuyển. TTS chuẩn hoá đúng chuỗi `originalContent` này với cùng cờ
+        // (`getTTSChapterContent`) ⇒ cùng dòng, cùng id, cùng chữ cho vệt highlight.
+        let normalizedText = ChineseTextPipeline.normalizeChapter(originalContent, converts: shouldConvertTraditionalToSimplified)
         try Task.checkCancellation()
         let context = TranslationReadContext.capture(bookId: bookId)
         let extensionOutput = try await translateChapterWithExtension(
@@ -33,7 +36,9 @@ extension ReaderViewModel {
             extensionOutput: extensionOutput
         ) }
         try Task.checkCancellation()
-        return (normalizedText.content, buildResult)
+        // Trả chuỗi **chưa** chuyển: nó thành `cached.originalContent`, dựng lại / TTS đọc lại từ đó — trả bản đã chuyển thì
+        // tắt phồn → giản không còn đường về chữ phồn.
+        return (originalContent, buildResult)
     }
 
     internal nonisolated func buildCancellable(
@@ -48,20 +53,20 @@ extension ReaderViewModel {
     ) throws -> ReaderParagraphBuildResult {
         try Task.checkCancellation()
 
+        // `normalizedText` đã qua bước chuyển (`ChineseTextPipeline.normalizeChapter`) ⇒ dòng dịch bằng `alreadyConverted`.
         let buildLines = ChapterTextNormalizer.contentLines(of: normalizedText, removingDuplicatedTitle: removeDuplicatedTitle)
+        let options = ChineseTextPipeline.Options(
+            converts: shouldConvertTraditionalToSimplified, translates: isTranslationEnabled, dictionaryBookId: bookId
+        )
+        // Tên chương gốc hiển thị = tên đã chuyển; `originalTitle` thô giữ cho cache / so khớp `title_trans`.
+        let displayedTitle = ChineseTextPipeline.convert(originalTitle, converts: options.converts)
 
         // Bộ dịch là tiện ích ⇒ dùng bản đã dịch sẵn (đủ mọi dòng, đã lùi QT / giữ gốc); không có ⇒ QT như cũ.
         let titleResult: TranslatedTextResult
         if isTranslationEnabled, let extensionTitle = extensionOutput?.title {
             titleResult = extensionTitle
-        } else if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
-            titleResult = TranslateUtils.translateChapterTitleWithMapping(
-                originalTitle,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
         } else {
-            titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
+            titleResult = ChineseTextPipeline.chapterTitleWithMapping(displayedTitle, options.alreadyConverted)
         }
 
         var translatedLines: [TranslatedTextResult] = []
@@ -74,14 +79,8 @@ extension ReaderViewModel {
             let lineResult: TranslatedTextResult
             if isTranslationEnabled, let extensionLine = extensionOutput?.lines[line.id] {
                 lineResult = extensionLine
-            } else if isTranslationEnabled && TranslateUtils.containsChinese(line.text) {
-                lineResult = TranslateUtils.translateContentWithMapping(
-                    line.text,
-                    bookId: bookId,
-                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                )
             } else {
-                lineResult = TranslateUtils.untranslatedTextResult(line.text)
+                lineResult = ChineseTextPipeline.contentWithMapping(line.text, options.alreadyConverted)
             }
             translatedLines.append(lineResult)
         }
@@ -92,7 +91,7 @@ extension ReaderViewModel {
         if showTitle {
             items.append(ParagraphItem(
                 id: -1,
-                original: originalTitle,
+                original: displayedTitle,
                 translated: titleResult.text,
                 isTitle: true,
                 translationSpans: titleResult.spans
@@ -148,7 +147,7 @@ extension ReaderViewModel {
                 : true
 
             do {
-                let (normContent, result) = try await performChapterTranslationOffMainActor(
+                let (sourceContent, result) = try await performChapterTranslationOffMainActor(
                     originalTitle: originalTitle,
                     originalContent: originalContent,
                     isTranslationEnabled: isTranslationEnabled,
@@ -167,7 +166,7 @@ extension ReaderViewModel {
                    self.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
                    TranslateUtils.translationGenerationToken(for: bookId) == currentToken {
                     let prepared = ReaderTranslationPresentation.Prepared(index: index,
-                        originalTitle: originalTitle, originalContent: normContent, result: result,
+                        originalTitle: originalTitle, originalContent: sourceContent, result: result,
                         revision: targetRevision, token: currentToken, translationEnabled: isTranslationEnabled,
                         convertTraditional: shouldConvertTraditionalToSimplified)
                     if defersPresentation && translationPresentation.deferred {

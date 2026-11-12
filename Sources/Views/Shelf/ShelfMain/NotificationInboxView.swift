@@ -13,6 +13,8 @@ struct NotificationInboxView: View {
     let onOpenBook: (Book) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    /// Có ⇒ màn là trang con của sheet hub (1.3.872): tiêu đề giữa + nút ‹ về trang chính của hub.
+    @Environment(\.sheetPageBack) private var sheetPageBack
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @ObservedObject private var newChapters = NewChapterInboxManager.shared
     @ObservedObject private var inbox = NotificationInboxManager.shared
@@ -27,7 +29,6 @@ struct NotificationInboxView: View {
     /// là điều kiện để mở màn Thông báo sau khi khởi động lại không bị đơ (bài học 1.3.448).
     @ObservedObject var rephoneticizeNghi = RephoneticizeTask.nghiTTS
     @ObservedObject var rephoneticizeVieNeu = RephoneticizeTask.vieNeu
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     /// Trạng thái cục bộ của khối "Gộp VietPhrase". Phải khai ở **file chính**: Swift không cho `@State`
     /// trong extension khác file, mà khối đó nằm ở `NotificationInboxView+Merge.swift` vì trần 400 dòng.
@@ -138,7 +139,8 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
-            .pageTitle("Thông báo")
+            .pageTitle("Thông báo", style: sheetPageBack == nil ? .leading : .centered)
+            .sheetPageBackButton()
             .presentationDragIndicator(.visible) // sheet của Kệ; bản mở từ hub (UIKit) đặt thanh kéo ở chỗ trình bày
             .toolbar { toolbarContent }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Thông báo") { optionsMenuItems }
@@ -149,7 +151,7 @@ struct NotificationInboxView: View {
     // MARK: - Danh sách
 
     private var inboxList: some View {
-        List {
+        List { Group {
             // Hàng tiến độ (truyện / sao lưu / khôi phục / tải model) ghim ở đầu, **ngoài** nhóm theo ngày — xem
             // `NotificationInboxView+Activity.swift` để biết vì sao không nhập vào `InboxItem`.
             activityRows()
@@ -163,7 +165,7 @@ struct NotificationInboxView: View {
                     Text(dayTitle(group.day))
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
     }
 
@@ -200,6 +202,8 @@ struct NotificationInboxView: View {
 
     private func newChapterRow(_ record: NewChapterRecord) -> some View {
         let book = bookLookup[record.bookId]
+        // Ba cấp của popup dịch + phồn → giản của truyện; vẽ lại khi cấu hình đổi (`BookDisplayTranslation`).
+        let options = BookDisplayTranslation.listOptions(bookId: record.bookId, packageId: book?.extensionPackageId)
         return Button {
             newChapters.markSeen(bookId: record.bookId)
             if let book {
@@ -213,7 +217,7 @@ struct NotificationInboxView: View {
                     .font(.title3)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(bookTitle(for: record, book: book))
+                    Text(bookTitle(for: record, book: book, options: options))
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
@@ -221,7 +225,7 @@ struct NotificationInboxView: View {
                         .font(.footnote.weight(.medium))
                         .foregroundColor(.orange)
                     if !record.latestChapterTitle.isEmpty {
-                        Text("Mới nhất: \(displayedChapterTitle(for: record))")
+                        Text("Mới nhất: \(displayedChapterTitle(for: record, options: options))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -339,22 +343,19 @@ struct NotificationInboxView: View {
 
     // MARK: - Định dạng
 
-    private func bookTitle(for record: NewChapterRecord, book: Book?) -> String {
+    private func bookTitle(for record: NewChapterRecord, book: Book?, options: BookDisplayTranslation.Options) -> String {
         if let title = book?.title, !title.isEmpty {
-            return TranslateUtils.translateBookTitleIfNeeded(title, bookId: record.bookId)
+            return BookDisplayTranslation.text(title, options)
         }
-        let fallback = displayedChapterTitle(for: record)
+        let fallback = displayedChapterTitle(for: record, options: options)
         return fallback.isEmpty ? "Truyện" : fallback
     }
 
     /// `latestChapterTitle` được `NewChapterProbe` lưu **nguyên văn** từ mục lục nguồn (thường là chữ
-    /// Hán), nên phải dịch ở chỗ hiển thị — tên truyện ngay trên nó đã dịch từ trước, để một dòng chữ
-    /// Hán bên dưới là lệch. Guard giống `BookListItemView`: chỉ dịch khi công tắc đang bật và chuỗi
-    /// thật sự có chữ Hán, nhờ vậy tên chương tiếng Việt/Anh không đi qua bộ dịch một cách vô ích.
-    private func displayedChapterTitle(for record: NewChapterRecord) -> String {
-        let raw = record.latestChapterTitle
-        guard isTranslationEnabled, TranslateUtils.containsChinese(raw) else { return raw }
-        return TranslateUtils.translateChapterTitle(raw, bookId: record.bookId)
+    /// Hán), nên phải chuyển / dịch ở chỗ hiển thị theo cùng cấu hình với tên truyện ngay trên nó (như dòng "Đang đọc"
+    /// của `BookListItemView`); tên chương tiếng Việt/Anh không đi qua bộ dịch.
+    private func displayedChapterTitle(for record: NewChapterRecord, options: BookDisplayTranslation.Options) -> String {
+        BookDisplayTranslation.chapterTitle(record.latestChapterTitle, options)
     }
 
     /// Đọc **con số của thông báo**, không đọc `newChapterCount`: sau khi đánh dấu đã đọc con số kia

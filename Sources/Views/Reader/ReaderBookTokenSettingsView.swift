@@ -32,7 +32,7 @@ struct ReaderBookTokenSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 ForEach(Kind.allCases.filter(\.isNumeralGroup), id: \.self, content: row)
             } header: {
@@ -69,7 +69,7 @@ struct ReaderBookTokenSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .pageTitle("Token rule của truyện") // gốc sheet mở từ Cài đặt đọc (không phải trang đẩy vào)
         // Ghi ở `onChange` chứ không trong setter của `Binding`: setter là closure escaping, còn thân
         // modifier chạy cùng ngữ cảnh với `body` nên gọi được `ToastManager` (`@MainActor`).

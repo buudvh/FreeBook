@@ -49,7 +49,8 @@ extension AudioPlaybackSession {
         if mini.bookId != bookId { mini.bookId = bookId }
         if mini.trackTitle != trackTitle { mini.trackTitle = trackTitle }
         if mini.artist != currentArtist { mini.artist = currentArtist }
-        if mini.albumTitle != albumTitle { mini.albumTitle = albumTitle }
+        let shownAlbumTitle = displayAlbumTitle
+        if mini.albumTitle != shownAlbumTitle { mini.albumTitle = shownAlbumTitle }
         if mini.coverUrl != coverUrl { mini.coverUrl = coverUrl }
         if mini.isPlaying != isPlaying { mini.isPlaying = isPlaying }
         if mini.isLoading != isLoading { mini.isLoading = isLoading }

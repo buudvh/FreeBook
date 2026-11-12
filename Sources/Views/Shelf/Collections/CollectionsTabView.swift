@@ -43,9 +43,12 @@ struct CollectionsTabView: View {
             }
         }
         .sheet(isPresented: $showingReorderSheet) {
-            CollectionsReorderSheet(collections: collections) { source, destination in
-                reorderMessage(from: source, to: destination)
+            Group {
+                CollectionsReorderSheet(collections: collections) { source, destination in
+                    reorderMessage(from: source, to: destination)
+                }
             }
+            .appGlassSheet()
         }
         .alert("Bộ sưu tập mới", isPresented: $showingCreateAlert) {
             TextField("Tên bộ sưu tập", text: $newName)

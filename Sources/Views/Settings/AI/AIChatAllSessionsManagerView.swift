@@ -43,7 +43,7 @@ public struct AIChatAllSessionsManagerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
+                List { Group {
                     Section(header: Text("Tất cả phiên chat (\(filteredSessions.count))")) {
                         ForEach(filteredSessions) { session in
                             sessionRow(session)
@@ -56,7 +56,7 @@ public struct AIChatAllSessionsManagerView: View {
                                 }
                         }
                     }
-                }
+                }.glassSheetRows() }
                 .searchable(text: $searchText, prompt: "Tìm theo tiêu đề hoặc model...")
             }
         }

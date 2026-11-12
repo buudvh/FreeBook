@@ -22,10 +22,16 @@ struct AudioSecondaryControls: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingSleepTimer) {
-            MediaSleepTimerSheet(timer: session.sleepTimer)
+            Group {
+                MediaSleepTimerSheet(timer: session.sleepTimer)
+            }
+            .appGlassSheet()
         }
         .sheet(item: $playlistRequest) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
     }
 

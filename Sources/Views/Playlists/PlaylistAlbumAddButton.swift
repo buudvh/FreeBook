@@ -39,7 +39,10 @@ struct PlaylistAlbumAddButton: View {
         .disabled(isLoading)
         .accessibilityLabel(kind == .audio ? "Thêm album vào playlist" : "Thêm phim vào playlist")
         .sheet(item: $request) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
         .onDisappear {
             loadTask?.cancel()

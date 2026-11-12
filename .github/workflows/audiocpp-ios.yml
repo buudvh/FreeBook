@@ -5,7 +5,7 @@ name: Build audio.cpp (iOS)
 # Job `parity` kiểm bản vá audio.cpp của app (Scripts/ci/audiocpp_patches/) cho đúng mã âm thanh như bản gốc.
 on:
   push:
-    branches: [ feature/vieneu-turbo-gguf ]
+    branches: [ main, feature/vieneu-turbo-gguf ]
     paths:
       - 'Scripts/ci/build_audiocpp_ios.sh'
       - 'Scripts/ci/audiocpp_ref.txt'

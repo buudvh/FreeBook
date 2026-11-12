@@ -2,13 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
-## [1.3.857] - 2026-11-12
+## [1.3.887] - 2026-11-12
+
+### merge: đưa VieNeu Turbo GGUF vào main
+
+Anh Bửu: *"vì turbo chạy cũng ổn rồi nên tôi nghĩ bạn nên merge turbo vào nhánh main"*. Merge `origin/main` (tới 1.3.873) vào `feature/vieneu-turbo-gguf` rồi đẩy lên `main`.
+
+- **Đánh lại số**: 13 bản của nhánh (trước là 1.3.845–857, trùng số với main) thành **1.3.874–886**, giữ thứ tự và tiêu đề. Đổi cả tham chiếu trong thân entry và trong chú thích code của nhánh; dòng nào có y nguyên trong bản main thì giữ (là số của main). 14 entry cũ nhất của main (1.3.844–857) chuyển sang `CHANGELOG.archive.md`.
+- Xung đột chỉ ở hai file CHANGELOG. Ba view cùng sửa (`TTSSettingsHubView`, `VieNeuTTSTestView`, `TTSSettingsView`) tự gộp: hàng / section Turbo nằm trong `Group { … }.glassSheetRows()` của 1.3.873. Màn thử Turbo (`VieNeuTurboLabView`) bọc theo cùng kiểu cho khớp.
+- `audiocpp-ios.yml` chạy cả trên `main`. Cache `AudioCpp.xcframework` tạo trên nhánh không dùng được ở `main` ⇒ lượt build `main` đầu tiên dựng lại audio.cpp (lâu hơn vài phút), các lượt sau lấy từ cache.
+- `CLAUDE.md` / `AGENTS.md`: thêm mục "VieNeu: hai model Nano / Turbo" ở phần TTS và bước dựng AudioCpp ở đoạn CI.
+- **Kiểm chứng:** đọc lại phần tự gộp của ba view; grep không còn số 1.3.845–857 của nhánh trong file nhánh sửa; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), CI build `main` sẽ là lần biên dịch đầu tiên của bản gộp.
+
+## [1.3.886] - 2026-11-12
 
 ### revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn
 
-Anh Bửu nghe Nano trong trình đọc ở cùng cài đặt (Mai Anh, phát 1,5×, tổng hợp 1,15×, 2 luồng, ~5–6 phút mỗi bản), so bản cũ (trước 1.3.855) với 1.3.855:
+Anh Bửu nghe Nano trong trình đọc ở cùng cài đặt (Mai Anh, phát 1,5×, tổng hợp 1,15×, 2 luồng, ~5–6 phút mỗi bản), so bản cũ (trước 1.3.884) với 1.3.884:
 
-| | Bản cũ | 1.3.855 |
+| | Bản cũ | 1.3.884 |
 |---|---|---|
 | RTF | 0,28 | 0,28 |
 | CPU-s / giây tiếng | 0,54 | 0,54 |
@@ -18,16 +30,16 @@ Anh Bửu nghe Nano trong trình đọc ở cùng cài đặt (Mai Anh, phát 1,
 
 Trình đọc Nano vốn đã chạy nhanh (bản cũ dùng ~2 lõi mỗi đoạn); con số "utility RTF 0,55" chỉ có ở màn thử vì màn thử ép utility. Ép `.userInitiated` không đổi gì ⇒ anh yêu cầu trả Nano về code cũ.
 
-- `VieNeuTTSService`, `VieNeuTTSEngine+Reload`, `VieNeuTurboLab+Nano` về đúng bản trước 1.3.855: bỏ `readerPriority`, `setLabSynthesisPriority` và `Task.detached` bọc lượt tổng hợp; `prepare(voice:)` lại dựng session ở `.utility`.
-- Giữ phần đo P0 (1.3.852: `vectorMs` / `codecMs` / `textMs`, `cpuSplit`, `qos=`) — cần cho việc tối ưu Nano tiếp.
-- Màn thử: QoS mặc định của lượt Nano về `utility` như trước; sửa chú thích còn nói trình đọc Nano chạy userInitiated. Turbo giữ nguyên 1.3.856 (trình đọc Turbo thật sự bị runtime ép `.utility` nên đổi có tác dụng).
+- `VieNeuTTSService`, `VieNeuTTSEngine+Reload`, `VieNeuTurboLab+Nano` về đúng bản trước 1.3.884: bỏ `readerPriority`, `setLabSynthesisPriority` và `Task.detached` bọc lượt tổng hợp; `prepare(voice:)` lại dựng session ở `.utility`.
+- Giữ phần đo P0 (1.3.881: `vectorMs` / `codecMs` / `textMs`, `cpuSplit`, `qos=`) — cần cho việc tối ưu Nano tiếp.
+- Màn thử: QoS mặc định của lượt Nano về `utility` như trước; sửa chú thích còn nói trình đọc Nano chạy userInitiated. Turbo giữ nguyên 1.3.885 (trình đọc Turbo thật sự bị runtime ép `.utility` nên đổi có tác dụng).
 - **Kiểm chứng:** đọc code + grep chéo (`readerPriority`, `setLabSynthesisPriority` không còn chỗ gọi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
 
-## [1.3.856] - 2026-11-12
+## [1.3.885] - 2026-11-12
 
 ### perf: Turbo đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và mát hơn
 
-Anh Bửu đo Turbo ở màn thử › Đọc liên tục (1.3.855, iPhone 11, 2 luồng, cùng văn bản, mỗi lượt ~3 phút), đúng điều kiện của plan đã duyệt (bước 2 chỉ làm khi RTF ≲ 0,55):
+Anh Bửu đo Turbo ở màn thử › Đọc liên tục (1.3.884, iPhone 11, 2 luồng, cùng văn bản, mỗi lượt ~3 phút), đúng điều kiện của plan đã duyệt (bước 2 chỉ làm khi RTF ≲ 0,55):
 
 | Giọng · QoS | RTF | CPU-s / giây tiếng | CPU-s / 1.000 ký tự | Nhiệt |
 |---|---|---|---|---|
@@ -36,7 +48,7 @@ Anh Bửu đo Turbo ở màn thử › Đọc liên tục (1.3.855, iPhone 11, 2
 | Mai Anh · utility | 0,73 | 1,36 | 82,6 | "nóng" từ ~2:00, có đoạn vọt RTF 1,17 |
 | Mai Anh · userInitiated | **0,36** | **0,71** | 42,9 | vẫn "ấm", đoạn chậm nhất 0,41 |
 
-Giống Nano (1.3.855): lõi hiệu năng nhanh gấp đôi và tốn ít CPU hơn ~48% (lõi tiết kiệm phải chạy gấp đôi thời gian). Âm thanh không đổi — chỉ đổi lõi chạy.
+Giống Nano (1.3.884): lõi hiệu năng nhanh gấp đôi và tốn ít CPU hơn ~48% (lõi tiết kiệm phải chạy gấp đôi thời gian). Âm thanh không đổi — chỉ đổi lõi chạy.
 
 - `VieNeuTurboTTSService.readerQoS = .userInitiated`, truyền vào `VieNeuTurboRuntime.synthesize(…, qos:)` ⇒ cả luồng ggml của lượt chạy lõi hiệu năng. Nạp model / dựng session / nhả vẫn ở hàng đợi `.utility`.
 - `realtimeSpeedLimit` 1,4 → **2,0** (RTF phải dưới 0,5; đo được 0,36, chậm nhất 0,41 ⇒ chừa khoảng cho máy nóng khi nghe lâu và giọng chưa đo là Adam bựa). Màn Cài đặt TTS cảnh báo khi tốc độ phát vượt mức này.
@@ -44,11 +56,11 @@ Giống Nano (1.3.855): lõi hiệu năng nhanh gấp đôi và tốn ít CPU h�
 - Màn thử: QoS mặc định của lượt Nano và Turbo thành `userInitiated` (= trình đọc), vẫn chọn `utility` để so; "Đọc thử một lần" ghi QoS đo được thay vì chữ "utility" cố định (bỏ `VieNeuTurboRuntime.qosName`); sửa các chú thích còn nói trình đọc chạy utility.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Mới đo ở màn thử, chưa thử trong trình đọc khi khoá màn.
 
-## [1.3.855] - 2026-11-11
+## [1.3.884] - 2026-11-11
 
 ### perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn
 
-Anh Bửu đo P0 trên iPhone 11 (màn thử › Đọc liên tục › Nano, 2 luồng, giọng Minh Quân, cùng văn bản, 1.3.853) rồi duyệt *"làm Nano trước đi"*:
+Anh Bửu đo P0 trên iPhone 11 (màn thử › Đọc liên tục › Nano, 2 luồng, giọng Minh Quân, cùng văn bản, 1.3.882) rồi duyệt *"làm Nano trước đi"*:
 
 | | userInitiated | utility (cũ) |
 |---|---|---|
@@ -61,11 +73,11 @@ Lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36% và mát
 
 - `VieNeuTTSService.readerPriority = .userInitiated`: `prepare(voice:)` dựng session ORT ở mức này (luồng phụ của pool sinh ra lúc dựng); trước đó `.utility`.
 - Lượt tổng hợp chạy ORT trong `Task.detached(priority:)` ở mức cố định đó, thay vì mức của tác vụ nào xếp hàng trước trong `PiperSynthesisCoordinator` (phần lớn `.utility`). Lệnh huỷ được chuyển xuống task con (`withTaskCancellationHandler`) vì engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
-- Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.852) có `qos=` / `sessionQos=` để kiểm trên máy.
-- Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.854).
+- Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.881) có `qos=` / `sessionQos=` để kiểm trên máy.
+- Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.883).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
 
-## [1.3.854] - 2026-11-11
+## [1.3.883] - 2026-11-11
 
 ### feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng
 
@@ -75,11 +87,11 @@ Anh Bửu nghe Turbo trên truyện thật ở tốc độ phát **1,4×**: Minh
 - Màn thử › Đọc liên tục (Turbo): Picker QoS utility / userInitiated (`VieNeuTurboLab.turboQoS`, chỉ cho lượt đo); "Đọc thử một lần" cũng theo lựa chọn này. Mỗi dòng đoạn ghi "QoS tổng hợp …" đo được; mô tả engine ghi QoS đã chọn; chú thích "Nghe ở 1,4× cần RTF dưới 0,71".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
 
-## [1.3.853] - 2026-11-11
+## [1.3.882] - 2026-11-11
 
 ### fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo
 
-Rà soát độc lập (agent) cả đợt 1.3.849–1.3.852 trước khi build lần đầu: không thấy lỗi biên dịch chắc chắn, có 4 lỗi logic — sửa cả 4.
+Rà soát độc lập (agent) cả đợt 1.3.878–1.3.881 trước khi build lần đầu: không thấy lỗi biên dịch chắc chắn, có 4 lỗi logic — sửa cả 4.
 
 - **Xoá model Nano xoá luôn `sea_g2p.bin`** — bộ phiên âm dùng chung với Turbo ⇒ model hiệu lực lật về Nano (vừa bị xoá), trình đọc đang chọn Turbo hỏng ngầm, mỗi đoạn lỗi thiếu model. `VieNeuModelStore.deleteAll` nay giữ `sea_g2p.bin` khi máy còn model Turbo.
 - **Đua ở màn thử**: lượt trả engine Nano về cấu hình người dùng (`endNanoOverride`) chạy Task không giữ lại, có thể chặn vài giây rồi nhả Turbo / xoá ghi đè luồng chen vào lượt "Đọc thử" hay "Đọc liên tục" vừa bấm. Nay giữ ở `nanoRestoreTask`, hai lượt đó chờ nó xong mới chạy.
@@ -88,7 +100,7 @@ Rà soát độc lập (agent) cả đợt 1.3.849–1.3.852 trước khi build 
 - Bỏ cảnh báo kết quả không dùng (`_ = await Task.detached { … }.value`).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Lượt CI kế tiếp là lần biên dịch đầu của cả đợt; chưa thử máy.
 
-## [1.3.852] - 2026-11-11
+## [1.3.881] - 2026-11-11
 
 ### feat: Nano đo riêng vòng Euler, codec, text; màn thử chọn luồng/QoS cho Nano và chia sẻ file kết quả
 
@@ -100,13 +112,13 @@ Anh Bửu duyệt P0 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vi
 - **Chia sẻ file thay sao chép**: hai nút "Sao chép số đo" / "Sao chép kết quả đọc liên tục" ⇒ **"Chia sẻ file … (.txt)"** (`VieNeuTurboReportFile`, dựng lúc bấm như `ThermalCSVExport`): đầu file có bản app, mã máy, giờ, nhiệt; file đọc liên tục có tổng kết + mọi phút + **mọi** đoạn (màn chỉ hiện 40 đoạn gần nhất).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
 
-## [1.3.851] - 2026-11-11
+## [1.3.880] - 2026-11-11
 
 ### fix: màn thử Turbo dừng trình đọc đang dùng Turbo trước khi xoá model
 
 - Màn thử Turbo và trình đọc dùng chung runtime: "Xoá model" lúc trình đọc đang đọc bằng Turbo nay dừng TTS trước (như khi màn thử giành âm thanh), thay vì nhả runtime + xoá file dưới chân trình đọc đang phát.
 
-## [1.3.850] - 2026-11-11
+## [1.3.879] - 2026-11-11
 
 ### feat: VieNeu Turbo thành trình đọc cạnh Nano trong Cài đặt TTS
 
@@ -119,11 +131,11 @@ Phần giao diện của đợt B, đúng mockup anh Bửu đã duyệt.
 - "Cấu hình giọng nói" khi chọn Turbo: ẩn "Tốc độ tổng hợp (VieNeu)", thay chú thích "Turbo luôn tổng hợp ở tốc độ gốc…"; Tốc độ > 1,4× ⇒ cảnh báo cam "Turbo theo kịp tới khoảng 1,4×. Ở 1,6× có thể hụt tiếng…" (ngưỡng `VieNeuTurboTTSService.realtimeSpeedLimit`, từ RTF ~0,70 đo trên máy). "Đặt lại" không đụng tốc độ tổng hợp của Nano khi đang chọn Turbo.
 - "Tải trước dữ liệu" giữ nguyên, dùng chung cho hai model. Dòng "Nghe truyện (TTS)" ở Cài đặt ghi "VieNeu Turbo" khi đang chọn Turbo.
 
-## [1.3.849] - 2026-11-11
+## [1.3.878] - 2026-11-11
 
 ### feat: engine VieNeu Turbo cho trình đọc truyện (chọn model Nano/Turbo, khoá cache theo model, nhả model không dùng)
 
-Đợt B của Turbo GGUF (anh Bửu duyệt mockup, artifact "VieNeu Turbo trong Cài đặt TTS"). Phần engine; giao diện ở 1.3.850. Viết ở session con, cherry-pick sang `feature/vieneu-turbo-gguf`.
+Đợt B của Turbo GGUF (anh Bửu duyệt mockup, artifact "VieNeu Turbo trong Cài đặt TTS"). Phần engine; giao diện ở 1.3.879. Viết ở session con, cherry-pick sang `feature/vieneu-turbo-gguf`.
 
 - `tool` vẫn là `"vieneu"` (không thêm chuỗi engine mới); model lưu ở khoá `vieneuModel` qua `VieNeuModelChoice`. Model hiệu lực chỉ là Turbo khi bản build có audio.cpp và máy đủ GGUF + manifest giọng + `sea_g2p.bin`, thiếu thì trình đọc rơi về Nano.
 - `VieNeuTurboTTSService` (mới, `LocalTTSEngine`): `TTSManager.localEngine` trả nó khi chọn Turbo. Đi qua `PiperSynthesisCoordinator` như Nano; tiền xử lý bằng `VieNeuTurboTextFrontend` (số/ngày, tiếng Nhật theo cờ VieNeu, sea-g2p); `VieNeuTurboRuntime` CPU 2 luồng cố định; trả WAV mono 48 kHz + khoảng lặng đuôi theo ranh giới (1×) + `pcmDuration` + `synthesisMs`. Không có tốc độ tổng hợp (luôn 1×). Đoạn không đọc được / phiên âm rỗng ⇒ im lặng 48 kHz. Kiểm huỷ trước lượt audio.cpp (không huỷ được giữa chừng). Giọng chưa có file thì tải cặp file vài KB (gộp lượt tải trùng).
@@ -134,11 +146,11 @@ Phần giao diện của đợt B, đúng mockup anh Bửu đã duyệt.
 - `[VieNeuTurbo] Đoạn:` mỗi đoạn: ms phiên âm / audio.cpp / tổng hợp, giây tiếng, RTF, CPU/tiếng, nhiệt, RAM. Dòng ❌ khi lỗi cấp phát ghi rõ "đang dựng lại session và thử lại đoạn này"; lỗi khác giữ như cũ.
 - Màn thử Turbo có thêm số byte đang tải + lỗi tải riêng (cho hàng tải ở Cài đặt TTS).
 
-## [1.3.848] - 2026-11-11
+## [1.3.877] - 2026-11-11
 
 ### fix: Turbo GGUF hết lỗi thiếu bộ nhớ khi nạp prompt (vá audio.cpp tái sử dụng bộ nhớ, tự thử lại)
 
-Anh Bửu đo 1.3.847 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng, nghe hay hơn Nano — nhưng đoạn thứ 36 lỗi `audiocpp_session_run lỗi: runtime error — failed to allocate VieNeu-TTS talker prefill graph`. Anh duyệt: *"sửa A trước rồi đo lại lần nữa"*.
+Anh Bửu đo 1.3.876 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng, nghe hay hơn Nano — nhưng đoạn thứ 36 lỗi `audiocpp_session_run lỗi: runtime error — failed to allocate VieNeu-TTS talker prefill graph`. Anh duyệt: *"sửa A trước rồi đo lại lần nữa"*.
 
 - **Nguyên nhân** (đọc mã audio.cpp `v0.9.4`, `talker.cpp:1212`): `TalkerPrefillGraph` — bước nạp prompt (phiên âm + mã giọng tham chiếu) qua 12 lớp — gọi `ggml_backend_alloc_ctx_tensors`, tức cấp phát **riêng** cho mọi tensor trung gian của cả 12 lớp (điểm attention S×S, MLP…), không tái sử dụng; graph dựng lại mỗi khi độ dài prompt đổi (gần như mỗi đoạn). Đoạn hỏng chính là đoạn đầu của vòng 2 — vòng 1 vẫn chạy được ⇒ không phải đoạn quá dài mà lúc đó app còn ít bộ nhớ trống.
 - **Vá audio.cpp lúc build** (`Scripts/ci/audiocpp_patches/vieneu_prefill_gallocr.py`, gọi từ `build_audiocpp_ios.sh`; sửa theo mốc chuỗi cố định, mốc lệch ⇒ build đỏ): đầu vào + K/V từng lớp + hidden + logits nằm ở context nhỏ riêng cấp phát cố định (kết quả được `ggml_cpy` sang), mọi tensor trung gian còn lại do `ggml_gallocr` cấp phát có tái sử dụng. Phép tính giữ nguyên.
@@ -147,7 +159,7 @@ Anh Bửu đo 1.3.847 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng
 - **Đo bộ nhớ**: `ProcessMemoryProbe` (mới, `Services/Diagnostics/`) — `phys_footprint` (số iOS dùng để giết app) + `os_proc_available_memory()`. Mỗi dòng đoạn của "Đọc liên tục" (màn + log) thêm "RAM … MB · trống … MB"; lỗi, dựng session, thử lại đều ghi kèm. audio.cpp `v0.9.4` (ABI 0.2) chưa có `audiocpp_log_set` nên chưa lấy được log của ggml.
 - **Kiểm chứng:** script vá chạy thử trên bản audio.cpp `v0.9.4` tải về (mốc khớp, chạy lần hai tự bỏ qua); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**; job parity trên CI là bằng chứng không đổi tiếng. Chưa thử máy.
 
-## [1.3.847] - 2026-11-11
+## [1.3.876] - 2026-11-11
 
 ### fix: màn thử VieNeu Turbo đo Turbo và Nano cùng mức ưu tiên luồng, dừng khi bị ngắt âm thanh
 
@@ -158,11 +170,11 @@ Anh Bửu đo 1.3.847 trên máy: Turbo 2 luồng RTF 0,71, không hụt tiếng
 - `build-ipa.yml` build IPA cho nhánh `feature/vieneu-turbo-gguf` (IPA chỉ gửi Telegram; nguồn LiveContainer vẫn chỉ lấy từ `main`).
 - **Kiểm chứng:** đọc code; `check_architecture.py` **0 mới**. Lượt CI của nhánh là lần biên dịch đầu; chưa thử máy.
 
-## [1.3.846] - 2026-11-11
+## [1.3.875] - 2026-11-11
 
 ### feat: màn thử VieNeu Turbo GGUF qua audio.cpp (đo RTF, CPU, nhiệt)
 
-Phần Swift của bước thử Turbo GGUF (anh Bửu duyệt "làm thử trên nhánh mới"), dùng `AudioCpp.xcframework` của 1.3.845. Viết ở session con, cherry-pick sang nhánh `feature/vieneu-turbo-gguf`.
+Phần Swift của bước thử Turbo GGUF (anh Bửu duyệt "làm thử trên nhánh mới"), dùng `AudioCpp.xcframework` của 1.3.874. Viết ở session con, cherry-pick sang nhánh `feature/vieneu-turbo-gguf`.
 
 - Màn **Thử VieNeu Turbo (GGUF)** mở từ Cài đặt VieNeu TTS (hàng "Thử VieNeu Turbo (GGUF) — thử nghiệm", không cần model Nano): tải model GGUF q8_0 chính thức (`pnnbao-ump/VieNeu-TTS-v3-Turbo`, ghim revision `61b85e3d`, đúng 187.917.664 byte, tiến độ theo byte) + manifest 25 giọng + cặp file của giọng (`ref_codes.txt`, `speaker.emb.txt`, tải khi dùng lần đầu). `sea_g2p.bin` dùng chung với Nano; máy chưa có thì tải đúng nguồn ghim sha của `VieNeuModelClient`. Thư mục riêng `Application Support/FreeBook/TTS/VieNeuTurbo/` (màn Dung lượng đã tính trong "Giọng đọc & từ điển TTS"). Nút xoá model Turbo giữ `sea_g2p.bin`.
 - `VieNeuTurboRuntime` bọc C API audio.cpp (`import AudioCpp`, header tag `v0.9.4` — ABI 0.2.0): registry → model (`family_hint = vieneu_v3_turbo`) → session CPU N luồng; mọi lời gọi trên một hàng đợi tuần tự, `audiocpp_last_error` đọc ngay trên cùng luồng; nạp model một lần, đổi số luồng chỉ dựng lại session; nhả khi rời màn. Bản build thiếu framework ⇒ `#if canImport(AudioCpp)` ném "Bản build này chưa có audio.cpp".
@@ -171,7 +183,7 @@ Phần Swift của bước thử Turbo GGUF (anh Bửu duyệt "làm thử trên
 - **Đọc liên tục (đo nhiệt)**: lặp văn bản dài (mẫu ~2.600 chữ tự viết, hoặc dán), cắt ≤ 150 ký tự bằng `NghiUtteranceSegmenter`, tổng hợp trước tối đa 2 đoạn, phát nối tiếp (lúc hụt tiếng phát vòng lặng để khoá màn vẫn chạy); ghi từng đoạn + tổng kết mỗi phút (giây tiếng, CPU-s, CPU/tiếng, số lần hụt, nhiệt) lên màn và log `🎙️ [VieNeuTurbo]`. Chọn được **Nano** (qua `VieNeuTTSService.synthesizeWithDuration`, tốc độ 1×, không sửa engine) để so cùng văn bản, cùng máy. Bắt đầu đọc thì dừng TTS chính, giành `AVAudioSession` `.playback`.
 - **Kiểm chứng:** đọc code — mọi chỗ gọi C API khớp `audiocpp.h` tag `v0.9.4` (handle `OpaquePointer`, `audiocpp_status`, struct cấu hình dựng trong `withCString`, con trỏ kết quả mượn được chép trước khi free); chữ ký các API sẵn có (`VieNeuTTSService.synthesizeWithDuration`, `NghiUtteranceSegmenter.expand`, `SeaG2P(binURL:)`, `VieNeuJapanesePreprocessor.applyUsingStoredFlags`, `TTSManager.stop()`) khớp; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa biên dịch tại chỗ (Windows), chưa thử máy.
 
-## [1.3.845] - 2026-11-11
+## [1.3.874] - 2026-11-11
 
 ### ci: dựng audio.cpp cho iOS thành AudioCpp.xcframework để thử VieNeu Turbo GGUF
 
@@ -182,317 +194,291 @@ Anh Bửu duyệt bước thử chạy VieNeu-TTS **v3 Turbo** bằng file GGUF 
 - **`project.yml`**: link + embed `Vendor/AudioCpp/AudioCpp.xcframework`. Trên Mac muốn generate project thì chạy script trước.
 - **Kiểm chứng:** chưa — Windows không build được; lượt CI `audiocpp-ios.yml` là lần biên dịch đầu.
 
-## [1.3.844] - 2026-11-11
+## [1.3.873] - 2026-11-11
 
-### feat: mục lục truyện tranh có nút dịch lại tên chương như Reader
+### feat: mọi sheet và popup dùng nền kính, ô mờ như sheet hub, độ đục thấp nhất 20%
 
-Anh Bửu: *"nếu dùng title_trans thì nên thêm nút dịch lại tên chương như reader"*.
+Anh Bửu: "sửa nền các loại sheet như các sheet gần đây", "như hub, nút + kệ sách… hạn chế mức thấp nhất độ đục là 20% nhé", "mấy pop up như bật tắt dịch cũng vậy nhé" (đã duyệt mockup + plan).
 
-- Nút **Dịch lại tên chương** (icon dịch 14 pt, khung 32×32, cạnh nút kệ / tải — như mục lục Reader) ở header mục lục truyện tranh; chỉ khi truyện đã lưu (có `Book`, mục lục nằm trong `ChapterStore`) — truyện chưa lưu không có `title_trans`, tên chương vốn dịch thẳng.
-- Bấm ⇒ đúng hàm của Reader / Kệ: `BookActionRunner.retranslateChapterTitles(for:)` (từ điển chưa nạp ⇒ báo lỗi; dịch lại mọi tên chương kể cả dòng nhóm bằng `translateChapterTitle`, ghi `title_trans`, toast).
-- Xong ⇒ thông báo `chapterTitlesDidRetranslate` (đã có) ⇒ `ComicReaderView` gọi `ComicReaderViewModel.reloadStoredTitleTranslations()` (mới, file `+TitleTranslation`: nạp lại `titleTrans` từ `ChapterStore`, bỏ tên dịch cũ) rồi dịch lại tên đang hiện ⇒ mục lục và thanh trên đổi ngay.
-- `CLAUDE.md` / `AGENTS.md`: mục màn đọc comic (mục lục 1.3.843–844).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: sửa một name có trong tên chương ⇒ bấm Dịch lại tên chương ⇒ toast xong, mục lục + tên chương ở thanh trên đổi theo.
-
-## [1.3.843] - 2026-11-11
-
-### perf: mục lục truyện tranh dựng hàng một lần và giữ dòng nhóm khi tìm hay đảo thứ tự
-
-Anh Bửu: *"vì sao mở danh sách chương ở commic hiển thị lâu vậy?"*, *"xem cách hiển thị khác gì danh sách chương của reader"*, *"nếu có group thì vẫn nên để group"*.
-
-- **Nguyên nhân có khả năng (đọc code, so với mục lục Reader; chưa đo trên máy):** mỗi lượt vẽ, `ComicChapterListSheet` lọc / đảo / đánh số **cả** mục lục trên main; mỗi hàng bọc `Group { if dòng nhóm … else hàng chương … }` (Reader ghi rõ kiểu bọc này có thể buộc `List` dựng mọi hàng để đếm); không có vỏ chặn vẽ lại nên mỗi lượt vẽ của màn đọc (ảnh tải xong, dịch xong tên chương…) kéo cả mục lục tính lại; tìm thì lọc toàn bộ trên main mỗi phím.
-- `ComicChapterListRows` (mới, hàm thuần): dựng hàng + số thứ tự **một lần** mỗi khi mục lục / ô tìm / thứ tự / công tắc "Hiện số thứ tự" đổi (`.task(id:)`); mục lục > 400 dòng dựng ngoài main kèm vòng xoay, lượt mới huỷ lượt cũ.
-- **Dòng nhóm luôn giữ** (trước đây ẩn khi tìm hoặc xếp giảm dần): mục lục chia nhóm theo thứ tự gốc; giảm dần ⇒ đảo thứ tự nhóm và chương trong nhóm, tiêu đề vẫn trên chương của nó; tìm ⇒ giữ tiêu đề trên các chương khớp của nhóm (tiêu đề tự khớp ⇒ giữ cả nhóm, nhóm không còn gì ⇒ ẩn). Số thứ tự vẫn theo mục lục đầy đủ.
-- `ComicChapterListRow` (mới): một kiểu hàng cho mọi phần tử (dòng nhóm hoặc chương, cùng dáng như trước); nền hàng / màu vạch gắn ở `List`.
-- `ComicChapterListHost` (mới): vỏ không trạng thái `.equatable()` như `ReaderChapterListHost` (`==` so mục lục, chương đang đọc, chương đã tải, bật dịch, `Book` theo identity, launch, thứ tự).
-- Log `📚 [ComicTOC] Mở mục lục N dòng (M hiện): có hàng sau X ms` (bật log) để đo trên máy.
-- `ComicTranslationStatus` nhận thêm `sourceName` / `definitionRequest` (chuyển từ `ComicReaderView`, giữ file đó dưới 400 dòng).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) mở mục lục truyện dài — xem log `📚 [ComicTOC]`; (2) truyện có nhóm: đảo thứ tự, tìm — tiêu đề nhóm vẫn đúng chỗ; (3) gõ tìm liên tục không giật; (4) cuộn tới đúng chương đang đọc khi mở.
-
-## [1.3.842] - 2026-11-11
-
-### fix: đọc lại từ đầu chương thì trang cũng về đầu chương và tự cuộn theo
-
-Rà lại 1.3.841 trước khi đẩy: người bấm nút tai nghe giữa lúc nghe thường đang ở giữa chương, hay đã tự kéo trang (kéo trang lúc TTS đọc ⇒ tắt tự cuộn theo highlight, chỉ lệnh nhảy của widget bật lại). Chọn "Đọc lại từ đầu chương" khi đó thì tiếng đọc về tên chương nhưng trang đứng yên giữa chương và không đi theo nữa.
-
-- `ReaderView+TTSSameChapterPrompt`: sau khi đọc lại từ đầu chương ⇒ bật lại tự cuộn (`reenableTTSAutoScrollFromWidgetJump`) rồi cuộn tới đầu chương (`ScrollTarget` đoạn -1 ⇒ `ReaderScrollCoordinator` cuộn tới mốc `chapter-N`; tên chương không có highlight nên tự cuộn không tự kéo tới). Reader đã sang chương khác trong lúc sheet mở ⇒ mở lại chương được hỏi.
-- "Đọc từ đoạn đang xem" giữ đúng hành vi cũ (đoạn đó đang trên màn hình).
-- Nhãn trợ năng của nút tai nghe: bỏ "Dừng đọc thành tiếng" (nút không dừng đọc, giờ mở sheet hỏi) ⇒ luôn "Đọc thành tiếng". Chuyển `[1.3.812]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: đang nghe giữa chương, kéo trang đi, bấm tai nghe → "Đọc lại từ đầu chương" ⇒ trang về đầu chương và cuộn theo đoạn đang đọc.
-
-## [1.3.841] - 2026-11-11
-
-### feat: bấm nút tai nghe trúng chương đang phát thì hỏi đọc tiếp, đọc từ đoạn đang xem hay đọc lại từ đầu chương
-
-Anh Bửu: *"nếu như bấm nút nghe truyện mà chương được bấm nghe cũng đang phát thì hãy hiển thị message hỏi"*; chê hộp thoại giữa màn của iOS (*"màn hỏi hơi xấu"*), chọn kiểu sheet kính.
-
-- **Trước đây**: nút tai nghe nổi của Reader, khi TTS đang phát đúng chương đó, dừng phiên rồi đọc lại từ **đoạn trên cùng màn hình** ⇒ bấm nhầm là mất chỗ đang nghe.
-- **Giờ**: TTS **đang phát** đúng truyện + đúng chương mà nút sắp đọc (chương của đoạn trên cùng màn hình, tính như cũ) ⇒ mở sheet `ReaderTTSSameChapterSheet` (mới), chưa đụng phiên TTS. Khuôn `TTSQuickControlSheet`: nền kính ngăn kéo, cao vừa nội dung, vuốt xuống để đóng (không nút Huỷ). Hàng đầu: đĩa bìa xoay + tên truyện + tên chương + nhãn "Đang đọc" / "Tạm dừng". Ba hàng:
-  - **Đọc tiếp chỗ đang đọc** — không dựng lại phiên; trang về đoạn đang đọc + bật lại tự cuộn (cùng đường nhảy của widget, tách thành `jumpToPlayingTTSPosition` dùng chung với `navigateReaderToPlayingChapter`); tạm dừng giữa lúc sheet mở ⇒ phát tiếp; phiên đã tắt ⇒ đọc từ đoạn đang xem.
-  - **Đọc từ đoạn đang xem** — đúng hành vi cũ (đoạn chụp lúc bấm, vì TTS vẫn đọc và trang vẫn tự cuộn khi sheet mở).
-  - **Đọc lại từ đầu chương** — chunk đầu (tên chương nếu TTS đọc tên chương).
-- **Không đổi**: tạm dừng mà đoạn đang dừng còn trên màn hình ⇒ phát tiếp ngay; tạm dừng đã kéo trang đi / chương khác / truyện khác ⇒ đọc từ đoạn trên cùng màn hình; "Nghe" của menu bôi đen đọc ngay chỗ đã bôi. Ngoài Reader không có lối nào bắt đầu đọc một chương (Chi tiết, Kệ, widget, hub chỉ phát tiếp / dừng / mở Reader).
-- Sheet gắn neo `.blocker` ⇒ đĩa nghe góc dưới ẩn trong lúc sheet mở (không thì đè lên hàng cuối). Đĩa nổi (cửa sổ riêng) vẫn có thể che sheet như mọi sheet khác của Reader.
-- Logic nút tai nghe chuyển từ `ReaderView+Controls` sang `ReaderView+TTSSameChapterPrompt` (mới); `ReaderView` thêm 2 `@State` (yêu cầu đang hỏi + chiều cao sheet đo được) và gắn sheet ở tầng sheet gốc. Chuyển `[1.3.811]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) đang nghe, bấm tai nghe ở chương đang đọc ⇒ hiện sheet, ba lựa chọn làm đúng; (2) kéo trang đi rồi chọn "Đọc tiếp" ⇒ trang về đoạn đang đọc và tự cuộn lại; (3) chương khác / đang tạm dừng ⇒ không hỏi như cũ; (4) kiểu widget Đĩa góc dưới ⇒ đĩa ẩn khi sheet mở, hiện lại khi đóng.
-
-## [1.3.840] - 2026-11-11
-
-### fix: phụ đề cứng ghép chữ đúng kiểu phụ đề Trung, dịch theo công tắc dịch của phim, thêm Từ điển truyện vào trình phát
-
-Anh Bửu thử 1.3.830: *"Dịch phụ đề cứng … ra nghĩa gì tầm bậy nhìn không hiểu"*, *"vì sao cùng OCR mà commic đúng còn video sai?"*, rồi *"áp dụng bật tắt dịch và từ điển như truyện tranh và truyện chữ luôn nhé"*; chốt **giữ công tắc "Đọc phụ đề cứng"**, còn dịch thì theo bật/tắt dịch.
-
-- **Nguyên nhân dịch tầm bậy** (cùng Vision + VietPhrase với truyện tranh, khác ở khâu ghép chữ trước khi dịch): (1) xoá mọi khoảng trắng, trong khi phụ đề Trung dùng **dấu cách thay dấu phẩy** ⇒ hai vế dính nhau; (2) mảnh cùng hàng xếp theo chiều dọc và chỉ giữ 2 mảnh cuối ⇒ đảo vế / rơi vế; (3) dịch từng hàng thay vì cả câu. `VideoHardSubtitleRecognizer` giờ: khoảng trắng giữa hai chữ Hán ⇒ `，` (cạnh dấu câu toàn khổ ⇒ nối liền, chữ Latin ⇒ dấu cách); mảnh gom theo hàng (chồng dọc ≥ 50% mảnh thấp hơn), trong hàng xếp trái → phải; bỏ mảnh sát mép (tâm ngang ngoài 5–95%) và mảnh không có chữ Hán; hàng cần ≥ 2 chữ Hán, tâm 15–85%; hàng dưới cùng + hàng gần nhất ngay trên nối thành **một câu**, hàng bắt đầu bằng gạch ngang (thoại hai người) giữ xuống dòng.
-- **Dịch theo công tắc dịch của phim** như truyện chữ / truyện tranh / phụ đề mềm: `VideoHardSubtitleEngine+Translation` (mới) dùng `MediaCaptionTranslator.prepare` (phim này > nguồn > nguồn tự khai tiếng Trung > toàn cục; phồn→giản theo phim / nguồn — bỏ "luôn phồn→giản" của 1.3.830) + `MediaCaptionTranslator.translate`. Phim tắt dịch hoặc kiểu "Gốc" ⇒ engine ngưng đọc (không có gì để phủ, đỡ pin), lớp phủ không vẽ, phụ đề mềm hiện lại (`VideoPlayerStage` chỉ ẩn phụ đề mềm khi đang đọc **và** đang dịch). Đổi cấu hình dịch / từ điển / rule (ba thông báo có sẵn: `TranslationConfigStore.didChangeNotification`, `.translationDictionariesDidUpdate`, `.quickTranslationRulesDidUpdate`) ⇒ dựng lại `Pass`, xoá đệm, dịch lại câu đang hiện. Engine tách phần dịch sang file `+Translation` để file chính dưới 400 dòng.
-- **Ngăn kéo `⋯`** của trình phát: công tắc đổi tên **"Đọc phụ đề cứng"** (khoá cũ `videoHardSubtitleOCRByPackage` giữ nguyên). Đang đọc ⇒ hàng "Phim đang tắt dịch" (khi phim tắt dịch, mở sheet "Dịch phụ đề") + lưới **Gốc / Bản dịch / Song ngữ** (cùng khoá `videoSubtitleDisplayMode` với phụ đề mềm; Song ngữ = bản dịch + chữ Trung OCR nhỏ bên dưới để đối chiếu). Hàng "Dịch phụ đề" hiện cả khi chỉ đọc phụ đề cứng; thêm **"Từ điển truyện"** (`VideoBookDictionarySheetModifier` mới, `BookDictionaryView` dạng sheet theo `bookId` của phim — phim đang phát luôn có `Book` ẩn; đóng ⇒ dịch lại phụ đề mềm).
-- Lớp phủ (`VideoHardSubtitleOverlay`) vẽ theo kiểu hiển thị, câu không có bản dịch ⇒ không vẽ. Log mỗi câu mới `🔤 [VideoOCR] «chữ Trung» ⇒ «bản dịch»` (theo công tắc log).
-- Chưa làm: chạm phụ đề mở màn Dịch (dùng lại sheet của truyện tranh, để sau); giảm trễ / nhớ câu theo thời điểm / quét trước tập đã tải (chờ anh chốt). Không đọc trước được khung của luồng đang phát.
-- `CLAUDE.md` / `AGENTS.md`: viết lại gạch "Đọc phụ đề cứng (OCR)". Chuyển `[1.3.810]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`VideoHardSubtitleEngine.swift` 361 dòng, `VideoPlayerScreen.swift` 385, `VideoPlayerTopBar.swift` 356). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim có phụ đề Trung tách vế bằng dấu cách — bản dịch đọc hiểu được, đặt Song ngữ để so chữ Trung OCR với chữ trong phim; (2) tắt dịch ở sheet "Dịch phụ đề" ⇒ lớp dịch biến mất, phụ đề mềm (nếu có) hiện lại, bật lại ⇒ dịch ngay; (3) thêm name ở "Từ điển truyện" ⇒ câu đang hiện đổi theo; (4) gửi log `🔤 [VideoOCR]`.
-
-## [1.3.839] - 2026-11-11
-
-### feat: chọn bộ dịch tiện ích và ngôn ngữ trong popup dịch, màn cấu hình tiện ích dịch có model, kiểu dịch, dịch thử
-
-Phần C (giao diện) của plan tiện ích dịch truyện, gộp commit gốc và bản sửa theo review phản biện. Bộ dịch chỉ chọn ở popup dịch, không thêm vào Cài đặt (anh Bửu chốt).
-
-**Popup dịch** (`TranslationScopePopupView`: header Reader, Chi tiết, menu Khám phá). Thứ tự: Dịch văn bản → PHẠM VI ÁP DỤNG → **BỘ DỊCH** → **NGÔN NGỮ** → hàng báo QT thay thế → Lưu lại.
-- **Bộ dịch** (`TranslationEnginePickerSection`, mới):
-  - Danh sách xổ tại chỗ, có icon. Không dùng `Menu` hệ thống vì iOS đặt ảnh cuối dòng và tô một màu.
-  - Thứ tự: "Theo cấp trên (…)" (chỉ ở phạm vi Truyện này / Nguồn này; tiện ích cấp trên đã gỡ ⇒ ghi "đã gỡ — đang dùng QT") → "QT (VietPhrase, có sẵn)" với icon app → tiện ích dịch đã cài.
-  - Chưa cài tiện ích dịch nào ⇒ dòng "Chưa cài tiện ích dịch nào".
-- **Ngôn ngữ** (`TranslationLanguagePickerRow`, mới):
-  - Ô Dịch từ → Dịch sang theo `language.js`, có "Tự nhận" nếu tiện ích hỗ trợ. Dòng phụ ghi model · kiểu dịch.
-  - Đang đọc ⇒ vòng xoay; lỗi ⇒ chữ đỏ + "Thử lại".
-  - QT ⇒ hai ô mờ, ghi "QT chỉ dịch Trung → Việt".
-- **Bản nháp** (`TranslationEngineDraft`, mới): mỗi phạm vi một bản nháp, nhớ cặp ngôn ngữ theo từng tiện ích. Chọn tiện ích mới ⇒ cặp mặc định (Trung → Việt nếu có).
-- **Lưu lại**:
-  - Chỉ ghi bộ dịch khi nó thật sự đổi.
-  - Chỉ ghi công tắc bật/tắt khi người dùng gạt nó. Trước bản sửa: đổi phạm vi sang "Nguồn này" để chọn bộ dịch rồi Lưu là tắt dịch cả nguồn.
-  - Khoá khi tiện ích vừa chọn chưa có cặp ngôn ngữ (đang đọc hoặc đọc lỗi).
-- **Báo QT thay thế** (`TranslationFallbackNoticeRow`, mới): dùng chung chữ với dải báo đầu chương, có nút "Thử lại".
-- **Ẩn ở truyện tranh**: tham số `showsEngineSection`; `ComicReaderChromeView` truyền `false` vì bộ dịch tiện ích không áp cho truyện tranh.
-
-**Nút dịch** (`ReaderTranslationScopeMenuView`): nhận `chapterIndex`. Chương đang hiện có báo QT thay thế ⇒ chấm cam "!" ở góc dưới phải (chấm xanh/đỏ góc trên giữ nguyên).
-
-**Màn Cấu hình tiện ích loại `translate`** (`ExtensionConfigView+TranslateEngine`, mới):
-- Ẩn nút Trình duyệt / Kiểm tra, mục Duyệt và lịch sử, chặn quảng cáo / chế độ máy tính.
-- Mục **Bộ dịch**: Model / Kiểu dịch, đầu danh sách là "Mặc định của tiện ích"; ghi ngay qua `TranslationExtensionSettingsStore`.
-- Mục **Dịch thử**:
-  - Ngôn ngữ chỉ dùng để thử, không lưu.
-  - Ô nhập (để trống ⇒ dịch câu mẫu).
-  - Nút "Dịch thử" luôn gọi script (`bypassCache`).
-  - Ghi config đang chờ (khoá API) trước khi chạy.
-
-**Tài liệu**: `CLAUDE.md` / `AGENTS.md` thêm đoạn "Bộ dịch bằng tiện ích loại `translate`" ở mục Dịch thuật.
-
-**Kiểm chứng:**
-- Đọc code + 2 agent review phản biện.
-- `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**. 5 file mới; `TranslationScopePopupView` 387 dòng.
-- Không build tại chỗ (Windows), chưa thử máy.
-- Cần thử:
-  1. Xổ / thu danh sách bộ dịch: popover có giãn theo nội dung không.
-  2. Chọn tiện ích ⇒ ngôn ngữ mặc định. Đổi phạm vi ⇒ nạp đúng lựa chọn đã lưu.
-  3. Truyện tắt dịch riêng ⇒ chọn bộ dịch ở "Nguồn này" ⇒ nguồn vẫn bật dịch.
-  4. Chấm cam + hàng báo + Thử lại.
-  5. Dịch thử ngay sau khi nhập khoá API.
-
-## [1.3.838] - 2026-11-11
-
-### feat: dịch nội dung chương bằng tiện ích dịch trong Reader và TTS, báo khi dùng QT thay thế
-
-Phần B của plan tiện ích dịch truyện (lõi 1.3.832 / 1.3.836). Gộp commit gốc và bản sửa theo review phản biện. Bộ dịch là tiện ích ⇒ nội dung chương truyện chữ và tên chương ở header Reader / TTS được dịch bằng tiện ích. Mục lục, Chi tiết, Khám phá, xuất TXT vẫn QT. Phần chọn bộ dịch ở popup là phần C (bản kế).
-
-**Reader**
-- Khi dịch bật và bộ dịch của truyện là tiện ích, `ReaderViewModel+ExtensionTranslation` (mới) gọi `TranslationExtensionChapterTranslator` với đúng các dòng sẽ dựng đoạn và tên chương. Bộ dịch tra lại mỗi lượt dựng qua `TranslationEngineStore.resolve` với `extensionPackageId`.
-- `buildCancellable` nhận bản dịch sẵn theo `line.id`; không có thì chạy QT như cũ. Bản dịch của tiện ích không có span.
-- Bỏ tên chương trùng gom về **một** hàm, `ChapterTextNormalizer.contentLines(of:removingDuplicatedTitle:)` (mới), dùng chung cho Reader, `TTSBackgroundProcessor` và lượt dịch bằng tiện ích. `getTTSChapterContent` trả nội dung chưa bỏ tên trùng, nên không còn bỏ hai lần.
-- **Báo QT thay thế:**
-  - Mỗi lần áp bản dựng, `applyPreparedTranslation` ghi `TranslationFallbackStatusStore`.
-  - Dải báo đầu chương `ReaderTranslationFallbackBanner` (mới): nền cam 14%, icon tam giác, "Đang dịch bằng QT thay thế" + "<tiện ích> lỗi: <lỗi> · N/M đoạn", nút "Thử lại".
-  - Dải vẽ trong `ParagraphCardView` của mục đầu chương (`chapterIndex` + `isChapterStart`). `ReaderView.swift` chỉ sửa tại chỗ.
-- `ReaderExtensionTranslationObserver` (mới):
-  - Đổi bộ dịch / ngôn ngữ / model / kiểu ⇒ chương đang hiện dựng lại.
-  - "Thử lại" ⇒ dựng lại dù generation không đổi.
-- `requestRetry` xoá cache dịch của truyện (cả lỗi đã nhớ) **ngay lúc xin**, để Reader và TTS dịch lại cùng một lượt. "Tải lại chương" cũng xoá cache dịch của truyện.
-- `ParagraphCardView.displayText` hiện `translated` cả với dòng không có chữ Hán: tiện ích dịch được cả truyện tiếng Anh, và TTS đọc đúng chữ đó. Đường QT không đổi vì dòng không có chữ Hán có `translated == original`.
-
-**TTS**
-- 4 chỗ gọi `processChapter` đi qua `TTSExtensionTranslationPreparer.processChapterWithEngine` (mới).
-  - Có snapshot hợp lệ của Reader thì dùng y, kể cả tên chương (`TTSPretranslatedSnapshot.originalTitle` / `translatedTitle`).
-  - Không có thì dịch bằng translator rồi dựng snapshot.
-  - Lượt chuẩn bị sẵn không bao giờ tự gọi tiện ích.
-- TTS tra bộ dịch và công tắc dịch theo đúng `packageId` của Reader (`translationPackageId`; TXT tự nhập là `"local"`). Giá trị này đi theo khoá nạp trước chương kế.
-- `TTSExtensionTranslationObserver` (mới):
-  - Đổi bộ dịch của truyện đang phát (vân tay: tiện ích + ngôn ngữ + model + kiểu) ⇒ bỏ bản chuẩn bị sẵn, đọc lại chương đang phát từ đầu đoạn đang đọc.
-  - "Thử lại" đúng chương đang đọc cũng vậy (`TTSManager+ExtensionTranslation`, khuôn `updateTranslationSetting`).
-- `TTSTranslationFallbackNotifier` (mới):
-  - TTS phải đọc bản QT ⇒ toast "<tiện ích> lỗi, TTS đọc bản QT thay thế", một lần mỗi chương, **chỉ lúc bắt đầu đọc chương đó** qua `TTSPresentationEventCenter`.
-  - Ẩn khi Reader đã báo cho chương.
-- `TTSPreparedChapter.chapterTitle`: bắt đầu đọc từ bản chuẩn bị sẵn thì không dịch QT lại tên chương.
-
-**Kiểm chứng:**
-- Đọc code, có 2 agent review phản biện. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**: 8 file mới, `TTSManager.swift` 3467 ⇒ 3458, `ReaderView.swift` 1957 ⇒ 1952.
-- Không build tại chỗ (Windows), chưa thử máy.
-- Cần thử:
-  1. Bộ dịch là tiện ích ⇒ chương hiện bản tiện ích, header đúng tên chương.
-  2. Tiện ích lỗi (sai khoá / tắt mạng) ⇒ dải báo; Thử lại khi TTS đang đọc ⇒ Reader và TTS cùng đổi, vệt khớp.
-  3. Đổi model / ngôn ngữ khi đang nghe ⇒ TTS đọc lại từ đoạn đang đọc.
-  4. TTS tự sang chương khi Reader đóng mà tiện ích lỗi ⇒ toast một lần.
-  5. Truyện tiếng Anh dịch sang Việt ⇒ vệt highlight khớp cả dòng không có chữ Hán.
-- Rủi ro còn lại:
-  - Tiện ích treo thì Reader kẹt ở khung chờ.
-  - Thử lại xoá cache dịch cả truyện.
-
-## [1.3.837] - 2026-11-11
-
-### feat: chạm khối dịch trong truyện tranh mở màn Dịch của Reader với chữ Trung gốc đã nhận
-
-Anh Bửu: *"khi tôi nhấn vào vùng dịch trong trang đọc commic hãy hiển thị màn hình giống màn hình dịch của reader, đầu vào là đoạn tiếng trung gốc đã OCR"*.
-
-- **Chạm một khối dịch** (trên trang và trong trình xem phóng to) ⇒ sheet **Dịch** = nguyên `ReaderDefinitionOverlayView` của Reader (nền xám đậm, cao vừa nội dung `fittedSheetDetent`, vuốt xuống để đóng), câu gốc = chữ Trung OCR của khối, lúc mở chọn sẵn cả câu. Đủ như Reader: chạm chữ / mũi tên nới thu vùng chọn, nghĩa VP / Hán-Việt, chip gợi ý, ⚙ quản lý nghĩa, lưu Name / VP riêng / chung kèm ghim mặc định (cùng khoá `@AppStorage` với Reader), chip rule + bật tắt / sửa / xoá / chuyển rule, nút `+` thêm rule, tra nhanh bằng công cụ tìm. **Nhấn giữ** khối ⇒ đổi gốc ↔ dịch (chức năng chạm cũ).
-- `ComicDefinitionSheet` (mới, `Views/ComicReader/Definition/`, + `+Selection`, `+Rules`): giữ trạng thái như `ReaderView` và **chép** phần ráp nối của Reader (`ReaderView+Selection` / `+RuleTools` / `+DefinitionLoading` / `+SelectionSheets`, gắn chặt vào trạng thái của `ReaderView`); lõi dùng lại nguyên `ReaderDefinitionOverlayView`, `ReaderDefinitionWorker`, `ReaderDefinitionSession`, `QuickTranslationRuleEditorSheet`, `QuickTranslationRuleMutation`, `TranslationManager.saveCustomEntry`. **Không sửa `ReaderView`.** Câu gốc là bong bóng nên không soi bộ rule tên chương.
-- Trên trang: `ComicTranslationOverlay` chạm ⇒ `onOpenDefinition`, nhấn giữ 0,4 s ⇒ đổi gốc / dịch; sheet gắn ở `ComicTranslationToolsModifier` (`definitionRequest`), mọi sheet của nó đóng ⇒ dịch lại bong bóng + tên chương.
-- Trình xem phóng to: cover giờ là `ComicZoomScreen` (mới) = `ComicZoomViewer` + sheet Dịch của chính nó (sheet phải gắn trong cover). `ComicZoomTranslationLayer`: chạm ⇒ `onTapBlock`, nhấn giữ ⇒ đổi gốc / dịch. Đóng sheet Dịch ⇒ `revision` mới ⇒ trình xem dịch lại lớp của nó (giữ khối cũ tới khi có bản mới).
-- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 395 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm bong bóng ⇒ màn Dịch đúng câu gốc; (2) chạm một chữ / mũi tên đổi cụm, nghĩa đổi theo; (3) lưu một name ⇒ sheet đóng, bong bóng đang hiện đổi theo (cả trong trình xem phóng to); (4) nhấn giữ đổi gốc ↔ dịch, chạm ngoài khối vẫn bật / tắt thanh, chạm đúp vẫn phóng to.
-
-## [1.3.836] - 2026-11-11
-
-### fix: dịch bằng tiện ích gộp lượt trùng giữa Reader và TTS, nhớ lỗi gần đây, đổi nguồn mang theo bộ dịch
-
-Sửa lõi phần A (1.3.832) theo review phản biện, trước khi nối vào Reader / TTS / giao diện.
-
-- **Gộp lượt trùng** (`TranslationExtensionInflight`, mới). Reader và TTS (hoặc hai lượt nạp trước chương kế) xin dịch cùng các dòng với cùng cấu hình thì chỉ một lượt gọi tiện ích chạy, mọi bên nhận cùng kết quả.
-  - Trước đây hai bên cùng trượt cache, gọi tiện ích hai lần. Với máy dịch kiểu AI, hai lần ra hai chữ khác nhau nên vệt highlight lệch.
-  - Lượt chạy là `Task` riêng: bên cuối cùng rời đi vì huỷ thì lượt bị huỷ theo.
-- **Nhớ lỗi gần đây** (`TranslationExtensionLineCache`, 90 s). Dòng vừa lỗi ở Reader thì TTS cũng lùi QT, không gọi lại rồi ra chữ khác. Đang bị giới hạn lượt thì không gọi dồn. "Thử lại" / tải lại chương xoá luôn phần này.
-- **Thế hệ cache theo từng truyện**: xoá cache của truyện A không còn làm rơi lượt ghi đang chạy của truyện B.
-- **Chia lô**:
-  - Lỗi ở nửa sau không còn làm mất bản dịch của nửa đầu.
-  - `max_length ≤ 0` (hợp đồng: không chia gì) ⇒ lệch số dòng thì cả lô tính lỗi, không chia đôi.
-  - Gặp lỗi gọi tiện ích (không phải lệch dòng) ⇒ dừng gọi tiếp.
-- **Tên chương**:
-  - `title_trans` (bản QT tiếng Việt) chỉ dùng khi tiện ích dịch sang tiếng Việt. Dịch sang ngôn ngữ khác thì hiện tên tiếng Việt là sai.
-  - Nội dung vừa gặp lỗi gọi tiện ích ⇒ tên chương lùi QT luôn, không tốn thêm một lượt gọi.
-- `translateText(_:job:bypassCache:)`: ô Dịch thử luôn gọi script. Lỗi của tên chương cũng được nhớ.
-- `BookSourceMigrator`: Đổi nguồn chép bộ dịch riêng của truyện sang truyện mới và xoá bản của truyện cũ (luật "thêm kho theo `bookId` ⇒ thêm vào cả hai hàm").
+- **Modifier dùng chung** (mới, `Views/Common/GlassChrome/AppGlassSheetModifier.swift`): `.appGlassSheet()` (sheet — nền `DrawerGlassSheetBackground`, bo 16), `.appGlassPopover()` (popup), `.appGlassUIKitSheet()` (sheet trình bày bằng UIKit — kính vẽ bằng `.background`); cả ba ẩn nền danh sách, tông tối, đặt environment `isGlassSheet`. `.glassSheetRows()` cho ô danh sách mờ `Color.primary.opacity(0.08)` (màu dòng của sheet hub) — chỉ có tác dụng trong sheet kính (ngoài sheet kính không ghi `listRowBackground` nào, kể cả `nil`) nên trang thường dùng chung view giữ y nguyên, kể cả dòng tự đặt nền riêng; `.glassAwareBackground(_:)` cho nền đặc tự tô trong view dùng chung (thanh tìm của `SearchView`).
+- **122 chỗ mở sheet** (khoảng 60 loại) bọc `Group { … }.appGlassSheet()` bằng script có kiểm cân bằng ngoặc. Không gắn: sheet chia sẻ / chọn file của hệ thống, bảng mục lục / cài đặt / tra từ / tìm của Reader và truyện tranh (theo nền đọc), trang đăng nhập web, sheet đã có nền riêng (sheet hub, sheet nghe / TTS, sheet kiểu hub, sheet "đang đọc chương này").
+- **114 `List` / `Form`** bọc `Group { … }.glassSheetRows()` dạng gọn (`List { Group {` … `}.glassSheetRows() }`, không thêm dòng — giữ baseline dòng của file legacy). CI lượt đầu đỏ ở hai `List(…) { _, result in` (tham số hai tên nằm dòng dưới `{`, script đặt `Group {` trước tham số) ⇒ sửa tay ở `LegadoCheckReportContent` và `LegadoSourceCheckView`. Bỏ nền đặc tự tô ở `MediaSleepTimerSheet`, `TTSQuickTimerSheet`, `FilterSheet`; ô thông tin `AppUpdateSheet`, thẻ `TTSQuickTimerSheet` và dòng chưa chọn của `DictionaryImportConflictView` dùng màu ô mờ khi ở sheet kính.
+- **5 popup** gắn `.appGlassPopover()`: bật tắt dịch (Reader / truyện tranh, Khám phá), "?" giải thích, bảng khiên và bảng chọn tiện ích của nút "Nhập" ở trình duyệt.
+- **Màn kiểm tra nguồn mở lại bằng UIKit** (`MinimizedSourceCheckCoordinator.reopen`): kính `.appGlassUIKitSheet()`, hosting trong suốt, bo 16.
+- **Độ đục thấp nhất 20%** (`GlassChromeSettings.minimumDrawerFrost` / `effectiveDrawerFrost`): thanh "Độ đục" của Menu ba chấm bắt đầu từ 20%; nền sheet / popup, ngăn kéo `…` và thanh kính trình duyệt kẹp giá trị cũ dưới 20% lên 20%. Giải thích của mục Menu ba chấm ghi rõ mọi sheet / popup dùng chung nền này.
+- `CLAUDE.md` / `AGENTS.md`: luật nền kính cho sheet / popup mới.
 - **Kiểm chứng:**
-  - Đọc code + 2 agent review.
-  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - Không build tại chỗ (Windows), chưa thử máy.
+  - Đọc code + script kiểm cân bằng ngoặc mọi file sửa. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: mở các sheet hay dùng (nhấn giữ truyện, tải / xuất, kiểu hiển thị, bộ sưu tập, playlist, bộ lọc tiện ích, cập nhật app, từ điển, cài đặt TTS, hẹn giờ) ⇒ nền kính bo 16, ô mờ, chữ đọc rõ; popup dịch / "?" ⇒ nền kính; Cài đặt › Giao diện › Menu ba chấm › Độ đục thấp nhất 20%; trang Cài đặt thường, Kệ, Playlist, Dung lượng (không phải sheet) giữ y nền cũ — có đổi là lỗi; nền ô có tới được dòng nằm trong `Section` không (không tới ⇒ ô vẫn xám đặc, chỉ là thẩm mỹ).
 
-## [1.3.835] - 2026-11-11
+## [1.3.872] - 2026-11-11
 
-### fix: chạm đúp xem ảnh truyện tranh lần đầu không còn mở rồi tự đóng
+### feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI
 
-Anh Bửu: *"phần đọc commic lần đầu tap đúp xem ảnh bị lỗi mở rồi tự đóng màn xem ảnh full"*.
+Anh Bửu: "làm cho sheet import từ URL cũng chuyển sheet giống sheet hub vào sheet tác vụ AI", "màn hình thông báo vào kiểm tra nguồn cũng chuyển giống vậy được chứ" (đã duyệt mockup bấm thử + plan).
 
-- **Nguyên nhân (đọc code, chưa thử máy):** trình xem phóng to mở bằng `fullScreenCover(isPresented:)` còn ảnh nằm ở `@State` riêng (`zoomImage`). Lần đầu, SwiftUI dựng nội dung cover bằng giá trị cũ của biến ảnh (vẫn `nil`, vì thân `ComicReaderView` không đọc biến đó) ⇒ rơi vào nhánh dự phòng `Color.black.onAppear { isZoomPresented = false }` ⇒ cover tự đóng. Lỗi có từ khi làm màn đọc truyện tranh, không do 1.3.833 / 1.3.834.
-- **Sửa:** `ComicReaderView` trình bày bằng `fullScreenCover(item:)` với `ComicZoomViewer.Target` (ảnh + yêu cầu ảnh của trang) ⇒ cover nhận đúng ảnh ngay lần đầu; bỏ nhánh tự đóng và hai biến `zoomImage` / `zoomRequest` / `isZoomPresented`. "Đang xem phóng to thì không dọn dẹp màn đọc" (`handleDisappear`) giờ kiểm `zoomTarget != nil`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: chạm đúp ảnh ngay sau khi mở truyện ⇒ trình xem ở lại; đóng rồi mở lại vẫn được; đang xem phóng to, màn đọc không bị ghi tiến độ / giải phóng giữa chừng.
+- **Trang con cho sheet kiểu hub** (`HubStyleActionSheet`): dòng có `page` (`HubStyleActionSheetContent.Page`) ⇒ chạm chuyển trang ngay trong sheet, sheet lên nấc large, tiêu đề giữa + nút ‹ về trang chính (về lại chiều cao vừa nội dung). Đường đóng chung `CloseSheet` (đóng xong mới làm) thay `onSelect`, dùng được cho cả sheet nằm trên viên thuốc lẫn sheet lùi.
+- **Nút ‹ trang con dùng chung** (mới, `SheetPageBackButtonModifier`): environment `sheetPageBack` + `.sheetPageBackButton()` gắn bên trong `NavigationStack` của trang; không có hành động ⇒ không có nút (màn dùng chung mở ở chỗ khác vẫn như cũ).
+- **Kệ › nút "+" › Từ URL** là trang con trong sheet "Nhập truyện" (`ShelfImportURLStep`, ô link tự focus sau 0,35 s). Chọn tiện ích / mở link trong trình duyệt ⇒ sheet đóng xong mới làm (`ShelfView.runImportChoice`). Bỏ sheet "Nhập từ URL" riêng (`ShelfImportSheet`, `showingImportSheet`, `queuedImportChoice`); lựa chọn tách thành `ShelfImportChoice`.
+- **Cửa sổ sheet nhận bàn phím**: `OverlaySheetPresenter` cho cửa sổ phủ nhận key trong lúc có sheet (trước đó không bao giờ key) và trả key cho cửa sổ cũ / cửa sổ chính **trước** khi chạy việc kèm theo. Cửa sổ hub cũng nhận key trong lúc trình bày sheet hub (`FloatingHubWindowManager.setSheetPresented`) để ô nhập / bảng chia sẻ / trình duyệt mở từ trang con nằm đúng cửa sổ.
+- **Hub › Thông báo** là trang con lớn của sheet hub (`FloatingHubSheet.Page.notifications`): `NotificationInboxView` + `.modelContainer`, tiêu đề giữa + nút ‹ khi nằm trong sheet. Chạm một truyện ⇒ sheet đóng rồi mở Reader (`openInboxBook`). Bỏ sheet UIKit riêng `presentInbox` / `openReader` / delegate vuốt-để-đóng. "Mở thẳng khi chỉ có 1 tác vụ" lúc 0 tác vụ ⇒ sheet mở ở trang Thông báo.
+- **Hub › Kiểm tra nguồn** (một lượt, hoặc chọn một trong hai lượt) là trang con lớn (`.sourceCheck`): màn kiểm tra gắn vào lượt đang thu nhỏ dựng qua `MinimizedSourceCheckCoordinator.embeddedPage` / `embeddedScreen`, tiêu đề giữa; nút ‹ thay ⌄ (`SourceCheckHeaderButtons` thôi vẽ ⌄ trong trang con) ⇒ `screenDidClose` rồi về trang chính; vuốt đóng sheet khi đang ở trang này cũng thu nhỏ lượt (`FloatingHubSheetState.didDismiss`). Lượt vẫn chạy nền như trước.
+- `CLAUDE.md` / `AGENTS.md` + `rules.md` (hub (b), (f), luật 25, cửa sổ sheet phủ): luật mới về trang con và nhận key.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: Kệ › "+" › Từ URL ⇒ sheet lớn lên, bàn phím hiện, gõ / dán link, chọn tiện ích ⇒ mở Chi tiết; ‹ về ba dòng. Hub › Thông báo ⇒ trang lớn, ‹ về, chạm truyện ⇒ mở Reader, ngăn kéo … của trang vẫn chạy. Hub › Kiểm tra nguồn khi đang có lượt chạy ⇒ trang lớn theo dõi tiến độ, ‹ về thì dòng hub vẫn "đang chạy", vuốt đóng sheet cũng vậy, Dừng vẫn dừng; mở link lỗi / chia sẻ báo cáo từ trang này hiện trên sheet.
 
-## [1.3.834] - 2026-11-11
+## [1.3.871] - 2026-11-11
 
-### feat: dịch tên truyện trên thanh trên và chữ trong trình xem phóng to của màn đọc truyện tranh
+### feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt
 
-Anh Bửu hỏi màn đọc truyện tranh đã dịch hết các mục khi bật dịch chưa. Javis rà thì còn hai chỗ: tên truyện ở thanh trên hiện nguyên văn, trình xem phóng to không có lớp dịch. Anh chọn sửa cả hai.
+Anh Bửu: "thêm config độ nhô ra các loại viên thuốc", "làm độ trong suốt riêng luôn", "độ đục riêng luôn", "mỗi viên thuốc có độ trong suốt và đục riêng, nhấp nháy cũng theo trong suốt và đục. Cho độ rộng tối thiểu còn hình bán nguyệt" (đã duyệt mockup kéo thử + plan).
 
-- **Tên truyện ở thanh trên** (`ComicReaderChromeView`): dịch bằng `BookDisplayTranslation.title` theo công tắc dịch của truyện — như đầu mục lục truyện tranh và tên truyện ở header Reader.
-- **Trình xem phóng to** (`ComicZoomViewer`): truyện đang bật dịch ⇒ có lớp dịch như trên trang. View được zoom đổi từ `imageView` sang `contentView` (chứa ảnh + lớp dịch, cùng khung) ⇒ khối phóng / cuộn theo ảnh. Khối lấy từ `ComicPageTextRepository` theo yêu cầu ảnh của trang vừa chạm đúp (trúng RAM, không nhận chữ lại) rồi dịch như trên trang; task huỷ khi đóng trình xem.
-- `ComicZoomTranslationLayer` (mới, UIKit): khối = nền + `UILabel`, cỡ chữ đo một lần ở 1× (thu nhỏ dần tới khi vừa khung); zoom xong đặt `contentScaleFactor` của chữ theo mức zoom để vẽ lại sắc nét (trong lúc chụm hai ngón hơi mờ). Chạm khối ⇒ lộ chữ gốc (viền nét đứt màu nhấn), chạm lại ⇒ dịch; chạm khối chờ chạm đúp phóng to thất bại; vùng trống không nhận chạm.
-- `ComicTranslationLayout` (mới): khung, cỡ chữ, màu của lớp dịch — một nguồn cho `ComicTranslationOverlay` (SwiftUI, trên trang) và lớp UIKit của trình xem.
-- `ComicTranslationStatus` (mới): cách tính bật dịch y Chi tiết, chuyển từ `ComicReaderView` ra (file đó về 392 dòng).
-- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh bỏ câu "trình xem phóng to chưa có lớp dịch".
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) chạm đúp một trang đã dịch ⇒ trình xem có đúng các khối, đúng chỗ; (2) phóng 2,5× / 4× chữ có sắc lại sau khi buông tay; (3) chạm khối đổi gốc ↔ dịch, chạm đúp vẫn phóng / thu; (4) tên truyện ở thanh trên đổi khi bật / tắt dịch.
+- **Cài đặt riêng từng viên** (mới, `Views/Common/GlassChrome/EdgePillSettings.swift`): đĩa nghe, hub, nút trình duyệt thu nhỏ — mỗi viên ba khoá `edgePill<Disc|Hub|Browser><Transparency|Frost|Width>` (không dấu chấm): độ trong suốt (mặc định 90%), độ đục (6 nấc `GlassFrostLevel`, mặc định không nhoè), độ nhô (đĩa 26–84 pt mặc định 68; hub / trình duyệt 18–50 pt mặc định 38; bước 2; tối thiểu = nửa chiều cao ⇒ bán nguyệt). Độc lập với "Nút nổi" (nút "+", tai nghe Reader giữ nguyên). Ai đã chỉnh "Nút nổi" khác mặc định thì viên thuốc về mặc định tới khi chỉnh ở mục mới.
+- **Cài đặt › Chung › Giao diện › Viên thuốc nổi** (`EdgePillSettingsSection`, ngay dưới "Nút nổi"): thanh phân đoạn Đĩa nghe / Hub / Trình duyệt, ba thanh kéo của viên đang chọn, "Đặt lại <viên>", công tắc "Xem thử nháy đỏ" và ô xem trước vẽ cả ba viên.
+- **Hình** `EdgePillShape`: vẽ tay bằng cung tiếp tuyến, bán kính = nửa chiều cao ⇒ đúng tới bán nguyệt (bỏ `UnevenRoundedRectangle` và hai hằng `largeSize` / `smallSize`; `contentInset(height:content:)`, `contentPadding(for:)`). Bìa / icon gắn bằng `overlay` đồng tâm đầu bo ⇒ viên hẹp thì lọt ra ngoài mép, không đẩy khung kính.
+- **Kính + độ mờ**: `FloatingGlassBackground(shape:pill:)` và `.floatingIconTransparency(pill:)` đọc khoá của viên; `MediaDiscFaceButton`, `FloatingHubButton`, `VisibleBrowserReopenButton` dùng cài đặt riêng của mình.
+- **Nháy đỏ theo trong suốt + đục**: màu nháy có alpha `1 − trong suốt` của viên, nằm trên lớp kính (độ đục) — hub (`FloatingHubPulseView`: alpha của màu trong `CABasicAnimation`, đổi alpha ⇒ gắn lại cùng pha; layer nháy cắt bằng mặt nạ `EdgePillShape` thay `cornerRadius`) và nút trình duyệt. Không đổi opacity của view. Số tab của nút trình duyệt vẫn rõ.
+- **Đổi ngay khi kéo**: độ nhô đọc lúc chạy (`EdgePillSettings.size(of:)`); container đĩa / hub / trình duyệt nghe `UserDefaults.didChangeNotification` ⇒ tính lại khung (đang kéo bằng tay thì để lượt thả tự đặt).
+- `CLAUDE.md` / `AGENTS.md` + `rules.md` (hub (a): luật mới thay "nền nháy giữ rõ"; sửa câu cũ "sheet hub mở thì nút đã giấu" — từ 1.3.866 nút vẫn hiện).
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: Giao diện › Viên thuốc nổi, kéo từng thanh của từng viên ⇒ viên thật (đang hiện) và ô xem trước đổi ngay; độ nhô nhỏ nhất ⇒ bán nguyệt, bìa / icon ló nửa; kéo / thả viên vẫn bám mép đúng; hub đang nháy ⇒ đỏ mờ theo trong suốt, thấy nhoè khi tăng độ đục; "Đặt lại" chỉ đặt lại viên đang chọn.
 
-## [1.3.833] - 2026-11-11
+## [1.3.870] - 2026-11-11
 
-### feat: dịch ảnh truyện tranh theo công tắc dịch của truyện, thêm nút dịch, Cài đặt dịch và Từ điển truyện vào màn đọc
+### feat: nút + của Kệ sách mở sheet Nhập truyện kiểu hub, Từ URL thành sheet riêng
 
-Anh Bửu: *"thêm màn hình dịch và từ điển riêng cho truyện giống reader, ngoài ra hãy xác định có bật dịch hay không tương tự như truyện chữ nữa cho dịch OCR"* — bật/tắt dịch ở trang Chi tiết của truyện tranh đã đúng, còn dịch ảnh (1.3.826) thì chưa.
+Anh Bửu: "sửa sheet nút + của kệ cũng giống hub luôn, hiện tại chưa giống" (đã duyệt mockup + plan).
 
-- **Dịch ảnh theo đúng công tắc dịch của truyện:** chạy khi và chỉ khi truyện đang bật dịch — cùng `TranslationConfigStore` với trang Chi tiết và tên chương (truyện này > nguồn > nguồn tự khai tiếng Trung > toàn cục). `ComicReaderView` giờ tính y như `BookDetailView` (kèm `isChineseSourceHint` = `isChineseSource` của bản ghi tiện ích) ⇒ hai nơi luôn khớp. Bỏ `ComicImageTranslationPolicy` (công tắc theo tiện ích của 1.3.826) cùng nút "Dịch ảnh" và toast; khoá cũ `comicImageTranslate_*` không đọc nữa (không dọn). Hệ quả: nguồn tự khai tiếng Trung ⇒ mở là dịch cả ảnh; nguồn khác mặc định không; truyện tranh nhập từ file theo công tắc Mặc định toàn cục.
-- **Thanh trên** (`ComicReaderChromeView`): nút dịch = nguyên `ReaderTranslationScopeMenuView` của Reader / Chi tiết (bảng "Dịch văn bản" + phạm vi + Lưu lại; icon 17, khung 36×38, không nền), rồi ☰, rồi `⋯` mới. Neo `.mediaDiscAnchor(.headerTrailing)` ở nút dịch (nút trái nhất của cụm phải).
-- **Ngăn kéo `⋯`** "Tuỳ chọn truyện tranh" (`ComicTranslationToolsModifier`, file mới; giữ `ComicReaderView` dưới 400 dòng): "Cài đặt dịch" (chữ phụ Đang bật / Đang tắt) và "Từ điển truyện" (`BookDictionaryView` dạng sheet, chỉ khi truyện có `Book` — như Reader). Chỉ có mục dịch, không có gì đổi chương (ngăn kéo cũ đã bỏ ở 1.3.667).
-- **Sheet "Cài đặt dịch"** (`ComicTranslationSettingsSheet`, file mới) bám mục "Dịch thuật Quick Translate" của `ReaderSettingsView`: Hiện tại; Truyện này (Theo nguồn / Bật / Tắt), Nguồn (Toàn cục / Bật / Tắt), Mặc định toàn cục; khi đang bật: văn bản trước khi dịch (Giữ nguyên / Phồn → giản, khoá theo truyện như Reader, ghi qua `setTraditionalOverride` để có thông báo), dịch đại từ / luật nhân hoá (khoá chung của app như Reader, đổi ⇒ `notifyDictionariesDidUpdate`), Thứ tự ưu tiên rule, Token rule của truyện (mở lại `ReaderBookRulePriorityView` / `ReaderBookTokenSettingsView`). Form + `.pageTitle` + nút "?", vuốt xuống để đóng. Không sửa `ReaderSettingsView` / `TranslationScopePopupView` (lặp vài picker là chủ ý).
-- **Dịch lại khi đổi:** cấu hình dịch (`TranslationConfigStore.didChangeNotification` mà bật/tắt không đổi — vd phồn → giản), từ điển (`.translationDictionariesDidUpdate`, chỉ khi không ghi `bookId` hoặc đúng truyện này), rule (`.quickTranslationRulesDidUpdate`), đóng sheet Cài đặt dịch ⇒ dịch lại tên chương **và** ảnh đang hiện (`refreshTranslations`; chữ đã nhận lấy từ RAM). Trước đó tên chương chỉ dịch lại khi bật/tắt dịch.
-- `CLAUDE.md` / `AGENTS.md`: mục dịch ảnh + câu "thanh trên chỉ còn ☰" của mục màn đọc comic.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (`ComicReaderView.swift` 399 dòng — sát giới hạn, việc sau nên thêm vào file riêng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật/tắt ở Chi tiết, ở nút dịch thanh trên và ở Cài đặt dịch đều bật/tắt dịch ảnh + tên chương ngay; (2) nguồn manhua tự khai tiếng Trung mở là dịch ảnh; (3) thêm name ở Từ điển truyện ⇒ bong bóng đang hiện đổi theo; (4) đĩa nghe nhấn giữ đậu trái nút dịch.
+- **Sheet "Nhập truyện" kiểu hub** (`ShelfView.presentImportSheet`, dùng `.hubStyleActionSheet` của 1.3.869) cho nút "+" nổi tab Kệ sách và hàng "Nhập truyện" của ngăn kéo: ba dòng dạng ô có `›` — Từ URL ("Dán link, chọn nguồn khớp"), Mở trình duyệt ("Trang chủ trình duyệt"), Từ file ("txt, epub, cbz, mp4…"). Nằm trên mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm. Thay danh sách `insetGrouped` cũ (nấc 300 / large).
+- **"Từ URL"** ⇒ sheet **"Nhập từ URL"** riêng ở cửa sổ chính (`ShelfImportSheet` giờ chỉ bọc `ShelfImportURLStep`, nấc large, tiêu đề trái) — cửa sổ sheet phủ không bao giờ key nên không đặt ô nhập chữ ở đó. Dò ra tiện ích / mở link trong trình duyệt vẫn qua `queuedImportChoice` + `onDismiss` như cũ. Bỏ lựa chọn `pickFile` (Từ file chạy thẳng từ sheet kiểu hub).
+- `CLAUDE.md` / `AGENTS.md`: luật sheet trên viên thuốc ghi thêm sheet của Kệ. `rules.md` (mục hub + luật 25): thêm cửa sổ `OverlaySheetWindow` (`alert - 1.6`) và sửa câu cũ "`alert - 3` không còn cửa sổ nào dùng" (nút trình duyệt thu nhỏ vẫn ở level này).
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: tab Kệ sách ⇒ "+" ⇒ sheet ba dòng nằm trên đĩa nghe / hub; Từ URL ⇒ sheet "Nhập từ URL" lên, gõ được (bàn phím hiện), dán link ⇒ mở Chi tiết; Mở trình duyệt ⇒ trang chủ trình duyệt; Từ file ⇒ bộ chọn file; ngăn kéo … › Nhập truyện ⇒ cùng sheet.
 
-## [1.3.832] - 2026-11-11
+## [1.3.869] - 2026-11-11
 
-### feat: lõi dịch truyện bằng tiện ích loại translate
+### feat: nút + của Chi tiết truyện mở sheet kiểu hub thay cho cụm pill xổ lên
 
-Anh Bửu duyệt plan "tiện ích dịch truyện" theo `extension-api.md` của Darkrai9x (loại `translate`). Đây là phần A: lõi Services, **chưa nối** vào Reader, TTS hay giao diện (phần B và C ở các commit sau), nên bản này chưa đổi gì người dùng thấy.
+Anh Bửu: "để cho nút + ở chi tiết sẽ mở ra sheet như sheet hub vậy" (đã duyệt mockup + plan).
 
-- `Services/Translation/Engine/` (mới):
-  - `TranslationEngineSelection`: QT, hoặc một tiện ích kèm ngôn ngữ nguồn → đích.
-  - `TranslationEngineStore`: 3 cấp Truyện > Nguồn > Toàn cục như `TranslationConfigStore`, độc lập với công tắc bật/tắt dịch, lưu JSON trong `UserDefaults`. Tiện ích đã gỡ ⇒ `resolve` lùi về QT. Đổi lựa chọn ⇒ `TranslateUtils.invalidateCache` + `didChangeNotification`.
-  - `TranslationExtensionSettingsStore`: model / kiểu dịch theo từng tiện ích.
-  - `TranslationFallbackStatus` + `TranslationFallbackStatusStore` (`@MainActor @Observable`): báo "đang dịch bằng QT thay thế" theo từng chương, cộng yêu cầu Thử lại.
-- `Services/Translation/Engine/Extension/` (mới):
-  - `TranslationExtensionContext`: đọc một lần mỗi lượt — config đã trộn, ba khoá thô `support_auto_detect` / `max_line` / `max_length`, model / kiểu, dấu vân tay.
-  - `TranslationExtensionRunner`: một `JSExecutor` mỗi lượt; lô tuần tự nối bằng `\n`; lệch số dòng ⇒ chia đôi tới mức từng dòng; lô lỗi ⇒ dừng gọi tiếp; chỉ ném `CancellationError`.
-  - `TranslationExtensionBatchPlanner`, `TranslationExtensionResultParser` (nhận chuỗi hoặc `{ text }`; `segments` chưa dùng).
-  - `TranslationExtensionLineCache`: chỉ RAM; khoá gồm tiện ích + phiên bản/config + ngôn ngữ + model + kiểu + `source` + truyện + dòng; chỉ lưu bản dịch khác rỗng.
-  - `TranslationExtensionCatalog` (actor): chạy `language.js` / `model.js` / `style.js`, nhớ theo dấu vân tay; mặc định Trung → Việt.
-  - `TranslationExtensionChapterTranslator`: điểm vào chung của Reader và TTS. Dòng lỗi có chữ Hán ⇒ QT, không có ⇒ giữ chữ gốc. Tên chương: `title_trans` ⇒ tiện ích (`tableOfContent`) ⇒ QT. Phồn → giản áp trước khi gửi.
-- Không giữ executor lâu dài (không thêm ngoại lệ cạnh `ExtTTSRuntime`). Không sửa `TranslateUtils.swift` (đang chạm baseline dòng).
-- Chưa làm (đúng plan): `localBook`, các khoá `localConfig` dành riêng (`translate_model`…), `segments`, Kiểm tra tiện ích cho loại này.
-- Chuyển `[1.3.802]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới** (17 file mới, lớn nhất 194 dòng, mỗi file một type chính). Không build tại chỗ (Windows), chưa thử máy.
+- **Sheet hành động kiểu hub** dùng chung (mới, `Views/Common/HubStyleSheet/`): `HubStyleActionSheetContent` (tiêu đề + chú thích phải + các dòng: icon, tên, dòng phụ, màu icon, `›`, việc làm), `HubStyleActionSheet` (khuôn sheet hub: nền kính ngăn kéo, bo 16, cao vừa nội dung, vuốt xuống để đóng, nền tối), `HubStyleActionSheetRow` (khuôn dòng của sheet hub: ô bo góc `hubSheetPanelRow`, cao 56) và `.hubStyleActionSheet(_:)` — trình bày qua `OverlaySheetPresenter` ⇒ nằm **trên** mọi viên thuốc; chạm dòng ⇒ sheet đóng xong mới làm việc; không trình bày được ⇒ lùi về sheet thường của màn (log `[HubStyleSheet]`).
+- **Chi tiết truyện** (`BookDetailFloatingActions`): nút "+" là nút tròn thường, chạm ⇒ sheet: dòng đầu tên truyện (bản đang hiện) + "Ch. N/tổng" (truyện chưa lưu ⇒ "N chương"); Đọc ngay / Đọc tiếp (Đọc tiếp kèm tên chương sẽ mở, cùng luật tên chương của tab Mục lục), Thêm vào kệ / Đã ở kệ (icon xanh, "Chạm để bỏ khỏi kệ"), Tải, Xuất, "Về trang gốc" dưới cùng khi trang có Home. Thuộc tính `floatingActionButton` chuyển sang `BookDetailView+FloatingActions` (file legacy ngắn đi 23 dòng).
+- `OverlaySheetPresenter.dismiss(then:)`: chạm dòng thứ hai lúc sheet đang trượt xuống ⇒ bỏ qua (trước đó việc chạy luôn ⇒ hai lần). Việc kèm theo khai `@MainActor () -> Void` (cùng kiểu `action` của dòng — tránh lỗi đổi hàm mất actor khi biên dịch); `HubStyleActionSheetModifier` gắn `@MainActor`.
+- `CLAUDE.md` / `AGENTS.md`: mục Nút Home nổi + luật sheet trên viên thuốc.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: Chi tiết truyện đã lưu ⇒ "+" ⇒ sheet có tên + "Ch. N/tổng", "Đọc tiếp" có tên chương; chạm từng dòng (đọc, bỏ / thêm kệ, tải, xuất, về trang gốc) ⇒ sheet đóng rồi làm đúng việc; đĩa nghe / hub vẫn thấy dưới lớp tối của sheet; truyện chưa lưu ⇒ "N chương", "Đọc ngay"; Chi tiết mở trong Reader ⇒ không có dòng "Về trang gốc".
 
-## [1.3.831] - 2026-11-11
+## [1.3.868] - 2026-11-11
 
-### feat: bật DNS mã hoá riêng từng tiện ích và nguồn Legado
+### feat: sheet đang đọc chương này nằm trên mọi viên thuốc thay vì ẩn đĩa nghe
 
-Anh Bửu: *"mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"* — chốt thêm: giữ công tắc chung (mặc định tắt, 1.3.828), nguồn Legado cũng có công tắc, phạm vi = request trong script / engine của nguồn, một máy chủ chung cho mọi nguồn.
+Anh Bửu: "Sheet 'đang đọc chương này' hiển thị đừng có ẩn nửa viên thuốc, cho nó dưới sheet thôi, cho luôn nửa viên thuốc hub ở dưới sheet luôn… mọi sheet mở ra từ viên thuốc đều không ẩn các viên thuốc mà chỉ hiển thị cao hơn viên thuốc thôi, tránh trường hợp mở sheet từ viên thuốc rồi lại mở sheet mới khác từ viên thuốc đè lên" (đã duyệt mockup + plan).
 
-- `Extension.encryptedDNSEnabled` (tắt ghi `nil`) + `ExtensionTransactionCoordinator.setEncryptedDNSEnabled`; cập nhật tiện ích giữ cờ; backup (`BackupPayload` / Writer / Reader / Fingerprint) như `adBlockOverride`.
-- Apple không có DoH theo từng `URLSession` ⇒ **proxy HTTP CONNECT nội bộ 127.0.0.1**: `EncryptedDNSRelay` (listener loopback, cổng ngẫu nhiên, khuôn `VideoOfflineHTTPServer`) + `EncryptedDNSRelayTunnel` (CONNECT và `GET http://` tuyệt đối — viết lại dòng đầu, ép `Connection: close`; ra ngoài bằng `NWConnection` với privacy context riêng bắt buộc DoH, dùng lại theo máy chủ; hạn kết nối 10 s, `.waiting` = 502/504; đứng yên 60 s; một bên đóng ⇒ đóng cả hai; log `[DNS-Relay] → host:port`, lỗi `❌`).
-- `EncryptedDNSSessionRouter`: `JSExecutor` `fetch` đổi `URLSession.shared` ⇒ `session(forExtensionPath:)` (session `.default` + `proxyConfigurations`, chung cookie/cache); `LegadoHTTPClient(cancellation:proxyConfigurations:)` qua `LegadoEngineSource.packageId` (đặt ở `LegadoSourceRuntime.Target`). Không ai bật cờ / đang lùi / đang bật cho cả app / proxy chưa sẵn ⇒ đi thẳng như cũ. Bản chụp cho thread nền: `EncryptedDNSRouting`.
-- `EncryptedDNSRepository`: cần DNS ⇔ công tắc chung **hoặc** có nguồn bật cờ; chỉ công tắc chung đụng context mặc định; có nguồn bật cờ ⇒ bật proxy ngay; `sourcesDidChange()` / `refreshSourceCount()`. `FreeBookApp.init` gọi `start()` **sau** khi nạp bảng tiện ích.
-- Giao diện (theo mockup): công tắc "DNS mã hoá (DoH)" trong mục **Mạng** của Cấu hình tiện ích (dưới "Xử lý cookie hệ thống", chân mục theo trạng thái) và mục **Hoạt động** của Chi tiết nguồn Legado (`ExtensionEncryptedDNSToggle`); đang bật cho cả app ⇒ bật + mờ. Mạng & DNS: "Bật cho cả app", máy chủ luôn hiện, dòng "Bật riêng: N tiện ích / nguồn", trạng thái khi có ai cần.
-- `CLAUDE.md` / `AGENTS.md`: viết lại mục DNS mã hoá.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) bật cờ cho tiện ích có nguồn bị nhà mạng chặn ⇒ tải được **và** log có `[DNS-Relay] → <host của nguồn>` (thiếu ⇒ request vòng qua proxy, vd QUIC); tắt ⇒ lại bị chặn; tiện ích khác không đổi; (2) như trên với nguồn Legado; (3) nguồn `http://`; (4) bật chung ⇒ công tắc riêng mờ, tắt chung ⇒ cờ riêng vẫn chạy.
+- **Cửa sổ sheet phủ** (mới, `Views/Common/OverlaySheet/`): `OverlaySheetPresenter` + `OverlaySheetWindow` (level `alert − 1.6`: trên đĩa nghe `− 1.75`, hub `− 2` / `− 1.7`, nút trình duyệt `− 3`; dưới ngăn kéo `…` `− 1.5` và toast) + `OverlaySheetHost` (view 1×1 giữ `.sheet`, khuôn `MediaDiscSheetHost`). Cửa sổ chỉ hiện lúc có sheet, không bao giờ key, hit-test chỉ nhận chạm khi đang trình bày (luật 25); `onDismiss` là đường đóng chung (luật 26); `dismiss(then:)` đóng sheet **xong** mới chạy việc kèm theo. Sheet của cửa sổ chính luôn nằm dưới các cửa sổ viên thuốc nên đây là cách duy nhất để một sheet che được chúng.
+- **Sheet "đang đọc chương này" của Reader** trình bày qua cửa sổ này (vỏ `ReaderTTSSameChapterPromptHost`: tự giữ chiều cao + tự đọc "đang phát" qua `TTSWidgetStateReader`) ⇒ đĩa nghe, hub, nút trình duyệt, cửa sổ phim nhỏ nằm dưới lớp mờ của sheet, **không bị ẩn**, không bấm được để mở chồng sheet. Bỏ neo `.blocker` của sheet này. Không trình bày được (đang có sheet phủ khác / chưa có scene) ⇒ lùi về sheet thường của Reader như cũ.
+- Sheet của chính đĩa nghe và sheet hub / màn Thông báo vốn đã nằm trên mọi viên thuốc (cửa sổ của chúng) — giữ nguyên.
+- `CLAUDE.md` / `AGENTS.md`: đoạn đĩa nghe thêm luật "sheet nằm trên mọi viên thuốc".
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: đang nghe truyện, bấm tai nghe trúng chương đang đọc ⇒ sheet hiện, đĩa nghe + hub vẫn thấy mờ dưới lớp tối; chọn "Đọc tiếp chỗ đang đọc" / "Đọc từ đoạn đang xem" / "Đọc lại từ đầu chương" ⇒ Reader làm đúng như cũ; vuốt sheet xuống ⇒ không làm gì, đĩa vẫn ở đó.
 
-## [1.3.830] - 2026-11-11
+## [1.3.867] - 2026-11-11
 
-### feat: dịch phụ đề cứng trong phim bằng nhận chữ trên máy, phủ bản dịch lên đúng chỗ chữ gốc
+### feat: viên thuốc nổi đứng trong vùng cố định, luôn tránh header và thanh tab để không nhảy khi đổi màn
 
-Anh Bửu duyệt plan OCR phụ đề cứng (chọn thay Whisper vì nhẹ hơn: không model, không tải lại đoạn HLS): phim Trung in sẵn phụ đề trong hình ⇒ đọc bằng Vision, dịch VietPhrase, che chữ gốc. Hai mặc định đã chốt: nhớ bật **theo tiện ích**, **chỉ hiện bản dịch** (che chữ gốc).
+Anh Bửu: "để cho viên thuốc tự tránh header và thanh tab dù có hay không luôn, tránh nó chạy lên chạy xuống" (đã duyệt mockup + plan). Áp cho cả ba viên: đĩa nghe, nút hub, nút trình duyệt thu nhỏ.
 
-- Công tắc **"Dịch phụ đề cứng"** ở ngăn kéo `⋯` của trình phát (`VideoHardSubtitleDrawerRow`, ngay dưới "Dịch phụ đề" của phụ đề mềm; ẩn khi nhúng trang), nhớ theo tiện ích (`VideoHardSubtitlePreferenceStore`, khoá `videoHardSubtitleOCRByPackage`, thiếu = tắt) — không theo phim để khỏi đụng Đổi nguồn. Bật ⇒ phụ đề mềm của tiện ích nhường chỗ (`VideoPlayerStage`).
-- `Services/Video/HardSubtitle/` (mới): `VideoHardSubtitleEngine` (`@MainActor @Observable`, singleton) chạy **chỉ** khi lớp phủ của màn xem to đang hiện (`screenDidAppear` / `screenDidDisappear` đếm màn), tự KVO `player.currentItem` — không sửa `VideoPlaybackSession` (`stop()` thay item bằng `nil` ⇒ tự gỡ); mỗi item một `generation` để kết quả về muộn của tập trước bị bỏ. Nhịp 0,5 s (timer ở run loop `.common`), bỏ qua khi nhúng trang / chỉ còn cửa sổ nhỏ / app ở nền / tạm dừng mà khung đã đọc. `VideoHardSubtitleFrameSampler` gắn `AVPlayerItemVideoOutput` (4:2:0 full range; chạy cả HLS).
-- Một lượt (`VideoHardSubtitleFrameJob`, hàng đợi nền tuần tự, lượt trước chưa xong thì bỏ nhịp): `VideoHardSubtitleBrightMask` (lưới 128×32 điểm trên mặt phẳng độ sáng của dải dưới 30%, ngưỡng theo full / video range) giống lần Vision trước (Jaccard ≥ 0,9) ⇒ giữ nguyên, quá 4 s vẫn đọc lại; rỗng ⇒ coi như không có chữ, trừ khi quá 3 s (dò thưa) hoặc item này từng có chữ mà mặt nạ không thấy (chữ màu nhạt ⇒ Vision mỗi nhịp); còn lại ⇒ `VideoHardSubtitleRecognizer`: cắt dải dưới **trước** rồi đưa vào `VNRecognizeTextRequest` (`.accurate`, `zh-Hans` + `zh-Hant`, chữ cao ≥ 8% dải), giữ dòng ≥ 2 chữ Hán có tâm ngang trong 15–85% (bỏ logo góc), khối = dòng thấp nhất + tối đa một dòng ngay trên.
-- `VideoHardSubtitleCueTracker`: giống ≥ 75% (Levenshtein, bỏ dấu câu) = cùng câu, giữ câu cũ (bản mới nhiều chữ Hán hơn thì thay); trống 2 lượt liên tiếp mới xoá. Dịch `TranslateUtils.translateContent` **từng dòng** ngoài main, Name/VP riêng của phim (`bookId`), **luôn** phồn→giản, không theo cổng dịch của phim; đệm 200 câu, đổi phim thì xoá đệm.
-- `VideoHardSubtitleOverlay` (mới): cùng `ignoresSafeArea` với `VideoPlayerSurfaceView`; vùng hình tự tính theo Vừa / Lấp đầy / Phóng từ cỡ khung (không đọc `AVPlayerLayer.videoRect`); dải che + nền chữ dịch vẽ chung một lớp (`compositingGroup`, mờ 0,86) nên chỗ chồng không đậm hơn; chữ 13–22 pt theo chiều cao dòng gốc, ép vào vùng nhìn thấy. Dòng báo "Không đọc được hình của nguồn này" (đang phát mà 5 s không có khung — nguồn DRM) / "Máy chưa hỗ trợ nhận chữ Trung", tự ẩn sau 4 s.
-- Log `🔤 [VideoOCR]`: bật / tắt, bắt đầu, tóm tắt mỗi 30 s (số lượt, số lần Vision + ms trung bình, bỏ qua giống / rỗng / đang bận, số câu); lỗi có `❌`. Không tự giảm nhịp theo nhiệt — đo trên máy rồi quyết.
-- Chưa làm: lưu câu xuống đĩa (xem lại phải đọc lại), hiện hai dòng gốc / dịch, quét trước tập đã tải, Whisper. Rủi ro đã biết: biển hiệu / thẻ tên ở dải dưới bị dịch nhầm thành phụ đề; HLS tự hạ 360p đọc kém; video có thông tin xoay (quay dọc bằng điện thoại) buffer chưa xoay.
-- `CLAUDE.md` / `AGENTS.md`: thêm gạch đầu dòng ở mục Comic & Video. Chuyển `[1.3.800]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (9 file mới, lớn nhất 364 dòng, mỗi file một type chính; `VideoPlayerTopBar.swift` 352 dòng). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) phim Trung có phụ đề trắng in sẵn — bản dịch che đúng chỗ ở màn dọc và toàn màn, đổi Vừa / Phóng; (2) bật log, xem dòng `🔤 [VideoOCR]` (ms Vision, tỉ lệ bỏ qua) và máy có nóng không; (3) phụ đề vàng / màu nhạt; (4) tạm dừng, tua, đổi tập, thu cửa sổ nhỏ rồi mở lại.
+- `EdgePillZone` (mới, `Views/Common/GlassChrome/`): vùng đứng cố định — mép trên ≥ vùng an toàn trên + 52 (header 44 + 8), mép dưới ≤ vùng an toàn đáy − 76 (= khe 12 + nút "+" 52 + khe 12). iPhone 15: 111…742 pt ⇒ luôn trên thanh tab (769), nút "+" (754), thanh dưới trình duyệt (766), nút tai nghe Reader (750) — **kể cả màn không có chúng**, nên đổi tab / đẩy trang / mở sheet không làm viên thuốc lên xuống. Chỗ người dùng kéo tới vẫn lưu nguyên; vùng chỉ kẹp lúc vẽ và lúc thả.
+- **Đĩa nghe** (`MediaDiscPlacement`): dải dọc lấy từ `EdgePillZone`; chỉ neo / cửa sổ phim nhỏ **lấn vào vùng** (mép trên cao hơn đáy vùng — cụm pill của menu "+" đang xổ ở màn danh sách có Home, cửa sổ phim nhỏ kéo lên) chồng cột mới tạm đẩy đĩa lên. Nút "+", Home, tai nghe, thanh tab, thanh dưới không còn đẩy đĩa (trước đây đẩy theo từng màn ⇒ nhảy).
+- **Nút hub, nút trình duyệt**: lề trên / dưới đổi từ 12 pt quanh vùng an toàn sang `EdgePillZone` (kẹp lúc vẽ, lúc giữ chỗ với widget khác, lúc thả tay) ⇒ không còn kéo lên được header hay xuống đè thanh tab / thanh dưới. Bỏ hằng `verticalMargin`.
+- `CLAUDE.md` / `AGENTS.md`: câu chỗ đứng của đĩa, câu thanh tab 4 ô, câu "Cùng khuôn" của hub / trình duyệt.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: đang nghe, đi qua lại trang gốc Kệ (thanh tab + "+") ⇄ trang đẩy vào (không thanh tab) ⇄ Reader ⇒ đĩa đứng yên một chỗ. Kéo hub / nút trình duyệt lên sát đỉnh ⇒ dừng dưới header; kéo xuống đáy ⇒ dừng trên thanh tab. Ở màn danh sách có "+" kèm Home, bấm "+" xổ menu ⇒ đĩa mép phải né lên, đóng menu ⇒ về chỗ.
 
-## [1.3.829] - 2026-11-11
+## [1.3.866] - 2026-11-11
 
-### feat: gợi ý chữ Hán khi tìm truyện bằng tiếng Việt
+### feat: mở sheet hub không ẩn nút hub, giống đĩa nghe mở sheet nghe
 
-Anh Bửu duyệt ý 7 của plan `Docs/Plans/2026-11-11-dich-phu-de-loi-va-tim-ca-truyen.md`: gõ tên truyện bằng âm Hán Việt ở màn Tìm, app gợi ý dạng chữ Hán để chọn khi nguồn Trung chỉ tìm được bằng chữ Hán; chip **tự hiện khi gõ**.
+Anh Bửu: "Khi mở sheet mở rộng từ widget hub thì đừng ẩn các widget khác (làm giống như widget đĩa mở sheet nghe nhạc/nghe truyện mini)" (đã duyệt).
 
-- `SearchChineseSuggestionBar` (mới) ngay dưới ô tìm của `SearchView` (tìm một nguồn và mọi nguồn; `SearchView` chỉ chèn một dòng): hàng **"Chữ Hán:"** tối đa 6 chip cuộn ngang, kiểu chip nhấn như `ExtensionKindFilterBar` (chữ màu nhấn, nền nhấn 18%, viền 60%). Bấm Tìm vẫn tìm đúng chữ đã gõ; chạm chip ⇒ tắt bàn phím, ô tìm thành chữ Hán đó và tìm ngay (lịch sử lưu chữ Hán). Tính sau khi ngừng gõ 300 ms, ngoài main (`Task.detached`), gõ tiếp ⇒ `.task(id:)` huỷ lượt cũ, kết quả muộn bị bỏ; truy vấn chắc chắn không gợi ý được (rỗng, có chữ Hán, 1 hoặc hơn 8 âm tiết, có số…) ⇒ ẩn ngay, không chờ.
-- `Services/Translation/Reverse/` (mới): `HanVietReverseIndex` = bảng `phienAm` đảo ngược (âm ⇒ chữ; chỉ khoá đúng một chữ Hán BMP; một chữ nhiều âm ngăn `/` `,` `;` `|`), hai bảng có dấu / bỏ dấu, nhớ theo `TranslationDictionaryState.revision()`. Chuẩn hoá âm: không tính vị trí dấu thanh (`hoà` = `hòa`), `đ` bỏ dấu là `d`, `y` đứng một mình sau phụ âm = `i` (`lý` = `lí`, `quý` = `quí`). Xét từng âm tiết: âm có dấu ⇒ khớp đúng dấu (không ra chữ thì lùi về bỏ dấu), âm không dấu ⇒ khớp bỏ dấu — gõ dấu một phần vẫn ra.
-- `ChineseQuerySuggester` (mới): mỗi vị trí bắt đầu hỏi Name (tuỳ chỉnh, chung) + VietPhrase (tuỳ chỉnh, chung) các khoá có thật dài tới 6 chữ; bỏ khoá đã xoá của từ điển chung như `VietPhraseTokenizer`; không dùng từ điển riêng truyện. Quy hoạch động giữ 16 đường mỗi vị trí, xếp: ít đoạn ⇒ ít đoạn một chữ ⇒ Name trước VietPhrase ⇒ giản thể trước phồn thể (ICU `Traditional-Simplified`) ⇒ thứ tự mã. Bỏ đường trộn giản + phồn, đường có quá nửa số âm tiết là đoạn một chữ (chỉ là đoán chữ đồng âm), đường nhiều hơn đường tốt nhất quá một đoạn. Log `🔎 [HanSuggest]` (số âm tiết / cạnh / kết quả / ms; không log từ khoá).
-- `FrozenTrieDictionary.keys(matchingCharacterSets:limit:)` (mới): đi cây đôi theo đúng phép tính của `trieTerminals`, mỗi độ sâu thử mọi chữ của tập, nhánh không có con thì dừng ⇒ chỉ đi qua tiền tố có thật, không gọi `allEntries()`; trần 200 000 cạnh thử; kho `entries` (từ điển tuỳ chỉnh) lọc khoá đúng độ dài.
-- Giới hạn: chỉ màn Tìm Kiếm (ô tìm nhanh của Khám phá chưa có); chữ Việt thuần không phải âm Hán Việt không ra gợi ý; thứ tự là đoán theo từ điển (không có tần suất); chạm một chip xong ô tìm là chữ Hán ⇒ hàng chip ẩn, muốn thử cách viết khác phải gõ lại âm Việt.
-- Chuyển `[1.3.799]` sang `CHANGELOG.archive.md`.
-- **Kiểm chứng:** đọc code + review phản biện bằng agent; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới** (file mới ≤ 400 dòng, một type chính; `SearchView.swift` 701 dòng ≤ baseline 872). Không build tại chỗ (Windows), chưa thử máy. Cần thử: (1) `đấu phá thương khung` và `dau pha thuong khung` ra chip hợp lý; (2) log `🔎 [HanSuggest]` (bật log) xem ms — lần đầu sau khi từ điển đổi có thêm bước dựng bảng đảo; (3) gõ nhanh không giật, không bấm nhầm chip cũ.
+- Kiểm lúc sheet hub / màn Thông báo mở (sau 1.3.865): nửa viên đĩa nghe, nút trình duyệt thu nhỏ, cửa sổ phim nhỏ đều vẫn hiện; **chỉ nút hub** bị giấu (`setSheetPresented(true)` đặt `widgetContainerView.isHidden = true`, `refreshState` giữ giấu suốt lúc sheet mở).
+- `FloatingHubWindowManager`: thôi giấu nút khi sheet mở — nút nằm yên dưới sheet (sheet trình bày trong cùng cửa sổ hub, đè lên nút; lớp mờ của sheet chặn chạm), y như đĩa nghe dưới sheet điều khiển nhanh của nó. Vẫn giữ: phim toàn màn mà sheet còn mở ⇒ giữ cửa sổ, chỉ giấu nút (`hideWidget()` sẽ cuốn mất sheet). Level cửa sổ hub lúc trình bày sheet giữ như 1.3.865 (`alert − 1.7`, trên cửa sổ đĩa).
+- `rules.md` luật hub (b), `CLAUDE.md` / `AGENTS.md` đoạn đĩa nghe: ghi nút hub không ẩn lúc sheet hub mở.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử: chạm hub ⇒ sheet hub mở, nút hub (và nửa viên, nút trình duyệt nếu có) vẫn thấy mờ phía sau lớp tối; chạm vùng tối ⇒ sheet đóng, không mở lại hub; chạm Thông báo ⇒ màn Thông báo, đóng ⇒ nút hub vẫn đúng chỗ.
 
-## [1.3.828] - 2026-11-11
+## [1.3.865] - 2026-11-11
 
-### fix: DNS mã hoá cho cả app mặc định tắt
+### feat: bỏ ô đĩa giữa thanh tab, nửa viên đĩa nghe hiện ở mọi màn và sheet
 
-Anh Bửu (sau 1.3.825): *"sai ý tôi rồi, mặc định tắt DNS, cho bật tắt DNS cho mỗi ext, thêm vào cấu hình ext"*. Bước 0 của plan: tắt ngay mặc định đang bật sẵn cho mọi người dùng nguồn LiveContainer; công tắc riêng từng tiện ích / nguồn Legado làm ở bản kế.
+Anh Bửu: "Bỏ luôn tab thứ 5 hiển thị đĩa đi, mọi màn hình, sheet đều hiển thị viên thuốc cho tôi" (đã duyệt plan; sheet "đang đọc chương này" của Reader anh chọn giữ ẩn đĩa như cũ).
 
-- `EncryptedDNSPolicy.defaultEnabled = false`. Máy chưa từng bật tay ⇒ tắt (khoá chưa ghi); ai đã bật tay ở Mạng & DNS thì giữ.
-- `CLAUDE.md` / `AGENTS.md`: mục DNS mã hoá ghi mặc định tắt.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), chưa thử máy.
+- **Thanh tab 4 ô** (`MainTabBar`): Kệ Sách · Khám Phá · Tiện Ích · Cài Đặt. Xoá `MediaDiscTabBarSlot`, `MediaDiscIdleFace` (đĩa xám), kiểu `.tabBar` của `MediaDiscFaceButton` (nay chỉ còn mặt nửa viên, `MediaDiscFaceButton()`), vai neo `.hostsDisc`.
+- **Trang gốc các tab có nửa viên**: thanh tab là neo `.bar` (`MainTabBarModifier`) ⇒ nửa viên đè lên thanh thì tự đứng trên nó 12 pt.
+- **Đổi màn ⇒ đĩa đứng yên**: bỏ luật "trang đổi ⇒ thu đĩa tại chỗ, hiện lại sau 0,3 s" (1.3.820, theo `MediaDiscScreenContext.page`). Đang chuyển cảnh vẫn đứng yên; hết chuyển cảnh mà màn mới có neo cần né thì trượt tới chỗ mới. Đĩa đang ẩn (bàn phím, phim…) vẫn chỉ hiện lại khi điều kiện giữ đủ 0,3 s.
+- **Sheet hub / màn Thông báo không ẩn đĩa nữa** (thay cách ẩn của 1.3.864): `FloatingHubWindowManager.setSheetPresented` nâng cửa sổ hub từ `alert − 2` lên `alert − 1.7` (trên cửa sổ đĩa `alert − 1.75`) lúc trình bày sheet ⇒ sheet đè lên nửa viên như sheet của chính đĩa; đóng sheet thì hạ về để nút hub nằm dưới sheet điều khiển nhanh của đĩa.
+- **Vẫn ẩn đĩa** khi: không có gì đang phát, bàn phím hiện, màn nghe nhạc mở, phim toàn màn / màn xem phim, hộp thoại / bảng chọn / bảng chia sẻ, sheet "đang đọc chương này" của Reader (`ReaderTTSSameChapterSheet`, neo `.blocker`). Mọi sheet khác của cửa sổ chính nằm dưới nửa viên (đĩa có thể che mép hàng của sheet — kéo đi chỗ khác).
+- `CLAUDE.md` / `AGENTS.md`: đoạn "Hai chỗ đặt đĩa" ⇒ "Một chỗ đặt đĩa", đoạn đĩa nghe (neo `.bar` ở thanh tab, sheet hub). `rules.md`: level cửa sổ hub, luật widget TTS bỏ "ô giữa thanh tab".
+- **Kiểm chứng:**
+  - Đọc code + grep chéo `MediaDiscTabBarSlot` / `MediaDiscIdleFace` / `hostsDisc` / `MediaDiscFaceButton(style:` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
+  - Cần thử:
+    1. Thanh tab còn 4 ô, chia đều. Đang nghe ⇒ ở trang gốc Kệ Sách có nửa viên, đứng trên thanh tab (và trên nút "+" nếu có).
+    2. Đẩy trang / mở Reader / quay lại ⇒ nửa viên không thu lại rồi hiện lại; chỉ trượt khi phải né nút.
+    3. Chạm hub ⇒ sheet hub đè lên nửa viên, bấm được mọi dòng; đóng sheet ⇒ nửa viên vẫn ở đó.
+    4. Mở một sheet bất kỳ (Cài đặt Reader, mục lục…) ⇒ nửa viên vẫn hiện trên sheet.
+    5. Bấm tai nghe trúng chương đang đọc ⇒ sheet "đang đọc chương này" hiện, nửa viên ẩn như cũ.
+
+## [1.3.864] - 2026-11-11
+
+### fix: ẩn đĩa nghe khi sheet hub hoặc màn Thông báo của hub đang mở
+
+Rà lại đợt nút nổi nửa viên (1.3.858–863) thấy: cửa sổ hub ở `alert − 2`, **thấp hơn** cửa sổ đĩa nghe (`alert − 1.75`). Sheet hub (1.3.862) và màn Thông báo trình bày từ cửa sổ hub nên nằm **dưới** nửa viên đĩa nghe — đĩa đè lên mấy dòng cuối của sheet và cướp chạm (đúng chỗ ⏸ / ✕ của dòng Video khi đĩa ở chỗ mặc định). `MediaDiscPlacement` chỉ xét tầng trên cùng của cửa sổ **chính** nên không thấy sheet đó. Màn Thông báo vốn đã bị vậy; sheet hub làm nó xảy ra mỗi lần chạm hub.
+
+- `MediaDiscWindowManager.isDiscAllowed` thêm điều kiện `!FloatingHubWindowManager.shared.isSheetPresented` ⇒ sheet hub / màn Thông báo mở thì đĩa thu lại, đóng thì hiện lại (luồng hiện chậm 0,3 s như cũ).
+- `FloatingHubWindowManager.setSheetPresented` gọi `MediaDiscWindowManager.shared.refreshState()` ⇒ đĩa thu ngay, không chờ lượt hỏi 0,4 s.
+- Ô đĩa ở giữa thanh tab (cửa sổ chính) không đổi — nó nằm dưới cửa sổ hub nên sheet tự che.
+- `CLAUDE.md` / `AGENTS.md`: thêm điều kiện ẩn này vào đoạn đĩa nghe.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử: đang nghe nhạc (nửa viên ở mép phải) ⇒ chạm hub ⇒ nửa viên thu lại, bấm được ⏸ / ✕ dòng Video; vuốt sheet xuống ⇒ nửa viên hiện lại. Tương tự với màn Thông báo.
+
+## [1.3.863] - 2026-11-11
+
+### feat: icon nút nổi mờ theo độ trong suốt như nền kính
+
+Anh Bửu hỏi "hình như icon của các nút nổi chưa làm mờ theo cài đặt đúng không?" — đúng: trước đây "Độ trong suốt" chỉ áp vào nền kính và bìa đĩa nghe. Anh chốt: "Mờ, pill menu rõ".
+
+- `FloatingIconTransparencyModifier` (mới, `Views/Common/GlassChrome/`, `.floatingIconTransparency()`): icon mờ đúng số `1 − độ trong suốt`, không sàn — cùng luật bìa đĩa nghe và icon nút hub / nút trình duyệt. Gắn lên **icon**, không lên nút (mờ lớp cha của kính là tắt nhoè).
+- Áp ở `FloatingRoundButton` (nút "+", Home nổi, nút bật menu xổ, Home ở Chi tiết), nút tai nghe Reader (`readerEdgeButton`) và ô xem trước nút nổi ở Cài đặt › Giao diện (kéo thanh là thấy ngay). **Không** áp cho pill của menu xổ (`FloatingActionMenu`).
+- Hệ quả đã báo anh: mặc định trong suốt 90% ⇒ dấu "+" / Home / tai nghe chỉ còn hiện 10%; muốn rõ thì kéo thanh "Độ trong suốt" xuống.
+- `CLAUDE.md` / `AGENTS.md`: câu icon mờ ở đoạn "Nút Home nổi". Chuyển 6 mục CHANGELOG cũ nhất (1.3.828–833) sang `CHANGELOG.archive.md`.
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Cài đặt › Giao diện kéo "Độ trong suốt" 0% ↔ 100% ⇒ icon ô xem trước rõ ↔ trong hẳn.
+    2. Màn danh sách có "+" ⇒ icon "+" mờ theo; bấm "+" ⇒ pill "Thêm" / "Home" vẫn rõ.
+    3. Reader ⇒ icon tai nghe mờ theo.
+
+## [1.3.862] - 2026-11-11
+
+### feat: chạm hub mở sheet như sheet nghe thay cho thẻ menu
+
+Anh Bửu: "chuyển popup khi bấm vào hub thành dạng sheet như sheet tts và nghe" (đã duyệt mockup). Thẻ menu nổi cạnh nút hub + lớp nền trong suốt nuốt chạm toàn màn được thay bằng **sheet hub**.
+
+- **Sheet** `FloatingHubSheet` (mới): nền kính tối theo cài đặt ngăn kéo (`DrawerGlassSheetBackground`), bo 16, cao vừa nội dung (đo chiều cao như `AudioQuickControlSheet`), thanh kéo, vuốt xuống để đóng — không nút đóng. Trang chính: dòng đầu "Lối tắt nổi" + "N đang chạy", **bốn dòng cố định** AI → Thông báo → Video → Kiểm tra nguồn dạng ô bo góc (`hubSheetPanelRow`), dòng xám mờ 40% không biến mất, dòng Video giữ ⏸ / ✕ (sheet không đóng), các dòng khác có ›. Trang con "Tác vụ AI" / "Kiểm tra nguồn" (hai lượt) nằm trong sheet với nút ‹, danh sách rỗng ⇒ tự về trang chính.
+- **Chỗ giữ sheet** `FloatingHubSheetHost` (view 1×1 trong cửa sổ hub, khuôn `MediaDiscSheetHost`) + trạng thái `FloatingHubSheetState`. Sheet mở ⇒ `setSheetPresented(true)` (giữ cửa sổ, giấu nút). Mọi đường đóng đi qua `onDismiss` ⇒ báo `false` trước, rồi mới chạy việc kèm theo (`dismiss(then:)`): màn Thông báo / AI / phim / màn kiểm tra mở **sau** khi sheet đóng xong.
+- `+Actions`: `open(_:)`, `openAITask`, `openSourceCheck`, `activateByRunningTasks` dùng sheet (AI / hai lượt kiểm tra ⇒ trang con). Cài đặt "Khi chạm hub" giữ nguyên ý: "Luôn hiện tất cả mục" ⇒ sheet trang chính; "Mở thẳng khi chỉ có 1 tác vụ" ⇒ như cũ, chỗ trước mở menu nay mở sheet.
+- **Xoá** `FloatingHubMenuView`, `FloatingHubContainerViewController+Menu`, `menuBackdropView` / `menuContainerView`, cờ `isMenuOpen` và mọi `closeMenu` ở `FloatingHubWindowManager`; `FloatingHubUIWindow.hitTest` còn hai nhánh (sheet đang trình bày ⇒ cả cửa sổ; còn lại chỉ khung nút).
+- `FloatingHubMenuRow`, `FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`: đổi sang kiểu ô của sheet (cao 56, không vạch ngăn, tiêu đề trang con 17 pt). Chữ cài đặt "Khi chạm hub" đổi "menu" ⇒ "sheet".
+- `rules.md`: viết lại luật hub (a) (nửa viên dính mép), (b) (sheet thay menu + cờ / thứ tự đóng), (e), (f), thứ tự `hitTest`. `CLAUDE.md` / `AGENTS.md`: câu sheet hub ở đoạn đĩa nghe.
+- **Kiểm chứng:**
+  - Đọc code + grep chéo `isMenuOpen` / `closeMenu` / `openMenu` / `FloatingHubMenuView` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Chạm hub ⇒ sheet bốn dòng; vuốt xuống ⇒ đóng, nút hub hiện lại.
+    2. Chạm Thông báo ⇒ sheet hub đóng rồi màn Thông báo mở; đóng màn Thông báo ⇒ nút hub hiện lại.
+    3. Có AI đang chạy ⇒ chạm Trợ lý AI ⇒ trang "Tác vụ AI" trong sheet, ‹ quay lại; chạm truyện ⇒ màn AI của truyện đó.
+    4. Phim thu nhỏ vào hub ⇒ dòng Video ⏸ đổi glyph ngay, ✕ dừng phim, chạm dòng ⇒ mở lại màn xem.
+    5. Cài đặt "Mở thẳng khi chỉ có 1 tác vụ" + 1 AI đang chạy ⇒ chạm hub mở thẳng trang "Tác vụ AI".
+
+## [1.3.861] - 2026-11-11
+
+### feat: nút hub và nút trình duyệt thu nhỏ thành nửa viên thuốc nhỏ dính mép
+
+Anh Bửu duyệt mockup ("hub và browser viên nhộng nhỏ thôi", "ngắn lại chút nữa, phần icon cũng phải theo độ trong suốt"): nút hub và nút mở lại trình duyệt thu nhỏ đổi từ nút tròn 36 px nép mép sang **nửa viên 38 × 36** cùng khuôn `EdgePillShape` với đĩa nghe.
+
+- **Hình** (`FloatingHubButton`, `VisibleBrowserReopenButton`): nền kính `FloatingGlassBackground(shape:)` theo Độ trong suốt / Độ đục của nút nổi (thay `.ultraThinMaterial` + bóng đổ); icon 17 pt trắng đồng tâm đầu bo (cách mép 20 pt), **mờ đúng số** theo Độ trong suốt như bìa đĩa nghe. Nền nháy đỏ (hub có việc / tab thu nhỏ quá 10 s) và badge số tab **giữ rõ**. Badge số tab ở góc trên của icon, không còn lật phía / thu thành chấm.
+- **Luôn dính mép**: bỏ hai trạng thái nép mép nửa ẩn (`.peeking`, mờ 0,5 ở hub) / bung vào trong màn (`.revealed`) và hẹn giờ tự thu 3 s (`FloatingHubViewModel`, `VisibleBrowserReopenViewModel`); bỏ độ mờ 0,7 cố định khi nghỉ của nút trình duyệt (`setTouchActive` + `sendEvent` của `BrowserFloatingWidgetUIWindow`). `WidgetMode` và `FloatingWidgetGeometry.restingCenterX` hết người dùng ⇒ xoá.
+- **Kéo**: bắt đầu kéo ⇒ co tròn 36 đặt đúng tâm icon, theo tay; thả ⇒ bám mép gần hơn, kẹp dọc như cũ, né widget nổi khác cùng mép (`FloatingWidgetLayoutCoordinator`, chiều cao 36), lưu vào khoá cũ (`floatingHub*`, `visibleBrowserReopen*`).
+- `FloatingHubPulseView`: thêm `edge` ⇒ layer nháy chỉ bo hai góc phía đầu bo (`maskedCorners`). Chạm hub vẫn mở thẻ menu như cũ (đổi sang sheet ở commit sau); `+Actions` bỏ các lệnh "thu về nép mép". Viền sáng của hub khi kéo cửa sổ phim nhỏ tới bo theo cạnh ngắn.
+- `CLAUDE.md` / `AGENTS.md`: câu "Cùng khuôn" ở đoạn đĩa nghe. `rules.md` mục nút hub sửa ở commit sheet hub ngay sau.
+- **Kiểm chứng:**
+  - Đọc code + grep chéo `WidgetMode` / `mode` / `reveal` / `setTouchActive` (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Hub và nút trình duyệt (thu nhỏ trình duyệt có 3 tab) hiện thành nửa viên nhỏ dính mép, icon mờ theo thanh "Độ trong suốt".
+    2. Kéo mỗi nút sang mép kia ⇒ bám mép đúng độ cao; mở lại app vẫn ở đó.
+    3. Hub có việc ⇒ nền nháy đỏ đúng hình nửa viên; trình duyệt thu nhỏ quá 10 s ⇒ nháy đỏ.
+    4. Chạm hub ⇒ menu; chạm nút trình duyệt ⇒ mở lại trình duyệt.
+    5. Kéo cửa sổ phim nhỏ tới hub ⇒ hub phóng to + viền màu nhấn; thả ⇒ vào hub.
+
+## [1.3.860] - 2026-11-11
+
+### feat: sheet nghe truyện thêm nút chương trước và chương kế ở hai đầu
+
+Anh Bửu duyệt mockup: sheet điều khiển nhanh TTS (mở từ đĩa nghe) có thêm hai nút đổi chương ở hai đầu ngoài cùng của hàng nút.
+
+- Hàng nút `TTSQuickControlSheet.transportRow`: **chương trước** · đoạn trước · ⏯ · đoạn kế · **chương kế**, chia đều bằng `Spacer` như `AudioTransportControls(.full)` của sheet nhạc. Nút chương icon `backward.end.fill` / `forward.end.fill` 20 pt (khác nút đoạn `backward.fill` / `forward.fill` 22 pt), trắng 85%, khung 44 pt; không có chương đó ⇒ mờ 35%, tắt.
+- `TTSManager+ChapterStep` (mới): `previousChapterIndex(before:)` + `jumpToAdjacentChapter(forward:)` — tra chương liền trước / sau theo `index` thưa trong `chaptersQueue` (cùng luật `nextChapterIndex(after:)`), rồi `jumpToChapter(at:)` có sẵn (toast "Đang chuyển sang …", đọc từ đầu chương).
+- `TTSWidgetBarInfoReader`: thêm `hasPreviousChapter` / `hasNextChapter`, tính lại khi đổi chương và khi số chương trong hàng đợi đổi. Sheet không observe `TTSManager` trực tiếp.
+- Giới hạn đã biết: vừa bấm tai nghe ở Reader, hàng đợi chỉ có vài chương từ chương đang đọc trở đi cho tới khi `refreshChaptersQueueInBackground` nạp đủ (~1 s) ⇒ "chương trước" mờ trong lúc đó.
+- `CLAUDE.md` / `AGENTS.md`: thêm câu hàng nút sheet vào đoạn "Widget TTS chỉ một kiểu".
+- **Kiểm chứng:**
+  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Đang nghe chương 128 ⇒ mở sheet ⇒ "chương kế" ⇒ toast "Đang chuyển sang …", đọc từ đầu chương 129; tên chương ở đầu sheet đổi theo.
+    2. "Chương trước" ⇒ chương 127.
+    3. Chương đầu / chương cuối ⇒ nút tương ứng mờ, bấm không có tác dụng.
+    4. Đang tạm dừng mà bấm nút chương ⇒ đọc luôn chương mới (như chọn ở mục lục).
+
+## [1.3.859] - 2026-11-11
+
+### feat: widget TTS chỉ còn kiểu nửa viên thuốc, bỏ kiểu Đĩa nổi và hàng Widget TTS ở Cài đặt
+
+Anh Bửu: "giữ lại 1 kiểu thôi widget thôi nhé, là widget của tts thôi ấy". Widget TTS chỉ còn **đĩa nghe** dùng chung với nhạc (nửa viên thuốc dính mép của 1.3.858 + ô giữa thanh tab); kiểu **Đĩa nổi** (trước là mặc định) bỏ hẳn.
+
+- `MediaDiscWindowManager.resolveKind`: TTS có phiên ⇒ đĩa TTS, không còn xét kiểu widget. Ai đang dùng Đĩa nổi tự sang đĩa nghe; ô giữa thanh tab có đĩa thật khi đang nghe truyện (trước đó là đĩa xám nếu chọn Đĩa nổi).
+- **Xoá 9 file**: `FloatingWidgetContainerViewController`, `FloatingWidgetUIWindow`, `FloatingWidgetViewModel`, `TTSFloatingWidgetView`, `TTSFloatingWidgetWindowManager`, `TTSFloatingWidgetContaining`, `TTSWidgetStyle`, `TTSWidgetPreferences`, `TTSWidgetSettingsView`. Khoá `ttsWidgetStyle` / `ttsWidgetVerticalRatio` / `ttsWidgetEdge` bỏ mặc, không đọc nữa.
+- `TTSCoverView` + `TTSCoverImageLoader` (mặt đĩa TTS và sheet điều khiển nhanh dùng) dời ra file riêng trong `Views/TTSWidget/` trước khi xoá file cũ. **Sửa build** (commit cùng tên, CI lượt 43016106688 đỏ): `CoverRotationState` (góc xoay bìa, `AudioCoverRotation` / `TTSWidgetCoverRotation` / `TTSRotatingCoverView` dùng) cũng nằm trong `TTSFloatingWidgetView.swift` mà bị sót ⇒ dời nguyên văn sang `Views/TTSWidget/CoverRotationState.swift`; grep lại mọi type của các file đã xoá trong đợt, không còn chỗ dùng nào khác.
+- Gỡ chỗ gọi: `FreeBookApp` (4 chỗ; `modelContainer` của đĩa nghe nay cũng set trong `.task(id:)` và khi TTS bật/tắt phiên), `ReaderView` (`requestRevealOnNextShow`), `TTSQuickControlSheet` + `TTSSettingsSheetHost` (`modelContainer` lấy từ `MediaDiscWindowManager`), Cài đặt › Đọc & Nghe (bỏ hàng "Widget TTS"), `FloatingWidgetLayoutCoordinator` (bỏ id `.tts`).
+- `architecture_allowlist.json`: gỡ hai entry của `TTSFloatingWidgetView.swift` (file đã xoá).
+- `rules.md`: thay mục "TTS widget reveal-from-Reader invariants (1.3.277)" bằng luật một kiểu widget; luật 25 + mục nút hub nêu cửa sổ còn lại (hub, đĩa nghe, trình duyệt). `CLAUDE.md` / `AGENTS.md`: đoạn "Widget TTS chỉ một kiểu".
+- **Kiểm chứng:**
+  - Đọc code + grep chéo mọi symbol đã xoá (không còn chỗ gọi). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Bấm tai nghe ở Reader ⇒ nửa viên đĩa TTS hiện (không còn đĩa nổi), chạm ⇒ sheet điều khiển nhanh.
+    2. Về trang gốc tab khi đang đọc ⇒ ô giữa thanh tab là đĩa bìa truyện xoay.
+    3. Sheet điều khiển nhanh ⇒ Giọng đọc / Hẹn giờ mở được (cần `modelContainer`).
+    4. Cài đặt › Đọc & Nghe không còn hàng "Widget TTS".
+
+## [1.3.858] - 2026-11-11
+
+### feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header
+
+Anh Bửu duyệt mockup: nút góc của nhạc / TTS (đĩa nghe) đổi từ đĩa tròn 52 pt góc dưới phải thành **nửa viên thuốc** dính mép trái hoặc phải, kéo đổi được mép và độ cao; chạm vẫn mở sheet điều khiển nhanh như cũ.
+
+- **Hình dùng chung** `EdgePillShape` (`Views/Common/GlassChrome/`): cạnh phẳng áp mép (vẽ tràn 1 pt ra ngoài để viền kính không thành vạch sáng), đầu bo bán kính = nửa chiều cao quay vào trong; `edge == nil` = hình tròn (lúc kéo). Hai cỡ: lớn 68 × 52 (đĩa nghe), nhỏ 38 × 36 (hub, trình duyệt — dùng ở commit sau).
+- **Đĩa nghe** (`MediaDiscFaceButton(.corner)`): nửa viên 68 × 52 = lề 16 + nút "+" 52; nền kính `FloatingGlassBackground(shape:)` theo Độ trong suốt / Độ đục như nút "+"; bìa 32 pt đồng tâm đầu bo (thẳng cột với icon "+"), vẫn mờ đúng số theo Độ trong suốt.
+- **Chạm + kéo ở UIKit** (`MediaDiscContainerViewController+Drag`, khuôn nút hub): mặt đĩa SwiftUI không còn cử chỉ (bài học 1.3.812). Kéo ⇒ co tròn 52 theo tay; thả ⇒ bám mép gần hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator.resolve`), lưu mép + tỉ lệ dọc tâm (`MediaDiscPositionStore`, khoá `mediaDiscEdge` / `mediaDiscVerticalRatio`, một chỗ chung cho nhạc và TTS). Đang kéo mà đĩa bị ẩn (bàn phím, màn xem phim…) ⇒ thôi kéo, không lưu.
+- **Chỗ đứng** (`MediaDiscPlacement` viết lại): mép + độ cao đã nhớ; chưa kéo lần nào ⇒ mép phải, thấp nhất (trang có nút "+" thì đứng ngay trên nút như đĩa góc cũ). Kẹp dưới header (vùng an toàn trên + 52) tới trên vùng an toàn đáy 12. Neo `.button` / `.bar` chồng cột mà đĩa đè lên (kể khe 12) ⇒ tạm đẩy lên trên neo, không ghi đè chỗ nhớ; cửa sổ phim nhỏ tính như neo. Luật ẩn giữ nguyên.
+- **Bỏ nhấn giữ đưa đĩa lên header** (1.3.812–815): xoá `MediaDiscHeaderSlot`, vai neo `.headerTrailing` (gỡ ở header Reader + màn truyện tranh), `isDiscElevated`, vùng chạm 38 pt, `quickControlsDidDismiss`.
+- `CLAUDE.md` / `AGENTS.md`: viết lại đoạn đĩa nghe + "Hai chỗ đặt đĩa".
+- **Kiểm chứng:**
+  - Đọc code + grep chéo symbol đã xoá. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Nghe nhạc, mở trang có nút "+" ⇒ nửa viên mép phải ngay trên nút "+".
+    2. Chạm ⇒ sheet nhạc; kéo sang mép trái, thả giữa màn ⇒ dính mép trái đúng độ cao, mở lại app vẫn ở đó.
+    3. Kéo lên sát đỉnh ⇒ dừng dưới header, không che nút quay lại / "…".
+    4. Thả đè nút hub cùng mép ⇒ nửa viên dời sát trên / dưới hub.
+    5. Reader: nửa viên mép phải đứng trên nút tai nghe; trình duyệt / truyện tranh: đứng trên thanh dưới.
+    6. Bàn phím hiện giữa lúc kéo ⇒ đĩa thu, không kẹt.

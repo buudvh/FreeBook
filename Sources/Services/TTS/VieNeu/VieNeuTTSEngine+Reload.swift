@@ -47,7 +47,7 @@ extension VieNeuTTSEngine {
         labThreadOverride ?? VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
     }
 
-    /// Màn thử VieNeu Turbo đặt / bỏ số luồng ORT riêng (1.3.849) — **không** ghi vào cài đặt của người dùng.
+    /// Màn thử VieNeu Turbo đặt / bỏ số luồng ORT riêng (1.3.878) — **không** ghi vào cài đặt của người dùng.
     ///
     /// Đặt hay bỏ đều buộc dựng lại session ở lần nạp kế tiếp. Luồng phụ của pool ORT sinh ra lúc dựng session nên mang
     /// QoS của luồng đang dựng; màn thử dựng ngay ở QoS mình chọn (`VieNeuTTSService.prepare(voice:priority:)`), và khi

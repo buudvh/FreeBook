@@ -37,7 +37,6 @@ struct TaskOptionsSheet: View {
     @State internal var pickerChapters: [AINameScanChapter]? = nil
     /// Nghỉ giữa các lần tải + số luồng của nguồn; ghi lại khi bấm "Bắt đầu".
     @State internal var speed: DownloadSpeedSettings
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     /// Chất lượng tải video — lựa chọn chung, tác vụ đọc lúc chạy (`VideoDownloadQuality`).
     @AppStorage(VideoDownloadQuality.defaultsKey) private var videoQuality: VideoDownloadQuality = VideoDownloadQuality.defaultValue
     /// Tải phim (`DownloadManager+Video`): tiêu đề "Tải video", dòng Chất lượng, giải thích riêng. Nhãn "tập" và sidecar
@@ -93,7 +92,7 @@ struct TaskOptionsSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 bookInfoSection
 
                 if isUnsupportedKind {
@@ -104,7 +103,7 @@ struct TaskOptionsSheet: View {
                 } else {
                     taskSections
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(sheetTitle)
             .task {
                 guard !isUnsupportedKind else { return }
@@ -224,16 +223,13 @@ struct TaskOptionsSheet: View {
         }
     }
 
+    /// Ba cấp của popup dịch + phồn → giản của truyện (`BookDisplayTranslation`).
     private var displayedBookTitle: String {
-        let title = isTranslationEnabled && TranslateUtils.containsChinese(book.title)
-            ? TranslateUtils.translateMeta(book.title, bookId: book.bookId)
-            : book.title
-        return DisplayTextFormatter.titleCase(title)
+        BookDisplayTranslation.title(book.title, BookDisplayTranslation.options(for: book))
     }
 
     private var displayedAuthor: String {
-        let author = isTranslationEnabled ? TranslateUtils.translateAuthorHanViet(book.author) : book.author
-        return DisplayTextFormatter.titleCase(author)
+        DisplayTextFormatter.titleCase(BookDisplayTranslation.author(book.author, BookDisplayTranslation.options(for: book)))
     }
 
     /// Dòng xem trước "đã tải X/Y chương" (video: "tập"), `nil` khi chưa đọc được mục lục.

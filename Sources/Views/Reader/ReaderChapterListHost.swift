@@ -30,6 +30,8 @@ struct ReaderChapterListHost: View, Equatable {
     let shouldConvertTraditionalToSimplified: Bool
     let theme: ReaderTheme
     let store: ReaderChapterListStore
+    /// Tên chương / tên truyện bằng tiện ích dịch (store của `ReaderView`, so theo identity).
+    let titleTranslations: ReaderTitleTranslationStore
     @Binding var onlineChapters: [ChapterResult]
     let isLocalTXTBook: Bool
     let onSelectChapter: (Int) -> Void
@@ -52,6 +54,7 @@ struct ReaderChapterListHost: View, Equatable {
             shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             theme: theme,
             store: store,
+            titleTranslations: titleTranslations,
             onlineChapters: $onlineChapters,
             isLocalTXTBook: isLocalTXTBook,
             onSelectChapter: onSelectChapter,
@@ -75,6 +78,7 @@ struct ReaderChapterListHost: View, Equatable {
                lhs.shouldConvertTraditionalToSimplified == rhs.shouldConvertTraditionalToSimplified &&
                lhs.theme == rhs.theme &&
                lhs.store === rhs.store &&
+               lhs.titleTranslations === rhs.titleTranslations &&
                lhs.onlineChapters == rhs.onlineChapters &&
                lhs.isLocalTXTBook == rhs.isLocalTXTBook
     }

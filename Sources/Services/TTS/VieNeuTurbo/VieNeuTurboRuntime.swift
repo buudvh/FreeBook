@@ -68,7 +68,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     /// QoS mặc định của hàng đợi — chỉ còn cho nạp model / dựng session / nhả (không nóng). Trên iPhone, QoS quyết chuyện
     /// chạy lõi hiệu năng hay lõi tiết kiệm, và luồng CPU của ggml mang QoS của luồng gọi ⇒ mức của **lượt tổng hợp** do
     /// người gọi chọn qua `synthesize(…, qos:)`: trình đọc dùng `.userInitiated` (`VieNeuTurboTTSService.readerQoS`,
-    /// 1.3.856 — đo nhanh gấp đôi và mát hơn `.utility`), màn thử dùng mức chọn trên màn.
+    /// 1.3.885 — đo nhanh gấp đôi và mát hơn `.utility`), màn thử dùng mức chọn trên màn.
     static let qos: DispatchQoS = .utility
 
     private let queue = DispatchQueue(label: "VieNeuTurboRuntime", qos: VieNeuTurboRuntime.qos)

@@ -139,7 +139,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         try await prepare(voice: voice, priority: .utility)
     }
 
-    /// Như `prepare(voice:)` nhưng chọn mức ưu tiên — chỉ màn thử VieNeu Turbo dùng (1.3.849). Luồng phụ của pool ORT
+    /// Như `prepare(voice:)` nhưng chọn mức ưu tiên — chỉ màn thử VieNeu Turbo dùng (1.3.878). Luồng phụ của pool ORT
     /// sinh ra lúc dựng session, nên dựng ở mức nào thì pool chạy ở mức đó. Hàm riêng (không thêm tham số mặc định vào
     /// hàm trên) vì `LocalTTSEngine` đòi đúng chữ ký `prepare(voice:)`.
     func prepare(voice: String, priority: TaskPriority) async throws {

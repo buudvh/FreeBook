@@ -69,6 +69,10 @@ public final class JunkFilterManager: ObservableObject {
     private let lock = NSLock()
     /// Quy tắc đang bật kèm regex đã biên dịch sẵn (nil với quy tắc literal).
     private nonisolated(unsafe) var activeRulesCache: [(rule: JunkFilterRule, regex: NSRegularExpression?)] = []
+    /// Cùng bộ quy tắc nhưng mẫu + chữ thay đã chuyển phồn → giản — cho chữ đã qua bước chuyển của
+    /// `ChineseTextPipeline.normalizeChapter` (1.3.846): mẫu viết bằng chữ phồn vẫn khớp. Dựng lười một lần sau mỗi lần
+    /// đổi quy tắc (`nil` = chưa dựng), cùng lock với `activeRulesCache`.
+    private nonisolated(unsafe) var convertedRulesCache: [(rule: JunkFilterRule, regex: NSRegularExpression?)]?
 
     private var rulesFileURL: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -133,17 +137,41 @@ public final class JunkFilterManager: ObservableObject {
             }
         lock.lock()
         activeRulesCache = compiled
+        convertedRulesCache = nil
         lock.unlock()
+    }
+
+    /// Bộ quy tắc cho chữ đã / chưa chuyển phồn → giản. Bản đã chuyển dựng một lần dưới lock (vài quy tắc, ICU + biên dịch
+    /// regex rẻ); quy tắc không có chữ phồn giữ nguyên regex đã biên dịch, regex lỗi sau khi chuyển thì bỏ như `updateCache`.
+    private nonisolated func activeRules(convertsTraditional: Bool) -> [(rule: JunkFilterRule, regex: NSRegularExpression?)] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard convertsTraditional else { return activeRulesCache }
+        if let converted = convertedRulesCache { return converted }
+        let converted = activeRulesCache.compactMap { entry -> (rule: JunkFilterRule, regex: NSRegularExpression?)? in
+            var rule = entry.rule
+            rule.pattern = ChineseTextPipeline.convert(rule.pattern, converts: true)
+            rule.replacement = ChineseTextPipeline.convert(rule.replacement, converts: true)
+            guard rule.pattern != entry.rule.pattern || rule.replacement != entry.rule.replacement else { return entry }
+            guard rule.isRegex else { return (rule, nil) }
+            guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: []) else { return nil }
+            return (rule, regex)
+        }
+        convertedRulesCache = converted
+        return converted
     }
 
     // MARK: - Filter Execution (Thread-Safe)
 
     public nonisolated func filterRawContent(_ rawContent: String) -> String {
+        filterRawContent(rawContent, convertsTraditional: false)
+    }
+
+    /// `convertsTraditional`: `rawContent` đã qua phồn → giản ⇒ lọc bằng bộ quy tắc đã chuyển (1.3.846).
+    public nonisolated func filterRawContent(_ rawContent: String, convertsTraditional: Bool) -> String {
         guard !rawContent.isEmpty else { return rawContent }
 
-        lock.lock()
-        let active = activeRulesCache
-        lock.unlock()
+        let active = activeRules(convertsTraditional: convertsTraditional)
 
         guard !active.isEmpty else { return rawContent }
 

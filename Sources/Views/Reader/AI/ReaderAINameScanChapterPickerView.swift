@@ -44,10 +44,10 @@ struct ReaderAINameScanChapterPickerView: View {
             let ordinalDigits = showsChapterOrdinal
                 ? ChapterOrdinalNumbering(chapterCount: chapters.reduce(0) { max($0, $1.number) }).digits
                 : 0
-            List(filteredChapters) { chapter in
+            List(filteredChapters) { chapter in Group {
                 row(for: chapter, ordinalDigits: ordinalDigits)
                     .id(chapter.index)
-            }
+            }.glassSheetRows() }
             .listStyle(.plain)
             .overlay {
                 if filteredChapters.isEmpty {

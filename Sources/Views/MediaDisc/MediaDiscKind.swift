@@ -5,7 +5,7 @@ import Foundation
 enum MediaDiscKind: String, Identifiable {
     /// Trình nghe âm thanh có album (`AudioMiniPlayerState.isActive`) ⇒ `AudioQuickControlSheet`.
     case music
-    /// TTS có phiên (`TTSManager.showFloatingWidget`) và widget TTS chọn kiểu "Đĩa góc dưới" ⇒ `TTSQuickControlSheet`.
+    /// TTS có phiên (`TTSManager.showFloatingWidget`) ⇒ `TTSQuickControlSheet`.
     case tts
 
     var id: String { rawValue }

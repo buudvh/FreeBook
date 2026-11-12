@@ -8,7 +8,7 @@ import Foundation
 /// giây đã tổng hợp ≈ số giây đã phát (bộ sinh chỉ đi trước tối đa 2 đoạn).
 struct VieNeuTurboSoakStats {
     /// Thời gian tường + CPU-time từng giai đoạn của **Nano** (text_encoder + duration, vòng Euler, codec) — đọc từ
-    /// `VieNeuTTSService.lastTiming` sau mỗi lượt (1.3.849). Turbo không có ⇒ `nil`.
+    /// `VieNeuTTSService.lastTiming` sau mỗi lượt (1.3.878). Turbo không có ⇒ `nil`.
     struct StageSplit: Sendable {
         var textMs = 0.0
         var vectorMs = 0.0

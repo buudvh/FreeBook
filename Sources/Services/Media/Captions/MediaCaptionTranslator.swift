@@ -1,22 +1,50 @@
 import Foundation
 
-/// Dịch VietPhrase phụ đề phim (`VideoSubtitleCue`) và lời bài hát (`AudioLyricLine`) — phép biến đổi **chỉ để hiển thị**,
-/// chạy **sau** khi parse: dữ liệu nguồn (`track.subtitles[].data`, nguồn lời) giữ nguyên văn, không qua
+/// Chuyển phồn → giản rồi dịch VietPhrase phụ đề phim (`VideoSubtitleCue`) và lời bài hát (`AudioLyricLine`) — phép biến đổi
+/// **chỉ để hiển thị**, chạy **sau** khi parse: dữ liệu nguồn (`track.subtitles[].data`, nguồn lời) giữ nguyên văn, không qua
 /// `ChapterTextNormalizer`, JunkFilter, bin hay TTS (bất biến "media không đi qua pipeline text"; tiền lệ: tên nhóm tập phim).
 ///
-/// Cổng giống truyện chữ: dịch khi `TranslationConfigStore.isTranslationEnabled(bookId:packageId:)` (phim/album này > nguồn
-/// > nguồn tự nhận tiếng Trung > toàn cục) **và** dòng có chữ Hán. Phồn→giản theo
-/// `convertsTraditionalToSimplified(bookId:packageId:)` (chỉ phim/nhạc dùng).
+/// Đi đúng một đường `ChineseTextPipeline` (1.3.846), cấu hình ba cấp phim / album này ⇒ nguồn ⇒ Tất cả
+/// (`ChineseTextPipeline.options(bookId:packageId:)`):
+/// 1. **phồn → giản** nếu bật — chạy **cả khi tắt dịch**, kết quả là "chữ gốc" hiện ở kiểu Gốc / dòng phụ của Song ngữ;
+/// 2. **dịch** khi công tắc dịch của phim / album bật **và** dòng có chữ Hán — bằng QT, hoặc bằng **tiện ích dịch** khi bộ
+///    dịch của phim / album (popup dịch / sheet "Dịch phụ đề" · "Dịch lời", `TranslationEngineStore`) là tiện ích và chỗ
+///    gọi xin (`prepare(…, extensionSource:)`): cả lô gửi `ChineseTextExtensionTranslator`, dòng tiện ích lỗi lùi về QT,
+///    chỉ ghi log. Phụ đề cứng (OCR) không xin ⇒ luôn QT.
 ///
 /// Cách gọi: từ **trong** task sẵn có của session (`subtitleTask` của phim, `lyricsTranslationTask` của nhạc) — không
-/// `Task.detached`, để huỷ task của session là huỷ luôn lượt dịch. Hai hàm `nonisolated async` nên chạy ngoài main.
-/// `prepare` chụp từ điển / rule **một lần** cho cả lượt; `translate` dịch từng lô bằng đúng ảnh chụp đó.
+/// `Task.detached`, để huỷ task của session là huỷ luôn lượt. Hai hàm `nonisolated async` nên chạy ngoài main.
+/// `prepare` đọc cấu hình + chụp từ điển / rule **một lần** cho cả lượt; `translate` xử lý từng lô bằng đúng ảnh chụp đó.
 enum MediaCaptionTranslator {
-    /// Một lượt dịch: ảnh chụp từ điển / rule (`TranslationReadContext`) + cờ phồn→giản, dùng chung cho mọi lô của lượt.
+    /// Một lượt: cấu hình chuyển / dịch + ảnh chụp từ điển / rule (`TranslationReadContext`, chỉ khi dịch), dùng chung cho
+    /// mọi lô của lượt.
     struct Pass: Sendable {
         let bookId: String
-        let convertsTraditional: Bool
-        fileprivate let context: TranslationReadContext
+        let options: ChineseTextPipeline.Options
+        fileprivate let context: TranslationReadContext?
+        /// Bộ dịch là tiện ích ⇒ lượt dịch tiện ích (`nil` = QT).
+        fileprivate let extensionRequest: ChineseTextExtensionTranslator.Request?
+
+        /// Lượt có dịch — lớp dịch đè lên hình (phụ đề cứng OCR) **chỉ** chạy khi cờ này bật; chỉ chuyển phồn → giản thì
+        /// không vẽ gì lên hình.
+        var translates: Bool { options.translates }
+
+        /// Bản chỉ chuyển phồn → giản của lượt này (bỏ bước dịch) — phụ đề phim chuyển cả bộ trước rồi mới dịch theo lô.
+        var convertOnly: Pass {
+            var convertOptions = options
+            convertOptions.translates = false
+            return Pass(bookId: bookId, options: convertOptions, context: nil, extensionRequest: nil)
+        }
+    }
+
+    /// Kết quả một dòng.
+    struct LineResult: Sendable, Equatable {
+        /// Chữ gốc đã chuyển phồn → giản; `nil` = y như nguyên văn (tắt chuyển / không có chữ phồn).
+        let converted: String?
+        /// Bản dịch; `nil` = không dịch (tắt dịch / không có chữ Hán / dịch ra y như chữ đã chuyển).
+        let translation: String?
+
+        static let unchanged = LineResult(converted: nil, translation: nil)
     }
 
     /// Số dòng phụ đề công bố mỗi lần (phim dịch từ dòng đang chiếu trở đi, hiện dần).
@@ -24,56 +52,116 @@ enum MediaCaptionTranslator {
     /// Kiểm huỷ sau mỗi chừng này dòng.
     private static let cancellationCheckInterval = 20
 
-    /// Cổng bật dịch của phim/album — y như Reader.
+    /// Cổng bật dịch của phim/album — cùng luật với `prepare`. Cho dòng trạng thái "Đang bật / Đang tắt" của ngăn kéo.
     nonisolated static func shouldTranslate(bookId: String, packageId: String) -> Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
+        ChineseTextPipeline.options(bookId: bookId, packageId: packageId).translates
     }
 
-    /// Mở một lượt dịch (đọc cấu hình + chụp từ điển, ngoài main). `nil` = cổng đang tắt hoặc task đã bị huỷ.
-    nonisolated static func prepare(bookId: String, packageId: String) async -> Pass? {
-        guard !Task.isCancelled, shouldTranslate(bookId: bookId, packageId: packageId) else { return nil }
-        let converts = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
-        let context = TranslationReadContext.capture(bookId: bookId)
+    /// Mở một lượt (đọc cấu hình + chụp từ điển, ngoài main). `nil` = tắt cả chuyển lẫn dịch, hoặc task đã bị huỷ.
+    /// `extensionSource` khác `nil` ⇒ được dịch bằng tiện ích khi bộ dịch của phim / album là tiện ích (nhãn `source` của
+    /// hợp đồng); `nil` ⇒ luôn QT (phụ đề cứng).
+    nonisolated static func prepare(
+        bookId: String,
+        packageId: String,
+        extensionSource: TranslationExtensionSource? = nil
+    ) async -> Pass? {
         guard !Task.isCancelled else { return nil }
-        return Pass(bookId: bookId, convertsTraditional: converts, context: context)
+        let options = ChineseTextPipeline.options(bookId: bookId, packageId: packageId)
+        guard options.converts || options.translates else { return nil }
+        // QT luôn chụp từ điển: dòng tiện ích lỗi lùi về QT.
+        let context = options.translates ? TranslationReadContext.capture(bookId: options.dictionaryBookId) : nil
+        let extensionRequest = extensionSource.flatMap {
+            ChineseTextExtensionTranslator.request(bookId: bookId, packageId: packageId, options: options, source: $0)
+        }
+        guard !Task.isCancelled else { return nil }
+        return Pass(bookId: bookId, options: options, context: context, extensionRequest: extensionRequest)
     }
 
-    /// Dịch một lô dòng (cùng thứ tự). Mỗi phần tử: bản dịch, hoặc `nil` khi dòng không có chữ Hán / dịch ra y nguyên.
-    /// Trả `nil` cả lô khi task bị huỷ giữa chừng — chỗ gọi không được công bố kết quả dở.
-    nonisolated static func translate(_ texts: [String], pass: Pass) async -> [String?]? {
-        translateBatch(texts, pass: pass)
+    /// Xử lý một lô dòng (cùng thứ tự). Trả `nil` cả lô khi task bị huỷ giữa chừng — chỗ gọi không được công bố kết quả dở.
+    nonisolated static func translate(_ texts: [String], pass: Pass) async -> [LineResult]? {
+        guard let request = pass.extensionRequest else { return processBatch(texts, pass: pass) }
+        return await translateWithExtension(texts, pass: pass, request: request)
+    }
+
+    // MARK: - Tiện ích dịch
+
+    /// Dòng có chữ Hán gửi tiện ích **một lần cho cả lô** (tiện ích tự chuyển phồn → giản trước, tách dòng theo `\n`, gom
+    /// lô theo `max_line` / `max_length`); dòng không có chữ Hán giữ nguyên (cổng như QT). Dòng tiện ích lỗi ⇒ QT
+    /// (`processBatch`), chỉ ghi log. Huỷ task ⇒ `nil` cả lô.
+    private static func translateWithExtension(
+        _ texts: [String],
+        pass: Pass,
+        request: ChineseTextExtensionTranslator.Request
+    ) async -> [LineResult]? {
+        var results = [LineResult](repeating: .unchanged, count: texts.count)
+        let indexes = texts.indices.filter { TranslateUtils.containsChinese(texts[$0]) }
+        guard !indexes.isEmpty else { return Task.isCancelled ? nil : results }
+        let sent = indexes.map { texts[$0] }
+        let output: ChineseTextExtensionTranslator.Output
+        do {
+            output = try await ChineseTextExtensionTranslator.translate(sent, request: request)
+        } catch {
+            return nil
+        }
+        var failed: [Int] = []
+        for (offset, index) in indexes.enumerated() {
+            let source = ChineseTextPipeline.convert(texts[index], converts: pass.options.converts)
+            let converted = source == texts[index] ? nil : source
+            guard let translated = output.texts[offset]?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                failed.append(index)
+                continue
+            }
+            let translation = translated.isEmpty || translated == source ? nil : translated
+            results[index] = LineResult(converted: converted, translation: translation)
+        }
+        if let status = output.fallbackStatus {
+            AppLogger.shared.log(
+                "❌ [MediaCaption] Tiện ích dịch «\(status.engineName)» lỗi \(status.failedLineCount)/\(status.requestedLineCount) dòng: "
+                    + "\(status.message) ⇒ dịch QT"
+            )
+        }
+        guard !failed.isEmpty else { return Task.isCancelled ? nil : results }
+        guard let fallback = processBatch(failed.map { texts[$0] }, pass: pass) else { return nil }
+        for (offset, index) in failed.enumerated() {
+            results[index] = fallback[offset]
+        }
+        return results
     }
 
     // MARK: - Nội bộ
 
-    /// Thân đồng bộ (gọi `TaskLocal.withValue` bản đồng bộ cho chắc): cả lô chạy trong ảnh chụp của lượt, nên
+    /// Thân đồng bộ (gọi `TaskLocal.withValue` bản đồng bộ cho chắc): có dịch thì cả lô chạy trong ảnh chụp của lượt, nên
     /// `translateContent` không chụp lại từ điển mỗi dòng (`TranslationReadContext.withSnapshot` thấy `current` cùng `bookId`).
-    private static func translateBatch(_ texts: [String], pass: Pass) -> [String?]? {
-        TranslationReadContext.$current.withValue(pass.context) { () -> [String?]? in
-            var results: [String?] = []
-            results.reserveCapacity(texts.count)
-            for (offset, text) in texts.enumerated() {
-                if offset % cancellationCheckInterval == 0, Task.isCancelled { return nil }
-                results.append(translateLine(text, pass: pass))
-            }
-            return Task.isCancelled ? nil : results
+    private static func processBatch(_ texts: [String], pass: Pass) -> [LineResult]? {
+        guard let context = pass.context else { return processLines(texts, pass: pass) }
+        return TranslationReadContext.$current.withValue(context) { () -> [LineResult]? in
+            processLines(texts, pass: pass)
         }
     }
 
-    /// Dòng nhiều hàng (phụ đề 2 dòng nối `\n`) ⇒ dịch từng hàng rồi nối lại; hàng không có chữ Hán giữ nguyên.
-    /// `translateContent` (không phải `translateChapterTitle`): phụ đề / lời là nội dung, không dùng bộ rule tên chương.
-    private static func translateLine(_ text: String, pass: Pass) -> String? {
-        guard TranslateUtils.containsChinese(text) else { return nil }
-        let rows = text.components(separatedBy: "\n").map { row -> String in
-            guard TranslateUtils.containsChinese(row) else { return row }
-            return TranslateUtils.translateContent(
-                row,
-                bookId: pass.bookId,
-                shouldConvertTraditionalToSimplified: pass.convertsTraditional
-            )
+    private static func processLines(_ texts: [String], pass: Pass) -> [LineResult]? {
+        var results: [LineResult] = []
+        results.reserveCapacity(texts.count)
+        for (offset, text) in texts.enumerated() {
+            if offset % cancellationCheckInterval == 0, Task.isCancelled { return nil }
+            results.append(processLine(text, options: pass.options))
         }
+        return Task.isCancelled ? nil : results
+    }
+
+    /// Chuyển cả dòng một lần, rồi dịch từng hàng (phụ đề 2 dòng nối `\n`); hàng không có chữ Hán giữ nguyên.
+    /// `content` (không phải `chapterTitle`): phụ đề / lời là nội dung, không dùng bộ rule tên chương.
+    private static func processLine(_ text: String, options: ChineseTextPipeline.Options) -> LineResult {
+        guard TranslateUtils.containsChinese(text) else { return .unchanged }
+        let source = ChineseTextPipeline.convert(text, converts: options.converts)
+        let converted = source == text ? nil : source
+        guard options.translates else { return LineResult(converted: converted, translation: nil) }
+        let rowOptions = options.alreadyConverted
+        let rows = source.components(separatedBy: "\n").map { ChineseTextPipeline.content($0, rowOptions) }
         let translated = rows.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        // Từ điển chưa nạp xong thì `translateContent` trả nguyên văn ⇒ coi như chưa có bản dịch.
-        return translated.isEmpty || translated == text ? nil : translated
+        // Từ điển chưa nạp xong thì dịch trả nguyên văn ⇒ coi như chưa có bản dịch (so với chữ **đã chuyển**, kẻo chữ chỉ
+        // đổi phồn → giản bị coi là "bản dịch").
+        let translation = translated.isEmpty || translated == source ? nil : translated
+        return LineResult(converted: converted, translation: translation)
     }
 }

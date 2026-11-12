@@ -13,25 +13,21 @@ struct BrowserContextSheetsModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: $actions.sheet) { sheet in
-                switch sheet.kind {
-                case .translate(let source):
-                    BrowserTranslateSheet(source: source, convertsTraditional: convertsTraditional)
-                case .lookup(let request):
-                    BrowserDictionarySheet(request: request)
+                Group {
+                    switch sheet.kind {
+                    case .translate(let source):
+                        // `source` đã qua phồn → giản của tab lúc bấm (`BypassBrowserTabStore+ContextActions`, 1.3.846).
+                        BrowserTranslateSheet(source: source)
+                    case .lookup(let request):
+                        BrowserDictionarySheet(request: request)
+                    }
                 }
+                .appGlassSheet()
             }
             .sheet(item: $store.shareRequest) { request in
                 ShareSheet(activityItems: request.items)
                     .presentationDetents([.medium, .large])
             }
-    }
-
-    /// Phồn → giản của sheet Dịch QT theo trang tab đang xem (menu bôi đen chỉ có trên tab đang hiển thị), cùng luật
-    /// với dịch cả trang (`BrowserTranslatePolicy.convertsTraditional`, 1.3.684).
-    private var convertsTraditional: Bool {
-        MainActor.assumeIsolated {
-            BrowserTranslatePolicy.convertsTraditional(urlString: store.activeTab?.urlString ?? "")
-        }
     }
 }
 

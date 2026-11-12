@@ -5,9 +5,9 @@ import UIKit
 /// điển chung — trình duyệt không gắn truyện), nút "Sao chép bản dịch" và "Tra từ điển" (mở sheet Tra từ điển cho
 /// token có chữ Hán đầu tiên). Sheet nhỏ, vuốt xuống để đóng, không nút đóng.
 struct BrowserTranslateSheet: View {
+    /// Câu gốc — **đã** qua phồn → giản khi tab đang chuyển (store chuyển lúc bấm, 1.3.846) nên "Bản gốc" hiện đúng chữ
+    /// đã chuyển và sheet chỉ còn bước dịch.
     let source: String
-    /// Phồn → giản trước khi dịch — theo trang tab đang xem (`BrowserTranslatePolicy.convertsTraditional`, 1.3.684).
-    let convertsTraditional: Bool
 
     @State private var translated: String?
     @State private var lookupRequest: BrowserLookupRequest?
@@ -52,7 +52,10 @@ struct BrowserTranslateSheet: View {
         .preferredColorScheme(.dark)
         .task { await translate() }
         .sheet(item: $lookupRequest) { request in
-            BrowserDictionarySheet(request: request)
+            Group {
+                BrowserDictionarySheet(request: request)
+            }
+            .appGlassSheet()
         }
     }
 
@@ -72,9 +75,10 @@ struct BrowserTranslateSheet: View {
 
     private func translate() async {
         let text = source
-        let converts = convertsTraditional
         let result = await Task.detached(priority: .userInitiated) {
-            TranslateUtils.translateContent(text, bookId: nil, shouldConvertTraditionalToSimplified: converts)
+            ChineseTextPipeline.content(
+                text, ChineseTextPipeline.Options(converts: false, translates: true, dictionaryBookId: nil)
+            )
         }.value
         let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
         translated = trimmed.isEmpty ? source : result

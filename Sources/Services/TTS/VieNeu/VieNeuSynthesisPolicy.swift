@@ -75,7 +75,7 @@ enum VieNeuSynthesisPolicy {
     /// đã ở 8 bước + CFG thì **số luồng là đòn bẩy còn lại duy nhất**, đổi lại là máy nóng hơn.
     ///
     /// Đo 4 luồng: `Output.timing` cho `vector 7,60 s | khác 0,14 s` trên 28,01 s audio, `RTF thật` 0,37 → 0,29
-    /// so với 2 luồng. Số "vector" đó chiếm **98%** thời gian — nhưng trước 1.3.849 nó được chốt **sau** codec, tức là
+    /// so với 2 luồng. Số "vector" đó chiếm **98%** thời gian — nhưng trước 1.3.878 nó được chốt **sau** codec, tức là
     /// vòng Euler **cộng** `codec_decoder` (đo trên PC: Euler ~81%, codec ~17%; log `[VieNeuPerf]` nay tách riêng). Chi
     /// phí cố định theo chunk (0,14 s) vẫn nhỏ tới mức **giảm số chunk không giúp gì**. Mặc định sau đó **về lại 2**
     /// (1.3.488): đo CPU-time trên máy thật thì 2 luồng + tắt spin mát máy hơn, RTF 0,32 vẫn đủ nhanh.

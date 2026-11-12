@@ -29,7 +29,7 @@ struct SearchEnginesConfigView: View {
     @State private var showingAlert = false
     
     var body: some View {
-        List {
+        List { Group {
             Section {
                 ForEach(engines) { engine in
                     engineRow(engine)
@@ -38,7 +38,7 @@ struct SearchEnginesConfigView: View {
             } header: {
                 SectionHelpHeader("Công cụ tra cứu", paragraphs: ["Sử dụng ký tự %s trong mẫu URL để đại diện cho từ chữ Hán được bôi đen."])
             }
-        }
+        }.glassSheetRows() }
         // "Thêm công cụ mới" là nút "+" nổi góc dưới phải (trước đây là hàng cuối danh sách).
         .floatingAddButton("Thêm công cụ") { prepareForAdd() }
         .pageTitle("Công cụ tra cứu nhanh", style: isPresentedAsSheet ? .leading : .centered)
@@ -60,31 +60,34 @@ struct SearchEnginesConfigView: View {
         }
         .onAppear(perform: loadEngines)
         .sheet(isPresented: $showingAddEditSheet) {
-            NavigationStack {
-                Form {
-                    Section(header: Text("Thông tin công cụ")) {
-                        TextField("Tên công cụ (ví dụ: Google)", text: $inputName)
-                        TextField("Mẫu URL chứa %s", text: $inputTemplate)
-                            .textInputAutocapitalization(.never)
-                    }
-                }
-                .pageTitle(editingEngine == nil ? "Thêm công cụ" : "Sửa công cụ")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Lưu") {
-                            saveEngine()
-                            showingAddEditSheet = false
+            Group {
+                NavigationStack {
+                    Form { Group {
+                        Section(header: Text("Thông tin công cụ")) {
+                            TextField("Tên công cụ (ví dụ: Google)", text: $inputName)
+                            TextField("Mẫu URL chứa %s", text: $inputTemplate)
+                                .textInputAutocapitalization(.never)
                         }
-                        .headerTextButton()
-                        .disabled(inputName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  inputTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  !inputTemplate.contains("%s"))
+                    }.glassSheetRows() }
+                    .pageTitle(editingEngine == nil ? "Thêm công cụ" : "Sửa công cụ")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Lưu") {
+                                saveEngine()
+                                showingAddEditSheet = false
+                            }
+                            .headerTextButton()
+                            .disabled(inputName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                      inputTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                      !inputTemplate.contains("%s"))
+                        }
                     }
                 }
+                .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
+                .presentationDetents([.height(260)])
+                .presentationDragIndicator(.visible)
             }
-            .background(Color(uiColor: .systemBackground).onTapGesture { KeyboardDismissPreference.dismissOnTapOutsideIfEnabled() })
-            .presentationDetents([.height(260)])
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .background(
             DocumentPickerPresenter(

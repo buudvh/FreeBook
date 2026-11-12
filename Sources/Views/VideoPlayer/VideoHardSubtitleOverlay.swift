@@ -10,7 +10,8 @@ import SwiftUI
 /// - Phim Phóng cắt mất dải dưới ⇒ ép dải vào vùng nhìn thấy.
 /// - Có mặt trong cây view = có màn xem to ⇒ `onAppear` / `onDisappear` bật / tắt engine (cửa sổ nhỏ không có lớp phủ này).
 /// - Kiểu hiển thị dùng chung với phụ đề mềm (`MediaCaptionDisplayMode`, 1.3.840): Bản dịch / Song ngữ (bản dịch + chữ Trung
-///   đọc được làm dòng phụ nhỏ, để đối chiếu) / Gốc (không vẽ gì — chữ gốc in sẵn trong phim). Câu không có bản dịch ⇒ không vẽ.
+///   đọc được — đã chuyển phồn → giản nếu bật — làm dòng phụ nhỏ, để đối chiếu) / Gốc (không vẽ gì — chữ gốc in sẵn trong
+///   phim). Câu không có bản dịch ⇒ không vẽ; phim tắt dịch (kể cả khi chỉ bật phồn → giản) ⇒ engine không đọc.
 struct VideoHardSubtitleOverlay: View {
     let engine: VideoHardSubtitleEngine
     let gravity: VideoPlayerController.Gravity

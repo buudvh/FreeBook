@@ -17,7 +17,7 @@ struct ExtensionRepositoryListView: View {
     @State private var errorMessage = ""
 
     var body: some View {
-        List {
+        List { Group {
             if ExtensionUpdateCheckStatusLine.hasContent || !statusMessage.isEmpty || !errorMessage.isEmpty {
                 Section {
                     if ExtensionUpdateCheckStatusLine.hasContent {
@@ -44,7 +44,7 @@ struct ExtensionRepositoryListView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
         .backPageTitle("Danh sách kho")
         .toolbar { toolbarContent }
@@ -64,9 +64,12 @@ struct ExtensionRepositoryListView: View {
             Text("Kho \(repo.name) sẽ bị xóa khỏi danh sách. Tiện ích đã cài từ kho này vẫn giữ nguyên.")
         }
         .sheet(isPresented: $showingAddRepo) {
-            AddRepositoryView { url in
-                addRepository { await checker.addRepository(url: url) }
+            Group {
+                AddRepositoryView { url in
+                    addRepository { await checker.addRepository(url: url) }
+                }
             }
+            .appGlassSheet()
         }
     }
 

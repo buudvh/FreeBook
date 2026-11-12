@@ -10,8 +10,9 @@ import UIKit
 /// - Màn đóng (`screenDidClose`): lượt còn chạy ⇒ thu nhỏ, lớp này tự thăm dò mỗi giây cho dòng "Kiểm tra nguồn" của
 ///   hub; lượt đã xong ⇒ bỏ (người dùng đã thấy kết quả).
 /// - Xong/dừng khi đang thu nhỏ ⇒ toast (cũng vào Trung tâm thông báo), dòng hub giữ "bấm để xem".
-/// - `reopen` (chạm dòng hub) trình bày lại màn ở chế độ gắn vào lượt bằng UIKit từ màn trên cùng của cửa sổ mức thường
-///   (sheet có thanh kéo, như màn Thông báo của hub).
+/// - Chạm dòng hub ⇒ màn gắn vào lượt hiện **ngay trong sheet hub** (trang con, `embeddedPage` / `embeddedScreen`,
+///   1.3.872). `reopen` (nút "Mở lượt đang chạy" của màn kiểm tra) vẫn trình bày lại màn bằng UIKit từ màn trên cùng của
+///   cửa sổ mức thường (sheet có thanh kéo).
 ///
 /// Báo "màn đóng" **không** trông vào một mình `onDisappear` (1.3.702: máy thật đóng sheet mà lượt không thu nhỏ): nút ⌄
 /// báo trước khi đóng; mọi sheet có thể chứa màn kiểm tra gọi `screenDidClose(_, screenId: nil)` ở `onDismiss` (sheet
@@ -158,6 +159,44 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         }
     }
 
+    // MARK: - Trang con trong sheet hub (1.3.872)
+
+    /// Ảnh chụp một lượt đang thu nhỏ để dựng màn kiểm tra **ngay trong sheet hub** (trang con "Kiểm tra nguồn", như trang
+    /// "Tác vụ AI") thay cho sheet riêng của `reopen`. Chụp lúc chạm dòng hub: màn gắn vào lượt xong thì bản ghi thôi "thu
+    /// nhỏ" (hub không thấy nữa) nên không tra lại mỗi lượt vẽ.
+    struct EmbeddedPage: Equatable {
+        let kind: MinimizedSourceCheck.Kind
+        let runId: String
+        fileprivate let scopeTitle: String
+        fileprivate let payload: Payload
+
+        static func == (lhs: EmbeddedPage, rhs: EmbeddedPage) -> Bool {
+            lhs.kind == rhs.kind && lhs.runId == rhs.runId
+        }
+    }
+
+    /// Lượt `kind` đang thu nhỏ ⇒ trang con để mở trong sheet hub; không có ⇒ `nil`.
+    func embeddedPage(_ kind: MinimizedSourceCheck.Kind) -> EmbeddedPage? {
+        guard let entry = entry(for: kind), entry.isMinimized, let payload = payloads[kind] else { return nil }
+        return EmbeddedPage(kind: kind, runId: entry.runId, scopeTitle: entry.scopeTitle, payload: payload)
+    }
+
+    /// Màn kiểm tra gắn vào lượt của `page`, tiêu đề giữa (trang con có nút ‹ — `SourceCheckHeaderButtons` thôi vẽ ⌄).
+    /// Màn tự `track` khi gắn xong và `screenDidClose` khi rời; `onClose` là đường đóng của chính màn (⌄, "Mở lượt đang
+    /// chạy").
+    func embeddedScreen(_ page: EmbeddedPage, onClose: @escaping () -> Void) -> AnyView {
+        switch page.payload {
+        case .legado(let packageIds):
+            return AnyView(LegadoSourceCheckView(
+                packageIds: packageIds, scopeTitle: page.scopeTitle, attachRunId: page.runId, onClose: onClose
+            ))
+        case .script(let targets):
+            return AnyView(ExtensionCheckView(
+                targets: targets, scopeTitle: page.scopeTitle, attachRunId: page.runId, onClose: onClose
+            ))
+        }
+    }
+
     private func present(_ controller: UIViewController, kind: MinimizedSourceCheck.Kind, runId: String, attempt: Int) {
         // Lượt đã bị bỏ/thay, hoặc đã mở lại bằng đường khác trong lúc chờ ⇒ thôi.
         guard let index = entries.firstIndex(where: { $0.kind == kind && $0.runId == runId }),
@@ -206,7 +245,9 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
             ))
         }
         // Trình bày bằng UIKit ⇒ không thừa hưởng `.tint` của `MainTabView`, gắn lại màu nhấn.
-        let root = NavigationStack { screen }.appAccentTint()
+        // Nền kính như mọi sheet (1.3.873): hosting trong suốt, kính vẽ ở gốc SwiftUI.
+        let root = NavigationStack { screen }.appAccentTint().appGlassUIKitSheet()
+        hosting.view.backgroundColor = .clear
         if let container = FloatingHubWindowManager.shared.modelContainer {
             hosting.rootView = AnyView(root.modelContainer(container))
         } else {
@@ -214,6 +255,7 @@ final class MinimizedSourceCheckCoordinator: ObservableObject {
         }
         hosting.modalPresentationStyle = .pageSheet
         hosting.sheetPresentationController?.prefersGrabberVisible = true
+        hosting.sheetPresentationController?.preferredCornerRadius = 16
         return hosting
     }
 

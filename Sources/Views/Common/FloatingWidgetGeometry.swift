@@ -40,17 +40,4 @@ enum FloatingWidgetGeometry {
     static func nearestEdge(centerX: CGFloat, screenWidth: CGFloat) -> EdgeDirection {
         centerX < screenWidth - centerX ? .left : .right
     }
-
-    /// Tâm X ở trạng thái nghỉ khi widget đã dán vào một cạnh.
-    static func restingCenterX(
-        edge: EdgeDirection,
-        widgetWidth: CGFloat,
-        screenWidth: CGFloat,
-        horizontalMargin: CGFloat
-    ) -> CGFloat {
-        let halfWidth = widgetWidth / 2
-        return edge == .left
-            ? (horizontalMargin + halfWidth)
-            : (screenWidth - horizontalMargin - halfWidth)
-    }
 }

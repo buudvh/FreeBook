@@ -65,7 +65,7 @@ struct AddTTSReplacementSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("Chuỗi thay thế TTS") {
                     TextField("Chuỗi gốc (pattern)", text: $pattern)
                         .textInputAutocapitalization(.never)
@@ -99,7 +99,7 @@ struct AddTTSReplacementSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Thêm thay thế TTS")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

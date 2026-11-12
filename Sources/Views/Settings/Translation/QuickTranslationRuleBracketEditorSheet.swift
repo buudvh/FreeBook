@@ -76,7 +76,7 @@ struct QuickTranslationRuleBracketEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     HStack(spacing: 12) {
                         glyphField("Ngoặc mở", placeholder: "(", text: $open, field: .open)
@@ -99,7 +99,7 @@ struct QuickTranslationRuleBracketEditorSheet: View {
                 } header: {
                     Text("Tên")
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(original == nil ? "Thêm cặp ngoặc" : "Sửa cặp ngoặc")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

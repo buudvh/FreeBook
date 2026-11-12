@@ -79,9 +79,12 @@ struct VieNeuJapaneseDictionaryView: View {
             SideDrawerActionRow("Xoá tất cả phiên âm", systemImage: "trash", role: .destructive) { showingDeleteAllConfirmation = true }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddWordSheet(initialKey: searchText, showSuggestions: true, target: .vieNeu) { key, val, destination in
-                saveWord(key: key, value: val, destination: destination)
+            Group {
+                AddWordSheet(initialKey: searchText, showSuggestions: true, target: .vieNeu) { key, val, destination in
+                    saveWord(key: key, value: val, destination: destination)
+                }
             }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingFileImporter) {
             DocumentPicker(
@@ -105,9 +108,12 @@ struct VieNeuJapaneseDictionaryView: View {
             get: { editingKey.map { EditableEntry(key: $0, value: editingValue) } },
             set: { editingKey = $0?.key; editingValue = $0?.value ?? "" }
         )) { entry in
-            EditWordSheet(key: entry.key, value: entry.value) { newValue in
-                addWord(key: entry.key, value: newValue)
+            Group {
+                EditWordSheet(key: entry.key, value: entry.value) { newValue in
+                    addWord(key: entry.key, value: newValue)
+                }
             }
+            .appGlassSheet()
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
@@ -174,7 +180,7 @@ struct VieNeuJapaneseDictionaryView: View {
             ? [shown[max(0, shown.count - 50)], shown[shown.count - 1]]
             : []
 
-        List {
+        List { Group {
             statusSection
 
             if allWords.isEmpty {
@@ -205,7 +211,7 @@ struct VieNeuJapaneseDictionaryView: View {
                     SectionHelpHeader("Từ vựng (\(allWords.count) từ)", paragraphs: ["Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng hoặc icon bút để sửa cách đọc; icon thùng rác hoặc vuốt để xoá."])
                 }
             }
-        }
+        }.glassSheetRows() }
         .onChange(of: searchText) { _, _ in visibleCount = 100 }
         // "Thêm từ" là nút "+" nổi góc dưới phải.
         .floatingAddButton("Thêm từ") { showingAddSheet = true }

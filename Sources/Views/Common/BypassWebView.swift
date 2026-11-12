@@ -7,7 +7,7 @@ import WebKit
 /// - Trang (web hoặc Home) chiếm phần giữa và **kết thúc ngay trên thanh dưới** (không bị che); dải báo tự dịch nổi
 ///   ở đầu trang, dải báo popup bị chặn nổi ở cuối trang.
 /// - Thanh dưới gắn sát đáy (`BrowserBottomBar`): lùi, tiến, ô URL, nút Import, nút ⋮ mở ngăn kéo. Thanh là neo của đĩa
-///   nghe góc dưới phải (1.3.808): đang nghe nhạc / TTS kiểu Đĩa góc dưới ⇒ đĩa đứng ngay trên thanh.
+///   nghe góc dưới phải (1.3.808): đang nghe nhạc / TTS mà nửa viên đĩa đè thanh ⇒ đĩa tạm đứng ngay trên thanh.
 ///
 /// Thành phần giao diện ở `Sources/Views/Common/Browser/Chrome/`; thao tác (tab, Home, nạp URL, import, sao chép link)
 /// ở `BypassWebView+Actions`. Menu nhấn giữ / sheet dịch-tra / bảng chia sẻ do phần menu nhấn giữ gắn thêm.
@@ -46,7 +46,7 @@ struct BypassWebView: View {
     @State var showingBrowserSettings = false
     /// Công tắc NSFW toàn app: tắt ⇒ Home không hiện ô của nguồn NSFW và ẩn lịch sử duyệt trang của chúng.
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) var includeNsfw = false
-    /// Công tắc chung phồn → giản (sheet Cài đặt trình duyệt): đổi ⇒ dịch lại tab đang dịch theo cờ mới (1.3.684).
+    /// Công tắc chung phồn → giản (sheet Cài đặt trình duyệt): đổi ⇒ áp lại cờ cho các tab ngay (1.3.684, 1.3.846).
     @AppStorage(BrowserTranslatePolicy.convertsTraditionalKey) var convertsTraditionalGlobal = false
 
     var body: some View {
@@ -84,18 +84,24 @@ struct BypassWebView: View {
                 showingSourcePicker = false
             }
             .onChange(of: convertsTraditionalGlobal) { _, _ in
-                store.retranslateTabsFollowingGlobalConvert()
+                store.reapplyConvertPolicyFollowingGlobal()
             }
             .sheet(isPresented: $showingAllHistorySheet) {
-                BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
-                    if let tab = store.activeTab, let target = URL(string: selectedUrl) {
-                        tab.load(target)
+                Group {
+                    BrowserHistorySheetView(hidesNsfwHistory: !includeNsfw) { selectedUrl in
+                        if let tab = store.activeTab, let target = URL(string: selectedUrl) {
+                            tab.load(target)
+                        }
                     }
                 }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingBrowserSettings) {
-                NavigationStack { BrowserSettingsView(showsDoneButton: true) }
-                    .presentationDragIndicator(.visible)
+                Group {
+                    NavigationStack { BrowserSettingsView(showsDoneButton: true) }
+                        .presentationDragIndicator(.visible)
+                }
+                .appGlassSheet()
             }
             // Sheet Dịch QT / Tra từ điển của menu nhấn giữ + bảng chia sẻ (`store.shareRequest`, cả mục "Chia sẻ" của
             // ngăn kéo lẫn menu link).

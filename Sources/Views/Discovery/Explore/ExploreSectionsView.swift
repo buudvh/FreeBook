@@ -25,7 +25,7 @@ struct ExploreSectionsView: View {
     }
 
     let ext: Extension
-    let isTranslationEnabled: Bool
+    let textStore: ExtensionTextTranslationStore
     let onSelectNovel: (ExtensionItemResult) -> Void
     let onSelectCategory: (CategoryResult) -> Void
 
@@ -46,7 +46,7 @@ struct ExploreSectionsView: View {
         let sizeScope = BookListLayoutScope(kind: SearchExtensionScopePolicy.kind(of: ext))
         let context = ExploreRenderContext(
             sourceHost: sourceHost,
-            isTranslationEnabled: isTranslationEnabled,
+            textStore: textStore,
             sizes: ExploreLayoutSizePreferences.shared.sizes(for: sizeScope),
             onSelect: { handleTap($0) },
             playlist: PlaylistListAddContext.make(packageId: ext.packageId, sourceName: ext.name, modelContainer: modelContext.container)

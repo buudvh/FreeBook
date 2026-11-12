@@ -88,7 +88,7 @@ struct AppUpdateSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(UIColor.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            .background(AppGlassSheetModifier.rowFill, in: RoundedRectangle(cornerRadius: 12))
     }
 
     /// Dừng phát nền trước (`LiveContainerSwitchPreparer`, 1.3.824): đang nghe mà chuyển thì LiveContainer tự tắt app nhưng

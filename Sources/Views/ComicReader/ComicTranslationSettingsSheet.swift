@@ -4,7 +4,7 @@ import SwiftUI
 /// `ReaderSettingsView`:
 /// - Dịch · Truyện này: Theo nguồn / Bật / Tắt — Nguồn: Toàn cục / Bật / Tắt — Mặc định toàn cục. Cùng kho với truyện chữ và
 ///   trang Chi tiết (`TranslationConfigStore`), một công tắc cho cả tên chương lẫn dịch ảnh.
-/// - Khi đang bật: văn bản trước khi dịch (phồn → giản, khoá theo truyện như Reader), dịch đại từ / luật nhân hoá (cài đặt
+/// - Khi đang bật: dịch đại từ / luật nhân hoá (cài đặt
 ///   chung của app, cùng khoá `@AppStorage` với Reader), thứ tự ưu tiên rule + token rule của truyện (mở lại hai màn của
 ///   Reader).
 ///
@@ -24,7 +24,6 @@ struct ComicTranslationSettingsSheet: View {
     @State private var bookOverride: ScopeOverride
     @State private var sourceOverride: ScopeOverride
     @State private var globalEnabled: Bool
-    @State private var convertsTraditional: Bool
     @State private var isEnabled: Bool
     @State private var showsRulePriority = false
     @State private var showsTokenSettings = false
@@ -40,7 +39,6 @@ struct ComicTranslationSettingsSheet: View {
         _bookOverride = State(initialValue: store.getBookOverride(bookId: bookId))
         _sourceOverride = State(initialValue: store.getSourceOverride(packageId: packageId))
         _globalEnabled = State(initialValue: store.globalEnabled)
-        _convertsTraditional = State(initialValue: store.convertsTraditionalToSimplified(bookId: bookId))
         _isEnabled = State(initialValue: store.isTranslationEnabled(
             bookId: bookId,
             packageId: packageId,
@@ -54,12 +52,12 @@ struct ComicTranslationSettingsSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 scopeSection
                 if isEnabled {
                     methodSection
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Cài đặt dịch")
         }
         .preferredColorScheme(.dark)
@@ -111,15 +109,6 @@ struct ComicTranslationSettingsSheet: View {
 
     private var methodSection: some View {
         Section {
-            Picker("Văn bản trước khi dịch", selection: $convertsTraditional) {
-                Text("Giữ nguyên").tag(false)
-                Text("Phồn thể → giản thể").tag(true)
-            }
-            .pickerStyle(.menu)
-            .onChange(of: convertsTraditional) { _, enabled in
-                // Cùng khoá theo truyện với Reader (`convertTraditionalToSimplified_<bookId>`); hàm này còn bắn thông báo.
-                store.setTraditionalOverride(bookId: bookId, mode: enabled ? .enabled : .disabled)
-            }
             Toggle("Dịch đại từ (Pronouns)", isOn: $isPronounsEnabled)
                 .onChange(of: isPronounsEnabled) { _, _ in notifyEngineSettingChanged() }
             Toggle("Dịch luật nhân hoá", isOn: $isLuatNhanEnabled)
@@ -138,7 +127,7 @@ struct ComicTranslationSettingsSheet: View {
             }
         } header: {
             SectionHelpHeader("Cách dịch", texts: [
-                Text("Phồn → giản, thứ tự ưu tiên rule và token rule chỉ áp cho truyện này."),
+                Text("Thứ tự ưu tiên rule và token rule chỉ áp cho truyện này. Phồn → giản nằm ở nút dịch trên thanh trên (theo phạm vi Truyện / Nguồn / Tất cả)."),
                 Text("Dịch đại từ và luật nhân hoá là cài đặt chung của cả app, như ở Cài đặt trình đọc.")
             ])
         }

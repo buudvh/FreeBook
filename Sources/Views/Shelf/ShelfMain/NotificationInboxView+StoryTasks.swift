@@ -82,8 +82,11 @@ extension NotificationInboxView {
                 icon.frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    // Dịch tên giống toast kết quả của `DownloadManager`, để hai dòng nói cùng một tên.
-                    Text(TranslateUtils.translateBookTitleIfNeeded(task.bookTitle, bookId: task.bookId))
+                    // Cùng luật với toast kết quả của `DownloadManager` (ba cấp + phồn → giản), để hai dòng nói cùng một tên.
+                    Text(BookDisplayTranslation.text(
+                        task.bookTitle,
+                        BookDisplayTranslation.listOptions(bookId: task.bookId, packageId: task.extensionPackageId)
+                    ))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)

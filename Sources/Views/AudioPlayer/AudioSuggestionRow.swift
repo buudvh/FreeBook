@@ -6,14 +6,24 @@ import SwiftUI
 ///
 /// Có `makeAlbum` ⇒ icon "Thêm vào playlist" sau nhãn "Tiếp theo" (1.3.810, `PlaylistAlbumAddButton`): thêm **mọi bài**
 /// của album gợi ý (bài lẻ ⇒ đúng bài đó). Icon là nút anh em với nút mở gợi ý, không nằm trong `label` của nó.
+///
+/// Tên / mô tả / nghệ sĩ đi `ChineseTextPipeline` theo cấu hình của album đang nghe (`nameOptions`): phồn → giản cả khi tắt
+/// dịch, dịch khi bật — như thẻ đề xuất của màn xem phim (`VideoWatchModel.meta`).
 struct AudioSuggestionRow: View {
     let item: ExtensionItemResult
     let isUpNext: Bool
+    var nameOptions: ChineseTextPipeline.Options = .passthrough
     let onSelect: () -> Void
     var makeAlbum: (() -> PlaylistAlbumInfo?)? = nil
 
+    private var title: String {
+        ChineseTextPipeline.meta(item.name, nameOptions)
+    }
+
     private var subtitle: String {
-        item.description.isEmpty ? item.author : item.description
+        item.description.isEmpty
+            ? ChineseTextPipeline.author(item.author, nameOptions)
+            : ChineseTextPipeline.meta(item.description, nameOptions)
     }
 
     var body: some View {
@@ -25,7 +35,7 @@ struct AudioSuggestionRow: View {
                         .background(Color.white.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.name)
+                        Text(title)
                             .font(.body)
                             .foregroundStyle(Color.white)
                             .lineLimit(1)

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Lượt **Nano** của chế độ "Đọc liên tục": dựng lại session ORT theo số luồng + QoS chọn ở màn thử, đọc phân rã thời
-/// gian từng đoạn, và trả engine về cấu hình của người dùng khi xong (1.3.849 — tách khỏi `+Run`).
+/// gian từng đoạn, và trả engine về cấu hình của người dùng khi xong (1.3.878 — tách khỏi `+Run`).
 extension VieNeuTurboLab {
     /// Nano qua đúng API một đoạn của nó (`VieNeuTTSService.synthesizeWithDuration`). Service tự chạy lớp số/ngày +
     /// tiếng Nhật, nên chỉ đưa chữ đã thay thế ký tự (giống Turbo nhận trước khi tự tiền xử lý).

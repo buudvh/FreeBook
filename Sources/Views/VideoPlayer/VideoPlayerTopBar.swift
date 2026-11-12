@@ -47,7 +47,7 @@ struct VideoPlayerTopBar: View {
             }
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.bookTitle)
+                Text(session.displayBookTitle)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)

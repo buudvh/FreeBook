@@ -33,7 +33,9 @@ struct DiscoveryNovelsLayoutView: View {
     /// Tỉ lệ rộng : cao của bìa ở kiểu lưới (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
     let sourceHost: String?
-    let isTranslationEnabled: Bool
+    /// Chữ Trung của nguồn (phồn → giản + QT, bộ dịch tiện ích) — màn cha giữ và cập nhật; hàng / thẻ đọc trong `body`
+    /// (dựng lười ⇒ chỉ xin dịch mẩu đang hiện).
+    let textStore: ExtensionTextTranslationStore
     /// Neo cuộn của Khám phá; `nil` ở màn không nhớ vị trí cuộn.
     let scrollAnchors: DiscoveryScrollAnchorStore?
     /// Khoá tab trong `scrollAnchors` (`CategoryResult.id`).
@@ -49,7 +51,7 @@ struct DiscoveryNovelsLayoutView: View {
         layout: BookListLayout,
         aspectRatio: CGFloat,
         sourceHost: String?,
-        isTranslationEnabled: Bool,
+        textStore: ExtensionTextTranslationStore,
         scrollAnchors: DiscoveryScrollAnchorStore? = nil,
         anchorCategoryId: String = "",
         itemNoun: String = "truyện",
@@ -60,7 +62,7 @@ struct DiscoveryNovelsLayoutView: View {
         self.layout = layout
         self.aspectRatio = aspectRatio
         self.sourceHost = sourceHost
-        self.isTranslationEnabled = isTranslationEnabled
+        self.textStore = textStore
         self.scrollAnchors = scrollAnchors
         self.anchorCategoryId = anchorCategoryId
         self.itemNoun = itemNoun
@@ -101,7 +103,7 @@ struct DiscoveryNovelsLayoutView: View {
                 DiscoveryNovelRowView(
                     item: novel,
                     sourceHost: sourceHost,
-                    isTranslationEnabled: isTranslationEnabled,
+                    textStore: textStore,
                     rowSize: layout.rowSize
                 )
                 .padding(.trailing, playlistContext == nil ? 0 : 24)
@@ -147,10 +149,11 @@ struct DiscoveryNovelsLayoutView: View {
                             DiscoveryNovelGridCardView(
                                 item: novel,
                                 sourceHost: sourceHost,
-                                isTranslationEnabled: isTranslationEnabled,
+                                textOptions: textStore.options,
                                 mode: layout.mode,
                                 aspectRatio: aspectRatio,
-                                reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly
+                                reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly,
+                                textStore: textStore
                             )
                         }
                         .buttonStyle(.plain)

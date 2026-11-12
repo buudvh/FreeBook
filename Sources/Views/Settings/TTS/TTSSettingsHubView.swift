@@ -4,7 +4,7 @@ import SwiftUI
 /// chỉ rút gọn tiêu đề nhóm vì tiêu đề màn đã là TTS.
 struct TTSSettingsHubView: View {
     var body: some View {
-        Form {
+        Form { Group {
             Section(header: Text("Chung")) {
                 NavigationLink(destination: TTSSettingsView(isPresentedAsSheet: false)) {
                     Label("Cài đặt TTS", systemImage: "waveform")
@@ -26,7 +26,7 @@ struct TTSSettingsHubView: View {
                     Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Nghe truyện (TTS)")
     }
 

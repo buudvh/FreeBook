@@ -224,51 +224,66 @@ public struct ReaderAIFullScreenView: View {
                 SideDrawerActionRow("Cài đặt AI", systemImage: "gearshape") { showingSettings = true }
             }
             .sheet(isPresented: $showingSettings) {
-                NavigationStack {
-                    AISettingsView(isPresentedAsSheet: true)
+                Group {
+                    NavigationStack {
+                        AISettingsView(isPresentedAsSheet: true)
+                    }
+                    .presentationDragIndicator(.visible)
+                    .onDisappear {
+                        reloadSettings()
+                    }
                 }
-                .presentationDragIndicator(.visible)
-                .onDisappear {
-                    reloadSettings()
-                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingMemorySheet) {
-                BookAIMemorySheet(bookId: bookId)
+                Group {
+                    BookAIMemorySheet(bookId: bookId)
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingSessionList) {
-                ReaderAISessionListView(
-                    bookId: bookId,
-                    currentSessionId: $currentSessionId,
-                    onSelectSession: { session in switchToSession(session) },
-                    onNewSession: { startNewChat() }
-                )
+                Group {
+                    ReaderAISessionListView(
+                        bookId: bookId,
+                        currentSessionId: $currentSessionId,
+                        onSelectSession: { session in switchToSession(session) },
+                        onNewSession: { startNewChat() }
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(item: $nameReviewTarget) { target in
-                ReaderAINameReviewSheet(
-                    content: target.content,
-                    bookId: bookId,
-                    onSave: { itemsToSave, isName, isMerge in
-                        saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
-                    },
-                    onDeleteName: { key in
-                        removeNameLine(key: key, fromMessage: target.messageId)
-                    },
-                    onEditName: { edit in
-                        applyNameEdit(edit, toMessage: target.messageId)
-                    }
-                )
+                Group {
+                    ReaderAINameReviewSheet(
+                        content: target.content,
+                        bookId: bookId,
+                        onSave: { itemsToSave, isName, isMerge in
+                            saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                        },
+                        onDeleteName: { key in
+                            removeNameLine(key: key, fromMessage: target.messageId)
+                        },
+                        onEditName: { edit in
+                            applyNameEdit(edit, toMessage: target.messageId)
+                        }
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingBatchPromptSheet) {
-                ReaderAIBatchPromptSheet(
-                    settingsPrompt: nameExtractionPromptForSheet,
-                    bookId: bookId,
-                    chapterIndex: chapterIndex,
-                    translatesChapterTitles: translatesChapterTitles,
-                    convertsTraditionalToSimplified: convertsTraditionalToSimplified,
-                    onStart: { prompt, fromChapterIndex, limit in
-                        beginBatchExtraction(with: prompt, fromChapterIndex: fromChapterIndex, limit: limit)
-                    }
-                )
+                Group {
+                    ReaderAIBatchPromptSheet(
+                        settingsPrompt: nameExtractionPromptForSheet,
+                        bookId: bookId,
+                        chapterIndex: chapterIndex,
+                        translatesChapterTitles: translatesChapterTitles,
+                        convertsTraditionalToSimplified: convertsTraditionalToSimplified,
+                        onStart: { prompt, fromChapterIndex, limit in
+                            beginBatchExtraction(with: prompt, fromChapterIndex: fromChapterIndex, limit: limit)
+                        }
+                    )
+                }
+                .appGlassSheet()
             }
             .onAppear {
                 AIRuntimeCoordinator.shared.presentedAIBookId = bookId

@@ -21,7 +21,7 @@ struct LegadoSourceVariablesView: View {
     private static let commentLineLimit = 20
 
     var body: some View {
-        Form {
+        Form { Group {
             commentSection
             Section {
                 if isLoading {
@@ -43,7 +43,7 @@ struct LegadoSourceVariablesView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Biến của nguồn")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

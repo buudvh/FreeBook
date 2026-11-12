@@ -26,6 +26,8 @@ struct ComicReaderView: View {
     /// Tăng khi từ điển / rule / cấu hình dịch đổi ⇒ các ảnh đang hiện dịch lại (`ComicImageTranslationContext.revision`).
     /// Giữ ở View chứ không ở `ComicReaderViewModel` (file VM đã sát giới hạn 400 dòng).
     @State private var imageTranslationRevision = 0
+    /// Bộ dịch là tiện ích dịch: tên chương / tên truyện + lượt dịch khối chữ OCR (`.comicExtensionText` dựng lại).
+    @State private var extensionText = ComicExtensionTextTranslation()
     /// Ngăn kéo `⋯` (Cài đặt dịch, Từ điển truyện) — nội dung + hai sheet ở `ComicTranslationToolsModifier`.
     @State private var showsTranslationMenu = false
     /// Màn Dịch của khối vừa chạm trên trang (1.3.837) — sheet ở `ComicTranslationToolsModifier`.
@@ -67,6 +69,7 @@ struct ComicReaderView: View {
                 ComicReaderChromeView(
                     viewModel: viewModel,
                     isTranslationEnabled: isTranslationEnabled,
+                    extensionText: extensionText,
                     sourceName: sourceDisplayName,
                     isChineseSourceHint: ComicTranslationStatus.chineseSourceHint(packageId: launch.extensionPackageId),
                     onBack: { dismiss() },
@@ -81,6 +84,7 @@ struct ComicReaderView: View {
         .preferredColorScheme(.dark)
         .task { await bootstrap() }
         .task { await viewModel.observeChapterDownloads() } // icon "đã tải" của mục lục đổi khi tải xong
+        .comicExtensionText(extensionText, launch: launch, translates: isTranslationEnabled)
         .onAppear { keepScreenAwake() }
         .onDisappear { handleDisappear() }
         .onChange(of: scenePhase) { _, newPhase in
@@ -118,6 +122,7 @@ struct ComicReaderView: View {
                 currentIndex: viewModel.chapterIndex,
                 downloadedIndexes: viewModel.downloadedChapterIndexes,
                 isTranslationEnabled: isTranslationEnabled,
+                extensionText: extensionText,
                 book: localBook,
                 launch: launch,
                 isAscending: $isChapterListAscending,
@@ -229,7 +234,7 @@ struct ComicReaderView: View {
                                 onSingleTap: toggleChrome,
                                 onDoubleTap: { openZoom($0, request: request) },
                                 onOpenDefinition: {
-                                    definitionRequest = ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId)
+                                    definitionRequest = ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId, packageId: launch.extensionPackageId)
                                 }
                             )
                             .id(index)
@@ -295,7 +300,7 @@ struct ComicReaderView: View {
         ComicZoomScreen(
             target: target,
             translation: imageTranslationContext,
-            makeDefinitionRequest: { ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId) },
+            makeDefinitionRequest: { ComicTranslationStatus.definitionRequest(for: $0, bookId: launch.bookId, packageId: launch.extensionPackageId) },
             onClose: { zoomTarget = nil },
             onDefinitionClosed: refreshTranslations
         )
@@ -319,21 +324,15 @@ struct ComicReaderView: View {
         ComicTranslationStatus.sourceName(launch: launch, book: localBook)
     }
 
-    /// `nil` khi truyện đang tắt dịch. Dùng cho cả trang lẫn trình xem phóng to (1.3.834).
+    /// `nil` khi truyện đang tắt dịch. Dùng cho cả trang lẫn trình xem phóng to (1.3.834); kèm lượt dịch tiện ích.
     private var imageTranslationContext: ComicImageTranslationContext? {
-        guard isTranslationEnabled else { return nil }
-        return ComicImageTranslationContext(
-            bookId: launch.bookId,
-            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: launch.bookId),
-            revision: imageTranslationRevision
-        )
+        isTranslationEnabled ? extensionText.imageContext(launch: launch, revision: imageTranslationRevision) : nil
     }
 
     /// Từ điển / rule / phồn→giản / cài đặt dịch đổi ⇒ dịch lại tên chương và các ảnh đang hiện (chữ đã nhận lấy từ RAM).
     private func refreshTranslations() {
-        guard isTranslationEnabled else { return }
-        imageTranslationRevision += 1
-        translateChapterTitles()
+        if isTranslationEnabled { imageTranslationRevision += 1 } // lớp dịch ảnh chỉ khi bật dịch
+        translateChapterTitles() // tên chương: phồn → giản chạy cả khi tắt dịch (1.3.846)
     }
 
     /// Cuộn tới ảnh đã lưu. Cuộn hai lần: lần đầu khi danh sách vừa dựng (khung còn là ước lượng),
@@ -363,7 +362,7 @@ struct ComicReaderView: View {
         translateChapterTitles() // `start` chờ nạp xong mục lục mới trả về
     }
 
-    /// Dịch tên chương ngoài main theo công tắc hiện tại (tắt dịch ⇒ VM bỏ qua, màn hiện tên gốc).
+    /// Dựng tên chương ngoài main theo công tắc hiện tại (tắt dịch ⇒ chỉ phồn → giản nếu bật, không thì tên gốc).
     private func translateChapterTitles() {
         titleTranslationTask?.cancel()
         let enabled = isTranslationEnabled

@@ -92,7 +92,7 @@ struct VideoWatchTitleBlock: View {
         var parts: [String] = []
         if !model.request.sourceName.isEmpty { parts.append(model.request.sourceName) }
         if episodeCount > 0 { parts.append("\(episodeCount) tập") }
-        if !model.author.isEmpty { parts.append(model.meta(model.author)) }
+        if !model.author.isEmpty { parts.append(model.displayAuthor(model.author)) }
         return parts.joined(separator: " · ")
     }
 }

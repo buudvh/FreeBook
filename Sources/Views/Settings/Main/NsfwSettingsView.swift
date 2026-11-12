@@ -9,7 +9,7 @@ struct NsfwSettingsView: View {
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle("Hiện nội dung nhạy cảm", isOn: $includeNsfw)
             } header: {
@@ -31,7 +31,7 @@ struct NsfwSettingsView: View {
                 explanationRow("clock.badge.xmark", "Tiện ích NSFW mặc định không lưu lịch sử đọc/xem; đổi được trong màn cấu hình của từng tiện ích.")
                 explanationRow("eye.slash", "Vào trang của nguồn không lưu lịch sử, tab trình duyệt tự ẩn danh: không ghi lịch sử duyệt, cookie và đăng nhập vẫn giữ. Về Home là hết ẩn danh.")
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Nội dung nhạy cảm")
     }
 

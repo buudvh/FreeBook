@@ -141,7 +141,7 @@ public struct ReaderAIBatchPromptSheet: View {
 
     public var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     if let chapters {
                         scopeRows(chapters)
@@ -200,7 +200,7 @@ public struct ReaderAIBatchPromptSheet: View {
                 } header: {
                     Text("Prompt cho lần này")
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Quét tên riêng theo phạm vi")
             .presentationDragIndicator(.visible)
             .safeAreaInset(edge: .bottom) {

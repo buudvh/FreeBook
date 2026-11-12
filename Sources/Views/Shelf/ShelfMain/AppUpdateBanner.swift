@@ -24,7 +24,10 @@ struct AppUpdateBanner: View {
         }
         .animation(.easeInOut(duration: 0.2), value: showsBanner)
         .sheet(item: $sheetUpdate) { update in
-            AppUpdateSheet(update: update)
+            Group {
+                AppUpdateSheet(update: update)
+            }
+            .appGlassSheet()
         }
     }
 

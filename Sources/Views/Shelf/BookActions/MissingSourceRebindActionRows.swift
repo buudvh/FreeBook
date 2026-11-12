@@ -11,7 +11,6 @@ struct MissingSourceRebindActionRows: View {
     let onStart: () -> Void
 
     @Environment(\.modelContext) private var modelContext
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
     var body: some View {
         if MissingSourceRebindCoordinator.isMissingSource(book.extensionPackageId),
@@ -31,15 +30,13 @@ struct MissingSourceRebindActionRows: View {
     private func run(_ candidate: MissingSourceRebindCoordinator.Candidate) {
         onStart()
         let context = modelContext
-        let translates = isTranslationEnabled
         // Như `BookActionSheet.emit`: chạy ở lượt sau, khi sheet đã bắt đầu đóng.
         Task { @MainActor in
             MissingSourceRebindRunner.start(
                 [candidate],
                 isInteractive: true,
                 requiresShelfRoot: false,
-                context: context,
-                translatesTitles: translates
+                context: context
             )
         }
     }

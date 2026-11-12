@@ -28,7 +28,10 @@ struct PlaylistAddBookActionRow: View {
         }
         .disabled(isLoading)
         .sheet(item: $request) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
         .onDisappear {
             loadTask?.cancel()

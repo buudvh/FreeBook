@@ -163,19 +163,25 @@ extension ComicChapterListSheet {
 
     // MARK: - Metadata
 
-    /// Tên truyện — cùng luật dịch tên với thẻ ở Kệ; cũng là tên trong hộp xác nhận bỏ kệ.
+    /// Tên truyện — cùng luật với thẻ ở Kệ (phồn → giản + dịch ba cấp, 1.3.846); bộ dịch là tiện ích ⇒ bản tiện ích
+    /// (bản QT là chữ tạm / đường lùi). Cũng là tên trong hộp xác nhận bỏ kệ.
     var metadataTitle: String {
         let original = Self.firstNonempty(book?.title, launch.bookTitle) ?? ""
-        return BookDisplayTranslation.title(original, bookId: launch.bookId, isEnabled: isTranslationEnabled)
+        return extensionText.bookTitle(original, quick: BookDisplayTranslation.title(original, metadataTextOptions))
     }
 
-    /// Tác giả — cùng luật với header truyện chữ: phiên Hán-Việt khi bật dịch và có chữ Hán.
+    /// Tác giả — cùng luật với header truyện chữ: phồn → giản, phiên Hán-Việt khi bật dịch và có chữ Hán.
     private var metadataAuthor: String {
         guard let original = Self.firstNonempty(book?.author, launch.bookAuthor) else { return "" }
-        let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
-            ? TranslateUtils.translateAuthorHanViet(original)
-            : original
-        return DisplayTextFormatter.titleCase(translated)
+        return DisplayTextFormatter.titleCase(BookDisplayTranslation.author(original, metadataTextOptions))
+    }
+
+    private var metadataTextOptions: ChineseTextPipeline.Options {
+        BookDisplayTranslation.screenOptions(
+            bookId: launch.bookId,
+            packageId: launch.extensionPackageId,
+            translates: isTranslationEnabled
+        )
     }
 
     private var metadataCoverUrl: String {

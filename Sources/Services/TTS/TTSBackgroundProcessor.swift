@@ -41,8 +41,12 @@ public actor TTSBackgroundProcessor {
         }
         try Task.checkCancellation()
 
-        // 1. Normalize raw content to get lines with IDs
-        let rawNormalized = ChapterTextNormalizer.normalize(rawContent)
+        // 1. Normalize raw content to get lines with IDs. Phồn → giản chạy trước, cả khi tắt dịch (1.3.846) — đúng hàm +
+        // đúng cờ của Reader (`ReaderViewModel.performChapterTranslationOffMainActor`) ⇒ cùng dòng, cùng chữ để highlight.
+        let rawNormalized = ChineseTextPipeline.normalizeChapter(rawContent, converts: shouldConvertTraditionalToSimplified)
+        let options = ChineseTextPipeline.Options(
+            converts: shouldConvertTraditionalToSimplified, translates: shouldTranslateRawContent, dictionaryBookId: bookId
+        )
 
         try Task.checkCancellation()
 
@@ -67,11 +71,7 @@ public actor TTSBackgroundProcessor {
             let mapped = try lines.map { line -> (TTSLineEntry, (id: Int, text: String)) in
                 try Task.checkCancellation()
                 if TranslateUtils.containsChinese(line.text) {
-                    let result = TranslateUtils.translateContentWithMapping(
-                        line.text,
-                        bookId: bookId,
-                        shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                    )
+                    let result = ChineseTextPipeline.contentWithMapping(line.text, options.alreadyConverted)
                     let entry = TTSLineEntry(lineId: line.id, originalText: line.text, translatedText: result.text, spans: result.spans)
                     return (entry, (id: line.id, text: result.text))
                 } else {
@@ -90,14 +90,9 @@ public actor TTSBackgroundProcessor {
         if shouldTranslateRawContent, let translatedTitleOverride, !translatedTitleOverride.isEmpty {
             // Tên chương đã dịch bằng tiện ích dịch (`TTSExtensionTranslationPreparer`) — không dịch QT lại.
             processedTitle = translatedTitleOverride
-        } else if !chapterTitle.isEmpty && shouldTranslateRawContent && TranslateUtils.containsChinese(chapterTitle) {
-            processedTitle = TranslateUtils.translateChapterTitle(
-                chapterTitle,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
         } else {
-            processedTitle = chapterTitle
+            // Tắt dịch ⇒ tên đã chuyển (như tên chương Reader dựng ở đoạn id -1).
+            processedTitle = ChineseTextPipeline.chapterTitle(chapterTitle, options)
         }
 
         try Task.checkCancellation()

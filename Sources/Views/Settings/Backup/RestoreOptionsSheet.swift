@@ -27,7 +27,7 @@ struct RestoreOptionsSheet: View {
 
     var body: some View {
         NavigationView {
-            List {
+            List { Group {
                 summarySection
 
                 BackupScopeToggleList(
@@ -53,7 +53,7 @@ struct RestoreOptionsSheet: View {
                                                               + " và công cụ tra cứu nhanh. Không gồm khoá API, token và tiến"
                                                               + " độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")])
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Khôi phục")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

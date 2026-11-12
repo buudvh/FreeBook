@@ -25,6 +25,9 @@ struct CategoryNovelsListView: View {
     /// Màn bị trình duyệt "Mở link lỗi" che (biến mất khi nó mở): lần xuất hiện lại kế tiếp không để `.task` tải chồng
     /// trước khi chép cookie — lượt thử lại do `.errorLinkBrowser` gọi sau khi chép.
     @State private var skipsReappearLoad = false
+    /// Tên / mô tả / nhãn của danh sách + tiêu đề trang: bộ dịch của nguồn là tiện ích dịch ⇒ bản QT hiện trước rồi thay
+    /// bằng bản tiện ích (`ExtensionTextTranslationStore`, chỉ hàng đang hiện xin dịch). Cập nhật ở `refreshTextStore`.
+    @State private var textStore = ExtensionTextTranslationStore()
 
     /// Kiểu hiển thị theo loại của nguồn (màn này mở cả từ Khám phá lẫn Chi tiết truyện, chỉ có `packageId`).
     private var layoutScope: BookListLayoutScope {
@@ -34,11 +37,12 @@ struct CategoryNovelsListView: View {
     /// Bộ lọc chỉ gồm các mục `config` mà script của danh sách (cùng các file nó `load`) dùng tới.
     private var filterScope: ExtensionFilterScope { .file(category.script) }
 
-    /// Cờ dịch **theo nguồn** (giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt dịch cho nguồn thì danh
-    /// sách và tiêu đề phải hiện nguyên văn.
-    private var isTranslationEnabled: Bool {
-        TranslationConfigStore.shared.isTranslationEnabled(
-            bookId: "",
+    /// Phồn → giản + dịch **theo nguồn** (Nguồn ⇒ Tất cả, giống `DiscoveryView`), không phải công tắc dịch toàn app: tắt
+    /// dịch cho nguồn thì danh sách và tiêu đề phải hiện nguyên văn. Đọc **một lần** mỗi lượt `body`; đọc
+    /// `TranslationDisplayRevision` ⇒ popup dịch lưu ở cấp nào cũng vẽ lại.
+    private var textOptions: ChineseTextPipeline.Options {
+        _ = TranslationDisplayRevision.shared.value
+        return ChineseTextPipeline.sourceOptions(
             packageId: extensionPackageId,
             isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: extensionPackageId)?.isChineseSource
         )
@@ -73,6 +77,7 @@ struct CategoryNovelsListView: View {
         let scope = layoutScope
         // Đọc trong `body` ⇒ sheet "Kiểu hiển thị" hay màn Cài đặt ghi là danh sách vẽ lại theo kiểu mới.
         let layout = BookListLayoutPreferences.shared.layout(for: scope)
+        let options = textOptions
         VStack {
             if loader.isLoading && loader.novels.isEmpty {
                 if layout.mode.isGrid {
@@ -112,7 +117,7 @@ struct CategoryNovelsListView: View {
                     layout: layout,
                     aspectRatio: scope.coverAspectRatio,
                     sourceHost: sourceHost,
-                    isTranslationEnabled: isTranslationEnabled,
+                    textStore: textStore,
                     itemNoun: scope.itemNoun,
                     playlistContext: PlaylistListAddContext.make(
                         packageId: extensionPackageId,
@@ -144,7 +149,10 @@ struct CategoryNovelsListView: View {
                 initialHost: novel.host
             )
         }
-        .backPageTitle(translateIfNeeded(category.title))
+        // Lượt vẽ đầu (store chưa cập nhật) ⇒ QT theo `options`; bộ dịch tiện ích ⇒ bản tiện ích.
+        .backPageTitle(textStore.request == nil
+                       ? ChineseTextPipeline.meta(category.title, options)
+                       : textStore.text(category.title, kind: .meta))
         .closesWhenNsfwHidden(packageId: extensionPackageId) // tắt NSFW ⇒ đóng danh sách của nguồn NSFW
         .toolbar {
             // Cụm nút sát nhau trong MỘT `ToolbarItem` (`HeaderButtonMetrics`): Lọc (chỉ khi tiện ích có bộ lọc) · Kiểu hiển thị.
@@ -168,12 +176,18 @@ struct CategoryNovelsListView: View {
             }
         }
         .sheet(isPresented: $showingLayoutSheet) {
-            BookListLayoutSheet(scope: layoutScope)
+            Group {
+                BookListLayoutSheet(scope: layoutScope)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingFilterSheet) {
-            ExtensionFilterSheet(packageId: extensionPackageId, scope: filterScope) { configJson in
-                Task { await loader.reset(configJson: configJson) }
+            Group {
+                ExtensionFilterSheet(packageId: extensionPackageId, scope: filterScope) { configJson in
+                    Task { await loader.reset(configJson: configJson) }
+                }
             }
+            .appGlassSheet()
         }
         .errorLinkBrowser(link: $openingErrorLink, packageId: extensionPackageId) {
             Task { await loader.loadInitial() }
@@ -186,6 +200,8 @@ struct CategoryNovelsListView: View {
         .onDisappear {
             if openingErrorLink != nil { skipsReappearLoad = true }
         }
+        // Màn hiện + cấu hình dịch / phồn → giản / bộ dịch đổi (mọi cấp) ⇒ dựng lại lượt dịch, ngoài `body`.
+        .onChange(of: TranslationDisplayRevision.shared.value, initial: true) { _, _ in refreshTextStore() }
         .task {
             if skipsReappearLoad {
                 skipsReappearLoad = false
@@ -198,10 +214,13 @@ struct CategoryNovelsListView: View {
         }
     }
 
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
+    /// Cấu hình chữ + lượt dịch tiện ích của nguồn (như Khám phá, `DiscoveryView.textStoreConfiguration`); giống cũ ⇒ store
+    /// bỏ qua.
+    private func refreshTextStore() {
+        let config = DiscoveryView.textStoreConfiguration(
+            packageId: extensionPackageId,
+            isChineseSourceHint: ExtensionLibraryRepository.snapshot(packageId: extensionPackageId)?.isChineseSource
+        )
+        textStore.update(options: config.options, request: config.request)
     }
 }

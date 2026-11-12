@@ -140,10 +140,10 @@ struct QuickTranslationRuleListView: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             tabSection
             rulesSection
-        }
+        }.glassSheetRows() }
         .listStyle(.plain)
         // Nút "+" nổi thay nút "+" trên header — header chỉ còn nút quay lại và "…" (`quickTranslationRuleIOMenu`).
         .floatingAddButton("Thêm rule") {
@@ -159,24 +159,33 @@ struct QuickTranslationRuleListView: View {
             visibleLimit = Self.pageSize
         }
         .sheet(item: $editorMode) { mode in
-            // Nút + lưu đúng phạm vi đang mở: bộ riêng có truyện ⇒ menu Lưu; chung / tên chương ⇒ chạm Lưu là lưu
-            // thẳng vào bộ đang xem (`defaultScope`), nhấn giữ để chọn bộ khác.
-            QuickTranslationRuleEditorSheet(
-                mode: mode,
-                defaultScope: scope,
-                contextBookId: scope.bookId
-            ) { pattern, replacement, targetScope, replacing in
-                let result = await QuickTranslationRuleMutation.shared.perform(
-                    .upsert(oldPattern: replacing, pattern: pattern, replacement: replacement, scope: targetScope))
-                report(result, successMessage: "Đã lưu rule.")
-                return result
+            Group {
+                // Nút + lưu đúng phạm vi đang mở: bộ riêng có truyện ⇒ menu Lưu; chung / tên chương ⇒ chạm Lưu là lưu
+                // thẳng vào bộ đang xem (`defaultScope`), nhấn giữ để chọn bộ khác.
+                QuickTranslationRuleEditorSheet(
+                    mode: mode,
+                    defaultScope: scope,
+                    contextBookId: scope.bookId
+                ) { pattern, replacement, targetScope, replacing in
+                    let result = await QuickTranslationRuleMutation.shared.perform(
+                        .upsert(oldPattern: replacing, pattern: pattern, replacement: replacement, scope: targetScope))
+                    report(result, successMessage: "Đã lưu rule.")
+                    return result
+                }
             }
+            .appGlassSheet()
         }
         .sheet(item: $shareSourceRule) { _ in
-            shareSheetContent
+            Group {
+                shareSheetContent
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingShareAll) {
-            shareSheetContent
+            Group {
+                shareSheetContent
+            }
+            .appGlassSheet()
         }
         .onChange(of: searchText) { _, _ in
             visibleLimit = Self.pageSize

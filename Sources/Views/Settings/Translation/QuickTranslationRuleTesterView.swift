@@ -21,7 +21,7 @@ struct QuickTranslationRuleTesterView: View {
     @State private var previewMode: QuickTranslationRuleEngine.PreviewMode = .respectTokenConfiguration
 
     var body: some View {
-        Form {
+        Form { Group {
             Section(header: Text("Câu tiếng Trung")) {
                 TextEditor(text: $input)
                     .frame(minHeight: 90)
@@ -82,7 +82,7 @@ struct QuickTranslationRuleTesterView: View {
                     }
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Thử nhanh rule")
         .onChange(of: previewMode) { _, _ in
             if didRun { run() }

@@ -33,19 +33,28 @@ extension RepositoryManagerView {
         }
         // Sheet thay alert từ 1.3.624 (ô URL có nút xoá · sao chép · dán). Nhập chạy sau khi sheet đóng hẳn.
         .sheet(isPresented: $legadoState.showingURLPrompt, onDismiss: runPendingURLImport) {
-            LegadoURLImportSheet(url: $legadoState.urlInput) {
-                legadoState.isURLImportPending = true
+            Group {
+                LegadoURLImportSheet(url: $legadoState.urlInput) {
+                    legadoState.isURLImportPending = true
+                }
             }
+            .appGlassSheet()
         }
         // Hai sheet có thể chứa màn kiểm tra nguồn: đóng khi lượt còn chạy ⇒ thu nhỏ vào hub (1.3.702).
         .sheet(item: $legadoState.detail, onDismiss: closeLegadoSourceCheck) { route in
-            LegadoSourceDetailView(packageId: route.packageId)
+            Group {
+                LegadoSourceDetailView(packageId: route.packageId)
+            }
+            .appGlassSheet()
         }
         .sheet(item: $legadoState.check, onDismiss: closeLegadoSourceCheck) { route in
-            NavigationStack {
-                LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle, isPresentedAsSheet: true)
+            Group {
+                NavigationStack {
+                    LegadoSourceCheckView(packageIds: route.packageIds, scopeTitle: route.scopeTitle, isPresentedAsSheet: true)
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .sheet(item: $legadoState.exportFile) { file in
             ShareSheet(activityItems: [file.url])

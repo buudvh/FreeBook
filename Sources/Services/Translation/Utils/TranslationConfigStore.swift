@@ -40,15 +40,17 @@ public final class TranslationConfigStore: @unchecked Sendable {
     private let bookOverridesKey = "FreeBook_Translation_Book_Overrides_V1"
     private let sourceOverridesKey = "FreeBook_Translation_Source_Overrides_V1"
     private let globalKey = "isTranslationEnabled"
-    /// Phồn→giản theo nguồn — chỉ phụ đề / lời / tên nhóm tập phim đọc (`convertsTraditionalToSimplified(bookId:packageId:)`).
+    /// Phồn→giản theo nguồn — ba trạng thái từ 1.3.845 (`true` bật, `false` tắt, vắng = theo Tất cả).
     private let sourceTraditionalKey = "FreeBook_Translation_Source_TraditionalToSimplified_V1"
+    /// Phồn→giản "Tất cả" (1.3.845) — mặc định tắt.
+    private let globalTraditionalKey = "FreeBook_Translation_Global_TraditionalToSimplified_V1"
     private var sourceIsChineseMap: [String: Bool] = [:]
 
     private init() {}
 
     /// Sách nhập từ file — chữ (`"local"`) và truyện tranh/phim (`LocalMediaPackage`): không có tiện ích nguồn để dò
     /// `plugin.json` ⇒ theo công tắc dịch chung, không tra/ghi cache theo nguồn.
-    private static func isLocalPackage(_ packageId: String) -> Bool {
+    static func isLocalPackage(_ packageId: String) -> Bool {
         packageId == "local" || LocalMediaPackage.isLocalMedia(packageId: packageId)
     }
 
@@ -72,6 +74,7 @@ public final class TranslationConfigStore: @unchecked Sendable {
 
     // MARK: - Book Scope
     public func getBookOverride(bookId: String) -> ScopeOverride {
+        guard !bookId.isEmpty else { return .inherited }
         lock.lock()
         defer { lock.unlock() }
         let dict = UserDefaults.standard.dictionary(forKey: bookOverridesKey) as? [String: Int] ?? [:]
@@ -82,6 +85,8 @@ public final class TranslationConfigStore: @unchecked Sendable {
     }
 
     public func setBookOverride(bookId: String, mode: ScopeOverride) {
+        // `bookId` rỗng (item Khám phá / Tìm kiếm chưa lưu) không được thành khoá chung cho mọi item chưa lưu.
+        guard !bookId.isEmpty else { return }
         lock.lock()
         var dict = UserDefaults.standard.dictionary(forKey: bookOverridesKey) as? [String: Int] ?? [:]
         if mode == .inherited {
@@ -153,59 +158,81 @@ public final class TranslationConfigStore: @unchecked Sendable {
     }
 
     public func resolveStatus(bookId: String?, packageId: String? = nil, isChineseSourceHint: Bool? = nil) -> ResolvedStatus {
-        let global = globalEnabled
-        let bOverride = bookId.flatMap { getBookOverride(bookId: $0) } ?? .inherited
-        let sOverride = packageId.flatMap { getSourceOverride(packageId: $0) } ?? .inherited
+        snapshot().resolveStatus(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint)
+    }
 
-        if bOverride == .enabled {
-            return ResolvedStatus(isEnabled: true, origin: .book, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        } else if bOverride == .disabled {
-            return ResolvedStatus(isEnabled: false, origin: .book, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        }
-
-        if sOverride == .enabled {
-            return ResolvedStatus(isEnabled: true, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        } else if sOverride == .disabled {
-            return ResolvedStatus(isEnabled: false, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        }
-
-        if let hint = isChineseSourceHint, let pkgId = packageId, !pkgId.isEmpty {
-            registerSource(packageId: pkgId, isChinese: hint)
-            return ResolvedStatus(isEnabled: hint, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        }
-
-        if let pkgId = packageId, !pkgId.isEmpty, !Self.isLocalPackage(pkgId) {
-            let isChinese = isChineseSource(packageId: pkgId)
-            return ResolvedStatus(isEnabled: isChinese, origin: .source, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
-        }
-
-        return ResolvedStatus(isEnabled: global, origin: .global, bookOverride: bOverride, sourceOverride: sOverride, globalEnabled: global)
+    /// Bản chụp mọi cấp (1.3.846) — luật phân cấp nằm ở `TranslationConfigSnapshot`. Danh sách dài chụp một lần mỗi
+    /// lượt dựng thay vì gọi `resolveStatus` / `convertsTraditionalToSimplified` từng hàng.
+    public func snapshot() -> TranslationConfigSnapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        let defaults = UserDefaults.standard
+        return TranslationConfigSnapshot(
+            globalEnabled: defaults.bool(forKey: globalKey),
+            globalConvertsTraditional: defaults.bool(forKey: globalTraditionalKey),
+            bookOverrides: defaults.dictionary(forKey: bookOverridesKey) as? [String: Int] ?? [:],
+            sourceOverrides: defaults.dictionary(forKey: sourceOverridesKey) as? [String: Int] ?? [:],
+            sourceTraditional: defaults.dictionary(forKey: sourceTraditionalKey) as? [String: Bool] ?? [:]
+        )
     }
 
     // MARK: - Phồn → giản
-    /// Công tắc "chuyển phồn thể sang giản thể" của truyện — Reader ghi khoá `convertTraditionalToSimplified_<bookId>`;
-    /// chưa từng đặt ⇒ `false`. Đọc thẳng `UserDefaults` mỗi lần gọi nên luôn theo giá trị mới nhất.
-    public func convertsTraditionalToSimplified(bookId: String) -> Bool {
-        UserDefaults.standard.bool(forKey: Self.bookTraditionalKey(bookId))
-    }
-
-    /// Phồn→giản của **phụ đề phim / lời bài hát / tên nhóm tập phim** (anh Bửu chốt phạm vi A): phim/album này
-    /// (cùng khoá theo truyện, đọc ba trạng thái — vắng = theo nguồn) ⇒ nguồn (`setSourceConvertsTraditional`) ⇒ tắt.
-    /// Reader, TTS, truyện tranh, xuất, AI vẫn dùng `convertsTraditionalToSimplified(bookId:)`.
+    /// Phồn→giản là **bước riêng chạy trước khi dịch** (có bật dịch hay không — 1.3.846), ba cấp như công tắc dịch (1.3.845): truyện này (khoá
+    /// `convertTraditionalToSimplified_<bookId>`, vắng = theo nguồn) ⇒ nguồn (`sourceTraditionalOverride`, vắng = theo Tất
+    /// cả) ⇒ Tất cả (`globalConvertsTraditional`, mặc định tắt). **Mọi** chỗ đọc (Reader, TTS, truyện tranh, Chi tiết, xuất,
+    /// phụ đề / lời) đi qua hàm này; chỗ ghi là popup dịch (`TranslationTraditionalDraft`) và sheet Dịch phụ đề / Dịch lời.
+    /// Trước 1.3.845 truyện chữ / tranh chỉ có cấp truyện (`convertsTraditionalToSimplified(bookId:)`, đã bỏ).
     public func convertsTraditionalToSimplified(bookId: String, packageId: String) -> Bool {
-        let override = traditionalOverride(bookId: bookId)
-        guard override == .inherited else { return override == .enabled }
-        return sourceConvertsTraditional(packageId: packageId)
+        snapshot().convertsTraditional(bookId: bookId, packageId: packageId)
     }
 
-    /// Phồn→giản riêng của phim/album: `.inherited` = khoá theo truyện chưa từng đặt.
+    /// Màn chưa có truyện (Khám phá, Tìm kiếm, bộ lọc…): Nguồn ⇒ Tất cả (1.3.846).
+    public func convertsTraditionalToSimplified(packageId: String) -> Bool {
+        snapshot().convertsTraditional(bookId: nil, packageId: packageId)
+    }
+
+    /// Phồn→giản "Tất cả" — cấp cuối của `convertsTraditionalToSimplified(bookId:packageId:)`.
+    public var globalConvertsTraditional: Bool {
+        get { UserDefaults.standard.bool(forKey: globalTraditionalKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: globalTraditionalKey)
+            notifyChange()
+        }
+    }
+
+    /// Phồn→giản của nguồn: `.inherited` = theo Tất cả.
+    public func sourceTraditionalOverride(packageId: String) -> ScopeOverride {
+        lock.lock()
+        defer { lock.unlock() }
+        let dict = UserDefaults.standard.dictionary(forKey: sourceTraditionalKey) as? [String: Bool] ?? [:]
+        guard let value = dict[packageId.isEmpty ? "local" : packageId] else { return .inherited }
+        return value ? .enabled : .disabled
+    }
+
+    public func setSourceTraditionalOverride(packageId: String, mode: ScopeOverride) {
+        lock.lock()
+        let normalized = packageId.isEmpty ? "local" : packageId
+        var dict = UserDefaults.standard.dictionary(forKey: sourceTraditionalKey) as? [String: Bool] ?? [:]
+        switch mode {
+        case .inherited: dict.removeValue(forKey: normalized)
+        case .enabled: dict[normalized] = true
+        case .disabled: dict[normalized] = false
+        }
+        UserDefaults.standard.set(dict, forKey: sourceTraditionalKey)
+        lock.unlock()
+        notifyChange()
+    }
+
+    /// Phồn→giản riêng của truyện / phim / album: `.inherited` = khoá theo truyện chưa từng đặt (theo nguồn).
     public func traditionalOverride(bookId: String) -> ScopeOverride {
+        guard !bookId.isEmpty else { return .inherited }
         let key = Self.bookTraditionalKey(bookId)
         guard UserDefaults.standard.object(forKey: key) != nil else { return .inherited }
         return UserDefaults.standard.bool(forKey: key) ? .enabled : .disabled
     }
 
     public func setTraditionalOverride(bookId: String, mode: ScopeOverride) {
+        guard !bookId.isEmpty else { return }
         let key = Self.bookTraditionalKey(bookId)
         switch mode {
         case .inherited: UserDefaults.standard.removeObject(forKey: key)
@@ -215,6 +242,8 @@ public final class TranslationConfigStore: @unchecked Sendable {
         notifyChange()
     }
 
+    /// Hai trạng thái của sheet Dịch phụ đề / Dịch lời: bật = `true`; chưa đặt hoặc tắt = `false` (sheet đó coi tắt là
+    /// "theo Tất cả" — `setSourceConvertsTraditional(enabled: false)` xoá khoá).
     public func sourceConvertsTraditional(packageId: String) -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -236,7 +265,7 @@ public final class TranslationConfigStore: @unchecked Sendable {
         notifyChange()
     }
 
-    private static func bookTraditionalKey(_ bookId: String) -> String {
+    static func bookTraditionalKey(_ bookId: String) -> String {
         "convertTraditionalToSimplified_\(bookId)"
     }
 

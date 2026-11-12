@@ -1,12 +1,15 @@
 import Foundation
 
-/// Phụ đề của item đang phát (chỉ `track.subtitles.first`): nạp bằng `VideoSubtitleParser` rồi dịch để hiển thị bằng
-/// `MediaCaptionTranslator` trong **cùng** `subtitleTask` — `prepareForNewLoad` / `stop()` huỷ task là huỷ luôn lượt dịch.
+/// Phụ đề của item đang phát (chỉ `track.subtitles.first`): nạp bằng `VideoSubtitleParser` rồi chuyển phồn → giản / dịch để
+/// hiển thị bằng `MediaCaptionTranslator` trong **cùng** `subtitleTask` — `prepareForNewLoad` / `stop()` huỷ task là huỷ
+/// luôn lượt.
 ///
-/// `cues[].text` luôn là nguyên văn; `translation` gán dần theo lô (`MediaCaptionTranslator.batchSize`), bắt đầu từ dòng
+/// `cues[].text` luôn là nguyên văn. Phồn → giản (chạy cả khi tắt dịch) gán `converted` cho **mọi** dòng trước — rẻ, nên
+/// kiểu Gốc đổi ngay; rồi khi bật dịch, `translation` gán dần theo lô (`MediaCaptionTranslator.batchSize`), bắt đầu từ dòng
 /// đang chiếu trở đi rồi quay về đầu, nên dòng đang xem đổi sang bản dịch gần như ngay. Dòng nào chưa có bản dịch thì View
-/// hiện nguyên văn. Đổi cấu hình dịch (sheet "Dịch phụ đề") ⇒ `retranslateSubtitles()` dịch lại phụ đề đã nạp, không nạp
-/// lại phim; sửa từ điển giữa chừng thì áp từ tập sau.
+/// hiện `displayText` (chữ đã chuyển, hoặc nguyên văn). Đổi cấu hình dịch (sheet "Dịch phụ đề") ⇒ `retranslateSubtitles()`
+/// xử lý lại phụ đề đã nạp, không nạp lại phim; sửa từ điển giữa chừng thì áp từ tập sau. Bộ dịch của phim là tiện ích
+/// dịch ⇒ mỗi lô 50 dòng là một lượt gửi tiện ích (dòng lỗi lùi QT, chỉ ghi log); đổi bộ dịch ở sheet cũng dịch lại.
 extension VideoPlaybackSession {
     func toggleSubtitles() {
         setSubtitlesEnabled(!subtitlesEnabled)
@@ -38,15 +41,17 @@ extension VideoPlaybackSession {
         }
     }
 
-    /// Sheet "Dịch phụ đề" đóng mà cấu hình đổi: bỏ bản dịch cũ (tắt dịch thì dừng ở đây) rồi dịch lại phụ đề đã nạp.
-    /// Phụ đề chưa nạp xong (`cues` rỗng) ⇒ không làm gì, **không** huỷ `subtitleTask`: lượt nạp đang chạy đọc cấu hình
-    /// mới lúc bắt đầu dịch.
+    /// Sheet "Dịch phụ đề" đóng mà cấu hình đổi: bỏ chữ đã chuyển + bản dịch cũ (tắt cả chuyển lẫn dịch thì dừng ở đây) rồi
+    /// xử lý lại phụ đề đã nạp. Phụ đề chưa nạp xong (`cues` rỗng) ⇒ không làm gì, **không** huỷ `subtitleTask`: lượt nạp
+    /// đang chạy đọc cấu hình mới lúc bắt đầu xử lý.
     func retranslateSubtitles() {
+        // Tên phim / tập cũng theo cấu hình mới — kể cả phim không có phụ đề mềm.
+        refreshDisplayNames()
         guard !cues.isEmpty, launch != nil else { return }
         subtitleTask?.cancel()
         clearSubtitleTranslations()
         let generation = loadGeneration
-        AppLogger.shared.log("💬 [VideoPlayer] Cấu hình dịch đổi ⇒ dịch lại phụ đề")
+        AppLogger.shared.log("💬 [VideoPlayer] Cấu hình dịch đổi ⇒ chuyển / dịch lại phụ đề")
         subtitleTask = Task { [weak self] in
             await self?.translateLoadedCues(generation: generation)
         }
@@ -54,14 +59,20 @@ extension VideoPlaybackSession {
 
     // MARK: - Nội bộ
 
-    /// Dịch `cues` đã nạp theo lô. Sau mỗi `await` đều kiểm task chưa huỷ + lượt nạp còn hiện hành trước khi ghi — lượt
-    /// dịch lại dùng chung `loadGeneration` với lượt trước nên chỉ có cờ huỷ phân biệt hai lượt.
+    /// Chuyển phồn → giản rồi dịch `cues` đã nạp. Sau mỗi `await` đều kiểm task chưa huỷ + lượt nạp còn hiện hành trước khi
+    /// ghi — lượt dịch lại dùng chung `loadGeneration` với lượt trước nên chỉ có cờ huỷ phân biệt hai lượt.
     private func translateLoadedCues(generation: Int) async {
         guard let launch, isCurrent(generation) else { return }
         let texts = cues.map(\.text)
         guard texts.contains(where: { TranslateUtils.containsChinese($0) }) else { return }
-        guard let pass = await MediaCaptionTranslator.prepare(bookId: launch.bookId, packageId: launch.extensionPackageId),
-              isCurrent(generation), cues.count == texts.count else { return }
+        // Bộ dịch là tiện ích ⇒ mỗi lô gửi tiện ích (dòng lỗi lùi QT); phụ đề cứng không xin nên luôn QT.
+        guard let pass = await MediaCaptionTranslator.prepare(
+            bookId: launch.bookId, packageId: launch.extensionPackageId, extensionSource: .chapterContent
+        ), isCurrent(generation), cues.count == texts.count else { return }
+        if pass.options.converts {
+            guard await applyConversion(texts: texts, pass: pass, generation: generation) else { return }
+        }
+        guard pass.translates else { return }
         let order = translationOrder(count: texts.count, from: currentPlaybackTime)
         var translatedCount = 0
         var start = 0
@@ -71,13 +82,32 @@ extension VideoPlaybackSession {
             guard let results = await MediaCaptionTranslator.translate(batch.map { texts[$0] }, pass: pass),
                   isCurrent(generation), cues.count == texts.count else { return }
             for (offset, index) in batch.enumerated() {
-                cues[index].translation = results[offset]
+                cues[index].translation = results[offset].translation
             }
-            translatedCount += results.reduce(0) { $1 == nil ? $0 : $0 + 1 }
+            translatedCount += results.reduce(0) { $1.translation == nil ? $0 : $0 + 1 }
             if translatedCount > 0, !hasTranslatedSubtitles { hasTranslatedSubtitles = true }
             updateCue(at: currentPlaybackTime)
         }
         AppLogger.shared.log("💬 [VideoPlayer] Đã dịch phụ đề: \(translatedCount)/\(texts.count) dòng")
+    }
+
+    /// Bước 1 cho cả phụ đề một lần (`pass.convertOnly` — chỉ chuyển, không dịch): gán `converted` cho mọi dòng (một lần gán
+    /// mảng) rồi vẽ lại dòng đang chiếu. `false` = task bị huỷ / lượt nạp đã đổi ⇒ dừng cả lượt.
+    private func applyConversion(texts: [String], pass: MediaCaptionTranslator.Pass, generation: Int) async -> Bool {
+        guard let results = await MediaCaptionTranslator.translate(texts, pass: pass.convertOnly),
+              isCurrent(generation), cues.count == texts.count else { return false }
+        var updated = cues
+        var convertedCount = 0
+        for (index, result) in results.enumerated() where result.converted != nil {
+            updated[index].converted = result.converted
+            convertedCount += 1
+        }
+        if convertedCount > 0 {
+            cues = updated
+            updateCue(at: currentPlaybackTime)
+            AppLogger.shared.log("💬 [VideoPlayer] Đã chuyển phồn → giản phụ đề: \(convertedCount)/\(texts.count) dòng")
+        }
+        return true
     }
 
     /// Chỉ số cue theo thứ tự dịch: từ dòng đang chiếu (hoặc dòng sắp tới) đến hết, rồi quay về đầu.
@@ -87,8 +117,8 @@ extension VideoPlaybackSession {
     }
 
     private func clearSubtitleTranslations() {
-        for index in cues.indices where cues[index].translation != nil {
-            cues[index].translation = nil
+        if cues.contains(where: { $0.translation != nil || $0.converted != nil }) {
+            cues = cues.map { VideoSubtitleCue(start: $0.start, end: $0.end, text: $0.text) }
         }
         if hasTranslatedSubtitles { hasTranslatedSubtitles = false }
         updateCue(at: currentPlaybackTime)

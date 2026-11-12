@@ -2,8 +2,9 @@ import Combine
 import SwiftUI
 import UIKit
 
-/// Lớp nháy đỏ của nút hub nổi khi có tiến trình đang chạy (người dùng chốt 2026-10-22), đặt trong vòng tròn của
-/// `FloatingHubButton`, dưới icon.
+/// Lớp nháy đỏ của nút hub nổi khi có tiến trình đang chạy (người dùng chốt 2026-10-22), phủ nửa viên của
+/// `FloatingHubButton` **trên** lớp kính, dưới icon. Màu nháy có alpha `colorAlpha` (= `1 − trong suốt` của hub, anh Bửu
+/// 2026-11-11: nháy theo độ trong suốt + độ đục) — alpha của **màu**, không phải opacity của view.
 ///
 /// ## Một chỗ hằng số cho cả hai nút nháy
 /// Màu và nhịp nằm ở đây dưới dạng `static`; `VisibleBrowserReopenButton` (trình duyệt thu nhỏ) đọc lại đúng các
@@ -21,8 +22,12 @@ import UIKit
 /// ## Không đổi opacity
 /// Chỉ đổi **màu nền** của một layer con. Không đụng `alpha`/`opacity` của hosting view, `widgetContainerView`
 /// hay cửa sổ: `FloatingHubUIWindow.hitTest` có guard `alpha > 0.01` trên `widgetContainerView`.
+///
+/// ## Hình
+/// Layer nháy cắt bằng mặt nạ đúng đường `EdgePillShape` (không dùng `cornerRadius`: Core Animation kẹp bán kính về nửa
+/// cạnh ngắn ⇒ hub hẹp tới bán nguyệt sẽ sai hình).
 struct FloatingHubPulseView: UIViewRepresentable {
-    /// Đỏ sẫm — mức 0 của dải nội suy (alpha luôn 1).
+    /// Đỏ sẫm — mức 0 của dải nội suy (alpha theo `colorAlpha`).
     static let darkRed = (red: 0.42, green: 0.04, blue: 0.04)
     /// Đỏ tươi — mức 1 của dải nội suy, cũng là đỉnh sáng của nhịp nháy.
     static let brightRed = (red: 0.90, green: 0.17, blue: 0.17)
@@ -41,14 +46,22 @@ struct FloatingHubPulseView: UIViewRepresentable {
     }
 
     let isPulsing: Bool
+    /// Mép nửa viên đang dính (2026-11-11): cắt theo nửa viên; `nil` (đang kéo) ⇒ hình tròn.
+    var edge: EdgeDirection?
+    /// Alpha của màu nháy (0…1) — `1 − trong suốt` của hub.
+    var colorAlpha: Double = 1
 
     func makeUIView(context: Context) -> PulseUIView {
         let view = PulseUIView(frame: .zero)
+        view.setEdge(edge)
+        view.setColorAlpha(colorAlpha)
         view.setPulsing(isPulsing)
         return view
     }
 
     func updateUIView(_ uiView: PulseUIView, context: Context) {
+        uiView.setEdge(edge)
+        uiView.setColorAlpha(colorAlpha)
         uiView.setPulsing(isPulsing)
     }
 
@@ -59,7 +72,10 @@ struct FloatingHubPulseView: UIViewRepresentable {
         private static let animationKey = "floatingHubPulse"
 
         private let pulseLayer = CALayer()
+        private let shapeMask = CAShapeLayer()
         private var isPulsing = false
+        private var edge: EdgeDirection?
+        private var colorAlpha: Double = 1
         private var cancellables = Set<AnyCancellable>()
 
         override init(frame: CGRect) {
@@ -69,6 +85,7 @@ struct FloatingHubPulseView: UIViewRepresentable {
             backgroundColor = .clear
             // Màu model luôn trong suốt ⇒ gỡ animation là hết đỏ, không để lại màu tĩnh.
             pulseLayer.backgroundColor = UIColor.clear.cgColor
+            pulseLayer.mask = shapeMask
             layer.addSublayer(pulseLayer)
 
             // Phòng trường hợp hệ thống gỡ animation khỏi layer khi app xuống nền (khuôn `TTSRotatingCoverView`).
@@ -90,9 +107,25 @@ struct FloatingHubPulseView: UIViewRepresentable {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             pulseLayer.frame = bounds
-            // `backgroundColor` của layer tự cắt theo `cornerRadius` ⇒ không cần mask.
-            pulseLayer.cornerRadius = min(bounds.width, bounds.height) / 2
+            shapeMask.frame = pulseLayer.bounds
+            shapeMask.path = EdgePillShape(edge: edge).path(in: pulseLayer.bounds).cgPath
             CATransaction.commit()
+        }
+
+        /// Mép đang dính ⇒ mặt nạ nửa viên đúng mép; `nil` (đang kéo) ⇒ hình tròn.
+        func setEdge(_ edge: EdgeDirection?) {
+            guard edge != self.edge else { return }
+            self.edge = edge
+            setNeedsLayout()
+        }
+
+        /// Alpha của màu nháy đổi (kéo thanh "Độ trong suốt" của hub) ⇒ gắn lại animation với màu mới, cùng pha.
+        func setColorAlpha(_ alpha: Double) {
+            let clamped = min(1, max(0, alpha))
+            guard abs(clamped - colorAlpha) > 0.001 else { return }
+            colorAlpha = clamped
+            removeAnimationIfPresent()
+            restoreAnimationIfNeeded()
         }
 
         /// Rời cửa sổ ⇒ gỡ để render server không vẽ vô ích; quay lại mà vẫn nháy ⇒ gắn lại.
@@ -121,8 +154,8 @@ struct FloatingHubPulseView: UIViewRepresentable {
 
             let halfPeriod = FloatingHubPulseView.pulseHalfPeriod
             let animation = CABasicAnimation(keyPath: "backgroundColor")
-            animation.fromValue = Self.pulseColor(level: FloatingHubPulseView.pulseDimLevel)
-            animation.toValue = Self.pulseColor(level: 1)
+            animation.fromValue = Self.pulseColor(level: FloatingHubPulseView.pulseDimLevel, alpha: colorAlpha)
+            animation.toValue = Self.pulseColor(level: 1, alpha: colorAlpha)
             animation.duration = halfPeriod
             animation.autoreverses = true
             animation.repeatCount = .infinity
@@ -143,9 +176,14 @@ struct FloatingHubPulseView: UIViewRepresentable {
             pulseLayer.removeAnimation(forKey: Self.animationKey)
         }
 
-        private static func pulseColor(level: Double) -> CGColor {
+        private static func pulseColor(level: Double, alpha: Double) -> CGColor {
             let rgb = FloatingHubPulseView.pulseRGB(level: level)
-            return UIColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1).cgColor
+            return UIColor(
+                red: CGFloat(rgb.red),
+                green: CGFloat(rgb.green),
+                blue: CGFloat(rgb.blue),
+                alpha: CGFloat(alpha)
+            ).cgColor
         }
     }
 }

@@ -145,14 +145,17 @@ struct ReaderDefinitionOverlayView: View {
             Text("\(trace.pattern)\n→ \(trace.replacement)")
         }
         .sheet(isPresented: $showingManageDefinitionsSheet) {
-            ManageDefinitionsView(
-                word: selectedTextForDefinition,
-                bookId: bookId,
-                matches: $dictionaryMatches,
-                onChanged: {
-                    onApplyTranslation?()
-                }
-            )
+            Group {
+                ManageDefinitionsView(
+                    word: selectedTextForDefinition,
+                    bookId: bookId,
+                    matches: $dictionaryMatches,
+                    onChanged: {
+                        onApplyTranslation?()
+                    }
+                )
+            }
+            .appGlassSheet()
         }
     }
 

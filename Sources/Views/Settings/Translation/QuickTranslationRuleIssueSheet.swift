@@ -14,7 +14,7 @@ struct QuickTranslationRuleIssueSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if !hardIssues.isEmpty {
                     section(
                         title: "Lỗi nặng — chặn nạp cả file (\(hardIssues.count))",
@@ -40,7 +40,7 @@ struct QuickTranslationRuleIssueSheet: View {
                     Text("Không có lỗi hay cảnh báo nào.")
                         .foregroundColor(.secondary)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Lỗi & cảnh báo")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

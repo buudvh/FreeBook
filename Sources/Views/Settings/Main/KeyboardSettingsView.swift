@@ -7,7 +7,7 @@ struct KeyboardSettingsView: View {
     @AppStorage(KeyboardDismissPreference.tapOutsideDismissesKey) private var tapOutsideDismisses = true
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 optionRow("Tự tắt bàn phím", isSelected: tapOutsideDismisses) {
                     KeyboardDismissPreference.setTapOutsideDismisses(true)
@@ -18,7 +18,7 @@ struct KeyboardSettingsView: View {
             } header: {
                 SectionHelpHeader("Khi chạm ra ngoài ô nhập", paragraphs: ["Nút đóng bàn phím nằm ngoài cùng bên trái thanh công cụ trên bàn phím. Giữ nút đó để đổi nhanh lựa chọn này. Phím Return của ô một dòng và thao tác kéo danh sách vẫn tắt bàn phím như thường."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Bàn phím & ô nhập")
     }
 

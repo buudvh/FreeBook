@@ -54,7 +54,7 @@ extension VieNeuTTSEngine {
     /// `churn=create/release/bytes` là **số đo duy nhất** chứng minh một lượt giảm churn bộ nhớ có tác
     /// dụng: `rtf` gần như không đổi vì `Run` chiếm gần hết thời gian. Xem doc của `Timing`.
     ///
-    /// Từ 1.3.849: `vectorMs` chỉ còn vòng Euler, `codecMs`/`textMs` tách riêng, `cpuSplit=text/vector/codec` (CPU-time
+    /// Từ 1.3.878: `vectorMs` chỉ còn vòng Euler, `codecMs`/`textMs` tách riêng, `cpuSplit=text/vector/codec` (CPU-time
     /// cả tiến trình từng giai đoạn), `qos=` là QoS của luồng tổng hợp, `sessionQos=` là QoS lúc dựng session ORT.
     func logSynthesisPerf(
         mode: VieNeuSynthesisPolicy.Mode,
@@ -98,7 +98,7 @@ extension VieNeuTTSEngine {
 
     /// Thời gian tách theo **ba giai đoạn** (`StageClock`), cộng dồn cho cả đoạn.
     ///
-    /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán. Trước 1.3.849 chỉ có hai nhóm và `vectorMs`
+    /// Có mặt để trả lời "chậm ở đâu" bằng số đo thay vì phỏng đoán. Trước 1.3.878 chỉ có hai nhóm và `vectorMs`
     /// được chốt **sau** `codec_decoder` ⇒ codec bị tính vào vòng Euler (doc cũ nói nó nằm trong `otherMs` — sai).
     struct Timing {
         /// text_encoder + duration_predictor + nhiễu khởi tạo (mọi thứ trước vòng Euler).

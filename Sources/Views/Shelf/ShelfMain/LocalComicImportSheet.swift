@@ -31,7 +31,7 @@ struct LocalComicImportSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     TextField("Tên truyện", text: $title)
                         .textInputAutocapitalization(.sentences)
@@ -49,7 +49,7 @@ struct LocalComicImportSheet: View {
                 } header: {
                     Text("Chương (xếp theo tên thư mục)")
                 }
-            }
+            }.glassSheetRows() }
             .listStyle(.insetGrouped)
             .pageTitle("Nhập truyện tranh")
             .toolbar {

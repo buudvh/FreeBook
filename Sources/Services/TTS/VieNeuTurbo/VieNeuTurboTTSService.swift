@@ -26,12 +26,12 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         return VieNeuTurboTTSService(store: store, frontend: frontend)
     }()
 
-    /// Cố định 2 luồng: iPhone chỉ có 2 lõi hiệu năng; đo 1.3.847 — 1 luồng RTF 2,17 (hụt tiếng), 2 luồng RTF 0,70.
+    /// Cố định 2 luồng: iPhone chỉ có 2 lõi hiệu năng; đo 1.3.876 — 1 luồng RTF 2,17 (hụt tiếng), 2 luồng RTF 0,70.
     static let threadCount = 2
     /// Tần số của model (audio.cpp trả stereo 48 kHz, trộn về mono) — dùng cho đoạn im lặng tự sinh.
     static let sampleRate = 48_000
-    /// QoS của lượt tổng hợp khi đọc truyện (1.3.856): `.userInitiated` được xếp lên **lõi hiệu năng**. Đo ở màn thử
-    /// (1.3.855, iPhone 11, 2 luồng, ~3 phút mỗi lượt): `.utility` (lõi tiết kiệm) RTF 0,71–0,73, CPU 1,35 CPU-s mỗi giây
+    /// QoS của lượt tổng hợp khi đọc truyện (1.3.885): `.userInitiated` được xếp lên **lõi hiệu năng**. Đo ở màn thử
+    /// (1.3.884, iPhone 11, 2 luồng, ~3 phút mỗi lượt): `.utility` (lõi tiết kiệm) RTF 0,71–0,73, CPU 1,35 CPU-s mỗi giây
     /// tiếng, tới phút thứ 2–3 máy "nóng"; `.userInitiated` RTF 0,35–0,36, CPU 0,70, máy chỉ "ấm" — lõi tiết kiệm phải
     /// chạy gấp đôi thời gian ở xung nhịp cao nên tốn điện hơn. (Trình đọc Nano không cần: ORT của nó vốn chạy ở mức
     /// của tác vụ gọi, đo trên máy đã nhanh như `.userInitiated`; runtime Turbo thì tự ép `.utility` nên phải truyền.)
@@ -39,7 +39,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Tốc độ nghe mà Turbo còn tổng hợp kịp, để màn Cài đặt TTS cảnh báo khi vượt. Ở `readerQoS`: RTF trung bình ≈ 0,36,
     /// đoạn chậm nhất 0,41 (chỉ ~3 phút, máy "ấm") ⇒ 1 / 0,41 ≈ 2,4. Chừa khoảng cho máy nóng lên khi nghe lâu (ở
     /// `.utility` từng có đoạn vọt RTF 1,17 khi "nóng") và giọng chưa đo (Adam bựa) ⇒ 2,0, tức RTF phải dưới 0,5. Thanh
-    /// tốc độ đi tới 5× nên cảnh báo vẫn hiện được. Trước 1.3.856 (`.utility`, RTF ≈ 0,70) mức này là 1,4.
+    /// tốc độ đi tới 5× nên cảnh báo vẫn hiện được. Trước 1.3.885 (`.utility`, RTF ≈ 0,70) mức này là 1,4.
     static let realtimeSpeedLimit = 2.0
 
     let store: VieNeuTurboModelStore

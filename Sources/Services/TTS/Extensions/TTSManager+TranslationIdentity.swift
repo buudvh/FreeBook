@@ -56,6 +56,23 @@ extension TTSManager {
         guard playingBookId == bookId, sessionTranslationEnabled != enabled else { return }
         sessionTranslationEnabled = enabled
         invalidatePreparedTranslationState()
+        rereadCurrentChapter(bookId: bookId) { $0.sessionTranslationEnabled == enabled }
+    }
+
+    /// Phồn → giản của truyện đang phát vừa đổi (popup dịch). Từ 1.3.846 bước chuyển chạy **cả khi tắt dịch** và Reader
+    /// dựng lại chương theo cờ mới ⇒ như `updateTranslationSetting`: đang phát thì đọc lại chương hiện tại, đang dừng thì
+    /// chương sau theo cờ mới. Trước đây chỉ bỏ prefetch chương sau.
+    public func updateTraditionalToSimplifiedSetting(for bookId: String, enabled: Bool) {
+        guard playingBookId == bookId, sessionShouldConvertTraditionalToSimplified != enabled else { return }
+        sessionShouldConvertTraditionalToSimplified = enabled
+        invalidatePreparedTranslationState()
+        if !isPlaying { triggerNextChapterPrefetch() }
+        rereadCurrentChapter(bookId: bookId) { $0.sessionShouldConvertTraditionalToSimplified == enabled }
+    }
+
+    /// Đang phát ⇒ tải lại chương hiện tại rồi đọc lại từ đầu đoạn đang đọc theo cấu hình chữ mới. `isStillCurrent`: cấu
+    /// hình chưa bị đổi tiếp trong lúc tải (bấm liên tiếp ⇒ chỉ lượt cuối được đọc lại).
+    private func rereadCurrentChapter(bookId: String, isStillCurrent: @escaping @MainActor (TTSManager) -> Bool) {
         guard isPlaying, let chapter = chaptersQueue.first(where: { $0.index == playingChapterIndex }) else { return }
 
         let paragraphIndex = currentParentParagraphIndex
@@ -75,7 +92,7 @@ extension TTSManager {
                 let result = try await ChapterContentRepository.shared.load(request)
                 guard self.playingBookId == bookId,
                       self.playingChapterIndex == chapter.index,
-                      self.sessionTranslationEnabled == enabled,
+                      isStillCurrent(self),
                       self.isPlaying else { return }
                 self.startSpeaking(
                     bookId: bookId,
@@ -90,11 +107,11 @@ extension TTSManager {
                     extensionInfo: self.extensionInfo,
                     translationPackageId: self.sessionTranslationPackageId,
                     author: self.playingAuthor,
-                    translationEnabled: enabled
+                    translationEnabled: self.sessionTranslationEnabled
                 )
             } catch {
                 guard self.playingBookId == bookId else { return }
-                AppLogger.shared.log("❌ [TTSManager] Không đọc lại được chương sau khi đổi công tắc dịch: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [TTSManager] Không đọc lại được chương sau khi đổi cấu hình dịch / phồn → giản: \(error.localizedDescription)")
             }
         }
     }

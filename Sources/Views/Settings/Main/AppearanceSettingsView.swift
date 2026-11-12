@@ -35,7 +35,7 @@ struct AppearanceSettingsView: View {
     ]
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 NavigationLink(destination: AccentColorSettingsView()) {
                     accentRowLabel
@@ -73,8 +73,8 @@ struct AppearanceSettingsView: View {
             } header: {
                 SectionHelpHeader("Khi chạm hub nổi", paragraphs: [
                     "Hub nổi là nút tròn nhỏ nép ở mép màn hình, gom Trợ lý AI, Thông báo, Video và Kiểm tra nguồn.",
-                    "**Luôn hiện tất cả mục**: chạm hub là mở menu đủ các mục, dù đang có bao nhiêu tác vụ. Mục không có việc thì xám.",
-                    "**Mở thẳng khi chỉ có 1 tác vụ**: không có tác vụ thì mở màn Thông báo; đúng 1 tác vụ (AI đang chạy, video thu nhỏ, tải/xuất truyện, kiểm tra nguồn) thì mở thẳng mục đó; từ 2 tác vụ thì mở menu.",
+                    "**Luôn hiện tất cả mục**: chạm hub là mở sheet đủ các mục, dù đang có bao nhiêu tác vụ. Mục không có việc thì xám.",
+                    "**Mở thẳng khi chỉ có 1 tác vụ**: không có tác vụ thì mở màn Thông báo; đúng 1 tác vụ (AI đang chạy, video thu nhỏ, tải/xuất truyện, kiểm tra nguồn) thì mở thẳng mục đó; từ 2 tác vụ thì mở sheet.",
                     "Icon của hub: **Luôn hiện tất cả mục** luôn là icon chồng thẻ; **Mở thẳng khi chỉ có 1 tác vụ** là chuông khi rảnh, icon của mục khi có 1 tác vụ, chồng thẻ khi từ 2 tác vụ. Hub nháy đỏ khi có tác vụ đang chạy, ở cả hai lựa chọn."
                 ])
             }
@@ -92,13 +92,21 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                SectionHelpHeader("Nút nổi (tai nghe, nút +)", paragraphs: ["Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính."])
+                SectionHelpHeader("Nút nổi (tai nghe, nút +)", paragraphs: ["Áp cho nút tai nghe trong Reader và nút + ở các màn danh sách. Độ trong suốt là lớp màu nền của nút; độ đục là độ nhoè của kính.", "Đĩa nghe, hub và nút trình duyệt thu nhỏ chỉnh riêng ở mục Viên thuốc nổi bên dưới."])
             }
+
+            EdgePillSettingsSection()
 
             Section {
                 percentSlider("Độ trong suốt", value: $drawerTransparency)
                 // Cùng 6 nấc kính với nút nổi (1.3.647).
-                percentSlider("Độ đục", value: $drawerFrost, step: GlassFrostLevel.step) { value in
+                // Thấp nhất 20% (1.3.873): sheet / popup / ngăn kéo dùng chung cài đặt này, không cho kính trong hẳn.
+                percentSlider(
+                    "Độ đục",
+                    value: drawerFrostBinding,
+                    step: GlassFrostLevel.step,
+                    range: GlassChromeSettings.minimumDrawerFrost...1
+                ) { value in
                     GlassFrostLevel(frost: value).title
                 }
                 drawerPreview
@@ -108,9 +116,9 @@ struct AppearanceSettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } header: {
-                SectionHelpHeader("Menu ba chấm", paragraphs: ["Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn."])
+                SectionHelpHeader("Menu ba chấm", paragraphs: ["Ngăn kéo trượt ra từ mép phải khi bấm nút … ở các màn.", "Mọi sheet và popup (bật tắt dịch, giải thích \"?\"…) dùng chung nền kính này. Độ đục thấp nhất 20%."])
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Giao diện")
     }
 
@@ -131,10 +139,19 @@ struct AppearanceSettingsView: View {
     // MARK: - Thanh kéo
 
     /// `levelName` ≠ nil ⇒ giá trị hiện kèm tên nấc ("60% · Vừa"), phần trăm làm tròn theo `step`.
+    /// Giá trị lưu từ trước 1.3.873 dưới 20% hiện và kéo như 20%.
+    private var drawerFrostBinding: Binding<Double> {
+        Binding(
+            get: { GlassChromeSettings.effectiveDrawerFrost(drawerFrost) },
+            set: { drawerFrost = $0 }
+        )
+    }
+
     private func percentSlider(
         _ title: String,
         value: Binding<Double>,
         step: Double = 0.05,
+        range: ClosedRange<Double> = 0...1,
         levelName: ((Double) -> String)? = nil
     ) -> some View {
         let snapped = (value.wrappedValue / step).rounded() * step
@@ -147,7 +164,7 @@ struct AppearanceSettingsView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Slider(value: value, in: 0...1, step: step)
+            Slider(value: value, in: range, step: step)
                 .accessibilityLabel(title)
         }
     }
@@ -193,6 +210,7 @@ struct AppearanceSettingsView: View {
         Image(systemName: systemImage)
             .font(.system(size: 17, weight: .semibold))
             .foregroundColor(.white)
+            .floatingIconTransparency()
             .frame(width: 52, height: 52)
             .background { FloatingGlassBackground() }
     }

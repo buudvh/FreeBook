@@ -12,7 +12,7 @@ struct VieNeuTurboLabView: View {
     @State var lab = VieNeuTurboLab.shared
 
     var body: some View {
-        Form {
+        Form { Group {
             modelSection
             voiceSection
             sampleSection
@@ -30,7 +30,7 @@ struct VieNeuTurboLabView: View {
             if lab.soak.isRunning || !lab.soak.summaryText.isEmpty {
                 soakResultSection
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Thử VieNeu Turbo")
         .onAppear { lab.refreshStatus() }
         .onDisappear { lab.leaveScreen() }

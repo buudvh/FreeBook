@@ -1,13 +1,24 @@
 import Foundation
 
-/// Dịch tên chương cho màn đọc comic (thanh trên + mục lục) — **ngoài main**, cùng luật với mục lục tab Chi tiết
-/// (`BookDetailView.displayTitle(for:)`) và sheet mục lục Reader (`BackgroundPagingWorker`):
-/// - bật phồn→giản ⇒ dịch sống từ tên gốc có chuyển (bản lưu `titleTrans` là bản **không** chuyển);
-/// - có bản lưu ⇒ dùng nó (còn chữ Hán thì dịch tiếp);
-/// - không có ⇒ dịch sống nếu tên có chữ Hán.
+/// Tên chương cho màn đọc comic (thanh trên + mục lục) — **ngoài main**, qua `ChineseTextPipeline`, cùng luật với mục lục
+/// tab Chi tiết (`BookDetailView.displayTitle(for:)`) và sheet mục lục Reader (`BackgroundPagingWorker`):
+/// - phồn → giản (ba cấp truyện ⇒ nguồn ⇒ Tất cả) là bước riêng, chạy **cả khi tắt dịch** (1.3.846) ⇒ `Titles.converted`;
+/// - bật dịch: có bản lưu `titleTrans` ⇒ dùng nó (còn chữ Hán thì dịch tiếp) — bản lưu đã qua bước chuyển
+///   (`ChapterTitleRetranslator`, 1.3.845); không có ⇒ dịch sống tên đã chuyển ⇒ `Titles.translated`.
 ///
-/// Chỉ gọi khi đang bật dịch; tắt dịch thì màn đọc hiện tên gốc, không cần dịch.
+/// Gọi khi bật dịch **hoặc** phồn → giản; cả hai tắt thì màn đọc hiện tên gốc.
+///
+/// Bộ dịch là **tiện ích dịch**: tên ở đây (QT) là chữ tạm / đường lùi — tên đang hiện dịch tiếp bằng tiện ích ở
+/// `ComicExtensionTextTranslation.chapterTitle` (theo lô, không ghi vào `ComicChapterEntry`).
 enum ComicChapterTitleTranslator {
+    /// Kết quả một lượt, theo `index` chương.
+    struct Titles: Sendable {
+        /// Tên đã dịch — chỉ khi bật dịch.
+        var translated: [Int: String] = [:]
+        /// Tên đã chuyển phồn → giản — chỉ khi bật phồn → giản.
+        var converted: [Int: String] = [:]
+    }
+
     /// Bản chụp một dòng mục lục đi qua `Task.detached`.
     private struct Item: Sendable {
         let index: Int
@@ -15,21 +26,21 @@ enum ComicChapterTitleTranslator {
         let titleTrans: String?
     }
 
-    /// Tên đã dịch theo `index` chương. `nil` khi task gọi bị huỷ (lượt dịch mới thay thế).
-    static func translatedTitles(for chapters: [ComicChapterEntry], bookId: String) async -> [Int: String]? {
+    /// Tên theo `index` chương cho cờ `options`. `nil` khi task gọi bị huỷ (lượt dịch mới thay thế).
+    static func displayTitles(for chapters: [ComicChapterEntry], options: ChineseTextPipeline.Options) async -> Titles? {
         let items = chapters.map { Item(index: $0.index, title: $0.title, titleTrans: $0.titleTrans) }
-        let convertsTraditional = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
-        let worker = Task.detached(priority: .userInitiated) { () -> [Int: String]? in
-            var titles: [Int: String] = [:]
-            titles.reserveCapacity(items.count)
+        let worker = Task.detached(priority: .userInitiated) { () -> Titles? in
+            var titles = Titles()
             for (offset, item) in items.enumerated() {
                 if offset % 100 == 0, Task.isCancelled { return nil }
-                titles[item.index] = ComicChapterTitleTranslator.displayTitle(
-                    title: item.title,
-                    titleTrans: item.titleTrans,
-                    bookId: bookId,
-                    convertsTraditional: convertsTraditional
-                )
+                if options.converts {
+                    titles.converted[item.index] = ChineseTextPipeline.convert(item.title, converts: true)
+                }
+                if options.translates {
+                    titles.translated[item.index] = ComicChapterTitleTranslator.translatedTitle(
+                        title: item.title, titleTrans: item.titleTrans, options: options
+                    )
+                }
             }
             return Task.isCancelled ? nil : titles
         }
@@ -40,15 +51,11 @@ enum ComicChapterTitleTranslator {
         }
     }
 
-    private static func displayTitle(title: String, titleTrans: String?, bookId: String, convertsTraditional: Bool) -> String {
-        if !convertsTraditional, let trans = titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines), !trans.isEmpty {
-            return TranslateUtils.containsChinese(trans) ? TranslateUtils.translateChapterTitle(trans, bookId: bookId) : trans
+    /// Bản lưu (còn chữ Hán thì dịch tiếp; chuyển lại không đổi gì nếu đã chuyển) ⇒ dịch sống tên đã chuyển.
+    private static func translatedTitle(title: String, titleTrans: String?, options: ChineseTextPipeline.Options) -> String {
+        if let trans = titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines), !trans.isEmpty {
+            return ChineseTextPipeline.chapterTitle(trans, options)
         }
-        guard TranslateUtils.containsChinese(title) else { return title }
-        return TranslateUtils.translateChapterTitle(
-            title,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: convertsTraditional
-        )
+        return ChineseTextPipeline.chapterTitle(title, options)
     }
 }

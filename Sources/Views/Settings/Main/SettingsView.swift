@@ -12,7 +12,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 GeneralSettingsSection()
                 ReadingSettingsSection()
                 LibrarySettingsSection()
@@ -24,11 +24,14 @@ struct SettingsView: View {
                         appUpdateRow(update)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Cài đặt")
             .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
             .sheet(item: $sheetUpdate) { update in
-                AppUpdateSheet(update: update)
+                Group {
+                    AppUpdateSheet(update: update)
+                }
+                .appGlassSheet()
             }
         }
     }
@@ -79,7 +82,10 @@ struct SettingsView: View {
             }
         }
         .sheet(isPresented: $showingReleaseNotes) {
-            AppReleaseNotesSheet()
+            Group {
+                AppReleaseNotesSheet()
+            }
+            .appGlassSheet()
         }
     }
 

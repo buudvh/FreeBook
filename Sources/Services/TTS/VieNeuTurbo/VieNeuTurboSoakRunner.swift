@@ -24,9 +24,9 @@ final class VieNeuTurboSoakRunner {
         let cpuMs: Double
         /// Số ký tự phiên âm (Turbo); `nil` với Nano.
         let phonemeCount: Int?
-        /// Phân rã text / vòng Euler / codec (Nano, 1.3.849); `nil` với Turbo.
+        /// Phân rã text / vòng Euler / codec (Nano, 1.3.878); `nil` với Turbo.
         var split: VieNeuTurboSoakStats.StageSplit? = nil
-        /// QoS **đo được**: Nano "tổng hợp X · session Y", Turbo "tổng hợp X" (1.3.854) — để biết lựa chọn QoS có tới
+        /// QoS **đo được**: Nano "tổng hợp X · session Y", Turbo "tổng hợp X" (1.3.883) — để biết lựa chọn QoS có tới
         /// nơi thật không.
         var qosNote: String? = nil
     }
@@ -222,7 +222,7 @@ final class VieNeuTurboSoakRunner {
             VieNeuTurboSoakStats.ratio(audio.synthesisMs / 1_000, audio.audioSeconds),
             VieNeuTurboSoakStats.ratio(audio.cpuMs / 1_000, audio.audioSeconds),
             thermal,
-            // Bộ nhớ sau mỗi đoạn: thấy được nó có tăng dần theo thời gian không (lỗi cấp phát của 1.3.847).
+            // Bộ nhớ sau mỗi đoạn: thấy được nó có tăng dần theo thời gian không (lỗi cấp phát của 1.3.876).
             ProcessMemoryProbe.snapshot().summary,
             qos
         )

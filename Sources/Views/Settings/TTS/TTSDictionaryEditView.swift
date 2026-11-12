@@ -77,9 +77,12 @@ struct TTSDictionaryEditView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddWordSheet(initialKey: searchText, target: .nghiTTS) { key, val, destination in
-                    saveWord(key: key, value: val, destination: destination)
+                Group {
+                    AddWordSheet(initialKey: searchText, target: .nghiTTS) { key, val, destination in
+                        saveWord(key: key, value: val, destination: destination)
+                    }
                 }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingFileImporter) {
                 DocumentPicker(
@@ -118,9 +121,12 @@ struct TTSDictionaryEditView: View {
                 get: { editingKey.map { EditingEntry(key: $0, value: editingValue) } },
                 set: { editingKey = $0?.key; editingValue = $0?.value ?? "" }
             )) { entry in
-                EditWordSheet(key: entry.key, value: entry.value) { newVal in
-                    updateWord(key: entry.key, value: newVal)
+                Group {
+                    EditWordSheet(key: entry.key, value: entry.value) { newVal in
+                        updateWord(key: entry.key, value: newVal)
+                    }
                 }
+                .appGlassSheet()
             }
             .task {
                 await loadDictionary()
@@ -152,7 +158,7 @@ struct TTSDictionaryEditView: View {
             : []
         let summary = query.isEmpty ? "Tổng cộng \(sortedKeys.count) từ." : "\(matched.count) kết quả cho \"\(query)\"."
 
-        List {
+        List { Group {
             if !query.isEmpty && allWords[query.lowercased()] == nil {
                 Section {
                     Button(action: {
@@ -195,7 +201,7 @@ struct TTSDictionaryEditView: View {
             } header: {
                 Text("Từ vựng (\(allWords.count) từ)")
             }
-        }
+        }.glassSheetRows() }
         .searchable(text: $searchText, prompt: "Tìm từ...")
         .onChange(of: searchText) { oldValue, newValue in
             visibleCount = 100
@@ -564,14 +570,14 @@ struct EditWordSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("Sửa phiên âm") {
                     LabeledContent("Từ gốc", value: key)
                         .foregroundStyle(.secondary)
 
                     TextField("Phiên âm tiếng Việt", text: $value)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Sửa từ")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

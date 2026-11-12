@@ -23,4 +23,12 @@ enum GlassChromeSettings {
     static let defaultFloatingFrost = 0.0
     static let defaultDrawerTransparency = 0.45
     static let defaultDrawerFrost = 0.6
+    /// Độ đục thấp nhất của **Menu ba chấm** (1.3.873, anh Bửu: "hạn chế mức thấp nhất độ đục là 20%"): cài đặt này dùng
+    /// chung cho ngăn kéo `…`, mọi sheet / popup kính (`DrawerGlassSheetBackground`) và thanh kính của trình duyệt.
+    static let minimumDrawerFrost = 0.2
+
+    /// Độ đục của Menu ba chấm đem vẽ: giá trị lưu từ trước 1.3.873 dưới 20% (vd "Không nhoè") ⇒ 20%.
+    static func effectiveDrawerFrost(_ stored: Double) -> Double {
+        max(stored, minimumDrawerFrost)
+    }
 }

@@ -12,7 +12,7 @@ struct AccentColorSettingsView: View {
 
     var body: some View {
         let selected = AppAccentColor(storedValue: storedAccent)
-        Form {
+        Form { Group {
             Section {
                 ForEach(AppAccentColor.allCases) { accent in
                     optionRow(accent, isSelected: accent == selected)
@@ -25,7 +25,7 @@ struct AccentColorSettingsView: View {
             } header: {
                 Text("Xem trước")
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Màu nhấn")
     }
 

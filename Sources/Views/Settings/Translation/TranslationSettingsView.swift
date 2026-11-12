@@ -25,7 +25,7 @@ struct TranslationSettingsView: View {
     @State var dictionaryExportURL: URL? = nil
 
     var body: some View {
-        Form {
+        Form { Group {
             Section(header: Text("Dịch Thuật Quick Translate")) {
                 Toggle(isOn: $isTranslationEnabled) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -239,7 +239,7 @@ struct TranslationSettingsView: View {
                     }
                     .disabled(!importingTypes.isEmpty)
                 }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Cài đặt dịch thuật")
         .sheet(item: $dictionaryExport, onDismiss: cleanUpDictionaryExport) { export in
             dictionaryShareSheet(export)

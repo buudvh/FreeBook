@@ -90,21 +90,30 @@ struct VideoPlayerScreen: View {
         .persistentSystemOverlays(isFullscreen ? .hidden : .automatic)
         .animation(.easeInOut(duration: 0.25), value: isFullscreen)
         .sheet(isPresented: $controller.showsBatchDownloadSheet) {
-            batchDownloadSheet
+            Group {
+                batchDownloadSheet
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $controller.showsSleepTimerSheet) {
-            MediaSleepTimerSheet(timer: session.sleepTimer)
+            Group {
+                MediaSleepTimerSheet(timer: session.sleepTimer)
+            }
+            .appGlassSheet()
         }
         .sheet(isPresented: $controller.showsCaptionTranslationSheet) {
-            if let launch = session.launch {
-                MediaCaptionTranslationSheet(
-                    medium: .video, bookId: launch.bookId, packageId: launch.extensionPackageId,
-                    sourceName: launch.bookSourceName ?? ""
-                ) { session.retranslateSubtitles() }
+            Group {
+                if let launch = session.launch {
+                    MediaCaptionTranslationSheet(
+                        medium: .video, bookId: launch.bookId, packageId: launch.extensionPackageId,
+                        sourceName: launch.bookSourceName ?? ""
+                    ) { session.retranslateSubtitles() }
+                }
             }
+            .appGlassSheet()
         }
         .modifier(VideoBookDictionarySheetModifier(isPresented: $controller.showsBookDictionarySheet, session: session))
-        .sheet(item: $controller.playlistAddRequest) { PlaylistAddSheet(request: $0) }
+        .sheet(item: $controller.playlistAddRequest) { presentedItem in PlaylistAddSheet(request: presentedItem).appGlassSheet() }
         // Lớp phủ lỗi ⇒ "Mở link lỗi": đóng trình duyệt ⇒ chép cookie ⇒ đúng hành động "Thử lại" của lớp phủ.
         // Màn xem chưa phát (bìa): link lỗi là của mục lục ⇒ thử lại bằng `VideoWatchModel`, không phải phiên phát.
         .errorLinkBrowser(link: $controller.openingErrorLink, packageId: errorLinkPackageId) { retryAfterErrorLink() }

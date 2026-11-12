@@ -11,7 +11,7 @@ extension ReaderView {
                 .font(.system(size: 34))
                 .foregroundColor(.red)
 
-            Text(translateChapterTitleIfNeeded(failure.chapterTitle))
+            Text(chapterHeaderTitle(at: failure.targetChapterIndex, rawTitle: failure.chapterTitle))
                 .font(.title3.weight(.semibold))
                 .foregroundColor(selectedTheme.textColor)
                 .multilineTextAlignment(.center)
@@ -160,8 +160,11 @@ extension ReaderView {
         }
     }
 
+    /// Bộ dịch tiện ích ⇒ bản tiện ích (`source = detail`) khi đã có, tạm hiện bản QT (1.3.853).
     internal var readerBookDisplayTitle: String {
-        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "Tàng Công Các"))
+        let original = localBook?.title ?? bookTitle ?? "Tàng Công Các"
+        let shown = titleTranslations.book.text(original, kind: .meta, quick: translateMetaIfNeeded(original))
+        return DisplayTextFormatter.titleCase(shown)
     }
 
     internal var readerPresentedChapterIndex: Int {
@@ -206,8 +209,8 @@ extension ReaderView {
         viewModel?.reloadDisplayedChapter()
     }
 
-    /// Nút nổi góc dưới phải của Reader: nút tai nghe. Đĩa nghe góc dưới phải (nhạc / TTS kiểu Đĩa góc dưới, cửa sổ riêng
-    /// của `MediaDiscWindowManager`, 1.3.808) tự đứng ngay trên nó nhờ neo `.mediaDiscAnchor(.button)` — thay hai nút đĩa
+    /// Nút nổi góc dưới phải của Reader: nút tai nghe. Đĩa nghe (nhạc / TTS, nửa viên dính mép, cửa sổ riêng
+    /// của `MediaDiscWindowManager`, 1.3.808) ở mép phải đè lên nút thì tạm đứng ngay trên nó nhờ neo `.mediaDiscAnchor(.button)` — thay hai nút đĩa
     /// riêng của Reader (1.3.792 / 1.3.806).
     internal func readerEdgeControls(geometry: GeometryProxy) -> some View {
         readerTTSControl(geometry: geometry)
@@ -234,6 +237,8 @@ extension ReaderView {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(tint)
+                // Icon mờ theo "Độ trong suốt" như nút "+" (2026-11-11); mờ chỉ trên icon, không trên lớp kính.
+                .floatingIconTransparency()
                 .frame(width: 52, height: 52)
                 .background { FloatingGlassBackground(isDark: selectedTheme == .dark, outline: tint) }
                 .contentShape(Circle())

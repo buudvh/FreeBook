@@ -1,11 +1,11 @@
 import Foundation
 
-/// Cài đặt "Khi chạm hub" (Cài đặt › Chung › Giao diện › Hub nổi): chạm nút hub khi menu đang đóng thì làm gì.
+/// Cài đặt "Khi chạm hub" (Cài đặt › Chung › Giao diện › Hub nổi): chạm nút hub thì làm gì (menu nổi ⇒ sheet hub từ 2026-11-11).
 ///
-/// - `alwaysMenu` (**mặc định**, người dùng chốt 2026-11-06): chạm luôn bung hub và mở menu đủ các dòng ở trang
-///   chính, dù có 0, 1 hay nhiều tiến trình.
+/// - `alwaysMenu` (**mặc định**, người dùng chốt 2026-11-06): chạm luôn mở sheet hub đủ các dòng ở trang chính, dù có
+///   0, 1 hay nhiều tiến trình.
 /// - `directWhenSingle`: bảng chạm theo số tiến trình chốt 2026-10-22 — 0 ⇒ màn Thông báo, 1 ⇒ mở thẳng mục đó, từ 2
-///   ⇒ menu (`FloatingHubContainerViewController.activateByRunningTasks`).
+///   ⇒ sheet hub (`FloatingHubContainerViewController.activateByRunningTasks`).
 ///
 /// Icon của nút cũng theo cài đặt (người dùng chốt 2026-11-06): `alwaysMenu` ⇒ **luôn** `square.stack.3d.up`;
 /// `directWhenSingle` ⇒ icon theo số tiến trình như cũ (`FloatingHubButton.glyphName`). Nháy như nhau ở cả hai.

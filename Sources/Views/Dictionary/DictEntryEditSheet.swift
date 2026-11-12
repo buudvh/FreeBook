@@ -116,10 +116,13 @@ struct DictEntryEditSheet: View {
             .onAppear(perform: handleAppear)
             .onChange(of: workingKey) { _, _ in keyDidChange() }
             .onChange(of: meaning) { _, newValue in meaningDidChange(newValue) }
-            .sheet(isPresented: $showingManageDefinitions) { manageDefinitionsSheet }
+            .sheet(isPresented: $showingManageDefinitions) { manageDefinitionsSheet.appGlassSheet() }
             .sheet(isPresented: $showingSearchEngineConfig, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
-                NavigationStack { SearchEnginesConfigView(isPresentedAsSheet: true) }
-                    .presentationDragIndicator(.visible)
+                Group {
+                    NavigationStack { SearchEnginesConfigView(isPresentedAsSheet: true) }
+                        .presentationDragIndicator(.visible)
+                }
+                .appGlassSheet()
             }
             .fullScreenCover(item: $lookupRoute) { route in
                 BypassWebView(urlString: route.urlString)

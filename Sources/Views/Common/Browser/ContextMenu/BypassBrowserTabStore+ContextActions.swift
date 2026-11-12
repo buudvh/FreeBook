@@ -8,6 +8,9 @@ import WebKit
 /// Vùng chọn được lấy **lại** lúc bấm (`BrowserPageTranslator.selectionInfo(in:)`): `lastSelection` của webView chỉ là
 /// bản xem trước. Trang đang dịch ⇒ Dịch QT / Tra từ điển / Sao chép bản dịch dùng **bản gốc** (`sourceText`); Tìm trên
 /// web dùng chữ đang hiện (`text`). Không log nội dung trang hay URL.
+///
+/// Câu gốc của ba thao tác chữ Hán = chữ **đã chuyển** khi tab đang chuyển phồn → giản (1.3.846), kể cả khi không dịch
+/// trang: bản gốc của đoạn đã dịch là chữ thô của trang nên chuyển lúc bấm (`pageSourceText`, `pageLookupRequest`).
 extension BypassBrowserTabStore {
     /// Trần độ dài chuỗi gửi lên Google.
     private static let maxWebSearchLength = 500
@@ -31,18 +34,21 @@ extension BypassBrowserTabStore {
         switch action {
         case .translate:
             guard let info = await selectionOrToast(in: webView) else { return }
-            contextActions.presentTranslate(source: info.sourceText)
+            contextActions.presentTranslate(source: await pageSourceText(info.sourceText, in: webView))
         case .lookup:
             guard let request = await BrowserContextMenuBridge.lookupRequest(in: webView) else {
                 ToastManager.shared.show(message: "Không đọc được vùng chọn", type: .error)
                 return
             }
-            contextActions.presentLookup(request)
+            contextActions.presentLookup(await pageLookupRequest(request, in: webView))
         case .copyTranslation:
             guard let info = await selectionOrToast(in: webView) else { return }
-            let source = info.sourceText
+            let source = await pageSourceText(info.sourceText, in: webView)
             let translated = await Task.detached(priority: .userInitiated) {
-                TranslateUtils.translateContent(source, bookId: nil)
+                // Câu gốc đã qua phồn → giản của trang (nếu có) ⇒ chỉ còn bước dịch, từ điển chung.
+                ChineseTextPipeline.content(
+                    source, ChineseTextPipeline.Options(converts: false, translates: true, dictionaryBookId: nil)
+                )
             }.value
             let text = translated.trimmingCharacters(in: .whitespacesAndNewlines)
             UIPasteboard.general.string = text.isEmpty ? source : translated
@@ -61,6 +67,28 @@ extension BypassBrowserTabStore {
         if let info = await BrowserPageTranslator.selectionInfo(in: webView) { return info }
         ToastManager.shared.show(message: "Không đọc được vùng chọn", type: .error)
         return nil
+    }
+
+    /// Câu gốc theo trang: tab đang chuyển phồn → giản ⇒ chữ đã chuyển (ngoài main — vùng chọn có thể dài).
+    @MainActor
+    private func pageSourceText(_ text: String, in webView: WKWebView) async -> String {
+        guard tab(for: webView)?.isConvertingTraditional == true else { return text }
+        return await Task.detached(priority: .userInitiated) {
+            ChineseTextPipeline.convert(text, converts: true)
+        }.value
+    }
+
+    /// Ngữ cảnh Tra từ điển theo trang: tab đang chuyển ⇒ chuyển cả đoạn lẫn từ. Độ dài UTF-16 của đoạn đổi ⇒ bỏ vị trí
+    /// của từ (sheet tự tìm lần xuất hiện đầu tiên) — vị trí cũ có thể lệch.
+    @MainActor
+    private func pageLookupRequest(_ request: BrowserLookupRequest, in webView: WKWebView) async -> BrowserLookupRequest {
+        guard tab(for: webView)?.isConvertingTraditional == true else { return request }
+        return await Task.detached(priority: .userInitiated) {
+            let context = ChineseTextPipeline.convert(request.context, converts: true)
+            let word = ChineseTextPipeline.convert(request.word, converts: true)
+            let keepsOffset = context.utf16.count == request.context.utf16.count
+            return BrowserLookupRequest(context: context, word: word, wordOffset: keepsOffset ? request.wordOffset : nil)
+        }.value
     }
 
     /// `https://www.google.com/search?q=…`; mã hoá cả `& + = ? # /` (bộ `urlQueryAllowed` để nguyên các ký tự này).

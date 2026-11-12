@@ -1,16 +1,17 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ đĩa nghe (góc dưới phải hoặc ô giữa thanh tab — `MediaDiscSheetHost`,
-/// kiểu widget "Đĩa góc dưới", 1.3.808 / 1.3.812), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
+/// Sheet **điều khiển nhanh TTS** (1.3.806) — mở từ nửa viên đĩa nghe (`MediaDiscSheetHost`,
+/// 1.3.808; nửa viên dính mép từ 1.3.858), khuôn `AudioQuickControlSheet` của nhạc: cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng),
 /// nền kính theo cài đặt **ngăn kéo** (`DrawerGlassSheetBackground`, luôn tông tối ⇒ nội dung vẽ ở `colorScheme` tối).
 ///
 /// Nội dung:
-/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với đĩa góc dưới / Đĩa nổi) · tên
+/// - Hàng đầu: đĩa bìa truyện xoay (`TTSCoverView`, góc chung `TTSWidgetCoverRotation` với mặt đĩa nghe) · tên
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
 ///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này; đang hẹn ⇒ viên "Hủy" ngay cạnh, 1.3.816). Chạm
 ///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
 /// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn).
-/// - ⏮ đoạn trước · ⏯ · ⏭ đoạn kế (`TTSManager.skipBackward` / `pause`/`resume` / `skipForward`).
+/// - Chương trước · ⏪ đoạn trước · ⏯ · ⏩ đoạn kế · chương kế (`jumpToAdjacentChapter` / `skipBackward` / `pause`/`resume` /
+///   `skipForward`).
 /// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Dừng (chữ đỏ, chỗ gọi
 ///   dừng hẳn; 1.3.818 đổi từ "Tắt đọc").
 ///
@@ -63,10 +64,16 @@ struct TTSQuickControlSheet: View {
             .presentationCornerRadius(16)
             .presentationBackground { DrawerGlassSheetBackground() }
             .sheet(isPresented: $showingTimerSheet) {
-                TTSQuickTimerSheet(initialTab: timerSheetTab)
+                Group {
+                    TTSQuickTimerSheet(initialTab: timerSheetTab)
+                }
+                .appGlassSheet()
             }
             .sheet(isPresented: $showingSettings) {
-                settingsSheet
+                Group {
+                    settingsSheet
+                }
+                .appGlassSheet()
             }
             .onAppear { refreshCover() }
             .onChange(of: ttsState.snapshot.playingBookId) { _, _ in refreshCover() }
@@ -177,11 +184,23 @@ struct TTSQuickControlSheet: View {
 
     // MARK: - Điều khiển
 
+    /// Chương trước · đoạn trước · ⏯ · đoạn kế · chương kế (2026-11-11, anh Bửu duyệt mockup): hai nút chương ở hai đầu
+    /// ngoài cùng, icon có vạch (`backward.end.fill` / `forward.end.fill`, như "bài trước / sau" của sheet nhạc) để khác nút
+    /// đoạn; chia đều hàng bằng `Spacer` như `AudioTransportControls(.full)`. Không có chương đó trong hàng đợi ⇒ mờ, tắt.
     private var transportRow: some View {
-        HStack(spacing: 44) {
+        HStack(spacing: 0) {
+            chapterButton(
+                systemImage: "backward.end.fill",
+                label: "Chương trước",
+                isEnabled: info.hasPreviousChapter
+            ) {
+                TTSManager.shared.jumpToAdjacentChapter(forward: false)
+            }
+            Spacer(minLength: 0)
             transportButton(systemImage: "backward.fill", label: "Đoạn trước") {
                 TTSManager.shared.skipBackward()
             }
+            Spacer(minLength: 0)
             Button(action: togglePlayback) {
                 Image(systemName: ttsState.snapshot.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 24, weight: .semibold))
@@ -192,11 +211,40 @@ struct TTSQuickControlSheet: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(ttsState.snapshot.isPlaying ? "Tạm dừng" : "Phát tiếp")
+            Spacer(minLength: 0)
             transportButton(systemImage: "forward.fill", label: "Đoạn kế") {
                 TTSManager.shared.skipForward()
             }
+            Spacer(minLength: 0)
+            chapterButton(
+                systemImage: "forward.end.fill",
+                label: "Chương kế",
+                isEnabled: info.hasNextChapter
+            ) {
+                TTSManager.shared.jumpToAdjacentChapter(forward: true)
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Nút chương: icon 20 pt (nhỏ hơn nút đoạn 22 pt), trắng 85%, khung 44 pt.
+    private func chapterButton(
+        systemImage: String,
+        label: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.85))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.35)
+        .accessibilityLabel(label)
     }
 
     private func transportButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
@@ -258,7 +306,7 @@ struct TTSQuickControlSheet: View {
 
     @ViewBuilder
     private var settingsSheet: some View {
-        if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
+        if let container = MediaDiscWindowManager.shared.modelContainer {
             TTSSettingsSheet()
                 .modelContainer(container)
         } else {

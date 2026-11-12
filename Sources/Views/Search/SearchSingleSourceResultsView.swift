@@ -19,8 +19,9 @@ struct SearchSingleSourceResultsView: View {
     let layout: BookListLayout
     /// Tỉ lệ rộng : cao của bìa ở kiểu lưới (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
-    /// Công tắc dịch của màn Tìm kiếm (`@AppStorage("isTranslationEnabled")`), giữ như trước.
-    let isTranslationEnabled: Bool
+    /// Phồn → giản + dịch theo **nguồn đang tìm** (Nguồn ⇒ Tất cả — `SearchView.textOptions(for:)`), không theo công
+    /// tắc dịch Tất cả.
+    let textOptions: ChineseTextPipeline.Options
     /// `true` khi đang đổi nguồn: chạm item gọi `onChangeSource` thay vì mở Chi tiết.
     let isChangingSource: Bool
     let onChangeSource: (ExtensionItemResultWithExt) -> Void
@@ -82,7 +83,7 @@ struct SearchSingleSourceResultsView: View {
             SearchView.searchResultCover(item.result, ext: item.ext, width: size.coverWidth, height: size.coverHeight)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
+                Text(DisplayTextFormatter.titleCase(ChineseTextPipeline.meta(item.result.name, textOptions)))
                     .font(size.font(.subheadline, base: 15))
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -90,7 +91,7 @@ struct SearchSingleSourceResultsView: View {
                     .multilineTextAlignment(.leading)
 
                 let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
-                Text(translateIfNeeded(descText))
+                Text(ChineseTextPipeline.meta(descText, textOptions))
                     .font(size.font(.caption, base: 12))
                     .foregroundColor(.secondary)
                     .lineLimit(size.isCompact ? 1 : 2)
@@ -129,7 +130,7 @@ struct SearchSingleSourceResultsView: View {
                             DiscoveryNovelGridCardView(
                                 item: item.result,
                                 sourceHost: ExtensionHostResolver.nonEmpty(item.ext.sourceUrl),
-                                isTranslationEnabled: isTranslationEnabled,
+                                textOptions: textOptions,
                                 mode: layout.mode,
                                 aspectRatio: aspectRatio,
                                 reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly
@@ -196,12 +197,5 @@ struct SearchSingleSourceResultsView: View {
                 content
             }
         }
-    }
-
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
     }
 }

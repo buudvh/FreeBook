@@ -21,15 +21,27 @@ public struct AudioLyrics: Sendable, Equatable {
         lines.contains { $0.translation != nil }
     }
 
-    /// Bản sao gán bản dịch theo offset trong `lines` (`translations.count` phải bằng `lines.count`, lệch thì giữ nguyên).
-    /// Truyền toàn `nil` để bỏ hết bản dịch.
-    public func withTranslations(_ translations: [String?]) -> AudioLyrics {
-        guard translations.count == lines.count else { return self }
+    /// Có dòng mang chữ đã chuyển phồn → giản hoặc bản dịch ⇒ dịch lại phải bỏ cả hai trước.
+    public var hasCaptionOverrides: Bool {
+        lines.contains { $0.converted != nil || $0.translation != nil }
+    }
+
+    /// Bản sao gán chữ đã chuyển + bản dịch theo offset trong `lines` (hai mảng phải cùng số dòng với `lines`, lệch thì giữ
+    /// nguyên). Truyền toàn `nil` để bỏ hết.
+    public func withCaptions(converted: [String?], translations: [String?]) -> AudioLyrics {
+        guard converted.count == lines.count, translations.count == lines.count else { return self }
         var updated = lines
         for offset in updated.indices {
+            updated[offset].converted = converted[offset]
             updated[offset].translation = translations[offset]
         }
         return AudioLyrics(lines: updated)
+    }
+
+    /// Bản sao bỏ hết chữ đã chuyển và bản dịch (về nguyên văn).
+    public func clearingCaptions() -> AudioLyrics {
+        let empty = [String?](repeating: nil, count: lines.count)
+        return withCaptions(converted: empty, translations: empty)
     }
 
     /// Dòng cuối cùng có `time <= seconds` (tìm nhị phân trên các dòng đã sắp); `nil` khi chưa tới dòng đầu hoặc lời không

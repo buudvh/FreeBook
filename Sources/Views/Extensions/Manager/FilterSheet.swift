@@ -66,7 +66,6 @@ public struct FilterSheet: View {
                 }
                 .padding()
             }
-            .background(Color(.systemGroupedBackground))
             .pageTitle("Bộ lọc tiện ích")
             .presentationDragIndicator(.visible)
             .toolbar {

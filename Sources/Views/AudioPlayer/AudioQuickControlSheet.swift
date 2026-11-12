@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ đĩa nghe (góc dưới phải hoặc ô giữa thanh tab, 1.3.808 / 1.3.812 — `MediaDiscSheetHost`),
+/// Sheet **điều khiển nhanh** của trình nghe âm thanh — mở từ nửa viên đĩa nghe (1.3.808; nửa viên dính mép từ 1.3.858 — `MediaDiscSheetHost`),
 /// cao vừa nội dung, vuốt xuống để đóng (không nút chỉ để đóng). Nội dung:
 /// - Hàng đầu: đĩa bìa tròn xoay (`AudioRotatingCover`, cùng góc `AudioCoverRotation` với đĩa góc dưới / trang Đĩa) · tên bài +
 ///   "nghệ sĩ · album" · ⏱ hẹn giờ tắt (sheet `MediaSleepTimerSheet` mở **đè lên** sheet này; đang hẹn ⇒ màu nhấn kèm thời
@@ -63,7 +63,10 @@ struct AudioQuickControlSheet: View {
             .presentationCornerRadius(16)
             .presentationBackground { DrawerGlassSheetBackground() }
             .sheet(isPresented: $showingSleepTimer) {
-                MediaSleepTimerSheet(timer: session.sleepTimer)
+                Group {
+                    MediaSleepTimerSheet(timer: session.sleepTimer)
+                }
+                .appGlassSheet()
             }
     }
 
@@ -93,12 +96,12 @@ struct AudioQuickControlSheet: View {
     private var title: String {
         if isConcealed { return "Đang phát" }
         if let track = session.currentTrack { return track.displayTitle }
-        return session.albumTitle.isEmpty ? "Đang tải…" : session.albumTitle
+        return session.albumTitle.isEmpty ? "Đang tải…" : session.displayAlbumTitle
     }
 
     private var subtitle: String {
         if isConcealed { return session.isPlaying ? "" : "Đã dừng" }
-        return [session.currentArtist, session.albumTitle].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [session.currentArtist, session.displayAlbumTitle].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// Host của album — `Referer` khi tải bìa (như màn nghe).

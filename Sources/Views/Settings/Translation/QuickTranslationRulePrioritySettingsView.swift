@@ -7,7 +7,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
     @State private var configuration = QuickTranslationRulePriorityConfiguration.globalConfiguration()
 
     var body: some View {
-        Form {
+        Form { Group {
             QuickTranslationRulePriorityListView(configuration: $configuration)
 
             Section {
@@ -18,7 +18,7 @@ struct QuickTranslationRulePrioritySettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Thứ tự ưu tiên rule")
         .toolbar { EditButton().headerTextButton() }
         .onChange(of: configuration) { _, newValue in

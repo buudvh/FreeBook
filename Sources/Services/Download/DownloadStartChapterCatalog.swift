@@ -3,8 +3,8 @@ import Foundation
 /// Mục lục cho mục "Bắt đầu từ" của sheet tải/xuất (`TaskOptionsSheet`, 1.3.624).
 ///
 /// - Lấy **toàn bộ** mục lục, không chỉ chương đã tải như sheet quét tên.
-/// - Tên chương dịch theo cấu hình dịch của truyện (`TranslationConfigStore` + phồn → giản riêng từng truyện), đúng
-///   luật danh sách chương Reader (`ReaderChapterListView.displayTitle`).
+/// - Tên chương qua `ChineseTextPipeline.chapterTitle` theo cấu hình của truyện (`TranslationConfigStore`: dịch +
+///   phồn → giản ba cấp; phồn → giản chạy cả khi tắt dịch — 1.3.846), đúng luật danh sách chương Reader.
 /// - Đánh dấu chương đã có trong máy (1.3.627): truyện chữ theo cờ `isCached` của mục lục, truyện tranh / video
 ///   theo manifest trên đĩa (`ComicOfflineStore` / `VideoOfflineStore`, đọc một lần cùng lượt dịch).
 /// - Đọc mục lục qua actor `ChapterStore`; dịch tên trong `Task.detached` (chắc chắn ngoài main thread) và chuyển
@@ -42,8 +42,12 @@ enum DownloadStartChapterCatalog {
     ) -> [AINameScanChapter] {
         let skipsSections = contentKind.isMedia
         let mediaDownloaded = downloadedMediaIndexes(bookId: bookId, contentKind: contentKind)
-        let translates = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId)
-        let convertsTraditional = UserDefaults.standard.bool(forKey: "convertTraditionalToSimplified_\(bookId)")
+        let config = TranslationConfigStore.shared.snapshot()
+        let options = ChineseTextPipeline.Options(
+            converts: config.convertsTraditional(bookId: bookId, packageId: packageId),
+            translates: config.isTranslationEnabled(bookId: bookId, packageId: packageId),
+            dictionaryBookId: bookId
+        )
         var result: [AINameScanChapter] = []
         result.reserveCapacity(toc.count)
         // Số thứ tự như mục lục Chi tiết/Reader/comic: đếm chương thường, dòng tiêu đề nhóm không chiếm số.
@@ -55,18 +59,13 @@ enum DownloadStartChapterCatalog {
             let fallback = chapter.titleTrans?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let raw = title.isEmpty ? fallback : title
             let isCached = mediaDownloaded.map { $0.contains(chapter.index) } ?? (chapter.isCached && chapter.length > 0)
-            guard translates, !Task.isCancelled, TranslateUtils.containsChinese(raw) else {
-                result.append(AINameScanChapter(index: chapter.index, title: raw, rawTitle: raw, isCached: isCached, ordinal: ordinal))
-                continue
-            }
-            let translated = TranslateUtils.translateChapterTitle(
-                raw,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: convertsTraditional
-            )
+            // Bị huỷ ⇒ chỉ chuyển (rẻ, có memo), thôi dịch phần còn lại.
+            let shown = Task.isCancelled
+                ? ChineseTextPipeline.convert(raw, converts: options.converts)
+                : ChineseTextPipeline.chapterTitle(raw, storedTranslation: fallback, options) // như mục lục Reader
             result.append(AINameScanChapter(
                 index: chapter.index,
-                title: translated.isEmpty ? raw : translated,
+                title: shown.isEmpty ? raw : shown,
                 rawTitle: raw,
                 isCached: isCached,
                 ordinal: ordinal

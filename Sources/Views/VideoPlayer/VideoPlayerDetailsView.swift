@@ -69,7 +69,7 @@ struct VideoPlayerDetailsView: View {
     /// xuống.
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(session.bookTitle)
+            Text(session.displayBookTitle)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)

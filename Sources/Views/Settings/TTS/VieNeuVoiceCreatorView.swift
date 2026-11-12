@@ -58,7 +58,7 @@ struct VieNeuVoiceCreatorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     Picker("Nguồn audio", selection: $source) {
                         ForEach(Source.allCases) { option in
@@ -103,7 +103,7 @@ struct VieNeuVoiceCreatorView: View {
                             .foregroundStyle(isError ? Color.red : Color.secondary)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Tạo giọng mới")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

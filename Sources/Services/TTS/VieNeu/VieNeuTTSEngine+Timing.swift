@@ -1,8 +1,8 @@
 import Foundation
 
-/// Đồng hồ đo **từng giai đoạn** của một chunk (1.3.849): text_encoder + duration, vòng Euler, codec.
+/// Đồng hồ đo **từng giai đoạn** của một chunk (1.3.878): text_encoder + duration, vòng Euler, codec.
 ///
-/// Trước 1.3.849 `runChunk` chốt `vectorMs` **sau** `codec_decoder` ⇒ con số "vòng Euler chiếm 98%" thật ra là vòng
+/// Trước 1.3.878 `runChunk` chốt `vectorMs` **sau** `codec_decoder` ⇒ con số "vòng Euler chiếm 98%" thật ra là vòng
 /// Euler **cộng** codec (đo trên PC: codec ~17% thời gian, ~20% phép tính — báo cáo
 /// `Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md`). Mỗi giai đoạn giờ có cả thời gian tường lẫn CPU-time
 /// (`ProcessCPUClock`, cả tiến trình) — nhiệt tỉ lệ với CPU-time, không với thời gian tường.

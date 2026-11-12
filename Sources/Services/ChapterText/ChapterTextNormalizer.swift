@@ -13,7 +13,13 @@ struct NormalizedChapterText: Sendable, Equatable {
 
 enum ChapterTextNormalizer {
     static func normalize(_ rawContent: String) -> NormalizedChapterText {
-        let cleanRaw = JunkFilterManager.shared.filterRawContent(rawContent)
+        normalize(rawContent, convertsTraditional: false)
+    }
+
+    /// `convertsTraditional`: `rawContent` đã qua phồn → giản (chỉ `ChineseTextPipeline.normalizeChapter` truyền `true`,
+    /// 1.3.846) ⇒ lọc rác bằng bộ mẫu đã chuyển. Chỗ lưu trữ / `ChapterDocument` dùng bản một tham số (chữ thô).
+    static func normalize(_ rawContent: String, convertsTraditional: Bool) -> NormalizedChapterText {
+        let cleanRaw = JunkFilterManager.shared.filterRawContent(rawContent, convertsTraditional: convertsTraditional)
         return normalizeInternal(cleanRaw)
     }
 

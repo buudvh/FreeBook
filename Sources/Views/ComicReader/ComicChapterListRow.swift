@@ -5,9 +5,14 @@ import SwiftUI
 /// dựng mọi hàng để đếm — mục lục Reader cũng giữ đúng một kiểu hàng (`ReaderChapterListView+List`).
 ///
 /// Nền hàng và màu vạch gắn ở chỗ dựng `List` (`ComicChapterListSheet`), không ở đây.
+///
+/// Tên hàng qua `extensionText.chapterTitle` đọc **trong `body` của hàng**: bộ dịch là tiện ích ⇒ chỉ hàng đang dựng xin
+/// dịch (theo lô), bản dịch về chỉ vẽ lại hàng đang hiện; bộ dịch QT ⇒ tên dựng sẵn như cũ.
+@MainActor
 struct ComicChapterListRow: View {
     let chapter: ComicChapterEntry
     let isTranslationEnabled: Bool
+    let extensionText: ComicExtensionTextTranslation
     let currentIndex: Int
     let isDownloaded: Bool
     let numbering: ChapterOrdinalNumbering?
@@ -25,8 +30,12 @@ struct ComicChapterListRow: View {
     }
 
     /// Dòng tiêu đề nhóm tập: chỉ là nhãn, không chạm được.
+    private var displayTitle: String {
+        extensionText.chapterTitle(chapter, translated: isTranslationEnabled)
+    }
+
     private var sectionHeader: some View {
-        Text(chapter.displayTitle(translated: isTranslationEnabled))
+        Text(displayTitle)
             .font(.subheadline.weight(.bold))
             .foregroundColor(Self.theme.textColor.opacity(0.6))
             .lineLimit(2)
@@ -56,7 +65,7 @@ struct ComicChapterListRow: View {
                             isRead: isRead
                         )
                     }
-                    Text(chapter.displayTitle(translated: isTranslationEnabled))
+                    Text(displayTitle)
                         .font(.body)
                         .foregroundColor(isCurrent ? palette.title : (isRead ? theme.textColor.opacity(0.4) : theme.textColor))
                         .fontWeight(isCurrent ? .semibold : .regular)

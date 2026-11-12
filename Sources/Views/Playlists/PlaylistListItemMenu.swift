@@ -69,7 +69,10 @@ struct PlaylistListItemMenu: View {
         // bìa không bị ép hẹp, ⋮ ngang dòng tên đầu.
         .padding(style == .card ? EdgeInsets(top: -10, leading: -6, bottom: -10, trailing: -6) : EdgeInsets())
         .sheet(item: $request) { request in
-            PlaylistAddSheet(request: request)
+            Group {
+                PlaylistAddSheet(request: request)
+            }
+            .appGlassSheet()
         }
         .onDisappear {
             loadTask?.cancel()

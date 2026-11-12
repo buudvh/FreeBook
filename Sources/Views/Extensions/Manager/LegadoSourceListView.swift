@@ -130,14 +130,14 @@ struct LegadoSourceListView: View {
         } else if visible.isEmpty {
             emptyState(icon: "magnifyingglass", message: "Không có nguồn nào khớp bộ lọc.")
         } else {
-            List(visible) { summary in
+            List(visible) { summary in Group {
                 LegadoSourceRowView(
                     summary: summary,
                     onToggle: { toggle(summary, enabled: $0) },
                     onDelete: { delete(summary) },
                     onOpen: { state.detail = LegadoSourceTabState.DetailRoute(packageId: summary.packageId) }
                 )
-            }
+            }.glassSheetRows() }
             .listStyle(.plain)
         }
     }

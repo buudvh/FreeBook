@@ -64,7 +64,7 @@ struct VieNeuVoiceLibraryView: View {
     }
 
     var body: some View {
-        Form {
+        Form { Group {
             clonePackageSection
             voiceListSection
             creationSection
@@ -76,19 +76,22 @@ struct VieNeuVoiceLibraryView: View {
                         .foregroundStyle(isError ? Color.red : Color.secondary)
                 }
             }
-        }
+        }.glassSheetRows() }
         .backPageTitle("Giọng của tôi")
         .sideDrawerMenu(item: $menuRecord, title: { $0.name }) { record in voiceMenuItems(record) }
         .onAppear(perform: reload)
         .onDisappear(perform: teardown)
         .sheet(isPresented: $showingCreator) {
-            VieNeuVoiceCreatorView(
-                onSave: { name, url in
-                    showingCreator = false
-                    enroll(name: name, sampleURL: url, replacing: nil)
-                }
-            )
-            .presentationDragIndicator(.visible)
+            Group {
+                VieNeuVoiceCreatorView(
+                    onSave: { name, url in
+                        showingCreator = false
+                        enroll(name: name, sampleURL: url, replacing: nil)
+                    }
+                )
+                .presentationDragIndicator(.visible)
+            }
+            .appGlassSheet()
         }
         .confirmationDialog(
             "Xoá giọng “\(pendingDeletion?.name ?? "")”?",

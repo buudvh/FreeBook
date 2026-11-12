@@ -9,6 +9,24 @@ extension DictionaryListView {
     /// truyện mở gần nhất hay bất kỳ nguồn "current book" toàn cục nào khác.
     var transferContextBookId: String? { bookId ?? contextBookId }
 
+    /// Tên truyện trong tên file xuất từ điển: **luôn** dịch như trước (tên file tiếng Việt dù tắt dịch), phồn → giản theo
+    /// cấu hình của truyện (Truyện ⇒ Nguồn ⇒ Tất cả; danh sách Chung ⇒ Tất cả) — 1.3.846.
+    static func exportNameOptions(bookId: String?, packageId: String?) -> ChineseTextPipeline.Options {
+        var options: ChineseTextPipeline.Options
+        if let bookId, !bookId.isEmpty {
+            options = ChineseTextPipeline.options(bookId: bookId, packageId: packageId)
+        } else {
+            options = ChineseTextPipeline.sourceOptions(packageId: nil)
+        }
+        options.translates = true
+        return options
+    }
+
+    /// Tên truyện trong toast chia sẻ / nhập: ba cấp của popup dịch + phồn → giản của truyện đó.
+    static func displayTitle(of book: Book) -> String {
+        BookDisplayTranslation.text(book.title, BookDisplayTranslation.options(for: book))
+    }
+
     /// COPY một entry sang phạm vi/loại khác. Nguồn không bị xoá hay sửa;
     /// key trùng ở đích bị ghi đè hoàn toàn (xem `DictionaryEntryTransferAction`).
     func copyEntry(_ entry: DictEntry, to destinationType: DictType, target: DictionaryTransferTarget) {
@@ -61,7 +79,7 @@ extension DictionaryListView {
                     isMerge: isMerge
                 )
 
-                let targetTitle = TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId)
+                let targetTitle = Self.displayTitle(of: targetBook)
                 ToastManager.shared.show(
                     message: "Đã chia sẻ \(type.displayName) sang truyện \(targetTitle)",
                     type: .success
@@ -95,7 +113,7 @@ extension DictionaryListView {
                 )
 
                 await loadData()
-                let sourceTitle = TranslateUtils.translateBookTitleIfNeeded(sourceBook.title, bookId: sourceBook.bookId)
+                let sourceTitle = Self.displayTitle(of: sourceBook)
                 ToastManager.shared.show(
                     message: "Đã nhập \(type.displayName) từ truyện \(sourceTitle)",
                     type: .success

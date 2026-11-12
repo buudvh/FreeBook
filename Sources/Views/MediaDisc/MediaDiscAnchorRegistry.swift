@@ -1,8 +1,8 @@
 import UIKit
 
-/// Sổ các **neo** của đĩa nghe góc dưới phải (`MediaDiscWindowManager`, 1.3.808): những thứ nằm ở góc dưới phải màn mà đĩa
-/// phải đứng **ngay trên** (nút "+" / Home / menu xổ / FAB Chi tiết, nút tai nghe Reader, thanh tab, thanh dưới trình duyệt,
-/// thanh dưới truyện tranh) và những màn phải **ẩn** đĩa (màn xem phim).
+/// Sổ các **neo** của đĩa nghe (`MediaDiscWindowManager`, 1.3.808): những thứ ở đáy màn mà nửa viên đĩa dính mép phải
+/// **né** — đè lên thì tạm đẩy lên ngay trên (nút "+" / Home / menu xổ / FAB Chi tiết, nút tai nghe Reader, thanh dưới trình
+/// duyệt, thanh dưới truyện tranh, thanh tab) — và những màn phải **ẩn** đĩa (màn xem phim).
 ///
 /// Mỗi neo là một `MediaDiscAnchorProbe` (UIView 0 chạm, nằm sau view thật nên khung = khung neo) tự đăng ký khi vào cửa sổ
 /// và tự gỡ khi SwiftUI bỏ view. Sổ chỉ giữ tham chiếu **yếu**; neo nào hợp lệ lúc này (đúng cửa sổ chính, đúng tầng trình
@@ -13,17 +13,13 @@ import UIKit
 @MainActor
 final class MediaDiscAnchorRegistry {
     enum Role {
-        /// Nút / cụm nút nổi góc dưới phải: đĩa đứng trên, mép phải trùng mép phải của neo.
+        /// Nút / cụm nút nổi góc dưới phải: đĩa cùng cột mà đè lên ⇒ tạm đẩy lên trên nút.
         case button
-        /// Thanh ngang sát đáy màn: đĩa đứng trên, lề phải chuẩn (`FloatingRoundButton.trailingInset`).
+        /// Thanh ngang sát đáy màn: đĩa đè lên (ở mép nào cũng vậy) ⇒ tạm đẩy lên trên thanh.
         case bar
-        /// Màn che đĩa (màn xem phim): neo này hợp lệ ⇒ ẩn đĩa.
+        /// Màn che đĩa (màn xem phim): neo này hợp lệ ⇒ ẩn đĩa. Sheet "đang đọc chương này" của Reader bỏ neo này ở 1.3.868 —
+        /// nó nằm trên đĩa qua `OverlaySheetPresenter`.
         case blocker
-        /// Màn tự có chỗ đặt đĩa (thanh tab `MainTabBar` có ô đĩa ở giữa, 1.3.812): neo này hợp lệ ⇒ ẩn đĩa góc **ngay**.
-        case hostsDisc
-        /// Cụm nút bên phải của **header tự dựng** (Reader, màn truyện tranh — không có `UINavigationBar`, 1.3.815): nhấn giữ
-        /// đĩa góc ⇒ đĩa vào header, đứng ngay trái neo này (`MediaDiscHeaderSlot`). Không ảnh hưởng chỗ đứng ở góc dưới.
-        case headerTrailing
     }
 
     struct Anchor {

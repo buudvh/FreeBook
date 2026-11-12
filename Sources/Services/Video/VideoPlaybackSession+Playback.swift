@@ -350,7 +350,8 @@ extension VideoPlaybackSession {
         if target != skipTargetSeconds { skipTargetSeconds = target }
     }
 
-    /// Dòng đang chiếu + bản dịch của nó (gán riêng: lô dịch về giữa dòng thì bản dịch hiện ngay — `+Subtitles` gọi lại).
+    /// Dòng đang chiếu (chữ đã chuyển phồn → giản nếu có) + bản dịch của nó (gán riêng: lô dịch về giữa dòng thì bản dịch
+    /// hiện ngay — `+Subtitles` gọi lại).
     func updateCue(at seconds: Double) {
         var cue: VideoSubtitleCue?
         if subtitlesEnabled {
@@ -358,7 +359,7 @@ extension VideoPlaybackSession {
                 seconds >= Double(cue.start) && seconds < Double(cue.end)
             }
         }
-        let text = cue?.text ?? ""
+        let text = cue?.displayText ?? ""
         if text != currentCueText { currentCueText = text }
         if cue?.translation != currentCueTranslation { currentCueTranslation = cue?.translation }
     }

@@ -42,14 +42,17 @@ struct VideoWatchDetailsView: View {
                 }
         }
         .sheet(isPresented: $showingInfo, onDismiss: openPendingGenre) {
-            VideoWatchInfoSheet(
-                model: model,
-                episodeCount: episodes.filter { !$0.isSection }.count,
-                onSelectGenre: { genre in
-                    pendingGenre = genre
-                    showingInfo = false
-                }
-            )
+            Group {
+                VideoWatchInfoSheet(
+                    model: model,
+                    episodeCount: episodes.filter { !$0.isSection }.count,
+                    onSelectGenre: { genre in
+                        pendingGenre = genre
+                        showingInfo = false
+                    }
+                )
+            }
+            .appGlassSheet()
         }
         .onAppear { VideoOfflineLibrary.shared.refresh(bookId: model.bookId) }
     }

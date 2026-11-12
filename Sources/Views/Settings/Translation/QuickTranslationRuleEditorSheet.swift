@@ -198,7 +198,7 @@ struct QuickTranslationRuleEditorSheet: View {
         let analysis = QuickTranslationRuleDraftAnalyzer.analyze(pattern: pattern, replacement: replacement)
 
         return NavigationStack {
-            Form {
+            Form { Group {
                 patternSection(segments: segments)
                 replacementSection(analysis: analysis)
                 editInfoSection
@@ -210,7 +210,7 @@ struct QuickTranslationRuleEditorSheet: View {
                         Text("Kiểm tra")
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle(isEditing ? "Sửa rule" : "Thêm rule")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

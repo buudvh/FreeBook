@@ -13,11 +13,11 @@ struct SystemDNSGuideView: View {
     private static let adguardPublicDNSURL = URL(string: "https://adguard-dns.io/en/public-dns.html")!
 
     var body: some View {
-        Form {
+        Form { Group {
             cloudflareSection
             adguardSection
             ipBlockSection
-        }
+        }.glassSheetRows() }
         .backPageTitle("Đổi DNS cho cả iPhone")
     }
 

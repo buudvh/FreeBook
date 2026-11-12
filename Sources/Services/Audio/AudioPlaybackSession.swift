@@ -33,9 +33,11 @@ final class AudioPlaybackSession {
         let host: String
         /// Nghệ sĩ = `description` của mục `toc` (chỉ có khi mục lục vừa tải từ nguồn); rỗng ⇒ hiện `albumAuthor`.
         var artist: String
+        /// Tên đã qua phồn → giản / dịch (`+DisplayNames`), chỉ để vẽ; `nil` = như `title` (luôn nguyên văn).
+        var shownTitle: String?
         var id: Int { index }
 
-        var displayTitle: String { title.isEmpty ? "Bài \(index + 1)" : title }
+        var displayTitle: String { shownTitle ?? (title.isEmpty ? "Bài \(index + 1)" : title) }
     }
 
     enum Phase: Equatable {
@@ -89,8 +91,10 @@ final class AudioPlaybackSession {
     /// Id album (`Book.bookId`) của lượt mở; rỗng khi rảnh.
     var bookId = ""
     var packageId = ""
-    /// Tên album (chi tiết / `Book.title` / tên ở item danh sách).
+    /// Tên album **nguyên văn** (chi tiết / `Book.title` / tên ở item danh sách); tên để vẽ: `displayAlbumTitle`.
     var albumTitle = ""
+    /// Bảng tên đã qua phồn → giản / dịch của album đang mở (`+DisplayNames`).
+    var displayNames = MediaDisplayNames.passthrough
     /// Tác giả / nghệ sĩ của album (`detail.author`).
     var albumAuthor = ""
     var coverUrl = ""
@@ -159,6 +163,7 @@ final class AudioPlaybackSession {
     /// Lượt dịch lời đã nạp (`+Lyrics`, `MediaCaptionTranslator`) — tách khỏi `lyricsTask` (nạp) để dịch lại không huỷ lượt nạp.
     @ObservationIgnored var lyricsTranslationTask: Task<Void, Never>?
     @ObservationIgnored var coverTask: Task<Void, Never>?
+    @ObservationIgnored var displayNamesTask: Task<Void, Never>?
     @ObservationIgnored var resolver: VideoSourceResolver?
     /// Resolver riêng của lượt nạp sẵn — `resolveSource` của một resolver huỷ lượt trước của chính nó.
     @ObservationIgnored var prefetchResolver: VideoSourceResolver?
@@ -224,10 +229,10 @@ final class AudioPlaybackSession {
         return track(at: currentTrackIndex)
     }
 
-    /// Tên nghệ sĩ hiện cho bài đang phát: nghệ sĩ của bài → tác giả album.
+    /// Tên nghệ sĩ **để vẽ** cho bài đang phát: nghệ sĩ của bài → tác giả album, qua phồn → giản / dịch (`displayNames`).
     var currentArtist: String {
         let artist = currentTrack?.artist ?? ""
-        return artist.isEmpty ? albumAuthor : artist
+        return displayNames.author(artist.isEmpty ? albumAuthor : artist)
     }
 
     var currentPlaybackTime: Double {
@@ -344,6 +349,7 @@ final class AudioPlaybackSession {
     }
 
     private func resetState() {
+        resetDisplayNames()
         request = nil
         bookId = ""
         packageId = ""

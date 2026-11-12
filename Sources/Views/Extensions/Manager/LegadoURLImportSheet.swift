@@ -20,7 +20,7 @@ struct LegadoURLImportSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .center, spacing: 8) {
@@ -43,7 +43,7 @@ struct LegadoURLImportSheet: View {
                         paragraphs: ["URL của tệp JSON chứa **một nguồn** hoặc **mảng nguồn** Legado."]
                     )
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Nhập nguồn từ URL")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

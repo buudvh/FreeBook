@@ -49,14 +49,12 @@ struct ShelfView: View {
 
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
-    // `internal` từ đây tới `queuedImportChoice`: lối nhập truyện nằm ở `Extensions/ShelfView+ImportEntry.swift`.
+    // `internal` từ đây tới `importActionSheet`: lối nhập truyện nằm ở `Extensions/ShelfView+ImportEntry.swift`.
     @State internal var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
     /// Trang đầu của trình duyệt nhập truyện (`"home"` = trang chủ); mọi lối mở đều đặt lại qua `openImportBrowser`.
     @State internal var bypassBrowserStartUrl = "home"
     @State internal var showingFilePicker = false // Bộ chọn file: sách chữ, CBZ/ZIP, video (`LocalMediaImportRoute`)
-    @State internal var showingImportSheet = false // Sheet "Nhập truyện" (nút "+" nổi, hàng "Nhập truyện" của ngăn kéo)
-    /// Việc sheet "Nhập truyện" đã chọn, chạy trong `onDismiss` khi sheet đóng hẳn (`runQueuedImportChoice`).
-    @State internal var queuedImportChoice: ShelfImportSheet.Choice? = nil
+    @State internal var importActionSheet: HubStyleActionSheetContent? // Sheet "Nhập truyện" kiểu hub (`presentImportSheet`)
 
     // Tiến độ nhập file truyện nằm ở `BookImportProgressCenter` (màn Thông báo cũng đọc), không còn là
     // `@State` ở đây. Các `@State` bên dưới `internal` vì khối nhập file đã tách sang
@@ -143,7 +141,7 @@ struct ShelfView: View {
             SideDrawerActionRow("Kiểu hiển thị", systemImage: "square.grid.2x2") { showingLayoutSheet = true }
         }
         // Cùng sheet với nút "+" nổi của tab Kệ sách (Từ URL / Mở trình duyệt / Từ file).
-        SideDrawerActionRow("Nhập truyện", systemImage: "plus") { showingImportSheet = true }
+        SideDrawerActionRow("Nhập truyện", systemImage: "plus") { presentImportSheet() }
         SideDrawerActionRow("Mở trình duyệt web", systemImage: "safari") { openImportBrowser() }
         if selectedTab == .shelf && !parts.isShelfEmpty {
             SideDrawerActionRow("Kiểm tra chương mới", systemImage: "bell.badge") { checkAllNewChapters() }
@@ -200,7 +198,7 @@ struct ShelfView: View {
 
                         // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống).
                         shelfTabView(parts, kindFilter)
-                            .floatingAddButton("Nhập truyện") { showingImportSheet = true }
+                            .floatingAddButton("Nhập truyện") { presentImportSheet() }
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
@@ -293,7 +291,10 @@ struct ShelfView: View {
             }
             // Scope = chip đang áp ("Tất cả" khi thanh chip ẩn), cùng scope mà hai trang đang vẽ theo.
             .sheet(isPresented: $showingLayoutSheet) {
-                BookListLayoutSheet(scope: kindFilter.scope)
+                Group {
+                    BookListLayoutSheet(scope: kindFilter.scope)
+                }
+                .appGlassSheet()
             }
             .sheet(item: $actionTarget, onDismiss: {
                 if let book = queuedBrowserBook {
@@ -301,32 +302,38 @@ struct ShelfView: View {
                     browserBook = book
                 }
             }) { target in
-                BookActionSheet(
-                    target: target,
-                    isCheckingNewChapters: newChapters.isChecking,
-                    onAction: { action in
-                        handleBookAction(action, for: target.book)
-                    }
-                )
+                Group {
+                    BookActionSheet(
+                        target: target,
+                        isCheckingNewChapters: newChapters.isChecking,
+                        onAction: { action in
+                            handleBookAction(action, for: target.book)
+                        }
+                    )
+                }
+                .appGlassSheet()
             }
             .navigationDestination(isPresented: $navigateToBookDetail) {
                 bookDetailDestinationView
             }
             .sheet(isPresented: $showingNotificationInbox) {
-                NotificationInboxView(onOpenBook: { book in
-                    // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
-                    DispatchQueue.main.async {
-                        self.selectedTab = .shelf
-                        self.readerPresentationRoute = ShelfReaderRoute(
-                            bookId: book.bookId,
-                            extensionPackageId: book.extensionPackageId,
-                            chapterIndex: book.currentChapterIndex,
-                            paragraphIndex: nil,
-                            detailUrl: book.detailUrl,
-                            sourceName: book.sourceName
-                        )
-                    }
-                })
+                Group {
+                    NotificationInboxView(onOpenBook: { book in
+                        // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
+                        DispatchQueue.main.async {
+                            self.selectedTab = .shelf
+                            self.readerPresentationRoute = ShelfReaderRoute(
+                                bookId: book.bookId,
+                                extensionPackageId: book.extensionPackageId,
+                                chapterIndex: book.currentChapterIndex,
+                                paragraphIndex: nil,
+                                detailUrl: book.detailUrl,
+                                sourceName: book.sourceName
+                            )
+                        }
+                    })
+                }
+                .appGlassSheet()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
                 guard !ttsManager.playingBookId.isEmpty else {
@@ -380,18 +387,27 @@ struct ShelfView: View {
                 )
             }
             .sheet(item: $taskSheetRequest) { request in
-                TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                Group {
+                    TaskOptionsSheet(book: request.book, taskType: request.taskType)
+                }
+                .appGlassSheet()
             }
             .sheet(item: $editingInfoBook) { book in
-                BookInfoEditView(
-                    bookId: book.bookId,
-                    title: book.title,
-                    author: book.author,
-                    coverUrl: book.coverUrl
-                )
+                Group {
+                    BookInfoEditView(
+                        bookId: book.bookId,
+                        title: book.title,
+                        author: book.author,
+                        coverUrl: book.coverUrl
+                    )
+                }
+                .appGlassSheet()
             }
             .sheet(item: $collectionPickerBook) { book in
-                CollectionPickerSheet(bookId: book.bookId)
+                Group {
+                    CollectionPickerSheet(bookId: book.bookId)
+                }
+                .appGlassSheet()
             }
             .bookBrowserPresentation($browserBook)
             // Trình duyệt nhập truyện: trang chủ, hoặc link của bước "Từ URL" khi chưa tiện ích nào nhận
@@ -404,12 +420,7 @@ struct ShelfView: View {
                     }
                 )
             }
-            .sheet(isPresented: $showingImportSheet, onDismiss: { runQueuedImportChoice() }) {
-                ShelfImportSheet { choice in
-                    queuedImportChoice = choice
-                    showingImportSheet = false
-                }
-            }
+            .hubStyleActionSheet($importActionSheet)
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
                     bookId: importedBookId,
@@ -433,25 +444,28 @@ struct ShelfView: View {
                 )
             }
             .sheet(item: $pendingImport) { pending in
-                BookImportConfirmationSheet(
-                    fileName: pending.fileName,
-                    format: pending.format,
-                    initialParsed: pending.parsed,
-                    autoDecodeID: pending.autoDecodeID,
-                    matchedRuleIDs: pending.matchedRuleIDs,
-                    onReanalyze: { decodeID, ruleIDs, structure in
-                        await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: pending.password)
-                    },
-                    onCancel: {
-                        cancelImport()
-                    },
-                    onConfirm: { parsed in
-                        performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
+                Group {
+                    BookImportConfirmationSheet(
+                        fileName: pending.fileName,
+                        format: pending.format,
+                        initialParsed: pending.parsed,
+                        autoDecodeID: pending.autoDecodeID,
+                        matchedRuleIDs: pending.matchedRuleIDs,
+                        onReanalyze: { decodeID, ruleIDs, structure in
+                            await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: pending.password)
+                        },
+                        onCancel: {
+                            cancelImport()
+                        },
+                        onConfirm: { parsed in
+                            performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
+                        }
+                    )
+                    .onAppear {
+                        isParsingImport = false
                     }
-                )
-                .onAppear {
-                    isParsingImport = false
                 }
+                .appGlassSheet()
             }
             // Tài liệu khoá: chỉ mở được bằng đúng mật khẩu người dùng nhập, app không dò/vượt bảo vệ.
             .alert("File có mật khẩu", isPresented: $showingPasswordPrompt) {

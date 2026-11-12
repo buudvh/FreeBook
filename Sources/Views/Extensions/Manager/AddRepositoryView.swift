@@ -16,11 +16,11 @@ public struct AddRepositoryView: View {
 
     public var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section(header: Text("Thông tin kho mới")) {
                     fieldRow("Link plugin.json", placeholder: "https://…/plugin.json", text: $url, keyboard: .URL)
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Nhập kho tiện ích")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

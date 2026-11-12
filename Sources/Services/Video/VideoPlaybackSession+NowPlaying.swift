@@ -35,10 +35,11 @@ extension VideoPlaybackSession {
         } ?? false
         let playableCount = episodes.reduce(0) { $1.isSection ? $0 : $0 + 1 }
         let cover = nowPlayingCover.flatMap { $0.bookId == launch?.bookId ? $0.image : nil }
+        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); 18+ thì `make` bỏ hết tên.
         return VideoNowPlayingMetadata.make(
             isNsfw: isNsfw,
-            bookTitle: bookTitle,
-            author: isNsfw ? "" : resolvedNowPlayingAuthor(),
+            bookTitle: isNsfw ? "" : displayBookTitle,
+            author: isNsfw ? "" : displayNames.author(resolvedNowPlayingAuthor()),
             episodeLabel: currentEpisodeLabel,
             showsEpisode: playableCount >= 2,
             cover: cover
@@ -46,7 +47,7 @@ extension VideoPlaybackSession {
     }
 
     /// Tác giả của lượt mở; trống ⇒ tác giả của `Book` (màn xem điền khi chi tiết về muộn hơn lúc bấm phát).
-    private func resolvedNowPlayingAuthor() -> String {
+    func resolvedNowPlayingAuthor() -> String {
         if nowPlayingAuthor.isEmpty, let author = fetchBook()?.author, !author.isEmpty {
             nowPlayingAuthor = author
         }

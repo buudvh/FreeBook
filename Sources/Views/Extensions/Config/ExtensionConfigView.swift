@@ -61,7 +61,10 @@ struct ExtensionConfigView: View {
                 .pageTitle("Cấu hình tiện ích")
                 .presentationDragIndicator(.visible)
                 .sheet(isPresented: $showingScriptEditor) {
-                    ExtensionScriptEditorView(ext: current)
+                    Group {
+                        ExtensionScriptEditorView(ext: current)
+                    }
+                    .appGlassSheet()
                 }
                 .onChange(of: userValues) { oldValues, newValues in
                     handleConfigChange(from: oldValues, to: newValues)
@@ -117,7 +120,7 @@ struct ExtensionConfigView: View {
     }
 
     private var configForm: some View {
-        Form {
+        Form { Group {
             Section {
                 // Tiện ích dịch không có trang để duyệt hay script nội dung để kiểm tra.
                 ExtensionConfigHeaderCard(
@@ -151,7 +154,7 @@ struct ExtensionConfigView: View {
                         .foregroundColor(.primary)
                 }
             }
-        }
+        }.glassSheetRows() }
         .scrollDismissesKeyboard(.interactively)
         // Bớt khoảng trống mặc định giữa các nhóm và phía trên thẻ đầu (iOS 17).
         .listSectionSpacing(.compact)

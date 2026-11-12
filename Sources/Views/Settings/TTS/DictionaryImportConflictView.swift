@@ -26,6 +26,7 @@ struct DictionaryImportConflictView: View {
     }
 
     @Environment(\.dismiss) var dismiss
+    @Environment(\.isGlassSheet) private var isGlassSheet
 
     let fileURL: URL
     let title: String
@@ -99,7 +100,7 @@ struct DictionaryImportConflictView: View {
 
     /// Khung xám trong lúc đọc file. Vẽ bằng khối hình thay vì `redacted` để không phải bịa chữ giả.
     private var skeleton: some View {
-        List {
+        List { Group {
             ForEach(0..<8, id: \.self) { _ in
                 VStack(alignment: .leading, spacing: 6) {
                     RoundedRectangle(cornerRadius: 4).frame(width: 120, height: 14)
@@ -108,7 +109,7 @@ struct DictionaryImportConflictView: View {
                 .foregroundStyle(Color.secondary.opacity(0.35))
                 .padding(.vertical, 2)
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
     }
 
@@ -129,7 +130,7 @@ struct DictionaryImportConflictView: View {
     // MARK: - Danh sách
 
     private func list(_ summary: DictionaryImportDiff.Summary) -> some View {
-        List {
+        List { Group {
             Section {
                 chips(summary)
                 filterRow
@@ -150,7 +151,7 @@ struct DictionaryImportConflictView: View {
             } header: {
                 SectionHelpHeader("Trùng khoá — bấm một dòng để chọn", paragraphs: ["Chạm cả dòng để chọn/bỏ. Mục **bỏ chọn** giữ nguyên cách đọc đang có. Khoá mới được thêm tự động."])
             }
-        }
+        }.glassSheetRows() }
         .listStyle(.insetGrouped)
         .searchable(text: $searchText, prompt: "Tìm từ")
     }
@@ -226,8 +227,11 @@ struct DictionaryImportConflictView: View {
         // Bỏ `Toggle`: chạm **cả dòng** để chọn/bỏ — diện tích bấm lớn hơn hẳn cái công tắc nhỏ ở đầu dòng.
         .contentShape(Rectangle())
         .onTapGesture { toggle(conflict.key) }
-        // Nền `nil` (mặc định) không viết được trong toán tử ba ngôi ⇒ dùng đúng màu nền của `.insetGrouped`.
-        .listRowBackground(isSelected ? accent.opacity(0.12) : Color(.systemGroupedBackground))
+        // Nền `nil` (mặc định) không viết được trong toán tử ba ngôi ⇒ dùng đúng màu nền của `.insetGrouped`; trong sheet
+        // kính (1.3.873) ⇒ ô mờ như mọi dòng khác.
+        .listRowBackground(
+            isSelected ? accent.opacity(0.12) : (isGlassSheet ? AppGlassSheetModifier.rowFill : Color(.systemGroupedBackground))
+        )
     }
 
     // MARK: - Toolbar

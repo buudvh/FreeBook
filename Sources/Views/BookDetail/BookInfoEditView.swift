@@ -36,7 +36,7 @@ struct BookInfoEditView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 infoSection
                 coverSection
                 if !errorMessage.isEmpty {
@@ -46,7 +46,7 @@ struct BookInfoEditView: View {
                             .foregroundColor(.red)
                     }
                 }
-            }
+            }.glassSheetRows() }
             .pageTitle("Sửa thông tin truyện")
             .presentationDragIndicator(.visible)
             .toolbar {

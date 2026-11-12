@@ -41,7 +41,6 @@ struct TTSQuickTimerSheet: View {
         }
         // Không có nút ✕ (1.3.641): vuốt xuống để đóng. ⚙ là nút duy nhất, ở góc phải dải thanh kéo.
         .overlay(alignment: .topTrailing) { settingsButton }
-        .background(Color(uiColor: .systemGroupedBackground))
         // Cài đặt TTS mở **đè lên** sheet này (1.3.713): một lần trượt lên, không chờ sheet Hẹn giờ đóng; vuốt đóng
         // Cài đặt là về lại Hẹn giờ. Trước đây: `dismiss()` → chờ cứng 0,3 s → mở từ widget ⇒ chậm thấy rõ.
         .modifier(TTSSettingsSheetHost())
@@ -112,7 +111,7 @@ struct TTSQuickTimerSheet: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.7)))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(AppGlassSheetModifier.rowFill))
     }
 
     // MARK: - Tab con (ô viên thuốc có icon như trước 1.3.712)

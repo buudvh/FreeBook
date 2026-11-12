@@ -247,6 +247,7 @@ struct ReaderView: View {
     @State internal var showingBookDictionary = false
     @State internal var currentOnlineChapters: [ChapterResult] = []
     @State internal var chapterListStore: ReaderChapterListStore? = nil
+    @State internal var titleTranslations = ReaderTitleTranslationStore() // tên đầu trang / mục lục (`+TitleTranslation`)
     @State internal var localBookSnapshot: Book? = nil
 
     internal var localBook: Book? {
@@ -323,13 +324,7 @@ struct ReaderView: View {
             }
         }
 
-        return isTranslationEnabled && TranslateUtils.containsChinese(title)
-            ? TranslateUtils.translateChapterTitle(
-                title,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-            : title
+        return chapterHeaderTitle(at: index, rawTitle: title)
     }
 
     var body: some View {
@@ -411,7 +406,7 @@ struct ReaderView: View {
     }
 
     /// Ba panel bôi đen (Dịch, Xoá từ rác, Copy gốc) là sheet gốc gắn ở đây — xem `ReaderView+SelectionSheets`.
-    private var readerSheetLayer: some View {
+    internal var readerSheetLayer: some View {
         withTTSSameChapterPrompt(withSelectionSheets(readerOverlayStack))
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
@@ -423,7 +418,6 @@ struct ReaderView: View {
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
-                shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
                 showChapterTitle: $showChapterTitle,
                 removeDuplicatedTitle: $removeDuplicatedTitle,
                 packageId: localBook?.extensionPackageId ?? "",
@@ -445,10 +439,13 @@ struct ReaderView: View {
             readerChapterListSheet
         }
         .sheet(isPresented: $showingBookDictionary) {
-            NavigationStack {
-                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "", isPresentedAsSheet: true)
+            Group {
+                NavigationStack {
+                    BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "", isPresentedAsSheet: true)
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingReaderSearch) {
             let snapshot = buildReaderSearchSnapshot()
@@ -471,7 +468,7 @@ struct ReaderView: View {
     }
 
     private var readerObserverLayer: some View {
-        readerSheetLayer
+        readerTitleSyncLayer
         .onChange(of: showingDefinitionSheet) { _, newValue in
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
@@ -517,7 +514,6 @@ struct ReaderView: View {
             ttsManager.updateTranslationSetting(for: bookId, enabled: newValue)
         }
         .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
-            UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")
             ttsManager.updateTraditionalToSimplifiedSetting(for: bookId, enabled: newValue)
             viewModel?.setTraditionalToSimplifiedConversion(enabled: newValue)
             chapterListStore?.updateTranslation(
@@ -558,6 +554,7 @@ struct ReaderView: View {
             let targetPkgId = localBook?.extensionPackageId ?? extensionPackageId
             let newState = TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: targetPkgId)
             if isTranslationEnabled != newState { isTranslationEnabled = newState }
+            refreshTraditionalConversion()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("reopenReaderAI"))) { notification in
             guard (notification.userInfo?["bookId"] as? String) == bookId else { return }
@@ -569,23 +566,29 @@ struct ReaderView: View {
     private var readerPresentationNavigationLayer: some View {
         readerObserverLayer
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
-            // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
-            AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
-                Task {
-                    let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)
-                    if result.wroteNghiTTS { await TextPreprocessor.shared.loadResources() }
-                    ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
+            Group {
+                // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
+                AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
+                    Task {
+                        let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)
+                        if result.wroteNghiTTS { await TextPreprocessor.shared.loadResources() }
+                        ToastManager.shared.show(message: result.message(for: key), type: result.isSuccess ? .success : .error)
+                    }
                 }
             }
+            .appGlassSheet()
         }
         .sheet(isPresented: $showingAddTTSReplacementSheet) {
-            AddTTSReplacementSheet(
-                initialPattern: pendingTTSReplacementPattern,
-                existingRules: TTSReplacementManager.shared.rules,
-                bookRules: TTSReplacementManager.shared.rules(bookId: bookId),
-                bookId: bookId,
-                onSave: handleAddTTSReplacement
-            )
+            Group {
+                AddTTSReplacementSheet(
+                    initialPattern: pendingTTSReplacementPattern,
+                    existingRules: TTSReplacementManager.shared.rules,
+                    bookRules: TTSReplacementManager.shared.rules(bookId: bookId),
+                    bookId: bookId,
+                    onSave: handleAddTTSReplacement
+                )
+            }
+            .appGlassSheet()
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             let browserUrl: String = {
@@ -917,6 +920,7 @@ struct ReaderView: View {
             if isTranslationEnabled != newEnabled {
                 isTranslationEnabled = newEnabled
             }
+            refreshTraditionalConversion()
         }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
             ReaderEnergyDiagnostics.shared.flush(reason: "thermal_change")
@@ -1084,10 +1088,7 @@ struct ReaderView: View {
             removeDuplicatedTitle = true
         }
 
-        let conversionKey = "convertTraditionalToSimplified_\(bookId)"
-        shouldConvertTraditionalToSimplified = UserDefaults.standard.object(forKey: conversionKey) != nil
-            ? UserDefaults.standard.bool(forKey: conversionKey)
-            : false
+        refreshTraditionalConversion() // ba cấp truyện ⇒ nguồn ⇒ Tất cả (1.3.845)
 
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
         searchEngines = SearchEngine.loadEngines()
@@ -1243,6 +1244,7 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                 theme: selectedTheme,
                 store: chapterListStore,
+                titleTranslations: titleTranslations,
                 onlineChapters: $currentOnlineChapters,
                 isLocalTXTBook: isLocalTXTBook,
                 onSelectChapter: { selectedIdx in
@@ -1283,28 +1285,6 @@ struct ReaderView: View {
             .presentationDragIndicator(.visible)
             .presentationBackground(selectedTheme.backgroundColor)
         }
-    }
-
-    internal func translateMetaIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(
-            text,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-        )
-    }
-
-    internal func translateChapterTitleIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateChapterTitle(
-            text,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-        )
     }
 
     func applyTranslation() {
@@ -1572,7 +1552,6 @@ struct ReaderView: View {
             let chapterContentToUse = getTTSChapterContent(for: index)
             let snapshot = getPretranslatedSnapshot(for: index)
 
-            TTSFloatingWidgetWindowManager.shared.requestRevealOnNextShow()
             ttsManager.startSpeaking(
                 bookId: bookId,
                 chapters: initialQueue,

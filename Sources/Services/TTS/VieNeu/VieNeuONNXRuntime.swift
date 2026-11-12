@@ -53,7 +53,7 @@ final class VieNeuONNXRuntime {
     /// nên engine so hai giá trị này với cài đặt để tự nạp lại khi chúng đổi (`VieNeuTTSEngine+Reload`).
     let threadCount: Int32
     let allowSpinning: Bool
-    /// QoS của luồng **dựng** ngữ cảnh này (1.3.849) — luồng phụ của pool ORT sinh ra lúc đó. Giá trị mặc định được tính
+    /// QoS của luồng **dựng** ngữ cảnh này (1.3.878) — luồng phụ của pool ORT sinh ra lúc đó. Giá trị mặc định được tính
     /// ngay trong `init`, tức trên đúng luồng đang dựng.
     let buildQoS: String = VieNeuTTSEngine.currentQoSName()
 

@@ -22,7 +22,7 @@ struct CollectionPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if collections.isEmpty {
                     Section {
                         Text("Chưa có bộ sưu tập nào. Tạo một bộ để nhóm các truyện theo ý bạn.")
@@ -62,7 +62,7 @@ struct CollectionPickerSheet: View {
                         Label("Tạo bộ sưu tập mới", systemImage: "folder.badge.plus")
                     }
                 }
-            }
+            }.glassSheetRows() }
             .listStyle(.insetGrouped)
             .pageTitle(title)
             .toolbar {

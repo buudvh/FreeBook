@@ -20,7 +20,7 @@ extension VieNeuTurboLabView {
             if lab.soakEngine == .nano {
                 nanoTuningRows
             } else {
-                // QoS cho lượt Turbo (1.3.854): userInitiated = lõi hiệu năng (trình đọc dùng mức này từ 1.3.856),
+                // QoS cho lượt Turbo (1.3.883): userInitiated = lõi hiệu năng (trình đọc dùng mức này từ 1.3.885),
                 // utility = lõi tiết kiệm để so.
                 Picker("QoS", selection: $lab.turboQoS) {
                     ForEach(VieNeuTurboLab.SoakQoS.allCases) { qos in
@@ -107,7 +107,7 @@ extension VieNeuTurboLabView {
         }
     }
 
-    /// Số luồng ORT + QoS cho lượt Nano (1.3.849) — đo A/B lõi hiệu năng / lõi tiết kiệm.
+    /// Số luồng ORT + QoS cho lượt Nano (1.3.878) — đo A/B lõi hiệu năng / lõi tiết kiệm.
     @ViewBuilder
     var nanoTuningRows: some View {
         Picker("Số luồng ORT", selection: $lab.nanoThreadCount) {

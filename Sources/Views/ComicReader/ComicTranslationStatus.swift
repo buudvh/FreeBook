@@ -26,12 +26,14 @@ enum ComicTranslationStatus {
             ?? book?.sourceName ?? ""
     }
 
-    /// Màn Dịch cho chữ Trung gốc của một khối (1.3.837) — phồn→giản theo truyện, như lớp dịch.
-    static func definitionRequest(for sentence: String, bookId: String) -> ComicDefinitionSheet.Request {
-        ComicDefinitionSheet.Request(
-            sentence: sentence,
+    /// Màn Dịch cho chữ Trung gốc của một khối (1.3.837) — phồn→giản theo truyện, như lớp dịch. Câu gốc của màn Dịch là
+    /// chữ OCR **đã chuyển** (1.3.846: khi bật phồn → giản, "chữ gốc" ở mọi nơi là chữ đã chuyển).
+    static func definitionRequest(for sentence: String, bookId: String, packageId: String) -> ComicDefinitionSheet.Request {
+        let converts = TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId, packageId: packageId)
+        return ComicDefinitionSheet.Request(
+            sentence: ChineseTextPipeline.convert(sentence, converts: converts),
             bookId: bookId,
-            convertsTraditional: TranslationConfigStore.shared.convertsTraditionalToSimplified(bookId: bookId)
+            convertsTraditional: converts
         )
     }
 }
