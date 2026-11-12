@@ -70,7 +70,7 @@ enum VieNeuClonePackages {
             jobs.forEach { center.cancel(id: $0.id) }
             throw PackageError.blocked
         }
-        onStart(jobs.map(\.id))
+        onStart(jobs.map { $0.id })
         for job in jobs {
             let state = await center.waitForJob(id: job.id)
             if case .failed(let reason) = state { throw PackageError.failed(reason) }

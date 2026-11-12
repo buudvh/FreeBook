@@ -46,7 +46,7 @@ struct VieNeuTurboCopyRow: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.accentColor)
                     .buttonStyle(.borderless)
-                    .disabled(runner.isRunning || !voice.hasSample)
+                    .disabled(runner.isRunning || !voice.hasSample || !VieNeuTurboRuntime.isAvailable)
             }
         }
         .padding(.vertical, 2)

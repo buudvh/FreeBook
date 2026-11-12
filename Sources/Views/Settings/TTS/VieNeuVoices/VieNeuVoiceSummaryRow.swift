@@ -34,7 +34,8 @@ struct VieNeuVoiceSummaryRow: View {
                             .lineLimit(1)
                         modelTag(selection.model)
                     }
-                    if isReady {
+                    // Lần vẽ đầu (trước khi đọc đĩa xong) chưa biết đã tải hay chưa ⇒ chưa hiện cảnh báo.
+                    if isReady || !directory.hasLoaded {
                         if let detail = entry?.detail {
                             Text(detail)
                                 .font(.caption)

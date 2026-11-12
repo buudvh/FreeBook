@@ -500,7 +500,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func scheduleNghiWarmUp() {
+    func scheduleNghiWarmUp() {
         nghiWarmUpTask?.cancel()
         guard TTSManager.isLocalEngine(tool) else {
             nghiWarmUpTask = nil

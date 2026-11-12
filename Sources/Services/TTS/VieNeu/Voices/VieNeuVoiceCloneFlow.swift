@@ -78,9 +78,10 @@ final class VieNeuVoiceCloneFlow {
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var didSave = false
 
+    /// Không đọc đĩa ở đây: SwiftUI dựng lại `init` của sheet mỗi lần màn cha vẽ lại (bỏ bản thừa) — View gọi
+    /// `refreshMissingBytes()` ở `onAppear`.
     init(target: Target) {
         self.target = target
-        refreshMissingBytes()
     }
 
     // MARK: - Trạng thái suy ra
@@ -94,6 +95,9 @@ final class VieNeuVoiceCloneFlow {
         if isProbing { return "Đang đọc file âm thanh…" }
         if isRecording { return "Đang thu âm." }
         guard let seconds = sampleSeconds, sampleURL != nil else { return "Chưa có mẫu giọng." }
+        if target.includesTurbo, !VieNeuTurboRuntime.isAvailable {
+            return "Bản build này chưa có audio.cpp nên chưa tạo được giọng Turbo — chọn Nano."
+        }
         if target.includesNano {
             if seconds < VieNeuVoiceCloner.minimumSampleSeconds {
                 return String(format: "Mẫu dài %.1f giây — giọng Nano cần ít nhất %.0f giây.", seconds, VieNeuVoiceCloner.minimumSampleSeconds)
@@ -102,11 +106,24 @@ final class VieNeuVoiceCloneFlow {
                 return String(format: "Mẫu dài %.0f giây — giọng Nano chỉ nhận tối đa %.0f giây. Chọn Turbo hoặc cắt bớt file.", seconds, VieNeuVoiceCloner.maximumSampleSeconds)
             }
         }
-        if name.trimmed.isEmpty { return "Nhập tên giọng." }
+        let trimmedName = name.trimmed
+        if trimmedName.isEmpty { return "Nhập tên giọng." }
+        // Kiểm trùng tên **trước** khi tải / tạo: "Cả hai" mà trùng tên Turbo thì Nano tạo xong rồi Turbo mới lỗi.
+        let directory = VieNeuVoiceDirectory.shared
+        if target.includesNano, Self.contains(directory.nanoMine, name: trimmedName) {
+            return "Đã có giọng Nano tên “\(trimmedName)”. Đặt tên khác."
+        }
+        if target.includesTurbo, Self.contains(directory.turboMine, name: trimmedName) {
+            return "Đã có giọng Turbo tên “\(trimmedName)”. Đặt tên khác."
+        }
         return nil
     }
 
     var canSave: Bool { saveBlockReason == nil }
+
+    static func contains(_ entries: [VieNeuVoiceEntry], name: String) -> Bool {
+        entries.contains { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+    }
 
     func refreshMissingBytes() {
         missingBytes = VieNeuClonePackages.missingBytes(nano: target.includesNano, turbo: target.includesTurbo)
@@ -226,8 +243,9 @@ final class VieNeuVoiceCloneFlow {
 
     // MARK: - Dọn
 
-    /// Sheet đóng: dừng thu / phát; chưa lưu thì xoá mẫu tạm.
+    /// Sheet đóng: dừng thu / phát, huỷ lượt Lưu dở; chưa lưu thì xoá mẫu tạm.
     func cleanUp() {
+        if isSaving { cancelSave() }
         stopSample()
         if isRecording {
             isRecording = false

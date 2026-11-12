@@ -61,8 +61,9 @@ struct VieNeuVoiceCloneSheet: View {
                 )
             )
         }
-        .interactiveDismissDisabled(flow.isSaving)
-        .confirmDiscardOnSwipe(isDirty: flow.hasUnsavedWork && !flow.isSaving) { flow.cleanUp() }
+        // Một cơ chế chặn vuốt duy nhất: có mẫu (kể cả lúc đang lưu) ⇒ hỏi "Bỏ thay đổi?"; bỏ ⇒ huỷ lượt lưu + xoá mẫu tạm.
+        .confirmDiscardOnSwipe(isDirty: flow.hasUnsavedWork) { flow.cleanUp() }
+        .onAppear { flow.refreshMissingBytes() }
         .onReceive(ticker) { _ in flow.tick() }
         .onChange(of: flow.target) { _, _ in flow.refreshMissingBytes() }
         .onChange(of: flow.finishToken) { _, _ in dismiss() }
@@ -181,6 +182,13 @@ struct VieNeuVoiceCloneSheet: View {
                 }
                 if flow.target.includesTurbo {
                     stepRow(.turbo, title: flow.step == .turbo ? VieNeuTurboLabView.cloneStageText(VieNeuTurboVoiceCloneCoordinator.shared.stage) : "Giọng Turbo")
+                }
+            }
+            if flow.isSaving, flow.step == .downloading {
+                Button(role: .destructive) {
+                    flow.cancelSave()
+                } label: {
+                    Label("Huỷ tải", systemImage: "stop.fill")
                 }
             }
             if !flow.statusMessage.isEmpty {

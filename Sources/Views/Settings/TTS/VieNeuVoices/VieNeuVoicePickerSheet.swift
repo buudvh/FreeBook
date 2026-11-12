@@ -27,6 +27,11 @@ struct VieNeuVoicePickerSheet: View {
     private var preview: VieNeuVoicePreviewPlayer { .shared }
 
     var body: some View {
+        // Giọng trình đọc đang dùng — tính **một lần** mỗi lượt vẽ (`VieNeuModelChoice.current` kiểm file GGUF), không
+        // theo từng hàng: sheet vẽ lại theo mỗi nhịp tiến độ tải.
+        let reader: VieNeuVoiceSelection? = ttsManager.tool == "vieneu"
+            ? VieNeuVoiceSelection(model: VieNeuModelChoice.current, voiceId: ttsManager.selectedVoice)
+            : nil
         NavigationStack {
             VStack(spacing: 0) {
                 VieNeuChipBar(options: [(value: VieNeuModelChoice.nano, title: "Nano"), (value: .turbo, title: "Turbo")], selection: $model)
@@ -37,9 +42,9 @@ struct VieNeuVoicePickerSheet: View {
                     Group {
                         cloneEntryRow
                         if model == .nano {
-                            nanoSections
+                            nanoSections(reader: reader)
                         } else {
-                            turboSections
+                            turboSections(reader: reader)
                         }
                     }
                     .glassSheetRows()
@@ -48,7 +53,7 @@ struct VieNeuVoicePickerSheet: View {
             .pageTitle("Giọng đọc", help: Self.helpText)
         }
         .onAppear { directory.reload() }
-        .onDisappear { preview.stop() }
+        .onDisappear { preview.finishSession() }
         .onChange(of: preview.failureToken) { _, _ in
             ToastManager.shared.show(message: preview.failureMessage, type: .error)
         }
@@ -115,15 +120,15 @@ struct VieNeuVoicePickerSheet: View {
     }
 
     @ViewBuilder
-    private var nanoSections: some View {
+    private func nanoSections(reader: VieNeuVoiceSelection?) -> some View {
         if !directory.nanoMine.isEmpty {
-            Section("Giọng của tôi") { rows(directory.nanoMine) }
+            Section("Giọng của tôi") { rows(directory.nanoMine, reader: reader) }
         }
-        Section("Giọng có sẵn") { rows(directory.nanoPresets) }
+        Section("Giọng có sẵn") { rows(directory.nanoPresets, reader: reader) }
     }
 
     @ViewBuilder
-    private var turboSections: some View {
+    private func turboSections(reader: VieNeuVoiceSelection?) -> some View {
         if !directory.isTurboRuntimeAvailable {
             Section {
                 Text("Bản build này chưa có audio.cpp nên chưa dùng được giọng Turbo.")
@@ -133,27 +138,27 @@ struct VieNeuVoicePickerSheet: View {
         }
         if !directory.turboMine.isEmpty || !directory.nanoWithoutTurbo.isEmpty {
             Section("Giọng của tôi") {
-                rows(directory.turboMine)
+                rows(directory.turboMine, reader: reader)
                 ForEach(directory.nanoWithoutTurbo) { voice in
                     VieNeuTurboCopyRow(voice: voice, entries: downloads.entries)
                 }
             }
         }
-        Section("Tuyển chọn") { rows(directory.turboFeatured) }
-        Section("Giọng khác") { rows(directory.turboOthers) }
+        Section("Tuyển chọn") { rows(directory.turboFeatured, reader: reader) }
+        Section("Giọng khác") { rows(directory.turboOthers, reader: reader) }
     }
 
-    private func rows(_ entries: [VieNeuVoiceEntry]) -> some View {
+    private func rows(_ entries: [VieNeuVoiceEntry], reader: VieNeuVoiceSelection?) -> some View {
         ForEach(entries) { entry in
-            row(entry)
+            row(entry, isSelected: entry.selection == reader)
         }
     }
 
     @ViewBuilder
-    private func row(_ entry: VieNeuVoiceEntry) -> some View {
+    private func row(_ entry: VieNeuVoiceEntry, isSelected: Bool) -> some View {
         let listRow = VieNeuVoiceListRow(
             entry: entry,
-            isSelected: VieNeuCustomVoiceActions.isReaderVoice(entry),
+            isSelected: isSelected,
             isReady: directory.isReady(entry),
             missingBytes: directory.missingBytes(for: entry),
             download: downloads.entry(id: directory.downloadTarget(for: entry)),

@@ -38,6 +38,8 @@ final class VieNeuVoicePreviewPlayer {
     private(set) var phase: Phase = .idle
     private(set) var failureMessage = ""
     private(set) var failureToken = 0
+    /// Model của câu thử gần nhất trong phiên sheet — `finishSession()` so với model trình đọc.
+    @ObservationIgnored private var lastPreviewModel: VieNeuModelChoice?
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var player: AVAudioPlayer?
@@ -63,6 +65,7 @@ final class VieNeuVoicePreviewPlayer {
         guard !TTSManager.shared.isPlaying else { return .blockedByReader }
         stop()
         let key = selection.key
+        lastPreviewModel = selection.model
         phase = .preparing(key)
         AppLogger.shared.log("🎙️ [VieNeuPreview] Thử giọng \(key)")
         task = Task { [weak self] in
@@ -91,6 +94,18 @@ final class VieNeuVoicePreviewPlayer {
         player = nil
         phase = .idle
         releaseSession()
+    }
+
+    /// Sheet chọn giọng đóng: dừng câu thử. Câu thử đã chạy model **khác** model của trình đọc (vd thử giọng Turbo khi trình
+    /// đọc là Nano: engine Turbo nhả Nano trước mỗi lượt) ⇒ nạp sẵn lại engine của trình đọc — `prepare` của nó nhả model
+    /// kia — để đoạn đọc tiếp không phải chờ nạp model và hai model không cùng nằm trong RAM.
+    func finishSession() {
+        stop()
+        defer { lastPreviewModel = nil }
+        let tts = TTSManager.shared
+        guard let model = lastPreviewModel, tts.tool == "vieneu", model != VieNeuModelChoice.current else { return }
+        AppLogger.shared.log("🎙️ [VieNeuPreview] Đã thử giọng \(model.rawValue) — nạp lại engine của trình đọc")
+        tts.scheduleNghiWarmUp()
     }
 
     // MARK: - Nội bộ

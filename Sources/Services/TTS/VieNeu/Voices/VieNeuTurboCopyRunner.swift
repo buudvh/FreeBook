@@ -31,8 +31,17 @@ final class VieNeuTurboCopyRunner {
 
     func run(_ voice: VieNeuVoiceDirectory.NanoOnlyVoice) {
         guard runningNanoId == nil else { return }
+        guard VieNeuTurboRuntime.isAvailable else {
+            report("Bản build này chưa có audio.cpp nên chưa tạo được giọng Turbo.", isError: true)
+            return
+        }
         guard voice.hasSample else {
             report("Giọng “\(voice.name)” không còn mẫu âm thanh gốc nên chưa tạo được bản Turbo.", isError: true)
+            return
+        }
+        // Kiểm trùng tên trước khi tải gói ~250 MB (kho Turbo không nhận hai giọng cùng tên).
+        guard !VieNeuVoiceCloneFlow.contains(VieNeuVoiceDirectory.shared.turboMine, name: voice.name) else {
+            report("Đã có giọng Turbo tên “\(voice.name)”. Đổi tên giọng đó trước.", isError: true)
             return
         }
         VieNeuVoicePreviewPlayer.shared.stop()

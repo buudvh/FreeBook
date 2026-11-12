@@ -9,6 +9,24 @@ extension VieNeuVoiceCloneFlow {
         var errorDescription: String? { "Không dựng được engine VieNeu." }
     }
 
+    /// Huỷ lượt Lưu (nút "Huỷ tải" khi đang tải gói, hoặc bỏ sheet giữa chừng). Đang tải ⇒ huỷ các lượt tải; đang tạo
+    /// giọng ⇒ lượt ORT / audio.cpp dở chạy nốt ở nền (không dừng được giữa chừng), giọng tạo xong vẫn lưu nhưng không
+    /// được chọn / đọc thử. Mẫu giữ nguyên để Lưu lại.
+    func cancelSave() {
+        guard isSaving else { return }
+        AppLogger.shared.log("🎙️ [VieNeuClone] Huỷ lượt lưu (bước \(String(describing: step)))")
+        for id in downloadTargets { ModelDownloadCenter.shared.cancel(id: id) }
+        saveTask?.cancel()
+        saveTask = nil
+        isSaving = false
+        step = nil
+        completedSteps = []
+        downloadTargets = []
+        downloadTotal = 0
+        isError = false
+        statusMessage = ""
+    }
+
     func save() {
         guard canSave, let sampleURL else { return }
         stopSample()
@@ -37,12 +55,14 @@ extension VieNeuVoiceCloneFlow {
                     }
                     completedSteps.insert(.downloading)
                 }
+                try Task.checkCancellation()
                 if wantsNano {
                     step = .nano
                     nanoRecordId = try await createNanoVoice(name: voiceName, sampleURL: sampleURL)
                     created.append(VieNeuVoiceSelection(model: .nano, voiceId: voiceName))
                     completedSteps.insert(.nano)
                 }
+                try Task.checkCancellation()
                 if wantsTurbo {
                     step = .turbo
                     let coordinator = VieNeuTurboVoiceCloneCoordinator.shared
@@ -55,8 +75,16 @@ extension VieNeuVoiceCloneFlow {
                     created.append(VieNeuVoiceSelection(model: .turbo, voiceId: outcome.record.id))
                     completedSteps.insert(.turbo)
                 }
+                try Task.checkCancellation()
                 finishSave(created: created)
             } catch {
+                // Huỷ: `cancelSave` đã đặt lại trạng thái; giọng lỡ tạo xong vẫn hiện trong danh sách.
+                if Task.isCancelled {
+                    completedSteps = []
+                    step = nil
+                    VieNeuVoiceDirectory.shared.reload()
+                    return
+                }
                 handleSaveFailure(error, created: created)
             }
         }

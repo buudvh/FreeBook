@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.902] - 2026-11-12
+
+### fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước
+
+Rà soát lại sheet chọn giọng / nhân bản (1.3.900–900) trước khi gộp — sửa các chỗ đọc code thấy sai.
+
+- **Thử giọng model khác rồi đóng sheet**: thử giọng Turbo khi trình đọc là Nano (hay ngược lại) làm engine kia nhả model của trình đọc. Đọc tiếp vẫn chạy (engine tự nạp lại ở đoạn đầu) nhưng chờ nạp model, và thử Nano khi đang đọc Turbo để hai model cùng nằm trong RAM. Nay đóng sheet ⇒ `VieNeuVoicePreviewPlayer.finishSession()` nạp sẵn lại engine của trình đọc (`TTSManager.scheduleNghiWarmUp`, bỏ `private`).
+- **Sheet nhân bản đang tải gói không huỷ được**: thêm nút "Huỷ tải" khi đang tải (`cancelSave()` huỷ các lượt tải + lượt lưu, giữ mẫu để Lưu lại). Bỏ `interactiveDismissDisabled` chồng lên `confirmDiscardOnSwipe` (hai cơ chế cùng chặn vuốt) — có mẫu (kể cả lúc đang lưu) ⇒ hỏi "Bỏ thay đổi?", bỏ ⇒ huỷ lượt lưu. Đang tạo giọng mà bỏ thì lượt ORT / audio.cpp dở chạy nốt, giọng vẫn lưu nhưng không được chọn.
+- **Bản build không có audio.cpp**: "Turbo" / "Cả hai" và "Tạo bản Turbo" chặn ngay (trước đây tải ~320 MB rồi mới lỗi).
+- **Trùng tên**: kiểm tên với giọng Nano / Turbo tự tạo **trước** khi tải / tạo ("Cả hai" từng tạo xong Nano rồi mới lỗi trùng tên Turbo).
+- **Đọc đĩa trên main mỗi nhịp tiến độ**: sheet nhân bản không đọc đĩa trong `init` (SwiftUI dựng lại `init` mỗi lần màn cha vẽ) mà ở `onAppear`; sheet chọn giọng tính giọng của trình đọc một lần mỗi lượt vẽ thay vì từng hàng (`VieNeuModelChoice.current` kiểm file GGUF).
+- Hàng "Giọng đọc" không nháy cảnh báo cam "Chưa tải dữ liệu giọng" ở lần vẽ đầu trước khi đọc đĩa xong; bỏ key path phần tử tuple ở `VieNeuClonePackages`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.901] - 2026-11-12
 
 ### feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano
@@ -532,21 +546,3 @@ Anh Bửu: "sửa nền các loại sheet như các sheet gần đây", "như hu
   - Đọc code + script kiểm cân bằng ngoặc mọi file sửa. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: mở các sheet hay dùng (nhấn giữ truyện, tải / xuất, kiểu hiển thị, bộ sưu tập, playlist, bộ lọc tiện ích, cập nhật app, từ điển, cài đặt TTS, hẹn giờ) ⇒ nền kính bo 16, ô mờ, chữ đọc rõ; popup dịch / "?" ⇒ nền kính; Cài đặt › Giao diện › Menu ba chấm › Độ đục thấp nhất 20%; trang Cài đặt thường, Kệ, Playlist, Dung lượng (không phải sheet) giữ y nền cũ — có đổi là lỗi; nền ô có tới được dòng nằm trong `Section` không (không tới ⇒ ô vẫn xám đặc, chỉ là thẩm mỹ).
-
-## [1.3.872] - 2026-11-11
-
-### feat: Từ URL, Thông báo và Kiểm tra nguồn chuyển trang ngay trong sheet như Tác vụ AI
-
-Anh Bửu: "làm cho sheet import từ URL cũng chuyển sheet giống sheet hub vào sheet tác vụ AI", "màn hình thông báo vào kiểm tra nguồn cũng chuyển giống vậy được chứ" (đã duyệt mockup bấm thử + plan).
-
-- **Trang con cho sheet kiểu hub** (`HubStyleActionSheet`): dòng có `page` (`HubStyleActionSheetContent.Page`) ⇒ chạm chuyển trang ngay trong sheet, sheet lên nấc large, tiêu đề giữa + nút ‹ về trang chính (về lại chiều cao vừa nội dung). Đường đóng chung `CloseSheet` (đóng xong mới làm) thay `onSelect`, dùng được cho cả sheet nằm trên viên thuốc lẫn sheet lùi.
-- **Nút ‹ trang con dùng chung** (mới, `SheetPageBackButtonModifier`): environment `sheetPageBack` + `.sheetPageBackButton()` gắn bên trong `NavigationStack` của trang; không có hành động ⇒ không có nút (màn dùng chung mở ở chỗ khác vẫn như cũ).
-- **Kệ › nút "+" › Từ URL** là trang con trong sheet "Nhập truyện" (`ShelfImportURLStep`, ô link tự focus sau 0,35 s). Chọn tiện ích / mở link trong trình duyệt ⇒ sheet đóng xong mới làm (`ShelfView.runImportChoice`). Bỏ sheet "Nhập từ URL" riêng (`ShelfImportSheet`, `showingImportSheet`, `queuedImportChoice`); lựa chọn tách thành `ShelfImportChoice`.
-- **Cửa sổ sheet nhận bàn phím**: `OverlaySheetPresenter` cho cửa sổ phủ nhận key trong lúc có sheet (trước đó không bao giờ key) và trả key cho cửa sổ cũ / cửa sổ chính **trước** khi chạy việc kèm theo. Cửa sổ hub cũng nhận key trong lúc trình bày sheet hub (`FloatingHubWindowManager.setSheetPresented`) để ô nhập / bảng chia sẻ / trình duyệt mở từ trang con nằm đúng cửa sổ.
-- **Hub › Thông báo** là trang con lớn của sheet hub (`FloatingHubSheet.Page.notifications`): `NotificationInboxView` + `.modelContainer`, tiêu đề giữa + nút ‹ khi nằm trong sheet. Chạm một truyện ⇒ sheet đóng rồi mở Reader (`openInboxBook`). Bỏ sheet UIKit riêng `presentInbox` / `openReader` / delegate vuốt-để-đóng. "Mở thẳng khi chỉ có 1 tác vụ" lúc 0 tác vụ ⇒ sheet mở ở trang Thông báo.
-- **Hub › Kiểm tra nguồn** (một lượt, hoặc chọn một trong hai lượt) là trang con lớn (`.sourceCheck`): màn kiểm tra gắn vào lượt đang thu nhỏ dựng qua `MinimizedSourceCheckCoordinator.embeddedPage` / `embeddedScreen`, tiêu đề giữa; nút ‹ thay ⌄ (`SourceCheckHeaderButtons` thôi vẽ ⌄ trong trang con) ⇒ `screenDidClose` rồi về trang chính; vuốt đóng sheet khi đang ở trang này cũng thu nhỏ lượt (`FloatingHubSheetState.didDismiss`). Lượt vẫn chạy nền như trước.
-- `CLAUDE.md` / `AGENTS.md` + `rules.md` (hub (b), (f), luật 25, cửa sổ sheet phủ): luật mới về trang con và nhận key.
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: Kệ › "+" › Từ URL ⇒ sheet lớn lên, bàn phím hiện, gõ / dán link, chọn tiện ích ⇒ mở Chi tiết; ‹ về ba dòng. Hub › Thông báo ⇒ trang lớn, ‹ về, chạm truyện ⇒ mở Reader, ngăn kéo … của trang vẫn chạy. Hub › Kiểm tra nguồn khi đang có lượt chạy ⇒ trang lớn theo dõi tiến độ, ‹ về thì dòng hub vẫn "đang chạy", vuốt đóng sheet cũng vậy, Dừng vẫn dừng; mở link lỗi / chia sẻ báo cáo từ trang này hiện trên sheet.
