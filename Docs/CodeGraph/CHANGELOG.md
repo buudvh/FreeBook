@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.901] - 2026-11-12
+
+### feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano
+
+Theo mockup anh Bửu duyệt: nhân bản giọng ngay trong sheet chọn giọng, tạo được giọng Nano, giọng Turbo hoặc cả hai từ cùng một mẫu.
+
+- **Hàng đầu sheet "Giọng đọc"**: "Nhân bản giọng đọc" (đũa thần, chữ màu nhấn, chevron) ⇒ `VieNeuVoiceCloneSheet`.
+- **Sheet "Nhân bản giọng"** (nút chữ "Lưu" bên phải, vuốt xuống đóng, có mẫu chưa lưu ⇒ hỏi bỏ, đang lưu ⇒ không đóng được):
+  - Segmented "Thu âm" | "Chọn file". Thu âm: nút tròn lớn mic ↔ stop, đồng hồ "5,2 s / 8 s", thanh mức âm, **tự dừng ở 8 s** (`VieNeuVoiceRecorder`); chọn file qua `DocumentPickerPresenter` gắn gốc màn.
+  - Section "Mẫu giọng" (có "?"): khối thu / chọn file, "Nghe lại mẫu", "Tên giọng". Section "Dùng cho" (có "?"): chip Nano | Turbo | Cả hai (mặc định model đang đọc), "Khử nhiễu mẫu (Turbo)" (mặc định bật, chỉ hiện khi có Turbo), số liệu "Cần tải … MB" khi còn thiếu.
+  - Lưu (`VieNeuVoiceCloneFlow` + `+Save`): tải gói thiếu có % (`VieNeuClonePackages`: Nano = model + gói nhân bản Nano; Turbo = model Turbo + gói nhân bản Turbo; file dùng chung tính một lần) → đường Nano **giữ nguyên** (`VieNeuTTSService.enrollVoice`, không khử nhiễu, lưu vào kho Nano, nạp lại catalog) → đường Turbo (`VieNeuTurboVoiceCloneCoordinator`; "Cả hai" tạo từ mẫu Nano vừa lưu ⇒ liên kết `sourceNanoVoiceId`). Tiến trình từng bước hiện ngay trong sheet. Xong ⇒ chọn giọng vừa tạo ("Cả hai" ưu tiên model đang đọc), đọc thử câu mẫu, đóng sheet. Một bản lỗi thì bản đã tạo vẫn giữ và được chọn, sheet báo lỗi.
+  - Không dừng hẳn TTS khi thu: chỉ tạm dừng nếu truyện thật sự đang phát (Cài đặt TTS đã dừng sẵn; `stop()` làm mất lượt đọc tiếp khi đóng Cài đặt).
+- **"Tạo bản Turbo"**: giọng Nano tự tạo chưa có bản Turbo hiện trong "Giọng của tôi" của chip Turbo (`VieNeuTurboCopyRow`); bấm ⇒ tải gói Turbo nếu thiếu (có %) rồi tạo từ mẫu Nano đã lưu (`VieNeuTurboCopyRunner`), xong báo toast.
+- `CLAUDE.md` / `AGENTS.md`: viết lại mục "VieNeu: hai model Nano / Turbo" theo thiết kế mới (model đi theo giọng, sheet chọn giọng, tải theo giọng, nhân bản).
+- **Kiểm chứng:** đọc code + grep chéo; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy (thu âm, tải, tạo giọng, toast).
+
 ## [1.3.900] - 2026-11-12
 
 ### feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được
@@ -534,21 +550,3 @@ Anh Bửu: "làm cho sheet import từ URL cũng chuyển sheet giống sheet hu
   - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
   - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
   - Cần thử: Kệ › "+" › Từ URL ⇒ sheet lớn lên, bàn phím hiện, gõ / dán link, chọn tiện ích ⇒ mở Chi tiết; ‹ về ba dòng. Hub › Thông báo ⇒ trang lớn, ‹ về, chạm truyện ⇒ mở Reader, ngăn kéo … của trang vẫn chạy. Hub › Kiểm tra nguồn khi đang có lượt chạy ⇒ trang lớn theo dõi tiến độ, ‹ về thì dòng hub vẫn "đang chạy", vuốt đóng sheet cũng vậy, Dừng vẫn dừng; mở link lỗi / chia sẻ báo cáo từ trang này hiện trên sheet.
-
-## [1.3.871] - 2026-11-11
-
-### feat: mỗi viên thuốc nổi có độ trong suốt, độ đục và độ nhô riêng, nhô tối thiểu còn bán nguyệt
-
-Anh Bửu: "thêm config độ nhô ra các loại viên thuốc", "làm độ trong suốt riêng luôn", "độ đục riêng luôn", "mỗi viên thuốc có độ trong suốt và đục riêng, nhấp nháy cũng theo trong suốt và đục. Cho độ rộng tối thiểu còn hình bán nguyệt" (đã duyệt mockup kéo thử + plan).
-
-- **Cài đặt riêng từng viên** (mới, `Views/Common/GlassChrome/EdgePillSettings.swift`): đĩa nghe, hub, nút trình duyệt thu nhỏ — mỗi viên ba khoá `edgePill<Disc|Hub|Browser><Transparency|Frost|Width>` (không dấu chấm): độ trong suốt (mặc định 90%), độ đục (6 nấc `GlassFrostLevel`, mặc định không nhoè), độ nhô (đĩa 26–84 pt mặc định 68; hub / trình duyệt 18–50 pt mặc định 38; bước 2; tối thiểu = nửa chiều cao ⇒ bán nguyệt). Độc lập với "Nút nổi" (nút "+", tai nghe Reader giữ nguyên). Ai đã chỉnh "Nút nổi" khác mặc định thì viên thuốc về mặc định tới khi chỉnh ở mục mới.
-- **Cài đặt › Chung › Giao diện › Viên thuốc nổi** (`EdgePillSettingsSection`, ngay dưới "Nút nổi"): thanh phân đoạn Đĩa nghe / Hub / Trình duyệt, ba thanh kéo của viên đang chọn, "Đặt lại <viên>", công tắc "Xem thử nháy đỏ" và ô xem trước vẽ cả ba viên.
-- **Hình** `EdgePillShape`: vẽ tay bằng cung tiếp tuyến, bán kính = nửa chiều cao ⇒ đúng tới bán nguyệt (bỏ `UnevenRoundedRectangle` và hai hằng `largeSize` / `smallSize`; `contentInset(height:content:)`, `contentPadding(for:)`). Bìa / icon gắn bằng `overlay` đồng tâm đầu bo ⇒ viên hẹp thì lọt ra ngoài mép, không đẩy khung kính.
-- **Kính + độ mờ**: `FloatingGlassBackground(shape:pill:)` và `.floatingIconTransparency(pill:)` đọc khoá của viên; `MediaDiscFaceButton`, `FloatingHubButton`, `VisibleBrowserReopenButton` dùng cài đặt riêng của mình.
-- **Nháy đỏ theo trong suốt + đục**: màu nháy có alpha `1 − trong suốt` của viên, nằm trên lớp kính (độ đục) — hub (`FloatingHubPulseView`: alpha của màu trong `CABasicAnimation`, đổi alpha ⇒ gắn lại cùng pha; layer nháy cắt bằng mặt nạ `EdgePillShape` thay `cornerRadius`) và nút trình duyệt. Không đổi opacity của view. Số tab của nút trình duyệt vẫn rõ.
-- **Đổi ngay khi kéo**: độ nhô đọc lúc chạy (`EdgePillSettings.size(of:)`); container đĩa / hub / trình duyệt nghe `UserDefaults.didChangeNotification` ⇒ tính lại khung (đang kéo bằng tay thì để lượt thả tự đặt).
-- `CLAUDE.md` / `AGENTS.md` + `rules.md` (hub (a): luật mới thay "nền nháy giữ rõ"; sửa câu cũ "sheet hub mở thì nút đã giấu" — từ 1.3.866 nút vẫn hiện).
-- **Kiểm chứng:**
-  - Đọc code. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows) — CI sẽ biên dịch. **Chưa thử trên máy.**
-  - Cần thử: Giao diện › Viên thuốc nổi, kéo từng thanh của từng viên ⇒ viên thật (đang hiện) và ô xem trước đổi ngay; độ nhô nhỏ nhất ⇒ bán nguyệt, bìa / icon ló nửa; kéo / thả viên vẫn bám mép đúng; hub đang nháy ⇒ đỏ mờ theo trong suốt, thấy nhoè khi tăng độ đục; "Đặt lại" chỉ đặt lại viên đang chọn.

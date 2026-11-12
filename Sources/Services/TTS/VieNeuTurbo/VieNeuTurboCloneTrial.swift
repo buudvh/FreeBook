@@ -6,7 +6,7 @@ import Observation
 /// Python (`Scripts/vieneu_turbo_clone_reference.py`), rồi cho đọc thử bằng giọng vừa tạo (chọn giọng đó ở màn thử và
 /// gọi "Đọc thử một lần" của `VieNeuTurboLab`).
 ///
-/// Không phải giao diện người dùng cuối — màn tạo / chọn giọng thật làm sau theo mockup, gọi thẳng coordinator +
+/// Không phải giao diện người dùng cuối — sheet chọn / nhân bản giọng thật (1.3.899–900) gọi thẳng coordinator +
 /// `VieNeuTurboCustomVoiceRepository`.
 @MainActor
 @Observable

@@ -1,0 +1,118 @@
+import Foundation
+
+/// Lượt **Lưu** của sheet nhân bản giọng (1.3.900): tải gói thiếu → giọng Nano → giọng Turbo → chọn giọng vừa tạo + đọc
+/// thử câu mẫu. Tách file cho `VieNeuVoiceCloneFlow.swift` gọn.
+extension VieNeuVoiceCloneFlow {
+    enum SaveError: LocalizedError {
+        case engineUnavailable
+
+        var errorDescription: String? { "Không dựng được engine VieNeu." }
+    }
+
+    func save() {
+        guard canSave, let sampleURL else { return }
+        stopSample()
+        VieNeuVoicePreviewPlayer.shared.stop()
+        let wantsNano = target.includesNano
+        let wantsTurbo = target.includesTurbo
+        let voiceName = name.trimmed
+        let denoise = self.denoise
+        isSaving = true
+        isError = false
+        statusMessage = ""
+        completedSteps = []
+        step = nil
+        AppLogger.shared.log("🎙️ [VieNeuClone] Lưu giọng \"\(voiceName)\" nano=\(wantsNano) turbo=\(wantsTurbo) khửNhiễu=\(denoise)")
+
+        saveTask = Task { [weak self] in
+            guard let self else { return }
+            var nanoRecordId: String?
+            var created: [VieNeuVoiceSelection] = []
+            do {
+                if !VieNeuClonePackages.isReady(nano: wantsNano, turbo: wantsTurbo) {
+                    step = .downloading
+                    downloadTotal = VieNeuClonePackages.missingBytes(nano: wantsNano, turbo: wantsTurbo)
+                    try await VieNeuClonePackages.ensure(nano: wantsNano, turbo: wantsTurbo) { [weak self] targets in
+                        self?.downloadTargets = targets
+                    }
+                    completedSteps.insert(.downloading)
+                }
+                if wantsNano {
+                    step = .nano
+                    nanoRecordId = try await createNanoVoice(name: voiceName, sampleURL: sampleURL)
+                    created.append(VieNeuVoiceSelection(model: .nano, voiceId: voiceName))
+                    completedSteps.insert(.nano)
+                }
+                if wantsTurbo {
+                    step = .turbo
+                    let coordinator = VieNeuTurboVoiceCloneCoordinator.shared
+                    let outcome: VieNeuTurboVoiceCloneCoordinator.Outcome
+                    if let nanoRecordId {
+                        outcome = try await coordinator.createVoice(fromNanoVoiceId: nanoRecordId, name: voiceName, denoise: denoise)
+                    } else {
+                        outcome = try await coordinator.createVoice(fromFile: sampleURL, name: voiceName, denoise: denoise, keepsSample: true)
+                    }
+                    created.append(VieNeuVoiceSelection(model: .turbo, voiceId: outcome.record.id))
+                    completedSteps.insert(.turbo)
+                }
+                finishSave(created: created)
+            } catch {
+                handleSaveFailure(error, created: created)
+            }
+        }
+    }
+
+    /// Đường Nano **giữ nguyên** như màn "Giọng của tôi": `enrollVoice` (ngữ cảnh ORT riêng, không khử nhiễu) → lưu vào kho
+    /// Nano (chép mẫu) → nạp lại catalog của engine (nạp một lần ⇒ thiếu bước này giọng mới rơi về giọng mặc định).
+    private func createNanoVoice(name: String, sampleURL: URL) async throws -> String {
+        guard let service = VieNeuTTSService.shared else { throw SaveError.engineUnavailable }
+        nanoStage = nil
+        let enrollment = try await service.enrollVoice(sampleURL: sampleURL) { stage in
+            Task { @MainActor [weak self] in self?.nanoStage = stage }
+        }
+        let record = try service.customVoiceStore.add(
+            name: name,
+            speakerEmbedding: enrollment.speakerEmbedding,
+            style: enrollment.style,
+            sampleSourceURL: sampleURL
+        )
+        do {
+            try service.refreshVoiceCatalog()
+        } catch {
+            AppLogger.shared.log("❌ [VieNeuClone] Nạp lại danh sách giọng Nano lỗi: \(error.localizedDescription)")
+        }
+        return record.id
+    }
+
+    /// Chọn giọng vừa tạo (ưu tiên model đang đọc khi tạo cả hai), đọc thử câu mẫu, báo View đóng sheet.
+    private func finishSave(created: [VieNeuVoiceSelection]) {
+        markSaved()
+        if let sampleURL { Self.removeIfTemporary(sampleURL) }
+        isSaving = false
+        step = nil
+        VieNeuVoiceDirectory.shared.reload()
+        let current = VieNeuModelChoice.current
+        if let chosen = created.first(where: { $0.model == current }) ?? created.first {
+            TTSManager.shared.selectVieNeuVoice(chosen)
+            VieNeuVoicePreviewPlayer.shared.play(chosen)
+        }
+        finishToken += 1
+    }
+
+    /// Lỗi giữa chừng: giọng đã tạo xong (vd Nano khi Turbo lỗi) vẫn giữ và được chọn; sheet ở lại để báo lỗi.
+    private func handleSaveFailure(_ error: Error, created: [VieNeuVoiceSelection]) {
+        isSaving = false
+        step = nil
+        VieNeuVoiceDirectory.shared.reload()
+        let prefix: String
+        if let first = created.first {
+            markSaved()
+            TTSManager.shared.selectVieNeuVoice(first)
+            prefix = "Đã tạo giọng \(first.model.label); bản còn lại lỗi: "
+        } else {
+            prefix = "Lưu thất bại: "
+        }
+        showError(prefix + error.localizedDescription)
+        AppLogger.shared.log("❌ [VieNeuClone] \(prefix)\(error.localizedDescription)")
+    }
+}

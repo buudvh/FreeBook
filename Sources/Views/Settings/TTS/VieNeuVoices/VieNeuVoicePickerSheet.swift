@@ -8,6 +8,8 @@ import SwiftUI
 /// - Chọn giọng = `TTSManager.selectVieNeuVoice` ⇒ model đi theo giọng (khác model thì trình đọc nạp lại engine).
 /// - Thử giọng qua `VieNeuVoicePreviewPlayer`; sheet đóng thì dừng câu thử.
 /// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ).
+/// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.900); giọng Nano tự tạo chưa có bản Turbo hiện trong
+///   "Giọng của tôi" của chip Turbo với nút "Tạo bản Turbo" (`VieNeuTurboCopyRow`).
 struct VieNeuVoicePickerSheet: View {
     static let helpText: [LocalizedStringKey] = [
         "Nhẹ: Nano, khoảng 29 CPU-giây mỗi 1.000 ký tự. Vừa: Turbo, 37–43 (đo Minh Quân Pro, Mai Anh). Nặng: Turbo có mẫu dài, ước tính. Đo trên iPhone 11."
@@ -19,6 +21,7 @@ struct VieNeuVoicePickerSheet: View {
     @State private var renaming: VieNeuVoiceEntry?
     @State private var renameText = ""
     @State private var pendingDeletion: VieNeuVoiceEntry?
+    @State private var isClonePresented = false
 
     private var directory: VieNeuVoiceDirectory { .shared }
     private var preview: VieNeuVoicePreviewPlayer { .shared }
@@ -32,6 +35,7 @@ struct VieNeuVoicePickerSheet: View {
                     .padding(.vertical, 8)
                 List {
                     Group {
+                        cloneEntryRow
                         if model == .nano {
                             nanoSections
                         } else {
@@ -47,6 +51,17 @@ struct VieNeuVoicePickerSheet: View {
         .onDisappear { preview.stop() }
         .onChange(of: preview.failureToken) { _, _ in
             ToastManager.shared.show(message: preview.failureMessage, type: .error)
+        }
+        .onChange(of: VieNeuTurboCopyRunner.shared.resultToken) { _, _ in
+            let runner = VieNeuTurboCopyRunner.shared
+            ToastManager.shared.show(message: runner.resultMessage, type: runner.resultIsError ? .error : .success)
+        }
+        .sheet(isPresented: $isClonePresented, onDismiss: { model = VieNeuModelChoice.current }) {
+            Group {
+                VieNeuVoiceCloneSheet(target: Self.defaultCloneTarget)
+                    .presentationDragIndicator(.visible)
+            }
+            .appGlassSheet()
         }
         .alert("Đổi tên giọng", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Tên giọng", text: $renameText)
@@ -69,6 +84,36 @@ struct VieNeuVoicePickerSheet: View {
 
     // MARK: - Nhóm
 
+    /// Hàng đầu danh sách: "Nhân bản giọng đọc" (đũa thần, chữ màu nhấn, chevron) ⇒ sheet nhân bản.
+    private var cloneEntryRow: some View {
+        Section {
+            Button {
+                preview.stop()
+                isClonePresented = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 36)
+                    Text("Nhân bản giọng đọc")
+                        .font(.body)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .foregroundColor(.accentColor)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Mặc định "Dùng cho" của sheet nhân bản = model đang đọc.
+    private static var defaultCloneTarget: VieNeuVoiceCloneFlow.Target {
+        VieNeuModelChoice.current == .turbo ? .turbo : .nano
+    }
+
     @ViewBuilder
     private var nanoSections: some View {
         if !directory.nanoMine.isEmpty {
@@ -86,8 +131,13 @@ struct VieNeuVoicePickerSheet: View {
                     .foregroundColor(.secondary)
             }
         }
-        if !directory.turboMine.isEmpty {
-            Section("Giọng của tôi") { rows(directory.turboMine) }
+        if !directory.turboMine.isEmpty || !directory.nanoWithoutTurbo.isEmpty {
+            Section("Giọng của tôi") {
+                rows(directory.turboMine)
+                ForEach(directory.nanoWithoutTurbo) { voice in
+                    VieNeuTurboCopyRow(voice: voice, entries: downloads.entries)
+                }
+            }
         }
         Section("Tuyển chọn") { rows(directory.turboFeatured) }
         Section("Giọng khác") { rows(directory.turboOthers) }

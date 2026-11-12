@@ -5,7 +5,7 @@ import Observation
 /// (ORT, `VieNeuTurboReferencePreparer`) → mã tham chiếu (audio.cpp, `VieNeuTurboRuntime.encodeReference`) → ghi giọng
 /// (`VieNeuTurboCustomVoiceStore`) → làm mới `VieNeuTurboCustomVoiceRepository`.
 ///
-/// API cho màn tạo giọng (làm sau theo mockup) và màn thử Turbo:
+/// API cho sheet nhân bản giọng (`VieNeuVoiceCloneFlow`, nút "Tạo bản Turbo") và màn thử Turbo:
 /// - `createVoice(fromFile:name:denoise:keepsSample:)` — file âm thanh bất kỳ iOS đọc được; `keepsSample` giữ **đoạn đã
 ///   cắt** (≤ 8 giây, WAV) chứ không chép cả file
 /// - `createVoice(fromNanoVoiceId:name:denoise:)` — dùng lại mẫu gốc của một giọng Nano tự tạo

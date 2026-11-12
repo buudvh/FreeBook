@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Mục **"Tạo giọng Turbo từ file"** của `VieNeuTurboLabView` (1.3.893) — chỉ để thử lõi nhân bản giọng Turbo, không
-/// phải màn tạo giọng cho người dùng cuối (màn đó làm sau theo mockup). Logic ở `VieNeuTurboCloneTrial`.
+/// phải màn tạo giọng cho người dùng cuối (đó là `VieNeuVoiceCloneSheet`, 1.3.900). Logic ở `VieNeuTurboCloneTrial`.
 extension VieNeuTurboLabView {
     @ViewBuilder
     var cloneSection: some View {

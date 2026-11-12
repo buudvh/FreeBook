@@ -201,5 +201,6 @@ extension ModelDownloadCenter {
             report(.init(message: "Đang tải giọng…", completedBytes: completed, totalBytes: total))
             try await client.downloadVoice(voiceId: voiceId)
         }
+        report(.init(message: "Tải xong", completedBytes: total, totalBytes: total))
     }
 }

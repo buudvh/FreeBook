@@ -15,7 +15,7 @@ struct VieNeuVoiceSummaryRow: View {
     var body: some View {
         let selection = displayedSelection
         let entry = directory.entry(for: selection)
-        let isReady = entry.map(directory.isReady) ?? false
+        let isReady = entry.map { directory.isReady($0) } ?? false
         Button(action: onTap) {
             HStack(spacing: 12) {
                 ZStack {
