@@ -6,9 +6,9 @@ import Foundation
 /// ## Ghim sha, không lấy `main`
 /// Model card của tác giả cảnh báo thẳng là "weights, voices and defaults may change between
 /// revisions" — và việc đó **đã xảy ra một lần**: repo `VieNeu-TTS-v3-Nano` từng chứa graph
-/// autoregressive (bản dùng trong `VieNeuTTS-Offline`), nay đã đổi sang flow-matching. Vì vậy cả ba
-/// nguồn đều ghim sha: model + config + constants theo sha của HuggingFace, hai asset còn lại theo sha
-/// commit của GitHub. URL có sha là bất biến, nên app không thể "tự nhiên hỏng" vì upstream sửa file.
+/// autoregressive (bản dùng trong `VieNeuTTS-Offline`), nay đã đổi sang flow-matching. Vì vậy mọi file
+/// đều tải theo URL có sha. Từ 1.3.888 nguồn là **kho mirror** `VieNeuModelMirror` (ghim commit): bản
+/// sao nguyên văn của các revision đã ghim trước đó, nên upstream sửa hay xoá file cũng không ảnh hưởng.
 ///
 /// ## Không resume theo byte — cố ý, và đây là điểm lệch plan
 /// Plan §4 bước 3 ghi "resume được". Bản này chỉ resume ở **mức từng file**: mỗi file tải vào một file
@@ -18,25 +18,14 @@ import Foundation
 /// thì trả từng byte một — 280 MB là không dùng được. Cách làm ở đây **giống hệt** `NghiTTSClient`
 /// (`NghiTTSClient.swift:104-155`) nên không tạo ra mô hình tải thứ hai trong app.
 final class VieNeuModelClient {
-    /// Sha của `pnnbao-ump/VieNeu-TTS-v3-Nano` tại thời điểm 2026-09-05.
-    static let modelRevision = "aba295eb96a6fa6003ebe417cc1f2802a7adc1dc"
-    /// Sha của `pnnbao97/VieNeu-TTS` (chứa `src/vieneu/assets/voices_v3_nano.json`).
-    static let voicesRevision = "2e982ff857bbe23fffa0c314e0f60da2497e2f4b"
-    /// Sha của `pnnbao97/sea-g2p` (chứa `python/sea_g2p/sea_g2p.bin`, 62.829.820 byte).
-    static let g2pRevision = "e825173f235d08ea19315b2b279fb11153b44cea"
-
-    /// Gốc của repo model — **đã ghim sha**. Cả 4 graph chính lẫn 3 graph clone đều nằm ở đây, nên khai
-    /// một chỗ và dùng cho cả `sources()` lẫn `cloneSources()`.
-    private static var modelBase: String {
-        "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/\(modelRevision)"
-    }
-
-    private static var voicesURL: String {
-        "https://raw.githubusercontent.com/pnnbao97/VieNeu-TTS/\(voicesRevision)/src/vieneu/assets/voices_v3_nano.json"
-    }
-
-    private static var g2pURL: String {
-        "https://raw.githubusercontent.com/pnnbao97/sea-g2p/\(g2pRevision)/python/sea_g2p/sea_g2p.bin"
+    /// URL trong kho mirror của một file theo **tên** trong `VieNeuModelStore` — `VieNeuModelMirror.nanoStorePath`
+    /// chọn thư mục: `sea_g2p.bin` và `speaker_encoder.onnx` (dùng chung với Turbo) ở `common/`, còn lại ở `nano/`:
+    /// graph / cấu hình = bản sao `pnnbao-ump/VieNeu-TTS-v3-Nano` @ `aba295eb96a6fa6003ebe417cc1f2802a7adc1dc`,
+    /// `voices_v3_nano.json` = bản sao `pnnbao97/VieNeu-TTS` @ `2e982ff857bbe23fffa0c314e0f60da2497e2f4b`,
+    /// `sea_g2p.bin` (62.829.820 byte) = bản sao `pnnbao97/sea-g2p` @ `e825173f235d08ea19315b2b279fb11153b44cea`.
+    /// Chuỗi rỗng khi URL hỏng ⇒ `source(name:urlString:)` ném `badURL`.
+    private static func fileURL(_ name: String) -> String {
+        VieNeuModelMirror.url(path: VieNeuModelMirror.nanoStorePath(name))?.absoluteString ?? ""
     }
 
     struct Source: Sendable {
@@ -69,21 +58,20 @@ final class VieNeuModelClient {
     /// Tám nguồn, theo thứ tự tải: graph trước (nặng nhất), rồi cấu hình, rồi asset.
     static func sources() throws -> [Source] {
         var list: [Source] = []
-        for name in VieNeuModelStore.graphNames + VieNeuModelStore.configNames {
-            list.append(try source(name: name, urlString: "\(modelBase)/\(name)"))
+        for name in VieNeuModelStore.graphNames + VieNeuModelStore.configNames + VieNeuModelStore.assetNames {
+            list.append(try source(name: name, urlString: fileURL(name)))
         }
-        list.append(try source(name: "voices_v3_nano.json", urlString: voicesURL))
-        list.append(try source(name: "sea_g2p.bin", urlString: g2pURL))
         return list
     }
 
-    /// Ba nguồn của **gói graph clone** (~91 MB), cùng repo và cùng sha với 4 graph chính.
+    /// Ba nguồn của **gói graph clone** (~91 MB), cùng kho và cùng commit với 4 graph chính
+    /// (`speaker_encoder.onnx` ở `common/` vì Turbo cũng dùng).
     ///
     /// Tải **riêng** khỏi `sources()`: gói này là tuỳ chọn (chỉ cần khi tạo giọng mới) nên không được
     /// nằm trong `VieNeuModelStore.requiredNames` — xem doc của `cloneGraphNames`.
     static func cloneSources() throws -> [Source] {
         try VieNeuModelStore.cloneGraphNames.map {
-            try source(name: $0, urlString: "\(modelBase)/\($0)")
+            try source(name: $0, urlString: fileURL($0))
         }
     }
 

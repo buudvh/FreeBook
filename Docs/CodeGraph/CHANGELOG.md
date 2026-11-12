@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.888] - 2026-11-12
+
+### feat: VieNeu Nano và Turbo tải model từ kho raikiri1498/VieNeu-TTS
+
+Anh Bửu tạo kho Hugging Face riêng `raikiri1498/VieNeu-TTS` và dặn: *"thêm tải các model và dữ liệu cho turbo và nano và push vào folder này cho tôi, nhớ ghi nguồn giúp tôi"*, *"NHỚ ĐỔI LINK DOWNLOAD TRONG APP"*.
+
+- **Kho mirror** (commit `3486d7da`), chép **nguyên văn từng byte** đúng các revision app đã ghim. Đối chiếu sha256 với số Hugging Face công bố; file từ GitHub đối chiếu theo kích thước. Tắt đổi xuống dòng (`core.autocrlf false`) vì `config.json`, `manifest.json`, `ref_codes.txt` gốc dùng CRLF; blob trùng blob id của kho gốc.
+  - `common/` (dùng chung, anh Bửu: *"file nào dùng chung thì để ở common"*): `sea_g2p.bin` của `pnnbao97/sea-g2p` @ `e825173f`, `speaker_encoder.onnx` + `denoiser.onnx` (có ở cả kho Nano lẫn Turbo, trùng sha256).
+  - `nano/`: 8 file còn lại của `pnnbao-ump/VieNeu-TTS-v3-Nano` @ `aba295eb` (4 graph đọc, `codec_encoder` + `reference_encoder` để nhân bản giọng, `config.json`, `constants.npz`), cộng `voices_v3_nano.json` của `pnnbao97/VieNeu-TTS` @ `2e982ff8`.
+  - `turbo/gguf/`: GGUF q8_0 và 25 giọng + `manifest.json` của `pnnbao-ump/VieNeu-TTS-v3-Turbo` @ `61b85e3d`.
+  - README ghi nguồn, revision, giấy phép (cả bốn nguồn đều Apache-2.0), lý do bỏ bf16 / ONNX / safetensors. Kèm `LICENSE`, `SHA256SUMS` và model card gốc (`UPSTREAM_README.md`).
+- **App**: `VieNeuModelMirror` (mới, `Services/TTS/VieNeu/`) giữ tên kho + commit ghim + `url(path:)` + `commonFileNames` / `nanoStorePath` (file dùng chung ⇒ `common/`).
+  - `VieNeuModelClient` (4 graph, cấu hình, 3 graph clone, giọng, `sea_g2p.bin`) và `VieNeuTurboModelStore.remoteURL` (GGUF, manifest, file giọng) tải từ đó.
+  - Bỏ các hằng revision cũ; nguồn gốc ghi lại trong doc.
+  - Nội dung trùng từng byte ⇒ file đã tải trên máy dùng tiếp, `modelByteCount` không đổi.
+- Chữ ở Cài đặt VieNeu (gói Nano) và màn thử Turbo ghi nguồn mới kèm tác giả gốc.
+- **Kiểm chứng:** tải thử từng URL mới của kho (HTTP 200, đúng kích thước); đọc code + grep chéo (không còn `pnnbao-ump/…/resolve` hay `raw.githubusercontent.com/pnnbao97` trong `Sources/`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử tải trong app.
+
 ## [1.3.887] - 2026-11-12
 
 ### merge: đưa VieNeu Turbo GGUF vào main
@@ -459,26 +477,3 @@ Anh Bửu: "giữ lại 1 kiểu thôi widget thôi nhé, là widget của tts t
     2. Về trang gốc tab khi đang đọc ⇒ ô giữa thanh tab là đĩa bìa truyện xoay.
     3. Sheet điều khiển nhanh ⇒ Giọng đọc / Hẹn giờ mở được (cần `modelContainer`).
     4. Cài đặt › Đọc & Nghe không còn hàng "Widget TTS".
-
-## [1.3.858] - 2026-11-11
-
-### feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header
-
-Anh Bửu duyệt mockup: nút góc của nhạc / TTS (đĩa nghe) đổi từ đĩa tròn 52 pt góc dưới phải thành **nửa viên thuốc** dính mép trái hoặc phải, kéo đổi được mép và độ cao; chạm vẫn mở sheet điều khiển nhanh như cũ.
-
-- **Hình dùng chung** `EdgePillShape` (`Views/Common/GlassChrome/`): cạnh phẳng áp mép (vẽ tràn 1 pt ra ngoài để viền kính không thành vạch sáng), đầu bo bán kính = nửa chiều cao quay vào trong; `edge == nil` = hình tròn (lúc kéo). Hai cỡ: lớn 68 × 52 (đĩa nghe), nhỏ 38 × 36 (hub, trình duyệt — dùng ở commit sau).
-- **Đĩa nghe** (`MediaDiscFaceButton(.corner)`): nửa viên 68 × 52 = lề 16 + nút "+" 52; nền kính `FloatingGlassBackground(shape:)` theo Độ trong suốt / Độ đục như nút "+"; bìa 32 pt đồng tâm đầu bo (thẳng cột với icon "+"), vẫn mờ đúng số theo Độ trong suốt.
-- **Chạm + kéo ở UIKit** (`MediaDiscContainerViewController+Drag`, khuôn nút hub): mặt đĩa SwiftUI không còn cử chỉ (bài học 1.3.812). Kéo ⇒ co tròn 52 theo tay; thả ⇒ bám mép gần hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator.resolve`), lưu mép + tỉ lệ dọc tâm (`MediaDiscPositionStore`, khoá `mediaDiscEdge` / `mediaDiscVerticalRatio`, một chỗ chung cho nhạc và TTS). Đang kéo mà đĩa bị ẩn (bàn phím, màn xem phim…) ⇒ thôi kéo, không lưu.
-- **Chỗ đứng** (`MediaDiscPlacement` viết lại): mép + độ cao đã nhớ; chưa kéo lần nào ⇒ mép phải, thấp nhất (trang có nút "+" thì đứng ngay trên nút như đĩa góc cũ). Kẹp dưới header (vùng an toàn trên + 52) tới trên vùng an toàn đáy 12. Neo `.button` / `.bar` chồng cột mà đĩa đè lên (kể khe 12) ⇒ tạm đẩy lên trên neo, không ghi đè chỗ nhớ; cửa sổ phim nhỏ tính như neo. Luật ẩn giữ nguyên.
-- **Bỏ nhấn giữ đưa đĩa lên header** (1.3.812–815): xoá `MediaDiscHeaderSlot`, vai neo `.headerTrailing` (gỡ ở header Reader + màn truyện tranh), `isDiscElevated`, vùng chạm 38 pt, `quickControlsDidDismiss`.
-- `CLAUDE.md` / `AGENTS.md`: viết lại đoạn đĩa nghe + "Hai chỗ đặt đĩa".
-- **Kiểm chứng:**
-  - Đọc code + grep chéo symbol đã xoá. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
-  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
-  - Cần thử:
-    1. Nghe nhạc, mở trang có nút "+" ⇒ nửa viên mép phải ngay trên nút "+".
-    2. Chạm ⇒ sheet nhạc; kéo sang mép trái, thả giữa màn ⇒ dính mép trái đúng độ cao, mở lại app vẫn ở đó.
-    3. Kéo lên sát đỉnh ⇒ dừng dưới header, không che nút quay lại / "…".
-    4. Thả đè nút hub cùng mép ⇒ nửa viên dời sát trên / dưới hub.
-    5. Reader: nửa viên mép phải đứng trên nút tai nghe; trình duyệt / truyện tranh: đứng trên thanh dưới.
-    6. Bàn phím hiện giữa lúc kéo ⇒ đĩa thu, không kẹt.

@@ -53,7 +53,7 @@ extension VieNeuTurboLabView {
             }
         } header: {
             SectionHelpHeader("Model Turbo", paragraphs: [
-                "**Thử nghiệm.** VieNeu-TTS v3 Turbo bản GGUF q8_0 chính thức (HuggingFace `pnnbao-ump/VieNeu-TTS-v3-Turbo`, ghim revision), chạy bằng thư viện **audio.cpp** (ggml) trên CPU — không phải ONNX như Nano.",
+                "**Thử nghiệm.** VieNeu-TTS v3 Turbo bản GGUF q8_0 chính thức của tác giả (`pnnbao-ump/VieNeu-TTS-v3-Turbo`), tải từ kho sao lưu `raikiri1498/VieNeu-TTS` trên HuggingFace, ghim revision, chạy bằng thư viện **audio.cpp** (ggml) trên CPU — không phải ONNX như Nano.",
                 "Model ra tiếng **stereo 48 kHz**; màn này trộn về mono rồi phát. Chữ đi qua cùng lớp đọc số / tiếng Nhật và cùng bộ phiên âm `sea_g2p.bin` với Nano, nên hai engine đọc cùng một chuỗi âm vị.",
                 "Xoá model Turbo **không** xoá `sea_g2p.bin` — Nano vẫn cần nó."
             ])

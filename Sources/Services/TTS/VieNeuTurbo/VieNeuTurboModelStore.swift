@@ -10,12 +10,12 @@ import Foundation
 /// `sea_g2p.bin` **không** nằm ở đây: Turbo đọc đúng bộ phiên âm của Nano (`VieNeuModelStore.url(for:)`), chung một
 /// file 62,8 MB thay vì hai bản. Màn Dung lượng đã phủ thư mục này qua `StorageUsageCategory.tts` (= cả `FreeBook/`).
 ///
-/// Mọi file ghim **một revision** của HuggingFace: upstream đổi file cũng không làm bước thử tự hỏng.
+/// Mọi file tải từ kho mirror `VieNeuModelMirror` (ghim commit, từ 1.3.888), thư mục `turbo/`. Đây là bản sao nguyên
+/// văn thư mục `gguf/` của `pnnbao-ump/VieNeu-TTS-v3-Turbo` @ `61b85e3d937fbbacb387714180e8182823512523` ⇒ file đã
+/// tải từ nguồn cũ vẫn khớp (cùng `modelByteCount`); upstream đổi file cũng không làm app tự hỏng.
 final class VieNeuTurboModelStore: Sendable {
-    /// Revision của `pnnbao-ump/VieNeu-TTS-v3-Turbo` (2026-11-11).
-    static let revision = "61b85e3d937fbbacb387714180e8182823512523"
     static let modelFileName = "vieneu-v3-turbo-q8_0.gguf"
-    /// Dung lượng đúng của file GGUF ở revision trên (header `X-Linked-Size` của HuggingFace).
+    /// Dung lượng đúng của file GGUF (header `X-Linked-Size` của HuggingFace; trùng ở kho gốc lẫn kho mirror).
     static let modelByteCount: Int64 = 187_917_664
     static let manifestFileName = "manifest.json"
     static let referenceCodesFileName = "ref_codes.txt"
@@ -43,8 +43,9 @@ final class VieNeuTurboModelStore: Sendable {
 
     // MARK: - Nguồn tải
 
+    /// `path` theo bố cục của kho gốc (`gguf/…`); kho mirror đặt nó dưới `turbo/`.
     static func remoteURL(path: String) -> URL? {
-        URL(string: "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo/resolve/\(revision)/\(path)")
+        VieNeuModelMirror.url(path: "turbo/\(path)")
     }
 
     static var modelRemotePath: String { "gguf/\(modelFileName)" }

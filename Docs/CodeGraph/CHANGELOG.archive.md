@@ -2,6 +2,29 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.858] - 2026-11-11
+
+### feat: đĩa nghe thành nửa viên thuốc dính mép, kéo đổi mép và độ cao, bỏ nhấn giữ lên header
+
+Anh Bửu duyệt mockup: nút góc của nhạc / TTS (đĩa nghe) đổi từ đĩa tròn 52 pt góc dưới phải thành **nửa viên thuốc** dính mép trái hoặc phải, kéo đổi được mép và độ cao; chạm vẫn mở sheet điều khiển nhanh như cũ.
+
+- **Hình dùng chung** `EdgePillShape` (`Views/Common/GlassChrome/`): cạnh phẳng áp mép (vẽ tràn 1 pt ra ngoài để viền kính không thành vạch sáng), đầu bo bán kính = nửa chiều cao quay vào trong; `edge == nil` = hình tròn (lúc kéo). Hai cỡ: lớn 68 × 52 (đĩa nghe), nhỏ 38 × 36 (hub, trình duyệt — dùng ở commit sau).
+- **Đĩa nghe** (`MediaDiscFaceButton(.corner)`): nửa viên 68 × 52 = lề 16 + nút "+" 52; nền kính `FloatingGlassBackground(shape:)` theo Độ trong suốt / Độ đục như nút "+"; bìa 32 pt đồng tâm đầu bo (thẳng cột với icon "+"), vẫn mờ đúng số theo Độ trong suốt.
+- **Chạm + kéo ở UIKit** (`MediaDiscContainerViewController+Drag`, khuôn nút hub): mặt đĩa SwiftUI không còn cử chỉ (bài học 1.3.812). Kéo ⇒ co tròn 52 theo tay; thả ⇒ bám mép gần hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator.resolve`), lưu mép + tỉ lệ dọc tâm (`MediaDiscPositionStore`, khoá `mediaDiscEdge` / `mediaDiscVerticalRatio`, một chỗ chung cho nhạc và TTS). Đang kéo mà đĩa bị ẩn (bàn phím, màn xem phim…) ⇒ thôi kéo, không lưu.
+- **Chỗ đứng** (`MediaDiscPlacement` viết lại): mép + độ cao đã nhớ; chưa kéo lần nào ⇒ mép phải, thấp nhất (trang có nút "+" thì đứng ngay trên nút như đĩa góc cũ). Kẹp dưới header (vùng an toàn trên + 52) tới trên vùng an toàn đáy 12. Neo `.button` / `.bar` chồng cột mà đĩa đè lên (kể khe 12) ⇒ tạm đẩy lên trên neo, không ghi đè chỗ nhớ; cửa sổ phim nhỏ tính như neo. Luật ẩn giữ nguyên.
+- **Bỏ nhấn giữ đưa đĩa lên header** (1.3.812–815): xoá `MediaDiscHeaderSlot`, vai neo `.headerTrailing` (gỡ ở header Reader + màn truyện tranh), `isDiscElevated`, vùng chạm 38 pt, `quickControlsDidDismiss`.
+- `CLAUDE.md` / `AGENTS.md`: viết lại đoạn đĩa nghe + "Hai chỗ đặt đĩa".
+- **Kiểm chứng:**
+  - Đọc code + grep chéo symbol đã xoá. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 lỗi mới**.
+  - **Chưa build** (máy Windows). **Chưa thử trên máy.**
+  - Cần thử:
+    1. Nghe nhạc, mở trang có nút "+" ⇒ nửa viên mép phải ngay trên nút "+".
+    2. Chạm ⇒ sheet nhạc; kéo sang mép trái, thả giữa màn ⇒ dính mép trái đúng độ cao, mở lại app vẫn ở đó.
+    3. Kéo lên sát đỉnh ⇒ dừng dưới header, không che nút quay lại / "…".
+    4. Thả đè nút hub cùng mép ⇒ nửa viên dời sát trên / dưới hub.
+    5. Reader: nửa viên mép phải đứng trên nút tai nghe; trình duyệt / truyện tranh: đứng trên thanh dưới.
+    6. Bàn phím hiện giữa lúc kéo ⇒ đĩa thu, không kẹt.
+
 ## [1.3.857] - 2026-11-11
 
 ### feat: phụ đề và lời bài hát dịch được bằng tiện ích dịch, sheet dịch có mục bộ dịch và ngôn ngữ

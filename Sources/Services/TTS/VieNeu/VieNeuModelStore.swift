@@ -9,9 +9,9 @@ import Foundation
 /// nằm cùng thư mục đó sẽ bị nó nhận nhầm thành bốn "giọng Piper" và hiện lên màn quản lý model.
 ///
 /// Bố cục:
-/// - `.../FreeBook/TTS/VieNeu/Models/` — 6 file lõi tải từ HuggingFace (4 graph + `config.json` +
+/// - `.../FreeBook/TTS/VieNeu/Models/` — 6 file lõi (4 graph + `config.json` +
 ///   `constants.npz`).
-/// - `.../FreeBook/TTS/VieNeu/Assets/` — 2 file tải từ GitHub: `voices_v3_nano.json` (11 giọng preset)
+/// - `.../FreeBook/TTS/VieNeu/Assets/` — 2 asset gốc ở GitHub: `voices_v3_nano.json` (11 giọng preset)
 ///   và `sea_g2p.bin` (bộ phonemizer).
 final class VieNeuModelStore {
     /// Bốn graph ONNX của pipeline Nano, theo đúng thứ tự thi hành.
@@ -25,7 +25,7 @@ final class VieNeuModelStore {
     /// Hai file cấu hình/trọng số phụ của pipeline (không phải graph).
     static let configNames = ["config.json", "constants.npz"]
 
-    /// Hai asset tải từ nguồn khác HuggingFace.
+    /// Hai asset có nguồn gốc ở GitHub (nay cùng kho mirror với graph — `VieNeuModelMirror`).
     static let assetNames = ["voices_v3_nano.json", "sea_g2p.bin"]
 
     /// Ba graph **clone giọng** — **tuỳ chọn**, chỉ tải khi người dùng muốn tạo giọng mới (~91 MB).
