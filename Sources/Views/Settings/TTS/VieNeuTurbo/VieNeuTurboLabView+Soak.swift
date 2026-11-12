@@ -103,7 +103,7 @@ extension VieNeuTurboLabView {
             return "Turbo dùng giọng và số luồng chọn ở trên; QoS chọn dưới đây chỉ cho lượt đo (trình đọc chạy userInitiated). Nghe ở tốc độ X× cần RTF dưới 1/X, vd 1,4× cần dưới 0,71."
         case .nano:
             let threads = VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
-            return "Nano dùng giọng mặc định và chế độ ở Cài đặt VieNeu; số luồng + QoS chọn dưới đây chỉ cho lượt đo (cài đặt hiện \(threads) luồng, trình đọc chạy userInitiated). Tốc độ tổng hợp ép 1× cho cùng điều kiện với Turbo."
+            return "Nano dùng giọng mặc định và chế độ ở Cài đặt VieNeu; số luồng + QoS chọn dưới đây chỉ cho lượt đo (cài đặt hiện \(threads) luồng). Tốc độ tổng hợp ép 1× cho cùng điều kiện với Turbo."
         }
     }
 

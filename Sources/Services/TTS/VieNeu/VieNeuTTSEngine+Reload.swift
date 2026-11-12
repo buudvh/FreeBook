@@ -51,7 +51,7 @@ extension VieNeuTTSEngine {
     ///
     /// Đặt hay bỏ đều buộc dựng lại session ở lần nạp kế tiếp. Luồng phụ của pool ORT sinh ra lúc dựng session nên mang
     /// QoS của luồng đang dựng; màn thử dựng ngay ở QoS mình chọn (`VieNeuTTSService.prepare(voice:priority:)`), và khi
-    /// bỏ ghi đè thì dựng lại ở mức của trình đọc (`VieNeuTTSService.readerPriority`) như lúc app nạp engine bình thường.
+    /// bỏ ghi đè thì dựng lại ở `.utility` như lúc app nạp engine bình thường.
     func setLabThreadOverride(_ threads: Int32?) {
         lock.lock(); defer { lock.unlock() }
         labThreadOverride = threads.map { max(1, $0) }

@@ -24,8 +24,6 @@ extension VieNeuTurboLab {
         let qos = nanoQoS
         workingMessage = "Đang dựng session Nano (\(threads) luồng, QoS \(qos.rawValue))…"
         await service.setLabThreadOverride(threads)
-        // Từ 1.3.855 service tự chạy tổng hợp ở mức của trình đọc (`readerPriority`) ⇒ phải ghi đè thì A/B mới đo đúng.
-        service.setLabSynthesisPriority(qos.priority)
         // Bật cờ **sau** khi đã ghi đè: rời màn trong lúc chờ thì `startSoak` vẫn gọi `endNanoOverride` (lệch thế hệ) và
         // lúc đó cờ đã bật ⇒ không sót ghi đè.
         isNanoOverrideActive = true
@@ -71,14 +69,12 @@ extension VieNeuTurboLab {
 
     /// Trả số luồng của engine Nano về theo cài đặt để lượt đọc truyện kế tiếp không mang cấu hình của màn thử. Gọi khi
     /// dừng, rời màn hoặc nạp lỗi.
-    /// - Trình đọc đang ở **Nano** ⇒ dựng lại session ở mức của trình đọc (`VieNeuTTSService.readerPriority`), đúng như
-    ///   lúc app nạp engine bình thường; mức tổng hợp cũng trả về mức đó.
+    /// - Trình đọc đang ở **Nano** ⇒ dựng lại session ở `.utility`, đúng như lúc app nạp engine bình thường.
     /// - Trình đọc đang ở **Turbo** ⇒ **nhả** Nano (~280 MB): màn thử nạp nó chỉ để đo, hai model không nên cùng nằm
     ///   trong RAM (`VieNeuTTSService.releaseEngineRuntime`, chặn nên chạy nền).
     func endNanoOverride() {
         guard isNanoOverrideActive, let service = VieNeuTTSService.shared else { return }
         isNanoOverrideActive = false
-        service.setLabSynthesisPriority(nil)
         let voice = service.currentVoice ?? service.defaultVoiceName ?? ""
         let readerUsesNano = VieNeuModelChoice.current == .nano
         // Giữ lại Task: `readSampleOnce` / `startSoak` chờ nó xong rồi mới chạy (nó có thể chặn vài giây chờ đoạn Nano dở,

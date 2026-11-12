@@ -42,14 +42,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     private var _lastPhonemeSample = ""
     private var _lastSpeechDuration = 0.0
     private var _lastTiming = VieNeuTTSEngine.Timing()
-    /// Màn thử ghi đè mức ưu tiên tổng hợp để đo A/B (`nil` = mức của trình đọc). Chỉ đọc / ghi trong `syncQueue`.
-    private var _labSynthesisPriority: TaskPriority?
-
-    /// Mức ưu tiên của Nano khi **đọc truyện** — cả lúc dựng session ORT (luồng phụ của pool sinh ra lúc này) lẫn lúc
-    /// tổng hợp. `.userInitiated` được xếp lên lõi hiệu năng. Đo trên iPhone 11 (màn thử, 2 luồng, cùng văn bản, 1.3.853):
-    /// userInitiated RTF 0,28 · 0,56 CPU-s/giây tiếng · 3:45 vẫn "ấm"; utility RTF 0,55 · 0,88 CPU-s/giây tiếng ·
-    /// "nóng" ở phút 4 ⇒ lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36%. Trước 1.3.855 là `.utility`.
-    static let readerPriority: TaskPriority = .userInitiated
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -142,15 +134,9 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     // MARK: - Chuẩn bị
 
     /// Nạp 4 session ONNX + `sea_g2p.bin` (62,8 MB). Chạy ở `Task.detached` vì đây là việc nặng và
-    /// đồng bộ. Mức ưu tiên = `readerPriority` (1.3.855; trước đó `.utility` như `PiperTTSService.prepare`).
+    /// đồng bộ — cùng lý do và cùng mức ưu tiên với `PiperTTSService.prepare` (`:35`).
     func prepare(voice: String) async throws {
-        try await prepare(voice: voice, priority: Self.readerPriority)
-    }
-
-    /// Màn thử VieNeu Turbo ghi đè mức ưu tiên **tổng hợp** của Nano trong lúc đo (`nil` = trả về `readerPriority`).
-    /// Mức dựng session thì màn thử truyền thẳng vào `prepare(voice:priority:)`.
-    func setLabSynthesisPriority(_ priority: TaskPriority?) {
-        syncQueue.sync { _labSynthesisPriority = priority }
+        try await prepare(voice: voice, priority: .utility)
     }
 
     /// Như `prepare(voice:)` nhưng chọn mức ưu tiên — chỉ màn thử VieNeu Turbo dùng (1.3.849). Luồng phụ của pool ORT
@@ -315,23 +301,12 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             text: TextPreprocessor.normalizeVietnameseText(text)
         )
         let started = ProcessInfo.processInfo.systemUptime
-        // Chạy ORT ở mức ưu tiên **cố định** của trình đọc thay vì mức của tác vụ nào tình cờ xếp hàng trước trong
-        // `PiperSynthesisCoordinator` (phần lớn là `.utility` ⇒ lõi tiết kiệm). Task con tách riêng nên phải tự chuyển
-        // lệnh huỷ xuống: engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
-        let priority = syncQueue.sync { _labSynthesisPriority } ?? Self.readerPriority
-        let synthesisTask = Task.detached(priority: priority) { [engine] in
-            try engine.synthesize(
-                text: normalizedText,
-                voiceName: voice,
-                speed: speed,
-                boundaryKind: boundaryKind
-            )
-        }
-        let output = try await withTaskCancellationHandler {
-            try await synthesisTask.value
-        } onCancel: {
-            synthesisTask.cancel()
-        }
+        let output = try engine.synthesize(
+            text: normalizedText,
+            voiceName: voice,
+            speed: speed,
+            boundaryKind: boundaryKind
+        )
         syncQueue.sync {
             _currentVoice = voice
             _lastDroppedScalars = output.droppedScalars

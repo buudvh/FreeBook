@@ -33,7 +33,8 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     /// QoS của lượt tổng hợp khi đọc truyện (1.3.856): `.userInitiated` được xếp lên **lõi hiệu năng**. Đo ở màn thử
     /// (1.3.855, iPhone 11, 2 luồng, ~3 phút mỗi lượt): `.utility` (lõi tiết kiệm) RTF 0,71–0,73, CPU 1,35 CPU-s mỗi giây
     /// tiếng, tới phút thứ 2–3 máy "nóng"; `.userInitiated` RTF 0,35–0,36, CPU 0,70, máy chỉ "ấm" — lõi tiết kiệm phải
-    /// chạy gấp đôi thời gian ở xung nhịp cao nên tốn điện hơn. Cùng hướng với Nano (`VieNeuTTSService.readerPriority`).
+    /// chạy gấp đôi thời gian ở xung nhịp cao nên tốn điện hơn. (Trình đọc Nano không cần: ORT của nó vốn chạy ở mức
+    /// của tác vụ gọi, đo trên máy đã nhanh như `.userInitiated`; runtime Turbo thì tự ép `.utility` nên phải truyền.)
     static let readerQoS: DispatchQoS.QoSClass = .userInitiated
     /// Tốc độ nghe mà Turbo còn tổng hợp kịp, để màn Cài đặt TTS cảnh báo khi vượt. Ở `readerQoS`: RTF trung bình ≈ 0,36,
     /// đoạn chậm nhất 0,41 (chỉ ~3 phút, máy "ấm") ⇒ 1 / 0,41 ≈ 2,4. Chừa khoảng cho máy nóng lên khi nghe lâu (ở
