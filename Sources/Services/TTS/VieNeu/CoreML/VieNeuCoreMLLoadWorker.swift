@@ -2,15 +2,12 @@ import Foundation
 
 /// Phép đo **"Đo nạp Core ML"** của màn thử VieNeu — chạy ngoài MainActor (`Task.detached`), không đụng đường đọc truyện.
 ///
-/// Bản P2a (1.3.912) đã trả lời: nạp chậm là của chính Core ML (18–20 s mỗi VE, ORT chỉ 0,6 s), vì trọng số Linear nằm
-/// **trong chữ** `model.mil` (549 MB / VE) thay vì `weight.bin` — cũng là 4,16 GB cache (báo cáo §13). Cơ chế trong ORT
-/// 1.24.2: `MatMulAddFusion` (mức 1, mọi EP) ⇒ `Gemm(transB=0)` ⇒ Core ML EP chuyển vị B thành hằng immediate.
-///
-/// Bản P2b-0 (lượt này):
-/// 1. kiểm kê bản biên dịch hiện tại (dung lượng từng mục);
-/// 2. đọc lướt `model.mil` hiện tại (VE / codec bucket nhỏ nhất), liệt kê dòng dài nhất để thấy tận mắt các hằng;
-/// 3–5. **biến thể tắt tối ưu đồ thị ORT** (`VieNeuCoreMLNoOptTrial`): biên dịch, dung lượng, nạp, chất lượng, tốc độ
-///    mỗi lượt so với bản hiện tại.
+/// - P2a (1.3.912): nạp chậm là của chính Core ML (18–20 s mỗi VE) vì trọng số Linear nằm **trong chữ** `model.mil`
+///   (549 MB / VE) — cũng là 4,16 GB cache (báo cáo §13).
+/// - P2b-0 (1.3.913): tắt tối ưu ORT lúc chạy vô ích — `Gemm(transB=0)` đã gộp sẵn trong ONNX lúc xuất trên PC (§14).
+/// - **P2b-1 (lượt này)**: gói định dạng 3 (Gemm `transB=1`, xuất lại trên PC). Probe tải gói mới (`VieNeuCoreMLLoadProbe`)
+///   rồi đo: dựng session lần đầu, dung lượng, `model.mil`, nạp lại (`VieNeuCoreMLGraphCheck`), chất lượng + tốc độ so với
+///   số của bản định dạng 2 (`VieNeuCoreMLGoldenSpeedCheck`).
 enum VieNeuCoreMLLoadWorker {
     struct Outcome: Sendable {
         let report: String
@@ -49,49 +46,33 @@ enum VieNeuCoreMLLoadWorker {
         var label: String { "\(kind) T\(bucket)" }
     }
 
+    /// `downloadNote`: một dòng về lần làm mới gói vừa rồi (bao nhiêu file tải lại, có xoá cache không).
     static func run(
         package: VieNeuCoreMLPackage,
         manifest: VieNeuCoreMLPackage.Manifest,
+        downloadNote: String,
         progress: @Sendable (String) -> Void
     ) throws -> Outcome {
         try FileManager.default.createDirectory(at: package.resultsURL, withIntermediateDirectories: true)
         VieNeuCoreMLCacheInventory.restoreTrimmed(package.cacheDirectory) // file đổi tên của bản 1.3.912 bị ngắt
-        var lines: [String] = []
+        var lines = [
+            "Đo nạp Core ML (P2b-1, gói định dạng \(manifest.format)) — gói \(bytes(package.packageBytes)) · cache \(bytes(package.cacheBytes))",
+            "làm mới gói: \(downloadNote)",
+            "nhiệt lúc bắt đầu \(thermal()) · \(ProcessMemoryProbe.snapshot().summary) · \(freeSpace(package))"
+        ]
         var summary: [String] = []
-
-        // 1. Bản biên dịch hiện tại.
-        progress("Kiểm kê cache Core ML…")
-        let entries = VieNeuCoreMLCacheInventory.scan(package.cacheDirectory)
-        lines.append("Đo nạp Core ML (P2b-0) — gói \(bytes(package.packageBytes)) · cache \(bytes(package.cacheBytes))")
-        lines.append("nhiệt lúc bắt đầu \(thermal()) · \(ProcessMemoryProbe.snapshot().summary) · \(freeSpace(package))")
-        lines.append(contentsOf: inventoryLines(entries, title: "== 1. Bản biên dịch hiện tại (tối ưu ORT bật, Cache/)"))
-
-        // 2. Dòng dài nhất của model.mil hiện tại.
-        lines.append("== 2. Dòng dài nhất của model.mil hiện tại (hằng nằm trong chương trình)")
-        for target in targets(manifest) {
-            try Task.checkCancellation()
-            guard let entry = entries.first(where: { $0.kind == target.kind && $0.bucket == target.bucket && $0.partition == "0" }),
-                  let compiled = entry.compiledURL else {
-                lines.append("\(target.label): chưa có bản biên dịch")
-                continue
-            }
-            progress("Đọc lướt model.mil \(target.label)…")
-            let scan = try VieNeuCoreMLMilScan.longestLines(compiled.appendingPathComponent("model.mil"))
-            lines.append("\(target.label): \(bytes(Int64(scan.totalBytes))) · \(scan.lineCount) dòng · \(scan.lines.count) dòng dài nhất:")
-            for line in scan.lines {
-                lines.append("    \(bytes(Int64(line.length))) · \(line.prefix)")
-            }
-        }
-
-        // 3–5. Biến thể tắt tối ưu đồ thị ORT.
-        let trial = try VieNeuCoreMLNoOptTrial.run(package: package, manifest: manifest, progress: progress)
-        lines.append(contentsOf: trial.lines)
-        summary.append(contentsOf: trial.summary)
+        let graph = try VieNeuCoreMLGraphCheck.run(package: package, manifest: manifest, progress: progress)
+        lines.append(contentsOf: graph.lines)
+        summary.append(contentsOf: graph.summary)
+        try Task.checkCancellation()
+        let golden = try VieNeuCoreMLGoldenSpeedCheck.run(package: package, manifest: manifest, progress: progress)
+        lines.append(contentsOf: golden.lines)
+        summary.append(contentsOf: golden.summary)
         lines.append("nhiệt lúc xong \(thermal()) · \(ProcessMemoryProbe.snapshot().summary) · \(freeSpace(package))")
         return Outcome(report: lines.joined(separator: "\n"), summary: summary)
     }
 
-    // MARK: - Dùng chung với VieNeuCoreMLNoOptTrial
+    // MARK: - Dùng chung với VieNeuCoreMLGraphCheck / VieNeuCoreMLGoldenSpeedCheck
 
     static func targets(_ manifest: VieNeuCoreMLPackage.Manifest) -> [Target] {
         var result: [Target] = []

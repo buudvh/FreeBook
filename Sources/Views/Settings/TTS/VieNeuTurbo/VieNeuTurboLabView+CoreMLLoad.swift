@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Khối **"Đo nạp Core ML"** của `VieNeuTurboLabView` — đo vì sao nạp session Core ML lâu và bản biên dịch nặng, và thử
-/// bản tắt tối ưu đồ thị ORT (P2b-0).
+/// Khối **"Đo nạp Core ML"** của `VieNeuTurboLabView` — P2b-1: tải gói định dạng 3 (trọng số không còn bị ghi thành chữ
+/// trong model), biên dịch VE + codec bucket nhỏ nhất, đo dung lượng / thời gian nạp / chất lượng / tốc độ.
 /// Logic ở `VieNeuCoreMLLoadProbe` / `VieNeuCoreMLLoadWorker` (`Services/TTS/VieNeu/CoreML/`); màn chỉ vẽ.
 extension VieNeuTurboLabView {
     @ViewBuilder
@@ -24,7 +24,7 @@ extension VieNeuTurboLabView {
                 .buttonStyle(.appFilled)
                 .disabled(!probe.canRun || lab.isBusy)
                 if !probe.isReady {
-                    Text("Chưa có bản biên dịch Core ML — chạy \"Đo tự động\" ở trên tới hết bước chuẩn bị trước.")
+                    Text("Không dựng được thư mục gói Core ML.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -52,9 +52,9 @@ extension VieNeuTurboLabView {
                 }
             }
         } header: {
-            SectionHelpHeader("Đo nạp Core ML (P2b-0)", paragraphs: [
-                "Lần đo trước tìm ra: nạp session Core ML mất ~20 s và bản biên dịch nặng ~4 GB vì trọng số bị ghi **thành chữ** trong chương trình model (do một bước tối ưu của ORT), không nằm trong file trọng số.",
-                "Lượt này thử **tắt tối ưu đồ thị ORT** cho Core ML: đọc lướt chương trình hiện tại, biên dịch lại VE + codec bucket nhỏ nhất ở bản tắt tối ưu (thư mục riêng), so dung lượng, thời gian nạp, chất lượng và **tốc độ mỗi lượt** với bản hiện tại.",
+            SectionHelpHeader("Đo nạp Core ML (P2b-1)", paragraphs: [
+                "Gói Core ML mới (định dạng 3) được xuất lại trên PC để trọng số nằm trong **file trọng số** thay vì bị ghi thành chữ trong chương trình model — nguyên nhân nạp ~20 s và bản biên dịch ~4 GB. Phép tính không đổi.",
+                "Bấm một lần: tự **tải phần gói đã đổi** (~270 MB lần đầu, nên dùng Wi-Fi; bản biên dịch cũ tự xoá), biên dịch VE + codec bucket nhỏ nhất, rồi đo dung lượng, thời gian nạp, chất lượng (phải trùng số cũ) và **tốc độ mỗi lượt** (phải như cũ).",
                 "Mất vài phút, máy ấm lên. **Giữ màn này mở** (màn hình không tự tắt trong lúc đo). Đường đọc truyện không đổi."
             ])
         }

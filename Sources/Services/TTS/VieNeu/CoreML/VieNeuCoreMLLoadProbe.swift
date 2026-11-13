@@ -1,18 +1,28 @@
 import Foundation
 import Observation
 
-/// Trạng thái phép đo **"Đo nạp Core ML"** ở màn thử VieNeu Turbo (P2a 1.3.912, P2b-0 1.3.913) — phần tính ở
-/// `VieNeuCoreMLLoadWorker`, chạy trong `Task.detached(priority: .userInitiated)` (như trình đọc). Lượt ngắn (vài phút,
-/// màn giữ sáng) nên không có Chạy tiếp. File trọng số mà bản 1.3.912 đổi tên lúc bị ngắt được trả về khi mở màn thử.
+/// Trạng thái phép đo **"Đo nạp Core ML"** ở màn thử VieNeu Turbo (P2a 1.3.912, P2b-0 1.3.913, P2b-1 1.3.915) — phần
+/// tính ở `VieNeuCoreMLLoadWorker`, chạy trong `Task.detached(priority: .userInitiated)` (như trình đọc). Lượt ngắn (vài
+/// phút, màn giữ sáng) nên không có Chạy tiếp. File trọng số mà bản 1.3.912 đổi tên lúc bị ngắt được trả về khi mở màn thử.
 ///
-/// Dùng chung gói + bản biên dịch của "Đo tự động" (`VieNeuCoreMLPackage`); P2b-0 biên dịch thêm VE + codec bucket nhỏ
-/// nhất vào `Cache-noopt/` (bản tắt tối ưu đồ thị ORT).
+/// P2b-1: mỗi lượt **làm mới gói trước** (`VieNeuCoreMLPackage.download` — tải phần đổi theo sha256; có file mới thì xoá
+/// cache biên dịch cũ), nên không cần chạy "Đo tự động" trước. Dùng chung gói + cache với "Đo tự động".
 @MainActor
 @Observable
 final class VieNeuCoreMLLoadProbe {
+    enum ProbeError: LocalizedError {
+        case manifestUnreadable
+
+        var errorDescription: String? {
+            switch self {
+            case .manifestUnreadable: return "Không đọc được manifest gói Core ML sau khi tải — thử lại."
+            }
+        }
+    }
+
     let package: VieNeuCoreMLPackage?
 
-    /// Gói đủ file và đã có bản biên dịch (lượt Đo tự động đã chạy qua bước chuẩn bị).
+    /// Dựng được thư mục gói (lượt đo tự tải gói nếu thiếu / cũ).
     private(set) var isReady = false
     private(set) var isRunning = false
     private(set) var statusLine = ""
@@ -36,17 +46,13 @@ final class VieNeuCoreMLLoadProbe {
 
     func refresh() {
         guard !isRunning else { return }
-        guard let package else {
-            isReady = false
-            return
-        }
-        isReady = package.isComplete && package.cacheBytes > 0
+        isReady = package != nil
     }
 
-    /// `prepare` (màn thử) dừng TTS + các lượt khác, nhả Turbo và engine Nano — chạy xong mới đo, để CPU của tiến trình
-    /// chỉ là phần nạp.
+    /// `prepare` (màn thử) dừng TTS + các lượt khác, nhả Turbo và engine Nano — chạy xong mới tải gói / đo, để CPU của
+    /// tiến trình chỉ là phần nạp.
     func start(prepare: @escaping @MainActor () async -> Void) {
-        guard canRun, let package, let manifest = package.manifest else { return }
+        guard canRun, let package else { return }
         isRunning = true
         errorMessage = nil
         summaryLines = []
@@ -56,24 +62,33 @@ final class VieNeuCoreMLLoadProbe {
         AppLogger.shared.log("🎙️ [VieNeuCoreMLLoad] Bắt đầu đo nạp — \(ProcessMemoryProbe.snapshot().summary)")
         runTask = Task { [weak self] in
             await prepare()
-            // Bấm Dừng trong lúc chuẩn bị: task tách rời không thừa hưởng huỷ — đừng bắt đầu đo.
-            guard !Task.isCancelled else {
-                self?.statusLine = "Đã dừng."
-                self?.isRunning = false
-                self?.refresh()
-                return
-            }
-            let progress: @Sendable (String) -> Void = { [weak self] line in
-                Task { @MainActor [weak self] in
-                    guard let self, self.isRunning else { return }
-                    self.statusLine = line
-                }
-            }
-            let compute = Task.detached(priority: .userInitiated) {
-                try VieNeuCoreMLLoadWorker.run(package: package, manifest: manifest, progress: progress)
-            }
-            self?.computeTask = compute
             do {
+                // Bấm Dừng trong lúc chuẩn bị: đừng tải / đo.
+                try Task.checkCancellation()
+                self?.statusLine = "Đang kiểm gói Core ML…"
+                let download = try await package.download { [weak self] name, done, total in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isRunning else { return }
+                        let percent = total > 0 ? Int(Double(done) / Double(total) * 100) : 0
+                        self.statusLine = "Kiểm / tải gói Core ML \(percent)%: \(name)…"
+                    }
+                }
+                guard let manifest = package.manifest else { throw ProbeError.manifestUnreadable }
+                let note = download.downloadedFiles == 0
+                    ? "gói không đổi"
+                    : "tải lại \(download.downloadedFiles) file (\(ByteCountFormatter.string(fromByteCount: download.downloadedBytes, countStyle: .file)))"
+                        + (download.clearedCache ? ", đã xoá bản biên dịch cũ" : "")
+                try Task.checkCancellation()
+                let progress: @Sendable (String) -> Void = { [weak self] line in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isRunning else { return }
+                        self.statusLine = line
+                    }
+                }
+                let compute = Task.detached(priority: .userInitiated) {
+                    try VieNeuCoreMLLoadWorker.run(package: package, manifest: manifest, downloadNote: note, progress: progress)
+                }
+                self?.computeTask = compute
                 let outcome = try await compute.value
                 self?.finish(outcome)
             } catch is CancellationError {

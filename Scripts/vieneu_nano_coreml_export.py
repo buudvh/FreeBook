@@ -11,6 +11,11 @@ Dựng trên các bước mổ graph của `vieneu_nano_static_export.py` (P1, g
   ⇒ app nạp file trọng số vào bộ nhớ bằng `AddExternalInitializersFromFilesInMemory` (ORT chép thẳng vào graph).
 * **Khoá cache Core ML** (`COREML_CACHE_KEY` trong metadata, chữ + số, < 64 ký tự): mặc định ORT băm **đường dẫn**
   model, thay file cùng tên là dùng nhầm bản biên dịch cũ ⇒ khoá = tên + 12 ký tự hex của sha256(graph + trọng số).
+* **Gemm luôn `transB=1`** (định dạng 3, 2026-11-13): `ort_basic` (ORT mức BASIC) gộp MatMul + Add thành
+  `Gemm(transB=0)`; Core ML EP của ORT 1.24.2 (`gemm_op_builder.cc`) chuyển vị B của Gemm `transB=0` thành **hằng
+  immediate** ⇒ trọng số Linear nằm trong chữ `model.mil` (VE 549 MB / bucket), mỗi lần nạp Core ML mất ~20 s, cache
+  4,16 GB. Lưu sẵn Bᵀ + `transB=1` ⇒ EP tham chiếu initializer theo tên ⇒ trọng số vào `weight.bin`; phép tính không
+  đổi (ORT CPU trùng bit). Báo cáo `2026-11-11-vieneu-nano-toi-uu.md` §13–14.
 * Tự kiểm **mọi bucket vừa với từng đoạn golden** (đoạn T = 47 chạy cả VE 64 / 96 / 128 / 160 và codec 64 / 128 / 160)
   bằng ORT CPU, nạp lại từ đĩa, so với graph gốc ở cùng ngưỡng sàn fp32 như P1. Lệch là thoát mã 1, không ghi manifest.
 
@@ -26,13 +31,16 @@ import os
 import sys
 import tempfile
 
+from collections import Counter
+
 import numpy as np
 import onnx
+from onnx import helper, numpy_helper
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vieneu_nano_static_export as base  # noqa: E402  (cùng thư mục)
 
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3  # 3 = Gemm transB=1 (trọng số Bᵀ) — app cũ (định dạng 2) từ chối thay vì trộn trọng số cũ / graph mới
 L_FROZEN = 256
 VE_BUCKETS = (64, 96, 128, 160)
 CODEC_BUCKETS = (64, 128, 160)
@@ -60,6 +68,44 @@ def stamp_cache_key(path: str, prefix: str, weights_sha: str) -> str:
     return key
 
 
+def gemm_weights_to_transb(model: onnx.ModelProto) -> int:
+    """Gemm `transB=0` có B là initializer ⇒ lưu Bᵀ thay B, đặt `transB=1`. Trả số node đã đổi.
+
+    Phép tính không đổi; chỉ đổi chỗ Core ML EP cất trọng số (xem docstring module). B dùng chung cho nhiều node thì
+    dừng (chưa gặp ở Nano — chuyển vị tại chỗ sẽ làm sai node kia).
+    """
+    consumers = Counter(name for node in model.graph.node for name in node.input)
+    initializers = {tensor.name: tensor for tensor in model.graph.initializer}
+    changed = 0
+    for node in model.graph.node:
+        if node.op_type != "Gemm" or len(node.input) < 2 or node.input[1] not in initializers:
+            continue
+        trans_b = next((attr for attr in node.attribute if attr.name == "transB"), None)
+        if trans_b is not None and trans_b.i == 1:
+            continue
+        name = node.input[1]
+        if consumers[name] != 1:
+            raise RuntimeError(f"Gemm {node.name}: B {name} dùng chung {consumers[name]} chỗ — chưa hỗ trợ")
+        array = numpy_helper.to_array(initializers[name])
+        if array.ndim != 2:
+            raise RuntimeError(f"Gemm {node.name}: B {name} không phải 2 chiều ({array.shape})")
+        initializers[name].CopyFrom(numpy_helper.from_array(np.ascontiguousarray(array.T), name))
+        if trans_b is None:
+            node.attribute.append(helper.make_attribute("transB", 1))
+        else:
+            trans_b.i = 1
+        changed += 1
+    return changed
+
+
+def untransposed_gemm_count(model: onnx.ModelProto) -> int:
+    """Số Gemm `transB=0` còn B là initializer (phải bằng 0 sau `gemm_weights_to_transb`)."""
+    initializers = {tensor.name for tensor in model.graph.initializer}
+    return sum(1 for node in model.graph.node if node.op_type == "Gemm" and len(node.input) > 1
+               and node.input[1] in initializers
+               and next((attr.i for attr in node.attribute if attr.name == "transB"), 0) == 0)
+
+
 def build_ve(base_model: onnx.ModelProto, work: str, out: str) -> dict:
     preps, mains = {}, {}
     for bucket in VE_BUCKETS:
@@ -72,8 +118,12 @@ def build_ve(base_model: onnx.ModelProto, work: str, out: str) -> dict:
         count = base.rewrite_masked_where(model)
         prep, main = base.split_prep_main(model)
         base.floatify_bool_inputs(prep)
+        gemms = gemm_weights_to_transb(main)
+        if untransposed_gemm_count(main) or untransposed_gemm_count(prep):
+            raise RuntimeError(f"VE T{bucket}: còn Gemm transB=0 có B là initializer")
         preps[bucket], mains[bucket] = prep, main
-        log(f"  VE T{bucket}: Where viết lại {count}, prep {len(prep.graph.node)} node, main {len(main.graph.node)} node")
+        log(f"  VE T{bucket}: Where viết lại {count}, Gemm → transB=1 {gemms}, prep {len(prep.graph.node)} node, "
+            f"main {len(main.graph.node)} node")
     for bucket, prep in preps.items():
         onnx.save(prep, os.path.join(out, f"ve_prep_T{bucket}.onnx"))
     base.save_external([(mains[b], os.path.join(out, f"ve_main_T{b}.onnx")) for b in VE_BUCKETS],
@@ -92,8 +142,11 @@ def build_codec(model_dir: str, work: str, out: str) -> dict:
         base.freeze(codec, {"x": [1, base.CHANNELS, bucket]}, {})
         codec = base.ort_basic(codec, work, f"codec_T{bucket}")
         pads, norms = base.fuse_left_pads(codec), base.batchnorm_to_mul_add(codec)
+        gemms = gemm_weights_to_transb(codec)
+        if untransposed_gemm_count(codec):
+            raise RuntimeError(f"codec T{bucket}: còn Gemm transB=0 có B là initializer")
         models.append((codec, os.path.join(out, f"codec_T{bucket}.onnx")))
-        log(f"  codec T{bucket}: gộp {pads} Pad vào Conv, đổi {norms} BatchNorm")
+        log(f"  codec T{bucket}: gộp {pads} Pad vào Conv, đổi {norms} BatchNorm, Gemm → transB=1 {gemms}")
     base.save_external(models, os.path.join(out, CODEC_WEIGHTS))
     weights_sha = file_sha256(os.path.join(out, CODEC_WEIGHTS))
     return {f"codec_T{b}.onnx": stamp_cache_key(os.path.join(out, f"codec_T{b}.onnx"), f"vncodec{b}x", weights_sha)
@@ -171,7 +224,8 @@ def build(out: str, model_dir: str) -> int:
             f"VE {'/'.join(map(str, VE_BUCKETS))}, codec {'/'.join(map(str, CODEC_BUCKETS))}, L = {L_FROZEN}), gấp hằng"
             " (ONNX Runtime 1.24.2 mức BASIC),\n"
             "đổi Where(mask, -FLT_MAX, ·) thành Add(bias), tách graph chuẩn bị / graph chính; codec: gộp Pad vào Conv,\n"
-            "đổi BatchNormalization thành Mul + Add. Thêm metadata COREML_CACHE_KEY.\n"
+            "đổi BatchNormalization thành Mul + Add; Gemm lưu trọng số chuyển vị (Bᵀ, transB=1 — phép tính không đổi).\n"
+            "Thêm metadata COREML_CACHE_KEY.\n"
             "Sinh bởi Scripts/vieneu_nano_coreml_export.py.\n")
     files = sorted(name for name in os.listdir(out) if name != "manifest.json")
     manifest = {
