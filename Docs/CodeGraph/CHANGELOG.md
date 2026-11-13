@@ -2,6 +2,35 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.913] - 2026-11-13
+
+### feat: Đo nạp Core ML thử bản tắt tối ưu đồ thị ORT để trọng số không còn bị ghi thành chữ trong model
+
+Anh Bửu gửi kết quả Đo nạp Core ML 1.3.912 (1250):
+- Nạp chậm là của chính Core ML: Core ML gốc nạp VE T64 mất 18–20 s, gần bằng ORT + Core ML EP (20–21 s), trong khi ORT CPU chỉ 0,6 s.
+- Nguyên nhân: trọng số nằm **trong chữ** `model.mil` (VE 549 MB, codec 323 MB), còn `weight.bin` chỉ 10–15 MB. Đây cũng là 4,16 GB cache.
+- Đã xác minh trong mã ORT 1.24.2:
+  - `MatMulAddFusion` chạy ở mức 1 cho mọi EP và gộp MatMul + Add thành `Gemm(transB=0)`;
+  - Core ML EP chuyển vị B của Gemm thành hằng immediate (`AddConstant` → `CreateTensorValue`).
+
+Anh duyệt plan P2b-0: chỉ đo, không đụng đường đọc truyện. Chi tiết ở §13 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Bridge** `VieNeuONNXProbeBridge.m`: khoá riêng `fb.graph_optimization` (`disable` / `basic` / `extended`). Bridge bóc khoá ra trước khi đưa tuỳ chọn cho EP, rồi đặt mức tối ưu đồ thị của session.
+- **Bản tắt tối ưu**:
+  - `VieNeuCoreMLFlowBackend` có thêm `disablesGraphOptimization`, và `coreMLOptions(package:disablesGraphOptimization:)` thêm khoá trên + đổi cache sang `Cache-noopt/`.
+  - Thư mục riêng vì khoá cache lấy từ metadata graph; dùng chung thư mục là nạp lại bản cũ.
+  - Lượt đọc và đo tự động không đổi.
+  - Tải lại gói / Xoá thì dọn cả hai thư mục cache.
+- **"Đo nạp Core ML" chạy phép thử P2b-0** (`VieNeuCoreMLLoadWorker`, `VieNeuCoreMLNoOptTrial`, `VieNeuCoreMLNoOptComparison`):
+  1. kiểm kê bản biên dịch hiện tại;
+  2. đọc lướt `model.mil` hiện tại (VE / codec bucket nhỏ nhất), liệt kê dòng dài nhất kèm tên + kiểu hằng (`VieNeuCoreMLMilScan`, khối 4 MB + `memchr`);
+  3. biên dịch VE + codec bucket nhỏ nhất ở bản tắt tối ưu: thời gian, số partition, dung lượng;
+  4. nạp bằng Core ML gốc (kèm lượt đoán đầu) và ORT + Core ML EP, mỗi cách 2 lần;
+  5. cùng đoạn golden qua hai bản: dB so tham chiếu PC, dB giữa hai bản, trung vị thời gian mỗi quỹ đạo VE / mỗi lượt VE / mỗi lần codec.
+- Phát hiện biên dịch lại nay dựa vào thời gian + ngày sửa `model.mil`; bỏ dòng partition trong log và `weight.bin`. Đính chính §13: cờ "ORT ghi lại gói" của 1.3.912 là báo nhầm (log INFO in partition mọi lần, ORT tạo lại `weight.bin` rỗng mỗi lần dựng session).
+- Bỏ bước băm trọng số và thử bỏ bản thừa của 1.3.912 (đã có câu trả lời: hai bản `weight.bin` là clone APFS).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.912] - 2026-11-13
 
 ### feat: Màn thử VieNeu có Đo nạp Core ML để tìm vì sao nạp session lâu và bản biên dịch nặng 4 GB
@@ -575,14 +604,4 @@ Lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36% và mát
 - Lượt tổng hợp chạy ORT trong `Task.detached(priority:)` ở mức cố định đó, thay vì mức của tác vụ nào xếp hàng trước trong `PiperSynthesisCoordinator` (phần lớn `.utility`). Lệnh huỷ được chuyển xuống task con (`withTaskCancellationHandler`) vì engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
 - Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.881) có `qos=` / `sessionQos=` để kiểm trên máy.
 - Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.883).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
-
-## [1.3.883] - 2026-11-11
-
-### feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng
-
-Anh Bửu nghe Turbo trên truyện thật ở tốc độ phát **1,4×**: Minh Quân Pro hụt ít, Mai Anh và Adam bựa hụt nhiều. Ở 1,4× cần RTF < 0,714, Turbo đang ~0,70 (QoS utility) ⇒ sát mép. Anh duyệt plan: đo QoS cao hơn ở màn thử trước, đạt RTF ≲ 0,55 mới đưa vào trình đọc. Lượt này chỉ là phần đo; **trình đọc không đổi** (vẫn utility).
-
-- `VieNeuTurboRuntime.synthesize(…, qos:)` (mặc định `.utility`): mỗi lượt chạy trên hàng đợi tuần tự với QoS riêng (`async(qos:flags: .enforceQoS)`). Không OpenMP ⇒ ggml tạo luồng tính mới mỗi lượt từ chính luồng gọi, luồng mới mang QoS của nó ⇒ nâng QoS một lượt là cả lượt chạy ở mức đó. `Output.qosName` = QoS **đo được** (`qos_class_self()`).
-- Màn thử › Đọc liên tục (Turbo): Picker QoS utility / userInitiated (`VieNeuTurboLab.turboQoS`, chỉ cho lượt đo); "Đọc thử một lần" cũng theo lựa chọn này. Mỗi dòng đoạn ghi "QoS tổng hợp …" đo được; mô tả engine ghi QoS đã chọn; chú thích "Nghe ở 1,4× cần RTF dưới 0,71".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.

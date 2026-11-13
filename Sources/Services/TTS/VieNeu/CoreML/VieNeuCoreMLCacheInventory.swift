@@ -1,9 +1,8 @@
-import CryptoKit
 import Foundation
 
 /// Kiểm kê thư mục cache Core ML của Nano (`VieNeuCoreMLPackage.cacheDirectory`) cho phép đo P2a "Đo nạp Core ML":
 /// mục nào thuộc graph nào, mỗi mục tốn bao nhiêu cho **gói MLProgram** ORT ghi ra và bao nhiêu cho **bản biên dịch**
-/// (`compiled_model.mlmodelc`), file trọng số nào trùng byte.
+/// (`compiled_model.mlmodelc`), những file lớn nào.
 ///
 /// Bố cục ORT 1.24.2 (đã đọc mã, báo cáo §11): `Cache/<COREML_CACHE_KEY>/<id>_static_mlprogram/model/` là gói, bản biên
 /// dịch nằm **trong** gói (`…/model/compiled_model.mlmodelc`). Khoá cache do script xuất ghi: `vnve<T>x…` (VE main),
@@ -107,58 +106,6 @@ enum VieNeuCoreMLCacheInventory {
         let path = url.resolvingSymlinksInPath().path
         guard path.hasPrefix(base) else { return url.lastPathComponent }
         return String(path.dropFirst(base.count).drop { $0 == "/" })
-    }
-
-    // MARK: - Trọng số trùng byte
-
-    struct WeightGroup: Sendable {
-        let digest: String
-        let bytes: Int64
-        let members: [String]
-    }
-
-    /// Băm mọi `weight.bin` (gói + bản biên dịch) rồi gom theo sha256 — nhóm > 1 phần tử = gộp được bằng hard link.
-    /// Mỗi phần tử kèm dung lượng **thật trên đĩa** và mã nội dung APFS: hai bản là clone (cùng mã) thì bỏ một bản
-    /// không lấy lại được chỗ nào, dù dung lượng logic vẫn tính đủ cả hai.
-    static func weightGroups(_ entries: [Entry], progress: (String) -> Void) throws -> [WeightGroup] {
-        var byDigest: [String: (bytes: Int64, members: [String])] = [:]
-        var order: [String] = []
-        for entry in entries {
-            for url in entry.weightFiles {
-                try Task.checkCancellation()
-                let inside = url.pathComponents.contains(compiledName) ? "biên dịch" : "gói"
-                progress("Băm trọng số \(entry.label) (\(inside))…")
-                let digest = try sha256Mapped(url)
-                if byDigest[digest] == nil { order.append(digest) }
-                byDigest[digest, default: (VieNeuTurboModelStore.fileSize(at: url), [])].members
-                    .append("\(entry.label)#\(entry.partition) \(inside) [\(storageNote(url))]")
-            }
-        }
-        return order.compactMap { digest in
-            byDigest[digest].map { WeightGroup(digest: digest, bytes: $0.bytes, members: $0.members) }
-        }
-    }
-
-    /// sha256 đọc qua **ánh xạ file** (`.alwaysMapped`): trang nhớ thuộc file, hệ thống tự nhả được — băm ~4 GB trong
-    /// một lượt đồng bộ mà đọc từng khối `Data` thì RAM dồn lên như lỗi autorelease của 1.3.906.
-    private static func sha256Mapped(_ url: URL) throws -> String {
-        try autoreleasepool {
-            let data = try Data(contentsOf: url, options: .alwaysMapped)
-            return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        }
-    }
-
-    /// "đĩa 150 MB · clone? có · mã 1234": dung lượng cấp phát thật, APFS có thể dùng chung nội dung không, mã nội dung
-    /// (hai file cùng mã = clone của nhau).
-    static func storageNote(_ url: URL) -> String {
-        let keys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .mayShareFileContentKey, .fileContentIdentifierKey]
-        guard let values = try? url.resourceValues(forKeys: keys) else { return "không đọc được thuộc tính" }
-        let allocated = values.totalFileAllocatedSize.map {
-            ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file)
-        } ?? "?"
-        let shares = values.mayShareFileContent.map { $0 ? "có" : "không" } ?? "?"
-        let identifier = values.fileContentIdentifier.map { String($0) } ?? "?"
-        return "đĩa \(allocated) · clone? \(shares) · mã \(identifier)"
     }
 
     /// Dung lượng trống của ổ chứa `url` (cho việc quan trọng) — ghi đầu / cuối báo cáo.

@@ -7,6 +7,9 @@ import Foundation
 /// - `Package/` — graph VE / codec từng bucket + hai file trọng số dùng chung + golden;
 /// - `Cache/` — bản Core ML đã biên dịch (`ModelCacheDirectory` của ORT, khoảng 150 MB mỗi bucket VE, 100 MB mỗi bucket
 ///   codec). Tải lại gói hay xoá gói đều **xoá cache** (bản biên dịch cũ không còn khớp graph);
+/// - `Cache-noopt/` — bản biên dịch thử nghiệm P2b-0: session Core ML dựng khi **tắt tối ưu đồ thị ORT**
+///   (`VieNeuCoreMLFlowBackend.coreMLOptions(package:disablesGraphOptimization:)`). Thư mục riêng vì khoá cache của ORT lấy
+///   từ metadata graph — dùng chung thư mục là nạp lại bản cũ;
 /// - `Results/` — báo cáo của lượt đo tự động.
 final class VieNeuCoreMLPackage: Sendable {
     /// Đọc theo nhánh `main` như `VieNeuNanoStaticPackage` — an toàn vì mọi file kiểm sha256 theo manifest cùng lượt.
@@ -51,12 +54,14 @@ final class VieNeuCoreMLPackage: Sendable {
     let rootURL: URL
     let directory: URL
     let cacheDirectory: URL
+    let noOptCacheDirectory: URL
     let resultsURL: URL
 
     init() throws {
         rootURL = try VieNeuModelStore().rootURL.appendingPathComponent("CoreML", isDirectory: true)
         directory = rootURL.appendingPathComponent("Package", isDirectory: true)
         cacheDirectory = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        noOptCacheDirectory = rootURL.appendingPathComponent("Cache-noopt", isDirectory: true)
         resultsURL = rootURL.appendingPathComponent("Results", isDirectory: true)
     }
 
@@ -77,7 +82,8 @@ final class VieNeuCoreMLPackage: Sendable {
     }
 
     var packageBytes: Int64 { Self.bytes(in: directory) }
-    var cacheBytes: Int64 { Self.bytes(in: cacheDirectory) }
+    /// Gồm cả bản thử P2b-0 (`Cache-noopt/`) — màn thử hiện một con số cho nút Xoá.
+    var cacheBytes: Int64 { Self.bytes(in: cacheDirectory) + Self.bytes(in: noOptCacheDirectory) }
 
     /// Tải manifest rồi mọi file còn thiếu / sai dung lượng; có file mới ⇒ xoá cache biên dịch.
     func download(progress: @escaping @Sendable (String, Int64, Int64) -> Void) async throws {
@@ -122,6 +128,7 @@ final class VieNeuCoreMLPackage: Sendable {
 
     func deleteCache() {
         try? FileManager.default.removeItem(at: cacheDirectory)
+        try? FileManager.default.removeItem(at: noOptCacheDirectory)
     }
 
     /// Kết quả dọn cache: số mục giữ / xoá + một đường dẫn bản biên dịch tìm thấy (tương đối với `Cache/`) để nhật ký

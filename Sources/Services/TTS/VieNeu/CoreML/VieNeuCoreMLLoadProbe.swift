@@ -1,11 +1,12 @@
 import Foundation
 import Observation
 
-/// Trạng thái phép đo P2a **"Đo nạp Core ML"** ở màn thử VieNeu Turbo — phần tính ở `VieNeuCoreMLLoadWorker`, chạy
-/// trong `Task.detached(priority: .userInitiated)` (như trình đọc). Lượt ngắn (vài phút, màn giữ sáng) nên không có
-/// Chạy tiếp; bị ngắt giữa phép thử bỏ trọng số thì file đổi tên được trả về ở lần mở màn thử / lần chạy sau.
+/// Trạng thái phép đo **"Đo nạp Core ML"** ở màn thử VieNeu Turbo (P2a 1.3.912, P2b-0 1.3.913) — phần tính ở
+/// `VieNeuCoreMLLoadWorker`, chạy trong `Task.detached(priority: .userInitiated)` (như trình đọc). Lượt ngắn (vài phút,
+/// màn giữ sáng) nên không có Chạy tiếp. File trọng số mà bản 1.3.912 đổi tên lúc bị ngắt được trả về khi mở màn thử.
 ///
-/// Dùng chung gói + bản biên dịch của "Đo tự động" (`VieNeuCoreMLPackage`); không tải, không biên dịch thêm.
+/// Dùng chung gói + bản biên dịch của "Đo tự động" (`VieNeuCoreMLPackage`); P2b-0 biên dịch thêm VE + codec bucket nhỏ
+/// nhất vào `Cache-noopt/` (bản tắt tối ưu đồ thị ORT).
 @MainActor
 @Observable
 final class VieNeuCoreMLLoadProbe {
@@ -76,7 +77,7 @@ final class VieNeuCoreMLLoadProbe {
                 let outcome = try await compute.value
                 self?.finish(outcome)
             } catch is CancellationError {
-                self?.statusLine = "Đã dừng (file trọng số đã trả về)."
+                self?.statusLine = "Đã dừng."
             } catch {
                 self?.errorMessage = "Đo nạp lỗi: \(error.localizedDescription)"
                 AppLogger.shared.log("❌ [VieNeuCoreMLLoad] Đo nạp lỗi: \(error.localizedDescription)")

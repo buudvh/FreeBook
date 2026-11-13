@@ -47,6 +47,9 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     let package: VieNeuCoreMLPackage
     let manifest: VieNeuCoreMLPackage.Manifest
+    /// Bản thử P2b-0: session Core ML dựng khi tắt tối ưu đồ thị ORT, cache ở `Cache-noopt/`. Lượt đọc / đo tự động
+    /// vẫn `false`.
+    let disablesGraphOptimization: Bool
     private let lock = NSLock()
     private var sessionCap: Int
     private var preps: [Int: VieNeuONNXProbeSession] = [:]
@@ -57,10 +60,16 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     private var stats = Stats()
     private var estimateMB = 300.0
 
-    init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int) {
+    init(
+        package: VieNeuCoreMLPackage,
+        manifest: VieNeuCoreMLPackage.Manifest,
+        sessionCap: Int,
+        disablesGraphOptimization: Bool = false
+    ) {
         self.package = package
         self.manifest = manifest
         self.sessionCap = max(2, sessionCap)
+        self.disablesGraphOptimization = disablesGraphOptimization
     }
 
     var statsSnapshot: Stats {
@@ -282,11 +291,13 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     }
 
     private func makeCoreMLSession(_ name: String, weights: String, logPath: String) throws -> VieNeuONNXProbeSession {
-        try FileManager.default.createDirectory(at: package.cacheDirectory, withIntermediateDirectories: true)
+        let options = Self.coreMLOptions(package: package, disablesGraphOptimization: disablesGraphOptimization)
+        let cache = disablesGraphOptimization ? package.noOptCacheDirectory : package.cacheDirectory
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         return try VieNeuONNXProbeSession(
             modelPath: package.url(name).path,
             provider: "CoreML",
-            options: Self.coreMLOptions(package: package),
+            options: options,
             threads: 2,
             logPath: logPath,
             weights: [.init(name: weights, path: package.url(weights).path)]
@@ -295,13 +306,20 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     /// Tuỳ chọn Core ML EP của mọi session Core ML (lượt đọc, chuẩn bị, `VieNeuCoreMLLoadWorker`) — một chỗ, để phép đo
     /// nạp trúng đúng bản biên dịch mà lượt đọc dùng.
-    static func coreMLOptions(package: VieNeuCoreMLPackage) -> [String: String] {
-        [
+    ///
+    /// `disablesGraphOptimization` (P2b-0): thêm khoá riêng `fb.graph_optimization = disable` mà bridge bóc ra trước khi đưa
+    /// tuỳ chọn cho EP (⇒ `ORT_DISABLE_ALL`, không `MatMulAddFusion`) và đổi cache sang `Cache-noopt/`.
+    static func coreMLOptions(package: VieNeuCoreMLPackage, disablesGraphOptimization: Bool = false) -> [String: String] {
+        var options = [
             "ModelFormat": "MLProgram",
             "MLComputeUnits": "CPUOnly",
             "RequireStaticInputShapes": "1",
-            "ModelCacheDirectory": package.cacheDirectory.path
+            "ModelCacheDirectory": (disablesGraphOptimization ? package.noOptCacheDirectory : package.cacheDirectory).path
         ]
+        if disablesGraphOptimization {
+            options["fb.graph_optimization"] = "disable"
+        }
+        return options
     }
 
     private func noteLoadLocked(key: String, started: TimeInterval) {

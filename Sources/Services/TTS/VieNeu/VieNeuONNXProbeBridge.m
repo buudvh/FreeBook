@@ -120,13 +120,43 @@ VieNeuORTProbeSession *VieNeuORTProbeCreate(const char *modelPath,
         return NULL;
     }
     int captureLog = logPath != NULL && logPath[0] != '\0';
+    // Khoá riêng của app `fb.graph_optimization` (P2b-0) — bóc ra, không đưa cho EP (EP gặp khoá lạ là báo lỗi).
+    // "disable" ⇒ ORT_DISABLE_ALL: không chạy `MatMulAddFusion` (mức 1, mọi EP) ⇒ Core ML EP không chuyển vị trọng số
+    // Linear thành hằng nằm trong chương trình `model.mil`, trọng số vào `weight.bin`.
+    GraphOptimizationLevel optimization = ORT_ENABLE_ALL;
+    int32_t providerCount = 0;
+    const char **providerKeys = calloc((size_t)(optionCount > 0 ? optionCount : 1), sizeof(char *));
+    const char **providerValues = calloc((size_t)(optionCount > 0 ? optionCount : 1), sizeof(char *));
+    if (providerKeys == NULL || providerValues == NULL) {
+        free(providerKeys);
+        free(providerValues);
+        api->ReleaseSessionOptions(options);
+        probeSetError(errorMessage, "calloc thất bại");
+        VieNeuORTProbeDestroy(probe);
+        return NULL;
+    }
+    for (int32_t index = 0; index < optionCount; index++) {
+        if (keys[index] != NULL && strcmp(keys[index], "fb.graph_optimization") == 0) {
+            const char *value = values[index] != NULL ? values[index] : "";
+            if (strcmp(value, "disable") == 0) optimization = ORT_DISABLE_ALL;
+            else if (strcmp(value, "basic") == 0) optimization = ORT_ENABLE_BASIC;
+            else if (strcmp(value, "extended") == 0) optimization = ORT_ENABLE_EXTENDED;
+            continue;
+        }
+        providerKeys[providerCount] = keys[index];
+        providerValues[providerCount] = values[index];
+        providerCount++;
+    }
     OrtStatus *status = api->SetIntraOpNumThreads(options, threads > 0 ? threads : 1);
     if (status == NULL) status = api->AddSessionConfigEntry(options, "session.intra_op.allow_spinning", "0");
-    if (status == NULL) status = api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL);
+    if (status == NULL) status = api->SetSessionGraphOptimizationLevel(options, optimization);
     if (status == NULL && captureLog) status = api->SetSessionLogSeverityLevel(options, ORT_LOGGING_LEVEL_INFO);
     if (status == NULL && provider != NULL && strcmp(provider, "CPU") != 0) {
-        status = api->SessionOptionsAppendExecutionProvider(options, provider, keys, values, (size_t)optionCount);
+        status = api->SessionOptionsAppendExecutionProvider(options, provider, providerKeys, providerValues,
+                                                            (size_t)providerCount);
     }
+    free(providerKeys);
+    free(providerValues);
     // Trọng số external data nạp từ bộ nhớ (P1b): mmap từng file, đưa con trỏ cho ORT; ORT chép vào graph trong
     // `CreateSession` nên gỡ map ngay sau đó.
     ProbeMappedFile *mapped = NULL;

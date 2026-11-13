@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Khối **"Đo nạp Core ML (P2a)"** của `VieNeuTurboLabView` — đo vì sao nạp session Core ML lâu và bản biên dịch nặng.
+/// Khối **"Đo nạp Core ML"** của `VieNeuTurboLabView` — đo vì sao nạp session Core ML lâu và bản biên dịch nặng, và thử
+/// bản tắt tối ưu đồ thị ORT (P2b-0).
 /// Logic ở `VieNeuCoreMLLoadProbe` / `VieNeuCoreMLLoadWorker` (`Services/TTS/VieNeu/CoreML/`); màn chỉ vẽ.
 extension VieNeuTurboLabView {
     @ViewBuilder
@@ -51,9 +52,9 @@ extension VieNeuTurboLabView {
                 }
             }
         } header: {
-            SectionHelpHeader("Đo nạp Core ML (P2a)", paragraphs: [
-                "Đo vì sao mỗi lần nạp session Core ML mất ~20 s và bản biên dịch chiếm ~4 GB. Dùng luôn gói + bản biên dịch của \"Đo tự động\", không tải hay biên dịch thêm.",
-                "Bốn bước: (1) dung lượng từng mục — phần gói ORT ghi ra và phần bản biên dịch; (2) băm file trọng số tìm bản trùng; (3) nạp VE và codec bucket nhỏ nhất bằng **Core ML gốc** và bằng **ORT + Core ML EP**, mỗi cách 2 lần; (4) thử **bỏ bản trọng số của gói** ở một bucket (đổi tên, nạp lại, tự kiểm, rồi trả file về).",
+            SectionHelpHeader("Đo nạp Core ML (P2b-0)", paragraphs: [
+                "Lần đo trước tìm ra: nạp session Core ML mất ~20 s và bản biên dịch nặng ~4 GB vì trọng số bị ghi **thành chữ** trong chương trình model (do một bước tối ưu của ORT), không nằm trong file trọng số.",
+                "Lượt này thử **tắt tối ưu đồ thị ORT** cho Core ML: đọc lướt chương trình hiện tại, biên dịch lại VE + codec bucket nhỏ nhất ở bản tắt tối ưu (thư mục riêng), so dung lượng, thời gian nạp, chất lượng và **tốc độ mỗi lượt** với bản hiện tại.",
                 "Mất vài phút, máy ấm lên. **Giữ màn này mở** (màn hình không tự tắt trong lúc đo). Đường đọc truyện không đổi."
             ])
         }
