@@ -2,6 +2,40 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.921] - 2026-11-13
+
+### feat: Siri, NghiTTS, Google TTS và tiện ích chọn giọng bằng sheet giống VieNeu, có tìm, thử giọng và tải ngay tại chỗ
+
+Phần 3 của plan anh Bửu duyệt (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup "Chọn giọng"). Kèm ô tìm theo tên giọng anh xin thêm.
+
+- **Cài đặt TTS — mục "Giọng đọc"**: Siri / NghiTTS / Google / tiện ích bỏ `Picker` menu, thay bằng **một hàng** kiểu `VieNeuVoiceSummaryRow` (`TTSReaderVoiceSummaryRow` / `TTSVoiceSummaryRow`) ⇒ sheet chọn giọng.
+  - Dòng phụ theo trình đọc:
+    - Siri: "Tiếng Việt · Nâng cao / Mặc định / Premium";
+    - NghiTTS: dung lượng, hoặc cam "Chưa tải dữ liệu giọng · chạm để tải";
+    - Google: mô tả giọng;
+    - tiện ích: ngôn ngữ.
+  - Badge "Nhẹ" (Siri, NghiTTS) / "Online" (Google, tiện ích). `TTSVoiceBadge` dùng chung với badge Nhẹ / Vừa / Nặng của VieNeu.
+- **Sheet chọn giọng chung** (`TTSVoicePickerSheet`, `Views/Settings/TTS/Voices/`): cùng khung với sheet VieNeu — tiêu đề "Giọng đọc" + "?", ô "Tìm theo tên giọng" (`VoiceNameSearch`), hàng ▶ / ⬇ / ✓ / badge.
+  - **Siri:** giọng tiếng Việt trên máy (`SiriVoiceList`, đọc ngoài main); ▶ đọc câu thử bằng `AVSpeechSynthesizer` riêng.
+  - **NghiTTS** — thay màn "Quản lý Model giọng đọc" (`TTSModelManagerView` đã xoá):
+    - hàng "Nhập giọng từ file .onnx" (`NghiVoiceImporter`, chép file ngoài main);
+    - nhóm Giọng đặc sắc / Giọng khác / Giọng của tôi (`NghiVoiceDirectory`);
+    - ⬇ tải qua `ModelDownloadCenter.startNghiVoiceDownloads`, kèm **thư viện phiên âm** nếu còn thiếu (`ModelDownloadCenter+NghiDictionary`);
+    - nhấn giữ ⇒ "Xoá giọng". Giọng đang đọc (kể cả đang tạm dừng) ⇒ dừng phiên trước khi xoá;
+    - ▶ đi qua `nghiTTSService` / `PiperSynthesisCoordinator`, không mở session ORT thứ hai; thử giọng khác giọng trình đọc ⇒ đóng sheet thì nạp lại giọng trình đọc.
+  - **Google:** nhóm Giọng nữ / Giọng nam; ▶ qua `GoogleTTSService`; không có API key ⇒ báo, không gọi mạng.
+  - **Tiện ích:** giọng do tiện ích trả về (`ExtensionTTSVoiceList`, bỏ giọng thiếu `id` / trùng `id`); ▶ qua `extService.synthesizeData`.
+  - Thử giọng dùng chung `TTSVoicePreviewPlayer`: mỗi lúc một câu, đóng sheet thì dừng, chặn khi truyện đang phát (như VieNeu).
+- **"Quản lý riêng của trình đọc"**:
+  - NghiTTS: bỏ cảnh báo thiếu giọng / thư viện phiên âm và lối "Quản lý Model giọng đọc"; còn "Cài đặt NghiTTS", "Cấu hình tiền xử lý & ngắt nghỉ", "Từ điển phiên âm cá nhân".
+  - VieNeu: thêm lối "Cài đặt VieNeu TTS" ở đầu.
+- **Cài đặt NghiTTS**: hàng đầu "Giọng đọc NghiTTS" ⇒ sheet chọn giọng NghiTTS. Chọn ở đây khi trình đọc đang là engine khác thì chỉ lưu giọng NghiTTS, không đổi trình đọc.
+- `TTSSettingsView.swift` 442 → 312 dòng (danh sách giọng Siri / tiện ích chuyển ra `SiriVoiceList` / `ExtensionTTSVoiceList`). Bỏ entry allowlist của `TTSModelManagerView`.
+- Còn nguyên từ trước:
+  - giọng nhập có `-` trong id không đọc được (đổi id thành `_`);
+  - tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.920] - 2026-11-13
 
 ### feat: Màn Dung lượng tách rõ từng loại TTS và có Dọn rác theo luật dữ liệu đang dùng
@@ -640,34 +674,3 @@ Phần hai của lõi nhân bản giọng Turbo (anh Bửu đã duyệt plan). C
   - Đọc code audio.cpp v0.9.4: `session.cpp` (nhánh `encode_reference_only`, `parse_speaker_embedding_file`), `prompt_tts_voice_clone.cpp` (cắt 8 s, bỏ khung thừa), `capi/audiocpp.cpp` (artifact, payload mượn).
   - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
   - **Chưa build** (Windows), chưa chạy trên máy: ánh xạ kiểu C → Swift của `audiocpp_result_artifact` / `audiocpp_artifact_kind` chưa qua trình biên dịch.
-
-## [1.3.891] - 2026-11-12
-
-### feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding
-
-Anh Bửu duyệt plan nhân bản giọng cho VieNeu Turbo. Đợt này chỉ làm lõi (chưa có giao diện người dùng cuối). Phần này chép bước chuẩn bị mẫu của upstream (`pnnbao97/VieNeu-TTS`: `v3turbo.py` `_preclean_reference_audio`, `onnx_runtime_lite.py` `prepare_reference`, `onnx_denoiser.py`).
-
-- **`VieNeuTurboReferencePreparer`** (thư mục mới `Services/TTS/VieNeuClone/`):
-  - Pipeline: đọc → mono → cắt im lặng → tối đa 8 giây → khử nhiễu (tham số, mặc định bật) → speaker embedding 192 số.
-  - Embedding và buffer đưa cho audio.cpp ra từ **cùng một** buffer: 44,1 kHz khi khử nhiễu, tần số gốc khi tắt (như upstream).
-  - Sàn 2 giây sau khi cắt im lặng. Chỉ giải mã 60 giây đầu file (`VieNeuAudioResampler.loadMono(url:maxSeconds:)`, tham số mới, mặc định đọc cả file như cũ).
-  - Ngữ cảnh ORT nhả khi hàm trả về, trước bước audio.cpp, để hai đỉnh bộ nhớ không chồng nhau.
-- **`VieNeuSilenceTrimmer`** chép `librosa.effects.trim(top_db=30)`:
-  - RMS khung 2048 / hop 512, đệm 0 hai đầu, so với khung mạnh nhất, sàn `amin`.
-  - librosa nằm trong `dependencies` lõi của upstream, nên người dùng upstream chạy nhánh này chứ không phải nhánh dự phòng `|x| > 1e-5`.
-- **`VieNeuReferenceDenoiser`** chép `OnnxDenoiser.denoise`:
-  - Lên 44,1 kHz, chia đỉnh, đệm 441 mẫu 0, chuẩn hoá lần hai như `_forward`.
-  - STFT → `denoiser.onnx` → iSTFT, cắt về độ dài cũ, nhân lại đỉnh.
-- **`VieNeuDenoiserSTFT`**: n_fft 1680 / hop 420, Hann tuần hoàn, đệm reflect, bỏ khung cuối; iSTFT lặp khung cuối, chia Σw².
-  - 1680 có thừa số 7 nên FFT radix-2 của app và `vDSP_DFT` không dùng được. DFT làm bằng **nhân ma trận** (`vDSP_mmul`) với bảng cos/sin 841 × 1680 tính trước.
-  - Bin biên độ 0 cho cos 1 / sin 0 như `np.angle`, không chia cho 0.
-- **Cầu nối ORT** (`VieNeuONNXBridge`):
-  - `VieNeuORTCreateTurboClone` chỉ nạp `speaker_encoder` (+ `denoiser` khi bật), không nạp 3 graph clone của Nano.
-  - `VieNeuORTRunDenoiser`: 3 input / 3 output, tên đọc từ session và xếp theo **tên**.
-  - `VieNeuORTRunSpeakerEncoder` chỉ còn đòi session `speaker_encoder` (ngữ cảnh clone của Nano vẫn nạp đủ 3 nên không đổi gì cho Nano).
-  - Swift: `VieNeuONNXRuntime(turboCloneModelStore:threadCount:loadsDenoiser:)` và `+Denoiser`.
-- **Kiểm chứng:**
-  - Đối chiếu bằng numpy (cùng thuật toán, float32) với `_stft` / `_istft` gốc trên tín hiệu ngẫu nhiên 3 giây: phổ lệch ≤ 1,5e-5 (biên độ tới ~26), iSTFT lệch ≤ 5e-7.
-  - Chữ ký `denoiser.onnx` / `speaker_encoder.onnx` đọc bằng onnxruntime trên file của kho mirror.
-  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
-  - **Chưa build** (Windows), chưa chạy trên máy.

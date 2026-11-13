@@ -219,15 +219,6 @@
       "expiresAt": "2026-12-31"
     },
     {
-      "path": "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
-      "rule": "FILE_SIZE_LIMIT",
-      "baseline_value": 478,
-      "owner": "legacy_refactor",
-      "reason": "Oversized legacy TTSModelManagerView file",
-      "createdAt": "2026-08-13",
-      "expiresAt": "2026-12-31"
-    },
-    {
       "path": "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
       "rule": "FILE_SIZE_LIMIT",
       "baseline_value": 474,

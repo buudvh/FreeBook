@@ -5,9 +5,6 @@ import SwiftUI
 ///
 /// Tách khỏi `TTSSettingsView.swift` vì file đó có baseline **519** dòng và lượt nối 2b đẩy nó lên
 /// **540** — tức một vi phạm kiến trúc mới. Cùng khuôn tách `X+Feature.swift` của repo.
-///
-/// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
-/// `private` theo file).
 extension TTSSettingsView {
     /// Mục VieNeu của Picker "Trình đọc" — **một** mục cho cả Nano lẫn Turbo (1.3.898): model đi theo giọng chọn ở
     /// section "Giọng đọc". Luôn hiện: chưa có model nào thì tải ở sheet chọn giọng (nút ⬇ của từng giọng).
@@ -85,19 +82,10 @@ extension TTSSettingsView {
         ttsManager.invalidateVieNeuSynthesisSpeed()
     }
 
-    func loadVoicesForCurrentTool() async {
-        if ttsManager.tool == "vieneu" {
-            // Giọng VieNeu nằm ở `VieNeuVoiceDirectory` (sheet chọn giọng); mảng chung này chỉ còn cho NghiTTS.
-            availableVoices = []
-        } else {
-            availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false))
-                ?? NghiTTSClient.fallbackVietnameseVoices
-        }
-    }
-
     /// Khối **quản lý riêng của trình đọc** cho VieNeu — hiện thẳng trong Section 3 của màn Cài đặt.
     ///
-    /// Từ 1.3.899 chỉ còn công tắc từ điển phiên âm + lối vào / nút tải từ điển tiếng Nhật, chung cho Nano lẫn Turbo. Đã
+    /// Hàng đầu là lối vào trang **Cài đặt VieNeu TTS** (`VieNeuTTSSettingsView`). Từ 1.3.899 phần còn lại chỉ là công tắc
+    /// từ điển phiên âm + lối vào / nút tải từ điển tiếng Nhật, chung cho Nano lẫn Turbo. Đã
     /// bỏ (giá trị cũ giữ nguyên, không đọc nữa): "Tiết kiệm pin" / "Chế độ tạo audio" / "Số luồng tổng hợp" (Nano luôn
     /// Cân bằng 8 bước + 2 luồng — `VieNeuSynthesisPolicy.isPowerSaving`), "Luồng tổng hợp chờ bận (spin)" (luôn tắt),
     /// "Tự động phiên âm tiếng Nhật" (luôn tắt), hàng "Tổng hợp Turbo" và chú thích. Giải thích nằm sau nút "?" của
@@ -107,6 +95,10 @@ extension TTSSettingsView {
     /// — xem `vieNeuPrefetchSection` (một nguồn sự thật, bài học 1.3.435).
     @ViewBuilder
     var vieNeuReaderSection: some View {
+        NavigationLink(destination: VieNeuTTSSettingsView()) {
+            Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
+        }
+
         // Công tắc **riêng của VieNeu** cho từ điển phiên âm tiếng Nhật (chung cho Nano và Turbo). Mặc định **TẮT**: VieNeu
         // chỉ gấp macron về ASCII (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
         Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)

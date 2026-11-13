@@ -17,6 +17,44 @@ extension NghiTTSSettingsHubView {
         var voiceBytes: Int64 { voices.reduce(Int64(0)) { $0 + $1.bytes } }
     }
 
+    // MARK: - Giọng đọc
+
+    /// Hàng "Giọng đọc NghiTTS" ⇒ sheet chọn giọng chung (khuôn hàng "Giọng đọc VieNeu" của `VieNeuTTSSettingsView`).
+    var voiceSection: some View {
+        Section {
+            Button {
+                voicePicker = .nghi
+            } label: {
+                HStack(spacing: 12) {
+                    Label {
+                        Text("Giọng đọc NghiTTS")
+                            .foregroundColor(.primary)
+                    } icon: {
+                        Image(systemName: "waveform")
+                            .foregroundColor(.accentColor)
+                    }
+                    Spacer(minLength: 8)
+                    Text(currentVoiceName)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Giọng NghiTTS trình đọc dùng (`selectedVoice` khi trình đọc là NghiTTS, không thì giọng đã lưu).
+    private var currentVoiceName: String {
+        _ = selectionToken
+        let manager = TTSManager.shared
+        let name = NghiVoiceDirectory.shared.readerVoiceName(tool: manager.tool, selectedVoice: manager.selectedVoice)
+        return name.isEmpty ? "Chưa chọn" : name
+    }
+
     // MARK: - Model
 
     var modelSection: some View {
@@ -31,7 +69,7 @@ extension NghiTTSSettingsHubView {
         } header: {
             SectionHelpHeader("Model", paragraphs: [
                 "NghiTTS là các giọng **Piper** chạy trên máy bằng **ONNX Runtime** — mỗi giọng một file model riêng.",
-                "Tải / xoá giọng ở **Quản lý Model giọng đọc** bên dưới. Thư viện phiên âm (từ tiếng nước ngoài, viết tắt) tải **cùng từ điển** khi tải giọng NghiTTS đầu tiên."
+                "Tải / thử / xoá giọng ở **Giọng đọc NghiTTS** phía trên. Thư viện phiên âm (từ tiếng nước ngoài, viết tắt) tự tải **cùng** giọng NghiTTS đầu tiên."
             ])
         }
     }
@@ -51,12 +89,9 @@ extension NghiTTSSettingsHubView {
 
     // MARK: - Quản lý
 
-    /// Lối vào quản lý — **gom 3 nav cũ ở tab Cài đặt** về một chỗ.
+    /// Lối vào quản lý — từ điển phiên âm + cấu hình tiền xử lý (tải / xoá giọng ở sheet chọn giọng).
     var managementSection: some View {
         Section {
-            NavigationLink(destination: TTSModelManagerView()) {
-                Label("Quản lý Model giọng đọc", systemImage: "waveform.and.mic")
-            }
             NavigationLink(destination: TTSDictionaryEditView()) {
                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
             }
@@ -75,7 +110,8 @@ extension NghiTTSSettingsHubView {
     }
 
     /// Giọng đã tải (tên theo danh mục `NghiTTSClient.fallbackVietnameseVoices` khi khớp id, không thì id viết lại như
-    /// "Giọng đọc tùy chỉnh" của `TTSModelManagerView`) + thư viện phiên âm. `ModelStore` không dựng được ⇒ rỗng.
+    /// "Giọng của tôi" của sheet chọn giọng — `NghiVoiceDirectory.displayName`) + thư viện phiên âm. `ModelStore` không dựng
+    /// được ⇒ rỗng.
     nonisolated static func loadModelSnapshot() -> ModelSnapshot {
         guard let store = try? ModelStore() else { return ModelSnapshot() }
         let catalog = Dictionary(
@@ -86,14 +122,14 @@ extension NghiTTSSettingsHubView {
         result.voices = store.getLocalVoiceIDs().map { id in
             ModelSnapshot.VoiceRow(
                 id: id,
-                name: catalog[id] ?? id.replacingOccurrences(of: "_", with: " ").capitalized,
+                name: catalog[id] ?? NghiVoiceDirectory.displayName(forLocalId: id),
                 bytes: store.bytesForVoice(id)
             )
         }
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
         // Hai file của thư viện phiên âm, tải cùng lượt (`NghiTTSClient.downloadDictionaries`) vào `ModelStore.rootURL`;
-        // file đầu là dấu "đã tải" (như `TTSSettingsView.hasNoDictionary`).
+        // file đầu là dấu "đã tải" (`NghiVoiceDirectory.dictionaryMarker`).
         let fileManager = FileManager.default
         let urls = ["non-vietnamese-words.plist", "acronyms.plist"].map { store.rootURL.appendingPathComponent($0) }
         if let marker = urls.first, fileManager.fileExists(atPath: marker.path) {

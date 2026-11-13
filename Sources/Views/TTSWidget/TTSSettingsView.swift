@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import AVFoundation
 
 struct TTSSettingsView: View {
     let isPresentedAsSheet: Bool
@@ -8,8 +7,6 @@ struct TTSSettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
-    @State var availableVoices: [Voice] = []
-    @State private var systemVoices: [AVSpeechSynthesisVoice] = []
 
     /// `catalog` (gồm cả nguồn chưa cài) như `@Query` cũ; danh sách chọn engine lọc lại chỉ bản đã cài.
     private var allExtensions: [Extension] { ExtensionLibraryRepository.shared.catalog }
@@ -18,8 +15,6 @@ struct TTSSettingsView: View {
         ExtensionLibraryRepository.shared.installed.filter { $0.type == ExtensionType.tts }
     }
 
-    @State private var extensionVoices: [[String: String]] = []
-    @State private var isLoadingVoices = false
     @State private var selectedExtForConfig: Extension? = nil
     /// `internal` (không còn `private`): được đọc/ghi từ `TTSSettingsView+Voice.swift`.
     @State var showingReplacementManagerSheet = false
@@ -36,47 +31,14 @@ struct TTSSettingsView: View {
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
     /// Sheet chọn giọng VieNeu (1.3.900) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
     @State var showingVieNeuVoicePicker = false
+    /// Sheet chọn giọng của Siri / NghiTTS / Google / tiện ích — mở từ hàng "Giọng đọc".
+    @State private var voicePickerEngine: TTSVoiceEngine?
 
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath
         return ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson, localPath: path)
     }
 
-    private var hasNoDictionary: Bool {
-        let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
-        return !FileManager.default.fileExists(atPath: path)
-    }
-    
-    private func loadExtensionVoices(packageId: String) {
-        guard let ext = allExtensions.first(where: { $0.packageId == packageId }) else { return }
-        isLoadingVoices = true
-        Task {
-            do {
-                let voices = try await ExtensionManager.shared.ttsVoices(
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    configJson: ext.configJson
-                )
-                await MainActor.run {
-                    self.extensionVoices = voices
-                    self.isLoadingVoices = false
-                    
-                    let voiceIds = voices.compactMap { $0["id"] }
-                    if !voiceIds.contains(ttsManager.selectedVoice) {
-                        if let firstVoice = voiceIds.first {
-                            ttsManager.selectedVoice = firstVoice
-                        }
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    self.extensionVoices = []
-                    self.isLoadingVoices = false
-                }
-            }
-        }
-    }
-    
     var body: some View {
         Form { Group {
             // Section 1: Chọn trình đọc
@@ -93,56 +55,12 @@ struct TTSSettingsView: View {
                 .pickerStyle(.menu)
             }
             
-            // Section 2: Chọn giọng đọc
+            // Section 2: Chọn giọng đọc — một hàng tóm tắt, bấm ⇒ sheet chọn giọng của trình đọc.
             Section("Giọng đọc") {
-                if ttsManager.tool == "system" {
-                    Picker("Giọng đọc Siri", selection: $ttsManager.selectedVoice) {
-                        ForEach(systemVoices, id: \.identifier) { voice in
-                            Text("\(voice.name) (\(voice.quality == .premium ? "Premium" : "Default"))")
-                                .tag(voice.identifier)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } else if ttsManager.tool == "nghitts" {
-                    let downloadedVoices = availableVoices.filter { isModelDownloaded($0) }
-                    if downloadedVoices.isEmpty {
-                        Text("Chưa tải giọng đọc NghiTTS nào")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Picker("Giọng đọc NghiTTS", selection: $ttsManager.selectedVoice) {
-                            ForEach(downloadedVoices, id: \.name) { voice in
-                                Text(voice.name).tag(voice.name)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                } else if ttsManager.tool == "vieneu" {
-                    vieNeuVoicePicker
-                } else if ttsManager.tool == "google" {
-                    Picker("Giọng đọc Google TTS", selection: $ttsManager.selectedVoice) {
-                        ForEach(GoogleVoice.allVoices) { voice in
-                            Text(voice.name).tag(voice.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
+                if let engine = TTSVoiceEngine(tool: ttsManager.tool) {
+                    TTSReaderVoiceSummaryRow(engine: engine) { voicePickerEngine = engine }
                 } else {
-                    if isLoadingVoices {
-                        ProgressView("Đang tải giọng đọc...")
-                    } else if extensionVoices.isEmpty {
-                        Text("Không có giọng đọc nào")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Picker("Giọng đọc Extension", selection: $ttsManager.selectedVoice) {
-                            ForEach(0..<extensionVoices.count, id: \.self) { idx in
-                                let voice = extensionVoices[idx]
-                                let id = voice["id"] ?? ""
-                                let name = voice["name"] ?? id
-                                let lang = voice["language"] ?? ""
-                                Text("\(name) (\(lang))").tag(id)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
+                    vieNeuVoicePicker
                 }
             }
 
@@ -184,29 +102,8 @@ struct TTSSettingsView: View {
                         }
                     }
                 } else if ttsManager.tool == "nghitts" {
-                    let downloadedVoices = availableVoices.filter { isModelDownloaded($0) }
-                    let hasNoModels = downloadedVoices.isEmpty
-                    let missingDict = hasNoDictionary
-
-                    if hasNoModels || missingDict {
-                        VStack(alignment: .leading, spacing: 6) {
-                            if hasNoModels {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                                    Text("Chưa tải giọng đọc NghiTTS nào").font(.subheadline).foregroundColor(.secondary)
-                                }
-                            }
-                            if missingDict {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                                    Text("Chưa tải thư viện phiên âm").font(.subheadline).foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                    }
-
-                    NavigationLink(destination: TTSModelManagerView()) {
-                        Label("Quản lý Model giọng đọc", systemImage: "waveform.and.mic")
+                    NavigationLink(destination: NghiTTSSettingsHubView()) {
+                        Label("Cài đặt NghiTTS", systemImage: "waveform.and.mic")
                     }
                     NavigationLink(destination: NghiTTSSettingsView()) {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
@@ -364,7 +261,7 @@ struct TTSSettingsView: View {
             refreshVieNeuSettings()
             // Tạm dừng phát để cấu hình — chỉ lần mở đầu; hiện lại sau trang con / đổi tab thì không (1.3.897).
             TTSSettingsPauseSession.begin()
-            Task { await loadSystemVoices() }
+            // Danh sách giọng của trình đọc do hàng "Giọng đọc" tự nạp (`TTSReaderVoiceSummaryRow`).
             if TTSManager.isExtensionTool(ttsManager.tool) {
                 if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                     if ttsManager.extensionLocalPath != ext.localPath {
@@ -374,9 +271,7 @@ struct TTSSettingsView: View {
                         ttsManager.extensionConfigJson = ext.configJson
                     }
                 }
-                loadExtensionVoices(packageId: ttsManager.tool)
             }
-            Task { await loadVoicesForCurrentTool() }
         }
         .onDisappear {
             // Chỉ cho **trang đẩy** ở tab Cài đặt: `isPresented` còn `true` ⇒ màn chỉ bị che (trang con, đổi tab), chưa
@@ -393,11 +288,9 @@ struct TTSSettingsView: View {
                     ttsManager.extensionLocalPath = ext.localPath
                     ttsManager.extensionConfigJson = ext.configJson
                 }
-                loadExtensionVoices(packageId: newVal)
             } else {
                 ttsManager.extensionLocalPath = ""
                 ttsManager.extensionConfigJson = "{}"
-                Task { await loadVoicesForCurrentTool() }
             }
         }
         .sheet(item: $selectedExtForConfig, onDismiss: { MinimizedSourceCheckCoordinator.shared.screenDidClose(.script, screenId: nil) }) { ext in
@@ -407,6 +300,7 @@ struct TTSSettingsView: View {
             .appGlassSheet()
         }
         .vieNeuVoicePickerSheet(isPresented: $showingVieNeuVoicePicker)
+        .ttsVoicePickerSheet(engine: $voicePickerEngine)
         .sheet(isPresented: $showingReplacementManagerSheet) {
             Group {
                 NavigationStack { TTSReplacementManagerView(isPresentedAsSheet: true) }
@@ -414,29 +308,5 @@ struct TTSSettingsView: View {
             }
             .appGlassSheet()
         }
-    }
-
-    /// Giọng Siri tiếng Việt, đọc **ngoài main** (1.3.713): `speechVoices()` dò kho giọng của hệ thống, chậm — gọi thẳng
-    /// trong `onAppear` thì chặn hoạt cảnh mở sheet Cài đặt TTS. Picker giọng Siri trống một nhịp rồi mới có danh sách.
-    private func loadSystemVoices() async {
-        let voices = await Task.detached(priority: .userInitiated) {
-            AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
-        }.value
-        systemVoices = voices
-        if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
-            ttsManager.selectedVoice = voices.first?.identifier ?? ""
-        }
-    }
-
-    private func isModelDownloaded(_ voice: Voice) -> Bool {
-        return (try? ModelStore().modelExists(for: voice.id)) ?? false
-    }
-
-    private func deleteModel(_ voice: Voice) {
-        try? ModelStore().deleteModel(for: voice.id)
-        if ttsManager.selectedVoice == voice.name {
-            ttsManager.selectedVoice = ""
-        }
-        Task { await loadVoicesForCurrentTool() }
     }
 }
