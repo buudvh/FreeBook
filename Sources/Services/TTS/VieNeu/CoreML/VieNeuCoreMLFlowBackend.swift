@@ -1,7 +1,9 @@
 import Foundation
 
-/// Vòng Euler + codec của Nano qua **Core ML CPU-only (fp32)** cho vòng thử P1b — `VieNeuFlowBackend` mà màn thử truyền
-/// vào `VieNeuTTSService.synthesizeWithDuration(…, flowBackend:)`.
+/// Vòng Euler + codec của Nano qua **Core ML CPU-only (fp32)** — `VieNeuFlowBackend` của màn thử (P1b, truyền vào
+/// `VieNeuTTSService.synthesizeWithDuration(…, flowBackend:)`) và của trình đọc khi bật "Tăng tốc Core ML" (P2c,
+/// `isReader == true`, giữ ở `VieNeuCoreMLReaderRoute`: lỗi một chunk ⇒ engine chạy lại bằng ORT; chạy nháp + log lượt
+/// đầu mỗi session ở `+Reader`).
 ///
 /// - Graph tĩnh nhiều bucket (`VieNeuCoreMLPackage`): mỗi chunk chọn bucket nhỏ nhất ≥ T **riêng** cho VE và codec,
 ///   đệm cuối rồi cắt (VE có `frame_mask`, codec nhân quả ⇒ trùng kết quả T thật), ctx đệm tới L = 256 kèm mask.
@@ -40,14 +42,23 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         var fallbackReasons: [String: Int] = [:]
         var sessionLoads = 0
         var sessionLoadMs = 0.0
+        /// Chunk Core ML lỗi rồi chạy lại bằng ORT (chỉ backend của trình đọc).
+        var failures = 0
     }
 
     static let contextDim = 256
     static let samplesPerFrame = 1536
+    /// Shape graph tĩnh đã đóng băng: style `[1, 50, 256]`, speaker `[1, 192]` (giọng có sẵn và giọng nhân bản đều vậy).
+    static let styleRows = 50
+    static let speakerDim = 192
 
     let package: VieNeuCoreMLPackage
     let manifest: VieNeuCoreMLPackage.Manifest
-    private let lock = NSLock()
+    /// Backend của trình đọc (P2c): lùi ORT khi lỗi, ghi log nạp / lượt đầu.
+    let isReader: Bool
+    let lock = NSLock() // internal: `+Reader` ghi tập session đã chạy lượt đầu
+    /// Session đã chạy lượt đầu ("ve64", "codec128") — `+Reader` log thời gian lượt đầu một lần mỗi session.
+    var firstRunDone: Set<String> = []
     private var sessionCap: Int
     private var preps: [Int: VieNeuONNXProbeSession] = [:]
     private var mains: [Int: VieNeuONNXProbeSession] = [:]
@@ -57,10 +68,21 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     private var stats = Stats()
     private var estimateMB = 300.0
 
-    init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int) {
+    init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int, isReader: Bool = false) {
         self.package = package
         self.manifest = manifest
         self.sessionCap = max(2, sessionCap)
+        self.isReader = isReader
+    }
+
+    var fallsBackToORTOnError: Bool { isReader }
+
+    func noteFailure(_ error: Error) {
+        lock.lock()
+        stats.failures += 1
+        let count = stats.failures
+        lock.unlock()
+        AppLogger.shared.log("❌ [VieNeuCoreML] Chunk Core ML lỗi (\(count)), chạy lại bằng ORT: \(error.localizedDescription)")
     }
 
     var statsSnapshot: Stats {
@@ -152,7 +174,9 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     func trajectory(_ request: VieNeuFlowRequest) throws -> [Float] {
         guard let bucket = veBucket(for: request.frames) else { throw BackendError.failure("T \(request.frames) vượt bucket VE") }
+        let started = ProcessInfo.processInfo.systemUptime
         let latent = try trajectory(request, veBucket: bucket)
+        noteRun(key: "ve\(bucket)", started: started)
         lock.lock()
         stats.coreMLChunks += 1
         stats.coreMLFrames += request.frames
@@ -165,7 +189,9 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     func decode(latent: [Float], frames: Int, latentChannels: Int) throws -> [Float] {
         guard let bucket = codecBucket(for: frames) else { throw BackendError.failure("T \(frames) vượt bucket codec") }
+        let started = ProcessInfo.processInfo.systemUptime
         let samples = try decode(latent: latent, frames: frames, latentChannels: latentChannels, codecBucket: bucket)
+        noteRun(key: "codec\(bucket)", started: started)
         lock.lock()
         stats.codecBucketUse[bucket, default: 0] += 1
         lock.unlock()
@@ -331,6 +357,10 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         if veBucket(for: request.frames) == nil || codecBucket(for: request.frames) == nil { return "T > \(manifest.veBuckets.max() ?? 0)" }
         if request.contextLength > manifest.lengthFrozen { return "L > \(manifest.lengthFrozen)" }
         if request.contextDim != Self.contextDim { return "D ≠ \(Self.contextDim)" }
+        if request.styleRows != Self.styleRows || request.styleColumns != Self.contextDim
+            || request.speaker.count != Self.speakerDim || request.nullSpeaker.count != Self.speakerDim {
+            return "giọng khác dạng"
+        }
         return nil
     }
 }

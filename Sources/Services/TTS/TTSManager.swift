@@ -897,6 +897,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         translationEnabled: Bool? = nil
     ) {
         guard chapters.contains(where: { $0.index == currentIndex }) else { return }
+        if TTSManager.isLocalEngine(tool) { nghiEnergyTelemetry.markPlaybackRequested(engine: tool) } // P2c: "tiếng đầu"
         checkpointProgressAndRelease()
         prepareSpeakingTask?.cancel()
         prepareSpeakingTask = nil

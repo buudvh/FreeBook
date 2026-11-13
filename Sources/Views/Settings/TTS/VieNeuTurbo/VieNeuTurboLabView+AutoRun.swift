@@ -118,7 +118,7 @@ extension VieNeuTurboLabView {
                     run.deleteData()
                     lab.coreMLLoad.refresh()
                 } label: {
-                    Label("Xoá gói + bản biên dịch Core ML", systemImage: "trash")
+                    Label("Xoá gói + bản biên dịch Core ML (cả của trình đọc)", systemImage: "trash")
                 }
             }
         } header: {

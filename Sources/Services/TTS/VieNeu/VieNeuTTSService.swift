@@ -147,13 +147,29 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         // "Tiết kiệm pin" thắng: khi bật thì ép `fast` bất kể `preferredMode`.
         engine.setRequestedMode(powerSaving ? .fast : preferredMode)
         syncQueue.sync { _currentVoice = voice }
+        // "Tăng tốc Core ML" (P2c): nạp sẵn + chạy nháp ở nền, **không** chờ — lượt đọc đầu nếu tới sớm chỉ đợi một khung
+        // (khoá tổng hợp giữ từng khung một).
+        if VieNeuCoreMLReaderRoute.isEnabled {
+            Task.detached(priority: .utility) { [weak self] in
+                self?.warmUpCoreMLForReader()
+            }
+        }
+    }
+
+    /// Nạp sẵn + chạy nháp Core ML của trình đọc trong khoá tổng hợp của engine (`VieNeuCoreMLReaderRoute`). Đồng bộ và
+    /// nặng vài giây ⇒ gọi từ luồng nền.
+    func warmUpCoreMLForReader() {
+        VieNeuCoreMLReaderRoute.shared.warmUpIfEnabled { [engine] body in
+            try engine.withSynthesisLock(body)
+        }
     }
 
     /// Nhả engine Nano (session ORT + bộ phiên âm) khi trình đọc chuyển sang Turbo — xem
     /// `VieNeuTTSEngine.releaseRuntime()`. Chặn tới khi lượt Nano đang chạy xong ⇒ đừng gọi trên main.
     @discardableResult
     func releaseEngineRuntime() -> Bool {
-        engine.releaseRuntime()
+        VieNeuCoreMLReaderRoute.shared.release(reason: "nhả engine Nano")
+        return engine.releaseRuntime()
     }
 
     /// Giọng đọc cho Picker: **giọng user (nếu có) rồi 11 giọng preset**. Cần `voices_v3_nano.json` đã
@@ -233,7 +249,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         ).data
     }
 
-    /// Đúng chữ ký của `LocalTTSEngine` (trình đọc) — luôn đường ORT.
+    /// Đúng chữ ký của `LocalTTSEngine` — trình đọc, Nghe thử, nghe thử giọng. Bật "Tăng tốc Core ML" (P2c) và đã sẵn
+    /// sàng ⇒ vòng Euler + codec chạy Core ML (`VieNeuCoreMLReaderRoute`), không thì ORT như cũ.
     func synthesizeWithDuration(
         text: String,
         voice: String,
@@ -245,11 +262,13 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         try await synthesizeWithDuration(
             text: text, voice: voice, speed: speed, boundaryKind: boundaryKind, priority: priority,
-            requestID: requestID, synthesisKey: synthesisKey, flowBackend: nil
+            requestID: requestID, synthesisKey: synthesisKey,
+            flowBackend: VieNeuCoreMLReaderRoute.shared.backendForReader()
         )
     }
 
-    /// Bản có `flowBackend` — chỉ màn thử truyền (P1b: Core ML cho vòng Euler + codec), xem doc `VieNeuFlowBackend`.
+    /// Bản có `flowBackend` — màn thử truyền **đúng** đường muốn đo ("Đọc liên tục", Đo tự động): Core ML của màn thử,
+    /// hoặc `nil` = ORT (không lấy backend của trình đọc). Xem doc `VieNeuFlowBackend`.
     func synthesizeWithDuration(
         text: String,
         voice: String,

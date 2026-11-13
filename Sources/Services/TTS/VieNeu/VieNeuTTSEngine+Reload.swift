@@ -33,6 +33,14 @@ extension VieNeuTTSEngine {
     ///
     /// **Chặn** tới khi lượt Nano đang chạy (nếu có) nhả `lock` ⇒ đừng gọi trên main. Trả `true` khi thật sự có thứ để nhả.
     @discardableResult
+    /// Chạy `body` trong khoá tổng hợp (P2c): nạp + chạy nháp Core ML của trình đọc không chồng lên lượt đang đọc —
+    /// session ORT / Core ML không chịu hai luồng gọi cùng lúc. Giữ khoá ngắn (một khung mỗi lần).
+    func withSynthesisLock(_ body: () throws -> Void) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        try body()
+    }
+
     func releaseRuntime() -> Bool {
         lock.lock()
         defer { lock.unlock() }

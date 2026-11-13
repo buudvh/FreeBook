@@ -30,10 +30,13 @@ struct VieNeuFlowRequest: Sendable {
     var contextDim: Int { contextShape.count >= 3 ? Int(contextShape[2]) : 0 }
 }
 
-/// Backend chạy vòng Euler + codec **thay ORT** cho một lượt tổng hợp Nano — hiện chỉ có Core ML CPU-only của màn thử
-/// (P1b, `VieNeuCoreMLFlowBackend`). Truyền **theo từng lượt gọi** (`VieNeuTTSService.synthesizeWithDuration(…,
-/// flowBackend:)`), không gắn vào engine: engine là singleton của trình đọc, gắn cố định thì đoạn của trình đọc / hub /
-/// màn khoá cũng đi nhầm đường này.
+/// Backend chạy vòng Euler + codec **thay ORT** cho một lượt tổng hợp Nano — Core ML CPU-only
+/// (`VieNeuCoreMLFlowBackend`): của màn thử (P1b) hoặc của trình đọc khi bật "Tăng tốc Core ML" (P2c,
+/// `VieNeuCoreMLReaderRoute`). Truyền **theo từng lượt gọi**, không gắn vào engine:
+/// - hàm `synthesizeWithDuration` đúng chữ ký `LocalTTSEngine` (trình đọc, Nghe thử, nghe thử giọng) lấy backend của
+///   trình đọc từ `VieNeuCoreMLReaderRoute` — `nil` khi tắt / chưa sẵn sàng;
+/// - hàm có tham số `flowBackend:` (màn thử: "Đọc liên tục", các lượt của Đo tự động) dùng **đúng** giá trị truyền vào,
+///   `nil` = ORT — lượt ORT của phép đo A-B-A không bao giờ lẫn Core ML của trình đọc.
 ///
 /// Engine gọi tuần tự trong khoá tổng hợp của nó ⇒ backend không phải tự chịu nhiều luồng gọi cùng lúc.
 protocol VieNeuFlowBackend: AnyObject, Sendable {
@@ -45,4 +48,14 @@ protocol VieNeuFlowBackend: AnyObject, Sendable {
     func decode(latent: [Float], frames: Int, latentChannels: Int) throws -> [Float]
     /// Chunk vừa chạy ORT vì `canRun` trả `false` — để báo cáo đếm phần lùi về ORT.
     func noteFallback(_ request: VieNeuFlowRequest)
+    /// `true` ⇒ backend lỗi ở một chunk thì engine chạy lại chunk đó bằng ORT thay vì báo lỗi cả đoạn (trình đọc, P2c —
+    /// không bao giờ mất tiếng). Màn thử để `false`: lỗi là lỗi, để số đo không che lỗi.
+    var fallsBackToORTOnError: Bool { get }
+    /// Chunk vừa lỗi và đã chạy lại bằng ORT (chỉ gọi khi `fallsBackToORTOnError`).
+    func noteFailure(_ error: Error)
+}
+
+extension VieNeuFlowBackend {
+    var fallsBackToORTOnError: Bool { false }
+    func noteFailure(_ error: Error) {}
 }

@@ -140,6 +140,17 @@ enum VieNeuCoreMLPreparer {
         return report
     }
 
+    /// Tự kiểm golden mọi bucket (như bước 3 của `prepare`) — "Tăng tốc Core ML" của trình đọc (P2c) gọi sau khi biên
+    /// dịch: qua cổng mới gắn backend cho trình đọc.
+    static func verify(
+        backend: VieNeuCoreMLFlowBackend,
+        progress: @Sendable (String) -> Void
+    ) throws -> (passed: Bool, lines: [String]) {
+        var report = Report()
+        let passed = try selfTest(backend: backend, report: &report, progress: progress)
+        return (passed, report.lines)
+    }
+
     private static func selfTest(
         backend: VieNeuCoreMLFlowBackend,
         report: inout Report,

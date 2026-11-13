@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.887] - 2026-11-12
+
+### merge: đưa VieNeu Turbo GGUF vào main
+
+Anh Bửu: *"vì turbo chạy cũng ổn rồi nên tôi nghĩ bạn nên merge turbo vào nhánh main"*. Merge `origin/main` (tới 1.3.873) vào `feature/vieneu-turbo-gguf` rồi đẩy lên `main`.
+
+- **Đánh lại số**: 13 bản của nhánh (trước là 1.3.845–857, trùng số với main) thành **1.3.874–886**, giữ thứ tự và tiêu đề. Đổi cả tham chiếu trong thân entry và trong chú thích code của nhánh; dòng nào có y nguyên trong bản main thì giữ (là số của main). 14 entry cũ nhất của main (1.3.844–857) chuyển sang `CHANGELOG.archive.md`.
+- Xung đột chỉ ở hai file CHANGELOG. Ba view cùng sửa (`TTSSettingsHubView`, `VieNeuTTSTestView`, `TTSSettingsView`) tự gộp: hàng / section Turbo nằm trong `Group { … }.glassSheetRows()` của 1.3.873. Màn thử Turbo (`VieNeuTurboLabView`) bọc theo cùng kiểu cho khớp.
+- `audiocpp-ios.yml` chạy cả trên `main`. Cache `AudioCpp.xcframework` tạo trên nhánh không dùng được ở `main` ⇒ lượt build `main` đầu tiên dựng lại audio.cpp (lâu hơn vài phút), các lượt sau lấy từ cache.
+- `CLAUDE.md` / `AGENTS.md`: thêm mục "VieNeu: hai model Nano / Turbo" ở phần TTS và bước dựng AudioCpp ở đoạn CI.
+- **Kiểm chứng:** đọc lại phần tự gộp của ba view; grep không còn số 1.3.845–857 của nhánh trong file nhánh sửa; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), CI build `main` sẽ là lần biên dịch đầu tiên của bản gộp.
+
 ## [1.3.886] - 2026-11-12
 
 ### revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn

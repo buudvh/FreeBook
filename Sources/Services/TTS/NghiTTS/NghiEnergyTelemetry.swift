@@ -37,9 +37,15 @@ final class NghiEnergyTelemetry {
         /// Audio của các lượt tổng hợp **sau** mốc `startedCPUMs` — mẫu số của `cpuPerAudioSec`. Lượt mở cửa
         /// sổ bị loại vì CPU của nó đã tiêu trước mốc (hàm ghi chạy khi lượt đó xong); `totalPCMSeconds` giữ nguyên.
         var cpuPCMSeconds = 0.0
+        /// Đoạn chạy Core ML / lùi ORT của trình đọc (`VieNeuCoreMLReaderRoute.counters()`) lúc mở cửa sổ (P2c).
+        var startCoreMLChunks = 0
+        var startCoreMLFallbacks = 0
     }
 
     private var nghiEnergy = Accumulator()
+    /// Mốc bấm nghe (P2c) + engine — lần `markPlaybackSubmitted` đầu sau mốc ghi "tiếng đầu sau X ms".
+    private var playbackRequestedAt: TimeInterval?
+    private var playbackRequestedEngine = ""
 
     func recordSynthesis(
         pcmDuration: Double,
@@ -54,6 +60,7 @@ final class NghiEnergyTelemetry {
         if nghiEnergy.startedAt == nil {
             nghiEnergy.startedAt = now
             nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
+            (nghiEnergy.startCoreMLChunks, nghiEnergy.startCoreMLFallbacks) = VieNeuCoreMLReaderRoute.shared.counters()
         } else {
             nghiEnergy.cpuPCMSeconds += pcmDuration
         }
@@ -94,9 +101,24 @@ final class NghiEnergyTelemetry {
         flush(reason: "interval", force: false, thermalState: thermalState)
     }
 
+    /// Bấm nghe (`TTSManager.startSpeaking`) — mốc cho dòng "tiếng đầu sau X ms" (P2c, so bật / tắt Core ML).
+    func markPlaybackRequested(engine: String) {
+        playbackRequestedAt = ProcessInfo.processInfo.systemUptime
+        playbackRequestedEngine = engine
+    }
+
     /// Không gate theo `isLoggingEnabled` — xem doc đầu file.
     func markPlaybackSubmitted() {
-        nghiEnergy.lastPlaybackSubmitAt = ProcessInfo.processInfo.systemUptime
+        let now = ProcessInfo.processInfo.systemUptime
+        nghiEnergy.lastPlaybackSubmitAt = now
+        guard let requested = playbackRequestedAt else { return }
+        playbackRequestedAt = nil
+        let flow = playbackRequestedEngine == "vieneu" && VieNeuModelChoice.current == .nano
+            ? VieNeuCoreMLReaderRoute.shared.flowName : "-"
+        AppLogger.shared.log(String(
+            format: "🎙️ [TTSStart] Tiếng đầu sau %.0f ms · engine=%@ · flow=%@",
+            (now - requested) * 1_000, playbackRequestedEngine, flow
+        ))
     }
 
     func flush(reason: String, force: Bool, thermalState: ProcessInfo.ThermalState) {
@@ -128,8 +150,12 @@ final class NghiEnergyTelemetry {
         let cpuMs = nghiEnergy.startedCPUMs.map { ProcessCPUClock.nowMs() - $0 } ?? 0
         let cpuPerAudioSec = nghiEnergy.cpuPCMSeconds > 0 ? (cpuMs / 1_000) / nghiEnergy.cpuPCMSeconds : 0
         let cpuCores = elapsed > 0 ? cpuMs / (elapsed * 1_000) : 0
+        // P2c: số đoạn chạy Core ML / lùi ORT trong cửa sổ (0 / 0 khi tắt "Tăng tốc Core ML" hoặc không phải Nano).
+        let counters = VieNeuCoreMLReaderRoute.shared.counters()
+        let coreMLChunks = counters.coreML - nghiEnergy.startCoreMLChunks
+        let coreMLFallbacks = counters.fallback - nghiEnergy.startCoreMLFallbacks
         AppLogger.shared.log(String(
-            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f busyPct=%.1f preloadGapMs=%.1f thermal=%@ cpuMs=%.0f cpuPerAudioSec=%.3f cpuCores=%.2f",
+            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f busyPct=%.1f preloadGapMs=%.1f thermal=%@ cpuMs=%.0f cpuPerAudioSec=%.3f cpuCores=%.2f coreMLChunks=%d coreMLFallbacks=%d",
             reason,
             elapsed,
             nghiEnergy.synthesisCount,
@@ -145,7 +171,9 @@ final class NghiEnergyTelemetry {
             Self.thermalStateName(thermalState),
             cpuMs,
             cpuPerAudioSec,
-            cpuCores
+            cpuCores,
+            coreMLChunks,
+            coreMLFallbacks
         ))
         nghiEnergy = Accumulator()
     }

@@ -184,7 +184,9 @@ final class VieNeuAutoThermalRun {
         guard !isActive, let package else { return }
         backend?.releaseSessions()
         backend = nil
+        VieNeuCoreMLReaderRoute.shared.release(reason: "màn thử xoá gói Core ML") // gói dùng chung với trình đọc (P2c)
         try? package.deleteAll() // gồm cả tiến độ (Results/) ⇒ hết Chạy tiếp
+        VieNeuCoreMLAccelerator.shared.refresh()
         progress = nil
         savedReportURL = nil
         refresh()

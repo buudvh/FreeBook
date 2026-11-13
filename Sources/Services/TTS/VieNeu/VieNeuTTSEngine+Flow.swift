@@ -13,13 +13,20 @@ extension VieNeuTTSEngine {
         timing: inout Timing
     ) throws -> [Float] {
         if let backend, backend.canRun(request) {
-            let latent = try backend.trajectory(request)
-            clock.lap(&timing.vector)
-            let waveform = try backend.decode(latent: latent, frames: request.frames, latentChannels: request.latentChannels)
-            clock.lap(&timing.codec)
-            return waveform
+            do {
+                let latent = try backend.trajectory(request)
+                clock.lap(&timing.vector)
+                let waveform = try backend.decode(latent: latent, frames: request.frames, latentChannels: request.latentChannels)
+                clock.lap(&timing.codec)
+                return waveform
+            } catch let error where backend.fallsBackToORTOnError && !(error is CancellationError) {
+                // Trình đọc (P2c): Core ML lỗi ở chunk này ⇒ chạy lại bằng ORT ngay dưới, không mất tiếng (thời gian lượt
+                // hỏng tính vào chặng ORT kế tiếp).
+                backend.noteFailure(error)
+            }
+        } else {
+            backend?.noteFallback(request)
         }
-        backend?.noteFallback(request)
         let latent = try runEulerORT(request, runtime: runtime)
         clock.lap(&timing.vector) // chốt TRƯỚC codec — trước 1.3.878 chốt sau nên codec bị tính vào vòng Euler
         let waveform = try runtime.codecDecoder(latent: latent, latentChannels: request.latentChannels, frames: request.frames)

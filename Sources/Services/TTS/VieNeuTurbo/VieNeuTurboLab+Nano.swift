@@ -110,6 +110,9 @@ extension VieNeuTurboLab {
     /// Trước "Đo tự động": dừng mọi lượt của màn thử + TTS chính, giành phiên âm thanh, nhả Turbo, trả ghi đè luồng Nano
     /// (lượt đo dùng đúng cấu hình của trình đọc).
     func prepareForAutoRun() async {
+        // Dùng chung gói + cache với "Tăng tốc Core ML" của trình đọc (P2c): nhả backend của trình đọc trước khi màn thử
+        // tải lại / biên dịch / xoá.
+        VieNeuCoreMLReaderRoute.shared.release(reason: "màn thử: Đo tự động")
         stopSample()
         soak.stop(reason: "bắt đầu đo tự động")
         epProbe.stop()

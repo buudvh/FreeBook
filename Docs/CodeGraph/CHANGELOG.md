@@ -2,6 +2,46 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.917] - 2026-11-13
+
+### feat: Trình đọc Nano có công tắc Tăng tốc Core ML, nhanh gấp đôi và mát hơn, tự lùi về ORT khi cần
+
+Anh Bửu gửi kết quả Đo tự động chạy một mạch trên gói định dạng 3 (1.3.915 (1252)):
+- ORT / Core ML / ORT: RTF 0,27 / 0,14 / 0,27; CPU tiến trình 672 / 243 / 672 s.
+- Core ML mát suốt 15 phút (ORT lên ấm sau 1:11 và 5:16); pin tụt 10 / 5 / 10%.
+- Hụt tiếng 0, lùi ORT 0/304 đoạn.
+
+Anh duyệt plan P2c (cách B: chờ Core ML nạp đúng khung đoạn đầu cần rồi đọc luôn, khung khác nạp dần). Chi tiết ở §16 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Công tắc "Tăng tốc Core ML (thử nghiệm)"**, mặc định tắt, ở Cài đặt VieNeu TTS (`VieNeuTTSTestView+CoreML`). Chỉ áp cho model Nano. Nút "Tải & chuẩn bị":
+  - tải gói (theo sha256);
+  - biên dịch 7 graph;
+  - **tự kiểm golden** (`VieNeuCoreMLPreparer.verify`) — qua mới gắn cho trình đọc;
+  - ghi dấu `Results/reader-verified.json` (commit + sha manifest + số bản biên dịch).
+
+  Màn này còn có trạng thái, nút Dừng và nút Xoá (giữ báo cáo của màn thử). Logic ở `VieNeuCoreMLAccelerator`.
+- **Gói ghim commit HF** `0d5d13ce` (`VieNeuCoreMLPackage.revision`): thử nghiệm sau ghi đè `nano-coreml/` trên `main` không làm hỏng trình đọc.
+- **Chỗ nối** (`VieNeuCoreMLReaderRoute`, gọi được từ mọi luồng):
+  - Hàm `synthesizeWithDuration` đúng chữ ký `LocalTTSEngine` (trình đọc, Nghe thử, nghe thử giọng) lấy backend Core ML của trình đọc.
+  - Hàm có `flowBackend:` của màn thử dùng đúng giá trị truyền vào (`nil` = ORT), nên lượt ORT của Đo tự động không lẫn Core ML.
+- **Nạp sẵn + chạy nháp**: engine Nano khởi động (`VieNeuTTSService.prepare`) ⇒ nền, không chờ, nạp + chạy một lượt input 0 cho VE T64 / T96 / T128, codec T64 / T128.
+  - Mỗi khung một lần giữ khoá tổng hợp (`VieNeuTTSEngine.withSynthesisLock`), nên không chồng lên lượt đọc.
+  - Khung khác nạp khi gặp.
+  - Không biên dịch lúc này: thiếu bản biên dịch ⇒ ORT, Cài đặt báo "Cần chuẩn bị".
+  - Bật lại công tắc khi đã sẵn ⇒ nạp ngay.
+- **Lùi ORT**:
+  - đoạn vượt bucket hoặc giọng khác dạng (thêm kiểm style 50 × 256, speaker 192 trong `canRun`);
+  - Core ML lỗi một chunk ⇒ engine chạy lại chunk đó bằng ORT (`VieNeuFlowBackend.fallsBackToORTOnError`, chỉ backend của trình đọc). Lỗi 3 lần ⇒ thôi dùng tới lần mở app sau.
+  - Máy báo thiếu RAM ⇒ nhả session, lượt sau nạp lại lười.
+  - Nhả engine Nano / chuyển Turbo ⇒ nhả backend.
+- **Màn thử dùng chung gói** ⇒ Đo tự động (lúc bắt đầu) và nút Xoá của màn thử nhả backend của trình đọc trước. Nút đổi tên "… (cả của trình đọc)"; xoá cache là xoá dấu tự kiểm.
+- **Log để so bật / tắt**:
+  - `🎙️ [TTSStart] Tiếng đầu sau X ms · engine · flow` (mốc `startSpeaking` → lần đưa tiếng đầu lên hàng phát);
+  - `[NghiEnergy] Summary` thêm `coreMLChunks` / `coreMLFallbacks` của cửa sổ;
+  - `[VieNeuCoreML]`: chuẩn bị, tự kiểm, nạp sẵn + chạy nháp, lượt đầu mỗi session, lỗi.
+- Để sau: mặc định bật, bỏ nạp ORT VE / codec khi bật, gộp trọng số trùng giữa các bucket, Neural Engine.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.916] - 2026-11-13
 
 ### perf: CI build Release biên dịch từng file song song và bỏ dSYM, bước archive còn khoảng một nửa
@@ -613,15 +653,3 @@ Anh Bửu tạo kho Hugging Face riêng `raikiri1498/VieNeu-TTS` và dặn: *"th
   - Nội dung trùng từng byte ⇒ file đã tải trên máy dùng tiếp, `modelByteCount` không đổi.
 - Chữ ở Cài đặt VieNeu (gói Nano) và màn thử Turbo ghi nguồn mới kèm tác giả gốc.
 - **Kiểm chứng:** tải thử từng URL mới của kho (HTTP 200, đúng kích thước); đọc code + grep chéo (không còn `pnnbao-ump/…/resolve` hay `raw.githubusercontent.com/pnnbao97` trong `Sources/`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử tải trong app.
-
-## [1.3.887] - 2026-11-12
-
-### merge: đưa VieNeu Turbo GGUF vào main
-
-Anh Bửu: *"vì turbo chạy cũng ổn rồi nên tôi nghĩ bạn nên merge turbo vào nhánh main"*. Merge `origin/main` (tới 1.3.873) vào `feature/vieneu-turbo-gguf` rồi đẩy lên `main`.
-
-- **Đánh lại số**: 13 bản của nhánh (trước là 1.3.845–857, trùng số với main) thành **1.3.874–886**, giữ thứ tự và tiêu đề. Đổi cả tham chiếu trong thân entry và trong chú thích code của nhánh; dòng nào có y nguyên trong bản main thì giữ (là số của main). 14 entry cũ nhất của main (1.3.844–857) chuyển sang `CHANGELOG.archive.md`.
-- Xung đột chỉ ở hai file CHANGELOG. Ba view cùng sửa (`TTSSettingsHubView`, `VieNeuTTSTestView`, `TTSSettingsView`) tự gộp: hàng / section Turbo nằm trong `Group { … }.glassSheetRows()` của 1.3.873. Màn thử Turbo (`VieNeuTurboLabView`) bọc theo cùng kiểu cho khớp.
-- `audiocpp-ios.yml` chạy cả trên `main`. Cache `AudioCpp.xcframework` tạo trên nhánh không dùng được ở `main` ⇒ lượt build `main` đầu tiên dựng lại audio.cpp (lâu hơn vài phút), các lượt sau lấy từ cache.
-- `CLAUDE.md` / `AGENTS.md`: thêm mục "VieNeu: hai model Nano / Turbo" ở phần TTS và bước dựng AudioCpp ở đoạn CI.
-- **Kiểm chứng:** đọc lại phần tự gộp của ba view; grep không còn số 1.3.845–857 của nhánh trong file nhánh sửa; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), CI build `main` sẽ là lần biên dịch đầu tiên của bản gộp.

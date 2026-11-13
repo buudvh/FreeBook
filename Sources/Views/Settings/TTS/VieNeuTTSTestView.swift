@@ -68,6 +68,7 @@ struct VieNeuTTSTestView: View {
     var body: some View {
         Form { Group {
             modelSection
+            coreMLSection
             turboLabSection
             voiceSection
             japaneseDictionarySection

@@ -14,8 +14,13 @@ import Foundation
 /// - `Cache-noopt/` — bản thử P2b-0 của 1.3.913 (tắt tối ưu ORT, vô ích — §14); chỉ còn để dọn khi tải gói / xoá;
 /// - `Results/` — báo cáo của lượt đo tự động.
 final class VieNeuCoreMLPackage: Sendable {
-    /// Đọc theo nhánh `main` như `VieNeuNanoStaticPackage` — an toàn vì mọi file kiểm sha256 theo manifest cùng lượt.
-    static let remoteBaseURL = "https://huggingface.co/\(VieNeuModelMirror.repository)/resolve/main/nano-coreml/"
+    /// **Ghim commit HF** (1.3.916, P2c): trình đọc dùng gói này, nên thử nghiệm sau ghi đè `nano-coreml/` trên `main`
+    /// không được làm hỏng tính năng đã phát hành. Gói mới ⇒ đổi commit ở đây (cùng lúc với `supportedFormat` nếu
+    /// đổi định dạng). Commit `0d5d13ce` = định dạng 3 (Gemm `transB=1`, báo cáo §14–16).
+    static let revision = "0d5d13cecbd5eb00ce783374bd0666319975bf8b"
+    static let remoteBaseURL = "https://huggingface.co/\(VieNeuModelMirror.repository)/resolve/\(revision)/nano-coreml/"
+    /// Dấu "đã qua tự kiểm" của trình đọc (`VieNeuCoreMLAccelerator`) — xoá cache là xoá dấu này.
+    static let readerVerifiedMarkerName = "reader-verified.json"
     static let manifestName = "manifest.json"
     static let supportedFormat = 3
 
@@ -168,9 +173,21 @@ final class VieNeuCoreMLPackage: Sendable {
         return Dictionary(decoded.files.map { ($0.name, $0.sha256) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Xoá bản biên dịch — kèm dấu "đã qua tự kiểm" của trình đọc (bản biên dịch mới phải kiểm lại).
     func deleteCache() {
         try? FileManager.default.removeItem(at: cacheDirectory)
         try? FileManager.default.removeItem(at: legacyNoOptCacheDirectory)
+        try? FileManager.default.removeItem(at: readerVerifiedMarkerURL)
+    }
+
+    var readerVerifiedMarkerURL: URL {
+        resultsURL.appendingPathComponent(Self.readerVerifiedMarkerName, isDirectory: false)
+    }
+
+    /// Xoá gói + bản biên dịch, **giữ** `Results/` (báo cáo / tiến độ của màn thử) — nút Xoá ở Cài đặt VieNeu.
+    func deletePackageAndCache() {
+        try? FileManager.default.removeItem(at: directory)
+        deleteCache()
     }
 
     /// Kết quả dọn cache: số mục giữ / xoá + một đường dẫn bản biên dịch tìm thấy (tương đối với `Cache/`) để nhật ký
