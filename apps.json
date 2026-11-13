@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.915",
+          "buildVersion": "1252",
+          "date": "2026-11-13T04:15:21Z",
+          "localizedDescription": "- chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất\n- feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1252/TangCongCac-1.3.915-1252.ipa",
+          "size": 42228242,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.913",
           "buildVersion": "1251",
           "date": "2026-11-13T03:20:35Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1248/TangCongCac-1.3.910-1248.ipa",
           "size": 42164776,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.908",
-          "buildVersion": "1246",
-          "date": "2026-11-12T08:20:09Z",
-          "localizedDescription": "- fix: icon chia sẻ / nhập từ truyện khác của từ điển VP, Name không còn trùng icon xuất / nhập file",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1246/TangCongCac-1.3.908-1246.ipa",
-          "size": 42139174,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.913",
-      "versionDate": "2026-11-13T03:20:35Z",
-      "versionDescription": "- feat: Đo nạp Core ML thử bản tắt tối ưu đồ thị ORT để trọng số không còn bị ghi thành chữ trong model",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1251/TangCongCac-1.3.913-1251.ipa",
-      "size": 42226762,
+      "version": "1.3.915",
+      "versionDate": "2026-11-13T04:15:21Z",
+      "versionDescription": "- chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất\n- feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1252/TangCongCac-1.3.915-1252.ipa",
+      "size": 42228242,
       "appPermissions": {}
     }
   ],
