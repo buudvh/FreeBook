@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.886] - 2026-11-12
+
+### revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn
+
+Anh Bửu nghe Nano trong trình đọc ở cùng cài đặt (Mai Anh, phát 1,5×, tổng hợp 1,15×, 2 luồng, ~5–6 phút mỗi bản), so bản cũ (trước 1.3.884) với 1.3.884:
+
+| | Bản cũ | 1.3.884 |
+|---|---|---|
+| RTF | 0,28 | 0,28 |
+| CPU-s / giây tiếng | 0,54 | 0,54 |
+| CPU-s / 1.000 ký tự | 28,7 | 28,9 |
+| Máy bận tổng hợp | ~40% | ~40% |
+| Nhiệt | "nóng" sau ~4 phút | "nóng" sau ~4 phút |
+
+Trình đọc Nano vốn đã chạy nhanh (bản cũ dùng ~2 lõi mỗi đoạn); con số "utility RTF 0,55" chỉ có ở màn thử vì màn thử ép utility. Ép `.userInitiated` không đổi gì ⇒ anh yêu cầu trả Nano về code cũ.
+
+- `VieNeuTTSService`, `VieNeuTTSEngine+Reload`, `VieNeuTurboLab+Nano` về đúng bản trước 1.3.884: bỏ `readerPriority`, `setLabSynthesisPriority` và `Task.detached` bọc lượt tổng hợp; `prepare(voice:)` lại dựng session ở `.utility`.
+- Giữ phần đo P0 (1.3.881: `vectorMs` / `codecMs` / `textMs`, `cpuSplit`, `qos=`) — cần cho việc tối ưu Nano tiếp.
+- Màn thử: QoS mặc định của lượt Nano về `utility` như trước; sửa chú thích còn nói trình đọc Nano chạy userInitiated. Turbo giữ nguyên 1.3.885 (trình đọc Turbo thật sự bị runtime ép `.utility` nên đổi có tác dụng).
+- **Kiểm chứng:** đọc code + grep chéo (`readerPriority`, `setLabSynthesisPriority` không còn chỗ gọi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
+
 ## [1.3.885] - 2026-11-12
 
 ### perf: Turbo đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và mát hơn

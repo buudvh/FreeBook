@@ -2,6 +2,38 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.916] - 2026-11-13
+
+### perf: CI build Release biên dịch từng file song song và bỏ dSYM, bước archive còn khoảng một nửa
+
+Anh Bửu hỏi vì sao CI build càng ngày càng lâu. Bước `Build and Archive App (Unsigned)` chiếm ~90% job, phổ biến 1000–1560 s.
+
+**Nguyên nhân** (41 lượt xanh 10–13/11 + 2 vòng đo trên nhánh thử `exp/ci-timing`):
+- Mã Swift `Sources/` tăng 2,5× từ 1/10 (4,5 MB) tới 13/11 (11,5 MB); riêng 10/11 → 13/11 thêm 10%.
+- Release biên dịch cả module FreeBook trong **một** tiến trình (`-O -whole-module-optimization -g`). Bộ đếm của frontend (1174 s): tối ưu SIL 607 s (52%, gần như một luồng), type-check 165 s, IRGen 133 s, LLVM 128 s. RAM lên ~5 GB trên runner 7 GB ⇒ swap 0,5–0,7 GB.
+- Runner dùng chung lệch tới ~2×: lượt 562 s ngày 10/11 là gặp máy nhanh — lượt ngay sau chỉ thêm 1 file mất 1241 s.
+
+**Đo cặp cùng máy** (mỗi runner chạy 2 cách nối tiếp; số là thời gian `xcodebuild archive`, s):
+
+| Cách | Archive | Cặp cùng máy | Binary |
+|---|---|---|---|
+| WMO `-O -g` (cũ) | 1137–1330 | — | 54,24 MB |
+| WMO, bỏ debug info | 804–1158 | 1216 → 804 | 54,08 MB |
+| `singlefile` `-O -g` | 499–719 | 1224 → 706, 1330 → 499, 1310 → 719 | 52,34 MB |
+| `singlefile`, bỏ debug info (**chọn**) | 490–619 | 1137 → 490 | 52,17 MB |
+
+App nén ~41,0 MB (IPA cũ 42,2 MB, dưới giới hạn 50 MB của Telegram).
+
+**Thay đổi** — `project.yml`, target FreeBook, `settings.configs.Release` (gói SPM giữ mặc định):
+- `SWIFT_COMPILATION_MODE: singlefile` — biên dịch từng file, batch mode 3 luồng.
+- `DEBUG_INFORMATION_FORMAT: dwarf` + `GCC_GENERATE_DEBUGGING_SYMBOLS: NO` — không `-g`, không sinh dSYM (188 MB mỗi lượt, không ai dùng: archive không tải lên, binary đã strip).
+
+**Đánh đổi** (anh Bửu duyệt mức 1 + 2): mất tối ưu xuyên file (inline / specialize / suy `final`) ⇒ code Swift tính nặng (khử nhiễu STFT, fbank, tách từ VietPhrase, chuẩn hoá chữ) có thể chậm hơn chút — chưa đo trên máy. ORT / Core ML / audio.cpp không đổi. So RTF với bản trước 1.3.916 thì nhớ điều này.
+
+**Chưa làm**: tách các view type-check chậm (58 thân hàm > 200 ms, cộng 63 s; nặng nhất `ReaderView.readerObserverLayer` 13,3 s, `ReaderAINameReviewCardView.body` 4,4 s, `DiscoveryView.body` 3,3 s) — chỉ lợi vài phần trăm; cache gói SPM — lợi ~30–50 s, thêm rủi ro cache cũ.
+
+`CLAUDE.md` + `AGENTS.md`: thêm đoạn "Chế độ biên dịch Release".
+
 ## [1.3.915] - 2026-11-13
 
 ### feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model
@@ -593,24 +625,3 @@ Anh Bửu: *"vì turbo chạy cũng ổn rồi nên tôi nghĩ bạn nên merge 
 - `audiocpp-ios.yml` chạy cả trên `main`. Cache `AudioCpp.xcframework` tạo trên nhánh không dùng được ở `main` ⇒ lượt build `main` đầu tiên dựng lại audio.cpp (lâu hơn vài phút), các lượt sau lấy từ cache.
 - `CLAUDE.md` / `AGENTS.md`: thêm mục "VieNeu: hai model Nano / Turbo" ở phần TTS và bước dựng AudioCpp ở đoạn CI.
 - **Kiểm chứng:** đọc lại phần tự gộp của ba view; grep không còn số 1.3.845–857 của nhánh trong file nhánh sửa; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Không build tại chỗ (Windows), CI build `main` sẽ là lần biên dịch đầu tiên của bản gộp.
-
-## [1.3.886] - 2026-11-12
-
-### revert: Nano đọc truyện bỏ ép QoS userInitiated, về như cũ vì đo trên máy không nhanh hơn
-
-Anh Bửu nghe Nano trong trình đọc ở cùng cài đặt (Mai Anh, phát 1,5×, tổng hợp 1,15×, 2 luồng, ~5–6 phút mỗi bản), so bản cũ (trước 1.3.884) với 1.3.884:
-
-| | Bản cũ | 1.3.884 |
-|---|---|---|
-| RTF | 0,28 | 0,28 |
-| CPU-s / giây tiếng | 0,54 | 0,54 |
-| CPU-s / 1.000 ký tự | 28,7 | 28,9 |
-| Máy bận tổng hợp | ~40% | ~40% |
-| Nhiệt | "nóng" sau ~4 phút | "nóng" sau ~4 phút |
-
-Trình đọc Nano vốn đã chạy nhanh (bản cũ dùng ~2 lõi mỗi đoạn); con số "utility RTF 0,55" chỉ có ở màn thử vì màn thử ép utility. Ép `.userInitiated` không đổi gì ⇒ anh yêu cầu trả Nano về code cũ.
-
-- `VieNeuTTSService`, `VieNeuTTSEngine+Reload`, `VieNeuTurboLab+Nano` về đúng bản trước 1.3.884: bỏ `readerPriority`, `setLabSynthesisPriority` và `Task.detached` bọc lượt tổng hợp; `prepare(voice:)` lại dựng session ở `.utility`.
-- Giữ phần đo P0 (1.3.881: `vectorMs` / `codecMs` / `textMs`, `cpuSplit`, `qos=`) — cần cho việc tối ưu Nano tiếp.
-- Màn thử: QoS mặc định của lượt Nano về `utility` như trước; sửa chú thích còn nói trình đọc Nano chạy userInitiated. Turbo giữ nguyên 1.3.885 (trình đọc Turbo thật sự bị runtime ép `.utility` nên đổi có tác dụng).
-- **Kiểm chứng:** đọc code + grep chéo (`readerPriority`, `setLabSynthesisPriority` không còn chỗ gọi); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
