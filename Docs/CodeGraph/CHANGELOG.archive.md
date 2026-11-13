@@ -2,6 +2,40 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.892] - 2026-11-12
+
+### feat: VieNeu Turbo mã hoá mẫu giọng bằng audio.cpp và lưu giọng tự tạo
+
+Phần hai của lõi nhân bản giọng Turbo (anh Bửu đã duyệt plan). Chưa có giao diện người dùng cuối; API để sẵn cho màn chọn giọng / tạo giọng làm theo mockup sau.
+
+- **`VieNeuTurboRuntime.encodeReference`** (file mới `VieNeuTurboRuntime+Encode`):
+  - Gọi audio.cpp với `audiocpp_request_set_voice_audio` + option `encode_reference_only = true`, đọc artifact `ACOUSTIC_TOKENS` id `vieneu_v3_turbo.reference_codes`.
+  - Chép đủ `payload_bytes` (con trỏ mượn) trước khi `audiocpp_result_free`. Kiểm 16 số 0…1023 mỗi dòng, 1…100 dòng (25 giọng đóng gói: 12…98 khung, mã 0…1023).
+  - Truyền `speaker_embedding_file` của chính giọng đang tạo: audio.cpp khỏi tự chạy speaker encoder của GGUF (nếu có), và file đi qua bộ đọc của audio.cpp một lần trước khi lưu.
+  - Chạy trên hàng đợi runtime, QoS `.userInitiated`, không chạy chồng lượt tổng hợp. Lỗi cấp phát ⇒ dựng lại session, thử lại một lần.
+  - **UNKNOWN**: framework có đòi chữ khi chỉ mã hoá không. Đọc code v0.9.4 thì không; nếu máy báo lỗi "text input" thì ghi `❌`, đặt chữ giả rồi thử lại.
+  - Xong lượt: model đã nạp sẵn thì **dựng lại session** cùng số luồng (trả vùng encoder + cache prompt); nạp riêng cho lượt này thì **nhả hết**. Kể cả khi lượt hỏng.
+  - `queue`, `model`, `session`, `sessionThreads`, `loadedModelPath`, `perform`, `prepareLocked`, `createSessionLocked`, `freeAll`, `check`, `elapsedMs`, `isAllocationFailure` hạ từ `private` xuống `internal` vì file `+Encode` dùng (tách file vì trần 400 dòng).
+- **Kho giọng tự tạo** `VieNeuTurboCustomVoiceStore`:
+  - Bố cục: `VieNeuTurbo/CustomVoices/<id>/{ref_codes.txt, speaker.emb.txt, sample.<đuôi>?}` + `voices_custom.json` (tên, ngày tạo, số khung, đã khử nhiễu chưa, độ dài mẫu, mẫu gốc nếu giữ, giọng Nano nguồn nếu có).
+  - Tách khỏi `Voices/` tải về; `VieNeuTurboModelStore.deleteAll` không chạm tới.
+  - Id `custom_<12 hex>` ngẫu nhiên, không dùng lại (khoá cache tổng hợp băm theo id giọng).
+  - Ghi vào `.staging-<id>/` rồi chuyển cả thư mục vào chỗ, sau đó mới ghi index (`.tmp` → `replaceItemAt`). Thư mục dở do app chết giữa chừng được dọn khi nạp danh sách.
+- **Đọc giọng tự tạo**:
+  - `VieNeuTurboModelStore.voiceDirectory(voiceId:)` định tuyến id `custom_…` sang `CustomVoices/`, nên `referenceCodesURL` / `speakerEmbeddingURL` / `hasVoice` dùng chung cho cả hai loại.
+  - `VieNeuTurboTTSService.resolveVoiceId` giữ id tự tạo khi cặp file còn, đã xoá thì về giọng mặc định.
+  - `VieNeuTurboModelClient.downloadVoice` không bao giờ tải id tự tạo: thiếu file ⇒ báo rõ "không còn trên máy" thay vì HTTP 404.
+- **API cho UI sau này:**
+  - `VieNeuTurboCustomVoiceRepository` (`@MainActor @Observable`, `shared`): `voices`, `loadError`, `reload()`, `voice(id:)`, `rename(id:to:)`, `delete(id:)`, `voiceFiles(id:)`, `sampleURL(id:)`.
+  - `VieNeuTurboVoiceCloneCoordinator` (`shared`): `createVoice(fromFile:name:denoise:keepsSample:keepsIntermediate:)`, `createVoice(fromNanoVoiceId:name:denoise:)` (dùng mẫu gốc ở `VieNeu/CustomVoices/samples/`), `isRunning`, `stage`, `readinessError(denoise:)`, `isReaderUsingTurbo`.
+  - Trình đọc đang đọc bằng Turbo ⇒ báo lỗi rõ, không chạy.
+  - Thứ tự giữ đỉnh RAM thấp: ORT (khử nhiễu + embedding) nhả xong mới chạy encoder audio.cpp.
+- `VieNeuTurboReferencePreparer.minimumSeconds` hạ 2 → **1 giây**: giọng đóng gói ngắn nhất chỉ 12 khung (~0,96 s).
+- **Kiểm chứng:**
+  - Đọc code audio.cpp v0.9.4: `session.cpp` (nhánh `encode_reference_only`, `parse_speaker_embedding_file`), `prompt_tts_voice_clone.cpp` (cắt 8 s, bỏ khung thừa), `capi/audiocpp.cpp` (artifact, payload mượn).
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa chạy trên máy: ánh xạ kiểu C → Swift của `audiocpp_result_artifact` / `audiocpp_artifact_kind` chưa qua trình biên dịch.
+
 ## [1.3.891] - 2026-11-12
 
 ### feat: lõi xử lý mẫu giọng cho nhân bản VieNeu Turbo: cắt im lặng, khử nhiễu, speaker embedding

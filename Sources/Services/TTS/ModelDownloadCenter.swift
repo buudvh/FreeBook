@@ -173,6 +173,12 @@ public final class ModelDownloadCenter: ObservableObject {
                     ModelDownloadCenter.shared.update(id: id, message: message, fraction: fraction)
                 }
             }
+            // Tiến độ theo byte của file `.onnx` (1.3.922) — đè phần trăm theo file khi đã biết tổng.
+            let byteHandler: @Sendable (Int64, Int64) -> Void = { completed, total in
+                Task { @MainActor in
+                    ModelDownloadCenter.shared.updateBytes(id: id, completed: completed, total: total)
+                }
+            }
 
             // Lấy client **trong** task, không capture từ ngoài: `NghiTTSClient` không `Sendable`, nên
             // capture nó qua ranh giới `Task` là chỗ dễ vỡ khi bật kiểm tra concurrency chặt hơn.
@@ -180,8 +186,14 @@ public final class ModelDownloadCenter: ObservableObject {
                 var failure: String?
                 if let client = TTSManager.shared.nghiTTSClient {
                     do {
-                        _ = try await client.prefetchModels(voices: [voice.name], progressHandler: handler)
+                        _ = try await client.prefetchModels(
+                            voices: [voice.name], progressHandler: handler, byteProgress: byteHandler
+                        )
                     } catch {
+                        // Bấm ■ (`cancel(id:)`) ⇒ dòng đã gỡ, không báo lỗi.
+                        if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                            return
+                        }
                         failure = error.localizedDescription
                     }
                 } else {
@@ -210,6 +222,15 @@ public final class ModelDownloadCenter: ObservableObject {
         guard entries[index].state.isRunning else { return }
         entries[index].message = message
         entries[index].fraction = min(1, max(0, fraction))
+    }
+
+    /// Byte đã tải / tổng của lượt tải NghiTTS (1.3.922). Tổng chưa biết (≤ 0) ⇒ giữ phần trăm theo file.
+    func updateBytes(id: String, completed: Int64, total: Int64) {
+        guard total > 0, let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        guard entries[index].state.isRunning else { return }
+        entries[index].completedBytes = completed
+        entries[index].totalBytes = total
+        entries[index].fraction = min(1, max(0, Double(completed) / Double(total)))
     }
 
     func finish(id: String, title: String, failure: String?) {

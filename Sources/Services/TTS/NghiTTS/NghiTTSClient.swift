@@ -101,7 +101,13 @@ public final class NghiTTSClient {
         await TextPreprocessor.shared.loadResources()
     }
 
-    public func prefetchModels(voices: [String], progressHandler: ((String, Double) -> Void)? = nil) async throws -> [PrefetchResult] {
+    /// `byteProgress` (1.3.922): byte đã tải / tổng byte của file `.onnx` (file lớn duy nhất của giọng, ~61 MB) — cho dòng
+    /// "Đang tải 37% · 23 / 61 MB" của sheet chọn giọng. Huỷ `Task` bên gọi ⇒ lượt tải `URLSession` dừng ngay.
+    public func prefetchModels(
+        voices: [String],
+        progressHandler: ((String, Double) -> Void)? = nil,
+        byteProgress: (@Sendable (Int64, Int64) -> Void)? = nil
+    ) async throws -> [PrefetchResult] {
         let bgSession = BackgroundTaskSession.begin(name: "TangCongCac-DownloadModel")
         defer { bgSession.end() }
         
@@ -118,7 +124,12 @@ public final class NghiTTSClient {
 
             if !FileManager.default.fileExists(atPath: localOnnx.path) {
                 progressHandler?("Đang tải \(voice.name).onnx...", Double(completedFiles) / Double(totalFiles))
-                try await download(from: onnxURL, to: localOnnx)
+                // Cùng đường tải theo byte của VieNeu (`session.download(for:delegate:)` + quan sát `task.progress`, ghi qua
+                // `<file>.partial` rồi mới đổi tên) ⇒ có tiến độ từng byte, huỷ được, không để file dở mang tên thật.
+                try await VieNeuTurboModelClient.transfer(
+                    session: session, from: onnxURL, to: localOnnx, name: "\(voice.name).onnx",
+                    expectedBytes: nil, progress: byteProgress
+                )
             }
             completedFiles += 1
             progressHandler?("Đã tải \(voice.name).onnx", Double(completedFiles) / Double(totalFiles))

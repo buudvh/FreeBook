@@ -62,7 +62,7 @@ extension ModelDownloadCenter {
         entries.contains { Self.isVieNeuTarget($0.id) && $0.state.isRunning }
     }
 
-    /// Huỷ một lượt VieNeu (đang chạy hoặc đang chờ). Dòng tiến độ biến mất ngay.
+    /// Huỷ một lượt tải (VieNeu đang chạy / đang chờ, hoặc một giọng NghiTTS — 1.3.922). Dòng tiến độ biến mất ngay.
     func cancel(id: String) {
         guard let task = tasks[id] else { return }
         task.cancel()

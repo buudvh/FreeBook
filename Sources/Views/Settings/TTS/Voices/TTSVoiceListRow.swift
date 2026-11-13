@@ -2,8 +2,7 @@ import SwiftUI
 
 /// Một hàng giọng của sheet chọn giọng chung (Siri / NghiTTS / Google / tiện ích) — cùng dáng `VieNeuVoiceListRow`.
 ///
-/// - Nút tròn 36 pt bên trái: ▶ thử giọng; ■ khi đang thử; ⬇ khi chưa tải; vòng xoay khi đang tải mà không huỷ được
-///   (NghiTTS — `ModelDownloadCenter` không huỷ được đích này).
+/// - Nút tròn 36 pt bên trái: ▶ thử giọng; ■ khi đang thử **hoặc** đang tải (bấm = huỷ tải, 1.3.922); ⬇ khi chưa tải.
 /// - Thân hàng: tên + dòng phụ (hoặc chữ tiến độ + thanh mảnh khi đang tải), ✓ nếu là giọng đang chọn, badge. Chạm thân
 ///   hàng = chọn giọng — chỉ khi giọng dùng được ngay (`isReady`).
 ///
@@ -13,7 +12,7 @@ struct TTSVoiceListRow: View {
         case play
         case stop
         case download
-        /// Đang tải, không huỷ được ⇒ vòng xoay, nút tắt.
+        /// Đang tải ⇒ ■, bấm = huỷ tải.
         case downloading
     }
 
@@ -39,21 +38,14 @@ struct TTSVoiceListRow: View {
                 ZStack {
                     Circle()
                         .fill(Color.accentColor.opacity(isReady || primary == .downloading ? 0.18 : 0.10))
-                    if primary == .downloading {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.accentColor)
-                    } else {
-                        Image(systemName: primarySymbol)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                    }
+                    Image(systemName: primarySymbol)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.accentColor)
                 }
                 .frame(width: 36, height: 36)
                 .contentShape(Circle())
             }
             .buttonStyle(.borderless)
-            .disabled(primary == .downloading)
             .accessibilityLabel(primaryLabel)
 
             Button(action: onSelect) {
@@ -111,8 +103,8 @@ struct TTSVoiceListRow: View {
     private var primarySymbol: String {
         switch primary {
         case .play: return "play.fill"
-        case .stop: return "stop.fill"
-        case .download, .downloading: return "arrow.down"
+        case .stop, .downloading: return "stop.fill"
+        case .download: return "arrow.down"
         }
     }
 
@@ -121,7 +113,7 @@ struct TTSVoiceListRow: View {
         case .play: return "Thử giọng \(name)"
         case .stop: return "Dừng thử giọng \(name)"
         case .download: return "Tải giọng \(name)"
-        case .downloading: return "Đang tải giọng \(name)"
+        case .downloading: return "Huỷ tải giọng \(name)"
         }
     }
 }

@@ -162,9 +162,12 @@ struct NghiVoicePickerList: View {
         "nghi:\(voice.id)"
     }
 
-    /// `ModelDownloadCenter` chỉ báo tiến độ theo **file** của giọng (0 → 50% → 100%), không theo byte ⇒ chưa có phần trăm
-    /// thì thanh vô định.
+    /// Tiến độ theo **byte** của file `.onnx` (1.3.922): "Đang tải 37% · 23 / 61 MB". Chưa biết tổng ⇒ phần trăm theo file
+    /// hoặc thanh vô định.
     private static func progress(of entry: ModelDownloadCenter.Entry) -> TTSVoiceListRow.Progress {
+        if entry.totalBytes > 0 {
+            return TTSVoiceListRow.Progress(text: VieNeuSizeFormatter.progress(entry), fraction: entry.fraction)
+        }
         guard let fraction = entry.fraction, fraction > 0 else {
             return TTSVoiceListRow.Progress(text: "Đang tải…", fraction: nil)
         }
@@ -174,9 +177,13 @@ struct NghiVoicePickerList: View {
 
     // MARK: - Hành động
 
-    /// Nút tròn: đang tải ⇒ không làm gì (không huỷ được); đang thử ⇒ dừng; chưa tải ⇒ tải; còn lại ⇒ thử giọng.
+    /// Nút tròn: đang tải ⇒ huỷ tải; đang thử ⇒ dừng; chưa tải ⇒ tải; còn lại ⇒ thử giọng.
     private func primaryTapped(_ voice: Voice) {
-        guard !downloads.isRunning(id: ModelDownloadCenter.Target.nghiVoice(voice.id)) else { return }
+        let target = ModelDownloadCenter.Target.nghiVoice(voice.id)
+        if downloads.isRunning(id: target) {
+            downloads.cancel(id: target)
+            return
+        }
         guard directory.isDownloaded(voice) else {
             directory.startDownload(voice)
             return
