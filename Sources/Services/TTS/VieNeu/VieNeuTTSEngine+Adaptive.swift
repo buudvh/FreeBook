@@ -75,7 +75,9 @@ extension VieNeuTTSEngine {
         cpuMs: Double,
         /// Ngữ cảnh ORT **đang nạp** — `threads=`/`spin=` lấy từ đây, không từ `UserDefaults` (cài đặt
         /// chỉ áp dụng khi engine nạp lại ở lượt kế tiếp, nên đọc `UserDefaults` có thể báo sai cấu hình đang đo).
-        runtime: VieNeuONNXRuntime
+        runtime: VieNeuONNXRuntime,
+        /// Lượt này có backend Core ML (P2c "Tăng tốc Core ML" / màn thử) — đoạn lùi ORT đếm ở `[NghiEnergy] Summary`.
+        usesCoreML: Bool = false
     ) {
         AppLogger.shared.log(
             "[VieNeuPerf] mode=\(mode.rawValue) chunkLen=\(TTSManager.vieNeuChunkLength) chunks=\(chunkCount) dropped=\(droppedScalars)"
@@ -93,6 +95,7 @@ extension VieNeuTTSEngine {
                 + " cores=\(String(format: "%.2f", cpuMs / max(1, synthesisMs)))"
                 + " threads=\(runtime.threadCount) spin=\(runtime.allowSpinning ? "on" : "off")"
                 + " qos=\(timing.synthesisQoS) sessionQos=\(runtime.buildQoS)"
+                + " backend=\(usesCoreML ? "coreml" : "ort")"
         )
     }
 

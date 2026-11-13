@@ -60,7 +60,9 @@ final class NghiEnergyTelemetry {
         if nghiEnergy.startedAt == nil {
             nghiEnergy.startedAt = now
             nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
-            (nghiEnergy.startCoreMLChunks, nghiEnergy.startCoreMLFallbacks) = VieNeuCoreMLReaderRoute.shared.counters()
+            let start = VieNeuCoreMLReaderRoute.shared.counters()
+            nghiEnergy.startCoreMLChunks = start.coreML
+            nghiEnergy.startCoreMLFallbacks = start.fallback
         } else {
             nghiEnergy.cpuPCMSeconds += pcmDuration
         }
