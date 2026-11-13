@@ -4,6 +4,11 @@
 # seed cố định, tắt babble guard), rồi so **mã âm thanh** (`codes_dump_file`) và file WAV từng byte. Lệch ⇒ exit 1.
 # Kèm đo RAM tối đa (`/usr/bin/time -l`) của từng bản để thấy bản vá bớt được bao nhiêu.
 #
+# Bản vá build kèm ggml-blas (Accelerate) như bản iOS. Thêm một phép so cho bản vá `vieneu_codec_blas`: cùng bản vá,
+# bật `vieneu_v3_turbo.codec_blas` ⇒ mã âm thanh phải trùng (talker không đổi), WAV ≥ 90 dB so với khi tắt (chỉ đổi
+# thứ tự cộng fp32 — Nano đo 99–136 dB), và log phải báo codec thật sự chạy qua BLAS. Runner là máy ảo không có AMX
+# ⇒ phép này chỉ kiểm ĐÚNG SỐ, không kiểm tốc độ (tốc độ đo trên iPhone).
+#
 # Chạy trên runner macOS (CPU, không Metal, không OpenMP — giống bản iOS). Tải model ~188 MB từ HF (revision ghim).
 set -euo pipefail
 
@@ -22,9 +27,12 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
   https://github.com/0xShug0/audio.cpp.git "$WORK_DIR/src_base"
 cp -R "$WORK_DIR/src_base" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$WORK_DIR/src_patched"
 
+# Tham số 3: ON = build kèm ggml-blas / Accelerate (như bản iOS từ bản vá vieneu_codec_blas), OFF = như upstream.
 build_cli() {
-  local src="$1" build="$2"
+  local src="$1" build="$2" blas="$3"
   cmake -S "$src" -B "$build" \
     -DCMAKE_BUILD_TYPE=Release \
     -DAUDIOCPP_DEPLOYMENT_BUILD=ON \
@@ -32,13 +40,13 @@ build_cli() {
     -DAUDIOCPP_MODELS=vieneu_v3_turbo \
     -DENGINE_ENABLE_METAL=OFF \
     -DENGINE_ENABLE_OPENMP=OFF \
-    -DGGML_BLAS=OFF > "$build.configure.log" 2>&1 || { tail -n 60 "$build.configure.log" >&2; exit 1; }
+    -DGGML_BLAS="$blas" -DGGML_BLAS_VENDOR=Apple > "$build.configure.log" 2>&1 || { tail -n 60 "$build.configure.log" >&2; exit 1; }
   cmake --build "$build" --target audiocpp_cli -j "$JOBS" > "$build.build.log" 2>&1 \
     || { grep -E 'error' "$build.build.log" | head -n 40 >&2; tail -n 40 "$build.build.log" >&2; exit 1; }
   find "$build" -name audiocpp_cli -type f -perm -u+x | head -n 1
 }
-CLI_BASE="$(build_cli "$WORK_DIR/src_base" "$WORK_DIR/build_base")"
-CLI_PATCHED="$(build_cli "$WORK_DIR/src_patched" "$WORK_DIR/build_patched")"
+CLI_BASE="$(build_cli "$WORK_DIR/src_base" "$WORK_DIR/build_base" OFF)"
+CLI_PATCHED="$(build_cli "$WORK_DIR/src_patched" "$WORK_DIR/build_patched" ON)"
 echo "cli gốc: $CLI_BASE"
 echo "cli vá:  $CLI_PATCHED"
 
@@ -51,8 +59,10 @@ curl -fsSL -o "$WORK_DIR/model/voice/speaker.emb.txt" "$HF_BASE/voices/minh_quan
 SHORT="sˈin tʃˈaː2w tˈeɜ zˈəːɜj. ɗˈəɪ lˌaː2 bˈaː4n tˈy4 ŋˈiɛ6m."
 LONG="$SHORT $SHORT $SHORT $SHORT"
 
+# Tham số từ thứ 4 trở đi: thêm vào dòng lệnh CLI (vd `--session-option …`, `--log-file …`).
 run_case() {
   local cli="$1" tag="$2" text="$3"
+  shift 3
   rm -f "$WORK_DIR/out/$tag.codes.txt"
   /usr/bin/time -l "$cli" --task tts --family vieneu_v3_turbo \
     --model "$WORK_DIR/model/turbo-q8_0.gguf" --backend cpu --threads 2 \
@@ -64,6 +74,7 @@ run_case() {
     --request-option babble_retries=0 \
     --request-option text_chunk_size=1000 \
     --request-option codes_dump_file="$WORK_DIR/out/$tag.codes.txt" \
+    "$@" \
     --out "$WORK_DIR/out/$tag.wav" > "$WORK_DIR/out/$tag.log" 2> "$WORK_DIR/out/$tag.time"
   local rss
   rss="$(grep -E 'maximum resident set size' "$WORK_DIR/out/$tag.time" | awk '{print $1}')"
@@ -74,13 +85,35 @@ FAIL=0
 for name in short long; do
   if [ "$name" = short ]; then text="$SHORT"; else text="$LONG"; fi
   run_case "$CLI_BASE" "base_$name" "$text"
-  run_case "$CLI_PATCHED" "patched_$name" "$text"
+  run_case "$CLI_PATCHED" "patched_$name" "$text" --log-file "$WORK_DIR/out/patched_$name.trace"
   if cmp -s "$WORK_DIR/out/base_$name.codes.txt" "$WORK_DIR/out/patched_$name.codes.txt" \
      && cmp -s "$WORK_DIR/out/base_$name.wav" "$WORK_DIR/out/patched_$name.wav"; then
     echo "✓ $name: mã âm thanh + WAV giống hệt"
   else
     echo "::error::$name: bản vá cho kết quả KHÁC bản gốc"
     diff <(head -c 4000 "$WORK_DIR/out/base_$name.codes.txt") <(head -c 4000 "$WORK_DIR/out/patched_$name.codes.txt") | head -n 20 || true
+    FAIL=1
+  fi
+
+  # Codec qua Accelerate (bản vá vieneu_codec_blas) — cùng bản vá, chỉ bật session option.
+  run_case "$CLI_PATCHED" "blas_$name" "$text" \
+    --session-option vieneu_v3_turbo.codec_blas=true --log-file "$WORK_DIR/out/blas_$name.trace"
+  active="$(grep -c 'moss.audio_tokenizer.decode.blas_active 1' "$WORK_DIR/out/blas_$name.trace" || true)"
+  nodes="$(grep -E 'moss.audio_tokenizer.decode.blas_nodes ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
+  codec_off="$(grep -E 'moss.audio_tokenizer.decode.graph_compute_ms ' "$WORK_DIR/out/patched_$name.trace" | tail -n 1 | awk '{print $NF}')"
+  codec_on="$(grep -E 'moss.audio_tokenizer.decode.graph_compute_ms ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
+  echo "$name: codec CPU ${codec_off:-?} ms · codec BLAS ${codec_on:-?} ms (máy ảo không AMX — chỉ tham khảo) · ${nodes:-0} node chạy BLAS"
+  if [ "${active:-0}" -lt 1 ] || [ "${nodes:-0}" -lt 1 ]; then
+    echo "::error::$name: bật codec_blas mà codec KHÔNG chạy qua BLAS (blas_active=${active:-0}, blas_nodes=${nodes:-0})"
+    grep -E 'blas|sched' "$WORK_DIR/out/blas_$name.trace" | head -n 10 || true
+    FAIL=1
+  elif ! cmp -s "$WORK_DIR/out/patched_$name.codes.txt" "$WORK_DIR/out/blas_$name.codes.txt"; then
+    echo "::error::$name: bật codec_blas làm ĐỔI mã âm thanh (talker không được đổi)"
+    FAIL=1
+  elif python3 "$CI_DIR/audiocpp_wav_snr.py" "$WORK_DIR/out/patched_$name.wav" "$WORK_DIR/out/blas_$name.wav" --min-db 90; then
+    echo "✓ $name: codec BLAS cùng mã, WAV đạt ngưỡng 90 dB"
+  else
+    echo "::error::$name: codec BLAS cho WAV lệch quá ngưỡng 90 dB"
     FAIL=1
   fi
 done

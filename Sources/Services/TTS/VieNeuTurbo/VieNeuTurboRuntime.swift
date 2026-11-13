@@ -56,6 +56,10 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         let cpuMs: Double
         /// QoS **đo được** của luồng chạy lượt này (`qos_class_self()`), không phải mức đã xin — để log ghi đúng.
         var qosName = ""
+        /// Session của lượt này dựng với "Tăng tốc codec bằng AMX" (`VieNeuTurboAcceleration`).
+        var codecAMXRequested = false
+        /// Bộ đếm giờ của audio.cpp cho lượt này; `nil` khi log app tắt (`VieNeuTurboTimingLog`).
+        var timings: VieNeuTurboTimingLog.Timings?
 
         var durationSeconds: Double { Double(samples.count) / Double(max(1, sampleRate)) }
     }
@@ -80,6 +84,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     var model: OpaquePointer?
     var session: OpaquePointer?
     var sessionThreads = 0
+    /// Session đang có dựng với codec qua Accelerate không (`VieNeuTurboAcceleration`); lệch với cài đặt ⇒ dựng lại.
+    var sessionCodecBLAS = false
     var loadedModelPath: String?
 
     static var isAvailable: Bool {
@@ -170,6 +176,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         model = nil
         registry = nil
         sessionThreads = 0
+        sessionCodecBLAS = false
         loadedModelPath = nil
     }
 
@@ -226,32 +233,10 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         }
 
         var sessionCreateMs: Double?
-        if session == nil || sessionThreads != threads {
+        if session == nil || sessionThreads != threads || sessionCodecBLAS != VieNeuTurboAcceleration.isCodecAMXEnabled {
             sessionCreateMs = try createSessionLocked(threads: threads)
         }
         return LoadReport(modelLoadMs: modelLoadMs, sessionCreateMs: sessionCreateMs, threads: threads)
-    }
-
-    /// Nhả session cũ (kèm mọi graph + bộ đệm audio.cpp giữ trong nó) rồi dựng session CPU mới. Trả ms dựng.
-    @discardableResult
-    func createSessionLocked(threads: Int) throws -> Double {
-        audiocpp_session_free(session)
-        session = nil
-        sessionThreads = 0
-        let started = ProcessInfo.processInfo.systemUptime
-        var created: OpaquePointer?
-        let status: audiocpp_status = "cpu".withCString { backendName in
-            var backend = audiocpp_backend_config(backend: backendName, device: 0, threads: Int32(threads))
-            return audiocpp_session_create(model, "tts", "offline", &backend, nil, &created)
-        }
-        try Self.check(status, "audiocpp_session_create")
-        session = created
-        sessionThreads = threads
-        let createMs = Self.elapsedMs(since: started)
-        AppLogger.shared.log(
-            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng: \(String(format: "%.0f", createMs)) ms — \(ProcessMemoryProbe.snapshot().summary)"
-        )
-        return createMs
     }
 
     /// Lỗi cấp phát bộ nhớ của audio.cpp/ggml ("failed to allocate …") — loại lỗi đáng dựng lại session rồi thử lại;
@@ -283,6 +268,10 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         )
 
         var result: OpaquePointer?
+        // Bộ đếm giờ của audio.cpp (chỉ khi log app bật); `defer` đóng file kể cả khi lượt hỏng / ném lỗi.
+        let measuresStages = VieNeuTurboTimingLog.beginRun()
+        var timings: VieNeuTurboTimingLog.Timings?
+        defer { if measuresStages && timings == nil { _ = VieNeuTurboTimingLog.finishRun() } }
         let started = ProcessInfo.processInfo.systemUptime
         let cpuStarted = ProcessCPUClock.nowMs()
         var status = audiocpp_session_run(session, request, &result)
@@ -308,6 +297,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         }
         let runMs = Self.elapsedMs(since: started)
         let cpuMs = ProcessCPUClock.nowMs() - cpuStarted
+        if measuresStages { timings = VieNeuTurboTimingLog.finishRun() ?? VieNeuTurboTimingLog.Timings() }
         guard let result else { throw RuntimeError.noAudio }
         defer { audiocpp_result_free(result) }
 
@@ -323,13 +313,16 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
         // Con trỏ **mượn**: chép ra (đồng thời trộn về mono) trước khi `audiocpp_result_free` chạy ở `defer`.
         let interleaved = UnsafeBufferPointer(start: samplesPointer, count: frames * Int(channels))
-        return Output(
+        var output = Output(
             samples: Self.downmixToMono(interleaved, channels: Int(channels)),
             sampleRate: Int(sampleRate),
             sourceChannels: Int(channels),
             runMs: runMs,
             cpuMs: cpuMs
         )
+        output.codecAMXRequested = sessionCodecBLAS
+        output.timings = timings
+        return output
     }
     #else
     func prepareLocked(modelPath: String, threads: Int) throws -> LoadReport {

@@ -37,9 +37,14 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
 AUDIOCPP_SHA="$(git -C "$SRC" rev-parse HEAD)"
 echo "audio.cpp commit: $AUDIOCPP_SHA"
 
-# Bản vá của app (Scripts/ci/audiocpp_patches/): bước nạp prompt của Turbo tái sử dụng bộ nhớ trung gian. Kiểm cùng
-# mã âm thanh với bản gốc ở job parity của audiocpp-ios.yml (Scripts/ci/audiocpp_parity_macos.sh).
+# Bản vá của app (Scripts/ci/audiocpp_patches/), kiểm ở job parity của audiocpp-ios.yml
+# (Scripts/ci/audiocpp_parity_macos.sh):
+# - vieneu_prefill_gallocr: bước nạp prompt của Turbo tái sử dụng bộ nhớ trung gian (cùng mã âm thanh với bản gốc);
+# - vieneu_codec_blas: codec giải mã qua Accelerate khi session option `vieneu_v3_turbo.codec_blas` bật (mặc định tắt);
+# - capi_log_file: hàm C `audiocpp_set_log_file` để app bật bộ đếm giờ có sẵn của audio.cpp.
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$SRC"
+python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$SRC"
+python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$SRC"
 
 # sentencepiece (vendored) gọi `set_xcode_property` khi CMAKE_SYSTEM_NAME=iOS nhưng macro đó chỉ có trong bộ
 # ios.toolchain.cmake riêng của nó (mình không dùng) ⇒ khai macro rỗng; nó chỉ gắn bundle id cho các tool CLI
@@ -54,7 +59,8 @@ EOF
 
 # OpenMP: Apple clang không có ⇒ tắt (ggml dùng pool pthread của nó).
 # NATIVE_CPU: đang cross-compile, không dò được máy đích ⇒ tắt, cấp cờ ARM tường minh qua GGML_CPU_ARM_ARCH.
-# BLAS: q8_0 không đi qua BLAS; tắt cho bớt một chỗ phải tìm thư viện lúc cross-compile.
+# BLAS: bật, nhà cung cấp Apple = Accelerate (framework hệ thống, AMX trên A13+). Chỉ codec MOSS dùng tới, và chỉ khi
+# session option `vieneu_v3_turbo.codec_blas` bật (bản vá vieneu_codec_blas); tắt thì graph y hệt bản không BLAS.
 cmake -S "$SRC" -B "$BUILD" \
   -DCMAKE_SYSTEM_NAME=iOS \
   -DCMAKE_OSX_SYSROOT=iphoneos \
@@ -77,7 +83,8 @@ cmake -S "$SRC" -B "$BUILD" \
   -DENGINE_ENABLE_NATIVE_CPU=OFF \
   -DENGINE_ENABLE_CPU_ALL_VARIANTS=OFF \
   -DGGML_CPU_ARM_ARCH="$ARM_ARCH" \
-  -DGGML_BLAS=OFF
+  -DGGML_BLAS=ON \
+  -DGGML_BLAS_VENDOR=Apple
 
 cmake --build "$BUILD" --target audiocpp -j "$JOBS"
 
@@ -134,6 +141,11 @@ if otool -L "$FW/AudioCpp" | tail -n +2 | grep -v -E '/usr/lib/|/System/Library/
   exit 1
 fi
 echo "Symbol audiocpp_* xuất ra: $(nm -gU "$FW/AudioCpp" | grep -c ' _audiocpp_' || true)"
+# App gọi hàm của bản vá capi_log_file — thiếu symbol thì app link hỏng, chặn ngay ở đây cho rõ lỗi.
+if ! nm -gU "$FW/AudioCpp" | grep -q ' _audiocpp_set_log_file$'; then
+  echo "::error::AudioCpp không xuất audiocpp_set_log_file (bản vá capi_log_file)"
+  exit 1
+fi
 
 # ---- Kiểm nhanh: Swift import + link được cho iOS ---------------------------------------------------------------
 SMOKE="$WORK_DIR/smoke"
@@ -145,6 +157,7 @@ print("audio.cpp ABI \(abi >> 16).\((abi >> 8) & 0xff).\(abi & 0xff)")
 var registry: OpaquePointer?
 _ = audiocpp_registry_create(nil, &registry)
 audiocpp_registry_free(registry)
+_ = audiocpp_set_log_file(nil)
 EOF
 xcrun -sdk iphoneos swiftc -target "arm64-apple-ios${DEPLOYMENT_TARGET}" \
   -F "$STAGE" -framework AudioCpp \

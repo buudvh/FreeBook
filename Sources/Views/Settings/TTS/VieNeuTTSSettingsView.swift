@@ -18,6 +18,9 @@ struct VieNeuTTSSettingsView: View {
     /// Gói đang chờ xác nhận "Xoá tất cả dữ liệu …" / gói đang xoá (vòng xoay trên hàng). `internal` vì hàng nằm ở `+Sections`.
     @State var pendingWipe: VieNeuModelChoice?
     @State var wipingModel: VieNeuModelChoice?
+    /// Công tắc thử nghiệm "Tăng tốc codec bằng AMX" của Turbo (`VieNeuTurboAcceleration`, mặc định tắt). Runtime đọc
+    /// lúc tổng hợp đoạn kế tiếp, nên không cần báo gì thêm khi gạt. `internal` vì hàng nằm ở `+Sections`.
+    @AppStorage(VieNeuTurboAcceleration.codecAMXKey) var turboCodecAMX = false
 
     var directory: VieNeuVoiceDirectory { .shared }
     var accelerator: VieNeuCoreMLAccelerator { .shared }

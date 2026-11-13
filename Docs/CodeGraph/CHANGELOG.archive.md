@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.894] - 2026-11-12
+
+### feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file
+
+Phần bốn: chỗ thử lõi nhân bản giọng Turbo (1.3.891–892) trên máy thật. Không phải màn tạo / chọn giọng cho người dùng cuối, màn đó làm sau theo mockup.
+
+- **Mục "Tạo giọng Turbo từ file"** (`VieNeuTurboLabView+Clone`, logic ở `VieNeuTurboCloneTrial`):
+  - Hàng gói nhân bản (`VieNeuTurboClonePackRow`): trạng thái, nút tải ~71 MB qua `ModelDownloadCenter`, tiến độ, nút xoá.
+  - Chọn file bằng `DocumentPickerPresenter` (không dùng `.fileImporter`, vì nó không trả kết quả khi chạy trong LiveContainer), ô tên giọng, công tắc khử nhiễu (mặc định bật). Thiếu audio.cpp / model / gói thì hiện lý do.
+  - Báo cáo: độ dài và tần số mẫu, giây cắt đầu / cuối, độ dài dùng, số khung; thời gian đọc file / cắt / nạp graph / khử nhiễu / embedding / mã hoá audio.cpp (kèm nạp model, dựng lại session hay nhả model) / tổng.
+  - RAM ở 5 mốc (đầu lượt, sau ORT, trước mã hoá, sau mã hoá, sau dọn), nhiệt, bản audio.cpp.
+  - Chia sẻ: file số đo `.txt` (`VieNeuTurboReportFile` thêm loại `.clone`), `ref_codes.txt`, `speaker.emb.txt`, WAV sau cắt (trước khử nhiễu) và WAV đưa vào audio.cpp. Hai WAV đều 16-bit, để so với script Python chạy bản gốc.
+  - "Đọc thử câu mẫu bằng giọng này": chọn giọng vừa tạo rồi chạy "Đọc thử một lần" sẵn có.
+- **Danh sách "Giọng" của màn thử** có thêm mục "Giọng tự tạo" (`VieNeuTurboCustomVoiceRepository.voices`). `reloadVoices` giữ lựa chọn giọng tự tạo khi cặp file còn.
+  - Cài đặt TTS của trình đọc **chưa** hiện giọng tự tạo (UI người dùng cuối làm sau). Id `custom_…` gán vào `vieneuTurboVoice` thì trình đọc đã đọc được.
+- `VieNeuTurboLab.isBusy` tính cả lượt tạo giọng: không đọc thử, đọc liên tục hay xoá model chồng lên lượt đang dùng runtime.
+- **Kiểm chứng:**
+  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
+  - **Chưa build** (Windows), chưa chạy trên máy.
+  - Cần đo trên máy: thời gian khử nhiễu (DFT ma trận + UNet), đỉnh RAM lúc mã hoá (ước tính +200–250 MB trên model 188 MB), chất lượng giọng có / không khử nhiễu.
+
 ## [1.3.893] - 2026-11-12
 
 ### feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror

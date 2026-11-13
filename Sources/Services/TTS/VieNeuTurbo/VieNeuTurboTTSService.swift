@@ -263,7 +263,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         boundaryKind: TTSBoundaryKind
     ) {
         let speechSeconds = output.durationSeconds
-        let fields: [String] = [
+        var fields: [String] = [
             "chars=\(text.count)",
             "phonemes=\(prepared.phonemes.count)",
             String(format: "frontendMs=%.0f", prepared.frontendMs),
@@ -278,9 +278,31 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             "qos=\(output.qosName)",
             "thermal=\(thermalName(ProcessInfo.processInfo.thermalState))"
         ]
+        // Bộ đếm giờ của audio.cpp (1.3.924): tách nạp prompt / backbone / âm học / codec để so công tắc codec AMX.
+        // CPU-time không đếm đủ phần chạy trên AMX ⇒ so bằng `codecMs` / RTF, đừng so `cpuPerAudio`.
+        if let timings = output.timings {
+            fields += [
+                String(format: "prefillMs=%.0f", timings.prefillMs),
+                String(format: "stepMs=%.0f", timings.stepMs),
+                String(format: "acousticMs=%.0f", timings.acousticMs),
+                String(format: "codecMs=%.0f", timings.codecMs),
+                "gens=\(timings.generateCalls)"
+            ]
+        }
+        fields.append("amx=\(codecAMXLabel(requested: output.codecAMXRequested, active: output.timings?.codecBLASActive))")
         AppLogger.shared.log(
             "🎙️ [VieNeuTurbo] Đoạn: " + fields.joined(separator: " ") + " — \(ProcessMemoryProbe.snapshot().summary)"
         )
+    }
+
+    /// "tắt" (công tắc tắt) · "bật" (codec chạy qua BLAS) · "lùi" (bật mà audio.cpp lùi về CPU) · "bật?" (không đo).
+    private static func codecAMXLabel(requested: Bool, active: Bool?) -> String {
+        guard requested else { return "tắt" }
+        switch active {
+        case true?: return "bật"
+        case false?: return "lùi"
+        case nil: return "bật?"
+        }
     }
 
     /// "0.36"; mẫu ≈ 0 ⇒ "—".
