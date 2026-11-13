@@ -130,6 +130,14 @@ extension VieNeuTTSSettingsView {
                     $0.hasTurboClonePack ? "Đã tải · \(Self.size($0.turboClonePackBytes))" : "Chưa tải"
                 } ?? "…")
                 Toggle("Tăng tốc codec bằng AMX (thử nghiệm)", isOn: $turboCodecAMX)
+                    .onChange(of: turboCodecAMX) { _, isOn in
+                        if isOn { turboCodecAMXAutoDisabled = false }
+                    }
+                if turboCodecAMXAutoDisabled && !turboCodecAMX {
+                    Text("Đã tự tắt vì lần trước app dừng khi đang đọc Turbo có codec AMX.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
             } else {
                 Text("Bản build này chưa có audio.cpp")
                     .foregroundColor(.secondary)
@@ -140,7 +148,7 @@ extension VieNeuTTSSettingsView {
         } header: {
             SectionHelpHeader("Turbo", paragraphs: [
                 "VieNeu-TTS v3 **Turbo**: model GGUF q8_0 chạy trên máy qua **audio.cpp** (48 kHz). Model và dữ liệu từng giọng tải **theo giọng** ở sheet chọn giọng; xoá một giọng bằng nút 🗑 cuối hàng giọng đó.",
-                "**Tăng tốc codec bằng AMX (thử nghiệm, mặc định tắt):** phần giải mã ra tiếng (codec, khoảng 40% thời gian của Turbo) chạy phép nhân ma trận trên bộ tăng tốc AMX của chip qua Accelerate. Tiếng gần như y hệt (chỉ khác sai số làm tròn). Gạt công tắc có hiệu lực từ đoạn đọc kế tiếp. Muốn so: bật log, nghe vài phút tắt rồi vài phút bật — dòng log `[VieNeuTurbo] Đoạn` có `codecMs` và `amx=`.",
+                "**Tăng tốc codec bằng AMX (thử nghiệm, mặc định tắt):** phần giải mã ra tiếng (codec, khoảng 40% thời gian của Turbo) chạy phép nhân ma trận trên bộ tăng tốc AMX của chip qua Accelerate. Tiếng gần như y hệt (chỉ khác sai số làm tròn). Gạt công tắc có hiệu lực từ đoạn đọc kế tiếp. Muốn so: bật log, nghe vài phút tắt rồi vài phút bật — dòng log `[VieNeuTurbo] Đoạn` có `codecMs` và `amx=`. Nếu app dừng giữa lượt đọc đầu tiên có AMX, lần mở sau công tắc tự tắt và log ghi lý do.",
                 "**Xoá tất cả dữ liệu Turbo** xoá model và mọi giọng Turbo đã tải; giọng nhân bản giữ nguyên."
             ])
         }

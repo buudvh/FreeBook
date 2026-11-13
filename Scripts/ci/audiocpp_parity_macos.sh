@@ -29,6 +29,7 @@ cp -R "$WORK_DIR/src_base" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$WORK_DIR/src_patched"
 
 # Tham số 3: ON = build kèm ggml-blas / Accelerate (như bản iOS từ bản vá vieneu_codec_blas), OFF = như upstream.
 build_cli() {

@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.895] - 2026-11-12
+
+### chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc
+
+Phần năm (khuyến khích) của đợt nhân bản giọng Turbo: kiểm bản Swift của bước chuẩn bị mẫu trên PC, và để anh Bửu so file app chia sẻ với bản gốc.
+
+- **`Scripts/vieneu_turbo_clone_reference.py`** chép nguyên văn thuật toán của `pnnbao97/VieNeu-TTS`: `onnx_denoiser.py`, `speaker/` (soxr + kaldi-native-fbank), `_encode_ref_wav`, trim bằng librosa (kể cả bước ghi PCM_16 rồi đọc lại). Không cài cả gói `vieneu`.
+  - `reference WAV`: cả pipeline ⇒ `speaker.emb.txt`, `ref_codes.txt` (khi có MOSS encoder ONNX của upstream, ~45 MB), `trimmed.wav`, `denoised.wav`, `info.json`.
+  - `denoise` / `embed`: chạy riêng một bước trên WAV trung gian app chia sẻ, để tách sai lệch từng bước.
+  - `compare`: cosine embedding, % mã trùng (cả khung, codebook 0), SNR / tương quan hai WAV.
+- **Kết quả đo** trên PC (một mẫu giọng sạch 8 s; thuật toán bản Swift mô phỏng bằng numpy):
+  - Cắt im lặng (`VieNeuSilenceTrimmer`) ra **đúng** mẫu đầu / cuối như librosa 1.0.
+  - Khử nhiễu (DFT ma trận float32) so bản gốc: SNR 77,5 dB, embedding cosine 0,999998.
+  - Mã tham chiếu rất nhạy: chỉ khác có / không khử nhiễu ⇒ codebook 0 trùng 83 %, đủ 16 mã 8 % khung. Mã của app (audio.cpp lấy lại tần số bằng sinc, upstream dùng soxr) sẽ không trùng từng số; xem codebook 0 + cosine rồi nghe.
+- Cách cài thư viện và cách đọc kết quả ghi ở đầu script.
+- **Không** chạm code app. Chưa so được với file app thật (cần chạy trên máy).
+
 ## [1.3.894] - 2026-11-12
 
 ### feat: màn thử VieNeu Turbo có mục tạo giọng Turbo từ file

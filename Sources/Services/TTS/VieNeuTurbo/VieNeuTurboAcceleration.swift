@@ -14,6 +14,10 @@ enum VieNeuTurboAcceleration {
     /// Khoá `UserDefaults` / `@AppStorage` (không dấu chấm). Thiếu khoá = tắt (thử nghiệm, mặc định tắt).
     static let codecAMXKey = "vieneuTurboCodecAMX"
 
+    /// `true` khi `VieNeuTurboCrashGuard` vừa tự tắt công tắc vì lần trước app dừng giữa lượt AMX (1.3.925) — Cài đặt
+    /// hiện một dòng giải thích; anh bật lại công tắc thì xoá cờ.
+    static let codecAMXAutoDisabledKey = "vieneuTurboCodecAMXAutoDisabled"
+
     /// Session option của bản vá `vieneu_codec_blas` — phải khớp tên trong bản vá (audio.cpp từ chối khoá lạ).
     static let codecBLASOption = "vieneu_v3_turbo.codec_blas"
 

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.925] - 2026-11-13
+
+### fix: Turbo tự tắt Tăng tốc codec bằng AMX khi lần trước app dừng giữa lượt đầu, ghi lý do audio.cpp dừng vào log
+
+Anh Bửu thử 1.3.924 trên iPhone 11: công tắc tắt thì Turbo chạy đều (48 đoạn, RTF 0,40; codec 39%, âm học 23%, nạp prompt 21%, backbone 16% — khớp CI). Bật công tắc ⇒ dựng session có AMX xong (1248 ms) rồi **app chết ngay lượt tổng hợp đầu tiên**, log không có dòng lỗi, và công tắc vẫn bật nên lần đọc Turbo sau chết tiếp.
+
+- **Tái hiện trên CI không ra** (nhánh chẩn đoán `claude/turbo-amx-repro`, không gộp, run 43445448000): build audio.cpp đúng cờ CPU bản iOS (`armv8.2-a+dotprod+fp16`) kèm ggml-blas + C API, gọi C API y như app ở luồng chính / hàng đợi GCD QoS userInitiated / pthread stack 512 KB, lấy mẫu như trình đọc, đoạn tới 13 s, 3 giọng — mọi ca chạy hết. ⇒ Nguyên nhân chỉ có trên máy thật (nghi nhất: Accelerate dùng AMX của A13; máy ảo CI không có AMX). Cần câu báo / file `.ips` từ máy.
+- **Chống sập lặp lại** (`VieNeuTurboCrashGuard`): trước lượt Turbo đầu tiên có codec AMX của mỗi lần mở app ghi dấu (file nhỏ ở `Library/Caches`, mang mã tiến trình), lượt đó kết thúc thì xoá. Lần mở sau mà dấu còn (của tiến trình khác) ⇒ tự tắt công tắc, ghi `❌` vào log, Cài đặt VieNeu TTS hiện dòng "Đã tự tắt vì lần trước app dừng…" (bật lại công tắc thì dòng này mất). Kiểm ở lúc dựng session Turbo (trước khi đọc công tắc) và khi mở Cài đặt VieNeu TTS.
+- **Ghi lý do dừng**: bản vá audio.cpp mới `capi_abort_file.py` — hàm C `audiocpp_set_abort_file(path)` cài `ggml_set_abort_callback` + `std::terminate` handler, ghi câu báo `GGML_ASSERT` / exception chưa bắt ra `Library/Caches/audiocpp-abort.txt` trước khi `abort()`. Lần mở sau app đưa câu đó vào dòng `❌ [VieNeuTurbo] Lần trước …` (công tắc đang bật thì cũng tự tắt). Không bắt được truy cập bộ nhớ sai — khi đó cần file `.ips`.
+- Build iOS chặn nếu thiếu symbol `audiocpp_set_abort_file`; job parity áp cả bản vá mới (không đổi phép tính).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua) và đã build + chạy thật trên CI nhánh chẩn đoán. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.924] - 2026-11-13
 
 ### feat: Turbo có công tắc thử Tăng tốc codec bằng AMX, log tách thời gian nạp prompt, backbone, âm học và codec
@@ -636,20 +648,3 @@ Rà lại 1.3.891–893 trước khi bàn giao:
 - **Bộ chọn file** của mục "Tạo giọng Turbo từ file" gắn ở **gốc Form** (`VieNeuTurboLabView.background(cloneFilePicker)`), như `VieNeuVoiceCreatorView` — cách đã chạy được trong LiveContainer. Bản trước gắn vào một hàng của Form.
 - `VieNeuTurboCloneTrial.denoise` bỏ `didSet` (repo chưa có lớp `@Observable` nào dùng `didSet`): Toggle gọi `refreshReadiness()` qua `.onChange`.
 - **Kiểm chứng:** `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. **Chưa build** (Windows), chưa chạy trên máy.
-
-## [1.3.895] - 2026-11-12
-
-### chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc
-
-Phần năm (khuyến khích) của đợt nhân bản giọng Turbo: kiểm bản Swift của bước chuẩn bị mẫu trên PC, và để anh Bửu so file app chia sẻ với bản gốc.
-
-- **`Scripts/vieneu_turbo_clone_reference.py`** chép nguyên văn thuật toán của `pnnbao97/VieNeu-TTS`: `onnx_denoiser.py`, `speaker/` (soxr + kaldi-native-fbank), `_encode_ref_wav`, trim bằng librosa (kể cả bước ghi PCM_16 rồi đọc lại). Không cài cả gói `vieneu`.
-  - `reference WAV`: cả pipeline ⇒ `speaker.emb.txt`, `ref_codes.txt` (khi có MOSS encoder ONNX của upstream, ~45 MB), `trimmed.wav`, `denoised.wav`, `info.json`.
-  - `denoise` / `embed`: chạy riêng một bước trên WAV trung gian app chia sẻ, để tách sai lệch từng bước.
-  - `compare`: cosine embedding, % mã trùng (cả khung, codebook 0), SNR / tương quan hai WAV.
-- **Kết quả đo** trên PC (một mẫu giọng sạch 8 s; thuật toán bản Swift mô phỏng bằng numpy):
-  - Cắt im lặng (`VieNeuSilenceTrimmer`) ra **đúng** mẫu đầu / cuối như librosa 1.0.
-  - Khử nhiễu (DFT ma trận float32) so bản gốc: SNR 77,5 dB, embedding cosine 0,999998.
-  - Mã tham chiếu rất nhạy: chỉ khác có / không khử nhiễu ⇒ codebook 0 trùng 83 %, đủ 16 mã 8 % khung. Mã của app (audio.cpp lấy lại tần số bằng sinc, upstream dùng soxr) sẽ không trùng từng số; xem codebook 0 + cosine rồi nghe.
-- Cách cài thư viện và cách đọc kết quả ghi ở đầu script.
-- **Không** chạm code app. Chưa so được với file app thật (cần chạy trên máy).

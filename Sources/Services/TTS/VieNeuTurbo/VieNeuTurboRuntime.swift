@@ -86,6 +86,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     var sessionThreads = 0
     /// Session đang có dựng với codec qua Accelerate không (`VieNeuTurboAcceleration`); lệch với cài đặt ⇒ dựng lại.
     var sessionCodecBLAS = false
+    /// Đã có một lượt AMX chạy xong trong lần mở app này ⇒ thôi canh (`VieNeuTurboCrashGuard`). Chỉ chạm trong `queue`.
+    var codecAMXVerified = false
     var loadedModelPath: String?
 
     static var isAvailable: Bool {
@@ -177,6 +179,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         registry = nil
         sessionThreads = 0
         sessionCodecBLAS = false
+        codecAMXVerified = false
         loadedModelPath = nil
     }
 
@@ -268,6 +271,10 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         )
 
         var result: OpaquePointer?
+        // Lượt đầu tiên có codec AMX của lần mở app này: để dấu, chết giữa chừng thì lần sau tự tắt công tắc (1.3.925).
+        let guardsAMXRun = sessionCodecBLAS && !codecAMXVerified
+        if guardsAMXRun { VieNeuTurboCrashGuard.beginGuardedRun() }
+        defer { if guardsAMXRun { VieNeuTurboCrashGuard.endGuardedRun() } }
         // Bộ đếm giờ của audio.cpp (chỉ khi log app bật); `defer` đóng file kể cả khi lượt hỏng / ném lỗi.
         let measuresStages = VieNeuTurboTimingLog.beginRun()
         var timings: VieNeuTurboTimingLog.Timings?
@@ -298,6 +305,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         let runMs = Self.elapsedMs(since: started)
         let cpuMs = ProcessCPUClock.nowMs() - cpuStarted
         if measuresStages { timings = VieNeuTurboTimingLog.finishRun() ?? VieNeuTurboTimingLog.Timings() }
+        if guardsAMXRun { codecAMXVerified = true }
         guard let result else { throw RuntimeError.noAudio }
         defer { audiocpp_result_free(result) }
 

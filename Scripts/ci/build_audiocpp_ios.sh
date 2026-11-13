@@ -41,10 +41,12 @@ echo "audio.cpp commit: $AUDIOCPP_SHA"
 # (Scripts/ci/audiocpp_parity_macos.sh):
 # - vieneu_prefill_gallocr: bước nạp prompt của Turbo tái sử dụng bộ nhớ trung gian (cùng mã âm thanh với bản gốc);
 # - vieneu_codec_blas: codec giải mã qua Accelerate khi session option `vieneu_v3_turbo.codec_blas` bật (mặc định tắt);
-# - capi_log_file: hàm C `audiocpp_set_log_file` để app bật bộ đếm giờ có sẵn của audio.cpp.
+# - capi_log_file: hàm C `audiocpp_set_log_file` để app bật bộ đếm giờ có sẵn của audio.cpp;
+# - capi_abort_file: hàm C `audiocpp_set_abort_file` — câu báo GGML_ASSERT / exception chưa bắt ghi ra file trước abort.
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$SRC"
+python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$SRC"
 
 # sentencepiece (vendored) gọi `set_xcode_property` khi CMAKE_SYSTEM_NAME=iOS nhưng macro đó chỉ có trong bộ
 # ios.toolchain.cmake riêng của nó (mình không dùng) ⇒ khai macro rỗng; nó chỉ gắn bundle id cho các tool CLI
@@ -141,11 +143,13 @@ if otool -L "$FW/AudioCpp" | tail -n +2 | grep -v -E '/usr/lib/|/System/Library/
   exit 1
 fi
 echo "Symbol audiocpp_* xuất ra: $(nm -gU "$FW/AudioCpp" | grep -c ' _audiocpp_' || true)"
-# App gọi hàm của bản vá capi_log_file — thiếu symbol thì app link hỏng, chặn ngay ở đây cho rõ lỗi.
-if ! nm -gU "$FW/AudioCpp" | grep -q ' _audiocpp_set_log_file$'; then
-  echo "::error::AudioCpp không xuất audiocpp_set_log_file (bản vá capi_log_file)"
-  exit 1
-fi
+# App gọi hàm của bản vá capi_log_file / capi_abort_file — thiếu symbol thì app link hỏng, chặn ngay ở đây cho rõ lỗi.
+for symbol in audiocpp_set_log_file audiocpp_set_abort_file; do
+  if ! nm -gU "$FW/AudioCpp" | grep -q " _${symbol}\$"; then
+    echo "::error::AudioCpp không xuất $symbol (bản vá Scripts/ci/audiocpp_patches/)"
+    exit 1
+  fi
+done
 
 # ---- Kiểm nhanh: Swift import + link được cho iOS ---------------------------------------------------------------
 SMOKE="$WORK_DIR/smoke"
@@ -158,6 +162,7 @@ var registry: OpaquePointer?
 _ = audiocpp_registry_create(nil, &registry)
 audiocpp_registry_free(registry)
 _ = audiocpp_set_log_file(nil)
+_ = audiocpp_set_abort_file(nil)
 EOF
 xcrun -sdk iphoneos swiftc -target "arm64-apple-ios${DEPLOYMENT_TARGET}" \
   -F "$STAGE" -framework AudioCpp \

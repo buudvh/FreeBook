@@ -18,6 +18,9 @@ extension VieNeuTurboRuntime {
         session = nil
         sessionThreads = 0
         sessionCodecBLAS = false
+        // Lần trước chết giữa lượt AMX ⇒ tự tắt công tắc TRƯỚC khi đọc nó; đặt file nhận câu báo của ggml (1.3.925).
+        VieNeuTurboCrashGuard.recoverIfNeeded()
+        VieNeuTurboCrashGuard.installAbortNote()
         let codecBLAS = VieNeuTurboAcceleration.isCodecAMXEnabled
         let options = codecBLAS ? audiocpp_options_create() : nil
         defer { audiocpp_options_free(options) }
