@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.926] - 2026-11-13
+
+### fix: Tăng tốc codec bằng AMX của Turbo không còn làm app chết, bộ chia việc chỉ xin bộ nhớ đúng cỡ graph
+
+Anh Bửu thử 1.3.925 trên iPhone 11 (iOS 26.3.1): app vẫn chết ở lượt đầu khi bật công tắc, nhưng lần này lớp chống sập của 1.3.925 làm đúng việc — lần mở sau tự tắt công tắc và log ghi `ggml.c:1699: GGML_ASSERT(ctx->mem_buffer != NULL) failed`. File `.ips` (AudioCpp UUID `1a370fa8…` = đúng bản 1.3.925): `SIGABRT`, luồng `VieNeuTurboRuntime`, không frame nào của Accelerate. Dịch ngược AudioCpp (capstone, chuỗi ADRP/ADD) ⇒ lời gọi `ggml_init` hỏng nằm trong `ggml_backend_sched_split_graph` (`ggml-backend.cpp`).
+
+- **Nguyên nhân**: `ggml_backend_sched_new` dành sẵn `graph_size × 30 × 2 × sizeof(ggml_tensor)` byte (mỗi node một split). Bản vá `vieneu_codec_blas` (1.3.924) truyền **sức chứa** của graph codec (131072 node) ⇒ một lần `malloc` ~**2,6 GB**. Máy ảo macOS cho qua (bộ nhớ ảo dư) nên job parity và cả lượt tái hiện 1.3.925 đều không thấy; trên iPhone `malloc` trả NULL ⇒ `ggml_init` xin lại cũng hỏng ⇒ `GGML_ASSERT` ⇒ app chết.
+- **Sửa** (bản vá `vieneu_codec_blas.py`): truyền `2 × số tensor graph thật sự dùng (node + nguồn) + 1024` — vài nghìn thay vì 131072 ⇒ vùng dành sẵn cỡ vài chục tới vài trăm MB (ảo, chỉ chạm phần dùng). Log thêm `moss.audio_tokenizer.decode.graph_nodes / sched_graph_size / sched_context_mb`.
+- **Chốt CI** (`audiocpp_parity_macos.sh`): bật `codec_blas` mà `sched_context_mb` > 512 hoặc không đọc được ⇒ đỏ — lỗi kiểu này không còn lọt qua máy ảo.
+- Công tắc vẫn **thử nghiệm, mặc định tắt**; 1.3.925 đã tự tắt nó trên máy anh (Cài đặt VieNeu TTS hiện dòng "Đã tự tắt…"). Bật lại để thử; lớp chống sập + ghi lý do vẫn giữ.
+- Kiểm: bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.925] - 2026-11-13
 
 ### fix: Turbo tự tắt Tăng tốc codec bằng AMX khi lần trước app dừng giữa lượt đầu, ghi lý do audio.cpp dừng vào log
@@ -632,19 +644,3 @@ Khi hiện lại, màn gọi `prepareForSettings()` lần hai, ghi đè ảnh ch
 - Lưu cấu hình tiện ích TTS trước khi đọc tiếp: chuyển từ `onDisappear` vào `finish()`.
 - Log `[TTSSettings]` ghi `isPresented` ở `onDisappear` và ai gọi `begin` / `finish`, để kiểm trên máy.
 - **Kiểm chứng:** đọc code + grep chéo (`prepareForSettings` / `resumeAfterSettings` chỉ còn gọi qua `TTSSettingsPauseSession`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build (Windows), chưa thử máy. Hành vi `isPresented` khi màn gốc của sheet bị trang con che là điểm chưa chắc: log trên máy sẽ cho biết.
-
-## [1.3.896] - 2026-11-12
-
-### fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn
-
-Rà lại 1.3.891–893 trước khi bàn giao:
-
-- **Giữ mẫu**: `VieNeuTurboCustomVoiceStore` trước chép **cả file** người dùng chọn vào `CustomVoices/<id>/`. File ghi âm dài hàng chục phút thì mỗi giọng tốn hàng trăm MB, trong khi chỉ 8 giây đầu (sau cắt im lặng) được dùng.
-  - Nay ghi `sample.wav` = đúng đoạn đã cắt (tần số gốc, trước khử nhiễu, WAV 16-bit), đủ để tạo lại giọng.
-  - `copySample` thay bằng `writeSample`; coordinator xin preparer trả đoạn đã cắt khi `keepsSample`.
-- **Mã hoá audio.cpp không cần chữ**: đọc thêm `build_preparation_request` (`framework/runtime/session.cpp:432`, v0.9.4) — nó chỉ chép `text_input` (optional), không đọc.
-  - Vì chưa chạy trên máy, nhánh dự phòng nới ra: lỗi lượt đầu không phải lỗi cấp phát ⇒ ghi `❌`, đặt chữ giả (nhánh mã hoá không đọc chữ), thử lại **một** lần.
-  - Bản trước chỉ thử lại khi chữ lỗi có "text input", nên một lỗi khác chữ sẽ không có lần thử lại nào. Hỏng cả hai lần thì báo cả hai lỗi.
-- **Bộ chọn file** của mục "Tạo giọng Turbo từ file" gắn ở **gốc Form** (`VieNeuTurboLabView.background(cloneFilePicker)`), như `VieNeuVoiceCreatorView` — cách đã chạy được trong LiveContainer. Bản trước gắn vào một hàng của Form.
-- `VieNeuTurboCloneTrial.denoise` bỏ `didSet` (repo chưa có lớp `@Observable` nào dùng `didSet`): Toggle gọi `refreshReadiness()` qua `.onChange`.
-- **Kiểm chứng:** `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. **Chưa build** (Windows), chưa chạy trên máy.

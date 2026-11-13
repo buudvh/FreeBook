@@ -16,6 +16,11 @@ Cách làm — phép tính giữ nguyên, chỉ đổi nơi chạy phép nhân m
 - VieNeu Turbo: session option `vieneu_v3_turbo.codec_blas` (true/false) ⇒ field trên.
 - Scheduler dựng hỏng giữa chừng ⇒ bỏ hẳn BLAS cho decoder này và dựng lại graph sạch trên đường cũ (graph cấp phát
   dở có thể trỏ vào bộ nhớ scheduler đã nhả, không dùng lại được).
+- **Cỡ của scheduler** (1.3.926): `ggml_backend_sched_new` dành sẵn `graph_size × 60` tensor (mỗi node một split, 30
+  đầu vào mỗi split, ×2). 1.3.924 truyền sức chứa của graph (131072) ⇒ một lần `malloc` ~2,6 GB: máy ảo macOS cho qua
+  (bộ nhớ ảo dư), iPhone trả NULL ⇒ `GGML_ASSERT(ctx->mem_buffer != NULL)` ⇒ app chết. Nay truyền 2 × số tensor graph
+  thật sự dùng (node + nguồn của chúng) + 1024. Log `…graph_nodes`, `…sched_graph_size`, `…sched_context_mb`; job
+  parity chặn khi `sched_context_mb` > 512.
 - Log (khi bật log): `moss.audio_tokenizer.decode.blas_scheduler` 0/1 + `…blas_nodes` + `…sched_splits` mỗi lần dựng
   graph, `…blas_active` 0/1 mỗi lượt giải mã (app đọc để ghi đoạn đó có chạy BLAS không).
 
@@ -52,6 +57,13 @@ def patch_header(text: str) -> str:
 
 
 def patch_codec(text: str) -> str:
+    # 0. unordered_set cho bước đếm tensor của graph (cỡ bộ chia việc, 1.3.926).
+    text = replace_once(
+        text,
+        "#include <utility>\n",
+        "#include <unordered_set>  // " + MARK + "\n#include <utility>\n",
+        "include utility",
+    )
     # 1. Hàm dựng backend BLAS (chép từ moonshine_asr) + deleter, trước Impl của decoder.
     text = replace_once(
         text,
@@ -135,7 +147,28 @@ def patch_codec(text: str) -> str:
         "                ggml_backend_get_default_buffer_type(blas_backend.get()),\n"
         "                ggml_backend_get_default_buffer_type(backend),\n"
         "            };\n"
-        "            cache->sched.reset(ggml_backend_sched_new(backends, bufts, 2, ggml_graph_size(cache->graph), false, false));\n"
+        "            // ggml_backend_sched_new reserves graph_size x 60 tensors (one split per node, 30 inputs each, x2) up\n"
+        "            // front. Passing the graph's 131072-node capacity asked for ~2.6 GB in one malloc: fine on a desktop,\n"
+        "            // NULL on an iPhone => GGML_ASSERT(ctx->mem_buffer != NULL) (FreeBook 1.3.924). Size it by the tensors\n"
+        "            // this graph really uses (nodes + their sources), doubled for the hash set's load factor.\n"
+        "            std::unordered_set<const ggml_tensor *> graph_tensors;\n"
+        "            const int graph_nodes = ggml_graph_n_nodes(cache->graph);\n"
+        "            for (int i = 0; i < graph_nodes; ++i) {\n"
+        "                const ggml_tensor * node = ggml_graph_node(cache->graph, i);\n"
+        "                graph_tensors.insert(node);\n"
+        "                for (int j = 0; j < GGML_MAX_SRC; ++j) {\n"
+        "                    if (node->src[j] != nullptr) {\n"
+        "                        graph_tensors.insert(node->src[j]);\n"
+        "                    }\n"
+        "                }\n"
+        "            }\n"
+        "            const size_t sched_graph_size = 2 * graph_tensors.size() + 1024;\n"
+        "            engine::debug::timing_log_scalar(\"moss.audio_tokenizer.decode.graph_nodes\", static_cast<int64_t>(graph_nodes));\n"
+        "            engine::debug::timing_log_scalar(\"moss.audio_tokenizer.decode.sched_graph_size\",\n"
+        "                                             static_cast<int64_t>(sched_graph_size));\n"
+        "            engine::debug::timing_log_scalar(\"moss.audio_tokenizer.decode.sched_context_mb\",\n"
+        "                static_cast<double>(sched_graph_size) * 60.0 * static_cast<double>(sizeof(ggml_tensor)) / (1024.0 * 1024.0));\n"
+        "            cache->sched.reset(ggml_backend_sched_new(backends, bufts, 2, sched_graph_size, false, false));\n"
         "            if (cache->sched == nullptr ||\n"
         "                !ggml_backend_sched_reserve(cache->sched.get(), cache->graph) ||\n"
         "                !ggml_backend_sched_alloc_graph(cache->sched.get(), cache->graph)) {\n"

@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.896] - 2026-11-12
+
+### fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn
+
+Rà lại 1.3.891–893 trước khi bàn giao:
+
+- **Giữ mẫu**: `VieNeuTurboCustomVoiceStore` trước chép **cả file** người dùng chọn vào `CustomVoices/<id>/`. File ghi âm dài hàng chục phút thì mỗi giọng tốn hàng trăm MB, trong khi chỉ 8 giây đầu (sau cắt im lặng) được dùng.
+  - Nay ghi `sample.wav` = đúng đoạn đã cắt (tần số gốc, trước khử nhiễu, WAV 16-bit), đủ để tạo lại giọng.
+  - `copySample` thay bằng `writeSample`; coordinator xin preparer trả đoạn đã cắt khi `keepsSample`.
+- **Mã hoá audio.cpp không cần chữ**: đọc thêm `build_preparation_request` (`framework/runtime/session.cpp:432`, v0.9.4) — nó chỉ chép `text_input` (optional), không đọc.
+  - Vì chưa chạy trên máy, nhánh dự phòng nới ra: lỗi lượt đầu không phải lỗi cấp phát ⇒ ghi `❌`, đặt chữ giả (nhánh mã hoá không đọc chữ), thử lại **một** lần.
+  - Bản trước chỉ thử lại khi chữ lỗi có "text input", nên một lỗi khác chữ sẽ không có lần thử lại nào. Hỏng cả hai lần thì báo cả hai lỗi.
+- **Bộ chọn file** của mục "Tạo giọng Turbo từ file" gắn ở **gốc Form** (`VieNeuTurboLabView.background(cloneFilePicker)`), như `VieNeuVoiceCreatorView` — cách đã chạy được trong LiveContainer. Bản trước gắn vào một hàng của Form.
+- `VieNeuTurboCloneTrial.denoise` bỏ `didSet` (repo chưa có lớp `@Observable` nào dùng `didSet`): Toggle gọi `refreshReadiness()` qua `.onChange`.
+- **Kiểm chứng:** `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. **Chưa build** (Windows), chưa chạy trên máy.
+
 ## [1.3.895] - 2026-11-12
 
 ### chore: script Python đối chứng nhân bản giọng VieNeu Turbo với pipeline gốc

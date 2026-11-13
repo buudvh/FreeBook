@@ -103,8 +103,15 @@ for name in short long; do
   nodes="$(grep -E 'moss.audio_tokenizer.decode.blas_nodes ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
   codec_off="$(grep -E 'moss.audio_tokenizer.decode.graph_compute_ms ' "$WORK_DIR/out/patched_$name.trace" | tail -n 1 | awk '{print $NF}')"
   codec_on="$(grep -E 'moss.audio_tokenizer.decode.graph_compute_ms ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
-  echo "$name: codec CPU ${codec_off:-?} ms · codec BLAS ${codec_on:-?} ms (máy ảo không AMX — chỉ tham khảo) · ${nodes:-0} node chạy BLAS"
-  if [ "${active:-0}" -lt 1 ] || [ "${nodes:-0}" -lt 1 ]; then
+  # Vùng nhớ ggml_backend_sched dành sẵn: máy ảo macOS cho malloc vài GB nên lỗi 1.3.924 (~2,6 GB ⇒ iPhone trả NULL,
+  # app chết) không lộ ra ở đây ⇒ chặn bằng con số thay vì chờ máy thật.
+  sched_mb="$(grep -E 'moss.audio_tokenizer.decode.sched_context_mb ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
+  graph_nodes="$(grep -E 'moss.audio_tokenizer.decode.graph_nodes ' "$WORK_DIR/out/blas_$name.trace" | tail -n 1 | awk '{print $NF}')"
+  echo "$name: codec CPU ${codec_off:-?} ms · codec BLAS ${codec_on:-?} ms (máy ảo không AMX — chỉ tham khảo) · ${nodes:-0}/${graph_nodes:-?} node chạy BLAS · scheduler dành sẵn ${sched_mb:-?} MB"
+  if [ -z "${sched_mb:-}" ] || ! awk -v mb="$sched_mb" 'BEGIN { exit !(mb + 0 <= 512) }'; then
+    echo "::error::$name: ggml_backend_sched dành sẵn ${sched_mb:-?} MB (> 512 MB hoặc không đọc được) — trên iPhone malloc cỡ này có thể trả NULL"
+    FAIL=1
+  elif [ "${active:-0}" -lt 1 ] || [ "${nodes:-0}" -lt 1 ]; then
     echo "::error::$name: bật codec_blas mà codec KHÔNG chạy qua BLAS (blas_active=${active:-0}, blas_nodes=${nodes:-0})"
     grep -E 'blas|sched' "$WORK_DIR/out/blas_$name.trace" | head -n 10 || true
     FAIL=1
