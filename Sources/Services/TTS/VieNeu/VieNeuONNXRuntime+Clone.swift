@@ -4,8 +4,8 @@ import Foundation
 /// `reference_encoder`.
 ///
 /// Tách khỏi `VieNeuONNXRuntime.swift` vì trần **400 dòng vật lý** của repo: thêm ba wrapper vào file
-/// chính là đẩy nó lên 420. Đây là cùng khuôn đã dùng cho `VieNeuTTSEngine+Adaptive`,
-/// `VieNeuTTSTestView+Sections` và `SeaG2P+Phonemize`.
+/// chính là đẩy nó lên 420. Đây là cùng khuôn đã dùng cho `VieNeuTTSEngine+Adaptive` và
+/// `SeaG2P+Phonemize`.
 ///
 /// **Hệ quả của việc tách file**: Swift giới hạn `private` theo file, nên ba thành viên của
 /// `VieNeuONNXRuntime` dùng ở đây đã phải hạ xuống `internal` — `handle`, `consume` và `maximumRank`.

@@ -4,7 +4,7 @@ import SwiftUI
 /// Phần **VieNeu-TTS** của màn Cài đặt TTS.
 ///
 /// Tách khỏi `TTSSettingsView.swift` vì file đó có baseline **519** dòng và lượt nối 2b đẩy nó lên
-/// **540** — tức một vi phạm kiến trúc mới. Đây là cùng khuôn đã dùng cho `VieNeuTTSTestView+Sections`.
+/// **540** — tức một vi phạm kiến trúc mới. Cùng khuôn tách `X+Feature.swift` của repo.
 ///
 /// Vì tách file, `availableVoices` của view chính phải hạ từ `private` xuống `internal` (Swift giới hạn
 /// `private` theo file).

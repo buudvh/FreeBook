@@ -35,7 +35,9 @@ enum NghiUtteranceSegmenter {
                 end = includingClosingMarks(after: sentenceEnd, maximumEnd: maximumEnd, characters: characters)
             } else if maximumEnd == characters.count {
                 end = maximumEnd
-            } else if let phraseEnd = (start..<maximumEnd).reversed().first(where: { phraseMarks.contains(characters[$0]) }) {
+            } else if let phraseEnd = (start..<maximumEnd).reversed().first(where: {
+                phraseMarks.contains(characters[$0]) && TTSPunctuationBoundary.isBoundary(at: $0, in: characters)
+            }) {
                 end = includingClosingMarks(after: phraseEnd, maximumEnd: maximumEnd, characters: characters)
             } else if let whitespaceEnd = (start..<maximumEnd).reversed().first(where: { characters[$0].isWhitespace }) {
                 end = whitespaceEnd + 1
@@ -67,18 +69,13 @@ enum NghiUtteranceSegmenter {
         return results
     }
 
+    /// Dấu hết câu đầu tiên **có khoảng trắng / dấu đóng phía sau** (`TTSPunctuationBoundary`, 1.3.919): "S.H.I.E.L.D",
+    /// "3.14" không còn bị xẻ. Xuống dòng luôn là ranh giới.
     private static func firstSentenceBoundary(in characters: [Character], range: Range<Int>) -> Int? {
         range.first { index in
             let character = characters[index]
             guard sentenceMarks.contains(character) else { return character == "\n" || character == "\r" }
-            if character == ".",
-               index > 0,
-               index + 1 < characters.count,
-               characters[index - 1].isNumber,
-               characters[index + 1].isNumber {
-                return false
-            }
-            return true
+            return TTSPunctuationBoundary.isBoundary(at: index, in: characters)
         }
     }
 

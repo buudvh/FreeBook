@@ -49,8 +49,8 @@ enum VieNeuTurboReferencePreparer {
         let decodedSeconds: Double
         let leadingTrimSeconds: Double
         let trailingTrimSeconds: Double
-        /// Đoạn sau cắt im lặng + cắt 8 giây, **trước** khử nhiễu, ở tần số gốc — chỉ khi `keepsIntermediate` (màn thử
-        /// chia sẻ để đối chứng với script Python).
+        /// Đoạn sau cắt im lặng + cắt 8 giây, **trước** khử nhiễu, ở tần số gốc — chỉ khi `keepsIntermediate` (nhân bản
+        /// giọng bật khi giữ mẫu, `keepsSample`).
         let trimmedSamples: [Float]?
         let timings: Timings
 

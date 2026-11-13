@@ -1,0 +1,173 @@
+import SwiftUI
+
+/// Các khối thông tin của `VieNeuTTSSettingsView` (Nano, Tăng tốc Core ML, Turbo, giọng nhân bản) + số liệu đọc đĩa.
+/// Tách khỏi file chính vì trần 400 dòng; thành viên dùng chéo file để `internal`.
+extension VieNeuTTSSettingsView {
+    /// Số liệu đọc từ đĩa của trang — dựng ngoài main (`loadDiskSnapshot`), không đọc trong `body`.
+    struct DiskSnapshot: Sendable {
+        var nanoMissingCount = VieNeuModelStore.requiredNames.count
+        var nanoBytes: Int64 = 0
+        var hasNanoClonePack = false
+        var nanoClonePackBytes: Int64 = 0
+        var hasTurboModel = false
+        var turboVoiceCount = 0
+        var turboVoiceBytes: Int64 = 0
+        var hasTurboClonePack = false
+        var turboClonePackBytes: Int64 = 0
+        var nanoCustomCount = 0
+        var nanoCustomBytes: Int64 = 0
+        var turboCustomCount = 0
+        var turboCustomBytes: Int64 = 0
+    }
+
+    // MARK: - Nano
+
+    var nanoSection: some View {
+        Section {
+            LabeledContent("Trạng thái", value: snapshot.map(Self.nanoStatus) ?? "…")
+            LabeledContent("Dung lượng", value: snapshot.map { Self.size($0.nanoBytes) } ?? "…")
+            LabeledContent("Giọng có sẵn", value: "\(directory.nanoPresets.count) giọng")
+            LabeledContent("Gói nhân bản giọng", value: snapshot.map {
+                $0.hasNanoClonePack ? "Đã tải · \(Self.size($0.nanoClonePackBytes))" : "Chưa tải"
+            } ?? "…")
+        } header: {
+            SectionHelpHeader("Nano", paragraphs: [
+                "VieNeu-TTS v3 **Nano** chạy hoàn toàn trên máy (ONNX Runtime, 24 kHz). Mọi giọng Nano dùng chung **một bộ graph** (8 file), nên tải một giọng là có cả bộ.",
+                "Tải ở **sheet chọn giọng** (hàng \"Giọng đọc VieNeu\" phía trên); xoá dữ liệu bằng cách **nhấn giữ** giọng ở đó."
+            ])
+        }
+    }
+
+    nonisolated private static func nanoStatus(_ snapshot: DiskSnapshot) -> String {
+        snapshot.nanoMissingCount == 0
+            ? "Đã tải đủ \(VieNeuModelStore.requiredNames.count) file"
+            : "Còn thiếu \(snapshot.nanoMissingCount) file"
+    }
+
+    // MARK: - Tăng tốc Core ML
+
+    var coreMLSection: some View {
+        Section {
+            LabeledContent("Trạng thái") {
+                Text(coreMLStatus.text)
+                    .foregroundColor(coreMLStatus.color)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+            }
+            LabeledContent("Gói", value: accelerator.packageBytes > 0 ? Self.size(accelerator.packageBytes) : "Chưa tải")
+            LabeledContent("Bản biên dịch", value: "\(accelerator.compiledCount) khung · \(Self.size(accelerator.cacheBytes))")
+            LabeledContent("Phiên bản gói", value: String(VieNeuCoreMLPackage.revision.prefix(8)))
+        } header: {
+            SectionHelpHeader("Tăng tốc Core ML", paragraphs: [
+                "**Luôn bật.** Tải xong gói Nano là app tự tải thêm gói Core ML (khoảng \(Self.size(VieNeuCoreMLPackage.downloadSizeEstimate))), biên dịch và **tự kiểm chất lượng** một lần; qua kiểm thì trình đọc Nano dùng nó.",
+                "Chất lượng y hệt bản thường; trên iPhone 11 nhanh khoảng **gấp đôi** và máy mát hơn. Đoạn quá dài hoặc Core ML gặp lỗi thì đoạn đó tự đọc bằng đường thường (ORT)."
+            ])
+        }
+    }
+
+    /// Thứ tự: đang chạy ⇒ bước hiện tại; đã tự kiểm ⇒ sẵn sàng; chưa có gói Nano ⇒ chờ; lỗi ⇒ đỏ; còn lại ⇒ chưa chuẩn bị.
+    private var coreMLStatus: (text: String, color: Color) {
+        if accelerator.isBusy, let stage = accelerator.stageText {
+            let prefix = "Tăng tốc Core ML · "
+            return (stage.hasPrefix(prefix) ? String(stage.dropFirst(prefix.count)) : stage, .accentColor)
+        }
+        // `.green` / `.red` literal có chủ ý: trạng thái, không theo màu nhấn.
+        if accelerator.isVerified { return ("Sẵn sàng · đã tự kiểm", .green) }
+        if let snapshot, snapshot.nanoMissingCount > 0 { return ("Chờ gói Nano", .secondary) }
+        if let error = accelerator.errorMessage { return ("Lỗi: \(error)", .red) }
+        return ("Chưa chuẩn bị", .secondary)
+    }
+
+    // MARK: - Turbo
+
+    var turboSection: some View {
+        Section {
+            if directory.isTurboRuntimeAvailable {
+                LabeledContent("Model", value: snapshot.map {
+                    $0.hasTurboModel ? "GGUF q8_0 · \(Self.size(VieNeuTurboModelStore.modelByteCount))" : "Chưa tải"
+                } ?? "…")
+                LabeledContent("Giọng đã tải", value: snapshot.map {
+                    "\($0.turboVoiceCount) giọng · \(Self.size($0.turboVoiceBytes))"
+                } ?? "…")
+                LabeledContent("Gói nhân bản giọng", value: snapshot.map {
+                    $0.hasTurboClonePack ? "Đã tải · \(Self.size($0.turboClonePackBytes))" : "Chưa tải"
+                } ?? "…")
+            } else {
+                Text("Bản build này chưa có audio.cpp")
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            SectionHelpHeader("Turbo", paragraphs: [
+                "VieNeu-TTS v3 **Turbo**: model GGUF q8_0 chạy trên máy qua **audio.cpp** (48 kHz). Model và dữ liệu từng giọng tải **theo giọng** ở sheet chọn giọng."
+            ])
+        }
+    }
+
+    // MARK: - Giọng nhân bản
+
+    var customVoicesSection: some View {
+        Section {
+            LabeledContent("Nano", value: snapshot.map {
+                "\($0.nanoCustomCount) giọng · \(Self.size($0.nanoCustomBytes))"
+            } ?? "…")
+            LabeledContent("Turbo", value: snapshot.map {
+                "\($0.turboCustomCount) giọng · \(Self.size($0.turboCustomBytes))"
+            } ?? "…")
+        } header: {
+            SectionHelpHeader("Giọng nhân bản", paragraphs: [
+                "Giọng tự tạo từ mẫu thu âm / file — tạo ở hàng **\"Nhân bản giọng đọc\"** của sheet chọn giọng; đổi tên / xoá bằng cách nhấn giữ giọng ở đó."
+            ])
+        }
+    }
+
+    // MARK: - Đọc đĩa (ngoài main)
+
+    nonisolated static func size(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    nonisolated static func loadDiskSnapshot() -> DiskSnapshot {
+        var result = DiskSnapshot()
+        if let nano = try? VieNeuModelStore() {
+            result.nanoMissingCount = nano.missingNames.count
+            result.nanoBytes = nano.totalBytes
+            result.hasNanoClonePack = nano.hasCloneGraphs
+            result.nanoClonePackBytes = nano.cloneTotalBytes
+            result.hasTurboClonePack = nano.hasTurboCloneGraphs
+            result.turboClonePackBytes = nano.turboCloneTotalBytes
+            let custom = VieNeuCustomVoiceStore(rootURL: nano.rootURL)
+            result.nanoCustomCount = custom.loadLeniently().count
+            result.nanoCustomBytes = custom.totalBytes
+        }
+        if let turbo = try? VieNeuTurboModelStore() {
+            result.hasTurboModel = turbo.hasModel
+            let fileManager = FileManager.default
+            let voiceDirectories = (try? fileManager.contentsOfDirectory(
+                at: turbo.voicesURL, includingPropertiesForKeys: [.isDirectoryKey]
+            )) ?? []
+            for directory in voiceDirectories
+            where (try? directory.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                && turbo.hasVoice(voiceId: directory.lastPathComponent) {
+                result.turboVoiceCount += 1
+                result.turboVoiceBytes += bytes(in: directory)
+            }
+            result.turboCustomCount = (try? VieNeuTurboCustomVoiceStore(modelStore: turbo).load())?.count ?? 0
+            result.turboCustomBytes = bytes(in: turbo.customVoicesURL)
+        }
+        return result
+    }
+
+    /// Tổng dung lượng file thường trong một thư mục (đệ quy); không có thư mục ⇒ 0.
+    nonisolated private static func bytes(in directory: URL) -> Int64 {
+        let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
+        guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: keys) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            let values = try? url.resourceValues(forKeys: Set(keys))
+            if values?.isRegularFile == true { total += Int64(values?.fileSize ?? 0) }
+        }
+        return total
+    }
+}

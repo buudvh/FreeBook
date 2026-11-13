@@ -4,22 +4,22 @@ import Foundation
 /// `tool == "vieneu"` và model hiệu lực là Turbo (`VieNeuModelChoice.current`).
 ///
 /// ## Vì sao là facade riêng, không phải nhánh trong `VieNeuTTSService`
-/// `VieNeuTTSService.shared` còn được gọi **thẳng** từ ba màn chỉ dành cho Nano: màn thử giọng (`VieNeuTTSTestView`), thư
-/// viện giọng nhân bản (`VieNeuVoiceLibraryView`) và lượt Nano của màn thử Turbo. Đặt công tắc model bên trong service
-/// Nano thì ba màn đó âm thầm chạy Turbo khi trình đọc đang chọn Turbo. Chọn ở `localEngine` (chỗ duy nhất đường đọc
-/// truyện lấy engine local) thì đường Nano không đổi một dòng.
+/// `VieNeuTTSService.shared` còn được gọi **thẳng** từ những chỗ chỉ dành cho Nano (nghe thử giọng Nano ở sheet chọn giọng,
+/// nhân bản giọng Nano). Đặt công tắc model bên trong service Nano thì những chỗ đó âm thầm chạy Turbo khi trình đọc đang
+/// chọn Turbo. Chọn ở `localEngine` (chỗ duy nhất đường đọc truyện lấy engine local) thì đường Nano không đổi một dòng.
 ///
 /// ## Cùng hợp đồng với Nano
 /// - Đi qua `PiperSynthesisCoordinator` ⇒ cùng 4 mức ưu tiên, gộp theo khoá, mỗi lúc một lượt tổng hợp.
 /// - Trả `(data, pcmDuration, queueWaitMs, synthesisMs)` ⇒ `[NghiEnergy]` đo RTF như Nano.
 /// - Chữ tới đây đã qua `TTSReplacementManager` ở tầng trên; ở đây chỉ chạy `VieNeuTurboTextFrontend` (số / ngày, tiếng
-///   Nhật theo cờ VieNeu, phiên âm sea-g2p) — đúng đường màn thử.
+///   Nhật theo cờ VieNeu, phiên âm sea-g2p).
 /// - **Không có tốc độ tổng hợp**: tham số `speed` bị bỏ qua (luôn 1×); tốc độ nghe do `NghiAudioPlayerQueue` lo.
 ///
 /// ## Bộ nhớ
-/// Dùng **chung** `VieNeuTurboRuntime.shared` / `VieNeuTurboTextFrontend.shared` với màn thử: một model 188 MB trong RAM,
-/// không phải hai. Màn thử có thể nhả runtime khi rời màn ⇒ mỗi lượt tổng hợp đều gọi `runtime.prepare` trước (đã nạp thì
-/// trả ngay). Engine Nano (ORT ~280 MB) bị nhả khi Turbo chuẩn bị và trước mỗi lượt Turbo nếu ai đó đã nạp lại nó.
+/// Dùng **chung** `VieNeuTurboRuntime.shared` / `VieNeuTurboTextFrontend.shared` với nghe thử giọng và nhân bản giọng
+/// Turbo: một model 188 MB trong RAM, không phải hai. Runtime có thể bị nhả (trình đọc về Nano) ⇒ mỗi lượt tổng hợp đều
+/// gọi `runtime.prepare` trước (đã nạp thì trả ngay). Engine Nano (ORT ~280 MB) bị nhả khi Turbo chuẩn bị và trước mỗi
+/// lượt Turbo nếu ai đó đã nạp lại nó.
 final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     static let shared: VieNeuTurboTTSService? = {
         guard let store = try? VieNeuTurboModelStore(), let frontend = VieNeuTurboTextFrontend.shared else { return nil }
@@ -30,7 +30,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     static let threadCount = 2
     /// Tần số của model (audio.cpp trả stereo 48 kHz, trộn về mono) — dùng cho đoạn im lặng tự sinh.
     static let sampleRate = 48_000
-    /// QoS của lượt tổng hợp khi đọc truyện (1.3.885): `.userInitiated` được xếp lên **lõi hiệu năng**. Đo ở màn thử
+    /// QoS của lượt tổng hợp khi đọc truyện (1.3.885): `.userInitiated` được xếp lên **lõi hiệu năng**. Đo ở màn thử cũ
     /// (1.3.884, iPhone 11, 2 luồng, ~3 phút mỗi lượt): `.utility` (lõi tiết kiệm) RTF 0,71–0,73, CPU 1,35 CPU-s mỗi giây
     /// tiếng, tới phút thứ 2–3 máy "nóng"; `.userInitiated` RTF 0,35–0,36, CPU 0,70, máy chỉ "ấm" — lõi tiết kiệm phải
     /// chạy gấp đôi thời gian ở xung nhịp cao nên tốn điện hơn. (Trình đọc Nano không cần: ORT của nó vốn chạy ở mức
@@ -271,16 +271,33 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "synthMs=%.0f", synthesisMs),
             String(format: "audio=%.2fs", speechSeconds),
             String(format: "pause=%.2fs", pause),
-            "RTF=\(VieNeuTurboSoakStats.ratio(synthesisMs / 1_000, speechSeconds))",
-            "cpuPerAudio=\(VieNeuTurboSoakStats.ratio(cpuMs / 1_000, speechSeconds))",
+            "RTF=\(ratio(synthesisMs / 1_000, speechSeconds))",
+            "cpuPerAudio=\(ratio(cpuMs / 1_000, speechSeconds))",
             "boundary=\(boundaryKind.rawValue)",
             // QoS **đo được** của luồng tổng hợp — để biết khi khoá màn / chạy nền iOS có giữ lõi hiệu năng không.
             "qos=\(output.qosName)",
-            "thermal=\(VieNeuTurboSoakStats.thermalName(ProcessInfo.processInfo.thermalState))"
+            "thermal=\(thermalName(ProcessInfo.processInfo.thermalState))"
         ]
         AppLogger.shared.log(
             "🎙️ [VieNeuTurbo] Đoạn: " + fields.joined(separator: " ") + " — \(ProcessMemoryProbe.snapshot().summary)"
         )
+    }
+
+    /// "0.36"; mẫu ≈ 0 ⇒ "—".
+    private static func ratio(_ numerator: Double, _ denominator: Double) -> String {
+        guard denominator > 0.001 else { return "—" }
+        return String(format: "%.2f", numerator / denominator)
+    }
+
+    /// Nhãn trạng thái nhiệt: tên của Apple (để khớp log của engine khác) + nghĩa tiếng Việt.
+    private static func thermalName(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal (mát)"
+        case .fair: return "fair (ấm)"
+        case .serious: return "serious (nóng)"
+        case .critical: return "critical (rất nóng)"
+        @unknown default: return "unknown"
+        }
     }
 
     private static func silencePayload(text: String) -> PiperSynthesisPayload {

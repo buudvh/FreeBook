@@ -14,15 +14,14 @@ struct TTSSettingsHubView: View {
                 }
             }
             Section(header: Text("NghiTTS")) {
-                // Một lối vào duy nhất: hub gom cả 3 mục quản lý **và** phần thử giọng (trước đây 3 nav rời ở
-                // đây cộng thêm 1 nav nữa nằm sâu trong "Cấu hình NghiTTS").
+                // Một lối vào duy nhất: hub gom thông tin model **và** 3 mục quản lý (trước đây 3 nav rời ở đây).
                 NavigationLink(destination: NghiTTSSettingsHubView()) {
                     Label("Cài đặt NghiTTS", systemImage: "waveform.and.mic")
                 }
             }
             // Màn VieNeu đứng riêng: nó là engine thứ hai, không phải tuỳ chọn của NghiTTS/Piper.
             Section(header: Text("VieNeu")) {
-                NavigationLink(destination: VieNeuTTSTestView()) {
+                NavigationLink(destination: VieNeuTTSSettingsView()) {
                     Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
                 }
             }

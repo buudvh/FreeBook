@@ -42,8 +42,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         /// Số phoneme bị bỏ vì không có trong vocab.
         ///
         /// Khác 0 nghĩa là text đầu vào sinh ra ký tự mà model không đọc được. Đây đúng loại lỗi đã làm
-        /// audio ra "không phải tiếng Việt" mà mọi thứ khác vẫn đúng, nên nó phải **hiện ra ở màn thử
-        /// giọng**, không chỉ nằm trong log (log chỉ ghi khi người dùng bật `AppLogger`).
+        /// audio ra "không phải tiếng Việt" mà mọi thứ khác vẫn đúng (`noteDroppedScalars` ghi log ⚠️).
         let droppedScalars: Int
         /// Số chunk văn bản đã tách. Có mặt vì đúng lỗi vừa rồi (từ bị chẻ đôi ở ranh giới chunk) sẽ hiện
         /// ra ngay nếu biết số chunk — người dùng thấy "chunk: 3" cho một câu mà lẽ ra chỉ 2 là biết ngay.
@@ -101,11 +100,6 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     private var requestedMode: VieNeuSynthesisPolicy.Mode?
     var consecutiveSlow = 0
     var consecutiveFast = 0
-    /// Màn thử VieNeu Turbo: số luồng ORT ghi đè (`nil` = theo cài đặt) + cờ buộc dựng lại session (`+Reload`).
-    var labThreadOverride: Int32?
-    /// Màn thử (P1b "Đo tự động"): ghim chế độ cho cả lượt đo, **không** ghi cài đặt, tắt tự thích nghi (`+Reload`).
-    var labModeOverride: VieNeuSynthesisPolicy.Mode?
-    var labForceReload = false
 
     init(store: VieNeuModelStore) {
         self.store = store
@@ -114,7 +108,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Chế độ đang **thực sự** chạy (đã tính cả lựa chọn của người dùng).
     var currentMode: VieNeuSynthesisPolicy.Mode {
         lock.lock(); defer { lock.unlock() }
-        return labModeOverride ?? requestedMode ?? mode
+        return requestedMode ?? mode
     }
 
     /// Đặt chế độ cố định. Truyền `nil` để quay lại tự thích nghi theo RTF.
@@ -132,8 +126,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         return config?.sampleRate ?? 24_000
     }
 
-    /// `true` khi 4 session ONNX đã nạp xong. Màn thử giọng dùng nó để biết lượt phát đầu tiên phải chờ
-    /// nạp engine (~3 s đọc 4 graph + 62,8 MB `sea_g2p.bin`) hay không.
+    /// `true` khi 4 session ONNX đã nạp xong — nghe thử giọng dùng nó để biết lượt phát đầu tiên phải chờ nạp engine
+    /// (~3 s đọc 4 graph + 62,8 MB `sea_g2p.bin`) hay không.
     var isPrepared: Bool {
         lock.lock(); defer { lock.unlock() }
         return runtime != nil
@@ -173,7 +167,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         nullContextShape = nullBranch.shape
         nullMask = nullBranch.mask
 
-        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(newRuntime.threadCount) spin=\(newRuntime.allowSpinning ? "on" : "off") qos=\(Self.currentQoSName())\(labThreadOverride == nil ? "" : " (màn thử)")")
+        AppLogger.shared.log("🎙️ [VieNeu] Nạp xong engine: \(newCatalog.presets.count) giọng, threads=\(newRuntime.threadCount) spin=\(newRuntime.allowSpinning ? "on" : "off") qos=\(Self.currentQoSName())")
     }
 
     /// Nhánh **vô điều kiện** của CFG: chạy `text_encoder` với đúng `[bos, eos]` và `null_style`.
@@ -198,7 +192,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Tổng hợp **một đoạn văn** thành WAV 24 kHz. `text` tới đây đã qua `applyReplacements` (thay thế
     /// ký tự chung, mọi engine) và `normalizeVietnameseText` (mở rộng số/ngày, không espeak) — đều ở
     /// tầng trên — nên engine chỉ tách chunk và tổng hợp, **không** tự tiền xử lý.
-    /// `flowBackend` (P1b, màn thử): chạy vòng Euler + codec bằng backend đó thay ORT (`+Flow`). `nil` = đường cũ.
+    /// `flowBackend` ("Tăng tốc Core ML" của trình đọc): chạy vòng Euler + codec bằng backend đó thay ORT (`+Flow`).
+    /// `nil` = ORT.
     func synthesize(
         text: String,
         voiceName: String,
@@ -217,7 +212,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             throw EngineError.badOutput("voices_v3_nano.json")
         }
 
-        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: labModeOverride ?? requestedMode, current: mode)
+        let activeMode = VieNeuSynthesisPolicy.effectiveMode(requested: requestedMode, current: mode)
         let tuning = VieNeuSynthesisPolicy.tuning(for: activeMode)
         // Văn bản tới đây đã đi qua **hai** lớp tiền xử lý ở tầng trên:
         // 1. `TTSReplacementManager.applyReplacements` (thay thế ký tự chung, mọi engine) — tại
@@ -293,7 +288,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             usesCoreML: flowBackend != nil
         )
         // Chỉ thích nghi khi người dùng để "tự động"; xem doc của `requestedMode`.
-        if requestedMode == nil, labModeOverride == nil {
+        if requestedMode == nil {
             updateMode(synthesisMs: synthesisMs, pcmDuration: pcmDuration)
         }
 
@@ -344,7 +339,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
         let frames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
 
-        // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend của màn thử)
+        // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend Core ML)
         var latent = [Float](repeating: 0, count: config.latentChannels * frames)
         Self.fillStandardNormal(&latent)
         let grid = Self.timeGrid(steps: max(1, tuning.steps), sway: tuning.sway)

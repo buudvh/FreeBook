@@ -2,10 +2,9 @@ import Foundation
 
 /// Đổi "vị trí người dùng" thành **chỉ số chunk** trong `[TTSParagraph]` — tách khỏi `TTSManager` (đợt 7, 1.3.486).
 ///
-/// Ba hàm là **ba ngữ nghĩa khác nhau**, cố ý giữ riêng (không gộp): `targetChunkIndex` ưu tiên `resumeIdentity`
-/// rồi `sourceRange`; `indexForParagraphPosition` chỉ khớp `paragraphIndex` và nhận ra tiêu đề qua
-/// `paragraphs.first?.paragraphIndex == -1`; `reanchorAfterSettings` so **`range`** (toạ độ hiển thị) với chunk cũ
-/// sau khi dựng lại đoạn, chấp nhận `range.length == 0`, và nhận cờ tiêu đề từ caller. Thân hàm chuyển nguyên văn.
+/// Hai hàm là **hai ngữ nghĩa khác nhau**, cố ý giữ riêng (không gộp): `targetChunkIndex` ưu tiên `resumeIdentity`
+/// rồi `sourceRange`; `reanchorAfterSettings` so **`range`** (toạ độ hiển thị) với chunk cũ sau khi dựng lại đoạn,
+/// chấp nhận `range.length == 0`, và nhận cờ tiêu đề từ caller. Thân hàm chuyển nguyên văn.
 /// `paragraphIndex` là ID dòng **thưa** (tiêu đề = -1), không phải chỉ số mảng (CLAUDE.md).
 enum TTSChunkPositionMapper {
     static func targetChunkIndex(
@@ -57,20 +56,6 @@ enum TTSChunkPositionMapper {
             }
         }
         return matchingChunks.first!.offset
-    }
-
-    /// Trả `-1`-an-toàn như code cũ: caller vẫn kiểm `0 ..< paragraphs.count` trước khi dùng.
-    static func indexForParagraphPosition(in paragraphs: [TTSParagraph], paragraphIndex: Int) -> Int {
-        let titleInserted = paragraphs.first?.paragraphIndex == -1
-        var targetIdx = -1
-        if paragraphIndex == -1 {
-            targetIdx = 0
-        } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == paragraphIndex }) {
-            targetIdx = idx
-        } else {
-            targetIdx = titleInserted ? 1 : 0
-        }
-        return targetIdx
     }
 
     static func reanchorAfterSettings(

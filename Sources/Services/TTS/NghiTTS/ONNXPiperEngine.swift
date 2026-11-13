@@ -28,7 +28,8 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
     private let sessionLock = NSLock()
 
     private static let punctuationRegex: NSRegularExpression? = {
-        let pattern = "(?:\\r?\\n)+|(?<!\\d)\\.|\\.(?!\\d)|!|\\?|(?<!\\d),|,(?!\\d)|;|:|[\"「」『』【】［］()\\{\\}\\[\\]]"
+        // "." / "," chỉ cắt (chèn khoảng lặng) khi theo sau là khoảng trắng / dấu đóng / hết chuỗi — luật `TTSPunctuationBoundary`.
+        let pattern = "(?:\\r?\\n)+|\\.(?=[\\s.!?…\"'”’)\\]}»」』】］）]|$)|!|\\?|,(?=[\\s\"'”’)\\]}»」』】］）]|$)|;|:|[\"「」『』【】［］()\\{\\}\\[\\]]"
         return try? NSRegularExpression(pattern: pattern, options: [])
     }()
 

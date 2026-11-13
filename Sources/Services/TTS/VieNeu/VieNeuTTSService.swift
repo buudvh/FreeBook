@@ -27,7 +27,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     ///
     /// Dùng chung một thực thể là **bắt buộc**, không phải tiện: mỗi `VieNeuTTSEngine` giữ bốn
     /// `OrtSession` riêng, nên hai service là hai bộ session nằm trong RAM và hai đường suy luận tranh
-    /// CPU — cùng lý do đã ghi ở `NghiTTSSettingsHubView` cho Piper.
+    /// CPU — cùng lý do Piper chỉ có một `TTSManager.shared.nghiTTSService`.
     static let shared: VieNeuTTSService? = {
         guard let store = try? VieNeuModelStore() else { return nil }
         return VieNeuTTSService(store: store, engine: VieNeuTTSEngine(store: store))
@@ -51,17 +51,17 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         "VieNeu-TTS v3 Nano (ONNX, 24 kHz, CPU) — \(engine.currentMode.rawValue)"
     }
 
-    /// Kho model, để màn thử giọng hiện được "đã tải / còn thiếu file nào / tốn bao nhiêu".
+    /// Kho model của engine ("đã tải / còn thiếu file nào / tốn bao nhiêu").
     var modelStore: VieNeuModelStore { store }
 
     /// Chế độ chất lượng đang chạy. Cùng với RTF đo được, đây là **dữ liệu quyết định** có nối engine
     /// vào Reader hay không — xem plan §7.
     var currentMode: VieNeuSynthesisPolicy.Mode { engine.currentMode }
 
-    /// 4 session ONNX đã nạp xong chưa — màn thử giọng dùng để hiện "đang nạp engine…" ở lượt đầu.
+    /// 4 session ONNX đã nạp xong chưa — nghe thử giọng (`VieNeuVoicePreviewPlayer`) nạp engine trước nếu chưa.
     var isPrepared: Bool { engine.isPrepared }
 
-    /// Số phoneme bị bỏ ở lượt tổng hợp gần nhất. Màn thử giọng đọc để phát hiện text không đọc được.
+    /// Số phoneme bị bỏ ở lượt tổng hợp gần nhất — dấu hiệu text không đọc được.
     var lastDroppedScalars: Int { syncQueue.sync { _lastDroppedScalars } }
 
     /// Số chunk của lượt tổng hợp gần nhất — xem doc của `VieNeuTTSEngine.Output.chunkCount`.
@@ -79,25 +79,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     var lastVectorMs: Double { lastTiming.vectorMs }
     var lastOtherMs: Double { lastTiming.otherMs }
 
-    /// Màn thử VieNeu Turbo ghi đè số luồng ORT (`nil` = bỏ ghi đè). Xem `VieNeuTTSEngine.setLabThreadOverride`.
-    ///
-    /// Chạy ở luồng nền: hàm của engine chờ khoá tổng hợp, mà lúc bấm Dừng có thể còn một đoạn đang chạy dở (ORT không
-    /// huỷ giữa chừng) ⇒ gọi thẳng từ main thread là đơ màn vài giây.
-    func setLabThreadOverride(_ threads: Int32?) async {
-        await Task.detached(priority: .utility) { [engine] in
-            engine.setLabThreadOverride(threads)
-        }.value
-    }
-
-    /// Ghim chế độ cho lượt "Đo tự động" (P1b) — chạy nền vì chờ khoá tổng hợp như `setLabThreadOverride`.
-    func setLabModeOverride(_ mode: VieNeuSynthesisPolicy.Mode?) async {
-        await Task.detached(priority: .utility) { [engine] in
-            engine.setLabModeOverride(mode)
-        }.value
-    }
-
-    /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với hai khoá
-    /// kia) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
+    /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với các cài đặt
+    /// VieNeu khác) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
     private static let preferredModeKey = VieNeuSynthesisPolicy.preferredModeKey
 
     /// Chế độ người dùng chọn; `nil` = tự thích nghi theo tốc độ máy.
@@ -126,40 +109,33 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     // MARK: - Chuẩn bị
 
     /// Nạp 4 session ONNX + `sea_g2p.bin` (62,8 MB). Chạy ở `Task.detached` vì đây là việc nặng và
-    /// đồng bộ — cùng lý do và cùng mức ưu tiên với `PiperTTSService.prepare` (`:35`).
+    /// đồng bộ — cùng lý do và cùng mức ưu tiên với `PiperTTSService.prepare` (`:35`). Luồng phụ của pool ORT sinh ra
+    /// lúc dựng session nên mang QoS `.utility` này.
     func prepare(voice: String) async throws {
-        try await prepare(voice: voice, priority: .utility)
-    }
-
-    /// Như `prepare(voice:)` nhưng chọn mức ưu tiên — chỉ màn thử VieNeu Turbo dùng (1.3.878). Luồng phụ của pool ORT
-    /// sinh ra lúc dựng session, nên dựng ở mức nào thì pool chạy ở mức đó. Hàm riêng (không thêm tham số mặc định vào
-    /// hàm trên) vì `LocalTTSEngine` đòi đúng chữ ký `prepare(voice:)`.
-    func prepare(voice: String, priority: TaskPriority) async throws {
         // Trình đọc đang ở Nano ⇒ nhả model Turbo (188 MB + bộ đệm ggml) trước khi nạp ORT — hai model không nên cùng nằm
-        // trong RAM. Trình đọc đang ở Turbo (màn thử Nano / giọng nhân bản nạp Nano) thì giữ Turbo: nó là thứ đang đọc.
+        // trong RAM. Trình đọc đang ở Turbo (nghe thử giọng Nano / nhân bản giọng nạp Nano) thì giữ Turbo: nó là thứ
+        // đang đọc.
         if VieNeuModelChoice.current == .nano {
             await VieNeuTurboTTSService.releaseForNano()
         }
-        try await Task.detached(priority: priority) { [engine] in
+        try await Task.detached(priority: .utility) { [engine] in
             try engine.prepare()
         }.value
         // Áp lựa chọn đã lưu sau khi engine sẵn sàng — lần mở app sau vẫn giữ đúng chế độ người dùng đặt.
         // "Tiết kiệm pin" thắng: khi bật thì ép `fast` bất kể `preferredMode`.
         engine.setRequestedMode(powerSaving ? .fast : preferredMode)
         syncQueue.sync { _currentVoice = voice }
-        // "Tăng tốc Core ML" (P2c): nạp sẵn + chạy nháp ở nền, **không** chờ — lượt đọc đầu nếu tới sớm chỉ đợi một khung
-        // (khoá tổng hợp giữ từng khung một).
-        if VieNeuCoreMLReaderRoute.isEnabled {
-            Task.detached(priority: .utility) { [weak self] in
-                self?.warmUpCoreMLForReader()
-            }
+        // "Tăng tốc Core ML" (P2c, luôn bật từ 1.3.919): nạp sẵn + chạy nháp ở nền, **không** chờ — lượt đọc đầu nếu tới sớm
+        // chỉ đợi một khung (khoá tổng hợp giữ từng khung một). Gói chưa qua tự kiểm ⇒ tự chuẩn bị (`warmUpIfReady`).
+        Task.detached(priority: .utility) { [weak self] in
+            self?.warmUpCoreMLForReader()
         }
     }
 
     /// Nạp sẵn + chạy nháp Core ML của trình đọc trong khoá tổng hợp của engine (`VieNeuCoreMLReaderRoute`). Đồng bộ và
     /// nặng vài giây ⇒ gọi từ luồng nền.
     func warmUpCoreMLForReader() {
-        VieNeuCoreMLReaderRoute.shared.warmUpIfEnabled { [engine] body in
+        VieNeuCoreMLReaderRoute.shared.warmUpIfReady { [engine] body in
             try engine.withSynthesisLock(body)
         }
     }
@@ -249,7 +225,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         ).data
     }
 
-    /// Đúng chữ ký của `LocalTTSEngine` — trình đọc, Nghe thử, nghe thử giọng. Bật "Tăng tốc Core ML" (P2c) và đã sẵn
+    /// Đúng chữ ký của `LocalTTSEngine` — trình đọc, Nghe thử, nghe thử giọng. "Tăng tốc Core ML" (P2c, luôn bật) đã sẵn
     /// sàng ⇒ vòng Euler + codec chạy Core ML (`VieNeuCoreMLReaderRoute`), không thì ORT như cũ.
     func synthesizeWithDuration(
         text: String,
@@ -267,9 +243,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         )
     }
 
-    /// Bản có `flowBackend` — màn thử truyền **đúng** đường muốn đo ("Đọc liên tục", Đo tự động): Core ML của màn thử,
-    /// hoặc `nil` = ORT (không lấy backend của trình đọc). Xem doc `VieNeuFlowBackend`.
-    func synthesizeWithDuration(
+    /// Bản có `flowBackend` (`nil` = ORT) — chỉ hàm trên gọi, với backend của trình đọc. Xem doc `VieNeuFlowBackend`.
+    private func synthesizeWithDuration(
         text: String,
         voice: String,
         speed: Double,
@@ -317,7 +292,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         flowBackend: VieNeuFlowBackend?
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) {
-            // Đoạn im lặng không chạy engine ⇒ xoá số đo của đoạn trước, kẻo màn thử đọc `lastTiming` cộng trùng nó.
+            // Đoạn im lặng không chạy engine ⇒ xoá số đo của đoạn trước, kẻo `lastTiming` còn số của đoạn đó.
             syncQueue.sync { _lastTiming = VieNeuTTSEngine.Timing() }
             return silencePayload(text: text, speed: speed)
         }

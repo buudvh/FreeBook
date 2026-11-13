@@ -11,13 +11,11 @@ import Foundation
 @MainActor
 enum VieNeuClonePackages {
     enum PackageError: LocalizedError {
-        case blocked
         case failed(String)
         case incomplete
 
         var errorDescription: String? {
             switch self {
-            case .blocked: return "Màn thử VieNeu Turbo đang tải model — chờ lượt đó xong rồi lưu."
             case .failed(let reason): return "Tải gói thất bại: \(reason)"
             case .incomplete: return "Chưa tải đủ gói cần thiết (lượt tải đã bị huỷ?)."
             }
@@ -78,10 +76,6 @@ enum VieNeuClonePackages {
             if !nanoStore.hasTurboCloneGraphs { add(Target.vieNeuTurboClone) { center.startVieNeuTurboClonePack() } }
         }
         let owned = jobs.filter { $0.owned && $0.task != nil }.map { $0.id }
-        guard !jobs.contains(where: { $0.task == nil }) else {
-            owned.forEach { center.cancel(id: $0) }
-            throw PackageError.blocked
-        }
         onStart(Jobs(all: jobs.map { $0.id }, owned: owned))
         for job in jobs {
             let state = await center.waitForJob(id: job.id)

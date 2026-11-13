@@ -1,7 +1,7 @@
 import Foundation
 
 /// Vòng Euler + CFG và codec của **một chunk** (tách khỏi `runChunk` ở P1b): đường ORT như trước 1.3.889, hoặc một
-/// `VieNeuFlowBackend` do lượt gọi truyền vào (Core ML của màn thử). Bước text_encoder + duration + nhiễu khởi tạo vẫn ở
+/// `VieNeuFlowBackend` do lượt gọi truyền vào (Core ML của trình đọc, `VieNeuCoreMLReaderRoute`). Bước text_encoder + duration + nhiễu khởi tạo vẫn ở
 /// `runChunk`, nên hai đường nhận **cùng** đầu vào.
 extension VieNeuTTSEngine {
     /// Chạy vòng Euler rồi codec; bấm giờ `timing.vector` / `timing.codec` như cũ (chốt vòng Euler **trước** codec).

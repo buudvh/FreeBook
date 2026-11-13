@@ -13,7 +13,7 @@ import AudioCpp
 ///
 /// ## Bộ nhớ
 /// Encoder dùng attention đầy đủ (8 s ≈ 200–250 MB graph, ước tính) và vùng đó ở lại trong session, cộng
-/// `voice_prompt_cache_` giữ prompt của đoạn mẫu. Xong lượt ⇒ model đã nạp sẵn từ trước (trình đọc / màn thử đang dùng)
+/// `voice_prompt_cache_` giữ prompt của đoạn mẫu. Xong lượt ⇒ model đã nạp sẵn từ trước (trình đọc / nghe thử đang dùng)
 /// thì **dựng lại session** cùng số luồng; model chỉ nạp cho lượt này thì **nhả hết** (`freeAll`).
 ///
 /// ## Không chạy chồng

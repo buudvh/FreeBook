@@ -1,9 +1,57 @@
 import SwiftUI
-import AVFoundation
 
+/// Các khối của `NghiTTSSettingsHubView` + số liệu đọc đĩa (dựng ngoài main).
 extension NghiTTSSettingsHubView {
-    /// Lối vào quản lý — **gom 3 nav cũ ở tab Cài đặt** về một chỗ.
+    /// Số liệu model NghiTTS đọc từ đĩa — dựng ngoài main (`loadModelSnapshot`), không đọc trong `body`.
+    struct ModelSnapshot: Sendable {
+        struct VoiceRow: Sendable, Identifiable {
+            let id: String
+            let name: String
+            let bytes: Int64
+        }
+
+        var voices: [VoiceRow] = []
+        /// Dung lượng thư viện phiên âm (`non-vietnamese-words.plist` + `acronyms.plist`); `nil` = chưa tải.
+        var dictionaryBytes: Int64?
+
+        var voiceBytes: Int64 { voices.reduce(Int64(0)) { $0 + $1.bytes } }
+    }
+
+    // MARK: - Model
+
+    var modelSection: some View {
+        Section {
+            LabeledContent("Engine", value: "Piper · ONNX Runtime")
+            LabeledContent("Giọng đã tải", value: snapshot.map {
+                "\($0.voices.count) giọng · \(Self.size($0.voiceBytes))"
+            } ?? "…")
+            LabeledContent("Thư viện phiên âm", value: snapshot.map { loaded in
+                loaded.dictionaryBytes.map { "Đã tải · \(Self.size($0))" } ?? "Chưa tải"
+            } ?? "…")
+        } header: {
+            SectionHelpHeader("Model", paragraphs: [
+                "NghiTTS là các giọng **Piper** chạy trên máy bằng **ONNX Runtime** — mỗi giọng một file model riêng.",
+                "Tải / xoá giọng ở **Quản lý Model giọng đọc** bên dưới. Thư viện phiên âm (từ tiếng nước ngoài, viết tắt) tải **cùng từ điển** khi tải giọng NghiTTS đầu tiên."
+            ])
+        }
+    }
+
+    // MARK: - Giọng đã tải
+
     @ViewBuilder
+    var voicesSection: some View {
+        if let snapshot, !snapshot.voices.isEmpty {
+            Section("Giọng đã tải") {
+                ForEach(snapshot.voices) { voice in
+                    LabeledContent(voice.name, value: Self.size(voice.bytes))
+                }
+            }
+        }
+    }
+
+    // MARK: - Quản lý
+
+    /// Lối vào quản lý — **gom 3 nav cũ ở tab Cài đặt** về một chỗ.
     var managementSection: some View {
         Section {
             NavigationLink(destination: TTSModelManagerView()) {
@@ -16,169 +64,43 @@ extension NghiTTSSettingsHubView {
                 Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
             }
         } header: {
-            SectionHelpHeader("Quản lý", paragraphs: ["Ba mục này trước đây nằm rời ở tab Cài đặt. Riêng **thử giọng** đã chuyển hẳn vào màn này nên “Cấu hình tiền xử lý & ngắt nghỉ” **không còn** nav thử giọng."])
+            Text("Quản lý")
         }
     }
 
-    @ViewBuilder
-    var textSection: some View {
-        Section {
-            TextEditor(text: $text)
-                .frame(minHeight: 110)
-                .font(.body)
-        } header: {
-            Text("Chữ cần đọc")
-        }
+    // MARK: - Đọc đĩa (ngoài main)
+
+    nonisolated static func size(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
-    @ViewBuilder
-    var voiceSection: some View {
-        Section("Giọng đọc") {
-            if voices.isEmpty {
-                Text("Chưa có giọng NghiTTS nào được tải về.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Picker("Giọng", selection: $selectedVoice) {
-                    ForEach(voices, id: \.self) { voice in
-                        Text(voice).tag(voice)
-                    }
-                }
+    /// Giọng đã tải (tên theo danh mục `NghiTTSClient.fallbackVietnameseVoices` khi khớp id, không thì id viết lại như
+    /// "Giọng đọc tùy chỉnh" của `TTSModelManagerView`) + thư viện phiên âm. `ModelStore` không dựng được ⇒ rỗng.
+    nonisolated static func loadModelSnapshot() -> ModelSnapshot {
+        guard let store = try? ModelStore() else { return ModelSnapshot() }
+        let catalog = Dictionary(
+            NghiTTSClient.fallbackVietnameseVoices.map { ($0.id, $0.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var result = ModelSnapshot()
+        result.voices = store.getLocalVoiceIDs().map { id in
+            ModelSnapshot.VoiceRow(
+                id: id,
+                name: catalog[id] ?? id.replacingOccurrences(of: "_", with: " ").capitalized,
+                bytes: store.bytesForVoice(id)
+            )
+        }
+        .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+
+        // Hai file của thư viện phiên âm, tải cùng lượt (`NghiTTSClient.downloadDictionaries`) vào `ModelStore.rootURL`;
+        // file đầu là dấu "đã tải" (như `TTSSettingsView.hasNoDictionary`).
+        let fileManager = FileManager.default
+        let urls = ["non-vietnamese-words.plist", "acronyms.plist"].map { store.rootURL.appendingPathComponent($0) }
+        if let marker = urls.first, fileManager.fileExists(atPath: marker.path) {
+            result.dictionaryBytes = urls.reduce(Int64(0)) { total, url in
+                total + Int64(((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0)
             }
         }
-    }
-
-    @ViewBuilder
-    var speedSection: some View {
-        Section("Tốc độ") {
-            HStack {
-                Text("0.5×").font(.caption2).foregroundStyle(.secondary)
-                Slider(value: $speed, in: 0.5...2.0, step: 0.05)
-                Text("2.0×").font(.caption2).foregroundStyle(.secondary)
-            }
-            LabeledContent("Đang chọn", value: String(format: "%.2f×", speed))
-        }
-    }
-
-    @ViewBuilder
-    var playSection: some View {
-        Section {
-            Button {
-                playSample()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSynthesizing {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "play.circle.fill")
-                    }
-                    Text(isSynthesizing ? "Đang tổng hợp…" : "Phát thử")
-                }
-            }
-            .disabled(!canPlay)
-
-            Button(role: .destructive) {
-                stopSample()
-            } label: {
-                Label("Dừng", systemImage: "stop.circle")
-            }
-            .disabled(player == nil && !isSynthesizing)
-        } header: {
-            SectionHelpHeader("Phát thử", paragraphs: ["Chuỗi được đưa qua **đúng** đường tiền xử lý của NghiTTS (đọc số, phiên âm, từ điển thay thế) trước khi tổng hợp, nên nghe được y như lúc đọc truyện."])
-        } footer: {
-            // Trạng thái (đang bị TTS chặn) giữ ở footer; phần giải thích nằm ở nút "?".
-            if isBlockedByPlayback {
-                Text("Đang đọc truyện — hãy dừng TTS trước khi thử, vì hai bên dùng chung engine và chung phiên âm thanh.")
-            }
-        }
-    }
-
-    @ViewBuilder
-    var resultSection: some View {
-        if !statusMessage.isEmpty {
-            Section("Kết quả") {
-                Text(statusMessage)
-                    .font(.footnote)
-                    .foregroundStyle(isError ? Color.red : Color.secondary)
-            }
-        }
-    }
-
-    // MARK: - Hành động (chuyển nguyên từ `NghiTTSTextToolView`)
-
-    func loadStoredSettings() {
-        if selectedVoice.isEmpty {
-            selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? voices.first ?? ""
-        }
-        if speed == 1.0 {
-            let stored = UserDefaults.standard.double(forKey: "nghittsRate")
-            if stored >= 0.5 && stored <= 2.0 { speed = stored }
-        }
-    }
-
-    func playSample() {
-        // Chốt lại ngay lúc bấm: `canPlay` chỉ được tính khi body dựng lại, mà view này **không** observe
-        // `TTSManager` (luật của repo), nên trạng thái trên nút có thể đã cũ.
-        guard !isBlockedByPlayback else {
-            isError = true
-            statusMessage = "Đang đọc truyện — hãy dừng TTS trước khi thử."
-            return
-        }
-        guard let service = TTSManager.shared.nghiTTSService else {
-            isError = true
-            statusMessage = "Chưa khởi tạo được engine NghiTTS."
-            return
-        }
-        let payloadText = text
-        let voice = selectedVoice
-        let rate = speed
-
-        stopSample()
-        isSynthesizing = true
-        isError = false
-        statusMessage = ""
-
-        synthesisTask = Task { @MainActor in
-            do {
-                let started = Date()
-                let data = try await service.synthesize(text: payloadText, voice: voice, speed: rate)
-                guard !Task.isCancelled else { return }
-                try activateSession()
-                let newPlayer = try AVAudioPlayer(data: data)
-                newPlayer.enableRate = true
-                newPlayer.prepareToPlay()
-                player = newPlayer
-                newPlayer.play()
-                isSynthesizing = false
-                statusMessage = String(
-                    format: "Đã tổng hợp %.0f KB trong %.2f giây, dài %.2f giây.",
-                    Double(data.count) / 1024,
-                    Date().timeIntervalSince(started),
-                    newPlayer.duration
-                )
-            } catch is CancellationError {
-                isSynthesizing = false
-            } catch {
-                isSynthesizing = false
-                isError = true
-                statusMessage = "Lỗi: \(error.localizedDescription)"
-            }
-        }
-    }
-
-    func stopSample() {
-        synthesisTask?.cancel()
-        synthesisTask = nil
-        player?.stop()
-        player = nil
-        isSynthesizing = false
-    }
-
-    /// Bật phiên âm thanh cho clip thử. Không `setActive(false)` khi xong: `TTSManager` là chủ phiên và tự lo
-    /// việc đó ở `stopPlayback`; tắt ở đây có thể cắt phiên của nó nếu người dùng phát ngay sau.
-    func activateSession() throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio)
-        try session.setActive(true)
+        return result
     }
 }

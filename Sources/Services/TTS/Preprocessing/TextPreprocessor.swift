@@ -51,7 +51,6 @@ enum PreprocessorRegex {
         options: []
     )
     static let bracketQuotes = try! NSRegularExpression(pattern: #"[']"#, options: [])
-    static let doubleQuoteToSpace = try! NSRegularExpression(pattern: #"["“”]"#, options: [])
     static let whitespaceBeforePeriod = try! NSRegularExpression(pattern: #"\s—"#, options: [])
     static let underscoreWord = try! NSRegularExpression(pattern: #"\b_\b"#, options: [])
     static let nonDigitDash = try! NSRegularExpression(pattern: #"(?<!\d)-(?!\d)"#, options: [])
@@ -101,7 +100,6 @@ enum PreprocessorRegex {
     static let wordChar = try! NSRegularExpression(pattern: #"[a-zA-Zà-ỹ]"#, options: [])
     static let token = try! NSRegularExpression(pattern: #"[a-zA-Z0-9_\u00C0-\u1EFF]+(?:[-.][a-zA-Z0-9_\u00C0-\u1EFF]+)*"#, options: [])
 
-    static let asciiLettersOnly = try! NSRegularExpression(pattern: #"^[a-z]+$"#, options: [])
     static let romajiVowels = "aeiouyăâêôơưáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
     static let romajiSplit = try! NSRegularExpression(
         pattern: "([^" + romajiVowels + "]*[" + romajiVowels + "]+[^" + romajiVowels + "]*(?![" + romajiVowels + "]))",
@@ -150,10 +148,6 @@ final actor TextPreprocessor {
 
     // Đơn vị nhiều ký tự: hậu tố chỉ cần ranh giới không phải \w.
     private static let multiCharUnitGroup = makeUnitGroup(alternation: unitAlternation(where: { $0.count > 1 }), suffix: #"(?=\s|[^\w]|$)"#)
-
-    func lookupAcronym(_ key: String) -> String? {
-        return acronymMap[key]
-    }
 
     func lookupWord(_ key: String) -> String? {
         return wordMap[key]

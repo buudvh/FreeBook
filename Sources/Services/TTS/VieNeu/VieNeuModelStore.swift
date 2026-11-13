@@ -142,7 +142,7 @@ final class VieNeuModelStore {
 
     /// Dung lượng đã chiếm — dùng cho nhãn ở màn quản lý model.
     ///
-    /// **Chỉ tính 8 file lõi**, không tính gói clone: nhãn "Dung lượng" ở màn thử giọng gắn với trạng
+    /// **Chỉ tính 8 file lõi**, không tính gói clone: nhãn "Dung lượng" ở trang Cài đặt VieNeu TTS gắn với trạng
     /// thái "Đã tải đủ 8 file", nên cộng thêm 91 MB tuỳ chọn vào đó là nói sai về thứ vừa tải.
     var totalBytes: Int64 {
         byteCount(of: Self.requiredNames)

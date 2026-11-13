@@ -7,8 +7,8 @@ import Foundation
 /// khi thêm phần khớp âm lượng. Đây là ranh giới tự nhiên — *tách chunk* là việc trên **chữ**, còn
 /// `+Audio` là việc trên **mẫu âm thanh**.
 extension VieNeuTTSEngine {
-    /// `RE_SENTENCE_FINDALL` của bản tham chiếu: `[^.!?]+[.!?]*|[.!?]+`.
-    private static let sentenceRegex = try! NSRegularExpression(pattern: "[^.!?]+[.!?]*|[.!?]+", options: [])
+    /// Dấu hết câu (cắt câu ở đây khi có khoảng trắng / dấu đóng phía sau — `TTSPunctuationBoundary`).
+    private static let terminalMarks: Set<Character> = [".", "!", "?", "…", "。", "！", "？"]
     /// `RE_MINOR_PUNCT` của bản tham chiếu: chỗ cắt phụ trong một câu quá dài.
     private static let minorPunctuationRegex = try! NSRegularExpression(pattern: "(?<=[,;:\\-–—])[ \\t]+", options: [])
     /// `CHUNK_TAIL_SLACK` — xem `fits(current:adding:limit:)`.
@@ -22,6 +22,10 @@ extension VieNeuTTSEngine {
     ///
     /// Đây là bản sửa cho lỗi **"cắt chunk giữa đường"**: bản trước gói theo **từ**, nên một câu dài bị cắt
     /// làm hai và chỗ nối nghe thành một khoảng nghỉ giữa câu. Bản tham chiếu không bao giờ làm vậy.
+    ///
+    /// Khác bản tham chiếu (1.3.919): đoạn **vừa trần** đi nguyên văn thành một chunk (bản tham chiếu tách câu rồi ghép
+    /// lại bằng dấu cách ⇒ "S.H.I.E.L.D" thành "S. H. I. E. L. D", đọc ngắt sau từng chữ), và chỉ cắt câu ở dấu có khoảng
+    /// trắng phía sau.
     static func splitIntoChunks(_ text: String, limit: Int) -> [Chunk] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
@@ -33,7 +37,8 @@ extension VieNeuTTSEngine {
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
 
         for paragraph in paragraphs {
-            let packed = packSentences(sentences(of: paragraph), limit: limit)
+            let whole = paragraph.trimmingCharacters(in: .whitespaces)
+            let packed = whole.count <= limit ? [whole] : packSentences(sentences(of: paragraph), limit: limit)
             guard !packed.isEmpty else { continue }
             if !chunks.isEmpty {
                 // Ranh giới với ĐOẠN trước là ngắt đoạn, không phải ngắt câu — ghi đè lên chunk cuối của
@@ -55,15 +60,30 @@ extension VieNeuTTSEngine {
         return ".!?…。！？".contains(last) ? .sentence : .minor
     }
 
-    /// `RE_SENTENCE_FINDALL` — tách câu nhưng **giữ** dấu kết câu ở cuối mẩu.
+    /// Tách câu, **giữ** dấu kết câu (và dấu đóng ngay sau nó) ở cuối mẩu. Thay `RE_SENTENCE_FINDALL` của bản tham chiếu
+    /// (`[^.!?]+[.!?]*`, coi mọi dấu "." là hết câu): chỉ cắt ở dấu có khoảng trắng / dấu đóng phía sau.
     private static func sentences(of paragraph: String) -> [String] {
-        let nsParagraph = paragraph as NSString
-        let matches = sentenceRegex.matches(
-            in: paragraph,
-            options: [],
-            range: NSRange(location: 0, length: nsParagraph.length)
-        )
-        return matches.map { nsParagraph.substring(with: $0.range) }
+        let characters = Array(paragraph)
+        var result: [String] = []
+        var start = 0
+        var index = 0
+        while index < characters.count {
+            guard terminalMarks.contains(characters[index]),
+                  TTSPunctuationBoundary.isBoundary(at: index, in: characters) else {
+                index += 1
+                continue
+            }
+            var end = index + 1
+            while end < characters.count,
+                  terminalMarks.contains(characters[end]) || TTSPunctuationBoundary.closingMarks.contains(characters[end]) {
+                end += 1
+            }
+            result.append(String(characters[start..<end]))
+            start = end
+            index = end
+        }
+        if start < characters.count { result.append(String(characters[start...])) }
+        return result
     }
 
     /// `pack_sentences_into_chunks`: gói nguyên câu, greedy, giữ thứ tự.
@@ -270,7 +290,7 @@ extension VieNeuTTSEngine {
     /// Không có khoảng lặng đuôi thì phoneme cuối của utterance N dính thẳng vào phoneme đầu của
     /// utterance N+1 — người dùng nghe đúng như **"mất chữ"**.
     ///
-    /// ## Vì sao không lộ ra ở màn thử giọng
+    /// ## Vì sao từng không lộ ra ở màn thử giọng (cũ, đã bỏ)
     /// Màn thử giọng đưa **cả đoạn** vào một lượt gọi, nên `joinChunks` tự chèn khoảng lặng theo dấu câu
     /// giữa các chunk của nó. Chỉ đường Reader (cắt trước rồi gọi từng mảnh) mới lộ.
     static func pauseSeconds(for boundaryKind: TTSBoundaryKind) -> Double {

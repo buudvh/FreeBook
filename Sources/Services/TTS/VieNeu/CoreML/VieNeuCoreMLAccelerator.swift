@@ -2,16 +2,16 @@ import CryptoKit
 import Foundation
 import Observation
 
-/// Trạng thái + việc tải / chuẩn bị của **"Tăng tốc Core ML"** cho trình đọc Nano (P2c, cách B) — mục ở Cài đặt VieNeu
-/// TTS đọc ở đây. Backend dùng thật nằm ở `VieNeuCoreMLReaderRoute` (gọi được từ luồng tổng hợp).
+/// Trạng thái + việc tải / chuẩn bị của **"Tăng tốc Core ML"** cho trình đọc Nano (P2c, cách B; **luôn bật** từ 1.3.919) —
+/// hàng giọng Nano của sheet chọn giọng, hàng "Giọng đọc" và trang Cài đặt VieNeu TTS đọc ở đây. Backend dùng thật nằm ở
+/// `VieNeuCoreMLReaderRoute` (gọi được từ luồng tổng hợp).
 ///
-/// Một lần sau khi bật: tải gói ghim commit (`VieNeuCoreMLPackage.revision`, ~267 MB) → biên dịch 7 graph (~20 s, định
+/// Một lần, tự chạy (`prepareIfNeeded`) khi tải xong gói Nano (`ModelDownloadCenter`) hoặc lúc engine Nano khởi động mà gói
+/// chưa qua tự kiểm: tải gói ghim commit (`VieNeuCoreMLPackage.revision`, ~267 MB) → biên dịch 7 graph (~20 s, định
 /// dạng 3) → **tự kiểm golden** → ghi dấu `reader-verified.json` → gắn backend cho trình đọc. Tự kiểm không qua ⇒ không
 /// gắn, trình đọc giữ ORT (chất lượng y hệt là ràng buộc cứng). Các lần mở app sau: engine Nano khởi động thì nạp sẵn +
-/// chạy nháp (`VieNeuCoreMLReaderRoute.warmUpIfEnabled`), không biên dịch / tự kiểm lại.
-///
-/// Dùng chung gói + cache với màn thử (Đo tự động, Đo nạp Core ML): xoá / tải lại ở đó thì dấu tự kiểm bị xoá theo
-/// (`VieNeuCoreMLPackage.deleteCache`) và màn thử nhả backend của trình đọc trước.
+/// chạy nháp (`VieNeuCoreMLReaderRoute.warmUpIfReady`), không biên dịch / tự kiểm lại. Tải gói mới (file đổi) hay xoá gói
+/// đều xoá dấu tự kiểm theo (`VieNeuCoreMLPackage.deleteCache`).
 @MainActor
 @Observable
 final class VieNeuCoreMLAccelerator {
@@ -45,8 +45,17 @@ final class VieNeuCoreMLAccelerator {
     }
 
     let package: VieNeuCoreMLPackage?
-    /// Công tắc ở Cài đặt (mặc định tắt — thử nghiệm). Đổi qua `setEnabled(_:)`.
-    private(set) var isEnabled: Bool
+    /// Byte đã kiểm / tải của gói và tổng gói, lúc `phase == .downloading` — cho dòng "tải 52% · 139 / 267 MB".
+    private(set) var downloadedBytes: Int64 = 0
+    private(set) var downloadTotalBytes: Int64 = 0
+    /// Bước đang chạy lúc `phase == .preparing` ("biên dịch 3/7", "tự kiểm chất lượng") + phần đã xong (nếu biết).
+    private(set) var preparingStage = "biên dịch"
+    private(set) var preparingFraction: Double?
+    /// Số bản biên dịch đang có trong cache (đọc ở `refresh`).
+    private(set) var compiledCount = 0
+    /// Lượt **tự** chuẩn bị trong tiến trình này đã lỗi ⇒ không tự thử lại tới lần mở app sau (tự kiểm hỏng cố định thì
+    /// khỏi biên dịch + tự kiểm lại mỗi lần engine khởi động).
+    @ObservationIgnored private var autoPrepareFailed = false
     private(set) var phase: Phase = .idle
     private(set) var statusLine = ""
     private(set) var downloadFraction: Double?
@@ -59,21 +68,58 @@ final class VieNeuCoreMLAccelerator {
 
     private init() {
         package = try? VieNeuCoreMLPackage()
-        isEnabled = VieNeuCoreMLReaderRoute.isEnabled
         refresh()
     }
 
     var isBusy: Bool { phase != .idle }
 
-    func setEnabled(_ enabled: Bool) {
-        guard enabled != isEnabled else { return }
-        isEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: VieNeuCoreMLReaderRoute.enabledKey)
-        if enabled {
-            if isVerified { Self.warmUpInBackground() }
-        } else {
-            VieNeuCoreMLReaderRoute.shared.release(reason: "tắt Tăng tốc Core ML")
+    /// Core ML luôn bật (1.3.919): model Nano đã đủ mà gói chưa qua tự kiểm ⇒ tải + biên dịch + tự kiểm ở nền. Gọi khi tải
+    /// xong gói Nano (`ModelDownloadCenter`) và khi engine Nano khởi động (`VieNeuCoreMLReaderRoute.warmUpIfReady`).
+    func prepareIfNeeded(reason: String) {
+        refresh()
+        guard !isBusy, !isVerified, !autoPrepareFailed, (try? VieNeuModelStore())?.isReady == true else { return }
+        AppLogger.shared.log("🎙️ [VieNeuCoreML] Tự chuẩn bị Tăng tốc Core ML (\(reason))")
+        prepare(isAutomatic: true)
+    }
+
+    /// Dòng phụ ngắn cho hàng giọng Nano / hàng "Giọng đọc" / trang Cài đặt VieNeu lúc đang chuẩn bị; `nil` khi rảnh.
+    var stageText: String? {
+        switch phase {
+        case .idle:
+            return nil
+        case .downloading:
+            guard downloadTotalBytes > 0 else { return "Tăng tốc Core ML · kiểm gói" }
+            let percent = Int((Double(downloadedBytes) / Double(downloadTotalBytes) * 100).rounded())
+            return "Tăng tốc Core ML · tải \(percent)% · \(Self.megabytes(downloadedBytes)) / \(Self.megabytes(downloadTotalBytes))"
+        case .preparing:
+            return "Tăng tốc Core ML · \(preparingStage)"
         }
+    }
+
+    /// Phần đã xong của bước đang chạy (thanh mảnh dưới `stageText`); `nil` = chưa biết (thanh chạy vô định).
+    var stageFraction: Double? {
+        switch phase {
+        case .idle: return nil
+        case .downloading: return downloadTotalBytes > 0 ? min(1, Double(downloadedBytes) / Double(downloadTotalBytes)) : nil
+        case .preparing: return preparingFraction
+        }
+    }
+
+    nonisolated private static func megabytes(_ bytes: Int64) -> String {
+        String(format: "%.0f MB", Double(bytes) / 1_000_000)
+    }
+
+    /// "Biên dịch / nạp 3/7: ve T96…" ⇒ ("biên dịch 3/7", 3/7); "Tự kiểm…" ⇒ ("tự kiểm chất lượng", nil).
+    nonisolated private static func stage(from line: String) -> (text: String, fraction: Double?) {
+        let prefix = "Biên dịch / nạp "
+        if line.hasPrefix(prefix), let colon = line.firstIndex(of: ":") {
+            let step = String(line[line.index(line.startIndex, offsetBy: prefix.count)..<colon])
+            let parts = step.split(separator: "/").compactMap { Double($0) }
+            let fraction = parts.count == 2 && parts[1] > 0 ? parts[0] / parts[1] : nil
+            return ("biên dịch \(step)", fraction)
+        }
+        if line.contains("Tự kiểm") { return ("tự kiểm chất lượng", nil) }
+        return ("chuẩn bị", nil)
     }
 
     func refresh() {
@@ -87,15 +133,20 @@ final class VieNeuCoreMLAccelerator {
         isVerified = Self.isVerified(package: package)
         packageBytes = package.packageBytes
         cacheBytes = package.cacheBytes
+        compiledCount = VieNeuCoreMLCacheInventory.scan(package.cacheDirectory).filter { $0.compiledURL != nil }.count
     }
 
     // MARK: - Chuẩn bị
 
     /// Tải (phần đổi, theo sha256) → biên dịch 7 graph → tự kiểm → ghi dấu → gắn backend cho trình đọc.
-    func prepare() {
+    func prepare(isAutomatic: Bool = false) {
         guard !isBusy, let package else { return }
         errorMessage = nil
         downloadFraction = nil
+        downloadedBytes = 0
+        downloadTotalBytes = 0
+        preparingStage = "biên dịch"
+        preparingFraction = nil
         phase = .downloading
         statusLine = "Đang kiểm gói Core ML…"
         task = Task { [weak self] in
@@ -105,6 +156,8 @@ final class VieNeuCoreMLAccelerator {
                     Task { @MainActor [weak self] in
                         guard let self, self.phase == .downloading else { return }
                         self.downloadFraction = total > 0 ? min(1, Double(done) / Double(total)) : nil
+                        self.downloadedBytes = done
+                        self.downloadTotalBytes = total
                         self.statusLine = "Kiểm / tải gói: \(name)…"
                     }
                 }
@@ -115,6 +168,9 @@ final class VieNeuCoreMLAccelerator {
                     Task { @MainActor [weak self] in
                         guard let self, self.phase == .preparing else { return }
                         self.statusLine = line
+                        let stage = Self.stage(from: line)
+                        self.preparingStage = stage.text
+                        self.preparingFraction = stage.fraction
                     }
                 }
                 let backend = try await Task.detached(priority: .userInitiated) {
@@ -130,10 +186,20 @@ final class VieNeuCoreMLAccelerator {
             } catch {
                 self?.errorMessage = error.localizedDescription
                 self?.statusLine = ""
+                if isAutomatic { self?.autoPrepareFailed = true }
+                // Biên dịch / tự kiểm hỏng ⇒ bỏ bản biên dịch dở (app bị tắt giữa chừng cũng để lại mục hỏng) để lần sau
+                // biên dịch sạch; gói tải về giữ nguyên.
+                if self?.phase == .preparing {
+                    VieNeuCoreMLReaderRoute.shared.release(reason: "chuẩn bị lỗi")
+                    package.deleteCache()
+                }
                 AppLogger.shared.log("❌ [VieNeuCoreML] Chuẩn bị lỗi: \(error.localizedDescription)")
             }
             self?.phase = .idle
             self?.downloadFraction = nil
+            self?.downloadedBytes = 0
+            self?.downloadTotalBytes = 0
+            self?.preparingFraction = nil
             self?.refresh()
         }
     }
@@ -143,7 +209,8 @@ final class VieNeuCoreMLAccelerator {
         statusLine = "Đang dừng sau bước hiện tại…"
     }
 
-    /// Nút Xoá ở Cài đặt: nhả backend rồi xoá gói + bản biên dịch (giữ báo cáo của màn thử).
+    /// "Xoá dữ liệu Nano" (nhấn giữ giọng Nano ở sheet chọn giọng): nhả backend rồi xoá gói + bản biên dịch. Đang chuẩn bị
+    /// ⇒ bỏ qua (bên gọi `cancel()` trước).
     func deleteData() {
         guard !isBusy, let package else { return }
         VieNeuCoreMLReaderRoute.shared.release(reason: "xoá gói Core ML")
@@ -212,7 +279,7 @@ final class VieNeuCoreMLAccelerator {
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Bật lại công tắc khi gói đã sẵn ⇒ nạp sẵn + chạy nháp ngay (không chờ lần engine khởi động sau).
+    /// Chuẩn bị xong ⇒ nạp sẵn + chạy nháp ngay (không chờ lần engine khởi động sau).
     private static func warmUpInBackground() {
         Task.detached(priority: .utility) {
             VieNeuTTSService.shared?.warmUpCoreMLForReader()

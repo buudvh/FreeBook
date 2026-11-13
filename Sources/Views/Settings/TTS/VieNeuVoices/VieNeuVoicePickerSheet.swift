@@ -7,7 +7,10 @@ import SwiftUI
 ///   hàng Nano cùng hiện tiến độ; Turbo tải model nếu thiếu rồi file của đúng giọng đó ⇒ tiến độ chỉ ở hàng đó.
 /// - Chọn giọng = `TTSManager.selectVieNeuVoice` ⇒ model đi theo giọng (khác model thì trình đọc nạp lại engine).
 /// - Thử giọng qua `VieNeuVoicePreviewPlayer`; sheet đóng thì dừng câu thử.
-/// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ).
+/// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ). Nhấn giữ giọng có sẵn đã tải ⇒ "Xoá dữ liệu
+///   Nano / Turbo" (`VieNeuModelDataRemover`, 1.3.919 — lối duy nhất lấy lại dung lượng model).
+/// - Ô tìm theo tên giọng (`VoiceNameSearch`: bỏ dấu, "đ" = "d") lọc trong chip đang chọn; đang tìm thì ẩn hàng
+///   "Nhân bản giọng đọc", nhóm không còn giọng nào khớp thì ẩn cả nhóm.
 /// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.901); giọng Nano tự tạo chưa có bản Turbo hiện trong
 ///   "Giọng của tôi" của chip Turbo với nút "Tạo bản Turbo" (`VieNeuTurboCopyRow`).
 struct VieNeuVoicePickerSheet: View {
@@ -21,7 +24,9 @@ struct VieNeuVoicePickerSheet: View {
     @State private var renaming: VieNeuVoiceEntry?
     @State private var renameText = ""
     @State private var pendingDeletion: VieNeuVoiceEntry?
+    @State private var pendingDataRemoval: VieNeuModelChoice?
     @State private var isClonePresented = false
+    @State private var query = ""
 
     private var directory: VieNeuVoiceDirectory { .shared }
     private var preview: VieNeuVoicePreviewPlayer { .shared }
@@ -40,7 +45,9 @@ struct VieNeuVoicePickerSheet: View {
                     .padding(.vertical, 8)
                 List {
                     Group {
-                        cloneEntryRow
+                        if normalizedQuery.isEmpty {
+                            cloneEntryRow
+                        }
                         if model == .nano {
                             nanoSections(reader: reader)
                         } else {
@@ -50,9 +57,13 @@ struct VieNeuVoicePickerSheet: View {
                     .glassSheetRows()
                 }
             }
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm theo tên giọng")
             .pageTitle("Giọng đọc", help: Self.helpText)
         }
-        .onAppear { directory.reload() }
+        .onAppear {
+            directory.reload()
+            VieNeuCoreMLAccelerator.shared.refresh()
+        }
         .onDisappear { preview.finishSession() }
         .onChange(of: preview.failureToken) { _, _ in
             ToastManager.shared.show(message: preview.failureMessage, type: .error)
@@ -74,6 +85,18 @@ struct VieNeuVoicePickerSheet: View {
             Button("Huỷ", role: .cancel) { renaming = nil }
         } message: {
             Text("Tên mới phải khác các giọng đang có.")
+        }
+        .confirmationDialog(
+            pendingDataRemoval == .turbo ? "Xoá dữ liệu Turbo?" : "Xoá dữ liệu Nano?",
+            isPresented: Binding(get: { pendingDataRemoval != nil }, set: { if !$0 { pendingDataRemoval = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Xoá dữ liệu", role: .destructive) { commitDataRemoval() }
+            Button("Huỷ", role: .cancel) { pendingDataRemoval = nil }
+        } message: {
+            Text(pendingDataRemoval == .turbo
+                 ? "Xoá model Turbo và các giọng Turbo đã tải. Giọng nhân bản giữ nguyên; tải lại bằng nút ⬇ của giọng."
+                 : "Xoá model Nano và gói Tăng tốc Core ML. Giọng nhân bản giữ nguyên; tải lại bằng nút ⬇ của giọng.")
         }
         .confirmationDialog(
             "Xoá giọng “\(pendingDeletion?.name ?? "")”?",
@@ -119,12 +142,36 @@ struct VieNeuVoicePickerSheet: View {
         VieNeuModelChoice.current == .turbo ? .turbo : .nano
     }
 
+    private var normalizedQuery: String { VoiceNameSearch.normalize(query) }
+
+    private func filtered(_ entries: [VieNeuVoiceEntry]) -> [VieNeuVoiceEntry] {
+        let query = normalizedQuery
+        guard !query.isEmpty else { return entries }
+        return entries.filter { VoiceNameSearch.matches($0.name, normalizedQuery: query) }
+    }
+
+    /// Đang tìm mà chip hiện tại không còn giọng nào khớp.
+    private var noMatchSection: some View {
+        Section {
+            Text("Không có giọng nào tên “\(query.trimmingCharacters(in: .whitespaces))”.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        }
+    }
+
     @ViewBuilder
     private func nanoSections(reader: VieNeuVoiceSelection?) -> some View {
-        if !directory.nanoMine.isEmpty {
-            Section("Giọng của tôi") { rows(directory.nanoMine, reader: reader) }
+        let mine = filtered(directory.nanoMine)
+        let presets = filtered(directory.nanoPresets)
+        if !mine.isEmpty {
+            Section("Giọng của tôi") { rows(mine, reader: reader) }
         }
-        Section("Giọng có sẵn") { rows(directory.nanoPresets, reader: reader) }
+        if !presets.isEmpty {
+            Section("Giọng có sẵn") { rows(presets, reader: reader) }
+        }
+        if mine.isEmpty, presets.isEmpty, !normalizedQuery.isEmpty {
+            noMatchSection
+        }
     }
 
     @ViewBuilder
@@ -136,16 +183,28 @@ struct VieNeuVoicePickerSheet: View {
                     .foregroundColor(.secondary)
             }
         }
-        if !directory.turboMine.isEmpty || !directory.nanoWithoutTurbo.isEmpty {
+        let query = normalizedQuery
+        let mine = filtered(directory.turboMine)
+        let copies = directory.nanoWithoutTurbo.filter { VoiceNameSearch.matches($0.name, normalizedQuery: query) }
+        let featured = filtered(directory.turboFeatured)
+        let others = filtered(directory.turboOthers)
+        if !mine.isEmpty || !copies.isEmpty {
             Section("Giọng của tôi") {
-                rows(directory.turboMine, reader: reader)
-                ForEach(directory.nanoWithoutTurbo) { voice in
+                rows(mine, reader: reader)
+                ForEach(copies) { voice in
                     VieNeuTurboCopyRow(voice: voice, entries: downloads.entries)
                 }
             }
         }
-        Section("Tuyển chọn") { rows(directory.turboFeatured, reader: reader) }
-        Section("Giọng khác") { rows(directory.turboOthers, reader: reader) }
+        if !featured.isEmpty {
+            Section("Tuyển chọn") { rows(featured, reader: reader) }
+        }
+        if !others.isEmpty {
+            Section("Giọng khác") { rows(others, reader: reader) }
+        }
+        if mine.isEmpty, copies.isEmpty, featured.isEmpty, others.isEmpty, !query.isEmpty {
+            noMatchSection
+        }
     }
 
     private func rows(_ entries: [VieNeuVoiceEntry], reader: VieNeuVoiceSelection?) -> some View {
@@ -156,13 +215,18 @@ struct VieNeuVoicePickerSheet: View {
 
     @ViewBuilder
     private func row(_ entry: VieNeuVoiceEntry, isSelected: Bool) -> some View {
+        let isReady = directory.isReady(entry)
+        let accelerator = VieNeuCoreMLAccelerator.shared
+        // Nano: tải giọng = gói Nano + gói Tăng tốc Core ML (luôn bật, 1.3.919) ⇒ "cần tải" cộng cả gói Core ML còn thiếu.
+        let coreMLMissing = entry.model == .nano && !accelerator.isPackageComplete ? VieNeuCoreMLPackage.downloadSizeEstimate : 0
         let listRow = VieNeuVoiceListRow(
             entry: entry,
             isSelected: isSelected,
-            isReady: directory.isReady(entry),
-            missingBytes: directory.missingBytes(for: entry),
+            isReady: isReady,
+            missingBytes: directory.missingBytes(for: entry) + coreMLMissing,
             download: downloads.entry(id: directory.downloadTarget(for: entry)),
             isPreviewing: preview.isActive(entry.id),
+            coreMLStage: entry.model == .nano && isReady ? accelerator.stageText.map { ($0, accelerator.stageFraction) } : nil,
             onPrimary: { primaryTapped(entry) },
             onSelect: { select(entry) }
         )
@@ -178,6 +242,14 @@ struct VieNeuVoicePickerSheet: View {
                     pendingDeletion = entry
                 } label: {
                     Label("Xoá giọng", systemImage: "trash")
+                }
+            }
+        } else if isReady {
+            listRow.contextMenu {
+                Button(role: .destructive) {
+                    pendingDataRemoval = entry.model
+                } label: {
+                    Label(entry.model == .turbo ? "Xoá dữ liệu Turbo" : "Xoá dữ liệu Nano", systemImage: "trash")
                 }
             }
         } else {
@@ -214,6 +286,25 @@ struct VieNeuVoicePickerSheet: View {
     private func select(_ entry: VieNeuVoiceEntry) {
         guard directory.isReady(entry) else { return }
         ttsManager.selectVieNeuVoice(entry.selection)
+    }
+
+    private func commitDataRemoval() {
+        guard let model = pendingDataRemoval else { return }
+        pendingDataRemoval = nil
+        preview.stop()
+        Task {
+            do {
+                if model == .turbo {
+                    try await VieNeuModelDataRemover.deleteTurbo()
+                } else {
+                    try await VieNeuModelDataRemover.deleteNano()
+                }
+                directory.reload()
+                ToastManager.shared.show(message: "Đã xoá dữ liệu \(model.label).", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Xoá dữ liệu thất bại: \(error.localizedDescription)", type: .error)
+            }
+        }
     }
 
     private func commitRename() {

@@ -122,7 +122,8 @@ final class VieNeuTurboModelClient: Sendable {
         )
     }
 
-    /// `internal` (không `private`) vì gói graph tĩnh của phép thử Nano (`VieNeuNanoStaticPackage`) tải cùng đường này.
+    /// `internal` (không `private`) vì model Nano (`VieNeuModelClient`) và gói Core ML (`VieNeuCoreMLPackage`) tải cùng
+    /// đường này.
     static func transfer(
         session: URLSession,
         from url: URL,

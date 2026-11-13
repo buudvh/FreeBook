@@ -179,10 +179,10 @@ struct VieNeuVoiceCloneSheet: View {
                     stepRow(.downloading, title: downloadTitle)
                 }
                 if flow.target.includesNano {
-                    stepRow(.nano, title: flow.step == .nano ? (VieNeuVoiceLibraryView.stageLabel(flow.nanoStage) ?? "Đang tạo giọng Nano…") : "Giọng Nano")
+                    stepRow(.nano, title: flow.step == .nano ? (VieNeuCloneStageText.nano(flow.nanoStage) ?? "Đang tạo giọng Nano…") : "Giọng Nano")
                 }
                 if flow.target.includesTurbo {
-                    stepRow(.turbo, title: flow.step == .turbo ? VieNeuTurboLabView.cloneStageText(VieNeuTurboVoiceCloneCoordinator.shared.stage) : "Giọng Turbo")
+                    stepRow(.turbo, title: flow.step == .turbo ? VieNeuCloneStageText.turbo(VieNeuTurboVoiceCloneCoordinator.shared.stage) : "Giọng Turbo")
                 }
             }
             if flow.isSaving, flow.step == .downloading {

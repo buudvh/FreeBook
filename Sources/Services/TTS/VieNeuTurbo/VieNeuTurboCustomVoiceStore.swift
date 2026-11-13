@@ -12,7 +12,7 @@ import Foundation
 /// ```
 ///
 /// - **Tách khỏi `Voices/`** (giọng tải về): `VieNeuTurboModelStore.deleteAll` không chạm tới; `voiceDirectory(voiceId:)`
-///   định tuyến id `custom_…` vào đây nên trình đọc / màn thử đọc giọng tự tạo qua đúng đường của giọng tải về.
+///   định tuyến id `custom_…` vào đây nên trình đọc / nghe thử giọng đọc giọng tự tạo qua đúng đường của giọng tải về.
 /// - **Id không bao giờ dùng lại** (12 hex ngẫu nhiên): khoá cache tổng hợp băm theo id giọng, dùng lại id của giọng đã
 ///   xoá là phát nhầm audio cũ.
 /// - **Ghi nguyên tử**: hai file + mẫu ghi vào `.staging-<id>/`, chuyển cả thư mục vào chỗ rồi mới ghi index (`.tmp` →

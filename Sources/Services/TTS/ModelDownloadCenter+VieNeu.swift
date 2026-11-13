@@ -87,11 +87,6 @@ extension ModelDownloadCenter {
 
     private func startVieNeuJob(id: String, title: String, work: @escaping VieNeuJob) -> Task<Void, Never>? {
         if let running = tasks[id] { return running }
-        // Màn thử Turbo có lượt tải riêng (`VieNeuTurboLab.downloadAll`) ghi cùng file GGUF / `sea_g2p.bin`.
-        if VieNeuTurboLab.shared.isDownloading {
-            lastNotice = Notice(message: "Màn thử VieNeu Turbo đang tải model — chờ lượt đó xong rồi tải \(title).", isError: true)
-            return nil
-        }
         let token = UUID()
         tokens[id] = token
         // **Luôn** chờ lượt cuối hàng (đã xong thì `value` trả ngay): lượt vừa bấm ■ không còn dòng (`isVieNeuBusy` sai)
@@ -130,9 +125,12 @@ extension ModelDownloadCenter {
             } else {
                 self.finish(id: id, title: title, failure: failure)
             }
-            VieNeuTurboLab.shared.refreshStatus()
             VieNeuVoiceDirectory.shared.refreshAvailability()
             Self.reapplyReaderIfModelChanged(from: modelBefore)
+            // Core ML luôn bật (1.3.919): tải xong gói Nano ⇒ tự tải + biên dịch + tự kiểm Tăng tốc Core ML ngay.
+            if id == Target.vieNeuModel, !cancelled, failure == nil {
+                VieNeuCoreMLAccelerator.shared.prepareIfNeeded(reason: "tải xong gói Nano")
+            }
         }
         tasks[id] = task
         vieNeuTail = task

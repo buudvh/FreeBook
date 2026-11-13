@@ -1,9 +1,9 @@
 import Foundation
 
-/// Vòng Euler + codec của Nano qua **Core ML CPU-only (fp32)** — `VieNeuFlowBackend` của màn thử (P1b, truyền vào
-/// `VieNeuTTSService.synthesizeWithDuration(…, flowBackend:)`) và của trình đọc khi bật "Tăng tốc Core ML" (P2c,
-/// `isReader == true`, giữ ở `VieNeuCoreMLReaderRoute`: lỗi một chunk ⇒ engine chạy lại bằng ORT; chạy nháp + log lượt
-/// đầu mỗi session ở `+Reader`).
+/// Vòng Euler + codec của Nano qua **Core ML CPU-only (fp32)** — `VieNeuFlowBackend` của "Tăng tốc Core ML" (P2c): trình
+/// đọc giữ nó ở `VieNeuCoreMLReaderRoute` (`isReader == true`: lỗi một chunk ⇒ engine chạy lại bằng ORT; chạy nháp + log
+/// lượt đầu mỗi session ở `+Reader`); bước chuẩn bị (`VieNeuCoreMLAccelerator.compileAndVerify`) dựng một bản để biên
+/// dịch + tự kiểm rồi gắn cho trình đọc.
 ///
 /// - Graph tĩnh nhiều bucket (`VieNeuCoreMLPackage`): mỗi chunk chọn bucket nhỏ nhất ≥ T **riêng** cho VE và codec,
 ///   đệm cuối rồi cắt (VE có `frame_mask`, codec nhân quả ⇒ trùng kết quả T thật), ctx đệm tới L = 256 kèm mask.
@@ -11,10 +11,9 @@ import Foundation
 /// - prep (vị trí / nhúng t / bias mask) chạy ORT CPU 1 luồng; main + codec chạy Core ML EP (`MLComputeUnits =
 ///   CPUOnly`, `ModelCacheDirectory` = cache của gói). Trọng số nạp từ bộ nhớ (`WeightFile`) — né lỗi external data của
 ///   Core ML EP ORT 1.24.2.
-/// - Session dựng **lười** ở lượt đầu cần bucket đó; giữ tối đa `sessionCap` session Core ML (cũ nhất bị nhả) — trần do
-///   bước chuẩn bị đo RAM mà đặt.
+/// - Session dựng **lười** ở lượt đầu cần bucket đó; giữ tối đa `sessionCap` session Core ML (cũ nhất bị nhả).
 ///
-/// Engine gọi tuần tự trong khoá tổng hợp; `lock` chỉ để màn thử đọc thống kê / nhả session từ luồng khác.
+/// Engine gọi tuần tự trong khoá tổng hợp; `lock` để đọc thống kê / nhả session từ luồng khác (`VieNeuCoreMLReaderRoute`).
 final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     typealias Tensor = VieNeuONNXProbeSession.Tensor
 
@@ -28,20 +27,10 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         }
     }
 
-    /// Số đo cộng dồn từ lần `resetStats` gần nhất.
-    struct Stats: Sendable, Codable {
+    /// Số đo cộng dồn từ lần `resetStats` gần nhất (`VieNeuCoreMLReaderRoute.counters()` → `[NghiEnergy] Summary`).
+    struct Stats: Sendable {
         var coreMLChunks = 0
         var fallbackChunks = 0
-        var coreMLFrames = 0
-        var fallbackFrames = 0
-        /// Khung VE thực chạy (đã đệm) — so với `coreMLFrames` ra phần tính thừa do đệm.
-        var paddedVEFrames = 0
-        var veBucketUse: [Int: Int] = [:]
-        var codecBucketUse: [Int: Int] = [:]
-        var maxContextLength = 0
-        var fallbackReasons: [String: Int] = [:]
-        var sessionLoads = 0
-        var sessionLoadMs = 0.0
         /// Chunk Core ML lỗi rồi chạy lại bằng ORT (chỉ backend của trình đọc).
         var failures = 0
     }
@@ -66,9 +55,8 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     /// Thứ tự dùng gần nhất của session Core ML ("ve64", "codec128"…), cũ nhất ở đầu.
     private var recency: [String] = []
     private var stats = Stats()
-    private var estimateMB = 300.0
 
-    init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int, isReader: Bool = false) {
+    init(package: VieNeuCoreMLPackage, manifest: VieNeuCoreMLPackage.Manifest, sessionCap: Int, isReader: Bool) {
         self.package = package
         self.manifest = manifest
         self.sessionCap = max(2, sessionCap)
@@ -95,54 +83,10 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         stats = Stats()
     }
 
-    func setSessionCap(_ cap: Int) {
-        lock.lock(); defer { lock.unlock() }
-        sessionCap = max(2, cap)
-        trimLocked(keeping: nil)
-    }
-
-    var currentSessionCap: Int {
-        lock.lock(); defer { lock.unlock() }
-        return sessionCap
-    }
-
     /// Số session Core ML đang giữ (VE main + codec).
     var loadedSessionCount: Int {
         lock.lock(); defer { lock.unlock() }
         return recency.count
-    }
-
-    /// Thứ tự nạp sẵn: bucket hay dùng nhất trước (đoạn ≤ 150 ký tự ở tốc độ 1,15 phần lớn T ≤ 128).
-    var preloadOrder: [(kind: String, bucket: Int)] {
-        let ve = manifest.veBuckets.sorted()
-        let codec = manifest.codecBuckets.sorted()
-        let common = ve.filter { $0 <= 128 }.map { (kind: "ve", bucket: $0) } + codec.filter { $0 <= 128 }.map { (kind: "codec", bucket: $0) }
-        let rare = ve.filter { $0 > 128 }.map { (kind: "ve", bucket: $0) } + codec.filter { $0 > 128 }.map { (kind: "codec", bucket: $0) }
-        return common + rare
-    }
-
-    /// RAM một session Core ML chiếm khi giữ (bước chuẩn bị đo) — `preload` kiểm RAM trống trước mỗi lần nạp.
-    var sessionEstimateMB: Double {
-        get { lock.lock(); defer { lock.unlock() }; return estimateMB }
-        set { lock.lock(); estimateMB = newValue; lock.unlock() }
-    }
-
-    /// Nạp sẵn (từ bản biên dịch) tới trần `sessionCap` — gọi **trước** lúc chờ mát của lượt Core ML, để chi phí nạp
-    /// (chép ~150 MB trọng số mỗi session) không rơi vào số đo của lượt. Dừng sớm khi RAM trống không đủ cho thêm một
-    /// session + chừa 600 MB (1.3.906). Trả (số session đã nạp, tổng ms).
-    @discardableResult
-    func preload(onStep: (String) -> Void = { _ in }) throws -> (count: Int, ms: Double) {
-        var total = 0.0
-        var count = 0
-        for item in preloadOrder.prefix(currentSessionCap) {
-            try Task.checkCancellation()
-            let memory = ProcessMemoryProbe.snapshot()
-            if memory.availableMB > 0, memory.availableMB - sessionEstimateMB < 600 { break }
-            onStep("nạp sẵn \(item.kind) T\(item.bucket)")
-            total += try loadSession(kind: item.kind, bucket: item.bucket)
-            count += 1
-        }
-        return (count, total)
     }
 
     /// Nhả mọi session (giải phóng RAM của Core ML); lượt sau tự dựng lại từ cache.
@@ -166,10 +110,6 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
     func noteFallback(_ request: VieNeuFlowRequest) {
         lock.lock(); defer { lock.unlock() }
         stats.fallbackChunks += 1
-        stats.fallbackFrames += request.frames
-        stats.maxContextLength = max(stats.maxContextLength, request.contextLength)
-        let reason = fallbackReason(request) ?? "khác"
-        stats.fallbackReasons[reason, default: 0] += 1
     }
 
     func trajectory(_ request: VieNeuFlowRequest) throws -> [Float] {
@@ -179,10 +119,6 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         noteRun(key: "ve\(bucket)", started: started)
         lock.lock()
         stats.coreMLChunks += 1
-        stats.coreMLFrames += request.frames
-        stats.paddedVEFrames += bucket
-        stats.veBucketUse[bucket, default: 0] += 1
-        stats.maxContextLength = max(stats.maxContextLength, request.contextLength)
         lock.unlock()
         return latent
     }
@@ -192,9 +128,6 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         let started = ProcessInfo.processInfo.systemUptime
         let samples = try decode(latent: latent, frames: frames, latentChannels: latentChannels, codecBucket: bucket)
         noteRun(key: "codec\(bucket)", started: started)
-        lock.lock()
-        stats.codecBucketUse[bucket, default: 0] += 1
-        lock.unlock()
         return samples
     }
 
@@ -250,21 +183,21 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     // MARK: - Session
 
-    /// Dựng session Core ML / prep của một graph — bước chuẩn bị gọi để biên dịch + đo; lượt đọc gọi lười qua
-    /// `veSessions` / `codecSession`. Trả số ms dựng.
+    /// Dựng session Core ML / prep của một graph — bước chuẩn bị gọi để biên dịch, chạy nháp gọi để nạp sẵn; lượt đọc
+    /// gọi lười qua `veSessions` / `codecSession`. Trả số ms dựng.
     @discardableResult
-    func loadSession(kind: String, bucket: Int, logPath: String = "") throws -> Double {
+    func loadSession(kind: String, bucket: Int) throws -> Double {
         let started = ProcessInfo.processInfo.systemUptime
         switch kind {
-        case "ve": _ = try veSessions(bucket: bucket, logPath: logPath)
-        default: _ = try codecSession(bucket: bucket, logPath: logPath)
+        case "ve": _ = try veSessions(bucket: bucket)
+        default: _ = try codecSession(bucket: bucket)
         }
         return (ProcessInfo.processInfo.systemUptime - started) * 1_000
     }
 
-    /// Session dựng **ngoài** `lock` (Core ML biên dịch lần đầu mất cả phút — giữ khoá thì màn thử đọc thống kê trên main
-    /// bị treo theo). Engine gọi tuần tự nên không có hai lượt cùng dựng một bucket.
-    private func veSessions(bucket: Int, logPath: String = "") throws -> (VieNeuONNXProbeSession, VieNeuONNXProbeSession) {
+    /// Session dựng **ngoài** `lock` (Core ML biên dịch lần đầu mất vài chục giây — giữ khoá thì luồng khác đọc thống kê /
+    /// nhả session bị treo theo). Engine gọi tuần tự nên không có hai lượt cùng dựng một bucket.
+    private func veSessions(bucket: Int) throws -> (VieNeuONNXProbeSession, VieNeuONNXProbeSession) {
         let key = "ve\(bucket)"
         lock.lock()
         if let prep = preps[bucket], let main = mains[bucket] {
@@ -274,21 +207,20 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         }
         let existingPrep = preps[bucket]
         lock.unlock()
-        let started = ProcessInfo.processInfo.systemUptime
         let prep = try existingPrep ?? VieNeuONNXProbeSession(
             modelPath: package.url("ve_prep_T\(bucket).onnx").path, provider: "CPU", options: [:], threads: 1, logPath: ""
         )
-        let main = try makeCoreMLSession("ve_main_T\(bucket).onnx", weights: manifest.veWeights, logPath: logPath)
+        let main = try makeCoreMLSession("ve_main_T\(bucket).onnx", weights: manifest.veWeights)
         lock.lock()
         preps[bucket] = prep
         mains[bucket] = main
-        noteLoadLocked(key: key, started: started)
+        touchLocked(key)
         trimLocked(keeping: key)
         lock.unlock()
         return (prep, main)
     }
 
-    private func codecSession(bucket: Int, logPath: String = "") throws -> VieNeuONNXProbeSession {
+    private func codecSession(bucket: Int) throws -> VieNeuONNXProbeSession {
         let key = "codec\(bucket)"
         lock.lock()
         if let codec = codecs[bucket] {
@@ -297,30 +229,29 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
             return codec
         }
         lock.unlock()
-        let started = ProcessInfo.processInfo.systemUptime
-        let codec = try makeCoreMLSession("codec_T\(bucket).onnx", weights: manifest.codecWeights, logPath: logPath)
+        let codec = try makeCoreMLSession("codec_T\(bucket).onnx", weights: manifest.codecWeights)
         lock.lock()
         codecs[bucket] = codec
-        noteLoadLocked(key: key, started: started)
+        touchLocked(key)
         trimLocked(keeping: key)
         lock.unlock()
         return codec
     }
 
-    private func makeCoreMLSession(_ name: String, weights: String, logPath: String) throws -> VieNeuONNXProbeSession {
+    private func makeCoreMLSession(_ name: String, weights: String) throws -> VieNeuONNXProbeSession {
         try FileManager.default.createDirectory(at: package.cacheDirectory, withIntermediateDirectories: true)
         return try VieNeuONNXProbeSession(
             modelPath: package.url(name).path,
             provider: "CoreML",
             options: Self.coreMLOptions(package: package),
             threads: 2,
-            logPath: logPath,
+            logPath: "",
             weights: [.init(name: weights, path: package.url(weights).path)]
         )
     }
 
-    /// Tuỳ chọn Core ML EP của mọi session Core ML (lượt đọc, chuẩn bị, `VieNeuCoreMLLoadWorker`) — một chỗ, để phép đo
-    /// nạp trúng đúng bản biên dịch mà lượt đọc dùng.
+    /// Tuỳ chọn Core ML EP của mọi session Core ML (lượt đọc, chạy nháp, bước chuẩn bị) — một chỗ, để bước chuẩn bị biên
+    /// dịch đúng bản mà lượt đọc nạp lại từ cache.
     static func coreMLOptions(package: VieNeuCoreMLPackage) -> [String: String] {
         [
             "ModelFormat": "MLProgram",
@@ -328,12 +259,6 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
             "RequireStaticInputShapes": "1",
             "ModelCacheDirectory": package.cacheDirectory.path
         ]
-    }
-
-    private func noteLoadLocked(key: String, started: TimeInterval) {
-        touchLocked(key)
-        stats.sessionLoads += 1
-        stats.sessionLoadMs += (ProcessInfo.processInfo.systemUptime - started) * 1_000
     }
 
     private func touchLocked(_ key: String) {

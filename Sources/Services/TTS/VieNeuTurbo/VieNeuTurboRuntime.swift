@@ -54,7 +54,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         let runMs: Double
         /// CPU-time **cả tiến trình** trong lúc `audiocpp_session_run` chạy (`ProcessCPUClock`).
         let cpuMs: Double
-        /// QoS **đo được** của luồng chạy lượt này (`qos_class_self()`), không phải mức đã xin — để log / màn thử ghi đúng.
+        /// QoS **đo được** của luồng chạy lượt này (`qos_class_self()`), không phải mức đã xin — để log ghi đúng.
         var qosName = ""
 
         var durationSeconds: Double { Double(samples.count) / Double(max(1, sampleRate)) }
@@ -62,13 +62,14 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
 
     static let family = "vieneu_v3_turbo"
 
-    /// Một runtime cho cả app: trình đọc (`VieNeuTurboTTSService`) và màn thử dùng chung ⇒ chỉ một model 188 MB trong RAM.
+    /// Một runtime cho cả app: trình đọc (`VieNeuTurboTTSService`), nghe thử giọng và nhân bản giọng dùng chung ⇒ chỉ một
+    /// model 188 MB trong RAM.
     static let shared = VieNeuTurboRuntime()
 
     /// QoS mặc định của hàng đợi — chỉ còn cho nạp model / dựng session / nhả (không nóng). Trên iPhone, QoS quyết chuyện
     /// chạy lõi hiệu năng hay lõi tiết kiệm, và luồng CPU của ggml mang QoS của luồng gọi ⇒ mức của **lượt tổng hợp** do
     /// người gọi chọn qua `synthesize(…, qos:)`: trình đọc dùng `.userInitiated` (`VieNeuTurboTTSService.readerQoS`,
-    /// 1.3.885 — đo nhanh gấp đôi và mát hơn `.utility`), màn thử dùng mức chọn trên màn.
+    /// 1.3.885 — đo nhanh gấp đôi và mát hơn `.utility`).
     static let qos: DispatchQoS = .utility
 
     // `internal` (không `private`) vì `VieNeuTurboRuntime+Encode` — file khác — chạy lượt mã hoá giọng mẫu trên cùng hàng
@@ -89,7 +90,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         #endif
     }
 
-    /// "audio.cpp 0.9.4 · ABI 0.2.0" — để màn thử và log ghi đúng bản thư viện đang chạy.
+    /// "audio.cpp 0.9.4 · ABI 0.2.0" — để log ghi đúng bản thư viện đang chạy.
     static var versionDescription: String {
         #if canImport(AudioCpp)
         let abi = audiocpp_abi_version()

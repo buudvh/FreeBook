@@ -1,6 +1,7 @@
 import Foundation
 
-/// Đầu vào dựng sẵn trên PC cho phép thử P1 (`golden.npz` của `Scripts/vieneu_nano_static_export.py`): 5 đoạn văn đã
+/// Đầu vào dựng sẵn trên PC cho tự kiểm của "Tăng tốc Core ML" (`VieNeuCoreMLPreparer`; `golden.npz` trong gói Core ML,
+/// sinh ra từ phép thử P1 — `Scripts/vieneu_nano_static_export.py`): 5 đoạn văn đã
 /// qua phonemizer + text_encoder + duration_predictor, ctx đệm lên L = 200 kèm mask, nhiễu khởi tạo x0, giọng mặc định,
 /// lưới t (8 bước, sway −1), và tham chiếu của graph gốc (v bước 0 sau CFG, latent cuối, sóng âm).
 ///

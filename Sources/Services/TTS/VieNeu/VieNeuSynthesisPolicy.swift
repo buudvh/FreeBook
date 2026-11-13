@@ -83,13 +83,7 @@ enum VieNeuSynthesisPolicy {
 
     // MARK: - Cài đặt "Tiết kiệm pin" & số luồng (1.3.441)
 
-    /// Khoá `UserDefaults` cho chế độ "Tiết kiệm pin" và số luồng ORT.
-    static let powerSavingKey = "vieneuPowerSaving"
-    static let threadCountKey = "vieneuThreadCount"
-    /// Khoá công tắc spin của pool luồng ORT (1.3.488). Mặc định **tắt** — xem `allowSpinning(from:)`.
-    static let allowSpinningKey = "vieneuOrtAllowSpinning"
-
-    /// Khoá `UserDefaults` của chế độ chất lượng. Nằm ở đây — **cùng chỗ** với hai khoá trên — thay vì
+    /// Khoá `UserDefaults` của chế độ chất lượng. Nằm ở đây — **cùng chỗ** với các cài đặt khác — thay vì
     /// giấu trong `VieNeuTTSService`: màn Cài đặt phải đọc được nó ngay cả khi `VieNeuTTSService.shared`
     /// **chưa** được tạo, nếu không `@State` rơi về mặc định và không bao giờ được làm mới (lỗi
     /// 1.3.456: mở màn Cài đặt TTS luôn hiện "Tiết kiệm pin: bật" dù người dùng đã tắt).
@@ -101,32 +95,24 @@ enum VieNeuSynthesisPolicy {
         return Mode(rawValue: raw)
     }
 
-    /// Số luồng ORT đã chọn (2...4). Mức 1 (thêm ở 1.3.488 để đo) **bị bỏ ở 1.3.509**: đo trên máy thật thì
-    /// 1 luồng tốn đúng bằng CPU-time của 2 luồng mà RTF 0,60 so với 0,32, hụt tiếng khi máy nóng. Đây là
-    /// đường đọc **duy nhất** của khoá nên giá trị 1 đã lưu (kể cả từ bản sao lưu cũ) tự thành 2 ở mọi nơi.
-    /// **Hàm thuần** — nhận `defaults` từ caller. Áp dụng khi **nạp lại engine**.
-    static func threadCount(from defaults: UserDefaults) -> Int32 {
-        Int32(max(2, min(4, defaults.object(forKey: threadCountKey) as? Int ?? Int(defaultThreadCount))))
-    }
-
     /// Cho luồng pool ORT **spin** (chờ bận) hay không — **luôn tắt** từ 1.3.899 (công tắc ở Cài đặt TTS đã bỏ): spin
-    /// đốt CPU-time giữa các op mà gần như không đổi tốc độ (đo 1.3.488). Giá trị cũ ở `allowSpinningKey` bị bỏ qua,
-    /// không xoá. Giữ tham số `defaults` để chữ ký không đổi.
+    /// đốt CPU-time giữa các op mà gần như không đổi tốc độ (đo 1.3.488). Giá trị cũ ở khoá `vieneuOrtAllowSpinning` bị
+    /// bỏ qua, không xoá. Giữ tham số `defaults` để chữ ký không đổi.
     static func allowSpinning(from defaults: UserDefaults) -> Bool {
         false
     }
 
     /// "Tiết kiệm pin": ép `fast` (Cân bằng, 8 bước) + 2 luồng — **luôn bật** từ 1.3.899 (công tắc, "Chế độ tạo audio" và
-    /// "Số luồng tổng hợp" ở Cài đặt TTS đã bỏ). Giá trị cũ ở `powerSavingKey` / `threadCountKey` / `preferredModeKey`
-    /// bị bỏ qua, không xoá. Màn thử giọng Nano vẫn đặt được chế độ tạm thời qua `VieNeuTTSService.preferredMode` (tới
-    /// lượt `prepare` kế tiếp), màn thử Turbo vẫn ghi đè số luồng trong lúc đo.
+    /// "Số luồng tổng hợp" ở Cài đặt TTS đã bỏ). Giá trị cũ ở các khoá `vieneuPowerSaving` / `vieneuThreadCount` /
+    /// `preferredModeKey` bị bỏ qua, không xoá.
     static func isPowerSaving(_ defaults: UserDefaults) -> Bool {
         true
     }
 
-    /// Số luồng ORT **hiệu dụng**: "Tiết kiệm pin" ghim 2 luồng, ngược lại dùng giá trị đã chọn.
+    /// Số luồng ORT **hiệu dụng**: luôn `defaultThreadCount` (2) — "Tiết kiệm pin" luôn bật nên số luồng đã chọn cũ
+    /// (khoá `vieneuThreadCount`) không còn đường đọc. Giữ tham số `defaults` để chữ ký không đổi.
     static func effectiveThreadCount(from defaults: UserDefaults) -> Int32 {
-        isPowerSaving(defaults) ? 2 : threadCount(from: defaults)
+        defaultThreadCount
     }
 
     // MARK: - Tốc độ tổng hợp (1.3.465)

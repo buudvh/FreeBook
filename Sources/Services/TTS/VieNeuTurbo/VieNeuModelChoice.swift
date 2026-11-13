@@ -14,7 +14,7 @@ import Foundation
 ///
 /// ## Model **hiệu lực** (`current`) khác model **đã lưu** (`stored`)
 /// Turbo chỉ tính khi bản build có audio.cpp **và** máy đủ model + manifest giọng + `sea_g2p.bin`. Thiếu một thứ (ví dụ
-/// vừa "Xoá model" ở màn thử) thì trình đọc rơi về Nano thay vì đọc lỗi từng đoạn. Hàm thuần `UserDefaults` + kiểm file
+/// vừa xoá model Turbo) thì trình đọc rơi về Nano thay vì đọc lỗi từng đoạn. Hàm thuần `UserDefaults` + kiểm file
 /// nên gọi được ngoài `MainActor` (khoá tổng hợp, tốc độ tổng hợp — tính ở luồng nền).
 enum VieNeuModelChoice: String, CaseIterable, Sendable {
     case nano

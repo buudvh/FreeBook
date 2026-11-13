@@ -65,7 +65,7 @@ struct VieNeuTurboCopyRow: View {
                 Double(total) / 1_000_000
             )
         case .creating, nil:
-            return VieNeuTurboLabView.cloneStageText(VieNeuTurboVoiceCloneCoordinator.shared.stage)
+            return VieNeuCloneStageText.turbo(VieNeuTurboVoiceCloneCoordinator.shared.stage)
         }
     }
 }

@@ -36,7 +36,14 @@ struct VieNeuVoiceSummaryRow: View {
                     }
                     // Lần vẽ đầu (trước khi đọc đĩa xong) chưa biết đã tải hay chưa ⇒ chưa hiện cảnh báo.
                     if isReady || !directory.hasLoaded {
-                        if let detail = entry?.detail {
+                        // Nano đang chuẩn bị Tăng tốc Core ML (luôn bật, 1.3.919) ⇒ hiện bước đang chạy thay thông tin giọng.
+                        if selection.model == .nano, let stage = VieNeuCoreMLAccelerator.shared.stageText {
+                            Text(stage)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .monospacedDigit()
+                                .lineLimit(1)
+                        } else if let detail = entry?.detail {
                             Text(detail)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -62,10 +69,15 @@ struct VieNeuVoiceSummaryRow: View {
         .onAppear { directory.reload() }
     }
 
-    /// Giọng trình đọc đang dùng; giọng rỗng (Nano chưa tải catalog) ⇒ giọng mặc định của model để vẫn có tên mà hiện.
     private var displayedSelection: VieNeuVoiceSelection {
+        Self.displayedSelection(tool: ttsManager.tool, selectedVoice: ttsManager.selectedVoice)
+    }
+
+    /// Giọng trình đọc đang dùng; giọng rỗng (Nano chưa tải catalog) ⇒ giọng mặc định của model để vẫn có tên mà hiện.
+    /// Trang Cài đặt VieNeu TTS (`VieNeuTTSSettingsView`) dùng chung.
+    static func displayedSelection(tool: String, selectedVoice: String) -> VieNeuVoiceSelection {
         let model = VieNeuModelChoice.current
-        var voiceId = ttsManager.tool == "vieneu" ? ttsManager.selectedVoice : ""
+        var voiceId = tool == "vieneu" ? selectedVoice : ""
         if voiceId.isEmpty {
             let stored = VieNeuVoiceSelection.stored
             voiceId = stored.model == model ? stored.voiceId : ""

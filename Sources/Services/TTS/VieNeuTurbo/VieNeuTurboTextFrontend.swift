@@ -8,7 +8,7 @@ import Foundation
 /// rồi `SeaG2P.phonemizeTextWithEmotions` — cùng hàm Nano dùng. **Không** áp `VieNeuConfig.applyingEmotionTags`: ký
 /// hiệu ①…③ là từ vựng của Nano; Turbo nhận nguyên `<|emotion_k|>` như bản Python.
 ///
-/// Lớp thay thế ký tự (`TTSReplacementManager.applyReplacements`) là việc của **người gọi** — y như màn thử Nano.
+/// Lớp thay thế ký tự (`TTSReplacementManager.applyReplacements`) là việc của **người gọi** — y như đường Nano.
 ///
 /// `SeaG2P` không an toàn đa luồng (cache `var` trần) ⇒ thực thể **riêng** của Turbo (không dùng chung của engine Nano),
 /// bọc bằng `lock`.
@@ -29,7 +29,7 @@ final class VieNeuTurboTextFrontend: @unchecked Sendable {
         let frontendMs: Double
     }
 
-    /// Một bộ phiên âm Turbo cho cả app (trình đọc + màn thử) — mỗi thực thể giữ riêng một bản `sea_g2p.bin` 62,8 MB.
+    /// Một bộ phiên âm Turbo cho cả app (trình đọc, nghe thử giọng) — mỗi thực thể giữ riêng một bản `sea_g2p.bin` 62,8 MB.
     /// `nil` khi không dựng được thư mục của Nano (nơi đặt `sea_g2p.bin`).
     static let shared: VieNeuTurboTextFrontend? = (try? VieNeuModelStore()).map {
         VieNeuTurboTextFrontend(dictionaryURL: $0.url(for: "sea_g2p.bin"))
@@ -78,7 +78,7 @@ final class VieNeuTurboTextFrontend: @unchecked Sendable {
             .joined(separator: "\n")
     }
 
-    /// Nhả bản đồ bộ nhớ của `sea_g2p.bin` (62,8 MB) khi rời màn thử / khi trình đọc chuyển về Nano. Lần phiên âm sau tự
+    /// Nhả bản đồ bộ nhớ của `sea_g2p.bin` (62,8 MB) khi trình đọc chuyển về Nano. Lần phiên âm sau tự
     /// nạp lại.
     func unload() {
         lock.lock()

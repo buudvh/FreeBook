@@ -2,6 +2,52 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.919] - 2026-11-13
+
+### feat: Tăng tốc Core ML luôn bật, bỏ màn thử và Nghe thử, không còn cắt chữ ở dấu chấm dính liền như S.H.I.E.L.D
+
+Anh Bửu duyệt plan gộp (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup 7 màn) và luật cắt dấu câu. Phần sheet chọn giọng chung cho Siri / NghiTTS / Google / tiện ích và phần Dung lượng + Dọn rác đi ở bản sau.
+
+- **Tăng tốc Core ML luôn bật** — bỏ công tắc và khoá `vieneuCoreMLEnabled`.
+  - `VieNeuCoreMLAccelerator.prepareIfNeeded` tự tải + biên dịch + tự kiểm khi:
+    - tải xong gói Nano (`ModelDownloadCenter`);
+    - engine Nano khởi động mà gói chưa qua tự kiểm (`VieNeuCoreMLReaderRoute.warmUpIfReady`).
+  - Lượt tự chuẩn bị lỗi ⇒ không tự thử lại tới lần mở app sau. Biên dịch / tự kiểm lỗi ⇒ xoá bản biên dịch dở, giữ gói đã tải.
+  - Hàng giọng Nano của sheet chọn giọng và hàng "Giọng đọc" của Cài đặt TTS hiện bước đang chạy (`stageText` + thanh mảnh): "Tăng tốc Core ML · tải 52% · 139 / 267 MB", "· biên dịch 3/7", "· tự kiểm chất lượng".
+  - "Cần tải" của giọng Nano cộng cả gói Core ML.
+- **Bỏ màn thử VieNeu** (`VieNeuTurboLabView`: Đọc liên tục, Đo tự động, Đo nạp Core ML, So EP, Tạo giọng Turbo từ file) và mọi thứ chỉ nó dùng — 42 file, ~6.800 dòng.
+  - Đã gỡ:
+    - probe Core ML / EP, gói `Static/`;
+    - API `setLab*` của engine / service, `preload` / `setSessionCap` của backend Core ML, `Preparer.prepare`, `deleteAll` / `cleanCacheEntries` của gói;
+    - khối `fb.graph_optimization` trong bridge.
+  - Hàm phần đọc thật còn dùng được chuyển chỗ:
+    - SNR / định dạng dB / CFG của golden → `VieNeuCoreMLPreparer`;
+    - `sha256` → `VieNeuCoreMLPackage`;
+    - chữ bước nhân bản → `VieNeuCloneStageText`.
+- **Bỏ phần Nghe thử** của Cài đặt VieNeu TTS và Cài đặt NghiTTS, bỏ màn "Giọng của tôi" cũ (`VieNeuVoiceLibraryView`, `VieNeuVoiceCreatorView`).
+- **Cài đặt VieNeu TTS** (`VieNeuTTSSettingsView`, thay `VieNeuTTSTestView`) chỉ hiện thông tin, đọc dung lượng ngoài main:
+  - hàng "Giọng đọc VieNeu" ⇒ sheet chọn giọng;
+  - Nano: trạng thái, dung lượng, số giọng, gói nhân bản;
+  - Tăng tốc Core ML: trạng thái / bước đang chạy, gói, bản biên dịch, phiên bản gói;
+  - Turbo: model, giọng đã tải, gói nhân bản;
+  - Giọng nhân bản;
+  - Tiếng Nhật.
+- **Cài đặt NghiTTS** hiện engine, số giọng + dung lượng, thư viện phiên âm, danh sách giọng đã tải và lối vào quản lý.
+- **Xoá dữ liệu Nano / Turbo** = nhấn giữ một giọng có sẵn đã tải ở sheet chọn giọng (`VieNeuModelDataRemover`).
+  - Dừng trình đọc nếu đang dùng đúng model đó, nhả engine, rồi xoá.
+  - Nano xoá cả gói + bản biên dịch Core ML. Giọng nhân bản giữ nguyên.
+- **Ô tìm theo tên giọng** ở sheet chọn giọng VieNeu (`VoiceNameSearch`: bỏ dấu, "đ" = "d").
+  - Lọc trong chip đang chọn.
+  - Đang tìm thì ẩn "Nhân bản giọng đọc"; nhóm không còn giọng khớp thì ẩn cả nhóm.
+- **Cắt chữ ở dấu câu** (`TTSPunctuationBoundary`): dấu câu chỉ là chỗ cắt khi theo sau là khoảng trắng / dấu đóng / dấu hết câu khác / hết chuỗi (dấu CJK luôn cắt).
+  - Áp ở 4 chỗ: bước cắt chung (`TTSParagraphBuilder`), lớp tách câu của NghiTTS + VieNeu (`NghiUtteranceSegmenter`), bộ tách câu của VieNeu, regex của Piper.
+  - Trước đây "Nguyên lai là S.H.I.E.L.D đặc công…" bị NghiTTS / VieNeu xẻ thành sáu lượt "S." / "H." / … rồi đọc ngắt sau từng chữ cái; Google nhận nguyên câu.
+  - VieNeu: đoạn ≤ 140 ký tự đi **nguyên văn** một chunk. Bản tham chiếu tách câu theo `[^.!?]+[.!?]*` rồi ghép bằng dấu cách ⇒ "S. H. I. E. L. D".
+  - Piper vẫn cắt ở dấu có khoảng trắng phía sau để chèn khoảng lặng (espeak bỏ dấu câu khi phiên âm).
+  - Số thập phân vẫn đọc "phẩy" như cũ (đổi số sang chữ chạy trước bước cắt trong engine).
+- Dữ liệu cũ màn thử để lại trên máy (`VieNeu/Static/`, báo cáo trong `CoreML/Results/`) sẽ dọn ở Dọn rác (bản sau).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; `TTSManager.swift` giữ 3425 dòng; grep chéo mọi type / member đã xoá. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.918] - 2026-11-13
 
 ### fix: Bắt đầu đọc tổng hợp đúng đoạn cần nghe trước, tiếng đầu Core ML nhanh hơn khoảng 0,6 s
@@ -615,51 +661,3 @@ Anh Bửu duyệt P1b sau kết quả So EP trên máy (Core ML CPU-only fp32: V
   - báo cáo một file, ghi lại sau mỗi bước **và mỗi phút trong lượt** (app bị tắt giữa lượt vẫn còn số của lượt dở): bảng so 3 lượt (ấm sau / nóng sau, RTF, CPU/tiếng, bận %, hụt tiếng, phần lùi ORT), bước chuẩn bị, điều kiện máy mỗi phút (nhiệt, mở / khoá màn, sạc, pin, RAM), nguyên văn số đo từng phút + từng đoạn.
 - **Chia sẻ bằng file thật**: anh báo chia sẻ file kết quả So EP qua Nicegram "gửi xong mà không có file". Nút cũ dùng `ShareLink` + `DataRepresentation` (chữ dựng lúc bấm, không phải file). Mọi nút chia sẻ của màn thử (đọc thử, đọc liên tục, So EP, WAV, đo tự động) giờ ghi file `.txt` thật (`VieNeuTurboReportFile.writeTemporaryFile`) rồi mở `ShareSheet` như sao lưu / xuất từ điển. Chưa thử trên máy.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.889] - 2026-11-12
-
-### feat: màn thử VieNeu có phép thử So EP cho Nano (Core ML, Neural Engine, XNNPACK) với graph tĩnh
-
-Anh Bửu duyệt P1 của báo cáo tối ưu Nano (`Docs/Reports/2026-11-11-vieneu-nano-toi-uu.md` §8): *"làm đi"*. Chỉ thêm phép thử ở màn thử VieNeu Turbo — **đường đọc truyện không đổi** (vẫn ORT CPU, cùng tiếng).
-
-- **Script xuất graph tĩnh** `Scripts/vieneu_nano_static_export.py`:
-  - Đọc model `pnnbao-ump/VieNeu-TTS-v3-Nano` rev `aba295eb` (Apache-2.0). Trọng số giữ nguyên, chỉ sửa graph.
-  - `vector_estimator`:
-    - mở mask khung `/ConstantOfShape` thành input `frame_mask` ⇒ chạy ở T đệm mà trùng kết quả T thật;
-    - đóng băng T + L = 200, gấp hằng (ORT BASIC);
-    - đổi `Where(mask, −FLT_MAX)` thành `Add(bias)`;
-    - tách **prep** (chạy CPU; hai mask nhận float rồi tự `Cast`) và **main** (0 op ngoài danh sách Core ML EP, 0 tensor bool / int).
-  - `codec_decoder` nhân quả ⇒ đệm cuối rồi cắt là trùng bit. Gộp `Pad` vào `Conv.pads`, đổi BatchNorm thành Mul + Add.
-  - Gói P1 (10 file, ~417 MB):
-    - VE + codec T128 nhúng trọng số;
-    - VE T234 / T256 dùng chung `ve_main.weights` (external data) để đối chứng H1 (lỗi T234 tháng 10);
-    - `golden.npz`: 5 đoạn đã qua phonemizer / text_encoder / duration + tham chiếu của graph gốc;
-    - `manifest.json` (sha256), `NOTICE.txt`.
-  - **Tự kiểm** nạp lại từ đĩa và so với graph gốc: v bước 0 ≥ 110 dB, latent ≥ 100 dB, sóng âm ≥ 90 dB (theo sàn fp32 khác kernel). Rớt thì không ghi manifest.
-- **Gói đặt ở kho HF `raikiri1498/VieNeu-TTS`, thư mục `nano-static/`** (anh chọn; cùng kho với model, `VieNeuModelMirror`):
-  - App đọc `resolve/main/nano-static/` — gói mới chưa có commit để ghim như `VieNeuModelMirror.revision`; mọi file kiểm sha256 theo `manifest.json` tải cùng lượt.
-  - Workflow chạy tay `.github/workflows/vieneu-nano-static.yml`: ghim `onnx` / `onnxruntime 1.24.2`, xuất + tự kiểm, rồi `hf upload` bằng **Trusted Publisher** (OIDC, không secret).
-  - Một lần, anh thêm Trusted Publisher ở trang cài đặt của kho HF: Provider GitHub Actions; claim `repository = buudvh/FreeBook`, `branch = main`, `workflow = vieneu-nano-static.yml`.
-- **Cầu nối C tổng quát** `VieNeuONNXProbeBridge.h/.m` (thêm vào `FreeBookBridgingHeader.h`):
-  - Chỉ float32. Session CPU / `CoreML` / `XNNPACK` qua `SessionOptionsAppendExecutionProvider`, chạy theo tên, trả cả shape output.
-  - Bắt stderr lúc tạo session vào file để đọc bảng partition của EP (chẩn đoán, có thể rỗng).
-  - Cầu nối cũ `VieNeuONNXBridge` không đổi.
-- **Phép thử** (`Services/TTS/VieNeu/Probe/`):
-  - `VieNeuNanoStaticPackage`: tải theo manifest, kiểm dung lượng + sha256, cất ở `FreeBook/TTS/VieNeu/Static/` (thuộc loại TTS của màn Dung lượng). `VieNeuTurboModelClient.transfer` hạ `private` thành `internal` để dùng chung.
-  - `VieNeuNanoGolden` đọc golden bằng `NPZReader`.
-  - `VieNeuNanoEPWorker` chạy lần lượt ORT CPU (tham chiếu trên máy) → Core ML CPU-only → GPU → Neural Engine → XNNPACK:
-    - mỗi cấu hình một lượt, nhả session trước khi sang cấu hình kế;
-    - **không** đặt `ModelCacheDirectory`: mỗi lượt chỉ dựng một session mỗi graph; giữ bản biên dịch fp32 của 4 graph × 3 compute unit tốn hơn 1,5 GB đĩa; thư mục tạm của ORT tự xoá; không cache cũng loại hẳn chuyện ANE dùng lại bản biên dịch cho CPU-only (khoá cache của EP chỉ là hash model);
-    - Core ML CPU-only dưới 60 dB ở v bước 0 / có NaN / lỗi ⇒ **tự bỏ qua GPU + ANE**;
-    - ghi ms + CPU-ms mỗi lượt VE và codec, SNR v0 / latent / sóng âm, NaN;
-    - H1: main T234 so với T256.
-  - `VieNeuGEMMBench` đo Accelerate `cblas_sgemm` (kiểm AMX).
-- **Màn thử** — mục "So EP cho Nano (P1)":
-  - Tải / xoá gói (xoá cả WAV + log), chạy / dừng, dòng tóm tắt từng cấu hình.
-  - Chia sẻ báo cáo `.txt` (`VieNeuTurboReportFile.Kind.epProbe`) và WAV tham chiếu / từng cấu hình.
-  - Trước khi chạy: dừng TTS, nhả Turbo + engine Nano (`startEPProbe`).
-  - Màn hình không tự tắt khi đang chạy (rời màn thì trả lại ở `onDisappear`). Rời màn là dừng. `isBusy` tính cả phép thử.
-- **Kiểm chứng:**
-  - Script chạy trên PC: tự kiểm đạt (v0 121–124 dB, latent 111–116 dB, sóng âm 96–109 dB, T234 / T256 123,7 dB).
-  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
-  - Không build tại chỗ (Windows), chưa thử máy. Gói chưa đăng (cần Trusted Publisher + chạy workflow từ `main`).

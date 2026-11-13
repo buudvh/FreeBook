@@ -37,9 +37,6 @@ struct VieNeuVoiceSelection: Hashable, Sendable {
         self.voiceId = voiceId
     }
 
-    /// Giọng mặc định của Nano — dùng khi không còn gì để chọn (vd vừa xoá model Turbo).
-    static let nanoDefault = VieNeuVoiceSelection(model: .nano, voiceId: "")
-
     // MARK: - Mã hoá
 
     var storageValue: String { "\(model.rawValue):\(voiceId)" }

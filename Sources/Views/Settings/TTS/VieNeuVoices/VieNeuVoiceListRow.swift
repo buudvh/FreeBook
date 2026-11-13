@@ -6,6 +6,9 @@ import SwiftUI
 /// - Thân hàng: tên + dòng phụ (thông tin, " · cần tải N MB" khi chưa tải; đang tải ⇒ "Đang tải 37% · 93 / 251 MB" +
 ///   thanh mảnh), ✓ nếu là giọng đang chọn, badge Nhẹ / Vừa / Nặng. Chạm thân hàng = chọn giọng — chỉ khi đã tải đủ.
 ///
+/// - Giọng Nano đã tải mà Tăng tốc Core ML đang chuẩn bị (1.3.919, luôn bật) ⇒ dòng phụ là bước đang chạy
+///   ("Tăng tốc Core ML · tải 52% · 139 / 267 MB", "· biên dịch 3/7", "· tự kiểm chất lượng") + thanh mảnh.
+///
 /// Hàng chỉ vẽ; trạng thái do sheet tính sẵn và truyền vào.
 struct VieNeuVoiceListRow: View {
     let entry: VieNeuVoiceEntry
@@ -15,6 +18,8 @@ struct VieNeuVoiceListRow: View {
     /// Lượt tải đang chạy / đang chờ của đích tải ứng với giọng này.
     let download: ModelDownloadCenter.Entry?
     let isPreviewing: Bool
+    /// Bước chuẩn bị Tăng tốc Core ML (chỉ giọng Nano đã tải, lúc đang chạy); `fraction == nil` ⇒ thanh vô định.
+    var coreMLStage: (text: String, fraction: Double?)?
     let onPrimary: () -> Void
     let onSelect: () -> Void
 
@@ -70,6 +75,23 @@ struct VieNeuVoiceListRow: View {
                     .foregroundColor(.secondary)
                     .monospacedDigit()
                 if let fraction = download.fraction, !download.isQueued {
+                    ProgressView(value: fraction)
+                        .progressViewStyle(.linear)
+                        .scaleEffect(x: 1, y: 0.6, anchor: .center)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .scaleEffect(x: 1, y: 0.6, anchor: .center)
+                }
+            }
+        } else if let coreMLStage {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(coreMLStage.text)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                if let fraction = coreMLStage.fraction {
                     ProgressView(value: fraction)
                         .progressViewStyle(.linear)
                         .scaleEffect(x: 1, y: 0.6, anchor: .center)

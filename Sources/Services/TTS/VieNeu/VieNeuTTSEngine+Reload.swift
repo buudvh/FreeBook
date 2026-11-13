@@ -9,14 +9,7 @@ extension VieNeuTTSEngine {
     /// ngay lượt này (~3 s). Runtime cũ bị giải phóng (session + tensor cache, `VieNeuORTDestroy`) **trước**
     /// khi dựng cái mới ⇒ không nhân đôi bộ nhớ, và không cache nào còn trỏ vào `nullContext` cũ khi nó bị gán lại.
     func runtimeNeedsLoadLocked() -> Bool {
-        let forced = labForceReload
-        labForceReload = false // xoá cả khi chưa có runtime, kẻo lượt sau dựng lại lần nữa vô cớ
         guard let current = runtime else { return true }
-        if forced {
-            AppLogger.shared.log("🎙️ [VieNeu] Màn thử đổi cấu hình (threads \(wantedThreadCountLocked())) — dựng lại session")
-            runtime = nil
-            return true
-        }
         let wantedThreads = wantedThreadCountLocked()
         let wantedSpinning = VieNeuSynthesisPolicy.allowSpinning(from: .standard)
         guard current.threadCount != wantedThreads || current.allowSpinning != wantedSpinning else { return false }
@@ -28,11 +21,6 @@ extension VieNeuTTSEngine {
         return true
     }
 
-    /// Nhả 4 session ORT (~280 MB, `VieNeuORTDestroy` ở `deinit` của runtime) + bộ phiên âm của Nano khi trình đọc chuyển
-    /// sang Turbo — hai model không nên cùng nằm trong RAM. Lượt Nano sau tự nạp lại (`prepareLocked` thấy `runtime == nil`).
-    ///
-    /// **Chặn** tới khi lượt Nano đang chạy (nếu có) nhả `lock` ⇒ đừng gọi trên main. Trả `true` khi thật sự có thứ để nhả.
-    @discardableResult
     /// Chạy `body` trong khoá tổng hợp (P2c): nạp + chạy nháp Core ML của trình đọc không chồng lên lượt đang đọc —
     /// session ORT / Core ML không chịu hai luồng gọi cùng lúc. Giữ khoá ngắn (một khung mỗi lần).
     func withSynthesisLock(_ body: () throws -> Void) throws {
@@ -41,6 +29,11 @@ extension VieNeuTTSEngine {
         try body()
     }
 
+    /// Nhả 4 session ORT (~280 MB, `VieNeuORTDestroy` ở `deinit` của runtime) + bộ phiên âm của Nano khi trình đọc chuyển
+    /// sang Turbo — hai model không nên cùng nằm trong RAM. Lượt Nano sau tự nạp lại (`prepareLocked` thấy `runtime == nil`).
+    ///
+    /// **Chặn** tới khi lượt Nano đang chạy (nếu có) nhả `lock` ⇒ đừng gọi trên main. Trả `true` khi thật sự có thứ để nhả.
+    @discardableResult
     func releaseRuntime() -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -50,28 +43,8 @@ extension VieNeuTTSEngine {
         return true
     }
 
-    /// Số luồng ORT muốn dùng: ghi đè của màn thử nếu có, không thì theo cài đặt. **Chỉ gọi khi đang giữ `lock`.**
+    /// Số luồng ORT muốn dùng (theo cài đặt). **Chỉ gọi khi đang giữ `lock`.**
     func wantedThreadCountLocked() -> Int32 {
-        labThreadOverride ?? VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
-    }
-
-    /// Màn thử VieNeu Turbo đặt / bỏ số luồng ORT riêng (1.3.878) — **không** ghi vào cài đặt của người dùng.
-    ///
-    /// Đặt hay bỏ đều buộc dựng lại session ở lần nạp kế tiếp. Luồng phụ của pool ORT sinh ra lúc dựng session nên mang
-    /// QoS của luồng đang dựng; màn thử dựng ngay ở QoS mình chọn (`VieNeuTTSService.prepare(voice:priority:)`), và khi
-    /// bỏ ghi đè thì dựng lại ở `.utility` như lúc app nạp engine bình thường.
-    /// Màn thử ("Đo tự động", P1b) ghim / bỏ ghim chế độ chất lượng — không ghi cài đặt. Core ML chạy RTF ~0,15 sẽ làm
-    /// bộ tự thích nghi nâng lên `high` (16 bước) giữa lượt, hai lượt hết cùng điều kiện.
-    func setLabModeOverride(_ mode: VieNeuSynthesisPolicy.Mode?) {
-        lock.lock(); defer { lock.unlock() }
-        labModeOverride = mode
-        consecutiveSlow = 0
-        consecutiveFast = 0
-    }
-
-    func setLabThreadOverride(_ threads: Int32?) {
-        lock.lock(); defer { lock.unlock() }
-        labThreadOverride = threads.map { max(1, $0) }
-        labForceReload = true
+        VieNeuSynthesisPolicy.effectiveThreadCount(from: .standard)
     }
 }

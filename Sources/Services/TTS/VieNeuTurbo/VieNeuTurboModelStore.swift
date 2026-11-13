@@ -1,6 +1,6 @@
 import Foundation
 
-/// Kho file của **bước thử VieNeu-TTS v3 Turbo** (GGUF q8_0 chạy qua audio.cpp).
+/// Kho file của **VieNeu-TTS v3 Turbo** (GGUF q8_0 chạy qua audio.cpp).
 ///
 /// Bố cục, tách hẳn khỏi `VieNeu/` của Nano để xoá bên này không đụng bên kia:
 /// - `Application Support/FreeBook/TTS/VieNeuTurbo/Models/vieneu-v3-turbo-q8_0.gguf` (187.917.664 byte)
@@ -80,7 +80,7 @@ final class VieNeuTurboModelStore: Sendable {
     var modelURL: URL { modelsURL.appendingPathComponent(Self.modelFileName) }
     var manifestURL: URL { voicesURL.appendingPathComponent(Self.manifestFileName) }
 
-    /// Giọng tải về ⇒ `Voices/<id>/`; giọng tự tạo ⇒ `CustomVoices/<id>/`. Mọi đường đọc giọng (trình đọc, màn thử)
+    /// Giọng tải về ⇒ `Voices/<id>/`; giọng tự tạo ⇒ `CustomVoices/<id>/`. Mọi đường đọc giọng (trình đọc, nghe thử)
     /// đi qua đây nên cả hai loại dùng chung `referenceCodesURL` / `speakerEmbeddingURL` / `hasVoice`.
     func voiceDirectory(voiceId: String) -> URL {
         let parent = Self.isCustomVoiceId(voiceId) ? customVoicesURL : voicesURL
@@ -130,8 +130,8 @@ final class VieNeuTurboModelStore: Sendable {
 
     // MARK: - Xoá
 
-    /// Xoá model + manifest + mọi giọng **tải về**. Lượt tải đang chạy bị màn thử chặn nút xoá, nên xoá cả cây con ở
-    /// đây an toàn (khác `VieNeuModelStore.deleteAll`, nơi lượt tải nền có thể chạy song song). `sea_g2p.bin` của Nano
+    /// Xoá model + manifest + mọi giọng **tải về** — xoá cả cây con (khác `VieNeuModelStore.deleteAll`, chỉ xoá từng file
+    /// đã biết); bên gọi phải bảo đảm không có lượt tải Turbo đang chạy. `sea_g2p.bin` của Nano
     /// giữ nguyên — engine Nano vẫn cần nó. `CustomVoices/` (giọng người dùng tự tạo) **không** bị đụng: tải lại model
     /// là giọng đó đọc được ngay.
     func deleteAll() throws {

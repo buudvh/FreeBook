@@ -1,9 +1,10 @@
 import Foundation
 
-/// Một session ORT của phép thử P1 "So EP cho Nano" — bọc `VieNeuONNXProbeBridge.h` (chỉ float32, chạy theo tên).
+/// Một session ORT tổng quát (chỉ float32, chạy theo tên) — bọc `VieNeuONNXProbeBridge.h`.
 ///
-/// Chỉ `VieNeuNanoEPProbe` dùng; đường đọc truyện vẫn đi `VieNeuONNXRuntime`. Không an toàn đa luồng — mỗi lần chỉ
-/// một luồng gọi `run`.
+/// `VieNeuCoreMLFlowBackend` (backend Core ML của trình đọc Nano, "Tăng tốc Core ML") dựng các session prep / VE / codec
+/// bằng type này; đường ORT gốc của engine vẫn đi `VieNeuONNXRuntime`. Không an toàn đa luồng — mỗi lần chỉ một luồng
+/// gọi `run` (engine gọi trong khoá tổng hợp).
 final class VieNeuONNXProbeSession {
     enum ProbeError: LocalizedError {
         case failure(String)

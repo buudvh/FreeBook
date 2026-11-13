@@ -2,11 +2,12 @@
 //  VieNeuONNXProbeBridge.h
 //  Tàng Công Các
 //
-//  Cầu nối C API **tổng quát, chỉ float32** của ONNX Runtime cho phép thử P1 "So EP cho Nano" (màn thử VieNeu
-//  Turbo). Khác `VieNeuONNXBridge.h` (4 hàm bám đúng 4 bước pipeline, có tensor bool / int64): ở đây mọi graph của
-//  gói tĩnh (`Scripts/vieneu_nano_static_export.py`) chỉ nhận và trả float32, nên một hàm chạy theo tên là đủ.
+//  Cầu nối C API **tổng quát, chỉ float32** của ONNX Runtime (sinh ra cho phép thử P1 "So EP cho Nano"). Khác
+//  `VieNeuONNXBridge.h` (4 hàm bám đúng 4 bước pipeline, có tensor bool / int64): ở đây mọi graph của gói tĩnh
+//  (`Scripts/vieneu_nano_coreml_export.py`) chỉ nhận và trả float32, nên một hàm chạy theo tên là đủ.
 //
-//  Không đụng đường đọc truyện: chỉ `VieNeuNanoEPProbe` gọi.
+//  Đường đọc truyện **có** dùng: backend Core ML của trình đọc Nano ("Tăng tốc Core ML", `VieNeuCoreMLFlowBackend` qua
+//  `VieNeuONNXProbeSession`) chạy vòng Euler + codec bằng cầu này. Đường ORT gốc vẫn đi `VieNeuONNXBridge.h`.
 //
 
 #ifndef VieNeuONNXProbeBridge_h

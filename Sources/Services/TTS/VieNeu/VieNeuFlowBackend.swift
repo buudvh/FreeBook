@@ -31,12 +31,9 @@ struct VieNeuFlowRequest: Sendable {
 }
 
 /// Backend chạy vòng Euler + codec **thay ORT** cho một lượt tổng hợp Nano — Core ML CPU-only
-/// (`VieNeuCoreMLFlowBackend`): của màn thử (P1b) hoặc của trình đọc khi bật "Tăng tốc Core ML" (P2c,
-/// `VieNeuCoreMLReaderRoute`). Truyền **theo từng lượt gọi**, không gắn vào engine:
-/// - hàm `synthesizeWithDuration` đúng chữ ký `LocalTTSEngine` (trình đọc, Nghe thử, nghe thử giọng) lấy backend của
-///   trình đọc từ `VieNeuCoreMLReaderRoute` — `nil` khi tắt / chưa sẵn sàng;
-/// - hàm có tham số `flowBackend:` (màn thử: "Đọc liên tục", các lượt của Đo tự động) dùng **đúng** giá trị truyền vào,
-///   `nil` = ORT — lượt ORT của phép đo A-B-A không bao giờ lẫn Core ML của trình đọc.
+/// (`VieNeuCoreMLFlowBackend`) của "Tăng tốc Core ML" (P2c, `VieNeuCoreMLReaderRoute`). Truyền **theo từng lượt gọi**,
+/// không gắn vào engine: `VieNeuTTSService.synthesizeWithDuration` (trình đọc, Nghe thử, nghe thử giọng) lấy backend của
+/// trình đọc từ `VieNeuCoreMLReaderRoute` — `nil` khi chưa sẵn sàng / đã thôi dùng ⇒ ORT.
 ///
 /// Engine gọi tuần tự trong khoá tổng hợp của nó ⇒ backend không phải tự chịu nhiều luồng gọi cùng lúc.
 protocol VieNeuFlowBackend: AnyObject, Sendable {
@@ -49,7 +46,7 @@ protocol VieNeuFlowBackend: AnyObject, Sendable {
     /// Chunk vừa chạy ORT vì `canRun` trả `false` — để báo cáo đếm phần lùi về ORT.
     func noteFallback(_ request: VieNeuFlowRequest)
     /// `true` ⇒ backend lỗi ở một chunk thì engine chạy lại chunk đó bằng ORT thay vì báo lỗi cả đoạn (trình đọc, P2c —
-    /// không bao giờ mất tiếng). Màn thử để `false`: lỗi là lỗi, để số đo không che lỗi.
+    /// không bao giờ mất tiếng). `false` (mặc định của protocol): lỗi là lỗi.
     var fallsBackToORTOnError: Bool { get }
     /// Chunk vừa lỗi và đã chạy lại bằng ORT (chỉ gọi khi `fallsBackToORTOnError`).
     func noteFailure(_ error: Error)

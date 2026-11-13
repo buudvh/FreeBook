@@ -1,55 +1,29 @@
 import SwiftUI
-import AVFoundation
 
-/// Hub **"Cài đặt NghiTTS"** — một chỗ cho mọi thứ thuộc engine NghiTTS.
+/// Hub **"Cài đặt NghiTTS"** — một chỗ cho mọi thứ thuộc engine NghiTTS (Piper): thông tin model (engine, giọng đã tải,
+/// thư viện phiên âm), danh sách giọng đã tải kèm dung lượng, và 3 lối vào quản lý (trước đây 3 nav rời ở tab Cài đặt).
+/// **Chỉ hiện thông tin** — phần "Nghe thử" (chữ / giọng / tốc độ / phát) đã bỏ; tải / xoá giọng ở "Quản lý Model giọng
+/// đọc" (`TTSModelManagerView`).
 ///
-/// Thiết kế theo khuôn `VieNeuTTSTestView`: **phần thử giọng nằm ngay trong màn** (không còn nav riêng) cộng
-/// các lối vào quản lý. Trước lượt này tab Cài đặt có **3 nav rời** (`TTSSettingsSection.swift:14-28`) và
-/// phần thử giọng nằm sau thêm một nav nữa trong "Cấu hình NghiTTS" — vào được nhưng phải nhớ đường.
-///
-/// ## Vì sao phải tách `+Sections`
-/// `NghiTTSTextToolView` cũ bọc **cả một `Form`**, mà `Form` **không lồng được trong `Form`** — nhúng
-/// nguyên view vào đây sẽ ra UI sai. Nội dung được chuyển thành các `Section` rời, đúng khuôn
-/// `VieNeuTTSTestView+Sections`.
-///
-/// Dùng lại **đúng** `TTSManager.shared.nghiTTSService` chứ không tạo service riêng: một service mới nghĩa
-/// là một `ORTSession` thứ hai nằm trong RAM và một đường tổng hợp không đi qua `PiperSynthesisCoordinator`
-/// — trái với bất biến "chỉ một operation tổng hợp tại một thời điểm".
+/// Dung lượng đọc đĩa ở nền (`ModelSnapshot`, `.task` + `Task.detached`), không trong `body`; `.task` chạy lại mỗi lần
+/// màn hiện ra (kể cả khi quay về từ màn quản lý model) nên số liệu theo kịp lượt tải / xoá.
 struct NghiTTSSettingsHubView: View {
-    @State var text = "Xin chào, đây là bản thử giọng đọc."
-    @State var speed: Double = 1.0
-    @State var selectedVoice = ""
-    @State var isSynthesizing = false
-    @State var statusMessage = ""
-    @State var isError = false
-    @State var player: AVAudioPlayer?
-    @State var synthesisTask: Task<Void, Never>?
-
-    /// `ModelStore.init` có thể throw (không dựng được thư mục model); khi đó coi như chưa có giọng.
-    let voices: [String] = (try? ModelStore())?.getLocalVoiceIDs() ?? []
-
-    var isBlockedByPlayback: Bool {
-        TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
-    }
-
-    var canPlay: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !selectedVoice.isEmpty
-            && !isSynthesizing
-            && !isBlockedByPlayback
-    }
+    @State var snapshot: ModelSnapshot?
 
     var body: some View {
         Form { Group {
+            modelSection
+            voicesSection
             managementSection
-            textSection
-            voiceSection
-            speedSection
-            playSection
-            resultSection
         }.glassSheetRows() }
         .backPageTitle("Cài đặt NghiTTS")
-        .onAppear(perform: loadStoredSettings)
-        .onDisappear(perform: stopSample)
+        .task { await reloadSnapshot() }
+    }
+
+    private func reloadSnapshot() async {
+        let loaded = await Task.detached(priority: .userInitiated) {
+            Self.loadModelSnapshot()
+        }.value
+        snapshot = loaded
     }
 }

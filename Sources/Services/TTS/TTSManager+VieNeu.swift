@@ -136,9 +136,8 @@ extension TTSManager {
     /// như `applyVieNeuParamsIfNeeded()` nạp.
     ///
     /// **Không** dùng `TTSManager.shared.chunkLength`: giá trị đó thuộc **engine đang chọn**, nên khi
-    /// Picker đang ở NghiTTS thì màn thử VieNeu sẽ cắt đoạn theo con số của Piper — lệch đúng thứ màn thử
-    /// cần tái hiện (plan §2.2). `nonisolated` cùng lý do như `isExtensionTool`: đọc `UserDefaults` thuần,
-    /// không cần nhảy actor.
+    /// Picker đang ở NghiTTS thì con số đó là của Piper (log `[VieNeuPerf]` ghi giá trị này). `nonisolated` cùng lý
+    /// do như `isExtensionTool`: đọc `UserDefaults` thuần, không cần nhảy actor.
     nonisolated static var vieNeuChunkLength: Int {
         let saved = UserDefaults.standard.object(forKey: VieNeuSettingsKey.chunk) != nil
             ? UserDefaults.standard.integer(forKey: VieNeuSettingsKey.chunk)

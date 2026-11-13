@@ -47,9 +47,8 @@ extension VieNeuTTSEngine {
     /// Log **mỗi lượt tổng hợp**: chế độ, số chunk, số phoneme bị bỏ, độ dài, RTF, loại ranh giới,
     /// và công việc phụ trợ ở tầng ONNX (`churn=`).
     ///
-    /// Đây là số liệu **duy nhất** cho biết đường Reader đang chạy ở chế độ nào và cắt bao nhiêu chunk. Màn
-    /// thử giọng hiện các con số này trên UI, còn đường Reader trước 1.3.436 **không** có cách nào thấy —
-    /// nên câu hỏi "vì sao chất lượng kém hơn hẳn màn thử giọng" không thể trả lời bằng số.
+    /// Đây là số liệu **duy nhất** cho biết đường Reader đang chạy ở chế độ nào và cắt bao nhiêu chunk (trước
+    /// 1.3.436 chỉ màn thử giọng cũ — nay đã bỏ — hiện các con số này, đường Reader không có cách nào thấy).
     ///
     /// `churn=create/release/bytes` là **số đo duy nhất** chứng minh một lượt giảm churn bộ nhớ có tác
     /// dụng: `rtf` gần như không đổi vì `Run` chiếm gần hết thời gian. Xem doc của `Timing`.
@@ -76,7 +75,7 @@ extension VieNeuTTSEngine {
         /// Ngữ cảnh ORT **đang nạp** — `threads=`/`spin=` lấy từ đây, không từ `UserDefaults` (cài đặt
         /// chỉ áp dụng khi engine nạp lại ở lượt kế tiếp, nên đọc `UserDefaults` có thể báo sai cấu hình đang đo).
         runtime: VieNeuONNXRuntime,
-        /// Lượt này có backend Core ML (P2c "Tăng tốc Core ML" / màn thử) — đoạn lùi ORT đếm ở `[NghiEnergy] Summary`.
+        /// Lượt này có backend Core ML (P2c "Tăng tốc Core ML") — đoạn lùi ORT đếm ở `[NghiEnergy] Summary`.
         usesCoreML: Bool = false
     ) {
         AppLogger.shared.log(
@@ -113,8 +112,8 @@ extension VieNeuTTSEngine {
         /// Mọi thứ ngoài vòng Euler (text + codec) — giữ cho màn Nghe thử ("vector | khác").
         var otherMs: Double { text.wallMs + codec.wallMs }
         /// QoS **đo được** của luồng tổng hợp: giá trị mặc định tính lúc `synthesize` dựng `Timing()`, tức trên luồng
-        /// đang tổng hợp. `sessionQoS` = QoS lúc dựng session ORT (`VieNeuONNXRuntime.buildQoS`). Màn thử ghi cả hai
-        /// vào file kết quả để biết lựa chọn QoS có tới nơi thật không.
+        /// đang tổng hợp. `sessionQoS` = QoS lúc dựng session ORT (`VieNeuONNXRuntime.buildQoS`). Log `[VieNeuPerf]` ghi
+        /// cả hai để biết QoS có tới nơi thật không.
         var synthesisQoS = VieNeuTTSEngine.currentQoSName()
         var sessionQoS = ""
         /// Số `OrtValue` tạo / giải phóng và số byte output đã copy ở tầng bridge C, **cộng dồn cả đoạn**.

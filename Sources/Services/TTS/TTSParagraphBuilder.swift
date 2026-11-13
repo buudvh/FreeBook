@@ -75,9 +75,14 @@ enum TTSParagraphBuilder {
 
             if end < characters.count {
                 let candidates = start..<end
-                if let position = candidates.reversed().first(where: { sentenceMarks.contains(characters[$0]) }) {
+                // Chỉ dấu có khoảng trắng / dấu đóng phía sau mới là chỗ cắt (`TTSPunctuationBoundary`, 1.3.919).
+                if let position = candidates.reversed().first(where: {
+                    sentenceMarks.contains(characters[$0]) && TTSPunctuationBoundary.isBoundary(at: $0, in: characters)
+                }) {
                     end = position + 1
-                } else if let position = candidates.reversed().first(where: { clauseMarks.contains(characters[$0]) }) {
+                } else if let position = candidates.reversed().first(where: {
+                    clauseMarks.contains(characters[$0]) && TTSPunctuationBoundary.isBoundary(at: $0, in: characters)
+                }) {
                     end = position + 1
                 } else if let position = candidates.reversed().first(where: { characters[$0].isWhitespace }) {
                     end = position + 1

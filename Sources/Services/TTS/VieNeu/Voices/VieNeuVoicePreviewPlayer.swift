@@ -14,7 +14,7 @@ import Observation
 final class VieNeuVoicePreviewPlayer {
     static let shared = VieNeuVoicePreviewPlayer()
 
-    /// Câu thử — cùng câu với màn thử giọng Nano để hai chỗ nghe ra giống nhau.
+    /// Câu thử — một câu chung cho mọi giọng (Nano lẫn Turbo) để nghe so được với nhau.
     /// `nonisolated`: đọc trong `synthesize` (hàm `nonisolated`, chạy ngoài main).
     nonisolated static let sampleText = "Xin chào, đây là bản thử giọng đọc VieNeu-TTS."
 
@@ -145,7 +145,7 @@ final class VieNeuVoicePreviewPlayer {
         releaseSession()
     }
 
-    /// `.playback` để câu thử nghe được cả khi gạt im lặng (như màn thử Turbo).
+    /// `.playback` để câu thử nghe được cả khi gạt im lặng.
     private func activateSession() {
         do {
             let session = AVAudioSession.sharedInstance()
@@ -159,7 +159,7 @@ final class VieNeuVoicePreviewPlayer {
 
     /// Trả phiên khi **không ai khác giữ** nó. TTS đang có phiên — kể cả chỉ tạm dừng vì mở Cài đặt TTS — là chủ phiên
     /// (`isAudioSessionConfigured` vẫn `true`, `resume()` không bật lại phiên) ⇒ tắt ở đây là đóng Cài đặt xong mất tiếng /
-    /// mất màn khoá. Khi đó để nguyên, như clip thử của NghiTTS (`NghiTTSSettingsHubView+Sections.activateSession`).
+    /// mất màn khoá. Khi đó để nguyên — `TTSManager` tự tắt phiên khi dừng hẳn.
     private func releaseSession() {
         guard didActivateSession else { return }
         didActivateSession = false
