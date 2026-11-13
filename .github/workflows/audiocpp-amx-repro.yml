@@ -1,0 +1,31 @@
+name: Tái hiện sập codec AMX (audio.cpp, macOS)
+
+# Chẩn đoán lỗi 1.3.924 (bật "Tăng tốc codec bằng AMX" làm app chết trên iPhone): Scripts/ci/audiocpp_repro_macos.sh.
+# Chỉ chạy trên nhánh thử claude/turbo-amx-repro — không gộp vào main, không build app.
+on:
+  push:
+    branches: [ 'claude/turbo-amx-repro' ]
+  workflow_dispatch:
+
+jobs:
+  repro:
+    name: Tái hiện (cờ iOS, GCD, stack 512 KB)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Repro
+      run: bash Scripts/ci/audiocpp_repro_macos.sh
+
+    - name: Upload kết quả
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: vieneu-turbo-amx-repro
+        path: |
+          build/audiocpp-repro/out/**/*.md
+          build/audiocpp-repro/out/**/*.log
+          build/audiocpp-repro/out/**/*.txt
+        if-no-files-found: warn
