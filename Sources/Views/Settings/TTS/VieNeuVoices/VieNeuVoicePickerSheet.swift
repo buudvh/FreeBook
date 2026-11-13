@@ -7,8 +7,9 @@ import SwiftUI
 ///   hàng Nano cùng hiện tiến độ; Turbo tải model nếu thiếu rồi file của đúng giọng đó ⇒ tiến độ chỉ ở hàng đó.
 /// - Chọn giọng = `TTSManager.selectVieNeuVoice` ⇒ model đi theo giọng (khác model thì trình đọc nạp lại engine).
 /// - Thử giọng qua `VieNeuVoicePreviewPlayer`; sheet đóng thì dừng câu thử.
-/// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ). Nhấn giữ giọng có sẵn đã tải ⇒ "Xoá dữ liệu
-///   Nano / Turbo" (`VieNeuModelDataRemover`, 1.3.919 — lối duy nhất lấy lại dung lượng model).
+/// - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (thay màn "Giọng của tôi" cũ). Giọng Turbo tải về đã có file ⇒ nút 🗑 cuối
+///   hàng xoá file của riêng giọng đó (`VieNeuModelDataRemover.deleteTurboVoice`, model giữ lại). Giọng Nano có sẵn dùng
+///   chung một gói nên không có nút riêng; xoá cả gói Nano / Turbo ở trang Cài đặt VieNeu TTS ("Xoá tất cả dữ liệu …").
 /// - Ô tìm theo tên giọng (`VoiceNameSearch`: bỏ dấu, "đ" = "d") lọc trong chip đang chọn; đang tìm thì ẩn hàng
 ///   "Nhân bản giọng đọc", nhóm không còn giọng nào khớp thì ẩn cả nhóm.
 /// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.901); giọng Nano tự tạo chưa có bản Turbo hiện trong
@@ -24,7 +25,7 @@ struct VieNeuVoicePickerSheet: View {
     @State private var renaming: VieNeuVoiceEntry?
     @State private var renameText = ""
     @State private var pendingDeletion: VieNeuVoiceEntry?
-    @State private var pendingDataRemoval: VieNeuModelChoice?
+    @State private var pendingTurboVoiceDeletion: VieNeuVoiceEntry?
     @State private var isClonePresented = false
     @State private var query = ""
 
@@ -87,16 +88,17 @@ struct VieNeuVoicePickerSheet: View {
             Text("Tên mới phải khác các giọng đang có.")
         }
         .confirmationDialog(
-            pendingDataRemoval == .turbo ? "Xoá dữ liệu Turbo?" : "Xoá dữ liệu Nano?",
-            isPresented: Binding(get: { pendingDataRemoval != nil }, set: { if !$0 { pendingDataRemoval = nil } }),
+            "Xoá giọng “\(pendingTurboVoiceDeletion?.name ?? "")”?",
+            isPresented: Binding(
+                get: { pendingTurboVoiceDeletion != nil },
+                set: { if !$0 { pendingTurboVoiceDeletion = nil } }
+            ),
             titleVisibility: .visible
         ) {
-            Button("Xoá dữ liệu", role: .destructive) { commitDataRemoval() }
-            Button("Huỷ", role: .cancel) { pendingDataRemoval = nil }
+            Button("Xoá giọng", role: .destructive) { commitTurboVoiceDeletion() }
+            Button("Huỷ", role: .cancel) { pendingTurboVoiceDeletion = nil }
         } message: {
-            Text(pendingDataRemoval == .turbo
-                 ? "Xoá model Turbo và các giọng Turbo đã tải. Giọng nhân bản giữ nguyên; tải lại bằng nút ⬇ của giọng."
-                 : "Xoá model Nano và gói Tăng tốc Core ML. Giọng nhân bản giữ nguyên; tải lại bằng nút ⬇ của giọng.")
+            Text("Xoá file của giọng này (model Turbo giữ lại, tải lại bằng nút ⬇).")
         }
         .confirmationDialog(
             "Xoá giọng “\(pendingDeletion?.name ?? "")”?",
@@ -219,16 +221,20 @@ struct VieNeuVoicePickerSheet: View {
         let accelerator = VieNeuCoreMLAccelerator.shared
         // Nano: tải giọng = gói Nano + gói Tăng tốc Core ML (luôn bật, 1.3.919) ⇒ "cần tải" cộng cả gói Core ML còn thiếu.
         let coreMLMissing = entry.model == .nano && !accelerator.isPackageComplete ? VieNeuCoreMLPackage.downloadSizeEstimate : 0
+        let download = downloads.entry(id: directory.downloadTarget(for: entry))
+        // Nút 🗑: chỉ giọng Turbo tải về đã có file, không lúc đang tải (giọng Nano chung gói, giọng nhân bản nhấn giữ).
+        let canDeleteVoice = directory.isTurboVoiceDownloaded(entry) && !(download?.state.isRunning ?? false)
         let listRow = VieNeuVoiceListRow(
             entry: entry,
             isSelected: isSelected,
             isReady: isReady,
             missingBytes: directory.missingBytes(for: entry) + coreMLMissing,
-            download: downloads.entry(id: directory.downloadTarget(for: entry)),
+            download: download,
             isPreviewing: preview.isActive(entry.id),
             coreMLStage: entry.model == .nano && isReady ? accelerator.stageText.map { ($0, accelerator.stageFraction) } : nil,
             onPrimary: { primaryTapped(entry) },
-            onSelect: { select(entry) }
+            onSelect: { select(entry) },
+            onDelete: canDeleteVoice ? { pendingTurboVoiceDeletion = entry } : nil
         )
         if entry.isMine {
             listRow.contextMenu {
@@ -242,14 +248,6 @@ struct VieNeuVoicePickerSheet: View {
                     pendingDeletion = entry
                 } label: {
                     Label("Xoá giọng", systemImage: "trash")
-                }
-            }
-        } else if isReady {
-            listRow.contextMenu {
-                Button(role: .destructive) {
-                    pendingDataRemoval = entry.model
-                } label: {
-                    Label(entry.model == .turbo ? "Xoá dữ liệu Turbo" : "Xoá dữ liệu Nano", systemImage: "trash")
                 }
             }
         } else {
@@ -288,21 +286,17 @@ struct VieNeuVoicePickerSheet: View {
         ttsManager.selectVieNeuVoice(entry.selection)
     }
 
-    private func commitDataRemoval() {
-        guard let model = pendingDataRemoval else { return }
-        pendingDataRemoval = nil
-        preview.stop()
+    /// Nút 🗑 của giọng Turbo tải về: dừng câu thử của giọng đó (dùng chung runtime Turbo) rồi xoá file của riêng giọng.
+    private func commitTurboVoiceDeletion() {
+        guard let entry = pendingTurboVoiceDeletion else { return }
+        pendingTurboVoiceDeletion = nil
+        if preview.isActive(entry.id) { preview.stop() }
         Task {
             do {
-                if model == .turbo {
-                    try await VieNeuModelDataRemover.deleteTurbo()
-                } else {
-                    try await VieNeuModelDataRemover.deleteNano()
-                }
-                directory.reload()
-                ToastManager.shared.show(message: "Đã xoá dữ liệu \(model.label).", type: .success)
+                try await VieNeuModelDataRemover.deleteTurboVoice(voiceId: entry.selection.voiceId)
+                ToastManager.shared.show(message: "Đã xoá giọng \(entry.name).", type: .success)
             } catch {
-                ToastManager.shared.show(message: "Xoá dữ liệu thất bại: \(error.localizedDescription)", type: .error)
+                ToastManager.shared.show(message: "Xoá giọng thất bại: \(error.localizedDescription)", type: .error)
             }
         }
     }

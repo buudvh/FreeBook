@@ -6,7 +6,8 @@ import SwiftUI
 /// cáo kiểm tra) có nút "Xoá" kèm hộp xác nhận (`StorageUsageCleaner`); bìa truyện có nút "Dọn" (1.3.762): đếm bìa mồ côi
 /// + bìa quá cỡ trước, hộp xác nhận hiện số thật rồi mới dọn (`CoverCleanupCoordinator`). Xoá / dọn xong đo lại. Hàng
 /// "Tự động dọn" đầu danh sách mở lịch tự dọn (`StorageAutoCleanupSettingsView`); hàng "Dọn rác" ngay dưới mở
-/// `JunkCleanupView`. Loại TTS và "Khác" chạm để bung dòng con (`StorageUsageExpandableRow`).
+/// `JunkCleanupView`. Loại TTS và "Khác" chạm để bung dòng con (`StorageUsageExpandableRow`); dòng "Bộ đệm hệ thống" của
+/// "Khác" có nút "Xoá" riêng (`SystemCacheCleaner`, xoá xong đo lại rồi báo số đã giải phóng).
 ///
 /// Số liệu nằm ở `StorageUsageRepository` (1.3.730): mở màn hiện ngay lần đo gần nhất kèm giờ đo, rồi đo lại ngầm; thoát
 /// màn giữa chừng vẫn đo tiếp. Cả cây thư mục có thể hàng chục nghìn file (đoạn HLS, ảnh comic), nên hàng "Dung lượng"
@@ -17,6 +18,8 @@ struct StorageUsageView: View {
     @State private var pendingClear: StorageUsageSnapshot.Entry? = nil
     /// Bản đếm bìa đang chờ người dùng xác nhận dọn.
     @State private var pendingCoverTrim: CoverFolderScan? = nil
+    /// Số byte của "Bộ đệm hệ thống" đang chờ xác nhận xoá. Lúc xoá thì `clearingCategory == .other`.
+    @State private var pendingSystemCacheClear: Int64? = nil
     /// Loại đang bung dòng con (TTS, Khác).
     @State private var expandedCategories: Set<StorageUsageCategory> = []
 
@@ -48,7 +51,10 @@ struct StorageUsageView: View {
                             entry: entry,
                             color: color(at: index),
                             details: details,
-                            isExpanded: expansionBinding(for: entry.category)
+                            isExpanded: expansionBinding(for: entry.category),
+                            isClearingSystemCaches: clearingCategory == .other,
+                            isClearDisabled: isScanning || clearingCategory != nil,
+                            onClearSystemCaches: systemCacheClearAction(for: entry.category)
                         )
                         .bookListPanelRow()
                     }
@@ -102,6 +108,18 @@ struct StorageUsageView: View {
             }
         } message: { scan in
             Text(coverTrimMessage(scan))
+        }
+        .confirmationDialog(
+            pendingSystemCacheClear.map { "Xoá bộ đệm hệ thống (\(StorageUsageSnapshot.format($0)))?" } ?? "",
+            isPresented: Binding(get: { pendingSystemCacheClear != nil }, set: { if !$0 { pendingSystemCacheClear = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingSystemCacheClear
+        ) { _ in
+            Button("Xoá", role: .destructive) {
+                Task { await clearSystemCaches() }
+            }
+        } message: { _ in
+            Text("Hệ thống và app tự tạo lại khi cần. Lần đầu nạp Tăng tốc Core ML hay mở trang web sau khi xoá sẽ chậm hơn một chút. Không mất dữ liệu, không đăng xuất. Ảnh truyện tranh có nút riêng.")
         }
     }
 
@@ -229,6 +247,39 @@ struct StorageUsageView: View {
         let freed = max(0, before - (snapshot?.bytes(of: category) ?? 0))
         ToastManager.shared.show(
             message: "Đã xoá \(category.title.lowercased()) (\(StorageUsageSnapshot.format(freed)))",
+            type: .success,
+            recordsInInbox: false
+        )
+    }
+
+    // MARK: - Xoá bộ đệm hệ thống
+
+    /// Nút "Xoá" của dòng "Bộ đệm hệ thống" — chỉ hàng "Khác" có.
+    private func systemCacheClearAction(for category: StorageUsageCategory) -> ((Int64) -> Void)? {
+        guard category == .other else { return nil }
+        return { bytes in pendingSystemCacheClear = bytes }
+    }
+
+    private func systemCacheBytes(in snapshot: StorageUsageSnapshot?) -> Int64 {
+        snapshot?.details(of: .other).first { $0.kind == .systemCaches }?.bytes ?? 0
+    }
+
+    /// Xoá (hoặc báo lý do không xoá), đo lại, báo số đã giải phóng = trước − sau theo hai lần đo.
+    @MainActor
+    private func clearSystemCaches() async {
+        guard clearingCategory == nil else { return }
+        let before = systemCacheBytes(in: snapshot)
+        clearingCategory = .other
+        if let reason = await SystemCacheCleaner.clear() {
+            clearingCategory = nil
+            ToastManager.shared.show(message: reason, type: .info, recordsInInbox: false)
+            return
+        }
+        await repository.refreshAfterChange()
+        clearingCategory = nil
+        let freed = max(0, before - systemCacheBytes(in: snapshot))
+        ToastManager.shared.show(
+            message: "Đã xoá \(StorageUsageSnapshot.format(freed)) bộ đệm hệ thống.",
             type: .success,
             recordsInInbox: false
         )

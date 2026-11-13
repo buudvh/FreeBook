@@ -5,7 +5,7 @@ import Foundation
 /// loại luôn ra đúng số của loại đó.
 ///
 /// `Codable` vì nằm trong `StorageUsageSnapshot` đã lưu: thêm `Kind` mới thì bản đo cũ không giải được ⇒ snapshot cũ bị
-/// bỏ, màn đo lại — chấp nhận được.
+/// bỏ, màn đo lại — chấp nhận được. Trường mới thì để tuỳ chọn (`var … = nil`, như `children`) để bản đo cũ vẫn giải được.
 public struct StorageUsageDetail: Sendable, Codable, Identifiable {
     public enum Kind: String, Sendable, Codable, CaseIterable {
         // Thuộc `.tts` (cả `Application Support/FreeBook`).
@@ -38,6 +38,9 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
     public let bytes: Int64
     /// Số giọng (VieNeu Nano / Turbo, Piper) khi đếm được rẻ; `nil` = không ghi số.
     public let count: Int?
+    /// Dòng cháu (chỉ "Bộ đệm hệ thống" và "Không rõ chủ"), cộng lại đúng bằng `bytes`. `nil` ở bản đo cũ / dòng khác.
+    /// Phải là `var … = nil` (không phải `let`): `Decodable` tự sinh bỏ qua `let` có giá trị đầu.
+    public var children: [StorageUsageSubItem]? = nil
 
     public var id: String { kind.rawValue }
 

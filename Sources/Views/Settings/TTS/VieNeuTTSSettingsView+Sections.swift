@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Các khối thông tin của `VieNeuTTSSettingsView` (Nano, Tăng tốc Core ML, Turbo, giọng nhân bản) + số liệu đọc đĩa.
+/// Các khối thông tin của `VieNeuTTSSettingsView` (Nano, Tăng tốc Core ML, Turbo, giọng nhân bản) + hàng "Xoá tất cả dữ
+/// liệu Nano / Turbo" + số liệu đọc đĩa.
 /// Tách khỏi file chính vì trần 400 dòng; thành viên dùng chéo file để `internal`.
 extension VieNeuTTSSettingsView {
     /// Số liệu đọc từ đĩa của trang — dựng ngoài main (`loadDiskSnapshot`), không đọc trong `body`.
@@ -18,6 +19,10 @@ extension VieNeuTTSSettingsView {
         var nanoCustomBytes: Int64 = 0
         var turboCustomCount = 0
         var turboCustomBytes: Int64 = 0
+        /// Byte "Xoá tất cả dữ liệu Nano" lấy lại ở thư mục Nano (`VieNeuModelStore.removableBytes`, chưa cộng Core ML).
+        var nanoRemovableBytes: Int64 = 0
+        /// Byte "Xoá tất cả dữ liệu Turbo" lấy lại: cả `Models/` + `Voices/` của Turbo (model, manifest, giọng tải về).
+        var turboRemovableBytes: Int64 = 0
     }
 
     // MARK: - Nano
@@ -30,12 +35,44 @@ extension VieNeuTTSSettingsView {
             LabeledContent("Gói nhân bản giọng", value: snapshot.map {
                 $0.hasNanoClonePack ? "Đã tải · \(Self.size($0.nanoClonePackBytes))" : "Chưa tải"
             } ?? "…")
+            if snapshot != nil, nanoWipeBytes > 0 {
+                wipeRow(.nano, bytes: nanoWipeBytes)
+            }
         } header: {
             SectionHelpHeader("Nano", paragraphs: [
                 "VieNeu-TTS v3 **Nano** chạy hoàn toàn trên máy (ONNX Runtime, 24 kHz). Mọi giọng Nano dùng chung **một bộ graph** (8 file), nên tải một giọng là có cả bộ.",
-                "Tải ở **sheet chọn giọng** (hàng \"Giọng đọc VieNeu\" phía trên); xoá dữ liệu bằng cách **nhấn giữ** giọng ở đó."
+                "Tải ở **sheet chọn giọng** (hàng \"Giọng đọc VieNeu\" phía trên). **Xoá tất cả dữ liệu Nano** xoá cả bộ graph, gói nhân bản Nano và gói Tăng tốc Core ML; giọng nhân bản giữ nguyên."
             ])
         }
+    }
+
+    /// Dung lượng "Xoá tất cả dữ liệu Nano" lấy lại: thư mục Nano (đúng danh sách `deleteAll`) + gói và bản biên dịch Core ML.
+    var nanoWipeBytes: Int64 {
+        (snapshot?.nanoRemovableBytes ?? 0) + accelerator.packageBytes + accelerator.cacheBytes
+    }
+
+    /// Hàng "Xoá tất cả dữ liệu Nano / Turbo" (đỏ, dung lượng bên phải; đang xoá ⇒ vòng xoay). Bấm ⇒ hộp xác nhận ở file chính.
+    func wipeRow(_ model: VieNeuModelChoice, bytes: Int64) -> some View {
+        Button {
+            pendingWipe = model
+        } label: {
+            HStack(spacing: 12) {
+                Label("Xoá tất cả dữ liệu \(model.label)", systemImage: "trash")
+                Spacer(minLength: 8)
+                if wipingModel == model {
+                    ProgressView()
+                } else {
+                    Text(Self.size(bytes))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            // `.red` literal có chủ ý: hành động xoá, không theo màu nhấn.
+            .foregroundColor(.red)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(wipingModel != nil)
     }
 
     nonisolated private static func nanoStatus(_ snapshot: DiskSnapshot) -> String {
@@ -96,9 +133,13 @@ extension VieNeuTTSSettingsView {
                 Text("Bản build này chưa có audio.cpp")
                     .foregroundColor(.secondary)
             }
+            if let snapshot, snapshot.turboRemovableBytes > 0 {
+                wipeRow(.turbo, bytes: snapshot.turboRemovableBytes)
+            }
         } header: {
             SectionHelpHeader("Turbo", paragraphs: [
-                "VieNeu-TTS v3 **Turbo**: model GGUF q8_0 chạy trên máy qua **audio.cpp** (48 kHz). Model và dữ liệu từng giọng tải **theo giọng** ở sheet chọn giọng."
+                "VieNeu-TTS v3 **Turbo**: model GGUF q8_0 chạy trên máy qua **audio.cpp** (48 kHz). Model và dữ liệu từng giọng tải **theo giọng** ở sheet chọn giọng; xoá một giọng bằng nút 🗑 cuối hàng giọng đó.",
+                "**Xoá tất cả dữ liệu Turbo** xoá model và mọi giọng Turbo đã tải; giọng nhân bản giữ nguyên."
             ])
         }
     }
@@ -138,6 +179,7 @@ extension VieNeuTTSSettingsView {
             let custom = VieNeuCustomVoiceStore(rootURL: nano.rootURL)
             result.nanoCustomCount = custom.loadLeniently().count
             result.nanoCustomBytes = custom.totalBytes
+            result.nanoRemovableBytes = nano.removableBytes
         }
         if let turbo = try? VieNeuTurboModelStore() {
             result.hasTurboModel = turbo.hasModel
@@ -153,6 +195,7 @@ extension VieNeuTTSSettingsView {
             }
             result.turboCustomCount = (try? VieNeuTurboCustomVoiceStore(modelStore: turbo).load())?.count ?? 0
             result.turboCustomBytes = bytes(in: turbo.customVoicesURL)
+            result.turboRemovableBytes = bytes(in: turbo.modelsURL) + bytes(in: turbo.voicesURL)
         }
         return result
     }

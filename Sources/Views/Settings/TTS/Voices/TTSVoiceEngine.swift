@@ -44,7 +44,7 @@ enum TTSVoiceEngine: Hashable, Identifiable {
         case .siri:
             return ["Giọng Siri tải trong Cài đặt iOS › Trợ năng › Nội dung được đọc › Giọng nói › Tiếng Việt."]
         case .nghi:
-            return ["Giọng Piper chạy trên máy, mỗi giọng một file khoảng 61 MB. Tải giọng đầu tiên thì tự tải luôn thư viện phiên âm. Nhấn giữ giọng đã tải để xoá."]
+            return ["Giọng Piper chạy trên máy, mỗi giọng một file khoảng 61 MB. Tải giọng đầu tiên thì tự tải luôn thư viện phiên âm. Xoá giọng đã tải bằng nút 🗑 cuối hàng (hoặc nhấn giữ)."]
         case .google:
             return ["Giọng đọc qua mạng, cần API key (ô nhập ở Cài đặt TTS). Thử giọng tính vào hạn mức của key."]
         case .ext:

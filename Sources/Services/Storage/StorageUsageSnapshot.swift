@@ -1,8 +1,9 @@
 import Foundation
 
 /// Kết quả một lần đo của màn Dung lượng (`StorageUsageScanner.scan(junk:)`): bất biến, đi qua ranh giới luồng.
-/// `Codable` để `StorageUsageRepository` lưu lần đo gần nhất — mở màn là hiện ngay, không chờ đo lại. Chỉ lưu **số byte**,
-/// không lưu đường dẫn (iOS đổi đường dẫn container qua các bản cập nhật app).
+/// `Codable` để `StorageUsageRepository` lưu lần đo gần nhất — mở màn là hiện ngay, không chờ đo lại. Chỉ lưu **số byte**
+/// (cùng tên / đường dẫn **tương đối** của dòng cháu), không lưu đường dẫn container (iOS đổi nó qua các bản cập nhật app).
+/// Trường mới phải tuỳ chọn để bản đo đã lưu vẫn giải được.
 public struct StorageUsageSnapshot: Sendable, Codable {
     public struct Entry: Sendable, Codable, Identifiable {
         public let category: StorageUsageCategory

@@ -144,6 +144,16 @@ final class VieNeuTurboModelStore: Sendable {
         }
     }
 
+    /// Xoá cặp file của **một** giọng tải về (`Voices/<id>/`) — nút 🗑 ở sheet chọn giọng. Đi thẳng `voicesURL`, không qua
+    /// `voiceDirectory(voiceId:)` (id `custom_…` trỏ sang `CustomVoices/`): id tự tạo / id không an toàn ⇒ không làm gì.
+    /// Model + manifest giữ nguyên; bên gọi bảo đảm không có lượt tải Turbo đang chạy.
+    func deleteDownloadedVoice(voiceId: String) throws {
+        guard Self.isSafeVoiceId(voiceId), !Self.isCustomVoiceId(voiceId) else { return }
+        let directory = voicesURL.appendingPathComponent(voiceId, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: directory.path) else { return }
+        try FileManager.default.removeItem(at: directory)
+    }
+
     static func fileSize(at url: URL) -> Int64 {
         Int64(((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0)
     }

@@ -66,12 +66,40 @@ extension NghiTTSSettingsHubView {
             LabeledContent("Thư viện phiên âm", value: snapshot.map { loaded in
                 loaded.dictionaryBytes.map { "Đã tải · \(Self.size($0))" } ?? "Chưa tải"
             } ?? "…")
+            if let snapshot, !snapshot.voices.isEmpty {
+                wipeAllRow(bytes: snapshot.voiceBytes)
+            }
         } header: {
             SectionHelpHeader("Model", paragraphs: [
                 "NghiTTS là các giọng **Piper** chạy trên máy bằng **ONNX Runtime** — mỗi giọng một file model riêng.",
-                "Tải / thử / xoá giọng ở **Giọng đọc NghiTTS** phía trên. Thư viện phiên âm (từ tiếng nước ngoài, viết tắt) tự tải **cùng** giọng NghiTTS đầu tiên."
+                "Tải / thử / xoá từng giọng (nút 🗑 cuối hàng) ở **Giọng đọc NghiTTS** phía trên. Thư viện phiên âm (từ tiếng nước ngoài, viết tắt) tự tải **cùng** giọng NghiTTS đầu tiên.",
+                "**Xoá tất cả giọng NghiTTS** xoá mọi giọng trên máy, kể cả giọng nhập từ file; thư viện phiên âm giữ lại."
             ])
         }
+    }
+
+    /// Hàng "Xoá tất cả giọng NghiTTS" (đỏ, tổng dung lượng bên phải; đang xoá ⇒ vòng xoay). Bấm ⇒ hộp xác nhận ở file chính.
+    private func wipeAllRow(bytes: Int64) -> some View {
+        Button {
+            isWipeConfirmPresented = true
+        } label: {
+            HStack(spacing: 12) {
+                Label("Xoá tất cả giọng NghiTTS", systemImage: "trash")
+                Spacer(minLength: 8)
+                if isWiping {
+                    ProgressView()
+                } else {
+                    Text(Self.size(bytes))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            // `.red` literal có chủ ý: hành động xoá, không theo màu nhấn.
+            .foregroundColor(.red)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isWiping)
     }
 
     // MARK: - Giọng đã tải
@@ -89,7 +117,7 @@ extension NghiTTSSettingsHubView {
 
     // MARK: - Quản lý
 
-    /// Lối vào quản lý — từ điển phiên âm + cấu hình tiền xử lý (tải / xoá giọng ở sheet chọn giọng).
+    /// Lối vào quản lý — từ điển phiên âm + cấu hình tiền xử lý (tải / xoá từng giọng ở sheet chọn giọng).
     var managementSection: some View {
         Section {
             NavigationLink(destination: TTSDictionaryEditView()) {

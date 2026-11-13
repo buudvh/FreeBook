@@ -7,16 +7,36 @@ import Foundation
 /// (`JunkPaths`): `TTS/VieNeu/{Models,Assets}` = Nano (kể cả graph nhân bản Nano + gói nhân bản Turbo cất chung `Models/`),
 /// `TTS/VieNeu/CoreML` = Tăng tốc Core ML, `TTS/VieNeuTurbo/{Models,Voices}` = Turbo, hai `CustomVoices/` = giọng nhân bản,
 /// `TTS/Models` = Piper (NghiTTS), file nằm ngay trong `TTS/` = từ điển (phiên âm NghiTTS / VieNeu, bộ thay thế ký tự, bản
-/// phiên âm lại + bản sao lưu của nó), còn lại = "Khác của TTS".
+/// phiên âm lại + bản sao lưu của nó), còn lại = "Khác của TTS" (mỗi lần đo ghi một dòng log ~10 mục lớn nhất của nó).
 enum StorageUsageTTSBreakdown {
     struct Result {
         let totalBytes: Int64
         /// Chỉ dòng > 0 byte, theo thứ tự hiện.
         let details: [StorageUsageDetail]
+        /// Mục của "Khác của TTS" (đường dẫn tương đối với `Application Support/FreeBook`) → byte — chỉ để ghi log.
+        let otherTally: [String: Int64]
+
+        /// Một dòng log: tối đa `limit` mục lớn nhất của "Khác của TTS".
+        func logOther(limit: Int = 10) {
+            guard !otherTally.isEmpty else { return }
+            let total = otherTally.values.reduce(Int64(0), +)
+            let top = otherTally.sorted { $0.value > $1.value }.prefix(limit)
+                .map { "\($0.key) \(StorageUsageSnapshot.format($0.value))" }
+            AppLogger.shared.log(
+                "📦 [StorageUsage] Khác của TTS \(StorageUsageSnapshot.format(total)) (\(otherTally.count) mục): "
+                + top.joined(separator: " · ")
+            )
+        }
     }
 
     private static let order: [StorageUsageDetail.Kind] = [
         .vieNeuNano, .vieNeuNanoCoreML, .vieNeuTurbo, .clonedVoices, .nghiTTS, .ttsDictionaries, .ttsJunk, .ttsOther
+    ]
+
+    /// Các thư mục `classify` nhận ra — chỉ để gom mục "Khác của TTS" trong log (`StorageRelativePath.groupingRoot`).
+    private static let knownFolders = [
+        "TTS/VieNeu/CustomVoices", "TTS/VieNeuTurbo/CustomVoices", "TTS/VieNeu/CoreML", "TTS/VieNeu/Models",
+        "TTS/VieNeu/Assets", "TTS/VieNeuTurbo/Models", "TTS/VieNeuTurbo/Voices", "TTS/Models"
     ]
 
     /// `root` = thư mục của loại TTS (`StorageUsageCategory.tts`); `junk` = lượt quét rác cùng lần đo.
@@ -24,6 +44,7 @@ enum StorageUsageTTSBreakdown {
         let base = StorageRelativePath(root: root)
         let junkKeys = junk.relativeKeys(under: root)
         var bytes: [StorageUsageDetail.Kind: Int64] = [:]
+        var otherTally: [String: Int64] = [:]
         var total: Int64 = 0
 
         if let enumerator = FileManager.default.enumerator(
@@ -36,8 +57,13 @@ enum StorageUsageTTSBreakdown {
                 let size = StorageUsageScanner.fileSize(item)
                 guard size > 0 else { continue }
                 total += size
-                let kind = base.relative(item).map { classify($0, junkKeys: junkKeys) } ?? .ttsOther
+                let relative = base.relative(item)
+                let kind = relative.map { classify($0, junkKeys: junkKeys) } ?? .ttsOther
                 bytes[kind, default: 0] += size
+                if kind == .ttsOther {
+                    let key = relative.map { StorageRelativePath.groupingRoot(of: $0, knownRoots: knownFolders) } ?? "?"
+                    otherTally[key, default: 0] += size
+                }
             }
         }
 
@@ -51,7 +77,7 @@ enum StorageUsageTTSBreakdown {
             guard let value = bytes[kind], value > 0 else { return nil }
             return StorageUsageDetail(kind: kind, bytes: value, count: counts[kind])
         }
-        return Result(totalBytes: total, details: details)
+        return Result(totalBytes: total, details: details, otherTally: otherTally)
     }
 
     // MARK: - Phân loại

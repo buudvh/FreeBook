@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.923] - 2026-11-13
+
+### feat: Xoá được Bộ đệm hệ thống và xem thư mục Không rõ chủ ở màn Dung lượng, thêm nút xoá giọng đã tải và Xoá tất cả dữ liệu
+
+Anh Bửu chụp màn Dung lượng 1.3.920: "Khác" 8,31 GB (Bộ đệm hệ thống 7,05 GB, Không rõ chủ 1,24 GB) mà Dọn rác báo "Không có" — đúng luật (bộ đệm không phải dữ liệu "không còn dùng"). Anh duyệt plan dọn bộ đệm và mockup nút xoá.
+
+- **Bộ đệm hệ thống (Library/Caches) mở ra được** thành 4 nhóm lớn nhất + "Khác" (`SystemCacheTally`): Core ML của hệ thống (`com.apple.e5rt*` …), bộ đệm mạng (URLCache), bộ đệm web (WebKit), ảnh bìa tạm, ảnh đa nhiệm của hệ thống; còn lại theo tên thư mục.
+- **Nút "Xoá" Bộ đệm hệ thống** (`SystemCacheCleaner`, hỏi lại):
+  - Từ chối khi đang đọc truyện / Core ML đang chuẩn bị / đang có lượt xoá khác.
+  - Thứ tự: nhả backend Core ML của trình đọc → `URLCache.removeAllCachedResponses` → `WKWebsiteDataStore` chỉ các loại bộ đệm (cookie / đăng nhập giữ nguyên) → xoá mọi mục trong `Library/Caches`.
+  - Giữ thư mục của mục khác (`comic_images`, `comic_ocr`); `cover_images` chỉ làm trống.
+  - Kiểm đường dẫn (không thoát qua symlink). Mục lỗi gom một dòng `❌ [SystemCache]`.
+  - Trình đọc đang là VieNeu và gói Core ML đã qua tự kiểm ⇒ nạp sẵn lại Core ML ở nền.
+- **"Không rõ chủ" hiện 4 thư mục lớn nhất** (đường dẫn so với thư mục nhà) + "Còn lại", ngay dưới dòng đó. Log `[StorageUsage]` thêm 10 đường dẫn lớn nhất trong "Khác của TTS". Snapshot cũ vẫn đọc được (trường mới optional).
+- **Nút 🗑 cuối hàng** (`TTSVoiceDeleteButton`) ở sheet chọn giọng:
+  - Giọng NghiTTS đã tải (kể cả giọng nhập từ file).
+  - Giọng VieNeu Turbo đã tải, không phải giọng nhân bản: xoá riêng `Voices/<id>/` (`VieNeuTurboModelStore.deleteDownloadedVoice`), model giữ lại.
+  - Giọng Nano không có (dùng chung một gói).
+  - Hỏi lại; đang đọc đúng giọng đó ⇒ dừng phiên trước.
+- **"Xoá tất cả dữ liệu"** ở trang cài đặt, có dung lượng, ẩn khi chưa tải gì:
+  - **Cài đặt VieNeu TTS:** "Xoá tất cả dữ liệu Nano" (gói Nano + gói nhân bản + Tăng tốc Core ML) và "Xoá tất cả dữ liệu Turbo" (model + mọi giọng tải về).
+  - **Cài đặt NghiTTS:** "Xoá tất cả giọng NghiTTS" (`NghiVoiceDirectory.deleteAll`; giữ thư viện phiên âm).
+- Bỏ mục nhấn giữ "Xoá dữ liệu Nano / Turbo" trên giọng có sẵn (1.3.919) — thay bằng hai nút trên. Giọng nhân bản vẫn nhấn giữ để đổi tên / xoá.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.922] - 2026-11-13
 
 ### feat: Tải giọng NghiTTS hiện tiến độ theo từng byte và huỷ được giữa chừng
@@ -631,26 +656,3 @@ Phần bốn: chỗ thử lõi nhân bản giọng Turbo (1.3.891–892) trên m
   - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
   - **Chưa build** (Windows), chưa chạy trên máy.
   - Cần đo trên máy: thời gian khử nhiễu (DFT ma trận + UNet), đỉnh RAM lúc mã hoá (ước tính +200–250 MB trên model 188 MB), chất lượng giọng có / không khử nhiễu.
-
-## [1.3.893] - 2026-11-12
-
-### feat: tải gói nhân bản giọng VieNeu Turbo (speaker_encoder + denoiser) từ kho mirror
-
-Phần ba của lõi nhân bản giọng Turbo: hai graph ORT mà bước chuẩn bị mẫu (1.3.891) cần giờ tải được trong app.
-
-- **Gói nhân bản Turbo** = `speaker_encoder.onnx` + `denoiser.onnx`, dung lượng hằng **70.964.837 byte** (28.303.423 + 42.661.414, HF API `blobs=true` của kho mirror @ `3486d7da`).
-  - Tải từ `common/` của `raikiri1498/VieNeu-TTS` (`VieNeuModelMirror.nanoStorePath` đã trỏ hai tên này về đó), cất chung `VieNeuModelStore` (`Models/`) như `sea_g2p.bin`.
-  - `speaker_encoder.onnx` dùng chung với gói clone của Nano: có rồi thì không tải lại.
-- **`VieNeuModelStore`**: `turboCloneGraphNames`, `turboCloneByteCount`, `hasTurboCloneGraphs`, `missingTurboCloneGraphNames`, `turboCloneTotalBytes`, `deleteTurboCloneGraphs()`.
-  - Xoá model Nano khi máy còn model Turbo ⇒ **giữ** cả hai file (cùng chỗ giữ `sea_g2p.bin`). Không còn Turbo ⇒ xoá luôn `denoiser.onnx`, không để 42 MB mồ côi.
-  - Xoá gói clone Nano khi gói Turbo còn (`denoiser.onnx` trên đĩa) ⇒ giữ `speaker_encoder.onnx`.
-  - Xoá gói Turbo khi gói clone Nano còn graph khác ⇒ giữ `speaker_encoder.onnx`.
-- **`VieNeuModelClient`**: `turboCloneSources()` + `prefetchTurboCloneGraphs(progressHandler:)`, cùng khuôn tải từng file (file tạm `.partial` → `moveItem` nguyên tử).
-- **`ModelDownloadCenter`**: đích `vieNeu-turbo-clone` + `startVieNeuTurboClonePack()` ⇒ tiến độ sống qua việc rời màn, toast ở `MainTabView` như các gói khác.
-- **API cho UI**: `VieNeuTurboClonePack` — `byteCount`, `isReady`, `missingNames`, `bytesOnDisk`, `download()`, `isDownloading`, `delete()`, `downloadTarget`.
-  - `VieNeuTurboVoiceCloneCoordinator.readinessError` đọc tên file từ `turboCloneGraphNames`; tắt khử nhiễu thì chỉ cần `speaker_encoder.onnx`.
-- **Kiểm chứng:**
-  - Số byte lấy từ HF API, khớp file đã tải ở `D:\1.SOURCE_CODE\VieNeu-TTS\common`.
-  - Grep chéo mọi chỗ gọi `deleteAll()` / `deleteCloneGraphs()` của model store.
-  - `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**.
-  - **Chưa build** (Windows), chưa thử tải trong app.

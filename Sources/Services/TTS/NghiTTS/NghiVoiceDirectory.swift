@@ -129,6 +129,36 @@ final class NghiVoiceDirectory {
         reload()
     }
 
+    /// "Xoá tất cả giọng NghiTTS" (trang Cài đặt NghiTTS): xoá file model của **mọi** giọng trên máy — danh mục lẫn tự nhập,
+    /// lấy id mới từ đĩa chứ không từ bản chụp. Thư viện phiên âm giữ lại. Trình đọc NghiTTS đang có phiên ⇒ dừng trước;
+    /// trình đọc là NghiTTS ⇒ bỏ chọn giọng (như `delete`). Lượt tải đang chạy ghi `.partial` rồi mới đổi tên nên không bị
+    /// xoá dở. Trả số giọng đã xoá; lỗi giữa chừng ⇒ vẫn đọc lại đĩa rồi ném lỗi.
+    func deleteAll() async throws -> Int {
+        let tts = TTSManager.shared
+        if tts.tool == "nghitts", tts.isPlaying || tts.showFloatingWidget {
+            AppLogger.shared.log("⏹️ [NghiTTS] Dừng TTS trước khi xoá tất cả giọng")
+            tts.stop()
+        }
+        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<Int, Error> in
+            Result {
+                let store = try ModelStore()
+                let ids = store.getLocalVoiceIDs()
+                for id in ids {
+                    try store.deleteModel(for: id)
+                }
+                return ids.count
+            }
+        }.value
+        if case .success = outcome, tts.tool == "nghitts" {
+            tts.selectedVoice = ""
+        }
+        selectionRevision += 1
+        reload()
+        let removed = try outcome.get()
+        AppLogger.shared.log("🗑️ [NghiTTS] Đã xoá tất cả \(removed) giọng")
+        return removed
+    }
+
     /// Đọc lại đĩa ngoài main. Gọi chồng lúc đang đọc ⇒ đọc thêm một lượt sau khi lượt đang chạy xong.
     func reload() {
         guard reloadTask == nil else {

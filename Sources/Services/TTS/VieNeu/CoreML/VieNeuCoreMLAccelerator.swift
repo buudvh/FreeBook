@@ -209,8 +209,8 @@ final class VieNeuCoreMLAccelerator {
         statusLine = "Đang dừng sau bước hiện tại…"
     }
 
-    /// "Xoá dữ liệu Nano" (nhấn giữ giọng Nano ở sheet chọn giọng): nhả backend rồi xoá gói + bản biên dịch. Đang chuẩn bị
-    /// ⇒ bỏ qua (bên gọi `cancel()` trước).
+    /// "Xoá tất cả dữ liệu Nano" (nút ở mục Nano của Cài đặt VieNeu TTS): nhả backend rồi xoá gói + bản biên dịch.
+    /// Đang chuẩn bị ⇒ bỏ qua (bên gọi `cancel()` trước).
     func deleteData() {
         guard !isBusy, let package else { return }
         VieNeuCoreMLReaderRoute.shared.release(reason: "xoá gói Core ML")

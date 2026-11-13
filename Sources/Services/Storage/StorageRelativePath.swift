@@ -44,4 +44,17 @@ struct StorageRelativePath: Sendable {
     static func isAncestor(_ relative: String, of descendant: String) -> Bool {
         relative.isEmpty ? !descendant.isEmpty : descendant.hasPrefix(relative + "/")
     }
+
+    /// Thư mục / file nông nhất chứa `relative` mà không phải cha của gốc đã biết nào — đơn vị gom của các dòng log / dòng
+    /// cháu "không rõ chủ" (vd `Library/Application Support/ai_memory`, `Library/Preferences`, `TTS/VieNeu/foo`).
+    static func groupingRoot(of relative: String, knownRoots: [String]) -> String {
+        var prefix = ""
+        for component in relative.split(separator: "/") {
+            prefix = prefix.isEmpty ? String(component) : prefix + "/" + component
+            if !knownRoots.contains(where: { isAncestor(prefix, of: $0) }) {
+                return prefix
+            }
+        }
+        return relative
+    }
 }

@@ -8,6 +8,8 @@ import SwiftUI
 ///
 /// - Giọng Nano đã tải mà Tăng tốc Core ML đang chuẩn bị (1.3.919, luôn bật) ⇒ dòng phụ là bước đang chạy
 ///   ("Tăng tốc Core ML · tải 52% · 139 / 267 MB", "· biên dịch 3/7", "· tự kiểm chất lượng") + thanh mảnh.
+/// - `onDelete` khác `nil` ⇒ nút 🗑 đỏ cuối hàng, sau badge (giọng Turbo tải về đã có file). Giọng Nano có sẵn dùng chung
+///   một gói nên không có nút riêng; giọng nhân bản giữ nhấn giữ Đổi tên / Xoá.
 ///
 /// Hàng chỉ vẽ; trạng thái do sheet tính sẵn và truyền vào.
 struct VieNeuVoiceListRow: View {
@@ -22,6 +24,8 @@ struct VieNeuVoiceListRow: View {
     var coreMLStage: (text: String, fraction: Double?)?
     let onPrimary: () -> Void
     let onSelect: () -> Void
+    /// Nút xoá cuối hàng; `nil` = không hiện.
+    var onDelete: (() -> Void)?
 
     private var isDownloading: Bool { download?.state.isRunning ?? false }
 
@@ -62,6 +66,10 @@ struct VieNeuVoiceListRow: View {
             }
             .buttonStyle(.plain)
             .disabled(!isReady)
+
+            if let onDelete {
+                TTSVoiceDeleteButton(voiceName: entry.name, action: onDelete)
+            }
         }
         .padding(.vertical, 2)
     }

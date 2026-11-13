@@ -19,6 +19,7 @@ public enum StorageUsageScanner {
                 let tts = StorageUsageTTSBreakdown.measure(root: root, junk: junk)
                 bytes = tts.totalBytes
                 details += tts.details
+                tts.logOther()
             } else {
                 bytes = category.locations.reduce(Int64(0)) { $0 + size(of: $1) }
             }

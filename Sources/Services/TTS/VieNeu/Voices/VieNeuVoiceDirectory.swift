@@ -78,6 +78,12 @@ final class VieNeuVoiceDirectory {
         }
     }
 
+    /// Giọng Turbo **tải về** (không phải giọng tự tạo) đang có cặp file trên máy — nút 🗑 của hàng đó ở sheet chọn giọng.
+    /// Chỉ xét file của giọng, không xét model: giọng còn file thì xoá được kể cả khi model thiếu.
+    func isTurboVoiceDownloaded(_ entry: VieNeuVoiceEntry) -> Bool {
+        entry.model == .turbo && !entry.isMine && snapshot.downloadedTurboVoiceIds.contains(entry.selection.voiceId)
+    }
+
     /// Byte còn phải tải cho giọng này (file giọng Turbo vài KB không tính).
     func missingBytes(for entry: VieNeuVoiceEntry) -> Int64 {
         entry.model == .nano ? snapshot.nanoMissingBytes : snapshot.turboBaseMissingBytes

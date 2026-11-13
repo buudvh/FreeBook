@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 /// - "Giọng đặc sắc" (4 giọng), "Giọng khác" (phần còn lại của danh mục, đã tải lên trước), "Giọng của tôi" (giọng tự nhập).
 /// - Đã tải ⇒ ▶ thử giọng (`TTSVoicePreviewPlayer`, engine của trình đọc), dòng phụ dung lượng; chưa tải ⇒ ⬇ tải qua
 ///   `ModelDownloadCenter` (kèm thư viện phiên âm nếu máy chưa có), tiến độ trên hàng; đích NghiTTS không huỷ được.
-/// - Nhấn giữ giọng đã tải ⇒ "Xoá giọng" (hỏi lại). Chạm hàng đã tải = chọn giọng (`NghiVoiceDirectory.select`).
+/// - Giọng đã tải (danh mục lẫn tự nhập, không lúc đang tải) có nút 🗑 cuối hàng; nút đó hoặc nhấn giữ ⇒ "Xoá giọng" (hỏi
+///   lại). Chạm hàng đã tải = chọn giọng (`NghiVoiceDirectory.select`).
 /// - Đang tìm thì ẩn hàng nhập file; nhóm không còn giọng khớp thì ẩn cả nhóm.
 struct NghiVoicePickerList: View {
     /// Chữ ô tìm (chưa chuẩn hoá).
@@ -143,7 +144,8 @@ struct NghiVoicePickerList: View {
             primary: primary,
             badge: .light,
             onPrimary: { primaryTapped(voice) },
-            onSelect: { select(voice) }
+            onSelect: { select(voice) },
+            onDelete: bytes != nil && !isDownloading ? { pendingDeletion = voice } : nil
         )
         if bytes != nil {
             listRow.contextMenu {

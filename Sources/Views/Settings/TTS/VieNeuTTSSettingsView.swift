@@ -1,10 +1,10 @@
 import Combine
 import SwiftUI
 
-/// Trang **"Cài đặt VieNeu TTS"** (Cài đặt › Đọc & Nghe › Nghe truyện (TTS)) — **chỉ hiện thông tin**: giọng đang dùng,
-/// model Nano / Turbo, Tăng tốc Core ML, giọng nhân bản và lối vào từ điển phiên âm tiếng Nhật. Không có nút tải / xoá /
-/// thử: tải theo giọng, nghe thử và xoá (nhấn giữ) đều ở sheet chọn giọng (`VieNeuVoicePickerSheet`). Thay màn thử giọng
-/// Nano + màn thử Turbo cũ.
+/// Trang **"Cài đặt VieNeu TTS"** (Cài đặt › Đọc & Nghe › Nghe truyện (TTS)) — thông tin giọng đang dùng, model Nano / Turbo,
+/// Tăng tốc Core ML, giọng nhân bản và lối vào từ điển phiên âm tiếng Nhật. Tải theo giọng, nghe thử và xoá từng giọng Turbo
+/// (nút 🗑) ở sheet chọn giọng (`VieNeuVoicePickerSheet`); trang này chỉ có hai nút **xoá cả gói** ở cuối mục Nano / Turbo
+/// ("Xoá tất cả dữ liệu …", hỏi lại, `VieNeuModelDataRemover`). Thay màn thử giọng Nano + màn thử Turbo cũ.
 ///
 /// Dung lượng đọc đĩa ở nền (`DiskSnapshot`, `.task` + `Task.detached`), không trong `body`; đọc lại khi sheet chọn giọng
 /// đóng và khi một lượt tải VieNeu kết thúc. Phần Tăng tốc Core ML đọc thẳng `VieNeuCoreMLAccelerator` (`@Observable`),
@@ -15,6 +15,9 @@ struct VieNeuTTSSettingsView: View {
     /// Tăng khi sheet chọn giọng đóng ⇒ `body` đọc lại giọng đang dùng (không observe `TTSManager`).
     @State private var selectionToken = 0
     @State private var isVieNeuDownloadRunning = false
+    /// Gói đang chờ xác nhận "Xoá tất cả dữ liệu …" / gói đang xoá (vòng xoay trên hàng). `internal` vì hàng nằm ở `+Sections`.
+    @State var pendingWipe: VieNeuModelChoice?
+    @State var wipingModel: VieNeuModelChoice?
 
     var directory: VieNeuVoiceDirectory { .shared }
     var accelerator: VieNeuCoreMLAccelerator { .shared }
@@ -41,6 +44,16 @@ struct VieNeuTTSSettingsView: View {
             directory.reload()
             accelerator.refresh()
             Task { await reloadSnapshot() }
+        }
+        .confirmationDialog(
+            "Xoá tất cả dữ liệu \(pendingWipe?.label ?? "")?",
+            isPresented: Binding(get: { pendingWipe != nil }, set: { if !$0 { pendingWipe = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Xoá tất cả", role: .destructive) { commitWipe() }
+            Button("Huỷ", role: .cancel) { pendingWipe = nil }
+        } message: {
+            Text(wipeMessage)
         }
         // Lượt tải VieNeu (bấm ở sheet chọn giọng) xong ⇒ đọc lại dung lượng. `$entries` phát **trước** khi gán nên
         // tính từ giá trị được phát, không từ `isVieNeuBusy`.
@@ -99,6 +112,43 @@ struct VieNeuTTSSettingsView: View {
             }
         } header: {
             SectionHelpHeader("Tiếng Nhật", paragraphs: ["Từ điển **riêng của VieNeu**, độc lập với từ điển của NghiTTS. Bật/tắt áp dụng ở **Cài đặt TTS → Quản lý riêng của trình đọc**; cả hai công tắc ở đó mặc định **tắt**."])
+        }
+    }
+
+    // MARK: - Xoá cả gói
+
+    private var wipeMessage: String {
+        switch pendingWipe {
+        case .nano:
+            return "Xoá model Nano, gói nhân bản Nano và gói Tăng tốc Core ML (\(Self.size(nanoWipeBytes))). Giọng nhân bản giữ nguyên; tải lại ở sheet chọn giọng."
+        case .turbo:
+            let count = snapshot?.turboVoiceCount ?? 0
+            return "Xoá model Turbo và \(count) giọng Turbo đã tải (\(Self.size(snapshot?.turboRemovableBytes ?? 0))). Giọng nhân bản giữ nguyên; tải lại ở sheet chọn giọng."
+        case nil:
+            return ""
+        }
+    }
+
+    /// Xoá cả gói (đã xác nhận): service tự từ chối khi đang tải / đang chuẩn bị Core ML và tự dừng trình đọc đang dùng
+    /// model đó; View báo kết quả bằng toast rồi đọc lại số liệu.
+    private func commitWipe() {
+        guard let model = pendingWipe, wipingModel == nil else { return }
+        pendingWipe = nil
+        wipingModel = model
+        VieNeuVoicePreviewPlayer.shared.stop()
+        Task {
+            do {
+                switch model {
+                case .nano: try await VieNeuModelDataRemover.deleteNano()
+                case .turbo: try await VieNeuModelDataRemover.deleteTurbo()
+                }
+                ToastManager.shared.show(message: "Đã xoá tất cả dữ liệu \(model.label).", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Xoá dữ liệu \(model.label) thất bại: \(error.localizedDescription)", type: .error)
+            }
+            accelerator.refresh()
+            await reloadSnapshot()
+            wipingModel = nil
         }
     }
 

@@ -178,6 +178,11 @@ final class VieNeuModelStore {
     /// graph mồ côi thì lần sau tải lại cũng vô ích. **Không** đụng giọng user — chúng nằm ở thư mục riêng
     /// `CustomVoices/` (xem `VieNeuCustomVoiceStore`), không phải `Models/`/`Assets/`.
     func deleteAll() throws {
+        try delete(names: removableNames)
+    }
+
+    /// Đúng các file `deleteAll` sẽ xoá (không trùng tên).
+    var removableNames: [String] {
         var names = Self.requiredNames + Self.cloneGraphNames + Self.turboCloneGraphNames
         // `sea_g2p.bin` là bộ phiên âm **dùng chung** với VieNeu Turbo (`VieNeuTurboTextFrontend`). Máy còn model Turbo
         // thì giữ lại: xoá đi là Turbo hỏng ngầm — model hiệu lực lật về Nano (vừa bị xoá), trình đọc không còn engine.
@@ -186,7 +191,12 @@ final class VieNeuModelStore {
             let shared = Set(["sea_g2p.bin"] + Self.turboCloneGraphNames)
             names.removeAll { shared.contains($0) }
         }
-        try delete(names: Array(Set(names)))
+        return Array(Set(names))
+    }
+
+    /// Dung lượng `deleteAll` sẽ lấy lại — nút "Xoá tất cả dữ liệu Nano" ở Cài đặt VieNeu TTS (chưa cộng gói Core ML).
+    var removableBytes: Int64 {
+        byteCount(of: removableNames)
     }
 
     /// Xoá **chỉ 3 graph clone** của Nano — dùng khi người dùng muốn thu hồi riêng gói tuỳ chọn này. Gói nhân bản Turbo

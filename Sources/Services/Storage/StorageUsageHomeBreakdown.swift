@@ -7,28 +7,36 @@ import Foundation
 ///   phần đó chỉ rơi vào "không rõ chủ" (là phần còn lại), không làm sai tổng hay cộng trùng.
 /// - Gốc tính tương đối với chính thư mục nhà (`StorageRelativePath` chịu cả hai dạng `/private/var` và `/var`).
 /// - "Không rõ chủ" chỉ hiện, không bao giờ tự xoá; mỗi lần đo ghi một dòng log ~10 mục lớn nhất để sau này phân loại.
+/// - Hai dòng có dòng cháu (`StorageUsageSubItem`, 4 mục lớn nhất + phần còn lại): "Bộ đệm hệ thống" theo nhóm tên dễ hiểu
+///   của các mục ngay trong `Library/Caches` (`SystemCacheTally`), "Không rõ chủ" theo đường dẫn tương đối với thư mục nhà.
 enum StorageUsageHomeBreakdown {
     struct Result {
         let homeBytes: Int64
         let temporaryBytes: Int64
         let cachesBytes: Int64
         let webBytes: Int64
-        /// Mục không rõ chủ (đường dẫn tương đối với thư mục nhà) → byte — chỉ để ghi log.
+        /// Phần bộ đệm hệ thống theo mục ngay trong `Library/Caches` (không gồm thư mục của các loại).
+        let cachesTally: SystemCacheTally
+        /// Mục không rõ chủ (đường dẫn tương đối với thư mục nhà) → byte — cho dòng log và dòng cháu.
         let unknownTally: [String: Int64]
 
         /// Dòng con của "Khác": cắt theo `otherBytes` để các dòng cộng lại đúng bằng số của "Khác"; "không rõ chủ" là phần
-        /// còn lại.
+        /// còn lại. Dòng cháu cắt theo số của dòng con đã cắt.
         func details(otherBytes: Int64) -> [StorageUsageDetail] {
             let other = max(0, otherBytes)
             let temporary = min(max(0, temporaryBytes), other)
             let caches = min(max(0, cachesBytes), other - temporary)
             let web = min(max(0, webBytes), other - temporary - caches)
             let unknown = other - temporary - caches - web
+            let cachesChildren = StorageUsageSubItem.top(
+                cachesTally.groups(), total: caches, remainderTitle: SystemCacheTally.remainderTitle
+            )
+            let unknownChildren = StorageUsageSubItem.top(unknownTally, total: unknown, remainderTitle: "Còn lại")
             return [
                 StorageUsageDetail(kind: .temporary, bytes: temporary, count: nil),
-                StorageUsageDetail(kind: .systemCaches, bytes: caches, count: nil),
+                StorageUsageDetail(kind: .systemCaches, bytes: caches, count: nil, children: cachesChildren),
                 StorageUsageDetail(kind: .webData, bytes: web, count: nil),
-                StorageUsageDetail(kind: .unknown, bytes: unknown, count: nil)
+                StorageUsageDetail(kind: .unknown, bytes: unknown, count: nil, children: unknownChildren)
             ].filter { $0.bytes > 0 }
         }
 
@@ -76,6 +84,7 @@ enum StorageUsageHomeBreakdown {
         var temporaryBytes: Int64 = 0
         var cachesBytes: Int64 = 0
         var webBytes: Int64 = 0
+        var cachesTally = SystemCacheTally()
         var tally: [String: Int64] = [:]
 
         if let enumerator = fileManager.enumerator(
@@ -100,16 +109,19 @@ enum StorageUsageHomeBreakdown {
                     temporaryBytes += size
                 } else if StorageRelativePath.isSameOrInside(relative, caches) {
                     cachesBytes += size
+                    if relative.count > caches.count + 1 {
+                        cachesTally.add(relative: String(relative.dropFirst(caches.count + 1)), bytes: size)
+                    }
                 } else if web.contains(where: { StorageRelativePath.isSameOrInside(relative, $0) }) {
                     webBytes += size
                 } else {
-                    tally[unknownRoot(of: relative, knownRoots: knownRoots), default: 0] += size
+                    tally[StorageRelativePath.groupingRoot(of: relative, knownRoots: knownRoots), default: 0] += size
                 }
             }
         }
         return Result(
             homeBytes: total, temporaryBytes: temporaryBytes, cachesBytes: cachesBytes, webBytes: webBytes,
-            unknownTally: tally
+            cachesTally: cachesTally, unknownTally: tally
         )
     }
 
@@ -131,18 +143,5 @@ enum StorageUsageHomeBreakdown {
             name = relative
         }
         return rules.contains { $0.directory == directory && name.hasPrefix($0.prefix) }
-    }
-
-    /// Thư mục / file nông nhất chứa `relative` mà không phải cha của gốc đã biết nào — đơn vị gom của log "không rõ chủ"
-    /// (vd `Library/Application Support/ai_memory`, `Library/Preferences`).
-    private static func unknownRoot(of relative: String, knownRoots: [String]) -> String {
-        var prefix = ""
-        for component in relative.split(separator: "/") {
-            prefix = prefix.isEmpty ? String(component) : prefix + "/" + component
-            if !knownRoots.contains(where: { StorageRelativePath.isAncestor(prefix, of: $0) }) {
-                return prefix
-            }
-        }
-        return relative
     }
 }

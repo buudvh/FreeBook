@@ -5,6 +5,8 @@ import SwiftUI
 /// - Nút tròn 36 pt bên trái: ▶ thử giọng; ■ khi đang thử **hoặc** đang tải (bấm = huỷ tải, 1.3.922); ⬇ khi chưa tải.
 /// - Thân hàng: tên + dòng phụ (hoặc chữ tiến độ + thanh mảnh khi đang tải), ✓ nếu là giọng đang chọn, badge. Chạm thân
 ///   hàng = chọn giọng — chỉ khi giọng dùng được ngay (`isReady`).
+/// - `onDelete` khác `nil` ⇒ nút 🗑 đỏ cuối hàng, sau badge (giọng offline đã tải — NghiTTS). Nút riêng, không nằm trong
+///   thân hàng nên không bị tắt theo `isReady`.
 ///
 /// Hàng chỉ vẽ; trạng thái do danh sách tính sẵn và truyền vào.
 struct TTSVoiceListRow: View {
@@ -31,6 +33,8 @@ struct TTSVoiceListRow: View {
     let badge: TTSVoiceBadge
     let onPrimary: () -> Void
     let onSelect: () -> Void
+    /// Nút xoá cuối hàng; `nil` = không hiện.
+    var onDelete: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -69,6 +73,10 @@ struct TTSVoiceListRow: View {
             }
             .buttonStyle(.plain)
             .disabled(!isReady)
+
+            if let onDelete {
+                TTSVoiceDeleteButton(voiceName: name, action: onDelete)
+            }
         }
         .padding(.vertical, 2)
     }
