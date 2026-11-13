@@ -302,6 +302,7 @@ extension VieNeuTurboLab {
         guard !autoRun.isActive else { return }
         soak.stop(reason: "rời màn thử")
         epProbe.stop()
+        coreMLLoad.stop()
         stopSample()
         endNanoOverride()
         let runtime = self.runtime

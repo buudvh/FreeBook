@@ -141,4 +141,24 @@ extension VieNeuTurboLab {
             }
         }
     }
+
+    /// Phép đo P2a "Đo nạp Core ML": dọn như So EP (dừng TTS + các lượt khác, nhả Turbo + engine Nano) để CPU-giây đo
+    /// được chỉ là phần nạp model.
+    func startCoreMLLoadProbe() {
+        guard !isBusy else { return }
+        coreMLLoad.start { [weak self] in
+            guard let self else { return }
+            stopSample()
+            soak.stop(reason: "chạy Đo nạp Core ML")
+            takeOverAudio()
+            await releaseTask?.value
+            await nanoRestoreTask?.value
+            await runtime.release()
+            frontend?.unload()
+            isRuntimeLoaded = false
+            if let service = VieNeuTTSService.shared {
+                _ = await Task.detached(priority: .utility) { service.releaseEngineRuntime() }.value
+            }
+        }
+    }
 }

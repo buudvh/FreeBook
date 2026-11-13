@@ -147,24 +147,9 @@ enum VieNeuCoreMLPreparer {
     ) throws -> Bool {
         let manifest = backend.manifest
         let golden = try VieNeuNanoGolden(url: backend.package.url("golden.npz"), chunkCount: manifest.goldenChunks)
-        let length = Int64(manifest.lengthFrozen)
-        let dim = Int64(VieNeuCoreMLFlowBackend.contextDim)
-        let styleRows = golden.style.count / VieNeuCoreMLFlowBackend.contextDim
-        let grid: [Double] = golden.grid.map { Double($0) }
-        let nullMask: [UInt8] = golden.nullCtxMask.map { $0 > 0.5 ? UInt8(1) : UInt8(0) }
-        let shape: [Int64] = [1, length, dim]
         var passed = true
         for (index, chunk) in golden.chunks.enumerated() {
-            let mask: [UInt8] = chunk.ctxMask.map { $0 > 0.5 ? UInt8(1) : UInt8(0) }
-            let request = VieNeuFlowRequest(
-                latent: chunk.x0, frames: chunk.frames, latentChannels: VieNeuNanoGolden.channels,
-                grid: grid, cfg: VieNeuNanoEPWorker.cfg,
-                context: chunk.ctx, contextShape: shape, mask: mask,
-                speaker: golden.spk, style: golden.style, styleRows: styleRows,
-                styleColumns: VieNeuCoreMLFlowBackend.contextDim,
-                nullContext: golden.nullCtx, nullContextShape: shape, nullMask: nullMask,
-                nullSpeaker: golden.nullSpk, nullStyle: golden.nullStyle
-            )
+            let request = goldenRequest(chunk, golden: golden, manifest: manifest)
             for veBucket in manifest.veBuckets.sorted() where veBucket >= chunk.frames {
                 try Task.checkCancellation()
                 progress("Tự kiểm đoạn \(index + 1)/\(golden.chunks.count) · VE T\(veBucket)…")
@@ -188,6 +173,26 @@ enum VieNeuCoreMLPreparer {
             }
         }
         return passed
+    }
+
+    /// Request của một đoạn golden (ctx đệm tới `lengthFrozen`, CFG như phép thử P1) — dùng chung cho tự kiểm và phép
+    /// thử bỏ bản trọng số thừa của `VieNeuCoreMLLoadWorker`.
+    static func goldenRequest(
+        _ chunk: VieNeuNanoGolden.Chunk,
+        golden: VieNeuNanoGolden,
+        manifest: VieNeuCoreMLPackage.Manifest
+    ) -> VieNeuFlowRequest {
+        let shape: [Int64] = [1, Int64(manifest.lengthFrozen), Int64(VieNeuCoreMLFlowBackend.contextDim)]
+        return VieNeuFlowRequest(
+            latent: chunk.x0, frames: chunk.frames, latentChannels: VieNeuNanoGolden.channels,
+            grid: golden.grid.map { Double($0) }, cfg: VieNeuNanoEPWorker.cfg,
+            context: chunk.ctx, contextShape: shape, mask: chunk.ctxMask.map { $0 > 0.5 ? UInt8(1) : UInt8(0) },
+            speaker: golden.spk, style: golden.style, styleRows: golden.style.count / VieNeuCoreMLFlowBackend.contextDim,
+            styleColumns: VieNeuCoreMLFlowBackend.contextDim,
+            nullContext: golden.nullCtx, nullContextShape: shape,
+            nullMask: golden.nullCtxMask.map { $0 > 0.5 ? UInt8(1) : UInt8(0) },
+            nullSpeaker: golden.nullSpk, nullStyle: golden.nullStyle
+        )
     }
 
     /// "1 partition Core ML" từ log ORT (`number of partitions supported by CoreML: N`).

@@ -2,6 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.912] - 2026-11-13
+
+### feat: Màn thử VieNeu có Đo nạp Core ML để tìm vì sao nạp session lâu và bản biên dịch nặng 4 GB
+
+Anh Bửu gửi kết quả đo tự động 1.3.911 (1249) ở QoS trình đọc. Core ML CPU-only thắng ở trạng thái ổn định:
+- RTF 0,14, so với ORT 0,27 (lượt ORT 3, khớp trình đọc 0,28);
+- tổng hợp nhanh 2,06×, CPU vòng Euler ít hơn 3,46×;
+- CPU mỗi giây tiếng 0,20, so với 0,55;
+- hụt tiếng 0, lùi ORT 0/304.
+
+Lượt ORT 1 không dùng làm mốc (pin 25 → 10%, chạy trước lượt 2 khoảng 11 tiếng). Hai chặn còn lại trước khi đưa Core ML vào trình đọc:
+- nạp 7 session mất ~110 s mỗi lần (kể cả nạp lại ấm) và làm máy nóng;
+- bản biên dịch chiếm 4,16 GB.
+
+Anh duyệt plan P2a: chỉ đo, không đụng đường đọc truyện. Chi tiết ở §12 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Mục mới "Đo nạp Core ML (P2a)"** ở màn thử VieNeu Turbo (`VieNeuCoreMLLoadProbe` + `VieNeuCoreMLLoadWorker`, chạy `userInitiated`, giữ màn sáng). Dùng gói + bản biên dịch của Đo tự động, không tải hay biên dịch thêm. Phép đo làm 4 việc:
+  1. Dung lượng từng mục cache: phần gói ORT ghi ra, phần `compiled_model.mlmodelc`, các file ≥ 1 MB (`VieNeuCoreMLCacheInventory`).
+  2. Băm mọi `weight.bin` để tìm bản trùng byte giữa các bucket.
+  3. Nạp VE và codec bucket nhỏ nhất bằng ba cách, ghi giây + CPU-giây + nhiệt:
+     - ORT CPU, không Core ML;
+     - **Core ML gốc** (`MLModel(contentsOf:)`, `.cpuOnly`), đọc thẳng bản biên dịch;
+     - **ORT + Core ML EP** như lượt đọc, kèm dấu hiệu ORT ghi lại gói.
+
+     Core ML gốc và ORT + Core ML EP mỗi cách 2 lần, xen kẽ.
+  4. Thử **bỏ bản trọng số của gói** ở VE bucket nhỏ nhất: đổi tên file, nạp lại, kiểm ORT còn trúng bản lưu và tự kiểm golden vẫn đúng, rồi trả file về.
+     - Bị ngắt giữa chừng ⇒ lần chạy sau hoặc lần mở màn thử tự trả file về (`restoreTrimmed`).
+- Tách `VieNeuCoreMLPreparer.goldenRequest` (dùng chung với tự kiểm) và `VieNeuCoreMLFlowBackend.coreMLOptions` (một chỗ cho tuỳ chọn Core ML EP, để phép đo trúng đúng bản biên dịch của lượt đọc).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.911] - 2026-11-12
 
 ### fix: Đo tự động chạy Nano ở mức ưu tiên như trình đọc và không xoá nhầm bản biên dịch Core ML đã xong
@@ -554,16 +584,3 @@ Anh Bửu nghe Turbo trên truyện thật ở tốc độ phát **1,4×**: Minh
 - `VieNeuTurboRuntime.synthesize(…, qos:)` (mặc định `.utility`): mỗi lượt chạy trên hàng đợi tuần tự với QoS riêng (`async(qos:flags: .enforceQoS)`). Không OpenMP ⇒ ggml tạo luồng tính mới mỗi lượt từ chính luồng gọi, luồng mới mang QoS của nó ⇒ nâng QoS một lượt là cả lượt chạy ở mức đó. `Output.qosName` = QoS **đo được** (`qos_class_self()`).
 - Màn thử › Đọc liên tục (Turbo): Picker QoS utility / userInitiated (`VieNeuTurboLab.turboQoS`, chỉ cho lượt đo); "Đọc thử một lần" cũng theo lựa chọn này. Mỗi dòng đoạn ghi "QoS tổng hợp …" đo được; mô tả engine ghi QoS đã chọn; chú thích "Nghe ở 1,4× cần RTF dưới 0,71".
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
-
-## [1.3.882] - 2026-11-11
-
-### fix: xoá model Nano không làm hỏng Turbo, màn thử hết đua khi đổi Nano/Turbo
-
-Rà soát độc lập (agent) cả đợt 1.3.878–1.3.881 trước khi build lần đầu: không thấy lỗi biên dịch chắc chắn, có 4 lỗi logic — sửa cả 4.
-
-- **Xoá model Nano xoá luôn `sea_g2p.bin`** — bộ phiên âm dùng chung với Turbo ⇒ model hiệu lực lật về Nano (vừa bị xoá), trình đọc đang chọn Turbo hỏng ngầm, mỗi đoạn lỗi thiếu model. `VieNeuModelStore.deleteAll` nay giữ `sea_g2p.bin` khi máy còn model Turbo.
-- **Đua ở màn thử**: lượt trả engine Nano về cấu hình người dùng (`endNanoOverride`) chạy Task không giữ lại, có thể chặn vài giây rồi nhả Turbo / xoá ghi đè luồng chen vào lượt "Đọc thử" hay "Đọc liên tục" vừa bấm. Nay giữ ở `nanoRestoreTask`, hai lượt đó chờ nó xong mới chạy.
-- **Số đo Nano cộng trùng ở đoạn im lặng**: đường im lặng của `VieNeuTTSService` không chạy engine nhưng để nguyên `lastTiming` của đoạn trước ⇒ màn thử cộng lại lần nữa. Nay xoá `lastTiming` trên đường đó.
-- **"Xoá model" Turbo ở màn thử** đưa trình đọc về `"vieneu"` cả khi máy chưa có model Nano ⇒ trình đọc trỏ vào engine thiếu model. Nay chưa có Nano thì về Siri (`"system"`, mặc định của app).
-- Bỏ cảnh báo kết quả không dùng (`_ = await Task.detached { … }.value`).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Lượt CI kế tiếp là lần biên dịch đầu của cả đợt; chưa thử máy.

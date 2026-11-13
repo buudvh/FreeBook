@@ -69,6 +69,8 @@ final class VieNeuTurboLab {
     let epProbe = VieNeuNanoEPProbe()
     /// "Đo tự động ORT ↔ Core ML" (P1b) — dùng chung `soak` cho các lượt đọc.
     let autoRun = VieNeuAutoThermalRun()
+    /// "Đo nạp Core ML" (P2a) — `VieNeuTurboLab+Nano.startCoreMLLoadProbe`.
+    let coreMLLoad = VieNeuCoreMLLoadProbe()
     /// Mục "Tạo giọng Turbo từ file" (1.3.894).
     let cloneTrial = VieNeuTurboCloneTrial()
 
@@ -162,6 +164,7 @@ final class VieNeuTurboLab {
     /// Gồm cả lượt tạo giọng (1.3.894): nó dùng chung runtime audio.cpp và model, không cho đọc thử / xoá model chồng lên.
     var isBusy: Bool {
         isDownloading || isWorking || soak.isRunning || epProbe.isRunning || autoRun.isActive || cloneTrial.isRunning
+            || coreMLLoad.isRunning
     }
 
     var selectedVoice: VieNeuTurboVoiceManifest.Voice? {
@@ -176,6 +179,7 @@ final class VieNeuTurboLab {
         reloadVoices()
         epProbe.refresh()
         autoRun.refresh()
+        coreMLLoad.refresh()
         cloneTrial.refreshReadiness()
     }
 
@@ -208,6 +212,8 @@ final class VieNeuTurboLab {
             return epProbe.reportText()
         case .clone:
             return cloneTrial.reportFileText()
+        case .coreMLLoad:
+            return coreMLLoad.reportText()
         }
     }
 

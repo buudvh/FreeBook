@@ -286,16 +286,22 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         return try VieNeuONNXProbeSession(
             modelPath: package.url(name).path,
             provider: "CoreML",
-            options: [
-                "ModelFormat": "MLProgram",
-                "MLComputeUnits": "CPUOnly",
-                "RequireStaticInputShapes": "1",
-                "ModelCacheDirectory": package.cacheDirectory.path
-            ],
+            options: Self.coreMLOptions(package: package),
             threads: 2,
             logPath: logPath,
             weights: [.init(name: weights, path: package.url(weights).path)]
         )
+    }
+
+    /// Tuỳ chọn Core ML EP của mọi session Core ML (lượt đọc, chuẩn bị, `VieNeuCoreMLLoadWorker`) — một chỗ, để phép đo
+    /// nạp trúng đúng bản biên dịch mà lượt đọc dùng.
+    static func coreMLOptions(package: VieNeuCoreMLPackage) -> [String: String] {
+        [
+            "ModelFormat": "MLProgram",
+            "MLComputeUnits": "CPUOnly",
+            "RequireStaticInputShapes": "1",
+            "ModelCacheDirectory": package.cacheDirectory.path
+        ]
     }
 
     private func noteLoadLocked(key: String, started: TimeInterval) {

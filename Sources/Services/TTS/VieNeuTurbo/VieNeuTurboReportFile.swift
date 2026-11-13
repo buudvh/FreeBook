@@ -17,6 +17,8 @@ struct VieNeuTurboReportFile: Transferable {
         case epProbe
         /// Số đo của lượt "Tạo giọng Turbo từ file" (1.3.894).
         case clone
+        /// Báo cáo phép đo P2a "Đo nạp Core ML" (`VieNeuCoreMLLoadProbe`).
+        case coreMLLoad
     }
 
     let kind: Kind
@@ -31,6 +33,7 @@ struct VieNeuTurboReportFile: Transferable {
         case .soak: prefix = "doc-lien-tuc"
         case .epProbe: prefix = "so-ep"
         case .clone: prefix = "tao-giong"
+        case .coreMLLoad: prefix = "nap-coreml"
         }
         fileName = "vieneu-\(engineName)-\(prefix)-\(Self.fileStamp.string(from: Date())).txt"
     }

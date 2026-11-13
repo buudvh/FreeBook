@@ -39,6 +39,7 @@ struct VieNeuTurboLabView: View {
                 soakResultSection
             }
             autoRunSection
+            coreMLLoadSection
             epProbeSection
         }.glassSheetRows() }
         .background(cloneFilePicker)

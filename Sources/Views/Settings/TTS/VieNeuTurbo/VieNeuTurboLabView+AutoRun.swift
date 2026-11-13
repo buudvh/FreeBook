@@ -116,6 +116,7 @@ extension VieNeuTurboLabView {
             if !run.isActive, run.packageBytes + run.cacheBytes > 0 {
                 Button(role: .destructive) {
                     run.deleteData()
+                    lab.coreMLLoad.refresh()
                 } label: {
                     Label("Xoá gói + bản biên dịch Core ML", systemImage: "trash")
                 }
