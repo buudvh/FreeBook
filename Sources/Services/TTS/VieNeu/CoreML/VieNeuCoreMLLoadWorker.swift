@@ -1,11 +1,11 @@
-import CoreML
 import Foundation
 
 /// Phép đo P2a **"Đo nạp Core ML"** (báo cáo §12): trả lời hai câu chặn việc đưa Core ML vào trình đọc.
 ///
 /// 1. **Nạp chậm ở đâu?** Đo lần nạp ~20 s mỗi VE mà lượt đo tự động thấy là của ORT hay của Core ML:
 ///    - ORT CPU EP cùng graph — phần ORT dựng graph + chép trọng số, không có Core ML;
-///    - **Core ML gốc** (`MLModel(contentsOf:)`, `.cpuOnly`) đọc thẳng `compiled_model.mlmodelc` mà ORT để trong cache;
+///    - **Core ML gốc** đọc thẳng `compiled_model.mlmodelc` mà ORT để trong cache, kèm lượt dự đoán đầu
+///      (`VieNeuCoreMLNativeLoad` — Core ML có thể dời việc chuẩn bị sang lần dự đoán đầu);
 ///    - ORT + Core ML EP như lượt đọc (`VieNeuCoreMLFlowBackend.coreMLOptions`), kèm dấu hiệu ORT có ghi lại gói không.
 ///    Mỗi cách 2 lần, xen kẽ (Core ML gốc → ORT → Core ML gốc → ORT) để nhiệt không dồn về một phía.
 /// 2. **4,16 GB nằm ở đâu?** Dung lượng từng mục (gói ORT ghi ra / bản biên dịch), băm mọi `weight.bin` tìm bản trùng
@@ -25,6 +25,20 @@ enum VieNeuCoreMLLoadWorker {
 
         var text: String { String(format: "%.2f s · CPU %.2f s", wallMs / 1_000, cpuMs / 1_000) }
         var seconds: String { String(format: "%.1f", wallMs / 1_000) }
+    }
+
+    /// Mốc bắt đầu đo (thời gian thực + CPU của cả tiến trình).
+    struct Mark {
+        let wall: TimeInterval
+        let cpuMs: Double
+
+        static func now() -> Mark {
+            Mark(wall: ProcessInfo.processInfo.systemUptime, cpuMs: ProcessCPUClock.nowMs())
+        }
+
+        func measure() -> Measure {
+            Measure(wallMs: (ProcessInfo.processInfo.systemUptime - wall) * 1_000, cpuMs: ProcessCPUClock.nowMs() - cpuMs)
+        }
     }
 
     private struct Target {
@@ -53,7 +67,7 @@ enum VieNeuCoreMLLoadWorker {
         progress("Kiểm kê cache Core ML…")
         let entries = VieNeuCoreMLCacheInventory.scan(package.cacheDirectory)
         lines.append("Đo nạp Core ML (P2a) — gói \(bytes(package.packageBytes)) · cache \(bytes(package.cacheBytes)) · \(entries.count) mục biên dịch")
-        lines.append("nhiệt lúc bắt đầu \(thermal()) · \(ProcessMemoryProbe.snapshot().summary)")
+        lines.append("nhiệt lúc bắt đầu \(thermal()) · \(ProcessMemoryProbe.snapshot().summary) · \(freeSpace(package))")
         if restored > 0 { lines.append("đã trả \(restored) file trọng số của lần thử trước bị ngắt") }
         lines.append(contentsOf: inventoryLines(entries))
         let packagePart = entries.reduce(Int64(0)) { $0 + $1.packageBytes }
@@ -61,7 +75,8 @@ enum VieNeuCoreMLLoadWorker {
         let packageWeights = entries.flatMap(\.packageWeightFiles).reduce(Int64(0)) {
             $0 + VieNeuTurboModelStore.fileSize(at: $1)
         }
-        lines.append("tổng: gói \(bytes(packagePart)) (trọng số \(bytes(packageWeights))) · biên dịch \(bytes(compiledPart))")
+        lines.append("tổng: gói \(bytes(packagePart)) (trọng số \(bytes(packageWeights))) · biên dịch \(bytes(compiledPart)) "
+            + "— dung lượng logic; chỗ thật trên đĩa xem \"đĩa … · clone?\" ở mục 2")
         summary.append("cache: gói \(bytes(packagePart)) · biên dịch \(bytes(compiledPart)) · trọng số trong gói \(bytes(packageWeights))")
 
         // 2. Trọng số trùng byte.
@@ -89,7 +104,7 @@ enum VieNeuCoreMLLoadWorker {
         let trim = try trimTest(entries: entries, package: package, manifest: manifest, progress: progress)
         lines.append(contentsOf: trim.lines)
         summary.append(trim.summary)
-        lines.append("nhiệt lúc xong \(thermal()) · \(ProcessMemoryProbe.snapshot().summary)")
+        lines.append("nhiệt lúc xong \(thermal()) · \(ProcessMemoryProbe.snapshot().summary) · \(freeSpace(package))")
         return Outcome(report: lines.joined(separator: "\n"), summary: summary)
     }
 
@@ -120,13 +135,13 @@ enum VieNeuCoreMLLoadWorker {
         progress("\(target.label): ORT CPU (không Core ML)…")
         let plain = try measure { try ortSession(target, package: package, provider: "CPU", logPath: "") }
         lines.append("\(target.label) · ORT CPU, không Core ML (dựng graph + chép trọng số): \(plain.text) · \(thermal())")
-        var native: [Measure] = []
+        var native: [VieNeuCoreMLNativeLoad.Result] = []
         var bridged: [Measure] = []
         var rebuilt = false
         for round in 1...2 {
             try Task.checkCancellation()
             progress("\(target.label): Core ML gốc lần \(round)…")
-            let nativeLoad = try measure { try loadNative(compiledURLs) }
+            let nativeLoad = try VieNeuCoreMLNativeLoad.measure(compiledURLs)
             native.append(nativeLoad)
             lines.append("\(target.label) · Core ML gốc lần \(round) (\(compiledURLs.count) model): \(nativeLoad.text) · \(thermal())")
 
@@ -141,16 +156,10 @@ enum VieNeuCoreMLLoadWorker {
             lines.append("\(target.label) · ORT + Core ML EP lần \(round): \(ortLoad.text) · "
                 + "\(wrote ? "ORT GHI LẠI gói / biên dịch lại" : "trúng bản lưu") · \(thermal())")
         }
-        let summary = "\(target.label) nạp: Core ML gốc \(native.map(\.seconds).joined(separator: " / ")) s · "
+        let summary = "\(target.label) nạp: Core ML gốc (nạp+đoán đầu) \(native.map(\.shortText).joined(separator: " / ")) s · "
             + "ORT+Core ML \(bridged.map(\.seconds).joined(separator: " / ")) s · ORT CPU \(plain.seconds) s"
             + (rebuilt ? " · ORT ghi lại gói!" : "")
         return (lines, summary)
-    }
-
-    private static func loadNative(_ urls: [URL]) throws -> [MLModel] {
-        let configuration = MLModelConfiguration()
-        configuration.computeUnits = .cpuOnly
-        return try urls.map { try MLModel(contentsOf: $0, configuration: configuration) }
     }
 
     private static func ortSession(
@@ -172,10 +181,9 @@ enum VieNeuCoreMLLoadWorker {
     /// Đo một lần dựng: thời gian thực + CPU của cả tiến trình, **không** tính lúc nhả (đối tượng sống tới sau mốc đo).
     private static func measure<T>(_ body: () throws -> T) throws -> Measure {
         try autoreleasepool {
-            let wall = ProcessInfo.processInfo.systemUptime
-            let cpu = ProcessCPUClock.nowMs()
+            let start = Mark.now()
             let value = try body()
-            let result = Measure(wallMs: (ProcessInfo.processInfo.systemUptime - wall) * 1_000, cpuMs: ProcessCPUClock.nowMs() - cpu)
+            let result = start.measure()
             withExtendedLifetime(value) {}
             return result
         }
@@ -277,6 +285,11 @@ enum VieNeuCoreMLLoadWorker {
 
     private static func logShowsRebuild(_ url: URL) -> Bool {
         (try? String(contentsOf: url, encoding: .utf8))?.contains(rebuildMarker) ?? false
+    }
+
+    private static func freeSpace(_ package: VieNeuCoreMLPackage) -> String {
+        guard let free = VieNeuCoreMLCacheInventory.volumeAvailable(package.rootURL) else { return "ổ trống ?" }
+        return "ổ trống \(bytes(free))"
     }
 
     private static func thermal() -> String {
