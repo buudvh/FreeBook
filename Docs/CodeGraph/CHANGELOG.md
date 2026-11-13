@@ -39,7 +39,7 @@ Anh Bửu duyệt plan gộp (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md
 - **Ô tìm theo tên giọng** ở sheet chọn giọng VieNeu (`VoiceNameSearch`: bỏ dấu, "đ" = "d").
   - Lọc trong chip đang chọn.
   - Đang tìm thì ẩn "Nhân bản giọng đọc"; nhóm không còn giọng khớp thì ẩn cả nhóm.
-- **Cắt chữ ở dấu câu** (`TTSPunctuationBoundary`): dấu câu chỉ là chỗ cắt khi theo sau là khoảng trắng / dấu đóng / dấu hết câu khác / hết chuỗi (dấu CJK luôn cắt).
+- **Cắt chữ ở dấu câu** (`TTSPunctuationBoundary`): dấu câu chỉ là chỗ cắt khi theo sau là khoảng trắng / dấu đóng / dấu mở (`.“Đi`) / dấu hết câu khác / hết chuỗi (dấu CJK luôn cắt).
   - Áp ở 4 chỗ: bước cắt chung (`TTSParagraphBuilder`), lớp tách câu của NghiTTS + VieNeu (`NghiUtteranceSegmenter`), bộ tách câu của VieNeu, regex của Piper.
   - Trước đây "Nguyên lai là S.H.I.E.L.D đặc công…" bị NghiTTS / VieNeu xẻ thành sáu lượt "S." / "H." / … rồi đọc ngắt sau từng chữ cái; Google nhận nguyên câu.
   - VieNeu: đoạn ≤ 140 ký tự đi **nguyên văn** một chunk. Bản tham chiếu tách câu theo `[^.!?]+[.!?]*` rồi ghép bằng dấu cách ⇒ "S. H. I. E. L. D".

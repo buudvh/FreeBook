@@ -12,15 +12,19 @@ enum TTSPunctuationBoundary {
     static let closingMarks: Set<Character> = ["\"", "'", "”", "’", ")", "]", "}", "»", "」", "』", "】", "］", "）"]
     /// Dấu hết câu đứng liền nhau vẫn là một chỗ cắt (`...`, `?!`): dấu trước tính là ranh giới, lớp gọi tự gộp cả cụm.
     static let runMarks: Set<Character> = [".", "!", "?", "…"]
+    /// Dấu **mở** ngay sau dấu câu cũng là ranh giới (`nói."Đi đi"`, `xong,(cười)`): không chữ viết tắt nào có dấu mở theo sau.
+    static let openingMarks: Set<Character> = ["“", "‘", "«", "(", "[", "{", "「", "『", "【", "［", "（"]
     /// Dấu câu của chữ CJK — chữ CJK không có dấu cách sau dấu nên luôn là ranh giới.
     static let cjkMarks: Set<Character> = ["。", "！", "？", "，", "；", "：", "、"]
 
-    /// Dấu ở `index` có phải chỗ cắt không: dấu CJK, hoặc theo sau là khoảng trắng / dấu đóng / dấu câu khác / hết chuỗi.
+    /// Dấu ở `index` có phải chỗ cắt không: dấu CJK, hoặc theo sau là khoảng trắng / dấu đóng / dấu mở / dấu hết câu khác /
+    /// hết chuỗi.
     static func isBoundary(at index: Int, in characters: [Character]) -> Bool {
         if cjkMarks.contains(characters[index]) { return true }
         let next = index + 1
         guard next < characters.count else { return true }
         let following = characters[next]
-        return following.isWhitespace || closingMarks.contains(following) || runMarks.contains(following)
+        return following.isWhitespace || closingMarks.contains(following) || openingMarks.contains(following)
+            || runMarks.contains(following)
     }
 }
