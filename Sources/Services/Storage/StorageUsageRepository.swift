@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftData
 
 /// Nguồn sự thật **duy nhất** cho số liệu màn Dung lượng (1.3.730).
 ///
@@ -8,6 +9,8 @@ import Observation
 /// - Lượt đo là `Task` của repository, **không** gắn vòng đời màn: thoát màn giữa chừng vẫn đo tiếp và lưu kết quả,
 ///   lần vào sau thấy số mới. Đang đo thì gọi `refresh()` thêm là bỏ qua (không đo chồng).
 /// - Xoá xong (`refreshAfterChange()`) thì chờ lượt đang chạy rồi đo thêm một lượt mới, để số sau khi xoá là số thật.
+/// - Mỗi lượt đo gồm cả lượt quét rác (`JunkScanner`, trạng thái bận chụp trên main + `bookId` đọc từ `container` ngoài
+///   main) ⇒ dòng "Dọn rác" và dòng "Không còn dùng" của loại TTS cùng số với trang Dọn rác.
 @MainActor
 @Observable
 final class StorageUsageRepository {
@@ -19,6 +22,8 @@ final class StorageUsageRepository {
     private(set) var snapshot: StorageUsageSnapshot? = nil
     private(set) var isScanning = false
     @ObservationIgnored private var scanTask: Task<Void, Never>? = nil
+    /// Container của thư viện (màn truyền vào) — để quét "dữ liệu của truyện đã xoá"; chưa có ⇒ bỏ nhóm đó.
+    @ObservationIgnored private var container: ModelContainer? = nil
 
     private init() {
         if let data = UserDefaults.standard.data(forKey: Self.defaultsKey) {
@@ -26,12 +31,22 @@ final class StorageUsageRepository {
         }
     }
 
-    /// Đo lại ngầm nếu chưa có lượt nào đang chạy. Gọi khi mở màn và khi bấm ↻.
+    /// Đo lại ngầm (nhớ `container` cho các lượt sau). Gọi khi mở màn và khi bấm ↻.
+    func refresh(container: ModelContainer) {
+        self.container = container
+        refresh()
+    }
+
+    /// Đo lại ngầm nếu chưa có lượt nào đang chạy.
     func refresh() {
         guard scanTask == nil else { return }
         isScanning = true
+        let container = self.container
         scanTask = Task { [weak self] in
-            let result = await Task.detached(priority: .utility) { StorageUsageScanner.scan() }.value
+            let inputs = await JunkCleanupCoordinator.captureInputs(container: container)
+            let result = await Task.detached(priority: .utility) {
+                StorageUsageScanner.scan(junk: JunkScanner.scan(inputs))
+            }.value
             self?.apply(result)
         }
     }

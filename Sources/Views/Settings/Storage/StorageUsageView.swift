@@ -5,7 +5,8 @@ import SwiftUI
 /// dữ liệu xếp lớn → nhỏ (`StorageUsageScanner`). Bốn loại xoá được (cache ảnh truyện tranh, file xuất, nhật ký, báo
 /// cáo kiểm tra) có nút "Xoá" kèm hộp xác nhận (`StorageUsageCleaner`); bìa truyện có nút "Dọn" (1.3.762): đếm bìa mồ côi
 /// + bìa quá cỡ trước, hộp xác nhận hiện số thật rồi mới dọn (`CoverCleanupCoordinator`). Xoá / dọn xong đo lại. Hàng
-/// "Tự động dọn" đầu danh sách mở lịch tự dọn (`StorageAutoCleanupSettingsView`).
+/// "Tự động dọn" đầu danh sách mở lịch tự dọn (`StorageAutoCleanupSettingsView`); hàng "Dọn rác" ngay dưới mở
+/// `JunkCleanupView`. Loại TTS và "Khác" chạm để bung dòng con (`StorageUsageExpandableRow`).
 ///
 /// Số liệu nằm ở `StorageUsageRepository` (1.3.730): mở màn hiện ngay lần đo gần nhất kèm giờ đo, rồi đo lại ngầm; thoát
 /// màn giữa chừng vẫn đo tiếp. Cả cây thư mục có thể hàng chục nghìn file (đoạn HLS, ảnh comic), nên hàng "Dung lượng"
@@ -16,6 +17,8 @@ struct StorageUsageView: View {
     @State private var pendingClear: StorageUsageSnapshot.Entry? = nil
     /// Bản đếm bìa đang chờ người dùng xác nhận dọn.
     @State private var pendingCoverTrim: CoverFolderScan? = nil
+    /// Loại đang bung dòng con (TTS, Khác).
+    @State private var expandedCategories: Set<StorageUsageCategory> = []
 
     /// Màu riêng cho 3 loại lớn nhất (thanh + ô màu của hàng); còn lại xám. Màu cố định, không dùng màu nhấn
     /// (luật `WHITE_TINT_FILL` cấm tô nền đặc bằng `Color.accentColor`).
@@ -32,10 +35,23 @@ struct StorageUsageView: View {
                 .bookListPanelRow()
             StorageAutoCleanupRow()
                 .bookListPanelRow()
+            JunkCleanupRow(junkBytes: snapshot?.junkBytes)
+                .bookListPanelRow()
             if let snapshot {
                 ForEach(Array(snapshot.entries.enumerated()), id: \.element.id) { index, entry in
-                    row(entry, color: color(at: index))
+                    let details = snapshot.details(of: entry.category)
+                    if details.isEmpty {
+                        row(entry, color: color(at: index))
+                            .bookListPanelRow()
+                    } else {
+                        StorageUsageExpandableRow(
+                            entry: entry,
+                            color: color(at: index),
+                            details: details,
+                            isExpanded: expansionBinding(for: entry.category)
+                        )
                         .bookListPanelRow()
+                    }
                 }
             }
         }.glassSheetRows() }
@@ -50,7 +66,7 @@ struct StorageUsageView: View {
                         .accessibilityLabel("Đang đo")
                 } else {
                     Button {
-                        repository.refresh()
+                        repository.refresh(container: modelContext.container)
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 17, weight: .semibold))
@@ -62,7 +78,7 @@ struct StorageUsageView: View {
             }
         }
         // Hiện ngay số cũ, đo lại ngầm; lượt đo là của repository nên thoát màn vẫn chạy tiếp.
-        .onAppear { repository.refresh() }
+        .onAppear { repository.refresh(container: modelContext.container) }
         .confirmationDialog(
             pendingClear.map { "Xoá \($0.category.title.lowercased()) (\(StorageUsageSnapshot.format($0.bytes)))?" } ?? "",
             isPresented: Binding(get: { pendingClear != nil }, set: { if !$0 { pendingClear = nil } }),
@@ -177,6 +193,19 @@ struct StorageUsageView: View {
 
     private func color(at index: Int) -> Color {
         index < Self.highlightColors.count ? Self.highlightColors[index] : Self.restColor
+    }
+
+    private func expansionBinding(for category: StorageUsageCategory) -> Binding<Bool> {
+        Binding(
+            get: { expandedCategories.contains(category) },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedCategories.insert(category)
+                } else {
+                    expandedCategories.remove(category)
+                }
+            }
+        )
     }
 
     /// "Đo lúc 14:32" (hôm nay) hoặc "Đo lúc 14:32 03/11"; đang đo thì thêm "· đang đo lại".
