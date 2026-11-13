@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.884] - 2026-11-11
+
+### perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn
+
+Anh Bửu đo P0 trên iPhone 11 (màn thử › Đọc liên tục › Nano, 2 luồng, giọng Minh Quân, cùng văn bản, 1.3.882) rồi duyệt *"làm Nano trước đi"*:
+
+| | userInitiated | utility (cũ) |
+|---|---|---|
+| RTF | **0,28** | 0,55 |
+| CPU-s / giây tiếng | **0,56** | 0,88 |
+| CPU-s / 1.000 ký tự | **30,9** | 48,6 |
+| Nhiệt | 3:45 vẫn "ấm" | "nóng" ở phút 4 |
+
+Lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36% và mát hơn (mỗi cấu hình đo một lượt). Âm thanh giống hệt từng bit — chỉ đổi lõi chạy.
+
+- `VieNeuTTSService.readerPriority = .userInitiated`: `prepare(voice:)` dựng session ORT ở mức này (luồng phụ của pool sinh ra lúc dựng); trước đó `.utility`.
+- Lượt tổng hợp chạy ORT trong `Task.detached(priority:)` ở mức cố định đó, thay vì mức của tác vụ nào xếp hàng trước trong `PiperSynthesisCoordinator` (phần lớn `.utility`). Lệnh huỷ được chuyển xuống task con (`withTaskCancellationHandler`) vì engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
+- Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.881) có `qos=` / `sessionQos=` để kiểm trên máy.
+- Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.883).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
+
 ## [1.3.883] - 2026-11-11
 
 ### feat: màn thử Turbo chọn QoS (utility / userInitiated) để đo lõi hiệu năng

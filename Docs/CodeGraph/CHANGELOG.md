@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.914] - 2026-11-13
+
+### chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất
+
+Anh Bửu: *"vì github đâu giới hạn số lần realease nên bỏ giới hạn 5 realease được nhỉ"*. Anh duyệt plan.
+
+- `Scripts/ci/publish_altstore_source.py`: bỏ `prune_releases`, nên không xoá release `build-*` cũ hay tag của nó nữa.
+  - GitHub không giới hạn số release hay tổng dung lượng file đính kèm; mỗi file chỉ phải dưới 2 GiB. Mỗi IPA hiện ~42 MB.
+  - Chạy lại một lượt build cùng số vẫn xoá rồi tạo lại đúng release đó, như cũ.
+- `apps.json` (nhánh `source`) vẫn chỉ liệt kê `--keep 5` bản mới nhất, để file nguồn mà LiveContainer và app đọc thường xuyên không phình theo số bản build. Bản cũ hơn tải được ở trang Releases.
+- Cập nhật chú thích bước đăng ở `build-ipa.yml`, và đoạn "Nguồn cập nhật LiveContainer" trong `CLAUDE.md` + `AGENTS.md`.
+- Có hiệu lực từ lượt build kế tiếp có đổi `Sources/**` hoặc `project.yml`. Lượt build 1.3.913 đang chạy vẫn dùng script cũ, nên còn xoá bản cũ nhất một lần.
+
 ## [1.3.913] - 2026-11-13
 
 ### feat: Đo nạp Core ML thử bản tắt tối ưu đồ thị ORT để trọng số không còn bị ghi thành chữ trong model
@@ -584,24 +597,3 @@ Giống Nano (1.3.884): lõi hiệu năng nhanh gấp đôi và tốn ít CPU h�
 - Dòng log mỗi đoạn `[VieNeuTurbo] Đoạn:` thêm `qos=` (QoS **đo được**) để kiểm khi khoá màn / chạy nền iOS có giữ lõi hiệu năng không.
 - Màn thử: QoS mặc định của lượt Nano và Turbo thành `userInitiated` (= trình đọc), vẫn chọn `utility` để so; "Đọc thử một lần" ghi QoS đo được thay vì chữ "utility" cố định (bỏ `VieNeuTurboRuntime.qosName`); sửa các chú thích còn nói trình đọc chạy utility.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Mới đo ở màn thử, chưa thử trong trình đọc khi khoá màn.
-
-## [1.3.884] - 2026-11-11
-
-### perf: Nano đọc truyện chạy lõi hiệu năng (userInitiated), nhanh gấp đôi và tốn ít CPU hơn
-
-Anh Bửu đo P0 trên iPhone 11 (màn thử › Đọc liên tục › Nano, 2 luồng, giọng Minh Quân, cùng văn bản, 1.3.882) rồi duyệt *"làm Nano trước đi"*:
-
-| | userInitiated | utility (cũ) |
-|---|---|---|
-| RTF | **0,28** | 0,55 |
-| CPU-s / giây tiếng | **0,56** | 0,88 |
-| CPU-s / 1.000 ký tự | **30,9** | 48,6 |
-| Nhiệt | 3:45 vẫn "ấm" | "nóng" ở phút 4 |
-
-Lõi hiệu năng vừa nhanh gấp đôi vừa tốn ít CPU hơn ~36% và mát hơn (mỗi cấu hình đo một lượt). Âm thanh giống hệt từng bit — chỉ đổi lõi chạy.
-
-- `VieNeuTTSService.readerPriority = .userInitiated`: `prepare(voice:)` dựng session ORT ở mức này (luồng phụ của pool sinh ra lúc dựng); trước đó `.utility`.
-- Lượt tổng hợp chạy ORT trong `Task.detached(priority:)` ở mức cố định đó, thay vì mức của tác vụ nào xếp hàng trước trong `PiperSynthesisCoordinator` (phần lớn `.utility`). Lệnh huỷ được chuyển xuống task con (`withTaskCancellationHandler`) vì engine kiểm `Task.checkCancellation()` giữa các chunk / bước Euler.
-- Màn thử vẫn đo A/B được: `setLabSynthesisPriority` ghi đè mức tổng hợp trong lúc đo, `endNanoOverride` trả về. Dòng `[VieNeuPerf]` (1.3.881) có `qos=` / `sessionQos=` để kiểm trên máy.
-- Turbo **chưa đổi** (vẫn `.utility`), chờ đo ở màn thử (1.3.883).
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.

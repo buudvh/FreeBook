@@ -5,9 +5,10 @@ Chạy trong `.github/workflows/build-ipa.yml` sau khi đóng gói IPA thành c�
 
 1. Tạo release `build-<số build>` đính kèm `TangCongCac-<version>-<số build>.ipa`. Lượt chạy lại (`Re-run`) giữ
    nguyên số build ⇒ release cùng tag bị xoá rồi tạo lại.
-2. Chỉ giữ `--keep` release `build-*` mới nhất; release cũ hơn bị xoá kèm tag (`--cleanup-tag`).
-3. Dựng `apps.json` từ các release còn lại rồi đẩy lên nhánh riêng `source` (không phải `main` ⇒ không kích hoạt
-   build lại, không đụng lịch sử code). Push bị từ chối (hai lượt build đẩy cùng lúc) ⇒ tải lại nhánh, dựng lại từ
+2. **Không xoá release nào** (1.3.914): GitHub không giới hạn số release hay tổng dung lượng file đính kèm (mỗi file
+   < 2 GiB) ⇒ mọi bản build còn tải lại được ở trang Releases. Bản 1.3.724–913 chỉ giữ 5 release mới nhất.
+3. Dựng `apps.json` từ `--keep` release mới nhất (nguồn đọc thường xuyên, không cho phình theo số bản build) rồi đẩy
+   lên nhánh riêng `source` (không phải `main` ⇒ không kích hoạt build lại, không đụng lịch sử code). Push bị từ chối (hai lượt build đẩy cùng lúc) ⇒ tải lại nhánh, dựng lại từ
    danh sách release mới nhất rồi đẩy lại.
 
 URL nguồn cố định: https://raw.githubusercontent.com/<repo>/source/apps.json — tin Telegram của lượt build gửi kèm link này.
@@ -67,14 +68,6 @@ def publish_release(repo, ipa, version, build, notes, sha):
     run(["gh", "release", "create", tag, staged, "--repo", repo, "--target", sha,
          "--title", f"Tàng Công Các {version} ({build})", "--notes", notes or f"Build {build}"])
     print(f"Đã tạo release {tag} với {asset_name}.")
-
-
-def prune_releases(repo, keep):
-    for number, rel in list_build_releases(repo)[keep:]:
-        tag = rel["tag_name"]
-        result = run(["gh", "release", "delete", tag, "--repo", repo, "--cleanup-tag", "--yes"],
-                     check=False, capture=True)
-        print(f"Xoá release cũ {tag}: {'ok' if result.returncode == 0 else 'lỗi ' + (result.stderr or '').strip()}")
 
 
 def build_source(repo, keep):
@@ -170,6 +163,7 @@ def main():
     parser.add_argument("--build", required=True)
     parser.add_argument("--notes", default="")
     parser.add_argument("--icon", required=True)
+    # Số bản liệt kê trong `apps.json` — không còn xoá release (1.3.914).
     parser.add_argument("--keep", type=int, default=5)
     args = parser.parse_args()
 
@@ -178,7 +172,6 @@ def main():
     sha = os.environ.get("GITHUB_SHA", "main")
 
     publish_release(repo, args.ipa, args.version, args.build, args.notes, sha)
-    prune_releases(repo, args.keep)
     push_source(repo, token, args.icon, args.keep, f"{args.version} ({args.build})")
 
 
