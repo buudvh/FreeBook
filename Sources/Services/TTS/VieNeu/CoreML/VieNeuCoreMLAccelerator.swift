@@ -121,6 +121,9 @@ final class VieNeuCoreMLAccelerator {
                     try Self.compileAndVerify(package: package, manifest: manifest, progress: progress)
                 }.value
                 VieNeuCoreMLReaderRoute.shared.install(backend)
+                // Tự kiểm vừa chạy mọi khung nhưng không đánh dấu "đã chạy nháp" ⇒ chạy nháp cho trạng thái giống lúc mở app
+                // (và log có dòng "Nạp sẵn + chạy nháp"); session đã nạp nên chỉ tốn vài chục ms mỗi khung.
+                Self.warmUpInBackground()
                 self?.statusLine = "Sẵn sàng — trình đọc dùng Core ML khi đọc Nano."
             } catch is CancellationError {
                 self?.statusLine = "Đã dừng."

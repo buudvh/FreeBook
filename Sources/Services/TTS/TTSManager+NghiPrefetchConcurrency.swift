@@ -53,6 +53,26 @@ extension TTSManager {
     /// khoảng trống đó. Hàm tự bỏ qua đoạn đã có/đang bay nên gọi lại là vô hại.
     internal func warmNghiRefillForPlaybackStart() {
         guard TTSManager.isLocalEngine(tool) else { return }
+        // Đoạn đầu chưa có sẵn ⇒ để `speakCurrent()` (gọi ngay sau) đưa N tới bộ điều phối một mình; nạp trước bắt
+        // đầu khi N có audio (`isAwaitingCurrentNghiSynthesis`). Trước 1.3.918 hàm này tạo task N+1…N+3 **trước**
+        // task của N và hai bên đua nhau tới `PiperSynthesisCoordinator`.
+        guard !isCurrentNghiParagraphCold else { return }
         fillNghiRefillUpToCapacity()
+    }
+
+    /// Đoạn đang cần (N) chưa có audio và không lượt nạp trước nào đang tổng hợp nó ⇒ chỉ `playNghiTTS` lo được N.
+    private var isCurrentNghiParagraphCold: Bool {
+        let N = currentParagraphIndex
+        return preloadedData[N] == nil && nghiRefillTasks[N] == nil
+    }
+
+    /// `true` khi `playNghiTTS` đang (hoặc sắp) tổng hợp đoạn N theo yêu cầu ⇒ `scheduleNghiRefill()` chưa lập lịch.
+    ///
+    /// `PiperSynthesisCoordinator` không cắt ngang lượt đang chạy, nên một lượt N+1 tới trước N bắt người nghe chờ thêm
+    /// trọn một lượt (log 1.3.917 lúc bắt đầu đọc: tiếng đầu 1,12 s, trong đó 0,66 s là đoạn N+1). Engine vốn tổng hợp
+    /// tuần tự nên chờ N xong rồi mới nạp trước không làm N+1 chậm hơn: `playNghiTTS` gọi `updatePrefetchWindow()`
+    /// ngay khi có audio N. Hụt đoạn giữa chương cũng theo luật này (N luôn chạy trước).
+    internal var isAwaitingCurrentNghiSynthesis: Bool {
+        nghiPlaybackTask != nil && isCurrentNghiParagraphCold
     }
 }

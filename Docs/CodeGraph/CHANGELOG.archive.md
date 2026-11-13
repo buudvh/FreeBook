@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.888] - 2026-11-12
+
+### feat: VieNeu Nano và Turbo tải model từ kho raikiri1498/VieNeu-TTS
+
+Anh Bửu tạo kho Hugging Face riêng `raikiri1498/VieNeu-TTS` và dặn: *"thêm tải các model và dữ liệu cho turbo và nano và push vào folder này cho tôi, nhớ ghi nguồn giúp tôi"*, *"NHỚ ĐỔI LINK DOWNLOAD TRONG APP"*.
+
+- **Kho mirror** (commit `3486d7da`), chép **nguyên văn từng byte** đúng các revision app đã ghim. Đối chiếu sha256 với số Hugging Face công bố; file từ GitHub đối chiếu theo kích thước. Tắt đổi xuống dòng (`core.autocrlf false`) vì `config.json`, `manifest.json`, `ref_codes.txt` gốc dùng CRLF; blob trùng blob id của kho gốc.
+  - `common/` (dùng chung, anh Bửu: *"file nào dùng chung thì để ở common"*): `sea_g2p.bin` của `pnnbao97/sea-g2p` @ `e825173f`, `speaker_encoder.onnx` + `denoiser.onnx` (có ở cả kho Nano lẫn Turbo, trùng sha256).
+  - `nano/`: 8 file còn lại của `pnnbao-ump/VieNeu-TTS-v3-Nano` @ `aba295eb` (4 graph đọc, `codec_encoder` + `reference_encoder` để nhân bản giọng, `config.json`, `constants.npz`), cộng `voices_v3_nano.json` của `pnnbao97/VieNeu-TTS` @ `2e982ff8`.
+  - `turbo/gguf/`: GGUF q8_0 và 25 giọng + `manifest.json` của `pnnbao-ump/VieNeu-TTS-v3-Turbo` @ `61b85e3d`.
+  - README ghi nguồn, revision, giấy phép (cả bốn nguồn đều Apache-2.0), lý do bỏ bf16 / ONNX / safetensors. Kèm `LICENSE`, `SHA256SUMS` và model card gốc (`UPSTREAM_README.md`).
+- **App**: `VieNeuModelMirror` (mới, `Services/TTS/VieNeu/`) giữ tên kho + commit ghim + `url(path:)` + `commonFileNames` / `nanoStorePath` (file dùng chung ⇒ `common/`).
+  - `VieNeuModelClient` (4 graph, cấu hình, 3 graph clone, giọng, `sea_g2p.bin`) và `VieNeuTurboModelStore.remoteURL` (GGUF, manifest, file giọng) tải từ đó.
+  - Bỏ các hằng revision cũ; nguồn gốc ghi lại trong doc.
+  - Nội dung trùng từng byte ⇒ file đã tải trên máy dùng tiếp, `modelByteCount` không đổi.
+- Chữ ở Cài đặt VieNeu (gói Nano) và màn thử Turbo ghi nguồn mới kèm tác giả gốc.
+- **Kiểm chứng:** tải thử từng URL mới của kho (HTTP 200, đúng kích thước); đọc code + grep chéo (không còn `pnnbao-ump/…/resolve` hay `raw.githubusercontent.com/pnnbao97` trong `Sources/`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử tải trong app.
+
 ## [1.3.887] - 2026-11-12
 
 ### merge: đưa VieNeu Turbo GGUF vào main

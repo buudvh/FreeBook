@@ -2298,7 +2298,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal func scheduleNghiRefill() -> Bool {
         guard isPlaying,
               TTSManager.isLocalEngine(tool),
-              nghiRefillRetryTask == nil,
+              nghiRefillRetryTask == nil, !isAwaitingCurrentNghiSynthesis,
               let service = localEngine else { return false }
 
         let N = currentParagraphIndex

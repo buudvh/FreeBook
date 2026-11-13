@@ -56,14 +56,7 @@ final class NghiEnergyTelemetry {
         thermalState: ProcessInfo.ThermalState
     ) {
         guard AppLogger.shared.isLoggingEnabled else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        if nghiEnergy.startedAt == nil {
-            nghiEnergy.startedAt = now
-            nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
-            let start = VieNeuCoreMLReaderRoute.shared.counters()
-            nghiEnergy.startCoreMLChunks = start.coreML
-            nghiEnergy.startCoreMLFallbacks = start.fallback
-        } else {
+        if !openWindowIfNeeded(now: ProcessInfo.processInfo.systemUptime) {
             nghiEnergy.cpuPCMSeconds += pcmDuration
         }
         nghiEnergy.synthesisCount += 1
@@ -85,10 +78,7 @@ final class NghiEnergyTelemetry {
     func recordUnderrun(index: Int, reusedInFlight: Bool, chapterIndex: Int, thermalState: ProcessInfo.ThermalState) {
         guard AppLogger.shared.isLoggingEnabled else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        if nghiEnergy.startedAt == nil {
-            nghiEnergy.startedAt = now
-            nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
-        }
+        openWindowIfNeeded(now: now)
         nghiEnergy.underrunCount += 1
         if reusedInFlight {
             nghiEnergy.reusedInFlightCount += 1
@@ -101,6 +91,20 @@ final class NghiEnergyTelemetry {
             "[NghiEnergy] Underrun chapter=\(chapterIndex) index=\(index) reusedInFlight=\(reusedInFlight) thermal=\(Self.thermalStateName(thermalState))"
         )
         flush(reason: "interval", force: false, thermalState: thermalState)
+    }
+
+    /// Mở cửa sổ 60 s nếu chưa mở: mốc thời gian, CPU tiến trình và bộ đếm Core ML của trình đọc. Trả `true` khi vừa mở.
+    /// Mọi chỗ mở cửa sổ phải đi qua đây — 1.3.917 `recordUnderrun` (lượt đọc nào cũng bắt đầu bằng hụt đoạn) mở mà không
+    /// chụp mốc Core ML ⇒ Summary đầu cộng cả các đoạn Core ML trước đó (log 13:42: `coreMLChunks=37`, `synth=23`).
+    @discardableResult
+    private func openWindowIfNeeded(now: TimeInterval) -> Bool {
+        guard nghiEnergy.startedAt == nil else { return false }
+        nghiEnergy.startedAt = now
+        nghiEnergy.startedCPUMs = ProcessCPUClock.nowMs()
+        let start = VieNeuCoreMLReaderRoute.shared.counters()
+        nghiEnergy.startCoreMLChunks = start.coreML
+        nghiEnergy.startCoreMLFallbacks = start.fallback
+        return true
     }
 
     /// Bấm nghe (`TTSManager.startSpeaking`) — mốc cho dòng "tiếng đầu sau X ms" (P2c, so bật / tắt Core ML).
