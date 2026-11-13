@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.918",
+          "buildVersion": "1255",
+          "date": "2026-11-13T07:15:09Z",
+          "localizedDescription": "- fix: Bắt đầu đọc tổng hợp đúng đoạn cần nghe trước, tiếng đầu Core ML nhanh hơn khoảng 0,6 s",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1255/TangCongCac-1.3.918-1255.ipa",
+          "size": 41530890,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.917",
           "buildVersion": "1254",
           "date": "2026-11-13T06:29:29Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1251/TangCongCac-1.3.913-1251.ipa",
           "size": 42226762,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.912",
-          "buildVersion": "1250",
-          "date": "2026-11-13T02:14:57Z",
-          "localizedDescription": "- feat: Màn thử VieNeu có Đo nạp Core ML để tìm vì sao nạp session lâu và bản biên dịch nặng 4 GB",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1250/TangCongCac-1.3.912-1250.ipa",
-          "size": 42222942,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.917",
-      "versionDate": "2026-11-13T06:29:29Z",
-      "versionDescription": "- feat: Trình đọc Nano có công tắc Tăng tốc Core ML, nhanh gấp đôi và mát hơn, tự lùi về ORT khi cần",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1254/TangCongCac-1.3.917-1254.ipa",
-      "size": 41530778,
+      "version": "1.3.918",
+      "versionDate": "2026-11-13T07:15:09Z",
+      "versionDescription": "- fix: Bắt đầu đọc tổng hợp đúng đoạn cần nghe trước, tiếng đầu Core ML nhanh hơn khoảng 0,6 s",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1255/TangCongCac-1.3.918-1255.ipa",
+      "size": 41530890,
       "appPermissions": {}
     }
   ],
