@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.920",
+          "buildVersion": "1257",
+          "date": "2026-11-13T09:02:02Z",
+          "localizedDescription": "- feat: Màn Dung lượng tách rõ từng loại TTS và có Dọn rác theo luật dữ liệu đang dùng",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1257/TangCongCac-1.3.920-1257.ipa",
+          "size": 41247192,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.919",
           "buildVersion": "1256",
           "date": "2026-11-13T08:49:16Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1253/TangCongCac-1.3.916-1253.ipa",
           "size": 41502025,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.915",
-          "buildVersion": "1252",
-          "date": "2026-11-13T04:15:21Z",
-          "localizedDescription": "- chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất\n- feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1252/TangCongCac-1.3.915-1252.ipa",
-          "size": 42228242,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.919",
-      "versionDate": "2026-11-13T08:49:16Z",
-      "versionDescription": "- feat: Tăng tốc Core ML luôn bật, bỏ màn thử và Nghe thử, không còn cắt chữ ở dấu chấm dính liền như S.H.I.E.L.D",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1256/TangCongCac-1.3.919-1256.ipa",
-      "size": 41168380,
+      "version": "1.3.920",
+      "versionDate": "2026-11-13T09:02:02Z",
+      "versionDescription": "- feat: Màn Dung lượng tách rõ từng loại TTS và có Dọn rác theo luật dữ liệu đang dùng",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1257/TangCongCac-1.3.920-1257.ipa",
+      "size": 41247192,
       "appPermissions": {}
     }
   ],
