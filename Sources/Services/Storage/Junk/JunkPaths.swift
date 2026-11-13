@@ -39,7 +39,7 @@ enum JunkPaths {
     static var coreMLPendingManifestName: String { VieNeuCoreMLPackage.manifestName + ".new" }
     /// Đuôi file trọng số bị phép thử "bỏ bản thừa" của màn thử đổi tên (`VieNeuCoreMLCacheInventory.trimSuffix`).
     static let coreMLTrimSuffix = ".fbtrim"
-    /// Gói graph tĩnh của phép thử EP (`VieNeuNanoStaticPackage.directory`, màn thử đang gỡ).
+    /// Gói graph tĩnh của phép thử EP (`VieNeuNanoStaticPackage.directory` cũ — màn thử đã gỡ ở 1.3.919).
     static var labStaticDirectory: URL { vieNeuRoot.appendingPathComponent("Static", isDirectory: true) }
 
     // MARK: Tải về dở
