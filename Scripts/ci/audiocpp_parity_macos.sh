@@ -28,6 +28,7 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
 cp -R "$WORK_DIR/src_base" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_blas.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$WORK_DIR/src_patched"
 
@@ -125,4 +126,37 @@ for name in short long; do
     FAIL=1
   fi
 done
+
+# Nạp prompt qua Accelerate (bản vá vieneu_prefill_blas, 1.3.927): không trùng từng byte với đường q8 (bỏ lượng tử
+# activation) ⇒ chấm bằng vector ẩn cuối của bước nạp so với đáp án fp32 — phải gần fp32 hơn đường q8 đang chạy.
+prefill_case() {
+  local tag="$1"
+  shift
+  rm -f "$WORK_DIR/out/$tag.dump"
+  export VIENEU_LOGITS_DUMP="$WORK_DIR/out/$tag.dump"
+  run_case "$CLI_PATCHED" "$tag" "$SHORT" --log-file "$WORK_DIR/out/$tag.trace" "$@"
+  unset VIENEU_LOGITS_DUMP
+}
+prefill_case prefill_q8
+prefill_case prefill_blas --session-option vieneu_v3_turbo.prefill_blas=true
+prefill_case prefill_f32 --session-option vieneu_v3_turbo.weight_type=f32
+prefill_active="$(grep -c 'vieneu_v3_turbo.talker.prefill.blas_active 1' "$WORK_DIR/out/prefill_blas.trace" || true)"
+prefill_mb="$(grep -E 'vieneu_v3_turbo.talker.prefill.sched_context_mb ' "$WORK_DIR/out/prefill_blas.trace" | tail -n 1 | awk '{print $NF}')"
+prefill_q8_ms="$(grep -E 'vieneu_v3_turbo.talker.prefill_ms ' "$WORK_DIR/out/prefill_q8.trace" | head -n 1 | awk '{print $NF}')"
+prefill_blas_ms="$(grep -E 'vieneu_v3_turbo.talker.prefill_ms ' "$WORK_DIR/out/prefill_blas.trace" | head -n 1 | awk '{print $NF}')"
+echo "prefill: q8 ${prefill_q8_ms:-?} ms · BLAS ${prefill_blas_ms:-?} ms (máy ảo không AMX — chỉ tham khảo) · scheduler dành sẵn ${prefill_mb:-?} MB"
+if [ "${prefill_active:-0}" -lt 1 ]; then
+  echo "::error::prefill: bật prefill_blas mà bước nạp prompt KHÔNG chạy qua BLAS"
+  grep -E 'prefill' "$WORK_DIR/out/prefill_blas.trace" | head -n 10 || true
+  FAIL=1
+elif [ -z "${prefill_mb:-}" ] || ! awk -v mb="$prefill_mb" 'BEGIN { exit !(mb + 0 <= 512) }'; then
+  echo "::error::prefill: ggml_backend_sched dành sẵn ${prefill_mb:-?} MB (> 512 MB hoặc không đọc được)"
+  FAIL=1
+elif python3 "$CI_DIR/audiocpp_prefill_check.py" "$WORK_DIR/out/prefill_q8.dump" \
+    "$WORK_DIR/out/prefill_blas.dump" "$WORK_DIR/out/prefill_f32.dump"; then
+  echo "✓ prefill: BLAS gần bản fp32 hơn đường q8 đang chạy"
+else
+  echo "::error::prefill: đường BLAS không đạt cổng chất lượng"
+  FAIL=1
+fi
 exit "$FAIL"

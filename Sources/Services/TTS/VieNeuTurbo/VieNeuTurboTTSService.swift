@@ -289,20 +289,22 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
                 "gens=\(timings.generateCalls)"
             ]
         }
-        fields.append("amx=\(codecAMXLabel(requested: output.codecAMXRequested, active: output.timings?.codecBLASActive))")
+        fields.append("amx=\(amxLabel(requested: output.codecAMXRequested, timings: output.timings))")
         AppLogger.shared.log(
             "🎙️ [VieNeuTurbo] Đoạn: " + fields.joined(separator: " ") + " — \(ProcessMemoryProbe.snapshot().summary)"
         )
     }
 
-    /// "tắt" (công tắc tắt) · "bật" (codec chạy qua BLAS) · "lùi" (bật mà audio.cpp lùi về CPU) · "bật?" (không đo).
-    private static func codecAMXLabel(requested: Bool, active: Bool?) -> String {
+    /// "tắt" (công tắc tắt) · "bật" (codec và nạp prompt đều chạy qua BLAS) · "lùi:codec" / "lùi:prefill" /
+    /// "lùi:codec+prefill" (bật mà audio.cpp lùi về CPU ở phần đó) · "bật?" (không đo — log tắt).
+    private static func amxLabel(requested: Bool, timings: VieNeuTurboTimingLog.Timings?) -> String {
         guard requested else { return "tắt" }
-        switch active {
-        case true?: return "bật"
-        case false?: return "lùi"
-        case nil: return "bật?"
-        }
+        guard let timings, timings.codecBLASActive != nil || timings.prefillBLASActive != nil else { return "bật?" }
+        let fellBack = [
+            timings.codecBLASActive == false ? "codec" : nil,
+            timings.prefillBLASActive == false ? "prefill" : nil
+        ].compactMap { $0 }
+        return fellBack.isEmpty ? "bật" : "lùi:" + fellBack.joined(separator: "+")
     }
 
     /// "0.36"; mẫu ≈ 0 ⇒ "—".

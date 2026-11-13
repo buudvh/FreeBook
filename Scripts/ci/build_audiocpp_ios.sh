@@ -41,10 +41,12 @@ echo "audio.cpp commit: $AUDIOCPP_SHA"
 # (Scripts/ci/audiocpp_parity_macos.sh):
 # - vieneu_prefill_gallocr: bước nạp prompt của Turbo tái sử dụng bộ nhớ trung gian (cùng mã âm thanh với bản gốc);
 # - vieneu_codec_blas: codec giải mã qua Accelerate khi session option `vieneu_v3_turbo.codec_blas` bật (mặc định tắt);
+# - vieneu_prefill_blas: bước nạp prompt qua Accelerate khi `vieneu_v3_turbo.prefill_blas` bật (mặc định tắt);
 # - capi_log_file: hàm C `audiocpp_set_log_file` để app bật bộ đếm giờ có sẵn của audio.cpp;
 # - capi_abort_file: hàm C `audiocpp_set_abort_file` — câu báo GGML_ASSERT / exception chưa bắt ghi ra file trước abort.
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$SRC"
+python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_blas.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$SRC"
 

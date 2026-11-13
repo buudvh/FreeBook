@@ -21,6 +21,9 @@ Cách làm — phép tính giữ nguyên, chỉ đổi nơi chạy phép nhân m
   (bộ nhớ ảo dư), iPhone trả NULL ⇒ `GGML_ASSERT(ctx->mem_buffer != NULL)` ⇒ app chết. Nay truyền 2 × số tensor graph
   thật sự dùng (node + nguồn của chúng) + 1024. Log `…graph_nodes`, `…sched_graph_size`, `…sched_context_mb`; job
   parity chặn khi `sched_context_mb` > 512.
+- **Q·Kᵀ của attention** (1.3.927): ggml-blas chỉ nhận src1 liền bộ nhớ, mà Q là view hoán vị ⇒ khi dựng graph cho
+  scheduler BLAS, attention chép Q thành tensor liền (`ggml_cont`) để phép này cũng chạy Accelerate. Cờ thread_local
+  `freebook_contiguous_attention_q` chỉ bật trong `prepare_graph` của decoder khi có backend BLAS.
 - Log (khi bật log): `moss.audio_tokenizer.decode.blas_scheduler` 0/1 + `…blas_nodes` + `…sched_splits` mỗi lần dựng
   graph, `…blas_active` 0/1 mỗi lượt giải mã (app đọc để ghi đoạn đó có chạy BLAS không).
 
@@ -63,6 +66,57 @@ def patch_codec(text: str) -> str:
         "#include <utility>\n",
         "#include <unordered_set>  // " + MARK + "\n#include <utility>\n",
         "include utility",
+    )
+    # 0b. Q liền bộ nhớ trong attention khi graph đang dựng cho scheduler BLAS (1.3.927): ggml-blas từ chối src1 là
+    #     view hoán vị ⇒ Q·Kᵀ ở lại NEON. Cờ thread_local chỉ bật trong `prepare_graph` của decoder khi có backend
+    #     BLAS ⇒ tắt công tắc / encoder / giải mã từng khung: graph y hệt cũ.
+    text = replace_once(
+        text,
+        "inline constexpr float kMaskedAttentionBias = std::numeric_limits<float>::lowest();\n",
+        "inline constexpr float kMaskedAttentionBias = std::numeric_limits<float>::lowest();\n"
+        "\n"
+        "// " + MARK + ": while a decoder graph for the BLAS scheduler is being built, attention copies Q into a\n"
+        "// contiguous tensor so ggml-blas also takes Q*K^T (it rejects a permuted view as src1). Off => graph unchanged.\n"
+        "inline thread_local bool freebook_contiguous_attention_q = false;\n",
+        "kMaskedAttentionBias",
+    )
+    text = replace_once(
+        text,
+        "    const modules::MatMulModule matmul;\n"
+        "    auto scores = matmul.build(\n"
+        "        ctx,\n"
+        "        q_heads,\n",
+        "    const modules::MatMulModule matmul;\n"
+        "    auto scores = matmul.build(\n"
+        "        ctx,\n"
+        "        freebook_contiguous_attention_q  // " + MARK + "\n"
+        "            ? core::wrap_tensor(ggml_cont(ctx.ggml, q_heads.tensor), q_heads.shape, q_heads.type)\n"
+        "            : q_heads,\n",
+        "attention: scores matmul",
+    )
+    text = replace_once(
+        text,
+        "    GraphCache & prepare_graph(int64_t frames) {\n"
+        "        if (graph_cache != nullptr && graph_cache->frames == frames) {\n"
+        "            return *graph_cache;\n"
+        "        }\n"
+        "\n"
+        "        auto cache = std::make_unique<GraphCache>();\n",
+        "    GraphCache & prepare_graph(int64_t frames) {\n"
+        "        if (graph_cache != nullptr && graph_cache->frames == frames) {\n"
+        "            return *graph_cache;\n"
+        "        }\n"
+        "\n"
+        "        auto cache = std::make_unique<GraphCache>();\n"
+        "        // " + MARK + ": contiguous Q only while building a graph that will run through the BLAS scheduler.\n"
+        "        struct ContiguousQScope {\n"
+        "            bool saved;\n"
+        "            explicit ContiguousQScope(bool on) : saved(cd::freebook_contiguous_attention_q) {\n"
+        "                cd::freebook_contiguous_attention_q = on;\n"
+        "            }\n"
+        "            ~ContiguousQScope() { cd::freebook_contiguous_attention_q = saved; }\n"
+        "        } contiguous_q_scope(blas_backend != nullptr);\n",
+        "Decoder prepare_graph start",
     )
     # 1. Hàm dựng backend BLAS (chép từ moonshine_asr) + deleter, trước Impl của decoder.
     text = replace_once(

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.927] - 2026-11-13
+
+### feat: Công tắc Tăng tốc bằng AMX của Turbo đưa thêm bước nạp prompt và phép Q·Kᵀ của codec sang Accelerate
+
+Đo 1.3.926 trên máy (báo cáo mục 13): codec qua AMX nhanh ~1,26× (155 → 123 ms mỗi giây tiếng), RTF tổng chỉ −3% vì chỉ ~205/700 node của codec vào BLAS. Anh Bửu chọn làm tiếp "AMX cho nạp prompt + attention" và bảo làm thẳng, không cần plan.
+
+- **Bước nạp prompt qua Accelerate** — bản vá mới `vieneu_prefill_blas.py` (chạy sau `vieneu_prefill_gallocr` + `vieneu_codec_blas`):
+  - session option `vieneu_v3_turbo.prefill_blas` (mặc định tắt) ⇒ `VieNeuTalkerWeightsRuntime` giữ một backend BLAS;
+  - `TalkerPrefillGraph` cấp phát + chạy qua `ggml_backend_sched` [BLAS, CPU], cỡ = 2 × số tensor graph dùng + 1024 (truyền sức chứa 65536 sẽ xin ~1,3 GB, đúng lỗi đã làm sập codec ở 1.3.924);
+  - reserve hỏng ⇒ lùi gallocr; alloc hỏng sau reserve ⇒ ném lỗi cho đoạn đó;
+  - trọng số q8_0 được ggml-blas giải lượng tử ra F32 rồi `cblas_sgemm` với activation F32 — **không** lượng tử hoá activation về q8 như đường CPU ⇒ gần bản fp32 gốc hơn, không trùng từng byte với đường cũ;
+  - log `vieneu_v3_turbo.talker.prefill.blas_active / graph_nodes / sched_context_mb`.
+- **Q·Kᵀ của attention codec** (`vieneu_codec_blas.py`): ggml-blas từ chối src1 là view hoán vị ⇒ khi dựng graph cho scheduler BLAS, attention chép Q thành tensor liền (`ggml_cont`) để phép này cũng chạy Accelerate (phép A·V vốn đã vào được). Cờ `thread_local` chỉ bật trong `prepare_graph` của decoder khi có backend BLAS ⇒ công tắc tắt / encoder / giải mã từng khung: graph y hệt cũ.
+- **Job parity**: tắt vẫn phải trùng từng byte bản gốc; codec BLAS vẫn mã trùng + WAV ≥ 90 dB + vùng scheduler ≤ 512 MB. Thêm cổng nạp prompt (`audiocpp_prefill_check.py`): vector ẩn cuối của bước nạp (dòng `prefill_hidden` đầu tiên của `VIENEU_LOGITS_DUMP`) của đường BLAS phải gần đáp án fp32 (`weight_type=f32`) hơn đường q8 đang chạy và sai số < 1e-3; scheduler của bước nạp ≤ 512 MB; log phải báo `prefill.blas_active 1`.
+- **App**: một công tắc **"Tăng tốc bằng AMX (thử nghiệm)"** (khoá giữ nguyên `vieneuTurboCodecAMX`, mặc định tắt) bật cả hai option. Log đoạn: `amx=bật` khi codec và nạp prompt đều chạy BLAS, `amx=lùi:codec` / `lùi:prefill` khi audio.cpp lùi về CPU ở phần đó.
+- Kiểm: các bản vá thử áp trên PC theo đúng thứ tự (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.926] - 2026-11-13
 
 ### fix: Tăng tốc codec bằng AMX của Turbo không còn làm app chết, bộ chia việc chỉ xin bộ nhớ đúng cỡ graph
@@ -622,25 +639,3 @@ Anh Bửu duyệt: VieNeu chỉ còn **một** trình đọc, giọng nào thì 
 - Cài đặt TTS: Picker "Trình đọc" còn một mục "VieNeu-TTS v3 (Offline)" (luôn hiện); Picker giọng tạm gộp hai nhóm Nano / Turbo (sheet chọn giọng thay ở bản sau). Bỏ `VieNeuModelChoice.store` / `pickerTag` / `voiceDefaultsKey`.
 - Màn thử Turbo "Xoá model" ⇒ về giọng Nano dùng gần nhất.
 - **Kiểm chứng:** đọc code + grep chéo `VieNeuModelChoice` / khoá giọng; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
-
-## [1.3.897] - 2026-11-12
-
-### fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab
-
-Anh Bửu báo: *"nếu như từ cài đặt tts tôi chưa đóng sheet hoặc thoát màn hình đó mà sang màn hình khác mà bấm và nav qua màn khác thì sẽ xảy ra lỗi tts tự phát như đóng sheet"*.
-
-**Nguyên nhân.** `TTSSettingsView.onDisappear` gọi thẳng `resumeAfterSettings()`. `onDisappear` chạy cả khi một trang con được đẩy lên trên (Cài đặt VieNeu, NghiTTS, từ điển…) và khi chuyển tab. Vì vậy TTS đọc lại dù sheet / trang vẫn mở.
-
-Khi hiện lại, màn gọi `prepareForSettings()` lần hai, ghi đè ảnh chụp cấu hình lúc mở. Hệ quả: thay đổi làm trước khi vào trang con bị bỏ qua lúc đóng (không dựng lại đoạn, có thể đọc tiếp audio của cấu hình cũ).
-
-**Sửa.**
-- `TTSSettingsPauseSession` (mới, `Views/TTSWidget/`) giữ một cờ chung, gọi nhiều lần cũng như một.
-  - `begin()`: chỉ lần mở đầu mới dừng + chụp cấu hình.
-  - `finish(caller:)`: chỉ ở lối **đóng thật**:
-    - `onDisappear` khi `@Environment(\.isPresented)` = `false`; còn `true` nghĩa là chỉ bị che;
-    - `onDismiss` của sheet (`TTSSettingsSheetHost`), phòng khi sheet đóng lúc đang ở trang con;
-    - `onAppear` của `TTSSettingsHubView` và trang gốc Cài đặt, phòng khi bị pop thẳng về gốc.
-- Nếu trong lúc màn còn mở người dùng đã bật đọc truyện / chương khác, `finish()` chỉ khép phiên. Không "đọc tiếp đoạn đã lưu", vì sẽ nhảy về vị trí của phiên cũ.
-- Lưu cấu hình tiện ích TTS trước khi đọc tiếp: chuyển từ `onDisappear` vào `finish()`.
-- Log `[TTSSettings]` ghi `isPresented` ở `onDisappear` và ai gọi `begin` / `finish`, để kiểm trên máy.
-- **Kiểm chứng:** đọc code + grep chéo (`prepareForSettings` / `resumeAfterSettings` chỉ còn gọi qua `TTSSettingsPauseSession`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build (Windows), chưa thử máy. Hành vi `isPresented` khi màn gốc của sheet bị trang con che là điểm chưa chắc: log trên máy sẽ cho biết.

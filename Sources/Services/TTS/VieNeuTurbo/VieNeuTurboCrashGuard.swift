@@ -66,7 +66,7 @@ enum VieNeuTurboCrashGuard {
         if diedDuringAMX { try? fileManager.removeItem(at: pendingMarkerURL) }
         try? fileManager.removeItem(at: abortNoteURL)
 
-        var reason = diedDuringAMX ? "app dừng giữa lượt Turbo đầu tiên có codec AMX" : "audio.cpp dừng tiến trình"
+        var reason = diedDuringAMX ? "app dừng giữa lượt Turbo đầu tiên có AMX" : "audio.cpp dừng tiến trình"
         if !abortNote.isEmpty { reason += " — audio.cpp báo: \(abortNote.prefix(600))" }
         guard VieNeuTurboAcceleration.isCodecAMXEnabled else {
             AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason)")
@@ -74,7 +74,7 @@ enum VieNeuTurboCrashGuard {
         }
         UserDefaults.standard.set(false, forKey: VieNeuTurboAcceleration.codecAMXKey)
         UserDefaults.standard.set(true, forKey: VieNeuTurboAcceleration.codecAMXAutoDisabledKey)
-        AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason) ⇒ đã tự tắt \"Tăng tốc codec bằng AMX\"")
+        AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason) ⇒ đã tự tắt \"Tăng tốc bằng AMX\"")
         return true
     }
 }

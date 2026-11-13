@@ -8,8 +8,9 @@ import AudioCpp
 extension VieNeuTurboRuntime {
     /// Nhả session cũ (kèm mọi graph + bộ đệm audio.cpp giữ trong nó) rồi dựng session CPU mới. Trả ms dựng.
     ///
-    /// Đọc công tắc "Tăng tốc codec bằng AMX" **lúc dựng** (`VieNeuTurboAcceleration`): bật ⇒ session option
-    /// `vieneu_v3_turbo.codec_blas=true` (bản vá `vieneu_codec_blas`). Tắt ⇒ không truyền option nào, y như trước 1.3.924.
+    /// Đọc công tắc "Tăng tốc bằng AMX" **lúc dựng** (`VieNeuTurboAcceleration`): bật ⇒ session option
+    /// `vieneu_v3_turbo.codec_blas=true` + `vieneu_v3_turbo.prefill_blas=true` (bản vá `vieneu_codec_blas`,
+    /// `vieneu_prefill_blas`). Tắt ⇒ không truyền option nào, y như trước 1.3.924.
     /// Gọi từ `prepareLocked` (lần đầu, đổi số luồng, đổi công tắc), từ lượt thử lại sau lỗi cấp phát và từ
     /// `VieNeuTurboRuntime+Encode` (dựng lại sau khi mã hoá giọng mẫu).
     @discardableResult
@@ -25,10 +26,10 @@ extension VieNeuTurboRuntime {
         let options = codecBLAS ? audiocpp_options_create() : nil
         defer { audiocpp_options_free(options) }
         if let options {
-            try Self.check(
-                audiocpp_options_set(options, VieNeuTurboAcceleration.codecBLASOption, "true"),
-                "audiocpp_options_set(\(VieNeuTurboAcceleration.codecBLASOption))"
-            )
+            // Một công tắc bật cả codec lẫn bước nạp prompt (1.3.927) — log tách từng phần nên vẫn so được riêng.
+            for option in [VieNeuTurboAcceleration.codecBLASOption, VieNeuTurboAcceleration.prefillBLASOption] {
+                try Self.check(audiocpp_options_set(options, option, "true"), "audiocpp_options_set(\(option))")
+            }
         }
         let started = ProcessInfo.processInfo.systemUptime
         var created: OpaquePointer?
@@ -42,7 +43,7 @@ extension VieNeuTurboRuntime {
         sessionCodecBLAS = codecBLAS
         let createMs = Self.elapsedMs(since: started)
         AppLogger.shared.log(
-            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng, codec AMX \(codecBLAS ? "bật" : "tắt"): "
+            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng, AMX (codec + nạp prompt) \(codecBLAS ? "bật" : "tắt"): "
                 + "\(String(format: "%.0f", createMs)) ms — \(ProcessMemoryProbe.snapshot().summary)"
         )
         return createMs

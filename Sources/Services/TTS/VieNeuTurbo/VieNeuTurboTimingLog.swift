@@ -29,6 +29,8 @@ enum VieNeuTurboTimingLog {
         /// Codec có chạy qua BLAS ở lượt này không (`moss.audio_tokenizer.decode.blas_active`, ghi mỗi lượt giải mã,
         /// 0 cả khi công tắc tắt); `nil` = không có dòng nào (lượt hỏng trước khi giải mã).
         var codecBLASActive: Bool?
+        /// Bước nạp prompt có chạy qua BLAS không (`vieneu_v3_turbo.talker.prefill.blas_active`, 1.3.927, mỗi lượt nạp).
+        var prefillBLASActive: Bool?
     }
 
     static let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("audiocpp-turbo-timing.log")
@@ -77,6 +79,8 @@ enum VieNeuTurboTimingLog {
             case "moss.audio_tokenizer.decode.blas_active":
                 // Nhiều lượt giải mã trong một lượt chạy (sinh lại) ⇒ "có BLAS" khi mọi lượt đều chạy BLAS.
                 timings.codecBLASActive = (timings.codecBLASActive ?? true) && value >= 1
+            case "vieneu_v3_turbo.talker.prefill.blas_active":
+                timings.prefillBLASActive = (timings.prefillBLASActive ?? true) && value >= 1
             default: break
             }
         }

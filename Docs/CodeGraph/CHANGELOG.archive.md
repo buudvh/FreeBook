@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.897] - 2026-11-12
+
+### fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab
+
+Anh Bửu báo: *"nếu như từ cài đặt tts tôi chưa đóng sheet hoặc thoát màn hình đó mà sang màn hình khác mà bấm và nav qua màn khác thì sẽ xảy ra lỗi tts tự phát như đóng sheet"*.
+
+**Nguyên nhân.** `TTSSettingsView.onDisappear` gọi thẳng `resumeAfterSettings()`. `onDisappear` chạy cả khi một trang con được đẩy lên trên (Cài đặt VieNeu, NghiTTS, từ điển…) và khi chuyển tab. Vì vậy TTS đọc lại dù sheet / trang vẫn mở.
+
+Khi hiện lại, màn gọi `prepareForSettings()` lần hai, ghi đè ảnh chụp cấu hình lúc mở. Hệ quả: thay đổi làm trước khi vào trang con bị bỏ qua lúc đóng (không dựng lại đoạn, có thể đọc tiếp audio của cấu hình cũ).
+
+**Sửa.**
+- `TTSSettingsPauseSession` (mới, `Views/TTSWidget/`) giữ một cờ chung, gọi nhiều lần cũng như một.
+  - `begin()`: chỉ lần mở đầu mới dừng + chụp cấu hình.
+  - `finish(caller:)`: chỉ ở lối **đóng thật**:
+    - `onDisappear` khi `@Environment(\.isPresented)` = `false`; còn `true` nghĩa là chỉ bị che;
+    - `onDismiss` của sheet (`TTSSettingsSheetHost`), phòng khi sheet đóng lúc đang ở trang con;
+    - `onAppear` của `TTSSettingsHubView` và trang gốc Cài đặt, phòng khi bị pop thẳng về gốc.
+- Nếu trong lúc màn còn mở người dùng đã bật đọc truyện / chương khác, `finish()` chỉ khép phiên. Không "đọc tiếp đoạn đã lưu", vì sẽ nhảy về vị trí của phiên cũ.
+- Lưu cấu hình tiện ích TTS trước khi đọc tiếp: chuyển từ `onDisappear` vào `finish()`.
+- Log `[TTSSettings]` ghi `isPresented` ở `onDisappear` và ai gọi `begin` / `finish`, để kiểm trên máy.
+- **Kiểm chứng:** đọc code + grep chéo (`prepareForSettings` / `resumeAfterSettings` chỉ còn gọi qua `TTSSettingsPauseSession`); `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build (Windows), chưa thử máy. Hành vi `isPresented` khi màn gốc của sheet bị trang con che là điểm chưa chắc: log trên máy sẽ cho biết.
+
 ## [1.3.896] - 2026-11-12
 
 ### fix: tạo giọng Turbo giữ đoạn mẫu đã cắt thay vì cả file, thử lại mã hoá một lần, bộ chọn file gắn gốc màn

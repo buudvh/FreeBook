@@ -1,6 +1,7 @@
 import Foundation
 
-/// Công tắc thử nghiệm **"Tăng tốc codec bằng AMX"** của VieNeu Turbo (1.3.924, báo cáo tối ưu Turbo P1).
+/// Công tắc thử nghiệm **"Tăng tốc bằng AMX"** của VieNeu Turbo (1.3.924 codec, 1.3.927 thêm bước nạp prompt
+/// + Q·Kᵀ của attention codec; báo cáo tối ưu Turbo P1).
 ///
 /// Bật ⇒ session audio.cpp được dựng với session option `vieneu_v3_turbo.codec_blas=true` (bản vá
 /// `Scripts/ci/audiocpp_patches/vieneu_codec_blas.py`): codec MOSS giải mã cả đoạn qua `ggml_backend_sched` [BLAS, CPU],
@@ -20,6 +21,10 @@ enum VieNeuTurboAcceleration {
 
     /// Session option của bản vá `vieneu_codec_blas` — phải khớp tên trong bản vá (audio.cpp từ chối khoá lạ).
     static let codecBLASOption = "vieneu_v3_turbo.codec_blas"
+
+    /// Session option của bản vá `vieneu_prefill_blas` (1.3.927): bước nạp prompt qua Accelerate. Cùng công tắc với
+    /// codec — một lượt tắt/bật đo được cả hai nhờ log tách `prefillMs` / `codecMs`.
+    static let prefillBLASOption = "vieneu_v3_turbo.prefill_blas"
 
     static var isCodecAMXEnabled: Bool {
         UserDefaults.standard.bool(forKey: codecAMXKey)
