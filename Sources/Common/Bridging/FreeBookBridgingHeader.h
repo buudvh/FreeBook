@@ -15,6 +15,8 @@
 #include "../../Services/TTS/VieNeu/VieNeuONNXBridge.h"
 // Cầu nối tổng quát (chỉ float32) — backend Core ML của trình đọc Nano ("Tăng tốc Core ML").
 #include "../../Services/TTS/VieNeu/VieNeuONNXProbeBridge.h"
+// TẠM (1.3.932): màn đo "Codec Turbo: AMX vs Neural Engine" — xoá cùng màn đo.
+#include "../../Services/TTS/VieNeuTurbo/CodecBench/TurboCodecProbeBridge.h"
 
 // libxml2 hệ thống cho XPath của nguồn Legado.
 #include "../../Services/LegadoSource/Rule/LegadoLibXML2.h"

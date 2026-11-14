@@ -132,13 +132,15 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         phonemes: String,
         referenceCodesURL: URL,
         speakerEmbeddingURL: URL,
-        qos: DispatchQoS.QoSClass = .utility
+        qos: DispatchQoS.QoSClass = .utility,
+        extraRequestOptions: [(String, String)] = []
     ) async throws -> Output {
         try await perform(qos: qos) { [self] in
             var output = try synthesizeLocked(
                 phonemes: phonemes,
                 referenceCodesPath: referenceCodesURL.path,
-                speakerEmbeddingPath: speakerEmbeddingURL.path
+                speakerEmbeddingPath: speakerEmbeddingURL.path,
+                extraRequestOptions: extraRequestOptions
             )
             output.qosName = VieNeuTTSEngine.currentQoSName()
             return output
@@ -251,7 +253,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     private func synthesizeLocked(
         phonemes: String,
         referenceCodesPath: String,
-        speakerEmbeddingPath: String
+        speakerEmbeddingPath: String,
+        extraRequestOptions: [(String, String)]
     ) throws -> Output {
         guard session != nil else { throw RuntimeError.notLoaded }
         guard let request = audiocpp_request_create() else {
@@ -269,6 +272,10 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
             audiocpp_request_set_option(request, "speaker_embedding_file", speakerEmbeddingPath),
             "audiocpp_request_set_option(speaker_embedding_file)"
         )
+        // Tuỳ chọn phụ (màn đo codec, 1.3.932: `codes_dump_file`, `text_chunk_size`) — trình đọc không truyền gì.
+        for (key, value) in extraRequestOptions {
+            try Self.check(audiocpp_request_set_option(request, key, value), "audiocpp_request_set_option(\(key))")
+        }
 
         var result: OpaquePointer?
         // Lượt đầu tiên có AMX của lần mở app này: để dấu, chết giữa chừng thì lần sau tự tắt AMX tới bản build sau.
@@ -340,7 +347,8 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     private func synthesizeLocked(
         phonemes: String,
         referenceCodesPath: String,
-        speakerEmbeddingPath: String
+        speakerEmbeddingPath: String,
+        extraRequestOptions: [(String, String)]
     ) throws -> Output {
         throw RuntimeError.unavailable
     }

@@ -137,6 +137,12 @@ extension VieNeuTTSSettingsView {
                         Text("Đang dùng").foregroundColor(.green)
                     }
                 }
+                // TẠM (1.3.932): màn đo codec AMX vs Neural Engine — gỡ cùng `TurboCodecBenchView` khi có kết luận.
+                NavigationLink {
+                    TurboCodecBenchView()
+                } label: {
+                    Label("Đo codec: AMX vs Neural Engine (tạm)", systemImage: "gauge.with.dots.needle.33percent")
+                }
             } else {
                 Text("Bản build này chưa có audio.cpp")
                     .foregroundColor(.secondary)

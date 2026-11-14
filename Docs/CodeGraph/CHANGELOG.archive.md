@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.902] - 2026-11-12
+
+### fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước
+
+Rà soát lại sheet chọn giọng / nhân bản (1.3.900–900) trước khi gộp — sửa các chỗ đọc code thấy sai.
+
+- **Thử giọng model khác rồi đóng sheet**: thử giọng Turbo khi trình đọc là Nano (hay ngược lại) làm engine kia nhả model của trình đọc. Đọc tiếp vẫn chạy (engine tự nạp lại ở đoạn đầu) nhưng chờ nạp model, và thử Nano khi đang đọc Turbo để hai model cùng nằm trong RAM. Nay đóng sheet ⇒ `VieNeuVoicePreviewPlayer.finishSession()` nạp sẵn lại engine của trình đọc (`TTSManager.scheduleNghiWarmUp`, bỏ `private`).
+- **Sheet nhân bản đang tải gói không huỷ được**: thêm nút "Huỷ tải" khi đang tải (`cancelSave()` huỷ các lượt tải + lượt lưu, giữ mẫu để Lưu lại). Bỏ `interactiveDismissDisabled` chồng lên `confirmDiscardOnSwipe` (hai cơ chế cùng chặn vuốt) — có mẫu (kể cả lúc đang lưu) ⇒ hỏi "Bỏ thay đổi?", bỏ ⇒ huỷ lượt lưu. Đang tạo giọng mà bỏ thì lượt ORT / audio.cpp dở chạy nốt, giọng vẫn lưu nhưng không được chọn.
+- **Bản build không có audio.cpp**: "Turbo" / "Cả hai" và "Tạo bản Turbo" chặn ngay (trước đây tải ~320 MB rồi mới lỗi).
+- **Trùng tên**: kiểm tên với giọng Nano / Turbo tự tạo **trước** khi tải / tạo ("Cả hai" từng tạo xong Nano rồi mới lỗi trùng tên Turbo).
+- **Đọc đĩa trên main mỗi nhịp tiến độ**: sheet nhân bản không đọc đĩa trong `init` (SwiftUI dựng lại `init` mỗi lần màn cha vẽ) mà ở `onAppear`; sheet chọn giọng tính giọng của trình đọc một lần mỗi lượt vẽ thay vì từng hàng (`VieNeuModelChoice.current` kiểm file GGUF).
+- Hàng "Giọng đọc" không nháy cảnh báo cam "Chưa tải dữ liệu giọng" ở lần vẽ đầu trước khi đọc đĩa xong; bỏ key path phần tử tuple ở `VieNeuClonePackages`.
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.901] - 2026-11-12
 
 ### feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano

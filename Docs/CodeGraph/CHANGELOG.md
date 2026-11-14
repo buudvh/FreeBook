@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.932] - 2026-11-14
+
+### feat: Màn đo tạm so codec Turbo chạy AMX với Core ML và Neural Engine trên cùng mã âm thanh
+
+Hướng 3 của báo cáo tối ưu Turbo (§18, anh Bửu duyệt): xem codec MOSS chạy Core ML / Neural Engine có nhanh hơn AMX (đường đang dùng) không trước khi đầu tư sửa graph. Bước thử trên CI (nhánh đo `claude/turbo-tp-profile`): graph ONNX chính thức `OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX` ra đúng tiếng (SNR ~60 dB so với codec audio.cpp — GGUF lưu codec F16, ONNX fp32 gốc), độn khung tới bucket giữ nguyên tiếng, cố định chiều động lúc tạo session (`AddFreeDimensionOverrideByName`) cho Core ML nhận 714/907 node trong 14 mảnh (op rơi về CPU: Gather, Less, Unsqueeze, Reshape… của mặt nạ / chỉ số). Máy ảo CI không có Neural Engine ⇒ tốc độ phải đo trên máy. Màn **tạm**, gỡ khi có kết luận.
+
+- **Cài đặt VieNeu TTS › Turbo › "Đo codec: AMX vs Neural Engine (tạm)"** (`Views/Settings/TTS/TurboCodecBenchView.swift`): một nút chạy, dòng tiến độ, báo cáo Markdown hiện tại chỗ + "Chia sẻ báo cáo" (`ShareSheet`). Giữ màn hình sáng trong lúc đo; đang đọc truyện thì từ chối.
+- **`TurboCodecBenchRunner`** (`Services/TTS/VieNeuTurbo/CodecBench/`): tổng hợp 3 câu phiên âm cố định (32 / 64 / ~123 khung) × 3 vòng bằng `VieNeuTurboRuntime` với giọng Turbo đang chọn (hoặc giọng Turbo đầu tiên đã tải) — `codes_dump_file` lấy mã, `text_chunk_size=1000` một lượt sinh mỗi câu, bộ đếm giờ audio.cpp cho thời gian codec AMX (log app bật tạm trong lúc đo rồi trả về như cũ). Rồi giải mã đúng mã đó bằng **ORT CPU** (shape động), **Core ML CPU** (fp32) và **Core ML + Neural Engine** (`MLComputeUnits = CPUAndNeuralEngine`; bucket 64 / 128 khung, độn mã + `audio_code_lengths` thật, cache biên dịch ở `Caches/turbo-codec-bench/coreml-cache/`), mỗi lúc một session. Báo cáo: ms giải mã mỗi giây tiếng (trung vị), so với AMX, SNR so với tiếng audio.cpp, thời gian dựng session / lượt đầu, số node Core ML nhận (đọc log ORT), nhiệt đầu / cuối, theo từng câu.
+- **`TurboCodecBenchAssets`**: tải `moss_audio_tokenizer_decode_full.onnx` + `moss_audio_tokenizer_decode_shared.data` (~45 MB, revision ghim `ceff0d07`, kiểm đúng cỡ byte) vào `Caches/turbo-codec-bench/` (hệ điều hành được xoá).
+- **`TurboCodecProbeBridge.h/.m`** (thêm vào `FreeBookBridgingHeader.h`): cầu C API ONNX Runtime cho graph codec — vào int32 (`audio_codes [1, T, 16]`, `audio_code_lengths`), ra audio theo kênh cắt theo `audio_lengths`; trọng số nạp từ bộ nhớ (`AddExternalInitializersFromFilesInMemory`, né lỗi external data của Core ML EP ORT 1.24.2); cố định `batch` / `code_length` bằng free dimension override. Bọc Swift `TurboCodecProbeSession` (khuôn `VieNeuONNXProbeSession`, `autoreleasepool`).
+- **`VieNeuTurboRuntime.synthesize(…, extraRequestOptions:)`**: tuỳ chọn request phụ (mặc định rỗng ⇒ trình đọc không đổi).
+- Gỡ màn đo = xoá `CodecBench/`, `TurboCodecBenchView.swift`, dòng trong bridging header, hàng ở `VieNeuTTSSettingsView+Sections`, tham số `extraRequestOptions` nếu không ai dùng, `Caches/turbo-codec-bench/`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa chạy trên máy.
+
 ## [1.3.931] - 2026-11-14
 
 ### feat: Sheet điều khiển nhanh TTS có badge nhiệt độ máy Mát / Ấm / Nóng / Rất nóng
@@ -607,17 +621,3 @@ Session Nano đưa P1b ("Đo tự động ORT ↔ Core ML") lên `main` với s�
 Entry CHANGELOG đã dời lúc ghép. Commit này chỉ dời số trong **chú thích code**, `CLAUDE.md` / `AGENTS.md` và script của đợt. Dòng nào có y nguyên trong bản `main` thì giữ, ví dụ số 1.3.890 của P1b.
 
 **Kiểm chứng:** so `diff` code giữa bản trước và sau khi ghép: chỉ khác đúng phần P1b mang vào, cộng một dòng `isBusy` của màn thử gộp cả `autoRun` lẫn `cloneTrial`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build.
-
-## [1.3.902] - 2026-11-12
-
-### fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước
-
-Rà soát lại sheet chọn giọng / nhân bản (1.3.900–900) trước khi gộp — sửa các chỗ đọc code thấy sai.
-
-- **Thử giọng model khác rồi đóng sheet**: thử giọng Turbo khi trình đọc là Nano (hay ngược lại) làm engine kia nhả model của trình đọc. Đọc tiếp vẫn chạy (engine tự nạp lại ở đoạn đầu) nhưng chờ nạp model, và thử Nano khi đang đọc Turbo để hai model cùng nằm trong RAM. Nay đóng sheet ⇒ `VieNeuVoicePreviewPlayer.finishSession()` nạp sẵn lại engine của trình đọc (`TTSManager.scheduleNghiWarmUp`, bỏ `private`).
-- **Sheet nhân bản đang tải gói không huỷ được**: thêm nút "Huỷ tải" khi đang tải (`cancelSave()` huỷ các lượt tải + lượt lưu, giữ mẫu để Lưu lại). Bỏ `interactiveDismissDisabled` chồng lên `confirmDiscardOnSwipe` (hai cơ chế cùng chặn vuốt) — có mẫu (kể cả lúc đang lưu) ⇒ hỏi "Bỏ thay đổi?", bỏ ⇒ huỷ lượt lưu. Đang tạo giọng mà bỏ thì lượt ORT / audio.cpp dở chạy nốt, giọng vẫn lưu nhưng không được chọn.
-- **Bản build không có audio.cpp**: "Turbo" / "Cả hai" và "Tạo bản Turbo" chặn ngay (trước đây tải ~320 MB rồi mới lỗi).
-- **Trùng tên**: kiểm tên với giọng Nano / Turbo tự tạo **trước** khi tải / tạo ("Cả hai" từng tạo xong Nano rồi mới lỗi trùng tên Turbo).
-- **Đọc đĩa trên main mỗi nhịp tiến độ**: sheet nhân bản không đọc đĩa trong `init` (SwiftUI dựng lại `init` mỗi lần màn cha vẽ) mà ở `onAppear`; sheet chọn giọng tính giọng của trình đọc một lần mỗi lượt vẽ thay vì từng hàng (`VieNeuModelChoice.current` kiểm file GGUF).
-- Hàng "Giọng đọc" không nháy cảnh báo cam "Chưa tải dữ liệu giọng" ở lần vẽ đầu trước khi đọc đĩa xong; bỏ key path phần tử tuple ở `VieNeuClonePackages`.
-- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
