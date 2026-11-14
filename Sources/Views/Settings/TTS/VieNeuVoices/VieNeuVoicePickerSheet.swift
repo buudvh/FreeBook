@@ -331,6 +331,7 @@ struct VieNeuVoicePickerSheet: View {
     private func select(_ entry: VieNeuVoiceEntry) {
         guard directory.isReady(entry) else { return }
         ttsManager.selectVieNeuVoice(entry.selection)
+        VieNeuHybridPairProvisioner.shared.voiceSelectedByUser()
     }
 
     /// Nút 🗑 của giọng Turbo tải về: dừng câu thử của giọng đó (dùng chung runtime Turbo) rồi xoá file của riêng giọng.

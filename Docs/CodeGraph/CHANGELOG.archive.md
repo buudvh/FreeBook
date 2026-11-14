@@ -2,6 +2,28 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.907] - 2026-11-12
+
+### fix: mở Cài đặt TTS từ đĩa nghe luôn dừng đọc, đóng sheet thì đọc tiếp
+
+Anh Bửu báo ở 1.3.905: *"khi tôi mở sheet cài đặt tts sao không pause được"*.
+
+**Nguyên nhân:**
+- Sheet Cài đặt TTS có hai lối mở:
+  - nút ⚙ của sheet Hẹn giờ, qua `TTSSettingsSheetHost`, có `onDismiss`;
+  - nút "Giọng đọc" của sheet điều khiển đĩa nghe (`TTSQuickControlSheet`), dùng `.sheet` riêng, **không** có `onDismiss`.
+- Với lối thứ hai, phiên Cài đặt (1.3.897) chỉ còn trông vào `TTSSettingsView.onDisappear` khi `isPresented == false`. Nhưng ở màn gốc của sheet, cờ này không về `false` lúc sheet đóng, nên phiên kẹt ở "đang mở":
+  - đóng sheet không đọc tiếp;
+  - lần mở sau `begin()` tưởng phiên cũ còn mở nên **không dừng**;
+  - về trang gốc Cài đặt thì có thể tự đọc.
+
+**Sửa:**
+- Vỏ `TTSSettingsSheet` gọi `finish` ở `onDisappear`. Vỏ chỉ biến mất khi sheet đóng thật (vào trang con thì vỏ còn), và cả hai lối mở đều đi qua vỏ này.
+- `TTSSettingsView.onDisappear` giờ chỉ lo dạng **trang** ở tab Cài đặt (`!isPresentedAsSheet && !isPresented`). Các chốt `onAppear` của hub "Nghe truyện (TTS)" và trang gốc Cài đặt giữ nguyên.
+- Chốt an toàn: `begin()` thấy phiên "đang mở" mà TTS **đang đọc** thì coi phiên cũ đã đóng mà không ai báo, và mở phiên mới. Nhờ vậy mở Cài đặt là luôn dừng.
+
+**Kiểm chứng:** đọc code + grep chéo (`begin` chỉ gọi ở `TTSSettingsView.onAppear`; `finish` ở vỏ sheet, `onDismiss` của host, `TTSSettingsView` dạng trang, hub và trang gốc Cài đặt). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy; log `[TTSSettings]` ghi lối nào đã đóng phiên.
+
 ## [1.3.906] - 2026-11-12
 
 ### fix: Đo tự động không giữ engine Nano lúc biên dịch Core ML, kiểm RAM trước mỗi bước và ghi nhật ký từng bước

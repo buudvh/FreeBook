@@ -11,8 +11,9 @@ import Observation
 ///    Nano qua `VieNeuNanoVoiceCreator`. Bản mới cùng tên giọng nguồn và mang liên kết cặp (`sourceNanoVoiceId` /
 ///    `sourceNanoPresetName` / `sourceTurboVoiceId`) ⇒ `VieNeuVoicePairing` nhận ngay (bỏ đệm 30 s).
 ///
-/// Kết quả báo bằng toast qua `TTSPresentationEventCenter` (Service không gọi toast) + log `🎙️ [VieNeuCopy]`;
-/// `completionToken` / `lastOutcome` cho lối tự tạo của đọc lai (`VieNeuHybridPairProvisioner`).
+/// Kết quả báo bằng toast qua `TTSPresentationEventCenter` (Service không gọi toast) + log `🎙️ [VieNeuCopy]`. Lối tự
+/// tạo của đọc lai (`VieNeuHybridPairProvisioner`, 1.3.938) truyền thêm `canContinue` (kiểm trước bước đọc mẫu và bước
+/// tạo giọng — sai ⇒ tạm dừng, không toast) và `onFinish`.
 @MainActor
 @Observable
 final class VieNeuVoiceCopyRunner {
@@ -27,16 +28,18 @@ final class VieNeuVoiceCopyRunner {
     struct Outcome: Equatable {
         let sourceKey: String
         let succeeded: Bool
+        /// Dừng giữa chừng vì `canContinue` trả `false` (app vào nền / truyện bắt đầu đọc) — chưa tạo gì.
+        let wasPaused: Bool
         let message: String
     }
+
+    private struct PausedError: Error {}
 
     private(set) var job: VieNeuVoiceCopySource?
     private(set) var phase: Phase?
     private(set) var nanoStage: VieNeuVoiceCloner.Stage?
     private(set) var downloadTargets: [String] = []
     private(set) var downloadTotal: Int64 = 0
-    private(set) var lastOutcome: Outcome?
-    private(set) var completionToken = 0
 
     private init() {}
 
@@ -67,7 +70,12 @@ final class VieNeuVoiceCopyRunner {
 
     /// Bắt đầu một lượt. Trả lý do khi không chạy được (bên gọi tự báo); `nil` = đã bắt đầu.
     @discardableResult
-    func run(_ source: VieNeuVoiceCopySource, automatic: Bool = false) -> String? {
+    func run(
+        _ source: VieNeuVoiceCopySource,
+        automatic: Bool = false,
+        canContinue: (() -> Bool)? = nil,
+        onFinish: ((Outcome) -> Void)? = nil
+    ) -> String? {
         if let reason = blockReason(for: source) { return reason }
         VieNeuVoicePreviewPlayer.shared.stop()
         job = source
@@ -78,16 +86,28 @@ final class VieNeuVoiceCopyRunner {
         AppLogger.shared.log(
             "🎙️ [VieNeuCopy] Tạo bản \(source.target.label) của \(source.id) (\(source.hasSample ? "từ mẫu gốc" : "từ tiếng máy đọc")\(automatic ? ", tự tạo cho đọc lai" : ""))"
         )
-        Task { [weak self] in await self?.execute(source) }
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await execute(source, automatic: automatic, canContinue: canContinue)
+            onFinish?(outcome)
+        }
         return nil
     }
 
     // MARK: - Nội bộ
 
-    private func execute(_ source: VieNeuVoiceCopySource) async {
+    private func execute(
+        _ source: VieNeuVoiceCopySource,
+        automatic: Bool,
+        canContinue: (() -> Bool)?
+    ) async -> Outcome {
         var spokenURL: URL?
         let message: String
         var succeeded = false
+        var paused = false
+        func checkContinue() throws {
+            if let canContinue, !canContinue() { throw PausedError() }
+        }
         do {
             let wantsNano = source.target == .nano
             if !VieNeuClonePackages.isReady(nano: wantsNano, turbo: !wantsNano) {
@@ -99,16 +119,22 @@ final class VieNeuVoiceCopyRunner {
             }
             var sampleURL = source.sampleURL
             if sampleURL == nil {
+                try checkContinue()
                 phase = .speaking
                 spokenURL = try await VieNeuVoiceSampleSpeaker.speak(source.selection)
                 sampleURL = spokenURL
             }
             guard let sampleURL else { throw VieNeuVoiceSampleSpeaker.SpeakError.empty }
+            try checkContinue()
             phase = .creating
             let detail = try await create(source, sampleURL: sampleURL, isSpoken: spokenURL != nil)
             VieNeuVoicePairing.shared.invalidate()
-            message = "Đã tạo bản \(source.target.label) của “\(source.name)”\(detail)."
+            message = "Đã tạo bản \(source.target.label) của “\(source.name)”\(detail)\(automatic ? " — đọc lai đã bật" : "")."
             succeeded = true
+        } catch is PausedError {
+            paused = true
+            message = "Tạm dừng tạo bản \(source.target.label) của “\(source.name)” (app vào nền hoặc truyện đang đọc)"
+            AppLogger.shared.log("⏸️ [VieNeuCopy] \(message)")
         } catch {
             message = "Tạo bản \(source.target.label) của “\(source.name)” lỗi: \(error.localizedDescription)"
             AppLogger.shared.log("❌ [VieNeuCopy] \(message)")
@@ -122,13 +148,14 @@ final class VieNeuVoiceCopyRunner {
         if succeeded {
             AppLogger.shared.log("🎙️ [VieNeuCopy] \(message)")
         }
-        TTSPresentationEventCenter.shared.send(.showToast(message: message, type: succeeded ? .success : .error))
+        if !paused {
+            TTSPresentationEventCenter.shared.send(.showToast(message: message, type: succeeded ? .success : .error))
+        }
         job = nil
         phase = nil
         nanoStage = nil
-        lastOutcome = Outcome(sourceKey: source.id, succeeded: succeeded, message: message)
-        completionToken += 1
         VieNeuVoiceDirectory.shared.reload()
+        return Outcome(sourceKey: source.id, succeeded: succeeded, wasPaused: paused, message: message)
     }
 
     /// Tạo bản ở model đích; trả phần ghi chú thêm cho câu báo ("" khi không có gì).

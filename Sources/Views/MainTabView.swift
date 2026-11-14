@@ -106,6 +106,8 @@ struct MainTabView: View {
             ExtensionCookieSync.shared.startObserving()
             DownloadManager.shared.initialize(container: modelContext.container)
             TTSManager.shared.initialize(container: modelContext.container)
+            // Tự tạo bản cặp Nano ↔ Turbo cho đọc lai khi đổi giọng (1.3.938) — chỉ theo dõi, không tự chạy lúc mở app.
+            VieNeuHybridPairProvisioner.shared.start()
             // Dọn sách mồ côi của tiện ích không lưu lịch sử — ngay sau khi danh sách tác vụ tải đã nạp, trước khi
             // người dùng kịp mở truyện nào. Lịch sử cũ giữ nguyên.
             HistoryOrphanBookSweeper.startOnce(container: modelContext.container)

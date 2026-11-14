@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.938] - 2026-11-14
+
+### feat: Bật đọc lai VieNeu mà giọng chưa có cặp thì app tự tạo bản Nano hoặc Turbo cho giọng đó
+
+Anh Bửu (qua session tối ưu Turbo, *"oke cứ làm như vậy"*, rồi duyệt plan ở đây): bật đọc lai mà giọng đang chọn chưa có cặp ⇒ tự tạo bản nhân bản chéo (1.3.937) rồi đọc lai chạy luôn.
+
+- **`VieNeuHybridPairProvisioner`** (mới, `Services/TTS/VieNeu/Hybrid/`, `@MainActor @Observable`): chỉ xét **công tắc dùng tới cặp** — giọng Nano ⇒ A "Tiếng nước ngoài đọc bằng Turbo" (cần bản Turbo), giọng Turbo ⇒ B "Máy nóng thì đọc bằng Nano" (cần bản Nano); hai trường hợp còn lại cặp không bao giờ được dùng ⇒ không tạo.
+- **Lúc kích hoạt**: gạt công tắc dùng tới cặp sang bật (`switchChanged(_:isOn:)` từ `VieNeuHybridSettingsSection`; gạt công tắc kia không tính), hoặc người dùng chọn giọng ở sheet chọn giọng lúc công tắc bật (`voiceSelectedByUser()` từ `VieNeuVoicePickerSheet.select`, xét sau 0,8 s). Giọng do app tự đổi (mở app, lùi model khi thiếu file, xoá giọng, chọn giọng vừa nhân bản) **không** tính — nên không theo `TTSManager.$selectedVoice`. Danh sách giọng chưa đọc đĩa ⇒ đọc rồi xét lại.
+- **Thiếu file của model kia**: gạt công tắc ⇒ dòng hỏi "… chưa có bản Turbo · cần tải N MB" + "Tải và tạo bản …" / "Bỏ qua giọng này"; chỉ chọn giọng (công tắc bật sẵn) ⇒ không hỏi, chỉ log. Không tự tải ngầm.
+- **Một lần mỗi giọng** (`vieneuHybridAutoPairTried`): bắt đầu tạo / bấm Bỏ qua ⇒ nhớ; chọn lại giọng đó không tự thử lại. Gạt công tắc (thao tác chủ động) xét lại; dòng lỗi có "Thử lại".
+- **Chỉ tiền cảnh, không giành tiếng**: app ở nền / truyện đang đọc / đang có lượt tạo khác ⇒ chờ, chạy khi truyện dừng (`$isPlaying`) hoặc app mở lại (`didBecomeActive`) nếu giọng vẫn là giọng đó. `VieNeuVoiceCopyRunner.run` thêm `canContinue` (kiểm trước bước đọc mẫu và bước tạo giọng; sai ⇒ tạm dừng, không toast, không tính đã thử) và `onFinish`.
+- **Xong** ⇒ `TTSManager.vieNeuHybridSettingsDidChange()` (bỏ đệm cặp, bỏ audio nạp trước, chuẩn bị lại engine ⇒ đoạn kế tiếp đọc lai); toast "Đã tạo bản … — đọc lai đã bật". Log `🔀 [VieNeuHybrid]` mỗi lúc bắt đầu / chờ / bỏ qua / thiếu file / xong / lỗi.
+- **Mục "Đọc lai Nano · Turbo"**: dòng trạng thái thay theo việc tự tạo (đang tạo · bước + thanh mảnh / đang chờ / hỏi tải / lỗi + Thử lại); thêm đoạn giải thích sau nút "?". `MainTabView` gọi `start()` cạnh `TTSManager.initialize`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.937] - 2026-11-14
 
 ### feat: Tạo bản Nano và Turbo cho mọi giọng VieNeu, giọng không có mẫu thì nhân bản từ tiếng máy đọc, bản mới tự ghép cặp đọc lai
@@ -598,25 +613,3 @@ Anh Bửu báo: *"icon xuất nhập vp/name bị trùng icon chia sẻ/nhập v
 - Cặp `square.and.arrow.down` / `up` từ nay chỉ dành cho nhập / xuất **file** (cả app vốn dùng vậy). Chia sẻ bộ rule riêng sang truyện khác (`QuickTranslationRuleIOMenu`, menu hàng `QuickTranslationRuleEntryRow`) cũng đổi từ `square.and.arrow.up.on.square` sang `arrowshape.turn.up.right` cho cùng một icon ở mọi nơi.
 
 **Kiểm chứng:** chỉ đổi tên SF Symbol (có từ iOS 13). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
-
-## [1.3.907] - 2026-11-12
-
-### fix: mở Cài đặt TTS từ đĩa nghe luôn dừng đọc, đóng sheet thì đọc tiếp
-
-Anh Bửu báo ở 1.3.905: *"khi tôi mở sheet cài đặt tts sao không pause được"*.
-
-**Nguyên nhân:**
-- Sheet Cài đặt TTS có hai lối mở:
-  - nút ⚙ của sheet Hẹn giờ, qua `TTSSettingsSheetHost`, có `onDismiss`;
-  - nút "Giọng đọc" của sheet điều khiển đĩa nghe (`TTSQuickControlSheet`), dùng `.sheet` riêng, **không** có `onDismiss`.
-- Với lối thứ hai, phiên Cài đặt (1.3.897) chỉ còn trông vào `TTSSettingsView.onDisappear` khi `isPresented == false`. Nhưng ở màn gốc của sheet, cờ này không về `false` lúc sheet đóng, nên phiên kẹt ở "đang mở":
-  - đóng sheet không đọc tiếp;
-  - lần mở sau `begin()` tưởng phiên cũ còn mở nên **không dừng**;
-  - về trang gốc Cài đặt thì có thể tự đọc.
-
-**Sửa:**
-- Vỏ `TTSSettingsSheet` gọi `finish` ở `onDisappear`. Vỏ chỉ biến mất khi sheet đóng thật (vào trang con thì vỏ còn), và cả hai lối mở đều đi qua vỏ này.
-- `TTSSettingsView.onDisappear` giờ chỉ lo dạng **trang** ở tab Cài đặt (`!isPresentedAsSheet && !isPresented`). Các chốt `onAppear` của hub "Nghe truyện (TTS)" và trang gốc Cài đặt giữ nguyên.
-- Chốt an toàn: `begin()` thấy phiên "đang mở" mà TTS **đang đọc** thì coi phiên cũ đã đóng mà không ai báo, và mở phiên mới. Nhờ vậy mở Cài đặt là luôn dừng.
-
-**Kiểm chứng:** đọc code + grep chéo (`begin` chỉ gọi ở `TTSSettingsView.onAppear`; `finish` ở vỏ sheet, `onDismiss` của host, `TTSSettingsView` dạng trang, hub và trang gốc Cài đặt). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy; log `[TTSSettings]` ghi lối nào đã đóng phiên.
