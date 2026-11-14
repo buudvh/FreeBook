@@ -45,7 +45,7 @@ struct VieNeuVoicePickerSheet: View {
     var body: some View {
         // Giọng trình đọc đang dùng — tính **một lần** mỗi lượt vẽ (`VieNeuModelChoice.current` kiểm file GGUF), không
         // theo từng hàng: sheet vẽ lại theo mỗi nhịp tiến độ tải.
-        _ = fallbackToken
+        let _ = fallbackToken
         let reader: VieNeuVoiceSelection? = ttsManager.tool == "vieneu"
             ? VieNeuVoiceSelection(model: VieNeuModelChoice.current, voiceId: ttsManager.selectedVoice)
             : (selectsForFallback ? VieNeuVoiceSummaryRow.displayedSelection(tool: "", selectedVoice: "") : nil)
