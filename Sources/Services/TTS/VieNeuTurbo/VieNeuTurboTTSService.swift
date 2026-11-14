@@ -278,7 +278,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             "qos=\(output.qosName)",
             "thermal=\(thermalName(ProcessInfo.processInfo.thermalState))"
         ]
-        // Bộ đếm giờ của audio.cpp (1.3.924): tách nạp prompt / backbone / âm học / codec để so công tắc codec AMX.
+        // Bộ đếm giờ của audio.cpp (1.3.924): tách nạp prompt / backbone / âm học / codec để thấy phần nào chạy AMX.
         // CPU-time không đếm đủ phần chạy trên AMX ⇒ so bằng `codecMs` / RTF, đừng so `cpuPerAudio`.
         if let timings = output.timings {
             fields += [
@@ -295,7 +295,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         )
     }
 
-    /// "tắt" (công tắc tắt) · "bật" (codec và nạp prompt đều chạy qua BLAS) · "lùi:codec" / "lùi:prefill" /
+    /// "tắt" (AMX tự tắt tới bản build sau) · "bật" (codec và nạp prompt đều chạy qua BLAS) · "lùi:codec" / "lùi:prefill" /
     /// "lùi:codec+prefill" (bật mà audio.cpp lùi về CPU ở phần đó) · "bật?" (không đo — log tắt).
     private static func amxLabel(requested: Bool, timings: VieNeuTurboTimingLog.Timings?) -> String {
         guard requested else { return "tắt" }

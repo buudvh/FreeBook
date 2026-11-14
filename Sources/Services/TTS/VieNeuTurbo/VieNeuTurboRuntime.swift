@@ -236,7 +236,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         }
 
         var sessionCreateMs: Double?
-        if session == nil || sessionThreads != threads || sessionCodecBLAS != VieNeuTurboAcceleration.isCodecAMXEnabled {
+        if session == nil || sessionThreads != threads || sessionCodecBLAS != VieNeuTurboAcceleration.isAMXEnabled {
             sessionCreateMs = try createSessionLocked(threads: threads)
         }
         return LoadReport(modelLoadMs: modelLoadMs, sessionCreateMs: sessionCreateMs, threads: threads)
@@ -271,7 +271,7 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         )
 
         var result: OpaquePointer?
-        // Lượt đầu tiên có codec AMX của lần mở app này: để dấu, chết giữa chừng thì lần sau tự tắt công tắc (1.3.925).
+        // Lượt đầu tiên có AMX của lần mở app này: để dấu, chết giữa chừng thì lần sau tự tắt AMX tới bản build sau.
         let guardsAMXRun = sessionCodecBLAS && !codecAMXVerified
         if guardsAMXRun { VieNeuTurboCrashGuard.beginGuardedRun() }
         defer { if guardsAMXRun { VieNeuTurboCrashGuard.endGuardedRun() } }

@@ -3,21 +3,22 @@ import Foundation
 import AudioCpp
 #endif
 
-/// Chống **sập lặp lại** khi bật "Tăng tốc codec bằng AMX" (1.3.925) + ghi lý do audio.cpp dừng tiến trình.
+/// Chống **sập lặp lại** do "Tăng tốc bằng AMX" của Turbo (1.3.925; từ 1.3.928 AMX luôn bật) + ghi lý do audio.cpp dừng.
 ///
-/// Vì sao: 1.3.924 bật công tắc làm app chết ngay lượt Turbo đầu tiên trên iPhone, log không có dòng nào, và công tắc
-/// vẫn bật ⇒ lần đọc Turbo sau chết tiếp. Hai file nhỏ ở `Library/Caches` (còn lại sau khi tiến trình chết):
+/// Vì sao: 1.3.924 bật AMX làm app chết ngay lượt Turbo đầu tiên trên iPhone, log không có dòng nào, và lần đọc Turbo
+/// sau chết tiếp (nguyên nhân thật ở 1.3.926: scheduler xin ~2,6 GB). Hai file nhỏ ở `Library/Caches` (còn lại sau khi
+/// tiến trình chết):
 /// - **Dấu "đang thử AMX"** (`vieneu-turbo-amx-pending.txt`, chứa mã của tiến trình): ghi trước lượt Turbo **đầu tiên**
 ///   có codec AMX của mỗi lần mở app, xoá khi lượt đó kết thúc (xong hay ném lỗi — tức là không chết). Mở app sau mà dấu
 ///   còn và là của tiến trình khác ⇒ lần trước chết giữa lượt đó.
 /// - **Câu báo của ggml** (`audiocpp-abort.txt`): bản vá `capi_abort_file` cho `GGML_ASSERT` / exception chưa bắt ghi câu
 ///   báo vào đây trước khi `abort()`. Không bắt được truy cập bộ nhớ sai (cần file `.ips` của iOS).
-/// `recoverIfNeeded()` thấy một trong hai ⇒ ghi `❌` vào log; nếu công tắc đang bật thì tự tắt + bật cờ
-/// `codecAMXAutoDisabledKey` (Cài đặt hiện một dòng giải thích). Bị giết khi đang đọc (vuốt tắt app) đúng lượt đầu thì
-/// cũng bị tính là chết — chấp nhận, vì chỉ canh lượt đầu tiên mỗi lần mở app.
+/// `recoverIfNeeded()` thấy một trong hai ⇒ ghi `❌` vào log; nếu AMX đang dùng thì tắt AMX **cho tới khi cài bản build
+/// khác** (`VieNeuTurboAcceleration.disableForCurrentBuild`; Cài đặt hiện "Đã tự tắt tới bản sau"). Bị giết khi đang đọc
+/// (vuốt tắt app) đúng lượt đầu thì cũng bị tính là chết — chấp nhận, vì chỉ canh lượt đầu tiên mỗi lần mở app.
 ///
 /// Gọi: `VieNeuTurboRuntime.createSessionLocked` (hàng đợi runtime, trước mọi lượt đầu) và `VieNeuTTSSettingsView`
-/// (main, để công tắc hiện đúng ngay sau khi mở lại app). Khoá `lock` giữ hai nơi không cùng ghi.
+/// (main, để dòng trạng thái hiện đúng ngay sau khi mở lại app). Khoá `lock` giữ hai nơi không cùng ghi.
 enum VieNeuTurboCrashGuard {
     /// Mã riêng của tiến trình này — phân biệt dấu của lượt đang chạy với dấu sót lại từ tiến trình đã chết.
     private static let processToken = UUID().uuidString
@@ -41,7 +42,7 @@ enum VieNeuTurboCrashGuard {
         #endif
     }
 
-    /// Trước lượt Turbo đầu tiên có codec AMX của tiến trình này.
+    /// Trước lượt Turbo đầu tiên có AMX của tiến trình này.
     static func beginGuardedRun() {
         try? Data(processToken.utf8).write(to: pendingMarkerURL, options: .atomic)
     }
@@ -51,7 +52,7 @@ enum VieNeuTurboCrashGuard {
         try? FileManager.default.removeItem(at: pendingMarkerURL)
     }
 
-    /// Lần trước chết giữa lượt AMX / audio.cpp có ghi câu báo ⇒ log, và tự tắt công tắc nếu đang bật.
+    /// Lần trước chết giữa lượt AMX / audio.cpp có ghi câu báo ⇒ log, và tắt AMX tới bản build sau nếu đang dùng.
     /// Trả `true` khi vừa tự tắt.
     @discardableResult
     static func recoverIfNeeded() -> Bool {
@@ -68,13 +69,14 @@ enum VieNeuTurboCrashGuard {
 
         var reason = diedDuringAMX ? "app dừng giữa lượt Turbo đầu tiên có AMX" : "audio.cpp dừng tiến trình"
         if !abortNote.isEmpty { reason += " — audio.cpp báo: \(abortNote.prefix(600))" }
-        guard VieNeuTurboAcceleration.isCodecAMXEnabled else {
+        guard VieNeuTurboAcceleration.isAMXEnabled else {
             AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason)")
             return false
         }
-        UserDefaults.standard.set(false, forKey: VieNeuTurboAcceleration.codecAMXKey)
-        UserDefaults.standard.set(true, forKey: VieNeuTurboAcceleration.codecAMXAutoDisabledKey)
-        AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason) ⇒ đã tự tắt \"Tăng tốc bằng AMX\"")
+        VieNeuTurboAcceleration.disableForCurrentBuild()
+        AppLogger.shared.log(
+            "❌ [VieNeuTurbo] Lần trước \(reason) ⇒ đã tự tắt \"Tăng tốc bằng AMX\" cho bản build \(VieNeuTurboAcceleration.currentBuild) (bản build sau tự bật lại)"
+        )
         return true
     }
 }

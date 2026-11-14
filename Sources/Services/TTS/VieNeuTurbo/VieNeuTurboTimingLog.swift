@@ -27,7 +27,7 @@ enum VieNeuTurboTimingLog {
         /// Số lần sinh mã (`talker.total_ms`): 1 + lượt sinh lại vì chạm trần khung / nghi nói lan.
         var generateCalls = 0
         /// Codec có chạy qua BLAS ở lượt này không (`moss.audio_tokenizer.decode.blas_active`, ghi mỗi lượt giải mã,
-        /// 0 cả khi công tắc tắt); `nil` = không có dòng nào (lượt hỏng trước khi giải mã).
+        /// 0 cả khi AMX tắt); `nil` = không có dòng nào (lượt hỏng trước khi giải mã).
         var codecBLASActive: Bool?
         /// Bước nạp prompt có chạy qua BLAS không (`vieneu_v3_turbo.talker.prefill.blas_active`, 1.3.927, mỗi lượt nạp).
         var prefillBLASActive: Bool?

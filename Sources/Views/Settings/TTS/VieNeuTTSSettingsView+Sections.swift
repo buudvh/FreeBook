@@ -129,14 +129,13 @@ extension VieNeuTTSSettingsView {
                 LabeledContent("Gói nhân bản giọng", value: snapshot.map {
                     $0.hasTurboClonePack ? "Đã tải · \(Self.size($0.turboClonePackBytes))" : "Chưa tải"
                 } ?? "…")
-                Toggle("Tăng tốc bằng AMX (thử nghiệm)", isOn: $turboCodecAMX)
-                    .onChange(of: turboCodecAMX) { _, isOn in
-                        if isOn { turboCodecAMXAutoDisabled = false }
+                LabeledContent("Tăng tốc AMX") {
+                    // `.green` literal có chủ ý: trạng thái, không theo màu nhấn (như Tăng tốc Core ML của Nano).
+                    if turboAMXDisabledBuild == VieNeuTurboAcceleration.currentBuild {
+                        Text("Đã tự tắt tới bản sau").foregroundColor(.secondary)
+                    } else {
+                        Text("Đang dùng").foregroundColor(.green)
                     }
-                if turboCodecAMXAutoDisabled && !turboCodecAMX {
-                    Text("Đã tự tắt vì lần trước app dừng khi đang đọc Turbo có AMX.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
                 }
             } else {
                 Text("Bản build này chưa có audio.cpp")
@@ -148,7 +147,7 @@ extension VieNeuTTSSettingsView {
         } header: {
             SectionHelpHeader("Turbo", paragraphs: [
                 "VieNeu-TTS v3 **Turbo**: model GGUF q8_0 chạy trên máy qua **audio.cpp** (48 kHz). Model và dữ liệu từng giọng tải **theo giọng** ở sheet chọn giọng; xoá một giọng bằng nút 🗑 cuối hàng giọng đó.",
-                "**Tăng tốc bằng AMX (thử nghiệm, mặc định tắt):** phần giải mã ra tiếng (codec) và bước nạp chữ + giọng mẫu ở đầu mỗi đoạn chạy phép nhân ma trận trên bộ tăng tốc AMX của chip qua Accelerate. Tiếng gần như y hệt: codec chỉ khác sai số làm tròn; bước nạp còn gần bản gốc hơn đường thường. Gạt công tắc có hiệu lực từ đoạn đọc kế tiếp. Muốn so: bật log, nghe vài phút tắt rồi vài phút bật (cùng tốc độ phát) — dòng log `[VieNeuTurbo] Đoạn` có `prefillMs`, `codecMs` và `amx=`. Nếu app dừng giữa lượt đọc đầu tiên có AMX, lần mở sau công tắc tự tắt và log ghi lý do.",
+                "**Tăng tốc AMX (luôn bật):** phần giải mã ra tiếng (codec) và bước nạp chữ + giọng mẫu ở đầu mỗi đoạn chạy phép nhân ma trận trên bộ tăng tốc AMX của chip qua Accelerate. Trên iPhone 11 Turbo nhanh hơn khoảng **37%** (codec 3,3×, bước nạp 1,9×); tiếng gần như y hệt — codec chỉ khác sai số làm tròn, bước nạp còn gần bản gốc hơn đường thường. Nếu app dừng giữa lượt đọc đầu tiên có AMX, lần mở sau app **tự tắt AMX tới bản build sau** và log ghi lý do.",
                 "**Xoá tất cả dữ liệu Turbo** xoá model và mọi giọng Turbo đã tải; giọng nhân bản giữ nguyên."
             ])
         }

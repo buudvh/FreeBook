@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.898] - 2026-11-12
+
+### feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc
+
+Anh Bửu duyệt: VieNeu chỉ còn **một** trình đọc, giọng nào thì model nấy (giọng Nano ⇒ Nano, giọng Turbo ⇒ Turbo). Không gộp đường xử lý chữ / sea-g2p, không đổi đường nhân bản Nano.
+
+- **`VieNeuVoiceSelection`** (mới, `Services/TTS/VieNeu/`): một khoá `vieneuSelectedVoice` = `"nano:<tên giọng>"` / `"turbo:<id>"`; `VieNeuModelChoice.stored` đọc từ đây, `current` / `localEngine` / khoá tổng hợp / `TTSSettingsSnapshot` giữ nguyên cách tính.
+  - Chuyển một lần từ khoá cũ `vieneuModel` + `vieneuVoice` + `vieneuTurboVoice`; khoá cũ giữ nguyên, không xoá.
+  - `vieneuVoice` từ nay là "giọng Nano dùng gần nhất": Turbo thiếu file ⇒ trình đọc lùi về Nano bằng giọng này.
+  - Lùi về Nano **không** ghi đè lựa chọn Turbo: `persistVoice` chỉ ghi khi model hiệu lực trùng model đã lưu (`recordReaderVoice`).
+- **`TTSManager.selectVieNeuVoice`** (`TTSManager+VieNeuVoice`): cùng model ⇒ chỉ đổi `selectedVoice`; khác model ⇒ ghi lựa chọn rồi gán `tool = "vieneu"` (nạp lại tham số, bỏ đệm, `scheduleNghiWarmUp` nạp đúng engine, engine kia nhả trong `prepare`). Đổi giọng ⇒ ảnh chụp cấu hình khác ⇒ đóng Cài đặt TTS là dựng lại đoạn.
+- Cài đặt TTS: Picker "Trình đọc" còn một mục "VieNeu-TTS v3 (Offline)" (luôn hiện); Picker giọng tạm gộp hai nhóm Nano / Turbo (sheet chọn giọng thay ở bản sau). Bỏ `VieNeuModelChoice.store` / `pickerTag` / `voiceDefaultsKey`.
+- Màn thử Turbo "Xoá model" ⇒ về giọng Nano dùng gần nhất.
+- **Kiểm chứng:** đọc code + grep chéo `VieNeuModelChoice` / khoá giọng; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.897] - 2026-11-12
 
 ### fix: Cài đặt TTS chỉ đọc tiếp khi đóng hẳn, không tự đọc khi mở trang con hay đổi tab

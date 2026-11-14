@@ -18,11 +18,9 @@ struct VieNeuTTSSettingsView: View {
     /// Gói đang chờ xác nhận "Xoá tất cả dữ liệu …" / gói đang xoá (vòng xoay trên hàng). `internal` vì hàng nằm ở `+Sections`.
     @State var pendingWipe: VieNeuModelChoice?
     @State var wipingModel: VieNeuModelChoice?
-    /// Công tắc thử nghiệm "Tăng tốc codec bằng AMX" của Turbo (`VieNeuTurboAcceleration`, mặc định tắt). Runtime đọc
-    /// lúc tổng hợp đoạn kế tiếp, nên không cần báo gì thêm khi gạt. `internal` vì hàng nằm ở `+Sections`.
-    @AppStorage(VieNeuTurboAcceleration.codecAMXKey) var turboCodecAMX = false
-    /// `VieNeuTurboCrashGuard` vừa tự tắt công tắc trên vì lần trước app dừng giữa lượt AMX (1.3.925).
-    @AppStorage(VieNeuTurboAcceleration.codecAMXAutoDisabledKey) var turboCodecAMXAutoDisabled = false
+    /// Bản build mà "Tăng tốc bằng AMX" của Turbo bị tự tắt vì sập (`VieNeuTurboAcceleration`, 1.3.928 — AMX luôn bật,
+    /// không còn công tắc). Đọc để dòng trạng thái đổi ngay khi `VieNeuTurboCrashGuard` ghi. `internal` vì hàng ở `+Sections`.
+    @AppStorage(VieNeuTurboAcceleration.disabledBuildKey) var turboAMXDisabledBuild = ""
 
     var directory: VieNeuVoiceDirectory { .shared }
     var accelerator: VieNeuCoreMLAccelerator { .shared }
@@ -41,7 +39,7 @@ struct VieNeuTTSSettingsView: View {
         .onAppear {
             directory.reload()
             accelerator.refresh()
-            // Lần trước app dừng giữa lượt Turbo có codec AMX ⇒ công tắc hiện "tắt" ngay, khỏi chờ lượt đọc tới.
+            // Lần trước app dừng giữa lượt Turbo có AMX ⇒ dòng "Tăng tốc AMX" hiện "Đã tự tắt" ngay, khỏi chờ lượt đọc tới.
             VieNeuTurboCrashGuard.recoverIfNeeded()
         }
         .task { await reloadSnapshot() }

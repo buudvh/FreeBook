@@ -1,32 +1,45 @@
 import Foundation
 
-/// Công tắc thử nghiệm **"Tăng tốc bằng AMX"** của VieNeu Turbo (1.3.924 codec, 1.3.927 thêm bước nạp prompt
-/// + Q·Kᵀ của attention codec; báo cáo tối ưu Turbo P1).
+/// **Tăng tốc bằng AMX** của VieNeu Turbo — **luôn bật** từ 1.3.928 (bỏ công tắc thử nghiệm của 1.3.924–1.3.927, anh
+/// Bửu chốt "Bật, bỏ công tắc" sau khi đo 1.3.927: RTF 0,400 → 0,250 cùng mức nhiệt; báo cáo tối ưu Turbo mục 14).
 ///
-/// Bật ⇒ session audio.cpp được dựng với session option `vieneu_v3_turbo.codec_blas=true` (bản vá
-/// `Scripts/ci/audiocpp_patches/vieneu_codec_blas.py`): codec MOSS giải mã cả đoạn qua `ggml_backend_sched` [BLAS, CPU],
-/// phép nhân ma trận chạy trên Accelerate — tức bộ tăng tốc AMX của chip A13 trở lên. Đo trên CI (P0a): codec chiếm
-/// 37–51% thời gian một đoạn Turbo và đang chạy fp32 NEON. Tiếng gần như y hệt (chỉ đổi thứ tự cộng fp32; job parity
-/// chặn dưới 90 dB). Bản build không có ggml-blas hoặc dựng scheduler lỗi ⇒ audio.cpp tự lùi về đường CPU cũ.
+/// Session audio.cpp được dựng với hai session option:
+/// - `vieneu_v3_turbo.codec_blas=true` (bản vá `Scripts/ci/audiocpp_patches/vieneu_codec_blas.py`): codec MOSS giải mã
+///   cả đoạn qua `ggml_backend_sched` [BLAS, CPU] — phép nhân ma trận (kể cả Q·Kᵀ của attention) chạy Accelerate, tức
+///   AMX của A13 trở lên. Đo trên máy: codec nhanh 3,3×; tiếng trùng mã, WAV ~98 dB so với đường CPU.
+/// - `vieneu_v3_turbo.prefill_blas=true` (bản vá `vieneu_prefill_blas.py`): bước nạp prompt qua Accelerate, nhanh 1,9×,
+///   gần bản fp32 gốc hơn đường q8 (không lượng tử activation).
+/// Bản build không có ggml-blas hoặc dựng scheduler lỗi ⇒ audio.cpp tự lùi về đường CPU cũ (log `amx=lùi:…`).
+///
+/// **Tự tắt khi sập**: `VieNeuTurboCrashGuard` thấy lần trước app chết giữa lượt AMX đầu tiên (hoặc audio.cpp ghi câu
+/// báo dừng) ⇒ ghi số build đang chạy vào `disabledBuildKey` ⇒ AMX tắt cho **tới khi cài bản build khác** (bản sửa).
+/// Không còn công tắc nên đây là lối thoát duy nhất khỏi vòng sập. Khoá cũ của công tắc (`vieneuTurboCodecAMX`,
+/// `vieneuTurboCodecAMXAutoDisabled`) bỏ qua.
 ///
 /// Đọc lúc chạy (UserDefaults, an toàn ngoài main): `VieNeuTurboRuntime.prepareLocked` so với cờ của session đang có,
-/// lệch ⇒ dựng lại session (không nạp lại model) ⇒ gạt công tắc có hiệu lực từ đoạn tổng hợp kế tiếp.
+/// lệch ⇒ dựng lại session (không nạp lại model).
 enum VieNeuTurboAcceleration {
-    /// Khoá `UserDefaults` / `@AppStorage` (không dấu chấm). Thiếu khoá = tắt (thử nghiệm, mặc định tắt).
-    static let codecAMXKey = "vieneuTurboCodecAMX"
-
-    /// `true` khi `VieNeuTurboCrashGuard` vừa tự tắt công tắc vì lần trước app dừng giữa lượt AMX (1.3.925) — Cài đặt
-    /// hiện một dòng giải thích; anh bật lại công tắc thì xoá cờ.
-    static let codecAMXAutoDisabledKey = "vieneuTurboCodecAMXAutoDisabled"
+    /// Số build (`CFBundleVersion`) mà AMX đã bị tự tắt vì sập. Trùng build đang chạy ⇒ AMX tắt.
+    static let disabledBuildKey = "vieneuTurboAMXDisabledBuild"
 
     /// Session option của bản vá `vieneu_codec_blas` — phải khớp tên trong bản vá (audio.cpp từ chối khoá lạ).
     static let codecBLASOption = "vieneu_v3_turbo.codec_blas"
 
-    /// Session option của bản vá `vieneu_prefill_blas` (1.3.927): bước nạp prompt qua Accelerate. Cùng công tắc với
-    /// codec — một lượt tắt/bật đo được cả hai nhờ log tách `prefillMs` / `codecMs`.
+    /// Session option của bản vá `vieneu_prefill_blas` (1.3.927): bước nạp prompt qua Accelerate.
     static let prefillBLASOption = "vieneu_v3_turbo.prefill_blas"
 
-    static var isCodecAMXEnabled: Bool {
-        UserDefaults.standard.bool(forKey: codecAMXKey)
+    /// Số build đang chạy (bản build tay không có ⇒ "unknown").
+    static var currentBuild: String {
+        AppVersionInfo.buildNumber ?? "unknown"
+    }
+
+    /// AMX dùng được: chưa bị tự tắt ở chính bản build đang chạy.
+    static var isAMXEnabled: Bool {
+        UserDefaults.standard.string(forKey: disabledBuildKey) != currentBuild
+    }
+
+    /// Tắt AMX tới khi cài bản build khác (`VieNeuTurboCrashGuard`).
+    static func disableForCurrentBuild() {
+        UserDefaults.standard.set(currentBuild, forKey: disabledBuildKey)
     }
 }

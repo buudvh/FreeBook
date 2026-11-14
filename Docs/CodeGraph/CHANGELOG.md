@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.928] - 2026-11-14
+
+### feat: Turbo luôn chạy Tăng tốc AMX, nhanh hơn khoảng 37%, bỏ công tắc thử nghiệm
+
+Đo 1.3.927 trên iPhone 11 (log 16, 61 đoạn, không sập; báo cáo mục 14), so cùng mức nhiệt "fair" với lượt tắt (log 13): RTF 0,400 → **0,250**; nạp prompt 84 → 44 ms mỗi giây tiếng (1,9×), codec 158 → 48 (3,3×); backbone / âm học không đổi. CI 1.3.927: codec bật vẫn trùng mã, WAV ~98 dB; bước nạp qua BLAS lệch fp32 1,7·10⁻⁶ (đường q8 cũ 8,1·10⁻³). Anh Bửu chốt "Bật, bỏ công tắc".
+
+- **AMX luôn bật** (`VieNeuTurboAcceleration.isAMXEnabled`): session Turbo luôn dựng với `vieneu_v3_turbo.codec_blas` + `vieneu_v3_turbo.prefill_blas`. Khoá cũ của công tắc (`vieneuTurboCodecAMX`, `vieneuTurboCodecAMXAutoDisabled`) bỏ qua.
+- **Lối thoát khi sập** (không còn công tắc): `VieNeuTurboCrashGuard` thấy lần trước app chết giữa lượt AMX đầu tiên, hoặc audio.cpp ghi câu báo dừng ⇒ ghi số build đang chạy vào `vieneuTurboAMXDisabledBuild` ⇒ AMX tắt **cho tới khi cài bản build khác**, log `❌ … đã tự tắt "Tăng tốc bằng AMX" cho bản build N`.
+- **Cài đặt VieNeu TTS › Turbo**: công tắc thành dòng **"Tăng tốc AMX: Đang dùng"** (hoặc "Đã tự tắt tới bản sau"); giải thích sau nút "?" ghi mức nhanh hơn đo được.
+- Log đoạn giữ `amx=bật / lùi:codec / lùi:prefill / tắt`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không đổi bản vá audio.cpp. Không build tại chỗ (Windows).
+
 ## [1.3.927] - 2026-11-13
 
 ### feat: Công tắc Tăng tốc bằng AMX của Turbo đưa thêm bước nạp prompt và phép Q·Kᵀ của codec sang Accelerate
@@ -624,18 +636,3 @@ Theo mockup anh Bửu duyệt: Cài đặt TTS khi trình đọc là VieNeu ch�
   - Hàng "Tổng hợp Turbo" + chú thích Turbo.
 - **"Cấu hình giọng nói"** có "?" khi trình đọc là VieNeu (Turbo tổng hợp ở tốc độ gốc, theo kịp tới ~2,0×; Nano có Tốc độ tổng hợp, 1,15× ít lặp chữ nhất). Giọng Turbo chỉ còn cảnh báo cam khi tốc độ > 2,0×; hàng "Tốc độ tổng hợp (VieNeu)" của Nano bỏ chú thích dài.
 - **Kiểm chứng:** đọc code + grep chéo các khoá / hàm đã đổi; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, `TTSSettingsView.swift` giảm 449 → 440 dòng. Chưa build (Windows), chưa thử máy.
-
-## [1.3.898] - 2026-11-12
-
-### feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc
-
-Anh Bửu duyệt: VieNeu chỉ còn **một** trình đọc, giọng nào thì model nấy (giọng Nano ⇒ Nano, giọng Turbo ⇒ Turbo). Không gộp đường xử lý chữ / sea-g2p, không đổi đường nhân bản Nano.
-
-- **`VieNeuVoiceSelection`** (mới, `Services/TTS/VieNeu/`): một khoá `vieneuSelectedVoice` = `"nano:<tên giọng>"` / `"turbo:<id>"`; `VieNeuModelChoice.stored` đọc từ đây, `current` / `localEngine` / khoá tổng hợp / `TTSSettingsSnapshot` giữ nguyên cách tính.
-  - Chuyển một lần từ khoá cũ `vieneuModel` + `vieneuVoice` + `vieneuTurboVoice`; khoá cũ giữ nguyên, không xoá.
-  - `vieneuVoice` từ nay là "giọng Nano dùng gần nhất": Turbo thiếu file ⇒ trình đọc lùi về Nano bằng giọng này.
-  - Lùi về Nano **không** ghi đè lựa chọn Turbo: `persistVoice` chỉ ghi khi model hiệu lực trùng model đã lưu (`recordReaderVoice`).
-- **`TTSManager.selectVieNeuVoice`** (`TTSManager+VieNeuVoice`): cùng model ⇒ chỉ đổi `selectedVoice`; khác model ⇒ ghi lựa chọn rồi gán `tool = "vieneu"` (nạp lại tham số, bỏ đệm, `scheduleNghiWarmUp` nạp đúng engine, engine kia nhả trong `prepare`). Đổi giọng ⇒ ảnh chụp cấu hình khác ⇒ đóng Cài đặt TTS là dựng lại đoạn.
-- Cài đặt TTS: Picker "Trình đọc" còn một mục "VieNeu-TTS v3 (Offline)" (luôn hiện); Picker giọng tạm gộp hai nhóm Nano / Turbo (sheet chọn giọng thay ở bản sau). Bỏ `VieNeuModelChoice.store` / `pickerTag` / `voiceDefaultsKey`.
-- Màn thử Turbo "Xoá model" ⇒ về giọng Nano dùng gần nhất.
-- **Kiểm chứng:** đọc code + grep chéo `VieNeuModelChoice` / khoá giọng; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
