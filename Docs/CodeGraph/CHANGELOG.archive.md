@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.901] - 2026-11-12
+
+### feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano
+
+Theo mockup anh Bửu duyệt: nhân bản giọng ngay trong sheet chọn giọng, tạo được giọng Nano, giọng Turbo hoặc cả hai từ cùng một mẫu.
+
+- **Hàng đầu sheet "Giọng đọc"**: "Nhân bản giọng đọc" (đũa thần, chữ màu nhấn, chevron) ⇒ `VieNeuVoiceCloneSheet`.
+- **Sheet "Nhân bản giọng"** (nút chữ "Lưu" bên phải, vuốt xuống đóng, có mẫu chưa lưu ⇒ hỏi bỏ, đang lưu ⇒ không đóng được):
+  - Segmented "Thu âm" | "Chọn file". Thu âm: nút tròn lớn mic ↔ stop, đồng hồ "5,2 s / 8 s", thanh mức âm, **tự dừng ở 8 s** (`VieNeuVoiceRecorder`); chọn file qua `DocumentPickerPresenter` gắn gốc màn.
+  - Section "Mẫu giọng" (có "?"): khối thu / chọn file, "Nghe lại mẫu", "Tên giọng". Section "Dùng cho" (có "?"): chip Nano | Turbo | Cả hai (mặc định model đang đọc), "Khử nhiễu mẫu (Turbo)" (mặc định bật, chỉ hiện khi có Turbo), số liệu "Cần tải … MB" khi còn thiếu.
+  - Lưu (`VieNeuVoiceCloneFlow` + `+Save`): tải gói thiếu có % (`VieNeuClonePackages`: Nano = model + gói nhân bản Nano; Turbo = model Turbo + gói nhân bản Turbo; file dùng chung tính một lần) → đường Nano **giữ nguyên** (`VieNeuTTSService.enrollVoice`, không khử nhiễu, lưu vào kho Nano, nạp lại catalog) → đường Turbo (`VieNeuTurboVoiceCloneCoordinator`; "Cả hai" tạo từ mẫu Nano vừa lưu ⇒ liên kết `sourceNanoVoiceId`). Tiến trình từng bước hiện ngay trong sheet. Xong ⇒ chọn giọng vừa tạo ("Cả hai" ưu tiên model đang đọc), đọc thử câu mẫu, đóng sheet. Một bản lỗi thì bản đã tạo vẫn giữ và được chọn, sheet báo lỗi.
+  - Không dừng hẳn TTS khi thu: chỉ tạm dừng nếu truyện thật sự đang phát (Cài đặt TTS đã dừng sẵn; `stop()` làm mất lượt đọc tiếp khi đóng Cài đặt).
+- **"Tạo bản Turbo"**: giọng Nano tự tạo chưa có bản Turbo hiện trong "Giọng của tôi" của chip Turbo (`VieNeuTurboCopyRow`); bấm ⇒ tải gói Turbo nếu thiếu (có %) rồi tạo từ mẫu Nano đã lưu (`VieNeuTurboCopyRunner`), xong báo toast.
+- `CLAUDE.md` / `AGENTS.md`: viết lại mục "VieNeu: hai model Nano / Turbo" theo thiết kế mới (model đi theo giọng, sheet chọn giọng, tải theo giọng, nhân bản).
+- **Kiểm chứng:** đọc code + grep chéo; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy (thu âm, tải, tạo giọng, toast).
+
 ## [1.3.900] - 2026-11-12
 
 ### feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được

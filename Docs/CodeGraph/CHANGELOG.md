@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.931] - 2026-11-14
+
+### feat: Sheet điều khiển nhanh TTS có badge nhiệt độ máy Mát / Ấm / Nóng / Rất nóng
+
+Anh Bửu muốn thấy máy đang mát hay nóng ngay ở sheet đọc truyện (đo Turbo trên máy thì mức nhiệt quyết định số đo — log 17 nóng "serious" suốt nên không so được với lượt mát). Duyệt mockup.
+
+- **`TTSThermalBadge`** (file mới `Sources/Views/TTSWidget/TTSThermalBadge.swift`): viên nhỏ icon `thermometer.medium` + "Mát" / "Ấm" / "Nóng" / "Rất nóng", chữ xanh / vàng / cam / đỏ trên nền cùng màu 18%, `caption2` nửa đậm. Đọc `ProcessInfo.thermalState` (iOS không cho đọc °C — chỉ 4 mức nominal / fair / serious / critical, cùng nguồn với trường `thermal=` của log TTS), đổi ngay khi iOS báo `thermalStateDidChangeNotification` (nhận trên main). Không bấm được; VoiceOver đọc "Nhiệt độ máy: …".
+- **`TTSQuickControlSheet`**: badge nằm bên trái "N/M" ở dòng dưới vạch tiến độ chương (`NowReadingBlock`, chỗ trước đây để trống). Hiện với mọi trình đọc.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.930] - 2026-11-14
 
 ### perf: Turbo xếp lại trọng số bộ giải mã âm học cho kernel dotprod, phần âm học nhanh hơn khoảng 14%, tiếng không đổi
@@ -611,19 +621,3 @@ Rà soát lại sheet chọn giọng / nhân bản (1.3.900–900) trước khi 
 - **Đọc đĩa trên main mỗi nhịp tiến độ**: sheet nhân bản không đọc đĩa trong `init` (SwiftUI dựng lại `init` mỗi lần màn cha vẽ) mà ở `onAppear`; sheet chọn giọng tính giọng của trình đọc một lần mỗi lượt vẽ thay vì từng hàng (`VieNeuModelChoice.current` kiểm file GGUF).
 - Hàng "Giọng đọc" không nháy cảnh báo cam "Chưa tải dữ liệu giọng" ở lần vẽ đầu trước khi đọc đĩa xong; bỏ key path phần tử tuple ở `VieNeuClonePackages`.
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
-
-## [1.3.901] - 2026-11-12
-
-### feat: sheet nhân bản giọng VieNeu tạo giọng Nano, Turbo hoặc cả hai, thêm nút tạo bản Turbo cho giọng Nano
-
-Theo mockup anh Bửu duyệt: nhân bản giọng ngay trong sheet chọn giọng, tạo được giọng Nano, giọng Turbo hoặc cả hai từ cùng một mẫu.
-
-- **Hàng đầu sheet "Giọng đọc"**: "Nhân bản giọng đọc" (đũa thần, chữ màu nhấn, chevron) ⇒ `VieNeuVoiceCloneSheet`.
-- **Sheet "Nhân bản giọng"** (nút chữ "Lưu" bên phải, vuốt xuống đóng, có mẫu chưa lưu ⇒ hỏi bỏ, đang lưu ⇒ không đóng được):
-  - Segmented "Thu âm" | "Chọn file". Thu âm: nút tròn lớn mic ↔ stop, đồng hồ "5,2 s / 8 s", thanh mức âm, **tự dừng ở 8 s** (`VieNeuVoiceRecorder`); chọn file qua `DocumentPickerPresenter` gắn gốc màn.
-  - Section "Mẫu giọng" (có "?"): khối thu / chọn file, "Nghe lại mẫu", "Tên giọng". Section "Dùng cho" (có "?"): chip Nano | Turbo | Cả hai (mặc định model đang đọc), "Khử nhiễu mẫu (Turbo)" (mặc định bật, chỉ hiện khi có Turbo), số liệu "Cần tải … MB" khi còn thiếu.
-  - Lưu (`VieNeuVoiceCloneFlow` + `+Save`): tải gói thiếu có % (`VieNeuClonePackages`: Nano = model + gói nhân bản Nano; Turbo = model Turbo + gói nhân bản Turbo; file dùng chung tính một lần) → đường Nano **giữ nguyên** (`VieNeuTTSService.enrollVoice`, không khử nhiễu, lưu vào kho Nano, nạp lại catalog) → đường Turbo (`VieNeuTurboVoiceCloneCoordinator`; "Cả hai" tạo từ mẫu Nano vừa lưu ⇒ liên kết `sourceNanoVoiceId`). Tiến trình từng bước hiện ngay trong sheet. Xong ⇒ chọn giọng vừa tạo ("Cả hai" ưu tiên model đang đọc), đọc thử câu mẫu, đóng sheet. Một bản lỗi thì bản đã tạo vẫn giữ và được chọn, sheet báo lỗi.
-  - Không dừng hẳn TTS khi thu: chỉ tạm dừng nếu truyện thật sự đang phát (Cài đặt TTS đã dừng sẵn; `stop()` làm mất lượt đọc tiếp khi đóng Cài đặt).
-- **"Tạo bản Turbo"**: giọng Nano tự tạo chưa có bản Turbo hiện trong "Giọng của tôi" của chip Turbo (`VieNeuTurboCopyRow`); bấm ⇒ tải gói Turbo nếu thiếu (có %) rồi tạo từ mẫu Nano đã lưu (`VieNeuTurboCopyRunner`), xong báo toast.
-- `CLAUDE.md` / `AGENTS.md`: viết lại mục "VieNeu: hai model Nano / Turbo" theo thiết kế mới (model đi theo giọng, sheet chọn giọng, tải theo giọng, nhân bản).
-- **Kiểm chứng:** đọc code + grep chéo; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy (thu âm, tải, tạo giọng, toast).

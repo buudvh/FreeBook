@@ -9,7 +9,8 @@ import SwiftUI
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
 ///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này; đang hẹn ⇒ viên "Hủy" ngay cạnh, 1.3.816). Chạm
 ///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
-/// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn).
+/// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn)
+///   + badge mức nhiệt của máy ở bên trái (`TTSThermalBadge`, 1.3.931).
 /// - Chương trước · ⏪ đoạn trước · ⏯ · ⏩ đoạn kế · chương kế (`jumpToAdjacentChapter` / `skipBackward` / `pause`/`resume` /
 ///   `skipForward`).
 /// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Dừng (chữ đỏ, chỗ gọi
@@ -342,7 +343,8 @@ struct TTSQuickControlSheet: View {
                 ProgressView(value: snapshot.fraction)
                     .progressViewStyle(.linear)
                 HStack {
-                    Text(" ")
+                    // Mức nhiệt của máy (1.3.931) — chỗ trống bên trái "N/M".
+                    TTSThermalBadge()
                     Spacer(minLength: 8)
                     Text(snapshot.total > 0 && snapshot.position > 0 ? "\(snapshot.position)/\(snapshot.total)" : " ")
                 }
