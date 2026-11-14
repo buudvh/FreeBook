@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.945] - 2026-11-14
+
+### feat: Giọng dự phòng offline khi TTS online lỗi hoặc mất mạng, tự quay lại giọng online khi hết lỗi
+
+Anh Bửu: "Thêm chức năng cho phép chọn giọng offline thay thế khi giọng online gặp lỗi" — duyệt mockup: một hàng ở Cài đặt TTS dẫn tới màn giống Cài đặt TTS khi chọn VieNeu / NghiTTS; tự quay lại khi online hết lỗi. Trước đây Google TTS / TTS tiện ích lỗi (sau 2 lượt thử lại) là tạm dừng đọc.
+
+- **Cài đặt**: Cài đặt TTS (trình đọc Google / tiện ích) có mục "Khi giọng online lỗi" (nút "?") với một hàng "Giọng dự phòng" (`TTSFallbackVoiceSection`, chữ phụ "VieNeu · Mai Anh" / "Không dùng") ⇒ màn **"Giọng dự phòng"** (`TTSFallbackVoiceSettingsView`): Picker trình đọc (Không dùng / NghiTTS (Piper Offline) / VieNeu-TTS v3 (Offline)), "Giọng đọc" (cùng hàng + sheet chọn giọng của engine), "Quản lý riêng của trình đọc" (VieNeu: Cài đặt VieNeu TTS, từ điển phiên âm VieNeu, từ điển tiếng Nhật; NghiTTS: Cài đặt NghiTTS, tiền xử lý & ngắt nghỉ, từ điển phiên âm cá nhân), "Cấu hình giọng nói" (Tốc độ; Nano thêm Tốc độ tổng hợp). Không có Tải trước (theo trình đọc online), Cao độ, Đọc lai.
+- **Lưu**: chỉ trình đọc nào (`TTSOnlineFallbackSettings`, khoá `ttsOnlineFallbackTool`, mặc định Không dùng). Giọng / tốc độ / tốc độ tổng hợp / từ điển là cài đặt của chính engine (chung với lúc engine đó là trình đọc chính). Sheet chọn giọng VieNeu + trang Cài đặt VieNeu TTS mở từ đây (`selectsForFallback`) chỉ lưu lựa chọn, không chuyển trình đọc chính sang VieNeu, không có hàng nhân bản.
+- **Lõi** (`TTSManager+OnlineFallback`, `TTSOnlineFallbackState`): thay engine **theo đoạn ở tầng tổng hợp**, không đổi `tool` ⇒ đoạn giữ cách chia của trình đọc online, highlight đúng, không ghi đè `ttsTool`. Tổng hợp online của đoạn đang đọc lỗi (sau lượt thử lại của `RemoteTTSSynthesisCoordinator`, không thêm vòng nào) hoặc máy mất mạng (`TTSNetworkReachability`, `NWPathMonitor`) ⇒ bật dự phòng cho phiên, bỏ lượt nạp trước online đang chờ, toast. Đoạn đang đọc + nạp trước tổng hợp bằng NghiTTS / VieNeu Nano / Turbo, gọi thẳng service (lượt online treo không chặn), dùng chung một lượt cho cùng đoạn; phát qua `AVAudioPlayer` của đường remote ở tốc độ engine dự phòng (`remotePlaybackRate`). Giọng dự phòng cũng lỗi ⇒ dừng + báo như cũ.
+- **Tự quay lại** (`TTSManager+OnlineFallbackProbe`): vòng nền thử online một đoạn sắp đọc sau 15 s → 30 s → 1 phút → tối đa 2 phút, gọi thẳng service; mất mạng thì chờ, mạng có lại ⇒ thử ngay; tạm dừng thì chờ. Được ⇒ giữ tiếng online cho đoạn đó, tắt dự phòng, toast "… hoạt động lại"; đoạn dự phòng đã nạp phát nốt.
+- **Sheet nghe mini**: badge cam "Dự phòng" (`TTSFallbackBadge`; NghiTTS ghi "Dự phòng · NghiTTS", VieNeu kèm badge model · tăng tốc).
+- `TTSSettingsSnapshot` thêm `onlineFallback` (dấu cài đặt dự phòng) ⇒ đổi giọng / tốc độ dự phòng thì đóng Cài đặt là dựng lại đoạn. Ghi chú ở CLAUDE.md / AGENTS.md.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.944] - 2026-11-14
 
 ### feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini
@@ -563,16 +577,3 @@ Anh duyệt plan P2b-1. Chi tiết ở §14 báo cáo `2026-11-11-vieneu-nano-to
 - Bỏ phép thử tắt tối ưu của 1.3.913: `VieNeuCoreMLNoOptTrial` / `Comparison`, cờ `disablesGraphOptimization` của backend. Khoá `fb.graph_optimization` của bridge giữ lại (vô hại).
 - App cũ (gói định dạng 2) gặp gói mới thì báo "định dạng 3 — app này chỉ hiểu 2", không trộn file.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.914] - 2026-11-13
-
-### chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất
-
-Anh Bửu: *"vì github đâu giới hạn số lần realease nên bỏ giới hạn 5 realease được nhỉ"*. Anh duyệt plan.
-
-- `Scripts/ci/publish_altstore_source.py`: bỏ `prune_releases`, nên không xoá release `build-*` cũ hay tag của nó nữa.
-  - GitHub không giới hạn số release hay tổng dung lượng file đính kèm; mỗi file chỉ phải dưới 2 GiB. Mỗi IPA hiện ~42 MB.
-  - Chạy lại một lượt build cùng số vẫn xoá rồi tạo lại đúng release đó, như cũ.
-- `apps.json` (nhánh `source`) vẫn chỉ liệt kê `--keep 5` bản mới nhất, để file nguồn mà LiveContainer và app đọc thường xuyên không phình theo số bản build. Bản cũ hơn tải được ở trang Releases.
-- Cập nhật chú thích bước đăng ở `build-ipa.yml`, và đoạn "Nguồn cập nhật LiveContainer" trong `CLAUDE.md` + `AGENTS.md`.
-- Có hiệu lực từ lượt build kế tiếp có đổi `Sources/**` hoặc `project.yml`. Lượt build 1.3.913 đang chạy vẫn dùng script cũ, nên còn xoá bản cũ nhất một lần.

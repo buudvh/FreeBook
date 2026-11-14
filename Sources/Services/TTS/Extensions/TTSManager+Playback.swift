@@ -30,6 +30,8 @@ extension TTSManager {
             updatePrefetchWindow()
             return
         }
+        // Đang đọc giọng dự phòng / mất mạng (1.3.945) ⇒ đoạn này đọc bằng giọng dự phòng.
+        if playWithOnlineFallbackIfNeeded(text, index: index, playbackId: playbackId, context: context) { return }
 
         let wasPrefetching = prefetchTasks[index] != nil
         remotePlaybackTask?.cancel()
@@ -73,6 +75,7 @@ extension TTSManager {
                     outcome: wasPrefetching ? "hit_wait" : "miss",
                     waitMs: wasPrefetching ? waitMs : 0
                 )
+                self.noteOnlineAudio(index: index)
                 self.playAudioData(mp3Data, context: context)
                 self.updatePrefetchWindow()
             } catch is CancellationError {
@@ -93,6 +96,8 @@ extension TTSManager {
                 AppLogger.shared.log("❌ Lỗi Google Cloud TTS: \(error.localizedDescription)")
                 self.preloadedData.removeValue(forKey: index)
                 self.currentPlaybackId = nil
+                // Có giọng dự phòng (1.3.945) ⇒ đọc tiếp bằng nó thay vì dừng.
+                if self.switchToOnlineFallback(after: error) { return }
                 self.pause()
                 TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi Google TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
             }
@@ -130,6 +135,7 @@ extension TTSManager {
             updatePrefetchWindow()
             return
         }
+        if playWithOnlineFallbackIfNeeded(text, index: index, playbackId: playbackId, context: context) { return }
 
         let wasPrefetching = prefetchTasks[index] != nil
         remotePlaybackTask?.cancel()
@@ -178,6 +184,7 @@ extension TTSManager {
                     outcome: wasPrefetching ? "hit_wait" : "miss",
                     waitMs: wasPrefetching ? waitMs : 0
                 )
+                self.noteOnlineAudio(index: index)
                 self.playAudioData(audioData, context: context)
                 self.updatePrefetchWindow()
             } catch is CancellationError {
@@ -198,6 +205,7 @@ extension TTSManager {
                 AppLogger.shared.log("❌ Lỗi Extension TTS: \(error.localizedDescription)")
                 self.preloadedData.removeValue(forKey: index)
                 self.currentPlaybackId = nil
+                if self.switchToOnlineFallback(after: error) { return }
                 self.pause()
                 TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi Extension TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
             }

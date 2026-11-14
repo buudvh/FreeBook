@@ -33,6 +33,11 @@ struct VieNeuVoicePickerSheet: View {
     @State private var isClonePresented = false
     @State private var pendingSpokenCopy: VieNeuVoiceCopySource?
     @State private var query = ""
+    /// Giọng dự phòng (1.3.945): chọn = chỉ lưu lựa chọn, không chuyển trình đọc chính; không có hàng nhân bản.
+    let selectsForFallback: Bool
+    @State private var fallbackToken = 0
+
+    init(selectsForFallback: Bool = false) { self.selectsForFallback = selectsForFallback }
 
     private var directory: VieNeuVoiceDirectory { .shared }
     private var preview: VieNeuVoicePreviewPlayer { .shared }
@@ -40,9 +45,10 @@ struct VieNeuVoicePickerSheet: View {
     var body: some View {
         // Giọng trình đọc đang dùng — tính **một lần** mỗi lượt vẽ (`VieNeuModelChoice.current` kiểm file GGUF), không
         // theo từng hàng: sheet vẽ lại theo mỗi nhịp tiến độ tải.
+        _ = fallbackToken
         let reader: VieNeuVoiceSelection? = ttsManager.tool == "vieneu"
             ? VieNeuVoiceSelection(model: VieNeuModelChoice.current, voiceId: ttsManager.selectedVoice)
-            : nil
+            : (selectsForFallback ? VieNeuVoiceSummaryRow.displayedSelection(tool: "", selectedVoice: "") : nil)
         NavigationStack {
             VStack(spacing: 0) {
                 VieNeuChipBar(options: [(value: VieNeuModelChoice.nano, title: "Nano"), (value: .turbo, title: "Turbo")], selection: $model)
@@ -51,7 +57,7 @@ struct VieNeuVoicePickerSheet: View {
                     .padding(.vertical, 8)
                 List {
                     Group {
-                        if normalizedQuery.isEmpty {
+                        if normalizedQuery.isEmpty && !selectsForFallback {
                             cloneEntryRow
                         }
                         if model == .nano {
@@ -330,6 +336,11 @@ struct VieNeuVoicePickerSheet: View {
 
     private func select(_ entry: VieNeuVoiceEntry) {
         guard directory.isReady(entry) else { return }
+        if selectsForFallback {
+            VieNeuVoiceSelection.store(entry.selection)
+            fallbackToken += 1
+            return
+        }
         ttsManager.selectVieNeuVoice(entry.selection)
         VieNeuHybridPairProvisioner.shared.voiceSelectedByUser()
     }
@@ -373,10 +384,10 @@ struct VieNeuVoicePickerSheet: View {
 
 extension View {
     /// Trình bày sheet chọn giọng VieNeu (kính, vuốt xuống đóng) — Cài đặt TTS gắn ở gốc `Form`.
-    func vieNeuVoicePickerSheet(isPresented: Binding<Bool>) -> some View {
+    func vieNeuVoicePickerSheet(isPresented: Binding<Bool>, selectsForFallback: Bool = false) -> some View {
         sheet(isPresented: isPresented) {
             Group {
-                VieNeuVoicePickerSheet()
+                VieNeuVoicePickerSheet(selectsForFallback: selectsForFallback)
                     .presentationDragIndicator(.visible)
             }
             .appGlassSheet()

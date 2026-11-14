@@ -432,6 +432,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal let nghiEnergyTelemetry = NghiEnergyTelemetry()
     internal var audioPlayer: AVAudioPlayer?
     internal let playbackFailureTracker = TTSPlaybackFailureTracker() // lỗi phát giữa chừng: thử lại / bỏ qua / dừng
+    internal let onlineFallback = TTSOnlineFallbackState() // giọng dự phòng khi TTS online lỗi (1.3.945, `+OnlineFallback`)
     internal let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
     internal let callObserver = TTSCallObserver()
     internal var isAudioSessionConfigured = false
@@ -794,7 +795,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 // Tốc độ phát là playback-only (tốc độ tổng hợp VieNeu đi vào model, không qua đây) → chỉ updateRate, không đụng prefetch.
                 nghiAudioPlayerQueue.updateRate(speed)
             } else if let player = audioPlayer {
-                player.rate = Float(speed)
+                player.rate = Float(remotePlaybackRate(for: currentParagraphIndex))
             }
             updateNowPlayingInfo()
         }
@@ -2553,7 +2554,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             guard isValidSession() else { return }
 
             do {
-                let data = try await audioSynthesisWorkerRef.synthesizeParagraph(
+                // Đang đọc giọng dự phòng (1.3.945) ⇒ nạp trước bằng engine dự phòng, không qua hàng đợi remote.
+                let usesFallback = self.onlineFallback.isActive(session: expectedSessionID)
+                let data: Data
+                if usesFallback {
+                    data = try await self.onlineFallbackAudio(index: index, text: text, priority: .immediateSuccessor)
+                } else { data = try await audioSynthesisWorkerRef.synthesizeParagraph(
                     synthesisKey: synthesisKey,
                     engine: toolBeforeStart,
                     textLength: text.count,
@@ -2570,9 +2576,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         localPath: localPath,
                         configJson: configJson
                     )
-                }
+                } }
 
                 guard isValidSession() else { return }
+                if !usesFallback { self.noteOnlineAudio(index: index) }
                 self.preloadedData[index] = data
             } catch is CancellationError {
                 return
@@ -2897,7 +2904,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let player = try FileDescriptorStepProbe.measure("player.init") { try AVAudioPlayer(data: audioData) }
             player.delegate = self
             player.enableRate = true
-            player.rate = Float(speed)
+            player.rate = Float(remotePlaybackRate(for: context?.paragraphIndex ?? currentParagraphIndex))
 
             self.audioPlayer = player
 

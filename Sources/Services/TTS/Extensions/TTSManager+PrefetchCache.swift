@@ -10,6 +10,7 @@ extension TTSManager {
         cancelRemotePrefetchTasks()
         preloadedData.removeAll()
         preloadedDurations.removeAll()
+        onlineFallback.forgetChunks() // tiếng dự phòng đã nạp cũng vừa bị bỏ (1.3.945)
         nghiAudioPlayerQueue.clearPreparedNext()
     }
 

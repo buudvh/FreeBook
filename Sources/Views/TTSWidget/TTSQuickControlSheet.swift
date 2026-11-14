@@ -345,6 +345,10 @@ struct TTSQuickControlSheet: View {
                 HStack {
                     // Mức nhiệt của máy (1.3.931) — chỗ trống bên trái "N/M".
                     TTSThermalBadge()
+                    // Đoạn đọc bằng giọng dự phòng vì TTS online lỗi (1.3.945).
+                    if let fallback = snapshot.fallbackEngine {
+                        TTSFallbackBadge(engine: fallback)
+                    }
                     // Model + tăng tốc của đoạn đang phát (VieNeu, 1.3.942).
                     if let engine = snapshot.engineLabel {
                         TTSEngineBadge(label: engine)

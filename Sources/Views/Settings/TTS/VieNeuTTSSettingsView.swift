@@ -22,8 +22,15 @@ struct VieNeuTTSSettingsView: View {
     /// không còn công tắc). Đọc để dòng trạng thái đổi ngay khi `VieNeuTurboCrashGuard` ghi. `internal` vì hàng ở `+Sections`.
     @AppStorage(VieNeuTurboAcceleration.disabledBuildKey) var turboAMXDisabledBuild = ""
 
+    /// Mở từ màn "Giọng dự phòng" (1.3.945) ⇒ chọn giọng ở đây chỉ lưu lựa chọn, không chuyển trình đọc chính sang VieNeu.
+    let selectsForFallback: Bool
+
     var directory: VieNeuVoiceDirectory { .shared }
     var accelerator: VieNeuCoreMLAccelerator { .shared }
+
+    init(selectsForFallback: Bool = false) {
+        self.selectsForFallback = selectsForFallback
+    }
 
     var body: some View {
         Form { Group {
@@ -35,7 +42,7 @@ struct VieNeuTTSSettingsView: View {
             japaneseSection
         }.glassSheetRows() }
         .backPageTitle("Cài đặt VieNeu TTS")
-        .vieNeuVoicePickerSheet(isPresented: $isPickerPresented)
+        .vieNeuVoicePickerSheet(isPresented: $isPickerPresented, selectsForFallback: selectsForFallback)
         .onAppear {
             directory.reload()
             accelerator.refresh()

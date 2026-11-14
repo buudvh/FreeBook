@@ -8,6 +8,9 @@ import Foundation
 ///
 /// Ngoại lệ có chủ ý: `vieneuModel` (Nano / Turbo) — đổi model là đổi engine tổng hợp dù `tool` vẫn là `"vieneu"`, nên
 /// phải dựng lại đoạn như khi đổi engine.
+///
+/// Ngoại lệ thứ hai: `onlineFallback` (1.3.945) — cài đặt giọng dự phòng của trình đọc online (`TTSOnlineFallbackSettings`
+/// `.fingerprint`); đổi ⇒ dựng lại đoạn để bỏ tiếng dự phòng đã nạp trước theo cài đặt cũ.
 struct TTSSettingsSnapshot: Equatable {
     let tool: String
     let vieneuModel: String
@@ -28,6 +31,7 @@ struct TTSSettingsSnapshot: Equatable {
     let numericNormalization: Bool
     let dictionaryReplacement: Bool
     let transliteration: Bool
+    let onlineFallback: String
 
     /// Đọc các khoá `UserDefaults` **tại thời điểm gọi** (hai thời điểm: `prepareForSettings`, `resumeAfterSettings`).
     static func capture(
@@ -61,7 +65,8 @@ struct TTSSettingsSnapshot: Equatable {
             paragraphPause: UserDefaults.standard.double(forKey: "paragraphPauseDuration"),
             numericNormalization: UserDefaults.standard.object(forKey: PreprocessorSettingKey.numericNormalizationEnabled) as? Bool ?? true,
             dictionaryReplacement: UserDefaults.standard.object(forKey: PreprocessorSettingKey.dictionaryReplacementEnabled) as? Bool ?? true,
-            transliteration: UserDefaults.standard.object(forKey: PreprocessorSettingKey.transliterationEnabled) as? Bool ?? true
+            transliteration: UserDefaults.standard.object(forKey: PreprocessorSettingKey.transliterationEnabled) as? Bool ?? true,
+            onlineFallback: TTSOnlineFallbackSettings.fingerprint(mainTool: tool)
         )
     }
 }
