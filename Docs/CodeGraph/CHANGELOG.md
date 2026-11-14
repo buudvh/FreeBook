@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.942] - 2026-11-14
+
+### feat: Sheet điều khiển nhanh TTS có badge model đang đọc kèm AMX hoặc Core ML
+
+Anh Bửu muốn tiện theo dõi tăng tốc (nếu không ảnh hưởng hiệu năng); duyệt mockup. Badge đặt cạnh badge nhiệt dưới vạch tiến độ chương, ghi **model + cách tăng tốc của đoạn đang phát**: "Turbo · AMX", "Nano · Core ML" (lam, `bolt.fill`) khi đang tăng tốc; "Turbo · CPU" / "Nano · CPU" (xám, `cpu`) khi AMX tự tắt hoặc Core ML chưa sẵn / lùi ORT. Đọc lai Nano · Turbo ⇒ badge đổi theo từng đoạn — nhìn thấy lúc app chuyển model.
+
+- **`VieNeuEngineBadgeStore`** (`Services/TTS/VieNeu/`): bảng nhãn theo chữ đoạn engine nhận (đã áp từ điển thay thế), giữ 64 đoạn gần nhất, khoá `NSLock`. Ghi ở engine Turbo (`VieNeuTurboTTSService`, theo `codecAMXRequested` của session) và Nano (`VieNeuTTSService.executeInternalSynthesis`, chênh `VieNeuCoreMLReaderRoute.counters()` trước / sau lượt: có đoạn Core ML và không đoạn lùi ⇒ "Core ML") — đọc lai đi qua chính hai engine này.
+- **`TTSQuickControlNowReading`**: `Snapshot.engineLabel` — trình đọc là VieNeu thì áp `TTSReplacementManager.applyReplacements` cho đoạn đang phát rồi tra bảng (một lần mỗi đoạn, chỉ lúc sheet mở); tra lại khi bắt đầu phát (`$isPlaying`) vì đoạn đầu có chỉ số trước khi tổng hợp xong.
+- **`TTSEngineBadge`** (`Views/TTSWidget/`, file mới) + `TTSQuickControlSheet.NowReadingBlock` đặt sau `TTSThermalBadge`. Không phải VieNeu / đoạn im lặng ⇒ không hiện.
+- Hiệu năng: mỗi lượt tổng hợp thêm một lần ghi từ điển; sheet thêm một lần thay thế chữ + tra mỗi đoạn. Không thêm vào `TTSWidgetSnapshot` (mặt đĩa không vẽ lại).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.941] - 2026-11-14
 
 ### fix: Đọc lai Nano · Turbo và nhân bản chéo không còn làm app chết, Turbo bớt giữ chỗ 4,5 GB bộ nhớ ảo
@@ -602,21 +614,4 @@ Anh duyệt plan P2a: chỉ đo, không đụng đường đọc truyện. Chi t
   4. Thử **bỏ bản trọng số của gói** ở VE bucket nhỏ nhất: đổi tên file, nạp lại, kiểm ORT còn trúng bản lưu và tự kiểm golden vẫn đúng, rồi trả file về.
      - Bị ngắt giữa chừng ⇒ lần chạy sau hoặc lần mở màn thử tự trả file về (`restoreTrimmed`).
 - Tách `VieNeuCoreMLPreparer.goldenRequest` (dùng chung với tự kiểm) và `VieNeuCoreMLFlowBackend.coreMLOptions` (một chỗ cho tuỳ chọn Core ML EP, để phép đo trúng đúng bản biên dịch của lượt đọc).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.911] - 2026-11-12
-
-### fix: Đo tự động chạy Nano ở mức ưu tiên như trình đọc và không xoá nhầm bản biên dịch Core ML đã xong
-
-Anh Bửu gửi kết quả lượt đo 1.3.910 (1248): ORT / Core ML / ORT RTF 0,55 / 0,59 / 0,58, CPU mỗi giây tiếng 0,90 / 0,63 / 0,91, Core ML giữ máy mát cả 15 phút (ORT lên nóng sau 5:00 và 1:50), chạy nền khoá màn được (310 đoạn, không lùi ORT, không bị giết). Anh duyệt plan sửa hai lỗi của màn đo.
-
-- **Mức ưu tiên**: cả ba lượt chạy ở `utility` (lõi tiết kiệm). Lý do: đo tự động lấy `nanoQoS` của "Đọc liên tục", mà mặc định của nó là `utility`. Trình đọc thật chạy ở lõi hiệu năng (RTF 0,28), phép thử P1 tính ở `userInitiated` ⇒ Core ML lượt này chậm ~4 lần P1 (169 so với 43 ms mỗi lượt VE ở T128), không so được với trình đọc.
-  - Đo tự động giờ có mục chọn **"QoS tổng hợp"** riêng: "Như trình đọc" (`userInitiated`, mặc định) hoặc "Lõi tiết kiệm".
-  - Mức được lưu vào tiến độ (`VieNeuAutoRunProgress.qosRawValue`) nên Chạy tiếp giữ đúng mức của lần đo; tiến độ cũ không có trường này ⇒ `utility`, đúng mức bản 1.3.910 đã chạy.
-  - Báo cáo in mức đã chọn ở đầu file, nhật ký từng bước ghi lúc bắt đầu / chạy tiếp.
-- **Dọn cache Core ML xoá nhầm** (`VieNeuCoreMLPackage.cleanCacheEntries`, thay `removeIncompleteCacheEntries`).
-  - Bản cũ tìm `compiled_model.mlmodelc` ngay trong `<id>_static_mlprogram/`. Nhưng ORT 1.24.2 đặt gói ở `…_mlprogram/model` (`GetModelOutputPath`) và để bản biên dịch **bên trong gói** (`CompileOrReadCachedModel`).
-  - Hậu quả: mỗi lần bắt đầu / chạy tiếp xoá cả 10 mục hợp lệ rồi biên dịch lại. Lần chạy tiếp của anh mất 265 s để nạp, đúng bằng thời gian biên dịch lạnh.
-  - Giờ tìm ở tầng 1 và tầng 2; báo cáo / nhật ký ghi "giữ N bản biên dịch, dọn M bản dở" kèm một đường dẫn tìm thấy, để lần đo sau kiểm được là đã sửa.
-- Màn thử: chú thích dung lượng bản biên dịch sửa từ "khoảng 1 GB" thành "khoảng 4 GB" (đo được 4,16 GB).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

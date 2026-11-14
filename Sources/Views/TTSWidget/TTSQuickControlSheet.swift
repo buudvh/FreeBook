@@ -345,6 +345,10 @@ struct TTSQuickControlSheet: View {
                 HStack {
                     // Mức nhiệt của máy (1.3.931) — chỗ trống bên trái "N/M".
                     TTSThermalBadge()
+                    // Model + tăng tốc của đoạn đang phát (VieNeu, 1.3.942).
+                    if let engine = snapshot.engineLabel {
+                        TTSEngineBadge(label: engine)
+                    }
                     Spacer(minLength: 8)
                     Text(snapshot.total > 0 && snapshot.position > 0 ? "\(snapshot.position)/\(snapshot.total)" : " ")
                 }

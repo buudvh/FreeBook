@@ -308,12 +308,21 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             text: TextPreprocessor.normalizeVietnameseText(text)
         )
         let started = ProcessInfo.processInfo.systemUptime
+        let coreMLBefore = VieNeuCoreMLReaderRoute.shared.counters()
         let output = try engine.synthesize(
             text: normalizedText,
             voiceName: voice,
             speed: speed,
             boundaryKind: boundaryKind,
             flowBackend: flowBackend
+        )
+        // Badge "Nano · Core ML / CPU" (1.3.942): lượt tổng hợp chạy tuần tự ⇒ chênh bộ đếm là của đúng lượt này.
+        let coreMLAfter = VieNeuCoreMLReaderRoute.shared.counters()
+        VieNeuEngineBadgeStore.shared.record(
+            text: text,
+            model: .nano,
+            accelerated: flowBackend != nil && coreMLAfter.coreML > coreMLBefore.coreML
+                && coreMLAfter.fallback == coreMLBefore.fallback
         )
         syncQueue.sync {
             _currentVoice = voice

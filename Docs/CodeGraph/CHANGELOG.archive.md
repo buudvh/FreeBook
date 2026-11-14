@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.911] - 2026-11-12
+
+### fix: Đo tự động chạy Nano ở mức ưu tiên như trình đọc và không xoá nhầm bản biên dịch Core ML đã xong
+
+Anh Bửu gửi kết quả lượt đo 1.3.910 (1248): ORT / Core ML / ORT RTF 0,55 / 0,59 / 0,58, CPU mỗi giây tiếng 0,90 / 0,63 / 0,91, Core ML giữ máy mát cả 15 phút (ORT lên nóng sau 5:00 và 1:50), chạy nền khoá màn được (310 đoạn, không lùi ORT, không bị giết). Anh duyệt plan sửa hai lỗi của màn đo.
+
+- **Mức ưu tiên**: cả ba lượt chạy ở `utility` (lõi tiết kiệm). Lý do: đo tự động lấy `nanoQoS` của "Đọc liên tục", mà mặc định của nó là `utility`. Trình đọc thật chạy ở lõi hiệu năng (RTF 0,28), phép thử P1 tính ở `userInitiated` ⇒ Core ML lượt này chậm ~4 lần P1 (169 so với 43 ms mỗi lượt VE ở T128), không so được với trình đọc.
+  - Đo tự động giờ có mục chọn **"QoS tổng hợp"** riêng: "Như trình đọc" (`userInitiated`, mặc định) hoặc "Lõi tiết kiệm".
+  - Mức được lưu vào tiến độ (`VieNeuAutoRunProgress.qosRawValue`) nên Chạy tiếp giữ đúng mức của lần đo; tiến độ cũ không có trường này ⇒ `utility`, đúng mức bản 1.3.910 đã chạy.
+  - Báo cáo in mức đã chọn ở đầu file, nhật ký từng bước ghi lúc bắt đầu / chạy tiếp.
+- **Dọn cache Core ML xoá nhầm** (`VieNeuCoreMLPackage.cleanCacheEntries`, thay `removeIncompleteCacheEntries`).
+  - Bản cũ tìm `compiled_model.mlmodelc` ngay trong `<id>_static_mlprogram/`. Nhưng ORT 1.24.2 đặt gói ở `…_mlprogram/model` (`GetModelOutputPath`) và để bản biên dịch **bên trong gói** (`CompileOrReadCachedModel`).
+  - Hậu quả: mỗi lần bắt đầu / chạy tiếp xoá cả 10 mục hợp lệ rồi biên dịch lại. Lần chạy tiếp của anh mất 265 s để nạp, đúng bằng thời gian biên dịch lạnh.
+  - Giờ tìm ở tầng 1 và tầng 2; báo cáo / nhật ký ghi "giữ N bản biên dịch, dọn M bản dở" kèm một đường dẫn tìm thấy, để lần đo sau kiểm được là đã sửa.
+- Màn thử: chú thích dung lượng bản biên dịch sửa từ "khoảng 1 GB" thành "khoảng 4 GB" (đo được 4,16 GB).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.910] - 2026-11-12
 
 ### feat: Đo tự động có Chạy tiếp từ lượt chưa xong sau khi dừng, bị gián đoạn hay app bị tắt

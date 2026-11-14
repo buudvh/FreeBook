@@ -236,6 +236,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             speakerEmbeddingURL: store.speakerEmbeddingURL(voiceId: voiceId),
             qos: Self.readerQoS
         )
+        VieNeuEngineBadgeStore.shared.record(text: text, model: .turbo, accelerated: output.codecAMXRequested)
         // Khoảng lặng đuôi theo ranh giới, như engine Nano chèn (tốc độ 1×) — thiếu nó các mảnh dính nhau nghe như mất chữ.
         var samples = output.samples
         let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind)
