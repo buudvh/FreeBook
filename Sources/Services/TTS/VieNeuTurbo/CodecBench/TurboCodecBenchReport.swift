@@ -26,19 +26,21 @@ enum TurboCodecBenchReport {
         let amxMedian = median(amx)
         lines.append("## Tổng hợp (ms giải mã mỗi giây tiếng, trung vị 9 mẫu)")
         lines.append("")
-        lines.append("| Cấu hình | ms/giây tiếng | So với AMX | SNR thấp nhất (dB) | Dựng session (ms) | Lượt đầu (ms) | Core ML nhận |")
-        lines.append("|---|---|---|---|---|---|---|")
-        lines.append("| audio.cpp AMX (đang dùng) | \(format(amxMedian)) | 1× | — | — | — | — |")
+        lines.append("| Cấu hình | ms/giây tiếng | So với AMX | SNR thấp nhất (dB) | Dựng session (ms) | Lượt đầu (ms) | Core ML nhận | Nhiệt lúc đo |")
+        lines.append("|---|---|---|---|---|---|---|---|")
+        lines.append("| audio.cpp AMX (đang dùng) | \(format(amxMedian)) | 1× | — | — | — | — | \(thermalName(thermalStart)) |")
         for result in results {
             let value = median(result.msPerSecond.compactMap { $0 })
             let ratio = (amxMedian ?? 0) > 0 && (value ?? 0) > 0 ? String(format: "%.2f×", amxMedian! / value!) : "—"
             let snrMin = result.snr.compactMap { $0 }.min()
             lines.append("| \(result.label) | \(format(value)) | \(ratio) | \(format(snrMin, decimals: 1)) | "
-                + "\(keyed(result.createMs)) | \(keyed(result.firstRunMs)) | \(keyedText(result.coverage)) |")
+                + "\(keyed(result.createMs)) | \(keyed(result.firstRunMs)) | \(keyedText(result.coverage)) | \(thermalName(result.thermalStart)) |")
         }
         lines.append("")
         lines.append("\"So với AMX\" > 1 = nhanh hơn codec đang dùng. SNR so với tiếng audio.cpp (≥ 40 dB ≈ nghe như nhau; "
-            + "GGUF lưu codec F16 nên bản ONNX fp32 lệch ~60 dB là bình thường).")
+            + "GGUF lưu codec F16 nên bản ONNX fp32 lệch ~60 dB là bình thường; Neural Engine tính fp16 nên SNR thấp hơn — nghe file "
+            + "`nghe-*.wav` kèm báo cáo để so). \"Dựng session\" của Core ML gồm biên dịch, rơi vào cấu hình Core ML chạy trước; "
+            + "AMX đo lúc tổng hợp, trước mọi cấu hình ONNX (máy mát hơn).")
         lines.append("")
 
         lines.append("## Theo từng câu (ms/giây tiếng, trung vị 3 vòng)")

@@ -31,7 +31,7 @@ struct TurboCodecBenchView: View {
             } header: {
                 SectionHelpHeader("Đo codec", paragraphs: [
                     "So phần giải mã ra tiếng (codec) của Turbo: **AMX** (đang dùng) với bản ONNX chính thức chạy **ORT CPU**, **Core ML CPU** và **Core ML + Neural Engine** — trên cùng mã âm thanh.",
-                    "Lần đầu tải thêm khoảng **45 MB** và biên dịch Core ML (có thể mất vài chục giây). Giữ màn hình mở, đừng đọc truyện trong lúc đo. Xong thì bấm **Chia sẻ báo cáo** gửi Javis.",
+                    "Lần đầu tải thêm khoảng **45 MB** và biên dịch Core ML (có thể mất vài chục giây). Giữ màn hình mở, đừng đọc truyện trong lúc đo. Xong thì bấm **Chia sẻ báo cáo** gửi Javis — kèm file WAV nghe thử của từng cách để nghe so.",
                     "Màn này tạm thời — có kết luận thì gỡ."
                 ])
             }
@@ -46,8 +46,8 @@ struct TurboCodecBenchView: View {
         }
         .backPageTitle("Đo codec Turbo")
         .sheet(isPresented: $showingShare) {
-            if let url = model.reportURL {
-                ShareSheet(activityItems: [url])
+            if !model.reportFiles.isEmpty {
+                ShareSheet(activityItems: model.reportFiles)
             }
         }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
@@ -61,24 +61,26 @@ struct TurboCodecBenchView: View {
         var status = ""
         var errorText: String?
         var reportText: String?
-        var reportURL: URL?
+        /// Báo cáo + các file WAV nghe thử (AMX và từng cấu hình) — chia sẻ một lần.
+        var reportFiles: [URL] = []
 
         func start() {
             guard !isRunning else { return }
             isRunning = true
             errorText = nil
             reportText = nil
+            reportFiles = []
             status = "Bắt đầu…"
             UIApplication.shared.isIdleTimerDisabled = true
             Task { @MainActor in
                 do {
-                    let (text, url) = try await TurboCodecBenchRunner().run { [weak self] message in
+                    let (text, files) = try await TurboCodecBenchRunner().run { [weak self] message in
                         Task { @MainActor in self?.status = message }
                     }
                     reportText = text
-                    reportURL = url
+                    reportFiles = files
                     status = "Xong — bấm Chia sẻ báo cáo"
-                    AppLogger.shared.log("🧪 [TurboCodecBench] Xong, báo cáo \(url.lastPathComponent)")
+                    AppLogger.shared.log("🧪 [TurboCodecBench] Xong, \(files.count) file (báo cáo + WAV nghe thử)")
                 } catch {
                     errorText = error.localizedDescription
                     status = ""
