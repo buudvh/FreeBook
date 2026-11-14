@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Đo repack trọng số bộ giải mã âm học của VieNeu Turbo (bản vá vieneu_acoustic_repack, báo cáo tối ưu Turbo §16)
-# trên runner macOS. (Lượt trước của script này đo threadpool — §15.)
+# Đo bộ giải mã âm học VieNeu Turbo chạy 1 luồng (biến môi trường FREEBOOK_ACOUSTIC_THREADS, bản vá đo
+# audiocpp_profile/acoustic_threads_env.py) trên runner macOS. (Các lượt trước: threadpool §15, repack §16.)
 #
 # Build `audiocpp_cli` đúng cấu hình bản iOS (mọi bản vá của app, ggml-blas = Accelerate, cờ armv8.2-a+dotprod+fp16,
 # không OpenMP / Metal) rồi chạy xen kẽ các cấu hình, cùng câu / giọng / seed (greedy):
-#   base  = như app 1.3.929: codec_blas + prefill_blas + threadpool_poll=0
-#   rp    = base + acoustic_repack=true (5 ma trận q8_0 của bộ giải mã âm học vào CPU_REPACK, kernel q8_0_4x4 dotprod)
+#   base  = như app 1.3.931: codec_blas + prefill_blas + threadpool_poll=0 + acoustic_repack
+#   a1    = base, bộ giải mã âm học chạy 1 luồng (FREEBOOK_ACOUSTIC_THREADS=1) — phải trùng từng byte với base
 # Ghi: thời gian từng phần (bộ đếm giờ có sẵn của audio.cpp qua --log-file), CPU-time tiến trình (/usr/bin/time),
 # và so mã với base. Repack đổi thứ tự cộng fp32 ⇒ không trùng từng byte: chấm thêm logit của bộ giải mã âm học
 # (VIENEU_LOGITS_DUMP) so với base tới khung đầu tiên lệch mã. Máy ảo không AMX ⇒ số tuyệt đối
@@ -16,13 +16,13 @@ CI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUDIOCPP_REF="${AUDIOCPP_REF:-$(tr -d '[:space:]' < "$CI_DIR/audiocpp_ref.txt")}"
 WORK_DIR="${WORK_DIR:-build/audiocpp-profile}"
 OUT_DIR="${OUT_DIR:-build/audiocpp-profile-out}"
-REPEATS="${REPEATS:-1}"
+REPEATS="${REPEATS:-3}"
 ARM_ARCH="armv8.2-a+dotprod+fp16"
 HF_REV="61b85e3d937fbbacb387714180e8182823512523"
 HF_BASE="https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo/resolve/$HF_REV/gguf"
 JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 3)"
 VOICES="mai_anh minh_quan_pro"
-MODES="base rp"
+MODES="base a1"
 
 rm -rf "$WORK_DIR" "$OUT_DIR"
 mkdir -p "$WORK_DIR/model" "$OUT_DIR/runs"
@@ -40,6 +40,7 @@ git clone --depth 1 --branch "$AUDIOCPP_REF" --recurse-submodules --shallow-subm
 for patch in vieneu_prefill_gallocr vieneu_codec_blas vieneu_prefill_blas vieneu_threadpool vieneu_acoustic_repack capi_log_file capi_abort_file; do
   python3 "$CI_DIR/audiocpp_patches/$patch.py" "$WORK_DIR/src"
 done
+python3 "$CI_DIR/audiocpp_profile/acoustic_threads_env.py" "$WORK_DIR/src"
 cmake -S "$WORK_DIR/src" -B "$WORK_DIR/build" \
   -DCMAKE_BUILD_TYPE=Release \
   -DAUDIOCPP_DEPLOYMENT_BUILD=ON \
@@ -76,11 +77,12 @@ run_one() {
   mkdir -p "$dir"
   printf 'mode=%s\nvoice=%s\nrep=%s\n' "$mode" "$voice" "$rep" > "$dir/meta.txt"
   local -a extra=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true
-    --session-option vieneu_v3_turbo.threadpool_poll=0)
+    --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true)
+  local threads_env=""
   case "$mode" in
-    rp) extra+=(--session-option vieneu_v3_turbo.acoustic_repack=true) ;;
+    a1) threads_env=1 ;;
   esac
-  if ! /usr/bin/time -l "$CLI" --task tts --family vieneu_v3_turbo \
+  if ! FREEBOOK_ACOUSTIC_THREADS="$threads_env" /usr/bin/time -l "$CLI" --task tts --family vieneu_v3_turbo \
       --model "$WORK_DIR/model/turbo-q8_0.gguf" --backend cpu --threads 2 \
       --log-file "$dir/run.log" \
       --text "$TEXT" \
@@ -112,23 +114,7 @@ for rep in $(seq 1 "$REPEATS"); do
   done
 done
 
-# Chấm logit: một lượt mỗi cấu hình với VIENEU_LOGITS_DUMP (ghi logit 16 bước của mọi khung), cùng câu / giọng.
-for mode in $MODES; do
-  rm -f "$OUT_DIR/logits_$mode.txt"
-  export VIENEU_LOGITS_DUMP="$OUT_DIR/logits_$mode.txt"
-  run_one "$mode" mai_anh dump
-  unset VIENEU_LOGITS_DUMP
-done
-python3 "$CI_DIR/audiocpp_profile/rp_logits_check.py" "$OUT_DIR/logits_base.txt" "$OUT_DIR/logits_rp.txt" \
-  | tee "$OUT_DIR/logits_check.txt"
-# Lượt dump không tính vào bảng tốc độ; file logit vài chục MB — chỉ giữ kết quả chấm.
-rm -rf "$OUT_DIR"/runs/*__rdump
-for mode in $MODES; do rm -f "$OUT_DIR/logits_$mode.txt"; done
-
 python3 "$CI_DIR/audiocpp_profile/tp_summarize.py" "$OUT_DIR"
-{ echo; echo '### Logit bộ giải mã âm học: rp so với base'; echo; echo '```'; cat "$OUT_DIR/logits_check.txt"; echo '```'; }   >> "$OUT_DIR/summary.md"
-{ echo; echo '### Trọng số repack (log nạp)'; echo; echo '```';
-  grep -h 'acoustic_repack.weights\|acoustic_decoder.repack.buffer' "$OUT_DIR"/runs/rp__mai_anh__r1/run.log | sort -u | head -n 6; echo '```'; }   >> "$OUT_DIR/summary.md"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   cat "$OUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
 fi

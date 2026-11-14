@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Đưa trọng số q8_0 của bộ giải mã âm học VieNeu Turbo vào bộ đệm `CPU_REPACK` của ggml (thử, báo cáo tối ưu Turbo §16).
+"""Đưa trọng số q8_0 của bộ giải mã âm học VieNeu Turbo vào bộ đệm `CPU_REPACK` của ggml (1.3.930, báo cáo tối ưu Turbo §16).
+
+Đo CI (run 43551654007, 43552141772): âm học −14…−15%, RTF −2…−4%, CPU không đổi; mã + WAV trùng đường cũ trên mọi câu
+thử. Logit không trùng từng bit ở ~46% bước (lớn nhất 1,1e-2: thứ tự cộng khác làm activation đổi nấc lượng tử q8 ở ma
+trận kế — cùng cỡ nhiễu q8 sẵn có), greedy vẫn trùng hết.
 
 Vì sao: mỗi khung 80 ms bộ giải mã âm học (1 lớp: qkv 768→2304, o 768², MLP 2048) chạy 16 bước tuần tự, mỗi bước là
 phép nhân ma trận × vectơ trên ~7,5 MB trọng số q8_0. ggml có sẵn bố cục xen kẽ `q8_0_4x4` (4 hàng xen theo khối 4 byte,
