@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.929] - 2026-11-14
+
+### perf: Turbo giữ một pool luồng suốt phiên đọc thay vì tạo luồng mới ở mỗi lượt tính, nhanh hơn và ít tốn CPU hơn
+
+audio.cpp build không OpenMP nên mỗi lượt tính của ggml tạo rồi huỷ một bộ luồng; Turbo có ~17 lượt tính mỗi khung 80 ms (1 backbone + 16 bước bộ giải mã âm học) ⇒ ~210 lần tạo / join luồng mỗi giây tiếng. Đo trên CI (nhánh đo `claude/turbo-tp-profile`, run 43545030992, máy ảo M1, cấu hình như app 1.3.928, 2 giọng × 3 lần lặp xen kẽ; báo cáo tối ưu Turbo mục 15): RTF 0,368 → **0,352 (−4%)**, âm học 83 → 74 ms mỗi giây tiếng, CPU 0,69 → **0,67** CPU-giây mỗi giây tiếng; mã + WAV **trùng từng byte** 6/6. poll 10 / 50 nhanh thêm ~2% nhưng luồng quay chờ đốt CPU (0,71 / 0,78) và tranh lõi với Accelerate (nạp prompt 93 → 100) ⇒ không chọn. Anh Bửu duyệt plan.
+
+- **Bản vá mới** `Scripts/ci/audiocpp_patches/vieneu_threadpool.py` (chạy sau `vieneu_prefill_blas`): session option `vieneu_v3_turbo.threadpool_poll` (0…100; không có = như upstream). Ở lượt `run` đầu, `ggml_threadpool_new` (số luồng của talker) rồi gắn vào backend CPU của talker **và** của session (codec, kể cả phần CPU trong scheduler BLAS). Lớp weights runtime chỉ khai báo trước với session ⇒ thêm hàm tự do `freebook_talker_backend` / `freebook_talker_threads` trong talker.cpp. Luồng mang QoS của người gọi; người gọi đổi QoS (nghe thử giọng `.utility` ↔ trình đọc `.userInitiated`) ⇒ nhả pool cũ, tạo pool mới (`qos_class_self` qua `sys/qos.h` — `pthread/qos.h` bị chặn bởi `__DARWIN_C_LEVEL`). Thành viên khai báo cuối lớp ⇒ nhả trước backend. Log `vieneu_v3_turbo.threadpool_poll` / `threadpool_qos` khi tạo pool.
+- **Build iOS** (`build_audiocpp_ios.sh`) chạy bản vá; khoá cache AudioCpp đổi theo bản vá nên CI dựng lại framework.
+- **Cổng parity** (`audiocpp_parity_macos.sh`): cấu hình app (codec_blas + prefill_blas) có và không có `threadpool_poll=0` trên câu dài ⇒ mã + WAV phải trùng từng byte, log phải báo đã tạo pool.
+- **App**: `VieNeuTurboAcceleration.threadpoolPollOption` / `threadpoolPoll = "0"`; `VieNeuTurboRuntime+Session.createSessionLocked` truyền thêm option khi AMX bật — đi chung cờ nên lối tự tắt khi sập (`VieNeuTurboCrashGuard`, theo số build) tắt cả pool. Log dựng session: "AMX (codec + nạp prompt) + pool luồng giữ lâu bật".
+- Ước lượng trên máy: âm học chiếm ~36% thời gian ở 1.3.927 ⇒ RTF ~0,250 → ~0,24. Chưa đo trên máy; không cần tải dữ liệu mới, tiếng không đổi.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows).
+
 ## [1.3.928] - 2026-11-14
 
 ### feat: Turbo luôn chạy Tăng tốc AMX, nhanh hơn khoảng 37%, bỏ công tắc thử nghiệm
@@ -621,18 +634,3 @@ Theo mockup anh Bửu duyệt: chọn giọng VieNeu ở **một sheet** gộp h
   - Chạy ngoài main; các lượt VieNeu **lần lượt** (xếp hàng "Đang chờ lượt tải khác…") vì cùng ghi `sea_g2p.bin` / `speaker_encoder.onnx` / GGUF; màn thử Turbo và sheet không tải chồng nhau.
   - ■ = huỷ (`cancel(id:)`), không toast lỗi. `ModelDownloadCenter.Entry` thêm `completedBytes` / `totalBytes` / `isQueued`.
 - **Kiểm chứng:** đọc code + grep chéo `ModelDownloadCenter` / `VieNeuModelClient.prefetch*`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
-
-## [1.3.899] - 2026-11-12
-
-### refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật
-
-Theo mockup anh Bửu duyệt: Cài đặt TTS khi trình đọc là VieNeu chỉ giữ thứ người dùng thật sự chỉnh, giải thích dời vào nút "?" cạnh tiêu đề section.
-
-- **"Quản lý riêng của trình đọc"** (có "?": Nano luôn Cân bằng 8 bước + 2 luồng, không chờ bận; Turbo luôn 2 luồng trên lõi hiệu năng) chỉ còn công tắc "Áp dụng từ điển phiên âm VieNeu" + lối vào / nút tải "Từ điển phiên âm tiếng Nhật".
-- **Bỏ**, giá trị cũ đã lưu giữ nguyên nhưng không đọc nữa:
-  - "Tiết kiệm pin", "Chế độ tạo audio", "Số luồng tổng hợp": `VieNeuSynthesisPolicy.isPowerSaving` luôn `true` ⇒ Nano luôn `fast` + 2 luồng (`vieneuPowerSaving`, `vieneuPreferredMode`, `vieneuThreadCount` bỏ qua). Màn thử Nano vẫn đặt chế độ tạm tới lượt `prepare` kế.
-  - "Luồng tổng hợp chờ bận (spin)": `allowSpinning` luôn `false` (`vieneuOrtAllowSpinning` bỏ qua); xoá `VieNeuOrtSpinToggle`.
-  - "Tự động phiên âm tiếng Nhật": `VieNeuJapanesePreprocessor.applyUsingStoredFlags` luôn tắt romaji cho cả Nano lẫn Turbo (`vieneuJapaneseTransliterationEnabled` bỏ qua); bỏ dòng trạng thái ở màn từ điển.
-  - Hàng "Tổng hợp Turbo" + chú thích Turbo.
-- **"Cấu hình giọng nói"** có "?" khi trình đọc là VieNeu (Turbo tổng hợp ở tốc độ gốc, theo kịp tới ~2,0×; Nano có Tốc độ tổng hợp, 1,15× ít lặp chữ nhất). Giọng Turbo chỉ còn cảnh báo cam khi tốc độ > 2,0×; hàng "Tốc độ tổng hợp (VieNeu)" của Nano bỏ chú thích dài.
-- **Kiểm chứng:** đọc code + grep chéo các khoá / hàm đã đổi; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, `TTSSettingsView.swift` giảm 449 → 440 dòng. Chưa build (Windows), chưa thử máy.

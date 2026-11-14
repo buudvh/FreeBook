@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.899] - 2026-11-12
+
+### refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật
+
+Theo mockup anh Bửu duyệt: Cài đặt TTS khi trình đọc là VieNeu chỉ giữ thứ người dùng thật sự chỉnh, giải thích dời vào nút "?" cạnh tiêu đề section.
+
+- **"Quản lý riêng của trình đọc"** (có "?": Nano luôn Cân bằng 8 bước + 2 luồng, không chờ bận; Turbo luôn 2 luồng trên lõi hiệu năng) chỉ còn công tắc "Áp dụng từ điển phiên âm VieNeu" + lối vào / nút tải "Từ điển phiên âm tiếng Nhật".
+- **Bỏ**, giá trị cũ đã lưu giữ nguyên nhưng không đọc nữa:
+  - "Tiết kiệm pin", "Chế độ tạo audio", "Số luồng tổng hợp": `VieNeuSynthesisPolicy.isPowerSaving` luôn `true` ⇒ Nano luôn `fast` + 2 luồng (`vieneuPowerSaving`, `vieneuPreferredMode`, `vieneuThreadCount` bỏ qua). Màn thử Nano vẫn đặt chế độ tạm tới lượt `prepare` kế.
+  - "Luồng tổng hợp chờ bận (spin)": `allowSpinning` luôn `false` (`vieneuOrtAllowSpinning` bỏ qua); xoá `VieNeuOrtSpinToggle`.
+  - "Tự động phiên âm tiếng Nhật": `VieNeuJapanesePreprocessor.applyUsingStoredFlags` luôn tắt romaji cho cả Nano lẫn Turbo (`vieneuJapaneseTransliterationEnabled` bỏ qua); bỏ dòng trạng thái ở màn từ điển.
+  - Hàng "Tổng hợp Turbo" + chú thích Turbo.
+- **"Cấu hình giọng nói"** có "?" khi trình đọc là VieNeu (Turbo tổng hợp ở tốc độ gốc, theo kịp tới ~2,0×; Nano có Tốc độ tổng hợp, 1,15× ít lặp chữ nhất). Giọng Turbo chỉ còn cảnh báo cam khi tốc độ > 2,0×; hàng "Tốc độ tổng hợp (VieNeu)" của Nano bỏ chú thích dài.
+- **Kiểm chứng:** đọc code + grep chéo các khoá / hàm đã đổi; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, `TTSSettingsView.swift` giảm 449 → 440 dòng. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.898] - 2026-11-12
 
 ### feat: VieNeu chọn Nano hay Turbo theo giọng đang chọn, gộp thành một trình đọc

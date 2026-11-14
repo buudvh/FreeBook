@@ -9,6 +9,10 @@ import Foundation
 ///   AMX của A13 trở lên. Đo trên máy: codec nhanh 3,3×; tiếng trùng mã, WAV ~98 dB so với đường CPU.
 /// - `vieneu_v3_turbo.prefill_blas=true` (bản vá `vieneu_prefill_blas.py`): bước nạp prompt qua Accelerate, nhanh 1,9×,
 ///   gần bản fp32 gốc hơn đường q8 (không lượng tử activation).
+/// - `vieneu_v3_turbo.threadpool_poll=0` (1.3.929, bản vá `vieneu_threadpool.py`): giữ một pool luồng ggml suốt session
+///   thay vì tạo + huỷ luồng ở mỗi lượt tính (~210 lần mỗi giây tiếng). Tiếng trùng từng byte; đo CI: RTF −4%, CPU −3%.
+///   Pool tạo ở lượt tổng hợp đầu (luồng mang QoS người gọi), người gọi đổi QoS ⇒ audio.cpp tạo pool mới.
+///   Đi chung cờ với AMX nên lối tự tắt khi sập tắt cả ba.
 /// Bản build không có ggml-blas hoặc dựng scheduler lỗi ⇒ audio.cpp tự lùi về đường CPU cũ (log `amx=lùi:…`).
 ///
 /// **Tự tắt khi sập**: `VieNeuTurboCrashGuard` thấy lần trước app chết giữa lượt AMX đầu tiên (hoặc audio.cpp ghi câu
@@ -27,6 +31,13 @@ enum VieNeuTurboAcceleration {
 
     /// Session option của bản vá `vieneu_prefill_blas` (1.3.927): bước nạp prompt qua Accelerate.
     static let prefillBLASOption = "vieneu_v3_turbo.prefill_blas"
+
+    /// Session option của bản vá `vieneu_threadpool` (1.3.929): pool luồng ggml giữ suốt session.
+    static let threadpoolPollOption = "vieneu_v3_turbo.threadpool_poll"
+
+    /// `poll` của pool: 0 = luồng ngủ ngay khi rảnh. poll 10 / 50 nhanh thêm ~2% trên CI nhưng luồng quay chờ đốt CPU
+    /// và tranh lõi với Accelerate (nóng máy) — muốn đổi thì đo nhiệt trên máy trước.
+    static let threadpoolPoll = "0"
 
     /// Số build đang chạy (bản build tay không có ⇒ "unknown").
     static var currentBuild: String {

@@ -10,7 +10,8 @@ extension VieNeuTurboRuntime {
     ///
     /// AMX luôn bật từ 1.3.928 (`VieNeuTurboAcceleration.isAMXEnabled`, chỉ tắt khi bản build này từng sập giữa lượt
     /// AMX): session option `vieneu_v3_turbo.codec_blas=true` + `vieneu_v3_turbo.prefill_blas=true` (bản vá
-    /// `vieneu_codec_blas`, `vieneu_prefill_blas`). Tắt ⇒ không truyền option nào, y như trước 1.3.924.
+    /// `vieneu_codec_blas`, `vieneu_prefill_blas`) + `vieneu_v3_turbo.threadpool_poll=0` (1.3.929, `vieneu_threadpool`:
+    /// pool luồng giữ suốt session). Tắt ⇒ không truyền option nào, y như trước 1.3.924.
     /// Gọi từ `prepareLocked` (lần đầu, đổi số luồng, AMX vừa bị tự tắt), từ lượt thử lại sau lỗi cấp phát và từ
     /// `VieNeuTurboRuntime+Encode` (dựng lại sau khi mã hoá giọng mẫu).
     @discardableResult
@@ -30,6 +31,12 @@ extension VieNeuTurboRuntime {
             for option in [VieNeuTurboAcceleration.codecBLASOption, VieNeuTurboAcceleration.prefillBLASOption] {
                 try Self.check(audiocpp_options_set(options, option, "true"), "audiocpp_options_set(\(option))")
             }
+            // Pool luồng giữ suốt session — đi chung cờ AMX để lối tự tắt khi sập tắt luôn.
+            let poolOption = VieNeuTurboAcceleration.threadpoolPollOption
+            try Self.check(
+                audiocpp_options_set(options, poolOption, VieNeuTurboAcceleration.threadpoolPoll),
+                "audiocpp_options_set(\(poolOption))"
+            )
         }
         let started = ProcessInfo.processInfo.systemUptime
         var created: OpaquePointer?
@@ -43,7 +50,8 @@ extension VieNeuTurboRuntime {
         sessionCodecBLAS = codecBLAS
         let createMs = Self.elapsedMs(since: started)
         AppLogger.shared.log(
-            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng, AMX (codec + nạp prompt) \(codecBLAS ? "bật" : "tắt"): "
+            "🎙️ [VieNeuTurbo] Dựng session CPU \(threads) luồng, AMX (codec + nạp prompt) + pool luồng giữ lâu "
+                + "\(codecBLAS ? "bật" : "tắt"): "
                 + "\(String(format: "%.0f", createMs)) ms — \(ProcessMemoryProbe.snapshot().summary)"
         )
         return createMs

@@ -9,6 +9,9 @@
 # thứ tự cộng fp32 — Nano đo 99–136 dB), và log phải báo codec thật sự chạy qua BLAS. Runner là máy ảo không có AMX
 # ⇒ phép này chỉ kiểm ĐÚNG SỐ, không kiểm tốc độ (tốc độ đo trên iPhone).
 #
+# Bản vá `vieneu_threadpool` (1.3.929): cấu hình của app (codec_blas + prefill_blas) thêm `threadpool_poll=0` ⇒ mã
+# và WAV phải trùng TỪNG BYTE với khi không có (cùng số luồng ⇒ cùng cách chia việc), log phải báo đã tạo pool.
+#
 # Chạy trên runner macOS (CPU, không Metal, không OpenMP — giống bản iOS). Tải model ~188 MB từ HF (revision ghim).
 set -euo pipefail
 
@@ -29,6 +32,7 @@ cp -R "$WORK_DIR/src_base" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_blas.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/vieneu_threadpool.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$WORK_DIR/src_patched"
 
@@ -157,6 +161,26 @@ elif python3 "$CI_DIR/audiocpp_prefill_check.py" "$WORK_DIR/out/prefill_q8.dump"
   echo "✓ prefill: BLAS gần bản fp32 hơn đường q8 đang chạy"
 else
   echo "::error::prefill: đường BLAS không đạt cổng chất lượng"
+  FAIL=1
+fi
+
+# Threadpool giữ lâu (bản vá vieneu_threadpool, 1.3.929): đúng cấu hình app, chỉ thêm option ⇒ trùng từng byte.
+APP_OPTS=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true)
+run_case "$CLI_PATCHED" "app_long" "$LONG" "${APP_OPTS[@]}" --log-file "$WORK_DIR/out/app_long.trace"
+run_case "$CLI_PATCHED" "pool_long" "$LONG" "${APP_OPTS[@]}" \
+  --session-option vieneu_v3_turbo.threadpool_poll=0 --log-file "$WORK_DIR/out/pool_long.trace"
+pool_made="$(grep -c 'vieneu_v3_turbo.threadpool_poll 0' "$WORK_DIR/out/pool_long.trace" || true)"
+acoustic_app="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/app_long.trace" | tail -n 1 | awk '{print $NF}')"
+acoustic_pool="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/pool_long.trace" | tail -n 1 | awk '{print $NF}')"
+echo "threadpool: âm học ${acoustic_app:-?} ms → ${acoustic_pool:-?} ms (máy ảo — chỉ tham khảo)"
+if [ "${pool_made:-0}" -lt 1 ]; then
+  echo "::error::threadpool: có threadpool_poll=0 mà log không báo đã tạo pool"
+  FAIL=1
+elif cmp -s "$WORK_DIR/out/app_long.codes.txt" "$WORK_DIR/out/pool_long.codes.txt" \
+    && cmp -s "$WORK_DIR/out/app_long.wav" "$WORK_DIR/out/pool_long.wav"; then
+  echo "✓ threadpool: mã âm thanh + WAV giống hệt cấu hình app"
+else
+  echo "::error::threadpool: giữ pool làm ĐỔI kết quả (phải trùng từng byte)"
   FAIL=1
 fi
 exit "$FAIL"
