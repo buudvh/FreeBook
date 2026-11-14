@@ -24,6 +24,12 @@ extension VieNeuTurboRuntime {
         // Lần trước chết giữa lượt AMX ⇒ tự tắt AMX cho bản build này TRƯỚC khi đọc cờ; đặt file nhận câu báo của ggml.
         VieNeuTurboCrashGuard.recoverIfNeeded()
         VieNeuTurboCrashGuard.installAbortNote()
+        // Thư mục của màn đo tạm codec AMX vs Neural Engine (1.3.932, gỡ ở 1.3.933): ~45 MB ONNX + cache Core ML còn lại
+        // trên máy đã chạy màn đo. Xoá được dòng này sau vài bản.
+        try? FileManager.default.removeItem(
+            at: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("turbo-codec-bench", isDirectory: true)
+        )
         let codecBLAS = VieNeuTurboAcceleration.isAMXEnabled
         let options = codecBLAS ? audiocpp_options_create() : nil
         defer { audiocpp_options_free(options) }

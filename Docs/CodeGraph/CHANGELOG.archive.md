@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.903] - 2026-11-12
+
+### chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại
+
+Session Nano đưa P1b ("Đo tự động ORT ↔ Core ML") lên `main` với số **1.3.890** trong lúc đợt này chưa push. Javis ghép lại 12 commit của đợt lên sau commit đó (`a3818664`) và dời mỗi số lên 1:
+- lõi nhân bản Turbo: 1.3.890–895 → **1.3.891–896**;
+- sửa Cài đặt TTS: 1.3.896 → **1.3.897**;
+- giao diện chọn giọng / nhân bản: 1.3.897–901 → **1.3.898–902**.
+
+Entry CHANGELOG đã dời lúc ghép. Commit này chỉ dời số trong **chú thích code**, `CLAUDE.md` / `AGENTS.md` và script của đợt. Dòng nào có y nguyên trong bản `main` thì giữ, ví dụ số 1.3.890 của P1b.
+
+**Kiểm chứng:** so `diff` code giữa bản trước và sau khi ghép: chỉ khác đúng phần P1b mang vào, cộng một dòng `isBusy` của màn thử gộp cả `autoRun` lẫn `cloneTrial`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build.
+
 ## [1.3.902] - 2026-11-12
 
 ### fix: sheet giọng VieNeu nạp lại engine trình đọc sau khi thử giọng model khác, nhân bản huỷ được lúc tải gói và kiểm tên trước

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.933] - 2026-11-14
+
+### chore: Gỡ màn đo tạm codec Turbo, codec ONNX chậm hơn AMX và Neural Engine làm app chết lúc biên dịch
+
+Kết quả màn đo 1.3.932 trên iPhone 11 (log 19, hai lượt; báo cáo tối ưu Turbo §18.3): cùng mã âm thanh, codec ONNX chính thức qua **ORT CPU 112–140** và **Core ML CPU 140–147** ms mỗi giây tiếng — **chậm hơn AMX hiện tại (46–61) khoảng 2,4–3×**, dù tiếng đúng (SNR 58 dB); trên iPhone Core ML chia graph thành 38 mảnh (máy ảo 14). **Core ML + Neural Engine làm app chết lúc dựng session** bucket 64 ở cả hai lượt (không có .ips ⇒ nghi bị hệ điều hành giết vì RAM khi biên dịch cho ANE). Đi tiếp phải sửa graph (gấp hằng mặt nạ, tách graph) với lợi tối đa ~20% RTF (codec chiếm ~20% thời gian) và rủi ro fp16 ⇒ anh Bửu chốt **dừng hướng 3, gỡ màn đo**.
+
+- Xoá `Services/TTS/VieNeuTurbo/CodecBench/` (bridge `TurboCodecProbeBridge`, `TurboCodecProbeSession`, runner, assets, report), `Views/Settings/TTS/TurboCodecBenchView.swift`, dòng trong `FreeBookBridgingHeader.h`, hàng "Đo codec" ở mục Turbo của Cài đặt VieNeu TTS, tham số `extraRequestOptions` của `VieNeuTurboRuntime.synthesize` (không còn ai dùng) — mã về đúng như 1.3.931.
+- Dọn thư mục `Caches/turbo-codec-bench/` (~45 MB ONNX + cache Core ML) còn lại trên máy đã chạy màn đo: `VieNeuTurboRuntime.createSessionLocked` xoá nó mỗi lần dựng session Turbo (không có thì thôi); bỏ dòng này sau vài bản.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
+
 ## [1.3.932] - 2026-11-14
 
 ### feat: Màn đo tạm so codec Turbo chạy AMX với Core ML và Neural Engine trên cùng mã âm thanh
@@ -608,16 +618,3 @@ Session chính đọc soát nhánh giao diện giọng VieNeu (1.3.898–902) tr
   - Nano xong mà Turbo lỗi từng `markSaved()` ⇒ file mẫu tạm không bao giờ bị xoá; nay đóng sheet là xoá (kho Nano / Turbo đã chép mẫu riêng). Sửa chú thích "đang lưu ⇒ không đóng được" cho khớp `confirmDiscardOnSwipe`.
 - **Đổi tên / xoá giọng Nano** (`VieNeuCustomVoiceActions.retargetNanoVoice`): lựa chọn đã lưu là Turbo mà đang lùi về Nano bằng giọng đó ⇒ không còn ghi đè mất lựa chọn Turbo, chỉ đổi giọng đang đọc. Đổi tên giọng Nano không đang đọc ⇒ lựa chọn đã lưu / "giọng Nano dùng gần nhất" trỏ tên cũ cũng chuyển sang tên mới. Xoá giọng Turbo tự tạo đang là lựa chọn mà trình đọc không phải VieNeu ⇒ lựa chọn về giọng mặc định. Bỏ `isReaderVoice` (không còn chỗ gọi).
 - **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
-
-## [1.3.903] - 2026-11-12
-
-### chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại
-
-Session Nano đưa P1b ("Đo tự động ORT ↔ Core ML") lên `main` với số **1.3.890** trong lúc đợt này chưa push. Javis ghép lại 12 commit của đợt lên sau commit đó (`a3818664`) và dời mỗi số lên 1:
-- lõi nhân bản Turbo: 1.3.890–895 → **1.3.891–896**;
-- sửa Cài đặt TTS: 1.3.896 → **1.3.897**;
-- giao diện chọn giọng / nhân bản: 1.3.897–901 → **1.3.898–902**.
-
-Entry CHANGELOG đã dời lúc ghép. Commit này chỉ dời số trong **chú thích code**, `CLAUDE.md` / `AGENTS.md` và script của đợt. Dòng nào có y nguyên trong bản `main` thì giữ, ví dụ số 1.3.890 của P1b.
-
-**Kiểm chứng:** so `diff` code giữa bản trước và sau khi ghép: chỉ khác đúng phần P1b mang vào, cộng một dòng `isBusy` của màn thử gộp cả `autoRun` lẫn `cloneTrial`. `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa build.
