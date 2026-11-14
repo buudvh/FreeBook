@@ -31,6 +31,7 @@ def main():
     base, test = read_steps(sys.argv[1]), read_steps(sys.argv[2])
     errors, max_abs, steps = [], 0.0, 0
     first_diff = None
+    worst = []  # (sai số, khung, nhóm, chuẩn base, top1 − top2)
     for frame_index, (frame_b, frame_t) in enumerate(zip(base, test)):
         for (group_b, logits_b), (group_t, logits_t) in zip(frame_b, frame_t):
             if group_b != group_t or len(logits_b) != len(logits_t):
@@ -38,6 +39,9 @@ def main():
             diff = math.sqrt(sum((a - b) ** 2 for a, b in zip(logits_t, logits_b)))
             norm = math.sqrt(sum(b * b for b in logits_b))
             errors.append(diff / max(norm, 1e-30))
+            if errors[-1] > 0:
+                ordered = sorted(logits_b, reverse=True)
+                worst.append((errors[-1], frame_index, group_b, norm, ordered[0] - ordered[1], len(logits_b)))
             max_abs = max(max_abs, max(abs(a - b) for a, b in zip(logits_t, logits_b)))
             steps += 1
             if argmax(logits_b) != argmax(logits_t):
@@ -52,6 +56,14 @@ def main():
     print(f"Khung: base {len(base)} · thử {len(test)} — đã so {steps} bước")
     print(f"Sai số tương đối L2 của logit: trung vị {errors[len(errors) // 2]:.3e} · lớn nhất {errors[-1]:.3e} "
           f"· lệch tuyệt đối lớn nhất {max_abs:.3e}")
+    print(f"Bước có lệch: {sum(e > 0 for e in errors)} · > 1e-6: {sum(e > 1e-6 for e in errors)} "
+          f"· > 1e-4: {sum(e > 1e-4 for e in errors)} · > 1e-3: {sum(e > 1e-3 for e in errors)}")
+    by_group = {}
+    for err, _, group, _, _, _ in worst:
+        by_group[group] = by_group.get(group, 0) + 1
+    print("Số bước lệch theo nhóm: " + ", ".join(f"{g}:{n}" for g, n in sorted(by_group.items())))
+    for err, frame_index, group, norm, margin, size in sorted(worst, reverse=True)[:6]:
+        print(f"  khung {frame_index} nhóm {group}: sai số {err:.3e} · chuẩn {norm:.3e} · top1−top2 {margin:.3e} · {size} logit")
     if first_diff is None:
         print("Mã greedy trùng hết" + (" (số khung khác nhau)" if len(base) != len(test) else ""))
     else:
