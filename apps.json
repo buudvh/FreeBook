@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.944",
+          "buildVersion": "1274",
+          "date": "2026-11-14T12:13:24Z",
+          "localizedDescription": "- feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1274/TangCongCac-1.3.944-1274.ipa",
+          "size": 41445781,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.943",
           "buildVersion": "1273",
           "date": "2026-11-14T10:22:46Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1270/TangCongCac-1.3.939-1270.ipa",
           "size": 41428886,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.932",
-          "buildVersion": "1268",
-          "date": "2026-11-14T06:26:57Z",
-          "localizedDescription": "- perf: Turbo xếp lại trọng số bộ giải mã âm học cho kernel dotprod, phần âm học nhanh hơn khoảng 14%, tiếng không đổi\n- feat: Màn đo tạm so codec Turbo chạy AMX với Core ML và Neural Engine trên cùng mã âm thanh",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1268/TangCongCac-1.3.932-1268.ipa",
-          "size": 41394715,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.943",
-      "versionDate": "2026-11-14T10:22:46Z",
-      "versionDescription": "- feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1273/TangCongCac-1.3.943-1273.ipa",
-      "size": 41445776,
+      "version": "1.3.944",
+      "versionDate": "2026-11-14T12:13:24Z",
+      "versionDescription": "- feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1274/TangCongCac-1.3.944-1274.ipa",
+      "size": 41445781,
       "appPermissions": {}
     }
   ],
