@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Đo bộ giải mã âm học VieNeu Turbo chạy 1 luồng (biến môi trường FREEBOOK_ACOUSTIC_THREADS, bản vá đo
-# audiocpp_profile/acoustic_threads_env.py) trên runner macOS. (Các lượt trước: threadpool §15, repack §16.)
+# Hướng 3 (báo cáo tối ưu Turbo §18): codec MOSS qua graph ONNX chính thức có ra đúng tiếng như codec audio.cpp
+# không, độn khung cố định có giữ tiếng không, Core ML EP nhận bao nhiêu node. (Lượt trước: threadpool §15, repack §16,
+# âm học 1 luồng.)
 #
 # Build `audiocpp_cli` đúng cấu hình bản iOS (mọi bản vá của app, ggml-blas = Accelerate, cờ armv8.2-a+dotprod+fp16,
 # không OpenMP / Metal) rồi chạy xen kẽ các cấu hình, cùng câu / giọng / seed (greedy):
@@ -21,7 +22,7 @@ ARM_ARCH="armv8.2-a+dotprod+fp16"
 HF_REV="61b85e3d937fbbacb387714180e8182823512523"
 HF_BASE="https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo/resolve/$HF_REV/gguf"
 JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 3)"
-VOICES="mai_anh minh_quan_pro"
+VOICES="mai_anh"
 MODES="base a1"
 
 rm -rf "$WORK_DIR" "$OUT_DIR"
@@ -66,55 +67,39 @@ for voice in $VOICES; do
 done
 set +e
 
-# Câu mẫu của doc audio.cpp (~70 byte phiên âm) × 8 ≈ 560 byte ⇒ audio.cpp tự cắt ~3 đoạn ở 200 byte như app, ~20 s
-# tiếng mỗi lượt ⇒ chi phí nạp model mỗi tiến trình (giống nhau ở mọi cấu hình) loãng đi trong CPU-time.
+# Ba độ dài, mỗi lượt một đoạn (text_chunk_size lớn) ⇒ mỗi run một dòng generated_codes ứng với cả WAV.
 S="sˈin tʃˈaː2w tˈeɜ zˈəːɜj. ɗˈəɪ lˌaː2 bˈaː4n tˈy4 ŋˈiɛ6m."
-TEXT="$S $S $S $S $S $S $S $S"
-
-run_one() {
-  local mode="$1" voice="$2" rep="$3"
-  local dir="$OUT_DIR/runs/${mode}__${voice}__r${rep}"
+run_text() {
+  local name="$1" text="$2"
+  local dir="$OUT_DIR/runs/$name"
   mkdir -p "$dir"
-  printf 'mode=%s\nvoice=%s\nrep=%s\n' "$mode" "$voice" "$rep" > "$dir/meta.txt"
-  local -a extra=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true
-    --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true)
-  local threads_env=""
-  case "$mode" in
-    a1) threads_env=1 ;;
-  esac
-  if ! FREEBOOK_ACOUSTIC_THREADS="$threads_env" /usr/bin/time -l "$CLI" --task tts --family vieneu_v3_turbo \
-      --model "$WORK_DIR/model/turbo-q8_0.gguf" --backend cpu --threads 2 \
-      --log-file "$dir/run.log" \
-      --text "$TEXT" \
-      --request-option reference_codes_file="$WORK_DIR/model/$voice/ref_codes.txt" \
-      --request-option speaker_embedding_file="$WORK_DIR/model/$voice/speaker.emb.txt" \
-      --request-option do_sample=false \
-      --request-option seed=1 \
-      --request-option babble_retries=0 \
-      --request-option codes_dump_file="$dir/codes.txt" \
-      "${extra[@]}" \
-      --out "$dir/out.wav" > "$dir/stdout.txt" 2> "$dir/time.txt"; then
-    echo "::warning::Lượt $mode/$voice/r$rep lỗi"
-    tail -n 5 "$dir/time.txt" || true
-    return 0
-  fi
-  echo "✓ $mode $voice r$rep"
+  "$CLI" --task tts --family vieneu_v3_turbo \
+    --model "$WORK_DIR/model/turbo-q8_0.gguf" --backend cpu --threads 2 \
+    --log-file "$dir/run.log" --text "$text" \
+    --request-option reference_codes_file="$WORK_DIR/model/mai_anh/ref_codes.txt" \
+    --request-option speaker_embedding_file="$WORK_DIR/model/mai_anh/speaker.emb.txt" \
+    --request-option do_sample=false --request-option seed=1 --request-option babble_retries=0 \
+    --request-option text_chunk_size=1000 \
+    --request-option codes_dump_file="$dir/codes.txt" \
+    --session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true \
+    --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true \
+    --out "$dir/out.wav" > "$dir/stdout.txt" 2>&1 || echo "::warning::run $name lỗi"
+  echo "✓ $name: $(grep -c generated_codes "$dir/codes.txt" 2>/dev/null) đoạn"
 }
+run_text t1_short "$S"
+run_text t2_medium "$S $S"
+run_text t3_long "$S $S $S $S"
 
-# Hâm nóng (bỏ): đưa model vào page cache.
-run_one base mai_anh 0
-rm -rf "$OUT_DIR/runs/base__mai_anh__r0"
-
-# Lặp ngoài cùng, cấu hình trong cùng ⇒ mỗi cấu hình rải đều theo thời gian (runner dùng chung lệch ±15–25%).
-for rep in $(seq 1 "$REPEATS"); do
-  for voice in $VOICES; do
-    for mode in $MODES; do
-      run_one "$mode" "$voice" "$rep"
-    done
-  done
+ONNX_REV="ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae"
+ONNX_BASE="https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/$ONNX_REV"
+mkdir -p "$WORK_DIR/onnx"
+for f in moss_audio_tokenizer_decode_full.onnx moss_audio_tokenizer_decode_shared.data codec_browser_onnx_meta.json; do
+  curl -fsSL -o "$WORK_DIR/onnx/$f" "$ONNX_BASE/$f"
 done
-
-python3 "$CI_DIR/audiocpp_profile/tp_summarize.py" "$OUT_DIR"
+python3 -m venv "$WORK_DIR/venv"
+"$WORK_DIR/venv/bin/pip" install -q onnxruntime numpy > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
+"$WORK_DIR/venv/bin/python" "$CI_DIR/audiocpp_profile/codec_onnx_check.py" "$WORK_DIR/onnx" "$OUT_DIR/runs" \
+  | tee "$OUT_DIR/summary.md"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   cat "$OUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
 fi
