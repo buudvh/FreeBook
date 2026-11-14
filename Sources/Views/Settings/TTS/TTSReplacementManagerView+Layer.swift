@@ -32,10 +32,6 @@ extension TTSReplacementManagerView {
         manager.deleteRule(id: id, bookId: bookId)
     }
 
-    func moveRulesLayer(from source: IndexSet, to destination: Int) {
-        manager.moveRules(from: source, to: destination, bookId: bookId)
-    }
-
     func importRulesLayer(_ json: String, mode: TTSReplacementManager.ImportMode) -> Bool {
         manager.importRules(fromJSONString: json, mode: mode, bookId: bookId)
     }
@@ -82,7 +78,7 @@ extension TTSReplacementManagerView {
             Section {
                 ForEach(manager.rules) { rule in
                     HStack(spacing: 12) {
-                        ruleText(for: rule)
+                        ruleText(for: rule, in: manager.rules)
                         Spacer()
                         Button("Lấy") { pullFromGlobal(rule) }
                             .buttonStyle(.bordered)
@@ -98,15 +94,37 @@ extension TTSReplacementManagerView {
 
     /// Hai dòng theo cỡ chữ của hàng VP/Name (`DictionaryEntryRow`): chuỗi gốc `.headline`, dòng `→ thay thế`
     /// `.subheadline`. Giữ dấu nháy vì nhiều rule thay bằng dấu cách — bỏ nháy thì dòng 2 chỉ còn mũi tên trơn.
-    func ruleText(for rule: TTSReplacementRule) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\"\(rule.pattern)\"")
-                .font(.headline)
-                .foregroundColor(rule.isEnabled ? .primary : .secondary)
+    ///
+    /// `layer` = các luật cùng tầng để xét trùng mẫu. Có lỗi / cảnh báo ⇒ huy hiệu cạnh mẫu (kiểu
+    /// `QuickTranslationRuleEntryRow`): đỏ = luật sai, không được áp dụng; cam = cảnh báo; "+N" khi nhiều hơn một.
+    func ruleText(for rule: TTSReplacementRule, in layer: [TTSReplacementRule]) -> some View {
+        let issues = TTSReplacementRuleValidator.issues(for: rule, in: layer)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("\"\(rule.pattern)\"")
+                    .font(.headline)
+                    .foregroundColor(rule.isEnabled ? .primary : .secondary)
+                if let worst = issues.min(by: { $0.severity < $1.severity }) {
+                    issueBadge(for: worst, extraCount: issues.count - 1)
+                }
+            }
             Text("→ " + (rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\""))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
+    }
+
+    private func issueBadge(for issue: TTSReplacementRuleValidator.Issue, extraCount: Int) -> some View {
+        let color: Color = issue.severity == .error ? .red : .orange
+        let label = extraCount > 0 ? "\(issue.code.label) +\(extraCount)" : issue.code.label
+        return Text(label)
+            .font(.caption2)
+            .lineLimit(1)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.18))
+            .foregroundColor(color)
+            .cornerRadius(4)
     }
 
     /// Hàng theo mẫu VP/Name (`QuickTranslationRuleEntryRow`): chữ + icon `[Sửa] [Chuyển] [Tắt|Bật] [Xoá]`
@@ -114,7 +132,7 @@ extension TTSReplacementManagerView {
     @ViewBuilder
     func ruleRow(for rule: TTSReplacementRule) -> some View {
         HStack(spacing: 12) {
-            ruleText(for: rule)
+            ruleText(for: rule, in: currentRules)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             ruleActionIcons(for: rule)

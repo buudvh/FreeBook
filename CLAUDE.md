@@ -181,6 +181,8 @@ Lý do: `TTSBackgroundProcessor.processChapter` dịch **từng dòng trước**
 
 Text đi qua `Preprocessing/` (đọc số tiếng Việt, chuyển tự Anh/Nhật, luật regex, từ điển thay thế) trước khi tổng hợp. Kết quả sau thay thế phải khác rỗng mới được đưa vào engine — chuỗi rỗng phải thành WAV/PCM im lặng hợp lệ, không bao giờ đẩy string rỗng vào ONNX/eSpeak.
 
+**Thay thế từ TTS khớp theo token** (1.3.940, anh Bửu chốt): `TTSReplacementManager.applyReplacements` (mọi engine, trên từng chunk, trước `TextPreprocessor`) dùng `TTSReplacementPlan` — **hai lượt**: (1) token **từ** (chữ/số liền nhau; `-`/`.` kẹp giữa hai chữ, không dấu cách, vẫn thuộc từ: `Kamar-Taj`, `S.H.I.E.L.D`) **bằng đúng** mẫu ⇒ thay cả token, phân biệt hoa thường (`Hà` không đụng `Hàn`); (2) token hoá **lại** kết quả, luật ký hiệu chỉ thay **bên trong dãy ký hiệu**, mẫu **dài hơn thắng** (`....` thắng `...`) — không bao giờ thay mất `-`/`.` trong từ. Tách token ở `TTSReplacementTokenizer`, thứ tự danh sách **không** ảnh hưởng (màn quản lý bỏ kéo sắp xếp). Mẫu không phải đúng một token (`Hàn Lập`, `Taj,`, `Kamar-`, có dấu cách) là **luật sai**: bị bỏ qua lúc đọc, `TTSReplacementRuleValidator` báo khi gõ / chặn Lưu (sheet Cài đặt + sheet Reader) và gắn huy hiệu trên hàng; dữ liệu cũ không tự sửa. Đừng quay lại `replacingOccurrences` theo chuỗi con.
+
 Giới hạn cần nhớ:
 
 - Cache PCM `preloadedData` (+ `preloadedDurations`) chỉ giữ cửa sổ trượt của từng engine — Remote (Google/Ext) `[N, N+count]` với `count = clamp(currentPrefetchCount, 1, 10)`, NghiTTS `N` + `N+1` bắt buộc + tối đa 2 optional reserve — không dọn sẽ OOM. Callback audio ngầm phải `[weak self]`.

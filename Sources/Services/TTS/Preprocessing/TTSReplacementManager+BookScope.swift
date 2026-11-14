@@ -2,9 +2,9 @@ import Foundation
 
 /// Tầng rule **riêng theo truyện** của `TTSReplacementManager`.
 ///
-/// Tách khỏi file chính vì `TTSReplacementManager.swift` ở **391/400** dòng. Extension cùng module nên dùng
-/// được các thành viên đã hạ `private` → `internal` ở file chính (`ReplacementStep`, `planLock`,
-/// `compile(_:)`) — Swift giới hạn `private` **theo file**, không theo type.
+/// Tách khỏi file chính để giữ nó dưới 400 dòng. Extension cùng module nên dùng được các thành viên đã hạ
+/// `private` → `internal` ở file chính (`planLock`) — Swift giới hạn `private` **theo file**, không theo type.
+/// Bộ luật dựng bằng `TTSReplacementPlan.compile` (khớp nguyên token, 1.3.920) — cùng một hàm với tầng chung.
 ///
 /// **Luật gộp** (user chốt 2026-09-30): rule của truyện **đè** rule chung theo `pattern` và đứng trước;
 /// rule riêng đang **tắt** vẫn **chặn** rule chung cùng `pattern` (kiểu tombstone). Vì vậy tập `pattern` để
@@ -91,10 +91,10 @@ extension TTSReplacementManager {
         return local + rules.filter { !blocked.contains($0.pattern) }
     }
 
-    /// Kế hoạch đã biên dịch cho một truyện — dựng **lười** rồi cache.
+    /// Bộ luật đã dựng cho một truyện — dựng **lười** rồi cache.
     ///
-    /// `bookId` nil/rỗng ⇒ trả kế hoạch chung đã có (`replacementPlan`), không đi qua cache theo truyện.
-    func plan(forBookId bookId: String?) -> [ReplacementStep] {
+    /// `bookId` nil/rỗng ⇒ trả bộ luật chung đã có (`replacementPlan`), không đi qua cache theo truyện.
+    func plan(forBookId bookId: String?) -> TTSReplacementPlan {
         guard let bookId, !bookId.isEmpty else {
             planLock.lock()
             let global = replacementPlan
@@ -109,7 +109,7 @@ extension TTSReplacementManager {
         planLock.unlock()
 
         // Dựng **ngoài** lock vì đọc file là I/O. Hai luồng cùng dựng một truyện cho cùng kết quả nên vô hại.
-        let compiled = Self.compile(mergedRules(bookId: bookId))
+        let compiled = TTSReplacementPlan.compile(mergedRules(bookId: bookId))
         planLock.lock()
         bookPlansCache[bookId] = compiled
         planLock.unlock()
@@ -159,16 +159,6 @@ extension TTSReplacementManager {
         }
         var list = rules(bookId: bookId)
         list.removeAll { $0.id == id }
-        store(list, bookId: bookId)
-    }
-
-    func moveRules(from source: IndexSet, to destination: Int, bookId: String?) {
-        guard let bookId, !bookId.isEmpty else {
-            moveRules(from: source, to: destination)
-            return
-        }
-        var list = rules(bookId: bookId)
-        list.move(fromOffsets: source, toOffset: destination)
         store(list, bookId: bookId)
     }
 
@@ -227,4 +217,4 @@ private let bookCacheLock = NSLock()
 private nonisolated(unsafe) var bookRulesCache: [String: [TTSReplacementRule]] = [:]
 /// Kế hoạch đã biên dịch theo truyện; bảo vệ bằng **`planLock` của file chính** (cùng một lock cho mọi
 /// trạng thái kế hoạch, tránh hai lock lồng nhau).
-private nonisolated(unsafe) var bookPlansCache: [String: [TTSReplacementManager.ReplacementStep]] = [:]
+private nonisolated(unsafe) var bookPlansCache: [String: TTSReplacementPlan] = [:]

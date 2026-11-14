@@ -10,6 +10,8 @@ import SwiftUI
 ///   **và** đặt công tắc bật/tắt theo `isEnabled` của rule đó.
 /// - Rule đang **tắt** ⇒ chip **mờ**, nhìn ra trạng thái mà không phải bấm thử.
 /// - Bấm **Lưu** ⇒ chọn **Lưu riêng** hoặc **Lưu chung** (đúng 2 lựa chọn, không có "lưu cả hai").
+/// - Mục **Kiểm tra** (1.3.920, `TTSReplacementRuleValidator`): mẫu phải là đúng một token (một từ hoặc một dãy ký
+///   hiệu), sai thì Lưu bị tắt. Không xét trùng mẫu ở đây — chip R/C đã cho thấy luật trùng của cả hai tầng.
 struct AddTTSReplacementSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var pattern = ""
@@ -42,7 +44,8 @@ struct AddTTSReplacementSheet: View {
         self.bookRules = bookRules
         self.globalRules = existingRules
         self.onSave = onSave
-        _pattern = State(initialValue: initialPattern)
+        // Vùng bôi đen hay dính dấu cách ở mép; mẫu có dấu cách là luật sai nên cắt sẵn.
+        _pattern = State(initialValue: initialPattern.trimmingCharacters(in: .whitespacesAndNewlines))
         _replacement = State(initialValue: "")
         _isEnabled = State(initialValue: true)
     }
@@ -99,6 +102,10 @@ struct AddTTSReplacementSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Section("Kiểm tra") {
+                    TTSReplacementRuleIssuesView(pattern: pattern, issues: issues)
+                }
             }.glassSheetRows() }
             .pageTitle("Thêm thay thế TTS")
             .toolbar {
@@ -109,13 +116,18 @@ struct AddTTSReplacementSheet: View {
                         Button("Lưu chung — mọi truyện") { save(.global) }
                     }
                     .headerTextButton()
-                    .disabled(pattern.trimmed.isEmpty)
+                    .disabled(issues.contains { $0.severity == .error })
                 }
             }
         }
         // Mở nửa màn, vuốt lên được toàn màn (1.3.610) — `Form` tự cuộn khi bàn phím hiện.
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    /// Lỗi / cảnh báo của mẫu đang gõ — chính mẫu sẽ lưu (không cắt dấu cách: dấu cách ở mép là lỗi phải thấy).
+    private var issues: [TTSReplacementRuleValidator.Issue] {
+        TTSReplacementRuleValidator.issues(pattern: pattern, replacement: replacement)
     }
 
     private var hasBookLayer: Bool {

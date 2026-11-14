@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.909] - 2026-11-12
+
+### fix: Đo tự động nạp sẵn session Core ML lúc màn còn sáng và giữ tới hết lượt Core ML, không nạp khi khoá màn
+
+Anh Bửu gửi nhật ký từng bước của lượt đo bản 1.3.907 (1244), *"đột nhiên crash"*:
+
+- Bước chuẩn bị (biên dịch 7/7, nạp lại 7/7, tự kiểm) **chạy trọn** khi màn còn sáng; RAM thấp suốt (125–280 MB footprint, trống ~1,8 GB) ⇒ lần này **không** phải hết RAM. Giữ một session Core ML chỉ thêm ~20 MB (trọng số đã biên dịch map từ đĩa).
+- Lượt 1 (ORT) chạy xong (máy lên nóng sau ~2 phút đọc).
+- App chết **ngay lúc nạp session Core ML đầu tiên cho lượt 2** (`nạp sẵn ve T64`, RAM trống 1,7 GB) — máy đã khoá màn ~17 phút (chờ mát + lượt 1). Khác biệt duy nhất với lúc nạp thành công là app đang ở **nền**. Nghi: Core ML không nạp / biên dịch model được khi app ở nền (chưa có file crash để xác nhận).
+
+Sửa:
+- **Nạp sẵn mọi session ở cuối bước chuẩn bị** (`VieNeuCoreMLPreparer`, sau tự kiểm, lúc màn còn sáng) và **giữ** qua lượt 1 tới hết lượt Core ML; bỏ bước nạp sẵn trước lượt Core ML (chạy lúc khoá màn). Sau lượt Core ML vẫn nhả như cũ.
+- Trần số session theo RAM thật: sàn RAM ước mỗi session 150 MB ⇒ 40 MB (đo được ~20 MB); lần trước trần ra 6/7, thiếu một bucket phải nạp giữa lượt lúc khoá màn.
+- Nhật ký từng bước ghi thêm **app đang mở màn hay nền / khoá màn** ở mỗi dòng của luồng chính; dòng bắt đầu lượt Core ML ghi số session đang giữ.
+- Lượt Core ML giờ **chạy Core ML lúc khoá màn** — câu trả lời trực tiếp cho câu hỏi Core ML có dùng được cho trình đọc (nghe khi tắt màn) không: chết ngay đầu lượt 2 ⇒ suy luận Core ML ở nền cũng không được.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.908] - 2026-11-12
 
 ### fix: icon chia sẻ / nhập từ truyện khác của từ điển VP, Name không còn trùng icon xuất / nhập file

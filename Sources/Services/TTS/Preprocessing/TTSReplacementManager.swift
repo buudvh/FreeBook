@@ -28,25 +28,14 @@ public final class TTSReplacementManager: ObservableObject {
         didSet { rebuildReplacementPlan() }
     }
 
-    /// Một bước trong kế hoạch thay thế đã biên dịch. Thứ tự các bước **giữ nguyên** thứ tự rule trong
-    /// `rules`, nên hành vi phụ thuộc thứ tự (rule sau tác động lên kết quả rule trước) không đổi.
-    ///
-    /// **Không** `private`: tầng rule riêng theo truyện ở `TTSReplacementManager+BookScope.swift` cũng dựng
-    /// kế hoạch bằng chính kiểu này (Swift giới hạn `private` theo file).
-    enum ReplacementStep {
-        /// Gộp một dãy rule liền nhau có pattern dài đúng 1 ký tự thành **một lượt quét** duy nhất.
-        case characterMap([Character: String])
-        /// Giữ nguyên đường cũ `replacingOccurrences`: pattern nhiều ký tự, hoặc dãy 1 ký tự có nối tầng.
-        case scan([TTSReplacementRule])
-    }
-
-    /// Kế hoạch đã biên dịch. `applyReplacements` chạy trên thread nền (tổng hợp TTS, `scheduleNghiRefill`)
-    /// nên đọc/ghi phải qua lock — cùng mô hình với `JunkFilterManager.activeRulesCache`.
+    /// Bộ luật chung đã dựng sẵn (`TTSReplacementPlan`: khớp nguyên token, hai lượt từ → ký hiệu — 1.3.920).
+    /// Mọi chỗ gọi `applyReplacements` hiện đều ở `@MainActor`, nhưng giữ lock cho an toàn — cùng mô hình với
+    /// `JunkFilterManager.activeRulesCache`.
     ///
     /// `planLock` **không** `private`: `TTSReplacementManager+BookScope.swift` dùng chung lock này để bảo vệ
-    /// cache kế hoạch theo truyện.
+    /// cache bộ luật theo truyện.
     let planLock = NSLock()
-    nonisolated(unsafe) var replacementPlan: [ReplacementStep] = []
+    nonisolated(unsafe) var replacementPlan: TTSReplacementPlan = .empty
     
     private let fileManager = FileManager.default
     
@@ -250,56 +239,24 @@ public final class TTSReplacementManager: ObservableObject {
         saveRules()
     }
     
-    public func moveRules(from source: IndexSet, to destination: Int) {
-        rules.move(fromOffsets: source, toOffset: destination)
-        saveRules()
-    }
-    
-    /// Áp dụng luật thay thế lên một đoạn. Đây là đường nóng: gọi cho **từng đoạn** khi tổng hợp và trong
-    /// `scheduleNghiRefill`. Trước đây mỗi rule là một lượt `replacingOccurrences` riêng (~130 lượt quét
-    /// toàn văn bản + 130 chuỗi mới mỗi đoạn); giờ chạy theo kế hoạch đã biên dịch sẵn.
+    /// Áp dụng luật thay thế lên một đoạn (chunk TTS). Đường nóng: gọi cho **từng đoạn** khi tổng hợp, nạp
+    /// trước và đệm chương kế. Khớp **nguyên token**, hai lượt từ → ký hiệu — xem `TTSReplacementPlan`.
     public func applyReplacements(to text: String, bookId: String? = nil) -> String {
         guard !text.isEmpty else { return text }
-        // `bookId` nil/rỗng ⇒ chỉ tầng chung; có truyện ⇒ kế hoạch **đã gộp** (rule riêng đè chung theo
+        // `bookId` nil/rỗng ⇒ chỉ tầng chung; có truyện ⇒ bộ luật **đã gộp** (rule riêng đè chung theo
         // `pattern`, rule riêng đang tắt vẫn chặn rule chung cùng `pattern`). Xem `+BookScope`.
-        let plan = plan(forBookId: bookId)
-        var result = text
-        for step in plan {
-            switch step {
-            case .characterMap(let map):
-                result = Self.applyCharacterMap(map, to: result)
-            case .scan(let group):
-                for rule in group {
-                    result = result.replacingOccurrences(of: rule.pattern, with: rule.replacement)
-                }
-            }
-        }
+        let result = plan(forBookId: bookId).apply(to: text)
         return TTSNumberSeparatorMode.format(text: result)
     }
 
     private func rebuildReplacementPlan() {
-        let steps = Self.compile(rules)
+        let compiled = TTSReplacementPlan.compile(rules)
         planLock.lock()
-        replacementPlan = steps
+        replacementPlan = compiled
         planLock.unlock()
-        // Đổi rule chung ⇒ kế hoạch của **mọi** truyện cũng đổi (rule chung nằm trong đó). Xoá cache theo
+        // Đổi rule chung ⇒ bộ luật của **mọi** truyện cũng đổi (rule chung nằm trong đó). Xoá cache theo
         // truyện để lần đọc kế tiếp dựng lại; rule riêng vẫn còn trong cache riêng nên **không** đọc đĩa lại.
         invalidateBookPlans()
-    }
-
-    /// Một lượt quét duy nhất: ký tự nào có trong bảng thì nối chuỗi thay thế, còn lại giữ nguyên.
-    private static func applyCharacterMap(_ map: [Character: String], to text: String) -> String {
-        guard !map.isEmpty else { return text }
-        var buffer = ""
-        buffer.reserveCapacity(text.utf8.count + text.utf8.count / 4)
-        for character in text {
-            if let replacement = map[character] {
-                buffer.append(replacement)
-            } else {
-                buffer.append(character)
-            }
-        }
-        return buffer
     }
     
     public func exportRulesToJSON() -> String? {

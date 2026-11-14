@@ -45,12 +45,17 @@ struct TTSReplacementManagerView: View {
     @State var showingAlert = false
     @State private var searchText = ""
 
-    /// Tự giữ `editMode` thay vì dùng `EditButton()`: nút đó không đặt được trong `Menu` với nhãn tiếng
-    /// Việt, và `Menu` cần đọc được trạng thái để đổi nhãn "Sắp xếp lại" ⇄ "Xong sắp xếp".
-    @State private var editMode: EditMode = .inactive
+    /// Cách khớp của luật (1.3.920) — nút "?" ở đầu màn. Thứ tự danh sách không ảnh hưởng nên không còn
+    /// kéo sắp xếp.
+    private static let matchingHelp: [LocalizedStringKey] = [
+        "Mỗi quy tắc là **một từ** hoặc **một dãy ký hiệu**. Từ = chữ / số liền nhau; `-` hoặc `.` kẹp giữa hai chữ (không dấu cách) vẫn thuộc từ — `Kamar-Taj`, `S.H.I.E.L.D` là một từ.",
+        "Quy tắc từ chỉ thay khi **cả từ trùng đúng mẫu** (phân biệt hoa thường): `Hà` thay \"Hà Nội\" nhưng không đụng \"Hàn\".",
+        "Quy tắc ký hiệu chạy **sau** quy tắc từ, chỉ thay trong dãy ký hiệu, **mẫu dài hơn được ưu tiên** (`....` thắng `...`) — không bao giờ thay mất `-` / `.` nằm trong từ.",
+        "Thứ tự trong danh sách không ảnh hưởng. Quy tắc có huy hiệu đỏ là quy tắc sai, không được áp dụng. Áp dụng trước khi văn bản qua bộ phiên âm và đọc TTS."
+    ]
 
-    /// Rule khop tu khoa. Khi dang tim, thu tu hien ra **khong** con la thu tu ap dung, nen phai chan
-    /// keo-tha va khong dung `IndexSet` de xoa — xem `visibleRules`.
+    /// Đang lọc theo từ khoá: `IndexSet` của `onDelete` trỏ vào mảng **đã lọc**, nên phải xoá theo `id` —
+    /// xem `visibleRules`.
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -66,11 +71,13 @@ struct TTSReplacementManagerView: View {
     var body: some View {
         List { Group {
             Section {
-                Text("Các quy tắc thay thế sẽ được áp dụng tuần tự từ trên xuống dưới trước khi chuyển văn bản qua bộ phiên âm và đọc TTS.")
+                Text(countText)
                     .font(.caption)
                     .foregroundColor(.secondary)
+            } header: {
+                SectionHelpHeader("Cách thay thế", paragraphs: Self.matchingHelp)
             }
-        
+
             if currentRules.isEmpty {
                 Section {
                     HStack {
@@ -89,15 +96,9 @@ struct TTSReplacementManagerView: View {
                 }
             } else {
                 Section {
-                    Text(countText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Section {
                     if isSearching {
-                        // Danh sach da bi loc: `IndexSet` cua `onDelete`/`onMove` tro vao mang **da loc**
-                        // nen ap len `currentRules` se xoa/di chuyen sai rule. Xoa theo `id` thay vi vi tri.
+                        // Danh sách đã lọc: `IndexSet` của `onDelete` trỏ vào mảng **đã lọc** nên áp lên
+                        // `currentRules` sẽ xoá sai rule. Xoá theo `id` thay vì vị trí.
                         ForEach(visibleRules) { rule in
                             ruleRow(for: rule)
                                 .swipeActions(edge: .trailing) {
@@ -113,7 +114,6 @@ struct TTSReplacementManagerView: View {
                             ruleRow(for: rule)
                         }
                         .onDelete(perform: deleteRules)
-                        .onMove(perform: moveRules)
                     }
                 }
             }
@@ -124,12 +124,6 @@ struct TTSReplacementManagerView: View {
         // "Thêm quy tắc" là nút "+" nổi góc dưới phải (không còn trong ngăn kéo).
         .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
         .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
-        .environment(\.editMode, $editMode)
-        .onChange(of: isSearching) { _, searching in
-            // Đang lọc thì thứ tự hiện ra không phải thứ tự áp dụng nên kéo-thả bị chặn; phải rời chế độ
-            // sắp xếp, nếu không List kẹt ở edit mode mà mục thoát trong menu đã bị ẩn.
-            if searching { editMode = .inactive }
-        }
         .pageTitle(layerTitle, style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -141,13 +135,6 @@ struct TTSReplacementManagerView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: layerTitle) {
-            if !isSearching {
-                SideDrawerActionRow(
-                    editMode == .active ? "Xong sắp xếp" : "Sắp xếp lại",
-                    systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down"
-                ) { toggleReordering() }
-                SideDrawerDivider()
-            }
             SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             // Tầng riêng không có bộ mặc định (bộ mặc định là của tầng chung) nên ẩn hẳn mục này.
@@ -264,6 +251,10 @@ struct TTSReplacementManagerView: View {
                 
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                 }
+
+                Section("Kiểm tra") {
+                    TTSReplacementRuleIssuesView(pattern: patternInput, issues: draftIssues)
+                }
             }.glassSheetRows() }
             .pageTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
@@ -272,19 +263,29 @@ struct TTSReplacementManagerView: View {
                         saveRule()
                     }
                     .headerTextButton()
-                    .disabled(patternInput.isEmpty)
+                    .disabled(draftIssues.contains { $0.severity == .error })
                 }
             }
         }
-        .presentationDetents([.height(280)])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
-    
-    // Sửa/Xóa/Di chuyển
+
+    /// Lỗi / cảnh báo của bản nháp đang gõ, xét trùng mẫu trong tầng đang mở (trừ chính luật đang sửa).
+    private var draftIssues: [TTSReplacementRuleValidator.Issue] {
+        TTSReplacementRuleValidator.issues(
+            pattern: patternInput,
+            replacement: replacementInput,
+            siblings: currentRules,
+            excludingId: selectedRule?.id
+        )
+    }
+
+    // Sửa/Xóa
     private var countText: String {
         isSearching
-            ? "\(visibleRules.count)/\(currentRules.count) quy tắc khớp. Thứ tự áp dụng chỉ đúng khi không tìm kiếm."
-            : "\(currentRules.count) quy tắc, áp dụng từ trên xuống."
+            ? "\(visibleRules.count)/\(currentRules.count) quy tắc khớp."
+            : "\(currentRules.count) quy tắc."
     }
 
     private func deleteRules(at offsets: IndexSet) {
@@ -292,15 +293,7 @@ struct TTSReplacementManagerView: View {
             deleteRuleLayer(currentRules[index].id)
         }
     }
-    
-    private func moveRules(from source: IndexSet, to destination: Int) {
-        moveRulesLayer(from: source, to: destination)
-    }
 
-    private func toggleReordering() {
-        editMode = editMode == .active ? .inactive : .active
-    }
-    
     // Chuẩn bị form Thêm
     private func prepareForAdd() {
         selectedRule = nil
@@ -319,9 +312,13 @@ struct TTSReplacementManagerView: View {
         showingEditSheet = true
     }
     
-    // Lưu quy tắc từ form
+    // Lưu quy tắc từ form. Sửa mẫu trùng luật khác cùng tầng ⇒ **đè** luật đó (như `addRule`), đúng lời cảnh
+    // báo TRÙNG MẪU — `updateRule` của manager không tự gộp.
     private func saveRule() {
         if let rule = selectedRule {
+            for other in currentRules where other.id != rule.id && other.pattern == patternInput {
+                manager.deleteRule(id: other.id, bookId: bookId)
+            }
             var updated = rule
             updated.pattern = patternInput
             updated.replacement = replacementInput

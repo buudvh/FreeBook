@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.940] - 2026-11-14
+
+### feat: Thay thế từ TTS chỉ khớp nguyên token, ký hiệu ưu tiên mẫu dài hơn, kiểm tra luật khi nhập
+
+Anh Bửu chốt qua phỏng vấn (grill-me) sau lượt điều tra logic thay thế TTS: trước đây mỗi luật là một lượt `replacingOccurrences` theo thứ tự danh sách ⇒ khớp chuỗi con (`Hà`→`Ha` biến "Hàn Lập" thành "Han Lập"), luật mới nằm cuối danh sách có thể không bao giờ chạy vì luật mặc định phía trên đã thay mất ký hiệu của nó, `....` thua `...`.
+
+- **Tách token** (`TTSReplacementTokenizer`, mới):
+  - token **từ** = chữ / số liền nhau; một `-` hoặc `.` kẹp giữa hai chữ / số (không dấu cách) vẫn thuộc từ — `Kamar-Taj`, `S.H.I.E.L.D`, `3.14`;
+  - token **ký hiệu** = dãy ký tự không phải chữ / số / khoảng trắng liền nhau — `,`, `..!?`, `.”`.
+- **Thay hai lượt** (`TTSReplacementPlan`, mới — thay `ReplacementStep` + `TTSReplacementManager+PlanCompile.swift` đã xoá):
+  1. token từ **bằng đúng** mẫu một luật chữ ⇒ thay cả token, vẫn phân biệt hoa thường;
+  2. token hoá **lại** kết quả lượt 1, luật ký hiệu chỉ thay **bên trong token ký hiệu**, mỗi vị trí chọn mẫu **dài nhất** (`....!?` → `…!?`).
+  - Từ — kể cả từ lượt 1 vừa sinh ra (`Kamar-Taj` → `Ca-ma Tát`) — không bao giờ bị luật ký hiệu thay mất `-` / `.`; ký hiệu do luật chữ sinh ra vẫn được luật ký hiệu dọn.
+  - Thứ tự danh sách không còn ảnh hưởng. Giữ nguyên: công tắc bật / tắt, gộp tầng riêng / chung (riêng đè chung theo mẫu, riêng tắt vẫn chặn chung), định dạng file JSON, bước tách cặp số `TTSNumberSeparatorMode` chạy sau như cũ.
+- **Luật sai** = mẫu không phải đúng một token (`Hàn Lập`, `Taj,`, `Kamar-`, có dấu cách / xuống dòng) ⇒ bị bỏ qua lúc đọc. Dữ liệu đang lưu không tự sửa.
+- **Kiểm tra luật** (`TTSReplacementRuleValidator`, mới — một nguồn cho mọi chỗ):
+  - lỗi đỏ chặn Lưu: `EMPTY_PATTERN`, `NOT_SINGLE_TOKEN` (nói rõ mẫu tách thành gì);
+  - cảnh báo cam: `DUPLICATE_PATTERN` (trùng mẫu cùng tầng — Lưu sẽ đè), `NO_OP` (thay bằng chính nó);
+  - mục **Kiểm tra** hiện ngay khi gõ ở sheet Thêm / Sửa của Cài đặt và sheet "Thêm thay thế TTS" của Reader (`TTSReplacementRuleIssuesView`, mới; dòng xanh nói rõ luật chữ hay luật ký hiệu);
+  - huy hiệu đỏ / cam cạnh mẫu trên hàng danh sách (cả danh sách "Rule chung — lấy vào riêng").
+- **Màn quản lý luật**: bỏ kéo sắp xếp (mục "Sắp xếp lại", `moveRules` của manager hai tầng); dòng "áp dụng tuần tự từ trên xuống" thay bằng nút "?" giải thích cách khớp; sheet Sửa đổi mẫu trùng luật khác cùng tầng ⇒ đè luật đó (như `addRule`); sheet mở nửa màn, vuốt lên được.
+- **Sheet "Thêm thay thế TTS" (Reader)**: cắt dấu cách ở mép vùng bôi đen; menu Lưu tắt khi mẫu sai. Không xét trùng mẫu ở đây — chip R / C đã hiện luật trùng của cả hai tầng.
+- Kiểm: mô phỏng thuật toán (bản Python tương đương) khớp mọi ví dụ đã chốt; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.939] - 2026-11-14
 
 ### docs: CLAUDE.md ghi chế độ đọc lai Nano · Turbo và ngoại lệ luật nhiệt
@@ -594,21 +618,4 @@ Anh Bửu: *"lần sau nhớ thêm chạy tiếp để lỡ trường hợp có 
 - **Màn thử**: lượt đo trước chưa xong mà đã qua bước chuẩn bị ⇒ hai nút **"Chạy tiếp (từ lượt N/3)"** và **"Đo lại từ đầu"** thay cho "Bắt đầu đo tự động".
 - **Chạy tiếp** (`VieNeuAutoThermalRun+Resume`): không biên dịch / tự kiểm lại; chạy từ lượt đầu tiên chưa xong êm; lượt dở chạy lại cả bước chờ mát; app bị giết giữa lượt ⇒ bản chụp phút cuối của lượt đó vào báo cáo như lượt dở. Còn lượt Core ML thì **nạp sẵn session ngay lúc bấm** (màn còn sáng), dọn bản biên dịch dở, rồi mới chờ mát. Báo cáo và nhật ký từng bước nối tiếp lần trước (cùng file), có dòng "chạy tiếp HH:mm từ lượt N"; lượt dở ghi "(dở)".
 - **Đã xác nhận nguyên nhân sập** bằng file `LiveContainer.cpu_resource_fatal-2026-11-12-144121.ips` anh gửi: *"Action taken: Process killed"*, *"48 seconds cpu time over 54 seconds (90% cpu average), exceeding limit of 80% cpu over 60 seconds"*, *"Non-Frontmost App"*, ngăn xếp CoreML → Espresso → MIL. iOS giết app **chạy nền** dùng CPU quá 80% trong 60 giây; lúc đó app chỉ phát vòng lặng (âm lượng 0), có vẻ không được miễn như khi phát tiếng thật. Biên dịch / nạp model Core ML là việc nặng ⇒ phải làm khi màn còn sáng (1.3.909, và lúc bấm Chạy tiếp).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.909] - 2026-11-12
-
-### fix: Đo tự động nạp sẵn session Core ML lúc màn còn sáng và giữ tới hết lượt Core ML, không nạp khi khoá màn
-
-Anh Bửu gửi nhật ký từng bước của lượt đo bản 1.3.907 (1244), *"đột nhiên crash"*:
-
-- Bước chuẩn bị (biên dịch 7/7, nạp lại 7/7, tự kiểm) **chạy trọn** khi màn còn sáng; RAM thấp suốt (125–280 MB footprint, trống ~1,8 GB) ⇒ lần này **không** phải hết RAM. Giữ một session Core ML chỉ thêm ~20 MB (trọng số đã biên dịch map từ đĩa).
-- Lượt 1 (ORT) chạy xong (máy lên nóng sau ~2 phút đọc).
-- App chết **ngay lúc nạp session Core ML đầu tiên cho lượt 2** (`nạp sẵn ve T64`, RAM trống 1,7 GB) — máy đã khoá màn ~17 phút (chờ mát + lượt 1). Khác biệt duy nhất với lúc nạp thành công là app đang ở **nền**. Nghi: Core ML không nạp / biên dịch model được khi app ở nền (chưa có file crash để xác nhận).
-
-Sửa:
-- **Nạp sẵn mọi session ở cuối bước chuẩn bị** (`VieNeuCoreMLPreparer`, sau tự kiểm, lúc màn còn sáng) và **giữ** qua lượt 1 tới hết lượt Core ML; bỏ bước nạp sẵn trước lượt Core ML (chạy lúc khoá màn). Sau lượt Core ML vẫn nhả như cũ.
-- Trần số session theo RAM thật: sàn RAM ước mỗi session 150 MB ⇒ 40 MB (đo được ~20 MB); lần trước trần ra 6/7, thiếu một bucket phải nạp giữa lượt lúc khoá màn.
-- Nhật ký từng bước ghi thêm **app đang mở màn hay nền / khoá màn** ở mỗi dòng của luồng chính; dòng bắt đầu lượt Core ML ghi số session đang giữ.
-- Lượt Core ML giờ **chạy Core ML lúc khoá màn** — câu trả lời trực tiếp cho câu hỏi Core ML có dùng được cho trình đọc (nghe khi tắt màn) không: chết ngay đầu lượt 2 ⇒ suy luận Core ML ở nền cũng không được.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
