@@ -58,6 +58,10 @@ final class MediaDiscWindowManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     private static let hideDelay: TimeInterval = 0.3
+    /// Reader vừa bấm nghe ⇒ mở sheet nghe mini khi đĩa TTS sẵn sàng, quá mốc này (uptime) thì thôi (1.3.944).
+    private var pendingPresentDeadline: TimeInterval?
+    private static let pendingPresentWindow: TimeInterval = 5
+    private static let pendingPresentDelay: TimeInterval = 0.4
 
     private init() {
         isAppActive = UIApplication.shared.applicationState != .background
@@ -108,6 +112,35 @@ final class MediaDiscWindowManager: ObservableObject {
             scheduleHide()
         }
         container?.updateDisc(animated: true)
+        schedulePendingPresent()
+    }
+
+    /// Reader bấm nút tai nghe / "Nghe" của bôi đen (1.3.944, anh Bửu) ⇒ mở sheet nghe mini. Phiên TTS có thể chưa bật
+    /// (đang nạp chương, vừa dừng phiên cũ để đọc lại) ⇒ chờ đĩa TTS có mặt rồi mới mở; quá 5 giây thì thôi. Mở trễ 0,4 s:
+    /// `MediaDiscSheetHost` của cửa sổ vừa dựng kịp gắn (token tăng trước lần vẽ đầu thì `onChange` không chạy) và phiên cũ
+    /// vừa dừng kịp về `nil` — không mở sheet của phiên sắp tắt.
+    func presentQuickControlsWhenReady() {
+        pendingPresentDeadline = ProcessInfo.processInfo.systemUptime + Self.pendingPresentWindow
+        schedulePendingPresent()
+    }
+
+    private func schedulePendingPresent() {
+        guard pendingPresentDeadline != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.pendingPresentDelay) { [weak self] in
+            MainActor.assumeIsolated { self?.presentPendingIfReady() }
+        }
+    }
+
+    private func presentPendingIfReady() {
+        guard let deadline = pendingPresentDeadline else { return }
+        guard ProcessInfo.processInfo.systemUptime <= deadline else {
+            pendingPresentDeadline = nil
+            return
+        }
+        guard kind == .tts, TTSManager.shared.showFloatingWidget, let window, !window.isHidden else { return }
+        pendingPresentDeadline = nil
+        AppLogger.shared.log("💿 [MediaDisc] Reader bấm nghe ⇒ mở sheet nghe mini")
+        presentRequestToken &+= 1
     }
 
     /// Cửa sổ của đĩa nên hiện: có nguồn và không có phim toàn màn.

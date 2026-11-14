@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.944] - 2026-11-14
+
+### feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini
+
+Anh Bửu: "Khi bấm nút nghe ở reader hoặc bôi đen nghe hãy mở sheet nghe mini". Sau khi bắt đầu / tiếp tục đọc, sheet điều khiển nhanh TTS (`TTSQuickControlSheet`, như chạm đĩa nghe) tự mở.
+
+- **`MediaDiscWindowManager.presentQuickControlsWhenReady()`**: ghi một yêu cầu chờ (hết hạn sau 5 s), mở sheet khi đĩa là TTS, phiên có mặt (`showFloatingWidget`) và cửa sổ đĩa đang hiện; thử lại sau mỗi `refreshState()` (TTS bật / tắt phiên). Mở trễ 0,4 s để `MediaDiscSheetHost` của cửa sổ vừa dựng kịp gắn (token tăng trước lần vẽ đầu thì `onChange` không chạy) và phiên cũ vừa dừng (nút tai nghe dừng phiên rồi đọc lại) kịp về `nil` — không mở sheet của phiên sắp tắt.
+- **Reader** (`openTTSQuickControlsAfterListen`, `ReaderView+TTSSameChapterPrompt`): nút tai nghe — phát tiếp tại chỗ, đọc từ đoạn đang xem, và sau khi chọn ở sheet "đang đọc chương này" (cả ba lựa chọn, cả đường lùi sheet thường) — và nút "Nghe" của bong bóng bôi đen.
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch đĩa nghe).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.943] - 2026-11-14
 
 ### feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng
@@ -565,32 +576,3 @@ Anh Bửu: *"vì github đâu giới hạn số lần realease nên bỏ giới 
 - `apps.json` (nhánh `source`) vẫn chỉ liệt kê `--keep 5` bản mới nhất, để file nguồn mà LiveContainer và app đọc thường xuyên không phình theo số bản build. Bản cũ hơn tải được ở trang Releases.
 - Cập nhật chú thích bước đăng ở `build-ipa.yml`, và đoạn "Nguồn cập nhật LiveContainer" trong `CLAUDE.md` + `AGENTS.md`.
 - Có hiệu lực từ lượt build kế tiếp có đổi `Sources/**` hoặc `project.yml`. Lượt build 1.3.913 đang chạy vẫn dùng script cũ, nên còn xoá bản cũ nhất một lần.
-
-## [1.3.913] - 2026-11-13
-
-### feat: Đo nạp Core ML thử bản tắt tối ưu đồ thị ORT để trọng số không còn bị ghi thành chữ trong model
-
-Anh Bửu gửi kết quả Đo nạp Core ML 1.3.912 (1250):
-- Nạp chậm là của chính Core ML: Core ML gốc nạp VE T64 mất 18–20 s, gần bằng ORT + Core ML EP (20–21 s), trong khi ORT CPU chỉ 0,6 s.
-- Nguyên nhân: trọng số nằm **trong chữ** `model.mil` (VE 549 MB, codec 323 MB), còn `weight.bin` chỉ 10–15 MB. Đây cũng là 4,16 GB cache.
-- Đã xác minh trong mã ORT 1.24.2:
-  - `MatMulAddFusion` chạy ở mức 1 cho mọi EP và gộp MatMul + Add thành `Gemm(transB=0)`;
-  - Core ML EP chuyển vị B của Gemm thành hằng immediate (`AddConstant` → `CreateTensorValue`).
-
-Anh duyệt plan P2b-0: chỉ đo, không đụng đường đọc truyện. Chi tiết ở §13 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
-
-- **Bridge** `VieNeuONNXProbeBridge.m`: khoá riêng `fb.graph_optimization` (`disable` / `basic` / `extended`). Bridge bóc khoá ra trước khi đưa tuỳ chọn cho EP, rồi đặt mức tối ưu đồ thị của session.
-- **Bản tắt tối ưu**:
-  - `VieNeuCoreMLFlowBackend` có thêm `disablesGraphOptimization`, và `coreMLOptions(package:disablesGraphOptimization:)` thêm khoá trên + đổi cache sang `Cache-noopt/`.
-  - Thư mục riêng vì khoá cache lấy từ metadata graph; dùng chung thư mục là nạp lại bản cũ.
-  - Lượt đọc và đo tự động không đổi.
-  - Tải lại gói / Xoá thì dọn cả hai thư mục cache.
-- **"Đo nạp Core ML" chạy phép thử P2b-0** (`VieNeuCoreMLLoadWorker`, `VieNeuCoreMLNoOptTrial`, `VieNeuCoreMLNoOptComparison`):
-  1. kiểm kê bản biên dịch hiện tại;
-  2. đọc lướt `model.mil` hiện tại (VE / codec bucket nhỏ nhất), liệt kê dòng dài nhất kèm tên + kiểu hằng (`VieNeuCoreMLMilScan`, khối 4 MB + `memchr`);
-  3. biên dịch VE + codec bucket nhỏ nhất ở bản tắt tối ưu: thời gian, số partition, dung lượng;
-  4. nạp bằng Core ML gốc (kèm lượt đoán đầu) và ORT + Core ML EP, mỗi cách 2 lần;
-  5. cùng đoạn golden qua hai bản: dB so tham chiếu PC, dB giữa hai bản, trung vị thời gian mỗi quỹ đạo VE / mỗi lượt VE / mỗi lần codec.
-- Phát hiện biên dịch lại nay dựa vào thời gian + ngày sửa `model.mil`; bỏ dòng partition trong log và `weight.bin`. Đính chính §13: cờ "ORT ghi lại gói" của 1.3.912 là báo nhầm (log INFO in partition mọi lần, ORT tạo lại `weight.bin` rỗng mỗi lần dựng session).
-- Bỏ bước băm trọng số và thử bỏ bản thừa của 1.3.912 (đã có câu trả lời: hai bản `weight.bin` là clone APFS).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

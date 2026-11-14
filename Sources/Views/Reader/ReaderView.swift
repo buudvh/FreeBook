@@ -372,6 +372,7 @@ struct ReaderView: View {
                         sourceLength: selectedWordLength
                     )
                     startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: sourceOffset, resumeIdentity: resumeIdentity)
+                    openTTSQuickControlsAfterListen()
                 }
             },
             onPhoneme: {

@@ -14,6 +14,7 @@ extension ReaderView {
     internal func handleReaderHeadphoneTap(geometry: GeometryProxy) {
         if canResumePausedTTSInPlace {
             ttsManager.resume()
+            openTTSQuickControlsAfterListen()
             return
         }
         let target = headphoneTTSTarget(geometry: geometry)
@@ -43,6 +44,13 @@ extension ReaderView {
             return
         }
         restartTTS(at: target.chapterIndex, paragraphIndex: target.paragraphIndex)
+        openTTSQuickControlsAfterListen()
+    }
+
+    /// Bấm nghe trong Reader — nút tai nghe (kể cả sau khi chọn ở sheet "đang đọc chương này") và "Nghe" của bôi đen ⇒ mở
+    /// sheet nghe mini của đĩa (1.3.944, anh Bửu). Phiên chưa bật thì manager chờ đĩa TTS có mặt rồi mới mở.
+    internal func openTTSQuickControlsAfterListen() {
+        MediaDiscWindowManager.shared.presentQuickControlsWhenReady()
     }
 
     /// Đường lùi: sheet hỏi gắn lên tầng sheet gốc của Reader (cùng chỗ với `withSelectionSheets`) — chỉ dùng khi
@@ -76,6 +84,7 @@ extension ReaderView {
             restartTTS(at: prompt.chapterIndex, paragraphIndex: -1)
             showChapterStartForRestartedTTS(chapterIndex: prompt.chapterIndex)
         }
+        openTTSQuickControlsAfterListen()
     }
 
     /// Người hỏi thường đang ở giữa chương (hay đã kéo trang ⇒ tự cuộn bị tắt): tiếng đọc về đầu chương thì trang cũng phải
