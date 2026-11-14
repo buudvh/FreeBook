@@ -186,6 +186,42 @@ def main():
               f"{snr:.1f} ({shift:+d}) | {snr_pad:.1f} | {coreml_cell[0]} | {coreml_cell[1]} |")
     print(f"\nWAV audio.cpp: {ref.shape[0]} kênh, {rate} Hz. ONNX ra {audio.shape[0]} kênh.")
 
+    # Shape cố định (bucket) — Neural Engine chỉ nhận graph shape tĩnh. Đếm node / mảnh Core ML nhận, SNR so với CPU.
+    try:
+        import onnx
+        from onnxruntime.tools.onnx_model_utils import fix_output_shapes, make_dim_param_fixed
+    except Exception as error:  # noqa: BLE001
+        print(f"Không có onnx / onnx_model_utils: {error}")
+        return
+    runs = sorted(p for p in runs_dir.iterdir() if (p / "codes.txt").exists())
+    print("\n| Bucket (khung) | Core ML nhận | Đoạn thử | ms/s Core ML (máy ảo) | SNR so với CPU (dB) |")
+    print("|---|---|---|---|---|")
+    for bucket in (64, 128):
+        fixed_path = onnx_dir / f"decode_full_T{bucket}.onnx"
+        try:
+            model_proto = onnx.load(str(model))
+            make_dim_param_fixed(model_proto.graph, "batch", 1)
+            make_dim_param_fixed(model_proto.graph, "code_length", bucket)
+            fix_output_shapes(model_proto)
+            onnx.save(model_proto, str(fixed_path))
+            options = dict(coreml_options, RequireStaticInputShapes="1")
+            session, coverage = coreml_session(fixed_path, options)
+        except Exception as error:  # noqa: BLE001
+            print(f"| {bucket} | lỗi: {str(error)[:80]} | | | |")
+            continue
+        for run in runs:
+            codes = read_codes(run / "codes.txt")
+            if codes.shape[1] > bucket:
+                continue
+            seconds = codes.shape[1] * DOWNSAMPLE / 48000
+            reference, _ = decode(cpu, codes, codes.shape[1], repeats=1)
+            try:
+                audio_ml, ml_ms = decode(session, codes, bucket)
+                print(f"| {bucket} | {coverage} | {run.name} ({codes.shape[1]} khung) | {ml_ms / seconds:.0f} | "
+                      f"{snr_db(audio_ml[..., :reference.shape[-1]], reference):.1f} |")
+            except Exception as error:  # noqa: BLE001
+                print(f"| {bucket} | {coverage} | {run.name} | lỗi | {str(error)[:60]} |")
+
 
 if __name__ == "__main__":
     main()

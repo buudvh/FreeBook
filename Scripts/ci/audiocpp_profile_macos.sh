@@ -112,7 +112,7 @@ else
   "$(python3 -m site --user-base)/bin/uv" pip install --python "$WORK_DIR/venv/bin/python" pip > /dev/null 2>&1 || true
 fi
 echo "python: $("$WORK_DIR/venv/bin/python" --version 2>&1)"
-"$WORK_DIR/venv/bin/python" -m pip install -q onnxruntime numpy > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
+"$WORK_DIR/venv/bin/python" -m pip install -q onnxruntime numpy onnx > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
 "$WORK_DIR/venv/bin/python" "$CI_DIR/audiocpp_profile/codec_onnx_check.py" "$WORK_DIR/onnx" "$OUT_DIR/runs" \
   | tee "$OUT_DIR/summary.md"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
