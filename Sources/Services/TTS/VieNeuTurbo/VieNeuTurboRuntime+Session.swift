@@ -6,13 +6,25 @@ import AudioCpp
 // Dựng session audio.cpp của Turbo — tách khỏi `VieNeuTurboRuntime.swift` (trần 400 dòng). Chỉ chạm trong `queue`.
 #if canImport(AudioCpp)
 extension VieNeuTurboRuntime {
+    /// Cỡ các ngữ cảnh **chỉ chứa mô tả tensor** của audio.cpp (1.3.941). Mặc định talker constants 4096 MB, code
+    /// predictor constants 1536 MB, codec decoder + encoder weights 1536 MB × 2 — ggml `malloc` đủ cỡ dù `no_alloc`, dùng
+    /// thật chỉ ~0,05 MB mỗi cái. Một mình Turbo còn lọt; đọc lai / nhân bản chéo giữ thêm Nano (ORT + Core ML map trọng
+    /// số) ⇒ hết **địa chỉ ảo** của iOS ⇒ `GGML_ASSERT(ctx->mem_buffer != NULL)` / Core ML "mmap thất bại", app chết
+    /// (log 20–21, build 1270). 64 MB = mức sàn audio.cpp tự đặt (~160 nghìn tensor); đo CI: tiếng trùng từng byte, RSS
+    /// như cũ, giữ chỗ 4,7 GB → 256 MB.
+    static let descriptorContextOptions: [(String, String)] = [
+        ("vieneu_v3_turbo.talker_constant_context_mb", "64"),
+        ("vieneu_v3_turbo.code_predictor_constant_context_mb", "64"),
+        ("vieneu_v3_turbo.speech_decoder_constant_context_mb", "64")
+    ]
+
     /// Nhả session cũ (kèm mọi graph + bộ đệm audio.cpp giữ trong nó) rồi dựng session CPU mới. Trả ms dựng.
     ///
     /// AMX luôn bật từ 1.3.928 (`VieNeuTurboAcceleration.isAMXEnabled`, chỉ tắt khi bản build này từng sập giữa lượt
     /// AMX): session option `vieneu_v3_turbo.codec_blas=true` + `vieneu_v3_turbo.prefill_blas=true` (bản vá
     /// `vieneu_codec_blas`, `vieneu_prefill_blas`) + `vieneu_v3_turbo.threadpool_poll=0` (1.3.929, `vieneu_threadpool`:
     /// pool luồng giữ suốt session) + `vieneu_v3_turbo.acoustic_repack=true` (1.3.930, `vieneu_acoustic_repack`).
-    /// Tắt ⇒ không truyền option nào, y như trước 1.3.924.
+    /// Tắt ⇒ không truyền option tăng tốc nào (y như trước 1.3.924); ba option ngữ cảnh 64 MB thì luôn truyền (1.3.941).
     /// Gọi từ `prepareLocked` (lần đầu, đổi số luồng, AMX vừa bị tự tắt), từ lượt thử lại sau lỗi cấp phát và từ
     /// `VieNeuTurboRuntime+Encode` (dựng lại sau khi mã hoá giọng mẫu).
     @discardableResult
@@ -31,9 +43,15 @@ extension VieNeuTurboRuntime {
                 .appendingPathComponent("turbo-codec-bench", isDirectory: true)
         )
         let codecBLAS = VieNeuTurboAcceleration.isAMXEnabled
-        let options = codecBLAS ? audiocpp_options_create() : nil
+        guard let options = audiocpp_options_create() else {
+            throw RuntimeError.call("audiocpp_options_create", "không cấp phát được bộ tuỳ chọn")
+        }
         defer { audiocpp_options_free(options) }
-        if let options {
+        // Ngữ cảnh mô tả tensor xuống 64 MB — luôn đặt, kể cả khi AMX tắt (1.3.941, xem `descriptorContextOptions`).
+        for (key, value) in Self.descriptorContextOptions {
+            try Self.check(audiocpp_options_set(options, key, value), "audiocpp_options_set(\(key))")
+        }
+        if codecBLAS {
             // Codec + bước nạp prompt cùng qua Accelerate — log tách từng phần (`codecMs`, `prefillMs`, `amx=`).
             // + trọng số bộ giải mã âm học trong bộ đệm CPU_REPACK (1.3.930, log `repack=`).
             for option in [

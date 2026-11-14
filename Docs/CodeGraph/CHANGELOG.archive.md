@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.910] - 2026-11-12
+
+### feat: Đo tự động có Chạy tiếp từ lượt chưa xong sau khi dừng, bị gián đoạn hay app bị tắt
+
+Anh Bửu: *"lần sau nhớ thêm chạy tiếp để lỡ trường hợp có việc thoát ra khỏi chạy từ đầu"*, rồi *"làm luôn Chạy tiếp cho Đo tự động, huỷ CI trước đi"* (đã huỷ lượt build của 1.3.909; lượt này build cả 1.3.909 + 1.3.910).
+
+- **Lưu tiến độ** (`VieNeuAutoRunProgress`, `Results/do-tu-dong-tien-do.json`): chuẩn bị Core ML xong (dòng báo cáo, qua tự kiểm hay không, trần session, RAM ước mỗi session, giọng), mỗi lượt xong / dở, **bản chụp mỗi phút** của lượt đang chạy, và lúc kết thúc. `VieNeuAutoThermalLeg` / `Stats` thành `Codable`; lượt có cờ `interrupted` (bấm Dừng, bị gián đoạn).
+- **Màn thử**: lượt đo trước chưa xong mà đã qua bước chuẩn bị ⇒ hai nút **"Chạy tiếp (từ lượt N/3)"** và **"Đo lại từ đầu"** thay cho "Bắt đầu đo tự động".
+- **Chạy tiếp** (`VieNeuAutoThermalRun+Resume`): không biên dịch / tự kiểm lại; chạy từ lượt đầu tiên chưa xong êm; lượt dở chạy lại cả bước chờ mát; app bị giết giữa lượt ⇒ bản chụp phút cuối của lượt đó vào báo cáo như lượt dở. Còn lượt Core ML thì **nạp sẵn session ngay lúc bấm** (màn còn sáng), dọn bản biên dịch dở, rồi mới chờ mát. Báo cáo và nhật ký từng bước nối tiếp lần trước (cùng file), có dòng "chạy tiếp HH:mm từ lượt N"; lượt dở ghi "(dở)".
+- **Đã xác nhận nguyên nhân sập** bằng file `LiveContainer.cpu_resource_fatal-2026-11-12-144121.ips` anh gửi: *"Action taken: Process killed"*, *"48 seconds cpu time over 54 seconds (90% cpu average), exceeding limit of 80% cpu over 60 seconds"*, *"Non-Frontmost App"*, ngăn xếp CoreML → Espresso → MIL. iOS giết app **chạy nền** dùng CPU quá 80% trong 60 giây; lúc đó app chỉ phát vòng lặng (âm lượng 0), có vẻ không được miễn như khi phát tiếng thật. Biên dịch / nạp model Core ML là việc nặng ⇒ phải làm khi màn còn sáng (1.3.909, và lúc bấm Chạy tiếp).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.909] - 2026-11-12
 
 ### fix: Đo tự động nạp sẵn session Core ML lúc màn còn sáng và giữ tới hết lượt Core ML, không nạp khi khoá màn

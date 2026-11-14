@@ -171,7 +171,11 @@ else
 fi
 
 # Threadpool giữ lâu (bản vá vieneu_threadpool, 1.3.929): đúng cấu hình app, chỉ thêm option ⇒ trùng từng byte.
-APP_OPTS=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true)
+# Cấu hình app: tăng tốc + ngữ cảnh mô tả tensor 64 MB (1.3.941, `VieNeuTurboRuntime.descriptorContextOptions`).
+APP_OPTS=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true
+  --session-option vieneu_v3_turbo.talker_constant_context_mb=64
+  --session-option vieneu_v3_turbo.code_predictor_constant_context_mb=64
+  --session-option vieneu_v3_turbo.speech_decoder_constant_context_mb=64)
 run_case "$CLI_PATCHED" "app_long" "$LONG" "${APP_OPTS[@]}" --log-file "$WORK_DIR/out/app_long.trace"
 # Lượt này cũng là base của phép chấm repack bên dưới ⇒ ghi logit bộ giải mã âm học (không đổi phép tính).
 rm -f "$WORK_DIR/out/pool_long.dump"
