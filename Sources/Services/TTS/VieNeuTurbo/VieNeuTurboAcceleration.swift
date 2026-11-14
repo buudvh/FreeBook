@@ -12,7 +12,10 @@ import Foundation
 /// - `vieneu_v3_turbo.threadpool_poll=0` (1.3.929, bản vá `vieneu_threadpool.py`): giữ một pool luồng ggml suốt session
 ///   thay vì tạo + huỷ luồng ở mỗi lượt tính (~210 lần mỗi giây tiếng). Tiếng trùng từng byte; đo CI: RTF −4%, CPU −3%.
 ///   Pool tạo ở lượt tổng hợp đầu (luồng mang QoS người gọi), người gọi đổi QoS ⇒ audio.cpp tạo pool mới.
-///   Đi chung cờ với AMX nên lối tự tắt khi sập tắt cả ba.
+///   Đi chung cờ với AMX nên lối tự tắt khi sập tắt cả bốn.
+/// - `vieneu_v3_turbo.acoustic_repack=true` (1.3.930, bản vá `vieneu_acoustic_repack.py`): 5 ma trận q8_0 của bộ giải
+///   mã âm học (7,2 MB) nằm trong bộ đệm `CPU_REPACK` của ggml (bố cục 4×4 cho kernel dotprod) — chỉ chuyển chỗ, RAM không
+///   đổi. Đo CI: âm học −14%, RTF −2…−4%, mã greedy + WAV trùng đường cũ (log `repack=5`).
 /// Bản build không có ggml-blas hoặc dựng scheduler lỗi ⇒ audio.cpp tự lùi về đường CPU cũ (log `amx=lùi:…`).
 ///
 /// **Tự tắt khi sập**: `VieNeuTurboCrashGuard` thấy lần trước app chết giữa lượt AMX đầu tiên (hoặc audio.cpp ghi câu
@@ -38,6 +41,9 @@ enum VieNeuTurboAcceleration {
     /// `poll` của pool: 0 = luồng ngủ ngay khi rảnh. poll 10 / 50 nhanh thêm ~2% trên CI nhưng luồng quay chờ đốt CPU
     /// và tranh lõi với Accelerate (nóng máy) — muốn đổi thì đo nhiệt trên máy trước.
     static let threadpoolPoll = "0"
+
+    /// Session option của bản vá `vieneu_acoustic_repack` (1.3.930): trọng số bộ giải mã âm học vào `CPU_REPACK`.
+    static let acousticRepackOption = "vieneu_v3_turbo.acoustic_repack"
 
     /// Số build đang chạy (bản build tay không có ⇒ "unknown").
     static var currentBuild: String {

@@ -288,6 +288,10 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
                 String(format: "codecMs=%.0f", timings.codecMs),
                 "gens=\(timings.generateCalls)"
             ]
+            // Số ma trận âm học đang repack (1.3.930): 5 = đủ, 0 = audio.cpp không repack.
+            if let repacked = timings.acousticRepackWeights {
+                fields.append("repack=\(repacked)")
+            }
         }
         fields.append("amx=\(amxLabel(requested: output.codecAMXRequested, timings: output.timings))")
         AppLogger.shared.log(

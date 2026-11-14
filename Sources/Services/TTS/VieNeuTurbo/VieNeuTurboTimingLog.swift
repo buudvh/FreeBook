@@ -31,6 +31,9 @@ enum VieNeuTurboTimingLog {
         var codecBLASActive: Bool?
         /// Bước nạp prompt có chạy qua BLAS không (`vieneu_v3_turbo.talker.prefill.blas_active`, 1.3.927, mỗi lượt nạp).
         var prefillBLASActive: Bool?
+        /// Số ma trận của bộ giải mã âm học nằm trong bộ đệm `CPU_REPACK` (`vieneu_v3_turbo.talker.acoustic_repack.weights`,
+        /// 1.3.930, ghi mỗi lượt nạp prompt): 5 = repack đủ, 0 = audio.cpp không repack; `nil` = không có dòng nào.
+        var acousticRepackWeights: Int?
     }
 
     static let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("audiocpp-turbo-timing.log")
@@ -81,6 +84,8 @@ enum VieNeuTurboTimingLog {
                 timings.codecBLASActive = (timings.codecBLASActive ?? true) && value >= 1
             case "vieneu_v3_turbo.talker.prefill.blas_active":
                 timings.prefillBLASActive = (timings.prefillBLASActive ?? true) && value >= 1
+            case "vieneu_v3_turbo.talker.acoustic_repack.weights":
+                timings.acousticRepackWeights = Int(value)
             default: break
             }
         }

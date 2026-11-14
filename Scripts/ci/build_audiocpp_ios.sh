@@ -43,12 +43,15 @@ echo "audio.cpp commit: $AUDIOCPP_SHA"
 # - vieneu_codec_blas: codec giải mã qua Accelerate khi session option `vieneu_v3_turbo.codec_blas` bật (mặc định tắt);
 # - vieneu_prefill_blas: bước nạp prompt qua Accelerate khi `vieneu_v3_turbo.prefill_blas` bật (mặc định tắt);
 # - vieneu_threadpool: giữ một threadpool ggml suốt session khi `vieneu_v3_turbo.threadpool_poll` có (mặc định tắt);
+# - vieneu_acoustic_repack: trọng số q8_0 của bộ giải mã âm học vào bộ đệm CPU_REPACK khi
+#   `vieneu_v3_turbo.acoustic_repack` bật (mặc định tắt);
 # - capi_log_file: hàm C `audiocpp_set_log_file` để app bật bộ đếm giờ có sẵn của audio.cpp;
 # - capi_abort_file: hàm C `audiocpp_set_abort_file` — câu báo GGML_ASSERT / exception chưa bắt ghi ra file trước abort.
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_blas.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/vieneu_threadpool.py" "$SRC"
+python3 "$CI_DIR/audiocpp_patches/vieneu_acoustic_repack.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$SRC"
 python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$SRC"
 

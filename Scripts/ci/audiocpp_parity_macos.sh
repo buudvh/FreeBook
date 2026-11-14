@@ -12,6 +12,10 @@
 # Bản vá `vieneu_threadpool` (1.3.929): cấu hình của app (codec_blas + prefill_blas) thêm `threadpool_poll=0` ⇒ mã
 # và WAV phải trùng TỪNG BYTE với khi không có (cùng số luồng ⇒ cùng cách chia việc), log phải báo đã tạo pool.
 #
+# Bản vá `vieneu_acoustic_repack` (1.3.930): cấu hình app 1.3.929 thêm `acoustic_repack=true` ⇒ log phải báo đủ 5 ma
+# trận nằm trong CPU_REPACK, mã greedy + WAV phải trùng (logit chỉ lệch cỡ một nấc lượng tử q8 ở vài bước — đo CI
+# 2026-11-14: greedy trùng hết trên 237 khung).
+#
 # Chạy trên runner macOS (CPU, không Metal, không OpenMP — giống bản iOS). Tải model ~188 MB từ HF (revision ghim).
 set -euo pipefail
 
@@ -33,6 +37,7 @@ python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_gallocr.py" "$WORK_DIR/src_patc
 python3 "$CI_DIR/audiocpp_patches/vieneu_codec_blas.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_prefill_blas.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/vieneu_threadpool.py" "$WORK_DIR/src_patched"
+python3 "$CI_DIR/audiocpp_patches/vieneu_acoustic_repack.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_log_file.py" "$WORK_DIR/src_patched"
 python3 "$CI_DIR/audiocpp_patches/capi_abort_file.py" "$WORK_DIR/src_patched"
 
@@ -181,6 +186,26 @@ elif cmp -s "$WORK_DIR/out/app_long.codes.txt" "$WORK_DIR/out/pool_long.codes.tx
   echo "✓ threadpool: mã âm thanh + WAV giống hệt cấu hình app"
 else
   echo "::error::threadpool: giữ pool làm ĐỔI kết quả (phải trùng từng byte)"
+  FAIL=1
+fi
+
+# Repack bộ giải mã âm học (bản vá vieneu_acoustic_repack, 1.3.930): so với cấu hình app 1.3.929 (pool_long).
+run_case "$CLI_PATCHED" "repack_long" "$LONG" "${APP_OPTS[@]}" \
+  --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true \
+  --log-file "$WORK_DIR/out/repack_long.trace"
+repack_weights="$(grep -E 'vieneu_v3_turbo.talker.acoustic_repack.weights ' "$WORK_DIR/out/repack_long.trace" | head -n 1 | awk '{print $NF}')"
+repack_buffer="$(grep -E 'vieneu_v3_turbo.acoustic_decoder.repack.buffer_name ' "$WORK_DIR/out/repack_long.trace" | head -n 1 | awk '{print $NF}')"
+acoustic_repack="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/repack_long.trace" | tail -n 1 | awk '{print $NF}')"
+echo "repack: ${repack_weights:-0} ma trận trong ${repack_buffer:-?} · âm học ${acoustic_pool:-?} ms → ${acoustic_repack:-?} ms (máy ảo — chỉ tham khảo)"
+if [ "${repack_weights:-0}" != "5" ] || [ "${repack_buffer:-}" != "CPU_REPACK" ]; then
+  echo "::error::repack: bật acoustic_repack mà log không báo đủ 5 ma trận trong CPU_REPACK"
+  grep -E 'repack' "$WORK_DIR/out/repack_long.trace" | head -n 10 || true
+  FAIL=1
+elif cmp -s "$WORK_DIR/out/pool_long.codes.txt" "$WORK_DIR/out/repack_long.codes.txt" \
+    && cmp -s "$WORK_DIR/out/pool_long.wav" "$WORK_DIR/out/repack_long.wav"; then
+  echo "✓ repack: mã âm thanh + WAV giống hệt cấu hình app 1.3.929"
+else
+  echo "::error::repack: đổi mã âm thanh so với cấu hình app 1.3.929"
   FAIL=1
 fi
 exit "$FAIL"

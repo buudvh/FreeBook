@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.930] - 2026-11-14
+
+### perf: Turbo xếp lại trọng số bộ giải mã âm học cho kernel dotprod, phần âm học nhanh hơn khoảng 14%, tiếng không đổi
+
+Mỗi khung 80 ms bộ giải mã âm học (1 lớp: qkv 768→2304, o 768², MLP 2048) chạy 16 bước tuần tự, mỗi bước nhân ma trận × vectơ trên ~7,5 MB trọng số q8_0. ggml có sẵn bố cục xen kẽ `q8_0_4x4` (kernel NEON dotprod — đúng cờ `armv8.2-a+dotprod` của bản iOS; chọn lúc biên dịch nên A15+ có i8mm cũng không rơi vào kernel C) nhưng audio.cpp chỉ bật cho lfm2_audio. Đo trên CI (nhánh đo `claude/turbo-tp-profile`, run 43551654007 + 43552141772, so với cấu hình app 1.3.929; báo cáo tối ưu Turbo mục 16): âm học 56 → 48 / 74 → 63 ms mỗi giây tiếng (**−14…−15%**), RTF −2…−4%, CPU không đổi; mã greedy + WAV **trùng** 8/8 lượt. Logit trùng từng bit ở 54% bước, lệch lớn nhất 1,1·10⁻² — thứ tự cộng khác làm activation đổi nấc lượng tử q8 ở ma trận kế, cùng cỡ nhiễu q8 sẵn có; greedy trùng hết 237 khung. Anh Bửu duyệt plan.
+
+- **Bản vá mới** `Scripts/ci/audiocpp_patches/vieneu_acoustic_repack.py` (chạy sau `vieneu_threadpool`): session option `vieneu_v3_turbo.acoustic_repack` (mặc định tắt = như upstream). Bật + backend CPU + kiểu lưu `Native` ⇒ `load_talker_weights` dựng thêm một `BackendWeightStore` trên bộ đệm phụ `CPU_REPACK` (`core::cpu_extra_buffer_types`) và nạp vào đó 5 ma trận q8_0 của mỗi lớp âm học (`attn.qkv`, `attn.o_proj`, `ff_gate`, `ff_up`, `ff_down`) khi `core::buffer_type_supports_matmul_weight` nhận. Head F16 (`audio_embeddings.N`), `codec_head`, backbone giữ chỗ cũ (backbone còn phải đi Accelerate ở bước nạp prompt — ggml-blas chỉ đọc bộ đệm host thường). Chỉ chuyển chỗ ⇒ RAM không đổi (7,17 MB). Graph nạp + 16 graph bước kiểm bằng `validate_backend_graph_with_cpu_extra_buffers` (dùng sai trọng số repack ⇒ lỗi lúc dựng session, không ra tiếng sai). Log `vieneu_v3_turbo.talker.acoustic_repack.weights` lúc nạp và mỗi lượt nạp prompt.
+- **Build iOS** chạy bản vá; **cổng parity**: cấu hình app 1.3.929 thêm `acoustic_repack=true` ⇒ log phải báo đủ 5 ma trận trong `CPU_REPACK`, mã + WAV phải trùng cấu hình 1.3.929.
+- **App**: `VieNeuTurboAcceleration.acousticRepackOption`, `createSessionLocked` truyền cùng cờ AMX (lối tự tắt khi sập theo số build tắt cả repack). Dòng `[VieNeuTurbo] Đoạn` thêm `repack=N` (`VieNeuTurboTimingLog.Timings.acousticRepackWeights`; 5 = đủ, 0 = audio.cpp không repack).
+- Ước trên máy: âm học (~36% thời gian) −14% ⇒ RTF thêm ~−4%. Chưa đo trên máy.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows).
+
 ## [1.3.929] - 2026-11-14
 
 ### perf: Turbo giữ một pool luồng suốt phiên đọc thay vì tạo luồng mới ở mỗi lượt tính, nhanh hơn và ít tốn CPU hơn
@@ -615,22 +627,3 @@ Theo mockup anh Bửu duyệt: nhân bản giọng ngay trong sheet chọn giọ
 - **"Tạo bản Turbo"**: giọng Nano tự tạo chưa có bản Turbo hiện trong "Giọng của tôi" của chip Turbo (`VieNeuTurboCopyRow`); bấm ⇒ tải gói Turbo nếu thiếu (có %) rồi tạo từ mẫu Nano đã lưu (`VieNeuTurboCopyRunner`), xong báo toast.
 - `CLAUDE.md` / `AGENTS.md`: viết lại mục "VieNeu: hai model Nano / Turbo" theo thiết kế mới (model đi theo giọng, sheet chọn giọng, tải theo giọng, nhân bản).
 - **Kiểm chứng:** đọc code + grep chéo; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy (thu âm, tải, tạo giọng, toast).
-
-## [1.3.900] - 2026-11-12
-
-### feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được
-
-Theo mockup anh Bửu duyệt: chọn giọng VieNeu ở **một sheet** gộp hai model, model đi theo giọng; không còn hàng tải model riêng, mỗi giọng có nút tải của nó.
-
-- **Cài đặt TTS › Giọng đọc** (VieNeu): một hàng `VieNeuVoiceSummaryRow` — vòng tròn icon, tên giọng đang đọc + nhãn "Nano" / "Turbo", dòng phụ (vd "Nữ · Bắc · tin tức"), badge Nhẹ / Vừa / Nặng, chevron; chưa tải dữ liệu ⇒ dòng phụ cam. Bấm ⇒ sheet. Bỏ Picker giọng tạm, hàng tải Nano (link màn thử) / Turbo (188 MB) và link "Giọng của tôi" (màn đó vẫn vào được từ màn thử Nano).
-- **Sheet "Giọng đọc"** (`VieNeuVoicePickerSheet`, tiêu đề trái có "?" — `pageTitle(_:help:)` mới): chip "Nano | Turbo" (mở ra chọn sẵn model đang dùng); Nano: "Giọng của tôi" + "Giọng có sẵn"; Turbo: "Giọng của tôi" + "Tuyển chọn" (⭐) + "Giọng khác".
-  - Hàng (`VieNeuVoiceListRow`): nút tròn ▶ thử / ■ đang thử hoặc đang tải (bấm = huỷ) / ⬇ thiếu dữ liệu; tên; dòng phụ + " · cần tải N MB", đang tải ⇒ "Đang tải 37% · 93 / 251 MB" + thanh mảnh; ✓ giọng đang đọc; badge Nhẹ (Nano, xanh lá) / Vừa (Turbo, cam hổ phách) / Nặng (Turbo `frames` ≥ 85, san hô; giọng tự tạo theo số khung của nó). Chạm thân hàng = chọn (khi đã tải đủ).
-  - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (`VieNeuCustomVoiceActions`: nạp lại catalog Nano, giọng đang đọc đi theo tên mới / về giọng mặc định).
-  - Thử giọng (`VieNeuVoicePreviewPlayer`): tổng hợp câu mẫu bằng đúng engine của giọng rồi phát; chặn + toast khi truyện **đang phát** (không chặn khi chỉ còn widget vì Cài đặt đã tạm dừng); sheet đóng ⇒ dừng.
-- **Danh sách giọng trước khi tải** (`VieNeuVoiceDirectory`, đọc đĩa ngoài main): file trên máy nếu có, không thì `VieNeuBuiltinVoiceList` (11 giọng Nano + 25 giọng Turbo chép từ kho mirror @ revision đang ghim — đổi revision thì chép lại).
-- **Tải** (`ModelDownloadCenter+VieNeu`):
-  - Nano tải chung một lượt (8 file, 346.903.105 byte ≈ 347 MB): mọi hàng Nano cùng hiện %. Turbo: bấm ⬇ giọng nào thì tải model nếu thiếu (manifest + `sea_g2p.bin` 63 MB + GGUF 188 MB) rồi file của giọng đó — % chỉ ở hàng đó.
-  - % **theo byte** cộng dồn mọi file còn thiếu: `VieNeuModelClient` chuyển sang `VieNeuTurboModelClient.transfer` (KVO tiến độ, ghi `.partial` rồi đổi tên nguyên tử), bảng dung lượng `VieNeuModelStore.fileByteCounts` đo từ kho mirror.
-  - Chạy ngoài main; các lượt VieNeu **lần lượt** (xếp hàng "Đang chờ lượt tải khác…") vì cùng ghi `sea_g2p.bin` / `speaker_encoder.onnx` / GGUF; màn thử Turbo và sheet không tải chồng nhau.
-  - ■ = huỷ (`cancel(id:)`), không toast lỗi. `ModelDownloadCenter.Entry` thêm `completedBytes` / `totalBytes` / `isQueued`.
-- **Kiểm chứng:** đọc code + grep chéo `ModelDownloadCenter` / `VieNeuModelClient.prefetch*`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.

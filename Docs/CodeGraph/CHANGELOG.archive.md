@@ -2,6 +2,25 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.900] - 2026-11-12
+
+### feat: sheet chọn giọng VieNeu gộp Nano và Turbo, tải theo từng giọng tính theo byte và huỷ được
+
+Theo mockup anh Bửu duyệt: chọn giọng VieNeu ở **một sheet** gộp hai model, model đi theo giọng; không còn hàng tải model riêng, mỗi giọng có nút tải của nó.
+
+- **Cài đặt TTS › Giọng đọc** (VieNeu): một hàng `VieNeuVoiceSummaryRow` — vòng tròn icon, tên giọng đang đọc + nhãn "Nano" / "Turbo", dòng phụ (vd "Nữ · Bắc · tin tức"), badge Nhẹ / Vừa / Nặng, chevron; chưa tải dữ liệu ⇒ dòng phụ cam. Bấm ⇒ sheet. Bỏ Picker giọng tạm, hàng tải Nano (link màn thử) / Turbo (188 MB) và link "Giọng của tôi" (màn đó vẫn vào được từ màn thử Nano).
+- **Sheet "Giọng đọc"** (`VieNeuVoicePickerSheet`, tiêu đề trái có "?" — `pageTitle(_:help:)` mới): chip "Nano | Turbo" (mở ra chọn sẵn model đang dùng); Nano: "Giọng của tôi" + "Giọng có sẵn"; Turbo: "Giọng của tôi" + "Tuyển chọn" (⭐) + "Giọng khác".
+  - Hàng (`VieNeuVoiceListRow`): nút tròn ▶ thử / ■ đang thử hoặc đang tải (bấm = huỷ) / ⬇ thiếu dữ liệu; tên; dòng phụ + " · cần tải N MB", đang tải ⇒ "Đang tải 37% · 93 / 251 MB" + thanh mảnh; ✓ giọng đang đọc; badge Nhẹ (Nano, xanh lá) / Vừa (Turbo, cam hổ phách) / Nặng (Turbo `frames` ≥ 85, san hô; giọng tự tạo theo số khung của nó). Chạm thân hàng = chọn (khi đã tải đủ).
+  - Nhấn giữ giọng nhân bản ⇒ Đổi tên / Xoá (`VieNeuCustomVoiceActions`: nạp lại catalog Nano, giọng đang đọc đi theo tên mới / về giọng mặc định).
+  - Thử giọng (`VieNeuVoicePreviewPlayer`): tổng hợp câu mẫu bằng đúng engine của giọng rồi phát; chặn + toast khi truyện **đang phát** (không chặn khi chỉ còn widget vì Cài đặt đã tạm dừng); sheet đóng ⇒ dừng.
+- **Danh sách giọng trước khi tải** (`VieNeuVoiceDirectory`, đọc đĩa ngoài main): file trên máy nếu có, không thì `VieNeuBuiltinVoiceList` (11 giọng Nano + 25 giọng Turbo chép từ kho mirror @ revision đang ghim — đổi revision thì chép lại).
+- **Tải** (`ModelDownloadCenter+VieNeu`):
+  - Nano tải chung một lượt (8 file, 346.903.105 byte ≈ 347 MB): mọi hàng Nano cùng hiện %. Turbo: bấm ⬇ giọng nào thì tải model nếu thiếu (manifest + `sea_g2p.bin` 63 MB + GGUF 188 MB) rồi file của giọng đó — % chỉ ở hàng đó.
+  - % **theo byte** cộng dồn mọi file còn thiếu: `VieNeuModelClient` chuyển sang `VieNeuTurboModelClient.transfer` (KVO tiến độ, ghi `.partial` rồi đổi tên nguyên tử), bảng dung lượng `VieNeuModelStore.fileByteCounts` đo từ kho mirror.
+  - Chạy ngoài main; các lượt VieNeu **lần lượt** (xếp hàng "Đang chờ lượt tải khác…") vì cùng ghi `sea_g2p.bin` / `speaker_encoder.onnx` / GGUF; màn thử Turbo và sheet không tải chồng nhau.
+  - ■ = huỷ (`cancel(id:)`), không toast lỗi. `ModelDownloadCenter.Entry` thêm `completedBytes` / `totalBytes` / `isQueued`.
+- **Kiểm chứng:** đọc code + grep chéo `ModelDownloadCenter` / `VieNeuModelClient.prefetch*`; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.899] - 2026-11-12
 
 ### refactor: Cài đặt TTS rút gọn phần VieNeu, bỏ tiết kiệm pin, số luồng, spin và tự phiên âm tiếng Nhật
