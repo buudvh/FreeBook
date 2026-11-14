@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Giữ một threadpool ggml suốt đời session VieNeu Turbo thay vì tạo + huỷ luồng ở mỗi lượt tính (1.3.929, thử).
+"""Giữ một threadpool ggml suốt đời session VieNeu Turbo thay vì tạo + huỷ luồng ở mỗi lượt tính (1.3.929).
+
+App dùng `poll=0` (đo CI run 43545030992: RTF −4%, CPU −3%, trùng từng byte; poll 10 / 50 nhanh thêm ~2% nhưng
+luồng quay chờ đốt CPU và tranh lõi với Accelerate ⇒ nóng máy).
 
 Vì sao: audio.cpp build không OpenMP ⇒ mỗi `ggml_graph_compute` trên CPU tạo một threadpool dùng một lần rồi huỷ
 (`ggml-cpu.c`: `disposable_threadpool`). Turbo có ~17 lượt tính mỗi khung 80 ms (1 backbone + 16 bước bộ giải mã âm

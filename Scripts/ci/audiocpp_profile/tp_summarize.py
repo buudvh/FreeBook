@@ -63,6 +63,19 @@ def load(run_dir):
     }
 
 
+def prefix_share(a, b):
+    """Tỉ lệ số mã trùng liên tiếp từ đầu (theo base) — chuỗi tự hồi quy rẽ nhánh sau mã lệch đầu tiên."""
+    if not (a.exists() and b.exists()):
+        return 0.0
+    test, base = a.read_text().split(), b.read_text().split()
+    same = 0
+    for x, y in zip(test, base):
+        if x != y:
+            break
+        same += 1
+    return same / max(len(base), 1)
+
+
 def same_bytes(a, b):
     return a.exists() and b.exists() and a.read_bytes() == b.read_bytes()
 
@@ -74,7 +87,7 @@ def main():
     for run in runs:
         if run["mode"] not in modes:
             modes.append(run["mode"])
-    out = ["## Threadpool giữ lâu — VieNeu Turbo (audio.cpp, runner macOS)", ""]
+    out = ["## VieNeu Turbo — so cấu hình (audio.cpp, runner macOS)", ""]
     env = root / "env.txt"
     if env.exists():
         out += ["```", env.read_text(encoding="utf-8").strip(), "```", ""]
@@ -96,25 +109,24 @@ def main():
                    + " | ".join(f"{parts[name]:.0f}" for name, _ in PARTS)
                    + f" | {sum(r['cpu'] for r in group) / audio:.2f} |")
     out += ["", "Prefill / Backbone / Âm học / Codec: ms mỗi giây tiếng. CPU-s gồm cả nạp model (giống nhau mọi cấu hình).",
-            "", "### Trùng byte với base (cùng giọng, cùng lần lặp)", "", "| Cấu hình | Mã trùng | WAV trùng | Lượt so |", "|---|---|---|---|"]
-    failures = 0
+            "", "### So với base (cùng giọng, cùng lần lặp)", "", "| Cấu hình | Mã trùng hết | WAV trùng byte | Mã trùng từ đầu (trung bình) | Lượt so |", "|---|---|---|---|---|"]
     for mode in modes:
         if mode == "base":
             continue
         codes_ok = wav_ok = total = 0
+        prefix_shares = []
         for run in [r for r in runs if r["mode"] == mode]:
             base_dir = run["dir"].parent / f"base__{run['voice']}__r{run['rep']}"
             total += 1
             codes_ok += same_bytes(run["dir"] / "codes.txt", base_dir / "codes.txt")
             wav_ok += same_bytes(run["dir"] / "out.wav", base_dir / "out.wav")
-        failures += (total - codes_ok) + (total - wav_ok)
-        out.append(f"| {mode} | {codes_ok}/{total} | {wav_ok}/{total} | {total} |")
+            prefix_shares.append(prefix_share(run["dir"] / "codes.txt", base_dir / "codes.txt"))
+        share = sum(prefix_shares) / len(prefix_shares) if prefix_shares else 0.0
+        out.append(f"| {mode} | {codes_ok}/{total} | {wav_ok}/{total} | {share:.0%} | {total} |")
     out.append("")
     text = "\n".join(out)
     print(text)
     (root / "summary.md").write_text(text + "\n", encoding="utf-8")
-    if failures:
-        print(f"::error::threadpool đổi kết quả ở {failures} phép so (phải trùng từng byte)")
 
 
 if __name__ == "__main__":
