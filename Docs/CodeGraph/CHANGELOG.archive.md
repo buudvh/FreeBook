@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.908] - 2026-11-12
+
+### fix: icon chia sẻ / nhập từ truyện khác của từ điển VP, Name không còn trùng icon xuất / nhập file
+
+Anh Bửu báo: *"icon xuất nhập vp/name bị trùng icon chia sẻ/nhập vp/name từ truyện khác rồi"*.
+
+- Ngăn kéo `…` của từ điển riêng (`DictionaryListView`): "Chia sẻ sang truyện khác" dùng `square.and.arrow.up` và "Nhập từ truyện khác" dùng `square.and.arrow.down`, y icon của "Xuất từ điển" / "Nhập từ điển" (file). Đổi sang cặp `arrowshape.turn.up.right` (gửi sang) / `arrowshape.turn.up.left` (lấy về).
+- Cặp `square.and.arrow.down` / `up` từ nay chỉ dành cho nhập / xuất **file** (cả app vốn dùng vậy). Chia sẻ bộ rule riêng sang truyện khác (`QuickTranslationRuleIOMenu`, menu hàng `QuickTranslationRuleEntryRow`) cũng đổi từ `square.and.arrow.up.on.square` sang `arrowshape.turn.up.right` cho cùng một icon ở mọi nơi.
+
+**Kiểm chứng:** chỉ đổi tên SF Symbol (có từ iOS 13). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
+
 ## [1.3.907] - 2026-11-12
 
 ### fix: mở Cài đặt TTS từ đĩa nghe luôn dừng đọc, đóng sheet thì đọc tiếp

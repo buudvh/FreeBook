@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.939] - 2026-11-14
+
+### docs: CLAUDE.md ghi chế độ đọc lai Nano · Turbo và ngoại lệ luật nhiệt
+
+Session làm đọc lai (1.3.934) không được tự sửa CLAUDE.md theo yêu cầu từ session khác nên để đoạn đề xuất trong ghi chú bàn giao; session tối ưu Turbo áp vào lúc gộp các nhánh 1.3.933–1.3.938 để push một lần (anh Bửu: "Gộp và push").
+
+- `CLAUDE.md` + `AGENTS.md` (mirror): thêm gạch **"Đọc lai Nano · Turbo"** dưới mục TTS › VieNeu (cặp giọng `VieNeuVoicePairing`, `VieNeuHybridTTSService` / `VieNeuHybridRouting`, phân loại tiếng nước ngoài, `VieNeuThermalGovernor`, hai công tắc mặc định bật, nhân tốc độ + khớp âm lượng đoạn model phụ); câu "thermal chỉ là telemetry" ở gạch `NghiSynthesisPolicy` ghi rõ ngoại lệ duy nhất là chọn model đọc lai (khớp dòng ngoại lệ đã thêm vào `rules.md` ở 1.3.934).
+- Không đổi code.
+
 ## [1.3.938] - 2026-11-14
 
 ### feat: Bật đọc lai VieNeu mà giọng chưa có cặp thì app tự tạo bản Nano hoặc Turbo cho giọng đó
@@ -602,14 +611,3 @@ Sửa:
 - Nhật ký từng bước ghi thêm **app đang mở màn hay nền / khoá màn** ở mỗi dòng của luồng chính; dòng bắt đầu lượt Core ML ghi số session đang giữ.
 - Lượt Core ML giờ **chạy Core ML lúc khoá màn** — câu trả lời trực tiếp cho câu hỏi Core ML có dùng được cho trình đọc (nghe khi tắt màn) không: chết ngay đầu lượt 2 ⇒ suy luận Core ML ở nền cũng không được.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.908] - 2026-11-12
-
-### fix: icon chia sẻ / nhập từ truyện khác của từ điển VP, Name không còn trùng icon xuất / nhập file
-
-Anh Bửu báo: *"icon xuất nhập vp/name bị trùng icon chia sẻ/nhập vp/name từ truyện khác rồi"*.
-
-- Ngăn kéo `…` của từ điển riêng (`DictionaryListView`): "Chia sẻ sang truyện khác" dùng `square.and.arrow.up` và "Nhập từ truyện khác" dùng `square.and.arrow.down`, y icon của "Xuất từ điển" / "Nhập từ điển" (file). Đổi sang cặp `arrowshape.turn.up.right` (gửi sang) / `arrowshape.turn.up.left` (lấy về).
-- Cặp `square.and.arrow.down` / `up` từ nay chỉ dành cho nhập / xuất **file** (cả app vốn dùng vậy). Chia sẻ bộ rule riêng sang truyện khác (`QuickTranslationRuleIOMenu`, menu hàng `QuickTranslationRuleEntryRow`) cũng đổi từ `square.and.arrow.up.on.square` sang `arrowshape.turn.up.right` cho cùng một icon ở mọi nơi.
-
-**Kiểm chứng:** chỉ đổi tên SF Symbol (có từ iOS 13). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy.
