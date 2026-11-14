@@ -22,7 +22,7 @@ ARM_ARCH="armv8.2-a+dotprod+fp16"
 HF_REV="61b85e3d937fbbacb387714180e8182823512523"
 HF_BASE="https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo/resolve/$HF_REV/gguf"
 JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 3)"
-VOICES="mai_anh"
+VOICES="mai_anh minh_quan_pro"
 MODES="base a1"
 
 rm -rf "$WORK_DIR" "$OUT_DIR"
@@ -67,55 +67,64 @@ for voice in $VOICES; do
 done
 set +e
 
-# Ba độ dài, mỗi lượt một đoạn (text_chunk_size lớn) ⇒ mỗi run một dòng generated_codes ứng với cả WAV.
+# Ngữ cảnh mô tả tensor của audio.cpp: mặc định giữ chỗ hàng GB địa chỉ ảo (talker constants 4 GB, code predictor
+# 1,5 GB, codec weights 1,5 GB × 2) — trên iPhone cộng Nano là vượt giới hạn địa chỉ ảo ⇒ app sập (log 20, build 1270).
+# So cấu hình app (base) với base + ba option hạ còn 64 MB (mức sàn audio.cpp tự đặt): tiếng phải trùng từng byte.
 S="sˈin tʃˈaː2w tˈeɜ zˈəːɜj. ɗˈəɪ lˌaː2 bˈaː4n tˈy4 ŋˈiɛ6m."
-run_text() {
-  local name="$1" text="$2"
+APP=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true
+     --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true)
+SMALL=(--session-option vieneu_v3_turbo.talker_constant_context_mb=64
+       --session-option vieneu_v3_turbo.code_predictor_constant_context_mb=64
+       --session-option vieneu_v3_turbo.speech_decoder_constant_context_mb=64)
+run_case() {
+  local name="$1" voice="$2" text="$3"
+  shift 3
   local dir="$OUT_DIR/runs/$name"
   mkdir -p "$dir"
-  "$CLI" --task tts --family vieneu_v3_turbo \
+  /usr/bin/time -l "$CLI" --task tts --family vieneu_v3_turbo \
     --model "$WORK_DIR/model/turbo-q8_0.gguf" --backend cpu --threads 2 \
     --log-file "$dir/run.log" --text "$text" \
-    --request-option reference_codes_file="$WORK_DIR/model/mai_anh/ref_codes.txt" \
-    --request-option speaker_embedding_file="$WORK_DIR/model/mai_anh/speaker.emb.txt" \
+    --request-option reference_codes_file="$WORK_DIR/model/$voice/ref_codes.txt" \
+    --request-option speaker_embedding_file="$WORK_DIR/model/$voice/speaker.emb.txt" \
     --request-option do_sample=false --request-option seed=1 --request-option babble_retries=0 \
-    --request-option text_chunk_size=1000 \
     --request-option codes_dump_file="$dir/codes.txt" \
-    --session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true \
-    --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true \
-    --out "$dir/out.wav" > "$dir/stdout.txt" 2>&1 || echo "::warning::run $name lỗi"
-  echo "✓ $name: $(grep -c generated_codes "$dir/codes.txt" 2>/dev/null) đoạn"
+    "${APP[@]}" "$@" --out "$dir/out.wav" > "$dir/stdout.txt" 2> "$dir/time.txt" \
+    || { echo "::error::run $name lỗi"; tail -n 8 "$dir/time.txt"; }
 }
-run_text t1_short "$S"
-run_text t2_medium "$S $S"
-run_text t3_long "$S $S $S $S"
-
-ONNX_REV="ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae"
-ONNX_BASE="https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/$ONNX_REV"
-mkdir -p "$WORK_DIR/onnx"
-for f in moss_audio_tokenizer_decode_full.onnx moss_audio_tokenizer_decode_shared.data codec_browser_onnx_meta.json; do
-  curl -fsSL -o "$WORK_DIR/onnx/$f" "$ONNX_BASE/$f"
+TEXTS=("$S" "$S $S $S $S" "$S $S $S $S $S $S $S $S")
+FAIL=0
+{
+  echo "## Ngữ cảnh audio.cpp 64 MB so với mặc định"
+  echo
+  echo "| Câu | Giọng | Mã + WAV trùng | RSS mặc định (MB) | RSS 64 MB (MB) |"
+  echo "|---|---|---|---|---|"
+} > "$OUT_DIR/summary.md"
+for voice in $VOICES; do
+  for index in 0 1 2; do
+    run_case "base_${voice}_$index" "$voice" "${TEXTS[$index]}"
+    run_case "small_${voice}_$index" "$voice" "${TEXTS[$index]}" "${SMALL[@]}"
+    a="$OUT_DIR/runs/base_${voice}_$index"; b="$OUT_DIR/runs/small_${voice}_$index"
+    same="KHÔNG"
+    if cmp -s "$a/codes.txt" "$b/codes.txt" && cmp -s "$a/out.wav" "$b/out.wav"; then same="trùng"; else FAIL=1; fi
+    rss_a=$(awk '/maximum resident set size/ {print int($1/1048576)}' "$a/time.txt")
+    rss_b=$(awk '/maximum resident set size/ {print int($1/1048576)}' "$b/time.txt")
+    echo "| $((index + 1)) | $voice | $same | ${rss_a:-?} | ${rss_b:-?} |" >> "$OUT_DIR/summary.md"
+  done
 done
-# Python mặc định của runner có thể quá mới cho bánh onnxruntime ⇒ tìm 3.12/3.13 có sẵn, không có thì tải qua uv.
-PYBIN=""
-for candidate in /Users/runner/hostedtoolcache/Python/3.12*/arm64/bin/python3 \
-                 /Users/runner/hostedtoolcache/Python/3.13*/arm64/bin/python3 \
-                 "$(command -v python3.12 || true)" "$(command -v python3.13 || true)"; do
-  if [ -n "$candidate" ] && [ -x "$candidate" ]; then PYBIN="$candidate"; break; fi
-done
-if [ -n "$PYBIN" ]; then
-  "$PYBIN" -m venv "$WORK_DIR/venv"
-else
-  python3 -m pip install -q --user uv > "$WORK_DIR/uv.log" 2>&1 || tail -n 20 "$WORK_DIR/uv.log"
-  "$(python3 -m site --user-base)/bin/uv" venv --python 3.12 "$WORK_DIR/venv" > "$WORK_DIR/uv.log" 2>&1 \
-    || tail -n 20 "$WORK_DIR/uv.log"
-  "$(python3 -m site --user-base)/bin/uv" pip install --python "$WORK_DIR/venv/bin/python" pip > /dev/null 2>&1 || true
-fi
-echo "python: $("$WORK_DIR/venv/bin/python" --version 2>&1)"
-"$WORK_DIR/venv/bin/python" -m pip install -q onnxruntime numpy onnx > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
-"$WORK_DIR/venv/bin/python" "$CI_DIR/audiocpp_profile/codec_onnx_check.py" "$WORK_DIR/onnx" "$OUT_DIR/runs" \
-  | tee "$OUT_DIR/summary.md"
+{
+  echo
+  echo "### Giữ chỗ ngữ cảnh (log audio.cpp)"
+  echo
+  echo '```'
+  echo "-- mặc định --"
+  grep -h "ctx_reserved_mb\|ctx_used_mb\|constant" "$OUT_DIR/runs/base_mai_anh_2/run.log" | sed 's/\[TIMING ts=[^]]*\] //' | sort -u | head -20
+  echo "-- 64 MB --"
+  grep -h "ctx_reserved_mb\|ctx_used_mb\|constant" "$OUT_DIR/runs/small_mai_anh_2/run.log" | sed 's/\[TIMING ts=[^]]*\] //' | sort -u | head -20
+  echo '```'
+} >> "$OUT_DIR/summary.md"
+cat "$OUT_DIR/summary.md"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   cat "$OUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
 fi
+[ "$FAIL" = 0 ] || echo "::error::hạ ngữ cảnh làm đổi tiếng"
 exit 0
