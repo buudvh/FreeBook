@@ -1,0 +1,39 @@
+name: Đo thời gian VieNeu Turbo (audio.cpp, macOS)
+
+# P0a của báo cáo tối ưu VieNeu Turbo: tách thời gian nạp prompt / backbone / bộ giải mã âm học / codec trong
+# audio.cpp (Scripts/ci/audiocpp_profile_macos.sh). Chỉ đo — không build app, không gửi Telegram, không đổi gì cho
+# bản phát hành. Chạy khi đẩy nhánh `claude/turbo-*` (nhánh thử, không gộp vào main) hoặc chạy tay.
+on:
+  push:
+    branches: [ 'claude/turbo-*' ]
+    paths:
+      - 'Scripts/ci/audiocpp_profile_macos.sh'
+      - 'Scripts/ci/audiocpp_profile/**'
+      - 'Scripts/ci/audiocpp_patches/**'
+      - 'Scripts/ci/audiocpp_ref.txt'
+      - '.github/workflows/audiocpp-profile.yml'
+  workflow_dispatch:
+
+jobs:
+  profile:
+    name: Thời gian từng phần (CPU 2 luồng)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Profile VieNeu Turbo
+      run: bash Scripts/ci/audiocpp_profile_macos.sh
+
+    - name: Upload kết quả
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: vieneu-turbo-profile
+        path: |
+          build/audiocpp-profile-out/**/*.md
+          build/audiocpp-profile-out/**/*.txt
+          build/audiocpp-profile-out/**/*.log
+          build/audiocpp-profile-out/**/*.json
+        if-no-files-found: warn
