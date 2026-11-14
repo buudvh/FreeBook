@@ -96,8 +96,23 @@ mkdir -p "$WORK_DIR/onnx"
 for f in moss_audio_tokenizer_decode_full.onnx moss_audio_tokenizer_decode_shared.data codec_browser_onnx_meta.json; do
   curl -fsSL -o "$WORK_DIR/onnx/$f" "$ONNX_BASE/$f"
 done
-python3 -m venv "$WORK_DIR/venv"
-"$WORK_DIR/venv/bin/pip" install -q onnxruntime numpy > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
+# Python mặc định của runner có thể quá mới cho bánh onnxruntime ⇒ tìm 3.12/3.13 có sẵn, không có thì tải qua uv.
+PYBIN=""
+for candidate in /Users/runner/hostedtoolcache/Python/3.12*/arm64/bin/python3 \
+                 /Users/runner/hostedtoolcache/Python/3.13*/arm64/bin/python3 \
+                 "$(command -v python3.12 || true)" "$(command -v python3.13 || true)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then PYBIN="$candidate"; break; fi
+done
+if [ -n "$PYBIN" ]; then
+  "$PYBIN" -m venv "$WORK_DIR/venv"
+else
+  python3 -m pip install -q --user uv > "$WORK_DIR/uv.log" 2>&1 || tail -n 20 "$WORK_DIR/uv.log"
+  "$(python3 -m site --user-base)/bin/uv" venv --python 3.12 "$WORK_DIR/venv" > "$WORK_DIR/uv.log" 2>&1 \
+    || tail -n 20 "$WORK_DIR/uv.log"
+  "$(python3 -m site --user-base)/bin/uv" pip install --python "$WORK_DIR/venv/bin/python" pip > /dev/null 2>&1 || true
+fi
+echo "python: $("$WORK_DIR/venv/bin/python" --version 2>&1)"
+"$WORK_DIR/venv/bin/python" -m pip install -q onnxruntime numpy > "$WORK_DIR/pip.log" 2>&1 || tail -n 20 "$WORK_DIR/pip.log"
 "$WORK_DIR/venv/bin/python" "$CI_DIR/audiocpp_profile/codec_onnx_check.py" "$WORK_DIR/onnx" "$OUT_DIR/runs" \
   | tee "$OUT_DIR/summary.md"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
