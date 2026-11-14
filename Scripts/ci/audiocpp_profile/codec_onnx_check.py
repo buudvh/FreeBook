@@ -116,8 +116,9 @@ def decode(session, codes, frames_total, repeats=3):
     return audio, best_ms
 
 
-def coreml_session(model_path, options):
-    """Tạo session Core ML, bắt log verbose của ORT để đọc số node Core ML nhận."""
+def coreml_session(model_path, options, free_dims=None):
+    """Tạo session Core ML, bắt log verbose của ORT để đọc số node Core ML nhận. `free_dims` = cố định chiều động lúc
+    tạo session (`add_free_dimension_override_by_name`) thay vì sửa file model."""
     log_path = tempfile.mktemp(suffix=".log")
     saved = os.dup(2)
     with open(log_path, "w") as handle:
@@ -125,6 +126,8 @@ def coreml_session(model_path, options):
         try:
             so = ort.SessionOptions()
             so.log_severity_level = 0
+            for name, value in (free_dims or {}).items():
+                so.add_free_dimension_override_by_name(name, value)
             session = ort.InferenceSession(
                 str(model_path), sess_options=so,
                 providers=[("CoreMLExecutionProvider", options), "CPUExecutionProvider"])
@@ -132,6 +135,16 @@ def coreml_session(model_path, options):
             os.dup2(saved, 2)
             os.close(saved)
     text = pathlib.Path(log_path).read_text(errors="replace")
+    unsupported = {}
+    for op_type in re.findall(r"Operator type: \[(\w+)\][^\n]*supported: \[0\]", text):
+        unsupported[op_type] = unsupported.get(op_type, 0) + 1
+    if unsupported:
+        listing = ", ".join(f"{name}×{count}" for name, count in sorted(unsupported.items(), key=lambda kv: -kv[1]))
+        print(f"    op Core ML không nhận ({model_path.name}): {listing}")
+    else:
+        reasons = sorted(set(re.findall(r"(?:not supported|unsupported)[^\n]{0,120}", text)))[:12]
+        if reasons:
+            print(f"    lý do không nhận ({model_path.name}): " + " | ".join(reasons))
     found = re.findall(r"number of nodes in the graph: (\d+).*?number of nodes supported by CoreML: (\d+)", text, re.S)
     partitions = re.findall(r"number of partitions supported by CoreML: (\d+)", text)
     coverage = f"{found[-1][1]}/{found[-1][0]} node, {partitions[-1] if partitions else '?'} mảnh" if found else "không đọc được log độ phủ"
@@ -194,6 +207,18 @@ def main():
         print(f"Không có onnx / onnx_model_utils: {error}")
         return
     runs = sorted(p for p in runs_dir.iterdir() if (p / "codes.txt").exists())
+    # Cố định chiều lúc tạo session trên file GỐC (cách màn test trên máy sẽ làm — không phải tự lưu trữ model).
+    for bucket in (64,):
+        try:
+            options = dict(coreml_options, RequireStaticInputShapes="1")
+            session, coverage = coreml_session(model, options, {"batch": 1, "code_length": bucket})
+            codes = read_codes(runs[0] / "codes.txt")
+            reference, _ = decode(cpu, codes, codes.shape[1], repeats=1)
+            audio_ml, _ = decode(session, codes, bucket, repeats=1)
+            print(f"\nFile gốc + free dimension override (T={bucket}): {coverage}; SNR so với CPU "
+                  f"{snr_db(audio_ml[..., :reference.shape[-1]], reference):.1f} dB")
+        except Exception as error:  # noqa: BLE001
+            print(f"\nFile gốc + free dimension override (T={bucket}) lỗi: {str(error)[:160]}")
     print("\n| Bucket (khung) | Core ML nhận | Đoạn thử | ms/s Core ML (máy ảo) | SNR so với CPU (dB) |")
     print("|---|---|---|---|---|")
     for bucket in (64, 128):
