@@ -86,10 +86,13 @@ def make_inputs(session, codes, frames_total):
             shape = spec.shape
             padded = np.zeros((codes.shape[0], frames_total), dtype=np.int64)
             padded[:, :codes.shape[1]] = codes
-            if len(shape) == 3 and shape[0] in (16, "16"):
+            if len(shape) == 3 and shape[-1] in (16, "16"):
+                feeds[spec.name] = padded.T[None, :, :]  # [batch, khung, 16]
+            elif len(shape) == 3 and shape[0] in (16, "16"):
                 feeds[spec.name] = padded[:, None, :]
             else:
                 feeds[spec.name] = padded[None, :, :]
+            feeds[spec.name] = np.ascontiguousarray(feeds[spec.name])
             if "int32" in spec.type:
                 feeds[spec.name] = feeds[spec.name].astype(np.int32)
         elif spec.name == "audio_code_lengths":
