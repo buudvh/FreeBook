@@ -13,6 +13,7 @@ on:
       - 'Scripts/ci/audiocpp_parity_macos.sh'
       - 'Scripts/ci/audiocpp_wav_snr.py'
       - 'Scripts/ci/audiocpp_prefill_check.py'
+      - 'Scripts/ci/audiocpp_acoustic_check.py'
       - '.github/workflows/audiocpp-ios.yml'
   workflow_dispatch:
 

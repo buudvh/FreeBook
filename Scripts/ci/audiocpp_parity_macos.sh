@@ -13,8 +13,9 @@
 # và WAV phải trùng TỪNG BYTE với khi không có (cùng số luồng ⇒ cùng cách chia việc), log phải báo đã tạo pool.
 #
 # Bản vá `vieneu_acoustic_repack` (1.3.930): cấu hình app 1.3.929 thêm `acoustic_repack=true` ⇒ log phải báo đủ 5 ma
-# trận nằm trong CPU_REPACK, mã greedy + WAV phải trùng (logit chỉ lệch cỡ một nấc lượng tử q8 ở vài bước — đo CI
-# 2026-11-14: greedy trùng hết trên 237 khung).
+# trận nằm trong CPU_REPACK, và logit của bộ giải mã âm học phải nằm trong nhiễu lượng tử q8 so với khi tắt
+# (`audiocpp_acoustic_check.py`: sai số ≤ 3e-2 mỗi bước, greedy chỉ được rẽ ở chỗ gần hoà). Không đòi trùng từng byte:
+# thứ tự cộng khác đôi khi làm activation đổi nấc lượng tử ⇒ trên câu dài một đoạn greedy có thể rẽ ở chỗ gần hoà.
 #
 # Chạy trên runner macOS (CPU, không Metal, không OpenMP — giống bản iOS). Tải model ~188 MB từ HF (revision ghim).
 set -euo pipefail
@@ -172,8 +173,12 @@ fi
 # Threadpool giữ lâu (bản vá vieneu_threadpool, 1.3.929): đúng cấu hình app, chỉ thêm option ⇒ trùng từng byte.
 APP_OPTS=(--session-option vieneu_v3_turbo.codec_blas=true --session-option vieneu_v3_turbo.prefill_blas=true)
 run_case "$CLI_PATCHED" "app_long" "$LONG" "${APP_OPTS[@]}" --log-file "$WORK_DIR/out/app_long.trace"
+# Lượt này cũng là base của phép chấm repack bên dưới ⇒ ghi logit bộ giải mã âm học (không đổi phép tính).
+rm -f "$WORK_DIR/out/pool_long.dump"
+export VIENEU_LOGITS_DUMP="$WORK_DIR/out/pool_long.dump"
 run_case "$CLI_PATCHED" "pool_long" "$LONG" "${APP_OPTS[@]}" \
   --session-option vieneu_v3_turbo.threadpool_poll=0 --log-file "$WORK_DIR/out/pool_long.trace"
+unset VIENEU_LOGITS_DUMP
 pool_made="$(grep -c 'vieneu_v3_turbo.threadpool_poll 0' "$WORK_DIR/out/pool_long.trace" || true)"
 acoustic_app="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/app_long.trace" | tail -n 1 | awk '{print $NF}')"
 acoustic_pool="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/pool_long.trace" | tail -n 1 | awk '{print $NF}')"
@@ -189,10 +194,15 @@ else
   FAIL=1
 fi
 
-# Repack bộ giải mã âm học (bản vá vieneu_acoustic_repack, 1.3.930): so với cấu hình app 1.3.929 (pool_long).
+# Repack bộ giải mã âm học (bản vá vieneu_acoustic_repack, 1.3.930): so với cấu hình app 1.3.929 (pool_long). Không
+# đòi trùng từng byte (thứ tự cộng khác ⇒ đôi khi logit lệch một nấc lượng tử q8, greedy có thể rẽ ở chỗ gần hoà) —
+# chấm logit bằng audiocpp_acoustic_check.py.
+rm -f "$WORK_DIR/out/repack_long.dump"
+export VIENEU_LOGITS_DUMP="$WORK_DIR/out/repack_long.dump"
 run_case "$CLI_PATCHED" "repack_long" "$LONG" "${APP_OPTS[@]}" \
   --session-option vieneu_v3_turbo.threadpool_poll=0 --session-option vieneu_v3_turbo.acoustic_repack=true \
   --log-file "$WORK_DIR/out/repack_long.trace"
+unset VIENEU_LOGITS_DUMP
 repack_weights="$(grep -E 'vieneu_v3_turbo.talker.acoustic_repack.weights ' "$WORK_DIR/out/repack_long.trace" | head -n 1 | awk '{print $NF}')"
 repack_buffer="$(grep -E 'vieneu_v3_turbo.acoustic_decoder.repack.buffer_name ' "$WORK_DIR/out/repack_long.trace" | head -n 1 | awk '{print $NF}')"
 acoustic_repack="$(grep -E 'vieneu_v3_turbo.talker.code_predictor_ms ' "$WORK_DIR/out/repack_long.trace" | tail -n 1 | awk '{print $NF}')"
@@ -201,11 +211,14 @@ if [ "${repack_weights:-0}" != "5" ] || [ "${repack_buffer:-}" != "CPU_REPACK" ]
   echo "::error::repack: bật acoustic_repack mà log không báo đủ 5 ma trận trong CPU_REPACK"
   grep -E 'repack' "$WORK_DIR/out/repack_long.trace" | head -n 10 || true
   FAIL=1
-elif cmp -s "$WORK_DIR/out/pool_long.codes.txt" "$WORK_DIR/out/repack_long.codes.txt" \
-    && cmp -s "$WORK_DIR/out/pool_long.wav" "$WORK_DIR/out/repack_long.wav"; then
-  echo "✓ repack: mã âm thanh + WAV giống hệt cấu hình app 1.3.929"
+elif python3 "$CI_DIR/audiocpp_acoustic_check.py" "$WORK_DIR/out/pool_long.dump" "$WORK_DIR/out/repack_long.dump"; then
+  if cmp -s "$WORK_DIR/out/pool_long.codes.txt" "$WORK_DIR/out/repack_long.codes.txt"; then
+    echo "✓ repack: logit trong nhiễu lượng tử q8, mã âm thanh trùng cấu hình app 1.3.929"
+  else
+    echo "✓ repack: logit trong nhiễu lượng tử q8, greedy chỉ rẽ ở chỗ gần hoà"
+  fi
 else
-  echo "::error::repack: đổi mã âm thanh so với cấu hình app 1.3.929"
+  echo "::error::repack: logit bộ giải mã âm học lệch quá nhiễu lượng tử q8 (hoặc greedy rẽ ở chỗ không gần hoà)"
   FAIL=1
 fi
 exit "$FAIL"
