@@ -30,9 +30,9 @@ public actor BookSourceMigrator {
     }
 
     /// Chép mọi thiết lập riêng của truyện cũ sang truyện đích. Không xoá gì; chạy lại nhiều lần cho cùng kết quả.
-    public func copyBookScopedSettings(from oldBookId: String, to newBookId: String) {
+    public func copyBookScopedSettings(from oldBookId: String, to newBookId: String) async {
         guard oldBookId != newBookId else { return }
-        copyTranslationFiles(from: oldBookId, to: newBookId)
+        await copyTranslationFiles(from: oldBookId, to: newBookId)
         AIChatHistoryStore.shared.copySessions(from: oldBookId, to: newBookId)
         BookAIMemoryStore.shared.copyMemory(from: oldBookId, to: newBookId)
         AINameScanScopeStore.shared.copy(from: oldBookId, to: newBookId)
@@ -72,8 +72,11 @@ public actor BookSourceMigrator {
         }
     }
 
-    /// File dưới `translate/books/<bookId>/`: chép từng file, file truyện đích đã có thì giữ.
-    private func copyTranslationFiles(from oldBookId: String, to newBookId: String) {
+    /// File dưới `translate/books/<bookId>/`: chép từng file, file truyện đích đã có thì giữ — **trừ** từ điển riêng
+    /// (`VietPhrase.txt`, `Names.txt`): truyện đích (dùng lại truyện có sẵn, đổi nguồn lần hai) đã có thì **gộp** (1.3.946):
+    /// mục của truyện cũ thắng khi trùng từ (bản đang dùng), mục chỉ truyện đích có giữ nguyên. Trước đây "đã có thì giữ"
+    /// làm VP / Name riêng thêm ở truyện cũ biến mất cùng truyện cũ.
+    private func copyTranslationFiles(from oldBookId: String, to newBookId: String) async {
         let oldDir = bookTranslationDirectory(oldBookId)
         let newDir = bookTranslationDirectory(newBookId)
         guard FileManager.default.fileExists(atPath: oldDir.path) else { return }
@@ -82,8 +85,19 @@ public actor BookSourceMigrator {
         for name in TranslationManager.bookScopedMigrationFiles {
             let oldFile = oldDir.appendingPathComponent(name)
             let newFile = newDir.appendingPathComponent(name)
-            guard FileManager.default.fileExists(atPath: oldFile.path),
-                  !FileManager.default.fileExists(atPath: newFile.path) else { continue }
+            guard FileManager.default.fileExists(atPath: oldFile.path) else { continue }
+            if FileManager.default.fileExists(atPath: newFile.path) {
+                guard TranslationManager.bookScopedDictionaryTextFiles.contains(name) else { continue }
+                do {
+                    try await TranslationDictionaryWriter.shared.importEntries(
+                        from: oldFile, isName: name == "Names.txt", bookId: newBookId, isMerge: true
+                    )
+                    AppLogger.shared.log("[BookSourceMigrator] Gộp \(name) của truyện cũ vào truyện đích")
+                } catch {
+                    AppLogger.shared.log("❌ [BookSourceMigrator] Không gộp được \(name) sang truyện mới: \(error.localizedDescription)")
+                }
+                continue
+            }
             do {
                 try FileManager.default.copyItem(at: oldFile, to: newFile)
             } catch {

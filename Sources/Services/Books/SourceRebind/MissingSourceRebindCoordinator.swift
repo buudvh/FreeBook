@@ -256,7 +256,6 @@ final class MissingSourceRebindCoordinator {
             try await Task.sleep(nanoseconds: 250_000_000)
             waited += 1
         }
-        let tts = TTSManager.shared
         let request = BookSourceChangeCoordinator.Request(
             oldBookId: candidate.bookId,
             oldTitle: candidate.title,
@@ -264,7 +263,6 @@ final class MissingSourceRebindCoordinator {
             oldIsOnShelf: candidate.isOnShelf,
             oldIsHistory: candidate.isHistory,
             oldLastReadDate: candidate.lastReadDate,
-            keepsOldBook: (tts.isPlaying || tts.showFloatingWidget) && tts.playingBookId == candidate.bookId,
             result: ExtensionItemResult(name: candidate.title, author: candidate.author, link: candidate.detailUrl, host: bookHost),
             ext: ext
         )

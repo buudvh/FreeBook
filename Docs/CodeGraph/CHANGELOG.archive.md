@@ -2,6 +2,44 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.915] - 2026-11-13
+
+### feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model
+
+Anh Bửu gửi kết quả P2b-0 của bản 1.3.913 (1251):
+- Tắt tối ưu ORT lúc chạy không đổi được gì: bản mới trùng bit bản cũ (∞ dB), `model.mil` vẫn 549 MB.
+- 5 dòng dài nhất của `model.mil` đều là hằng `linear_onnx__MatMul_…_t` — đúng tên Gemm builder của Core ML EP đặt khi chuyển vị B.
+- Nguyên nhân: `ort_basic` của script xuất chạy ORT mức BASIC trên PC và lưu graph đã tối ưu, nên `Gemm(transB=0)` đã gộp sẵn **trong file ONNX**.
+
+Anh duyệt plan P2b-1. Chi tiết ở §14 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Script xuất** `Scripts/vieneu_nano_coreml_export.py`, định dạng 3:
+  - `gemm_weights_to_transb`: mỗi Gemm `transB=0` có B là initializer ⇒ lưu Bᵀ, đặt `transB=1`. Làm trước khi tách file trọng số dùng chung. Đã đổi VE 80 node / bucket, codec 20 node / bucket.
+  - Kiểm không còn Gemm `transB=0` nào có B là initializer.
+  - Với `transB=1`, Core ML EP (`gemm_op_builder.cc`) tham chiếu initializer theo tên ⇒ trọng số vào `weight.bin`. Op `linear` và giá trị trọng số không đổi.
+- **Kiểm trên PC**, gói mới so với gói định dạng 2:
+  - tự kiểm golden 14 dòng giống hệt;
+  - ORT CPU với input ngẫu nhiên: mọi graph VE / codec trùng từng bit;
+  - `ve_main.weights` / `codec.weights` **cùng số byte**, khác sha; mỗi graph vẫn chỉ trỏ một file trọng số dùng chung;
+  - khoá cache Core ML đổi theo graph.
+- **Đã tải lên kho HF** `raikiri1498/VieNeu-TTS/nano-coreml/` (commit `0d5d13ce`); tải ẩn danh khớp sha256.
+- **App** `VieNeuCoreMLPackage`:
+  - `supportedFormat = 3`.
+  - `download()` giữ một file chỉ khi **đúng dung lượng và đúng sha256**: sha lấy từ manifest cũ trên máy, khác hoặc chưa có thì băm file. Lý do: file trọng số chuyển vị cùng số byte, so dung lượng thì giữ trọng số cũ đi với graph mới ⇒ ra sai mà không báo lỗi.
+  - Manifest mới chỉ ghi đè bản cũ sau khi đủ file.
+  - Trả `DownloadResult` (số file tải, có xoá cache không).
+  - Có file mới ⇒ xoá cả `Cache/` (4 GB cũ) lẫn `Cache-noopt/` còn lại của 1.3.913.
+- **"Đo nạp Core ML" đổi sang P2b-1** (`VieNeuCoreMLGraphCheck`, `VieNeuCoreMLGoldenSpeedCheck`):
+  1. tự làm mới gói trước (không cần chạy Đo tự động trước);
+  2. dựng session lần đầu VE T64 + codec T64, ghi số partition;
+  3. đo dung lượng và dòng dài nhất `model.mil`;
+  4. nạp Core ML gốc + ORT, mỗi cách 2 lần;
+  5. golden dB so với số của định dạng 2 (latent 102,5 / 106,3, sóng âm 85,7 / 101,4 — báo "trùng số cũ");
+  6. tốc độ mỗi lượt so với 42,4 ms/lượt VE và 99 ms codec, ±10% là "như cũ".
+- Bỏ phép thử tắt tối ưu của 1.3.913: `VieNeuCoreMLNoOptTrial` / `Comparison`, cờ `disablesGraphOptimization` của backend. Khoá `fb.graph_optimization` của bridge giữ lại (vô hại).
+- App cũ (gói định dạng 2) gặp gói mới thì báo "định dạng 3 — app này chỉ hiểu 2", không trộn file.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.914] - 2026-11-13
 
 ### chore: Giữ mọi release build trên GitHub, nguồn LiveContainer vẫn liệt kê 5 bản mới nhất

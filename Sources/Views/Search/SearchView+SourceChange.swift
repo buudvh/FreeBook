@@ -10,7 +10,6 @@ extension SearchView {
         // Chụp **giá trị** ngay: instance `Book` cũ sẽ bị xoá ở cuối lượt, không đọc lại nó sau khi bắt đầu.
         let oldBookId = oldBook.bookId
         let oldPackageId = oldBook.extensionPackageId
-        let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
         let request = BookSourceChangeCoordinator.Request(
             oldBookId: oldBookId,
             oldTitle: oldBook.title,
@@ -18,7 +17,6 @@ extension SearchView {
             oldIsOnShelf: oldBook.isOnShelf,
             oldIsHistory: oldBook.isHistory,
             oldLastReadDate: oldBook.lastReadDate,
-            keepsOldBook: isPlayingTTS,
             result: result,
             ext: ext
         )

@@ -10,7 +10,7 @@ extension BookSourceChangeCoordinator {
     func finishCommitted(_ journal: BookSourceChangeJournal, container: ModelContainer) async {
         defer { TranslationManager.shared.clearBookDictCache(for: journal.newBookId) }
         guard !journal.keepsOldBook else {
-            AppLogger.shared.log("[SourceChange] Giữ truyện cũ \(journal.oldBookId) (đang nghe TTS hoặc có chương chép lỗi)")
+            AppLogger.shared.log("[SourceChange] Giữ truyện cũ \(journal.oldBookId) (có chương chép lỗi)")
             BookSourceChangeJournal.clear()
             return
         }

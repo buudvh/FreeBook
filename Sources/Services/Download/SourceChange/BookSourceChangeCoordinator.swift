@@ -29,8 +29,6 @@ final class BookSourceChangeCoordinator {
         let oldIsOnShelf: Bool
         let oldIsHistory: Bool
         let oldLastReadDate: Date
-        /// Đang nghe TTS truyện cũ ⇒ giữ truyện cũ để không ngắt quãng nghe.
-        let keepsOldBook: Bool
         let result: ExtensionItemResult
         let ext: Extension
     }
@@ -42,6 +40,8 @@ final class BookSourceChangeCoordinator {
         let keptOldBook: Bool
         let isOnShelf: Bool
         let copyReport: BookSourceChapterCopier.Report
+        /// Chi tiết + mục lục ở nguồn mới — để phiên TTS đang nghe truyện cũ đọc tiếp ở truyện mới (1.3.946).
+        let source: SourceSnapshot
     }
 
     enum Failure: LocalizedError {
@@ -110,9 +110,7 @@ final class BookSourceChangeCoordinator {
 
         // Chỉ dừng tải của truyện cũ khi nguồn mới đã trả mục lục (tra lỗi thì không đổi gì). Ghi nốt chương đang ghi dở
         // (kể cả của tác vụ vừa huỷ) vào ChapterStore trước khi đọc mục lục để chép.
-        if !request.keepsOldBook {
-            DownloadManager.shared.cancelTasksForBook(bookId: request.oldBookId)
-        }
+        DownloadManager.shared.cancelTasksForBook(bookId: request.oldBookId)
         await ChapterContentRepository.shared.flush(bookId: request.oldBookId)
 
         var journal = BookSourceChangeJournal(
@@ -120,7 +118,7 @@ final class BookSourceChangeCoordinator {
             newBookId: newBookId,
             bookTitle: request.oldTitle,
             createdNewBook: existing == nil,
-            keepsOldBook: request.keepsOldBook,
+            keepsOldBook: false,
             phase: .copying,
             startedAt: Date()
         )
@@ -180,14 +178,15 @@ final class BookSourceChangeCoordinator {
             }
         }
 
-        journal.keepsOldBook = request.keepsOldBook || report.failed > 0
+        journal.keepsOldBook = report.failed > 0
         journal.phase = .committed
         let outcome = Outcome(
             newBookId: newBookId,
             reusedExistingBook: existing != nil,
             keptOldBook: journal.keepsOldBook,
             isOnShelf: request.oldIsOnShelf || existing?.isOnShelf == true,
-            copyReport: report
+            copyReport: report,
+            source: source
         )
         do {
             try journal.save()
@@ -196,7 +195,14 @@ final class BookSourceChangeCoordinator {
             AppLogger.shared.log("❌ [SourceChange] Không ghi được mốc chốt, giữ cả hai truyện: \(error.localizedDescription)")
             BookSourceChangeJournal.clear()
             return Outcome(newBookId: newBookId, reusedExistingBook: existing != nil, keptOldBook: true,
-                           isOnShelf: outcome.isOnShelf, copyReport: report)
+                           isOnShelf: outcome.isOnShelf, copyReport: report, source: source)
+        }
+        // Đang nghe TTS truyện cũ (1.3.946) ⇒ phiên nghe sang truyện mới **trước** khi dọn truyện cũ — trước đây giữ cả hai
+        // truyện để khỏi ngắt quãng, nên VP / Name riêng lưu lúc nghe tiếp rơi vào truyện cũ rồi mất cùng nó.
+        if !journal.keepsOldBook {
+            TTSManager.shared.continueListeningAfterSourceChange(
+                fromBookId: request.oldBookId, toBookId: newBookId, source: source, ext: request.ext
+            )
         }
         finishScheduled = true
         scheduleFinish(journal, container: container)

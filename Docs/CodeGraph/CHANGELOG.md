@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.946] - 2026-11-14
+
+### fix: Đổi nguồn lúc đang nghe truyện thì nghe tiếp ở truyện mới và không còn mất VP riêng
+
+Anh Bửu: "đang nghe truyện mà chuyển nguồn thì truyện nguồn mới bị mất vp riêng" — chọn "tự chuyển nghe sang truyện mới". Hai đường làm mất (đối chiếu code):
+
+- **Đang nghe ⇒ giữ cả hai truyện**: lượt đổi nguồn giữ truyện cũ khi TTS còn phiên của nó (`keepsOldBook`), TTS vẫn đọc truyện cũ, mở Reader từ đĩa nghe / sheet nghe / hẹn giờ là mở truyện cũ ⇒ VP / Name "Riêng" lưu lúc đó vào truyện cũ. Nay bỏ việc giữ: ngay sau mốc chốt `BookSourceChangeCoordinator` gọi `TTSManager.continueListeningAfterSourceChange` (`TTSManager+SourceChange`, file mới) — dừng phiên cũ (để `BookStorageManager` xoá được truyện cũ), tải chương cùng chỉ số ở truyện mới (chép chương theo vị trí) rồi đọc tiếp từ đầu dòng đang đọc, tên / bìa / tiện ích / bộ dịch của nguồn mới. Đang tạm dừng ⇒ chỉ dừng hẳn + toast "bấm nghe để đọc tiếp"; nguồn mới thiếu chương / tải lỗi ⇒ dừng + toast. Truyện cũ dọn như thường (còn giữ khi có chương chép lỗi). Áp cho cả Đổi nguồn ở màn Tìm lẫn "Chuyển sang nguồn …" của truyện mất nguồn (`Request.keepsOldBook` bỏ, tải của truyện cũ luôn huỷ).
+- **Truyện đích đã có từ điển ⇒ bỏ qua**: `BookSourceMigrator.copyTranslationFiles` chỉ chép file khi truyện đích chưa có, nên dùng lại truyện có sẵn / đổi nguồn lần hai thì VP riêng của truyện cũ bị bỏ rồi xoá cùng nó. Nay `VietPhrase.txt` / `Names.txt` đã có thì **gộp** qua `TranslationDictionaryWriter.importEntries(isMerge: true)` (mục truyện cũ thắng khi trùng từ; xoá bộ đệm + báo từ điển đổi); file khác giữ "đã có thì giữ". `copyBookScopedSettings` thành `async`. Lùi lại trước mốc chốt với truyện dùng lại thì mục đã gộp ở lại truyện đó (chỉ là mục của cùng truyện).
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch Đổi nguồn).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.945] - 2026-11-14
 
 ### feat: Giọng dự phòng offline khi TTS online lỗi hoặc mất mạng, tự quay lại giọng online khi hết lỗi
@@ -540,41 +551,3 @@ App nén ~41,0 MB (IPA cũ 42,2 MB, dưới giới hạn 50 MB của Telegram).
 **Chưa làm**: tách các view type-check chậm (58 thân hàm > 200 ms, cộng 63 s; nặng nhất `ReaderView.readerObserverLayer` 13,3 s, `ReaderAINameReviewCardView.body` 4,4 s, `DiscoveryView.body` 3,3 s) — chỉ lợi vài phần trăm; cache gói SPM — lợi ~30–50 s, thêm rủi ro cache cũ.
 
 `CLAUDE.md` + `AGENTS.md`: thêm đoạn "Chế độ biên dịch Release".
-
-## [1.3.915] - 2026-11-13
-
-### feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model
-
-Anh Bửu gửi kết quả P2b-0 của bản 1.3.913 (1251):
-- Tắt tối ưu ORT lúc chạy không đổi được gì: bản mới trùng bit bản cũ (∞ dB), `model.mil` vẫn 549 MB.
-- 5 dòng dài nhất của `model.mil` đều là hằng `linear_onnx__MatMul_…_t` — đúng tên Gemm builder của Core ML EP đặt khi chuyển vị B.
-- Nguyên nhân: `ort_basic` của script xuất chạy ORT mức BASIC trên PC và lưu graph đã tối ưu, nên `Gemm(transB=0)` đã gộp sẵn **trong file ONNX**.
-
-Anh duyệt plan P2b-1. Chi tiết ở §14 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
-
-- **Script xuất** `Scripts/vieneu_nano_coreml_export.py`, định dạng 3:
-  - `gemm_weights_to_transb`: mỗi Gemm `transB=0` có B là initializer ⇒ lưu Bᵀ, đặt `transB=1`. Làm trước khi tách file trọng số dùng chung. Đã đổi VE 80 node / bucket, codec 20 node / bucket.
-  - Kiểm không còn Gemm `transB=0` nào có B là initializer.
-  - Với `transB=1`, Core ML EP (`gemm_op_builder.cc`) tham chiếu initializer theo tên ⇒ trọng số vào `weight.bin`. Op `linear` và giá trị trọng số không đổi.
-- **Kiểm trên PC**, gói mới so với gói định dạng 2:
-  - tự kiểm golden 14 dòng giống hệt;
-  - ORT CPU với input ngẫu nhiên: mọi graph VE / codec trùng từng bit;
-  - `ve_main.weights` / `codec.weights` **cùng số byte**, khác sha; mỗi graph vẫn chỉ trỏ một file trọng số dùng chung;
-  - khoá cache Core ML đổi theo graph.
-- **Đã tải lên kho HF** `raikiri1498/VieNeu-TTS/nano-coreml/` (commit `0d5d13ce`); tải ẩn danh khớp sha256.
-- **App** `VieNeuCoreMLPackage`:
-  - `supportedFormat = 3`.
-  - `download()` giữ một file chỉ khi **đúng dung lượng và đúng sha256**: sha lấy từ manifest cũ trên máy, khác hoặc chưa có thì băm file. Lý do: file trọng số chuyển vị cùng số byte, so dung lượng thì giữ trọng số cũ đi với graph mới ⇒ ra sai mà không báo lỗi.
-  - Manifest mới chỉ ghi đè bản cũ sau khi đủ file.
-  - Trả `DownloadResult` (số file tải, có xoá cache không).
-  - Có file mới ⇒ xoá cả `Cache/` (4 GB cũ) lẫn `Cache-noopt/` còn lại của 1.3.913.
-- **"Đo nạp Core ML" đổi sang P2b-1** (`VieNeuCoreMLGraphCheck`, `VieNeuCoreMLGoldenSpeedCheck`):
-  1. tự làm mới gói trước (không cần chạy Đo tự động trước);
-  2. dựng session lần đầu VE T64 + codec T64, ghi số partition;
-  3. đo dung lượng và dòng dài nhất `model.mil`;
-  4. nạp Core ML gốc + ORT, mỗi cách 2 lần;
-  5. golden dB so với số của định dạng 2 (latent 102,5 / 106,3, sóng âm 85,7 / 101,4 — báo "trùng số cũ");
-  6. tốc độ mỗi lượt so với 42,4 ms/lượt VE và 99 ms codec, ±10% là "như cũ".
-- Bỏ phép thử tắt tối ưu của 1.3.913: `VieNeuCoreMLNoOptTrial` / `Comparison`, cờ `disablesGraphOptimization` của backend. Khoá `fb.graph_optimization` của bridge giữ lại (vô hại).
-- App cũ (gói định dạng 2) gặp gói mới thì báo "định dạng 3 — app này chỉ hiểu 2", không trộn file.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
