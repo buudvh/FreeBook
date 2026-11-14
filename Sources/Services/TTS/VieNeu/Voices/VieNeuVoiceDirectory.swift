@@ -9,20 +9,13 @@ import Observation
 ///   (`VieNeuCustomVoiceStore`). Mọi giọng Nano dùng chung một gói model ⇒ một trạng thái tải.
 /// - Turbo: 25 giọng manifest (file trên máy, không thì danh sách dựng sẵn) chia "Tuyển chọn" / "Giọng khác" + giọng tự
 ///   tạo (`VieNeuTurboCustomVoiceRepository`). Mỗi giọng manifest một cặp file vài KB; model + `sea_g2p.bin` dùng chung.
-/// - `nanoWithoutTurbo`: giọng Nano tự tạo chưa có bản Turbo (khớp qua `Record.sourceNanoVoiceId`).
+/// - Cặp Nano ↔ Turbo (1.3.937): `pairedKeys` = giọng đã có bản ở model kia (luật `VieNeuVoicePairing.resolve`, cùng luật
+///   với đọc lai); `nanoWithoutTurbo` / `turboWithoutNano` = giọng tự tạo chưa có bản ở model kia (hàng "Tạo bản …");
+///   `copySource(for:)` = nguồn nhân bản chéo của một hàng bất kỳ (menu nhấn giữ).
 @MainActor
 @Observable
 final class VieNeuVoiceDirectory {
     static let shared = VieNeuVoiceDirectory()
-
-    /// Giọng Nano tự tạo chưa có bản Turbo — hàng "Tạo bản Turbo" trong chip Turbo.
-    struct NanoOnlyVoice: Identifiable, Hashable, Sendable {
-        let id: String
-        let name: String
-        let sampleSeconds: Double?
-        /// Còn mẫu âm thanh gốc (bắt buộc để tạo bản Turbo).
-        let hasSample: Bool
-    }
 
     /// Ảnh chụp dựng ngoài main.
     struct Snapshot: Sendable {
@@ -31,7 +24,10 @@ final class VieNeuVoiceDirectory {
         var turboFeatured: [VieNeuVoiceEntry] = []
         var turboOthers: [VieNeuVoiceEntry] = []
         var turboMine: [VieNeuVoiceEntry] = []
-        var nanoWithoutTurbo: [NanoOnlyVoice] = []
+        var nanoWithoutTurbo: [VieNeuVoiceCopySource] = []
+        var turboWithoutNano: [VieNeuVoiceCopySource] = []
+        /// `VieNeuVoiceSelection.key` của mọi giọng đã có bản ở model kia.
+        var pairedKeys: Set<String> = []
         var isNanoReady = false
         var nanoMissingBytes: Int64 = 0
         var isTurboBaseReady = false
@@ -58,7 +54,25 @@ final class VieNeuVoiceDirectory {
     var turboFeatured: [VieNeuVoiceEntry] { snapshot.turboFeatured }
     var turboOthers: [VieNeuVoiceEntry] { snapshot.turboOthers }
     var turboMine: [VieNeuVoiceEntry] { snapshot.turboMine }
-    var nanoWithoutTurbo: [NanoOnlyVoice] { snapshot.nanoWithoutTurbo }
+    var nanoWithoutTurbo: [VieNeuVoiceCopySource] { snapshot.nanoWithoutTurbo }
+    var turboWithoutNano: [VieNeuVoiceCopySource] { snapshot.turboWithoutNano }
+
+    /// Nguồn "Tạo bản Turbo / Nano" của một hàng; `nil` = đã có cặp (hoặc chưa đọc xong đĩa). Giọng có sẵn không có mẫu
+    /// gốc ⇒ đọc mẫu bằng tiếng máy.
+    func copySource(for entry: VieNeuVoiceEntry) -> VieNeuVoiceCopySource? {
+        guard hasLoaded, !snapshot.pairedKeys.contains(entry.id) else { return nil }
+        if entry.isMine {
+            return (snapshot.nanoWithoutTurbo + snapshot.turboWithoutNano).first { $0.id == entry.id }
+        }
+        return VieNeuVoiceCopySource(
+            selection: entry.selection,
+            name: entry.name,
+            isCustom: false,
+            nanoRecordId: nil,
+            sampleURL: nil,
+            sampleSeconds: nil
+        )
+    }
     var isNanoReady: Bool { snapshot.isNanoReady }
     var isTurboBaseReady: Bool { snapshot.isTurboBaseReady }
     var turboBaseMissingBytes: Int64 { snapshot.turboBaseMissingBytes }
@@ -144,29 +158,64 @@ final class VieNeuVoiceDirectory {
         var result = Snapshot()
         let nanoStore = readsDisk ? (try? VieNeuModelStore()) : nil
         let turboStore = readsDisk ? (try? VieNeuTurboModelStore()) : nil
-        fillNano(into: &result, store: nanoStore)
+        let nanoCustomStore = nanoStore.map { VieNeuCustomVoiceStore(rootURL: $0.rootURL) }
+        let nanoRecords = nanoCustomStore?.loadLeniently() ?? []
+        fillNano(into: &result, store: nanoStore, records: nanoRecords)
         fillTurbo(into: &result, store: turboStore, nanoStore: nanoStore, records: turboRecords)
-
-        let linked = Set(turboRecords.compactMap(\.sourceNanoVoiceId))
-        if let nanoStore {
-            let customStore = VieNeuCustomVoiceStore(rootURL: nanoStore.rootURL)
-            result.nanoWithoutTurbo = customStore.loadLeniently()
-                .filter { !linked.contains($0.id) }
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                .map { record in
-                    let sample = customStore.sampleURL(for: record)
-                    return NanoOnlyVoice(
-                        id: record.id,
-                        name: record.name,
-                        sampleSeconds: sample.flatMap(audioSeconds),
-                        hasSample: sample != nil
-                    )
-                }
-        }
+        fillPairs(into: &result, nanoRecords: nanoRecords, nanoStore: nanoCustomStore, turboRecords: turboRecords, turboStore: turboStore)
         return result
     }
 
-    private nonisolated static func fillNano(into result: inout Snapshot, store: VieNeuModelStore?) {
+    /// Giọng nào đã có cặp + nguồn "Tạo bản …" của giọng tự tạo (1.3.937). Luật cặp là của đọc lai
+    /// (`VieNeuVoicePairing.resolve`) ⇒ hai bên không lệch nhau.
+    private nonisolated static func fillPairs(
+        into result: inout Snapshot,
+        nanoRecords: [VieNeuCustomVoiceStore.Record],
+        nanoStore: VieNeuCustomVoiceStore?,
+        turboRecords: [VieNeuTurboCustomVoiceStore.Record],
+        turboStore: VieNeuTurboModelStore?
+    ) {
+        let all = result.nanoPresets + result.nanoMine + result.turboFeatured + result.turboOthers + result.turboMine
+        let paired = Set(all.filter { entry in
+            VieNeuVoicePairing.resolve(
+                model: entry.model, voice: entry.selection.voiceId, nanoCustom: nanoRecords, turboCustom: turboRecords
+            ) != nil
+        }.map(\.id))
+        result.pairedKeys = paired
+        let byName: (VieNeuVoiceCopySource, VieNeuVoiceCopySource) -> Bool = {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+        if let nanoStore {
+            result.nanoWithoutTurbo = nanoRecords.compactMap { record -> VieNeuVoiceCopySource? in
+                let selection = VieNeuVoiceSelection(model: .nano, voiceId: record.name)
+                guard !paired.contains(selection.key) else { return nil }
+                let sample = nanoStore.sampleURL(for: record)
+                return VieNeuVoiceCopySource(
+                    selection: selection, name: record.name, isCustom: true, nanoRecordId: record.id,
+                    sampleURL: sample, sampleSeconds: sample.flatMap(audioSeconds)
+                )
+            }.sorted(by: byName)
+        }
+        let turboCustomStore = turboStore.map { VieNeuTurboCustomVoiceStore(modelStore: $0) }
+        result.turboWithoutNano = turboRecords.compactMap { record -> VieNeuVoiceCopySource? in
+            let selection = VieNeuVoiceSelection(model: .turbo, voiceId: record.id)
+            guard turboStore?.hasVoice(voiceId: record.id) ?? true, !paired.contains(selection.key) else { return nil }
+            // Mẫu Turbo có thể chỉ 1 s — Nano cần ≥ 3 s, ngắn hơn thì đọc mẫu bằng tiếng máy.
+            let sample = record.sampleSeconds >= VieNeuVoiceCloner.minimumSampleSeconds
+                ? turboCustomStore?.sampleURL(for: record)
+                : nil
+            return VieNeuVoiceCopySource(
+                selection: selection, name: record.name, isCustom: true, nanoRecordId: nil,
+                sampleURL: sample, sampleSeconds: sample == nil ? nil : record.sampleSeconds
+            )
+        }.sorted(by: byName)
+    }
+
+    private nonisolated static func fillNano(
+        into result: inout Snapshot,
+        store: VieNeuModelStore?,
+        records: [VieNeuCustomVoiceStore.Record]
+    ) {
         result.isNanoReady = store?.isReady ?? false
         result.nanoMissingBytes = store?.missingBytes(of: VieNeuModelStore.requiredNames)
             ?? VieNeuModelStore.requiredNames.reduce(Int64(0)) { $0 + (VieNeuModelStore.fileByteCounts[$1] ?? 0) }
@@ -195,7 +244,7 @@ final class VieNeuVoiceDirectory {
 
         guard let store else { return }
         let customStore = VieNeuCustomVoiceStore(rootURL: store.rootURL)
-        result.nanoMine = customStore.loadLeniently()
+        result.nanoMine = records
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             .map { record in
                 VieNeuVoiceEntry(

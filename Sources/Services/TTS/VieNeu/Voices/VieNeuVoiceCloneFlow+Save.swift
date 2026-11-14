@@ -3,12 +3,6 @@ import Foundation
 /// Lượt **Lưu** của sheet nhân bản giọng (1.3.901): tải gói thiếu → giọng Nano → giọng Turbo → chọn giọng vừa tạo + đọc
 /// thử câu mẫu. Tách file cho `VieNeuVoiceCloneFlow.swift` gọn.
 extension VieNeuVoiceCloneFlow {
-    enum SaveError: LocalizedError {
-        case engineUnavailable
-
-        var errorDescription: String? { "Không dựng được engine VieNeu." }
-    }
-
     /// Huỷ lượt Lưu (nút "Huỷ tải" khi đang tải gói, hoặc bỏ sheet giữa chừng). Đang tải ⇒ huỷ các lượt tải; đang tạo
     /// giọng ⇒ lượt ORT / audio.cpp dở chạy nốt ở nền (không dừng được giữa chừng), giọng tạo xong vẫn lưu nhưng không
     /// được chọn / đọc thử. Mẫu giữ nguyên để Lưu lại.
@@ -93,24 +87,11 @@ extension VieNeuVoiceCloneFlow {
         }
     }
 
-    /// Đường Nano **giữ nguyên** như màn "Giọng của tôi": `enrollVoice` (ngữ cảnh ORT riêng, không khử nhiễu) → lưu vào kho
-    /// Nano (chép mẫu) → nạp lại catalog của engine (nạp một lần ⇒ thiếu bước này giọng mới rơi về giọng mặc định).
+    /// Đường Nano **giữ nguyên** (`VieNeuNanoVoiceCreator`, dùng chung với "Tạo bản Nano").
     private func createNanoVoice(name: String, sampleURL: URL) async throws -> String {
-        guard let service = VieNeuTTSService.shared else { throw SaveError.engineUnavailable }
         nanoStage = nil
-        let enrollment = try await service.enrollVoice(sampleURL: sampleURL) { stage in
+        let record = try await VieNeuNanoVoiceCreator.create(name: name, sampleURL: sampleURL) { stage in
             Task { @MainActor [weak self] in self?.nanoStage = stage }
-        }
-        let record = try service.customVoiceStore.add(
-            name: name,
-            speakerEmbedding: enrollment.speakerEmbedding,
-            style: enrollment.style,
-            sampleSourceURL: sampleURL
-        )
-        do {
-            try service.refreshVoiceCatalog()
-        } catch {
-            AppLogger.shared.log("❌ [VieNeuClone] Nạp lại danh sách giọng Nano lỗi: \(error.localizedDescription)")
         }
         return record.id
     }

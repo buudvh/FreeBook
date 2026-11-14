@@ -1,7 +1,7 @@
 import Foundation
 
 /// Chữ **bước đang chạy** của lượt nhân bản giọng VieNeu — sheet nhân bản (`VieNeuVoiceCloneSheet`) và nút "Tạo bản
-/// Turbo" (`VieNeuTurboCopyRow`) dùng chung. Nhãn tiếng Việt ở tầng View, **không** ở Service (`VieNeuVoiceCloner.Stage`,
+/// Turbo / Nano" (`VieNeuVoiceCopyRow`) dùng chung. Nhãn tiếng Việt ở tầng View, **không** ở Service (`VieNeuVoiceCloner.Stage`,
 /// `VieNeuTurboVoiceCloneCoordinator.Stage` chỉ là trạng thái).
 enum VieNeuCloneStageText {
     /// Bước của lượt nhân bản **Nano**; `nil` khi chưa có bước nào (bên gọi tự hiện câu chờ chung).

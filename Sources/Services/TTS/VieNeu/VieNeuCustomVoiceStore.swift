@@ -35,6 +35,9 @@ final class VieNeuCustomVoiceStore {
         var sampleFileName: String?
         var speakerEmbedding: [Float]
         var style: [Float]
+        /// Giọng Turbo (id manifest hoặc `custom_…`) mà giọng Nano này được nhân bản từ đó ("Tạo bản Nano", 1.3.937) —
+        /// cặp Nano ↔ Turbo của đọc lai (`VieNeuVoicePairing`). `nil` ở mọi giọng cũ / tạo từ mẫu của người dùng.
+        var sourceTurboVoiceId: String?
     }
 
     enum StoreError: LocalizedError {
@@ -125,7 +128,8 @@ final class VieNeuCustomVoiceStore {
         name: String,
         speakerEmbedding: [Float],
         style: [Float],
-        sampleSourceURL: URL?
+        sampleSourceURL: URL?,
+        sourceTurboVoiceId: String? = nil
     ) throws -> Record {
         let trimmed = name.trimmed
         guard !trimmed.isEmpty else { throw StoreError.emptyName }
@@ -144,7 +148,8 @@ final class VieNeuCustomVoiceStore {
             createdAt: Date(),
             sampleFileName: sampleFileName,
             speakerEmbedding: speakerEmbedding,
-            style: style
+            style: style,
+            sourceTurboVoiceId: sourceTurboVoiceId
         )
         records.append(record)
         do {

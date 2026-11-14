@@ -35,6 +35,8 @@ final class VieNeuTurboCustomVoiceStore {
         var sampleFileName: String?
         /// Tạo từ mẫu của giọng Nano tự tạo nào (`VieNeuCustomVoiceStore.Record.id`), nếu có.
         let sourceNanoVoiceId: String?
+        /// Tạo từ tiếng đọc của giọng Nano **có sẵn** nào (tên giọng, "Tạo bản Turbo" 1.3.937), nếu có — cặp của đọc lai.
+        let sourceNanoPresetName: String?
     }
 
     enum StoreError: LocalizedError {

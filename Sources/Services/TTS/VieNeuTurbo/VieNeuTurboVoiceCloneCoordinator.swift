@@ -9,6 +9,8 @@ import Observation
 /// - `createVoice(fromFile:name:denoise:keepsSample:)` — file âm thanh bất kỳ iOS đọc được; `keepsSample` giữ **đoạn đã
 ///   cắt** (≤ 8 giây, WAV) chứ không chép cả file
 /// - `createVoice(fromNanoVoiceId:name:denoise:)` — dùng lại mẫu gốc của một giọng Nano tự tạo
+/// - `createVoice(fromFile:…, sourceNanoVoiceId:sourceNanoPresetName:)` — nhân bản chéo từ tiếng máy đọc của một giọng Nano
+///   (1.3.937, `VieNeuVoiceCopyRunner`): ghi liên kết để đọc lai nhận cặp
 /// - `isRunning`, `stage` — để vẽ tiến trình; `Stage` không mang chữ hiển thị (chữ là việc của View)
 ///
 /// Thứ tự giữ đỉnh bộ nhớ thấp: ngữ cảnh ORT (denoiser + speaker_encoder) nhả **trước** khi audio.cpp chạy encoder;
@@ -98,7 +100,9 @@ final class VieNeuTurboVoiceCloneCoordinator {
         name: String,
         denoise: Bool = true,
         keepsSample: Bool = true,
-        keepsIntermediate: Bool = false
+        keepsIntermediate: Bool = false,
+        sourceNanoVoiceId: String? = nil,
+        sourceNanoPresetName: String? = nil
     ) async throws -> Outcome {
         try await run(
             sampleURL: sampleURL,
@@ -106,7 +110,8 @@ final class VieNeuTurboVoiceCloneCoordinator {
             denoise: denoise,
             keepsSample: keepsSample,
             keepsIntermediate: keepsIntermediate,
-            sourceNanoVoiceId: nil
+            sourceNanoVoiceId: sourceNanoVoiceId,
+            sourceNanoPresetName: sourceNanoPresetName
         )
     }
 
@@ -125,7 +130,8 @@ final class VieNeuTurboVoiceCloneCoordinator {
             denoise: denoise,
             keepsSample: false,
             keepsIntermediate: false,
-            sourceNanoVoiceId: record.id
+            sourceNanoVoiceId: record.id,
+            sourceNanoPresetName: nil
         )
     }
 
@@ -137,7 +143,8 @@ final class VieNeuTurboVoiceCloneCoordinator {
         denoise: Bool,
         keepsSample: Bool,
         keepsIntermediate: Bool,
-        sourceNanoVoiceId: String?
+        sourceNanoVoiceId: String?,
+        sourceNanoPresetName: String?
     ) async throws -> Outcome {
         guard !isRunning else { throw CloneError.alreadyRunning }
         if let error = Self.readinessError(denoise: denoise) { throw error }
@@ -209,7 +216,8 @@ final class VieNeuTurboVoiceCloneCoordinator {
                 isDenoised: prepared.isDenoised,
                 sampleSeconds: prepared.durationSeconds,
                 sampleFileName: sampleFileName,
-                sourceNanoVoiceId: sourceNanoVoiceId
+                sourceNanoVoiceId: sourceNanoVoiceId,
+                sourceNanoPresetName: sourceNanoPresetName
             )
             try store.commit(record)
             VieNeuTurboCustomVoiceRepository.shared.reload()

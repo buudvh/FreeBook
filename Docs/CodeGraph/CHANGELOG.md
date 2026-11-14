@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.937] - 2026-11-14
+
+### feat: Tạo bản Nano và Turbo cho mọi giọng VieNeu, giọng không có mẫu thì nhân bản từ tiếng máy đọc, bản mới tự ghép cặp đọc lai
+
+Anh Bửu giao qua session tối ưu Turbo: nhân bản chéo Nano ↔ Turbo, kể cả giọng không có mẫu gốc; bản mới phải được đọc lai (1.3.934) nhận là cặp. Anh duyệt plan + mockup.
+
+- **Lối vào** (sheet chọn giọng): nhấn giữ một giọng chưa có bản ở model kia ⇒ "Tạo bản Turbo" / "Tạo bản Nano" (`VieNeuVoiceRowMenu`, giọng có sẵn lẫn giọng tự tạo; giọng tự tạo vẫn có Đổi tên / Xoá). Giọng tự tạo chưa có bản ở model kia hiện trong "Giọng của tôi" của chip đích với nút (`VieNeuVoiceCopyRow`, thay `VieNeuTurboCopyRow`; chip Nano nay cũng có hàng "Tạo bản Nano" cho giọng Turbo tự tạo). Bắt đầu ⇒ sheet sang chip đích; lượt của giọng có sẵn hiện tạm một hàng tiến độ ở đó (tải gói %, "Đang cho giọng … đọc mẫu…", bước tạo giọng).
+- **`VieNeuVoiceCopyRunner`** (thay `VieNeuTurboCopyRunner`, hai chiều, mỗi lúc một lượt): tải gói của model đích nếu thiếu (`VieNeuClonePackages`) → mẫu → tạo. Mẫu: giọng Nano tự tạo còn file mẫu, giọng Turbo tự tạo còn `sample.wav` ≥ 3 s ⇒ dùng mẫu gốc; còn lại (giọng có sẵn, Turbo cũ không giữ mẫu, mẫu Turbo < 3 s, Nano mất file mẫu) ⇒ **`VieNeuVoiceSampleSpeaker`** cho chính giọng đó đọc đoạn văn cố định 4 câu (~15 s, đủ 6 thanh) bằng đúng engine của giọng, nối thành WAV tạm. Đường tiếng máy đọc: hỏi trước ("có thể kém giống hơn"), chặn khi truyện đang phát, Turbo không khử nhiễu; đọc bằng model khác model trình đọc ⇒ `scheduleNghiWarmUp()` như thử giọng.
+- **Tạo**: Turbo qua `VieNeuTurboVoiceCloneCoordinator` (giọng Nano tự tạo còn mẫu ⇒ `createVoice(fromNanoVoiceId:)` như cũ; còn lại `createVoice(fromFile:…sourceNanoVoiceId:sourceNanoPresetName:)`), Nano qua **`VieNeuNanoVoiceCreator`** (mới — bước tạo giọng Nano của sheet nhân bản tách ra dùng chung, đường Nano không đổi). Bản mới cùng tên giọng nguồn; trùng tên ở model đích (kể cả giọng Nano có sẵn) ⇒ báo, không tạo.
+- **Ghép cặp**: thêm `VieNeuTurboCustomVoiceStore.Record.sourceNanoPresetName` (Turbo tạo từ giọng Nano có sẵn) và `VieNeuCustomVoiceStore.Record.sourceTurboVoiceId` (Nano tạo từ giọng Turbo có sẵn / tự tạo); JSON cũ đọc được (trường tuỳ chọn). `VieNeuVoicePairing.resolve(model:voice:nanoCustom:turboCustom:)` (hàm thuần) nhận thêm hai liên kết này, giữ thứ tự tra cũ; `VieNeuVoiceDirectory` dùng chính hàm đó tính `pairedKeys` / `nanoWithoutTurbo` / `turboWithoutNano` / `copySource(for:)` ⇒ menu và đọc lai không lệch luật. Tạo xong ⇒ `VieNeuVoicePairing.invalidate()` (đọc lai nhận ngay, không chờ đệm 30 s).
+- **Báo**: toast kết quả qua `TTSPresentationEventCenter` (kèm "từ tiếng máy đọc", "dùng … s đầu của mẫu" khi Turbo cắt mẫu); sheet chọn giọng bỏ toast riêng của runner cũ. Log `🎙️ [VieNeuCopy]`. Nút "?" của sheet chọn giọng giải thích.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy; RAM lúc đọc mẫu rồi nhân bản chưa đo; độ giống của bản tạo từ tiếng máy đọc chưa nghe.
+
 ## [1.3.936] - 2026-11-14
 
 ### feat: Nhân bản giọng VieNeu không còn giới hạn độ dài mẫu, mẫu dài tự cắt ở chỗ ngắt hơi
@@ -607,18 +620,3 @@ Anh Bửu báo ở 1.3.905: *"khi tôi mở sheet cài đặt tts sao không pau
 - Chốt an toàn: `begin()` thấy phiên "đang mở" mà TTS **đang đọc** thì coi phiên cũ đã đóng mà không ai báo, và mở phiên mới. Nhờ vậy mở Cài đặt là luôn dừng.
 
 **Kiểm chứng:** đọc code + grep chéo (`begin` chỉ gọi ở `TTSSettingsView.onAppear`; `finish` ở vỏ sheet, `onDismiss` của host, `TTSSettingsView` dạng trang, hub và trang gốc Cài đặt). `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`, **0 mới**. Chưa thử máy; log `[TTSSettings]` ghi lối nào đã đóng phiên.
-
-## [1.3.906] - 2026-11-12
-
-### fix: Đo tự động không giữ engine Nano lúc biên dịch Core ML, kiểm RAM trước mỗi bước và ghi nhật ký từng bước
-
-Anh Bửu chạy Đo tự động bản 1.3.890 (1239) thì app sập, *"hình như nó crash ở bước 3,4/7 gì đó khi biên dịch Core ML"* (VE T128 / T160). Không có log (app bị giết, log thường tắt mặc định); nghi phạm chính là **hết RAM** (iOS giết app).
-
-- **Nhả engine Nano trong lúc chuẩn bị Core ML**: bản 1.3.890 nạp engine Nano (ORT 4 graph + bộ phiên âm, ~350 MB) **trước** khi biên dịch, còn phép thử P1 (chạy được) thì nhả nó ra. Giờ nhả (`releaseEngineRuntime`) trước bước biên dịch / nạp lại / tự kiểm, nạp lại sau đó; chế độ `fast` vẫn ghim.
-- **Nạp lại (ấm) từng session một rồi nhả**, không giữ cộng dồn tới 7 session như trước. Trần số session giữ lúc đọc tính từ RAM trống lúc nghỉ − engine nạp lại (380 MB) − chừa 600 MB, chia RAM lớn nhất một session đo được; `preload` của lượt Core ML kiểm RAM trống trước mỗi session.
-- **`autoreleasepool` quanh mỗi lần tạo session và mỗi lượt chạy** (`VieNeuONNXProbeSession`): bước chuẩn bị là **một** lời gọi đồng bộ dài trên luồng nền, nên mọi đối tượng ObjC autorelease của Core ML EP (MLModel, kết quả biên dịch, NSData, MLMultiArray) sống tới hết 7 lần biên dịch + nạp + tự kiểm — RAM dồn lên qua từng graph, khớp chuyện chết ở bước 3–4 chứ không ở bước 1. Lượt đọc (16 lượt VE mỗi đoạn trong một lời gọi của engine) cũng dọn sau từng lượt.
-- **Dọn bản biên dịch dở** (`VieNeuCoreMLPackage.removeIncompleteCacheEntries`): ORT coi graph là đã có bản lưu chỉ cần thư mục gói MLProgram tồn tại (`ModelBuilder`: `FolderExists(model_output_path_)`), mà thư mục đó ghi **trước** khi biên dịch ⇒ app bị giết giữa chừng thì lượt sau dùng lại gói dở. Trước khi biên dịch, xoá mọi mục `*_mlprogram` chưa có `compiled_model.mlmodelc`.
-- **Kiểm RAM trước mỗi lần biên dịch**: dưới 1 GB trống ⇒ dừng có báo ("tắt bớt app khác rồi bấm lại") thay vì để iOS giết app.
-- **Nhật ký từng bước sống sót khi app bị giết** (`VieNeuAutoRunTrail`, `Results/do-tu-dong-nhat-ky.txt`): ghi **trước** mỗi bước nặng (biên dịch / nạp từng graph, tự kiểm, nạp sẵn, mỗi lượt, mỗi phút) kèm RAM + nhiệt, mỗi dòng ép xuống đĩa. Mở lại màn thử mà lượt trước không có dấu kết thúc ⇒ dòng cam "Lần đo trước dừng đột ngột ở: …" + nút "Chia sẻ nhật ký từng bước"; lượt sau chép dòng đó vào đầu nhật ký mới.
-- Bản biên dịch Core ML đã xong ở lượt trước vẫn giữ trong cache ⇒ lượt sau không biên dịch lại các graph đó.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

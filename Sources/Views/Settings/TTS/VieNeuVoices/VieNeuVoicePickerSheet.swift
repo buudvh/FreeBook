@@ -12,11 +12,15 @@ import SwiftUI
 ///   chung một gói nên không có nút riêng; xoá cả gói Nano / Turbo ở trang Cài đặt VieNeu TTS ("Xoá tất cả dữ liệu …").
 /// - Ô tìm theo tên giọng (`VoiceNameSearch`: bỏ dấu, "đ" = "d") lọc trong chip đang chọn; đang tìm thì ẩn hàng
 ///   "Nhân bản giọng đọc", nhóm không còn giọng nào khớp thì ẩn cả nhóm.
-/// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.901); giọng Nano tự tạo chưa có bản Turbo hiện trong
-///   "Giọng của tôi" của chip Turbo với nút "Tạo bản Turbo" (`VieNeuTurboCopyRow`).
+/// - Hàng đầu "Nhân bản giọng đọc" ⇒ `VieNeuVoiceCloneSheet` (1.3.901).
+/// - Nhân bản chéo (1.3.937, `VieNeuVoiceCopyRunner`): nhấn giữ giọng chưa có bản ở model kia ⇒ "Tạo bản Turbo / Nano"
+///   (`VieNeuVoiceRowMenu`); giọng tự tạo chưa có bản ở model kia hiện trong "Giọng của tôi" của chip đích với nút
+///   (`VieNeuVoiceCopyRow`). Không có mẫu gốc ⇒ hỏi trước (tạo từ tiếng máy đọc). Bắt đầu ⇒ sheet sang chip đích; lượt
+///   của giọng có sẵn hiện tạm một hàng tiến độ ở đó. Kết quả báo bằng toast từ runner.
 struct VieNeuVoicePickerSheet: View {
     static let helpText: [LocalizedStringKey] = [
-        "Nhẹ: Nano, khoảng 29 CPU-giây mỗi 1.000 ký tự. Vừa: Turbo, 37–43 (đo Minh Quân Pro, Mai Anh). Nặng: Turbo có mẫu dài, ước tính. Đo trên iPhone 11."
+        "Nhẹ: Nano, khoảng 29 CPU-giây mỗi 1.000 ký tự. Vừa: Turbo, 37–43 (đo Minh Quân Pro, Mai Anh). Nặng: Turbo có mẫu dài, ước tính. Đo trên iPhone 11.",
+        "Tạo bản Nano / Turbo: nhấn giữ một giọng chưa có bản ở model kia. Có mẫu gốc thì nhân bản từ mẫu; không có thì app cho giọng đó đọc một đoạn khoảng 15 giây rồi nhân bản từ tiếng máy đọc, nên có thể kém giống hơn. Bản mới được ghép cặp cho chế độ đọc lai Nano · Turbo."
     ]
 
     @ObservedObject private var downloads = ModelDownloadCenter.shared
@@ -27,6 +31,7 @@ struct VieNeuVoicePickerSheet: View {
     @State private var pendingDeletion: VieNeuVoiceEntry?
     @State private var pendingTurboVoiceDeletion: VieNeuVoiceEntry?
     @State private var isClonePresented = false
+    @State private var pendingSpokenCopy: VieNeuVoiceCopySource?
     @State private var query = ""
 
     private var directory: VieNeuVoiceDirectory { .shared }
@@ -69,10 +74,6 @@ struct VieNeuVoicePickerSheet: View {
         .onChange(of: preview.failureToken) { _, _ in
             ToastManager.shared.show(message: preview.failureMessage, type: .error)
         }
-        .onChange(of: VieNeuTurboCopyRunner.shared.resultToken) { _, _ in
-            let runner = VieNeuTurboCopyRunner.shared
-            ToastManager.shared.show(message: runner.resultMessage, type: runner.resultIsError ? .error : .success)
-        }
         .sheet(isPresented: $isClonePresented, onDismiss: { model = VieNeuModelChoice.current }) {
             Group {
                 VieNeuVoiceCloneSheet(target: Self.defaultCloneTarget)
@@ -99,6 +100,19 @@ struct VieNeuVoicePickerSheet: View {
             Button("Huỷ", role: .cancel) { pendingTurboVoiceDeletion = nil }
         } message: {
             Text("Xoá file của giọng này (model Turbo giữ lại, tải lại bằng nút ⬇).")
+        }
+        .confirmationDialog(
+            "Tạo bản \(pendingSpokenCopy?.target.label ?? "") của “\(pendingSpokenCopy?.name ?? "")”?",
+            isPresented: Binding(get: { pendingSpokenCopy != nil }, set: { if !$0 { pendingSpokenCopy = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Tạo bản \(pendingSpokenCopy?.target.label ?? "")") {
+                if let source = pendingSpokenCopy { launchCopy(source) }
+                pendingSpokenCopy = nil
+            }
+            Button("Huỷ", role: .cancel) { pendingSpokenCopy = nil }
+        } message: {
+            Text("Giọng này không có mẫu gốc. App cho giọng đọc một đoạn khoảng 15 giây rồi nhân bản từ tiếng đó — bản mới có thể kém giống hơn.")
         }
         .confirmationDialog(
             "Xoá giọng “\(pendingDeletion?.name ?? "")”?",
@@ -164,14 +178,18 @@ struct VieNeuVoicePickerSheet: View {
     @ViewBuilder
     private func nanoSections(reader: VieNeuVoiceSelection?) -> some View {
         let mine = filtered(directory.nanoMine)
+        let copies = copyRows(target: .nano)
         let presets = filtered(directory.nanoPresets)
-        if !mine.isEmpty {
-            Section("Giọng của tôi") { rows(mine, reader: reader) }
+        if !mine.isEmpty || !copies.isEmpty {
+            Section("Giọng của tôi") {
+                rows(mine, reader: reader)
+                copyRowViews(copies)
+            }
         }
         if !presets.isEmpty {
             Section("Giọng có sẵn") { rows(presets, reader: reader) }
         }
-        if mine.isEmpty, presets.isEmpty, !normalizedQuery.isEmpty {
+        if mine.isEmpty, copies.isEmpty, presets.isEmpty, !normalizedQuery.isEmpty {
             noMatchSection
         }
     }
@@ -187,15 +205,13 @@ struct VieNeuVoicePickerSheet: View {
         }
         let query = normalizedQuery
         let mine = filtered(directory.turboMine)
-        let copies = directory.nanoWithoutTurbo.filter { VoiceNameSearch.matches($0.name, normalizedQuery: query) }
+        let copies = copyRows(target: .turbo)
         let featured = filtered(directory.turboFeatured)
         let others = filtered(directory.turboOthers)
         if !mine.isEmpty || !copies.isEmpty {
             Section("Giọng của tôi") {
                 rows(mine, reader: reader)
-                ForEach(copies) { voice in
-                    VieNeuTurboCopyRow(voice: voice, entries: downloads.entries)
-                }
+                copyRowViews(copies)
             }
         }
         if !featured.isEmpty {
@@ -206,6 +222,24 @@ struct VieNeuVoicePickerSheet: View {
         }
         if mine.isEmpty, copies.isEmpty, featured.isEmpty, others.isEmpty, !query.isEmpty {
             noMatchSection
+        }
+    }
+
+    /// Hàng "Tạo bản …" của chip `target`: giọng tự tạo của model kia chưa có bản ở đây, cộng lượt đang chạy của giọng có
+    /// sẵn (để thấy tiến độ sau khi sheet tự sang chip đích).
+    private func copyRows(target: VieNeuModelChoice) -> [VieNeuVoiceCopySource] {
+        let query = normalizedQuery
+        var list = (target == .turbo ? directory.nanoWithoutTurbo : directory.turboWithoutNano)
+            .filter { VoiceNameSearch.matches($0.name, normalizedQuery: query) }
+        if let running = VieNeuVoiceCopyRunner.shared.job, running.target == target, !list.contains(where: { $0.id == running.id }) {
+            list.insert(running, at: 0)
+        }
+        return list
+    }
+
+    private func copyRowViews(_ sources: [VieNeuVoiceCopySource]) -> some View {
+        ForEach(sources) { source in
+            VieNeuVoiceCopyRow(source: source, entries: downloads.entries) { startCopy(source) }
         }
     }
 
@@ -236,23 +270,17 @@ struct VieNeuVoicePickerSheet: View {
             onSelect: { select(entry) },
             onDelete: canDeleteVoice ? { pendingTurboVoiceDeletion = entry } : nil
         )
-        if entry.isMine {
-            listRow.contextMenu {
-                Button {
-                    renameText = entry.name
-                    renaming = entry
-                } label: {
-                    Label("Đổi tên", systemImage: "pencil")
-                }
-                Button(role: .destructive) {
-                    pendingDeletion = entry
-                } label: {
-                    Label("Xoá giọng", systemImage: "trash")
-                }
-            }
-        } else {
-            listRow
-        }
+        listRow.modifier(VieNeuVoiceRowMenu(
+            entry: entry,
+            copySource: directory.copySource(for: entry),
+            canCopy: isReady && !VieNeuVoiceCopyRunner.shared.isRunning,
+            onCopy: { startCopy($0) },
+            onRename: {
+                renameText = entry.name
+                renaming = entry
+            },
+            onDelete: { pendingDeletion = entry }
+        ))
     }
 
     // MARK: - Hành động
@@ -279,6 +307,25 @@ struct VieNeuVoicePickerSheet: View {
         if preview.play(entry.selection) == .blockedByReader {
             ToastManager.shared.show(message: "Đang phát truyện. Dừng phát rồi thử giọng.", type: .info)
         }
+    }
+
+    /// Có mẫu gốc ⇒ tạo luôn; không có ⇒ hỏi trước (tạo từ tiếng máy đọc).
+    private func startCopy(_ source: VieNeuVoiceCopySource) {
+        if source.hasSample {
+            launchCopy(source)
+        } else {
+            pendingSpokenCopy = source
+        }
+    }
+
+    /// Bắt đầu lượt; không chạy được ⇒ toast lý do. Chạy được ⇒ sang chip đích để thấy tiến độ.
+    private func launchCopy(_ source: VieNeuVoiceCopySource) {
+        preview.stop()
+        if let reason = VieNeuVoiceCopyRunner.shared.run(source) {
+            ToastManager.shared.show(message: reason, type: .info)
+            return
+        }
+        model = source.target
     }
 
     private func select(_ entry: VieNeuVoiceEntry) {
