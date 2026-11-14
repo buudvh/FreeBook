@@ -153,8 +153,9 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         // đang phát — đúng loại việc gây giật ở biên đoạn.
         guard newRate != playbackRate else { return }
         playbackRate = newRate
-        if let currentPlayer { currentPlayer.rate = rate(for: currentPlayer) }
-        if let nextPlayer { nextPlayer.rate = rate(for: nextPlayer) }
+        // `self.`: tham số `rate` của hàm này che hàm `rate(for:)`.
+        if let currentPlayer { currentPlayer.rate = self.rate(for: currentPlayer) }
+        if let nextPlayer { nextPlayer.rate = self.rate(for: nextPlayer) }
 
         if nextIsScheduled {
             // Hủy schedule cũ trên hardware nhưng GIỮ NGUYÊN instance nextPlayer

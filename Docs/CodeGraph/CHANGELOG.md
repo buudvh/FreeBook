@@ -68,6 +68,7 @@ Anh Bửu duyệt cả hai phương án của báo cáo `Docs/Reports/2026-11-14
 - **Nối tiếng**: mỗi đoạn vẫn là một WAV + `AVAudioPlayer` riêng ⇒ 24 kHz và 48 kHz phát xen nhau được. Tốc độ: giọng Nano (A) ⇒ đoạn Turbo (48 kHz) phát nhân "Tốc độ tổng hợp" của Nano (`NghiAudioPlayerQueue.rate(for:)`, `VieNeuHybridRouting.playbackRateFactor`); giọng Turbo (B) ⇒ đoạn Nano tổng hợp 1×. Âm lượng: `VieNeuHybridLoudness` kéo đoạn của model phụ về mức RMS trung bình trượt của model chính (kẹp ±4 dB), đoạn model chính giữ nguyên.
 - **Cài đặt VieNeu TTS**: mục "Đọc lai Nano · Turbo" (`VieNeuHybridSettingsSection`) dưới hàng giọng đọc — công tắc "Tiếng nước ngoài đọc bằng Turbo" (`vieneuHybridLanguageEnabled`) và "Máy nóng thì đọc bằng Nano" (`vieneuHybridThermalEnabled`), mặc định bật; giải thích sau nút "?", một dòng trạng thái cặp giọng.
 - **Chưa kiểm**: chưa build (Windows), chưa thử máy. RAM khi giữ cả hai model chưa đo (ước 1,1–1,3 GB / ~2,1 GB của iPhone 11); thời gian nạp lười Turbo / Nano lúc khoá màn chưa đo; ước đệm (cached time) hơi cao với đoạn Turbo phát nhanh hơn thời lượng WAV; ngưỡng nhiệt là giá trị khởi điểm. `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
+- **Sửa biên dịch khi gộp** (CI run 43574639399): trong `NghiAudioPlayerQueue.updateRate(_ rate:)` tham số `rate` che hàm `rate(for:)` mới ⇒ gọi `self.rate(for:)`.
 
 ## [1.3.933] - 2026-11-14
 
