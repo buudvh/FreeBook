@@ -18,7 +18,11 @@ struct TTSFallbackVoiceSection: View {
                         .lineLimit(1)
                 }
             }
-            .onAppear { refreshToken += 1 }
+            .onAppear {
+                // Tên giọng VieNeu nằm trong thư mục giọng — trình đọc chính là online thì chưa ai nạp.
+                if TTSOnlineFallbackSettings.engine == .vieneu { VieNeuVoiceDirectory.shared.reload() }
+                refreshToken += 1
+            }
         } header: {
             SectionHelpHeader("Khi giọng online lỗi", paragraphs: TTSFallbackVoiceSettingsView.helpParagraphs)
         }

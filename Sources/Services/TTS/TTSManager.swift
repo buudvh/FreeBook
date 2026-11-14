@@ -1549,9 +1549,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
 
                 var firstAudioData: Data? = nil
+                // Đang đọc giọng dự phòng (1.3.945) ⇒ không chờ lượt online của chương kế (có thể treo tới hết giờ).
+                let skipsOnline = !TTSManager.isLocalEngine(requestedKey.tool) && self.onlineFallback.isActive(session: expectedSessionID)
 
                 do {
-                    let data = try await task.value
+                    let data = try await (skipsOnline ? nil : task)?.value ?? Data()
                     if !data.isEmpty {
                         firstAudioData = data
                     }

@@ -41,7 +41,8 @@ extension TTSManager {
         let missing = targetIndices.filter { preloadedData[$0] == nil && prefetchTasks[$0] == nil }
         guard !missing.isEmpty else { return }
 
-        guard tool == "google",
+        // Đang đọc giọng dự phòng (1.3.945) ⇒ mỗi đoạn đi đường một-đoạn (nhánh dự phòng ở `startPrefetchTask`).
+        guard tool == "google", !onlineFallback.isActive(session: sessionID),
               let batch = makeGoogleBatch(for: missing),
               batch.indices.count >= 2 else {
             for index in missing {
