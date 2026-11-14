@@ -96,7 +96,7 @@ def patch_session(text: str) -> str:
         "#include <algorithm>\n#include <chrono>\n",
         "#include <ggml-cpu.h>  // " + MARK + "\n"
         "#if defined(__APPLE__)\n"
-        "#include <pthread/qos.h>  // " + MARK + "\n"
+        "#include <sys/qos.h>  // " + MARK + " (pthread/qos.h is gated on __DARWIN_C_LEVEL)\n"
         "#endif\n\n#include <algorithm>\n#include <chrono>\n",
         "include algorithm/chrono",
     )
