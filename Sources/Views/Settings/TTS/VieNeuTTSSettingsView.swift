@@ -28,7 +28,6 @@ struct VieNeuTTSSettingsView: View {
     var body: some View {
         Form { Group {
             voiceSection
-            VieNeuHybridSettingsSection(refreshToken: selectionToken)
             nanoSection
             coreMLSection
             turboSection

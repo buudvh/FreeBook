@@ -187,7 +187,7 @@ extension TTSManager {
         discardVieNeuAudioAfterCurrent(reason: "doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x")
     }
 
-    /// Đổi công tắc **đọc lai Nano · Turbo** (1.3.934, Cài đặt VieNeu TTS) giữa lúc đọc: phát nốt đoạn hiện tại, nạp lại
+    /// Đổi công tắc **đọc lai Nano · Turbo** (1.3.934, Cài đặt TTS) giữa lúc đọc: phát nốt đoạn hiện tại, nạp lại
     /// phần còn lại bằng engine mới (`localEngine` đổi giữa engine bọc và service thường). Khoá chương kế
     /// (`TTSPreparedNextChapterKey`) không chứa model ⇒ phải bỏ prefix chương kế ở đây, không thì đầu chương sau phát
     /// audio của chế độ cũ. Rồi chuẩn bị lại engine (engine bọc / service thường tự nhả model không cần).

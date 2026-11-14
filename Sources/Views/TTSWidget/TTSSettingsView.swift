@@ -31,6 +31,8 @@ struct TTSSettingsView: View {
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
     /// Sheet chọn giọng VieNeu (1.3.900) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
     @State var showingVieNeuVoicePicker = false
+    /// Tăng khi sheet chọn giọng VieNeu đóng ⇒ mục "Đọc lai Nano · Turbo" đọc lại trạng thái cặp giọng.
+    @State private var vieNeuHybridRefreshToken = 0
     /// Sheet chọn giọng của Siri / NghiTTS / Google / tiện ích — mở từ hàng "Giọng đọc".
     @State private var voicePickerEngine: TTSVoiceEngine?
 
@@ -62,6 +64,11 @@ struct TTSSettingsView: View {
                 } else {
                     vieNeuVoicePicker
                 }
+            }
+
+            // Đọc lai Nano · Turbo — ngay dưới hàng chọn giọng (1.3.943: chuyển từ Cài đặt VieNeu TTS ra đây).
+            if ttsManager.tool == "vieneu" {
+                VieNeuHybridSettingsSection(refreshToken: vieNeuHybridRefreshToken)
             }
 
             // Section 3: Quản lý riêng của trình đọc
@@ -300,6 +307,9 @@ struct TTSSettingsView: View {
             .appGlassSheet()
         }
         .vieNeuVoicePickerSheet(isPresented: $showingVieNeuVoicePicker)
+        .onChange(of: showingVieNeuVoicePicker) { _, presented in
+            if !presented { vieNeuHybridRefreshToken += 1 }
+        }
         .ttsVoicePickerSheet(engine: $voicePickerEngine)
         .sheet(isPresented: $showingReplacementManagerSheet) {
             Group {

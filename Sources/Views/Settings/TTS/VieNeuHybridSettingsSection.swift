@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Mục **"Đọc lai Nano · Turbo"** (1.3.934) của Cài đặt VieNeu TTS: hai công tắc (mặc định bật, `VieNeuHybridSettings`) +
+/// Mục **"Đọc lai Nano · Turbo"** (1.3.934) của Cài đặt TTS — dưới hàng "Giọng đọc", chỉ khi trình đọc là VieNeu (1.3.943;
+/// trước đó ở Cài đặt VieNeu TTS): hai công tắc (mặc định bật, `VieNeuHybridSettings`) +
 /// một dòng trạng thái cặp giọng. Giải thích chỉ sau nút "?" (`SectionHelpHeader`).
 ///
 /// Đổi công tắc ⇒ `TTSManager.vieNeuHybridSettingsDidChange()`: phát nốt đoạn đang đọc, nạp lại phần sau bằng engine

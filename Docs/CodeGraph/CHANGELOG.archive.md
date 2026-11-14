@@ -2,6 +2,38 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.912] - 2026-11-13
+
+### feat: Màn thử VieNeu có Đo nạp Core ML để tìm vì sao nạp session lâu và bản biên dịch nặng 4 GB
+
+Anh Bửu gửi kết quả đo tự động 1.3.911 (1249) ở QoS trình đọc. Core ML CPU-only thắng ở trạng thái ổn định:
+- RTF 0,14, so với ORT 0,27 (lượt ORT 3, khớp trình đọc 0,28);
+- tổng hợp nhanh 2,06×, CPU vòng Euler ít hơn 3,46×;
+- CPU mỗi giây tiếng 0,20, so với 0,55;
+- hụt tiếng 0, lùi ORT 0/304.
+
+Lượt ORT 1 không dùng làm mốc (pin 25 → 10%, chạy trước lượt 2 khoảng 11 tiếng). Hai chặn còn lại trước khi đưa Core ML vào trình đọc:
+- nạp 7 session mất ~110 s mỗi lần (kể cả nạp lại ấm) và làm máy nóng;
+- bản biên dịch chiếm 4,16 GB.
+
+Anh duyệt plan P2a: chỉ đo, không đụng đường đọc truyện. Chi tiết ở §12 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Mục mới "Đo nạp Core ML (P2a)"** ở màn thử VieNeu Turbo (`VieNeuCoreMLLoadProbe` + `VieNeuCoreMLLoadWorker`, chạy `userInitiated`, giữ màn sáng). Dùng gói + bản biên dịch của Đo tự động, không tải hay biên dịch thêm. Phép đo làm 4 việc:
+  1. Dung lượng từng mục cache: phần gói ORT ghi ra, phần `compiled_model.mlmodelc`, các file ≥ 1 MB (`VieNeuCoreMLCacheInventory`), dung lượng ổ trống lúc đầu / cuối.
+  2. Băm mọi `weight.bin` để tìm bản trùng byte giữa các bucket.
+     - Băm qua ánh xạ file (`.alwaysMapped`), để ~4 GB không dồn RAM.
+     - Mỗi file ghi thêm dung lượng thật trên đĩa và mã nội dung APFS: hai bản là clone thì bỏ một bản không lấy lại được chỗ.
+  3. Nạp VE và codec bucket nhỏ nhất bằng ba cách, ghi giây + CPU-giây + nhiệt:
+     - ORT CPU, không Core ML;
+     - **Core ML gốc** (`MLModel(contentsOf:)`, `.cpuOnly`), đọc thẳng bản biên dịch, **kèm một lượt dự đoán input 0 ngay sau khi nạp** (`VieNeuCoreMLNativeLoad`) — Core ML có thể dời việc chuẩn bị sang lần dự đoán đầu, chỉ đo phần nạp thì số sẽ đánh lừa;
+     - **ORT + Core ML EP** như lượt đọc, kèm dấu hiệu ORT ghi lại gói.
+
+     Core ML gốc và ORT + Core ML EP mỗi cách 2 lần, xen kẽ.
+  4. Thử **bỏ bản trọng số của gói** ở VE bucket nhỏ nhất: đổi tên file, nạp lại, kiểm ORT còn trúng bản lưu và tự kiểm golden vẫn đúng, rồi trả file về.
+     - Bị ngắt giữa chừng ⇒ lần chạy sau hoặc lần mở màn thử tự trả file về (`restoreTrimmed`).
+- Tách `VieNeuCoreMLPreparer.goldenRequest` (dùng chung với tự kiểm) và `VieNeuCoreMLFlowBackend.coreMLOptions` (một chỗ cho tuỳ chọn Core ML EP, để phép đo trúng đúng bản biên dịch của lượt đọc).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.911] - 2026-11-12
 
 ### fix: Đo tự động chạy Nano ở mức ưu tiên như trình đọc và không xoá nhầm bản biên dịch Core ML đã xong

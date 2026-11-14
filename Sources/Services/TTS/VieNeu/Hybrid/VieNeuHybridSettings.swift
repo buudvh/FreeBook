@@ -1,6 +1,6 @@
 import Foundation
 
-/// Hai công tắc **đọc lai Nano · Turbo** (1.3.934) ở Cài đặt VieNeu TTS, mặc định **bật** (thiếu khoá = bật).
+/// Hai công tắc **đọc lai Nano · Turbo** (1.3.934) ở Cài đặt TTS (1.3.943), mặc định **bật** (thiếu khoá = bật).
 ///
 /// - `languageKey` — phương án A: giọng **Nano** có cặp Turbo ⇒ đoạn có tiếng nước ngoài (thực tế là tiếng Anh) đọc Turbo.
 /// - `thermalKey` — phương án B: giọng **Turbo** có cặp Nano ⇒ máy nóng thì đọc Nano, mát lại về Turbo.
