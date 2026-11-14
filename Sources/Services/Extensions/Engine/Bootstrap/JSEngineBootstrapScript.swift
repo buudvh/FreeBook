@@ -19,6 +19,20 @@ enum JSEngineBootstrapScript {
                     console.log("🤖 [Engine.Browser] launchAsync(" + url + ")");
                     _nativeBrowserLaunchAsync(this._id, url);
                 },
+                loadHtml: function(a, b, timeout) {
+                    // Hợp đồng: loadHtml(url, html). Có tiện ích gọi ngược (html, url) ⇒ tham số nào là URL http(s) thì là URL gốc.
+                    var looksUrl = function(s) {
+                        if (typeof s !== "string") { return false; }
+                        var t = s.trim().toLowerCase();
+                        return t.indexOf("http://") === 0 || t.indexOf("https://") === 0;
+                    };
+                    var url = a, html = b;
+                    if (!looksUrl(a) && looksUrl(b)) { url = b; html = a; }
+                    url = url == null ? "" : String(url);
+                    console.log("🤖 [Engine.Browser] loadHtml(" + url + ")");
+                    var result = _nativeBrowserLoadHtml(this._id, html == null ? "" : String(html), url, timeout || 15000);
+                    return url ? Html.parseWithBase(result, url) : Html.parse(result || "");
+                },
                 html: function(timeout) {
                     if (timeout && timeout > 0) {
                         sleep(timeout);

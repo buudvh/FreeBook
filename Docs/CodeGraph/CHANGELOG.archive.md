@@ -2,6 +2,38 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.916] - 2026-11-13
+
+### perf: CI build Release biên dịch từng file song song và bỏ dSYM, bước archive còn khoảng một nửa
+
+Anh Bửu hỏi vì sao CI build càng ngày càng lâu. Bước `Build and Archive App (Unsigned)` chiếm ~90% job, phổ biến 1000–1560 s.
+
+**Nguyên nhân** (41 lượt xanh 10–13/11 + 2 vòng đo trên nhánh thử `exp/ci-timing`):
+- Mã Swift `Sources/` tăng 2,5× từ 1/10 (4,5 MB) tới 13/11 (11,5 MB); riêng 10/11 → 13/11 thêm 10%.
+- Release biên dịch cả module FreeBook trong **một** tiến trình (`-O -whole-module-optimization -g`). Bộ đếm của frontend (1174 s): tối ưu SIL 607 s (52%, gần như một luồng), type-check 165 s, IRGen 133 s, LLVM 128 s. RAM lên ~5 GB trên runner 7 GB ⇒ swap 0,5–0,7 GB.
+- Runner dùng chung lệch tới ~2×: lượt 562 s ngày 10/11 là gặp máy nhanh — lượt ngay sau chỉ thêm 1 file mất 1241 s.
+
+**Đo cặp cùng máy** (mỗi runner chạy 2 cách nối tiếp; số là thời gian `xcodebuild archive`, s):
+
+| Cách | Archive | Cặp cùng máy | Binary |
+|---|---|---|---|
+| WMO `-O -g` (cũ) | 1137–1330 | — | 54,24 MB |
+| WMO, bỏ debug info | 804–1158 | 1216 → 804 | 54,08 MB |
+| `singlefile` `-O -g` | 499–719 | 1224 → 706, 1330 → 499, 1310 → 719 | 52,34 MB |
+| `singlefile`, bỏ debug info (**chọn**) | 490–619 | 1137 → 490 | 52,17 MB |
+
+App nén ~41,0 MB (IPA cũ 42,2 MB, dưới giới hạn 50 MB của Telegram).
+
+**Thay đổi** — `project.yml`, target FreeBook, `settings.configs.Release` (gói SPM giữ mặc định):
+- `SWIFT_COMPILATION_MODE: singlefile` — biên dịch từng file, batch mode 3 luồng.
+- `DEBUG_INFORMATION_FORMAT: dwarf` + `GCC_GENERATE_DEBUGGING_SYMBOLS: NO` — không `-g`, không sinh dSYM (188 MB mỗi lượt, không ai dùng: archive không tải lên, binary đã strip).
+
+**Đánh đổi** (anh Bửu duyệt mức 1 + 2): mất tối ưu xuyên file (inline / specialize / suy `final`) ⇒ code Swift tính nặng (khử nhiễu STFT, fbank, tách từ VietPhrase, chuẩn hoá chữ) có thể chậm hơn chút — chưa đo trên máy. ORT / Core ML / audio.cpp không đổi. So RTF với bản trước 1.3.916 thì nhớ điều này.
+
+**Chưa làm**: tách các view type-check chậm (58 thân hàm > 200 ms, cộng 63 s; nặng nhất `ReaderView.readerObserverLayer` 13,3 s, `ReaderAINameReviewCardView.body` 4,4 s, `DiscoveryView.body` 3,3 s) — chỉ lợi vài phần trăm; cache gói SPM — lợi ~30–50 s, thêm rủi ro cache cũ.
+
+`CLAUDE.md` + `AGENTS.md`: thêm đoạn "Chế độ biên dịch Release".
+
 ## [1.3.915] - 2026-11-13
 
 ### feat: Gói Core ML Nano định dạng 3 lưu trọng số Gemm chuyển vị để Core ML không ghi trọng số thành chữ trong model

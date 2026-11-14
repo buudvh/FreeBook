@@ -506,6 +506,23 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(browserLaunchAsyncBlock, forKeyedSubscript: "_nativeBrowserLaunchAsync" as NSCopying & NSObjectProtocol)
 
+        // `browser.loadHtml(url, html)` (1.3.947): nạp HTML có sẵn với URL gốc, chờ trang xong — cùng khuôn `_nativeBrowserLaunch`.
+        let browserLoadHtmlBlock: @convention(block) (String, String, String, Double) -> String = { [weak self] browserId, html, baseUrl, timeoutMs in
+            guard let self = self else { return "" }
+            var resultHtml = ""
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
+                loader.loadHtml(html, baseURL: URL(string: baseUrl), timeout: timeoutMs / 1000.0) { result in
+                    resultHtml = result ?? ""
+                    semaphore.signal()
+                }
+            }
+            _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
+            return resultHtml
+        }
+        context.setObject(browserLoadHtmlBlock, forKeyedSubscript: "_nativeBrowserLoadHtml" as NSCopying & NSObjectProtocol)
+
         let browserBlockPatternsBlock: @convention(block) (String, [String]) -> Void = { [weak self] browserId, patterns in
             guard let self = self else { return }
             DispatchQueue.main.async {
