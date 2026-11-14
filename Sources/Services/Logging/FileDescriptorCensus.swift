@@ -10,7 +10,7 @@ import Darwin
 /// - Chỉ dùng `fcntl`/`fstat`/`getsockopt`/`getpeername` trên fd sẵn có, **không mở fd mới**, nên vẫn chạy
 ///   được đúng lúc đã cạn.
 /// - Ghi qua `AppLogger.logAlways` (không cần bật log): mỗi chương ~1 dòng, nên log đo fd không đẩy
-///   các dòng khác ra khỏi vòng xoay file của `AppLogFiles`. Việc đếm chạy trên một serial queue `.utility`.
+///   các dòng khác ra khỏi kho log SQLite (`AppLogDatabase`). Việc đếm chạy trên một serial queue `.utility`.
 /// - `start()` còn nâng giới hạn mềm `RLIMIT_NOFILE` (thường 256) lên mức hệ thống cho phép, để người
 ///   dùng nghe được lâu hơn trong lúc chờ tìm chỗ rò; log vẫn thấy fd tăng dần.
 /// - Báo nền/active cho `FileDescriptorStepProbe` (đo theo bước) và mỗi `FileDescriptorSweeper.chunkInterval`

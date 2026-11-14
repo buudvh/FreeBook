@@ -17,6 +17,8 @@ enum LiveContainerSwitchPreparer {
     private static let settleDelay: Duration = .milliseconds(400)
 
     static func prepare() async {
+        // LiveContainer chuyển app rồi tự `SIGKILL` ⇒ đánh dấu phiên log đã đóng, lần mở sau không báo "Chết đột ngột".
+        defer { AppLogger.shared.markSessionEnded() }
         var stopped: [String] = []
 
         let tts = TTSManager.shared

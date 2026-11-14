@@ -2,6 +2,47 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.917] - 2026-11-13
+
+### feat: Trình đọc Nano có công tắc Tăng tốc Core ML, nhanh gấp đôi và mát hơn, tự lùi về ORT khi cần
+
+Anh Bửu gửi kết quả Đo tự động chạy một mạch trên gói định dạng 3 (1.3.915 (1252)):
+- ORT / Core ML / ORT: RTF 0,27 / 0,14 / 0,27; CPU tiến trình 672 / 243 / 672 s.
+- Core ML mát suốt 15 phút (ORT lên ấm sau 1:11 và 5:16); pin tụt 10 / 5 / 10%.
+- Hụt tiếng 0, lùi ORT 0/304 đoạn.
+
+Anh duyệt plan P2c (cách B: chờ Core ML nạp đúng khung đoạn đầu cần rồi đọc luôn, khung khác nạp dần). Chi tiết ở §16 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
+
+- **Công tắc "Tăng tốc Core ML (thử nghiệm)"**, mặc định tắt, ở Cài đặt VieNeu TTS (`VieNeuTTSTestView+CoreML`). Chỉ áp cho model Nano. Nút "Tải & chuẩn bị":
+  - tải gói (theo sha256);
+  - biên dịch 7 graph;
+  - **tự kiểm golden** (`VieNeuCoreMLPreparer.verify`) — qua mới gắn cho trình đọc;
+  - ghi dấu `Results/reader-verified.json` (commit + sha manifest + số bản biên dịch).
+
+  Màn này còn có trạng thái, nút Dừng và nút Xoá (giữ báo cáo của màn thử). Logic ở `VieNeuCoreMLAccelerator`.
+- **Gói ghim commit HF** `0d5d13ce` (`VieNeuCoreMLPackage.revision`): thử nghiệm sau ghi đè `nano-coreml/` trên `main` không làm hỏng trình đọc.
+- **Chỗ nối** (`VieNeuCoreMLReaderRoute`, gọi được từ mọi luồng):
+  - Hàm `synthesizeWithDuration` đúng chữ ký `LocalTTSEngine` (trình đọc, Nghe thử, nghe thử giọng) lấy backend Core ML của trình đọc.
+  - Hàm có `flowBackend:` của màn thử dùng đúng giá trị truyền vào (`nil` = ORT), nên lượt ORT của Đo tự động không lẫn Core ML.
+- **Nạp sẵn + chạy nháp**: engine Nano khởi động (`VieNeuTTSService.prepare`) ⇒ nền, không chờ, nạp + chạy một lượt input 0 cho VE T64 / T96 / T128, codec T64 / T128.
+  - Mỗi khung một lần giữ khoá tổng hợp (`VieNeuTTSEngine.withSynthesisLock`), nên không chồng lên lượt đọc.
+  - Khung khác nạp khi gặp.
+  - Không biên dịch lúc này: thiếu bản biên dịch ⇒ ORT, Cài đặt báo "Cần chuẩn bị".
+  - Bật lại công tắc khi đã sẵn ⇒ nạp ngay.
+- **Lùi ORT**:
+  - đoạn vượt bucket hoặc giọng khác dạng (thêm kiểm style 50 × 256, speaker 192 trong `canRun`);
+  - Core ML lỗi một chunk ⇒ engine chạy lại chunk đó bằng ORT (`VieNeuFlowBackend.fallsBackToORTOnError`, chỉ backend của trình đọc). Lỗi 3 lần ⇒ thôi dùng tới lần mở app sau.
+  - Máy báo thiếu RAM ⇒ nhả session, lượt sau nạp lại lười.
+  - Nhả engine Nano / chuyển Turbo ⇒ nhả backend.
+- **Màn thử dùng chung gói** ⇒ Đo tự động (lúc bắt đầu) và nút Xoá của màn thử nhả backend của trình đọc trước. Nút đổi tên "… (cả của trình đọc)"; xoá cache là xoá dấu tự kiểm.
+- **Log để so bật / tắt**:
+  - `🎙️ [TTSStart] Tiếng đầu sau X ms · engine · flow` (mốc `startSpeaking` → lần đưa tiếng đầu lên hàng phát);
+  - `[NghiEnergy] Summary` thêm `coreMLChunks` / `coreMLFallbacks` của cửa sổ;
+  - `[VieNeuPerf]` mỗi lượt thêm `backend=coreml|ort` (đã có sẵn `qos=` của luồng tổng hợp);
+  - `[VieNeuCoreML]`: chuẩn bị, tự kiểm, nạp sẵn + chạy nháp, lượt đầu mỗi session, lỗi.
+- Để sau: mặc định bật, bỏ nạp ORT VE / codec khi bật, gộp trọng số trùng giữa các bucket, Neural Engine.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.916] - 2026-11-13
 
 ### perf: CI build Release biên dịch từng file song song và bỏ dSYM, bước archive còn khoảng một nửa

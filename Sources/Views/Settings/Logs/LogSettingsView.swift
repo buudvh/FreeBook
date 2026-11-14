@@ -1,13 +1,12 @@
 import SwiftUI
 
-/// Màn "Ghi log hệ thống" (Cài đặt → Nhà Phát Triển). Công tắc, 3 nút và 3 alert chuyển **nguyên văn** từ
-/// `SettingsView` (1.3.520); thêm dòng số file descriptor đang mở (`FileDescriptorCensus.openCount()`), công tắc
-/// tự dọn fd mồ côi (`FileDescriptorSweeper`, 1.3.521) và danh sách file log (chỉ xem).
+/// Màn "Ghi log hệ thống" (Cài đặt → Nhà Phát Triển): công tắc log, chẩn đoán fd (`FileDescriptorCensus`,
+/// `FileDescriptorSweeper`, 1.3.521) và — từ 1.3.948 (log SQLite theo phiên, anh Bửu chọn ở grill-me) — **danh sách phiên**:
+/// mỗi lần mở app một hàng (giờ · bản build · số dòng · số lỗi, badge "Chết đột ngột"), tick chọn ⇒ "Xuất N phiên (.txt)"
+/// (bảng chia sẻ) / "Xoá N phiên" / "Xoá tất cả". Không có màn xem từng dòng. Danh sách đọc qua `AppLogger` ở nền.
 struct LogSettingsView: View {
-    private struct LogFileRow: Identifiable {
+    private struct ExportFile: Identifiable {
         let url: URL
-        let size: UInt64
-        let modified: Date?
         var id: URL { url }
     }
 
@@ -15,13 +14,14 @@ struct LogSettingsView: View {
     @AppStorage("isCompactSuccessLogEnabled") private var isCompactSuccessLogEnabled = true
     @AppStorage("isTTSVerboseLoggingEnabled") private var isTTSVerboseLoggingEnabled = false
     @AppStorage(FileDescriptorSweeper.enabledKey) private var isFDSweeperEnabled = true
-
-    @State private var logFileURLs: [URL] = [] // giữ trong state để mở lại màn hình là thấy file mới chia
-    @State private var logFiles: [LogFileRow] = []
+    @State private var sessions: [AppLogger.SessionSummary] = []
+    @State private var storeBytes: Int64 = 0
+    @State private var selected: Set<Int64> = []
+    @State private var hasLoaded = false
+    @State private var isExporting = false
+    @State private var exportFile: ExportFile?
     @State private var openFileCount: Int = 0
     @State private var openFileLimit: Int = 0
-    @State private var showingCopyWarningAlert = false
-    @State private var showingCopySuccessAlert = false
     @State private var showingClearLogAlert = false
 
     var body: some View {
@@ -81,116 +81,183 @@ struct LogSettingsView: View {
                 SectionHelpHeader("Chẩn Đoán", paragraphs: ["Nghe TTS lâu ở nền có thể làm app mở thừa hàng nghìn file rồi lỗi đọc chương. Bật thì app tự đóng các bản mở thừa (không đụng database). Tắt nếu thấy lỗi lạ."])
             }
 
-            Section {
-                if logFiles.isEmpty {
-                    Text("Chưa có dữ liệu log ghi nhận.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(logFiles) { file in
-                        LabeledContent {
-                            Text(formatBytes(file.size))
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(file.url.lastPathComponent)
-                                Text(fileSubtitle(file))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-            } header: {
-                SectionHelpHeader("File Log", paragraphs: ["Mỗi file quá 2 MB tự chia sang app_logs.1…4.txt; file cũ nhất bị xoá."])
-            }
-
-            if !logFileURLs.isEmpty {
-                Section(header: Text("Thao Tác")) {
-                    Button(action: {
-                        let fileSize = AppLogger.shared.logFileSize
-                        if fileSize > 1 * 1024 * 1024 { // > 1MB
-                            showingCopyWarningAlert = true
-                        } else {
-                            copyLogToClipboard()
-                        }
-                    }) {
-                        Label {
-                            Text("Sao chép nhật ký log (file mới nhất)")
-                        } icon: {
-                            AppGlyph.copy.image(size: 17)
-                        }
-                    }
-
-                    ShareLink(items: logFileURLs) {
-                        Label("Xuất tất cả file log", systemImage: "square.and.arrow.up")
-                    }
-
-                    Button(role: .destructive, action: {
-                        showingClearLogAlert = true
-                    }) {
-                        Label("Xóa tất cả nhật ký log", systemImage: "trash")
-                    }
-                }
-            }
+            sessionsSection
+            actionsSection
         }.glassSheetRows() }
         .backPageTitle("Ghi log hệ thống")
-        .onAppear {
-            updateLogStatus()
-        }
-        .alert("Log File Quá Lớn", isPresented: $showingCopyWarningAlert) {
-            Button("Hủy", role: .cancel) {}
-            Button("Vẫn sao chép", role: .none) {
-                copyLogToClipboard()
-            }
-        } message: {
-            Text("Kích thước file log là \(formatBytes(AppLogger.shared.logFileSize)). Việc sao chép file lớn có thể gây chậm hoặc đơ thiết bị. Bạn có chắc chắn muốn tiếp tục?")
-        }
-        .alert("Đã Sao Chép", isPresented: $showingCopySuccessAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Đã sao chép file log mới nhất vào bộ nhớ tạm.")
+        .onAppear(perform: reload)
+        .sheet(item: $exportFile) { file in
+            ShareSheet(activityItems: [file.url])
         }
         .alert("Xóa Nhật Ký", isPresented: $showingClearLogAlert) {
             Button("Hủy", role: .cancel) {}
             Button("Xóa", role: .destructive) {
                 AppLogger.shared.clear()
-                updateLogStatus()
+                selected.removeAll()
+                hasLoaded = false
+                reload()
             }
         } message: {
-            Text("Bạn có chắc chắn muốn xóa tất cả file log (app_logs*.txt) không? Thao tác này không thể hoàn tác.")
+            Text("Xoá tất cả phiên log? Thao tác này không thể hoàn tác.")
         }
     }
 
-    private func updateLogStatus() {
-        logFileURLs = AppLogger.shared.logFileUrls()
-        logFiles = logFileURLs.map { url in
-            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
-            return LogFileRow(
-                url: url,
-                size: (attributes?[.size] as? UInt64) ?? 0,
-                modified: attributes?[.modificationDate] as? Date
+    // MARK: - Phiên
+
+    private var sessionsSection: some View {
+        Section {
+            if sessions.isEmpty {
+                Text(hasLoaded ? "Chưa có phiên log nào." : "Đang đọc…")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(sessions) { session in
+                    sessionRow(session)
+                }
+            }
+        } header: {
+            SectionHelpHeader(
+                "Phiên · \(sessions.count) / \(AppLogger.keptSessions) · \(formatBytes(storeBytes))",
+                paragraphs: [
+                    "Mỗi lần mở app là một phiên, ghi kèm bản build, máy, iOS, nhiệt, RAM, ổ trống và trình đọc TTS lúc mở. Giữ \(AppLogger.keptSessions) phiên gần nhất, tối đa 30 MB.",
+                    "**Chết đột ngột**: phiên kết thúc khi app đang mở (crash hoặc bị đóng) — phiên kế tiếp ghi lại giờ và dòng cuối của nó.",
+                    "Chọn phiên rồi **Xuất** ⇒ một file .txt để gửi."
+                ]
             )
         }
+    }
+
+    private func sessionRow(_ session: AppLogger.SessionSummary) -> some View {
+        let isSelected = selected.contains(session.id)
+        return Button {
+            if isSelected { selected.remove(session.id) } else { selected.insert(session.id) }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("\(Self.dayTime(session.startedAt)) · \(session.versionDisplay)")
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        if session.diedAbruptly {
+                            // `.red` literal có chủ ý: cảnh báo, không theo màu nhấn.
+                            Text("Chết đột ngột")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1)
+                                .background(Color.red.opacity(0.18), in: Capsule())
+                        }
+                    }
+                    subtitle(session)
+                        .font(.caption)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func subtitle(_ session: AppLogger.SessionSummary) -> Text {
+        let prefix = (session.isCurrent ? "Đang ghi · " : "") + "\(session.lineCount.formatted()) dòng · "
+        let errors = session.errorCount > 0
+            ? Text("\(session.errorCount.formatted()) lỗi").foregroundColor(.red)
+            : Text("không lỗi").foregroundColor(.secondary)
+        return Text(prefix).foregroundColor(.secondary) + errors
+    }
+
+    // MARK: - Thao tác
+
+    private var deletableSelection: [Int64] {
+        sessions.filter { selected.contains($0.id) && !$0.isCurrent }.map(\.id)
+    }
+
+    private var actionsSection: some View {
+        Section(header: Text("Thao Tác")) {
+            Button(action: exportSelected) {
+                HStack {
+                    Label(
+                        selected.isEmpty ? "Xuất phiên (.txt)" : "Xuất \(selected.count) phiên (.txt)",
+                        systemImage: "square.and.arrow.up"
+                    )
+                    if isExporting {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            if !deletableSelection.isEmpty {
+                Button(role: .destructive) {
+                    AppLogger.shared.deleteSessions(deletableSelection) {
+                        selected.subtract(deletableSelection)
+                        reload()
+                    }
+                } label: {
+                    Label("Xoá \(deletableSelection.count) phiên", systemImage: "trash")
+                }
+            }
+            Button(role: .destructive) {
+                showingClearLogAlert = true
+            } label: {
+                Label("Xoá tất cả", systemImage: "trash")
+            }
+        }
+    }
+
+    private func exportSelected() {
+        guard !isExporting else { return }
+        guard !selected.isEmpty else {
+            ToastManager.shared.show(message: "Chọn phiên muốn xuất", type: .info)
+            return
+        }
+        isExporting = true
+        AppLogger.shared.exportSessions(Array(selected)) { url in
+            isExporting = false
+            guard let url else {
+                ToastManager.shared.show(message: "Không xuất được log", type: .error)
+                return
+            }
+            exportFile = ExportFile(url: url)
+        }
+    }
+
+    // MARK: - Đọc
+
+    private func reload() {
         let counts = FileDescriptorCensus.openCount()
         openFileCount = counts.open
         openFileLimit = counts.limit
+        AppLogger.shared.loadSessions { rows, bytes in
+            sessions = rows
+            storeBytes = bytes
+            // Lần đầu: chọn sẵn phiên đang ghi.
+            if !hasLoaded, let current = rows.first(where: \.isCurrent) {
+                selected.insert(current.id)
+            }
+            selected.formIntersection(rows.map(\.id))
+            hasLoaded = true
+        }
     }
 
-    private func fileSubtitle(_ file: LogFileRow) -> String {
-        let time = file.modified.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"
-        return file.url == AppLogger.shared.getLogFileUrl() ? "Đang ghi · \(time)" : time
+    /// "Hôm nay 21:12" / "Hôm qua 22:05" / "12/11 09:30".
+    private static func dayTime(_ date: Date) -> String {
+        let time = date.formatted(date: .omitted, time: .shortened)
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Hôm nay \(time)" }
+        if calendar.isDateInYesterday(date) { return "Hôm qua \(time)" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM HH:mm"
+        return formatter.string(from: date)
     }
 
-    private func copyLogToClipboard() {
-        let contents = AppLogger.shared.readLogContents()
-        UIPasteboard.general.string = contents
-        showingCopySuccessAlert = true
-    }
-    
-    private func formatBytes(_ bytes: UInt64) -> String {
+    private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
         formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(bytes))
+        return formatter.string(fromByteCount: bytes)
     }
 }

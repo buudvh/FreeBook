@@ -1,11 +1,19 @@
 import Foundation
+import UIKit
 
+/// Nhật ký của app. Từ 1.3.948 lưu bằng **SQLite theo phiên** (`AppLogDatabase`, `app_logs.sqlite`): mỗi lần mở app là một
+/// phiên kèm thông tin đầu phiên (`AppLogSessionInfo`), giữ 20 phiên / tối đa 30 MB, xuất `.txt` theo phiên đã chọn
+/// (`AppLogger+Sessions`). File `app_logs*.txt` xoay vòng cũ bị xoá ở lần mở đầu tiên.
+///
+/// - Công tắc "Ghi log hệ thống" **tự tắt mỗi lần mở app** (giữ như cũ, anh Bửu chọn); tắt thì vẫn ghi dòng lỗi (chứa ❌).
+/// - Ghi theo **lô** trên hàng đợi nền: đủ 64 dòng hoặc sau 0,5 s; dòng ❌ ghi ngay (app chết vẫn còn manh mối).
+/// - App vào nền / bị đóng ⇒ ghi nốt **đồng bộ** rồi đánh dấu trạng thái phiên; phiên cũ còn `foreground` lúc mở app sau
+///   ⇒ nó chết khi đang mở (crash, bị giết) — phiên mới ghi lại thời điểm + dòng cuối của nó.
 public final class AppLogger {
     public static let shared = AppLogger()
-    
+
     public var isLoggingEnabled: Bool {
         get {
-            // Mặc định là true nếu chưa cấu hình
             if UserDefaults.standard.object(forKey: "isLoggingEnabled") == nil {
                 return false
             }
@@ -15,7 +23,7 @@ public final class AppLogger {
             UserDefaults.standard.set(newValue, forKey: "isLoggingEnabled")
         }
     }
-    
+
     public var isCompactSuccessLogEnabled: Bool {
         get {
             if UserDefaults.standard.object(forKey: "isCompactSuccessLogEnabled") == nil {
@@ -40,25 +48,45 @@ public final class AppLogger {
         }
     }
 
-    // Một formatter dùng chung thay vì tạo DateFormatter mỗi dòng; chỉ dùng trên `queue`.
-    private static let timestampFormatter: DateFormatter = {
+    static let keptSessions = 20
+    static let maxDatabaseBytes: Int64 = 30 * 1024 * 1024
+    private static let batchSize = 64
+    private static let flushDelay: TimeInterval = 0.5
+    private static let pruneEveryLines = 2_000
+    /// Kho chưa mở được (vd cạn fd) ⇒ giữ tối đa chừng này dòng chờ lần mở sau, và chỉ thử mở lại sau chừng này giây.
+    private static let maxPendingWithoutStore = 2_000
+    private static let reopenInterval: TimeInterval = 30
+
+    // Một formatter dùng chung (in console + xuất `.txt`); chỉ dùng trên `queue` hoặc trong lượt xuất.
+    static let timestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         return formatter
     }()
 
-    /// Mọi thao tác trên file log chạy tuần tự trên queue nền này: luồng gọi (kể cả main) chỉ dựng chuỗi
-    /// rồi đi tiếp, không chờ ghi đĩa. Đổi lại, app crash có thể mất vài dòng cuối chưa kịp ghi.
-    private let queue = DispatchQueue(label: "TangCongCac.AppLogger", qos: .utility)
-    // Handle của `app_logs.txt`, mở một lần rồi giữ suốt phiên (chỉ truy cập trên `queue`): mở lại cần fd mới,
-    // mà lúc tiến trình đã cạn fd thì mở lại hỏng âm thầm và mọi dòng log sau đó mất.
-    private var fileHandle: FileHandle?
-    // Số byte của file đang ghi, để biết lúc xoay vòng (chỉ truy cập trên `queue`).
-    private var currentFileSize: UInt64 = 0
+    private static let clockFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss dd/MM"
+        return formatter
+    }()
+
+    /// Mọi thao tác trên kho log chạy tuần tự trên queue nền này: luồng gọi (kể cả main) chỉ dựng chuỗi rồi đi tiếp.
+    let queue = DispatchQueue(label: "TangCongCac.AppLogger", qos: .utility)
+    // Các biến dưới chỉ truy cập trên `queue`.
+    var database: AppLogDatabase?
+    var sessionId: Int64?
+    private var pending: [AppLogDatabase.Line] = []
+    private var flushScheduled = false
+    private var linesSincePrune = 0
+    private var lastOpenAttempt: TimeInterval = -.greatestFiniteMagnitude
+    private var observers: [NSObjectProtocol] = []
 
     private init() {
-        // Tự động tắt ghi log hệ thống khi khởi chạy lại ứng dụng
+        // Tự động tắt ghi log hệ thống khi khởi chạy lại ứng dụng (giữ từ 15/07 — bản sửa crash).
         UserDefaults.standard.set(false, forKey: "isLoggingEnabled")
+        observeAppState()
+        // Mở phiên ngay (không chờ dòng đầu) để lần mở app nào cũng có phiên + thông tin đầu phiên.
+        queue.async { self.ensureSessionOnQueue() }
     }
 
     // Công tắc log tắt thì vẫn ghi **dòng lỗi** (chứa "❌") để lỗi xảy ra lúc chưa bật log còn dấu vết;
@@ -74,119 +102,136 @@ public final class AppLogger {
         enqueue(message, at: Date())
     }
 
-    /// Thời điểm lấy ở luồng gọi; định dạng, in console và ghi file làm trên `queue`.
-    private func enqueue(_ text: String, at date: Date) {
-        queue.async {
-            let logLine = "[\(Self.timestampFormatter.string(from: date))] \(text)\n"
-            print(logLine, terminator: "")
-            self.appendOnQueue(Data(logLine.utf8))
-        }
-    }
-
-    private func appendOnQueue(_ data: Data) {
-        if fileHandle == nil {
-            openCurrentFileOnQueue()
-        }
-        guard let handle = fileHandle else { return }
-        do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            currentFileSize += UInt64(data.count)
-        } catch {
-            // Handle hỏng: bỏ đi để lần ghi sau mở lại.
-            closeFileHandleOnQueue()
-            return
-        }
-        if currentFileSize >= AppLogFiles.maxFileBytes {
-            rotateOnQueue()
-        }
-    }
-
-    private func openCurrentFileOnQueue() {
-        let url = AppLogFiles.currentURL
-        if !FileManager.default.fileExists(atPath: url.path) {
-            // File chưa có: tạo rỗng rồi mở handle luôn, để ngay dòng đầu đã giữ được handle.
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
-        // `forUpdating` (đọc + ghi) để `readLogContents` đọc qua chính handle này, không cần fd mới.
-        fileHandle = try? FileHandle(forUpdating: url)
-        // Phép thử chẩn đoán rò fd: fd thiếu FD_CLOEXEC có bị nhân bản theo nhóm hay không (xem FileDescriptorCensus).
-        if let descriptor = fileHandle?.fileDescriptor {
-            _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
-        }
-        currentFileSize = (try? fileHandle?.seekToEnd()) ?? 0
-    }
-
-    /// File đang ghi đủ lớn ⇒ đẩy nó thành `app_logs.1.txt` rồi mở `app_logs.txt` mới. Nếu không mở nổi file
-    /// mới (vd đã cạn fd) thì trả file đang ghi về lại tên `app_logs.txt` (đổi tên không cần fd) và ghi tiếp
-    /// qua handle cũ: handle **luôn** trỏ file hiện hành, nên lần xoay sau hay "Xóa tất cả" không bao giờ
-    /// xoá nhầm chính file đang ghi. Chỉ thử xoay lại sau thêm `maxFileBytes`.
-    private func rotateOnQueue() {
-        let previousHandle = fileHandle
-        guard AppLogFiles.shiftForRotation() else {
-            // Không đổi tên được: handle vẫn ở `app_logs.txt`, cứ ghi tiếp và thử lại sau.
-            currentFileSize = 0
-            return
-        }
-        openCurrentFileOnQueue()
-        if fileHandle == nil {
-            try? FileManager.default.removeItem(at: AppLogFiles.currentURL)
-            try? FileManager.default.moveItem(at: AppLogFiles.archiveURL(1), to: AppLogFiles.currentURL)
-            fileHandle = previousHandle
-        } else {
-            try? previousHandle?.close()
-        }
-        currentFileSize = 0
-    }
-
-    private func closeFileHandleOnQueue() {
-        try? fileHandle?.close()
-        fileHandle = nil
-    }
-
     public func logTTSVerbose(_ message: @autoclosure () -> String) {
         guard isLoggingEnabled && isTTSVerboseLoggingEnabled else { return }
         log(message())
     }
 
-    /// Xoá **tất cả** file log. File đang ghi được cắt về 0 qua handle đang giữ (không cần fd mới).
-    public func clear() {
-        queue.sync {
-            AppLogFiles.removeArchives()
-            if let handle = fileHandle, (try? handle.truncate(atOffset: 0)) != nil {
-                currentFileSize = 0
-                return
+    /// Thời điểm lấy ở luồng gọi; in console và gom lô làm trên `queue`.
+    private func enqueue(_ text: String, at date: Date) {
+        queue.async {
+            print("[\(Self.timestampFormatter.string(from: date))] \(text)")
+            let line = AppLogDatabase.Line(ts: date, isError: text.contains("❌"), text: text)
+            self.pending.append(line)
+            if line.isError || self.pending.count >= Self.batchSize {
+                self.flushOnQueue()
+            } else if !self.flushScheduled {
+                self.flushScheduled = true
+                self.queue.asyncAfter(deadline: .now() + Self.flushDelay) {
+                    self.flushScheduled = false
+                    self.flushOnQueue()
+                }
             }
-            closeFileHandleOnQueue()
-            try? FileManager.default.removeItem(at: AppLogFiles.currentURL)
         }
     }
 
-    /// File đang ghi (`app_logs.txt`).
-    public func getLogFileUrl() -> URL {
-        AppLogFiles.currentURL
-    }
-
-    /// Mọi file log đang có, mới nhất trước — dùng để xuất tất cả.
-    public func logFileUrls() -> [URL] {
-        AppLogFiles.existingURLs()
-    }
-
-    /// Kích thước file đang ghi. Đọc thẳng `stat` (không cần fd, không chờ queue) vì có thể bị gọi lúc dựng view.
-    public var logFileSize: UInt64 {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: AppLogFiles.currentURL.path)
-        return (attributes?[.size] as? UInt64) ?? 0
-    }
-
-    /// Nội dung file đang ghi, đọc qua chính handle đang giữ (vẫn đọc được khi đã cạn fd).
-    public func readLogContents() -> String {
-        queue.sync {
-            if let handle = fileHandle,
-               (try? handle.seek(toOffset: 0)) != nil,
-               let data = try? handle.readToEnd() {
-                return String(decoding: data, as: UTF8.self)
+    /// Ghi các dòng đang chờ thành một lô. **Chỉ gọi trên `queue`.**
+    func flushOnQueue() {
+        guard !pending.isEmpty else { return }
+        ensureSessionOnQueue()
+        guard let database, let sessionId else {
+            if pending.count > Self.maxPendingWithoutStore {
+                pending.removeFirst(pending.count - Self.maxPendingWithoutStore)
             }
-            return (try? String(contentsOf: AppLogFiles.currentURL, encoding: .utf8)) ?? ""
+            return
+        }
+        let batch = pending
+        pending.removeAll(keepingCapacity: true)
+        database.append(batch, sessionId: sessionId)
+        linesSincePrune += batch.count
+        if linesSincePrune >= Self.pruneEveryLines {
+            linesSincePrune = 0
+            database.prune(keep: Self.keptSessions, maxBytes: Self.maxDatabaseBytes, current: sessionId)
+        }
+    }
+
+    /// Mở kho (một lần) và phiên của lần mở app này. **Chỉ gọi trên `queue`.**
+    func ensureSessionOnQueue() {
+        guard sessionId == nil else { return }
+        if database == nil {
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now - lastOpenAttempt >= Self.reopenInterval else { return }
+            lastOpenAttempt = now
+            Self.removeLegacyTextLogs()
+            database = AppLogDatabase()
+        }
+        guard let database else { return }
+        let prevEnd = Self.describePreviousEnd(database.sessions().first, database: database)
+        sessionId = database.beginSession(AppLogSessionInfo.capture(), prevEnd: prevEnd)
+        database.prune(keep: Self.keptSessions, maxBytes: Self.maxDatabaseBytes, current: sessionId)
+    }
+
+    /// Xoá **tất cả** phiên rồi mở phiên mới (Màn Ghi log, màn Dung lượng, lịch tự dọn log).
+    public func clear() {
+        queue.sync {
+            pending.removeAll()
+            database?.deleteAll()
+            sessionId = nil
+            ensureSessionOnQueue()
+        }
+    }
+
+    /// Sắp tự kết thúc tiến trình (LiveContainer chuyển app tự `SIGKILL`) ⇒ ghi nốt + đánh dấu phiên đã đóng, để lần mở sau
+    /// không báo nhầm "chết đột ngột".
+    public func markSessionEnded() {
+        updateState("ended", synchronously: true)
+    }
+
+    // MARK: - Trạng thái app
+
+    private func observeAppState() {
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.updateState("background", synchronously: true)
+        })
+        observers.append(center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.updateState("foreground", synchronously: false)
+        })
+        observers.append(center.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.updateState("ended", synchronously: true)
+        })
+    }
+
+    /// Ghi nốt các dòng chờ rồi đổi trạng thái phiên. Vào nền / đóng app ⇒ **đồng bộ**: xong trước khi app bị treo, không
+    /// transaction nào còn mở.
+    private func updateState(_ state: String, synchronously: Bool) {
+        let work = {
+            self.flushOnQueue()
+            if let database = self.database, let sessionId = self.sessionId {
+                database.setState(state, sessionId: sessionId)
+            }
+        }
+        if synchronously {
+            queue.sync(execute: work)
+        } else {
+            queue.async(execute: work)
+        }
+    }
+
+    // MARK: - Đầu phiên
+
+    private static func describePreviousEnd(_ previous: AppLogDatabase.SessionRow?, database: AppLogDatabase) -> String {
+        guard let previous else { return "" }
+        let time = clockFormatter.string(from: previous.lastSeen)
+        switch previous.state {
+        case "foreground":
+            let last = database.lastLine(sessionId: previous.id)?.text ?? "—"
+            return "chết đột ngột lúc \(time) khi đang mở app — dòng cuối: \(String(last.prefix(300)))"
+        case "background":
+            return "kết thúc ở nền (lần cuối \(time))"
+        default:
+            return "đóng bình thường lúc \(time)"
+        }
+    }
+
+    /// File log chữ của bản trước 1.3.948 (`app_logs.txt`, `app_logs.1…4.txt`) — anh Bửu chọn xoá ngay khi cập nhật.
+    private static func removeLegacyTextLogs() {
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        for name in ["app_logs.txt"] + (1...4).map({ "app_logs.\($0).txt" }) {
+            let url = directory.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try? FileManager.default.removeItem(at: url)
+            }
         }
     }
 }
@@ -194,11 +239,11 @@ public final class AppLogger {
 // MARK: - AppDiagnostics
 public final class AppDiagnostics: ObservableObject {
     public static let shared = AppDiagnostics()
-    
+
     @Published public var lastCall: CallInfo? = nil
-    
+
     private init() {}
-    
+
     public struct CallInfo: Identifiable {
         public let id = UUID()
         public let timestamp = Date()

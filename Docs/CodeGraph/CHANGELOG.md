@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.948] - 2026-11-14
+
+### feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột
+
+Anh Bửu: "tôi muốn thay đổi cách lưu log ổn hơn" — grill-me chốt: SQLite, mỗi lần mở app một phiên, giữ 20 phiên / 30 MB, chọn phiên ⇒ một file .txt, trong app chỉ có danh sách phiên, file .txt cũ xoá ngay, đầu phiên ghi version + build + máy + iOS + phiên trước chết đột ngột + nhiệt / RAM / ổ trống + trình đọc TTS; công tắc log giữ như cũ (tự tắt mỗi lần mở app). Trước đây mọi lần mở app dồn chung `app_logs.txt` (xoay 2 MB × 5), không biết dòng nào thuộc bản build nào.
+
+- **Kho** `AppLogDatabase` (mới): `applicationSupport/app_logs.sqlite`, sqlite3 thô (WAL, `synchronous=NORMAL`, `auto_vacuum=INCREMENTAL`), mở một lần; bảng `sessions` (thông tin đầu phiên, trạng thái cuối, số dòng / lỗi, `prev_end`) + `lines`. `prune`: giữ 20 phiên mới nhất, bỏ phiên cũ nhất tới dưới 30 MB, không bao giờ bỏ phiên đang ghi (một mình vượt thì bỏ 20% dòng cũ nhất). Tiền tố `app_logs` ⇒ màn Dung lượng vẫn đếm ở "Nhật ký".
+- **Đầu phiên** `AppLogSessionInfo` (mới): version / build (`AppVersionInfo`), mã máy (`utsname`), iOS, nhiệt, RAM trống (`ProcessMemoryProbe`), ổ trống, trình đọc + giọng (đọc thẳng `UserDefaults`, không chạm `TTSManager`).
+- **`AppLogger`**: API ghi không đổi (`log` / `logAlways` / `logTTSVerbose`), vẫn `print`, công tắc vẫn tự tắt, dòng ❌ vẫn luôn ghi. Ghi theo lô (64 dòng / 0,5 s, dòng ❌ ghi ngay); vào nền / bị đóng ⇒ ghi nốt **đồng bộ** + đánh dấu trạng thái phiên (không giữ transaction lúc app bị treo); phiên cũ còn `foreground` lúc mở app ⇒ phiên mới ghi "chết đột ngột lúc … — dòng cuối: …". LiveContainer chuyển app (`LiveContainerSwitchPreparer`) gọi `markSessionEnded` để khỏi báo nhầm. Kho chưa mở được (cạn fd) ⇒ giữ tối đa 2.000 dòng chờ, thử mở lại sau 30 s. Bỏ `AppLogFiles` + các hàm đọc file cũ; `app_logs*.txt` cũ xoá ở lần mở đầu.
+- **Xuất** (`AppLogger+Sessions`, mới): danh sách phiên, xoá phiên, xuất các phiên đã chọn (cũ → mới) thành **một** `Caches/log-exports/TangCongCac-log-<build>-<ngày giờ>.txt` — mỗi phiên mở đầu bằng khối `===== Phiên … =====` (app, máy, iOS, nhiệt, RAM, ổ trống, TTS, phiên trước, trạng thái cuối) rồi các dòng `[yyyy-MM-dd HH:mm:ss.SSS] …`; đọc bằng kết nối riêng ngoài queue ghi.
+- **Màn Ghi log hệ thống**: mục "File Log" + "Thao Tác" thay bằng **Phiên** (giờ · bản build · số dòng · số lỗi, badge đỏ "Chết đột ngột", chọn sẵn phiên đang ghi) + "Xuất N phiên (.txt)" (bảng chia sẻ) / "Xoá N phiên" / "Xoá tất cả". Bỏ nút sao chép file mới nhất.
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch Logging, danh sách thư mục).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.947] - 2026-11-14
 
 ### feat: Trình duyệt ẩn của tiện ích có thêm browser.loadHtml theo hợp đồng chuẩn
@@ -489,44 +503,3 @@ Log anh Bửu gửi (1.3.917 bật Tăng tốc Core ML, 13:42):
   - Trước đây `recordUnderrun` mở cửa sổ mà không chụp mốc Core ML.
   - Lượt đọc nào cũng bắt đầu bằng hụt đoạn, nên Summary đầu cộng cả các đoạn Core ML trước đó (`coreMLChunks=37`, `synth=23`).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; `TTSManager.swift` giữ 3425 dòng. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.917] - 2026-11-13
-
-### feat: Trình đọc Nano có công tắc Tăng tốc Core ML, nhanh gấp đôi và mát hơn, tự lùi về ORT khi cần
-
-Anh Bửu gửi kết quả Đo tự động chạy một mạch trên gói định dạng 3 (1.3.915 (1252)):
-- ORT / Core ML / ORT: RTF 0,27 / 0,14 / 0,27; CPU tiến trình 672 / 243 / 672 s.
-- Core ML mát suốt 15 phút (ORT lên ấm sau 1:11 và 5:16); pin tụt 10 / 5 / 10%.
-- Hụt tiếng 0, lùi ORT 0/304 đoạn.
-
-Anh duyệt plan P2c (cách B: chờ Core ML nạp đúng khung đoạn đầu cần rồi đọc luôn, khung khác nạp dần). Chi tiết ở §16 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
-
-- **Công tắc "Tăng tốc Core ML (thử nghiệm)"**, mặc định tắt, ở Cài đặt VieNeu TTS (`VieNeuTTSTestView+CoreML`). Chỉ áp cho model Nano. Nút "Tải & chuẩn bị":
-  - tải gói (theo sha256);
-  - biên dịch 7 graph;
-  - **tự kiểm golden** (`VieNeuCoreMLPreparer.verify`) — qua mới gắn cho trình đọc;
-  - ghi dấu `Results/reader-verified.json` (commit + sha manifest + số bản biên dịch).
-
-  Màn này còn có trạng thái, nút Dừng và nút Xoá (giữ báo cáo của màn thử). Logic ở `VieNeuCoreMLAccelerator`.
-- **Gói ghim commit HF** `0d5d13ce` (`VieNeuCoreMLPackage.revision`): thử nghiệm sau ghi đè `nano-coreml/` trên `main` không làm hỏng trình đọc.
-- **Chỗ nối** (`VieNeuCoreMLReaderRoute`, gọi được từ mọi luồng):
-  - Hàm `synthesizeWithDuration` đúng chữ ký `LocalTTSEngine` (trình đọc, Nghe thử, nghe thử giọng) lấy backend Core ML của trình đọc.
-  - Hàm có `flowBackend:` của màn thử dùng đúng giá trị truyền vào (`nil` = ORT), nên lượt ORT của Đo tự động không lẫn Core ML.
-- **Nạp sẵn + chạy nháp**: engine Nano khởi động (`VieNeuTTSService.prepare`) ⇒ nền, không chờ, nạp + chạy một lượt input 0 cho VE T64 / T96 / T128, codec T64 / T128.
-  - Mỗi khung một lần giữ khoá tổng hợp (`VieNeuTTSEngine.withSynthesisLock`), nên không chồng lên lượt đọc.
-  - Khung khác nạp khi gặp.
-  - Không biên dịch lúc này: thiếu bản biên dịch ⇒ ORT, Cài đặt báo "Cần chuẩn bị".
-  - Bật lại công tắc khi đã sẵn ⇒ nạp ngay.
-- **Lùi ORT**:
-  - đoạn vượt bucket hoặc giọng khác dạng (thêm kiểm style 50 × 256, speaker 192 trong `canRun`);
-  - Core ML lỗi một chunk ⇒ engine chạy lại chunk đó bằng ORT (`VieNeuFlowBackend.fallsBackToORTOnError`, chỉ backend của trình đọc). Lỗi 3 lần ⇒ thôi dùng tới lần mở app sau.
-  - Máy báo thiếu RAM ⇒ nhả session, lượt sau nạp lại lười.
-  - Nhả engine Nano / chuyển Turbo ⇒ nhả backend.
-- **Màn thử dùng chung gói** ⇒ Đo tự động (lúc bắt đầu) và nút Xoá của màn thử nhả backend của trình đọc trước. Nút đổi tên "… (cả của trình đọc)"; xoá cache là xoá dấu tự kiểm.
-- **Log để so bật / tắt**:
-  - `🎙️ [TTSStart] Tiếng đầu sau X ms · engine · flow` (mốc `startSpeaking` → lần đưa tiếng đầu lên hàng phát);
-  - `[NghiEnergy] Summary` thêm `coreMLChunks` / `coreMLFallbacks` của cửa sổ;
-  - `[VieNeuPerf]` mỗi lượt thêm `backend=coreml|ort` (đã có sẵn `qos=` của luồng tổng hợp);
-  - `[VieNeuCoreML]`: chuẩn bị, tự kiểm, nạp sẵn + chạy nháp, lượt đầu mỗi session, lỗi.
-- Để sau: mặc định bật, bỏ nạp ORT VE / codec khi bật, gộp trọng số trùng giữa các bucket, Neural Engine.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
