@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.948",
+          "buildVersion": "1279",
+          "date": "2026-11-14T15:49:34Z",
+          "localizedDescription": "- feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1279/TangCongCac-1.3.948-1279.ipa",
+          "size": 41522178,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.947",
           "buildVersion": "1278",
           "date": "2026-11-14T14:51:32Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1274/TangCongCac-1.3.944-1274.ipa",
           "size": 41445781,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.943",
-          "buildVersion": "1273",
-          "date": "2026-11-14T10:22:46Z",
-          "localizedDescription": "- feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1273/TangCongCac-1.3.943-1273.ipa",
-          "size": 41445776,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.947",
-      "versionDate": "2026-11-14T14:51:32Z",
-      "versionDescription": "- feat: Trình duyệt ẩn của tiện ích có thêm browser.loadHtml theo hợp đồng chuẩn",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1278/TangCongCac-1.3.947-1278.ipa",
-      "size": 41495507,
+      "version": "1.3.948",
+      "versionDate": "2026-11-14T15:49:34Z",
+      "versionDescription": "- feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1279/TangCongCac-1.3.948-1279.ipa",
+      "size": 41522178,
       "appPermissions": {}
     }
   ],
