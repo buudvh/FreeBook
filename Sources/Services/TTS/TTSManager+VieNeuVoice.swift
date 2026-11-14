@@ -40,7 +40,12 @@ extension TTSManager {
         AppLogger.shared.log("[TTSRoute] chon giong VieNeu \(selection.storageValue) model=\(previousModel.rawValue)->\(newModel.rawValue)")
         if wasVieNeu && previousModel == newModel {
             let voice = Self.effectiveVieNeuVoice()
-            if selectedVoice != voice { selectedVoice = voice }
+            if selectedVoice != voice {
+                selectedVoice = voice
+                // Đọc lai Nano · Turbo (1.3.934): giọng mới có / mất cặp ⇒ engine đổi (bọc ↔ thường); chuẩn bị lại để model
+                // phụ đã nạp lười được nhả và mức âm lượng nhớ của giọng cũ được quên.
+                scheduleNghiWarmUp()
+            }
             if newModel == .turbo { VieNeuTurboTTSService.shared?.prefetchVoice(voice) }
         } else {
             tool = "vieneu"

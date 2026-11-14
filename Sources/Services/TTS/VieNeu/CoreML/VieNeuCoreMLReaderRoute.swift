@@ -88,11 +88,17 @@ final class VieNeuCoreMLReaderRoute: @unchecked Sendable {
     /// tổng hợp (`serialize`) để không chồng lên lượt đọc. Gói chưa qua tự kiểm ⇒ nhờ `VieNeuCoreMLAccelerator` tự tải +
     /// biên dịch + tự kiểm (Core ML luôn bật, 1.3.919); xong việc đó gọi lại hàm này.
     func warmUpIfReady(serialize: (() throws -> Void) throws -> Void) {
-        guard VieNeuModelChoice.current == .nano else { return }
+        // Giọng Turbo đang đọc lai (1.3.934) cũng cần Nano khi máy nóng ⇒ chạy nháp như khi Nano là model chính.
+        let isNanoReader = VieNeuModelChoice.current == .nano
+        guard isNanoReader || VieNeuHybridRouting.readerContext() != nil else { return }
         guard let package = try? VieNeuCoreMLPackage(), let manifest = package.manifest,
               VieNeuCoreMLAccelerator.isVerified(package: package) else {
             AppLogger.shared.log("🎙️ [VieNeuCoreML] Chưa sẵn sàng (chưa tải / chưa tự kiểm) — trình đọc dùng ORT, tự chuẩn bị ở nền")
-            Task { @MainActor in VieNeuCoreMLAccelerator.shared.prepareIfNeeded(reason: "engine Nano khởi động") }
+            // Nano nạp lười giữa lúc giọng Turbo đọc lai (máy nóng, có thể đang khoá màn) thì **không** tải + biên dịch gói:
+            // biên dịch Core ML ở nền từng làm iOS giết app (cpu_resource_fatal). Để lần engine Nano là model chính lo.
+            if isNanoReader {
+                Task { @MainActor in VieNeuCoreMLAccelerator.shared.prepareIfNeeded(reason: "engine Nano khởi động") }
+            }
             return
         }
         lock.lock()

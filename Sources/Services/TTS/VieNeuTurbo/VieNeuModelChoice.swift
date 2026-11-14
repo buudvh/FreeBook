@@ -41,8 +41,12 @@ enum VieNeuModelChoice: String, CaseIterable, Sendable {
     }
 
     /// Tên engine đưa vào **khoá tổng hợp** (`TTSSynthesisIdentity`). Nano giữ nguyên `"vieneu"` để khoá cũ không đổi;
-    /// Turbo thành `"vieneu.turbo"` ⇒ đổi model không bao giờ phát lại audio của model kia.
-    static func synthesisEngineIdentity(forEngine engine: String) -> String {
-        engine == vieNeuTool && current == .turbo ? "vieneu.turbo" : engine
+    /// Turbo thành `"vieneu.turbo"` ⇒ đổi model không bao giờ phát lại audio của model kia. Đang đọc lai Nano · Turbo
+    /// (1.3.934) ⇒ `"vieneu.hybrid.<model của đoạn>"` — model quyết theo chữ đoạn (`VieNeuHybridRouting`), nên cần
+    /// `voice` + `text`.
+    static func synthesisEngineIdentity(forEngine engine: String, voice: String, text: String) -> String {
+        guard engine == vieNeuTool else { return engine }
+        if let hybrid = VieNeuHybridRouting.synthesisEngineIdentity(voice: voice, text: text) { return hybrid }
+        return current == .turbo ? "vieneu.turbo" : engine
     }
 }

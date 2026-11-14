@@ -65,8 +65,12 @@ extension TTSManager {
     ///
     /// `vieneu` chọn tiếp theo **model hiệu lực** (`VieNeuModelChoice.current`): Turbo ⇒ `VieNeuTurboTTSService`, còn lại
     /// Nano. Chọn ở đây (không phải trong `VieNeuTTSService`) để các màn chỉ dành cho Nano vẫn gọi thẳng service Nano.
+    ///
+    /// Giọng có cặp Nano ↔ Turbo và công tắc đọc lai của model đó bật (1.3.934) ⇒ `VieNeuHybridTTSService` (quyết model
+    /// từng đoạn).
     internal var localEngine: (any LocalTTSEngine)? {
         guard tool == "vieneu" else { return nghiTTSService }
+        if VieNeuHybridRouting.context(voice: selectedVoice) != nil { return VieNeuHybridTTSService.shared }
         return VieNeuModelChoice.current == .turbo ? VieNeuTurboTTSService.shared : VieNeuTTSService.shared
     }
 
@@ -180,8 +184,25 @@ extension TTSManager {
     internal func invalidateVieNeuSynthesisSpeed() {
         // Turbo luôn tổng hợp 1× ⇒ đổi tốc độ tổng hợp (của Nano) không làm audio nào cũ đi.
         guard tool == "vieneu", VieNeuModelChoice.current == .nano else { return }
+        discardVieNeuAudioAfterCurrent(reason: "doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x")
+    }
+
+    /// Đổi công tắc **đọc lai Nano · Turbo** (1.3.934, Cài đặt VieNeu TTS) giữa lúc đọc: phát nốt đoạn hiện tại, nạp lại
+    /// phần còn lại bằng engine mới (`localEngine` đổi giữa engine bọc và service thường). Khoá chương kế
+    /// (`TTSPreparedNextChapterKey`) không chứa model ⇒ phải bỏ prefix chương kế ở đây, không thì đầu chương sau phát
+    /// audio của chế độ cũ. Rồi chuẩn bị lại engine (engine bọc / service thường tự nhả model không cần).
+    internal func vieNeuHybridSettingsDidChange() {
+        VieNeuVoicePairing.shared.invalidate()
+        guard tool == "vieneu" else { return }
+        discardVieNeuAudioAfterCurrent(reason: "doi cong tac doc lai Nano/Turbo")
+        scheduleNghiWarmUp()
+    }
+
+    /// Bỏ audio đã nạp trước từ đoạn sau đoạn đang phát + prefix chương kế, giữ đoạn đang phát (không khựng) — chung cho
+    /// đổi tốc độ tổng hợp và đổi công tắc đọc lai. Đoạn hiện tại chưa vào player ⇒ bỏ luôn và tổng hợp lại.
+    private func discardVieNeuAudioAfterCurrent(reason: String) {
         let currentInPlayer = nghiAudioPlayerQueue.currentItem?.paragraphIndex == currentParagraphIndex
-        AppLogger.shared.log("[TTSRoute] doi toc do tong hop = \(Self.vieNeuSynthesisSpeed)x (doan \(currentParagraphIndex) \(currentInPlayer ? "giu" : "tong hop lai"))")
+        AppLogger.shared.log("[TTSRoute] \(reason) (doan \(currentParagraphIndex) \(currentInPlayer ? "giu" : "tong hop lai"))")
         cancelNghiRefill()
         if !currentInPlayer { cancelNghiPlaybackTask() }
         let keepUpTo = currentInPlayer ? currentParagraphIndex : currentParagraphIndex - 1

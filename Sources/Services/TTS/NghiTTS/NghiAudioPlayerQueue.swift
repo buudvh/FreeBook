@@ -153,8 +153,8 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         // đang phát — đúng loại việc gây giật ở biên đoạn.
         guard newRate != playbackRate else { return }
         playbackRate = newRate
-        currentPlayer?.rate = playbackRate
-        nextPlayer?.rate = playbackRate
+        if let currentPlayer { currentPlayer.rate = rate(for: currentPlayer) }
+        if let nextPlayer { nextPlayer.rate = rate(for: nextPlayer) }
 
         if nextIsScheduled {
             // Hủy schedule cũ trên hardware nhưng GIỮ NGUYÊN instance nextPlayer
@@ -183,12 +183,20 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         let player = try AVAudioPlayer(data: data)
         player.delegate = self
         player.enableRate = true
-        player.rate = playbackRate
+        player.rate = rate(for: player)
         guard player.prepareToPlay() else {
             player.delegate = nil
             throw QueueError.preparationFailed
         }
         return player
+    }
+
+    /// Tốc độ phát của **một** player: tốc độ chung × hệ số riêng của đoạn. Hệ số ≠ 1 chỉ khi giọng Nano đang đọc lai và
+    /// đoạn là Turbo (48 kHz, tổng hợp 1×) — nhân "Tốc độ tổng hợp" của Nano cho hai giọng cùng nhịp
+    /// (`VieNeuHybridRouting.playbackRateFactor`, 1.3.934).
+    private func rate(for player: AVAudioPlayer) -> Float {
+        let factor = VieNeuHybridRouting.playbackRateFactor(sampleRate: player.format.sampleRate)
+        return factor == 1 ? playbackRate : clampedRate(Double(playbackRate * factor))
     }
 
     /// KHÔNG còn pre-schedule đoạn kế bằng `play(atTime:)` (1.3.441) — xem CHANGELOG.

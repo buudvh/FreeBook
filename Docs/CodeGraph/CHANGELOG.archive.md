@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.904] - 2026-11-12
+
+### fix: giọng VieNeu giữ phiên âm thanh của truyện khi thử giọng, tải lại không chồng lượt, đổi tên giọng Nano không ghi đè lựa chọn Turbo
+
+Session chính đọc soát nhánh giao diện giọng VieNeu (1.3.898–902) trước khi push, thấy vài lỗi logic; sửa cả đợt.
+
+- **Thử giọng làm mất phiên âm thanh của truyện**: `VieNeuVoicePreviewPlayer.releaseSession` tắt `AVAudioSession` cả khi truyện chỉ đang tạm dừng vì mở Cài đặt TTS. Phiên đó là của `TTSManager` (`isAudioSessionConfigured` vẫn `true`), `resume()` không bật lại ⇒ có thể mất tiếng / mất màn khoá. Nay TTS còn phiên (`playingBookId` khác rỗng hoặc phiên đã cấu hình) thì để nguyên, như clip thử của NghiTTS. `sampleText` khai `nonisolated` vì đọc trong hàm `nonisolated`.
+- **Bấm ■ rồi ⬇ ngay là hai lượt cùng ghi `.partial`**: `cancel(id:)` xoá dòng ngay trong khi `Task` cũ còn dừng `URLSession`, mà lượt mới chỉ chờ khi còn dòng đang chạy. Nay lượt mới **luôn** chờ lượt cuối hàng (đã xong thì trả ngay); `isQueued` vẫn theo `isVieNeuBusy`.
+- **Tải xong mà model hiệu lực đổi** (lựa chọn đã lưu là Turbo, máy thiếu file nên đang lùi về Nano; tải đủ ⇒ thành Turbo): `selectedVoice` còn tên giọng Nano ⇒ Turbo đọc giọng mặc định. Nay tải xong mà `VieNeuModelChoice.current` đổi và trình đọc là VieNeu ⇒ `applyVieNeuParamsIfNeeded()` + `scheduleNghiWarmUp()`.
+- **Sheet nhân bản**:
+  - Bỏ sheet lúc đang lưu từng xoá file mẫu tạm trong khi `enrollVoice` / `createVoice(fromFile:)` có thể còn đọc ⇒ nay chỉ xoá sau khi lượt lưu dở dừng hẳn.
+  - Huỷ lượt lưu từng huỷ cả lượt tải người dùng tự bấm ở sheet chọn giọng ⇒ `VieNeuClonePackages.ensure` báo riêng đích **do chính lượt lưu khởi tạo** (`Jobs.owned`), chỉ huỷ các đích đó.
+  - Nano xong mà Turbo lỗi từng `markSaved()` ⇒ file mẫu tạm không bao giờ bị xoá; nay đóng sheet là xoá (kho Nano / Turbo đã chép mẫu riêng). Sửa chú thích "đang lưu ⇒ không đóng được" cho khớp `confirmDiscardOnSwipe`.
+- **Đổi tên / xoá giọng Nano** (`VieNeuCustomVoiceActions.retargetNanoVoice`): lựa chọn đã lưu là Turbo mà đang lùi về Nano bằng giọng đó ⇒ không còn ghi đè mất lựa chọn Turbo, chỉ đổi giọng đang đọc. Đổi tên giọng Nano không đang đọc ⇒ lựa chọn đã lưu / "giọng Nano dùng gần nhất" trỏ tên cũ cũng chuyển sang tên mới. Xoá giọng Turbo tự tạo đang là lựa chọn mà trình đọc không phải VieNeu ⇒ lựa chọn về giọng mặc định. Bỏ `isReaderVoice` (không còn chỗ gọi).
+- **Kiểm chứng:** đọc code; `check_architecture.py` chỉ còn lỗi có sẵn `JSDom.swift`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.903] - 2026-11-12
 
 ### chore: dời số bản trong chú thích code của đợt nhân bản giọng và giao diện VieNeu sau khi ghép lại

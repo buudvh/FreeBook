@@ -115,7 +115,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         // Trình đọc đang ở Nano ⇒ nhả model Turbo (188 MB + bộ đệm ggml) trước khi nạp ORT — hai model không nên cùng nằm
         // trong RAM. Trình đọc đang ở Turbo (nghe thử giọng Nano / nhân bản giọng nạp Nano) thì giữ Turbo: nó là thứ
         // đang đọc.
-        if VieNeuModelChoice.current == .nano {
+        // Đọc lai Nano · Turbo (1.3.934): giữ cả hai, `VieNeuHybridTTSService` quyết lúc nhả.
+        if VieNeuModelChoice.current == .nano, VieNeuHybridRouting.readerContext() == nil {
             await VieNeuTurboTTSService.releaseForNano()
         }
         try await Task.detached(priority: .utility) { [engine] in

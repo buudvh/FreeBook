@@ -135,7 +135,8 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Nhả Nano rồi nạp model + dựng session 2 luồng + đủ file giọng. `TTSManager.scheduleNghiWarmUp` gọi khi chọn Turbo
     /// (và lúc mở app khi đang chọn Turbo) ⇒ đoạn đầu không phải chờ nạp model.
     func prepare(voice: String) async throws {
-        await Self.releaseNanoEngineIfLoaded()
+        // Đọc lai Nano · Turbo (1.3.934): hai model cùng nằm RAM, việc nhả do `VieNeuHybridTTSService` quyết.
+        if VieNeuHybridRouting.readerContext() == nil { await Self.releaseNanoEngineIfLoaded() }
         let voiceId = resolveVoiceId(voice)
         try await ensureVoice(voiceId)
         let load = try await runtime.prepare(modelURL: store.modelURL, threads: Self.threadCount)
@@ -153,7 +154,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
 
     /// Nhả engine Nano nếu đang nạp. Khoá của engine Nano có thể đang bị một lượt Nano giữ vài giây ⇒ chờ trên hàng đợi
     /// GCD, không chặn luồng của pool hợp tác.
-    private static func releaseNanoEngineIfLoaded() async {
+    static func releaseNanoEngineIfLoaded() async {
         guard let nano = VieNeuTTSService.shared else { return }
         let released = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             DispatchQueue.global(qos: .utility).async {
@@ -218,7 +219,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         boundaryKind: TTSBoundaryKind
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) { return Self.silencePayload(text: text) }
-        await Self.releaseNanoEngineIfLoaded()
+        if VieNeuHybridRouting.readerContext() == nil { await Self.releaseNanoEngineIfLoaded() }
         let voiceId = resolveVoiceId(voice)
         try await ensureVoice(voiceId)
         _ = try await runtime.prepare(modelURL: store.modelURL, threads: Self.threadCount)
