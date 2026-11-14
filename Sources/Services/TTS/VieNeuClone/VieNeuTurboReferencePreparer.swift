@@ -17,6 +17,8 @@ import Foundation
 /// - Lấy lại tần số bằng `AVAudioConverter` thay cho soxr (như đường Nano, `VieNeuAudioResampler`).
 /// - Chỉ đọc `maximumDecodeSeconds` giây đầu file — upstream đọc cả file. Chỉ khác khi tiếng nói bắt đầu sau giây 52.
 /// - Tắt khử nhiễu ⇒ buffer giữ **tần số gốc** của file (upstream cũng vậy), không ép 44,1 kHz.
+/// - Tiếng nói dài hơn mốc ⇒ cắt ở **chỗ ngắt hơi** trong 1,5 s trước mốc 7,9 s (`VieNeuCloneSampleCutter`, 1.3.936) thay
+///   cho `wav[: int(8.0 * sr)]` cắt cứng giữa chữ. Mốc chừa 0,1 s để audio.cpp không cắt lần nữa sau khi lên 48 kHz.
 ///
 /// **Nặng và đồng bộ** — bên gọi chạy ngoài MainActor. Ngữ cảnh ORT (speaker_encoder + denoiser) mở trong hàm và
 /// **nhả khi hàm trả về**, trước bước audio.cpp — để hai đỉnh bộ nhớ không chồng nhau.
@@ -38,7 +40,7 @@ enum VieNeuTurboReferencePreparer {
     }
 
     struct Prepared: Sendable {
-        /// Mono, ≤ 8 giây — đưa thẳng cho audio.cpp (nó tự lên 48 kHz, tự cắt 8 s).
+        /// Mono, ≤ 7,9 giây — đưa thẳng cho audio.cpp (nó tự lên 48 kHz).
         let samples: [Float]
         let sampleRate: Double
         /// 192 số, **không** chuẩn hoá L2 — đúng `speaker.emb.txt` của giọng đóng gói.
@@ -47,6 +49,8 @@ enum VieNeuTurboReferencePreparer {
         let sourceSampleRate: Double
         /// Độ dài phần đã đọc của file (≤ `maximumDecodeSeconds`).
         let decodedSeconds: Double
+        /// Độ dài tiếng nói sau cắt im lặng, **trước** cắt theo mốc — lớn hơn `durationSeconds` khi mẫu đã bị cắt.
+        let speechSeconds: Double
         let leadingTrimSeconds: Double
         let trailingTrimSeconds: Double
         /// Đoạn sau cắt im lặng + cắt 8 giây, **trước** khử nhiễu, ở tần số gốc — chỉ khi `keepsIntermediate` (nhân bản
@@ -79,6 +83,9 @@ enum VieNeuTurboReferencePreparer {
 
     /// `_MAX_REF_SECONDS` của Turbo upstream — audio.cpp cũng tự cắt ở đúng 8 giây (`kMaxReferenceSeconds`).
     static let maximumSeconds = 8.0
+    /// Mốc cắt của app (1.3.936): chừa 0,1 s dưới `maximumSeconds`, tìm chỗ ngắt hơi trong `cutSearchSeconds` trước đó.
+    static let cutSeconds = 7.9
+    static let cutSearchSeconds = 1.5
     /// Sàn sau khi cắt im lặng. Upstream không chặn. 1 giây vì giọng đóng gói ngắn nhất chỉ 12 khung (~0,96 s, đếm 25
     /// giọng của manifest: 12…98 khung) — sàn 2 giây của bản đầu (1.3.891) chặn cả mẫu cỡ đó.
     static let minimumSeconds = 1.0
@@ -109,9 +116,23 @@ enum VieNeuTurboReferencePreparer {
         onStage?(.trimming)
         let kept = VieNeuSilenceTrimmer.nonSilentRange(of: decoded.samples)
         guard !kept.isEmpty else { throw PrepareError.silent }
-        let limit = Int((maximumSeconds * sourceRate).rounded(.down)) // `int(max_seconds * sr)` của upstream
-        let trimmed = Array(decoded.samples[kept].prefix(limit))
+        let speech = Array(decoded.samples[kept])
+        let speechSeconds = Double(speech.count) / sourceRate
+        let cut = VieNeuCloneSampleCutter.trimmed(
+            speech,
+            sampleRate: sourceRate,
+            maxSeconds: cutSeconds,
+            windowSeconds: cutSearchSeconds
+        )
+        let trimmed = cut.samples
         let trimmedSeconds = Double(trimmed.count) / sourceRate
+        if let point = cut.cut {
+            AppLogger.shared.log(
+                "✂️ [VieNeuTurboClone] Tiếng nói \(VieNeuCloneSampleCutter.format(speechSeconds)) s > " +
+                "\(VieNeuCloneSampleCutter.format(cutSeconds)) s ⇒ dùng \(VieNeuCloneSampleCutter.format(trimmedSeconds)) s " +
+                "(chỗ lặng \(String(format: "%.0f", point.quietDecibels)) dB)"
+            )
+        }
         guard trimmedSeconds >= minimumSeconds else { throw PrepareError.tooShort(trimmedSeconds) }
         timings.trimMs = lap()
 
@@ -144,6 +165,7 @@ enum VieNeuTurboReferencePreparer {
             isDenoised: denoise,
             sourceSampleRate: sourceRate,
             decodedSeconds: decoded.duration,
+            speechSeconds: speechSeconds,
             leadingTrimSeconds: Double(kept.lowerBound) / sourceRate,
             trailingTrimSeconds: Double(decoded.samples.count - kept.upperBound) / sourceRate,
             trimmedSamples: keepsIntermediate ? trimmed : nil,

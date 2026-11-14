@@ -103,17 +103,22 @@ struct VieNeuVoiceCloneSheet: View {
                 }
             }
             .disabled(flow.sampleURL == nil || flow.isRecording || flow.isSaving)
+            if let original = flow.originalSampleSeconds, let kept = flow.sampleSeconds {
+                LabeledContent("Đã cắt", value: "\(Self.number(kept)) / \(Self.seconds(original))")
+                    .monospacedDigit()
+            }
             TextField("Tên giọng", text: Bindable(flow).name)
                 .textInputAutocapitalization(.words)
                 .disabled(flow.isSaving)
         } header: {
             SectionHelpHeader("Mẫu giọng", paragraphs: [
-                "Đọc một câu tự nhiên ở chỗ yên tĩnh. Thu tự dừng ở 8 giây; file chọn dài hơn thì app lấy 8 giây đầu sau khi cắt im lặng."
+                "Đọc tự nhiên ở chỗ yên tĩnh, 5–15 giây là đủ; bấm dừng khi xong. Mẫu dài bao nhiêu cũng được.",
+                "Giọng Nano dùng tối đa 30 giây đầu: mẫu dài hơn thì app tự cắt ở chỗ ngắt hơi gần giây 29,5 (hàng \"Đã cắt\"). Giọng Turbo dùng khoảng 8 giây tiếng nói đầu (đã bỏ khoảng lặng), cũng cắt ở chỗ ngắt hơi."
             ])
         }
     }
 
-    /// Nút tròn lớn (mic ↔ stop), đồng hồ "5,2 s / 8 s", thanh mức âm.
+    /// Nút tròn lớn (mic ↔ stop), đồng hồ "5,2 s" (không giới hạn — người dùng tự dừng), thanh mức âm.
     private var recordBlock: some View {
         VStack(spacing: 10) {
             Button {
@@ -130,10 +135,10 @@ struct VieNeuVoiceCloneSheet: View {
                 .contentShape(Circle())
             }
             .buttonStyle(.borderless)
-            .disabled(flow.isSaving)
+            .disabled(flow.isSaving || flow.isProbing)
             .accessibilityLabel(flow.isRecording ? "Dừng thu" : "Bắt đầu thu")
 
-            Text("\(Self.seconds(flow.isRecording ? flow.recordedSeconds : (flow.sampleSeconds ?? 0))) / \(Self.seconds(VieNeuVoiceCloneFlow.recordLimitSeconds))")
+            Text(Self.seconds(flow.isRecording ? flow.recordedSeconds : (flow.sampleSeconds ?? 0)))
                 .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(.secondary)
             ProgressView(value: flow.isRecording ? flow.levelFraction : 0)
@@ -238,6 +243,11 @@ struct VieNeuVoiceCloneSheet: View {
 
     /// "5,2 s" — dấu phẩy thập phân như mockup.
     static func seconds(_ value: Double) -> String {
-        String(format: "%.1f s", value).replacingOccurrences(of: ".", with: ",")
+        number(value) + " s"
+    }
+
+    /// "29,3" — số giây không đơn vị (hàng "Đã cắt": "29,3 / 45,2 s").
+    static func number(_ value: Double) -> String {
+        String(format: "%.1f", value).replacingOccurrences(of: ".", with: ",")
     }
 }

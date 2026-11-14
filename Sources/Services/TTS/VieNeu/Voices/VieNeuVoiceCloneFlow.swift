@@ -5,9 +5,11 @@ import Observation
 /// Trạng thái + luồng của **sheet nhân bản giọng VieNeu** (1.3.901, mockup anh Bửu duyệt). View chỉ vẽ; thu âm, chọn file,
 /// nghe lại mẫu, tải gói và tạo giọng ở đây. Một thực thể mỗi lần mở sheet.
 ///
-/// - **Mẫu**: thu âm (tự dừng ở 8 s, `VieNeuVoiceRecorder`) hoặc file (`DocumentPickerPresenter` ở View, URL đã chép vào
-///   thư mục tạm). Đường Nano **giữ nguyên** (`VieNeuTTSService.enrollVoice`, mẫu đưa nguyên văn, không khử nhiễu) nên vẫn
-///   đòi mẫu 3–30 giây; Turbo tự cắt im lặng + lấy 8 giây đầu (`VieNeuTurboReferencePreparer`).
+/// - **Mẫu**: thu âm (`VieNeuVoiceRecorder`, người dùng tự dừng; chốt an toàn 5 phút) hoặc file (`DocumentPickerPresenter`
+///   ở View, URL đã chép vào thư mục tạm). Không có giới hạn tối đa (1.3.936): mẫu dài hơn 30 giây được **cắt ngay khi
+///   nhận** ở chỗ ngắt hơi gần 29,5 s (`VieNeuCloneSampleCutter.cutForNano`) — nghe lại mẫu, nhân bản Nano, kho Nano, "Cả
+///   hai" và "Tạo bản Turbo" đều dùng bản đã cắt. Đường Nano **giữ nguyên** (`VieNeuTTSService.enrollVoice`, không khử
+///   nhiễu), chỉ còn sàn 3 giây; Turbo tự cắt im lặng + lấy khoảng 8 giây đầu (`VieNeuTurboReferencePreparer`).
 /// - **Dùng cho** Nano / Turbo / Cả hai (mặc định model đang đọc). "Cả hai": tạo Nano trước rồi Turbo từ chính mẫu Nano
 ///   đã lưu (`createVoice(fromNanoVoiceId:)`) ⇒ hai bản liên kết qua `sourceNanoVoiceId`.
 /// - **Lưu** (`VieNeuVoiceCloneFlow+Save`): tải gói thiếu (có %) → Nano → Turbo → chọn giọng vừa tạo + đọc thử câu mẫu.
@@ -37,8 +39,8 @@ final class VieNeuVoiceCloneFlow {
         case turbo
     }
 
-    /// Tự dừng thu ở 8 giây — Turbo chỉ dùng 8 giây, Nano khuyên 3–8 giây.
-    static let recordLimitSeconds = VieNeuVoiceCloner.recommendedSampleSeconds
+    /// Chốt an toàn: quên bấm dừng thì tự dừng sau 5 phút (1.3.936 bỏ tự dừng 8 giây — người dùng tự dừng).
+    static let recordSafetyLimitSeconds = 300.0
 
     // MARK: Mẫu
 
@@ -48,6 +50,8 @@ final class VieNeuVoiceCloneFlow {
     private(set) var level: Float = -160
     private(set) var sampleURL: URL?
     private(set) var sampleSeconds: Double?
+    /// Độ dài gốc khi mẫu đã bị cắt cho vừa Nano (`nil` = dùng nguyên mẫu) — hàng "Đã cắt" của sheet.
+    private(set) var originalSampleSeconds: Double?
     private(set) var isProbing = false
     private(set) var isPlayingSample = false
     var name = ""
@@ -79,6 +83,8 @@ final class VieNeuVoiceCloneFlow {
     @ObservationIgnored var saveTask: Task<Void, Never>?
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var didSave = false
+    /// Tăng mỗi lần bỏ mẫu — lượt cắt mẫu dở về muộn (đã có mẫu khác / đã bỏ) thì tự huỷ kết quả.
+    @ObservationIgnored private var sampleGeneration = 0
 
     /// Không đọc đĩa ở đây: SwiftUI dựng lại `init` của sheet mỗi lần màn cha vẽ lại (bỏ bản thừa) — View gọi
     /// `refreshMissingBytes()` ở `onAppear`.
@@ -94,7 +100,7 @@ final class VieNeuVoiceCloneFlow {
     /// Lý do chưa bấm Lưu được; `nil` = được. Dùng làm dòng trạng thái dưới nút khi thiếu.
     var saveBlockReason: String? {
         if isSaving { return "Đang lưu…" }
-        if isProbing { return "Đang đọc file âm thanh…" }
+        if isProbing { return "Đang chuẩn bị mẫu…" }
         if isRecording { return "Đang thu âm." }
         guard let seconds = sampleSeconds, sampleURL != nil else { return "Chưa có mẫu giọng." }
         if target.includesTurbo, !VieNeuTurboRuntime.isAvailable {
@@ -103,9 +109,6 @@ final class VieNeuVoiceCloneFlow {
         if target.includesNano {
             if seconds < VieNeuVoiceCloner.minimumSampleSeconds {
                 return String(format: "Mẫu dài %.1f giây — giọng Nano cần ít nhất %.0f giây.", seconds, VieNeuVoiceCloner.minimumSampleSeconds)
-            }
-            if seconds > VieNeuVoiceCloner.maximumSampleSeconds {
-                return String(format: "Mẫu dài %.0f giây — giọng Nano chỉ nhận tối đa %.0f giây. Chọn Turbo hoặc cắt bớt file.", seconds, VieNeuVoiceCloner.maximumSampleSeconds)
             }
         }
         let trimmedName = name.trimmed
@@ -137,12 +140,12 @@ final class VieNeuVoiceCloneFlow {
         isRecording ? stopRecording() : startRecording()
     }
 
-    /// Gọi mỗi 0,1 s từ View khi đang thu: cập nhật đồng hồ / mức âm, tự dừng ở 8 giây.
+    /// Gọi mỗi 0,1 s từ View khi đang thu: cập nhật đồng hồ / mức âm, tự dừng ở chốt an toàn 5 phút.
     func tick() {
         guard isRecording else { return }
         recordedSeconds = recorder.elapsed
         level = recorder.refreshLevel()
-        if recordedSeconds >= Self.recordLimitSeconds { stopRecording() }
+        if recordedSeconds >= Self.recordSafetyLimitSeconds { stopRecording() }
     }
 
     /// Mức âm 0…1 (−60…0 dB) cho thanh mức.
@@ -179,8 +182,7 @@ final class VieNeuVoiceCloneFlow {
         isRecording = false
         level = -160
         if let url = recorder.stop() {
-            sampleURL = url
-            sampleSeconds = recordedSeconds
+            adoptSample(url, seconds: recordedSeconds)
         } else {
             showError(VieNeuVoiceRecorder.RecorderError.emptyRecording.errorDescription ?? "Bản thu không có dữ liệu.")
         }
@@ -192,6 +194,7 @@ final class VieNeuVoiceCloneFlow {
     func acceptPickedFile(_ url: URL) {
         stopSample()
         discardSample()
+        let generation = sampleGeneration
         isProbing = true
         statusMessage = ""
         Task {
@@ -199,14 +202,58 @@ final class VieNeuVoiceCloneFlow {
                 guard let file = try? AVAudioFile(forReading: url), file.fileFormat.sampleRate > 0 else { return nil }
                 return Double(file.length) / file.fileFormat.sampleRate
             }.value
+            guard generation == sampleGeneration else {
+                Self.removeIfTemporary(url)
+                return
+            }
             isProbing = false
             guard let seconds, seconds > 0 else {
                 Self.removeIfTemporary(url)
                 showError("Không đọc được file âm thanh này.")
                 return
             }
+            adoptSample(url, seconds: seconds)
+        }
+    }
+
+    // MARK: - Nhận mẫu (thu âm + file đi chung)
+
+    /// Mẫu ≤ 30 giây ⇒ dùng nguyên file. Dài hơn ⇒ cắt ngoài main (`VieNeuCloneSampleCutter.cutForNano`), bỏ file tạm gốc,
+    /// dùng bản đã cắt và nhớ độ dài gốc cho hàng "Đã cắt". Lượt cắt về muộn sau khi mẫu đã đổi thì xoá bản cắt, bỏ qua.
+    private func adoptSample(_ url: URL, seconds: Double) {
+        guard seconds > VieNeuVoiceCloner.maximumSampleSeconds else {
             sampleURL = url
             sampleSeconds = seconds
+            originalSampleSeconds = nil
+            return
+        }
+        let generation = sampleGeneration
+        isProbing = true
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<VieNeuCloneSampleCutter.NanoSample?, Error> in
+                Result { try VieNeuCloneSampleCutter.cutForNano(url: url, durationSeconds: seconds) }
+            }.value
+            guard generation == sampleGeneration else {
+                if case .success(let cut?) = outcome { Self.removeIfTemporary(cut.url) }
+                Self.removeIfTemporary(url)
+                return
+            }
+            isProbing = false
+            switch outcome {
+            case .success(let cut?):
+                Self.removeIfTemporary(url)
+                sampleURL = cut.url
+                sampleSeconds = cut.keptSeconds
+                originalSampleSeconds = cut.originalSeconds
+            case .success(nil):
+                sampleURL = url
+                sampleSeconds = seconds
+                originalSampleSeconds = nil
+            case .failure(let error):
+                Self.removeIfTemporary(url)
+                AppLogger.shared.log("❌ [VieNeuClone] Cắt mẫu dài lỗi: \(error.localizedDescription)")
+                showError("Không cắt được mẫu dài: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -258,8 +305,10 @@ final class VieNeuVoiceCloneFlow {
         if isSaving, let running = saveTask {
             let sample = didSave ? nil : sampleURL
             cancelSave()
+            sampleGeneration += 1
             sampleURL = nil
             sampleSeconds = nil
+            originalSampleSeconds = nil
             if let sample {
                 Task {
                     await running.value
@@ -276,9 +325,12 @@ final class VieNeuVoiceCloneFlow {
     }
 
     func discardSample() {
+        sampleGeneration += 1
+        isProbing = false
         if let sampleURL { Self.removeIfTemporary(sampleURL) }
         sampleURL = nil
         sampleSeconds = nil
+        originalSampleSeconds = nil
     }
 
     func showError(_ message: String) {

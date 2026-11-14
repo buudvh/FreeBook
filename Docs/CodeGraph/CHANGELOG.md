@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.936] - 2026-11-14
+
+### feat: Nhân bản giọng VieNeu không còn giới hạn độ dài mẫu, mẫu dài tự cắt ở chỗ ngắt hơi
+
+Anh Bửu: mẫu dài quá giới hạn thì app phải tự cắt thay vì báo lỗi; *"bỏ giới hạn luôn được chứ, ghi âm cũng bị hạn chế tối đa 8 s … cho tôi tối thiểu thôi"* — chỉ còn giới hạn tối thiểu.
+
+- **Giới hạn thật** (đọc code): Nano — graph không giới hạn (`speaker_encoder` nhận chuỗi fbank dài tuỳ ý, `codec_encoder` chỉ dùng 5 s đầu); 30 s là `_MAX_REF_SECONDS` của upstream, upstream chỉ cắt `wav[:30*sr]` còn app tự **chặn** ở `saveBlockReason` + `VieNeuVoiceCloner.enroll`. Turbo — audio.cpp tự cắt 8 s, mã tham chiếu ≤ 100 khung; app vốn không lỗi với mẫu dài nhưng cắt cứng đúng 8,000 s (dễ đứt giữa chữ).
+- **`VieNeuCloneSampleCutter`** (mới, `Services/TTS/VieNeuClone/`): điểm cắt = khung 20 ms (bước 10 ms) lặng nhất trong cửa sổ trước mốc, ưu tiên khung muộn nhất ồn hơn tối đa 3 dB; cắt giữa khung, làm nhỏ dần 10 ms cuối. Mẫu không dài hơn mốc giữ nguyên.
+- **Nano**: mẫu > 30 s (file hay thu âm) cắt **ngay khi nhận** ở chỗ ngắt hơi trong 26,5–29,5 s: chỉ đọc 30 s đầu file (file dài hàng giờ không giải mã hết vào RAM), ghi WAV 16-bit mono vào thư mục tạm, bỏ file tạm gốc ⇒ nghe lại mẫu, `enrollVoice`, kho Nano, "Cả hai", "Tạo bản Turbo" đều dùng bản đã cắt. Bỏ dòng chặn "> 30 giây" ở `saveBlockReason` (giữ sàn 3 s); `VieNeuVoiceCloner` không đổi (guard 30 s ở đó thành lưới an toàn). Lượt cắt về muộn sau khi mẫu đã đổi tự huỷ (`sampleGeneration`).
+- **Turbo** (`VieNeuTurboReferencePreparer`): tiếng nói (sau cắt im lặng) dài hơn 7,9 s ⇒ cắt ở chỗ ngắt hơi trong 6,4–7,9 s thay cho `prefix(8 s)`; mốc chừa 0,1 s để audio.cpp không cắt lần nữa sau khi lên 48 kHz. `Prepared.speechSeconds` = độ dài trước khi cắt. Áp cho mọi lối Turbo (file, thu âm, Cả hai, Tạo bản Turbo).
+- **Thu âm**: bỏ tự dừng 8 s — người dùng tự dừng, chốt an toàn 5 phút (`recordSafetyLimitSeconds`); đồng hồ chỉ còn "12,3 s". Nút thu khoá trong lúc đang chuẩn bị mẫu.
+- **Báo**: sheet nhân bản có hàng "Đã cắt 29,3 / 45,2 s" khi mẫu bị cắt; giải thích sau nút "?" của "Mẫu giọng". Log `✂️ [VieNeuClone] Mẫu … ⇒ Nano giữ … s đầu (chỗ lặng … dB …)` và `✂️ [VieNeuTurboClone] Tiếng nói … ⇒ dùng … s`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.934] - 2026-11-14
 
 ### feat: VieNeu đọc lai Nano và Turbo, tiếng nước ngoài đọc Turbo, máy nóng thì đọc Nano rồi mát lại về Turbo
@@ -607,14 +621,4 @@ Anh Bửu chạy Đo tự động bản 1.3.890 (1239) thì app sập, *"hình n
 - **Kiểm RAM trước mỗi lần biên dịch**: dưới 1 GB trống ⇒ dừng có báo ("tắt bớt app khác rồi bấm lại") thay vì để iOS giết app.
 - **Nhật ký từng bước sống sót khi app bị giết** (`VieNeuAutoRunTrail`, `Results/do-tu-dong-nhat-ky.txt`): ghi **trước** mỗi bước nặng (biên dịch / nạp từng graph, tự kiểm, nạp sẵn, mỗi lượt, mỗi phút) kèm RAM + nhiệt, mỗi dòng ép xuống đĩa. Mở lại màn thử mà lượt trước không có dấu kết thúc ⇒ dòng cam "Lần đo trước dừng đột ngột ở: …" + nút "Chia sẻ nhật ký từng bước"; lượt sau chép dòng đó vào đầu nhật ký mới.
 - Bản biên dịch Core ML đã xong ở lượt trước vẫn giữ trong cache ⇒ lượt sau không biên dịch lại các graph đó.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.905] - 2026-11-12
-
-### fix: nút Mục lục của sheet nghe truyện mở sheet hẹn giờ đúng tab Danh sách chương
-
-Anh Bửu: *"bấm mục lục nó hiển thị lên sheet hẹn giờ là đúng, chỉ sai nhỏ ở chỗ là phải chọn tab con mục lục thay vì tab con hẹn giờ"*.
-
-- **Nguyên nhân**: `TTSQuickControlSheet` gán tab (`timerSheetTab = 1`) rồi bật cờ `showingTimerSheet` trong cùng một lượt; `.sheet(isPresented:)` dựng `TTSQuickTimerSheet(initialTab:)` với giá trị tab cũ (0) nên "Mục lục" mở ra tab Hẹn giờ tắt.
-- **Sửa**: thay hai state bằng `.sheet(item:)` với enum `TimerSheetTab` (`timer` / `chapters`): ⏱ ⇒ tab Hẹn giờ tắt, "Mục lục" ⇒ tab Danh sách chương. Sheet Hẹn giờ không đổi.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
