@@ -2,6 +2,40 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.921] - 2026-11-13
+
+### feat: Siri, NghiTTS, Google TTS và tiện ích chọn giọng bằng sheet giống VieNeu, có tìm, thử giọng và tải ngay tại chỗ
+
+Phần 3 của plan anh Bửu duyệt (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup "Chọn giọng"). Kèm ô tìm theo tên giọng anh xin thêm.
+
+- **Cài đặt TTS — mục "Giọng đọc"**: Siri / NghiTTS / Google / tiện ích bỏ `Picker` menu, thay bằng **một hàng** kiểu `VieNeuVoiceSummaryRow` (`TTSReaderVoiceSummaryRow` / `TTSVoiceSummaryRow`) ⇒ sheet chọn giọng.
+  - Dòng phụ theo trình đọc:
+    - Siri: "Tiếng Việt · Nâng cao / Mặc định / Premium";
+    - NghiTTS: dung lượng, hoặc cam "Chưa tải dữ liệu giọng · chạm để tải";
+    - Google: mô tả giọng;
+    - tiện ích: ngôn ngữ.
+  - Badge "Nhẹ" (Siri, NghiTTS) / "Online" (Google, tiện ích). `TTSVoiceBadge` dùng chung với badge Nhẹ / Vừa / Nặng của VieNeu.
+- **Sheet chọn giọng chung** (`TTSVoicePickerSheet`, `Views/Settings/TTS/Voices/`): cùng khung với sheet VieNeu — tiêu đề "Giọng đọc" + "?", ô "Tìm theo tên giọng" (`VoiceNameSearch`), hàng ▶ / ⬇ / ✓ / badge.
+  - **Siri:** giọng tiếng Việt trên máy (`SiriVoiceList`, đọc ngoài main); ▶ đọc câu thử bằng `AVSpeechSynthesizer` riêng.
+  - **NghiTTS** — thay màn "Quản lý Model giọng đọc" (`TTSModelManagerView` đã xoá):
+    - hàng "Nhập giọng từ file .onnx" (`NghiVoiceImporter`, chép file ngoài main);
+    - nhóm Giọng đặc sắc / Giọng khác / Giọng của tôi (`NghiVoiceDirectory`);
+    - ⬇ tải qua `ModelDownloadCenter.startNghiVoiceDownloads`, kèm **thư viện phiên âm** nếu còn thiếu (`ModelDownloadCenter+NghiDictionary`);
+    - nhấn giữ ⇒ "Xoá giọng". Giọng đang đọc (kể cả đang tạm dừng) ⇒ dừng phiên trước khi xoá;
+    - ▶ đi qua `nghiTTSService` / `PiperSynthesisCoordinator`, không mở session ORT thứ hai; thử giọng khác giọng trình đọc ⇒ đóng sheet thì nạp lại giọng trình đọc.
+  - **Google:** nhóm Giọng nữ / Giọng nam; ▶ qua `GoogleTTSService`; không có API key ⇒ báo, không gọi mạng.
+  - **Tiện ích:** giọng do tiện ích trả về (`ExtensionTTSVoiceList`, bỏ giọng thiếu `id` / trùng `id`); ▶ qua `extService.synthesizeData`.
+  - Thử giọng dùng chung `TTSVoicePreviewPlayer`: mỗi lúc một câu, đóng sheet thì dừng, chặn khi truyện đang phát (như VieNeu).
+- **"Quản lý riêng của trình đọc"**:
+  - NghiTTS: bỏ cảnh báo thiếu giọng / thư viện phiên âm và lối "Quản lý Model giọng đọc"; còn "Cài đặt NghiTTS", "Cấu hình tiền xử lý & ngắt nghỉ", "Từ điển phiên âm cá nhân".
+  - VieNeu: thêm lối "Cài đặt VieNeu TTS" ở đầu.
+- **Cài đặt NghiTTS**: hàng đầu "Giọng đọc NghiTTS" ⇒ sheet chọn giọng NghiTTS. Chọn ở đây khi trình đọc đang là engine khác thì chỉ lưu giọng NghiTTS, không đổi trình đọc.
+- `TTSSettingsView.swift` 442 → 312 dòng (danh sách giọng Siri / tiện ích chuyển ra `SiriVoiceList` / `ExtensionTTSVoiceList`). Bỏ entry allowlist của `TTSModelManagerView`.
+- Còn nguyên từ trước:
+  - giọng nhập có `-` trong id không đọc được (đổi id thành `_`);
+  - tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.920] - 2026-11-13
 
 ### feat: Màn Dung lượng tách rõ từng loại TTS và có Dọn rác theo luật dữ liệu đang dùng

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.952] - 2026-11-15
+
+### feat: Nano đọc chậm đoạn có tên phiên âm để không nuốt chữ, dùng phần khung Core ML tính sẵn nên gần như không tốn thêm pin
+
+Anh Bửu: *"vẫn có mất chữ … mất giữa đoạn chứ không ở chỗ dấu"*, *"Chữ Goku rất hay mất chữ"* (nghe thành "gu"). Anh nghe 12 file riêng (bám chữ CFG 3 / 4,5 / 6 × 4 lượt): lượt nào mất thì mất ở **mọi** mức ⇒ nhiễu khởi đầu quyết định, bám chữ không chữa. Đo 30 lượt trên PC cùng câu "Son Gô Cu cười trả lời…": CFG, biên độ nhiễu, CFG chỉ theo chữ, sway, 16 bước, cách viết phiên âm đều không giảm (5–11/30 so với 8/30); chỉ **số khung** giảm đều theo nấc — 62 khung 8/30 → +4% 5 → +9% 3 → +14% 2 → +20% 1 → +29% 0. Anh hỏi ảnh hưởng nhiệt trước khi làm ⇒ tìm ra phần miễn phí: Core ML tính trọn cỡ khung cố định nên khung thêm tới trần cỡ đang dùng không tốn phép tính. Anh chọn **"Miễn phí + tối thiểu 10%"**.
+
+- **`VieNeuNameFrameBoost`** (mới, `Services/TTS/VieNeu/Names/`): `isNameChunk` nhận đoạn có tên phiên âm theo âm tiết — ≥ 2 âm tiết do `VieNeuJapaneseNameReader` sinh (đếm `SeaG2P.rawPhonemeOpen`) **hoặc** ≥ 2 chữ viết hoa liền nhau là âm tiết mở không dấu thanh ("Gô Cu", "Na Ru Tô"; dấu câu cắt chuỗi; tên Hán Việt không dính). `frames(base:mode:limit:freeCeiling:)`: đích +30%; `free` = dừng ở trần cỡ khung đang dùng; `freeWithMinimum` (mặc định) = chưa đủ +10% thì nhảy lên cỡ lớn hơn rồi dùng luôn phần trống của cỡ đó, không nhảy khi vượt cỡ lớn nhất (Core ML sẽ lùi ORT); chạy ORT thì thêm đúng +10%. Khoá `vieneuNameFrameBoostMode`.
+- **`VieNeuFlowBackend.freeFrameCeiling(for:)`** (mặc định `nil`); `VieNeuCoreMLFlowBackend` trả cỡ nhỏ hơn giữa cỡ vòng Euler và cỡ codec.
+- **`VieNeuTTSEngine.runChunk`** nhận `nameBoost`, tính `frames` từ `baseFrames`; `Timing.nameBoostChunks` / `nameBoostFrames` ⇒ log `[VieNeuPerf] … nameBoost=<số chunk>/+<số khung>`.
+- **Cài đặt**: hàng chọn "Đọc chậm đoạn có tên (Nano)" (Tắt / Miễn phí / Ít nhất 10%) ở Cài đặt TTS (mục Quản lý riêng của VieNeu) và màn Giọng dự phòng, cùng `VieNeuJapaneseFlags.nameFrameBoost`; giải thích sau nút "?" (`nameFrameBoostHelp`). Fingerprint giọng dự phòng thêm chế độ này. Trình đọc chính: theo luật `TTSSettingsSnapshot` (không gồm `vieneu*`), đoạn đã nạp trước giữ cài đặt cũ.
+- **Số ước trên chương Dragon Ball của log build 1280** (bản chép Python của luật, cỡ khung giả định 64/96/128/160): 19/48 đoạn có tên; "Miễn phí" thêm khung trung vị +29% (thấp nhất +3%), phép tính Core ML +0%; "Ít nhất 10%" thêm trung vị +30% (thấp nhất +12%), phép tính cả chương +2,9%, tiếng cả chương dài thêm ~13% (đoạn có tên đọc chậm đi đúng mức thêm, không bù ở tốc độ phát).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy — phần tiếng chờ anh nghe trên iPhone.
+
 ## [1.3.951] - 2026-11-15
 
 ### fix: Màn Giọng dự phòng có thêm công tắc Đọc tên Nhật theo âm tiết
@@ -397,38 +410,4 @@ Anh Bửu thử 1.3.921: tiến độ tải giọng NghiTTS nhảy theo file (0 
 - **Huỷ giữa chừng:** đang tải ⇒ nút tròn thành ■, bấm = `ModelDownloadCenter.cancel(id:)` (giờ dùng chung cho đích NghiTTS).
   - Huỷ `Task` ⇒ `URLSession` dừng ngay. Lỗi huỷ không thành thông báo "Tải … thất bại".
   - `TTSVoiceListRow` bỏ trạng thái "vòng xoay, nút tắt".
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.921] - 2026-11-13
-
-### feat: Siri, NghiTTS, Google TTS và tiện ích chọn giọng bằng sheet giống VieNeu, có tìm, thử giọng và tải ngay tại chỗ
-
-Phần 3 của plan anh Bửu duyệt (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup "Chọn giọng"). Kèm ô tìm theo tên giọng anh xin thêm.
-
-- **Cài đặt TTS — mục "Giọng đọc"**: Siri / NghiTTS / Google / tiện ích bỏ `Picker` menu, thay bằng **một hàng** kiểu `VieNeuVoiceSummaryRow` (`TTSReaderVoiceSummaryRow` / `TTSVoiceSummaryRow`) ⇒ sheet chọn giọng.
-  - Dòng phụ theo trình đọc:
-    - Siri: "Tiếng Việt · Nâng cao / Mặc định / Premium";
-    - NghiTTS: dung lượng, hoặc cam "Chưa tải dữ liệu giọng · chạm để tải";
-    - Google: mô tả giọng;
-    - tiện ích: ngôn ngữ.
-  - Badge "Nhẹ" (Siri, NghiTTS) / "Online" (Google, tiện ích). `TTSVoiceBadge` dùng chung với badge Nhẹ / Vừa / Nặng của VieNeu.
-- **Sheet chọn giọng chung** (`TTSVoicePickerSheet`, `Views/Settings/TTS/Voices/`): cùng khung với sheet VieNeu — tiêu đề "Giọng đọc" + "?", ô "Tìm theo tên giọng" (`VoiceNameSearch`), hàng ▶ / ⬇ / ✓ / badge.
-  - **Siri:** giọng tiếng Việt trên máy (`SiriVoiceList`, đọc ngoài main); ▶ đọc câu thử bằng `AVSpeechSynthesizer` riêng.
-  - **NghiTTS** — thay màn "Quản lý Model giọng đọc" (`TTSModelManagerView` đã xoá):
-    - hàng "Nhập giọng từ file .onnx" (`NghiVoiceImporter`, chép file ngoài main);
-    - nhóm Giọng đặc sắc / Giọng khác / Giọng của tôi (`NghiVoiceDirectory`);
-    - ⬇ tải qua `ModelDownloadCenter.startNghiVoiceDownloads`, kèm **thư viện phiên âm** nếu còn thiếu (`ModelDownloadCenter+NghiDictionary`);
-    - nhấn giữ ⇒ "Xoá giọng". Giọng đang đọc (kể cả đang tạm dừng) ⇒ dừng phiên trước khi xoá;
-    - ▶ đi qua `nghiTTSService` / `PiperSynthesisCoordinator`, không mở session ORT thứ hai; thử giọng khác giọng trình đọc ⇒ đóng sheet thì nạp lại giọng trình đọc.
-  - **Google:** nhóm Giọng nữ / Giọng nam; ▶ qua `GoogleTTSService`; không có API key ⇒ báo, không gọi mạng.
-  - **Tiện ích:** giọng do tiện ích trả về (`ExtensionTTSVoiceList`, bỏ giọng thiếu `id` / trùng `id`); ▶ qua `extService.synthesizeData`.
-  - Thử giọng dùng chung `TTSVoicePreviewPlayer`: mỗi lúc một câu, đóng sheet thì dừng, chặn khi truyện đang phát (như VieNeu).
-- **"Quản lý riêng của trình đọc"**:
-  - NghiTTS: bỏ cảnh báo thiếu giọng / thư viện phiên âm và lối "Quản lý Model giọng đọc"; còn "Cài đặt NghiTTS", "Cấu hình tiền xử lý & ngắt nghỉ", "Từ điển phiên âm cá nhân".
-  - VieNeu: thêm lối "Cài đặt VieNeu TTS" ở đầu.
-- **Cài đặt NghiTTS**: hàng đầu "Giọng đọc NghiTTS" ⇒ sheet chọn giọng NghiTTS. Chọn ở đây khi trình đọc đang là engine khác thì chỉ lưu giọng NghiTTS, không đổi trình đọc.
-- `TTSSettingsView.swift` 442 → 312 dòng (danh sách giọng Siri / tiện ích chuyển ra `SiriVoiceList` / `ExtensionTTSVoiceList`). Bỏ entry allowlist của `TTSModelManagerView`.
-- Còn nguyên từ trước:
-  - giọng nhập có `-` trong id không đọc được (đổi id thành `_`);
-  - tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

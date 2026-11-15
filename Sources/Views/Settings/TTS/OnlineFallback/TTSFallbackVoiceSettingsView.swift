@@ -116,6 +116,12 @@ struct TTSFallbackVoiceSettingsView: View {
                 }
                 Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $japaneseFlags.dictionaryEnabled)
                 Toggle("Đọc tên Nhật theo âm tiết", isOn: $japaneseFlags.nameSyllablesEnabled)
+                Picker("Đọc chậm đoạn có tên (Nano)", selection: $japaneseFlags.nameFrameBoost) {
+                    ForEach(VieNeuNameFrameBoost.Mode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
                 if japaneseFlags.dictionaryDownloaded {
                     NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
                         Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
@@ -131,7 +137,8 @@ struct TTSFallbackVoiceSettingsView: View {
                 }
             } header: {
                 SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
-                    "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng."
+                    "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng.",
+                    VieNeuJapaneseFlags.nameFrameBoostHelp
                 ])
             }
         case .nghitts:

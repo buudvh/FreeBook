@@ -98,6 +98,7 @@ extension VieNeuTTSEngine {
                 + " qos=\(timing.synthesisQoS) sessionQos=\(runtime.buildQoS)"
                 + " backend=\(usesCoreML ? "coreml" : "ort")"
                 + " lead0=\(timing.chunksWithoutLeadIn)"
+                + " nameBoost=\(timing.nameBoostChunks)/+\(timing.nameBoostFrames)"
         )
     }
 
@@ -130,6 +131,9 @@ extension VieNeuTTSEngine {
         var copiedBytes: Int64 = 0
         /// Số chunk mà model **không** chừa khoảng lặng đầu dù đã thêm ký hiệu dẫn (`leadInPhonemes`) — log `lead0=`.
         var chunksWithoutLeadIn = 0
+        /// Số chunk có tên được thêm khung và tổng số khung thêm (`VieNeuNameFrameBoost`) — log `nameBoost=chunk/+khung`.
+        var nameBoostChunks = 0
+        var nameBoostFrames = 0
     }
 
     /// Log phoneme **từng chunk** của một lượt tổng hợp — để điều tra nói lắp ở tầng model.

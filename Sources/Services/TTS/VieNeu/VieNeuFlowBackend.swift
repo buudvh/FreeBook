@@ -50,9 +50,14 @@ protocol VieNeuFlowBackend: AnyObject, Sendable {
     var fallsBackToORTOnError: Bool { get }
     /// Chunk vừa lỗi và đã chạy lại bằng ORT (chỉ gọi khi `fallsBackToORTOnError`).
     func noteFailure(_ error: Error)
+    /// Trần của cỡ khung (bucket) mà backend sẽ dùng cho `frames` khung: khung thêm cho tới trần này **không tốn thêm
+    /// phép tính** vì backend luôn tính trọn cỡ (1.3.952, `VieNeuNameFrameBoost`). `nil` ⇒ không có cỡ nào chứa nổi
+    /// (đoạn sẽ lùi ORT) hoặc backend tính theo đúng số khung.
+    func freeFrameCeiling(for frames: Int) -> Int?
 }
 
 extension VieNeuFlowBackend {
     var fallsBackToORTOnError: Bool { false }
     func noteFailure(_ error: Error) {}
+    func freeFrameCeiling(for frames: Int) -> Int? { nil }
 }

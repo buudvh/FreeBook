@@ -65,7 +65,8 @@ enum TTSOnlineFallbackSettings {
             let synthesis = VieNeuSynthesisPolicy.synthesisSpeed(from: defaults)
             let dictionary = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
             let names = VieNeuJapaneseNameReader.isEnabled
-            return "vieneu|\(VieNeuVoiceSelection.stored.storageValue)|\(speed)|\(synthesis)|\(dictionary)|\(names)"
+            let nameBoost = VieNeuNameFrameBoost.mode.rawValue
+            return "vieneu|\(VieNeuVoiceSelection.stored.storageValue)|\(speed)|\(synthesis)|\(dictionary)|\(names)|\(nameBoost)"
         }
     }
 }

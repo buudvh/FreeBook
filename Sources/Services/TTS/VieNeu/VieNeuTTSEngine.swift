@@ -235,6 +235,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var droppedScalars = 0
         var timing = Timing()
         var phonemeLines: [String] = []
+        let nameBoostMode = VieNeuNameFrameBoost.mode // đọc một lần mỗi lượt, không mỗi chunk
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk.text))
@@ -251,6 +252,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             waveforms.append(try runChunk(
                 ids: encoded.ids,
                 hasLeadIn: leadPhonemes.count != phonemes.count,
+                nameBoost: nameBoostMode != .off && VieNeuNameFrameBoost.isNameChunk(chunk.text) ? nameBoostMode : .off,
                 preset: preset,
                 tuning: tuning,
                 speed: speed,
@@ -312,6 +314,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     private func runChunk(
         ids: [Int64],
         hasLeadIn: Bool,
+        nameBoost: VieNeuNameFrameBoost.Mode,
         preset: VieNeuVoiceCatalog.Preset,
         tuning: VieNeuSynthesisPolicy.Tuning,
         speed: Double,
@@ -343,9 +346,19 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
         let predictedFrames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
         // Ký hiệu dẫn làm bộ đoán độ dài cộng thêm ~1,8 khung; trả lại để **không tốn thêm phép tính** (`+Audio`).
-        let frames = hasLeadIn
+        let baseFrames = hasLeadIn
             ? max(VieNeuConfig.minFrames, predictedFrames - min(Self.leadInFrameCredit, predictedFrames / 16))
             : predictedFrames
+        // Đoạn có tên phiên âm theo âm tiết được thêm khung để không nuốt âm tiết ngắn; ưu tiên phần khung miễn phí của
+        // cỡ khung Core ML đang dùng (`VieNeuNameFrameBoost`).
+        let frames = VieNeuNameFrameBoost.frames(
+            base: baseFrames, mode: nameBoost, limit: Int(VieNeuConfig.maxChunkSeconds * config.flowFPS),
+            freeCeiling: { flowBackend?.freeFrameCeiling(for: $0) }
+        )
+        if frames > baseFrames {
+            timing.nameBoostChunks += 1
+            timing.nameBoostFrames += frames - baseFrames
+        }
 
         // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend Core ML)
         var latent = [Float](repeating: 0, count: config.latentChannels * frames)

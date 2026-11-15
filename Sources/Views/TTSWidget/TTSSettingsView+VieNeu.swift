@@ -107,6 +107,14 @@ extension TTSSettingsView {
         // chung cho Nano và Turbo. Xem `VieNeuJapaneseNameReader`.
         Toggle("Đọc tên Nhật theo âm tiết", isOn: $vieNeuJapaneseFlags.nameSyllablesEnabled)
 
+        // Nano: đoạn có tên phiên âm theo âm tiết được thêm khung để không nuốt âm tiết ngắn (`VieNeuNameFrameBoost`).
+        Picker("Đọc chậm đoạn có tên (Nano)", selection: $vieNeuJapaneseFlags.nameFrameBoost) {
+            ForEach(VieNeuNameFrameBoost.Mode.allCases) { mode in
+                Text(mode.title).tag(mode)
+            }
+        }
+        .pickerStyle(.menu)
+
         // Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì người dùng không
         // biết phải làm gì.
         if vieNeuJapaneseFlags.dictionaryDownloaded {
@@ -133,7 +141,8 @@ extension TTSSettingsView {
     var readerManagementHeader: some View {
         if ttsManager.tool == "vieneu" {
             SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
-                "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng."
+                "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng.",
+                VieNeuJapaneseFlags.nameFrameBoostHelp
             ])
         } else {
             Text("Quản lý riêng của trình đọc")
@@ -227,6 +236,15 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
         didSet { UserDefaults.standard.set(nameSyllablesEnabled, forKey: VieNeuJapaneseNameReader.enabledKey) }
     }
 
+    /// "Đọc chậm đoạn có tên (Nano)" (1.3.952) — mặc định **Ít nhất 10%** (`VieNeuNameFrameBoost.defaultMode`).
+    @Published var nameFrameBoost: VieNeuNameFrameBoost.Mode = VieNeuNameFrameBoost.defaultMode {
+        didSet { VieNeuNameFrameBoost.mode = nameFrameBoost }
+    }
+
+    /// Đoạn giải thích sau nút "?" của mục Quản lý riêng — dùng chung Cài đặt TTS và màn Giọng dự phòng.
+    static let nameFrameBoostHelp: LocalizedStringKey =
+        "**Đọc chậm đoạn có tên (Nano)**: đoạn có tên phiên âm theo âm tiết (Gô Cu, Naruto…) được kéo dài tới 30% để không nuốt chữ. **Miễn phí** chỉ dùng phần máy vốn đã tính sẵn, không tốn thêm pin. **Ít nhất 10%** kéo dài thêm cả những đoạn không còn phần miễn phí, tốn thêm chút ít."
+
     /// Từ điển đã có dưới máy chưa — quyết định hiện lối vào hay hiện cảnh báo + nút tải.
     @Published var dictionaryDownloaded: Bool = false
 
@@ -234,6 +252,7 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
         let defaults = UserDefaults.standard
         dictionaryEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
         nameSyllablesEnabled = VieNeuJapaneseNameReader.isEnabled
+        nameFrameBoost = VieNeuNameFrameBoost.mode
         dictionaryDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
     }
 }

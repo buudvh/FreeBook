@@ -100,6 +100,11 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
 
     func veBucket(for frames: Int) -> Int? { manifest.veBuckets.sorted().first { $0 >= frames } }
     func codecBucket(for frames: Int) -> Int? { manifest.codecBuckets.sorted().first { $0 >= frames } }
+    /// Vòng Euler và codec đều tính trọn cỡ của mình ⇒ phần miễn phí dừng ở cỡ nhỏ hơn trong hai cỡ (1.3.952).
+    func freeFrameCeiling(for frames: Int) -> Int? {
+        guard let ve = veBucket(for: frames), let codec = codecBucket(for: frames) else { return nil }
+        return min(ve, codec)
+    }
 
     // MARK: - VieNeuFlowBackend
 
