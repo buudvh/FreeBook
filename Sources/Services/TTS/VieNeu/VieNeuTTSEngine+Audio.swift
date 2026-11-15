@@ -125,26 +125,54 @@ extension VieNeuTTSEngine {
         return (firstAbove * window, samples.count - (lastAbove + 1) * window)
     }
 
+    /// Ký hiệu dẫn thêm vào **đầu chuỗi phiên âm** của mỗi chunk (1.3.949): phẩy + cách.
+    ///
+    /// Vì sao: Nano hay bắt đầu tiếng ngay mẫu 0, không chừa khoảng lặng nào ⇒ phụ âm tắc đầu đoạn ("c", "t") không có
+    /// chỗ cho khoảng ngậm trước tiếng bật, nghe như **mất chữ đầu** ("Ca du tô" thành "a du tô"). Đo trên PC ở tốc độ
+    /// tổng hợp 1,15× (8 câu × 2 seed): không dẫn 4/16 lượt có ≥ 20 ms lặng đầu; dấu cách 7/16; **phẩy + cách 13/16**
+    /// (1,0×: 16/16). Lặng thừa bị `trimAndFade` cắt còn 40 ms.
+    ///
+    /// **Không được tốn thêm phép tính** (anh Bửu: Nano là trình đọc chính vì ít tốn pin). Ký hiệu dẫn làm
+    /// `duration_predictor` cộng ~1,8 khung mỗi chunk (đo 115 đoạn truyện thật: +3,3% khung); `runChunk` trả lại
+    /// `leadInFrameCredit` khung nên tổng khung không tăng (đo 12 câu × 2 seed: 810 so với 818 khi không dẫn), mà khoảng
+    /// dẫn vẫn có ở 23/24 lượt. Đánh đổi: lời đọc trong chunk nhanh hơn ~3% (khoảng dẫn lấy chỗ trong cùng số khung).
+    static let leadInPhonemes = ", "
+    /// Số khung trả lại khi chunk có ký hiệu dẫn; chunk ngắn hơn 32 khung chỉ trả 1, dưới 16 khung không trả.
+    static let leadInFrameCredit = 2
+
+    /// Chuỗi phiên âm đưa vào `encode`: thêm `leadInPhonemes` khi chunk có lời đọc và chưa mở đầu bằng dấu câu / dấu cách.
+    static func withLeadIn(_ phonemes: String) -> String {
+        guard let first = phonemes.unicodeScalars.first else { return phonemes }
+        if first == " " || CharacterSet.punctuationCharacters.contains(first) { return phonemes }
+        return leadInPhonemes + phonemes
+    }
+
     /// Cắt im lặng model tự sinh ở hai đầu (giữ 0,04 s mỗi đầu) rồi fade cosine 0,015 s ở hai mép.
-    /// Port nguyên `trim_and_fade` với `EDGE_KEEP_S = 0.04`, `EDGE_FADE_S = 0.015`.
-    static func trimAndFade(_ samples: [Float], sampleRate: Int) -> [Float] {
-        guard !samples.isEmpty else { return samples }
+    /// Port `trim_and_fade` với `EDGE_KEEP_S = 0.04`, `EDGE_FADE_S = 0.015`.
+    ///
+    /// **Lệch có chủ ý so với bản tham chiếu (1.3.949):** đoạn mà model **không** chừa lặng đầu thì 15 ms đầu chính là
+    /// phụ âm đầu — fade 15 ms sẽ ăn mất nó. Khi đó chỉ fade 2 ms (đủ để không "tách" tiếng). `hadLeadIn` cho bên gọi đếm
+    /// số chunk như vậy vào log.
+    static func trimAndFade(_ samples: [Float], sampleRate: Int) -> (samples: [Float], hadLeadIn: Bool) {
+        guard !samples.isEmpty else { return (samples, true) }
         let (lead, tail) = edgeSilence(samples, sampleRate: sampleRate)
         let keep = Int(0.04 * Double(sampleRate))
         let start = max(0, lead - keep)
         let end = samples.count - max(0, tail - keep)
-        guard start < end else { return samples }
+        guard start < end else { return (samples, lead > 0) }
 
         var output = Array(samples[start..<end])
         let fade = min(Int(0.015 * Double(sampleRate)), output.count / 2)
-        guard fade > 1 else { return output }
+        guard fade > 1 else { return (output, lead > 0) }
+        let headFade = lead >= fade ? fade : min(fade, max(2, Int(0.002 * Double(sampleRate))))
         // `linspace(0, π, fade)` của numpy ⇒ mẫu số là `fade − 1`, không phải `fade`.
-        for index in 0..<fade {
-            let ramp = Float(0.5 - 0.5 * cos(Double.pi * Double(index) / Double(fade - 1)))
-            output[index] *= ramp
-            output[output.count - 1 - index] *= ramp
+        for index in 0..<headFade {
+            output[index] *= Float(0.5 - 0.5 * cos(Double.pi * Double(index) / Double(headFade - 1)))
         }
-        return output
+        for index in 0..<fade {
+            output[output.count - 1 - index] *= Float(0.5 - 0.5 * cos(Double.pi * Double(index) / Double(fade - 1)))
+        }
+        return (output, lead > 0)
     }
 
 }

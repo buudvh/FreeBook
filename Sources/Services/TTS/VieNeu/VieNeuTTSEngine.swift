@@ -242,12 +242,15 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             // chunk 0 nên người dùng không soi được chunk nào đọc sai — mà đó mới là thứ cần thấy.
             phonemeLines.append("[\(index)] \(phonemes)")
             logChunkPhonemes(index: index, text: chunk.text, phonemes: phonemes)
-            let encoded = config.encode(phonemes: phonemes)
+            // Khoảng dẫn đầu đoạn để không cụt phụ âm đầu — xem `leadInPhonemes` (`+Audio`).
+            let leadPhonemes = Self.withLeadIn(phonemes)
+            let encoded = config.encode(phonemes: leadPhonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 { gaps.append(chunks[index - 1].gap) }
             waveforms.append(try runChunk(
                 ids: encoded.ids,
+                hasLeadIn: leadPhonemes.count != phonemes.count,
                 preset: preset,
                 tuning: tuning,
                 speed: speed,
@@ -308,6 +311,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Một chunk phoneme → PCM. Toàn bộ phần "dịch" số học của bản tham chiếu nằm ở đây.
     private func runChunk(
         ids: [Int64],
+        hasLeadIn: Bool,
         preset: VieNeuVoiceCatalog.Preset,
         tuning: VieNeuSynthesisPolicy.Tuning,
         speed: Double,
@@ -337,7 +341,11 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             speaker: preset.speakerEmbedding
         )
         let seconds = min(exp(Double(logSeconds)) / max(speed, 1e-3), VieNeuConfig.maxChunkSeconds)
-        let frames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
+        let predictedFrames = max(VieNeuConfig.minFrames, Int((seconds * config.flowFPS).rounded(.toNearestOrEven)))
+        // Ký hiệu dẫn làm bộ đoán độ dài cộng thêm ~1,8 khung; trả lại để **không tốn thêm phép tính** (`+Audio`).
+        let frames = hasLeadIn
+            ? max(VieNeuConfig.minFrames, predictedFrames - min(Self.leadInFrameCredit, predictedFrames / 16))
+            : predictedFrames
 
         // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend Core ML)
         var latent = [Float](repeating: 0, count: config.latentChannels * frames)
@@ -357,6 +365,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
         timing.sessionQoS = runtime.buildQoS
 
-        return Self.trimAndFade(waveform, sampleRate: config.sampleRate)
+        let trimmed = Self.trimAndFade(waveform, sampleRate: config.sampleRate)
+        if !trimmed.hadLeadIn { timing.chunksWithoutLeadIn += 1 }
+        return trimmed.samples
     }
 }

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.949] - 2026-11-15
+
+### fix: Nano chừa khoảng lặng dẫn đầu mỗi đoạn để không mất phụ âm đầu câu, không tốn thêm phép tính
+
+Anh Bửu: tên riêng đứng đầu câu hay bị mất chữ ("Kazuto gặp Asuna" nghe thành "aruto"). Đo trên PC bằng đúng model của app: Nano hay bắt đầu tiếng ngay mẫu 0, không chừa khoảng lặng nào (câu "ca du tô…" 3/3 seed; câu tiếng Việt bắt đầu bằng c / t 3/9 seed) ⇒ phụ âm tắc đầu đoạn không có chỗ cho khoảng ngậm; `trimAndFade` còn làm mờ 15 ms đầu mọi đoạn nên ăn tiếp vào phụ âm đầu. Anh nghe mẫu có khoảng dẫn: "Rõ rồi".
+
+- **Ký hiệu dẫn** `VieNeuTTSEngine.leadInPhonemes` = phẩy + cách, thêm vào **đầu chuỗi phiên âm** của mỗi chunk Nano (`withLeadIn`, bỏ qua chunk đã mở đầu bằng dấu câu / dấu cách). Đo ở tốc độ tổng hợp 1,15× (8 câu × 2 seed, số lượt có ≥ 20 ms lặng đầu): không dẫn 4/16 · dấu cách 7/16 · **phẩy + cách 13/16** (1,0×: 16/16). Lặng thừa bị `trimAndFade` cắt còn 40 ms.
+- **Không tốn thêm phép tính** (anh Bửu: "ảnh hưởng hiệu năng thì không làm" — Nano là trình đọc chính vì ít tốn pin): ký hiệu dẫn làm `duration_predictor` cộng ~1,8 khung mỗi chunk (115 đoạn truyện thật: +3,3% khung) ⇒ `runChunk` trả lại `leadInFrameCredit` = 2 khung (chunk < 32 khung trả 1, < 16 khung không trả). Đo 12 câu × 2 seed: 810 khung so với 818 khi không dẫn, khoảng dẫn vẫn có ở 23/24 lượt. Đánh đổi: lời đọc trong chunk nhanh hơn ~3% (khoảng dẫn lấy chỗ trong cùng số khung).
+- **`trimAndFade`** trả thêm `hadLeadIn`; đoạn model vẫn không chừa lặng đầu thì chỉ fade **2 ms** thay vì 15 ms — lệch có chủ ý so với `trim_and_fade` của bản tham chiếu, ghi trong code.
+- **Log** `[VieNeuPerf]` thêm `lead0=` = số chunk của lượt không có khoảng lặng đầu (`Timing.chunksWithoutLeadIn`).
+- Không đụng Turbo (chưa biết Turbo có lỗi này không), bộ phiên âm, đường Core ML.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.948] - 2026-11-14
 
 ### feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột
@@ -476,30 +489,3 @@ Anh Bửu duyệt plan gộp (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md
   - Số thập phân vẫn đọc "phẩy" như cũ (đổi số sang chữ chạy trước bước cắt trong engine).
 - Dữ liệu cũ màn thử để lại trên máy (`VieNeu/Static/`, báo cáo trong `CoreML/Results/`) sẽ dọn ở Dọn rác (bản sau).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; `TTSManager.swift` giữ 3425 dòng; grep chéo mọi type / member đã xoá. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.918] - 2026-11-13
-
-### fix: Bắt đầu đọc tổng hợp đúng đoạn cần nghe trước, tiếng đầu Core ML nhanh hơn khoảng 0,6 s
-
-Log anh Bửu gửi (1.3.917 bật Tăng tốc Core ML, 13:42):
-- Tiếng đầu 1,12 s, so với 1,59 s của bản cũ chạy ORT.
-- Nhưng trước khi phát app tổng hợp **hai** lượt: đoạn kế tiếp N+1 (656 ms) rồi mới tới đoạn cần nghe N (412 ms).
-- Log bản cũ lại chạy N trước ⇒ thứ tự phụ thuộc cuộc đua. Chi tiết ở §17.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`.
-
-- **Nguyên nhân (có từ trước P2c, mọi engine local):**
-  - `continueStartSpeaking` gọi `warmNghiRefillForPlaybackStart()` (tạo task nạp trước N+1…N+3) **trước** `speakCurrent()` → `playNghiTTS` (task của N).
-  - Task nào tới `PiperSynthesisCoordinator` trước thì chạy trước, và bộ điều phối không cắt ngang lượt đang chạy.
-- **Sửa** (`TTSManager+NghiPrefetchConcurrency`):
-  - Đoạn N chưa có audio và không lượt nạp trước nào đang làm nó ⇒ lúc bắt đầu đọc không nạp trước.
-  - `scheduleNghiRefill()` không lập lịch trong lúc `playNghiTTS` đang tổng hợp N theo yêu cầu (`isAwaitingCurrentNghiSynthesis`) ⇒ bảo đảm theo cấu trúc, mọi đường gọi nạp trước đều theo.
-  - N có audio thì `playNghiTTS` gọi `updatePrefetchWindow()` như cũ ⇒ nạp trước N+1… bắt đầu ngay.
-  - Engine vốn tổng hợp tuần tự nên N+1 không chậm hơn.
-  - Sang chương mà đoạn đầu đã tải sẵn ⇒ giữ như cũ.
-  - Áp cho NghiTTS, VieNeu Nano (ORT / Core ML) và Turbo.
-- **Nút Chuẩn bị của Tăng tốc Core ML** xong ⇒ chạy nạp sẵn + chạy nháp như khi bật công tắc lúc gói đã sẵn.
-  - Trước đây chỉ gắn backend, nên các khung chưa được đánh dấu là đã chạy nháp.
-  - Giờ log có dòng "Nạp sẵn + chạy nháp".
-- **Log `[NghiEnergy]`:** mọi chỗ mở cửa sổ 60 s đi qua `openWindowIfNeeded` (chụp mốc CPU + mốc Core ML).
-  - Trước đây `recordUnderrun` mở cửa sổ mà không chụp mốc Core ML.
-  - Lượt đọc nào cũng bắt đầu bằng hụt đoạn, nên Summary đầu cộng cả các đoạn Core ML trước đó (`coreMLChunks=37`, `synth=23`).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; `TTSManager.swift` giữ 3425 dòng. Không build tại chỗ (Windows), chưa thử trên máy.

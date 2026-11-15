@@ -53,6 +53,8 @@ extension VieNeuTTSEngine {
     /// `churn=create/release/bytes` là **số đo duy nhất** chứng minh một lượt giảm churn bộ nhớ có tác
     /// dụng: `rtf` gần như không đổi vì `Run` chiếm gần hết thời gian. Xem doc của `Timing`.
     ///
+    /// `lead0=` (1.3.949) = số chunk của lượt này không có khoảng lặng đầu, tức phụ âm đầu dễ bị cụt.
+    ///
     /// Từ 1.3.878: `vectorMs` chỉ còn vòng Euler, `codecMs`/`textMs` tách riêng, `cpuSplit=text/vector/codec` (CPU-time
     /// cả tiến trình từng giai đoạn), `qos=` là QoS của luồng tổng hợp, `sessionQos=` là QoS lúc dựng session ORT.
     func logSynthesisPerf(
@@ -95,6 +97,7 @@ extension VieNeuTTSEngine {
                 + " threads=\(runtime.threadCount) spin=\(runtime.allowSpinning ? "on" : "off")"
                 + " qos=\(timing.synthesisQoS) sessionQos=\(runtime.buildQoS)"
                 + " backend=\(usesCoreML ? "coreml" : "ort")"
+                + " lead0=\(timing.chunksWithoutLeadIn)"
         )
     }
 
@@ -125,6 +128,8 @@ extension VieNeuTTSEngine {
         var tensorCreates: Int64 = 0
         var tensorReleases: Int64 = 0
         var copiedBytes: Int64 = 0
+        /// Số chunk mà model **không** chừa khoảng lặng đầu dù đã thêm ký hiệu dẫn (`leadInPhonemes`) — log `lead0=`.
+        var chunksWithoutLeadIn = 0
     }
 
     /// Log phoneme **từng chunk** của một lượt tổng hợp — để điều tra nói lắp ở tầng model.
