@@ -55,7 +55,12 @@ extension SeaG2P {
                     let hasViAccent = lw.contains { Self.viAccents.contains($0) }
                     tokens.append(Token(lang: hasViAccent ? "vi" : "en", content: word, phone: nil, isExplicitEn: false))
                 }
-            } else if let punctRange = Range(match.range(at: 3), in: text) {
+            } else if let rawRange = Range(match.range(at: 3), in: text) {
+                // Phiên âm có sẵn (`rawPhonemeOpen` … `rawPhonemeClose`): bỏ hai ký hiệu bọc, chuyển nguyên văn. Gắn ngôn
+                // ngữ "vi" để từ chung Việt / Anh đứng cạnh vẫn lan theo tiếng Việt.
+                let raw = String(text[rawRange].dropFirst().dropLast())
+                tokens.append(Token(lang: "vi", content: raw, phone: raw, isExplicitEn: false))
+            } else if let punctRange = Range(match.range(at: 4), in: text) {
                 let punct = String(text[punctRange])
                 tokens.append(Token(lang: "punct", content: punct, phone: punct, isExplicitEn: false))
             }

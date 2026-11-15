@@ -51,7 +51,17 @@ final class SeaG2P {
     var missingCommon: Set<String> = []
     var segmentationCache: [String: String?] = [:]
 
-    static let reToken = try! NSRegularExpression(pattern: "(?i)(<en>.*?</en>)|(\\w+(?:['’]\\w+)*)|([^\\w\\s])", options: [])
+    /// Cặp ký hiệu (vùng dùng riêng của Unicode) bọc một đoạn **phiên âm có sẵn**: `phonemize` chuyển nguyên văn phần
+    /// bên trong, không tra từ điển (1.3.950 — `VieNeuJapaneseNameReader` sinh thẳng phiên âm cho tên kiểu Nhật).
+    static let rawPhonemeOpen: Character = "\u{E000}"
+    static let rawPhonemeClose: Character = "\u{E001}"
+
+    /// Nhóm 1 `<en>…</en>` · nhóm 2 từ · nhóm 3 phiên âm có sẵn · nhóm 4 dấu câu. Nhóm 3 phải đứng **trước** nhóm 4:
+    /// ký hiệu mở không thuộc `\w` lẫn `\s`, đứng sau thì bị nhóm dấu câu ăn mất.
+    static let reToken = try! NSRegularExpression(
+        pattern: "(?i)(<en>.*?</en>)|(\\w+(?:['’]\\w+)*)|(\\uE000[^\\uE001]*\\uE001)|([^\\w\\s])",
+        options: []
+    )
     static let reTagContent = try! NSRegularExpression(pattern: "(\\w+(?:['’]\\w+)*)|([^\\w\\s])", options: [])
     static let reTagStrip = try! NSRegularExpression(pattern: "(?i)</?en>", options: [])
     static let viAccents = Set("àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ")

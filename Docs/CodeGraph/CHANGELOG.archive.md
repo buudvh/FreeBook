@@ -2,6 +2,52 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.919] - 2026-11-13
+
+### feat: Tăng tốc Core ML luôn bật, bỏ màn thử và Nghe thử, không còn cắt chữ ở dấu chấm dính liền như S.H.I.E.L.D
+
+Anh Bửu duyệt plan gộp (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup 7 màn) và luật cắt dấu câu. Phần sheet chọn giọng chung cho Siri / NghiTTS / Google / tiện ích và phần Dung lượng + Dọn rác đi ở bản sau.
+
+- **Tăng tốc Core ML luôn bật** — bỏ công tắc và khoá `vieneuCoreMLEnabled`.
+  - `VieNeuCoreMLAccelerator.prepareIfNeeded` tự tải + biên dịch + tự kiểm khi:
+    - tải xong gói Nano (`ModelDownloadCenter`);
+    - engine Nano khởi động mà gói chưa qua tự kiểm (`VieNeuCoreMLReaderRoute.warmUpIfReady`).
+  - Lượt tự chuẩn bị lỗi ⇒ không tự thử lại tới lần mở app sau. Biên dịch / tự kiểm lỗi ⇒ xoá bản biên dịch dở, giữ gói đã tải.
+  - Hàng giọng Nano của sheet chọn giọng và hàng "Giọng đọc" của Cài đặt TTS hiện bước đang chạy (`stageText` + thanh mảnh): "Tăng tốc Core ML · tải 52% · 139 / 267 MB", "· biên dịch 3/7", "· tự kiểm chất lượng".
+  - "Cần tải" của giọng Nano cộng cả gói Core ML.
+- **Bỏ màn thử VieNeu** (`VieNeuTurboLabView`: Đọc liên tục, Đo tự động, Đo nạp Core ML, So EP, Tạo giọng Turbo từ file) và mọi thứ chỉ nó dùng — 42 file, ~6.800 dòng.
+  - Đã gỡ:
+    - probe Core ML / EP, gói `Static/`;
+    - API `setLab*` của engine / service, `preload` / `setSessionCap` của backend Core ML, `Preparer.prepare`, `deleteAll` / `cleanCacheEntries` của gói;
+    - khối `fb.graph_optimization` trong bridge.
+  - Hàm phần đọc thật còn dùng được chuyển chỗ:
+    - SNR / định dạng dB / CFG của golden → `VieNeuCoreMLPreparer`;
+    - `sha256` → `VieNeuCoreMLPackage`;
+    - chữ bước nhân bản → `VieNeuCloneStageText`.
+- **Bỏ phần Nghe thử** của Cài đặt VieNeu TTS và Cài đặt NghiTTS, bỏ màn "Giọng của tôi" cũ (`VieNeuVoiceLibraryView`, `VieNeuVoiceCreatorView`).
+- **Cài đặt VieNeu TTS** (`VieNeuTTSSettingsView`, thay `VieNeuTTSTestView`) chỉ hiện thông tin, đọc dung lượng ngoài main:
+  - hàng "Giọng đọc VieNeu" ⇒ sheet chọn giọng;
+  - Nano: trạng thái, dung lượng, số giọng, gói nhân bản;
+  - Tăng tốc Core ML: trạng thái / bước đang chạy, gói, bản biên dịch, phiên bản gói;
+  - Turbo: model, giọng đã tải, gói nhân bản;
+  - Giọng nhân bản;
+  - Tiếng Nhật.
+- **Cài đặt NghiTTS** hiện engine, số giọng + dung lượng, thư viện phiên âm, danh sách giọng đã tải và lối vào quản lý.
+- **Xoá dữ liệu Nano / Turbo** = nhấn giữ một giọng có sẵn đã tải ở sheet chọn giọng (`VieNeuModelDataRemover`).
+  - Dừng trình đọc nếu đang dùng đúng model đó, nhả engine, rồi xoá.
+  - Nano xoá cả gói + bản biên dịch Core ML. Giọng nhân bản giữ nguyên.
+- **Ô tìm theo tên giọng** ở sheet chọn giọng VieNeu (`VoiceNameSearch`: bỏ dấu, "đ" = "d").
+  - Lọc trong chip đang chọn.
+  - Đang tìm thì ẩn "Nhân bản giọng đọc"; nhóm không còn giọng khớp thì ẩn cả nhóm.
+- **Cắt chữ ở dấu câu** (`TTSPunctuationBoundary`): dấu câu chỉ là chỗ cắt khi theo sau là khoảng trắng / dấu đóng / dấu mở (`.“Đi`) / dấu hết câu khác / hết chuỗi (dấu CJK luôn cắt).
+  - Áp ở 4 chỗ: bước cắt chung (`TTSParagraphBuilder`), lớp tách câu của NghiTTS + VieNeu (`NghiUtteranceSegmenter`), bộ tách câu của VieNeu, regex của Piper.
+  - Trước đây "Nguyên lai là S.H.I.E.L.D đặc công…" bị NghiTTS / VieNeu xẻ thành sáu lượt "S." / "H." / … rồi đọc ngắt sau từng chữ cái; Google nhận nguyên câu.
+  - VieNeu: đoạn ≤ 140 ký tự đi **nguyên văn** một chunk. Bản tham chiếu tách câu theo `[^.!?]+[.!?]*` rồi ghép bằng dấu cách ⇒ "S. H. I. E. L. D".
+  - Piper vẫn cắt ở dấu có khoảng trắng phía sau để chèn khoảng lặng (espeak bỏ dấu câu khi phiên âm).
+  - Số thập phân vẫn đọc "phẩy" như cũ (đổi số sang chữ chạy trước bước cắt trong engine).
+- Dữ liệu cũ màn thử để lại trên máy (`VieNeu/Static/`, báo cáo trong `CoreML/Results/`) sẽ dọn ở Dọn rác (bản sau).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; `TTSManager.swift` giữ 3425 dòng; grep chéo mọi type / member đã xoá. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.918] - 2026-11-13
 
 ### fix: Bắt đầu đọc tổng hợp đúng đoạn cần nghe trước, tiếng đầu Core ML nhanh hơn khoảng 0,6 s

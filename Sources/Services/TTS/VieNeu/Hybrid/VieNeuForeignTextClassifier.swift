@@ -11,7 +11,7 @@ import Foundation
 /// ## Luật (đo trên 200 chương truyện dịch Trung: 2 / 22.317 đoạn sang Turbo, đều là từ mượn)
 /// Token "lạ" = chỉ chữ ASCII, dài ≥ 2, không phải âm tiết Việt không dấu (`VietnameseWordChecker`), không phải tiếng kêu
 /// ("haha", "haizz"…), không phải viết tắt IN HOA ≤ 3 chữ ("HP", "NPC"), không thuộc vài từ mượn đọc kiểu Việt, không có
-/// trong từ điển phiên âm tiếng Nhật đang bật. Đoạn sang Turbo khi có **≥ 2 token lạ** hoặc **1 token lạ dài ≥ 5 chữ** —
+/// trong từ điển phiên âm tiếng Nhật đang bật, không phải tên kiểu Nhật mà `VieNeuJapaneseNameReader` đọc theo âm tiết. Đoạn sang Turbo khi có **≥ 2 token lạ** hoặc **1 token lạ dài ≥ 5 chữ** —
 /// một từ Anh lẻ trong câu Việt giữ Nano: đổi giọng nghe tệ hơn giọng lơ lớ.
 ///
 /// Chạy trên chữ **sau** `normalizeVietnameseText` + gấp macron — gần đúng chữ engine phiên âm. Tất định theo chữ ⇒ khoá
@@ -44,18 +44,22 @@ final class VieNeuForeignTextClassifier: @unchecked Sendable {
     private var japaneseKeys: Set<String> = []
 
     func verdict(for text: String) -> Verdict {
+        // Tên kiểu Nhật được `VieNeuJapaneseNameReader` đổi sang âm tiết thì không còn là tiếng nước ngoài (1.3.950).
+        // Cờ nằm trong khoá đệm để gạt công tắc là kết quả đổi theo ngay.
+        let readsJapaneseNames = VieNeuJapaneseNameReader.isEnabled
+        let cacheKey = (readsJapaneseNames ? "+" : "-") + text
         lock.lock()
-        if let hit = cache[text] {
+        if let hit = cache[cacheKey] {
             lock.unlock()
             return hit
         }
         let dictionaryKeys = japaneseKeys
         lock.unlock()
 
-        let result = Self.classify(text, japaneseKeys: dictionaryKeys)
+        let result = Self.classify(text, japaneseKeys: dictionaryKeys, readsJapaneseNames: readsJapaneseNames)
         lock.lock()
         if cache.count >= Self.cacheLimit { cache.removeAll(keepingCapacity: true) }
-        cache[text] = result
+        cache[cacheKey] = result
         lock.unlock()
         return result
     }
@@ -81,19 +85,19 @@ final class VieNeuForeignTextClassifier: @unchecked Sendable {
 
     // MARK: - Phân loại
 
-    private static func classify(_ text: String, japaneseKeys: Set<String>) -> Verdict {
+    private static func classify(_ text: String, japaneseKeys: Set<String>, readsJapaneseNames: Bool) -> Verdict {
         if containsCJK(text) { return Verdict(prefersTurbo: false, foreignTokens: []) }
         let normalized = VieNeuJapanesePreprocessor.foldMacrons(TextPreprocessor.normalizeVietnameseText(text))
         let source = normalized as NSString
         let matches = tokenRegex.matches(in: normalized, options: [], range: NSRange(location: 0, length: source.length))
         let foreign = matches
             .map { source.substring(with: $0.range) }
-            .filter { isForeign($0, japaneseKeys: japaneseKeys) }
+            .filter { isForeign($0, japaneseKeys: japaneseKeys, readsJapaneseNames: readsJapaneseNames) }
         let prefersTurbo = foreign.count >= 2 || foreign.contains { $0.count >= 5 }
         return Verdict(prefersTurbo: prefersTurbo, foreignTokens: foreign)
     }
 
-    private static func isForeign(_ token: String, japaneseKeys: Set<String>) -> Bool {
+    private static func isForeign(_ token: String, japaneseKeys: Set<String>, readsJapaneseNames: Bool) -> Bool {
         guard token.count >= 2, matches(asciiWord, token) else { return false }
         let lower = token.lowercased()
         if VietnameseWordChecker.isVietnameseWord(lower) { return false }
@@ -101,6 +105,7 @@ final class VieNeuForeignTextClassifier: @unchecked Sendable {
         if token.count <= 3, token == token.uppercased() { return false }
         if vietnamizedLoanwords.contains(lower) { return false }
         if !japaneseKeys.isEmpty, japaneseKeys.contains(VieNeuJapaneseDictionary.normalizedKey(token)) { return false }
+        if readsJapaneseNames, VieNeuJapaneseNameReader.reads(token) { return false }
         return true
     }
 

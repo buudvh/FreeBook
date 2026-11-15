@@ -103,6 +103,10 @@ extension TTSSettingsView {
         // chỉ gấp macron về ASCII (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
         Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
 
+        // Tên kiểu Nhật viết hoa ("Sasuke") đọc theo âm tiết thay vì theo luật chính tả tiếng Anh — mặc định **BẬT**,
+        // chung cho Nano và Turbo. Xem `VieNeuJapaneseNameReader`.
+        Toggle("Đọc tên Nhật theo âm tiết", isOn: $vieNeuJapaneseFlags.nameSyllablesEnabled)
+
         // Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì người dùng không
         // biết phải làm gì.
         if vieNeuJapaneseFlags.dictionaryDownloaded {
@@ -203,7 +207,7 @@ extension TTSSettingsView {
     }
 }
 
-/// Hai trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899).
+/// Trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899).
 ///
 /// **Vì sao không dùng `@AppStorage`**: `TTSSettingsView.swift` chỉ còn **3 dòng** tới trần 519 của
 /// `check_architecture.py`, mà hai `@AppStorage` cộng một `@State` là vừa đúng 3 dòng. Gom vào một
@@ -218,12 +222,18 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
         didSet { UserDefaults.standard.set(dictionaryEnabled, forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey) }
     }
 
+    /// "Đọc tên Nhật theo âm tiết" (1.3.950) — mặc định **BẬT** (`VieNeuJapaneseNameReader.isEnabled`).
+    @Published var nameSyllablesEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(nameSyllablesEnabled, forKey: VieNeuJapaneseNameReader.enabledKey) }
+    }
+
     /// Từ điển đã có dưới máy chưa — quyết định hiện lối vào hay hiện cảnh báo + nút tải.
     @Published var dictionaryDownloaded: Bool = false
 
     func refresh() {
         let defaults = UserDefaults.standard
         dictionaryEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
+        nameSyllablesEnabled = VieNeuJapaneseNameReader.isEnabled
         dictionaryDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
     }
 }
