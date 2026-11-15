@@ -115,6 +115,7 @@ struct TTSFallbackVoiceSettingsView: View {
                     Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
                 }
                 Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $japaneseFlags.dictionaryEnabled)
+                Toggle("Đọc tên Nhật theo âm tiết", isOn: $japaneseFlags.nameSyllablesEnabled)
                 if japaneseFlags.dictionaryDownloaded {
                     NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
                         Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")

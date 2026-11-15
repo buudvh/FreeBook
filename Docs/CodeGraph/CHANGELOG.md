@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.951] - 2026-11-15
+
+### fix: Màn Giọng dự phòng có thêm công tắc Đọc tên Nhật theo âm tiết
+
+Anh Bửu: "giọng dự phòng thiếu config phiên âm mới". Màn Giọng dự phòng (`TTSFallbackVoiceSettingsView`) tự dựng mục Quản lý riêng của VieNeu nên không có hàng mới của 1.3.950.
+
+- Thêm `Toggle("Đọc tên Nhật theo âm tiết")` ngay dưới "Áp dụng từ điển phiên âm VieNeu", cùng `VieNeuJapaneseFlags.nameSyllablesEnabled` (một khoá `vieneuJapaneseNameSyllablesEnabled` cho cả trình đọc chính lẫn giọng dự phòng — như công tắc từ điển).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.950] - 2026-11-15
 
 ### feat: VieNeu đọc tên riêng kiểu Nhật theo âm tiết thay vì theo luật chính tả tiếng Anh
@@ -422,40 +431,4 @@ Phần 3 của plan anh Bửu duyệt (§18.2 báo cáo `2026-11-11-vieneu-nano-
 - Còn nguyên từ trước:
   - giọng nhập có `-` trong id không đọc được (đổi id thành `_`);
   - tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.920] - 2026-11-13
-
-### feat: Màn Dung lượng tách rõ từng loại TTS và có Dọn rác theo luật dữ liệu đang dùng
-
-Phần 4 của plan anh Bửu duyệt (§18.2 báo cáo `2026-11-11-vieneu-nano-toi-uu.md`, mockup màn Dung lượng + Dọn rác). Anh chốt luật: *"rác chắc chắn là thứ app không còn sử dụng"* — app biết dữ liệu nào đang dùng nên không đoán.
-
-- **Mục "Giọng đọc & từ điển TTS" mở ra từng loại** (`StorageUsageTTSBreakdown`, một lượt duyệt `FreeBook/`, mỗi file vào đúng một dòng ⇒ cộng lại đúng bằng dòng cha):
-  - VieNeu Nano · model + N giọng;
-  - VieNeu Nano · Tăng tốc Core ML;
-  - VieNeu Turbo · model + N giọng;
-  - Giọng nhân bản;
-  - NghiTTS · N giọng Piper;
-  - Từ điển phiên âm;
-  - "Không còn dùng · dọn ở Dọn rác" (cam);
-  - Khác của TTS.
-- **Mục "Khác" mở ra theo thư mục** (`StorageUsageHomeBreakdown`): file tạm, bộ đệm hệ thống, dữ liệu web (đăng nhập, cookie), "Không rõ chủ · chỉ hiện, không tự xoá".
-  - Mỗi lần đo ghi một dòng `[StorageUsage]` với 10 đường dẫn không rõ chủ lớn nhất, để phân loại sau.
-- **Hàng "Dọn rác"** dưới "Tự động dọn" ⇒ trang `JunkCleanupView`: tổng dọn được, nhóm + dung lượng, nút "Dọn …" (hỏi lại), giải thích sau nút "?".
-- **Luật** (`Services/Storage/Junk/`): mỗi chủ dữ liệu biết đúng file đang dùng; rác = file trong thư mục của nó mà ngoài danh sách đó.
-  1. **Core ML cũ:**
-     - `Cache-noopt/`;
-     - `Cache/` khi dấu tự kiểm không khớp hoặc còn file `.fbtrim` (dấu hợp lệ ⇒ giữ nguyên cả `Cache/`, vì không biết chắc khúc nào đang dùng);
-     - file trong `Package/` ngoài manifest.
-     - Bỏ qua khi Core ML đang chuẩn bị.
-  2. **Dữ liệu màn thử:** `VieNeu/Static/`, báo cáo trong `CoreML/Results/` (giữ `reader-verified.json`).
-  3. **File tải dở `.partial`** khi không có lượt tải nào.
-  4. **File tạm** quá 1 giờ khi không có sao lưu / tải / xuất nào chạy.
-  5. **Dữ liệu của truyện đã xoá:** `books/` / `comics/` / `videos/` không còn `Book`.
-     - Tên đúng 64 ký tự hex, quá 10 phút.
-     - Bỏ qua khi đang sao lưu / đổi nguồn / tải; fetch SwiftData lỗi ⇒ bỏ cả nhóm.
-  6. **Bản chép thư viện tiện ích cũ** `extension_store/legacy/` khi index ghi đã chuyển xong.
-- **Không đụng:** giọng nhân bản, dữ liệu AI, đăng nhập / token, WebKit, sao lưu, file xuất, file cứu hộ `*.corrupt-*` / `*.broken-*`.
-- **Dọn an toàn:** quét lại, chỉ xoá mục có ở cả lượt quét người dùng thấy lẫn lượt mới. Kiểm lại từng mục ngay trước khi xoá: đúng thư mục cho phép, ngoài danh sách cấm, không thoát qua symlink.
-- Snapshot đã lưu trên máy vẫn đọc được (hai trường mới là optional).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
