@@ -9,57 +9,29 @@ import Foundation
 public final class ExtTTSService: Sendable {
     public init() {}
 
-    /// Retry sở hữu tại đây, **một tầng duy nhất** cho toàn pipeline: `TTSManager` không được bọc
-    /// thêm vòng retry quanh hàm này.
+    /// Retry do tầng chung lo (`TTSAudioSynthesisWorker.withRetry`, 1.3.953) — ở đây chỉ gọi thẳng runtime
+    /// rồi giải mã base64. Số lần thử lại lấy từ cấu hình chung (mặc định 3; có giọng dự phòng thì 0).
     public func synthesizeData(
         text: String,
         voice: String,
         localPath: String,
         configJson: String
     ) async throws -> Data {
-        let maxAttempts = 2
-        var attempt = 0
+        let base64String = try await ExtensionManager.shared.ttsGenerate(
+            localPath: localPath,
+            text: text,
+            voice: voice,
+            configJson: configJson
+        )
 
-        while true {
-            attempt += 1
-            do {
-                let base64String = try await ExtensionManager.shared.ttsGenerate(
-                    localPath: localPath,
-                    text: text,
-                    voice: voice,
-                    configJson: configJson
-                )
-
-                try Task.checkCancellation()
-                guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                    throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
-                }
-                return audioData
-            } catch {
-                if Task.isCancelled || attempt >= maxAttempts || !isTransient(error) {
-                    throw error
-                }
-                AppLogger.shared.log("⚠️ [ExtTTSService] Thử lại lượt \(attempt)/\(maxAttempts) do lỗi tạm thời: \(error.localizedDescription)")
-                try await Task.sleep(nanoseconds: 400_000_000)
-            }
+        try Task.checkCancellation()
+        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
         }
+        return audioData
     }
 
     public func resetRuntime() async {
         await ExtensionManager.shared.resetTTSRuntime()
-    }
-
-    private func isTransient(_ error: Error) -> Bool {
-        let nsError = error as NSError
-        let message = error.localizedDescription.lowercased()
-        return nsError.domain == NSURLErrorDomain ||
-            nsError.code == 408 ||
-            nsError.code == 429 ||
-            (500...599).contains(nsError.code) ||
-            message.contains("timed out") ||
-            message.contains("timeout") ||
-            message.contains("temporarily") ||
-            message.contains("service unavailable") ||
-            message.contains("network")
     }
 }

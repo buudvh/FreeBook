@@ -71,11 +71,17 @@ extension TTSManager {
         let name = onlineFallbackOnlineName
         AppLogger.shared.log("[TTSFallback] Thử lại \(name) (chương \(chapter), đoạn \(index))")
         do {
+            let probeTimeout = TimeInterval(TTSOnlineSynthesisSettings.fallbackTimeoutSeconds)
             let data: Data
             if engineTool == "google" {
-                data = try await google.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
+                // Timeout 3 s cho lượt thử (1.3.953): server chậm thì kết luận nhanh, không bị lượt thử kéo dài.
+                data = try await TTSAudioSynthesisWorker.withTimeout(seconds: probeTimeout) {
+                    try await google.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
+                }
             } else {
-                data = try await ext.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
+                data = try await TTSAudioSynthesisWorker.withTimeout(seconds: probeTimeout) {
+                    try await ext.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
+                }
             }
             guard !data.isEmpty else { return .failed }
             // Online chạy lại; tiếng chỉ giữ khi vẫn đúng phiên / chương / đoạn còn thiếu hoặc đang là tiếng dự phòng.

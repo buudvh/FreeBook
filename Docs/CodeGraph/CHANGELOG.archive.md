@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.922] - 2026-11-13
+
+### feat: Tải giọng NghiTTS hiện tiến độ theo từng byte và huỷ được giữa chừng
+
+Anh Bửu thử 1.3.921: tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%) và không huỷ được.
+
+- **Tiến độ theo byte:** `NghiTTSClient.prefetchModels(…, byteProgress:)` tải file `.onnx` (~61 MB, file lớn duy nhất của giọng) bằng đường tải theo byte của VieNeu (`VieNeuTurboModelClient.transfer`: `session.download(for:delegate:)` + quan sát `task.progress`, báo theo phần nghìn).
+  - Ghi qua `<file>.partial` rồi mới đổi tên ⇒ file dở không mang tên thật.
+  - `ModelDownloadCenter.updateBytes` ghi `completedBytes` / `totalBytes`. Sheet chọn giọng NghiTTS hiện "Đang tải 37% · 23 / 61 MB" + thanh mảnh, như hàng VieNeu.
+- **Huỷ giữa chừng:** đang tải ⇒ nút tròn thành ■, bấm = `ModelDownloadCenter.cancel(id:)` (giờ dùng chung cho đích NghiTTS).
+  - Huỷ `Task` ⇒ `URLSession` dừng ngay. Lỗi huỷ không thành thông báo "Tải … thất bại".
+  - `TTSVoiceListRow` bỏ trạng thái "vòng xoay, nút tắt".
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.921] - 2026-11-13
 
 ### feat: Siri, NghiTTS, Google TTS và tiện ích chọn giọng bằng sheet giống VieNeu, có tìm, thử giọng và tải ngay tại chỗ

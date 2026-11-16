@@ -66,8 +66,16 @@ extension TTSManager {
     /// `catch` của `playGoogleTTS` / `playExtensionTTS`: tổng hợp online của đoạn đang đọc lỗi mà có giọng dự phòng ⇒ bật dự
     /// phòng rồi đọc lại đúng đoạn này; trả `true` (bên gọi không dừng đọc).
     func switchToOnlineFallback(after error: Error) -> Bool {
-        guard isPlaying, let engine = TTSOnlineFallbackSettings.engine, TTSOnlineFallbackSettings.isOnlineTool(tool),
-              !onlineFallback.isActive(session: sessionID) else { return false }
+        guard isPlaying, let engine = TTSOnlineFallbackSettings.engine, TTSOnlineFallbackSettings.isOnlineTool(tool) else { return false }
+        // Đã bật dự phòng rồi (ví dụ do lượt nạp trước hụt timeout — 1.3.953) mà lượt đang đọc vẫn lỗi ⇒ đọc lại
+        // đoạn này bằng giọng dự phòng, **không** dừng đọc.
+        if onlineFallback.isActive(session: sessionID) {
+            AppLogger.shared.log(
+                "❌ [TTSFallback] \(onlineFallbackOnlineName) lỗi (\(error.localizedDescription)) ⇒ đọc lại bằng giọng dự phòng \(engine.title)"
+            )
+            speakCurrent()
+            return true
+        }
         AppLogger.shared.log(
             "❌ [TTSFallback] \(onlineFallbackOnlineName) lỗi (\(error.localizedDescription)) ⇒ đọc bằng giọng dự phòng \(engine.title)"
         )
@@ -76,15 +84,27 @@ extension TTSManager {
         return true
     }
 
-    private func activateOnlineFallback(engine: TTSOnlineFallbackSettings.Engine, offline: Bool) {
+    /// Bật giọng dự phòng cho phiên hiện tại.
+    ///
+    /// `cancelPendingPrefetch = false` ⇒ **không** huỷ lượt nạp trước đang chạy: đường "lượt nạp trước hụt
+    /// timeout" (1.3.953) — lượt nào còn chạy thì tự xong, thành công thì giữ tiếng online đã nạp cho đoạn đó;
+    /// chỉ các đoạn từ đoạn lỗi trở đi mới chuyển sang giọng dự phòng.
+    func activateOnlineFallback(
+        engine: TTSOnlineFallbackSettings.Engine,
+        offline: Bool,
+        cancelPendingPrefetch: Bool = true,
+        message: String? = nil
+    ) {
         onlineFallback.activate(session: sessionID)
-        // Lượt nạp trước online đang chờ (có thể tới hết giờ) — bỏ để nạp lại bằng giọng dự phòng; tiếng đã có giữ nguyên.
-        cancelRemotePrefetchTasks()
+        if cancelPendingPrefetch {
+            // Lượt nạp trước online đang chờ (có thể tới hết giờ) — bỏ để nạp lại bằng giọng dự phòng; tiếng đã có giữ nguyên.
+            cancelRemotePrefetchTasks()
+        }
         let voice = Self.onlineFallbackVoiceTitle(for: engine)
-        let message = offline
+        let toastMessage = message ?? (offline
             ? "Mất mạng — đọc bằng giọng dự phòng \(voice)"
-            : "\(onlineFallbackOnlineName) lỗi — đọc tiếp bằng giọng dự phòng \(voice)"
-        TTSPresentationEventCenter.shared.send(.showToast(message: message, type: .info))
+            : "\(onlineFallbackOnlineName) lỗi — đọc tiếp bằng giọng dự phòng \(voice)")
+        TTSPresentationEventCenter.shared.send(.showToast(message: toastMessage, type: .info))
         // Mất mạng ⇒ chờ mạng có lại (`onlineFallbackNetworkChanged` thử ngay); lỗi ⇒ thử lại sau 15 s.
         startOnlineFallbackProbe(after: offline ? TTSOnlineFallbackState.maxProbeDelay : TTSOnlineFallbackState.firstProbeDelay)
     }

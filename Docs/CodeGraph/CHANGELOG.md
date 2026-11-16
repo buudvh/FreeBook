@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.953] - 2026-11-16
+
+### feat: TTS online có cấu hình timeout và số lần thử lại, có giọng dự phòng thì chuyển offline sau 3 giây
+
+Anh Bửu: *"giảm thời gian timeout của các ext tts online khi có giọng offline backup"* ⇒ hỏi từng nhánh (grill-me) rồi mới code. Trước đây mỗi engine tự quyết: `ExtTTSService` retry cứng 2 lượt, Google TTS không retry, và **không** có giới hạn thời gian chờ (fetch của extension mặc định 15 s, script tự đặt tới 120 s) ⇒ đoạn đang đọc có thể im lặng ~30 s trước khi giọng dự phòng lên tiếng.
+
+- **Hai cấu hình ở Cài đặt TTS › mục "TTS online"** (chỉ hiện khi trình đọc chính là online — Google Cloud TTS / TTS tiện ích; mỗi hàng có nút "?" giải thích):
+  - **Số lần thử lại**: 0–5, mặc định **3** (= số lần *thử lại*; 0 = chỉ thử một lần). Retry **mọi lỗi** (trừ `CancellationError`).
+  - **Timeout mỗi lượt thử**: 5–20 s, mặc định **7 s**.
+  - Đã chọn giọng dự phòng offline ⇒ hai hàng **tự khoá**: hiện **0** lần thử lại và **3 giây** timeout (cứng) — lúc đó có tiếng thay thế nên không cần chờ thử lại.
+- **Một chỗ điều khiển** — `TTSAudioSynthesisWorker.synthesizeParagraph` (điểm chặn duy nhất của mọi lượt tổng hợp online: playback, nạp trước, prefix chương kế):
+  - `withTimeout` huỷ **thật** khi hết giờ: huỷ Task con ⇒ `JSExecutor.callAsync` gọi `cancelCurrentExecution()` (`JSExecutor.swift:949`) huỷ `URLSessionDataTask` đang chờ; Google thì `URLSession` bị huỷ theo Task ⇒ không rò tiến trình.
+  - `withRetry` **bên trong** closure của `RemoteTTSSynthesisCoordinator` ⇒ đoạn đang đọc giữ slot liền mạch. (Đặt *ngoài* coordinator thì tệ hơn: lúc một lượt thử hụt, `complete()` gọi `startNextIfNeeded()` ngay trong cùng lượt actor ⇒ lượt nạp trước chiếm slot trước khi lượt retry kịp xếp lại ⇒ đoạn đang đọc nhận lỗi muộn ~33 s thay vì ~22 s.)
+  - Retry chỉ cho **đoạn đang đọc** (`priority == .current`); lượt nạp trước thử **một** lần rồi bỏ (server chết thì thử lại vô ích mà lại tốn slot hàng đợi).
+- **Gỡ retry khỏi `ExtTTSService`** (tránh nhân đôi 4 × 2 = 8 lượt); xem thử giọng trong sheet (`TTSVoicePreviewPlayer`) gọi thẳng service nên tự thử lại 2 lượt như cũ.
+- **Lượt nạp trước hụt timeout ⇒ bật giọng dự phòng ngay** (`TTSManager+OnlineFallbackPrefetch`): trước đây lỗi nạp trước chỉ được log ⇒ app phát nốt tiếng cache tới hết cửa sổ nạp trước (~10–30 s) mới chuyển offline. Chỉ **lỗi timeout** mới kích hoạt (triệu chứng server chết chung); lỗi nội dung (voice sai, base64 hỏng) thì im như cũ, chờ đoạn đang đọc quyết định. Khi bật theo đường này: **không** huỷ lượt đang đọc, **không** huỷ lượt nạp trước khác, **không** xoá tiếng đã nạp — chỉ các đoạn từ đoạn lỗi trở đi mới chuyển sang giọng dự phòng.
+- **Sửa race:** lượt đang đọc đang bay lỗi *sau khi* giọng dự phòng đã bật ⇒ `switchToOnlineFallback` trước đây trả `false` ⇒ dừng đọc + báo lỗi; nay đọc lại đoạn đó bằng giọng dự phòng.
+- **Lượt thử của probe** (quay về online) cũng gói timeout 3 s để kết luận nhanh khi server chậm; nhịp probe 15 s → ×2 → trần 120 s giữ nguyên.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.952] - 2026-11-15
 
 ### feat: Nano đọc chậm đoạn có tên phiên âm để không nuốt chữ, dùng phần khung Core ML tính sẵn nên gần như không tốn thêm pin
@@ -396,18 +416,4 @@ Anh Bửu chụp màn Dung lượng 1.3.920: "Khác" 8,31 GB (Bộ đệm hệ t
   - **Cài đặt VieNeu TTS:** "Xoá tất cả dữ liệu Nano" (gói Nano + gói nhân bản + Tăng tốc Core ML) và "Xoá tất cả dữ liệu Turbo" (model + mọi giọng tải về).
   - **Cài đặt NghiTTS:** "Xoá tất cả giọng NghiTTS" (`NghiVoiceDirectory.deleteAll`; giữ thư viện phiên âm).
 - Bỏ mục nhấn giữ "Xoá dữ liệu Nano / Turbo" trên giọng có sẵn (1.3.919) — thay bằng hai nút trên. Giọng nhân bản vẫn nhấn giữ để đổi tên / xoá.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.922] - 2026-11-13
-
-### feat: Tải giọng NghiTTS hiện tiến độ theo từng byte và huỷ được giữa chừng
-
-Anh Bửu thử 1.3.921: tiến độ tải giọng NghiTTS nhảy theo file (0 → 50 → 100%) và không huỷ được.
-
-- **Tiến độ theo byte:** `NghiTTSClient.prefetchModels(…, byteProgress:)` tải file `.onnx` (~61 MB, file lớn duy nhất của giọng) bằng đường tải theo byte của VieNeu (`VieNeuTurboModelClient.transfer`: `session.download(for:delegate:)` + quan sát `task.progress`, báo theo phần nghìn).
-  - Ghi qua `<file>.partial` rồi mới đổi tên ⇒ file dở không mang tên thật.
-  - `ModelDownloadCenter.updateBytes` ghi `completedBytes` / `totalBytes`. Sheet chọn giọng NghiTTS hiện "Đang tải 37% · 23 / 61 MB" + thanh mảnh, như hàng VieNeu.
-- **Huỷ giữa chừng:** đang tải ⇒ nút tròn thành ■, bấm = `ModelDownloadCenter.cancel(id:)` (giờ dùng chung cho đích NghiTTS).
-  - Huỷ `Task` ⇒ `URLSession` dừng ngay. Lỗi huỷ không thành thông báo "Tải … thất bại".
-  - `TTSVoiceListRow` bỏ trạng thái "vòng xoay, nút tắt".
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

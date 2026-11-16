@@ -96,9 +96,12 @@ final class TTSVoicePreviewPlayer {
         case .ext(let localPath, let configJson, let voiceId):
             let service = TTSManager.shared.extService
             operation = {
-                try await service.synthesizeData(
-                    text: Self.sampleText, voice: voiceId, localPath: localPath, configJson: configJson
-                )
+                // Đường này gọi thẳng service (không qua worker) ⇒ tự thử lại 2 lượt như trước 1.3.953.
+                try await TTSAudioSynthesisWorker.withRetry(maxAttempts: 2) {
+                    try await service.synthesizeData(
+                        text: Self.sampleText, voice: voiceId, localPath: localPath, configJson: configJson
+                    )
+                }
             }
         }
         phase = .preparing(key)

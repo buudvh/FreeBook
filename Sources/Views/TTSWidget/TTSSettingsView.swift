@@ -69,6 +69,8 @@ struct TTSSettingsView: View {
             // Giọng dự phòng khi trình đọc online lỗi (1.3.945) — một hàng tới màn "Giọng dự phòng".
             if TTSOnlineFallbackSettings.isOnlineTool(ttsManager.tool) {
                 TTSFallbackVoiceSection()
+                // Cấu hình retry + timeout cho trình đọc online (1.3.953) — chỉ hiện khi trình đọc chính là online.
+                TTSOnlineSynthesisSection()
             }
 
             // Đọc lai Nano · Turbo — ngay dưới hàng chọn giọng (1.3.943: chuyển từ Cài đặt VieNeu TTS ra đây).
