@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.927] - 2026-11-13
+
+### feat: Công tắc Tăng tốc bằng AMX của Turbo đưa thêm bước nạp prompt và phép Q·Kᵀ của codec sang Accelerate
+
+Đo 1.3.926 trên máy (báo cáo mục 13): codec qua AMX nhanh ~1,26× (155 → 123 ms mỗi giây tiếng), RTF tổng chỉ −3% vì chỉ ~205/700 node của codec vào BLAS. Anh Bửu chọn làm tiếp "AMX cho nạp prompt + attention" và bảo làm thẳng, không cần plan.
+
+- **Bước nạp prompt qua Accelerate** — bản vá mới `vieneu_prefill_blas.py` (chạy sau `vieneu_prefill_gallocr` + `vieneu_codec_blas`):
+  - session option `vieneu_v3_turbo.prefill_blas` (mặc định tắt) ⇒ `VieNeuTalkerWeightsRuntime` giữ một backend BLAS;
+  - `TalkerPrefillGraph` cấp phát + chạy qua `ggml_backend_sched` [BLAS, CPU], cỡ = 2 × số tensor graph dùng + 1024 (truyền sức chứa 65536 sẽ xin ~1,3 GB, đúng lỗi đã làm sập codec ở 1.3.924);
+  - reserve hỏng ⇒ lùi gallocr; alloc hỏng sau reserve ⇒ ném lỗi cho đoạn đó;
+  - trọng số q8_0 được ggml-blas giải lượng tử ra F32 rồi `cblas_sgemm` với activation F32 — **không** lượng tử hoá activation về q8 như đường CPU ⇒ gần bản fp32 gốc hơn, không trùng từng byte với đường cũ;
+  - log `vieneu_v3_turbo.talker.prefill.blas_active / graph_nodes / sched_context_mb`.
+- **Q·Kᵀ của attention codec** (`vieneu_codec_blas.py`): ggml-blas từ chối src1 là view hoán vị ⇒ khi dựng graph cho scheduler BLAS, attention chép Q thành tensor liền (`ggml_cont`) để phép này cũng chạy Accelerate (phép A·V vốn đã vào được). Cờ `thread_local` chỉ bật trong `prepare_graph` của decoder khi có backend BLAS ⇒ công tắc tắt / encoder / giải mã từng khung: graph y hệt cũ.
+- **Job parity**: tắt vẫn phải trùng từng byte bản gốc; codec BLAS vẫn mã trùng + WAV ≥ 90 dB + vùng scheduler ≤ 512 MB. Thêm cổng nạp prompt (`audiocpp_prefill_check.py`): vector ẩn cuối của bước nạp (dòng `prefill_hidden` đầu tiên của `VIENEU_LOGITS_DUMP`) của đường BLAS phải gần đáp án fp32 (`weight_type=f32`) hơn đường q8 đang chạy và sai số < 1e-3; scheduler của bước nạp ≤ 512 MB; log phải báo `prefill.blas_active 1`.
+- **App**: một công tắc **"Tăng tốc bằng AMX (thử nghiệm)"** (khoá giữ nguyên `vieneuTurboCodecAMX`, mặc định tắt) bật cả hai option. Log đoạn: `amx=bật` khi codec và nạp prompt đều chạy BLAS, `amx=lùi:codec` / `lùi:prefill` khi audio.cpp lùi về CPU ở phần đó.
+- Kiểm: các bản vá thử áp trên PC theo đúng thứ tự (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.926] - 2026-11-13
 
 ### fix: Tăng tốc codec bằng AMX của Turbo không còn làm app chết, bộ chia việc chỉ xin bộ nhớ đúng cỡ graph

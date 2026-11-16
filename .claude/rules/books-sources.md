@@ -1,0 +1,18 @@
+---
+paths:
+  - "Sources/Services/Books/**"
+  - "Sources/Services/Download/SourceChange/**"
+  - "Sources/Views/Shelf/**"
+  - "Sources/Views/BookDetail/**"
+  - "Sources/Views/MainTabView+SourceChangeRecovery.swift"
+  - "Sources/Views/ContentRouting/**"
+---
+
+# Mở lại mục gần nhất, Đổi nguồn, Gắn lại nguồn
+
+> Tách từ `AGENTS.md` (1.3.959). Claude Code tự nạp file này khi đọc / sửa file khớp `paths`; agent khác phải tự đọc trước khi sửa phân hệ này.
+
+- **Mở lại mục đọc/xem gần nhất khi khởi động** (1.3.716, đổi phạm vi 1.3.718; Cài đặt › Đọc & Nghe, mặc định bật): `BookContentDestination.onAppear` đưa `bookId` lên đầu danh sách mở gần nhất của `ReaderSessionRestoreStore` (20 mục; **không** dựa `Book.lastReadDate` vì thêm/bỏ kệ, chọn chương ở Chi tiết cũng đẩy nó). Lần mở app sau `ShelfView+LaunchRestore` mở mục đầu tiên còn trên máy, ở Kệ/Lịch sử, không phải 18+ (`RepositoryFilterPolicy.isNsfwBook`) như bấm trên Kệ (danh sách trống — lần đầu sau khi cài — thì dự phòng (1.3.720) theo truyện `isHistory` xếp `lastReadDate`) (vị trí `nil` ⇒ tiến độ đã lưu); bỏ qua khi đổi nguồn dở hoặc lần mở lại trước chết trong 10 s (chống vòng lặp crash). Phim mở lại dừng sẵn, TTS không tự phát. Lối mở màn đọc mới phải đi qua router thì mới được ghi vào danh sách.
+
+- **Đổi nguồn** (1.3.689): cả lượt thuộc `BookSourceChangeCoordinator` (`Services/Download/SourceChange/`), View chỉ chụp giá trị truyện cũ + hiện tiến trình. Nhật ký `source_change/journal.json` ghi **trước** tác dụng phụ đầu tiên; trước mốc `.committed` mọi thứ chỉ được **chép** (chương theo lô ngoài main qua `BookSourceChapterCopier`, thiết lập qua `BookSourceMigrator.copyBookScopedSettings`), nên app chết thì lần mở sau lùi lại (xoá truyện mới); sau mốc thì tiến (xoá truyện cũ qua `BookStorageManager.deleteBooksAsync`, ~1,2 s sau khi View đóng các màn đang giữ `Book` cũ). Truyện đích cùng tiện ích + link chi tiết đã có trên máy thì **dùng lại**, không tạo bản trùng. Thêm kho dữ liệu theo `bookId` ⇒ thêm vào cả `copyBookScopedSettings` lẫn `removeBookScopedSettings`. Đang nghe TTS truyện cũ **không** còn giữ truyện cũ (1.3.946): ngay sau mốc chốt `TTSManager.continueListeningAfterSourceChange` dừng phiên cũ rồi đọc tiếp truyện mới ở cùng chỉ số chương, từ đầu dòng đang đọc (đang tạm dừng ⇒ chỉ dừng); truyện cũ dọn như thường. Từ điển riêng (`VietPhrase.txt`, `Names.txt`) truyện đích đã có thì **gộp** (mục truyện cũ thắng, qua `TranslationDictionaryWriter.importEntries`), file khác vẫn "đã có thì giữ".
+- **Gắn lại nguồn khi tiện ích đã gỡ** (1.3.690): truyện ở Kệ/Lịch sử có tiện ích nguồn không còn cài ⇒ `MissingSourceRebindCoordinator` (`Services/Books/SourceRebind/`) dò tiện ích đã cài có `regexp` khớp **cả chuỗi** `detailUrl` (`ExtensionUrlMatcher.WholeMatcher`, đúng hợp đồng; `matches(for:in:)` khớp một phần giữ cho nút Nhập/dịch trang), kiểm 3 chương mẫu (đầu, đang đọc, cuối) với mục lục nguồn mới (`SourceRebindValidator`, 1.3.691): cùng link ⇒ `BookTransactionCoordinator.rebindSource` đổi `extensionPackageId`/`sourceName`/`sourceUrl`/`host` **giữ nguyên `bookId`**; link khác dạng nhưng cùng tên chương ở đúng vị trí (hai tiện ích cùng trang dựng link chương khác nhau, vd hai bản qimao) ⇒ đi luồng Đổi nguồn (`BookSourceChangeCoordinator.run`); lệch cả tên ⇒ không chuyển, log `❌ [SourceRebind]`. Sheet nhấn giữ của truyện mất nguồn có hàng "Chuyển sang nguồn …" (`MissingSourceRebindActionRows`). Chỉ dò ở trang gốc Kệ (`MissingSourceRebindBanner`): Chi tiết/Reader giữ `extensionPackageId` cố định từ lúc mở và Chi tiết tìm truyện theo (link, tiện ích) ⇒ đừng gắn lại nguồn khi màn của truyện đang mở. Cài đặt › Thư Viện › Truyện mất nguồn: Hỏi một chạm (mặc định) / Tự chuyển.

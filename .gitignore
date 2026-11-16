@@ -10,6 +10,7 @@ DerivedData/
 /Docs/Reports
 .claude/*
 !.claude/skills/
+!.claude/rules/
 /Scripts/__pycache__
 /test
 /.adblock_snapshot_tmp/

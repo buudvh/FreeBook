@@ -1,0 +1,36 @@
+---
+paths:
+  - "Sources/Services/TTS/**"
+  - "Sources/Views/TTSWidget/**"
+  - "Sources/Views/Settings/TTS/**"
+  - "Sources/Models/TTS/**"
+---
+
+# TTS
+
+> Tách từ `AGENTS.md` (1.3.959). Claude Code tự nạp file này khi đọc / sửa file khớp `paths`; agent khác phải tự đọc trước khi sửa phân hệ này.
+
+`TTSManager` (file lớn nhất repo, ~4100 dòng) phân nhánh theo biến `tool` — **4 đường tổng hợp**, không phải 3:
+
+| `tool` | Engine | Vị trí |
+|---|---|---|
+| `nghitts` | Piper offline chạy ONNX Runtime | `Services/TTS/NghiTTS/` |
+| `system` | AVSpeechSynthesizer native | `Services/TTS/Siri/` |
+| `google` | Google Cloud TTS REST | `Services/TTS/Google/` |
+| *(mọi giá trị khác)* | Extension JavaScript tự định nghĩa | `Services/TTS/Ext/` |
+
+Text đi qua `Preprocessing/` (đọc số tiếng Việt, chuyển tự Anh/Nhật, luật regex, từ điển thay thế) trước khi tổng hợp. Kết quả sau thay thế phải khác rỗng mới được đưa vào engine — chuỗi rỗng phải thành WAV/PCM im lặng hợp lệ, không bao giờ đẩy string rỗng vào ONNX/eSpeak.
+
+**Thay thế từ TTS khớp theo token** (1.3.940, anh Bửu chốt): `TTSReplacementManager.applyReplacements` (mọi engine, trên từng chunk, trước `TextPreprocessor`) dùng `TTSReplacementPlan` — **hai lượt**: (1) token **từ** (chữ/số liền nhau; `-`/`.` kẹp giữa hai chữ, không dấu cách, vẫn thuộc từ: `Kamar-Taj`, `S.H.I.E.L.D`) **bằng đúng** mẫu ⇒ thay cả token, phân biệt hoa thường (`Hà` không đụng `Hàn`); (2) token hoá **lại** kết quả, luật ký hiệu chỉ thay **bên trong dãy ký hiệu**, mẫu **dài hơn thắng** (`....` thắng `...`) — không bao giờ thay mất `-`/`.` trong từ. Tách token ở `TTSReplacementTokenizer`, thứ tự danh sách **không** ảnh hưởng (màn quản lý bỏ kéo sắp xếp). Mẫu không phải đúng một token (`Hàn Lập`, `Taj,`, `Kamar-`, có dấu cách) là **luật sai**: bị bỏ qua lúc đọc, `TTSReplacementRuleValidator` báo khi gõ / chặn Lưu (sheet Cài đặt + sheet Reader) và gắn huy hiệu trên hàng; dữ liệu cũ không tự sửa. Đừng quay lại `replacingOccurrences` theo chuỗi con.
+
+Giới hạn cần nhớ:
+
+- Cache PCM `preloadedData` (+ `preloadedDurations`) chỉ giữ cửa sổ trượt của từng engine — Remote (Google/Ext) `[N, N+count]` với `count = clamp(currentPrefetchCount, 1, 10)`, NghiTTS `N` + `N+1` bắt buộc + tối đa 2 optional reserve — không dọn sẽ OOM. Callback audio ngầm phải `[weak self]`.
+- `NghiSynthesisPolicy` là nguồn duy nhất cho watermark cached-time: `defaultSafeCachedTimeThreshold = 8.0`s, dải `4.0...20.0` (UserDefaults `nghittsSafeCachedTimeSeconds`), `maxOptionalReserveItems = 2`. **Không** chứa cooldown hay thermal eligibility. Thermal state chỉ là telemetry (energy log), không bao giờ chặn/điều tiết refill hay prefetch của Nghi lẫn Remote (ngoại lệ duy nhất: chọn model đọc lai VieNeu, 1.3.934 — xem gạch "Đọc lai Nano · Turbo"). Đừng nhân bản các hằng này sang manager/prefetcher.
+- ONNX/XNNPACK cố định **1 worker** — cố ý, không phải thiếu tối ưu; đừng scale theo số core.
+- Chỉ **1** operation tổng hợp chạy tại một thời điểm; `PiperSynthesisCoordinator` xếp hàng theo 4 mức ưu tiên.
+- **Retry thuộc về đúng một tầng**: Remote (Google/Ext) retry tối đa 2 lần *bên trong* `RemoteTTSSynthesisCoordinator` — `TTSManager` **không** được bọc thêm vòng retry. Ngược lại refill của NghiTTS do `TTSManager` sở hữu (2 lần, retry backoff 1s qua `Task.sleep`).
+- **Giọng dự phòng khi TTS online lỗi** (1.3.945, anh Bửu duyệt mockup): Cài đặt TTS (trình đọc Google / tiện ích) › "Khi giọng online lỗi" › màn "Giọng dự phòng" (`TTSFallbackVoiceSettingsView`, dựng y các mục Cài đặt TTS khi chọn NghiTTS / VieNeu: Picker trình đọc + Không dùng, Giọng đọc, Quản lý riêng, Tốc độ (+ Tốc độ tổng hợp Nano); không có Tải trước / Cao độ / Đọc lai). Chỉ lưu **trình đọc nào** (`TTSOnlineFallbackSettings`, khoá `ttsOnlineFallbackTool`); giọng + tốc độ… là **của chính engine** (`nghittsVoice` / `VieNeuVoiceSelection`, `nghittsRate` / `vieneuRate`) — chọn giọng VieNeu từ đây (`vieNeuVoicePickerSheet(selectsForFallback: true)`, cả trang Cài đặt VieNeu TTS mở từ đây) chỉ lưu lựa chọn, **không** chuyển trình đọc chính. Thay engine **theo đoạn ở tầng tổng hợp** (`TTSManager+OnlineFallback`), **không** đổi `tool`: tổng hợp online của đoạn đang đọc lỗi (sau lượt thử lại của `RemoteTTSSynthesisCoordinator`) hoặc máy mất mạng (`TTSNetworkReachability`) ⇒ bật dự phòng theo phiên (`TTSOnlineFallbackState`), bỏ lượt nạp trước online đang chờ; đoạn đang đọc + nạp trước tổng hợp bằng engine local, gọi thẳng service (không qua hàng đợi remote), phát qua `AVAudioPlayer` của đường remote ở tốc độ engine dự phòng (`remotePlaybackRate`). Vòng nền (`+OnlineFallbackProbe`) thử online một đoạn sắp đọc sau 15 s → 30 s → 1 phút → tối đa 2 phút (mạng có lại ⇒ thử ngay); được ⇒ giữ tiếng đó, tắt dự phòng. Giọng dự phòng cũng lỗi ⇒ dừng + báo như cũ. Badge cam "Dự phòng" ở sheet nghe mini (`TTSFallbackBadge`). Cài đặt dự phòng nằm trong `TTSSettingsSnapshot` (`onlineFallback`) ⇒ đổi thì đóng Cài đặt là dựng lại đoạn. Lượt **nạp trước** dự phòng nối đuôi nhau theo thứ tự tạo (`TTSOnlineFallbackState.prefetchTail`, 1.3.957 — mỗi lượt phải qua `prepare` nên để tự do thì thứ tự vào hàng đợi là ngẫu nhiên); đoạn đang đọc đi thẳng, không nối đuôi. Lượt nạp trước online **lỗi lúc máy mất mạng** cũng bật dự phòng ngay và nạp trước lại cửa sổ bằng giọng dự phòng trong lúc tiếng online đã nạp còn phát (`handleOnlinePrefetchFailure`, 1.3.957 — trước đó chỉ lỗi hết giờ mới bật, đoạn dự phòng đầu tiên trễ ~1,9 s).
+- Không dùng `AVAudioEngine` node-streaming cho NghiTTS; đường phát là `AVAudioPlayer` double-buffering qua `NghiAudioPlayerQueue`.
+- `ChapterContentRepository` giữ cache chia sẻ tối đa **12 entry / 12 MiB** (`maxMemoryEntryCount`, `maxMemoryCost`). Document vượt budget vẫn trả về cho caller, chỉ là không được cache.
+- **Widget TTS chỉ một kiểu** (1.3.859, anh Bửu: "giữ lại 1 kiểu thôi"): TTS có phiên ⇒ **đĩa nghe** dùng chung với nhạc (`MediaDiscWindowManager`, mục Âm thanh › "Đĩa nghe — nửa viên thuốc dính mép"), chạm ⇒ `TTSQuickControlSheet`. Kiểu **"Đĩa nổi"** (`FloatingWidgetContainerViewController`, `FloatingWidgetUIWindow`, `FloatingWidgetViewModel`, `TTSFloatingWidgetWindowManager`, `TTSWidgetStyle` / `TTSWidgetPreferences`, khoá `ttsWidgetStyle`, hàng "Widget TTS" ở Cài đặt) **đã bỏ** — trước đó là mặc định, ai đang dùng tự sang đĩa nghe. Kiểu "Thanh nghe nhạc" (1.3.796–807) bỏ từ 1.3.808. Đừng dựng lại widget TTS riêng hay cài đặt chọn kiểu. `modelContainer` của sheet TTS (cài đặt, hẹn giờ) lấy từ `MediaDiscWindowManager.shared.modelContainer`. `TTSCoverView` / `TTSCoverImageLoader` (mặt đĩa + sheet) nằm ở file riêng trong `Views/TTSWidget/`. Góc đĩa sống ở `TTSWidgetCoverRotation.shared`. Tên truyện / chương của sheet điều khiển nhanh đọc qua `TTSWidgetBarInfoReader`, câu đang đọc qua `TTSQuickControlNowReading` — đừng thêm vào `TTSWidgetSnapshot` (mặt đĩa sẽ vẽ lại theo từng đoạn). Hàng nút sheet (1.3.860): chương trước · đoạn trước · ⏯ · đoạn kế · chương kế — nút chương gọi `TTSManager.jumpToAdjacentChapter(forward:)` (`TTSManager+ChapterStep`, tra theo `index` thưa rồi `jumpToChapter`), sáng / mờ theo `TTSWidgetBarInfoReader.hasPreviousChapter` / `hasNextChapter` (giây đầu sau khi bấm tai nghe hàng đợi mới có vài chương ⇒ "chương trước" có thể mờ).

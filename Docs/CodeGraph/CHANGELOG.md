@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.959] - 2026-11-16
+
+### docs: gọn AGENTS.md thành bản lõi, CLAUDE.md chỉ import @AGENTS.md, ghi chú phân hệ tách sang .claude/rules
+
+Anh Bửu chạy `/doctor`: `/usage` báo `CLAUDE.md` (128.843 ký tự ≈ 32k token) chiếm ~31% lượng dùng vì Claude Code nạp lại nó ở **mọi** request, dù phần lớn chỉ cần khi sửa một phân hệ. Anh Bửu duyệt: "dọn dẹp AGENTS.md như bạn nói, rồi ở CLAUDE.md chỉ cần @AGENTS.md".
+
+- **`AGENTS.md` = bản lõi dùng chung** (~19,7k ký tự): quy trình bắt buộc, thứ tự thẩm quyền, CHANGELOG, lệnh, build / CI / môi trường, luật `check_architecture.py`, ràng buộc runtime chung, quy ước đặt tên, Tests, Bẫy đã xác minh, cộng bảng mục lục `.claude/rules/` và 5 bẫy dùng chung nhiều phân hệ.
+- **`CLAUDE.md` chỉ còn `@AGENTS.md`** (Claude Code nạp qua import) — từ nay chỉ sửa `AGENTS.md`, bỏ luật mirror hai file.
+- **14 file `.claude/rules/*.md`** chép **nguyên văn** các mục phân hệ (storage, reader-text-pipeline, tts, tts-vieneu, translation, extensions-js, comic-video, audio-playlist, floating-pills, browser, books-sources, network-dns, ci-release, ui-conventions). Mỗi file khai `paths:` nên Claude Code chỉ nạp khi đọc / sửa file khớp; Codex và agent khác đọc theo mục lục. Ghi chú mới của một phân hệ thì thêm vào đúng file đó.
+- **Thiết lập codegraph trên máy mới** thành skill `.claude/skills/codegraph-setup/SKILL.md`. `.gitignore` thêm `!.claude/rules/`.
+- **Bỏ 6 câu cũ / suy ra được từ code**: câu CHANGELOG lặp, mô tả `codegraph.json`, dòng code signing / iOS 17 / danh sách SPM (đã thiếu gói), "88 entry hết hạn 2026-12-31", "814 file Swift", "(19 file)" + danh sách file `+` (nay 343 file).
+- Kiểm: script đối chiếu từng dòng không rỗng của `CLAUDE.md` cũ — mọi dòng (trừ 6 câu trên và tiêu đề mục đổi thành tiêu đề file) có mặt nguyên văn trong bộ file mới. Không đổi code, không build.
+
 ## [1.3.958] - 2026-11-16
 
 ### fix: RTF trên sheet nghe mini chia cho thời lượng lời đọc, không tính khoảng lặng chèn thêm
@@ -399,20 +412,3 @@ audio.cpp build không OpenMP nên mỗi lượt tính của ggml tạo rồi hu
 - **Cài đặt VieNeu TTS › Turbo**: công tắc thành dòng **"Tăng tốc AMX: Đang dùng"** (hoặc "Đã tự tắt tới bản sau"); giải thích sau nút "?" ghi mức nhanh hơn đo được.
 - Log đoạn giữ `amx=bật / lùi:codec / lùi:prefill / tắt`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không đổi bản vá audio.cpp. Không build tại chỗ (Windows).
-
-## [1.3.927] - 2026-11-13
-
-### feat: Công tắc Tăng tốc bằng AMX của Turbo đưa thêm bước nạp prompt và phép Q·Kᵀ của codec sang Accelerate
-
-Đo 1.3.926 trên máy (báo cáo mục 13): codec qua AMX nhanh ~1,26× (155 → 123 ms mỗi giây tiếng), RTF tổng chỉ −3% vì chỉ ~205/700 node của codec vào BLAS. Anh Bửu chọn làm tiếp "AMX cho nạp prompt + attention" và bảo làm thẳng, không cần plan.
-
-- **Bước nạp prompt qua Accelerate** — bản vá mới `vieneu_prefill_blas.py` (chạy sau `vieneu_prefill_gallocr` + `vieneu_codec_blas`):
-  - session option `vieneu_v3_turbo.prefill_blas` (mặc định tắt) ⇒ `VieNeuTalkerWeightsRuntime` giữ một backend BLAS;
-  - `TalkerPrefillGraph` cấp phát + chạy qua `ggml_backend_sched` [BLAS, CPU], cỡ = 2 × số tensor graph dùng + 1024 (truyền sức chứa 65536 sẽ xin ~1,3 GB, đúng lỗi đã làm sập codec ở 1.3.924);
-  - reserve hỏng ⇒ lùi gallocr; alloc hỏng sau reserve ⇒ ném lỗi cho đoạn đó;
-  - trọng số q8_0 được ggml-blas giải lượng tử ra F32 rồi `cblas_sgemm` với activation F32 — **không** lượng tử hoá activation về q8 như đường CPU ⇒ gần bản fp32 gốc hơn, không trùng từng byte với đường cũ;
-  - log `vieneu_v3_turbo.talker.prefill.blas_active / graph_nodes / sched_context_mb`.
-- **Q·Kᵀ của attention codec** (`vieneu_codec_blas.py`): ggml-blas từ chối src1 là view hoán vị ⇒ khi dựng graph cho scheduler BLAS, attention chép Q thành tensor liền (`ggml_cont`) để phép này cũng chạy Accelerate (phép A·V vốn đã vào được). Cờ `thread_local` chỉ bật trong `prepare_graph` của decoder khi có backend BLAS ⇒ công tắc tắt / encoder / giải mã từng khung: graph y hệt cũ.
-- **Job parity**: tắt vẫn phải trùng từng byte bản gốc; codec BLAS vẫn mã trùng + WAV ≥ 90 dB + vùng scheduler ≤ 512 MB. Thêm cổng nạp prompt (`audiocpp_prefill_check.py`): vector ẩn cuối của bước nạp (dòng `prefill_hidden` đầu tiên của `VIENEU_LOGITS_DUMP`) của đường BLAS phải gần đáp án fp32 (`weight_type=f32`) hơn đường q8 đang chạy và sai số < 1e-3; scheduler của bước nạp ≤ 512 MB; log phải báo `prefill.blas_active 1`.
-- **App**: một công tắc **"Tăng tốc bằng AMX (thử nghiệm)"** (khoá giữ nguyên `vieneuTurboCodecAMX`, mặc định tắt) bật cả hai option. Log đoạn: `amx=bật` khi codec và nạp prompt đều chạy BLAS, `amx=lùi:codec` / `lùi:prefill` khi audio.cpp lùi về CPU ở phần đó.
-- Kiểm: các bản vá thử áp trên PC theo đúng thứ tự (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
