@@ -244,7 +244,8 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         let pcmDuration = Double(samples.count) / Double(max(1, output.sampleRate))
         // Badge "Turbo · AMX" (1.3.942) + RTF của đoạn (1.3.954): ghi **sau** khi đã có synthesisMs/pcmDuration.
         VieNeuEngineBadgeStore.shared.record(text: text, model: .turbo, accelerated: output.codecAMXRequested)
-        TTSEngineRTFStore.shared.record(text: text, rtf: synthesisMs / 1_000 / max(0.01, pcmDuration))
+        // Chia cho lời đọc, bỏ khoảng lặng đuôi (1.3.958) — khớp `RTF=` của dòng log `[VieNeuTurbo] Đoạn`.
+        TTSEngineRTFStore.shared.record(text: text, synthesisMs: synthesisMs, speechSeconds: max(0, pcmDuration - pause))
         Self.logChunk(
             text: text, prepared: prepared, output: output, pause: pause, synthesisMs: synthesisMs,
             cpuMs: ProcessCPUClock.nowMs() - cpuStarted, boundaryKind: boundaryKind

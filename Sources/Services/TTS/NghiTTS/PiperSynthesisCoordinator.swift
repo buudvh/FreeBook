@@ -14,17 +14,22 @@ internal enum SynthesisPriority: Int, Comparable, Sendable {
 internal struct PiperSynthesisPayload: Sendable {
     internal let data: Data
     internal let pcmDuration: Double
+    /// Thời lượng **lời đọc**: `pcmDuration` trừ khoảng lặng engine chèn thêm — mẫu số của RTF (`TTSEngineRTFStore`).
+    /// Không truyền ⇒ coi như không có khoảng lặng chèn thêm.
+    internal let speechDuration: Double
     internal let queueWaitMs: Double
     internal let synthesisMs: Double
 
     internal init(
         data: Data,
         pcmDuration: Double,
+        speechDuration: Double? = nil,
         queueWaitMs: Double = 0.0,
         synthesisMs: Double = 0.0
     ) {
         self.data = data
         self.pcmDuration = pcmDuration
+        self.speechDuration = speechDuration ?? pcmDuration
         self.queueWaitMs = queueWaitMs
         self.synthesisMs = synthesisMs
     }
@@ -293,6 +298,7 @@ internal actor PiperSynthesisCoordinator {
                     let measuredResult = PiperSynthesisPayload(
                         data: result.data,
                         pcmDuration: result.pcmDuration,
+                        speechDuration: result.speechDuration,
                         queueWaitMs: max(0, (synthesisStartedAt - req.enqueuedAt) * 1_000),
                         synthesisMs: max(0, (synthesisFinishedAt - synthesisStartedAt) * 1_000)
                     )

@@ -90,10 +90,10 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
         }
-        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn `queueWaitMs` (thời gian chờ hàng đợi).
+        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn `queueWaitMs` (thời gian chờ hàng đợi); chia cho thời
+        // lượng lời đọc, không tính khoảng lặng chèn thêm (1.3.958).
         TTSEngineRTFStore.shared.record(
-            text: text,
-            rtf: payload.synthesisMs / 1_000 / max(0.01, payload.pcmDuration)
+            text: text, synthesisMs: payload.synthesisMs, speechSeconds: payload.speechDuration
         )
         return (
             data: payload.data,
@@ -160,7 +160,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
                 sampleRate: spec.sampleRate,
                 channels: 1
             )
-            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration)
+            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration, speechDuration: 0)
         }
 
         let preprocessedText = await TextPreprocessor.shared.preprocess(text)
@@ -171,7 +171,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
                 sampleRate: spec.sampleRate,
                 channels: 1
             )
-            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration)
+            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration, speechDuration: 0)
         }
         
         if let onnxEngine = engine as? ONNXPiperEngine {
@@ -182,7 +182,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
                 speed: speed,
                 boundaryKind: boundaryKind
             )
-            return PiperSynthesisPayload(data: res.data, pcmDuration: res.pcmDuration)
+            return PiperSynthesisPayload(data: res.data, pcmDuration: res.pcmDuration, speechDuration: res.speechDuration)
         } else {
             let wavData = try await engine.synthesize(
                 text: preprocessedText,

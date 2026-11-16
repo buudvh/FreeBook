@@ -3,7 +3,8 @@ import SwiftUI
 /// Viên nhỏ **"RTF 0.32"** ở sheet điều khiển nhanh TTS (1.3.954): tốc độ tổng hợp của đoạn đang phát —
 /// **VieNeu** (Nano/Turbo) hoặc **Piper / NghiTTS**.
 ///
-/// RTF = thời gian tổng hợp ÷ thời lượng audio: 0,32 là nhanh ~3× thời gian thực, 1,24 là chậm hơn thời gian thực.
+/// RTF = thời gian tổng hợp ÷ thời lượng **lời đọc** (không tính khoảng lặng chèn thêm, 1.3.958): 0,32 là nhanh ~3×
+/// thời gian thực, 1,24 là chậm hơn thời gian thực.
 /// Màu theo ngưỡng như badge nhiệt: ≤ 0,5 xanh · 0,5–1,0 vàng · > 1,0 đỏ. Không bấm được.
 struct TTSRTFBadge: View {
     let rtf: Double

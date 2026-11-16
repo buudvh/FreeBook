@@ -229,7 +229,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         return result.data
     }
 
-    func synthesizeWithDuration(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> (data: Data, pcmDuration: Double) {
+    func synthesizeWithDuration(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> (data: Data, pcmDuration: Double, speechDuration: Double) {
         try await synthesizeInternal(
             text: text,
             modelONNX: modelONNX,
@@ -245,7 +245,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         modelConfig: URL,
         speed: Double,
         boundaryKind: TTSBoundaryKind
-    ) async throws -> (data: Data, pcmDuration: Double) {
+    ) async throws -> (data: Data, pcmDuration: Double, speechDuration: Double) {
         let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
         let sampleRate = runtime.sampleRate
         let padId = runtime.padId
@@ -262,6 +262,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         }
 
         var mergedSamples: [Float] = []
+        var insertedSilenceSamples = 0 // khoảng lặng chèn thêm — trừ khỏi mẫu số của RTF (1.3.958)
         let minSamples = Int(Double(sampleRate) * 0.02)
         var lastGain: Float = 1.0
 
@@ -400,6 +401,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
                     if silenceSamplesCount > 0 {
                         let silenceSamples = [Float](repeating: 0.0, count: silenceSamplesCount)
                         trimmedChunk.append(contentsOf: silenceSamples)
+                        insertedSilenceSamples += silenceSamplesCount
                     }
                 }
             } else {
@@ -409,6 +411,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
                 if boundarySilenceSamplesCount > 0 {
                     let silenceSamples = [Float](repeating: 0.0, count: boundarySilenceSamplesCount)
                     trimmedChunk.append(contentsOf: silenceSamples)
+                    insertedSilenceSamples += boundarySilenceSamplesCount
                 }
             }
 
@@ -421,6 +424,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
             channels: 1
         )
         let pcmDuration = Double(mergedSamples.count) / Double(sampleRate)
-        return (data: wavData, pcmDuration: pcmDuration)
+        let speechDuration = Double(max(0, mergedSamples.count - insertedSilenceSamples)) / Double(sampleRate)
+        return (data: wavData, pcmDuration: pcmDuration, speechDuration: speechDuration)
     }
 }

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.926] - 2026-11-13
+
+### fix: Tăng tốc codec bằng AMX của Turbo không còn làm app chết, bộ chia việc chỉ xin bộ nhớ đúng cỡ graph
+
+Anh Bửu thử 1.3.925 trên iPhone 11 (iOS 26.3.1): app vẫn chết ở lượt đầu khi bật công tắc, nhưng lần này lớp chống sập của 1.3.925 làm đúng việc — lần mở sau tự tắt công tắc và log ghi `ggml.c:1699: GGML_ASSERT(ctx->mem_buffer != NULL) failed`. File `.ips` (AudioCpp UUID `1a370fa8…` = đúng bản 1.3.925): `SIGABRT`, luồng `VieNeuTurboRuntime`, không frame nào của Accelerate. Dịch ngược AudioCpp (capstone, chuỗi ADRP/ADD) ⇒ lời gọi `ggml_init` hỏng nằm trong `ggml_backend_sched_split_graph` (`ggml-backend.cpp`).
+
+- **Nguyên nhân**: `ggml_backend_sched_new` dành sẵn `graph_size × 30 × 2 × sizeof(ggml_tensor)` byte (mỗi node một split). Bản vá `vieneu_codec_blas` (1.3.924) truyền **sức chứa** của graph codec (131072 node) ⇒ một lần `malloc` ~**2,6 GB**. Máy ảo macOS cho qua (bộ nhớ ảo dư) nên job parity và cả lượt tái hiện 1.3.925 đều không thấy; trên iPhone `malloc` trả NULL ⇒ `ggml_init` xin lại cũng hỏng ⇒ `GGML_ASSERT` ⇒ app chết.
+- **Sửa** (bản vá `vieneu_codec_blas.py`): truyền `2 × số tensor graph thật sự dùng (node + nguồn) + 1024` — vài nghìn thay vì 131072 ⇒ vùng dành sẵn cỡ vài chục tới vài trăm MB (ảo, chỉ chạm phần dùng). Log thêm `moss.audio_tokenizer.decode.graph_nodes / sched_graph_size / sched_context_mb`.
+- **Chốt CI** (`audiocpp_parity_macos.sh`): bật `codec_blas` mà `sched_context_mb` > 512 hoặc không đọc được ⇒ đỏ — lỗi kiểu này không còn lọt qua máy ảo.
+- Công tắc vẫn **thử nghiệm, mặc định tắt**; 1.3.925 đã tự tắt nó trên máy anh (Cài đặt VieNeu TTS hiện dòng "Đã tự tắt…"). Bật lại để thử; lớp chống sập + ghi lý do vẫn giữ.
+- Kiểm: bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.925] - 2026-11-13
 
 ### fix: Turbo tự tắt Tăng tốc codec bằng AMX khi lần trước app dừng giữa lượt đầu, ghi lý do audio.cpp dừng vào log

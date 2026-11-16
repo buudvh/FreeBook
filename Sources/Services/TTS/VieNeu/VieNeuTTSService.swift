@@ -298,16 +298,16 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             accelerated: flowBackend != nil && coreMLAfter.coreML > coreMLBefore.coreML
                 && coreMLAfter.fallback == coreMLBefore.fallback
         )
-        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn thời gian chờ khoá.
+        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn thời gian chờ khoá; chia cho lời đọc, bỏ khoảng lặng (1.3.958).
         TTSEngineRTFStore.shared.record(
-            text: text,
-            rtf: output.synthesisMs / 1_000 / max(0.01, output.pcmDuration)
+            text: text, synthesisMs: output.synthesisMs, speechSeconds: output.speechDuration
         )
         syncQueue.sync { _currentVoice = voice }
         // `synthesisMs` lấy của engine (đo bên trong, chỉ gồm suy luận) để RTF không lẫn thời gian chờ khoá.
         return PiperSynthesisPayload(
             data: output.data,
             pcmDuration: output.pcmDuration,
+            speechDuration: output.speechDuration,
             synthesisMs: output.synthesisMs
         )
     }
