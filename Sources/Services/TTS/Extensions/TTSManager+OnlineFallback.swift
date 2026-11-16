@@ -133,28 +133,34 @@ extension TTSManager {
         let synthesisKey = Self.onlineFallbackSynthesisKey(
             engine: engine, voice: voice, speed: speed, boundary: boundary, text: text
         )
+        let isDemand = priority == .demand
         let task: Task<Data, Error>
-        if let running = onlineFallback.task(for: key) {
+        if let running = onlineFallback.task(for: key), !isDemand || onlineFallback.hasStarted(key) {
             task = running
-            if priority == .demand {
-                // Đoạn đang đọc dùng chung lượt nạp trước đang chạy ⇒ đưa lượt đó lên trước các lượt nạp trước khác (1.3.955).
-                // Log build 1283: ba lượt nạp trước chạy theo thứ tự đoạn 3 → 2 → 1 trong lúc đoạn 1 đang chờ để phát.
-                onlineFallback.markDemanded(key)
+            if isDemand {
+                // Đoạn đang đọc dùng chung lượt nạp trước đã rời hàng chờ ⇒ nâng mức ưu tiên của nó trong hàng đợi tổng hợp.
                 Task { await PiperSynthesisCoordinator.shared.promote(synthesisKey: synthesisKey, to: .demand) }
             }
         } else {
             guard let service = onlineFallbackService(for: engine) else { throw OnlineFallbackError.engineUnavailable(engine) }
+            // Đoạn đang đọc mà lượt nạp trước của nó còn xếp hàng sau lượt khác ⇒ bỏ lượt đó, tạo lượt mới đi thẳng.
+            onlineFallback.task(for: key)?.cancel()
             let state = onlineFallback
+            // Lượt nạp trước nối đuôi lượt nạp trước tạo ngay trước nó (1.3.957). Mỗi lượt phải qua `prepare` (nhiều điểm chờ)
+            // rồi mới vào hàng đợi tổng hợp, nên để tự do thì lượt nào tới trước là ngẫu nhiên — và hàng đợi không ngắt lượt
+            // đang chạy. Log build 1283: đoạn 3 → 2 → 1; build 1285: đoạn 23 chạy trước đoạn 22 nên đoạn 22 trễ 0,46 s.
+            let previous = isDemand ? nil : state.prefetchTail
             task = Task {
+                if let previous { _ = try? await previous.value }
+                try Task.checkCancellation()
+                state.markStarted(key)
                 try await service.prepare(voice: voice)
-                // Đoạn thành đoạn đang đọc trong lúc lượt này còn chờ nạp engine (chưa vào hàng đợi) ⇒ xếp ở mức đang đọc.
-                let effectivePriority: SynthesisPriority = state.isDemanded(key) ? .demand : priority
                 return try await service.synthesizeWithDuration(
-                    text: text, voice: voice, speed: speed, boundaryKind: boundary, priority: effectivePriority,
+                    text: text, voice: voice, speed: speed, boundaryKind: boundary, priority: priority,
                     synthesisKey: synthesisKey
                 ).data
             }
-            onlineFallback.store(task, for: key)
+            onlineFallback.store(task, for: key, isPrefetch: !isDemand)
         }
         do {
             let data = try await task.value

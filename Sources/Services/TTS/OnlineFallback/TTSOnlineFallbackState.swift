@@ -23,8 +23,12 @@ final class TTSOnlineFallbackState {
     private(set) var activeSessionID: UUID?
     private var chunkEngines: [ChunkKey: TTSOnlineFallbackSettings.Engine] = [:]
     private var inflight: [ChunkKey: Task<Data, Error>] = [:]
-    /// Đoạn mà đường **đang đọc** đã đòi trong lúc lượt nạp trước của nó còn chạy — lượt đó xếp hàng ở mức đang đọc (1.3.955).
-    private var demanded: Set<ChunkKey> = []
+    /// Lượt đã rời hàng chờ nối đuôi và đang ở / sắp vào hàng đợi tổng hợp. Lượt nạp trước chưa có mặt ở đây còn xếp sau
+    /// lượt khác ⇒ đoạn đang đọc không dùng chung nó mà tạo lượt mới đi thẳng (1.3.957).
+    private var started: Set<ChunkKey> = []
+    /// Lượt **nạp trước** tạo gần nhất: lượt nạp trước kế tiếp chờ nó xong rồi mới vào hàng đợi tổng hợp, nên các đoạn dự
+    /// phòng được tổng hợp đúng thứ tự tạo (đoạn gần trước).
+    private(set) var prefetchTail: Task<Data, Error>?
     var probeTask: Task<Void, Never>?
 
     func isActive(session: UUID) -> Bool {
@@ -63,7 +67,8 @@ final class TTSOnlineFallbackState {
         chunkEngines.removeAll()
         for task in inflight.values { task.cancel() }
         inflight.removeAll()
-        demanded.removeAll()
+        started.removeAll()
+        prefetchTail = nil
     }
 
     // MARK: - Lượt tổng hợp
@@ -72,23 +77,28 @@ final class TTSOnlineFallbackState {
         inflight[key]
     }
 
-    func store(_ task: Task<Data, Error>, for key: ChunkKey) {
+    /// `isPrefetch` ⇒ lượt này thành đuôi của hàng nạp trước (`prefetchTail`).
+    func store(_ task: Task<Data, Error>, for key: ChunkKey, isPrefetch: Bool) {
         dropStale(session: key.sessionID, chapterIndex: key.chapterIndex)
         inflight[key] = task
+        started.remove(key)
+        if isPrefetch { prefetchTail = task }
     }
 
     func finish(_ task: Task<Data, Error>, for key: ChunkKey) {
+        // Đuôi đã xong thì thôi giữ (kèm tiếng của nó); lượt sau không còn gì để chờ.
+        if prefetchTail == task { prefetchTail = nil }
         guard inflight[key] == task else { return }
         inflight.removeValue(forKey: key)
-        demanded.remove(key)
+        started.remove(key)
     }
 
-    func markDemanded(_ key: ChunkKey) {
-        demanded.insert(key)
+    func markStarted(_ key: ChunkKey) {
+        started.insert(key)
     }
 
-    func isDemanded(_ key: ChunkKey) -> Bool {
-        demanded.contains(key)
+    func hasStarted(_ key: ChunkKey) -> Bool {
+        started.contains(key)
     }
 
     /// Bỏ đoạn / lượt của phiên khác (và của chương khác, nếu có chương).
@@ -99,7 +109,7 @@ final class TTSOnlineFallbackState {
         for (key, task) in inflight where isStale(key) {
             task.cancel()
             inflight.removeValue(forKey: key)
-            demanded.remove(key)
+            started.remove(key)
         }
         if chapterIndex == nil {
             chunkEngines = chunkEngines.filter { !isStale($0.key) }

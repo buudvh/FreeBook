@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.957] - 2026-11-16
+
+### fix: Giọng dự phòng tổng hợp các đoạn đúng thứ tự và bật ngay khi lượt nạp trước lỗi vì mất mạng
+
+Log build 1285 (bản 1.3.956, chương 24): không còn dòng `Nạp sẵn + chạy nháp` nào và đoạn dự phòng thứ 2 trễ **459 ms** thay cho 5178 ms của build 1283 — nhưng vẫn trễ. Dựng lại theo số byte của từng lượt phát: đoạn 21 phát lúc 13:13:04.15, ba lượt nạp trước 22 / 23 / 24 được tạo cùng lúc, và hàng đợi tổng hợp chạy **23 → 22 → 24**. Đoạn 23 (9,5 s tiếng, session Core ML còn nguội) mất 2,8 s; đoạn 22 chỉ bắt đầu lúc 07.02 trong khi cần lúc 07.22.
+
+- **Nguyên nhân:** mỗi lượt dự phòng phải qua `service.prepare` (nhiều điểm chờ: nhả Turbo, `Task.detached`, khoá engine) rồi mới vào `PiperSynthesisCoordinator`, nên trong ba lượt tạo cùng lúc lượt nào tới trước là ngẫu nhiên; hàng đợi đang rảnh thì chạy luôn lượt tới trước và không ngắt giữa chừng. Việc nâng mức ưu tiên của 1.3.955 chỉ xếp lại lượt **đang chờ**, không cứu được trường hợp này.
+- **Sửa:** lượt nạp trước nối đuôi lượt nạp trước tạo ngay trước nó (`TTSOnlineFallbackState.prefetchTail`) — chờ lượt đó xong rồi mới `prepare` và vào hàng đợi, nên thứ tự tổng hợp luôn là thứ tự tạo (đoạn gần trước). Đoạn **đang đọc** không nối đuôi: đi thẳng; nếu lượt nạp trước của chính nó còn xếp hàng (`hasStarted == false`) thì bỏ lượt đó và tạo lượt mới, đã rời hàng thì dùng chung + `promote` như cũ. Tập `demanded` / `isDemanded` của 1.3.955 thay bằng `started` / `hasStarted`.
+- Với thứ tự đúng, ở log này đoạn 22 (cùng cỡ khung với đoạn 21 vừa chạy) xong sau ~0,65 s, sớm hơn lúc cần ~2,3 s.
+- **Bật dự phòng sớm khi mất mạng** (anh Bửu duyệt: "Thêm bật dự phòng sớm"). Cùng log: đoạn dự phòng **đầu tiên** trễ ~1,9 s (`RemoteHandoff index=21 gapMs=1918`) vì chỉ bắt đầu tổng hợp khi tiếng online đã nạp phát hết, dù mạng mất từ 13:12:51 — 11 s trước đó — và các lượt nạp trước online lỗi liên tục. `handleOnlinePrefetchFailure` (1.3.953) chỉ bật dự phòng khi lỗi là hết giờ; nay bật cả khi lượt nạp trước lỗi lúc `TTSNetworkReachability` báo máy không có mạng (và đang đọc): bỏ các lượt nạp trước online đang chờ rồi `updatePrefetchWindow()` ⇒ các đoạn còn thiếu trong cửa sổ được tổng hợp bằng giọng dự phòng ngay trong lúc tiếng online đã nạp còn phát. Tiếng online đã nạp giữ nguyên; lỗi nội dung lúc vẫn có mạng thì im như cũ.
+  - Hệ quả thấy được: toast "Mất mạng — đọc bằng giọng dự phòng" hiện sớm hơn (lúc lượt nạp trước đầu tiên lỗi, không phải lúc hết tiếng online); mạng có lại trong vài giây đó thì các đoạn đã nạp bằng giọng dự phòng vẫn phát hết rồi mới về online (luật cũ của 1.3.945).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.956] - 2026-11-16
 
 ### fix: VieNeu Nano đọc đúng hậu tố xưng hô, thêm khoảng dẫn cho dòng thoại, không cắt chunk giữa tên và các lỗi rà soát khác
@@ -402,15 +415,3 @@ Anh Bửu thử 1.3.925 trên iPhone 11 (iOS 26.3.1): app vẫn chết ở lư�
 - **Chốt CI** (`audiocpp_parity_macos.sh`): bật `codec_blas` mà `sched_context_mb` > 512 hoặc không đọc được ⇒ đỏ — lỗi kiểu này không còn lọt qua máy ảo.
 - Công tắc vẫn **thử nghiệm, mặc định tắt**; 1.3.925 đã tự tắt nó trên máy anh (Cài đặt VieNeu TTS hiện dòng "Đã tự tắt…"). Bật lại để thử; lớp chống sập + ghi lý do vẫn giữ.
 - Kiểm: bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua, ngoặc cân); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.925] - 2026-11-13
-
-### fix: Turbo tự tắt Tăng tốc codec bằng AMX khi lần trước app dừng giữa lượt đầu, ghi lý do audio.cpp dừng vào log
-
-Anh Bửu thử 1.3.924 trên iPhone 11: công tắc tắt thì Turbo chạy đều (48 đoạn, RTF 0,40; codec 39%, âm học 23%, nạp prompt 21%, backbone 16% — khớp CI). Bật công tắc ⇒ dựng session có AMX xong (1248 ms) rồi **app chết ngay lượt tổng hợp đầu tiên**, log không có dòng lỗi, và công tắc vẫn bật nên lần đọc Turbo sau chết tiếp.
-
-- **Tái hiện trên CI không ra** (nhánh chẩn đoán `claude/turbo-amx-repro`, không gộp, run 43445448000): build audio.cpp đúng cờ CPU bản iOS (`armv8.2-a+dotprod+fp16`) kèm ggml-blas + C API, gọi C API y như app ở luồng chính / hàng đợi GCD QoS userInitiated / pthread stack 512 KB, lấy mẫu như trình đọc, đoạn tới 13 s, 3 giọng — mọi ca chạy hết. ⇒ Nguyên nhân chỉ có trên máy thật (nghi nhất: Accelerate dùng AMX của A13; máy ảo CI không có AMX). Cần câu báo / file `.ips` từ máy.
-- **Chống sập lặp lại** (`VieNeuTurboCrashGuard`): trước lượt Turbo đầu tiên có codec AMX của mỗi lần mở app ghi dấu (file nhỏ ở `Library/Caches`, mang mã tiến trình), lượt đó kết thúc thì xoá. Lần mở sau mà dấu còn (của tiến trình khác) ⇒ tự tắt công tắc, ghi `❌` vào log, Cài đặt VieNeu TTS hiện dòng "Đã tự tắt vì lần trước app dừng…" (bật lại công tắc thì dòng này mất). Kiểm ở lúc dựng session Turbo (trước khi đọc công tắc) và khi mở Cài đặt VieNeu TTS.
-- **Ghi lý do dừng**: bản vá audio.cpp mới `capi_abort_file.py` — hàm C `audiocpp_set_abort_file(path)` cài `ggml_set_abort_callback` + `std::terminate` handler, ghi câu báo `GGML_ASSERT` / exception chưa bắt ra `Library/Caches/audiocpp-abort.txt` trước khi `abort()`. Lần mở sau app đưa câu đó vào dòng `❌ [VieNeuTurbo] Lần trước …` (công tắc đang bật thì cũng tự tắt). Không bắt được truy cập bộ nhớ sai — khi đó cần file `.ips`.
-- Build iOS chặn nếu thiếu symbol `audiocpp_set_abort_file`; job parity áp cả bản vá mới (không đổi phép tính).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua) và đã build + chạy thật trên CI nhánh chẩn đoán. Không build tại chỗ (Windows), chưa thử trên máy.

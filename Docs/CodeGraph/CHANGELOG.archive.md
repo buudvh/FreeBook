@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.925] - 2026-11-13
+
+### fix: Turbo tự tắt Tăng tốc codec bằng AMX khi lần trước app dừng giữa lượt đầu, ghi lý do audio.cpp dừng vào log
+
+Anh Bửu thử 1.3.924 trên iPhone 11: công tắc tắt thì Turbo chạy đều (48 đoạn, RTF 0,40; codec 39%, âm học 23%, nạp prompt 21%, backbone 16% — khớp CI). Bật công tắc ⇒ dựng session có AMX xong (1248 ms) rồi **app chết ngay lượt tổng hợp đầu tiên**, log không có dòng lỗi, và công tắc vẫn bật nên lần đọc Turbo sau chết tiếp.
+
+- **Tái hiện trên CI không ra** (nhánh chẩn đoán `claude/turbo-amx-repro`, không gộp, run 43445448000): build audio.cpp đúng cờ CPU bản iOS (`armv8.2-a+dotprod+fp16`) kèm ggml-blas + C API, gọi C API y như app ở luồng chính / hàng đợi GCD QoS userInitiated / pthread stack 512 KB, lấy mẫu như trình đọc, đoạn tới 13 s, 3 giọng — mọi ca chạy hết. ⇒ Nguyên nhân chỉ có trên máy thật (nghi nhất: Accelerate dùng AMX của A13; máy ảo CI không có AMX). Cần câu báo / file `.ips` từ máy.
+- **Chống sập lặp lại** (`VieNeuTurboCrashGuard`): trước lượt Turbo đầu tiên có codec AMX của mỗi lần mở app ghi dấu (file nhỏ ở `Library/Caches`, mang mã tiến trình), lượt đó kết thúc thì xoá. Lần mở sau mà dấu còn (của tiến trình khác) ⇒ tự tắt công tắc, ghi `❌` vào log, Cài đặt VieNeu TTS hiện dòng "Đã tự tắt vì lần trước app dừng…" (bật lại công tắc thì dòng này mất). Kiểm ở lúc dựng session Turbo (trước khi đọc công tắc) và khi mở Cài đặt VieNeu TTS.
+- **Ghi lý do dừng**: bản vá audio.cpp mới `capi_abort_file.py` — hàm C `audiocpp_set_abort_file(path)` cài `ggml_set_abort_callback` + `std::terminate` handler, ghi câu báo `GGML_ASSERT` / exception chưa bắt ra `Library/Caches/audiocpp-abort.txt` trước khi `abort()`. Lần mở sau app đưa câu đó vào dòng `❌ [VieNeuTurbo] Lần trước …` (công tắc đang bật thì cũng tự tắt). Không bắt được truy cập bộ nhớ sai — khi đó cần file `.ips`.
+- Build iOS chặn nếu thiếu symbol `audiocpp_set_abort_file`; job parity áp cả bản vá mới (không đổi phép tính).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua) và đã build + chạy thật trên CI nhánh chẩn đoán. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.924] - 2026-11-13
 
 ### feat: Turbo có công tắc thử Tăng tốc codec bằng AMX, log tách thời gian nạp prompt, backbone, âm học và codec
