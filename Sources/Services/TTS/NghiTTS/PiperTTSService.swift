@@ -90,6 +90,11 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
         }
+        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn `queueWaitMs` (thời gian chờ hàng đợi).
+        TTSEngineRTFStore.shared.record(
+            text: text,
+            rtf: payload.synthesisMs / 1_000 / max(0.01, payload.pcmDuration)
+        )
         return (
             data: payload.data,
             pcmDuration: payload.pcmDuration,

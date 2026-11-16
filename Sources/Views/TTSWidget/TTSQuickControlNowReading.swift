@@ -17,6 +17,8 @@ final class TTSQuickControlNowReading: ObservableObject {
         var engineLabel: VieNeuEngineBadgeStore.Label?
         /// Đoạn đang phát do giọng dự phòng đọc (TTS online lỗi / mất mạng, 1.3.945) — engine dự phòng; `nil` ⇒ không.
         var fallbackEngine: TTSOnlineFallbackSettings.Engine?
+        /// RTF của đoạn đang phát (VieNeu hoặc Piper, 1.3.954) — `nil` khi chưa tổng hợp xong.
+        var rtf: Double?
 
         var fraction: Double {
             guard total > 0, position > 0 else { return 0 }
@@ -51,13 +53,16 @@ final class TTSQuickControlNowReading: ObservableObject {
             next.position = index + 1
             next.sentence = paragraphs[index].text.trimmingCharacters(in: .whitespacesAndNewlines)
             next.fallbackEngine = manager.onlineFallbackEngine(forChunk: index)
-            // Badge "model · tăng tốc": tra theo đúng chữ engine nhận (đã áp từ điển thay thế) — một lần mỗi đoạn.
+            // Chữ đã nói (đã áp quy tắc thay thế) — khoá tra của cả badge engine lẫn RTF.
+            let spoken = TTSReplacementManager.shared.applyReplacements(
+                to: paragraphs[index].text, bookId: manager.playingBookId
+            )
+            // Badge "model · tăng tốc": tra theo đúng chữ engine nhận — một lần mỗi đoạn.
             if manager.tool == "vieneu" || next.fallbackEngine == .vieneu {
-                let spoken = TTSReplacementManager.shared.applyReplacements(
-                    to: paragraphs[index].text, bookId: manager.playingBookId
-                )
                 next.engineLabel = VieNeuEngineBadgeStore.shared.label(for: spoken)
             }
+            // RTF của đoạn đang phát (1.3.954) — VieNeu và Piper đều ghi vào cùng khoá.
+            next.rtf = TTSEngineRTFStore.shared.rtf(for: spoken)
         }
         guard next != snapshot else { return }
         snapshot = next

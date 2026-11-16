@@ -236,13 +236,15 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             speakerEmbeddingURL: store.speakerEmbeddingURL(voiceId: voiceId),
             qos: Self.readerQoS
         )
-        VieNeuEngineBadgeStore.shared.record(text: text, model: .turbo, accelerated: output.codecAMXRequested)
         // Khoảng lặng đuôi theo ranh giới, như engine Nano chèn (tốc độ 1×) — thiếu nó các mảnh dính nhau nghe như mất chữ.
         var samples = output.samples
         let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind)
         samples.append(contentsOf: [Float](repeating: 0, count: Int(Double(output.sampleRate) * pause)))
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let pcmDuration = Double(samples.count) / Double(max(1, output.sampleRate))
+        // Badge "Turbo · AMX" (1.3.942) + RTF của đoạn (1.3.954): ghi **sau** khi đã có synthesisMs/pcmDuration.
+        VieNeuEngineBadgeStore.shared.record(text: text, model: .turbo, accelerated: output.codecAMXRequested)
+        TTSEngineRTFStore.shared.record(text: text, rtf: synthesisMs / 1_000 / max(0.01, pcmDuration))
         Self.logChunk(
             text: text, prepared: prepared, output: output, pause: pause, synthesisMs: synthesisMs,
             cpuMs: ProcessCPUClock.nowMs() - cpuStarted, boundaryKind: boundaryKind

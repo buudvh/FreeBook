@@ -324,6 +324,11 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             accelerated: flowBackend != nil && coreMLAfter.coreML > coreMLBefore.coreML
                 && coreMLAfter.fallback == coreMLBefore.fallback
         )
+        // RTF của đoạn (1.3.954) — số đo trong engine, không lẫn thời gian chờ khoá.
+        TTSEngineRTFStore.shared.record(
+            text: text,
+            rtf: output.synthesisMs / 1_000 / max(0.01, output.pcmDuration)
+        )
         syncQueue.sync {
             _currentVoice = voice
             _lastDroppedScalars = output.droppedScalars

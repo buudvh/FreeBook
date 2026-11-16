@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.954] - 2026-11-16
+
+### feat: hiển thị RTF của VieNeu và Piper trên sheet điều khiển nhanh TTS
+
+Anh Bửu yêu cầu mockup "hiển thị thêm badge rtf của vieneu" rồi bổ sung *"hiển thị rtf cho có pipetts luôn nhé"*. RTF = thời gian tổng hợp ÷ thời lượng audio (0,32 = nhanh ~3× thời gian thực, > 1 = chậm hơn thời gian thực) — số **đo trong engine**, không ước lượng.
+
+- **`TTSEngineRTFStore`** (mới, `Services/TTS/`): kho RTF theo **chữ đã nói** (cùng khoá với `VieNeuEngineBadgeStore`, capacity 64) — ghi từ cả VieNeu (Nano/Turbo) và Piper/NghiTTS. Số đo lấy trong engine, không lẫn thời gian chờ hàng đợi (`queueWaitMs` của Piper bị loại).
+- **`TTSRTFBadge`** (mới, `Views/TTSWidget/`): viên nhỏ kiểu `TTSEngineBadge` — icon `gauge.with.dots.needle.50percent` + `"RTF 0.32"` (`monospacedDigit`), nền capsule 18%. Màu theo ngưỡng: ≤ 0,5 xanh · 0,5–1,0 vàng · > 1,0 đỏ.
+- **Ghi số:** Nano tại chỗ ghi badge cũ (`VieNeuTTSService` — có sẵn `output.synthesisMs` + `output.pcmDuration`); Turbo **dời** lệnh ghi badge xuống sau khi tính `synthesisMs`/`pcmDuration`; Piper ghi trong `PiperTTSService.synthesizeWithDuration` (trả sẵn `payload.synthesisMs`/`payload.pcmDuration`).
+- **Hiện:** `TTSQuickControlSheet.NowReadingBlock` thêm viên RTF ngay sau badge "Turbo · AMX"; `TTSQuickControlNowReading.Snapshot` thêm `rtf`, tách `spoken` (chữ đã áp quy tắc thay thế) khỏi nhánh VieNeu để tra cho mọi engine. Đoạn chưa tổng hợp xong (chưa có số đo) ⇒ viên ẩn.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.953] - 2026-11-16
 
 ### feat: TTS online có cấu hình timeout và số lần thử lại, có giọng dự phòng thì chuyển offline sau 3 giây

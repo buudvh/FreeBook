@@ -353,6 +353,10 @@ struct TTSQuickControlSheet: View {
                     if let engine = snapshot.engineLabel {
                         TTSEngineBadge(label: engine)
                     }
+                    // RTF của đoạn đang phát (VieNeu hoặc Piper, 1.3.954).
+                    if let rtf = snapshot.rtf {
+                        TTSRTFBadge(rtf: rtf)
+                    }
                     Spacer(minLength: 8)
                     Text(snapshot.total > 0 && snapshot.position > 0 ? "\(snapshot.position)/\(snapshot.total)" : " ")
                 }
