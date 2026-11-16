@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.961",
+          "buildVersion": "1288",
+          "date": "2026-11-16T09:47:44Z",
+          "localizedDescription": "- docs: gọn AGENTS.md thành bản lõi, CLAUDE.md chỉ import @AGENTS.md, ghi chú phân hệ tách sang .claude/rules\n- fix: TTS online thử lại đúng một tầng, chậm thì đọc song song bằng giọng dự phòng, cùng các lỗi rà soát chức năng nghe truyện\n- refactor: Cài đặt VieNeu dùng chung một bản cho Cài đặt TTS và Giọng dự phòng, chạy nháp Core ML chờ tín hiệu thay vì hỏi khoá mỗi 10 ms",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1288/TangCongCac-1.3.961-1288.ipa",
+          "size": 41567453,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.958",
           "buildVersion": "1287",
           "date": "2026-11-16T07:44:24Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1284/TangCongCac-1.3.954-1284.ipa",
           "size": 41554849,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.953",
-          "buildVersion": "1283",
-          "date": "2026-11-16T03:48:34Z",
-          "localizedDescription": "- feat: TTS online có cấu hình timeout và số lần thử lại, có giọng dự phòng thì chuyển offline sau 3 giây",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1283/TangCongCac-1.3.953-1283.ipa",
-          "size": 41552740,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.958",
-      "versionDate": "2026-11-16T07:44:24Z",
-      "versionDescription": "- fix: RTF trên sheet nghe mini chia cho thời lượng lời đọc, không tính khoảng lặng chèn thêm",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1287/TangCongCac-1.3.958-1287.ipa",
-      "size": 41559978,
+      "version": "1.3.961",
+      "versionDate": "2026-11-16T09:47:44Z",
+      "versionDescription": "- docs: gọn AGENTS.md thành bản lõi, CLAUDE.md chỉ import @AGENTS.md, ghi chú phân hệ tách sang .claude/rules\n- fix: TTS online thử lại đúng một tầng, chậm thì đọc song song bằng giọng dự phòng, cùng các lỗi rà soát chức năng nghe truyện\n- refactor: Cài đặt VieNeu dùng chung một bản cho Cài đặt TTS và Giọng dự phòng, chạy nháp Core ML chờ tín hiệu thay vì hỏi khoá mỗi 10 ms",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1288/TangCongCac-1.3.961-1288.ipa",
+      "size": 41567453,
       "appPermissions": {}
     }
   ],
