@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.955] - 2026-11-16
+
+### fix: Giọng dự phòng VieNeu không còn hụt đoạn offline thứ 2 do chạy nháp Core ML lặp lại ở mỗi đoạn
+
+Anh Bửu: *"tắt mạng sau khi đọc xong cache audio online thì phát được ngay giọng offline nhưng lại hụt đoạn offline thứ 2"*. Log build 1283 (chương 7, giọng dự phòng VieNeu Nano): tiêu đề phát sau 1,7 s, đoạn kế trễ **5,18 s** (`RemoteHandoff index=1 gapMs=5178`), các đoạn sau 30–40 ms. Ba nguyên nhân chồng nhau:
+
+- **Chạy nháp Core ML lặp lại ở mỗi đoạn.** `TTSManager.onlineFallbackAudio` gọi `service.prepare` cho **từng** đoạn dự phòng, mà `VieNeuTTSService.prepare` lần nào cũng bắn `warmUpCoreMLForReader()`; `warmUpIfReady` chỉ chặn hai lượt chạy cùng lúc, không chặn lượt lặp ⇒ 4 lượt chạy nháp trong 20 s (5493 / 3150 / 1583 / 5800 ms). Sửa: `VieNeuCoreMLFlowBackend.isWarm(kind:bucket:)` (session đang nạp **và** đã chạy lượt đầu) + `VieNeuCoreMLReaderRoute.pendingWarmUp` — chỉ chạy nháp khung còn thiếu, đủ rồi thì thoát ngay (không đọc gói, không log). `releaseSessions()` (máy báo thiếu RAM) quên luôn `firstRunDone` ⇒ lần `prepare` sau chạy nháp lại đúng các khung đã nhả.
+- **Lượt chạy nháp giữ khoá tổng hợp liền cả 5 khung.** `NSLock` không xếp hàng công bằng: luồng chạy nháp nhả khoá rồi lấy lại ngay ở khung kế nên thắng luồng đang chờ — trong log, từ 11:19:11.53 tới 15.51 không lượt tổng hợp nào chen vào được. Sửa: `VieNeuTTSEngine.lockForReader()` (dùng ở `synthesize` và `prepare`) đếm lượt đọc đang xếp hàng; `withSynthesisLock` chỉ lấy khoá khi khoá rảnh và không ai xếp hàng (`lock.try()`, hỏi lại mỗi 10 ms). Lượt đọc tới giữa một khung chỉ chờ hết khung đó — có tác dụng cả ở lần chạy nháp đầu tiên (engine Nano vừa nạp lúc giọng dự phòng bật).
+- **Đoạn đang chờ phát bị xếp sau các đoạn nạp trước.** Ba lượt nạp trước cùng mức `.immediateSuccessor`, kẹt ở `prepare` (chờ khoá engine) rồi vào hàng đợi theo thứ tự ngẫu nhiên: log tổng hợp đoạn 3 → 2 → 1 trong lúc đoạn 1 đang chờ để phát. Sửa: lượt dự phòng mang khoá tổng hợp (`onlineFallbackSynthesisKey`: engine + giọng + tốc độ + ranh giới + chữ); đoạn đang đọc dùng chung lượt nạp trước đang chạy thì `PiperSynthesisCoordinator.promote(…, to: .demand)`, và lượt chưa kịp vào hàng đợi đọc `TTSOnlineFallbackState.isDemanded` để xếp thẳng ở mức `.demand`.
+- Đoạn 66 ký tự mà phiên WorkBuddy gọi là "mồ côi, không bao giờ phát" thật ra là **đoạn 3** (`bytes=192044` = 4,00 s, phát lúc 11:19:28) — không có tiếng nào bị bỏ.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy. Thử: tắt mạng giữa chừng, nghe ≥ 5 đoạn offline; log không còn dòng `Nạp sẵn + chạy nháp` lặp lại và `RemoteHandoff … gapMs` của đoạn 1 về cỡ vài chục ms (lần đầu engine Nano còn nguội có thể vẫn chờ nạp session).
+
 ## [1.3.954] - 2026-11-16
 
 ### feat: hiển thị RTF của VieNeu và Piper trên sheet điều khiển nhanh TTS
@@ -404,28 +416,3 @@ Báo cáo tối ưu Turbo (`Docs/Reports/2026-11-13-vieneu-turbo-toi-uu.md`, git
   - Log bật ⇒ dòng `[VieNeuTurbo] Đoạn` thêm `prefillMs stepMs acousticMs codecMs gens amx=tắt/bật/lùi` (`VieNeuTurboTimingLog`: mỗi lượt mở file tạm sạch, đọc xong xoá). Log tắt ⇒ audio.cpp không ghi gì.
 - Cách đo trên máy: bật log, nghe Turbo vài phút tắt công tắc rồi vài phút bật, so `codecMs` mỗi giây tiếng và RTF. AMX không được đếm đủ vào CPU-time ⇒ đừng so `cpuPerAudio`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp lên audio.cpp v0.9.4 trên PC (khớp mốc, áp lại tự bỏ qua). Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.923] - 2026-11-13
-
-### feat: Xoá được Bộ đệm hệ thống và xem thư mục Không rõ chủ ở màn Dung lượng, thêm nút xoá giọng đã tải và Xoá tất cả dữ liệu
-
-Anh Bửu chụp màn Dung lượng 1.3.920: "Khác" 8,31 GB (Bộ đệm hệ thống 7,05 GB, Không rõ chủ 1,24 GB) mà Dọn rác báo "Không có" — đúng luật (bộ đệm không phải dữ liệu "không còn dùng"). Anh duyệt plan dọn bộ đệm và mockup nút xoá.
-
-- **Bộ đệm hệ thống (Library/Caches) mở ra được** thành 4 nhóm lớn nhất + "Khác" (`SystemCacheTally`): Core ML của hệ thống (`com.apple.e5rt*` …), bộ đệm mạng (URLCache), bộ đệm web (WebKit), ảnh bìa tạm, ảnh đa nhiệm của hệ thống; còn lại theo tên thư mục.
-- **Nút "Xoá" Bộ đệm hệ thống** (`SystemCacheCleaner`, hỏi lại):
-  - Từ chối khi đang đọc truyện / Core ML đang chuẩn bị / đang có lượt xoá khác.
-  - Thứ tự: nhả backend Core ML của trình đọc → `URLCache.removeAllCachedResponses` → `WKWebsiteDataStore` chỉ các loại bộ đệm (cookie / đăng nhập giữ nguyên) → xoá mọi mục trong `Library/Caches`.
-  - Giữ thư mục của mục khác (`comic_images`, `comic_ocr`); `cover_images` chỉ làm trống.
-  - Kiểm đường dẫn (không thoát qua symlink). Mục lỗi gom một dòng `❌ [SystemCache]`.
-  - Trình đọc đang là VieNeu và gói Core ML đã qua tự kiểm ⇒ nạp sẵn lại Core ML ở nền.
-- **"Không rõ chủ" hiện 4 thư mục lớn nhất** (đường dẫn so với thư mục nhà) + "Còn lại", ngay dưới dòng đó. Log `[StorageUsage]` thêm 10 đường dẫn lớn nhất trong "Khác của TTS". Snapshot cũ vẫn đọc được (trường mới optional).
-- **Nút 🗑 cuối hàng** (`TTSVoiceDeleteButton`) ở sheet chọn giọng:
-  - Giọng NghiTTS đã tải (kể cả giọng nhập từ file).
-  - Giọng VieNeu Turbo đã tải, không phải giọng nhân bản: xoá riêng `Voices/<id>/` (`VieNeuTurboModelStore.deleteDownloadedVoice`), model giữ lại.
-  - Giọng Nano không có (dùng chung một gói).
-  - Hỏi lại; đang đọc đúng giọng đó ⇒ dừng phiên trước.
-- **"Xoá tất cả dữ liệu"** ở trang cài đặt, có dung lượng, ẩn khi chưa tải gì:
-  - **Cài đặt VieNeu TTS:** "Xoá tất cả dữ liệu Nano" (gói Nano + gói nhân bản + Tăng tốc Core ML) và "Xoá tất cả dữ liệu Turbo" (model + mọi giọng tải về).
-  - **Cài đặt NghiTTS:** "Xoá tất cả giọng NghiTTS" (`NghiVoiceDirectory.deleteAll`; giữ thư viện phiên âm).
-- Bỏ mục nhấn giữ "Xoá dữ liệu Nano / Turbo" trên giọng có sẵn (1.3.919) — thay bằng hai nút trên. Giọng nhân bản vẫn nhấn giữ để đổi tên / xoá.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

@@ -89,13 +89,23 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         return recency.count
     }
 
-    /// Nhả mọi session (giải phóng RAM của Core ML); lượt sau tự dựng lại từ cache.
+    /// Nhả mọi session (giải phóng RAM của Core ML); lượt sau tự dựng lại từ cache. Session dựng lại thì lượt đầu lại chậm
+    /// ⇒ quên luôn dấu "đã chạy lượt đầu" để `isWarm` báo cần chạy nháp lại.
     func releaseSessions() {
         lock.lock(); defer { lock.unlock() }
         preps.removeAll()
         mains.removeAll()
         codecs.removeAll()
         recency.removeAll()
+        firstRunDone.removeAll()
+    }
+
+    /// Session của khung này đang nạp **và** đã chạy lượt đầu ⇒ chạy nháp lại là vô ích (1.3.955 — trước đó mỗi lần
+    /// `VieNeuTTSService.prepare` chạy nháp lại cả 5 khung, giữ khoá tổng hợp 1,5–5,8 s).
+    func isWarm(kind: String, bucket: Int) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        let isLoaded = kind == "ve" ? (preps[bucket] != nil && mains[bucket] != nil) : codecs[bucket] != nil
+        return isLoaded && firstRunDone.contains("\(kind)\(bucket)")
     }
 
     func veBucket(for frames: Int) -> Int? { manifest.veBuckets.sorted().first { $0 >= frames } }

@@ -23,6 +23,8 @@ final class TTSOnlineFallbackState {
     private(set) var activeSessionID: UUID?
     private var chunkEngines: [ChunkKey: TTSOnlineFallbackSettings.Engine] = [:]
     private var inflight: [ChunkKey: Task<Data, Error>] = [:]
+    /// Đoạn mà đường **đang đọc** đã đòi trong lúc lượt nạp trước của nó còn chạy — lượt đó xếp hàng ở mức đang đọc (1.3.955).
+    private var demanded: Set<ChunkKey> = []
     var probeTask: Task<Void, Never>?
 
     func isActive(session: UUID) -> Bool {
@@ -61,6 +63,7 @@ final class TTSOnlineFallbackState {
         chunkEngines.removeAll()
         for task in inflight.values { task.cancel() }
         inflight.removeAll()
+        demanded.removeAll()
     }
 
     // MARK: - Lượt tổng hợp
@@ -75,7 +78,17 @@ final class TTSOnlineFallbackState {
     }
 
     func finish(_ task: Task<Data, Error>, for key: ChunkKey) {
-        if inflight[key] == task { inflight.removeValue(forKey: key) }
+        guard inflight[key] == task else { return }
+        inflight.removeValue(forKey: key)
+        demanded.remove(key)
+    }
+
+    func markDemanded(_ key: ChunkKey) {
+        demanded.insert(key)
+    }
+
+    func isDemanded(_ key: ChunkKey) -> Bool {
+        demanded.contains(key)
     }
 
     /// Bỏ đoạn / lượt của phiên khác (và của chương khác, nếu có chương).
@@ -86,6 +99,7 @@ final class TTSOnlineFallbackState {
         for (key, task) in inflight where isStale(key) {
             task.cancel()
             inflight.removeValue(forKey: key)
+            demanded.remove(key)
         }
         if chapterIndex == nil {
             chunkEngines = chunkEngines.filter { !isStale($0.key) }

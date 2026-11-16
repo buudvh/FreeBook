@@ -2,6 +2,31 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.923] - 2026-11-13
+
+### feat: Xoá được Bộ đệm hệ thống và xem thư mục Không rõ chủ ở màn Dung lượng, thêm nút xoá giọng đã tải và Xoá tất cả dữ liệu
+
+Anh Bửu chụp màn Dung lượng 1.3.920: "Khác" 8,31 GB (Bộ đệm hệ thống 7,05 GB, Không rõ chủ 1,24 GB) mà Dọn rác báo "Không có" — đúng luật (bộ đệm không phải dữ liệu "không còn dùng"). Anh duyệt plan dọn bộ đệm và mockup nút xoá.
+
+- **Bộ đệm hệ thống (Library/Caches) mở ra được** thành 4 nhóm lớn nhất + "Khác" (`SystemCacheTally`): Core ML của hệ thống (`com.apple.e5rt*` …), bộ đệm mạng (URLCache), bộ đệm web (WebKit), ảnh bìa tạm, ảnh đa nhiệm của hệ thống; còn lại theo tên thư mục.
+- **Nút "Xoá" Bộ đệm hệ thống** (`SystemCacheCleaner`, hỏi lại):
+  - Từ chối khi đang đọc truyện / Core ML đang chuẩn bị / đang có lượt xoá khác.
+  - Thứ tự: nhả backend Core ML của trình đọc → `URLCache.removeAllCachedResponses` → `WKWebsiteDataStore` chỉ các loại bộ đệm (cookie / đăng nhập giữ nguyên) → xoá mọi mục trong `Library/Caches`.
+  - Giữ thư mục của mục khác (`comic_images`, `comic_ocr`); `cover_images` chỉ làm trống.
+  - Kiểm đường dẫn (không thoát qua symlink). Mục lỗi gom một dòng `❌ [SystemCache]`.
+  - Trình đọc đang là VieNeu và gói Core ML đã qua tự kiểm ⇒ nạp sẵn lại Core ML ở nền.
+- **"Không rõ chủ" hiện 4 thư mục lớn nhất** (đường dẫn so với thư mục nhà) + "Còn lại", ngay dưới dòng đó. Log `[StorageUsage]` thêm 10 đường dẫn lớn nhất trong "Khác của TTS". Snapshot cũ vẫn đọc được (trường mới optional).
+- **Nút 🗑 cuối hàng** (`TTSVoiceDeleteButton`) ở sheet chọn giọng:
+  - Giọng NghiTTS đã tải (kể cả giọng nhập từ file).
+  - Giọng VieNeu Turbo đã tải, không phải giọng nhân bản: xoá riêng `Voices/<id>/` (`VieNeuTurboModelStore.deleteDownloadedVoice`), model giữ lại.
+  - Giọng Nano không có (dùng chung một gói).
+  - Hỏi lại; đang đọc đúng giọng đó ⇒ dừng phiên trước.
+- **"Xoá tất cả dữ liệu"** ở trang cài đặt, có dung lượng, ẩn khi chưa tải gì:
+  - **Cài đặt VieNeu TTS:** "Xoá tất cả dữ liệu Nano" (gói Nano + gói nhân bản + Tăng tốc Core ML) và "Xoá tất cả dữ liệu Turbo" (model + mọi giọng tải về).
+  - **Cài đặt NghiTTS:** "Xoá tất cả giọng NghiTTS" (`NghiVoiceDirectory.deleteAll`; giữ thư viện phiên âm).
+- Bỏ mục nhấn giữ "Xoá dữ liệu Nano / Turbo" trên giọng có sẵn (1.3.919) — thay bằng hai nút trên. Giọng nhân bản vẫn nhấn giữ để đổi tên / xoá.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.922] - 2026-11-13
 
 ### feat: Tải giọng NghiTTS hiện tiến độ theo từng byte và huỷ được giữa chừng

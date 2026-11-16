@@ -127,18 +127,31 @@ extension TTSManager {
     func onlineFallbackAudio(index: Int, text: String, priority: SynthesisPriority) async throws -> Data {
         guard let engine = TTSOnlineFallbackSettings.engine else { throw OnlineFallbackError.notConfigured }
         let key = onlineFallbackChunkKey(index)
+        let voice = engine == .vieneu ? Self.effectiveVieNeuVoice() : TTSOnlineFallbackSettings.nghiVoice
+        let speed = Self.localSynthesisSpeed(forTool: engine.rawValue)
+        let boundary = index >= 0 && index < paragraphs.count ? paragraphs[index].boundaryKind : .paragraphEnd
+        let synthesisKey = Self.onlineFallbackSynthesisKey(
+            engine: engine, voice: voice, speed: speed, boundary: boundary, text: text
+        )
         let task: Task<Data, Error>
         if let running = onlineFallback.task(for: key) {
             task = running
+            if priority == .demand {
+                // Đoạn đang đọc dùng chung lượt nạp trước đang chạy ⇒ đưa lượt đó lên trước các lượt nạp trước khác (1.3.955).
+                // Log build 1283: ba lượt nạp trước chạy theo thứ tự đoạn 3 → 2 → 1 trong lúc đoạn 1 đang chờ để phát.
+                onlineFallback.markDemanded(key)
+                Task { await PiperSynthesisCoordinator.shared.promote(synthesisKey: synthesisKey, to: .demand) }
+            }
         } else {
             guard let service = onlineFallbackService(for: engine) else { throw OnlineFallbackError.engineUnavailable(engine) }
-            let voice = engine == .vieneu ? Self.effectiveVieNeuVoice() : TTSOnlineFallbackSettings.nghiVoice
-            let speed = Self.localSynthesisSpeed(forTool: engine.rawValue)
-            let boundary = index >= 0 && index < paragraphs.count ? paragraphs[index].boundaryKind : .paragraphEnd
+            let state = onlineFallback
             task = Task {
                 try await service.prepare(voice: voice)
+                // Đoạn thành đoạn đang đọc trong lúc lượt này còn chờ nạp engine (chưa vào hàng đợi) ⇒ xếp ở mức đang đọc.
+                let effectivePriority: SynthesisPriority = state.isDemanded(key) ? .demand : priority
                 return try await service.synthesizeWithDuration(
-                    text: text, voice: voice, speed: speed, boundaryKind: boundary, priority: priority, synthesisKey: nil
+                    text: text, voice: voice, speed: speed, boundaryKind: boundary, priority: effectivePriority,
+                    synthesisKey: synthesisKey
                 ).data
             }
             onlineFallback.store(task, for: key)
@@ -152,6 +165,24 @@ extension TTSManager {
             onlineFallback.finish(task, for: key)
             throw error
         }
+    }
+
+    /// Khoá tổng hợp của một đoạn dự phòng trong hàng đợi `PiperSynthesisCoordinator` — có khoá thì đoạn đang đọc mới nâng
+    /// được mức ưu tiên của lượt nạp trước đang chờ (`promote`). Cùng engine + giọng + tốc độ + ranh giới + chữ ⇒ cùng tiếng,
+    /// nên hai đoạn trùng khoá gộp chung một lượt là đúng.
+    private static func onlineFallbackSynthesisKey(
+        engine: TTSOnlineFallbackSettings.Engine,
+        voice: String,
+        speed: Double,
+        boundary: TTSBoundaryKind,
+        text: String
+    ) -> String {
+        let raw = "\(engine.rawValue)|\(voice)|\(speed)|\(boundary.rawValue)|\(text)"
+        var hash: UInt64 = 5381
+        for byte in raw.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
+        }
+        return "fallback-\(String(hash, radix: 16))-\(raw.utf8.count)"
     }
 
     private func onlineFallbackService(for engine: TTSOnlineFallbackSettings.Engine) -> (any LocalTTSEngine)? {

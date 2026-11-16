@@ -23,10 +23,35 @@ extension VieNeuTTSEngine {
 
     /// Chạy `body` trong khoá tổng hợp (P2c): nạp + chạy nháp Core ML của trình đọc không chồng lên lượt đang đọc —
     /// session ORT / Core ML không chịu hai luồng gọi cùng lúc. Giữ khoá ngắn (một khung mỗi lần).
+    ///
+    /// **Nhường lượt đọc** (1.3.955): chỉ lấy khoá khi khoá đang rảnh và không lượt đọc / nạp engine nào xếp hàng
+    /// (`lockForReader`). `NSLock` không xếp hàng công bằng — luồng chạy nháp nhả khoá rồi lấy lại ngay ở khung kế nên
+    /// thắng luồng đang chờ, giữ khoá liền cả 5 khung (log build 1283: 4 s không lượt tổng hợp nào chen vào được). Lượt đọc
+    /// tới giữa một khung chỉ chờ hết khung đó.
     func withSynthesisLock(_ body: () throws -> Void) throws {
-        lock.lock()
+        while !(hasNoWaitingReader && lock.try()) {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
         defer { lock.unlock() }
         try body()
+    }
+
+    /// Lấy `lock` cho một lượt **đọc / nạp engine** (`synthesize`, `prepare`), có đếm "đang chờ" để lượt chạy nháp Core ML
+    /// nhường (`withSynthesisLock`). Bên gọi tự `lock.unlock()`.
+    func lockForReader() {
+        readerWaitLock.lock()
+        waitingReaders += 1
+        readerWaitLock.unlock()
+        lock.lock()
+        readerWaitLock.lock()
+        waitingReaders -= 1
+        readerWaitLock.unlock()
+    }
+
+    private var hasNoWaitingReader: Bool {
+        readerWaitLock.lock()
+        defer { readerWaitLock.unlock() }
+        return waitingReaders == 0
     }
 
     /// Nhả 4 session ORT (~280 MB, `VieNeuORTDestroy` ở `deinit` của runtime) + bộ phiên âm của Nano khi trình đọc chuyển

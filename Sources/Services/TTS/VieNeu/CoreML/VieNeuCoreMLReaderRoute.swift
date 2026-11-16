@@ -91,6 +91,13 @@ final class VieNeuCoreMLReaderRoute: @unchecked Sendable {
         // Giọng Turbo đang đọc lai (1.3.934) cũng cần Nano khi máy nóng ⇒ chạy nháp như khi Nano là model chính.
         let isNanoReader = VieNeuModelChoice.current == .nano
         guard isNanoReader || VieNeuHybridRouting.readerContext() != nil else { return }
+        // Mọi khung đã nạp + đã chạy lượt đầu ⇒ thôi (1.3.955). `prepare` của engine Nano chạy ở **mỗi đoạn** của giọng dự
+        // phòng (`TTSManager.onlineFallbackAudio`); chạy nháp lại mỗi lần là giữ khoá tổng hợp 1,5–5,8 s đúng lúc đoạn kế
+        // cần tổng hợp (log build 1283: đoạn dự phòng thứ 2 trễ 5,2 s).
+        lock.lock()
+        let current = backend
+        lock.unlock()
+        if let current, Self.pendingWarmUp(for: current).isEmpty { return }
         guard let package = try? VieNeuCoreMLPackage(), let manifest = package.manifest,
               VieNeuCoreMLAccelerator.isVerified(package: package) else {
             AppLogger.shared.log("🎙️ [VieNeuCoreML] Chưa sẵn sàng (chưa tải / chưa tự kiểm) — trình đọc dùng ORT, tự chuẩn bị ở nền")
@@ -121,9 +128,9 @@ final class VieNeuCoreMLReaderRoute: @unchecked Sendable {
 
         let started = ProcessInfo.processInfo.systemUptime
         var warmed = 0
-        for item in Self.warmUpOrder {
-            let available = item.kind == "ve" ? manifest.veBuckets : manifest.codecBuckets
-            guard available.contains(item.bucket) else { continue }
+        // Chỉ khung chưa nạp / chưa chạy lượt đầu: sau khi máy báo thiếu RAM (`trimSessions`) thì chạy nháp lại đúng các
+        // khung đã nhả, còn bình thường lần gọi sau không làm gì.
+        for item in Self.pendingWarmUp(for: target) {
             do {
                 try serialize {
                     try target.loadSession(kind: item.kind, bucket: item.bucket)
@@ -138,6 +145,14 @@ final class VieNeuCoreMLReaderRoute: @unchecked Sendable {
             format: "🎙️ [VieNeuCoreML] Nạp sẵn + chạy nháp %ld khung trong %.0f ms",
             warmed, (ProcessInfo.processInfo.systemUptime - started) * 1_000
         ))
+    }
+
+    /// Các khung của `warmUpOrder` mà gói có và backend chưa nạp / chưa chạy lượt đầu.
+    private static func pendingWarmUp(for backend: VieNeuCoreMLFlowBackend) -> [(kind: String, bucket: Int)] {
+        warmUpOrder.filter { item in
+            let available = item.kind == "ve" ? backend.manifest.veBuckets : backend.manifest.codecBuckets
+            return available.contains(item.bucket) && !backend.isWarm(kind: item.kind, bucket: item.bucket)
+        }
     }
 
     /// Tổng đoạn chạy Core ML / lùi ORT (cộng dồn) — `[NghiEnergy] Summary` lấy hiệu giữa hai lần.
