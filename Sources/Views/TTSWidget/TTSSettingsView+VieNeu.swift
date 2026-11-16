@@ -34,52 +34,21 @@ extension TTSSettingsView {
 
     // MARK: - Tốc độ tổng hợp (1.3.465)
 
-    /// Hàng **"Tốc độ tổng hợp (VieNeu)"** — đặt cạnh thanh Tốc độ trong Section 4.
-    ///
-    /// Khác thanh Tốc độ ở chỗ: giá trị này **đưa vào model** (`secs = exp(log_s)/speed`), không phải
-    /// tăng tốc lúc phát. Tốc độ nghe = **tích** hai thanh, nên bắt buộc phải hiện tích đó — nếu không,
-    /// kéo thanh này lên 1,8× trong khi thanh Tốc độ đang 1,8× sẽ thành **3,24×** mà người dùng không
-    /// hề hay biết (đây là lý do dòng tóm tắt đổi màu khi vượt 2,0×).
-    @ViewBuilder
+    /// Hàng **"Tốc độ tổng hợp (VieNeu)"** — đặt cạnh thanh Tốc độ trong Section 4 (`VieNeuSynthesisSpeedRow`, dùng chung
+    /// với màn Giọng dự phòng từ 1.3.961).
     var vieneuSynthesisSpeedRow: some View {
-        let effective = vieNeuSynthesisSpeed * ttsManager.speed
-        VStack(alignment: .leading, spacing: 6) {
-            Stepper(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05) {
-                HStack {
-                    Text("Tốc độ tổng hợp (VieNeu):")
-                    Spacer()
-                    Text(String(format: "%.2fx", vieNeuSynthesisSpeed))
-                        .font(.system(.body, design: .monospaced))
-                }
-            }
-            Slider(value: $vieNeuSynthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05)
-            HStack(spacing: 4) {
-                Text("Tốc độ nghe thực tế:")
-                Text(String(format: "%.2fx", effective))
-                    .font(.system(.body, design: .monospaced))
-                    // `.orange` là màu cảnh báo literal có chủ ý: không dùng `Color.accentColor` vì màu nhấn do người
-                    // dùng chọn (có thể chính là Cam hổ phách) ⇒ cảnh báo lẫn với màu nhấn.
-                    .foregroundColor(effective > 2.0 ? .orange : .primary)
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-        }
-        .onChange(of: vieNeuSynthesisSpeed) { _, newValue in
-            // Bước 0,05 cộng dồn số thực ra kiểu 1.1500000000000001 ⇒ làm tròn 2 chữ số khi lưu (1.3.502).
-            UserDefaults.standard.set((newValue * 100).rounded() / 100, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
+        VieNeuSynthesisSpeedRow(synthesisSpeed: $vieNeuSynthesisSpeed, playbackSpeed: ttsManager.speed) {
             // Phần đệm đã tổng hợp ở tốc độ cũ phải bị bỏ: đoạn đang phát được giữ nguyên, các đoạn sau
             // nạp lại. Không gọi là nghe sai tốc độ mà không có lỗi gì.
             ttsManager.invalidateVieNeuSynthesisSpeed()
         }
     }
 
-    /// Đưa tốc độ tổng hợp về 1,0× — dùng cho nút "Đặt lại" của Section 4.
+    /// Đưa tốc độ tổng hợp về 1,0× — dùng cho nút "Đặt lại" của Section 4. Hàng tự lưu + bỏ phần đệm khi giá trị đổi.
     func resetVieNeuSynthesisSpeed() {
         // Turbo không có tốc độ tổng hợp (hàng bị ẩn) ⇒ đừng âm thầm đặt lại giá trị của Nano.
         guard ttsManager.tool == "vieneu", !isVieNeuTurboSelected else { return }
         vieNeuSynthesisSpeed = 1.0
-        UserDefaults.standard.set(1.0, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
-        ttsManager.invalidateVieNeuSynthesisSpeed()
     }
 
     /// Khối **quản lý riêng của trình đọc** cho VieNeu — hiện thẳng trong Section 3 của màn Cài đặt.
@@ -93,57 +62,18 @@ extension TTSSettingsView {
     ///
     /// Tham số *hiệu năng* (số đoạn tải trước, độ dài phân đoạn, ngưỡng nạp bộ đệm) nằm ở Section 5 "Tải trước dữ liệu"
     /// — xem `vieNeuPrefetchSection` (một nguồn sự thật, bài học 1.3.435).
-    @ViewBuilder
+    ///
+    /// Các hàng dựng ở `VieNeuReaderManagementRows`, dùng chung với màn Giọng dự phòng (1.3.961). Giọng nhân bản ("Giọng
+    /// của tôi") nằm trong sheet chọn giọng từ 1.3.900.
     var vieNeuReaderSection: some View {
-        NavigationLink(destination: VieNeuTTSSettingsView()) {
-            Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
-        }
-
-        // Công tắc **riêng của VieNeu** cho từ điển phiên âm tiếng Nhật (chung cho Nano và Turbo). Mặc định **TẮT**: VieNeu
-        // chỉ gấp macron về ASCII (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
-        Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $vieNeuJapaneseFlags.dictionaryEnabled)
-
-        // Tên kiểu Nhật viết hoa ("Sasuke") đọc theo âm tiết thay vì theo luật chính tả tiếng Anh — mặc định **BẬT**,
-        // chung cho Nano và Turbo. Xem `VieNeuJapaneseNameReader`.
-        Toggle("Đọc tên Nhật theo âm tiết", isOn: $vieNeuJapaneseFlags.nameSyllablesEnabled)
-
-        // Nano: đoạn có tên phiên âm theo âm tiết được thêm khung để không nuốt âm tiết ngắn (`VieNeuNameFrameBoost`).
-        Picker("Đọc chậm đoạn có tên (Nano)", selection: $vieNeuJapaneseFlags.nameFrameBoost) {
-            ForEach(VieNeuNameFrameBoost.Mode.allCases) { mode in
-                Text(mode.title).tag(mode)
-            }
-        }
-        .pickerStyle(.menu)
-
-        // Từ điển tiếng Nhật: **đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải** — mở một màn trống thì người dùng không
-        // biết phải làm gì.
-        if vieNeuJapaneseFlags.dictionaryDownloaded {
-            NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
-                Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
-            }
-        } else {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
-            }
-            Button {
-                downloadJapaneseDictionary()
-            } label: {
-                Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
-            }
-        }
-
-        // Giọng nhân bản ("Giọng của tôi") nằm trong sheet chọn giọng từ 1.3.900.
+        VieNeuReaderManagementRows(flags: vieNeuJapaneseFlags)
     }
 
     /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": VieNeu có nút "?" giải thích cấu hình cố định của hai model.
     @ViewBuilder
     var readerManagementHeader: some View {
         if ttsManager.tool == "vieneu" {
-            SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
-                "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng.",
-                VieNeuJapaneseFlags.nameFrameBoostHelp
-            ])
+            SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: VieNeuReaderManagementRows.helpParagraphs)
         } else {
             Text("Quản lý riêng của trình đọc")
         }
@@ -201,19 +131,6 @@ extension TTSSettingsView {
         }
     }
 
-    /// Tải từ điển tiếng Nhật rồi làm mới cờ "đã tải" ⇒ hàng **cảnh báo + nút tải** đổi thành **lối vào**
-    /// ngay, không phải thoát màn rồi mở lại.
-    func downloadJapaneseDictionary() {
-        Task {
-            do {
-                try await VieNeuJapaneseDictionary.shared.downloadInitialDictionary()
-                vieNeuJapaneseFlags.refresh()
-                ToastManager.shared.show(message: "Tải từ điển tiếng Nhật thành công!", type: .success)
-            } catch {
-                ToastManager.shared.show(message: "Không thể tải từ điển: \(error.localizedDescription)", type: .error)
-            }
-        }
-    }
 }
 
 /// Trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899).

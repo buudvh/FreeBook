@@ -28,16 +28,25 @@ extension VieNeuTTSEngine {
     /// (`lockForReader`). `NSLock` không xếp hàng công bằng — luồng chạy nháp nhả khoá rồi lấy lại ngay ở khung kế nên
     /// thắng luồng đang chờ, giữ khoá liền cả 5 khung (log build 1283: 4 s không lượt tổng hợp nào chen vào được). Lượt đọc
     /// tới giữa một khung chỉ chờ hết khung đó.
+    ///
+    /// Chờ bằng **tín hiệu** (1.3.961): lượt đọc nhả khoá (`unlockForReader`) thì đánh thức luồng chạy nháp. Trước đó luồng
+    /// này hỏi lại mỗi 10 ms — trong lúc Nano đọc liên tục là ~100 lần đánh thức CPU mỗi giây. Bên giữ khoá khác (nhả engine,
+    /// danh mục giọng…) không báo, nên chờ có hạn `fallbackWait` rồi tự hỏi lại.
     func withSynthesisLock(_ body: () throws -> Void) throws {
-        while !(hasNoWaitingReader && lock.try()) {
-            Thread.sleep(forTimeInterval: 0.01)
+        readerWaitLock.lock()
+        while !(waitingReaders == 0 && lock.try()) {
+            _ = readerWaitLock.wait(until: Date(timeIntervalSinceNow: Self.warmUpFallbackWait))
         }
+        readerWaitLock.unlock()
         defer { lock.unlock() }
         try body()
     }
 
+    /// Hạn chờ của `withSynthesisLock` khi không ai báo (bên giữ khoá không phải lượt đọc).
+    private static let warmUpFallbackWait: TimeInterval = 0.1
+
     /// Lấy `lock` cho một lượt **đọc / nạp engine** (`synthesize`, `prepare`), có đếm "đang chờ" để lượt chạy nháp Core ML
-    /// nhường (`withSynthesisLock`). Bên gọi tự `lock.unlock()`.
+    /// nhường (`withSynthesisLock`). Bên gọi nhả bằng `unlockForReader()`.
     func lockForReader() {
         readerWaitLock.lock()
         waitingReaders += 1
@@ -48,10 +57,12 @@ extension VieNeuTTSEngine {
         readerWaitLock.unlock()
     }
 
-    private var hasNoWaitingReader: Bool {
+    /// Nhả `lock` của lượt đọc rồi đánh thức lượt chạy nháp đang chờ (`withSynthesisLock`).
+    func unlockForReader() {
+        lock.unlock()
         readerWaitLock.lock()
-        defer { readerWaitLock.unlock() }
-        return waitingReaders == 0
+        readerWaitLock.broadcast()
+        readerWaitLock.unlock()
     }
 
     /// Nhả 4 session ORT (~280 MB, `VieNeuORTDestroy` ở `deinit` của runtime) + bộ phiên âm của Nano khi trình đọc chuyển

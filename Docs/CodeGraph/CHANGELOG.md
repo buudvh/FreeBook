@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.961] - 2026-11-16
+
+### refactor: Cài đặt VieNeu dùng chung một bản cho Cài đặt TTS và Giọng dự phòng, chạy nháp Core ML chờ tín hiệu thay vì hỏi khoá mỗi 10 ms
+
+Nhóm E của lượt rà soát chức năng nghe truyện (anh Bửu: "Làm E rồi push").
+
+- **Một bản cài đặt VieNeu cho hai màn** (`VieNeuReaderManagementRows`, `VieNeuSynthesisSpeedRow` ở `Views/Settings/TTS/`): lối vào Cài đặt VieNeu TTS, công tắc từ điển phiên âm / đọc tên Nhật theo âm tiết, Picker "Đọc chậm đoạn có tên (Nano)", từ điển tiếng Nhật (lối vào hoặc cảnh báo + nút tải) và hàng Tốc độ tổng hợp. Trước đó màn Giọng dự phòng chép riêng một bản ⇒ thêm công tắc mới là phải nhớ thêm cả hai nơi. Khác biệt giữ nguyên qua tham số: màn dự phòng mở Cài đặt VieNeu TTS ở chế độ chỉ lưu lựa chọn giọng; Cài đặt TTS bỏ phần đệm đã tổng hợp khi đổi tốc độ tổng hợp (`onSaved`). Nút "Đặt lại" của Cài đặt TTS chỉ còn đặt giá trị — hàng tự lưu + bỏ phần đệm khi giá trị đổi.
+- **Chạy nháp Core ML chờ tín hiệu** (`VieNeuTTSEngine.withSynthesisLock`): `readerWaitLock` thành `NSCondition`, lượt đọc nhả khoá qua `unlockForReader()` thì đánh thức luồng chạy nháp; bên giữ khoá khác không báo nên chờ có hạn 0,1 s. Trước đó luồng chạy nháp hỏi lại mỗi 10 ms — ~100 lần đánh thức CPU mỗi giây trong lúc Nano đọc liên tục. Luật nhường lượt đọc (1.3.955) giữ nguyên.
+- `.claude/rules/tts-vieneu.md` ghi hai thay đổi trên.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.960] - 2026-11-16
 
 ### fix: TTS online thử lại đúng một tầng, chậm thì đọc song song bằng giọng dự phòng, cùng các lỗi rà soát chức năng nghe truyện
@@ -399,15 +410,3 @@ Anh Bửu muốn thấy máy đang mát hay nóng ngay ở sheet đọc truyện
 - **`TTSThermalBadge`** (file mới `Sources/Views/TTSWidget/TTSThermalBadge.swift`): viên nhỏ icon `thermometer.medium` + "Mát" / "Ấm" / "Nóng" / "Rất nóng", chữ xanh / vàng / cam / đỏ trên nền cùng màu 18%, `caption2` nửa đậm. Đọc `ProcessInfo.thermalState` (iOS không cho đọc °C — chỉ 4 mức nominal / fair / serious / critical, cùng nguồn với trường `thermal=` của log TTS), đổi ngay khi iOS báo `thermalStateDidChangeNotification` (nhận trên main). Không bấm được; VoiceOver đọc "Nhiệt độ máy: …".
 - **`TTSQuickControlSheet`**: badge nằm bên trái "N/M" ở dòng dưới vạch tiến độ chương (`NowReadingBlock`, chỗ trước đây để trống). Hiện với mọi trình đọc.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.930] - 2026-11-14
-
-### perf: Turbo xếp lại trọng số bộ giải mã âm học cho kernel dotprod, phần âm học nhanh hơn khoảng 14%, tiếng không đổi
-
-Mỗi khung 80 ms bộ giải mã âm học (1 lớp: qkv 768→2304, o 768², MLP 2048) chạy 16 bước tuần tự, mỗi bước nhân ma trận × vectơ trên ~7,5 MB trọng số q8_0. ggml có sẵn bố cục xen kẽ `q8_0_4x4` (kernel NEON dotprod — đúng cờ `armv8.2-a+dotprod` của bản iOS; chọn lúc biên dịch nên A15+ có i8mm cũng không rơi vào kernel C) nhưng audio.cpp chỉ bật cho lfm2_audio. Đo trên CI (nhánh đo `claude/turbo-tp-profile`, run 43551654007 + 43552141772, so với cấu hình app 1.3.929; báo cáo tối ưu Turbo mục 16): âm học 56 → 48 / 74 → 63 ms mỗi giây tiếng (**−14…−15%**), RTF −2…−4%, CPU không đổi; mã greedy + WAV **trùng** 8/8 lượt (câu lặp, chia đoạn mặc định). Logit trùng từng bit ở 54% bước, lệch lớn nhất 1,1·10⁻² — thứ tự cộng khác làm activation đổi nấc lượng tử q8 ở ma trận kế, cùng cỡ nhiễu q8 sẵn có; greedy trùng hết 237 khung. Anh Bửu duyệt plan.
-
-- **Bản vá mới** `Scripts/ci/audiocpp_patches/vieneu_acoustic_repack.py` (chạy sau `vieneu_threadpool`): session option `vieneu_v3_turbo.acoustic_repack` (mặc định tắt = như upstream). Bật + backend CPU + kiểu lưu `Native` ⇒ `load_talker_weights` dựng thêm một `BackendWeightStore` trên bộ đệm phụ `CPU_REPACK` (`core::cpu_extra_buffer_types`) và nạp vào đó 5 ma trận q8_0 của mỗi lớp âm học (`attn.qkv`, `attn.o_proj`, `ff_gate`, `ff_up`, `ff_down`) khi `core::buffer_type_supports_matmul_weight` nhận. Head F16 (`audio_embeddings.N`), `codec_head`, backbone giữ chỗ cũ (backbone còn phải đi Accelerate ở bước nạp prompt — ggml-blas chỉ đọc bộ đệm host thường). Chỉ chuyển chỗ ⇒ RAM không đổi (7,17 MB). Graph nạp + 16 graph bước kiểm bằng `validate_backend_graph_with_cpu_extra_buffers` (dùng sai trọng số repack ⇒ lỗi lúc dựng session, không ra tiếng sai). Log `vieneu_v3_turbo.talker.acoustic_repack.weights` lúc nạp và mỗi lượt nạp prompt.
-- **Build iOS** chạy bản vá; **cổng parity**: cấu hình app 1.3.929 thêm `acoustic_repack=true` ⇒ log phải báo đủ 5 ma trận trong `CPU_REPACK`, và logit bộ giải mã âm học (`VIENEU_LOGITS_DUMP`) phải nằm trong nhiễu lượng tử q8 so với khi tắt — `Scripts/ci/audiocpp_acoustic_check.py`: sai số tương đối ≤ 3·10⁻² mỗi bước trước chỗ rẽ, greedy chỉ được rẽ ở chỗ gần hoà (top1 − top2 ≤ 0,25), so ít nhất một khung. Lượt đầu đòi mã trùng từng byte thì đỏ: câu dài một đoạn + giọng Minh Quân rẽ greedy (CI run 43553143111) — đúng loại lệch đã đo, nên đổi cổng; `audiocpp-ios.yml` theo dõi thêm file chấm.
-- **App**: `VieNeuTurboAcceleration.acousticRepackOption`, `createSessionLocked` truyền cùng cờ AMX (lối tự tắt khi sập theo số build tắt cả repack). Dòng `[VieNeuTurbo] Đoạn` thêm `repack=N` (`VieNeuTurboTimingLog.Timings.acousticRepackWeights`; 5 = đủ, 0 = audio.cpp không repack).
-- Ước trên máy: âm học (~36% thời gian) −14% ⇒ RTF thêm ~−4%. Chưa đo trên máy.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows).

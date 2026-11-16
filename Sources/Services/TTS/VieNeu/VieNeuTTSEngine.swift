@@ -76,8 +76,8 @@ final class VieNeuTTSEngine: @unchecked Sendable {
 
     let store: VieNeuModelStore
     let lock = NSLock()
-    /// Số lượt đọc / nạp engine đang xếp hàng lấy `lock` — lượt chạy nháp Core ML nhường chúng (`lockForReader`, `+Reload`).
-    let readerWaitLock = NSLock()
+    /// Số lượt đọc / nạp engine đang xếp hàng lấy `lock` — lượt chạy nháp Core ML nhường chúng và chờ tín hiệu (`+Reload`).
+    let readerWaitLock = NSCondition()
     var waitingReaders = 0
 
     var runtime: VieNeuONNXRuntime? // internal: `+Reload` so cấu hình luồng/spin đang chạy và bỏ runtime cũ
@@ -138,7 +138,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
     /// Nạp 4 session + config + catalog + phonemizer. Idempotent: gọi lại khi đã nạp thì trả về ngay.
     func prepare() throws {
         lockForReader()
-        defer { lock.unlock() }
+        defer { unlockForReader() }
         try prepareLocked()
     }
 
@@ -202,7 +202,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         flowBackend: VieNeuFlowBackend? = nil
     ) throws -> Output {
         lockForReader()
-        defer { lock.unlock() }
+        defer { unlockForReader() }
         try prepareLocked()
 
         guard let runtime, let config, let catalog, let phonemizer else {

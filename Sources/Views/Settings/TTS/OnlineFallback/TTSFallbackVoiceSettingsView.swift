@@ -111,36 +111,11 @@ struct TTSFallbackVoiceSettingsView: View {
     private func managementSection(_ engine: Engine) -> some View {
         switch engine {
         case .vieneu:
+            // Cùng các hàng của Cài đặt TTS (`VieNeuReaderManagementRows`, 1.3.961).
             Section {
-                NavigationLink(destination: VieNeuTTSSettingsView(selectsForFallback: true)) {
-                    Label("Cài đặt VieNeu TTS", systemImage: "waveform.badge.plus")
-                }
-                Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $japaneseFlags.dictionaryEnabled)
-                Toggle("Đọc tên Nhật theo âm tiết", isOn: $japaneseFlags.nameSyllablesEnabled)
-                Picker("Đọc chậm đoạn có tên (Nano)", selection: $japaneseFlags.nameFrameBoost) {
-                    ForEach(VieNeuNameFrameBoost.Mode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.menu)
-                if japaneseFlags.dictionaryDownloaded {
-                    NavigationLink(destination: VieNeuJapaneseDictionaryView()) {
-                        Label("Từ điển phiên âm tiếng Nhật", systemImage: "character.book.closed")
-                    }
-                } else {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                        Text("Chưa tải từ điển tiếng Nhật").font(.subheadline).foregroundColor(.secondary)
-                    }
-                    Button(action: downloadJapaneseDictionary) {
-                        Label("Tải từ điển tiếng Nhật", systemImage: "arrow.down.circle")
-                    }
-                }
+                VieNeuReaderManagementRows(flags: japaneseFlags, selectsForFallback: true)
             } header: {
-                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
-                    "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng.",
-                    VieNeuJapaneseFlags.nameFrameBoostHelp
-                ])
+                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: VieNeuReaderManagementRows.helpParagraphs)
             }
         case .nghitts:
             Section("Quản lý riêng của trình đọc") {
@@ -193,49 +168,15 @@ struct TTSFallbackVoiceSettingsView: View {
         }
     }
 
-    /// Như hàng "Tốc độ tổng hợp (VieNeu)" của Cài đặt TTS — cùng khoá `VieNeuSynthesisPolicy.synthesisSpeedKey`.
+    /// Hàng "Tốc độ tổng hợp (VieNeu)" dùng chung với Cài đặt TTS (`VieNeuSynthesisSpeedRow`, 1.3.961). Không bỏ phần đệm
+    /// ở đây: cài đặt dự phòng nằm trong `TTSSettingsSnapshot` nên đóng Cài đặt là dựng lại đoạn.
     private var synthesisSpeedRow: some View {
-        let effective = synthesisSpeed * speed
-        return VStack(alignment: .leading, spacing: 6) {
-            Stepper(value: $synthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05) {
-                HStack {
-                    Text("Tốc độ tổng hợp (VieNeu):")
-                    Spacer()
-                    Text(String(format: "%.2fx", synthesisSpeed))
-                        .font(.system(.body, design: .monospaced))
-                }
-            }
-            Slider(value: $synthesisSpeed, in: VieNeuSynthesisPolicy.synthesisSpeedRange, step: 0.05)
-            HStack(spacing: 4) {
-                Text("Tốc độ nghe thực tế:")
-                Text(String(format: "%.2fx", effective))
-                    .font(.system(.body, design: .monospaced))
-                    // `.orange` literal: cảnh báo, không theo màu nhấn (như Cài đặt TTS).
-                    .foregroundColor(effective > 2.0 ? .orange : .primary)
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-        }
-        .onChange(of: synthesisSpeed) { _, newValue in
-            UserDefaults.standard.set((newValue * 100).rounded() / 100, forKey: VieNeuSynthesisPolicy.synthesisSpeedKey)
-        }
+        VieNeuSynthesisSpeedRow(synthesisSpeed: $synthesisSpeed, playbackSpeed: speed)
     }
 
     private func reset(_ engine: Engine) {
         speed = 1.0
         TTSOnlineFallbackSettings.setPlaybackSpeed(1.0, for: engine)
         if engine == .vieneu && isNanoSelected { synthesisSpeed = 1.0 }
-    }
-
-    private func downloadJapaneseDictionary() {
-        Task {
-            do {
-                try await VieNeuJapaneseDictionary.shared.downloadInitialDictionary()
-                japaneseFlags.refresh()
-                ToastManager.shared.show(message: "Tải từ điển tiếng Nhật thành công!", type: .success)
-            } catch {
-                ToastManager.shared.show(message: "Không thể tải từ điển: \(error.localizedDescription)", type: .error)
-            }
-        }
     }
 }
