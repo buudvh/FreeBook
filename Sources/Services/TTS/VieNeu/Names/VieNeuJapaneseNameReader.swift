@@ -35,14 +35,30 @@ enum VieNeuJapaneseNameReader {
 
     /// Một token của `PreprocessorRegex.token` (có thể chứa gạch nối) ⇒ chuỗi thay thế, hoặc `nil` nếu không có phần nào
     /// là tên kiểu Nhật.
-    static func replacement(for token: String) -> String? {
+    ///
+    /// `dictionary` = từ điển phiên âm của người dùng (khoá `VieNeuJapaneseDictionary.normalizedKey`), tra **từng phần**
+    /// trước khi đọc theo âm tiết (1.3.960): bộ tiền xử lý tra từ điển theo cả token "Sasuke-kun", nên mục "Sasuke" chỉ áp
+    /// được ở đây. Phần đầu có trong từ điển vẫn tính là tên ⇒ hậu tố xưng hô sau nó vẫn đọc theo âm tiết.
+    static func replacement(for token: String, dictionary: [String: String] = [:]) -> String? {
         guard let first = token.unicodeScalars.first, isUppercaseLatin(first), !token.contains(".") else { return nil }
         let pieces = token.split(separator: "-", omittingEmptySubsequences: false).map(String.init)
         guard !pieces.contains(where: \.isEmpty) else { return nil }
-        guard let head = namePhonemes(pieces[0]) else { return nil }
-        var output = [marked(head)]
+        func entry(_ piece: String) -> String? {
+            dictionary.isEmpty ? nil : dictionary[VieNeuJapaneseDictionary.normalizedKey(piece)]
+        }
+        let head: String
+        if let hit = entry(pieces[0]) {
+            head = hit
+        } else if let name = namePhonemes(pieces[0]) {
+            head = marked(name)
+        } else {
+            return nil
+        }
+        var output = [head]
         for piece in pieces.dropFirst() {
-            if let name = namePhonemes(piece) {
+            if let hit = entry(piece) {
+                output.append(hit)
+            } else if let name = namePhonemes(piece) {
                 output.append(marked(name))
             } else if let suffix = honorificPhonemes(piece) {
                 output.append(marked(suffix))
@@ -71,10 +87,15 @@ enum VieNeuJapaneseNameReader {
         return namePhonemes(word) != nil
     }
 
-    /// Mẩu đứng sau gạch nối của token mà phần đầu là `head` có được đọc theo âm tiết không ("sensei" trong
-    /// "Kakashi-sensei") — cho `VieNeuForeignTextClassifier`, vốn tách token ở gạch nối nên không tự thấy điều này.
-    static func readsSuffix(_ piece: String, afterHead head: String) -> Bool {
-        namePhonemes(head) != nil && (namePhonemes(piece) != nil || honorificPhonemes(piece) != nil)
+    /// Mẩu đứng sau gạch nối của token mà phần đầu là `head` có được đổi không ("sensei" trong "Kakashi-sensei") — cho
+    /// `VieNeuForeignTextClassifier`, vốn tách token ở gạch nối nên không tự thấy điều này. `dictionaryKeys` = khoá từ điển
+    /// phiên âm đang bật: cùng luật với `replacement(for:dictionary:)` (phần có trong từ điển tính như tên).
+    static func readsSuffix(_ piece: String, afterHead head: String, dictionaryKeys: Set<String> = []) -> Bool {
+        func known(_ word: String) -> Bool {
+            !dictionaryKeys.isEmpty && dictionaryKeys.contains(VieNeuJapaneseDictionary.normalizedKey(word))
+        }
+        guard known(head) || namePhonemes(head) != nil else { return false }
+        return known(piece) || namePhonemes(piece) != nil || honorificPhonemes(piece) != nil
     }
 
     // MARK: - Cổng nhận dạng

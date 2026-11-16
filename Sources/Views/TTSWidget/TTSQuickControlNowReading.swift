@@ -42,6 +42,12 @@ final class TTSQuickControlNowReading: ObservableObject {
         manager.$isPlaying.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
             self?.refresh(from: manager)
         }.store(in: &cancellables)
+        // Đoạn tổng hợp lúc cần (đọc song song / đọc lại bằng giọng dự phòng): dấu "dự phòng" + RTF chỉ có khi tiếng xong,
+        // sau lúc đổi chỉ số ⇒ tra lại khi đoạn thật sự bắt đầu phát (snapshot thôi "đang chuẩn bị") (1.3.960).
+        manager.$playbackSnapshot.map { $0.preparingParentParagraphIndex == nil }.removeDuplicates()
+            .receive(on: RunLoop.main).sink { [weak self, weak manager] _ in
+                self?.refresh(from: manager)
+            }.store(in: &cancellables)
     }
 
     private func refresh(from manager: TTSManager?) {
@@ -61,8 +67,11 @@ final class TTSQuickControlNowReading: ObservableObject {
             if manager.tool == "vieneu" || next.fallbackEngine == .vieneu {
                 next.engineLabel = VieNeuEngineBadgeStore.shared.label(for: spoken)
             }
-            // RTF của đoạn đang phát (1.3.954) — VieNeu và Piper đều ghi vào cùng khoá.
-            next.rtf = TTSEngineRTFStore.shared.rtf(for: spoken)
+            // RTF của đoạn đang phát (1.3.954) — VieNeu và Piper đều ghi vào cùng khoá. Chỉ khi tiếng đoạn này do engine
+            // offline tạo: kho RTF khoá theo chữ, đoạn online cùng chữ không được mượn số của lượt dự phòng cũ (1.3.960).
+            if TTSManager.isLocalEngine(manager.tool) || next.fallbackEngine != nil {
+                next.rtf = TTSEngineRTFStore.shared.rtf(for: spoken)
+            }
         }
         guard next != snapshot else { return }
         snapshot = next

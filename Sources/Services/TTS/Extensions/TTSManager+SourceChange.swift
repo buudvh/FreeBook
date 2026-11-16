@@ -39,6 +39,9 @@ extension TTSManager {
         )
         let book = source.createSnapshot
         AppLogger.shared.log("[SourceChange] TTS chuyển sang truyện mới \(newBookId), chương \(chapterIndex + 1), dòng \(paragraphIndex)")
+        // Phiên "đã dừng" do `stop()` ở trên tạo: người dùng tự bấm nghe (kể cả chính truyện mới) hay dừng trong lúc tải
+        // chương thì phiên đổi ⇒ không đè lên lựa chọn của họ (1.3.960).
+        let stoppedSession = sessionID
         Task { @MainActor [weak self] in
             guard let self else { return }
             let request = ChapterContentRequest(
@@ -53,8 +56,8 @@ extension TTSManager {
             )
             do {
                 let result = try await ChapterContentRepository.shared.load(request)
-                // Trong lúc tải người dùng đã bắt đầu nghe truyện khác ⇒ thôi.
-                guard self.playingBookId.isEmpty || self.playingBookId == newBookId else { return }
+                // Trong lúc tải người dùng đã tự bắt đầu / dừng nghe ⇒ thôi.
+                guard self.sessionID == stoppedSession, self.playingBookId.isEmpty else { return }
                 self.startSpeaking(
                     bookId: newBookId,
                     chapters: queue,

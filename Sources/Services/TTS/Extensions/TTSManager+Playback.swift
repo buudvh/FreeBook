@@ -24,6 +24,7 @@ extension TTSManager {
         )
 
         let context = makePlaybackContext(paragraphIndex: index, playbackId: playbackId, engine: "google")
+        cancelOnlineFallbackHedge(unlessIndex: index) // lượt đọc song song của đoạn cũ (1.3.960)
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
             self.playAudioData(cachedData, context: context)
@@ -40,6 +41,8 @@ extension TTSManager {
         let startWait = ProcessInfo.processInfo.systemUptime
 
         let audioSynthesisWorkerRef = self.audioSynthesisWorker
+        // Online chậm quá vài giây ⇒ giọng dự phòng đọc song song, bên nào xong trước phát bên đó (1.3.960).
+        startOnlineFallbackHedge(text: text, index: index, playbackId: playbackId, context: context)
 
         remotePlaybackTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -64,7 +67,8 @@ extension TTSManager {
                 guard !Task.isCancelled,
                       self.isContextValid(context),
                       self.currentPlaybackId == playbackId,
-                      self.selectedVoice == voice else { return }
+                      self.selectedVoice == voice,
+                      self.claimOnlineDelivery(playbackId) else { return } // dự phòng đã phát đoạn này ⇒ bỏ
 
                 let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
                 self.recordPrefetchResult(
@@ -81,6 +85,7 @@ extension TTSManager {
             } catch is CancellationError {
                 return
             } catch {
+                if self.handleOnlineFailureAfterHedge(error, playbackId: playbackId, session: expectedSessionID) { return }
                 guard self.currentPlaybackId == playbackId else { return }
                 if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
                     let synMs = self.currentParagraph0SynthesisMs()
@@ -129,6 +134,7 @@ extension TTSManager {
         )
 
         let context = makePlaybackContext(paragraphIndex: index, playbackId: playbackId, engine: engineName)
+        cancelOnlineFallbackHedge(unlessIndex: index) // lượt đọc song song của đoạn cũ (1.3.960)
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
             self.playAudioData(cachedData, context: context)
@@ -144,6 +150,7 @@ extension TTSManager {
         let startWait = ProcessInfo.processInfo.systemUptime
 
         let audioSynthesisWorkerRef = self.audioSynthesisWorker
+        startOnlineFallbackHedge(text: text, index: index, playbackId: playbackId, context: context)
 
         remotePlaybackTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -173,7 +180,8 @@ extension TTSManager {
                 guard !Task.isCancelled,
                       self.isContextValid(context),
                       self.currentPlaybackId == playbackId,
-                      self.selectedVoice == voice else { return }
+                      self.selectedVoice == voice,
+                      self.claimOnlineDelivery(playbackId) else { return } // dự phòng đã phát đoạn này ⇒ bỏ
 
                 let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
                 self.recordPrefetchResult(
@@ -190,6 +198,7 @@ extension TTSManager {
             } catch is CancellationError {
                 return
             } catch {
+                if self.handleOnlineFailureAfterHedge(error, playbackId: playbackId, session: expectedSessionID) { return }
                 guard self.currentPlaybackId == playbackId else { return }
                 if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
                     let synMs = self.currentParagraph0SynthesisMs()

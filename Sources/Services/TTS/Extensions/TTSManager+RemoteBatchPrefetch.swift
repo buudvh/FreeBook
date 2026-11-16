@@ -168,7 +168,7 @@ extension TTSManager {
                 }
 
                 for (position, index) in batch.indices.enumerated() {
-                    self.preloadedData[index] = audios[position]
+                    self.storeOnlineAudio(audios[position], at: index)
                 }
                 if AppLogger.shared.isLoggingEnabled {
                     AppLogger.shared.log("[TTSPerf] BatchPrefetch chapter=\(expectedChapterIndex) count=\(batch.indices.count) chars=\(totalCharacters)")

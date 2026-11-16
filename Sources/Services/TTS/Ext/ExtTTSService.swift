@@ -9,8 +9,8 @@ import Foundation
 public final class ExtTTSService: Sendable {
     public init() {}
 
-    /// Retry do tầng chung lo (`TTSAudioSynthesisWorker.withRetry`, 1.3.953) — ở đây chỉ gọi thẳng runtime
-    /// rồi giải mã base64. Số lần thử lại lấy từ cấu hình chung (mặc định 3; có giọng dự phòng thì 0).
+    /// Thử lại + timeout do `RemoteTTSSynthesisCoordinator` lo (`RemoteTTSAttemptPolicy`, 1.3.960) — ở đây chỉ gọi thẳng
+    /// runtime rồi giải mã base64. Số lần thử lại theo cấu hình chung (`TTSOnlineSynthesisSettings`).
     public func synthesizeData(
         text: String,
         voice: String,

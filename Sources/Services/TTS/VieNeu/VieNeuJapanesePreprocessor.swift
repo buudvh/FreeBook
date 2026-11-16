@@ -118,8 +118,9 @@ enum VieNeuJapanesePreprocessor {
     ) -> String {
         // Bảng rỗng (từ điển tắt) thì khỏi chuẩn hoá khoá: bước này chạy cho **mọi** token của mọi đoạn đọc.
         if !table.isEmpty, let hit = table[VieNeuJapaneseDictionary.normalizedKey(token)] { return hit }
-        // Tên kiểu Nhật viết hoa ⇒ phiên âm theo âm tiết (1.3.950). Đứng **sau** từ điển để người dùng sửa tay được.
-        if nameSyllablesEnabled, let name = VieNeuJapaneseNameReader.replacement(for: token) { return name }
+        // Tên kiểu Nhật viết hoa ⇒ phiên âm theo âm tiết (1.3.950). Đứng **sau** từ điển để người dùng sửa tay được; token
+        // có gạch nối thì từ điển được tra lại theo từng phần bên trong (1.3.960).
+        if nameSyllablesEnabled, let name = VieNeuJapaneseNameReader.replacement(for: token, dictionary: table) { return name }
         guard japaneseTransliterationEnabled, token.count > 1 else { return token }
         let key = VieNeuJapaneseDictionary.normalizedKey(token)
         guard ForeignScriptClassifier.isJapaneseRomaji(key) else { return token }

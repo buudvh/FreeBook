@@ -1068,6 +1068,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let hasPreparedPlayer = audioPlayer != nil
             remotePlaybackTask?.cancel()
             remotePlaybackTask = nil
+            onlineFallback.cancelHedge() // lượt đọc song song bằng giọng dự phòng (1.3.960)
             cancelRemotePrefetchTasks()
             nextChapterPrefetcher.cancel()
             if !hasPreparedPlayer {
@@ -2581,8 +2582,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 } }
 
                 guard isValidSession() else { return }
-                if !usesFallback { self.noteOnlineAudio(index: index) }
-                self.preloadedData[index] = data
+                if usesFallback { self.preloadedData[index] = data } else { self.storeOnlineAudio(data, at: index) }
             } catch is CancellationError {
                 return
             } catch {

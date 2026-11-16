@@ -91,6 +91,7 @@ internal actor RemoteTTSSynthesisCoordinator {
     }
 
     internal func promote(key: String, to priority: Priority) {
+        if raiseActiveJob(key: key, to: priority) { return }
         guard let index = queue.firstIndex(where: { $0.key == key }) else { return }
         if priority.rawValue < queue[index].priority.rawValue {
             let engine = queue[index].engine
@@ -108,7 +109,7 @@ internal actor RemoteTTSSynthesisCoordinator {
         applicationState = state
         energyWindow = nil
         activeSynthesisStartedAt = nil
-        AppLogger.shared.log("[TTSEnergy] AppState state=\(state) engine=\(engine) playing=\(isPlaying) thermal=\(Self.thermalStateName(ProcessInfo.processInfo.thermalState))")
+        AppLogger.shared.log("[TTSEnergy] AppState state=\(state) engine=\(engine) playing=\(isPlaying) thermal=\(NghiSynthesisPolicy.thermalStateName(ProcessInfo.processInfo.thermalState))")
     }
 
     internal func recordThermalStateChange(engine: String, isPlaying: Bool) {
@@ -116,7 +117,7 @@ internal actor RemoteTTSSynthesisCoordinator {
         emitEnergySummary(reason: "thermal_change")
         energyWindow = nil
         activeSynthesisStartedAt = nil
-        AppLogger.shared.log("[TTSEnergy] ThermalChange state=\(applicationState) engine=\(engine) playing=\(isPlaying) thermal=\(Self.thermalStateName(thermal))")
+        AppLogger.shared.log("[TTSEnergy] ThermalChange state=\(applicationState) engine=\(engine) playing=\(isPlaying) thermal=\(NghiSynthesisPolicy.thermalStateName(thermal))")
     }
 
     internal func cancelAll() {
@@ -165,6 +166,7 @@ internal actor RemoteTTSSynthesisCoordinator {
         if var activeJob, activeJob.key == key, !activeJob.waiters.isEmpty {
             activeJob.waiters.append(waiter)
             self.activeJob = activeJob
+            _ = raiseActiveJob(key: key, to: priority) // đoạn đang đọc gộp vào lượt nạp trước ⇒ được thử lại
             recordDeduplicatedWaiter()
             return
         }
@@ -212,17 +214,33 @@ internal actor RemoteTTSSynthesisCoordinator {
         activeJob = job
         let operation = job.operation
         let key = job.key
+        let engine = job.engine
         recordSynthesisStart(for: job)
 
+        // Timeout + thử lại = tầng thử lại **duy nhất** của TTS online, nằm trong job để đoạn đang đọc giữ slot liền mạch
+        // (`RemoteTTSAttemptPolicy.run`, 1.3.960). Số lượt thử đọc theo mức ưu tiên **hiện tại** của job.
         activeTask = Task {
-            let result: Result<Data, Error>
-            do {
-                result = .success(try await operation())
-            } catch {
-                result = .failure(error)
+            let result = await RemoteTTSAttemptPolicy.run(engine: engine, operation: operation) {
+                await self.attemptsForActiveJob(key: key)
             }
             self.complete(key: key, result: result)
         }
+    }
+
+    private func attemptsForActiveJob(key: String) -> Int {
+        guard let activeJob, activeJob.key == key else { return 1 }
+        return RemoteTTSAttemptPolicy.attempts(for: activeJob.priority)
+    }
+
+    /// Nâng mức ưu tiên của job **đang chạy** cùng khoá (`false` ⇒ không phải job đang chạy) — lượt nạp trước được đoạn
+    /// đang đọc gộp vào / nâng giữa chừng thì lỗi được thử lại như đoạn đang đọc.
+    private func raiseActiveJob(key: String, to priority: Priority) -> Bool {
+        guard var job = activeJob, job.key == key else { return false }
+        if priority.rawValue < job.priority.rawValue {
+            job.priority = priority
+            activeJob = job
+        }
+        return true
     }
 
     private func complete(key: String, result: Result<Data, Error>) {
@@ -389,41 +407,10 @@ internal actor RemoteTTSSynthesisCoordinator {
             window.maxSynthesisMs,
             busyPercent,
             window.maxQueueDepth,
-            Self.thermalStateName(thermal),
+            NghiSynthesisPolicy.thermalStateName(thermal),
             prediction
         )
         AppLogger.shared.log(logLine)
         energyWindow = EnergyWindow(startedAt: now, applicationState: applicationState)
-    }
-
-    internal static func energyPrediction(
-        applicationState: String,
-        requestsPerMinute: Double,
-        busyPercent: Double,
-        thermalState: ProcessInfo.ThermalState
-    ) -> String {
-        if thermalState == .serious || thermalState == .critical {
-            return "thermal_pressure_confirmed"
-        }
-        if applicationState == "background" && (requestsPerMinute >= 15 || busyPercent >= 50) {
-            return "background_remote_load_likely"
-        }
-        if requestsPerMinute >= 18 || busyPercent >= 60 {
-            return "sustained_remote_load_likely"
-        }
-        if requestsPerMinute >= 10 || busyPercent >= 30 {
-            return "remote_load_elevated"
-        }
-        return "remote_load_low"
-    }
-
-    private static func thermalStateName(_ state: ProcessInfo.ThermalState) -> String {
-        switch state {
-        case .nominal: return "nominal"
-        case .fair: return "fair"
-        case .serious: return "serious"
-        case .critical: return "critical"
-        @unknown default: return "unknown"
-        }
     }
 }

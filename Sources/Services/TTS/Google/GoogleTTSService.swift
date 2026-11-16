@@ -64,7 +64,8 @@ public final class GoogleTTSService: Sendable {
         }
 
         let request = try makeRequest(textParts: trimmedText, voice: voice, speed: speed, pitch: pitch)
-        let parts = try await withRetry { try await self.audioParts(from: request) }
+        // Một lượt gọi — thử lại + timeout do `RemoteTTSSynthesisCoordinator` lo (`RemoteTTSAttemptPolicy`, 1.3.960).
+        let parts = try await audioParts(from: request)
         guard let first = parts.first else {
             throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Google TTS API không có audio."])
         }
@@ -90,7 +91,7 @@ public final class GoogleTTSService: Sendable {
         }
 
         let request = try makeRequest(textParts: trimmed, voice: voice, speed: speed, pitch: pitch)
-        let audios = try await withRetry { try await self.audioParts(from: request) }
+        let audios = try await audioParts(from: request)
         guard audios.count == trimmed.count else {
             throw NSError(
                 domain: "GoogleTTSService",
@@ -144,43 +145,6 @@ public final class GoogleTTSService: Sendable {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         return request
-    }
-
-    /// Retry **đúng một tầng** cho cả hai đường (một đoạn và gộp nhiều đoạn): tối đa 2 lượt, chỉ với
-    /// lỗi tạm thời. `TTSManager` không được bọc thêm vòng retry nào.
-    private func withRetry<T>(_ body: @Sendable () async throws -> T) async throws -> T {
-        var attempts = 0
-        let maxAttempts = 2
-
-        while true {
-            attempts += 1
-            do {
-                return try await body()
-            } catch {
-                if Task.isCancelled || attempts >= maxAttempts {
-                    throw error
-                }
-                let nsError = error as NSError
-                let msg = error.localizedDescription.lowercased()
-                let isTransient = (nsError.domain == NSURLErrorDomain) ||
-                    nsError.code == 429 ||
-                    (500...599).contains(nsError.code) ||
-                    msg.contains("internal error") ||
-                    msg.contains("timed out") ||
-                    msg.contains("rate limit") ||
-                    msg.contains("service unavailable")
-                
-                if isTransient {
-                    AppLogger.shared.log("⚠️ [GoogleTTSService] Thử lại lượt \(attempts)/\(maxAttempts) do lỗi tạm thời: \(error.localizedDescription)")
-                    let retryAfter = (nsError.userInfo["retryAfterSeconds"] as? Double) ?? 0
-                    let exponentialDelay = 0.4 * pow(2.0, Double(attempts - 1))
-                    let delay = min(2.0, max(retryAfter, exponentialDelay))
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                } else {
-                    throw error
-                }
-            }
-        }
     }
 
     /// Trả về **mọi** blob audio trong phản hồi, theo đúng thứ tự part đã gửi.

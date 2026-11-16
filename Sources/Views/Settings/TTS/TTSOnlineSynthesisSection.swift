@@ -3,12 +3,16 @@ import SwiftUI
 /// Mục "TTS online" trong Cài đặt TTS (1.3.953): số lần thử lại + timeout mỗi lượt thử cho trình đọc online.
 ///
 /// Chỉ hiện khi trình đọc chính là online (Google Cloud TTS / TTS tiện ích) — chèn ở `TTSSettingsView`.
-/// Khi đã chọn giọng dự phòng offline thì hai hàng bị khoá: hiện **0** lần thử lại và **3 giây** timeout.
+/// Đã chọn giọng dự phòng offline (1.3.960): hàng thử lại khoá ở **1** lần, timeout vẫn sửa được (xem
+/// `TTSOnlineSynthesisSettings`).
 struct TTSOnlineSynthesisSection: View {
     @State private var retryCount = TTSOnlineSynthesisSettings.storedRetryCount
     @State private var timeoutSeconds = TTSOnlineSynthesisSettings.storedTimeoutSeconds
+    /// Đọc qua `@AppStorage` để chọn / bỏ giọng dự phòng ở màn "Giọng dự phòng" rồi quay lại là mục này vẽ lại ngay —
+    /// đọc thẳng `UserDefaults` trong `body` thì không ai báo đổi (1.3.960).
+    @AppStorage(TTSOnlineFallbackSettings.toolKey) private var fallbackTool = ""
 
-    private var hasFallback: Bool { TTSOnlineSynthesisSettings.hasOfflineFallback }
+    private var hasFallback: Bool { TTSOnlineFallbackSettings.Engine(rawValue: fallbackTool) != nil }
 
     var body: some View {
         Section {
@@ -16,7 +20,7 @@ struct TTSOnlineSynthesisSection: View {
                 HStack {
                     Text("Số lần thử lại:")
                     Spacer()
-                    Text("\(hasFallback ? 0 : retryCount)")
+                    Text("\(hasFallback ? TTSOnlineSynthesisSettings.fallbackRetryCount : retryCount)")
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(hasFallback ? .secondary : .primary)
                 }
@@ -27,17 +31,15 @@ struct TTSOnlineSynthesisSection: View {
                 HStack {
                     Text("Timeout mỗi lượt thử:")
                     Spacer()
-                    Text("\(hasFallback ? TTSOnlineSynthesisSettings.fallbackTimeoutSeconds : timeoutSeconds) giây")
+                    Text("\(timeoutSeconds) giây")
                         .font(.system(.body, design: .monospaced))
-                        .foregroundColor(hasFallback ? .secondary : .primary)
                 }
             }
-            .disabled(hasFallback)
         } header: {
             SectionHelpHeader("TTS online", paragraphs: [
                 "Trình đọc online (Google Cloud TTS, TTS tiện ích) lỗi thì thử lại số lần đã đặt. Mỗi lượt thử có tối đa số giây đã đặt; hết giờ thì coi như lỗi rồi thử lượt tiếp nếu còn.",
-                "Số lần thử lại chỉ áp cho đoạn đang đọc. Đoạn nạp trước thử một lần rồi bỏ.",
-                "Đã chọn giọng dự phòng offline thì hai mục tự khoá: không thử lại (0) và timeout cố định 3 giây — hết giờ là chuyển sang giọng dự phòng."
+                "Không có giọng dự phòng: số lần thử lại chỉ áp cho đoạn đang đọc, đoạn nạp trước thử một lần rồi bỏ.",
+                "Đã chọn giọng dự phòng offline: thử lại cố định 1 lần, áp cho cả đoạn nạp trước. Đoạn đang đọc quá 3 giây chưa có tiếng thì app đọc song song bằng giọng dự phòng — bên nào xong trước phát bên đó. Chỉ khi online hết lượt thử hoặc máy mất mạng mới chuyển hẳn sang giọng dự phòng."
             ])
         }
     }

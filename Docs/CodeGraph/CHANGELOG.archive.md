@@ -2,6 +2,31 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.929] - 2026-11-14
+
+### perf: Turbo giữ một pool luồng suốt phiên đọc thay vì tạo luồng mới ở mỗi lượt tính, nhanh hơn và ít tốn CPU hơn
+
+audio.cpp build không OpenMP nên mỗi lượt tính của ggml tạo rồi huỷ một bộ luồng; Turbo có ~17 lượt tính mỗi khung 80 ms (1 backbone + 16 bước bộ giải mã âm học) ⇒ ~210 lần tạo / join luồng mỗi giây tiếng. Đo trên CI (nhánh đo `claude/turbo-tp-profile`, run 43545030992, máy ảo M1, cấu hình như app 1.3.928, 2 giọng × 3 lần lặp xen kẽ; báo cáo tối ưu Turbo mục 15): RTF 0,368 → **0,352 (−4%)**, âm học 83 → 74 ms mỗi giây tiếng, CPU 0,69 → **0,67** CPU-giây mỗi giây tiếng; mã + WAV **trùng từng byte** 6/6. poll 10 / 50 nhanh thêm ~2% nhưng luồng quay chờ đốt CPU (0,71 / 0,78) và tranh lõi với Accelerate (nạp prompt 93 → 100) ⇒ không chọn. Anh Bửu duyệt plan.
+
+- **Bản vá mới** `Scripts/ci/audiocpp_patches/vieneu_threadpool.py` (chạy sau `vieneu_prefill_blas`): session option `vieneu_v3_turbo.threadpool_poll` (0…100; không có = như upstream). Ở lượt `run` đầu, `ggml_threadpool_new` (số luồng của talker) rồi gắn vào backend CPU của talker **và** của session (codec, kể cả phần CPU trong scheduler BLAS). Lớp weights runtime chỉ khai báo trước với session ⇒ thêm hàm tự do `freebook_talker_backend` / `freebook_talker_threads` trong talker.cpp. Luồng mang QoS của người gọi; người gọi đổi QoS (nghe thử giọng `.utility` ↔ trình đọc `.userInitiated`) ⇒ nhả pool cũ, tạo pool mới (`qos_class_self` qua `sys/qos.h` — `pthread/qos.h` bị chặn bởi `__DARWIN_C_LEVEL`). Thành viên khai báo cuối lớp ⇒ nhả trước backend. Log `vieneu_v3_turbo.threadpool_poll` / `threadpool_qos` khi tạo pool.
+- **Build iOS** (`build_audiocpp_ios.sh`) chạy bản vá; khoá cache AudioCpp đổi theo bản vá nên CI dựng lại framework.
+- **Cổng parity** (`audiocpp_parity_macos.sh`): cấu hình app (codec_blas + prefill_blas) có và không có `threadpool_poll=0` trên câu dài ⇒ mã + WAV phải trùng từng byte, log phải báo đã tạo pool.
+- **App**: `VieNeuTurboAcceleration.threadpoolPollOption` / `threadpoolPoll = "0"`; `VieNeuTurboRuntime+Session.createSessionLocked` truyền thêm option khi AMX bật — đi chung cờ nên lối tự tắt khi sập (`VieNeuTurboCrashGuard`, theo số build) tắt cả pool. Log dựng session: "AMX (codec + nạp prompt) + pool luồng giữ lâu bật".
+- Ước lượng trên máy: âm học chiếm ~36% thời gian ở 1.3.927 ⇒ RTF ~0,250 → ~0,24. Chưa đo trên máy; không cần tải dữ liệu mới, tiếng không đổi.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows).
+
+## [1.3.928] - 2026-11-14
+
+### feat: Turbo luôn chạy Tăng tốc AMX, nhanh hơn khoảng 37%, bỏ công tắc thử nghiệm
+
+Đo 1.3.927 trên iPhone 11 (log 16, 61 đoạn, không sập; báo cáo mục 14), so cùng mức nhiệt "fair" với lượt tắt (log 13): RTF 0,400 → **0,250**; nạp prompt 84 → 44 ms mỗi giây tiếng (1,9×), codec 158 → 48 (3,3×); backbone / âm học không đổi. CI 1.3.927: codec bật vẫn trùng mã, WAV ~98 dB; bước nạp qua BLAS lệch fp32 1,7·10⁻⁶ (đường q8 cũ 8,1·10⁻³). Anh Bửu chốt "Bật, bỏ công tắc".
+
+- **AMX luôn bật** (`VieNeuTurboAcceleration.isAMXEnabled`): session Turbo luôn dựng với `vieneu_v3_turbo.codec_blas` + `vieneu_v3_turbo.prefill_blas`. Khoá cũ của công tắc (`vieneuTurboCodecAMX`, `vieneuTurboCodecAMXAutoDisabled`) bỏ qua.
+- **Lối thoát khi sập** (không còn công tắc): `VieNeuTurboCrashGuard` thấy lần trước app chết giữa lượt AMX đầu tiên, hoặc audio.cpp ghi câu báo dừng ⇒ ghi số build đang chạy vào `vieneuTurboAMXDisabledBuild` ⇒ AMX tắt **cho tới khi cài bản build khác**, log `❌ … đã tự tắt "Tăng tốc bằng AMX" cho bản build N`.
+- **Cài đặt VieNeu TTS › Turbo**: công tắc thành dòng **"Tăng tốc AMX: Đang dùng"** (hoặc "Đã tự tắt tới bản sau"); giải thích sau nút "?" ghi mức nhanh hơn đo được.
+- Log đoạn giữ `amx=bật / lùi:codec / lùi:prefill / tắt`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không đổi bản vá audio.cpp. Không build tại chỗ (Windows).
+
 ## [1.3.927] - 2026-11-13
 
 ### feat: Công tắc Tăng tốc bằng AMX của Turbo đưa thêm bước nạp prompt và phép Q·Kᵀ của codec sang Accelerate

@@ -16,6 +16,7 @@ struct TTSFallbackVoiceSettingsView: View {
 
     static let helpParagraphs: [LocalizedStringKey] = [
         "Trình đọc online (Google Cloud TTS, TTS tiện ích) lỗi hoặc máy mất mạng thì app đọc tiếp bằng trình đọc offline chọn ở đây thay vì dừng. **Không dùng** ⇒ lỗi thì tạm dừng đọc như trước.",
+        "Online chỉ chậm thì chưa chuyển hẳn: đoạn đang đọc quá 3 giây chưa có tiếng thì đoạn đó đọc bằng giọng dự phòng, đoạn sau vẫn thử online. Online thử lại 1 lần vẫn lỗi mới chuyển hẳn sang giọng dự phòng.",
         "Đang đọc dự phòng, app thử lại giọng online ở nền (sau 15 giây, giãn dần tới 2 phút; mạng có lại thì thử ngay). Online chạy lại thì tự đọc tiếp bằng giọng online.",
         "Giọng và cài đặt ở đây là **của chính trình đọc đó** — dùng chung khi chọn nó làm trình đọc chính. Đoạn dự phòng chia theo độ dài đoạn của trình đọc online."
     ]

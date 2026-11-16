@@ -4,8 +4,9 @@ import Foundation
 ///
 /// Lúc đang đọc dự phòng, một vòng nền thử TTS online: chờ 15 s → 30 s → 1 phút → tối đa 2 phút giữa các lượt; mất mạng thì
 /// không thử (có mạng lại ⇒ thử ngay); đang tạm dừng thì chờ; phiên tắt / đổi ⇒ thôi. Mỗi lượt tổng hợp online **một** đoạn
-/// sắp đọc, gọi thẳng service (không qua `RemoteTTSSynthesisCoordinator` — không thêm lượt thử lại, không chặn hàng đợi).
-/// Được ⇒ giữ tiếng online cho đoạn ấy, tắt dự phòng: các đoạn dự phòng đã nạp trước phát nốt, phần còn thiếu nạp online.
+/// sắp đọc qua `RemoteTTSSynthesisCoordinator` ở mức thấp nhất, một lần thử (1.3.960 — trước đó gọi thẳng service nên chạy
+/// chồng lượt tiện ích khác trên cùng runtime JS). Được ⇒ giữ tiếng online cho đoạn ấy, tắt dự phòng: các đoạn dự phòng đã
+/// nạp trước phát nốt, phần còn thiếu nạp online.
 extension TTSManager {
     func startOnlineFallbackProbe(after delay: TimeInterval) {
         onlineFallback.probeTask?.cancel()
@@ -71,23 +72,21 @@ extension TTSManager {
         let name = onlineFallbackOnlineName
         AppLogger.shared.log("[TTSFallback] Thử lại \(name) (chương \(chapter), đoạn \(index))")
         do {
-            let probeTimeout = TimeInterval(TTSOnlineSynthesisSettings.fallbackTimeoutSeconds)
-            let data: Data
-            if engineTool == "google" {
-                // Timeout 3 s cho lượt thử (1.3.953): server chậm thì kết luận nhanh, không bị lượt thử kéo dài.
-                data = try await TTSAudioSynthesisWorker.withTimeout(seconds: probeTimeout) {
-                    try await google.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
+            // Qua hàng đợi chung như mọi lượt TTS online (1.3.960): runtime JS của tiện ích chỉ chịu một lượt mỗi lúc — gọi
+            // thẳng service thì lượt thử chạy chồng lượt khác và hết giờ là huỷ luôn lượt kia. Mức `.nextChapter` = thấp
+            // nhất, một lần thử, timeout theo cài đặt (`RemoteTTSAttemptPolicy`).
+            let data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
+                key: "fallback-probe|\(UUID().uuidString)", engine: engineTool, textLength: text.count, priority: .nextChapter
+            ) {
+                if engineTool == "google" {
+                    return try await google.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
                 }
-            } else {
-                data = try await TTSAudioSynthesisWorker.withTimeout(seconds: probeTimeout) {
-                    try await ext.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
-                }
+                return try await ext.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
             }
             guard !data.isEmpty else { return .failed }
             // Online chạy lại; tiếng chỉ giữ khi vẫn đúng phiên / chương / đoạn còn thiếu hoặc đang là tiếng dự phòng.
             if sessionID == session, playingChapterIndex == chapter, index > currentParagraphIndex, index < paragraphs.count {
-                preloadedData[index] = data
-                noteOnlineAudio(index: index)
+                storeOnlineAudio(data, at: index)
             }
             return .recovered
         } catch is CancellationError {

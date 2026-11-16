@@ -84,22 +84,12 @@ extension TTSManager {
         return true
     }
 
-    /// Bật giọng dự phòng cho phiên hiện tại.
-    ///
-    /// `cancelPendingPrefetch = false` ⇒ **không** huỷ lượt nạp trước đang chạy: đường "lượt nạp trước hụt
-    /// timeout" (1.3.953) — lượt nào còn chạy thì tự xong, thành công thì giữ tiếng online đã nạp cho đoạn đó;
-    /// chỉ các đoạn từ đoạn lỗi trở đi mới chuyển sang giọng dự phòng.
-    func activateOnlineFallback(
-        engine: TTSOnlineFallbackSettings.Engine,
-        offline: Bool,
-        cancelPendingPrefetch: Bool = true,
-        message: String? = nil
-    ) {
+    /// Bật giọng dự phòng cho phiên hiện tại. Bỏ các lượt nạp trước online đang chờ (có thể tới hết giờ) để nạp lại bằng
+    /// giọng dự phòng; tiếng đã nạp giữ nguyên. Từ 1.3.960 mọi đường bật đều bỏ: chỉ bật khi online đã hết lượt thử hoặc
+    /// mất mạng, nên các lượt online đang chờ gần như chắc cũng hụt (1.3.953 giữ chúng vì một lần hụt 3 s chưa đủ chắc).
+    func activateOnlineFallback(engine: TTSOnlineFallbackSettings.Engine, offline: Bool, message: String? = nil) {
         onlineFallback.activate(session: sessionID)
-        if cancelPendingPrefetch {
-            // Lượt nạp trước online đang chờ (có thể tới hết giờ) — bỏ để nạp lại bằng giọng dự phòng; tiếng đã có giữ nguyên.
-            cancelRemotePrefetchTasks()
-        }
+        cancelRemotePrefetchTasks()
         let voice = Self.onlineFallbackVoiceTitle(for: engine)
         let toastMessage = message ?? (offline
             ? "Mất mạng — đọc bằng giọng dự phòng \(voice)"
@@ -135,7 +125,7 @@ extension TTSManager {
         )
         let isDemand = priority == .demand
         let task: Task<Data, Error>
-        if let running = onlineFallback.task(for: key), !isDemand || onlineFallback.hasStarted(key) {
+        if let running = onlineFallback.task(for: key), !running.isCancelled, !isDemand || onlineFallback.hasStarted(key) {
             task = running
             if isDemand {
                 // Đoạn đang đọc dùng chung lượt nạp trước đã rời hàng chờ ⇒ nâng mức ưu tiên của nó trong hàng đợi tổng hợp.
@@ -162,20 +152,31 @@ extension TTSManager {
             }
             onlineFallback.store(task, for: key, isPrefetch: !isDemand)
         }
+        // Người chờ bị huỷ mà không còn ai chờ ⇒ huỷ luôn lượt tổng hợp (1.3.960): `task.value` không tự truyền huỷ xuống.
+        let waiter = UUID()
+        let state = onlineFallback
+        state.addWaiter(waiter, for: key)
         do {
-            let data = try await task.value
-            onlineFallback.finish(task, for: key)
-            onlineFallback.markFallback(key, engine: engine)
+            let data = try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                Task { @MainActor in state.removeWaiter(waiter, for: key, task: task, cancelIfIdle: true) }
+            }
+            state.removeWaiter(waiter, for: key, task: task, cancelIfIdle: false)
+            state.finish(task, for: key)
+            state.markFallback(key, engine: engine)
             return data
         } catch {
-            onlineFallback.finish(task, for: key)
+            state.removeWaiter(waiter, for: key, task: task, cancelIfIdle: false)
+            state.finish(task, for: key)
             throw error
         }
     }
 
     /// Khoá tổng hợp của một đoạn dự phòng trong hàng đợi `PiperSynthesisCoordinator` — có khoá thì đoạn đang đọc mới nâng
     /// được mức ưu tiên của lượt nạp trước đang chờ (`promote`). Cùng engine + giọng + tốc độ + ranh giới + chữ ⇒ cùng tiếng,
-    /// nên hai đoạn trùng khoá gộp chung một lượt là đúng.
+    /// nên hai đoạn trùng khoá gộp chung một lượt là đúng. Băm SHA-256 như mọi khoá tổng hợp khác (`TTSSynthesisIdentity`,
+    /// 1.3.960 — bản băm djb2 tự viết trước đó trùng khoá thì hai đoạn khác nhau bị gộp, phát nhầm tiếng).
     private static func onlineFallbackSynthesisKey(
         engine: TTSOnlineFallbackSettings.Engine,
         voice: String,
@@ -183,12 +184,11 @@ extension TTSManager {
         boundary: TTSBoundaryKind,
         text: String
     ) -> String {
-        let raw = "\(engine.rawValue)|\(voice)|\(speed)|\(boundary.rawValue)|\(text)"
-        var hash: UInt64 = 5381
-        for byte in raw.utf8 {
-            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
-        }
-        return "fallback-\(String(hash, radix: 16))-\(raw.utf8.count)"
+        let digest = TTSSynthesisIdentity.computeKey(
+            chapterURL: "online-fallback", chapterIndex: -1, paragraphIndex: -1, finalText: text,
+            engine: engine.rawValue, voice: "\(voice)|boundary=\(boundary.rawValue)", synthesisSpeed: speed
+        )
+        return "fallback-\(digest)"
     }
 
     private func onlineFallbackService(for engine: TTSOnlineFallbackSettings.Engine) -> (any LocalTTSEngine)? {
@@ -215,6 +215,14 @@ extension TTSManager {
     /// Đoạn `index` vừa có tiếng online (đoạn đang đọc / nạp trước / lượt thử) ⇒ thôi coi là đoạn dự phòng.
     func noteOnlineAudio(index: Int) {
         onlineFallback.markOnline(onlineFallbackChunkKey(index))
+    }
+
+    /// Ghi tiếng **online** của đoạn `index` (chương đang đọc) vào bộ đệm nạp trước, luôn kèm xoá dấu "dự phòng" (1.3.960:
+    /// đường nạp gộp Google từng quên xoá dấu ⇒ đoạn online phát theo tốc độ của giọng dự phòng và hiện badge "Dự phòng").
+    /// Tiếng đầu chương kế / prefix chương ghi ngay sau `forgetChunks` nên không cần.
+    func storeOnlineAudio(_ data: Data, at index: Int) {
+        preloadedData[index] = data
+        noteOnlineAudio(index: index)
     }
 
     /// Tốc độ `AVAudioPlayer` của đường remote: đoạn dự phòng phát theo tốc độ của engine dự phòng.

@@ -101,7 +101,9 @@ final class VieNeuForeignTextClassifier: @unchecked Sendable {
             if !continuesCompound { head = token }
             previousEnd = match.range.location + match.range.length
             // Hậu tố xưng hô sau tên kiểu Nhật được bộ tiền xử lý đọc theo âm tiết (1.3.956) ⇒ không phải tiếng nước ngoài.
-            if readsJapaneseNames, continuesCompound, VieNeuJapaneseNameReader.readsSuffix(token, afterHead: head) { continue }
+            // Phần đầu có trong từ điển phiên âm cũng tính là tên (1.3.960, cùng luật với bộ tiền xử lý).
+            if readsJapaneseNames, continuesCompound,
+               VieNeuJapaneseNameReader.readsSuffix(token, afterHead: head, dictionaryKeys: japaneseKeys) { continue }
             if isForeign(token, japaneseKeys: japaneseKeys, readsJapaneseNames: readsJapaneseNames) { foreign.append(token) }
         }
         let prefersTurbo = foreign.count >= 2 || foreign.contains { $0.count >= 5 }

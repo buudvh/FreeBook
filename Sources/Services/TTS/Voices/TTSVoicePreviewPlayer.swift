@@ -92,12 +92,17 @@ final class TTSVoicePreviewPlayer {
             operation = { try await service.synthesize(text: Self.sampleText, voice: voiceId, speed: 1.0) }
         case .google(let voiceId):
             let service = GoogleTTSService.shared
-            operation = { try await service.synthesize(text: Self.sampleText, voice: voiceId, speed: 1.0, pitch: 1.0) }
+            operation = {
+                // Gọi thẳng service (không qua coordinator) ⇒ tự thử lại 2 lượt như vòng riêng của Google trước 1.3.960.
+                try await RemoteTTSAttemptPolicy.withRetry(maxAttempts: 2) {
+                    try await service.synthesize(text: Self.sampleText, voice: voiceId, speed: 1.0, pitch: 1.0)
+                }
+            }
         case .ext(let localPath, let configJson, let voiceId):
             let service = TTSManager.shared.extService
             operation = {
                 // Đường này gọi thẳng service (không qua worker) ⇒ tự thử lại 2 lượt như trước 1.3.953.
-                try await TTSAudioSynthesisWorker.withRetry(maxAttempts: 2) {
+                try await RemoteTTSAttemptPolicy.withRetry(maxAttempts: 2) {
                     try await service.synthesizeData(
                         text: Self.sampleText, voice: voiceId, localPath: localPath, configJson: configJson
                     )
