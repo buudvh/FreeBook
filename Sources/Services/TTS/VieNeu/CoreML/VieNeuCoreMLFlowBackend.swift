@@ -132,9 +132,6 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         let started = ProcessInfo.processInfo.systemUptime
         let latent = try trajectory(request, veBucket: bucket)
         noteRun(key: "ve\(bucket)", started: started)
-        lock.lock()
-        stats.coreMLChunks += 1
-        lock.unlock()
         return latent
     }
 
@@ -143,6 +140,11 @@ final class VieNeuCoreMLFlowBackend: VieNeuFlowBackend, @unchecked Sendable {
         let started = ProcessInfo.processInfo.systemUptime
         let samples = try decode(latent: latent, frames: frames, latentChannels: latentChannels, codecBucket: bucket)
         noteRun(key: "codec\(bucket)", started: started)
+        // Đếm chunk Core ML ở **đây**, sau khi cả vòng Euler lẫn codec xong (1.3.956): đếm ngay sau vòng Euler thì chunk
+        // mà codec lỗi rồi chạy lại bằng ORT vẫn bị tính là Core ML (badge "Nano · Core ML" sai, `coreMLChunks=` thừa).
+        lock.lock()
+        stats.coreMLChunks += 1
+        lock.unlock()
         return samples
     }
 

@@ -141,10 +141,24 @@ extension VieNeuTTSEngine {
     static let leadInFrameCredit = 2
 
     /// Chuỗi phiên âm đưa vào `encode`: thêm `leadInPhonemes` khi chunk có lời đọc và chưa mở đầu bằng dấu câu / dấu cách.
-    static func withLeadIn(_ phonemes: String) -> String {
-        guard let first = phonemes.unicodeScalars.first else { return phonemes }
-        if first == " " || CharacterSet.punctuationCharacters.contains(first) { return phonemes }
-        return leadInPhonemes + phonemes
+    ///
+    /// Xét theo ký hiệu đầu tiên **có trong vocab** (1.3.956): dấu đứng đầu mà vocab không có (dấu nháy mở của dòng thoại,
+    /// dấu hai chấm…) đằng nào cũng bị `encode` bỏ, nên trước đó chunk kiểu `" sˈin tʃˈaːw` bị coi là "đã mở đầu bằng dấu
+    /// câu" và không được thêm khoảng dẫn dù model thấy nó bắt đầu thẳng bằng phụ âm. Phần bị bỏ ở đầu (cùng dấu cách
+    /// theo sau) được cắt khỏi chuỗi trả về — không đổi ids, chỉ không còn đếm vào `dropped=`.
+    static func withLeadIn(_ phonemes: String, vocab: [UInt32: Int64]) -> (phonemes: String, added: Bool) {
+        let scalars = phonemes.unicodeScalars
+        var start = scalars.startIndex
+        while start < scalars.endIndex, vocab[scalars[start].value] == nil {
+            start = scalars.index(after: start)
+        }
+        if start > scalars.startIndex {
+            while start < scalars.endIndex, scalars[start] == " " { start = scalars.index(after: start) }
+        }
+        guard start < scalars.endIndex else { return (phonemes, false) }
+        let first = scalars[start]
+        if first == " " || CharacterSet.punctuationCharacters.contains(first) { return (phonemes, false) }
+        return (leadInPhonemes + String(scalars[start...]), true)
     }
 
     /// Cắt im lặng model tự sinh ở hai đầu (giữ 0,04 s mỗi đầu) rồi fade cosine 0,015 s ở hai mép.

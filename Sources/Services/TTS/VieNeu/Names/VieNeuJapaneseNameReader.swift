@@ -44,9 +44,8 @@ enum VieNeuJapaneseNameReader {
         for piece in pieces.dropFirst() {
             if let name = namePhonemes(piece) {
                 output.append(marked(name))
-            } else if honorifics.contains(piece.lowercased()),
-                      let syllables = VieNeuRomajiSyllabifier.syllables(of: piece.lowercased()) {
-                output.append(marked(VieNeuRomajiSyllabifier.phonemes(of: syllables)))
+            } else if let suffix = honorificPhonemes(piece) {
+                output.append(marked(suffix))
             } else {
                 output.append(piece)
             }
@@ -72,7 +71,22 @@ enum VieNeuJapaneseNameReader {
         return namePhonemes(word) != nil
     }
 
+    /// Mẩu đứng sau gạch nối của token mà phần đầu là `head` có được đọc theo âm tiết không ("sensei" trong
+    /// "Kakashi-sensei") — cho `VieNeuForeignTextClassifier`, vốn tách token ở gạch nối nên không tự thấy điều này.
+    static func readsSuffix(_ piece: String, afterHead head: String) -> Bool {
+        namePhonemes(head) != nil && (namePhonemes(piece) != nil || honorificPhonemes(piece) != nil)
+    }
+
     // MARK: - Cổng nhận dạng
+
+    /// Hậu tố xưng hô ⇒ phiên âm. Cắt với tối thiểu **một** âm tiết: "kun", "san", "chan", "tan", "chin" chỉ có một
+    /// (trước 1.3.956 dùng mặc định hai âm tiết nên năm hậu tố này không bao giờ được đổi, "kun" bị đọc theo tiếng Anh).
+    private static func honorificPhonemes(_ piece: String) -> [String]? {
+        let key = piece.lowercased()
+        guard honorifics.contains(key),
+              let syllables = VieNeuRomajiSyllabifier.syllables(of: key, minimumSyllables: 1) else { return nil }
+        return VieNeuRomajiSyllabifier.phonemes(of: syllables)
+    }
 
     private static func namePhonemes(_ piece: String) -> [String]? {
         guard let key = nameKey(piece, minimumLetters: minimumLetters) else { return nil }

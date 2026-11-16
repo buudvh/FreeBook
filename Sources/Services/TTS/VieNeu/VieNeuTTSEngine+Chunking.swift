@@ -14,6 +14,14 @@ extension VieNeuTTSEngine {
     /// `CHUNK_TAIL_SLACK` — xem `fits(current:adding:limit:)`.
     private static let tailSlack = 15
 
+    /// Độ dài dùng để so với trần chunk: **không** tính cặp ký hiệu bọc phiên âm có sẵn (`SeaG2P.rawPhonemeOpen` / `Close`).
+    /// `VieNeuJapaneseNameReader` bọc từng âm tiết của tên, nên đếm cả ký hiệu thì "Sasuke" (6 chữ) thành 18 ký tự và đoạn
+    /// nhiều tên bị tách chunk sớm hơn hẳn đoạn chữ thường (1.3.956). Ký hiệu bọc không vào ids nên không ảnh hưởng độ dài
+    /// chuỗi token của model.
+    private static func length(_ text: String) -> Int {
+        text.reduce(0) { $1 == SeaG2P.rawPhonemeOpen || $1 == SeaG2P.rawPhonemeClose ? $0 : $0 + 1 }
+    }
+
     /// Tách văn bản thành các chunk theo **CÂU**, đúng thuật toán của bản tham chiếu
     /// (`normalize_to_chunks_v3_with_gaps` → `pack_sentences_into_chunks`): chia đoạn theo `\n`, chia câu
     /// trong mỗi đoạn, rồi **gói nguyên câu** vào chunk ≤ `limit`. Ranh giới chunk vì thế **luôn** rơi vào
@@ -38,7 +46,7 @@ extension VieNeuTTSEngine {
 
         for paragraph in paragraphs {
             let whole = paragraph.trimmingCharacters(in: .whitespaces)
-            let packed = whole.count <= limit ? [whole] : packSentences(sentences(of: paragraph), limit: limit)
+            let packed = length(whole) <= limit ? [whole] : packSentences(sentences(of: paragraph), limit: limit)
             guard !packed.isEmpty else { continue }
             if !chunks.isEmpty {
                 // Ranh giới với ĐOẠN trước là ngắt đoạn, không phải ngắt câu — ghi đè lên chunk cuối của
@@ -95,17 +103,17 @@ extension VieNeuTTSEngine {
             let piece = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !piece.isEmpty else { continue }
 
-            if piece.count > limit {
+            if length(piece) > limit {
                 if !buffer.isEmpty { chunks.append(buffer); buffer = "" }
                 for part in splitLongPart(piece, limit: limit) {
-                    if fits(current: buffer.count, adding: part.count, limit: limit) {
+                    if fits(current: length(buffer), adding: length(part), limit: limit) {
                         buffer = buffer.isEmpty ? part : buffer + " " + part
                     } else {
                         if !buffer.isEmpty { chunks.append(buffer) }
                         buffer = part
                     }
                 }
-            } else if fits(current: buffer.count, adding: piece.count, limit: limit) {
+            } else if fits(current: length(buffer), adding: length(piece), limit: limit) {
                 buffer = buffer.isEmpty ? piece : buffer + " " + piece
             } else {
                 if !buffer.isEmpty { chunks.append(buffer) }
@@ -128,7 +136,7 @@ extension VieNeuTTSEngine {
     private static func splitLongPart(_ sentence: String, limit: Int) -> [String] {
         var result: [String] = []
         for part in splitOnMinorPunctuation(sentence) {
-            if part.count <= limit {
+            if length(part) <= limit {
                 result.append(part)
             } else {
                 result.append(contentsOf: splitLongWords(part, limit: limit))
@@ -199,7 +207,7 @@ extension VieNeuTTSEngine {
     private static func spanLength(_ words: [String], _ start: Int, _ end: Int) -> Int {
         guard end > start else { return 0 }
         var total = 0
-        for index in start..<end { total += words[index].count }
+        for index in start..<end { total += length(words[index]) }
         return total + (end - start - 1)
     }
 
@@ -230,7 +238,9 @@ extension VieNeuTTSEngine {
             // Hai luật chặn: giữa **hai từ số**, và ngay sau một từ **dẫn số** khi từ kế là số.
             let splitsNumber = (isNumberWord(words[index - 1]) && isNumberWord(words[index]))
                 || (numberIntroducers.contains(previous) && isNumberWord(words[index]))
-            let plainOK = !insidePair && !splitsNumber
+            // Hai âm tiết phiên âm có sẵn đứng liền nhau là **một tên** ("sa su | ke") — cắt ở đó là chèn khoảng nghỉ giữa tên.
+            let splitsName = words[index - 1].last == SeaG2P.rawPhonemeClose && words[index].first == SeaG2P.rawPhonemeOpen
+            let plainOK = !insidePair && !splitsNumber && !splitsName
             if plainOK, bestPlain == nil || distance < bestPlain!.distance {
                 bestPlain = (distance, index)
             }

@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.956] - 2026-11-16
+
+### fix: VieNeu Nano đọc đúng hậu tố xưng hô, thêm khoảng dẫn cho dòng thoại, không cắt chunk giữa tên và các lỗi rà soát khác
+
+Sửa tiếp các phát hiện của lượt rà soát mã VieNeu Nano (cùng ngày với 1.3.955).
+
+- **Hậu tố `kun` / `san` / `chan` / `tan` / `chin` giờ được đọc theo âm tiết.** `VieNeuRomajiSyllabifier.syllables(of:)` trả `nil` cho từ dưới 2 âm tiết nên 5/10 mục của `honorifics` là mục chết — "Sasuke-kun" chỉ đổi "Sasuke", còn "kun" đi vào `SeaG2P` đọc kiểu tiếng Anh. Thêm tham số `minimumSyllables` (mặc định 2, luật nhận tên không đổi); `VieNeuJapaneseNameReader.honorificPhonemes` gọi với 1 ⇒ `kˈun`, `sˈaːn`, `tʃˈaːn`… đúng các luật phiên âm đã duyệt. Bản chép Python của bộ cắt (`Scripts/gen_vieneu_romaji_english_lookalikes.py`) chỉ dùng mặc định nên không phải sửa.
+- **Đọc lai không còn chuyển sang Turbo vì hậu tố.** `VieNeuForeignTextClassifier` tách token ở gạch nối nên "sensei" / "senpai" / "sama" của "Kakashi-sensei" bị tính là tiếng nước ngoài dù bộ tiền xử lý đã đọc chúng theo âm tiết. Giờ bộ phân loại theo dõi phần đầu của cụm gạch nối và hỏi `VieNeuJapaneseNameReader.readsSuffix(_:afterHead:)`.
+- **Khoảng dẫn cho đoạn mở đầu bằng dấu mà vocab không có.** `withLeadIn` xét theo ký hiệu đầu tiên **có trong vocab**: dấu nháy mở của dòng thoại (`normalizeVietnameseText` giữ lại, `encode` bỏ đi) trước đây làm chunk bị coi là "đã mở đầu bằng dấu câu" nên không có khoảng dẫn. Phần bị bỏ ở đầu được cắt khỏi chuỗi (ids không đổi; chỉ không còn đếm vào `dropped=`). Dấu có trong vocab đứng đầu thì như cũ. Log build 1283 cho thấy dấu hai chấm không có trong vocab; dấu nháy có hay không thì **chưa xác minh** được từ repo.
+- **Cắt chunk không tính ký hiệu bọc phiên âm và không cắt giữa tên.** `VieNeuTTSEngine+Chunking` đo độ dài bằng `length(_:)` (bỏ `SeaG2P.rawPhonemeOpen` / `Close`) — trước đó "Sasuke" 6 chữ thành 18 ký tự nên đoạn nhiều tên bị tách chunk sớm; `balancedCut` có thêm luật chặn `splitsName` (hai âm tiết bọc đứng liền nhau).
+- **Khung "miễn phí" chỉ có khi chunk chạy được bằng Core ML.** `runChunk` hỏi `canRun` trước khi hỏi trần cỡ khung: chunk sẽ lùi ORT vì chuỗi token dài hơn graph / giọng khác dạng thì không còn được thêm tới +30% khung như thể miễn phí (ORT ⇒ đúng `minimumBoost`, chế độ Miễn phí ⇒ không thêm).
+- **`coreMLChunks` đếm sau khi codec xong** (`VieNeuCoreMLFlowBackend.decode`): codec lỗi rồi chạy lại ORT không còn bị tính là chunk Core ML (badge "Nano · Core ML" sai).
+- **Dọn mã chết của màn thử đã bỏ (1.3.919):** `lastDroppedScalars` / `lastChunkCount` / `lastPhonemeSample` / `lastSpeechDuration` / `lastTiming` / `lastVectorMs` / `lastOtherMs` của `VieNeuTTSService`, `Output.phonemeSample` của engine (mỗi lượt ghép chuỗi phoneme mọi chunk cho không ai đọc), `Timing.vectorMs` / `otherMs`.
+- **Chưa sửa, chờ anh Bửu quyết:** luật 2 của `VieNeuNameFrameBoost.isNameChunk` nhận nhầm cặp Hán Việt thanh ngang ("Tu La", "Ma Tu", "Hư Vô") là tên phiên âm — luật do anh nghe và duyệt. RTF trên badge vẫn chia cho `pcmDuration` (gồm khoảng lặng) — công thức anh đã duyệt ở 1.3.954 và dùng chung với Piper.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.955] - 2026-11-16
 
 ### fix: Giọng dự phòng VieNeu không còn hụt đoạn offline thứ 2 do chạy nháp Core ML lặp lại ở mỗi đoạn
@@ -398,21 +414,3 @@ Anh Bửu thử 1.3.924 trên iPhone 11: công tắc tắt thì Turbo chạy đ�
 - **Ghi lý do dừng**: bản vá audio.cpp mới `capi_abort_file.py` — hàm C `audiocpp_set_abort_file(path)` cài `ggml_set_abort_callback` + `std::terminate` handler, ghi câu báo `GGML_ASSERT` / exception chưa bắt ra `Library/Caches/audiocpp-abort.txt` trước khi `abort()`. Lần mở sau app đưa câu đó vào dòng `❌ [VieNeuTurbo] Lần trước …` (công tắc đang bật thì cũng tự tắt). Không bắt được truy cập bộ nhớ sai — khi đó cần file `.ips`.
 - Build iOS chặn nếu thiếu symbol `audiocpp_set_abort_file`; job parity áp cả bản vá mới (không đổi phép tính).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp trên PC (khớp mốc, áp lại tự bỏ qua) và đã build + chạy thật trên CI nhánh chẩn đoán. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.924] - 2026-11-13
-
-### feat: Turbo có công tắc thử Tăng tốc codec bằng AMX, log tách thời gian nạp prompt, backbone, âm học và codec
-
-Báo cáo tối ưu Turbo (`Docs/Reports/2026-11-13-vieneu-turbo-toi-uu.md`, gitignored), P0a đo trên CI (nhánh thử `claude/turbo-p0a-profile`, không gộp): codec MOSS chiếm **37–51%** thời gian một đoạn Turbo và chạy fp32 NEON; backbone q8 không còn nghẽn băng thông. iPhone 11 đo `cblas_sgemm` 388 GFLOPS (AMX) so với ~37 GFLOPS mỗi lõi NEON. Anh Bửu chọn hướng "codec qua AMX (máy)" và duyệt plan.
-
-- **Bản vá audio.cpp mới** (`Scripts/ci/audiocpp_patches/`, mốc chuỗi khớp đúng một lần, lệch là build đỏ):
-  - `vieneu_codec_blas.py`: session option `vieneu_v3_turbo.codec_blas` (mặc định tắt) ⇒ codec giải mã cả đoạn qua `ggml_backend_sched` [BLAS, CPU] (khuôn `moonshine_asr` của audio.cpp). Dựng scheduler hỏng ⇒ bỏ BLAS, dựng lại graph sạch trên đường cũ. Không đụng talker, giải mã từng khung, encoder nhân bản giọng. Log `moss.audio_tokenizer.decode.blas_active / blas_nodes / sched_splits`.
-  - `capi_log_file.py`: hàm C `audiocpp_set_log_file(path)` bật bộ đếm giờ có sẵn của audio.cpp (symbol tự xuất theo `_audiocpp_*`).
-- **Build iOS** (`build_audiocpp_ios.sh`): `GGML_BLAS=ON`, nhà cung cấp Apple (Accelerate, framework hệ thống); chặn build nếu thiếu symbol `audiocpp_set_log_file`. Khoá cache đổi ⇒ dựng lại framework một lần.
-- **Job parity** (`audiocpp_parity_macos.sh` + `audiocpp_wav_snr.py`): bản vá (công tắc tắt, có ggml-blas) vẫn phải trùng từng byte bản gốc; bật `codec_blas` thì mã âm thanh phải trùng, WAV ≥ 90 dB so với khi tắt, và log phải báo codec thật sự chạy BLAS. Runner là máy ảo không có AMX ⇒ chỉ kiểm đúng số, không kiểm tốc độ.
-- **App**:
-  - Cài đặt › Nghe truyện › Cài đặt VieNeu TTS › mục Turbo: công tắc **"Tăng tốc codec bằng AMX (thử nghiệm)"** (`VieNeuTurboAcceleration`, khoá `vieneuTurboCodecAMX`, mặc định tắt), giải thích sau nút "?".
-  - `VieNeuTurboRuntime`: dựng session kèm option khi bật (`+Session`, tách khỏi file gốc); gạt công tắc ⇒ đoạn tổng hợp kế tiếp tự dựng lại session, không nạp lại model.
-  - Log bật ⇒ dòng `[VieNeuTurbo] Đoạn` thêm `prefillMs stepMs acousticMs codecMs gens amx=tắt/bật/lùi` (`VieNeuTurboTimingLog`: mỗi lượt mở file tạm sạch, đọc xong xoá). Log tắt ⇒ audio.cpp không ghi gì.
-- Cách đo trên máy: bật log, nghe Turbo vài phút tắt công tắc rồi vài phút bật, so `codecMs` mỗi giây tiếng và RTF. AMX không được đếm đủ vào CPU-time ⇒ đừng so `cpuPerAudio`.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp lên audio.cpp v0.9.4 trên PC (khớp mốc, áp lại tự bỏ qua). Không build tại chỗ (Windows), chưa thử trên máy.

@@ -37,11 +37,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
     private let engine: VieNeuTTSEngine
     private let syncQueue = DispatchQueue(label: "VieNeuTTSService.sync")
     private var _currentVoice: String?
-    private var _lastDroppedScalars = 0
-    private var _lastChunkCount = 0
-    private var _lastPhonemeSample = ""
-    private var _lastSpeechDuration = 0.0
-    private var _lastTiming = VieNeuTTSEngine.Timing()
 
     var currentVoice: String? {
         syncQueue.sync { _currentVoice }
@@ -60,24 +55,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
 
     /// 4 session ONNX đã nạp xong chưa — nghe thử giọng (`VieNeuVoicePreviewPlayer`) nạp engine trước nếu chưa.
     var isPrepared: Bool { engine.isPrepared }
-
-    /// Số phoneme bị bỏ ở lượt tổng hợp gần nhất — dấu hiệu text không đọc được.
-    var lastDroppedScalars: Int { syncQueue.sync { _lastDroppedScalars } }
-
-    /// Số chunk của lượt tổng hợp gần nhất — xem doc của `VieNeuTTSEngine.Output.chunkCount`.
-    var lastChunkCount: Int { syncQueue.sync { _lastChunkCount } }
-
-    /// Phoneme của chunk đầu ở lượt gần nhất — bằng chứng để phân biệt "từ điển sai" với "model đọc
-    /// phoneme tiếng Anh bằng giọng Việt".
-    var lastPhonemeSample: String { syncQueue.sync { _lastPhonemeSample } }
-
-    /// Độ dài audio trừ khoảng nghỉ đã chèn — mẫu số đúng để tính RTF thật.
-    var lastSpeechDuration: Double { syncQueue.sync { _lastSpeechDuration } }
-
-    /// Thời gian từng giai đoạn của lượt gần nhất (text / vòng Euler / codec, cả CPU) — để biết chậm ở đâu.
-    var lastTiming: VieNeuTTSEngine.Timing { syncQueue.sync { _lastTiming } }
-    var lastVectorMs: Double { lastTiming.vectorMs }
-    var lastOtherMs: Double { lastTiming.otherMs }
 
     /// Khoá `UserDefaults` của chế độ chất lượng — lấy từ `VieNeuSynthesisPolicy` (cùng chỗ với các cài đặt
     /// VieNeu khác) để màn Cài đặt đọc được ngay cả khi service chưa dựng; xem lỗi 1.3.456.
@@ -293,8 +270,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         flowBackend: VieNeuFlowBackend?
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) {
-            // Đoạn im lặng không chạy engine ⇒ xoá số đo của đoạn trước, kẻo `lastTiming` còn số của đoạn đó.
-            syncQueue.sync { _lastTiming = VieNeuTTSEngine.Timing() }
             return silencePayload(text: text, speed: speed)
         }
         // Mở rộng số/ngày/tháng trước khi đưa cho engine — `sea_g2p.bin` không có chữ số, nếu không
@@ -307,7 +282,6 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         let normalizedText = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
             text: TextPreprocessor.normalizeVietnameseText(text)
         )
-        let started = ProcessInfo.processInfo.systemUptime
         let coreMLBefore = VieNeuCoreMLReaderRoute.shared.counters()
         let output = try engine.synthesize(
             text: normalizedText,
@@ -329,17 +303,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
             text: text,
             rtf: output.synthesisMs / 1_000 / max(0.01, output.pcmDuration)
         )
-        syncQueue.sync {
-            _currentVoice = voice
-            _lastDroppedScalars = output.droppedScalars
-            _lastChunkCount = output.chunkCount
-            _lastPhonemeSample = output.phonemeSample
-            _lastSpeechDuration = output.speechDuration
-            _lastTiming = output.timing
-        }
-        // `synthesisMs` của engine đo bên trong (chỉ gồm ONNX), còn ở đây đo trọn lượt gọi — lấy số của
-        // engine để RTF phản ánh đúng chi phí suy luận chứ không lẫn thời gian chờ khoá.
-        _ = started
+        syncQueue.sync { _currentVoice = voice }
+        // `synthesisMs` lấy của engine (đo bên trong, chỉ gồm suy luận) để RTF không lẫn thời gian chờ khoá.
         return PiperSynthesisPayload(
             data: output.data,
             pcmDuration: output.pcmDuration,

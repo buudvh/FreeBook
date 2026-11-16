@@ -112,9 +112,6 @@ extension VieNeuTTSEngine {
         /// Vòng Euler: 8 hoặc 16 bước × 2 lượt `vector_estimator` (CFG) — **không** gồm codec.
         var vector = StageTime()
         var codec = StageTime()
-        var vectorMs: Double { vector.wallMs }
-        /// Mọi thứ ngoài vòng Euler (text + codec) — giữ cho màn Nghe thử ("vector | khác").
-        var otherMs: Double { text.wallMs + codec.wallMs }
         /// QoS **đo được** của luồng tổng hợp: giá trị mặc định tính lúc `synthesize` dựng `Timing()`, tức trên luồng
         /// đang tổng hợp. `sessionQoS` = QoS lúc dựng session ORT (`VieNeuONNXRuntime.buildQoS`). Log `[VieNeuPerf]` ghi
         /// cả hai để biết QoS có tới nơi thật không.

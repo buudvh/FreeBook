@@ -89,8 +89,10 @@ enum VieNeuRomajiSyllabifier {
 
     // MARK: - Cắt âm tiết
 
-    /// Cắt được **hết** thành ít nhất hai âm tiết ⇒ danh sách âm tiết; còn lại ⇒ `nil` (không phải romaji).
-    static func syllables(of key: String) -> [Syllable]? {
+    /// Cắt được **hết** thành ít nhất `minimumSyllables` âm tiết ⇒ danh sách âm tiết; còn lại ⇒ `nil` (không phải romaji).
+    /// Mặc định 2: từ một âm tiết ("kun", "san") trùng quá nhiều chữ thường nên không được coi là tên. Chỉ hậu tố xưng hô
+    /// đứng sau gạch nối của một tên đã nhận (`VieNeuJapaneseNameReader`) mới gọi với 1.
+    static func syllables(of key: String, minimumSyllables: Int = 2) -> [Syllable]? {
         let word = normalize(key)
         var syllables: [Syllable] = []
         var index = 0
@@ -128,8 +130,8 @@ enum VieNeuRomajiSyllabifier {
             syllables.append(Syllable(onset: onset, vowel: vowel))
             index += onset.count + 1
         }
-        guard syllables.count >= 2 else { return nil }
-        return mergingGlides(syllables)
+        guard syllables.count >= minimumSyllables else { return nil }
+        return mergingGlides(syllables, minimumSyllables: minimumSyllables)
     }
 
     /// "n" là âm mũi cuối âm tiết khi sau nó không phải nguyên âm / "y" (hoặc là dấu nháy, hoặc hết từ).
@@ -159,7 +161,7 @@ enum VieNeuRomajiSyllabifier {
     }
 
     /// "ai / oi / ui" đọc thành **một** âm tiết có bán nguyên âm cuối (`kai` → `kˈaːj`), trừ khi "i" còn mang đuôi n.
-    private static func mergingGlides(_ syllables: [Syllable]) -> [Syllable]? {
+    private static func mergingGlides(_ syllables: [Syllable], minimumSyllables: Int) -> [Syllable]? {
         var merged: [Syllable] = []
         for syllable in syllables {
             if let previous = merged.last,
@@ -172,7 +174,7 @@ enum VieNeuRomajiSyllabifier {
             }
             merged.append(syllable)
         }
-        return merged.count >= 2 ? merged : nil
+        return merged.count >= minimumSyllables ? merged : nil
     }
 
     // MARK: - Phiên âm

@@ -90,9 +90,20 @@ final class VieNeuForeignTextClassifier: @unchecked Sendable {
         let normalized = VieNeuJapanesePreprocessor.foldMacrons(TextPreprocessor.normalizeVietnameseText(text))
         let source = normalized as NSString
         let matches = tokenRegex.matches(in: normalized, options: [], range: NSRange(location: 0, length: source.length))
-        let foreign = matches
-            .map { source.substring(with: $0.range) }
-            .filter { isForeign($0, japaneseKeys: japaneseKeys, readsJapaneseNames: readsJapaneseNames) }
+        var foreign: [String] = []
+        // Phần đầu của cụm nối bằng gạch nối đang xét ("Kakashi" của "Kakashi-sensei") và vị trí hết mẩu trước.
+        var head = ""
+        var previousEnd = -1
+        for match in matches {
+            let token = source.substring(with: match.range)
+            let continuesCompound = previousEnd >= 0 && match.range.location == previousEnd + 1
+                && source.character(at: previousEnd) == 0x2D
+            if !continuesCompound { head = token }
+            previousEnd = match.range.location + match.range.length
+            // Hậu tố xưng hô sau tên kiểu Nhật được bộ tiền xử lý đọc theo âm tiết (1.3.956) ⇒ không phải tiếng nước ngoài.
+            if readsJapaneseNames, continuesCompound, VieNeuJapaneseNameReader.readsSuffix(token, afterHead: head) { continue }
+            if isForeign(token, japaneseKeys: japaneseKeys, readsJapaneseNames: readsJapaneseNames) { foreign.append(token) }
+        }
         let prefersTurbo = foreign.count >= 2 || foreign.contains { $0.count >= 5 }
         return Verdict(prefersTurbo: prefersTurbo, foreignTokens: foreign)
     }

@@ -53,9 +53,6 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let speechDuration: Double
         /// Thời gian tách theo nhóm việc — xem doc của `Timing`.
         let timing: Timing
-        /// Phoneme của chunk đầu (cắt ngắn). Đây là **bằng chứng duy nhất** phân biệt được hai nguyên nhân
-        /// hay gặp của "đọc sai": từ điển trả phoneme sai, hay phoneme đúng mà model đọc bằng giọng Việt.
-        let phonemeSample: String
     }
 
     enum EngineError: LocalizedError {
@@ -237,24 +234,21 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         var gaps: [Chunk.Gap] = []
         var droppedScalars = 0
         var timing = Timing()
-        var phonemeLines: [String] = []
         let nameBoostMode = VieNeuNameFrameBoost.mode // đọc một lần mỗi lượt, không mỗi chunk
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let phonemes = config.applyingEmotionTags(to: phonemizer.phonemizeTextWithEmotions(text: chunk.text))
-            // **Mỗi chunk một dòng**: in phoneme của cả đoạn chứ không chỉ chunk đầu. Bản trước chỉ in
-            // chunk 0 nên người dùng không soi được chunk nào đọc sai — mà đó mới là thứ cần thấy.
-            phonemeLines.append("[\(index)] \(phonemes)")
+            // Phoneme từng chunk chỉ đi ra log (`[VieNeuChunk]`, khi bật log) — màn thử hiện chúng đã bỏ ở 1.3.919.
             logChunkPhonemes(index: index, text: chunk.text, phonemes: phonemes)
             // Khoảng dẫn đầu đoạn để không cụt phụ âm đầu — xem `leadInPhonemes` (`+Audio`).
-            let leadPhonemes = Self.withLeadIn(phonemes)
-            let encoded = config.encode(phonemes: leadPhonemes)
+            let lead = Self.withLeadIn(phonemes, vocab: config.vocab)
+            let encoded = config.encode(phonemes: lead.phonemes)
             droppedScalars += encoded.droppedScalars
             noteDroppedScalars(encoded.droppedScalars, total: encoded.ids.count)
             if index > 0 { gaps.append(chunks[index - 1].gap) }
             waveforms.append(try runChunk(
                 ids: encoded.ids,
-                hasLeadIn: leadPhonemes.count != phonemes.count,
+                hasLeadIn: lead.added,
                 nameBoost: nameBoostMode != .off && VieNeuNameFrameBoost.isNameChunk(chunk.text) ? nameBoostMode : .off,
                 preset: preset,
                 tuning: tuning,
@@ -308,8 +302,7 @@ final class VieNeuTTSEngine: @unchecked Sendable {
             droppedScalars: droppedScalars,
             chunkCount: chunks.count,
             speechDuration: max(0, pcmDuration - insertedPauseSeconds),
-            timing: timing,
-            phonemeSample: phonemeLines.joined(separator: "\n")
+            timing: timing
         )
     }
 
@@ -352,31 +345,37 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         let baseFrames = hasLeadIn
             ? max(VieNeuConfig.minFrames, predictedFrames - min(Self.leadInFrameCredit, predictedFrames / 16))
             : predictedFrames
+        let grid = Self.timeGrid(steps: max(1, tuning.steps), sway: tuning.sway)
+        func request(latent: [Float], frames: Int) -> VieNeuFlowRequest {
+            VieNeuFlowRequest(
+                latent: latent, frames: frames, latentChannels: config.latentChannels, grid: grid, cfg: tuning.cfg,
+                context: context.values, contextShape: context.shape, mask: mask, speaker: preset.speakerEmbedding,
+                style: preset.style, styleRows: config.nStyle, styleColumns: config.styleDim,
+                nullContext: nullContext, nullContextShape: nullContextShape, nullMask: nullMask,
+                nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle
+            )
+        }
         // Đoạn có tên phiên âm theo âm tiết được thêm khung để không nuốt âm tiết ngắn; ưu tiên phần khung miễn phí của
-        // cỡ khung Core ML đang dùng (`VieNeuNameFrameBoost`).
+        // cỡ khung Core ML đang dùng (`VieNeuNameFrameBoost`). Chunk sẽ lùi ORT vì lý do khác số khung (chuỗi token dài hơn
+        // graph, giọng khác dạng) thì **không** có phần miễn phí — ORT tính đủ từng khung thêm (1.3.956).
+        let backendFits = nameBoost != .off && (flowBackend?.canRun(request(latent: [], frames: baseFrames)) ?? false)
         let frames = VieNeuNameFrameBoost.frames(
             base: baseFrames, mode: nameBoost, limit: Int(VieNeuConfig.maxChunkSeconds * config.flowFPS),
-            freeCeiling: { flowBackend?.freeFrameCeiling(for: $0) }
+            freeCeiling: { backendFits ? flowBackend?.freeFrameCeiling(for: $0) : nil }
         )
         if frames > baseFrames {
             timing.nameBoostChunks += 1
             timing.nameBoostFrames += frames - baseFrames
         }
 
-        // 3. Nhiễu khởi tạo + lưới t, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend Core ML)
+        // 3. Nhiễu khởi tạo, rồi vòng Euler + CFG và codec (`+Flow`: ORT, hoặc backend Core ML)
         var latent = [Float](repeating: 0, count: config.latentChannels * frames)
         Self.fillStandardNormal(&latent)
-        let grid = Self.timeGrid(steps: max(1, tuning.steps), sway: tuning.sway)
         clock.lap(&timing.text)
 
-        let request = VieNeuFlowRequest(
-            latent: latent, frames: frames, latentChannels: config.latentChannels, grid: grid, cfg: tuning.cfg,
-            context: context.values, contextShape: context.shape, mask: mask,
-            speaker: preset.speakerEmbedding, style: preset.style, styleRows: config.nStyle, styleColumns: config.styleDim,
-            nullContext: nullContext, nullContextShape: nullContextShape, nullMask: nullMask,
-            nullSpeaker: config.constants.nullSpeaker, nullStyle: config.constants.nullStyle
+        let waveform = try runFlow(
+            request(latent: latent, frames: frames), backend: flowBackend, runtime: runtime, clock: &clock, timing: &timing
         )
-        let waveform = try runFlow(request, backend: flowBackend, runtime: runtime, clock: &clock, timing: &timing)
         // Phụ trợ ở bridge C, cộng dồn cả đoạn (RTF không phản ánh phần này — xem doc `Timing`).
         (timing.tensorCreates, timing.tensorReleases, timing.copiedBytes) = runtime.churnSnapshot
         timing.sessionQoS = runtime.buildQoS

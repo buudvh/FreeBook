@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.924] - 2026-11-13
+
+### feat: Turbo có công tắc thử Tăng tốc codec bằng AMX, log tách thời gian nạp prompt, backbone, âm học và codec
+
+Báo cáo tối ưu Turbo (`Docs/Reports/2026-11-13-vieneu-turbo-toi-uu.md`, gitignored), P0a đo trên CI (nhánh thử `claude/turbo-p0a-profile`, không gộp): codec MOSS chiếm **37–51%** thời gian một đoạn Turbo và chạy fp32 NEON; backbone q8 không còn nghẽn băng thông. iPhone 11 đo `cblas_sgemm` 388 GFLOPS (AMX) so với ~37 GFLOPS mỗi lõi NEON. Anh Bửu chọn hướng "codec qua AMX (máy)" và duyệt plan.
+
+- **Bản vá audio.cpp mới** (`Scripts/ci/audiocpp_patches/`, mốc chuỗi khớp đúng một lần, lệch là build đỏ):
+  - `vieneu_codec_blas.py`: session option `vieneu_v3_turbo.codec_blas` (mặc định tắt) ⇒ codec giải mã cả đoạn qua `ggml_backend_sched` [BLAS, CPU] (khuôn `moonshine_asr` của audio.cpp). Dựng scheduler hỏng ⇒ bỏ BLAS, dựng lại graph sạch trên đường cũ. Không đụng talker, giải mã từng khung, encoder nhân bản giọng. Log `moss.audio_tokenizer.decode.blas_active / blas_nodes / sched_splits`.
+  - `capi_log_file.py`: hàm C `audiocpp_set_log_file(path)` bật bộ đếm giờ có sẵn của audio.cpp (symbol tự xuất theo `_audiocpp_*`).
+- **Build iOS** (`build_audiocpp_ios.sh`): `GGML_BLAS=ON`, nhà cung cấp Apple (Accelerate, framework hệ thống); chặn build nếu thiếu symbol `audiocpp_set_log_file`. Khoá cache đổi ⇒ dựng lại framework một lần.
+- **Job parity** (`audiocpp_parity_macos.sh` + `audiocpp_wav_snr.py`): bản vá (công tắc tắt, có ggml-blas) vẫn phải trùng từng byte bản gốc; bật `codec_blas` thì mã âm thanh phải trùng, WAV ≥ 90 dB so với khi tắt, và log phải báo codec thật sự chạy BLAS. Runner là máy ảo không có AMX ⇒ chỉ kiểm đúng số, không kiểm tốc độ.
+- **App**:
+  - Cài đặt › Nghe truyện › Cài đặt VieNeu TTS › mục Turbo: công tắc **"Tăng tốc codec bằng AMX (thử nghiệm)"** (`VieNeuTurboAcceleration`, khoá `vieneuTurboCodecAMX`, mặc định tắt), giải thích sau nút "?".
+  - `VieNeuTurboRuntime`: dựng session kèm option khi bật (`+Session`, tách khỏi file gốc); gạt công tắc ⇒ đoạn tổng hợp kế tiếp tự dựng lại session, không nạp lại model.
+  - Log bật ⇒ dòng `[VieNeuTurbo] Đoạn` thêm `prefillMs stepMs acousticMs codecMs gens amx=tắt/bật/lùi` (`VieNeuTurboTimingLog`: mỗi lượt mở file tạm sạch, đọc xong xoá). Log tắt ⇒ audio.cpp không ghi gì.
+- Cách đo trên máy: bật log, nghe Turbo vài phút tắt công tắc rồi vài phút bật, so `codecMs` mỗi giây tiếng và RTF. AMX không được đếm đủ vào CPU-time ⇒ đừng so `cpuPerAudio`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; bản vá thử áp lên audio.cpp v0.9.4 trên PC (khớp mốc, áp lại tự bỏ qua). Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.923] - 2026-11-13
 
 ### feat: Xoá được Bộ đệm hệ thống và xem thư mục Không rõ chủ ở màn Dung lượng, thêm nút xoá giọng đã tải và Xoá tất cả dữ liệu
