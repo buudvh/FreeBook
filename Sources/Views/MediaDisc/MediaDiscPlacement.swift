@@ -5,8 +5,11 @@ import UIKit
 /// sống ở cửa sổ riêng nhưng mọi cửa sổ của app đều phủ cả scene nên toạ độ cửa sổ chính dùng thẳng được.
 ///
 /// ## Luật
-/// 1. **Tầng trên cùng** = VC được trình bày sâu nhất của cửa sổ chính, bỏ qua VC đang bị đóng. Là hộp thoại / bảng chọn
-///    (`UIAlertController`, kể cả `confirmationDialog`) hay bảng chia sẻ ⇒ **ẩn** đĩa.
+/// 1. **Tầng trên cùng** = VC được trình bày sâu nhất của cửa sổ chính, bỏ qua VC đang bị đóng. Bảng chia sẻ ⇒ **ẩn** đĩa.
+///    Hộp thoại / bảng chọn (`UIAlertController`, kể cả `confirmationDialog`) ⇒ đĩa **ở lại như nằm dưới hộp thoại**
+///    (1.3.964, anh Bửu: "việc ẩn là không cần, chỉ cần để nó nằm dưới các thông báo đó"): `isUnderModal` ⇒ container tắt
+///    chạm, mặt đĩa phủ lớp tối như lớp mờ của hộp thoại; khung hộp thoại là vật cản ⇒ đĩa tạm đẩy lên trên nó (cửa sổ đĩa
+///    nằm trên cửa sổ chính nên không thể vẽ dưới hộp thoại thật). Không còn chỗ trong vùng đứng ⇒ vẫn ẩn.
 /// 2. Một neo (`MediaDiscAnchorRegistry`) chỉ được tính khi: nằm trong cửa sổ chính, VC gốc tầng của nó **chính là** tầng
 ///    trên cùng, và khung nằm trong màn. Không xét `isHidden` / alpha: neo có điều kiện tự biến mất khỏi cây.
 /// 3. Có neo `.blocker` hợp lệ (màn xem phim) ⇒ ẩn. (Neo `.hostsDisc` của ô đĩa giữa thanh tab
@@ -33,6 +36,8 @@ struct MediaDiscPlacement: Equatable {
     let edge: EdgeDirection
     /// Màn trên cùng không cho hiện đĩa.
     let isBlocked: Bool
+    /// Tầng trên cùng là hộp thoại / bảng chọn — đĩa hiện nhưng "nằm dưới" nó (không nhận chạm, phủ tối).
+    var isUnderModal = false
 
     /// Dải mép trên của nửa viên được phép (`EdgePillZone`, trước khi né neo lấn vào vùng).
     static func topRange(bounds: CGRect, safeInsets: UIEdgeInsets) -> ClosedRange<CGFloat> {
@@ -67,13 +72,22 @@ struct MediaDiscPlacement: Equatable {
             return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: false)
         }
         let topVC = topLayer(of: mainWindow)
-        if topVC is UIAlertController || topVC is UIActivityViewController {
+        if topVC is UIActivityViewController {
             return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: true)
         }
 
         // Chỉ thứ lấn vào vùng đứng (mép trên cao hơn đáy vùng) mới phải né — xem luật 5.
         let zoneBottom = EdgePillZone.maxBottom(bounds: bounds, safeInsets: safeInsets)
         var obstacles: [CGRect] = []
+        // Hộp thoại (luật 1): khung hộp là vật cản dù ở đâu trong màn — hộp giữa màn lẫn bảng chọn dưới đáy.
+        var modalPanel: CGRect?
+        if let alert = topVC as? UIAlertController {
+            let panel = alert.view.convert(alert.view.bounds, to: nil)
+            if !panel.isEmpty {
+                modalPanel = panel
+                obstacles.append(panel)
+            }
+        }
         for anchor in MediaDiscAnchorRegistry.shared.anchors {
             guard let rect = validFrame(of: anchor.view, in: mainWindow, top: topVC) else { continue }
             switch anchor.role {
@@ -87,7 +101,12 @@ struct MediaDiscPlacement: Equatable {
             obstacles.append(mini)
         }
         frame.origin.y = liftedTop(of: frame, above: obstacles, minTop: range.lowerBound)
-        return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: false)
+        guard topVC is UIAlertController else {
+            return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: false)
+        }
+        // Đẩy lên tới đỉnh vùng mà vẫn đè khung hộp thoại (bảng chọn cao) ⇒ ẩn như trước, không che nút của hộp.
+        let stillCovers = modalPanel.map { $0.insetBy(dx: 0, dy: -(gap - 1)).intersects(frame) } ?? false
+        return MediaDiscPlacement(frame: frame, edge: position.edge, isBlocked: stillCovers, isUnderModal: !stillCovers)
     }
 
     // MARK: - Nội bộ

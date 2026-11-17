@@ -14,6 +14,7 @@ import SwiftUI
 ///   bộ nhận của UIKit không chạy (bài học 1.3.812). VoiceOver mở sheet qua `accessibilityAction`.
 struct MediaDiscFaceButton: View {
     @ObservedObject private var manager = MediaDiscWindowManager.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let edge: EdgeDirection? = manager.isDiscDragging ? nil : manager.discEdge
@@ -24,6 +25,14 @@ struct MediaDiscFaceButton: View {
                     .floatingIconTransparency(pill: .disc)
                     .padding(EdgePillShape.contentPadding(for: edge), edge == nil ? 0 : inset)
             }
+            // Hộp thoại ở cửa sổ chính (1.3.964): phủ đúng hình viên một lớp tối như lớp mờ của hộp ⇒ trông như nằm dưới.
+            // Phủ chứ không hạ alpha: alpha < 1 trên lớp kính tắt nhoè.
+            .overlay {
+                EdgePillShape(edge: edge)
+                    .fill(Color.black.opacity(manager.isDiscUnderModal ? modalDimOpacity : 0))
+                    .allowsHitTesting(false)
+            }
+            .animation(.easeInOut(duration: 0.25), value: manager.isDiscUnderModal)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
@@ -31,6 +40,13 @@ struct MediaDiscFaceButton: View {
             .accessibilityAction {
                 manager.presentQuickControls()
             }
+            // Hộp thoại ở trên ⇒ VoiceOver không mở sheet của đĩa (chạm đã tắt ở container).
+            .accessibilityHidden(manager.isDiscUnderModal)
+    }
+
+    /// Gần độ tối lớp mờ của hộp thoại hệ thống (sáng nhạt hơn tối) — chỉnh theo máy nếu lệch.
+    private var modalDimOpacity: Double {
+        colorScheme == .dark ? 0.4 : 0.2
     }
 
     private var accessibilityHint: String {

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.964] - 2026-11-17
+
+### fix: Đĩa nghe không ẩn khi có hộp thoại xác nhận / huỷ, ở lại như nằm dưới hộp
+
+Anh Bửu báo: có thông báo dạng chọn xác nhận / huỷ thì đĩa nghe bị ẩn dù hub không ẩn — "việc ẩn là không cần, chỉ cần để nó nằm dưới các thông báo đó".
+
+- Cửa sổ đĩa (`alert − 1.75`) nằm trên cửa sổ chính, còn hộp thoại SwiftUI (`.alert`, `.confirmationDialog` ⇒ `UIAlertController`) trình bày **trong** cửa sổ chính ⇒ không vẽ đĩa dưới hộp thật được. Thay vì ẩn (`MediaDiscPlacement` luật 1), đĩa giả "nằm dưới":
+  - **Né khung hộp**: khung `alert.view` là vật cản (cùng luật "tạm đẩy" của neo lấn vùng), đĩa trượt lên trên nó; không ghi đè chỗ đã nhớ, hộp đóng thì về chỗ cũ. Đẩy tới đỉnh vùng đứng mà vẫn đè khung (bảng chọn cao) ⇒ ẩn như cũ để không che nút của hộp.
+  - **Không nhận chạm / kéo** (`isDiscInteractive` = đang hiện và không nằm dưới hộp; đang kéo thì thôi kéo, không lưu), `presentQuickControls` từ chối, VoiceOver ẩn — hộp thoại là modal.
+  - **Phủ tối** đúng hình viên một lớp đen 20% (giao diện tối 40%) như lớp mờ của hộp (`MediaDiscFaceButton`, cờ `MediaDiscWindowManager.isDiscUnderModal`); phủ chứ không hạ alpha vì alpha < 1 tắt nhoè kính. Độ tối là ước lượng, chỉnh theo máy nếu lệch.
+  - Bật ngay cả khi hộp còn đang trượt lên (đặt trước nhánh chuyển cảnh của `updateDisc`).
+- Bảng chia sẻ vẫn ẩn đĩa như trước.
+- `.claude/rules/floating-pills.md` ghi luật mới.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.963] - 2026-11-17
 
 ### fix: Google Chế độ AI bớt nóng máy: trang ẩn về trắng sau mỗi lượt, quét đọc trang chậm lại, máy nóng thì giãn nhịp quét
@@ -400,13 +415,3 @@ Anh Bửu duyệt cả hai phương án của báo cáo `Docs/Reports/2026-11-14
 - **Cài đặt VieNeu TTS**: mục "Đọc lai Nano · Turbo" (`VieNeuHybridSettingsSection`) dưới hàng giọng đọc — công tắc "Tiếng nước ngoài đọc bằng Turbo" (`vieneuHybridLanguageEnabled`) và "Máy nóng thì đọc bằng Nano" (`vieneuHybridThermalEnabled`), mặc định bật; giải thích sau nút "?", một dòng trạng thái cặp giọng.
 - **Chưa kiểm**: chưa build (Windows), chưa thử máy. RAM khi giữ cả hai model chưa đo (ước 1,1–1,3 GB / ~2,1 GB của iPhone 11); thời gian nạp lười Turbo / Nano lúc khoá màn chưa đo; ước đệm (cached time) hơi cao với đoạn Turbo phát nhanh hơn thời lượng WAV; ngưỡng nhiệt là giá trị khởi điểm. `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
 - **Sửa biên dịch khi gộp** (CI run 43574639399): trong `NghiAudioPlayerQueue.updateRate(_ rate:)` tham số `rate` che hàm `rate(for:)` mới ⇒ gọi `self.rate(for:)`.
-
-## [1.3.933] - 2026-11-14
-
-### chore: Gỡ màn đo tạm codec Turbo, codec ONNX chậm hơn AMX và Neural Engine làm app chết lúc biên dịch
-
-Kết quả màn đo 1.3.932 trên iPhone 11 (log 19, hai lượt; báo cáo tối ưu Turbo §18.3): cùng mã âm thanh, codec ONNX chính thức qua **ORT CPU 112–140** và **Core ML CPU 140–147** ms mỗi giây tiếng — **chậm hơn AMX hiện tại (46–61) khoảng 2,4–3×**, dù tiếng đúng (SNR 58 dB); trên iPhone Core ML chia graph thành 38 mảnh (máy ảo 14). **Core ML + Neural Engine làm app chết lúc dựng session** bucket 64 ở cả hai lượt (không có .ips ⇒ nghi bị hệ điều hành giết vì RAM khi biên dịch cho ANE). Đi tiếp phải sửa graph (gấp hằng mặt nạ, tách graph) với lợi tối đa ~20% RTF (codec chiếm ~20% thời gian) và rủi ro fp16 ⇒ anh Bửu chốt **dừng hướng 3, gỡ màn đo**.
-
-- Xoá `Services/TTS/VieNeuTurbo/CodecBench/` (bridge `TurboCodecProbeBridge`, `TurboCodecProbeSession`, runner, assets, report), `Views/Settings/TTS/TurboCodecBenchView.swift`, dòng trong `FreeBookBridgingHeader.h`, hàng "Đo codec" ở mục Turbo của Cài đặt VieNeu TTS, tham số `extraRequestOptions` của `VieNeuTurboRuntime.synthesize` (không còn ai dùng) — mã về đúng như 1.3.931.
-- Dọn thư mục `Caches/turbo-codec-bench/` (~45 MB ONNX + cache Core ML) còn lại trên máy đã chạy màn đo: `VieNeuTurboRuntime.createSessionLocked` xoá nó mỗi lần dựng session Turbo (không có thì thôi); bỏ dòng này sau vài bản.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.

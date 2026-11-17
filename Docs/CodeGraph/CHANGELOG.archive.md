@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.933] - 2026-11-14
+
+### chore: Gỡ màn đo tạm codec Turbo, codec ONNX chậm hơn AMX và Neural Engine làm app chết lúc biên dịch
+
+Kết quả màn đo 1.3.932 trên iPhone 11 (log 19, hai lượt; báo cáo tối ưu Turbo §18.3): cùng mã âm thanh, codec ONNX chính thức qua **ORT CPU 112–140** và **Core ML CPU 140–147** ms mỗi giây tiếng — **chậm hơn AMX hiện tại (46–61) khoảng 2,4–3×**, dù tiếng đúng (SNR 58 dB); trên iPhone Core ML chia graph thành 38 mảnh (máy ảo 14). **Core ML + Neural Engine làm app chết lúc dựng session** bucket 64 ở cả hai lượt (không có .ips ⇒ nghi bị hệ điều hành giết vì RAM khi biên dịch cho ANE). Đi tiếp phải sửa graph (gấp hằng mặt nạ, tách graph) với lợi tối đa ~20% RTF (codec chiếm ~20% thời gian) và rủi ro fp16 ⇒ anh Bửu chốt **dừng hướng 3, gỡ màn đo**.
+
+- Xoá `Services/TTS/VieNeuTurbo/CodecBench/` (bridge `TurboCodecProbeBridge`, `TurboCodecProbeSession`, runner, assets, report), `Views/Settings/TTS/TurboCodecBenchView.swift`, dòng trong `FreeBookBridgingHeader.h`, hàng "Đo codec" ở mục Turbo của Cài đặt VieNeu TTS, tham số `extraRequestOptions` của `VieNeuTurboRuntime.synthesize` (không còn ai dùng) — mã về đúng như 1.3.931.
+- Dọn thư mục `Caches/turbo-codec-bench/` (~45 MB ONNX + cache Core ML) còn lại trên máy đã chạy màn đo: `VieNeuTurboRuntime.createSessionLocked` xoá nó mỗi lần dựng session Turbo (không có thì thôi); bỏ dòng này sau vài bản.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
+
 ## [1.3.932] - 2026-11-14
 
 ### feat: Màn đo tạm so codec Turbo chạy AMX với Core ML và Neural Engine trên cùng mã âm thanh

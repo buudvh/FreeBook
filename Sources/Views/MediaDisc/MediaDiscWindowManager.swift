@@ -48,6 +48,8 @@ final class MediaDiscWindowManager: ObservableObject {
     @Published private(set) var discEdge: EdgeDirection = MediaDiscPositionStore.load().edge
     /// Đang kéo nửa viên ⇒ mặt đĩa thành hình tròn.
     @Published private(set) var isDiscDragging = false
+    /// Hộp thoại / bảng chọn ở trên cùng cửa sổ chính ⇒ mặt đĩa phủ tối như nằm dưới lớp mờ của nó (1.3.964).
+    @Published private(set) var isDiscUnderModal = false
 
     var modelContainer: ModelContainer?
 
@@ -158,7 +160,8 @@ final class MediaDiscWindowManager: ObservableObject {
 
     /// Chạm đĩa ⇒ mở sheet điều khiển nhanh ở cửa sổ của đĩa. Cửa sổ có mặt mỗi khi có nguồn.
     func presentQuickControls() {
-        guard kind != nil, let window, !window.isHidden else { return }
+        // Hộp thoại đang mở ở cửa sổ chính ⇒ sheet của đĩa sẽ đè lên nó (1.3.964).
+        guard kind != nil, !isDiscUnderModal, let window, !window.isHidden else { return }
         presentRequestToken &+= 1
     }
 
@@ -172,6 +175,12 @@ final class MediaDiscWindowManager: ObservableObject {
     func noteDiscDragging(_ dragging: Bool) {
         guard dragging != isDiscDragging else { return }
         isDiscDragging = dragging
+    }
+
+    /// Container báo đĩa đang / thôi "nằm dưới" hộp thoại của cửa sổ chính.
+    func noteDiscUnderModal(_ underModal: Bool) {
+        guard underModal != isDiscUnderModal else { return }
+        isDiscUnderModal = underModal
     }
 
     /// Container báo đĩa đang hiện / đã ẩn. Ghi ở nhịp main sau — có thể được gọi giữa lượt layout.

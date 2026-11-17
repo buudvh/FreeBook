@@ -12,8 +12,9 @@ import UIKit
 /// - **Chạm và kéo ở lớp UIKit** (`+Drag`, khuôn nút hub): mặt đĩa SwiftUI không có cử chỉ nào ⇒ bộ nhận của UIKit chạy (bài
 ///   học 1.3.812: nút SwiftUI bắt chạm ngay lúc chạm xuống). Chạm ⇒ sheet; kéo ⇒ thành tròn theo tay, thả ⇒ bám mép gần
 ///   hơn, nhường nút hub / trình duyệt cùng mép (`FloatingWidgetLayoutCoordinator`), lưu chỗ.
-/// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (màn xem phim, bàn phím, hộp thoại…) ⇒ thu ngay; đĩa
-///   đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s.
+/// - **Ẩn ngay, hiện chậm** (1.3.812): màn trên cùng không cho hiện (màn xem phim, bàn phím, bảng chia sẻ…) ⇒ thu ngay; đĩa
+///   đang ẩn mà nay được hiện ⇒ chỉ hiện khi điều kiện đã giữ đủ 0,3 s. Hộp thoại / bảng chọn **không** ẩn đĩa (1.3.964):
+///   đĩa ở lại, né khung hộp, không nhận chạm, mặt phủ tối (`MediaDiscPlacement.isUnderModal`).
 /// - **Đổi màn ⇒ đĩa đứng yên** (1.3.865, anh Bửu: "mọi màn, sheet đều hiển thị viên thuốc"; thay luật thu tại chỗ của
 ///   1.3.820): đĩa ở mọi màn nên không thu / hiện lại; đang chuyển cảnh (`MediaDiscScreenContext.isTransitioning`) ⇒ đứng
 ///   yên, hết chuyển cảnh mà màn mới có neo phải né ⇒ trượt tới chỗ mới.
@@ -24,8 +25,8 @@ import UIKit
 @MainActor
 final class MediaDiscContainerViewController: UIViewController {
     let discView = UIView()
-    /// Đĩa đang hiện (không đang thu / đã ẩn) ⇒ cửa sổ nhận chạm trong khung đĩa.
-    private(set) var isDiscInteractive = false
+    /// Đĩa đang hiện (không đang thu / đã ẩn) và không "nằm dưới" hộp thoại ⇒ cửa sổ nhận chạm trong khung đĩa.
+    var isDiscInteractive: Bool { isShowingDisc && !isUnderModal }
 
     // Trạng thái kéo — `internal` vì `+Drag.swift` dùng.
     var panGesture: UIPanGestureRecognizer?
@@ -39,6 +40,8 @@ final class MediaDiscContainerViewController: UIViewController {
     private var sheetHost: UIHostingController<AnyView>?
     private var pollTimer: Timer?
     private var isShowingDisc = false
+    /// Hộp thoại / bảng chọn ở trên cùng cửa sổ chính (`MediaDiscPlacement.isUnderModal`): đĩa hiện, không nhận chạm.
+    private var isUnderModal = false
     /// Lúc đĩa đang ẩn bắt đầu được phép hiện — hiện thật khi đã giữ đủ `showDelay`.
     private var pendingShowSince: Date?
     private var pendingShowWork: DispatchWorkItem?
@@ -141,6 +144,7 @@ final class MediaDiscContainerViewController: UIViewController {
     func windowDidHide() {
         cancelDrag()
         cancelPendingShow()
+        setUnderModal(false)
         setDiscShown(false, frame: nil, edge: nil, animated: false)
     }
 
@@ -179,9 +183,12 @@ final class MediaDiscContainerViewController: UIViewController {
         guard MediaDiscWindowManager.shared.isDiscAllowed, !placement.isBlocked else {
             cancelDrag()
             cancelPendingShow()
+            setUnderModal(false)
             setDiscShown(false, frame: nil, edge: nil, animated: animated)
             return
         }
+        // Đặt trước nhánh chuyển cảnh: hộp thoại vừa trượt lên là tắt chạm + phủ tối ngay, không chờ hết hiệu ứng.
+        setUnderModal(placement.isUnderModal)
         // Tay đang giữ đĩa: không dời.
         if isDragging { return }
         let screen = MediaDiscScreenContext.current()
@@ -195,6 +202,14 @@ final class MediaDiscContainerViewController: UIViewController {
         }
         if !isShowingDisc, !isShowDelayElapsed() { return }
         setDiscShown(true, frame: placement.frame, edge: placement.edge, animated: animated)
+    }
+
+    /// Hộp thoại lên ⇒ thôi kéo (không lưu chỗ), mặt đĩa phủ tối; hộp đóng ⇒ trả lại.
+    private func setUnderModal(_ value: Bool) {
+        guard value != isUnderModal else { return }
+        isUnderModal = value
+        if value { cancelDrag() }
+        MediaDiscWindowManager.shared.noteDiscUnderModal(value)
     }
 
     // MARK: - Hiện chậm
@@ -258,11 +273,9 @@ final class MediaDiscContainerViewController: UIViewController {
                     self.discView.transform = .identity
                 }
             }
-            isDiscInteractive = true
             claimSlot(frame, edge: edge)
         } else if isShowingDisc {
             isShowingDisc = false
-            isDiscInteractive = false
             releaseSlot()
             animate(animated, motion: .collapse) {
                 self.discView.transform = CGAffineTransform(scaleX: Layout.hiddenScale, y: Layout.hiddenScale)
