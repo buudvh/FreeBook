@@ -69,13 +69,23 @@ extension TTSSettingsView {
         VieNeuReaderManagementRows(flags: vieNeuJapaneseFlags)
     }
 
-    /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": VieNeu có nút "?" giải thích cấu hình cố định của hai model.
-    @ViewBuilder
+    /// Tiêu đề Section 3 "Quản lý riêng của trình đọc": nút "?" giải thích công tắc "Phiên âm tiếng Nhật" của trình đọc
+    /// đang chọn (1.3.973); VieNeu thêm cấu hình cố định của hai model.
     var readerManagementHeader: some View {
-        if ttsManager.tool == "vieneu" {
-            SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: VieNeuReaderManagementRows.helpParagraphs)
-        } else {
-            Text("Quản lý riêng của trình đọc")
+        SectionHelpHeader(
+            "Quản lý riêng của trình đọc",
+            paragraphs: ttsManager.tool == "vieneu"
+                ? VieNeuReaderManagementRows.helpParagraphs
+                : [TTSJapaneseTransliterationRow.helpParagraph(forTool: ttsManager.tool)]
+        )
+    }
+
+    /// Hàng "Phiên âm tiếng Nhật" của Section 3 cho Siri / NghiTTS / Google / tiện ích — VieNeu đã có trong
+    /// `VieNeuReaderManagementRows` (dùng chung với màn Giọng dự phòng).
+    @ViewBuilder
+    var japaneseTransliterationRow: some View {
+        if ttsManager.tool != "vieneu" {
+            TTSJapaneseTransliterationRow(tool: ttsManager.tool)
         }
     }
 
@@ -133,7 +143,9 @@ extension TTSSettingsView {
 
 }
 
-/// Trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899).
+/// Trạng thái của phần **tiếng Nhật** cho VieNeu (công tắc "Tự động phiên âm tiếng Nhật" bỏ ở 1.3.899). Công tắc "Đọc tên
+/// Nhật theo âm tiết" (1.3.950) từ 1.3.973 là hàng chung "Phiên âm tiếng Nhật" (`TTSJapaneseTransliterationRow`, tự giữ
+/// trạng thái, lưu riêng từng trình đọc) nên không còn ở đây.
 ///
 /// **Vì sao không dùng `@AppStorage`**: `TTSSettingsView.swift` chỉ còn **3 dòng** tới trần 519 của
 /// `check_architecture.py`, mà hai `@AppStorage` cộng một `@State` là vừa đúng 3 dòng. Gom vào một
@@ -146,11 +158,6 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
     /// "Áp dụng từ điển phiên âm VieNeu" — mặc định **TẮT**.
     @Published var dictionaryEnabled: Bool = false {
         didSet { UserDefaults.standard.set(dictionaryEnabled, forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey) }
-    }
-
-    /// "Đọc tên Nhật theo âm tiết" (1.3.950) — mặc định **BẬT** (`VieNeuJapaneseNameReader.isEnabled`).
-    @Published var nameSyllablesEnabled: Bool = true {
-        didSet { UserDefaults.standard.set(nameSyllablesEnabled, forKey: VieNeuJapaneseNameReader.enabledKey) }
     }
 
     /// "Đọc chậm đoạn có tên (Nano)" (1.3.952) — mặc định **Ít nhất 10%** (`VieNeuNameFrameBoost.defaultMode`).
@@ -168,7 +175,6 @@ final class VieNeuJapaneseFlags: ObservableObject, @unchecked Sendable {
     func refresh() {
         let defaults = UserDefaults.standard
         dictionaryEnabled = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)
-        nameSyllablesEnabled = VieNeuJapaneseNameReader.isEnabled
         nameFrameBoost = VieNeuNameFrameBoost.mode
         dictionaryDownloaded = VieNeuJapaneseDictionary.existsOnDisk()
     }

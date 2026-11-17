@@ -9,6 +9,9 @@ import Foundation
 /// Ngoại lệ có chủ ý: `vieneuModel` (Nano / Turbo) — đổi model là đổi engine tổng hợp dù `tool` vẫn là `"vieneu"`, nên
 /// phải dựng lại đoạn như khi đổi engine.
 ///
+/// `japaneseTransliteration` (1.3.973) là công tắc "Phiên âm tiếng Nhật" của **trình đọc chính** — với VieNeu nó thay
+/// `vieneuJapaneseNameSyllablesEnabled` và, khác các khoá `vieneu*` còn lại, **có** dựng lại đoạn (đổi chữ đưa vào engine).
+///
 /// Ngoại lệ thứ hai: `onlineFallback` (1.3.945) — cài đặt giọng dự phòng của trình đọc online (`TTSOnlineFallbackSettings`
 /// `.fingerprint`); đổi ⇒ dựng lại đoạn để bỏ tiếng dự phòng đã nạp trước theo cài đặt cũ.
 struct TTSSettingsSnapshot: Equatable {
@@ -31,6 +34,8 @@ struct TTSSettingsSnapshot: Equatable {
     let numericNormalization: Bool
     let dictionaryReplacement: Bool
     let transliteration: Bool
+    /// "Phiên âm tiếng Nhật" của trình đọc chính (1.3.973, lưu riêng từng trình đọc) — đổi là đổi chữ đưa vào engine.
+    let japaneseTransliteration: Bool
     let onlineFallback: String
 
     /// Đọc các khoá `UserDefaults` **tại thời điểm gọi** (hai thời điểm: `prepareForSettings`, `resumeAfterSettings`).
@@ -66,6 +71,7 @@ struct TTSSettingsSnapshot: Equatable {
             numericNormalization: UserDefaults.standard.object(forKey: PreprocessorSettingKey.numericNormalizationEnabled) as? Bool ?? true,
             dictionaryReplacement: UserDefaults.standard.object(forKey: PreprocessorSettingKey.dictionaryReplacementEnabled) as? Bool ?? true,
             transliteration: UserDefaults.standard.object(forKey: PreprocessorSettingKey.transliterationEnabled) as? Bool ?? true,
+            japaneseTransliteration: TTSJapaneseTransliterationSettings.isEnabled(forTool: tool),
             onlineFallback: TTSOnlineFallbackSettings.fingerprint(mainTool: tool)
         )
     }

@@ -26,8 +26,8 @@ struct TTSSettingsView: View {
     /// thành tốc độ nghe. `@State` vì thanh trượt cần một giá trị quan sát được; giá trị thật nằm ở
     /// `UserDefaults` và được làm mới trong `refreshVieNeuSettings()` (bài học 1.3.456).
     @State var vieNeuSynthesisSpeed: Double = VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
-    /// Hai cờ tiếng Nhật của VieNeu + trạng thái "đã tải từ điển". Gom vào **một** `ObservableObject` vì
-    /// file này chỉ còn **3 dòng** tới trần 519 của `check_architecture.py` — xem `VieNeuJapaneseFlags`.
+    /// Cờ từ điển tiếng Nhật + chế độ đọc chậm của VieNeu + trạng thái "đã tải từ điển", gom vào **một**
+    /// `ObservableObject` — xem `VieNeuJapaneseFlags`. "Phiên âm tiếng Nhật" tự giữ trạng thái (`TTSJapaneseTransliterationRow`).
     @StateObject var vieNeuJapaneseFlags = VieNeuJapaneseFlags()
     /// Sheet chọn giọng VieNeu (1.3.900) — gắn ở gốc `Form`, mở từ hàng "Giọng đọc".
     @State var showingVieNeuVoicePicker = false
@@ -138,11 +138,9 @@ struct TTSSettingsView: View {
                             }
                         }
                     }
-                } else {
-                    Text("Siri hệ thống không cần cấu hình quản lý riêng.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
                 }
+                // "Phiên âm tiếng Nhật" — có ở mọi trình đọc, lưu riêng từng trình đọc (1.3.973). Siri chỉ có hàng này.
+                japaneseTransliterationRow
             } header: {
                 readerManagementHeader
             }

@@ -63,7 +63,9 @@ public final class GoogleTTSService: Sendable {
             throw NSError(domain: "GoogleTTSService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Văn bản trống"])
         }
 
-        let request = try makeRequest(textParts: trimmedText, voice: voice, speed: speed, pitch: pitch)
+        // "Phiên âm tiếng Nhật" của Google (1.3.973) — không bao giờ làm đoạn khác rỗng thành rỗng.
+        let spokenText = TTSJapaneseTextTransliterator.apply(trimmedText, tool: TTSJapaneseTransliterationSettings.googleTool)
+        let request = try makeRequest(textParts: spokenText, voice: voice, speed: speed, pitch: pitch)
         // Một lượt gọi — thử lại + timeout do `RemoteTTSSynthesisCoordinator` lo (`RemoteTTSAttemptPolicy`, 1.3.960).
         let parts = try await audioParts(from: request)
         guard let first = parts.first else {
@@ -90,7 +92,9 @@ public final class GoogleTTSService: Sendable {
             throw NSError(domain: "GoogleTTSService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Danh sách đoạn có phần tử rỗng"])
         }
 
-        let request = try makeRequest(textParts: trimmed, voice: voice, speed: speed, pitch: pitch)
+        // Phiên âm từng part, số part giữ nguyên ⇒ phép so `audios.count == trimmed.count` bên dưới vẫn đúng.
+        let spokenParts = TTSJapaneseTextTransliterator.apply(trimmed, tool: TTSJapaneseTransliterationSettings.googleTool)
+        let request = try makeRequest(textParts: spokenParts, voice: voice, speed: speed, pitch: pitch)
         let audios = try await audioParts(from: request)
         guard audios.count == trimmed.count else {
             throw NSError(

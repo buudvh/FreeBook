@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.943] - 2026-11-14
+
+### feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng
+
+Anh Bửu: "Đem 2 nút ra màn hình cài đặt tts đi". Mục **"Đọc lai Nano · Turbo"** (`VieNeuHybridSettingsSection`: "Tiếng nước ngoài đọc bằng Turbo", "Máy nóng thì đọc bằng Nano", dòng trạng thái cặp giọng + các hàng tự tạo bản cặp, nút "?") rời trang Cài đặt VieNeu TTS, sang **Cài đặt TTS** (`TTSSettingsView` — mở từ Cài đặt › Nghe truyện (TTS) lẫn sheet Cài đặt của Reader) ngay sau mục "Giọng đọc", chỉ hiện khi trình đọc là VieNeu.
+
+- `TTSSettingsView`: `vieNeuHybridRefreshToken` tăng khi sheet chọn giọng VieNeu đóng ⇒ mục đọc lại trạng thái cặp của giọng mới chọn (như `selectionToken` của trang cũ). Khoá, mặc định, logic công tắc và tự tạo bản cặp không đổi.
+- `VieNeuTTSSettingsView`: bỏ mục; `selectionToken` vẫn dùng cho hàng giọng đang dùng.
+- Sửa chú thích nơi đặt công tắc (`VieNeuHybridSettingsSection`, `VieNeuHybridSettings`, `TTSManager+VieNeu`) + gạch "Đọc lai Nano · Turbo" ở CLAUDE.md / AGENTS.md.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.942] - 2026-11-14
 
 ### feat: Sheet điều khiển nhanh TTS có badge model đang đọc kèm AMX hoặc Core ML

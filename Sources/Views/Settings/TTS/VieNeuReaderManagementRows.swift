@@ -4,7 +4,8 @@ import SwiftUI
 /// Giọng dự phòng (`TTSFallbackVoiceSettingsView`). 1.3.961: trước đó hai màn chép riêng một bản, thêm công tắc VieNeu mới
 /// là phải nhớ thêm cả hai nơi.
 ///
-/// Gồm: lối vào trang Cài đặt VieNeu TTS, công tắc từ điển phiên âm + đọc tên Nhật theo âm tiết, Picker "Đọc chậm đoạn có
+/// Gồm: lối vào trang Cài đặt VieNeu TTS, công tắc từ điển phiên âm + "Phiên âm tiếng Nhật" (hàng chung mọi trình đọc,
+/// `TTSJapaneseTransliterationRow`), Picker "Đọc chậm đoạn có
 /// tên (Nano)", và từ điển tiếng Nhật (đã tải ⇒ lối vào; chưa tải ⇒ cảnh báo + nút tải). Đặt **bên trong** một `Section`
 /// (mỗi view con là một hàng).
 struct VieNeuReaderManagementRows: View {
@@ -15,6 +16,7 @@ struct VieNeuReaderManagementRows: View {
     /// Đoạn giải thích sau nút "?" của tiêu đề "Quản lý riêng của trình đọc" khi trình đọc là VieNeu.
     static let helpParagraphs: [LocalizedStringKey] = [
         "Nano luôn chạy Cân bằng (8 bước) + 2 luồng, không chờ bận. Turbo luôn 2 luồng trên lõi hiệu năng.",
+        TTSJapaneseTransliterationRow.helpParagraph(forTool: TTSJapaneseTransliterationSettings.vieNeuTool),
         VieNeuJapaneseFlags.nameFrameBoostHelp
     ]
 
@@ -27,9 +29,10 @@ struct VieNeuReaderManagementRows: View {
         // (`danzō` → `danzo`), xem `VieNeuJapanesePreprocessor`.
         Toggle("Áp dụng từ điển phiên âm VieNeu", isOn: $flags.dictionaryEnabled)
 
-        // Tên kiểu Nhật viết hoa ("Sasuke") đọc theo âm tiết thay vì theo luật chính tả tiếng Anh — mặc định **BẬT**,
-        // chung cho Nano và Turbo. Xem `VieNeuJapaneseNameReader`.
-        Toggle("Đọc tên Nhật theo âm tiết", isOn: $flags.nameSyllablesEnabled)
+        // "Phiên âm tiếng Nhật" — công tắc chung mọi trình đọc, lưu riêng từng trình đọc (1.3.973). Với VieNeu: tên kiểu
+        // Nhật viết hoa ("Sasuke") đọc theo âm tiết thay vì theo luật chính tả tiếng Anh — mặc định **BẬT**, chung Nano
+        // và Turbo (trước 1.3.973 là "Đọc tên Nhật theo âm tiết"). Xem `VieNeuJapaneseNameReader`.
+        TTSJapaneseTransliterationRow(tool: TTSJapaneseTransliterationSettings.vieNeuTool)
 
         // Nano: đoạn có tên phiên âm theo âm tiết được thêm khung để không nuốt âm tiết ngắn (`VieNeuNameFrameBoost`).
         Picker("Đọc chậm đoạn có tên (Nano)", selection: $flags.nameFrameBoost) {

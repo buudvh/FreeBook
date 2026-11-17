@@ -26,7 +26,10 @@ struct NghiTTSSettingsView: View {
             Section {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
-                Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
+                // 1.3.973: công tắc gộp "Phiên âm tiếng Anh/Nhật" tách đôi — khoá cũ chỉ còn là tiếng Anh, tiếng Nhật là hàng
+                // chung mọi trình đọc (lưu riêng từng trình đọc), cũng có ở Cài đặt TTS › Quản lý riêng của trình đọc.
+                Toggle("Phiên âm tiếng Anh", isOn: $preprocessorTransliterationEnabled)
+                TTSJapaneseTransliterationRow(tool: TTSJapaneseTransliterationSettings.nghiTool)
                 Toggle("Dùng IPA của espeak cho tiếng Anh", isOn: $useEspeakIPAForEnglish)
             } header: {
                 SectionHelpHeader("Tiền xử lý text", paragraphs: ["Thử giọng đọc đã chuyển vào màn **Cài đặt NghiTTS** (tab Cài đặt → Nghe truyện (TTS) → Cài đặt NghiTTS) — cùng chỗ với các lối vào quản lý."])

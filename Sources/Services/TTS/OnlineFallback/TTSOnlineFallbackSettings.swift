@@ -60,7 +60,9 @@ enum TTSOnlineFallbackSettings {
         let speed = playbackSpeed(for: engine)
         switch engine {
         case .nghitts:
-            return "nghitts|\(nghiVoice)|\(speed)"
+            // Cờ "Phiên âm tiếng Nhật" của NghiTTS (1.3.973) — của VieNeu là `names` bên dưới.
+            let japanese = TTSJapaneseTransliterationSettings.isEnabled(forTool: TTSJapaneseTransliterationSettings.nghiTool)
+            return "nghitts|\(nghiVoice)|\(speed)|\(japanese)"
         case .vieneu:
             let synthesis = VieNeuSynthesisPolicy.synthesisSpeed(from: defaults)
             let dictionary = defaults.bool(forKey: VieNeuJapanesePreprocessor.dictionaryEnabledKey)

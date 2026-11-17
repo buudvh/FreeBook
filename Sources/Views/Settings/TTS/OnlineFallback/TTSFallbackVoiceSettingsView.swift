@@ -118,7 +118,7 @@ struct TTSFallbackVoiceSettingsView: View {
                 SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: VieNeuReaderManagementRows.helpParagraphs)
             }
         case .nghitts:
-            Section("Quản lý riêng của trình đọc") {
+            Section {
                 NavigationLink(destination: NghiTTSSettingsHubView()) {
                     Label("Cài đặt NghiTTS", systemImage: "waveform.and.mic")
                 }
@@ -128,6 +128,12 @@ struct TTSFallbackVoiceSettingsView: View {
                 NavigationLink(destination: TTSDictionaryEditView()) {
                     Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                 }
+                // Cùng công tắc "Phiên âm tiếng Nhật" của NghiTTS ở Cài đặt TTS (1.3.973) — cài đặt của chính engine.
+                TTSJapaneseTransliterationRow(tool: TTSJapaneseTransliterationSettings.nghiTool)
+            } header: {
+                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
+                    TTSJapaneseTransliterationRow.helpParagraph(forTool: TTSJapaneseTransliterationSettings.nghiTool)
+                ])
             }
         }
     }

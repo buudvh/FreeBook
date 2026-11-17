@@ -19,13 +19,16 @@ import Foundation
 /// ## Giới hạn đã biết
 /// Tên 3 chữ ("Rem", "Rin") và chữ có mũ ô / â / ê ("Tôkyô" — trùng chữ Việt) không tự đổi; từ tiếng Anh hiếm, viết
 /// hoa, có dạng romaji mà nằm ngoài danh sách loại trừ sẽ bị đọc theo âm tiết. Từ điển phiên âm của người dùng luôn
-/// được tra **trước** (`VieNeuJapanesePreprocessor`) nên sửa tay được từng từ; công tắc `enabledKey` tắt cả tính năng.
+/// được tra **trước** (`VieNeuJapanesePreprocessor`) nên sửa tay được từng từ; công tắc "Phiên âm tiếng Nhật" của VieNeu
+/// (`isEnabled`) tắt cả tính năng.
 enum VieNeuJapaneseNameReader {
-    /// Công tắc "Đọc tên Nhật theo âm tiết" (Cài đặt TTS › Quản lý riêng của trình đọc). Chưa có khoá ⇒ **bật**.
+    /// Khoá **cũ** của công tắc "Đọc tên Nhật theo âm tiết" (1.3.950–972). Từ 1.3.973 công tắc là "Phiên âm tiếng Nhật"
+    /// chung mọi trình đọc, lưu riêng từng trình đọc (`TTSJapaneseTransliterationSettings`); khoá này chỉ còn là giá trị
+    /// khởi đầu cho VieNeu (chưa có ⇒ **bật**), không ai ghi nữa.
     static let enabledKey = "vieneuJapaneseNameSyllablesEnabled"
 
     static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
+        TTSJapaneseTransliterationSettings.isEnabled(forTool: TTSJapaneseTransliterationSettings.vieNeuTool)
     }
 
     private static let honorifics: Set<String> = [

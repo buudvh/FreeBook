@@ -17,9 +17,13 @@ public final class ExtTTSService: Sendable {
         localPath: String,
         configJson: String
     ) async throws -> Data {
+        // "Phiên âm tiếng Nhật" lưu riêng từng tiện ích theo `packageId` (1.3.973). Không tra được `packageId` (bản nháp
+        // debug ngoài `extensions/`) ⇒ không có cài đặt ⇒ giữ nguyên chữ.
+        let spokenText = ExtensionLibraryRepository.packageId(forLocalPath: localPath)
+            .map { TTSJapaneseTextTransliterator.apply(text, tool: $0) } ?? text
         let base64String = try await ExtensionManager.shared.ttsGenerate(
             localPath: localPath,
-            text: text,
+            text: spokenText,
             voice: voice,
             configJson: configJson
         )

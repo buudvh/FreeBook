@@ -16,7 +16,9 @@ public final class SiriTTSService: NSObject, AVSpeechSynthesizerDelegate {
         self.onStartCallback = onStart
         self.onFinishCallback = onFinish
         
-        let utterance = AVSpeechUtterance(string: text)
+        // "Phiên âm tiếng Nhật" của Siri (1.3.973): đổi chữ ngay trước khi đọc — highlight theo đoạn nên không lệch.
+        let spokenText = TTSJapaneseTextTransliterator.apply(text, tool: TTSJapaneseTransliterationSettings.siriTool)
+        let utterance = AVSpeechUtterance(string: spokenText)
         
         // Ánh xạ dải speed 0.5x - 5.0x sang AVSpeechUtterance rate (0.0 - 1.0)
         let utteranceRate: Float

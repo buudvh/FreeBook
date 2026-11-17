@@ -31,6 +31,22 @@ Anh Bửu: "thêm phiên âm anh và nhật (nếu có) vào chip gợi ý của
 - `AddWordSheet` (sheet Thêm từ) không đổi. `.claude/rules/tts.md` ghi dãy chip dùng chung.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift` (3 file mới 56 / 86 / 161 dòng, `TTSReplacementManagerView.swift` 376 / 400); 9 file Swift đã sửa / thêm qua `swiftc -frontend -parse` (chỉ cú pháp). **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa xem dãy chip trên iPhone, chưa nghe thử chuỗi phiên âm do chip điền.
 
+## [1.3.973] - 2026-11-17
+
+### feat: Công tắc Phiên âm tiếng Nhật có ở mọi trình đọc TTS, lưu riêng từng trình đọc
+
+Anh Bửu: "sửa lại nút phiên âm tiếng nhật cho tất cả tts, config lưu riêng mỗi loại tts". Trước đó mỗi trình đọc một kiểu: NghiTTS gộp chung "Phiên âm tiếng Anh/Nhật" (nằm sâu trong Cấu hình tiền xử lý), VieNeu có "Đọc tên Nhật theo âm tiết" (công tắc "Tự động phiên âm tiếng Nhật" đã bỏ ở 1.3.899), còn Siri / Google / tiện ích không có gì.
+
+- **Một công tắc "Phiên âm tiếng Nhật" ở Cài đặt TTS › Quản lý riêng của trình đọc**, hiện với **mọi** trình đọc (`TTSJapaneseTransliterationRow`, `Views/Settings/TTS/`): Siri (thay dòng "không cần cấu hình"), NghiTTS, Google, từng tiện ích TTS; VieNeu qua `VieNeuReaderManagementRows` (thay hàng "Đọc tên Nhật theo âm tiết") nên màn Giọng dự phòng cũng có; mục NghiTTS của màn Giọng dự phòng và "Tiền xử lý text" của Cấu hình NghiTTS có cùng hàng. Tiêu đề mục có nút "?" giải thích công tắc làm gì ở trình đọc đang chọn. Đổi trình đọc ⇒ công tắc hiện đúng giá trị của trình đọc đó.
+- **Lưu riêng từng trình đọc** (`TTSJapaneseTransliterationSettings`, khoá `ttsJapaneseTransliterationEnabled.<tool>`: `system`, `nghitts`, `vieneu`, `google`, `packageId` của tiện ích — "mỗi loại TTS" hiểu là **trình đọc**, không phải từng giọng; VieNeu Nano và Turbo chung một khoá như các cờ VieNeu khác). Giữ giá trị đang có: NghiTTS lấy từ `preprocessorTransliterationEnabled`, VieNeu lấy từ `vieneuJapaneseNameSyllablesEnabled`, chép sang khoá mới ở lần đọc đầu (khoá cũ không xoá); Siri / Google / tiện ích **mặc định tắt** — trước giờ không phiên âm, cách đọc không tự đổi.
+- **Mỗi đường tổng hợp đọc đúng khoá của mình:**
+  - NghiTTS: `PreprocessorRuntimeConfig.japaneseTransliterationEnabled` điều khiển bước kana → romaji và nhánh romaji của `TextPreprocessor.transliterateToken`; công tắc cũ đổi tên thành **"Phiên âm tiếng Anh"** và chỉ còn điều khiển nhánh tiếng Anh (tắt tiếng Nhật thì từ romaji đi theo luật tiếng Anh nếu tiếng Anh bật; tắt tiếng Anh thì chỉ từ romaji được đổi). Khoá đệm phiên âm mang cả hai cờ.
+  - VieNeu: `VieNeuJapaneseNameReader.isEnabled` đọc khoá mới ⇒ tiền xử lý Nano / Turbo, bộ phân loại đọc lai và dấu vân tay giọng dự phòng đi theo, không đổi cách đọc.
+  - Siri / Google / tiện ích: `TTSJapaneseTextTransliterator` (mới) đổi chữ ở **tầng service** (`SiriTTSService.speak`, `GoogleTTSService.synthesize` + `synthesizeBatch`, `ExtTTSService.synthesizeData` — tra `packageId` theo `localPath`) ⇒ đoạn đang đọc, nạp trước, đệm chương kế, request gộp của Google và "Nghe" đoạn bôi đen cùng một đường; giọng dự phòng nhận chữ gốc và áp cài đặt của chính nó. Cùng luật với nhánh tiếng Nhật của NghiTTS (`ForeignScriptClassifier` sau cổng `VietnameseTokenGate`): "Sakura" → "Xa cư ra", token gạch nối xét từng phần, dãy kana → romaji → âm tiết Việt, chữ Hán giữ nguyên.
+- `TTSSettingsSnapshot` thêm `japaneseTransliteration` của trình đọc chính, dấu vân tay giọng dự phòng NghiTTS thêm cờ ⇒ gạt công tắc rồi đóng Cài đặt là dựng lại đoạn, bỏ tiếng đã nạp trước theo cài đặt cũ.
+- `.claude/rules/tts.md`, `.claude/rules/tts-vieneu.md` ghi luật mới.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift` (`TextPreprocessor.swift` 1117 / 1121 dòng, `TTSSettingsView.swift` 327); 15 file Swift đã sửa / thêm qua `swiftc -frontend -parse` (chỉ cú pháp). **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa nghe thử cách Siri / Google / tiện ích đọc chữ đã phiên âm, chưa xem công tắc trên màn thật.
+
 ## [1.3.972] - 2026-11-17
 
 ### fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi "Chưa nạp model Turbo" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine
@@ -429,15 +445,3 @@ Anh Bửu: "Khi bấm nút nghe ở reader hoặc bôi đen nghe hãy mở sheet
 - **Reader** (`openTTSQuickControlsAfterListen`, `ReaderView+TTSSameChapterPrompt`): nút tai nghe — phát tiếp tại chỗ, đọc từ đoạn đang xem, và sau khi chọn ở sheet "đang đọc chương này" (cả ba lựa chọn, cả đường lùi sheet thường) — và nút "Nghe" của bong bóng bôi đen.
 - Ghi chú ở CLAUDE.md / AGENTS.md (gạch đĩa nghe).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.943] - 2026-11-14
-
-### feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng
-
-Anh Bửu: "Đem 2 nút ra màn hình cài đặt tts đi". Mục **"Đọc lai Nano · Turbo"** (`VieNeuHybridSettingsSection`: "Tiếng nước ngoài đọc bằng Turbo", "Máy nóng thì đọc bằng Nano", dòng trạng thái cặp giọng + các hàng tự tạo bản cặp, nút "?") rời trang Cài đặt VieNeu TTS, sang **Cài đặt TTS** (`TTSSettingsView` — mở từ Cài đặt › Nghe truyện (TTS) lẫn sheet Cài đặt của Reader) ngay sau mục "Giọng đọc", chỉ hiện khi trình đọc là VieNeu.
-
-- `TTSSettingsView`: `vieNeuHybridRefreshToken` tăng khi sheet chọn giọng VieNeu đóng ⇒ mục đọc lại trạng thái cặp của giọng mới chọn (như `selectionToken` của trang cũ). Khoá, mặc định, logic công tắc và tự tạo bản cặp không đổi.
-- `VieNeuTTSSettingsView`: bỏ mục; `selectionToken` vẫn dùng cho hàng giọng đang dùng.
-- Sửa chú thích nơi đặt công tắc (`VieNeuHybridSettingsSection`, `VieNeuHybridSettings`, `TTSManager+VieNeu`) + gạch "Đọc lai Nano · Turbo" ở CLAUDE.md / AGENTS.md.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
