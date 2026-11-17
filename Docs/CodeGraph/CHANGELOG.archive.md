@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.944] - 2026-11-14
+
+### feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini
+
+Anh Bửu: "Khi bấm nút nghe ở reader hoặc bôi đen nghe hãy mở sheet nghe mini". Sau khi bắt đầu / tiếp tục đọc, sheet điều khiển nhanh TTS (`TTSQuickControlSheet`, như chạm đĩa nghe) tự mở.
+
+- **`MediaDiscWindowManager.presentQuickControlsWhenReady()`**: ghi một yêu cầu chờ (hết hạn sau 5 s), mở sheet khi đĩa là TTS, phiên có mặt (`showFloatingWidget`) và cửa sổ đĩa đang hiện; thử lại sau mỗi `refreshState()` (TTS bật / tắt phiên). Mở trễ 0,4 s để `MediaDiscSheetHost` của cửa sổ vừa dựng kịp gắn (token tăng trước lần vẽ đầu thì `onChange` không chạy) và phiên cũ vừa dừng (nút tai nghe dừng phiên rồi đọc lại) kịp về `nil` — không mở sheet của phiên sắp tắt.
+- **Reader** (`openTTSQuickControlsAfterListen`, `ReaderView+TTSSameChapterPrompt`): nút tai nghe — phát tiếp tại chỗ, đọc từ đoạn đang xem, và sau khi chọn ở sheet "đang đọc chương này" (cả ba lựa chọn, cả đường lùi sheet thường) — và nút "Nghe" của bong bóng bôi đen.
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch đĩa nghe).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.943] - 2026-11-14
 
 ### feat: Hai công tắc đọc lai Nano · Turbo chuyển ra màn Cài đặt TTS, ngay dưới hàng chọn giọng

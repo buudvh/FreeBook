@@ -15,6 +15,25 @@ Anh Bửu báo: "có vẻ mỗi lần mở webview chatgpt web lên đều có b
 - Chế độ AI của Google cũng gọi `focus()` trong JS gán chữ của lượt nối tiếp (`GoogleAIModePageContract`) — cùng kiểu lỗi nhưng anh Bửu chưa báo, **chưa sửa**.
 - Kiểm: năm đoạn JS trích từ file Swift qua `node --check`; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), **chưa chạy trên iPhone** — chưa xác nhận trên máy là bàn phím hết bật.
 
+## [1.3.975] - 2026-11-17
+
+### fix: Từ điển phiên âm NghiTTS / VieNeu khớp từ có dấu nối - hoặc . theo luật token của thay thế TTS, sheet Thêm từ nhận từ gốc có dấu nối
+
+Anh Bửu: "tôi nhớ rule xác định từ của thêm phiên âm vieneu và nghitts không xác định các từ có nối - hoặc . đúng như thay thế tts đúng không, sửa cho nó áp dụng được".
+
+- **Đúng là lệch, ở ba chỗ** (thay thế từ TTS tách token bằng `TTSReplacementTokenizer` trên chữ gốc của đoạn; từ điển phiên âm thì không):
+  - **Lúc nhập** — `AddWordSheet.validateKey` báo "Từ gốc không được chứa dấu câu" cho **mọi** dấu câu, nên gõ `Kamar-Taj`, `S.H.I.E.L.D`, `e-mail` là nút Lưu khoá.
+  - **NghiTTS lúc đọc** — `TextPreprocessor.preprocess` đổi mọi `-` không nằm giữa hai chữ số thành dấu cách (`cleanEmojisAndSymbols`) **trước** khi tra từ điển ⇒ mục có `-` không bao giờ khớp, còn mục `Kamar` lại khớp bên trong "Kamar-Taj"; mục có `.` chỉ khớp khi không quá 4 mẩu (bước tra cụm) và không bị bước đọc số làm vỡ.
+  - **Cả hai engine lúc đọc** — từ điển tra **sau** `processVietnameseText`, lúc đó số La Mã / số thập phân đã làm vỡ token: `S.H.I.E.L.D` → `S.H.1.E.L.D`, `X-Men` → `10-Men`, `v1.2` → `v một phẩy hai`. (VieNeu vốn tra được cả token có `-` / `.` qua `PreprocessorRegex.token` khi token không bị vỡ: `Kamar-Taj`, `Wi-Fi`, `U.S.A`.)
+- **Một bộ tách token cho cả ba nơi** (`TTSPhoneticJoinedWords`, `Services/TTS/Preprocessing/`): từ có nối = token từ của `TTSReplacementTokenizer` có `-` / `.` bên trong (kẹp giữa hai chữ / số, không dấu cách). Lúc đọc, chữ **gốc** của đoạn được cắt quanh các từ nối có trong từ điển: cả token khớp mới áp (mục `Kamar-Taj` thắng mục `Kamar`; `Kamar-Taj-Mahal`, `Kamar- Taj` không khớp mục `Kamar-Taj`), cách đọc đi nguyên văn, phần chữ còn lại đi nguyên đường cũ rồi ghép lại (khoảng trắng ở chỗ nối giữ theo chữ gốc, hai cách đọc không dính liền nhau).
+  - **NghiTTS**: `TextPreprocessor.preprocessAroundJoinedWords` (`TextPreprocessor+JoinedWords.swift`), gọi ở đầu `preprocess`; theo công tắc "Sử dụng từ điển" sẵn có; tra khoá hạ chữ thường rồi khoá đã gấp dấu phụ.
+  - **VieNeu Nano + Turbo**: `VieNeuJapanesePreprocessor.synthesisText(for:)` (`VieNeuJapanesePreprocessor+JoinedWords.swift`) gói `normalizeVietnameseText` → `applyUsingStoredFlags`; `VieNeuTTSService` và `VieNeuTurboTextFrontend` gọi hàm này thay cho cặp gọi cũ; theo công tắc "Áp dụng từ điển phiên âm VieNeu".
+  - **Lúc nhập**: `TTSPhoneticKeyValidator` — `-` / `.` kẹp giữa hai chữ / số được nhận; đứng mép hoặc đứng liền nhau (`Kamar-`, `-Taj`, `a--b`, `U.S.A.`) báo "Dấu - hoặc . chỉ được nằm giữa hai chữ / số, không dấu cách". `AddWordSheet.validateKey` chỉ còn gọi hàm này.
+- **Không đổi**: mục không có `-` / `.` (đoạn không có từ nối nào khớp thì không token hoá gì thêm, đi đúng đường cũ; ô Từ gốc không có `-` / `.` báo lỗi y như trước); từ nối **không** có mục riêng vẫn đọc từng phần như cũ ("Sasuke-kun" với mục `Sasuke`, 1.3.960); mục có cách đọc rỗng không được áp (không làm rơi chữ); sheet sửa từ (`EditWordSheet`) chỉ sửa cách đọc nên không có gì để kiểm; từ gốc lấy từ chữ bôi đen ở Reader vẫn không bị kiểm cho tới khi sửa ô.
+- **Giới hạn**: gạch ngang dài (`–`, `—`) không phải dấu nối — như thay thế từ TTS; bộ phân loại đọc lai (`VieNeuForeignTextClassifier`) vẫn đếm từng phần của từ nối là tiếng nước ngoài dù từ điển đã có mục cho cả từ; chip gợi ý JP / EN cho từ gốc có dấu nối chưa xét từng phần.
+- `.claude/rules/tts.md` ghi luật từ nối của từ điển phiên âm.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift` (`TextPreprocessor.swift` 1119 / 1121, bốn file mới 26–84 dòng); 8 file Swift đã sửa / thêm qua `swiftc -frontend -parse` (chỉ cú pháp); bộ tách token + cắt + ghép + luật ô Từ gốc mô phỏng bằng bản chép Python trên 9 câu và 13 từ gốc (toolchain Swift trên Windows không biên dịch được). **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa nghe NghiTTS / VieNeu đọc mục có dấu nối, chưa xem câu báo lỗi mới của sheet Thêm từ trên iPhone.
+
 ## [1.3.974] - 2026-11-17
 
 ### feat: Chip phiên âm Anh / Nhật ở sheet Thêm thay thế TTS, dãy chip gợi ý ở sheet sửa quy tắc thay thế và sửa từ điển phiên âm NghiTTS / VieNeu
@@ -435,13 +454,3 @@ Anh Bửu: "Thêm chức năng cho phép chọn giọng offline thay thế khi g
 - `TTSSettingsSnapshot` thêm `onlineFallback` (dấu cài đặt dự phòng) ⇒ đổi giọng / tốc độ dự phòng thì đóng Cài đặt là dựng lại đoạn. Ghi chú ở CLAUDE.md / AGENTS.md.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
 
-## [1.3.944] - 2026-11-14
-
-### feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini
-
-Anh Bửu: "Khi bấm nút nghe ở reader hoặc bôi đen nghe hãy mở sheet nghe mini". Sau khi bắt đầu / tiếp tục đọc, sheet điều khiển nhanh TTS (`TTSQuickControlSheet`, như chạm đĩa nghe) tự mở.
-
-- **`MediaDiscWindowManager.presentQuickControlsWhenReady()`**: ghi một yêu cầu chờ (hết hạn sau 5 s), mở sheet khi đĩa là TTS, phiên có mặt (`showFloatingWidget`) và cửa sổ đĩa đang hiện; thử lại sau mỗi `refreshState()` (TTS bật / tắt phiên). Mở trễ 0,4 s để `MediaDiscSheetHost` của cửa sổ vừa dựng kịp gắn (token tăng trước lần vẽ đầu thì `onChange` không chạy) và phiên cũ vừa dừng (nút tai nghe dừng phiên rồi đọc lại) kịp về `nil` — không mở sheet của phiên sắp tắt.
-- **Reader** (`openTTSQuickControlsAfterListen`, `ReaderView+TTSSameChapterPrompt`): nút tai nghe — phát tiếp tại chỗ, đọc từ đoạn đang xem, và sau khi chọn ở sheet "đang đọc chương này" (cả ba lựa chọn, cả đường lùi sheet thường) — và nút "Nghe" của bong bóng bôi đen.
-- Ghi chú ở CLAUDE.md / AGENTS.md (gạch đĩa nghe).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.

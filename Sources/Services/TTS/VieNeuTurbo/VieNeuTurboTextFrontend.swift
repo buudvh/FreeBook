@@ -5,6 +5,8 @@ import Foundation
 /// Đi **đúng hai lớp tiền xử lý** của đường Nano (`VieNeuTTSService.executeInternalSynthesis`), không viết bản thứ hai:
 /// 1. `TextPreprocessor.normalizeVietnameseText` — mở rộng số / ngày / đơn vị (`sea_g2p.bin` không có chữ số);
 /// 2. `VieNeuJapanesePreprocessor.applyUsingStoredFlags` — gấp macron + từ điển / romaji tiếng Nhật theo cờ của VieNeu;
+///
+/// (cả hai gói trong `VieNeuJapanesePreprocessor.synthesisText`, vốn tra từ nối có trong từ điển trên chữ gốc trước)
 /// rồi `SeaG2P.phonemizeTextWithEmotions` — cùng hàm Nano dùng. **Không** áp `VieNeuConfig.applyingEmotionTags`: ký
 /// hiệu ①…③ là từ vựng của Nano; Turbo nhận nguyên `<|emotion_k|>` như bản Python.
 ///
@@ -49,9 +51,7 @@ final class VieNeuTurboTextFrontend: @unchecked Sendable {
 
     func prepare(_ text: String) async throws -> Prepared {
         let started = ProcessInfo.processInfo.systemUptime
-        let normalized = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
-            text: TextPreprocessor.normalizeVietnameseText(text)
-        )
+        let normalized = await VieNeuJapanesePreprocessor.synthesisText(for: text)
         let phonemes = try phonemize(normalized)
         return Prepared(
             phonemes: phonemes,

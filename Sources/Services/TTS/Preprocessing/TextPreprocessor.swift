@@ -1038,6 +1038,8 @@ final actor TextPreprocessor {
         }
 
         let runtimeConfig = PreprocessorRuntimeConfig.load()
+        // Từ nối có trong từ điển (`Kamar-Taj`, `S.H.I.E.L.D`): tra trên chữ gốc, trước khi số La Mã / dọn `-` làm vỡ token.
+        if let joined = preprocessAroundJoinedWords(text, config: runtimeConfig) { return joined }
 
         // 0. Chuyển đổi Hiragana/Katakana tiếng Nhật sang Romaji
         let pipelineInput: String

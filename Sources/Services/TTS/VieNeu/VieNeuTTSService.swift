@@ -281,9 +281,8 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         // Rồi mới tới **tiền xử lý riêng của VieNeu** (`VieNeuJapanesePreprocessor`): gấp macron luôn, cộng
         // từ điển tiếng Nhật + phiên âm romaji khi 2 cờ riêng của VieNeu được bật. Đặt ở tầng service nên
         // **cả Reader lẫn màn "Nghe thử"** đi cùng một đường. **Không** có nhánh tiếng Anh/IPA.
-        let normalizedText = await VieNeuJapanesePreprocessor.applyUsingStoredFlags(
-            text: TextPreprocessor.normalizeVietnameseText(text)
-        )
+        // Từ nối có trong từ điển (`S.H.I.E.L.D`, `X-Men`) được tra trên chữ gốc trước hai lớp trên (`synthesisText`).
+        let normalizedText = await VieNeuJapanesePreprocessor.synthesisText(for: text)
         let coreMLBefore = VieNeuCoreMLReaderRoute.shared.counters()
         let output = try engine.synthesize(
             text: normalizedText,

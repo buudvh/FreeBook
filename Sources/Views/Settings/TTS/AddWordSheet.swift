@@ -221,14 +221,8 @@ struct AddWordSheet: View {
     }
 
     private func validateKey(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.contains(" ") {
-            validationError = "Từ gốc không được chứa khoảng trắng"
-        } else if trimmed.rangeOfCharacter(from: CharacterSet.punctuationCharacters) != nil {
-            validationError = "Từ gốc không được chứa dấu câu"
-        } else {
-            validationError = nil
-        }
+        // `-` / `.` kẹp giữa hai chữ / số được nhận (`Kamar-Taj`, `S.H.I.E.L.D`) — cùng bộ tách token với lúc đọc.
+        validationError = TTSPhoneticKeyValidator.error(for: text)
     }
 
     /// Một task cho một lượt: tra từ điển (actor) rồi dựng gợi ý (espeak, đồng bộ) — **cả hai** đều nằm
