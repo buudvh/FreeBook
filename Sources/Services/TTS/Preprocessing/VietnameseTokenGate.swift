@@ -43,7 +43,9 @@ enum VietnameseTokenGate {
 
     // MARK: - Phụ trợ
 
-    private static func hasVietnameseDiacritic(_ token: String) -> Bool {
+    /// Không `private`: `TTSPhoneticSuggestionBuilder.transliterations` dùng cùng phép thử để khỏi gợi ý phiên âm cho
+    /// chữ Việt (1.3.974).
+    static func hasVietnameseDiacritic(_ token: String) -> Bool {
         let marked = "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
         return token.lowercased().contains { marked.contains($0) }
     }

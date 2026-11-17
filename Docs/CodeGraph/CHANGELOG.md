@@ -15,6 +15,22 @@ Anh Bửu báo: "có vẻ mỗi lần mở webview chatgpt web lên đều có b
 - Chế độ AI của Google cũng gọi `focus()` trong JS gán chữ của lượt nối tiếp (`GoogleAIModePageContract`) — cùng kiểu lỗi nhưng anh Bửu chưa báo, **chưa sửa**.
 - Kiểm: năm đoạn JS trích từ file Swift qua `node --check`; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), **chưa chạy trên iPhone** — chưa xác nhận trên máy là bàn phím hết bật.
 
+## [1.3.974] - 2026-11-17
+
+### feat: Chip phiên âm Anh / Nhật ở sheet Thêm thay thế TTS, dãy chip gợi ý ở sheet sửa quy tắc thay thế và sửa từ điển phiên âm NghiTTS / VieNeu
+
+Anh Bửu: "thêm phiên âm anh và nhật (nếu có) vào chip gợi ý của thêm thay thế tts, bấm vào thì tự thêm từ vào chuỗi thay thế và bật kích hoạt thay thế"; "thêm chip thay thế vào sửa từ trong từ điển phiên âm của vieneu, nghitts, và danh sách từ thay thế tts".
+
+- **Một section chip dùng chung cho bốn sheet** (`TTSReplacementSuggestionSection`, `Views/Settings/TTS/`): tiêu đề "Gợi ý" + nút "?", chip viền capsule xếp `FlowLayout`, badge góc trên phải, chip vừa bấm viền màu nhấn; không có chip nào thì không vẽ gì.
+  - **Reader › Thêm thay thế TTS** (`AddTTSReplacementSheet`): sau chip rule đã có (R / C, rule tắt ⇒ mờ — giữ nguyên luật 2026-09-30) có thêm chip **JP** / **EN** của mẫu đang nhập. Bấm chip phiên âm ⇒ điền chuỗi thay thế **và bật** "Kích hoạt thay thế".
+  - **Thay thế ký tự TTS › sheet Thêm / Sửa quy tắc** (`TTSReplacementManagerView`, tầng chung lẫn tầng riêng của truyện): cùng dãy chip — rule trùng mẫu ở cả hai tầng (trừ chính rule đang sửa) + JP / EN; bấm ⇒ điền chuỗi thay thế + đặt công tắc "Kích hoạt quy tắc" (chip phiên âm: bật; chip rule: theo rule đó).
+  - **Sửa từ của từ điển phiên âm NghiTTS và VieNeu-TTS** (`EditWordSheet`, tách khỏi `TTSDictionaryEditView.swift` ra file riêng — file legacy đó giảm 596 → 557 dòng): chip **NGI** / **VIE** (cách đọc đang lưu ở hai từ điển, như sheet Thêm từ) + JP / EN; bấm ⇒ điền cách đọc (sheet này không có công tắc). Không có nhấn-giữ-để-xoá; màn VieNeu vẫn có chip EN.
+- **Bấm chip là thay nội dung ô, không nối thêm** — như mọi chip sẵn có của app (chip rule R / C, chip gợi ý của sheet Thêm từ).
+- **"Nếu có"** (`TTSPhoneticSuggestionBuilder.transliterations(for:)`, mới — không tra từ điển phiên âm): không chip nào khi từ có dấu tiếng Việt (cùng phép thử với `VietnameseTokenGate`, hàm `hasVietnameseDiacritic` bỏ `private`), có số / dấu cách / dấu chấm / chữ Hán, hoặc dưới 2 chữ. Chip JP chỉ hiện khi từ cắt được hết thành âm tiết romaji; kana đổi sang romaji trước và chỉ có chip JP; từ có gạch nối ("Sasuke-kun") xét từng phần; mẫu viết hoa chữ đầu thì chuỗi gợi ý cũng viết hoa chữ đầu ("Sasuke" → "Xa xư kê"). Chip chữ rõ = cách đọc bộ phiên âm sẽ chọn (`ForeignScriptClassifier`), chữ nhạt = cách còn lại. Chip không phụ thuộc công tắc "Phiên âm tiếng Anh" / "Phiên âm tiếng Nhật" của trình đọc (1.3.973) — đây là gợi ý để chọn tay.
+- **Nạp ngoài main thread** (`TTSPhoneticSuggestionLoadModifier`, `.phoneticSuggestions(for:mode:into:)` gắn lên `Form`): đường EN gọi `EspeakPhonemizer` (khoá chung với NghiTTS) trong `Task.detached` như `AddWordSheet`; lượt đầu chạy ngay, gõ tiếp thì chờ 0,3 s, `.task(id:)` tự huỷ lượt cũ. Là modifier vì section rỗng không vẽ gì nên không gắn `.task` lên chính nó được.
+- `AddWordSheet` (sheet Thêm từ) không đổi. `.claude/rules/tts.md` ghi dãy chip dùng chung.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift` (3 file mới 56 / 86 / 161 dòng, `TTSReplacementManagerView.swift` 376 / 400); 9 file Swift đã sửa / thêm qua `swiftc -frontend -parse` (chỉ cú pháp). **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa xem dãy chip trên iPhone, chưa nghe thử chuỗi phiên âm do chip điền.
+
 ## [1.3.972] - 2026-11-17
 
 ### fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi "Chưa nạp model Turbo" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine
@@ -425,14 +441,3 @@ Anh Bửu: "Đem 2 nút ra màn hình cài đặt tts đi". Mục **"Đọc lai 
 - Sửa chú thích nơi đặt công tắc (`VieNeuHybridSettingsSection`, `VieNeuHybridSettings`, `TTSManager+VieNeu`) + gạch "Đọc lai Nano · Turbo" ở CLAUDE.md / AGENTS.md.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
 
-## [1.3.942] - 2026-11-14
-
-### feat: Sheet điều khiển nhanh TTS có badge model đang đọc kèm AMX hoặc Core ML
-
-Anh Bửu muốn tiện theo dõi tăng tốc (nếu không ảnh hưởng hiệu năng); duyệt mockup. Badge đặt cạnh badge nhiệt dưới vạch tiến độ chương, ghi **model + cách tăng tốc của đoạn đang phát**: "Turbo · AMX", "Nano · Core ML" (lam, `bolt.fill`) khi đang tăng tốc; "Turbo · CPU" / "Nano · CPU" (xám, `cpu`) khi AMX tự tắt hoặc Core ML chưa sẵn / lùi ORT. Đọc lai Nano · Turbo ⇒ badge đổi theo từng đoạn — nhìn thấy lúc app chuyển model.
-
-- **`VieNeuEngineBadgeStore`** (`Services/TTS/VieNeu/`): bảng nhãn theo chữ đoạn engine nhận (đã áp từ điển thay thế), giữ 64 đoạn gần nhất, khoá `NSLock`. Ghi ở engine Turbo (`VieNeuTurboTTSService`, theo `codecAMXRequested` của session) và Nano (`VieNeuTTSService.executeInternalSynthesis`, chênh `VieNeuCoreMLReaderRoute.counters()` trước / sau lượt: có đoạn Core ML và không đoạn lùi ⇒ "Core ML") — đọc lai đi qua chính hai engine này.
-- **`TTSQuickControlNowReading`**: `Snapshot.engineLabel` — trình đọc là VieNeu thì áp `TTSReplacementManager.applyReplacements` cho đoạn đang phát rồi tra bảng (một lần mỗi đoạn, chỉ lúc sheet mở); tra lại khi bắt đầu phát (`$isPlaying`) vì đoạn đầu có chỉ số trước khi tổng hợp xong.
-- **`TTSEngineBadge`** (`Views/TTSWidget/`, file mới) + `TTSQuickControlSheet.NowReadingBlock` đặt sau `TTSThermalBadge`. Không phải VieNeu / đoạn im lặng ⇒ không hiện.
-- Hiệu năng: mỗi lượt tổng hợp thêm một lần ghi từ điển; sheet thêm một lần thay thế chữ + tra mỗi đoạn. Không thêm vào `TTSWidgetSnapshot` (mặt đĩa không vẽ lại).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.

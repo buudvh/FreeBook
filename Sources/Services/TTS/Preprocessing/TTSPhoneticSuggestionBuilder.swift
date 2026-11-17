@@ -88,4 +88,62 @@ public enum TTSPhoneticSuggestionBuilder {
 
         return result
     }
+
+    /// Chip phiên âm **tự động** (JP / EN) cho ô "chuỗi thay thế" của luật thay thế TTS (1.3.974) — **không** tra từ
+    /// điển phiên âm: luật thay thế chạy trước bộ phiên âm ở mọi trình đọc, nên chip chỉ cần đúng hai cách đọc máy
+    /// tự sinh được.
+    ///
+    /// "Nếu có" (anh Bửu): không có chip nào khi từ có dấu tiếng Việt (cùng phép thử với `VietnameseTokenGate`),
+    /// có số / dấu cách / dấu chấm / chữ Hán, hoặc dưới 2 chữ. Kana đổi sang romaji trước (như bước 0 của
+    /// `TextPreprocessor.preprocess`) và chỉ có chip JP. Từ có gạch nối ("Sasuke-kun" — một token của
+    /// `TTSReplacementTokenizer`) xét **từng phần**, ghép lại bằng dấu cách.
+    ///
+    /// Gọi ngoài main thread: đường EN vào `EspeakPhonemizer` (hàm C đồng bộ, khoá chung với NghiTTS).
+    public static func transliterations(for word: String) -> [TTSPhoneticSuggestion] {
+        let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !VietnameseTokenGate.hasVietnameseDiacritic(trimmed) else { return [] }
+
+        let romaji = JapaneseTransliterator.convertToRomaji(trimmed)
+        let isKana = romaji != trimmed
+        let key = normalizedKey(romaji)
+        let pieces = key.split(separator: "-").map(String.init)
+        guard pieces.joined().count > 1,
+              pieces.allSatisfy({ piece in piece.allSatisfy { $0.isASCII && $0.isLetter } }) else { return [] }
+
+        let japanesePieces = pieces.map { $0.count > 1 && ForeignScriptClassifier.isJapaneseRomaji($0) }
+        let isJapanese = isKana || japanesePieces.contains(true)
+        var result: [TTSPhoneticSuggestion] = []
+
+        func append(_ readings: [String], _ origin: TTSPhoneticSuggestion.Origin, isChoice: Bool) {
+            let text = stripSyllableDashes(readings.joined(separator: " "))
+            guard !text.isEmpty, text.lowercased() != pieces.joined(separator: " ") else { return }
+            // Giữ chữ hoa đầu của tên riêng ("Sasuke" → "Xa xư kê"): chuỗi thay thế đi thẳng vào trình đọc nhận chữ
+            // thô (Siri, Google, tiện ích), nơi chữ hoa còn có nghĩa.
+            let cased = trimmed.first?.isUppercase == true ? text.prefix(1).uppercased() + text.dropFirst() : text
+            result.append(TTSPhoneticSuggestion(text: cased, origin: origin, isPipelineChoice: isChoice))
+        }
+
+        // `transliterateRomaji` trả **nguyên văn** cả khi không cắt được âm tiết lẫn khi âm tiết đọc y như viết
+        // ("kun", "ha"). Phần không đổi chỉ được nhận khi nó là romaji hoặc âm tiết Việt không dấu — không thì "Smith"
+        // trong "Smith-san" cũng thành "phiên âm Nhật".
+        let japanese = pieces.map { JapaneseTransliterator.transliterateRomaji($0) }
+        let isSegmentable = pieces.indices.allSatisfy { index in
+            japanese[index].lowercased() != pieces[index]
+                || japanesePieces[index]
+                || VietnameseWordChecker.isVietnameseWord(pieces[index])
+        }
+        if isSegmentable {
+            append(japanese, .japanese, isChoice: isJapanese)
+        }
+
+        // Kana không có cách đọc tiếng Anh; bỏ luôn lượt espeak.
+        if !isKana {
+            let english = pieces.map { EnglishPhonemeTransliterator.detailed($0) }
+            let usedEspeak = english.contains(where: { $0.source == .espeak })
+            let origin: TTSPhoneticSuggestion.Origin = usedEspeak ? .englishIPA : .englishRule
+            append(english.map(\.text), origin, isChoice: !isJapanese)
+        }
+
+        return result
+    }
 }

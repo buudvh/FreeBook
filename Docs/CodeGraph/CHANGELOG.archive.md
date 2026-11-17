@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.942] - 2026-11-14
+
+### feat: Sheet điều khiển nhanh TTS có badge model đang đọc kèm AMX hoặc Core ML
+
+Anh Bửu muốn tiện theo dõi tăng tốc (nếu không ảnh hưởng hiệu năng); duyệt mockup. Badge đặt cạnh badge nhiệt dưới vạch tiến độ chương, ghi **model + cách tăng tốc của đoạn đang phát**: "Turbo · AMX", "Nano · Core ML" (lam, `bolt.fill`) khi đang tăng tốc; "Turbo · CPU" / "Nano · CPU" (xám, `cpu`) khi AMX tự tắt hoặc Core ML chưa sẵn / lùi ORT. Đọc lai Nano · Turbo ⇒ badge đổi theo từng đoạn — nhìn thấy lúc app chuyển model.
+
+- **`VieNeuEngineBadgeStore`** (`Services/TTS/VieNeu/`): bảng nhãn theo chữ đoạn engine nhận (đã áp từ điển thay thế), giữ 64 đoạn gần nhất, khoá `NSLock`. Ghi ở engine Turbo (`VieNeuTurboTTSService`, theo `codecAMXRequested` của session) và Nano (`VieNeuTTSService.executeInternalSynthesis`, chênh `VieNeuCoreMLReaderRoute.counters()` trước / sau lượt: có đoạn Core ML và không đoạn lùi ⇒ "Core ML") — đọc lai đi qua chính hai engine này.
+- **`TTSQuickControlNowReading`**: `Snapshot.engineLabel` — trình đọc là VieNeu thì áp `TTSReplacementManager.applyReplacements` cho đoạn đang phát rồi tra bảng (một lần mỗi đoạn, chỉ lúc sheet mở); tra lại khi bắt đầu phát (`$isPlaying`) vì đoạn đầu có chỉ số trước khi tổng hợp xong.
+- **`TTSEngineBadge`** (`Views/TTSWidget/`, file mới) + `TTSQuickControlSheet.NowReadingBlock` đặt sau `TTSThermalBadge`. Không phải VieNeu / đoạn im lặng ⇒ không hiện.
+- Hiệu năng: mỗi lượt tổng hợp thêm một lần ghi từ điển; sheet thêm một lần thay thế chữ + tra mỗi đoạn. Không thêm vào `TTSWidgetSnapshot` (mặt đĩa không vẽ lại).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.941] - 2026-11-14
 
 ### fix: Đọc lai Nano · Turbo và nhân bản chéo không còn làm app chết, Turbo bớt giữ chỗ 4,5 GB bộ nhớ ảo

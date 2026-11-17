@@ -30,6 +30,8 @@ struct TTSReplacementManagerView: View {
     @State private var patternInput = ""
     @State private var replacementInput = ""
     @State private var isEnabledInput = true
+    /// Chip phiên âm JP / EN của mẫu đang gõ trong sheet Thêm / Sửa (1.3.974) — nạp ngoài main thread.
+    @State private var phoneticSuggestions: [TTSPhoneticSuggestion] = []
     
     // Trạng thái cho việc nhập/xuất file JSON & Khôi phục mặc định
     @State private var showingFileImporter = false
@@ -252,10 +254,21 @@ struct TTSReplacementManagerView: View {
                     Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
                 }
 
+                // Cùng dãy chip với sheet "Thêm thay thế TTS" của Reader: luật trùng mẫu rồi phiên âm JP / EN.
+                TTSReplacementSuggestionSection(
+                    mode: .replacementRule,
+                    rules: draftRuleChips,
+                    phonetic: phoneticSuggestions
+                ) { text, enabled in
+                    replacementInput = text
+                    isEnabledInput = enabled
+                }
+
                 Section("Kiểm tra") {
                     TTSReplacementRuleIssuesView(pattern: patternInput, issues: draftIssues)
                 }
             }.glassSheetRows() }
+            .phoneticSuggestions(for: patternInput, mode: .replacementRule, into: $phoneticSuggestions)
             .pageTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -281,6 +294,19 @@ struct TTSReplacementManagerView: View {
         )
     }
 
+    /// Chip luật trùng mẫu đang gõ, ở cả hai tầng. Bỏ chính luật đang sửa — chỉ ở **tầng đang mở**: luật chuyển /
+    /// lấy sang tầng kia giữ nguyên `id`, lọc cả hai tầng theo `id` là mất chip của bản bên kia.
+    private var draftRuleChips: [TTSReplacementSuggestionSection.RuleChip] {
+        let editedId = selectedRule?.id
+        let ownLayer = currentRules.filter { $0.id != editedId }
+        return TTSReplacementSuggestionSection.ruleChips(
+            pattern: patternInput,
+            bookId: bookId,
+            bookRules: isBookLayer ? ownLayer : [],
+            globalRules: isBookLayer ? manager.rules : ownLayer
+        )
+    }
+
     // Sửa/Xóa
     private var countText: String {
         isSearching
@@ -300,6 +326,7 @@ struct TTSReplacementManagerView: View {
         patternInput = ""
         replacementInput = ""
         isEnabledInput = true
+        phoneticSuggestions = []
         showingEditSheet = true
     }
     
@@ -309,6 +336,7 @@ struct TTSReplacementManagerView: View {
         patternInput = rule.pattern
         replacementInput = rule.replacement
         isEnabledInput = rule.isEnabled
+        phoneticSuggestions = []
         showingEditSheet = true
     }
     

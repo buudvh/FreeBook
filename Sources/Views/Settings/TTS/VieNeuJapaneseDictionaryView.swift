@@ -16,7 +16,7 @@ import UniformTypeIdentifiers
 ///
 /// ## Vì sao dùng lại `EditWordSheet` của màn NghiTTS
 /// Trần "1 type chính / file" của `check_architecture.py`: khai thêm một `struct` sửa-từ ở file này là một
-/// vi phạm mới. `EditWordSheet` (cuối `TTSDictionaryEditView.swift`) đã `internal` nên dùng lại được.
+/// vi phạm mới. `EditWordSheet` (file riêng từ 1.3.974, có dãy chip gợi ý) đã `internal` nên dùng lại được.
 struct VieNeuJapaneseDictionaryView: View {
     struct ExportDocument: Identifiable {
         var id: String { url.absoluteString }

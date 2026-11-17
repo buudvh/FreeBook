@@ -5,10 +5,13 @@ import SwiftUI
 /// Luật (user chốt 2026-09-30):
 /// - `pattern` = text đang bôi đen; ô **Chuỗi thay thế LUÔN rỗng khi mở** — cố ý **không** điền sẵn từ rule
 ///   đã có (bản cũ điền sẵn ở `init`, và `onChange(of: pattern)` cũng điền lại; **cả hai đã bỏ**).
-/// - Dưới ô nhập là **chip gợi ý**: mỗi rule đang có cho **đúng** `pattern` đó, lấy từ **cả 2 tầng**, badge
-///   **R** (riêng truyện) / **C** (chung), tầng riêng xếp trước. Bấm chip ⇒ nhập `replacement` của rule đó
-///   **và** đặt công tắc bật/tắt theo `isEnabled` của rule đó.
+/// - Dưới ô nhập là **chip gợi ý** (`TTSReplacementSuggestionSection`, dùng chung với sheet sửa quy tắc và sheet sửa
+///   từ điển phiên âm): mỗi rule đang có cho **đúng** `pattern` đó, lấy từ **cả 2 tầng**, badge **R** (riêng truyện)
+///   / **C** (chung), tầng riêng xếp trước. Bấm chip ⇒ nhập `replacement` của rule đó **và** đặt công tắc bật/tắt
+///   theo `isEnabled` của rule đó.
 /// - Rule đang **tắt** ⇒ chip **mờ**, nhìn ra trạng thái mà không phải bấm thử.
+/// - Sau chip rule là chip **phiên âm JP / EN** của `pattern` (1.3.974, chỉ hiện khi từ có phiên âm): bấm ⇒ điền
+///   chuỗi thay thế **và bật** công tắc kích hoạt.
 /// - Bấm **Lưu** ⇒ chọn **Lưu riêng** hoặc **Lưu chung** (đúng 2 lựa chọn, không có "lưu cả hai").
 /// - Mục **Kiểm tra** (1.3.920, `TTSReplacementRuleValidator`): mẫu phải là đúng một token (một từ hoặc một dãy ký
 ///   hiệu), sai thì Lưu bị tắt. Không xét trùng mẫu ở đây — chip R/C đã cho thấy luật trùng của cả hai tầng.
@@ -17,16 +20,8 @@ struct AddTTSReplacementSheet: View {
     @State private var pattern = ""
     @State private var replacement = ""
     @State private var isEnabled = true
-    /// Chip đang bấm — chỉ để vẽ viền đậm, không ảnh hưởng dữ liệu lưu.
-    @State private var selectedChipID: UUID?
-
-    /// Một chip gợi ý. Là `struct` (không phải tuple) vì `ForEach` cần `id:` là key path, mà key path trên
-    /// tuple không tồn tại trong Swift.
-    private struct Chip: Identifiable {
-        let id: UUID
-        let layer: TTSReplacementScope
-        let rule: TTSReplacementRule
-    }
+    /// Chip phiên âm JP / EN của `pattern` — nạp ngoài main thread bởi `phoneticSuggestions(for:mode:into:)`.
+    @State private var phoneticSuggestions: [TTSPhoneticSuggestion] = []
 
     private let bookId: String?
     private let bookRules: [TTSReplacementRule]
@@ -50,20 +45,15 @@ struct AddTTSReplacementSheet: View {
         _isEnabled = State(initialValue: true)
     }
 
-    /// Chip cho **đúng** `pattern` đang có trong ô nhập: rule riêng trước, rồi rule chung. Tính lại theo
+    /// Chip rule cho **đúng** `pattern` đang có trong ô nhập: rule riêng trước, rồi rule chung. Tính lại theo
     /// `pattern` nên sửa ô chuỗi gốc là danh sách chip đổi theo.
-    private var chips: [Chip] {
-        let trimmed = pattern.trimmed
-        var result: [Chip] = []
-        if let bookId, !bookId.isEmpty {
-            result += bookRules
-                .filter { $0.pattern == trimmed }
-                .map { Chip(id: $0.id, layer: .book(bookId), rule: $0) }
-        }
-        result += globalRules
-            .filter { $0.pattern == trimmed }
-            .map { Chip(id: $0.id, layer: .global, rule: $0) }
-        return result
+    private var ruleChips: [TTSReplacementSuggestionSection.RuleChip] {
+        TTSReplacementSuggestionSection.ruleChips(
+            pattern: pattern,
+            bookId: bookId,
+            bookRules: bookRules,
+            globalRules: globalRules
+        )
     }
 
     var body: some View {
@@ -79,20 +69,13 @@ struct AddTTSReplacementSheet: View {
                     Toggle("Kích hoạt thay thế", isOn: $isEnabled)
                 }
 
-                if !chips.isEmpty {
-                    Section {
-                        FlowLayout(spacing: 8) {
-                            ForEach(chips) { chip in
-                                chipButton(chip)
-                            }
-                        }
-                        // Chừa chỗ cho badge R/C nhô ra góc trên phải chip.
-                        .padding(.top, 2 + ChipCornerBadge.inset)
-                        .padding(.bottom, 2)
-                        .padding(.trailing, ChipCornerBadge.inset)
-                    } header: {
-                        SectionHelpHeader("Gợi ý từ rule đã có", paragraphs: ["R = rule riêng của truyện · C = rule chung · chip **mờ** = rule đang tắt. Bấm chip để nhập lại chuỗi thay thế và đặt công tắc theo rule đó."])
-                    }
+                TTSReplacementSuggestionSection(
+                    mode: .replacementRule,
+                    rules: ruleChips,
+                    phonetic: phoneticSuggestions
+                ) { text, enabled in
+                    replacement = text
+                    isEnabled = enabled
                 }
 
                 if !pattern.trimmed.isEmpty {
@@ -107,6 +90,7 @@ struct AddTTSReplacementSheet: View {
                     TTSReplacementRuleIssuesView(pattern: pattern, issues: issues)
                 }
             }.glassSheetRows() }
+            .phoneticSuggestions(for: pattern, mode: .replacementRule, into: $phoneticSuggestions)
             .pageTitle("Thêm thay thế TTS")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -139,43 +123,6 @@ struct AddTTSReplacementSheet: View {
             ? "sẽ bị bỏ trống khi đọc"
             : "sẽ được đọc thành '\(replacement.trimmed)'"
         return "Pattern '\(pattern.trimmed)' \(effect)\(isEnabled ? "" : " (Đang tắt)")"
-    }
-
-    @ViewBuilder
-    private func chipButton(_ chip: Chip) -> some View {
-        Button {
-            selectedChipID = chip.id
-            replacement = chip.rule.replacement
-            isEnabled = chip.rule.isEnabled
-        } label: {
-            // `(rỗng)` là quy ước **có sẵn** của app cho chuỗi thay thế rỗng — xem `ruleRow` ở
-            // `TTSReplacementManagerView`. Không phải nhãn mới do lượt này nghĩ ra.
-            Text(chip.rule.replacement.isEmpty ? "(rỗng)" : chip.rule.replacement)
-                .font(.footnote)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .overlay(
-                    Capsule().stroke(
-                        selectedChipID == chip.id ? Color.accentColor : Color.secondary.opacity(0.35),
-                        lineWidth: selectedChipID == chip.id ? 1.5 : 0.5
-                    )
-                )
-                // Badge R/C ở góc trên phải, cùng màu chip nghĩa của panel Dịch (1.3.619).
-                .overlay(alignment: .topTrailing) {
-                    ChipCornerBadge(scope: badgeScope(chip.layer))
-                }
-                // Rule đang tắt ⇒ chip mờ.
-                .opacity(chip.rule.isEnabled ? 1 : 0.45)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func badgeScope(_ layer: TTSReplacementScope) -> SuggestionChip.Scope {
-        switch layer {
-        case .book: return .book
-        case .global: return .global
-        }
     }
 
     private func save(_ scope: TTSReplacementScope) {
