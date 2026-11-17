@@ -5,9 +5,7 @@ import Foundation
 ///
 /// Duyệt cây DOM thật, **không** `innerText` / `getComputedStyle` (không ép trang tính lại layout), không clone, không
 /// chèn node. Đã thử trên trang thật của cả ba kiểu trang:
-/// - xuống dòng mềm là text node `"
-"` (`white-space: pre-line`) ⇒ chỉ gộp dấu cách / tab, **giữ** `
-` (gộp là hai dòng
+/// - xuống dòng mềm là text node `"\n"` (`white-space: pre-line`) ⇒ chỉ gộp dấu cách / tab, **giữ** `\n` (gộp là hai dòng
 ///   `Tên=Nghĩa` dính thành một);
 /// - `li` ⇒ `- ` / `N. `, `h1…h6` ⇒ `#`, ô bảng nối ` | `;
 /// - khối code ⇒ hàng rào ba dấu huyền: `<pre>` (ChatGPT ẩn danh, Gemini) hoặc `[data-chatgpt-copy-code]` (ChatGPT đã đăng
