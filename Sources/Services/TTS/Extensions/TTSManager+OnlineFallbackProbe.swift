@@ -6,7 +6,7 @@ import Foundation
 /// không thử (có mạng lại ⇒ thử ngay); đang tạm dừng thì chờ; phiên tắt / đổi ⇒ thôi. Mỗi lượt tổng hợp online **một** đoạn
 /// sắp đọc qua `RemoteTTSSynthesisCoordinator` ở mức thấp nhất, một lần thử (1.3.960 — trước đó gọi thẳng service nên chạy
 /// chồng lượt tiện ích khác trên cùng runtime JS). Được ⇒ giữ tiếng online cho đoạn ấy, tắt dự phòng: các đoạn dự phòng đã
-/// nạp trước phát nốt, phần còn thiếu nạp online.
+/// nạp xong phát nốt, lượt dự phòng chưa xong bị huỷ (1.3.962), phần còn thiếu nạp online.
 extension TTSManager {
     func startOnlineFallbackProbe(after delay: TimeInterval) {
         onlineFallback.probeTask?.cancel()
@@ -104,9 +104,17 @@ extension TTSManager {
         return target > currentParagraphIndex ? target : nil
     }
 
+    /// Online chạy lại ⇒ tắt dự phòng. Đoạn dự phòng đã nạp **xong** phát nốt; lượt nạp trước dự phòng **chưa xong** bị huỷ
+    /// (lượt tổng hợp của nó tự huỷ khi không còn ai chờ) rồi cửa sổ nạp lại bằng online (1.3.962). Log build 1288: lượt
+    /// dự phòng của đoạn 66 bắt đầu 41 ms trước khi online chạy lại, chạy nốt 2,4 s rồi vẫn được phát bằng giọng dự phòng,
+    /// trong khi online chỉ mất 0,3–0,7 s. Cả cửa sổ lúc này chỉ có lượt dự phòng: lượt online đã bị bỏ khi bật dự phòng.
     private func returnToOnline() {
-        AppLogger.shared.log("[TTSFallback] \(onlineFallbackOnlineName) hoạt động lại ⇒ quay lại giọng online")
+        let pendingFallback = prefetchTasks.count
+        AppLogger.shared.log(
+            "[TTSFallback] \(onlineFallbackOnlineName) hoạt động lại ⇒ quay lại giọng online (bỏ \(pendingFallback) lượt nạp trước dự phòng chưa xong)"
+        )
         onlineFallback.deactivate()
+        cancelRemotePrefetchTasks()
         TTSPresentationEventCenter.shared.send(.showToast(
             message: "\(onlineFallbackOnlineName) hoạt động lại — đọc tiếp bằng giọng online",
             type: .success

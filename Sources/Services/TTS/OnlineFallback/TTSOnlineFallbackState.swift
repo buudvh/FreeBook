@@ -39,6 +39,15 @@ final class TTSOnlineFallbackState {
     var hedgeTask: Task<Void, Never>?
     var hedgeKey: ChunkKey?
     private var deliveredPlaybackId: String?
+    /// Phiên đã nạp sẵn engine dự phòng (`TTSManager.prewarmOnlineFallback`) — mỗi phiên một lần.
+    private var prewarmedSession: UUID?
+
+    /// `true` nếu phiên này chưa nạp sẵn engine dự phòng (và đánh dấu là đã nạp).
+    func claimPrewarm(session: UUID) -> Bool {
+        guard prewarmedSession != session else { return false }
+        prewarmedSession = session
+        return true
+    }
 
     func isActive(session: UUID) -> Bool {
         activeSessionID == session

@@ -95,6 +95,9 @@ enum RemoteTTSAttemptPolicy {
                 AppLogger.shared.log(
                     "⚠️ [RemoteTTS] Thử lại lượt \(attempt + 1)/\(allowed) engine=\(engine): \(error.localizedDescription)"
                 )
+                // Dấu hiệu online trục trặc ⇒ nạp sẵn giọng dự phòng trong lúc thử lại, để nếu phải chuyển thì đoạn dự phòng
+                // đầu tiên không tổng hợp nguội (1.3.962; không có giọng dự phòng thì hàm không làm gì).
+                Task { @MainActor in TTSManager.shared.prewarmOnlineFallback() }
                 try? await Task.sleep(nanoseconds: UInt64(delay(after: error) * 1_000_000_000))
                 if Task.isCancelled { return .failure(CancellationError()) }
             }

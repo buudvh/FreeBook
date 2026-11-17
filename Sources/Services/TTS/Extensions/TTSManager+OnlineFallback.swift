@@ -99,6 +99,26 @@ extension TTSManager {
         startOnlineFallbackProbe(after: offline ? TTSOnlineFallbackState.maxProbeDelay : TTSOnlineFallbackState.firstProbeDelay)
     }
 
+    /// Một lượt online vừa hụt mà còn lượt thử (`RemoteTTSAttemptPolicy.run`) ⇒ nạp sẵn engine dự phòng ở nền, mỗi phiên
+    /// một lần (1.3.962). Log build 1288: lượt nạp trước hụt lần đầu 7,4 s trước khi phải chuyển, nhưng VieNeu chỉ được nạp
+    /// lúc chuyển ⇒ đoạn dự phòng đầu tiên tổng hợp nguội 1,9 s (RTF 0,31; các đoạn sau 0,12), khoảng lặng 2,4 s. Không nạp
+    /// sẵn ngay khi bắt đầu đọc: engine dự phòng (VieNeu ~280 MB) chỉ nên chiếm RAM khi online đã có dấu hiệu trục trặc.
+    func prewarmOnlineFallback() {
+        guard isPlaying, let engine = TTSOnlineFallbackSettings.engine, TTSOnlineFallbackSettings.isOnlineTool(tool),
+              !onlineFallback.isActive(session: sessionID),
+              let service = onlineFallbackService(for: engine),
+              onlineFallback.claimPrewarm(session: sessionID) else { return }
+        let voice = engine == .vieneu ? Self.effectiveVieNeuVoice() : TTSOnlineFallbackSettings.nghiVoice
+        AppLogger.shared.log("[TTSFallback] \(onlineFallbackOnlineName) vừa hụt một lượt ⇒ nạp sẵn giọng dự phòng \(engine.title)")
+        Task(priority: .utility) {
+            do {
+                try await service.prepare(voice: voice)
+            } catch {
+                AppLogger.shared.log("❌ [TTSFallback] Nạp sẵn giọng dự phòng lỗi: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Giọng dự phòng cũng lỗi ⇒ như trước 1.3.945: dừng đọc + báo.
     private func onlineFallbackFailed(_ error: Error) {
         AppLogger.shared.log("❌ [TTSFallback] Giọng dự phòng lỗi: \(error.localizedDescription) ⇒ tạm dừng đọc")

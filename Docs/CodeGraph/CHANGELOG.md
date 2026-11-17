@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.962] - 2026-11-17
+
+### fix: Giọng dự phòng nạp sẵn khi TTS online hụt lượt đầu, quay lại online thì bỏ lượt dự phòng chưa xong
+
+Log build 1288 (bản 1.3.961) do anh Bửu gửi; anh Bửu duyệt "Sửa cả hai". Luật thử lại / chuyển / quay lại của 1.3.960 chạy đúng, còn hai chỗ chậm:
+
+- **Nạp sẵn giọng dự phòng khi online có dấu hiệu trục trặc** (`TTSManager.prewarmOnlineFallback`, gọi từ `RemoteTTSAttemptPolicy.run` khi một lượt hụt mà còn lượt thử; mỗi phiên một lần). Trong log, lượt nạp trước của đoạn 56 hụt lần đầu ("Could not connect to the server") 7,4 s trước khi phải chuyển, nhưng VieNeu chỉ được nạp lúc chuyển ⇒ đoạn dự phòng đầu tiên tổng hợp nguội 1,9 s (RTF 0,31, các đoạn sau 0,12), khoảng lặng 2,4 s. Nay engine dự phòng (`prepare` + chạy nháp Core ML) được nạp ngay ở lượt hụt đầu. Không nạp sẵn lúc bắt đầu đọc: VieNeu (~280 MB) chỉ nên chiếm RAM khi online đã trục trặc.
+- **Quay lại online thì bỏ lượt nạp trước dự phòng chưa xong** (`returnToOnline`): huỷ các lượt đó (lượt tổng hợp tự huỷ khi không còn ai chờ) rồi nạp lại cửa sổ bằng online; đoạn dự phòng đã nạp xong vẫn phát nốt. Trong log, lượt dự phòng của đoạn 66 bắt đầu 41 ms trước khi online chạy lại, chạy nốt rồi vẫn được phát bằng giọng dự phòng, trong khi online chỉ mất 0,3–0,7 s. Log dòng quay lại ghi số lượt bỏ.
+- `.claude/rules/tts.md` ghi hai luật trên.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.961] - 2026-11-16
 
 ### refactor: Cài đặt VieNeu dùng chung một bản cho Cài đặt TTS và Giọng dự phòng, chạy nháp Core ML chờ tín hiệu thay vì hỏi khoá mỗi 10 ms
@@ -400,13 +411,3 @@ Hướng 3 của báo cáo tối ưu Turbo (§18, anh Bửu duyệt): xem codec 
 - **`VieNeuTurboRuntime.synthesize(…, extraRequestOptions:)`**: tuỳ chọn request phụ (mặc định rỗng ⇒ trình đọc không đổi).
 - Gỡ màn đo = xoá `CodecBench/`, `TurboCodecBenchView.swift`, dòng trong bridging header, hàng ở `VieNeuTTSSettingsView+Sections`, tham số `extraRequestOptions` nếu không ai dùng, `Caches/turbo-codec-bench/`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa chạy trên máy.
-
-## [1.3.931] - 2026-11-14
-
-### feat: Sheet điều khiển nhanh TTS có badge nhiệt độ máy Mát / Ấm / Nóng / Rất nóng
-
-Anh Bửu muốn thấy máy đang mát hay nóng ngay ở sheet đọc truyện (đo Turbo trên máy thì mức nhiệt quyết định số đo — log 17 nóng "serious" suốt nên không so được với lượt mát). Duyệt mockup.
-
-- **`TTSThermalBadge`** (file mới `Sources/Views/TTSWidget/TTSThermalBadge.swift`): viên nhỏ icon `thermometer.medium` + "Mát" / "Ấm" / "Nóng" / "Rất nóng", chữ xanh / vàng / cam / đỏ trên nền cùng màu 18%, `caption2` nửa đậm. Đọc `ProcessInfo.thermalState` (iOS không cho đọc °C — chỉ 4 mức nominal / fair / serious / critical, cùng nguồn với trường `thermal=` của log TTS), đổi ngay khi iOS báo `thermalStateDidChangeNotification` (nhận trên main). Không bấm được; VoiceOver đọc "Nhiệt độ máy: …".
-- **`TTSQuickControlSheet`**: badge nằm bên trái "N/M" ở dòng dưới vạch tiến độ chương (`NowReadingBlock`, chỗ trước đây để trống). Hiện với mọi trình đọc.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
