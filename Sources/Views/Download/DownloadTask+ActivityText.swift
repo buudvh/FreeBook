@@ -4,7 +4,9 @@ import Foundation
 /// (`NotificationInboxView.StoryTaskActivityRow`) và ô ở mục "Đang chạy" của sheet hub (`FloatingHubActivity`, 1.3.967),
 /// để hai nơi nói cùng một câu.
 extension DownloadTask {
-    /// Tên truyện: cùng luật với toast kết quả của `DownloadManager` (ba cấp + phồn → giản).
+    /// Tên truyện: cùng luật với toast kết quả của `DownloadManager` (ba cấp + phồn → giản). `@MainActor` vì
+    /// `BookDisplayTranslation.listOptions` chỉ chạy trên main (hai chỗ gọi đều là View / `FloatingHubActivity`).
+    @MainActor
     var activityTitle: String {
         BookDisplayTranslation.text(
             bookTitle,
