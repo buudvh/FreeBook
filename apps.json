@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.977",
+          "buildVersion": "1298",
+          "date": "2026-11-17T09:02:25Z",
+          "localizedDescription": "- fix: ChatGPT Web không còn bật bàn phím mỗi lần WebView ẩn chạy\n- feat: Chip phiên âm Anh / Nhật ở sheet Thêm thay thế TTS, dãy chip gợi ý ở sheet sửa quy tắc thay thế và sửa từ điển phiên âm NghiTTS / VieNeu\n- feat: Công tắc Phiên âm tiếng Nhật có ở mọi trình đọc TTS, lưu riêng từng trình đọc\n- fix: Từ điển phiên âm NghiTTS / VieNeu khớp từ có dấu nối - hoặc . theo luật token của thay thế TTS, sheet Thêm từ nhận từ gốc có dấu nối\n- feat: Gemini Web chạy được khi chưa đăng nhập Google (chế độ khách)",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1298/TangCongCac-1.3.977-1298.ipa",
+          "size": 41722432,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.972",
           "buildVersion": "1296",
           "date": "2026-11-17T08:14:59Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1293/TangCongCac-1.3.968-1293.ipa",
           "size": 41608242,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.965",
-          "buildVersion": "1290",
-          "date": "2026-11-17T03:11:46Z",
-          "localizedDescription": "- fix: Google Chế độ AI bớt nóng máy: trang ẩn về trắng sau mỗi lượt, quét đọc trang chậm lại, máy nóng thì giãn nhịp quét\n- fix: Đĩa nghe không ẩn khi có hộp thoại xác nhận / huỷ, ở lại như nằm dưới hộp\n- fix: Bớt việc trên main khi tải truyện để mục lục đỡ giật, thêm log đo main thread bị kẹt",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1290/TangCongCac-1.3.965-1290.ipa",
-          "size": 41559943,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.972",
-      "versionDate": "2026-11-17T08:14:59Z",
-      "versionDescription": "- feat: Thêm provider AI ChatGPT Web (không cần key, đăng nhập hay không đều chạy)\n- fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi \"Chưa nạp model Turbo\" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1296/TangCongCac-1.3.972-1296.ipa",
-      "size": 41683182,
+      "version": "1.3.977",
+      "versionDate": "2026-11-17T09:02:25Z",
+      "versionDescription": "- fix: ChatGPT Web không còn bật bàn phím mỗi lần WebView ẩn chạy\n- feat: Chip phiên âm Anh / Nhật ở sheet Thêm thay thế TTS, dãy chip gợi ý ở sheet sửa quy tắc thay thế và sửa từ điển phiên âm NghiTTS / VieNeu\n- feat: Công tắc Phiên âm tiếng Nhật có ở mọi trình đọc TTS, lưu riêng từng trình đọc\n- fix: Từ điển phiên âm NghiTTS / VieNeu khớp từ có dấu nối - hoặc . theo luật token của thay thế TTS, sheet Thêm từ nhận từ gốc có dấu nối\n- feat: Gemini Web chạy được khi chưa đăng nhập Google (chế độ khách)",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1298/TangCongCac-1.3.977-1298.ipa",
+      "size": 41722432,
       "appPermissions": {}
     }
   ],
