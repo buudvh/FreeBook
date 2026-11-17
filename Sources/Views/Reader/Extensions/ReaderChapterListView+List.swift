@@ -55,6 +55,13 @@ extension ReaderChapterListView {
             }
             .onAppear {
                 scrollToCurrentChapter(proxy: proxy)
+                // Bối cảnh cho log đo main kẹt (1.3.965): dòng `🐢 [MainHang]` ghi kèm "mục lục Reader" khi đang mở.
+                MainThreadHangMonitor.shared.noteScreen("mục lục Reader", visible: true)
+                AppLogger.shared.log("📑 [ReaderTOC] Mở mục lục (\(store.totalCount) chương)")
+            }
+            .onDisappear {
+                MainThreadHangMonitor.shared.noteScreen("mục lục Reader", visible: false)
+                AppLogger.shared.log("📑 [ReaderTOC] Đóng mục lục")
             }
             .onChange(of: isPresented) { _, presented in
                 if presented {

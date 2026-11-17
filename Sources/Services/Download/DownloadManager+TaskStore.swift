@@ -254,8 +254,10 @@ extension DownloadManager {
     ///
     /// Mảng `@Published tasks` chỉ được sửa tối đa ~10 lần/giây (`progressPublishInterval`) — giá trị cuối,
     /// bước đầu tiên và mọi thay đổi trạng thái/tổng số luôn được phát — nên progress bar vẫn mượt mà SwiftUI
-    /// không phải render lại một lần cho mỗi chương. Giá trị mới vẫn được áp vào model DB ở **mọi** lần gọi,
-    /// chỉ riêng `save()` là được gộp.
+    /// không phải render lại một lần cho mỗi chương. CSDL chỉ cần tiến độ để hiện lại sau khi app bị tắt giữa chừng ⇒
+    /// ghi khi đổi trạng thái / bước cuối và mỗi `progressPersistInterval` (1.3.965). Trước đó **mỗi chương** một lần fetch
+    /// `#Predicate` trên main cộng `save()` mỗi giây — lần lưu nào cũng có thể đánh thức `@Query` của màn đang mở
+    /// (Reader, Kệ) ⇒ nghi là nhịp giật của mục lục Reader lúc đang tải.
     @MainActor
     internal func updateProgress(taskId: UUID, progress: Int, total: Int) {
         guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
@@ -273,7 +275,10 @@ extension DownloadManager {
             lastProgressPublishAt[taskId] = now
         }
 
-        updateTaskInDB(taskId: taskId, coalesce: !isFinalStep) { model in
+        guard isFinalStep || isStateChange || progress == 0
+            || now - (lastProgressPersistAt[taskId] ?? 0) >= Self.progressPersistInterval else { return }
+        lastProgressPersistAt[taskId] = now
+        updateTaskInDB(taskId: taskId) { model in
             model.progressCount = progress
             model.totalCount = total
             model.statusRaw = TaskStatus.running.rawValue

@@ -149,6 +149,8 @@ public final class DownloadManager: ObservableObject {
     internal static let taskSaveCoalesceInterval: CFAbsoluteTime = 1.0
     /// Khoảng phát `@Published tasks` khi tiến độ nhảy từng chương ⇒ tối đa ~10 lần/giây, giá trị cuối luôn phát.
     internal static let progressPublishInterval: CFAbsoluteTime = 0.1
+    /// Khoảng ghi tiến độ trung gian xuống CSDL task, tính bằng giây (1.3.965) — xem `updateProgress`.
+    internal static let progressPersistInterval: CFAbsoluteTime = 5.0
 
     @Published public var tasks: [DownloadTask] = []
     public var cancelledTaskIds: Set<UUID> = []
@@ -158,6 +160,8 @@ public final class DownloadManager: ObservableObject {
     internal var taskContext: ModelContext?
     internal var lastTaskSaveAt: CFAbsoluteTime = 0
     internal var lastProgressPublishAt: [UUID: CFAbsoluteTime] = [:]
+    /// Lần cuối tiến độ trung gian của từng task được ghi xuống CSDL (một khoá nhỏ mỗi task trong phiên, không dọn).
+    internal var lastProgressPersistAt: [UUID: CFAbsoluteTime] = [:]
 
     private init() {}
 

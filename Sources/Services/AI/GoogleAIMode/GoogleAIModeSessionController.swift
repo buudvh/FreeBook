@@ -39,6 +39,8 @@ final class GoogleAIModeSessionController: NSObject {
     private(set) var verificationRequired = false
 
     var hasWebView: Bool { webView != nil }
+    /// Đang có lượt chạy — bối cảnh cho log `MainThreadHangMonitor`.
+    var isTurnActive: Bool { currentTurn != nil }
 
     private override init() {
         super.init()

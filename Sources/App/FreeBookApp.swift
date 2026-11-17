@@ -47,6 +47,8 @@ struct FreeBookApp: App {
         FileDescriptorCensus.start()
         // Bộ ghi nhiệt cho màn "Theo dõi nhiệt": 1 mẫu / 30 giây vào bộ đệm vòng trong RAM, không ghi đĩa.
         DeviceThermalMonitor.shared.start()
+        // Đo main thread bị kẹt, chỉ chạy lúc bật "Ghi log hệ thống" (1.3.965).
+        MainThreadHangMonitor.shared.start()
     }
 
     var body: some Scene {

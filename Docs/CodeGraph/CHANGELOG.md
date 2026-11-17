@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.965] - 2026-11-17
+
+### fix: Bớt việc trên main khi tải truyện để mục lục đỡ giật, thêm log đo main thread bị kẹt
+
+Anh Bửu báo mục lục Reader giật khi đang tải truyện; log build 1289 không có dấu vết lúc giao diện khựng (JS của tiện ích chạy ngoài main, `[ReaderEnergy]` không tăng lúc tải) nên chưa xác định chắc nguyên nhân. Đợt này bỏ hai việc thừa trên main đã thấy khi đọc code và thêm bộ đo để lần sau có số liệu.
+
+- **Tiến độ tải không còn fetch SwiftData mỗi chương** (`DownloadManager.updateProgress`): trước đó mỗi chương một lần fetch `#Predicate` trên main + `save()` mỗi giây; mỗi lần lưu có thể đánh thức `@Query` của màn đang mở (Reader giữ `@Query` cả thư viện, Kệ nằm dưới cũng vậy). Nay chỉ ghi CSDL khi đổi trạng thái / bước đầu / bước cuối và mỗi 5 s (`progressPersistInterval`, đếm riêng từng tác vụ — `lastProgressPersistAt`); thanh tiến độ trên màn vẫn ~10 lần/giây như cũ. CSDL chỉ cần tiến độ để hiện lại sau khi app bị tắt giữa chừng.
+- **Mục lục của Chi tiết gộp sự kiện "chương vừa tải" tối đa 1 lần/giây** (`BookDetailTOCView.observeChapterDownloads`): mỗi lần ghi `freshlyCachedIndices` (`@State`) là cả `body` dựng lại kèm `ForEach` hàng nghìn chương — kể cả khi Chi tiết đang nằm dưới Reader. Tải 2–3 luồng là vài chương mỗi giây. Icon "đã tải" ở đó trễ tối đa 1 giây.
+- **Log đo main kẹt** (`MainThreadHangMonitor`, `Services/Diagnostics/`, khởi động ở `FreeBookApp.init`): chỉ chạy khi bật "Ghi log hệ thống"; mỗi 0,25 s gửi một khối rỗng vào main và đo độ trễ. Kẹt ≥ 500 ms ⇒ một dòng `🐢 [MainHang] Main kẹt N ms`; các lần ≥ 150 ms gộp thành dòng tổng kết mỗi 10 s. Mỗi dòng kèm bối cảnh: số tác vụ tải / xuất đang chạy, Chế độ AI đang chạy lượt (`GoogleAIModeSessionController.isTurnActive`), "mục lục Reader" / "mục lục Chi tiết" đang mở (`noteScreen`), mức nhiệt. Mục lục Reader thêm dòng `📑 [ReaderTOC] Mở / Đóng mục lục`.
+- Sheet hub đếm tác vụ: anh Bửu chưa duyệt mockup ⇒ chưa làm.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.964] - 2026-11-17
 
 ### fix: Đĩa nghe không ẩn khi có hộp thoại xác nhận / huỷ, ở lại như nằm dưới hộp
@@ -398,20 +410,3 @@ Anh Bửu: mẫu dài quá giới hạn thì app phải tự cắt thay vì báo
 - **Thu âm**: bỏ tự dừng 8 s — người dùng tự dừng, chốt an toàn 5 phút (`recordSafetyLimitSeconds`); đồng hồ chỉ còn "12,3 s". Nút thu khoá trong lúc đang chuẩn bị mẫu.
 - **Báo**: sheet nhân bản có hàng "Đã cắt 29,3 / 45,2 s" khi mẫu bị cắt; giải thích sau nút "?" của "Mẫu giọng". Log `✂️ [VieNeuClone] Mẫu … ⇒ Nano giữ … s đầu (chỗ lặng … dB …)` và `✂️ [VieNeuTurboClone] Tiếng nói … ⇒ dùng … s`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.934] - 2026-11-14
-
-### feat: VieNeu đọc lai Nano và Turbo, tiếng nước ngoài đọc Turbo, máy nóng thì đọc Nano rồi mát lại về Turbo
-
-Anh Bửu duyệt cả hai phương án của báo cáo `Docs/Reports/2026-11-14-vieneu-nano-turbo-theo-ngon-ngu.md` ("Làm A và B luôn rồi build 1 lượt"). Chỉ áp cho giọng có **cặp** Nano ↔ Turbo: giọng có sẵn trùng tên đúng từng chữ (Adam, Mai Anh, Trúc Ly, Anh Khôi, Mạnh Dũng, Mỹ Duyên, Đức Trí — "Minh Quân" ≠ "Minh Quân Pro") hoặc giọng nhân bản "Cả hai" (`sourceNanoVoiceId`); cần đủ Nano, Turbo và file giọng Turbo của cặp. Giọng không có cặp đọc như cũ.
-
-- **A — tiếng nước ngoài đọc Turbo** (giọng Nano): `VieNeuForeignTextClassifier` xét từng chunk (sau `normalizeVietnameseText` + gấp macron): token chỉ chữ ASCII, ≥ 2 chữ, không phải âm tiết Việt không dấu, không phải tiếng kêu / viết tắt IN HOA ≤ 3 chữ / vài từ mượn đọc kiểu Việt / từ trong từ điển phiên âm tiếng Nhật đang bật. Đoạn sang Turbo khi có ≥ 2 token lạ hoặc 1 token ≥ 5 chữ; có chữ Hán / kana ⇒ luôn Nano (không model nào đọc được, Turbo có thể ra tiếng lạ). Đo trên 200 chương truyện dịch Trung: 2 / 22.317 đoạn sang Turbo.
-- **B — máy nóng đọc Nano** (giọng Turbo): `VieNeuThermalGovernor` vào "nóng" khi `thermalState` ≥ `serious` giữ 60 s (hoặc `critical` ngay), ra khi đã nóng ≥ 10 phút **và** `nominal` giữ 3 phút; theo `thermalStateDidChangeNotification`. **A nhường B**: B bật và máy nóng ⇒ tiếng nước ngoài cũng đọc Nano.
-- **Ngoại lệ luật nhiệt** (anh duyệt): thêm một dòng ở `rules.md` mục TTS — nhiệt được dùng **chỉ** để chọn model; cấm huỷ / điều tiết refill, prefetch, audio chương kế vẫn giữ.
-- **Một chỗ nối**: `TTSManager.localEngine` trả `VieNeuHybridTTSService` khi `VieNeuHybridRouting.context` có (mọi lối tổng hợp của trình đọc đi qua đó; `TTSManager.swift` không đổi). Engine bọc quyết model từng lượt, đổi sang giọng cặp, gọi đúng service (cùng `PiperSynthesisCoordinator`, mỗi lúc một lượt), log một dòng `🔀 [VieNeuHybrid] Đổi model … (lý do: tiếng nước ngoài: … / máy nóng / máy mát / đoạn tiếng Việt)`; governor log `🌡️ [VieNeuHybrid] Máy nóng / Máy đã mát …`.
-- **Khoá tổng hợp**: `VieNeuModelChoice.synthesisEngineIdentity(forEngine:voice:text:)` ⇒ `vieneu.hybrid.<model của đoạn>` khi đọc lai (quyết theo chữ đoạn — tất định), khác `vieneu` / `vieneu.turbo` ⇒ bật / tắt không phát nhầm audio. Đổi công tắc ⇒ `TTSManager.vieNeuHybridSettingsDidChange()`: phát nốt đoạn đang đọc, bỏ audio nạp trước + prefix chương kế (khoá `TTSPreparedNextChapterKey` không có model), chuẩn bị lại engine (dùng chung `discardVieNeuAudioAfterCurrent` với đổi tốc độ tổng hợp).
-- **Hai model trong RAM**: khi đọc lai, Turbo không còn tự nhả Nano trước mỗi lượt và Nano không nhả Turbo lúc khởi động (`VieNeuHybridRouting.readerContext`); engine bọc nhả model phụ chỉ khi model chính đổi, model phụ nạp lười ở đoạn đầu cần nó rồi giữ. Nano nạp lười lúc giọng Turbo đọc lai vẫn chạy nháp Core ML nếu gói đã tự kiểm, nhưng **không** tải / biên dịch gói (biên dịch ở nền từng làm iOS giết app). Đổi giọng cùng model ⇒ `scheduleNghiWarmUp()` để engine đổi đúng (bọc ↔ thường).
-- **Nối tiếng**: mỗi đoạn vẫn là một WAV + `AVAudioPlayer` riêng ⇒ 24 kHz và 48 kHz phát xen nhau được. Tốc độ: giọng Nano (A) ⇒ đoạn Turbo (48 kHz) phát nhân "Tốc độ tổng hợp" của Nano (`NghiAudioPlayerQueue.rate(for:)`, `VieNeuHybridRouting.playbackRateFactor`); giọng Turbo (B) ⇒ đoạn Nano tổng hợp 1×. Âm lượng: `VieNeuHybridLoudness` kéo đoạn của model phụ về mức RMS trung bình trượt của model chính (kẹp ±4 dB), đoạn model chính giữ nguyên.
-- **Cài đặt VieNeu TTS**: mục "Đọc lai Nano · Turbo" (`VieNeuHybridSettingsSection`) dưới hàng giọng đọc — công tắc "Tiếng nước ngoài đọc bằng Turbo" (`vieneuHybridLanguageEnabled`) và "Máy nóng thì đọc bằng Nano" (`vieneuHybridThermalEnabled`), mặc định bật; giải thích sau nút "?", một dòng trạng thái cặp giọng.
-- **Chưa kiểm**: chưa build (Windows), chưa thử máy. RAM khi giữ cả hai model chưa đo (ước 1,1–1,3 GB / ~2,1 GB của iPhone 11); thời gian nạp lười Turbo / Nano lúc khoá màn chưa đo; ước đệm (cached time) hơi cao với đoạn Turbo phát nhanh hơn thời lượng WAV; ngưỡng nhiệt là giá trị khởi điểm. `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
-- **Sửa biên dịch khi gộp** (CI run 43574639399): trong `NghiAudioPlayerQueue.updateRate(_ rate:)` tham số `rate` che hàm `rate(for:)` mới ⇒ gọi `self.rate(for:)`.
