@@ -17,11 +17,27 @@ actor GoogleAIModeTurnQueue {
     /// Khoảng nghỉ tối thiểu trước mỗi lượt quét tên riêng (người dùng chọn 5 s).
     static let scanGap: TimeInterval = 5
 
+    /// Máy nóng ⇒ giãn nhịp quét (1.3.963): mỗi lượt là một lần nạp trang Google đầy đủ (tải + biên dịch JS, dựng trang)
+    /// trong tiến trình web — % CPU của app (`DeviceThermalMonitor`) không tính phần này. Quét cả truyện là hàng chục lượt
+    /// liền nhau; nghỉ lâu hơn khi iOS báo Ấm / Nóng / Rất nóng để máy kịp hạ nhiệt. Chat không bị giãn (người dùng đang chờ).
+    /// Log build 1289 (iPhone 11, TTS Google chỉ bận ~5%): quét nhịp 5 s (~9 s/lượt, lượt ~4 s) ⇒ Mát → Ấm sau ~2 phút,
+    /// → Nóng sau ~5 phút, ngừng quét thì 2–4 phút sau hạ về Ấm — nên giãn từ mức Ấm.
+    static func thermalScanGap(_ state: ProcessInfo.ThermalState) -> TimeInterval {
+        switch state {
+        case .fair: return 10
+        case .serious: return 20
+        case .critical: return 60
+        default: return Self.scanGap
+        }
+    }
+
     private var isBusy = false
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
     private var lastTurnEndedAt: Date?
     private var blockedUntil: Date?
     private var consecutiveGenerationFailures = 0
+    /// Mức nhiệt lúc ghi dòng "giãn nhịp quét" gần nhất.
+    private var lastLoggedThermal: ProcessInfo.ThermalState?
 
     /// Hạn chờ khi hai lượt liên tiếp báo lỗi (giây).
     private static let failureCooldown: TimeInterval = 60
@@ -51,7 +67,17 @@ actor GoogleAIModeTurnQueue {
         do {
             try throwIfBlocked()
             if isScan, let ended = lastTurnEndedAt {
-                let remaining = Self.scanGap - Date().timeIntervalSince(ended)
+                let thermal = ProcessInfo.processInfo.thermalState
+                let gap = Self.thermalScanGap(thermal)
+                let remaining = gap - Date().timeIntervalSince(ended)
+                // Chỉ ghi khi mức nhiệt đổi — quét cả truyện ở mức Ấm là hàng chục lượt.
+                if thermal != lastLoggedThermal {
+                    lastLoggedThermal = thermal
+                    if gap > Self.scanGap {
+                        let label = thermal == .critical ? "Rất nóng" : thermal == .serious ? "Nóng" : "Ấm"
+                        AppLogger.shared.log("🌡️ [AIMode] Máy \(label) — giãn nhịp quét tên riêng: nghỉ \(Int(gap)) s giữa hai lượt")
+                    }
+                }
                 if remaining > 0 {
                     try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
                 }

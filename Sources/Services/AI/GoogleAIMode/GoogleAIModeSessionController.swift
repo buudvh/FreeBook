@@ -13,6 +13,9 @@ import WebKit
 ///   `requestTooLong`.
 /// - Mỗi lượt cấp một mã (`beginTurn`); `abort(token:)` chỉ dừng trang khi mã còn là lượt hiện hành — lệnh huỷ đến trễ
 ///   không giết lượt của truyện khác. Tự giải phóng WebView sau 10 phút không có lượt nào.
+/// - Lượt xong ⇒ sau `parkDelaySeconds` đưa trang về trang trắng (`schedulePark`, 1.3.963): cửa sổ ẩn giữ WebView ở trạng
+///   thái "hiển thị" nên trang Google để yên vẫn chạy JS, hẹn giờ, hoạt ảnh và vẽ lại — nguồn nóng máy giữa các lượt.
+///   Lượt nào cũng điều hướng lại từ đầu (lượt mới ⇒ URL câu hỏi, nối tiếp ⇒ URL khôi phục `mstk`) nên không mất gì.
 /// - Log chỉ host + path: URL mang cả chương truyện và `mstk`. Mọi hàm chạy trên MainActor; `GoogleAIModeClient` (actor)
 ///   gọi vào đây. Delegate WebKit: `+Delegates.swift`.
 @MainActor
@@ -21,6 +24,8 @@ final class GoogleAIModeSessionController: NSObject {
 
     private static let commitTimeout: TimeInterval = 30
     private static let idleReleaseSeconds: TimeInterval = 10 * 60
+    /// Chờ chừng này sau lượt rồi mới đưa trang về trắng — để các request cuối của trang (lưu cuộc chat, xoay cookie) xong.
+    private static let parkDelaySeconds: TimeInterval = 3
 
     private var webView: WKWebView?
     private let windowHost = GeminiWebHiddenWindowHost()
@@ -29,6 +34,7 @@ final class GoogleAIModeSessionController: NSObject {
     private var expectedNavigation: WKNavigation?
     private var currentTurn: UUID?
     private var idleReleaseTask: Task<Void, Never>?
+    private var parkTask: Task<Void, Never>?
     /// Đã gặp trang xác minh kể từ lúc lượt hiện tại bắt đầu — kể cả khi chính trang tự chuyển sang đó lúc đang trả lời.
     private(set) var verificationRequired = false
 
@@ -46,6 +52,8 @@ final class GoogleAIModeSessionController: NSObject {
         verificationRequired = false
         idleReleaseTask?.cancel()
         idleReleaseTask = nil
+        parkTask?.cancel()
+        parkTask = nil
         _ = ensureWebView()
         return token
     }
@@ -53,6 +61,7 @@ final class GoogleAIModeSessionController: NSObject {
     func endTurn(token: UUID) {
         guard currentTurn == token else { return }
         currentTurn = nil
+        schedulePark()
         scheduleIdleRelease()
     }
 
@@ -125,6 +134,8 @@ final class GoogleAIModeSessionController: NSObject {
     func releaseWebView() {
         idleReleaseTask?.cancel()
         idleReleaseTask = nil
+        parkTask?.cancel()
+        parkTask = nil
         guard let view = webView else { return }
         view.navigationDelegate = nil
         view.stopLoading()
@@ -132,6 +143,20 @@ final class GoogleAIModeSessionController: NSObject {
         webView = nil
         expectedNavigation = nil
         failNavigationWaiters(GoogleAIModeError.webViewUnavailable)
+    }
+
+    /// Đưa trang về trắng khi không còn lượt nào (giữ WebView + tiến trình web để lượt sau không phải dựng lại). Lượt mới
+    /// bắt đầu trong lúc chờ ⇒ `beginTurn` huỷ. Trang đã trắng (vừa `abort`) ⇒ bỏ qua.
+    private func schedulePark() {
+        parkTask?.cancel()
+        parkTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.parkDelaySeconds * 1_000_000_000))
+            guard !Task.isCancelled, let self, self.currentTurn == nil, let webView = self.webView else { return }
+            guard let url = webView.url, url.absoluteString != "about:blank" else { return }
+            AppLogger.shared.log("🤖 [AIMode] Lượt xong — đưa trang ẩn về trang trắng (\(GoogleAIModePageContract.describe(url)))")
+            webView.stopLoading()
+            webView.loadHTMLString("", baseURL: nil)
+        }
     }
 
     private func scheduleIdleRelease() {

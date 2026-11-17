@@ -21,6 +21,10 @@ extension GoogleAIModeClient {
     }
 
     private static let pollInterval: UInt64 = 300_000_000
+    /// Lượt không phát chữ (quét tên riêng, ping thử): đọc trang mỗi giây thay vì 0,3 s (1.3.963). Mỗi nhịp đọc gọi
+    /// `innerText` cả trang ⇒ ép WebKit tính lại style + layout; lượt quét không cần chữ chạy dần, chỉ cần biết lúc xong
+    /// (luật đứng yên 2 s / 8 s đo bằng giờ thật nên không đổi). Nhịp đầu chạy ngay sau commit ⇒ vẫn thấy "chưa sẵn sàng".
+    private static let quietPollInterval: UInt64 = 1_000_000_000
     private static let settleSeconds: TimeInterval = 2
     private static let fallbackSettleSeconds: TimeInterval = 8
     private static let restoreTimeout: TimeInterval = 15
@@ -199,6 +203,7 @@ extension GoogleAIModeClient {
         var lastMstk = knownMstk
         var missingSnapshots = 0
         var answerFound = false
+        let interval = onDelta == nil ? Self.quietPollInterval : Self.pollInterval
 
         while true {
             try Task.checkCancellation()
@@ -210,7 +215,7 @@ extension GoogleAIModeClient {
                     let alive = await controller.hasWebView
                     if !alive { throw GoogleAIModeError.webViewUnavailable }
                 }
-                try await Task.sleep(nanoseconds: Self.pollInterval)
+                try await Task.sleep(nanoseconds: interval)
                 continue
             }
             missingSnapshots = 0
@@ -288,7 +293,7 @@ extension GoogleAIModeClient {
                 }
                 throw GoogleAIModeError.timeout
             }
-            try await Task.sleep(nanoseconds: Self.pollInterval)
+            try await Task.sleep(nanoseconds: interval)
         }
     }
 

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.963] - 2026-11-17
+
+### fix: Google Chế độ AI bớt nóng máy: trang ẩn về trắng sau mỗi lượt, quét đọc trang chậm lại, máy nóng thì giãn nhịp quét
+
+Anh Bửu báo chức năng Google AI dễ làm nóng máy. Chế độ AI chạy trang `google.com/search?udm=50` trong WKWebView ẩn; cửa sổ ẩn (`GeminiWebHiddenWindowHost`) cố ý giữ WebView ở trạng thái "hiển thị" để WebKit không tạm dừng tiến trình web (bài học 1.3.507) ⇒ trang Google chạy và vẽ như trang đang mở. Phần việc này nằm trong tiến trình web nên % CPU của app ở màn Theo dõi nhiệt không thấy.
+
+- **Trang ẩn về trắng sau lượt** (`GoogleAIModeSessionController.schedulePark`): lượt xong 3 s mà không có lượt mới ⇒ `loadHTMLString("")` (cùng cách `abort` đã làm). Trước đó trang Google của lượt cuối nằm nguyên tới 10 phút (hạn giải phóng WebView) với JS, hẹn giờ, hoạt ảnh và con trỏ ô nhập vẫn chạy. Lượt nào cũng điều hướng lại (lượt mới ⇒ URL câu hỏi, nối tiếp ⇒ URL khôi phục `mstk`) nên không mất gì; giữ WebView + tiến trình web để lượt sau không phải dựng lại. Chờ 3 s để request cuối của trang (lưu cuộc chat, xoay cookie) xong; `beginTurn` huỷ lượt chờ.
+- **Lượt không phát chữ đọc trang mỗi 1 s** (`readAnswer`, quét tên riêng + "Kiểm tra kết nối"; chat vẫn 0,3 s). Mỗi nhịp đọc gọi `innerText` của cả trang và từng lượt ⇒ WebKit tính lại style + layout. Luật xong (đứng yên 2 s + "sẵn sàng", hoặc đứng yên 8 s) đo bằng giờ thật nên giữ nguyên; nhịp đầu chạy ngay sau commit nên vẫn bắt được trạng thái "chưa sẵn sàng".
+- **Máy nóng thì giãn nhịp quét** (`GoogleAIModeTurnQueue.thermalScanGap(_:)`): Ấm ⇒ nghỉ 10 s, Nóng ⇒ 20 s, Rất nóng ⇒ 60 s giữa hai lượt quét (bình thường 5 s); log `🌡️ [AIMode]` chỉ khi mức nhiệt đổi. Mỗi lượt quét là một lần nạp trang Google đầy đủ; quét cả truyện là hàng chục lượt liền. Chat không bị giãn.
+- **Bằng chứng từ log build 1289** (anh Bửu gửi sau khi bật log; iPhone 11, TTS Google chỉ bận ~5%, Reader bình thường): 4 lượt quét tên riêng bằng Chế độ AI (89 / 49 / 12 / 64 lượt, ~4 s mỗi lượt, ~9 s một vòng với nghỉ 5 s). Lần nào cũng Mát → Ấm sau ~2 phút quét, → Nóng sau ~5 phút; ngừng quét thì 2–4 phút sau hạ về Ấm (08:51–08:57, 09:00–09:04, 09:15–09:17, 09:26–09:29). Vì vậy giãn nhịp từ mức Ấm chứ không chờ tới Nóng.
+- `rules.md` (mục Chế độ AI, hàng đợi) ghi ba luật trên. Đẩy entry 1.3.932 sang `CHANGELOG.archive.md`.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.962] - 2026-11-17
 
 ### fix: Giọng dự phòng nạp sẵn khi TTS online hụt lượt đầu, quay lại online thì bỏ lượt dự phòng chưa xong
@@ -397,17 +410,3 @@ Kết quả màn đo 1.3.932 trên iPhone 11 (log 19, hai lượt; báo cáo t�
 - Xoá `Services/TTS/VieNeuTurbo/CodecBench/` (bridge `TurboCodecProbeBridge`, `TurboCodecProbeSession`, runner, assets, report), `Views/Settings/TTS/TurboCodecBenchView.swift`, dòng trong `FreeBookBridgingHeader.h`, hàng "Đo codec" ở mục Turbo của Cài đặt VieNeu TTS, tham số `extraRequestOptions` của `VieNeuTurboRuntime.synthesize` (không còn ai dùng) — mã về đúng như 1.3.931.
 - Dọn thư mục `Caches/turbo-codec-bench/` (~45 MB ONNX + cache Core ML) còn lại trên máy đã chạy màn đo: `VieNeuTurboRuntime.createSessionLocked` xoá nó mỗi lần dựng session Turbo (không có thì thôi); bỏ dòng này sau vài bản.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
-
-## [1.3.932] - 2026-11-14
-
-### feat: Màn đo tạm so codec Turbo chạy AMX với Core ML và Neural Engine trên cùng mã âm thanh
-
-Hướng 3 của báo cáo tối ưu Turbo (§18, anh Bửu duyệt): xem codec MOSS chạy Core ML / Neural Engine có nhanh hơn AMX (đường đang dùng) không trước khi đầu tư sửa graph. Bước thử trên CI (nhánh đo `claude/turbo-tp-profile`): graph ONNX chính thức `OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX` ra đúng tiếng (SNR ~60 dB so với codec audio.cpp — GGUF lưu codec F16, ONNX fp32 gốc), độn khung tới bucket giữ nguyên tiếng, cố định chiều động lúc tạo session (`AddFreeDimensionOverrideByName`) cho Core ML nhận 714/907 node trong 14 mảnh (op rơi về CPU: Gather, Less, Unsqueeze, Reshape… của mặt nạ / chỉ số). Máy ảo CI không có Neural Engine ⇒ tốc độ phải đo trên máy. Màn **tạm**, gỡ khi có kết luận.
-
-- **Cài đặt VieNeu TTS › Turbo › "Đo codec: AMX vs Neural Engine (tạm)"** (`Views/Settings/TTS/TurboCodecBenchView.swift`): một nút chạy, dòng tiến độ, báo cáo Markdown hiện tại chỗ + "Chia sẻ báo cáo" (`ShareSheet`). Giữ màn hình sáng trong lúc đo; đang đọc truyện thì từ chối.
-- **`TurboCodecBenchRunner`** (`Services/TTS/VieNeuTurbo/CodecBench/`): tổng hợp 3 câu phiên âm cố định (32 / 64 / ~123 khung) × 3 vòng bằng `VieNeuTurboRuntime` với giọng Turbo đang chọn (hoặc giọng Turbo đầu tiên đã tải) — `codes_dump_file` lấy mã, `text_chunk_size=1000` một lượt sinh mỗi câu, `babble_retries=0` (có sinh lại thì mã ghi ra khác tiếng trả về), bộ đếm giờ audio.cpp cho thời gian codec AMX (log app bật suốt lượt đo rồi trả về như cũ; kết quả từng cấu hình ghi log `🧪 [TurboCodecBench]` ngay khi xong). Nhả model Turbo trước khi biên dịch Core ML (bớt ~188 MB RAM). Rồi giải mã đúng mã đó bằng **ORT CPU** (shape động), **Core ML CPU** (fp32) và **Core ML + Neural Engine** (`MLComputeUnits = CPUAndNeuralEngine`; bucket 64 / 128 / 192 khung, mẫu vượt bucket ghi lỗi; độn mã + `audio_code_lengths` thật; cache biên dịch **mỗi bucket một thư mục** `Caches/turbo-codec-bench/coreml-cache/T<bucket>/` — cùng một file model, khoá cache của Core ML EP có thể không tính shape đã cố định — xoá đầu mỗi lượt đo), mỗi lúc một session; ghi mức nhiệt lúc bắt đầu mỗi cấu hình và WAV nghe thử (vòng 1 câu 2) của AMX + từng cấu hình để nghe so (Neural Engine tính fp16). Báo cáo: ms giải mã mỗi giây tiếng (trung vị), so với AMX, SNR so với tiếng audio.cpp, thời gian dựng session / lượt đầu, số node Core ML nhận (đọc log ORT), nhiệt đầu / cuối, theo từng câu.
-- **`TurboCodecBenchAssets`**: tải `moss_audio_tokenizer_decode_full.onnx` + `moss_audio_tokenizer_decode_shared.data` (~45 MB, revision ghim `ceff0d07`, kiểm đúng cỡ byte) vào `Caches/turbo-codec-bench/` (hệ điều hành được xoá).
-- **`TurboCodecProbeBridge.h/.m`** (thêm vào `FreeBookBridgingHeader.h`): cầu C API ONNX Runtime cho graph codec — vào int32 (`audio_codes [1, T, 16]`, `audio_code_lengths`), ra audio theo kênh cắt theo `audio_lengths`; trọng số nạp từ bộ nhớ (`AddExternalInitializersFromFilesInMemory`, né lỗi external data của Core ML EP ORT 1.24.2); cố định `batch` / `code_length` bằng free dimension override. Bọc Swift `TurboCodecProbeSession` (khuôn `VieNeuONNXProbeSession`, `autoreleasepool`).
-- **`VieNeuTurboRuntime.synthesize(…, extraRequestOptions:)`**: tuỳ chọn request phụ (mặc định rỗng ⇒ trình đọc không đổi).
-- Gỡ màn đo = xoá `CodecBench/`, `TurboCodecBenchView.swift`, dòng trong bridging header, hàng ở `VieNeuTTSSettingsView+Sections`, tham số `extraRequestOptions` nếu không ai dùng, `Caches/turbo-codec-bench/`.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa chạy trên máy.
