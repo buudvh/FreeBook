@@ -5,10 +5,16 @@ Vì sao (1.3.925): bật codec qua Accelerate (1.3.924) làm app chết trên iP
 tiến trình bằng `GGML_ASSERT` → `ggml_abort` → `abort()`, câu báo chỉ in ra stderr (trên máy không ai đọc). ggml có sẵn
 `ggml_set_abort_callback`, nhưng dylib của app chỉ xuất `audiocpp_*` nên app không gọi thẳng được. Hàm mới:
 - `path` khác rỗng ⇒ cài callback: nối câu báo của `ggml_abort` vào file `path` (mở / ghi / đóng ngay, rồi `abort()`
-  như cũ), và cài `std::terminate` handler ghi câu của exception chưa bắt (thay handler in backtrace của ggml — trên iOS
-  không ai đọc).
-- `path` NULL / rỗng ⇒ gỡ callback (ggml quay về in stderr).
+  như cũ), và cài `std::terminate` handler ghi câu của exception chưa bắt.
+- `path` NULL / rỗng ⇒ gỡ callback (ggml quay về in stderr); handler `std::terminate` ở lại nhưng không ghi gì.
 App đặt file một lần; lần mở sau đọc file, đưa vào log rồi xoá. Không bắt được lỗi truy cập bộ nhớ sai (cần file .ips).
+
+Handler `std::terminate` là của **cả tiến trình** (1.3.972): nó chạy cho mọi exception chưa bắt của app — NSException của
+UIKit / SwiftData cũng tới đây — chứ không riêng audio.cpp (C API đã đổi exception của chính nó thành status). Vì vậy:
+- dòng nó ghi mang tiền tố `terminate: ` để app phân biệt với câu báo của ggml (app chỉ tự tắt AMX theo câu của ggml);
+- ghi xong nó **gọi lại handler đã cài trước đó** (của ggml, rồi tới của libobjc / Foundation — handler ghi lý do
+  "Terminating app due to uncaught exception" vào file .ips và gọi `NSSetUncaughtExceptionHandler`). Bản trước 1.3.972
+  `abort()` luôn, nuốt mất phần báo đó.
 Symbol tự được xuất (`src/capi/audiocpp.symbols` là `_audiocpp_*`).
 
 Sửa bằng mốc chuỗi cố định; mốc nào không khớp đúng một lần ⇒ dừng với lỗi (thà build đỏ còn hơn vá lệch).
@@ -45,7 +51,9 @@ def main() -> None:
         "AUDIOCPP_API const char * audiocpp_status_string(audiocpp_status status);\n"
         "\n"
         "/* " + MARK + ": append ggml's abort message (GGML_ASSERT …) and the message of an uncaught exception to\n"
-        " * `path` before the process stops; NULL or \"\" removes the hook. Process-wide. */\n"
+        " * `path` before the process stops; NULL or \"\" stops writing. Process-wide: the terminate handler sees every\n"
+        " * uncaught exception of the host app, prefixes its lines with `terminate: ` and then calls the handler that\n"
+        " * was installed before it. */\n"
         "AUDIOCPP_API audiocpp_status audiocpp_set_abort_file(const char * path);\n",
         "khai báo audiocpp_status_string",
     )
@@ -59,6 +67,8 @@ def main() -> None:
         "#include <cstdio>   // " + MARK + "\n"
         "#include <cstdlib>  // " + MARK + "\n"
         "#include <cstring>  // " + MARK + "\n"
+        "#include <exception>  // " + MARK + "\n"
+        "#include <string>   // " + MARK + "\n"
         "#include <ggml.h>   // " + MARK + "\n",
         "include cstddef/cstdint",
     )
@@ -70,6 +80,9 @@ def main() -> None:
         "// " + MARK + "\n"
         "namespace {\n"
         "char g_freebook_abort_path[1024] = {0};\n"
+        "// The handler that was installed before ours (ggml's backtrace printer, which itself chains to libobjc's).\n"
+        "std::terminate_handler g_freebook_previous_terminate = nullptr;\n"
+        "bool g_freebook_terminating = false;\n"
         "\n"
         "void freebook_write_abort_note(const char * message) noexcept {\n"
         "    if (g_freebook_abort_path[0] == '\\0' || message == nullptr) {\n"
@@ -87,20 +100,31 @@ def main() -> None:
         "    std::fprintf(stderr, \"%s\\n\", message != nullptr ? message : \"ggml abort\");\n"
         "}\n"
         "\n"
+        "// Process-wide: runs for EVERY uncaught exception of the host app, not only audio.cpp's (the C API turns its\n"
+        "// own exceptions into a status). So each line carries the `terminate: ` prefix (the app tells it from a ggml\n"
+        "// abort by that), and the handler that was installed before runs afterwards — it is the one that reports\n"
+        "// the exception to the system.\n"
         "void freebook_terminate() {\n"
-        "    const char * what = \"std::terminate (no active exception)\";\n"
+        "    if (g_freebook_terminating) {\n"
+        "        std::abort();  // a later handler chained back to us\n"
+        "    }\n"
+        "    g_freebook_terminating = true;\n"
+        "    const char * what = \"terminate: no active exception\";\n"
         "    std::string text;\n"
         "    if (const auto current = std::current_exception()) {\n"
         "        try {\n"
         "            std::rethrow_exception(current);\n"
         "        } catch (const std::exception & e) {\n"
-        "            text = std::string(\"uncaught exception: \") + e.what();\n"
+        "            text = std::string(\"terminate: uncaught exception: \") + e.what();\n"
         "            what = text.c_str();\n"
         "        } catch (...) {\n"
-        "            what = \"uncaught non-std exception\";\n"
+        "            what = \"terminate: uncaught non-std exception\";\n"
         "        }\n"
         "    }\n"
         "    freebook_write_abort_note(what);\n"
+        "    if (g_freebook_previous_terminate != nullptr) {\n"
+        "        g_freebook_previous_terminate();\n"
+        "    }\n"
         "    std::abort();\n"
         "}\n"
         "}  // namespace\n"
@@ -117,7 +141,10 @@ def main() -> None:
         "        }\n"
         "        std::snprintf(g_freebook_abort_path, sizeof(g_freebook_abort_path), \"%s\", path);\n"
         "        ggml_set_abort_callback(freebook_ggml_abort);\n"
-        "        std::set_terminate(freebook_terminate);\n"
+        "        // Install once and keep what was there: called again on every session create.\n"
+        "        if (std::get_terminate() != freebook_terminate) {\n"
+        "            g_freebook_previous_terminate = std::set_terminate(freebook_terminate);\n"
+        "        }\n"
         "        return AUDIOCPP_OK;\n"
         "    });\n"
         "}\n",

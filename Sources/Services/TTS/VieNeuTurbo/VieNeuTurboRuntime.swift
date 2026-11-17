@@ -128,13 +128,21 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
     /// luồng mới mang QoS của luồng tạo ra nó ⇒ nâng QoS cho một lượt là cả lượt (kể cả luồng ggml) chạy ở mức đó. Mức
     /// cao hơn được xếp lên lõi hiệu năng (nhanh hơn, và đo trên máy là mát hơn vì xong sớm). `.enforceQoS` để hàng đợi
     /// `.utility` không kéo nó xuống.
+    ///
+    /// `modelURL` / `threads`: lượt này **tự chuẩn bị** trong cùng block (1.3.972). `prepare` rồi `synthesize` là hai
+    /// block rời, giữa chúng người gọi còn `await` (phiên âm) ⇒ một `release()` xếp hàng lúc model đang nạp (trình đọc
+    /// Nano nạp sẵn sau khi đổi giọng, engine đọc lai chuẩn bị lần đầu, xoá dữ liệu Turbo) luôn chạy trước `synthesize`
+    /// và làm nó ném `notLoaded`. Model + session còn nguyên thì `prepareLocked` chỉ so vài biến rồi trả.
     func synthesize(
         phonemes: String,
         referenceCodesURL: URL,
         speakerEmbeddingURL: URL,
+        modelURL: URL,
+        threads: Int,
         qos: DispatchQoS.QoSClass = .utility
     ) async throws -> Output {
         try await perform(qos: qos) { [self] in
+            _ = try prepareLocked(modelPath: modelURL.path, threads: max(1, threads))
             var output = try synthesizeLocked(
                 phonemes: phonemes,
                 referenceCodesPath: referenceCodesURL.path,
@@ -179,7 +187,9 @@ final class VieNeuTurboRuntime: @unchecked Sendable {
         registry = nil
         sessionThreads = 0
         sessionCodecBLAS = false
-        codecAMXVerified = false
+        // `codecAMXVerified` giữ nguyên: `VieNeuTurboCrashGuard` chỉ canh lượt AMX đầu tiên của **lần mở app**. Đặt lại ở
+        // đây (trước 1.3.972) là mỗi lần nạp lại model (đổi Nano ↔ Turbo, tạo giọng, xoá dữ liệu) lại mở thêm một cửa sổ
+        // mà app bị giết vì lý do khác cũng bị tính là sập do AMX.
         loadedModelPath = nil
     }
 

@@ -99,14 +99,13 @@ final class VieNeuVoicePreviewPlayer {
 
     /// Sheet chọn giọng đóng: dừng câu thử. Câu thử đã chạy model **khác** model của trình đọc (vd thử giọng Turbo khi trình
     /// đọc là Nano: engine Turbo nhả Nano trước mỗi lượt) ⇒ nạp sẵn lại engine của trình đọc — `prepare` của nó nhả model
-    /// kia — để đoạn đọc tiếp không phải chờ nạp model và hai model không cùng nằm trong RAM.
+    /// kia — để đoạn đọc tiếp không phải chờ nạp model và hai model không cùng nằm trong RAM. Trình đọc không phải VieNeu
+    /// ⇒ nhả engine vừa nạp để thử (1.3.972). Luật ở `TTSManager.restoreVieNeuEngines`.
     func finishSession() {
         stop()
         defer { lastPreviewModel = nil }
-        let tts = TTSManager.shared
-        guard let model = lastPreviewModel, tts.tool == "vieneu", model != VieNeuModelChoice.current else { return }
-        AppLogger.shared.log("🎙️ [VieNeuPreview] Đã thử giọng \(model.rawValue) — nạp lại engine của trình đọc")
-        tts.scheduleNghiWarmUp()
+        guard let model = lastPreviewModel else { return }
+        TTSManager.shared.restoreVieNeuEngines(afterUsing: model, reason: "thử giọng")
     }
 
     // MARK: - Nội bộ

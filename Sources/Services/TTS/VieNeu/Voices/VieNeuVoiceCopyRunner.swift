@@ -140,10 +140,10 @@ final class VieNeuVoiceCopyRunner {
             AppLogger.shared.log("❌ [VieNeuCopy] \(message)")
         }
         if let spokenURL { try? FileManager.default.removeItem(at: spokenURL) }
-        // Đọc mẫu bằng model khác model trình đọc ⇒ nạp lại engine trình đọc (như thử giọng, `finishSession`).
-        let tts = TTSManager.shared
-        if spokenURL != nil, tts.tool == "vieneu", source.model != VieNeuModelChoice.current {
-            tts.scheduleNghiWarmUp()
+        // Đọc mẫu bằng model khác model trình đọc ⇒ nạp lại engine trình đọc; trình đọc không phải VieNeu ⇒ nhả engine vừa
+        // nạp (như thử giọng, `finishSession`).
+        if spokenURL != nil {
+            TTSManager.shared.restoreVieNeuEngines(afterUsing: source.model, reason: "đọc mẫu nhân bản")
         }
         if succeeded {
             AppLogger.shared.log("🎙️ [VieNeuCopy] \(message)")

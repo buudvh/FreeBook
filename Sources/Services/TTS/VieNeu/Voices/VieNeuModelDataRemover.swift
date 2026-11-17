@@ -30,7 +30,11 @@ enum VieNeuModelDataRemover {
         let accelerator = VieNeuCoreMLAccelerator.shared
         guard !accelerator.isBusy else { throw RemovalError.preparingCoreML }
         stopReaderIfUsing(.nano)
-        _ = VieNeuTTSService.shared?.releaseEngineRuntime()
+        // Nhả ngoài main (1.3.972): `releaseEngineRuntime()` chờ khoá engine, mà một lượt Nano đang tổng hợp giữ khoá vài
+        // giây và `stop()` không cắt được nó giữa chừng — gọi thẳng ở đây là đứng UI.
+        await VieNeuTurboTTSService.releaseNanoEngineIfLoaded(reason: "trước khi xoá dữ liệu Nano")
+        // Vừa nhường main trong lúc chờ khoá ⇒ kiểm lại: một lượt tải có thể đã bắt đầu.
+        guard !ModelDownloadCenter.shared.isVieNeuBusy else { throw RemovalError.downloading }
         try await Task.detached(priority: .userInitiated) {
             try VieNeuModelStore().deleteAll()
         }.value
@@ -41,12 +45,18 @@ enum VieNeuModelDataRemover {
 
     static func deleteTurbo() async throws {
         guard !ModelDownloadCenter.shared.isVieNeuBusy else { throw RemovalError.downloading }
+        let modelBefore = VieNeuModelChoice.current
         stopReaderIfUsing(.turbo)
         await VieNeuTurboRuntime.shared.release()
         try await Task.detached(priority: .userInitiated) {
             try VieNeuTurboModelStore().deleteAll()
         }.value
+        // Một lượt Turbo lọt vào giữa lúc nhả và lúc xoá có thể đã nạp lại model ⇒ nhả lần nữa, kèm bộ phiên âm của Turbo
+        // (file đã xoá, không ai còn nhả hộ).
+        await VieNeuTurboTTSService.releaseForNano()
         VieNeuVoiceDirectory.shared.refreshAvailability()
+        // Đang chọn giọng Turbo ⇒ model hiệu lực vừa lùi về Nano mà `selectedVoice` còn là id giọng Turbo (1.3.972).
+        TTSManager.shared.reapplyVieNeuReaderIfModelChanged(from: modelBefore, reason: "xoa du lieu Turbo")
         AppLogger.shared.log("🗑️ [VieNeuTurbo] Đã xoá dữ liệu Turbo (model + giọng tải về)")
     }
 
@@ -62,11 +72,19 @@ enum VieNeuModelDataRemover {
         AppLogger.shared.log("🗑️ [VieNeuTurbo] Đã xoá file giọng \(voiceId)")
     }
 
-    /// `voiceId` khác `nil` ⇒ chỉ dừng khi trình đọc đang dùng đúng giọng đó.
+    /// Dừng trình đọc khi nó đang dùng dữ liệu sắp xoá: model hiệu lực là `model`, hoặc đang **đọc lai** — khi đó model
+    /// kia cũng được dùng theo từng đoạn, `VieNeuModelChoice.current` chỉ là model chính (1.3.972). `voiceId` khác `nil`
+    /// ⇒ chỉ dừng khi trình đọc đang dùng đúng giọng Turbo đó (giọng đang chọn, hoặc giọng Turbo của cặp đọc lai).
     private static func stopReaderIfUsing(_ model: VieNeuModelChoice, voiceId: String? = nil) {
         let tts = TTSManager.shared
-        guard tts.tool == "vieneu", VieNeuModelChoice.current == model, tts.isPlaying || tts.showFloatingWidget else { return }
-        if let voiceId, tts.selectedVoice != voiceId { return }
+        guard tts.tool == "vieneu", tts.isPlaying || tts.showFloatingWidget else { return }
+        let usesModel = VieNeuModelChoice.current == model
+        let hybrid = VieNeuHybridRouting.context(voice: tts.selectedVoice)
+        if let voiceId {
+            guard (usesModel && tts.selectedVoice == voiceId) || hybrid?.pair.turboVoiceId == voiceId else { return }
+        } else {
+            guard usesModel || hybrid != nil else { return }
+        }
         let target = voiceId.map { "giọng \($0)" } ?? "dữ liệu \(model.label)"
         AppLogger.shared.log("⏹️ [VieNeu] Dừng TTS trước khi xoá \(target) (trình đọc đang dùng)")
         tts.stop()

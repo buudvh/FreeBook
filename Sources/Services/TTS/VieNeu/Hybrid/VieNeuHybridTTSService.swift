@@ -125,6 +125,17 @@ final class VieNeuHybridTTSService: LocalTTSEngine, @unchecked Sendable {
         return (data, output.pcmDuration, output.queueWaitMs, output.synthesisMs)
     }
 
+    /// Trình đọc vừa chuẩn bị **ngoài** đọc lai (`prepare` của service Nano / Turbo thường thấy
+    /// `VieNeuHybridRouting.readerContext() == nil`) ⇒ quên model chính đã nhớ: lần đọc lai kế tiếp là một phiên mới và
+    /// phải nhả model phụ lại từ đầu. Thiếu bước này (trước 1.3.972) thì rời đọc lai rồi quay lại cùng model chính,
+    /// `beginPrepare` thấy trùng nên không nhả, mà service chính cũng không nhả vì đang đọc lai ⇒ Nano (ORT + Core ML) và
+    /// Turbo cùng nằm RAM dù không đoạn nào cần model phụ.
+    func readerLeftHybrid() {
+        lock.lock()
+        preparedBase = nil
+        lock.unlock()
+    }
+
     // MARK: - Nội bộ
 
     /// Quên model / mức âm lượng của lượt trước; trả `true` khi phải nhả model phụ (model chính đổi hoặc lần đầu). Hàm đồng

@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.972] - 2026-11-17
+
+### fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi "Chưa nạp model Turbo" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine
+
+Rà soát phân hệ VieNeu Turbo (code review hai lượt); anh Bửu chọn sửa các mục **đã xác nhận**. Bảy lỗi:
+
+- **Bản vá `capi_abort_file` thay handler `std::terminate` của cả tiến trình rồi `abort()` thẳng.** Sau lần dựng session Turbo đầu tiên, mọi exception chưa bắt của app (NSException của UIKit / SwiftData… không liên quan audio.cpp) bị ghi vào `audiocpp-abort.txt`; lần mở sau `VieNeuTurboCrashGuard.recoverIfNeeded` coi là audio.cpp sập ⇒ tự tắt AMX tới bản build sau (RTF 0,25 → 0,40), và handler cũ (của ggml, rồi libobjc / Foundation — nơi ghi lý do "Terminating app due to uncaught exception" vào `.ips`) không còn được gọi. Nay: dòng của handler mang tiền tố `terminate: `, ghi xong **gọi lại handler đã cài trước** (cài một lần, có chốt chống gọi vòng); `recoverIfNeeded` chỉ tắt AMX khi có dấu "đang thử AMX" hoặc có câu báo của chính ggml — file chỉ có dòng `terminate: ` (và ba dạng chữ của bản vá cũ) thì chỉ ghi `❌` vào log.
+- **`release()` chen giữa `prepare` và `synthesize` của runtime ⇒ "Chưa nạp model Turbo".** `VieNeuTurboTTSService.executeInternalSynthesis` gọi `runtime.prepare`, `await` phiên âm rồi mới `runtime.synthesize` — hai block rời trên hàng đợi; một `release()` xếp hàng lúc GGUF đang nạp (đổi sang giọng Nano khác rồi bấm ▶ thử giọng Turbo: lượt nạp sẵn Nano gọi `releaseForNano`; lượt `prepare` đầu của engine đọc lai; xoá dữ liệu Turbo) luôn chạy trước `synthesize`. `VieNeuTurboRuntime.synthesize` nhận thêm `modelURL` / `threads` và tự `prepareLocked` trong cùng block; model + session còn nguyên thì chỉ so vài biến.
+- **`freeAll()` đặt lại `codecAMXVerified`** ⇒ dấu canh sập AMX mở lại sau mỗi lần nạp lại model (đổi Nano ↔ Turbo, tạo giọng lúc runtime nguội, xoá dữ liệu), không phải "lượt đầu mỗi lần mở app" như doc; app bị giết trong cửa sổ đó vì lý do khác cũng bị tính là sập do AMX. Bỏ dòng đặt lại.
+- **Xoá dữ liệu Turbo không nạp lại tham số trình đọc.** Đang chọn giọng Turbo mà xoá dữ liệu Turbo: model hiệu lực lùi về Nano nhưng `selectedVoice` còn là id giọng Turbo ⇒ hàng giọng hiện "minh_quan_pro · Nano", Nano đọc giọng mặc định thay vì giọng Nano dùng gần nhất, tới khi mở lại app. Hàm của đường tải xong chuyển thành `TTSManager.reapplyVieNeuReaderIfModelChanged(from:reason:)` (`TTSManager+VieNeuVoice`), `deleteTurbo` gọi chung; `stopReaderIfUsing` dừng cả trình đọc đang **đọc lai** (model kia cũng đang được dùng theo đoạn; xoá một giọng Turbo ⇒ xét cả giọng Turbo của cặp); sau khi xoá nhả runtime + bộ phiên âm Turbo lần nữa.
+- **`deleteNano` chặn main.** Enum `@MainActor` gọi thẳng `releaseEngineRuntime()` (chờ khoá engine; một chunk Nano đang tổng hợp giữ khoá vài giây, `stop()` không cắt được) ⇒ UI đứng. Nay `await VieNeuTurboTTSService.releaseNanoEngineIfLoaded(reason:)` (chờ trên hàng đợi GCD; thêm tham số `reason` cho dòng log), rồi kiểm lại "đang tải" vì vừa nhường main.
+- **Thử giọng lúc trình đọc không phải VieNeu để model nằm lại RAM tới khi tắt app** (Turbo ~200 MB, Nano ~280 MB): `finishSession` chỉ dọn khi `tool == "vieneu"`, mà ngoài `prepare` của VieNeu không ai nhả. Luật gom về `TTSManager.restoreVieNeuEngines(afterUsing:reason:)`: trình đọc là VieNeu ⇒ như cũ (nạp lại engine của trình đọc); không phải ⇒ nhả engine VieNeu, trừ engine đang là giọng dự phòng của trình đọc online. `VieNeuVoiceCopyRunner` (đọc mẫu nhân bản) dùng chung.
+- **Engine đọc lai nhớ `preparedBase` cũ.** Rời đọc lai (chọn giọng không cặp) rồi quay lại cùng model chính: `beginPrepare` thấy trùng nên không nhả model phụ, service chính cũng không nhả vì đang đọc lai ⇒ Nano (ORT + Core ML) và Turbo cùng nằm RAM dù máy mát. `prepare` của service Nano / Turbo thường, khi trình đọc không đọc lai, gọi `VieNeuHybridTTSService.readerLeftHybrid()` để quên giá trị đó.
+
+Chưa sửa (mức "có khả năng", chờ anh Bửu quyết): `isReaderUsingTurbo` bỏ sót đọc lai; `sea_g2p.bin` tải về không kiểm dung lượng; `ensureVoice` xoá nhầm mục của lượt tải mới. `.claude/rules/tts-vieneu.md` ghi các điểm mới.
+
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`; 10 file Swift đã sửa qua `swiftc -frontend -parse` (chỉ cú pháp); bản vá Python áp thử lên cây nguồn giả có đủ mốc, chạy lại lần hai tự bỏ qua. **Không build tại chỗ (Windows), chưa chạy trên máy**; đoạn C++ của bản vá chưa qua trình biên dịch nào (máy không có thư viện chuẩn C++ đủ mới) — job `audiocpp-ios.yml` sẽ dựng lại framework vì bản vá đổi.
+
 ## [1.3.971] - 2026-11-17
 
 ### feat: Thêm provider AI ChatGPT Web (không cần key, đăng nhập hay không đều chạy)
@@ -404,17 +422,4 @@ Anh Bửu muốn tiện theo dõi tăng tốc (nếu không ảnh hưởng hiệ
 - **`TTSQuickControlNowReading`**: `Snapshot.engineLabel` — trình đọc là VieNeu thì áp `TTSReplacementManager.applyReplacements` cho đoạn đang phát rồi tra bảng (một lần mỗi đoạn, chỉ lúc sheet mở); tra lại khi bắt đầu phát (`$isPlaying`) vì đoạn đầu có chỉ số trước khi tổng hợp xong.
 - **`TTSEngineBadge`** (`Views/TTSWidget/`, file mới) + `TTSQuickControlSheet.NowReadingBlock` đặt sau `TTSThermalBadge`. Không phải VieNeu / đoạn im lặng ⇒ không hiện.
 - Hiệu năng: mỗi lượt tổng hợp thêm một lần ghi từ điển; sheet thêm một lần thay thế chữ + tra mỗi đoạn. Không thêm vào `TTSWidgetSnapshot` (mặt đĩa không vẽ lại).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.941] - 2026-11-14
-
-### fix: Đọc lai Nano · Turbo và nhân bản chéo không còn làm app chết, Turbo bớt giữ chỗ 4,5 GB bộ nhớ ảo
-
-Build 1270 (log 20–21): bật "Tiếng nước ngoài đọc bằng Turbo" với Mai Anh · Nano, hoặc tạo bản chéo rồi nghe thử ⇒ app chết sau vài đoạn với `GGML_ASSERT(ctx->mem_buffer != NULL)` (ggml.c:1699), lần mở sau Core ML của Nano lỗi "mmap file trọng số thất bại"; tắt đọc lai thì không chết. Lớp chống sập hiểu nhầm là lỗi AMX ⇒ tự tắt AMX cho build 1270 (bản build mới tự bật lại).
-
-Nguyên nhân: các ngữ cảnh **chỉ chứa mô tả tensor** (`no_alloc`) của audio.cpp vẫn `malloc` đủ cỡ khai báo — mặc định talker constants **4096 MB**, code predictor constants **1536 MB** (`ConstantTensorCache` tự co còn ¼ RAM trống), codec decoder + encoder weights **1536 MB × 2** (`BackendWeightStore`, không co) — trong khi dùng thật ~0,05 MB mỗi cái. Một mình Turbo còn lọt; giữ thêm Nano (ORT + Core ML map trọng số) thì hết **địa chỉ ảo** của iOS.
-
-- `VieNeuTurboRuntime.descriptorContextOptions` (`+Session`): session Turbo **luôn** dựng với `vieneu_v3_turbo.talker_constant_context_mb=64`, `code_predictor_constant_context_mb=64`, `speech_decoder_constant_context_mb=64` (64 MB = mức sàn audio.cpp tự đặt, ~160 nghìn tensor), kể cả khi AMX tắt — `createSessionLocked` nay luôn tạo bộ tuỳ chọn.
-- Đo CI (nhánh đo `claude/turbo-tp-profile`, run 43577447546; báo cáo tối ưu Turbo mục 19): cấu hình app ± ba option ⇒ mã + WAV **trùng từng byte** 6/6 (2 giọng × 3 độ dài), RSS như cũ; giữ chỗ 4,7 GB → 256 MB.
-- Cổng parity (`audiocpp_parity_macos.sh`): `APP_OPTS` thêm ba option để các phép so pool / repack chạy đúng cấu hình app.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.

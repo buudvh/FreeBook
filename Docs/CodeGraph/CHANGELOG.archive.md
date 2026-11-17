@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.941] - 2026-11-14
+
+### fix: Đọc lai Nano · Turbo và nhân bản chéo không còn làm app chết, Turbo bớt giữ chỗ 4,5 GB bộ nhớ ảo
+
+Build 1270 (log 20–21): bật "Tiếng nước ngoài đọc bằng Turbo" với Mai Anh · Nano, hoặc tạo bản chéo rồi nghe thử ⇒ app chết sau vài đoạn với `GGML_ASSERT(ctx->mem_buffer != NULL)` (ggml.c:1699), lần mở sau Core ML của Nano lỗi "mmap file trọng số thất bại"; tắt đọc lai thì không chết. Lớp chống sập hiểu nhầm là lỗi AMX ⇒ tự tắt AMX cho build 1270 (bản build mới tự bật lại).
+
+Nguyên nhân: các ngữ cảnh **chỉ chứa mô tả tensor** (`no_alloc`) của audio.cpp vẫn `malloc` đủ cỡ khai báo — mặc định talker constants **4096 MB**, code predictor constants **1536 MB** (`ConstantTensorCache` tự co còn ¼ RAM trống), codec decoder + encoder weights **1536 MB × 2** (`BackendWeightStore`, không co) — trong khi dùng thật ~0,05 MB mỗi cái. Một mình Turbo còn lọt; giữ thêm Nano (ORT + Core ML map trọng số) thì hết **địa chỉ ảo** của iOS.
+
+- `VieNeuTurboRuntime.descriptorContextOptions` (`+Session`): session Turbo **luôn** dựng với `vieneu_v3_turbo.talker_constant_context_mb=64`, `code_predictor_constant_context_mb=64`, `speech_decoder_constant_context_mb=64` (64 MB = mức sàn audio.cpp tự đặt, ~160 nghìn tensor), kể cả khi AMX tắt — `createSessionLocked` nay luôn tạo bộ tuỳ chọn.
+- Đo CI (nhánh đo `claude/turbo-tp-profile`, run 43577447546; báo cáo tối ưu Turbo mục 19): cấu hình app ± ba option ⇒ mã + WAV **trùng từng byte** 6/6 (2 giọng × 3 độ dài), RSS như cũ; giữ chỗ 4,7 GB → 256 MB.
+- Cổng parity (`audiocpp_parity_macos.sh`): `APP_OPTS` thêm ba option để các phép so pool / repack chạy đúng cấu hình app.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.940] - 2026-11-14
 
 ### feat: Thay thế từ TTS chỉ khớp nguyên token, ký hiệu ưu tiên mẫu dài hơn, kiểm tra luật khi nhập

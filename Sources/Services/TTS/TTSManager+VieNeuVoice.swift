@@ -51,4 +51,49 @@ extension TTSManager {
             tool = "vieneu"
         }
     }
+
+    /// File trên máy đổi (tải xong / xoá dữ liệu VieNeu) làm model **hiệu lực** đổi: lựa chọn đã lưu là Turbo mà máy thiếu
+    /// file Turbo nên trình đọc lùi về Nano, tải đủ ⇒ `current` thành Turbo; xoá dữ liệu Turbo ⇒ ngược lại. `selectedVoice`
+    /// còn là giọng của model cũ (tên giọng Nano / id giọng Turbo) ⇒ model mới sẽ đọc giọng mặc định. Nạp lại tham số
+    /// (giọng theo lựa chọn) + nạp sẵn đúng engine, như lúc đổi model. `reason` chỉ để ghi log (không dấu, như các dòng
+    /// `[TTSRoute]` khác).
+    func reapplyVieNeuReaderIfModelChanged(from modelBefore: VieNeuModelChoice, reason: String) {
+        let modelAfter = VieNeuModelChoice.current
+        guard tool == "vieneu", modelAfter != modelBefore else { return }
+        AppLogger.shared.log("[TTSRoute] \(reason) => model VieNeu hieu luc \(modelBefore.rawValue)->\(modelAfter.rawValue), nap lai tham so")
+        applyVieNeuParamsIfNeeded()
+        scheduleNghiWarmUp()
+    }
+
+    /// Một việc **ngoài trình đọc** (thử giọng ở sheet chọn giọng, đọc mẫu cho nhân bản chéo) vừa chạy engine VieNeu
+    /// `model`. Trả RAM về đúng trạng thái của trình đọc:
+    /// - trình đọc là VieNeu ⇒ `model` khác model hiệu lực thì nạp sẵn lại engine của trình đọc (`prepare` của nó nhả model
+    ///   kia) — đoạn đọc tiếp không phải chờ nạp và hai model không cùng nằm RAM;
+    /// - trình đọc **không** phải VieNeu ⇒ không lượt `prepare` nào của VieNeu chạy nữa, nên engine vừa nạp ở lại tới khi
+    ///   tắt app (Turbo ~200 MB, Nano ~280 MB) — nhả thẳng (1.3.972). Engine đang là **giọng dự phòng** của trình đọc
+    ///   online thì giữ: đoạn dự phòng kế tiếp khỏi nạp nguội.
+    func restoreVieNeuEngines(afterUsing model: VieNeuModelChoice, reason: String) {
+        if tool == "vieneu" {
+            guard model != VieNeuModelChoice.current else { return }
+            AppLogger.shared.log("🎙️ [VieNeuVoices] Đã \(reason) bằng \(model.rawValue) — nạp lại engine của trình đọc")
+            scheduleNghiWarmUp()
+            return
+        }
+        let fallbackModel: VieNeuModelChoice? = TTSOnlineFallbackSettings.isOnlineTool(tool)
+            && TTSOnlineFallbackSettings.engine == .vieneu ? VieNeuModelChoice.current : nil
+        let released = VieNeuModelChoice.allCases.filter { $0 != fallbackModel }
+        guard !released.isEmpty else { return }
+        AppLogger.shared.log(
+            "🎙️ [VieNeuVoices] Đã \(reason) bằng \(model.rawValue), trình đọc không dùng VieNeu — nhả engine "
+                + released.map(\.rawValue).joined(separator: " + ")
+        )
+        Task.detached(priority: .utility) {
+            for engine in released {
+                switch engine {
+                case .nano: await VieNeuTurboTTSService.releaseNanoEngineIfLoaded(reason: "sau khi \(reason)")
+                case .turbo: await VieNeuTurboTTSService.releaseForNano()
+                }
+            }
+        }
+    }
 }

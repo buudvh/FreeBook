@@ -17,6 +17,10 @@ import AudioCpp
 /// khác** (`VieNeuTurboAcceleration.disableForCurrentBuild`; Cài đặt hiện "Đã tự tắt tới bản sau"). Bị giết khi đang đọc
 /// (vuốt tắt app) đúng lượt đầu thì cũng bị tính là chết — chấp nhận, vì chỉ canh lượt đầu tiên mỗi lần mở app.
 ///
+/// **Dòng `terminate: …` không tắt AMX** (1.3.972): handler `std::terminate` của bản vá là của cả tiến trình, nó ghi
+/// cả exception chưa bắt của phần khác trong app (NSException của UIKit / SwiftData…). File chỉ có những dòng đó ⇒ chỉ
+/// ghi log; AMX tắt khi có dấu "đang thử AMX" hoặc có câu báo của chính ggml (`isTerminateNote`).
+///
 /// Gọi: `VieNeuTurboRuntime.createSessionLocked` (hàng đợi runtime, trước mọi lượt đầu) và `VieNeuTTSSettingsView`
 /// (main, để dòng trạng thái hiện đúng ngay sau khi mở lại app). Khoá `lock` giữ hai nơi không cùng ghi.
 enum VieNeuTurboCrashGuard {
@@ -67,9 +71,18 @@ enum VieNeuTurboCrashGuard {
         if diedDuringAMX { try? fileManager.removeItem(at: pendingMarkerURL) }
         try? fileManager.removeItem(at: abortNoteURL)
 
-        var reason = diedDuringAMX ? "app dừng giữa lượt Turbo đầu tiên có AMX" : "audio.cpp dừng tiến trình"
-        if !abortNote.isEmpty { reason += " — audio.cpp báo: \(abortNote.prefix(600))" }
-        guard VieNeuTurboAcceleration.isAMXEnabled else {
+        // Câu của chính ggml (GGML_ASSERT) mới nói audio.cpp dừng; dòng `terminate: …` là exception chưa bắt của cả app.
+        let hasGGMLAbort = abortNote.split(whereSeparator: \.isNewline).contains { !isTerminateNote($0) }
+        var reason: String
+        if diedDuringAMX {
+            reason = "app dừng giữa lượt Turbo đầu tiên có AMX"
+        } else if hasGGMLAbort {
+            reason = "audio.cpp dừng tiến trình"
+        } else {
+            reason = "app dừng vì exception chưa bắt (không phải câu báo của ggml, AMX giữ nguyên)"
+        }
+        if !abortNote.isEmpty { reason += " — \(hasGGMLAbort ? "audio.cpp báo" : "ghi nhận"): \(abortNote.prefix(600))" }
+        guard diedDuringAMX || hasGGMLAbort, VieNeuTurboAcceleration.isAMXEnabled else {
             AppLogger.shared.log("❌ [VieNeuTurbo] Lần trước \(reason)")
             return false
         }
@@ -78,5 +91,16 @@ enum VieNeuTurboCrashGuard {
             "❌ [VieNeuTurbo] Lần trước \(reason) ⇒ đã tự tắt \"Tăng tốc bằng AMX\" cho bản build \(VieNeuTurboAcceleration.currentBuild) (bản build sau tự bật lại)"
         )
         return true
+    }
+
+    /// Tiền tố dòng của handler `std::terminate` (bản vá `capi_abort_file`): `terminate: ` từ 1.3.972; ba chuỗi còn lại là
+    /// của bản vá cũ, để file do bản build trước ghi không bị đọc nhầm thành câu báo của ggml.
+    private static let terminateNotePrefixes = [
+        "terminate: ", "uncaught exception: ", "uncaught non-std exception", "std::terminate"
+    ]
+
+    private static func isTerminateNote(_ line: Substring) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty || terminateNotePrefixes.contains { trimmed.hasPrefix($0) }
     }
 }

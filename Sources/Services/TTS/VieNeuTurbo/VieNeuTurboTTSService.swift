@@ -136,7 +136,11 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     /// (và lúc mở app khi đang chọn Turbo) ⇒ đoạn đầu không phải chờ nạp model.
     func prepare(voice: String) async throws {
         // Đọc lai Nano · Turbo (1.3.934): hai model cùng nằm RAM, việc nhả do `VieNeuHybridTTSService` quyết.
-        if VieNeuHybridRouting.readerContext() == nil { await Self.releaseNanoEngineIfLoaded() }
+        if VieNeuHybridRouting.readerContext() == nil {
+            // Trình đọc không (còn) đọc lai ⇒ lần đọc lai sau là phiên mới, phải nhả model phụ lại từ đầu (1.3.972).
+            VieNeuHybridTTSService.shared.readerLeftHybrid()
+            await Self.releaseNanoEngineIfLoaded()
+        }
         let voiceId = resolveVoiceId(voice)
         try await ensureVoice(voiceId)
         let load = try await runtime.prepare(modelURL: store.modelURL, threads: Self.threadCount)
@@ -153,8 +157,9 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     }
 
     /// Nhả engine Nano nếu đang nạp. Khoá của engine Nano có thể đang bị một lượt Nano giữ vài giây ⇒ chờ trên hàng đợi
-    /// GCD, không chặn luồng của pool hợp tác.
-    static func releaseNanoEngineIfLoaded() async {
+    /// GCD, không chặn luồng của pool hợp tác — và không chặn main: mọi chỗ cần nhả Nano từ `MainActor` (xoá dữ liệu Nano,
+    /// dọn sau khi thử giọng) gọi hàm này thay cho `releaseEngineRuntime()` trực tiếp. `reason` chỉ để ghi log.
+    static func releaseNanoEngineIfLoaded(reason: String = "để đọc bằng Turbo") async {
         guard let nano = VieNeuTTSService.shared else { return }
         let released = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             DispatchQueue.global(qos: .utility).async {
@@ -162,7 +167,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
             }
         }
         guard released else { return }
-        AppLogger.shared.log("🎙️ [VieNeuTurbo] Đã nhả engine Nano để đọc bằng Turbo — \(ProcessMemoryProbe.snapshot().summary)")
+        AppLogger.shared.log("🎙️ [VieNeuTurbo] Đã nhả engine Nano \(reason) — \(ProcessMemoryProbe.snapshot().summary)")
     }
 
     // MARK: - Tổng hợp
@@ -230,10 +235,13 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         guard !prepared.phonemes.isEmpty else { return Self.silencePayload(text: text) }
         // audio.cpp không huỷ được giữa chừng ⇒ lượt đã bị bỏ thì dừng ở đây, đừng đốt vài giây CPU cho audio không ai nghe.
         try Task.checkCancellation()
+        // `modelURL` / `threads`: runtime chuẩn bị lại ngay trong lượt nếu vừa bị nhả sau `prepare` ở trên (1.3.972).
         let output = try await runtime.synthesize(
             phonemes: prepared.phonemes,
             referenceCodesURL: store.referenceCodesURL(voiceId: voiceId),
             speakerEmbeddingURL: store.speakerEmbeddingURL(voiceId: voiceId),
+            modelURL: store.modelURL,
+            threads: Self.threadCount,
             qos: Self.readerQoS
         )
         // Khoảng lặng đuôi theo ranh giới, như engine Nano chèn (tốc độ 1×) — thiếu nó các mảnh dính nhau nghe như mất chữ.

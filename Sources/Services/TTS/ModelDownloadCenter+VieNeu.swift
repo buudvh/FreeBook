@@ -126,7 +126,8 @@ extension ModelDownloadCenter {
                 self.finish(id: id, title: title, failure: failure)
             }
             VieNeuVoiceDirectory.shared.refreshAvailability()
-            Self.reapplyReaderIfModelChanged(from: modelBefore)
+            // Tải đủ làm model hiệu lực đổi (đang lùi về Nano vì thiếu file Turbo) ⇒ nạp lại giọng + engine của trình đọc.
+            TTSManager.shared.reapplyVieNeuReaderIfModelChanged(from: modelBefore, reason: "tai xong")
             // Core ML luôn bật (1.3.919): tải xong gói Nano ⇒ tự tải + biên dịch + tự kiểm Tăng tốc Core ML ngay.
             if id == Target.vieNeuModel, !cancelled, failure == nil {
                 VieNeuCoreMLAccelerator.shared.prepareIfNeeded(reason: "tải xong gói Nano")
@@ -141,18 +142,6 @@ extension ModelDownloadCenter {
     /// mất đường huỷ từ `Task` cha (nút ■).
     private nonisolated static func run(_ work: VieNeuJob, report: @escaping VieNeuProgressReport) async throws {
         try await work(report)
-    }
-
-    /// Tải xong làm model **hiệu lực** đổi (lựa chọn đã lưu là Turbo mà máy thiếu file Turbo nên trình đọc đang lùi về
-    /// Nano; tải đủ ⇒ `current` thành Turbo) ⇒ `selectedVoice` còn là tên giọng Nano, Turbo sẽ đọc giọng mặc định. Nạp lại
-    /// tham số (giọng theo lựa chọn) + nạp sẵn đúng engine, như lúc đổi model.
-    private static func reapplyReaderIfModelChanged(from modelBefore: VieNeuModelChoice) {
-        let tts = TTSManager.shared
-        let modelAfter = VieNeuModelChoice.current
-        guard tts.tool == "vieneu", modelAfter != modelBefore else { return }
-        AppLogger.shared.log("[TTSRoute] tai xong => model VieNeu hieu luc \(modelBefore.rawValue)->\(modelAfter.rawValue), nap lai tham so")
-        tts.applyVieNeuParamsIfNeeded()
-        tts.scheduleNghiWarmUp()
     }
 
     private nonisolated static func isCancellation(_ error: Error) -> Bool {
