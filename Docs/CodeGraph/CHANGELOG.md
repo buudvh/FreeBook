@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.967] - 2026-11-17
+
+### feat: Sheet hub có mục "Đang chạy" với thanh tiến độ của mọi tác vụ nền
+
+Anh Bửu: "tôi muốn thấy thanh tiến độ ở sheet hub"; duyệt mockup **A · Mục "Đang chạy"** và bỏ giới hạn 3 ô ("lỡ có nhiều hơn thì sao").
+
+- **Mục "Đang chạy"** dưới bốn dòng cố định (`FloatingHubActivitySection`, file mới): mỗi tác vụ nền có thanh tiến độ ở màn Thông báo một ô — icon, tên, chi tiết, thanh — cùng khung với dòng hub (`hubSheetPanelRow`). Dòng đầu "Đang chạy (N) · M đang chờ" (chỉ có tác vụ chờ ⇒ "M tác vụ đang chờ"). Chạm ô ⇒ trang Thông báo trong sheet (nơi có nút Huỷ, chi tiết từng tập). Không giới hạn số ô.
+- **Nguồn chung** `FloatingHubActivity` (file mới): `items()` dựng ô theo thứ tự tải / xuất (hàng đợi) → nhập truyện → sao lưu / khôi phục → tải giọng → gộp VietPhrase → phiên âm lại Nghi / VieNeu; `counts()` đếm đang chạy / đang chờ (đang chờ = tác vụ tải / xuất xếp hàng + lượt tải VieNeu chờ lượt khác).
+- **Chữ của tác vụ tải / xuất dùng chung** (`DownloadTask+ActivityText`: `activityTitle` / `activityDetail` / `activityFraction`) — dòng ở màn Thông báo (`StoryTaskActivityRow`) chuyển sang dùng, bỏ bản riêng.
+- **Đếm thay cho một bit** (`NotificationInboxPresenceReader.Snapshot`: `runningCount` / `pendingCount`, `hasRunningTask` thành tính toán): dòng Thông báo ghi "5 đang chạy · 1 chờ · 2 chưa đọc" (bỏ vế bằng 0; trước đó "N chưa đọc" hoặc "Đang chạy tác vụ"). **Vá sót**: gộp VietPhrase và phiên âm lại trước không được tính là "đang chạy" ⇒ nút hub không nháy dù màn Thông báo có thanh chạy; nay nghe `phase` của hai việc này (rút về một bit, `removeDuplicates`).
+- **Đầu sheet "N đang chạy" đếm tác vụ** (`Snapshot.runningTaskCount`: AI đang chạy + tác vụ nền + lượt kiểm tra nguồn đang chạy + video thu nhỏ), không còn đếm loại dòng. Không vào `ButtonState` ⇒ nút hub không vẽ lại theo số này.
+- **Sheet cuộn khi dài**: trang nhỏ của sheet (`compactPage`) nằm trong `ScrollView` (`scrollBounceBehavior(.basedOnSize)`): nội dung cao hơn màn thì nấc `.height` bị kẹp ở mức cao nhất và phần dư cuộn; vừa màn thì không nảy.
+- Hiệu năng: mục "Đang chạy" tự observe các nguồn (`DownloadManager` phát ~10 lần/giây lúc tải) nên chỉ nó vẽ lại theo nhịp tiến độ, và chỉ khi sheet mở; hub vẫn chỉ đọc số đã gộp + `removeDuplicates`.
+- `.claude/rules/floating-pills.md` ghi luật mới.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.965] - 2026-11-17
 
 ### fix: Bớt việc trên main khi tải truyện để mục lục đỡ giật, thêm log đo main thread bị kẹt
@@ -383,19 +399,6 @@ Anh Bửu (qua session tối ưu Turbo, *"oke cứ làm như vậy"*, rồi duy�
 - **Xong** ⇒ `TTSManager.vieNeuHybridSettingsDidChange()` (bỏ đệm cặp, bỏ audio nạp trước, chuẩn bị lại engine ⇒ đoạn kế tiếp đọc lai); toast "Đã tạo bản … — đọc lai đã bật". Log `🔀 [VieNeuHybrid]` mỗi lúc bắt đầu / chờ / bỏ qua / thiếu file / xong / lỗi.
 - **Mục "Đọc lai Nano · Turbo"**: dòng trạng thái thay theo việc tự tạo (đang tạo · bước + thanh mảnh / đang chờ / hỏi tải / lỗi + Thử lại); thêm đoạn giải thích sau nút "?". `MainTabView` gọi `start()` cạnh `TTSManager.initialize`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.937] - 2026-11-14
-
-### feat: Tạo bản Nano và Turbo cho mọi giọng VieNeu, giọng không có mẫu thì nhân bản từ tiếng máy đọc, bản mới tự ghép cặp đọc lai
-
-Anh Bửu giao qua session tối ưu Turbo: nhân bản chéo Nano ↔ Turbo, kể cả giọng không có mẫu gốc; bản mới phải được đọc lai (1.3.934) nhận là cặp. Anh duyệt plan + mockup.
-
-- **Lối vào** (sheet chọn giọng): nhấn giữ một giọng chưa có bản ở model kia ⇒ "Tạo bản Turbo" / "Tạo bản Nano" (`VieNeuVoiceRowMenu`, giọng có sẵn lẫn giọng tự tạo; giọng tự tạo vẫn có Đổi tên / Xoá). Giọng tự tạo chưa có bản ở model kia hiện trong "Giọng của tôi" của chip đích với nút (`VieNeuVoiceCopyRow`, thay `VieNeuTurboCopyRow`; chip Nano nay cũng có hàng "Tạo bản Nano" cho giọng Turbo tự tạo). Bắt đầu ⇒ sheet sang chip đích; lượt của giọng có sẵn hiện tạm một hàng tiến độ ở đó (tải gói %, "Đang cho giọng … đọc mẫu…", bước tạo giọng).
-- **`VieNeuVoiceCopyRunner`** (thay `VieNeuTurboCopyRunner`, hai chiều, mỗi lúc một lượt): tải gói của model đích nếu thiếu (`VieNeuClonePackages`) → mẫu → tạo. Mẫu: giọng Nano tự tạo còn file mẫu, giọng Turbo tự tạo còn `sample.wav` ≥ 3 s ⇒ dùng mẫu gốc; còn lại (giọng có sẵn, Turbo cũ không giữ mẫu, mẫu Turbo < 3 s, Nano mất file mẫu) ⇒ **`VieNeuVoiceSampleSpeaker`** cho chính giọng đó đọc đoạn văn cố định 4 câu (~15 s, đủ 6 thanh) bằng đúng engine của giọng, nối thành WAV tạm. Đường tiếng máy đọc: hỏi trước ("có thể kém giống hơn"), chặn khi truyện đang phát, Turbo không khử nhiễu; đọc bằng model khác model trình đọc ⇒ `scheduleNghiWarmUp()` như thử giọng.
-- **Tạo**: Turbo qua `VieNeuTurboVoiceCloneCoordinator` (giọng Nano tự tạo còn mẫu ⇒ `createVoice(fromNanoVoiceId:)` như cũ; còn lại `createVoice(fromFile:…sourceNanoVoiceId:sourceNanoPresetName:)`), Nano qua **`VieNeuNanoVoiceCreator`** (mới — bước tạo giọng Nano của sheet nhân bản tách ra dùng chung, đường Nano không đổi). Bản mới cùng tên giọng nguồn; trùng tên ở model đích (kể cả giọng Nano có sẵn) ⇒ báo, không tạo.
-- **Ghép cặp**: thêm `VieNeuTurboCustomVoiceStore.Record.sourceNanoPresetName` (Turbo tạo từ giọng Nano có sẵn) và `VieNeuCustomVoiceStore.Record.sourceTurboVoiceId` (Nano tạo từ giọng Turbo có sẵn / tự tạo); JSON cũ đọc được (trường tuỳ chọn). `VieNeuVoicePairing.resolve(model:voice:nanoCustom:turboCustom:)` (hàm thuần) nhận thêm hai liên kết này, giữ thứ tự tra cũ; `VieNeuVoiceDirectory` dùng chính hàm đó tính `pairedKeys` / `nanoWithoutTurbo` / `turboWithoutNano` / `copySource(for:)` ⇒ menu và đọc lai không lệch luật. Tạo xong ⇒ `VieNeuVoicePairing.invalidate()` (đọc lai nhận ngay, không chờ đệm 30 s).
-- **Báo**: toast kết quả qua `TTSPresentationEventCenter` (kèm "từ tiếng máy đọc", "dùng … s đầu của mẫu" khi Turbo cắt mẫu); sheet chọn giọng bỏ toast riêng của runner cũ. Log `🎙️ [VieNeuCopy]`. Nút "?" của sheet chọn giọng giải thích.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy; RAM lúc đọc mẫu rồi nhân bản chưa đo; độ giống của bản tạo từ tiếng máy đọc chưa nghe.
 
 ## [1.3.936] - 2026-11-14
 

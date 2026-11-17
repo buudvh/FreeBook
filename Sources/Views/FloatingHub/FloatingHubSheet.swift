@@ -6,7 +6,8 @@ import SwiftUI
 ///
 /// - Trang chính: dòng đầu "Lối tắt nổi" + "N đang chạy"; **bốn dòng cố định** (AI → Thông báo → Video → Kiểm tra nguồn,
 ///   `FloatingHubItem.Kind.allCases`) dạng ô bo góc, không vạch ngăn. Dòng không dùng được mờ 40%, không biến mất. Dòng
-///   Video giữ ⏸ / ✕ ngay trên dòng (sheet không đóng).
+///   Video giữ ⏸ / ✕ ngay trên dòng (sheet không đóng). Dưới bốn dòng là mục **"Đang chạy"** (1.3.967,
+///   `FloatingHubActivitySection`): mỗi tác vụ nền có tiến độ một ô có thanh, không giới hạn số ô — trang cuộn khi dài.
 /// - Trang con trong sheet: "Tác vụ AI" (`FloatingHubAITaskListView`) và "Kiểm tra nguồn" khi có hai lượt
 ///   (`FloatingHubSourceCheckListView`), nút ‹ quay lại; danh sách rỗng ⇒ tự về trang chính.
 /// - **Trang con lớn** (1.3.872, anh Bửu: Thông báo / Kiểm tra nguồn "chuyển giống vậy"): `.notifications`
@@ -70,23 +71,28 @@ struct FloatingHubSheet: View {
         .animation(.easeInOut(duration: 0.2), value: shownPage)
     }
 
-    /// Trang chính và trang con nhỏ: cao vừa nội dung (đo).
+    /// Trang chính và trang con nhỏ: cao vừa nội dung (đo). Nằm trong `ScrollView` (1.3.967): mục "Đang chạy" không giới
+    /// hạn số ô ⇒ nội dung cao hơn màn thì nấc `.height` bị hệ thống kẹp ở mức cao nhất và phần dư cuộn được; vừa màn thì
+    /// không nảy (`basedOnSize`), vuốt xuống vẫn đóng sheet.
     private var compactPage: some View {
-        content
-            .padding(.horizontal, 20)
-            .padding(.top, 26)
-            .padding(.bottom, 12)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(key: HeightKey.self, value: proxy.size.height)
+        ScrollView {
+            content
+                .padding(.horizontal, 20)
+                .padding(.top, 26)
+                .padding(.bottom, 12)
+                .fixedSize(horizontal: false, vertical: true)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: HeightKey.self, value: proxy.size.height)
+                    }
+                )
+                .onPreferenceChange(HeightKey.self) { newHeight in
+                    guard newHeight > 0, abs(newHeight - state.contentHeight) > 0.5 else { return }
+                    state.contentHeight = newHeight
                 }
-            )
-            .onPreferenceChange(HeightKey.self) { newHeight in
-                guard newHeight > 0, abs(newHeight - state.contentHeight) > 0.5 else { return }
-                state.contentHeight = newHeight
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     /// Trang lớn: màn có sẵn trong `NavigationStack` riêng, nền danh sách ẩn để thấy kính của sheet. Cửa sổ hub không có
@@ -145,7 +151,7 @@ struct FloatingHubSheet: View {
         switch shownPage {
         case .main:
             VStack(spacing: 8) {
-                mainHeader(button: snapshot.button)
+                mainHeader(runningCount: snapshot.runningTaskCount)
                 ForEach(FloatingHubItem.Kind.allCases, id: \.self) { kind in
                     FloatingHubMenuRow(
                         item: snapshot.items.first(where: { $0.kind == kind }) ?? FloatingHubItem(kind: kind),
@@ -154,6 +160,8 @@ struct FloatingHubSheet: View {
                         onStop: { actions.onStopPlayback(kind) }
                     )
                 }
+                // Tác vụ nền có thanh tiến độ (1.3.967); chạm ⇒ trang Thông báo trong sheet như dòng Thông báo.
+                FloatingHubActivitySection(onSelect: { selectMainRow(.notifications) })
             }
         case .aiTasks:
             FloatingHubAITaskListView(
@@ -172,9 +180,9 @@ struct FloatingHubSheet: View {
         }
     }
 
-    private func mainHeader(button: FloatingHubPresentationReader.ButtonState) -> some View {
-        let running = button.runningKinds.filter { !button.quietKinds.contains($0) }.count
-        return HStack(alignment: .firstTextBaseline) {
+    /// `runningCount` đếm **tác vụ** (`Snapshot.runningTaskCount`, 1.3.967), không đếm loại dòng.
+    private func mainHeader(runningCount running: Int) -> some View {
+        HStack(alignment: .firstTextBaseline) {
             Text("Lối tắt nổi")
                 .font(.headline)
                 .foregroundStyle(.primary)

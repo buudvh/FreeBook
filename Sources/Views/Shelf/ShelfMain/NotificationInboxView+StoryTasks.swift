@@ -82,21 +82,18 @@ extension NotificationInboxView {
                 icon.frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    // Cùng luật với toast kết quả của `DownloadManager` (ba cấp + phồn → giản), để hai dòng nói cùng một tên.
-                    Text(BookDisplayTranslation.text(
-                        task.bookTitle,
-                        BookDisplayTranslation.listOptions(bookId: task.bookId, packageId: task.extensionPackageId)
-                    ))
+                    // Chữ + tiến độ dùng chung với mục "Đang chạy" của sheet hub (`DownloadTask+ActivityText`).
+                    Text(task.activityTitle)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
-                    Text(detail)
+                    Text(task.activityDetail)
                         .font(.footnote)
                         .foregroundStyle(Color.secondary)
                         .lineLimit(2)
 
-                    ProgressView(value: fraction)
+                    ProgressView(value: task.activityFraction)
 
                     // Tác vụ video: tập đang tải ("Tập 4: 45% · 210 MB") và danh sách từng tập như tab Tải.
                     if let mediaDetail = task.mediaDetail {
@@ -119,29 +116,6 @@ extension NotificationInboxView {
                 .font(.footnote)
             }
             .padding(.vertical, 2)
-        }
-
-        /// `nil` khi chưa biết tổng số chương (mục lục chưa nạp xong) ⇒ thanh chạy vô định. Video chạy mượt theo phần
-        /// trăm của tập đang tải (`DownloadTask.smoothProgressCount`).
-        private var fraction: Double? {
-            guard task.totalCount > 0 else { return nil }
-            return min(1, task.smoothProgressCount / Double(task.totalCount))
-        }
-
-        /// "Tải truyện · 12/300 chương" / "Tải video · 3/10 tập · 34%"; tác vụ xuất nối thêm giai đoạn ("Đang tạo
-        /// file") khi đã có.
-        private var detail: String {
-            var parts = [task.displayTypeName]
-            if task.totalCount > 0 {
-                parts.append("\(task.progressCount)/\(task.totalCount) \(task.unitNoun)")
-            }
-            if let percent = task.videoProgressPercent {
-                parts.append("\(percent)%")
-            }
-            if let stage = task.exportStage {
-                parts.append(stage.displayName)
-            }
-            return parts.joined(separator: " · ")
         }
 
         /// Màu theo nhãn loại tác vụ ở tab Tải: tải xanh lá, xuất cam.

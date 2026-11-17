@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.937] - 2026-11-14
+
+### feat: Tạo bản Nano và Turbo cho mọi giọng VieNeu, giọng không có mẫu thì nhân bản từ tiếng máy đọc, bản mới tự ghép cặp đọc lai
+
+Anh Bửu giao qua session tối ưu Turbo: nhân bản chéo Nano ↔ Turbo, kể cả giọng không có mẫu gốc; bản mới phải được đọc lai (1.3.934) nhận là cặp. Anh duyệt plan + mockup.
+
+- **Lối vào** (sheet chọn giọng): nhấn giữ một giọng chưa có bản ở model kia ⇒ "Tạo bản Turbo" / "Tạo bản Nano" (`VieNeuVoiceRowMenu`, giọng có sẵn lẫn giọng tự tạo; giọng tự tạo vẫn có Đổi tên / Xoá). Giọng tự tạo chưa có bản ở model kia hiện trong "Giọng của tôi" của chip đích với nút (`VieNeuVoiceCopyRow`, thay `VieNeuTurboCopyRow`; chip Nano nay cũng có hàng "Tạo bản Nano" cho giọng Turbo tự tạo). Bắt đầu ⇒ sheet sang chip đích; lượt của giọng có sẵn hiện tạm một hàng tiến độ ở đó (tải gói %, "Đang cho giọng … đọc mẫu…", bước tạo giọng).
+- **`VieNeuVoiceCopyRunner`** (thay `VieNeuTurboCopyRunner`, hai chiều, mỗi lúc một lượt): tải gói của model đích nếu thiếu (`VieNeuClonePackages`) → mẫu → tạo. Mẫu: giọng Nano tự tạo còn file mẫu, giọng Turbo tự tạo còn `sample.wav` ≥ 3 s ⇒ dùng mẫu gốc; còn lại (giọng có sẵn, Turbo cũ không giữ mẫu, mẫu Turbo < 3 s, Nano mất file mẫu) ⇒ **`VieNeuVoiceSampleSpeaker`** cho chính giọng đó đọc đoạn văn cố định 4 câu (~15 s, đủ 6 thanh) bằng đúng engine của giọng, nối thành WAV tạm. Đường tiếng máy đọc: hỏi trước ("có thể kém giống hơn"), chặn khi truyện đang phát, Turbo không khử nhiễu; đọc bằng model khác model trình đọc ⇒ `scheduleNghiWarmUp()` như thử giọng.
+- **Tạo**: Turbo qua `VieNeuTurboVoiceCloneCoordinator` (giọng Nano tự tạo còn mẫu ⇒ `createVoice(fromNanoVoiceId:)` như cũ; còn lại `createVoice(fromFile:…sourceNanoVoiceId:sourceNanoPresetName:)`), Nano qua **`VieNeuNanoVoiceCreator`** (mới — bước tạo giọng Nano của sheet nhân bản tách ra dùng chung, đường Nano không đổi). Bản mới cùng tên giọng nguồn; trùng tên ở model đích (kể cả giọng Nano có sẵn) ⇒ báo, không tạo.
+- **Ghép cặp**: thêm `VieNeuTurboCustomVoiceStore.Record.sourceNanoPresetName` (Turbo tạo từ giọng Nano có sẵn) và `VieNeuCustomVoiceStore.Record.sourceTurboVoiceId` (Nano tạo từ giọng Turbo có sẵn / tự tạo); JSON cũ đọc được (trường tuỳ chọn). `VieNeuVoicePairing.resolve(model:voice:nanoCustom:turboCustom:)` (hàm thuần) nhận thêm hai liên kết này, giữ thứ tự tra cũ; `VieNeuVoiceDirectory` dùng chính hàm đó tính `pairedKeys` / `nanoWithoutTurbo` / `turboWithoutNano` / `copySource(for:)` ⇒ menu và đọc lai không lệch luật. Tạo xong ⇒ `VieNeuVoicePairing.invalidate()` (đọc lai nhận ngay, không chờ đệm 30 s).
+- **Báo**: toast kết quả qua `TTSPresentationEventCenter` (kèm "từ tiếng máy đọc", "dùng … s đầu của mẫu" khi Turbo cắt mẫu); sheet chọn giọng bỏ toast riêng của runner cũ. Log `🎙️ [VieNeuCopy]`. Nút "?" của sheet chọn giọng giải thích.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy; RAM lúc đọc mẫu rồi nhân bản chưa đo; độ giống của bản tạo từ tiếng máy đọc chưa nghe.
+
 ## [1.3.934] - 2026-11-14
 
 ### feat: VieNeu đọc lai Nano và Turbo, tiếng nước ngoài đọc Turbo, máy nóng thì đọc Nano rồi mát lại về Turbo

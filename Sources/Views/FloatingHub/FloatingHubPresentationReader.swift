@@ -102,6 +102,9 @@ final class FloatingHubPresentationReader: ObservableObject {
         var runningKinds: [FloatingHubItem.Kind] = []
         /// Xem `ButtonState.quietKinds`.
         var quietKinds: [FloatingHubItem.Kind] = []
+        /// "N đang chạy" ở đầu sheet (1.3.967): đếm **tác vụ**, không đếm loại dòng — AI đang chạy + tác vụ nền + lượt
+        /// kiểm tra nguồn đang chạy + video đang thu nhỏ. Không vào `ButtonState`.
+        var runningTaskCount = 0
 
         var button: ButtonState {
             ButtonState(runningKinds: runningKinds, quietKinds: quietKinds, unreadCount: unreadCount)
@@ -281,13 +284,16 @@ final class FloatingHubPresentationReader: ObservableObject {
         if runningKinds.contains(.sourceCheck), !sourceChecks.contains(where: \.isRunning) {
             quietKinds.append(.sourceCheck)
         }
+        let runningTaskCount = tasks.filter(\.isRunning).count + inbox.runningCount
+            + sourceChecks.filter(\.isRunning).count + (videoState.isActive ? 1 : 0)
         return Snapshot(
             items: items,
             unreadCount: unreadCount,
             aiTasks: tasks,
             sourceChecks: sourceChecks,
             runningKinds: runningKinds,
-            quietKinds: quietKinds
+            quietKinds: quietKinds,
+            runningTaskCount: runningTaskCount
         )
     }
 
@@ -361,13 +367,15 @@ final class FloatingHubPresentationReader: ObservableObject {
         )
     }
 
-    /// Có chưa đọc thì ưu tiên con số (kể cả khi đồng thời có tác vụ chạy); không thì báo đang chạy tác vụ; không có
-    /// gì thì nói rõ là trống.
+    /// "5 đang chạy · 1 chờ · 2 chưa đọc" (1.3.967, mockup A anh Bửu duyệt) — bỏ vế nào bằng 0; không có gì thì nói rõ
+    /// là trống.
     private func notificationDetail(inbox: NotificationInboxPresenceReader.Snapshot) -> String {
+        var parts: [String] = []
+        if inbox.runningCount > 0 { parts.append("\(inbox.runningCount) đang chạy") }
+        if inbox.pendingCount > 0 { parts.append("\(inbox.pendingCount) chờ") }
         if inbox.unreadCount > 0 {
-            let count = inbox.unreadCount > 99 ? "99+" : "\(inbox.unreadCount)"
-            return "\(count) chưa đọc"
+            parts.append("\(inbox.unreadCount > 99 ? "99+" : "\(inbox.unreadCount)") chưa đọc")
         }
-        return inbox.hasRunningTask ? "Đang chạy tác vụ" : "Không có thông báo mới"
+        return parts.isEmpty ? "Không có thông báo mới" : parts.joined(separator: " · ")
     }
 }
