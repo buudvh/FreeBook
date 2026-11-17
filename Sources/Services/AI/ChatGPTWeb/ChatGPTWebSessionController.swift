@@ -1,7 +1,9 @@
 import Foundation
 import WebKit
 
-/// Chủ sở hữu **duy nhất** của WKWebView ẩn chạy trang ChatGPT ẩn danh (`chatgpt.com`, 1.3.971).
+/// Chủ sở hữu **duy nhất** của WKWebView ẩn chạy một trang chat (`ChatGPTWebSite`): `shared` cho `chatgpt.com` (1.3.971),
+/// `geminiGuest` cho trang Gemini khách (1.3.977) — mỗi trang một WebView ẩn riêng. Phần mô tả dưới đây viết cho ChatGPT,
+/// trang khác chạy đúng các luật đó với hợp đồng trang của mình.
 ///
 /// - Cùng `WKWebsiteDataStore.default()` và cùng UA Safari iOS với trình duyệt bypass ⇒ bước kiểm tra Cloudflare người
 ///   dùng qua ở đó có hiệu lực ngay ở đây, và **đăng nhập ChatGPT ở đó thì ở đây chạy bằng tài khoản đó**; chưa đăng
@@ -21,7 +23,18 @@ import WebKit
 ///   `+Delegates.swift`.
 @MainActor
 final class ChatGPTWebSessionController: NSObject {
-    static let shared = ChatGPTWebSessionController()
+    static let shared = ChatGPTWebSessionController(site: .chatGPT)
+    /// Trang Gemini khi chưa đăng nhập — chỉ `ChatGPTWebClient.geminiGuest` dùng.
+    static let geminiGuest = ChatGPTWebSessionController(site: .geminiGuest)
+
+    static func instance(for kind: ChatGPTWebSite.Kind) -> ChatGPTWebSessionController {
+        switch kind {
+        case .chatGPT: return shared
+        case .geminiGuest: return geminiGuest
+        }
+    }
+
+    let site: ChatGPTWebSite
 
     private static let commitTimeout: TimeInterval = 30
     private static let idleReleaseSeconds: TimeInterval = 10 * 60
@@ -52,7 +65,8 @@ final class ChatGPTWebSessionController: NSObject {
     /// Đang có lượt chạy — bối cảnh cho log `MainThreadHangMonitor`.
     var isTurnActive: Bool { currentTurn != nil }
 
-    private override init() {
+    private init(site: ChatGPTWebSite) {
+        self.site = site
         super.init()
     }
 
@@ -82,7 +96,7 @@ final class ChatGPTWebSessionController: NSObject {
     /// dùng lại. Cuộc chat của trang mất theo — lượt sau mở cuộc chat mới với đủ ngữ cảnh.
     func abort(token: UUID) {
         guard currentTurn == token, let webView else { return }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Huỷ lượt — dừng trang (\(ChatGPTWebPageContract.describe(webView.url)))")
+        AppLogger.shared.log("🤖 \(site.logTag) Huỷ lượt — dừng trang (\(ChatGPTWebPageContract.describe(webView.url)))")
         liveSession = nil
         failNavigationWaiters(CancellationError())
         webView.stopLoading()
@@ -91,7 +105,7 @@ final class ChatGPTWebSessionController: NSObject {
 
     func notePageKind(signedIn: Bool) {
         if lastPageSignedIn != signedIn {
-            AppLogger.shared.log("🤖 [ChatGPTWeb] Trang ChatGPT là bản \(signedIn ? "đã đăng nhập" : "ẩn danh")")
+            AppLogger.shared.log("🤖 \(site.logTag) Trang \(site.pageName) là bản \(signedIn ? "đã đăng nhập" : "ẩn danh")")
         }
         lastPageSignedIn = signedIn
     }
@@ -112,10 +126,11 @@ final class ChatGPTWebSessionController: NSObject {
         windowHost.attach(webView)
         liveSession = nil
         let startedAt = Date()
+        let site = self.site
         let timeoutTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(Self.commitTimeout * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Trang ChatGPT không commit sau \(Int(Self.commitTimeout)) s \(GeminiWebForegroundGate.currentAppStateLabel)")
+            AppLogger.shared.log("❌ 🤖 \(site.logTag) Trang \(site.pageName) không commit sau \(Int(Self.commitTimeout)) s \(GeminiWebForegroundGate.currentAppStateLabel)")
             self?.failNavigationWaiters(ChatGPTWebError.timeout)
         }
         defer { timeoutTask.cancel() }
@@ -123,24 +138,24 @@ final class ChatGPTWebSessionController: NSObject {
             navigationWaiters.append(continuation)
             expectedNavigation = webView.load(URLRequest(url: url, timeoutInterval: Self.commitTimeout))
         }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Trang commit sau \(Self.ms(since: startedAt)) ms (\(ChatGPTWebPageContract.describe(webView.url)))")
+        AppLogger.shared.log("🤖 \(site.logTag) Trang commit sau \(Self.ms(since: startedAt)) ms (\(ChatGPTWebPageContract.describe(webView.url)))")
     }
 
     func snapshot() async -> ChatGPTWebPageContract.Snapshot? {
         guard let webView else { return nil }
-        guard let raw = try? await evaluate(ChatGPTWebPageContract.snapshotScript, in: webView) else { return nil }
+        guard let raw = try? await evaluate(site.snapshotScript, in: webView) else { return nil }
         return ChatGPTWebPageContract.Snapshot(raw)
     }
 
     /// Gán chữ vào ô nhập rồi kiểm tra chữ đã thật sự nằm trong ô. Vùng soạn thảo của trang đã đăng nhập không nhận sự
     /// kiện `paste` ⇒ thử `execCommand('insertText')` một lần. `false` = không thấy ô nhập hoặc ô không nhận chữ.
     func fill(_ text: String) async -> Bool {
-        guard let webView, let script = ChatGPTWebPageContract.fillComposerScript(text) else { return false }
+        guard let webView, let script = site.fillScript(text) else { return false }
         guard (try? await evaluate(script, in: webView)) as? Bool == true else { return false }
         try? await Task.sleep(nanoseconds: Self.fillSettleNanoseconds)
         if let filled = await snapshot(), filled.draftLength > 0 { return true }
-        guard let fallback = ChatGPTWebPageContract.fillFallbackScript(text) else { return false }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Ô nhập chưa nhận chữ sau sự kiện paste — thử execCommand insertText (ô nhập phải được focus trong tích tắc, bàn phím có thể nháy)")
+        guard let fallback = site.fillFallbackScript(text) else { return false }
+        AppLogger.shared.log("🤖 \(site.logTag) Ô nhập chưa nhận chữ sau sự kiện paste — thử execCommand insertText (ô nhập phải được focus trong tích tắc, bàn phím có thể nháy)")
         _ = try? await evaluate(fallback, in: webView)
         dismissKeyboard()
         try? await Task.sleep(nanoseconds: Self.fillSettleNanoseconds)
@@ -156,7 +171,7 @@ final class ChatGPTWebSessionController: NSObject {
     /// Gửi form của ô nhập.
     func submit() async -> ChatGPTWebPageContract.SubmitOutcome {
         guard let webView,
-              let raw = (try? await evaluate(ChatGPTWebPageContract.submitScript, in: webView)) as? String,
+              let raw = (try? await evaluate(site.submitScript, in: webView)) as? String,
               let outcome = ChatGPTWebPageContract.SubmitOutcome(rawValue: raw) else { return .noComposer }
         dismissKeyboard()
         return outcome
@@ -180,7 +195,7 @@ final class ChatGPTWebSessionController: NSObject {
         view.navigationDelegate = self
         windowHost.attach(view)
         webView = view
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Tạo WKWebView ẩn")
+        AppLogger.shared.log("🤖 \(site.logTag) Tạo WKWebView ẩn")
         return view
     }
 
@@ -208,7 +223,7 @@ final class ChatGPTWebSessionController: NSObject {
             guard !Task.isCancelled, let self, self.currentTurn == nil, let webView = self.webView else { return }
             self.liveSession = nil
             guard let url = webView.url, url.absoluteString != "about:blank" else { return }
-            AppLogger.shared.log("🤖 [ChatGPTWeb] Hết \(Int(seconds)) s không có lượt mới — đưa trang ẩn về trang trắng (\(ChatGPTWebPageContract.describe(url)))")
+            AppLogger.shared.log("🤖 \(self.site.logTag) Hết \(Int(seconds)) s không có lượt mới — đưa trang ẩn về trang trắng (\(ChatGPTWebPageContract.describe(url)))")
             webView.stopLoading()
             webView.loadHTMLString("", baseURL: nil)
         }
@@ -219,7 +234,7 @@ final class ChatGPTWebSessionController: NSObject {
         idleReleaseTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(Self.idleReleaseSeconds * 1_000_000_000))
             guard !Task.isCancelled, let self, self.webView != nil, self.currentTurn == nil else { return }
-            AppLogger.shared.log("🤖 [ChatGPTWeb] Giải phóng WKWebView ẩn sau \(Int(Self.idleReleaseSeconds)) s không dùng")
+            AppLogger.shared.log("🤖 \(self.site.logTag) Giải phóng WKWebView ẩn sau \(Int(Self.idleReleaseSeconds)) s không dùng")
             self.releaseWebView()
         }
     }
@@ -268,12 +283,12 @@ final class ChatGPTWebSessionController: NSObject {
         if nsError.domain == "WebKitErrorDomain", nsError.code == 102 { return }
         guard expectedNavigation == nil || navigation === expectedNavigation else { return }
         expectedNavigation = nil
-        AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Nạp trang ChatGPT thất bại \(GeminiWebForegroundGate.currentAppStateLabel): \(error.localizedDescription)")
+        AppLogger.shared.log("❌ 🤖 \(site.logTag) Nạp trang \(site.pageName) thất bại \(GeminiWebForegroundGate.currentAppStateLabel): \(error.localizedDescription)")
         failNavigationWaiters(ChatGPTWebError.pageLoadFailed(error.localizedDescription))
     }
 
     func contentProcessDidTerminate() {
-        AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Tiến trình web bị kết thúc — giải phóng WKWebView ẩn")
+        AppLogger.shared.log("❌ 🤖 \(site.logTag) Tiến trình web bị kết thúc — giải phóng WKWebView ẩn")
         releaseWebView()
     }
 }

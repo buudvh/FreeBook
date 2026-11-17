@@ -11,6 +11,10 @@ extension ReaderAIFullScreenView {
             selectedModel = config.activeProfile.selectedModel
         }
         nameExtractionPromptForSheet = config.nameExtractionPrompt
+        // Gemini Web: đọc lại khách / tài khoản để chat và quét tên riêng chia lượt đúng (`GeminiWebGuestMode`, 1.3.977).
+        if config.activeProfile.isGeminiWeb {
+            Task { _ = await GeminiWebClient.shared.isSignedIn() }
+        }
     }
 
     internal func handleProfileChanged(_ newProfileId: String) {
@@ -49,7 +53,8 @@ extension ReaderAIFullScreenView {
         // Gemini Web + bật "Lưu chat vào lịch sử Gemini" (1.3.524), và Chế độ AI của Google (1.3.609): provider tự giữ
         // hội thoại của phiên ⇒ không gom tóm tắt ngữ cảnh cũ lẫn cửa sổ tin gần nhất vào prompt, kể cả khi phải mở cuộc
         // chat mới (provider không biết các lượt trước — đánh đổi đã chấp nhận).
-        let geminiKeepsHistory = (config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory)
+        // Gemini Web chế độ khách (1.3.977) không giữ được hội thoại (cuộc chat khách mất khi nạp lại trang) ⇒ gom như thường.
+        let geminiKeepsHistory = (config.activeProfile.isGeminiWeb && GeminiWebConversationStore.saveToHistory && !GeminiWebGuestMode.isLikelyGuest)
             || config.activeProfile.isGoogleAIMode
 
         // 1. Nạp từ điển Name riêng và VP riêng của truyện

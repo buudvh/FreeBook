@@ -74,12 +74,12 @@ extension ChatGPTWebClient {
         var attempt = 0
         while true {
             do {
-                return try await ChatGPTWebTurnQueue.shared.run(isScan: isScan) {
+                return try await turnQueue.run(isScan: isScan) {
                     try await self.performTurn(kind, timeouts: timeouts, live: live, observation: observation, onDelta: onDelta)
                 }
             } catch let error as ChatGPTWebError where attempt == 0 && error.isRetryable && !observation.emitted {
                 attempt += 1
-                AppLogger.shared.log("🤖 [ChatGPTWeb] Lượt lỗi (\(error.localizedDescription)) — thử lại 1 lần")
+                AppLogger.shared.log("🤖 \(site.logTag) Lượt lỗi (\(error.localizedDescription)) — thử lại 1 lần")
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
@@ -92,13 +92,13 @@ extension ChatGPTWebClient {
         observation: TurnProgress,
         onDelta: (@Sendable (String) -> Void)?
     ) async throws -> String {
-        let controller = await ChatGPTWebSessionController.shared
+        let controller = await pageController()
         let token = await controller.beginTurn()
         do {
             let text = try await withTaskCancellationHandler {
                 try await self.driveTurn(kind, timeouts: timeouts, observation: observation, onDelta: onDelta)
             } onCancel: {
-                Task { @MainActor in ChatGPTWebSessionController.shared.abort(token: token) }
+                Task { @MainActor in controller.abort(token: token) }
             }
             await controller.endTurn(token: token, live: live)
             return text
@@ -109,7 +109,7 @@ extension ChatGPTWebClient {
             await controller.endTurn(token: token, live: nil)
             if let failure = error as? ChatGPTWebError, case .rateLimited(let retryAfter) = failure {
                 let cooldown = retryAfter > 0 ? TimeInterval(retryAfter) : Self.defaultRateLimitCooldown
-                await ChatGPTWebTurnQueue.shared.noteRateLimited(for: cooldown)
+                await turnQueue.noteRateLimited(for: cooldown)
             }
             throw error
         }
@@ -121,23 +121,23 @@ extension ChatGPTWebClient {
         observation: TurnProgress,
         onDelta: (@Sendable (String) -> Void)?
     ) async throws -> String {
-        let controller = await ChatGPTWebSessionController.shared
+        let controller = await pageController()
         let baseline: Int
         let prompt: String
         switch kind {
         case .fresh(let text):
-            AppLogger.shared.log("🤖 [ChatGPTWeb] Lượt mới: \(text.count) ký tự")
-            try await controller.navigate(to: ChatGPTWebPageContract.homeURL)
+            AppLogger.shared.log("🤖 \(site.logTag) Lượt mới: \(text.count) ký tự")
+            try await controller.navigate(to: site.homeURL)
             try await waitForComposer()
             baseline = 0
             prompt = text
         case .continuation(let sessionId, let text):
             let liveId = await controller.liveSession?.sessionId
             guard liveId == sessionId else {
-                AppLogger.shared.log("🤖 [ChatGPTWeb] Trang không còn giữ cuộc chat của phiên \(sessionId.uuidString.prefix(8))")
+                AppLogger.shared.log("🤖 \(site.logTag) Trang không còn giữ cuộc chat của phiên \(sessionId.uuidString.prefix(8))")
                 throw ChatGPTWebError.threadUnavailable
             }
-            AppLogger.shared.log("🤖 [ChatGPTWeb] Hỏi tiếp trong trang: \(text.count) ký tự")
+            AppLogger.shared.log("🤖 \(site.logTag) Hỏi tiếp trong trang: \(text.count) ký tự")
             baseline = try await waitForIdleThread()
             prompt = text
         }
@@ -153,7 +153,7 @@ extension ChatGPTWebClient {
             outcome = await controller.submit()
         }
         guard outcome.didSend else {
-            AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Không gửi được form: \(outcome.rawValue)")
+            AppLogger.shared.log("❌ 🤖 \(site.logTag) Không gửi được form: \(outcome.rawValue)")
             throw ChatGPTWebError.protocolChanged("không gửi được form (\(outcome.rawValue))")
         }
         return try await readAnswer(baseline: baseline, timeouts: timeouts, observation: observation, onDelta: onDelta)
@@ -161,7 +161,7 @@ extension ChatGPTWebClient {
 
     /// Trang chủ vừa nạp: chờ ô nhập (và script của trang). Trang kiểm tra Cloudflare được chờ tự qua tới `challengeTimeout`.
     private func waitForComposer() async throws {
-        let controller = await ChatGPTWebSessionController.shared
+        let controller = await pageController()
         let startedAt = Date()
         var composerSeenAt: Date?
         var challengeSeenAt: Date?
@@ -169,7 +169,7 @@ extension ChatGPTWebClient {
             try Task.checkCancellation()
             if let snapshot = await controller.snapshot() {
                 if snapshot.gated {
-                    AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Trang hiện cổng chặn ngay lúc mở (\(snapshot.gateKind)): «\(snapshot.gateText)»")
+                    AppLogger.shared.log("❌ 🤖 \(site.logTag) Trang hiện cổng chặn ngay lúc mở (\(snapshot.gateKind)): «\(snapshot.gateText)»")
                     throw ChatGPTWebPageContract.gateError(snapshot)
                 }
                 if snapshot.composerFound {
@@ -177,14 +177,14 @@ extension ChatGPTWebClient {
                     composerSeenAt = seenAt
                     if snapshot.ready || Date().timeIntervalSince(seenAt) >= Self.readyGraceSeconds {
                         await controller.notePageKind(signedIn: snapshot.signedIn)
-                        AppLogger.shared.log("🤖 [ChatGPTWeb] Ô nhập sẵn sàng sau \(Self.ms(since: startedAt)) ms (trang \(snapshot.kindLabel), script trang sẵn sàng=\(snapshot.ready), hộp thoại mở=\(snapshot.dialogOpen))")
+                        AppLogger.shared.log("🤖 \(site.logTag) Ô nhập sẵn sàng sau \(Self.ms(since: startedAt)) ms (trang \(snapshot.kindLabel), script trang sẵn sàng=\(snapshot.ready), hộp thoại mở=\(snapshot.dialogOpen))")
                         return
                     }
                 } else if snapshot.challenge {
                     let seenAt = challengeSeenAt ?? Date()
                     challengeSeenAt = seenAt
                     if Date().timeIntervalSince(seenAt) >= Self.challengeTimeout {
-                        AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Trang kiểm tra của Cloudflare không tự qua sau \(Int(Self.challengeTimeout)) s \(GeminiWebForegroundGate.shared.appStateLabel)")
+                        AppLogger.shared.log("❌ 🤖 \(site.logTag) Trang kiểm tra của Cloudflare không tự qua sau \(Int(Self.challengeTimeout)) s \(GeminiWebForegroundGate.shared.appStateLabel)")
                         throw ChatGPTWebError.captchaRequired
                     }
                 }
@@ -195,26 +195,26 @@ extension ChatGPTWebClient {
             try await Task.sleep(nanoseconds: Self.pollInterval)
         }
         if challengeSeenAt != nil { throw ChatGPTWebError.captchaRequired }
-        AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Không thấy ô nhập sau \(Int(Self.composerTimeout)) s \(GeminiWebForegroundGate.shared.appStateLabel)")
+        AppLogger.shared.log("❌ 🤖 \(site.logTag) Không thấy ô nhập sau \(Int(Self.composerTimeout)) s \(GeminiWebForegroundGate.shared.appStateLabel)")
         throw ChatGPTWebError.protocolChanged("không thấy ô nhập của trang ẩn danh lẫn trang đã đăng nhập")
     }
 
     /// Trang đang mở phải còn ô nhập, còn ít nhất một tin trợ lý, không cổng chặn, không hộp thoại và đã viết xong lượt
     /// trước; trả số tin trợ lý lúc đó (mốc để nhận ra tin mới). Không đạt ⇒ `threadUnavailable`.
     private func waitForIdleThread() async throws -> Int {
-        let controller = await ChatGPTWebSessionController.shared
+        let controller = await pageController()
         let startedAt = Date()
         while Date().timeIntervalSince(startedAt) < Self.idleThreadTimeout {
             try Task.checkCancellation()
             guard let snapshot = await controller.snapshot() else { break }
             guard snapshot.composerFound, snapshot.turnCount > 0, !snapshot.gated, !snapshot.dialogOpen, snapshot.submitError.isEmpty else {
-                AppLogger.shared.log("🤖 [ChatGPTWeb] Trang không hỏi tiếp được (ô nhập=\(snapshot.composerFound), tin=\(snapshot.turnCount), cổng chặn=\(snapshot.gated), hộp thoại mở=\(snapshot.dialogOpen))")
+                AppLogger.shared.log("🤖 \(site.logTag) Trang không hỏi tiếp được (ô nhập=\(snapshot.composerFound), tin=\(snapshot.turnCount), cổng chặn=\(snapshot.gated), hộp thoại mở=\(snapshot.dialogOpen))")
                 throw ChatGPTWebError.threadUnavailable
             }
             if !snapshot.generating, !snapshot.streaming { return snapshot.turnCount }
             try await Task.sleep(nanoseconds: Self.pollInterval)
         }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Trang vẫn đang viết lượt trước sau \(Int(Self.idleThreadTimeout)) s — không hỏi tiếp trong trang")
+        AppLogger.shared.log("🤖 \(site.logTag) Trang vẫn đang viết lượt trước sau \(Int(Self.idleThreadTimeout)) s — không hỏi tiếp trong trang")
         throw ChatGPTWebError.threadUnavailable
     }
 
@@ -224,7 +224,7 @@ extension ChatGPTWebClient {
         observation: TurnProgress,
         onDelta: (@Sendable (String) -> Void)?
     ) async throws -> String {
-        let controller = await ChatGPTWebSessionController.shared
+        let controller = await pageController()
         let startedAt = Date()
         var lastAlive = startedAt
         var lastChange = startedAt
@@ -250,11 +250,11 @@ extension ChatGPTWebClient {
             }
             missingSnapshots = 0
             if snapshot.gated {
-                AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Trang hiện cổng chặn (\(snapshot.gateKind), thử lại sau=\(snapshot.retryAfter)) sau \(Self.ms(since: startedAt)) ms \(GeminiWebForegroundGate.shared.appStateLabel); trang: «\(snapshot.gateText)»")
+                AppLogger.shared.log("❌ 🤖 \(site.logTag) Trang hiện cổng chặn (\(snapshot.gateKind), thử lại sau=\(snapshot.retryAfter)) sau \(Self.ms(since: startedAt)) ms \(GeminiWebForegroundGate.shared.appStateLabel); trang: «\(snapshot.gateText)»")
                 throw ChatGPTWebPageContract.gateError(snapshot)
             }
             if !snapshot.submitError.isEmpty {
-                AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Trang báo lỗi gửi sau \(Self.ms(since: startedAt)) ms; trang: «\(snapshot.submitError)»")
+                AppLogger.shared.log("❌ 🤖 \(site.logTag) Trang báo lỗi gửi sau \(Self.ms(since: startedAt)) ms; trang: «\(snapshot.submitError)»")
                 throw ChatGPTWebError.generationFailed(snapshot.submitError)
             }
             let elapsed = now.timeIntervalSince(startedAt)
@@ -263,7 +263,7 @@ extension ChatGPTWebClient {
                 if !sawNewTurn {
                     sawNewTurn = true
                     lastChange = now
-                    AppLogger.shared.log("🤖 [ChatGPTWeb] Thấy tin trả lời mới sau \(Self.ms(since: startedAt)) ms")
+                    AppLogger.shared.log("🤖 \(site.logTag) Thấy tin trả lời mới sau \(Self.ms(since: startedAt)) ms")
                 }
                 answerFound = answerFound || snapshot.answerFound
                 if snapshot.newestText != lastRaw {
@@ -287,7 +287,7 @@ extension ChatGPTWebClient {
                 let stable = now.timeIntervalSince(lastChange)
                 let hasText = !lastRaw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 if !snapshot.turnFailure.isEmpty, stable >= Self.turnFailureSeconds {
-                    AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Lượt mới mang trạng thái «\(snapshot.turnFailure)» sau \(Self.ms(since: startedAt)) ms (chữ=\(lastRaw.count))")
+                    AppLogger.shared.log("❌ 🤖 \(site.logTag) Lượt mới mang trạng thái «\(snapshot.turnFailure)» sau \(Self.ms(since: startedAt)) ms (chữ=\(lastRaw.count))")
                     throw ChatGPTWebError.generationFailed("trạng thái lượt: \(snapshot.turnFailure)")
                 }
                 if snapshot.complete {
@@ -295,7 +295,7 @@ extension ChatGPTWebClient {
                         return try finish(lastRaw, emitted: emitted, observation: observation, onDelta: onDelta, startedAt: startedAt, rule: "tin đã xong")
                     }
                     if !hasText, stable >= Self.emptySettleSeconds {
-                        AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Tin trả lời xong mà rỗng sau \(Self.ms(since: startedAt)) ms (khối chữ=\(snapshot.answerFound))")
+                        AppLogger.shared.log("❌ 🤖 \(site.logTag) Tin trả lời xong mà rỗng sau \(Self.ms(since: startedAt)) ms (khối chữ=\(snapshot.answerFound))")
                         throw ChatGPTWebError.emptyResponse
                     }
                 } else if hasText, !snapshot.streaming, !snapshot.generating, stable >= Self.fallbackSettleSeconds {
@@ -308,10 +308,10 @@ extension ChatGPTWebClient {
                 if !resubmitted, elapsed >= Self.resubmitSeconds, snapshot.draftLength > 0 {
                     resubmitted = true
                     let outcome = await controller.submit()
-                    AppLogger.shared.log("🤖 [ChatGPTWeb] Gửi rồi mà \(Int(Self.resubmitSeconds)) s chưa có lượt mới, chữ còn trong ô nhập — gửi lại form: \(outcome.rawValue) (hộp thoại mở=\(snapshot.dialogOpen))")
+                    AppLogger.shared.log("🤖 \(site.logTag) Gửi rồi mà \(Int(Self.resubmitSeconds)) s chưa có lượt mới, chữ còn trong ô nhập — gửi lại form: \(outcome.rawValue) (hộp thoại mở=\(snapshot.dialogOpen))")
                 }
                 if snapshot.dialogOpen, elapsed >= Self.loginPromptSeconds {
-                    AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Hộp mời đăng nhập đang mở và lượt không bắt đầu sau \(Int(Self.loginPromptSeconds)) s")
+                    AppLogger.shared.log("❌ 🤖 \(site.logTag) Hộp mời đăng nhập đang mở và lượt không bắt đầu sau \(Int(Self.loginPromptSeconds)) s")
                     throw ChatGPTWebError.loginPrompt
                 }
             }
@@ -319,7 +319,7 @@ extension ChatGPTWebClient {
             let idle = now.timeIntervalSince(lastAlive)
             if idle > timeouts.idle || elapsed > timeouts.absolute {
                 let scriptNote = snapshot.scriptError.map { ", lỗi JS: \($0)" } ?? ""
-                AppLogger.shared.log("❌ 🤖 [ChatGPTWeb] Hết thời gian chờ (idle \(Int(idle))/\(Int(timeouts.idle)) s, tổng \(Int(elapsed))/\(Int(timeouts.absolute)) s, tin=\(snapshot.turnCount)/\(baseline), chữ=\(lastRaw.count), đang viết=\(snapshot.streaming || snapshot.generating), trang=\(snapshot.path)\(scriptNote)) \(GeminiWebForegroundGate.shared.appStateLabel)")
+                AppLogger.shared.log("❌ 🤖 \(site.logTag) Hết thời gian chờ (idle \(Int(idle))/\(Int(timeouts.idle)) s, tổng \(Int(elapsed))/\(Int(timeouts.absolute)) s, tin=\(snapshot.turnCount)/\(baseline), chữ=\(lastRaw.count), đang viết=\(snapshot.streaming || snapshot.generating), trang=\(snapshot.path)\(scriptNote)) \(GeminiWebForegroundGate.shared.appStateLabel)")
                 if !sawNewTurn {
                     throw ChatGPTWebError.protocolChanged("không thấy tin trả lời mới (trang \(snapshot.kindLabel))")
                 }
@@ -354,7 +354,7 @@ extension ChatGPTWebClient {
                 onDelta("\n\n— ChatGPT sửa lại câu trả lời —\n\(final)")
             }
         }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Lượt xong sau \(Self.ms(since: startedAt)) ms (theo \(rule)), \(final.count) ký tự")
+        AppLogger.shared.log("🤖 \(site.logTag) Lượt xong sau \(Self.ms(since: startedAt)) ms (theo \(rule)), \(final.count) ký tự")
         return final
     }
 

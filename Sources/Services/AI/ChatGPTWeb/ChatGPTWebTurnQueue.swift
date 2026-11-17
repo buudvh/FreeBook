@@ -11,6 +11,8 @@ import Foundation
 ///   `localStorage`, không đổi danh tính).
 actor ChatGPTWebTurnQueue {
     static let shared = ChatGPTWebTurnQueue()
+    /// Hàng đợi riêng của trang Gemini khách (1.3.977) — WebView ẩn riêng nên không xếp chung với ChatGPT.
+    static let geminiGuest = ChatGPTWebTurnQueue()
 
     private var isBusy = false
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []

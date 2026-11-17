@@ -16,7 +16,13 @@ import Foundation
 /// Retry thuộc về đúng tầng này (`+Turn.swift`): một lần, chỉ khi chưa phát chữ nào. `AIRuntimeCoordinator` và
 /// `AINameExtractionBatchProcessor` không bọc thêm vòng retry.
 public actor ChatGPTWebClient {
-    public static let shared = ChatGPTWebClient()
+    public static let shared = ChatGPTWebClient(site: .chatGPT)
+    /// Cùng bộ điều khiển trang, chạy trang Gemini khi chưa đăng nhập (1.3.977) — chỉ `GeminiWebClient+Guest` gọi, và chỉ
+    /// dùng `runTurn`.
+    static let geminiGuest = ChatGPTWebClient(site: .geminiGuest)
+
+    /// Trang mà client này điều khiển.
+    let site: ChatGPTWebSite
 
     /// Giá trị `AIProviderProfile.apiFormat` của provider này.
     public static let apiFormat = "chatgptWeb"
@@ -30,7 +36,20 @@ public actor ChatGPTWebClient {
     static let chatTimeouts = Timeouts(idle: 45, absolute: 180)
     static let scanTimeouts = Timeouts(idle: 90, absolute: 240)
 
-    private init() {}
+    private init(site: ChatGPTWebSite) {
+        self.site = site
+    }
+
+    nonisolated var turnQueue: ChatGPTWebTurnQueue {
+        switch site.kind {
+        case .chatGPT: return .shared
+        case .geminiGuest: return .geminiGuest
+        }
+    }
+
+    func pageController() async -> ChatGPTWebSessionController {
+        await ChatGPTWebSessionController.instance(for: site.kind)
+    }
 
     /// Chat trong Reader. `config` giữ cho giống chữ ký các client khác (không có model để chọn).
     public func sendConversationStreaming(
@@ -62,7 +81,7 @@ public actor ChatGPTWebClient {
     public func sendNameScanTurn(messages: [OpenAIChatRequest.Message]) async throws -> String {
         let prompt = try ChatGPTWebPromptBudget.freshPrompt(from: messages, allowsTrimming: false)
         return try await HiddenWebForegroundRunner.run(
-            logTag: "[ChatGPTWeb]",
+            logTag: site.logTag,
             shouldStop: { AINameExtractionBatchProcessor.shouldStopBatch(on: $0) },
             exhaustedError: ChatGPTWebError.interruptedInBackground
         ) {

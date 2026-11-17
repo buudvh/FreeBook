@@ -28,8 +28,10 @@ public actor GeminiWebClient {
 
     // MARK: - Tài khoản
 
+    /// Cũng ghi lại chế độ khách / tài khoản cho các chỗ không `await` được (`GeminiWebGuestMode`, 1.3.977).
     public func isSignedIn() async -> Bool {
-        await GeminiWebSessionController.shared.isSignedIn()
+        let isGuest = await resolveGuestMode()
+        return !isGuest
     }
 
     public func signOut() async {
@@ -139,7 +141,18 @@ public actor GeminiWebClient {
         onDelta: @escaping @Sendable (String) -> Void,
         onMetadata: (@Sendable ([String?]) -> Void)? = nil
     ) async throws -> [String?] {
-        var session = try await GeminiWebSessionController.shared.prepare()
+        // Chưa đăng nhập Google ⇒ chế độ khách: trang tự gửi, app đọc DOM (1.3.977, `GeminiWebClient+Guest`).
+        if await resolveGuestMode() {
+            return try await runGuestGeneration(prompt: prompt, idleTimeout: idleTimeout, absoluteTimeout: absoluteTimeout, onDelta: onDelta)
+        }
+        var session: GeminiWebInitSession
+        do {
+            session = try await GeminiWebSessionController.shared.prepare()
+        } catch GeminiWebError.notSignedIn {
+            // Còn cookie Google nhưng trang vẫn là phiên khách (cookie hết hạn…) ⇒ cũng chạy chế độ khách.
+            GeminiWebGuestMode.note(isGuest: true)
+            return try await runGuestGeneration(prompt: prompt, idleTimeout: idleTimeout, absoluteTimeout: absoluteTimeout, onDelta: onDelta)
+        }
         let model = await resolveModel(named: modelName)
         var attempt = 0
         let observed = TurnObservation()

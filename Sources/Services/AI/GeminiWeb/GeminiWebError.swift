@@ -6,7 +6,9 @@ import Foundation
 /// (`"Lỗi phản hồi: \(error.localizedDescription)"`). `protocolChanged` mang vị trí field để người
 /// sửa biết Google đổi cấu trúc ở đâu; không có tài liệu chính thức nào cho giao thức này.
 public enum GeminiWebError: LocalizedError, Sendable, Equatable {
-    /// Trang gemini.google.com chuyển hướng sang đăng nhập hoặc không có token `SNlM0e`.
+    /// Gemini đòi đăng nhập: trang chuyển hướng sang đăng nhập, việc cần tài khoản (khám phá model) khi đang là khách,
+    /// hoặc trang khách bắt đăng nhập. Chỉ thiếu token `SNlM0e` thì từ 1.3.977 **không** còn là lỗi — lượt chat / quét chạy
+    /// chế độ khách (`GeminiWebClient+Guest`).
     case notSignedIn
     /// `GetUserStatus` trả mã khác 1000 (1040/1042 phải chấp nhận điều khoản, 1060 vùng không hỗ trợ…).
     case accountStatus(Int)
@@ -51,7 +53,7 @@ public enum GeminiWebError: LocalizedError, Sendable, Equatable {
         case .documentChanged:
             return "Trang Gemini tự tải lại khi đang trả lời — thử lại."
         case .notSignedIn:
-            return "Chưa đăng nhập Google cho Gemini Web — vào Cài đặt › AI › profile Gemini Web để đăng nhập."
+            return "Gemini yêu cầu đăng nhập Google cho việc này (chế độ khách không đủ, hoặc đăng nhập đã hết hạn) — vào Cài đặt › AI › profile Gemini Web để đăng nhập."
         case .accountStatus(let code):
             switch code {
             case 1040, 1042:

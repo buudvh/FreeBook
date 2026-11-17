@@ -23,7 +23,7 @@ extension ChatGPTWebClient {
             contextFingerprint: Chapter.hashUrl(systemText)
         )
 
-        if let previous = await ChatGPTWebSessionController.shared.liveSession, previous.sessionId == sessionId {
+        if let previous = await pageController().liveSession, previous.sessionId == sessionId {
             let contextUpdate = previous.contextFingerprint == live.contextFingerprint ? nil : systemText
             let text = try ChatGPTWebPromptBudget.continuationPrompt(from: messages, contextUpdate: contextUpdate)
             do {
@@ -34,15 +34,15 @@ extension ChatGPTWebClient {
                     live: live,
                     onDelta: onDelta
                 )
-                AppLogger.shared.log("🤖 [ChatGPTWeb] Hỏi tiếp trong trang đang mở (cập nhật ngữ cảnh=\(contextUpdate != nil))")
+                AppLogger.shared.log("🤖 \(site.logTag) Hỏi tiếp trong trang đang mở (cập nhật ngữ cảnh=\(contextUpdate != nil))")
                 return
             } catch ChatGPTWebError.threadUnavailable {
-                AppLogger.shared.log("🤖 [ChatGPTWeb] Trang không còn dùng được để hỏi tiếp — mở cuộc chat mới với đủ ngữ cảnh")
+                AppLogger.shared.log("🤖 \(site.logTag) Trang không còn dùng được để hỏi tiếp — mở cuộc chat mới với đủ ngữ cảnh")
             }
         }
 
         let prompt = try ChatGPTWebPromptBudget.freshPrompt(from: messages)
         _ = try await runTurn(.fresh(prompt), isScan: false, timeouts: Self.chatTimeouts, live: live, onDelta: onDelta)
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Mở cuộc chat mới cho phiên \(sessionId.uuidString.prefix(8))")
+        AppLogger.shared.log("🤖 \(site.logTag) Mở cuộc chat mới cho phiên \(sessionId.uuidString.prefix(8))")
     }
 }

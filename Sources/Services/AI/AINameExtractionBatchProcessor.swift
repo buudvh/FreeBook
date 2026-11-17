@@ -45,7 +45,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// hết). Chương dài hơn được tách thành nhiều lượt (`AINameScanTextLoader`), không cắt. Khoảng nghỉ 5 s giữa các lượt
     /// nằm ở `GoogleAIModeTurnQueue` (toàn cục, mọi truyện).
     static let googleAIModeCharacterLimit = 2_500
-    /// ChatGPT Web (1.3.971): thử thật trên trang ẩn danh prompt ~12.000 ký tự chữ Hán trả lời đúng `Tên=Nghĩa`. Chia lượt như Chế độ
+    /// ChatGPT Web (1.3.971) và Gemini Web chế độ khách (1.3.977 — gõ vào ô nhập của trang): thử thật trên trang ẩn danh prompt ~12.000 ký tự chữ Hán trả lời đúng `Tên=Nghĩa`. Chia lượt như Chế độ
     /// AI (tách chương dài, không cắt); khoảng nghỉ giữa các lượt nằm ở `ChatGPTWebTurnQueue`.
     static let chatGPTWebCharacterLimit = 10_000
 
@@ -53,7 +53,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
 
     /// Giới hạn ký tự một lượt quét theo provider (cũng là mức `extractNamesFromText` cắt lúc gửi).
     static func turnCharacterLimit(for config: AIConfiguration) -> Int {
-        if config.activeProfile.isGeminiWeb { return geminiWebCharacterLimit }
+        if config.activeProfile.isGeminiWeb { return GeminiWebGuestMode.isLikelyGuest ? chatGPTWebCharacterLimit : geminiWebCharacterLimit }
         if config.activeProfile.isGoogleAIMode { return googleAIModeCharacterLimit }
         if config.activeProfile.isChatGPTWeb { return chatGPTWebCharacterLimit }
         return apiCharacterLimit
@@ -61,7 +61,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
 
     /// Cách chia lượt theo provider (`AINameScanTextLoader.makeBatches`).
     static func batchMode(for config: AIConfiguration) -> AINameScanTextLoader.BatchMode {
-        if config.activeProfile.isGeminiWeb { return .geminiWeb }
+        if config.activeProfile.isGeminiWeb { return GeminiWebGuestMode.isLikelyGuest ? .googleAIMode : .geminiWeb }
         if config.activeProfile.hasFixedWebModel { return .googleAIMode }
         return .api
     }

@@ -27,7 +27,9 @@ public struct GeminiWebAccountRow: View {
                     Text(statusTitle)
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                    Text("Dùng phiên web gemini.google.com của tài khoản Google, không cần API key.")
+                    Text(isSignedIn == false
+                        ? "Không cần API key. Đang chạy chế độ khách: Gemini tự chọn model, không chọn được model và không lưu lịch sử. Đăng nhập Google để dùng model của tài khoản."
+                        : "Dùng phiên web gemini.google.com của tài khoản Google, không cần API key.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -92,7 +94,7 @@ public struct GeminiWebAccountRow: View {
 
     private var statusTitle: String {
         guard let isSignedIn else { return "Đang kiểm tra đăng nhập…" }
-        return isSignedIn ? "Đã đăng nhập Google" : "Chưa đăng nhập Google"
+        return isSignedIn ? "Đã đăng nhập Google" : "Chế độ khách (chưa đăng nhập Google)"
     }
 
     private func startLogin() {

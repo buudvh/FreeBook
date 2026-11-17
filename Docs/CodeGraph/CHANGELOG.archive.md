@@ -2,6 +2,32 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.946] - 2026-11-14
+
+### fix: Đổi nguồn lúc đang nghe truyện thì nghe tiếp ở truyện mới và không còn mất VP riêng
+
+Anh Bửu: "đang nghe truyện mà chuyển nguồn thì truyện nguồn mới bị mất vp riêng" — chọn "tự chuyển nghe sang truyện mới". Hai đường làm mất (đối chiếu code):
+
+- **Đang nghe ⇒ giữ cả hai truyện**: lượt đổi nguồn giữ truyện cũ khi TTS còn phiên của nó (`keepsOldBook`), TTS vẫn đọc truyện cũ, mở Reader từ đĩa nghe / sheet nghe / hẹn giờ là mở truyện cũ ⇒ VP / Name "Riêng" lưu lúc đó vào truyện cũ. Nay bỏ việc giữ: ngay sau mốc chốt `BookSourceChangeCoordinator` gọi `TTSManager.continueListeningAfterSourceChange` (`TTSManager+SourceChange`, file mới) — dừng phiên cũ (để `BookStorageManager` xoá được truyện cũ), tải chương cùng chỉ số ở truyện mới (chép chương theo vị trí) rồi đọc tiếp từ đầu dòng đang đọc, tên / bìa / tiện ích / bộ dịch của nguồn mới. Đang tạm dừng ⇒ chỉ dừng hẳn + toast "bấm nghe để đọc tiếp"; nguồn mới thiếu chương / tải lỗi ⇒ dừng + toast. Truyện cũ dọn như thường (còn giữ khi có chương chép lỗi). Áp cho cả Đổi nguồn ở màn Tìm lẫn "Chuyển sang nguồn …" của truyện mất nguồn (`Request.keepsOldBook` bỏ, tải của truyện cũ luôn huỷ).
+- **Truyện đích đã có từ điển ⇒ bỏ qua**: `BookSourceMigrator.copyTranslationFiles` chỉ chép file khi truyện đích chưa có, nên dùng lại truyện có sẵn / đổi nguồn lần hai thì VP riêng của truyện cũ bị bỏ rồi xoá cùng nó. Nay `VietPhrase.txt` / `Names.txt` đã có thì **gộp** qua `TranslationDictionaryWriter.importEntries(isMerge: true)` (mục truyện cũ thắng khi trùng từ; xoá bộ đệm + báo từ điển đổi); file khác giữ "đã có thì giữ". `copyBookScopedSettings` thành `async`. Lùi lại trước mốc chốt với truyện dùng lại thì mục đã gộp ở lại truyện đó (chỉ là mục của cùng truyện).
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch Đổi nguồn).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
+## [1.3.945] - 2026-11-14
+
+### feat: Giọng dự phòng offline khi TTS online lỗi hoặc mất mạng, tự quay lại giọng online khi hết lỗi
+
+Anh Bửu: "Thêm chức năng cho phép chọn giọng offline thay thế khi giọng online gặp lỗi" — duyệt mockup: một hàng ở Cài đặt TTS dẫn tới màn giống Cài đặt TTS khi chọn VieNeu / NghiTTS; tự quay lại khi online hết lỗi. Trước đây Google TTS / TTS tiện ích lỗi (sau 2 lượt thử lại) là tạm dừng đọc.
+
+- **Cài đặt**: Cài đặt TTS (trình đọc Google / tiện ích) có mục "Khi giọng online lỗi" (nút "?") với một hàng "Giọng dự phòng" (`TTSFallbackVoiceSection`, chữ phụ "VieNeu · Mai Anh" / "Không dùng") ⇒ màn **"Giọng dự phòng"** (`TTSFallbackVoiceSettingsView`): Picker trình đọc (Không dùng / NghiTTS (Piper Offline) / VieNeu-TTS v3 (Offline)), "Giọng đọc" (cùng hàng + sheet chọn giọng của engine), "Quản lý riêng của trình đọc" (VieNeu: Cài đặt VieNeu TTS, từ điển phiên âm VieNeu, từ điển tiếng Nhật; NghiTTS: Cài đặt NghiTTS, tiền xử lý & ngắt nghỉ, từ điển phiên âm cá nhân), "Cấu hình giọng nói" (Tốc độ; Nano thêm Tốc độ tổng hợp). Không có Tải trước (theo trình đọc online), Cao độ, Đọc lai.
+- **Lưu**: chỉ trình đọc nào (`TTSOnlineFallbackSettings`, khoá `ttsOnlineFallbackTool`, mặc định Không dùng). Giọng / tốc độ / tốc độ tổng hợp / từ điển là cài đặt của chính engine (chung với lúc engine đó là trình đọc chính). Sheet chọn giọng VieNeu + trang Cài đặt VieNeu TTS mở từ đây (`selectsForFallback`) chỉ lưu lựa chọn, không chuyển trình đọc chính sang VieNeu, không có hàng nhân bản.
+- **Lõi** (`TTSManager+OnlineFallback`, `TTSOnlineFallbackState`): thay engine **theo đoạn ở tầng tổng hợp**, không đổi `tool` ⇒ đoạn giữ cách chia của trình đọc online, highlight đúng, không ghi đè `ttsTool`. Tổng hợp online của đoạn đang đọc lỗi (sau lượt thử lại của `RemoteTTSSynthesisCoordinator`, không thêm vòng nào) hoặc máy mất mạng (`TTSNetworkReachability`, `NWPathMonitor`) ⇒ bật dự phòng cho phiên, bỏ lượt nạp trước online đang chờ, toast. Đoạn đang đọc + nạp trước tổng hợp bằng NghiTTS / VieNeu Nano / Turbo, gọi thẳng service (lượt online treo không chặn), dùng chung một lượt cho cùng đoạn; phát qua `AVAudioPlayer` của đường remote ở tốc độ engine dự phòng (`remotePlaybackRate`). Giọng dự phòng cũng lỗi ⇒ dừng + báo như cũ.
+- **Tự quay lại** (`TTSManager+OnlineFallbackProbe`): vòng nền thử online một đoạn sắp đọc sau 15 s → 30 s → 1 phút → tối đa 2 phút, gọi thẳng service; mất mạng thì chờ, mạng có lại ⇒ thử ngay; tạm dừng thì chờ. Được ⇒ giữ tiếng online cho đoạn đó, tắt dự phòng, toast "… hoạt động lại"; đoạn dự phòng đã nạp phát nốt.
+- Lúc đang dùng dự phòng: nạp trước gộp nhiều đoạn của Google (`dispatchRemotePrefetch`) tắt để mỗi đoạn đi nhánh dự phòng; sang chương kế không chờ lượt online đang chạy của chương đó (`claimedSynthesisTask`, có thể treo tới hết giờ) mà đọc đoạn đầu bằng dự phòng ngay.
+- **Sheet nghe mini**: badge cam "Dự phòng" (`TTSFallbackBadge`; NghiTTS ghi "Dự phòng · NghiTTS", VieNeu kèm badge model · tăng tốc).
+- `TTSSettingsSnapshot` thêm `onlineFallback` (dấu cài đặt dự phòng) ⇒ đổi giọng / tốc độ dự phòng thì đóng Cài đặt là dựng lại đoạn. Ghi chú ở CLAUDE.md / AGENTS.md.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.944] - 2026-11-14
 
 ### feat: Bấm nghe trong Reader hoặc Nghe đoạn bôi đen thì tự mở sheet nghe mini
