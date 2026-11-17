@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Sheet chọn phạm vi quét và nguồn prompt cho chức năng "Quét tên riêng theo phạm vi".
-/// Prompt tự nhập chỉ dùng cho MỘT lần quét, không ghi vào Cài đặt.
+/// Prompt tự nhập không ghi vào Cài đặt; quét bằng nó thì chữ trong ô được nhớ (`AINameScanPromptStore`: Gần đây theo
+/// truyện, Đã ghim dùng chung) để chọn lại ở trang "Prompt đã lưu" (`ReaderAISavedPromptsView`).
 ///
 /// Phạm vi (1.3.602): chọn **chương bắt đầu** theo 4 kiểu — chương đang đọc, tiếp nối lần quét trước (điểm tiếp nối
 /// của `AINameScanScopeStore`), chương đầu tiên, hoặc tự chọn một chương đã tải (`ReaderAINameScanChapterPickerView`).
@@ -27,6 +28,9 @@ public struct ReaderAIBatchPromptSheet: View {
 
     @State private var useCustomPrompt: Bool = false
     @State private var customPrompt: String = ""
+    /// Số prompt đã ghim / Gần đây của truyện — phụ đề và khoá dòng "Chọn prompt đã lưu…".
+    @State private var pinnedPromptCount: Int = 0
+    @State private var recentPromptCount: Int = 0
 
     /// Kiểu người dùng đã bấm; `nil` = theo `defaultStart` (mặc định phụ thuộc danh sách chương nên chỉ chốt được sau
     /// khi nạp xong).
@@ -60,6 +64,9 @@ public struct ReaderAIBatchPromptSheet: View {
         self.convertsTraditionalToSimplified = convertsTraditionalToSimplified
         self.onStart = onStart
         self._customPrompt = State(initialValue: settingsPrompt)
+        let savedCounts = AINameScanPromptStore.shared.counts(bookId: bookId)
+        self._pinnedPromptCount = State(initialValue: savedCounts.pinned)
+        self._recentPromptCount = State(initialValue: savedCounts.recent)
         self.prefersFromCurrentChapter = AINameScanScopeStore.shared.prefersFromCurrentChapter(bookId: bookId)
         self.resumeChapterIndex = AINameScanScopeStore.shared.resumeChapterIndex(bookId: bookId)
     }
@@ -182,8 +189,18 @@ public struct ReaderAIBatchPromptSheet: View {
                     ) {
                         useCustomPrompt = true
                     }
+
+                    // Chọn một prompt đã lưu ⇒ chép vào ô "Prompt cho lần này" và chọn "Tự nhập prompt".
+                    ReaderAISavedPromptsView.EntryRow(
+                        bookId: bookId,
+                        pinnedCount: pinnedPromptCount,
+                        recentCount: recentPromptCount
+                    ) { text in
+                        customPrompt = text
+                        useCustomPrompt = true
+                    }
                 } header: {
-                    SectionHelpHeader("Nguồn prompt", paragraphs: ["Prompt tự nhập chỉ dùng cho lần quét này, không lưu vào Cài đặt."])
+                    SectionHelpHeader("Nguồn prompt", paragraphs: ["Prompt tự nhập không ghi vào Cài đặt. Mỗi lần quét bằng prompt tự nhập, prompt được nhớ vào \"Gần đây\" của truyện này (giữ \(AINameScanPromptStore.recentLimit) bản mới nhất). Ghim prompt để giữ lâu và dùng ở mọi truyện."])
                 }
 
                 Section {
@@ -206,6 +223,9 @@ public struct ReaderAIBatchPromptSheet: View {
             .safeAreaInset(edge: .bottom) {
                 Button {
                     let prompt = useCustomPrompt ? trimmedCustomPrompt : settingsPrompt
+                    if useCustomPrompt {
+                        AINameScanPromptStore.shared.recordUse(prompt, bookId: bookId, settingsPrompt: settingsPrompt)
+                    }
                     let fromChapterIndex = fromChapterIndexForScan
                     let limit = limitValue
                     dismiss()
@@ -224,6 +244,7 @@ public struct ReaderAIBatchPromptSheet: View {
                 .background(.bar)
             }
             .task {
+                refreshSavedPromptCounts()
                 await loadChapters()
             }
         }
@@ -283,6 +304,13 @@ public struct ReaderAIBatchPromptSheet: View {
         }
         .disabled(chapters.isEmpty)
         .opacity(chapters.isEmpty ? 0.45 : 1)
+    }
+
+    /// Gọi trong `.task` của màn gốc — chạy lại khi quay về từ trang "Prompt đã lưu" (ghim / xoá ở đó đổi số).
+    private func refreshSavedPromptCounts() {
+        let counts = AINameScanPromptStore.shared.counts(bookId: bookId)
+        pinnedPromptCount = counts.pinned
+        recentPromptCount = counts.recent
     }
 
     /// Nạp danh sách chương đã tải **một lần** khi mở sheet — đổi kiểu bắt đầu hay số chương không đọc lại mục lục.

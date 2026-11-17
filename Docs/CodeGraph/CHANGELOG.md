@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.968] - 2026-11-17
+
+### feat: Sheet quét tên riêng nhớ prompt tự nhập: Gần đây theo truyện, ghim dùng chung
+
+Anh Bửu: "ghi nhớ prompt tự nhập ở AI" — ô "Tự nhập prompt" của sheet "Quét tên riêng theo phạm vi" trước đây chỉ dùng cho một lần quét, mở lại sheet là mất. Plan + mockup phương án B đã duyệt: `Docs/Plans/2026-11-17-plan-name-scan-saved-prompts.md`.
+
+- **Kho mới `AINameScanPromptStore`** (`Services/AI/`, model `AINameScanSavedPrompt`): bấm "Bắt đầu quét" với nguồn Tự nhập ⇒ chữ trong ô "Prompt cho lần này" (cắt khoảng trắng hai đầu, không bao giờ kèm nội dung truyện) vào **Gần đây của truyện** — tối đa 10, dùng gần nhất lên đầu, trùng y nội dung thì đưa lên đầu chứ không thêm bản mới. Prompt trùng prompt Cài đặt hay trùng một bản ghim thì không ghi. **Đã ghim dùng chung mọi truyện** (mới ghim lên đầu, không giới hạn); Gần đây hiện ra lọc bỏ chữ trùng bản ghim. Lưu UserDefaults `aiNameScanPromptRecents` / `aiNameScanPromptPins` (chữ thường đầu ⇒ Sao lưu tự mang theo; khôi phục là ghi đè).
+- **Sheet**: mục Nguồn prompt thêm dòng "Chọn prompt đã lưu…" (phụ đề "2 đã ghim · 3 gần đây"; chưa có gì thì mờ, khoá, "Chưa có prompt nào đã lưu", cùng kiểu "Chọn chương…"); lời giải thích "?" đổi theo. Sheet vẫn mở với nguồn "Dùng prompt trong Cài đặt" như cũ.
+- **Trang "Prompt đã lưu"** (`ReaderAISavedPromptsView`; dòng vào là `ReaderAISavedPromptsView.EntryRow`): nhóm Đã ghim / Gần đây của truyện này, xem trước 2 dòng + "N dòng" (Gần đây thêm "14:20 hôm nay" / "Hôm qua" / "dd/MM"). Chạm ⇒ chép vào ô, chọn Tự nhập, quay về sheet. Nhấn giữ: Ghim / Bỏ ghim (về đầu Gần đây của truyện đang mở), Xoá; vuốt trái: Xoá (không hỏi lại).
+- **Đổi nguồn**: `BookSourceMigrator` chép / xoá Gần đây theo truyện như các kho AI khác; `rules.md` (luật 1.3.669) ghi thêm kho này.
+- Không đụng ô chat màn AI, chip hành động nhanh, prompt trong Cài đặt AI. Xoá truyện không dọn Gần đây của truyện đó (như mọi dữ liệu AI theo truyện hiện nay).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.967] - 2026-11-17
 
 ### feat: Sheet hub có mục "Đang chạy" với thanh tiến độ của mọi tác vụ nền
@@ -398,18 +411,4 @@ Anh Bửu (qua session tối ưu Turbo, *"oke cứ làm như vậy"*, rồi duy�
 - **Chỉ tiền cảnh, không giành tiếng**: app ở nền / truyện đang đọc / đang có lượt tạo khác ⇒ chờ, chạy khi truyện dừng (`$isPlaying`) hoặc app mở lại (`didBecomeActive`) nếu giọng vẫn là giọng đó. `VieNeuVoiceCopyRunner.run` thêm `canContinue` (kiểm trước bước đọc mẫu và bước tạo giọng; sai ⇒ tạm dừng, không toast, không tính đã thử) và `onFinish`.
 - **Xong** ⇒ `TTSManager.vieNeuHybridSettingsDidChange()` (bỏ đệm cặp, bỏ audio nạp trước, chuẩn bị lại engine ⇒ đoạn kế tiếp đọc lai); toast "Đã tạo bản … — đọc lai đã bật". Log `🔀 [VieNeuHybrid]` mỗi lúc bắt đầu / chờ / bỏ qua / thiếu file / xong / lỗi.
 - **Mục "Đọc lai Nano · Turbo"**: dòng trạng thái thay theo việc tự tạo (đang tạo · bước + thanh mảnh / đang chờ / hỏi tải / lỗi + Thử lại); thêm đoạn giải thích sau nút "?". `MainTabView` gọi `start()` cạnh `TTSManager.initialize`.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.936] - 2026-11-14
-
-### feat: Nhân bản giọng VieNeu không còn giới hạn độ dài mẫu, mẫu dài tự cắt ở chỗ ngắt hơi
-
-Anh Bửu: mẫu dài quá giới hạn thì app phải tự cắt thay vì báo lỗi; *"bỏ giới hạn luôn được chứ, ghi âm cũng bị hạn chế tối đa 8 s … cho tôi tối thiểu thôi"* — chỉ còn giới hạn tối thiểu.
-
-- **Giới hạn thật** (đọc code): Nano — graph không giới hạn (`speaker_encoder` nhận chuỗi fbank dài tuỳ ý, `codec_encoder` chỉ dùng 5 s đầu); 30 s là `_MAX_REF_SECONDS` của upstream, upstream chỉ cắt `wav[:30*sr]` còn app tự **chặn** ở `saveBlockReason` + `VieNeuVoiceCloner.enroll`. Turbo — audio.cpp tự cắt 8 s, mã tham chiếu ≤ 100 khung; app vốn không lỗi với mẫu dài nhưng cắt cứng đúng 8,000 s (dễ đứt giữa chữ).
-- **`VieNeuCloneSampleCutter`** (mới, `Services/TTS/VieNeuClone/`): điểm cắt = khung 20 ms (bước 10 ms) lặng nhất trong cửa sổ trước mốc, ưu tiên khung muộn nhất ồn hơn tối đa 3 dB; cắt giữa khung, làm nhỏ dần 10 ms cuối. Mẫu không dài hơn mốc giữ nguyên.
-- **Nano**: mẫu > 30 s (file hay thu âm) cắt **ngay khi nhận** ở chỗ ngắt hơi trong 26,5–29,5 s: chỉ đọc 30 s đầu file (file dài hàng giờ không giải mã hết vào RAM), ghi WAV 16-bit mono vào thư mục tạm, bỏ file tạm gốc ⇒ nghe lại mẫu, `enrollVoice`, kho Nano, "Cả hai", "Tạo bản Turbo" đều dùng bản đã cắt. Bỏ dòng chặn "> 30 giây" ở `saveBlockReason` (giữ sàn 3 s); `VieNeuVoiceCloner` không đổi (guard 30 s ở đó thành lưới an toàn). Lượt cắt về muộn sau khi mẫu đã đổi tự huỷ (`sampleGeneration`).
-- **Turbo** (`VieNeuTurboReferencePreparer`): tiếng nói (sau cắt im lặng) dài hơn 7,9 s ⇒ cắt ở chỗ ngắt hơi trong 6,4–7,9 s thay cho `prefix(8 s)`; mốc chừa 0,1 s để audio.cpp không cắt lần nữa sau khi lên 48 kHz. `Prepared.speechSeconds` = độ dài trước khi cắt. Áp cho mọi lối Turbo (file, thu âm, Cả hai, Tạo bản Turbo).
-- **Thu âm**: bỏ tự dừng 8 s — người dùng tự dừng, chốt an toàn 5 phút (`recordSafetyLimitSeconds`); đồng hồ chỉ còn "12,3 s". Nút thu khoá trong lúc đang chuẩn bị mẫu.
-- **Báo**: sheet nhân bản có hàng "Đã cắt 29,3 / 45,2 s" khi mẫu bị cắt; giải thích sau nút "?" của "Mẫu giọng". Log `✂️ [VieNeuClone] Mẫu … ⇒ Nano giữ … s đầu (chỗ lặng … dB …)` và `✂️ [VieNeuTurboClone] Tiếng nói … ⇒ dùng … s`.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
