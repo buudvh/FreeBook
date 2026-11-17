@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.969] - 2026-11-17
+
+### fix: Chạm truyện AI chạy trước ở hub mở được màn AI: màn AI tự ghi ngữ cảnh, không còn im lặng bỏ qua
+
+Anh Bửu báo: chạy AI từ 2 truyện trở lên, ở hub chạm vào truyện chạy trước thì không mở được. Log build 1293 (1.3.968): 4 lần `❌ Không có ngữ cảnh để mở màn AI của truyện D63FA7C7…` (11:41–11:44) trong lúc 4 lượt quét tên riêng của 4 truyện xen nhau, có truyện dừng rồi chạy lại.
+
+- **Nguyên nhân**: ngữ cảnh mở màn AI (`AIRuntimeCoordinator.contexts`) chỉ được ghi khi bấm nút AI trong Reader (`ReaderView.openAIFromReader`). `pruneContexts` (chạy mỗi khi một lượt kết thúc) bỏ ngữ cảnh của truyện không còn lượt và không phải "mở AI gần nhất". Màn AI mở lại từ hub / Reader (`reopenReaderAI`) không ghi ngữ cảnh ⇒ dừng rồi chạy lại quét trong màn đó là ngữ cảnh bị dọn lúc lượt cũ kết thúc, lượt mới vẫn chạy ⇒ hub không mở được truyện đó nữa.
+- **Màn AI tự ghi ngữ cảnh** ở mọi lối mở: `onAppear` gọi `AIRuntimeCoordinator.screenDidAppear(runtimeContext)` (ngữ cảnh dựng từ chính tham số của màn — `ReaderAIFullScreenView+Context`, file mới) thay cho chỉ đặt `presentedAIBookId`.
+- **`pruneContexts` giữ cả truyện đang mở màn AI** (`presentedAIBookId`).
+- **Lưới an toàn**: vẫn thiếu ngữ cảnh mà truyện còn trong `runs` ⇒ mở màn AI với ngữ cảnh tối thiểu (tên truyện, chương đầu, không nội dung chương) + `❌`, thay vì không mở.
+
+Đọc code còn thấy `presentFullScreen` có ba lối ra khác không làm gì mà cũng không ghi log, sửa luôn:
+
+- **Nhờ Reader mở lại mà Reader không mở** (`reopenReaderAI`): đường này chỉ đi khi `activeReaderBookId` trùng truyện được chạm. Cờ đó có thể còn trỏ truyện của Reader đã rời đi (Reader rời màn lúc cờ cover AI còn bật thì không xoá), Reader có thể đang bị màn khác che, hoặc cờ cover của Reader đã bật sẵn nên gán lại không có tác dụng ⇒ không ai mở. Nay chờ 0,8 s, màn AI chưa lên (`presentedAIBookId` vẫn `nil`) thì mở bằng UIKit `.overFullScreen` như đường của truyện khác.
+- **Cờ `presentedAIBookId` kẹt**: màn AI mở bằng UIKit đã bị gỡ khỏi cây (`presentingViewController == nil`) mà cờ còn ⇒ dọn rồi mở tiếp; màn AI khác thật sự đang mở ⇒ từ chối nhưng ghi `❌`.
+- **Tìm màn trên cùng**: ưu tiên scene giao diện chính (`AppMainWindowScene`, scene PiP cũng có thể đang hoạt động), bỏ cửa sổ lớp phủ / cửa sổ ẩn (khuôn `MediaDiscPlacement.mainWindow`); không tìm được ⇒ `❌`. Màn trên cùng đang mở / đóng dở ⇒ thử lại mỗi 0,3 s, tối đa 10 lần (trước đó thử lại vô hạn qua `presentFullScreen`).
+- Mọi lối từ chối ghi `❌ 🤖 [AI]` (luôn ghi dù tắt log) — lần sau còn lỗi thì log chỉ ra đúng lối nào.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.968] - 2026-11-17
 
 ### feat: Sheet quét tên riêng nhớ prompt tự nhập: Gần đây theo truyện, ghim dùng chung
@@ -397,18 +416,3 @@ Session làm đọc lai (1.3.934) không được tự sửa CLAUDE.md theo yêu
 
 - `CLAUDE.md` + `AGENTS.md` (mirror): thêm gạch **"Đọc lai Nano · Turbo"** dưới mục TTS › VieNeu (cặp giọng `VieNeuVoicePairing`, `VieNeuHybridTTSService` / `VieNeuHybridRouting`, phân loại tiếng nước ngoài, `VieNeuThermalGovernor`, hai công tắc mặc định bật, nhân tốc độ + khớp âm lượng đoạn model phụ); câu "thermal chỉ là telemetry" ở gạch `NghiSynthesisPolicy` ghi rõ ngoại lệ duy nhất là chọn model đọc lai (khớp dòng ngoại lệ đã thêm vào `rules.md` ở 1.3.934).
 - Không đổi code.
-
-## [1.3.938] - 2026-11-14
-
-### feat: Bật đọc lai VieNeu mà giọng chưa có cặp thì app tự tạo bản Nano hoặc Turbo cho giọng đó
-
-Anh Bửu (qua session tối ưu Turbo, *"oke cứ làm như vậy"*, rồi duyệt plan ở đây): bật đọc lai mà giọng đang chọn chưa có cặp ⇒ tự tạo bản nhân bản chéo (1.3.937) rồi đọc lai chạy luôn.
-
-- **`VieNeuHybridPairProvisioner`** (mới, `Services/TTS/VieNeu/Hybrid/`, `@MainActor @Observable`): chỉ xét **công tắc dùng tới cặp** — giọng Nano ⇒ A "Tiếng nước ngoài đọc bằng Turbo" (cần bản Turbo), giọng Turbo ⇒ B "Máy nóng thì đọc bằng Nano" (cần bản Nano); hai trường hợp còn lại cặp không bao giờ được dùng ⇒ không tạo.
-- **Lúc kích hoạt**: gạt công tắc dùng tới cặp sang bật (`switchChanged(_:isOn:)` từ `VieNeuHybridSettingsSection`; gạt công tắc kia không tính), hoặc người dùng chọn giọng ở sheet chọn giọng lúc công tắc bật (`voiceSelectedByUser()` từ `VieNeuVoicePickerSheet.select`, xét sau 0,8 s). Giọng do app tự đổi (mở app, lùi model khi thiếu file, xoá giọng, chọn giọng vừa nhân bản) **không** tính — nên không theo `TTSManager.$selectedVoice`. Danh sách giọng chưa đọc đĩa ⇒ đọc rồi xét lại.
-- **Thiếu file của model kia**: gạt công tắc ⇒ dòng hỏi "… chưa có bản Turbo · cần tải N MB" + "Tải và tạo bản …" / "Bỏ qua giọng này"; chỉ chọn giọng (công tắc bật sẵn) ⇒ không hỏi, chỉ log. Không tự tải ngầm.
-- **Một lần mỗi giọng** (`vieneuHybridAutoPairTried`): bắt đầu tạo / bấm Bỏ qua ⇒ nhớ; chọn lại giọng đó không tự thử lại. Gạt công tắc (thao tác chủ động) xét lại; dòng lỗi có "Thử lại".
-- **Chỉ tiền cảnh, không giành tiếng**: app ở nền / truyện đang đọc / đang có lượt tạo khác ⇒ chờ, chạy khi truyện dừng (`$isPlaying`) hoặc app mở lại (`didBecomeActive`) nếu giọng vẫn là giọng đó. `VieNeuVoiceCopyRunner.run` thêm `canContinue` (kiểm trước bước đọc mẫu và bước tạo giọng; sai ⇒ tạm dừng, không toast, không tính đã thử) và `onFinish`.
-- **Xong** ⇒ `TTSManager.vieNeuHybridSettingsDidChange()` (bỏ đệm cặp, bỏ audio nạp trước, chuẩn bị lại engine ⇒ đoạn kế tiếp đọc lai); toast "Đã tạo bản … — đọc lai đã bật". Log `🔀 [VieNeuHybrid]` mỗi lúc bắt đầu / chờ / bỏ qua / thiếu file / xong / lỗi.
-- **Mục "Đọc lai Nano · Turbo"**: dòng trạng thái thay theo việc tự tạo (đang tạo · bước + thanh mảnh / đang chờ / hỏi tải / lỗi + Thử lại); thêm đoạn giải thích sau nút "?". `MainTabView` gọi `start()` cạnh `TTSManager.initialize`.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

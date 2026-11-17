@@ -111,9 +111,18 @@ public final class AIRuntimeCoordinator: ObservableObject {
         latestContextBookId = context.bookId
     }
 
-    /// Bỏ ngữ cảnh của truyện đã rảnh, trừ truyện mở AI gần nhất.
+    /// Màn AI của một truyện vừa hiện (mọi lối mở — `ReaderAIFullScreenView+Context`, 1.3.969): ghi ngữ cảnh của chính
+    /// màn đó như truyện mở AI gần nhất, rồi đặt `presentedAIBookId`.
+    func screenDidAppear(_ context: ActiveContext) {
+        updateContext(context)
+        presentedAIBookId = context.bookId
+    }
+
+    /// Bỏ ngữ cảnh của truyện đã rảnh, trừ truyện mở AI gần nhất và truyện đang mở màn AI.
     func pruneContexts() {
-        contexts = contexts.filter { runs[$0.key] != nil || $0.key == latestContextBookId }
+        contexts = contexts.filter {
+            runs[$0.key] != nil || $0.key == latestContextBookId || $0.key == presentedAIBookId
+        }
     }
 
     // MARK: - Quản lý tác vụ ngầm
@@ -221,29 +230,77 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
     /// Mở màn hình AI toàn màn hình của một truyện (nút nổi gọi với truyện được chạm) từ ViewController cao nhất
     /// tầng `.normal`.
+    ///
+    /// **Không bao giờ im lặng bỏ qua** (1.3.969, anh Bửu: chạy từ 2 truyện AI trở lên, chạm truyện chạy trước ở hub thì
+    /// không mở được). Trước đó ba lối ra không làm gì mà không ghi log: cờ `presentedAIBookId` còn đó, không tìm được màn
+    /// trên cùng, và nhờ Reader mở lại (`reopenReaderAI`) mà Reader không mở — `activeReaderBookId` còn trỏ truyện của
+    /// Reader đã rời đi (Reader rời màn lúc cờ cover còn bật thì không xoá nó), Reader đang bị màn khác che, hoặc cờ cover
+    /// của Reader đã bật sẵn nên gán lại không có tác dụng. Nay: nhờ Reader xong 0,8 s mà màn AI chưa lên ⇒ mở bằng UIKit;
+    /// cờ `presentedAIBookId` của màn UIKit đã bị gỡ ⇒ dọn rồi mở; mọi lối từ chối ghi `❌`.
     public func presentFullScreen(bookId: String) {
-        guard let ctx = contexts[bookId] else {
+        guard let ctx = contexts[bookId] ?? minimalContext(bookId: bookId) else {
             AppLogger.shared.log("❌ 🤖 [AI] Không có ngữ cảnh để mở màn AI của truyện \(bookId)")
             return
         }
-        guard presentedAIBookId == nil else { return }
+        if let presented = presentedAIBookId {
+            // Màn AI mở bằng UIKit đã bị gỡ khỏi cây mà không chạy `onDisappear` ⇒ cờ kẹt: dọn rồi mở tiếp.
+            if let vc = currentPresentedVC, vc.presentingViewController == nil {
+                AppLogger.shared.log("❌ 🤖 [AI] Cờ màn AI đang mở bị kẹt (màn đã đóng) — dọn rồi mở truyện \(bookId)")
+                currentPresentedVC = nil
+                presentedAIBookId = nil
+            } else {
+                AppLogger.shared.log("❌ 🤖 [AI] Đang mở màn AI của truyện \(presented) — bỏ qua yêu cầu mở truyện \(bookId)")
+                return
+            }
+        }
 
         // Chỉ nhờ Reader mở lại bằng `.fullScreenCover` khi Reader đang hiển thị đúng là truyện đang
         // chạy AI. Reader của truyện khác (hoặc Shelf/Discovery) đi đường UIKit `.overFullScreen` bên
         // dưới với ngữ cảnh của truyện đang chạy — không tháo view hierarchy của Reader đó.
         if activeReaderBookId == ctx.bookId {
+            AppLogger.shared.log("🤖 [AI] Nhờ Reader đang mở mở lại màn AI của truyện \(bookId)")
             NotificationCenter.default.post(
                 name: NSNotification.Name("reopenReaderAI"),
                 object: nil,
                 userInfo: ["bookId": ctx.bookId]
             )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                guard let self, self.presentedAIBookId == nil else { return }
+                AppLogger.shared.log("❌ 🤖 [AI] Reader không mở lại được màn AI của truyện \(bookId) — mở bằng UIKit")
+                self.presentOverTop(ctx)
+            }
             return
         }
+        presentOverTop(ctx)
+    }
 
-        guard let topVC = findTopViewController() else { return }
+    /// Lưới an toàn (1.3.969): truyện còn lượt / kết quả trong `runs` mà mất ngữ cảnh ⇒ mở màn AI với ngữ cảnh tối thiểu
+    /// (tên truyện, chương đầu, không nội dung chương) — xem được tiến độ / kết quả quét còn hơn không mở được.
+    private func minimalContext(bookId: String) -> ActiveContext? {
+        guard let state = runs[bookId] else { return nil }
+        AppLogger.shared.log("❌ 🤖 [AI] Mất ngữ cảnh của truyện \(bookId) dù còn lượt AI — mở màn AI với ngữ cảnh tối thiểu")
+        let context = ActiveContext(
+            bookId: bookId, bookTitle: state.bookTitle, chapterIndex: 0, chapterTitle: "", currentChapterRawContent: ""
+        )
+        contexts[bookId] = context
+        return context
+    }
+
+    /// Trình bày màn AI của `ctx` bằng UIKit `.overFullScreen` từ màn trên cùng của cửa sổ chính; màn đó đang mở / đóng dở
+    /// ⇒ thử lại mỗi 0,3 s, tối đa 10 lần.
+    private func presentOverTop(_ ctx: ActiveContext, attempt: Int = 0) {
+        guard presentedAIBookId == nil else { return }
+        guard let topVC = findTopViewController() else {
+            AppLogger.shared.log("❌ 🤖 [AI] Không tìm thấy màn trên cùng để mở màn AI của truyện \(ctx.bookId)")
+            return
+        }
         if topVC.isBeingPresented || topVC.isBeingDismissed {
+            guard attempt < 10 else {
+                AppLogger.shared.log("❌ 🤖 [AI] Màn trên cùng mở / đóng dở quá lâu — không mở được màn AI của truyện \(ctx.bookId)")
+                return
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.presentFullScreen(bookId: bookId)
+                self?.presentOverTop(ctx, attempt: attempt + 1)
             }
             return
         }
@@ -278,13 +335,18 @@ public final class AIRuntimeCoordinator: ObservableObject {
 
     /// Tìm ViewController cao nhất thuộc window `.normal` để không tranh chấp với UIWindow của widget nổi.
     private func findTopViewController() -> UIViewController? {
+        // Scene giao diện chính (`AppMainWindowScene`) trước: scene của PiP cũng có thể đang `foregroundActive`.
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+        guard let windowScene = AppMainWindowScene.current()
+                ?? scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
             return nil
         }
 
-        guard let window = windowScene.windows.first(where: { $0.isKeyWindow && $0.windowLevel == .normal })
-                ?? windowScene.windows.first(where: { $0.windowLevel == .normal }),
+        // Bỏ cửa sổ lớp phủ và cửa sổ đang ẩn (khuôn `MediaDiscPlacement.mainWindow`).
+        let candidates = windowScene.windows.filter {
+            !($0 is AppOverlayWindow) && $0.windowLevel == .normal && !$0.isHidden
+        }
+        guard let window = candidates.first(where: \.isKeyWindow) ?? candidates.first,
               let rootVC = window.rootViewController else {
             return nil
         }

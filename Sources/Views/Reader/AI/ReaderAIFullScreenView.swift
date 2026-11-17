@@ -286,7 +286,7 @@ public struct ReaderAIFullScreenView: View {
                 .appGlassSheet()
             }
             .onAppear {
-                AIRuntimeCoordinator.shared.presentedAIBookId = bookId
+                AIRuntimeCoordinator.shared.screenDidAppear(runtimeContext) // ghi ngữ cảnh + `presentedAIBookId` (1.3.969)
                 initializeSessionAsync()
             }
             .onDisappear {
