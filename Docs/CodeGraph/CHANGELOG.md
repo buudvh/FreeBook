@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.976] - 2026-11-17
+
+### fix: ChatGPT Web không còn bật bàn phím mỗi lần WebView ẩn chạy
+
+Anh Bửu báo: "có vẻ mỗi lần mở webview chatgpt web lên đều có bàn phím hiển thị lên".
+
+- **Nguyên nhân**: phần tử trong trang được focus thì WebKit mở phiên nhập cho WKWebView và giành bàn phím của app. Có hai nguồn focus: (1) đoạn JS gán câu hỏi của app tự gọi `focus()` lên ô nhập (cả trang ẩn danh lẫn trang đã đăng nhập); (2) trang đã đăng nhập tự focus vùng soạn thảo của nó. Trang ẩn danh không tự focus (thử thật: sau khi nạp `document.activeElement` là `body`).
+- **Sửa**: JS gán chữ không còn gọi `focus()` — thử thật trên cả hai trang: gán `textarea` (setter gốc + `input`) và sự kiện `paste` vào vùng soạn thảo đều nhận chữ khi ô nhập không được focus, trang đã đăng nhập gửi và trả lời bình thường. Thêm `ChatGPTWebPageContract.focusGuardScript`, gắn bằng `WKUserScript` lúc document bắt đầu: `focus()` của trang thành hàm rỗng, phần tử vẫn kịp được focus bằng đường khác thì bị bỏ focus ngay. Lưới an toàn phía UIKit: sau khi gán chữ dự phòng và sau khi gửi, WebView ẩn `endEditing(true)` (chỉ tác động responder bên trong WebView ẩn, ô nhập của app không bị đụng).
+- Đường dự phòng `execCommand('insertText')` (chỉ chạy khi sự kiện `paste` không đưa được chữ vào vùng soạn thảo) vẫn cần focus trong tích tắc ⇒ bàn phím có thể nháy ở đúng trường hợp đó; có dòng log riêng.
+- `ChatGPTWebPageContract.swift` vượt 400 dòng ⇒ tách phần JavaScript sang `ChatGPTWebPageContract+Scripts.swift` (không đổi nội dung script ngoài các điểm trên).
+- Chế độ AI của Google cũng gọi `focus()` trong JS gán chữ của lượt nối tiếp (`GoogleAIModePageContract`) — cùng kiểu lỗi nhưng anh Bửu chưa báo, **chưa sửa**.
+- Kiểm: năm đoạn JS trích từ file Swift qua `node --check`; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), **chưa chạy trên iPhone** — chưa xác nhận trên máy là bàn phím hết bật.
+
 ## [1.3.972] - 2026-11-17
 
 ### fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi "Chưa nạp model Turbo" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine

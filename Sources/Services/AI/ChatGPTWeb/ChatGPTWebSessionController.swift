@@ -13,6 +13,8 @@ import WebKit
 ///   ping, lượt lỗi, và mọi điều hướng mới đều bỏ `liveSession`.
 /// - Hết thời gian giữ (hoặc lượt không giữ trang: sau `parkDelaySeconds`) ⇒ đưa trang về trang trắng: cửa sổ ẩn giữ
 ///   WebView ở trạng thái "hiển thị" nên trang để yên vẫn chạy JS và hẹn giờ (bài học nóng máy 1.3.963).
+/// - **Không để trang focus ô nhập** (1.3.976): phần tử trong trang được focus thì WebKit mở phiên nhập cho WebView ẩn và
+///   bàn phím bật lên. `ChatGPTWebPageContract.focusGuardScript` gắn lúc document bắt đầu; JS gán chữ không gọi `focus()`.
 /// - Mỗi lượt cấp một mã (`beginTurn`); `abort(token:)` chỉ dừng trang khi mã còn là lượt hiện hành. Tự giải phóng
 ///   WebView sau 10 phút không có lượt nào.
 /// - Log chỉ host + path. Mọi hàm chạy trên MainActor; `ChatGPTWebClient` (actor) gọi vào đây. Delegate WebKit:
@@ -138,10 +140,17 @@ final class ChatGPTWebSessionController: NSObject {
         try? await Task.sleep(nanoseconds: Self.fillSettleNanoseconds)
         if let filled = await snapshot(), filled.draftLength > 0 { return true }
         guard let fallback = ChatGPTWebPageContract.fillFallbackScript(text) else { return false }
-        AppLogger.shared.log("🤖 [ChatGPTWeb] Ô nhập chưa nhận chữ sau sự kiện paste — thử execCommand insertText")
+        AppLogger.shared.log("🤖 [ChatGPTWeb] Ô nhập chưa nhận chữ sau sự kiện paste — thử execCommand insertText (ô nhập phải được focus trong tích tắc, bàn phím có thể nháy)")
         _ = try? await evaluate(fallback, in: webView)
+        dismissKeyboard()
         try? await Task.sleep(nanoseconds: Self.fillSettleNanoseconds)
         return (await snapshot()?.draftLength ?? 0) > 0
+    }
+
+    /// Lưới an toàn cho bàn phím (1.3.976): nếu phần tử nào trong trang vẫn kịp được focus, bảo WebView ẩn nhả phiên nhập.
+    /// Chỉ tác động tới responder **bên trong** WebView ẩn — ô nhập của app không bị đụng.
+    private func dismissKeyboard() {
+        webView?.endEditing(true)
     }
 
     /// Gửi form của ô nhập.
@@ -149,6 +158,7 @@ final class ChatGPTWebSessionController: NSObject {
         guard let webView,
               let raw = (try? await evaluate(ChatGPTWebPageContract.submitScript, in: webView)) as? String,
               let outcome = ChatGPTWebPageContract.SubmitOutcome(rawValue: raw) else { return .noComposer }
+        dismissKeyboard()
         return outcome
     }
 
@@ -159,6 +169,12 @@ final class ChatGPTWebSessionController: NSObject {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.mediaTypesRequiringUserActionForPlayback = .all
+        // Không cho trang focus ô nhập: phần tử được focus là WebKit mở phiên nhập và bàn phím bật lên (1.3.976).
+        config.userContentController.addUserScript(WKUserScript(
+            source: ChatGPTWebPageContract.focusGuardScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: config)
         view.customUserAgent = WebUserAgent.mobile
         view.navigationDelegate = self
