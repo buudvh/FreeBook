@@ -28,6 +28,14 @@ extension AIRuntimeCoordinator {
                 sessionId: session.id
             )
         }
+        if config.activeProfile.isChatGPTWeb {
+            // Trang ChatGPT (1.3.971): hỏi tiếp trong trang đang mở, không thì mở cuộc chat mới.
+            return await ChatGPTWebClient.shared.sendConversationStreaming(
+                config: config,
+                messages: messages,
+                sessionId: session.id
+            )
+        }
         if config.activeProfile.apiFormat == "anthropic" {
             return await AnthropicClient.shared.sendChatStreaming(config: config, messages: messages)
         }

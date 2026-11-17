@@ -90,6 +90,9 @@ public struct AISettingsView: View {
                                 if newFormat == "googleAIMode", p.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     p.baseURL = AIProviderProfile.defaultGoogleAIMode.baseURL
                                 }
+                                if newFormat == ChatGPTWebClient.apiFormat, p.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    p.baseURL = AIProviderProfile.defaultChatGPTWeb.baseURL
+                                }
                                 config.updateActiveProfile(p)
                             }
                         )) {
@@ -97,14 +100,19 @@ public struct AISettingsView: View {
                             Text("Anthropic").tag("anthropic")
                             Text("Gemini Web").tag("geminiWeb")
                             Text("AI Mode").tag("googleAIMode")
+                            Text("ChatGPT Web").tag(ChatGPTWebClient.apiFormat)
                         }
-                        .pickerStyle(.segmented)
+                        // 5 định dạng không còn vừa một thanh phân đoạn trên iPhone (1.3.971) ⇒ menu xổ.
+                        .pickerStyle(.menu)
+                        .labelsHidden()
                     }
 
                     if config.activeProfile.isGeminiWeb {
                         GeminiWebAccountRow()
                     } else if config.activeProfile.isGoogleAIMode {
                         GoogleAIModeAccountRow(profile: config.activeProfile)
+                    } else if config.activeProfile.isChatGPTWeb {
+                        ChatGPTWebInfoRow()
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Base URL")
@@ -172,8 +180,8 @@ public struct AISettingsView: View {
                         }
                     }
 
-                    // Chế độ AI của Google không có model để chọn (1.3.609) — ẩn cả khối.
-                    if !config.activeProfile.isGoogleAIMode {
+                    // Chế độ AI của Google (1.3.609) và ChatGPT Web (1.3.971) không có model để chọn — ẩn cả khối.
+                    if !config.activeProfile.hasFixedWebModel {
                         modelManagementRows
                     }
 
@@ -189,8 +197,8 @@ public struct AISettingsView: View {
 
                 // SECTION 4: THAM SỐ VÀ TEST KẾT NỐI
                 Section(header: Text("Tham Số AI & Kiểm Tra")) {
-                    // Gemini Web và Chế độ AI của Google không nhận temperature — ẩn để khỏi gợi ý một tham số vô hiệu.
-                    if !config.activeProfile.isGeminiWeb && !config.activeProfile.isGoogleAIMode {
+                    // Gemini Web, Chế độ AI của Google và ChatGPT Web không nhận temperature — ẩn để khỏi gợi ý một tham số vô hiệu.
+                    if !config.activeProfile.isGeminiWeb && !config.activeProfile.hasFixedWebModel {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text("Temperature (Độ sáng tạo)")
@@ -238,9 +246,9 @@ public struct AISettingsView: View {
                                 .font(.footnote)
                                 .foregroundColor(isTestSuccess ? .green : .red)
                         }
-                        // Captcha của Chế độ AI của Google (1.3.609): mở trang xác minh trong trình duyệt bypass.
-                        if !isTestSuccess, GoogleAIModeVerifyButton.applies(to: message) {
-                            GoogleAIModeVerifyButton()
+                        // Lỗi cần mở trang của provider web (captcha Chế độ AI 1.3.609, ChatGPT Web 1.3.971): mở trong trình duyệt bypass.
+                        if !isTestSuccess, AIWebRecoveryButtons.applies(to: message) {
+                            AIWebRecoveryButtons(text: message)
                         }
                     }
                 }

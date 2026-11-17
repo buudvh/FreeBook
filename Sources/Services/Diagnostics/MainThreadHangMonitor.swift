@@ -140,6 +140,8 @@ final class MainThreadHangMonitor: @unchecked Sendable {
         parts.append(running > 0 ? "tải/xuất \(running) tác vụ" : "không tải")
         let aiTurn = MainActor.assumeIsolated { GoogleAIModeSessionController.shared.isTurnActive }
         if aiTurn { parts.append("Chế độ AI đang chạy lượt") }
+        let chatGPTTurn = MainActor.assumeIsolated { ChatGPTWebSessionController.shared.isTurnActive }
+        if chatGPTTurn { parts.append("ChatGPT Web đang chạy lượt") }
         if !screens.isEmpty { parts.append(screens.keys.sorted().joined(separator: ", ")) }
         parts.append("nhiệt \(Self.thermalLabel(ProcessInfo.processInfo.thermalState))")
         return parts.joined(separator: " · ")

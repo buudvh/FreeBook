@@ -45,6 +45,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// hết). Chương dài hơn được tách thành nhiều lượt (`AINameScanTextLoader`), không cắt. Khoảng nghỉ 5 s giữa các lượt
     /// nằm ở `GoogleAIModeTurnQueue` (toàn cục, mọi truyện).
     static let googleAIModeCharacterLimit = 2_500
+    /// ChatGPT Web (1.3.971): thử thật trên trang ẩn danh prompt ~12.000 ký tự chữ Hán trả lời đúng `Tên=Nghĩa`. Chia lượt như Chế độ
+    /// AI (tách chương dài, không cắt); khoảng nghỉ giữa các lượt nằm ở `ChatGPTWebTurnQueue`.
+    static let chatGPTWebCharacterLimit = 10_000
 
     private init() {}
 
@@ -52,13 +55,14 @@ public final class AINameExtractionBatchProcessor: Sendable {
     static func turnCharacterLimit(for config: AIConfiguration) -> Int {
         if config.activeProfile.isGeminiWeb { return geminiWebCharacterLimit }
         if config.activeProfile.isGoogleAIMode { return googleAIModeCharacterLimit }
+        if config.activeProfile.isChatGPTWeb { return chatGPTWebCharacterLimit }
         return apiCharacterLimit
     }
 
     /// Cách chia lượt theo provider (`AINameScanTextLoader.makeBatches`).
     static func batchMode(for config: AIConfiguration) -> AINameScanTextLoader.BatchMode {
         if config.activeProfile.isGeminiWeb { return .geminiWeb }
-        if config.activeProfile.isGoogleAIMode { return .googleAIMode }
+        if config.activeProfile.hasFixedWebModel { return .googleAIMode }
         return .api
     }
 
@@ -113,6 +117,8 @@ public final class AINameExtractionBatchProcessor: Sendable {
         } else if config.activeProfile.isGoogleAIMode {
             // Mỗi lượt một cuộc chat Chế độ AI mới (người dùng chọn): lượt lỗi không kéo lượt sau.
             content = try await GoogleAIModeClient.shared.sendNameScanTurn(messages: messages)
+        } else if config.activeProfile.isChatGPTWeb {
+            content = try await ChatGPTWebClient.shared.sendNameScanTurn(messages: messages)
         } else if config.activeProfile.apiFormat == "anthropic" {
             let (res, _) = try await AnthropicClient.shared.sendChat(config: config, messages: messages)
             content = res
@@ -165,6 +171,9 @@ public final class AINameExtractionBatchProcessor: Sendable {
         }
         if let aiMode = error as? GoogleAIModeError {
             return aiMode.stopsNameScan
+        }
+        if let chatGPT = error as? ChatGPTWebError {
+            return chatGPT.stopsNameScan
         }
         return false
     }
@@ -340,7 +349,7 @@ public final class AINameExtractionBatchProcessor: Sendable {
     /// đối chiếu khi Gemini tách nhiều cuộc chat (1.3.527). Không phải lỗi ⇒ không gắn ❌.
     private func logRunStart(_ summary: String, config: AIConfiguration, sessionId: UUID?, conversationId: UUID?) async {
         let isGeminiWeb = config.activeProfile.isGeminiWeb
-        var detail = "GeminiWeb=\(isGeminiWeb), AIMode=\(config.activeProfile.isGoogleAIMode), chat phiên=\(conversationId != nil)"
+        var detail = "GeminiWeb=\(isGeminiWeb), AIMode=\(config.activeProfile.isGoogleAIMode), ChatGPTWeb=\(config.activeProfile.isChatGPTWeb), chat phiên=\(conversationId != nil)"
         if isGeminiWeb {
             var cidPrefix: String?
             if let sessionId {

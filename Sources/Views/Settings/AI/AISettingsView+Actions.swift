@@ -60,8 +60,8 @@ extension AISettingsView {
     }
 
     internal func fetchModelsFromAPI() {
-        // Chế độ AI của Google không có danh sách model (khối model đã ẩn) — không rơi sang nhánh OpenAI.
-        guard !config.activeProfile.isGoogleAIMode else { return }
+        // Chế độ AI của Google / ChatGPT Web không có danh sách model (khối model đã ẩn) — không rơi sang nhánh OpenAI.
+        guard !config.activeProfile.hasFixedWebModel else { return }
         isFetchingModels = true
         testResultMessage = nil
         saveConfigSilently()
@@ -124,6 +124,8 @@ extension AISettingsView {
                     responseText = try await GeminiWebClient.shared.testChatPing(config: currentConfig)
                 } else if currentConfig.activeProfile.isGoogleAIMode {
                     responseText = try await GoogleAIModeClient.shared.testChatPing(config: currentConfig)
+                } else if currentConfig.activeProfile.isChatGPTWeb {
+                    responseText = try await ChatGPTWebClient.shared.testChatPing(config: currentConfig)
                 } else if currentConfig.activeProfile.apiFormat == "anthropic" {
                     responseText = try await AnthropicClient.shared.testChatPing(config: currentConfig)
                 } else {

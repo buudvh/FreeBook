@@ -81,7 +81,8 @@ extension AINameExtractionBatchProcessor {
                 // tiếp chỉ làm bị chặn nặng hơn. Dừng và báo rõ; phần đã quét vẫn nằm trong `batchExtractedNames` của
                 // coordinator, được giữ lại trong tin kết quả (1.3.602 — điểm tiếp nối đã ghi theo phần đó). Thông điệp
                 // giữ mô tả lỗi gốc ⇒ có `GoogleAIModeError.captchaMarker` cho nút xác minh.
-                let tag = providerSwitch.config.activeProfile.isGoogleAIMode ? "[AIMode]" : "[GeminiWeb]"
+                let profile = providerSwitch.config.activeProfile
+                let tag = profile.isChatGPTWeb ? "[ChatGPTWeb]" : profile.isGoogleAIMode ? "[AIMode]" : "[GeminiWeb]"
                 AppLogger.shared.log("❌ 🤖 \(tag) Dừng quét tên riêng ở \(turnLabel): \(error.localizedDescription)")
                 let verb = isRetry ? "Dừng thử lại" : "Dừng quét"
                 throw NSError(domain: "AINameExtraction", code: 429, userInfo: [

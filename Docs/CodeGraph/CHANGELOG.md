@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.971] - 2026-11-17
+
+### feat: Thêm provider AI ChatGPT Web (không cần key, đăng nhập hay không đều chạy)
+
+Anh Bửu: "thêm provider chế độ AI chatgpt web"; "chatgpt web có thể sử dụng mà không cần đăng nhập, tận dụng cái này để đỡ đăng nhập, hơn nữa tôi phát hiện không đăng nhập sẽ hiển thị ra nhanh hơn"; "tìm xem có hạn chế số câu hỏi hay gì không"; "phục vụ cho cả đăng nhập lẫn không đăng nhập luôn".
+
+- **Provider mới** `apiFormat = "chatgptWeb"` (`AIProviderProfile.defaultChatGPTWeb`, mẫu "ChatGPT Web (không cần key)" trong sheet thêm provider): không key, không chọn model, không temperature. Chưa đăng nhập ChatGPT trong trình duyệt của app ⇒ chạy trang **ẩn danh**; đã đăng nhập ⇒ chạy bằng **tài khoản đó**. Dùng cho chat trong Reader, quét tên riêng (một chương / nhiều chương) và "Kiểm tra kết nối".
+- **Cách chạy** (`Sources/Services/AI/ChatGPTWeb/`, 12 file): mở `chatgpt.com/?temporary-chat=true` trong WKWebView ẩn (`ChatGPTWebSessionController`, cùng kho cookie + UA với trình duyệt bypass), gán câu hỏi vào ô nhập, gửi form, đọc DOM theo nhịp (`ChatGPTWebClient+Turn`). Mọi selector + JS của **cả hai kiểu trang** ở `ChatGPTWebPageContract`; hàng đợi tuần tự `ChatGPTWebTurnQueue`; ngân sách prompt 20.000 ký tự `ChatGPTWebPromptBudget`.
+- **Thử thật trước khi viết** (2026-11-17):
+  - *Trang ẩn danh* (Chromium giả lập mobile, 5 tin): trang server-render riêng (`/unauth-mweb`), ô nhập `textarea[data-mobile-composer-prompt]`, tin `li[data-message-role]` + `data-message-complete`. Tin ngắn xong sau ~2–5 s; prompt 12.166 ký tự chữ Hán gửi được và trả đúng `Tên=Nghĩa`; hỏi tiếp trong cùng trang nhớ ngữ cảnh.
+  - *Trang đã đăng nhập* (Chrome máy tính, tài khoản Free, 3 tin chat tạm): app React khác hẳn — ô nhập là vùng soạn thảo `contenteditable`, nút gửi chỉ có khi ô có chữ, mỗi lượt là `[data-talvt-turn-state]` `in_progress` → `complete`, chữ ở `[data-dil-response]`, khối code không phải `<pre>`. Gán chữ bằng sự kiện `paste` tự dựng, gửi bằng `requestSubmit`, hỏi tiếp trong trang đều chạy.
+  - Bốn đoạn JS của bản chính thức (đọc trang, gán chữ, gán chữ dự phòng, gửi) được trích từ file Swift, kiểm cú pháp bằng `node --check`; đoạn đọc trang đã chạy nguyên văn trên trang đã đăng nhập thật (đúng trạng thái, khối code, bảng). Trên trang ẩn danh mới chạy bản trước khi gộp (cùng nhánh logic).
+- **Ba bẫy thấy khi thử**: (1) trang ẩn danh: nút gửi chỉ bật theo `requestAnimationFrame` — trang không được vẽ thì nút không bao giờ bật ⇒ gửi bằng `form.requestSubmit(nút)`; (2) xuống dòng mềm trong câu trả lời là text node `"\n"` (`white-space: pre-line`) ⇒ bộ đọc chữ không gộp `\n`; (3) trang đã đăng nhập: lượt vừa gửi mang `complete` trong tích tắc khi chưa có phần trợ lý ⇒ chỉ tin `complete` khi lượt đã có vai `assistant`.
+- **Chat**: cuộc chat ẩn danh / chat tạm không khôi phục được sau khi nạp lại trang. Nên lượt chat thành công giữ trang 180 s; lượt kế của đúng phiên chat app hỏi tiếp ngay trong trang (chỉ gửi tin mới, đổi chương thì kèm "Cập nhật ngữ cảnh"), không thì mở cuộc chat mới với đủ ngữ cảnh + cửa sổ 6 tin gần nhất. Không nén ngữ cảnh.
+- **Đã đăng nhập ⇒ luôn chat tạm**: không lượt nào vào lịch sử ChatGPT của người dùng (quét cả truyện là hàng chục cuộc chat).
+- **Quét tên riêng**: mỗi lượt một cuộc chat mới, ~10.000 chữ/lượt (chương dài được tách như Chế độ AI), nghỉ 5 s (giãn theo nhiệt), tạm dừng khi app ở nền.
+- **Giới hạn số câu hỏi** (tìm theo yêu cầu) — ẩn danh: (a) mềm — mã của trang có `noAuthSoftRateLimit.triggerMessageCount = 5`, đếm ở `localStorage`; đã thấy thật: sau tin thứ 5 trang mở hộp mời đăng nhập. (b) cứng — máy chủ có cổng `rate_limited` / `force_login` / `forbidden` (kèm `retryAfter`), con số OpenAI không công bố. Đã đăng nhập: hạn mức theo tài khoản, chưa gặp nên chưa biết trang hiện gì. App: gặp cổng ⇒ dừng, báo rõ, `rate_limited` đặt hạn chờ toàn cục; **không** tự đóng hộp mời đăng nhập, **không** xoá cookie / `localStorage` hay đổi danh tính để lách.
+- **UI**: `ChatGPTWebInfoRow` (thay ô Base URL / API key): dòng trạng thái tài khoản, nút "Đăng nhập ChatGPT" / "Mở ChatGPT" (mở trong trình duyệt bypass), nút "Đăng xuất" (`ChatGPTWebAccount` — xoá cookie `*.chatgpt.com` / `*.openai.com`, trình duyệt của app cũng mất đăng nhập ChatGPT). Nút "Mở ChatGPT" (`ChatGPTWebOpenButton`) dưới tin lỗi cần người dùng tự xử lý trên trang; `AIWebRecoveryButtons` gộp nút này với "Mở Google để xác minh" (`ReaderAIFullScreenView.swift` giữ 399 dòng). Ô "Định dạng API" (Cấu hình AI, sheet thêm provider) đổi từ thanh phân đoạn sang **menu xổ** vì 5 định dạng không vừa một hàng. `AIProviderProfile.hasFixedWebModel` gom điều kiện ẩn khối model / temperature của Chế độ AI và ChatGPT Web.
+- `rules.md`: mục "ChatGPT Web provider invariants (1.3.971)".
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa kiểm: UA iPhone có nhận đúng trang ẩn danh mobile không; **trang đã đăng nhập với UA điện thoại** (mới thử Chrome máy tính); `requestSubmit` / sự kiện `paste` tự dựng trong WKWebView iOS; hộp mời đăng nhập có chặn gửi không; chữ / ngưỡng của cổng `rate_limited`; tên cookie phiên (dòng trạng thái ghi "đoán theo cookie" tới khi có lượt thật); banner cookie. Log chẩn đoán: `🤖 [ChatGPTWeb]`, ghi kiểu trang mỗi lượt.
+
 ## [1.3.970] - 2026-11-17
 
 ### perf: Lọc rác chương bỏ qua quy tắc chắc chắn không khớp, nhớ kết quả theo chuỗi vào
@@ -397,27 +418,3 @@ Nguyên nhân: các ngữ cảnh **chỉ chứa mô tả tensor** (`no_alloc`) c
 - Đo CI (nhánh đo `claude/turbo-tp-profile`, run 43577447546; báo cáo tối ưu Turbo mục 19): cấu hình app ± ba option ⇒ mã + WAV **trùng từng byte** 6/6 (2 giọng × 3 độ dài), RSS như cũ; giữ chỗ 4,7 GB → 256 MB.
 - Cổng parity (`audiocpp_parity_macos.sh`): `APP_OPTS` thêm ba option để các phép so pool / repack chạy đúng cấu hình app.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.940] - 2026-11-14
-
-### feat: Thay thế từ TTS chỉ khớp nguyên token, ký hiệu ưu tiên mẫu dài hơn, kiểm tra luật khi nhập
-
-Anh Bửu chốt qua phỏng vấn (grill-me) sau lượt điều tra logic thay thế TTS: trước đây mỗi luật là một lượt `replacingOccurrences` theo thứ tự danh sách ⇒ khớp chuỗi con (`Hà`→`Ha` biến "Hàn Lập" thành "Han Lập"), luật mới nằm cuối danh sách có thể không bao giờ chạy vì luật mặc định phía trên đã thay mất ký hiệu của nó, `....` thua `...`.
-
-- **Tách token** (`TTSReplacementTokenizer`, mới):
-  - token **từ** = chữ / số liền nhau; một `-` hoặc `.` kẹp giữa hai chữ / số (không dấu cách) vẫn thuộc từ — `Kamar-Taj`, `S.H.I.E.L.D`, `3.14`;
-  - token **ký hiệu** = dãy ký tự không phải chữ / số / khoảng trắng liền nhau — `,`, `..!?`, `.”`.
-- **Thay hai lượt** (`TTSReplacementPlan`, mới — thay `ReplacementStep` + `TTSReplacementManager+PlanCompile.swift` đã xoá):
-  1. token từ **bằng đúng** mẫu một luật chữ ⇒ thay cả token, vẫn phân biệt hoa thường;
-  2. token hoá **lại** kết quả lượt 1, luật ký hiệu chỉ thay **bên trong token ký hiệu**, mỗi vị trí chọn mẫu **dài nhất** (`....!?` → `…!?`).
-  - Từ — kể cả từ lượt 1 vừa sinh ra (`Kamar-Taj` → `Ca-ma Tát`) — không bao giờ bị luật ký hiệu thay mất `-` / `.`; ký hiệu do luật chữ sinh ra vẫn được luật ký hiệu dọn.
-  - Thứ tự danh sách không còn ảnh hưởng. Giữ nguyên: công tắc bật / tắt, gộp tầng riêng / chung (riêng đè chung theo mẫu, riêng tắt vẫn chặn chung), định dạng file JSON, bước tách cặp số `TTSNumberSeparatorMode` chạy sau như cũ.
-- **Luật sai** = mẫu không phải đúng một token (`Hàn Lập`, `Taj,`, `Kamar-`, có dấu cách / xuống dòng) ⇒ bị bỏ qua lúc đọc. Dữ liệu đang lưu không tự sửa.
-- **Kiểm tra luật** (`TTSReplacementRuleValidator`, mới — một nguồn cho mọi chỗ):
-  - lỗi đỏ chặn Lưu: `EMPTY_PATTERN`, `NOT_SINGLE_TOKEN` (nói rõ mẫu tách thành gì);
-  - cảnh báo cam: `DUPLICATE_PATTERN` (trùng mẫu cùng tầng — Lưu sẽ đè), `NO_OP` (thay bằng chính nó);
-  - mục **Kiểm tra** hiện ngay khi gõ ở sheet Thêm / Sửa của Cài đặt và sheet "Thêm thay thế TTS" của Reader (`TTSReplacementRuleIssuesView`, mới; dòng xanh nói rõ luật chữ hay luật ký hiệu);
-  - huy hiệu đỏ / cam cạnh mẫu trên hàng danh sách (cả danh sách "Rule chung — lấy vào riêng").
-- **Màn quản lý luật**: bỏ kéo sắp xếp (mục "Sắp xếp lại", `moveRules` của manager hai tầng); dòng "áp dụng tuần tự từ trên xuống" thay bằng nút "?" giải thích cách khớp; sheet Sửa đổi mẫu trùng luật khác cùng tầng ⇒ đè luật đó (như `addRule`); sheet mở nửa màn, vuốt lên được.
-- **Sheet "Thêm thay thế TTS" (Reader)**: cắt dấu cách ở mép vùng bôi đen; menu Lưu tắt khi mẫu sai. Không xét trùng mẫu ở đây — chip R / C đã hiện luật trùng của cả hai tầng.
-- Kiểm: mô phỏng thuật toán (bản Python tương đương) khớp mọi ví dụ đã chốt; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.

@@ -122,7 +122,8 @@ enum AINameScanTextLoader {
     enum BatchMode: Sendable {
         case api
         case geminiWeb
-        /// Chế độ AI của Google (1.3.609): như Gemini Web nhưng chương dài hơn giới hạn được **tách** thành nhiều lượt.
+        /// Chế độ AI của Google (1.3.609) và ChatGPT Web (1.3.971): như Gemini Web nhưng chương dài hơn giới hạn được
+        /// **tách** thành nhiều lượt.
         case googleAIMode
     }
 

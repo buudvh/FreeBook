@@ -336,8 +336,8 @@ public struct ReaderAIFullScreenView: View {
                         }
                     }
             } else {
-                // Tin lỗi captcha của Chế độ AI của Google (1.3.609): nền đỏ nhạt + nút xác minh ngay dưới.
-                let needsVerification = !message.isStreaming && GoogleAIModeVerifyButton.applies(to: message.content)
+                // Tin lỗi cần mở trang của provider web (captcha Chế độ AI 1.3.609, ChatGPT Web 1.3.971): nền đỏ nhạt + nút.
+                let needsVerification = !message.isStreaming && AIWebRecoveryButtons.applies(to: message.content)
                 VStack(alignment: .leading, spacing: 8) {
                     if message.isStreaming && message.content.isEmpty {
                         ReaderAIThinkingIndicatorView()
@@ -382,7 +382,7 @@ public struct ReaderAIFullScreenView: View {
                     }
 
                     if needsVerification {
-                        GoogleAIModeVerifyButton()
+                        AIWebRecoveryButtons(text: message.content)
                     }
 
                     // Quét tên riêng còn lượt vẫn lỗi sau vòng tự thử lại (1.3.527): nút ngay dưới đúng tin kết quả.

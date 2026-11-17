@@ -126,6 +126,21 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
         apiFormat: "googleAIMode"
     )
 
+    /// ChatGPT qua trang web `chatgpt.com` trong WKWebView ẩn (1.3.971): không key; chưa đăng nhập thì chạy trang ẩn danh,
+    /// đã đăng nhập trong trình duyệt của app thì chạy bằng tài khoản đó. Không chọn model, không temperature — chat và
+    /// quét tên riêng (xem `ChatGPTWebClient`).
+    public static let defaultChatGPTWeb = AIProviderProfile(
+        id: "chatgptWeb",
+        name: "ChatGPT Web",
+        baseURL: "https://chatgpt.com",
+        selectedModel: "chatgpt",
+        availableModels: ["chatgpt"],
+        temperature: 0.3,
+        isCustom: false,
+        authType: "chatgptWebSession",
+        apiFormat: "chatgptWeb"
+    )
+
     public static let defaultOpenAI = AIProviderProfile(
         id: "openai",
         name: "OpenAI",
@@ -203,7 +218,7 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
 
     /// Các mẫu provider chuẩn định nghĩa sẵn để người dùng chọn khi thêm mới.
     public static var standardTemplates: [AIProviderProfile] {
-        [defaultGemini, defaultGeminiWeb, defaultGoogleAIMode, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
+        [defaultGemini, defaultGeminiWeb, defaultGoogleAIMode, defaultChatGPTWeb, defaultOpenAI, defaultAnthropic, defaultDeepSeek, defaultClaudeOpenRouter, defaultGroq, defaultOllama]
     }
 
     /// Provider Gemini Web: không key, không temperature, chỉ chat — các chỗ rẽ nhánh client dựa vào cờ này.
@@ -215,6 +230,18 @@ public struct AIProviderProfile: Codable, Sendable, Equatable, Identifiable {
     /// rơi về `OpenAIClient`.
     public var isGoogleAIMode: Bool {
         apiFormat == "googleAIMode"
+    }
+
+    /// Provider ChatGPT Web (1.3.971): mọi chỗ rẽ nhánh theo provider phải xét cờ này **trước** nhánh `else` rơi
+    /// về `OpenAIClient`.
+    public var isChatGPTWeb: Bool {
+        apiFormat == "chatgptWeb"
+    }
+
+    /// Provider chạy bằng **trang web** không có model để chọn và không nhận temperature (Chế độ AI của Google, ChatGPT
+    /// Web) — màn Cấu hình AI ẩn khối model / temperature, "Load từ API" không chạy.
+    public var hasFixedWebModel: Bool {
+        isGoogleAIMode || isChatGPTWeb
     }
 
     /// Mặc định không lưu sẵn profile rỗng nào, chỉ lưu khi người dùng chủ động thêm.

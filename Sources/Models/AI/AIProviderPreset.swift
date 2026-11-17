@@ -5,6 +5,8 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
     case gemini = "gemini"
     /// Phiên web gemini.google.com qua đăng nhập Google trong app — không API key (`apiFormat = "geminiWeb"`).
     case geminiWeb = "geminiWeb"
+    /// Trang ChatGPT trong WKWebView ẩn — không key, đăng nhập hay không đều chạy (`apiFormat = "chatgptWeb"`, 1.3.971).
+    case chatgptWeb = "chatgptWeb"
     case openai = "openai"
     case anthropic = "anthropic"
     case claudeOpenRouter = "claudeOpenRouter"
@@ -19,6 +21,7 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "Google Gemini"
         case .geminiWeb: return "Google Gemini (Web, đăng nhập)"
+        case .chatgptWeb: return "ChatGPT Web (không cần key)"
         case .openai: return "OpenAI"
         case .anthropic: return "Anthropic Claude"
         case .claudeOpenRouter: return "Anthropic Claude (qua OpenRouter)"
@@ -33,6 +36,7 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
         switch self {
         case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai/"
         case .geminiWeb: return "https://gemini.google.com"
+        case .chatgptWeb: return "https://chatgpt.com"
         case .openai: return "https://api.openai.com/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
         case .claudeOpenRouter: return "https://openrouter.ai/api/v1"
@@ -49,6 +53,8 @@ public enum AIProviderPreset: String, CaseIterable, Codable, Sendable, Identifia
             return ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
         case .geminiWeb:
             return ["gemini-flash", "gemini-pro", "gemini-flash-lite"]
+        case .chatgptWeb:
+            return ["chatgpt"]
         case .openai:
             return ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1"]
         case .anthropic:

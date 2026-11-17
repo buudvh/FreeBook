@@ -34,6 +34,7 @@ public struct AddProviderProfileSheet: View {
                             Text("Google Gemini").tag("gemini")
                             Text("Google Gemini (Web — đăng nhập)").tag("geminiWeb")
                             Text("Google Chế độ AI (không cần key)").tag("googleAIMode")
+                            Text("ChatGPT Web (không cần key)").tag("chatgptWeb")
                             Text("OpenAI (API Key)").tag("openai")
                             Text("Anthropic Claude (Chính thức)").tag("anthropic")
                             Text("DeepSeek").tag("deepseek")
@@ -77,8 +78,11 @@ public struct AddProviderProfileSheet: View {
                             Text("Anthropic").tag("anthropic")
                             Text("Gemini Web").tag("geminiWeb")
                             Text("AI Mode").tag("googleAIMode")
+                            Text("ChatGPT Web").tag(ChatGPTWebClient.apiFormat)
                         }
-                        .pickerStyle(.segmented)
+                        // 5 định dạng không còn vừa một thanh phân đoạn trên iPhone (1.3.971) ⇒ menu xổ.
+                        .pickerStyle(.menu)
+                        .labelsHidden()
                         .onChange(of: apiFormat) { _, newFormat in
                             // Chuyển sang Gemini Web / Chế độ AI từ mẫu trống: điền host để nút Lưu không bị khoá.
                             if newFormat == "geminiWeb", baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -87,6 +91,9 @@ public struct AddProviderProfileSheet: View {
                             if newFormat == "googleAIMode", baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 baseURL = AIProviderProfile.defaultGoogleAIMode.baseURL
                             }
+                            if newFormat == ChatGPTWebClient.apiFormat, baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                baseURL = AIProviderProfile.defaultChatGPTWeb.baseURL
+                            }
                         }
                     }
 
@@ -94,6 +101,8 @@ public struct AddProviderProfileSheet: View {
                         GeminiWebAccountRow()
                     } else if apiFormat == "googleAIMode" {
                         GoogleAIModeAccountRow()
+                    } else if apiFormat == ChatGPTWebClient.apiFormat {
+                        ChatGPTWebInfoRow()
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("API Base URL")
@@ -116,8 +125,8 @@ public struct AddProviderProfileSheet: View {
                     }
                 }
 
-                // Chế độ AI của Google không có model để chọn (1.3.609) — ẩn cả mục.
-                if apiFormat != "googleAIMode" {
+                // Chế độ AI của Google (1.3.609) và ChatGPT Web (1.3.971) không có model để chọn — ẩn cả mục.
+                if !hasFixedWebModel {
                     Section(header: Text("Quản Lý Danh Sách Model")) {
                         HStack {
                             Text("Danh sách Models:")
@@ -172,6 +181,11 @@ public struct AddProviderProfileSheet: View {
         }
     }
 
+    /// Định dạng đang chọn chạy bằng trang web, model cố định (Chế độ AI của Google, ChatGPT Web).
+    private var hasFixedWebModel: Bool {
+        apiFormat == "googleAIMode" || apiFormat == ChatGPTWebClient.apiFormat
+    }
+
     private func applyTemplate(key: String) {
         if key.hasPrefix("saved_") {
             let savedId = String(key.dropFirst("saved_".count))
@@ -196,6 +210,12 @@ public struct AddProviderProfileSheet: View {
                 modelsText = GeminiWebClient.fallbackModelNames.joined(separator: "\n")
             case "googleAIMode":
                 let template = AIProviderProfile.defaultGoogleAIMode
+                name = template.name
+                baseURL = template.baseURL
+                apiFormat = template.apiFormat
+                modelsText = template.availableModels.joined(separator: "\n")
+            case "chatgptWeb":
+                let template = AIProviderProfile.defaultChatGPTWeb
                 name = template.name
                 baseURL = template.baseURL
                 apiFormat = template.apiFormat
@@ -253,8 +273,8 @@ public struct AddProviderProfileSheet: View {
     }
 
     private func fetchModelsFromAPI() {
-        // Chế độ AI của Google không có danh sách model (mục model đã ẩn) — không rơi sang nhánh OpenAI.
-        guard apiFormat != "googleAIMode" else { return }
+        // Chế độ AI của Google / ChatGPT Web không có danh sách model (mục model đã ẩn) — không rơi sang nhánh OpenAI.
+        guard !hasFixedWebModel else { return }
         isFetchingModels = true
         fetchMessage = nil
         Task {
@@ -298,11 +318,16 @@ public struct AddProviderProfileSheet: View {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         // Chế độ AI không chọn model: luôn đúng một tên cố định, dù người dùng đổi định dạng từ mẫu khác.
-        let models = apiFormat == "googleAIMode"
-            ? AIProviderProfile.defaultGoogleAIMode.availableModels
-            : modelsText.components(separatedBy: .newlines)
+        let models: [String]
+        if apiFormat == "googleAIMode" {
+            models = AIProviderProfile.defaultGoogleAIMode.availableModels
+        } else if apiFormat == ChatGPTWebClient.apiFormat {
+            models = AIProviderProfile.defaultChatGPTWeb.availableModels
+        } else {
+            models = modelsText.components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
+        }
 
         let newProfile = AIProviderProfile(
             id: "custom_\(UUID().uuidString.prefix(8))",
@@ -313,7 +338,9 @@ public struct AddProviderProfileSheet: View {
             availableModels: models.isEmpty ? ["default-model"] : models,
             temperature: 0.3,
             isCustom: true,
-            authType: (apiFormat == "geminiWeb" || apiFormat == "googleAIMode") ? "googleWebSession" : "apiKey",
+            authType: apiFormat == ChatGPTWebClient.apiFormat
+                ? AIProviderProfile.defaultChatGPTWeb.authType
+                : ((apiFormat == "geminiWeb" || apiFormat == "googleAIMode") ? "googleWebSession" : "apiKey"),
             apiFormat: apiFormat
         )
 

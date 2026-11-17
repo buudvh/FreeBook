@@ -33,6 +33,12 @@ public final class AIContextCompactor: Sendable {
             AppLogger.shared.log("🤖 [AIMode] Bỏ qua nén ngữ cảnh cho profile Chế độ AI của Google")
             return session.contextSummary
         }
+        // ChatGPT Web (1.3.971): một lượt tóm tắt là thêm một tin vào số lượt hỏi có hạn của trang; cửa sổ 6 tin gần
+        // nhất của Reader vẫn giới hạn kích thước prompt.
+        if config.activeProfile.isChatGPTWeb {
+            AppLogger.shared.log("🤖 [ChatGPTWeb] Bỏ qua nén ngữ cảnh cho profile ChatGPT Web")
+            return session.contextSummary
+        }
 
         let cutoffIndex = session.messages.count - Self.recentMessagesPreservedCount
         guard cutoffIndex > 0 else { return session.contextSummary }
