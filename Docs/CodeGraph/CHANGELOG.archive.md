@@ -2,6 +2,15 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.939] - 2026-11-14
+
+### docs: CLAUDE.md ghi chế độ đọc lai Nano · Turbo và ngoại lệ luật nhiệt
+
+Session làm đọc lai (1.3.934) không được tự sửa CLAUDE.md theo yêu cầu từ session khác nên để đoạn đề xuất trong ghi chú bàn giao; session tối ưu Turbo áp vào lúc gộp các nhánh 1.3.933–1.3.938 để push một lần (anh Bửu: "Gộp và push").
+
+- `CLAUDE.md` + `AGENTS.md` (mirror): thêm gạch **"Đọc lai Nano · Turbo"** dưới mục TTS › VieNeu (cặp giọng `VieNeuVoicePairing`, `VieNeuHybridTTSService` / `VieNeuHybridRouting`, phân loại tiếng nước ngoài, `VieNeuThermalGovernor`, hai công tắc mặc định bật, nhân tốc độ + khớp âm lượng đoạn model phụ); câu "thermal chỉ là telemetry" ở gạch `NghiSynthesisPolicy` ghi rõ ngoại lệ duy nhất là chọn model đọc lai (khớp dòng ngoại lệ đã thêm vào `rules.md` ở 1.3.934).
+- Không đổi code.
+
 ## [1.3.938] - 2026-11-14
 
 ### feat: Bật đọc lai VieNeu mà giọng chưa có cặp thì app tự tạo bản Nano hoặc Turbo cho giọng đó

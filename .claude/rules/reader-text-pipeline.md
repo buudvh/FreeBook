@@ -29,6 +29,12 @@ ChapterContentRepository            memory (12 entry/12 MiB) → SwiftData → e
 
 `normalize()` chạy `JunkFilterManager.shared.filterRawContent` trước; `normalizeProcessedContent()` thì **không** lọc rác lần hai — dùng cho chuỗi đã qua xử lý/dịch.
 
+**Lọc rác (1.3.970)** — chạy trên luồng nền, có thể nhiều lần cho cùng chương (kho chương, `upsert`, Reader, TTS, quét tên riêng AI); kết quả phải y như áp lần lượt mọi quy tắc theo thứ tự:
+
+- `JunkFilterTextProbe` bỏ quy tắc **chắc chắn** không khớp chữ hiện tại (điều kiện cần biên dịch sẵn trong `JunkFilterCompiledRule`); quy tắc nào thay được ≥ 1 chỗ thì dựng lại probe. Điều kiện chuỗi thường dựa trên `replaceOccurrences(options: [])` = khớp tương đương chính tắc (so NFD); regex dựa trên ICU khớp đúng mã, options `[]`, không cờ nội tuyến (`JunkFilterRegexLiterals` bỏ cuộc khi gặp cú pháp lạ). **Đổi options tìm / options regex, hay thêm kiểu quy tắc mới ⇒ phải xét lại điều kiện trong `JunkFilterCompiledRule`**, nếu không probe có thể bỏ sót chỗ khớp.
+- Cache kết quả theo đúng chuỗi vào (thô / đã chuyển phồn → giản), xoá khi bộ quy tắc đổi (`rulesGeneration`). Đừng gộp bớt các lần lọc lặp ở tầng gọi (lọc chữ đã lọc) để "tiết kiệm": quy tắc không nhất thiết lũy đẳng, bỏ một lượt là đổi kết quả.
+- Log `[ReaderPerf] JunkFilter rules=… ran=… fired=…` (`ran` = quy tắc thật sự chạy) hoặc `cache=hit`.
+
 **Bất biến bắt buộc**:
 
 - Chỉ `ChapterTextNormalizer` được chuẩn hoá text chương. Reader/TTS builder tiêu thụ dòng đã normalize, **không tự tách lại hay đánh số lại**.

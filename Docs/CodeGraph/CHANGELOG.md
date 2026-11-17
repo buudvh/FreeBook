@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.970] - 2026-11-17
+
+### perf: Lọc rác chương bỏ qua quy tắc chắc chắn không khớp, nhớ kết quả theo chuỗi vào
+
+Log build 1293 (1.3.968, ~28 phút): `JunkFilterManager.filterRawContent` chạy **575 lần**, trung vị 132 ms, p90 176 ms, tối đa 393 ms mỗi chương, tổng **~78 s CPU** — bộ 907 quy tắc, mỗi quy tắc một lượt `replaceOccurrences` / `replaceMatches` trên cả chương dù hầu hết không khớp gì.
+
+- **Ai gọi, luồng nào**: chỉ qua `ChapterTextNormalizer.normalize` — actor `ChapterContentRepository` / `ChapterPersistenceStore` (dựng `ChapterDocument`, đọc / ghi file chương), `ReaderViewModel.performChapterTranslationOffMainActor` (`nonisolated async`), actor `TTSBackgroundProcessor` + `TTSExtensionTranslationPreparer`, quét tên riêng AI (`AINameScanTextLoader`, 4 việc song song), `AIBookDataInspector`. **Không lượt nào chạy trên main** (Swift 5, hàm `nonisolated async` chạy trên executor chung). Các dòng `🐢 [MainHang]` gần đó (vd 11:36:16 `Main kẹt 769 ms`, ~1 s sau hai lần lọc 393 / 296 ms lúc TTS chuẩn bị chương kế — đã xong trước khi main kẹt) trùng lúc Chế độ AI xong lượt trên `WKWebView` và JS tiện ích chạy dồn; lọc rác chỉ góp phần gián tiếp: đốt CPU nền (A13 chỉ 2 lõi hiệu năng) và đẩy nhiệt Ấm → Nóng.
+- **Gọi lặp cùng chương**: **538/575 lần là quét tên riêng AI**, mỗi lượt quét chuẩn hoá cả loạt chương lúc bắt đầu ("chuẩn hoá ~3 s") và **chạy lại đọc lại đúng loạt đó**: 95 chương ×4 lượt (11:38–11:43), ~80 chương ×2 (11:32, 11:34) ⇒ ~2/3 là việc lặp (~48 s CPU). Reader + TTS: một chương lấy từ tiện ích lọc chữ thô một lần rồi lọc **cùng một chuỗi** 2–3 lần (`upsert` lưu file, Reader `normalizeChapter`, TTS `processChapter`); mở chương từ file cũng lọc hai lần cùng chuỗi.
+- **Bỏ quy tắc chắc chắn không khớp** (`JunkFilterTextProbe`, mới): mỗi chương dựng bản đồ đơn vị UTF-16 của chữ gốc ∪ NFD và cặp đơn vị liền nhau trong NFD (băm 2^18 bit). Quy tắc chuỗi thường (options `[]` = khớp theo tương đương chính tắc) cần mọi đơn vị của NFD(mẫu) và mọi cặp **starter** liền nhau của NFD(mẫu) — sắp xếp chính tắc không chen dấu vào giữa hai starter; regex cần các ký tự literal bắt buộc ở tầng ngoài (`JunkFilterRegexLiterals`, mới, bảo thủ: có `|` ngoài cùng, cờ `(?i)`…, `\Q`, `\p{…}`, `\x…`, backref… ⇒ luôn chạy). Thiếu ⇒ bỏ qua, vì lượt thay vốn ra 0 chỗ. Một quy tắc thay được ≥ 1 chỗ thì dựng lại bản đồ trước quy tắc kế ⇒ **giữ nguyên thứ tự và kết quả**. Điều kiện biên dịch sẵn cùng regex (`JunkFilterCompiledRule`, mới) khi bộ quy tắc đổi, kể cả bộ đã chuyển phồn → giản.
+- **Cache kết quả theo đúng chuỗi vào** (`NSCache`, 256 mục / 8 MB, hai bộ thô / đã chuyển phồn → giản): lọc là hàm thuần của (chuỗi, bộ quy tắc) ⇒ trả lại y hệt; đổi quy tắc ⇒ tăng `rulesGeneration` + xoá; kết quả tính bằng bộ cũ không được ghi vào. Chuỗi > 200 000 đơn vị không giữ.
+- Dòng log đổi: `[ReaderPerf] JunkFilter rules=907 ran=… fired=… chars=… ms=…` (`ran` = số quy tắc thật sự chạy, `fired` = số quy tắc thay được) hoặc `… cache=hit …` — log sau sẽ cho tỉ lệ bỏ qua thật.
+- **Ước lượng** (chưa đo trên máy, không biết tỉ lệ regex trong 907 quy tắc của anh Bửu): số lần lọc thật trong phiên như log 575 → ~200 (quét lại + Reader/TTS trùng chuỗi trúng cache); mỗi lần ~0,15 ms × số quy tắc còn chạy + ~0,3 ms dựng bản đồ / xét quy tắc — chữ Trung với mẫu Trung / Việt bỏ được phần lớn quy tắc ⇒ cỡ 5–15 ms thay vì ~130 ms; regex không rút được literal vẫn chạy như cũ. Chữ Việt có dấu được lợi ít hơn (đơn vị nào cũng có mặt, chỉ cặp starter lọc được).
+- Kiểm: mô phỏng Python — bộ rút literal regex đối chiếu `re` trên 800 000 phép thử ngẫu nhiên, 0 lần bỏ sót; điều kiện chuỗi thường đối chiếu mô hình khớp tương đương chính tắc (cả khớp lệch ranh giới ký tự, chữ Việt dựng sẵn / tổ hợp, chữ Hán tương thích, Hangul, Kelvin / Ohm, ngoài BMP) trên 120 000 cặp, 0 lần bỏ sót. `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
+
 ## [1.3.969] - 2026-11-17
 
 ### fix: Chạm truyện AI chạy trước ở hub mở được màn AI: màn AI tự ghi ngữ cảnh, không còn im lặng bỏ qua
@@ -407,12 +421,3 @@ Anh Bửu chốt qua phỏng vấn (grill-me) sau lượt điều tra logic thay
 - **Màn quản lý luật**: bỏ kéo sắp xếp (mục "Sắp xếp lại", `moveRules` của manager hai tầng); dòng "áp dụng tuần tự từ trên xuống" thay bằng nút "?" giải thích cách khớp; sheet Sửa đổi mẫu trùng luật khác cùng tầng ⇒ đè luật đó (như `addRule`); sheet mở nửa màn, vuốt lên được.
 - **Sheet "Thêm thay thế TTS" (Reader)**: cắt dấu cách ở mép vùng bôi đen; menu Lưu tắt khi mẫu sai. Không xét trùng mẫu ở đây — chip R / C đã hiện luật trùng của cả hai tầng.
 - Kiểm: mô phỏng thuật toán (bản Python tương đương) khớp mọi ví dụ đã chốt; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử trên máy.
-
-## [1.3.939] - 2026-11-14
-
-### docs: CLAUDE.md ghi chế độ đọc lai Nano · Turbo và ngoại lệ luật nhiệt
-
-Session làm đọc lai (1.3.934) không được tự sửa CLAUDE.md theo yêu cầu từ session khác nên để đoạn đề xuất trong ghi chú bàn giao; session tối ưu Turbo áp vào lúc gộp các nhánh 1.3.933–1.3.938 để push một lần (anh Bửu: "Gộp và push").
-
-- `CLAUDE.md` + `AGENTS.md` (mirror): thêm gạch **"Đọc lai Nano · Turbo"** dưới mục TTS › VieNeu (cặp giọng `VieNeuVoicePairing`, `VieNeuHybridTTSService` / `VieNeuHybridRouting`, phân loại tiếng nước ngoài, `VieNeuThermalGovernor`, hai công tắc mặc định bật, nhân tốc độ + khớp âm lượng đoạn model phụ); câu "thermal chỉ là telemetry" ở gạch `NghiSynthesisPolicy` ghi rõ ngoại lệ duy nhất là chọn model đọc lai (khớp dòng ngoại lệ đã thêm vào `rules.md` ở 1.3.934).
-- Không đổi code.
