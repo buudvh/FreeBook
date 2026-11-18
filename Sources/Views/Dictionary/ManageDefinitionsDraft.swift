@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Mỗi nghĩa là một hàng có `id` riêng chứ không tra theo chuỗi nữa: nghĩa giờ sửa được tại chỗ nên
 /// nội dung không còn là khoá ổn định, và hai nghĩa trùng chữ vẫn phải là hai hàng khác nhau để
-/// nút lên/xuống và nút xoá biết chính xác đang tác động vào hàng nào.
+/// nút đổi chỗ và nút xoá biết chính xác đang tác động vào hàng nào.
 struct ManageDefinitionsDraft {
     struct Row: Identifiable, Equatable {
         let id: UUID
@@ -79,7 +79,7 @@ struct ManageDefinitionsDraft {
         rowsBySource[source]?[index].isDeleted = isDeleted
     }
 
-    /// Đổi chỗ hàng ở `index` với hàng liền kề theo `offset` (-1 lên, +1 xuống). Ngoài dải thì bỏ qua.
+    /// Đổi chỗ hàng ở `index` với hàng liền kề theo `offset` (-1 về trước, +1 về sau). Ngoài dải thì bỏ qua.
     mutating func move(source: String, from index: Int, by offset: Int) {
         guard var rows = rowsBySource[source] else { return }
         let target = index + offset
@@ -88,19 +88,26 @@ struct ManageDefinitionsDraft {
         rowsBySource[source] = rows
     }
 
-    /// Chèn một ô trống để người dùng nhập trực tiếp — thay cho hộp thoại nhập nghĩa trước đây,
-    /// vốn đã thành thừa khi mỗi nghĩa là một ô nhập.
-    mutating func insertEmptyRow(source: String, at index: Int) {
+    /// Thêm một nghĩa trống ở cuối nhóm và trả `id` của nó để màn chọn luôn chip mới mà mở ô sửa.
+    @discardableResult
+    mutating func appendEmptyRow(source: String) -> UUID {
         var rows = rowsBySource[source] ?? []
-        let position = min(max(index, 0), rows.count)
-        rows.insert(Row(text: ""), at: position)
+        let row = Row(text: "")
+        rows.append(row)
         rowsBySource[source] = rows
+        return row.id
     }
 
-    mutating func appendEmptyRow(source: String) {
-        var rows = rowsBySource[source] ?? []
-        rows.append(Row(text: ""))
-        rowsBySource[source] = rows
+    /// Gỡ hẳn một hàng khỏi bản nháp (không phải xoá mềm).
+    mutating func removeRow(rowId: UUID, source: String) {
+        rowsBySource[source]?.removeAll { $0.id == rowId }
+    }
+
+    /// Hàng người dùng vừa thêm mà chưa nhập gì: không có gì để hoàn tác nên gỡ hẳn thay vì xoá mềm.
+    /// Hàng rỗng đọc từ đĩa (`preservesEmpty`) không tính — nó là một nghĩa thật.
+    func isDiscardableBlank(rowId: UUID, source: String) -> Bool {
+        guard let row = rows(for: source).first(where: { $0.id == rowId }) else { return false }
+        return !row.preservesEmpty && row.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: - Tách chuỗi nghĩa

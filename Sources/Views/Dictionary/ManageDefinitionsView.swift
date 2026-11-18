@@ -1,6 +1,14 @@
 import SwiftUI
 
+/// Màn "Quản lý nghĩa từ" kiểu chip (1.3.981): bốn nhóm từ điển sửa được nằm trong **một** thẻ, mỗi nghĩa là một viên
+/// con nhộng (`ManageDefinitionChipView`). Bấm chip ⇒ ô sửa hiện dưới nhóm; nút góc chip xoá nhanh / hoàn tác.
 struct ManageDefinitionsView: View {
+    /// Chip đang mở ô sửa. Khoá theo `id` của hàng — hàng đổi chỗ được nên không dùng chỉ số.
+    private struct Selection: Equatable {
+        let source: String
+        let rowId: UUID
+    }
+
     let word: String
     let bookId: String
     @Binding var matches: [DictionaryMatchInfo]
@@ -9,43 +17,47 @@ struct ManageDefinitionsView: View {
     /// Toàn bộ thao tác sửa nằm trong bản nháp; đĩa chỉ được ghi một lần lúc đóng màn.
     @State private var draft: ManageDefinitionsDraft
     @State private var hasSaved = false
+    @State private var selection: Selection?
+    @FocusState private var isEditorFocused: Bool
+
+    /// Tính một lần lúc mở: `body` chạy lại theo từng ký tự gõ, không tra `phienAmMap` ở đó.
+    private let hanViet: String
+    /// Nghĩa của từng nhóm lúc mở màn — chỉ để đếm số nhóm đã sửa cho dòng trạng thái.
+    private let initialMeanings: [String: [String]]
 
     init(word: String, bookId: String, matches: Binding<[DictionaryMatchInfo]>, onChanged: @escaping () -> Void) {
         self.word = word
         self.bookId = bookId
         self._matches = matches
         self.onChanged = onChanged
-        self._draft = State(initialValue: ManageDefinitionsDraft(matches: matches.wrappedValue))
+        let draft = ManageDefinitionsDraft(matches: matches.wrappedValue)
+        self._draft = State(initialValue: draft)
+        self.hanViet = Self.makeHanViet(for: word)
+        self.initialMeanings = Dictionary(
+            uniqueKeysWithValues: ManageDefinitionsDraft.editableSources.map { ($0, draft.activeMeanings(for: $0)) }
+        )
     }
 
-    private func getHanViet(for word: String) -> String {
+    private static func makeHanViet(for word: String) -> String {
         let phienAm = TranslationManager.shared.phienAmMap
-        var list: [String] = []
-        for char in word {
-            list.append(phienAm[String(char)] ?? String(char))
-        }
-        return list.joined(separator: " ").lowercased()
+        return word.map { phienAm[String($0)] ?? String($0) }
+            .joined(separator: " ")
+            .lowercased()
     }
 
     var body: some View {
         NavigationStack {
-            List { Group {
-                Section(header: Text("Từ đang chọn")) {
-                    Text(word)
-                        .font(.title2)
-                        .fontWeight(.bold)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    wordHeader
+                    groupsCard
+                    statusLine
                 }
-
-                Section(header: Text("Phiên âm")) {
-                    Text(getHanViet(for: word))
-                        .font(.body)
-                }
-
-                makeDictionarySection(title: "Name (Riêng)", source: "Names (Riêng)")
-                makeDictionarySection(title: "Name (Chung)", source: "Names (Chung)")
-                makeDictionarySection(title: "VietPhrase (Riêng)", source: "VietPhrase (Riêng)")
-                makeDictionarySection(title: "VietPhrase (Chung)", source: "VietPhrase (Chung)")
-            }.glassSheetRows() }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
             .pageTitle("Quản lý nghĩa từ")
             .presentationDragIndicator(.visible)
             .onDisappear {
@@ -54,48 +66,135 @@ struct ManageDefinitionsView: View {
         }
     }
 
-    @ViewBuilder
-    private func makeDictionarySection(title: String, source: String) -> some View {
-        let rows = draft.rows(for: source)
+    // MARK: - Bố cục
 
-        Section {
-            if rows.isEmpty {
-                Text("Chưa có định nghĩa nào")
-                    .foregroundColor(.secondary)
-                    .italic()
-            } else {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    ManageDefinitionRowView(
-                        text: textBinding(rowId: row.id, source: source),
-                        isDeleted: row.isDeleted,
-                        canMoveUp: index > 0,
-                        canMoveDown: index < rows.count - 1,
-                        onMoveUp: { draft.move(source: source, from: index, by: -1) },
-                        onMoveDown: { draft.move(source: source, from: index, by: 1) },
-                        onInsertAbove: { draft.insertEmptyRow(source: source, at: index) },
-                        onToggleDeleted: { draft.setDeleted(!row.isDeleted, rowId: row.id, source: source) }
-                    )
+    private var wordHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(word)
+                .font(.title2)
+                .fontWeight(.bold)
+                .lineLimit(2)
+            Text(hanViet)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(word), phiên âm \(hanViet)")
+    }
+
+    private var groupsCard: some View {
+        let sources = ManageDefinitionsDraft.editableSources
+        return VStack(spacing: 0) {
+            ForEach(Array(sources.enumerated()), id: \.element) { index, source in
+                if index > 0 {
+                    Divider()
+                        .padding(.leading, 12)
                 }
+                group(for: source)
             }
+        }
+        .background(AppGlassSheetModifier.rowFill, in: RoundedRectangle(cornerRadius: 12))
+    }
 
-            Button {
-                draft.appendEmptyRow(source: source)
-            } label: {
-                Label("Thêm nghĩa ở cuối", systemImage: "plus.circle.fill")
-                    .foregroundColor(.green)
+    private func group(for source: String) -> some View {
+        let selectedRowId = selection?.source == source ? selection?.rowId : nil
+        return ManageDefinitionGroupView(
+            dictionaryName: source.hasPrefix("Names") ? "Name" : "VP",
+            scopeName: source.hasSuffix("(Riêng)") ? "Riêng" : "Chung",
+            isBookScope: source.hasSuffix("(Riêng)"),
+            rows: draft.rows(for: source),
+            selectedRowId: selectedRowId,
+            editorText: textBinding(rowId: selectedRowId, source: source),
+            editorFocus: $isEditorFocused,
+            onTapRow: { tapRow($0, source: source) },
+            onToggleDeleted: { toggleDeleted($0, source: source) },
+            onAdd: { addRow(source: source) },
+            onMoveSelected: { moveSelected(by: $0) },
+            onSubmit: { select(nil) }
+        )
+    }
+
+    private var statusLine: some View {
+        let changed = ManageDefinitionsDraft.editableSources.filter {
+            draft.activeMeanings(for: $0) != (initialMeanings[$0] ?? [])
+        }.count
+        return Text(changed == 0 ? "Thay đổi được lưu khi đóng" : "Đã sửa \(changed) nhóm · lưu khi đóng")
+            .font(.footnote)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    /// Ô sửa đọc/ghi thẳng vào bản nháp theo `id` của hàng — không dùng chỉ số vì hàng đổi chỗ được.
+    private func textBinding(rowId: UUID?, source: String) -> Binding<String> {
+        Binding(
+            get: { rowId.map { draft.text(rowId: $0, source: source) } ?? "" },
+            set: { newValue in
+                guard let rowId else { return }
+                draft.setText(newValue, rowId: rowId, source: source)
             }
-            .buttonStyle(.borderless)
-        } header: {
-            Text(title)
+        )
+    }
+
+    // MARK: - Thao tác
+
+    /// Bấm thân chip: chip đã xoá ⇒ hoàn tác; chip đang chọn ⇒ đóng ô sửa; còn lại ⇒ chọn để sửa.
+    private func tapRow(_ row: ManageDefinitionsDraft.Row, source: String) {
+        if row.isDeleted {
+            draft.setDeleted(false, rowId: row.id, source: source)
+            return
+        }
+        let target = Selection(source: source, rowId: row.id)
+        select(selection == target ? nil : target)
+    }
+
+    /// Đổi chip đang chọn. Chip vừa thêm mà bỏ trống thì gỡ luôn khi rời nó, để không sót lại chip "Nghĩa…".
+    private func select(_ target: Selection?) {
+        if let current = selection, current != target,
+           draft.isDiscardableBlank(rowId: current.rowId, source: current.source) {
+            draft.removeRow(rowId: current.rowId, source: current.source)
+        }
+        selection = target
+        guard target != nil else {
+            isEditorFocused = false
+            return
+        }
+        // Ô sửa của nhóm khác vừa được chèn vào cây view ở lượt vẽ này — đặt focus ở lượt sau.
+        DispatchQueue.main.async { isEditorFocused = true }
+    }
+
+    /// Nút góc chip: xoá mềm (hoàn tác được tới khi đóng màn) hoặc hoàn tác. Chip trống vừa thêm thì gỡ hẳn.
+    private func toggleDeleted(_ row: ManageDefinitionsDraft.Row, source: String) {
+        if row.isDeleted {
+            draft.setDeleted(false, rowId: row.id, source: source)
+            return
+        }
+        if selection == Selection(source: source, rowId: row.id) {
+            selection = nil
+            isEditorFocused = false
+        }
+        if draft.isDiscardableBlank(rowId: row.id, source: source) {
+            draft.removeRow(rowId: row.id, source: source)
+        } else {
+            draft.setDeleted(true, rowId: row.id, source: source)
         }
     }
 
-    /// Ô nhập đọc/ghi thẳng vào bản nháp theo `id` của hàng — không dùng chỉ số vì hàng đổi chỗ được.
-    private func textBinding(rowId: UUID, source: String) -> Binding<String> {
-        Binding(
-            get: { draft.text(rowId: rowId, source: source) },
-            set: { draft.setText($0, rowId: rowId, source: source) }
-        )
+    private func addRow(source: String) {
+        // Gỡ chip trống đang chọn (nếu có) **trước** khi thêm, để bấm `+` liên tiếp không đẻ ra một dãy chip trống.
+        select(nil)
+        let rowId = draft.appendEmptyRow(source: source)
+        select(Selection(source: source, rowId: rowId))
+    }
+
+    private func moveSelected(by offset: Int) {
+        guard let selection,
+              let index = draft.rows(for: selection.source).firstIndex(where: { $0.id == selection.rowId }) else {
+            return
+        }
+        draft.move(source: selection.source, from: index, by: offset)
     }
 
     // MARK: - Lưu

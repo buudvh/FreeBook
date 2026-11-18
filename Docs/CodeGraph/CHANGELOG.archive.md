@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.950] - 2026-11-15
+
+### feat: VieNeu đọc tên riêng kiểu Nhật theo âm tiết thay vì theo luật chính tả tiếng Anh
+
+Anh Bửu: Nano "hay bị mất chữ" ở tên riêng. Đo: bản Swift của sea-g2p không chép sai (172 tên: 141 có trong từ điển 1,16 triệu mục; 31 từ lạ thì 25 trùng bản gốc Rust 0.9.1), không ký hiệu nào rơi khỏi vocab — nhưng từ điển đọc mọi chữ Latin không dấu theo luật **tiếng Anh** nên tên Nhật mất chữ ngay ở bước phiên âm ("Sasuke" → `sˈæsuːk`, "Takemichi" → `tˈeɪk mˈɪtʃaɪ`, "Akame" → `ˈækeɪm`). Anh nghe mẫu rồi chốt từng nhóm âm (mẫu C, E, F cách A).
+
+- **`VieNeuRomajiSyllabifier`** (mới, `Services/TTS/VieNeu/Names/`): gộp trường âm (`ou`, `uu`, `oo`, `ei`, `ii`, `aa`, `ee`, `oh` cuối âm tiết; `oue` giữ `u` — "Inoue"), cắt âm tiết chặt (n / m cuối âm tiết, âm ngắt, âm ghép) rồi **sinh thẳng phiên âm**: âm tiết thường = phụ âm đầu + `ˈ` + nguyên âm (`sˈaː sˈu kˈe`); `ji` → `zˈi`, `tsu` → `sˈu`; hàng y dùng `j`; âm ghép theo cách A (`kyo` → `kˈi ˈo`, `ryu` → `ɹˈiw`, không dùng cụm `kj` / `ɹj` / `ts` — Nano đọc không ra); `ai / oi / ui` → đuôi `j`; âm ngắt → `ɜ` + phụ âm cuối (`hˈaːɜt̪ t̪ˈo ɹˈi`). Không đi qua chính tả Việt: bảng `romajiToViSyllable` cho "gi", "ic ki", "hôc", hàng y = "da / du / dô" mà `SeaG2P` đọc sai.
+- **`VieNeuJapaneseNameReader`** (mới): từ được đổi khi (1) viết hoa chữ đầu, toàn Latin không dấu, ≥ 4 chữ — xét sau khi `foldMacrons` đã gấp ā ī ū ē ō, gấp thêm `û` / `î`; (2) cắt được hết thành âm tiết romaji; (3) không phải âm tiết Việt không dấu (`VietnameseWordChecker`); (4) không thuộc `VieNeuRomajiEnglishLookalikes`. Token có gạch nối xét từng phần, hậu tố xưng hô sau tên (kun, san, chan, sama, senpai, sensei…) đọc theo âm tiết; dấu nháy sau "n" ("Jun'ichi") ghép hai token. Công tắc `vieneuJapaneseNameSyllablesEnabled` (chưa có khoá = bật).
+- **`VieNeuRomajiEnglishLookalikes`** (mới, file sinh): 507 từ tiếng Anh thông dụng cắt được thành âm tiết romaji (game, time, date, kate, mike, tomato…) — giao của 10.000 từ phổ biến nhất (`top_words.rs` của sea-g2p, Apache-2.0) với bộ cắt âm tiết; từ gốc Nhật (tokyo, toyota, suzuki…) để ngoài danh sách. Script `Scripts/gen_vieneu_romaji_english_lookalikes.py` giữ bản chép Python của bộ cắt + `--selftest` 48 ca đối chiếu đúng các chuỗi anh đã nghe.
+- **`SeaG2P`**: cặp ký hiệu `rawPhonemeOpen` / `rawPhonemeClose` (U+E000 / U+E001) bọc phiên âm có sẵn; `reToken` thêm nhóm 3 (trước nhóm dấu câu, nay là nhóm 4), `phonemize` chuyển nguyên văn với ngôn ngữ "vi". Mỗi âm tiết bọc riêng, cách nhau dấu cách thường ⇒ bộ cắt chunk không đổi.
+- **`VieNeuJapanesePreprocessor`** (Nano và Turbo dùng chung): thứ tự mỗi token = từ điển người dùng → tên kiểu Nhật → đường romaji cũ (vẫn tắt); bảng từ điển rỗng thì không chuẩn hoá khoá nữa (bước này chạy cho mọi token của mọi đoạn — chi phí chỉ còn một lượt regex tách token).
+- **Đọc lai**: `VieNeuForeignTextClassifier` không tính tên đã đổi là tiếng nước ngoài ⇒ đoạn ở lại Nano; cờ nằm trong khoá đệm.
+- **Cài đặt TTS › Quản lý riêng của trình đọc**: công tắc "Đọc tên Nhật theo âm tiết" dưới "Áp dụng từ điển phiên âm VieNeu" (`VieNeuJapaneseFlags.nameSyllablesEnabled`); cờ vào `TTSOnlineFallbackSettings.fingerprint`.
+- Giới hạn: tên pinyin / Hàn / Âu Mỹ đọc như cũ; tên 3 chữ và chữ có mũ ô / â / ê không tự đổi; từ tiếng Anh hiếm viết hoa có dạng romaji ngoài danh sách có thể bị đọc theo âm tiết (thêm vào từ điển hoặc tắt công tắc).
+- Kiểm: `--selftest` đạt 48/48; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.949] - 2026-11-15
 
 ### fix: Nano chừa khoảng lặng dẫn đầu mỗi đoạn để không mất phụ âm đầu câu, không tốn thêm phép tính

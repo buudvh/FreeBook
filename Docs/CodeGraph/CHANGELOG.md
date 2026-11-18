@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.981] - 2026-11-18
+
+### feat: Quản lý nghĩa từ kiểu chip — bốn nhóm trong một thẻ, nút x góc chip để xoá nhanh
+
+Anh Bửu: "mockup lại màn hình quản lý nghĩa từ" → xem bản gọn thì hỏi "còn cách nào gọn hơn không?" → chọn "Làm kiểu A" (chip theo nhóm), rồi thêm: "thêm x trên góc phải bên trên mỗi viên con nhộng để xoá nhanh nghĩa, nếu bị xoá thì thêm nút hoàn tác (dùng icon hết nhé)".
+
+- **Trước**: `List` sáu section — "Từ đang chọn", "Phiên âm", rồi bốn nhóm từ điển; mỗi nghĩa một hàng ô nhập kèm bốn nút icon hẹp 26pt (lên, xuống, chèn ô trống phía trên, xoá); nhóm trống vẫn chiếm hai hàng ("Chưa có định nghĩa nào" + "Thêm nghĩa ở cuối").
+- **Nay**: chữ gốc + phiên âm Hán Việt nằm trên một dòng; bốn nhóm (Name / VP × Riêng / Chung) nằm trong **một** thẻ, mỗi nhóm một dòng: nhãn bên trái, các nghĩa là viên con nhộng tràn dòng (`FlowLayout`), chip `+` nét đứt ở cuối. Nhóm trống chỉ còn nhãn + chip `+`.
+  - Bấm thân chip ⇒ ô sửa hiện ngay dưới nhóm (tự focus), kèm hai nút icon ← → đổi chỗ; bấm lại chip hoặc phím Xong ⇒ đóng ô sửa.
+  - Nút tròn góc trên phải mỗi chip: `xmark` xoá nhanh (xoá mềm, chip gạch ngang), chip đã xoá thì nút đổi thành `arrow.uturn.backward` để hoàn tác; bấm thân chip đã xoá cũng hoàn tác. Cả hai chỉ là icon.
+  - Chip đứng đầu nhóm tô màu nhấn (nền mờ 18%, viền 60%): đó là nghĩa được dùng khi dịch (`TranslateUtils.getFirstMeaning`).
+  - `+` thêm chip trống ở cuối và mở luôn ô sửa; chip vừa thêm mà bỏ trống thì tự gỡ khi rời nó (bấm x trên chip trống cũng gỡ hẳn, không để lại chip gạch ngang).
+  - Chân màn: "Thay đổi được lưu khi đóng" / "Đã sửa N nhóm · lưu khi đóng".
+- **Bỏ**: nút "chèn ô trống phía trên" (thêm ở cuối rồi dùng ← → đưa về chỗ cần) ⇒ xoá `ManageDefinitionsDraft.insertEmptyRow` và file `ManageDefinitionRowView.swift`.
+- **Không đổi**: cách lưu (ghi đĩa một lần lúc đóng màn, `saveAllChangesToDisk` / `mergedMatches` giữ nguyên), bốn nhóm sửa được và nhãn nguồn, hai chỗ mở màn (panel Dịch của Reader, sheet Sửa từ).
+- File: `ManageDefinitionsView.swift` (dựng lại phần giao diện bằng `ScrollView`, thẻ dùng `AppGlassSheetModifier.rowFill`; phiên âm tính một lần lúc mở thay vì mỗi lượt `body`), mới `ManageDefinitionChipView.swift` + `ManageDefinitionGroupView.swift`, `ManageDefinitionsDraft` thêm `removeRow` / `isDiscardableBlank`, `appendEmptyRow` trả `id`. Nút góc nằm **trong** khung layout của chip (chip lùi 6pt) chứ không nhô ra như `ChipCornerBadge`, vì nó bấm được.
+- Kiểm: bốn file qua `swiftc -frontend -parse` (chỉ cú pháp); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa kiểm: chip dài có cắt đuôi ở 240pt không, vùng chạm của nút góc trên chip ngắn, focus ô sửa khi chuyển giữa hai nhóm, bàn phím có che ô sửa của nhóm cuối không.
+
 ## [1.3.980] - 2026-11-18
 
 ### feat: Tìm trong chương cuộn vô hạn hai đầu — kéo lên tìm chương trước, kéo xuống tìm chương sau
@@ -431,19 +449,3 @@ Anh Bửu: "giọng dự phòng thiếu config phiên âm mới". Màn Giọng d
 
 - Thêm `Toggle("Đọc tên Nhật theo âm tiết")` ngay dưới "Áp dụng từ điển phiên âm VieNeu", cùng `VieNeuJapaneseFlags.nameSyllablesEnabled` (một khoá `vieneuJapaneseNameSyllablesEnabled` cho cả trình đọc chính lẫn giọng dự phòng — như công tắc từ điển).
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.950] - 2026-11-15
-
-### feat: VieNeu đọc tên riêng kiểu Nhật theo âm tiết thay vì theo luật chính tả tiếng Anh
-
-Anh Bửu: Nano "hay bị mất chữ" ở tên riêng. Đo: bản Swift của sea-g2p không chép sai (172 tên: 141 có trong từ điển 1,16 triệu mục; 31 từ lạ thì 25 trùng bản gốc Rust 0.9.1), không ký hiệu nào rơi khỏi vocab — nhưng từ điển đọc mọi chữ Latin không dấu theo luật **tiếng Anh** nên tên Nhật mất chữ ngay ở bước phiên âm ("Sasuke" → `sˈæsuːk`, "Takemichi" → `tˈeɪk mˈɪtʃaɪ`, "Akame" → `ˈækeɪm`). Anh nghe mẫu rồi chốt từng nhóm âm (mẫu C, E, F cách A).
-
-- **`VieNeuRomajiSyllabifier`** (mới, `Services/TTS/VieNeu/Names/`): gộp trường âm (`ou`, `uu`, `oo`, `ei`, `ii`, `aa`, `ee`, `oh` cuối âm tiết; `oue` giữ `u` — "Inoue"), cắt âm tiết chặt (n / m cuối âm tiết, âm ngắt, âm ghép) rồi **sinh thẳng phiên âm**: âm tiết thường = phụ âm đầu + `ˈ` + nguyên âm (`sˈaː sˈu kˈe`); `ji` → `zˈi`, `tsu` → `sˈu`; hàng y dùng `j`; âm ghép theo cách A (`kyo` → `kˈi ˈo`, `ryu` → `ɹˈiw`, không dùng cụm `kj` / `ɹj` / `ts` — Nano đọc không ra); `ai / oi / ui` → đuôi `j`; âm ngắt → `ɜ` + phụ âm cuối (`hˈaːɜt̪ t̪ˈo ɹˈi`). Không đi qua chính tả Việt: bảng `romajiToViSyllable` cho "gi", "ic ki", "hôc", hàng y = "da / du / dô" mà `SeaG2P` đọc sai.
-- **`VieNeuJapaneseNameReader`** (mới): từ được đổi khi (1) viết hoa chữ đầu, toàn Latin không dấu, ≥ 4 chữ — xét sau khi `foldMacrons` đã gấp ā ī ū ē ō, gấp thêm `û` / `î`; (2) cắt được hết thành âm tiết romaji; (3) không phải âm tiết Việt không dấu (`VietnameseWordChecker`); (4) không thuộc `VieNeuRomajiEnglishLookalikes`. Token có gạch nối xét từng phần, hậu tố xưng hô sau tên (kun, san, chan, sama, senpai, sensei…) đọc theo âm tiết; dấu nháy sau "n" ("Jun'ichi") ghép hai token. Công tắc `vieneuJapaneseNameSyllablesEnabled` (chưa có khoá = bật).
-- **`VieNeuRomajiEnglishLookalikes`** (mới, file sinh): 507 từ tiếng Anh thông dụng cắt được thành âm tiết romaji (game, time, date, kate, mike, tomato…) — giao của 10.000 từ phổ biến nhất (`top_words.rs` của sea-g2p, Apache-2.0) với bộ cắt âm tiết; từ gốc Nhật (tokyo, toyota, suzuki…) để ngoài danh sách. Script `Scripts/gen_vieneu_romaji_english_lookalikes.py` giữ bản chép Python của bộ cắt + `--selftest` 48 ca đối chiếu đúng các chuỗi anh đã nghe.
-- **`SeaG2P`**: cặp ký hiệu `rawPhonemeOpen` / `rawPhonemeClose` (U+E000 / U+E001) bọc phiên âm có sẵn; `reToken` thêm nhóm 3 (trước nhóm dấu câu, nay là nhóm 4), `phonemize` chuyển nguyên văn với ngôn ngữ "vi". Mỗi âm tiết bọc riêng, cách nhau dấu cách thường ⇒ bộ cắt chunk không đổi.
-- **`VieNeuJapanesePreprocessor`** (Nano và Turbo dùng chung): thứ tự mỗi token = từ điển người dùng → tên kiểu Nhật → đường romaji cũ (vẫn tắt); bảng từ điển rỗng thì không chuẩn hoá khoá nữa (bước này chạy cho mọi token của mọi đoạn — chi phí chỉ còn một lượt regex tách token).
-- **Đọc lai**: `VieNeuForeignTextClassifier` không tính tên đã đổi là tiếng nước ngoài ⇒ đoạn ở lại Nano; cờ nằm trong khoá đệm.
-- **Cài đặt TTS › Quản lý riêng của trình đọc**: công tắc "Đọc tên Nhật theo âm tiết" dưới "Áp dụng từ điển phiên âm VieNeu" (`VieNeuJapaneseFlags.nameSyllablesEnabled`); cờ vào `TTSOnlineFallbackSettings.fingerprint`.
-- Giới hạn: tên pinyin / Hàn / Âu Mỹ đọc như cũ; tên 3 chữ và chữ có mũ ô / â / ê không tự đổi; từ tiếng Anh hiếm viết hoa có dạng romaji ngoài danh sách có thể bị đọc theo âm tiết (thêm vào từ điển hoặc tắt công tắc).
-- Kiểm: `--selftest` đạt 48/48; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
