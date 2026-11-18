@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.948] - 2026-11-14
+
+### feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột
+
+Anh Bửu: "tôi muốn thay đổi cách lưu log ổn hơn" — grill-me chốt: SQLite, mỗi lần mở app một phiên, giữ 20 phiên / 30 MB, chọn phiên ⇒ một file .txt, trong app chỉ có danh sách phiên, file .txt cũ xoá ngay, đầu phiên ghi version + build + máy + iOS + phiên trước chết đột ngột + nhiệt / RAM / ổ trống + trình đọc TTS; công tắc log giữ như cũ (tự tắt mỗi lần mở app). Trước đây mọi lần mở app dồn chung `app_logs.txt` (xoay 2 MB × 5), không biết dòng nào thuộc bản build nào.
+
+- **Kho** `AppLogDatabase` (mới): `applicationSupport/app_logs.sqlite`, sqlite3 thô (WAL, `synchronous=NORMAL`, `auto_vacuum=INCREMENTAL`), mở một lần; bảng `sessions` (thông tin đầu phiên, trạng thái cuối, số dòng / lỗi, `prev_end`) + `lines`. `prune`: giữ 20 phiên mới nhất, bỏ phiên cũ nhất tới dưới 30 MB, không bao giờ bỏ phiên đang ghi (một mình vượt thì bỏ 20% dòng cũ nhất). Tiền tố `app_logs` ⇒ màn Dung lượng vẫn đếm ở "Nhật ký".
+- **Đầu phiên** `AppLogSessionInfo` (mới): version / build (`AppVersionInfo`), mã máy (`utsname`), iOS, nhiệt, RAM trống (`ProcessMemoryProbe`), ổ trống, trình đọc + giọng (đọc thẳng `UserDefaults`, không chạm `TTSManager`).
+- **`AppLogger`**: API ghi không đổi (`log` / `logAlways` / `logTTSVerbose`), vẫn `print`, công tắc vẫn tự tắt, dòng ❌ vẫn luôn ghi. Ghi theo lô (64 dòng / 0,5 s, dòng ❌ ghi ngay); vào nền / bị đóng ⇒ ghi nốt **đồng bộ** + đánh dấu trạng thái phiên (không giữ transaction lúc app bị treo); phiên cũ còn `foreground` lúc mở app ⇒ phiên mới ghi "chết đột ngột lúc … — dòng cuối: …". LiveContainer chuyển app (`LiveContainerSwitchPreparer`) gọi `markSessionEnded` để khỏi báo nhầm. Kho chưa mở được (cạn fd) ⇒ giữ tối đa 2.000 dòng chờ, thử mở lại sau 30 s. Bỏ `AppLogFiles` + các hàm đọc file cũ; `app_logs*.txt` cũ xoá ở lần mở đầu.
+- **Xuất** (`AppLogger+Sessions`, mới): danh sách phiên, xoá phiên, xuất các phiên đã chọn (cũ → mới) thành **một** `Caches/log-exports/TangCongCac-log-<build>-<ngày giờ>.txt` — mỗi phiên mở đầu bằng khối `===== Phiên … =====` (app, máy, iOS, nhiệt, RAM, ổ trống, TTS, phiên trước, trạng thái cuối) rồi các dòng `[yyyy-MM-dd HH:mm:ss.SSS] …`; đọc bằng kết nối riêng ngoài queue ghi.
+- **Màn Ghi log hệ thống**: mục "File Log" + "Thao Tác" thay bằng **Phiên** (giờ · bản build · số dòng · số lỗi, badge đỏ "Chết đột ngột", chọn sẵn phiên đang ghi) + "Xuất N phiên (.txt)" (bảng chia sẻ) / "Xoá N phiên" / "Xoá tất cả". Bỏ nút sao chép file mới nhất.
+- Ghi chú ở CLAUDE.md / AGENTS.md (gạch Logging, danh sách thư mục).
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.947] - 2026-11-14
 
 ### feat: Trình duyệt ẩn của tiện ích có thêm browser.loadHtml theo hợp đồng chuẩn

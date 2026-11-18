@@ -13,10 +13,12 @@ packages:
     type: git
     url: https://github.com/weichsel/ZIPFoundation.git
     from: 0.9.0
+  # ONNX Runtime (NghiTTS, VieNeu) — gói **cục bộ** trong repo (1.3.979). Repo gốc `microsoft/onnxruntime-swift-package-manager`
+  # (và `microsoft/onnxruntime`) trả 404 từ 2026-11-17 ⇒ chép mã nguồn bản 1.24.2 vào `Vendor/`, file nhị phân 52 MB lưu ở
+  # release `onnxruntime-1.24.2` của repo `buudvh/FreeBook-deps` (checksum trùng bản gốc của Microsoft). Xem đầu
+  # `Vendor/onnxruntime-swift-package-manager/Package.swift`. Tên package / product giữ nguyên.
   onnxruntime-swift-package-manager:
-    type: git
-    url: https://github.com/microsoft/onnxruntime-swift-package-manager.git
-    from: 1.16.0
+    path: Vendor/onnxruntime-swift-package-manager
   espeak-ng-spm:
     type: git
     url: https://github.com/espeak-ng/espeak-ng-spm.git
