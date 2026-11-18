@@ -451,11 +451,24 @@ struct ReaderView: View {
         .sheet(isPresented: $showingReaderSearch) {
             let snapshot = buildReaderSearchSnapshot()
             ReaderSearchView(
-                chapters: snapshot.chapters,
-                chapterTitles: snapshot.titles,
+                initialChapters: snapshot.chapters,
+                initialTitles: snapshot.titles,
                 currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                totalChapters: totalChaptersCount,
                 initialQuery: readerSearchQuery,
                 onQueryChange: { readerSearchQuery = $0 },
+                chapterTitle: { index in
+                    chapterHeaderTitle(at: index, rawTitle: viewModel?.chapterTitle(at: index) ?? "")
+                },
+                // Nạp thêm ở hai đầu (1.3.980): cùng đường nạp + dịch với Reader, tên chương dịch như ở đầu trang.
+                loadChapter: { index in
+                    guard let vm = viewModel else { throw CancellationError() }
+                    let loaded = try await vm.loadChapterForSearch(index)
+                    return ReaderSearchMatcher.LoadedChapter(
+                        chapter: loaded.chapter,
+                        title: chapterHeaderTitle(at: index, rawTitle: loaded.title)
+                    )
+                },
                 onSelect: { targetChapter, targetParagraph, query in
                     jumpToReaderSearchResult(
                         chapterIndex: targetChapter,
@@ -1459,23 +1472,15 @@ struct ReaderView: View {
         )
     }
 
-    /// Dựng snapshot bất biến các chương đã nạp (`state == .loaded`) cho `ReaderSearchView`. Chỉ đọc
-    /// dữ liệu đã ở RAM — không nạp chương mới, không đọc đĩa/mạng.
+    /// Dựng snapshot bất biến các chương đã nạp (`state == .loaded`) cho `ReaderSearchView` lúc mở sheet. Chỉ đọc dữ liệu
+    /// đã ở RAM — chương thêm ở hai đầu do sheet tự nạp qua `loadChapter` (`ReaderViewModel.loadChapterForSearch`).
     private func buildReaderSearchSnapshot() -> (chapters: [ReaderSearchMatcher.Chapter], titles: [Int: String]) {
         guard let vm = viewModel else { return ([], [:]) }
         var chapters: [ReaderSearchMatcher.Chapter] = []
         var titles: [Int: String] = [:]
         for (index, cached) in vm.cache.cache where cached.state == .loaded {
-            let paragraphs = cached.paragraphItems.map { item in
-                ReaderSearchMatcher.Paragraph(
-                    paragraphIndex: item.id,
-                    isTitle: item.isTitle,
-                    original: item.original,
-                    translated: item.translated
-                )
-            }
-            guard !paragraphs.isEmpty else { continue }
-            chapters.append(ReaderSearchMatcher.Chapter(chapterIndex: index, paragraphs: paragraphs))
+            guard !cached.paragraphItems.isEmpty else { continue }
+            chapters.append(ReaderViewModel.searchChapter(index: index, items: cached.paragraphItems))
             let title = cached.title.isEmpty ? vm.chapterTitle(at: index) : cached.title
             titles[index] = translateMetaIfNeeded(title)
         }

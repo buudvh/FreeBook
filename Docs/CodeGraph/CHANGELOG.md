@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.980] - 2026-11-18
+
+### feat: Tìm trong chương cuộn vô hạn hai đầu — kéo lên tìm chương trước, kéo xuống tìm chương sau
+
+Anh Bửu: "sửa lại tìm trong chương theo ý của tôi đã" — "tìm trong chương hay là load vô hạn 2 đầu, đầu trên sẽ tìm tiếp trang trước, đầu dưới sẽ load trang sau". Hỏi thêm thì chọn: chương chưa tải về máy ⇒ "tải từ nguồn rồi tìm"; mỗi lần kéo tới một đầu ⇒ "đúng 1 chương".
+
+- **Trước**: sheet chỉ tìm trên các chương đang nằm trong RAM của Reader (chương đang đọc + vài chương lân cận), không nạp thêm được.
+- **Nay**: mở sheet vẫn tìm ngay trên chương đang đọc + các chương **liền kề** đã dựng trong RAM (không tải gì) và cuộn tới chương đang đọc. Danh sách có hàng ở **hai đầu**: kéo tới đầu trên ⇒ tìm thêm **một** chương liền trước, đầu dưới ⇒ **một** chương liền sau; hàng đó cũng bấm được (chương vừa tìm không có kết quả thì hàng vẫn trên màn ⇒ bấm để tìm tiếp), hiện "Đang tìm <chương>…", lỗi tải thì "Không tải được … · Bấm để thử lại", hết thì "Đầu truyện" / "Hết truyện". Mỗi chương đã tìm có tiêu đề + số kết quả; không có kết quả thì ghi "Không có kết quả trong chương này" để thấy đã tìm tới đâu. Đổi từ khoá chỉ khớp lại các chương đã nạp (ngoài main, chờ 250 ms), không nạp lại.
+- **Nạp chương** (`ReaderViewModel.loadChapterForSearch`, file mới `ReaderViewModel+Search.swift`): chương có sẵn trong RAM ⇒ dùng luôn; không thì **cùng đường với Reader** — `ChapterContentRepository.load` (file đã tải, không có thì tải qua tiện ích; tải từ nguồn thì chương được lưu lại và mục lục đánh dấu "đã tải" như lúc đọc) rồi `performChapterTranslationOffMainActor` với đúng cài đặt dịch / phồn → giản / tiêu đề hiện tại ⇒ cùng `ParagraphItem.id`, bấm kết quả nhảy đúng đoạn. **Không** ghi vào cache / cửa sổ trượt của Reader. Để dùng chung, tách `chapterContentRequest(at:forceRefresh:interactive:)` + `noteChapterFetchedFromSource(_:)` khỏi `loadChapterContentFromExtension` và `chapterTitleLayout(bookId:)` (hai cờ `showChapterTitle_` / `removeDuplicatedTitle_`) khỏi `processAndSaveChapter` — hành vi Reader không đổi.
+- **Trạng thái** ở `ReaderSearchSession` (`@Observable`, mới): dãy chương đã tìm luôn **liền** `lower...upper`; mỗi đầu một lượt tải tại một thời điểm, hai đầu độc lập; chương nạp xong trong lúc đang khớp lại thì lượt khớp tự khớp thêm. Đóng sheet ⇒ huỷ mọi lượt.
+- **Danh sách** đổi từ `List` sang `ScrollView` + `LazyVStack` + `scrollPosition(id:anchor: .top)`: chèn chương lên đầu vẫn giữ nguyên chỗ đang xem (bài học 1.3.822). Hàng hai đầu nạp khi **hiện ra** (`onAppear` trên khung ngoài, danh tính không đổi theo trạng thái) ⇒ không tự nạp liên tục khi hàng còn nằm trên màn — đúng "mỗi lần một chương"; vì vậy không dùng `LoadMoreFooter` (cái đó tự nạp tiếp khi chân còn trên màn).
+- Kiểm: các file Swift đã sửa / thêm qua `swiftc -frontend -parse` (chỉ cú pháp); `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. **Không build tại chỗ (Windows), chưa chạy trên máy** — chưa kiểm: vị trí cuộn khi chèn chương lên đầu, hàng đầu trên có tự nạp một chương ngay lúc mở sheet không (khi chương đang đọc ngắn), tốc độ tìm chương phải tải từ nguồn.
+
 ## [1.3.979] - 2026-11-18
 
 ### fix: CI build lại được — ONNX Runtime chép vào repo, file nhị phân lưu ở repo FreeBook-deps vì repo của Microsoft đã mất
@@ -434,16 +447,3 @@ Anh Bửu: Nano "hay bị mất chữ" ở tên riêng. Đo: bản Swift của s
 - **Cài đặt TTS › Quản lý riêng của trình đọc**: công tắc "Đọc tên Nhật theo âm tiết" dưới "Áp dụng từ điển phiên âm VieNeu" (`VieNeuJapaneseFlags.nameSyllablesEnabled`); cờ vào `TTSOnlineFallbackSettings.fingerprint`.
 - Giới hạn: tên pinyin / Hàn / Âu Mỹ đọc như cũ; tên 3 chữ và chữ có mũ ô / â / ê không tự đổi; từ tiếng Anh hiếm viết hoa có dạng romaji ngoài danh sách có thể bị đọc theo âm tiết (thêm vào từ điển hoặc tắt công tắc).
 - Kiểm: `--selftest` đạt 48/48; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.949] - 2026-11-15
-
-### fix: Nano chừa khoảng lặng dẫn đầu mỗi đoạn để không mất phụ âm đầu câu, không tốn thêm phép tính
-
-Anh Bửu: tên riêng đứng đầu câu hay bị mất chữ ("Kazuto gặp Asuna" nghe thành "aruto"). Đo trên PC bằng đúng model của app: Nano hay bắt đầu tiếng ngay mẫu 0, không chừa khoảng lặng nào (câu "ca du tô…" 3/3 seed; câu tiếng Việt bắt đầu bằng c / t 3/9 seed) ⇒ phụ âm tắc đầu đoạn không có chỗ cho khoảng ngậm; `trimAndFade` còn làm mờ 15 ms đầu mọi đoạn nên ăn tiếp vào phụ âm đầu. Anh nghe mẫu có khoảng dẫn: "Rõ rồi".
-
-- **Ký hiệu dẫn** `VieNeuTTSEngine.leadInPhonemes` = phẩy + cách, thêm vào **đầu chuỗi phiên âm** của mỗi chunk Nano (`withLeadIn`, bỏ qua chunk đã mở đầu bằng dấu câu / dấu cách). Đo ở tốc độ tổng hợp 1,15× (8 câu × 2 seed, số lượt có ≥ 20 ms lặng đầu): không dẫn 4/16 · dấu cách 7/16 · **phẩy + cách 13/16** (1,0×: 16/16). Lặng thừa bị `trimAndFade` cắt còn 40 ms.
-- **Không tốn thêm phép tính** (anh Bửu: "ảnh hưởng hiệu năng thì không làm" — Nano là trình đọc chính vì ít tốn pin): ký hiệu dẫn làm `duration_predictor` cộng ~1,8 khung mỗi chunk (115 đoạn truyện thật: +3,3% khung) ⇒ `runChunk` trả lại `leadInFrameCredit` = 2 khung (chunk < 32 khung trả 1, < 16 khung không trả). Đo 12 câu × 2 seed: 810 khung so với 818 khi không dẫn, khoảng dẫn vẫn có ở 23/24 lượt. Đánh đổi: lời đọc trong chunk nhanh hơn ~3% (khoảng dẫn lấy chỗ trong cùng số khung).
-- **`trimAndFade`** trả thêm `hadLeadIn`; đoạn model vẫn không chừa lặng đầu thì chỉ fade **2 ms** thay vì 15 ms — lệch có chủ ý so với `trim_and_fade` của bản tham chiếu, ghi trong code.
-- **Log** `[VieNeuPerf]` thêm `lead0=` = số chunk của lượt không có khoảng lặng đầu (`Timing.chunksWithoutLeadIn`).
-- Không đụng Turbo (chưa biết Turbo có lỗi này không), bộ phiên âm, đường Core ML.
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.

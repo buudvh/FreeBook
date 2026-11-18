@@ -1,41 +1,59 @@
 import SwiftUI
 
-/// Sheet "Tìm trong chương": tìm trên các chương **đã nạp sẵn trong RAM** của Reader (chương đang
-/// đọc + vài chương lân cận đã cache). Khớp cả chữ gốc lẫn chữ đã dịch qua `ReaderSearchMatcher`;
-/// bấm một kết quả sẽ nhảy tới đúng đoạn qua closure `onSelect`.
+/// Sheet "Tìm trong chương": tìm trên chương đang đọc + các chương liền kề đã dựng trong RAM của Reader, rồi **nạp thêm ở
+/// hai đầu** (1.3.980, anh Bửu: "load vô hạn 2 đầu, đầu trên sẽ tìm tiếp trang trước, đầu dưới sẽ load trang sau"):
+/// kéo tới đầu trên ⇒ tìm thêm chương liền trước, đầu dưới ⇒ chương liền sau — **mỗi lần đúng một chương**; chương chưa
+/// tải về máy thì tải từ nguồn rồi tìm (`ReaderViewModel.loadChapterForSearch`). Hàng ở hai đầu cũng bấm được (khi chương
+/// vừa tìm không có kết quả, hàng vẫn nằm trên màn ⇒ bấm để tìm tiếp). Khớp cả chữ gốc lẫn chữ đã dịch
+/// (`ReaderSearchMatcher`); bấm một kết quả sẽ nhảy tới đúng đoạn qua `onSelect`.
 ///
-/// `onSelect` trả kèm **từ khoá đã trim** để `ReaderView` tô lại đúng chữ đó trên trang; sheet
-/// không tự tính `NSRange` vì range phải tính trên chuỗi đang hiển thị ở trang đọc.
-///
-/// View chỉ nhận **snapshot bất biến** các chương (dựng sẵn từ `ReaderViewModel.cache` ở `ReaderView`),
-/// nên nó không giữ tham chiếu tới view model và không kích hoạt nạp chương mới.
+/// - Trạng thái (chương đã nạp, dãy đã tìm, trạng thái hai đầu) ở `ReaderSearchSession`; view chỉ vẽ.
+/// - `ScrollView` + `LazyVStack` (không `List`) với `scrollPosition(id:)`: chèn chương lên **đầu** danh sách vẫn giữ nguyên
+///   chỗ đang xem (bài học 1.3.822 — `List` nhảy vị trí khi nối thêm). Mở sheet thì cuộn tới chương đang đọc.
+/// - `onSelect` trả kèm **từ khoá đã trim** để `ReaderView` tô lại đúng chữ đó trên trang; sheet không tự tính `NSRange` vì
+///   range phải tính trên chuỗi đang hiển thị ở trang đọc.
 struct ReaderSearchView: View {
-    let chapters: [ReaderSearchMatcher.Chapter]
-    let chapterTitles: [Int: String]
-    let currentChapterIndex: Int
     /// Truy vấn lần trước trong lượt đọc này — mở lại sheet thì điền sẵn và tìm ngay.
-    var initialQuery: String = ""
-    /// Báo truy vấn cuối khi sheet đóng để `ReaderView` giữ cho lần mở sau. Không nối thẳng `Binding` vào
-    /// `@State` của `ReaderView`: mỗi phím gõ sẽ bắt cả thân Reader vẽ lại.
-    var onQueryChange: (String) -> Void = { _ in }
+    var initialQuery: String
+    /// Báo truy vấn cuối khi sheet đóng để `ReaderView` giữ cho lần mở sau. Không nối thẳng `Binding` vào `@State` của
+    /// `ReaderView`: mỗi phím gõ sẽ bắt cả thân Reader vẽ lại.
+    var onQueryChange: (String) -> Void
     let onSelect: (_ chapterIndex: Int, _ paragraphIndex: Int, _ query: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var session: ReaderSearchSession
     @State private var query: String = ""
-    @State private var hits: [ReaderSearchMatcher.Hit] = []
-    @State private var searchTask: Task<Void, Never>? = nil
+    /// Hàng đang ở mép trên vùng cuộn — `scrollPosition` giữ nó đứng yên khi chèn chương lên đầu.
+    @State private var scrollAnchor: String?
     @FocusState private var isSearchFocused: Bool
+
+    init(
+        initialChapters: [ReaderSearchMatcher.Chapter],
+        initialTitles: [Int: String],
+        currentChapterIndex: Int,
+        totalChapters: Int,
+        initialQuery: String = "",
+        onQueryChange: @escaping (String) -> Void = { _ in },
+        chapterTitle: @escaping @MainActor (Int) -> String,
+        loadChapter: @escaping @MainActor (Int) async throws -> ReaderSearchMatcher.LoadedChapter,
+        onSelect: @escaping (_ chapterIndex: Int, _ paragraphIndex: Int, _ query: String) -> Void
+    ) {
+        self.initialQuery = initialQuery
+        self.onQueryChange = onQueryChange
+        self.onSelect = onSelect
+        _session = State(initialValue: ReaderSearchSession(
+            initialChapters: initialChapters,
+            initialTitles: initialTitles,
+            currentChapterIndex: currentChapterIndex,
+            totalChapters: totalChapters,
+            fallbackTitle: chapterTitle,
+            loader: loadChapter
+        ))
+        _scrollAnchor = State(initialValue: Row.chapter(currentChapterIndex).id)
+    }
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Nhóm kết quả theo chương, giữ thứ tự chương tăng dần.
-    private var groupedHits: [(chapterIndex: Int, hits: [ReaderSearchMatcher.Hit])] {
-        let grouped = Dictionary(grouping: hits, by: { $0.chapterIndex })
-        return grouped.keys.sorted().map { key in
-            (chapterIndex: key, hits: grouped[key] ?? [])
-        }
     }
 
     var body: some View {
@@ -50,14 +68,14 @@ struct ReaderSearchView: View {
         }
         .onAppear {
             isSearchFocused = true
-            // Gán qua `onChange` bên dưới ⇒ tìm lại ngay trên các chương đang nạp.
+            // Gán qua `onChange` bên dưới ⇒ tìm lại ngay trên các chương đang có.
             if query.isEmpty, !initialQuery.isEmpty {
                 query = initialQuery
             }
         }
-        .onChange(of: query) { _, _ in scheduleSearch() }
+        .onChange(of: query) { _, newValue in session.setQuery(newValue) }
         .onDisappear {
-            searchTask?.cancel()
+            session.cancelAll()
             onQueryChange(query)
         }
     }
@@ -75,7 +93,6 @@ struct ReaderSearchView: View {
             if !query.isEmpty {
                 Button {
                     query = ""
-                    hits = []
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
@@ -89,44 +106,136 @@ struct ReaderSearchView: View {
 
     // MARK: - Nội dung
 
+    /// Một hàng của danh sách cuộn: hai đầu nạp thêm và một khối mỗi chương đã tìm. `id` kiểu `String` khớp `scrollAnchor`.
+    private enum Row: Identifiable {
+        case edge(ReaderSearchSession.Edge)
+        case chapter(Int)
+
+        var id: String {
+            switch self {
+            case .edge(.top): return "edge-top"
+            case .edge(.bottom): return "edge-bottom"
+            case .chapter(let index): return "chapter-\(index)"
+            }
+        }
+    }
+
+    private var rows: [Row] {
+        [.edge(.top)] + session.chapterIndices.map(Row.chapter) + [.edge(.bottom)]
+    }
+
     @ViewBuilder
     private var content: some View {
         if trimmedQuery.isEmpty {
             emptyState(
                 icon: "text.magnifyingglass",
-                title: "Tìm trong các chương đang mở",
-                message: "Chỉ tìm chương đang đọc và các chương lân cận đã tải, khớp cả chữ gốc và chữ đã dịch."
-            )
-        } else if hits.isEmpty {
-            emptyState(
-                icon: "magnifyingglass",
-                title: "Không có kết quả",
-                message: "Không thấy \"\(trimmedQuery)\" trong các chương hiện đang mở."
+                title: "Tìm trong chương",
+                message: "Tìm chương đang đọc và các chương liền kề đã mở, khớp cả chữ gốc và chữ đã dịch. Kéo tới đầu trên / dưới danh sách để tìm thêm chương trước / sau — chương chưa tải sẽ được tải từ nguồn."
             )
         } else {
-            resultsList
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        switch row {
+                        case .edge(let edge):
+                            edgeRow(edge)
+                        case .chapter(let index):
+                            chapterBlock(index, hits: session.hitsByChapter[index] ?? [])
+                        }
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollPosition(id: $scrollAnchor, anchor: .top)
         }
     }
 
-    private var resultsList: some View {
-        List {
-            ForEach(groupedHits, id: \.chapterIndex) { group in
-                Section {
-                    ForEach(group.hits) { hit in
-                        Button {
-                            onSelect(hit.chapterIndex, hit.paragraphIndex, trimmedQuery)
-                            dismiss()
-                        } label: {
-                            resultRow(hit)
-                        }
-                        .buttonStyle(.plain)
+    private func chapterBlock(_ index: Int, hits: [ReaderSearchMatcher.Hit]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(for: index, count: hits.count)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
+            if hits.isEmpty {
+                Text(session.query == trimmedQuery ? "Không có kết quả trong chương này" : "Đang tìm…")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+            } else {
+                ForEach(hits) { hit in
+                    Button {
+                        onSelect(hit.chapterIndex, hit.paragraphIndex, trimmedQuery)
+                        dismiss()
+                    } label: {
+                        resultRow(hit)
+                            .padding(.horizontal, 16)
                     }
-                } header: {
-                    sectionHeader(for: group.chapterIndex, count: group.hits.count)
+                    .buttonStyle(.plain)
+                    Divider()
+                        .padding(.leading, 16)
                 }
             }
         }
-        .listStyle(.plain)
+    }
+
+    /// Hàng ở hai đầu: hiện ra ⇒ nạp **một** chương (`onAppear` gắn trên khung ngoài, không đổi danh tính theo trạng thái ⇒
+    /// không tự nạp liên tục khi hàng còn nằm trên màn); bấm được để tìm tiếp / thử lại.
+    private func edgeRow(_ edge: ReaderSearchSession.Edge) -> some View {
+        edgeContent(edge)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .contentShape(Rectangle())
+            .onAppear { session.loadMore(edge) }
+    }
+
+    @ViewBuilder
+    private func edgeContent(_ edge: ReaderSearchSession.Edge) -> some View {
+        if let next = session.nextIndex(edge) {
+            let title = session.title(for: next)
+            switch session.state(edge) {
+            case .loading:
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Đang tìm \(title)…")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            case .failed(let message):
+                Button { session.loadMore(edge) } label: {
+                    VStack(spacing: 4) {
+                        Text("Không tải được \(title)")
+                            .font(.footnote.weight(.semibold))
+                        Text(message)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                        Text("Bấm để thử lại")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(.accentColor)
+                    }
+                    .multilineTextAlignment(.center)
+                }
+                .buttonStyle(.plain)
+            case .idle:
+                Button { session.loadMore(edge) } label: {
+                    Label(
+                        "\(edge == .top ? "Tìm chương trước" : "Tìm chương sau") · \(title)",
+                        systemImage: edge == .top ? "arrow.up.circle" : "arrow.down.circle"
+                    )
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.accentColor)
+                    .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+            }
+        } else {
+            Text(edge == .top ? "Đầu truyện" : "Hết truyện")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        }
     }
 
     private func resultRow(_ hit: ReaderSearchMatcher.Hit) -> some View {
@@ -145,16 +254,17 @@ struct ReaderSearchView: View {
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
 
     private func sectionHeader(for chapterIndex: Int, count: Int) -> some View {
         HStack(spacing: 6) {
-            Text(chapterDisplayTitle(chapterIndex))
+            Text(session.title(for: chapterIndex))
                 .font(.footnote.weight(.semibold))
                 .lineLimit(1)
-            if chapterIndex == currentChapterIndex {
+            if chapterIndex == session.currentChapterIndex {
                 tag("Đang đọc", color: .green)
             }
             Spacer(minLength: 0)
@@ -192,15 +302,6 @@ struct ReaderSearchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Trợ giúp
-
-    private func chapterDisplayTitle(_ index: Int) -> String {
-        if let title = chapterTitles[index], !title.isEmpty {
-            return title
-        }
-        return "Chương \(index + 1)"
-    }
-
     /// Tô đậm phần khớp trong đoạn trích (không phân biệt dấu/hoa thường).
     private func highlightedSnippet(_ snippet: String) -> AttributedString {
         var attributed = AttributedString(snippet)
@@ -212,25 +313,5 @@ struct ReaderSearchView: View {
             attributed[attributedRange].foregroundColor = .white
         }
         return attributed
-    }
-
-    /// Debounce ~250ms rồi tìm; huỷ lần tìm trước nếu người dùng gõ tiếp.
-    /// Bộ khớp (so khớp bỏ dấu theo locale trên mọi đoạn đã cache) chạy **ngoài main** để không giật bàn phím;
-    /// lần tìm bị huỷ vẫn chạy nốt ở nền nhưng kết quả bị bỏ nhờ guard `isCancelled` trước khi gán.
-    private func scheduleSearch() {
-        searchTask?.cancel()
-        let currentQuery = query
-        let chapters = self.chapters
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            guard !Task.isCancelled else { return }
-            let results = await Task.detached(priority: .userInitiated) {
-                ReaderSearchMatcher.search(query: currentQuery, in: chapters)
-            }.value
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                self.hits = results
-            }
-        }
     }
 }

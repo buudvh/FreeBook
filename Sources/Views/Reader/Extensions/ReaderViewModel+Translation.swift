@@ -118,6 +118,17 @@ extension ReaderViewModel {
         )
     }
 
+    /// Hai cờ dựng tiêu đề chương của truyện (`showChapterTitle_` / `removeDuplicatedTitle_`, chưa đặt = bật) — một chỗ đọc
+    /// cho Reader và "Tìm trong chương" để hai bên dựng ra đúng cùng các đoạn (cùng id).
+    nonisolated static func chapterTitleLayout(bookId: String) -> (showTitle: Bool, removeDuplicatedTitle: Bool) {
+        let defaults = UserDefaults.standard
+        let showTitleKey = "showChapterTitle_\(bookId)"
+        let removeTitleKey = "removeDuplicatedTitle_\(bookId)"
+        let showTitle = defaults.object(forKey: showTitleKey) != nil ? defaults.bool(forKey: showTitleKey) : true
+        let removeDuplicatedTitle = defaults.object(forKey: removeTitleKey) != nil ? defaults.bool(forKey: removeTitleKey) : true
+        return (showTitle, removeDuplicatedTitle)
+    }
+
     internal func processAndSaveChapter(
         index: Int,
         originalTitle: String,
@@ -137,14 +148,7 @@ extension ReaderViewModel {
             let bookId = self.bookId
             let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
             let extensionEngine = extensionTranslationEngine(isTranslationEnabled: isTranslationEnabled)
-            let showTitleKey = "showChapterTitle_\(bookId)"
-            let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
-                ? UserDefaults.standard.bool(forKey: showTitleKey)
-                : true
-            let removeTitleKey = "removeDuplicatedTitle_\(bookId)"
-            let removeDuplicatedTitle = UserDefaults.standard.object(forKey: removeTitleKey) != nil
-                ? UserDefaults.standard.bool(forKey: removeTitleKey)
-                : true
+            let (showTitle, removeDuplicatedTitle) = Self.chapterTitleLayout(bookId: bookId)
 
             do {
                 let (sourceContent, result) = try await performChapterTranslationOffMainActor(

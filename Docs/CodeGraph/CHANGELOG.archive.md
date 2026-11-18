@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.949] - 2026-11-15
+
+### fix: Nano chừa khoảng lặng dẫn đầu mỗi đoạn để không mất phụ âm đầu câu, không tốn thêm phép tính
+
+Anh Bửu: tên riêng đứng đầu câu hay bị mất chữ ("Kazuto gặp Asuna" nghe thành "aruto"). Đo trên PC bằng đúng model của app: Nano hay bắt đầu tiếng ngay mẫu 0, không chừa khoảng lặng nào (câu "ca du tô…" 3/3 seed; câu tiếng Việt bắt đầu bằng c / t 3/9 seed) ⇒ phụ âm tắc đầu đoạn không có chỗ cho khoảng ngậm; `trimAndFade` còn làm mờ 15 ms đầu mọi đoạn nên ăn tiếp vào phụ âm đầu. Anh nghe mẫu có khoảng dẫn: "Rõ rồi".
+
+- **Ký hiệu dẫn** `VieNeuTTSEngine.leadInPhonemes` = phẩy + cách, thêm vào **đầu chuỗi phiên âm** của mỗi chunk Nano (`withLeadIn`, bỏ qua chunk đã mở đầu bằng dấu câu / dấu cách). Đo ở tốc độ tổng hợp 1,15× (8 câu × 2 seed, số lượt có ≥ 20 ms lặng đầu): không dẫn 4/16 · dấu cách 7/16 · **phẩy + cách 13/16** (1,0×: 16/16). Lặng thừa bị `trimAndFade` cắt còn 40 ms.
+- **Không tốn thêm phép tính** (anh Bửu: "ảnh hưởng hiệu năng thì không làm" — Nano là trình đọc chính vì ít tốn pin): ký hiệu dẫn làm `duration_predictor` cộng ~1,8 khung mỗi chunk (115 đoạn truyện thật: +3,3% khung) ⇒ `runChunk` trả lại `leadInFrameCredit` = 2 khung (chunk < 32 khung trả 1, < 16 khung không trả). Đo 12 câu × 2 seed: 810 khung so với 818 khi không dẫn, khoảng dẫn vẫn có ở 23/24 lượt. Đánh đổi: lời đọc trong chunk nhanh hơn ~3% (khoảng dẫn lấy chỗ trong cùng số khung).
+- **`trimAndFade`** trả thêm `hadLeadIn`; đoạn model vẫn không chừa lặng đầu thì chỉ fade **2 ms** thay vì 15 ms — lệch có chủ ý so với `trim_and_fade` của bản tham chiếu, ghi trong code.
+- **Log** `[VieNeuPerf]` thêm `lead0=` = số chunk của lượt không có khoảng lặng đầu (`Timing.chunksWithoutLeadIn`).
+- Không đụng Turbo (chưa biết Turbo có lỗi này không), bộ phiên âm, đường Core ML.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.948] - 2026-11-14
 
 ### feat: Log lưu bằng SQLite theo từng lần mở app, có bản build, máy, nhiệt, TTS và đánh dấu phiên chết đột ngột

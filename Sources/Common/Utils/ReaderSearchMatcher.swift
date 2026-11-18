@@ -21,6 +21,12 @@ enum ReaderSearchMatcher {
         let paragraphs: [Paragraph]
     }
 
+    /// Một chương vừa nạp cho "Tìm trong chương" (1.3.980) kèm tên **gốc** của nó (`ReaderView` dịch tên khi hiển thị).
+    struct LoadedChapter {
+        let chapter: Chapter
+        let title: String
+    }
+
     /// Một khớp: vị trí (chương, đoạn) + đoạn trích ngắn quanh chỗ khớp.
     struct Hit: Identifiable, Equatable {
         /// Chỉ số chương thật trong mục lục.

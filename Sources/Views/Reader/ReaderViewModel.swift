@@ -660,6 +660,39 @@ class ReaderViewModel: ObservableObject {
         if !forceRefresh, let cached = cache.cache[index],
            cached.state == .loaded, !cached.originalContent.isEmpty { return .memory }
 
+        let (request, title) = try await chapterContentRequest(at: index, forceRefresh: forceRefresh, interactive: interactive)
+        _ = cache.setPlaceholder(index)
+        await ChapterContentRepository.shared.configure(container: modelContext.container)
+        let repoStartUptime = AppLogger.shared.isLoggingEnabled ? ProcessInfo.processInfo.systemUptime : 0
+        let result = try await ChapterContentRepository.shared.load(request)
+        if repoStartUptime > 0 {
+            // Actor này dùng chung với TTS, nên ms ở đây gồm cả thời gian xếp hàng sau một
+            // lượt fetch chương của TTS — không chỉ thời gian tải/bóc tách của Reader.
+            AppLogger.shared.log(String(
+                format: "[ReaderPerf] RepoLoad index=%d origin=%@ ms=%.2f",
+                index,
+                "\(result.origin)",
+                (ProcessInfo.processInfo.systemUptime - repoStartUptime) * 1000
+            ))
+        }
+
+        try Task.checkCancellation()
+        let cleanedContent = result.document.text.content
+        if result.origin == .extensionFetch {
+            noteChapterFetchedFromSource(index)
+        }
+
+        await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent, revision: currentRevision)
+        return result.origin
+    }
+
+    /// Yêu cầu nạp nội dung chương `index` (tên, URL, host, tiện ích nguồn) — dùng chung cho Reader và "Tìm trong chương"
+    /// (`loadChapterForSearch`, 1.3.980). Không đụng cache của Reader.
+    func chapterContentRequest(
+        at index: Int,
+        forceRefresh: Bool,
+        interactive: Bool
+    ) async throws -> (request: ChapterContentRequest, title: String) {
         let title: String
         let urlString: String
         let chapterHost: String?
@@ -684,52 +717,26 @@ class ReaderViewModel: ObservableObject {
             bookMetadata = makeBookMetadataSnapshot()
         }
 
-        _ = cache.setPlaceholder(index)
-        let extensionInfo: TTSExtensionInfo? = {
-            if let ext = ext {
-                return TTSExtensionInfo(
-                    packageId: ext.packageId,
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    configJson: ext.configJson
-                )
-            }
-            return nil
-        }()
-        await ChapterContentRepository.shared.configure(container: modelContext.container)
-        let repoStartUptime = AppLogger.shared.isLoggingEnabled ? ProcessInfo.processInfo.systemUptime : 0
-        let result = try await ChapterContentRepository.shared.load(
-            ChapterContentRequest(
-                bookId: bookId,
-                chapterIndex: index,
-                title: title,
-                url: urlString,
-                host: chapterHost,
-                bookMetadata: bookMetadata,
-                extensionInfo: extensionInfo,
-                forceRefresh: forceRefresh, isInteractive: interactive
-            )
+        let extensionInfo = ext.map {
+            TTSExtensionInfo(packageId: $0.packageId, localPath: $0.localPath, downloadUrl: $0.downloadUrl, configJson: $0.configJson)
+        }
+        let request = ChapterContentRequest(
+            bookId: bookId,
+            chapterIndex: index,
+            title: title,
+            url: urlString,
+            host: chapterHost,
+            bookMetadata: bookMetadata,
+            extensionInfo: extensionInfo,
+            forceRefresh: forceRefresh, isInteractive: interactive
         )
-        if repoStartUptime > 0 {
-            // Actor này dùng chung với TTS, nên ms ở đây gồm cả thời gian xếp hàng sau một
-            // lượt fetch chương của TTS — không chỉ thời gian tải/bóc tách của Reader.
-            AppLogger.shared.log(String(
-                format: "[ReaderPerf] RepoLoad index=%d origin=%@ ms=%.2f",
-                index,
-                "\(result.origin)",
-                (ProcessInfo.processInfo.systemUptime - repoStartUptime) * 1000
-            ))
-        }
+        return (request, title)
+    }
 
-        try Task.checkCancellation()
-        let cleanedContent = result.document.text.content
-        if result.origin == .extensionFetch {
-            cachedLocalBook = nil
-            onChapterCached?(index)
-        }
-
-        await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent, revision: currentRevision)
-        return result.origin
+    /// Chương vừa tải từ nguồn đã được lưu xuống máy ⇒ bỏ bản chụp sách cũ và báo Reader (mục lục đánh dấu "đã tải").
+    func noteChapterFetchedFromSource(_ index: Int) {
+        cachedLocalBook = nil
+        onChapterCached?(index)
     }
 
     private func makeBookMetadataSnapshot() -> BookMetadataSnapshot? {
