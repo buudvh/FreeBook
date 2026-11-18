@@ -6,7 +6,7 @@ import SwiftUI
 /// - `pattern` = text đang bôi đen; ô **Chuỗi thay thế LUÔN rỗng khi mở** — cố ý **không** điền sẵn từ rule
 ///   đã có (bản cũ điền sẵn ở `init`, và `onChange(of: pattern)` cũng điền lại; **cả hai đã bỏ**).
 /// - Dưới ô nhập là **chip gợi ý** (`TTSReplacementSuggestionSection`, dùng chung với sheet sửa quy tắc và sheet sửa
-///   từ điển phiên âm): mỗi rule đang có cho **đúng** `pattern` đó, lấy từ **cả 2 tầng**, badge **R** (riêng truyện)
+///   từ điển phiên âm): mỗi rule đang có cho `pattern` đó (không phân biệt hoa thường, 1.3.978), lấy từ **cả 2 tầng**, badge **R** (riêng truyện)
 ///   / **C** (chung), tầng riêng xếp trước. Bấm chip ⇒ nhập `replacement` của rule đó **và** đặt công tắc bật/tắt
 ///   theo `isEnabled` của rule đó.
 /// - Rule đang **tắt** ⇒ chip **mờ**, nhìn ra trạng thái mà không phải bấm thử.

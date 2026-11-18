@@ -45,7 +45,8 @@ struct TTSReplacementSuggestionSection: View {
         self.onSelect = onSelect
     }
 
-    /// Luật của **cả hai tầng** có mẫu trùng đúng `pattern`: tầng riêng trước, rồi tầng chung. Sheet sửa luật tự bỏ
+    /// Luật của **cả hai tầng** có mẫu trùng `pattern` — không phân biệt hoa thường, như lúc đọc (`matchKey`, 1.3.978):
+    /// tầng riêng trước, rồi tầng chung. Sheet sửa luật tự bỏ
     /// luật đang sửa khỏi danh sách trước khi truyền vào (chip của chính nó chỉ lặp lại giá trị đang nằm trong ô).
     static func ruleChips(
         pattern: String,
@@ -55,14 +56,15 @@ struct TTSReplacementSuggestionSection: View {
     ) -> [RuleChip] {
         let trimmed = pattern.trimmed
         guard !trimmed.isEmpty else { return [] }
+        let key = TTSReplacementRule.matchKey(for: trimmed)
         var result: [RuleChip] = []
         if let bookId, !bookId.isEmpty {
             result += bookRules
-                .filter { $0.pattern == trimmed }
+                .filter { $0.matchKey == key }
                 .map { RuleChip(scope: .book, rule: $0) }
         }
         result += globalRules
-            .filter { $0.pattern == trimmed }
+            .filter { $0.matchKey == key }
             .map { RuleChip(scope: .global, rule: $0) }
         return result
     }

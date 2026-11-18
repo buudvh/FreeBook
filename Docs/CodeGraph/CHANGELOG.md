@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.978] - 2026-11-18
+
+### fix: Thay thế từ TTS không phân biệt hoa thường — lúc đọc lẫn chip R/C
+
+Anh Bửu báo chip gợi ý của "Thêm thay thế TTS" sai, rồi tự tìm ra nguyên nhân: "có vẻ do R/C phân biệt hoa thường"; được hỏi sửa tới đâu thì chọn "cả lúc đọc cũng không phân biệt".
+
+- **Trước**: luật chữ khớp token **bằng đúng cả hoa thường** (1.3.940) — rule `sasuke` không thay "Sasuke" đầu câu, và chip R/C của sheet "Thêm thay thế TTS" (lẫn sheet Thêm / Sửa quy tắc) không hiện rule đó khi bôi đen "Sasuke". Chip R/C không bị 1.3.974 đổi — phép lọc `pattern == ` đã có từ trước.
+- **Nay**: một khoá khớp duy nhất `TTSReplacementRule.matchKey` (hạ chữ thường, **giữ dấu**: `Hà` vẫn không đụng `Ha` / `Hàn`; chuỗi thay thế giữ nguyên chữ người dùng gõ) dùng cho mọi phép so mẫu:
+  - lúc đọc — `TTSReplacementPlan` (luật chữ; luật ký hiệu không có hoa thường);
+  - gộp tầng riêng với tầng chung (`mergedRules`: rule riêng — kể cả đang tắt — chặn rule chung cùng mẫu khác hoa thường);
+  - `addRule` hai tầng, màn Sửa quy tắc (đè luật trùng), nhập JSON / khôi phục mặc định ở chế độ gộp, khôi phục sao lưu (`BackupDictionaryRestorer`);
+  - cảnh báo "trùng mẫu" của `TTSReplacementRuleValidator`, câu mô tả luật chữ, chữ giải thích ở màn Thay thế ký tự TTS;
+  - chip R/C (`TTSReplacementSuggestionSection.ruleChips`).
+- **Ảnh hưởng tới luật đang có**: luật cho tên riêng giờ thay cả từ thường cùng chữ (rule `Long` thay cả "long") — anh Bửu đã được báo trước khi chọn. Một tầng đang có hai luật chỉ khác hoa thường (`Sasuke`, `sasuke`): lúc đọc luật **đứng trước** thắng, hàng của chúng hiện cảnh báo trùng mẫu; thêm / sửa lần sau sẽ đè nhau như mọi luật trùng. Dữ liệu không tự sửa.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift` (`TTSReplacementManager.swift` legacy giữ nguyên số dòng). Không build tại chỗ (Windows), chưa chạy trên máy.
+
 ## [1.3.977] - 2026-11-17
 
 ### feat: Gemini Web chạy được khi chưa đăng nhập Google (chế độ khách)
@@ -430,15 +446,4 @@ Anh Bửu: "tôi muốn thay đổi cách lưu log ổn hơn" — grill-me chố
 - **Xuất** (`AppLogger+Sessions`, mới): danh sách phiên, xoá phiên, xuất các phiên đã chọn (cũ → mới) thành **một** `Caches/log-exports/TangCongCac-log-<build>-<ngày giờ>.txt` — mỗi phiên mở đầu bằng khối `===== Phiên … =====` (app, máy, iOS, nhiệt, RAM, ổ trống, TTS, phiên trước, trạng thái cuối) rồi các dòng `[yyyy-MM-dd HH:mm:ss.SSS] …`; đọc bằng kết nối riêng ngoài queue ghi.
 - **Màn Ghi log hệ thống**: mục "File Log" + "Thao Tác" thay bằng **Phiên** (giờ · bản build · số dòng · số lỗi, badge đỏ "Chết đột ngột", chọn sẵn phiên đang ghi) + "Xuất N phiên (.txt)" (bảng chia sẻ) / "Xoá N phiên" / "Xoá tất cả". Bỏ nút sao chép file mới nhất.
 - Ghi chú ở CLAUDE.md / AGENTS.md (gạch Logging, danh sách thư mục).
-- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
-
-## [1.3.947] - 2026-11-14
-
-### feat: Trình duyệt ẩn của tiện ích có thêm browser.loadHtml theo hợp đồng chuẩn
-
-Log 22 (anh Bửu duyệt): thử giọng tiện ích ChillAudio TTS lỗi `browser.loadHtml is not a function`. Hợp đồng tiện ích chuẩn có `browser.loadHtml(url, html)` — nạp HTML có sẵn với URL gốc rồi chờ trang chạy xong — mà `Engine.newBrowser()` của app chưa có.
-
-- **JS** (`JSEngineBootstrapScript`): `loadHtml(a, b, timeout)` — nhận cả thứ tự của hợp đồng `(url, html)` lẫn thứ tự ngược `(html, url)` mà ChillAudio đang gọi (tham số nào bắt đầu bằng `http://` / `https://` là URL gốc); chờ mặc định 15 s; trả DOM như `launch`.
-- **Native**: cầu `_nativeBrowserLoadHtml` (`JSExecutor`, cùng khuôn `_nativeBrowserLaunch`) → `WebViewLoader.loadHtml` (`WebViewLoader+LoadHtml`, file mới): xoá danh sách URL đã bắt (`urls()` / `waitUrl` tính từ lượt nạp này), `loadHTMLString(html, baseURL:)`, trả DOM ở `didFinish`, hết giờ thì trả DOM đang có.
-- Chưa có cho trình duyệt hiện (`newVisibleBrowser`) — hợp đồng chỉ khai cho trình duyệt ẩn. Chưa biết bước sau `loadHtml` của ChillAudio có cần thêm lệnh nào khác.
 - Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.

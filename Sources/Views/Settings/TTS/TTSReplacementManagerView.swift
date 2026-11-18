@@ -51,7 +51,7 @@ struct TTSReplacementManagerView: View {
     /// kéo sắp xếp.
     private static let matchingHelp: [LocalizedStringKey] = [
         "Mỗi quy tắc là **một từ** hoặc **một dãy ký hiệu**. Từ = chữ / số liền nhau; `-` hoặc `.` kẹp giữa hai chữ (không dấu cách) vẫn thuộc từ — `Kamar-Taj`, `S.H.I.E.L.D` là một từ.",
-        "Quy tắc từ chỉ thay khi **cả từ trùng đúng mẫu** (phân biệt hoa thường): `Hà` thay \"Hà Nội\" nhưng không đụng \"Hàn\".",
+        "Quy tắc từ chỉ thay khi **cả từ trùng đúng mẫu**, **không phân biệt hoa thường** (`sasuke` thay cả \"Sasuke\"): `Hà` thay \"Hà Nội\" nhưng không đụng \"Hàn\".",
         "Quy tắc ký hiệu chạy **sau** quy tắc từ, chỉ thay trong dãy ký hiệu, **mẫu dài hơn được ưu tiên** (`....` thắng `...`) — không bao giờ thay mất `-` / `.` nằm trong từ.",
         "Thứ tự trong danh sách không ảnh hưởng. Quy tắc có huy hiệu đỏ là quy tắc sai, không được áp dụng. Áp dụng trước khi văn bản qua bộ phiên âm và đọc TTS."
     ]
@@ -344,7 +344,7 @@ struct TTSReplacementManagerView: View {
     // báo TRÙNG MẪU — `updateRule` của manager không tự gộp.
     private func saveRule() {
         if let rule = selectedRule {
-            for other in currentRules where other.id != rule.id && other.pattern == patternInput {
+            for other in currentRules where other.id != rule.id && other.matchKey == TTSReplacementRule.matchKey(for: patternInput) {
                 manager.deleteRule(id: other.id, bookId: bookId)
             }
             var updated = rule

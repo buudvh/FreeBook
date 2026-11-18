@@ -82,13 +82,13 @@ extension TTSReplacementManager {
     // MARK: - Kế hoạch đã gộp
 
     /// Danh sách rule **đã gộp** cho một truyện: rule riêng (giữ nguyên thứ tự, **gồm cả rule đang tắt**)
-    /// rồi tới rule chung chưa bị `pattern` nào của truyện đè. Truyện không có rule riêng ⇒ trả nguyên
+    /// rồi tới rule chung chưa bị `pattern` nào của truyện đè (so không phân biệt hoa thường — `matchKey`, 1.3.978). Truyện không có rule riêng ⇒ trả nguyên
     /// `rules` (đường đi y hệt trước khi có tính năng này).
     func mergedRules(bookId: String?) -> [TTSReplacementRule] {
         let local = rules(bookId: bookId)
         guard !local.isEmpty else { return rules }
-        let blocked = Set(local.map(\.pattern))
-        return local + rules.filter { !blocked.contains($0.pattern) }
+        let blocked = Set(local.map(\.matchKey))
+        return local + rules.filter { !blocked.contains($0.matchKey) }
     }
 
     /// Bộ luật đã dựng cho một truyện — dựng **lười** rồi cache.
@@ -134,7 +134,7 @@ extension TTSReplacementManager {
         guard let bookId, !bookId.isEmpty else { return addRule(rule) }
         var list = rules(bookId: bookId)
         let previousCount = list.count
-        list.removeAll { $0.pattern == rule.pattern }
+        list.removeAll { $0.matchKey == rule.matchKey }
         let replacedExisting = list.count != previousCount
         list.append(rule)
         store(list, bookId: bookId)
@@ -183,7 +183,7 @@ extension TTSReplacementManager {
             list = imported
         case .merge:
             // Cùng ngữ nghĩa `merge` của tầng chung: chỉ nối rule có `pattern` **chưa** tồn tại.
-            for rule in imported where !list.contains(where: { $0.pattern == rule.pattern }) {
+            for rule in imported where !list.contains(where: { $0.matchKey == rule.matchKey }) {
                 list.append(rule)
             }
         }

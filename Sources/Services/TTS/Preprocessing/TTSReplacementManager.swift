@@ -196,7 +196,7 @@ public final class TTSReplacementManager: ObservableObject {
             // cho từng rule mặc định.
             var merged = self.rules
             for rule in Self.defaultRulesList {
-                if !merged.contains(where: { $0.pattern == rule.pattern }) {
+                if !merged.contains(where: { $0.matchKey == rule.matchKey }) {
                     merged.append(rule)
                 }
             }
@@ -219,7 +219,7 @@ public final class TTSReplacementManager: ObservableObject {
     public func addRule(_ rule: TTSReplacementRule) -> AddRuleResult {
         var updatedRules = rules
         let previousCount = updatedRules.count
-        updatedRules.removeAll { $0.pattern == rule.pattern }
+        updatedRules.removeAll { $0.matchKey == rule.matchKey }
         let replacedExistingRule = updatedRules.count != previousCount
         updatedRules.append(rule)
         rules = updatedRules
@@ -288,7 +288,7 @@ public final class TTSReplacementManager: ObservableObject {
                 // Gộp cục bộ rồi gán một lần, xem chú thích ở `resetToDefaults`.
                 var merged = self.rules
                 for rule in validatedRules {
-                    if !merged.contains(where: { $0.pattern == rule.pattern }) {
+                    if !merged.contains(where: { $0.matchKey == rule.matchKey }) {
                         merged.append(rule)
                     }
                 }

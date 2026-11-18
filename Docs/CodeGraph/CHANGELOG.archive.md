@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.947] - 2026-11-14
+
+### feat: Trình duyệt ẩn của tiện ích có thêm browser.loadHtml theo hợp đồng chuẩn
+
+Log 22 (anh Bửu duyệt): thử giọng tiện ích ChillAudio TTS lỗi `browser.loadHtml is not a function`. Hợp đồng tiện ích chuẩn có `browser.loadHtml(url, html)` — nạp HTML có sẵn với URL gốc rồi chờ trang chạy xong — mà `Engine.newBrowser()` của app chưa có.
+
+- **JS** (`JSEngineBootstrapScript`): `loadHtml(a, b, timeout)` — nhận cả thứ tự của hợp đồng `(url, html)` lẫn thứ tự ngược `(html, url)` mà ChillAudio đang gọi (tham số nào bắt đầu bằng `http://` / `https://` là URL gốc); chờ mặc định 15 s; trả DOM như `launch`.
+- **Native**: cầu `_nativeBrowserLoadHtml` (`JSExecutor`, cùng khuôn `_nativeBrowserLaunch`) → `WebViewLoader.loadHtml` (`WebViewLoader+LoadHtml`, file mới): xoá danh sách URL đã bắt (`urls()` / `waitUrl` tính từ lượt nạp này), `loadHTMLString(html, baseURL:)`, trả DOM ở `didFinish`, hết giờ thì trả DOM đang có.
+- Chưa có cho trình duyệt hiện (`newVisibleBrowser`) — hợp đồng chỉ khai cho trình duyệt ẩn. Chưa biết bước sau `loadHtml` của ChillAudio có cần thêm lệnh nào khác.
+- Kiểm: `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`. Không build tại chỗ (Windows), chưa thử máy.
+
 ## [1.3.946] - 2026-11-14
 
 ### fix: Đổi nguồn lúc đang nghe truyện thì nghe tiếp ở truyện mới và không còn mất VP riêng

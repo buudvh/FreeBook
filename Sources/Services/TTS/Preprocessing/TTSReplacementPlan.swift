@@ -3,8 +3,9 @@ import Foundation
 /// Bộ luật thay thế TTS đã dựng sẵn cho một tầng (chung, hoặc riêng truyện đã gộp với chung) — 1.3.920.
 ///
 /// Chạy **hai lượt** (anh Bửu chốt 2026-11-14):
-/// 1. **Từ** — token từ của chữ gốc **bằng đúng** mẫu một luật chữ ⇒ thay cả token (phân biệt hoa thường).
-///    `Hà` thay "Hà Nội" nhưng không đụng "Hàn"; `Kamar` không khớp gì trong "Kamar-Taj".
+/// 1. **Từ** — token từ của chữ gốc **bằng đúng** mẫu một luật chữ ⇒ thay cả token, **không phân biệt hoa thường**
+///    (1.3.978, `TTSReplacementRule.matchKey`): `sasuke` thay cả "Sasuke" đầu câu. `Hà` thay "Hà Nội" nhưng không đụng
+///    "Hàn"; `Kamar` không khớp gì trong "Kamar-Taj".
 /// 2. **Ký hiệu** — token hoá **lại** kết quả lượt 1; trong từng token ký hiệu quét trái → phải, mỗi vị trí chọn
 ///    mẫu **dài nhất** khớp (`....` thắng `...`). Từ — kể cả từ lượt 1 vừa sinh ra, vd `Ca-ma` — không bao giờ bị
 ///    luật ký hiệu chạm; ký hiệu do luật chữ sinh ra (vd `Shield (tổ chức)`) vẫn được dọn.
@@ -26,7 +27,7 @@ struct TTSReplacementPlan: Sendable {
 
     var isEmpty: Bool { wordMap.isEmpty && symbolIndex.isEmpty }
 
-    /// Lọc `isEnabled`, bỏ luật sai. Trùng mẫu thì luật **đứng trước** thắng — tầng riêng đứng trước tầng chung
+    /// Lọc `isEnabled`, bỏ luật sai. Trùng mẫu (không phân biệt hoa thường) thì luật **đứng trước** thắng — tầng riêng đứng trước tầng chung
     /// trong `mergedRules`, còn trong một tầng `addRule` / màn Sửa đã đè theo mẫu.
     static func compile(_ rules: [TTSReplacementRule]) -> TTSReplacementPlan {
         var plan = TTSReplacementPlan()
@@ -35,8 +36,9 @@ struct TTSReplacementPlan: Sendable {
             guard let token = TTSReplacementTokenizer.singleToken(rule.pattern) else { continue }
             switch token.kind {
             case .word:
-                if plan.wordMap[token.text] == nil {
-                    plan.wordMap[token.text] = rule.replacement
+                let key = TTSReplacementRule.matchKey(for: token.text)
+                if plan.wordMap[key] == nil {
+                    plan.wordMap[key] = rule.replacement
                 }
             case .symbol:
                 guard seenSymbols.insert(token.text).inserted, let first = token.text.first else { continue }
@@ -65,7 +67,7 @@ struct TTSReplacementPlan: Sendable {
         var output = ""
         output.reserveCapacity(text.utf8.count)
         for token in TTSReplacementTokenizer.tokens(in: text) {
-            if token.kind == .word, let replacement = wordMap[token.text] {
+            if token.kind == .word, let replacement = wordMap[TTSReplacementRule.matchKey(for: token.text)] {
                 output += replacement
             } else {
                 output += token.text

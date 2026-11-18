@@ -322,8 +322,9 @@ public enum BackupDictionaryRestorer {
             }
 
             var merged = existing
-            let existingPatterns = Set(existing.map { $0.pattern })
-            merged.append(contentsOf: imported.filter { !existingPatterns.contains($0.pattern) })
+            // Trùng mẫu so không phân biệt hoa thường (1.3.978) — cùng luật với lúc đọc.
+            let existingPatterns = Set(existing.map(\.matchKey))
+            merged.append(contentsOf: imported.filter { !existingPatterns.contains($0.matchKey) })
 
             let data = try JSONEncoder().encode(merged)
             try data.write(to: target, options: .atomic)

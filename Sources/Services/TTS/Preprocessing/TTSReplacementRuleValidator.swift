@@ -63,7 +63,7 @@ enum TTSReplacementRuleValidator {
         if TTSReplacementTokenizer.singleToken(pattern) == nil {
             result.append(Issue(code: .notSingleToken, message: notSingleTokenReason(pattern)))
         }
-        if siblings.contains(where: { $0.id != excludingId && $0.pattern == pattern }) {
+        if siblings.contains(where: { $0.id != excludingId && $0.matchKey == TTSReplacementRule.matchKey(for: pattern) }) {
             result.append(Issue(code: .duplicatePattern, message: "Tầng này đã có luật cùng mẫu — Lưu sẽ đè luật đó."))
         }
         if replacement == pattern {
@@ -81,7 +81,7 @@ enum TTSReplacementRuleValidator {
     static func validDescription(for pattern: String) -> String? {
         switch TTSReplacementTokenizer.singleToken(pattern)?.kind {
         case .word:
-            return "Luật chữ — thay khi cả từ trùng đúng mẫu (phân biệt hoa thường)."
+            return "Luật chữ — thay khi cả từ trùng đúng mẫu (không phân biệt hoa thường)."
         case .symbol:
             return "Luật ký hiệu — thay trong dãy ký hiệu, chạy sau luật chữ, mẫu dài hơn được ưu tiên."
         case .space, .none:
