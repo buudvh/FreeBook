@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.994] - 2026-11-19
+
+### feat: Thẻ Từ điển chung dạng menu thả xuống — Sửa / Nhập / Xuất / Làm mới / Xoá, thêm thẻ Rule dịch
+
+Trước: Cài đặt dịch thuật › Từ điển chung có 4 thẻ (sau khi gỡ LuatNhan): chạm thẻ = nhập ghi đè thẳng (chọn file là thay toàn bộ), icon ↑ phủ cuối thẻ = xuất TXT; nút "Làm mới dữ liệu dịch" riêng ở dưới; không xoá được từ điển gốc, không có thẻ cho rule dịch.
+Nay:
+- 5 thẻ VietPhrase.txt / Name.txt / PhienAm.txt / Pronouns.txt / Rule dịch (ô thứ 5 thay ô LuatNhan; trạng thái "N rule"). Icon cuối thẻ là ellipsis dọc; cả thẻ là Menu hệ thống thả xuống (anh Bửu: "đừng mở ngăn kéo, mockup lại kiểu dropdown" — ngoại lệ có chủ ý so với luật menu ba chấm = ngăn kéo): Sửa, Nhập file, Xuất file, Làm mới dữ liệu, nhóm riêng Xoá (destructive).
+- Sửa: VietPhrase / Name ⇒ đẩy DictionaryListView Chung tương ứng; Rule dịch ⇒ đẩy QuickTranslationRuleListView bộ chung (navigationDestination(item:)). PhienAm / Pronouns chưa có mục Sửa (commit sau).
+- Nhập: popup 3 cách (dataImportModePopup) rồi mới mở bộ chọn file. Từ điển: "Thay thế toàn bộ" = đường cũ TranslationManager.importDictionary; "Gộp" (trùng lấy mới) / "Chỉ thêm key mới" (trùng giữ cũ) = GlobalDictionaryImporter (Service mới): đọc từ điển gốc đang có (cây đã nạp ⇒ .dat ⇒ .txt; PhienAm: bản đồ đã nạp ⇒ ChinesePhienAmWords.txt), trộn, dựng .dat mới bằng DoubleArrayTrieBuilder.build(fromEntries:) vào file tạm rồi thay file cũ (xoá .txt cùng tên nếu còn), PhienAm ghi lại file text (sắp theo khoá, sau thắng như loadPhoneticMap); chạy nền, thẻ hiện vòng quay, xong nạp lại + báo đổi từ điển. Rule dịch: QuickTranslationRuleStore.importRules(text:mode:). Toast "thêm X, cập nhật Y" (thay toàn bộ ⇒ số mục mới).
+- Xuất: từ điển như cũ (GlobalDictionaryTextExporter); Rule dịch = một file đã bỏ rule tắt (QuickTranslationRuleExporter, bộ chung).
+- Làm mới dữ liệu: một hàm refreshTranslationData dùng chung cho mục của mọi thẻ và nút "Làm mới dữ liệu dịch".
+- Xoá: hộp xác nhận nói rõ xoá gì — file gốc (.txt + .dat) của từ điển đó, các từ đã sửa ở VP / Name Chung giữ; Rule dịch = xoá bộ rule chung (deleteRules()).
+- Bỏ TranslationSettingsView+Export (thay bằng GlobalDictionaryCardController); DictionaryCard bỏ reservesExportSlot / isExporting.
+
+File: Services/Translation/Manager/GlobalDictionaryImporter (mới), Views/Settings/Translation/{GlobalDictionaryCardController, GlobalDictionaryCardMenu, GlobalDictionaryCardPresentations (mới), DictionaryCard, TranslationSettingsView, TranslationSettingsView+Export (xoá)}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Cần thử trên máy: hai Menu trong cùng một hàng lưới Form nhận chạm riêng; gộp VietPhrase cỡ triệu mục (RAM + thời gian dựng .dat); popup → bộ chọn file mở đúng sau khi popup đóng.
+Khác spec: bước "ghi .txt" khi gộp từ điển .dat được thay bằng dựng .dat thẳng từ danh sách đã trộn (không để .txt nằm cạnh .dat — loader chỉ xoá .txt khi tự biên dịch).
+
 ## [1.3.993] - 2026-11-19
 
 ### feat: Nút Thử rule ở đầu danh sách rule — sheet thử một câu áp đúng bộ đang xem, sửa thử bộ tên chương và bộ riêng

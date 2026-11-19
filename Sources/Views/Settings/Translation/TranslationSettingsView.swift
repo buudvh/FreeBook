@@ -1,27 +1,21 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
-/// Màn "Cài đặt dịch thuật" (Cài đặt → Đọc & Nghe). Chuyển **nguyên văn** từ `SettingsView` (1.3.520):
-/// section "Dịch Thuật Quick Translate", "Từ điển chung" và trình chọn file nhập từ điển — không đổi hành vi.
+/// Màn "Cài đặt dịch thuật" (Cài đặt → Đọc & Nghe). Chuyển từ `SettingsView` (1.3.520): section "Dịch Thuật Quick
+/// Translate" và "Từ điển chung".
+///
+/// Từ điển chung là lưới 5 thẻ VietPhrase.txt / Name.txt / PhienAm.txt / Pronouns.txt / **Rule dịch** (thay ô LuatNhan đã
+/// gỡ); mỗi thẻ là `Menu` thả xuống Sửa / Nhập file (popup 3 cách nhập) / Xuất file / Làm mới dữ liệu / Xoá —
+/// `GlobalDictionaryCardMenu` + `GlobalDictionaryCardController` + `GlobalDictionaryCardPresentations`.
 struct TranslationSettingsView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
     @ObservedObject private var translationManager = TranslationManager.shared
+    @ObservedObject private var ruleStore = QuickTranslationRuleStore.shared
 
-    @State private var showingFileImporter = false
-    @State private var importType = "vietphrase"
-    /// Tập "đang nhập" phải sống lâu hơn màn này (xem `TranslationImportState`); giữ tên `importingTypes` để
-    /// phần code chuyển nguyên văn từ `SettingsView` không phải đổi.
+    /// Tập "đang nhập" phải sống lâu hơn màn này (xem `TranslationImportState`).
     @ObservedObject private var importState = TranslationImportState.shared
-    var importingTypes: Set<String> {
-        get { importState.importingTypes }
-        nonmutating set { importState.importingTypes = newValue }
-    }
-    /// Xuất TXT từ điển chung (1.3.638, `TranslationSettingsView+Export`): mã thẻ đang xuất, file chờ chia sẻ, và URL
-    /// file tạm để xoá khi đóng bảng chia sẻ (`sheet(item:)` đã đặt `nil` trước khi gọi `onDismiss`).
-    @State var exportingDictionaryType: String? = nil
-    @State var dictionaryExport: DictionaryTextExport? = nil
-    @State var dictionaryExportURL: URL? = nil
+    private var importingTypes: Set<String> { importState.importingTypes }
+    @StateObject private var cards = GlobalDictionaryCardController()
 
     var body: some View {
         Form { Group {
@@ -69,80 +63,13 @@ struct TranslationSettingsView: View {
             if isTranslationEnabled {
                 Section(header: Text("Từ điển chung")) {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                            Button(action: {
-                                importType = "vietphrase"
-                                showingFileImporter = true
-                            }) {
-                                DictionaryCard(
-                                    title: "VietPhrase.txt",
-                                    statusText: getStatusText(for: "vietphrase"),
-                                    isSet: translationManager.isVietPhraseLoaded,
-                                    isLoading: importingTypes.contains("vietphrase"),
-                                    isExporting: exportingDictionaryType == "vietphrase",
-                                    reservesExportSlot: true
+                            ForEach(GlobalDictionaryCardController.Kind.allCases) { kind in
+                                GlobalDictionaryCardMenu(
+                                    kind: kind,
+                                    statusText: statusText(for: kind),
+                                    isSet: isSet(kind),
+                                    controller: cards
                                 )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("vietphrase") || exportingDictionaryType == "vietphrase")
-                            .overlay(alignment: .trailing) {
-                                dictionaryExportButton(type: "vietphrase", title: "VietPhrase.txt", isSet: translationManager.isVietPhraseLoaded)
-                            }
-
-                            Button(action: {
-                                importType = "names"
-                                showingFileImporter = true
-                            }) {
-                                DictionaryCard(
-                                    title: "Name.txt",
-                                    statusText: getStatusText(for: "names"),
-                                    isSet: translationManager.isNamesLoaded,
-                                    isLoading: importingTypes.contains("names"),
-                                    isExporting: exportingDictionaryType == "names",
-                                    reservesExportSlot: true
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("names") || exportingDictionaryType == "names")
-                            .overlay(alignment: .trailing) {
-                                dictionaryExportButton(type: "names", title: "Name.txt", isSet: translationManager.isNamesLoaded)
-                            }
-
-                            Button(action: {
-                                importType = "phienam"
-                                showingFileImporter = true
-                            }) {
-                                DictionaryCard(
-                                    title: "PhienAm.txt",
-                                    statusText: getStatusText(for: "phienam"),
-                                    isSet: translationManager.isPhienAmLoaded,
-                                    isLoading: importingTypes.contains("phienam"),
-                                    isExporting: exportingDictionaryType == "phienam",
-                                    reservesExportSlot: true
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("phienam") || exportingDictionaryType == "phienam")
-                            .overlay(alignment: .trailing) {
-                                dictionaryExportButton(type: "phienam", title: "PhienAm.txt", isSet: translationManager.isPhienAmLoaded)
-                            }
-
-                            Button(action: {
-                                importType = "pronouns"
-                                showingFileImporter = true
-                            }) {
-                                DictionaryCard(
-                                    title: "Pronouns.txt",
-                                    statusText: getStatusText(for: "pronouns"),
-                                    isSet: translationManager.isPronounsLoaded,
-                                    isLoading: importingTypes.contains("pronouns"),
-                                    isExporting: exportingDictionaryType == "pronouns",
-                                    reservesExportSlot: true
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("pronouns") || exportingDictionaryType == "pronouns")
-                            .overlay(alignment: .trailing) {
-                                dictionaryExportButton(type: "pronouns", title: "Pronouns.txt", isSet: translationManager.isPronounsLoaded)
                             }
                         }
                         .padding(.vertical, 4)
@@ -170,26 +97,8 @@ struct TranslationSettingsView: View {
                         .disabled(!importingTypes.isEmpty)
                     }
 
-                    Button(action: {
-                        importingTypes.insert("refresh")
-                        Task {
-                            do {
-                                try await translationManager.loadAllDictionaries()
-                                translationManager.clearBookDictCache()
-                                TranslateUtils.clearCache()
-                                await MainActor.run {
-                                    DictionaryCache.shared.invalidateAll()
-                                    importingTypes.remove("refresh")
-                                    ToastManager.shared.show(message: "Đã làm mới dữ liệu dịch thành công", type: .success)
-                                }
-                            } catch {
-                                await MainActor.run {
-                                    importingTypes.remove("refresh")
-                                    ToastManager.shared.show(message: "Lỗi làm mới dữ liệu dịch: \(error.localizedDescription)", type: .error)
-                                }
-                            }
-                        }
-                    }) {
+                    // Cùng một hàm với mục "Làm mới dữ liệu" của mọi thẻ.
+                    Button(action: { cards.refreshTranslationData() }) {
                         HStack {
                             Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
                             if importingTypes.contains("refresh") {
@@ -207,62 +116,30 @@ struct TranslationSettingsView: View {
                 }
         }.glassSheetRows() }
         .backPageTitle("Cài đặt dịch thuật")
-        .sheet(item: $dictionaryExport, onDismiss: cleanUpDictionaryExport) { export in
-            dictionaryShareSheet(export)
-        }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.plainText, .text],
-                allowsMultipleSelection: false,
-                onPick: { urls in
-                    guard let selectedUrl = urls.first else { return }
-                    let accessing = selectedUrl.startAccessingSecurityScopedResource()
-                    defer {
-                        if accessing {
-                            selectedUrl.stopAccessingSecurityScopedResource()
-                        }
-                    }
-
-                    let currentType = importType
-                    importingTypes.insert(currentType)
-
-                    Task {
-                        do {
-                            try await translationManager.importDictionary(from: selectedUrl, type: currentType)
-                            await MainActor.run {
-                                // Invalidate DictionaryCache so it reloads from new .dat
-                                if currentType == "vietphrase" {
-                                    DictionaryCache.shared.invalidate(type: .vietPhrase)
-                                } else if currentType == "names" {
-                                    DictionaryCache.shared.invalidate(type: .names)
-                                }
-                                ToastManager.shared.show(message: "Nhập dữ liệu từ điển thành công!", type: .success)
-                            }
-                        } catch {
-                            AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
-                            await MainActor.run {
-                                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
-                            }
-                        }
-                        _ = await MainActor.run {
-                            importingTypes.remove(currentType)
-                        }
-                    }
-                },
-                onCancel: nil
-            )
-        )
+        .modifier(GlobalDictionaryCardPresentations(controller: cards))
     }
 
-    private func getStatusText(for type: String) -> String {
-        if importingTypes.contains(type) {
-            return "Đang import..."
+    private func isSet(_ kind: GlobalDictionaryCardController.Kind) -> Bool {
+        switch kind {
+        case .vietPhrase: return translationManager.isVietPhraseLoaded
+        case .names: return translationManager.isNamesLoaded
+        case .phienAm: return translationManager.isPhienAmLoaded
+        case .pronouns: return translationManager.isPronounsLoaded
+        case .rules: return ruleStore.status.hasFile
         }
-        if exportingDictionaryType == type {
+    }
+
+    private func statusText(for kind: GlobalDictionaryCardController.Kind) -> String {
+        if importingTypes.contains(kind.rawValue) {
+            return "Đang xử lý..."
+        }
+        if cards.exportingKind == kind {
             return "Đang xuất..."
         }
-        if let count = translationManager.getWordCount(for: type) {
+        if kind == .rules {
+            return ruleStore.status.hasFile ? "\(ruleStore.status.ruleCount) rule" : "<Chưa thiết lập>"
+        }
+        if let count = translationManager.getWordCount(for: kind.rawValue) {
             return "\(count) từ"
         }
         return "<Chưa thiết lập>"

@@ -1,20 +1,17 @@
 import SwiftUI
 
-/// Thẻ trạng thái một từ điển chung (VietPhrase, Name…) của màn "Cài đặt dịch thuật".
+/// Thẻ trạng thái một từ điển chung (VietPhrase, Name… và Rule dịch) của màn "Cài đặt dịch thuật".
 /// Chuyển nguyên văn từ `SettingsView.swift` (1.3.520).
 ///
-/// Icon xuất TXT (1.3.638) **không** nằm trong thẻ: thẻ là nhãn của nút Nhập, nên nút Xuất được màn cha phủ lên
-/// (`overlay`) — lồng nút trong nhãn nút thì chạm lẫn nhau. Thẻ chỉ chừa chỗ trống cuối thẻ cho icon đó.
+/// Thẻ là **nhãn** của `Menu` thả xuống (`GlobalDictionaryCardMenu`): chạm thẻ mở menu Sửa / Nhập / Xuất / Làm mới / Xoá.
+/// Cuối thẻ là icon `ellipsis` dọc báo có menu (thay icon xuất phủ lên thẻ của 1.3.638); đang nhập / xuất ⇒ vòng quay.
 struct DictionaryCard: View {
     let title: String
     let statusText: String
     let isSet: Bool
+    /// Đang nhập / xuất / xoá ⇒ vòng quay ở chỗ icon menu.
     let isLoading: Bool
-    /// Đang xuất TXT ⇒ hiện vòng quay ở chỗ icon xuất.
-    var isExporting = false
-    /// Chừa ô 32×32 cuối thẻ cho icon xuất do màn cha phủ lên.
-    var reservesExportSlot = false
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
@@ -23,20 +20,23 @@ struct DictionaryCard: View {
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
                     .lineLimit(1)
-                
+
                 Text(statusText)
                     .font(.caption)
-                    .foregroundColor(isLoading || isExporting ? .white : (isSet ? .secondary : .red))
+                    .foregroundColor(isLoading ? .white : (isSet ? .secondary : .red))
                     .lineLimit(1)
             }
-            
-            if isLoading || isExporting {
-                Spacer()
+
+            Spacer(minLength: 0)
+            if isLoading {
                 ProgressView()
                     .controlSize(.small)
-            } else if reservesExportSlot {
-                Spacer(minLength: 0)
-                Color.clear
+                    .frame(width: 32, height: 32)
+            } else {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .rotationEffect(.degrees(90))
+                    .foregroundColor(.white)
                     .frame(width: 32, height: 32)
             }
         }
