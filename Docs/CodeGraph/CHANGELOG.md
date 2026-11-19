@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.982] - 2026-11-19
+
+### feat: Popup chọn cách nhập dữ liệu — Thay thế toàn bộ / Gộp / Chỉ thêm key mới, chọn xong mới chọn file
+
+Anh Bửu: "sửa lại nhập luôn có 3 option: thay thế toàn bộ (xoá danh sách cũ và chỉ giữ lại mới), gộp (vế trái trùng thì đè lên, chưa có thì thêm vào), chỉ thêm vào những key chưa có của vế mới — mockup lại màn chọn này thành kiểu popup giữa màn hình, gồm 3 radio cho 3 option, mỗi option có mô tả và cuối cùng là nút nhập file" → duyệt mockup.
+
+- Mới `Sources/Views/Common/DataImportModePopup/`: `DataImportModePopup` (thẻ kính giữa màn: tên + "Chọn cách nhập", ba hàng radio của `DataImportMode` kèm một dòng mô tả, nút đặc `.appFilled` ở cuối) + `.dataImportModePopup(isPresented:title:confirmTitle:confirmSystemImage:modes:initialMode:onConfirm:)`.
+  - Trình bày bằng `fullScreenCover` nền trong, mở / đóng không trượt (transaction tắt animation), thẻ hiện mờ dần; lớp tối phủ cả thanh điều hướng, chạm ra ngoài là đóng (không nút Huỷ).
+  - `onConfirm(mode)` chạy **sau khi** popup đóng hẳn (`onDismiss`) ⇒ chỗ gọi mở bộ chọn file ngay trong đó được.
+  - Mặc định chọn "Gộp"; nút cuối mặc định "Nhập file", chỗ không chọn file (nhập từ truyện khác…) truyền `confirmTitle`.
+- `DataImportMode`: tên lựa chọn đổi theo chữ anh — "Thay thế toàn bộ", "Gộp" (= đè key trùng), "Chỉ thêm key mới" — và mô tả một dòng mới. Ba dialog nhập rule cũ đang dùng `actionTitle` thì đổi chữ theo; các màn nhập được nối vào popup ở các commit sau của đợt này.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**; `check_architecture.py` chỉ còn lỗi cũ của `JSDom.swift`.
+
 ## [1.3.981] - 2026-11-18
 
 ### feat: Quản lý nghĩa từ kiểu chip — bốn nhóm trong một thẻ, nút x góc chip để xoá nhanh
