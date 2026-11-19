@@ -202,17 +202,21 @@ struct QuickTranslationRuleListView: View {
     }
 
     /// Chia sẻ **cả bộ rule riêng** sang truyện khác, dùng lại đúng sheet chọn truyện của từ điển.
-    /// `isMerge == true` ⇒ giữ rule cũ của truyện đích và đè mẫu trùng; `false` ⇒ thay thế hoàn toàn.
+    /// Chế độ chọn ở popup 3 cách nhập của sheet (thay toàn bộ / gộp — trùng mẫu lấy mới / chỉ thêm mẫu mới); rule đang
+    /// tắt ở truyện nguồn không được chia sẻ (`QuickTranslationRuleExporter`).
     @ViewBuilder
     private var shareSheetContent: some View {
         if case .book(let bookId) = scope {
-            BookShareTargetSheet(excludedBookId: bookId) { target, isMerge in
+            BookShareTargetSheet(excludedBookId: bookId) { target, mode in
+                let preview = QuickTranslationRuleTransfer.sharePreview(from: bookId, to: target.bookId)
                 let outcome = QuickTranslationRuleTransfer.shareBookRules(
                     from: bookId,
                     to: target.bookId,
-                    mode: isMerge ? .overwriteExisting : .replaceAll
+                    mode: mode
                 )
-                report(outcome, successMessage: "Đã chia sẻ bộ rule riêng sang \"\(target.title)\".")
+                let counts = mode == .replaceAll ? "thay toàn bộ"
+                    : "thêm \(preview.added), cập nhật \(mode == .overwriteExisting ? preview.overlapping : 0)"
+                report(outcome, successMessage: "Đã chia sẻ bộ rule riêng sang \"\(target.title)\" (\(counts)).")
             }
             .presentationDragIndicator(.visible)
         }

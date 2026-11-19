@@ -50,6 +50,15 @@ public enum QuickTranslationRuleTransfer {
         return targets
     }
 
+    /// Số mẫu sẽ thêm mới / trùng với bộ riêng của truyện đích khi chia sẻ (bản đã bỏ rule tắt) — cho toast
+    /// "thêm X, cập nhật Y". Gọi **trước** `shareBookRules`.
+    public static func sharePreview(from sourceBookId: String, to targetBookId: String) -> (added: Int, overlapping: Int) {
+        let text = QuickTranslationRuleExporter.export(scope: .book(sourceBookId))?.text ?? ""
+        let current = QuickTranslationRuleBookStore.shared.currentSourceText(for: targetBookId) ?? ""
+        let preview = QuickTranslationRuleRecordStore.importPreview(current: current, imported: text)
+        return (preview.added, preview.overlapping)
+    }
+
     /// Chia sẻ **cả bộ rule riêng** của một truyện sang truyện khác.
     ///
     /// Chia sẻ đi qua `QuickTranslationRuleBookStore.importRules`, nơi trộn records rồi ghi lại file

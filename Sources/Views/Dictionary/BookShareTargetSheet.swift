@@ -1,19 +1,26 @@
 import SwiftUI
 import SwiftData
 
-/// Sheet chọn truyện đích để chia sẻ từ điển riêng từ truyện này sang truyện khác.
-/// Tái sử dụng `dictionaryModeDialog` và `DictionaryTextFileStore.mergedRecords`.
+/// Sheet chọn truyện đích để chia sẻ từ điển riêng (hoặc cả bộ rule riêng) từ truyện này sang truyện khác.
+/// Chọn truyện ⇒ popup 3 cách nhập vào truyện đích (`dataImportModePopup`, nút cuối "Chia sẻ") ⇒
+/// `onConfirm(truyện, chế độ)` rồi đóng sheet.
 struct BookShareTargetSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     let excludedBookId: String?
-    let onConfirm: (Book, Bool) -> Void
+    let onConfirm: (Book, DataImportMode) -> Void
 
     @State private var books: [Book] = []
     @State private var pendingTarget: Book? = nil
     @State private var showingModeDialog = false
     @State private var searchQuery = ""
+
+    /// Tên (đã dịch theo cấu hình của truyện) của truyện vừa chọn — tiêu đề popup chọn cách nhập.
+    private var pendingTitle: String {
+        guard let book = pendingTarget else { return "truyện khác" }
+        return BookDisplayTranslation.text(book.title, BookDisplayTranslation.options(for: book))
+    }
 
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -64,13 +71,14 @@ struct BookShareTargetSheet: View {
             }
             .pageTitle("Chọn truyện đích")
             .presentationDragIndicator(.visible)
-            .dictionaryModeDialog(
+            .dataImportModePopup(
                 isPresented: $showingModeDialog,
-                title: "Chọn chế độ chia sẻ",
-                message: "Thay thế: xóa hết dữ liệu cũ của truyện đích, chỉ giữ từ truyện này.\nGộp: giữ dữ liệu cũ của truyện đích, key trùng lấy giá trị mới."
-            ) { isMerge in
+                title: "Chia sẻ sang \(pendingTitle)",
+                confirmTitle: "Chia sẻ",
+                confirmSystemImage: "arrowshape.turn.up.right"
+            ) { mode in
                 if let target = pendingTarget {
-                    onConfirm(target, isMerge)
+                    onConfirm(target, mode)
                     dismiss()
                 }
             }

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.996] - 2026-11-19
+
+### feat: Nhập từ điển và rule dịch luôn chọn 3 cách qua popup — Thay thế toàn bộ / Gộp / Chỉ thêm key mới
+
+Trước: danh sách VP / Name (Chung + Riêng) nhập file rồi mới hỏi 2 lựa chọn (Thay thế / Gộp) bằng hộp thoại dictionaryModeDialog; "Nhập từ truyện khác" / "Chia sẻ sang truyện khác" (từ điển và bộ rule riêng) cũng chỉ 2 lựa chọn (callback isMerge); danh sách rule 3 bộ và nhập danh sách rule tắt chọn file trước rồi mới hỏi chế độ bằng confirmationDialog; không có "Chỉ thêm key mới" cho từ điển.
+Nay: mọi chỗ nhập dùng popup chung `.dataImportModePopup` (hợp đồng d0929e34) — chọn 1 trong 3 chế độ **trước**, nút cuối mở bộ chọn file (onConfirm chạy sau khi popup đóng hẳn):
+- Danh sách VP / Name: Nhập file; "Nhập từ truyện khác" (confirmTitle "Nhập") và "Chia sẻ sang truyện khác" (confirmTitle "Chia sẻ") — BookImportSourceSheet / BookShareTargetSheet trả DataImportMode thay cho isMerge, popup hiện sau khi chọn truyện.
+- TranslationDictionaryWriter.importEntries(mode:) (thay isMerge), trả ImportCounts (thêm / cập nhật). Thêm "Chỉ thêm key mới" (.keepExisting): riêng truyện ⇒ mục chưa có lên đầu, mục cũ giữ nguyên; lớp Chung ⇒ tombstone (`từ=`) coi là khoá đã có — từ đã xoá trên máy vẫn xoá dù file có nghĩa, tombstone của file chỉ thêm khi máy chưa có khoá đó. "Gộp" giữ đúng luật cũ (Chung: mục sống của file khôi phục từ đã xoá). DictionaryCache.importEntries(mode:) trả số liệu; BookSourceMigrator (Đổi nguồn) đổi isMerge: true ⇒ mode: .overwriteExisting, hành vi không đổi.
+- Danh sách rule (chung / tên chương / riêng): Nhập file rule và Nhập file rule tắt đều popup trước; bỏ hai confirmationDialog chọn chế độ. Chia sẻ bộ rule riêng nhận đủ 3 chế độ (trước chỉ Thay thế / Gộp).
+- Toast sau khi nhập ở tầng View: "thêm X, cập nhật Y" (Thay thế toàn bộ ⇒ số mục mới / "thay toàn bộ"); số liệu rule lấy từ importPreview trước khi ghi (QuickTranslationRuleTransfer.sharePreview mới cho chia sẻ bộ riêng). Danh sách rule tắt chỉ có khoá: "Gộp" và "Chỉ thêm key mới" cùng kết quả, vẫn hiện đủ 3.
+- Bỏ DictionaryImportModeDialog.swift (dictionaryModeDialog) — đã grep, không còn ai dùng. Chỗ "Lưu tên AI" (ReaderAINameReviewSheet) không phải nhập — giữ nguyên.
+(5 thẻ Từ điển chung và hai danh sách Phiên âm / Pronouns đã dùng popup từ hai commit trước.)
+
+File: Services/Translation/Manager/TranslationDictionaryWriter, Services/Translation/Utils/DictionaryCache, Services/Translation/Engine/QuickTranslationRuleTransfer, Services/Download/BookSourceMigrator (chỉ đổi tham số, ngoài phân hệ dịch), Views/Dictionary/{DictionaryListView, DictionaryListView+Transfer, BookImportSourceSheet, BookShareTargetSheet, DictionaryImportModeDialog (xoá)}, Views/Settings/Translation/{QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy — cần thử popup (fullScreenCover) mở đúng từ trong sheet chọn truyện và từ ngăn kéo, rồi bộ chọn file mở sau khi popup đóng. Không đọc / chạy Tests/ nên chưa biết test nào còn gọi importEntries(isMerge:).
+
 ## [1.3.995] - 2026-11-19
 
 ### feat: Danh sách Phiên âm và Pronouns — sửa thẳng từ điển gốc từ thẻ PhienAm.txt / Pronouns.txt

@@ -2,18 +2,25 @@ import SwiftUI
 import SwiftData
 
 /// Sheet chọn truyện nguồn để nhập từ điển riêng từ truyện khác vào truyện hiện tại.
-/// Tái sử dụng `dictionaryModeDialog` và `TranslationDictionaryWriter.shared.importEntries`.
+/// Chọn truyện ⇒ popup 3 cách nhập (`dataImportModePopup`, nút cuối "Nhập" vì không chọn file) ⇒ `onConfirm(truyện, chế độ)`
+/// rồi đóng sheet; bên gọi ghi qua `TranslationDictionaryWriter.importEntries(mode:)`.
 struct BookImportSourceSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     let excludedBookId: String?
-    let onConfirm: (Book, Bool) -> Void
+    let onConfirm: (Book, DataImportMode) -> Void
 
     @State private var books: [Book] = []
     @State private var pendingSource: Book? = nil
     @State private var showingModeDialog = false
     @State private var searchQuery = ""
+
+    /// Tên (đã dịch theo cấu hình của truyện) của truyện vừa chọn — tiêu đề popup chọn cách nhập.
+    private var pendingTitle: String {
+        guard let book = pendingSource else { return "truyện khác" }
+        return BookDisplayTranslation.text(book.title, BookDisplayTranslation.options(for: book))
+    }
 
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -64,13 +71,14 @@ struct BookImportSourceSheet: View {
             }
             .pageTitle("Chọn truyện nguồn")
             .presentationDragIndicator(.visible)
-            .dictionaryModeDialog(
+            .dataImportModePopup(
                 isPresented: $showingModeDialog,
-                title: "Chọn chế độ nhập",
-                message: "Thay thế: xóa hết dữ liệu cũ của truyện này, chỉ giữ từ truyện nguồn.\nGộp: giữ dữ liệu cũ của truyện này, key trùng lấy giá trị mới."
-            ) { isMerge in
+                title: "Nhập từ \(pendingTitle)",
+                confirmTitle: "Nhập",
+                confirmSystemImage: "arrow.down.doc"
+            ) { mode in
                 if let source = pendingSource {
-                    onConfirm(source, isMerge)
+                    onConfirm(source, mode)
                     dismiss()
                 }
             }

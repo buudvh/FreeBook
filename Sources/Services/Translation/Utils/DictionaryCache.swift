@@ -50,9 +50,12 @@ public final class DictionaryCache: ObservableObject {
         refreshFromPublishedState(type: type)
     }
 
-    public func importEntries(from url: URL, type: DictType, isMerge: Bool = false) async throws {
-        try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: nil, isMerge: isMerge)
+    /// Nhập file vào lớp custom Chung theo `DataImportMode`; trả số liệu cho toast "thêm X, cập nhật Y".
+    @discardableResult
+    func importEntries(from url: URL, type: DictType, mode: DataImportMode) async throws -> TranslationDictionaryWriter.ImportCounts {
+        let counts = try await TranslationDictionaryWriter.shared.importEntries(from: url, isName: type == .names, bookId: nil, mode: mode)
         refreshFromPublishedState(type: type)
+        return counts
     }
 
     public func invalidate(type: DictType) {

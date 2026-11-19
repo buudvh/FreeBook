@@ -13,7 +13,7 @@ extension QuickTranslationRuleIOMenu {
     /// Các hàng ngăn kéo "…" khi đang ở tab Đã tắt.
     @ViewBuilder
     var disabledRuleMenuItems: some View {
-        SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImporter = true }
+        SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImportModes = true }
         SideDrawerActionRow("Bật lại tất cả rule đã tắt", systemImage: "play.circle") { showingReenableConfirm = true }
             .disabled(isDisabledListEmpty)
         SideDrawerActionRow("Xoá tất cả rule đã tắt", systemImage: "trash", role: .destructive) { showingDeleteDisabledConfirm = true }
@@ -31,19 +31,10 @@ extension QuickTranslationRuleIOMenu {
             return
         }
 
+        // Chế độ đã chọn ở popup trước khi chọn file. Danh sách chỉ có khoá: "Gộp" và "Chỉ thêm key mới" cùng kết quả.
         let imported = QuickTranslationRuleDisableFile.parse(text)
-        pendingDisabledPatterns = imported
-        pendingDisabledPreview = QuickTranslationRuleDisableFile.importPreview(
-            current: currentDisabledPatterns,
-            imported: imported
-        )
-        showingDisabledImportModes = true
-    }
-
-    func applyDisabledImport(mode: DataImportMode) {
-        guard let imported = pendingDisabledPatterns else { return }
-        pendingDisabledPatterns = nil
-
+        let mode = pendingDisabledMode
+        let preview = QuickTranslationRuleDisableFile.importPreview(current: currentDisabledPatterns, imported: imported)
         let outcome = QuickTranslationRuleDisableStore.shared.importPatterns(
             imported: imported,
             mode: mode,
@@ -51,8 +42,9 @@ extension QuickTranslationRuleIOMenu {
         )
         switch outcome {
         case .success:
+            let counts = mode == .replaceAll ? "thay toàn bộ" : "thêm \(preview.added), cập nhật 0"
             ToastManager.shared.show(
-                message: "Đã nhập — đang tắt \(QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope).count) mẫu ở bộ \(scopeLabel).",
+                message: "Đã nhập (\(counts)) — đang tắt \(QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope).count) mẫu ở bộ \(scopeLabel).",
                 type: .success
             )
             onChanged()

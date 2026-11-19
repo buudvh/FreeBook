@@ -57,7 +57,12 @@ extension DictionaryListView {
         )
     }
 
-    func shareToBook(targetBook: Book, isMerge: Bool) {
+    /// Đuôi toast sau khi nhập: "thêm X, cập nhật Y" (thay toàn bộ ⇒ số mục mới).
+    static func importSummary(_ counts: TranslationDictionaryWriter.ImportCounts, mode: DataImportMode) -> String {
+        mode == .replaceAll ? "thay bằng \(counts.added) từ" : "thêm \(counts.added), cập nhật \(counts.updated)"
+    }
+
+    func shareToBook(targetBook: Book, mode: DataImportMode) {
         guard let sourceBid = bookId, targetBook.bookId != sourceBid else { return }
 
         Task {
@@ -72,16 +77,16 @@ extension DictionaryListView {
                     return
                 }
 
-                try await TranslationDictionaryWriter.shared.importEntries(
+                let counts = try await TranslationDictionaryWriter.shared.importEntries(
                     from: sourceURL,
                     isName: type == .names,
                     bookId: targetBook.bookId,
-                    isMerge: isMerge
+                    mode: mode
                 )
 
                 let targetTitle = Self.displayTitle(of: targetBook)
                 ToastManager.shared.show(
-                    message: "Đã chia sẻ \(type.displayName) sang truyện \(targetTitle)",
+                    message: "Đã chia sẻ \(type.displayName) sang truyện \(targetTitle): \(Self.importSummary(counts, mode: mode))",
                     type: .success
                 )
             } catch {
@@ -90,7 +95,7 @@ extension DictionaryListView {
         }
     }
 
-    func importFromBook(sourceBook: Book, isMerge: Bool) {
+    func importFromBook(sourceBook: Book, mode: DataImportMode) {
         guard let targetBid = bookId, sourceBook.bookId != targetBid else { return }
 
         Task {
@@ -105,17 +110,17 @@ extension DictionaryListView {
                     return
                 }
 
-                try await TranslationDictionaryWriter.shared.importEntries(
+                let counts = try await TranslationDictionaryWriter.shared.importEntries(
                     from: sourceURL,
                     isName: type == .names,
                     bookId: targetBid,
-                    isMerge: isMerge
+                    mode: mode
                 )
 
                 await loadData()
                 let sourceTitle = Self.displayTitle(of: sourceBook)
                 ToastManager.shared.show(
-                    message: "Đã nhập \(type.displayName) từ truyện \(sourceTitle)",
+                    message: "Đã nhập \(type.displayName) từ truyện \(sourceTitle): \(Self.importSummary(counts, mode: mode))",
                     type: .success
                 )
             } catch {
@@ -124,25 +129,23 @@ extension DictionaryListView {
         }
     }
 
-    func importFile(from url: URL, isMerge: Bool) {
+    /// Nhập file (chọn sau popup 3 cách nhập của ngăn kéo "…").
+    func importFile(from url: URL, mode: DataImportMode) {
         Task {
             do {
+                let counts: TranslationDictionaryWriter.ImportCounts
                 if let bid = bookId {
-                    try await TranslationDictionaryWriter.shared.importEntries(
+                    counts = try await TranslationDictionaryWriter.shared.importEntries(
                         from: url,
                         isName: type == .names,
                         bookId: bid,
-                        isMerge: isMerge
+                        mode: mode
                     )
                     await loadData()
                 } else {
-                    try await DictionaryCache.shared.importEntries(
-                        from: url,
-                        type: type,
-                        isMerge: isMerge
-                    )
+                    counts = try await DictionaryCache.shared.importEntries(from: url, type: type, mode: mode)
                 }
-                ToastManager.shared.show(message: "Import thành công!", type: .success)
+                ToastManager.shared.show(message: "Đã nhập \(type.displayName): \(Self.importSummary(counts, mode: mode))", type: .success)
             } catch {
                 ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)", type: .error)
             }

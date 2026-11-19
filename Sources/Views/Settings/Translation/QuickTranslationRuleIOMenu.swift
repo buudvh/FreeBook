@@ -29,17 +29,16 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     }
 
     @State private var showingImporter = false
+    /// Popup 3 cách nhập (chọn trước) ⇒ bộ chọn file ⇒ ghi theo `pendingImportMode`.
     @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode = .overwriteExisting
     @State private var showingDeleteConfirm = false
-    @State private var pendingImportText: String? = nil
-    @State private var pendingPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
     @State private var sharedFile: SharedFile? = nil
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
 
     @State var showingDisabledImporter = false
     @State var showingDisabledImportModes = false
-    @State var pendingDisabledPatterns: [String]? = nil
-    @State var pendingDisabledPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
+    @State var pendingDisabledMode: DataImportMode = .overwriteExisting
     @State var showingReenableConfirm = false
     @State var showingDeleteDisabledConfirm = false
 
@@ -84,7 +83,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 if showingDisabled {
                     disabledRuleMenuItems
                 } else {
-                    SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImporter = true }
+                    SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImportModes = true }
                     // Một file, đã bỏ rule đang tắt (`QuickTranslationRuleExporter`) — không còn xuất danh sách tắt riêng.
                     SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
                         .disabled(!hasRuleFile)
@@ -127,23 +126,13 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     }
                 }
             }
-            .confirmationDialog(
-                "Nhập bộ rule \(scopeLabel) thế nào?",
-                isPresented: $showingImportModes,
-                titleVisibility: .visible
-            ) {
-                ForEach(DataImportMode.allCases, id: \.self) { mode in
-                    Button(mode.actionTitle, role: mode.isDestructive ? .destructive : nil) {
-                        applyImport(mode: mode)
-                    }
-                }
-                Button("Hủy", role: .cancel) { pendingImportText = nil }
-            } message: {
-                Text(
-                    "File có \(pendingPreview.added + pendingPreview.overlapping) rule:"
-                    + " \(pendingPreview.overlapping) trùng mẫu với bộ \(scopeLabel) đang có, \(pendingPreview.added) mẫu mới."
-                    + " Bộ \(scopeLabel) trên máy có \(pendingPreview.machineOnly) mẫu không nằm trong file."
-                )
+            .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập bộ rule \(scopeLabel)") { mode in
+                pendingImportMode = mode
+                showingImporter = true
+            }
+            .dataImportModePopup(isPresented: $showingDisabledImportModes, title: "Nhập danh sách rule tắt (bộ \(scopeLabel))") { mode in
+                pendingDisabledMode = mode
+                showingDisabledImporter = true
             }
             .confirmationDialog(
                 "Xoá bộ rule \(scopeLabel)\(scope.bookId == nil ? " khỏi máy" : " của truyện")?",
@@ -177,24 +166,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 }
             }
             .confirmationDialog(
-                "Nhập danh sách rule tắt thế nào?",
-                isPresented: $showingDisabledImportModes,
-                titleVisibility: .visible
-            ) {
-                ForEach(DataImportMode.allCases, id: \.self) { mode in
-                    Button(mode.actionTitle, role: mode.isDestructive ? .destructive : nil) {
-                        applyDisabledImport(mode: mode)
-                    }
-                }
-                Button("Hủy", role: .cancel) { pendingDisabledPatterns = nil }
-            } message: {
-                Text(
-                    "File có \(pendingDisabledPreview.added + pendingDisabledPreview.overlapping) mẫu:"
-                    + " \(pendingDisabledPreview.overlapping) mẫu đã tắt sẵn, \(pendingDisabledPreview.added) mẫu mới sẽ tắt."
-                    + " Máy đang tắt \(pendingDisabledPreview.machineOnly) mẫu không nằm trong file."
-                )
-            }
-            .confirmationDialog(
                 "Bật lại tất cả rule đã tắt ở bộ \(scopeLabel)?",
                 isPresented: $showingReenableConfirm,
                 titleVisibility: .visible
@@ -222,7 +193,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
 
     // MARK: - Thao tác
 
-    /// Đọc file rồi **hỏi chế độ trước khi ghi** — chọn file không tự động là "thay thế toàn bộ".
+    /// Chế độ đã chọn ở popup **trước** khi chọn file ⇒ đọc file rồi ghi luôn, toast "thêm X, cập nhật Y".
     private func readImport(from url: URL?) {
         guard let url else { return }
         let accessing = url.startAccessingSecurityScopedResource()
@@ -234,18 +205,8 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             return
         }
 
-        pendingImportText = text
-        pendingPreview = QuickTranslationRuleRecordStore.importPreview(
-            current: currentSourceText ?? "",
-            imported: text
-        )
-        showingImportModes = true
-    }
-
-    private func applyImport(mode: DataImportMode) {
-        guard let text = pendingImportText else { return }
-        pendingImportText = nil
-
+        let mode = pendingImportMode
+        let preview = QuickTranslationRuleRecordStore.importPreview(current: currentSourceText ?? "", imported: text)
         let outcome: QuickTranslationRuleStore.LoadOutcome
         switch scope {
         case .global:
@@ -259,8 +220,11 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         switch outcome {
         case .success(let ruleCount, let warningCount):
             let suffix = warningCount > 0 ? ", \(warningCount) cảnh báo" : ""
+            let counts = mode == .replaceAll
+                ? "thay toàn bộ"
+                : "thêm \(preview.added), cập nhật \(mode == .overwriteExisting ? preview.overlapping : 0)"
             ToastManager.shared.show(
-                message: "Đã nhập — bộ \(scopeLabel) hiện có \(ruleCount) rule\(suffix).",
+                message: "Đã nhập (\(counts)) — bộ \(scopeLabel) hiện có \(ruleCount) rule\(suffix).",
                 type: .success
             )
             onChanged()

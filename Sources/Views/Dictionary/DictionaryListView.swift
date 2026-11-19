@@ -36,8 +36,9 @@ struct DictionaryListView: View {
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var selectedTab: DictViewTab = .custom
-    @State private var pendingImportURL: URL? = nil
-    @State private var showingImportModeDialog = false
+    /// Popup 3 cách nhập (chọn trước, rồi mới mở bộ chọn file) + chế độ vừa chọn.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode = .overwriteExisting
     @State private var showingShareBookSheet = false
     @State private var showingImportBookSheet = false
 
@@ -92,7 +93,7 @@ struct DictionaryListView: View {
     @ViewBuilder
     private var optionsMenuItems: some View {
         SideDrawerActionRow("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down") {
-            showingFileImporter = true
+            showingImportModes = true
         }
         if !isGlobal {
             SideDrawerActionRow("Chia sẻ sang truyện khác", systemImage: "arrowshape.turn.up.right") { showingShareBookSheet = true }
@@ -204,16 +205,16 @@ struct DictionaryListView: View {
         }
         .sheet(isPresented: $showingShareBookSheet) {
             Group {
-                BookShareTargetSheet(excludedBookId: bookId) { targetBook, isMerge in
-                    shareToBook(targetBook: targetBook, isMerge: isMerge)
+                BookShareTargetSheet(excludedBookId: bookId) { targetBook, mode in
+                    shareToBook(targetBook: targetBook, mode: mode)
                 }
             }
             .appGlassSheet()
         }
         .sheet(isPresented: $showingImportBookSheet) {
             Group {
-                BookImportSourceSheet(excludedBookId: bookId) { sourceBook, isMerge in
-                    importFromBook(sourceBook: sourceBook, isMerge: isMerge)
+                BookImportSourceSheet(excludedBookId: bookId) { sourceBook, mode in
+                    importFromBook(sourceBook: sourceBook, mode: mode)
                 }
             }
             .appGlassSheet()
@@ -230,21 +231,14 @@ struct DictionaryListView: View {
                     guard let url = urls.first else { return }
                     let accessing = url.startAccessingSecurityScopedResource()
                     defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                    pendingImportURL = url
-                    showingImportModeDialog = true
+                    importFile(from: url, mode: pendingImportMode)
                 },
                 onCancel: nil
             )
         )
-        .dictionaryModeDialog(
-            isPresented: $showingImportModeDialog,
-            title: "Chọn chế độ nhập từ điển",
-            message: "Thay thế: xóa hết dữ liệu cũ, chỉ giữ file import.\nGộp: giữ dữ liệu cũ, key trùng lấy giá trị mới."
-        ) { isMerge in
-            if let url = pendingImportURL {
-                importFile(from: url, isMerge: isMerge)
-            }
-            pendingImportURL = nil
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập \(navTitle)") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
         }
     }
 

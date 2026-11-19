@@ -93,7 +93,7 @@ public actor BookSourceMigrator {
                 guard TranslationManager.bookScopedDictionaryTextFiles.contains(name) else { continue }
                 do {
                     try await TranslationDictionaryWriter.shared.importEntries(
-                        from: oldFile, isName: name == "Names.txt", bookId: newBookId, isMerge: true
+                        from: oldFile, isName: name == "Names.txt", bookId: newBookId, mode: .overwriteExisting
                     )
                     AppLogger.shared.log("[BookSourceMigrator] Gộp \(name) của truyện cũ vào truyện đích")
                 } catch {
