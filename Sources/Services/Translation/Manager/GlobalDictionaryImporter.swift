@@ -74,6 +74,17 @@ enum GlobalDictionaryImporter {
         AppLogger.shared.log("🗑️ [GlobalDictionary] Đã xoá từ điển gốc \(type)")
     }
 
+    /// Từ điển gốc đang có của một loại (dùng cho trộn khi nhập và cho danh sách sửa thẳng PhienAm / Pronouns).
+    static func baseEntries(type: String) throws -> [(key: String, value: String)] {
+        try existingEntries(files: fileNames(for: type), root: TranslationManager.shared.translateDirectory)
+    }
+
+    /// Ghi lại **cả** từ điển gốc từ danh sách mục: `.dat` dựng vào file tạm rồi thay file cũ (bỏ `.txt` cùng tên nếu
+    /// còn); PhienAm ghi file text sắp theo khoá. Danh sách rỗng ⇒ xoá file gốc. Bên gọi tự nạp lại + báo đổi từ điển.
+    static func writeBase(_ entries: [(key: String, value: String)], type: String) throws {
+        try write(entries, files: fileNames(for: type), root: TranslationManager.shared.translateDirectory)
+    }
+
     // MARK: - Phụ trợ
 
     /// Tên file trong `translate/`. `dat == nil` ⇒ từ điển dạng text (PhienAm).
@@ -140,21 +151,37 @@ enum GlobalDictionaryImporter {
             added += 1
         }
 
+        try write(merged, files: files, root: root)
+        return Outcome(added: added, updated: updated, importedCount: imported.count)
+    }
+
+    private static func write(
+        _ entries: [(key: String, value: String)],
+        files: (txt: String, dat: String?),
+        root: URL
+    ) throws {
+        let fileManager = FileManager.default
+        guard !entries.isEmpty else {
+            for name in [files.txt, files.dat].compactMap({ $0 }) {
+                let url = root.appendingPathComponent(name)
+                if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }
+            }
+            return
+        }
         if let datName = files.dat {
             let destination = root.appendingPathComponent(datName)
             let temporary = root.appendingPathComponent(datName + ".importing")
             try? FileManager.default.removeItem(at: temporary)
-            try DoubleArrayTrieBuilder().build(fromEntries: merged, toDatFile: temporary)
+            try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: temporary)
             if FileManager.default.fileExists(atPath: destination.path) {
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.moveItem(at: temporary, to: destination)
             try? FileManager.default.removeItem(at: root.appendingPathComponent(files.txt))
         } else {
-            let text = merged.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "\n") + "\n"
+            let text = entries.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "\n") + "\n"
             try Data(text.utf8).write(to: root.appendingPathComponent(files.txt), options: .atomic)
         }
-        return Outcome(added: added, updated: updated, importedCount: imported.count)
     }
 
     /// Từ điển gốc đang có: cây đã nạp ⇒ `.dat` ⇒ `.txt`; PhienAm: bản đồ đã nạp ⇒ file text. Chưa có ⇒ rỗng.

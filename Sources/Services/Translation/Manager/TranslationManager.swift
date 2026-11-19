@@ -331,7 +331,8 @@ public final class TranslationManager: ObservableObject {
         }
     }
     
-    private static func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
+    /// `internal`: `TranslationManager+BaseDictionaryReload` nạp lại riêng PhienAm sau khi sửa thẳng danh sách.
+    static func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
         let content = try String(contentsOf: fileURL, encoding: .utf8)
         let lines = content.components(separatedBy: .newlines)
         var map: [String: String] = [:]

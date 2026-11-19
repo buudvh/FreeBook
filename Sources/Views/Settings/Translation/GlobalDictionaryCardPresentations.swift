@@ -58,7 +58,8 @@ struct GlobalDictionaryCardPresentations: ViewModifier {
         )
     }
 
-    /// Trang "Sửa": VP / Name ⇒ danh sách Chung (lớp từ đã sửa); Rule dịch ⇒ danh sách bộ rule chung.
+    /// Trang "Sửa": VP / Name ⇒ danh sách Chung (lớp từ đã sửa); PhienAm / Pronouns ⇒ danh sách sửa thẳng file gốc;
+    /// Rule dịch ⇒ danh sách bộ rule chung.
     @ViewBuilder
     private func destination(for kind: GlobalDictionaryCardController.Kind) -> some View {
         switch kind {
@@ -69,7 +70,7 @@ struct GlobalDictionaryCardPresentations: ViewModifier {
         case .rules:
             QuickTranslationRuleListView(scope: .global)
         case .phienAm, .pronouns:
-            EmptyView()
+            BaseDictionaryListView(kind: kind)
         }
     }
 }

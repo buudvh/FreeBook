@@ -29,13 +29,9 @@ final class GlobalDictionaryCardController: ObservableObject {
             }
         }
 
-        /// Có màn danh sách để "Sửa".
-        var hasEditor: Bool {
-            switch self {
-            case .vietPhrase, .names, .rules: return true
-            case .phienAm, .pronouns: return false
-            }
-        }
+        /// Mọi thẻ đều có màn danh sách để "Sửa": VP / Name ⇒ danh sách Chung (lớp từ đã sửa), PhienAm / Pronouns ⇒
+        /// `BaseDictionaryListView` (sửa thẳng file gốc), Rule dịch ⇒ danh sách bộ rule chung.
+        var hasEditor: Bool { true }
     }
 
     /// File tạm chờ chia sẻ — xoá khi đóng bảng chia sẻ.

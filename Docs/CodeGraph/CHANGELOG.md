@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.995] - 2026-11-19
+
+### feat: Danh sách Phiên âm và Pronouns — sửa thẳng từ điển gốc từ thẻ PhienAm.txt / Pronouns.txt
+
+Trước: PhienAm (ChinesePhienAmWords.txt) và Pronouns (Pronouns.dat) chỉ thay được bằng cách nhập cả file; không xem / sửa / xoá được từng mục; thẻ của hai từ điển này không có mục Sửa.
+Nay:
+- Thẻ PhienAm.txt / Pronouns.txt › Sửa ⇒ BaseDictionaryListView (mới), kiểu hàng VP/Name: dòng 1 .headline từ gốc, dòng 2 .subheadline nghĩa màu phụ, icon [Xoá]; chạm thân hàng ⇒ sheet sửa (BaseDictionaryEntrySheet mới: Từ gốc + Nghĩa, nút Lưu chữ ở header, vuốt xuống hỏi bỏ thay đổi, nền kính); "+" nổi .floatingAddButton thêm mục; ngăn kéo "…" có Nhập file (popup 3 cách nhập ⇒ GlobalDictionaryImporter) / Xuất file (GlobalDictionaryTextExporter); .backPageTitle; ô tìm .searchable(..., placement: .navigationBarDrawer(displayMode: .always), prompt:).
+- Lưu / xoá sửa thẳng cả file: actor GlobalDictionaryEditor (mới) đọc từ điển gốc, đổi, ghi lại qua GlobalDictionaryImporter.writeBase (Pronouns dựng lại .dat vì .txt đã bị xoá sau lần nạp đầu; PhienAm ghi lại file text), nạp lại **riêng** từ điển đó (TranslationManager+BaseDictionaryReload mới: reloadPronounsDictionary / reloadPhienAmMap — không nạp lại cả bộ), rồi TranslateUtils.clearCache + notifyDictionariesDidUpdate để Reader / TTS dịch lại.
+- PhienAm vài chục nghìn dòng: nạp một lần sắp theo khoá, lọc trên RAM, List hiện theo lượt 200 hàng (nạp sớm khi còn 50 hàng).
+- GlobalDictionaryImporter tách phần ghi thành writeBase / baseEntries dùng chung; TranslationManager.loadPhoneticMap thành internal.
+
+File: Services/Translation/Manager/{GlobalDictionaryEditor (mới), TranslationManager+BaseDictionaryReload (mới), GlobalDictionaryImporter, TranslationManager}, Views/Dictionary/{BaseDictionaryListView (mới), BaseDictionaryEntrySheet (mới)}, Views/Settings/Translation/{GlobalDictionaryCardController, GlobalDictionaryCardPresentations}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Mỗi lần lưu PhienAm ghi lại cả file (~vài chục nghìn dòng) — chưa đo thời gian trên máy. Ghi lại PhienAm sắp theo khoá nên comment / thứ tự dòng của file gốc không giữ.
+
 ## [1.3.994] - 2026-11-19
 
 ### feat: Thẻ Từ điển chung dạng menu thả xuống — Sửa / Nhập / Xuất / Làm mới / Xoá, thêm thẻ Rule dịch
