@@ -126,6 +126,28 @@ public enum QuickTranslationRuleRecordStore {
         )
     }
 
+    /// Số liệu toast "thêm X, cập nhật Y" sau khi nhập `imported` vào bộ đang có `current` theo `mode`: `added` = mẫu
+    /// chưa có; `updated` = mẫu đã có mà vế phải **thực sự đổi** — chỉ "Gộp" mới đổi; nhập lại đúng file vừa xuất ⇒ 0.
+    /// "Thay thế toàn bộ" ⇒ (số mẫu của file, 0).
+    public static func importCounts(current: String, imported: String, mode: DataImportMode) -> (added: Int, updated: Int) {
+        let importedRecords = parseRecords(from: imported)
+        guard mode != .replaceAll else { return (importedRecords.count, 0) }
+        let currentByPattern = Dictionary(
+            parseRecords(from: current).map { ($0.pattern, $0.replacement) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var added = 0
+        var updated = 0
+        for record in importedRecords {
+            guard let old = currentByPattern[record.pattern] else {
+                added += 1
+                continue
+            }
+            if mode == .overwriteExisting, old != record.replacement { updated += 1 }
+        }
+        return (added, updated)
+    }
+
     public static func validRecords(
         from records: [Record],
         scopeRank: Int

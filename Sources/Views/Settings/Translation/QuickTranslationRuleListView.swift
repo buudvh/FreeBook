@@ -208,14 +208,14 @@ struct QuickTranslationRuleListView: View {
     private var shareSheetContent: some View {
         if case .book(let bookId) = scope {
             BookShareTargetSheet(excludedBookId: bookId) { target, mode in
-                let preview = QuickTranslationRuleTransfer.sharePreview(from: bookId, to: target.bookId)
+                let preview = QuickTranslationRuleTransfer.shareCounts(from: bookId, to: target.bookId, mode: mode)
                 let outcome = QuickTranslationRuleTransfer.shareBookRules(
                     from: bookId,
                     to: target.bookId,
                     mode: mode
                 )
                 let counts = mode == .replaceAll ? "thay toàn bộ"
-                    : "thêm \(preview.added), cập nhật \(mode == .overwriteExisting ? preview.overlapping : 0)"
+                    : "thêm \(preview.added), cập nhật \(preview.updated)"
                 report(outcome, successMessage: "Đã chia sẻ bộ rule riêng sang \"\(target.title)\" (\(counts)).")
             }
             .presentationDragIndicator(.visible)

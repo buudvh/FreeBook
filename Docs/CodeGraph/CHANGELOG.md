@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1004] - 2026-11-19
+
+### fix: Từ điển gốc xếp hàng mọi lượt ghi, thay file .dat an toàn; toast nhập rule đếm đúng "cập nhật"
+
+Ba lỗi review phản biện tìm ra ở việc 6–8 (thẻ Từ điển chung, danh sách Phiên âm / Pronouns, nhập rule):
+1. Mất dữ liệu khi sửa trong lúc nhập — Trước: nhập ở danh sách Phiên âm / Pronouns (và ở thẻ) chạy ngoài actor GlobalDictionaryEditor; trong vài giây importer nạp lại (loadAllDictionaries), sửa / xoá một hàng đọc phienAmMap / cây Pronouns còn bản cũ trong RAM rồi ghi đè file ⇒ mất mọi mục vừa nhập (toast vẫn báo thêm X); Pronouns còn dùng chung file tạm Pronouns.dat.importing giữa hai đường. Nay: GlobalDictionaryEditor là hàng đợi duy nhất cho mọi lượt ghi từ điển gốc (nhập ở thẻ, nhập ở danh sách, sửa / xoá hàng, xoá cả từ điển) — chuỗi `serialized`: lượt sau chờ lượt trước ghi **và nạp lại** xong (actor thường cho lượt khác chen ở mỗi await). GlobalDictionaryImporter luôn đọc từ điển gốc **trên đĩa** (bỏ nhánh đọc bản RAM), vẫn so số mục với wordCount. BaseDictionaryListView khoá "+", chạm hàng, nút xoá và thao tác trợ năng "Sửa" trong lúc đang nhập.
+2. Thay file không an toàn — Trước: GlobalDictionaryImporter.write xoá .dat đích rồi mới moveItem file tạm (app bị tắt giữa hai bước ⇒ mất VietPhrase / Names / Pronouns); "Thay thế toàn bộ" qua TranslationManager.importDictionary cũng xoá đích trước rồi dựng thẳng vào đích. Nay: mọi đường (gộp, chỉ thêm, thay thế toàn bộ, sửa hàng) dựng / chép vào file tạm cùng thư mục tên duy nhất `<tên>.importing-<UUID>` rồi FileManager.replaceItemAt (đích chưa có ⇒ moveItem); lỗi giữa chừng ⇒ xoá file tạm, bản cũ còn nguyên. File tạm sót của lượt bị tắt được dọn ở lượt ghi kế tiếp. "Thay thế toàn bộ" giữ đúng ngữ nghĩa cũ (dựng .dat từ file nhập bằng DoubleArrayTrieBuilder.build(fromTxtFile:), PhienAm chép nguyên file).
+3. Toast nhập rule đếm sai "cập nhật" — Trước: thẻ Rule dịch, ngăn kéo "…" của danh sách rule và chia sẻ bộ rule riêng lấy số mẫu trùng (importPreview.overlapping) làm "cập nhật", nên nhập lại đúng file vừa xuất vẫn báo "cập nhật N". Nay: QuickTranslationRuleRecordStore.importCounts(current:imported:mode:) chỉ đếm mẫu có vế phải thực sự đổi, và chỉ ở "Gộp" ("Chỉ thêm key mới" ⇒ cập nhật 0); QuickTranslationRuleTransfer.sharePreview đổi thành shareCounts(from:to:mode:).
+
+File: Services/Translation/Manager/{GlobalDictionaryEditor, GlobalDictionaryImporter}, Services/Translation/Engine/{QuickTranslationRuleRecordStore, QuickTranslationRuleTransfer}, Views/Dictionary/BaseDictionaryListView, Views/Settings/Translation/{GlobalDictionaryCardController, QuickTranslationRuleIOMenu, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Ngoài hàng đợi vẫn còn hai đường ghi VietPhrase.dat có sẵn từ trước, không đổi ở đây: "Tải từ điển mặc định" (downloadDefaultDictionaries) và gộp lớp custom vào VietPhrase (DictionaryMergeTask ⇒ TranslationManager.importDictionary, vẫn xoá đích trước rồi dựng).
+
 ## [1.3.1003] - 2026-11-19
 
 ### feat: Thử rule ở danh sách rule chung / tên chương mở từ Reader kèm bộ rule riêng của truyện đang đọc

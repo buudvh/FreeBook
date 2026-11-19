@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 /// kéo "…" có Nhập file (popup 3 cách nhập ⇒ `GlobalDictionaryImporter`) / Xuất file (`GlobalDictionaryTextExporter`).
 ///
 /// Khác VP / Name Chung (chỉ lớp custom): ở đây lưu là ghi **cả file gốc** qua `GlobalDictionaryEditor` (dựng lại
-/// `.dat` / ghi lại text, nạp lại riêng từ điển đó, xoá cache dịch). PhienAm cỡ vài chục nghìn dòng: nạp một lần sắp
+/// `.dat` / ghi lại text, nạp lại riêng từ điển đó, xoá cache dịch). Nhập file cũng đi qua hàng đợi đó; trong lúc nhập,
+/// "+", chạm hàng và nút xoá bị khoá (lớp "Đang nhập…" chỉ là vòng quay giữa màn). PhienAm cỡ vài chục nghìn dòng: nạp một lần sắp
 /// theo khoá, lọc trên RAM, `List` hiện theo lượt 200 hàng (nạp sớm khi còn 50 hàng tới cuối).
 struct BaseDictionaryListView: View {
     typealias Kind = GlobalDictionaryCardController.Kind
@@ -75,7 +76,10 @@ struct BaseDictionaryListView: View {
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ gốc hoặc nghĩa...")
         .onChange(of: searchText) { _, _ in visibleCount = Self.pageSize }
         .backPageTitle(navTitle)
-        .floatingAddButton("Thêm mục mới") { showingAddSheet = true }
+        .floatingAddButton("Thêm mục mới") {
+            guard !isImporting else { return }
+            showingAddSheet = true
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -154,7 +158,7 @@ struct BaseDictionaryListView: View {
                 Spacer()
             }
             .contentShape(Rectangle())
-            .onTapGesture { editingEntry = entry }
+            .onTapGesture { if !isImporting { editingEntry = entry } }
 
             Button {
                 delete(entry)
@@ -164,9 +168,10 @@ struct BaseDictionaryListView: View {
                     .font(.subheadline)
             }
             .buttonStyle(.borderless)
+            .disabled(isImporting)
             .accessibilityLabel("Xoá \(entry.key)")
         }
-        .accessibilityAction(named: "Sửa") { editingEntry = entry }
+        .accessibilityAction(named: "Sửa") { if !isImporting { editingEntry = entry } }
     }
 
     // MARK: - Thao tác
@@ -182,6 +187,7 @@ struct BaseDictionaryListView: View {
     }
 
     private func save(key: String, value: String, replacing oldKey: String?) {
+        guard !isImporting else { return }
         Task {
             do {
                 try await GlobalDictionaryEditor.shared.save(key: key, value: value, replacing: oldKey, type: kind.rawValue)
@@ -195,6 +201,7 @@ struct BaseDictionaryListView: View {
     }
 
     private func delete(_ entry: DictEntry) {
+        guard !isImporting else { return }
         Task {
             do {
                 try await GlobalDictionaryEditor.shared.delete(key: entry.key, type: kind.rawValue)
@@ -212,7 +219,7 @@ struct BaseDictionaryListView: View {
         isImporting = true
         Task {
             do {
-                let outcome = try await GlobalDictionaryImporter.importFile(at: url, type: kind.rawValue, mode: mode)
+                let outcome = try await GlobalDictionaryEditor.shared.importFile(at: url, type: kind.rawValue, mode: mode)
                 await reload()
                 let message = mode == .replaceAll
                     ? "Đã thay \(kind.title) bằng \(outcome.importedCount) mục."

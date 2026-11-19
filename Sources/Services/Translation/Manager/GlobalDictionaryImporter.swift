@@ -1,20 +1,22 @@
 import Foundation
 
-/// Nhập / xoá **từ điển gốc dùng chung** (thẻ VietPhrase.txt / Name.txt / PhienAm.txt / Pronouns.txt ở Cài đặt dịch thuật)
-/// theo ba chế độ của `DataImportMode`. Lớp custom (từ đã sửa ở VP / Name Chung — `CustomVietPhrase.txt` /
-/// `CustomNames.txt`) **không** bị đụng ở mọi đường.
+/// Nhập / xoá / ghi lại **từ điển gốc dùng chung** (thẻ VietPhrase.txt / Name.txt / PhienAm.txt / Pronouns.txt ở Cài đặt
+/// dịch thuật, danh sách Phiên âm / Pronouns) theo ba chế độ của `DataImportMode`. Lớp custom (từ đã sửa ở VP / Name
+/// Chung — `CustomVietPhrase.txt` / `CustomNames.txt`) **không** bị đụng ở mọi đường.
 ///
-/// - `.replaceAll`: đúng đường cũ `TranslationManager.importDictionary(from:type:)` — xoá file đích, dựng lại `.dat` từ
-///   file nhập (PhienAm: chép nguyên), nạp lại.
+/// **Chỉ gọi qua `GlobalDictionaryEditor`** (actor xếp hàng): mọi lượt ghi từ điển gốc — nhập từ thẻ, nhập từ danh sách,
+/// sửa / xoá một hàng, xoá cả từ điển — chạy nối tiếp, lượt sau chỉ bắt đầu khi lượt trước đã ghi **và** nạp lại xong.
+///
+/// - `.replaceAll`: như đường cũ `TranslationManager.importDictionary(from:type:)` (dựng `.dat` từ file nhập; PhienAm: chép
+///   nguyên file) nhưng dựng / chép vào **file tạm** rồi mới thay file cũ.
 /// - `.overwriteExisting` ("Gộp": trùng khoá lấy nghĩa **mới**) / `.keepExisting` ("Chỉ thêm key mới": trùng khoá giữ nghĩa
-///   **cũ**): đọc từ điển gốc đang có (cây đã nạp, không thì `.dat`, không thì `.txt` — như `GlobalDictionaryTextExporter`),
-///   trộn với file nhập, dựng `.dat` mới từ danh sách đã trộn bằng `DoubleArrayTrieBuilder.build(fromEntries:)` vào file
-///   tạm rồi thay file cũ (bỏ luôn `.txt` cùng tên nếu còn — loader ưu tiên `.dat`, để lại chỉ là rác), nạp lại.
-///   Duyệt từ điển cũ một lượt, chỉ dựng bảng băm cho **file nhập** (VietPhrase cỡ triệu mục thì không dựng bảng băm
-///   cho nó). PhienAm là text `ChinesePhienAmWords.txt`, nạp kiểu **sau thắng** (`loadPhoneticMap`) ⇒ trộn theo bảng
-///   băm rồi ghi lại file (sắp theo khoá; comment của file cũ không giữ).
+///   **cũ**): đọc từ điển gốc **trên đĩa** (`.dat`, không thì `.txt`; PhienAm: file text) — không đọc bản đã nạp trong RAM
+///   vì nó có thể cũ hơn file —, trộn với file nhập, dựng `.dat` mới vào file tạm rồi thay file cũ (bỏ `.txt` cùng tên nếu
+///   còn), nạp lại. Duyệt từ điển cũ một lượt, chỉ dựng bảng băm cho **file nhập**. PhienAm nạp kiểu **sau thắng**
+///   (`loadPhoneticMap`) ⇒ trộn theo bảng băm rồi ghi lại file (sắp theo khoá; comment của file cũ không giữ).
 ///
-/// Chạy ngoài `MainActor` (phần nặng trong `Task.detached`). Service: không SwiftUI, không toast — bên gọi tự báo.
+/// Thay file: file tạm tên duy nhất (UUID) cùng thư mục, `FileManager.replaceItemAt` khi đích đã có (không xoá đích trước —
+/// app bị tắt giữa chừng thì vẫn còn bản cũ), chưa có thì `moveItem`. Service: không SwiftUI, không toast.
 enum GlobalDictionaryImporter {
     /// Số liệu cho toast "thêm X, cập nhật Y". `.replaceAll`: `added` = số mục của file, `updated` = 0.
     struct Outcome: Sendable {
@@ -51,13 +53,13 @@ enum GlobalDictionaryImporter {
         guard !imported.isEmpty else { throw ImportError.emptyFile }
 
         let manager = TranslationManager.shared
-        if mode == .replaceAll {
-            try await manager.importDictionary(from: url, type: type)
-            return Outcome(added: imported.count, updated: 0, importedCount: imported.count)
-        }
-
-        let outcome = try await Task.detached(priority: .userInitiated) {
-            try mergeAndWrite(imported, files: files, mode: mode)
+        let root = manager.translateDirectory
+        let outcome = try await Task.detached(priority: .userInitiated) { () throws -> Outcome in
+            if mode == .replaceAll {
+                try replaceBase(from: url, files: files, root: root)
+                return Outcome(added: imported.count, updated: 0, importedCount: imported.count)
+            }
+            return try mergeAndWrite(imported, files: files, mode: mode)
         }.value
         try await manager.loadAllDictionaries()
         manager.notifyDictionariesDidUpdate()
@@ -81,7 +83,7 @@ enum GlobalDictionaryImporter {
         AppLogger.shared.log("🗑️ [GlobalDictionary] Đã xoá từ điển gốc \(type)")
     }
 
-    /// Từ điển gốc đang có của một loại (dùng cho trộn khi nhập và cho danh sách sửa thẳng PhienAm / Pronouns).
+    /// Từ điển gốc **trên đĩa** của một loại (trộn khi nhập, danh sách sửa thẳng PhienAm / Pronouns).
     static func baseEntries(type: String) throws -> [(key: String, value: String)] {
         try existingEntries(files: fileNames(for: type), root: TranslationManager.shared.translateDirectory)
     }
@@ -127,6 +129,31 @@ enum GlobalDictionaryImporter {
             }
         }
         return entries
+    }
+
+    /// "Thay thế toàn bộ": `.dat` dựng thẳng từ file nhập (như `importDictionary`), PhienAm chép nguyên file — vào file tạm
+    /// rồi thay.
+    private static func replaceBase(from url: URL, files: (txt: String, dat: String?), root: URL) throws {
+        if let datName = files.dat {
+            let temporary = temporaryURL(for: datName, in: root)
+            do {
+                try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: temporary)
+                try install(temporary, at: root.appendingPathComponent(datName))
+            } catch {
+                try? FileManager.default.removeItem(at: temporary)
+                throw error
+            }
+            try? FileManager.default.removeItem(at: root.appendingPathComponent(files.txt))
+        } else {
+            let temporary = temporaryURL(for: files.txt, in: root)
+            do {
+                try FileManager.default.copyItem(at: url, to: temporary)
+                try install(temporary, at: root.appendingPathComponent(files.txt))
+            } catch {
+                try? FileManager.default.removeItem(at: temporary)
+                throw error
+            }
+        }
     }
 
     private static func mergeAndWrite(
@@ -176,40 +203,51 @@ enum GlobalDictionaryImporter {
             return
         }
         if let datName = files.dat {
-            let destination = root.appendingPathComponent(datName)
-            let temporary = root.appendingPathComponent(datName + ".importing")
-            try? FileManager.default.removeItem(at: temporary)
-            try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: temporary)
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
+            let temporary = temporaryURL(for: datName, in: root)
+            do {
+                try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: temporary)
+                try install(temporary, at: root.appendingPathComponent(datName))
+            } catch {
+                try? fileManager.removeItem(at: temporary)
+                throw error
             }
-            try FileManager.default.moveItem(at: temporary, to: destination)
-            try? FileManager.default.removeItem(at: root.appendingPathComponent(files.txt))
+            try? fileManager.removeItem(at: root.appendingPathComponent(files.txt))
         } else {
             let text = entries.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "\n") + "\n"
             try Data(text.utf8).write(to: root.appendingPathComponent(files.txt), options: .atomic)
         }
     }
 
-    /// Từ điển gốc đang có: cây đã nạp ⇒ `.dat` ⇒ `.txt`; PhienAm: bản đồ đã nạp ⇒ file text. Chưa có ⇒ rỗng.
+    /// File tạm cùng thư mục, tên duy nhất — hai lượt không bao giờ dùng chung một file tạm. Trước khi tạo, dọn file tạm
+    /// sót của lượt bị tắt giữa chừng (các lượt đã xếp hàng nên lúc này không lượt nào khác đang dùng file tạm).
+    private static func temporaryURL(for name: String, in root: URL) -> URL {
+        let fileManager = FileManager.default
+        let names = (try? fileManager.contentsOfDirectory(atPath: root.path)) ?? []
+        for stale in names where stale.hasPrefix("\(name).importing-") {
+            try? fileManager.removeItem(at: root.appendingPathComponent(stale))
+        }
+        return root.appendingPathComponent("\(name).importing-\(UUID().uuidString)")
+    }
+
+    /// Đưa file tạm vào chỗ file đích: đích đã có ⇒ `replaceItemAt` (không xoá đích trước); chưa có ⇒ `moveItem`.
+    private static func install(_ temporary: URL, at destination: URL) throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: destination.path) {
+            _ = try fileManager.replaceItemAt(destination, withItemAt: temporary)
+        } else {
+            try fileManager.moveItem(at: temporary, to: destination)
+        }
+    }
+
+    /// Từ điển gốc **trên đĩa**: `.dat` ⇒ `.txt`; PhienAm: file text (sau thắng). Chưa có ⇒ rỗng. Như
+    /// `GlobalDictionaryTextExporter`: số mục duyệt được từ `.dat` phải khớp `wordCount` (doc của `TrieDictionary.allEntries`)
+    /// — lệch thì dừng, vì danh sách này sẽ được ghi lại thành **cả** từ điển gốc.
     private static func existingEntries(files: (txt: String, dat: String?), root: URL) throws -> [(key: String, value: String)] {
-        let manager = TranslationManager.shared
         let fileManager = FileManager.default
         let txtURL = root.appendingPathComponent(files.txt)
         guard let datName = files.dat else {
-            let map = manager.phienAmMap
-            if !map.isEmpty { return map.map { (key: $0.key, value: $0.value) } }
             return fileManager.fileExists(atPath: txtURL.path) ? try parseEntries(at: txtURL, lastWins: true) : []
         }
-        let loaded: TrieDictionary?
-        switch datName {
-        case "VietPhrase.dat": loaded = manager.vietPhraseDict
-        case "Names.dat": loaded = manager.namesDict
-        default: loaded = manager.pronounsDict
-        }
-        // Như `GlobalDictionaryTextExporter`: số mục duyệt được phải khớp `wordCount` (doc của `TrieDictionary.allEntries`)
-        // — lệch thì dừng, vì danh sách này sẽ được ghi lại thành **cả** từ điển gốc.
-        if let loaded { return try checkedEntries(of: loaded, name: datName) }
         let datURL = root.appendingPathComponent(datName)
         if fileManager.fileExists(atPath: datURL.path) {
             let trie = DoubleArrayTrie()
@@ -219,16 +257,12 @@ enum GlobalDictionaryImporter {
                 throw ImportError.unreadableBase(datName)
             }
             guard trie.isLoaded else { throw ImportError.unreadableBase(datName) }
-            return try checkedEntries(of: trie, name: datName)
+            let entries = trie.allEntries()
+            guard entries.count == trie.wordCount else {
+                throw ImportError.enumerationMismatch(name: datName, expected: trie.wordCount, actual: entries.count)
+            }
+            return entries
         }
         return fileManager.fileExists(atPath: txtURL.path) ? try parseEntries(at: txtURL, lastWins: false) : []
-    }
-
-    private static func checkedEntries(of dictionary: TrieDictionary, name: String) throws -> [(key: String, value: String)] {
-        let entries = dictionary.allEntries()
-        guard entries.count == dictionary.wordCount else {
-            throw ImportError.enumerationMismatch(name: name, expected: dictionary.wordCount, actual: entries.count)
-        }
-        return entries
     }
 }

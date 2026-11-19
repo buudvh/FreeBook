@@ -206,7 +206,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         }
 
         let mode = pendingImportMode
-        let preview = QuickTranslationRuleRecordStore.importPreview(current: currentSourceText ?? "", imported: text)
+        let preview = QuickTranslationRuleRecordStore.importCounts(current: currentSourceText ?? "", imported: text, mode: mode)
         let outcome: QuickTranslationRuleStore.LoadOutcome
         switch scope {
         case .global:
@@ -222,7 +222,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             let suffix = warningCount > 0 ? ", \(warningCount) cảnh báo" : ""
             let counts = mode == .replaceAll
                 ? "thay toàn bộ"
-                : "thêm \(preview.added), cập nhật \(mode == .overwriteExisting ? preview.overlapping : 0)"
+                : "thêm \(preview.added), cập nhật \(preview.updated)"
             ToastManager.shared.show(
                 message: "Đã nhập (\(counts)) — bộ \(scopeLabel) hiện có \(ruleCount) rule\(suffix).",
                 type: .success

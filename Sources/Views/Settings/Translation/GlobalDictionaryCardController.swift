@@ -88,7 +88,8 @@ final class GlobalDictionaryCardController: ObservableObject {
         importState.importingTypes.insert(kind.rawValue)
         Task {
             do {
-                let outcome = try await GlobalDictionaryImporter.importFile(at: url, type: kind.rawValue, mode: mode)
+                // Qua hàng đợi chung của từ điển gốc: không chen với lượt sửa ở danh sách Phiên âm / Pronouns.
+                let outcome = try await GlobalDictionaryEditor.shared.importFile(at: url, type: kind.rawValue, mode: mode)
                 DictionaryCache.shared.invalidateAll()
                 let message = mode == .replaceAll
                     ? "Đã thay \(kind.title) bằng \(outcome.importedCount) từ."
@@ -110,7 +111,7 @@ final class GlobalDictionaryCardController: ObservableObject {
             return
         }
         let store = QuickTranslationRuleStore.shared
-        let preview = QuickTranslationRuleRecordStore.importPreview(current: store.currentSourceText() ?? "", imported: text)
+        let preview = QuickTranslationRuleRecordStore.importCounts(current: store.currentSourceText() ?? "", imported: text, mode: mode)
         switch store.importRules(text: text, mode: mode) {
         case .success(let ruleCount, let warningCount):
             let suffix = warningCount > 0 ? ", \(warningCount) cảnh báo" : ""
@@ -118,10 +119,8 @@ final class GlobalDictionaryCardController: ObservableObject {
             switch mode {
             case .replaceAll:
                 message = "Đã thay bộ rule chung — hiện có \(ruleCount) rule\(suffix)."
-            case .overwriteExisting:
-                message = "Đã nhập rule: thêm \(preview.added), cập nhật \(preview.overlapping) — bộ chung có \(ruleCount) rule\(suffix)."
-            case .keepExisting:
-                message = "Đã nhập rule: thêm \(preview.added), cập nhật 0 — bộ chung có \(ruleCount) rule\(suffix)."
+            case .overwriteExisting, .keepExisting:
+                message = "Đã nhập rule: thêm \(preview.added), cập nhật \(preview.updated) — bộ chung có \(ruleCount) rule\(suffix)."
             }
             ToastManager.shared.show(message: message, type: .success)
         case .rejected(let issues):
@@ -214,7 +213,7 @@ final class GlobalDictionaryCardController: ObservableObject {
         importState.importingTypes.insert(kind.rawValue)
         Task {
             do {
-                try await GlobalDictionaryImporter.deleteBaseDictionary(type: kind.rawValue)
+                try await GlobalDictionaryEditor.shared.deleteBase(type: kind.rawValue)
                 DictionaryCache.shared.invalidateAll()
                 ToastManager.shared.show(message: "Đã xoá \(kind.title).", type: .info)
             } catch {
