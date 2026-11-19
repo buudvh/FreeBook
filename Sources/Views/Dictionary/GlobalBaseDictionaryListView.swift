@@ -277,13 +277,22 @@ struct GlobalBaseDictionaryListView: View {
         }
     }
 
+    /// Nhiều dòng của "+" ⇒ **một** lượt ghi lớp sửa đổi + một thông báo đổi từ điển (như `DictionaryListView` Chung):
+    /// ghi N lần là N lượt dịch lại của Reader / TTS, và hỏng giữa chừng thì ghi dở. Một dòng ⇒ đường `.term` thường.
     private func saveBatch(_ entries: [(key: String, value: String)]) {
         guard !entries.isEmpty else { return }
+        if entries.count == 1, let entry = entries.first {
+            save(key: entry.key, value: entry.value)
+            return
+        }
+        let records = entries.map { DictionaryTextRecord(key: $0.key, value: $0.value) }
         Task {
             do {
-                for entry in entries {
-                    try await cache.upsertEntry(key: entry.key, value: entry.value, type: type)
+                try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: nil) { existing in
+                    let keys = Set(records.map(\.key))
+                    existing = records + existing.filter { !keys.contains($0.key) }
                 }
+                cache.refreshFromPublishedState(type: type)
                 ToastManager.shared.show(message: "Đã lưu \(entries.count) từ", type: .success)
             } catch {
                 ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
