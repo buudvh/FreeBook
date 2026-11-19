@@ -58,15 +58,16 @@ struct GlobalDictionaryCardPresentations: ViewModifier {
         )
     }
 
-    /// Trang "Sửa": VP / Name ⇒ danh sách Chung (lớp từ đã sửa); PhienAm / Pronouns ⇒ danh sách sửa thẳng file gốc;
-    /// Rule dịch ⇒ danh sách bộ rule chung.
+    /// Trang "Sửa": VP / Name ⇒ danh sách từ điển gốc `.dat` với nghĩa hiệu lực (anh Bửu: "Sửa vietphrase thì hiển thị
+    /// danh sách của vietphrase.dat chứ không phải custom vietphrase"; danh sách Chung cũ vào từ ngăn kéo "…" của nó);
+    /// PhienAm / Pronouns ⇒ danh sách sửa thẳng file gốc; Rule dịch ⇒ danh sách bộ rule chung.
     @ViewBuilder
     private func destination(for kind: GlobalDictionaryCardController.Kind) -> some View {
         switch kind {
         case .vietPhrase:
-            DictionaryListView(type: .vietPhrase, bookId: nil)
+            GlobalBaseDictionaryListView(type: .vietPhrase)
         case .names:
-            DictionaryListView(type: .names, bookId: nil)
+            GlobalBaseDictionaryListView(type: .names)
         case .rules:
             QuickTranslationRuleListView(scope: .global)
         case .phienAm, .pronouns:

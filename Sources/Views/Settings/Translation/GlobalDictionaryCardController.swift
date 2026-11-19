@@ -29,8 +29,9 @@ final class GlobalDictionaryCardController: ObservableObject {
             }
         }
 
-        /// Mọi thẻ đều có màn danh sách để "Sửa": VP / Name ⇒ danh sách Chung (lớp từ đã sửa), PhienAm / Pronouns ⇒
-        /// `BaseDictionaryListView` (sửa thẳng file gốc), Rule dịch ⇒ danh sách bộ rule chung.
+        /// Mọi thẻ đều có màn danh sách để "Sửa": VP / Name ⇒ `GlobalBaseDictionaryListView` (từ điển gốc `.dat` + lớp sửa
+        /// đổi Chung, ghi vào lớp sửa đổi), PhienAm / Pronouns ⇒ `BaseDictionaryListView` (sửa thẳng file gốc), Rule dịch ⇒
+        /// danh sách bộ rule chung.
         var hasEditor: Bool { true }
     }
 

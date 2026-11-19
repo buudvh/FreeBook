@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1007] - 2026-11-19
+
+### feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi
+
+Trước: Cài đặt dịch thuật › thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách Chung cũ (DictionaryListView) — chỉ thấy lớp sửa đổi (CustomVietPhrase.txt / CustomNames.txt), không thấy từ nào của VietPhrase.dat / Names.dat.
+Nay (anh Bửu: "Sửa vietphrase thì hiển thị danh sách của vietphrase.dat chứ không phải custom vietphrase nhé"; chọn "Lớp sửa đổi, hiện chung", Name cũng vậy):
+- GlobalBaseDictionaryListView (mới): danh sách từ điển gốc với **nghĩa hiệu lực** = .dat + lớp sửa đổi Chung — từ đã sửa hiện nghĩa mới + nhãn "đã sửa"; từ đã xoá (tombstone) ẩn; từ chỉ có ở lớp sửa đổi (tự thêm) đứng đầu, nhãn "đã thêm". Kiểu hàng VP/Name (.headline khoá, .subheadline nghĩa màu phụ), chạm thân hàng ⇒ DictEntrySheet chế độ sửa (như DictionaryListView), icon Xoá, "+" nổi thêm từ, .backPageTitle("VietPhrase.dat" / "Names.dat"), .searchable(..., placement: .navigationBarDrawer(displayMode: .always), prompt:). Ngăn kéo "…" có "Từ đã sửa / đã xoá" ⇒ đẩy DictionaryListView Chung cũ (xem / khôi phục).
+- Lưu / xoá / thêm **chỉ** ghi lớp sửa đổi Chung qua đường có sẵn DictionaryCache.upsertEntry / deleteEntry ⇒ TranslationManager.saveCustomEntry / deleteCustomEntry (scope .term ⇒ Reader / TTS dịch lại); không ghi lại .dat. Xoá một từ gốc = tombstone (ẩn khỏi danh sách), xoá từ tự thêm = bỏ hẳn.
+- Hiệu năng (VietPhrase cỡ triệu mục): mở màn đọc **mảng khoá** một lần ở nền (vòng quay "Đang đọc VietPhrase.dat…") từ cây đã nạp — FrozenTrieDictionary+Walk (mới): walkEntries duyệt cây tiền thứ tự chỉ giữ đường đi hiện tại (bộ nhớ O(độ sâu)) và allKeys() không giữ nghĩa; allEntries() cũng chuyển sang walkEntries (cùng tập entry, thứ tự nay là tiền thứ tự của cây — khoá cha trước khoá con; bớt các mảng nút cỡ triệu phần tử khi xuất / gộp). Nghĩa của hàng tra lúc hàng hiện (lớp sửa đổi trước, rồi cây). Danh sách hiện theo lượt 200 hàng (nạp sớm khi còn 50). Tìm theo từ gốc **và** nghĩa (BaseDictionaryBrowser.search, Service mới): chạy nền, chờ 300 ms sau phím cuối, gõ tiếp thì huỷ lượt cũ (huỷ cả task nền đang duyệt cây), dừng ở 500 kết quả — dòng tổng ghi "500 kết quả đầu".
+- Danh sách VP / Name Chung cũ vẫn mở từ Từ điển của truyện như trước; Nhập / Xuất / Xoá của thẻ không đổi.
+
+File: Models/Dictionaries/{FrozenTrieDictionary, FrozenTrieDictionary+Walk (mới)}, Services/Translation/Manager/BaseDictionaryBrowser (mới), Views/Dictionary/GlobalBaseDictionaryListView (mới), Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController (chỉ comment)}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần đo trên máy thời gian / RAM khi đọc mảng khoá VietPhrase cỡ triệu mục và tốc độ tìm theo nghĩa. Thứ tự hàng là thứ tự cây (gần theo chữ, không sắp xếp lại). File .txt xuất từ thẻ (GlobalDictionaryTextExporter) nay ra theo thứ tự cây mới — cùng nội dung, khác thứ tự dòng.
+
 ## [1.3.1006] - 2026-11-19
 
 ### fix: Danh sách tab danh mục ở Khám phá không còn tự kéo lệch khi quay về từ Chi tiết / tab khác
