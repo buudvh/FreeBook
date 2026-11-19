@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.983] - 2026-11-19
+
+### feat: Ô tìm kiếm của các danh sách luôn hiện, cuộn xuống không ẩn
+
+Anh Bửu: "luôn hiển thị ô tìm kiếm ở các danh sách đó dù cuộn xuống".
+
+- `.searchable` của 9 danh sách thêm `placement: .navigationBarDrawer(displayMode: .always)` (trước để mặc định ⇒ iOS giấu ô tìm khi cuộn xuống): VP/Name (cả tab Từ đã xoá) `DictionaryListView`, rule dịch `QuickTranslationRuleListView`, lọc rác `JunkFilterManagementView`, phiên âm NghiTTS `TTSDictionaryEditView`, phiên âm VieNeu `VieNeuJapaneseDictionaryView`, thay thế ký tự TTS `TTSReplacementManagerView`, phiên trò chuyện AI `AIChatAllSessionsManagerView`, xung đột nhập từ điển `DictionaryImportConflictView`. Màn chọn chương quét tên AI vốn đã `.always`.
+- Danh sách mới có ô tìm thì dùng cùng `placement` này.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.982] - 2026-11-19
 
 ### feat: Popup chọn cách nhập dữ liệu — Thay thế toàn bộ / Gộp / Chỉ thêm key mới, chọn xong mới chọn file

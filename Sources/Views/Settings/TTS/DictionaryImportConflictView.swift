@@ -153,7 +153,7 @@ struct DictionaryImportConflictView: View {
             }
         }.glassSheetRows() }
         .listStyle(.insetGrouped)
-        .searchable(text: $searchText, prompt: "Tìm từ")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ")
     }
 
     /// Hàng chip tóm tắt — thay cho câu chữ dài ở `header`: đọc số liệu nhanh hơn và không chiếm hai dòng.

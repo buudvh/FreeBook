@@ -202,7 +202,7 @@ struct TTSDictionaryEditView: View {
                 Text("Từ vựng (\(allWords.count) từ)")
             }
         }.glassSheetRows() }
-        .searchable(text: $searchText, prompt: "Tìm từ...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ...")
         .onChange(of: searchText) { oldValue, newValue in
             visibleCount = 100
         }

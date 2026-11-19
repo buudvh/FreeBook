@@ -104,7 +104,7 @@ struct JunkFilterManagementView: View {
         }.glassSheetRows() }
         // "Thêm quy tắc" là nút "+" nổi góc dưới phải như các màn danh sách khác (trước đây là mục đầu ngăn kéo).
         .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
-        .searchable(text: $searchText, prompt: "Tìm từ lọc rác...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ lọc rác...")
         .environment(\.editMode, $editMode)
         .onChange(of: isSearching) { _, searching in
             // Đang lọc thì thứ tự hiện ra không phải thứ tự áp dụng nên kéo-thả bị chặn; phải rời chế độ

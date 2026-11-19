@@ -125,7 +125,7 @@ struct TTSReplacementManagerView: View {
         }.glassSheetRows() }
         // "Thêm quy tắc" là nút "+" nổi góc dưới phải (không còn trong ngăn kéo).
         .floatingAddButton("Thêm quy tắc") { prepareForAdd() }
-        .searchable(text: $searchText, prompt: "Tìm mẫu hoặc chuỗi thay thế...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm mẫu hoặc chuỗi thay thế...")
         .pageTitle(layerTitle, style: isPresentedAsSheet ? .leading : .centered)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

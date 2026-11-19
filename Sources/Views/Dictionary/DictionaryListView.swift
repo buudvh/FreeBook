@@ -298,7 +298,7 @@ struct DictionaryListView: View {
                 Text("Từ vựng")
             }
         }.glassSheetRows() }
-        .searchable(text: $searchText, prompt: "Tìm từ...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ...")
         .onChange(of: searchText) { _, _ in
             visibleCount = Self.pageSize
         }
@@ -363,7 +363,7 @@ struct DictionaryListView: View {
                 Text("Danh sách từ đã xóa")
             }
         }.glassSheetRows() }
-        .searchable(text: $searchText, prompt: "Tìm từ đã xóa...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ đã xóa...")
         .overlay {
             if deletedWordsList.isEmpty {
                 VStack(spacing: 8) {

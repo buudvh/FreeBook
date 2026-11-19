@@ -149,7 +149,7 @@ struct QuickTranslationRuleListView: View {
         .floatingAddButton("Thêm rule") {
             editorMode = .add(prefilledPattern: "", prefilledReplacement: "")
         }
-        .searchable(text: $searchText, prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm mẫu, bản dịch hoặc số dòng...")
         .backPageTitle(pageTitle)
         .quickTranslationRuleIOMenu(
             scope: scope,

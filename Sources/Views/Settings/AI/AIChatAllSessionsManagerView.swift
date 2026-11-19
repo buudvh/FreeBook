@@ -57,7 +57,7 @@ public struct AIChatAllSessionsManagerView: View {
                         }
                     }
                 }.glassSheetRows() }
-                .searchable(text: $searchText, prompt: "Tìm theo tiêu đề hoặc model...")
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm theo tiêu đề hoặc model...")
             }
         }
         .backPageTitle("Lịch sử phiên chat AI")
