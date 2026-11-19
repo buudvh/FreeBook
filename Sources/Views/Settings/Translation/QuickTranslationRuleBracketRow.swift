@@ -1,10 +1,11 @@
 import SwiftUI
 
 /// Một hàng của màn Bộ ngoặc (`QuickTranslationRuleBracketListView`), theo kiểu hàng danh sách 1.3.636:
-/// dòng 1 `.headline` là cặp ngoặc, dòng 2 `.subheadline` màu phụ là tên (cặp tắt thêm " · đang tắt" và mờ),
-/// cụm icon `[Sửa] [Tắt/Bật] [Xoá]` cùng cỡ và thứ tự với `QuickTranslationRuleEntryRow`.
+/// dòng 1 `.headline` là cặp ngoặc, dòng 2 `.subheadline` màu phụ là tên (cặp tắt thêm " · đang tắt" và mờ).
+/// **Chạm thân hàng** mở màn sửa (không còn icon bút chì); cụm icon `[Tắt/Bật] [Xoá]` `.borderless`, cùng cỡ và thứ tự
+/// với `QuickTranslationRuleEntryRow`. Trợ năng có thao tác "Sửa".
 ///
-/// `isEditable == false` (truyện đang theo bộ chung) ⇒ chỉ xem, không có icon.
+/// `isEditable == false` (truyện đang theo bộ chung) ⇒ chỉ xem: không có icon, chạm hàng không làm gì.
 struct QuickTranslationRuleBracketRow: View {
     let pair: QuickTranslationRuleBracketPair
     let isEditable: Bool
@@ -22,41 +23,43 @@ struct QuickTranslationRuleBracketRow: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: glyphs)
-                    .font(.headline)
-                Text(verbatim: subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .opacity(pair.isEnabled ? 1 : 0.5)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: glyphs)
+                        .font(.headline)
+                    Text(verbatim: subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .opacity(pair.isEnabled ? 1 : 0.5)
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isEditable { onEdit() }
+            }
 
             if isEditable {
                 actionIcons
             }
         }
         .padding(.vertical, 2)
-        .contentShape(Rectangle())
+        .accessibilityActions {
+            if isEditable {
+                Button("Sửa", action: onEdit)
+            }
+        }
     }
 
     private var actionIcons: some View {
         HStack(spacing: 10) {
-            Button(action: onEdit) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Sửa cặp \(glyphs)")
-
             Button(action: onToggle) {
                 Image(systemName: pair.isEnabled ? "pause.circle" : "play.circle")
                     .foregroundColor(pair.isEnabled ? .orange : .green)
                     .font(.subheadline)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel(pair.isEnabled ? "Tắt cặp \(glyphs)" : "Bật cặp \(glyphs)")
 
             Button(action: onDelete) {
@@ -64,7 +67,7 @@ struct QuickTranslationRuleBracketRow: View {
                     .foregroundColor(.red)
                     .font(.subheadline)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel("Xoá cặp \(glyphs)")
         }
     }

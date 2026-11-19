@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Một hàng rule trong `QuickTranslationRuleListView`, mirror đúng `DictionaryEntryRow` của từ điển:
-/// icon cùng cỡ, cùng padding, thứ tự cố định `[Sửa] [Chuyển] [Tắt|Bật] [Xoá]`.
+/// Một hàng rule trong `QuickTranslationRuleListView`, mirror đúng `DictionaryEntryRow` của từ điển: **chạm thân
+/// hàng** (chữ + khoảng trống tới cụm icon) mở màn sửa — không còn icon bút chì; icon cùng cỡ, cùng padding, thứ tự
+/// cố định `[Chuyển] [Tắt|Bật] [Xoá]`, đều `.borderless` nên chạm icon không mở màn sửa. Trợ năng có thao tác "Sửa".
 ///
 /// Icon **Chuyển** là menu chọn phạm vi đích (`QuickTranslationRuleTransfer.transferTargets`) rồi COPY sang
 /// đó (rule nguồn giữ nguyên), giống hệt nút Chuyển của từ điển. Không có đích nào thì icon mờ và chạm vào
@@ -30,51 +31,51 @@ struct QuickTranslationRuleEntryRow: View {
 
     var body: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text("dòng \(rule.sourceLine)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-
-                    if isDisabled {
-                        badge("ĐÃ TẮT", color: .orange)
-                    }
-                    if isDisabledGlobally, scope.bookId != nil {
-                        badge("TẮT Ở BỘ CHUNG", color: .orange)
-                    }
-                    if let worst = issues.min(by: { $0.severity < $1.severity }) {
-                        issueBadge(for: worst, extraCount: issues.count - 1)
-                    }
-                    Spacer(minLength: 0)
-                }
-
-                Text(rule.pattern)
-                    .font(.headline)
-                Text(rule.replacement)
-                    .font(.subheadline)
-                    .foregroundColor(.white)
+            // Vùng chạm mở màn sửa = chữ + khoảng trống tới cụm icon.
+            HStack(alignment: .top) {
+                ruleText
+                Spacer(minLength: 8)
             }
-            .opacity(isDisabled ? 0.5 : 1)
-
-            Spacer(minLength: 8)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onEdit)
 
             actionIcons
         }
         .padding(.vertical, 2)
-        .contentShape(Rectangle())
+        .accessibilityAction(named: "Sửa", onEdit)
+    }
+
+    private var ruleText: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text("dòng \(rule.sourceLine)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                if isDisabled {
+                    badge("ĐÃ TẮT", color: .orange)
+                }
+                if isDisabledGlobally, scope.bookId != nil {
+                    badge("TẮT Ở BỘ CHUNG", color: .orange)
+                }
+                if let worst = issues.min(by: { $0.severity < $1.severity }) {
+                    issueBadge(for: worst, extraCount: issues.count - 1)
+                }
+                Spacer(minLength: 0)
+            }
+
+            Text(rule.pattern)
+                .font(.headline)
+            Text(rule.replacement)
+                .font(.subheadline)
+                .foregroundColor(.white)
+        }
+        .opacity(isDisabled ? 0.5 : 1)
     }
 
     @ViewBuilder
     private var actionIcons: some View {
         HStack(spacing: 10) {
-            Button(action: onEdit) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Sửa rule dòng \(rule.sourceLine)")
-
             transferButton
 
             Button(action: onToggleDisabled) {
@@ -82,7 +83,7 @@ struct QuickTranslationRuleEntryRow: View {
                     .foregroundColor(isDisabled ? .green : .orange)
                     .font(.subheadline)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel(isDisabled ? "Bật rule dòng \(rule.sourceLine)" : "Tắt rule dòng \(rule.sourceLine)")
 
             Button(action: onDelete) {
@@ -90,7 +91,7 @@ struct QuickTranslationRuleEntryRow: View {
                     .foregroundColor(.red)
                     .font(.subheadline)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel("Xoá rule dòng \(rule.sourceLine)")
         }
     }
@@ -131,7 +132,7 @@ struct QuickTranslationRuleEntryRow: View {
             Button(action: onMissingContext) {
                 transferIcon(color: .secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel("Không xác định được truyện hiện tại để chuyển rule")
         }
     }

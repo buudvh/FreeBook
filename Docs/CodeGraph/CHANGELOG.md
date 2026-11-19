@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.992] - 2026-11-19
+
+### feat: Hàng VP/Name, rule dịch, bộ ngoặc — bỏ icon bút chì, chạm thân hàng mở màn sửa
+
+Trước: muốn sửa một mục ở danh sách VietPhrase / Names (Chung và Riêng), danh sách rule (chung / tên chương / riêng truyện) và danh sách Bộ ngoặc phải chạm icon bút chì nhỏ ở cụm icon cuối hàng; chạm thân hàng không làm gì.
+Nay: chạm thân hàng (chữ + khoảng trống tới cụm icon) mở đúng màn sửa cũ (DictEntrySheet / QuickTranslationRuleEditorSheet / sheet sửa cặp ngoặc); icon bút chì bỏ. Vùng nội dung dùng .contentShape(Rectangle()).onTapGesture, không bọc cả hàng trong Button; các icon còn lại (Chuyển, Tắt/Bật, Xoá) chuyển sang .buttonStyle(.borderless), Menu "Chuyển" giữ .menuStyle(.borderlessButton) — chạm icon không mở màn sửa. Trợ năng: thêm thao tác "Sửa" (accessibilityAction) cho cả ba loại hàng. Hàng bộ ngoặc chỉ xem (truyện đang theo bộ chung) chạm không làm gì, không có thao tác Sửa.
+
+File: Views/Dictionary/DictionaryEntryRow, Views/Settings/Translation/{QuickTranslationRuleEntryRow, QuickTranslationRuleBracketRow}.
+
+Ngoài phạm vi (chưa sửa, theo dặn): .claude/rules/ui-conventions.md mục "Màn danh sách" vẫn ghi cụm icon [Sửa][Chuyển][Tắt/Bật][Xoá] — session chính cập nhật nếu muốn.
+Chưa kiểm: chưa build, chưa chạy máy — cần thử chạm icon Chuyển/Xoá không lọt xuống màn sửa và cuộn danh sách không mở nhầm.
+
 ## [1.3.991] - 2026-11-19
 
 ### feat: Xuất rule dịch thành một file bỏ rule đang tắt — bỏ xuất danh sách tắt, gọn màn Quản lý rule dịch

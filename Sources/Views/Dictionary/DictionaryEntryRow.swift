@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Một dòng từ vựng trong `DictionaryListView`, gồm 3 icon hành động cùng cỡ,
-/// cùng padding, cùng vùng chạm theo thứ tự cố định: `[Sửa] [Chuyển] [Xóa]`.
+/// Một dòng từ vựng trong `DictionaryListView`: **chạm thân hàng** (chữ + khoảng trống tới cụm icon) mở màn sửa, cụm
+/// icon cùng cỡ, cùng padding theo thứ tự cố định `[Chuyển] [Xóa]` (bỏ icon bút chì). Không bọc cả hàng trong `Button`:
+/// vùng nội dung dùng `onTapGesture`, icon / `Menu` là nút `.borderless` nên chạm icon không mở màn sửa. Trợ năng có
+/// thao tác "Sửa".
 ///
 /// Icon giữa là COPY sang phạm vi còn lại:
 /// - Đang ở danh sách **Chung** → menu "Chuyển qua Riêng" (VP riêng / Name riêng),
@@ -22,25 +24,19 @@ struct DictionaryEntryRow: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.key)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(entry.value)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.key)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(entry.value)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
             }
-            Spacer()
-
-            Button {
-                onEdit()
-            } label: {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Sửa từ \(entry.key)")
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
 
             transferButton
 
@@ -51,11 +47,11 @@ struct DictionaryEntryRow: View {
                     .foregroundColor(.red)
                     .font(.subheadline)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .padding(.leading, 8)
             .accessibilityLabel("Xóa từ \(entry.key)")
         }
-        .contentShape(Rectangle())
+        .accessibilityAction(named: "Sửa") { onEdit() }
     }
 
     @ViewBuilder
@@ -68,7 +64,7 @@ struct DictionaryEntryRow: View {
             } label: {
                 transferIcon(color: .secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .padding(.leading, 8)
             .accessibilityLabel("Không xác định được truyện hiện tại để chuyển \(entry.key)")
         } else {
