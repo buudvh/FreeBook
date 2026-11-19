@@ -40,7 +40,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     @State var showingDisabledImportModes = false
     @State var pendingDisabledPatterns: [String]? = nil
     @State var pendingDisabledPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
-    @State var sharedDisabledFile: SharedFile? = nil
     @State var showingReenableConfirm = false
     @State var showingDeleteDisabledConfirm = false
 
@@ -86,6 +85,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     disabledRuleMenuItems
                 } else {
                     SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImporter = true }
+                    // Một file, đã bỏ rule đang tắt (`QuickTranslationRuleExporter`) — không còn xuất danh sách tắt riêng.
                     SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
                         .disabled(!hasRuleFile)
                     if scope.bookId != nil, let onShareAll {
@@ -122,15 +122,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 ShareSheet(activityItems: [file.url]) { _, completed, _, error in
                     if completed {
                         ToastManager.shared.show(message: "Đã xuất bộ rule \(scopeLabel).", type: .success)
-                    } else if let error = error {
-                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-                    }
-                }
-            }
-            .sheet(item: $sharedDisabledFile) { file in
-                ShareSheet(activityItems: [file.url]) { _, completed, _, error in
-                    if completed {
-                        ToastManager.shared.show(message: "Đã xuất danh sách rule tắt.", type: .success)
                     } else if let error = error {
                         ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                     }
@@ -284,24 +275,17 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         }
     }
 
+    /// Xuất một file đã bỏ rule đang tắt của bộ này.
     private func exportRules() {
-        guard let text = currentSourceText else {
-            ToastManager.shared.show(message: "Không có bộ rule \(scopeLabel) nào để xuất.", type: .error)
-            return
-        }
-        let fileName: String
-        switch scope {
-        case .global: fileName = QuickTranslationRuleStore.ruleFileName
-        case .chapterTitle: fileName = QuickTranslationRuleChapterStore.ruleFileName
-        case .book: fileName = QuickTranslationRuleBookStore.ruleFileName
-        }
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(fileName)
-        do {
-            try text.write(to: url, atomically: true, encoding: .utf8)
+        switch QuickTranslationRuleExporter.writeTemporaryFile(scope: scope) {
+        case .file(let url, _, _):
             sharedFile = SharedFile(url: url)
-        } catch {
-            ToastManager.shared.show(message: "Lỗi xuất file: \(error.localizedDescription)", type: .error)
+        case .noRuleSet:
+            ToastManager.shared.show(message: "Không có bộ rule \(scopeLabel) nào để xuất.", type: .error)
+        case .allDisabled(let count):
+            ToastManager.shared.show(message: "Cả \(count) rule \(scopeLabel) đang tắt — không có rule nào để xuất.", type: .info)
+        case .failure(let message):
+            ToastManager.shared.show(message: message, type: .error)
         }
     }
 

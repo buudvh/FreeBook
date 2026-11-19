@@ -34,7 +34,7 @@ public enum QuickTranslationRuleDisableFile {
                   !trimmed.hasPrefix("#"),
                   !trimmed.hasPrefix("//"),
                   !trimmed.hasPrefix("===") else { continue }
-            let pattern = unquote(trimmed)
+            let pattern = normalizedPattern(trimmed)
             guard !pattern.isEmpty, seen.insert(pattern).inserted else { continue }
             patterns.append(pattern)
         }
@@ -82,6 +82,13 @@ public enum QuickTranslationRuleDisableFile {
         let overlapping = importedSet.intersection(currentSet).count
         let machineOnly = currentSet.subtracting(importedSet).count
         return (added, overlapping, machineOnly)
+    }
+
+    /// Khoá so khớp của một mẫu: trim khoảng trắng / xuống dòng rồi bỏ cặp nháy kép bao ngoài — đúng cách `parse`
+    /// chuẩn hoá từng dòng file tắt. Chỗ khác cần biết "mẫu này có đang tắt không" (vd lọc rule tắt khi xuất,
+    /// `QuickTranslationRuleExporter`) phải đi qua hàm này, không tự chuẩn hoá lại.
+    public static func normalizedPattern(_ raw: String) -> String {
+        unquote(raw.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// Bỏ cặp nháy kép bao ngoài, khớp cách `QuickTranslationRuleParser` chấp nhận `"mẫu" = "nghĩa"`.

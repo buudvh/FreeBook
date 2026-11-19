@@ -79,7 +79,7 @@ struct QuickTranslationRuleListView: View {
     private var emptyMessage: String {
         switch scope {
         case .global:
-            return "Chưa có bộ rule nào. Tải hoặc nhập bộ rule ở màn Quản lý rule dịch, hoặc bấm + để tự thêm rule đầu tiên."
+            return "Chưa có bộ rule nào. Tải bộ mặc định ở màn Quản lý rule dịch, nhập file ở menu …, hoặc bấm + để tự thêm rule đầu tiên."
         case .chapterTitle:
             return "Chưa có rule tên chương. Bấm + để thêm, hoặc dùng nút Chuyển ở danh sách rule chung / rule riêng."
         case .book:

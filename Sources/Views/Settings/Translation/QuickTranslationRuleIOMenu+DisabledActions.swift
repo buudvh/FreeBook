@@ -14,8 +14,6 @@ extension QuickTranslationRuleIOMenu {
     @ViewBuilder
     var disabledRuleMenuItems: some View {
         SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImporter = true }
-        SideDrawerActionRow("Xuất danh sách rule tắt", systemImage: "square.and.arrow.up") { exportDisabledRules() }
-            .disabled(isDisabledListEmpty)
         SideDrawerActionRow("Bật lại tất cả rule đã tắt", systemImage: "play.circle") { showingReenableConfirm = true }
             .disabled(isDisabledListEmpty)
         SideDrawerActionRow("Xoá tất cả rule đã tắt", systemImage: "trash", role: .destructive) { showingDeleteDisabledConfirm = true }
@@ -60,18 +58,6 @@ extension QuickTranslationRuleIOMenu {
             onChanged()
         case .failure(let message):
             ToastManager.shared.show(message: message, type: .error)
-        }
-    }
-
-    func exportDisabledRules() {
-        let text = QuickTranslationRuleDisableFile.serialize(currentDisabledPatterns)
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(QuickTranslationRuleDisableStore.disabledFileName(for: scope))
-        do {
-            try text.write(to: url, atomically: true, encoding: .utf8)
-            sharedDisabledFile = SharedFile(url: url)
-        } catch {
-            ToastManager.shared.show(message: "Lỗi xuất file: \(error.localizedDescription)", type: .error)
         }
     }
 

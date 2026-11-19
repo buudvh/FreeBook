@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.991] - 2026-11-19
+
+### feat: Xuất rule dịch thành một file bỏ rule đang tắt — bỏ xuất danh sách tắt, gọn màn Quản lý rule dịch
+
+Trước: "Xuất bộ rule" chép nguyên file rule (kể cả rule đang tắt) và tab Đã tắt có thêm "Xuất danh sách rule tắt" (file thứ hai); "Chia sẻ bộ rule riêng sang truyện khác" chép cả rule đang tắt; màn Quản lý rule dịch có section "Bộ rule" với ba nút Nhập file / Xuất bộ đang chạy / Xoá bộ rule khỏi máy (+ hộp chọn chế độ nhập, hộp xác nhận xoá).
+Nay:
+- QuickTranslationRuleExporter (Service mới): văn bản bộ rule của một phạm vi đã bỏ dòng có mẫu nằm trong file tắt của chính bộ đó (chung ⇒ file tắt chung, tên chương ⇒ file tắt tên chương, riêng ⇒ file tắt của truyện). Lọc từng dòng nên comment / thứ tự dòng giữ nguyên; mẫu lấy bằng QuickTranslationRuleParser.splitRuleLine rồi chuẩn hoá bằng QuickTranslationRuleDisableFile.normalizedPattern (hàm mới, chính là bước trim + bỏ nháy kép mà parse của file tắt vẫn dùng). Mọi rule đều tắt ⇒ không xuất file rỗng, báo toast.
+- Ngăn kéo "…" của danh sách rule (cả ba bộ) xuất qua exporter; "Chia sẻ bộ rule riêng" (QuickTranslationRuleTransfer.shareBookRules) cũng chia sẻ bản đã lọc. Thẻ Rule dịch ở Cài đặt dịch thuật (commit sau) dùng chung hàm này.
+- Bỏ mục "Xuất danh sách rule tắt" (tab Đã tắt còn: nhập file rule tắt, bật lại tất cả, xoá tất cả rule đã tắt).
+- Màn Quản lý rule dịch: bỏ ba nút Nhập / Xuất / Xoá cùng importer, hộp chọn chế độ, hộp xác nhận xoá và hàm đi kèm; nút "Tải bộ rule mặc định" (chỉ hiện khi máy chưa có rule) và chữ giải thích của nó gộp vào section Trạng thái, không còn section "Bộ rule". Chữ "Cần tải lại thì xoá bộ rule…" và chữ trống của danh sách rule chung trỏ sang menu … của danh sách.
+
+File: Services/Translation/Engine/{QuickTranslationRuleExporter (mới), QuickTranslationRuleDisableFile, QuickTranslationRuleTransfer}, Views/Settings/Translation/{QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions, QuickTranslationRulesView, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Mẫu trong file rule viết dạng có nháy kép bao ngoài mà không theo đúng regex `"mẫu" = "nghĩa"` của parser có thể cho khoá khác với khoá engine dùng — trường hợp hiếm, chưa thử.
+
 ## [1.3.990] - 2026-11-19
 
 ### feat: Cài đặt dịch thuật — giải thích của công tắc Quick Translate và Áp dụng rule dịch vào nút "?" cạnh tên

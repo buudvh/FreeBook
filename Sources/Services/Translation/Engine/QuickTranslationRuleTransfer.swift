@@ -53,7 +53,8 @@ public enum QuickTranslationRuleTransfer {
     /// Chia sẻ **cả bộ rule riêng** của một truyện sang truyện khác.
     ///
     /// Chia sẻ đi qua `QuickTranslationRuleBookStore.importRules`, nơi trộn records rồi ghi lại file
-    /// canonical. Thứ tự file đích làm xương sống; mẫu mới từ file nguồn được nối cuối.
+    /// canonical. Thứ tự file đích làm xương sống; mẫu mới từ file nguồn được nối cuối. Như nút xuất, rule đang tắt
+    /// ở truyện nguồn (file tắt riêng của truyện đó) **không** được chia sẻ (`QuickTranslationRuleExporter`).
     public static func shareBookRules(
         from sourceBookId: String,
         to targetBookId: String,
@@ -62,12 +63,15 @@ public enum QuickTranslationRuleTransfer {
         guard sourceBookId != targetBookId else {
             return .failure(message: "Truyện nguồn và truyện đích trùng nhau")
         }
-        guard let text = QuickTranslationRuleBookStore.shared.currentSourceText(for: sourceBookId),
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let export = QuickTranslationRuleExporter.export(scope: .book(sourceBookId)),
+              export.ruleCount + export.skippedDisabled > 0 else {
             return .failure(message: "Truyện này chưa có bộ rule riêng để chia sẻ")
         }
+        guard export.ruleCount > 0 else {
+            return .failure(message: "Mọi rule riêng của truyện này đang tắt — không có rule nào để chia sẻ")
+        }
         return QuickTranslationRuleBookStore.shared.importRules(
-            text: text,
+            text: export.text,
             mode: mode,
             bookId: targetBookId
         )
