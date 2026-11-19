@@ -598,7 +598,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func checkpointProgress() {
+    internal func checkpointProgress() {
         guard let snapshot = progressSnapshot() else { return }
         Task(priority: .high) {
             try? await ReadingProgressStore.shared.checkpoint(snapshot)

@@ -6,12 +6,18 @@ import Foundation
 ///
 /// `currentParagraphIndex` là chỉ số trong mảng **chunk** `TTSManager.paragraphs` (không phải id dòng thưa `ChapterTextLine.id`).
 /// `paragraphs` không `@Published` ⇒ đọc ở lượt sau (`receive(on:)`) của các tín hiệu có phát.
+///
+/// Tiến độ "N/M" đếm theo **đoạn** = dòng cha (2026-11-19, anh Bửu: vạch tiến độ kéo để tua theo đoạn): M = số
+/// `paragraphIndex` ≥ 0 khác nhau, N = thứ tự dòng đang đọc (tiêu đề ⇒ 0). Trước đó đếm chunk (tính cả chunk tiêu đề và
+/// chunk con của NghiTTS / VieNeu). `outline` (đầu từng đoạn) dựng lại chỉ khi phiên / chương / số chunk / lượt nối đổi, để
+/// kéo vạch không phải đọc `TTSManager` mỗi nhịp.
 @MainActor
 final class TTSQuickControlNowReading: ObservableObject {
     struct Snapshot: Equatable {
         var sentence = ""
-        /// Số thứ tự đoạn đang đọc, đếm từ 1; 0 ⇒ chưa có.
+        /// Thứ tự **đoạn** (dòng cha) đang đọc, đếm từ 1; 0 ⇒ chưa có / đang đọc tên chương.
         var position = 0
+        /// Số đoạn của chương (không tính tên chương).
         var total = 0
         /// Model + tăng tốc của đoạn đang phát (VieNeu, 1.3.942) — `nil` khi không phải VieNeu / đoạn chưa tổng hợp xong.
         var engineLabel: VieNeuEngineBadgeStore.Label?
@@ -26,7 +32,24 @@ final class TTSQuickControlNowReading: ObservableObject {
         }
     }
 
+    /// Đầu một đoạn: id dòng (`TTSParagraph.paragraphIndex`) + câu của chunk đầu (bong bóng khi kéo vạch).
+    struct OutlineEntry: Equatable {
+        let lineId: Int
+        let sentence: String
+    }
+
+    private struct OutlineKey: Equatable {
+        let sessionID: UUID
+        let bookId: String
+        let chapterIndex: Int
+        let chunkCount: Int
+        let layoutRevision: Int
+    }
+
     @Published private(set) var snapshot = Snapshot()
+    private(set) var outline: [OutlineEntry] = []
+    private var ordinalByLineId: [Int: Int] = [:]
+    private var outlineKey: OutlineKey?
     private var cancellables = Set<AnyCancellable>()
 
     init(manager: TTSManager? = nil) {
@@ -58,9 +81,10 @@ final class TTSQuickControlNowReading: ObservableObject {
         guard let manager else { return }
         let paragraphs = manager.paragraphs
         let index = manager.currentParagraphIndex
-        var next = Snapshot(total: paragraphs.count)
+        rebuildOutlineIfNeeded(manager: manager, paragraphs: paragraphs)
+        var next = Snapshot(total: outline.count)
         if index >= 0, index < paragraphs.count {
-            next.position = index + 1
+            next.position = ordinalByLineId[paragraphs[index].paragraphIndex] ?? 0
             next.sentence = paragraphs[index].text.trimmingCharacters(in: .whitespacesAndNewlines)
             next.fallbackEngine = manager.onlineFallbackEngine(forChunk: index)
             // Chữ đã nói (đã áp quy tắc thay thế) — khoá tra của cả badge engine lẫn RTF.
@@ -79,5 +103,47 @@ final class TTSQuickControlNowReading: ObservableObject {
         }
         guard next != snapshot else { return }
         snapshot = next
+    }
+
+    private func rebuildOutlineIfNeeded(manager: TTSManager, paragraphs: [TTSParagraph]) {
+        let key = OutlineKey(
+            sessionID: manager.sessionID,
+            bookId: manager.playingBookId,
+            chapterIndex: manager.playingChapterIndex,
+            chunkCount: paragraphs.count,
+            layoutRevision: TTSRetranslationCoordinator.shared.layoutRevision
+        )
+        guard key != outlineKey else { return }
+        outlineKey = key
+        var entries: [OutlineEntry] = []
+        var ordinals: [Int: Int] = [:]
+        for paragraph in paragraphs where paragraph.paragraphIndex >= 0 && ordinals[paragraph.paragraphIndex] == nil {
+            entries.append(OutlineEntry(
+                lineId: paragraph.paragraphIndex,
+                sentence: paragraph.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            ))
+            ordinals[paragraph.paragraphIndex] = entries.count
+        }
+        outline = entries
+        ordinalByLineId = ordinals
+    }
+
+    // MARK: - Kéo vạch tiến độ
+
+    /// Thứ tự đoạn (1…M) ứng với vị trí kéo `0…1` — cùng thang với `Snapshot.fraction` (đoạn k ở `k / M`).
+    func ordinal(forFraction fraction: Double) -> Int? {
+        guard !outline.isEmpty, fraction.isFinite else { return nil }
+        let raw = Int((min(max(fraction, 0), 1) * Double(outline.count)).rounded())
+        return min(max(raw, 1), outline.count)
+    }
+
+    func entry(atOrdinal ordinal: Int) -> OutlineEntry? {
+        outline.indices.contains(ordinal - 1) ? outline[ordinal - 1] : nil
+    }
+
+    /// Thả tay: nhảy tới đầu đoạn thứ `ordinal`. Trùng đoạn đang đọc ⇒ không làm gì (kéo rồi thả lại chỗ cũ).
+    func seek(toOrdinal ordinal: Int) {
+        guard ordinal != snapshot.position, let entry = entry(atOrdinal: ordinal) else { return }
+        TTSManager.shared.seekToParagraph(lineId: entry.lineId)
     }
 }

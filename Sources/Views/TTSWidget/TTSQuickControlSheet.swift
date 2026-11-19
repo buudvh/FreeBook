@@ -9,8 +9,9 @@ import SwiftUI
 ///   truyện + tên chương (`TTSWidgetBarInfoReader`, đã dịch theo phiên TTS) · ⏱ (đang hẹn ⇒ màu nhấn + thời gian còn lại;
 ///   chạm mở `TTSQuickTimerSheet` tab Hẹn giờ **đè lên** sheet này; đang hẹn ⇒ viên "Hủy" ngay cạnh, 1.3.816). Chạm
 ///   **khối bìa + tên** ⇒ mở chương đang đọc (`onOpenReader`, chỗ gọi đóng sheet rồi mới mở).
-/// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `NowReadingBlock`, chỉ khối này vẽ lại theo từng đoạn)
-///   + badge mức nhiệt của máy ở bên trái (`TTSThermalBadge`, 1.3.931).
+/// - Câu đang đọc + vạch tiến độ chương + "N/M" đoạn ở bên phải (1.3.817; `TTSQuickControlNowReadingBlock`, chỉ khối này vẽ
+///   lại theo từng đoạn) + badge mức nhiệt của máy ở bên trái (`TTSThermalBadge`, 1.3.931). Vạch kéo được để tua theo đoạn
+///   (2026-11-19, `TTSParagraphSeekBar`).
 /// - Chương trước · ⏪ đoạn trước · ⏯ · ⏩ đoạn kế · chương kế (`jumpToAdjacentChapter` / `skipBackward` / `pause`/`resume` /
 ///   `skipForward`).
 /// - Hàng dưới: Mục lục (`TTSQuickTimerSheet` tab Danh sách chương) · Giọng đọc (Cài đặt TTS) · Dừng (chữ đỏ, chỗ gọi
@@ -90,7 +91,7 @@ struct TTSQuickControlSheet: View {
     private var content: some View {
         VStack(spacing: 0) {
             headerRow
-            NowReadingBlock()
+            TTSQuickControlNowReadingBlock()
                 .padding(.top, 14)
             transportRow
                 .padding(.top, 10)
@@ -326,45 +327,6 @@ struct TTSQuickControlSheet: View {
         case chapters = 1
 
         var id: Int { rawValue }
-    }
-
-    /// Câu đang đọc + vạch tiến độ chương. View riêng giữ `TTSQuickControlNowReading` để chỉ khối này vẽ lại theo đoạn.
-    private struct NowReadingBlock: View {
-        @StateObject private var reader = TTSQuickControlNowReading()
-
-        var body: some View {
-            let snapshot = reader.snapshot
-            VStack(alignment: .leading, spacing: 8) {
-                Text(snapshot.sentence.isEmpty ? " " : "“\(snapshot.sentence)”")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2, reservesSpace: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                ProgressView(value: snapshot.fraction)
-                    .progressViewStyle(.linear)
-                HStack {
-                    // Mức nhiệt của máy (1.3.931) — chỗ trống bên trái "N/M".
-                    TTSThermalBadge()
-                    // Đoạn đọc bằng giọng dự phòng vì TTS online lỗi (1.3.945).
-                    if let fallback = snapshot.fallbackEngine {
-                        TTSFallbackBadge(engine: fallback)
-                    }
-                    // Model + tăng tốc của đoạn đang phát (VieNeu, 1.3.942).
-                    if let engine = snapshot.engineLabel {
-                        TTSEngineBadge(label: engine)
-                    }
-                    // RTF của đoạn đang phát (VieNeu hoặc Piper, 1.3.954).
-                    if let rtf = snapshot.rtf {
-                        TTSRTFBadge(rtf: rtf)
-                    }
-                    Spacer(minLength: 8)
-                    Text(snapshot.total > 0 && snapshot.position > 0 ? "\(snapshot.position)/\(snapshot.total)" : " ")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-            }
-        }
     }
 
     private struct HeightKey: PreferenceKey {

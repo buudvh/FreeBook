@@ -2,6 +2,34 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.999] - 2026-11-19
+
+### feat: Sheet nghe mini kéo vạch tiến độ để tua theo đoạn, số N/M đếm theo đoạn
+
+Trước: vạch tiến độ của sheet điều khiển nhanh TTS chỉ để xem (ProgressView), "N/M" đếm chunk
+(currentParagraphIndex + 1 / paragraphs.count — tính cả chunk tên chương và chunk con của NghiTTS / VieNeu).
+
+Nay (anh Bửu: "cho thanh tiến độ đọc trên sheet nghe truyện mini có thể kéo để tua được, không tua thời gian mà
+tua theo đoạn", duyệt mockup):
+- TTSQuickControlNowReading: "N/M" theo đoạn = dòng cha (M = số paragraphIndex ≥ 0 khác nhau, N = thứ tự dòng
+  đang đọc; đang đọc tên chương ⇒ 0/M). Danh sách đầu đoạn (outline: id dòng + câu chunk đầu) dựng lại theo
+  phiên / chương / số chunk / layoutRevision của lượt nối bản dịch — kéo không đọc TTSManager mỗi nhịp.
+- TTSParagraphSeekBar (mới): cử chỉ theo mẫu VideoSeekBar (chạm là nhảy núm, kéo theo tay, thả mới báo), màu
+  như vạch cũ (phần đã đọc theo màu nhấn, núm trắng), bong bóng "Đoạn N/M" trên núm lúc kéo.
+- TTSQuickControlNowReadingBlock (mới, tách khỏi TTSQuickControlSheet): lúc kéo câu đầu của đoạn đích thay dòng
+  trích; thả tay ⇒ seek; thả lại đúng đoạn đang đọc ⇒ không làm gì. Dưới vạch giữ badge nhiệt / dự phòng / engine
+  / RTF bên trái, "N/M" bên phải.
+- TTSManager+ParagraphSeek (mới): seekToParagraph(lineId:) nhảy tới chunk đầu của dòng, khuôn skipForward nhưng
+  chạy cả khi tạm dừng: dừng phát hiện tại, huỷ task phát Nghi / remote + lượt đọc song song dự phòng (để
+  resume không chờ task chết), NghiTTS / VieNeu huỷ refill ngoài cửa sổ (cancelNghiRefill) và bỏ tiếng đã nạp
+  ngoài cửa sổ; đặt chỉ số, highlightRange = nil, checkpointProgress; đang phát ⇒ speakCurrent, đang dừng ⇒
+  publishLifecycleState + Now Playing, không tự phát. Log ⏩ [TTSSeek]. Màn khoá không đổi.
+- TTSManager.checkpointProgress() private ⇒ internal (file mới gọi).
+- Ghi chú luật: .claude/rules/tts.md (mục widget TTS).
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy (cử chỉ kéo trong sheet có tranh với vuốt đóng sheet
+không, vị trí bong bóng ở hai đầu vạch); check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
 ## [1.3.998] - 2026-11-19
 
 ### feat: Sửa rule / VP / Name lúc đang nghe ⇒ TTS đọc bản dịch mới từ đoạn sau đoạn đang đọc, highlight không lệch
