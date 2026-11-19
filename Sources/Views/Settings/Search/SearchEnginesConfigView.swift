@@ -203,7 +203,7 @@ struct SearchEnginesConfigView: View {
 
     // MARK: - Nhập / Xuất cấu hình
 
-    /// Nhập theo chế độ đã chọn ở popup (khoá = tên công cụ, xem `SearchEngineTransfer.imported`), xong toast số đếm.
+    /// Nhập theo chế độ đã chọn ở popup (khoá = mẫu URL, xem `SearchEngineTransfer.imported`), xong toast số đếm.
     private func handlePickedFile(urls: [URL]) {
         guard let mode = pendingImportMode, let url = urls.first else { return }
         pendingImportMode = nil

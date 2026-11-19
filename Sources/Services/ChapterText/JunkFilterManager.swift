@@ -285,27 +285,23 @@ public final class JunkFilterManager: ObservableObject {
 
     // MARK: - Import / Export
 
-    /// Nhập file JSON theo ba `DataImportMode` (popup chọn cách nhập). Trả `nil` khi file không đọc được.
+    /// Nhập file JSON: **chỉ thêm** quy tắc có mẫu chưa có, không hỏi chế độ (anh Bửu: "Lọc rác thì không có option như
+    /// vậy, chỉ cần thêm từ không có vào thôi, phân hoa thường"). Trả `nil` khi file không đọc được.
     ///
-    /// Khoá so trùng = `pattern` đúng từng chữ (như `addRule` và bản gộp cũ; mẫu rỗng bị bỏ). Luật trùng khoá bị đè
-    /// giữ **`id` và vị trí cũ**; luật mới nối cuối — thứ tự danh sách là thứ tự áp dụng nên **không** sắp lại
-    /// (bản gộp cũ sắp theo ABC và dựng `Dictionary(uniqueKeysWithValues:)` ⇒ sập khi danh sách sẵn có mẫu trùng).
+    /// Khoá so trùng = `pattern` đúng từng chữ, **phân biệt hoa thường** (như `addRule`; mẫu rỗng bị bỏ). Mẫu đã có giữ
+    /// nguyên bản trên máy; mẫu mới nối cuối — thứ tự danh sách là thứ tự áp dụng nên **không** sắp lại (bản gộp cũ sắp
+    /// theo ABC và dựng `Dictionary(uniqueKeysWithValues:)` ⇒ sập khi danh sách sẵn có mẫu trùng).
     @MainActor
-    public func importRules(fromJSONString jsonString: String, mode: DataImportMode) -> KeyedImportSummary? {
+    public func importRules(fromJSONString jsonString: String) -> KeyedImportSummary? {
         guard let data = jsonString.data(using: .utf8) else { return nil }
         do {
             let imported = try JSONDecoder().decode([JunkFilterRule].self, from: data).filter { !$0.pattern.isEmpty }
             let merged = KeyedImportMerger.merge(
                 existing: rules,
                 imported: imported,
-                mode: mode,
+                mode: .keepExisting,
                 key: { $0.pattern },
-                isSameContent: { $0.replacement == $1.replacement && $0.isRegex == $1.isRegex && $0.isEnabled == $1.isEnabled },
-                overwrite: { existing, incoming in
-                    var updated = incoming
-                    updated.id = existing.id
-                    return updated
-                }
+                isSameContent: { $0.replacement == $1.replacement && $0.isRegex == $1.isRegex && $0.isEnabled == $1.isEnabled }
             )
             rules = KeyedImportMerger.uniquingIDs(merged.elements, id: \JunkFilterRule.id, makeID: { UUID().uuidString })
             saveRules()

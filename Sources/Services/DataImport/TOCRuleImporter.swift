@@ -3,9 +3,10 @@ import Foundation
 /// Áp danh sách **quy tắc mục lục (TOC)** vừa đọc từ file JSON lên danh sách hiện có theo ba `DataImportMode`.
 ///
 /// Khoá so trùng = `id` của quy tắc (đã bỏ khoảng trắng hai đầu; `TranslateUtils.validateImportedTOCRules` đã chặn
-/// `id` lặp trong file). Dùng lại đúng các hàm của `TranslateUtils` (chuẩn hoá chữ giống hệt đường sao lưu):
-/// - `.replaceAll` ⇒ `replaceTOCRules`: thay bằng danh sách trong file **và tự thêm lại quy tắc mặc định bị thiếu**
-///   (quy tắc mặc định không xoá được ở màn này — giữ hành vi "Thay thế toàn bộ" cũ).
+/// `id` lặp trong file). Dùng lại đúng hàm gộp của `TranslateUtils` (chuẩn hoá chữ giống hệt đường sao lưu):
+/// - `.replaceAll` ⇒ chỉ còn đúng danh sách trong file (`mergeTOCRules` lên danh sách rỗng = chỉ để chuẩn hoá chữ).
+///   **Không** thêm lại quy tắc mặc định bị thiếu như "Thay thế toàn bộ" cũ (`replaceTOCRules`) — anh Bửu: "Quy tắc
+///   mục lục không được thêm quy tắc mặc định khi Thay thế toàn bộ". Muốn có lại thì dùng "Khôi phục mặc định".
 /// - `.overwriteExisting` ⇒ `mergeTOCRules`: `id` trùng thì thay tại chỗ, `id` mới nối cuối (= "Gộp theo ID" cũ).
 /// - `.keepExisting` ⇒ `mergeTOCRules` chỉ với các quy tắc có `id` chưa có trên máy.
 ///
@@ -21,7 +22,7 @@ enum TOCRuleImporter {
 
         switch mode {
         case .replaceAll:
-            let rules = TranslateUtils.replaceTOCRules(imported: imported)
+            let rules = TranslateUtils.mergeTOCRules(current: [], imported: imported)
             let summary = KeyedImportSummary(
                 mode: mode,
                 importedCount: imported.count,

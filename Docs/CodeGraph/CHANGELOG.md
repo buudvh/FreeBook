@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.988] - 2026-11-19
+
+### fix: Nhập quy tắc mục lục Thay thế toàn bộ không thêm lại quy tắc mặc định, công cụ tra cứu so trùng theo URL, lọc rác chỉ thêm mẫu mới không hỏi
+
+Anh Bửu chốt 3 điểm còn ngỏ của commit nhập 3 lựa chọn: "Quy tắc mục lục không được thêm quy tắc mặc định khi Thay thế toàn bộ", "khoá Công cụ tra cứu là URL", "Lọc rác thì không có option như vậy, chỉ cần thêm từ không có vào thôi, phân hoa thường", "thay thế tts thì không phân hoa thường, key là từ gốc".
+
+Trước (commit 159b5f17):
+- Quy tắc mục lục — Thay thế toàn bộ dùng `TranslateUtils.replaceTOCRules`: thay bằng file rồi tự thêm lại quy tắc mặc định bị thiếu.
+- Công cụ tra cứu — khoá so trùng là tên công cụ (không phân biệt hoa thường).
+- Lọc rác — có popup 3 lựa chọn.
+Nay:
+- Quy tắc mục lục — Thay thế toàn bộ chỉ còn đúng danh sách trong file (`mergeTOCRules` lên danh sách rỗng, chỉ để chuẩn hoá chữ), không thêm lại quy tắc mặc định; muốn có lại thì dùng "Khôi phục mặc định". Nạp / lưu `toc_rules.json` không tự chèn mặc định khi file đã có (chỉ khi chưa có file), nên danh sách nhập giữ nguyên.
+- Công cụ tra cứu — khoá so trùng là mẫu URL (bỏ khoảng trắng hai đầu, so đúng từng chữ), tên là giá trị: Gộp = cùng URL thì lấy tên trong file; Chỉ thêm key mới = cùng URL thì giữ tên cũ.
+- Lọc rác — bỏ popup: "Nhập cấu hình (JSON)" mở bộ chọn file luôn, nhập chỉ thêm quy tắc có mẫu chưa có (so đúng từng chữ, phân biệt hoa thường), mẫu đã có giữ nguyên bản trên máy; toast "Đã nhập: thêm X, bỏ qua Y key đã có.". `JunkFilterManager.importRules(fromJSONString:)` bỏ tham số `mode`. Không còn cách ghi đè toàn bộ danh sách lọc rác bằng file.
+- Thay thế ký tự TTS — giữ như 159b5f17: khoá là từ gốc (`TTSReplacementRule.matchKey`, không phân biệt hoa thường, giữ dấu).
+
+File đã đụng: `Sources/Services/DataImport/TOCRuleImporter.swift`, `Sources/Models/Dictionaries/SearchEngineTransfer.swift`, `Sources/Views/Settings/Search/SearchEnginesConfigView.swift` (chú thích), `Sources/Services/ChapterText/JunkFilterManager.swift`, `Sources/Views/Settings/Translation/JunkFilterManagementView.swift`.
+
+Chưa kiểm: không build được (máy Windows), chưa chạy trên máy. Chú thích của `DataImportModePopupModifier` (khung chung) còn kể "lọc rác" trong danh sách màn dùng popup — file của session chính, chưa sửa.
+
 ## [1.3.987] - 2026-11-19
 
 ### feat: Nhập dữ liệu ở 6 màn TTS và cài đặt luôn có 3 lựa chọn — Thay thế toàn bộ, Gộp, Chỉ thêm key mới

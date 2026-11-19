@@ -96,10 +96,10 @@ public enum SearchEngineTransfer {
 
     /// Nhập từ màn `SearchEnginesConfigView` theo ba `DataImportMode` (popup chọn cách nhập).
     ///
-    /// Khoá so trùng = **tên** công cụ (bỏ khoảng trắng hai đầu, không phân biệt hoa thường) — "vế trái" người dùng
-    /// nhìn thấy; mẫu URL là giá trị. Khác `merged(current:imported:)` (khoá = tên + mẫu URL, chỉ còn cho khôi phục
-    /// sao lưu): với khoá đó "Gộp" và "Chỉ thêm key mới" gần như không khác nhau. Công cụ trùng tên bị đè giữ `id` và
-    /// vị trí cũ; `id` trùng với công cụ khác ⇒ cấp `id` mới.
+    /// Khoá so trùng = **mẫu URL** (bỏ khoảng trắng hai đầu, so đúng từng chữ — anh Bửu: "khoá Công cụ tra cứu là
+    /// URL"); tên là giá trị. Khác `merged(current:imported:)` (khoá = tên + mẫu URL, chỉ còn cho khôi phục sao lưu).
+    /// Gộp: cùng mẫu URL ⇒ lấy tên trong file, giữ `id` và vị trí cũ; Chỉ thêm key mới: cùng mẫu URL ⇒ giữ tên cũ.
+    /// `id` trùng với công cụ khác ⇒ cấp `id` mới.
     public static func imported(
         current: [SearchEngine],
         imported: [SearchEngine],
@@ -109,7 +109,7 @@ public enum SearchEngineTransfer {
             existing: current,
             imported: imported,
             mode: mode,
-            key: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() },
+            key: { $0.urlTemplate.trimmingCharacters(in: .whitespacesAndNewlines) },
             isSameContent: { $0.name == $1.name && $0.urlTemplate == $1.urlTemplate },
             overwrite: { existing, incoming in
                 var updated = existing
