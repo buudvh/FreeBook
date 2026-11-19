@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.985] - 2026-11-19
+
+### feat: Bộ lọc NSFW của Kệ đồng bộ công tắc NSFW chung, rời app tắt cả hai
+
+Anh Bửu: "đồng bộ tuỳ chọn nsfw của kệ với những chỗ khác (chỉ nsfw/tất cả = bật)"; khoá màn hình / về màn hình chính thì chọn "Có, tắt cả hai".
+
+- **Trước** (1.3.778): Kệ có bộ lọc riêng ba mức (Không hiển thị NSFW / Tất cả / Chỉ NSFW), độc lập với công tắc NSFW chung (`extFilterIncludeNsfw`) của Khám phá, Bộ sưu tập, Tải, Tìm, Cài đặt… Rời app chỉ Kệ tự về "Không hiển thị"; công tắc chung chỉ tự tắt lúc mở app và khi bấm Home.
+- **Nay** (`ShelfNsfwFilterState`):
+  - Kệ chọn "Tất cả" / "Chỉ NSFW" ⇒ bật công tắc chung; chọn "Không hiển thị NSFW" ⇒ tắt.
+  - Chỗ khác bật công tắc ⇒ Kệ đang "Không hiển thị" chuyển sang "Tất cả"; chỗ khác tắt ⇒ Kệ về "Không hiển thị" (nghe `UserDefaults.didChangeNotification`). "Chỉ NSFW" vẫn chỉ áp cho Kệ.
+  - Rời app (vào nền) và bấm Home ⇒ tắt **cả hai** (`resetToHidden` giờ tắt luôn công tắc chung).
+  - Trạng thái khởi đầu theo công tắc chung; `MainTabView` tạo singleton lúc hiện để luật vào nền chạy cả khi chưa mở tab Kệ.
+  - Log `📚 [ShelfNsfw]` ghi mỗi lần đồng bộ.
+- Chú thích `ShelfNsfwFilter`, `RepositoryFilterPolicy.includeNsfwDefaultsKey` cập nhật theo luật mới.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: bật NSFW ở Khám phá rồi về Kệ, chọn "Chỉ NSFW" ở Kệ rồi sang Khám phá, khoá màn hình lúc đang nghe / xem nội dung 18+.
+
 ## [1.3.984] - 2026-11-19
 
 ### feat: Tiêu đề trang có nút back nằm hàng 2 sát lề trái, cuộn lên thu vào cạnh nút back

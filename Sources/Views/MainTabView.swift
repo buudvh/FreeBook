@@ -104,6 +104,8 @@ struct MainTabView: View {
             // Theo dõi kho cookie WebKit (đồng bộ cookie của nguồn sang `fetch` trước mỗi lượt chạy script) — trước khi
             // tải truyện/TTS kịp chạy script. Gọi lại vô hại.
             ExtensionCookieSync.shared.startObserving()
+            // Bộ lọc NSFW của Kệ đồng bộ công tắc NSFW chung + tắt cả hai khi vào nền (1.3.985) — tạo ngay, kể cả khi chưa mở Kệ.
+            _ = ShelfNsfwFilterState.shared
             DownloadManager.shared.initialize(container: modelContext.container)
             TTSManager.shared.initialize(container: modelContext.container)
             // Tự tạo bản cặp Nano ↔ Turbo cho đọc lai khi đổi giọng (1.3.938) — chỉ theo dõi, không tự chạy lúc mở app.

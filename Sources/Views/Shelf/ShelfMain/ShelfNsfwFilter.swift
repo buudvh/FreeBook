@@ -1,8 +1,9 @@
 import Foundation
 
-/// Bộ lọc NSFW **riêng** của danh sách Kệ + Lịch sử ở tab Kệ Sách (1.3.778) — độc lập với công tắc NSFW chung
-/// (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, vẫn quyết định Khám phá / Bộ sưu tập / Tải / Tìm trên kệ). Trạng thái
-/// sống trong `ShelfNsfwFilterState` (không lưu đĩa). "NSFW" = truyện của nguồn NSFW hoặc truyện người dùng tự đánh dấu
+/// Bộ lọc NSFW của danh sách Kệ + Lịch sử ở tab Kệ Sách (1.3.778). Từ 1.3.985 **đồng bộ** với công tắc NSFW chung
+/// (`RepositoryFilterPolicy.includeNsfwDefaultsKey`, quyết định Khám phá / Bộ sưu tập / Tải / Tìm trên kệ…): "Tất cả" /
+/// "Chỉ NSFW" = công tắc bật, "Không hiển thị NSFW" = tắt (xem `ShelfNsfwFilterState`). Trạng thái sống trong
+/// `ShelfNsfwFilterState` (không lưu đĩa). "NSFW" = truyện của nguồn NSFW hoặc truyện người dùng tự đánh dấu
 /// (`NsfwBookMarkStore`), cùng luật `ShelfBookPartition`.
 enum ShelfNsfwFilter: CaseIterable {
     /// Mặc định — mở app, rời app, bấm Home đều quay về đây.
