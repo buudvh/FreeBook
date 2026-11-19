@@ -3,8 +3,8 @@ import Foundation
 /// Mã hoá / giải mã và gộp danh sách **công cụ tra cứu nhanh** (`SearchEngine`).
 ///
 /// Dùng chung cho hai chỗ nên phải là kiểu thuần, không I/O ngoài `Data`:
-/// - màn `SearchEnginesConfigView` (nút Xuất/Nhập cấu hình JSON),
-/// - `BackupConfigArchiver` (entry `config/search_engines.json` trong file `.fbbackup`).
+/// - màn `SearchEnginesConfigView` (nút Xuất/Nhập cấu hình JSON — nhập qua `imported(current:imported:mode:)`),
+/// - `BackupConfigArchiver` (entry `config/search_engines.json` trong file `.fbbackup` — gộp qua `merged`).
 public enum SearchEngineTransfer {
     /// Trần số lượng và dung lượng file nhập, chặn file rác trước khi decode cả mảng.
     public static let maxEngineCount = 50
@@ -94,9 +94,32 @@ public enum SearchEngineTransfer {
         return result
     }
 
-    /// Số công cụ sẽ được thêm nếu gộp — dùng cho hộp thoại chọn phương thức nhập.
-    public static func newCount(current: [SearchEngine], imported: [SearchEngine]) -> Int {
-        merged(current: current, imported: imported).count - current.count
+    /// Nhập từ màn `SearchEnginesConfigView` theo ba `DataImportMode` (popup chọn cách nhập).
+    ///
+    /// Khoá so trùng = **tên** công cụ (bỏ khoảng trắng hai đầu, không phân biệt hoa thường) — "vế trái" người dùng
+    /// nhìn thấy; mẫu URL là giá trị. Khác `merged(current:imported:)` (khoá = tên + mẫu URL, chỉ còn cho khôi phục
+    /// sao lưu): với khoá đó "Gộp" và "Chỉ thêm key mới" gần như không khác nhau. Công cụ trùng tên bị đè giữ `id` và
+    /// vị trí cũ; `id` trùng với công cụ khác ⇒ cấp `id` mới.
+    public static func imported(
+        current: [SearchEngine],
+        imported: [SearchEngine],
+        mode: DataImportMode
+    ) -> (engines: [SearchEngine], summary: KeyedImportSummary) {
+        let merged = KeyedImportMerger.merge(
+            existing: current,
+            imported: imported,
+            mode: mode,
+            key: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() },
+            isSameContent: { $0.name == $1.name && $0.urlTemplate == $1.urlTemplate },
+            overwrite: { existing, incoming in
+                var updated = existing
+                updated.name = incoming.name
+                updated.urlTemplate = incoming.urlTemplate
+                return updated
+            }
+        )
+        let engines = KeyedImportMerger.uniquingIDs(merged.elements, id: \SearchEngine.id, makeID: { UUID() })
+        return (engines, merged.summary)
     }
 
     private static func signature(of engine: SearchEngine) -> String {

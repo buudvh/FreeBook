@@ -35,8 +35,9 @@ struct TTSReplacementManagerView: View {
     
     // Trạng thái cho việc nhập/xuất file JSON & Khôi phục mặc định
     @State private var showingFileImporter = false
-    @State private var pendingImportJSON = ""
-    @State private var showingImportOptions = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingResetOptions = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
@@ -137,7 +138,7 @@ struct TTSReplacementManagerView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: layerTitle) {
-            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingImportModes = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             // Tầng riêng không có bộ mặc định (bộ mặc định là của tầng chung) nên ẩn hẳn mục này.
             if !isBookLayer {
@@ -157,29 +158,14 @@ struct TTSReplacementManagerView: View {
                 isPresented: $showingFileImporter,
                 allowedContentTypes: [.json],
                 allowsMultipleSelection: false,
-                onPick: { urls in
-                    guard let url = urls.first else { return }
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                    
-                    do {
-                        let data = try Data(contentsOf: url)
-                        if let jsonString = String(data: data, encoding: .utf8) {
-                            // Kiểm tra tính hợp lệ sơ bộ của JSON
-                            let decoder = JSONDecoder()
-                            _ = try decoder.decode([TTSReplacementRule].self, from: data)
-                            
-                            self.pendingImportJSON = jsonString
-                            self.showingImportOptions = true
-                        }
-                    } catch {
-                        self.alertMessage = "File JSON không đúng định dạng quy tắc thay thế TTS: \(error.localizedDescription)"
-                        self.showingAlert = true
-                    }
-                },
-                onCancel: nil
+                onPick: { urls in importPickedFile(urls) },
+                onCancel: { pendingImportMode = nil }
             )
         )
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập quy tắc thay thế TTS") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
+        }
         // Chọn phương thức khôi phục mặc định
         .confirmationDialog("Khôi phục quy tắc mặc định", isPresented: $showingResetOptions, titleVisibility: .visible) {
             Button("Gộp với quy tắc hiện tại") {
@@ -197,32 +183,6 @@ struct TTSReplacementManagerView: View {
             Button("Hủy", role: .cancel) {}
         } message: {
             Text("Bạn muốn gộp thêm các quy tắc mặc định mới vào danh sách hiện tại hay đặt lại hoàn toàn về mặc định?")
-        }
-        // Chọn phương thức nhập (Gộp hoặc Ghi đè)
-        .confirmationDialog("Chọn phương thức nhập cấu hình", isPresented: $showingImportOptions, titleVisibility: .visible) {
-            Button("Gộp với dữ liệu hiện có") {
-                let success = importRulesLayer(pendingImportJSON, mode: .merge)
-                if success {
-                    self.alertMessage = "Đã gộp cấu hình thành công!"
-                } else {
-                    self.alertMessage = "Lỗi khi gộp cấu hình."
-                }
-                self.showingAlert = true
-            }
-            
-            Button("Ghi đè toàn bộ (Xóa cũ)", role: .destructive) {
-                let success = importRulesLayer(pendingImportJSON, mode: .overwrite)
-                if success {
-                    self.alertMessage = "Đã ghi đè cấu hình thành công!"
-                } else {
-                    self.alertMessage = "Lỗi khi ghi đè cấu hình."
-                }
-                self.showingAlert = true
-            }
-            
-            Button("Hủy", role: .cancel) {}
-        } message: {
-            Text("Bạn muốn gộp các quy tắc mới vào danh sách hiện tại hay xóa sạch quy tắc cũ để ghi đè hoàn toàn?")
         }
         .alert("Thông báo", isPresented: $showingAlert) {
             Button("Đóng", role: .cancel) {}
@@ -359,6 +319,22 @@ struct TTSReplacementManagerView: View {
         showingEditSheet = false
     }
     
+    /// Nhập theo chế độ đã chọn ở popup vào **tầng đang mở** (khoá = `matchKey`, xem `TTSReplacementRuleImporter`),
+    /// xong toast số đếm; file sai định dạng báo bằng hộp thoại như trước.
+    private func importPickedFile(_ urls: [URL]) {
+        guard let mode = pendingImportMode, let url = urls.first else { return }
+        pendingImportMode = nil
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let summary = try importRulesLayer(Data(contentsOf: url), mode: mode)
+            ToastManager.shared.show(message: summary.message, type: .success)
+        } catch {
+            alertMessage = error.localizedDescription
+            showingAlert = true
+        }
+    }
+
     // Xuất file JSON
     private func exportRules() {
         guard let jsonString = exportRulesLayer() else {

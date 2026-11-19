@@ -7,11 +7,6 @@ struct TOCRulesConfigView: View {
         let url: URL
     }
 
-    enum ImportMode {
-        case merge
-        case replace
-    }
-
     @State private var rules: [TOCRule] = []
     @State private var isLoading = false
     @State private var isSaving = false
@@ -30,8 +25,9 @@ struct TOCRulesConfigView: View {
 
     // State cho Nhập/Xuất file JSON
     @State private var showingFileImporter = false
-    @State private var pendingImportRules: [TOCRule]? = nil
-    @State private var showingImportOptions = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var activeExportURL: URL? = nil
 
@@ -133,22 +129,9 @@ struct TOCRulesConfigView: View {
         } message: {
             Text("Bạn có chắc chắn muốn xóa toàn bộ quy tắc tùy chỉnh và đưa bộ quy tắc TOC về trạng thái gốc xuất xưởng không?")
         }
-        .confirmationDialog(
-            "Chọn phương thức nhập cấu hình",
-            isPresented: $showingImportOptions,
-            titleVisibility: .visible
-        ) {
-            Button("Gộp theo ID") {
-                applyImport(mode: .merge)
-            }
-            Button("Thay thế toàn bộ", role: .destructive) {
-                applyImport(mode: .replace)
-            }
-            Button("Hủy", role: .cancel) {
-                pendingImportRules = nil
-            }
-        } message: {
-            Text(buildImportDialogMessage())
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập quy tắc TOC") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
         }
         .background(
             DocumentPickerPresenter(
@@ -159,7 +142,7 @@ struct TOCRulesConfigView: View {
                     handlePickedImportFile(urls: urls)
                 },
                 onCancel: {
-                    pendingImportRules = nil
+                    pendingImportMode = nil
                 }
             )
         )
@@ -416,11 +399,12 @@ struct TOCRulesConfigView: View {
 
     // MARK: - Import & Export Actions
     private func prepareForImport() {
-        showingFileImporter = true
+        showingImportModes = true
     }
 
     private func handlePickedImportFile(urls: [URL]) {
-        guard let url = urls.first else { return }
+        guard let mode = pendingImportMode, let url = urls.first else { return }
+        pendingImportMode = nil
         isImporting = true
         Task { @MainActor in
             defer { self.isImporting = false }
@@ -445,43 +429,26 @@ struct TOCRulesConfigView: View {
 
             switch result {
             case .success(let importedList):
-                self.pendingImportRules = importedList
-                self.showingImportOptions = true
+                applyImport(importedList, mode: mode)
             case .failure(let error):
-                self.pendingImportRules = nil
                 ToastManager.shared.show(message: "Lỗi nhập file JSON: \(error.localizedDescription)", type: .error)
             }
         }
     }
 
-    private func buildImportDialogMessage() -> String {
-        guard let pending = pendingImportRules else { return "" }
-        let mergePrev = TranslateUtils.calculateImportPreview(current: rules, imported: pending, isMerge: true)
-        let replacePrev = TranslateUtils.calculateImportPreview(current: rules, imported: pending, isMerge: false)
-
-        return "File chứa \(pending.count) quy tắc TOC.\n\n• Chọn Gộp theo ID:\n  - Thêm mới: \(mergePrev.newCount) | Cập nhật: \(mergePrev.updateCount) | Giữ nguyên: \(mergePrev.preservedCount)\n\n• Chọn Thay thế toàn bộ:\n  - Thay bằng \(replacePrev.importedCount) quy tắc từ file | Tự khôi phục \(replacePrev.restoredDefaultCount) quy tắc mặc định bị thiếu."
-    }
-
-    private func applyImport(mode: ImportMode) {
+    /// Áp theo chế độ đã chọn ở popup (khoá = `id`, xem `TOCRuleImporter`), lưu xong toast số đếm.
+    private func applyImport(_ imported: [TOCRule], mode: DataImportMode) {
         cancelPendingDebounce()
 
-        guard let pending = pendingImportRules else { return }
-        let newRules: [TOCRule]
-        switch mode {
-        case .merge:
-            newRules = TranslateUtils.mergeTOCRules(current: rules, imported: pending)
-        case .replace:
-            newRules = TranslateUtils.replaceTOCRules(imported: pending)
-        }
-
-        pendingImportRules = nil
+        let outcome = TOCRuleImporter.apply(imported, to: rules, mode: mode)
+        let newRules = outcome.rules
         incrementSaveCount()
         Task { @MainActor in
             defer { decrementSaveCount() }
             let success = await TOCRuleSaveCoordinator.shared.scheduleSave(newRules)
             if success {
                 self.rules = newRules
-                ToastManager.shared.show(message: "Đã nhập cấu hình quy tắc TOC thành công!", type: .success)
+                ToastManager.shared.show(message: outcome.summary.message, type: .success)
             } else {
                 ToastManager.shared.show(message: "Lỗi: Không thể lưu dữ liệu nhập vào ổ đĩa", type: .error)
                 await reloadRulesFromDisk()

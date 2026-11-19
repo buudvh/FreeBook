@@ -29,6 +29,9 @@ struct VieNeuJapaneseDictionaryView: View {
     @State private var isLoading = false
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDeleteAllConfirmation = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
@@ -70,7 +73,7 @@ struct VieNeuJapaneseDictionaryView: View {
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm VieNeu-TTS") {
             SideDrawerActionRow("Tải từ điển từ HuggingFace", systemImage: "arrow.down.circle") { showingDownloadConfirmation = true }
-            SideDrawerActionRow("Nhập từ file…", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Nhập từ file…", systemImage: "square.and.arrow.down") { showingImportModes = true }
             SideDrawerActionRow("Xuất .plist", systemImage: "square.and.arrow.up") { export(asJSON: false) }
             SideDrawerActionRow("Xuất .json", systemImage: "square.and.arrow.up") { export(asJSON: true) }
             SideDrawerDivider()
@@ -92,17 +95,26 @@ struct VieNeuJapaneseDictionaryView: View {
                 allowsMultipleSelection: false,
                 onPick: { urls in
                     showingFileImporter = false
-                    guard let selectedURL = urls.first else { return }
+                    let mode = pendingImportMode
+                    pendingImportMode = nil
+                    guard let mode, let selectedURL = urls.first else { return }
                     let ext = selectedURL.pathExtension.lowercased()
                     guard ext == "plist" || ext == "json" else {
                         ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist hoặc .json).", type: .error)
                         return
                     }
                     let hasAccess = selectedURL.startAccessingSecurityScopedResource()
-                    importDictionary(from: selectedURL, hasAccess: hasAccess)
+                    importDictionary(from: selectedURL, hasAccess: hasAccess, mode: mode)
                 },
-                onCancel: { showingFileImporter = false }
+                onCancel: {
+                    showingFileImporter = false
+                    pendingImportMode = nil
+                }
             )
+        }
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập từ điển phiên âm VieNeu-TTS") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
         }
         .sheet(item: Binding(
             get: { editingKey.map { EditableEntry(key: $0, value: editingValue) } },
@@ -346,9 +358,9 @@ struct VieNeuJapaneseDictionaryView: View {
         }
     }
 
-    /// Nhập từ điển từ file: **trộn** vào bản đang có — mục trùng khoá lấy bản vừa nhập, mục cũ không có
-    /// trong file giữ nguyên. Đường này **không** hỏi *Trộn / Thay thế toàn bộ* và **không** sao lưu.
-    private func importDictionary(from url: URL, hasAccess: Bool) {
+    /// Nhập từ điển từ file theo chế độ đã chọn ở popup (Thay thế toàn bộ / Gộp / Chỉ thêm key mới — trước đây luôn
+    /// trộn không hỏi). Gộp + ghi ở `PhoneticDictionaryImporter.importVieNeu` (khoá = `normalizedKey`). Không sao lưu.
+    private func importDictionary(from url: URL, hasAccess: Bool, mode: DataImportMode) {
         defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url) else {
             ToastManager.shared.show(message: "Không đọc được file.", type: .error)
@@ -364,13 +376,14 @@ struct VieNeuJapaneseDictionaryView: View {
             ToastManager.shared.show(message: "File không phải từ điển .plist/.json hợp lệ.", type: .error)
             return
         }
-        var words = allWords
-        for (rawKey, rawValue) in imported {
-            let key = VieNeuJapaneseDictionary.normalizedKey(rawKey)
-            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            words[key] = value
+        _ = Task {
+            do {
+                let summary = try await PhoneticDictionaryImporter.importVieNeu(imported, mode: mode)
+                await loadDictionary()
+                ToastManager.shared.show(message: summary.message, type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Lỗi nhập từ điển: \(error.localizedDescription)", type: .error)
+            }
         }
-        persist(words, successMessage: "Đã nhập \(imported.count) mục (tổng \(words.count)).")
     }
 }

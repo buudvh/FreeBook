@@ -19,8 +19,9 @@ struct JunkFilterManagementView: View {
     @State private var isEnabledInput = true
 
     @State private var showingFileImporter = false
-    @State private var pendingImportJSON = ""
-    @State private var showingImportOptions = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingClearAlert = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
@@ -129,7 +130,7 @@ struct JunkFilterManagementView: View {
                 ) { toggleReordering() }
                 SideDrawerDivider()
             }
-            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingImportModes = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             SideDrawerDivider()
             SideDrawerActionRow("Xóa tất cả quy tắc", systemImage: "trash", role: .destructive) { showingClearAlert = true }
@@ -145,49 +146,13 @@ struct JunkFilterManagementView: View {
                 isPresented: $showingFileImporter,
                 allowedContentTypes: [.json],
                 allowsMultipleSelection: false,
-                onPick: { urls in
-                    guard let url = urls.first else { return }
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-
-                    do {
-                        let data = try Data(contentsOf: url)
-                        if let jsonString = String(data: data, encoding: .utf8) {
-                            self.pendingImportJSON = jsonString
-                            self.showingImportOptions = true
-                        }
-                    } catch {
-                        self.alertMessage = "File JSON không đúng định dạng quy tắc lọc rác: \(error.localizedDescription)"
-                        self.showingAlert = true
-                    }
-                },
-                onCancel: nil
+                onPick: { urls in importPickedFile(urls) },
+                onCancel: { pendingImportMode = nil }
             )
         )
-        .confirmationDialog("Chọn phương thức nhập cấu hình", isPresented: $showingImportOptions, titleVisibility: .visible) {
-            Button("Gộp với dữ liệu hiện có") {
-                let success = manager.importRules(fromJSONString: pendingImportJSON, mode: .merge)
-                if success {
-                    self.alertMessage = "Đã gộp cấu hình lọc rác thành công!"
-                } else {
-                    self.alertMessage = "Lỗi khi gộp cấu hình lọc rác."
-                }
-                self.showingAlert = true
-            }
-
-            Button("Ghi đè toàn bộ (Xóa cũ)", role: .destructive) {
-                let success = manager.importRules(fromJSONString: pendingImportJSON, mode: .overwrite)
-                if success {
-                    self.alertMessage = "Đã ghi đè cấu hình lọc rác thành công!"
-                } else {
-                    self.alertMessage = "Lỗi khi ghi đè cấu hình lọc rác."
-                }
-                self.showingAlert = true
-            }
-
-            Button("Hủy", role: .cancel) {}
-        } message: {
-            Text("Bạn muốn gộp các quy tắc mới vào danh sách hiện tại hay xóa sạch quy tắc cũ để ghi đè hoàn toàn?")
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập quy tắc lọc rác") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
         }
         .alert("Xóa Tất Cả Quy Tắc", isPresented: $showingClearAlert) {
             Button("Hủy", role: .cancel) {}
@@ -345,6 +310,26 @@ struct JunkFilterManagementView: View {
             manager.addRule(pattern: newRule.pattern, replacement: newRule.replacement, isRegex: newRule.isRegex)
         }
         showingEditSheet = false
+    }
+
+    /// Nhập theo chế độ đã chọn ở popup (khoá = mẫu, xem `JunkFilterManager.importRules`), xong toast số đếm.
+    private func importPickedFile(_ urls: [URL]) {
+        guard let mode = pendingImportMode, let url = urls.first else { return }
+        pendingImportMode = nil
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard let data = try? Data(contentsOf: url), let jsonString = String(data: data, encoding: .utf8) else {
+            alertMessage = "Không đọc được dữ liệu từ file đã chọn."
+            showingAlert = true
+            return
+        }
+        guard let summary = manager.importRules(fromJSONString: jsonString, mode: mode) else {
+            alertMessage = "File JSON không đúng định dạng quy tắc lọc rác."
+            showingAlert = true
+            return
+        }
+        ToastManager.shared.show(message: summary.message, type: .success)
     }
 
     private func exportRules() {

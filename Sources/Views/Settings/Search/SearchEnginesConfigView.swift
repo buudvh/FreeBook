@@ -21,8 +21,9 @@ struct SearchEnginesConfigView: View {
     // Trạng thái Nhập/Xuất cấu hình JSON
     @State private var showingFileImporter = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
-    @State private var pendingImport: [SearchEngine]? = nil
-    @State private var showingImportOptions = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var activeExportURL: URL? = nil
     @State private var alertMessage = ""
@@ -52,7 +53,7 @@ struct SearchEnginesConfigView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Công cụ tra cứu nhanh") {
-            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingImportModes = true }
             SideDrawerActionRow("Xuất cấu hình JSON", systemImage: "square.and.arrow.up", action: exportEngines)
             // "Khôi phục mặc định" chuyển từ cuối danh sách vào ngăn kéo, cùng chỗ với các màn cấu hình khác.
             SideDrawerDivider()
@@ -95,19 +96,12 @@ struct SearchEnginesConfigView: View {
                 allowedContentTypes: [.json],
                 allowsMultipleSelection: false,
                 onPick: { urls in handlePickedFile(urls: urls) },
-                onCancel: { pendingImport = nil }
+                onCancel: { pendingImportMode = nil }
             )
         )
-        .confirmationDialog(
-            "Chọn phương thức nhập cấu hình",
-            isPresented: $showingImportOptions,
-            titleVisibility: .visible
-        ) {
-            Button("Gộp với danh sách hiện có") { applyImport(replacing: false) }
-            Button("Thay thế toàn bộ", role: .destructive) { applyImport(replacing: true) }
-            Button("Hủy", role: .cancel) { pendingImport = nil }
-        } message: {
-            Text(importDialogMessage)
+        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập công cụ tra cứu") { mode in
+            pendingImportMode = mode
+            showingFileImporter = true
         }
         .alert("Thông báo", isPresented: $showingAlert) {
             Button("Đóng", role: .cancel) {}
@@ -209,21 +203,14 @@ struct SearchEnginesConfigView: View {
 
     // MARK: - Nhập / Xuất cấu hình
 
-    private var importDialogMessage: String {
-        guard let pending = pendingImport else { return "" }
-        let newCount = SearchEngineTransfer.newCount(current: engines, imported: pending)
-        return "File chứa \(pending.count) công cụ.\n\n"
-            + "• Gộp: thêm \(newCount) công cụ mới, giữ nguyên \(engines.count) công cụ đang có.\n"
-            + "• Thay thế: xoá hết và dùng đúng \(pending.count) công cụ trong file."
-    }
-
+    /// Nhập theo chế độ đã chọn ở popup (khoá = tên công cụ, xem `SearchEngineTransfer.imported`), xong toast số đếm.
     private func handlePickedFile(urls: [URL]) {
-        guard let url = urls.first else { return }
+        guard let mode = pendingImportMode, let url = urls.first else { return }
+        pendingImportMode = nil
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
         guard let data = try? Data(contentsOf: url) else {
-            pendingImport = nil
             alertMessage = "Không đọc được dữ liệu từ file đã chọn."
             showingAlert = true
             return
@@ -231,30 +218,14 @@ struct SearchEnginesConfigView: View {
 
         switch SearchEngineTransfer.decode(data) {
         case .success(let list):
-            pendingImport = list
-            showingImportOptions = true
+            let result = SearchEngineTransfer.imported(current: engines, imported: list, mode: mode)
+            engines = result.engines
+            SearchEngine.saveEngines(result.engines)
+            ToastManager.shared.show(message: result.summary.message, type: .success)
         case .failure(let error):
-            pendingImport = nil
             alertMessage = "Lỗi nhập file JSON: \(error.localizedDescription)"
             showingAlert = true
         }
-    }
-
-    private func applyImport(replacing: Bool) {
-        guard let pending = pendingImport else { return }
-        pendingImport = nil
-
-        let updated = replacing
-            ? pending
-            : SearchEngineTransfer.merged(current: engines, imported: pending)
-        engines = updated
-        SearchEngine.saveEngines(updated)
-        ToastManager.shared.show(
-            message: replacing
-                ? "Đã thay thế bằng \(updated.count) công cụ tra cứu"
-                : "Đã gộp, hiện có \(updated.count) công cụ tra cứu",
-            type: .success
-        )
     }
 
     private func exportEngines() {

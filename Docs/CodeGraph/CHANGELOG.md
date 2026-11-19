@@ -2,6 +2,33 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.987] - 2026-11-19
+
+### feat: Nhập dữ liệu ở 6 màn TTS và cài đặt luôn có 3 lựa chọn — Thay thế toàn bộ, Gộp, Chỉ thêm key mới
+
+Anh Bửu: "nhập luôn có 3 option: thay thế toàn bộ (xoá danh sách cũ và chỉ giữ lại mới), gộp (vế trái trùng thì đè lên, chưa có thì thêm vào), chỉ thêm vào những key chưa có của vế mới" — popup giữa màn, 3 radio có mô tả, cuối là nút "Nhập file" (đã duyệt mockup).
+
+Trước: mỗi màn nhập một kiểu — phiên âm NghiTTS luôn ghi đè toàn bộ không hỏi; phiên âm VieNeu luôn trộn không hỏi; thay thế ký tự TTS, lọc rác, quy tắc mục lục, công cụ tra cứu chọn file trước rồi hỏi Gộp / Ghi đè bằng confirmationDialog (có đoạn xem trước số đếm), và chữ "Gộp" mang hai nghĩa ngược nhau tuỳ màn (lọc rác, mục lục = đè key trùng; thay thế TTS, công cụ tra cứu = giữ bản cũ).
+Nay: hàng "Nhập…" trong ngăn kéo … mở popup `.dataImportModePopup` (khung của commit d0929e34, mặc định chọn Gộp) ⇒ bấm "Nhập file" ⇒ chọn file ⇒ nhập theo chế độ đã chọn ⇒ toast số đếm ("Đã nhập: thêm X, cập nhật Y[, Z mục trùng y hệt]" / "Đã nhập: thêm X, bỏ qua Y key đã có" / "Đã thay thế toàn bộ: N mục (trước có M)"). Bỏ các confirmationDialog Gộp / Ghi đè và phần xem trước số đếm (chọn chế độ trước nên số đếm chuyển sang toast). File sai định dạng vẫn báo như cũ (toast hoặc hộp thoại của từng màn).
+
+Luật chung cho cả 6 màn (`KeyedImportMerger`, `Sources/Models/Dictionaries/KeyedImportMerger.swift` + `KeyedImportSummary.swift`, hàm thuần):
+- Thay thế toàn bộ = chỉ còn các mục của file; Gộp = khoá trùng lấy giá trị mới (thay tại chỗ, giữ vị trí + id cũ), khoá mới nối cuối, khoá chỉ có trên máy giữ; Chỉ thêm key mới = khoá trùng giữ bản cũ, chỉ nối khoá mới.
+- Khoá lặp trong file: bản đứng sau cùng thắng. Mục mang id trùng mục khác ⇒ cấp id mới (danh sách có id).
+
+Khoá từng loại:
+- Phiên âm NghiTTS: từ gốc bỏ khoảng trắng hai đầu + chữ thường (như `TextPreprocessor.updateWord`; trước đây nhập .plist / .json giữ nguyên khoá có chữ hoa ⇒ mục chết). Ghi qua `TextPreprocessor.replaceAllWords` (xoá luôn cache phiên âm — đường cũ ghi plist rồi `loadResources()` không xoá cache). File rỗng / không có khoá hợp lệ ⇒ báo lỗi, không còn xoá trắng từ điển.
+- Phiên âm VieNeu: `VieNeuJapaneseDictionary.normalizedKey` (gấp dấu phụ + chữ thường), bỏ mục khoá hoặc cách đọc rỗng. Ghi qua `replaceAll`.
+- Thay thế ký tự TTS: `TTSReplacementRule.matchKey` (mẫu chữ thường, giữ dấu). Áp cho tầng đang mở (chung hoặc riêng của truyện), ghi qua `importRules(fromJSONString:mode: .overwrite, bookId:)` sau khi gộp. "Khôi phục mặc định" giữ nguyên hộp thoại hai lựa chọn cũ.
+- Lọc rác: `pattern` đúng từng chữ (như `addRule`), bỏ mẫu rỗng. `JunkFilterManager.importRules` nhận `DataImportMode`, trả `KeyedImportSummary?`; bỏ enum `JunkFilterImportMode`. Sửa kèm: bản Gộp cũ sắp lại danh sách theo ABC (thứ tự là thứ tự áp dụng ⇒ đổi kết quả lọc) và dựng `Dictionary(uniqueKeysWithValues:)` ⇒ sập khi danh sách sẵn có mẫu trùng — nay giữ thứ tự, không sập.
+- Quy tắc mục lục: `id` (bỏ khoảng trắng). Thay thế toàn bộ = `TranslateUtils.replaceTOCRules` — vẫn **tự thêm lại quy tắc mặc định bị thiếu** như "Thay thế toàn bộ" cũ (quy tắc mặc định không xoá được ở màn này); Gộp = `mergeTOCRules` (= "Gộp theo ID" cũ); Chỉ thêm key mới = `mergeTOCRules` với các quy tắc có id chưa có. Logic ở `TOCRuleImporter`.
+- Công cụ tra cứu: tên công cụ (bỏ khoảng trắng, không phân biệt hoa thường), mẫu URL là giá trị — trước đây "Gộp" so cặp tên + mẫu URL và giữ bản cũ, nên khoá cũ khiến Gộp và Chỉ thêm key mới gần như trùng nhau. `SearchEngineTransfer.imported(current:imported:mode:)`; `merged` giữ nguyên cho khôi phục sao lưu (`BackupConfigArchiver`); bỏ `newCount` (chỉ hộp thoại cũ dùng).
+
+File đã đụng:
+- Mới: `Sources/Models/Dictionaries/KeyedImportMerger.swift`, `Sources/Models/Dictionaries/KeyedImportSummary.swift`, `Sources/Services/DataImport/PhoneticDictionaryImporter.swift`, `Sources/Services/DataImport/TTSReplacementRuleImporter.swift`, `Sources/Services/DataImport/TOCRuleImporter.swift` (thư mục `Services/DataImport/` để không đụng `Services/TTS/**`, `Services/Translation/**` — chỉ gọi API công khai có sẵn).
+- Sửa: `Sources/Services/ChapterText/JunkFilterManager.swift`, `Sources/Models/Dictionaries/SearchEngineTransfer.swift`, `Sources/Views/Settings/TTS/TTSDictionaryEditView.swift`, `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift`, `Sources/Views/Settings/TTS/TTSReplacementManagerView.swift`, `Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift`, `Sources/Views/Settings/Translation/JunkFilterManagementView.swift`, `Sources/Views/Settings/Translation/TOCRulesConfigView.swift`, `Sources/Views/Settings/Search/SearchEnginesConfigView.swift`.
+
+Chưa kiểm: không build được (máy Windows) — chỉ đọc code + `check_architecture.py`; chưa chạy trên máy (popup mở từ ngăn kéo rồi bộ chọn file, nhất là ở màn mở dạng sheet: Thay thế TTS từ Cài đặt TTS / hub truyện, Công cụ tra cứu từ Reader). Cần chạy `xcodegen generate` vì có file / thư mục mới. Chưa đo nhập từ điển NghiTTS lớn (~30k mục) theo chế độ Gộp (gộp trên RAM rồi ghi một lần như đường cũ).
+
 ## [1.3.986] - 2026-11-19
 
 ### feat: Bỏ nút bút chì trên hàng các danh sách TTS và cài đặt — chạm thân hàng là mở màn sửa

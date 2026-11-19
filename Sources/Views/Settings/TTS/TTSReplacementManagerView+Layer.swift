@@ -32,8 +32,9 @@ extension TTSReplacementManagerView {
         manager.deleteRule(id: id, bookId: bookId)
     }
 
-    func importRulesLayer(_ json: String, mode: TTSReplacementManager.ImportMode) -> Bool {
-        manager.importRules(fromJSONString: json, mode: mode, bookId: bookId)
+    /// Nhập file JSON vào tầng đang mở theo ba `DataImportMode`.
+    func importRulesLayer(_ data: Data, mode: DataImportMode) throws -> KeyedImportSummary {
+        try TTSReplacementRuleImporter.importRules(from: data, mode: mode, bookId: bookId, manager: manager)
     }
 
     func exportRulesLayer() -> String? {

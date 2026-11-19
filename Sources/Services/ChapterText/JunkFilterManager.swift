@@ -57,11 +57,6 @@ public struct JunkFilterRule: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-public enum JunkFilterImportMode {
-    case merge
-    case overwrite
-}
-
 public final class JunkFilterManager: ObservableObject {
     public static let shared = JunkFilterManager()
 
@@ -290,28 +285,34 @@ public final class JunkFilterManager: ObservableObject {
 
     // MARK: - Import / Export
 
+    /// Nhập file JSON theo ba `DataImportMode` (popup chọn cách nhập). Trả `nil` khi file không đọc được.
+    ///
+    /// Khoá so trùng = `pattern` đúng từng chữ (như `addRule` và bản gộp cũ; mẫu rỗng bị bỏ). Luật trùng khoá bị đè
+    /// giữ **`id` và vị trí cũ**; luật mới nối cuối — thứ tự danh sách là thứ tự áp dụng nên **không** sắp lại
+    /// (bản gộp cũ sắp theo ABC và dựng `Dictionary(uniqueKeysWithValues:)` ⇒ sập khi danh sách sẵn có mẫu trùng).
     @MainActor
-    public func importRules(fromJSONString jsonString: String, mode: JunkFilterImportMode) -> Bool {
-        guard let data = jsonString.data(using: .utf8) else { return false }
+    public func importRules(fromJSONString jsonString: String, mode: DataImportMode) -> KeyedImportSummary? {
+        guard let data = jsonString.data(using: .utf8) else { return nil }
         do {
-            let imported = try JSONDecoder().decode([JunkFilterRule].self, from: data)
-            switch mode {
-            case .merge:
-                var currentMap = Dictionary(uniqueKeysWithValues: rules.map { ($0.pattern, $0) })
-                for rule in imported {
-                    if !rule.pattern.isEmpty {
-                        currentMap[rule.pattern] = rule
-                    }
+            let imported = try JSONDecoder().decode([JunkFilterRule].self, from: data).filter { !$0.pattern.isEmpty }
+            let merged = KeyedImportMerger.merge(
+                existing: rules,
+                imported: imported,
+                mode: mode,
+                key: { $0.pattern },
+                isSameContent: { $0.replacement == $1.replacement && $0.isRegex == $1.isRegex && $0.isEnabled == $1.isEnabled },
+                overwrite: { existing, incoming in
+                    var updated = incoming
+                    updated.id = existing.id
+                    return updated
                 }
-                rules = Array(currentMap.values).sorted { $0.pattern.localizedCompare($1.pattern) == .orderedAscending }
-            case .overwrite:
-                rules = imported.filter { !$0.pattern.isEmpty }
-            }
+            )
+            rules = KeyedImportMerger.uniquingIDs(merged.elements, id: \JunkFilterRule.id, makeID: { UUID().uuidString })
             saveRules()
-            return true
+            return merged.summary
         } catch {
             AppLogger.shared.log("❌ [JunkFilterManager] Lỗi import JSON: \(error.localizedDescription)")
-            return false
+            return nil
         }
     }
 

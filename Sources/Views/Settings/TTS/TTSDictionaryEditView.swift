@@ -18,6 +18,9 @@ struct TTSDictionaryEditView: View {
     @State private var errorMessage: String? = nil
     @State private var isLoading = false
     @State private var showingFileImporter = false
+    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
+    @State private var showingImportModes = false
+    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDownloadConfirmation = false
     @State private var showingDeleteAllConfirmation = false
@@ -57,7 +60,7 @@ struct TTSDictionaryEditView: View {
                 }
             }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm NghiTTS") {
-                SideDrawerActionRow("Nhập từ điển", systemImage: "square.and.arrow.down") { showingFileImporter = true }
+                SideDrawerActionRow("Nhập từ điển", systemImage: "square.and.arrow.down") { showingImportModes = true }
                 // Menu con "Xuất từ điển" cũ ⇒ một nhóm ba hàng, mỗi định dạng một hàng.
                 SideDrawerDivider()
                 SideDrawerSectionHeader("Xuất từ điển")
@@ -90,19 +93,26 @@ struct TTSDictionaryEditView: View {
                     allowsMultipleSelection: false,
                     onPick: { urls in
                         showingFileImporter = false
-                        guard let selectedURL = urls.first else { return }
+                        let mode = pendingImportMode
+                        pendingImportMode = nil
+                        guard let mode, let selectedURL = urls.first else { return }
                         let ext = selectedURL.pathExtension.lowercased()
                         if ext != "plist" && ext != "json" && ext != "csv" && ext != "txt" {
                             ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", type: .error)
                             return
                         }
                         let hasAccess = selectedURL.startAccessingSecurityScopedResource()
-                        importDictionary(from: selectedURL, hasAccess: hasAccess)
+                        importDictionary(from: selectedURL, hasAccess: hasAccess, mode: mode)
                     },
                     onCancel: {
                         showingFileImporter = false
+                        pendingImportMode = nil
                     }
                 )
+            }
+            .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập từ điển phiên âm NghiTTS") { mode in
+                pendingImportMode = mode
+                showingFileImporter = true
             }
             .ttsDictionaryBulkActions(showingDownloadConfirmation: $showingDownloadConfirmation, showingDeleteAllConfirmation: $showingDeleteAllConfirmation, onDownload: downloadDictionaries, onFinished: loadDictionary)
             .confirmationDialog(
@@ -413,11 +423,11 @@ struct TTSDictionaryEditView: View {
         return dict
     }
 
-    /// Nhập từ điển từ file: **ghi đè toàn bộ** từ điển NghiTTS (không trộn, không sao lưu, không hỏi gì).
-    ///
-    /// Đây là hành vi gốc trước 1.3.462 — người dùng chốt "revert lại ver cũ". Quyền security-scoped được
-    /// giữ **tới khi đọc + parse xong** rồi mới nhả trong `defer` của `Task`.
-    private func importDictionary(from url: URL, hasAccess: Bool) {
+    /// Nhập từ điển từ file theo chế độ đã chọn ở popup (Thay thế toàn bộ / Gộp / Chỉ thêm key mới — anh Bửu: "nhập
+    /// luôn có 3 option"; trước đây luôn ghi đè toàn bộ không hỏi). Gộp + ghi ở `PhoneticDictionaryImporter.importNghiTTS`
+    /// (khoá = từ gốc bỏ khoảng trắng + chữ thường). Quyền security-scoped được giữ **tới khi đọc + parse xong** rồi mới
+    /// nhả trong `defer` của `Task`.
+    private func importDictionary(from url: URL, hasAccess: Bool, mode: DataImportMode) {
         isLoading = true
         Task {
             defer {
@@ -472,17 +482,10 @@ struct TTSDictionaryEditView: View {
                     throw NSError(domain: "DictionaryEditView", code: 400, userInfo: [NSLocalizedDescriptionKey: "Định dạng tệp không được hỗ trợ."])
                 }
 
-                guard let localWordsURL = TextPreprocessor.getWordsURL() else {
-                    throw NSError(domain: "DictionaryEditView", code: 500, userInfo: [NSLocalizedDescriptionKey: "Không thể định vị đường dẫn lưu từ điển."])
-                }
-
-                let plistData = try PropertyListSerialization.data(fromPropertyList: importedWords, format: .xml, options: 0)
-                try plistData.write(to: localWordsURL, options: .atomic)
-
-                await TextPreprocessor.shared.loadResources()
+                let summary = try await PhoneticDictionaryImporter.importNghiTTS(importedWords, mode: mode)
                 await loadDictionary()
 
-                ToastManager.shared.show(message: "Nhập từ điển thành công! Đã cập nhật \(importedWords.count) từ.", type: .success)
+                ToastManager.shared.show(message: summary.message, type: .success)
             } catch {
                 ToastManager.shared.show(message: "Lỗi nhập từ điển: \(error.localizedDescription)", type: .error)
             }
