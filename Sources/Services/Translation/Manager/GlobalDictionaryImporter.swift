@@ -27,11 +27,18 @@ enum GlobalDictionaryImporter {
     enum ImportError: LocalizedError {
         case unknownType(String)
         case emptyFile
+        /// Có `.dat` nhưng không mở được — dừng, không ghi đè bằng một từ điển chỉ còn nội dung file nhập.
+        case unreadableBase(String)
+        /// Duyệt cây ra ít / nhiều mục hơn `wordCount` khai — dừng, không ghi lại một từ điển thiếu mục.
+        case enumerationMismatch(name: String, expected: Int, actual: Int)
 
         var errorDescription: String? {
             switch self {
             case .unknownType(let type): return "Không rõ loại từ điển \"\(type)\"."
             case .emptyFile: return "File không có dòng \"từ=nghĩa\" nào hợp lệ."
+            case .unreadableBase(let name): return "Không đọc được \(name) hiện có — dừng để không làm mất từ điển."
+            case .enumerationMismatch(let name, let expected, let actual):
+                return "Đọc \(name) ra \(actual) mục nhưng từ điển khai \(expected) — dừng để không ghi lại từ điển thiếu."
             }
         }
     }
@@ -200,13 +207,28 @@ enum GlobalDictionaryImporter {
         case "Names.dat": loaded = manager.namesDict
         default: loaded = manager.pronounsDict
         }
-        if let loaded { return loaded.allEntries() }
+        // Như `GlobalDictionaryTextExporter`: số mục duyệt được phải khớp `wordCount` (doc của `TrieDictionary.allEntries`)
+        // — lệch thì dừng, vì danh sách này sẽ được ghi lại thành **cả** từ điển gốc.
+        if let loaded { return try checkedEntries(of: loaded, name: datName) }
         let datURL = root.appendingPathComponent(datName)
         if fileManager.fileExists(atPath: datURL.path) {
             let trie = DoubleArrayTrie()
-            try trie.load(from: datURL)
-            if trie.isLoaded { return trie.allEntries() }
+            do {
+                try trie.load(from: datURL)
+            } catch {
+                throw ImportError.unreadableBase(datName)
+            }
+            guard trie.isLoaded else { throw ImportError.unreadableBase(datName) }
+            return try checkedEntries(of: trie, name: datName)
         }
         return fileManager.fileExists(atPath: txtURL.path) ? try parseEntries(at: txtURL, lastWins: false) : []
+    }
+
+    private static func checkedEntries(of dictionary: TrieDictionary, name: String) throws -> [(key: String, value: String)] {
+        let entries = dictionary.allEntries()
+        guard entries.count == dictionary.wordCount else {
+            throw ImportError.enumerationMismatch(name: name, expected: dictionary.wordCount, actual: entries.count)
+        }
+        return entries
     }
 }

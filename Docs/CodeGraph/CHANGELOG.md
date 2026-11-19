@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.997] - 2026-11-19
+
+### fix: Gộp / sửa thẳng từ điển gốc dừng lại khi đọc từ điển cũ không trọn — không ghi đè làm mất mục
+
+Thuộc việc 6–7 (thẻ Từ điển chung "Gộp" / "Chỉ thêm key mới", danh sách Phiên âm / Pronouns sửa thẳng).
+Trước (hai commit vừa rồi): GlobalDictionaryImporter đọc từ điển gốc đang có bằng allEntries() mà không so với wordCount, và nếu VietPhrase.dat / Names.dat / Pronouns.dat có trên máy nhưng không mở được thì lùi sang .txt hoặc danh sách rỗng — rồi ghi lại **cả** từ điển gốc từ danh sách đó ⇒ có thể mất mục (mỗi lần lưu ở danh sách Pronouns lại ghi lại cả Pronouns.dat).
+Nay: như GlobalDictionaryTextExporter, số mục duyệt được phải khớp wordCount (cả cây đã nạp lẫn .dat đọc từ đĩa), lệch ⇒ báo lỗi enumerationMismatch, không ghi; .dat có mà không mở được ⇒ lỗi unreadableBase, không lùi sang .txt / rỗng. Toast lỗi ở thẻ / danh sách như các lỗi nhập khác.
+
+File: Services/Translation/Manager/GlobalDictionaryImporter.
+
+Chưa kiểm: chưa build, chưa chạy máy.
+
 ## [1.3.996] - 2026-11-19
 
 ### feat: Nhập từ điển và rule dịch luôn chọn 3 cách qua popup — Thay thế toàn bộ / Gộp / Chỉ thêm key mới
