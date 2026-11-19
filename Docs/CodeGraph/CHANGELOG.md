@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1005] - 2026-11-19
+
+### fix: Kệ ở "Chỉ NSFW" vẫn có thanh chip Tất cả / Truyện chữ / Truyện tranh / Phim / Âm thanh
+
+Anh Bửu: "chỉ nsfw của tab kệ sách thiếu chip tất cả/truyện chữ/truyện tranh/phim/âm thanh" → duyệt plan.
+
+- **Trước**: thanh chip loại của Kệ + Lịch sử chỉ hiện khi danh sách **đã lọc NSFW** có từ 2 loại trở lên (`ShelfKindFilter.showsFilterBar`) ⇒ ở "Chỉ NSFW", truyện NSFW cùng một loại là mất cả thanh chip, trong khi "Tất cả" vẫn có.
+- **Nay**: số loại đếm trên kệ ∪ lịch sử **chưa** lọc NSFW (`ShelfKindFilter(_:kindFilter:kindSource:)`, `ShelfView` truyền thêm một `ShelfBookPartition(allBooks)` khi bộ lọc NSFW không phải "Tất cả") ⇒ thanh chip hiện như nhau ở cả ba chế độ. Chọn loại không có truyện nào sau lọc NSFW ⇒ màn rỗng "Chưa có … trên kệ" sẵn có, thanh chip vẫn ở trên. Thanh chip luôn đủ 5 chip cố định nên không lộ loại của truyện NSFW đang ẩn.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.1004] - 2026-11-19
 
 ### fix: Từ điển gốc xếp hàng mọi lượt ghi, thay file .dat an toàn; toast nhập rule đếm đúng "cập nhật"

@@ -166,8 +166,14 @@ struct ShelfView: View {
     }
 
     var body: some View {
-        let parts = ShelfBookPartition(allBooks, nsfwFilter: ShelfNsfwFilterState.shared.mode)
-        let kindFilter = ShelfKindFilter(parts, kindFilter: shelfKindFilter)
+        let nsfwMode = ShelfNsfwFilterState.shared.mode
+        let parts = ShelfBookPartition(allBooks, nsfwFilter: nsfwMode)
+        // Thanh chip loại đếm loại trên kệ ∪ lịch sử chưa lọc NSFW (1.3.1005) ⇒ "Chỉ NSFW" vẫn có chip.
+        let kindFilter = ShelfKindFilter(
+            parts,
+            kindFilter: shelfKindFilter,
+            kindSource: nsfwMode == .all ? nil : ShelfBookPartition(allBooks)
+        )
         let badgeCount = notificationBadgeCount
         NavigationStack {
             ZStack {

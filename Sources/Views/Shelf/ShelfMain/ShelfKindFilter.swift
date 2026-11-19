@@ -7,14 +7,18 @@ import Foundation
 /// (`ExtensionContentKind.resolve(packageId:)`, `Book` không lưu loại), nên nhớ theo `packageId` để mỗi nguồn chỉ
 /// tra một lần — cùng cách `ShelfBookPartition` nhớ kết quả NSFW.
 ///
-/// Thanh chip chỉ hiện khi kệ ∪ lịch sử (đã lọc NSFW) có từ 2 loại trở lên. Thanh ẩn ⇒ lựa chọn đã lưu bị **bỏ
-/// qua** (coi như "Tất cả"), nếu không một lựa chọn cũ như "Truyện tranh" trên kệ chỉ còn truyện chữ sẽ cho ra kệ
-/// rỗng mà không có chip nào để thoát.
+/// Thanh chip chỉ hiện khi kệ ∪ lịch sử có từ 2 loại trở lên — đếm trên **toàn bộ** kệ ∪ lịch sử, **không** tính bộ lọc
+/// NSFW (`kindSource`, 1.3.1005 — anh Bửu: "chỉ nsfw của tab kệ sách thiếu chip tất cả/truyện chữ/truyện tranh/phim/âm
+/// thanh": trước đây đếm trên danh sách đã lọc NSFW, nên truyện NSFW cùng một loại là mất cả thanh chip ở "Chỉ NSFW").
+/// Chọn một loại không có truyện nào sau lọc NSFW ⇒ màn rỗng "không có truyện loại này", thanh chip vẫn ở trên. Thanh
+/// ẩn ⇒ lựa chọn đã lưu bị **bỏ qua** (coi như "Tất cả"), nếu không một lựa chọn cũ như "Truyện tranh" trên kệ chỉ còn
+/// truyện chữ sẽ cho ra kệ rỗng mà không có chip nào để thoát.
 struct ShelfKindFilter {
     private(set) var pinned: [Book]
     private(set) var unpinned: [Book]
     private(set) var history: [Book]
-    /// Các loại có mặt trên kệ ∪ lịch sử. `.unsupported` gộp vào `.text`, giống `BookListLayoutScope(kind:)`.
+    /// Các loại có mặt trên kệ ∪ lịch sử (`kindSource`, không lọc NSFW). `.unsupported` gộp vào `.text`, giống
+    /// `BookListLayoutScope(kind:)`.
     let presentKinds: Set<ExtensionContentKind>
     /// Loại đang lọc; `nil` = "Tất cả" (kể cả khi thanh chip ẩn).
     let selectedKind: ExtensionContentKind?
@@ -28,10 +32,12 @@ struct ShelfKindFilter {
 
     var isShelfEmpty: Bool { pinned.isEmpty && unpinned.isEmpty }
 
-    init(_ parts: ShelfBookPartition, kindFilter: String) {
+    /// `kindSource` — kệ ∪ lịch sử **chưa** lọc NSFW, chỉ dùng để quyết định thanh chip có hiện không; `nil` ⇒ dùng `parts`.
+    init(_ parts: ShelfBookPartition, kindFilter: String, kindSource: ShelfBookPartition? = nil) {
         var kindByPackageId: [String: ExtensionContentKind] = [:]
         var kinds = Set<ExtensionContentKind>()
-        for group in [parts.pinned, parts.unpinned, parts.history] {
+        let source = kindSource ?? parts
+        for group in [source.pinned, source.unpinned, source.history] {
             for book in group {
                 kinds.insert(Self.kind(of: book, cache: &kindByPackageId))
             }
