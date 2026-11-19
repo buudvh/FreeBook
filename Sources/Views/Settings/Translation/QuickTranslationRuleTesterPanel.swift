@@ -4,14 +4,23 @@ import SwiftUI
 /// — chỗ dùng bọc trong `Form`: trang đẩy "Thử nhanh một câu" (`QuickTranslationRuleTesterView`, có chọn chế độ token)
 /// và sheet "Thử rule" mở từ đầu danh sách rule (`QuickTranslationRuleTesterSheet`).
 ///
-/// Bộ rule áp theo `scope` của chỗ mở (`QuickTranslationRuleEngine.preview(_:scope:mode:)`): chung ⇒ chỉ bộ chung; tên
-/// chương ⇒ bộ tên chương + chung; riêng ⇒ bộ riêng của truyện + chung, với `bookId` của truyện. Mẫu của từng hit tra
+/// Bộ rule áp theo `scope` của chỗ mở (`QuickTranslationRuleEngine.preview(_:scope:contextBookId:mode:)`): chung ⇒ bộ
+/// chung; tên chương ⇒ bộ tên chương + chung; riêng ⇒ bộ riêng của truyện + chung, với `bookId` của truyện. Danh sách
+/// chung / tên chương **mở từ Reader** (`contextBookId`) kèm thêm bộ riêng của truyện đang đọc — kết quả như lúc đọc
+/// truyện đó (anh Bửu chốt "Kèm bộ riêng"); mở từ Cài đặt thì không. Mẫu của từng hit tra
 /// theo cặp (bộ, dòng) của đoạn (`Segment.scopeRank`) — trước đây chỉ tra trong bộ chung nên hit của bộ riêng hiện sai
 /// mẫu hoặc trống.
 struct QuickTranslationRuleTesterPanel: View {
     let scope: QuickTranslationRuleScope
+    /// Truyện đang đọc khi danh sách chung / tên chương mở từ Reader; `nil` = mở từ Cài đặt.
+    var contextBookId: String? = nil
     /// Trang đẩy có section chọn chế độ token; sheet gọn chỉ chạy theo cấu hình token hiện hành.
     var showsTokenModePicker = false
+
+    /// Truyện mà ô thử áp bộ riêng + cấu hình riêng: chính truyện của bộ riêng, không thì truyện đang đọc.
+    private var testBookId: String? {
+        scope.bookId ?? contextBookId.flatMap { $0.isEmpty ? nil : $0 }
+    }
 
     private struct Hit: Identifiable {
         let id = UUID()
@@ -91,6 +100,12 @@ struct QuickTranslationRuleTesterPanel: View {
 
     /// Nói rõ bộ nào được tính — không thì rule ở bộ khác "có trong danh sách mà không ăn ở đây".
     private var scopeHelp: [LocalizedStringKey] {
+        if scope.bookId == nil, testBookId != nil {
+            // Chuỗi chèn vào `LocalizedStringKey` hiện nguyên văn (không đọc markdown) ⇒ không đặt `**` ở đây.
+            let sets = scope.isChapterTitle ? "bộ rule riêng của truyện đang đọc + bộ tên chương + bộ chung" : "bộ rule riêng của truyện đang đọc + bộ chung"
+            return ["Mở từ trình đọc nên thử như lúc đọc truyện đó: áp \(sets), theo file tắt, công tắc token, thứ tự ưu tiên và bộ ngoặc của truyện. Mẫu đã khớp ghi rõ thuộc bộ nào.",
+                    "Ô thử bỏ qua công tắc tổng Quick Translate nhưng **tôn trọng file tắt rule**."]
+        }
         switch scope {
         case .global:
             return ["Chỉ áp **bộ rule chung**. Rule riêng của truyện, bộ tên chương, công tắc token riêng và thứ tự ưu tiên riêng **không** được tính ở đây — muốn thử những thứ đó thì dùng nút Thử rule ở danh sách rule riêng / tên chương.",
@@ -109,7 +124,7 @@ struct QuickTranslationRuleTesterPanel: View {
         hits = []
         let text = input
 
-        guard let result = QuickTranslationRuleEngine.preview(text, scope: scope, mode: previewMode) else {
+        guard let result = QuickTranslationRuleEngine.preview(text, scope: scope, contextBookId: contextBookId, mode: previewMode) else {
             output = text
             return
         }
@@ -146,7 +161,7 @@ struct QuickTranslationRuleTesterPanel: View {
         if scope.isChapterTitle {
             result[QuickTranslationRuleScope.chapterTitleRank] = index(QuickTranslationRuleChapterStore.shared.currentSnapshot)
         }
-        if let bookId = scope.bookId {
+        if let bookId = testBookId {
             result[QuickTranslationRuleScope.bookRank] = index(QuickTranslationRuleBookStore.shared.snapshot(for: bookId))
         }
         return result

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1003] - 2026-11-19
+
+### feat: Thử rule ở danh sách rule chung / tên chương mở từ Reader kèm bộ rule riêng của truyện đang đọc
+
+Trước: sheet "Thử rule" ở danh sách rule chung / tên chương luôn chỉ áp bộ chung (+ bộ tên chương), kể cả khi danh sách mở từ hub Từ điển của Reader — rule riêng của truyện đang đọc không được tính, kết quả khác lúc đọc.
+Nay (anh Bửu chốt "Kèm bộ riêng"): danh sách mở từ Reader (có contextBookId) thử như lúc đọc truyện đó — QuickTranslationRuleEngine.preview(_:scope:contextBookId:mode:) thêm bộ riêng của truyện và dùng bookId của nó (file tắt riêng, công tắc token, thứ tự ưu tiên, bộ ngoặc, Name riêng); danh sách tên chương áp riêng + tên chương + chung, danh sách chung áp riêng + chung. Mẫu rule đã khớp tra theo cặp (bộ, dòng) gồm cả bộ riêng ⇒ hiện đúng bộ ("bộ riêng" / "bộ tên chương" / "bộ chung"). Nút "?" của ô nhập nói rõ đang kèm bộ riêng. Mở từ Cài đặt (không có truyện) giữ như cũ.
+
+File: Services/Translation/Engine/QuickTranslationRuleEngine+Preview, Views/Settings/Translation/{QuickTranslationRuleTesterPanel, QuickTranslationRuleTesterSheet, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy.
+
 ## [1.3.1002] - 2026-11-19
 
 ### fix: Reader bỏ chữ ghim khi mốc dịch lại của TTS hết hiệu lực, tua đoạn chặn lúc đang dựng chương, vạch tua không giữ danh sách đoạn cũ

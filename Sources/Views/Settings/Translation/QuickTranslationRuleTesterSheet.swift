@@ -7,11 +7,13 @@ import SwiftUI
 /// Chỗ trình bày bọc `Group { … }.appGlassSheet()` (chuẩn sheet kính); detent 60% / lớn + thanh kéo nằm ở đây.
 struct QuickTranslationRuleTesterSheet: View {
     let scope: QuickTranslationRuleScope
+    /// Truyện đang đọc khi danh sách chung / tên chương mở từ Reader ⇒ thử kèm bộ riêng của truyện đó.
+    var contextBookId: String? = nil
 
     var body: some View {
         NavigationStack {
             Form { Group {
-                QuickTranslationRuleTesterPanel(scope: scope)
+                QuickTranslationRuleTesterPanel(scope: scope, contextBookId: contextBookId)
             }.glassSheetRows() }
             .pageTitle("Thử rule")
         }

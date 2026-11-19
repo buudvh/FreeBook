@@ -191,7 +191,7 @@ struct QuickTranslationRuleListView: View {
             .appGlassSheet()
         }
         .sheet(isPresented: $showingTester) {
-            Group { QuickTranslationRuleTesterSheet(scope: scope) }.appGlassSheet()
+            Group { QuickTranslationRuleTesterSheet(scope: scope, contextBookId: contextBookId) }.appGlassSheet()
         }
         .onChange(of: searchText) { _, _ in
             visibleLimit = Self.pageSize

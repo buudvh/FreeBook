@@ -4,11 +4,15 @@ import Foundation
 /// dùng memo, nhưng **vẫn tôn trọng file tắt** — nếu không nó nói khác kết quả thật của Reader.
 ///
 /// Bộ rule áp theo **phạm vi** của chỗ mở ô thử, như khi dịch thật:
-/// - `.global`: chỉ bộ chung (không truyện nào) — như trang "Thử nhanh một câu" từ trước tới nay.
+/// - `.global`: bộ chung — như trang "Thử nhanh một câu" từ trước tới nay.
 /// - `.chapterTitle`: bộ tên chương + bộ chung — như khi dịch **tên chương** (tên chương thắng chung khi hoà). Trước
 ///   đây ô thử bỏ hẳn bộ tên chương nên rule tên chương không bao giờ khớp ở đây.
 /// - `.book(bookId)`: bộ riêng của truyện + bộ chung, với `bookId` của truyện (file tắt riêng, token, thứ tự ưu tiên,
 ///   bộ ngoặc, Name riêng). Bộ tên chương không áp: ô thử dịch một câu nội dung.
+///
+/// `contextBookId` (anh Bửu chốt "Kèm bộ riêng"): danh sách chung / tên chương **mở từ Reader** biết truyện đang đọc ⇒
+/// thử như lúc đọc truyện đó — thêm bộ riêng của truyện và dùng `bookId` của nó (file tắt riêng, token, thứ tự ưu tiên,
+/// bộ ngoặc, Name riêng). Mở từ Cài đặt (`nil`) thì như trên. Với `.book` tham số này không có tác dụng.
 ///
 /// Mỗi đoạn do rule sinh mang `scopeRank` (`QuickTranslationRewriteResult.Segment`) để bên hiển thị tra đúng mẫu theo
 /// cặp (bộ, dòng) — số dòng trùng nhau giữa các bộ.
@@ -16,10 +20,11 @@ extension QuickTranslationRuleEngine {
     public static func preview(
         _ text: String,
         scope: QuickTranslationRuleScope = .global,
+        contextBookId: String? = nil,
         mode: PreviewMode = .respectTokenConfiguration
     ) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty else { return nil }
-        let bookId = scope.bookId
+        let bookId = scope.bookId ?? contextBookId.flatMap { $0.isEmpty ? nil : $0 }
         let globalSnapshot = nonEmpty(QuickTranslationRuleStore.shared.currentSnapshot)
         let bookSnapshot = bookId.flatMap { nonEmpty(QuickTranslationRuleBookStore.shared.snapshot(for: $0)) }
         let chapterSnapshot = scope.isChapterTitle ? nonEmpty(QuickTranslationRuleChapterStore.shared.currentSnapshot) : nil
