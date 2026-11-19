@@ -64,6 +64,10 @@ public class CachedChapter: Identifiable {
     public var isTranslationEnabled: Bool = false
     public var shouldConvertTraditionalToSimplified: Bool = false
     public var translationToken: Int = 0
+    /// Dịch lại khi đang nghe (`ReaderViewModel+TTSRetranslation`): `paragraphItems` đang ghim chữ TTS cho dòng ≤ mốc ⇒
+    /// `contentStamp` của mốc + bản dựng gốc chưa ghim. Mốc hết hiệu lực ⇒ trả về bản gốc. `nil` = không ghim.
+    public var ttsAnchorStamp: String? = nil
+    public var unalignedParagraphItems: [ParagraphItem]? = nil
 
     public init(index: Int) {
         self.index = index

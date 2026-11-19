@@ -50,6 +50,21 @@ extension TTSManager {
             .store(in: &cancellables)
     }
 
+    /// `didSet` của `paragraphs`: ghi chủ của mảng chunk (phiên / truyện / chương lúc gán) + báo sheet nghe mini dựng lại "N/M".
+    func noteParagraphsReplaced() {
+        TTSRetranslationCoordinator.shared.noteTTSParagraphsChanged(owner: currentChunkOwner)
+    }
+
+    private var currentChunkOwner: TTSRetranslationCoordinator.ChunkOwner {
+        TTSRetranslationCoordinator.ChunkOwner(sessionID: sessionID, bookId: playingBookId, chapterIndex: playingChapterIndex)
+    }
+
+    /// `paragraphs` thuộc đúng phiên + chương đang phát. `false` ⇔ một lượt dựng chương đang chạy dở (`startSpeaking` đã đổi
+    /// phiên / chương nhưng chưa gán chunk mới) hoặc đã dừng hẳn — chỉ số chunk lúc này trỏ vào chunk cũ.
+    var isChunkLayoutCurrent: Bool {
+        TTSRetranslationCoordinator.shared.ttsChunkOwner == currentChunkOwner
+    }
+
     func currentRetranslationInputs() -> RetranslationInputs {
         let titleKey = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: titleKey) != nil ? UserDefaults.standard.bool(forKey: titleKey) : true
@@ -154,7 +169,7 @@ extension TTSManager {
         // Người dùng đọc lại chương trong lúc tải / dịch / chờ panel ⇒ nối lên chữ của lượt dựng mới.
         await awaitChapterBuildsInFlight()
 
-        guard !Task.isCancelled, sessionTranslationEnabled, !paragraphs.isEmpty,
+        guard !Task.isCancelled, sessionTranslationEnabled, !paragraphs.isEmpty, isChunkLayoutCurrent,
               currentRetranslationInputs() == inputs,
               TranslateUtils.translationGenerationToken(for: ref.bookId) == processed.translationToken else {
             AppLogger.shared.log("🔁 [TTSRetranslate] Bỏ bản dịch lại chương \(ref.chapterIndex + 1): phiên / cấu hình / từ điển đã đổi")

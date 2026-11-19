@@ -10,6 +10,12 @@ extension TTSManager {
     /// có `guard isPlaying`): đang phát ⇒ đọc từ đầu dòng đó; đang dừng ⇒ chỉ dời chỗ + cập nhật trạng thái (Reader / sheet /
     /// Now Playing), bấm phát mới đọc.
     public func seekToParagraph(lineId: Int) {
+        // Lượt dựng chương đang chạy (`startSpeaking`: phiên / chương đã đổi, chunk còn của chương cũ) ⇒ không tua: phát nhầm
+        // chunk cũ, lưu sai tiến độ, rồi lượt dựng xong đè mất chỗ vừa tua.
+        guard isChunkLayoutCurrent else {
+            AppLogger.shared.log("⏩ [TTSSeek] Bỏ tua: chương đang được dựng (chunk chưa thuộc chương \(playingChapterIndex + 1))")
+            return
+        }
         guard let target = paragraphs.firstIndex(where: { $0.paragraphIndex == lineId }) else { return }
         // Vừa đọc hết chunk cuối, chương kế đang tải / tổng hợp: không huỷ thì lượt chuyển chương (kiểm phiên / generation /
         // chương vẫn khớp) nhảy sang chương sau giữa đoạn người dùng vừa tua tới. Như `pause()`.

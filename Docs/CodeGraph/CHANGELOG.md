@@ -2,6 +2,42 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1002] - 2026-11-19
+
+### fix: Reader bỏ chữ ghim khi mốc dịch lại của TTS hết hiệu lực, tua đoạn chặn lúc đang dựng chương, vạch tua không giữ danh sách đoạn cũ
+
+Vá các lỗi review phản biện tìm ra ở ba commit dịch lại khi đang nghe + tua theo đoạn:
+
+1. Reader giữ chữ cũ của dòng ≤ mốc sau khi mốc hết hiệu lực ⇒ lệch highlight. Trước: Reader ghi chữ TTS vào cache
+   cho dòng ≤ L kèm token hiện hành; TTS dựng lại chương (chương trước → chương kế, nghe tiếp từ chương trước tự sang,
+   jumpToChapter không truyền snapshot) thì mốc chết nhưng isTranslationFresh vẫn đúng ⇒ Reader không dựng lại, TTS
+   đọc bản mới từ dòng 0 còn Reader hiện chữ cũ dòng 0…L; bấm Nghe từ Reader còn đưa chữ ghim làm snapshot ⇒ dòng ≤ L
+   đọc bản dịch cũ mãi. Nay:
+   - CachedChapter lưu ttsAnchorStamp + unalignedParagraphItems (bản dựng gốc) khi ghim (ChapterCache.swift).
+   - TTSManager.chapterContent có didSet ⇒ TTSRetranslationCoordinator.ttsTextRevision; Reader nghe nó và trả chương
+     đang ghim về bản gốc ngay khi mốc không còn sống (restoreChaptersWithDeadTTSAnchor).
+   - Mốc còn hiệu lực phải khớp cả cờ phồn → giản + vân tay bộ dịch của phiên TTS (Anchor.convertsTraditional /
+     engineFingerprint) và công tắc dịch + phồn → giản của bản Reader dựng.
+   - getPretranslatedSnapshot (ReaderView.swift) dùng CachedChapter.ttsSnapshotParagraphItems / ttsSnapshotTitle — luôn
+     bản gốc, không chữ ghim.
+2. Danh sách đầu đoạn của vạch tua có thể cũ khi chương mới cùng số chunk (startSpeaking đổi chương trước khi gán chunk).
+   Nay TTSManager.paragraphs có didSet ⇒ layoutRevision tăng mỗi lần gán mảng chunk (khoá outline đã có layoutRevision).
+3. Tua trong lúc startSpeaking đang dựng chương ⇒ phát nhầm chunk chương cũ, lưu sai tiến độ, lượt dựng xong đè mất chỗ
+   tua. Nay didSet của paragraphs ghi chủ mảng chunk (phiên / truyện / chương); seekToParagraph và lượt nối bản dịch bỏ
+   qua khi chủ lệch phiên / chương đang phát (isChunkLayoutCurrent).
+4. Hàng rào refill NghiTTS so cả struct chunk (range / sourceRange) trong khi tiêu chí "đổi" của lượt nối chỉ so chữ +
+   kiểu ranh giới ⇒ chunk cùng chữ dời range bị bỏ kết quả. Nay cùng so chữ + boundaryKind.
+5. Reader chờ mốc bằng continuation không nghe huỷ ⇒ lượt dựng đã huỷ chặn lượt mới (refreshParagraphItems await lượt
+   cũ) tới 3 s. Nay waitForAnchor bọc withTaskCancellationHandler, huỷ là thôi chờ ngay.
+
+File: TTSRetranslationCoordinator.swift, TTSManager.swift (didSet paragraphs / chapterContent, hàng rào refill),
+TTSManager+Retranslation.swift, TTSManager+RetranslationSplice.swift, TTSManager+ParagraphSeek.swift,
+ReaderViewModel+TTSRetranslation.swift, ReaderViewModel+TranslationPresentation.swift, ReaderViewModel+Translation.swift,
+ReaderTranslationPresentation.swift, ChapterCache.swift, CachedChapter+TranslationFreshness.swift, ReaderView.swift
+(getPretranslatedSnapshot), .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
 ## [1.3.1001] - 2026-11-19
 
 ### fix: NSFW chỉ tắt công tắc chung khi mở lại app, chặn nhập file quy tắc mục lục rỗng, ô tiêu đề thu gọn không chiếm chỗ

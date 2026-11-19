@@ -40,7 +40,10 @@ extension ReaderViewModel {
         // TTS vừa được nhả và đang nối ⇒ chờ mốc rồi mới áp (dòng đang đọc khỏi nháy chữ mới rồi về chữ cũ).
         Task { [weak self] in
             guard let self else { return }
-            await self.waitForTTSRetranslationAnchor(chapterIndex: pending.index, token: pending.token)
+            await self.waitForTTSRetranslationAnchor(
+                chapterIndex: pending.index, token: pending.token,
+                translationEnabled: pending.translationEnabled, convertTraditional: pending.convertTraditional
+            )
             guard self.isPendingPresentationCurrent(pending) else { return }
             if self.translationPresentation.deferred {
                 // Panel mở lại trong lúc chờ: trả bản dựng về hàng chờ — `ReaderView` đã thôi hoãn nên không ai dựng lại.
@@ -61,10 +64,17 @@ extension ReaderViewModel {
 
     internal func applyPreparedTranslation(_ prepared: ReaderTranslationPresentation.Prepared) {
         let cached = cache.cache[prepared.index] ?? cache.setPlaceholder(prepared.index)
-        // TTS đang đọc chương này và vừa nối bản dịch mới (mốc cùng token) ⇒ dòng ≤ mốc hiện đúng chữ TTS đọc.
-        let result = alignedWithTTSAnchor(
-            prepared.result, chapterIndex: prepared.index, token: prepared.token, displayed: cached.paragraphItems
+        // TTS đang đọc chương này và vừa nối bản dịch mới (mốc cùng token) ⇒ dòng ≤ mốc hiện đúng chữ TTS đọc; lưu kèm bản
+        // dựng gốc để mốc hết hiệu lực thì trả về (`restoreChaptersWithDeadTTSAnchor`).
+        let alignment = ttsAlignment(
+            prepared.result, chapterIndex: prepared.index, token: prepared.token,
+            translationEnabled: prepared.translationEnabled, convertTraditional: prepared.convertTraditional,
+            displayed: cached.paragraphItems
         )
+        let result = alignment.result
+        let unaligned = alignment.stamp == nil ? nil : prepared.result.paragraphItems
+        if cached.ttsAnchorStamp != alignment.stamp { cached.ttsAnchorStamp = alignment.stamp }
+        if cached.unalignedParagraphItems != unaligned { cached.unalignedParagraphItems = unaligned }
         let equal = cached.originalTitle == prepared.originalTitle &&
             cached.originalContent == prepared.originalContent &&
             cached.title == result.translatedTitle && cached.content == result.translatedContent &&

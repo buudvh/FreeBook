@@ -62,6 +62,8 @@ extension TTSManager {
                 bookId: playingBookId,
                 chapterIndex: playingChapterIndex,
                 token: processed.translationToken,
+                convertsTraditional: sessionShouldConvertTraditionalToSimplified,
+                engineFingerprint: translationEngineFingerprint(),
                 boundaryLineId: boundary,
                 pinnedTexts: pinned,
                 contentStamp: mergedContent

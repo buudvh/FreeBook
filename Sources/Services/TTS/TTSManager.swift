@@ -453,8 +453,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public var onChapterFinished: (() -> Void)?
 
     // Dữ liệu phân đoạn
-    public internal(set) var paragraphs: [TTSParagraph] = [] // `internal(set)`: nối bản dịch mới (`+RetranslationSplice`)
-    internal var chapterContent: String = ""
+    public internal(set) var paragraphs: [TTSParagraph] = [] { didSet { noteParagraphsReplaced() } } // `+Retranslation`
+    internal var chapterContent: String = "" { didSet { TTSRetranslationCoordinator.shared.noteTTSChapterTextChanged() } }
     internal var normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent("")
 
     // Trình phát & Engine
@@ -2390,7 +2390,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     essential: isEssentialNext,
                     onDemand: false
                 )
-                guard self.paragraphs.indices.contains(index), self.paragraphs[index] == paragraph else { return } // dịch lại khi đang nghe
+                guard self.paragraphs.indices.contains(index), self.paragraphs[index].text == paragraph.text, self.paragraphs[index].boundaryKind == paragraph.boundaryKind else { return } // dịch lại khi đang nghe: so như `+RetranslationSplice`
                 self.preloadedData[index] = synthesized.data
                 self.preloadedDurations[index] = synthesized.pcmDuration
                 self.updateNghiBufferedDuration()

@@ -10,4 +10,15 @@ extension CachedChapter {
             && isTranslationEnabled == enabled
             && shouldConvertTraditionalToSimplified == convertTraditional
     }
+
+    /// Đoạn đưa cho TTS làm bản dịch sẵn (`TTSPretranslatedSnapshot`): luôn **bản dựng gốc** — chữ ghim theo mốc dịch lại
+    /// (`ttsAnchorStamp`) chỉ để khớp lượt đọc đang chạy; đưa nó cho lượt đọc mới thì dòng ≤ mốc đọc bản dịch cũ mãi.
+    var ttsSnapshotParagraphItems: [ParagraphItem] {
+        unalignedParagraphItems ?? paragraphItems
+    }
+
+    /// Tên chương đã dịch đi cùng `ttsSnapshotParagraphItems`.
+    var ttsSnapshotTitle: String {
+        unalignedParagraphItems?.first(where: \.isTitle)?.translated ?? title
+    }
 }

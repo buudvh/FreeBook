@@ -1585,7 +1585,7 @@ struct ReaderView: View {
               cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
             return nil
         }
-        let contentItems = cached.paragraphItems.filter { !$0.isTitle }
+        let contentItems = cached.ttsSnapshotParagraphItems.filter { !$0.isTitle } // bản gốc, không chữ ghim theo mốc TTS
         guard !contentItems.isEmpty else { return nil }
         let entries = contentItems.map { item in
             TTSLineEntry(
@@ -1599,7 +1599,7 @@ struct ReaderView: View {
             isTranslationEnabled: cached.isTranslationEnabled,
             shouldConvertTraditionalToSimplified: cached.shouldConvertTraditionalToSimplified,
             translationToken: cached.translationToken,
-            entries: entries, originalTitle: cached.originalTitle, translatedTitle: cached.title
+            entries: entries, originalTitle: cached.originalTitle, translatedTitle: cached.ttsSnapshotTitle
         )
     }
 
