@@ -28,7 +28,7 @@ extension ReaderView {
     }
 
     /// Nguồn được lên chip, theo đúng thứ tự mục của màn Quản lý nghĩa (`ManageDefinitionsView`): bốn mục sửa được
-    /// (`ManageDefinitionsDraft.editableSources`) rồi Phiên âm ở cuối. Xưng hô / Luật nhân không lên chip.
+    /// (`ManageDefinitionsDraft.editableSources`) rồi Phiên âm ở cuối. Xưng hô không lên chip.
     /// Nhãn là hợp đồng với `dictionaryMatches(for:bookId:)` (`ReaderView+Selection`) — đổi nhãn ở đó là chip mất im
     /// lặng, sửa cả hai chỗ.
     private nonisolated static let chipSourceOrder = ManageDefinitionsDraft.editableSources + ["Phiên âm"]

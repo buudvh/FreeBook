@@ -10,28 +10,25 @@ public enum VietPhraseTokenizer {
         let range: Range<Int>
         let length: Int
     }
-    /// Cửa vào duy nhất: đọc hai cờ runtime rồi tra `TokenizeMemo` trước khi làm việc thật.
+    /// Cửa vào duy nhất: đọc cờ runtime rồi tra `TokenizeMemo` trước khi làm việc thật.
     ///
-    /// Hai cờ đọc **ở đây** chứ không trong thân hàm, để chúng vào được khoá memo. Xem `TokenizeMemo`
+    /// Cờ đọc **ở đây** chứ không trong thân hàm, để chúng vào được khoá memo. Xem `TokenizeMemo`
     /// cho lý do phải có memo (mỗi dòng bị tokenize hai lần mỗi lần dựng lại chương).
     public static func tokenize(_ text: String, bookId: String?) -> [String] {
         guard !text.isEmpty else { return [] }
 
         let isPronounsEnabled = TranslationReadContext.current?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = TranslationReadContext.current?.luatNhanEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
 
         return TokenizeMemo.shared.tokens(
             text: text,
             bookId: bookId,
             isPronounsEnabled: isPronounsEnabled,
-            isLuatNhanEnabled: isLuatNhanEnabled,
             generation: TranslationReadContext.cacheGeneration(for: bookId)
         ) {
             tokenizeUncached(
                 text,
                 bookId: bookId,
-                isPronounsEnabled: isPronounsEnabled,
-                isLuatNhanEnabled: isLuatNhanEnabled
+                isPronounsEnabled: isPronounsEnabled
             )
         }
     }
@@ -39,8 +36,7 @@ public enum VietPhraseTokenizer {
     private static func tokenizeUncached(
         _ text: String,
         bookId: String?,
-        isPronounsEnabled: Bool,
-        isLuatNhanEnabled: Bool
+        isPronounsEnabled: Bool
     ) -> [String] {
         let chars = Array(text)
         let length = chars.count
@@ -50,7 +46,6 @@ public enum VietPhraseTokenizer {
         let customNames = TranslationManager.shared.customNamesDict
         let deletedNames = TranslationManager.shared.deletedNames
         let pronouns = isPronounsEnabled ? TranslationManager.shared.pronounsDict : nil
-        let luatNhan = isLuatNhanEnabled ? TranslationManager.shared.luatNhanDict : nil
         let vp = TranslationManager.shared.vietPhraseDict
         let customVP = TranslationManager.shared.customVietPhraseDict
         let deletedVP = TranslationManager.shared.deletedVietPhrase
@@ -95,12 +90,6 @@ public enum VietPhraseTokenizer {
             
             if let pronouns = pronouns {
                 for matchLength in pronouns.prefixMatchLengths(text: checkText, startIndex: 0) {
-                    nameLengths.insert(matchLength)
-                }
-            }
-            
-            if let luatNhan = luatNhan {
-                for matchLength in luatNhan.prefixMatchLengths(text: checkText, startIndex: 0) {
                     nameLengths.insert(matchLength)
                 }
             }

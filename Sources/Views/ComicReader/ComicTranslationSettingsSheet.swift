@@ -4,11 +4,11 @@ import SwiftUI
 /// `ReaderSettingsView`:
 /// - Dịch · Truyện này: Theo nguồn / Bật / Tắt — Nguồn: Toàn cục / Bật / Tắt — Mặc định toàn cục. Cùng kho với truyện chữ và
 ///   trang Chi tiết (`TranslationConfigStore`), một công tắc cho cả tên chương lẫn dịch ảnh.
-/// - Khi đang bật: dịch đại từ / luật nhân hoá (cài đặt
+/// - Khi đang bật: dịch đại từ (cài đặt
 ///   chung của app, cùng khoá `@AppStorage` với Reader), thứ tự ưu tiên rule + token rule của truyện (mở lại hai màn của
 ///   Reader).
 ///
-/// Chọn là ghi ngay; kho bắn thông báo nên màn đọc dịch lại (đại từ / luật nhân hoá đi qua
+/// Chọn là ghi ngay; kho bắn thông báo nên màn đọc dịch lại (đại từ đi qua
 /// `TranslationManager.notifyDictionariesDidUpdate` như Reader). Không sửa `ReaderSettingsView` (lặp vài picker là chủ ý).
 /// Không có nút chỉ để đóng: vuốt xuống.
 struct ComicTranslationSettingsSheet: View {
@@ -20,7 +20,6 @@ struct ComicTranslationSettingsSheet: View {
     let isChineseSourceHint: Bool?
 
     @AppStorage("isTranslationPronounsEnabled") private var isPronounsEnabled = false
-    @AppStorage("isTranslationLuatNhanEnabled") private var isLuatNhanEnabled = false
     @State private var bookOverride: ScopeOverride
     @State private var sourceOverride: ScopeOverride
     @State private var globalEnabled: Bool
@@ -111,8 +110,6 @@ struct ComicTranslationSettingsSheet: View {
         Section {
             Toggle("Dịch đại từ (Pronouns)", isOn: $isPronounsEnabled)
                 .onChange(of: isPronounsEnabled) { _, _ in notifyEngineSettingChanged() }
-            Toggle("Dịch luật nhân hoá", isOn: $isLuatNhanEnabled)
-                .onChange(of: isLuatNhanEnabled) { _, _ in notifyEngineSettingChanged() }
             ruleRow(
                 title: "Thứ tự ưu tiên rule",
                 detail: QuickTranslationBookEngineConfigStore.shared.hasPriorityOverride(bookId: bookId)
@@ -128,7 +125,7 @@ struct ComicTranslationSettingsSheet: View {
         } header: {
             SectionHelpHeader("Cách dịch", texts: [
                 Text("Thứ tự ưu tiên rule và token rule chỉ áp cho truyện này. Phồn → giản nằm ở nút dịch trên thanh trên (theo phạm vi Truyện / Nguồn / Tất cả)."),
-                Text("Dịch đại từ và luật nhân hoá là cài đặt chung của cả app, như ở Cài đặt trình đọc.")
+                Text("Dịch đại từ là cài đặt chung của cả app, như ở Cài đặt trình đọc.")
             ])
         }
     }

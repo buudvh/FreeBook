@@ -33,6 +33,7 @@ public enum BackupSettingsArchiver {
     /// - `custom_search_engines` do `BackupConfigArchiver` sở hữu (entry `config/search_engines.json`)
     ///   để phục hồi **gộp** được từng công cụ; để ở đây thì cả mảng bị ghi đè, xoá mất công cụ chỉ
     ///   có trên máy đang phục hồi.
+    /// - `LuatNhanRetirement.legacySettingKey`: công tắc của từ điển LuatNhan đã gỡ — khôi phục bản cũ không ghi lại khoá.
     private static let deniedKeys: Set<String> = [
         "google_cloud_tts_custom_api_key",
         "googleDriveClientId",
@@ -45,7 +46,8 @@ public enum BackupSettingsArchiver {
         "failed_file_deletions_queue",
         "failed_chapterstore_deletions_queue",
         SearchEngine.storageKey,
-        ReaderSessionRestoreStore.pendingAttemptKey
+        ReaderSessionRestoreStore.pendingAttemptKey,
+        LuatNhanRetirement.legacySettingKey
     ]
 
     /// Tiền tố bị loại:

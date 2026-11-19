@@ -6,7 +6,6 @@ final class TranslationDictionaryState: @unchecked Sendable {
         var vietPhrase: FrozenTrieDictionary?
         var names: FrozenTrieDictionary?
         var pronouns: FrozenTrieDictionary?
-        var luatNhan: FrozenTrieDictionary?
         var customVietPhrase: FrozenTrieDictionary?
         var customNames: FrozenTrieDictionary?
         var phienAm: [String: String] = [:]

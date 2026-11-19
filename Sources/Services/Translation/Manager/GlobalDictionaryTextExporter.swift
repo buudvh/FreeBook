@@ -5,7 +5,7 @@ import Foundation
 /// Xuất **đúng file gốc** (người dùng chọn): không kèm từ đã thêm/xoá ở VP/Name Chung — bản đó đã có nút Gộp. Nhập lại
 /// file xuất qua chính thẻ đó cho ra từ điển y như cũ.
 ///
-/// - VietPhrase / Name / Pronouns / LuatNhan: sau lần nạp đầu app chỉ còn `.dat` nhị phân (`loadAllDictionaries` xoá
+/// - VietPhrase / Name / Pronouns: sau lần nạp đầu app chỉ còn `.dat` nhị phân (`loadAllDictionaries` xoá
 ///   `.txt`) ⇒ duyệt ngược cây bằng `allEntries()`, mỗi dòng `từ=nghĩa` như `DictionaryMergeService`. Số entry duyệt
 ///   được phải khớp `wordCount`, lệch thì báo lỗi chứ không xuất file thiếu.
 /// - PhienAm: `ChinesePhienAmWords.txt` vốn là text ⇒ chép nguyên.
@@ -41,7 +41,7 @@ enum GlobalDictionaryTextExporter {
     /// Ghi ra đĩa theo từng khúc ~1 MB thay vì dựng một chuỗi khổng lồ (VietPhrase cỡ trăm nghìn – triệu dòng).
     private static let writeChunkBytes = 1 << 20
 
-    /// `type` dùng đúng mã của màn Cài đặt dịch thuật: `vietphrase`, `names`, `phienam`, `pronouns`, `luatnhan`.
+    /// `type` dùng đúng mã của màn Cài đặt dịch thuật: `vietphrase`, `names`, `phienam`, `pronouns`.
     static func export(type: String) throws -> URL {
         let manager = TranslationManager.shared
         let descriptor = try source(for: type, manager: manager)
@@ -94,9 +94,6 @@ enum GlobalDictionaryTextExporter {
         case "pronouns":
             return Source(exportPrefix: "Pronouns", datFileName: "Pronouns.dat", txtFileName: "Pronouns.txt",
                           loaded: manager.pronounsDict)
-        case "luatnhan":
-            return Source(exportPrefix: "LuatNhan", datFileName: "LuatNhan.dat", txtFileName: "LuatNhan.txt",
-                          loaded: manager.luatNhanDict)
         case "phienam":
             return Source(exportPrefix: "PhienAm", datFileName: nil, txtFileName: "ChinesePhienAmWords.txt",
                           loaded: nil)

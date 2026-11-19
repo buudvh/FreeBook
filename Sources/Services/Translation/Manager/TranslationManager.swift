@@ -12,7 +12,6 @@ public final class TranslationManager: ObservableObject {
     @Published public var isPhienAmLoaded = false
     @Published public var isNamesLoaded = false
     @Published public var isPronounsLoaded = false
-    @Published public var isLuatNhanLoaded = false
     @Published public var isCustomVietPhraseLoaded = false
     @Published public var isCustomNamesLoaded = false
     @Published public var isInitialized = false
@@ -35,10 +34,6 @@ public final class TranslationManager: ObservableObject {
     public private(set) var pronounsDict: TrieDictionary? {
         get { readState.pronouns }
         set { dictionaryState.update { $0.pronouns = newValue?.frozen() } }
-    }
-    public private(set) var luatNhanDict: TrieDictionary? {
-        get { readState.luatNhan }
-        set { dictionaryState.update { $0.luatNhan = newValue?.frozen() } }
     }
     public private(set) var phienAmMap: [String: String] {
         get { readState.phienAm }
@@ -204,6 +199,9 @@ public final class TranslationManager: ObservableObject {
             }
         }
         
+        // Từ điển LuatNhan đã gỡ khỏi dịch QT: còn file / khoá công tắc cũ thì dọn — kiểm mỗi lần nạp, chỉ làm khi còn sót.
+        LuatNhanRetirement.removeLeftovers(in: translateDirectory)
+
         // 0. PhienAm không phụ thuộc từ điển nào khác: nạp song song với các khối .dat, chờ ở bước 5.
         let paTxtUrl = translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
         async let phoneticMapResult: [String: String]? = FileManager.default.fileExists(atPath: paTxtUrl.path)
@@ -299,30 +297,7 @@ public final class TranslationManager: ObservableObject {
         let pronounsLoaded = tempPronouns != nil
         await MainActor.run { self.isPronounsLoaded = pronounsLoaded }
         
-        // 4. Load LuatNhan (Optional)
-        let luatNhanDatUrl = translateDirectory.appendingPathComponent("LuatNhan.dat")
-        let luatNhanTxtUrl = translateDirectory.appendingPathComponent("LuatNhan.txt")
-        var tempLuatNhan: TrieDictionary? = nil
-        
-        if FileManager.default.fileExists(atPath: luatNhanDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: luatNhanDatUrl)
-            if dat.isLoaded { tempLuatNhan = dat }
-        } else if FileManager.default.fileExists(atPath: luatNhanTxtUrl.path) {
-            // Compile on the fly
-            try? DoubleArrayTrieBuilder().build(fromTxtFile: luatNhanTxtUrl, toDatFile: luatNhanDatUrl)
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: luatNhanDatUrl)
-            if dat.isLoaded { 
-                tempLuatNhan = dat
-                try? FileManager.default.removeItem(at: luatNhanTxtUrl)
-            }
-        }
-        self.luatNhanDict = tempLuatNhan
-        let luatNhanLoaded = tempLuatNhan != nil
-        await MainActor.run { self.isLuatNhanLoaded = luatNhanLoaded }
-        
-        // 5. Load PhienAm (Required) — đã bắt đầu nạp ở bước 0.
+        // 4. Load PhienAm (Required) — đã bắt đầu nạp ở bước 0.
         let tempPA = await phoneticMapResult
         let paLoaded = tempPA != nil
         self.phienAmMap = tempPA ?? [:]
@@ -384,8 +359,6 @@ public final class TranslationManager: ObservableObject {
             destName = "Names.dat"
         } else if type == "pronouns" {
             destName = "Pronouns.dat"
-        } else if type == "luatnhan" {
-            destName = "LuatNhan.dat"
         } else {
             destName = "ChinesePhienAmWords.txt"
         }
@@ -415,8 +388,7 @@ public final class TranslationManager: ObservableObject {
         let files = [
             (name: "vietpharse.txt", localName: "VietPhrase.txt", required: true),
             (name: "phienam.txt", localName: "ChinesePhienAmWords.txt", required: true),
-            (name: "pronouns.txt", localName: "Pronouns.txt", required: false),
-            (name: "luatnhan.txt", localName: "LuatNhan.txt", required: false)
+            (name: "pronouns.txt", localName: "Pronouns.txt", required: false)
         ]
         
         var successCount = 0
@@ -480,8 +452,6 @@ public final class TranslationManager: ObservableObject {
             return dict.wordCount
         } else if type == "pronouns", let dict = pronounsDict {
             return dict.wordCount
-        } else if type == "luatnhan", let dict = luatNhanDict {
-            return dict.wordCount
         } else if type == "phienam", !phienAmMap.isEmpty {
             return phienAmMap.count
         }
@@ -493,8 +463,6 @@ public final class TranslationManager: ObservableObject {
             fileName = "Names.dat"
         } else if type == "pronouns" {
             fileName = "Pronouns.dat"
-        } else if type == "luatnhan" {
-            fileName = "LuatNhan.dat"
         } else if type == "phienam" {
             fileName = "ChinesePhienAmWords.txt"
         } else {

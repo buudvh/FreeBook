@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.989] - 2026-11-19
+
+### feat: Gỡ từ điển LuatNhan khỏi dịch QT — bỏ công tắc Dịch Luật nhân hóa, tự dọn file và khoá cũ
+
+Trước: dịch QT có thêm từ điển LuatNhan (Luật nhân hoá, mặc định tắt) — công tắc ở Cài đặt dịch thuật, Cài đặt trình đọc, Cài đặt dịch truyện tranh; thẻ LuatNhan.txt ở Từ điển chung; tải mặc định kèm luatnhan.txt; tra từ bôi đen trong Reader hiện dòng "Luật nhân"; sao lưu nhóm Từ điển chung gói LuatNhan.dat/.txt.
+Nay: engine (VietPhraseTokenizer, TranslateUtils.lookupRawTranslation, TokenizeMemo, mapping memo, TranslationReadContext) không còn tra LuatNhan; ba công tắc, thẻ, mục tải mặc định, dòng tra từ và hai tên file trong sao lưu đều bỏ. Người chưa bật (mặc định) dịch y như cũ; khoá memo đổi dạng nên cache dịch cũ tự rụng.
+Dọn sót: LuatNhanRetirement.removeLeftovers chạy đầu TranslationManager.loadAllDictionaries — còn translate/LuatNhan.dat / .txt hay khoá isTranslationLuatNhanEnabled thì xoá và ghi log "🧹 [LuatNhan]" (chỉ thấy khi đang bật ghi log; lỗi xoá file ghi ❌). Kiểm mỗi lần nạp nên không cần cờ "đã chạy". Khôi phục bản sao lưu cũ có LuatNhan ⇒ BackupDictionaryRestorer.restoreShared bỏ qua hai file đó, không báo lỗi; BackupSettingsArchiver chặn khoá cũ ở cả hai chiều.
+
+File: Services/Translation/Manager/{LuatNhanRetirement (mới), TranslationManager, TranslationDictionaryState, TranslationReadContext, GlobalDictionaryTextExporter}, Services/Translation/Engine/VietPhraseTokenizer, Services/Translation/Utils/{TranslateUtils, TokenizeMemo}, Services/Translation/Extensions/TranslateUtils+MappingMemo, Services/Backup/{BackupPaths, BackupScope, BackupDictionaryRestorer, BackupSettingsArchiver}, Views/Settings/Translation/TranslationSettingsView, Views/Reader/{ReaderView, ReaderSettingsView, Extensions/ReaderView+Selection, Extensions/ReaderView+Suggestions (chỉ comment)}, Views/ComicReader/ComicTranslationSettingsSheet, Views/Dictionary/{ManageDefinitionsDraft, ManageDefinitionsView} (chỉ comment), .claude/rules/translation.md.
+
+Chưa kiểm: chưa build (máy Windows), chưa chạy trên máy; không đọc / chạy Tests/ nên chưa biết test nào còn gọi API đã bỏ (isLuatNhanEnabled của TokenizeMemo, luatNhanDict…).
+
 ## [1.3.988] - 2026-11-19
 
 ### fix: Nhập quy tắc mục lục Thay thế toàn bộ không thêm lại quy tắc mặc định, công cụ tra cứu so trùng theo URL, lọc rác chỉ thêm mẫu mới không hỏi

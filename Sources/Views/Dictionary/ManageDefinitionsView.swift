@@ -246,7 +246,7 @@ struct ManageDefinitionsView: View {
         }
     }
 
-    /// Ghép lại danh sách cho màn gọi: nhóm chỉ đọc (Phiên âm, Xưng hô, Luật nhân…) giữ nguyên,
+    /// Ghép lại danh sách cho màn gọi: nhóm chỉ đọc (Phiên âm, Xưng hô…) giữ nguyên,
     /// bốn nhóm sửa được lấy theo bản nháp và biến mất nếu không còn nghĩa nào.
     private static func mergedMatches(
         originals: [DictionaryMatchInfo],

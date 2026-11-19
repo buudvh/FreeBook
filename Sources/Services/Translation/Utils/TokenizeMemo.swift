@@ -22,20 +22,18 @@ final class TokenizeMemo {
 
     /// `compute` chỉ chạy khi chưa có trong memo.
     ///
-    /// Hai cờ đại từ / luật nhân hoá vào khoá tường minh dù `generation` thường đã phủ chúng: chúng
-    /// được đọc thẳng từ `UserDefaults` trong tokenizer, nên nếu có đường nào đổi cờ mà không bump
-    /// generation thì khoá vẫn đúng.
+    /// Cờ đại từ vào khoá tường minh dù `generation` thường đã phủ nó: cờ được đọc thẳng từ
+    /// `UserDefaults` trong tokenizer, nên nếu có đường nào đổi cờ mà không bump generation thì khoá vẫn đúng.
     func tokens(
         text: String,
         bookId: String?,
         isPronounsEnabled: Bool,
-        isLuatNhanEnabled: Bool,
         generation: Int,
         compute: () -> [String]
     ) -> [String] {
         guard !text.isEmpty else { return [] }
 
-        let key = "\(generation)|\(bookId ?? "global")|\(isPronounsEnabled ? 1 : 0)\(isLuatNhanEnabled ? 1 : 0)|\(text.md5())"
+        let key = "\(generation)|\(bookId ?? "global")|\(isPronounsEnabled ? 1 : 0)|\(text.md5())"
         let lookup = cache.lookup(key)
         if let hit = lookup.value { return hit }
         let value = compute()

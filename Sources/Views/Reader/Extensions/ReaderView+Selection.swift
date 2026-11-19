@@ -167,13 +167,6 @@ extension ReaderView {
             matches.append(DictionaryMatchInfo(source: "Xưng hô (Pronouns)", translation: match.value))
         }
 
-        // 4. LuatNhan
-        if let luatNhan = manager.luatNhanDict,
-           let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.utf16.count {
-            matches.append(DictionaryMatchInfo(source: "Luật nhân (LuatNhan)", translation: match.value))
-        }
-
         // 5. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),

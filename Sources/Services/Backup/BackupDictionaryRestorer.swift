@@ -345,6 +345,8 @@ public enum BackupDictionaryRestorer {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return }
 
         for name in names.sorted() {
+            // Bản sao lưu cũ còn từ điển LuatNhan (đã gỡ khỏi dịch QT): bỏ qua, không chép, không báo lỗi.
+            if LuatNhanRetirement.legacyFileNames.contains(name) { continue }
             let source = folder.appendingPathComponent(name)
             let target = translateRoot.appendingPathComponent(name)
 

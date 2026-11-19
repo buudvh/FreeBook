@@ -44,7 +44,7 @@ public enum BackupScope: String, Codable, CaseIterable, Sendable, Identifiable {
         case .extensions: return "File extension trong máy + kho tải về"
         case .dictBooks: return "Gồm cả mục VietPhrase/Names đã xoá"
         case .dictCustom: return "Gồm cả mục đã xoá, kèm từ điển phiên âm NghiTTS và luật thay ký tự TTS"
-        case .dictShared: return "VietPhrase/Names/Pronouns/LuatNhan/PhienAm dùng chung"
+        case .dictShared: return "VietPhrase/Names/Pronouns/PhienAm dùng chung"
         }
     }
 

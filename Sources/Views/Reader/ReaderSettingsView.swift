@@ -10,7 +10,6 @@ struct ReaderSettingsView: View {
     @Binding var selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
     @Binding var isPronounsEnabled: Bool
-    @Binding var isLuatNhanEnabled: Bool
     @Binding var showChapterTitle: Bool
     @Binding var removeDuplicatedTitle: Bool
 
@@ -246,11 +245,6 @@ struct ReaderSettingsView: View {
     private var translationOptions: some View {
         VStack(spacing: 16) {
             Toggle("Bật dịch Đại từ (Pronouns)", isOn: $isPronounsEnabled)
-                .font(.subheadline)
-                .padding(.horizontal)
-                .padding(.leading, 12)
-
-            Toggle("Bật dịch Luật nhân hóa", isOn: $isLuatNhanEnabled)
                 .font(.subheadline)
                 .padding(.horizontal)
                 .padding(.leading, 12)

@@ -13,7 +13,6 @@ struct TranslationReadContext: Sendable {
     let dictionaries: TranslationDictionaryState.Global
     let bookDictionaries: TranslationDictionaryState.Book
     let pronounsEnabled: Bool
-    let luatNhanEnabled: Bool
     let rulesEnabled: Bool
     let globalRules: QuickTranslationRuleSnapshot?
     let bookRules: QuickTranslationRuleSnapshot?
@@ -44,7 +43,6 @@ struct TranslationReadContext: Sendable {
                 dictionaryRevision: dictionarySnapshot.revision, dictionaries: dictionarySnapshot.global,
                 bookDictionaries: book,
                 pronounsEnabled: UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled"),
-                luatNhanEnabled: UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled"),
                 rulesEnabled: QuickTranslationRuleStore.shared.isEnabled,
                 globalRules: QuickTranslationRuleStore.shared.currentSnapshot,
                 bookRules: QuickTranslationRuleBookStore.shared.snapshot(for: bookId),

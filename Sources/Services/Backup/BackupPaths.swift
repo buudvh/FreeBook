@@ -74,9 +74,10 @@ public enum BackupPaths {
     public static let bookEngineConfigFiles = TranslationManager.bookScopedEngineConfigFiles
 
     /// Từ điển chung dạng nhị phân. Chỉ lấy `<Name>.txt` khi **không** có `.dat` cùng tên
-    /// để tránh nhân đôi vài chục MB.
-    public static let sharedDictionaryDatFiles = ["VietPhrase.dat", "Names.dat", "Pronouns.dat", "LuatNhan.dat"]
-    public static let sharedDictionaryTextFiles = ["VietPhrase.txt", "Names.txt", "Pronouns.txt", "LuatNhan.txt"]
+    /// để tránh nhân đôi vài chục MB. LuatNhan đã gỡ khỏi dịch QT — không còn sao lưu; bản sao lưu cũ có nó thì
+    /// khôi phục bỏ qua (`LuatNhanRetirement.legacyFileNames`).
+    public static let sharedDictionaryDatFiles = ["VietPhrase.dat", "Names.dat", "Pronouns.dat"]
+    public static let sharedDictionaryTextFiles = ["VietPhrase.txt", "Names.txt", "Pronouns.txt"]
     /// Không có bản `.dat`, luôn lấy nguyên file text.
     public static let sharedDictionaryAlwaysFiles = ["ChinesePhienAmWords.txt"]
 

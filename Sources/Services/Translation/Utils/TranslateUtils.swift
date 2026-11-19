@@ -311,13 +311,11 @@ public final class TranslateUtils {
     
     private static func lookupRawTranslation(for token: String, bookId: String?) -> String? {
         let isPronounsEnabled = TranslationReadContext.current?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = TranslationReadContext.current?.luatNhanEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
         let manager = TranslationManager.shared
         let names = manager.namesDict
         let customNames = manager.customNamesDict
         let deletedNames = manager.deletedNames
         let pronouns = isPronounsEnabled ? manager.pronounsDict : nil
-        let luatNhan = isLuatNhanEnabled ? manager.luatNhanDict : nil
         let vp = manager.vietPhraseDict
         let customVP = manager.customVietPhraseDict
         let deletedVP = manager.deletedVietPhrase
@@ -357,28 +355,21 @@ public final class TranslateUtils {
             return match.value
         }
         
-        // 5. LuatNhan
-        if let luatNhan = luatNhan,
-           let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.utf16.count {
-            return match.value
-        }
-        
-        // 6. Book VietPhrase
+        // 5. Book VietPhrase
         if let bookVP = bookVP,
            let match = bookVP.findLongestMatch(text: token, startIndex: 0),
            match.length == token.utf16.count {
             return match.value
         }
         
-        // 7. Custom VietPhrase
+        // 6. Custom VietPhrase
         if let customVP = customVP,
            let match = customVP.findLongestMatch(text: token, startIndex: 0),
            match.length == token.utf16.count {
             return match.value
         }
         
-        // 8. Base VietPhrase (exclude deleted)
+        // 7. Base VietPhrase (exclude deleted)
         if !deletedVP.contains(token),
            let vp = vp,
            let match = vp.findLongestMatch(text: token, startIndex: 0),

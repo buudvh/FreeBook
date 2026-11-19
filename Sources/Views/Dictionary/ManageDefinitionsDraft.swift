@@ -24,7 +24,7 @@ struct ManageDefinitionsDraft {
     }
 
     /// Bốn nhóm từ điển sửa được ở màn này, theo thứ tự hiển thị. Các nhóm khác trong
-    /// `[DictionaryMatchInfo]` (Phiên âm, Xưng hô, Luật nhân…) chỉ đọc nên không có mặt ở đây.
+    /// `[DictionaryMatchInfo]` (Phiên âm, Xưng hô…) chỉ đọc nên không có mặt ở đây.
     static let editableSources = [
         "Names (Riêng)",
         "Names (Chung)",

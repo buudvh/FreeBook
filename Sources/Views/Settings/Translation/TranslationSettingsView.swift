@@ -6,7 +6,6 @@ import UniformTypeIdentifiers
 struct TranslationSettingsView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
-    @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
     @ObservedObject private var translationManager = TranslationManager.shared
 
     @State private var showingFileImporter = false
@@ -65,16 +64,6 @@ struct TranslationSettingsView: View {
                     }
                     .padding(.leading, 16)
                     .onChange(of: isTranslationPronounsEnabled) { _, _ in
-                        TranslateUtils.clearCache()
-                        TranslationManager.shared.notifyDictionariesDidUpdate()
-                    }
-
-                    Toggle(isOn: $isTranslationLuatNhanEnabled) {
-                        Text("Dịch Luật nhân hóa")
-                            .font(.subheadline)
-                    }
-                    .padding(.leading, 16)
-                    .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
                         TranslateUtils.clearCache()
                         TranslationManager.shared.notifyDictionariesDidUpdate()
                     }
@@ -158,25 +147,6 @@ struct TranslationSettingsView: View {
                             .disabled(importingTypes.contains("pronouns") || exportingDictionaryType == "pronouns")
                             .overlay(alignment: .trailing) {
                                 dictionaryExportButton(type: "pronouns", title: "Pronouns.txt", isSet: translationManager.isPronounsLoaded)
-                            }
-
-                            Button(action: {
-                                importType = "luatnhan"
-                                showingFileImporter = true
-                            }) {
-                                DictionaryCard(
-                                    title: "LuatNhan.txt",
-                                    statusText: getStatusText(for: "luatnhan"),
-                                    isSet: translationManager.isLuatNhanLoaded,
-                                    isLoading: importingTypes.contains("luatnhan"),
-                                    isExporting: exportingDictionaryType == "luatnhan",
-                                    reservesExportSlot: true
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(importingTypes.contains("luatnhan") || exportingDictionaryType == "luatnhan")
-                            .overlay(alignment: .trailing) {
-                                dictionaryExportButton(type: "luatnhan", title: "LuatNhan.txt", isSet: translationManager.isLuatNhanLoaded)
                             }
                         }
                         .padding(.vertical, 4)
