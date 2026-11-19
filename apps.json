@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1010",
+          "buildVersion": "1305",
+          "date": "2026-11-19T17:10:08Z",
+          "localizedDescription": "- feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi\n- fix: Danh sách VietPhrase.dat / Names.dat — thêm nhiều từ một lượt ghi lớp sửa đổi, không dịch lại N lần\n- fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn\n- fix: Import truyện từ trình duyệt không còn báo \"Không tìm thấy tiện ích bóc tách\" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1305/TangCongCac-1.3.1010-1305.ipa",
+          "size": 41917949,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1006",
           "buildVersion": "1303",
           "date": "2026-11-19T15:59:01Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1298/TangCongCac-1.3.977-1298.ipa",
           "size": 41722432,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.972",
-          "buildVersion": "1296",
-          "date": "2026-11-17T08:14:59Z",
-          "localizedDescription": "- feat: Thêm provider AI ChatGPT Web (không cần key, đăng nhập hay không đều chạy)\n- fix: VieNeu Turbo không tự tắt AMX vì app sập chỗ khác, hết lỗi \"Chưa nạp model Turbo\" khi model vừa bị nhả, xoá dữ liệu và thử giọng trả lại đúng engine",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1296/TangCongCac-1.3.972-1296.ipa",
-          "size": 41683182,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1006",
-      "versionDate": "2026-11-19T15:59:01Z",
-      "versionDescription": "- feat: Popup chọn cách nhập dữ liệu — Thay thế toàn bộ / Gộp / Chỉ thêm key mới, chọn xong mới chọn file\n- feat: Ô tìm kiếm của các danh sách luôn hiện, cuộn xuống không ẩn\n- feat: Tiêu đề trang có nút back nằm hàng 2 sát lề trái, cuộn lên thu vào cạnh nút back\n- feat: Bộ lọc NSFW của Kệ đồng bộ công tắc NSFW chung, rời app tắt cả hai\n- feat: Bỏ nút bút chì trên hàng các danh sách TTS và cài đặt — chạm thân hàng là mở màn sửa\n- feat: Nhập dữ liệu ở 6 màn TTS và cài đặt luôn có 3 lựa chọn — Thay thế toàn bộ, Gộp, Chỉ thêm key mới\n- fix: Nhập quy tắc mục lục Thay thế toàn bộ không thêm lại quy tắc mặc định, công cụ tra cứu so trùng theo URL, lọc rác chỉ thêm mẫu mới không hỏi\n- feat: Gỡ từ điển LuatNhan khỏi dịch QT — bỏ công tắc Dịch Luật nhân hóa, tự dọn file và khoá cũ\n- feat: Cài đặt dịch thuật — giải thích của công tắc Quick Translate và Áp dụng rule dịch vào nút \"?\" cạnh tên\n- feat: Xuất rule dịch thành một file bỏ rule đang tắt — bỏ xuất danh sách tắt, gọn màn Quản lý rule dịch\n- feat: Hàng VP/Name, rule dịch, bộ ngoặc — bỏ icon bút chì, chạm thân hàng mở màn sửa\n- feat: Nút Thử rule ở đầu danh sách rule — sheet thử một câu áp đúng bộ đang xem, sửa thử bộ tên chương và bộ riêng\n- feat: Thẻ Từ điển chung dạng menu thả xuống — Sửa / Nhập / Xuất / Làm mới / Xoá, thêm thẻ Rule dịch\n- feat: Danh sách Phiên âm và Pronouns — sửa thẳng từ điển gốc từ thẻ PhienAm.txt / Pronouns.txt\n- feat: Nhập từ điển và rule dịch luôn chọn 3 cách qua popup — Thay thế toàn bộ / Gộp / Chỉ thêm key mới\n- fix: Gộp / sửa thẳng từ điển gốc dừng lại khi đọc từ điển cũ không trọn — không ghi đè làm mất mục\n- feat: Sửa rule / VP / Name lúc đang nghe ⇒ TTS đọc bản dịch mới từ đoạn sau đoạn đang đọc, highlight không lệch\n- feat: Sheet nghe mini kéo vạch tiến độ để tua theo đoạn, số N/M đếm theo đoạn\n- fix: Dịch lại khi đang nghe chờ lượt dựng chương đang chạy, tua đoạn huỷ lượt chuyển chương, Reader không rơi bản dựng chờ mốc\n- fix: NSFW chỉ tắt công tắc chung khi mở lại app, chặn nhập file quy tắc mục lục rỗng, ô tiêu đề thu gọn không chiếm chỗ\n- fix: Reader bỏ chữ ghim khi mốc dịch lại của TTS hết hiệu lực, tua đoạn chặn lúc đang dựng chương, vạch tua không giữ danh sách đoạn cũ\n- feat: Thử rule ở danh sách rule chung / tên chương mở từ Reader kèm bộ rule riêng của truyện đang đọc\n- fix: Từ điển gốc xếp hàng mọi lượt ghi, thay file .dat an toàn; toast nhập rule đếm đúng \"cập nhật\"\n- fix: Kệ ở \"Chỉ NSFW\" vẫn có thanh chip Tất cả / Truyện chữ / Truyện tranh / Phim / Âm thanh\n- fix: Danh sách tab danh mục ở Khám phá không còn tự kéo lệch khi quay về từ Chi tiết / tab khác",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1303/TangCongCac-1.3.1006-1303.ipa",
-      "size": 41895985,
+      "version": "1.3.1010",
+      "versionDate": "2026-11-19T17:10:08Z",
+      "versionDescription": "- feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi\n- fix: Danh sách VietPhrase.dat / Names.dat — thêm nhiều từ một lượt ghi lớp sửa đổi, không dịch lại N lần\n- fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn\n- fix: Import truyện từ trình duyệt không còn báo \"Không tìm thấy tiện ích bóc tách\" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1305/TangCongCac-1.3.1010-1305.ipa",
+      "size": 41917949,
       "appPermissions": {}
     }
   ],
