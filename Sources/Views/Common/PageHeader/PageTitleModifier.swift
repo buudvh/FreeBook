@@ -76,10 +76,12 @@ struct PageTitleModifier: ViewModifier {
                         }
                     }
                 }
-                if style == .centered {
+                // Chỉ dựng ô khi đã thu: ô rỗng / chữ trong suốt vẫn chiếm chỗ ở góc trái (đẩy nút back tự dựng của
+                // trang con trong sheet, chen cụm nút phải trên máy hẹp).
+                if style == .centered && isLargeTitleCollapsed {
                     ToolbarItem(placement: .topBarLeading) {
                         collapsedTitleText
-                            .opacity(isLargeTitleCollapsed ? 1 : 0)
+                            .transition(.opacity)
                     }
                 }
             }

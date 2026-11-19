@@ -428,6 +428,9 @@ struct TOCRulesConfigView: View {
             }.value
 
             switch result {
+            case .success(let importedList) where importedList.isEmpty:
+                // File `[]`: "Thay thế toàn bộ" sẽ xoá sạch quy tắc (không còn thêm lại mặc định) ⇒ chặn như file rỗng.
+                ToastManager.shared.show(message: "File không có quy tắc mục lục nào — không nhập.", type: .error)
             case .success(let importedList):
                 applyImport(importedList, mode: mode)
             case .failure(let error):

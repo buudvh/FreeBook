@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Trình bày popup **chọn cách nhập** giữa màn (`DataImportModePopup`, 1.3.982). Mọi chỗ nhập dữ liệu dạng key–value
-/// (từ điển, rule dịch, phiên âm, thay thế ký tự, lọc rác, quy tắc mục lục, công cụ tra cứu…) đi qua đây, theo thứ tự
-/// **chọn cách nhập trước ⇒ bấm nút cuối ⇒ chỗ gọi mở bộ chọn file**.
+/// (từ điển, rule dịch, phiên âm, thay thế ký tự, quy tắc mục lục, công cụ tra cứu…) đi qua đây, theo thứ tự
+/// **chọn cách nhập trước ⇒ bấm nút cuối ⇒ chỗ gọi mở bộ chọn file**. Ngoại lệ do anh Bửu chốt: lọc rác không hỏi —
+/// nhập chỉ thêm mẫu chưa có (1.3.988).
 ///
 /// ```swift
 /// .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập VietPhrase.txt") { mode in
