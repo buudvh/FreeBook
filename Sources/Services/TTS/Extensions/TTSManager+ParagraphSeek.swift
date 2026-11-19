@@ -11,9 +11,10 @@ extension TTSManager {
     /// Now Playing), bấm phát mới đọc.
     public func seekToParagraph(lineId: Int) {
         guard let target = paragraphs.firstIndex(where: { $0.paragraphIndex == lineId }) else { return }
-        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
-            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "seek")
-        }
+        // Vừa đọc hết chunk cuối, chương kế đang tải / tổng hợp: không huỷ thì lượt chuyển chương (kiểm phiên / generation /
+        // chương vẫn khớp) nhảy sang chương sau giữa đoạn người dùng vừa tua tới. Như `pause()`.
+        cancelChapterAdvanceTask()
+        finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "seek")
         let from = currentParagraphIndex
         stopCurrentPlayback() // tắt tiếng + bỏ chunk đã xếp sẵn của hàng đợi Nghi
         // Lượt tổng hợp / phát của chỗ cũ: đang dừng mà còn task phát Nghi thì `resume()` rẽ nhánh `nghiPlaybackTask != nil`

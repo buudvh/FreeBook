@@ -365,7 +365,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         claimedSynthesisTaskKey = nil
     }
 
-    private func cancelChapterAdvanceTask() {
+    internal func cancelChapterAdvanceTask() {
         chapterAdvanceTaskGeneration &+= 1
         chapterAdvanceTask?.cancel()
         chapterAdvanceTask = nil

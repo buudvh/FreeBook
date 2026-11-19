@@ -41,7 +41,12 @@ extension ReaderViewModel {
         Task { [weak self] in
             guard let self else { return }
             await self.waitForTTSRetranslationAnchor(chapterIndex: pending.index, token: pending.token)
-            guard !self.translationPresentation.deferred, self.isPendingPresentationCurrent(pending) else { return }
+            guard self.isPendingPresentationCurrent(pending) else { return }
+            if self.translationPresentation.deferred {
+                // Panel mở lại trong lúc chờ: trả bản dựng về hàng chờ — `ReaderView` đã thôi hoãn nên không ai dựng lại.
+                if self.translationPresentation.pending == nil { self.translationPresentation.pending = pending }
+                return
+            }
             self.applyPreparedTranslation(pending)
         }
     }

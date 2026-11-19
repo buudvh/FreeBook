@@ -77,13 +77,25 @@ extension TTSManager {
             defer { coordinator.endPending(generation: generation) }
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard let self, !Task.isCancelled else { return }
-            // `startSpeaking` áp kết quả dựng mà không so token ⇒ để nó xong rồi mới dịch lại trên chữ nó vừa đặt. Task đã
-            // xong thì `value` trả ngay (hai task này không được gán `nil` khi xong).
-            await self.startSpeakingTask?.value
-            await self.chapterAdvanceTask?.value
+            await self.awaitChapterBuildsInFlight()
             guard !Task.isCancelled else { return }
             await self.retranslateCurrentChapter(ref, generation: generation, reason: reason)
         }
+    }
+
+    /// `startSpeaking` áp kết quả dựng mà không so token ⇒ để lượt dựng chương đang chạy (đọc lại, "Nghe từ đây", bật/tắt
+    /// dịch, chuyển chương) xong rồi mới dịch lại / nối trên chữ nó vừa đặt — nối vào mảng sắp bị thay thì tiếng nạp trước
+    /// theo phiên mới có thể sống sót với chữ sai. Task đã xong thì `value` trả ngay (hai task này không được gán `nil` khi
+    /// xong); lượt mới chen vào trong lúc chờ ⇒ chờ tiếp.
+    private func awaitChapterBuildsInFlight() async {
+        var start: Task<Void, Never>?
+        var advance: Task<Void, Never>?
+        repeat {
+            start = startSpeakingTask
+            advance = chapterAdvanceTask
+            await start?.value
+            await advance?.value
+        } while !Task.isCancelled && (startSpeakingTask != start || chapterAdvanceTask != advance)
     }
 
     private func retranslateCurrentChapter(
@@ -139,6 +151,8 @@ extension TTSManager {
             guard !Task.isCancelled, showFloatingWidget, playingBookId == ref.bookId,
                   playingChapterIndex == ref.chapterIndex else { return }
         }
+        // Người dùng đọc lại chương trong lúc tải / dịch / chờ panel ⇒ nối lên chữ của lượt dựng mới.
+        await awaitChapterBuildsInFlight()
 
         guard !Task.isCancelled, sessionTranslationEnabled, !paragraphs.isEmpty,
               currentRetranslationInputs() == inputs,

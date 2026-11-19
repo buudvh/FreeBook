@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1000] - 2026-11-19
+
+### fix: Dịch lại khi đang nghe chờ lượt dựng chương đang chạy, tua đoạn huỷ lượt chuyển chương, Reader không rơi bản dựng chờ mốc
+
+Vá ba khe hở của hai commit trước (rà lại sau khi viết, chưa gặp trên máy):
+- TTSManager+Retranslation: chỉ chờ startSpeakingTask / chapterAdvanceTask trước khi dịch lại ⇒ người dùng đọc lại
+  chương ("Nghe từ đây", bật/tắt dịch, rereadCurrentChapter) trong lúc tải / dịch / chờ panel thì lượt nối chèn vào
+  mảng chunk sắp bị thay, tiếng nạp trước theo phiên mới có thể sống sót với chữ sai. Nay chờ lượt dựng đang chạy
+  (awaitChapterBuildsInFlight, lặp nếu có lượt mới chen vào) cả trước khi dịch lẫn ngay trước khi nối.
+- TTSManager+ParagraphSeek: tua lúc vừa đọc hết chunk cuối và chương kế đang tải / tổng hợp ⇒ lượt chuyển chương vẫn
+  qua mọi kiểm tra rồi nhảy sang chương sau giữa đoạn vừa tua tới. Nay seekToParagraph huỷ lượt chuyển chương
+  (cancelChapterAdvanceTask — private ⇒ internal) + đóng đo AutoAdvance như pause().
+- ReaderViewModel+TranslationPresentation: nhả panel mà TTS đang nối ⇒ bản dựng chờ mốc tối đa 3 s; panel mở lại
+  trong lúc chờ thì bản dựng bị bỏ và không ai dựng lại (ReaderView đã thôi hoãn) ⇒ chương kẹt chữ cũ. Nay trả bản
+  dựng về hàng chờ (translationPresentation.pending) để lần đóng panel sau áp.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
 ## [1.3.999] - 2026-11-19
 
 ### feat: Sheet nghe mini kéo vạch tiến độ để tua theo đoạn, số N/M đếm theo đoạn
