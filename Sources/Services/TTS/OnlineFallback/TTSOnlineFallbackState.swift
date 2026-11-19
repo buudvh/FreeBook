@@ -91,6 +91,24 @@ final class TTSOnlineFallbackState {
         cancelHedge()
     }
 
+    /// Các đoạn `indices` của chương đang đọc vừa đổi chữ (dịch lại khi đang nghe, `TTSManager+RetranslationSplice`) ⇒ quên
+    /// dấu "dự phòng" + lượt tổng hợp của **đúng** các đoạn đó. Không dùng `forgetChunks()`: đoạn giữ nguyên chữ phải giữ tốc
+    /// độ / badge dự phòng của tiếng đã nạp. Lượt đang chạy khoá theo chỉ số (không theo chữ) ⇒ không gỡ thì lượt nạp mới
+    /// của đoạn dùng chung lượt cũ, phát chữ cũ.
+    func forgetChunks(_ indices: Set<Int>, session: UUID, chapterIndex: Int) {
+        func isTarget(_ key: ChunkKey) -> Bool {
+            key.sessionID == session && key.chapterIndex == chapterIndex && indices.contains(key.index)
+        }
+        for (key, task) in inflight where isTarget(key) {
+            task.cancel()
+            inflight.removeValue(forKey: key)
+            started.remove(key)
+        }
+        waiters = waiters.filter { !isTarget($0.key) }
+        chunkEngines = chunkEngines.filter { !isTarget($0.key) }
+        if let hedgeKey, isTarget(hedgeKey) { cancelHedge() }
+    }
+
     // MARK: - Đọc song song
 
     func cancelHedge() {

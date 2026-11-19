@@ -58,7 +58,8 @@ extension TTSManager {
 
     private func probeOnlineOnce(session: UUID) async -> OnlineProbeResult {
         guard let index = onlineProbeTargetIndex() else { return .noTarget }
-        let text = TTSReplacementManager.shared.applyReplacements(to: paragraphs[index].text, bookId: playingBookId)
+        let rawText = paragraphs[index].text
+        let text = TTSReplacementManager.shared.applyReplacements(to: rawText, bookId: playingBookId)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return .noTarget }
         let chapter = playingChapterIndex
@@ -85,7 +86,9 @@ extension TTSManager {
             }
             guard !data.isEmpty else { return .failed }
             // Online chạy lại; tiếng chỉ giữ khi vẫn đúng phiên / chương / đoạn còn thiếu hoặc đang là tiếng dự phòng.
-            if sessionID == session, playingChapterIndex == chapter, index > currentParagraphIndex, index < paragraphs.count {
+            // So chữ: dịch lại khi đang nghe (`TTSManager+RetranslationSplice`) có thể đã thay chunk ở chỉ số này.
+            if sessionID == session, playingChapterIndex == chapter, index > currentParagraphIndex, index < paragraphs.count,
+               paragraphs[index].text == rawText {
                 storeOnlineAudio(data, at: index)
             }
             return .recovered

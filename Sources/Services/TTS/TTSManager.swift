@@ -453,9 +453,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public var onChapterFinished: (() -> Void)?
 
     // Dữ liệu phân đoạn
-    public private(set) var paragraphs: [TTSParagraph] = []
-    private var chapterContent: String = ""
-    private var normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent("")
+    public internal(set) var paragraphs: [TTSParagraph] = [] // `internal(set)`: nối bản dịch mới (`+RetranslationSplice`)
+    internal var chapterContent: String = ""
+    internal var normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent("")
 
     // Trình phát & Engine
     private let siriService = SiriTTSService()
@@ -528,7 +528,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func playbackParagraphs(from baseParagraphs: [TTSParagraph]) -> [TTSParagraph] {
+    internal func playbackParagraphs(from baseParagraphs: [TTSParagraph]) -> [TTSParagraph] {
         guard TTSManager.isLocalEngine(tool) else { return baseParagraphs }
         return NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)
     }
@@ -674,30 +674,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         setupEngines()
         setupRemoteCommandCenter()
         setupInterruptionObserver()
-
-        NotificationCenter.default.publisher(for: NSNotification.Name("translationDictionariesDidUpdate"))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let self = self else { return }
-                let updatedBookId = notification.userInfo?["bookId"] as? String
-                let scope = notification.userInfo?["scope"] as? DictionaryInvalidationScope ?? .globalReload
-                if (updatedBookId == nil || updatedBookId == self.playingBookId),
-                   scope.affects(bookId: self.playingBookId) {
-                    self.invalidatePreparedTranslationState()
-                }
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: .quickTranslationRulesDidUpdate)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let self = self else { return }
-                let updatedBookId = notification.userInfo?["bookId"] as? String
-                if updatedBookId == nil || updatedBookId == self.playingBookId {
-                    self.invalidatePreparedTranslationState()
-                }
-            }
-            .store(in: &cancellables)
+        // Từ điển / rule dịch đổi ⇒ bỏ bản chuẩn bị sẵn + dịch lại chương đang đọc từ dòng sau (`TTSManager+Retranslation`).
+        installTranslationChangeObservers()
     }
 
     private func loadParamsForCurrentTool() {
@@ -2412,7 +2390,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     essential: isEssentialNext,
                     onDemand: false
                 )
-
+                guard self.paragraphs.indices.contains(index), self.paragraphs[index] == paragraph else { return } // dịch lại khi đang nghe
                 self.preloadedData[index] = synthesized.data
                 self.preloadedDurations[index] = synthesized.pcmDuration
                 self.updateNghiBufferedDuration()
@@ -2551,6 +2529,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if self.playingChapterUrl != expectedChapterURL { return false }
                 if self.selectedVoice != voice { return false }
                 if self.tool != toolBeforeStart { return false }
+                if index >= self.paragraphs.count || self.paragraphs[index].text != rawText { return false } // dịch lại khi đang nghe
                 return true
             }
 

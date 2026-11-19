@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -14,4 +15,7 @@ final class ReaderTranslationPresentation {
     }
     var deferred = false
     var pending: Prepared?
+    /// Nghe mốc dịch lại của TTS (`TTSRetranslationCoordinator.$anchor`) để nắn chương đã áp khi mốc tới muộn
+    /// (`ReaderViewModel+TTSRetranslation`). Đăng ký lười ở lần dựng chương đầu tiên.
+    var ttsAnchorSubscription: AnyCancellable?
 }

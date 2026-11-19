@@ -16,6 +16,9 @@ extension TTSManager {
     internal struct GoogleBatchPrefetch {
         let indices: [Int]
         let texts: [String]
+        /// Chữ chunk **trước** quy tắc thay thế (`paragraphs[i].text`) — so lại trước khi ghi tiếng: dịch lại khi đang nghe
+        /// (`TTSManager+RetranslationSplice`) có thể đã thay chunk ở chỉ số đó.
+        let rawTexts: [String]
         /// Khoá cho coordinator — nối khoá từng đoạn nên hai lượt gộp giống nhau tự dedupe.
         let key: String
     }
@@ -66,6 +69,7 @@ extension TTSManager {
     private func makeGoogleBatch(for indices: [Int]) -> GoogleBatchPrefetch? {
         var batchIndices: [Int] = []
         var texts: [String] = []
+        var rawTexts: [String] = []
         var keys: [String] = []
 
         for index in indices {
@@ -76,6 +80,7 @@ extension TTSManager {
 
             batchIndices.append(index)
             texts.append(text)
+            rawTexts.append(paragraphs[index].text)
             keys.append(
                 TTSSynthesisIdentity.computeKey(
                     chapterURL: playingChapterUrl,
@@ -94,6 +99,7 @@ extension TTSManager {
         return GoogleBatchPrefetch(
             indices: batchIndices,
             texts: texts,
+            rawTexts: rawTexts,
             key: "gbatch|" + keys.joined(separator: "|")
         )
     }
@@ -167,7 +173,8 @@ extension TTSManager {
                     return
                 }
 
-                for (position, index) in batch.indices.enumerated() {
+                for (position, index) in batch.indices.enumerated()
+                where index < self.paragraphs.count && self.paragraphs[index].text == batch.rawTexts[position] {
                     self.storeOnlineAudio(audios[position], at: index)
                 }
                 if AppLogger.shared.isLoggingEnabled {

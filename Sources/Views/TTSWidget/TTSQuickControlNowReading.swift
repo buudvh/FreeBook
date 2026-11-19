@@ -48,6 +48,10 @@ final class TTSQuickControlNowReading: ObservableObject {
             .receive(on: RunLoop.main).sink { [weak self, weak manager] _ in
                 self?.refresh(from: manager)
             }.store(in: &cancellables)
+        // Sửa từ điển / rule lúc đang nghe ⇒ phần sau dòng đang đọc được nối bản dịch mới, số chunk đổi (`+RetranslationSplice`).
+        TTSRetranslationCoordinator.shared.$layoutRevision.dropFirst().receive(on: RunLoop.main).sink { [weak self, weak manager] _ in
+            self?.refresh(from: manager)
+        }.store(in: &cancellables)
     }
 
     private func refresh(from manager: TTSManager?) {

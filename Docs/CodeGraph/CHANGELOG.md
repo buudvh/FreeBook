@@ -2,6 +2,51 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.998] - 2026-11-19
+
+### feat: Sửa rule / VP / Name lúc đang nghe ⇒ TTS đọc bản dịch mới từ đoạn sau đoạn đang đọc, highlight không lệch
+
+Trước: sửa từ điển (VP / Name…) hay rule dịch lúc truyện đang nghe thì TTS chỉ bỏ bản chuẩn bị sẵn
+(invalidatePreparedTranslationState) — phần còn lại của chương vẫn đọc bản cũ, trong khi Reader dựng lại cả
+chương theo bản mới ⇒ chữ TTS đọc khác chữ Reader hiện, vệt highlight lệch tới hết chương.
+
+Nay (anh Bửu: "áp dụng bản dịch mới từ đoạn sau của đoạn đang nghe — đoạn sau không phải chunk sau; highlight
+phải đúng"):
+- TTS (TTSManager+Retranslation): hai observer cũ ở init chuyển ra installTranslationChangeObservers() (vẫn bỏ
+  bản chuẩn bị sẵn ngay). Có phiên (đang phát hoặc tạm dừng) + truyện bật dịch ⇒ gộp sự kiện 400 ms (rule riêng
+  truyện bắn cả hai thông báo), chờ startSpeakingTask / chapterAdvanceTask đang chạy, tải chương thô qua
+  ChapterContentRepository rồi dựng lại bằng cùng processChapterWithEngine với cờ của phiên (bộ dịch tiện ích
+  chạy lại qua cache RAM).
+- Nối trong một nhịp main (TTSManager+RetranslationSplice): mốc L = dòng của chunk xa nhất đã cam kết tiếng
+  (chunk đang đọc / đang chuẩn bị; NghiTTS / VieNeu thêm currentItem + nextItem của hàng đợi — chunk kế đã hẹn
+  giờ phát trên phần cứng, huỷ là cắt tiếng). Chunk của dòng ≤ L giữ nguyên ⇒ currentParagraphIndex không đổi,
+  tiếng không cắt; chunk dòng > L lấy từ bản mới (cùng NghiUtteranceSegmenter.expand). Tiếng nạp trước chỉ bỏ ở
+  chỉ số có chữ / kiểu ranh giới đổi (preloadedData, task nạp trước — task gộp Google phủ chỉ số đổi thì huỷ cả
+  task —, lượt / dấu dự phòng qua TTSOnlineFallbackState.forgetChunks(_:session:chapterIndex:) mới, refill Nghi
+  ⇒ cancelNghiRefill nếu dính chỉ số đổi) rồi updatePrefetchWindow. Không đổi sessionID /
+  ttsProcessingGeneration, không xoá cả bộ đệm.
+- Hàng rào so chữ chunk trước khi ghi tiếng nạp trước: startPrefetchTask, nạp gộp Google (rawTexts), lượt thử
+  online của giọng dự phòng, refill NghiTTS — vì speakCurrent đọc preloadedData[index] không kiểm chữ.
+- chapterContent / normalizedChapterText thành bản trộn (dòng ≤ L chữ đang đọc, sau đó chữ mới) để
+  resumeAfterSettings không đưa bản cũ quay lại; chapterTitle giữ (chunk tiêu đề không bị thay).
+- Mốc TTSRetranslationCoordinator (Services/TTS/Retranslation, mới): token, L, các dòng ≤ L mà chữ TTS khác
+  bản mới, contentStamp (TTS dựng lại chương ⇒ mốc hết hiệu lực), layoutRevision cho sheet nghe mini.
+- Reader (ReaderViewModel+TTSRetranslation, mới): applyPreparedTranslation áp mốc cùng token — dòng ≤ L hiện
+  đúng chữ TTS đọc (giữ đoạn đang hiện nếu trùng, không thì dựng từ chữ TTS, span rỗng), dòng sau dùng bản mới.
+  processAndSaveChapter chờ mốc tối đa 3 s khi TTS đang dịch lại đúng chương; mốc tới muộn ⇒ nắn lại cache.
+  Panel / menu chọn chữ đang mở (Reader hoãn dựng lại, còn chữ cũ) ⇒ setTranslationRefreshDeferred giữ lượt nối
+  của TTS tới khi đóng.
+- Sheet nghe mini làm mới "N/M" khi chương được nối lại.
+- Log: 🔁 [TTSRetranslate] (L, splice, số chunk cũ / mới / đổi, số dòng giữ chữ cũ, ms).
+- Ghi chú luật: .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
+
+Khác thiết kế đã duyệt: mốc tính cả chunk đã xếp sẵn trong hàng đợi Nghi (có thể thuộc dòng kế) ⇒ với
+NghiTTS / VieNeu bản mới có thể áp từ dòng sau nữa; Reader dùng chữ TTS cho dòng ≤ L thay vì luôn giữ đoạn cũ
+(đúng cả khi Reader bỏ lỡ một lượt sửa); panel đang mở thì TTS chờ đóng mới nối.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn
+(JSDom.swift).
+
 ## [1.3.997] - 2026-11-19
 
 ### fix: Gộp / sửa thẳng từ điển gốc dừng lại khi đọc từ điển cũ không trọn — không ghi đè làm mất mục
