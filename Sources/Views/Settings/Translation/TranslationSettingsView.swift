@@ -26,16 +26,12 @@ struct TranslationSettingsView: View {
     var body: some View {
         Form { Group {
             Section(header: Text("Dịch Thuật Quick Translate")) {
-                Toggle(isOn: $isTranslationEnabled) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Bật dịch Quick Translate")
-                            .font(.body)
-                            .fontWeight(.medium)
-                        Text("Tự động dịch siêu dữ liệu và nội dung truyện chữ tiếng Trung sang tiếng Việt (Hán-Việt/VietPhrase).")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                HelpLabeledToggle(
+                    title: "Bật dịch Quick Translate",
+                    titleFont: .body.weight(.medium),
+                    help: ["Tự động dịch siêu dữ liệu và nội dung truyện chữ tiếng Trung sang tiếng Việt (Hán-Việt/VietPhrase)."],
+                    isOn: $isTranslationEnabled
+                )
                 .onChange(of: isTranslationEnabled) { _, newValue in
                     TranslateUtils.clearCache()
                     TranslationManager.shared.notifyRulesDidUpdate()

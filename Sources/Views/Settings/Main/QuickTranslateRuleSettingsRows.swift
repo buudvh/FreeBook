@@ -20,15 +20,13 @@ struct QuickTranslateRuleSettingsRows: View {
             .disabled(isBusy)
 
             if isTranslationEnabled {
-                Toggle(isOn: $isQuickTranslateRuleEnabled) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Áp dụng rule dịch")
-                            .font(.subheadline)
-                        Text("Thay cụm số, đơn vị và mẫu câu theo bộ rule trước khi tách từ. Tắt nếu muốn dịch thuần từ điển.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                // Giải thích nằm trong nút "?" cạnh tên công tắc, không còn dòng chữ phụ luôn hiện.
+                HelpLabeledToggle(
+                    title: "Áp dụng rule dịch",
+                    titleFont: .subheadline,
+                    help: ["Thay cụm số, đơn vị và mẫu câu theo bộ rule trước khi tách từ. Tắt nếu muốn dịch thuần từ điển."],
+                    isOn: $isQuickTranslateRuleEnabled
+                )
                 .padding(.leading, 16)
                 .onChange(of: isQuickTranslateRuleEnabled) { _, _ in
                     // Đúng khuôn ba toggle dịch đang có: dọn cache rồi phát **một** thông báo để

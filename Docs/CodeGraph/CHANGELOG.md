@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.990] - 2026-11-19
+
+### feat: Cài đặt dịch thuật — giải thích của công tắc Quick Translate và Áp dụng rule dịch vào nút "?" cạnh tên
+
+Trước: dưới tên "Bật dịch Quick Translate" và "Áp dụng rule dịch" luôn có một dòng chữ phụ giải thích (công tắc "Dịch Luật nhân hóa" đã bỏ ở commit trước).
+Nay: dòng giải thích chuyển vào nút "?" (SectionHelpButton, popover) đứng ngay cạnh tên công tắc. Hàng dựng bằng HelpLabeledToggle (mới): HStack [tên][?] … [Toggle ẩn nhãn] — cố ý không đặt nút "?" trong nhãn của Toggle để chạm "?" không bật/tắt công tắc; nhãn trợ năng của công tắc vẫn là tên. Hàng "Áp dụng rule dịch" giữ thụt lề 16 như cũ.
+
+File: Views/Settings/Translation/{HelpLabeledToggle (mới), TranslationSettingsView}, Views/Settings/Main/QuickTranslateRuleSettingsRows.
+
+Chưa kiểm: chưa build, chưa chạy máy — cần xem trên máy popover "?" mở đúng trong hàng Form và chạm "?" không đổi công tắc.
+
 ## [1.3.989] - 2026-11-19
 
 ### feat: Gỡ từ điển LuatNhan khỏi dịch QT — bỏ công tắc Dịch Luật nhân hóa, tự dọn file và khoá cũ
