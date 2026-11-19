@@ -1316,7 +1316,7 @@ struct ReaderView: View {
                 reader: ttsHighlight,
                 bookId: bookId,
                 chapterIndex: chapter.index,
-                paragraphId: item.id,
+                paragraph: item, isTranslationEnabled: isTrans,
                 isSuppressed: isNavigatingNewChapter
             ) { relativeHighlightRange, preparingHighlightRange in
             let effectiveHighlightRange = relativeHighlightRange ?? preparingHighlightRange ?? searchHighlightRange(
@@ -1585,7 +1585,7 @@ struct ReaderView: View {
               cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
             return nil
         }
-        let contentItems = cached.ttsSnapshotParagraphItems.filter { !$0.isTitle } // bản gốc, không chữ ghim theo mốc TTS
+        let contentItems = cached.paragraphItems.filter { !$0.isTitle }
         guard !contentItems.isEmpty else { return nil }
         let entries = contentItems.map { item in
             TTSLineEntry(
@@ -1599,7 +1599,7 @@ struct ReaderView: View {
             isTranslationEnabled: cached.isTranslationEnabled,
             shouldConvertTraditionalToSimplified: cached.shouldConvertTraditionalToSimplified,
             translationToken: cached.translationToken,
-            entries: entries, originalTitle: cached.originalTitle, translatedTitle: cached.ttsSnapshotTitle
+            entries: entries, originalTitle: cached.originalTitle, translatedTitle: cached.title
         )
     }
 

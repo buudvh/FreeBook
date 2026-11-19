@@ -4,12 +4,13 @@ import Foundation
 /// Sửa rule dịch / VP / Name lúc truyện đang nghe (đang phát **hoặc** tạm dừng) ⇒ TTS đọc bản dịch mới từ **dòng** (đoạn)
 /// sau dòng đang đọc mà không cắt tiếng (anh Bửu, 2026-11-19). Trước đây hai observer ở `init` chỉ bỏ bản chuẩn bị sẵn
 /// (`invalidatePreparedTranslationState`) ⇒ phần còn lại của chương vẫn đọc bản cũ trong khi Reader đổi chữ ⇒ lệch highlight.
+/// Chỉ **tiếng** giữ chữ cũ ở dòng đang đọc — Reader luôn hiện bản mới, dòng TTS còn đọc chữ cũ được tô cả đoạn
+/// (`TTSRetranslationCoordinator`, 2026-11-20); TTS không chờ Reader.
 ///
 /// Luồng: gộp sự kiện 400 ms (rule riêng truyện bắn **cả hai** thông báo) → chờ lượt dựng chương đang chạy (nếu có) → tải
 /// chương thô qua `ChapterContentRepository` + dựng lại bằng **cùng đường** dựng chương (`processChapterWithEngine`, cờ của
-/// phiên) → Reader đang mở panel trên chương này thì chờ đóng (`TTSRetranslationCoordinator.isHeld`) → nối trong một nhịp
-/// main (`TTSManager+RetranslationSplice`). Không bao giờ đổi `sessionID` / `ttsProcessingGeneration` (đổi là lượt tổng hợp
-/// đoạn đang đọc bị bỏ ⇒ im tiếng) và không xoá cả bộ đệm.
+/// phiên) → nối trong một nhịp main (`TTSManager+RetranslationSplice`). Không bao giờ đổi `sessionID` /
+/// `ttsProcessingGeneration` (đổi là lượt tổng hợp đoạn đang đọc bị bỏ ⇒ im tiếng) và không xoá cả bộ đệm.
 extension TTSManager {
     /// Cấu hình dựng chương của phiên — đổi giữa chừng (đổi cài đặt, bật/tắt dịch…) ⇒ bản dịch lại không còn đúng, bỏ.
     struct RetranslationInputs: Equatable {
@@ -65,6 +66,24 @@ extension TTSManager {
         TTSRetranslationCoordinator.shared.ttsChunkOwner == currentChunkOwner
     }
 
+    /// Chữ TTS đang đọc của dòng `lineId` (đã trim; tên chương = -1) — `ReaderTTSHighlightReader` so với chữ Reader đang hiện:
+    /// khác nhau (dịch lại khi đang nghe: dòng đang đọc giữ chữ cũ, hoặc Reader chưa dựng lại vì panel đang mở) ⇒ tô cả đoạn.
+    func spokenLineText(lineId: Int) -> String? {
+        guard lineId >= 0 else {
+            guard lineId == -1, paragraphs.first?.paragraphIndex == -1 else { return nil }
+            return chapterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let lines = normalizedChapterText.lines
+        var low = 0
+        var high = lines.count - 1
+        while low <= high {
+            let mid = (low + high) / 2
+            if lines[mid].id == lineId { return lines[mid].text }
+            if lines[mid].id < lineId { low = mid + 1 } else { high = mid - 1 }
+        }
+        return nil
+    }
+
     func currentRetranslationInputs() -> RetranslationInputs {
         let titleKey = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: titleKey) != nil ? UserDefaults.standard.bool(forKey: titleKey) : true
@@ -85,16 +104,15 @@ extension TTSManager {
     func scheduleChapterRetranslation(reason: String) {
         guard showFloatingWidget, !playingBookId.isEmpty, playingChapterIndex >= 0, sessionTranslationEnabled else { return }
         let coordinator = TTSRetranslationCoordinator.shared
-        let ref = TTSRetranslationCoordinator.ChapterRef(bookId: playingBookId, chapterIndex: playingChapterIndex)
-        let generation = coordinator.beginPending(ref)
+        let bookId = playingBookId
+        let chapterIndex = playingChapterIndex
         coordinator.retranslationTask?.cancel()
         coordinator.retranslationTask = Task { @MainActor [weak self] in
-            defer { coordinator.endPending(generation: generation) }
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard let self, !Task.isCancelled else { return }
             await self.awaitChapterBuildsInFlight()
             guard !Task.isCancelled else { return }
-            await self.retranslateCurrentChapter(ref, generation: generation, reason: reason)
+            await self.retranslateCurrentChapter(bookId: bookId, chapterIndex: chapterIndex, reason: reason)
         }
     }
 
@@ -113,18 +131,14 @@ extension TTSManager {
         } while !Task.isCancelled && (startSpeakingTask != start || chapterAdvanceTask != advance)
     }
 
-    private func retranslateCurrentChapter(
-        _ ref: TTSRetranslationCoordinator.ChapterRef,
-        generation: UInt64,
-        reason: String
-    ) async {
-        guard playingBookId == ref.bookId, playingChapterIndex == ref.chapterIndex, sessionTranslationEnabled,
+    private func retranslateCurrentChapter(bookId: String, chapterIndex: Int, reason: String) async {
+        guard playingBookId == bookId, playingChapterIndex == chapterIndex, sessionTranslationEnabled,
               !paragraphs.isEmpty,
-              let chapter = chaptersQueue.first(where: { $0.index == ref.chapterIndex }) else { return }
+              let chapter = chaptersQueue.first(where: { $0.index == chapterIndex }) else { return }
         let startUptime = ProcessInfo.processInfo.systemUptime
         let inputs = currentRetranslationInputs()
         let request = ChapterContentRequest(
-            bookId: ref.bookId,
+            bookId: bookId,
             chapterIndex: chapter.index,
             title: chapter.title,
             url: chapter.url,
@@ -139,7 +153,7 @@ extension TTSManager {
             let result = try await ChapterContentRepository.shared.load(request)
             try Task.checkCancellation()
             processed = try await TTSBackgroundProcessor().processChapterWithEngine(
-                bookId: ref.bookId, packageId: inputs.packageId,
+                bookId: bookId, packageId: inputs.packageId,
                 chapterIndex: chapter.index,
                 chapterTitle: chapter.title,
                 rawContent: result.document.text.content,
@@ -154,27 +168,19 @@ extension TTSManager {
         } catch is CancellationError {
             return
         } catch {
-            AppLogger.shared.log("❌ [TTSRetranslate] Không dịch lại được chương \(ref.chapterIndex + 1) (\(reason)): \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [TTSRetranslate] Không dịch lại được chương \(chapterIndex + 1) (\(reason)): \(error.localizedDescription)")
             return
         }
 
-        // Reader đang mở panel / menu chọn chữ trên đúng chương này: nó chưa dựng lại ⇒ TTS đọc tiếp chữ cũ cho khớp, nối
-        // khi panel đóng (mốc lấy theo dòng đang đọc **lúc đó**).
-        let coordinator = TTSRetranslationCoordinator.shared
-        while coordinator.isHeld(ref) {
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            guard !Task.isCancelled, showFloatingWidget, playingBookId == ref.bookId,
-                  playingChapterIndex == ref.chapterIndex else { return }
-        }
-        // Người dùng đọc lại chương trong lúc tải / dịch / chờ panel ⇒ nối lên chữ của lượt dựng mới.
+        // Người dùng đọc lại chương trong lúc tải / dịch ⇒ nối lên chữ của lượt dựng mới.
         await awaitChapterBuildsInFlight()
 
         guard !Task.isCancelled, sessionTranslationEnabled, !paragraphs.isEmpty, isChunkLayoutCurrent,
               currentRetranslationInputs() == inputs,
-              TranslateUtils.translationGenerationToken(for: ref.bookId) == processed.translationToken else {
-            AppLogger.shared.log("🔁 [TTSRetranslate] Bỏ bản dịch lại chương \(ref.chapterIndex + 1): phiên / cấu hình / từ điển đã đổi")
+              TranslateUtils.translationGenerationToken(for: bookId) == processed.translationToken else {
+            AppLogger.shared.log("🔁 [TTSRetranslate] Bỏ bản dịch lại chương \(chapterIndex + 1): phiên / cấu hình / từ điển đã đổi")
             return
         }
-        applyRetranslatedChapter(processed, generation: generation, startUptime: startUptime, reason: reason)
+        applyRetranslatedChapter(processed, startUptime: startUptime, reason: reason)
     }
 }

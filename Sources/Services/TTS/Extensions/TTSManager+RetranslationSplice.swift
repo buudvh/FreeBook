@@ -10,10 +10,13 @@ import Foundation
 /// - Tiếng đã nạp / đang nạp chỉ bỏ ở **chỉ số có chữ đổi** (so chữ + kiểu ranh giới tại cùng chỉ số): đổi một tên ở cuối
 ///   chương thì cửa sổ nạp trước phía trước vẫn giữ.
 /// - `chapterContent` / `normalizedChapterText` thành bản **trộn** (dòng ≤ `L` chữ đang đọc, dòng sau chữ mới) — đúng chữ TTS
-///   đọc và Reader hiện, để `resumeAfterSettings` (dựng lại từ `normalizedChapterText`) không đưa bản cũ quay lại phần sau
-///   và không đổi chữ dòng ≤ `L`.
+///   đọc, để `resumeAfterSettings` (dựng lại từ `normalizedChapterText`) không đưa bản cũ quay lại phần sau và không đổi chữ
+///   dòng ≤ `L`.
+/// - Reader luôn hiện bản mới (2026-11-20) và tô **cả đoạn** khi chữ dòng TTS đang đọc khác chữ đang hiện. Dòng ≤ `L` có
+///   chữ TTS khác bản mới ghi vào `TTSRetranslationCoordinator.recordStaleLines` kèm bản mới đầy đủ ⇒ lùi / tua về đó thì
+///   thay cả chương (`+RetranslationRewind`).
 extension TTSManager {
-    func applyRetranslatedChapter(_ processed: ProcessedChapterDTO, generation: UInt64, startUptime: TimeInterval, reason: String) {
+    func applyRetranslatedChapter(_ processed: ProcessedChapterDTO, startUptime: TimeInterval, reason: String) {
         let old = paragraphs
         let fresh = playbackParagraphs(from: processed.paragraphs)
         let boundary = retranslationBoundaryLineId(in: old)
@@ -30,52 +33,50 @@ extension TTSManager {
             if !sameAudio { changed.insert(index) }
         }
 
-        // Chữ từng dòng: dòng ≤ mốc giữ chữ đang đọc, dòng sau dùng chữ mới. `pinned` = dòng ≤ mốc khác bản mới (cho Reader).
+        // Chữ từng dòng: dòng ≤ mốc giữ chữ đang đọc, dòng sau dùng chữ mới. `stale` = dòng ≤ mốc có chunk chữ khác bản mới.
         let oldLines = normalizedChapterText.lines
         let freshLines = ChapterTextNormalizer.normalizeProcessedContent(processed.normalizedContent).lines
         var freshTextById: [Int: String] = [:]
         for line in freshLines { freshTextById[line.id] = line.text }
-        var pinned: [Int: String] = [:]
+        var stale: [Int: String] = [:]
         for line in oldLines where line.id <= boundary && freshTextById[line.id] != line.text {
-            pinned[line.id] = line.text
+            stale[line.id] = line.text
         }
         // Tiêu đề (-1) luôn ≤ mốc ⇒ chunk tiêu đề giữ nguyên; tên chương TTS (`chapterTitle`) cũng giữ cho khớp chunk đó.
         if old.contains(where: { $0.paragraphIndex == -1 }) {
             let oldTitle = chapterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             if oldTitle != processed.chapterTitle.trimmingCharacters(in: .whitespacesAndNewlines) {
-                pinned[-1] = oldTitle
+                stale[-1] = oldTitle
             }
         }
         let mergedEntries = oldLines.filter { $0.id <= boundary }.map { (id: $0.id, text: $0.text) }
             + freshLines.filter { $0.id > boundary }.map { (id: $0.id, text: $0.text) }
         let mergedContent = ChapterTextNormalizer.reconstructContentPreservingLineIDs(from: mergedEntries)
 
-        // ---- Một nhịp: đổi chữ + bỏ tiếng của chỉ số đổi + công bố mốc. ----
+        // ---- Một nhịp: đổi chữ + bỏ tiếng của chỉ số đổi + công bố dòng chữ cũ. ----
         paragraphs = spliced
         chapterContent = mergedContent
         normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(mergedContent)
         if !changed.isEmpty {
             invalidateRetranslatedChunks(changed)
         }
-        TTSRetranslationCoordinator.shared.publish(
-            TTSRetranslationCoordinator.Anchor(
-                bookId: playingBookId,
-                chapterIndex: playingChapterIndex,
+        // Sau `chapterContent = …` (didSet đã xoá tập cũ).
+        TTSRetranslationCoordinator.shared.recordStaleLines(
+            Set(stale.keys),
+            full: TTSRetranslationCoordinator.FullRetranslation(
                 token: processed.translationToken,
-                convertsTraditional: sessionShouldConvertTraditionalToSimplified,
-                engineFingerprint: translationEngineFingerprint(),
-                boundaryLineId: boundary,
-                pinnedTexts: pinned,
-                contentStamp: mergedContent
-            ),
-            generation: generation
+                inputs: currentRetranslationInputs(),
+                baseParagraphs: processed.paragraphs,
+                content: processed.normalizedContent,
+                title: processed.chapterTitle
+            )
         )
         let elapsedMs = Int((ProcessInfo.processInfo.systemUptime - startUptime) * 1000)
         let firstChanged = changed.min().map { "\($0)" } ?? "—"
         AppLogger.shared.log(
             "🔁 [TTSRetranslate] chương=\(playingChapterIndex + 1) lý do=\(reason) L=\(boundary) splice=\(spliceIndex) "
                 + "chunk cũ=\(old.count) mới=\(spliced.count) đổi=\(changed.count) từ=\(firstChanged) "
-                + "dòng giữ chữ cũ=\(pinned.count) engine=\(tool) đang phát=\(isPlaying ? "có" : "không") ms=\(elapsedMs)"
+                + "dòng chữ cũ=\(stale.count) engine=\(tool) đang phát=\(isPlaying ? "có" : "không") ms=\(elapsedMs)"
         )
         if !changed.isEmpty {
             updatePrefetchWindow() // đang tạm dừng ⇒ no-op; `resume` / `speakCurrent` tự nạp lại.

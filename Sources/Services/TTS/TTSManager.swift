@@ -1393,7 +1393,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         if let previousIndex {
             stopCurrentPlayback()
-            currentParagraphIndex = previousIndex
+            currentParagraphIndex = adoptFullRetranslationIfStale(previousIndex) // lùi về dòng chunk chữ cũ ⇒ bản dịch mới
             currentParentParagraphIndex = paragraphs[currentParagraphIndex].paragraphIndex
             highlightRange = nil
             checkpointProgress()

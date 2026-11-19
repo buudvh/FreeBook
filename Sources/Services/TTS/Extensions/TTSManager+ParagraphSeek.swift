@@ -30,13 +30,15 @@ extension TTSManager {
         remotePlaybackTask = nil
         remotePlaybackTaskGeneration &+= 1
         onlineFallback.cancelHedge()
-        dropLocalPrefetchOutsideSeekWindow(target)
+        // Từ dòng đích trở đi còn dòng chunk chữ cũ (dịch lại khi đang nghe) ⇒ thay cả chương bằng bản dịch mới.
+        let readTarget = adoptFullRetranslationIfStale(target)
+        dropLocalPrefetchOutsideSeekWindow(readTarget)
 
-        currentParagraphIndex = target
-        currentParentParagraphIndex = paragraphs[target].paragraphIndex
+        currentParagraphIndex = readTarget
+        currentParentParagraphIndex = paragraphs[readTarget].paragraphIndex
         highlightRange = nil
         checkpointProgress()
-        AppLogger.shared.log("⏩ [TTSSeek] Tua tới dòng \(lineId) (chunk \(from) → \(target)/\(paragraphs.count), đang phát=\(isPlaying ? "có" : "không"))")
+        AppLogger.shared.log("⏩ [TTSSeek] Tua tới dòng \(lineId) (chunk \(from) → \(readTarget)/\(paragraphs.count), đang phát=\(isPlaying ? "có" : "không"))")
         if isPlaying {
             speakCurrent()
         } else {

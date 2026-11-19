@@ -26,55 +26,19 @@ extension ReaderViewModel {
 
     func setTranslationRefreshDeferred(_ deferred: Bool) {
         translationPresentation.deferred = deferred
-        // Panel / menu chọn chữ đang mở (Reader hoãn dựng lại, còn chữ cũ) ⇒ TTS chưa nối bản dịch mới vào chương này.
-        TTSRetranslationCoordinator.shared.setReaderHold(
-            deferred, owner: translationPresentation, bookId: bookId, chapterIndex: displayedChapterIndex
-        )
         guard !deferred, let pending = translationPresentation.pending else { return }
         translationPresentation.pending = nil
-        guard isPendingPresentationCurrent(pending) else { return }
-        guard TTSRetranslationCoordinator.shared.isPending(bookId: bookId, chapterIndex: pending.index) else {
-            applyPreparedTranslation(pending)
-            return
-        }
-        // TTS vừa được nhả và đang nối ⇒ chờ mốc rồi mới áp (dòng đang đọc khỏi nháy chữ mới rồi về chữ cũ).
-        Task { [weak self] in
-            guard let self else { return }
-            await self.waitForTTSRetranslationAnchor(
-                chapterIndex: pending.index, token: pending.token,
-                translationEnabled: pending.translationEnabled, convertTraditional: pending.convertTraditional
-            )
-            guard self.isPendingPresentationCurrent(pending) else { return }
-            if self.translationPresentation.deferred {
-                // Panel mở lại trong lúc chờ: trả bản dựng về hàng chờ — `ReaderView` đã thôi hoãn nên không ai dựng lại.
-                if self.translationPresentation.pending == nil { self.translationPresentation.pending = pending }
-                return
-            }
-            self.applyPreparedTranslation(pending)
-        }
-    }
-
-    private func isPendingPresentationCurrent(_ pending: ReaderTranslationPresentation.Prepared) -> Bool {
-        pending.index == displayedChapterIndex
-            && pending.revision == currentRevision
-            && pending.token == TranslateUtils.translationGenerationToken(for: bookId)
-            && pending.translationEnabled == isTranslationEnabled
-            && pending.convertTraditional == shouldConvertTraditionalToSimplified
+        guard pending.index == displayedChapterIndex,
+              pending.revision == currentRevision,
+              pending.token == TranslateUtils.translationGenerationToken(for: bookId),
+              pending.translationEnabled == isTranslationEnabled,
+              pending.convertTraditional == shouldConvertTraditionalToSimplified else { return }
+        applyPreparedTranslation(pending)
     }
 
     internal func applyPreparedTranslation(_ prepared: ReaderTranslationPresentation.Prepared) {
         let cached = cache.cache[prepared.index] ?? cache.setPlaceholder(prepared.index)
-        // TTS đang đọc chương này và vừa nối bản dịch mới (mốc cùng token) ⇒ dòng ≤ mốc hiện đúng chữ TTS đọc; lưu kèm bản
-        // dựng gốc để mốc hết hiệu lực thì trả về (`restoreChaptersWithDeadTTSAnchor`).
-        let alignment = ttsAlignment(
-            prepared.result, chapterIndex: prepared.index, token: prepared.token,
-            translationEnabled: prepared.translationEnabled, convertTraditional: prepared.convertTraditional,
-            displayed: cached.paragraphItems
-        )
-        let result = alignment.result
-        let unaligned = alignment.stamp == nil ? nil : prepared.result.paragraphItems
-        if cached.ttsAnchorStamp != alignment.stamp { cached.ttsAnchorStamp = alignment.stamp }
-        if cached.unalignedParagraphItems != unaligned { cached.unalignedParagraphItems = unaligned }
+        let result = prepared.result
         let equal = cached.originalTitle == prepared.originalTitle &&
             cached.originalContent == prepared.originalContent &&
             cached.title == result.translatedTitle && cached.content == result.translatedContent &&

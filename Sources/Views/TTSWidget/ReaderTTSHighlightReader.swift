@@ -25,6 +25,10 @@ final class ReaderTTSHighlightReader: ObservableObject {
         var highlightRange: NSRange?
         var preparingParentParagraphIndex: Int?
         var preparingHighlightRange: NSRange?
+        /// Chữ TTS đang đọc của đoạn đang đọc / đang chuẩn bị (`TTSManager.spokenLineText`) — binder so với chữ đoạn đang
+        /// hiện: khác ⇒ tô cả đoạn (dịch lại khi đang nghe, 2026-11-20).
+        var currentSpokenText: String?
+        var preparingSpokenText: String?
     }
 
     @Published private(set) var snapshot = Snapshot()
@@ -60,7 +64,9 @@ final class ReaderTTSHighlightReader: ObservableObject {
             currentParentParagraphIndex: ownsBook ? ps.currentParentParagraphIndex : -1,
             highlightRange: ownsBook ? ps.highlightRange : nil,
             preparingParentParagraphIndex: ownsBook ? ps.preparingParentParagraphIndex : nil,
-            preparingHighlightRange: ownsBook ? ps.preparingHighlightRange : nil
+            preparingHighlightRange: ownsBook ? ps.preparingHighlightRange : nil,
+            currentSpokenText: ownsBook ? manager.spokenLineText(lineId: ps.currentParentParagraphIndex) : nil,
+            preparingSpokenText: ownsBook ? ps.preparingParentParagraphIndex.flatMap { manager.spokenLineText(lineId: $0) } : nil
         )
         guard next != snapshot else { return }
         snapshot = next

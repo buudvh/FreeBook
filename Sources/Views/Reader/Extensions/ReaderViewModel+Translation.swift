@@ -164,12 +164,6 @@ extension ReaderViewModel {
                 )
 
                 guard !Task.isCancelled else { return }
-                // TTS đang dịch lại đúng chương này (sửa từ điển / rule lúc đang nghe) ⇒ chờ mốc để áp cùng chữ với TTS.
-                await self.waitForTTSRetranslationAnchor(
-                    chapterIndex: index, token: currentToken,
-                    translationEnabled: isTranslationEnabled, convertTraditional: shouldConvertTraditionalToSimplified
-                )
-                guard !Task.isCancelled else { return }
 
                 if self.currentRevision == targetRevision,
                    self.isTranslationEnabled == isTranslationEnabled,

@@ -2,6 +2,45 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1009] - 2026-11-19
+
+### fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn
+
+Trước (bản đã build): Reader ghim chữ TTS cho các dòng ≤ mốc nối — anh Bửu báo các đoạn trước đoạn đang nghe không hiển
+thị đúng nghĩa đã cập nhật. Anh chốt: "Hiển thị phải thay đổi cho đúng (như cũ …). Việc để nguyên đoạn trước khi nghe chỉ
+nên làm với nghe chứ không phải làm với đọc" + chọn "Tô cả đoạn".
+
+Nay:
+- Reader dựng lại bản dịch như trước tính năng (bản mới cho mọi đoạn, vẫn hoãn khi panel / menu chọn chữ mở). Gỡ hẳn phần
+  ghim chữ: ReaderViewModel+TTSRetranslation (alignedWithTTSAnchor / chờ mốc 3 s / nắn lại cache / trả bản gốc), lượt chờ
+  trong processAndSaveChapter, giữ lượt nối khi panel mở (setReaderHold), trường ghim của CachedChapter
+  (ttsAnchorStamp / unalignedParagraphItems, ttsSnapshot*), getPretranslatedSnapshot về lại paragraphItems.
+- TTS giữ cơ chế nối: chunk của dòng ≤ L (dòng đang đọc + chunk đã xếp sẵn hàng đợi NghiTTS / VieNeu) đọc chữ cũ, dòng sau
+  đọc bản mới, tiếng không cắt; không còn chờ Reader. TTSRetranslationCoordinator gọn lại: bỏ mốc / pending / hold / người
+  chờ, còn staleLineIds (dòng ≤ L có chữ TTS khác bản mới, cả dòng đã nghe qua, tên chương = -1) + FullRetranslation (bản
+  mới đầy đủ), xoá khi chapterContent đổi (didSet) — TTS đọc lại / chuyển chương / thay cả chương.
+- Highlight "tô cả đoạn": ReaderTTSHighlightReader lấy chữ TTS đang đọc của dòng đang đọc / đang chuẩn bị qua
+  TTSManager.spokenLineText(lineId:) (tra normalizedChapterText — chữ trộn sau lượt nối; tên chương = chapterTitle);
+  ReaderTTSHighlightBinder so với ParagraphCardView.displayText: khác ⇒ tô cả đoạn bằng kiểu vệt chuẩn bị (nhạt hơn),
+  trùng ⇒ vệt câu như thường. ReaderView chỉ đổi tham số truyền vào binder (không thêm dòng).
+- Lùi / tua về dòng mà từ đó còn dòng chunk chữ cũ (TTSManager+RetranslationRewind, mới): adoptFullRetranslationIfStale thay
+  cả chương bằng bản mới đầy đủ (bỏ tiếng nạp trước) rồi đọc từ đầu dòng đích — cắt tiếng như mọi lần tua. Gọi ở
+  seekToParagraph (vạch tua sheet nghe mini) và skipBackward (sheet, màn khoá; đổi đúng một dòng gán chỉ số). Đổi độ dài
+  chunk / hiện tên chương sau lượt nối ⇒ chia lại từ chữ bản mới như resumeAfterSettings; bản mới đã cũ (token / cấu hình
+  đổi) ⇒ đọc chunk hiện có + log. "Nghe từ đây" / nút tai nghe Reader dựng lại phiên bằng bản dịch sẵn của Reader (đã là
+  bản mới) nên không cần lối này.
+- Ghi chú luật: .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
+
+Khác gợi ý của spec: binder so thẳng chữ TTS đang đọc với chữ đang hiện thay vì chỉ dựa vào tập dòng chữ cũ — phủ cả lúc panel
+đang mở (Reader chưa dựng lại, TTS đã đọc bản mới) và khoảng trước khi TTS kịp nối. Hệ quả: mọi lệch chữ TTS ↔ Reader có sẵn
+(bộ dịch tiện ích ra chữ khác, bật / tắt dịch lúc đang tạm dừng…) nay hiện tô cả đoạn thay vì vệt câu lệch chỗ.
+
+Chưa đồng bộ (biết, chưa sửa): bong bóng / dòng trích của vạch tua sheet nghe mini lấy chữ chunk TTS, kéo lùi qua dòng chữ cũ
+vẫn xem trước câu cũ; thả tay thì TTS thay chương và đọc bản mới.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift);
+TTSManager.swift 3413 dòng, ReaderView.swift 1924 dòng (không tăng).
+
 ## [1.3.1008] - 2026-11-19
 
 ### fix: Danh sách VietPhrase.dat / Names.dat — thêm nhiều từ một lượt ghi lớp sửa đổi, không dịch lại N lần
