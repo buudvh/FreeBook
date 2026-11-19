@@ -137,7 +137,9 @@ struct DiscoveryCategoryTabView: View {
                     }
                     .onAppear {
                         pendingRestoreAnchor = scrollAnchors.anchor(for: category.id)
-                        applyPendingRestore(proxy: proxy, delay: 0.2)
+                        // Trang còn sống (back từ Chi tiết, đổi tab chính rồi về, tab danh mục kề bên) ⇒ `UIScrollView` vẫn
+                        // giữ đúng chỗ cuộn ⇒ không kéo về neo (1.3.1006: kéo về neo `.top` làm danh sách "chạy đi").
+                        applyPendingRestore(proxy: proxy, delay: 0.2, onlyIfAtTop: true)
                     }
                 }
             }
@@ -173,7 +175,12 @@ struct DiscoveryCategoryTabView: View {
         scrollAnchors.captureAnchor(categoryId: category.id, orderedIds: loader.novels.map(\.link))
     }
 
-    private func applyPendingRestore(proxy: ScrollViewProxy, delay: TimeInterval = 0.05) {
+    /// `onlyIfAtTop` — chỉ cuộn về neo khi hàng đầu tiên đang hiện, tức danh sách đang ở đầu = trang vừa bị dựng lại
+    /// (`TabView(.page)` dỡ trang / ra ngoài cửa sổ ±3 tab). Trang chưa bị dỡ thì offset vẫn còn nguyên: cuộn về neo `.top`
+    /// lúc đó chỉ kéo lệch danh sách — anh Bửu: "khi scroll list ở Khám phá rồi chuyển tab khác hoặc vào chi tiết rồi
+    /// trở về thì danh sách có cảm giác bị chạy đi". Kiểm **lúc cuộn** (sau `delay`, hàng đã kịp báo hiện lại), và kiểm
+    /// hàng đầu chứ không kiểm hàng neo — neo có thể là neo cũ (lúc đẩy Chi tiết, hàng tắt trước tab ⇒ không chốt neo mới).
+    private func applyPendingRestore(proxy: ScrollViewProxy, delay: TimeInterval = 0.05, onlyIfAtTop: Bool = false) {
         guard let anchor = pendingRestoreAnchor else { return }
         // Neo trỏ hàng đầu tiên thì không có gì phải khôi phục — tránh một cú nhảy vô nghĩa.
         guard loader.novels.first?.link != anchor else {
@@ -182,8 +189,14 @@ struct DiscoveryCategoryTabView: View {
         }
         guard loader.novels.contains(where: { $0.link == anchor }) else { return }
         pendingRestoreAnchor = nil
+        let firstLink = loader.novels.first?.link ?? ""
+        let categoryId = category.id
+        let anchors = scrollAnchors
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            proxy.scrollTo(anchor, anchor: .top)
+            MainActor.assumeIsolated {
+                if onlyIfAtTop, !anchors.isVisible(firstLink, categoryId: categoryId) { return }
+                proxy.scrollTo(anchor, anchor: .top)
+            }
         }
     }
 
