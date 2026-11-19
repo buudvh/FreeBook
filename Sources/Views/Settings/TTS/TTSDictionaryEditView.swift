@@ -223,8 +223,9 @@ struct TTSDictionaryEditView: View {
         .floatingAddButton("Thêm từ mới") { showingAddSheet = true }
     }
 
-    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`; vẫn giữ vuốt để xoá. Chạm chỉ gắn vào
-    /// khối chữ — gắn cả hàng thì tranh chạm với icon.
+    /// Hàng theo mẫu VP/Name: chạm thân hàng ⇒ sheet sửa, icon `[Xoá]`; vẫn giữ vuốt để xoá. Không còn nút bút chì
+    /// (anh Bửu: "bỏ nút edit đi … click vào hàng mỗi item sẽ hiển thị màn hình edit"). Chạm chỉ gắn vào khối chữ
+    /// (rộng hết phần còn lại của hàng) — gắn cả hàng thì tranh chạm với icon.
     private func wordRow(_ key: String) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -240,28 +241,17 @@ struct TTSDictionaryEditView: View {
             .onTapGesture { beginEditing(key) }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: "Sửa") { beginEditing(key) }
 
-            HStack(spacing: 10) {
-                Button {
-                    beginEditing(key)
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.white)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sửa từ \(key)")
-
-                Button {
-                    deleteWord(key: key)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Xoá từ \(key)")
+            Button {
+                deleteWord(key: key)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Xoá từ \(key)")
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {

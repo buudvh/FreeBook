@@ -126,8 +126,8 @@ struct SearchEnginesConfigView: View {
         }
     }
     
-    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`; vẫn giữ vuốt để xoá. Chạm chỉ gắn vào
-    /// khối chữ — gắn cả hàng thì tranh chạm với icon.
+    /// Hàng theo mẫu VP/Name: chạm thân hàng ⇒ sheet sửa, icon `[Xoá]` (không còn bút chì — anh Bửu: "click vào hàng
+    /// … hiển thị màn hình edit"); vẫn giữ vuốt để xoá. Chạm chỉ gắn vào khối chữ — gắn cả hàng thì tranh chạm với icon.
     private func engineRow(_ engine: SearchEngine) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -143,28 +143,17 @@ struct SearchEnginesConfigView: View {
             .onTapGesture { prepareForEdit(engine) }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: "Sửa") { prepareForEdit(engine) }
 
-            HStack(spacing: 10) {
-                Button {
-                    prepareForEdit(engine)
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.white)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sửa công cụ \(engine.name)")
-
-                Button {
-                    removeEngine(id: engine.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Xoá công cụ \(engine.name)")
+            Button {
+                removeEngine(id: engine.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Xoá công cụ \(engine.name)")
         }
     }
 

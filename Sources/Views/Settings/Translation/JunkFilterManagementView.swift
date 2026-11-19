@@ -241,8 +241,17 @@ struct JunkFilterManagementView: View {
                         .foregroundColor(.secondary)
                 }
             }
-
-            Spacer()
+            // Chạm thân hàng ⇒ sheet sửa (không còn bút chì — anh Bửu: "click vào hàng … hiển thị màn hình edit").
+            // Chỉ gắn vào khối chữ để `Toggle` vẫn gạt riêng được; đang kéo sắp xếp thì không mở sheet.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard editMode != .active else { return }
+                prepareForEdit(rule)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: "Sửa") { prepareForEdit(rule) }
 
             Toggle("", isOn: Binding(
                 get: { rule.isEnabled },
@@ -253,15 +262,6 @@ struct JunkFilterManagementView: View {
                 }
             ))
             .labelsHidden()
-
-            Button(action: {
-                prepareForEdit(rule)
-            }) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .padding(8)
-            }
-            .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
     }

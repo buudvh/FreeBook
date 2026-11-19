@@ -127,13 +127,19 @@ extension TTSReplacementManagerView {
             .cornerRadius(4)
     }
 
-    /// Hàng theo mẫu VP/Name (`QuickTranslationRuleEntryRow`): chữ + icon `[Sửa] [Chuyển] [Tắt|Bật] [Xoá]`
-    /// (Chuyển chỉ có ở tầng riêng). Hàng **không** bọc `Button` ngoài — nút lồng nút thì icon không bấm riêng được.
+    /// Hàng theo mẫu VP/Name (`QuickTranslationRuleEntryRow`): chạm thân hàng ⇒ sheet sửa, icon `[Chuyển] [Tắt|Bật]
+    /// [Xoá]` (Chuyển chỉ có ở tầng riêng; không còn bút chì — anh Bửu: "click vào hàng … hiển thị màn hình edit"). Hàng
+    /// **không** bọc `Button` ngoài — nút lồng nút thì icon không bấm riêng được; chạm chỉ gắn vào khối chữ.
     @ViewBuilder
     func ruleRow(for rule: TTSReplacementRule) -> some View {
         HStack(spacing: 12) {
             ruleText(for: rule, in: currentRules)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { prepareForEdit(rule) }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction(named: "Sửa") { prepareForEdit(rule) }
 
             ruleActionIcons(for: rule)
         }
@@ -155,16 +161,6 @@ extension TTSReplacementManagerView {
     /// vì lúc đang tìm thứ tự hiện ra không phải thứ tự trong tầng).
     private func ruleActionIcons(for rule: TTSReplacementRule) -> some View {
         HStack(spacing: 10) {
-            Button {
-                prepareForEdit(rule)
-            } label: {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Sửa quy tắc \"\(rule.pattern)\"")
-
             if isBookLayer {
                 Button {
                     transferToOtherLayer(rule)

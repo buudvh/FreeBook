@@ -208,7 +208,7 @@ struct VieNeuJapaneseDictionaryView: View {
                             }
                     }
                 } header: {
-                    SectionHelpHeader("Từ vựng (\(allWords.count) từ)", paragraphs: ["Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng hoặc icon bút để sửa cách đọc; icon thùng rác hoặc vuốt để xoá."])
+                    SectionHelpHeader("Từ vựng (\(allWords.count) từ)", paragraphs: ["Khoá được lưu ở dạng **đã gấp dấu phụ** (`otōto` → `ototo`) — đúng cách app tra lúc đọc. Bấm một dòng để sửa cách đọc; icon thùng rác hoặc vuốt để xoá."])
                 }
             }
         }.glassSheetRows() }
@@ -217,8 +217,8 @@ struct VieNeuJapaneseDictionaryView: View {
         .floatingAddButton("Thêm từ") { showingAddSheet = true }
     }
 
-    /// Hàng theo mẫu VP/Name: chữ (chạm để sửa) + icon `[Sửa] [Xoá]`. Hàng **không** còn bọc `Button` ngoài —
-    /// nút lồng nút thì icon không bấm riêng được; chạm chỉ gắn vào khối chữ.
+    /// Hàng theo mẫu VP/Name: chạm thân hàng ⇒ sheet sửa, icon `[Xoá]` (không còn bút chì). Hàng **không** bọc
+    /// `Button` ngoài — nút lồng nút thì icon không bấm riêng được; chạm chỉ gắn vào khối chữ.
     private func row(key: String) -> some View {
         HStack {
             // Hai dòng, cùng cỡ chữ với hàng VP/Name (`DictionaryEntryRow`).
@@ -235,28 +235,17 @@ struct VieNeuJapaneseDictionaryView: View {
             .onTapGesture { beginEditing(key) }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: "Sửa") { beginEditing(key) }
 
-            HStack(spacing: 10) {
-                Button {
-                    beginEditing(key)
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.white)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sửa từ \(key)")
-
-                Button {
-                    deleteWord(key)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Xoá từ \(key)")
+            Button {
+                deleteWord(key)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Xoá từ \(key)")
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {

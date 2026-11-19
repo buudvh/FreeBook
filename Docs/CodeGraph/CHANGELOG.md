@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.986] - 2026-11-19
+
+### feat: Bỏ nút bút chì trên hàng các danh sách TTS và cài đặt — chạm thân hàng là mở màn sửa
+
+Anh Bửu: "các màn hình danh sách ... bỏ nút edit đi mà hãy sửa thành khi click vào hàng mỗi item sẽ hiển thị màn hình edit".
+
+Trước: hàng của 6 màn danh sách có icon bút chì [Sửa] cạnh các icon khác; màn Thay thế ký tự TTS và Lọc rác chỉ mở được sheet sửa qua bút chì (chạm thân hàng không làm gì).
+Nay: bỏ bút chì ở cả 6 màn; chạm vào thân hàng (khối chữ, rộng hết phần còn lại của hàng) mở sheet sửa. Các icon còn lại (Chuyển, Tắt/Bật, Xoá) và công tắc của Lọc rác vẫn bấm riêng được — chạm chỉ gắn vào khối chữ, hàng không bọc Button. VoiceOver có thêm thao tác "Sửa" trên hàng (`accessibilityAction(named:)`). Lọc rác đang ở chế độ kéo sắp xếp thì chạm hàng không mở sheet.
+
+Màn đã đụng:
+- Phiên âm NghiTTS — `Sources/Views/Settings/TTS/TTSDictionaryEditView.swift` (`wordRow`: chỉ bỏ bút chì, chạm đã có).
+- Phiên âm VieNeu — `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift` (`row(key:)`; chữ nút "?" bỏ "hoặc icon bút").
+- Thay thế ký tự TTS — `Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift` (`ruleRow`: thêm chạm hàng ⇒ `prepareForEdit`, bỏ bút chì ở `ruleActionIcons`).
+- Lọc rác — `Sources/Views/Settings/Translation/JunkFilterManagementView.swift` (`ruleRow`: khối chữ rộng hết hàng + chạm mở sheet, bỏ `Spacer` và bút chì, giữ `Toggle`).
+- Quy tắc mục lục — `Sources/Views/Settings/Translation/TOCRulesConfigView+Row.swift` (chỉ bỏ bút chì, chạm đã có).
+- Công cụ tra cứu — `Sources/Views/Settings/Search/SearchEnginesConfigView.swift` (`engineRow`: chỉ bỏ bút chì, chạm đã có).
+
+Chưa kiểm: không build được (máy Windows), chưa chạy trên máy. `.claude/rules/ui-conventions.md` (mục "Màn danh sách") vẫn ghi cụm icon [Sửa][Chuyển][Tắt/Bật][Xoá] — cần sửa thành "chạm hàng = sửa", session con không sửa file đó.
+
 ## [1.3.985] - 2026-11-19
 
 ### feat: Bộ lọc NSFW của Kệ đồng bộ công tắc NSFW chung, rời app tắt cả hai

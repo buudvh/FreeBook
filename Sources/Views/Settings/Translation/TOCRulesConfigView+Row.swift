@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Hàng quy tắc của `TOCRulesConfigView`, theo mẫu hàng VP/Name (`QuickTranslationRuleEntryRow`):
-/// chữ (chạm để sửa) + icon `[Sửa] [Tắt|Bật] [Xoá]`.
+/// chạm thân hàng ⇒ sheet sửa + icon `[Tắt|Bật] [Xoá]` (không còn bút chì — anh Bửu: "click vào hàng … hiển thị màn
+/// hình edit").
 ///
 /// Tách khỏi file chính vì file đó là legacy sát baseline dòng (585). Thành viên dùng chéo file
 /// (`isDefaultRule`, `prepareForEdit`, `setRuleEnabled`, `deleteCustomRule(id:)`) đã hạ `private` → `internal`.
@@ -49,6 +50,7 @@ extension TOCRulesConfigView {
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Quy tắc \(rule.name)")
             .accessibilityHint("Nhấn hai lần để chỉnh sửa quy tắc này")
+            .accessibilityAction(named: "Sửa") { prepareForEdit(rule) }
 
             ruleActionIcons(for: rule, isDefault: isDefault)
         }
@@ -58,16 +60,6 @@ extension TOCRulesConfigView {
     /// (cùng luật `deleteCustomRules`) nên icon Xoá mờ và vô hiệu, vẫn giữ chỗ cho thẳng cột.
     private func ruleActionIcons(for rule: TOCRule, isDefault: Bool) -> some View {
         HStack(spacing: 10) {
-            Button {
-                prepareForEdit(rule)
-            } label: {
-                Image(systemName: "pencil")
-                    .foregroundColor(.white)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Sửa quy tắc \(rule.name)")
-
             Button {
                 setRuleEnabled(rule, !rule.enabled)
             } label: {
