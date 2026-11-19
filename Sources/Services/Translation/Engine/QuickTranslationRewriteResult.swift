@@ -12,11 +12,15 @@ public struct QuickTranslationRewriteResult: Sendable {
         public let outputRange: NSRange
         /// Dòng rule đã sinh đoạn này; `nil` = đoạn đi qua nguyên vẹn.
         public let sourceLine: Int?
+        /// Bộ rule của dòng đó (`QuickTranslationRuleScope.rank`: riêng 0 / tên chương 1 / chung 2); `nil` = đoạn đi qua
+        /// nguyên vẹn. Số dòng chỉ có nghĩa trong **một** bộ — ô thử rule tra mẫu theo cặp (bộ, dòng) này.
+        public let scopeRank: Int?
 
-        public init(sourceRange: NSRange, outputRange: NSRange, sourceLine: Int?) {
+        public init(sourceRange: NSRange, outputRange: NSRange, sourceLine: Int?, scopeRank: Int? = nil) {
             self.sourceRange = sourceRange
             self.outputRange = outputRange
             self.sourceLine = sourceLine
+            self.scopeRank = scopeRank
         }
     }
 

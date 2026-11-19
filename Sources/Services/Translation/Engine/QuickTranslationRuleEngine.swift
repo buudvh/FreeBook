@@ -107,45 +107,16 @@ public enum QuickTranslationRuleEngine {
         cache.invalidate(bookId: bookId)
     }
 
-    /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo, nhưng
-    /// **vẫn tôn trọng file tắt** — nếu không nó nói khác kết quả thật của Reader. Không có bộ tên chương:
-    /// ô thử nhanh dịch một câu nội dung.
-    public static func preview(
-        _ text: String,
-        bookId: String? = nil,
-        mode: PreviewMode = .respectTokenConfiguration
-    ) -> QuickTranslationRewriteResult? {
-        guard !text.isEmpty else { return nil }
-        let globalSnapshot = nonEmpty(QuickTranslationRuleStore.shared.currentSnapshot)
-        let bookSnapshot = nonEmpty(QuickTranslationRuleBookStore.shared.snapshot(for: bookId))
-        guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
-
-        let tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
-        switch mode {
-        case .respectTokenConfiguration:
-            tokenConfiguration = QuickTranslationBookEngineConfigStore.shared
-                .tokenConfiguration(bookId: bookId)
-        case .ignoreTokenConfiguration:
-            tokenConfiguration = .allEnabled
-        }
-        return execute(
-            text,
-            ruleSets: [(bookSnapshot, QuickTranslationRuleScope.bookRank), (globalSnapshot, QuickTranslationRuleScope.globalRank)],
-            bookId: bookId,
-            tokenConfiguration: tokenConfiguration,
-            priority: QuickTranslationBookEngineConfigStore.shared.priorityConfiguration(bookId: bookId)
-        )
-    }
-
-    private static func nonEmpty(_ snapshot: QuickTranslationRuleSnapshot?) -> QuickTranslationRuleSnapshot? {
+    /// `internal` (không `private`): `QuickTranslationRuleEngine+Preview` dùng chung.
+    static func nonEmpty(_ snapshot: QuickTranslationRuleSnapshot?) -> QuickTranslationRuleSnapshot? {
         guard let snapshot, !snapshot.rules.isEmpty else { return nil }
         return snapshot
     }
 
     // MARK: - Thi hành
 
-    /// `ruleSets`: từng bộ rule kèm `scopeRank` của nó (`QuickTranslationRuleScope.rank`).
-    private static func execute(
+    /// `ruleSets`: từng bộ rule kèm `scopeRank` của nó (`QuickTranslationRuleScope.rank`). `internal` cho ô thử nhanh.
+    static func execute(
         _ text: String,
         ruleSets: [(snapshot: QuickTranslationRuleSnapshot?, scopeRank: Int)],
         bookId: String?,
@@ -345,7 +316,7 @@ public enum QuickTranslationRuleEngine {
             segments.append(QuickTranslationRewriteResult.Segment(
                 sourceRange: NSRange(location: match.start, length: match.length),
                 outputRange: NSRange(location: outputLength, length: renderedLength),
-                sourceLine: match.sourceLine
+                sourceLine: match.sourceLine, scopeRank: match.scopeRank
             ))
             outputLength += renderedLength
             cursor = match.start + match.length

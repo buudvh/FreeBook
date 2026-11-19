@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.993] - 2026-11-19
+
+### feat: Nút Thử rule ở đầu danh sách rule — sheet thử một câu áp đúng bộ đang xem, sửa thử bộ tên chương và bộ riêng
+
+Trước: ô thử rule chỉ có ở trang "Thử nhanh một câu" (Quản lý rule dịch › Công cụ) và luôn chỉ áp bộ rule chung. QuickTranslationRuleEngine.preview không có bộ tên chương; mẫu của từng hit tra theo sourceLine **chỉ** trong bộ chung nên hit của bộ riêng hiện sai mẫu hoặc trống.
+Nay:
+- Danh sách rule (cả ba phạm vi: chung / tên chương / riêng truyện) có hàng pill "Thử rule" ở đầu (icon testtube.2, chữ màu nhấn, nền nhấn mờ 18%, viền 60%, chevron phải — kiểu chip ExtensionKindFilterBar). Chạm ⇒ sheet "Thử rule" (tiêu đề trái, detent 60% / lớn, thanh kéo, nền kính .appGlassSheet() ở chỗ trình bày): ô nhập câu + Chạy thử, KẾT QUẢ, RULE ĐÃ KHỚP (dòng · offset · bộ, mẫu, nguồn → kết quả).
+- Ruột tách thành QuickTranslationRuleTesterPanel, dùng chung cho sheet mới và trang đẩy cũ (giữ link "Thử nhanh một câu"; trang này vẫn có chọn chế độ token). Chữ giải thích phạm vi + chế độ token chuyển vào nút "?" của tiêu đề section, đổi theo phạm vi.
+- Sửa lỗi 1: preview(_:scope:mode:) (dời sang QuickTranslationRuleEngine+Preview; execute / nonEmpty thành internal) — danh sách tên chương thử với bộ tên chương + bộ chung như khi dịch tên chương thật.
+- Sửa lỗi 2: danh sách riêng truyện thử với bookId của truyện (bộ riêng + chung, file tắt / token / thứ tự ưu tiên / bộ ngoặc của truyện), và QuickTranslationRewriteResult.Segment có thêm scopeRank (mặc định nil, engine gán ở assemble) ⇒ hit tra mẫu theo cặp (bộ, dòng), hiện đúng mẫu.
+
+File: Services/Translation/Engine/{QuickTranslationRuleEngine, QuickTranslationRuleEngine+Preview (mới), QuickTranslationRewriteResult}, Views/Settings/Translation/{QuickTranslationRuleTesterPanel (mới), QuickTranslationRuleTesterSheet (mới), QuickTranslationRuleTesterPill (mới), QuickTranslationRuleTesterView, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Danh sách tên chương / chung mở từ Reader (có contextBookId) vẫn thử không kèm bộ riêng của truyện đó — chỉ danh sách riêng truyện mới truyền bookId (UNKNOWN: anh Bửu có muốn thử ở danh sách tên chương mở từ Reader cũng kèm bộ riêng không).
+
 ## [1.3.992] - 2026-11-19
 
 ### feat: Hàng VP/Name, rule dịch, bộ ngoặc — bỏ icon bút chì, chạm thân hàng mở màn sửa

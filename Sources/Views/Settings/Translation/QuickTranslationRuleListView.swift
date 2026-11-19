@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Danh sách rule của **một phạm vi** (bộ chung, bộ tên chương hoặc bộ riêng của truyện), có **2 tab**
-/// Đang bật / Đã tắt và ô tìm kiếm.
+/// Đang bật / Đã tắt, ô tìm kiếm và hàng pill "Thử rule" ở đầu (sheet thử áp đúng bộ đang xem).
 ///
 /// Các đường vào cùng dùng view này, chỉ khác `scope`: hub Từ điển của Reader (Rule Riêng / Tên chương /
 /// Chung) và mục Công cụ của màn Quản lý rule dịch (bộ chung, bộ tên chương).
@@ -35,6 +35,8 @@ struct QuickTranslationRuleListView: View {
     @State private var shareSourceRule: DisplayRule? = nil
     /// Chia sẻ **cả bộ** rule riêng, mở từ menu `ellipsis.circle` — nơi chứa mọi thao tác cả-bộ.
     @State private var showingShareAll = false
+    /// Sheet "Thử rule" (pill đầu danh sách) — áp đúng bộ đang xem (`QuickTranslationRuleTesterSheet`).
+    @State private var showingTester = false
 
     private static let pageSize = 200
     /// Cuộn vô cực: nạp trang kế khi còn chừng này hàng nữa tới cuối.
@@ -141,6 +143,7 @@ struct QuickTranslationRuleListView: View {
 
     var body: some View {
         List { Group {
+            Section { QuickTranslationRuleTesterPill { showingTester = true }.listRowSeparator(.hidden) }
             tabSection
             rulesSection
         }.glassSheetRows() }
@@ -186,6 +189,9 @@ struct QuickTranslationRuleListView: View {
                 shareSheetContent
             }
             .appGlassSheet()
+        }
+        .sheet(isPresented: $showingTester) {
+            Group { QuickTranslationRuleTesterSheet(scope: scope) }.appGlassSheet()
         }
         .onChange(of: searchText) { _, _ in
             visibleLimit = Self.pageSize
