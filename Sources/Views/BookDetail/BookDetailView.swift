@@ -26,8 +26,8 @@ struct BookDetailView: View {
         self._host = State(initialValue: initialHost ?? "")
     }
 
-    @State private var isLoadingDetail = true
-    @State private var isLoadingTOC = true
+    @State internal var isLoadingDetail = true
+    @State internal var isLoadingTOC = true
     @State internal var detailErrorMessage = ""
     @State internal var tocErrorMessage = ""
     // Link "Mở link lỗi" của hai chữ lỗi trên — chỉ gán qua `setDetailError`/`setTOCError` (`BookDetailView+ErrorLink`).
@@ -40,6 +40,7 @@ struct BookDetailView: View {
     @State private var skipsReappearLoad = false
     /// Đã tải lần đầu ⇒ back từ màn con không gọi mạng lại (`BookDetailView+AppearLoad`).
     @State internal var hasLoadedBookData = false
+    @State internal var extensionWaitTargets: Set<ExtensionWaitTarget> = [] // `+ExtensionWait`
     /// Tăng khi kéo làm mới ⇒ khối Gợi ý/Bình luận tải lại; back về thì không đổi nên chúng giữ kết quả.
     @State internal var sectionRefreshGeneration = 0
     /// Mã cho truyện chưa lưu mà link không phải UUID: cấp **một lần** cho cả đời màn, không sinh lại mỗi lần hiện.
@@ -271,6 +272,7 @@ struct BookDetailView: View {
         .onDisappear {
             if openingDetailErrorLink != nil || openingTOCErrorLink != nil { skipsReappearLoad = true }
         }
+        .onChange(of: ext?.localPath ?? "") { _, _ in reloadIfExtensionAppeared() } // tiện ích tới muộn ⇒ nạp lại
         .onReceive(NotificationCenter.default.publisher(for: TranslationConfigStore.didChangeNotification)) { _ in
             let newState = TranslationConfigStore.shared.isTranslationEnabled(
                 bookId: actualBookId,
@@ -769,8 +771,7 @@ struct BookDetailView: View {
             self.setDetailError("Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!")
             self.isLoadingDetail = false
         } else {
-            self.setDetailError("Không tìm thấy tiện ích bóc tách của truyện này!")
-            self.isLoadingDetail = false
+            waitForExtension(.detail) // chưa tra được tiện ích ⇒ chờ một lát rồi mới báo lỗi (`+ExtensionWait`)
         }
     }
 
@@ -788,8 +789,7 @@ struct BookDetailView: View {
             self.isLoadingTOC = false
             return
         } else {
-            self.setTOCError("Không tìm thấy tiện ích bóc tách của truyện này!")
-            self.isLoadingTOC = false
+            waitForExtension(.toc)
             return
         }
 

@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1010] - 2026-11-19
+
+### fix: Import truyện từ trình duyệt không còn báo "Không tìm thấy tiện ích bóc tách" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại
+
+Trước (anh Bửu báo): Import từ trình duyệt thỉnh thoảng hiện "Không tìm thấy tiện ích bóc tách của truyện này!", bấm "Thử
+lại" thì được. Màn Chi tiết tra tiện ích (ext = danh mục tiện ích theo extensionPackageId) đúng một lần lúc hiện
+(loadBookData ⇒ loadBookDetailOnly / loadTOCDataOnly), không thấy là báo lỗi ngay và không tự thử lại; "Thử lại" chạy
+đúng hàm đó và thành công ⇒ lúc màn vừa hiện tiện ích chưa tra được, lát sau mới có — màn dựng trước khi mã tiện ích của
+lượt Import kịp tới, hoặc danh mục tiện ích đang dựng lại đúng lúc đó (log cũ không ghi mã tiện ích nên chưa phân biệt).
+
+Nay (BookDetailView+ExtensionWait, mới):
+- Nhánh "không có ext" của chi tiết / mục lục gọi waitForExtension: giữ vòng xoay đang tải, chờ tối đa 1,5 s; hết giờ mới
+  báo lỗi như cũ, kèm log ❌ [BookDetail] (packageId, số tiện ích đã cài / trong danh mục, có trong đã cài hay không).
+- BookDetailView có .onChange(of: ext?.localPath): tiện ích vừa tra được (mã tiện ích của màn đổi hoặc danh mục có thêm)
+  ⇒ nạp ngay phần đang chờ, hoặc phần đã báo lỗi "không tìm thấy" — khỏi bấm "Thử lại". Log ℹ️ [BookDetail].
+- BookDetailView.swift: isLoadingDetail / isLoadingTOC private ⇒ internal, thêm @State extensionWaitTargets, thay hai chỗ
+  báo lỗi (số dòng không đổi). Không đụng trình duyệt / Kệ / Khám phá.
+- Đánh đổi: tiện ích thật sự đã gỡ thì lỗi hiện chậm ~1,5 s.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; nguyên nhân gốc chưa có log xác nhận (nếu còn gặp, log ❌
+[BookDetail] cho biết mã tiện ích nhận được); check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
 ## [1.3.1009] - 2026-11-19
 
 ### fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn
