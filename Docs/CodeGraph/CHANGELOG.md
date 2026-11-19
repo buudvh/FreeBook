@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.984] - 2026-11-19
+
+### feat: Tiêu đề trang có nút back nằm hàng 2 sát lề trái, cuộn lên thu vào cạnh nút back
+
+Anh Bửu: "các sheet, màn hình bị hiển thị title giữa do có nút ở góc trái thì bây giờ sửa lại hiển thị ở lề trái dưới các nút đó (nghĩa là sẽ hiển thị hàng thứ 2 của header)" → khi cuộn: "cuộn lên thì tiêu đề về nằm kế nút bên trái và giảm size lại để đảm bảo chỗ hiển thị".
+
+- **Trước**: kiểu `.centered` (mọi `.backPageTitle` — 61 màn — các màn `isPresentedAsSheet ? .leading : .centered` khi được đẩy vào, trang con của sheet kiểu hub) đặt tiêu đề 22pt ở **giữa** thanh (ô `principal`).
+- **Nay**: tiêu đề lớn của iOS (`navigationBarTitleDisplayMode(.large)`) ⇒ hàng 2, sát lề trái, dưới nút back / nút phải; cỡ 22pt đậm đặt toàn app ở `NavigationBarAppearance.applyLargeTitleFont` (cả bốn trạng thái thanh). Cuộn lên ⇒ hàng 2 thu lại, tiêu đề nhỏ 17pt nửa đậm hiện ở ô `topBarLeading` ngay cạnh nút back (rộng tối đa 230pt, dài thì cắt đuôi). Ô `principal` luôn rỗng ⇒ không còn tiêu đề giữa ở đâu.
+- Mới `PageTitleCollapseProbe` (đầu dò UIKit 0×0 ở nền trang): tìm `UINavigationBar` qua chuỗi responder, theo dõi `frame`/`bounds` của thanh và `contentOffset` của scroll view lớn nhất trong trang; "đã thu" = nhãn tiêu đề lớn (UILabel chữ đúng tiêu đề, cỡ ≥ 20pt) bị ẩn / mờ < 50% / bị thanh cắt quá nửa. Không tìm thấy nhãn ⇒ coi như còn hiện (không bao giờ hiện chồng hai tiêu đề; dò hỏng thì tiêu đề chỉ cuộn đi).
+- Kiểu `.leading` (tab gốc, gốc sheet) và `.hidden` không đổi. Cập nhật `ui-conventions.md`.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: độ cao hàng 2 với chữ 22pt, tiêu đề nhỏ có hiện/ẩn đúng lúc cuộn (List, Form, ScrollView, danh sách có ô tìm luôn hiện), trang con trong sheet kiểu hub (sheet thấp), tiêu đề dài, iOS 18 / 26.
+
 ## [1.3.983] - 2026-11-19
 
 ### feat: Ô tìm kiếm của các danh sách luôn hiện, cuộn xuống không ẩn
