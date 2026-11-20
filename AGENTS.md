@@ -51,7 +51,7 @@ python Scripts/check_architecture.py             # gate kiến trúc, exit 0 = p
 
 **Lưu ý môi trường**: build chỉ chạy được trên macOS. Repo hay được mở trên Windows — khi đó không build tại chỗ được; phải nói rõ điều đó thay vì báo "đã kiểm chứng".
 
-**CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `check_architecture.py`, cũng không truy vấn `codegraph` MCP**, và chỉ trigger khi đổi `Sources/**` hoặc `project.yml`. Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*. Build local cần chạy `Scripts/ci/build_audiocpp_ios.sh` trước `xcodegen` (thư mục `Vendor/AudioCpp/` bị gitignore).
+**CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `check_architecture.py`, cũng không truy vấn `codegraph` MCP**, và chỉ trigger khi đổi `Sources/**`, `project.yml`, `Vendor/vtts/**` hoặc các file kiểm vtts trong `Scripts/ci/` (1.3.1031, chi tiết ở `ci-release.md`). Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*. Build local cần chạy `Scripts/ci/build_audiocpp_ios.sh` trước `xcodegen` (thư mục `Vendor/AudioCpp/` bị gitignore).
 
 - **Đừng bật lại WMO / dSYM** cho Release (`project.yml` › `settings.configs.Release` dùng `singlefile`, không dSYM — cố ý, WMO làm archive trên CI chậm gấp đôi) nếu anh Bửu không yêu cầu.
 - **Version app = số bản đầu `Docs/CodeGraph/CHANGELOG.md`** (CI đọc làm `MARKETING_VERSION`) ⇒ commit quên thêm entry CHANGELOG thì version không đổi, chỉ số build tăng.

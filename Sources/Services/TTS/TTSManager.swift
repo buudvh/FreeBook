@@ -3103,12 +3103,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         synthesisMs: synMs
                     )
                 }
-                AppLogger.shared.log("❌ NghiTTS synthesis failed: \(error.localizedDescription)")
+                AppLogger.shared.log("❌ \(Self.localReaderLabel(self.tool)) synthesis failed: \(error.localizedDescription)")
                 self.preloadedData.removeValue(forKey: index)
                 self.preloadedDurations.removeValue(forKey: index)
                 self.currentPlaybackId = nil
                 self.pause()
-                TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
+                TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(Self.localReaderLabel(self.tool)): \(error.localizedDescription). Tạm dừng đọc.", type: .error))
             }
         }
     }

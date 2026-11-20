@@ -2,6 +2,153 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1001] - 2026-11-19
+
+### fix: NSFW chỉ tắt công tắc chung khi mở lại app, chặn nhập file quy tắc mục lục rỗng, ô tiêu đề thu gọn không chiếm chỗ
+
+Sửa theo review phản biện của đợt 1.3.982–1.3.1000.
+
+- **NSFW khi rời app** (anh Bửu chọn "Tắt khi mở lại app"): bản 1.3.985 tắt công tắc NSFW chung ngay lúc vào nền ⇒ khoá máy lúc đang xem phim 18+ thì phim tắt tiếng + thu vào hub (guard NSFW của phiên phim), playlist toàn mục 18+ dừng sau bài hiện tại, Reader truyện nguồn 18+ bị đóng (Chi tiết có `closesWhenNsfwHidden`), và tranh thứ tự với luồng rời app của `VideoLeaveToHubCoordinator`. Nay `ShelfNsfwFilterState`: vào nền ⇒ chỉ Kệ về "Không hiển thị NSFW" ngay (ảnh màn chuyển app không lộ); `willEnterForeground` ⇒ mới tắt công tắc chung; trong lúc ở nền ngưng đồng bộ từ công tắc chung. Nút Home vẫn tắt cả hai ngay.
+- **Quy tắc mục lục**: nhập file `[]` bị chặn (toast lỗi) — "Thay thế toàn bộ" không còn thêm lại quy tắc mặc định (1.3.988) nên file rỗng sẽ xoá sạch quy tắc, nhập truyện TXT không tách được chương (`TOCRulesConfigView`).
+- **Tiêu đề thu gọn** (1.3.984): ô `topBarLeading` chỉ dựng khi tiêu đề lớn đã thu — trước đó chữ trong suốt rộng tới 230pt luôn chiếm góc trái, có thể đẩy nút back tự dựng của trang con trong sheet (`HubStyleActionSheet`, `NotificationInboxView`) và chen cụm nút phải trên máy hẹp.
+- Tài liệu: `ui-conventions.md` mục Màn danh sách (bỏ bút chì, chạm hàng = sửa; nhập dữ liệu qua `.dataImportModePopup`, ngoại lệ lọc rác); chú thích popup bỏ "lọc rác" khỏi danh sách màn dùng popup; 19 entry CHANGELOG cũ nhất (1.3.951–1.3.970) chuyển sang `CHANGELOG.archive.md`.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
+
+## [1.3.1000] - 2026-11-19
+
+### fix: Dịch lại khi đang nghe chờ lượt dựng chương đang chạy, tua đoạn huỷ lượt chuyển chương, Reader không rơi bản dựng chờ mốc
+
+Vá ba khe hở của hai commit trước (rà lại sau khi viết, chưa gặp trên máy):
+- TTSManager+Retranslation: chỉ chờ startSpeakingTask / chapterAdvanceTask trước khi dịch lại ⇒ người dùng đọc lại
+  chương ("Nghe từ đây", bật/tắt dịch, rereadCurrentChapter) trong lúc tải / dịch / chờ panel thì lượt nối chèn vào
+  mảng chunk sắp bị thay, tiếng nạp trước theo phiên mới có thể sống sót với chữ sai. Nay chờ lượt dựng đang chạy
+  (awaitChapterBuildsInFlight, lặp nếu có lượt mới chen vào) cả trước khi dịch lẫn ngay trước khi nối.
+- TTSManager+ParagraphSeek: tua lúc vừa đọc hết chunk cuối và chương kế đang tải / tổng hợp ⇒ lượt chuyển chương vẫn
+  qua mọi kiểm tra rồi nhảy sang chương sau giữa đoạn vừa tua tới. Nay seekToParagraph huỷ lượt chuyển chương
+  (cancelChapterAdvanceTask — private ⇒ internal) + đóng đo AutoAdvance như pause().
+- ReaderViewModel+TranslationPresentation: nhả panel mà TTS đang nối ⇒ bản dựng chờ mốc tối đa 3 s; panel mở lại
+  trong lúc chờ thì bản dựng bị bỏ và không ai dựng lại (ReaderView đã thôi hoãn) ⇒ chương kẹt chữ cũ. Nay trả bản
+  dựng về hàng chờ (translationPresentation.pending) để lần đóng panel sau áp.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
+## [1.3.999] - 2026-11-19
+
+### feat: Sheet nghe mini kéo vạch tiến độ để tua theo đoạn, số N/M đếm theo đoạn
+
+Trước: vạch tiến độ của sheet điều khiển nhanh TTS chỉ để xem (ProgressView), "N/M" đếm chunk
+(currentParagraphIndex + 1 / paragraphs.count — tính cả chunk tên chương và chunk con của NghiTTS / VieNeu).
+
+Nay (anh Bửu: "cho thanh tiến độ đọc trên sheet nghe truyện mini có thể kéo để tua được, không tua thời gian mà
+tua theo đoạn", duyệt mockup):
+- TTSQuickControlNowReading: "N/M" theo đoạn = dòng cha (M = số paragraphIndex ≥ 0 khác nhau, N = thứ tự dòng
+  đang đọc; đang đọc tên chương ⇒ 0/M). Danh sách đầu đoạn (outline: id dòng + câu chunk đầu) dựng lại theo
+  phiên / chương / số chunk / layoutRevision của lượt nối bản dịch — kéo không đọc TTSManager mỗi nhịp.
+- TTSParagraphSeekBar (mới): cử chỉ theo mẫu VideoSeekBar (chạm là nhảy núm, kéo theo tay, thả mới báo), màu
+  như vạch cũ (phần đã đọc theo màu nhấn, núm trắng), bong bóng "Đoạn N/M" trên núm lúc kéo.
+- TTSQuickControlNowReadingBlock (mới, tách khỏi TTSQuickControlSheet): lúc kéo câu đầu của đoạn đích thay dòng
+  trích; thả tay ⇒ seek; thả lại đúng đoạn đang đọc ⇒ không làm gì. Dưới vạch giữ badge nhiệt / dự phòng / engine
+  / RTF bên trái, "N/M" bên phải.
+- TTSManager+ParagraphSeek (mới): seekToParagraph(lineId:) nhảy tới chunk đầu của dòng, khuôn skipForward nhưng
+  chạy cả khi tạm dừng: dừng phát hiện tại, huỷ task phát Nghi / remote + lượt đọc song song dự phòng (để
+  resume không chờ task chết), NghiTTS / VieNeu huỷ refill ngoài cửa sổ (cancelNghiRefill) và bỏ tiếng đã nạp
+  ngoài cửa sổ; đặt chỉ số, highlightRange = nil, checkpointProgress; đang phát ⇒ speakCurrent, đang dừng ⇒
+  publishLifecycleState + Now Playing, không tự phát. Log ⏩ [TTSSeek]. Màn khoá không đổi.
+- TTSManager.checkpointProgress() private ⇒ internal (file mới gọi).
+- Ghi chú luật: .claude/rules/tts.md (mục widget TTS).
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy (cử chỉ kéo trong sheet có tranh với vuốt đóng sheet
+không, vị trí bong bóng ở hai đầu vạch); check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
+
+## [1.3.998] - 2026-11-19
+
+### feat: Sửa rule / VP / Name lúc đang nghe ⇒ TTS đọc bản dịch mới từ đoạn sau đoạn đang đọc, highlight không lệch
+
+Trước: sửa từ điển (VP / Name…) hay rule dịch lúc truyện đang nghe thì TTS chỉ bỏ bản chuẩn bị sẵn
+(invalidatePreparedTranslationState) — phần còn lại của chương vẫn đọc bản cũ, trong khi Reader dựng lại cả
+chương theo bản mới ⇒ chữ TTS đọc khác chữ Reader hiện, vệt highlight lệch tới hết chương.
+
+Nay (anh Bửu: "áp dụng bản dịch mới từ đoạn sau của đoạn đang nghe — đoạn sau không phải chunk sau; highlight
+phải đúng"):
+- TTS (TTSManager+Retranslation): hai observer cũ ở init chuyển ra installTranslationChangeObservers() (vẫn bỏ
+  bản chuẩn bị sẵn ngay). Có phiên (đang phát hoặc tạm dừng) + truyện bật dịch ⇒ gộp sự kiện 400 ms (rule riêng
+  truyện bắn cả hai thông báo), chờ startSpeakingTask / chapterAdvanceTask đang chạy, tải chương thô qua
+  ChapterContentRepository rồi dựng lại bằng cùng processChapterWithEngine với cờ của phiên (bộ dịch tiện ích
+  chạy lại qua cache RAM).
+- Nối trong một nhịp main (TTSManager+RetranslationSplice): mốc L = dòng của chunk xa nhất đã cam kết tiếng
+  (chunk đang đọc / đang chuẩn bị; NghiTTS / VieNeu thêm currentItem + nextItem của hàng đợi — chunk kế đã hẹn
+  giờ phát trên phần cứng, huỷ là cắt tiếng). Chunk của dòng ≤ L giữ nguyên ⇒ currentParagraphIndex không đổi,
+  tiếng không cắt; chunk dòng > L lấy từ bản mới (cùng NghiUtteranceSegmenter.expand). Tiếng nạp trước chỉ bỏ ở
+  chỉ số có chữ / kiểu ranh giới đổi (preloadedData, task nạp trước — task gộp Google phủ chỉ số đổi thì huỷ cả
+  task —, lượt / dấu dự phòng qua TTSOnlineFallbackState.forgetChunks(_:session:chapterIndex:) mới, refill Nghi
+  ⇒ cancelNghiRefill nếu dính chỉ số đổi) rồi updatePrefetchWindow. Không đổi sessionID /
+  ttsProcessingGeneration, không xoá cả bộ đệm.
+- Hàng rào so chữ chunk trước khi ghi tiếng nạp trước: startPrefetchTask, nạp gộp Google (rawTexts), lượt thử
+  online của giọng dự phòng, refill NghiTTS — vì speakCurrent đọc preloadedData[index] không kiểm chữ.
+- chapterContent / normalizedChapterText thành bản trộn (dòng ≤ L chữ đang đọc, sau đó chữ mới) để
+  resumeAfterSettings không đưa bản cũ quay lại; chapterTitle giữ (chunk tiêu đề không bị thay).
+- Mốc TTSRetranslationCoordinator (Services/TTS/Retranslation, mới): token, L, các dòng ≤ L mà chữ TTS khác
+  bản mới, contentStamp (TTS dựng lại chương ⇒ mốc hết hiệu lực), layoutRevision cho sheet nghe mini.
+- Reader (ReaderViewModel+TTSRetranslation, mới): applyPreparedTranslation áp mốc cùng token — dòng ≤ L hiện
+  đúng chữ TTS đọc (giữ đoạn đang hiện nếu trùng, không thì dựng từ chữ TTS, span rỗng), dòng sau dùng bản mới.
+  processAndSaveChapter chờ mốc tối đa 3 s khi TTS đang dịch lại đúng chương; mốc tới muộn ⇒ nắn lại cache.
+  Panel / menu chọn chữ đang mở (Reader hoãn dựng lại, còn chữ cũ) ⇒ setTranslationRefreshDeferred giữ lượt nối
+  của TTS tới khi đóng.
+- Sheet nghe mini làm mới "N/M" khi chương được nối lại.
+- Log: 🔁 [TTSRetranslate] (L, splice, số chunk cũ / mới / đổi, số dòng giữ chữ cũ, ms).
+- Ghi chú luật: .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
+
+Khác thiết kế đã duyệt: mốc tính cả chunk đã xếp sẵn trong hàng đợi Nghi (có thể thuộc dòng kế) ⇒ với
+NghiTTS / VieNeu bản mới có thể áp từ dòng sau nữa; Reader dùng chữ TTS cho dòng ≤ L thay vì luôn giữ đoạn cũ
+(đúng cả khi Reader bỏ lỡ một lượt sửa); panel đang mở thì TTS chờ đóng mới nối.
+
+Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn
+(JSDom.swift).
+
+## [1.3.997] - 2026-11-19
+
+### fix: Gộp / sửa thẳng từ điển gốc dừng lại khi đọc từ điển cũ không trọn — không ghi đè làm mất mục
+
+Thuộc việc 6–7 (thẻ Từ điển chung "Gộp" / "Chỉ thêm key mới", danh sách Phiên âm / Pronouns sửa thẳng).
+Trước (hai commit vừa rồi): GlobalDictionaryImporter đọc từ điển gốc đang có bằng allEntries() mà không so với wordCount, và nếu VietPhrase.dat / Names.dat / Pronouns.dat có trên máy nhưng không mở được thì lùi sang .txt hoặc danh sách rỗng — rồi ghi lại **cả** từ điển gốc từ danh sách đó ⇒ có thể mất mục (mỗi lần lưu ở danh sách Pronouns lại ghi lại cả Pronouns.dat).
+Nay: như GlobalDictionaryTextExporter, số mục duyệt được phải khớp wordCount (cả cây đã nạp lẫn .dat đọc từ đĩa), lệch ⇒ báo lỗi enumerationMismatch, không ghi; .dat có mà không mở được ⇒ lỗi unreadableBase, không lùi sang .txt / rỗng. Toast lỗi ở thẻ / danh sách như các lỗi nhập khác.
+
+File: Services/Translation/Manager/GlobalDictionaryImporter.
+
+Chưa kiểm: chưa build, chưa chạy máy.
+
+## [1.3.996] - 2026-11-19
+
+### feat: Nhập từ điển và rule dịch luôn chọn 3 cách qua popup — Thay thế toàn bộ / Gộp / Chỉ thêm key mới
+
+Trước: danh sách VP / Name (Chung + Riêng) nhập file rồi mới hỏi 2 lựa chọn (Thay thế / Gộp) bằng hộp thoại dictionaryModeDialog; "Nhập từ truyện khác" / "Chia sẻ sang truyện khác" (từ điển và bộ rule riêng) cũng chỉ 2 lựa chọn (callback isMerge); danh sách rule 3 bộ và nhập danh sách rule tắt chọn file trước rồi mới hỏi chế độ bằng confirmationDialog; không có "Chỉ thêm key mới" cho từ điển.
+Nay: mọi chỗ nhập dùng popup chung `.dataImportModePopup` (hợp đồng d0929e34) — chọn 1 trong 3 chế độ **trước**, nút cuối mở bộ chọn file (onConfirm chạy sau khi popup đóng hẳn):
+- Danh sách VP / Name: Nhập file; "Nhập từ truyện khác" (confirmTitle "Nhập") và "Chia sẻ sang truyện khác" (confirmTitle "Chia sẻ") — BookImportSourceSheet / BookShareTargetSheet trả DataImportMode thay cho isMerge, popup hiện sau khi chọn truyện.
+- TranslationDictionaryWriter.importEntries(mode:) (thay isMerge), trả ImportCounts (thêm / cập nhật). Thêm "Chỉ thêm key mới" (.keepExisting): riêng truyện ⇒ mục chưa có lên đầu, mục cũ giữ nguyên; lớp Chung ⇒ tombstone (`từ=`) coi là khoá đã có — từ đã xoá trên máy vẫn xoá dù file có nghĩa, tombstone của file chỉ thêm khi máy chưa có khoá đó. "Gộp" giữ đúng luật cũ (Chung: mục sống của file khôi phục từ đã xoá). DictionaryCache.importEntries(mode:) trả số liệu; BookSourceMigrator (Đổi nguồn) đổi isMerge: true ⇒ mode: .overwriteExisting, hành vi không đổi.
+- Danh sách rule (chung / tên chương / riêng): Nhập file rule và Nhập file rule tắt đều popup trước; bỏ hai confirmationDialog chọn chế độ. Chia sẻ bộ rule riêng nhận đủ 3 chế độ (trước chỉ Thay thế / Gộp).
+- Toast sau khi nhập ở tầng View: "thêm X, cập nhật Y" (Thay thế toàn bộ ⇒ số mục mới / "thay toàn bộ"); số liệu rule lấy từ importPreview trước khi ghi (QuickTranslationRuleTransfer.sharePreview mới cho chia sẻ bộ riêng). Danh sách rule tắt chỉ có khoá: "Gộp" và "Chỉ thêm key mới" cùng kết quả, vẫn hiện đủ 3.
+- Bỏ DictionaryImportModeDialog.swift (dictionaryModeDialog) — đã grep, không còn ai dùng. Chỗ "Lưu tên AI" (ReaderAINameReviewSheet) không phải nhập — giữ nguyên.
+(5 thẻ Từ điển chung và hai danh sách Phiên âm / Pronouns đã dùng popup từ hai commit trước.)
+
+File: Services/Translation/Manager/TranslationDictionaryWriter, Services/Translation/Utils/DictionaryCache, Services/Translation/Engine/QuickTranslationRuleTransfer, Services/Download/BookSourceMigrator (chỉ đổi tham số, ngoài phân hệ dịch), Views/Dictionary/{DictionaryListView, DictionaryListView+Transfer, BookImportSourceSheet, BookShareTargetSheet, DictionaryImportModeDialog (xoá)}, Views/Settings/Translation/{QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions, QuickTranslationRuleListView}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy — cần thử popup (fullScreenCover) mở đúng từ trong sheet chọn truyện và từ ngăn kéo, rồi bộ chọn file mở sau khi popup đóng. Không đọc / chạy Tests/ nên chưa biết test nào còn gọi importEntries(isMerge:).
+
+## [1.3.995] - 2026-11-19
+
+### feat: Danh sách Phiên âm và Pronouns — sửa thẳng từ điển gốc từ thẻ PhienAm.txt / Pronouns.txt
+
+Trước: PhienAm (ChinesePhienAmWords.txt) và Pronouns (Pronouns.dat) chỉ thay được bằng cách nhập cả file; không xem / sửa / xoá được từng mục; thẻ của hai từ điển này không có mục Sửa.
+Nay:
+- Thẻ PhienAm.txt / Pronouns.txt › Sửa ⇒ BaseDictionaryListView (mới), kiểu hàng VP/Name: dòng 1 .headline từ gốc, dòng 2 .subheadline nghĩa màu phụ, icon [Xoá]; chạm thân hàng ⇒ sheet sửa (BaseDictionaryEntrySheet mới: Từ gốc + Nghĩa, nút Lưu chữ ở header, vuốt xuống hỏi bỏ thay đổi, nền kính); "+" nổi .floatingAddButton thêm mục; ngăn kéo "…" có Nhập file (popup 3 cách nhập ⇒ GlobalDictionaryImporter) / Xuất file (GlobalDictionaryTextExporter); .backPageTitle; ô tìm .searchable(..., placement: .navigationBarDrawer(displayMode: .always), prompt:).
+- Lưu / xoá sửa thẳng cả file: actor GlobalDictionaryEditor (mới) đọc từ điển gốc, đổi, ghi lại qua GlobalDictionaryImporter.writeBase (Pronouns dựng lại .dat vì .txt đã bị xoá sau lần nạp đầu; PhienAm ghi lại file text), nạp lại **riêng** từ điển đó (TranslationManager+BaseDictionaryReload mới: reloadPronounsDictionary / reloadPhienAmMap — không nạp lại cả bộ), rồi TranslateUtils.clearCache + notifyDictionariesDidUpdate để Reader / TTS dịch lại.
+- PhienAm vài chục nghìn dòng: nạp một lần sắp theo khoá, lọc trên RAM, List hiện theo lượt 200 hàng (nạp sớm khi còn 50 hàng).
+- GlobalDictionaryImporter tách phần ghi thành writeBase / baseEntries dùng chung; TranslationManager.loadPhoneticMap thành internal.
+
+File: Services/Translation/Manager/{GlobalDictionaryEditor (mới), TranslationManager+BaseDictionaryReload (mới), GlobalDictionaryImporter, TranslationManager}, Views/Dictionary/{BaseDictionaryListView (mới), BaseDictionaryEntrySheet (mới)}, Views/Settings/Translation/{GlobalDictionaryCardController, GlobalDictionaryCardPresentations}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build, chưa chạy máy. Mỗi lần lưu PhienAm ghi lại cả file (~vài chục nghìn dòng) — chưa đo thời gian trên máy. Ghi lại PhienAm sắp theo khoá nên comment / thứ tự dòng của file gốc không giữ.
+
 ## [1.3.994] - 2026-11-19
 
 ### feat: Thẻ Từ điển chung dạng menu thả xuống — Sửa / Nhập / Xuất / Làm mới / Xoá, thêm thẻ Rule dịch

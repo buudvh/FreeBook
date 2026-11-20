@@ -25,6 +25,16 @@ extension TTSManager {
         static let defaultChunkLength = 150
     }
 
+    /// Tên trình đọc local trong toast / log lỗi tổng hợp của đường phát chung (`playNghiTTS`) — trước đó luôn ghi "NghiTTS"
+    /// kể cả khi đang đọc bằng VieNeu / vtts.
+    nonisolated static func localReaderLabel(_ tool: String) -> String {
+        switch tool {
+        case VttsSettings.tool: return "vtts"
+        case "vieneu": return "VieNeu"
+        default: return "NghiTTS"
+        }
+    }
+
     // MARK: - Giọng
 
     /// Giọng vtts đã lưu — chung cho trình đọc chính, giọng dự phòng và sheet chọn giọng. Luôn là một giọng có thật

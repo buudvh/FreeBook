@@ -8,7 +8,7 @@
 #      `cmudict.dict` (theo `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào bundle app) có đúng 2 giọng M +
 #      `lex_en.bin`, không thừa file nào;
 #   2. dựng `vtts_say` của upstream (đã vendor ở `tools/runtime/tools/`) bằng clang trên runtime đã vendor, với ĐÚNG cờ
-#      tắt ngôn ngữ của gói SPM; đọc thử câu Việt + Anh bằng từng giọng M ở chế độ auto: phải thấy bộ token vi-en, chế độ
+#      tắt ngôn ngữ của gói SPM (+ stub `vtts_say_lex_stubs.c` cho 3 hàm init ZH / JA / RU đã tắt); đọc thử câu Việt + Anh bằng từng giọng M ở chế độ auto: phải thấy bộ token vi-en, chế độ
 #      auto, đã nạp VLEX, id < vocab, WAV ≥ 1 s và không im lặng;
 #   3. biên dịch shim `vtts_bridge` + runtime đã vendor + `vtts_bridge_smoke.c` với ASan/UBSan, chạy từng giọng M: câu
 #      thử, chuỗi rỗng, chỉ dấu câu, thẻ huỷ, (giọng đầu) đoạn dài bị chia nhiều phần; so WAV của shim với `vtts_say`
@@ -144,8 +144,11 @@ check_vtts_say() {
   local entry voice name wav say_log summary chunks samples max_id vocab
   echo "▶ vtts: dựng vtts_say (mã upstream đã vendor) + đọc thử từng giọng"
   # Không -Werror: cảnh báo mới của Apple clang không được làm đỏ build.
+  # `vtts_say.c` luôn gọi `vtts_{zlex,jlex,rlex}_init`, mà ZH / JA / RU đã tắt ⇒ link kèm stub trả lỗi
+  # (`vtts_say_lex_stubs.c`) để giữ ĐÚNG cờ của gói SPM.
   clang -std=c99 -O2 -ffp-contract=off "${VTTS_DEFINES[@]}" -I"$RUNTIME_DIR/include" -I"$RUNTIME_DIR/src" \
-    "$RUNTIME_DIR"/src/*.c "$VENDOR_DIR/tools/runtime/tools/vtts_say.c" -lm -o "$WORK_DIR/vtts_say" ||
+    "$RUNTIME_DIR"/src/*.c "$VENDOR_DIR/tools/runtime/tools/vtts_say.c" "$CI_DIR/vtts_say_lex_stubs.c" \
+    -lm -o "$WORK_DIR/vtts_say" ||
     die "biên dịch vtts_say lỗi"
   for entry in "${VOICES[@]}"; do
     read -r voice name <<< "$entry"

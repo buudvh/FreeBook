@@ -9,6 +9,7 @@ on:
       - 'Vendor/vtts/**'
       - 'Scripts/ci/check_vtts_assets.sh'
       - 'Scripts/ci/vtts_bridge_smoke.c'
+      - 'Scripts/ci/vtts_say_lex_stubs.c'
   pull_request:
     branches: [ main ]
     paths:
@@ -17,6 +18,7 @@ on:
       - 'Vendor/vtts/**'
       - 'Scripts/ci/check_vtts_assets.sh'
       - 'Scripts/ci/vtts_bridge_smoke.c'
+      - 'Scripts/ci/vtts_say_lex_stubs.c'
   workflow_dispatch:
 
 jobs:
@@ -229,6 +231,12 @@ jobs:
         set -euo pipefail
         mkdir -p build/Payload
         cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/
+
+        # vtts: thư mục tài sản (folder reference nằm trong gói SPM cục bộ `Vendor/vtts`) phải vào bundle đủ 3 file —
+        # thiếu thì trình đọc vtts lỗi ngay đoạn đầu (`VttsRuntime` báo thiếu tài sản), nên chặn ở đây.
+        for f in lex_en.bin vtts-vien-nu10-m-v0.4.q8.vtts vtts-vien-nam1-m-v0.4.q8.vtts; do
+          [ -s "build/Payload/FreeBook.app/vtts/$f" ] || { echo "::error::IPA thiếu vtts/$f"; exit 1; }
+        done
 
         # Chốt version trong Info.plist của IPA (phòng khi build setting không được thay vào plist).
         APP_PLIST="build/Payload/FreeBook.app/Info.plist"
