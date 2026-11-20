@@ -236,6 +236,9 @@ struct ReaderView: View {
     @State internal var paragraphTracker = ParagraphTracker()
 
     @State internal var showingChapterList = false
+    /// Tab mở sẵn của mục lục + sheet viết ghi chú (`ReaderView+Annotations`, 1.3.1040).
+    @State internal var chapterListInitialTab: ReaderChapterListTab = .chapters
+    @State internal var noteEditorRequest: ReaderNoteEditorSheet.Request?
     @State internal var showingAIFullScreen = false
     @State private var showingReaderSearch = false
     /// Truy vấn "Tìm trong chương" lần trước — nhớ trong lượt đọc này (đóng Reader là mất).
@@ -400,7 +403,10 @@ struct ReaderView: View {
             },
             onSearchWeb: {
                 searchSelectionOnGoogle()
-            }
+            },
+            onAddNote: { beginNoteFromSelection() },
+            onToggleBookmark: { toggleAnnotationBookmark(chapterIndex: chapterIndex) },
+            isChapterBookmarked: canAnnotate && BookAnnotationRepository.shared.isBookmarked(bookId: bookId, chapterIndex: chapterIndex)
         )
     }
 
@@ -428,12 +434,16 @@ struct ReaderView: View {
         }
         .sheet(isPresented: $showingChapterList, onDismiss: {
             // Đẩy khi sheet còn đang đóng thì `NavigationLink` có thể bỏ lượt đẩy ⇒ chờ `onDismiss`.
+            chapterListInitialTab = .chapters
             if opensBookDetailAfterChapterList {
                 opensBookDetailAfterChapterList = false
                 navigateToBookDetail = true
             }
         }) {
             readerChapterListSheet
+        }
+        .sheet(item: $noteEditorRequest) { request in
+            Group { ReaderNoteEditorSheet(request: request) }.appGlassSheet()
         }
         .sheet(isPresented: $showingBookDictionary) {
             Group {
@@ -1019,7 +1029,9 @@ struct ReaderView: View {
                 },
                 onOpenAI: {
                     openAIFromReader()
-                }
+                },
+                isChapterBookmarked: isAnnotationChapterBookmarked,
+                onToggleBookmark: canAnnotate ? { toggleAnnotationBookmark(chapterIndex: annotationChapterIndex) } : nil
             )
         }
     }
@@ -1204,7 +1216,7 @@ struct ReaderView: View {
         }
     }
 
-    private func getOrInitChapterListStore() -> ReaderChapterListStore? {
+    internal func getOrInitChapterListStore() -> ReaderChapterListStore? {
         if let store = chapterListStore {
             store.updateTranslation(
                 isTranslationEnabled: isTranslationEnabled,
@@ -1249,6 +1261,10 @@ struct ReaderView: View {
                 titleTranslations: titleTranslations,
                 onlineChapters: $currentOnlineChapters,
                 isLocalTXTBook: isLocalTXTBook,
+                initialTab: chapterListInitialTab,
+                onOpenAnnotation: { index, url, paragraph in
+                    openAnnotationLocation(chapterIndex: index, chapterUrl: url, paragraphIndex: paragraph)
+                },
                 onSelectChapter: { selectedIdx in
                     // Đóng sheet trước, nạp chương ở lượt main kế tiếp: việc nạp chương không chen vào animation đóng.
                     showingChapterList = false
@@ -1302,6 +1318,7 @@ struct ReaderView: View {
         let spacing = lineSpacing
         let theme = selectedTheme
         let isNavigatingNewChapter = (viewModel?.pendingNavigationIndex != nil)
+        let noteCounts = annotationNoteCounts(chapterIndex: chapter.index)
 
         ForEach(chapter.paragraphItems) { item in
             // Vệt TTS/chuẩn bị do binder (quan sát reader mịn) đưa vào: nhịp highlight chỉ làm các hàng tính lại,
@@ -1349,6 +1366,9 @@ struct ReaderView: View {
                 }
             )
             .equatable()
+            .readerNoteMarker(count: noteCounts[item.id] ?? 0) {
+                openAnnotationNotes(chapterIndex: chapter.index, paragraphIndex: item.id)
+            }
             }
             .id("paragraph-\(chapter.index)-\(item.id)")
             .background(

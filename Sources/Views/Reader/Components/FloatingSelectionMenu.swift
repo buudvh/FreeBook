@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Bong bóng hành động khi bôi đen trong Reader: cột "Nghe" cao full bên trái + lưới **2 hàng × 4 cột**.
+/// Bong bóng hành động khi bôi đen trong Reader: cột "Nghe" cao full bên trái + lưới **2 hàng × 5 cột** (cột 5 — Ghi chú /
+/// Dấu trang — từ 1.3.1040; bề rộng 275 → 327pt, vẫn vừa máy 375pt với lề 16).
 ///
 /// `menuWidth` phải **suy ra** từ các hằng thành phần, không hard-code: nó vừa là chiều rộng thật của
 /// bong bóng vừa là số dùng để kẹp toạ độ `x` trong `.position(...)`. Hai số lệch nhau là menu bị
@@ -22,11 +23,15 @@ public struct FloatingSelectionMenu: View {
     public let onDeleteJunk: () -> Void
     public let onAddToTTSReplacement: () -> Void
     public let onSearchWeb: () -> Void
+    public let onAddNote: () -> Void
+    public let onToggleBookmark: () -> Void
+    /// Chương của vùng bôi đen đã có dấu trang ⇒ ô hiện "Bỏ dấu".
+    public let isChapterBookmarked: Bool
 
     private let gap: CGFloat = 24
     private let ngheWidth: CGFloat = 62
     private let buttonWidth: CGFloat = 52
-    private let columnCount: CGFloat = 4
+    private let columnCount: CGFloat = 5
     private let dividerWidth: CGFloat = 1
     private let horizontalPadding: CGFloat = 2
     private let row1Height: CGFloat = 46
@@ -52,7 +57,10 @@ public struct FloatingSelectionMenu: View {
         onReadSelected: @escaping () -> Void,
         onDeleteJunk: @escaping () -> Void,
         onAddToTTSReplacement: @escaping () -> Void,
-        onSearchWeb: @escaping () -> Void
+        onSearchWeb: @escaping () -> Void,
+        onAddNote: @escaping () -> Void,
+        onToggleBookmark: @escaping () -> Void,
+        isChapterBookmarked: Bool
     ) {
         self.selectionMinY = selectionMinY
         self.selectionMaxY = selectionMaxY
@@ -68,6 +76,9 @@ public struct FloatingSelectionMenu: View {
         self.onDeleteJunk = onDeleteJunk
         self.onAddToTTSReplacement = onAddToTTSReplacement
         self.onSearchWeb = onSearchWeb
+        self.onAddNote = onAddNote
+        self.onToggleBookmark = onToggleBookmark
+        self.isChapterBookmarked = isChapterBookmarked
     }
 
     public var body: some View {
@@ -103,6 +114,11 @@ public struct FloatingSelectionMenu: View {
                         menuItemContent(icon: "speaker.wave.2.fill", label: "Đọc")
                     }
                     .frame(width: buttonWidth, height: row1Height)
+
+                    Button(action: onAddNote) {
+                        menuItemContent(icon: "note.text", label: "Ghi chú")
+                    }
+                    .frame(width: buttonWidth, height: row1Height)
                 }
                 .frame(height: row1Height)
 
@@ -130,6 +146,14 @@ public struct FloatingSelectionMenu: View {
                     Button(action: onDeleteJunk) {
                         menuItemContent(icon: "trash.fill", label: "Xoá")
                             .foregroundColor(.red)
+                    }
+                    .frame(width: buttonWidth, height: row2Height)
+
+                    Button(action: onToggleBookmark) {
+                        menuItemContent(
+                            icon: isChapterBookmarked ? "bookmark.slash" : "bookmark",
+                            label: isChapterBookmarked ? "Bỏ dấu" : "Dấu trang"
+                        )
                     }
                     .frame(width: buttonWidth, height: row2Height)
                 }

@@ -17,6 +17,8 @@ public enum BackupPaths {
     /// Playlist nhạc / video (`BackupPlaylistArchiver`). **Đi kèm nhóm `.books`**, không có `BackupScope` riêng (cùng lý
     /// do `collections`). Archive tạo trước 1.3.802 không có file này.
     public static let playlists = "library/playlists.json"
+    /// Dấu trang + ghi chú theo truyện (`BackupAnnotationArchiver`, 1.3.1040), đi kèm nhóm `.books` như `playlists`.
+    public static let annotations = "library/annotations.json"
     public static let repositories = "library/repositories.json"
     public static let extensions = "library/extensions.json"
     /// `localStorage` của tiện ích (`[packageId: [key: value]]`), chỉ các tiện ích có trong `extensions.json`.

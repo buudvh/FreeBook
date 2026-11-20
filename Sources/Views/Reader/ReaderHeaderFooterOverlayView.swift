@@ -31,6 +31,9 @@ struct ReaderHeaderFooterOverlayView: View {
     let onNextChapter: () -> Void
     let onOpenAppSettings: () -> Void
     let onOpenAI: () -> Void
+    /// Dấu trang của chương đang hiện (1.3.1040). `nil` ⇒ không có nút (truyện chưa có trong thư viện).
+    var isChapterBookmarked = false
+    var onToggleBookmark: (() -> Void)? = nil
 
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
 
@@ -50,6 +53,17 @@ struct ReaderHeaderFooterOverlayView: View {
                     Spacer()
 
                     HStack(spacing: 6) {
+                        // Dấu trang chương đang hiện (1.3.1040): đặc + màu nhấn khi chương đã có dấu.
+                        if let onToggleBookmark {
+                            Button(action: onToggleBookmark) {
+                                Image(systemName: isChapterBookmarked ? "bookmark.fill" : "bookmark")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(isChapterBookmarked ? Color.accentColor : selectedTheme.textColor)
+                                    .frame(width: 36, height: 38)
+                            }
+                            .accessibilityLabel(isChapterBookmarked ? "Bỏ dấu trang chương này" : "Đánh dấu chương này")
+                        }
+
                         // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
                         Button(action: onOpenReaderSearch) {
                             Image(systemName: "magnifyingglass")

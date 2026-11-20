@@ -18,6 +18,9 @@ struct ReaderFloatingMenuOverlayView: View {
     let onDeleteJunk: () -> Void
     let onAddToTTSReplacement: () -> Void
     let onSearchWeb: () -> Void
+    let onAddNote: () -> Void
+    let onToggleBookmark: () -> Void
+    let isChapterBookmarked: Bool
 
     var body: some View {
         ZStack {
@@ -82,7 +85,19 @@ struct ReaderFloatingMenuOverlayView: View {
                         clearSelectionTrigger = UUID()
                         isShowing = false
                         onSearchWeb()
-                    }
+                    },
+                    // Ghi chú: hàm của Reader chụp vùng chọn **trước** rồi mới xoá bôi đen (`ReaderView+Annotations`).
+                    onAddNote: {
+                        onAddNote()
+                        clearSelectionTrigger = UUID()
+                        isShowing = false
+                    },
+                    onToggleBookmark: {
+                        clearSelectionTrigger = UUID()
+                        isShowing = false
+                        onToggleBookmark()
+                    },
+                    isChapterBookmarked: isChapterBookmarked
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 .zIndex(10)

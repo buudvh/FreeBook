@@ -34,6 +34,9 @@ struct ReaderChapterListHost: View, Equatable {
     let titleTranslations: ReaderTitleTranslationStore
     @Binding var onlineChapters: [ChapterResult]
     let isLocalTXTBook: Bool
+    /// Tab mở sẵn (Mục lục / Dấu trang / Ghi chú, 1.3.1040) + mở chỗ đã lưu (chương, link chương, id đoạn — -1 = đầu chương).
+    var initialTab: ReaderChapterListTab = .chapters
+    var onOpenAnnotation: ((Int, String, Int) -> Void)? = nil
     let onSelectChapter: (Int) -> Void
     let onClose: () -> Void
     let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
@@ -57,6 +60,8 @@ struct ReaderChapterListHost: View, Equatable {
             titleTranslations: titleTranslations,
             onlineChapters: $onlineChapters,
             isLocalTXTBook: isLocalTXTBook,
+            initialTab: initialTab,
+            onOpenAnnotation: onOpenAnnotation,
             onSelectChapter: onSelectChapter,
             onClose: onClose,
             onLocalTOCRefreshed: onLocalTOCRefreshed,
@@ -80,6 +85,7 @@ struct ReaderChapterListHost: View, Equatable {
                lhs.store === rhs.store &&
                lhs.titleTranslations === rhs.titleTranslations &&
                lhs.onlineChapters == rhs.onlineChapters &&
-               lhs.isLocalTXTBook == rhs.isLocalTXTBook
+               lhs.isLocalTXTBook == rhs.isLocalTXTBook &&
+               lhs.initialTab == rhs.initialTab
     }
 }

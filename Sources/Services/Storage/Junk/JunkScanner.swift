@@ -85,6 +85,17 @@ enum JunkScanner {
                 result.append(Candidate(url: child, root: root))
             }
         }
+
+        // Dấu trang + ghi chú (`BookAnnotationStore`, 1.3.1040): `<sha256(bookId)>.json`, cùng hàm băm với phim / comic.
+        let annotationsRoot = JunkPaths.annotationsRoot
+        for child in children(of: annotationsRoot) {
+            let name = child.lastPathComponent
+            guard name.hasSuffix(".json") else { continue }
+            let stem = String(name.dropLast(5))
+            guard isSHA256Hex(stem), !mediaHashes.contains(stem), isRegularFile(child),
+                  isOlder(child, than: deletedBookMinimumAge, now: now) else { continue }
+            result.append(Candidate(url: child, root: annotationsRoot))
+        }
         return result
     }
 

@@ -19,6 +19,9 @@ public struct ReaderChapterRowView: View {
     public let onSelect: () -> Void
     /// `nil` = truyện này không tải lẻ được (TXT nội bộ, hoặc chưa có trong kệ) ⇒ không hiện nút.
     public let onDownload: (() -> Void)?
+    /// Dấu trang / số ghi chú của chương (tab Mục lục, 1.3.1040) — icon nhỏ trước phụ kiện tải.
+    public let isBookmarked: Bool
+    public let noteCount: Int
 
     public init(
         chapter: ReaderChapterRowState,
@@ -30,7 +33,9 @@ public struct ReaderChapterRowView: View {
         ordinal: Int? = nil,
         ordinalDigits: Int = 0,
         onSelect: @escaping () -> Void,
-        onDownload: (() -> Void)? = nil
+        onDownload: (() -> Void)? = nil,
+        isBookmarked: Bool = false,
+        noteCount: Int = 0
     ) {
         self.chapter = chapter
         self.isCurrent = isCurrent
@@ -42,6 +47,8 @@ public struct ReaderChapterRowView: View {
         self.ordinalDigits = ordinalDigits
         self.onSelect = onSelect
         self.onDownload = onDownload
+        self.isBookmarked = isBookmarked
+        self.noteCount = noteCount
     }
 
     public var body: some View {
@@ -71,12 +78,34 @@ public struct ReaderChapterRowView: View {
             .contentShape(Rectangle())
             .onTapGesture(perform: onSelect)
 
+            annotationBadges
+
             trailingAccessory
                 .frame(width: 30, height: 30)
         }
         .padding(.vertical, 4)
         .listRowBackground(isCurrent ? palette.currentRowFill : Color.clear)
         .listRowSeparatorTint(palette.divider)
+    }
+
+    @ViewBuilder
+    private var annotationBadges: some View {
+        if isBookmarked {
+            Image(systemName: "bookmark.fill")
+                .font(.caption)
+                .foregroundColor(.accentColor)
+                .accessibilityLabel("Có dấu trang")
+        }
+        if noteCount > 0 {
+            HStack(spacing: 2) {
+                Image(systemName: "note.text")
+                Text("\(noteCount)")
+            }
+            .font(.caption)
+            .foregroundColor(isCurrent ? .accentColor : theme.textColor.opacity(0.55))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(noteCount) ghi chú")
+        }
     }
 
     /// Ba trạng thái dùng **cùng một** khung 30×30 để hàng không nhảy chiều cao khi đổi trạng thái.

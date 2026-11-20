@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1040] - 2026-11-20
+
+### feat: Reader — dấu trang chương và ghi chú đoạn (nút trên header, ô ở menu bôi đen, tab Dấu trang / Ghi chú trong mục lục, dấu đoạn có ghi chú)
+
+Anh Bửu: "làm chức năng ghi chú, đánh dấu chương" → mockup → "thêm tab ở ghi chú dấu trang ở mục lục nữa, ngoài ra thêm đánh dấu để biết đoạn nào trong reader được ghi chú; bấm vào ghi chú để đến đoạn ghi chú, bấm vào đánh dấu để đến chương đánh dấu" → bỏ hai hàng ở ngăn kéo ⋯ → "thêm 1 nút dấu trang trên header" → "Duyệt".
+
+- **Dữ liệu** (`Models/Reader/BookAnnotations`, `Services/Books/Annotations/`): mỗi truyện một file `annotations/<sha256(bookId)>.json` (`BookAnnotationStore`, ghi `.atomic`, rỗng ⇒ xoá file, file hỏng ⇒ cất `.broken-…`). Dấu trang theo **chương** (chỉ số + tên lúc tạo + link chương), ghi chú theo **đoạn** (`paragraphIndex` = id dòng thưa như `ParagraphItem.id`, "Đoạn N" để hiện, đoạn chữ đang bôi đen ≤ 300 ký tự). `BookAnnotationRepository` (`@MainActor @Observable`, cache RAM bỏ quan sát + `revision`) là lối của View. Chỉ truyện có bản ghi `Book` mới dùng được (không có ⇒ toast "Thêm truyện vào kệ…").
+- **Reader**: nút dấu trang đầu cụm nút phải header (36×38, đặc + màu nhấn khi chương đang hiện có dấu, toast khi bật / tắt); menu bôi đen thêm cột 5 — "Ghi chú" (mở sheet viết với đoạn trích) và "Dấu trang" / "Bỏ dấu" (chương của vùng bôi đen) — bề rộng 275 → 327pt; đoạn có ghi chú có vạch màu nhấn ở lề trái + icon ghi chú ở lề phải (`ReaderNoteMarkerModifier`, gắn ngoài `ParagraphCardView.equatable()`), chạm ⇒ mở ghi chú (nhiều ghi chú ⇒ mở tab Ghi chú). Sheet `ReaderNoteEditorSheet` (kính, "Lưu" chữ ở header, "Xoá ghi chú" khi sửa, vuốt xuống lúc gõ dở ⇒ hỏi bỏ).
+- **Mục lục**: chip Mục lục / Dấu trang N / Ghi chú N ở đầu panel (`ReaderChapterListView+Annotations`, kiểu chip `ExtensionKindFilterBar`, màu theo nền đọc). Tab Dấu trang: hàng chương + ngày, chạm ⇒ **đầu chương**. Tab Ghi chú: nhóm theo chương, đoạn trích + nội dung + "Đoạn N · ngày", chạm ⇒ **đúng đoạn**, nhấn giữ ⇒ Sửa / Xoá. 🗑 xoá ở mọi hàng. Hàng chương ở tab Mục lục có icon dấu trang + số ghi chú. Mở chỗ đã lưu: chỉ số không còn trỏ đúng link đã lưu ⇒ tra theo link (mục lục online, rồi `ChapterStore.fetchOrderedTOC`).
+- **Đi theo truyện**: xoá truyện (`BookStorageManager.deleteBookSideData` thay cho `deleteLegadoState` ở ba lối xoá — gọi cả hai), đổi nguồn (`BookSourceMigrator` chép gộp theo id / xoá), sao lưu (`BackupAnnotationArchiver`, entry `library/annotations.json` = `[hash(bookId): …]`, đi kèm nhóm `.books`, khôi phục gộp), Dung lượng (loại mới "Ghi chú & dấu trang"), Dọn rác (file của truyện không còn trong thư viện, cùng luật `.bin` / phim / comic).
+- Log `🔖 [Annotations]`. `storage.md`: thêm thư mục `annotations/`.
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Chưa làm (đã nói trong plan): tô màu chữ đoạn có ghi chú, xuất ghi chú, truyện tranh / phim, xem từ Chi tiết truyện; vân tay sao lưu tự động (`BackupLibraryFingerprint`) chưa tính ghi chú ⇒ chỉ sửa ghi chú thì lượt sao lưu Drive tự động có thể bỏ qua.
+
 ## [1.3.1039] - 2026-11-20
 
 ### feat: Kệ — nút ⋮ mở tuỳ chọn truyện, nhấn giữ để chọn nhiều (Chọn tất cả, Thêm vào playlist, Thêm vào bộ sưu tập, Xoá)
@@ -391,24 +404,3 @@ Anh Bửu: "Hiện tại popup option nhập file hiển thị trước khi nh�
 - Các màn nhập chuyển sang khung mới ở các commit kế tiếp của đợt này. `ui-conventions.md` cập nhật.
 - Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
 
-## [1.3.1010] - 2026-11-19
-
-### fix: Import truyện từ trình duyệt không còn báo "Không tìm thấy tiện ích bóc tách" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại
-
-Trước (anh Bửu báo): Import từ trình duyệt thỉnh thoảng hiện "Không tìm thấy tiện ích bóc tách của truyện này!", bấm "Thử
-lại" thì được. Màn Chi tiết tra tiện ích (ext = danh mục tiện ích theo extensionPackageId) đúng một lần lúc hiện
-(loadBookData ⇒ loadBookDetailOnly / loadTOCDataOnly), không thấy là báo lỗi ngay và không tự thử lại; "Thử lại" chạy
-đúng hàm đó và thành công ⇒ lúc màn vừa hiện tiện ích chưa tra được, lát sau mới có — màn dựng trước khi mã tiện ích của
-lượt Import kịp tới, hoặc danh mục tiện ích đang dựng lại đúng lúc đó (log cũ không ghi mã tiện ích nên chưa phân biệt).
-
-Nay (BookDetailView+ExtensionWait, mới):
-- Nhánh "không có ext" của chi tiết / mục lục gọi waitForExtension: giữ vòng xoay đang tải, chờ tối đa 1,5 s; hết giờ mới
-  báo lỗi như cũ, kèm log ❌ [BookDetail] (packageId, số tiện ích đã cài / trong danh mục, có trong đã cài hay không).
-- BookDetailView có .onChange(of: ext?.localPath): tiện ích vừa tra được (mã tiện ích của màn đổi hoặc danh mục có thêm)
-  ⇒ nạp ngay phần đang chờ, hoặc phần đã báo lỗi "không tìm thấy" — khỏi bấm "Thử lại". Log ℹ️ [BookDetail].
-- BookDetailView.swift: isLoadingDetail / isLoadingTOC private ⇒ internal, thêm @State extensionWaitTargets, thay hai chỗ
-  báo lỗi (số dòng không đổi). Không đụng trình duyệt / Kệ / Khám phá.
-- Đánh đổi: tiện ích thật sự đã gỡ thì lỗi hiện chậm ~1,5 s.
-
-Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; nguyên nhân gốc chưa có log xác nhận (nếu còn gặp, log ❌
-[BookDetail] cho biết mã tiện ích nhận được); check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).

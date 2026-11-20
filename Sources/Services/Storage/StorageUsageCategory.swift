@@ -24,6 +24,8 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
     case library
     /// Playlist nhạc / video (`playlists/`, 1.3.802).
     case playlists
+    /// Dấu trang + ghi chú của Reader (`annotations/`, 1.3.1040).
+    case annotations
     case exports
     case logs
     /// Báo cáo kiểm tra tiện ích JS / nguồn Legado đã lưu (1.3.759; trước đó `legado_reports/` rơi vào `other`).
@@ -54,6 +56,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .backups: return "Bản sao lưu"
         case .library: return "Thư viện (danh sách truyện)"
         case .playlists: return "Playlist"
+        case .annotations: return "Ghi chú & dấu trang"
         case .exports: return "File xuất (TXT, EPUB…)"
         case .logs: return "Nhật ký (log)"
         case .checkReports: return "Báo cáo kiểm tra"
@@ -109,6 +112,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .backups: return [dir("backups")]
         case .library: return [.filesWithPrefix(directory: support, prefix: "library.db")]
         case .playlists: return [dir(PlaylistStore.directoryName)]
+        case .annotations: return [dir(BookAnnotationStore.directoryName)]
         case .exports: return [.directory(ExportFileNaming.exportsDirectoryURL())]
         case .logs: return [.filesWithPrefix(directory: support, prefix: "app_logs")]
         case .checkReports: return CheckReportKind.allCases.map { .directory($0.directoryURL) }

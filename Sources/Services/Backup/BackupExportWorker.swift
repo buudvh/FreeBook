@@ -93,6 +93,7 @@ public actor BackupExportWorker {
         counts.settings = try BackupSettingsArchiver.stage(into: staging)
         counts.config = try BackupConfigArchiver.stage(into: staging)
         BackupPlaylistArchiver.stage(into: staging) // playlist: dữ liệu người dùng, luôn đi kèm (không đếm vào manifest)
+        BackupAnnotationArchiver.stage(into: staging) // dấu trang + ghi chú: như playlist
 
         let manifest = BackupManifest(
             appVersion: BackupManifest.runningAppVersion,

@@ -103,8 +103,15 @@ extension ReaderChapterListView {
                 onSelectChapter(logicalIndex)
                 onClose()
             },
-            onDownload: canDownloadChapters ? { downloadChapter(chapter) } : nil
+            onDownload: canDownloadChapters ? { downloadChapter(chapter) } : nil,
+            isBookmarked: showsAnnotationTabs && BookAnnotationRepository.shared.isBookmarked(bookId: bookId, chapterIndex: logicalIndex),
+            noteCount: showsAnnotationTabs ? chapterNoteCount(logicalIndex) : 0
         )
+    }
+
+    /// Số ghi chú của một chương (tab Mục lục, 1.3.1040).
+    private func chapterNoteCount(_ index: Int) -> Int {
+        BookAnnotationRepository.shared.annotations(for: bookId).notes.reduce(0) { $0 + ($1.chapterIndex == index ? 1 : 0) }
     }
 
     /// `chapter.title` đã là tên hiển thị (worker chọn bản lưu / dịch sống / gốc theo công tắc + phồn→giản) — không dịch

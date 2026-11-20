@@ -103,7 +103,7 @@ public final class BookStorageManager {
 
                 await Self.deleteComicFiles(bookId: bookId)
                 await Self.deleteVideoFiles(bookId: bookId)
-                await Self.deleteLegadoState(bookId: bookId)
+                await Self.deleteBookSideData(bookId: bookId)
             }
         }
 
@@ -178,7 +178,7 @@ public final class BookStorageManager {
 
                 await Self.deleteComicFiles(bookId: bookId)
                 await Self.deleteVideoFiles(bookId: bookId)
-                await Self.deleteLegadoState(bookId: bookId)
+                await Self.deleteBookSideData(bookId: bookId)
             }
         }
     }
@@ -266,7 +266,7 @@ public final class BookStorageManager {
 
                 await Self.deleteComicFiles(bookId: bookId)
                 await Self.deleteVideoFiles(bookId: bookId)
-                await Self.deleteLegadoState(bookId: bookId)
+                await Self.deleteBookSideData(bookId: bookId)
             }
         }
     }

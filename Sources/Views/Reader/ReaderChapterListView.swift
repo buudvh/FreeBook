@@ -19,6 +19,8 @@ public struct ReaderChapterListView: View {
     let titleTranslations: ReaderTitleTranslationStore?
     @Binding public var onlineChapters: [ChapterResult]
     public let isLocalTXTBook: Bool
+    /// Chạm dấu trang / ghi chú (`+Annotations`): chương, link chương, id đoạn (-1 = đầu chương).
+    public let onOpenAnnotation: ((Int, String, Int) -> Void)?
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
     public let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
@@ -42,6 +44,8 @@ public struct ReaderChapterListView: View {
         titleTranslations: ReaderTitleTranslationStore? = nil,
         onlineChapters: Binding<[ChapterResult]>,
         isLocalTXTBook: Bool = false,
+        initialTab: ReaderChapterListTab = .chapters,
+        onOpenAnnotation: ((Int, String, Int) -> Void)? = nil,
         onSelectChapter: @escaping (Int) -> Void,
         onClose: @escaping () -> Void,
         onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)? = nil,
@@ -63,6 +67,8 @@ public struct ReaderChapterListView: View {
         self.titleTranslations = titleTranslations
         self._onlineChapters = onlineChapters
         self.isLocalTXTBook = isLocalTXTBook
+        self.onOpenAnnotation = onOpenAnnotation
+        self._selectedTab = State(initialValue: initialTab)
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
         self.onLocalTOCRefreshed = onLocalTOCRefreshed
@@ -73,6 +79,9 @@ public struct ReaderChapterListView: View {
 
     @Environment(\.modelContext) internal var modelContext
     @State internal var searchQuery = ""
+    /// Tab Mục lục / Dấu trang / Ghi chú (`+Annotations`, 1.3.1040).
+    @State internal var selectedTab: ReaderChapterListTab = .chapters
+    @State internal var editingNoteRequest: ReaderNoteEditorSheet.Request?
     @State internal var isUpdating = false
     @State internal var errorMessage = ""
     @State internal var isPositioningInitialChapter = true
@@ -126,17 +135,28 @@ public struct ReaderChapterListView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                // Panel Mục lục dùng chung với tab Mục lục của Chi tiết / comic, màu theo nền đọc.
+                // Panel Mục lục dùng chung với tab Mục lục của Chi tiết / comic, màu theo nền đọc. Chip Mục lục / Dấu trang /
+                // Ghi chú ở đầu panel (1.3.1040) — truyện chưa có trong thư viện thì không có chip.
                 VStack(spacing: 0) {
-                    ChapterTOCPanelHeader(
-                        chapterCount: store.totalCount,
-                        searchText: $searchQuery,
-                        isAscending: store.isAscending,
-                        palette: tocPalette,
-                        // Thứ tự đọc thẳng từ store (sống suốt phiên Reader), không giữ bản sao trong view.
-                        onToggleSort: { store.updateSortOrder(isAscending: !store.isAscending) }
-                    )
-                    chapterList
+                    if showsAnnotationTabs {
+                        annotationTabBar
+                    }
+                    switch selectedTab {
+                    case .chapters:
+                        ChapterTOCPanelHeader(
+                            chapterCount: store.totalCount,
+                            searchText: $searchQuery,
+                            isAscending: store.isAscending,
+                            palette: tocPalette,
+                            // Thứ tự đọc thẳng từ store (sống suốt phiên Reader), không giữ bản sao trong view.
+                            onToggleSort: { store.updateSortOrder(isAscending: !store.isAscending) }
+                        )
+                        chapterList
+                    case .bookmarks:
+                        bookmarkList
+                    case .notes:
+                        noteList
+                    }
                 }
                 .chapterTOCPanel(tocPalette)
             }
