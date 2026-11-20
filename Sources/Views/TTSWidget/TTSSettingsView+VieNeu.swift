@@ -76,7 +76,9 @@ extension TTSSettingsView {
             "Quản lý riêng của trình đọc",
             paragraphs: ttsManager.tool == "vieneu"
                 ? VieNeuReaderManagementRows.helpParagraphs
-                : [TTSJapaneseTransliterationRow.helpParagraph(forTool: ttsManager.tool)]
+                : ttsManager.tool == TTSManager.VttsSettings.tool
+                    ? VttsReaderManagementRows.helpParagraphs
+                    : [TTSJapaneseTransliterationRow.helpParagraph(forTool: ttsManager.tool)]
         )
     }
 

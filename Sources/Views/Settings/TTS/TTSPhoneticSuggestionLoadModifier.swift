@@ -62,9 +62,13 @@ struct TTSPhoneticSuggestionLoadModifier: ViewModifier {
             let lookupKey = TTSPhoneticSuggestionBuilder.normalizedKey(trimmed)
             let nghiTTSHit = await TextPreprocessor.shared.lookupWord(lookupKey)
             let vieNeuHit = await VieNeuJapaneseDictionary.shared.lookup(lookupKey)
+            // vtts giữ dấu trong khoá (`VttsPhoneticDictionary.normalizedKey`) ⇒ tra bằng chữ gốc, không bằng khoá gấp dấu.
+            let vttsHit = await VttsPhoneticDictionary.shared.lookup(trimmed)
             guard !Task.isCancelled else { return }
             built = await Task.detached(priority: .userInitiated) {
-                TTSPhoneticSuggestionBuilder.suggestions(for: trimmed, nghiTTSHit: nghiTTSHit, vieNeuHit: vieNeuHit)
+                TTSPhoneticSuggestionBuilder.suggestions(
+                    for: trimmed, nghiTTSHit: nghiTTSHit, vieNeuHit: vieNeuHit, vttsHit: vttsHit
+                )
             }.value
         }
         guard !Task.isCancelled else { return }

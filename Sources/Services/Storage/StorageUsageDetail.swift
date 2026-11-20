@@ -63,7 +63,7 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
             if let count, count > 0 { return "NghiTTS · \(count) giọng Piper" }
             return "NghiTTS · giọng Piper"
         case .ttsDictionaries:
-            return "Từ điển phiên âm (NghiTTS, VieNeu)"
+            return "Từ điển phiên âm (NghiTTS, VieNeu, vtts)"
         case .ttsJunk:
             return "Không còn dùng · dọn ở Dọn rác"
         case .ttsOther:

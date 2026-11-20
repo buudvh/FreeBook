@@ -141,13 +141,12 @@ struct TTSFallbackVoiceSettingsView: View {
                 ])
             }
         case .vtts:
-            // Như Cài đặt TTS khi chọn vtts: chỉ hàng "Phiên âm tiếng Nhật" của vtts.
+            // Như Cài đặt TTS khi chọn vtts: từ điển phiên âm vtts (1.3.1041) + "Phiên âm tiếng Nhật" của vtts.
             Section {
+                VttsReaderManagementRows()
                 TTSJapaneseTransliterationRow(tool: TTSJapaneseTransliterationSettings.vttsTool)
             } header: {
-                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
-                    TTSJapaneseTransliterationRow.helpParagraph(forTool: TTSJapaneseTransliterationSettings.vttsTool)
-                ])
+                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: VttsReaderManagementRows.helpParagraphs)
             }
         }
     }

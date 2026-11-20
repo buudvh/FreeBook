@@ -579,7 +579,7 @@ struct ReaderView: View {
         readerObserverLayer
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             Group {
-                // Nút Lưu là `Menu` 3 mục (NghiTTS / VieNeu-TTS / cả hai) — xem `PhoneticDictionaryWriter`.
+                // Nút Lưu là `Menu` 4 mục (NghiTTS / VieNeu-TTS / vtts / tất cả) — xem `PhoneticDictionaryWriter`.
                 AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true, target: .chooseAtSave) { key, val, destination in
                     Task {
                         let result = await PhoneticDictionaryWriter.write(key: key, value: val, destination: destination)

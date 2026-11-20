@@ -25,6 +25,8 @@ struct AddWordSheet: View {
     enum Target: Equatable {
         case nghiTTS
         case vieNeu
+        /// Màn từ điển phiên âm vtts (1.3.1041).
+        case vtts
         case chooseAtSave
     }
 
@@ -127,12 +129,13 @@ struct AddWordSheet: View {
             }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    // 3 mục ở **mọi** chế độ mở sheet: đích cố định của màn gọi chỉ là gợi ý, không phải
-                    // ràng buộc — người dùng vẫn có thể lưu sang từ điển của engine kia, hoặc cả hai.
+                    // 4 mục ở **mọi** chế độ mở sheet: đích cố định của màn gọi chỉ là gợi ý, không phải
+                    // ràng buộc — người dùng vẫn có thể lưu sang từ điển của engine khác, hoặc cả ba (1.3.1041: + vtts).
                     Menu("Lưu") {
                         Button("Lưu vào NghiTTS") { save(.nghiTTS) }
                         Button("Lưu vào VieNeu-TTS") { save(.vieNeu) }
-                        Button("Lưu tất cả") { save(.both) }
+                        Button("Lưu vào vtts") { save(.vtts) }
+                        Button("Lưu tất cả") { save(.all) }
                     }
                     .headerTextButton()
                     .disabled(!canSave)
@@ -209,7 +212,10 @@ struct AddWordSheet: View {
                     pendingDeletion = PendingDeletion(
                         origin: suggestion.origin,
                         text: suggestion.text,
-                        lookupKey: TTSPhoneticSuggestionBuilder.normalizedKey(trimmedKey)
+                        // vtts giữ dấu trong khoá ⇒ khoá của chính từ điển đó, không phải khoá gấp dấu.
+                        lookupKey: suggestion.origin == .vttsLibrary
+                            ? VttsPhoneticDictionary.normalizedKey(trimmedKey)
+                            : TTSPhoneticSuggestionBuilder.normalizedKey(trimmedKey)
                     )
                 } label: {
                     Label("Xoá khỏi \(dictionaryName(suggestion.origin))", systemImage: "trash")
@@ -250,7 +256,7 @@ struct AddWordSheet: View {
             guard !Task.isCancelled else { return }
 
             let lookupKey = TTSPhoneticSuggestionBuilder.normalizedKey(word)
-            let hits = await Self.libraryHits(for: lookupKey)
+            let hits = await Self.libraryHits(for: lookupKey, rawWord: word)
             guard !Task.isCancelled else { return }
 
             // Tách thành hai `String?` rời thay vì truyền cả tuple: closure của `Task.detached` là
@@ -258,6 +264,7 @@ struct AddWordSheet: View {
             // chấp nhận tuple ở vị trí capture hay không.
             let nghiTTSHit = hits.nghiTTS
             let vieNeuHit = hits.vieNeu
+            let vttsHit = hits.vtts
 
             // Đích VieNeu **không** có nhánh tiếng Anh/IPA ⇒ bỏ hẳn chip EN (và bỏ luôn lượt espeak).
             let includeEnglish = target != .vieNeu
@@ -266,6 +273,7 @@ struct AddWordSheet: View {
                     for: word,
                     nghiTTSHit: nghiTTSHit,
                     vieNeuHit: vieNeuHit,
+                    vttsHit: vttsHit,
                     includeEnglish: includeEnglish
                 )
             }.value
@@ -281,16 +289,21 @@ struct AddWordSheet: View {
         dismiss()
     }
 
-    /// Tra **cả hai** từ điển phiên âm, **không** phụ thuộc `target`.
+    /// Tra **cả ba** từ điển phiên âm (vtts từ 1.3.1041), **không** phụ thuộc `target`. vtts giữ dấu trong khoá nên tra
+    /// bằng chữ gốc (`rawWord`), hai từ điển kia bằng khoá gấp dấu.
     ///
     /// Từ 1.3.462 chip gợi ý hiện cả `NGI` lẫn `VIE` để người dùng thấy mục đã có ở đâu — hai từ điển độc
     /// lập, cùng một cách đọc vẫn là hai chip (chốt 2026-10-01). Trước đây chỉ tra từ điển của đích nên mở
     /// từ màn NghiTTS thì không bao giờ thấy mục đã có bên VieNeu (và ngược lại).
-    private static func libraryHits(for lookupKey: String) async -> (nghiTTS: String?, vieNeu: String?) {
-        guard !lookupKey.isEmpty else { return (nil, nil) }
+    private static func libraryHits(
+        for lookupKey: String,
+        rawWord: String
+    ) async -> (nghiTTS: String?, vieNeu: String?, vtts: String?) {
+        guard !lookupKey.isEmpty else { return (nil, nil, nil) }
         let nghiTTS = await TextPreprocessor.shared.lookupWord(lookupKey)
         let vieNeu = await VieNeuJapaneseDictionary.shared.lookup(lookupKey)
-        return (nghiTTS, vieNeu)
+        let vtts = await VttsPhoneticDictionary.shared.lookup(rawWord)
+        return (nghiTTS, vieNeu, vtts)
     }
 
     /// Xoá mục khỏi **đúng** từ điển mà chip trỏ tới, rồi gỡ chip đó khỏi danh sách.
@@ -307,6 +320,8 @@ struct AddWordSheet: View {
                     try await TextPreprocessor.shared.deleteWord(key: pending.lookupKey)
                 case .vieNeuLibrary:
                     try await VieNeuJapaneseDictionary.shared.delete(key: pending.lookupKey)
+                case .vttsLibrary:
+                    try await VttsPhoneticDictionary.shared.delete(key: pending.lookupKey)
                 case .japanese, .englishIPA, .englishRule:
                     return
                 }
@@ -326,6 +341,7 @@ struct AddWordSheet: View {
         switch origin {
         case .nghiTTSLibrary: return "từ điển NghiTTS"
         case .vieNeuLibrary: return "từ điển VieNeu-TTS"
+        case .vttsLibrary: return "từ điển vtts"
         case .japanese, .englishIPA, .englishRule: return "từ điển"
         }
     }

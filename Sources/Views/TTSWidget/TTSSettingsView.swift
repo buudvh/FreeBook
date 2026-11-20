@@ -128,6 +128,8 @@ struct TTSSettingsView: View {
                     }
                 } else if ttsManager.tool == "vieneu" {
                     vieNeuReaderSection
+                } else if ttsManager.tool == TTSManager.VttsSettings.tool {
+                    VttsReaderManagementRows() // trước nhánh tiện ích: `isExtensionTool` cũng đúng với vtts
                 } else if TTSManager.isExtensionTool(ttsManager.tool) {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                         Button(action: { self.selectedExtForConfig = ext }) {

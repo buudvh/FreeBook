@@ -44,6 +44,7 @@ public enum TTSPhoneticSuggestionBuilder {
         for word: String,
         nghiTTSHit: String?,
         vieNeuHit: String?,
+        vttsHit: String? = nil,
         includeEnglish: Bool = true
     ) -> [TTSPhoneticSuggestion] {
         let key = normalizedKey(word)
@@ -70,7 +71,10 @@ public enum TTSPhoneticSuggestionBuilder {
         if let vieNeuHit, !vieNeuHit.isEmpty {
             append(vieNeuHit, .vieNeuLibrary, isChoice: true)
         }
-        let hasLibrary = !(nghiTTSHit ?? "").isEmpty || !(vieNeuHit ?? "").isEmpty
+        if let vttsHit, !vttsHit.isEmpty {
+            append(vttsHit, .vttsLibrary, isChoice: true)
+        }
+        let hasLibrary = !(nghiTTSHit ?? "").isEmpty || !(vieNeuHit ?? "").isEmpty || !(vttsHit ?? "").isEmpty
 
         let isJapanese = ForeignScriptClassifier.isJapaneseRomaji(key)
 

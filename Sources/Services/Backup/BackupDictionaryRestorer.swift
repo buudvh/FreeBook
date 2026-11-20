@@ -206,6 +206,8 @@ public enum BackupDictionaryRestorer {
         // lúc khởi động — phải nạp lại, nếu không lượt đọc TTS kế tiếp vẫn dùng từ điển cũ.
         if restoredPlists > 0 {
             Task { await TextPreprocessor.shared.loadResources() }
+            // Từ điển vtts (1.3.1041) cũng giữ bản trong RAM — nạp lại cùng lượt (rẻ: một plist nhỏ).
+            Task { await VttsPhoneticDictionary.shared.loadResources() }
         }
         if restoredRules {
             Task { @MainActor in TTSReplacementManager.shared.loadRules() }

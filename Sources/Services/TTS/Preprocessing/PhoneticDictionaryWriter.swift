@@ -1,6 +1,6 @@
 import Foundation
 
-/// Ghi một mục phiên âm vào từ điển NghiTTS và/hoặc từ điển riêng của VieNeu-TTS.
+/// Ghi một mục phiên âm vào từ điển NghiTTS, VieNeu-TTS và/hoặc vtts (1.3.1041).
 ///
 /// ## Vì sao là service riêng chứ không ghi thẳng trong từng closure
 /// Cả ba màn đều mở `AddWordSheet` và đều cần **cùng một** hành vi — đặc biệt là đích "cả hai".
@@ -9,35 +9,40 @@ import Foundation
 ///
 /// Đúng `rules.md` Luật 18: một hành động có nhiều nhánh ghi thì phải có **đúng một** đường ghi chung.
 enum PhoneticDictionaryWriter {
-    /// Đích ghi của một lượt lưu.
+    /// Đích ghi của một lượt lưu. Cờ viết **dương** (`== .x || == .all`): bản cũ viết kiểu loại trừ (`self != .vieNeu`)
+    /// nên thêm đích thứ tư (vtts, 1.3.1041) là mọi cờ cũ thành `true` cho đích mới.
     enum Destination: Sendable {
         case nghiTTS
         case vieNeu
-        case both
+        case vtts
+        /// "Lưu tất cả" — cả ba từ điển.
+        case all
 
-        var includesNghiTTS: Bool { self != .vieNeu }
-        var includesVieNeu: Bool { self != .nghiTTS }
+        var includesNghiTTS: Bool { self == .nghiTTS || self == .all }
+        var includesVieNeu: Bool { self == .vieNeu || self == .all }
+        var includesVtts: Bool { self == .vtts || self == .all }
     }
 
-    /// Kết quả ghi **thực tế** — đích `both` có thể chỉ ghi được một bên.
+    /// Kết quả ghi **thực tế** — đích `all` có thể chỉ ghi được một phần.
     struct Result: Sendable {
         let wroteNghiTTS: Bool
         let wroteVieNeu: Bool
+        let wroteVtts: Bool
 
-        var isSuccess: Bool { wroteNghiTTS || wroteVieNeu }
+        var isSuccess: Bool { wroteNghiTTS || wroteVieNeu || wroteVtts }
 
         /// Câu thông báo phản ánh **đúng** từ điển đã ghi được, để Toast không báo thành công khi
-        /// thực tế chỉ ghi được một nửa.
+        /// thực tế chỉ ghi được một phần.
         func message(for key: String) -> String {
-            switch (wroteNghiTTS, wroteVieNeu) {
-            case (true, true):
-                return "Đã thêm phiên âm vào cả NghiTTS và VieNeu-TTS: \(key)"
-            case (true, false):
-                return "Đã thêm phiên âm NghiTTS: \(key)"
-            case (false, true):
-                return "Đã thêm phiên âm VieNeu-TTS: \(key)"
-            case (false, false):
-                return "Không thêm được phiên âm: \(key)"
+            let names = [
+                wroteNghiTTS ? "NghiTTS" : nil,
+                wroteVieNeu ? "VieNeu-TTS" : nil,
+                wroteVtts ? "vtts" : nil
+            ].compactMap { $0 }
+            switch names.count {
+            case 0: return "Không thêm được phiên âm: \(key)"
+            case 1: return "Đã thêm phiên âm \(names[0]): \(key)"
+            default: return "Đã thêm phiên âm vào \(names.joined(separator: ", ")): \(key)"
             }
         }
     }
@@ -50,6 +55,7 @@ enum PhoneticDictionaryWriter {
     static func write(key: String, value: String, destination: Destination) async -> Result {
         var wroteNghiTTS = false
         var wroteVieNeu = false
+        var wroteVtts = false
 
         if destination.includesNghiTTS {
             do {
@@ -69,6 +75,15 @@ enum PhoneticDictionaryWriter {
             }
         }
 
-        return Result(wroteNghiTTS: wroteNghiTTS, wroteVieNeu: wroteVieNeu)
+        if destination.includesVtts {
+            do {
+                try await VttsPhoneticDictionary.shared.update(key: key, value: value)
+                wroteVtts = true
+            } catch {
+                AppLogger.shared.log("❌ [PhoneticDictionaryWriter] Lỗi ghi từ điển vtts: \(error.localizedDescription)")
+            }
+        }
+
+        return Result(wroteNghiTTS: wroteNghiTTS, wroteVieNeu: wroteVieNeu, wroteVtts: wroteVtts)
     }
 }

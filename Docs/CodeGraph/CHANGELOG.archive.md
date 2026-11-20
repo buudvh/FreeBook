@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1011] - 2026-11-20
+
+### feat: Khung nhập file mới — chọn file trước, popup chọn cách nhập hiện sau kèm tên file
+
+Anh Bửu: "Hiện tại popup option nhập file hiển thị trước khi nhập file, sửa lại hiển thị sau khi nhập file. Hiển thị tên file nhập ở phần mô tả dưới tiêu đề nhập."
+
+- Mới `DataImportFilePickerModifier` (`.dataImportFilePicker(isPresented:allowedContentTypes:title:modes:initialMode:onImport:)`, `Views/Common/DataImportModePopup/`): gộp `DocumentPickerPresenter` + popup chọn cách nhập. Mở bộ chọn file trước; chọn xong, **chờ bộ chọn đóng hẳn** (`isPresented` về `false` sau `onFinished` của host) rồi mới hiện popup — trình bày cover khi host còn đang đóng thì UIKit bỏ qua. Huỷ chọn file ⇒ không popup; chạm ra ngoài popup ⇒ bỏ file. `onImport(url, mode)` chạy sau khi popup đóng hẳn; `url` là bản sao trong thư mục tạm (`asCopy`) nên đọc sau vẫn được.
+- `DataImportModePopup` / `.dataImportModePopup`: thêm `message` — dòng dưới tiêu đề hiện **tên file** (icon tài liệu, dài thì cắt giữa để thấy đuôi file); không có ⇒ "Chọn cách nhập" như cũ. Nút cuối mặc định đổi "Nhập file" ⇒ "Nhập".
+- Các màn nhập chuyển sang khung mới ở các commit kế tiếp của đợt này. `ui-conventions.md` cập nhật.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.1010] - 2026-11-19
 
 ### fix: Import truyện từ trình duyệt không còn báo "Không tìm thấy tiện ích bóc tách" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại

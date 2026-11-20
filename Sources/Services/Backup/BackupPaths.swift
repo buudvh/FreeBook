@@ -95,7 +95,9 @@ public enum BackupPaths {
         // Từ điển phiên âm **riêng của VieNeu** (tiếng Nhật) — cùng thư mục `FreeBook/TTS/`, nên đi kèm
         // nhóm `.dictCustom` như ba file trên; `BackupDictionaryArchiver`/`Restorer` đã lặp theo danh sách
         // này nên không phải sửa gì thêm.
-        VieNeuJapaneseDictionary.fileName
+        VieNeuJapaneseDictionary.fileName,
+        // Từ điển phiên âm **riêng của vtts** (1.3.1041) — cùng thư mục, cùng nhóm.
+        VttsPhoneticDictionary.fileName
     ]
 
     /// Cài đặt & cấu hình của app (`UserDefaults`), dạng plist nhị phân. **Không** thuộc nhóm nào:

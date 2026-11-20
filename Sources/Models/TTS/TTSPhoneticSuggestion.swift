@@ -19,6 +19,8 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
         case nghiTTSLibrary
         /// Lấy từ từ điển phiên âm của **VieNeu-TTS** (`phien-am-tieng-nhat.plist`).
         case vieNeuLibrary
+        /// Lấy từ từ điển phiên âm của **vtts** (`phien-am-vtts.plist`, 1.3.1041).
+        case vttsLibrary
         /// Đường tiếng Nhật (`JapaneseTransliterator`).
         case japanese
         /// Đường tiếng Anh qua espeak IPA (`EnglishPhonemeTransliterator`, nguồn `.espeak`).
@@ -30,6 +32,7 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
             switch self {
             case .nghiTTSLibrary: return "NGI"
             case .vieNeuLibrary: return "VIE"
+            case .vttsLibrary: return "VTT"
             case .japanese: return "JP"
             case .englishIPA, .englishRule: return "EN"
             }
@@ -39,7 +42,7 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
         /// Chip JP/EN là kết quả phiên âm tự động, không nằm trong từ điển nào nên không có gì để xoá.
         public var isDictionaryEntry: Bool {
             switch self {
-            case .nghiTTSLibrary, .vieNeuLibrary: return true
+            case .nghiTTSLibrary, .vieNeuLibrary, .vttsLibrary: return true
             case .japanese, .englishIPA, .englishRule: return false
             }
         }
@@ -49,6 +52,7 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
             switch self {
             case .nghiTTSLibrary: return "Đã có trong từ điển phiên âm NghiTTS"
             case .vieNeuLibrary: return "Đã có trong từ điển phiên âm VieNeu-TTS"
+            case .vttsLibrary: return "Đã có trong từ điển phiên âm vtts"
             case .japanese: return "Đọc theo âm tiết tiếng Nhật"
             case .englishIPA: return "Đọc theo IPA của espeak, giống lúc TTS đọc thật"
             case .englishRule: return "Đọc theo bộ luật chính tả (espeak không cho IPA)"
@@ -60,7 +64,7 @@ public struct TTSPhoneticSuggestion: Identifiable, Hashable, Sendable {
         /// phân biệt nhau bằng **chữ** `NGI` / `VIE`, đúng yêu cầu người dùng.
         public var tint: Color {
             switch self {
-            case .nghiTTSLibrary, .vieNeuLibrary, .japanese, .englishIPA, .englishRule: return .white
+            case .nghiTTSLibrary, .vieNeuLibrary, .vttsLibrary, .japanese, .englishIPA, .englishRule: return .white
             }
         }
     }

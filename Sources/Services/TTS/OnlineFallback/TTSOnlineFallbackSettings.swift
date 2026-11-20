@@ -90,7 +90,9 @@ enum TTSOnlineFallbackSettings {
         case .vtts:
             let japanese = TTSJapaneseTransliterationSettings.isEnabled(forTool: TTSJapaneseTransliterationSettings.vttsTool)
             // "vtts tự đọc nhanh tối đa" (1.3.1037) đổi tiếng vtts tạo ra như tốc độ.
-            return "vtts|\(TTSManager.storedVttsVoice)|\(speed)|\(TTSManager.vttsNativeSpeedMax)|\(japanese)"
+            // Công tắc "Áp dụng từ điển phiên âm vtts" (1.3.1041) đổi chữ đưa vào vtts.
+            let dictionary = VttsPhoneticDictionary.isEnabled
+            return "vtts|\(TTSManager.storedVttsVoice)|\(speed)|\(TTSManager.vttsNativeSpeedMax)|\(japanese)|\(dictionary)"
         }
     }
 }

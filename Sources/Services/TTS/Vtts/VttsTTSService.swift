@@ -15,7 +15,8 @@ import Foundation
 /// - Khoảng lặng đuôi theo `boundaryKind`: `VieNeuTTSEngine.pauseSeconds(for:)` — cùng khoá `*PauseDuration` và mặc định
 ///   với NghiTTS — **chia cho tốc độ tạo tiếng** (như Nano) để nhịp giữ như lúc trình phát kéo cả đoạn. Giữa các câu trong
 ///   đoạn: 150 ms của vtts (`VTTS_CHUNK_GAP_MS`, không đổi theo tốc độ).
-/// - Chữ tới đây đã qua `TTSReplacementManager` ở tầng trên. Ở đây chỉ áp "Phiên âm tiếng Nhật" của **chính** trình đọc
+/// - Chữ tới đây đã qua `TTSReplacementManager` ở tầng trên. Ở đây áp **từ điển phiên âm vtts** (1.3.1041, log `dict=`)
+///   rồi "Phiên âm tiếng Nhật" của **chính** trình đọc cho phần chữ còn lại (`VttsTextFrontend`)
 ///   (`TTSJapaneseTextTransliterator`, khoá `ttsJapaneseTransliterationEnabled.vtts`, chưa có khoá ⇒ tắt; log `jp=` từ
 ///   1.3.1037) — ở tầng service
 ///   để giọng dự phòng nhận chữ gốc (`tts.md`) — rồi chuẩn hoá NFC: chữ lấy từ web đôi khi ở dạng NFD (dấu tách rời),
@@ -123,8 +124,14 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             AppLogger.shared.log("❌ [Vtts] Bản build thiếu tài sản vtts (thư mục \(VttsRuntime.assetSubdirectory)/ trong bundle)")
             throw VttsRuntime.Failure.missingAssets
         }
-        let japanese = TTSJapaneseTextTransliterator.applyReportingChanges(text, tool: Self.tool)
-        let spoken = japanese.text.precomposedStringWithCanonicalMapping
+        // Từ điển phiên âm vtts trước, phiên âm tiếng Nhật sau (`VttsTextFrontend`, 1.3.1041).
+        // Không viết `cond ? await … : nil`: Swift cấm `await` bên phải toán tử không phải phép gán.
+        var dictionary: [String: String]?
+        if VttsPhoneticDictionary.isEnabled {
+            dictionary = await VttsPhoneticDictionary.shared.all()
+        }
+        let prepared = VttsTextFrontend.prepare(text, tool: Self.tool, dictionary: dictionary)
+        let spoken = prepared.text.precomposedStringWithCanonicalMapping
         try Task.checkCancellation()
 
         let started = ProcessInfo.processInfo.systemUptime
@@ -146,7 +153,8 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         Self.logChunk(
             text: text, voice: voice, output: output, synthesisMs: synthesisMs, speechSeconds: speechSeconds,
             speed: speed, pause: pause, loudness: loudness, abruptEdges: abruptEdges,
-            japanese: Self.japaneseLogField(isEnabled: japanese.isEnabled, changes: japanese.changes), boundaryKind: boundaryKind
+            japanese: Self.japaneseLogField(isEnabled: prepared.japaneseEnabled, changes: prepared.japaneseChanges),
+            dictionaryHits: prepared.dictionaryHits, boundaryKind: boundaryKind
         )
         return PiperSynthesisPayload(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: sampleRate, channels: 1),
@@ -169,6 +177,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         loudness: VttsLoudness.Result,
         abruptEdges: Int,
         japanese: String,
+        dictionaryHits: Int?,
         boundaryKind: TTSBoundaryKind
     ) {
         let rtf = speechSeconds > 0.001 ? String(format: "%.3f", synthesisMs / 1_000 / speechSeconds) : "—"
@@ -185,6 +194,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "limit=%.1fdB", loudness.limitDb),
             "cut=\(abruptEdges)",
             japanese,
+            "dict=\(dictionaryHits.map(String.init) ?? "off")",
             "RTF=\(rtf)",
             "boundary=\(boundaryKind.rawValue)",
             "thermal=\(ProcessInfo.processInfo.thermalState.rawValue)"
