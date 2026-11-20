@@ -1073,7 +1073,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             } else if TTSManager.isLocalEngine(tool) {
                 if nghiAudioPlayerQueue.resume() {
-                    publishLifecycleState(isPlaying: true)
+                    didResumeNghiPlayer() // báo đang phát + kiểm tiếng chạy thật (1.3.1026)
                     updatePrefetchWindow()
                     prepareNextNghiAudioIfPossible()
                 } else {
@@ -1101,7 +1101,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        self.configureAudioSession()
+        self.reactivateAudioSessionForResume() // luôn bật lại phiên — `TTSManager+ResumeRecovery` (1.3.1026)
         self.setRemoteCommandsEnabled(true)
         self.isPlaying = true
 
@@ -1117,7 +1117,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         } else if TTSManager.isLocalEngine(tool) {
             if nghiAudioPlayerQueue.resume() {
-                publishLifecycleState(isPlaying: true)
+                didResumeNghiPlayer() // báo đang phát + kiểm tiếng chạy thật (1.3.1026)
                 updatePrefetchWindow()
                 prepareNextNghiAudioIfPossible()
             } else if nghiPlaybackTask != nil {

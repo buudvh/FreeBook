@@ -20,6 +20,10 @@ extension TTSManager {
                 self.pause()
                 try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
                 self.isAudioSessionConfigured = false
+            } else {
+                // TTS đang tạm dừng: hệ thống vừa tắt phiên của app (app khác phát tiếng, cuộc gọi…) ⇒ lần phát tiếp phải
+                // cấu hình lại (1.3.1026 — trước đây cờ giữ `true` nên `configureAudioSession()` bỏ qua).
+                self.isAudioSessionConfigured = false
             }
         case .ended:
             AppLogger.shared.log("🔊 [TTSManager] Audio session interruption ended. wasPlayingBeforeInterruption = \(self.wasPlayingBeforeInterruption)")

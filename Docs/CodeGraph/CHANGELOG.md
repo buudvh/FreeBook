@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1026] - 2026-11-20
+
+### fix: TTS tạm dừng lâu rồi bấm phát ở sheet nghe mini không phát lại — luôn bật lại phiên âm thanh, VieNeu / NghiTTS kiểm tiếng chạy thật
+
+Anh Bửu: "có lỗi để pause truyện lâu bấm start bằng sheet mini thì không phát lại, phải bấm tai nghe mới được. Phần nghe nhạc thì chưa biết" → plan → "Duyệt".
+
+- **Nguyên nhân (đọc code, chưa có log máy)**: nút tai nghe Reader (trang đã cuộn khỏi đoạn đang dừng) dừng hẳn phiên rồi dựng phiên mới ⇒ bật lại phiên âm thanh; nút ⏯ của sheet mini chỉ `resume()`. Đường đó (1) không bật lại `AVAudioSession` vì tin cờ `isAudioSessionConfigured` — trong lúc tạm dừng phiên có thể bị app khác phát tiếng, phim trong app trả phiên, nghe thử giọng ở Cài đặt TTS, cuộc gọi tắt mà cờ vẫn `true` (ngắt lúc TTS không phát trước đây không hạ cờ); (2) với VieNeu / NghiTTS không kiểm `play()` có chạy thật — trình phát báo `true` mà thời gian đứng yên ⇒ kẹt "đang phát" không tiếng (đường Google / tiện ích đã có bước kiểm `verifyRemoteResumeProgress`).
+- **Sửa** (`TTSManager+ResumeRecovery`, mới): `resume()` đường tạm dừng → phát gọi `reactivateAudioSessionForResume()` (hạ cờ rồi `setCategory` + `setActive` lại) thay cho `configureAudioSession()`; VieNeu / NghiTTS phát tiếp được ⇒ `didResumeNghiPlayer()` kiểm sau 0,25 s, `currentTime` không tiến ⇒ dừng player, bật lại phiên, đọc lại đoạn hiện tại từ đầu đoạn. `handleInterruption` `.began` lúc TTS đang tạm dừng cũng hạ cờ phiên.
+- Log `🔊 [TTSResume]` (bật lại phiên OK / lỗi; play() trả true mà không tiến ⇒ đọc lại đoạn) để xác nhận trên máy.
+- **Nghe nhạc**: nút phát của trình nghe (`AudioPlaybackSession.play` → `prepareAudioForPlayback`) luôn `setActive(true)` trước khi phát ⇒ không dính lỗi này, không sửa.
+- `tts.md`: thêm gạch "Phát tiếp sau tạm dừng".
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: tạm dừng TTS, mở app khác phát video / nhạc (hoặc nghe thử giọng ở Cài đặt TTS), quay lại bấm ⏯ ở sheet mini — phải đọc tiếp (VieNeu / NghiTTS có thể đọc lại từ đầu đoạn đang dừng); bật Ghi log để xem dòng `🔊 [TTSResume]`.
+
 ## [1.3.1025] - 2026-11-20
 
 ### chore: Log đo bố cục header 📐 [HeaderLayout] (tạm thời) để chỉnh khoảng cách dọc dưới tiêu đề
