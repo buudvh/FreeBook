@@ -4,7 +4,7 @@ import SwiftUI
 /// `regexp` khớp link chi tiết một hàng. Bấm ⇒ đóng sheet rồi chạy `MissingSourceRebindRunner` cho riêng truyện đó với
 /// đúng tiện ích đã chọn — cùng bước kiểm và cùng cách chuyển (gắn lại tại chỗ / luồng Đổi nguồn) như dải báo của Kệ,
 /// kể cả truyện dải báo đã thử không được trong phiên. Truyện còn nguồn hoặc không có tiện ích khớp ⇒ không hiện gì
-/// (vẫn còn hàng "Đổi nguồn" thường).
+/// (vẫn còn dải "Đổi nguồn" thường). Từ 1.3.1014 mỗi tiện ích là một dải `BookActionStrip` đứng trên dải "Đổi nguồn".
 struct MissingSourceRebindActionRows: View {
     let book: Book
     /// Sheet đóng mình trước khi chạy.
@@ -16,11 +16,11 @@ struct MissingSourceRebindActionRows: View {
         if MissingSourceRebindCoordinator.isMissingSource(book.extensionPackageId),
            let candidate = MissingSourceRebindCoordinator.shared.candidates(from: [book], includingAttempted: true).first {
             ForEach(candidate.packageIds, id: \.self) { packageId in
-                Button {
+                BookActionStrip(
+                    title: "Chuyển sang nguồn \(ExtensionLibraryRepository.snapshot(packageId: packageId)?.name ?? packageId)",
+                    systemImage: "arrow.triangle.swap"
+                ) {
                     run(candidate.limited(to: packageId))
-                } label: {
-                    Label("Chuyển sang nguồn \(ExtensionLibraryRepository.snapshot(packageId: packageId)?.name ?? packageId)",
-                          systemImage: "arrow.triangle.swap")
                 }
                 .disabled(MissingSourceRebindCoordinator.shared.isRunning)
             }

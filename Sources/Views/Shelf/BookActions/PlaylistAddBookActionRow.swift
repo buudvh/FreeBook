@@ -5,7 +5,7 @@ import SwiftUI
 /// Tự lo trọn: bấm ⇒ lấy mọi bài / tập của mục lục (`PlaylistAlbumItemsLoader.addRequest`: mục lục trên máy, chưa có thì
 /// tải từ tiện ích — cùng đường với ⋮ của item danh sách; có vòng chờ trên hàng, lỗi thì toast `PlaylistAddFeedback`) ⇒
 /// mở `PlaylistAddSheet` chồng lên sheet nhấn giữ. Sheet nhấn giữ không cần thêm case `BookSheetAction` (cùng kiểu
-/// `VideoDownloadsActionRow`).
+/// `VideoDownloadsActionRow`). Từ 1.3.1014 là một ô của lưới thao tác (`BookActionTile`, vòng xoay thay icon khi đang tải).
 struct PlaylistAddBookActionRow: View {
     let book: Book
     let kind: PlaylistKind
@@ -15,16 +15,12 @@ struct PlaylistAddBookActionRow: View {
     @State private var request: PlaylistAddRequest? = nil
 
     var body: some View {
-        Button {
+        BookActionTile(
+            title: kind == .audio ? "Thêm cả album vào playlist" : "Thêm cả phim vào playlist",
+            systemImage: "text.badge.plus",
+            isLoading: isLoading
+        ) {
             load()
-        } label: {
-            HStack {
-                Label(kind == .audio ? "Thêm cả album vào playlist" : "Thêm cả phim vào playlist", systemImage: "text.badge.plus")
-                Spacer(minLength: 8)
-                if isLoading {
-                    ProgressView()
-                }
-            }
         }
         .disabled(isLoading)
         .sheet(item: $request) { request in

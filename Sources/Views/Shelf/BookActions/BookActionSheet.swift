@@ -65,7 +65,11 @@ struct BookActionSheet: View {
             }
 
             Section {
-                actionRows
+                actionPanel
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } header: {
+                Text("Thao tác")
             }
         }.glassSheetRows() }
         .listStyle(.insetGrouped)
@@ -306,68 +310,60 @@ struct BookActionSheet: View {
 
     // MARK: - Hành động
 
-    /// Hai hàng kệ sách ("Thêm vào kệ sách" / "Xoá khỏi kệ sách") **không** còn ở đây — chúng thành một
-    /// nút icon ở góc dưới phải phần đầu (xem `shelfToggleButton`).
+    /// Phần thao tác (1.3.1014, anh Bửu duyệt mockup — "sửa các option phía dưới bộ sưu tập thành dạng lưới"): dải
+    /// "Chuyển sang nguồn …" (truyện mất nguồn) + dải "Đổi nguồn" (`BookActionStrip`), rồi lưới 4 cột (`BookActionTileGrid`,
+    /// hàng cuối không đủ 4 ô thì căn giữa) — ô xoá đỏ luôn đứng cuối. Thêm / bỏ kệ sách vẫn là nút ở phần đầu
+    /// (`shelfToggleButton`). Loại nội dung suy lúc chạy: truyện tranh xuất CBZ/PDF, phim xuất tập đã tải; truyện / phim
+    /// nhập từ file (`LocalMediaPackage`) không tải offline; âm thanh chưa có tải / xuất.
     @ViewBuilder
-    private var actionRows: some View {
-        if !book.isLocalBook {
-            MissingSourceRebindActionRows(book: book) { dismiss() }
-            actionRow(.changeSource, "Đổi nguồn", "arrow.triangle.2.circlepath")
-            actionRow(.openInBrowser, "Mở trong trình duyệt", "safari")
-        }
-
-        // Loại nội dung suy lúc chạy (không lưu vào `Book`): truyện tranh xuất CBZ/PDF, video xuất tập đã tải. Truyện/phim
-        // nhập từ file (`LocalMediaPackage`) chỉ có bản trên máy ⇒ không tải offline, không xoá bản tải (vẫn xuất được).
-        // Âm thanh chưa có tải / xuất ⇒ ẩn cả hai hàng.
+    private var actionPanel: some View {
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
         let isLocalMedia = LocalMediaPackage.isLocalMedia(packageId: book.extensionPackageId)
-        if !isLocalMedia, kind != .audio {
-            actionRow(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
-        }
-        if kind != .audio {
-            actionRow(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
-        }
-        actionRow(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
-        // Album / phim ⇒ thêm mọi bài / tập vào playlist (hàng tự tải mục lục + mở sheet chọn playlist).
-        if let playlistKind = PlaylistKind(contentKind: BookContentKindResolver.kind(bookId: book.bookId, packageId: book.extensionPackageId)) {
-            PlaylistAddBookActionRow(book: book, kind: playlistKind)
-        }
-
-        if currentCollectionId != nil {
-            actionRow(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")
-                .accessibilityHint("Truyện vẫn ở trên kệ sách")
-        }
-
-        if kind == .video, !isLocalMedia {
-            VideoDownloadsActionRow(bookId: book.bookId)
-        }
-
-        // Nguồn NSFW đã ẩn theo nguồn ⇒ không cần dấu riêng. Đọc dấu trong `body` ⇒ nhãn đổi ngay khi dấu đổi.
-        if !RepositoryFilterPolicy.isNsfwSource(packageId: book.extensionPackageId) {
-            let marked = NsfwBookMarkStore.shared.isMarked(book.bookId)
-            actionRow(.toggleNsfwMark, marked ? "Bỏ đánh dấu NSFW" : "Đánh dấu NSFW", marked ? "eye" : "eye.slash")
-        }
-
-        if target.mode == .history {
-            destructiveRow(.removeFromHistory, "Xóa lịch sử", "clock.badge.xmark")
-        } else {
-            destructiveRow(.deleteBook, "Xoá", "trash.fill")
+        VStack(spacing: 8) {
+            if !book.isLocalBook {
+                MissingSourceRebindActionRows(book: book) { dismiss() }
+                BookActionStrip(title: "Đổi nguồn", systemImage: "arrow.triangle.2.circlepath") { emit(.changeSource) }
+            }
+            BookActionTileGrid {
+                if !book.isLocalBook {
+                    tile(.openInBrowser, "Mở trình duyệt", "safari")
+                }
+                if !isLocalMedia, kind != .audio {
+                    tile(.download, kind == .video ? "Tải video offline" : (kind == .comic ? "Tải ảnh offline" : "Tải truyện"), "arrow.down.circle")
+                }
+                if kind != .audio {
+                    tile(.exportEbook, kind == .video ? "Xuất video đã tải" : (kind == .comic ? "Xuất chương đã tải" : "Xuất ebook"), "square.and.arrow.up")
+                }
+                tile(.retranslateChapterTitles, "Dịch lại tên chương", "arrow.clockwise.circle")
+                // Album / phim ⇒ thêm mọi bài / tập vào playlist (ô tự tải mục lục + mở sheet chọn playlist).
+                if let playlistKind = PlaylistKind(contentKind: BookContentKindResolver.kind(bookId: book.bookId, packageId: book.extensionPackageId)) {
+                    PlaylistAddBookActionRow(book: book, kind: playlistKind)
+                }
+                if currentCollectionId != nil {
+                    tile(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")
+                        .accessibilityHint("Truyện vẫn ở trên kệ sách")
+                }
+                // Nguồn NSFW đã ẩn theo nguồn ⇒ không cần dấu riêng. Đọc dấu trong `body` ⇒ nhãn đổi ngay khi dấu đổi.
+                if !RepositoryFilterPolicy.isNsfwSource(packageId: book.extensionPackageId) {
+                    let marked = NsfwBookMarkStore.shared.isMarked(book.bookId)
+                    tile(.toggleNsfwMark, marked ? "Bỏ đánh dấu NSFW" : "Đánh dấu NSFW", marked ? "eye" : "eye.slash")
+                }
+                // Ô đỏ đứng cuối. Kiểm "còn file tải" ở đây (không để ô tự ẩn) để lưới không giữ chỗ cho ô rỗng.
+                if kind == .video, !isLocalMedia, VideoOfflineLibrary.shared.summary(bookId: book.bookId).hasFiles {
+                    VideoDownloadsActionRow(bookId: book.bookId)
+                }
+                if target.mode == .history {
+                    tile(.removeFromHistory, "Xoá lịch sử", "clock.badge.xmark", destructive: true)
+                } else {
+                    tile(.deleteBook, "Xoá", "trash.fill", destructive: true)
+                }
+            }
         }
     }
 
-    private func actionRow(_ action: BookSheetAction, _ title: String, _ icon: String) -> some View {
-        Button {
+    private func tile(_ action: BookSheetAction, _ title: String, _ icon: String, destructive: Bool = false) -> BookActionTile {
+        BookActionTile(title: title, systemImage: icon, isDestructive: destructive) {
             emit(action)
-        } label: {
-            Label(title, systemImage: icon)
-        }
-    }
-
-    private func destructiveRow(_ action: BookSheetAction, _ title: String, _ icon: String) -> some View {
-        Button(role: .destructive) {
-            emit(action)
-        } label: {
-            Label(title, systemImage: icon)
         }
     }
 

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Hàng đỏ "Xoá bản tải (5 tập · 2,3 GB)" trong sheet nhấn giữ phim (`BookActionSheet`). Tự xử lý tại chỗ (xác nhận +
 /// `VideoOfflineLibrary.deleteAll`) thay vì phát `BookSheetAction` — phim vẫn ở trên kệ, không cần màn gọi làm gì.
-/// Chỉ hiện khi phim còn file tải; `BookActionSheet` làm mới tóm tắt lúc mở.
+/// Chỉ hiện khi phim còn file tải; `BookActionSheet` làm mới tóm tắt lúc mở. Từ 1.3.1014 là ô đỏ "Xoá bản tải" của lưới
+/// thao tác (`BookActionTile`), dòng phụ = "5 tập · 2,3 GB".
 struct VideoDownloadsActionRow: View {
     let bookId: String
 
@@ -11,10 +12,13 @@ struct VideoDownloadsActionRow: View {
     var body: some View {
         let summary = VideoOfflineLibrary.shared.summary(bookId: bookId)
         if summary.hasFiles {
-            Button(role: .destructive) {
+            BookActionTile(
+                title: "Xoá bản tải",
+                systemImage: "trash",
+                subtitle: Self.detailText(for: summary),
+                isDestructive: true
+            ) {
                 isConfirming = true
-            } label: {
-                Label("Xoá bản tải (\(Self.detailText(for: summary)))", systemImage: "trash")
             }
             .confirmationDialog("Xoá bản tải của phim này?", isPresented: $isConfirming, titleVisibility: .visible) {
                 Button("Xoá bản tải", role: .destructive) {
