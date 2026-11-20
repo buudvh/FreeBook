@@ -10,10 +10,11 @@ import SwiftUI
 /// (`DictionaryCache.upsertEntry` / `deleteEntry` ⇒ `TranslationManager.saveCustomEntry` / `deleteCustomEntry`, scope
 /// `.term` ⇒ Reader / TTS dịch lại) — **không** ghi lại `.dat`.
 ///
-/// VietPhrase cỡ triệu mục: mở màn đọc **mảng khoá** một lần ở nền (`BaseDictionaryBrowser.keys`, duyệt cây không giữ
-/// nghĩa); nghĩa của hàng tra lúc hàng hiện (lớp sửa đổi trước, rồi cây đã nạp). Danh sách hiện theo lượt 200 hàng (nạp
-/// sớm khi còn 50). Tìm theo từ gốc **và** nghĩa chạy nền, chờ 300 ms sau phím cuối, gõ tiếp thì huỷ lượt cũ, dừng ở 500
-/// kết quả. Ngăn kéo "…" có "Từ đã sửa / đã xoá" ⇒ danh sách Chung cũ (`DictionaryListView`, xem / khôi phục).
+/// VietPhrase cỡ triệu mục (1.3.1037): mở màn dựng **một lần** `BaseDictionaryIndex` ở nền — 200 khoá đầu hiện ngay khi
+/// có, phần sau nạp theo lượt 200 khi cuộn (sớm khi còn 50); nghĩa của hàng tra lúc hàng hiện (lớp sửa đổi trước, rồi cây
+/// đã nạp). Tìm theo từ gốc **và** nghĩa chạy trên chỉ mục đó (`BaseDictionaryBrowser.searchUpdates`), chờ 300 ms sau phím
+/// cuối, gõ tiếp thì huỷ lượt cũ, kết quả hiện dần, dừng ở 500. Chỉ mục chưa xong thì lượt tìm chờ. Ngăn kéo "…" có
+/// "Từ đã sửa / đã xoá" ⇒ danh sách Chung cũ (`DictionaryListView`, xem / khôi phục).
 struct GlobalBaseDictionaryListView: View {
     let type: DictType
 
@@ -21,13 +22,17 @@ struct GlobalBaseDictionaryListView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
 
     @State private var dictionary: FrozenTrieDictionary?
-    @State private var baseKeys: [String] = []
+    @State private var index: BaseDictionaryIndex?
+    @State private var isBuildingIndex = false
+    /// Khoá gốc đã dựng chuỗi theo thứ tự chỉ mục (chưa lọc từ đã xoá) — nối thêm khi cuộn.
+    @State private var pageKeys: [String] = []
     /// Từ chỉ có ở lớp sửa đổi (không có trong gốc) — tính lại khi lớp sửa đổi đổi, không tính mỗi lượt vẽ.
     @State private var addedKeys: [String] = []
     @State private var isLoadingKeys = true
     @State private var searchText = ""
     @State private var searchResult: BaseDictionaryBrowser.SearchResult?
     @State private var isSearching = false
+    /// Số khoá gốc cần có trong `pageKeys`.
     @State private var visibleCount = pageSize
     @State private var editingEntry: DictEntry?
     @State private var showingAddSheet = false
@@ -59,7 +64,7 @@ struct GlobalBaseDictionaryListView: View {
             let rows = displayedKeys(customValues: customValues, deleted: deleted)
             let prefetchId: String? = rows.keys.isEmpty ? nil : rows.keys[max(0, rows.keys.count - Self.prefetchDistance)]
             let lastId = rows.keys.last
-            let nextCount = rows.keys.count + Self.pageSize
+            let nextCount = pageKeys.count + Self.pageSize
 
             Section {
                 Text(summary(customValues: customValues, deleted: deleted))
@@ -76,10 +81,19 @@ struct GlobalBaseDictionaryListView: View {
                             }
                         }
                 }
+                if trimmedQuery.isEmpty, index == nil, isBuildingIndex, !pageKeys.isEmpty {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Đang đọc tiếp \(navTitle)…")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }.glassSheetRows() }
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm từ gốc hoặc nghĩa...")
-        .task(id: searchText) { await runSearch() }
+        .task(id: searchTaskID) { await runSearch() }
+        .onChange(of: visibleCount) { _, _ in fillPages() }
         .backPageTitle(navTitle)
         .floatingAddButton("Thêm từ mới") { showingAddSheet = true }
         .toolbar {
@@ -122,46 +136,62 @@ struct GlobalBaseDictionaryListView: View {
             .appGlassSheet()
         }
         .overlay {
-            if isLoadingKeys || isSearching {
-                ProgressView(isLoadingKeys ? "Đang đọc \(navTitle)…" : "Đang tìm…")
+            if let overlayTitle {
+                ProgressView(overlayTitle)
                     .padding(16)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
         }
-        .task { await loadKeys() }
+        .task { await loadIndex() }
         .onChange(of: customEntries) { _, _ in refreshAddedKeys() }
     }
 
     // MARK: - Dữ liệu hiển thị
 
-    /// Không tìm: từ tự thêm (chỉ ở lớp sửa đổi) trước, rồi khoá gốc chưa bị xoá — cắt ở `visibleCount`. Đang tìm: kết quả.
+    /// Vòng chờ giữa màn: chỉ khi chưa có gì để hiện (trang đầu chưa tới / lượt tìm chưa có kết quả nào).
+    private var overlayTitle: String? {
+        if isLoadingKeys && pageKeys.isEmpty { return "Đang đọc \(navTitle)…" }
+        if isSearching && (searchResult?.keys.isEmpty ?? true) { return "Đang tìm…" }
+        return nil
+    }
+
+    /// Lượt tìm chạy lại khi chữ đổi **hoặc** chỉ mục vừa xong (lượt gõ lúc chỉ mục đang dựng thì chờ).
+    private var searchTaskID: String {
+        "\(isWaitingForIndex ? 0 : 1)|\(searchText)"
+    }
+
+    private var isWaitingForIndex: Bool {
+        index == nil && (isLoadingKeys || isBuildingIndex)
+    }
+
+    /// Không tìm: từ tự thêm (chỉ ở lớp sửa đổi) trước, rồi khoá gốc chưa bị xoá đã dựng ở `pageKeys`. Đang tìm: kết quả.
     private func displayedKeys(customValues: [String: String], deleted: Set<String>) -> (keys: [String], hasMore: Bool) {
         if !trimmedQuery.isEmpty {
             // Từ vừa xoá sau lượt tìm thì ẩn luôn, không chờ tìm lại.
             return ((searchResult?.keys ?? []).filter { !deleted.contains($0) }, false)
         }
-        var keys = addedKeys
-        var index = 0
-        while keys.count < visibleCount, index < baseKeys.count {
-            let key = baseKeys[index]
-            index += 1
-            if !deleted.contains(key) { keys.append(key) }
-        }
-        return (keys, index < baseKeys.count)
+        let added = Set(addedKeys)
+        let base = pageKeys.filter { !deleted.contains($0) && !added.contains($0) }
+        let hasMore = index.map { pageKeys.count < $0.count } ?? isBuildingIndex
+        return (addedKeys + base, hasMore)
     }
 
     private func summary(customValues: [String: String], deleted: Set<String>) -> String {
-        if isLoadingKeys { return "Đang đọc \(navTitle)…" }
+        if isLoadingKeys && pageKeys.isEmpty { return "Đang đọc \(navTitle)…" }
         if !trimmedQuery.isEmpty {
             guard let searchResult else { return "Đang tìm \"\(trimmedQuery)\"…" }
+            if !searchResult.isComplete { return "Đang tìm \"\(trimmedQuery)\"… \(searchResult.keys.count) kết quả" }
             return searchResult.isCapped
                 ? "\(BaseDictionaryBrowser.searchLimit) kết quả đầu cho \"\(trimmedQuery)\""
                 : "\(searchResult.keys.count) kết quả cho \"\(trimmedQuery)\""
         }
-        if dictionary == nil { return "Chưa có \(navTitle) — nhập file ở thẻ \(isName ? "Name.txt" : "VietPhrase.txt")." }
+        guard let dictionary else {
+            return "Chưa có \(navTitle) — nhập file ở thẻ \(isName ? "Name.txt" : "VietPhrase.txt")."
+        }
         let added = addedKeys.count
         let edited = customValues.count - added
-        return "\(baseKeys.count + added) từ · \(edited) đã sửa · \(added) đã thêm · \(deleted.count) đã xoá"
+        let total = (index?.count ?? dictionary.wordCount) + added
+        return "\(total) từ · \(edited) đã sửa · \(added) đã thêm · \(deleted.count) đã xoá"
     }
 
     private func refreshAddedKeys() {
@@ -224,21 +254,40 @@ struct GlobalBaseDictionaryListView: View {
 
     // MARK: - Nạp + tìm
 
-    private func loadKeys() async {
+    /// `.task` chạy lại mỗi lần màn hiện lại (vd quay về từ "Từ đã sửa / đã xoá") ⇒ có chỉ mục / đang dựng thì thôi.
+    /// Lượt dựng không theo huỷ của `.task`: đi dở rồi quay lại vẫn nhận đúng một chỉ mục.
+    private func loadIndex() async {
         await cache.loadIfNeeded(type: type)
-        guard baseKeys.isEmpty else { return }
+        guard index == nil, !isBuildingIndex else { return }
         let loaded = BaseDictionaryBrowser.loadedDictionary(isName: isName)
         dictionary = loaded
         refreshAddedKeys()
-        if let loaded {
-            baseKeys = await Task.detached(priority: .userInitiated) {
-                BaseDictionaryBrowser.keys(of: loaded)
-            }.value
+        guard let loaded else {
+            isLoadingKeys = false
+            return
         }
+        isBuildingIndex = true
+        let built = await BaseDictionaryBrowser.buildIndex(of: loaded, label: navTitle, firstPageSize: Self.pageSize) { keys in
+            // Trang đầu có thể tới sau khi chỉ mục đã xong (`fillPages` đã điền) ⇒ chỉ nhận khi còn trống.
+            guard pageKeys.isEmpty else { return }
+            pageKeys = keys
+            isLoadingKeys = false
+        }
+        index = built
+        isBuildingIndex = false
         isLoadingKeys = false
+        fillPages()
     }
 
-    /// `.task(id: searchText)`: SwiftUI huỷ lượt cũ khi gõ tiếp ⇒ huỷ luôn task nền đang duyệt cây.
+    /// Dựng chuỗi cho khoá gốc tới `visibleCount` (theo thứ tự chỉ mục, nối tiếp `pageKeys`).
+    private func fillPages() {
+        guard let index else { return }
+        let target = min(index.count, visibleCount)
+        guard pageKeys.count < target else { return }
+        pageKeys.append(contentsOf: index.keys(in: pageKeys.count..<target))
+    }
+
+    /// `.task(id: searchTaskID)`: SwiftUI huỷ lượt cũ khi gõ tiếp ⇒ dòng kết quả ngắt ⇒ huỷ lượt quét nền.
     private func runSearch() async {
         let query = trimmedQuery
         guard !query.isEmpty else {
@@ -250,19 +299,21 @@ struct GlobalBaseDictionaryListView: View {
         guard !Task.isCancelled else { return }
         searchResult = nil
         isSearching = true
-        let snapshot = self.dictionary
-        let custom = customEntries.map { (key: $0.key, value: $0.value) }
-        let deleted = deletedKeys
-        let worker = Task.detached(priority: .userInitiated) {
-            BaseDictionaryBrowser.search(query, in: snapshot, custom: custom, deleted: deleted)
+        // Chỉ mục đang dựng ⇒ chờ: `searchTaskID` đổi khi xong, task chạy lại.
+        guard !isWaitingForIndex else { return }
+        let updates = BaseDictionaryBrowser.searchUpdates(
+            query,
+            index: index,
+            custom: customEntries.map { (key: $0.key, value: $0.value) },
+            deleted: deletedKeys,
+            workers: BaseDictionaryBrowser.meaningSearchWorkers(),
+            label: navTitle
+        )
+        for await update in updates {
+            guard !Task.isCancelled else { return }
+            searchResult = update
         }
-        let result = await withTaskCancellationHandler {
-            await worker.value
-        } onCancel: {
-            worker.cancel()
-        }
-        guard !Task.isCancelled, let result else { return }
-        searchResult = result
+        guard !Task.isCancelled else { return }
         isSearching = false
     }
 

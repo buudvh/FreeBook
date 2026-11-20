@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1037] - 2026-11-20
+
+### fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần
+
+Anh Bửu: "vietpharse tìm quá lâu, hiển thị ra cũng lâu, vì sao vậy?" → "tôi đang nói trong danh sách khi nhấn sửa ấy nhé" → plan → "Duyệt".
+
+- **Nguyên nhân**: mở màn duyệt **hết** cây và dựng `String` cho từng khoá (cỡ triệu) rồi mới hiện; mỗi lượt tìm dựng lại bảng con của cây (vài mảng cỡ triệu phần tử) và dựng `String` + `range(of:options: .caseInsensitive)` cho **từng nghĩa** — từ hiếm phải quét hết cây, kết quả chỉ hiện khi quét xong.
+- **Chỉ mục** `BaseDictionaryIndex` (`Models/Dictionaries/`, mới): dựng một lần mỗi lần mở màn ở nền — khoá dạng đơn vị UTF-16 nối liền một mảng + vị trí nghĩa trong pool `.dat`, thứ tự tiền thứ tự của cây như cũ. Phép duyệt **chép riêng** cùng phép tính của `walkEntries` (hàm đó giữ nguyên vì nuôi `allEntries` của nhập / gộp); không kiểm UTF-8 nghĩa lúc dựng (nghĩa hỏng hiện rỗng). 200 khoá đầu gửi về màn ngay khi có (`onFirstPage`), phần sau dựng chuỗi theo lượt 200 khi cuộn; tổng số từ lấy số mục chỉ mục (lúc đang dựng: `wordCount` ở đầu file). Lượt dựng không theo huỷ của `.task` (quay về từ "Từ đã sửa / đã xoá" không dựng lại).
+- **Tìm** `BaseDictionaryIndexSearch` (mới): lớp sửa đổi (như cũ) ⇒ khoá **bắt đầu bằng** ⇒ khoá **chứa** (quét tuyến tính mảng UTF-16, không dựng chuỗi) ⇒ **nghĩa** chứa, so trên byte bằng `BaseDictionaryMeaningMatcher` (parser UTF-8 của stdlib, hạ thường theo `lowercaseMapping` dưới U+2000, không bỏ dấu, chuỗi tìm NFC; nghĩa có dấu rời / NFD đi đường Foundation cũ), quét theo lượt chia 2–3 luồng (1 luồng khi NghiTTS / VieNeu đang đọc). Kết quả gửi dần qua `AsyncStream` (`BaseDictionaryBrowser.searchUpdates`), dòng tổng ghi "Đang tìm… N kết quả" khi chưa xong; gõ tiếp ⇒ huỷ lượt quét; chỉ mục chưa xong thì lượt tìm chờ rồi tự chạy. Mỗi khoá một lần trong kết quả.
+- Bỏ `FrozenTrieDictionary.allKeys()` và `BaseDictionaryBrowser.keys` / `search` cũ (không còn ai gọi). `walkEntries` / `allEntries` không đổi.
+- Log `📚 [VPList]` (số mục, ms dựng, ms tới trang đầu) và `🔎 [VPList]` (ms phần khoá / nghĩa, số luồng, số nghĩa phải so bằng Foundation, đối chiếu 1000 nghĩa đầu giữa đường byte và Foundation — số lệch phải là 0) để đo trên máy.
+- `translation.md`: sửa câu mô tả danh sách từ điển gốc. CHANGELOG: chuyển bản 1.3.1007 sang archive.
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy, chưa đo được nhanh lên bao nhiêu**. Cần thử: bật Ghi log, Cài đặt dịch thuật › thẻ VietPhrase.txt › Sửa — trang đầu phải hiện gần như ngay; tìm một chữ Hán, một chữ Việt hiếm, một chữ Việt thông dụng (vd "của"); gửi log.
+
 ## [1.3.1036] - 2026-11-20
 
 ### fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn
@@ -424,17 +438,3 @@ File: Views/Dictionary/GlobalBaseDictionaryListView.
 
 Chưa kiểm: chưa build, chưa chạy máy.
 
-## [1.3.1007] - 2026-11-19
-
-### feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi
-
-Trước: Cài đặt dịch thuật › thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách Chung cũ (DictionaryListView) — chỉ thấy lớp sửa đổi (CustomVietPhrase.txt / CustomNames.txt), không thấy từ nào của VietPhrase.dat / Names.dat.
-Nay (anh Bửu: "Sửa vietphrase thì hiển thị danh sách của vietphrase.dat chứ không phải custom vietphrase nhé"; chọn "Lớp sửa đổi, hiện chung", Name cũng vậy):
-- GlobalBaseDictionaryListView (mới): danh sách từ điển gốc với **nghĩa hiệu lực** = .dat + lớp sửa đổi Chung — từ đã sửa hiện nghĩa mới + nhãn "đã sửa"; từ đã xoá (tombstone) ẩn; từ chỉ có ở lớp sửa đổi (tự thêm) đứng đầu, nhãn "đã thêm". Kiểu hàng VP/Name (.headline khoá, .subheadline nghĩa màu phụ), chạm thân hàng ⇒ DictEntrySheet chế độ sửa (như DictionaryListView), icon Xoá, "+" nổi thêm từ, .backPageTitle("VietPhrase.dat" / "Names.dat"), .searchable(..., placement: .navigationBarDrawer(displayMode: .always), prompt:). Ngăn kéo "…" có "Từ đã sửa / đã xoá" ⇒ đẩy DictionaryListView Chung cũ (xem / khôi phục).
-- Lưu / xoá / thêm **chỉ** ghi lớp sửa đổi Chung qua đường có sẵn DictionaryCache.upsertEntry / deleteEntry ⇒ TranslationManager.saveCustomEntry / deleteCustomEntry (scope .term ⇒ Reader / TTS dịch lại); không ghi lại .dat. Xoá một từ gốc = tombstone (ẩn khỏi danh sách), xoá từ tự thêm = bỏ hẳn.
-- Hiệu năng (VietPhrase cỡ triệu mục): mở màn đọc **mảng khoá** một lần ở nền (vòng quay "Đang đọc VietPhrase.dat…") từ cây đã nạp — FrozenTrieDictionary+Walk (mới): walkEntries duyệt cây tiền thứ tự chỉ giữ đường đi hiện tại (bộ nhớ O(độ sâu)) và allKeys() không giữ nghĩa; allEntries() cũng chuyển sang walkEntries (cùng tập entry, thứ tự nay là tiền thứ tự của cây — khoá cha trước khoá con; bớt các mảng nút cỡ triệu phần tử khi xuất / gộp). Nghĩa của hàng tra lúc hàng hiện (lớp sửa đổi trước, rồi cây). Danh sách hiện theo lượt 200 hàng (nạp sớm khi còn 50). Tìm theo từ gốc **và** nghĩa (BaseDictionaryBrowser.search, Service mới): chạy nền, chờ 300 ms sau phím cuối, gõ tiếp thì huỷ lượt cũ (huỷ cả task nền đang duyệt cây), dừng ở 500 kết quả — dòng tổng ghi "500 kết quả đầu".
-- Danh sách VP / Name Chung cũ vẫn mở từ Từ điển của truyện như trước; Nhập / Xuất / Xoá của thẻ không đổi.
-
-File: Models/Dictionaries/{FrozenTrieDictionary, FrozenTrieDictionary+Walk (mới)}, Services/Translation/Manager/BaseDictionaryBrowser (mới), Views/Dictionary/GlobalBaseDictionaryListView (mới), Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController (chỉ comment)}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần đo trên máy thời gian / RAM khi đọc mảng khoá VietPhrase cỡ triệu mục và tốc độ tìm theo nghĩa. Thứ tự hàng là thứ tự cây (gần theo chữ, không sắp xếp lại). File .txt xuất từ thẻ (GlobalDictionaryTextExporter) nay ra theo thứ tự cây mới — cùng nội dung, khác thứ tự dòng.

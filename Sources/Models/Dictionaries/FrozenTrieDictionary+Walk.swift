@@ -1,7 +1,8 @@
 import Foundation
 
-/// Duyệt **toàn bộ** entry của kho mà không dựng mảng cặp khoá–nghĩa: nền của `allEntries()` và của danh sách từ điển gốc
-/// VietPhrase / Names (cỡ triệu mục — chỉ cần mảng khoá, hoặc tìm rồi dừng sớm).
+/// Duyệt **toàn bộ** entry của kho mà không dựng mảng cặp khoá–nghĩa: nền của `allEntries()` (nhập / gộp từ điển — số mục
+/// phải khớp `wordCount`, đừng đổi phép duyệt này). Danh sách từ điển gốc dùng chỉ mục riêng `BaseDictionaryIndex`
+/// (1.3.1037, chép cùng phép tính) thay cho `allKeys()` cũ.
 ///
 /// Với kho `.dat`: cạnh `state → next` tồn tại khi `next = base[state] + code` và `check[next] == state`; nút kết thúc của
 /// `next` là `base[next]` khi `check[base[next]] == next` và `base[base[next]] >= 0`, nghĩa nằm ở `poolOffset + base[base[next]]`
@@ -83,16 +84,5 @@ extension FrozenTrieDictionary {
             }
             stack.append((next, Int(childOffset[next])))
         }
-    }
-
-    /// Mọi khoá (không giữ nghĩa) — mảng khoá của danh sách từ điển gốc.
-    func allKeys() -> [String] {
-        var keys: [String] = []
-        keys.reserveCapacity(wordCount)
-        walkEntries(decodeValues: false) { key, _ in
-            keys.append(key)
-            return true
-        }
-        return keys
     }
 }
