@@ -35,6 +35,10 @@ enum HeaderMetrics {
     /// Khung chạm nút back.
     static let backFrameWidth: CGFloat = 38
     static let backFrameHeight: CGFloat = 44
+    /// Mũi back **lùi ra ngoài lề** chừng này (1.3.1026): log đo trên máy cho thấy mũi back hệ thống nằm ở `lề − 8`
+    /// (x=12 trên máy 414pt lề 20, x=8 trên máy 390pt lề 16) ⇒ mũi back tự dựng (`HeaderBackButton`) lùi theo để mọi
+    /// mũi back cùng một chỗ.
+    static let backChevronOutdent: CGFloat = 8
 
     // MARK: - Tiêu đề
 

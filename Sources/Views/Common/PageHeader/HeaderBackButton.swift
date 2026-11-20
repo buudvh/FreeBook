@@ -1,8 +1,10 @@
 import SwiftUI
 
 /// Nút back **tự dựng** dùng chung (1.3.1017): mũi giống nút back hệ thống (`chevron.backward` 17pt nửa đậm, cỡ ảnh
-/// lớn), khung chạm 38×44, **mũi canh trái** trong khung ⇒ đặt sát lề (ô `topBarLeading` của thanh hệ thống, hoặc header
-/// tự dựng có `.padding(.horizontal, HeaderMetrics.horizontalMargin)`) thì mũi chạm lề, thẳng hàng với nội dung bên dưới.
+/// lớn), khung chạm 38×44, **mũi canh trái** trong khung. Đặt sát lề (ô `topBarLeading` của thanh hệ thống, hoặc header
+/// tự dựng có `.padding(.horizontal, HeaderMetrics.horizontalMargin)`) thì mũi nằm ở `lề − 8` — **đúng chỗ mũi back hệ
+/// thống** (1.3.1026, đo trên máy: hệ thống x=12 khi lề 20): nút lùi `HeaderMetrics.backChevronOutdent` ra ngoài khung bố
+/// cục (bề ngang bố cục còn 30pt, vùng chạm vẫn 38pt).
 ///
 /// Dùng cho: trang con trong sheet (`PageTitleModifier` khi có `\.sheetPageBack`), trang trình bày bằng UIKit có nút back
 /// riêng, header Reader / truyện tranh, sheet hub. Nút thu nhỏ `chevron.down` / đóng `xmark` của màn phim, màn nghe là **icon thường**
@@ -34,5 +36,6 @@ struct HeaderBackButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+        .padding(.leading, -HeaderMetrics.backChevronOutdent)
     }
 }

@@ -81,6 +81,8 @@ struct LogSettingsView: View {
             Section {
                 LabeledContent("File đang mở", value: "\(openFileCount) / \(openFileLimit)")
                 Toggle("Tự dọn file mở thừa", isOn: $isFDSweeperEnabled)
+                // TẠM (1.3.1026): màn tự thử nhịp dọc header — gỡ cùng thư mục `HeaderSpacingLab/` khi đã áp xong.
+                NavigationLink("Thử nhịp dọc header") { HeaderSpacingLabView() }
             } header: {
                 SectionHelpHeader("Chẩn Đoán", paragraphs: ["Nghe TTS lâu ở nền có thể làm app mở thừa hàng nghìn file rồi lỗi đọc chương. Bật thì app tự đóng các bản mở thừa (không đụng database). Tắt nếu thấy lỗi lạ."])
             }
