@@ -28,17 +28,13 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         let url: URL
     }
 
+    /// Bộ chọn file "Nhập file rule" — chọn xong mới hiện popup chọn cách nhập kèm tên file (`dataImportFilePicker`).
     @State private var showingImporter = false
-    /// Popup 3 cách nhập (chọn trước) ⇒ bộ chọn file ⇒ ghi theo `pendingImportMode`.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode = .overwriteExisting
     @State private var showingDeleteConfirm = false
     @State private var sharedFile: SharedFile? = nil
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
 
     @State var showingDisabledImporter = false
-    @State var showingDisabledImportModes = false
-    @State var pendingDisabledMode: DataImportMode = .overwriteExisting
     @State var showingReenableConfirm = false
     @State var showingDeleteDisabledConfirm = false
 
@@ -83,7 +79,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 if showingDisabled {
                     disabledRuleMenuItems
                 } else {
-                    SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImportModes = true }
+                    SideDrawerActionRow("Nhập file rule (.txt)", systemImage: "square.and.arrow.down") { showingImporter = true }
                     // Một file, đã bỏ rule đang tắt (`QuickTranslationRuleExporter`) — không còn xuất danh sách tắt riêng.
                     SideDrawerActionRow("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up") { exportRules() }
                         .disabled(!hasRuleFile)
@@ -99,24 +95,21 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     .disabled(!hasRuleFile)
                 }
             }
-            .background(
-                DocumentPickerPresenter(
-                    isPresented: $showingImporter,
-                    allowedContentTypes: [.plainText, .text],
-                    allowsMultipleSelection: false,
-                    onPick: { urls in readImport(from: urls.first) },
-                    onCancel: nil
-                )
-            )
-            .background(
-                DocumentPickerPresenter(
-                    isPresented: $showingDisabledImporter,
-                    allowedContentTypes: [.plainText, .text],
-                    allowsMultipleSelection: false,
-                    onPick: { urls in readDisabledImport(from: urls.first) },
-                    onCancel: nil
-                )
-            )
+            // Chọn file trước, popup chọn cách nhập hiện sau kèm tên file.
+            .dataImportFilePicker(
+                isPresented: $showingImporter,
+                allowedContentTypes: [.plainText, .text],
+                title: "Nhập bộ rule \(scopeLabel)"
+            ) { url, mode in
+                readImport(from: url, mode: mode)
+            }
+            .dataImportFilePicker(
+                isPresented: $showingDisabledImporter,
+                allowedContentTypes: [.plainText, .text],
+                title: "Nhập danh sách rule tắt (bộ \(scopeLabel))"
+            ) { url, mode in
+                readDisabledImport(from: url, mode: mode)
+            }
             .sheet(item: $sharedFile) { file in
                 ShareSheet(activityItems: [file.url]) { _, completed, _, error in
                     if completed {
@@ -125,14 +118,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                         ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                     }
                 }
-            }
-            .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập bộ rule \(scopeLabel)") { mode in
-                pendingImportMode = mode
-                showingImporter = true
-            }
-            .dataImportModePopup(isPresented: $showingDisabledImportModes, title: "Nhập danh sách rule tắt (bộ \(scopeLabel))") { mode in
-                pendingDisabledMode = mode
-                showingDisabledImporter = true
             }
             .confirmationDialog(
                 "Xoá bộ rule \(scopeLabel)\(scope.bookId == nil ? " khỏi máy" : " của truyện")?",
@@ -193,9 +178,8 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
 
     // MARK: - Thao tác
 
-    /// Chế độ đã chọn ở popup **trước** khi chọn file ⇒ đọc file rồi ghi luôn, toast "thêm X, cập nhật Y".
-    private func readImport(from url: URL?) {
-        guard let url else { return }
+    /// File + cách nhập đã chọn (popup hiện **sau** bộ chọn file) ⇒ đọc file rồi ghi luôn, toast "thêm X, cập nhật Y".
+    private func readImport(from url: URL, mode: DataImportMode) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
@@ -205,7 +189,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             return
         }
 
-        let mode = pendingImportMode
         let preview = QuickTranslationRuleRecordStore.importCounts(current: currentSourceText ?? "", imported: text, mode: mode)
         let outcome: QuickTranslationRuleStore.LoadOutcome
         switch scope {

@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 /// Sheet chọn truyện đích để chia sẻ từ điển riêng (hoặc cả bộ rule riêng) từ truyện này sang truyện khác.
-/// Chọn truyện ⇒ popup 3 cách nhập vào truyện đích (`dataImportModePopup`, nút cuối "Chia sẻ") ⇒
+/// Chọn truyện **trước** ⇒ popup 3 cách nhập vào truyện đích (`dataImportModePopup`, tên truyện đã chọn ở dòng dưới tiêu
+/// đề, nút cuối "Chia sẻ") ⇒
 /// `onConfirm(truyện, chế độ)` rồi đóng sheet.
 struct BookShareTargetSheet: View {
     @Environment(\.modelContext) private var modelContext
@@ -73,7 +74,8 @@ struct BookShareTargetSheet: View {
             .presentationDragIndicator(.visible)
             .dataImportModePopup(
                 isPresented: $showingModeDialog,
-                title: "Chia sẻ sang \(pendingTitle)",
+                title: "Chia sẻ sang truyện khác",
+                message: pendingTitle,
                 confirmTitle: "Chia sẻ",
                 confirmSystemImage: "arrowshape.turn.up.right"
             ) { mode in

@@ -2,8 +2,9 @@ import SwiftUI
 import SwiftData
 
 /// Sheet chọn truyện nguồn để nhập từ điển riêng từ truyện khác vào truyện hiện tại.
-/// Chọn truyện ⇒ popup 3 cách nhập (`dataImportModePopup`, nút cuối "Nhập" vì không chọn file) ⇒ `onConfirm(truyện, chế độ)`
-/// rồi đóng sheet; bên gọi ghi qua `TranslationDictionaryWriter.importEntries(mode:)`.
+/// Chọn truyện **trước** ⇒ popup 3 cách nhập (`dataImportModePopup`, tên truyện đã chọn ở dòng dưới tiêu đề — như tên file
+/// của `dataImportFilePicker`) ⇒ `onConfirm(truyện, chế độ)` rồi đóng sheet; bên gọi ghi qua
+/// `TranslationDictionaryWriter.importEntries(mode:)`.
 struct BookImportSourceSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -73,7 +74,8 @@ struct BookImportSourceSheet: View {
             .presentationDragIndicator(.visible)
             .dataImportModePopup(
                 isPresented: $showingModeDialog,
-                title: "Nhập từ \(pendingTitle)",
+                title: "Nhập từ truyện khác",
+                message: pendingTitle,
                 confirmTitle: "Nhập",
                 confirmSystemImage: "arrow.down.doc"
             ) { mode in

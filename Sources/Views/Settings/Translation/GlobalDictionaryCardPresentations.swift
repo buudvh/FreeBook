@@ -2,28 +2,21 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Mọi thứ trình bày của 5 thẻ Từ điển chung, gắn ở **thân** màn Cài đặt dịch thuật (không gắn trong ô lưới của
-/// `Form`): popup chọn cách nhập (3 lựa chọn, `dataImportModePopup` — xong mới mở bộ chọn file), bộ chọn file, bảng chia
-/// sẻ file xuất (đóng ⇒ xoá file tạm), hộp xác nhận xoá và trang "Sửa" (`navigationDestination(item:)`).
+/// `Form`): bộ chọn file của "Nhập file" + popup chọn cách nhập hiện **sau** khi chọn file, kèm tên file
+/// (`dataImportFilePicker`), bảng chia sẻ file xuất (đóng ⇒ xoá file tạm), hộp xác nhận xoá và trang "Sửa"
+/// (`navigationDestination(item:)`).
 struct GlobalDictionaryCardPresentations: ViewModifier {
     @ObservedObject var controller: GlobalDictionaryCardController
 
     func body(content: Content) -> some View {
         content
-            .dataImportModePopup(
-                isPresented: $controller.showingImportModes,
+            .dataImportFilePicker(
+                isPresented: $controller.showingFilePicker,
+                allowedContentTypes: [.plainText, .text],
                 title: "Nhập \(controller.importKind.title)"
-            ) { mode in
-                controller.confirmImportMode(mode)
+            ) { url, mode in
+                controller.importFile(url, mode: mode)
             }
-            .background(
-                DocumentPickerPresenter(
-                    isPresented: $controller.showingFilePicker,
-                    allowedContentTypes: [.plainText, .text],
-                    allowsMultipleSelection: false,
-                    onPick: { urls in controller.handlePickedFile(urls.first) },
-                    onCancel: nil
-                )
-            )
             .sheet(item: $controller.sharedExport, onDismiss: { controller.cleanUpSharedExport() }) { export in
                 ShareSheet(activityItems: [export.url]) { _, completed, _, error in
                     if completed {

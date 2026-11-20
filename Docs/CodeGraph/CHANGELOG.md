@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1013] - 2026-11-19
+
+### feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file
+
+Trước: mọi chỗ nhập file của phân hệ dịch hiện popup 3 cách nhập (Thay thế toàn bộ / Gộp / Chỉ thêm key mới) **trước**, chọn xong mới mở bộ chọn file; popup không biết file nào sẽ được nhập. Hai sheet chọn truyện ("Nhập từ truyện khác" / "Chia sẻ sang truyện khác") đã chọn truyện trước nhưng tên truyện nằm lẫn trong tiêu đề popup.
+Nay (anh Bửu: "popup option nhập file hiển thị sau khi nhập file, hiển thị tên file nhập ở phần mô tả dưới tiêu đề nhập"): dùng khung chung `.dataImportFilePicker` (1ea15164) — hàng "Nhập file…" chỉ mở bộ chọn file; chọn xong mới hiện popup chọn cách nhập, tên file ở dòng dưới tiêu đề, nút "Nhập"; huỷ chọn file / chạm ra ngoài popup ⇒ không nhập. Logic 3 chế độ, toast "thêm X, cập nhật Y", chặn lúc đang nhập và loại file cho phép giữ nguyên:
+- 5 thẻ Từ điển chung (GlobalDictionaryCardPresentations + GlobalDictionaryCardController: requestImport chỉ mở bộ chọn file, importFile(url, mode:) thay handlePickedFile / confirmImportMode / pendingMode).
+- Danh sách VP / Name (DictionaryListView, Nhập từ điển — .plainText như cũ).
+- Danh sách Phiên âm / Pronouns (BaseDictionaryListView; importFile(url, mode:) thêm chặn khi đang nhập).
+- Danh sách rule 3 bộ: Nhập file rule và Nhập file rule tắt (QuickTranslationRuleIOMenu + DisabledActions: readImport / readDisabledImport nhận url + mode).
+- Bỏ các .dataImportModePopup + DocumentPickerPresenter riêng + state chế độ chờ cũ ở những chỗ trên.
+- BookImportSourceSheet / BookShareTargetSheet (không qua file, vẫn chọn truyện trước): popup tiêu đề "Nhập từ truyện khác" / "Chia sẻ sang truyện khác", tên truyện đã chọn ở dòng dưới tiêu đề (message:).
+Danh sách VietPhrase.dat / Names.dat không có nhập nên không đổi.
+
+File: Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController, QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions}, Views/Dictionary/{DictionaryListView, DictionaryListView+Transfer (chỉ comment), BaseDictionaryListView, BookImportSourceSheet, BookShareTargetSheet}, .claude/rules/translation.md.
+
+Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần thử popup hiện đúng sau khi bộ chọn file đóng ở cả màn đẩy (Cài đặt, danh sách) lẫn danh sách mở trong sheet (hub Từ điển của Reader), và hai bộ chọn file của menu rule (rule / rule tắt) gắn cùng một view không lẫn nhau.
+
 ## [1.3.1012] - 2026-11-19
 
 ### feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file

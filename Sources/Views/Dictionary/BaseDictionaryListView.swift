@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 /// Danh sách **sửa thẳng từ điển gốc** PhienAm (`ChinesePhienAmWords.txt`) hoặc Pronouns (`Pronouns.dat`) — mở từ thẻ
 /// PhienAm.txt / Pronouns.txt › Sửa ở Cài đặt dịch thuật. Hàng kiểu VP/Name (`DictionaryEntryRow`): dòng 1 `.headline`
 /// từ gốc, dòng 2 `.subheadline` nghĩa màu phụ, icon [Xoá]; **chạm thân hàng** mở sheet sửa. "+" nổi thêm mục; ngăn
-/// kéo "…" có Nhập file (popup 3 cách nhập ⇒ `GlobalDictionaryImporter`) / Xuất file (`GlobalDictionaryTextExporter`).
+/// kéo "…" có Nhập file (chọn file trước, popup 3 cách nhập sau kèm tên file — `dataImportFilePicker` ⇒
+/// `GlobalDictionaryImporter`) / Xuất file (`GlobalDictionaryTextExporter`).
 ///
 /// Khác VP / Name Chung (chỉ lớp custom): ở đây lưu là ghi **cả file gốc** qua `GlobalDictionaryEditor` (dựng lại
 /// `.dat` / ghi lại text, nạp lại riêng từ điển đó, xoá cache dịch). Nhập file cũng đi qua hàng đợi đó; trong lúc nhập,
@@ -28,9 +29,7 @@ struct BaseDictionaryListView: View {
     @State private var editingEntry: DictEntry?
     @State private var showingAddSheet = false
     @State private var showingOptionsMenu = false
-    @State private var showingImportModes = false
     @State private var showingFilePicker = false
-    @State private var pendingImportMode: DataImportMode = .overwriteExisting
     @State private var isImporting = false
     @State private var sharedExport: SharedExport?
 
@@ -91,7 +90,7 @@ struct BaseDictionaryListView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: navTitle) {
-            SideDrawerActionRow("Nhập file (\(kind.title))", systemImage: "square.and.arrow.down") { showingImportModes = true }
+            SideDrawerActionRow("Nhập file (\(kind.title))", systemImage: "square.and.arrow.down") { showingFilePicker = true }
                 .disabled(isImporting)
             SideDrawerActionRow("Xuất file (\(kind.title))", systemImage: "square.and.arrow.up") { exportFile() }
                 .disabled(entries.isEmpty)
@@ -121,19 +120,13 @@ struct BaseDictionaryListView: View {
                 }
             }
         }
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập \(kind.title)") { mode in
-            pendingImportMode = mode
-            showingFilePicker = true
+        .dataImportFilePicker(
+            isPresented: $showingFilePicker,
+            allowedContentTypes: [.plainText, .text],
+            title: "Nhập \(kind.title)"
+        ) { url, mode in
+            importFile(url, mode: mode)
         }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFilePicker,
-                allowedContentTypes: [.plainText, .text],
-                allowsMultipleSelection: false,
-                onPick: { urls in importFile(urls.first) },
-                onCancel: nil
-            )
-        )
         .overlay {
             if isImporting {
                 ProgressView("Đang nhập…")
@@ -213,9 +206,9 @@ struct BaseDictionaryListView: View {
         }
     }
 
-    private func importFile(_ url: URL?) {
-        guard let url else { return }
-        let mode = pendingImportMode
+    /// File + cách nhập đã chọn (popup hiện sau bộ chọn file, chạy khi popup đóng hẳn).
+    private func importFile(_ url: URL, mode: DataImportMode) {
+        guard !isImporting else { return }
         isImporting = true
         Task {
             do {

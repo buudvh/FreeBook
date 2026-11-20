@@ -36,9 +36,6 @@ struct DictionaryListView: View {
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var selectedTab: DictViewTab = .custom
-    /// Popup 3 cách nhập (chọn trước, rồi mới mở bộ chọn file) + chế độ vừa chọn.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode = .overwriteExisting
     @State private var showingShareBookSheet = false
     @State private var showingImportBookSheet = false
 
@@ -93,7 +90,7 @@ struct DictionaryListView: View {
     @ViewBuilder
     private var optionsMenuItems: some View {
         SideDrawerActionRow("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down") {
-            showingImportModes = true
+            showingFileImporter = true
         }
         if !isGlobal {
             SideDrawerActionRow("Chia sẻ sang truyện khác", systemImage: "arrowshape.turn.up.right") { showingShareBookSheet = true }
@@ -222,23 +219,9 @@ struct DictionaryListView: View {
         .task {
             await loadData()
         }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.plainText],
-                allowsMultipleSelection: false,
-                onPick: { urls in
-                    guard let url = urls.first else { return }
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                    importFile(from: url, mode: pendingImportMode)
-                },
-                onCancel: nil
-            )
-        )
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập \(navTitle)") { mode in
-            pendingImportMode = mode
-            showingFileImporter = true
+        // Chọn file trước, popup chọn cách nhập hiện sau kèm tên file.
+        .dataImportFilePicker(isPresented: $showingFileImporter, allowedContentTypes: [.plainText], title: "Nhập \(navTitle)") { url, mode in
+            importFile(from: url, mode: mode)
         }
     }
 

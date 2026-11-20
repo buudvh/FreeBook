@@ -42,7 +42,7 @@ final class GlobalDictionaryCardController: ObservableObject {
         var id: String { url.absoluteString }
     }
 
-    @Published var showingImportModes = false
+    /// Bộ chọn file của mục "Nhập file" — chọn xong mới hiện popup chọn cách nhập (`dataImportFilePicker`).
     @Published var showingFilePicker = false
     @Published var importKind: Kind = .vietPhrase
     @Published var sharedExport: SharedExport?
@@ -51,7 +51,6 @@ final class GlobalDictionaryCardController: ObservableObject {
     /// Trang "Sửa" đang đẩy (`navigationDestination(item:)`).
     @Published var editKind: Kind?
 
-    private var pendingMode: DataImportMode = .overwriteExisting
     private let importState = TranslationImportState.shared
 
     // MARK: - Trạng thái thẻ
@@ -67,21 +66,15 @@ final class GlobalDictionaryCardController: ObservableObject {
 
     // MARK: - Nhập
 
+    /// Mục "Nhập file": mở bộ chọn file **trước**; chọn xong popup hỏi cách nhập kèm tên file (`dataImportFilePicker`).
     func requestImport(_ kind: Kind) {
         importKind = kind
-        showingImportModes = true
-    }
-
-    /// Popup đã đóng hẳn (`dataImportModePopup`) ⇒ mở bộ chọn file ngay.
-    func confirmImportMode(_ mode: DataImportMode) {
-        pendingMode = mode
         showingFilePicker = true
     }
 
-    func handlePickedFile(_ url: URL?) {
-        guard let url else { return }
+    /// File đã chọn + cách nhập đã chọn ở popup (chạy sau khi popup đóng hẳn).
+    func importFile(_ url: URL, mode: DataImportMode) {
         let kind = importKind
-        let mode = pendingMode
         if kind == .rules {
             importRules(from: url, mode: mode)
             return

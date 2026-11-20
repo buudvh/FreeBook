@@ -129,7 +129,7 @@ extension DictionaryListView {
         }
     }
 
-    /// Nhập file (chọn sau popup 3 cách nhập của ngăn kéo "…").
+    /// Nhập file: ngăn kéo "…" mở bộ chọn file trước, chọn xong popup hỏi cách nhập kèm tên file (`dataImportFilePicker`).
     func importFile(from url: URL, mode: DataImportMode) {
         Task {
             do {

@@ -13,15 +13,15 @@ extension QuickTranslationRuleIOMenu {
     /// Các hàng ngăn kéo "…" khi đang ở tab Đã tắt.
     @ViewBuilder
     var disabledRuleMenuItems: some View {
-        SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImportModes = true }
+        SideDrawerActionRow("Nhập file rule tắt (.txt)", systemImage: "square.and.arrow.down") { showingDisabledImporter = true }
         SideDrawerActionRow("Bật lại tất cả rule đã tắt", systemImage: "play.circle") { showingReenableConfirm = true }
             .disabled(isDisabledListEmpty)
         SideDrawerActionRow("Xoá tất cả rule đã tắt", systemImage: "trash", role: .destructive) { showingDeleteDisabledConfirm = true }
             .disabled(isDisabledListEmpty)
     }
 
-    func readDisabledImport(from url: URL?) {
-        guard let url else { return }
+    /// File + cách nhập đã chọn (popup hiện sau bộ chọn file, `dataImportFilePicker`).
+    func readDisabledImport(from url: URL, mode: DataImportMode) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
@@ -31,9 +31,8 @@ extension QuickTranslationRuleIOMenu {
             return
         }
 
-        // Chế độ đã chọn ở popup trước khi chọn file. Danh sách chỉ có khoá: "Gộp" và "Chỉ thêm key mới" cùng kết quả.
+        // Danh sách chỉ có khoá: "Gộp" và "Chỉ thêm key mới" cùng kết quả.
         let imported = QuickTranslationRuleDisableFile.parse(text)
-        let mode = pendingDisabledMode
         let preview = QuickTranslationRuleDisableFile.importPreview(current: currentDisabledPatterns, imported: imported)
         let outcome = QuickTranslationRuleDisableStore.shared.importPatterns(
             imported: imported,
