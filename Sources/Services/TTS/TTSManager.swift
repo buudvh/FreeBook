@@ -2768,7 +2768,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         if AppLogger.shared.isLoggingEnabled {
-            AppLogger.shared.log("🔊 [TTSPerf] NghiHandoff index=\(item.paragraphIndex) prevTail=…\(item.paragraphIndex > 0 && item.paragraphIndex <= paragraphs.count ? String(paragraphs[item.paragraphIndex - 1].text.suffix(12)) : "—") nextHead=\(item.paragraphIndex >= 0 && item.paragraphIndex < paragraphs.count ? String(paragraphs[item.paragraphIndex].text.prefix(12)) : "—")…")
+            AppLogger.shared.log("🔊 [TTSPerf] NghiHandoff index=\(item.paragraphIndex) delayMs=\(nghiAudioPlayerQueue.lastHandoffDelayMs.map { String(format: "%.0f", $0) } ?? "—") prevTail=…\(item.paragraphIndex > 0 && item.paragraphIndex <= paragraphs.count ? String(paragraphs[item.paragraphIndex - 1].text.suffix(12)) : "—") nextHead=\(item.paragraphIndex >= 0 && item.paragraphIndex < paragraphs.count ? String(paragraphs[item.paragraphIndex].text.prefix(12)) : "—")…")
         }
     }
 

@@ -194,33 +194,29 @@ check_bridge() {
   done
 }
 
-# TẠM THỜI (1.3.1034): đo mức to Google TTS vs vtts để chọn mốc cho `VttsLoudness` — xoá khi đã chốt mốc. Không bao giờ
-# làm đỏ build. vtts đọc cùng đoạn truyện dài với `tts_loudness_probe.py` (đoạn văn lấy từ chính script đó).
-probe_loudness() {
-  local entry voice name paragraph wav
-  local probes=()
-  echo "▶ vtts: đo mức to so với Google TTS (tạm thời)"
-  paragraph="$("$PY" -c 'import importlib.util, sys
-spec = importlib.util.spec_from_file_location("probe", sys.argv[1])
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
-print(module.PARAGRAPH)' "$CI_DIR/tts_loudness_probe.py")" || { echo "::warning::không đọc được đoạn đo"; return 0; }
+# TẠM THỜI (1.3.1035): dựng câu anh Bửu nghe thấy "xoẹt" / "vụt" ở dấu phẩy để so tai — cả câu ở 1× và ở tốc độ gốc 1,8×
+# (`--speed` của vtts_say là `length_scale`: 1/1,8 ≈ 0,5556 — vtts tự đọc nhanh, trình phát không phải kéo), cùng hai mảnh
+# như khi app cắt ở 150 ký tự. WAV ⇒ artifact `vtts-samples`. Không bao giờ làm đỏ build; xoá khi đã chốt cách đọc nhanh.
+LISTEN_SENTENCE="Minh Châu thì thầm một tiếng, lúc này dùng huyễn thuật tiến vào kia đầu niêm trí nhớ của cá, nhìn thấy cái này đầu Cá Trê Thổ Nạp Thuật phiên bản, đem mệnh danh là “Cá Trê Thổ Nạp Thuật”."
+LISTEN_PART1="Minh Châu thì thầm một tiếng, lúc này dùng huyễn thuật tiến vào kia đầu niêm trí nhớ của cá, nhìn thấy cái này đầu Cá Trê Thổ Nạp Thuật phiên bản,"
+LISTEN_PART2="đem mệnh danh là “Cá Trê Thổ Nạp Thuật”."
+
+render_listening_samples() {
+  local entry voice name
+  echo "▶ vtts: dựng câu nghe thử (tạm thời)"
   for entry in "${VOICES[@]}"; do
     read -r voice name <<< "$entry"
-    wav="$SMOKE_DIR/long-$voice.wav"
-    if "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$wav" --lex "$LEX" --lang auto "$paragraph" > /dev/null; then
-      probes+=("$voice=$wav")
-    else
-      echo "::warning::vtts_say ($voice) không đọc được đoạn đo"
-    fi
+    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-1x.wav" --lex "$LEX" --lang auto       "$LISTEN_SENTENCE" > /dev/null || echo "::warning::vtts_say ($voice) 1× lỗi"
+    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-goc18.wav" --lex "$LEX" --lang auto --speed 0.5556       "$LISTEN_SENTENCE" > /dev/null || echo "::warning::vtts_say ($voice) tốc độ gốc lỗi"
+    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-manh1.wav" --lex "$LEX" --lang auto       "$LISTEN_PART1" > /dev/null || echo "::warning::vtts_say ($voice) mảnh 1 lỗi"
+    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-manh2.wav" --lex "$LEX" --lang auto       "$LISTEN_PART2" > /dev/null || echo "::warning::vtts_say ($voice) mảnh 2 lỗi"
   done
-  # `${a[@]+…}`: bash 3.2 của macOS coi mảng rỗng là biến chưa đặt dưới `set -u`.
-  "$PY" "$CI_DIR/tts_loudness_probe.py" "$SMOKE_DIR" ${probes[@]+"${probes[@]}"} || true
+  ls -l "$SMOKE_DIR"/nghe-*.wav 2>/dev/null || true
 }
 
 mkdir -p "$WORK_DIR" "$SMOKE_DIR"
 check_hashes
 check_vtts_say
 check_bridge
-probe_loudness
+render_listening_samples
 echo "▶ vtts: tài sản + runtime + shim OK (commit $(cat "$VENDOR_DIR/VTTS_COMMIT.txt"))"

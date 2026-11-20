@@ -12,7 +12,7 @@ extension TTSSettingsView {
         Text("vtts Việt–Anh (Offline)").tag(TTSManager.VttsSettings.tool)
     }
 
-    /// "Tải trước dữ liệu" của vtts: chỉ **độ dài phân đoạn** (khoá `vttsChunk`, mặc định 150). Có tác dụng thật —
+    /// "Tải trước dữ liệu" của vtts: chỉ **độ dài phân đoạn** (khoá `vttsChunk`, mặc định 500 từ 1.3.1035). Có tác dụng thật —
     /// `TTSManager.playbackParagraphs` cắt đoạn của engine local bằng `NghiUtteranceSegmenter` theo `chunkLength`. Không có
     /// số đoạn tải trước (engine local nạp theo ngưỡng giây, không theo số đoạn) và ngưỡng đệm dùng chung NghiTTS.
     var vttsPrefetchSection: some View {

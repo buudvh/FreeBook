@@ -42,6 +42,9 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     private var nextPlayer: AVAudioPlayer?
     private var nextIsScheduled = false
     private var playbackRate: Float = 1.0
+    /// ms từ lúc player cũ báo phát xong (delegate) tới khi `play()` của player kế đã gọi — lần bàn giao gần nhất; log
+    /// `NghiHandoff … delayMs=` (1.3.1035, đo chỗ vtts "vấp" giữa hai đoạn: main kẹt lúc đó ⇒ hở tiếng).
+    private(set) var lastHandoffDelayMs: Double?
 
     var isPlaying: Bool {
         currentPlayer?.isPlaying == true
@@ -261,6 +264,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        let finishedAt = ProcessInfo.processInfo.systemUptime
         Task { @MainActor [weak self] in
             guard let self = self else { return }
             if player === self.currentPlayer {
@@ -268,6 +272,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
                 let promotedItem = self.promoteNextAfterCurrentFinished()
 
                 if let promotedItem {
+                    self.lastHandoffDelayMs = (ProcessInfo.processInfo.systemUptime - finishedAt) * 1_000
                     self.onTransition?(promotedItem)
                 } else if let finishedItem {
                     self.onFinished?(finishedItem, flag)

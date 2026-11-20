@@ -21,8 +21,11 @@ extension TTSManager {
         /// Engine không chỉnh được cao độ (dòng chú thích "(*)" ở Cài đặt TTS); vẫn lưu riêng để không lọt vào `extPitch_vtts`.
         static let pitchKey = "vttsPitch"
         static let chunkKey = "vttsChunk"
-        /// Độ dài phân đoạn mặc định (mockup anh Bửu duyệt, 2026-11-20).
-        static let defaultChunkLength = 150
+        /// Độ dài phân đoạn mặc định. 150 (mockup 2026-11-20) → **500** (1.3.1035): `NghiUtteranceSegmenter` luôn cắt ở dấu
+        /// hết câu đầu tiên nên chunk vẫn là từng câu; 150 chỉ xẻ đôi câu dài ở dấu phẩy — vtts tự cắt câu ở 40 âm tiết đúng
+        /// dấu phẩy đó (cùng tiếng), nên chỗ xẻ chỉ thêm một lần đổi `AVAudioPlayer` giữa câu, anh Bửu nghe thành tiếng
+        /// "xoẹt" / vấp (1× + 500 sạch, 1× + 150 bị).
+        static let defaultChunkLength = 500
     }
 
     /// Tên trình đọc local trong toast / log lỗi tổng hợp của đường phát chung (`playNghiTTS`) — trước đó luôn ghi "NghiTTS"

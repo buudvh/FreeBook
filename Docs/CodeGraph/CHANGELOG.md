@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1035] - 2026-11-20
+
+### fix: vtts — độ dài phân đoạn mặc định 500, log độ trễ chuyển đoạn, CI dựng câu nghe thử ở tốc độ gốc
+
+Anh Bửu: "chỗ ngắt đoạn cũ đoạn mới hay có tiếng xoẹt xoẹt hoặc vấp". Anh thử câu "…Thổ Nạp Thuật phiên bản, đem mệnh danh là “Cá Trê Thổ Nạp Thuật”." (lỗi ở dấu phẩy): 1× + phân đoạn 500 sạch, 1× + 150 bị, 1,8× + 150 bị, 1,8× + 500 còn "vụt" nhẹ. vtts không có nhiễu ngẫu nhiên (cùng chữ ⇒ cùng mẫu) và tự cắt câu > 40 âm tiết **đúng dấu phẩy đó** (`MAX_SYL` của `vtts_text.c`; log máy `chars=187 chunks=2`) ⇒ ở 150 tiếng hai nửa câu y hệt, khác duy nhất là app xẻ thành 2 file ⇒ một lần đổi `AVAudioPlayer` giữa câu. Phần "vụt" ở 1,8× + 500 nằm trong một file ⇒ do trình phát kéo nhanh (chưa rõ cơ chế).
+
+- `TTSManager.VttsSettings.defaultChunkLength` 150 → **500**: `NghiUtteranceSegmenter` luôn cắt ở dấu hết câu đầu tiên nên chunk vẫn là từng câu, chỉ câu > 150 ký tự thôi bị xẻ. Máy đã lưu `vttsChunk` giữ giá trị cũ (máy anh đã để 500).
+- `NghiAudioPlayerQueue.lastHandoffDelayMs` (mới): ms từ delegate phát xong tới khi `play()` của player kế đã gọi; log `🔊 [TTSPerf] NghiHandoff` thêm `delayMs=` (sửa tại chỗ dòng log trong `TTSManager.swift`, không thêm dòng). Dùng chung NghiTTS / VieNeu / vtts — đo xem chỗ vấp có phải main kẹt lúc bàn giao (log anh có main kẹt 554 / 1045 ms).
+- CI (tạm): bỏ phần đo Google (`Scripts/ci/tts_loudness_probe.py` xoá, `build-ipa.yml` thôi đưa `GOOGLE_CLOUD_TTS_API_KEY` vào bước vtts); `check_vtts_assets.sh` › `render_listening_samples` dựng câu của anh bằng 2 giọng: cả câu 1×, cả câu tốc độ gốc 1,8× (`vtts_say --speed 0.5556` — tham số này là `length_scale`), và 2 mảnh như khi cắt ở 150 ⇒ artifact `vtts-samples` để anh nghe so với app. Kết quả đo 1.3.1034: Google readaloud 6 giọng −19,8 LUFS, vtts 1.3.1033 đã ngang / to hơn (nu-10 −19,4, nam-1 −17,8) ⇒ vtts nghe nhỏ là do chất tiếng; bản "sáng và to hơn" anh chọn còn giữ tới khi nghe xong bản tốc độ gốc.
+- Dọn: entry 1.3.1005 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi lý do mặc định 500 + `delayMs`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`.
+
 ## [1.3.1034] - 2026-11-20
 
 ### chore: vtts — CI đo tạm mức to Google TTS so với vtts để chọn mốc âm lượng
@@ -425,14 +436,4 @@ Anh Bửu: "khi scroll list ở Khám phá rồi chuyển tab khác hoặc vào 
 - **Nguyên nhân** (`DiscoveryCategoryTabView`, tab `home` kiểu cũ — kiểu Danh sách lẫn Lưới): mỗi lần nội dung tab hiện lại (back từ Chi tiết, đổi tab chính rồi về, quay về tab danh mục kề bên), `.onAppear` lấy neo của `DiscoveryScrollAnchorStore` (link hàng trên cùng lúc rời) và 0,2 s sau `scrollTo(neo, .top)` — kể cả khi trang **không** bị dỡ và `UIScrollView` vẫn giữ đúng chỗ cuộn. Hàng neo thường đang bị che một phần ⇒ cả danh sách bị kéo lệch; neo không bao giờ xoá nên lần nào về cũng nhảy. Biến thể nhảy xa: lúc đẩy Chi tiết các hàng có thể báo tắt trước tab ⇒ không chốt neo mới ⇒ về lại thì kéo tới neo cũ từ lần đổi tab trước.
 - **Sửa**: lượt khôi phục từ `.onAppear` chỉ chạy khi **hàng đầu tiên đang hiện** (danh sách đang ở đầu = trang vừa bị `TabView(.page)` dỡ / ra ngoài cửa sổ ±3 tab) — kiểm lúc cuộn, sau 0,2 s; trang còn giữ chỗ cuộn thì để nguyên. Lượt khôi phục khi danh sách vừa nạp xong hàng đầu (từ 0 mục) giữ như cũ.
 - Chưa sửa (ghi nhận từ lúc tra): bộ dịch tiện ích thay bản QT có thể đổi số dòng tên / mô tả của hàng phía trên ⇒ lệch nhẹ; tiêu đề lớn mới (1.3.984) của Thể loại / Xem thêm có thể bung / thu khi back — cần thử trên máy.
-- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
-
-## [1.3.1005] - 2026-11-19
-
-### fix: Kệ ở "Chỉ NSFW" vẫn có thanh chip Tất cả / Truyện chữ / Truyện tranh / Phim / Âm thanh
-
-Anh Bửu: "chỉ nsfw của tab kệ sách thiếu chip tất cả/truyện chữ/truyện tranh/phim/âm thanh" → duyệt plan.
-
-- **Trước**: thanh chip loại của Kệ + Lịch sử chỉ hiện khi danh sách **đã lọc NSFW** có từ 2 loại trở lên (`ShelfKindFilter.showsFilterBar`) ⇒ ở "Chỉ NSFW", truyện NSFW cùng một loại là mất cả thanh chip, trong khi "Tất cả" vẫn có.
-- **Nay**: số loại đếm trên kệ ∪ lịch sử **chưa** lọc NSFW (`ShelfKindFilter(_:kindFilter:kindSource:)`, `ShelfView` truyền thêm một `ShelfBookPartition(allBooks)` khi bộ lọc NSFW không phải "Tất cả") ⇒ thanh chip hiện như nhau ở cả ba chế độ. Chọn loại không có truyện nào sau lọc NSFW ⇒ màn rỗng "Chưa có … trên kệ" sẵn có, thanh chip vẫn ở trên. Thanh chip luôn đủ 5 chip cố định nên không lộ loại của truyện NSFW đang ẩn.
 - Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
