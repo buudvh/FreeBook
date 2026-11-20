@@ -25,7 +25,7 @@ struct ReaderJunkDeleteOverlayView: View {
             junkInputView
             actionButtonsView
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.bottom)
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 16) để sheet cao đúng như panel trước.
@@ -39,7 +39,7 @@ struct ReaderJunkDeleteOverlayView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Xoá từ rác")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                 Text("Từ sẽ bị xoá khỏi câu trước khi chuẩn hoá")
                     .font(.caption)
                     .foregroundColor(.secondary)

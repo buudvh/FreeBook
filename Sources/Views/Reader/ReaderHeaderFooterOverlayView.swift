@@ -43,13 +43,9 @@ struct ReaderHeaderFooterOverlayView: View {
             // Header View
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    Button(action: onDismiss) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 38, height: 44)
-                    }
-                    .accessibilityLabel("Quay lại")
+                    // Lưới header chung (1.3.1017): mũi back chung chạm lề; cụm phải giữ cách 6 khung 36 (ngoại lệ của
+                    // header Reader), "…" ngoài cùng canh phải để icon chạm lề.
+                    HeaderBackButton(tint: selectedTheme.textColor, action: onDismiss)
 
                     Spacer()
 
@@ -102,9 +98,13 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: { showingOptionsMenu = true }) {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 36, height: 38)
+                                .frame(
+                                    width: HeaderMetrics.iconFrameWidth,
+                                    height: HeaderMetrics.iconFrameHeight,
+                                    alignment: .trailing
+                                )
                         }
                         .accessibilityLabel("Tùy chọn trình đọc")
                     }
@@ -117,21 +117,24 @@ struct ReaderHeaderFooterOverlayView: View {
                         sourceName: sourceName,
                         textColor: selectedTheme.textColor,
                         showBackground: true,
+                        iconSize: HeaderMetrics.assetIconSize,
                         // Chương đang hiện (cùng chỉ số với tên chương bên cạnh) ⇒ chấm cam + hàng báo "QT thay thế".
                         chapterIndex: readerPresentedChapterIndex
                     )
 
+                    // Cỡ chữ như `HeaderTitleBlock` (dòng 1 tên truyện, dòng 2 chương màu phụ); không dùng thẳng khối đó
+                    // vì dòng chương có mũi ⌄ đi kèm.
                     Button(action: onOpenChapterList) {
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(readerBookDisplayTitle)
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.system(size: HeaderMetrics.infoTitleFontSize, weight: .semibold))
                                 .foregroundColor(selectedTheme.textColor)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
 
                             HStack(spacing: 6) {
                                 Text(readerChapterDisplayTitle)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: HeaderMetrics.infoSubtitleFontSize))
                                     .foregroundColor(selectedTheme.textColor.opacity(0.72))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
@@ -149,7 +152,7 @@ struct ReaderHeaderFooterOverlayView: View {
                     .accessibilityLabel("Mở danh sách chương, \(readerChapterDisplayTitle)")
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
             .padding(.top, 6)
             .padding(.bottom, 4)
             .background(readerChromeBackground.ignoresSafeArea(edges: .top))

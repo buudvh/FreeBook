@@ -326,15 +326,12 @@ final class VideoWatchPagePresenter {
                 content
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
-                            Button {
+                            // Nút back chung (1.3.1017): mũi như nút back hệ thống, màu nhấn (`.appAccentTint()` ở gốc trang).
+                            HeaderBackButton(
+                                accessibilityLabel: coversWatchScreen ? "Quay lại màn xem phim" : "Quay lại"
+                            ) {
                                 handle.close()
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .frame(width: 38, height: 44)
-                                    .contentShape(Rectangle())
                             }
-                            .accessibilityLabel(coversWatchScreen ? "Quay lại màn xem phim" : "Quay lại")
                         }
                     }
             }

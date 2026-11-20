@@ -158,11 +158,11 @@ struct DiscoveryView: View {
                         // Nút tròn icon + vùng chữ đều mở ngăn kéo chọn nguồn
                         DiscoverySourceHeaderButton(ext: selected) { showingExtensionSelector = true }
 
-                        // Các nút tròn đứng sát nhau (`HeaderButtonMetrics.pairCircleSpacing`), giữ cỡ 38.
-                        HStack(spacing: HeaderButtonMetrics.pairCircleSpacing) {
+                        // Nút trơn đứng sát nhau như cụm 🔍 | … của Kệ (`HeaderButtonMetrics`, 1.3.1017); Tìm ngoài cùng canh phải.
+                        HStack(spacing: HeaderButtonMetrics.pairSpacing) {
                             // Bộ lọc của tab đang xem (mục select/công tắc/list mà script của tab dùng) — không có thì không hiện.
                             let scope = filterScope
-                            ExtensionFilterButton(ext: selected, scope: scope, style: .circle) {
+                            ExtensionFilterButton(ext: selected, scope: scope, style: .toolbar) {
                                 filterSheetScope = scope
                                 showingFilterSheet = true
                             }
@@ -189,15 +189,14 @@ struct DiscoveryView: View {
                                 selectedExtension: selected
                             )) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 17, weight: .semibold))
+                                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                                     .foregroundColor(.primary)
-                                    .frame(width: 38, height: 38)
-                                    .background(Color(.secondarySystemBackground))
-                                    .clipShape(Circle())
+                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                                    .contentShape(Rectangle())
                             }
                         }
                     }
-                    .padding(.horizontal)
+                    .padding(.horizontal, HeaderMetrics.horizontalMargin)
                     .padding(.vertical, 10)
                     .background(Color(.systemBackground))
 

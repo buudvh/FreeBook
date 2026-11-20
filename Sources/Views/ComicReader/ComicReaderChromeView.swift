@@ -33,35 +33,23 @@ struct ComicReaderChromeView: View {
 
     // MARK: - Thanh trên
 
+    /// Lưới header chung (1.3.1017): lề `HeaderMetrics`, mũi back chung, khối tiêu đề hai dòng (tên truyện trên, chương dưới
+    /// — trước đây đảo: tên truyện chữ nhỏ ở trên, chương to ở dưới), "…" ngoài cùng canh phải để icon chạm lề.
     private var topBar: some View {
         HStack(spacing: 6) {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 38, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Quay lại")
+            HeaderBackButton(tint: .white, action: onBack)
 
-            VStack(alignment: .leading, spacing: 1) {
-                if let bookTitle = viewModel.launch.bookTitle, !bookTitle.isEmpty {
-                    // Như đầu mục lục truyện tranh và tên truyện ở header Reader: phồn → giản + dịch ba cấp (1.3.846);
-                    // bộ dịch là tiện ích ⇒ bản tiện ích, bản QT là chữ tạm / đường lùi.
-                    Text(extensionText.bookTitle(bookTitle, quick: BookDisplayTranslation.title(
-                        bookTitle,
-                        BookDisplayTranslation.screenOptions(
-                            bookId: viewModel.launch.bookId,
-                            packageId: viewModel.launch.extensionPackageId,
-                            translates: isTranslationEnabled
-                        )
-                    )))
-                        .font(.caption2)
-                        .foregroundStyle(Color.white.opacity(0.6))
-                        .lineLimit(1)
+            Group {
+                if let bookTitle = displayBookTitle {
+                    HeaderTitleBlock(
+                        title: bookTitle,
+                        subtitle: chapterTitle,
+                        titleColor: .white,
+                        subtitleColor: Color.white.opacity(0.6)
+                    )
+                } else {
+                    HeaderTitleBlock(title: chapterTitle, titleColor: .white)
                 }
-                Text(chapterTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -75,30 +63,44 @@ struct ComicReaderChromeView: View {
                 textColor: .white,
                 showBackground: false,
                 isChineseSourceHint: isChineseSourceHint,
-                iconSize: 17,
-                frameWidth: 36,
-                frameHeight: 38
+                iconSize: HeaderMetrics.assetIconSize,
+                frameWidth: HeaderMetrics.iconFrameWidth,
+                frameHeight: HeaderMetrics.iconFrameHeight
             )
 
             Button(action: onOpenChapterList) {
                 Image(systemName: "list.bullet")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                    .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Mục lục")
 
             Button(action: onOpenMenu) {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                    .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Tuỳ chọn truyện tranh")
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.vertical, 2)
         .background(Self.barBackground.ignoresSafeArea(edges: .top))
+    }
+
+    /// Như đầu mục lục truyện tranh và tên truyện ở header Reader: phồn → giản + dịch ba cấp (1.3.846); bộ dịch là tiện ích
+    /// ⇒ bản tiện ích, bản QT là chữ tạm / đường lùi. `nil` khi lối mở không mang tên truyện.
+    private var displayBookTitle: String? {
+        guard let bookTitle = viewModel.launch.bookTitle, !bookTitle.isEmpty else { return nil }
+        return extensionText.bookTitle(bookTitle, quick: BookDisplayTranslation.title(
+            bookTitle,
+            BookDisplayTranslation.screenOptions(
+                bookId: viewModel.launch.bookId,
+                packageId: viewModel.launch.extensionPackageId,
+                translates: isTranslationEnabled
+            )
+        ))
     }
 
     private var chapterTitle: String {

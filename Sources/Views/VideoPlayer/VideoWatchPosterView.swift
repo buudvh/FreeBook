@@ -112,10 +112,12 @@ struct VideoWatchPosterView: View {
     private var topBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                // ⌄ ngoài cùng trái canh icon vào lề `HeaderMetrics` như thanh trên của trình phát (1.3.1017).
                 VideoPlayerIconButton(
                     systemName: "chevron.down",
                     label: "Thu nhỏ màn xem",
                     width: HeaderButtonMetrics.pairIconWidth,
+                    alignment: .leading,
                     action: onMinimize
                 )
                 VideoPlayerIconButton(
@@ -126,7 +128,7 @@ struct VideoWatchPosterView: View {
                 )
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
             .frame(height: 44)
             Spacer(minLength: 0)
         }

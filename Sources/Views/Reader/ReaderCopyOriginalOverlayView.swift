@@ -43,7 +43,7 @@ struct ReaderCopyOriginalOverlayView: View {
             previewView
             copyButtonView
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.bottom)
         // Thanh kéo là của sheet gốc (`ReaderView+SelectionSheets`). Khoảng trên = chỗ capsule giả cũ
         // (16 + 13 + 14) để sheet cao đúng như panel trước.
@@ -56,7 +56,7 @@ struct ReaderCopyOriginalOverlayView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Copy nội dung gốc")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                 Text("Chọn lại cụm chữ gốc; đóng panel là copy")
                     .font(.caption)
                     .foregroundColor(.secondary)

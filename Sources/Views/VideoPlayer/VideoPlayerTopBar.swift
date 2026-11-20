@@ -30,12 +30,14 @@ struct VideoPlayerTopBar: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            // Cặp nút trái đứng sát nhau (`HeaderButtonMetrics`); cụm nút phải giữ khoảng cách 6 của thanh.
+            // Cặp nút trái đứng sát nhau (`HeaderButtonMetrics`); cụm nút phải giữ khoảng cách 6 của thanh. Lưới header
+            // chung (1.3.1017): ⌄ ngoài cùng trái và `⋯` ngoài cùng phải canh icon vào lề `HeaderMetrics`.
             HStack(spacing: HeaderButtonMetrics.pairSpacing) {
                 VideoPlayerIconButton(
                     systemName: "chevron.down",
                     label: "Thu nhỏ trình phát",
                     width: HeaderButtonMetrics.pairIconWidth,
+                    alignment: .leading,
                     action: onMinimize
                 )
                 VideoPlayerIconButton(
@@ -46,18 +48,12 @@ struct VideoPlayerTopBar: View {
                 )
             }
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(session.displayBookTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                if !session.currentEpisodeLabel.isEmpty {
-                    Text(session.currentEpisodeLabel)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                }
-            }
+            HeaderTitleBlock(
+                title: session.displayBookTitle,
+                subtitle: session.currentEpisodeLabel,
+                titleColor: .white,
+                subtitleColor: .white.opacity(0.7)
+            )
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if session.sleepTimer.isActive {
@@ -103,7 +99,7 @@ struct VideoPlayerTopBar: View {
             }
             moreMenu
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .frame(height: 44)
         // Ngăn kéo cao toàn màn, bám mép phải cả khi nằm ngang; tông tối riêng nên đọc rõ trên khung phim.
         .sideDrawerMenu(isPresented: $showingMoreMenu, title: "Tuỳ chọn trình phát") { moreMenuItems }
@@ -228,11 +224,12 @@ struct VideoPlayerTopBar: View {
     }
 
     /// Nút `⋯` bật ngăn kéo `moreMenuItems` (gắn ở thân thanh này — thanh chỉ mờ đi khi tự ẩn, không rời cây view).
+    /// `ellipsis.circle` như mọi nút menu (1.3.1017), ngoài cùng phải nên canh icon vào lề.
     private var moreMenu: some View {
         Button {
             showingMoreMenu = true
         } label: {
-            VideoPlayerIconLabel(systemName: "ellipsis")
+            VideoPlayerIconLabel(systemName: "ellipsis.circle", alignment: .trailing)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Thêm")

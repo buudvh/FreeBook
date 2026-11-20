@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1020] - 2026-11-20
+
+### feat: Header tự dựng màn đọc / xem / nghe + Khám phá — lề 16pt chung, nút back chung, "…" có vòng, khối tiêu đề hai dòng
+
+- Anh Bửu: "các header custom cho cảm giác logic thiết kế không giống", "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau" — đưa header tự dựng của màn đọc / xem / nghe + Khám phá về lưới chung `HeaderMetrics` (1.3.1017); bố cục từng màn giữ nguyên, chỉ đồng bộ lề, cỡ, nút.
+- Reader (`ReaderHeaderFooterOverlayView`): lề 10 → `HeaderMetrics.horizontalMargin` (cả hàng 2); `chevron.left` tự vẽ → `HeaderBackButton` màu chữ theo nền đọc; "…" ngoài cùng canh phải trong khung 36×38; cụm phải giữ cách 6 khung 36 (ngoại lệ đã ghi trong chuẩn); nút dịch hàng 2 icon 19 → 20 (`assetIconSize`); tên truyện 16 đậm → 16 nửa đậm, chương 13 medium → 13 thường (giữ mũi ⌄ và màu chữ 72%).
+- Tấm phủ Reader Xoá từ rác / Dịch / Copy nội dung gốc: tiêu đề 20 → 22 đậm (`rowTitleFontSize`); lề ngang cả panel 12 → `horizontalMargin` để tiêu đề thẳng hàng với các hàng bên dưới (panel Dịch của truyện tranh dùng chung view nên đổi theo). Nút chọn chữ chevron 13pt trong vòng 28 giữ nguyên.
+- Truyện tranh (`ComicReaderChromeView`): lề thanh trên 8 → `horizontalMargin` (thanh dưới giữ 8); back → `HeaderBackButton` trắng; tiêu đề đảo về đúng thứ tự bằng `HeaderTitleBlock`: tên truyện dòng 1 (16 nửa đậm trắng), chương dòng 2 (13, trắng 60%) — lối mở không mang tên truyện ⇒ chỉ một dòng tên chương; icon dịch 17 → 20; "…" canh phải.
+- Trình phát phim (`VideoPlayerTopBar`, `VideoWatchPosterView`): lề 8 → `horizontalMargin`; ⌄ ngoài cùng trái canh trái trong khung 32×38 (cặp ⌄ ✕ giữ cách 2); menu `ellipsis` trơn → `ellipsis.circle` canh phải; cụm phải giữ cách 6 khung 36; tên phim / tập → `HeaderTitleBlock` (16 nửa đậm trắng / 13 trắng 70%). `VideoPlayerIconLabel` / `VideoPlayerIconButton` thêm tham số `alignment` (mặc định canh giữa — thanh dưới, danh sách tập không đổi).
+- Trang đè lên màn xem (`VideoWatchPagePresenter`): nút back tự vẽ trong toolbar → `HeaderBackButton` (màu nhấn, giữ nhãn "Quay lại màn xem phim").
+- Màn nghe (`AudioPlayerHeader`): lề 6 → `horizontalMargin`; ⌄ khung 44×44 → 38×44 canh trái (icon thường 17pt); `ellipsis` trơn 44×44 → `ellipsis.circle` khung 36×38 canh phải; giữa thành `HeaderTitleBlock` căn giữa: tên album dòng 1 (16 nửa đậm), "Phát từ album" dòng 2 (13, trắng 65%) — trước đây "Phát từ album" nhỏ nằm trên. Hàng giữ cao 48.
+- Khám phá (`DiscoveryView`, `DiscoverySourceMenuButton`): ba nút lọc / lưới / tìm thôi là vòng tròn nền 38 cách 4 → nút trơn khung 32×38 cách 2 như cụm 🔍 | … của Kệ (nút lọc dùng kiểu `.toolbar` của `FilterGlyph`, icon 20), Tìm ngoài cùng canh phải; `.padding(.horizontal)` → `horizontalMargin`. Vòng tròn ảnh nguồn + tên / link nguồn bên trái giữ nguyên.
+- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ JSDom.swift); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: mũi back / ⌄ / "…" chạm lề 16pt (20pt ở máy Plus / Pro Max và phim nằm ngang) ở Reader, truyện tranh, phim dọc + ngang, màn bìa phim, màn nghe, Khám phá; tên phim dài không đè cụm nút phải khi hiện đủ nút (hẹn giờ, phụ đề, khoá xoay); panel Dịch (Reader + truyện tranh) không xuống dòng khác trước ở máy 375pt; màu chữ header Reader ở nền Sáng / Trầm ấm.
+
 ## [1.3.1019] - 2026-11-20
 
 ### feat: Công tắc Mờ bìa NSFW ở sheet Kiểu hiển thị, đổi mọi chữ 18+ thành NSFW

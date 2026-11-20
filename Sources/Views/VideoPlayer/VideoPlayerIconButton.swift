@@ -9,11 +9,13 @@ struct VideoPlayerIconButton: View {
     var isActive = false
     /// Rộng khung; cụm nút đứng sát nhau dùng `HeaderButtonMetrics.pairIconWidth`.
     var width: CGFloat = 36
+    /// Canh icon trong khung (`VideoPlayerIconLabel.alignment`): nút ngoài cùng của thanh trên canh vào lề.
+    var alignment: Alignment = .center
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VideoPlayerIconLabel(systemName: systemName, isActive: isActive, width: width)
+            VideoPlayerIconLabel(systemName: systemName, isActive: isActive, width: width, alignment: alignment)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
