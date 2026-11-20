@@ -33,6 +33,15 @@ enum VttsVoice: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Mức tăng âm lượng (dB) cho đoạn quá ngắn để đo (`VttsLoudness`): chênh lệch đo trên mẫu CI giữa mức RMS lúc có
+    /// tiếng (`nu-10` −24,1 dBFS, `nam-1` −19,8 dBFS) và mốc −16 dBFS, làm tròn xuống.
+    var defaultLoudnessGainDb: Float {
+        switch self {
+        case .nu10: return 8
+        case .nam1: return 3.5
+        }
+    }
+
     static func resolve(_ id: String) -> VttsVoice {
         VttsVoice(rawValue: id) ?? defaultVoice
     }

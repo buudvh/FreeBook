@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1033] - 2026-11-20
+
+### fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường
+
+Anh Bửu: "giọng nhỏ quá". Đo WAV đọc thử của CI (run 44685147889): model xuất nhỏ — `nu-10` đỉnh −11,3 dBFS, RMS lúc có tiếng −24,1 dBFS; `nam-1` −5,9 / −19,8 dBFS (TTS thường ~−16…−18 dBFS).
+
+- `VttsLoudness` (mới, `Services/TTS/Vtts/`): đo RMS trên khung 20 ms có tiếng (> −45 dBFS) của **mỗi đoạn**, tăng về −16 dBFS; chỉ tăng 0…+12 dB, giới hạn để đỉnh ≤ −1 dBFS (không để `WAVEncoder` kẹp cứng gây rè); đoạn có tiếng < 0,4 s dùng mức cố định theo giọng (`VttsVoice.defaultLoudnessGainDb`: nu-10 +8, nam-1 +3,5 dB). Dùng Accelerate (`vDSP`).
+- `VttsTTSService` gọi trước khi nối khoảng lặng đuôi ⇒ áp cho trình đọc chính, giọng dự phòng và ▶ thử giọng (cùng đi qua service). Log `🗣️ [Vtts] Đoạn` thêm `gain=+X.XdB`.
+- Mô phỏng thuật toán trên 2 WAV mẫu: nu-10 +8,6 dB (đỉnh −2,7 dBFS), nam-1 +4,8 dB (đỉnh −1,1 dBFS), cả hai RMS −16 dBFS. Mốc −16 dBFS là ước lượng, chưa so với VieNeu / Google. Không thêm giao diện.
+- Chưa thử máy; `.claude/rules/tts.md` ghi thêm.
+
 ## [1.3.1032] - 2026-11-20
 
 ### fix: vtts — CI dựng vtts_say kèm stub ZH/JA/RU, kiểm tài sản trong IPA, toast lỗi ghi đúng trình đọc

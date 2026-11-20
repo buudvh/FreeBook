@@ -16,6 +16,7 @@ import Foundation
 ///   (`TTSJapaneseTextTransliterator`, khoá `ttsJapaneseTransliterationEnabled.vtts`, chưa có khoá ⇒ tắt) — ở tầng service
 ///   để giọng dự phòng nhận chữ gốc (`tts.md`) — rồi chuẩn hoá NFC: chữ lấy từ web đôi khi ở dạng NFD (dấu tách rời),
 ///   front-end C so từng code point.
+/// - Âm lượng mỗi đoạn kéo về mốc −16 dBFS lúc có tiếng (`VttsLoudness`, 1.3.1033) — model xuất nhỏ.
 /// - WAV PCM16 mono ở tần số của model (22 050 Hz); `pcmDuration` gồm khoảng lặng đuôi; RTF (`TTSEngineRTFStore`) chia
 ///   cho phần lời đọc.
 final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
@@ -118,6 +119,8 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         let sampleRate = max(1, output.sampleRate)
         let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind)
         var samples = output.samples
+        // Model xuất nhỏ (đo CI: nu-10 −24 dBFS, nam-1 −20 dBFS lúc có tiếng) ⇒ kéo về mốc chung trước khi nối khoảng lặng.
+        let gainDb = VttsLoudness.normalize(&samples, sampleRate: sampleRate, fallbackGainDb: voice.defaultLoudnessGainDb)
         samples.append(contentsOf: repeatElement(Float(0), count: Int(Double(sampleRate) * pause)))
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let speechSeconds = Double(output.samples.count) / Double(sampleRate)
@@ -125,7 +128,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         TTSEngineRTFStore.shared.record(text: text, synthesisMs: synthesisMs, speechSeconds: speechSeconds)
         Self.logChunk(
             text: text, voice: voice, output: output, synthesisMs: synthesisMs, speechSeconds: speechSeconds,
-            pause: pause, boundaryKind: boundaryKind
+            pause: pause, gainDb: gainDb, boundaryKind: boundaryKind
         )
         return PiperSynthesisPayload(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: sampleRate, channels: 1),
@@ -143,6 +146,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         synthesisMs: Double,
         speechSeconds: Double,
         pause: Double,
+        gainDb: Float,
         boundaryKind: TTSBoundaryKind
     ) {
         let rtf = speechSeconds > 0.001 ? String(format: "%.3f", synthesisMs / 1_000 / speechSeconds) : "—"
@@ -154,6 +158,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "synthMs=%.0f", synthesisMs),
             String(format: "audio=%.2fs", speechSeconds),
             String(format: "pause=%.2fs", pause),
+            String(format: "gain=+%.1fdB", gainDb),
             "RTF=\(rtf)",
             "boundary=\(boundaryKind.rawValue)",
             "thermal=\(ProcessInfo.processInfo.thermalState.rawValue)"
