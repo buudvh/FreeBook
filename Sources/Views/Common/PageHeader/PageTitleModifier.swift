@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// Chuẩn tiêu đề trang của app (1.3.641, ba kiểu từ 1.3.652, kiểu `.centered` đổi ở 1.3.984): **một** cỡ chữ 22pt đậm,
-/// một dòng. Tab gốc và gốc sheet: tiêu đề **bên trái** hàng nút (`.leading`). Trang có nút back (`.centered`): tiêu đề
-/// nằm **hàng 2**, sát lề trái, dưới các nút; cuộn lên thì hàng 2 thu lại và tiêu đề nhỏ (17pt nửa đậm) hiện **cạnh nút
+/// Chuẩn tiêu đề trang của app (1.3.641, ba kiểu từ 1.3.652, kiểu `.centered` đổi ở 1.3.984, cỡ chữ 1.3.1017): một dòng.
+/// Tab gốc và gốc sheet: tiêu đề 22pt đậm **bên trái** hàng nút (`.leading`), không co chữ — dài thì cắt đuôi (trước
+/// đây co còn 80% ⇒ mỗi trang một cỡ). Trang có nút back (`.centered`): tiêu đề 28pt đậm nằm **hàng 2**, sát lề trái,
+/// dưới các nút; cuộn lên thì hàng 2 thu lại và tiêu đề nhỏ (17pt nửa đậm) hiện **cạnh nút
 /// back** (anh Bửu 2026-11-19: "hiển thị ở lề trái dưới các nút đó", "cuộn lên thì tiêu đề về nằm kế nút bên trái và giảm
 /// size lại để đảm bảo chỗ hiển thị"). `.hidden` = không hiện tiêu đề nào (Chi tiết truyện).
 ///
 /// - Luôn gắn `.navigationTitle` thật: VoiceOver đọc được tên màn và menu nhấn giữ nút back vẫn liệt kê đúng tên.
 /// - Ô `principal` luôn là ô rỗng ⇒ tiêu đề nhỏ căn giữa của hệ thống không bao giờ hiện.
-/// - `.centered` = tiêu đề lớn của iOS (`navigationBarTitleDisplayMode(.large)`), cỡ 22pt đậm đặt toàn app ở
+/// - `.centered` = tiêu đề lớn của iOS (`navigationBarTitleDisplayMode(.large)`), cỡ 28pt đậm đặt toàn app ở
 ///   `NavigationBarAppearance` (`largeTitleTextAttributes`). Lúc thu: `PageTitleCollapseProbe` dò cây UIKit báo về, ô
 ///   `topBarLeading` (ngay sau nút back) hiện tiêu đề nhỏ — dò hỏng thì tiêu đề chỉ cuộn đi, không hiện chồng hai bản.
 /// - Icon header vẫn theo chuẩn `.system(size: 17, weight: .semibold)` ⇒ tiêu đề luôn to và đậm hơn icon.
@@ -33,9 +34,9 @@ struct PageTitleModifier: ViewModifier {
     /// Đoạn giải thích sau nút "?" cạnh tiêu đề (1.3.900, sheet "Giọng đọc"); `nil` = không có nút. Chỉ ở kiểu `.leading`.
     var help: [LocalizedStringKey]? = nil
 
-    static let fontSize: CGFloat = 22
+    static let fontSize: CGFloat = HeaderMetrics.rowTitleFontSize
     /// Cỡ tiêu đề nhỏ cạnh nút back khi tiêu đề lớn đã thu (kiểu `.centered`).
-    static let collapsedFontSize: CGFloat = 17
+    static let collapsedFontSize: CGFloat = HeaderMetrics.inlineTitleFontSize
     /// Trần bề ngang tiêu đề nhỏ — chừa chỗ cho cụm nút bên phải; dài hơn thì cắt đuôi.
     static let collapsedMaxWidth: CGFloat = 230
 
@@ -92,7 +93,6 @@ struct PageTitleModifier: ViewModifier {
             .font(.system(size: Self.fontSize, weight: .bold))
             .foregroundStyle(.primary)
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
             .truncationMode(.tail)
             .accessibilityAddTraits(.isHeader)
     }
@@ -110,7 +110,8 @@ struct PageTitleModifier: ViewModifier {
 }
 
 extension View {
-    /// Tiêu đề 22pt đậm. Mặc định `.leading` (tab gốc, gốc sheet); màn mở được cả hai kiểu truyền `style:`.
+    /// Tiêu đề 22pt đậm (hàng 1) / 28pt (hàng 2). Mặc định `.leading` (tab gốc, gốc sheet); màn mở được cả hai kiểu truyền
+    /// `style:`.
     func pageTitle(_ title: String, style: PageTitleStyle = .leading) -> some View {
         modifier(PageTitleModifier(title: title, style: style))
     }
@@ -120,7 +121,7 @@ extension View {
         modifier(PageTitleModifier(title: title, style: .leading, help: help))
     }
 
-    /// Trang đẩy vào (có nút back): tiêu đề 22pt đậm ở hàng 2 sát lề trái; cuộn lên thì thu vào cạnh nút back.
+    /// Trang đẩy vào (có nút back): tiêu đề 28pt đậm ở hàng 2 sát lề trái; cuộn lên thì thu vào cạnh nút back.
     func backPageTitle(_ title: String) -> some View {
         modifier(PageTitleModifier(title: title, style: .centered))
     }

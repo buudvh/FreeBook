@@ -13,14 +13,10 @@ struct SheetPageBackButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content.toolbar {
             if let back {
+                // `HeaderBackButton` (1.3.1017): mũi như nút back hệ thống, canh trái ⇒ chạm lề như tiêu đề hàng 2. Trước đây
+                // `chevron.left` nhỏ hơn, nằm giữa khung 38pt ⇒ mũi lùi vào ~30pt trong khi tiêu đề ở 16pt.
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(action: back) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 38, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Quay lại")
+                    HeaderBackButton(action: back)
                 }
             }
         }

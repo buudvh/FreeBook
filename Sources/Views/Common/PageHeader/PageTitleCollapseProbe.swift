@@ -37,7 +37,7 @@ struct PageTitleCollapseProbe: UIViewRepresentable {
     }
 
     final class ProbeView: UIView {
-        /// Cỡ chữ tối thiểu để nhận là nhãn tiêu đề **lớn** (tiêu đề lớn của app 22pt; tiêu đề nhỏ hệ thống 17pt).
+        /// Cỡ chữ tối thiểu để nhận là nhãn tiêu đề **lớn** (tiêu đề lớn của app 28pt từ 1.3.1017; tiêu đề nhỏ hệ thống 17pt).
         private static let largeTitleMinPointSize: CGFloat = 20
 
         private var title = ""
