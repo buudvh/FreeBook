@@ -17,3 +17,8 @@ DerivedData/
 
 # audio.cpp dựng bởi Scripts/ci/build_audiocpp_ios.sh (CI), không commit
 /Vendor/AudioCpp/
+
+# vtts: model + từ điển VLEX do Scripts/ci/fetch_vtts_assets.sh tải / dựng (CI), không commit; thư mục tạm + WAV thử
+/Vendor/vtts-assets/
+/build/vtts/
+/build/vtts-smoke/

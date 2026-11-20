@@ -19,6 +19,10 @@ packages:
   # `Vendor/onnxruntime-swift-package-manager/Package.swift`. Tên package / product giữ nguyên.
   onnxruntime-swift-package-manager:
     path: Vendor/onnxruntime-swift-package-manager
+  # vtts (Việt–Anh, runtime C99) — gói cục bộ: runtime chép nguyên văn ở commit ghim (`Vendor/vtts/VTTS_COMMIT.txt`) +
+  # shim `vtts_bridge` (product `CVTTS`, Swift `import CVTTS`). Model + từ điển là resource riêng (xem `sources` bên dưới).
+  vtts:
+    path: Vendor/vtts
   espeak-ng-spm:
     type: git
     url: https://github.com/espeak-ng/espeak-ng-spm.git
@@ -41,11 +45,19 @@ targets:
       # chắc chắn vào Copy Bundle Resources, không rơi vào Compile Sources.
       - path: Sources/Resources/ExtensionLibraries
         buildPhase: resources
+      # Tài sản vtts (2 giọng bản M + từ điển VLEX, ~7 MB) — không commit: `Scripts/ci/fetch_vtts_assets.sh` tải / dựng vào
+      # `Vendor/vtts-assets/vtts` trước bước `xcodegen generate` (máy Mac chạy script đó trước khi generate). Folder
+      # reference ⇒ bundle có thư mục con `vtts/` (`VttsRuntime` tra ở đó).
+      - path: Vendor/vtts-assets/vtts
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: SwiftSoup
       - package: ZIPFoundation
       - package: onnxruntime-swift-package-manager
         product: onnxruntime
+      - package: vtts
+        product: CVTTS
       - package: espeak-ng-spm
         product: libespeak-ng
       - package: espeak-ng-spm

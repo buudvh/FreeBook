@@ -6,11 +6,17 @@ on:
     paths:
       - 'Sources/**'
       - 'project.yml'
+      - 'Vendor/vtts/**'
+      - 'Scripts/ci/fetch_vtts_assets.sh'
+      - 'Scripts/ci/vtts_bridge_smoke.c'
   pull_request:
     branches: [ main ]
     paths:
       - 'Sources/**'
       - 'project.yml'
+      - 'Vendor/vtts/**'
+      - 'Scripts/ci/fetch_vtts_assets.sh'
+      - 'Scripts/ci/vtts_bridge_smoke.c'
   workflow_dispatch:
 
 jobs:
@@ -89,6 +95,29 @@ jobs:
     - name: Build audio.cpp (iOS)
       if: steps.audiocpp-cache.outputs.cache-hit != 'true'
       run: bash Scripts/ci/build_audiocpp_ios.sh 2>&1 | tee -a build_error.log
+
+    # vtts (trình đọc Việt–Anh, runtime C99): `Scripts/ci/fetch_vtts_assets.sh` tải 2 model release v0.4.0 (kiểm SHA256)
+    # + dựng từ điển VLEX từ commit ghim (`Vendor/vtts/VTTS_COMMIT.txt`, ~8 phút Python) vào `Vendor/vtts-assets/vtts`
+    # (project.yml khai là folder resource). Khoá cache = hash script + commit + tên model ⇒ cache trúng thì script bỏ
+    # qua phần tải / dựng nhưng VẪN biên dịch + kiểm thử shim `vtts_bridge` (ASan/UBSan). WAV đọc thử ⇒ artifact.
+    - name: Cache vtts assets
+      uses: actions/cache@v4
+      with:
+        path: Vendor/vtts-assets
+        key: vtts-assets-${{ hashFiles('Scripts/ci/fetch_vtts_assets.sh', 'Vendor/vtts/VTTS_COMMIT.txt') }}-vien-nu10-nam1-m-v0.4.0
+
+    - name: Fetch vtts assets + smoke test
+      run: |
+        set -o pipefail
+        bash Scripts/ci/fetch_vtts_assets.sh 2>&1 | tee -a build_error.log
+
+    - name: Upload vtts sample WAVs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: vtts-samples
+        path: build/vtts-smoke/
+        if-no-files-found: warn
 
     - name: Install XcodeGen
       run: |
