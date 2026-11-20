@@ -172,8 +172,8 @@ public struct ReaderAIFullScreenView: View {
                     onStop: { stopStreaming() }
                 )
             }
-            // Tiêu đề trái theo chuẩn trang (`PageTitleModifier`): "Trợ lý AI" 22pt đậm, tên phiên một dòng nhỏ bên dưới.
-            // Màn toàn màn không vuốt đóng được ⇒ giữ nút ⌄, đứng **sau** ⋯ (ngoài cùng bên phải).
+            // Màn toàn màn không vuốt đóng được ⇒ giữ nút ⌄, đứng **trước tiêu đề** bên trái (1.3.1021, anh Bửu: "Màn AI toàn
+            // màn của Reader dời ⌄"); tiêu đề "Trợ lý AI" 22pt đậm như tiêu đề trang, tên phiên một dòng nhỏ bên dưới.
             .navigationTitle("Trợ lý AI")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -182,38 +182,36 @@ public struct ReaderAIFullScreenView: View {
                 }
 
                 ToolbarItem(placement: .topBarLeading) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Trợ lý AI")
-                            .font(.system(size: PageTitleModifier.fontSize, weight: .bold))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                            .accessibilityAddTraits(.isHeader)
-                        Text(currentSession.title)
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                    HStack(spacing: 0) {
+                        HeaderLeadingIconButton(systemName: "chevron.down", accessibilityLabel: "Đóng Trợ lý AI", tint: .white) {
+                            dismiss()
+                        }
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Trợ lý AI")
+                                .font(.system(size: PageTitleModifier.fontSize, weight: .bold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .accessibilityAddTraits(.isHeader)
+                            Text(currentSession.title)
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        .frame(maxWidth: HeaderMetrics.besideLeftButtonTitleMaxWidth, alignment: .leading)
+                        .padding(.leading, -HeaderLeadingIconButton.titleOverlap)
+                        .allowsHitTesting(false)
                     }
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: HeaderButtonMetrics.pairSpacing) {
-                        Button(action: { showingOptionsMenu = true }) {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
-                        }
-                        .accessibilityLabel("Tuỳ chọn Trợ lý AI")
-
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "chevron.down.circle")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
-                        }
-                        .accessibilityLabel("Đóng Trợ lý AI")
+                    Button(action: { showingOptionsMenu = true }) {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: HeaderMetrics.iconFrameWidth, height: 36, alignment: .trailing)
                     }
+                    .accessibilityLabel("Tuỳ chọn Trợ lý AI")
                 }
             }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Trợ lý AI") {

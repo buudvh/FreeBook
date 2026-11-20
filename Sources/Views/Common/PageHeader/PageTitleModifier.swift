@@ -8,6 +8,8 @@ import SwiftUI
 ///   có nút trái"). 1.3.984–1.3.1017 dùng tiêu đề lớn của iOS ở hàng 2 (thu vào cạnh nút back khi cuộn) — đã bỏ, cùng đầu
 ///   dò `PageTitleCollapseProbe`.
 /// - `.hidden` = không hiện tiêu đề nào (Chi tiết truyện).
+/// - `leadingIcon` (kiểu `.leading`, 1.3.1021): nút icon đứng trước tiêu đề (vd ⌄ thu nhỏ của sheet Kiểm tra) — icon chạm
+///   lề, tiêu đề 22pt kế bên, chung một `ToolbarItem`.
 ///
 /// - Luôn gắn `.navigationTitle` thật: VoiceOver đọc được tên màn và menu nhấn giữ nút back vẫn liệt kê đúng tên.
 /// - Ô `principal` luôn là ô rỗng ⇒ tiêu đề nhỏ căn giữa của hệ thống không bao giờ hiện.
@@ -34,6 +36,8 @@ struct PageTitleModifier: ViewModifier {
     let style: PageTitleStyle
     /// Đoạn giải thích sau nút "?" cạnh tiêu đề (1.3.900, sheet "Giọng đọc"); `nil` = không có nút. Chỉ ở kiểu `.leading`.
     var help: [LocalizedStringKey]? = nil
+    /// Nút icon trước tiêu đề (1.3.1021); `nil` = không có. Chỉ ở kiểu `.leading`.
+    var leadingIcon: HeaderLeadingIconButton? = nil
 
     static let fontSize: CGFloat = HeaderMetrics.rowTitleFontSize
     /// Khoảng chữ lùi về phía nút ‹ tự dựng (khung 38pt, mũi ~13pt canh trái) ⇒ mũi cách chữ ~8pt như nút back hệ thống.
@@ -55,7 +59,14 @@ struct PageTitleModifier: ViewModifier {
                 }
                 if style == .leading {
                     ToolbarItem(placement: .topBarLeading) {
-                        if let help {
+                        if let leadingIcon {
+                            HStack(spacing: 0) {
+                                leadingIcon
+                                titleText
+                                    .padding(.leading, -HeaderLeadingIconButton.titleOverlap)
+                                    .allowsHitTesting(false)
+                            }
+                        } else if let help {
                             HStack(spacing: 2) {
                                 titleText
                                 SectionHelpButton(accessibilityLabel: "Giải thích \(title)", paragraphs: help)
@@ -83,15 +94,20 @@ struct PageTitleModifier: ViewModifier {
             }
     }
 
-    /// Tiêu đề hàng nút. Kiểu `.centered` có trần bề ngang (chừa chỗ cho nút back + cụm nút phải); dài hơn thì cắt đuôi.
+    /// Tiêu đề hàng nút. Đứng cạnh nút trái (kiểu `.centered`, hoặc có `leadingIcon`) thì có trần bề ngang (chừa chỗ cho
+    /// nút trái + cụm nút phải); dài hơn thì cắt đuôi.
     private var titleText: some View {
         Text(title)
             .font(.system(size: Self.fontSize, weight: .bold))
             .foregroundStyle(.primary)
             .lineLimit(1)
             .truncationMode(.tail)
-            .frame(maxWidth: style == .centered ? HeaderMetrics.besideLeftButtonTitleMaxWidth : nil, alignment: .leading)
+            .frame(maxWidth: isBesideLeftButton ? HeaderMetrics.besideLeftButtonTitleMaxWidth : nil, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
+    }
+
+    private var isBesideLeftButton: Bool {
+        style == .centered || (style == .leading && leadingIcon != nil)
     }
 }
 
@@ -99,6 +115,12 @@ extension View {
     /// Tiêu đề 22pt đậm. Mặc định `.leading` (tab gốc, gốc sheet); màn mở được cả hai kiểu truyền `style:`.
     func pageTitle(_ title: String, style: PageTitleStyle = .leading) -> some View {
         modifier(PageTitleModifier(title: title, style: style))
+    }
+
+    /// Tiêu đề kèm nút icon đứng trước (1.3.1021, vd ⌄ thu nhỏ của sheet). `leadingIcon == nil` ⇒ như `pageTitle(_:style:)`.
+    /// Nút chỉ dựng ở kiểu `.leading` — trang có nút back (`.centered`) giữ nút đó ở chỗ cũ của màn.
+    func pageTitle(_ title: String, style: PageTitleStyle = .leading, leadingIcon: HeaderLeadingIconButton?) -> some View {
+        modifier(PageTitleModifier(title: title, style: style, leadingIcon: leadingIcon))
     }
 
     /// Tiêu đề trái (gốc sheet) kèm nút "?" mở đoạn giải thích — như `SectionHelpHeader` của section.

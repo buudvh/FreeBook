@@ -71,11 +71,15 @@ struct ExtensionCheckView: View {
             actionBar
         }
         .padding(.top, 8)
-        .pageTitle("Kiểm tra tiện ích", style: isPresentedAsSheet ? .leading : .centered)
+        .pageTitle(
+            "Kiểm tra tiện ích",
+            style: isPresentedAsSheet ? .leading : .centered,
+            leadingIcon: SourceCheckHeaderButtons.leadingMinimize(isSheet: isPresentedAsSheet, isRunning: isRunning, action: minimize)
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 SourceCheckHeaderButtons(
-                    showsMinimize: isRunning,
+                    showsMinimize: isRunning && !isPresentedAsSheet, // sheet: ⌄ đứng trước tiêu đề (1.3.1021)
                     isShareDisabled: (report?.results.isEmpty ?? true) || isPreparingShare,
                     onMinimize: minimize,
                     onShare: shareReport
