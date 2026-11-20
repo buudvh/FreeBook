@@ -139,8 +139,7 @@ struct NotificationInboxView: View {
                     inboxList
                 }
             }
-            .pageTitle("Thông báo", style: sheetPageBack == nil ? .leading : .centered)
-            .sheetPageBackButton()
+            .pageTitle("Thông báo", style: sheetPageBack == nil ? .leading : .centered) // trang con trong sheet: kèm nút ‹
             .presentationDragIndicator(.visible) // sheet của Kệ; bản mở từ hub (UIKit) đặt thanh kéo ở chỗ trình bày
             .toolbar { toolbarContent }
             .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Thông báo") { optionsMenuItems }

@@ -24,8 +24,7 @@ struct HubStyleActionSheet: View {
                 NavigationStack {
                     page.content(close)
                         .scrollContentBackground(.hidden)
-                        .pageTitle(page.title, style: .centered)
-                        .sheetPageBackButton()
+                        .pageTitle(page.title, style: .centered) // nút ‹ + tiêu đề: `PageTitleModifier` đọc `sheetPageBack`
                 }
                 .environment(\.sheetPageBack, {
                     withAnimation(.easeInOut(duration: 0.25)) { openPageId = nil }

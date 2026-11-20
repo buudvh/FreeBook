@@ -112,7 +112,7 @@ struct FloatingHubSheet: View {
     private var pageContent: some View {
         switch shownPage {
         case .notifications:
-            // `NotificationInboxView` tự có `NavigationStack` và tự gắn nút ‹ (`sheetPageBackButton`).
+            // `NotificationInboxView` tự có `NavigationStack`; nút ‹ do `PageTitleModifier` dựng khi có `sheetPageBack`.
             NotificationInboxView(onOpenBook: actions.onOpenInboxBook)
                 .environment(\.sheetPageBack, { state.page = .main })
         case .sourceCheck(let embedded):
@@ -120,8 +120,8 @@ struct FloatingHubSheet: View {
             NavigationStack {
                 // Màn tự đóng (⌄ đã ẩn ⇒ chủ yếu "Mở lượt đang chạy", sau đó `reopen` trình bày từ cửa sổ chính) ⇒ đóng hẳn
                 // sheet hub, kẻo màn mở lại nằm dưới sheet.
+                // Màn kiểm tra dùng `.pageTitle(…, style: .centered)` ⇒ `PageTitleModifier` dựng nút ‹ từ `sheetPageBack`.
                 MinimizedSourceCheckCoordinator.shared.embeddedScreen(embedded, onClose: { state.dismiss() })
-                    .sheetPageBackButton()
             }
             .environment(\.sheetPageBack, leave)
         case .main, .aiTasks, .sourceChecks:
