@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1013",
+          "buildVersion": "1306",
+          "date": "2026-11-20T01:48:04Z",
+          "localizedDescription": "- feat: Khung nhập file mới — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1306/TangCongCac-1.3.1013-1306.ipa",
+          "size": 41911325,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1010",
           "buildVersion": "1305",
           "date": "2026-11-19T17:10:08Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1300/TangCongCac-1.3.980-1300.ipa",
           "size": 41746700,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.977",
-          "buildVersion": "1298",
-          "date": "2026-11-17T09:02:25Z",
-          "localizedDescription": "- fix: ChatGPT Web không còn bật bàn phím mỗi lần WebView ẩn chạy\n- feat: Chip phiên âm Anh / Nhật ở sheet Thêm thay thế TTS, dãy chip gợi ý ở sheet sửa quy tắc thay thế và sửa từ điển phiên âm NghiTTS / VieNeu\n- feat: Công tắc Phiên âm tiếng Nhật có ở mọi trình đọc TTS, lưu riêng từng trình đọc\n- fix: Từ điển phiên âm NghiTTS / VieNeu khớp từ có dấu nối - hoặc . theo luật token của thay thế TTS, sheet Thêm từ nhận từ gốc có dấu nối\n- feat: Gemini Web chạy được khi chưa đăng nhập Google (chế độ khách)",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1298/TangCongCac-1.3.977-1298.ipa",
-          "size": 41722432,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1010",
-      "versionDate": "2026-11-19T17:10:08Z",
-      "versionDescription": "- feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi\n- fix: Danh sách VietPhrase.dat / Names.dat — thêm nhiều từ một lượt ghi lớp sửa đổi, không dịch lại N lần\n- fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn\n- fix: Import truyện từ trình duyệt không còn báo \"Không tìm thấy tiện ích bóc tách\" khi tiện ích tra được trễ — Chi tiết chờ một lát và tự nạp lại",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1305/TangCongCac-1.3.1010-1305.ipa",
-      "size": 41917949,
+      "version": "1.3.1013",
+      "versionDate": "2026-11-20T01:48:04Z",
+      "versionDescription": "- feat: Khung nhập file mới — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1306/TangCongCac-1.3.1013-1306.ipa",
+      "size": 41911325,
       "appPermissions": {}
     }
   ],
