@@ -81,7 +81,9 @@ struct ShelfView: View {
     @AppStorage("shelfKindFilter") internal var shelfKindFilter = ""
     @State private var showingLayoutSheet = false // Sheet "Kiểu hiển thị" mở từ menu "…"
     @State private var showingShelfMenu = false // Ngăn kéo "…" trượt từ mép phải
-    @State private var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
+    @State internal var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
+    /// Chế độ chọn nhiều của Kệ Sách / Lịch Sử (nhấn giữ) — `ShelfView+Selection.swift`.
+    @State internal var bookSelection: ShelfBookSelection? = nil
 
     // Chỉ đọc snapshot TTS khi nhận sự kiện mở Reader; không redraw toàn bộ Shelf theo từng đoạn.
     private let ttsManager = TTSManager.shared
@@ -113,7 +115,7 @@ struct ShelfView: View {
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
-    // Sheet nhấn-giữ một cuốn sách (thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
+    // Sheet tuỳ chọn một cuốn sách (nút ⋮; thay cho context menu cũ) và đích "Xem chi tiết" phát từ sheet đó.
     @State internal var actionTarget: BookSheetAction.Target? = nil
     @State private var detailTargetBook: Book? = nil
     @State private var navigateToBookDetail = false
@@ -165,6 +167,47 @@ struct ShelfView: View {
         notificationInbox.unreadCount + newChapters.totalNewBooks
     }
 
+    /// Cụm nút phải của header — tách khỏi `body` vì ngân sách type-check. Đang chọn nhiều ⇒ thay cụm 🔍 | … bằng
+    /// "Chọn tất cả" / "Bỏ chọn tất cả" (`ShelfView+Selection`).
+    @ViewBuilder
+    private func headerTrailingButtons(_ kindFilter: ShelfKindFilter, badgeCount: Int) -> some View {
+        if bookSelection != nil {
+            selectAllButton(kindFilter)
+        } else {
+            // Một `ToolbarItem` cho cả cụm để 🔍 và "…" đứng sát nhau (`HeaderButtonMetrics`).
+            HStack(spacing: HeaderButtonMetrics.pairSpacing) {
+                // 🔍 tìm truyện trên kệ / lịch sử — vô nghĩa ở tab Tải xuống và Playlist.
+                if selectedTab != .downloads && selectedTab != .playlists {
+                    Button(action: {
+                        showingShelfSearch = true
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight)
+                    }
+                    .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
+                }
+                Button(action: { showingShelfMenu = true }) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải
+                        // của icon (overlay gắn vào icon trước khi canh `.trailing` trong khung ⇒ chấm đi theo icon).
+                        .overlay(alignment: .topTrailing) {
+                            if badgeCount > 0 {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 2, y: -2)
+                            }
+                        }
+                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                }
+                .accessibilityLabel("Tuỳ chọn Kệ")
+                .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")
+            }
+        }
+    }
+
     var body: some View {
         let nsfwMode = ShelfNsfwFilterState.shared.mode
         let parts = ShelfBookPartition(allBooks, nsfwFilter: nsfwMode)
@@ -202,9 +245,14 @@ struct ShelfView: View {
                         PlaylistsTabView()
                             .tag(ShelfTab.playlists)
 
-                        // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống).
+                        // TAB KỆ SÁCH — nút "+" nổi chỉ ở trang này (kể cả kệ trống); ẩn khi đang chọn nhiều. Inset luôn
+                        // gắn, chỉ nội dung đổi ⇒ bật / tắt chế độ chọn không dựng lại trang (giữ vị trí cuộn).
                         shelfTabView(parts, kindFilter)
-                            .floatingAddButton("Nhập truyện") { presentImportSheet() }
+                            .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
+                                if bookSelection == nil {
+                                    FloatingAddButton(accessibilityLabel: "Nhập truyện") { presentImportSheet() }
+                                }
+                            }
                             .tag(ShelfTab.shelf)
 
                         // TAB LỊCH SỬ
@@ -213,8 +261,14 @@ struct ShelfView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .pageTitle(selectedTab.navigationTitle) // tab gốc: tiêu đề trái theo trang đang chọn
+            // Tab gốc: tiêu đề trái theo trang đang chọn; đang chọn nhiều ⇒ ✕ + "Đã chọn N" (`ShelfView+Selection`).
+            .pageTitle(headerTitle(kindFilter), leadingIcon: selectionExitButton)
             .mainTabBar() // thanh tab tự vẽ: trong trang gốc, trang đẩy vào phủ lên (1.3.668)
+            .overlay(alignment: .bottom) { selectionActionBar(kindFilter) } // đè đúng chỗ thanh tab khi đang chọn
+            .onChange(of: selectedTab) { _, _ in bookSelection = nil }
+            .onChange(of: readerPresentationRoute) { _, route in
+                if route != nil { bookSelection = nil }
+            }
             // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
             // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
             .task {
@@ -224,36 +278,7 @@ struct ShelfView: View {
             .toolbar {
                 // Một `ToolbarItem` cho cả cụm để 🔍 và "…" đứng sát nhau (`HeaderButtonMetrics`).
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: HeaderButtonMetrics.pairSpacing) {
-                        // 🔍 tìm truyện trên kệ / lịch sử — vô nghĩa ở tab Tải xuống và Playlist.
-                        if selectedTab != .downloads && selectedTab != .playlists {
-                            Button(action: {
-                                showingShelfSearch = true
-                            }) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
-                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight)
-                            }
-                            .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
-                        }
-                        Button(action: { showingShelfMenu = true }) {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
-                                // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải
-                                // của icon (overlay gắn vào icon trước khi canh `.trailing` trong khung ⇒ chấm đi theo icon).
-                                .overlay(alignment: .topTrailing) {
-                                    if badgeCount > 0 {
-                                        Circle()
-                                            .fill(Color.red)
-                                            .frame(width: 8, height: 8)
-                                            .offset(x: 2, y: -2)
-                                    }
-                                }
-                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
-                        }
-                        .accessibilityLabel("Tuỳ chọn Kệ")
-                        .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")
-                    }
+                    headerTrailingButtons(kindFilter, badgeCount: badgeCount)
                 }
             }
             // Ngăn kéo "…" gắn ở thân màn (không gắn trong `ToolbarItem`) — xem `SideDrawerMenuModifier`.

@@ -10,7 +10,7 @@ import SwiftData
 ///
 /// Tách khỏi `ShelfView.swift` để file gốc không phình thêm (baseline dòng). `private` trong Swift là phạm vi
 /// **file**, nên các `@State` mà khối này chạm tới (`shelfLimit`, `historyLimit`, `readerPresentationRoute`,
-/// `actionTarget`, `shelfKindFilter`) là `internal`.
+/// `actionTarget`, `shelfKindFilter`) là `internal`. Nút ⋮ + chế độ chọn nhiều của hai trang: `ShelfView+Selection.swift`.
 @MainActor
 extension ShelfView {
     internal func shelfTabView(_ parts: ShelfBookPartition, _ filter: ShelfKindFilter) -> some View {
@@ -37,13 +37,17 @@ extension ShelfView {
                                 shelfLimit += 50
                             },
                             endCaption: Self.endCaption(filter.pinned.count + filter.unpinned.count, paged: filter.unpinned.count > 50),
+                            // ⋮ mở sheet tuỳ chọn; nhấn giữ vào chế độ chọn nhiều (`ShelfView+Selection`).
+                            onMore: { book in
+                                openBookActions(book, mode: .shelf)
+                            },
+                            selection: selectionConfig(for: .shelf),
                             onTap: { book in
                                 newChapters.markSeen(bookId: book.bookId)
                                 openReader(book)
                             },
                             onLongPress: { book in
-                                BookSheetAction.playLongPressFeedback()
-                                actionTarget = BookSheetAction.Target(book: book, mode: .shelf)
+                                enterSelection(book, page: .shelf)
                             }
                         )
                     }
@@ -76,13 +80,16 @@ extension ShelfView {
                                 historyLimit += 50
                             },
                             endCaption: Self.endCaption(filter.history.count, paged: filter.history.count > 50),
+                            onMore: { book in
+                                openBookActions(book, mode: .history)
+                            },
+                            selection: selectionConfig(for: .history),
                             // Lịch sử không `markSeen` — giữ đúng hành vi cũ của hàng lịch sử.
                             onTap: { book in
                                 openReader(book)
                             },
                             onLongPress: { book in
-                                BookSheetAction.playLongPressFeedback()
-                                actionTarget = BookSheetAction.Target(book: book, mode: .history)
+                                enterSelection(book, page: .history)
                             }
                         )
                     }

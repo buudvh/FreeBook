@@ -1,7 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Sheet hiện ra khi **nhấn giữ** một cuốn sách ở Kệ sách / Lịch sử / trong một bộ sưu tập.
+/// Sheet tuỳ chọn một cuốn sách: mở bằng nút **⋮** ở Kệ sách / Lịch sử (ở đó nhấn giữ là vào chế độ chọn nhiều —
+/// `ShelfView+Selection`), bằng **nhấn giữ** trong một bộ sưu tập và ở Tìm trên kệ.
 ///
 /// Thay cho `.contextMenu` cũ: menu ngữ cảnh của SwiftUI chỉ nhận được `Button`/`Link`, không dựng
 /// được phần đầu có ảnh bìa lẫn danh sách bộ sưu tập bấm thêm/bớt tại chỗ.

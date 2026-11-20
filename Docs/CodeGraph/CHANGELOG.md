@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1039] - 2026-11-20
+
+### feat: Kệ — nút ⋮ mở tuỳ chọn truyện, nhấn giữ để chọn nhiều (Chọn tất cả, Thêm vào playlist, Thêm vào bộ sưu tập, Xoá)
+
+Anh Bửu: thêm nút ba chấm dọc trên mỗi sách ở Kệ mở menu của sách; nhấn giữ lâu = chọn nhiều sách, có Chọn tất cả / Bỏ chọn tất cả, Xoá, Thêm vào playlist, Thêm vào bộ sưu tập → plan + mockup https://claude.ai/artifact/Es6YfEe94Zyi2uigCzMTPX → "Duyệt" (theo đề xuất: chỉ Kệ Sách + Lịch Sử, thanh thao tác đè thanh tab, Xoá ở Kệ hỏi hai hướng).
+
+- **⋮** (`ShelfBookMoreButton`, mới): kiểu Danh sách cuối hàng sau badge chương mới (17pt, khung 32×44), kiểu Lưới cuối dòng "icon · Ch. N" (15pt), kiểu Chỉ bìa vòng tròn 26 nền đen 50% góc trên phải bìa (badge chương mới lùi sang trái). Bấm ⇒ `BookActionSheet` như nhấn giữ trước đây. Là tham số **opt-in** `onMore` của `ShelfBooksLayoutView`; thẻ lưới nhận `ShelfBookGridCardView.Accessory`.
+- **Chọn nhiều** (`ShelfBookSelection` + `ShelfView+Selection`, mới): nhấn giữ (0,25 s, rung) ⇒ vào chế độ, truyện đó chọn sẵn. Header ✕ + "Đã chọn N" (`pageTitle(_:leadingIcon:)`) + "Chọn tất cả" / "Bỏ chọn tất cả" thay cụm 🔍 | …; nút "+" nổi ẩn. Chạm / nhấn giữ = chọn / bỏ, không mở truyện. Vòng chọn `ShelfBookSelectionMark` (mới); hàng đã chọn nền nhấn 18% + viền 60% (`bookListPanel(_:isHighlighted:)`), bìa đã chọn viền nhấn 3pt. Chỉ giữ `bookId`, mọi phép đếm / thao tác giao với danh sách đang hiện của trang (chip loại + NSFW, kể cả phần chưa phân trang tới — "Chọn tất cả" chọn hết). Thoát: ✕, đổi trang, mở Reader (thông báo / đĩa nghe), thao tác xong.
+- **Thanh thao tác** `ShelfSelectionActionBar` (mới): cùng khuôn `MainTabBar`, `overlay` đè đúng chỗ thanh tab (không sửa thanh tab dùng chung). Thêm vào playlist · Thêm vào bộ sưu tập · Xoá.
+- **Xoá**: Kệ Sách hỏi "Bỏ khỏi kệ (về Lịch sử)" (một lần lưu, `BookTransactionCoordinator+Batch.removeFromShelf(bookIds:)` chép luật bản một truyện) hoặc "Xoá hẳn khỏi máy" (`BookStorageManager.deleteBooksAsync`, lớp chờ "Đang dọn dẹp sách...", toast theo số thật đã xoá — truyện đang nghe TTS được giữ). Lịch Sử hỏi "Xoá N truyện khỏi lịch sử": trên kệ ⇒ `setHistory(bookIds:isHistory: false)`, không ở kệ ⇒ xoá khỏi máy.
+- **Thêm vào bộ sưu tập**: sheet kính `CollectionBatchAddSheet` (mới) — chạm một bộ ⇒ `BookCollectionCoordinator.addBooks` (mới, **chỉ thêm**, một lần lưu; truyện ở Lịch sử lên kệ theo bất biến), "Tạo bộ sưu tập mới" tạo xong thêm luôn, toast "Đã thêm N truyện vào …".
+- **Thêm vào playlist**: chỉ album âm thanh / phim (`PlaylistKind` qua `BookContentKindResolver`). Không có cuốn nào hợp ⇒ ô mờ + toast; có cả hai loại ⇒ hỏi Nhạc / Video; lấy mục lục **lần lượt** (`PlaylistAlbumItemsLoader.items`, ô hiện "Đang lấy i/N · Huỷ", bấm lại ⇒ huỷ) rồi mở `PlaylistAddSheet` (thêm tham số tuỳ chọn `onAdded`); truyện khác loại / album lỗi mục lục báo gộp một toast.
+- Thêm xong (playlist / bộ sưu tập) ⇒ thoát chế độ chọn khi sheet đóng hẳn; vuốt đóng mà chưa thêm ⇒ giữ lựa chọn.
+- Bộ sưu tập và Tìm trên kệ giữ nguyên (nhấn giữ vẫn mở sheet, không ⋮). Cụm nút phải header Kệ tách ra `headerTrailingButtons` (ngân sách type-check của `body`).
+- `.claude/rules/ui-conventions.md` thêm luật. CHANGELOG: chuyển bản 1.3.1009 sang archive. Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **chưa build tại chỗ (Windows), chưa thử máy**.
+
 ## [1.3.1038] - 2026-11-20
 
 ### fix: vtts — phiên âm tiếng Nhật đọc được tên viết hoa, thêm "vtts tự đọc nhanh tối đa" để chỉnh độ rõ lời
@@ -396,42 +412,3 @@ Nay (BookDetailView+ExtensionWait, mới):
 
 Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; nguyên nhân gốc chưa có log xác nhận (nếu còn gặp, log ❌
 [BookDetail] cho biết mã tiện ích nhận được); check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
-
-## [1.3.1009] - 2026-11-19
-
-### fix: Sửa VP / Name / rule lúc đang nghe — Reader hiện bản dịch mới cho mọi đoạn như cũ, chỉ tiếng TTS giữ chữ cũ ở đoạn đang đọc và đoạn đó được tô cả đoạn
-
-Trước (bản đã build): Reader ghim chữ TTS cho các dòng ≤ mốc nối — anh Bửu báo các đoạn trước đoạn đang nghe không hiển
-thị đúng nghĩa đã cập nhật. Anh chốt: "Hiển thị phải thay đổi cho đúng (như cũ …). Việc để nguyên đoạn trước khi nghe chỉ
-nên làm với nghe chứ không phải làm với đọc" + chọn "Tô cả đoạn".
-
-Nay:
-- Reader dựng lại bản dịch như trước tính năng (bản mới cho mọi đoạn, vẫn hoãn khi panel / menu chọn chữ mở). Gỡ hẳn phần
-  ghim chữ: ReaderViewModel+TTSRetranslation (alignedWithTTSAnchor / chờ mốc 3 s / nắn lại cache / trả bản gốc), lượt chờ
-  trong processAndSaveChapter, giữ lượt nối khi panel mở (setReaderHold), trường ghim của CachedChapter
-  (ttsAnchorStamp / unalignedParagraphItems, ttsSnapshot*), getPretranslatedSnapshot về lại paragraphItems.
-- TTS giữ cơ chế nối: chunk của dòng ≤ L (dòng đang đọc + chunk đã xếp sẵn hàng đợi NghiTTS / VieNeu) đọc chữ cũ, dòng sau
-  đọc bản mới, tiếng không cắt; không còn chờ Reader. TTSRetranslationCoordinator gọn lại: bỏ mốc / pending / hold / người
-  chờ, còn staleLineIds (dòng ≤ L có chữ TTS khác bản mới, cả dòng đã nghe qua, tên chương = -1) + FullRetranslation (bản
-  mới đầy đủ), xoá khi chapterContent đổi (didSet) — TTS đọc lại / chuyển chương / thay cả chương.
-- Highlight "tô cả đoạn": ReaderTTSHighlightReader lấy chữ TTS đang đọc của dòng đang đọc / đang chuẩn bị qua
-  TTSManager.spokenLineText(lineId:) (tra normalizedChapterText — chữ trộn sau lượt nối; tên chương = chapterTitle);
-  ReaderTTSHighlightBinder so với ParagraphCardView.displayText: khác ⇒ tô cả đoạn bằng kiểu vệt chuẩn bị (nhạt hơn),
-  trùng ⇒ vệt câu như thường. ReaderView chỉ đổi tham số truyền vào binder (không thêm dòng).
-- Lùi / tua về dòng mà từ đó còn dòng chunk chữ cũ (TTSManager+RetranslationRewind, mới): adoptFullRetranslationIfStale thay
-  cả chương bằng bản mới đầy đủ (bỏ tiếng nạp trước) rồi đọc từ đầu dòng đích — cắt tiếng như mọi lần tua. Gọi ở
-  seekToParagraph (vạch tua sheet nghe mini) và skipBackward (sheet, màn khoá; đổi đúng một dòng gán chỉ số). Đổi độ dài
-  chunk / hiện tên chương sau lượt nối ⇒ chia lại từ chữ bản mới như resumeAfterSettings; bản mới đã cũ (token / cấu hình
-  đổi) ⇒ đọc chunk hiện có + log. "Nghe từ đây" / nút tai nghe Reader dựng lại phiên bằng bản dịch sẵn của Reader (đã là
-  bản mới) nên không cần lối này.
-- Ghi chú luật: .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
-
-Khác gợi ý của spec: binder so thẳng chữ TTS đang đọc với chữ đang hiện thay vì chỉ dựa vào tập dòng chữ cũ — phủ cả lúc panel
-đang mở (Reader chưa dựng lại, TTS đã đọc bản mới) và khoảng trước khi TTS kịp nối. Hệ quả: mọi lệch chữ TTS ↔ Reader có sẵn
-(bộ dịch tiện ích ra chữ khác, bật / tắt dịch lúc đang tạm dừng…) nay hiện tô cả đoạn thay vì vệt câu lệch chỗ.
-
-Chưa đồng bộ (biết, chưa sửa): bong bóng / dòng trích của vạch tua sheet nghe mini lấy chữ chunk TTS, kéo lùi qua dòng chữ cũ
-vẫn xem trước câu cũ; thả tay thì TTS thay chương và đọc bản mới.
-
-Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift);
-TTSManager.swift 3413 dòng, ReaderView.swift 1924 dòng (không tăng).

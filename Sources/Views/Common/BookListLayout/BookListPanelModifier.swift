@@ -19,28 +19,38 @@ import SwiftUI
 /// `bookListPanel(_:)` trong label (cả panel bấm được) và `bookListPanelRowChrome()` ngoài nút.
 struct BookListPanelModifier: ViewModifier {
     let rowSize: BookListRowSize
+    /// Panel đang được chọn (chế độ chọn nhiều của Kệ Sách / Lịch Sử): phủ thêm nền màu nhấn mờ 18% + viền 60% như chip đang
+    /// chọn (`ExtensionKindFilterBar`). Lớp nhấn nằm **dưới** nội dung (trong `background`) để bìa / chữ không bị nhuộm.
+    var isHighlighted: Bool = false
 
     static let cornerRadius: CGFloat = 12
     /// Khoảng giữa hai panel của danh sách dựng bằng `LazyVStack` = 4 + 4 lề hàng của `List`.
     static let stackSpacing: CGFloat = 8
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
         content
             .padding(.horizontal, 10)
             .padding(.vertical, rowSize.isCompact ? 6 : 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                Color(.secondarySystemBackground),
-                in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+            .background {
+                shape
+                    .fill(Color(.secondarySystemBackground))
+                    .overlay {
+                        if isHighlighted {
+                            shape.fill(Color.accentColor.opacity(0.18))
+                            shape.strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 1)
+                        }
+                    }
+            }
+            .contentShape(shape)
     }
 }
 
 extension View {
-    /// Nền + đệm của panel (không đụng thuộc tính hàng của `List`).
-    func bookListPanel(_ rowSize: BookListRowSize = .default) -> some View {
-        modifier(BookListPanelModifier(rowSize: rowSize))
+    /// Nền + đệm của panel (không đụng thuộc tính hàng của `List`). `isHighlighted` = panel đang được chọn.
+    func bookListPanel(_ rowSize: BookListRowSize = .default, isHighlighted: Bool = false) -> some View {
+        modifier(BookListPanelModifier(rowSize: rowSize, isHighlighted: isHighlighted))
     }
 
     /// Thuộc tính hàng `List` của kiểu panel: ẩn vạch, nền trong suốt, lề 4 trên/dưới + 16 hai bên. Gắn cả cho hàng

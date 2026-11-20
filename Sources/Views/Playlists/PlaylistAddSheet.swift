@@ -8,6 +8,8 @@ import SwiftUI
 /// `.appAccentTint()` ở gốc nên sheet thừa hưởng; toast ở cửa sổ riêng nên vẫn hiện trên chúng.
 struct PlaylistAddSheet: View {
     let request: PlaylistAddRequest
+    /// Đã thêm xong (sheet tự đóng). Chế độ chọn nhiều của Kệ dùng để thoát khi sheet đóng hẳn; lối khác để `nil`.
+    var onAdded: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
@@ -115,6 +117,7 @@ struct PlaylistAddSheet: View {
             } else {
                 ToastManager.shared.show(message: "Đã có sẵn trong \(outcome.playlist.name)", type: .info)
             }
+            onAdded?()
         case .failure(let error):
             ToastManager.shared.show(message: error.localizedDescription, type: .error)
         }

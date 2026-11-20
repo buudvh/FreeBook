@@ -13,8 +13,19 @@ import SwiftUI
 /// Mọi hàng/thẻ dùng `onTapGesture` + `onLongPressGesture` chứ **không** bọc `Button`: bọc Button thì nhả tay sau khi
 /// giữ vẫn kích hoạt action, mở luôn cả Reader. View này chỉ phát sự kiện; rung, `markSeen`, mở Reader/sheet là
 /// việc của nơi dùng (mỗi màn có luật riêng — Lịch sử không `markSeen`).
+///
+/// Hai tuỳ chọn opt-in (Kệ Sách / Lịch Sử dùng, Bộ sưu tập + Tìm trên kệ không truyền ⇒ y như cũ):
+/// - `onMore`: nút ⋮ trên mỗi hàng / thẻ (`ShelfBookMoreButton`) — mở sheet tuỳ chọn truyện thay cho nhấn giữ.
+/// - `selection`: chế độ chọn nhiều — chạm và nhấn giữ đều chọn / bỏ (`onToggle`), ⋮ ẩn, vuốt ngang tắt, mỗi hàng / thẻ
+///   có vòng chọn (`ShelfBookSelectionMark`), hàng đã chọn nền nhấn mờ / bìa đã chọn viền nhấn.
 @MainActor
 struct ShelfBooksLayoutView: View {
+    /// Trạng thái chọn nhiều của nơi dùng: tập `bookId` đã chọn + hàm chọn / bỏ một truyện.
+    struct Selection {
+        let selectedIds: Set<String>
+        let onToggle: (Book) -> Void
+    }
+
     /// Tiêu đề một nhóm (`ShelfSectionHeaderView`).
     struct Header {
         let title: String
@@ -49,6 +60,10 @@ struct ShelfBooksLayoutView: View {
     /// phân trang — nơi dùng tự quyết).
     var endCaption: String? = nil
     var swipeAction: SwipeAction? = nil
+    /// Nút ⋮ (opt-in); `nil` ⇒ không có nút.
+    var onMore: ((Book) -> Void)? = nil
+    /// Chế độ chọn nhiều đang bật; `nil` ⇒ chạm mở (`onTap`), nhấn giữ gọi `onLongPress`.
+    var selection: Selection? = nil
     let onTap: (Book) -> Void
     let onLongPress: (Book) -> Void
 
@@ -97,17 +112,25 @@ struct ShelfBooksLayoutView: View {
 
     @ViewBuilder
     private func listRow(_ book: Book, rowSize: BookListRowSize) -> some View {
-        let row = ShelfBookRowView(book: book, extensions: extensions, rowSize: rowSize)
-            .bookListPanelRow(rowSize)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                onTap(book)
-            }
-            .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                onLongPress(book)
-            }
+        let isSelected = selection?.selectedIds.contains(book.bookId) == true
+        let row = HStack(spacing: 8) {
+            ShelfBookRowView(book: book, extensions: extensions, rowSize: rowSize)
+            Spacer(minLength: 0)
+            listAccessory(book, isSelected: isSelected)
+        }
+        .bookListPanel(rowSize, isHighlighted: isSelected)
+        .bookListPanelRowChrome()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            tap(book)
+        }
+        .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
+            longPress(book)
+        }
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
 
-        if let swipeAction {
+        // Chế độ chọn không vuốt ngang (Kệ / Lịch sử không có `swipeAction` nên nhánh không đổi giữa chừng).
+        if let swipeAction, selection == nil {
             row.swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     swipeAction.perform(book)
@@ -186,15 +209,54 @@ struct ShelfBooksLayoutView: View {
                 book: book,
                 extensions: extensions,
                 mode: mode,
-                aspectRatio: scope.coverAspectRatio
+                aspectRatio: scope.coverAspectRatio,
+                accessory: cardAccessory(book)
             )
             .contentShape(Rectangle())
             .onTapGesture {
-                onTap(book)
+                tap(book)
             }
             .onLongPressGesture(minimumDuration: BookSheetAction.longPressMinimumDuration) {
-                onLongPress(book)
+                longPress(book)
             }
+            .accessibilityAddTraits(selection?.selectedIds.contains(book.bookId) == true ? .isSelected : [])
+        }
+    }
+
+    // MARK: - ⋮ + chọn nhiều
+
+    private func cardAccessory(_ book: Book) -> ShelfBookGridCardView.Accessory {
+        if let selection {
+            return .selection(isSelected: selection.selectedIds.contains(book.bookId))
+        }
+        if let onMore {
+            return .more({ onMore(book) })
+        }
+        return .none
+    }
+
+    @ViewBuilder
+    private func listAccessory(_ book: Book, isSelected: Bool) -> some View {
+        if selection != nil {
+            ShelfBookSelectionMark(isSelected: isSelected)
+        } else if let onMore {
+            ShelfBookMoreButton(style: .row) { onMore(book) }
+        }
+    }
+
+    private func tap(_ book: Book) {
+        if let selection {
+            selection.onToggle(book)
+        } else {
+            onTap(book)
+        }
+    }
+
+    private func longPress(_ book: Book) {
+        if let selection {
+            selection.onToggle(book)
+        } else {
+            onLongPress(book)
         }
     }
 

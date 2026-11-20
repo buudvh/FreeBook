@@ -99,6 +99,32 @@ public final class BookCollectionCoordinator {
         return save(context)
     }
 
+    /// Thêm **nhiều** truyện vào một bộ trong một lần lưu (sheet `CollectionBatchAddSheet` của chế độ chọn nhiều ở Kệ Sách /
+    /// Lịch Sử). Chỉ thêm — không gỡ truyện khỏi bộ nào khác (khác `setMemberships`); truyện chưa ở kệ được đưa lên kệ
+    /// (bất biến 1). Trả số truyện **mới** vào bộ (truyện đã có trong bộ không đếm). Lọc truyện trên RAM như
+    /// `createCollection`: predicate lọc chuỗi của SwiftData iOS 17 dịch sai sang SQLite.
+    @discardableResult
+    public func addBooks(bookIds: [String], toCollection collectionId: String, in context: ModelContext) -> Result<Int, Error> {
+        let all = (try? context.fetch(FetchDescriptor<BookCollection>())) ?? []
+        guard let collection = all.first(where: { $0.collectionId == collectionId }) else {
+            return .failure(BookTransactionError.collectionNotFound(collectionId))
+        }
+        let wanted = Set(bookIds)
+        let books = ((try? context.fetch(FetchDescriptor<Book>())) ?? []).filter { wanted.contains($0.bookId) }
+        guard !books.isEmpty else {
+            return .failure(BookTransactionError.bookNotFound(bookIds.first ?? ""))
+        }
+        var added = 0
+        for book in books {
+            if !book.collections.contains(where: { $0.collectionId == collectionId }) {
+                book.collections.append(collection)
+                added += 1
+            }
+            promoteToShelf(book)
+        }
+        return save(context).map { _ in added }
+    }
+
     /// Bỏ truyện khỏi một bộ sưu tập. **Không** đụng tới `isOnShelf` — đây là yêu cầu tường minh:
     /// rời bộ sưu tập không phải rời kệ sách.
     @discardableResult

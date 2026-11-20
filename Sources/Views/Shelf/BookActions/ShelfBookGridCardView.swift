@@ -13,14 +13,25 @@ import SwiftUI
 /// định, chiều cao suy từ tỉ lệ.
 ///
 /// Thẻ **không** tự bắt chạm: nơi dùng gắn `onTapGesture` + `onLongPressGesture` (không bọc `Button`, xem
-/// `ShelfBooksLayoutView`). Mọi lớp badge đều `allowsHitTesting(false)` để cử chỉ rơi vào cả thẻ.
+/// `ShelfBooksLayoutView`). Mọi lớp badge đều `allowsHitTesting(false)` để cử chỉ rơi vào cả thẻ; riêng nút ⋮
+/// (`accessory = .more`) là nút thật, được nhận chạm trước cử chỉ của thẻ.
 @MainActor
 struct ShelfBookGridCardView: View {
+    /// Phụ kiện của thẻ (Kệ Sách / Lịch Sử): ⋮ mở sheet tuỳ chọn — kiểu Lưới ở cuối dòng "icon · Ch. N", kiểu Chỉ bìa là
+    /// vòng tròn góc trên phải bìa (badge chương mới lùi sang trái); hoặc vòng chọn của chế độ chọn nhiều (góc trên phải
+    /// bìa, thay badge chương mới; đã chọn thì bìa có viền màu nhấn 3pt).
+    enum Accessory {
+        case none
+        case more(() -> Void)
+        case selection(isSelected: Bool)
+    }
+
     let book: Book
     let extensions: [Extension]
     let mode: BookListLayoutMode
     /// Rộng : cao của bìa (`BookListLayoutScope.coverAspectRatio`).
     let aspectRatio: CGFloat
+    var accessory: Accessory = .none
 
     var body: some View {
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
@@ -45,6 +56,10 @@ struct ShelfBookGridCardView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
+                        if case .more(let action) = accessory {
+                            Spacer(minLength: 0)
+                            ShelfBookMoreButton(style: .card, action: action)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -81,11 +96,38 @@ struct ShelfBookGridCardView: View {
                 pinBadge
             }
             .overlay(alignment: .topTrailing) {
-                NewChapterBadgeView(bookId: book.bookId)
-                    .padding(4)
-                    .allowsHitTesting(false)
+                topTrailingOverlay
             }
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                if case .selection(isSelected: true) = accessory {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                        .allowsHitTesting(false)
+                }
+            }
+    }
+
+    /// Góc trên phải bìa: badge chương mới; Chỉ bìa có ⋮ thì badge đứng bên trái vòng ⋮; chế độ chọn nhiều thì chỉ còn
+    /// vòng chọn.
+    @ViewBuilder
+    private var topTrailingOverlay: some View {
+        switch accessory {
+        case .selection(let isSelected):
+            ShelfBookSelectionMark(isSelected: isSelected, onCover: true)
+                .padding(5)
+                .allowsHitTesting(false)
+        case .more(let action) where mode == .coverOnly:
+            HStack(spacing: 0) {
+                NewChapterBadgeView(bookId: book.bookId)
+                    .allowsHitTesting(false)
+                ShelfBookMoreButton(style: .onCover, action: action)
+            }
+        case .none, .more:
+            NewChapterBadgeView(bookId: book.bookId)
+                .padding(4)
+                .allowsHitTesting(false)
+        }
     }
 
     /// Đáy bìa: hàng nhãn (`tag` trái, loại phải) và — kiểu chỉ bìa — dải tên + chương ngay dưới, để badge loại
