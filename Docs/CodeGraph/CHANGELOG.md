@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1012] - 2026-11-19
+
+### feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file
+
+Anh Bửu: "Hiện tại popup option nhập file hiển thị trước khi nhập file, sửa lại hiển thị sau khi nhập file. Hiển thị tên file nhập ở phần mô tả dưới tiêu đề nhập."
+
+Trước: hàng "Nhập…" trong ngăn kéo … mở popup chọn cách nhập (`.dataImportModePopup`) trước, bấm "Nhập file" mới mở bộ chọn file; chế độ đã chọn giữ tạm ở `pendingImportMode` chờ file.
+Nay: 5 màn chuyển sang khung chung `.dataImportFilePicker` (commit 1ea15164): hàng "Nhập…" chỉ mở bộ chọn file; chọn xong mới hiện popup Thay thế toàn bộ / Gộp / Chỉ thêm key mới với tên file ở dòng dưới tiêu đề, nút "Nhập"; bấm "Nhập" ⇒ gọi đúng hàm nhập cũ với file + chế độ (giữ nguyên logic 3 chế độ, khoá so trùng và toast "thêm X, cập nhật Y"). Huỷ chọn file ⇒ không có popup; chạm ra ngoài popup ⇒ bỏ file, không nhập. Giữ nguyên loại file cho phép của từng màn (NghiTTS .plist / .json / .csv / .txt, VieNeu .plist / .json, ba màn còn lại .json) và câu báo khi đuôi file sai (nay báo sau khi bấm "Nhập"). Bỏ state `showingImportModes` / `pendingImportMode`, `DocumentPicker` dạng sheet (hai màn phiên âm) và `DocumentPickerPresenter` riêng của từng màn. Lọc rác không đổi (không popup, chỉ thêm mẫu chưa có).
+
+File đã đụng:
+- `Sources/Views/Settings/TTS/TTSDictionaryEditView.swift` (phiên âm NghiTTS)
+- `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift` (phiên âm VieNeu)
+- `Sources/Views/Settings/TTS/TTSReplacementManagerView.swift` (thay thế ký tự TTS, cả tầng chung lẫn tầng riêng của truyện)
+- `Sources/Views/Settings/Translation/TOCRulesConfigView.swift` (quy tắc mục lục)
+- `Sources/Views/Settings/Search/SearchEnginesConfigView.swift` (công cụ tra cứu)
+
+Chưa kiểm: không build được (máy Windows) — chỉ đọc code + `check_architecture.py` (không lỗi mới); chưa chạy trên máy, nhất là hai màn phiên âm (trước dùng `DocumentPicker` dạng sheet, nay bộ chọn bản sao `asCopy` của khung chung — file nằm ở thư mục tạm, đọc trong `Task` sau khi popup đóng) và màn mở dạng sheet (Thay thế TTS từ Cài đặt TTS / hub truyện, Công cụ tra cứu từ Reader).
+
 ## [1.3.1011] - 2026-11-20
 
 ### feat: Khung nhập file mới — chọn file trước, popup chọn cách nhập hiện sau kèm tên file

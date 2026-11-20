@@ -34,10 +34,8 @@ struct TTSReplacementManagerView: View {
     @State private var phoneticSuggestions: [TTSPhoneticSuggestion] = []
     
     // Trạng thái cho việc nhập/xuất file JSON & Khôi phục mặc định
+    /// Bộ chọn file của `.dataImportFilePicker`: chọn file trước, popup chọn cách nhập hiện sau (kèm tên file).
     @State private var showingFileImporter = false
-    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingResetOptions = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
     @State private var exportDocumentToShare: ExportDocument? = nil
@@ -138,7 +136,7 @@ struct TTSReplacementManagerView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: layerTitle) {
-            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingImportModes = true }
+            SideDrawerActionRow("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up") { exportRules() }
             // Tầng riêng không có bộ mặc định (bộ mặc định là của tầng chung) nên ẩn hẳn mục này.
             if !isBookLayer {
@@ -153,18 +151,12 @@ struct TTSReplacementManagerView: View {
             }
             .appGlassSheet()
         }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false,
-                onPick: { urls in importPickedFile(urls) },
-                onCancel: { pendingImportMode = nil }
-            )
-        )
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập quy tắc thay thế TTS") { mode in
-            pendingImportMode = mode
-            showingFileImporter = true
+        .dataImportFilePicker(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.json],
+            title: "Nhập quy tắc thay thế TTS"
+        ) { url, mode in
+            importPickedFile(url, mode: mode)
         }
         // Chọn phương thức khôi phục mặc định
         .confirmationDialog("Khôi phục quy tắc mặc định", isPresented: $showingResetOptions, titleVisibility: .visible) {
@@ -321,9 +313,7 @@ struct TTSReplacementManagerView: View {
     
     /// Nhập theo chế độ đã chọn ở popup vào **tầng đang mở** (khoá = `matchKey`, xem `TTSReplacementRuleImporter`),
     /// xong toast số đếm; file sai định dạng báo bằng hộp thoại như trước.
-    private func importPickedFile(_ urls: [URL]) {
-        guard let mode = pendingImportMode, let url = urls.first else { return }
-        pendingImportMode = nil
+    private func importPickedFile(_ url: URL, mode: DataImportMode) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         do {

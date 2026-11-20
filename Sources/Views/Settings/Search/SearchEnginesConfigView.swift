@@ -19,11 +19,9 @@ struct SearchEnginesConfigView: View {
     @State private var inputTemplate = ""
 
     // Trạng thái Nhập/Xuất cấu hình JSON
+    /// Bộ chọn file của `.dataImportFilePicker`: chọn file trước, popup chọn cách nhập hiện sau (kèm tên file).
     @State private var showingFileImporter = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
-    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode? = nil
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var activeExportURL: URL? = nil
     @State private var alertMessage = ""
@@ -53,7 +51,7 @@ struct SearchEnginesConfigView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Công cụ tra cứu nhanh") {
-            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingImportModes = true }
+            SideDrawerActionRow("Nhập cấu hình JSON", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất cấu hình JSON", systemImage: "square.and.arrow.up", action: exportEngines)
             // "Khôi phục mặc định" chuyển từ cuối danh sách vào ngăn kéo, cùng chỗ với các màn cấu hình khác.
             SideDrawerDivider()
@@ -90,18 +88,12 @@ struct SearchEnginesConfigView: View {
             }
             .appGlassSheet()
         }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false,
-                onPick: { urls in handlePickedFile(urls: urls) },
-                onCancel: { pendingImportMode = nil }
-            )
-        )
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập công cụ tra cứu") { mode in
-            pendingImportMode = mode
-            showingFileImporter = true
+        .dataImportFilePicker(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.json],
+            title: "Nhập công cụ tra cứu"
+        ) { url, mode in
+            handlePickedFile(url, mode: mode)
         }
         .alert("Thông báo", isPresented: $showingAlert) {
             Button("Đóng", role: .cancel) {}
@@ -204,9 +196,7 @@ struct SearchEnginesConfigView: View {
     // MARK: - Nhập / Xuất cấu hình
 
     /// Nhập theo chế độ đã chọn ở popup (khoá = mẫu URL, xem `SearchEngineTransfer.imported`), xong toast số đếm.
-    private func handlePickedFile(urls: [URL]) {
-        guard let mode = pendingImportMode, let url = urls.first else { return }
-        pendingImportMode = nil
+    private func handlePickedFile(_ url: URL, mode: DataImportMode) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 

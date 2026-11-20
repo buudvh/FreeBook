@@ -28,10 +28,8 @@ struct VieNeuJapaneseDictionaryView: View {
     @State private var searchText = ""
     @State private var isLoading = false
     @State private var showingAddSheet = false
+    /// Bộ chọn file của `.dataImportFilePicker`: chọn file trước, popup chọn cách nhập hiện sau (kèm tên file).
     @State private var showingFileImporter = false
-    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode? = nil
     @State private var showingRephoneticizeConfirmation = false
     @State private var showingDeleteAllConfirmation = false
     @State private var showingOptionsMenu = false // Ngăn kéo "…"
@@ -73,7 +71,7 @@ struct VieNeuJapaneseDictionaryView: View {
         }
         .sideDrawerMenu(isPresented: $showingOptionsMenu, title: "Từ điển phiên âm VieNeu-TTS") {
             SideDrawerActionRow("Tải từ điển từ HuggingFace", systemImage: "arrow.down.circle") { showingDownloadConfirmation = true }
-            SideDrawerActionRow("Nhập từ file…", systemImage: "square.and.arrow.down") { showingImportModes = true }
+            SideDrawerActionRow("Nhập từ file…", systemImage: "square.and.arrow.down") { showingFileImporter = true }
             SideDrawerActionRow("Xuất .plist", systemImage: "square.and.arrow.up") { export(asJSON: false) }
             SideDrawerActionRow("Xuất .json", systemImage: "square.and.arrow.up") { export(asJSON: true) }
             SideDrawerDivider()
@@ -89,32 +87,18 @@ struct VieNeuJapaneseDictionaryView: View {
             }
             .appGlassSheet()
         }
-        .sheet(isPresented: $showingFileImporter) {
-            DocumentPicker(
-                allowedContentTypes: [.propertyList, .json, .plainText],
-                allowsMultipleSelection: false,
-                onPick: { urls in
-                    showingFileImporter = false
-                    let mode = pendingImportMode
-                    pendingImportMode = nil
-                    guard let mode, let selectedURL = urls.first else { return }
-                    let ext = selectedURL.pathExtension.lowercased()
-                    guard ext == "plist" || ext == "json" else {
-                        ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist hoặc .json).", type: .error)
-                        return
-                    }
-                    let hasAccess = selectedURL.startAccessingSecurityScopedResource()
-                    importDictionary(from: selectedURL, hasAccess: hasAccess, mode: mode)
-                },
-                onCancel: {
-                    showingFileImporter = false
-                    pendingImportMode = nil
-                }
-            )
-        }
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập từ điển phiên âm VieNeu-TTS") { mode in
-            pendingImportMode = mode
-            showingFileImporter = true
+        .dataImportFilePicker(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.propertyList, .json, .plainText],
+            title: "Nhập từ điển phiên âm VieNeu-TTS"
+        ) { selectedURL, mode in
+            let ext = selectedURL.pathExtension.lowercased()
+            guard ext == "plist" || ext == "json" else {
+                ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist hoặc .json).", type: .error)
+                return
+            }
+            let hasAccess = selectedURL.startAccessingSecurityScopedResource()
+            importDictionary(from: selectedURL, hasAccess: hasAccess, mode: mode)
         }
         .sheet(item: Binding(
             get: { editingKey.map { EditableEntry(key: $0, value: editingValue) } },

@@ -24,10 +24,8 @@ struct TOCRulesConfigView: View {
     @State private var inputEnabled = true
 
     // State cho Nhập/Xuất file JSON
+    /// Bộ chọn file của `.dataImportFilePicker`: chọn file trước, popup chọn cách nhập hiện sau (kèm tên file).
     @State private var showingFileImporter = false
-    /// Popup chọn cách nhập (`.dataImportModePopup`) mở trước, chọn xong mới mở bộ chọn file.
-    @State private var showingImportModes = false
-    @State private var pendingImportMode: DataImportMode? = nil
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var activeExportURL: URL? = nil
 
@@ -129,23 +127,13 @@ struct TOCRulesConfigView: View {
         } message: {
             Text("Bạn có chắc chắn muốn xóa toàn bộ quy tắc tùy chỉnh và đưa bộ quy tắc TOC về trạng thái gốc xuất xưởng không?")
         }
-        .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập quy tắc TOC") { mode in
-            pendingImportMode = mode
-            showingFileImporter = true
+        .dataImportFilePicker(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.json],
+            title: "Nhập quy tắc TOC"
+        ) { url, mode in
+            handlePickedImportFile(url, mode: mode)
         }
-        .background(
-            DocumentPickerPresenter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false,
-                onPick: { urls in
-                    handlePickedImportFile(urls: urls)
-                },
-                onCancel: {
-                    pendingImportMode = nil
-                }
-            )
-        )
         .sheet(item: $exportDocumentToShare, onDismiss: {
             if let url = activeExportURL {
                 try? FileManager.default.removeItem(at: url)
@@ -399,12 +387,10 @@ struct TOCRulesConfigView: View {
 
     // MARK: - Import & Export Actions
     private func prepareForImport() {
-        showingImportModes = true
+        showingFileImporter = true
     }
 
-    private func handlePickedImportFile(urls: [URL]) {
-        guard let mode = pendingImportMode, let url = urls.first else { return }
-        pendingImportMode = nil
+    private func handlePickedImportFile(_ url: URL, mode: DataImportMode) {
         isImporting = true
         Task { @MainActor in
             defer { self.isImporting = false }
