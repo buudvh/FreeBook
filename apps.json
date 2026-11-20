@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1015",
+          "buildVersion": "1308",
+          "date": "2026-11-20T02:12:28Z",
+          "localizedDescription": "- feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài\n- feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1308/TangCongCac-1.3.1015-1308.ipa",
+          "size": 41952449,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1013",
           "buildVersion": "1306",
           "date": "2026-11-20T01:48:04Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1301/TangCongCac-1.3.981-1301.ipa",
           "size": 41777238,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.980",
-          "buildVersion": "1300",
-          "date": "2026-11-18T01:59:24Z",
-          "localizedDescription": "- fix: Thay thế từ TTS không phân biệt hoa thường — lúc đọc lẫn chip R/C\n- fix: CI build lại được — ONNX Runtime chép vào repo, file nhị phân lưu ở repo FreeBook-deps vì repo của Microsoft đã mất\n- feat: Tìm trong chương cuộn vô hạn hai đầu — kéo lên tìm chương trước, kéo xuống tìm chương sau",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1300/TangCongCac-1.3.980-1300.ipa",
-          "size": 41746700,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1013",
-      "versionDate": "2026-11-20T01:48:04Z",
-      "versionDescription": "- feat: Khung nhập file mới — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file\n- feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1306/TangCongCac-1.3.1013-1306.ipa",
-      "size": 41911325,
+      "version": "1.3.1015",
+      "versionDate": "2026-11-20T02:12:28Z",
+      "versionDescription": "- feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài\n- feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1308/TangCongCac-1.3.1015-1308.ipa",
+      "size": 41952449,
       "appPermissions": {}
     }
   ],
