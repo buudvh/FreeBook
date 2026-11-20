@@ -4,7 +4,7 @@ import SwiftData
 /// Màn **Cấu hình tiện ích**: thẻ đầu (giới thiệu + Trình duyệt · Ghim · Gỡ) rồi các nhóm cài đặt **tự lưu**.
 ///
 /// Không có nút "Lưu"/"Hủy"/"Đóng" — đóng bằng vuốt xuống (1.3.641). Mỗi nhóm ghi ngay qua `ExtensionTransactionCoordinator`:
-/// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + 18+ ở `+History`/`+Nsfw`, chặn quảng cáo
+/// biến cấu hình + cookie ở `ExtensionConfigView+GlobalConfig`, lịch sử + NSFW ở `+History`/`+Nsfw`, chặn quảng cáo
 /// + chế độ máy tính của webview ở `+WebContent`, kiểu vuốt xuống trình phát (tiện ích video) ở `+Video`, gỡ ở `+Uninstall`, trình duyệt của nguồn ở `+Browser`, trang đăng
 /// nhập `support_url` ở `+SupportLink`. Khối `plugin.json` nằm ở màn con `ExtensionMetadataScreen`. Tiện ích loại
 /// `translate` có thêm Bộ dịch (model, kiểu dịch) + Dịch thử ở `+TranslateEngine`, không có Trình duyệt / Kiểm tra /

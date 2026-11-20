@@ -24,7 +24,7 @@ public final class LegadoSourceRepository {
     public private(set) var ungroupedCount = 0
     public private(set) var isLoading = false
     public private(set) var hasLoaded = false
-    /// Nguồn 18+ theo `ExtensionNsfwClassifier.isLegadoNsfw` (tên + nhóm), tính trên nền mỗi lượt nạp — tab "Nguồn
+    /// Nguồn NSFW theo `ExtensionNsfwClassifier.isLegadoNsfw` (tên + nhóm), tính trên nền mỗi lượt nạp — tab "Nguồn
     /// Legado" ẩn chúng khi công tắc NSFW chung đang tắt.
     public private(set) var nsfwPackageIds: Set<String> = []
 
@@ -80,12 +80,12 @@ public final class LegadoSourceRepository {
         }
     }
 
-    /// Tóm tắt + tập nguồn 18+ + command sửa cờ 18+ của bản ghi.
+    /// Tóm tắt + tập nguồn NSFW + command sửa cờ NSFW của bản ghi.
     ///
     /// Sửa cờ: `Extension.isNsfw` của bản ghi lệch với luật phân loại trên nội dung nguồn (`LegadoSourceStore.isNsfw` —
     /// cùng công thức `makeCommand`) ⇒ upsert lại. Thay cho cờ `nsfw` từng ghi trong `plugin.json` tự sinh (bỏ ở
     /// 1.3.756): nguồn nhập trước khi có cờ, hay đổi nhóm (🔞) sau khi nhập, tự khớp lại ở lượt nạp kế tiếp. So
-    /// `isNsfw == true` để bản ghi `nil` (không khai) không bị upsert hàng loạt khi kết quả là "không 18+".
+    /// `isNsfw == true` để bản ghi `nil` (không khai) không bị upsert hàng loạt khi kết quả là "không NSFW".
     nonisolated private static func readAllSummaries() -> (
         summaries: [LegadoSourceSummary], nsfwIds: Set<String>, backfill: [UpsertExtensionCommand]
     ) {
@@ -146,19 +146,19 @@ public final class LegadoSourceRepository {
         scheduleTranslation()
     }
 
-    /// Số command upsert mỗi lô khi sửa cờ 18+ (có thể vài nghìn nguồn).
+    /// Số command upsert mỗi lô khi sửa cờ NSFW (có thể vài nghìn nguồn).
     private static let backfillChunkSize = 200
 
     /// Upsert một lô rồi hẹn lô kế ở vòng runloop sau.
     private static func applyBackfill(_ commands: [UpsertExtensionCommand], from start: Int) {
         guard start < commands.count else {
-            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Đã sửa cờ 18+ của \(commands.count) nguồn")
+            AppLogger.shared.log("ℹ️ 📚 [LegadoStore] Đã sửa cờ NSFW của \(commands.count) nguồn")
             return
         }
         let end = min(start + backfillChunkSize, commands.count)
         let chunk = Array(commands[start..<end])
         if case .failure(let error) = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: chunk) {
-            AppLogger.shared.log("❌ 📚 [LegadoStore] Không cập nhật được cờ 18+ của \(chunk.count) nguồn: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ 📚 [LegadoStore] Không cập nhật được cờ NSFW của \(chunk.count) nguồn: \(error.localizedDescription)")
         }
         DispatchQueue.main.async {
             MainActor.assumeIsolated { Self.applyBackfill(commands, from: end) }

@@ -4,7 +4,7 @@ import Foundation
 /// object JSON gốc của nguồn (đúng bytes `source.json` cũ, **giữ mọi khoá**, bytes ổn định: khoá sắp xếp).
 ///
 /// - Không còn `plugin.json` sinh tự động (1.3.756): `version` nằm ở bản ghi `installed.json`; `type` và các trường
-///   manifest dựng trong RAM (`LegadoSourceManifest`, `ExtensionPackageReader`); cờ 18+ do `makeCommand` tính sẵn
+///   manifest dựng trong RAM (`LegadoSourceManifest`, `ExtensionPackageReader`); cờ NSFW do `makeCommand` tính sẵn
 ///   (`ExtensionNsfwClassifier.isLegadoNsfw`) — coordinator không đọc manifest của nguồn Legado.
 /// - **Vị trí** (`location`) của một nguồn là URL file mới, hoặc thư mục cũ `extensions/<packageId>/` (chứa
 ///   `source.json`) của bản ghi chưa chuyển (`ExtensionPackageLayoutMigrator`). Đọc / vá / xoá hiểu cả hai; ghi mới
@@ -143,7 +143,7 @@ public enum LegadoSourceStore {
 
     // MARK: - Bản ghi kho tiện ích
 
-    /// Cờ 18+ của nguồn — **một** công thức cho `makeCommand` lẫn bước sửa cờ của `LegadoSourceRepository`
+    /// Cờ NSFW của nguồn — **một** công thức cho `makeCommand` lẫn bước sửa cờ của `LegadoSourceRepository`
     /// (khác đầu vào là hai nơi sửa qua sửa lại mãi).
     static func isNsfw(_ source: LegadoBookSource) -> Bool {
         ExtensionNsfwClassifier.isLegadoNsfw(
@@ -154,7 +154,7 @@ public enum LegadoSourceStore {
     }
 
     /// Command upsert của một nguồn đã ghi file (`localPath` = vị trí đó). `desc` luôn có giá trị (kể cả `""`) để xoá
-    /// ghi chú cũ khi nguồn bỏ ghi chú. Mang cờ 18+ đã tính (`declaredNsfw`).
+    /// ghi chú cũ khi nguồn bỏ ghi chú. Mang cờ NSFW đã tính (`declaredNsfw`).
     static func makeCommand(source: LegadoBookSource, packageId: String, version: Int, location: URL) -> UpsertExtensionCommand? {
         guard let type = source.kind.extensionType else { return nil }
         return UpsertExtensionCommand(

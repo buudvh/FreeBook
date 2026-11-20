@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-/// **Thu phim vào hub** theo luật chung — nút Home của màn xem, tắt công tắc NSFW lúc đang phát phim 18+
+/// **Thu phim vào hub** theo luật chung — nút Home của màn xem, tắt công tắc NSFW lúc đang phát phim NSFW
 /// (`VideoPlaybackSession+NsfwGuard`) và rời app (`VideoLeaveAppPolicy`). Không bao giờ dừng / tạm dừng phim.
 ///
 /// ## Xin thu vào hub (`collapseToHub`)
@@ -11,7 +11,7 @@ import UIKit
 /// xin thu thêm một lần nữa).
 ///
 /// ## Luật chung của Home / rời app (`applyLeaveRules`)
-/// Phim **đang phát** là 18+ (`RepositoryFilterPolicy.isNsfwBook`) ⇒ tắt tiếng nếu `VideoMutePolicy.shouldStartMuted`
+/// Phim **đang phát** là NSFW (`RepositoryFilterPolicy.isNsfwBook`) ⇒ tắt tiếng nếu `VideoMutePolicy.shouldStartMuted`
 /// (chỉ tắt, không bao giờ bật lại tiếng); công tắc NSFW đang bật ⇒ tắt. Không cần `VideoWatchModel` (phim ở cửa sổ nhỏ /
 /// hub vẫn dùng được). Không toast, không SwiftUI.
 ///
@@ -25,7 +25,7 @@ import UIKit
 @MainActor
 final class VideoLeaveToHubCoordinator {
     enum Reason {
-        /// Tắt công tắc NSFW lúc đang phát phim 18+.
+        /// Tắt công tắc NSFW lúc đang phát phim NSFW.
         case nsfwTurnedOff
         /// App vào nền, công tắc `VideoLeaveAppPolicy` bật — thu không hiệu ứng.
         case appBackground
@@ -94,7 +94,7 @@ final class VideoLeaveToHubCoordinator {
 
     // MARK: - Luật chung
 
-    /// Phần dịch vụ của nút Home (View lo đóng màn + chuyển tab): phim 18+ đang phát ⇒ tắt tiếng theo `VideoMutePolicy`;
+    /// Phần dịch vụ của nút Home (View lo đóng màn + chuyển tab): phim NSFW đang phát ⇒ tắt tiếng theo `VideoMutePolicy`;
     /// công tắc NSFW đang bật ⇒ tắt (guard NSFW của phiên sẽ xin thu phim vào hub — chỗ gọi phải rời màn **trước**). Trả
     /// `true` khi công tắc NSFW vừa được tắt ở đây.
     /// `keepsPlacement` (mọi nút Home): vài giây sau đó lời xin thu vào hub của guard NSFW bị bỏ qua — chỗ thu nhỏ do cài
@@ -105,10 +105,10 @@ final class VideoLeaveToHubCoordinator {
            RepositoryFilterPolicy.isNsfwBook(bookId: playing.bookId, packageId: playing.extensionPackageId) {
             let policy = VideoMutePolicy.current.title
             if VideoMutePolicy.shouldStartMuted(bookId: playing.bookId, packageId: playing.extensionPackageId) {
-                AppLogger.shared.log("🔞 [VideoLeave] \(source): phim 18+ ⇒ tắt tiếng theo «\(policy)»")
+                AppLogger.shared.log("🔞 [VideoLeave] \(source): phim NSFW ⇒ tắt tiếng theo «\(policy)»")
                 session.setMuted(true)
             } else {
-                AppLogger.shared.log("🔞 [VideoLeave] \(source): phim 18+, tuỳ chọn «\(policy)» ⇒ giữ tiếng")
+                AppLogger.shared.log("🔞 [VideoLeave] \(source): phim NSFW, tuỳ chọn «\(policy)» ⇒ giữ tiếng")
             }
         }
         guard RepositoryFilterPolicy.includesNsfwPreference else { return false }

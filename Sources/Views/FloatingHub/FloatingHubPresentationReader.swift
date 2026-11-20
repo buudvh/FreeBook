@@ -137,7 +137,7 @@ final class FloatingHubPresentationReader: ObservableObject {
     /// nút chuông trên toolbar nên mục Thông báo **xám** ở đó (trước 1.3.533 là vắng hẳn).
     private var isShelfTabActive = true
     /// Công tắc NSFW toàn app — tắt ⇒ bỏ truyện của nguồn NSFW khỏi "Tác vụ AI" (chỉ ẩn, tác vụ vẫn chạy). Dòng Video
-    /// **không** lọc: phim 18+ đang phát vẫn hiện để điều khiển / tắt được (tắt NSFW thu phim vào hub, không dừng nó).
+    /// **không** lọc: phim NSFW đang phát vẫn hiện để điều khiển / tắt được (tắt NSFW thu phim vào hub, không dừng nó).
     private(set) var includeNsfw = RepositoryFilterPolicy.includesNsfwPreference
     var cancellables = Set<AnyCancellable>()
 

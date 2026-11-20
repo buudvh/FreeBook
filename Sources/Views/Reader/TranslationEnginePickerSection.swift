@@ -21,7 +21,7 @@ struct TranslationEnginePickerSection: View {
 
     private static let iconSize: CGFloat = 22
     private static let iconCornerRadius: CGFloat = 5
-    /// Icon app trong Assets (cùng ảnh với màn khoá khi phát phim / nhạc 18+).
+    /// Icon app trong Assets (cùng ảnh với màn khoá khi phát phim / nhạc NSFW).
     private static let appIconAssetName = "LockScreenAppIcon"
     /// Quá số dòng này thì danh sách cuộn trong khung cố định, popover không cao quá màn.
     private static let maxVisibleRows = 6

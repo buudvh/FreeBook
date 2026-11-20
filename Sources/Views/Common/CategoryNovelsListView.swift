@@ -139,6 +139,8 @@ struct CategoryNovelsListView: View {
                 )
             }
         }
+        // "Mờ bìa NSFW" (1.3.1019): mọi bìa của danh sách thuộc nguồn này.
+        .nsfwCoverContext(RepositoryFilterPolicy.isNsfwSource(packageId: extensionPackageId))
         // Gắn ở `VStack` ngoài (luôn tồn tại), không trong một nhánh danh sách/lưới: đổi kiểu không làm mất đích.
         .navigationDestination(item: $selectedNovel) { novel in
             BookDetailView(

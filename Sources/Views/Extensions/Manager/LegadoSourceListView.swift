@@ -4,7 +4,7 @@ import SwiftUI
 /// sách nguồn. Mọi thao tác ghi đi qua `LegadoSourceCoordinator`; menu ⋯ (nhập, bật/tắt hàng loạt, kiểm tra, xuất,
 /// xoá tất cả) nằm ở toolbar của `RepositoryManagerView` và dùng chung `state`.
 ///
-/// Công tắc NSFW chung (`includeNsfw`, `@AppStorage` của view cha — đọc trong `body` nên tự vẽ lại) tắt ⇒ ẩn nguồn 18+;
+/// Công tắc NSFW chung (`includeNsfw`, `@AppStorage` của view cha — đọc trong `body` nên tự vẽ lại) tắt ⇒ ẩn nguồn NSFW;
 /// chip nhóm và "Đang bật x/y" tính trên danh sách **sau** lọc. Chạm vào dòng ⇒ màn chi tiết (sheet).
 ///
 /// Danh sách có thể vài nghìn dòng: `List` lười, lọc một lần mỗi lượt vẽ trên `searchKey` đã tính sẵn.
@@ -94,7 +94,7 @@ struct LegadoSourceListView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             if hiddenNsfw > 0 {
-                Text("· ẩn \(hiddenNsfw) nguồn 18+")
+                Text("· ẩn \(hiddenNsfw) nguồn NSFW")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)

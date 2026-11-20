@@ -7,7 +7,7 @@ import UIKit
 /// (`CoverRotationState`: dừng thì giữ góc, không giật về 0).
 ///
 /// Ảnh tải qua `CoverImageLoader` (kèm `Referer`, downsample theo cỡ khung, **không** ghi `covers/`). Chưa có ảnh / không có
-/// bìa / `isConcealed` (album 18+ lúc công tắc NSFW tắt — không tải bìa) ⇒ nốt nhạc tĩnh trên nền tối.
+/// bìa / `isConcealed` (album NSFW lúc công tắc NSFW tắt — không tải bìa) ⇒ nốt nhạc tĩnh trên nền tối.
 struct AudioRotatingCover: View {
     let coverUrl: String
     let referer: String?

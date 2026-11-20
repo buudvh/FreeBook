@@ -127,12 +127,12 @@ public struct BackupLibraryWriter {
                ) {
                 report.errors.append("Lưu lịch sử \(record.name): \(error.localizedDescription)")
             }
-            // Đánh dấu 18+ của người dùng: cùng luật — chỉ áp khi máy này chưa tự chọn.
+            // Đánh dấu NSFW của người dùng: cùng luật — chỉ áp khi máy này chưa tự chọn.
             if let nsfwOverride = record.nsfwOverride, ext.nsfwOverride == nil,
                case .failure(let error) = ExtensionTransactionCoordinator.shared.setNsfwOverride(
                    packageId: record.packageId, nsfwOverride
                ) {
-                report.errors.append("Đánh dấu 18+ \(record.name): \(error.localizedDescription)")
+                report.errors.append("Đánh dấu NSFW \(record.name): \(error.localizedDescription)")
             }
             // Chặn quảng cáo / chế độ máy tính của webview tiện ích: cùng luật — chỉ áp khi máy này chưa tự chọn.
             if let adBlock = record.adBlockOverride, ext.adBlockOverride == nil,

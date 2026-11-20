@@ -11,6 +11,8 @@ extension SearchView {
             url: CoverRequestResolver.displayURL(result.cover, itemHost: result.host, packageId: ext.packageId),
             referer: CoverRequestResolver.referer(itemHost: result.host, packageId: ext.packageId)
         )
+        // "Mờ bìa NSFW" (1.3.1019): kết quả của nguồn NSFW (tìm mọi nguồn lẫn một nguồn).
+        .nsfwCoverContext(ExtensionNsfwCache.shared.isNsfw(ext))
         .frame(width: width, height: height)
         .overlay(alignment: .bottomLeading) {
             CoverTagBadge(tag: result.tag)

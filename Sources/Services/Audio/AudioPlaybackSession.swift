@@ -98,7 +98,7 @@ final class AudioPlaybackSession {
     /// Tác giả / nghệ sĩ của album (`detail.author`).
     var albumAuthor = ""
     var coverUrl = ""
-    /// Album 18+ (`RepositoryFilterPolicy.isNsfwBook`) — xét lại mỗi lần đồng bộ đĩa góc dưới / màn khoá.
+    /// Album NSFW (`RepositoryFilterPolicy.isNsfwBook`) — xét lại mỗi lần đồng bộ đĩa góc dưới / màn khoá.
     var isNsfw = false
     /// Các bài phát được, theo thứ tự mục lục (không có dòng section).
     var tracks: [Track] = []

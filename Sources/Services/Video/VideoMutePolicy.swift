@@ -3,7 +3,7 @@ import Foundation
 /// Tuỳ chọn "Tắt tiếng khi mở phim" (Cài đặt › Đọc & Nghe › Video, từ 1.3.740). Chỉ áp lúc **mở một phim mới**
 /// (`VideoPlaybackSession.open` với phim khác phim đang chạy); mở lại trình phát đang thu nhỏ (hub, cửa sổ nhỏ) hay đổi
 /// tập giữ nguyên trạng thái tiếng hiện tại (`AVPlayer.isMuted` gắn với player). Tự sang phim đề xuất cũng giữ tiếng của
-/// phim vừa hết (`open(muteOverride:)`). Ngoài lúc mở phim, phim **18+ đang phát** còn tắt tiếng theo cùng tuỳ chọn khi
+/// phim vừa hết (`open(muteOverride:)`). Ngoài lúc mở phim, phim **NSFW đang phát** còn tắt tiếng theo cùng tuỳ chọn khi
 /// bấm Home của màn xem, tắt công tắc NSFW hoặc rời app (`VideoLeaveToHubCoordinator`, `VideoPlaybackSession+NsfwGuard`)
 /// — chỉ tắt, không bao giờ tự bật lại tiếng.
 ///
@@ -28,13 +28,13 @@ enum VideoMutePolicy: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .none: return "Không"
-        case .nsfwOnly: return "Chỉ nguồn 18+"
+        case .nsfwOnly: return "Chỉ nguồn NSFW"
         case .all: return "Mọi phim"
         }
     }
 
-    /// Phim `bookId` của tiện ích `packageId` có mở ở trạng thái tắt tiếng không. "18+" = phim tự đánh dấu NSFW hoặc
-    /// nguồn NSFW (`RepositoryFilterPolicy.isNsfwBook`; nguồn tra bản cài rồi catalog, không tìm thấy ⇒ không phải 18+).
+    /// Phim `bookId` của tiện ích `packageId` có mở ở trạng thái tắt tiếng không. "NSFW" = phim tự đánh dấu NSFW hoặc
+    /// nguồn NSFW (`RepositoryFilterPolicy.isNsfwBook`; nguồn tra bản cài rồi catalog, không tìm thấy ⇒ không phải NSFW).
     static func shouldStartMuted(bookId: String, packageId: String) -> Bool {
         switch current {
         case .none: return false

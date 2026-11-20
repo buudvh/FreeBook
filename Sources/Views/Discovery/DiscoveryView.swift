@@ -335,6 +335,7 @@ struct DiscoveryView: View {
                                             if ExploreSectionsView.isTab(item) {
                                                 ExploreSectionsView(ext: ext, textStore: textStore, onSelectNovel: openNovel,
                                                                     onSelectCategory: { selectedGenre = $0; navigateToGenre = true })
+                                                    .nsfwCoverContext(ExtensionNsfwCache.shared.isNsfw(ext)) // "Mờ bìa NSFW"
                                                     .id(pageIdentity) // đổi nguồn/config ⇒ dựng lại, tải lại theo giá trị mới
                                                     .tag(item.id)
                                             } else if shouldRenderCategoryTab(id: item.id) {
@@ -350,6 +351,7 @@ struct DiscoveryView: View {
                                                     packageId: extPackageId,
                                                     onSelectNovel: openNovel
                                                 )
+                                                .nsfwCoverContext(ExtensionNsfwCache.shared.isNsfw(ext)) // "Mờ bìa NSFW"
                                                 .id(pageIdentity) // bộ nạp là `@StateObject` tạo một lần với nguồn + `configJson` cũ
                                                 .tag(item.id)
                                             } else {

@@ -15,7 +15,7 @@ import SwiftUI
 /// dùng lại của màn nghe (vốn tông trắng trên nền tối). Điểm nhấn = màu nhấn app (`.appAccentTint()` — sheet nằm ở cửa sổ
 /// riêng của đĩa, không trong `MainTabView`).
 ///
-/// Chỉ mở khi có album (`AudioMiniPlayerState.isActive`) ⇒ đọc thẳng `AudioPlaybackSession.shared`. Album 18+ lúc công tắc
+/// Chỉ mở khi có album (`AudioMiniPlayerState.isActive`) ⇒ đọc thẳng `AudioPlaybackSession.shared`. Album NSFW lúc công tắc
 /// NSFW tắt ⇒ tên "Đang phát", không bìa, không lời. Mở màn nghe / tắt nhạc do chỗ gọi làm (đóng sheet trước rồi mới trình
 /// bày màn nghe — trình bày từ sheet đang đóng thì UIKit đóng luôn màn mới).
 struct AudioQuickControlSheet: View {

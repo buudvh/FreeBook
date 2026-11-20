@@ -10,7 +10,7 @@ extension ShelfView {
     @MainActor
     func restoreReaderSessionIfNeeded() {
         guard let recentIds = ReaderSessionRestoreStore.takeLaunchCandidates() else { return }
-        // `@Query` lấy cả truyện 18+ bị ẩn ⇒ tra ở đây được, rồi bỏ 18+ bằng đúng luật Kệ dùng để ẩn.
+        // `@Query` lấy cả truyện NSFW bị ẩn ⇒ tra ở đây được, rồi bỏ NSFW bằng đúng luật Kệ dùng để ẩn.
         let candidates: [Book]
         if recentIds.isEmpty {
             // Chưa có danh sách (lần đầu sau khi cài bản có tính năng): dự phòng theo Lịch sử đọc. `isHistory` bật mỗi
@@ -34,7 +34,7 @@ extension ShelfView {
             break
         }
         guard let book = target else {
-            AppLogger.shared.log("↩️ [ReaderRestore] Không có mục gần đây để mở lại (bỏ qua \(skippedNsfw) mục 18+)")
+            AppLogger.shared.log("↩️ [ReaderRestore] Không có mục gần đây để mở lại (bỏ qua \(skippedNsfw) mục NSFW)")
             return
         }
         let route = ShelfReaderRoute(
@@ -47,7 +47,7 @@ extension ShelfView {
         )
         ReaderSessionRestoreStore.beginRestoreAttempt(bookId: book.bookId)
         AppLogger.shared.log(
-            "↩️ [ReaderRestore] Mở lại mục gần nhất: chương \(book.currentChapterIndex), vị trí \(book.currentChapterPage), bỏ qua \(skippedNsfw) mục 18+"
+            "↩️ [ReaderRestore] Mở lại mục gần nhất: chương \(book.currentChapterIndex), vị trí \(book.currentChapterPage), bỏ qua \(skippedNsfw) mục NSFW"
         )
         Task { @MainActor in
             // Một nhịp cho cây view lúc khởi động dựng xong: đặt cover ngay lượt mount đầu có thể bị SwiftUI bỏ qua.

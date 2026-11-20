@@ -25,8 +25,8 @@ struct ExtensionConfigHeaderCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(spacing: 8) {
-                // Nhãn 18+ của icon đọc bảng chụp có lock (không observe được) và tham số icon không đổi khi đổi
-                // "Nội dung 18+" ở dưới ⇒ gắn `id` theo trạng thái NSFW để icon dựng lại ngay.
+                // Nhãn NSFW của icon đọc bảng chụp có lock (không observe được) và tham số icon không đổi khi đổi
+                // "Nội dung nhạy cảm" ở dưới ⇒ gắn `id` theo trạng thái NSFW để icon dựng lại ngay.
                 ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 84)
                     .id(ExtensionNsfwClassifier.isNsfw(ext))
 

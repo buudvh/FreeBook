@@ -3,7 +3,7 @@ import Foundation
 /// Tên hiển thị của phim đang mở — tên phim, tác giả (màn khoá), tên tập, tên nhóm tập: đi `ChineseTextPipeline`, phồn →
 /// giản **cả khi tắt dịch**, dịch khi bật (`MediaDisplayNames`, cấu hình phim này ⇒ nguồn ⇒ Tất cả). Tên gốc (`bookTitle`,
 /// `Episode.title`) giữ nguyên văn; chỗ vẽ đọc `displayBookTitle`, `Episode.displayTitle` (qua `shownTitle`),
-/// `displayNames.author(_:)`. Phim 18+ ở màn khoá vẫn chỉ "Đang phát" (`VideoNowPlayingMetadata`, không đọc tên).
+/// `displayNames.author(_:)`. Phim NSFW ở màn khoá vẫn chỉ "Đang phát" (`VideoNowPlayingMetadata`, không đọc tên).
 ///
 /// Tính ngoài main khi nạp mục lục (`start`), khi màn xem nhận mục lục làm mới (`adoptRefreshedEpisodes`) và khi cấu hình
 /// dịch / từ điển đổi từ sheet "Dịch phụ đề" / "Từ điển truyện" (`retranslateSubtitles`). Thay `translateSectionTitles` cũ

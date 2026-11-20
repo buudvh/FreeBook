@@ -102,7 +102,7 @@ final class PlaylistPlaybackCoordinator {
     /// "Bỏ qua <tên>: <lý do>" — tên của mục nguồn NSFW lúc công tắc tắt không ghi ra.
     func skipNotice(for item: PlaylistItem, kind: PlaylistKind, reason: String) -> String {
         let hidesName = !includesNsfw && RepositoryFilterPolicy.isNsfwSource(packageId: item.packageId)
-        let name = hidesName ? "mục 18+" : item.displayTitle(kind: kind)
+        let name = hidesName ? "mục NSFW" : item.displayTitle(kind: kind)
         let trimmed = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Bỏ qua \(name)" : "Bỏ qua \(name): \(trimmed)"
     }

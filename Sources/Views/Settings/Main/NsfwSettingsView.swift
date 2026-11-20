@@ -7,13 +7,19 @@ import SwiftUI
 /// chỗ là chỗ kia đổi theo. Khoá về `false` mỗi lần mở app (`RepositoryFilterPolicy.resetNsfwVisibilityOnLaunch`).
 struct NsfwSettingsView: View {
     @AppStorage(RepositoryFilterPolicy.includeNsfwDefaultsKey) private var includeNsfw = false
+    /// "Mờ bìa NSFW" (1.3.1019) — cùng khoá với công tắc ở sheet Kiểu hiển thị (`NsfwCoverBlurModifier`).
+    @AppStorage(NsfwCoverBlurModifier.defaultsKey) private var blursNsfwCovers = false
 
     var body: some View {
         Form { Group {
             Section {
                 Toggle("Hiện nội dung nhạy cảm", isOn: $includeNsfw)
+                Toggle("Làm mờ bìa nội dung nhạy cảm", isOn: $blursNsfwCovers)
             } header: {
-                SectionHelpHeader("Hiển thị", paragraphs: ["Mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá."])
+                SectionHelpHeader("Hiển thị", paragraphs: [
+                    "Hiện nội dung nhạy cảm: mặc định tắt. Mỗi lần mở lại app, công tắc tự tắt. Cũng bật/tắt nhanh ở bảng chọn nguồn của Khám phá.",
+                    "Làm mờ bìa: bìa truyện, truyện tranh, phim của nguồn NSFW hoặc truyện tự đánh dấu NSFW bị làm mờ ở Kệ, Lịch sử, Khám phá, Tìm kiếm và trang Chi tiết. Mặc định tắt; cũng bật/tắt ở sheet Kiểu hiển thị."
+                ])
             }
 
             Section(header: Text("Khi tắt")) {

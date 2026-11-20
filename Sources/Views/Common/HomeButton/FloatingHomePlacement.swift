@@ -63,8 +63,8 @@ struct FloatingHomePlacement: Equatable {
         }
     }
 
-    /// Bấm Home ở đâu cũng như nút Home của màn xem phim 18+ (1.3.777): công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang
-    /// nguồn không 18+), phim 18+ đang phát tắt tiếng theo `VideoMutePolicy`. `keepsPlacement`: phim đang / sắp thu nhỏ giữ
+    /// Bấm Home ở đâu cũng như nút Home của màn xem phim NSFW (1.3.777): công tắc NSFW đang bật ⇒ tắt (Khám phá tự đổi sang
+    /// nguồn không NSFW), phim NSFW đang phát tắt tiếng theo `VideoMutePolicy`. `keepsPlacement`: phim đang / sắp thu nhỏ giữ
     /// chỗ theo cài đặt vuốt xuống — guard NSFW không kéo cửa sổ nhỏ vào hub.
     /// Bộ lọc NSFW riêng của Kệ cũng về "Không hiển thị NSFW" (1.3.778).
     @MainActor

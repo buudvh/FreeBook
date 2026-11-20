@@ -144,7 +144,7 @@ struct VideoPlayerScreen: View {
             controller.onMinimizeRelease = { translation, velocity in
                 handleMinimizeRelease(translation: translation, velocity: velocity)
             }
-            // Tắt NSFW lúc phát phim 18+ ⇒ thu màn vào hub (`+Exit`).
+            // Tắt NSFW lúc phát phim NSFW ⇒ thu màn vào hub (`+Exit`).
             registerHubCollapse()
             controller.showControls()
             FloatingWidgetSuppression.shared.isSuppressed = suppressesFloatingWidgets

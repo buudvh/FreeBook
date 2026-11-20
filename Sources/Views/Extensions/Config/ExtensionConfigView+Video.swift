@@ -4,9 +4,9 @@ import SwiftUI
 /// đã cài. Một bộ chọn "Vuốt xuống trình phát" ánh xạ `Extension.videoMinimizeOverride`:
 /// "Theo cài đặt chung (…)" = `nil`, "Thu nhỏ vào hub" / "Hình trong hình" = raw value của `VideoMinimizeStyle`.
 ///
-/// Nhãn "Theo cài đặt chung (…)" ghi giá trị chung đang áp cho tiện ích này: tiện ích 18+ (`ExtensionNsfwClassifier`)
-/// theo dòng "Phim 18+", còn lại theo "Phim thường" (Cài đặt › Đọc & Nghe › Video). Phim tự đánh dấu 18+ của một tiện
-/// ích thường vẫn theo dòng "Phim 18+" khi tiện ích không ghi đè (`VideoMinimizePolicy`).
+/// Nhãn "Theo cài đặt chung (…)" ghi giá trị chung đang áp cho tiện ích này: tiện ích NSFW (`ExtensionNsfwClassifier`)
+/// theo dòng "Phim NSFW", còn lại theo "Phim thường" (Cài đặt › Đọc & Nghe › Video). Phim tự đánh dấu NSFW của một tiện
+/// ích thường vẫn theo dòng "Phim NSFW" khi tiện ích không ghi đè (`VideoMinimizePolicy`).
 ///
 /// Lưu **ngay** qua `ExtensionTransactionCoordinator.setVideoMinimizeOverride` (mẫu `+Nsfw`), áp từ lần vuốt kế tiếp.
 extension ExtensionConfigView {
@@ -45,14 +45,14 @@ extension ExtensionConfigView {
             } header: {
                 SectionHelpHeader("Video", paragraphs: [
                     "**Vuốt xuống trình phát**: vuốt xuống khung phim ở màn dọc thì khung phim co theo tay rồi thu vào hub hoặc thành cửa sổ nhỏ trong app. Nút ⌄ luôn thu nhỏ vào hub.",
-                    "«Theo cài đặt chung» lấy dòng «Phim thường» hoặc «Phim 18+» ở Cài đặt › Đọc & Nghe › Video.",
+                    "«Theo cài đặt chung» lấy dòng «Phim thường» hoặc «Phim NSFW» ở Cài đặt › Đọc & Nghe › Video.",
                     "Phim nhúng trang web không vào được cửa sổ nhỏ, thu nhỏ vào hub."
                 ])
             }
         }
     }
 
-    /// Giá trị chung đang áp nếu bỏ ghi đè: tiện ích 18+ ⇒ dòng "Phim 18+".
+    /// Giá trị chung đang áp nếu bỏ ghi đè: tiện ích NSFW ⇒ dòng "Phim NSFW".
     private var globalVideoMinimizeStyle: VideoMinimizeStyle {
         VideoMinimizePolicy.globalStyle(nsfw: ExtensionNsfwClassifier.isNsfw(current))
     }

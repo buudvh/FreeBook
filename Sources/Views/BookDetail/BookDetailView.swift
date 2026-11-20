@@ -498,6 +498,8 @@ struct BookDetailView: View {
                                 host: resolvedHost,
                                 refreshGeneration: sectionRefreshGeneration
                             )
+                            // "Mờ bìa NSFW" (1.3.1019) — chỉ đề xuất, không cả trang (avatar bình luận không mờ).
+                            .nsfwCoverContext(RepositoryFilterPolicy.isNsfwBook(bookId: actualBookId, packageId: extensionPackageId))
                         }
                     }
 

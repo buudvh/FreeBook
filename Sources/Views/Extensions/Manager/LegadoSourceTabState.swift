@@ -30,7 +30,7 @@ struct LegadoSourceTabState {
         enum Scope {
             /// Danh sách đang hiện (NSFW + nhóm + ô tìm).
             case visible
-            /// Mọi nguồn đang tắt, không theo nhóm / ô tìm, kể cả nguồn 18+ đang ẩn.
+            /// Mọi nguồn đang tắt, không theo nhóm / ô tìm, kể cả nguồn NSFW đang ẩn.
             case disabled
         }
 
@@ -38,7 +38,7 @@ struct LegadoSourceTabState {
         let packageIds: [String]
         /// Phạm vi danh sách đang hiện: "Nhóm: …" / "Tất cả nguồn" (+ từ khoá ô tìm).
         let scopeTitle: String
-        /// Số nguồn 18+ đang ẩn nằm trong tập (chỉ phạm vi `disabled`).
+        /// Số nguồn NSFW đang ẩn nằm trong tập (chỉ phạm vi `disabled`).
         let hiddenNsfwCount: Int
     }
 
@@ -72,7 +72,7 @@ struct LegadoSourceTabState {
     var check: CheckRoute?
     var exportFile: LegadoSourceExportFile?
 
-    /// Bỏ nguồn 18+ khi công tắc NSFW chung đang tắt — nền cho chip nhóm, "Đang bật x/y" và danh sách.
+    /// Bỏ nguồn NSFW khi công tắc NSFW chung đang tắt — nền cho chip nhóm, "Đang bật x/y" và danh sách.
     func nsfwFiltered(
         _ all: [LegadoSourceSummary],
         includeNsfw: Bool,
@@ -174,7 +174,7 @@ struct LegadoSourceTabState {
             message = "Gỡ \(count) nguồn Legado đang hiện (\(subset.scopeTitle)) khỏi ứng dụng."
         case .disabled:
             message = "Gỡ \(count) nguồn Legado đang tắt trong toàn bộ danh sách khỏi ứng dụng"
-            message += subset.hiddenNsfwCount > 0 ? ", kể cả \(subset.hiddenNsfwCount) nguồn 18+ đang ẩn." : "."
+            message += subset.hiddenNsfwCount > 0 ? ", kể cả \(subset.hiddenNsfwCount) nguồn NSFW đang ẩn." : "."
         }
         return message + " Truyện trên kệ dùng các nguồn này sẽ thành truyện mất nguồn."
     }

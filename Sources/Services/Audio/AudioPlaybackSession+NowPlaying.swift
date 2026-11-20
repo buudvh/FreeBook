@@ -2,9 +2,9 @@ import Foundation
 import UIKit
 
 /// Thông tin bài đang nghe trên màn khoá / Trung tâm điều khiển: dựng `AudioNowPlayingMetadata` (tên bài, nghệ sĩ / tác
-/// giả album, tên album, bìa vuông; nguồn 18+ = "Đang phát" + icon app) rồi giao `AudioNowPlayingCoordinator` ghi (bỏ qua
+/// giả album, tên album, bìa vuông; nguồn NSFW = "Đang phát" + icon app) rồi giao `AudioNowPlayingCoordinator` ghi (bỏ qua
 /// khi nhạc không giữ phiên). Bìa nạp **một lần mỗi album**, như phim: bìa trên máy (`covers/`, đọc ngoài main) → chưa có
-/// thì tải về và lưu (`ImageCacheManager.downloadAndSaveCover`); cắt vuông ngoài main. Nguồn 18+ không đọc, không tải bìa.
+/// thì tải về và lưu (`ImageCacheManager.downloadAndSaveCover`); cắt vuông ngoài main. Nguồn NSFW không đọc, không tải bìa.
 extension AudioPlaybackSession {
     func publishNowPlaying() {
         guard isActive, player.currentItem != nil else { return }
@@ -29,7 +29,7 @@ extension AudioPlaybackSession {
     func nowPlayingMetadata() -> AudioNowPlayingMetadata {
         let nsfw = RepositoryFilterPolicy.isNsfwBook(bookId: bookId, packageId: packageId)
         let cover = nowPlayingCover.flatMap { $0.bookId == bookId ? $0.image : nil }
-        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); nguồn 18+ thì `make` bỏ hết tên.
+        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); nguồn NSFW thì `make` bỏ hết tên.
         return AudioNowPlayingMetadata.make(
             isNsfw: nsfw,
             trackTitle: currentTrack?.displayTitle ?? "",
@@ -42,7 +42,7 @@ extension AudioPlaybackSession {
 
     // MARK: - Bìa
 
-    /// Nạp bìa của album đang mở (gọi lặp an toàn: đã có / đang nạp thì thôi). Nguồn 18+ ⇒ không đọc, không tải.
+    /// Nạp bìa của album đang mở (gọi lặp an toàn: đã có / đang nạp thì thôi). Nguồn NSFW ⇒ không đọc, không tải.
     func loadNowPlayingCover() {
         guard isActive, nowPlayingCover?.bookId != bookId, coverTask == nil,
               !RepositoryFilterPolicy.isNsfwBook(bookId: bookId, packageId: packageId) else { return }

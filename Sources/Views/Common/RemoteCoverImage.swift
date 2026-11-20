@@ -37,6 +37,8 @@ struct RemoteCoverImage: View {
                 GeometryReader { proxy in
                     let pixelSize = Self.pixelSize(for: proxy.size, scale: displayScale)
                     content(size: proxy.size, pixelSize: pixelSize)
+                        // "Mờ bìa NSFW" (1.3.1019): theo cờ môi trường do màn của nguồn NSFW đặt (`nsfwCoverContext`).
+                        .nsfwCoverBlur(size: proxy.size)
                         .task(id: "\(url)|\(referer ?? "")|\(pixelSize)") {
                             await load(pixelSize: pixelSize)
                         }

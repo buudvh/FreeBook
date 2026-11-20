@@ -2,11 +2,11 @@ import Foundation
 import UIKit
 
 /// Thông tin phim trên màn khoá / Trung tâm điều khiển (1.3.764): dựng `VideoNowPlayingMetadata` (tên phim, "Tác giả ·
-/// Tập N", bìa; phim 18+ = "Đang phát" + icon app) rồi giao `VideoNowPlayingCoordinator` ghi. Bìa nạp **một lần mỗi phim**
+/// Tập N", bìa; phim NSFW = "Đang phát" + icon app) rồi giao `VideoNowPlayingCoordinator` ghi. Bìa nạp **một lần mỗi phim**
 /// lúc `open`, cùng đường TTS dùng: bìa trên máy (`covers/`, đọc ngoài main) → chưa có thì tải về và lưu
-/// (`ImageCacheManager.downloadAndSaveCover`) rồi ghi lại màn khoá. Phim 18+ không đọc, không tải bìa.
+/// (`ImageCacheManager.downloadAndSaveCover`) rồi ghi lại màn khoá. Phim NSFW không đọc, không tải bìa.
 ///
-/// 18+ xét lại **mỗi lần ghi** (`RepositoryFilterPolicy.isNsfwBook`) ⇒ đánh dấu 18+ lúc đang phát là màn khoá đổi ngay ở
+/// NSFW xét lại **mỗi lần ghi** (`RepositoryFilterPolicy.isNsfwBook`) ⇒ đánh dấu NSFW lúc đang phát là màn khoá đổi ngay ở
 /// lần ghi kế tiếp.
 extension VideoPlaybackSession {
     /// Bỏ qua khi video không giữ phiên (coordinator tự kiểm).
@@ -35,7 +35,7 @@ extension VideoPlaybackSession {
         } ?? false
         let playableCount = episodes.reduce(0) { $1.isSection ? $0 : $0 + 1 }
         let cover = nowPlayingCover.flatMap { $0.bookId == launch?.bookId ? $0.image : nil }
-        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); 18+ thì `make` bỏ hết tên.
+        // Tên đã qua phồn → giản / dịch (`+DisplayNames`); NSFW thì `make` bỏ hết tên.
         return VideoNowPlayingMetadata.make(
             isNsfw: isNsfw,
             bookTitle: isNsfw ? "" : displayBookTitle,

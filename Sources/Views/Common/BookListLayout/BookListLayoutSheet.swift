@@ -11,6 +11,10 @@ struct BookListLayoutSheet: View {
     let scope: BookListLayoutScope
     var showsExploreSizes: Bool = false
 
+    /// "Mờ bìa NSFW" (1.3.1019) — khoá chung cả app (`NsfwCoverBlurModifier`), không theo scope; cũng ở Cài đặt › Nội dung
+    /// nhạy cảm. Đặt góc phải hàng tiêu đề (anh Bửu chọn mockup A) nên sheet không cao thêm.
+    @AppStorage(NsfwCoverBlurModifier.defaultsKey) private var blursNsfwCovers = false
+
     var body: some View {
         if showsExploreSizes {
             ScrollView {
@@ -32,7 +36,7 @@ struct BookListLayoutSheet: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Kiểu hiển thị")
                         .font(.headline)
@@ -40,7 +44,12 @@ struct BookListLayoutSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: 8)
+                Text("Mờ bìa NSFW")
+                    .font(.subheadline)
+                    .lineLimit(1)
+                Toggle("Mờ bìa NSFW", isOn: $blursNsfwCovers)
+                    .labelsHidden()
             }
 
             BookListLayoutControls(scope: scope)

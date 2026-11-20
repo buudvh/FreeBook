@@ -16,7 +16,7 @@ struct ExtensionIconView: View {
             }
     }
 
-    /// Nhãn 18+ cho tiện ích NSFW: tra theo `packageId` nếu có, không thì suy từ `localPath` của bản đã cài.
+    /// Nhãn NSFW cho tiện ích NSFW: tra theo `packageId` nếu có, không thì suy từ `localPath` của bản đã cài.
     private var isNsfw: Bool {
         guard let id = packageId ?? ExtensionLibraryRepository.packageId(forLocalPath: localPath), !id.isEmpty else {
             return false

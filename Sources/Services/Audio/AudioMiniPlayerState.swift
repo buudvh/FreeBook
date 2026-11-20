@@ -22,14 +22,14 @@ final class AudioMiniPlayerState: ObservableObject {
     /// Nghệ sĩ của bài (`description` của mục `toc`), thiếu ⇒ tác giả album.
     @Published var artist = ""
     @Published var albumTitle = ""
-    /// URL bìa album (rỗng ⇒ chưa có). Nguồn 18+ vẫn ghi — View tự che theo `isNsfw` + công tắc NSFW.
+    /// URL bìa album (rỗng ⇒ chưa có). Nguồn NSFW vẫn ghi — View tự che theo `isNsfw` + công tắc NSFW.
     @Published var coverUrl = ""
     @Published var isPlaying = false
     /// Đang nạp mục lục / link bài / chờ đệm.
     @Published var isLoading = false
     /// Bài lỗi (màn nghe / sheet điều khiển hiện chữ lỗi).
     @Published var isFailed = false
-    /// Album 18+ (`RepositoryFilterPolicy.isNsfwBook`).
+    /// Album NSFW (`RepositoryFilterPolicy.isNsfwBook`).
     @Published var isNsfw = false
     /// Tiến độ bài đang phát `0…1` (độ dài chưa biết ⇒ 0).
     @Published var progress: Double = 0

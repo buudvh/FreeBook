@@ -17,7 +17,7 @@ public final class VideoMiniPlayerState: ObservableObject {
     /// Tên tập / server.
     @Published public var subtitle = ""
     @Published public var isPlaying = false
-    /// Phim là 18+ (`RepositoryFilterPolicy.isNsfwBook`) — hub che tên phim thành "Đang phát" khi công tắc NSFW tắt.
+    /// Phim là NSFW (`RepositoryFilterPolicy.isNsfwBook`) — hub che tên phim thành "Đang phát" khi công tắc NSFW tắt.
     @Published public var isNsfw = false
 
     /// Phát/dừng từ hub.

@@ -6,7 +6,7 @@ import Foundation
 /// Giữ danh sách `bookId` **mở gần nhất** (mới nhất đứng đầu, tối đa `maxRecentCount`): ghi mỗi khi màn đọc hiện
 /// (`BookContentDestination`, đủ cả chữ, truyện tranh, phim). Không dựa `Book.lastReadDate` vì thêm/bỏ khỏi kệ, chọn
 /// chương ở Chi tiết hay tạo bản ghi mới cũng đẩy nó lên. Lúc mở app, Kệ duyệt danh sách và mở mục đầu tiên còn trên
-/// máy, không phải 18+ (`ShelfView+LaunchRestore`).
+/// máy, không phải NSFW (`ShelfView+LaunchRestore`).
 ///
 /// Chống vòng lặp crash: ngay trước khi mở lại, bật cờ "đang thử"; cờ xoá khi màn sống đủ 10 s hoặc khi app rời trạng
 /// thái active. Mở app mà cờ còn ⇒ lần mở lại trước chết sớm ⇒ lần này bỏ qua. `UserDefaults` gửi giá trị sang tiến trình
@@ -23,7 +23,7 @@ enum ReaderSessionRestoreStore {
     /// `bookId` đang được thử mở lại mà chưa qua mốc an toàn (khoá có mặt = đang thử). Trạng thái riêng của một lần
     /// chạy ⇒ `BackupSettingsArchiver` không sao lưu khoá này.
     static let pendingAttemptKey = "readerSessionRestorePending"
-    /// Đủ để bỏ qua một loạt mục 18+ / đã xoá liền nhau mà vẫn tìm được mục để mở.
+    /// Đủ để bỏ qua một loạt mục NSFW / đã xoá liền nhau mà vẫn tìm được mục để mở.
     static let maxRecentCount = 20
     /// Màn đọc mở lại sống được chừng này thì không còn coi là vòng lặp crash.
     static let survivalDelayNanoseconds: UInt64 = 10_000_000_000

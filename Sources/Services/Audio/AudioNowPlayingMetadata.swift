@@ -3,7 +3,7 @@ import UIKit
 /// Chữ + ảnh của bài đang nghe trên màn khoá / Trung tâm điều khiển:
 /// - Nguồn thường: tiêu đề = tên bài; dòng phụ (Artist) = nghệ sĩ của bài (`description` của mục `toc`), thiếu ⇒ tác giả
 ///   album, thiếu nữa ⇒ không ghi; Album = tên album; ảnh = bìa album (cắt vuông).
-/// - Nguồn 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật với phim): **một** dòng "Đang phát", không dòng phụ, không
+/// - Nguồn NSFW (`RepositoryFilterPolicy.isNsfwBook`, cùng luật với phim): **một** dòng "Đang phát", không dòng phụ, không
 ///   tên album, ảnh = icon app (`LockScreenAppIcon`) — không đọc, không tải bìa.
 struct AudioNowPlayingMetadata {
     let title: String

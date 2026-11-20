@@ -5,7 +5,7 @@ import SwiftUI
 ///   phát; dời từ section Đọc & Nghe) và "Tắt tiếng khi mở phim" (`VideoMutePolicy`; dời từ màn Nội dung nhạy cảm).
 /// - Nhóm **Khi hết phim**: "Tự sang phim đề xuất" (`VideoAutoNextPolicy`, cùng khoá với hàng thứ hai ngăn kéo `⋯`).
 /// - Nhóm **Khi rời app**: "Rời app thì thu phim vào hub" (`VideoLeaveAppPolicy`, mặc định bật).
-/// - Nhóm **Vuốt xuống trình phát**: kiểu thu nhỏ (hub / cửa sổ nhỏ) khi vuốt xuống khung phim ở màn dọc, riêng phim thường / phim 18+
+/// - Nhóm **Vuốt xuống trình phát**: kiểu thu nhỏ (hub / cửa sổ nhỏ) khi vuốt xuống khung phim ở màn dọc, riêng phim thường / phim NSFW
 ///   (`VideoMinimizePolicy`). Tiện ích ghi đè được ở mục Video của Cấu hình tiện ích. Nút ⌄ luôn thu nhỏ vào hub.
 ///
 /// Mọi giá trị đọc/ghi bằng `@AppStorage` trên đúng khoá tầng nền đọc — đổi là có hiệu lực từ lượt kế tiếp.
@@ -39,7 +39,7 @@ struct VideoSettingsView: View {
                 SectionHelpHeader("Khi mở phim", paragraphs: [
                     "**Tự phát khi mở phim**: bấm vào phim là phát ngay, đúng tập đang xem dở. Tắt thì khung phim hiện bìa và nút ▶, bấm mới phát; phim khác đang chạy nền vẫn chạy tiếp tới lúc đó.",
                     "**Tắt tiếng khi mở phim**: chỉ áp khi mở một phim mới. Mở lại phim đang thu nhỏ hay đổi tập giữ nguyên tiếng. Phim tắt tiếng thì TTS vẫn đọc tiếp.",
-                    "Phim 18+ đang phát còn tắt tiếng theo tuỳ chọn này khi bấm Home của màn xem, khi tắt công tắc NSFW hoặc khi rời app: phim thu vào hub và phát tiếp, không dừng. Chọn «Không» thì giữ tiếng."
+                    "Phim NSFW đang phát còn tắt tiếng theo tuỳ chọn này khi bấm Home của màn xem, khi tắt công tắc NSFW hoặc khi rời app: phim thu vào hub và phát tiếp, không dừng. Chọn «Không» thì giữ tiếng."
                 ])
             }
 
@@ -61,13 +61,13 @@ struct VideoSettingsView: View {
             } header: {
                 SectionHelpHeader("Khi rời app", paragraphs: [
                     "**Rời app thì thu phim vào hub**: khoá màn hình hoặc vuốt về màn hình chính lúc đang có phim (ở màn xem hay cửa sổ nhỏ) thì phim vào hub và phát tiếp chỉ tiếng, không dừng. Quay lại app, phim nằm ở mục Video của hub, chạm để mở lại. Kéo Trung tâm điều khiển xuống không tính là rời app.",
-                    "Kèm luật như nút Home của màn xem: phim 18+ tắt tiếng theo \"Tắt tiếng khi mở phim\"; công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá. Tắt công tắc này thì màn giữ nguyên, rời app phim chỉ phát tiếng như cũ."
+                    "Kèm luật như nút Home của màn xem: phim NSFW tắt tiếng theo \"Tắt tiếng khi mở phim\"; công tắc NSFW đang bật thì tắt rồi về trang gốc Khám phá. Tắt công tắc này thì màn giữ nguyên, rời app phim chỉ phát tiếng như cũ."
                 ])
             }
 
             Section {
                 minimizePicker("Phim thường", systemImage: "film", selection: $normalMinimize)
-                minimizePicker("Phim 18+", systemImage: "eye.slash", selection: $nsfwMinimize)
+                minimizePicker("Phim NSFW", systemImage: "eye.slash", selection: $nsfwMinimize)
             } header: {
                 SectionHelpHeader("Vuốt xuống trình phát", paragraphs: [
                     "Vuốt xuống khung phim ở màn dọc thì khung phim co theo tay. **Thu nhỏ vào hub**: nhả tay thì phim bay vào nút hub, chạy nền, điều khiển ở mục Video của hub. **Cửa sổ nhỏ**: phim thành cửa sổ nhỏ ở góc dưới phải, nổi trên mọi màn; kéo bám mép trái/phải, thả lên nút hub để thu vào hub, thả vào vòng ✕ ở đáy để tắt, chạm để mở lại.",

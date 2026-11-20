@@ -157,7 +157,7 @@ public enum BackupPayload {
         /// dùng). `Optional`: archive cũ không có hai khoá này — Codable tổng hợp đọc thiếu khoá thành `nil`.
         public let isNsfw: Bool?
         public let savesHistory: Bool?
-        /// `Extension.nsfwOverride` (người dùng tự đánh dấu/bỏ đánh dấu 18+); archive cũ không có ⇒ `nil`.
+        /// `Extension.nsfwOverride` (người dùng tự đánh dấu/bỏ đánh dấu NSFW); archive cũ không có ⇒ `nil`.
         public let nsfwOverride: Bool?
         /// `Extension.adBlockOverride` / `Extension.desktopModeOverride` (mục Trình duyệt của Cấu hình tiện ích);
         /// archive cũ không có ⇒ `nil`.

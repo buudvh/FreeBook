@@ -76,7 +76,7 @@ public enum BackupExtensionInstaller {
             guard let packagePath else { continue }
 
             // Nguồn Legado: bản ghi dựng từ nguồn **thật** sau bước thay (loại theo nội dung, kèm `installOrigin` riêng và
-            // cờ 18+); `version` theo bản ghi backup khi bản backup thay vào, theo bản ghi máy này khi giữ bản của máy.
+            // cờ NSFW); `version` theo bản ghi backup khi bản backup thay vào, theo bản ghi máy này khi giữ bản của máy.
             if isLegado {
                 if let command = LegadoSourceStore.restoreCommand(
                     location: URL(fileURLWithPath: packagePath), packageId: record.packageId, version: version

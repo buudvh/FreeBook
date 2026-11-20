@@ -16,7 +16,7 @@ public struct UpsertExtensionCommand: Sendable {
     public let configJson: String?
     public let repositoryUrl: String?
     public let installOrigin: String?
-    /// Cờ 18+ caller đã tính sẵn — nguồn Legado (`LegadoSourceStore.makeCommand`): coordinator dùng cờ này và **không**
+    /// Cờ NSFW caller đã tính sẵn — nguồn Legado (`LegadoSourceStore.makeCommand`): coordinator dùng cờ này và **không**
     /// đọc manifest (nhập hàng nghìn nguồn mà mỗi lần upsert lại parse nguồn thì rất chậm). `nil` = coordinator tự đọc
     /// cờ `plugin.json` / registry như cũ.
     public let declaredNsfw: Bool?

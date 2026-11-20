@@ -135,6 +135,7 @@ struct SearchSingleSourceResultsView: View {
                                 aspectRatio: aspectRatio,
                                 reservesMenuSpace: playlistContext != nil && layout.mode != .coverOnly
                             )
+                            .nsfwCoverContext(ExtensionNsfwCache.shared.isNsfw(item.ext)) // "Mờ bìa NSFW" (1.3.1019)
                         }
                         .playlistListItemMenuOverlay(
                             item: item.result,

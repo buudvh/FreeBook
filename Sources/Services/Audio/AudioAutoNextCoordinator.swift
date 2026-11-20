@@ -22,7 +22,7 @@ import UIKit
 ///   đang hiện tự vẽ theo session. Giữ phiên vì ở nền / màn khoá, tắt `AVAudioSession` rồi bật lại có thể không phát được.
 ///   Hẹn giờ tắt (mốc phút) được giữ qua lượt tự sang; hẹn "Hết bài" thì dừng ở cuối bài, không tự sang.
 /// - **Báo "Tự sang: <tên>"** khi album mới bắt đầu phát (`AudioPlaybackNotice`: dải báo ở màn nghe, toast ở nơi khác). "Bắt đầu
-///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho đĩa góc dưới) — không thêm hook vào session. Album 18+ lúc
+///   phát" lấy từ cầu nối `AudioMiniPlayerState` (sẵn có cho đĩa góc dưới) — không thêm hook vào session. Album NSFW lúc
 ///   công tắc NSFW tắt ⇒ không ghi tên.
 /// - Cả lượt (tải gợi ý → mở → chờ phát) nằm trong background task: lúc hết album không còn tiếng giữ app sống khi chạy
 ///   nền. Kết thúc khi album mới phát, lỗi, người dùng đổi / đóng album, hoặc sau 90 giây.
@@ -202,7 +202,7 @@ final class AudioAutoNextCoordinator {
         }
     }
 
-    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album 18+ lúc công tắc NSFW tắt ⇒ không ghi tên (đĩa góc dưới, màn khoá
+    /// Tên album (chi tiết đã về) → tên mục gợi ý. Album NSFW lúc công tắc NSFW tắt ⇒ không ghi tên (đĩa góc dưới, màn khoá
     /// đều che).
     private func noticeText(fallbackTitle: String) -> String {
         let mini = AudioMiniPlayerState.shared

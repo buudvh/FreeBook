@@ -42,6 +42,10 @@ struct BookCoverView: View {
             }
         }
         .frame(width: width, height: height)
+        // "Mờ bìa NSFW" (1.3.1019): truyện tự đánh dấu hoặc của nguồn NSFW — chỉ tra khi công tắc bật.
+        .nsfwCoverBlur(size: CGSize(width: width, height: height)) {
+            RepositoryFilterPolicy.isNsfwBook(bookId: bookId, packageId: extensionPackageId)
+        }
         .clipped()
         .onAppear {
             showCachedImageIfAvailable()

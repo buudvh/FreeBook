@@ -4,8 +4,8 @@ import UIKit
 /// - Phim thường: tiêu đề = tên phim; dòng phụ = "Tác giả · Tập N" — tên tập chỉ khi phim có từ 2 tập phát được, thiếu
 ///   tác giả thì chỉ còn tên tập (phim một tập không tác giả ⇒ không dòng phụ); ảnh = bìa phim
 ///   (`VideoPlaybackSession+NowPlaying` nạp).
-/// - Phim 18+ (`RepositoryFilterPolicy.isNsfwBook`, cùng luật với tắt tiếng / thu nhỏ): **một** dòng "Đang phát", không dòng
-///   phụ, không tên tập (tên tập của nguồn 18+ hay chính là tên phim), ảnh = icon app (`LockScreenAppIcon` trong Assets) —
+/// - Phim NSFW (`RepositoryFilterPolicy.isNsfwBook`, cùng luật với tắt tiếng / thu nhỏ): **một** dòng "Đang phát", không dòng
+///   phụ, không tên tập (tên tập của nguồn NSFW hay chính là tên phim), ảnh = icon app (`LockScreenAppIcon` trong Assets) —
 ///   không đọc, không tải bìa.
 struct VideoNowPlayingMetadata {
     static let nsfwTitle = "Đang phát"

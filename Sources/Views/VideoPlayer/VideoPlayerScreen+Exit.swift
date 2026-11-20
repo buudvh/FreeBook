@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// Lối **rời màn xem** (`VideoWatchExit`) mà phần dưới khung phim yêu cầu, và lời xin **thu vào hub** của
-/// `VideoLeaveToHubCoordinator` (tắt NSFW lúc phát phim 18+, rời app) — tách khỏi `VideoPlayerScreen.swift` để file gốc dưới giới
+/// `VideoLeaveToHubCoordinator` (tắt NSFW lúc phát phim NSFW, rời app) — tách khỏi `VideoPlayerScreen.swift` để file gốc dưới giới
 /// hạn dòng. Việc tiếp theo (chuyển tab, mở trang) luôn chạy **sau khi** màn đã đóng (`leave(then:)` → `pendingExitAction`
 /// ở `onDisappear`).
 extension VideoPlayerScreen {
     /// - Home: thu nhỏ phim **theo cài đặt "Vuốt xuống trình phát"** (cửa sổ nhỏ hoặc hub — `minimizeByPolicy`, 1.3.775;
-    ///   phim 18+ cũng phát tiếp, tắt tiếng theo cài đặt) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
+    ///   phim NSFW cũng phát tiếp, tắt tiếng theo cài đặt) rồi, khi màn đã đóng, về trang gốc tab Khám phá.
     /// - Đổi nguồn xong: đóng hẳn.
     /// - Thể loại / Xem thêm: xem `openCategory(_:from:)`.
     func handleExit(_ exit: VideoWatchExit) {
@@ -29,7 +29,7 @@ extension VideoPlayerScreen {
         }
     }
 
-    /// Thu nhỏ theo cài đặt "Vuốt xuống trình phát" (`VideoMinimizePolicy`: phim thường / 18+ / ghi đè của tiện ích) — nút
+    /// Thu nhỏ theo cài đặt "Vuốt xuống trình phát" (`VideoMinimizePolicy`: phim thường / NSFW / ghi đè của tiện ích) — nút
     /// Home của màn xem và nút Home của trang đè. Cửa sổ nhỏ chỉ khi màn đang phát phim của nó và không nhúng trang; còn lại
     /// vào hub (dọc: khung phim bay vào nút hub; ngang / toàn màn: đóng). Màn đang hiện bìa ⇒ chỉ đóng màn. `then` chạy sau
     /// khi màn đã đóng hẳn.

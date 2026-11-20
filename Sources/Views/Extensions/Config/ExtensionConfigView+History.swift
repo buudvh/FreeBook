@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nhóm **Duyệt và lịch sử** của màn Cấu hình tiện ích: công tắc "Lưu lịch sử đọc/xem" + bộ chọn "Nội dung 18+"
+/// Nhóm **Duyệt và lịch sử** của màn Cấu hình tiện ích: công tắc "Lưu lịch sử đọc/xem" + bộ chọn "Nội dung nhạy cảm"
 /// (`ExtensionConfigView+Nsfw`).
 ///
 /// Công tắc hiển thị `savesHistory ?? !isNsfw` (đúng luật của `ExtensionHistoryPolicy`, không tự tính lại) và lưu
@@ -10,7 +10,7 @@ import SwiftUI
 /// Tắt chỉ chặn **ghi mới** vào Lịch sử: lịch sử cũ giữ nguyên; tiến độ đọc của sách trên kệ vẫn được lưu.
 ///
 /// Chỉ hiện với tiện ích **nội dung** (chữ/tranh/video) đã cài — mockup đã duyệt: tiện ích TTS, dịch… không có nhóm
-/// này (không tạo sách nên không có lịch sử). Đánh dấu 18+ cho các tiện ích đó vẫn làm được ở menu nhấn giữ của Kho.
+/// này (không tạo sách nên không có lịch sử). Đánh dấu NSFW cho các tiện ích đó vẫn làm được ở menu nhấn giữ của Kho.
 extension ExtensionConfigView {
     @ViewBuilder
     internal var browsingAndHistorySection: some View {
@@ -40,7 +40,7 @@ extension ExtensionConfigView {
 
     private var historyFooter: String {
         let defaultNote = ExtensionNsfwClassifier.isNsfw(current)
-            ? "Mặc định tắt vì tiện ích là 18+."
+            ? "Mặc định tắt vì tiện ích là NSFW."
             : "Mặc định bật."
         return "Tắt lưu lịch sử thì truyện/phim xem bằng tiện ích này không được ghi mới vào Lịch sử, và trình duyệt tự "
             + "ẩn danh (không ghi lịch sử duyệt) khi vào trang của tiện ích; lịch sử cũ giữ nguyên, truyện trên kệ vẫn "

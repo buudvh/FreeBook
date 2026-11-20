@@ -3,7 +3,7 @@ import Foundation
 /// Tên hiển thị của album đang mở — tên album, tác giả / nghệ sĩ, tên bài: đi `ChineseTextPipeline`, phồn → giản **cả khi
 /// tắt dịch**, dịch khi bật (`MediaDisplayNames`, cấu hình album này ⇒ nguồn ⇒ Tất cả). Tên gốc (`albumTitle`,
 /// `albumAuthor`, `Track.title`, `Track.artist`) giữ nguyên văn — còn ghi `Book`, mục lục, playlist; chỗ vẽ đọc
-/// `displayAlbumTitle`, `displayAlbumAuthor`, `currentArtist`, `Track.displayTitle` (qua `shownTitle`). Nguồn 18+ ở màn
+/// `displayAlbumTitle`, `displayAlbumAuthor`, `currentArtist`, `Track.displayTitle` (qua `shownTitle`). Nguồn NSFW ở màn
 /// khoá vẫn chỉ "Đang phát" (`AudioNowPlayingMetadata`, không đọc tên).
 ///
 /// Tính ngoài main khi bắt đầu phát (`beginPlayback`), khi chi tiết về (đổi tên album / tác giả), khi làm mới mục lục ở nền

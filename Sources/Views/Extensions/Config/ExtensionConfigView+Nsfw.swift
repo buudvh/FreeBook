@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Dòng **Nội dung 18+** của nhóm "Duyệt và lịch sử": bộ chọn 3 trạng thái ánh xạ `Extension.nsfwOverride`
+/// Dòng **Nội dung nhạy cảm** của nhóm "Duyệt và lịch sử": bộ chọn 3 trạng thái ánh xạ `Extension.nsfwOverride`
 /// — "Tự động (Có|Không)" = `nil`, "Có" = `true`, "Không" = `false`.
 ///
 /// Lưu **ngay** qua `ExtensionTransactionCoordinator.setNsfwOverride`. Lựa chọn của người dùng thắng nhận diện tự động
-/// và không mất khi cập nhật tiện ích. Đánh dấu kéo theo: ẩn khi công tắc NSFW tắt, nhãn 18+ trên icon, mặc định
+/// và không mất khi cập nhật tiện ích. Đánh dấu kéo theo: ẩn khi công tắc NSFW tắt, nhãn NSFW trên icon, mặc định
 /// không lưu lịch sử (nếu chưa tự chọn).
 ///
 /// Nhãn "Tự động (…)" là kết quả **nhận diện tự động** (`ExtensionNsfwClassifier` trên bản sao đã bỏ override), nên
@@ -34,7 +34,7 @@ extension ExtensionConfigView {
     }
 
     internal var nsfwPicker: some View {
-        Picker("Nội dung 18+", selection: nsfwChoiceBinding) {
+        Picker("Nội dung nhạy cảm", selection: nsfwChoiceBinding) {
             Text("Tự động (\(autoDetectedNsfw ? "Có" : "Không"))").tag(NsfwChoice.automatic)
             Text("Có").tag(NsfwChoice.marked)
             Text("Không").tag(NsfwChoice.unmarked)
@@ -65,19 +65,19 @@ extension ExtensionConfigView {
     }
 
     internal var nsfwFooter: String {
-        "Nội dung 18+ «Tự động» theo khai báo của tiện ích hoặc tên, mô tả, tên miền. Tiện ích 18+ bị ẩn khi tắt NSFW "
-            + "trong Cài đặt và có nhãn 18+ trên icon."
+        "Nội dung nhạy cảm «Tự động» theo khai báo của tiện ích hoặc tên, mô tả, tên miền. Tiện ích NSFW bị ẩn khi tắt NSFW "
+            + "trong Cài đặt và có nhãn NSFW trên icon."
     }
 
     @MainActor
     static func saveNsfwOverride(packageId: String, name: String, _ value: Bool?) {
         switch ExtensionTransactionCoordinator.shared.setNsfwOverride(packageId: packageId, value) {
         case .success:
-            let note = value.map { $0 ? "đánh dấu 18+" : "bỏ đánh dấu 18+" } ?? "dùng nhận diện tự động"
+            let note = value.map { $0 ? "đánh dấu NSFW" : "bỏ đánh dấu NSFW" } ?? "dùng nhận diện tự động"
             AppLogger.shared.log("🔞 [ExtConfig] \(name): \(note)")
         case .failure(let err):
-            AppLogger.shared.log("❌ [ExtConfig] Lỗi lưu đánh dấu 18+ của \(name): \(err.localizedDescription)")
-            ToastManager.shared.show(message: "Không lưu được đánh dấu 18+: \(err.localizedDescription)", type: .error)
+            AppLogger.shared.log("❌ [ExtConfig] Lỗi lưu đánh dấu NSFW của \(name): \(err.localizedDescription)")
+            ToastManager.shared.show(message: "Không lưu được đánh dấu NSFW: \(err.localizedDescription)", type: .error)
         }
     }
 }

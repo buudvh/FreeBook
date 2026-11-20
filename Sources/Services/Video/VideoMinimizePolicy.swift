@@ -1,9 +1,9 @@
 import Foundation
 
 /// Luật chọn `VideoMinimizeStyle` khi vuốt xuống trình phát:
-/// `Extension.videoMinimizeOverride ?? (phim 18+ ? cài đặt "Phim 18+" : cài đặt "Phim thường")`.
+/// `Extension.videoMinimizeOverride ?? (phim NSFW ? cài đặt "Phim NSFW" : cài đặt "Phim thường")`.
 ///
-/// - "18+" = `RepositoryFilterPolicy.isNsfwBook` (phim tự đánh dấu hoặc nguồn NSFW), cùng luật với `VideoMutePolicy`.
+/// - "NSFW" = `RepositoryFilterPolicy.isNsfwBook` (phim tự đánh dấu hoặc nguồn NSFW), cùng luật với `VideoMutePolicy`.
 /// - Hai khoá chung không có dấu chấm (`@AppStorage` theo dõi bằng KVO, khoá có dấu chấm không báo đổi). Khoá chưa ghi
 ///   hoặc giá trị lạ ⇒ `hub`, giữ hành vi cũ.
 /// - Nguồn Legado loại video không có màn ghi đè ⇒ luôn theo cài đặt chung.
@@ -12,7 +12,7 @@ enum VideoMinimizePolicy {
     static let nsfwDefaultsKey = "videoSwipeMinimizeNsfw"
     static let defaultValue: VideoMinimizeStyle = .hub
 
-    /// Cài đặt chung cho phim thường (`nsfw == false`) hoặc phim 18+.
+    /// Cài đặt chung cho phim thường (`nsfw == false`) hoặc phim NSFW.
     static func globalStyle(nsfw: Bool) -> VideoMinimizeStyle {
         let key = nsfw ? nsfwDefaultsKey : normalDefaultsKey
         guard let raw = UserDefaults.standard.string(forKey: key),

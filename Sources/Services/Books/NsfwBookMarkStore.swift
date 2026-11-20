@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// Truyện người dùng **tự đánh dấu** NSFW (hàng "Đánh dấu NSFW" của sheet nhấn giữ `BookActionSheet`), cho các truyện
-/// mà nguồn không bị coi là 18+. `RepositoryFilterPolicy.isNsfwBook` gộp dấu này với nguồn NSFW, nên truyện đã đánh
-/// dấu bị ẩn ở cùng những chỗ như truyện của nguồn 18+ khi công tắc NSFW tắt.
+/// mà nguồn không bị coi là NSFW. `RepositoryFilterPolicy.isNsfwBook` gộp dấu này với nguồn NSFW, nên truyện đã đánh
+/// dấu bị ẩn ở cùng những chỗ như truyện của nguồn NSFW khi công tắc NSFW tắt.
 ///
 /// - Lưu `UserDefaults` khoá `nsfwMarkedBookIds` (mảng `bookId`): chữ thường, không dấu chấm ⇒ Sao lưu tự gói
 ///   (`BackupSettingsArchiver`) và `@AppStorage` không vướng lỗi khoá có dấu chấm.

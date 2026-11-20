@@ -15,7 +15,7 @@ import UIKit
 /// - Bấm Home ⇒ tắt **cả hai** ngay.
 /// - Rời app (vào nền) ⇒ Kệ về "Không hiển thị" **ngay** (ảnh chụp ở màn chuyển app không lộ), còn công tắc chung chỉ tắt
 ///   khi **mở lại app** (`willEnterForeground`) — anh Bửu chọn "Tắt khi mở lại app" sau khi review chỉ ra tắt ngay lúc
-///   vào nền làm phim 18+ đang xem tắt tiếng + thu vào hub, playlist 18+ dừng sau bài, Reader truyện 18+ bị đóng khi khoá
+///   vào nền làm phim NSFW đang xem tắt tiếng + thu vào hub, playlist NSFW dừng sau bài, Reader truyện NSFW bị đóng khi khoá
 ///   máy. Trong lúc ở nền, đồng bộ từ công tắc chung tạm ngưng (kẻo Kệ đang ẩn bị kéo lại "Tất cả").
 /// Nghe thay đổi của công tắc qua `UserDefaults.didChangeNotification` (mọi chỗ ghi đều là `@AppStorage` / `UserDefaults`).
 ///

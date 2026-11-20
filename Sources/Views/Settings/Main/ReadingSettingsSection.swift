@@ -53,7 +53,7 @@ struct ReadingSettingsSection: View {
         } header: {
             SectionHelpHeader("Đọc & Nghe", paragraphs: [
                 "**Mở lại truyện đọc gần nhất**: mở app là tự vào lại truyện, truyện tranh hoặc phim đọc/xem gần nhất, đúng chương, đúng chỗ.",
-                "Mục 18+ được bỏ qua, lấy mục gần nhất kế tiếp. TTS và phim không tự phát.",
+                "Mục NSFW được bỏ qua, lấy mục gần nhất kế tiếp. TTS và phim không tự phát.",
                 "Lần mở lại trước bị tắt trong 10 giây đầu thì lần này bỏ qua."
             ])
         }
