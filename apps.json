@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1033",
+          "buildVersion": "1317",
+          "date": "2026-11-20T06:51:12Z",
+          "localizedDescription": "- fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1317/TangCongCac-1.3.1033-1317.ipa",
+          "size": 47790776,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1032",
           "buildVersion": "1316",
           "date": "2026-11-20T06:16:02Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1313/TangCongCac-1.3.1024-1313.ipa",
           "size": 41957119,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1021",
-          "buildVersion": "1312",
-          "date": "2026-11-20T03:35:04Z",
-          "localizedDescription": "- feat: Header tự dựng màn đọc / xem / nghe + Khám phá — lề 16pt chung, nút back chung, \"…\" có vòng, khối tiêu đề hai dòng\n- feat: Nút ⌄ của sheet Kiểm tra tiện ích / Kiểm tra nguồn và màn AI toàn màn dời sang trái, tiêu đề 22pt kế bên",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1312/TangCongCac-1.3.1021-1312.ipa",
-          "size": 41953500,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1032",
-      "versionDate": "2026-11-20T06:16:02Z",
-      "versionDescription": "- feat: vtts Việt–Anh — nối trình đọc vào app, Cài đặt TTS, sheet chọn giọng, giọng dự phòng\n- feat: vtts Việt–Anh — runtime C, tài sản đóng trong IPA, service tổng hợp\n- chore: vtts — CI giữ cache từ điển khi build đỏ, kiểm thử shim nhanh hơn\n- chore: Màn tự thử nhịp dọc header (tạm thời), đầu dò header sửa cho iOS 26, mũi back tự dựng trùng chỗ mũi back hệ thống\n- feat: vtts — lưu sẵn model, từ điển và công cụ dựng lại trong repo, CI không tải gì từ upstream\n- fix: vtts — CI dựng vtts_say kèm stub ZH/JA/RU, kiểm tài sản trong IPA, toast lỗi ghi đúng trình đọc",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1316/TangCongCac-1.3.1032-1316.ipa",
-      "size": 47789814,
+      "version": "1.3.1033",
+      "versionDate": "2026-11-20T06:51:12Z",
+      "versionDescription": "- fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1317/TangCongCac-1.3.1033-1317.ipa",
+      "size": 47790776,
       "appPermissions": {}
     }
   ],
