@@ -13,7 +13,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var tool: String {
         didSet {
             UserDefaults.standard.set(tool, forKey: "ttsTool")
-            AppLogger.shared.log("[TTSRoute] doi engine=\(tool) local=\(TTSManager.isLocalEngine(tool)) extension=\(TTSManager.isExtensionTool(tool))")
+            noteReaderToolChanged(from: oldValue) // log đổi engine + nhả runtime vtts khi rời vtts (`TTSManager+Vtts`)
             cancelChapterAdvanceTask()
             loadParamsForCurrentTool()
             clearPrefetchCache()
@@ -713,8 +713,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
             let savedDelay = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
             self.prefetchDelayMs = max(300, savedDelay)
-        } else if tool == "vieneu" {
-            applyVieNeuParamsIfNeeded()
+        } else if tool == "vieneu" || tool == VttsSettings.tool {
+            applyOfflineModelParamsIfNeeded() // VieNeu / vtts — `TTSManager+Vtts`
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch

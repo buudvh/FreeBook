@@ -10,6 +10,8 @@ import Observation
 ///   giữ một session ⇒ thử giọng khác giọng trình đọc thì `finishSession()` nạp sẵn lại giọng của trình đọc.
 /// - Google: `GoogleTTSService.shared` (key cá nhân / key hệ thống như trình đọc). Tiện ích: `TTSManager.extService`
 ///   (cùng runtime JS dùng lâu dài của trình đọc), đường dẫn + cấu hình lấy từ bản ghi tiện ích.
+/// - vtts: `VttsTTSService.shared` (cùng `PiperSynthesisCoordinator`, một runtime). Trình đọc không dùng vtts ⇒
+///   `finishSession()` nhả runtime vừa nạp để thử (`TTSManager.releaseVttsRuntimeIfUnused`).
 /// - Chặn khi truyện **đang phát** (`TTSManager.isPlaying`) — trả `.blockedByReader` để View báo bằng toast (Service không
 ///   gọi toast). Mỗi lúc một câu thử; bấm giọng khác ⇒ huỷ câu đang tổng hợp / dừng câu đang phát.
 /// - Lỗi tổng hợp ⇒ `failureMessage` + `failureToken` tăng để View hiện toast.
@@ -27,6 +29,8 @@ final class TTSVoicePreviewPlayer {
         case nghi(voiceId: String)
         case google(voiceId: String)
         case ext(localPath: String, configJson: String, voiceId: String)
+        /// `VttsVoice.rawValue`.
+        case vtts(voiceId: String)
     }
 
     enum Phase: Equatable {
@@ -43,8 +47,14 @@ final class TTSVoicePreviewPlayer {
 
     enum PreviewError: LocalizedError {
         case nghiUnavailable
+        case vttsUnavailable
 
-        var errorDescription: String? { "Chưa khởi tạo được engine NghiTTS." }
+        var errorDescription: String? {
+            switch self {
+            case .nghiUnavailable: return "Chưa khởi tạo được engine NghiTTS."
+            case .vttsUnavailable: return "Bản cài này chưa có dữ liệu vtts."
+            }
+        }
     }
 
     private(set) var phase: Phase = .idle
@@ -52,6 +62,8 @@ final class TTSVoicePreviewPlayer {
     private(set) var failureToken = 0
     /// Giọng NghiTTS của câu thử gần nhất trong phiên sheet — `finishSession()` so với giọng trình đọc.
     @ObservationIgnored private var lastNghiVoiceId: String?
+    /// Phiên sheet đã thử một giọng vtts — `finishSession()` nhả runtime nếu trình đọc không dùng vtts.
+    @ObservationIgnored private var didPreviewVtts = false
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var player: AVAudioPlayer?
@@ -108,6 +120,19 @@ final class TTSVoicePreviewPlayer {
                     )
                 }
             }
+        case .vtts(let voiceId):
+            let service = VttsTTSService.shared
+            guard service.isAvailable else {
+                report(PreviewError.vttsUnavailable, key: key)
+                return .started
+            }
+            didPreviewVtts = true
+            operation = {
+                try await service.synthesize(
+                    text: Self.sampleText, voice: voiceId, speed: 1.0, boundaryKind: .paragraphEnd,
+                    priority: .demand, requestID: UUID(), synthesisKey: nil
+                )
+            }
         }
         phase = .preparing(key)
         task = Task { [weak self] in
@@ -145,8 +170,12 @@ final class TTSVoicePreviewPlayer {
     /// câu thử đã thay model) ⇒ nạp sẵn lại giọng trình đọc để đoạn đọc tiếp không phải chờ nạp model.
     func finishSession() {
         stop()
-        defer { lastNghiVoiceId = nil }
+        defer {
+            lastNghiVoiceId = nil
+            didPreviewVtts = false
+        }
         let tts = TTSManager.shared
+        if didPreviewVtts { tts.releaseVttsRuntimeIfUnused(reason: "Đã thử giọng vtts") }
         guard let previewed = lastNghiVoiceId, tts.tool == "nghitts",
               previewed.toASCIIID != tts.selectedVoice.toASCIIID else { return }
         AppLogger.shared.log("🎙️ [VoicePreview] Đã thử giọng NghiTTS \(previewed) — nạp lại giọng của trình đọc")

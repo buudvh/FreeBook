@@ -1,20 +1,34 @@
 import Foundation
 
 /// **Giọng dự phòng** khi TTS online (Google Cloud TTS / tiện ích TTS) lỗi (1.3.945, anh Bửu duyệt mockup): một trình đọc
-/// offline — NghiTTS (Piper) hoặc VieNeu — chọn ở màn "Giọng dự phòng" (Cài đặt TTS › Khi giọng online lỗi).
+/// offline — NghiTTS (Piper), VieNeu hoặc vtts (2026-11-20) — chọn ở màn "Giọng dự phòng" (Cài đặt TTS › Khi giọng online lỗi).
 ///
 /// Chỉ lưu **trình đọc nào** (`toolKey`, rỗng / thiếu = Không dùng). Giọng, tốc độ, tốc độ tổng hợp, từ điển phiên âm… là
-/// cài đặt **của chính engine đó** (`nghittsVoice` / `VieNeuVoiceSelection`, `nghittsRate` / `vieneuRate`…) — chung với lúc
-/// engine đó là trình đọc chính, nên màn "Giọng dự phòng" dựng y các mục của Cài đặt TTS khi chọn engine đó.
+/// cài đặt **của chính engine đó** (`nghittsVoice` / `VieNeuVoiceSelection` / `vttsVoice`, `nghittsRate` / `vieneuRate` /
+/// `vttsRate`…) — chung với lúc engine đó là trình đọc chính, nên màn "Giọng dự phòng" dựng y các mục của Cài đặt TTS khi
+/// chọn engine đó. `rawValue` = `TTSManager.tool` của engine.
 enum TTSOnlineFallbackSettings {
     enum Engine: String, CaseIterable, Identifiable, Sendable {
         case nghitts
         case vieneu
+        case vtts
 
         var id: String { rawValue }
-        var title: String { self == .nghitts ? "NghiTTS" : "VieNeu" }
+        var title: String {
+            switch self {
+            case .nghitts: return "NghiTTS"
+            case .vieneu: return "VieNeu"
+            case .vtts: return "vtts"
+            }
+        }
         /// Chữ của Picker — trùng Picker "Trình đọc" của Cài đặt TTS.
-        var pickerTitle: String { self == .nghitts ? "NghiTTS (Piper Offline)" : "VieNeu-TTS v3 (Offline)" }
+        var pickerTitle: String {
+            switch self {
+            case .nghitts: return "NghiTTS (Piper Offline)"
+            case .vieneu: return "VieNeu-TTS v3 (Offline)"
+            case .vtts: return "vtts Việt–Anh (Offline)"
+            }
+        }
     }
 
     static let toolKey = "ttsOnlineFallbackTool"
@@ -31,7 +45,11 @@ enum TTSOnlineFallbackSettings {
 
     /// Khoá tốc độ phát của engine — đúng khoá `TTSManager.loadParamsForCurrentTool` đọc khi engine đó là trình đọc chính.
     static func speedKey(for engine: Engine) -> String {
-        engine == .vieneu ? TTSManager.VieNeuSettingsKey.rate : "nghittsRate"
+        switch engine {
+        case .nghitts: return "nghittsRate"
+        case .vieneu: return TTSManager.VieNeuSettingsKey.rate
+        case .vtts: return TTSManager.VttsSettings.rateKey
+        }
     }
 
     /// Tốc độ phát của engine dự phòng; chưa lưu ⇒ `ttsRate` ⇒ 1,0 (như lúc nạp tham số của engine).
@@ -69,6 +87,9 @@ enum TTSOnlineFallbackSettings {
             let names = VieNeuJapaneseNameReader.isEnabled
             let nameBoost = VieNeuNameFrameBoost.mode.rawValue
             return "vieneu|\(VieNeuVoiceSelection.stored.storageValue)|\(speed)|\(synthesis)|\(dictionary)|\(names)|\(nameBoost)"
+        case .vtts:
+            let japanese = TTSJapaneseTransliterationSettings.isEnabled(forTool: TTSJapaneseTransliterationSettings.vttsTool)
+            return "vtts|\(TTSManager.storedVttsVoice)|\(speed)|\(japanese)"
         }
     }
 }

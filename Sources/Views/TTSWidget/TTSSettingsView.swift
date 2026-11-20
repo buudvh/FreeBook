@@ -49,6 +49,7 @@ struct TTSSettingsView: View {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
                     vieNeuPickerRows
+                    vttsPickerRow
                     Text("Google Cloud TTS (Online)").tag("google")
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
@@ -127,7 +128,7 @@ struct TTSSettingsView: View {
                     }
                 } else if ttsManager.tool == "vieneu" {
                     vieNeuReaderSection
-                } else if ttsManager.tool != "system" {
+                } else if TTSManager.isExtensionTool(ttsManager.tool) {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                         Button(action: { self.selectedExtForConfig = ext }) {
                             HStack {
@@ -224,6 +225,8 @@ struct TTSSettingsView: View {
                     }
                 } else if ttsManager.tool == "vieneu" {
                     vieNeuPrefetchSection
+                } else if ttsManager.tool == TTSManager.VttsSettings.tool {
+                    vttsPrefetchSection
                 } else {
                     if currentExtParams.preloadSize == nil {
                         Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {

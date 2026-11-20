@@ -2,8 +2,10 @@ import SwiftUI
 
 /// Màn **"Giọng dự phòng"** (1.3.945, anh Bửu duyệt mockup: "nav tới màn tương tự chọn engine vieneu hoặc piper tts") — mở từ
 /// hàng "Giọng dự phòng" của Cài đặt TTS khi trình đọc là Google / tiện ích (`TTSFallbackVoiceSection`). Dựng y các mục
-/// Cài đặt TTS hiện khi chọn engine đó làm trình đọc: Picker "Trình đọc" (Không dùng / NghiTTS / VieNeu) · "Giọng đọc" (cùng
-/// hàng + sheet chọn giọng) · "Quản lý riêng của trình đọc" · "Cấu hình giọng nói" (Tốc độ; VieNeu Nano thêm Tốc độ tổng hợp).
+/// Cài đặt TTS hiện khi chọn engine đó làm trình đọc: Picker "Trình đọc" (Không dùng / NghiTTS / VieNeu / vtts) · "Giọng
+/// đọc" (cùng hàng + sheet chọn giọng) · "Quản lý riêng của trình đọc" · "Cấu hình giọng nói" (Tốc độ; VieNeu Nano thêm Tốc
+/// độ tổng hợp). vtts (2026-11-20): giọng chọn ở đây chỉ ghi `vttsVoice` (`TTSManager.selectVttsVoice`), mục Quản lý riêng
+/// chỉ có "Phiên âm tiếng Nhật".
 ///
 /// Không có: "Tải trước dữ liệu" (đoạn dự phòng nạp theo cửa sổ của trình đọc online), Cao độ (engine offline không chỉnh
 /// được), "Quản lý thay thế ký tự" + "Tiền xử lý số" (chung mọi trình đọc, đã ở Cài đặt TTS), "Đọc lai Nano · Turbo".
@@ -26,7 +28,8 @@ struct TTSFallbackVoiceSettingsView: View {
     @State private var synthesisSpeed: Double = 1.0
     @StateObject private var japaneseFlags = VieNeuJapaneseFlags()
     @State private var showingVieNeuPicker = false
-    @State private var nghiPicker: TTSVoiceEngine?
+    /// Sheet chọn giọng chung của NghiTTS / vtts.
+    @State private var voicePicker: TTSVoiceEngine?
     /// Tăng khi sheet chọn giọng VieNeu đóng ⇒ đọc lại model (Nano / Turbo quyết hàng Tốc độ tổng hợp).
     @State private var selectionToken = 0
 
@@ -52,7 +55,7 @@ struct TTSFallbackVoiceSettingsView: View {
         .backPageTitle("Giọng dự phòng")
         .onAppear(perform: reload)
         .vieNeuVoicePickerSheet(isPresented: $showingVieNeuPicker, selectsForFallback: true)
-        .ttsVoicePickerSheet(engine: $nghiPicker)
+        .ttsVoicePickerSheet(engine: $voicePicker)
         .onChange(of: showingVieNeuPicker) { _, presented in
             if !presented { selectionToken += 1 }
         }
@@ -103,7 +106,9 @@ struct TTSFallbackVoiceSettingsView: View {
         case .vieneu:
             VieNeuVoiceSummaryRow { showingVieNeuPicker = true }
         case .nghitts:
-            TTSReaderVoiceSummaryRow(engine: .nghi) { nghiPicker = .nghi }
+            TTSReaderVoiceSummaryRow(engine: .nghi) { voicePicker = .nghi }
+        case .vtts:
+            TTSReaderVoiceSummaryRow(engine: .vtts) { voicePicker = .vtts }
         }
     }
 
@@ -133,6 +138,15 @@ struct TTSFallbackVoiceSettingsView: View {
             } header: {
                 SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
                     TTSJapaneseTransliterationRow.helpParagraph(forTool: TTSJapaneseTransliterationSettings.nghiTool)
+                ])
+            }
+        case .vtts:
+            // Như Cài đặt TTS khi chọn vtts: chỉ hàng "Phiên âm tiếng Nhật" của vtts.
+            Section {
+                TTSJapaneseTransliterationRow(tool: TTSJapaneseTransliterationSettings.vttsTool)
+            } header: {
+                SectionHelpHeader("Quản lý riêng của trình đọc", paragraphs: [
+                    TTSJapaneseTransliterationRow.helpParagraph(forTool: TTSJapaneseTransliterationSettings.vttsTool)
                 ])
             }
         }

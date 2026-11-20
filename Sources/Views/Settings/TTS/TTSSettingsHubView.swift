@@ -38,6 +38,7 @@ struct TTSSettingsHubView: View {
         case "google": return "Google"
         case "nghitts": return "NghiTTS"
         case "vieneu": return VieNeuModelChoice.current == .turbo ? "VieNeu Turbo" : "VieNeu"
+        case TTSManager.VttsSettings.tool: return "vtts"
         case "system": return "Siri"
         default: return "Extension"
         }

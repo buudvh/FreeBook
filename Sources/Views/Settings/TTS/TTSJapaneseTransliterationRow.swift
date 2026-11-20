@@ -3,7 +3,7 @@ import SwiftUI
 /// Hàng công tắc **"Phiên âm tiếng Nhật"** — có ở **mọi** trình đọc, giá trị lưu **riêng từng trình đọc** (1.3.973, anh
 /// Bửu: "sửa lại nút phiên âm tiếng nhật cho tất cả tts, config lưu riêng mỗi loại tts").
 ///
-/// `tool` đúng bằng `TTSManager.tool` (`system` / `nghitts` / `vieneu` / `google` / `packageId` của tiện ích TTS). Đặt
+/// `tool` đúng bằng `TTSManager.tool` (`system` / `nghitts` / `vieneu` / `vtts` / `google` / `packageId` của tiện ích TTS). Đặt
 /// **bên trong** một `Section`: Cài đặt TTS › "Quản lý riêng của trình đọc" (mọi trình đọc; VieNeu qua
 /// `VieNeuReaderManagementRows`), màn Giọng dự phòng, và "Tiền xử lý text" của Cấu hình NghiTTS.
 ///
@@ -40,6 +40,8 @@ struct TTSJapaneseTransliterationRow: View {
             return "**Phiên âm tiếng Nhật**: chữ kana và từ romaji (Sakura, arigatou) đọc theo âm tiết Việt. Lưu riêng cho NghiTTS; từ nước ngoài khác theo công tắc **Phiên âm tiếng Anh** ở Cấu hình tiền xử lý."
         case TTSJapaneseTransliterationSettings.vieNeuTool:
             return "**Phiên âm tiếng Nhật**: tên kiểu Nhật viết hoa (Sasuke, Naruto-kun) đọc theo từng âm tiết thay vì theo luật tiếng Anh. Lưu riêng cho VieNeu, chung Nano và Turbo."
+        case TTSJapaneseTransliterationSettings.vttsTool:
+            return "**Phiên âm tiếng Nhật**: vtts đọc từ Latin không dấu theo tiếng Anh nên tên Nhật (Sakura, Sasuke) có thể sai. Bật để đổi kana và romaji sang âm tiết Việt (Sakura → Xa cư ra) trước khi đọc. Lưu riêng cho vtts, mặc định tắt."
         default:
             return "**Phiên âm tiếng Nhật**: chữ kana và từ romaji (Sakura → Xa cư ra) được đổi sang âm tiết Việt trước khi đưa cho giọng đọc. Lưu riêng cho từng trình đọc, mặc định tắt ở trình đọc này."
         }

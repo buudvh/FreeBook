@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1027] - 2026-11-20
+
+### feat: vtts Việt–Anh — nối trình đọc vào app, Cài đặt TTS, sheet chọn giọng, giọng dự phòng
+
+Anh Bửu duyệt plan `Docs/Plans/2026-11-20-vtts-integration.md` + mockup màn Cài đặt TTS (phần B; phần A — runtime C, tài sản, `Services/TTS/Vtts/` — là commit riêng).
+
+- **Nối vào `TTSManager`** (`TTSManager+Vtts.swift`, mới; khuôn VieNeu): `tool = "vtts"`; `isLocalEngine` **và** `isExtensionTool` thêm `"vtts"` cùng lúc; `localEngine` ⇒ `VttsTTSService.shared`. Khoá riêng `vttsVoice` / `vttsRate` / `vttsPitch` / `vttsChunk` (mặc định 150 ký tự) — `persistSpeed` / `persistPitch` / `persistVoice` / `persistChunkLength` / `resetPrefetchSettings` có nhánh vtts (không lọt vào `extRate_vtts`…). `TTSManager.swift` **không thêm dòng ròng nào** (3413 dòng): đổi tại chỗ dòng log của `tool.didSet` ⇒ `noteReaderToolChanged(from:)` và nhánh `vieneu` của `loadParamsForCurrentTool` ⇒ `applyOfflineModelParamsIfNeeded()` (VieNeu / vtts).
+- **Nhả runtime**: trình đọc rời vtts ⇒ `releaseVttsRuntimeIfUnused` (giữ nếu vtts là giọng dự phòng của trình đọc online mới); sheet chọn giọng đóng sau lượt thử giọng vtts cũng gọi hàm này. Chuyển **sang** vtts không nhả VieNeu / Piper — đường cũ NghiTTS ↔ VieNeu cũng không nhả nhau khi đổi trình đọc.
+- **Rà mọi chỗ so `"nghitts"` / `"vieneu"`**: vtts đi nhánh "không phải vieneu" (nhẹ như Piper) — ngưỡng đệm chung `nghittsSafeCachedTimeThreshold`, 1 lượt refill, 2 optional reserve; prefix chương kế chờ còn ≤ 2 dòng cha như VieNeu (`!= "nghitts"` ở `checkAndPromoteNextChapterAudioIfNeeded` / `TTSChapterPrefetcher`), nhịp nhiệt gọi `triggerNextChapterPrefetch` như VieNeu; khoá `nghittsPrefetchDelay` (Piper) không đụng. `currentPrefetchCount` rơi vào `extPrefetchCount` nhưng chỉ đường remote đọc nó.
+- **Cài đặt TTS** (mockup): Picker thêm "vtts Việt–Anh (Offline)" sau VieNeu; "Giọng đọc" = hàng chung (`TTSVoiceEngine.vtts`: "Nữ · nu-10", "Có sẵn trong app · 2,6 MB", badge Nhẹ) ⇒ sheet chọn giọng chung (`VttsVoicePickerList`, mới: 2 giọng, ▶ thử giọng qua `TTSVoicePreviewPlayer` `.vtts`, không tải / xoá); "Quản lý riêng" chỉ "Phiên âm tiếng Nhật" (khoá `ttsJapaneseTransliterationEnabled.vtts`, mặc định tắt, giải thích sau "?"); nhánh cấu hình tiện ích của mục này nay xét `isExtensionTool` thay `!= "system"`; dòng cao độ "(*) Engine offline (NghiTTS/VieNeu/vtts)…"; "Tải trước dữ liệu" chỉ "Độ dài phân đoạn (vtts)" (50…500, bước 10) — `TTSSettingsView+Vtts.swift`, mới.
+- **Giọng dự phòng**: `TTSOnlineFallbackSettings.Engine.vtts` ("vtts Việt–Anh (Offline)"); các toán tử ba ngôi hai engine đổi thành `switch` (`title`, `pickerTitle`, `speedKey`, giọng — `onlineFallbackVoice(for:)` mới); `fingerprint` có nhánh vtts; bản build thiếu dữ liệu ⇒ `engineUnavailable`. Màn Giọng dự phòng: hàng giọng + mục Quản lý riêng của vtts; chọn giọng ở đây chỉ ghi `vttsVoice` (`selectVttsVoice`), không đổi giọng trình đọc online.
+- `TTSSettingsSnapshot` / `TTSSynthesisIdentity` không thêm trường: `tool` + `selectedVoice` + `chunkLength` + cờ tiếng Nhật theo `tool` + `fingerprint` đã phủ vtts. Khối đầu phiên log "vtts · <giọng>"; tab Cài đặt hiện "vtts".
+- `tts.md`: thêm gạch "vtts Việt–Anh".
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows)** — biên dịch phụ thuộc type của phần A (`VttsVoice`, `VttsTTSService`), chỉ CI kiểm được; chưa chạy trên máy.
+
 ## [1.3.1026] - 2026-11-20
 
 ### fix: TTS tạm dừng lâu rồi bấm phát ở sheet nghe mini không phát lại — luôn bật lại phiên âm thanh, VieNeu / NghiTTS kiểm tiếng chạy thật

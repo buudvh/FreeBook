@@ -66,8 +66,8 @@ extension TTSSettingsView {
             }
 
             let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)
-            // Engine local (NghiTTS + VieNeu) phat qua `NghiAudioPlayerQueue`, ma queue nay chi co
-            // `updateRate(_:)` — khong co `AVAudioUnitTimePitch`. Nen pitch la **no-op** voi ca hai.
+            // Engine local (NghiTTS + VieNeu + vtts) phat qua `NghiAudioPlayerQueue`, ma queue nay chi co
+            // `updateRate(_:)` — khong co `AVAudioUnitTimePitch`. Nen pitch la **no-op** voi ca ba.
             let disablePitch = TTSManager.isLocalEngine(ttsManager.tool) || isExtensionTool
 
             VStack(alignment: .leading, spacing: 6) {
@@ -84,7 +84,7 @@ extension TTSSettingsView {
                 Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
                     .disabled(disablePitch)
                 if TTSManager.isLocalEngine(ttsManager.tool) {
-                    Text("(*) Engine offline (NghiTTS/VieNeu) không hỗ trợ chỉnh cao độ thời gian thực")
+                    Text("(*) Engine offline (NghiTTS/VieNeu/vtts) không hỗ trợ chỉnh cao độ thời gian thực")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 } else if isExtensionTool {

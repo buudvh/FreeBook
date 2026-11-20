@@ -69,13 +69,15 @@ struct AppLogSessionInfo {
         return Int((values?.volumeAvailableCapacityForImportantUsage ?? 0) / 1_048_576)
     }
 
-    /// "VieNeu · nano:Mai Anh", "Google · via", "NghiTTS · Ngọc Huyền (mới)", "<packageId> · <giọng>".
+    /// "VieNeu · nano:Mai Anh", "vtts · nu-10", "Google · via", "NghiTTS · Ngọc Huyền (mới)", "<packageId> · <giọng>".
     private static func ttsSummary() -> String {
         let defaults = UserDefaults.standard
         let tool = defaults.string(forKey: "ttsTool") ?? ""
         switch tool {
         case "": return "chưa chọn"
         case "vieneu": return "VieNeu · \(VieNeuVoiceSelection.stored.storageValue)"
+        // `storedVttsVoice` là thuộc tính tĩnh chỉ đọc `UserDefaults` — không chạm instance của `TTSManager`.
+        case TTSManager.VttsSettings.tool: return "vtts · \(TTSManager.storedVttsVoice)"
         case "nghitts": return "NghiTTS · \(defaults.string(forKey: "nghittsVoice") ?? "?")"
         case "google": return "Google · \(defaults.string(forKey: "googleVoice") ?? "?")"
         case "system": return "Siri · \(defaults.string(forKey: "systemVoice") ?? "?")"

@@ -5,7 +5,9 @@ import SwiftUI
 /// giọng (`onTap`).
 ///
 /// - Siri: "Tiếng Việt · <chất lượng>" (`SiriVoiceList`). NghiTTS: dung lượng giọng đã tải, chưa tải ⇒ dòng cam
-///   (`NghiVoiceDirectory`). Google: mô tả giọng. Tiện ích: ngôn ngữ của giọng (`ExtensionTTSVoiceList`).
+///   (`NghiVoiceDirectory`). Google: mô tả giọng. Tiện ích: ngôn ngữ của giọng (`ExtensionTTSVoiceList`). vtts: "Có sẵn
+///   trong app · 2,6 MB" (mockup anh Bửu duyệt); giọng theo `TTSManager.vttsDisplayedVoice()` (màn Giọng dự phòng đọc giọng
+///   đã lưu, không phải `selectedVoice` của trình đọc online).
 /// - Hàng tự nạp danh sách giọng của trình đọc khi hiện ra / khi đổi trình đọc (`.task(id:)`) — trước đây
 ///   `TTSSettingsView.onAppear` làm việc này.
 struct TTSReaderVoiceSummaryRow: View {
@@ -30,7 +32,7 @@ struct TTSReaderVoiceSummaryRow: View {
         switch engine {
         case .siri: SiriVoiceList.shared.reload()
         case .nghi: NghiVoiceDirectory.shared.reload()
-        case .google: break
+        case .google, .vtts: break
         case .ext(let packageId): ExtensionTTSVoiceList.shared.load(packageId: packageId)
         }
     }
@@ -57,6 +59,8 @@ struct TTSReaderVoiceSummaryRow: View {
         case .google:
             let voice = GoogleVoice.allVoices.first { $0.id == selected }
             return (voice?.name ?? selected, voice?.description, false)
+        case .vtts:
+            return (ttsManager.vttsDisplayedVoice().displayName, "Có sẵn trong app · 2,6 MB", false)
         case .ext(let packageId):
             let list = ExtensionTTSVoiceList.shared
             let isCurrent = list.packageId == packageId

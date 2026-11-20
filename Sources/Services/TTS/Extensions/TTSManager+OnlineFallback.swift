@@ -108,7 +108,7 @@ extension TTSManager {
               !onlineFallback.isActive(session: sessionID),
               let service = onlineFallbackService(for: engine),
               onlineFallback.claimPrewarm(session: sessionID) else { return }
-        let voice = engine == .vieneu ? Self.effectiveVieNeuVoice() : TTSOnlineFallbackSettings.nghiVoice
+        let voice = Self.onlineFallbackVoice(for: engine)
         AppLogger.shared.log("[TTSFallback] \(onlineFallbackOnlineName) vừa hụt một lượt ⇒ nạp sẵn giọng dự phòng \(engine.title)")
         Task(priority: .utility) {
             do {
@@ -137,7 +137,7 @@ extension TTSManager {
     func onlineFallbackAudio(index: Int, text: String, priority: SynthesisPriority) async throws -> Data {
         guard let engine = TTSOnlineFallbackSettings.engine else { throw OnlineFallbackError.notConfigured }
         let key = onlineFallbackChunkKey(index)
-        let voice = engine == .vieneu ? Self.effectiveVieNeuVoice() : TTSOnlineFallbackSettings.nghiVoice
+        let voice = Self.onlineFallbackVoice(for: engine)
         let speed = Self.localSynthesisSpeed(forTool: engine.rawValue)
         let boundary = index >= 0 && index < paragraphs.count ? paragraphs[index].boundaryKind : .paragraphEnd
         let synthesisKey = Self.onlineFallbackSynthesisKey(
@@ -218,6 +218,20 @@ extension TTSManager {
         case .vieneu:
             if VieNeuModelChoice.current == .turbo { return VieNeuTurboTTSService.shared }
             return VieNeuTTSService.shared
+        case .vtts:
+            // Bản build thiếu dữ liệu vtts ⇒ `nil` ⇒ `engineUnavailable` ("vtts chưa sẵn sàng trên máy").
+            guard VttsTTSService.shared.isAvailable else { return nil }
+            return VttsTTSService.shared
+        }
+    }
+
+    /// Giọng engine dự phòng sẽ đọc — giọng đã lưu **của chính engine đó** (chung với lúc nó là trình đọc chính); không
+    /// bao giờ là `selectedVoice` (lúc này là giọng của trình đọc online).
+    static func onlineFallbackVoice(for engine: TTSOnlineFallbackSettings.Engine) -> String {
+        switch engine {
+        case .nghitts: return TTSOnlineFallbackSettings.nghiVoice
+        case .vieneu: return effectiveVieNeuVoice()
+        case .vtts: return storedVttsVoice
         }
     }
 
@@ -257,7 +271,7 @@ extension TTSManager {
         return ExtensionLibraryRepository.snapshot(packageId: tool)?.name ?? "TTS tiện ích"
     }
 
-    /// "VieNeu · Mai Anh" / "NghiTTS · Ngọc Huyền (mới)" — giọng engine dự phòng sẽ đọc.
+    /// "VieNeu · Mai Anh" / "NghiTTS · Ngọc Huyền (mới)" / "vtts · Nữ · nu-10" — giọng engine dự phòng sẽ đọc.
     static func onlineFallbackVoiceTitle(for engine: TTSOnlineFallbackSettings.Engine) -> String {
         switch engine {
         case .nghitts:
@@ -266,6 +280,8 @@ extension TTSManager {
             let selection = VieNeuVoiceSelection(model: VieNeuModelChoice.current, voiceId: effectiveVieNeuVoice())
             let name = VieNeuVoiceDirectory.shared.entry(for: selection)?.name ?? selection.voiceId
             return "\(engine.title) · \(name)"
+        case .vtts:
+            return "\(engine.title) · \(VttsVoice.resolve(storedVttsVoice).displayName)"
         }
     }
 }

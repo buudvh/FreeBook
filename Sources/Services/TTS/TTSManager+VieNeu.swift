@@ -28,8 +28,10 @@ extension TTSManager {
     /// Là `nonisolated static` vì `TTSManager` bị `@MainActor`: nếu để mặc định, hàm này cũng bị cô lập
     /// actor và mọi nơi gọi nó ngoài `MainActor` (ví dụ `TTSNextChapterPrefixSynthesizer` — một `enum`
     /// `nonisolated`) đều phải `await`. Đây là so sánh chuỗi thuần tuý nên **không** cần nhảy actor.
+    ///
+    /// vtts (2026-11-20) được thêm vào **cùng lúc** ở đây và ở `isLocalEngine` — đúng bài học hai lỗi VieNeu kể trên.
     nonisolated static func isExtensionTool(_ tool: String) -> Bool {
-        tool != "system" && tool != "nghitts" && tool != "google" && tool != "vieneu"
+        tool != "system" && tool != "nghitts" && tool != "google" && tool != "vieneu" && tool != "vtts"
     }
 
     /// `true` khi `tool` là engine chạy **trên máy** và đi chung đường phát của NghiTTS (queue + cửa sổ
@@ -55,13 +57,15 @@ extension TTSManager {
     /// gọi từ cả `MainActor` (View, `TTSManager`) lẫn ngoài (`TTSNextChapterPrefixSynthesizer`,
     /// `TTSNextChapterPrefixCache`).
     nonisolated static func isLocalEngine(_ tool: String) -> Bool {
-        tool == "nghitts" || tool == "vieneu"
+        tool == "nghitts" || tool == "vieneu" || tool == "vtts"
     }
 
     /// Engine local đang chọn.
     ///
-    /// **Tính chất an toàn của lượt nối này**: trả `nghiTTSService` cho **mọi** tool trừ `vieneu`, nên
+    /// **Tính chất an toàn của lượt nối này**: trả `nghiTTSService` cho **mọi** tool trừ `vieneu` và `vtts`, nên
     /// đường NghiTTS đi y hệt code cũ. Nếu sửa hàm này, phải giữ nguyên tính chất đó.
+    ///
+    /// `vtts` (2026-11-20) ⇒ `VttsTTSService.shared` (một engine, không có model phụ / đọc lai).
     ///
     /// `vieneu` chọn tiếp theo **model hiệu lực** (`VieNeuModelChoice.current`): Turbo ⇒ `VieNeuTurboTTSService`, còn lại
     /// Nano. Chọn ở đây (không phải trong `VieNeuTTSService`) để các màn chỉ dành cho Nano vẫn gọi thẳng service Nano.
@@ -69,6 +73,7 @@ extension TTSManager {
     /// Giọng có cặp Nano ↔ Turbo và công tắc đọc lai của model đó bật (1.3.934) ⇒ `VieNeuHybridTTSService` (quyết model
     /// từng đoạn).
     internal var localEngine: (any LocalTTSEngine)? {
+        if tool == VttsSettings.tool { return VttsTTSService.shared }
         guard tool == "vieneu" else { return nghiTTSService }
         if VieNeuHybridRouting.context(voice: selectedVoice) != nil { return VieNeuHybridTTSService.shared }
         return VieNeuModelChoice.current == .turbo ? VieNeuTurboTTSService.shared : VieNeuTTSService.shared
@@ -237,6 +242,10 @@ extension TTSManager {
             chunkLength = 100
             setVieNeuSafeCachedTimeThreshold(VieNeuSynthesisPolicy.bufferedSecondsTarget)
             prefetchDelayMs = 500
+        case VttsSettings.tool:
+            // Trùng `applyVttsParamsIfNeeded()`: 150 ký tự, độ trễ 500 ms. Ngưỡng đệm dùng chung NghiTTS (không có hàng riêng).
+            chunkLength = VttsSettings.defaultChunkLength
+            prefetchDelayMs = 500
         case "system":
             chunkLength = 100
             prefetchDelayMs = 350
@@ -263,6 +272,7 @@ extension TTSManager {
         case "system": key = "systemRate"
         case "nghitts": key = "nghittsRate"
         case "vieneu": key = VieNeuSettingsKey.rate
+        case VttsSettings.tool: key = VttsSettings.rateKey
         case "google": key = "googleRate"
         default: key = "extRate_\(tool)"
         }
@@ -277,6 +287,7 @@ extension TTSManager {
         case "system": key = "systemPitch"
         case "nghitts": key = "nghittsPitch"
         case "vieneu": key = VieNeuSettingsKey.pitch
+        case VttsSettings.tool: key = VttsSettings.pitchKey
         case "google": key = "googlePitch"
         default: key = "extPitch_\(tool)"
         }
@@ -301,6 +312,7 @@ extension TTSManager {
             VieNeuVoiceSelection.recordReaderVoice(value, effectiveModel: VieNeuModelChoice.current)
             AppLogger.shared.logTTSVerbose("[TTSRoute] persistVoice engine=vieneu chon=\(VieNeuVoiceSelection.stored.storageValue) value=\(value)")
             return
+        case VttsSettings.tool: key = VttsSettings.voiceKey
         case "google": key = "googleVoice"
         default: key = "extVoice_\(tool)"
         }
@@ -316,6 +328,7 @@ extension TTSManager {
         case "system": key = "systemChunk"
         case "nghitts": key = "nghittsChunk"
         case "vieneu": key = VieNeuSettingsKey.chunk
+        case VttsSettings.tool: key = VttsSettings.chunkKey
         case "google": key = "googleChunk"
         default: key = "extChunkUser_\(tool)"
         }

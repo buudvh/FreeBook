@@ -10,7 +10,8 @@ import Foundation
 /// ## Giá trị khi chưa có khoá theo trình đọc
 /// - `nghitts`: lấy công tắc cũ "Phiên âm tiếng Anh/Nhật" (`preprocessorTransliterationEnabled`, thiếu = bật);
 /// - `vieneu`: lấy công tắc cũ "Đọc tên Nhật theo âm tiết" (`vieneuJapaneseNameSyllablesEnabled`, thiếu = bật);
-/// - Siri / Google / tiện ích: **tắt** — trước 1.3.973 các trình đọc này không phiên âm gì, giữ nguyên cách đọc cũ.
+/// - Siri / Google / tiện ích / vtts: **tắt** — trước 1.3.973 các trình đọc này không phiên âm gì, giữ nguyên cách đọc cũ;
+///   vtts (2026-11-20) là trình đọc mới, mặc định tắt theo mockup anh Bửu duyệt.
 ///
 /// Hai trình đọc có khoá cũ được **chép sang khoá mới ở lần đọc đầu** (`isEnabled`): từ đó gạt công tắc cũ (nay chỉ còn
 /// là "Phiên âm tiếng Anh" của NghiTTS) không kéo theo tiếng Nhật. Khoá cũ giữ nguyên, không xoá.
@@ -18,7 +19,8 @@ import Foundation
 /// ## Mỗi trình đọc làm gì khi bật
 /// - NghiTTS: nhánh tiếng Nhật của `TextPreprocessor` (kana → romaji, romaji → âm tiết Việt);
 /// - VieNeu: tên kiểu Nhật viết hoa đọc theo âm tiết (`VieNeuJapaneseNameReader`);
-/// - Siri / Google / tiện ích: `TTSJapaneseTextTransliterator` đổi chữ ngay trước khi đưa cho engine.
+/// - Siri / Google / tiện ích / vtts: `TTSJapaneseTextTransliterator` đổi chữ ngay trước khi đưa cho engine (ở tầng
+///   service — vtts: `VttsTTSService`).
 enum TTSJapaneseTransliterationSettings {
     static let keyPrefix = "ttsJapaneseTransliterationEnabled."
 
@@ -26,6 +28,8 @@ enum TTSJapaneseTransliterationSettings {
     static let vieNeuTool = "vieneu"
     static let siriTool = "system"
     static let googleTool = "google"
+    /// = `TTSManager.VttsSettings.tool`; khoá `ttsJapaneseTransliterationEnabled.vtts`, không có khoá cũ ⇒ mặc định tắt.
+    static let vttsTool = "vtts"
 
     static func key(forTool tool: String) -> String {
         keyPrefix + tool

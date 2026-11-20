@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// **Sheet chọn giọng** của Siri / NghiTTS / Google / tiện ích TTS — cùng vỏ với `VieNeuVoicePickerSheet`: tiêu đề "Giọng
-/// đọc" + nút "?" (giải thích theo trình đọc), ô "Tìm theo tên giọng" (`VoiceNameSearch`: bỏ dấu, "đ" = "d"), danh sách
-/// kính. Mỗi trình đọc một danh sách riêng (`SiriVoicePickerList`, `NghiVoicePickerList`, `GoogleVoicePickerList`,
-/// `ExtensionVoicePickerList`) — mỗi cái tự giữ `List` và hộp thoại của nó.
+/// **Sheet chọn giọng** của Siri / NghiTTS / Google / vtts / tiện ích TTS — cùng vỏ với `VieNeuVoicePickerSheet`: tiêu đề
+/// "Giọng đọc" + nút "?" (giải thích theo trình đọc), ô "Tìm theo tên giọng" (`VoiceNameSearch`: bỏ dấu, "đ" = "d"), danh
+/// sách kính. Mỗi trình đọc một danh sách riêng (`SiriVoicePickerList`, `NghiVoicePickerList`, `GoogleVoicePickerList`,
+/// `VttsVoicePickerList`, `ExtensionVoicePickerList`) — mỗi cái tự giữ `List` và hộp thoại của nó.
 ///
 /// Thử giọng qua `TTSVoicePreviewPlayer`; sheet đóng thì dừng câu thử (`finishSession`).
 struct TTSVoicePickerSheet: View {
@@ -34,6 +34,8 @@ struct TTSVoicePickerSheet: View {
             NghiVoicePickerList(query: query)
         case .google:
             GoogleVoicePickerList(query: query)
+        case .vtts:
+            VttsVoicePickerList(query: query)
         case .ext(let packageId):
             ExtensionVoicePickerList(packageId: packageId, query: query)
         }
