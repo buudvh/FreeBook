@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1037",
+          "buildVersion": "1321",
+          "date": "2026-11-20T09:08:03Z",
+          "localizedDescription": "- fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1321/TangCongCac-1.3.1037-1321.ipa",
+          "size": 47810245,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1036",
           "buildVersion": "1320",
           "date": "2026-11-20T08:51:37Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1317/TangCongCac-1.3.1033-1317.ipa",
           "size": 47790776,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1032",
-          "buildVersion": "1316",
-          "date": "2026-11-20T06:16:02Z",
-          "localizedDescription": "- feat: vtts Việt–Anh — nối trình đọc vào app, Cài đặt TTS, sheet chọn giọng, giọng dự phòng\n- feat: vtts Việt–Anh — runtime C, tài sản đóng trong IPA, service tổng hợp\n- chore: vtts — CI giữ cache từ điển khi build đỏ, kiểm thử shim nhanh hơn\n- chore: Màn tự thử nhịp dọc header (tạm thời), đầu dò header sửa cho iOS 26, mũi back tự dựng trùng chỗ mũi back hệ thống\n- feat: vtts — lưu sẵn model, từ điển và công cụ dựng lại trong repo, CI không tải gì từ upstream\n- fix: vtts — CI dựng vtts_say kèm stub ZH/JA/RU, kiểm tài sản trong IPA, toast lỗi ghi đúng trình đọc",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1316/TangCongCac-1.3.1032-1316.ipa",
-          "size": 47789814,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1036",
-      "versionDate": "2026-11-20T08:51:37Z",
-      "versionDescription": "- fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1320/TangCongCac-1.3.1036-1320.ipa",
-      "size": 47796465,
+      "version": "1.3.1037",
+      "versionDate": "2026-11-20T09:08:03Z",
+      "versionDescription": "- fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1321/TangCongCac-1.3.1037-1321.ipa",
+      "size": 47810245,
       "appPermissions": {}
     }
   ],
