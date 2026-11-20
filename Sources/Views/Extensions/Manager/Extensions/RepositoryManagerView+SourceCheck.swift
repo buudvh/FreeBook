@@ -14,7 +14,9 @@ extension RepositoryManagerView {
             // Ngăn kéo `extensionsMenuItems` gắn ở gốc màn (`applySheetsAndAlerts`), không gắn trong toolbar.
             Button(action: { showingExtensionsMenu = true }) {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                    .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                    .contentShape(Rectangle())
             }
         }
     }

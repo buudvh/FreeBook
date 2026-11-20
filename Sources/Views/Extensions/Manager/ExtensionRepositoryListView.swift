@@ -84,17 +84,17 @@ struct ExtensionRepositoryListView: View {
                             ProgressView()
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                         }
                     }
-                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight)
                 }
                 .disabled(checker.isBusy || repositories.isEmpty)
                 .accessibilityLabel("Làm mới tất cả kho")
                 Button(action: { showingAddRepo = true }) {
                     Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                 }
                 .disabled(checker.isBusy)
                 .accessibilityLabel("Thêm kho")

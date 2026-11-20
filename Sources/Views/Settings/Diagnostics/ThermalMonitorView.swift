@@ -53,8 +53,8 @@ struct ThermalMonitorView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink(item: ThermalCSVExport(), preview: SharePreview("Dữ liệu nhiệt")) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 36, height: 38)
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                 }
                 .disabled(history.isEmpty)
                 .accessibilityLabel("Chia sẻ dữ liệu nhiệt")

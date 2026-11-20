@@ -45,8 +45,8 @@ struct PlaylistDetailView: View {
                         showingMenu = true
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 36, height: 38)
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                            .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                     }
                     .accessibilityLabel("Tuỳ chọn playlist")
                 }

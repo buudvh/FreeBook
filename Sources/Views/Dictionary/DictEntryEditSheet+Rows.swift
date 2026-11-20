@@ -31,8 +31,8 @@ extension DictEntryEditSheet {
 
             Button(action: toggleKeyEditing) {
                 Image(systemName: isEditingKey ? "pencil.circle.fill" : "pencil")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 38)
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                    .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(isEditingKey ? "Ẩn ô sửa từ gốc" : "Sửa từ gốc")

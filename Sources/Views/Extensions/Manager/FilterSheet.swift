@@ -79,8 +79,10 @@ public struct FilterSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                             .foregroundColor(.red)
+                            .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Đặt lại bộ lọc")
                 }

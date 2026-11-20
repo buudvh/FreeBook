@@ -231,15 +231,16 @@ struct ShelfView: View {
                                 showingShelfSearch = true
                             }) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight)
                             }
                             .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
                         }
                         Button(action: { showingShelfMenu = true }) {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 17, weight: .semibold))
-                                // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải.
+                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                                // Có thông báo (badge của hàng "Thông báo" trong ngăn kéo > 0) ⇒ chấm đỏ 8pt góc trên phải
+                                // của icon (overlay gắn vào icon trước khi canh `.trailing` trong khung ⇒ chấm đi theo icon).
                                 .overlay(alignment: .topTrailing) {
                                     if badgeCount > 0 {
                                         Circle()
@@ -248,7 +249,7 @@ struct ShelfView: View {
                                             .offset(x: 2, y: -2)
                                     }
                                 }
-                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                                .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                         }
                         .accessibilityLabel("Tuỳ chọn Kệ")
                         .accessibilityValue(badgeCount > 0 ? "Có thông báo mới" : "")

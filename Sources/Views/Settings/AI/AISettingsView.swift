@@ -282,7 +282,9 @@ public struct AISettingsView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddProviderSheet = true }) {
                     Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                        .contentShape(Rectangle())
                 }
             }
         }

@@ -105,17 +105,17 @@ struct CheckReportDetailView: View {
                             ProgressView()
                         } else {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                         }
                     }
-                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                    .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight)
                 }
                 .disabled(document == nil || isPreparingShare)
                 .accessibilityLabel("Chia sẻ báo cáo")
                 Button(action: { showingDeleteConfirm = true }) {
                     Image(systemName: "trash")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: 38)
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        .frame(width: HeaderButtonMetrics.pairIconWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                 }
                 .disabled(!summary.isDeletable)
                 .accessibilityLabel("Xoá báo cáo")

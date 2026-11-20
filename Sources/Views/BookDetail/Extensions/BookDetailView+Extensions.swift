@@ -8,8 +8,8 @@ extension BookDetailView {
     internal var ellipsisMenu: some View {
         Button(action: { showingEllipsisMenu = true }) {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 17, weight: .semibold))
-                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
+                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36, alignment: .trailing)
         }
     }
 

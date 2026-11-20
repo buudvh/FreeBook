@@ -169,8 +169,8 @@ struct CategoryNovelsListView: View {
                         showingLayoutSheet = true
                     } label: {
                         Image(systemName: layout.mode.symbolName)
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36)
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                            .frame(width: HeaderButtonMetrics.pairIconWidth, height: 36, alignment: .trailing)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Kiểu hiển thị")

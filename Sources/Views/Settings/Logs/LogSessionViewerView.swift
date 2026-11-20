@@ -66,10 +66,10 @@ struct LogSessionViewerView: View {
                         ProgressView()
                     } else {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                     }
                 }
-                .frame(width: 36, height: 38)
+                .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                 .disabled(isExporting)
                 .accessibilityLabel("Xuất log (.txt)")
             }

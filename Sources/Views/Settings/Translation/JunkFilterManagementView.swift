@@ -114,7 +114,9 @@ struct JunkFilterManagementView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showingOptionsMenu = true }) {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                        .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Tùy chọn")
             }

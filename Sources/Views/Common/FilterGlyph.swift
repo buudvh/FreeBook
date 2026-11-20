@@ -17,7 +17,7 @@ struct FilterGlyph: View {
     var isActive = false
 
     var body: some View {
-        let glyph = AppGlyph.filter.image(size: 20)
+        let glyph = AppGlyph.filter.image(size: HeaderMetrics.assetIconSize)
             .foregroundColor(.primary)
         switch style {
         case .circle:

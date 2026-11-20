@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1023] - 2026-11-20
+
+### feat: Toolbar — nút ngoài cùng bên phải canh icon vào lề 16pt, icon tài sản trên toolbar 20pt
+
+- Anh Bửu: "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau", "icon nhiều chỗ nhìn size cũng không giống nhau" — phần còn lại của lưới header chung (1.3.1017–1021): toolbar của thanh điều hướng hệ thống.
+- Trước: icon nằm giữa khung chạm (36 hoặc 32 rộng) nên icon ngoài cùng lùi vào 6–10pt so với lề 16pt của tiêu đề / ô tìm / thẻ danh sách. Nay nút **ngoài cùng bên phải** của mỗi toolbar thêm `alignment: .trailing` vào `.frame(width:height:)` của icon (giữ nguyên rộng / cao khung ⇒ vùng chạm không đổi); nút bên trong cụm (🔍, ↻, nút dịch, Lọc, Chia sẻ) giữ canh giữa. Nút chữ (Lưu, Xong, `.headerTextButton()`), capsule "Áp dụng", nút "?" `SectionHelpButton`, `EditButton` không đổi.
+- Số trần `17` của icon SF trong các nút đó → `HeaderMetrics.iconFontSize`; khung `36` / `38` → `HeaderMetrics.iconFrameWidth` / `iconFrameHeight` (đúng giá trị cũ, khung cao `36` giữ nguyên để không đổi cỡ thật). Icon tài sản `AppGlyph` trên toolbar → `HeaderMetrics.assetIconSize` (20pt, trước 17): nút sao chép của Gỡ lỗi từng bước (Legado), Lỗi & cảnh báo rule dịch nhanh; nút dịch `ReaderTranslationScopeMenuView(iconSize:)` của Chi tiết truyện; phễu `FilterGlyph` (đã 20, nay dùng token).
+- Màn đã đổi: Kệ (🔍 | … — "…" ngoài cùng, chấm đỏ thông báo vẫn nằm đúng góc trên phải icon), Hộp thông báo, Chi tiết bộ sưu tập, Chi tiết truyện (nút dịch | …), Danh sách thể loại / Xem thêm (Lọc | Kiểu hiển thị), Tìm kiếm (Kiểu hiển thị), từ điển (VP / Name riêng, VP / Name chung, Phiên âm / Pronouns, sheet sửa từ có bút chì), Báo cáo kiểm tra (danh sách + chi tiết: Chia sẻ | Xoá), Gỡ lỗi từng bước (Legado), Danh sách kho (↻ | +), tab Legado + tab Tất cả tiện ích của Kho tiện ích, Bộ lọc tiện ích (Đặt lại), Playlist chi tiết, Cấu hình AI (+), Lịch sử phiên chat AI (thùng rác), Theo dõi nhiệt, Log phiên, Công cụ tra cứu nhanh, Dung lượng (↻ / vòng xoay đo), từ điển phiên âm NghiTTS / VieNeu, Thay thế TTS, Quản lý lọc rác, Bộ ngoặc, rule dịch nhanh (`QuickTranslationRuleIOMenu`), Quy tắc TOC.
+- Không đụng (session khác làm hoặc đang làm): `PageHeader`, `HubStyleSheet`, `FloatingHub`, `TTSWidget`, `AudioPlayer`, `Reader`, `ComicReader`, `VideoPlayer`, `Discovery`, `SleepTimer`, `AppUpdate`, `ChapterTOCPanel`, `SideDrawerMenuPanel`, `SourceCheck`, `ExtensionCheckView`, `LegadoSourceCheckView`. `SideDrawerMenuModifier` chỉ có ví dụ trong comment, không có frame ⇒ không sửa.
+- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ `JSDom.swift`); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: icon ngoài cùng ở các màn trên chạm đúng lề 16pt (so với tiêu đề / ô tìm / thẻ), chấm đỏ của "…" ở Kệ vẫn đúng góc, vùng chạm không đổi, nút dịch ở Chi tiết truyện và sao chép ở Gỡ lỗi từng bước (20pt) không lệch hàng với nút bên cạnh.
+
 ## [1.3.1022] - 2026-11-20
 
 ### feat: Header sheet tự dựng — sheet hub, điều khiển nhanh TTS / nhạc, hẹn giờ, mục lục, cập nhật app về lề 16pt chung, nút back chung, tiêu đề 22pt

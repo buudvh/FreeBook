@@ -57,8 +57,8 @@ struct LegadoSourceDebugView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: copyReport) {
-                    AppGlyph.copy.image(size: 17)
-                        .frame(width: 36, height: 36)
+                    AppGlyph.copy.image(size: HeaderMetrics.assetIconSize)
+                        .frame(width: HeaderMetrics.iconFrameWidth, height: 36, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
                 .disabled(steps.isEmpty)

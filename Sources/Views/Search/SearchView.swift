@@ -147,7 +147,9 @@ struct SearchView: View {
                             layoutSheetScope = scope
                         } label: {
                             Image(systemName: BookListLayoutPreferences.shared.layout(for: scope).mode.symbolName)
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                                .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                                .contentShape(Rectangle())
                         }
                         .accessibilityLabel("Kiểu hiển thị")
                     }

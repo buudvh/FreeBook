@@ -243,7 +243,7 @@ struct BookDetailView: View {
                         sourceName: sourceName,
                         showBackground: false,
                         isChineseSourceHint: ext?.isChineseSource,
-                        iconSize: 17,
+                        iconSize: HeaderMetrics.assetIconSize,
                         frameWidth: HeaderButtonMetrics.pairIconWidth,
                         frameHeight: 36
                     )
