@@ -235,10 +235,12 @@ public struct ReaderChapterListView: View {
 
                             bulkDownloadButton
 
+                            // Nút ngoài cùng canh icon vào lề (lưới header chung): truyện TXT trên máy không có nút
+                            // cập nhật ⇒ nút dịch lại đứng cuối.
                             Button(action: retranslateChaptersAction) {
                                 AppGlyph.translate.image(size: 14)
                                     .foregroundColor(.white)
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 32, height: 32, alignment: isLocalTXTBook ? .trailing : .center)
                             }
                             .accessibilityLabel("Dịch lại chương và mục lục")
 
@@ -246,14 +248,14 @@ public struct ReaderChapterListView: View {
                                 if isUpdating {
                                     ProgressView()
                                         .tint(theme.textColor)
-                                        .frame(width: 32, height: 32)
+                                        .frame(width: 32, height: 32, alignment: .trailing)
                                         .accessibilityLabel("Đang cập nhật mục lục")
                                 } else {
                                     Button(action: refreshChapters) {
                                         Image(systemName: "arrow.clockwise")
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundColor(theme.textColor)
-                                            .frame(width: 32, height: 32)
+                                            .frame(width: 32, height: 32, alignment: .trailing)
                                     }
                                     .accessibilityLabel("Cập nhật mục lục")
                                 }
@@ -267,7 +269,7 @@ public struct ReaderChapterListView: View {
             // và chia đôi khoảng trống với `List` bên dưới.
             .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         // Chừa chỗ cho thanh kéo của sheet hệ thống.
         .padding(.top, 20)
         .padding(.bottom, 10)

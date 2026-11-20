@@ -59,23 +59,25 @@ struct AppUpdateSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(20)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
+            .padding(.vertical, 20)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .onAppear { AppUpdateRepository.shared.markSeen() }
     }
 
+    /// Tiêu đề sheet tự dựng = tiêu đề trang (22pt đậm, không co chữ — dài thì cắt đuôi); icon cùng cỡ chữ tiêu đề.
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.down.square")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 Text("Bản cập nhật mới")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .truncationMode(.tail)
             }
             Text("\(update.display) · đang dùng \(AppVersionInfo.display)")
                 .font(.subheadline)

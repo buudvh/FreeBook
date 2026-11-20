@@ -47,7 +47,7 @@ extension ComicChapterListSheet {
         // Cột chữ có `Spacer` dọc (đẩy hàng nút xuống đáy bìa): không cố định chiều cao thì header tham chiều cao
         // và chia khoảng trống với `List` bên dưới.
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         // Chừa chỗ cho thanh kéo của sheet hệ thống.
         .padding(.top, 20)
         .padding(.bottom, 10)
@@ -105,7 +105,8 @@ extension ComicChapterListSheet {
     // MARK: - Hàng nút (14pt semibold, khung 32×32, cách 4)
 
     /// Đọc `book.isOnShelf` ngay trong view để icon đổi theo Observation. Bỏ kệ ngay (không hỏi) / mời chọn bộ sưu tập
-    /// nằm ở `ShelfToggleFlowModifier` + `.shelfToggleFlow` gắn trong `body`.
+    /// nằm ở `ShelfToggleFlowModifier` + `.shelfToggleFlow` gắn trong `body`. Chưa có mục lục ⇒ nút tải / dịch lại ẩn,
+    /// nút này đứng cuối ⇒ icon canh vào lề (lưới header chung).
     @ViewBuilder
     private var shelfToggleButton: some View {
         if let book {
@@ -120,7 +121,7 @@ extension ComicChapterListSheet {
                 Image(systemName: ShelfToggleFlowModifier.iconName(isOnShelf: isOnShelf))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(isOnShelf ? .red : Self.theme.textColor)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 32, height: 32, alignment: chapters.isEmpty ? .trailing : .center)
             }
             .accessibilityLabel(ShelfToggleFlowModifier.accessibilityLabel(isOnShelf: isOnShelf))
         }
@@ -146,7 +147,8 @@ extension ComicChapterListSheet {
     /// "Dịch lại tên chương" như mục lục Reader (1.3.844): đúng hàm của Reader / Kệ (`BookActionRunner.retranslateChapterTitles`
     /// — dịch lại mọi tên chương kể cả dòng nhóm, ghi `title_trans`, toast). Xong ⇒ `chapterTitlesDidRetranslate` ⇒
     /// `ComicReaderView` nạp lại `title_trans` và dịch lại tên đang hiện. Chỉ khi truyện đã lưu (mục lục nằm trong
-    /// `ChapterStore`); truyện chưa lưu không có `title_trans`, tên chương vốn dịch thẳng.
+    /// `ChapterStore`); truyện chưa lưu không có `title_trans`, tên chương vốn dịch thẳng. Hiện là luôn đứng cuối hàng ⇒
+    /// icon canh vào lề (lưới header chung).
     @ViewBuilder
     private var retranslateButton: some View {
         if let book, !chapters.isEmpty {
@@ -155,7 +157,7 @@ extension ComicChapterListSheet {
             } label: {
                 AppGlyph.translate.image(size: 14)
                     .foregroundColor(Self.theme.textColor)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 32, height: 32, alignment: .trailing)
             }
             .accessibilityLabel("Dịch lại tên chương")
         }

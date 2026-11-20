@@ -7,8 +7,8 @@ import SwiftUI
 /// - Đồng hồ hẹn giờ đè lên đáy bìa bằng `CoverCaptionStrip` (cùng dải chữ của kiểu "Chỉ bìa" ở Kệ), căn giữa, chữ số
 ///   rộng đều. Chưa hẹn giờ thì bìa trơn.
 /// - Nút "Hủy" hẹn giờ ở góc dưới phải cột chữ (chỗ hàng nút của header Reader), chỉ hiện khi đang hẹn giờ.
-/// - Không có nút ⚙ ở đây: sheet đặt nút tròn ở dải thanh kéo phía trên (`TTSQuickTimerSheet.settingsButton`) để tên
-///   truyện dùng hết bề ngang. Lề trên do sheet quyết định.
+/// - Không có nút ⚙ ở đây: sheet đặt nút ⚙ ở dải thanh kéo phía trên (`TTSQuickTimerSheet.settingsButton`) để tên
+///   truyện dùng hết bề ngang. Lề trên do sheet quyết định; lề ngang = lề header chung (`HeaderMetrics.horizontalMargin`).
 struct TTSQuickTimerHeader: View {
     let bookId: String
     let coverUrl: String
@@ -82,7 +82,7 @@ struct TTSQuickTimerHeader: View {
         }
         // Cột chữ có `Spacer` dọc (đẩy nút Hủy xuống đáy bìa): không cố định chiều cao thì header tham chiều cao.
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.bottom, 10)
     }
 

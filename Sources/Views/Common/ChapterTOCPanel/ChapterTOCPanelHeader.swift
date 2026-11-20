@@ -31,20 +31,26 @@ struct ChapterTOCPanelHeader<Accessory: View>: View {
         self.accessory = accessory()
     }
 
+    /// `ChapterTOCSearchField` tự đệm phải 6pt (bù lề phải hẹp của các màn dùng chung nó). Panel này đã lề hai bên bằng
+    /// nhau (1.3.1017) ⇒ kéo ô tìm ra lại đúng chừng đó để mép phải ô thẳng nút ↓↑. Bỏ khoản đệm trong ô tìm thì bỏ cả cái này.
+    private static var searchFieldTrailingPad: CGFloat { 6 }
+
     var body: some View {
         VStack(spacing: 10) {
+            // Tiêu đề không co chữ (lưới header chung): dài thì cắt đuôi.
             HStack(spacing: 6) {
                 titleText
                     .foregroundColor(palette.title)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .truncationMode(.tail)
                 Spacer(minLength: 4)
                 accessory
+                // Nút ngoài cùng: icon canh phải trong khung ⇒ chạm lề như các header khác.
                 Button(action: onToggleSort) {
                     Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                         .foregroundColor(palette.title)
-                        .frame(width: 36, height: 36)
+                        .frame(width: HeaderMetrics.iconFrameWidth, height: 36, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -57,16 +63,16 @@ struct ChapterTOCPanelHeader<Accessory: View>: View {
                     placeholder: chapterCount > 0 ? "Tìm kiếm \(chapterCount) \(noun)" : "Tìm kiếm \(noun)",
                     palette: palette
                 )
+                .padding(.trailing, -Self.searchFieldTrailingPad)
             }
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 10)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.top, 12)
         .padding(.bottom, 8)
     }
 
     private var titleText: Text {
-        let title = Text("Mục lục").font(.system(size: 22, weight: .bold))
+        let title = Text("Mục lục").font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
         guard chapterCount > 0 else { return title }
         return title + Text("  (\(chapterCount) \(noun))").font(.system(size: 17, weight: .medium))
     }

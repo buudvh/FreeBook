@@ -36,7 +36,7 @@ struct AudioQuickControlSheet: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 20)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
             .padding(.top, 26)
             .padding(.bottom, 12)
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -149,6 +149,8 @@ struct AudioQuickControlSheet: View {
     }
 
     /// ⏱: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại (view lá `MediaSleepTimerCountdownText`) màu nhấn.
+    /// Khung nút header 36×38, icon canh phải ⇒ chưa hẹn (nút ngoài cùng) thì icon chạm lề; đang hẹn thì viên "Hủy" là vật
+    /// ngoài cùng. `minWidth` chứ không cố định: đang hẹn thì nhãn dài theo thời gian còn lại.
     private var sleepTimerButton: some View {
         let timer = session.sleepTimer
         return Button {
@@ -156,14 +158,14 @@ struct AudioQuickControlSheet: View {
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: "timer")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                 if timer.isActive {
                     MediaSleepTimerCountdownText(timer: timer)
                         .font(.caption.weight(.semibold))
                 }
             }
             .foregroundStyle(timer.isActive ? Color.accentColor : Color.primary)
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(minWidth: HeaderMetrics.iconFrameWidth, minHeight: HeaderMetrics.iconFrameHeight, alignment: .trailing)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -3,7 +3,7 @@ import UIKit
 
 /// Bottom Sheet hiện đại điều khiển Hẹn giờ tắt và Danh sách chương cho TTS Widget.
 ///
-/// Bố cục (1.3.712): dải thanh kéo có nút ⚙ tròn ở góc phải → header kiểu mục lục Reader (`TTSQuickTimerHeader`,
+/// Bố cục (1.3.712): dải thanh kéo có nút ⚙ trơn ở góc phải → header kiểu mục lục Reader (`TTSQuickTimerHeader`,
 /// đồng hồ hẹn giờ trên bìa) → hàng tên chương đang phát → tab con ô viên thuốc có icon (kiểu cũ, 1.3.713; badge đỏ
 /// tổng số chương trong ô sau chữ) → nội dung tab. Không có `NavigationStack`: sheet không đẩy trang nào. Nút ⚙ mở
 /// Cài đặt TTS đè lên sheet này (`TTSSettingsSheetHost`).
@@ -18,8 +18,8 @@ struct TTSQuickTimerSheet: View {
         _selectedTab = State(initialValue: initialTab)
     }
 
-    /// Dải trên cùng: thanh kéo của sheet hệ thống + nút ⚙ (vòng 28pt, vùng chạm 38×38) — header bắt đầu ngay dưới
-    /// nên nút không lấn bề ngang của tên truyện.
+    /// Dải trên cùng: thanh kéo của sheet hệ thống + nút ⚙ (icon trơn, khung 36×38) — header bắt đầu ngay dưới nên nút
+    /// không lấn bề ngang của tên truyện.
     private static let topBandHeight: CGFloat = 36
 
     var body: some View {
@@ -27,7 +27,7 @@ struct TTSQuickTimerSheet: View {
             header
                 .padding(.top, Self.topBandHeight)
             playingChapterMarqueeRow
-                .padding(.horizontal, 16).padding(.bottom, 10)
+                .padding(.horizontal, HeaderMetrics.horizontalMargin).padding(.bottom, 10)
             subTabsBar
                 .padding(.bottom, 10)
             TabView(selection: $selectedTab) {
@@ -84,22 +84,21 @@ struct TTSQuickTimerSheet: View {
         )
     }
 
-    /// Nút ⚙ dạng chấm tròn (như badge) ở góc phải dải thanh kéo; icon 17pt nửa đậm như mọi icon header.
+    /// Nút ⚙ ở góc phải dải thanh kéo: icon **trơn** 17pt nửa đậm (vòng nền chỉ cho header nổi trên ảnh / phim — lưới header
+    /// chung 1.3.1017), khung 36×38 canh phải ⇒ icon chạm lề như nút ngoài cùng của header.
     private var settingsButton: some View {
         Button(action: {
             ttsManager.showingSettingsSheet = true
         }) {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 17, weight: .semibold))
+            Image(systemName: "gearshape")
+                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                 .foregroundStyle(Color.primary)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color(uiColor: .tertiarySystemFill)))
-                .frame(width: 38, height: 38)
+                .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Cài đặt giọng đọc và tốc độ")
-        .padding(.trailing, 10)
+        .padding(.trailing, HeaderMetrics.horizontalMargin)
     }
 
     /// Hàng tên chương đang phát với hiệu ứng Marquee
@@ -122,7 +121,7 @@ struct TTSQuickTimerSheet: View {
             subTabButton(title: "Hẹn giờ tắt", icon: "timer", badgeCount: nil, index: 0)
             subTabButton(title: "Danh sách chương", icon: "list.bullet", badgeCount: count > 0 ? count : nil, index: 1)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
     }
 
     /// Tên tab luôn một dòng, chật thì cắt "…"; badge đỏ tổng số chương nằm trong ô ngay sau chữ, giữ đủ số

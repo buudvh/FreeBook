@@ -15,7 +15,7 @@ struct MediaSleepTimerSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(.horizontal, 20)
+                .padding(.horizontal, HeaderMetrics.horizontalMargin)
                 .padding(.top, 24)
                 .padding(.bottom, 14)
             SleepTimerOptionsView(
@@ -42,7 +42,7 @@ struct MediaSleepTimerSheet: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Hẹn giờ tắt")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
                 StatusLine(timer: timer)

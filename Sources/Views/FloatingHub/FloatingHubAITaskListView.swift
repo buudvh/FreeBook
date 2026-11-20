@@ -20,28 +20,27 @@ struct FloatingHubAITaskListView: View {
         }
     }
 
-    /// Nút quay lại theo chuẩn header (icon 17pt semibold, vùng chạm 38×44pt) + tiêu đề trang.
+    /// Khoảng tiêu đề lùi về phía nút ‹ (khung 38pt, mũi ~13pt canh trái) ⇒ mũi cách chữ ~8pt như nút back hệ thống
+    /// (= `PageTitleModifier.sheetBackTitleOverlap`, đang `private`).
+    private static let titleOverlap: CGFloat = 17
+
+    /// Như trang con có nút ‹ của `PageTitleModifier` (1.3.1018): `HeaderBackButton` (mũi chạm lề nội dung sheet) + tiêu đề
+    /// 22pt đậm ngay cạnh. Mũi giữ màu chữ như trước.
     private var header: some View {
-        HStack(spacing: 2) {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.primary)
-                    .frame(width: 38, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Quay lại"))
+        HStack(spacing: 0) {
+            HeaderBackButton(tint: Color.primary, action: onBack)
 
             Text("Tác vụ AI")
-                .font(.headline)
+                .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.leading, -Self.titleOverlap)
+                .allowsHitTesting(false)
+                .accessibilityAddTraits(.isHeader)
 
             Spacer(minLength: 0)
         }
-        // Chữ "‹" thẳng mép trái nội dung sheet (khung nút 38 có lề trong ~10).
-        .padding(.leading, -10)
     }
 
     private func row(_ task: FloatingHubPresentationReader.AITask) -> some View {

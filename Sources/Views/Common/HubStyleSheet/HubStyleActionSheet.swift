@@ -58,7 +58,7 @@ struct HubStyleActionSheet: View {
                 HubStyleActionSheetRow(item: item) { select(item) }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
         .padding(.top, 26)
         .padding(.bottom, 12)
         .fixedSize(horizontal: false, vertical: true)

@@ -80,20 +80,20 @@ struct SideDrawerMenuPanel<Content: View>: View {
 
     private func drawer(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Tiêu đề cùng chuẩn tiêu đề trang (22pt đậm, một dòng); không còn vạch ngăn bên dưới.
+            // Tiêu đề cùng chuẩn tiêu đề trang (22pt đậm, một dòng, không co chữ — dài thì cắt đuôi); không còn vạch ngăn
+            // bên dưới. Lề 16 hai bên = lề hàng của ngăn kéo (`SideDrawerMenuRowLabel`): phụ kiện (viên NSFW, rộng hơn
+            // khung tối thiểu nên mép viên = mép khung) cũng chạm lề — trước đây lề phải 10 khi có phụ kiện.
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
                 titleAccessory?()
             }
-            .padding(.leading, 16)
-            .padding(.trailing, titleAccessory == nil ? 16 : 10)
+            .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 8)
 

@@ -75,7 +75,8 @@ struct VideoWatchEpisodeSheet: View {
                 showsTOCHeader: true,
                 onSelect: onSelect,
                 onAddToPlaylist: addToPlaylist,
-                accessory: { layoutButton }
+                // Đứng trước ↓↑ (không phải nút ngoài cùng) ⇒ icon giữa khung.
+                accessory: { layoutButton(alignment: .center) }
             )
             .padding(.top, 16)
         }
@@ -85,17 +86,17 @@ struct VideoWatchEpisodeSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    // Lưới header chung: tiêu đề 22pt đậm không co chữ, nút ngoài cùng canh icon vào lề.
                     HStack(spacing: 6) {
                         Text("Danh sách tập (\(playableCount))")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .truncationMode(.tail)
                         Spacer(minLength: 4)
-                        layoutButton
+                        layoutButton(alignment: .trailing)
                     }
-                    .padding(.leading, 16)
-                    .padding(.trailing, 10)
+                    .padding(.horizontal, HeaderMetrics.horizontalMargin)
                     VideoEpisodeGridView(
                         episodes: episodes,
                         currentIndex: currentIndex,
@@ -115,9 +116,14 @@ struct VideoWatchEpisodeSheet: View {
         }
     }
 
-    /// Đổi Lưới ⇄ Danh sách và nhớ cho tiện ích của phim. Icon = kiểu sẽ chuyển sang.
-    private var layoutButton: some View {
-        VideoPlayerIconButton(systemName: layout.toggleSymbolName, label: layout.toggleAccessibilityLabel) {
+    /// Đổi Lưới ⇄ Danh sách và nhớ cho tiện ích của phim. Icon = kiểu sẽ chuyển sang. `alignment` = canh icon trong khung:
+    /// `.trailing` khi là nút ngoài cùng của hàng tiêu đề (kiểu Lưới).
+    private func layoutButton(alignment: Alignment) -> some View {
+        VideoPlayerIconButton(
+            systemName: layout.toggleSymbolName,
+            label: layout.toggleAccessibilityLabel,
+            alignment: alignment
+        ) {
             layout = layout.toggled
             VideoEpisodeLayoutMode.save(layout, packageId: packageId)
         }

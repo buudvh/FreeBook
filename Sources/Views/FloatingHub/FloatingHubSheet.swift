@@ -77,7 +77,8 @@ struct FloatingHubSheet: View {
     private var compactPage: some View {
         ScrollView {
             content
-                .padding(.horizontal, 20)
+                // Lề header chung (1.3.1017): mũi ‹ của trang con, tiêu đề và mép ô thẳng một lề với thanh hệ thống.
+                .padding(.horizontal, HeaderMetrics.horizontalMargin)
                 .padding(.top, 26)
                 .padding(.bottom, 12)
                 .fixedSize(horizontal: false, vertical: true)

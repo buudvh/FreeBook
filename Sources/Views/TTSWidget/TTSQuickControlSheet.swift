@@ -40,7 +40,7 @@ struct TTSQuickControlSheet: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 20)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
             .padding(.top, 26)
             .padding(.bottom, 12)
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -141,13 +141,15 @@ struct TTSQuickControlSheet: View {
     private var isTimerOn: Bool { ttsState.snapshot.timerMode != .off }
 
     /// ⏱: chưa hẹn ⇒ chỉ icon; đang hẹn ⇒ icon + thời gian còn lại màu nhấn (cùng chữ với viên hẹn giờ của thanh TTS).
+    /// Khung nút header 36×38, icon canh phải ⇒ chưa hẹn (nút ngoài cùng) thì icon chạm lề; đang hẹn thì viên "Hủy" là vật
+    /// ngoài cùng. `minWidth` chứ không cố định: đang hẹn thì nhãn dài theo thời gian còn lại.
     private var timerButton: some View {
         Button {
             timerSheet = .timer
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: "timer")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
                 if isTimerOn {
                     Text(ttsState.snapshot.sleepTimerBadgeText)
                         .font(.caption.weight(.semibold))
@@ -155,7 +157,7 @@ struct TTSQuickControlSheet: View {
                 }
             }
             .foregroundStyle(isTimerOn ? Color.accentColor : Color.primary)
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(minWidth: HeaderMetrics.iconFrameWidth, minHeight: HeaderMetrics.iconFrameHeight, alignment: .trailing)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

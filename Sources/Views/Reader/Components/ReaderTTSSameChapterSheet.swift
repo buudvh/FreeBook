@@ -39,7 +39,7 @@ struct ReaderTTSSameChapterSheet: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 20)
+            .padding(.horizontal, HeaderMetrics.horizontalMargin)
             .padding(.top, 26)
             .padding(.bottom, 12)
             .environment(\.colorScheme, .dark)
