@@ -1,12 +1,14 @@
 /* vtts_bridge_smoke.c — kiểm thử shim `vtts_bridge` trên máy CI (macOS), gọi đúng các hàm mà `VttsRuntime` (Swift) gọi.
  *
  * `Scripts/ci/fetch_vtts_assets.sh` biên dịch file này cùng shim + runtime vtts ĐÃ VENDOR (`Vendor/vtts/Sources/CVTTS`)
- * với đúng cờ `VTTS_ENABLE_<L>=0` của gói SPM, bật ASan + UBSan, rồi chạy cho từng giọng.
+ * với đúng cờ `VTTS_ENABLE_<L>=0` của gói SPM, bật ASan + UBSan, rồi chạy cho từng giọng. Bản dựng thử đặt
+ * `-DVTTS_BRIDGE_SEGMENT_CP=150` để đường chia đoạn dài chạy với vài câu (bản app chia ở 2000 code point; shim có
+ * `#error` bảo đảm ngưỡng luôn dưới VTTS_TEXT_MAX_CP = 4096, mức front-end bỏ im lặng phần sau).
  *
- * usage: vtts_bridge_smoke MODEL.vtts LEX.bin OUT.wav "câu thử"
+ * usage: vtts_bridge_smoke MODEL.vtts LEX.bin OUT.wav "câu thử" [--long]
  * Kiểm: tạo handle; câu thử ra ≥ 0,5 s tiếng, không NaN / Inf, RMS đủ lớn; chuỗi rỗng và chuỗi chỉ dấu câu ra 0 mẫu
- * không lỗi; đoạn > 4096 code point (giới hạn mỗi lượt của front-end) vẫn ra đủ tiếng nhờ shim tự chia; thẻ huỷ đã bật
- * ⇒ VTTS_BRIDGE_ERR_CANCELLED. Ghi WAV 16-bit của câu thử. Lỗi bất kỳ ⇒ thoát mã ≠ 0. */
+ * không lỗi; thẻ huỷ đã bật ⇒ VTTS_BRIDGE_ERR_CANCELLED; `--long`: 8 bản câu thử liền nhau (bị chia thành nhiều phần)
+ * ra đúng 8 lần tiếng câu thử + khoảng 150 ms giữa các câu. Ghi WAV 16-bit của câu thử. Lỗi bất kỳ ⇒ thoát mã ≠ 0. */
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -86,19 +88,20 @@ int main(int argc, char **argv) {
     vtts_bridge_cancel *cancel;
     float *pcm = NULL, *long_pcm = NULL;
     long n = 0, long_n = 0;
-    int err = 0, rc, sr, failures = 0, copies = 0;
+    int err = 0, rc, sr, failures = 0, copies = 0, run_long;
     char *long_text;
     size_t sentence_len, long_cap, used = 0;
     long code_points = 0;
 
     if (argc < 5) {
-        fprintf(stderr, "usage: %s MODEL.vtts LEX.bin OUT.wav TEXT\n", argv[0]);
+        fprintf(stderr, "usage: %s MODEL.vtts LEX.bin OUT.wav TEXT [--long]\n", argv[0]);
         return 2;
     }
     model = argv[1];
     lex = argv[2];
     out_wav = argv[3];
     text = argv[4];
+    run_long = argc > 5 && strcmp(argv[5], "--long") == 0;
 
     b = vtts_bridge_create(model, lex, &err);
     if (!b) return fail("vtts_bridge_create", err);
@@ -127,15 +130,16 @@ int main(int argc, char **argv) {
     failures += expect_silent(b, "chuỗi rỗng", "");
     failures += expect_silent(b, "chỉ dấu câu", " ... !!! ,,, ");
 
-    /* 3. Đoạn dài hơn VTTS_TEXT_MAX_CP (4096) code point: front-end cắt im lặng phần sau nếu shim không tự chia. */
+    /* 3. Đoạn dài hơn ngưỡng chia của shim (bản dựng thử: 150 code point) ⇒ nhiều phần, mỗi phần một lượt front-end. */
+    if (!run_long) goto cancel_test;
     sentence_len = strlen(text);
-    long_cap = sentence_len * 80 + 1;
+    long_cap = (sentence_len + 1) * 8 + 1;
     long_text = malloc(long_cap);
     if (!long_text) {
         vtts_bridge_destroy(b);
         return fail("malloc", 0);
     }
-    while (code_points <= 4400 && used + sentence_len + 2 < long_cap) {
+    while (copies < 8 && used + sentence_len + 2 <= long_cap) {
         const unsigned char *p;
         memcpy(long_text + used, text, sentence_len);
         used += sentence_len;
@@ -152,8 +156,8 @@ int main(int argc, char **argv) {
     if (rc != VTTS_BRIDGE_OK) {
         failures += fail("synthesize đoạn dài", rc);
     } else {
-        /* Mỗi bản là một câu riêng (kết bằng dấu chấm) ⇒ cùng id, cùng số mẫu như câu thử; giữa hai bản 150 ms im lặng.
-         * Thiếu phần sau 4096 code point thì hụt ~7% — đòi lệch dưới 2%. */
+        /* Mỗi bản là một câu riêng (kết bằng dấu chấm) và shim chỉ cắt ở ranh giới câu ⇒ cùng id, cùng số mẫu như câu
+         * thử; giữa hai bản (kể cả giữa hai phần) 150 ms im lặng. Mất / lặp một câu thì lệch ≥ 12% — đòi lệch dưới 2%. */
         long gap = 150L * sr / 1000;
         double expected = (double)copies * (double)n + (double)(copies - 1) * (double)gap;
         double ratio = expected > 0 ? (double)long_n / expected : 0.0;
@@ -168,6 +172,7 @@ int main(int argc, char **argv) {
     vtts_bridge_free_pcm(long_pcm);
     free(long_text);
 
+cancel_test:
     /* 4. Thẻ huỷ đã bật trước khi chạy ⇒ dừng ở chunk đầu, không trả tiếng. */
     cancel = vtts_bridge_cancel_create();
     if (!cancel) {

@@ -18,9 +18,11 @@
 #      Việt + Anh bằng từng giọng ở chế độ auto: phải thấy bộ token vi-en, chế độ auto, đã nạp VLEX, id < vocab, WAV đủ
 #      dài + đủ to;
 #   3. (luôn) biên dịch shim `vtts_bridge` + runtime đã vendor + `vtts_bridge_smoke.c` với ASan/UBSan, chạy từng giọng:
-#      câu thử, chuỗi rỗng, chỉ dấu câu, đoạn > 4096 code point, thẻ huỷ. So WAV của shim với WAV của `vtts_say` (lệch
-#      chỉ cảnh báo).
+#      câu thử, chuỗi rỗng, chỉ dấu câu, thẻ huỷ, (giọng đầu) đoạn dài bị chia nhiều phần. So WAV của shim với WAV của
+#      `vtts_say` (lệch chỉ cảnh báo).
 # WAV đọc thử nằm ở `build/vtts-smoke/` (workflow tải lên artifact `vtts-samples`).
+#
+# Cách gọi: `bash Scripts/ci/fetch_vtts_assets.sh [assets|smoke]` — không tham số = cả hai (build local).
 #
 # Biến môi trường (đều có mặc định):
 #   OUT_DIR    thư mục tài sản (mặc định Vendor/vtts-assets — project.yml trỏ vào Vendor/vtts-assets/vtts)
@@ -257,18 +259,23 @@ run_bridge_smoke() {
   local entry voice name want wav mode
   echo "▶ vtts: kiểm thử shim vtts_bridge (ASan + UBSan, runtime đã vendor)"
   mkdir -p "$WORK_DIR"
-  clang -std=gnu11 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all \
-    -ffp-contract=off "${VTTS_DEFINES[@]}" \
+  # `-DVTTS_BRIDGE_SEGMENT_CP=150`: đường chia đoạn dài chạy được với vài câu (app chia ở 2000; `#error` trong shim giữ
+  # ngưỡng dưới 4096). `-fno-sanitize=function`: Apple clang mới bật nó cho C trong `undefined`; upstream chưa chắc từng
+  # chạy kiểm này với callback `vtts_par_run` của họ — đừng để một báo động nhầm làm đỏ build.
+  clang -std=gnu11 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize=function \
+    -fno-sanitize-recover=all -ffp-contract=off -DVTTS_BRIDGE_SEGMENT_CP=150 "${VTTS_DEFINES[@]}" \
     -Werror=implicit-function-declaration -Werror=incompatible-pointer-types -Werror=int-conversion \
     -Werror=return-type \
     -I"$BRIDGE_SRC/bridge/include" -I"$BRIDGE_SRC/runtime/include" -I"$BRIDGE_SRC/runtime/src" \
     "$BRIDGE_SRC"/runtime/src/*.c "$BRIDGE_SRC/bridge/vtts_bridge.c" "$CI_DIR/vtts_bridge_smoke.c" -lm \
     -o "$WORK_DIR/vtts_bridge_smoke" || die "biên dịch shim vtts_bridge lỗi"
+  mode="--long" # đoạn dài (chia nhiều phần) chỉ chạy với giọng đầu — phần chia đoạn không phụ thuộc giọng
   for entry in "${MODELS[@]}"; do
     read -r voice name want <<< "$entry"
     wav="$SMOKE_DIR/bridge-$voice.wav"
-    "$WORK_DIR/vtts_bridge_smoke" "$ASSET_DIR/$name" "$ASSET_DIR/$LEX_NAME" "$wav" "$TEST_SENTENCE" ||
+    "$WORK_DIR/vtts_bridge_smoke" "$ASSET_DIR/$name" "$ASSET_DIR/$LEX_NAME" "$wav" "$TEST_SENTENCE" $mode ||
       die "shim vtts_bridge hỏng với giọng $voice"
+    mode=""
     wav_check "$wav" 1.0 "shim $voice"
     if [ -f "$SMOKE_DIR/vtts_say-$voice.wav" ]; then
       wav_compare "$wav" "$SMOKE_DIR/vtts_say-$voice.wav" "$voice"
@@ -276,15 +283,29 @@ run_bridge_smoke() {
   done
 }
 
+# Bước: `assets` (tải / dựng tài sản + đọc thử bằng vtts_say), `smoke` (kiểm thử shim trên tài sản đã có), không ghi =
+# cả hai. Workflow chạy hai bước riêng và lưu cache ngay sau `assets` ⇒ shim hỏng (đỏ ở `smoke` hay ở bước biên dịch app)
+# không làm mất VLEX ~8 phút vừa dựng.
+STEP="${1:-all}"
+case "$STEP" in
+  assets | smoke | all) ;;
+  *) die "bước không hợp lệ: $STEP (assets | smoke | all)" ;;
+esac
+
 mkdir -p "$OUT_DIR" "$SMOKE_DIR"
-if assets_ready; then
-  echo "▶ vtts: tài sản đã có, khớp stamp (commit $VTTS_COMMIT, model $MODEL_RELEASE) — bỏ qua tải / dựng"
-else
-  build_assets
+if [ "$STEP" != "smoke" ]; then
+  if assets_ready; then
+    echo "▶ vtts: tài sản đã có, khớp stamp (commit $VTTS_COMMIT, model $MODEL_RELEASE) — bỏ qua tải / dựng"
+  else
+    build_assets
+  fi
 fi
-if [ -d "$CACHED_SMOKE_DIR" ]; then
-  cp "$CACHED_SMOKE_DIR"/*.wav "$SMOKE_DIR"/ 2>/dev/null || true
+if [ "$STEP" != "assets" ]; then
+  assets_ready || die "chưa có tài sản hợp lệ ở $ASSET_DIR — chạy bước assets trước"
+  if [ -d "$CACHED_SMOKE_DIR" ]; then
+    cp "$CACHED_SMOKE_DIR"/*.wav "$SMOKE_DIR"/ 2>/dev/null || true
+  fi
+  run_bridge_smoke
 fi
-run_bridge_smoke
-echo "▶ vtts: xong — $(ls "$ASSET_DIR" | tr '\n' ' ')"
+echo "▶ vtts: xong ($STEP) — $(ls "$ASSET_DIR" | tr '\n' ' ')"
 ls -l "$ASSET_DIR"

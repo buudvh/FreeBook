@@ -23,6 +23,9 @@
 #ifndef VTTS_BRIDGE_SEGMENT_CP
 #define VTTS_BRIDGE_SEGMENT_CP 2000
 #endif
+#if VTTS_BRIDGE_SEGMENT_CP < 1 || VTTS_BRIDGE_SEGMENT_CP >= VTTS_TEXT_MAX_CP
+#error "VTTS_BRIDGE_SEGMENT_CP phải trong [1, VTTS_TEXT_MAX_CP) — front-end bỏ im lặng phần vượt VTTS_TEXT_MAX_CP"
+#endif
 
 typedef struct {
     void *base;
