@@ -40,8 +40,6 @@ struct PageTitleModifier: ViewModifier {
     var leadingIcon: HeaderLeadingIconButton? = nil
 
     static let fontSize: CGFloat = HeaderMetrics.rowTitleFontSize
-    /// Khoảng chữ lùi về phía nút ‹ tự dựng (khung 38pt, mũi ~13pt canh trái) ⇒ mũi cách chữ ~8pt như nút back hệ thống.
-    private static let sheetBackTitleOverlap: CGFloat = 17
 
     @Environment(\.sheetPageBack) private var sheetPageBack
 
@@ -83,7 +81,7 @@ struct PageTitleModifier: ViewModifier {
                             HStack(spacing: 0) {
                                 HeaderBackButton(action: sheetPageBack)
                                 titleText
-                                    .padding(.leading, -Self.sheetBackTitleOverlap)
+                                    .padding(.leading, -HeaderBackButton.titleOverlap)
                                     .allowsHitTesting(false)
                             }
                         } else {

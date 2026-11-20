@@ -19,22 +19,18 @@ struct FloatingHubSourceCheckListView: View {
         }
     }
 
-    /// Khoảng tiêu đề lùi về phía nút ‹ (khung 38pt, mũi ~13pt canh trái) ⇒ mũi cách chữ ~8pt như nút back hệ thống
-    /// (= `PageTitleModifier.sheetBackTitleOverlap`, đang `private`).
-    private static let titleOverlap: CGFloat = 17
-
     /// Như trang con có nút ‹ của `PageTitleModifier` (1.3.1018): `HeaderBackButton` (mũi chạm lề nội dung sheet) + tiêu đề
-    /// 22pt đậm ngay cạnh. Mũi giữ màu chữ như trước.
+    /// 22pt đậm ngay cạnh. Mũi màu nhấn như các trang con khác của sheet hub (Thông báo, màn kiểm tra).
     private var header: some View {
         HStack(spacing: 0) {
-            HeaderBackButton(tint: Color.primary, action: onBack)
+            HeaderBackButton(action: onBack)
 
             Text(FloatingHubItem.Kind.sourceCheck.title)
                 .font(.system(size: HeaderMetrics.rowTitleFontSize, weight: .bold))
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .padding(.leading, -Self.titleOverlap)
+                .padding(.leading, -HeaderBackButton.titleOverlap)
                 .allowsHitTesting(false)
                 .accessibilityAddTraits(.isHeader)
 

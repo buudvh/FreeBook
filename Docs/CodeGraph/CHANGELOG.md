@@ -2,16 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1024] - 2026-11-20
+
+### fix: Header — mũi ‹ trang con sheet hub cùng màu nhấn, khoảng tiêu đề cạnh nút back thành token chung
+
+Gom ba bản header (1.3.1020, 1.3.1022, 1.3.1023) từ session con; dọn hai chỗ session con để ngỏ.
+
+- **Mũi ‹ trang con Tác vụ AI / Kiểm tra nguồn của sheet hub** (`FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`): bỏ `tint: Color.primary` ⇒ màu nhấn như trang con Thông báo / màn kiểm tra trong cùng sheet hub (trước một sheet có hai màu mũi).
+- **Khoảng tiêu đề lùi về nút back 17pt** thành `HeaderBackButton.titleOverlap` (trước là hằng `private` ở `PageTitleModifier` + chép tay ở hai file hub).
+- Entry 1.3.1023 sửa câu "vùng chạm không đổi": khoảng 19 nút trước chưa có khung nay có khung 36×38 nên vùng chạm rộng thêm về bên trái.
+- `CHANGELOG.md` dời 1.3.987–994 sang `CHANGELOG.archive.md` (giữ ~30 entry).
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.1023] - 2026-11-20
 
 ### feat: Toolbar — nút ngoài cùng bên phải canh icon vào lề 16pt, icon tài sản trên toolbar 20pt
 
 - Anh Bửu: "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau", "icon nhiều chỗ nhìn size cũng không giống nhau" — phần còn lại của lưới header chung (1.3.1017–1021): toolbar của thanh điều hướng hệ thống.
-- Trước: icon nằm giữa khung chạm (36 hoặc 32 rộng) nên icon ngoài cùng lùi vào 6–10pt so với lề 16pt của tiêu đề / ô tìm / thẻ danh sách. Nay nút **ngoài cùng bên phải** của mỗi toolbar thêm `alignment: .trailing` vào `.frame(width:height:)` của icon (giữ nguyên rộng / cao khung ⇒ vùng chạm không đổi); nút bên trong cụm (🔍, ↻, nút dịch, Lọc, Chia sẻ) giữ canh giữa. Nút chữ (Lưu, Xong, `.headerTextButton()`), capsule "Áp dụng", nút "?" `SectionHelpButton`, `EditButton` không đổi.
+- Trước: icon nằm giữa khung chạm (36 hoặc 32 rộng) nên icon ngoài cùng lùi vào 6–10pt so với lề 16pt của tiêu đề / ô tìm / thẻ danh sách. Nay nút **ngoài cùng bên phải** của mỗi toolbar thêm `alignment: .trailing` vào `.frame(width:height:)` của icon (nút đã có khung giữ nguyên rộng / cao; khoảng 19 nút trước chưa có khung nay có khung 36×38 ⇒ vùng chạm rộng thêm về bên trái, icon vốn đã sát lề); nút bên trong cụm (🔍, ↻, nút dịch, Lọc, Chia sẻ) giữ canh giữa. Nút chữ (Lưu, Xong, `.headerTextButton()`), capsule "Áp dụng", nút "?" `SectionHelpButton`, `EditButton` không đổi.
 - Số trần `17` của icon SF trong các nút đó → `HeaderMetrics.iconFontSize`; khung `36` / `38` → `HeaderMetrics.iconFrameWidth` / `iconFrameHeight` (đúng giá trị cũ, khung cao `36` giữ nguyên để không đổi cỡ thật). Icon tài sản `AppGlyph` trên toolbar → `HeaderMetrics.assetIconSize` (20pt, trước 17): nút sao chép của Gỡ lỗi từng bước (Legado), Lỗi & cảnh báo rule dịch nhanh; nút dịch `ReaderTranslationScopeMenuView(iconSize:)` của Chi tiết truyện; phễu `FilterGlyph` (đã 20, nay dùng token).
 - Màn đã đổi: Kệ (🔍 | … — "…" ngoài cùng, chấm đỏ thông báo vẫn nằm đúng góc trên phải icon), Hộp thông báo, Chi tiết bộ sưu tập, Chi tiết truyện (nút dịch | …), Danh sách thể loại / Xem thêm (Lọc | Kiểu hiển thị), Tìm kiếm (Kiểu hiển thị), từ điển (VP / Name riêng, VP / Name chung, Phiên âm / Pronouns, sheet sửa từ có bút chì), Báo cáo kiểm tra (danh sách + chi tiết: Chia sẻ | Xoá), Gỡ lỗi từng bước (Legado), Danh sách kho (↻ | +), tab Legado + tab Tất cả tiện ích của Kho tiện ích, Bộ lọc tiện ích (Đặt lại), Playlist chi tiết, Cấu hình AI (+), Lịch sử phiên chat AI (thùng rác), Theo dõi nhiệt, Log phiên, Công cụ tra cứu nhanh, Dung lượng (↻ / vòng xoay đo), từ điển phiên âm NghiTTS / VieNeu, Thay thế TTS, Quản lý lọc rác, Bộ ngoặc, rule dịch nhanh (`QuickTranslationRuleIOMenu`), Quy tắc TOC.
 - Không đụng (session khác làm hoặc đang làm): `PageHeader`, `HubStyleSheet`, `FloatingHub`, `TTSWidget`, `AudioPlayer`, `Reader`, `ComicReader`, `VideoPlayer`, `Discovery`, `SleepTimer`, `AppUpdate`, `ChapterTOCPanel`, `SideDrawerMenuPanel`, `SourceCheck`, `ExtensionCheckView`, `LegadoSourceCheckView`. `SideDrawerMenuModifier` chỉ có ví dụ trong comment, không có frame ⇒ không sửa.
-- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ `JSDom.swift`); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: icon ngoài cùng ở các màn trên chạm đúng lề 16pt (so với tiêu đề / ô tìm / thẻ), chấm đỏ của "…" ở Kệ vẫn đúng góc, vùng chạm không đổi, nút dịch ở Chi tiết truyện và sao chép ở Gỡ lỗi từng bước (20pt) không lệch hàng với nút bên cạnh.
+- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ `JSDom.swift`); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: icon ngoài cùng ở các màn trên chạm đúng lề 16pt (so với tiêu đề / ô tìm / thẻ), chấm đỏ của "…" ở Kệ vẫn đúng góc, nút dịch ở Chi tiết truyện và sao chép ở Gỡ lỗi từng bước (20pt) không lệch hàng với nút bên cạnh.
 
 ## [1.3.1022] - 2026-11-20
 
@@ -504,134 +516,3 @@ Nay:
 File: Services/Translation/Manager/{GlobalDictionaryEditor (mới), TranslationManager+BaseDictionaryReload (mới), GlobalDictionaryImporter, TranslationManager}, Views/Dictionary/{BaseDictionaryListView (mới), BaseDictionaryEntrySheet (mới)}, Views/Settings/Translation/{GlobalDictionaryCardController, GlobalDictionaryCardPresentations}, .claude/rules/translation.md.
 
 Chưa kiểm: chưa build, chưa chạy máy. Mỗi lần lưu PhienAm ghi lại cả file (~vài chục nghìn dòng) — chưa đo thời gian trên máy. Ghi lại PhienAm sắp theo khoá nên comment / thứ tự dòng của file gốc không giữ.
-
-## [1.3.994] - 2026-11-19
-
-### feat: Thẻ Từ điển chung dạng menu thả xuống — Sửa / Nhập / Xuất / Làm mới / Xoá, thêm thẻ Rule dịch
-
-Trước: Cài đặt dịch thuật › Từ điển chung có 4 thẻ (sau khi gỡ LuatNhan): chạm thẻ = nhập ghi đè thẳng (chọn file là thay toàn bộ), icon ↑ phủ cuối thẻ = xuất TXT; nút "Làm mới dữ liệu dịch" riêng ở dưới; không xoá được từ điển gốc, không có thẻ cho rule dịch.
-Nay:
-- 5 thẻ VietPhrase.txt / Name.txt / PhienAm.txt / Pronouns.txt / Rule dịch (ô thứ 5 thay ô LuatNhan; trạng thái "N rule"). Icon cuối thẻ là ellipsis dọc; cả thẻ là Menu hệ thống thả xuống (anh Bửu: "đừng mở ngăn kéo, mockup lại kiểu dropdown" — ngoại lệ có chủ ý so với luật menu ba chấm = ngăn kéo): Sửa, Nhập file, Xuất file, Làm mới dữ liệu, nhóm riêng Xoá (destructive).
-- Sửa: VietPhrase / Name ⇒ đẩy DictionaryListView Chung tương ứng; Rule dịch ⇒ đẩy QuickTranslationRuleListView bộ chung (navigationDestination(item:)). PhienAm / Pronouns chưa có mục Sửa (commit sau).
-- Nhập: popup 3 cách (dataImportModePopup) rồi mới mở bộ chọn file. Từ điển: "Thay thế toàn bộ" = đường cũ TranslationManager.importDictionary; "Gộp" (trùng lấy mới) / "Chỉ thêm key mới" (trùng giữ cũ) = GlobalDictionaryImporter (Service mới): đọc từ điển gốc đang có (cây đã nạp ⇒ .dat ⇒ .txt; PhienAm: bản đồ đã nạp ⇒ ChinesePhienAmWords.txt), trộn, dựng .dat mới bằng DoubleArrayTrieBuilder.build(fromEntries:) vào file tạm rồi thay file cũ (xoá .txt cùng tên nếu còn), PhienAm ghi lại file text (sắp theo khoá, sau thắng như loadPhoneticMap); chạy nền, thẻ hiện vòng quay, xong nạp lại + báo đổi từ điển. Rule dịch: QuickTranslationRuleStore.importRules(text:mode:). Toast "thêm X, cập nhật Y" (thay toàn bộ ⇒ số mục mới).
-- Xuất: từ điển như cũ (GlobalDictionaryTextExporter); Rule dịch = một file đã bỏ rule tắt (QuickTranslationRuleExporter, bộ chung).
-- Làm mới dữ liệu: một hàm refreshTranslationData dùng chung cho mục của mọi thẻ và nút "Làm mới dữ liệu dịch".
-- Xoá: hộp xác nhận nói rõ xoá gì — file gốc (.txt + .dat) của từ điển đó, các từ đã sửa ở VP / Name Chung giữ; Rule dịch = xoá bộ rule chung (deleteRules()).
-- Bỏ TranslationSettingsView+Export (thay bằng GlobalDictionaryCardController); DictionaryCard bỏ reservesExportSlot / isExporting.
-
-File: Services/Translation/Manager/GlobalDictionaryImporter (mới), Views/Settings/Translation/{GlobalDictionaryCardController, GlobalDictionaryCardMenu, GlobalDictionaryCardPresentations (mới), DictionaryCard, TranslationSettingsView, TranslationSettingsView+Export (xoá)}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build, chưa chạy máy. Cần thử trên máy: hai Menu trong cùng một hàng lưới Form nhận chạm riêng; gộp VietPhrase cỡ triệu mục (RAM + thời gian dựng .dat); popup → bộ chọn file mở đúng sau khi popup đóng.
-Khác spec: bước "ghi .txt" khi gộp từ điển .dat được thay bằng dựng .dat thẳng từ danh sách đã trộn (không để .txt nằm cạnh .dat — loader chỉ xoá .txt khi tự biên dịch).
-
-## [1.3.993] - 2026-11-19
-
-### feat: Nút Thử rule ở đầu danh sách rule — sheet thử một câu áp đúng bộ đang xem, sửa thử bộ tên chương và bộ riêng
-
-Trước: ô thử rule chỉ có ở trang "Thử nhanh một câu" (Quản lý rule dịch › Công cụ) và luôn chỉ áp bộ rule chung. QuickTranslationRuleEngine.preview không có bộ tên chương; mẫu của từng hit tra theo sourceLine **chỉ** trong bộ chung nên hit của bộ riêng hiện sai mẫu hoặc trống.
-Nay:
-- Danh sách rule (cả ba phạm vi: chung / tên chương / riêng truyện) có hàng pill "Thử rule" ở đầu (icon testtube.2, chữ màu nhấn, nền nhấn mờ 18%, viền 60%, chevron phải — kiểu chip ExtensionKindFilterBar). Chạm ⇒ sheet "Thử rule" (tiêu đề trái, detent 60% / lớn, thanh kéo, nền kính .appGlassSheet() ở chỗ trình bày): ô nhập câu + Chạy thử, KẾT QUẢ, RULE ĐÃ KHỚP (dòng · offset · bộ, mẫu, nguồn → kết quả).
-- Ruột tách thành QuickTranslationRuleTesterPanel, dùng chung cho sheet mới và trang đẩy cũ (giữ link "Thử nhanh một câu"; trang này vẫn có chọn chế độ token). Chữ giải thích phạm vi + chế độ token chuyển vào nút "?" của tiêu đề section, đổi theo phạm vi.
-- Sửa lỗi 1: preview(_:scope:mode:) (dời sang QuickTranslationRuleEngine+Preview; execute / nonEmpty thành internal) — danh sách tên chương thử với bộ tên chương + bộ chung như khi dịch tên chương thật.
-- Sửa lỗi 2: danh sách riêng truyện thử với bookId của truyện (bộ riêng + chung, file tắt / token / thứ tự ưu tiên / bộ ngoặc của truyện), và QuickTranslationRewriteResult.Segment có thêm scopeRank (mặc định nil, engine gán ở assemble) ⇒ hit tra mẫu theo cặp (bộ, dòng), hiện đúng mẫu.
-
-File: Services/Translation/Engine/{QuickTranslationRuleEngine, QuickTranslationRuleEngine+Preview (mới), QuickTranslationRewriteResult}, Views/Settings/Translation/{QuickTranslationRuleTesterPanel (mới), QuickTranslationRuleTesterSheet (mới), QuickTranslationRuleTesterPill (mới), QuickTranslationRuleTesterView, QuickTranslationRuleListView}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build, chưa chạy máy. Danh sách tên chương / chung mở từ Reader (có contextBookId) vẫn thử không kèm bộ riêng của truyện đó — chỉ danh sách riêng truyện mới truyền bookId (UNKNOWN: anh Bửu có muốn thử ở danh sách tên chương mở từ Reader cũng kèm bộ riêng không).
-
-## [1.3.992] - 2026-11-19
-
-### feat: Hàng VP/Name, rule dịch, bộ ngoặc — bỏ icon bút chì, chạm thân hàng mở màn sửa
-
-Trước: muốn sửa một mục ở danh sách VietPhrase / Names (Chung và Riêng), danh sách rule (chung / tên chương / riêng truyện) và danh sách Bộ ngoặc phải chạm icon bút chì nhỏ ở cụm icon cuối hàng; chạm thân hàng không làm gì.
-Nay: chạm thân hàng (chữ + khoảng trống tới cụm icon) mở đúng màn sửa cũ (DictEntrySheet / QuickTranslationRuleEditorSheet / sheet sửa cặp ngoặc); icon bút chì bỏ. Vùng nội dung dùng .contentShape(Rectangle()).onTapGesture, không bọc cả hàng trong Button; các icon còn lại (Chuyển, Tắt/Bật, Xoá) chuyển sang .buttonStyle(.borderless), Menu "Chuyển" giữ .menuStyle(.borderlessButton) — chạm icon không mở màn sửa. Trợ năng: thêm thao tác "Sửa" (accessibilityAction) cho cả ba loại hàng. Hàng bộ ngoặc chỉ xem (truyện đang theo bộ chung) chạm không làm gì, không có thao tác Sửa.
-
-File: Views/Dictionary/DictionaryEntryRow, Views/Settings/Translation/{QuickTranslationRuleEntryRow, QuickTranslationRuleBracketRow}.
-
-Ngoài phạm vi (chưa sửa, theo dặn): .claude/rules/ui-conventions.md mục "Màn danh sách" vẫn ghi cụm icon [Sửa][Chuyển][Tắt/Bật][Xoá] — session chính cập nhật nếu muốn.
-Chưa kiểm: chưa build, chưa chạy máy — cần thử chạm icon Chuyển/Xoá không lọt xuống màn sửa và cuộn danh sách không mở nhầm.
-
-## [1.3.991] - 2026-11-19
-
-### feat: Xuất rule dịch thành một file bỏ rule đang tắt — bỏ xuất danh sách tắt, gọn màn Quản lý rule dịch
-
-Trước: "Xuất bộ rule" chép nguyên file rule (kể cả rule đang tắt) và tab Đã tắt có thêm "Xuất danh sách rule tắt" (file thứ hai); "Chia sẻ bộ rule riêng sang truyện khác" chép cả rule đang tắt; màn Quản lý rule dịch có section "Bộ rule" với ba nút Nhập file / Xuất bộ đang chạy / Xoá bộ rule khỏi máy (+ hộp chọn chế độ nhập, hộp xác nhận xoá).
-Nay:
-- QuickTranslationRuleExporter (Service mới): văn bản bộ rule của một phạm vi đã bỏ dòng có mẫu nằm trong file tắt của chính bộ đó (chung ⇒ file tắt chung, tên chương ⇒ file tắt tên chương, riêng ⇒ file tắt của truyện). Lọc từng dòng nên comment / thứ tự dòng giữ nguyên; mẫu lấy bằng QuickTranslationRuleParser.splitRuleLine rồi chuẩn hoá bằng QuickTranslationRuleDisableFile.normalizedPattern (hàm mới, chính là bước trim + bỏ nháy kép mà parse của file tắt vẫn dùng). Mọi rule đều tắt ⇒ không xuất file rỗng, báo toast.
-- Ngăn kéo "…" của danh sách rule (cả ba bộ) xuất qua exporter; "Chia sẻ bộ rule riêng" (QuickTranslationRuleTransfer.shareBookRules) cũng chia sẻ bản đã lọc. Thẻ Rule dịch ở Cài đặt dịch thuật (commit sau) dùng chung hàm này.
-- Bỏ mục "Xuất danh sách rule tắt" (tab Đã tắt còn: nhập file rule tắt, bật lại tất cả, xoá tất cả rule đã tắt).
-- Màn Quản lý rule dịch: bỏ ba nút Nhập / Xuất / Xoá cùng importer, hộp chọn chế độ, hộp xác nhận xoá và hàm đi kèm; nút "Tải bộ rule mặc định" (chỉ hiện khi máy chưa có rule) và chữ giải thích của nó gộp vào section Trạng thái, không còn section "Bộ rule". Chữ "Cần tải lại thì xoá bộ rule…" và chữ trống của danh sách rule chung trỏ sang menu … của danh sách.
-
-File: Services/Translation/Engine/{QuickTranslationRuleExporter (mới), QuickTranslationRuleDisableFile, QuickTranslationRuleTransfer}, Views/Settings/Translation/{QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions, QuickTranslationRulesView, QuickTranslationRuleListView}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build, chưa chạy máy. Mẫu trong file rule viết dạng có nháy kép bao ngoài mà không theo đúng regex `"mẫu" = "nghĩa"` của parser có thể cho khoá khác với khoá engine dùng — trường hợp hiếm, chưa thử.
-
-## [1.3.990] - 2026-11-19
-
-### feat: Cài đặt dịch thuật — giải thích của công tắc Quick Translate và Áp dụng rule dịch vào nút "?" cạnh tên
-
-Trước: dưới tên "Bật dịch Quick Translate" và "Áp dụng rule dịch" luôn có một dòng chữ phụ giải thích (công tắc "Dịch Luật nhân hóa" đã bỏ ở commit trước).
-Nay: dòng giải thích chuyển vào nút "?" (SectionHelpButton, popover) đứng ngay cạnh tên công tắc. Hàng dựng bằng HelpLabeledToggle (mới): HStack [tên][?] … [Toggle ẩn nhãn] — cố ý không đặt nút "?" trong nhãn của Toggle để chạm "?" không bật/tắt công tắc; nhãn trợ năng của công tắc vẫn là tên. Hàng "Áp dụng rule dịch" giữ thụt lề 16 như cũ.
-
-File: Views/Settings/Translation/{HelpLabeledToggle (mới), TranslationSettingsView}, Views/Settings/Main/QuickTranslateRuleSettingsRows.
-
-Chưa kiểm: chưa build, chưa chạy máy — cần xem trên máy popover "?" mở đúng trong hàng Form và chạm "?" không đổi công tắc.
-
-## [1.3.989] - 2026-11-19
-
-### feat: Gỡ từ điển LuatNhan khỏi dịch QT — bỏ công tắc Dịch Luật nhân hóa, tự dọn file và khoá cũ
-
-Trước: dịch QT có thêm từ điển LuatNhan (Luật nhân hoá, mặc định tắt) — công tắc ở Cài đặt dịch thuật, Cài đặt trình đọc, Cài đặt dịch truyện tranh; thẻ LuatNhan.txt ở Từ điển chung; tải mặc định kèm luatnhan.txt; tra từ bôi đen trong Reader hiện dòng "Luật nhân"; sao lưu nhóm Từ điển chung gói LuatNhan.dat/.txt.
-Nay: engine (VietPhraseTokenizer, TranslateUtils.lookupRawTranslation, TokenizeMemo, mapping memo, TranslationReadContext) không còn tra LuatNhan; ba công tắc, thẻ, mục tải mặc định, dòng tra từ và hai tên file trong sao lưu đều bỏ. Người chưa bật (mặc định) dịch y như cũ; khoá memo đổi dạng nên cache dịch cũ tự rụng.
-Dọn sót: LuatNhanRetirement.removeLeftovers chạy đầu TranslationManager.loadAllDictionaries — còn translate/LuatNhan.dat / .txt hay khoá isTranslationLuatNhanEnabled thì xoá và ghi log "🧹 [LuatNhan]" (chỉ thấy khi đang bật ghi log; lỗi xoá file ghi ❌). Kiểm mỗi lần nạp nên không cần cờ "đã chạy". Khôi phục bản sao lưu cũ có LuatNhan ⇒ BackupDictionaryRestorer.restoreShared bỏ qua hai file đó, không báo lỗi; BackupSettingsArchiver chặn khoá cũ ở cả hai chiều.
-
-File: Services/Translation/Manager/{LuatNhanRetirement (mới), TranslationManager, TranslationDictionaryState, TranslationReadContext, GlobalDictionaryTextExporter}, Services/Translation/Engine/VietPhraseTokenizer, Services/Translation/Utils/{TranslateUtils, TokenizeMemo}, Services/Translation/Extensions/TranslateUtils+MappingMemo, Services/Backup/{BackupPaths, BackupScope, BackupDictionaryRestorer, BackupSettingsArchiver}, Views/Settings/Translation/TranslationSettingsView, Views/Reader/{ReaderView, ReaderSettingsView, Extensions/ReaderView+Selection, Extensions/ReaderView+Suggestions (chỉ comment)}, Views/ComicReader/ComicTranslationSettingsSheet, Views/Dictionary/{ManageDefinitionsDraft, ManageDefinitionsView} (chỉ comment), .claude/rules/translation.md.
-
-Chưa kiểm: chưa build (máy Windows), chưa chạy trên máy; không đọc / chạy Tests/ nên chưa biết test nào còn gọi API đã bỏ (isLuatNhanEnabled của TokenizeMemo, luatNhanDict…).
-
-## [1.3.988] - 2026-11-19
-
-### fix: Nhập quy tắc mục lục Thay thế toàn bộ không thêm lại quy tắc mặc định, công cụ tra cứu so trùng theo URL, lọc rác chỉ thêm mẫu mới không hỏi
-
-Anh Bửu chốt 3 điểm còn ngỏ của commit nhập 3 lựa chọn: "Quy tắc mục lục không được thêm quy tắc mặc định khi Thay thế toàn bộ", "khoá Công cụ tra cứu là URL", "Lọc rác thì không có option như vậy, chỉ cần thêm từ không có vào thôi, phân hoa thường", "thay thế tts thì không phân hoa thường, key là từ gốc".
-
-Trước (commit 159b5f17):
-- Quy tắc mục lục — Thay thế toàn bộ dùng `TranslateUtils.replaceTOCRules`: thay bằng file rồi tự thêm lại quy tắc mặc định bị thiếu.
-- Công cụ tra cứu — khoá so trùng là tên công cụ (không phân biệt hoa thường).
-- Lọc rác — có popup 3 lựa chọn.
-Nay:
-- Quy tắc mục lục — Thay thế toàn bộ chỉ còn đúng danh sách trong file (`mergeTOCRules` lên danh sách rỗng, chỉ để chuẩn hoá chữ), không thêm lại quy tắc mặc định; muốn có lại thì dùng "Khôi phục mặc định". Nạp / lưu `toc_rules.json` không tự chèn mặc định khi file đã có (chỉ khi chưa có file), nên danh sách nhập giữ nguyên.
-- Công cụ tra cứu — khoá so trùng là mẫu URL (bỏ khoảng trắng hai đầu, so đúng từng chữ), tên là giá trị: Gộp = cùng URL thì lấy tên trong file; Chỉ thêm key mới = cùng URL thì giữ tên cũ.
-- Lọc rác — bỏ popup: "Nhập cấu hình (JSON)" mở bộ chọn file luôn, nhập chỉ thêm quy tắc có mẫu chưa có (so đúng từng chữ, phân biệt hoa thường), mẫu đã có giữ nguyên bản trên máy; toast "Đã nhập: thêm X, bỏ qua Y key đã có.". `JunkFilterManager.importRules(fromJSONString:)` bỏ tham số `mode`. Không còn cách ghi đè toàn bộ danh sách lọc rác bằng file.
-- Thay thế ký tự TTS — giữ như 159b5f17: khoá là từ gốc (`TTSReplacementRule.matchKey`, không phân biệt hoa thường, giữ dấu).
-
-File đã đụng: `Sources/Services/DataImport/TOCRuleImporter.swift`, `Sources/Models/Dictionaries/SearchEngineTransfer.swift`, `Sources/Views/Settings/Search/SearchEnginesConfigView.swift` (chú thích), `Sources/Services/ChapterText/JunkFilterManager.swift`, `Sources/Views/Settings/Translation/JunkFilterManagementView.swift`.
-
-Chưa kiểm: không build được (máy Windows), chưa chạy trên máy. Chú thích của `DataImportModePopupModifier` (khung chung) còn kể "lọc rác" trong danh sách màn dùng popup — file của session chính, chưa sửa.
-
-## [1.3.987] - 2026-11-19
-
-### feat: Nhập dữ liệu ở 6 màn TTS và cài đặt luôn có 3 lựa chọn — Thay thế toàn bộ, Gộp, Chỉ thêm key mới
-
-Anh Bửu: "nhập luôn có 3 option: thay thế toàn bộ (xoá danh sách cũ và chỉ giữ lại mới), gộp (vế trái trùng thì đè lên, chưa có thì thêm vào), chỉ thêm vào những key chưa có của vế mới" — popup giữa màn, 3 radio có mô tả, cuối là nút "Nhập file" (đã duyệt mockup).
-
-Trước: mỗi màn nhập một kiểu — phiên âm NghiTTS luôn ghi đè toàn bộ không hỏi; phiên âm VieNeu luôn trộn không hỏi; thay thế ký tự TTS, lọc rác, quy tắc mục lục, công cụ tra cứu chọn file trước rồi hỏi Gộp / Ghi đè bằng confirmationDialog (có đoạn xem trước số đếm), và chữ "Gộp" mang hai nghĩa ngược nhau tuỳ màn (lọc rác, mục lục = đè key trùng; thay thế TTS, công cụ tra cứu = giữ bản cũ).
-Nay: hàng "Nhập…" trong ngăn kéo … mở popup `.dataImportModePopup` (khung của commit d0929e34, mặc định chọn Gộp) ⇒ bấm "Nhập file" ⇒ chọn file ⇒ nhập theo chế độ đã chọn ⇒ toast số đếm ("Đã nhập: thêm X, cập nhật Y[, Z mục trùng y hệt]" / "Đã nhập: thêm X, bỏ qua Y key đã có" / "Đã thay thế toàn bộ: N mục (trước có M)"). Bỏ các confirmationDialog Gộp / Ghi đè và phần xem trước số đếm (chọn chế độ trước nên số đếm chuyển sang toast). File sai định dạng vẫn báo như cũ (toast hoặc hộp thoại của từng màn).
-
-Luật chung cho cả 6 màn (`KeyedImportMerger`, `Sources/Models/Dictionaries/KeyedImportMerger.swift` + `KeyedImportSummary.swift`, hàm thuần):
-- Thay thế toàn bộ = chỉ còn các mục của file; Gộp = khoá trùng lấy giá trị mới (thay tại chỗ, giữ vị trí + id cũ), khoá mới nối cuối, khoá chỉ có trên máy giữ; Chỉ thêm key mới = khoá trùng giữ bản cũ, chỉ nối khoá mới.
-- Khoá lặp trong file: bản đứng sau cùng thắng. Mục mang id trùng mục khác ⇒ cấp id mới (danh sách có id).
-
-Khoá từng loại:
-- Phiên âm NghiTTS: từ gốc bỏ khoảng trắng hai đầu + chữ thường (như `TextPreprocessor.updateWord`; trước đây nhập .plist / .json giữ nguyên khoá có chữ hoa ⇒ mục chết). Ghi qua `TextPreprocessor.replaceAllWords` (xoá luôn cache phiên âm — đường cũ ghi plist rồi `loadResources()` không xoá cache). File rỗng / không có khoá hợp lệ ⇒ báo lỗi, không còn xoá trắng từ điển.
-- Phiên âm VieNeu: `VieNeuJapaneseDictionary.normalizedKey` (gấp dấu phụ + chữ thường), bỏ mục khoá hoặc cách đọc rỗng. Ghi qua `replaceAll`.
-- Thay thế ký tự TTS: `TTSReplacementRule.matchKey` (mẫu chữ thường, giữ dấu). Áp cho tầng đang mở (chung hoặc riêng của truyện), ghi qua `importRules(fromJSONString:mode: .overwrite, bookId:)` sau khi gộp. "Khôi phục mặc định" giữ nguyên hộp thoại hai lựa chọn cũ.
-- Lọc rác: `pattern` đúng từng chữ (như `addRule`), bỏ mẫu rỗng. `JunkFilterManager.importRules` nhận `DataImportMode`, trả `KeyedImportSummary?`; bỏ enum `JunkFilterImportMode`. Sửa kèm: bản Gộp cũ sắp lại danh sách theo ABC (thứ tự là thứ tự áp dụng ⇒ đổi kết quả lọc) và dựng `Dictionary(uniqueKeysWithValues:)` ⇒ sập khi danh sách sẵn có mẫu trùng — nay giữ thứ tự, không sập.
-- Quy tắc mục lục: `id` (bỏ khoảng trắng). Thay thế toàn bộ = `TranslateUtils.replaceTOCRules` — vẫn **tự thêm lại quy tắc mặc định bị thiếu** như "Thay thế toàn bộ" cũ (quy tắc mặc định không xoá được ở màn này); Gộp = `mergeTOCRules` (= "Gộp theo ID" cũ); Chỉ thêm key mới = `mergeTOCRules` với các quy tắc có id chưa có. Logic ở `TOCRuleImporter`.
-- Công cụ tra cứu: tên công cụ (bỏ khoảng trắng, không phân biệt hoa thường), mẫu URL là giá trị — trước đây "Gộp" so cặp tên + mẫu URL và giữ bản cũ, nên khoá cũ khiến Gộp và Chỉ thêm key mới gần như trùng nhau. `SearchEngineTransfer.imported(current:imported:mode:)`; `merged` giữ nguyên cho khôi phục sao lưu (`BackupConfigArchiver`); bỏ `newCount` (chỉ hộp thoại cũ dùng).
-
-File đã đụng:
-- Mới: `Sources/Models/Dictionaries/KeyedImportMerger.swift`, `Sources/Models/Dictionaries/KeyedImportSummary.swift`, `Sources/Services/DataImport/PhoneticDictionaryImporter.swift`, `Sources/Services/DataImport/TTSReplacementRuleImporter.swift`, `Sources/Services/DataImport/TOCRuleImporter.swift` (thư mục `Services/DataImport/` để không đụng `Services/TTS/**`, `Services/Translation/**` — chỉ gọi API công khai có sẵn).
-- Sửa: `Sources/Services/ChapterText/JunkFilterManager.swift`, `Sources/Models/Dictionaries/SearchEngineTransfer.swift`, `Sources/Views/Settings/TTS/TTSDictionaryEditView.swift`, `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift`, `Sources/Views/Settings/TTS/TTSReplacementManagerView.swift`, `Sources/Views/Settings/TTS/TTSReplacementManagerView+Layer.swift`, `Sources/Views/Settings/Translation/JunkFilterManagementView.swift`, `Sources/Views/Settings/Translation/TOCRulesConfigView.swift`, `Sources/Views/Settings/Search/SearchEnginesConfigView.swift`.
-
-Chưa kiểm: không build được (máy Windows) — chỉ đọc code + `check_architecture.py`; chưa chạy trên máy (popup mở từ ngăn kéo rồi bộ chọn file, nhất là ở màn mở dạng sheet: Thay thế TTS từ Cài đặt TTS / hub truyện, Công cụ tra cứu từ Reader). Cần chạy `xcodegen generate` vì có file / thư mục mới. Chưa đo nhập từ điển NghiTTS lớn (~30k mục) theo chế độ Gộp (gộp trên RAM rồi ghi một lần như đường cũ).

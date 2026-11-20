@@ -18,6 +18,11 @@ struct HeaderBackButton: View {
     var tint: Color? = nil
     let action: () -> Void
 
+    /// Tiêu đề đặt ngay sau nút lùi chừng này vào khung 38pt (mũi ~13pt canh trái) ⇒ mũi cách chữ ~8pt như nút back hệ
+    /// thống. Tiêu đề đè lên phải `.allowsHitTesting(false)` để chạm vào vẫn tới nút. Dùng ở `PageTitleModifier` (trang con
+    /// trong sheet) và trang con của sheet hub.
+    static let titleOverlap: CGFloat = 17
+
     var body: some View {
         Button(action: action) {
             Image(systemName: "chevron.backward")
