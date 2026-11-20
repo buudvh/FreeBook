@@ -194,29 +194,8 @@ check_bridge() {
   done
 }
 
-# TẠM THỜI (1.3.1035): dựng câu anh Bửu nghe thấy "xoẹt" / "vụt" ở dấu phẩy để so tai — cả câu ở 1× và ở tốc độ gốc 1,8×
-# (`--speed` của vtts_say là `length_scale`: 1/1,8 ≈ 0,5556 — vtts tự đọc nhanh, trình phát không phải kéo), cùng hai mảnh
-# như khi app cắt ở 150 ký tự. WAV ⇒ artifact `vtts-samples`. Không bao giờ làm đỏ build; xoá khi đã chốt cách đọc nhanh.
-LISTEN_SENTENCE="Minh Châu thì thầm một tiếng, lúc này dùng huyễn thuật tiến vào kia đầu niêm trí nhớ của cá, nhìn thấy cái này đầu Cá Trê Thổ Nạp Thuật phiên bản, đem mệnh danh là “Cá Trê Thổ Nạp Thuật”."
-LISTEN_PART1="Minh Châu thì thầm một tiếng, lúc này dùng huyễn thuật tiến vào kia đầu niêm trí nhớ của cá, nhìn thấy cái này đầu Cá Trê Thổ Nạp Thuật phiên bản,"
-LISTEN_PART2="đem mệnh danh là “Cá Trê Thổ Nạp Thuật”."
-
-render_listening_samples() {
-  local entry voice name
-  echo "▶ vtts: dựng câu nghe thử (tạm thời)"
-  for entry in "${VOICES[@]}"; do
-    read -r voice name <<< "$entry"
-    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-1x.wav" --lex "$LEX" --lang auto       "$LISTEN_SENTENCE" > /dev/null || echo "::warning::vtts_say ($voice) 1× lỗi"
-    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-goc18.wav" --lex "$LEX" --lang auto --speed 0.5556       "$LISTEN_SENTENCE" > /dev/null || echo "::warning::vtts_say ($voice) tốc độ gốc lỗi"
-    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-manh1.wav" --lex "$LEX" --lang auto       "$LISTEN_PART1" > /dev/null || echo "::warning::vtts_say ($voice) mảnh 1 lỗi"
-    "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$SMOKE_DIR/nghe-$voice-manh2.wav" --lex "$LEX" --lang auto       "$LISTEN_PART2" > /dev/null || echo "::warning::vtts_say ($voice) mảnh 2 lỗi"
-  done
-  ls -l "$SMOKE_DIR"/nghe-*.wav 2>/dev/null || true
-}
-
 mkdir -p "$WORK_DIR" "$SMOKE_DIR"
 check_hashes
 check_vtts_say
 check_bridge
-render_listening_samples
 echo "▶ vtts: tài sản + runtime + shim OK (commit $(cat "$VENDOR_DIR/VTTS_COMMIT.txt"))"

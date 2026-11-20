@@ -8,15 +8,19 @@ import Foundation
 /// ## Cùng hợp đồng với NghiTTS / VieNeu
 /// - Đi qua `PiperSynthesisCoordinator` ⇒ 4 mức ưu tiên, gộp theo `synthesisKey`, mỗi lúc một lượt tổng hợp. Lượt bị
 ///   huỷ dừng trước chunk front-end kế tiếp (thẻ huỷ của `VttsRuntime`) và ném `CancellationError` — không ghi lỗi.
-/// - **Không có tốc độ tổng hợp**: tham số `speed` bị bỏ qua, luôn tổng hợp `length_scale = 1`; tốc độ nghe do
-///   `NghiAudioPlayerQueue` lo như VieNeu (đổi tốc độ không phải tổng hợp lại).
+/// - **Tự đọc nhanh** (1.3.1036): `speed` = tốc độ tạo tiếng (`TTSManager.localSynthesisSpeed`, kẹp `nativeSpeedRange`)
+///   ⇒ `length_scale = 1 / speed`; `NghiAudioPlayerQueue` chỉ kéo phần vượt 2,0× (`TTSManager.localPlaybackRate`). Trước
+///   đó luôn tổng hợp 1× rồi để `AVAudioPlayer` kéo nhanh — anh Bửu nghe ở 1,8× thấy tiếng "vụt" ở chỗ vtts nối mảnh, bản
+///   tạo tiếng nhanh từ gốc thì hết.
 /// - Khoảng lặng đuôi theo `boundaryKind`: `VieNeuTTSEngine.pauseSeconds(for:)` — cùng khoá `*PauseDuration` và mặc định
-///   với NghiTTS, không chia theo tốc độ (như Turbo). Giữa các câu trong đoạn: 150 ms của vtts (`VTTS_CHUNK_GAP_MS`).
+///   với NghiTTS — **chia cho tốc độ tạo tiếng** (như Nano) để nhịp giữ như lúc trình phát kéo cả đoạn. Giữa các câu trong
+///   đoạn: 150 ms của vtts (`VTTS_CHUNK_GAP_MS`, không đổi theo tốc độ).
 /// - Chữ tới đây đã qua `TTSReplacementManager` ở tầng trên. Ở đây chỉ áp "Phiên âm tiếng Nhật" của **chính** trình đọc
 ///   (`TTSJapaneseTextTransliterator`, khoá `ttsJapaneseTransliterationEnabled.vtts`, chưa có khoá ⇒ tắt) — ở tầng service
 ///   để giọng dự phòng nhận chữ gốc (`tts.md`) — rồi chuẩn hoá NFC: chữ lấy từ web đôi khi ở dạng NFD (dấu tách rời),
 ///   front-end C so từng code point.
-/// - Âm lượng mỗi đoạn kéo về mốc −16 dBFS lúc có tiếng (`VttsLoudness`, 1.3.1033) — model xuất nhỏ.
+/// - Đuôi cụt ở chỗ vtts nối mảnh làm nhỏ dần (`VttsEdgeFade`), rồi chỉnh tiếng + kéo mức + ghìm đỉnh (`VttsLoudness`,
+///   "bản 4" anh Bửu chọn, 1.3.1036) — model xuất nhỏ và đục.
 /// - WAV PCM16 mono ở tần số của model (22 050 Hz); `pcmDuration` gồm khoảng lặng đuôi; RTF (`TTSEngineRTFStore`) chia
 ///   cho phần lời đọc.
 final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
@@ -26,6 +30,10 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
     static let tool = "vtts"
     /// Tần số của các giọng vi-en — dùng cho đoạn im lặng tự sinh (không cần nạp model).
     static let sampleRate = 22_050
+
+    /// Dải tốc độ vtts tự đọc (1.3.1036). Trên 2,0× chưa thử tai ⇒ phần vượt để trình phát kéo; dưới 1,0× giữ cách cũ
+    /// (trình phát kéo chậm) — chưa có lý do đổi.
+    static let nativeSpeedRange: ClosedRange<Double> = 1.0...2.0
 
     private let runtime = VttsRuntime.shared
 
@@ -81,14 +89,19 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         synthesisKey: String? = nil
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         let resolved = VttsVoice.resolve(voice)
-        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(text: text, voice: resolved, boundaryKind: boundaryKind)
+        let nativeSpeed = Self.clampedNativeSpeed(speed)
+        let effectiveKey = synthesisKey ?? Self.makeDefaultSynthesisKey(
+            text: text, voice: resolved, speed: nativeSpeed, boundaryKind: boundaryKind
+        )
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
             requestID: requestID,
             synthesisKey: effectiveKey
         ) { [weak self] in
             guard let self else { throw CancellationError() }
-            return try await self.executeInternalSynthesis(text: text, voice: resolved, boundaryKind: boundaryKind)
+            return try await self.executeInternalSynthesis(
+                text: text, voice: resolved, speed: nativeSpeed, boundaryKind: boundaryKind
+            )
         }
         return (
             data: payload.data,
@@ -101,6 +114,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
     private func executeInternalSynthesis(
         text: String,
         voice: VttsVoice,
+        speed: Double,
         boundaryKind: TTSBoundaryKind
     ) async throws -> PiperSynthesisPayload {
         if PiperTTSService.isUnspeakable(text) { return Self.silencePayload(text: text) }
@@ -112,15 +126,16 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         try Task.checkCancellation()
 
         let started = ProcessInfo.processInfo.systemUptime
-        let output = try await runtime.synthesize(text: spoken, voice: voice, lengthScale: 1)
+        let output = try await runtime.synthesize(text: spoken, voice: voice, lengthScale: Float(1 / speed))
         // Front-end không ra chunk nào (chỉ ký hiệu vtts không đọc) ⇒ im lặng theo khuôn chung, không phải lỗi.
         guard !output.samples.isEmpty else { return Self.silencePayload(text: text) }
 
         let sampleRate = max(1, output.sampleRate)
-        let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind)
+        let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind) / speed
         var samples = output.samples
-        // Model xuất nhỏ (đo CI: nu-10 −24 dBFS, nam-1 −20 dBFS lúc có tiếng) ⇒ kéo về mốc chung trước khi nối khoảng lặng.
-        let gainDb = VttsLoudness.normalize(&samples, sampleRate: sampleRate, fallbackGainDb: voice.defaultLoudnessGainDb)
+        // Đuôi cụt ở chỗ nối mảnh ⇒ nhỏ dần; rồi bản 4 (chỉnh tiếng, kéo mức, ghìm đỉnh) — đều trước khi nối khoảng lặng.
+        let abruptEdges = VttsEdgeFade.apply(&samples, sampleRate: sampleRate)
+        let loudness = VttsLoudness.process(&samples, sampleRate: sampleRate, fallbackGainDb: voice.defaultLoudnessGainDb)
         samples.append(contentsOf: repeatElement(Float(0), count: Int(Double(sampleRate) * pause)))
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let speechSeconds = Double(output.samples.count) / Double(sampleRate)
@@ -128,7 +143,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         TTSEngineRTFStore.shared.record(text: text, synthesisMs: synthesisMs, speechSeconds: speechSeconds)
         Self.logChunk(
             text: text, voice: voice, output: output, synthesisMs: synthesisMs, speechSeconds: speechSeconds,
-            pause: pause, gainDb: gainDb, boundaryKind: boundaryKind
+            speed: speed, pause: pause, loudness: loudness, abruptEdges: abruptEdges, boundaryKind: boundaryKind
         )
         return PiperSynthesisPayload(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: sampleRate, channels: 1),
@@ -138,15 +153,18 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         )
     }
 
-    /// Một dòng mỗi đoạn: số ký tự, số câu (chunk front-end), ms trong C / cả lượt, giây tiếng, RTF, nhiệt.
+    /// Một dòng mỗi đoạn: số ký tự, số câu (chunk front-end), ms trong C / cả lượt, giây tiếng, tốc độ tạo tiếng, mức tăng /
+    /// ghìm, số chỗ cụt đã làm nhỏ dần, RTF, nhiệt.
     private static func logChunk(
         text: String,
         voice: VttsVoice,
         output: VttsRuntime.Output,
         synthesisMs: Double,
         speechSeconds: Double,
+        speed: Double,
         pause: Double,
-        gainDb: Float,
+        loudness: VttsLoudness.Result,
+        abruptEdges: Int,
         boundaryKind: TTSBoundaryKind
     ) {
         let rtf = speechSeconds > 0.001 ? String(format: "%.3f", synthesisMs / 1_000 / speechSeconds) : "—"
@@ -157,8 +175,11 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "runMs=%.0f", output.runMs),
             String(format: "synthMs=%.0f", synthesisMs),
             String(format: "audio=%.2fs", speechSeconds),
+            String(format: "speed=%.2f", speed),
             String(format: "pause=%.2fs", pause),
-            String(format: "gain=+%.1fdB", gainDb),
+            String(format: "gain=+%.1fdB", loudness.gainDb),
+            String(format: "limit=%.1fdB", loudness.limitDb),
+            "cut=\(abruptEdges)",
             "RTF=\(rtf)",
             "boundary=\(boundaryKind.rawValue)",
             "thermal=\(ProcessInfo.processInfo.thermalState.rawValue)"
@@ -172,10 +193,21 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         return PiperSynthesisPayload(data: data, pcmDuration: spec.pcmDuration, speechDuration: 0)
     }
 
+    /// Tốc độ tạo tiếng hợp lệ: kẹp `nativeSpeedRange`, giá trị lạ (≤ 0, NaN) ⇒ 1×.
+    static func clampedNativeSpeed(_ speed: Double) -> Double {
+        guard speed.isFinite, speed > 0 else { return 1 }
+        return min(nativeSpeedRange.upperBound, max(nativeSpeedRange.lowerBound, speed))
+    }
+
     /// Key mặc định khi caller bỏ trống — khuôn `auto-<digest>` như VieNeu, tiền tố `vtts` ⇒ không trùng khoá của engine
-    /// khác trong `PiperSynthesisCoordinator` dùng chung. Không có tốc độ: vtts luôn tổng hợp 1×.
-    private static func makeDefaultSynthesisKey(text: String, voice: VttsVoice, boundaryKind: TTSBoundaryKind) -> String {
-        let raw = "vtts|\(voice.rawValue)|\(boundaryKind.rawValue)|\(text)"
+    /// khác trong `PiperSynthesisCoordinator` dùng chung. Có tốc độ tạo tiếng (1.3.1036) ⇒ tiếng 1× và 1,8× không lẫn nhau.
+    private static func makeDefaultSynthesisKey(
+        text: String,
+        voice: VttsVoice,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind
+    ) -> String {
+        let raw = "vtts|\(voice.rawValue)|\(String(format: "%.2f", speed))|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

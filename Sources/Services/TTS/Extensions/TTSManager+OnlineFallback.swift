@@ -259,10 +259,13 @@ extension TTSManager {
         noteOnlineAudio(index: index)
     }
 
-    /// Tốc độ `AVAudioPlayer` của đường remote: đoạn dự phòng phát theo tốc độ của engine dự phòng.
+    /// Tốc độ `AVAudioPlayer` của đường remote: đoạn dự phòng phát theo tốc độ của engine dự phòng. vtts đã tự đọc nhanh
+    /// tới `vttsSynthesisSpeed` (1.3.1036, `onlineFallbackAudio` tổng hợp với `localSynthesisSpeed`) ⇒ chỉ kéo phần còn lại;
+    /// VieNeu giữ nguyên (tốc độ nghe cố ý là tích hai thanh).
     func remotePlaybackRate(for index: Int) -> Double {
         guard let engine = onlineFallbackEngine(forChunk: index) else { return speed }
-        return TTSOnlineFallbackSettings.playbackSpeed(for: engine)
+        let playback = TTSOnlineFallbackSettings.playbackSpeed(for: engine)
+        return engine == .vtts ? playback / Self.vttsSynthesisSpeed : playback
     }
 
     /// Tên trình đọc online cho toast / log: "Google TTS" hoặc tên tiện ích.

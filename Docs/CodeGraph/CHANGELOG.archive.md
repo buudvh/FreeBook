@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1006] - 2026-11-19
+
+### fix: Danh sách tab danh mục ở Khám phá không còn tự kéo lệch khi quay về từ Chi tiết / tab khác
+
+Anh Bửu: "khi scroll list ở Khám phá rồi chuyển tab khác hoặc vào chi tiết rồi trở về thì danh sách có cảm giác bị chạy đi" → "tra xong nguyên nhân thì fix rồi push luôn".
+
+- **Nguyên nhân** (`DiscoveryCategoryTabView`, tab `home` kiểu cũ — kiểu Danh sách lẫn Lưới): mỗi lần nội dung tab hiện lại (back từ Chi tiết, đổi tab chính rồi về, quay về tab danh mục kề bên), `.onAppear` lấy neo của `DiscoveryScrollAnchorStore` (link hàng trên cùng lúc rời) và 0,2 s sau `scrollTo(neo, .top)` — kể cả khi trang **không** bị dỡ và `UIScrollView` vẫn giữ đúng chỗ cuộn. Hàng neo thường đang bị che một phần ⇒ cả danh sách bị kéo lệch; neo không bao giờ xoá nên lần nào về cũng nhảy. Biến thể nhảy xa: lúc đẩy Chi tiết các hàng có thể báo tắt trước tab ⇒ không chốt neo mới ⇒ về lại thì kéo tới neo cũ từ lần đổi tab trước.
+- **Sửa**: lượt khôi phục từ `.onAppear` chỉ chạy khi **hàng đầu tiên đang hiện** (danh sách đang ở đầu = trang vừa bị `TabView(.page)` dỡ / ra ngoài cửa sổ ±3 tab) — kiểm lúc cuộn, sau 0,2 s; trang còn giữ chỗ cuộn thì để nguyên. Lượt khôi phục khi danh sách vừa nạp xong hàng đầu (từ 0 mục) giữ như cũ.
+- Chưa sửa (ghi nhận từ lúc tra): bộ dịch tiện ích thay bản QT có thể đổi số dòng tên / mô tả của hàng phía trên ⇒ lệch nhẹ; tiêu đề lớn mới (1.3.984) của Thể loại / Xem thêm có thể bung / thu khi back — cần thử trên máy.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.1005] - 2026-11-19
 
 ### fix: Kệ ở "Chỉ NSFW" vẫn có thanh chip Tất cả / Truyện chữ / Truyện tranh / Phim / Âm thanh

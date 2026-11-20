@@ -164,13 +164,15 @@ extension TTSManager {
         VieNeuSynthesisPolicy.synthesisSpeed(from: .standard)
     }
 
-    /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ tổng hợp**, các
-    /// engine local khác giữ 1,0 như cũ. **Không** có cache nào tự vô hiệu theo giá trị này (khoá prefix
-    /// chương kế không chứa nó) ⇒ đổi tốc độ tổng hợp phải đi qua `invalidateVieNeuSynthesisSpeed()`.
+    /// Tốc độ truyền vào engine cho một lượt tổng hợp local: VieNeu dùng **tốc độ tổng hợp**, vtts tự đọc nhanh theo
+    /// thanh Tốc độ (`vttsSynthesisSpeed`, 1.3.1036), NghiTTS giữ 1,0. **Không** có cache nào tự vô hiệu theo giá trị này
+    /// (khoá prefix chương kế không chứa nó) ⇒ đổi tốc độ tổng hợp của VieNeu phải đi qua `invalidateVieNeuSynthesisSpeed()`;
+    /// tốc độ của vtts chỉ đổi ở sheet Cài đặt TTS (`speed` nằm trong `TTSSettingsSnapshot` ⇒ đóng sheet là xoá hết đệm).
     ///
     /// Turbo **không** có tốc độ tổng hợp ⇒ 1,0 — nếu không thì tốc độ đã lưu của Nano lọt vào khoá tổng hợp của Turbo.
     nonisolated static func localSynthesisSpeed(forTool tool: String) -> Double {
-        tool == "vieneu" && VieNeuModelChoice.current == .nano ? vieNeuSynthesisSpeed : 1.0
+        if tool == VttsSettings.tool { return vttsSynthesisSpeed }
+        return tool == "vieneu" && VieNeuModelChoice.current == .nano ? vieNeuSynthesisSpeed : 1.0
     }
 
     /// Đổi "Tốc độ tổng hợp" **giữa lúc đang đọc**: phát nốt đoạn hiện tại, nạp lại phần còn lại.
@@ -243,7 +245,7 @@ extension TTSManager {
             setVieNeuSafeCachedTimeThreshold(VieNeuSynthesisPolicy.bufferedSecondsTarget)
             prefetchDelayMs = 500
         case VttsSettings.tool:
-            // Trùng `applyVttsParamsIfNeeded()`: 150 ký tự, độ trễ 500 ms. Ngưỡng đệm dùng chung NghiTTS (không có hàng riêng).
+            // Trùng `applyVttsParamsIfNeeded()`: 500 ký tự (1.3.1035), độ trễ 500 ms. Ngưỡng đệm dùng chung NghiTTS (không có hàng riêng).
             chunkLength = VttsSettings.defaultChunkLength
             prefetchDelayMs = 500
         case "system":

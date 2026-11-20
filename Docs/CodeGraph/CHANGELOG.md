@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1036] - 2026-11-20
+
+### fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn
+
+Anh Bửu nghe 4 bản vtts tạo tiếng nhanh 1,8× ngay từ gốc (CI 1.3.1035, câu "…phiên bản, đem mệnh danh…"): "4 cái đều không có tiếng vụt" ⇒ tiếng "vụt" ở 1,8× là do `AVAudioPlayer` kéo nhanh tiếng vtts. Duyệt plan bước 2 kèm "bản 4" (anh đã chọn trong lượt nghe so âm lượng).
+
+- **Tự đọc nhanh**: `TTSManager.localSynthesisSpeed(forTool: "vtts")` = `vttsSynthesisSpeed` (khoá `vttsRate` kẹp `VttsTTSService.nativeSpeedRange` 1,0–2,0, chung trình đọc chính và giọng dự phòng) ⇒ `VttsTTSService` đưa `length_scale = 1 / tốc độ` vào vtts, khoảng lặng đuôi chia cho tốc độ, khoá tổng hợp mặc định có tốc độ. Trình phát chỉ kéo phần còn lại: `TTSManager.localPlaybackRate` (sửa tại chỗ 2 dòng `NghiAudioPlayerQueue.start` / `updateRate` của `TTSManager.swift`, không thêm dòng) và `remotePlaybackRate` khi vtts là giọng dự phòng. NghiTTS / VieNeu không đổi. Tốc độ chỉ đổi ở sheet Cài đặt TTS, nằm trong `TTSSettingsSnapshot` ⇒ đóng sheet là xoá hết đệm (cả đầu chương kế).
+- **Đuôi cụt** — `VttsEdgeFade` (mới): WAV CI cho thấy mảnh vtts kết thúc ở dấu phẩy (vtts tự cắt câu > 40 âm tiết) bị cắt lúc âm còn −36 dBFS rồi rơi thẳng về 0 (cả hai giọng ở 1×). Làm nhỏ dần 20 ms trước mỗi khe số 0 tuyệt đối ≥ 100 ms (khe 150 ms bridge chèn) và ở cuối tiếng, to dần 5 ms sau khe; log `cut=`.
+- **Bản 4** — `VttsLoudness.process` (viết lại): lọc thông cao 150 Hz + nâng +6 dB quanh 2,8 kHz (biquad RBJ) → RMS khung 20 ms có tiếng về −14 dBFS (≈ −16 LUFS; trước −16 dBFS), tăng tối đa +18 dB → ghìm đỉnh ≤ −1 dBFS (cực tiểu ±5 ms, trung bình trượt ±5 ms, nhả 80 ms) thay cho cách hạ cả đoạn của 1.3.1033 (cách cũ chặn mức to ~−17,5 LUFS). `VttsVoice.defaultLoudnessGainDb` theo mốc mới (nu-10 +10,5, nam-1 +7 dB). Log `🗣️ [Vtts] Đoạn` thêm `speed=`, `limit=`. Thuật toán trùng bản Python đã dựng 4 file anh nghe (nu-10 tốc độ gốc: +11,6 dB, ghìm −3,8 dB).
+- CI: gỡ `render_listening_samples` (tạm của 1.3.1035) — `check_vtts_assets.sh` / `build-ipa.yml` về như trước 1.3.1034.
+- Dọn: entry 1.3.1006 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi tự đọc nhanh, `VttsEdgeFade`, bản 4. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1035] - 2026-11-20
 
 ### fix: vtts — độ dài phân đoạn mặc định 500, log độ trễ chuyển đoạn, CI dựng câu nghe thử ở tốc độ gốc
@@ -426,14 +438,3 @@ Nay (anh Bửu: "Sửa vietphrase thì hiển thị danh sách của vietphrase.
 File: Models/Dictionaries/{FrozenTrieDictionary, FrozenTrieDictionary+Walk (mới)}, Services/Translation/Manager/BaseDictionaryBrowser (mới), Views/Dictionary/GlobalBaseDictionaryListView (mới), Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController (chỉ comment)}, .claude/rules/translation.md.
 
 Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần đo trên máy thời gian / RAM khi đọc mảng khoá VietPhrase cỡ triệu mục và tốc độ tìm theo nghĩa. Thứ tự hàng là thứ tự cây (gần theo chữ, không sắp xếp lại). File .txt xuất từ thẻ (GlobalDictionaryTextExporter) nay ra theo thứ tự cây mới — cùng nội dung, khác thứ tự dòng.
-
-## [1.3.1006] - 2026-11-19
-
-### fix: Danh sách tab danh mục ở Khám phá không còn tự kéo lệch khi quay về từ Chi tiết / tab khác
-
-Anh Bửu: "khi scroll list ở Khám phá rồi chuyển tab khác hoặc vào chi tiết rồi trở về thì danh sách có cảm giác bị chạy đi" → "tra xong nguyên nhân thì fix rồi push luôn".
-
-- **Nguyên nhân** (`DiscoveryCategoryTabView`, tab `home` kiểu cũ — kiểu Danh sách lẫn Lưới): mỗi lần nội dung tab hiện lại (back từ Chi tiết, đổi tab chính rồi về, quay về tab danh mục kề bên), `.onAppear` lấy neo của `DiscoveryScrollAnchorStore` (link hàng trên cùng lúc rời) và 0,2 s sau `scrollTo(neo, .top)` — kể cả khi trang **không** bị dỡ và `UIScrollView` vẫn giữ đúng chỗ cuộn. Hàng neo thường đang bị che một phần ⇒ cả danh sách bị kéo lệch; neo không bao giờ xoá nên lần nào về cũng nhảy. Biến thể nhảy xa: lúc đẩy Chi tiết các hàng có thể báo tắt trước tab ⇒ không chốt neo mới ⇒ về lại thì kéo tới neo cũ từ lần đổi tab trước.
-- **Sửa**: lượt khôi phục từ `.onAppear` chỉ chạy khi **hàng đầu tiên đang hiện** (danh sách đang ở đầu = trang vừa bị `TabView(.page)` dỡ / ra ngoài cửa sổ ±3 tab) — kiểm lúc cuộn, sau 0,2 s; trang còn giữ chỗ cuộn thì để nguyên. Lượt khôi phục khi danh sách vừa nạp xong hàng đầu (từ 0 mục) giữ như cũ.
-- Chưa sửa (ghi nhận từ lúc tra): bộ dịch tiện ích thay bản QT có thể đổi số dòng tên / mô tả của hàng phía trên ⇒ lệch nhẹ; tiêu đề lớn mới (1.3.984) của Thể loại / Xem thêm có thể bung / thu khi back — cần thử trên máy.
-- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
