@@ -26,14 +26,11 @@ extension TranslateUtils {
     ) -> TranslatedTextResult {
         guard !original.isEmpty else { return compute() }
 
-        // Cờ đại từ đọc đúng nguồn mà `compute` sẽ thấy: snapshot đang mở cho cùng `bookId` (được `withSnapshot`
-        // dùng lại), không thì `UserDefaults` (thứ `capture` sẽ đọc).
-        let context = TranslationReadContext.current.flatMap { $0.bookId == bookId ? $0 : nil }
-        let isPronounsEnabled = context?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
         let generation = TranslationReadContext.cacheGeneration(for: bookId)
         // Cờ bộ rule tên chương: đường này là nội dung nên cờ luôn tắt, nhưng có trong khoá thì không bao giờ lẫn kết quả.
+        // (Cờ đại từ từng đứng trước nó trong khoá; bỏ ở 1.3.1016 cùng công tắc "Dịch đại từ".)
         let titleRules = TranslationReadContext.appliesChapterTitleRules ? 1 : 0
-        let key = "\(generation)|\(bookId ?? "global")|\(convert ? 1 : 0)|\(isPronounsEnabled ? 1 : 0)\(titleRules)|\(original.md5())"
+        let key = "\(generation)|\(bookId ?? "global")|\(convert ? 1 : 0)|\(titleRules)|\(original.md5())"
         let lookup = mappingResultCache.lookup(key)
         if let cached = lookup.value { return cached }
 

@@ -164,7 +164,6 @@ struct ReaderView: View {
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
     @AppStorage("readerLineSpacing") internal var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
     @State internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật (đồng bộ theo TranslationConfigStore)
-    @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @State var shouldConvertTraditionalToSimplified = false
     @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
@@ -416,7 +415,6 @@ struct ReaderView: View {
                 fontFamily: $fontFamily,
                 selectedTheme: $selectedTheme,
                 isTranslationEnabled: $isTranslationEnabled,
-                isPronounsEnabled: $isTranslationPronounsEnabled,
                 showChapterTitle: $showChapterTitle,
                 removeDuplicatedTitle: $removeDuplicatedTitle,
                 packageId: localBook?.extensionPackageId ?? "",
@@ -533,10 +531,6 @@ struct ReaderView: View {
                 shouldConvertTraditionalToSimplified: newValue
             )
             scheduleCoalescedTranslationRefresh()
-        }
-        .onChange(of: isTranslationPronounsEnabled) { _, _ in
-            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
-            applyTranslation()
         }
         .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { notification in
             let targetBookId = notification.userInfo?["bookId"] as? String

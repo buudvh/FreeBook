@@ -9,7 +9,6 @@ struct ReaderSettingsView: View {
     @Binding var fontFamily: ReaderFontFamily
     @Binding var selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
-    @Binding var isPronounsEnabled: Bool
     @Binding var showChapterTitle: Bool
     @Binding var removeDuplicatedTitle: Bool
 
@@ -119,8 +118,8 @@ struct ReaderSettingsView: View {
                 .background(Color(UIColor.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal)
 
+                // Công tắc "Bật dịch Đại từ" đã bỏ (1.3.1016): đại từ chỉ dịch qua rule `<pn>`.
                 if isTranslationEnabled {
-                    translationOptions
                     ruleEngineOptions
                 }
 
@@ -239,16 +238,6 @@ struct ReaderSettingsView: View {
             .accessibilityLabel("Kiểu chữ, \(fontFamily.rawValue)")
         }
         .padding(.horizontal)
-    }
-
-    @ViewBuilder
-    private var translationOptions: some View {
-        VStack(spacing: 16) {
-            Toggle("Bật dịch Đại từ (Pronouns)", isOn: $isPronounsEnabled)
-                .font(.subheadline)
-                .padding(.horizontal)
-                .padding(.leading, 12)
-        }
     }
 
     @ViewBuilder

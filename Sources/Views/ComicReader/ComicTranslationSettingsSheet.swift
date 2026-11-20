@@ -4,12 +4,10 @@ import SwiftUI
 /// `ReaderSettingsView`:
 /// - Dịch · Truyện này: Theo nguồn / Bật / Tắt — Nguồn: Toàn cục / Bật / Tắt — Mặc định toàn cục. Cùng kho với truyện chữ và
 ///   trang Chi tiết (`TranslationConfigStore`), một công tắc cho cả tên chương lẫn dịch ảnh.
-/// - Khi đang bật: dịch đại từ (cài đặt
-///   chung của app, cùng khoá `@AppStorage` với Reader), thứ tự ưu tiên rule + token rule của truyện (mở lại hai màn của
-///   Reader).
+/// - Khi đang bật: thứ tự ưu tiên rule + token rule của truyện (mở lại hai màn của Reader). Công tắc "Dịch đại từ" đã bỏ
+///   (1.3.1016) như ở Reader và Cài đặt dịch thuật: đại từ chỉ dịch qua rule `<pn>`.
 ///
-/// Chọn là ghi ngay; kho bắn thông báo nên màn đọc dịch lại (đại từ đi qua
-/// `TranslationManager.notifyDictionariesDidUpdate` như Reader). Không sửa `ReaderSettingsView` (lặp vài picker là chủ ý).
+/// Chọn là ghi ngay; kho bắn thông báo nên màn đọc dịch lại. Không sửa `ReaderSettingsView` (lặp vài picker là chủ ý).
 /// Không có nút chỉ để đóng: vuốt xuống.
 struct ComicTranslationSettingsSheet: View {
     typealias ScopeOverride = TranslationConfigStore.ScopeOverride
@@ -19,7 +17,6 @@ struct ComicTranslationSettingsSheet: View {
     let sourceName: String
     let isChineseSourceHint: Bool?
 
-    @AppStorage("isTranslationPronounsEnabled") private var isPronounsEnabled = false
     @State private var bookOverride: ScopeOverride
     @State private var sourceOverride: ScopeOverride
     @State private var globalEnabled: Bool
@@ -108,8 +105,6 @@ struct ComicTranslationSettingsSheet: View {
 
     private var methodSection: some View {
         Section {
-            Toggle("Dịch đại từ (Pronouns)", isOn: $isPronounsEnabled)
-                .onChange(of: isPronounsEnabled) { _, _ in notifyEngineSettingChanged() }
             ruleRow(
                 title: "Thứ tự ưu tiên rule",
                 detail: QuickTranslationBookEngineConfigStore.shared.hasPriorityOverride(bookId: bookId)
@@ -124,8 +119,7 @@ struct ComicTranslationSettingsSheet: View {
             }
         } header: {
             SectionHelpHeader("Cách dịch", texts: [
-                Text("Thứ tự ưu tiên rule và token rule chỉ áp cho truyện này. Phồn → giản nằm ở nút dịch trên thanh trên (theo phạm vi Truyện / Nguồn / Tất cả)."),
-                Text("Dịch đại từ là cài đặt chung của cả app, như ở Cài đặt trình đọc.")
+                Text("Thứ tự ưu tiên rule và token rule chỉ áp cho truyện này. Phồn → giản nằm ở nút dịch trên thanh trên (theo phạm vi Truyện / Nguồn / Tất cả).")
             ])
         }
     }
@@ -181,10 +175,5 @@ struct ComicTranslationSettingsSheet: View {
     private func refresh() {
         let current = store.isTranslationEnabled(bookId: bookId, packageId: packageId, isChineseSourceHint: isChineseSourceHint)
         if current != isEnabled { isEnabled = current }
-    }
-
-    /// Như `ReaderView` khi đổi hai công tắc chung: xoá cache dịch rồi báo `.translationDictionariesDidUpdate`.
-    private func notifyEngineSettingChanged() {
-        TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
     }
 }

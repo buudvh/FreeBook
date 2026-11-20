@@ -309,13 +309,12 @@ public final class TranslateUtils {
         }
     }
     
+    /// Thứ tự Name ⇒ VietPhrase. Không tra Pronouns (1.3.1016, công tắc "Dịch đại từ" đã bỏ): đại từ chỉ qua rule `<pn>`.
     private static func lookupRawTranslation(for token: String, bookId: String?) -> String? {
-        let isPronounsEnabled = TranslationReadContext.current?.pronounsEnabled ?? UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
         let manager = TranslationManager.shared
         let names = manager.namesDict
         let customNames = manager.customNamesDict
         let deletedNames = manager.deletedNames
-        let pronouns = isPronounsEnabled ? manager.pronounsDict : nil
         let vp = manager.vietPhraseDict
         let customVP = manager.customVietPhraseDict
         let deletedVP = manager.deletedVietPhrase
@@ -348,28 +347,21 @@ public final class TranslateUtils {
             return match.value
         }
         
-        // 4. Pronouns
-        if let pronouns = pronouns,
-           let match = pronouns.findLongestMatch(text: token, startIndex: 0),
-           match.length == token.utf16.count {
-            return match.value
-        }
-        
-        // 5. Book VietPhrase
+        // 4. Book VietPhrase
         if let bookVP = bookVP,
            let match = bookVP.findLongestMatch(text: token, startIndex: 0),
            match.length == token.utf16.count {
             return match.value
         }
         
-        // 6. Custom VietPhrase
+        // 5. Custom VietPhrase
         if let customVP = customVP,
            let match = customVP.findLongestMatch(text: token, startIndex: 0),
            match.length == token.utf16.count {
             return match.value
         }
         
-        // 7. Base VietPhrase (exclude deleted)
+        // 6. Base VietPhrase (exclude deleted)
         if !deletedVP.contains(token),
            let vp = vp,
            let match = vp.findLongestMatch(text: token, startIndex: 0),

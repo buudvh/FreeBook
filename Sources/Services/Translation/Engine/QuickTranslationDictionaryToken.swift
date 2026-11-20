@@ -22,10 +22,9 @@ public struct QuickTranslationDictionaryToken {
 
     /// Phân giải một lần cho mỗi lượt rewrite.
     ///
-    /// `pronouns` **không** đi theo công tắc `isTranslationPronounsEnabled` (quyết định của chủ dự án,
-    /// đổi so với plan §17 #5b): công tắc đó điều khiển việc *tra từ điển đại từ cho từng token* ở
-    /// tokenizer, còn ở đây `<pn>` là **ràng buộc của một rule người dùng chủ động viết** — rule
-    /// `<pn>一半 = một nửa của {0}` mà im lặng không nổ vì một công tắc ở màn khác là hành vi khó hiểu.
+    /// `pronouns` luôn dùng khi đã nạp: `<pn>` là **ràng buộc của một rule người dùng chủ động viết**. Từ 1.3.1016 đây
+    /// là **đường duy nhất** dịch bằng từ điển đại từ — công tắc `isTranslationPronounsEnabled` (từng cho tokenizer tra
+    /// Pronouns cho mọi token) đã bỏ, tách từ ngoài rule không tra Pronouns nữa.
     /// Từ điển `Pronouns` vẫn là optional nên `pronounsDict == nil` vẫn cho `DICT_TOKEN_WITHOUT_DICTIONARY`.
     public static func resolve(bookId: String?) -> QuickTranslationDictionaryToken {
         let manager = TranslationManager.shared

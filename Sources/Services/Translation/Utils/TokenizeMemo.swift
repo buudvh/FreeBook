@@ -20,20 +20,16 @@ final class TokenizeMemo {
     private let cache = TranslationMemo<[String]>(maxEntries: 512, maxCost: 4 * 1024 * 1024)
     private init() {}
 
-    /// `compute` chỉ chạy khi chưa có trong memo.
-    ///
-    /// Cờ đại từ vào khoá tường minh dù `generation` thường đã phủ nó: cờ được đọc thẳng từ
-    /// `UserDefaults` trong tokenizer, nên nếu có đường nào đổi cờ mà không bump generation thì khoá vẫn đúng.
+    /// `compute` chỉ chạy khi chưa có trong memo. (Cờ đại từ từng nằm trong khoá; bỏ ở 1.3.1016 cùng công tắc.)
     func tokens(
         text: String,
         bookId: String?,
-        isPronounsEnabled: Bool,
         generation: Int,
         compute: () -> [String]
     ) -> [String] {
         guard !text.isEmpty else { return [] }
 
-        let key = "\(generation)|\(bookId ?? "global")|\(isPronounsEnabled ? 1 : 0)|\(text.md5())"
+        let key = "\(generation)|\(bookId ?? "global")|\(text.md5())"
         let lookup = cache.lookup(key)
         if let hit = lookup.value { return hit }
         let value = compute()
