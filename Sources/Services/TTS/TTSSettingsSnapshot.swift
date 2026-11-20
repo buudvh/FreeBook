@@ -12,6 +12,9 @@ import Foundation
 /// `japaneseTransliteration` (1.3.973) là công tắc "Phiên âm tiếng Nhật" của **trình đọc chính** — với VieNeu nó thay
 /// `vieneuJapaneseNameSyllablesEnabled` và, khác các khoá `vieneu*` còn lại, **có** dựng lại đoạn (đổi chữ đưa vào engine).
 ///
+/// `vttsNativeSpeedMax` (1.3.1037): "vtts tự đọc nhanh tối đa" — như `speed`, đổi là đổi tiếng vtts tạo ra (tốc độ đưa vào
+/// model), nên đóng Cài đặt phải dựng lại đoạn + xoá đệm. Trình đọc khác đổi giá trị này cũng dựng lại (hiếm, vô hại).
+///
 /// Ngoại lệ thứ hai: `onlineFallback` (1.3.945) — cài đặt giọng dự phòng của trình đọc online (`TTSOnlineFallbackSettings`
 /// `.fingerprint`); đổi ⇒ dựng lại đoạn để bỏ tiếng dự phòng đã nạp trước theo cài đặt cũ.
 struct TTSSettingsSnapshot: Equatable {
@@ -37,6 +40,7 @@ struct TTSSettingsSnapshot: Equatable {
     /// "Phiên âm tiếng Nhật" của trình đọc chính (1.3.973, lưu riêng từng trình đọc) — đổi là đổi chữ đưa vào engine.
     let japaneseTransliteration: Bool
     let onlineFallback: String
+    let vttsNativeSpeedMax: Double
 
     /// Đọc các khoá `UserDefaults` **tại thời điểm gọi** (hai thời điểm: `prepareForSettings`, `resumeAfterSettings`).
     static func capture(
@@ -72,7 +76,8 @@ struct TTSSettingsSnapshot: Equatable {
             dictionaryReplacement: UserDefaults.standard.object(forKey: PreprocessorSettingKey.dictionaryReplacementEnabled) as? Bool ?? true,
             transliteration: UserDefaults.standard.object(forKey: PreprocessorSettingKey.transliterationEnabled) as? Bool ?? true,
             japaneseTransliteration: TTSJapaneseTransliterationSettings.isEnabled(forTool: tool),
-            onlineFallback: TTSOnlineFallbackSettings.fingerprint(mainTool: tool)
+            onlineFallback: TTSOnlineFallbackSettings.fingerprint(mainTool: tool),
+            vttsNativeSpeedMax: TTSManager.vttsNativeSpeedMax
         )
     }
 }

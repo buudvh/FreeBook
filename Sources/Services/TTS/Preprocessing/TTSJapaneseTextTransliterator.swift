@@ -8,8 +8,12 @@ import Foundation
 /// giọng dự phòng (NghiTTS / VieNeu) nhận chữ gốc và áp cài đặt của chính nó.
 ///
 /// ## Đổi gì (cùng luật với nhánh tiếng Nhật của NghiTTS — `TextPreprocessor.transliterateToken`)
-/// 1. Từ Latin là romaji (`ForeignScriptClassifier`, sau cổng `VietnameseTokenGate` để không đụng chữ Việt không dấu)
-///    ⇒ âm tiết Việt: "Sakura" → "Xa cư ra". Token có gạch nối xét từng phần ("Naruto-kun").
+/// 1. Từ Latin là romaji (sau cổng `VietnameseTokenGate` để không đụng chữ Việt không dấu) ⇒ âm tiết Việt: "Sakura" →
+///    "Xa cư ra". Token có gạch nối xét từng phần ("Naruto-kun"). "Là romaji" = `ForeignScriptClassifier` chấm đủ ngưỡng
+///    **hoặc** (1.3.1037) đúng luật tên viết hoa của VieNeu (`VieNeuJapaneseNameReader.reads`: hoa đầu, ≥ 4 chữ, cắt hết
+///    thành âm tiết romaji, không phải âm tiết Việt, không thuộc 507 từ tiếng Anh giống romaji). Trước đó chỉ có bộ chấm
+///    điểm, mà ngưỡng 4 điểm cố ý nghiêng về tiếng Anh ⇒ "Konoha", "Naruto", "Sasuke" (1 điểm) không bao giờ được đổi —
+///    anh Bửu bật công tắc cho vtts mà nghe vẫn tiếng Anh.
 /// 2. Dãy kana (hiragana / katakana) ⇒ romaji ⇒ âm tiết Việt. Chữ Hán giữ nguyên.
 ///
 /// Không bao giờ trả rỗng cho đầu vào khác rỗng: từ không cắt được thành âm tiết thì giữ nguyên.
@@ -26,14 +30,27 @@ enum TTSJapaneseTextTransliterator {
         return parts.map(transliterate)
     }
 
+    /// Như `apply(_:tool:)` nhưng trả thêm công tắc và các cặp đã đổi ("Konoha→Kô nô ha") — cho dòng log của vtts.
+    static func applyReportingChanges(_ text: String, tool: String) -> (text: String, isEnabled: Bool, changes: [String]) {
+        guard TTSJapaneseTransliterationSettings.isEnabled(forTool: tool) else { return (text, false, []) }
+        var changes: [String] = []
+        let result = transliterate(text, changes: &changes)
+        return (result, true, changes)
+    }
+
     /// Phiên âm không xét công tắc. Romaji trước, kana sau: âm tiết Việt sinh từ kana không bị xét lại như từ Latin.
     static func transliterate(_ text: String) -> String {
-        transliterateKanaRuns(in: transliterateRomajiTokens(in: text))
+        var ignored: [String] = []
+        return transliterate(text, changes: &ignored)
+    }
+
+    private static func transliterate(_ text: String, changes: inout [String]) -> String {
+        transliterateKanaRuns(in: transliterateRomajiTokens(in: text, changes: &changes), changes: &changes)
     }
 
     // MARK: - Romaji
 
-    private static func transliterateRomajiTokens(in text: String) -> String {
+    private static func transliterateRomajiTokens(in text: String, changes: inout [String]) -> String {
         let source = text as NSString
         let matches = PreprocessorRegex.token.matches(
             in: text, options: [], range: NSRange(location: 0, length: source.length)
@@ -47,6 +64,7 @@ enum TTSJapaneseTextTransliterator {
                   let spoken = spokenForm(of: token) else { continue }
             result += source.substring(with: NSRange(location: lastOffset, length: match.range.location - lastOffset))
             result += spoken
+            changes.append("\(token)→\(spoken)")
             lastOffset = match.range.location + match.range.length
         }
         guard lastOffset > 0 else { return text }
@@ -78,7 +96,8 @@ enum TTSJapaneseTextTransliterator {
         let spoken = pieces.map { piece -> String in
             // Token ghép: phần trùng âm tiết Việt không dấu ("san" trong "Sasuke-san") giữ nguyên — như NghiTTS.
             if pieces.count > 1, VietnameseWordChecker.isVietnameseWord(piece) { return piece }
-            guard piece.count > 1, JapaneseTransliterator.isJapaneseRomaji(piece) else { return piece }
+            guard piece.count > 1,
+                  JapaneseTransliterator.isJapaneseRomaji(piece) || VieNeuJapaneseNameReader.reads(piece) else { return piece }
             let reading = JapaneseTransliterator.transliterateRomaji(piece)
             // `transliterateRomaji` trả **nguyên từ** khi không cắt được thành âm tiết ⇒ không phải bản phiên âm.
             guard reading.lowercased() != piece.lowercased() else { return piece }
@@ -104,7 +123,7 @@ enum TTSJapaneseTextTransliterator {
         }
     }
 
-    private static func transliterateKanaRuns(in text: String) -> String {
+    private static func transliterateKanaRuns(in text: String, changes: inout [String]) -> String {
         guard text.unicodeScalars.contains(where: isKana) else { return text }
         var result = ""
         var run = ""
@@ -116,7 +135,7 @@ enum TTSJapaneseTextTransliterator {
                 continue
             }
             if !run.isEmpty {
-                appendReading(of: run, to: &result)
+                appendReading(of: run, to: &result, changes: &changes)
                 run = ""
                 needsSpaceBeforeWord = true
             }
@@ -124,14 +143,15 @@ enum TTSJapaneseTextTransliterator {
             needsSpaceBeforeWord = false
             result.append(character)
         }
-        if !run.isEmpty { appendReading(of: run, to: &result) }
+        if !run.isEmpty { appendReading(of: run, to: &result, changes: &changes) }
         return result
     }
 
-    private static func appendReading(of kanaRun: String, to result: inout String) {
+    private static func appendReading(of kanaRun: String, to result: inout String, changes: inout [String]) {
         let romaji = JapaneseTransliterator.convertToRomaji(kanaRun)
         let reading = JapaneseTransliterator.transliterateRomaji(romaji).replacingOccurrences(of: "-", with: " ")
         if let last = result.last, last.isLetter || last.isNumber { result.append(" ") }
         result += reading.isEmpty ? kanaRun : reading
+        if !reading.isEmpty { changes.append("\(kanaRun)→\(reading)") }
     }
 }

@@ -16,7 +16,8 @@ import Foundation
 ///   với NghiTTS — **chia cho tốc độ tạo tiếng** (như Nano) để nhịp giữ như lúc trình phát kéo cả đoạn. Giữa các câu trong
 ///   đoạn: 150 ms của vtts (`VTTS_CHUNK_GAP_MS`, không đổi theo tốc độ).
 /// - Chữ tới đây đã qua `TTSReplacementManager` ở tầng trên. Ở đây chỉ áp "Phiên âm tiếng Nhật" của **chính** trình đọc
-///   (`TTSJapaneseTextTransliterator`, khoá `ttsJapaneseTransliterationEnabled.vtts`, chưa có khoá ⇒ tắt) — ở tầng service
+///   (`TTSJapaneseTextTransliterator`, khoá `ttsJapaneseTransliterationEnabled.vtts`, chưa có khoá ⇒ tắt; log `jp=` từ
+///   1.3.1037) — ở tầng service
 ///   để giọng dự phòng nhận chữ gốc (`tts.md`) — rồi chuẩn hoá NFC: chữ lấy từ web đôi khi ở dạng NFD (dấu tách rời),
 ///   front-end C so từng code point.
 /// - Đuôi cụt ở chỗ vtts nối mảnh làm nhỏ dần (`VttsEdgeFade`), rồi chỉnh tiếng + kéo mức + ghìm đỉnh (`VttsLoudness`,
@@ -122,7 +123,8 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             AppLogger.shared.log("❌ [Vtts] Bản build thiếu tài sản vtts (thư mục \(VttsRuntime.assetSubdirectory)/ trong bundle)")
             throw VttsRuntime.Failure.missingAssets
         }
-        let spoken = TTSJapaneseTextTransliterator.apply(text, tool: Self.tool).precomposedStringWithCanonicalMapping
+        let japanese = TTSJapaneseTextTransliterator.applyReportingChanges(text, tool: Self.tool)
+        let spoken = japanese.text.precomposedStringWithCanonicalMapping
         try Task.checkCancellation()
 
         let started = ProcessInfo.processInfo.systemUptime
@@ -143,7 +145,8 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         TTSEngineRTFStore.shared.record(text: text, synthesisMs: synthesisMs, speechSeconds: speechSeconds)
         Self.logChunk(
             text: text, voice: voice, output: output, synthesisMs: synthesisMs, speechSeconds: speechSeconds,
-            speed: speed, pause: pause, loudness: loudness, abruptEdges: abruptEdges, boundaryKind: boundaryKind
+            speed: speed, pause: pause, loudness: loudness, abruptEdges: abruptEdges,
+            japanese: Self.japaneseLogField(isEnabled: japanese.isEnabled, changes: japanese.changes), boundaryKind: boundaryKind
         )
         return PiperSynthesisPayload(
             data: WAVEncoder.encodePCM16(samples: samples, sampleRate: sampleRate, channels: 1),
@@ -165,6 +168,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         pause: Double,
         loudness: VttsLoudness.Result,
         abruptEdges: Int,
+        japanese: String,
         boundaryKind: TTSBoundaryKind
     ) {
         let rtf = speechSeconds > 0.001 ? String(format: "%.3f", synthesisMs / 1_000 / speechSeconds) : "—"
@@ -180,11 +184,21 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "gain=+%.1fdB", loudness.gainDb),
             String(format: "limit=%.1fdB", loudness.limitDb),
             "cut=\(abruptEdges)",
+            japanese,
             "RTF=\(rtf)",
             "boundary=\(boundaryKind.rawValue)",
             "thermal=\(ProcessInfo.processInfo.thermalState.rawValue)"
         ]
         AppLogger.shared.log("🗣️ [Vtts] Đoạn: " + fields.joined(separator: " "))
+    }
+
+    /// `jp=off` | `jp=on(0)` | `jp=on(3: Konoha→Kô nô ha, Naruto→Na ru tô)` — công tắc "Phiên âm tiếng Nhật" của vtts và
+    /// tối đa 2 cặp đã đổi (mỗi cặp ≤ 40 ký tự), không ghi cả đoạn chữ (1.3.1037).
+    private static func japaneseLogField(isEnabled: Bool, changes: [String]) -> String {
+        guard isEnabled else { return "jp=off" }
+        guard !changes.isEmpty else { return "jp=on(0)" }
+        let samples = changes.prefix(2).map { String($0.prefix(40)) }.joined(separator: ", ")
+        return "jp=on(\(changes.count): \(samples))"
     }
 
     private static func silencePayload(text: String) -> PiperSynthesisPayload {

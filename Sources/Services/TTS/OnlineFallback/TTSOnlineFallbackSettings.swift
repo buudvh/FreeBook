@@ -89,7 +89,8 @@ enum TTSOnlineFallbackSettings {
             return "vieneu|\(VieNeuVoiceSelection.stored.storageValue)|\(speed)|\(synthesis)|\(dictionary)|\(names)|\(nameBoost)"
         case .vtts:
             let japanese = TTSJapaneseTransliterationSettings.isEnabled(forTool: TTSJapaneseTransliterationSettings.vttsTool)
-            return "vtts|\(TTSManager.storedVttsVoice)|\(speed)|\(japanese)"
+            // "vtts tự đọc nhanh tối đa" (1.3.1037) đổi tiếng vtts tạo ra như tốc độ.
+            return "vtts|\(TTSManager.storedVttsVoice)|\(speed)|\(TTSManager.vttsNativeSpeedMax)|\(japanese)"
         }
     }
 }

@@ -12,6 +12,18 @@ extension TTSSettingsView {
         Text("vtts Việt–Anh (Offline)").tag(TTSManager.VttsSettings.tool)
     }
 
+    /// Nút "?" của tiêu đề "Cấu hình giọng nói" khi chọn vtts (1.3.1037) — giải thích hàng "vtts tự đọc nhanh tối đa".
+    var vttsVoiceSectionHelp: some View {
+        SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: VttsNativeSpeedRow.helpParagraphs)
+    }
+
+    /// Nút "Đặt lại" của "Cấu hình giọng nói": trình đọc là vtts ⇒ "vtts tự đọc nhanh tối đa" về mặc định (`@AppStorage` của
+    /// hàng tự cập nhật). Trình đọc khác ⇒ không đụng.
+    func resetVttsNativeSpeedMax() {
+        guard ttsManager.tool == TTSManager.VttsSettings.tool else { return }
+        UserDefaults.standard.set(TTSManager.VttsSettings.defaultNativeSpeedMax, forKey: TTSManager.VttsSettings.nativeSpeedMaxKey)
+    }
+
     /// "Tải trước dữ liệu" của vtts: chỉ **độ dài phân đoạn** (khoá `vttsChunk`, mặc định 500 từ 1.3.1035). Có tác dụng thật —
     /// `TTSManager.playbackParagraphs` cắt đoạn của engine local bằng `NghiUtteranceSegmenter` theo `chunkLength`. Không có
     /// số đoạn tải trước (engine local nạp theo ngưỡng giây, không theo số đoạn) và ngưỡng đệm dùng chung NghiTTS.

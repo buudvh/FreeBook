@@ -8,7 +8,8 @@ import Foundation
 /// vtts là engine **local** (`isLocalEngine`, đồng thời bị loại khỏi `isExtensionTool` — hai hàm phải sửa cùng lúc), đi
 /// chung đường phát của NghiTTS / VieNeu: `NghiAudioPlayerQueue`, cửa sổ tải trước theo ngưỡng giây,
 /// `PiperSynthesisCoordinator`, chia đoạn bằng `NghiUtteranceSegmenter` theo `chunkLength`. **Tự đọc nhanh** (1.3.1036):
-/// tốc độ tạo tiếng = thanh Tốc độ kẹp 1,0–2,0× (`vttsSynthesisSpeed`), queue chỉ kéo phần còn lại (`localPlaybackRate`);
+/// tốc độ tạo tiếng = thanh Tốc độ, không quá "vtts tự đọc nhanh tối đa" (1.3.1037), kẹp 1,0–2,0× (`vttsSynthesisSpeed`),
+/// queue chỉ kéo phần còn lại (`localPlaybackRate`); trần nằm trong `TTSSettingsSnapshot` như tốc độ;
 /// tốc độ chỉ đổi được ở sheet Cài đặt TTS và nằm trong `TTSSettingsSnapshot` ⇒ đóng sheet là dựng lại đoạn + xoá mọi phần
 /// đệm (kể cả đầu chương kế), không cần lối bỏ tiếng riêng như "Tốc độ tổng hợp" của VieNeu. Nhẹ như Piper ⇒ dùng chung
 /// ngưỡng đệm `nghittsSafeCachedTimeThreshold`, 1 lượt refill, 2 optional reserve (các nhánh `== "vieneu"` không đụng vtts).
@@ -28,6 +29,11 @@ extension TTSManager {
         /// dấu phẩy đó (cùng tiếng), nên chỗ xẻ chỉ thêm một lần đổi `AVAudioPlayer` giữa câu, anh Bửu nghe thành tiếng
         /// "xoẹt" / vấp (1× + 500 sạch, 1× + 150 bị).
         static let defaultChunkLength = 500
+        /// "vtts tự đọc nhanh tối đa" (1.3.1037, anh Bửu duyệt mockup): vtts tự tạo tiếng nhanh tới mức này, phần còn lại
+        /// của thanh Tốc độ để trình phát kéo. Anh nghe 1.3.1036 (tự đọc trọn 1,8×): hết tiếng "vụt" nhưng "âm điệu khác",
+        /// "không rõ lời" ⇒ để anh tự chỉnh giữa hai cái. Mặc định 1,4 là **ước lượng**. Khoá không dấu chấm (`@AppStorage`).
+        static let nativeSpeedMaxKey = "vttsNativeSpeedMax"
+        static let defaultNativeSpeedMax = 1.4
     }
 
     /// Tên trình đọc local trong toast / log lỗi tổng hợp của đường phát chung (`playNghiTTS`) — trước đó luôn ghi "NghiTTS"
@@ -42,20 +48,32 @@ extension TTSManager {
 
     // MARK: - Tốc độ
 
-    /// Tốc độ vtts **tự đọc** (đưa vào model qua `length_scale`, 1.3.1036): tốc độ nghe đã lưu của vtts (khoá `vttsRate`,
-    /// chưa có ⇒ `ttsRate` ⇒ 1 — cùng luật `applyVttsParamsIfNeeded`) kẹp `VttsTTSService.nativeSpeedRange`. Một giá trị cho
-    /// cả trình đọc chính lẫn giọng dự phòng (cả hai đọc chung khoá). `nonisolated`: đọc `UserDefaults` thuần, gọi được từ
-    /// `TTSNextChapterPrefixCache` / prefetcher ngoài `MainActor` qua `localSynthesisSpeed(forTool:)`.
+    /// "vtts tự đọc nhanh tối đa" đã lưu, kẹp `VttsTTSService.nativeSpeedRange`; chưa có ⇒ `defaultNativeSpeedMax`.
+    nonisolated static var vttsNativeSpeedMax: Double {
+        let saved = UserDefaults.standard.double(forKey: VttsSettings.nativeSpeedMaxKey)
+        return VttsTTSService.clampedNativeSpeed(saved > 0 ? saved : VttsSettings.defaultNativeSpeedMax)
+    }
+
+    /// Tốc độ vtts tự đọc khi nghe ở `listeningSpeed`: `min(tốc độ nghe, tự đọc nhanh tối đa)` kẹp 1,0–2,0 (dưới 1,0× vẫn tạo
+    /// tiếng 1× rồi để trình phát kéo chậm như cũ).
+    nonisolated static func vttsNativeSpeed(forListeningSpeed listeningSpeed: Double) -> Double {
+        VttsTTSService.clampedNativeSpeed(min(listeningSpeed, Self.vttsNativeSpeedMax))
+    }
+
+    /// Tốc độ vtts **tự đọc** (đưa vào model qua `length_scale`, 1.3.1036; có trần "tự đọc nhanh tối đa" từ 1.3.1037) theo
+    /// tốc độ nghe đã lưu của vtts (khoá `vttsRate`, chưa có ⇒ `ttsRate` ⇒ 1 — cùng luật `applyVttsParamsIfNeeded`). Một giá
+    /// trị cho cả trình đọc chính lẫn giọng dự phòng (cả hai đọc chung khoá). `nonisolated`: đọc `UserDefaults` thuần, gọi
+    /// được từ `TTSNextChapterPrefixCache` / prefetcher ngoài `MainActor` qua `localSynthesisSpeed(forTool:)`.
     nonisolated static var vttsSynthesisSpeed: Double {
-        VttsTTSService.clampedNativeSpeed(TTSOnlineFallbackSettings.playbackSpeed(for: .vtts))
+        Self.vttsNativeSpeed(forListeningSpeed: TTSOnlineFallbackSettings.playbackSpeed(for: .vtts))
     }
 
     /// Tốc độ `NghiAudioPlayerQueue` của trình đọc local đang chọn: vtts đã tự đọc nhanh tới `vttsSynthesisSpeed` nên trình
-    /// phát chỉ kéo phần còn lại (1,8× ⇒ 1,0; 2,5× ⇒ 1,25; 0,8× ⇒ 0,8). NghiTTS / VieNeu giữ `speed` — với VieNeu tốc độ nghe
-    /// **cố ý** là tích "Tốc độ tổng hợp" × `speed`.
+    /// phát chỉ kéo phần còn lại (tối đa 1,4: 1,8× ⇒ 1,29; 1,2× ⇒ 1,0; 0,8× ⇒ 0,8). NghiTTS / VieNeu giữ `speed` — với VieNeu
+    /// tốc độ nghe **cố ý** là tích "Tốc độ tổng hợp" × `speed`.
     var localPlaybackRate: Double {
         guard tool == VttsSettings.tool else { return speed }
-        return speed / VttsTTSService.clampedNativeSpeed(speed)
+        return speed / Self.vttsNativeSpeed(forListeningSpeed: speed)
     }
 
     // MARK: - Giọng

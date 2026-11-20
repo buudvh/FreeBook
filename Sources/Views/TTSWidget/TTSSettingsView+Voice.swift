@@ -17,12 +17,15 @@ extension TTSSettingsView {
             Text("Cấu hình giọng nói")
             if ttsManager.tool == "vieneu" {
                 voiceSectionHelp
+            } else if ttsManager.tool == TTSManager.VttsSettings.tool {
+                vttsVoiceSectionHelp
             }
             Spacer()
             Button(action: {
                 ttsManager.speed = 1.0
                 ttsManager.pitch = 1.0
                 resetVieNeuSynthesisSpeed()
+                resetVttsNativeSpeedMax()
             }) {
                 HStack(spacing: 3) {
                     Image(systemName: "arrow.counterclockwise")
@@ -63,6 +66,10 @@ extension TTSSettingsView {
             // thấy ngay (tốc độ nghe = tổng hợp × phát). Chỉ hiện khi đang chọn Nano — Turbo không có tốc độ tổng hợp.
             if ttsManager.tool == "vieneu" && !isVieNeuTurboSelected {
                 vieneuSynthesisSpeedRow
+            }
+            // vtts (1.3.1037): ngay dưới thanh Tốc độ — tự đọc nhanh tới đâu, phần còn lại trình phát kéo.
+            if ttsManager.tool == TTSManager.VttsSettings.tool {
+                VttsNativeSpeedRow(playbackSpeed: ttsManager.speed)
             }
 
             let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)

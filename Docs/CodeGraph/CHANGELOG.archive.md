@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1008] - 2026-11-19
+
+### fix: Danh sách VietPhrase.dat / Names.dat — thêm nhiều từ một lượt ghi lớp sửa đổi, không dịch lại N lần
+
+Thuộc commit trước (danh sách từ điển gốc VietPhrase.dat / Names.dat).
+Trước: nút "+" dán N dòng gọi DictionaryCache.upsertEntry N lần ⇒ ghi lại CustomVietPhrase.txt / CustomNames.txt N lần và phát N thông báo đổi từ điển (Reader / TTS — kể cả dịch lại từ đoạn sau khi đang nghe — chạy N lượt); hỏng giữa chừng thì ghi dở một nửa.
+Nay: nhiều dòng ⇒ **một** TranslationDictionaryWriter.mutate(isName:bookId: nil) (mục mới / đè lên đầu, mục cũ cùng khoá bỏ) rồi DictionaryCache.refreshFromPublishedState — một lượt ghi, một thông báo, như danh sách Chung (DictionaryListView). Một dòng vẫn đi đường .term thường (saveCustomEntry).
+
+File: Views/Dictionary/GlobalBaseDictionaryListView.
+
+Chưa kiểm: chưa build, chưa chạy máy.
+
 ## [1.3.1007] - 2026-11-19
 
 ### feat: Thẻ VietPhrase.txt / Name.txt › Sửa mở danh sách từ điển gốc VietPhrase.dat / Names.dat, nghĩa hiệu lực kèm lớp sửa đổi

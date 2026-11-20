@@ -160,6 +160,8 @@ struct TTSFallbackVoiceSettingsView: View {
                     "Turbo luôn tổng hợp ở tốc độ gốc, tốc độ nghe chỉnh bằng thanh Tốc độ. Turbo theo kịp tới khoảng 2,0×. Giọng Nano có thêm Tốc độ tổng hợp.",
                     "Tốc độ tổng hợp (Nano): model nói nhanh hơn, máy mát hơn. 1,15× ít lặp chữ nhất, quá 1,25× mất chữ. Tốc độ nghe thực tế = tốc độ tổng hợp × Tốc độ."
                 ])
+            } else if engine == .vtts {
+                SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: VttsNativeSpeedRow.helpParagraphs)
             }
             Spacer()
             Button(action: { reset(engine) }) {
@@ -185,6 +187,9 @@ struct TTSFallbackVoiceSettingsView: View {
             if engine == .vieneu && isNanoSelected {
                 synthesisSpeedRow
             }
+            if engine == .vtts {
+                VttsNativeSpeedRow(playbackSpeed: speed)
+            }
         }
     }
 
@@ -198,5 +203,8 @@ struct TTSFallbackVoiceSettingsView: View {
         speed = 1.0
         TTSOnlineFallbackSettings.setPlaybackSpeed(1.0, for: engine)
         if engine == .vieneu && isNanoSelected { synthesisSpeed = 1.0 }
+        if engine == .vtts {
+            UserDefaults.standard.set(TTSManager.VttsSettings.defaultNativeSpeedMax, forKey: TTSManager.VttsSettings.nativeSpeedMaxKey)
+        }
     }
 }
