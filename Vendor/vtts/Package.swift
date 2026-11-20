@@ -2,18 +2,17 @@
 
 // vtts — TTS Việt–Anh siêu nhẹ (https://github.com/tuanpmt/vtts, Apache-2.0, xem `LICENSE` + `NOTICE` cùng thư mục).
 //
-// Gói SPM cục bộ của FreeBook (plan `Docs/Plans/2026-11-20-vtts-integration.md`):
+// Gói SPM cục bộ của FreeBook (plan `Docs/Plans/2026-11-20-vtts-integration.md`). Mọi thứ vtts cần nằm trong thư mục
+// này, không phụ thuộc repo upstream — bố cục + cách dựng lại / nâng bản: `README.md`.
 // - `Sources/CVTTS/runtime/{include,src}`: chép NGUYÊN VĂN `runtime/include` + `runtime/src` của commit ghim ở
-//   `VTTS_COMMIT.txt`. Đừng sửa tay: `Scripts/ci/fetch_vtts_assets.sh` so từng byte với bản upstream của commit đó và
-//   dừng CI nếu lệch. Từ điển VLEX (`lex_en.bin`) mà runtime đọc tại chỗ phải dựng từ CÙNG commit — script lo việc này.
+//   `VTTS_COMMIT.txt` — đừng sửa tay. Từ điển VLEX (`assets/vtts/lex_en.bin`) mà runtime đọc tại chỗ dựng từ CÙNG commit.
 // - `Sources/CVTTS/bridge/`: shim C của FreeBook (`vtts_bridge.h` là header công khai duy nhất Swift thấy).
+// - `tools/`, `assets/`: ngoài target (công cụ dựng lại từ điển, `vtts_say`, model, từ điển) — SPM không biên dịch.
 //
 // Chỉ bật tiếng Việt / tiếng Anh / auto: mọi ngôn ngữ phụ tắt bằng `VTTS_ENABLE_<L>=0` — đúng cấu hình
-// `langs_test_none` mà Makefile upstream tự kiểm; module của chúng thành translation unit rỗng, bảng không vào binary.
-// Danh sách phải khớp `VTTS_DISABLED_LANGS` trong `Scripts/ci/fetch_vtts_assets.sh` (bản dựng thử trên máy CI).
-//
-// Nâng phiên bản: thay `runtime/` bằng bản của commit mới, sửa `VTTS_COMMIT.txt`, xem lại danh sách ngôn ngữ ở Makefile
-// upstream (`OPT_LANGS`) — xem `.claude/rules/ci-release.md`.
+// `langs_test_none` mà Makefile upstream tự kiểm (`tools/runtime/Makefile`); module của chúng thành translation unit rỗng,
+// bảng không vào binary. Danh sách phải khớp `VTTS_DISABLED_LANGS` trong `Scripts/ci/check_vtts_assets.sh` (bản dựng thử
+// trên máy CI).
 
 import PackageDescription
 

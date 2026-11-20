@@ -1,7 +1,7 @@
 import Foundation
 
-/// Giọng của trình đọc **vtts Việt–Anh (Offline)** — 2 giọng bản M của release v0.4.0, đóng sẵn trong IPA (thư mục
-/// `vtts/` của bundle, `Scripts/ci/fetch_vtts_assets.sh`). Không tải / xoá: chỉ chọn.
+/// Giọng của trình đọc **vtts Việt–Anh (Offline)** — 2 giọng bản M của release v0.4.0, lưu sẵn trong repo
+/// (`Vendor/vtts/assets/vtts`) và đóng vào IPA (thư mục `vtts/` của bundle). Không tải / xoá: chỉ chọn.
 ///
 /// `rawValue` là id lưu trong cài đặt và là tham số `voice` của `LocalTTSEngine` (`VttsTTSService`) — đổi `rawValue` là
 /// mất lựa chọn đã lưu. Id lạ (giọng của trình đọc khác lọt sang, dữ liệu cũ) ⇒ `resolve` trả giọng mặc định.
@@ -24,7 +24,8 @@ enum VttsVoice: String, CaseIterable, Identifiable {
     /// Dòng phụ: ngôn ngữ đọc được + dung lượng model (2 580 320 byte mỗi giọng).
     var detail: String { "Việt + Anh · 2,6 MB" }
 
-    /// Tên file model trong thư mục `vtts` của bundle — giữ đúng tên ở release upstream (script kiểm SHA256 theo tên này).
+    /// Tên file model trong thư mục `vtts` của bundle — giữ đúng tên ở release upstream (`Scripts/ci/check_vtts_assets.sh`
+    /// kiểm SHA256 theo tên này với `SHA256SUMS` của release).
     var modelFileName: String {
         switch self {
         case .nu10: return "vtts-vien-nu10-m-v0.4.q8.vtts"

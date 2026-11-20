@@ -7,7 +7,7 @@ on:
       - 'Sources/**'
       - 'project.yml'
       - 'Vendor/vtts/**'
-      - 'Scripts/ci/fetch_vtts_assets.sh'
+      - 'Scripts/ci/check_vtts_assets.sh'
       - 'Scripts/ci/vtts_bridge_smoke.c'
   pull_request:
     branches: [ main ]
@@ -15,7 +15,7 @@ on:
       - 'Sources/**'
       - 'project.yml'
       - 'Vendor/vtts/**'
-      - 'Scripts/ci/fetch_vtts_assets.sh'
+      - 'Scripts/ci/check_vtts_assets.sh'
       - 'Scripts/ci/vtts_bridge_smoke.c'
   workflow_dispatch:
 
@@ -96,34 +96,13 @@ jobs:
       if: steps.audiocpp-cache.outputs.cache-hit != 'true'
       run: bash Scripts/ci/build_audiocpp_ios.sh 2>&1 | tee -a build_error.log
 
-    # vtts (trình đọc Việt–Anh, runtime C99): `Scripts/ci/fetch_vtts_assets.sh assets` tải 2 model release v0.4.0 (kiểm
-    # SHA256) + dựng từ điển VLEX từ commit ghim (`Vendor/vtts/VTTS_COMMIT.txt`, ~8 phút Python) vào
-    # `Vendor/vtts-assets/vtts` (project.yml khai là folder resource). Khoá cache = hash script + commit + tên model.
-    # restore / save tách đôi: cache lưu NGAY sau bước dựng tài sản (actions/cache gộp chỉ lưu khi cả job xanh ⇒ shim hay
-    # code app đỏ là mất VLEX vừa dựng). Bước `smoke` luôn biên dịch + kiểm thử shim `vtts_bridge` (ASan/UBSan).
-    - name: Restore vtts assets cache
-      id: vtts-cache
-      uses: actions/cache/restore@v4
-      with:
-        path: Vendor/vtts-assets
-        key: vtts-assets-${{ hashFiles('Scripts/ci/fetch_vtts_assets.sh', 'Vendor/vtts/VTTS_COMMIT.txt') }}-vien-nu10-nam1-m-v0.4.0
-
-    - name: Fetch vtts assets
+    # vtts (trình đọc Việt–Anh, runtime C99): model, từ điển VLEX, mã nguồn đều lưu sẵn trong `Vendor/vtts` — không tải gì
+    # từ upstream. `Scripts/ci/check_vtts_assets.sh` kiểm SHA256 tài sản, dựng `vtts_say` (mã đã vendor) đọc thử câu
+    # Việt + Anh bằng từng giọng M, rồi kiểm thử shim `vtts_bridge` với ASan/UBSan. WAV đọc thử ⇒ artifact.
+    - name: Check vtts assets + smoke test
       run: |
         set -o pipefail
-        bash Scripts/ci/fetch_vtts_assets.sh assets 2>&1 | tee -a build_error.log
-
-    - name: Save vtts assets cache
-      if: steps.vtts-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: Vendor/vtts-assets
-        key: ${{ steps.vtts-cache.outputs.cache-primary-key }}
-
-    - name: vtts smoke test
-      run: |
-        set -o pipefail
-        bash Scripts/ci/fetch_vtts_assets.sh smoke 2>&1 | tee -a build_error.log
+        bash Scripts/ci/check_vtts_assets.sh 2>&1 | tee -a build_error.log
 
     - name: Upload vtts sample WAVs
       if: always()

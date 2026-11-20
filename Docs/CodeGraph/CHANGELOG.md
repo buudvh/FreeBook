@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1031] - 2026-11-20
+
+### feat: vtts — lưu sẵn model, từ điển và công cụ dựng lại trong repo, CI không tải gì từ upstream
+
+Anh Bửu (qua session chính): lưu sẵn toàn bộ dữ liệu vtts trong repo, phòng repo upstream / CMUdict bị xoá — CI và app không phụ thuộc mạng tới `tuanpmt/vtts` hay `cmusphinx`. Thay phần tài sản của 1.3.1028–1029.
+
+- **`Vendor/vtts/assets/`** (commit, `-text` trong `.gitattributes` ⇒ giữ nguyên byte): `vtts/` = **đúng** 3 file đóng vào app (2 giọng M release `v0.4.0` + `lex_en.bin`), `extra/` = 2 bản S dự trữ (không vào app), `cmudict/cmudict.dict` (commit `74790861…`, SHA256 trùng mức `cmudict.py` ghim), `SHA256SUMS` nguyên văn của release (4 model đã kiểm khớp trước khi commit) + `LOCAL_SHA256SUMS` (`lex_en.bin`, `cmudict.dict`). `lex_en.bin` dựng trên máy này bằng `build_lexicon.py` ở commit ghim `c5c8c00` (1 860 736 byte).
+- **`Vendor/vtts/tools/`**: công cụ upstream cùng commit, chép nguyên văn (đã so hash git từng file): `scripts/frontend/build_lexicon.py` + 8 module `src/vtts/...` nó import (chỉ thư viện chuẩn), `runtime/tools/vtts_say.c`, `runtime/Makefile`. Nằm ngoài target SPM ⇒ không vào app. **`Vendor/vtts/rebuild_lex_en.sh`** (mới): dựng lại `lex_en.bin` từ `tools/` + `cmudict.dict` trong thư mục tạm, chặn mạng bằng proxy chết, so SHA256 (hoặc `--write` để ghi đè) — đã thử import + đọc CMUdict offline (126 052 từ); lượt dựng đầy đủ trên máy này hết RAM (`MemoryError` ở bước huấn luyện letter-to-sound, máy 8 GB chỉ còn ~0,8 GB trống) nên **chưa đối chiếu lại từng byte**. `Vendor/vtts/README.md` (mới): bố cục + cách dựng lại / nâng runtime / nâng model.
+- **`Scripts/ci/check_vtts_assets.sh`** thay `fetch_vtts_assets.sh` (xoá): không mạng, không cache — kiểm SHA256 mọi tài sản + `assets/vtts/` đúng 3 file, dựng `vtts_say` từ mã đã vendor đọc thử câu Việt + Anh bằng từng giọng M (kiểm `token_set vi-en`, `mode auto lex 1`, id < vocab, WAV ≥ 1 s, không im lặng), kiểm thử shim với ASan/UBSan như trước. `build-ipa.yml`: một bước "Check vtts assets + smoke test" thay 4 bước cache / tải / lưu / smoke; `paths` đổi sang `check_vtts_assets.sh`. `project.yml`: folder resource `Vendor/vtts/assets/vtts` (bundle vẫn là `vtts/`, Swift không đổi đường tra). `.gitignore` bỏ `/Vendor/vtts-assets/`.
+- Bản quyền: `THIRD_PARTY_NOTICES.md` ghi thêm `tools/`, bản S, CMUdict nguồn trong repo (BSD-2 điều khoản 1) bên cạnh VLEX trong IPA (điều khoản 2). Chú thích `Package.swift`, `VttsVoice`, `VttsRuntime`, `vtts_bridge_smoke.c`, `ci-release.md` cập nhật theo.
+- Dung lượng thêm vào git: ~13,1 MB tài sản (4 model 7,57 MB + `lex_en.bin` 1,86 MB + `cmudict.dict` 3,62 MB) + ~85 KB công cụ.
+- Kiểm: `bash -n`, thử phần kiểm SHA256 của script mới trên Windows (bắt được file thừa trong `assets/vtts/`), YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch / chạy `vtts_say` được tại chỗ (Windows)** — chỉ CI.
+
 ## [1.3.1030] - 2026-11-20
 
 ### chore: Màn tự thử nhịp dọc header (tạm thời), đầu dò header sửa cho iOS 26, mũi back tự dựng trùng chỗ mũi back hệ thống

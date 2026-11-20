@@ -4,3 +4,7 @@ Sources/Resources/AdBlock/** -text
 
 # Thư viện JS đóng gói kèm app (CryptoJS bản cdnjs): giữ nguyên byte để khớp SRI ghi ở Docs/ThirdParty/CryptoJS-LICENSE.txt.
 Sources/Resources/ExtensionLibraries/** -text
+
+# Tài sản vtts (model, từ điển VLEX, cmudict.dict, file SHA256): giữ nguyên byte để khớp SHA256SUMS / LOCAL_SHA256SUMS —
+# cmudict.dict là chữ, máy Windows có core.autocrlf sẽ đổi xuống dòng nếu không chặn.
+Vendor/vtts/assets/** -text

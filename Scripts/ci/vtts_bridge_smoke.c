@@ -1,6 +1,6 @@
 /* vtts_bridge_smoke.c — kiểm thử shim `vtts_bridge` trên máy CI (macOS), gọi đúng các hàm mà `VttsRuntime` (Swift) gọi.
  *
- * `Scripts/ci/fetch_vtts_assets.sh` biên dịch file này cùng shim + runtime vtts ĐÃ VENDOR (`Vendor/vtts/Sources/CVTTS`)
+ * `Scripts/ci/check_vtts_assets.sh` biên dịch file này cùng shim + runtime vtts ĐÃ VENDOR (`Vendor/vtts/Sources/CVTTS`)
  * với đúng cờ `VTTS_ENABLE_<L>=0` của gói SPM, bật ASan + UBSan, rồi chạy cho từng giọng. Bản dựng thử đặt
  * `-DVTTS_BRIDGE_SEGMENT_CP=150` để đường chia đoạn dài chạy với vài câu (bản app chia ở 2000 code point; shim có
  * `#error` bảo đảm ngưỡng luôn dưới VTTS_TEXT_MAX_CP = 4096, mức front-end bỏ im lặng phần sau).

@@ -20,7 +20,8 @@ packages:
   onnxruntime-swift-package-manager:
     path: Vendor/onnxruntime-swift-package-manager
   # vtts (Việt–Anh, runtime C99) — gói cục bộ: runtime chép nguyên văn ở commit ghim (`Vendor/vtts/VTTS_COMMIT.txt`) +
-  # shim `vtts_bridge` (product `CVTTS`, Swift `import CVTTS`). Model + từ điển là resource riêng (xem `sources` bên dưới).
+  # shim `vtts_bridge` (product `CVTTS`, Swift `import CVTTS`). Model + từ điển là resource riêng (xem `sources` bên dưới);
+  # mọi thứ (kể cả công cụ dựng lại từ điển) nằm trong `Vendor/vtts`, không phụ thuộc repo upstream — `Vendor/vtts/README.md`.
   vtts:
     path: Vendor/vtts
   espeak-ng-spm:
@@ -45,10 +46,10 @@ targets:
       # chắc chắn vào Copy Bundle Resources, không rơi vào Compile Sources.
       - path: Sources/Resources/ExtensionLibraries
         buildPhase: resources
-      # Tài sản vtts (2 giọng bản M + từ điển VLEX, ~7 MB) — không commit: `Scripts/ci/fetch_vtts_assets.sh` tải / dựng vào
-      # `Vendor/vtts-assets/vtts` trước bước `xcodegen generate` (máy Mac chạy script đó trước khi generate). Folder
-      # reference ⇒ bundle có thư mục con `vtts/` (`VttsRuntime` tra ở đó).
-      - path: Vendor/vtts-assets/vtts
+      # Tài sản vtts đóng vào app (2 giọng bản M + từ điển VLEX, ~7 MB) — lưu sẵn trong repo ở `Vendor/vtts/assets/vtts`
+      # (bản S dự trữ + CMUdict nằm ngoài thư mục này, không vào bundle). Folder reference ⇒ bundle có thư mục con `vtts/`
+      # (`VttsRuntime` tra ở đó). CI kiểm SHA256 + đọc thử bằng `Scripts/ci/check_vtts_assets.sh`.
+      - path: Vendor/vtts/assets/vtts
         type: folder
         buildPhase: resources
     dependencies:

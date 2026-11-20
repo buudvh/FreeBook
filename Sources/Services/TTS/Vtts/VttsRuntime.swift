@@ -17,7 +17,7 @@ import Foundation
 final class VttsRuntime: @unchecked Sendable {
     static let shared = VttsRuntime()
 
-    /// Thư mục con trong bundle — folder resource `Vendor/vtts-assets/vtts` của `project.yml`.
+    /// Thư mục con trong bundle — folder resource `Vendor/vtts/assets/vtts` của `project.yml`.
     static let assetSubdirectory = "vtts"
     static let lexiconFileName = "lex_en.bin"
 
