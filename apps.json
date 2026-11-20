@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1016",
+          "buildVersion": "1309",
+          "date": "2026-11-20T02:58:25Z",
+          "localizedDescription": "- feat: Cài đặt dịch thuật — hàng con hiện theo công tắc QT / Áp dụng rule dịch, bỏ công tắc Dịch đại từ",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1309/TangCongCac-1.3.1016-1309.ipa",
+          "size": 41950309,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1015",
           "buildVersion": "1308",
           "date": "2026-11-20T02:12:28Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1303/TangCongCac-1.3.1006-1303.ipa",
           "size": 41895985,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.981",
-          "buildVersion": "1301",
-          "date": "2026-11-18T04:29:54Z",
-          "localizedDescription": "- feat: Quản lý nghĩa từ kiểu chip — bốn nhóm trong một thẻ, nút x góc chip để xoá nhanh",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1301/TangCongCac-1.3.981-1301.ipa",
-          "size": 41777238,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1015",
-      "versionDate": "2026-11-20T02:12:28Z",
-      "versionDescription": "- feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài\n- feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1308/TangCongCac-1.3.1015-1308.ipa",
-      "size": 41952449,
+      "version": "1.3.1016",
+      "versionDate": "2026-11-20T02:58:25Z",
+      "versionDescription": "- feat: Cài đặt dịch thuật — hàng con hiện theo công tắc QT / Áp dụng rule dịch, bỏ công tắc Dịch đại từ",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1309/TangCongCac-1.3.1016-1309.ipa",
+      "size": 41950309,
       "appPermissions": {}
     }
   ],
