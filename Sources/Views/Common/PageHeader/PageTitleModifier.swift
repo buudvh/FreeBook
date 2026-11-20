@@ -49,6 +49,13 @@ struct PageTitleModifier: ViewModifier {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .tabBar)
+            // TẠM (1.3.1025): đo bố cục header thật trên máy (`📐 [HeaderLayout]`, chỉ khi Ghi log bật) để chốt khoảng cách
+            // dọc dưới tiêu đề — gỡ khi đã chốt số.
+            .background(alignment: .topLeading) {
+                PageHeaderLayoutProbe(title: title, style: "\(style)")
+                    .frame(width: 0, height: 0)
+                    .accessibilityHidden(true)
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Color.clear
