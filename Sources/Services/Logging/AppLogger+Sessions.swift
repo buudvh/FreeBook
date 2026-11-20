@@ -2,7 +2,7 @@ import Foundation
 
 /// Danh sách phiên, xuất `.txt` và xoá phiên cho màn "Ghi log hệ thống" (1.3.948). Kết quả trả trên main.
 extension AppLogger {
-    public struct SessionSummary: Identifiable, Sendable {
+    public struct SessionSummary: Identifiable, Hashable, Sendable {
         public let id: Int64
         public let startedAt: Date
         /// "1.3.948 (1279)".
@@ -104,8 +104,8 @@ extension AppLogger {
         try? handle.write(contentsOf: Data(text.utf8))
     }
 
-    /// Khối đầu mỗi phiên trong file xuất.
-    private static func header(for row: AppLogDatabase.SessionRow) -> String {
+    /// Khối đầu mỗi phiên trong file xuất (và thẻ đầu màn Xem log — `loadSessionHeader`).
+    static func header(for row: AppLogDatabase.SessionRow) -> String {
         let started = DateFormatter()
         started.dateFormat = "HH:mm:ss dd/MM/yyyy"
         let state: String

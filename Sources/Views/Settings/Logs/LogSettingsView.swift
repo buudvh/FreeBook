@@ -23,6 +23,10 @@ struct LogSettingsView: View {
     @State private var openFileCount: Int = 0
     @State private var openFileLimit: Int = 0
     @State private var showingClearLogAlert = false
+    /// Phiên đang mở màn Xem log (menu nhấn giữ phiên, 1.3.1015).
+    @State private var viewingSession: AppLogger.SessionSummary?
+    /// Phiên chờ xác nhận "Xoá log" từ menu nhấn giữ.
+    @State private var pendingDeleteSession: AppLogger.SessionSummary?
 
     var body: some View {
         Form { Group {
@@ -89,6 +93,25 @@ struct LogSettingsView: View {
         .sheet(item: $exportFile) { file in
             ShareSheet(activityItems: [file.url])
         }
+        .navigationDestination(item: $viewingSession) { session in
+            LogSessionViewerView(session: session)
+        }
+        .confirmationDialog(
+            pendingDeleteSession.map { "Xoá log phiên \(LogSessionViewerView.dayTime($0.startedAt))?" } ?? "",
+            isPresented: Binding(get: { pendingDeleteSession != nil }, set: { if !$0 { pendingDeleteSession = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingDeleteSession
+        ) { session in
+            Button("Xoá log", role: .destructive) {
+                AppLogger.shared.deleteSessions([session.id]) {
+                    selected.remove(session.id)
+                    reload()
+                }
+            }
+            Button("Huỷ", role: .cancel) {}
+        } message: { _ in
+            Text("Không thể hoàn tác.")
+        }
         .alert("Xóa Nhật Ký", isPresented: $showingClearLogAlert) {
             Button("Hủy", role: .cancel) {}
             Button("Xóa", role: .destructive) {
@@ -121,7 +144,7 @@ struct LogSettingsView: View {
                 paragraphs: [
                     "Mỗi lần mở app là một phiên, ghi kèm bản build, máy, iOS, nhiệt, RAM, ổ trống và trình đọc TTS lúc mở. Giữ \(AppLogger.keptSessions) phiên gần nhất, tối đa 30 MB.",
                     "**Chết đột ngột**: phiên kết thúc khi app đang mở (crash hoặc bị đóng) — phiên kế tiếp ghi lại giờ và dòng cuối của nó.",
-                    "Chọn phiên rồi **Xuất** ⇒ một file .txt để gửi."
+                    "Chọn phiên rồi **Xuất** ⇒ một file .txt để gửi. **Nhấn giữ** một phiên ⇒ Xem log ngay trong app / Xuất / Xoá."
                 ]
             )
         }
@@ -160,6 +183,26 @@ struct LogSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Nhấn giữ một phiên ⇒ Xem log / Xuất log / Xoá log (1.3.1015). Phiên đang ghi không xoá được.
+        .contextMenu {
+            Button {
+                viewingSession = session
+            } label: {
+                Label("Xem log", systemImage: "doc.text.magnifyingglass")
+            }
+            Button {
+                export([session.id])
+            } label: {
+                Label("Xuất log (.txt)", systemImage: "square.and.arrow.up")
+            }
+            if !session.isCurrent {
+                Button(role: .destructive) {
+                    pendingDeleteSession = session
+                } label: {
+                    Label("Xoá log", systemImage: "trash")
+                }
+            }
+        }
     }
 
     private func subtitle(_ session: AppLogger.SessionSummary) -> Text {
@@ -209,13 +252,17 @@ struct LogSettingsView: View {
     }
 
     private func exportSelected() {
-        guard !isExporting else { return }
         guard !selected.isEmpty else {
             ToastManager.shared.show(message: "Chọn phiên muốn xuất", type: .info)
             return
         }
+        export(Array(selected))
+    }
+
+    private func export(_ ids: [Int64]) {
+        guard !isExporting else { return }
         isExporting = true
-        AppLogger.shared.exportSessions(Array(selected)) { url in
+        AppLogger.shared.exportSessions(ids) { url in
             isExporting = false
             guard let url else {
                 ToastManager.shared.show(message: "Không xuất được log", type: .error)

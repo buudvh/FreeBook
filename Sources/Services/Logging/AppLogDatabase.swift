@@ -200,6 +200,58 @@ final class AppLogDatabase {
         return result
     }
 
+    /// Trang dòng cho màn **Xem log** (1.3.1015): `cursor` = id dòng cuối trang trước (mới nhất trước ⇒ lấy id nhỏ hơn, cũ
+    /// nhất trước ⇒ id lớn hơn), `onlyErrors` ⇒ chỉ dòng ❌, `contains` ⇒ lọc chữ (LIKE, `%` `_` `\` được thoát; chỉ
+    /// không phân biệt hoa thường với chữ ASCII). Tham số gắn bằng `bind`, không ghép vào câu SQL.
+    func lines(
+        sessionId: Int64,
+        cursor: Int64?,
+        limit: Int,
+        newestFirst: Bool,
+        onlyErrors: Bool,
+        contains: String
+    ) -> [(id: Int64, line: Line)] {
+        var sql = "SELECT id, ts, is_error, text FROM lines WHERE session_id=?"
+        if cursor != nil { sql += newestFirst ? " AND id<?" : " AND id>?" }
+        if onlyErrors { sql += " AND is_error=1" }
+        let pattern = contains.isEmpty ? nil : "%" + Self.escapeLike(contains) + "%"
+        if pattern != nil { sql += " AND text LIKE ? ESCAPE '\\'" }
+        sql += " ORDER BY id \(newestFirst ? "DESC" : "ASC") LIMIT ?"
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var index: Int32 = 1
+        sqlite3_bind_int64(statement, index, sessionId)
+        index += 1
+        if let cursor {
+            sqlite3_bind_int64(statement, index, cursor)
+            index += 1
+        }
+        if let pattern {
+            bind(pattern, at: index, in: statement)
+            index += 1
+        }
+        sqlite3_bind_int64(statement, index, Int64(limit))
+
+        var result: [(id: Int64, line: Line)] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let line = Line(
+                ts: Date(timeIntervalSince1970: sqlite3_column_double(statement, 1)),
+                isError: sqlite3_column_int(statement, 2) != 0,
+                text: Self.text(statement, 3)
+            )
+            result.append((sqlite3_column_int64(statement, 0), line))
+        }
+        return result
+    }
+
+    private static func escapeLike(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+    }
+
     /// Dung lượng đang dùng (trang có dữ liệu) + WAL.
     var usedBytes: Int64 {
         let pages = pragmaInt("page_count") - pragmaInt("freelist_count")

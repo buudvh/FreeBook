@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1015] - 2026-11-20
+
+### feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app
+
+Anh Bửu: "làm thêm option xem log nữa" → "Màn Ghi log hệ thống — nhấn giữ một phiên sẽ hiển thị các option xem log, xoá log, xuất log" → duyệt mockup; push chung với lưới sheet nhấn giữ (1.3.1014).
+
+- **Trước**: màn Ghi log hệ thống chỉ chọn phiên (nhiều) rồi Xuất `.txt` / Xoá; muốn đọc log phải xuất ra file.
+- **Nay**:
+  - `LogSettingsView`: nhấn giữ một phiên ⇒ menu Xem log / Xuất log (.txt) / Xoá log (đỏ, hỏi lại; phiên đang ghi không có). Danh sách chọn nhiều + các nút cũ giữ nguyên.
+  - Mới `LogSessionViewerView` (trang đẩy vào): thẻ đầu = khối đầu phiên như file xuất (bản app, máy, iOS, nhiệt / RAM / ổ trống, TTS, trạng thái cuối); chip "Tất cả / Chỉ lỗi (N)" + chip đảo "Mới nhất trước / Cũ nhất trước"; ô lọc chữ luôn hiện (300 ms); mỗi dòng `HH:mm:ss.SSS` + nội dung chữ đơn cách 11pt, dòng ❌ chữ đỏ nền đỏ mờ; nhấn giữ dòng ⇒ "Sao chép dòng" (`ClipboardCopier`, có toast); nạp 500 dòng mỗi lượt, tới chân thì nạp tiếp (`LoadMoreFooter` id cố định); nút chia sẻ góc phải xuất cả phiên.
+  - Mới `AppLogger+Browse` (`loadLines`, `loadSessionHeader`): ghi nốt dòng chờ trên `queue` rồi đọc bằng kết nối riêng như đường xuất (không chặn ghi log); `AppLogDatabase.lines(sessionId:cursor:limit:newestFirst:onlyErrors:contains:)` — phân trang theo id, lọc lỗi + `LIKE` ở SQLite, tham số gắn bằng `bind` (thoát `%` `_` `\`). `SessionSummary` thêm `Hashable`; `header(for:)` dùng chung.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: menu nhấn giữ phiên (có lẫn với chạm chọn phiên không), phiên lớn cuộn nạp tiếp, lọc chữ tiếng Việt (LIKE chỉ không phân biệt hoa thường với chữ ASCII), đảo thứ tự, xuất từ màn xem.
+
 ## [1.3.1014] - 2026-11-20
 
 ### feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài
