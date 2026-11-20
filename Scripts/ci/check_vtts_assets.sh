@@ -194,8 +194,33 @@ check_bridge() {
   done
 }
 
+# TẠM THỜI (1.3.1034): đo mức to Google TTS vs vtts để chọn mốc cho `VttsLoudness` — xoá khi đã chốt mốc. Không bao giờ
+# làm đỏ build. vtts đọc cùng đoạn truyện dài với `tts_loudness_probe.py` (đoạn văn lấy từ chính script đó).
+probe_loudness() {
+  local entry voice name paragraph wav
+  local probes=()
+  echo "▶ vtts: đo mức to so với Google TTS (tạm thời)"
+  paragraph="$("$PY" -c 'import importlib.util, sys
+spec = importlib.util.spec_from_file_location("probe", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+print(module.PARAGRAPH)' "$CI_DIR/tts_loudness_probe.py")" || { echo "::warning::không đọc được đoạn đo"; return 0; }
+  for entry in "${VOICES[@]}"; do
+    read -r voice name <<< "$entry"
+    wav="$SMOKE_DIR/long-$voice.wav"
+    if "$WORK_DIR/vtts_say" "$BUNDLED/$name" "$wav" --lex "$LEX" --lang auto "$paragraph" > /dev/null; then
+      probes+=("$voice=$wav")
+    else
+      echo "::warning::vtts_say ($voice) không đọc được đoạn đo"
+    fi
+  done
+  # `${a[@]+…}`: bash 3.2 của macOS coi mảng rỗng là biến chưa đặt dưới `set -u`.
+  "$PY" "$CI_DIR/tts_loudness_probe.py" "$SMOKE_DIR" ${probes[@]+"${probes[@]}"} || true
+}
+
 mkdir -p "$WORK_DIR" "$SMOKE_DIR"
 check_hashes
 check_vtts_say
 check_bridge
+probe_loudness
 echo "▶ vtts: tài sản + runtime + shim OK (commit $(cat "$VENDOR_DIR/VTTS_COMMIT.txt"))"

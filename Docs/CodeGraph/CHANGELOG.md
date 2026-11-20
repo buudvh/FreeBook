@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1034] - 2026-11-20
+
+### chore: vtts — CI đo tạm mức to Google TTS so với vtts để chọn mốc âm lượng
+
+Anh Bửu: sau 1.3.1033 vtts vẫn "không to bằng google tts". Đo lại 2 WAV mẫu của CI: bản 1.3.1033 chỉ đưa vtts lên ~−17,7 LUFS (nu-10 −26,4 → −17,8; nam-1 −22,4 → −17,6 và đỉnh đã chạm trần −1 dBFS) — giữ đỉnh ≤ −1 dBFS bằng cách hạ **cả đoạn** nên mức to bị chặn, đoạn truyện dài đỉnh cao hơn còn được tăng ít hơn. Mốc −16 dBFS là ước lượng, chưa từng đo Google. Lượt này chỉ đo, chưa đổi app:
+
+- `Scripts/ci/tts_loudness_probe.py` (mới, **tạm thời**, chỉ thư viện chuẩn): gọi Google readaloud đúng body của `GoogleTTSService.makeRequest` với cả 6 giọng (câu thử + một đoạn truyện ~30 s có thoại, câu cảm thán), giải mã bằng `afconvert` (lùi `ffmpeg`), đo LUFS tích hợp BS.1770, RMS lúc có tiếng (đúng cách `VttsLoudness` đo), đỉnh; vtts đọc cùng đoạn dài bằng 2 giọng, đo mức gốc + mô phỏng `VttsLoudness` 1.3.1033. In ra log CI + `loudness.txt` trong artifact `vtts-samples` (kèm WAV đoạn dài của vtts; audio Google không lưu). Không in key, lỗi gì cũng không làm đỏ build.
+- `check_vtts_assets.sh`: hàm `probe_loudness` (tạm) chạy sau kiểm shim. `build-ipa.yml`: bước vtts nhận `GOOGLE_CLOUD_TTS_API_KEY` từ secret (tạm).
+- Gỡ cả hai ở lượt sửa `VttsLoudness` tiếp theo. Dọn: 3 entry cũ nhất (1.3.1002–1.3.1004) chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1033] - 2026-11-20
 
 ### fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường
@@ -426,63 +436,3 @@ Anh Bửu: "chỉ nsfw của tab kệ sách thiếu chip tất cả/truyện ch�
 - **Trước**: thanh chip loại của Kệ + Lịch sử chỉ hiện khi danh sách **đã lọc NSFW** có từ 2 loại trở lên (`ShelfKindFilter.showsFilterBar`) ⇒ ở "Chỉ NSFW", truyện NSFW cùng một loại là mất cả thanh chip, trong khi "Tất cả" vẫn có.
 - **Nay**: số loại đếm trên kệ ∪ lịch sử **chưa** lọc NSFW (`ShelfKindFilter(_:kindFilter:kindSource:)`, `ShelfView` truyền thêm một `ShelfBookPartition(allBooks)` khi bộ lọc NSFW không phải "Tất cả") ⇒ thanh chip hiện như nhau ở cả ba chế độ. Chọn loại không có truyện nào sau lọc NSFW ⇒ màn rỗng "Chưa có … trên kệ" sẵn có, thanh chip vẫn ở trên. Thanh chip luôn đủ 5 chip cố định nên không lộ loại của truyện NSFW đang ẩn.
 - Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy**.
-
-## [1.3.1004] - 2026-11-19
-
-### fix: Từ điển gốc xếp hàng mọi lượt ghi, thay file .dat an toàn; toast nhập rule đếm đúng "cập nhật"
-
-Ba lỗi review phản biện tìm ra ở việc 6–8 (thẻ Từ điển chung, danh sách Phiên âm / Pronouns, nhập rule):
-1. Mất dữ liệu khi sửa trong lúc nhập — Trước: nhập ở danh sách Phiên âm / Pronouns (và ở thẻ) chạy ngoài actor GlobalDictionaryEditor; trong vài giây importer nạp lại (loadAllDictionaries), sửa / xoá một hàng đọc phienAmMap / cây Pronouns còn bản cũ trong RAM rồi ghi đè file ⇒ mất mọi mục vừa nhập (toast vẫn báo thêm X); Pronouns còn dùng chung file tạm Pronouns.dat.importing giữa hai đường. Nay: GlobalDictionaryEditor là hàng đợi duy nhất cho mọi lượt ghi từ điển gốc (nhập ở thẻ, nhập ở danh sách, sửa / xoá hàng, xoá cả từ điển) — chuỗi `serialized`: lượt sau chờ lượt trước ghi **và nạp lại** xong (actor thường cho lượt khác chen ở mỗi await). GlobalDictionaryImporter luôn đọc từ điển gốc **trên đĩa** (bỏ nhánh đọc bản RAM), vẫn so số mục với wordCount. BaseDictionaryListView khoá "+", chạm hàng, nút xoá và thao tác trợ năng "Sửa" trong lúc đang nhập.
-2. Thay file không an toàn — Trước: GlobalDictionaryImporter.write xoá .dat đích rồi mới moveItem file tạm (app bị tắt giữa hai bước ⇒ mất VietPhrase / Names / Pronouns); "Thay thế toàn bộ" qua TranslationManager.importDictionary cũng xoá đích trước rồi dựng thẳng vào đích. Nay: mọi đường (gộp, chỉ thêm, thay thế toàn bộ, sửa hàng) dựng / chép vào file tạm cùng thư mục tên duy nhất `<tên>.importing-<UUID>` rồi FileManager.replaceItemAt (đích chưa có ⇒ moveItem); lỗi giữa chừng ⇒ xoá file tạm, bản cũ còn nguyên. File tạm sót của lượt bị tắt được dọn ở lượt ghi kế tiếp. "Thay thế toàn bộ" giữ đúng ngữ nghĩa cũ (dựng .dat từ file nhập bằng DoubleArrayTrieBuilder.build(fromTxtFile:), PhienAm chép nguyên file).
-3. Toast nhập rule đếm sai "cập nhật" — Trước: thẻ Rule dịch, ngăn kéo "…" của danh sách rule và chia sẻ bộ rule riêng lấy số mẫu trùng (importPreview.overlapping) làm "cập nhật", nên nhập lại đúng file vừa xuất vẫn báo "cập nhật N". Nay: QuickTranslationRuleRecordStore.importCounts(current:imported:mode:) chỉ đếm mẫu có vế phải thực sự đổi, và chỉ ở "Gộp" ("Chỉ thêm key mới" ⇒ cập nhật 0); QuickTranslationRuleTransfer.sharePreview đổi thành shareCounts(from:to:mode:).
-
-File: Services/Translation/Manager/{GlobalDictionaryEditor, GlobalDictionaryImporter}, Services/Translation/Engine/{QuickTranslationRuleRecordStore, QuickTranslationRuleTransfer}, Views/Dictionary/BaseDictionaryListView, Views/Settings/Translation/{GlobalDictionaryCardController, QuickTranslationRuleIOMenu, QuickTranslationRuleListView}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build, chưa chạy máy. Ngoài hàng đợi vẫn còn hai đường ghi VietPhrase.dat có sẵn từ trước, không đổi ở đây: "Tải từ điển mặc định" (downloadDefaultDictionaries) và gộp lớp custom vào VietPhrase (DictionaryMergeTask ⇒ TranslationManager.importDictionary, vẫn xoá đích trước rồi dựng).
-
-## [1.3.1003] - 2026-11-19
-
-### feat: Thử rule ở danh sách rule chung / tên chương mở từ Reader kèm bộ rule riêng của truyện đang đọc
-
-Trước: sheet "Thử rule" ở danh sách rule chung / tên chương luôn chỉ áp bộ chung (+ bộ tên chương), kể cả khi danh sách mở từ hub Từ điển của Reader — rule riêng của truyện đang đọc không được tính, kết quả khác lúc đọc.
-Nay (anh Bửu chốt "Kèm bộ riêng"): danh sách mở từ Reader (có contextBookId) thử như lúc đọc truyện đó — QuickTranslationRuleEngine.preview(_:scope:contextBookId:mode:) thêm bộ riêng của truyện và dùng bookId của nó (file tắt riêng, công tắc token, thứ tự ưu tiên, bộ ngoặc, Name riêng); danh sách tên chương áp riêng + tên chương + chung, danh sách chung áp riêng + chung. Mẫu rule đã khớp tra theo cặp (bộ, dòng) gồm cả bộ riêng ⇒ hiện đúng bộ ("bộ riêng" / "bộ tên chương" / "bộ chung"). Nút "?" của ô nhập nói rõ đang kèm bộ riêng. Mở từ Cài đặt (không có truyện) giữ như cũ.
-
-File: Services/Translation/Engine/QuickTranslationRuleEngine+Preview, Views/Settings/Translation/{QuickTranslationRuleTesterPanel, QuickTranslationRuleTesterSheet, QuickTranslationRuleListView}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build, chưa chạy máy.
-
-## [1.3.1002] - 2026-11-19
-
-### fix: Reader bỏ chữ ghim khi mốc dịch lại của TTS hết hiệu lực, tua đoạn chặn lúc đang dựng chương, vạch tua không giữ danh sách đoạn cũ
-
-Vá các lỗi review phản biện tìm ra ở ba commit dịch lại khi đang nghe + tua theo đoạn:
-
-1. Reader giữ chữ cũ của dòng ≤ mốc sau khi mốc hết hiệu lực ⇒ lệch highlight. Trước: Reader ghi chữ TTS vào cache
-   cho dòng ≤ L kèm token hiện hành; TTS dựng lại chương (chương trước → chương kế, nghe tiếp từ chương trước tự sang,
-   jumpToChapter không truyền snapshot) thì mốc chết nhưng isTranslationFresh vẫn đúng ⇒ Reader không dựng lại, TTS
-   đọc bản mới từ dòng 0 còn Reader hiện chữ cũ dòng 0…L; bấm Nghe từ Reader còn đưa chữ ghim làm snapshot ⇒ dòng ≤ L
-   đọc bản dịch cũ mãi. Nay:
-   - CachedChapter lưu ttsAnchorStamp + unalignedParagraphItems (bản dựng gốc) khi ghim (ChapterCache.swift).
-   - TTSManager.chapterContent có didSet ⇒ TTSRetranslationCoordinator.ttsTextRevision; Reader nghe nó và trả chương
-     đang ghim về bản gốc ngay khi mốc không còn sống (restoreChaptersWithDeadTTSAnchor).
-   - Mốc còn hiệu lực phải khớp cả cờ phồn → giản + vân tay bộ dịch của phiên TTS (Anchor.convertsTraditional /
-     engineFingerprint) và công tắc dịch + phồn → giản của bản Reader dựng.
-   - getPretranslatedSnapshot (ReaderView.swift) dùng CachedChapter.ttsSnapshotParagraphItems / ttsSnapshotTitle — luôn
-     bản gốc, không chữ ghim.
-2. Danh sách đầu đoạn của vạch tua có thể cũ khi chương mới cùng số chunk (startSpeaking đổi chương trước khi gán chunk).
-   Nay TTSManager.paragraphs có didSet ⇒ layoutRevision tăng mỗi lần gán mảng chunk (khoá outline đã có layoutRevision).
-3. Tua trong lúc startSpeaking đang dựng chương ⇒ phát nhầm chunk chương cũ, lưu sai tiến độ, lượt dựng xong đè mất chỗ
-   tua. Nay didSet của paragraphs ghi chủ mảng chunk (phiên / truyện / chương); seekToParagraph và lượt nối bản dịch bỏ
-   qua khi chủ lệch phiên / chương đang phát (isChunkLayoutCurrent).
-4. Hàng rào refill NghiTTS so cả struct chunk (range / sourceRange) trong khi tiêu chí "đổi" của lượt nối chỉ so chữ +
-   kiểu ranh giới ⇒ chunk cùng chữ dời range bị bỏ kết quả. Nay cùng so chữ + boundaryKind.
-5. Reader chờ mốc bằng continuation không nghe huỷ ⇒ lượt dựng đã huỷ chặn lượt mới (refreshParagraphItems await lượt
-   cũ) tới 3 s. Nay waitForAnchor bọc withTaskCancellationHandler, huỷ là thôi chờ ngay.
-
-File: TTSRetranslationCoordinator.swift, TTSManager.swift (didSet paragraphs / chapterContent, hàng rào refill),
-TTSManager+Retranslation.swift, TTSManager+RetranslationSplice.swift, TTSManager+ParagraphSeek.swift,
-ReaderViewModel+TTSRetranslation.swift, ReaderViewModel+TranslationPresentation.swift, ReaderViewModel+Translation.swift,
-ReaderTranslationPresentation.swift, ChapterCache.swift, CachedChapter+TranslationFreshness.swift, ReaderView.swift
-(getPretranslatedSnapshot), .claude/rules/tts.md, .claude/rules/reader-text-pipeline.md.
-
-Chưa kiểm: máy Windows — chưa build, chưa chạy trên máy; check_architecture.py chỉ còn vi phạm có sẵn (JSDom.swift).
