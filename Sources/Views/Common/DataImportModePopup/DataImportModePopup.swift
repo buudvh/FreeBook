@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Thẻ của popup **chọn cách nhập** (1.3.982, anh Bửu duyệt mockup 2026-11-19: "popup giữa màn hình, gồm 3 radio cho 3
-/// option, mỗi option có mô tả và cuối cùng là nút nhập file"). Trình bày qua `.dataImportModePopup(...)`
-/// (`DataImportModePopupModifier`) — đừng dựng view này trực tiếp.
+/// option, mỗi option có mô tả và cuối cùng là nút nhập file"). Trình bày qua `.dataImportFilePicker(...)` (nhập file —
+/// chọn file trước, popup sau, tên file dưới tiêu đề, 1.3.1011) hoặc `.dataImportModePopup(...)` (nhập không qua file) —
+/// đừng dựng view này trực tiếp.
 ///
 /// - Lớp tối phủ cả màn; chạm ra ngoài thẻ ⇒ `onCancel` (không có nút Huỷ, như chuẩn sheet của app).
 /// - Mỗi hàng: vòng radio (màu nhấn khi chọn) + tên chế độ (`DataImportMode.actionTitle`) + một dòng mô tả
@@ -10,6 +11,9 @@ import SwiftUI
 /// - Tông tối cục bộ (`colorScheme` của environment, không `preferredColorScheme` — không đổi giao diện màn bên dưới).
 struct DataImportModePopup: View {
     let title: String
+    /// Dòng mô tả dưới tiêu đề — tên file vừa chọn (1.3.1011, anh Bửu: "hiển thị tên file nhập ở phần mô tả dưới tiêu đề
+    /// nhập"); `nil` ⇒ "Chọn cách nhập".
+    let message: String?
     let confirmTitle: String
     let confirmSystemImage: String
     let modes: [DataImportMode]
@@ -21,6 +25,7 @@ struct DataImportModePopup: View {
 
     init(
         title: String,
+        message: String?,
         confirmTitle: String,
         confirmSystemImage: String,
         modes: [DataImportMode],
@@ -29,6 +34,7 @@ struct DataImportModePopup: View {
         onCancel: @escaping () -> Void
     ) {
         self.title = title
+        self.message = message
         self.confirmTitle = confirmTitle
         self.confirmSystemImage = confirmSystemImage
         self.modes = modes.isEmpty ? DataImportMode.allCases : modes
@@ -64,7 +70,7 @@ struct DataImportModePopup: View {
             Text(title)
                 .font(.headline)
                 .lineLimit(2)
-            Text("Chọn cách nhập")
+            subtitle
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
@@ -90,6 +96,23 @@ struct DataImportModePopup: View {
         // Chạm trong thẻ không rơi xuống lớp tối bên dưới.
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture {}
+    }
+
+    /// Tên file (icon tài liệu + tên, dài thì cắt giữa để thấy cả đuôi `.txt`) hoặc "Chọn cách nhập".
+    @ViewBuilder
+    private var subtitle: some View {
+        if let message, !message.isEmpty {
+            Label {
+                Text(message)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+            } icon: {
+                Image(systemName: "doc.text")
+            }
+            .accessibilityLabel("File: \(message)")
+        } else {
+            Text("Chọn cách nhập")
+        }
     }
 
     private func modeRow(_ mode: DataImportMode) -> some View {

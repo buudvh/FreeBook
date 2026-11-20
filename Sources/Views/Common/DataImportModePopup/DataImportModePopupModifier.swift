@@ -1,24 +1,19 @@
 import SwiftUI
 
-/// Trình bày popup **chọn cách nhập** giữa màn (`DataImportModePopup`, 1.3.982). Mọi chỗ nhập dữ liệu dạng key–value
-/// (từ điển, rule dịch, phiên âm, thay thế ký tự, quy tắc mục lục, công cụ tra cứu…) đi qua đây, theo thứ tự
-/// **chọn cách nhập trước ⇒ bấm nút cuối ⇒ chỗ gọi mở bộ chọn file**. Ngoại lệ do anh Bửu chốt: lọc rác không hỏi —
-/// nhập chỉ thêm mẫu chưa có (1.3.988).
+/// Trình bày popup **chọn cách nhập** giữa màn (`DataImportModePopup`, 1.3.982). Nhập **file** thì đừng gọi thẳng — dùng
+/// `.dataImportFilePicker(...)` (`DataImportFilePickerModifier`, 1.3.1011): chọn file trước, popup hiện sau kèm tên file.
+/// Gọi thẳng modifier này cho chỗ nhập không qua file (nhập từ truyện khác, chia sẻ sang truyện khác…) — chọn nguồn
+/// trước rồi mới hỏi cách nhập, truyền tên nguồn vào `message`. Ngoại lệ do anh Bửu chốt: lọc rác không hỏi — nhập chỉ
+/// thêm mẫu chưa có (1.3.988).
 ///
 /// ```swift
-/// .dataImportModePopup(isPresented: $showingImportModes, title: "Nhập VietPhrase.txt") { mode in
-///     pendingImportMode = mode
-///     showingFileImporter = true          // trình bày được ngay: popup đã đóng hẳn
-/// }
-/// // Không chọn file (nhập từ truyện khác…): đổi chữ nút cuối.
-/// .dataImportModePopup(isPresented: $askMode, title: "Nhập từ \(book.title)",
+/// .dataImportModePopup(isPresented: $askMode, title: "Nhập từ truyện khác", message: book.title,
 ///                      confirmTitle: "Nhập", confirmSystemImage: "arrow.down.doc") { mode in … }
 /// ```
 ///
 /// - Cơ chế: `fullScreenCover` nền trong (`presentationBackground(.clear)`), mở / đóng **không** hiệu ứng trượt (transaction
 ///   tắt animation); thẻ tự hiện mờ dần. Cover phủ cả thanh điều hướng nên lớp tối che hết, nút header không bấm nhầm được.
-/// - `onConfirm(mode)` chạy **sau khi** cover đóng hẳn (`onDismiss`) — UIKit không cho trình bày bộ chọn file từ màn đang
-///   đóng, nên chỗ gọi mở bộ chọn file / sheet ngay trong `onConfirm` là được.
+/// - `onConfirm(mode)` chạy **sau khi** cover đóng hẳn (`onDismiss`) — chỗ gọi trình bày sheet / bộ chọn ngay trong đó được.
 /// - Chạm ra ngoài thẻ ⇒ đóng, không gọi `onConfirm`; `isPresented` tự về `false` ở mọi đường đóng.
 /// - Mặc định chọn `.overwriteExisting` ("Gộp"): "Thay thế toàn bộ" xoá dữ liệu cũ nên không để sẵn.
 /// - Danh sách chỉ có khoá (vd danh sách rule tắt): "Gộp" và "Chỉ thêm key mới" cho cùng kết quả — vẫn hiện đủ ba cho
@@ -26,6 +21,8 @@ import SwiftUI
 struct DataImportModePopupModifier: ViewModifier {
     @Binding var isPresented: Bool
     let title: String
+    /// Dòng dưới tiêu đề (tên file / tên nguồn); `nil` ⇒ "Chọn cách nhập".
+    let message: String?
     let confirmTitle: String
     let confirmSystemImage: String
     let modes: [DataImportMode]
@@ -46,6 +43,7 @@ struct DataImportModePopupModifier: ViewModifier {
             .fullScreenCover(isPresented: $coverShown, onDismiss: handleDismiss) {
                 DataImportModePopup(
                     title: title,
+                    message: message,
                     confirmTitle: confirmTitle,
                     confirmSystemImage: confirmSystemImage,
                     modes: modes,
@@ -79,12 +77,13 @@ struct DataImportModePopupModifier: ViewModifier {
 }
 
 extension View {
-    /// Popup giữa màn chọn một trong ba `DataImportMode` rồi bấm nút cuối (mặc định "Nhập file") — xem
-    /// `DataImportModePopupModifier`. `onConfirm` chạy sau khi popup đóng hẳn.
+    /// Popup giữa màn chọn một trong ba `DataImportMode` rồi bấm nút cuối (mặc định "Nhập") — xem
+    /// `DataImportModePopupModifier`. `onConfirm` chạy sau khi popup đóng hẳn. Nhập file ⇒ `.dataImportFilePicker`.
     func dataImportModePopup(
         isPresented: Binding<Bool>,
         title: String,
-        confirmTitle: String = "Nhập file",
+        message: String? = nil,
+        confirmTitle: String = "Nhập",
         confirmSystemImage: String = "square.and.arrow.down",
         modes: [DataImportMode] = DataImportMode.allCases,
         initialMode: DataImportMode = .overwriteExisting,
@@ -93,6 +92,7 @@ extension View {
         modifier(DataImportModePopupModifier(
             isPresented: isPresented,
             title: title,
+            message: message,
             confirmTitle: confirmTitle,
             confirmSystemImage: confirmSystemImage,
             modes: modes,
