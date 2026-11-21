@@ -83,6 +83,26 @@ extension PlaylistPlaybackCoordinator {
         playVideoItem(next, in: session, userInitiated: true, notice: nil)
     }
 
+    /// Chạm một hàng ở danh sách xổ của dải playlist (`VideoWatchPlaylistQueueList`). Vẫn ở chế độ playlist — không đi
+    /// `VideoPlaybackSession.selectEpisode` (lối đó thôi playlist). Chính mục đang phát ⇒ phim đang lỗi thì thử lại, phim
+    /// của mục còn đang mở (`pendingToken`) hay đang phát thì để yên.
+    func jumpVideo(to itemId: UUID) {
+        let session = VideoPlaybackSession.shared
+        guard isVideoActive(in: session) else { return }
+        refreshVideoQueue()
+        guard var queue = videoQueue else { return }
+        if queue.currentItemId == itemId {
+            if queue.pendingToken == nil, session.launch?.bookId == queue.currentBookId, case .failed = session.phase {
+                session.retry()
+            }
+            return
+        }
+        guard let item = queue.jump(to: itemId) else { return }
+        videoQueue = queue
+        AppLogger.shared.log("⏭️ [PlaylistPlayback] Chọn mục \(queue.displayPosition)/\(queue.count) «\(item.displayTitle(kind: .video))»")
+        playVideoItem(item, in: session, userInitiated: true, notice: nil)
+    }
+
     /// `VideoWatchModel` vừa mở phiên phát (hoặc chuyển tập trong phiên) cho lượt `token`. Model không màn chỉ bị **thả**
     /// (không huỷ): phim đã có mục lục trên máy thì phát trước khi làm mới mục lục xong.
     func videoDidOpen(token: UUID, bookId: String) {

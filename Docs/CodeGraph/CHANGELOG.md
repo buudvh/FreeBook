@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1042] - 2026-11-21
+
+### feat: Màn xem phim — chạm dải Playlist xổ danh sách mục (bìa ngang), chạm hàng phát mục đó
+
+Anh Bửu: "bấm vào phần playlist trong phát video dọc cho xổ ra danh sách video cho tôi, hiển thị kiểu danh sách nhưng cover ngang" → plan + mockup (https://claude.ai/artifact/3vLeRzLdCr1fimJhxu9pFj) → "Duyệt".
+
+- **Dải** `VideoWatchPlaylistBar`: cả dải (trừ nút ⏭) thành nút xổ / thu, thêm mũi `chevron.down` lật lên khi đang xổ; trạng thái xổ là `@State` của dải nên giữ qua lượt đổi phim tại chỗ. ⏭ giữ nguyên việc cũ.
+- **Danh sách** `VideoWatchPlaylistQueueList` (mới): mục theo **thứ tự người dùng xếp** (không theo thứ tự xáo — như `AudioPlaylistQueueList`), lấy bản mới nhất của playlist, NSFW ẩn theo công tắc chung, playlist đã xoá ⇒ bản chụp của hàng đợi. Hàng dùng lại `PlaylistItemRow(kind: .video)` (bìa 92×52 bo 8, tên `.headline` 2 dòng, tên phim `.subheadline`; màn xem ép nền tối nên chữ trắng), mục đang phát tô màu nhấn + icon loa theo **id mục**. Thẻ nền trắng 7% bo 12, vạch ngăn mảnh giữa hàng. ≤ 4 mục hiện hết; dài hơn ⇒ khung cao 310 pt (≈ 4,5 hàng) cuộn bên trong, xổ ra / đổi mục thì cuộn tới mục đang phát.
+- **Chạm hàng** ⇒ `PlaylistPlaybackCoordinator.jumpVideo(to:)` (mới, `+Video`): `queue.jump(to:)` rồi `playVideoItem` (cùng phim ⇒ chuyển tập trong phiên, phim khác ⇒ màn đổi tại chỗ) — vẫn ở chế độ playlist; không đi `model.play` / `selectEpisode` (lối đó thôi playlist). Chạm đúng mục đang phát ⇒ phim lỗi thì thử lại, đang mở / đang phát thì để yên. Danh sách giữ mở sau khi chạm. Log `🎶 [VideoWatch]` (xổ / thu, chọn mục), `⏭️ [PlaylistPlayback] Chọn mục i/n`.
+- Đang xáo: số trên dải ("3/8") theo thứ tự phát, số của hàng theo thứ tự xếp — giống màn nghe nhạc.
+- Dọn: entry 1.3.1012 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/comic-video.md` ghi danh sách xổ. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1041] - 2026-11-20
 
 ### feat: vtts — từ điển phiên âm riêng như VieNeu / NghiTTS, sheet phiên âm khi bôi đen lưu được vào vtts
@@ -387,21 +399,3 @@ Danh sách VietPhrase.dat / Names.dat không có nhập nên không đổi.
 File: Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController, QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions}, Views/Dictionary/{DictionaryListView, DictionaryListView+Transfer (chỉ comment), BaseDictionaryListView, BookImportSourceSheet, BookShareTargetSheet}, .claude/rules/translation.md.
 
 Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần thử popup hiện đúng sau khi bộ chọn file đóng ở cả màn đẩy (Cài đặt, danh sách) lẫn danh sách mở trong sheet (hub Từ điển của Reader), và hai bộ chọn file của menu rule (rule / rule tắt) gắn cùng một view không lẫn nhau.
-
-## [1.3.1012] - 2026-11-19
-
-### feat: Nhập phiên âm, thay thế TTS, quy tắc mục lục, công cụ tra cứu — chọn file trước, popup chọn cách nhập hiện sau kèm tên file
-
-Anh Bửu: "Hiện tại popup option nhập file hiển thị trước khi nhập file, sửa lại hiển thị sau khi nhập file. Hiển thị tên file nhập ở phần mô tả dưới tiêu đề nhập."
-
-Trước: hàng "Nhập…" trong ngăn kéo … mở popup chọn cách nhập (`.dataImportModePopup`) trước, bấm "Nhập file" mới mở bộ chọn file; chế độ đã chọn giữ tạm ở `pendingImportMode` chờ file.
-Nay: 5 màn chuyển sang khung chung `.dataImportFilePicker` (commit 1ea15164): hàng "Nhập…" chỉ mở bộ chọn file; chọn xong mới hiện popup Thay thế toàn bộ / Gộp / Chỉ thêm key mới với tên file ở dòng dưới tiêu đề, nút "Nhập"; bấm "Nhập" ⇒ gọi đúng hàm nhập cũ với file + chế độ (giữ nguyên logic 3 chế độ, khoá so trùng và toast "thêm X, cập nhật Y"). Huỷ chọn file ⇒ không có popup; chạm ra ngoài popup ⇒ bỏ file, không nhập. Giữ nguyên loại file cho phép của từng màn (NghiTTS .plist / .json / .csv / .txt, VieNeu .plist / .json, ba màn còn lại .json) và câu báo khi đuôi file sai (nay báo sau khi bấm "Nhập"). Bỏ state `showingImportModes` / `pendingImportMode`, `DocumentPicker` dạng sheet (hai màn phiên âm) và `DocumentPickerPresenter` riêng của từng màn. Lọc rác không đổi (không popup, chỉ thêm mẫu chưa có).
-
-File đã đụng:
-- `Sources/Views/Settings/TTS/TTSDictionaryEditView.swift` (phiên âm NghiTTS)
-- `Sources/Views/Settings/TTS/VieNeuJapaneseDictionaryView.swift` (phiên âm VieNeu)
-- `Sources/Views/Settings/TTS/TTSReplacementManagerView.swift` (thay thế ký tự TTS, cả tầng chung lẫn tầng riêng của truyện)
-- `Sources/Views/Settings/Translation/TOCRulesConfigView.swift` (quy tắc mục lục)
-- `Sources/Views/Settings/Search/SearchEnginesConfigView.swift` (công cụ tra cứu)
-
-Chưa kiểm: không build được (máy Windows) — chỉ đọc code + `check_architecture.py` (không lỗi mới); chưa chạy trên máy, nhất là hai màn phiên âm (trước dùng `DocumentPicker` dạng sheet, nay bộ chọn bản sao `asCopy` của khung chung — file nằm ở thư mục tạm, đọc trong `Task` sau khi popup đóng) và màn mở dạng sheet (Thay thế TTS từ Cài đặt TTS / hub truyện, Công cụ tra cứu từ Reader).
