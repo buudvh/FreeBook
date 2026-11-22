@@ -14,6 +14,8 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
         case vieNeuTurbo
         case clonedVoices
         case nghiTTS
+        /// `TTS/Vtts` — giọng vtts tự nhập (`VttsImportedVoiceRepository`, 1.3.1043).
+        case vttsVoices
         case ttsDictionaries
         case ttsJunk
         case ttsOther
@@ -25,8 +27,8 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
 
         public var category: StorageUsageCategory {
             switch self {
-            case .vieNeuNano, .vieNeuNanoCoreML, .vieNeuTurbo, .clonedVoices, .nghiTTS, .ttsDictionaries, .ttsJunk,
-                 .ttsOther:
+            case .vieNeuNano, .vieNeuNanoCoreML, .vieNeuTurbo, .clonedVoices, .nghiTTS, .vttsVoices, .ttsDictionaries,
+                 .ttsJunk, .ttsOther:
                 return .tts
             case .temporary, .systemCaches, .webData, .unknown:
                 return .other
@@ -36,7 +38,7 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
 
     public let kind: Kind
     public let bytes: Int64
-    /// Số giọng (VieNeu Nano / Turbo, Piper) khi đếm được rẻ; `nil` = không ghi số.
+    /// Số giọng (VieNeu Nano / Turbo, Piper, vtts tự nhập) khi đếm được rẻ; `nil` = không ghi số.
     public let count: Int?
     /// Dòng cháu (chỉ "Bộ đệm hệ thống" và "Không rõ chủ"), cộng lại đúng bằng `bytes`. `nil` ở bản đo cũ / dòng khác.
     /// Phải là `var … = nil` (không phải `let`): `Decodable` tự sinh bỏ qua `let` có giá trị đầu.
@@ -62,6 +64,9 @@ public struct StorageUsageDetail: Sendable, Codable, Identifiable {
         case .nghiTTS:
             if let count, count > 0 { return "NghiTTS · \(count) giọng Piper" }
             return "NghiTTS · giọng Piper"
+        case .vttsVoices:
+            if let count, count > 0 { return "vtts · \(count) giọng tự nhập" }
+            return "vtts · giọng tự nhập"
         case .ttsDictionaries:
             return "Từ điển phiên âm (NghiTTS, VieNeu, vtts)"
         case .ttsJunk:

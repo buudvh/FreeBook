@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1043] - 2026-11-22
+
+### feat: vtts — nhập giọng từ file .vtts (Giọng của tôi), để dùng giọng Ngọc Huyền tự train
+
+Anh Bửu: "Tích hợp giọng ngọc huyền vào app" → plan (giọng train riêng không đóng vào IPA: dữ liệu Ngọc Huyền CC BY-NC, repo công khai, IPA gửi Telegram ⇒ làm chức năng nhập file, giọng chỉ nằm trên máy) → "Javis tự duyệt đi".
+
+- **`VttsVoice`** enum → struct (`id`, `displayName`, `source` = `.bundled(fileName:)` / `.imported(fileName:)`, `defaultLoudnessGainDb`). Id giọng có sẵn giữ `nu-10` / `nam-1` ⇒ lựa chọn đã lưu không mất; giọng tự nhập id `file:<tên file>`, tên hiện = tên file bỏ đuôi. `resolve`: giọng có sẵn ⇒ giọng tự nhập còn file ⇒ mặc định. Đoạn quá ngắn để đo âm lượng: giọng tự nhập tăng 9 dB (giữa hai giọng có sẵn).
+- **`VttsImportedVoiceRepository`** (mới, `@MainActor @Observable`, khuôn `NghiVoiceDirectory`): chủ duy nhất của `Application Support/FreeBook/TTS/Vtts/`. Nhập = kiểm cỡ (≤ 64 MB) → chép sang file tạm → **nạp thử + đọc "Xin chào."** bằng runtime vtts của app (`VttsRuntime.validateModel`, handle riêng trên hàng đợi runtime, không vào `handles`) → đặt vào thư mục (trùng tên ⇒ thay) → nhả handle cũ của id đó. File hỏng / không phải vtts / khác phiên bản runtime không bao giờ vào danh sách. Xoá: đúng giọng trình đọc vtts đang dùng ⇒ dừng phiên trước; giọng đang chọn (trình đọc chính hay giọng dự phòng) ⇒ về `nu-10`. Tên file từ id được kiểm (không `/`, `:`, không bắt đầu `.`, đuôi `.vtts`). Không vào Sao lưu.
+- **`VttsRuntime`**: handle khoá theo `VttsVoice.id`; `modelURL` theo nguồn (bundle / thư mục giọng tự nhập); `isAvailable` vẫn chỉ xét 2 giọng có sẵn + VLEX (giọng tự nhập cũng dùng VLEX của app); thêm `release(voiceId:)`, `validateModel(at:)`, lỗi `voiceFileMissing` (file tự nhập mất giữa chừng).
+- **Sheet chọn giọng vtts** (`VttsVoicePickerList`, chép khuôn sheet NghiTTS): hàng đầu "Nhập giọng từ file .vtts" (`DocumentPickerPresenter` — `.fileImporter` không trả kết quả trong LiveContainer; nhận mọi file, runtime quyết định), "Có sẵn trong app", "Giọng của tôi" (dòng phụ "Tự nhập · X MB", ▶ thử, 🗑 / nhấn giữ ⇒ hỏi "Xoá giọng"), lớp "Đang nhập giọng...", toast kết quả. Màn Giọng dự phòng dùng chung sheet nên có luôn.
+- Hàng "Giọng đọc" (`TTSReaderVoiceSummaryRow`): giọng tự nhập ghi "Giọng tự nhập · X MB".
+- **Dung lượng**: dòng mới "vtts · N giọng tự nhập" (`StorageUsageDetail.Kind.vttsVoices`, thư mục `TTS/Vtts`); snapshot đo cũ không giải được Kind mới ⇒ màn đo lại (đã chấp nhận ở comment của `StorageUsageDetail`).
+- Log: `🗣️ [Vtts] Đã nhập giọng <file>: <Hz>, bộ token …, X MB`, `❌ [Vtts] Nhập giọng …`, `🗑️ [Vtts] Đã xoá giọng tự nhập …`, `🗣️ [Vtts] Đã nhả giọng <id>`.
+- Runtime vtts của app (`Vendor/vtts/VTTS_COMMIT.txt` c5c8c00) trùng commit repo dùng train giọng trên Kaggle ⇒ file `.vtts` train ra đọc được. Không đổi CI / `Vendor/vtts` / IPA.
+- Dọn: entry 1.3.1013 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` + `storage.md` ghi giọng tự nhập. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1042] - 2026-11-21
 
 ### feat: Màn xem phim — chạm dải Playlist xổ danh sách mục (bìa ngang), chạm hàng phát mục đó
@@ -381,21 +397,3 @@ Anh Bửu: "sửa các option phía dưới bộ sưu tập của context menu t
   - Ô "Xoá bản tải" chỉ thêm vào lưới khi phim còn file tải (kiểm ở sheet) để lưới không giữ chỗ trống. Điều kiện hiện từng ô giữ nguyên như trước.
 - `PlaylistAddBookActionRow`, `VideoDownloadsActionRow` vẽ thành ô; `MissingSourceRebindActionRows` vẽ thành dải. Phần Truyện (bìa, tên, nút sửa / kệ) và Bộ sưu tập không đổi.
 - Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: chạm từng ô có đúng ô đó (không kích hoạt cả hàng), sheet chọn playlist / hộp xác nhận xoá bản tải mở từ ô, hàng cuối căn giữa, chữ dài 2 dòng.
-
-## [1.3.1013] - 2026-11-19
-
-### feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file
-
-Trước: mọi chỗ nhập file của phân hệ dịch hiện popup 3 cách nhập (Thay thế toàn bộ / Gộp / Chỉ thêm key mới) **trước**, chọn xong mới mở bộ chọn file; popup không biết file nào sẽ được nhập. Hai sheet chọn truyện ("Nhập từ truyện khác" / "Chia sẻ sang truyện khác") đã chọn truyện trước nhưng tên truyện nằm lẫn trong tiêu đề popup.
-Nay (anh Bửu: "popup option nhập file hiển thị sau khi nhập file, hiển thị tên file nhập ở phần mô tả dưới tiêu đề nhập"): dùng khung chung `.dataImportFilePicker` (1ea15164) — hàng "Nhập file…" chỉ mở bộ chọn file; chọn xong mới hiện popup chọn cách nhập, tên file ở dòng dưới tiêu đề, nút "Nhập"; huỷ chọn file / chạm ra ngoài popup ⇒ không nhập. Logic 3 chế độ, toast "thêm X, cập nhật Y", chặn lúc đang nhập và loại file cho phép giữ nguyên:
-- 5 thẻ Từ điển chung (GlobalDictionaryCardPresentations + GlobalDictionaryCardController: requestImport chỉ mở bộ chọn file, importFile(url, mode:) thay handlePickedFile / confirmImportMode / pendingMode).
-- Danh sách VP / Name (DictionaryListView, Nhập từ điển — .plainText như cũ).
-- Danh sách Phiên âm / Pronouns (BaseDictionaryListView; importFile(url, mode:) thêm chặn khi đang nhập).
-- Danh sách rule 3 bộ: Nhập file rule và Nhập file rule tắt (QuickTranslationRuleIOMenu + DisabledActions: readImport / readDisabledImport nhận url + mode).
-- Bỏ các .dataImportModePopup + DocumentPickerPresenter riêng + state chế độ chờ cũ ở những chỗ trên.
-- BookImportSourceSheet / BookShareTargetSheet (không qua file, vẫn chọn truyện trước): popup tiêu đề "Nhập từ truyện khác" / "Chia sẻ sang truyện khác", tên truyện đã chọn ở dòng dưới tiêu đề (message:).
-Danh sách VietPhrase.dat / Names.dat không có nhập nên không đổi.
-
-File: Views/Settings/Translation/{GlobalDictionaryCardPresentations, GlobalDictionaryCardController, QuickTranslationRuleIOMenu, QuickTranslationRuleIOMenu+DisabledActions}, Views/Dictionary/{DictionaryListView, DictionaryListView+Transfer (chỉ comment), BaseDictionaryListView, BookImportSourceSheet, BookShareTargetSheet}, .claude/rules/translation.md.
-
-Chưa kiểm: chưa build (máy Windows), chưa chạy máy — cần thử popup hiện đúng sau khi bộ chọn file đóng ở cả màn đẩy (Cài đặt, danh sách) lẫn danh sách mở trong sheet (hub Từ điển của Reader), và hai bộ chọn file của menu rule (rule / rule tắt) gắn cùng một view không lẫn nhau.

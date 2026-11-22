@@ -32,6 +32,7 @@ final class VttsRuntime: @unchecked Sendable {
 
     enum Failure: LocalizedError {
         case missingAssets
+        case voiceFileMissing(voice: String)
         case loadFailed(voice: String, code: Int32, name: String)
         case synthesisFailed(code: Int32, name: String, vttsError: Int32)
 
@@ -39,6 +40,8 @@ final class VttsRuntime: @unchecked Sendable {
             switch self {
             case .missingAssets:
                 return "Bản build thiếu tài sản vtts (thư mục vtts/ trong ứng dụng)."
+            case let .voiceFileMissing(voice):
+                return "Không thấy file giọng vtts \(voice) — có thể đã bị xoá."
             case let .loadFailed(voice, code, name):
                 return "Không nạp được giọng vtts \(voice) (lỗi \(code) \(name))."
             case let .synthesisFailed(code, name, vttsError):
@@ -47,25 +50,40 @@ final class VttsRuntime: @unchecked Sendable {
         }
     }
 
+    /// Kết quả nạp thử một file model lạ (`validateModel`, lúc nhập giọng).
+    struct ModelCheck: Sendable {
+        let sampleRate: Int
+        let tokenSet: String
+        let bytes: Int64
+    }
+
     private let queue = DispatchQueue(label: "com.raikiri1498.FreeBook.vtts.runtime", qos: .userInitiated)
-    /// Chỉ đọc / ghi trên `queue`.
-    private var handles: [VttsVoice: OpaquePointer] = [:]
+    /// Chỉ đọc / ghi trên `queue`. Khoá = `VttsVoice.id` (giọng có sẵn lẫn giọng tự nhập).
+    private var handles: [String: OpaquePointer] = [:]
 
     private init() {}
 
+    /// File model của giọng: giọng có sẵn ⇒ bundle; giọng tự nhập ⇒ `FreeBook/TTS/Vtts/` (chỉ khi file còn).
     static func modelURL(for voice: VttsVoice) -> URL? {
-        Bundle.main.url(forResource: voice.modelFileName, withExtension: nil, subdirectory: assetSubdirectory)
+        switch voice.source {
+        case .bundled(let fileName):
+            return Bundle.main.url(forResource: fileName, withExtension: nil, subdirectory: assetSubdirectory)
+        case .imported(let fileName):
+            guard let url = VttsImportedVoiceRepository.fileURL(fileName: fileName),
+                  FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return url
+        }
     }
 
     static var lexiconURL: URL? {
         Bundle.main.url(forResource: lexiconFileName, withExtension: nil, subdirectory: assetSubdirectory)
     }
 
-    /// Đủ tài sản trong bundle (2 model + VLEX). Chỉ kiểm file, không đụng hàng đợi ⇒ gọi được từ main. Bundle không đổi
-    /// lúc chạy nên tính một lần.
+    /// Đủ tài sản trong bundle (2 model + VLEX — giọng tự nhập cũng cần VLEX). Chỉ kiểm file, không đụng hàng đợi ⇒ gọi
+    /// được từ main. Bundle không đổi lúc chạy nên tính một lần.
     static let isAvailable: Bool = {
         guard lexiconURL != nil else { return false }
-        return VttsVoice.allCases.allSatisfy { modelURL(for: $0) != nil }
+        return VttsVoice.bundled.allSatisfy { modelURL(for: $0) != nil }
     }()
 
     // MARK: - API
@@ -92,12 +110,51 @@ final class VttsRuntime: @unchecked Sendable {
     func releaseAll() {
         queue.async { [self] in
             guard !handles.isEmpty else { return }
-            let names = handles.keys.map(\.rawValue).sorted().joined(separator: ", ")
+            let names = handles.keys.sorted().joined(separator: ", ")
             for handle in handles.values {
                 vtts_bridge_destroy(handle)
             }
             handles.removeAll()
             AppLogger.shared.log("🗣️ [Vtts] Đã nhả runtime (\(names))")
+        }
+    }
+
+    /// Nhả handle của **một** giọng (giọng tự nhập vừa bị xoá / thay file). Không chặn; giọng chưa nạp ⇒ không làm gì.
+    func release(voiceId: String) {
+        queue.async { [self] in
+            guard let handle = handles.removeValue(forKey: voiceId) else { return }
+            vtts_bridge_destroy(handle)
+            AppLogger.shared.log("🗣️ [Vtts] Đã nhả giọng \(voiceId)")
+        }
+    }
+
+    /// Nạp thử một file model lạ (nhập giọng, `VttsImportedVoiceRepository`): handle **riêng** trên hàng đợi, đọc thử một
+    /// câu ngắn rồi nhả ngay — không vào `handles`. File hỏng / khác phiên bản runtime ⇒ ném lỗi nạp / tổng hợp.
+    func validateModel(at url: URL) async throws -> ModelCheck {
+        guard let lexiconURL = Self.lexiconURL else { throw Failure.missingAssets }
+        let bytes = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+        return try await onQueue {
+            var code: Int32 = 0
+            guard let handle = vtts_bridge_create(url.path, lexiconURL.path, &code) else {
+                throw Failure.loadFailed(voice: url.lastPathComponent, code: code, name: Self.errorName(code))
+            }
+            defer { vtts_bridge_destroy(handle) }
+            var pcm: UnsafeMutablePointer<Float>?
+            var count = 0
+            let synthesis = "Xin chào.".withCString { cText in
+                vtts_bridge_synthesize(handle, cText, 1, &pcm, &count)
+            }
+            defer { vtts_bridge_free_pcm(pcm) }
+            guard synthesis == VTTS_BRIDGE_OK, count > 0 else {
+                throw Failure.synthesisFailed(
+                    code: synthesis, name: Self.errorName(synthesis), vttsError: vtts_bridge_last_vtts_error(handle)
+                )
+            }
+            return ModelCheck(
+                sampleRate: Int(vtts_bridge_sample_rate(handle)),
+                tokenSet: String(cString: vtts_bridge_token_set_name(handle)),
+                bytes: bytes
+            )
         }
     }
 
@@ -112,23 +169,27 @@ final class VttsRuntime: @unchecked Sendable {
     }
 
     private func loadHandle(_ voice: VttsVoice) throws -> (handle: OpaquePointer, loadMs: Double?) {
-        if let existing = handles[voice] { return (existing, nil) }
+        if let existing = handles[voice.id] { return (existing, nil) }
+        if voice.isImported, Self.modelURL(for: voice) == nil {
+            AppLogger.shared.log("❌ [Vtts] Không thấy file giọng tự nhập \(voice.fileName)")
+            throw Failure.voiceFileMissing(voice: voice.displayName)
+        }
         guard let modelURL = Self.modelURL(for: voice), let lexiconURL = Self.lexiconURL else {
-            AppLogger.shared.log("❌ [Vtts] Thiếu tài sản trong bundle (\(Self.assetSubdirectory)/\(voice.modelFileName) hoặc \(Self.lexiconFileName))")
+            AppLogger.shared.log("❌ [Vtts] Thiếu tài sản trong bundle (\(Self.assetSubdirectory)/\(voice.fileName) hoặc \(Self.lexiconFileName))")
             throw Failure.missingAssets
         }
         let started = ProcessInfo.processInfo.systemUptime
         var code: Int32 = 0
         guard let handle = vtts_bridge_create(modelURL.path, lexiconURL.path, &code) else {
             let name = Self.errorName(code)
-            AppLogger.shared.log("❌ [Vtts] Nạp giọng \(voice.rawValue) lỗi \(code) \(name) (\(voice.modelFileName))")
-            throw Failure.loadFailed(voice: voice.rawValue, code: code, name: name)
+            AppLogger.shared.log("❌ [Vtts] Nạp giọng \(voice.id) lỗi \(code) \(name) (\(voice.fileName))")
+            throw Failure.loadFailed(voice: voice.displayName, code: code, name: name)
         }
-        handles[voice] = handle
+        handles[voice.id] = handle
         let loadMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let tokenSet = String(cString: vtts_bridge_token_set_name(handle))
         AppLogger.shared.log(
-            "🗣️ [Vtts] Nạp giọng \(voice.rawValue): bộ token \(tokenSet), \(vtts_bridge_sample_rate(handle)) Hz, "
+            "🗣️ [Vtts] Nạp giọng \(voice.id): bộ token \(tokenSet), \(vtts_bridge_sample_rate(handle)) Hz, "
                 + String(format: "%.0f ms", loadMs) + " — \(ProcessMemoryProbe.snapshot().summary)"
         )
         return (handle, loadMs)
@@ -149,7 +210,7 @@ final class VttsRuntime: @unchecked Sendable {
             let name = Self.errorName(code)
             let vttsError = vtts_bridge_last_vtts_error(handle)
             AppLogger.shared.log(
-                "❌ [Vtts] Tổng hợp lỗi \(code) \(name) (mã vtts \(vttsError)), giọng \(voice.rawValue), \(text.count) ký tự"
+                "❌ [Vtts] Tổng hợp lỗi \(code) \(name) (mã vtts \(vttsError)), giọng \(voice.id), \(text.count) ký tự"
             )
             throw Failure.synthesisFailed(code: code, name: name, vttsError: vttsError)
         }

@@ -81,8 +81,8 @@ extension TTSManager {
     /// Giọng vtts đã lưu — chung cho trình đọc chính, giọng dự phòng và sheet chọn giọng. Luôn là một giọng có thật
     /// (`VttsVoice.resolve`). `nonisolated`: đọc `UserDefaults` thuần, gọi được ngoài `MainActor`.
     nonisolated static var storedVttsVoice: String {
-        let saved = UserDefaults.standard.string(forKey: VttsSettings.voiceKey) ?? VttsVoice.defaultVoice.rawValue
-        return VttsVoice.resolve(saved).rawValue
+        let saved = UserDefaults.standard.string(forKey: VttsSettings.voiceKey) ?? VttsVoice.defaultVoice.id
+        return VttsVoice.resolve(saved).id
     }
 
     /// Giọng vtts mà hàng "Giọng đọc" / sheet chọn giọng hiện: `selectedVoice` khi trình đọc là vtts, không thì giọng đã lưu
@@ -96,13 +96,13 @@ extension TTSManager {
     /// giọng khác ⇒ `TTSSettingsSnapshot` khác ⇒ đóng Cài đặt là dựng lại đoạn) rồi nạp sẵn giọng mới. Trình đọc khác (chọn
     /// cho giọng dự phòng) ⇒ chỉ ghi khoá `vttsVoice` — gán `selectedVoice` lúc đó là ghi đè giọng của engine kia.
     func selectVttsVoice(_ voice: VttsVoice) {
-        AppLogger.shared.log("[TTSRoute] chon giong vtts \(voice.rawValue) (trinh doc=\(tool))")
+        AppLogger.shared.log("[TTSRoute] chon giong vtts \(voice.id) (trinh doc=\(tool))")
         guard tool == VttsSettings.tool else {
-            UserDefaults.standard.set(voice.rawValue, forKey: VttsSettings.voiceKey)
+            UserDefaults.standard.set(voice.id, forKey: VttsSettings.voiceKey)
             return
         }
-        guard selectedVoice != voice.rawValue else { return }
-        selectedVoice = voice.rawValue
+        guard selectedVoice != voice.id else { return }
+        selectedVoice = voice.id
         scheduleNghiWarmUp()
     }
 

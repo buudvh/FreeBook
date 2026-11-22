@@ -6,8 +6,9 @@ import SwiftUI
 ///
 /// - Siri: "Tiếng Việt · <chất lượng>" (`SiriVoiceList`). NghiTTS: dung lượng giọng đã tải, chưa tải ⇒ dòng cam
 ///   (`NghiVoiceDirectory`). Google: mô tả giọng. Tiện ích: ngôn ngữ của giọng (`ExtensionTTSVoiceList`). vtts: "Có sẵn
-///   trong app · 2,6 MB" (mockup anh Bửu duyệt); giọng theo `TTSManager.vttsDisplayedVoice()` (màn Giọng dự phòng đọc giọng
-///   đã lưu, không phải `selectedVoice` của trình đọc online).
+///   trong app · 2,6 MB" (mockup anh Bửu duyệt), giọng tự nhập "Giọng tự nhập · <dung lượng>" (1.3.1043); giọng theo
+///   `TTSManager.vttsDisplayedVoice()` (màn Giọng dự phòng đọc giọng đã lưu, không phải `selectedVoice` của trình đọc
+///   online).
 /// - Hàng tự nạp danh sách giọng của trình đọc khi hiện ra / khi đổi trình đọc (`.task(id:)`) — trước đây
 ///   `TTSSettingsView.onAppear` làm việc này.
 struct TTSReaderVoiceSummaryRow: View {
@@ -32,7 +33,8 @@ struct TTSReaderVoiceSummaryRow: View {
         switch engine {
         case .siri: SiriVoiceList.shared.reload()
         case .nghi: NghiVoiceDirectory.shared.reload()
-        case .google, .vtts: break
+        case .google: break
+        case .vtts: VttsImportedVoiceRepository.shared.reload()
         case .ext(let packageId): ExtensionTTSVoiceList.shared.load(packageId: packageId)
         }
     }
@@ -60,7 +62,12 @@ struct TTSReaderVoiceSummaryRow: View {
             let voice = GoogleVoice.allVoices.first { $0.id == selected }
             return (voice?.name ?? selected, voice?.description, false)
         case .vtts:
-            return (ttsManager.vttsDisplayedVoice().displayName, "Có sẵn trong app · 2,6 MB", false)
+            let voice = ttsManager.vttsDisplayedVoice()
+            guard voice.isImported else { return (voice.displayName, "Có sẵn trong app · 2,6 MB", false) }
+            // Giọng tự nhập (1.3.1043): dung lượng đọc từ đĩa; lần vẽ đầu chưa đọc xong ⇒ chỉ ghi "Giọng tự nhập".
+            let bytes = VttsImportedVoiceRepository.shared.entry(id: voice.id)?.bytes
+            let detail = bytes.map { "Giọng tự nhập · " + VttsImportedVoiceRepository.sizeText($0) } ?? "Giọng tự nhập"
+            return (voice.displayName, detail, false)
         case .ext(let packageId):
             let list = ExtensionTTSVoiceList.shared
             let isCurrent = list.packageId == packageId

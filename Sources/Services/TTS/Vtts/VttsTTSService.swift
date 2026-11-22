@@ -182,7 +182,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
     ) {
         let rtf = speechSeconds > 0.001 ? String(format: "%.3f", synthesisMs / 1_000 / speechSeconds) : "—"
         let fields: [String] = [
-            "voice=\(voice.rawValue)",
+            "voice=\(voice.id)",
             "chars=\(text.count)",
             "chunks=\(output.chunkCount)",
             String(format: "runMs=%.0f", output.runMs),
@@ -231,7 +231,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         speed: Double,
         boundaryKind: TTSBoundaryKind
     ) -> String {
-        let raw = "vtts|\(voice.rawValue)|\(String(format: "%.2f", speed))|\(boundaryKind.rawValue)|\(text)"
+        let raw = "vtts|\(voice.id)|\(String(format: "%.2f", speed))|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

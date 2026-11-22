@@ -29,7 +29,7 @@ final class TTSVoicePreviewPlayer {
         case nghi(voiceId: String)
         case google(voiceId: String)
         case ext(localPath: String, configJson: String, voiceId: String)
-        /// `VttsVoice.rawValue`.
+        /// `VttsVoice.id` (giọng có sẵn, hoặc `file:<tên file>` của giọng tự nhập).
         case vtts(voiceId: String)
     }
 

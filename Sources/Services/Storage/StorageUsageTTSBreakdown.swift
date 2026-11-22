@@ -6,7 +6,7 @@ import Foundation
 /// Thứ tự xét: rác (mục của `JunkScanner` nằm dưới `FreeBook/`) trước, rồi theo thư mục owner. Bố cục chép từ owner
 /// (`JunkPaths`): `TTS/VieNeu/{Models,Assets}` = Nano (kể cả graph nhân bản Nano + gói nhân bản Turbo cất chung `Models/`),
 /// `TTS/VieNeu/CoreML` = Tăng tốc Core ML, `TTS/VieNeuTurbo/{Models,Voices}` = Turbo, hai `CustomVoices/` = giọng nhân bản,
-/// `TTS/Models` = Piper (NghiTTS), file nằm ngay trong `TTS/` = từ điển (phiên âm NghiTTS / VieNeu, bộ thay thế ký tự, bản
+/// `TTS/Models` = Piper (NghiTTS), `TTS/Vtts` = giọng vtts tự nhập (1.3.1043), file nằm ngay trong `TTS/` = từ điển (phiên âm NghiTTS / VieNeu, bộ thay thế ký tự, bản
 /// phiên âm lại + bản sao lưu của nó), còn lại = "Khác của TTS" (mỗi lần đo ghi một dòng log ~10 mục lớn nhất của nó).
 enum StorageUsageTTSBreakdown {
     struct Result {
@@ -30,13 +30,14 @@ enum StorageUsageTTSBreakdown {
     }
 
     private static let order: [StorageUsageDetail.Kind] = [
-        .vieNeuNano, .vieNeuNanoCoreML, .vieNeuTurbo, .clonedVoices, .nghiTTS, .ttsDictionaries, .ttsJunk, .ttsOther
+        .vieNeuNano, .vieNeuNanoCoreML, .vieNeuTurbo, .clonedVoices, .nghiTTS, .vttsVoices, .ttsDictionaries, .ttsJunk,
+        .ttsOther
     ]
 
     /// Các thư mục `classify` nhận ra — chỉ để gom mục "Khác của TTS" trong log (`StorageRelativePath.groupingRoot`).
     private static let knownFolders = [
         "TTS/VieNeu/CustomVoices", "TTS/VieNeuTurbo/CustomVoices", "TTS/VieNeu/CoreML", "TTS/VieNeu/Models",
-        "TTS/VieNeu/Assets", "TTS/VieNeuTurbo/Models", "TTS/VieNeuTurbo/Voices", "TTS/Models"
+        "TTS/VieNeu/Assets", "TTS/VieNeuTurbo/Models", "TTS/VieNeuTurbo/Voices", "TTS/Models", "TTS/Vtts"
     ]
 
     /// `root` = thư mục của loại TTS (`StorageUsageCategory.tts`); `junk` = lượt quét rác cùng lần đo.
@@ -70,7 +71,8 @@ enum StorageUsageTTSBreakdown {
         let rawCounts: [StorageUsageDetail.Kind: Int?] = [
             .vieNeuNano: nanoVoiceCount(),
             .vieNeuTurbo: turboVoiceCount(),
-            .nghiTTS: piperVoiceCount()
+            .nghiTTS: piperVoiceCount(),
+            .vttsVoices: vttsVoiceCount()
         ]
         let counts = rawCounts.compactMapValues { $0 }
         let details = order.compactMap { kind -> StorageUsageDetail? in
@@ -90,6 +92,7 @@ enum StorageUsageTTSBreakdown {
         if inside("TTS/VieNeu/Models") || inside("TTS/VieNeu/Assets") { return .vieNeuNano }
         if inside("TTS/VieNeuTurbo/Models") || inside("TTS/VieNeuTurbo/Voices") { return .vieNeuTurbo }
         if inside("TTS/Models") { return .nghiTTS }
+        if inside("TTS/Vtts") { return .vttsVoices }
         if relative.hasPrefix("TTS/"), !relative.dropFirst("TTS/".count).contains("/") { return .ttsDictionaries }
         return .ttsOther
     }
@@ -130,6 +133,15 @@ enum StorageUsageTTSBreakdown {
         let models = JunkPaths.ttsRoot.appendingPathComponent("Models", isDirectory: true)
         let names = Set(JunkScanner.children(of: models).map(\.lastPathComponent))
         let count = names.filter { $0.hasSuffix(".onnx") && names.contains($0 + ".json") }.count
+        return count > 0 ? count : nil
+    }
+
+    /// Mỗi giọng vtts tự nhập là một file `<tên>.vtts` trong `TTS/Vtts/` (`VttsImportedVoiceRepository`).
+    private static func vttsVoiceCount() -> Int? {
+        let folder = JunkPaths.ttsRoot.appendingPathComponent("Vtts", isDirectory: true)
+        let count = JunkScanner.children(of: folder)
+            .filter { VttsImportedVoiceRepository.isSafeFileName($0.lastPathComponent) }
+            .count
         return count > 0 ? count : nil
     }
 }
