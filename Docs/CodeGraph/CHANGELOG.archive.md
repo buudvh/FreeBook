@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1016] - 2026-11-20
+
+### feat: Cài đặt dịch thuật — hàng con hiện theo công tắc QT / Áp dụng rule dịch, bỏ công tắc Dịch đại từ
+
+Anh Bửu: "Bật dịch quick trans mới hiển thị các nav con", "bỏ config dịch đại từ đi vì nó trùng với cấu hình token rule <pn>", "quản lý rule dịch … là con của áp dụng rule dịch", "nav cấu hình dịch theo nguồn và truyện đổi thành cấu hình dịch riêng biệt" → qua 3 bản mockup: TOC / Lọc rác / Riêng biệt "luôn hiện và nằm panel khác", "từ điển chung phải cùng panel với Dịch Thuật Quick Translate", đại từ "tắt hẳn" → duyệt.
+
+- **Màn Cài đặt dịch thuật** (`TranslationSettingsView`):
+  - Panel "Dịch Thuật Quick Translate": công tắc QT; **chỉ khi bật** mới hiện các hàng con thụt 16pt — "Áp dụng rule dịch" ⇒ (chỉ khi công tắc này bật) "Quản lý rule dịch" thụt 32pt (`QuickTranslateRuleSettingsRows`, bỏ tham số `isTranslationEnabled`; chữ công tắc lên `.body` vì trước nhỏ hơn chính hàng con của nó), rồi **Từ điển chung** gộp vào cùng panel (nhãn "Từ điển chung" + lưới 5 thẻ, Tải từ điển mặc định / tiến độ, Làm mới dữ liệu dịch, Cấu hình công cụ tra cứu — `globalDictionaryRows`), trước là section riêng.
+  - Panel riêng không tiêu đề, **luôn hiện**: Quản lý quy tắc TOC, Quản lý lọc rác, **Cấu hình dịch riêng biệt** (đổi tên từ "Cấu hình dịch theo Nguồn & Truyện"; tiêu đề trang đích vốn đã là tên này) — ba thứ vẫn có tác dụng khi tắt QT.
+- **Bỏ công tắc "Dịch Đại từ (Pronouns)" ở cả 3 chỗ**: Cài đặt dịch thuật, Cài đặt trình đọc (`ReaderSettingsView` mất binding `isPronounsEnabled`, `ReaderView` mất `@AppStorage` + `onChange`), sheet Cài đặt dịch truyện tranh (`ComicTranslationSettingsSheet`, bỏ cả dòng giải thích + `notifyEngineSettingChanged` hết người gọi).
+- **Engine — cố định tắt**: tách từ (`VietPhraseTokenizer`) và `TranslateUtils.lookupRawTranslation` **không** tra Pronouns nữa (thứ tự còn Name ⇒ VietPhrase); bỏ `TranslationReadContext.pronounsEnabled` và cờ đại từ trong khoá `TokenizeMemo` / `mappingMemo`. Đại từ chỉ dịch qua rule `<pn>` (`QuickTranslationDictionaryToken`, vốn đã bỏ qua công tắc). Pronouns.txt vẫn nạp cho `<pn>`, thẻ Pronouns.txt, panel tra từ. Không còn ai đọc khoá `isTranslationPronounsEnabled` (giá trị cũ trong UserDefaults / bản sao lưu vô hại).
+- Câu hướng dẫn của panel rule ở Reader (`ReaderDefinitionOverlayView+Rules`) thêm bước "bật Áp dụng rule dịch".
+- `CHANGELOG.md` dời 1.3.971–986 sang `CHANGELOG.archive.md` (giữ ~30 entry).
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: bật/tắt hai công tắc ở Cài đặt dịch thuật (hàng hiện/ẩn, thụt lề, vạch ngăn), thẻ Từ điển chung trong panel QT (menu thẻ, nhập / xuất). Nếu máy đang bật Dịch đại từ: chữ ngoài rule đổi sang nghĩa VP; tên chương đã lưu (`title_trans`) giữ bản cũ tới khi "Dịch lại tên chương".
+
 ## [1.3.1015] - 2026-11-20
 
 ### feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app

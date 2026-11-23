@@ -1,11 +1,11 @@
 import Foundation
 
 /// Giọng của trình đọc **vtts Việt–Anh (Offline)**:
-/// - **Có sẵn trong app**: 2 giọng bản M của release v0.4.0 + giọng Ngọc Huyền FreeBook tự train (1.3.1044), lưu sẵn trong
-///   repo (`Vendor/vtts/assets/vtts`) và đóng vào IPA (thư mục `vtts/` của bundle). Không tải / xoá: chỉ chọn.
+/// - **Có sẵn trong app**: 2 giọng bản M của release v0.4.0 + 2 giọng FreeBook tự train (Ngọc Huyền 1.3.1044, Google Dịch
+///   1.3.1046), lưu sẵn trong repo (`Vendor/vtts/assets/vtts`) và đóng vào IPA (thư mục `vtts/` của bundle). Không tải /
+///   xoá: chỉ chọn.
 /// - **Tự nhập** (1.3.1043): file `.vtts` người dùng chọn từ Tệp, chép vào `FreeBook/TTS/Vtts/`
-///   (`VttsImportedVoiceRepository`). Giọng train từ dữ liệu không chính thức (giọng Google Dịch) chỉ đi đường này — nằm
-///   trên máy người dùng, không vào repo công khai, CI hay IPA.
+///   (`VttsImportedVoiceRepository`).
 ///
 /// `id` là giá trị lưu trong cài đặt (`vttsVoice`) và là tham số `voice` của `LocalTTSEngine` (`VttsTTSService`) — đổi id
 /// của giọng có sẵn là mất lựa chọn đã lưu. Giọng tự nhập: `file:<tên file>`. Id lạ (giọng của trình đọc khác lọt sang,
@@ -49,9 +49,18 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
         source: .bundled(fileName: "vtts-ngochuyen-m-k4.q8.vtts"), defaultLoudnessGainDb: 7.5,
         credit: "pnnbao-ump · CC BY-NC 4.0"
     )
+    /// Giọng FreeBook tự train (1.3.1046, anh Bửu: "thêm giọng google và ipa nữa" — đã nghe báo rủi ro: tiếng thầy lấy qua
+    /// endpoint không chính thức của Google Dịch): bản M chưng cất từ thầy VITS train trên ~35 giờ tiếng Google Dịch đọc câu
+    /// Việt / Anh / trộn. Thầy warm-start từ thầy Ngọc Huyền ⇒ coi là dẫn xuất của dữ liệu CC BY-NC 4.0, ghi nguồn như giọng
+    /// trên. Mức tăng đo trên 6 câu mẫu của lượt train (−22,3 dBFS sau bước chỉnh tiếng).
+    static let googleDich = VttsVoice(
+        id: "google-dich", displayName: "Nữ · Google Dịch",
+        source: .bundled(fileName: "vtts-googledich-m-k4.q8.vtts"), defaultLoudnessGainDb: 8,
+        credit: "pnnbao-ump · CC BY-NC 4.0"
+    )
 
     /// Giọng đóng sẵn trong app, theo thứ tự hiện.
-    static let bundled: [VttsVoice] = [.nu10, .nam1, .ngocHuyen]
+    static let bundled: [VttsVoice] = [.nu10, .nam1, .ngocHuyen, .googleDich]
     static let defaultVoice: VttsVoice = .nu10
 
     /// Tiền tố id của giọng tự nhập.

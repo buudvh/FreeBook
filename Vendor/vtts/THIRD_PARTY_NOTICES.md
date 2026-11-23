@@ -17,6 +17,7 @@ Ghi chú của FreeBook, đặt cạnh `LICENSE` / `NOTICE` nguyên văn của v
 | `vtts/vtts-vien-nu10-m-v0.4.q8.vtts`, `vtts/vtts-vien-nam1-m-v0.4.q8.vtts` | GitHub release `v0.4.0` của `tuanpmt/vtts`, khớp `SHA256SUMS` (nguyên văn file của release) | Apache-2.0, như repo vtts | Có (`FreeBook.app/vtts/`) |
 | `extra/vtts-vien-nu10-s-v0.4.q8.vtts`, `extra/vtts-vien-nam1-s-v0.4.q8.vtts` | Như trên (bản S, dự trữ) | Apache-2.0 | Không |
 | `vtts/vtts-ngochuyen-m-k4.q8.vtts` (giọng "Nữ · Ngọc Huyền", 1.3.1044) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (theo dữ liệu train) | Có |
+| `vtts/vtts-googledich-m-k4.q8.vtts` (giọng "Nữ · Google Dịch", 1.3.1046) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (thầy warm-start từ thầy Ngọc Huyền) | Có |
 | `vtts/lex_en.bin` (VLEX: từ điển tiếng Anh + bảng letter-to-sound) | Dựng bằng `tools/scripts/frontend/build_lexicon.py` từ `cmudict/cmudict.dict` (SHA256 ở `LOCAL_SHA256SUMS`) | Phần dẫn xuất từ CMUdict theo **BSD 2-clause** — `LICENSE-cmudict.txt` | Có |
 | `cmudict/cmudict.dict` | **CMU Pronouncing Dictionary**, `cmusphinx/cmudict` commit `74790861f652b15e4ac49015a90074ad62a27690` (SHA256 trùng mức `tools/src/vtts/frontend/en/cmudict.py` ghim) | **BSD 2-clause** — `LICENSE-cmudict.txt` | Không |
 
@@ -42,3 +43,15 @@ phí, không quảng cáo, không thu phí; muốn thương mại hoá phải b�
 - **Kiến trúc + trainer + runtime**: vtts (Apache-2.0, như mục Mã nguồn).
 
 Trong app, dòng phụ của giọng ghi "pnnbao-ump · CC BY-NC 4.0" (`VttsVoice.credit`).
+
+## Giọng Google Dịch (`vtts/vtts-googledich-m-k4.q8.vtts`)
+
+Model dẫn xuất do FreeBook train, phân phối theo **CC BY-NC 4.0** như giọng Ngọc Huyền (cùng điều kiện phi thương mại,
+cùng dòng ghi nguồn trong app):
+
+- **Tiếng dùng để train thầy**: tiếng đọc của Google Dịch (translate.google.com, giọng tiếng Việt) cho ~17.700 câu, lấy
+  qua endpoint web **không chính thức** — không có giấy phép nào của Google cấp cho việc này. Tên "Google Dịch" chỉ để mô
+  tả nguồn tiếng, FreeBook không liên kết với Google.
+- **Câu chữ**: lời thoại của dataset Ngọc Huyền, câu Anh / câu trộn (Việt chen chữ Anh) và câu Wikipedia tiếng Việt
+  (chỉ dùng làm câu cho máy đọc, không phân phối lại).
+- **Điểm khởi đầu của thầy**: thầy Ngọc Huyền (mục trên) ⇒ kế thừa CC BY-NC 4.0 của dataset `pnnbao-ump/ngochuyen_voice`.
