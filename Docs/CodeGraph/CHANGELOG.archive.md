@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1019] - 2026-11-20
+
+### feat: Công tắc Mờ bìa NSFW ở sheet Kiểu hiển thị, đổi mọi chữ 18+ thành NSFW
+
+Anh Bửu: "sửa những chỗ có chữ 18+ thành nsfw hết, ghi vào rule là nội dung nhạy cảm thì ghi là nsfw hoặc nội dung nhạy cảm thôi", "thêm config làm mờ cover nội dung nhạy cảm … có thể bật tắt ở kiểu hiển thị" → chọn mặc định **tắt**, bìa lớn Chi tiết **cũng mờ**, bỏ chỗ đặt ở Kiểu hiển thị danh sách, công tắc ở **góc phải hàng tiêu đề** sheet (mockup A) → duyệt.
+
+- **Mờ bìa NSFW** (`Views/Common/NsfwCoverBlur/NsfwCoverBlurModifier.swift`, khoá `nsfwCoverBlurEnabled`, mặc định tắt):
+  - Công tắc "Mờ bìa NSFW" ở góc phải hàng tiêu đề `BookListLayoutSheet` (mọi màn mở sheet Kiểu hiển thị; sheet không cao thêm) + "Làm mờ bìa nội dung nhạy cảm" ở Cài đặt › Giao diện › Nội dung nhạy cảm (`NsfwSettingsView`, thêm đoạn giải thích trong "?").
+  - `BookCoverView` tự xét `RepositoryFilterPolicy.isNsfwBook` (chỉ khi công tắc bật) ⇒ Kệ, Lịch sử, Bộ sưu tập, Tìm trong Kệ, tab Tải, sheet nhấn giữ, Chi tiết (cả bìa lớn), đầu mục lục, widget TTS.
+  - `RemoteCoverImage` mờ theo cờ môi trường `coversAreNsfw` do màn của nguồn đặt (`.nsfwCoverContext`): Khám phá (trang chủ section + tab danh mục — `DiscoveryView`), Thể loại / Xem thêm (`CategoryNovelsListView`), Tìm kiếm (`searchResultCover` + lưới `SearchSingleSourceResultsView`), đề xuất ở Chi tiết (`SuggestRowView`). Màn xem phim / nghe, playlist, avatar bình luận không gắn cờ ⇒ không mờ.
+  - `.blur` luôn gắn (bán kính 0 khi không mờ, theo cạnh ngắn ×0,12, tối thiểu 6) để bật / tắt không đổi danh tính view (ô bìa không nháy placeholder); nhãn tag / dải tên đè ngoài nên vẫn rõ.
+- **Đổi "18+" ⇒ "NSFW"** ở 133 chỗ (53 file `Sources/` + `.claude/rules` + `rules.md`): chữ trên màn hình ("Phim NSFW", "Chỉ nguồn NSFW", "Đánh dấu / Bỏ đánh dấu NSFW", "ẩn N nguồn NSFW", "Mục NSFW được bỏ qua", toast, lỗi sao lưu, tên che "mục NSFW" ở playlist), comment, log. "Nội dung 18+" ⇒ "Nội dung nhạy cảm" (bộ chọn Cấu hình tiện ích, nhãn trợ năng). Nhãn đỏ trên icon tiện ích (`ExtensionNsfwBadge`) thành "NSFW", chữ hệ số 0,22 (trước 0,28), dời phải thêm chút.
+  - Giữ: từ khoá nhận diện `"18+"` trong `ExtensionNsfwClassifier`, ví dụ dữ liệu thẻ `"18+,nsfw"`, emoji 🔞 đầu log, "iOS 18+" trong `rules.md`, entry CHANGELOG cũ.
+- Luật mới trong `AGENTS.md` (Quy ước đặt tên): nội dung nhạy cảm chỉ ghi "NSFW" / "nội dung nhạy cảm"; kèm ghi chú cách gắn mờ bìa cho màn danh sách mới.
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: bật công tắc ở sheet Kiểu hiển thị (Kệ, Khám phá nguồn NSFW, Thể loại, Tìm một nguồn) và ở Cài đặt; nhãn NSFW trên icon ở cỡ nhỏ (danh sách Kho) và lớn (đầu Cấu hình tiện ích); bìa lớn Chi tiết.
+
 ## [1.3.1018] - 2026-11-20
 
 ### feat: Tiêu đề trang có nút trái luôn nằm cạnh nút trái, bỏ tiêu đề hàng 2

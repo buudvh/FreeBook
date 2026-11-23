@@ -4,11 +4,11 @@ import Foundation
 /// → "Làm cho cả ba", duyệt mockup https://claude.ai/artifact/SiAJyQbt7tgWohnCJesDcg). Giá trị = số dB to / nhỏ hơn mức app
 /// vẫn kéo cho giọng đó (0 = như trước 1.3.1047), lưu riêng từng cặp trình đọc + giọng, kẹp `range`.
 ///
-/// Vì sao vtts mặc định −6 dB (1.3.1048, anh Bửu: "vtts giảm âm lượng vẫn bị rè, tất cả giọng đều có độ rè"): trong bộ nghe
-/// thử 2026-11-23, bản anh nghe rè đúng là bản bộ ghìm đỉnh phải cắt (đỉnh chạm −1 dBFS ở mốc −14 dB của `VttsLoudness`);
-/// bản −17 / −20 dB — kể cả bản có đủ lọc + nâng 2,8 kHz — không chạm trần, không rè. Log máy anh ở −14 dB: ghìm tới −5,5 dB
-/// ở đoạn đỉnh cao ⇒ −3 dB (mặc định của Google Dịch ở 1.3.1047) chưa đủ, −6 dB thì bộ ghìm gần như không chạm. Mức −20 dBFS
-/// vẫn to hơn tiếng gốc của model (≈ −7 … −10,5 dB trên thang này) và nhỏ hơn Google online (≈ −4 dB) khoảng 2 dB.
+/// Vì sao giọng Google Dịch (vtts) mặc định −3 dB: giọng đó gần như chỉ có năng lượng < 1 kHz; trên máy tính anh nghe bản kéo
+/// lên −14 dB (mốc `VttsLoudness`) thì rè, −17 dB thì không (2026-11-23). 1.3.1048 từng hạ **mọi** giọng vtts xuống −6 vì
+/// tưởng bộ ghìm đỉnh gây rè — trên điện thoại vẫn rè và anh nghe "khó chịu hơn" ⇒ 1.3.1049 trả về như cũ (rè trên máy theo
+/// khâu vtts tự đọc nhanh, xem `TTSManager.VttsSettings.defaultNativeSpeedMax`). Mục vtts anh đặt dưới −6 vẫn giữ (lượt chuyển
+/// một lần của 1.3.1048 chỉ bỏ mục to hơn −6, cờ `ttsVolumeOffsetsVttsDefaultMinus6` còn lại trong `UserDefaults`, vô hại).
 ///
 /// Khoá giọng (`voiceKey`): vtts = `VttsVoice.id`; NghiTTS = tên giọng (`selectedVoice`, `TTSOnlineFallbackSettings.nghiVoice`
 /// — đúng chuỗi `PiperTTSService` nhận); VieNeu = `"<model>:<giọng>"` như `VieNeuVoiceSelection.storageValue` (giọng Nano và
@@ -28,12 +28,9 @@ enum TTSVolumeSettings {
     static let defaultsKey = "ttsVolumeOffsets"
     static let range: ClosedRange<Int> = -12...4
 
-    /// Mặc định của mọi giọng vtts (kể cả giọng tự nhập) từ 1.3.1048 — lý do ở đầu file.
-    static let vttsDefaultOffset = -6
-
-    /// Mặc định của giọng: vtts `vttsDefaultOffset`, NghiTTS / VieNeu 0.
+    /// Mặc định của giọng: 0, riêng giọng Google Dịch của vtts −3 dB.
     static func defaultOffset(engine: Engine, voiceKey: String) -> Int {
-        engine == .vtts ? vttsDefaultOffset : 0
+        engine == .vtts && voiceKey == VttsVoice.googleDich.id ? -3 : 0
     }
 
     /// Mức của giọng (khoá đã chuẩn — `voiceKey(engine:voice:)` / `vieNeuVoiceKey`).
@@ -84,7 +81,6 @@ enum TTSVolumeSettings {
     }
 
     private static func table() -> [String: Int] {
-        _ = vttsDefaultMigration
         let raw = UserDefaults.standard.string(forKey: defaultsKey) ?? ""
         lock.lock()
         defer { lock.unlock() }
@@ -103,25 +99,4 @@ enum TTSVolumeSettings {
         let data = (try? JSONSerialization.data(withJSONObject: entries, options: [.sortedKeys])) ?? Data("{}".utf8)
         UserDefaults.standard.set(String(decoding: data, as: UTF8.self), forKey: defaultsKey)
     }
-
-    // MARK: - Chuyển bảng cũ
-
-    /// Đã chuyển bảng sang mặc định vtts −6 dB (1.3.1048).
-    private static let vttsDefaultMigrationKey = "ttsVolumeOffsetsVttsDefaultMinus6"
-
-    /// Chạy một lần mỗi máy, ở lần đọc bảng đầu tiên (`static let` khởi tạo lười, an toàn đa luồng): mục vtts anh đã chỉnh
-    /// **to hơn** −6 dB (kể cả 0 / −3 của 1.3.1047) bị bỏ ⇒ về mặc định mới; mục nhỏ hơn giữ nguyên. NghiTTS / VieNeu không đụng.
-    private static let vttsDefaultMigration: Void = {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: TTSVolumeSettings.vttsDefaultMigrationKey) else { return }
-        defer { defaults.set(true, forKey: TTSVolumeSettings.vttsDefaultMigrationKey) }
-        guard let raw = defaults.string(forKey: TTSVolumeSettings.defaultsKey) else { return }
-        let entries = TTSVolumeSettings.decode(raw)
-        let prefix = "\(Engine.vtts.rawValue)|"
-        let kept = entries.filter { key, value in !key.hasPrefix(prefix) || value < TTSVolumeSettings.vttsDefaultOffset }
-        guard kept.count != entries.count else { return }
-        TTSVolumeSettings.write(kept)
-        let dropped = entries.count - kept.count
-        AppLogger.shared.log("🔊 [TTSVolume] Mặc định vtts \(TTSVolumeSettings.vttsDefaultOffset) dB: bỏ \(dropped) mục to hơn")
-    }()
 }

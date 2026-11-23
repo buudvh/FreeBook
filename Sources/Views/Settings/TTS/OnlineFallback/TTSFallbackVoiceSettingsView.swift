@@ -211,7 +211,7 @@ struct TTSFallbackVoiceSettingsView: View {
         TTSOnlineFallbackSettings.setPlaybackSpeed(1.0, for: engine)
         if engine == .vieneu && isNanoSelected { synthesisSpeed = 1.0 }
         if engine == .vtts {
-            UserDefaults.standard.set(TTSManager.VttsSettings.defaultNativeSpeedMax, forKey: TTSManager.VttsSettings.nativeSpeedMaxKey)
+            TTSManager.VttsSettings.resetNativeSpeedMax()
         }
         TTSVolumeRow.reset(tool: engine.rawValue, voice: TTSManager.onlineFallbackVoice(for: engine))
     }

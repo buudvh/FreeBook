@@ -7,7 +7,7 @@ import SwiftUI
 /// để trình phát kéo (`localPlaybackRate` / `remotePlaybackRate`). Dòng dưới thanh chỉ là **số**: "vtts đọc X · trình phát
 /// kéo thêm Y" — giải thích nằm sau nút "?" của tiêu đề "Cấu hình giọng nói" (`helpParagraphs`).
 ///
-/// Lưu bằng `@AppStorage` (khoá không dấu chấm) ⇒ nút "Đặt lại" ghi thẳng `UserDefaults` là hàng tự cập nhật. Đổi giá trị
+/// Lưu bằng `@AppStorage` (khoá không dấu chấm) ⇒ nút "Đặt lại" xoá khoá (`VttsSettings.resetNativeSpeedMax`) là hàng tự cập nhật. Đổi giá trị
 /// không tự bỏ tiếng đã tạo: giá trị nằm trong `TTSSettingsSnapshot` (trình đọc chính) và fingerprint giọng dự phòng ⇒ đóng
 /// Cài đặt là dựng lại đoạn, như khi đổi tốc độ.
 struct VttsNativeSpeedRow: View {
@@ -20,7 +20,7 @@ struct VttsNativeSpeedRow: View {
     /// Đoạn giải thích sau nút "?" của tiêu đề "Cấu hình giọng nói" khi chọn vtts (Cài đặt TTS + màn Giọng dự phòng).
     static let helpParagraphs: [LocalizedStringKey] = [
         "**Tốc độ** là tốc độ anh nghe. **vtts tự đọc nhanh tối đa**: vtts tự tạo tiếng nhanh tới mức này, phần còn lại để trình phát kéo nhanh.",
-        "Tự đọc nhanh nhiều: không có tiếng \"vụt\" ở chỗ nối, nhưng âm điệu khác và kém rõ lời. Để trình phát kéo nhiều: rõ lời hơn, có thể có tiếng \"vụt\". Lưu riêng cho vtts, chung với giọng dự phòng."
+        "Tự đọc nhanh nhiều: không có tiếng \"vụt\" ở chỗ nối, nhưng âm điệu khác, kém rõ lời và dễ rè. Để trình phát kéo nhiều (mặc định 1,0x = trình phát kéo cả): rõ lời hơn, có thể có tiếng \"vụt\". Lưu riêng cho vtts, chung với giọng dự phòng."
     ]
 
     var body: some View {

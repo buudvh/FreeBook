@@ -24,7 +24,7 @@ extension TTSSettingsView {
     /// hàng tự cập nhật). Trình đọc khác ⇒ không đụng.
     func resetVttsNativeSpeedMax() {
         guard ttsManager.tool == TTSManager.VttsSettings.tool else { return }
-        UserDefaults.standard.set(TTSManager.VttsSettings.defaultNativeSpeedMax, forKey: TTSManager.VttsSettings.nativeSpeedMaxKey)
+        TTSManager.VttsSettings.resetNativeSpeedMax()
     }
 
     /// "Tải trước dữ liệu" của vtts: chỉ **độ dài phân đoạn** (khoá `vttsChunk`, mặc định 500 từ 1.3.1035). Có tác dụng thật —

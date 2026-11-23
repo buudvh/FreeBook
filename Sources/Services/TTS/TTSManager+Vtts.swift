@@ -31,9 +31,32 @@ extension TTSManager {
         static let defaultChunkLength = 500
         /// "vtts tự đọc nhanh tối đa" (1.3.1037, anh Bửu duyệt mockup): vtts tự tạo tiếng nhanh tới mức này, phần còn lại
         /// của thanh Tốc độ để trình phát kéo. Anh nghe 1.3.1036 (tự đọc trọn 1,8×): hết tiếng "vụt" nhưng "âm điệu khác",
-        /// "không rõ lời" ⇒ để anh tự chỉnh giữa hai cái. Mặc định 1,4 là **ước lượng**. Khoá không dấu chấm (`@AppStorage`).
+        /// "không rõ lời" ⇒ để anh tự chỉnh giữa hai cái. Mặc định 1,4 (ước lượng) → **1,0** (1.3.1049, anh Bửu: cả 4 giọng
+        /// "vẫn rè" sau khi hạ âm lượng 6 dB — mọi bản anh nghe sạch đều do vtts đọc 1×, Google online cũng tạo tiếng 1× rồi để
+        /// trình phát kéo, và anh chỉ bắt đầu kêu rè từ 1.3.1036 là bản thêm tự đọc nhanh). Khoá không dấu chấm (`@AppStorage`).
         static let nativeSpeedMaxKey = "vttsNativeSpeedMax"
-        static let defaultNativeSpeedMax = 1.4
+        static let defaultNativeSpeedMax = 1.0
+
+        /// Cờ của lần xoá giá trị cũ (1.3.1049).
+        nonisolated private static let nativeSpeedMaxResetKey = "vttsNativeSpeedMaxResetTo1"
+
+        /// Chạy một lần mỗi máy, ở lần đọc `vttsNativeSpeedMax` đầu tiên (`static let` khởi tạo lười, an toàn đa luồng): xoá
+        /// "vtts tự đọc nhanh tối đa" đã lưu ⇒ mặc định mới có hiệu lực. Cần vì "Đặt lại" trước 1.3.1049 ghi **cứng** 1,4 vào
+        /// khoá (nay "Đặt lại" xoá khoá). Ai muốn tự đọc nhanh lại thì kéo hàng lên.
+        nonisolated static let nativeSpeedDefaultMigration: Void = {
+            let defaults = UserDefaults.standard
+            guard !defaults.bool(forKey: VttsSettings.nativeSpeedMaxResetKey) else { return }
+            defaults.set(true, forKey: VttsSettings.nativeSpeedMaxResetKey)
+            guard let saved = defaults.object(forKey: VttsSettings.nativeSpeedMaxKey) else { return }
+            defaults.removeObject(forKey: VttsSettings.nativeSpeedMaxKey)
+            AppLogger.shared.log("🗣️ [Vtts] Tự đọc nhanh tối đa: bỏ giá trị đã lưu \(saved) ⇒ mặc định \(VttsSettings.defaultNativeSpeedMax)")
+        }()
+
+        /// "Đặt lại" của hàng "vtts tự đọc nhanh tối đa" (Cài đặt TTS + màn Giọng dự phòng): **xoá** khoá, không ghi số mặc
+        /// định — đổi mặc định về sau mới tới được người đã bấm "Đặt lại".
+        static func resetNativeSpeedMax() {
+            UserDefaults.standard.removeObject(forKey: nativeSpeedMaxKey)
+        }
     }
 
     /// Tên trình đọc local trong toast / log lỗi tổng hợp của đường phát chung (`playNghiTTS`) — trước đó luôn ghi "NghiTTS"
@@ -50,6 +73,7 @@ extension TTSManager {
 
     /// "vtts tự đọc nhanh tối đa" đã lưu, kẹp `VttsTTSService.nativeSpeedRange`; chưa có ⇒ `defaultNativeSpeedMax`.
     nonisolated static var vttsNativeSpeedMax: Double {
+        _ = VttsSettings.nativeSpeedDefaultMigration
         let saved = UserDefaults.standard.double(forKey: VttsSettings.nativeSpeedMaxKey)
         return VttsTTSService.clampedNativeSpeed(saved > 0 ? saved : VttsSettings.defaultNativeSpeedMax)
     }
@@ -69,7 +93,7 @@ extension TTSManager {
     }
 
     /// Tốc độ `NghiAudioPlayerQueue` của trình đọc local đang chọn: vtts đã tự đọc nhanh tới `vttsSynthesisSpeed` nên trình
-    /// phát chỉ kéo phần còn lại (tối đa 1,4: 1,8× ⇒ 1,29; 1,2× ⇒ 1,0; 0,8× ⇒ 0,8). NghiTTS / VieNeu giữ `speed` — với VieNeu
+    /// phát chỉ kéo phần còn lại (vd tối đa 1,4: 1,8× ⇒ 1,29; 1,2× ⇒ 1,0; 0,8× ⇒ 0,8 — mặc định 1,0 từ 1.3.1049 ⇒ kéo cả tốc độ). NghiTTS / VieNeu giữ `speed` — với VieNeu
     /// tốc độ nghe **cố ý** là tích "Tốc độ tổng hợp" × `speed`.
     var localPlaybackRate: Double {
         guard tool == VttsSettings.tool else { return speed }
