@@ -16,7 +16,7 @@ struct TTSVolumeRow: View {
     @AppStorage(TTSVolumeSettings.defaultsKey) private var storedTable = ""
 
     static let helpParagraph: LocalizedStringKey =
-        "**Âm lượng**: to / nhỏ hơn mức app vẫn kéo cho giọng này (0 dB = như trước). Kéo to quá dễ rè, nhất là giọng trầm. Đỉnh luôn được ghìm mềm dưới −1 dB nên không bị cắt. Lưu riêng từng giọng; Đặt lại về mức mặc định."
+        "**Âm lượng**: to / nhỏ hơn mức app kéo chuẩn cho giọng này (0 dB). Kéo to quá dễ rè: đỉnh tiếng bị ghìm mềm dưới −1 dB, ghìm càng nhiều càng rè — vì vậy giọng vtts mặc định −6 dB. Lưu riêng từng giọng; Đặt lại về mức mặc định."
 
     var body: some View {
         if let target = Self.target(tool: tool, voice: voice) {

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1048] - 2026-11-23
+
+### fix: vtts — mọi giọng mặc định −6 dB cho hết rè (bộ ghìm đỉnh không phải cắt), mức đã chỉnh to hơn tự về −6
+
+Anh Bửu: "vtts giảm âm lượng vẫn bị rè, tất cả giọng đều có độ rè" → "4 giọng của vtts bị rè hết ấy" → "lười thử quá" ⇒ Javis tự quyết → anh hỏi mức trước khi tăng âm lượng → "Duyệt, làm đi".
+
+- **Nguyên nhân** (đo lại bộ nghe thử 1.3.1047): bản anh nghe rè (−14 dB, có / không lọc) là bản **bộ ghìm đỉnh phải cắt** — đỉnh chạm −1 dBFS; bản −17 / −20 dB không chạm trần (đỉnh −2,6 … −6,4 dBFS), kể cả bản có đủ lọc 150 Hz + nâng 2,8 kHz ⇒ rè đi theo bộ ghìm, không theo EQ (giữ "bản 4"). Log máy anh ở −14 dB ghìm tới −5,5 dB ở đoạn đỉnh cao ⇒ mặc định −3 của Google Dịch chưa đủ, ba giọng kia còn 0.
+- **`TTSVolumeSettings.vttsDefaultOffset` = −6** cho mọi giọng vtts (kể cả giọng tự nhập) ⇒ mức đích `VttsLoudness` −20 dBFS: to hơn tiếng gốc model (≈ −7 … −10,5 dB trên thang này), nhỏ hơn Google online (≈ −4 dB) khoảng 2 dB. NghiTTS / VieNeu giữ 0.
+- **Chuyển một lần** (`vttsDefaultMigration`, lần đọc bảng đầu tiên, cờ `ttsVolumeOffsetsVttsDefaultMinus6`): mục vtts anh đã chỉnh to hơn −6 bị bỏ ⇒ về mặc định mới, mục nhỏ hơn giữ nguyên; log `🔊 [TTSVolume]`. Mức ≠ 0 ⇒ khoá tổng hợp vtts đổi ⇒ tiếng đã đệm được tạo lại.
+- Đoạn giải thích Âm lượng (nút "?") nói rõ ghìm càng nhiều càng rè + vtts mặc định −6. Cập nhật `.claude/rules/tts.md`.
+- Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ nghi kế tiếp là trình phát kéo nhanh (1,8× ⇒ kéo thêm ~1,29×), rồi mới tới EQ.
+
 ## [1.3.1047] - 2026-11-23
 
 ### feat: TTS — hàng Âm lượng theo giọng cho vtts, NghiTTS, VieNeu (Google Dịch mặc định −3 dB cho hết rè, ghìm đỉnh mềm)
@@ -385,15 +397,3 @@ Anh Bửu: "sửa những chỗ có chữ 18+ thành nsfw hết, ghi vào rule l
   - Giữ: từ khoá nhận diện `"18+"` trong `ExtensionNsfwClassifier`, ví dụ dữ liệu thẻ `"18+,nsfw"`, emoji 🔞 đầu log, "iOS 18+" trong `rules.md`, entry CHANGELOG cũ.
 - Luật mới trong `AGENTS.md` (Quy ước đặt tên): nội dung nhạy cảm chỉ ghi "NSFW" / "nội dung nhạy cảm"; kèm ghi chú cách gắn mờ bìa cho màn danh sách mới.
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: bật công tắc ở sheet Kiểu hiển thị (Kệ, Khám phá nguồn NSFW, Thể loại, Tìm một nguồn) và ở Cài đặt; nhãn NSFW trên icon ở cỡ nhỏ (danh sách Kho) và lớn (đầu Cấu hình tiện ích); bìa lớn Chi tiết.
-
-## [1.3.1018] - 2026-11-20
-
-### feat: Tiêu đề trang có nút trái luôn nằm cạnh nút trái, bỏ tiêu đề hàng 2
-
-Anh Bửu (sau khi duyệt cỡ 28 cho hàng 2): "tôi đổi ý, đừng hiện tiêu đề 2 hàng nữa, để nó luôn hiển thị cạnh nút trái nếu có nút trái".
-
-- **Trang có nút back** (`.backPageTitle` / `PageTitleStyle.centered`, ~64 trang): bỏ tiêu đề lớn hàng 2 của iOS (1.3.984–1.3.1017) ⇒ `navigationBarTitleDisplayMode(.inline)`, tiêu đề **22pt đậm** (cùng cỡ tiêu đề tab gốc / gốc sheet) ở ô `topBarLeading` ngay cạnh nút back, một dòng, không co chữ, trần bề ngang `HeaderMetrics.besideLeftButtonTitleMaxWidth` (rộng màn − 150, chừa nút back + cụm hai nút phải), dài thì cắt đuôi. Hết cảnh khoảng hở giữa hàng nút và hàng tiêu đề mỗi trang một khác, hết tiêu đề thu / bung khi cuộn.
-- Bỏ đầu dò `PageTitleCollapseProbe` (dò nhãn tiêu đề lớn để hiện tiêu đề nhỏ khi thu) và cỡ tiêu đề lớn ở `NavigationBarAppearance` (`applyLargeTitleFont`); `HeaderMetrics` bỏ `largeTitleFontSize` / `inlineTitleFontSize` — tiêu đề trang còn **một cỡ** `rowTitleFontSize` 22.
-- **Trang con trong sheet** (sheet hub: Thông báo, màn kiểm tra của một lượt; sheet kiểu hub: "Từ URL"…): nút ‹ (`HeaderBackButton`) và tiêu đề do `PageTitleModifier` dựng **chung một** `ToolbarItem` khi có `\.sheetPageBack` ⇒ thứ tự luôn ‹ rồi chữ, mũi cách chữ ~8pt. Bỏ `.sheetPageBackButton()` (mục toolbar riêng — hai mục `topBarLeading` thì iOS tự xếp); `SheetPageBackButtonModifier.swift` → `SheetPageBackEnvironment.swift` chỉ còn khoá environment.
-- `ui-conventions.md`, `floating-pills.md` cập nhật theo.
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: trang có nút back (tiêu đề cạnh nút back, tên dài cắt đuôi, không đè nút phải), cuộn không còn thu / bung, trang con trong sheet hub và sheet "+" của Kệ ("Từ URL"): nút ‹ đứng trước tiêu đề, bấm về trang chính.

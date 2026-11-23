@@ -12,7 +12,7 @@ import Foundation
 /// ## Các bước (đúng thứ tự đã dựng bản anh nghe)
 /// 1. **Chỉnh tiếng**: lọc thông cao 150 Hz (Q 0,707) + nâng +6 dB quanh 2,8 kHz (Q 0,9) — biquad RBJ, trạng thái `Double`.
 /// 2. **Kéo mức**: RMS trên khung 20 ms **có tiếng** (khung ≤ −45 dBFS bị bỏ) về −14 dBFS (≈ −16 LUFS) **cộng mức âm lượng
-///    của giọng** (`TTSVolumeSettings`, 1.3.1047 — Google Dịch mặc định −3 ⇒ −17 dBFS: ở −14 giọng đó rè), `min(0, mức)…
+///    của giọng** (`TTSVolumeSettings`, 1.3.1047 — từ 1.3.1048 mọi giọng vtts mặc định −6 ⇒ −20 dBFS: ở −14 bộ ghìm cắt nhiều, nghe rè), `min(0, mức)…
 ///    maxGainDb` (mức 0 ⇒ chỉ tăng như trước; mức âm ⇒ được hạ tới đúng mức đó). Đoạn có tiếng < 0,4 s ("Ừ.", một cái tên):
 ///    không đo (dễ đẩy to tiếng thở) — dùng mức cố định theo giọng (`VttsVoice.defaultLoudnessGainDb`) cộng mức âm lượng.
 /// 3. **Ghìm đỉnh** về ≤ −1 dBFS (`TTSPeakLimiter`, tách ra dùng chung ở 1.3.1047) thay cho cách cũ hạ cả đoạn (cách cũ chặn
