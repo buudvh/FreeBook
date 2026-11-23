@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1046",
+          "buildVersion": "1328",
+          "date": "2026-11-23T02:07:18Z",
+          "localizedDescription": "- ﻿ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh\n- feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1328/TangCongCac-1.3.1046-1328.ipa",
+          "size": 52574917,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1044",
           "buildVersion": "1327",
           "date": "2026-11-23T01:45:09Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1324/TangCongCac-1.3.1041-1324.ipa",
           "size": 47990896,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1040",
-          "buildVersion": "1323",
-          "date": "2026-11-20T10:08:00Z",
-          "localizedDescription": "- feat: Kệ — nút ⋮ mở tuỳ chọn truyện, nhấn giữ để chọn nhiều (Chọn tất cả, Thêm vào playlist, Thêm vào bộ sưu tập, Xoá)\n- feat: Reader — dấu trang chương và ghi chú đoạn (nút trên header, ô ở menu bôi đen, tab Dấu trang / Ghi chú trong mục lục, dấu đoạn có ghi chú)",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1323/TangCongCac-1.3.1040-1323.ipa",
-          "size": 47962147,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1044",
-      "versionDate": "2026-11-23T01:45:09Z",
-      "versionDescription": "- feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1327/TangCongCac-1.3.1044-1327.ipa",
-      "size": 50417384,
+      "version": "1.3.1046",
+      "versionDate": "2026-11-23T02:07:18Z",
+      "versionDescription": "- ﻿ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh\n- feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1328/TangCongCac-1.3.1046-1328.ipa",
+      "size": 52574917,
       "appPermissions": {}
     }
   ],
