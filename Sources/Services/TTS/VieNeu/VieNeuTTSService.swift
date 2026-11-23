@@ -331,9 +331,7 @@ final class VieNeuTTSService: LocalTTSEngine, @unchecked Sendable {
         speed: Double,
         boundaryKind: TTSBoundaryKind
     ) -> String {
-        // Âm lượng của giọng (1.3.1047) chỉ ghép khi ≠ 0 ⇒ khoá cũ của giọng 0 dB không đổi.
-        let volume = TTSVolumeSettings.offset(engine: .vieneu, voiceKey: TTSVolumeSettings.vieNeuVoiceKey(model: .nano, voice: voice))
-        let raw = "vieneu|\(voice)|\(speed)|\(boundaryKind.rawValue)" + (volume == 0 ? "" : "|vol=\(volume)") + "|\(text)"
+        let raw = "vieneu|\(voice)|\(speed)|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

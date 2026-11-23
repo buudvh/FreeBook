@@ -15,8 +15,6 @@ import Foundation
 /// `vttsNativeSpeedMax` (1.3.1037): "vtts tự đọc nhanh tối đa" — như `speed`, đổi là đổi tiếng vtts tạo ra (tốc độ đưa vào
 /// model), nên đóng Cài đặt phải dựng lại đoạn + xoá đệm. Trình đọc khác đổi giá trị này cũng dựng lại (hiếm, vô hại).
 /// `vttsDictionaryEnabled` (1.3.1041): công tắc "Áp dụng từ điển phiên âm vtts" — đổi chữ đưa vào vtts, cùng lý do.
-/// `volumeOffset` (1.3.1047): "Âm lượng" của giọng trình đọc chính (`TTSVolumeSettings`, vtts / NghiTTS / VieNeu) — đổi là đổi
-/// tiếng tạo ra; trình đọc khác luôn 0.
 ///
 /// Ngoại lệ thứ hai: `onlineFallback` (1.3.945) — cài đặt giọng dự phòng của trình đọc online (`TTSOnlineFallbackSettings`
 /// `.fingerprint`); đổi ⇒ dựng lại đoạn để bỏ tiếng dự phòng đã nạp trước theo cài đặt cũ.
@@ -45,7 +43,6 @@ struct TTSSettingsSnapshot: Equatable {
     let onlineFallback: String
     let vttsNativeSpeedMax: Double
     let vttsDictionaryEnabled: Bool
-    let volumeOffset: Int
 
     /// Đọc các khoá `UserDefaults` **tại thời điểm gọi** (hai thời điểm: `prepareForSettings`, `resumeAfterSettings`).
     static func capture(
@@ -83,8 +80,7 @@ struct TTSSettingsSnapshot: Equatable {
             japaneseTransliteration: TTSJapaneseTransliterationSettings.isEnabled(forTool: tool),
             onlineFallback: TTSOnlineFallbackSettings.fingerprint(mainTool: tool),
             vttsNativeSpeedMax: TTSManager.vttsNativeSpeedMax,
-            vttsDictionaryEnabled: VttsPhoneticDictionary.isEnabled,
-            volumeOffset: TTSVolumeSettings.offset(forTool: tool, voice: selectedVoice)
+            vttsDictionaryEnabled: VttsPhoneticDictionary.isEnabled
         )
     }
 }

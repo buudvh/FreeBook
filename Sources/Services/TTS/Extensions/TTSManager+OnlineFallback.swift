@@ -226,9 +226,8 @@ extension TTSManager {
     }
 
     /// Giọng engine dự phòng sẽ đọc — giọng đã lưu **của chính engine đó** (chung với lúc nó là trình đọc chính); không
-    /// bao giờ là `selectedVoice` (lúc này là giọng của trình đọc online). `nonisolated` (1.3.1047): fingerprint giọng dự
-    /// phòng (`TTSOnlineFallbackSettings`, ngoài MainActor) tra âm lượng của giọng này.
-    nonisolated static func onlineFallbackVoice(for engine: TTSOnlineFallbackSettings.Engine) -> String {
+    /// bao giờ là `selectedVoice` (lúc này là giọng của trình đọc online).
+    static func onlineFallbackVoice(for engine: TTSOnlineFallbackSettings.Engine) -> String {
         switch engine {
         case .nghitts: return TTSOnlineFallbackSettings.nghiVoice
         case .vieneu: return effectiveVieNeuVoice()

@@ -14,10 +14,7 @@ extension TTSSettingsView {
 
     /// Nút "?" của tiêu đề "Cấu hình giọng nói" khi chọn vtts (1.3.1037) — giải thích hàng "vtts tự đọc nhanh tối đa".
     var vttsVoiceSectionHelp: some View {
-        SectionHelpButton(
-            accessibilityLabel: "Giải thích Cấu hình giọng nói",
-            paragraphs: VttsNativeSpeedRow.helpParagraphs + [TTSVolumeRow.helpParagraph]
-        )
+        SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: VttsNativeSpeedRow.helpParagraphs)
     }
 
     /// Nút "Đặt lại" của "Cấu hình giọng nói": trình đọc là vtts ⇒ "vtts tự đọc nhanh tối đa" về mặc định (`@AppStorage` của

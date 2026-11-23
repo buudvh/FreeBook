@@ -76,12 +76,6 @@ enum TTSOnlineFallbackSettings {
         guard isOnlineTool(mainTool), let engine else { return "" }
         let defaults = UserDefaults.standard
         let speed = playbackSpeed(for: engine)
-        // "Âm lượng" của giọng dự phòng (1.3.1047) — chung mọi engine dự phòng.
-        let volume = TTSVolumeSettings.offset(forTool: engine.rawValue, voice: TTSManager.onlineFallbackVoice(for: engine))
-        return fingerprint(engine: engine, speed: speed, defaults: defaults) + "|vol=\(volume)"
-    }
-
-    private static func fingerprint(engine: Engine, speed: Double, defaults: UserDefaults) -> String {
         switch engine {
         case .nghitts:
             // Cờ "Phiên âm tiếng Nhật" của NghiTTS (1.3.973) — của VieNeu là `names` bên dưới.

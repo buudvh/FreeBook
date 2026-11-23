@@ -246,10 +246,6 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
         )
         // Khoảng lặng đuôi theo ranh giới, như engine Nano chèn (tốc độ 1×) — thiếu nó các mảnh dính nhau nghe như mất chữ.
         var samples = output.samples
-        // Âm lượng của giọng + ghìm đỉnh (1.3.1047, `TTSVolumeStage`) — trước khoảng lặng đuôi.
-        TTSVolumeStage.apply(&samples, sampleRate: output.sampleRate, offsetDb: TTSVolumeSettings.offset(
-            engine: .vieneu, voiceKey: TTSVolumeSettings.vieNeuVoiceKey(model: .turbo, voice: voice)
-        ))
         let pause = VieNeuTTSEngine.pauseSeconds(for: boundaryKind)
         samples.append(contentsOf: [Float](repeating: 0, count: Int(Double(output.sampleRate) * pause)))
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
@@ -354,8 +350,7 @@ final class VieNeuTurboTTSService: LocalTTSEngine, @unchecked Sendable {
     /// Key mặc định khi caller bỏ trống — cùng khuôn `auto-<digest>` của Nano, có tiền tố `vieneu.turbo` ⇒ không bao giờ
     /// trùng khoá của Nano. Không có tốc độ: Turbo luôn 1×.
     private static func makeDefaultSynthesisKey(text: String, voice: String, boundaryKind: TTSBoundaryKind) -> String {
-        let volume = TTSVolumeSettings.offset(engine: .vieneu, voiceKey: TTSVolumeSettings.vieNeuVoiceKey(model: .turbo, voice: voice))
-        let raw = "vieneu.turbo|\(voice)|\(boundaryKind.rawValue)" + (volume == 0 ? "" : "|vol=\(volume)") + "|\(text)"
+        let raw = "vieneu.turbo|\(voice)|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

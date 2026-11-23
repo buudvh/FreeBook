@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1050] - 2026-11-23
+
+### revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×
+
+Anh Bửu: "bỏ mấy cái sửa sau này đi, đâu fix được đâu" → "lúc trước bị to quá, giảm bớt chút" → hỏi "đọc 1× là sao", nhắc "ko làm 1x vì nó dễ có vụt vụt" → "tạm thời làm đi, tôi sẽ test và nói bạn sau".
+
+- **Chẩn đoán rè đã xong** (2026-11-23, anh nghe tai nghe Bluetooth): Nữ nu-10 / Nam nam-1 rè do vtts **tự đọc nhanh** — hết rè từ 1.3.1049 (đọc 1×). Google Dịch rè **có sẵn trong tiếng Google Dịch gốc** (gốc / thầy / trò "rè như nhau"; anh giữ giọng). Ngọc Huyền: thu âm gốc rè nhẹ, model làm nặng thêm. Âm lượng, bộ ghìm đỉnh, EQ, cắt trên 5 kHz đều không phải nguyên nhân.
+- **Gỡ** (đảo 99d493ef + 793a6b08 + phần âm lượng của 47613e05): `TTSVolumeSettings`, `TTSVolumeStage`, `TTSPeakLimiter` (thuật toán về lại `VttsLoudness`), `TTSVolumeRow` ở Cài đặt TTS + màn Giọng dự phòng (kèm nút "?" mới của NghiTTS, đoạn giải thích Âm lượng), mức Google Dịch −3, ghìm đỉnh thêm cho NghiTTS / VieNeu Nano / Turbo / đọc lai, `vol=` trong khoá tổng hợp / snapshot / fingerprint dự phòng / log ⇒ NghiTTS và VieNeu nghe đúng như trước 1.3.1047. Khoá `ttsVolumeOffsets` còn sót trong `UserDefaults` máy đã chạy 1.3.1047–1049, vô hại.
+- **vtts nhỏ đi 3 dB, cố định cho mọi giọng**: `VttsLoudness.targetRMSDb` −14 → **−17 dBFS** (≈ −19 LUFS, ngang Google online; mức −17 anh từng nghe trên máy tính không rè). Đoạn ngắn: `VttsVoice.defaultLoudnessGainDb` (đo cho mốc −14) + phần chênh của mốc (`fallbackGainReferenceDb`).
+- **Giữ từ 1.3.1049**: "vtts tự đọc nhanh tối đa" mặc định 1,0 (đọc 1×, trình phát kéo cả tốc độ), xoá giá trị đã lưu một lần, "Đặt lại" xoá khoá. Rủi ro "vụt" ở chỗ nối khi trình phát kéo (lý do 1.3.1036 chuyển sang tự đọc nhanh): từ đó đã có phân đoạn 500 + `VttsEdgeFade`; anh sẽ thử — còn "vụt" thì chọn mức giữa (vd 1,2) hoặc làm nhỏ dần đuôi mạnh hơn.
+- Cập nhật `.claude/rules/tts.md` (đoạn "Hàng Âm lượng đã gỡ"), `tts-vieneu.md` về như cũ. Chưa build được tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.1049] - 2026-11-23
 
 ### fix: vtts — đọc 1× để hết rè (tự đọc nhanh tối đa mặc định 1,0, xoá giá trị 1,4 đã lưu), âm lượng mặc định về như 1.3.1047
@@ -379,17 +391,3 @@ Anh Bửu (sau danh sách các màn có 2 nút bên phải): "Kiểm tra tiện 
 - **Màn AI toàn màn của Reader** (`ReaderAIFullScreenView`): ⌄ Đóng (trước là `chevron.down.circle` ngoài cùng bên phải) thành `chevron.down` trước tiêu đề "Trợ lý AI" 22pt đậm + tên phiên; bên phải chỉ còn "…" (khung 36, canh vào lề).
 - `ui-conventions.md`: thêm luật nút ⌄ trước tiêu đề.
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: Tiện ích › Kiểm tra (mở dạng sheet) lúc đang chạy — ⌄ bên trái thu nhỏ đúng, hết lượt thì ⌄ biến mất, tiêu đề về sát lề; màn AI toàn màn — ⌄ đóng màn, "…" mở ngăn kéo.
-
-## [1.3.1020] - 2026-11-20
-
-### feat: Header tự dựng màn đọc / xem / nghe + Khám phá — lề 16pt chung, nút back chung, "…" có vòng, khối tiêu đề hai dòng
-
-- Anh Bửu: "các header custom cho cảm giác logic thiết kế không giống", "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau" — đưa header tự dựng của màn đọc / xem / nghe + Khám phá về lưới chung `HeaderMetrics` (1.3.1017); bố cục từng màn giữ nguyên, chỉ đồng bộ lề, cỡ, nút.
-- Reader (`ReaderHeaderFooterOverlayView`): lề 10 → `HeaderMetrics.horizontalMargin` (cả hàng 2); `chevron.left` tự vẽ → `HeaderBackButton` màu chữ theo nền đọc; "…" ngoài cùng canh phải trong khung 36×38; cụm phải giữ cách 6 khung 36 (ngoại lệ đã ghi trong chuẩn); nút dịch hàng 2 icon 19 → 20 (`assetIconSize`); tên truyện 16 đậm → 16 nửa đậm, chương 13 medium → 13 thường (giữ mũi ⌄ và màu chữ 72%).
-- Tấm phủ Reader Xoá từ rác / Dịch / Copy nội dung gốc: tiêu đề 20 → 22 đậm (`rowTitleFontSize`); lề ngang cả panel 12 → `horizontalMargin` để tiêu đề thẳng hàng với các hàng bên dưới (panel Dịch của truyện tranh dùng chung view nên đổi theo). Nút chọn chữ chevron 13pt trong vòng 28 giữ nguyên.
-- Truyện tranh (`ComicReaderChromeView`): lề thanh trên 8 → `horizontalMargin` (thanh dưới giữ 8); back → `HeaderBackButton` trắng; tiêu đề đảo về đúng thứ tự bằng `HeaderTitleBlock`: tên truyện dòng 1 (16 nửa đậm trắng), chương dòng 2 (13, trắng 60%) — lối mở không mang tên truyện ⇒ chỉ một dòng tên chương; icon dịch 17 → 20; "…" canh phải.
-- Trình phát phim (`VideoPlayerTopBar`, `VideoWatchPosterView`): lề 8 → `horizontalMargin`; ⌄ ngoài cùng trái canh trái trong khung 32×38 (cặp ⌄ ✕ giữ cách 2); menu `ellipsis` trơn → `ellipsis.circle` canh phải; cụm phải giữ cách 6 khung 36; tên phim / tập → `HeaderTitleBlock` (16 nửa đậm trắng / 13 trắng 70%). `VideoPlayerIconLabel` / `VideoPlayerIconButton` thêm tham số `alignment` (mặc định canh giữa — thanh dưới, danh sách tập không đổi).
-- Trang đè lên màn xem (`VideoWatchPagePresenter`): nút back tự vẽ trong toolbar → `HeaderBackButton` (màu nhấn, giữ nhãn "Quay lại màn xem phim").
-- Màn nghe (`AudioPlayerHeader`): lề 6 → `horizontalMargin`; ⌄ khung 44×44 → 38×44 canh trái (icon thường 17pt); `ellipsis` trơn 44×44 → `ellipsis.circle` khung 36×38 canh phải; giữa thành `HeaderTitleBlock` căn giữa: tên album dòng 1 (16 nửa đậm), "Phát từ album" dòng 2 (13, trắng 65%) — trước đây "Phát từ album" nhỏ nằm trên. Hàng giữ cao 48.
-- Khám phá (`DiscoveryView`, `DiscoverySourceMenuButton`): ba nút lọc / lưới / tìm thôi là vòng tròn nền 38 cách 4 → nút trơn khung 32×38 cách 2 như cụm 🔍 | … của Kệ (nút lọc dùng kiểu `.toolbar` của `FilterGlyph`, icon 20), Tìm ngoài cùng canh phải; `.padding(.horizontal)` → `horizontalMargin`. Vòng tròn ảnh nguồn + tên / link nguồn bên trái giữ nguyên.
-- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ JSDom.swift); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: mũi back / ⌄ / "…" chạm lề 16pt (20pt ở máy Plus / Pro Max và phim nằm ngang) ở Reader, truyện tranh, phim dọc + ngang, màn bìa phim, màn nghe, Khám phá; tên phim dài không đè cụm nút phải khi hiện đủ nút (hẹn giờ, phụ đề, khoá xoay); panel Dịch (Reader + truyện tranh) không xuống dòng khác trước ở máy 375pt; màu chữ header Reader ở nền Sáng / Trầm ấm.

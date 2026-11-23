@@ -268,11 +268,6 @@ final class VieNeuTTSEngine: @unchecked Sendable {
         // dùng nghe như **mất chữ**. Chia cho `speed` cho khớp `ONNXPiperEngine`.
         let boundarySilenceSeconds = Self.pauseSeconds(for: boundaryKind) / max(0.1, speed)
         var samples = joined.samples
-        // Âm lượng của giọng + ghìm đỉnh (1.3.1047, `TTSVolumeStage`): cân mảnh ±4 dB ở trên có thể đẩy đỉnh quá 0 dBFS ⇒
-        // trước đó `WAVEncoder` kẹp cứng (rè). Chạy trước khi nối khoảng lặng đuôi.
-        TTSVolumeStage.apply(&samples, sampleRate: config.sampleRate, offsetDb: TTSVolumeSettings.offset(
-            engine: .vieneu, voiceKey: TTSVolumeSettings.vieNeuVoiceKey(model: .nano, voice: voiceName)
-        ))
         if boundarySilenceSeconds > 0 {
             samples.append(contentsOf: [Float](
                 repeating: 0,

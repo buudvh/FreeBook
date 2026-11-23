@@ -22,8 +22,7 @@ import Foundation
 ///   để giọng dự phòng nhận chữ gốc (`tts.md`) — rồi chuẩn hoá NFC: chữ lấy từ web đôi khi ở dạng NFD (dấu tách rời),
 ///   front-end C so từng code point.
 /// - Đuôi cụt ở chỗ vtts nối mảnh làm nhỏ dần (`VttsEdgeFade`), rồi chỉnh tiếng + kéo mức + ghìm đỉnh (`VttsLoudness`,
-///   "bản 4" anh Bửu chọn, 1.3.1036) — model xuất nhỏ và đục. Mức đích cộng âm lượng của giọng (`TTSVolumeSettings`,
-///   1.3.1047; có trong khoá tổng hợp mặc định, log `vol=`).
+///   "bản 4" anh Bửu chọn, 1.3.1036) — model xuất nhỏ và đục.
 /// - WAV PCM16 mono ở tần số của model (22 050 Hz); `pcmDuration` gồm khoảng lặng đuôi; RTF (`TTSEngineRTFStore`) chia
 ///   cho phần lời đọc.
 final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
@@ -145,10 +144,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         var samples = output.samples
         // Đuôi cụt ở chỗ nối mảnh ⇒ nhỏ dần; rồi bản 4 (chỉnh tiếng, kéo mức, ghìm đỉnh) — đều trước khi nối khoảng lặng.
         let abruptEdges = VttsEdgeFade.apply(&samples, sampleRate: sampleRate)
-        let volume = TTSVolumeSettings.offset(engine: .vtts, voiceKey: voice.id)
-        let loudness = VttsLoudness.process(
-            &samples, sampleRate: sampleRate, fallbackGainDb: voice.defaultLoudnessGainDb, offsetDb: volume
-        )
+        let loudness = VttsLoudness.process(&samples, sampleRate: sampleRate, fallbackGainDb: voice.defaultLoudnessGainDb)
         samples.append(contentsOf: repeatElement(Float(0), count: Int(Double(sampleRate) * pause)))
         let synthesisMs = (ProcessInfo.processInfo.systemUptime - started) * 1_000
         let speechSeconds = Double(output.samples.count) / Double(sampleRate)
@@ -156,7 +152,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         TTSEngineRTFStore.shared.record(text: text, synthesisMs: synthesisMs, speechSeconds: speechSeconds)
         Self.logChunk(
             text: text, voice: voice, output: output, synthesisMs: synthesisMs, speechSeconds: speechSeconds,
-            speed: speed, pause: pause, volume: volume, loudness: loudness, abruptEdges: abruptEdges,
+            speed: speed, pause: pause, loudness: loudness, abruptEdges: abruptEdges,
             japanese: Self.japaneseLogField(isEnabled: prepared.japaneseEnabled, changes: prepared.japaneseChanges),
             dictionaryHits: prepared.dictionaryHits, boundaryKind: boundaryKind
         )
@@ -178,7 +174,6 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         speechSeconds: Double,
         speed: Double,
         pause: Double,
-        volume: Int,
         loudness: VttsLoudness.Result,
         abruptEdges: Int,
         japanese: String,
@@ -195,8 +190,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
             String(format: "audio=%.2fs", speechSeconds),
             String(format: "speed=%.2f", speed),
             String(format: "pause=%.2fs", pause),
-            "vol=\(volume)dB",
-            String(format: "gain=%+.1fdB", loudness.gainDb),
+            String(format: "gain=+%.1fdB", loudness.gainDb),
             String(format: "limit=%.1fdB", loudness.limitDb),
             "cut=\(abruptEdges)",
             japanese,
@@ -237,8 +231,7 @@ final class VttsTTSService: LocalTTSEngine, @unchecked Sendable {
         speed: Double,
         boundaryKind: TTSBoundaryKind
     ) -> String {
-        let volume = TTSVolumeSettings.offset(engine: .vtts, voiceKey: voice.id)
-        let raw = "vtts|\(voice.id)|\(String(format: "%.2f", speed))|vol=\(volume)|\(boundaryKind.rawValue)|\(text)"
+        let raw = "vtts|\(voice.id)|\(String(format: "%.2f", speed))|\(boundaryKind.rawValue)|\(text)"
         var hash: UInt64 = 5381
         for byte in raw.utf8 {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)

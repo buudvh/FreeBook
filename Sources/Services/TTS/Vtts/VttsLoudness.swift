@@ -11,12 +11,15 @@ import Foundation
 ///
 /// ## Các bước (đúng thứ tự đã dựng bản anh nghe)
 /// 1. **Chỉnh tiếng**: lọc thông cao 150 Hz (Q 0,707) + nâng +6 dB quanh 2,8 kHz (Q 0,9) — biquad RBJ, trạng thái `Double`.
-/// 2. **Kéo mức**: RMS trên khung 20 ms **có tiếng** (khung ≤ −45 dBFS bị bỏ) về −14 dBFS (≈ −16 LUFS) **cộng mức âm lượng
-///    của giọng** (`TTSVolumeSettings`, 1.3.1047 — Google Dịch mặc định −3 ⇒ −17 dBFS: trên máy tính ở −14 giọng đó rè), `min(0, mức)…
-///    maxGainDb` (mức 0 ⇒ chỉ tăng như trước; mức âm ⇒ được hạ tới đúng mức đó). Đoạn có tiếng < 0,4 s ("Ừ.", một cái tên):
-///    không đo (dễ đẩy to tiếng thở) — dùng mức cố định theo giọng (`VttsVoice.defaultLoudnessGainDb`) cộng mức âm lượng.
-/// 3. **Ghìm đỉnh** về ≤ −1 dBFS (`TTSPeakLimiter`, tách ra dùng chung ở 1.3.1047) thay cho cách cũ hạ cả đoạn (cách cũ chặn
-///    mức to ~−17,5 LUFS, giọng nam-1 đã chạm trần).
+/// 2. **Kéo mức**: RMS trên khung 20 ms **có tiếng** (khung ≤ −45 dBFS bị bỏ) về `targetRMSDb`, chỉ tăng, `0…maxGainDb`.
+///    Mốc −14 dBFS (≈ −16 LUFS) của bản 4 → **−17 dBFS** (≈ −19 LUFS, ngang Google online) ở 1.3.1050 — anh Bửu: "lúc trước
+///    bị to quá, giảm bớt chút" khi gỡ hàng Âm lượng của 1.3.1047 (hạ −6 dB ở 1.3.1048 thì anh nghe "khó chịu hơn").
+///    Đoạn có tiếng < 0,4 s ("Ừ.", một cái tên): không đo (dễ đẩy to tiếng thở) — dùng mức cố định theo giọng
+///    (`VttsVoice.defaultLoudnessGainDb`, đo cho mốc −14) cộng phần chênh của mốc hiện tại.
+/// 3. **Ghìm đỉnh** về ≤ −1 dBFS thay cho cách cũ hạ cả đoạn (cách cũ chặn mức to ~−17,5 LUFS, giọng nam-1 đã chạm trần):
+///    mức cần của từng mẫu giữ cực tiểu trong ±5 ms, trung bình trượt ±5 ms (hạ trước đỉnh, mượt), nhả theo hàm mũ 80 ms.
+///    Tại mỗi đỉnh hệ số ≤ mức cần (mọi mẫu trong cửa sổ trung bình đều đã ≤ mức cần của đỉnh) ⇒ không vượt trần, không để
+///    `WAVEncoder` kẹp cứng gây rè.
 ///
 /// Chạy trên mẫu lời đọc **sau** `VttsEdgeFade`, **trước** khi nối khoảng lặng đuôi; áp cho mọi đường qua `VttsTTSService`
 /// (trình đọc chính, giọng dự phòng, ▶ thử giọng). Log `🗣️ [Vtts] Đoạn` ghi `gain=` + `limit=`.
@@ -30,7 +33,9 @@ enum VttsLoudness {
         static let unchanged = Result(gainDb: 0, limitDb: 0)
     }
 
-    static let targetRMSDb: Float = -14
+    static let targetRMSDb: Float = -17
+    /// Mốc mà `VttsVoice.defaultLoudnessGainDb` được đo (bản 4, 1.3.1036).
+    static let fallbackGainReferenceDb: Float = -14
     static let maxGainDb: Float = 18
     static let peakCeilingDb: Float = -1
     static let speechFrameFloorDb: Float = -45
@@ -43,23 +48,24 @@ enum VttsLoudness {
     static let presenceQ = 0.9
     static let presenceGainDb = 6.0
 
-    /// Sửa `samples` tại chỗ (chỉnh tiếng → kéo mức → ghìm đỉnh); trả số liệu để ghi log. `offsetDb` = âm lượng của giọng
-    /// (`TTSVolumeSettings`), cộng vào mức đích và mức cố định của đoạn ngắn.
+    static let lookaheadSeconds = 0.005
+    static let releaseSeconds = 0.08
+
+    /// Sửa `samples` tại chỗ (chỉnh tiếng → kéo mức → ghìm đỉnh); trả số liệu để ghi log.
     @discardableResult
-    static func process(_ samples: inout [Float], sampleRate: Int, fallbackGainDb: Float, offsetDb: Int = 0) -> Result {
+    static func process(_ samples: inout [Float], sampleRate: Int, fallbackGainDb: Float) -> Result {
         guard !samples.isEmpty, sampleRate > 0 else { return .unchanged }
         applyPresenceEQ(&samples, sampleRate: sampleRate)
 
-        let offset = Float(offsetDb)
         let measured = speechRMS(samples, sampleRate: sampleRate)
-        var gainDb = measured.map { targetRMSDb + offset - decibels($0) } ?? (fallbackGainDb + offset)
-        gainDb = max(min(0, offset), min(gainDb, maxGainDb))
-        if abs(gainDb) >= 0.1 {
+        var gainDb = measured.map { targetRMSDb - decibels($0) } ?? (fallbackGainDb + targetRMSDb - fallbackGainReferenceDb)
+        gainDb = max(0, min(gainDb, maxGainDb))
+        if gainDb >= 0.1 {
             samples = vDSP.multiply(Float(pow(10, Double(gainDb) / 20)), samples)
         } else {
             gainDb = 0
         }
-        let limitDb = TTSPeakLimiter.limit(&samples, sampleRate: sampleRate, ceilingDb: peakCeilingDb)
+        let limitDb = limitPeaks(&samples, sampleRate: sampleRate)
         return Result(gainDb: gainDb, limitDb: limitDb)
     }
 
@@ -144,6 +150,54 @@ enum VttsLoudness {
         }
         guard speechCount > 0, Double(speechCount) / Double(sampleRate) >= minimumSpeechSeconds else { return nil }
         return (energy / Float(speechCount)).squareRoot()
+    }
+
+    // MARK: - Bước 3: ghìm đỉnh
+
+    /// Trả mức ghìm sâu nhất (dB, ≤ 0). Không mẫu nào vượt trần ⇒ không đụng gì.
+    private static func limitPeaks(_ samples: inout [Float], sampleRate: Int) -> Float {
+        let ceiling = Float(pow(10, Double(peakCeilingDb) / 20))
+        guard vDSP.maximumMagnitude(samples) > ceiling else { return 0 }
+        let count = samples.count
+        let reach = max(1, Int(Double(sampleRate) * lookaheadSeconds))
+
+        // Mức cần của mỗi đỉnh phủ ±reach quanh nó (giữ giá trị nhỏ nhất).
+        var held = [Float](repeating: 1, count: count)
+        for index in 0..<count {
+            let magnitude = abs(samples[index])
+            guard magnitude > ceiling else { continue }
+            let needed = ceiling / magnitude
+            for neighbour in max(0, index - reach)...min(count - 1, index + reach) where held[neighbour] > needed {
+                held[neighbour] = needed
+            }
+        }
+
+        // Trung bình trượt cửa sổ [i − reach, i + reach] + nhả theo hàm mũ; hệ số chỉ tụt theo trung bình, lên dần.
+        let release = 1 - exp(-1 / (releaseSeconds * Double(sampleRate)))
+        var windowSum = 0.0
+        var windowCount = 0
+        for neighbour in 0...min(reach, count - 1) {
+            windowSum += Double(held[neighbour])
+            windowCount += 1
+        }
+        var gain = 1.0
+        var deepest = 1.0
+        for index in 0..<count {
+            gain = min(windowSum / Double(windowCount), gain + (1 - gain) * release)
+            samples[index] *= Float(gain)
+            deepest = min(deepest, gain)
+            let entering = index + reach + 1
+            if entering < count {
+                windowSum += Double(held[entering])
+                windowCount += 1
+            }
+            let leaving = index - reach
+            if leaving >= 0 {
+                windowSum -= Double(held[leaving])
+                windowCount -= 1
+            }
+        }
+        return Float(20 * log10(max(deepest, 1e-9)))
     }
 
     private static func decibels(_ amplitude: Float) -> Float {
