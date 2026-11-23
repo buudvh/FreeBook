@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1045] - 2026-11-23
+
+### ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh
+
+Anh Bửu: "file realease vượt 50 MB có vấn đề gì ko" → Javis kiểm build 1327 (1.3.1044): IPA 50 417 384 byte vượt ngưỡng 50 000 000 byte của bước gửi Telegram ⇒ workflow đẩy IPA lên transfer.sh, dịch vụ không kết nối được (hết 30 s) ⇒ tin tới Telegram với dòng "Tải IPA tại đây:" **trống**. Release + nguồn LiveContainer vẫn đủ. Plan → "Duyệt, sửa đi".
+
+- **Ngưỡng** = giới hạn thật của Bot API: 50 MiB (52 428 800 byte). Dưới ngưỡng ⇒ `sendDocument` như cũ.
+- **Vượt ngưỡng hoặc `sendDocument` hết 3 lượt vẫn lỗi** ⇒ `sendMessage` cùng danh sách commit, tiêu đề ghi lý do ("IPA <cỡ MiB> MB, quá 50 MB của bot" / "gửi file IPA lỗi"), dòng `⬇️ Tải IPA: <link>` = asset của release `build-<số build>` (`RELEASE_IPA_URL`, bước Publish ghi vào `GITHUB_ENV`, cùng tên tag / asset với `publish_altstore_source.py`); không có release (nhánh khác, Publish lỗi) ⇒ link trang lượt build (IPA ở Artifacts). Bỏ hẳn transfer.sh. Trước đây `sendDocument` lỗi chỉ để lại cảnh báo, không có tin nào tới.
+- **Package IPA** nén `zip -9`.
+- `.claude/rules/ci-release.md`: mục "IPA lớn hơn giới hạn gửi file của bot"; luật "không gửi link release" thêm ngoại lệ này.
+- Không đổi code app. Chỉ sửa workflow (không tự kích hoạt build — chạy ở lượt build kế tiếp). Chưa thấy chạy thật.
+
 ## [1.3.1044] - 2026-11-23
 
 ### feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)
@@ -383,16 +395,3 @@ Anh Bửu: "Bật dịch quick trans mới hiển thị các nav con", "bỏ con
 - Câu hướng dẫn của panel rule ở Reader (`ReaderDefinitionOverlayView+Rules`) thêm bước "bật Áp dụng rule dịch".
 - `CHANGELOG.md` dời 1.3.971–986 sang `CHANGELOG.archive.md` (giữ ~30 entry).
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: bật/tắt hai công tắc ở Cài đặt dịch thuật (hàng hiện/ẩn, thụt lề, vạch ngăn), thẻ Từ điển chung trong panel QT (menu thẻ, nhập / xuất). Nếu máy đang bật Dịch đại từ: chữ ngoài rule đổi sang nghĩa VP; tên chương đã lưu (`title_trans`) giữ bản cũ tới khi "Dịch lại tên chương".
-
-## [1.3.1015] - 2026-11-20
-
-### feat: Nhấn giữ một phiên log ⇒ Xem log / Xuất log / Xoá log, màn Xem log ngay trong app
-
-Anh Bửu: "làm thêm option xem log nữa" → "Màn Ghi log hệ thống — nhấn giữ một phiên sẽ hiển thị các option xem log, xoá log, xuất log" → duyệt mockup; push chung với lưới sheet nhấn giữ (1.3.1014).
-
-- **Trước**: màn Ghi log hệ thống chỉ chọn phiên (nhiều) rồi Xuất `.txt` / Xoá; muốn đọc log phải xuất ra file.
-- **Nay**:
-  - `LogSettingsView`: nhấn giữ một phiên ⇒ menu Xem log / Xuất log (.txt) / Xoá log (đỏ, hỏi lại; phiên đang ghi không có). Danh sách chọn nhiều + các nút cũ giữ nguyên.
-  - Mới `LogSessionViewerView` (trang đẩy vào): thẻ đầu = khối đầu phiên như file xuất (bản app, máy, iOS, nhiệt / RAM / ổ trống, TTS, trạng thái cuối); chip "Tất cả / Chỉ lỗi (N)" + chip đảo "Mới nhất trước / Cũ nhất trước"; ô lọc chữ luôn hiện (300 ms); mỗi dòng `HH:mm:ss.SSS` + nội dung chữ đơn cách 11pt, dòng ❌ chữ đỏ nền đỏ mờ; nhấn giữ dòng ⇒ "Sao chép dòng" (`ClipboardCopier`, có toast); nạp 500 dòng mỗi lượt, tới chân thì nạp tiếp (`LoadMoreFooter` id cố định); nút chia sẻ góc phải xuất cả phiên.
-  - Mới `AppLogger+Browse` (`loadLines`, `loadSessionHeader`): ghi nốt dòng chờ trên `queue` rồi đọc bằng kết nối riêng như đường xuất (không chặn ghi log); `AppLogDatabase.lines(sessionId:cursor:limit:newestFirst:onlyErrors:contains:)` — phân trang theo id, lọc lỗi + `LIKE` ở SQLite, tham số gắn bằng `bind` (thoát `%` `_` `\`). `SessionSummary` thêm `Hashable`; `header(for:)` dùng chung.
-- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: menu nhấn giữ phiên (có lẫn với chạm chọn phiên không), phiên lớn cuộn nạp tiếp, lọc chữ tiếng Việt (LIKE chỉ không phân biệt hoa thường với chữ ASCII), đảo thứ tự, xuất từ màn xem.

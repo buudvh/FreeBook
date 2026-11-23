@@ -350,7 +350,8 @@ jobs:
         fi
 
         cd build
-        zip -r FreeBook.ipa Payload
+        # `-9`: nén mạnh nhất — IPA bám sát giới hạn gửi file 50 MB của bot Telegram (bước "Send IPA to Telegram").
+        zip -9 -r FreeBook.ipa Payload
         echo "IPA packaged successfully at build/FreeBook.ipa"
 
     - name: Upload IPA Artifact
@@ -362,7 +363,8 @@ jobs:
 
     # Release `build-<số build>` (giữ mọi release, 1.3.914) + nguồn LiveContainer `apps.json` ở nhánh `source`, liệt kê
     # 5 bản mới nhất (`Scripts/ci/publish_altstore_source.py`, `--keep`). Chỉ lượt push lên main. Lỗi ở đây không làm hỏng lượt build:
-    # IPA vẫn gửi Telegram như cũ, chỉ thiếu link nguồn `apps.json` (tin Telegram gửi link nguồn, không gửi link release).
+    # IPA vẫn gửi Telegram như cũ, chỉ thiếu link nguồn `apps.json` (tin Telegram gửi link nguồn; link tải IPA của release
+    # `RELEASE_IPA_URL` chỉ dùng khi không gửi được file IPA — 1.3.1045).
     - name: Publish GitHub Release + LiveContainer Source
       if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
       continue-on-error: true
@@ -382,6 +384,8 @@ jobs:
           --icon Sources/Assets.xcassets/AppIcon.appiconset/icon_60_3x.png \
           --keep 5
         echo "SOURCE_URL=https://raw.githubusercontent.com/${REPO}/source/apps.json" >> "$GITHUB_ENV"
+        # Tên tag / asset giống `publish_altstore_source.py` (`build-<số build>`, `TangCongCac-<version>-<số build>.ipa`).
+        echo "RELEASE_IPA_URL=https://github.com/${REPO}/releases/download/build-${BUILD_NUMBER}/TangCongCac-${APP_VERSION}-${BUILD_NUMBER}.ipa" >> "$GITHUB_ENV"
 
     - name: Send IPA to Telegram
       env:
@@ -395,8 +399,14 @@ jobs:
         fi
         
         FILE_SIZE=$(wc -c < "$IPA_PATH")
-        MAX_SIZE=50000000 # ~47.6 MB để đảm bảo an toàn cho giới hạn 50MB của Telegram Bot
-        
+        # Giới hạn gửi file của Bot API ("50 MB") = 50 MiB. Trước 1.3.1045 ngưỡng là 50 000 000 byte và file lớn hơn đi
+        # transfer.sh — dịch vụ đó không còn kết nối được (build 1327: tin tới Telegram với link trống). Nay: dưới ngưỡng
+        # thì gửi file; vượt ngưỡng hoặc gửi file lỗi thì gửi tin kèm link tải IPA của GitHub Release (`RELEASE_IPA_URL`,
+        # bước Publish), không có release (nhánh khác / Publish lỗi) thì link trang lượt build (IPA ở mục Artifacts).
+        MAX_SIZE=52428800
+        SIZE_MB=$(awk -v b="$FILE_SIZE" 'BEGIN { printf "%.1f", b / 1048576 }')
+        RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
         # Gửi có kiểm `"ok":true`, lỗi thì thử lại 2 lần (`tg_call`).
         source Scripts/ci/telegram_send.sh
 
@@ -407,10 +417,11 @@ jobs:
         # IPA không tới mà curl vẫn exit 0) ⇒ `telegram_commit_summary.py` cắt vừa giới hạn, thừa thì "… và K commit
         # khác". sendMessage giới hạn 4096. Dòng cuối = link nguồn LiveContainer (khi bước Publish chạy được).
 
-        echo "IPA File Size: $FILE_SIZE bytes"
+        echo "IPA File Size: $FILE_SIZE bytes ($SIZE_MB MB)"
 
+        SENT_DOCUMENT=0
         if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
-          echo "File size is under 50MB. Uploading directly to Telegram..."
+          echo "IPA dưới 50 MB ⇒ gửi file thẳng lên Telegram..."
 
           HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! 🚀" "$APP_VERSION" "$BUILD_NUMBER")
           FOOTER=""
@@ -420,19 +431,30 @@ jobs:
           CAPTION=$(python3 Scripts/ci/telegram_commit_summary.py --list "$LIST" --header "$HEADER" --footer "$FOOTER" --limit 1024)
 
           # `--form-string`: caption gửi nguyên văn (không hiểu `@`/`<`/`;type=` trong subject commit là cú pháp curl).
-          tg_call sendDocument \
+          if tg_call sendDocument \
                --form-string chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
-               --form-string caption="$CAPTION" \
-            || echo "IPA không tới được Telegram — vẫn tải được ở GitHub Artifacts / nguồn LiveContainer."
+               --form-string caption="$CAPTION"; then
+            SENT_DOCUMENT=1
+          else
+            echo "IPA không tới được Telegram ⇒ gửi tin kèm link tải."
+          fi
         else
-          echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
-          # Tải lên transfer.sh làm link dự phòng
-          UPLOAD_URL=$(curl --connect-timeout 30 --max-time 300 --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa" || echo "")
-          echo "Uploaded to: $UPLOAD_URL"
-          
-          HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (File vượt quá 50MB)" "$APP_VERSION" "$BUILD_NUMBER")
-          FOOTER=$(printf "\nTải IPA tại đây: %s" "$UPLOAD_URL")
+          echo "IPA $SIZE_MB MB vượt giới hạn 50 MB của bot ⇒ gửi tin kèm link tải."
+        fi
+
+        if [ "$SENT_DOCUMENT" -eq 0 ]; then
+          if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
+            REASON="gửi file IPA lỗi"
+          else
+            REASON="IPA $SIZE_MB MB, quá 50 MB của bot"
+          fi
+          HEADER=$(printf "📦 Tàng Công Các %s (%s) Build Thành Công! (%s)" "$APP_VERSION" "$BUILD_NUMBER" "$REASON")
+          if [ -n "${RELEASE_IPA_URL:-}" ]; then
+            FOOTER=$(printf "⬇️ Tải IPA: %s" "$RELEASE_IPA_URL")
+          else
+            FOOTER=$(printf "⬇️ IPA ở mục Artifacts của lượt build: %s" "$RUN_URL")
+          fi
           if [ -n "${SOURCE_URL:-}" ]; then
             FOOTER=$(printf "%s\n📲 Nguồn LiveContainer: %s" "$FOOTER" "$SOURCE_URL")
           fi
