@@ -56,6 +56,11 @@ internal enum TTSSynthesisIdentity {
         // Cùng kiểu khung với `googlePitch`: nhân 100 rồi làm tròn để hai giá trị gần nhau không
         // vô tình rơi vào cùng một khoá vì sai số dấu chấm động.
         appendInt(Int((synthesisSpeed * 100).rounded()))
+        // "Âm lượng" của giọng (1.3.1047, `TTSVolumeSettings`) — chỉ ghép khi ≠ 0 nên khoá của giọng 0 dB không đổi. `voice`
+        // có thể kèm hậu tố `|…` (khoá giọng dự phòng) ⇒ tra theo phần trước dấu `|`.
+        let volumeVoice = voice.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? voice
+        let volume = TTSVolumeSettings.offset(forTool: engine, voice: volumeVoice)
+        if volume != 0 { appendString("vol=\(volume)") }
 
         let digest = hasher.finalize()
         return digest.map { String(format: "%02x", $0) }.joined()

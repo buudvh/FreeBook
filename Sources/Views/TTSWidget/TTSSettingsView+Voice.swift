@@ -19,6 +19,8 @@ extension TTSSettingsView {
                 voiceSectionHelp
             } else if ttsManager.tool == TTSManager.VttsSettings.tool {
                 vttsVoiceSectionHelp
+            } else if ttsManager.tool == "nghitts" {
+                SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: [TTSVolumeRow.helpParagraph])
             }
             Spacer()
             Button(action: {
@@ -26,6 +28,7 @@ extension TTSSettingsView {
                 ttsManager.pitch = 1.0
                 resetVieNeuSynthesisSpeed()
                 resetVttsNativeSpeedMax()
+                TTSVolumeRow.reset(tool: ttsManager.tool, voice: ttsManager.selectedVoice)
             }) {
                 HStack(spacing: 3) {
                     Image(systemName: "arrow.counterclockwise")
@@ -71,6 +74,8 @@ extension TTSSettingsView {
             if ttsManager.tool == TTSManager.VttsSettings.tool {
                 VttsNativeSpeedRow(playbackSpeed: ttsManager.speed)
             }
+            // Âm lượng theo giọng (1.3.1047) — vtts / NghiTTS / VieNeu; trình đọc khác hàng tự ẩn.
+            TTSVolumeRow(tool: ttsManager.tool, voice: ttsManager.selectedVoice)
 
             let isExtensionTool = TTSManager.isExtensionTool(ttsManager.tool)
             // Engine local (NghiTTS + VieNeu + vtts) phat qua `NghiAudioPlayerQueue`, ma queue nay chi co

@@ -121,7 +121,19 @@ final class VieNeuHybridTTSService: LocalTTSEngine, @unchecked Sendable {
                 priority: priority, requestID: requestID, synthesisKey: synthesisKey
             )
         }
-        let data = loudness.match(output.data, isBaseModel: decision.model == context.baseModel)
+        var wav = output.data
+        if decision.model != context.baseModel {
+            // Âm lượng theo giọng (1.3.1047): model phụ đọc bằng giọng cặp (khoá riêng, thường 0 dB) ⇒ kéo về mức của giọng
+            // chính trước khi khớp RMS — khớp chỉ ±4 dB, không đủ khi giọng chính đặt −8 / −12 dB.
+            let voiceOf: (VieNeuModelChoice) -> String = { $0 == .nano ? context.pair.nanoVoice : context.pair.turboVoiceId }
+            let offsetOf: (VieNeuModelChoice) -> Int = { model in
+                TTSVolumeSettings.offset(
+                    engine: .vieneu, voiceKey: TTSVolumeSettings.vieNeuVoiceKey(model: model, voice: voiceOf(model))
+                )
+            }
+            wav = TTSVolumeStage.applyToWAV(wav, offsetDb: offsetOf(context.baseModel) - offsetOf(decision.model))
+        }
+        let data = loudness.match(wav, isBaseModel: decision.model == context.baseModel)
         return (data, output.pcmDuration, output.queueWaitMs, output.synthesisMs)
     }
 

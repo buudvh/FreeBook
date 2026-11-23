@@ -7,7 +7,9 @@ extension TTSManager {
     /// - Turbo ⇒ id đã lưu qua `resolveVoiceId` (giọng không còn trong manifest / giọng tự tạo đã xoá ⇒ giọng mặc định).
     /// - Nano ⇒ giọng Nano đã lưu; đang lùi về Nano (lựa chọn là Turbo mà Turbo thiếu file) ⇒ giọng Nano dùng gần nhất;
     ///   không có ⇒ giọng mặc định của catalog.
-    static func effectiveVieNeuVoice() -> String {
+    /// `nonisolated` (1.3.1047): chỉ đọc `UserDefaults` + singleton của service ⇒ `TTSOnlineFallbackSettings.fingerprint`
+    /// (không thuộc MainActor) tra được âm lượng của giọng dự phòng.
+    nonisolated static func effectiveVieNeuVoice() -> String {
         let selection = VieNeuVoiceSelection.stored
         switch VieNeuModelChoice.current {
         case .turbo:

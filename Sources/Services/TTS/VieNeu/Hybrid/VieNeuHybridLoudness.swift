@@ -36,9 +36,25 @@ final class VieNeuHybridLoudness: @unchecked Sendable {
         let target = baseLevel
         lock.unlock()
         guard let target else { return wav }
-        let gain = min(Self.maximumGain, max(Self.minimumGain, target / level))
+        // Không kéo đỉnh quá −1 dBFS (1.3.1047, như `TTSPeakLimiter`): trước đó hệ số tới 1,6 kẹp cứng ở `scaled` ⇒ rè.
+        let peakRoom = Self.peakCeiling / max(Self.peak(of: wav), 1)
+        let gain = min(Self.maximumGain, max(Self.minimumGain, target / level), max(1, peakRoom))
         guard abs(gain - 1) >= 0.05 else { return wav }
         return Self.scaled(wav, by: gain)
+    }
+
+    /// −1 dBFS trên thang Int16.
+    private static let peakCeiling = Float(32767) * Float(pow(10, -1.0 / 20))
+
+    private static func peak(of data: Data) -> Float {
+        var peak: Int32 = 0
+        data.withUnsafeBytes { raw in
+            for offset in stride(from: headerSize, to: raw.count - 1, by: 2) {
+                let value = Int32(Int16(littleEndian: raw.loadUnaligned(fromByteOffset: offset, as: Int16.self)))
+                peak = max(peak, abs(value))
+            }
+        }
+        return Float(peak)
     }
 
     // MARK: - PCM16

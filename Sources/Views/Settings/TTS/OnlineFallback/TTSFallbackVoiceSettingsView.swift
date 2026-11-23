@@ -157,10 +157,16 @@ struct TTSFallbackVoiceSettingsView: View {
             if engine == .vieneu {
                 SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: [
                     "Turbo luôn tổng hợp ở tốc độ gốc, tốc độ nghe chỉnh bằng thanh Tốc độ. Turbo theo kịp tới khoảng 2,0×. Giọng Nano có thêm Tốc độ tổng hợp.",
-                    "Tốc độ tổng hợp (Nano): model nói nhanh hơn, máy mát hơn. 1,15× ít lặp chữ nhất, quá 1,25× mất chữ. Tốc độ nghe thực tế = tốc độ tổng hợp × Tốc độ."
+                    "Tốc độ tổng hợp (Nano): model nói nhanh hơn, máy mát hơn. 1,15× ít lặp chữ nhất, quá 1,25× mất chữ. Tốc độ nghe thực tế = tốc độ tổng hợp × Tốc độ.",
+                    TTSVolumeRow.helpParagraph
                 ])
             } else if engine == .vtts {
-                SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: VttsNativeSpeedRow.helpParagraphs)
+                SectionHelpButton(
+                    accessibilityLabel: "Giải thích Cấu hình giọng nói",
+                    paragraphs: VttsNativeSpeedRow.helpParagraphs + [TTSVolumeRow.helpParagraph]
+                )
+            } else {
+                SectionHelpButton(accessibilityLabel: "Giải thích Cấu hình giọng nói", paragraphs: [TTSVolumeRow.helpParagraph])
             }
             Spacer()
             Button(action: { reset(engine) }) {
@@ -189,6 +195,8 @@ struct TTSFallbackVoiceSettingsView: View {
             if engine == .vtts {
                 VttsNativeSpeedRow(playbackSpeed: speed)
             }
+            // Âm lượng theo giọng (1.3.1047) — giọng của engine dự phòng (chung với lúc engine đó là trình đọc chính).
+            TTSVolumeRow(tool: engine.rawValue, voice: TTSManager.onlineFallbackVoice(for: engine))
         }
     }
 
@@ -205,5 +213,6 @@ struct TTSFallbackVoiceSettingsView: View {
         if engine == .vtts {
             UserDefaults.standard.set(TTSManager.VttsSettings.defaultNativeSpeedMax, forKey: TTSManager.VttsSettings.nativeSpeedMaxKey)
         }
+        TTSVolumeRow.reset(tool: engine.rawValue, voice: TTSManager.onlineFallbackVoice(for: engine))
     }
 }

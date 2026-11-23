@@ -120,13 +120,15 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
     ) -> String {
         let voiceId = voice.toASCIIID
         let modelPath = modelStore.modelURL(for: voiceId, extension: "onnx").path
+        // Âm lượng của giọng (1.3.1047) — `voiceId` là tên ASCII, không tra được ở `computeKey` ⇒ ghép thẳng vào đây.
+        let volume = TTSVolumeSettings.offset(engine: .nghitts, voiceKey: voice)
         let digest = TTSSynthesisIdentity.computeKey(
             chapterURL: modelPath,
             chapterIndex: -1,
             paragraphIndex: -1,
             finalText: text,
             engine: "nghitts",
-            voice: "\(voiceId)|speed=\(speed)|boundary=\(boundaryKind.rawValue)"
+            voice: "\(voiceId)|speed=\(speed)|boundary=\(boundaryKind.rawValue)" + (volume == 0 ? "" : "|vol=\(volume)")
         )
         return "auto-\(digest)"
     }
@@ -174,6 +176,8 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
             return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration, speechDuration: 0)
         }
         
+        // Âm lượng của giọng (1.3.1047, `TTSVolumeSettings`): engine đã đẩy đỉnh từng mảnh về 0,9 ⇒ 0 dB thì không đụng.
+        let volume = TTSVolumeSettings.offset(engine: .nghitts, voiceKey: voice)
         if let onnxEngine = engine as? ONNXPiperEngine {
             let res = try await onnxEngine.synthesizeWithDuration(
                 text: preprocessedText,
@@ -182,7 +186,11 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
                 speed: speed,
                 boundaryKind: boundaryKind
             )
-            return PiperSynthesisPayload(data: res.data, pcmDuration: res.pcmDuration, speechDuration: res.speechDuration)
+            return PiperSynthesisPayload(
+                data: TTSVolumeStage.applyToWAV(res.data, offsetDb: volume),
+                pcmDuration: res.pcmDuration,
+                speechDuration: res.speechDuration
+            )
         } else {
             let wavData = try await engine.synthesize(
                 text: preprocessedText,
@@ -192,7 +200,7 @@ final class PiperTTSService: LocalTTSEngine, @unchecked Sendable {
                 boundaryKind: boundaryKind
             )
             let duration = WAVEncoder.duration(of: wavData)
-            return PiperSynthesisPayload(data: wavData, pcmDuration: duration)
+            return PiperSynthesisPayload(data: TTSVolumeStage.applyToWAV(wavData, offsetDb: volume), pcmDuration: duration)
         }
     }
 

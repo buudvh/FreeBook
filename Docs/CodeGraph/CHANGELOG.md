@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1047] - 2026-11-23
+
+### feat: TTS — hàng Âm lượng theo giọng cho vtts, NghiTTS, VieNeu (Google Dịch mặc định −3 dB cho hết rè, ghìm đỉnh mềm)
+
+Anh Bửu: "giọng Google Dịch bị rè quá" → 5 bản xử lý sau đều rè → chẩn đoán từng khâu (Kaggle CPU `vtts-k5-diagnose`): không khâu nào rè ở −20 dB → "có khi nào do tăng âm lượng" → bộ nghe tách yếu tố: cùng câu kéo lên −14 dB (mức app) có / không lọc đều rè, −17 dB không rè ⇒ **app kéo to quá**, model không cần train lại → "thêm config tăng âm lượng" → rà mọi trình đọc → "Làm cho cả ba" → duyệt mockup https://claude.ai/artifact/SiAJyQbt7tgWohnCJesDcg.
+
+- **`TTSVolumeSettings`** (mới, `Services/TTS/Loudness/`): số dB to / nhỏ hơn mức app vẫn kéo (0 = như trước), −12…+4, lưu riêng từng cặp trình đọc + giọng trong một khoá JSON `ttsVolumeOffsets` (chỉ mục khác mặc định). Mặc định 0, riêng vtts Google Dịch −3 (= mức −17 dB anh nghe không rè). Khoá giọng: vtts `VttsVoice.id`, NghiTTS tên giọng, VieNeu `"nano:<tên>"` / `"turbo:<id>"`.
+- **Áp vào tiếng**:
+  - vtts: mức đích `VttsLoudness` = −14 + dB (mức âm được hạ tới đúng mức đó; 0 dB y như cũ), đoạn ngắn = mức cố định của giọng + dB; log `vol=`.
+  - NghiTTS: `PiperTTSService` nhân dB lên WAV + ghìm đỉnh (`TTSVolumeStage.applyToWAV`; 0 dB không đụng).
+  - VieNeu Nano (`VieNeuTTSEngine`, sau khi ghép mảnh) và Turbo (`VieNeuTurboTTSService`): nhân dB + **luôn ghìm đỉnh** — trước đây Nano cân mảnh ±4 dB không ghìm, mảnh đỉnh cao bị `WAVEncoder` kẹp cứng (rè).
+  - Đọc lai Nano · Turbo: đoạn của model phụ (đọc bằng giọng cặp, khoá riêng) được kéo thêm `mức giọng chính − mức giọng cặp` trước khi khớp RMS ⇒ cả hai model theo mức của giọng đang chọn; `VieNeuHybridLoudness` không kéo đỉnh quá −1 dBFS.
+  - Google Cloud / tiện ích / Siri không đổi (phát nguyên).
+- **`TTSPeakLimiter`** (mới): bộ ghìm đỉnh mềm −1 dBFS tách từ `VttsLoudness` (cùng thuật toán), dùng chung. **`TTSVolumeStage`** (mới): nhân dB + ghìm, bản cho WAV PCM16.
+- **Giao diện**: `TTSVolumeRow` "Âm lượng:" (nút ± và thanh kéo, dòng dưới "<giọng> · mặc định <dB>") cuối "Cấu hình giọng nói", trước Cao độ, ở Cài đặt TTS và màn Giọng dự phòng khi trình đọc là vtts / NghiTTS / VieNeu. Nút "?" thêm đoạn giải thích Âm lượng (NghiTTS được thêm nút "?"); "Đặt lại" đưa giọng đang chọn về mặc định.
+- **Làm mới tiếng**: mức nằm trong `TTSSettingsSnapshot` (`volumeOffset`), fingerprint giọng dự phòng và `TTSSynthesisIdentity` (chỉ ghép khi ≠ 0 ⇒ khoá cũ của giọng 0 dB không đổi) + khoá mặc định của từng service ⇒ đổi mức, đóng Cài đặt là dựng lại đoạn; ▶ thử giọng nghe đúng mức. `TTSManager.onlineFallbackVoice` + `effectiveVieNeuVoice` thành `nonisolated` (fingerprint dự phòng gọi ngoài MainActor).
+- Cập nhật `.claude/rules/tts.md`, `tts-vieneu.md`. Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1046] - 2026-11-23
 
 ### feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)
@@ -379,17 +397,3 @@ Anh Bửu (sau khi duyệt cỡ 28 cho hàng 2): "tôi đổi ý, đừng hiện
 - **Trang con trong sheet** (sheet hub: Thông báo, màn kiểm tra của một lượt; sheet kiểu hub: "Từ URL"…): nút ‹ (`HeaderBackButton`) và tiêu đề do `PageTitleModifier` dựng **chung một** `ToolbarItem` khi có `\.sheetPageBack` ⇒ thứ tự luôn ‹ rồi chữ, mũi cách chữ ~8pt. Bỏ `.sheetPageBackButton()` (mục toolbar riêng — hai mục `topBarLeading` thì iOS tự xếp); `SheetPageBackButtonModifier.swift` → `SheetPageBackEnvironment.swift` chỉ còn khoá environment.
 - `ui-conventions.md`, `floating-pills.md` cập nhật theo.
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: trang có nút back (tiêu đề cạnh nút back, tên dài cắt đuôi, không đè nút phải), cuộn không còn thu / bung, trang con trong sheet hub và sheet "+" của Kệ ("Từ URL"): nút ‹ đứng trước tiêu đề, bấm về trang chính.
-
-## [1.3.1017] - 2026-11-20
-
-### feat: Header thống nhất — bộ số chung HeaderMetrics, tiêu đề hàng 2 28pt, tiêu đề hàng 1 không co chữ, nút back trang con trong sheet chạm lề
-
-Anh Bửu: "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau", "icon nhiều chỗ nhìn size cũng không giống nhau, title lớn chưa đủ to", "các header custom cho cảm giác logic thiết kế không giống" → mockup so sánh trước / sau (lề 16pt chung, 6 header tự dựng, nhịp dọc) → "Duyệt, cỡ 28".
-
-- **Bộ số chung** `HeaderMetrics` (`Sources/Common/Utils/`): lề ngang = lề thanh hệ thống (16pt, máy ≥ 414pt 20pt), hàng 44, icon SF 17 / icon tài sản `AppGlyph` 20, khung 36×38 / back 38×44, tiêu đề hàng 1 22 / hàng 2 28 / cạnh nút back 17 / khối tiêu đề màn đọc-xem-nghe 16 + 13. Luật: mép vật nhìn thấy ngoài cùng chạm lề, nút ngoài cùng canh icon vào lề trong khung thay vì canh giữa.
-- **Thành phần dùng chung** (`Views/Common/PageHeader/`): `HeaderBackButton` (`chevron.backward` 17pt nửa đậm cỡ ảnh lớn như mũi back hệ thống, khung 38×44, mũi canh trái) và `HeaderTitleBlock` (dòng 1 16pt nửa đậm, dòng 2 13pt màu phụ) — header tự dựng chuyển sang ở các bản sau.
-- **Tiêu đề lớn hàng 2: 22 → 28pt đậm** (`NavigationBarAppearance.applyLargeTitleFont` đọc `HeaderMetrics.largeTitleFontSize`). Trước 22pt bằng tiêu đề hàng 1, nằm lọt thỏm trong ô iOS dựng cho chữ 34pt. Đầu dò thu tiêu đề (`PageTitleCollapseProbe`, ngưỡng ≥ 20pt) không đổi.
-- **Tiêu đề hàng 1 không co chữ** (`PageTitleModifier`: bỏ `.minimumScaleFactor(0.8)`) — trước đây tên dài co còn 17,6pt nên mỗi trang một cỡ; nay dài thì cắt đuôi.
-- **Nút ‹ của trang con trong sheet** (`SheetPageBackButtonModifier`: sheet hub, sheet kiểu hub, Thông báo, kiểm tra nguồn) dùng `HeaderBackButton`: trước là `chevron.left` nhỏ hơn mũi hệ thống, nằm giữa khung 38pt ⇒ mũi lùi vào ~30pt trong khi tiêu đề hàng 2 ở 16pt.
-- `ui-conventions.md`: thêm mục "Lưới header chung".
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: tiêu đề hàng 2 các trang có nút back (cỡ, thu vào cạnh nút back khi cuộn), trang con trong sheet hub (mũi ‹ thẳng hàng tiêu đề).
