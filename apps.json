@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1044",
+          "buildVersion": "1327",
+          "date": "2026-11-23T01:45:09Z",
+          "localizedDescription": "- feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1327/TangCongCac-1.3.1044-1327.ipa",
+          "size": 50417384,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1043",
           "buildVersion": "1326",
           "date": "2026-11-22T04:43:06Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1323/TangCongCac-1.3.1040-1323.ipa",
           "size": 47962147,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1038",
-          "buildVersion": "1322",
-          "date": "2026-11-20T09:33:31Z",
-          "localizedDescription": "- fix: vtts — phiên âm tiếng Nhật đọc được tên viết hoa, thêm \"vtts tự đọc nhanh tối đa\" để chỉnh độ rõ lời",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1322/TangCongCac-1.3.1038-1322.ipa",
-          "size": 47814634,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1043",
-      "versionDate": "2026-11-22T04:43:06Z",
-      "versionDescription": "- feat: vtts — nhập giọng từ file .vtts (Giọng của tôi), để dùng giọng Ngọc Huyền tự train",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1326/TangCongCac-1.3.1043-1326.ipa",
-      "size": 48044037,
+      "version": "1.3.1044",
+      "versionDate": "2026-11-23T01:45:09Z",
+      "versionDescription": "- feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1327/TangCongCac-1.3.1044-1327.ipa",
+      "size": 50417384,
       "appPermissions": {}
     }
   ],
