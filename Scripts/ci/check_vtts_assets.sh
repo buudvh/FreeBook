@@ -5,8 +5,8 @@
 #
 # Kiểm (thoát mã ≠ 0 nếu hỏng):
 #   1. SHA256 của 4 model (theo `assets/SHA256SUMS` — nguyên văn file của release v0.4.0) và của `lex_en.bin` /
-#      `cmudict.dict` (theo `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào bundle app) có đúng 2 giọng M +
-#      `lex_en.bin`, không thừa file nào;
+#      `cmudict.dict` / giọng Ngọc Huyền tự train (theo `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào
+#      bundle app) có đúng 3 giọng M + `lex_en.bin`, không thừa file nào;
 #   2. dựng `vtts_say` của upstream (đã vendor ở `tools/runtime/tools/`) bằng clang trên runtime đã vendor, với ĐÚNG cờ
 #      tắt ngôn ngữ của gói SPM (+ stub `vtts_say_lex_stubs.c` cho 3 hàm init ZH / JA / RU đã tắt); đọc thử câu Việt + Anh bằng từng giọng M ở chế độ auto: phải thấy bộ token vi-en, chế độ
 #      auto, đã nạp VLEX, id < vocab, WAV ≥ 1 s và không im lặng;
@@ -29,10 +29,13 @@ LEX="$BUNDLED/lex_en.bin"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/build/vtts}"
 SMOKE_DIR="${SMOKE_DIR:-$REPO_ROOT/build/vtts-smoke}"
 
-# "<id giọng> <file model>" — giọng đóng vào app; id trùng `VttsVoice.rawValue` (Swift).
+# "<id giọng> <file model>" — giọng đóng vào app; id trùng `VttsVoice.id` (Swift). `ngoc-huyen` (1.3.1044) do FreeBook
+# tự train (chưng cất bản M từ thầy VITS, dữ liệu Ngọc Huyền CC BY-NC 4.0) — không có trong release upstream, SHA256 ở
+# `LOCAL_SHA256SUMS` (`Vendor/vtts/THIRD_PARTY_NOTICES.md`).
 VOICES=(
   "nu-10 vtts-vien-nu10-m-v0.4.q8.vtts"
   "nam-1 vtts-vien-nam1-m-v0.4.q8.vtts"
+  "ngoc-huyen vtts-ngochuyen-m-k4.q8.vtts"
 )
 
 # Phải khớp `disabledLanguages` trong Vendor/vtts/Package.swift (= OPT_LANGS của tools/runtime/Makefile).
@@ -127,7 +130,7 @@ check_hashes() {
     count=$((count + 1))
   done < "$ASSETS/SHA256SUMS"
   [ "$count" -eq 4 ] || die "SHA256SUMS có $count model, mong 4"
-  # Từ điển dựng tại chỗ + CMUdict nguồn (đường dẫn tương đối trong assets/).
+  # Từ điển dựng tại chỗ + CMUdict nguồn + giọng tự train (đường dẫn tương đối trong assets/).
   while read -r want name; do
     [ -n "${name:-}" ] || continue
     [ -f "$ASSETS/$name" ] || die "thiếu assets/$name"
@@ -135,9 +138,9 @@ check_hashes() {
     [ "$got" = "$want" ] || die "SHA256 của assets/$name lệch: $got ≠ $want"
     echo "  $name OK"
   done < "$ASSETS/LOCAL_SHA256SUMS"
-  # Thư mục đóng vào bundle: đúng 2 giọng M + VLEX (file thừa ⇒ IPA phình âm thầm).
+  # Thư mục đóng vào bundle: đúng 3 giọng M + VLEX (file thừa ⇒ IPA phình âm thầm).
   count="$(find "$BUNDLED" -type f | wc -l | tr -d '[:space:]')"
-  [ "$count" -eq 3 ] || die "assets/vtts/ có $count file, mong đúng 3 (2 giọng M + lex_en.bin)"
+  [ "$count" -eq 4 ] || die "assets/vtts/ có $count file, mong đúng 4 (3 giọng M + lex_en.bin)"
 }
 
 check_vtts_say() {

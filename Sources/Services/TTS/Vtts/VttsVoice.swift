@@ -1,19 +1,20 @@
 import Foundation
 
 /// Giọng của trình đọc **vtts Việt–Anh (Offline)**:
-/// - **Có sẵn trong app**: 2 giọng bản M của release v0.4.0, lưu sẵn trong repo (`Vendor/vtts/assets/vtts`) và đóng vào IPA
-///   (thư mục `vtts/` của bundle). Không tải / xoá: chỉ chọn.
-/// - **Tự nhập** (1.3.1043, anh Bửu: "tích hợp giọng Ngọc Huyền vào app"): file `.vtts` người dùng chọn từ Tệp, chép vào
-///   `FreeBook/TTS/Vtts/` (`VttsImportedVoiceRepository`). Giọng train riêng (dữ liệu giấy phép phi thương mại / không chính
-///   thức) chỉ nằm trên máy người dùng — không vào repo công khai, CI hay IPA.
+/// - **Có sẵn trong app**: 2 giọng bản M của release v0.4.0 + giọng Ngọc Huyền FreeBook tự train (1.3.1044), lưu sẵn trong
+///   repo (`Vendor/vtts/assets/vtts`) và đóng vào IPA (thư mục `vtts/` của bundle). Không tải / xoá: chỉ chọn.
+/// - **Tự nhập** (1.3.1043): file `.vtts` người dùng chọn từ Tệp, chép vào `FreeBook/TTS/Vtts/`
+///   (`VttsImportedVoiceRepository`). Giọng train từ dữ liệu không chính thức (giọng Google Dịch) chỉ đi đường này — nằm
+///   trên máy người dùng, không vào repo công khai, CI hay IPA.
 ///
 /// `id` là giá trị lưu trong cài đặt (`vttsVoice`) và là tham số `voice` của `LocalTTSEngine` (`VttsTTSService`) — đổi id
 /// của giọng có sẵn là mất lựa chọn đã lưu. Giọng tự nhập: `file:<tên file>`. Id lạ (giọng của trình đọc khác lọt sang,
 /// dữ liệu cũ, file tự nhập đã xoá) ⇒ `resolve` trả giọng mặc định.
 struct VttsVoice: Hashable, Identifiable, Sendable {
     enum Source: Hashable, Sendable {
-        /// Tên file model trong thư mục `vtts` của bundle — giữ đúng tên ở release upstream
-        /// (`Scripts/ci/check_vtts_assets.sh` kiểm SHA256 theo tên này với `SHA256SUMS` của release).
+        /// Tên file model trong thư mục `vtts` của bundle — giọng của release giữ đúng tên upstream
+        /// (`Scripts/ci/check_vtts_assets.sh` kiểm SHA256 theo tên này với `SHA256SUMS` của release; giọng tự train theo
+        /// `LOCAL_SHA256SUMS`).
         case bundled(fileName: String)
         /// Tên file trong `FreeBook/TTS/Vtts/` (luôn đuôi `.vtts`).
         case imported(fileName: String)
@@ -27,18 +28,30 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
     /// tiếng **sau bước chỉnh tiếng** đo trên đoạn truyện dài của CI (1.3.1036: `nu-10` −24,7, `nam-1` −21,0 dBFS), làm
     /// tròn xuống nửa dB. Giọng tự nhập chưa đo ⇒ `importedLoudnessGainDb`.
     let defaultLoudnessGainDb: Float
+    /// Ghi nguồn dữ liệu train mà giấy phép bắt buộc — thay dòng phụ của hàng giọng có sẵn (`bundledRowDetail`). `nil` =
+    /// giọng của release vtts (Apache-2.0, ghi ở `Vendor/vtts/THIRD_PARTY_NOTICES.md`) và giọng tự nhập.
+    let credit: String?
 
     static let nu10 = VttsVoice(
         id: "nu-10", displayName: "Nữ · nu-10",
-        source: .bundled(fileName: "vtts-vien-nu10-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 10.5
+        source: .bundled(fileName: "vtts-vien-nu10-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 10.5, credit: nil
     )
     static let nam1 = VttsVoice(
         id: "nam-1", displayName: "Nam · nam-1",
-        source: .bundled(fileName: "vtts-vien-nam1-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 7
+        source: .bundled(fileName: "vtts-vien-nam1-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 7, credit: nil
+    )
+    /// Giọng FreeBook tự train (1.3.1044, anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà"): bản M chưng cất
+    /// từ thầy VITS train trên dataset `pnnbao-ump/ngochuyen_voice` (**CC BY-NC 4.0** ⇒ ghi nguồn ở dòng phụ, app không thu
+    /// phí) + câu Anh / câu trộn nhân bản bằng VoxCPM2 (Apache-2.0). Mức tăng đo trên 6 câu mẫu của lượt train (−22,0 dBFS
+    /// sau bước chỉnh tiếng), chưa đo trên đoạn truyện dài của CI như hai giọng trên.
+    static let ngocHuyen = VttsVoice(
+        id: "ngoc-huyen", displayName: "Nữ · Ngọc Huyền",
+        source: .bundled(fileName: "vtts-ngochuyen-m-k4.q8.vtts"), defaultLoudnessGainDb: 7.5,
+        credit: "pnnbao-ump · CC BY-NC 4.0"
     )
 
     /// Giọng đóng sẵn trong app, theo thứ tự hiện.
-    static let bundled: [VttsVoice] = [.nu10, .nam1]
+    static let bundled: [VttsVoice] = [.nu10, .nam1, .ngocHuyen]
     static let defaultVoice: VttsVoice = .nu10
 
     /// Tiền tố id của giọng tự nhập.
@@ -64,6 +77,12 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
     /// dòng phụ theo dung lượng đo trên đĩa (`VttsImportedVoiceRepository.sizeText`).
     static let bundledDetail = "Việt + Anh · 2,6 MB"
 
+    /// Dòng phụ của hàng giọng có sẵn trong sheet chọn giọng: ghi nguồn nếu có (dòng phụ chỉ một dòng ⇒ thay hẳn, nối thêm
+    /// sẽ bị cắt mất phần giấy phép), không thì `bundledDetail`.
+    var bundledRowDetail: String {
+        credit ?? Self.bundledDetail
+    }
+
     /// Giọng tự nhập ứng với file `fileName` (đã có đuôi `.vtts`): tên hiện = tên file bỏ đuôi.
     static func imported(fileName: String) -> VttsVoice {
         let name = (fileName as NSString).deletingPathExtension
@@ -71,7 +90,8 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
             id: importedIdPrefix + fileName,
             displayName: name.isEmpty ? fileName : name,
             source: .imported(fileName: fileName),
-            defaultLoudnessGainDb: importedLoudnessGainDb
+            defaultLoudnessGainDb: importedLoudnessGainDb,
+            credit: nil
         )
     }
 

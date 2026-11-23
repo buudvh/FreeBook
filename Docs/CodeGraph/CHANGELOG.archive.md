@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1014] - 2026-11-20
+
+### feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài
+
+Anh Bửu: "sửa các option phía dưới bộ sưu tập của context menu thành dạng lưới, cho tôi mockup" → "nếu nút không đủ hàng 4 cái thì căn cho chúng được nằm giữa" → "để nút đổi nguồn giống 'Chuyển sang nguồn …' trong mockup" → duyệt mockup bản 3.
+
+- **Trước**: phần dưới "Bộ sưu tập" của `BookActionSheet` là các hàng "icon + chữ" của `List` (Chuyển sang nguồn …, Đổi nguồn, Mở trong trình duyệt, Tải, Xuất, Dịch lại tên chương, Thêm cả phim / album vào playlist, Bỏ khỏi bộ sưu tập này, Xoá bản tải, Đánh dấu NSFW, Xoá / Xóa lịch sử).
+- **Nay** (section "Thao tác", một hàng `List` không nền, không lề):
+  - Dải dài viền màu nhấn (`BookActionStrip`, nền nhấn 16%, viền 55%): "Chuyển sang nguồn …" (chỉ truyện mất nguồn, `MissingSourceRebindActionRows`) rồi "Đổi nguồn" (truyện không phải nhập từ file).
+  - Lưới 4 cột (`BookActionTileGrid` — `Layout` riêng: cột bằng nhau, cách 8, hàng cuối không đủ 4 ô thì ô giữ bề rộng và nằm giữa; hàng cao bằng ô cao nhất): ô `BookActionTile` = icon 22pt màu nhấn trên, chữ 2 dòng dưới, nền `AppGlassSheetModifier.rowFill`, bo 12. Thứ tự: Mở trình duyệt, Tải, Xuất, Dịch lại tên chương, Thêm cả phim / album vào playlist (vòng xoay thay icon khi tải mục lục), Bỏ khỏi bộ sưu tập này, Đánh dấu NSFW, rồi ô đỏ: Xoá bản tải (dòng phụ "5 tập · 2,3 GB", vẫn hỏi xác nhận), Xoá / Xoá lịch sử.
+  - Ô "Xoá bản tải" chỉ thêm vào lưới khi phim còn file tải (kiểm ở sheet) để lưới không giữ chỗ trống. Điều kiện hiện từng ô giữ nguyên như trước.
+- `PlaylistAddBookActionRow`, `VideoDownloadsActionRow` vẽ thành ô; `MissingSourceRebindActionRows` vẽ thành dải. Phần Truyện (bìa, tên, nút sửa / kệ) và Bộ sưu tập không đổi.
+- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: chạm từng ô có đúng ô đó (không kích hoạt cả hàng), sheet chọn playlist / hộp xác nhận xoá bản tải mở từ ô, hàng cuối căn giữa, chữ dài 2 dòng.
+
 ## [1.3.1013] - 2026-11-19
 
 ### feat: Nhập từ điển và rule dịch — chọn file trước, popup chọn cách nhập hiện sau kèm tên file

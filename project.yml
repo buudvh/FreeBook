@@ -46,7 +46,8 @@ targets:
       # chắc chắn vào Copy Bundle Resources, không rơi vào Compile Sources.
       - path: Sources/Resources/ExtensionLibraries
         buildPhase: resources
-      # Tài sản vtts đóng vào app (2 giọng bản M + từ điển VLEX, ~7 MB) — lưu sẵn trong repo ở `Vendor/vtts/assets/vtts`
+      # Tài sản vtts đóng vào app (3 giọng bản M — 2 của release + Ngọc Huyền tự train — + từ điển VLEX, ~9,6 MB) — lưu
+      # sẵn trong repo ở `Vendor/vtts/assets/vtts`
       # (bản S dự trữ + CMUdict nằm ngoài thư mục này, không vào bundle). Folder reference ⇒ bundle có thư mục con `vtts/`
       # (`VttsRuntime` tra ở đó). CI kiểm SHA256 + đọc thử bằng `Scripts/ci/check_vtts_assets.sh`.
       - path: Vendor/vtts/assets/vtts

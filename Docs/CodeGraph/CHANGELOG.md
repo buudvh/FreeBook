@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1044] - 2026-11-23
+
+### feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)
+
+Anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà" → Javis đọc lại giấy phép (dataset `pnnbao-ump/ngochuyen_voice` CC BY-NC 4.0, card không thêm điều kiện; VoxCPM2 Apache-2.0; Piper vais1000 MIT, dữ liệu VAIS-1000 CC BY 4.0) ⇒ phát hành phi thương mại có ghi nguồn là được phép → plan → "Duyệt, làm đi". Giọng Google Dịch train cùng đợt vẫn chỉ nhập file (dữ liệu lấy qua endpoint không chính thức).
+
+- **Model**: `Vendor/vtts/assets/vtts/vtts-ngochuyen-m-k4.q8.vtts` (2 580 320 byte) = `M-vocos-p-bi.q8.vtts` của lượt chưng cất `vtts-k4` trên Kaggle (thầy VITS 60k bước warm-start Piper vais1000; chưng cất front 10k / dec 30k / joint 20k bước trên 17.670 câu). SHA256 `908684ca…6dc72` ghi ở `assets/LOCAL_SHA256SUMS`. Trainer cùng commit runtime `VTTS_COMMIT.txt` (c5c8c00) ⇒ app đọc được. IPA nặng thêm ~2,6 MB.
+- **`VttsVoice`**: thêm `ngocHuyen` (id `ngoc-huyen`, "Nữ · Ngọc Huyền"), `bundled = [nu10, nam1, ngocHuyen]`; mặc định vẫn `nu-10`. Trường mới `credit` (ghi nguồn mà giấy phép bắt buộc) + `bundledRowDetail`: hàng Ngọc Huyền trong sheet chọn giọng ghi "pnnbao-ump · CC BY-NC 4.0" thay "Việt + Anh · 2,6 MB" (dòng phụ chỉ một dòng, nối thêm sẽ bị cắt mất giấy phép). Mức tăng cho đoạn quá ngắn 7,5 dB — đo trên 6 câu mẫu của lượt train (−22,0 dBFS sau bước chỉnh tiếng của `VttsLoudness`), chưa đo trên đoạn truyện dài của CI như hai giọng release.
+- **CI** (`Scripts/ci/check_vtts_assets.sh`): `VOICES` thêm `ngoc-huyen` ⇒ đọc thử bằng `vtts_say` + shim ASan/UBSan như hai giọng kia; `assets/vtts/` phải đúng 4 file; SHA256 kiểm qua `LOCAL_SHA256SUMS`.
+- **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Ngọc Huyền (CC BY-NC 4.0, nguồn dữ liệu + link, thay đổi đã làm, VoxCPM2, Piper vais1000; điều kiện phi thương mại — app thu phí / quảng cáo ⇒ phải bỏ giọng này). `Vendor/vtts/README.md` thêm mục "Giọng tự train".
+- Ai đã tự nhập `Ngọc Huyền.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
+- Dọn: entry 1.3.1014 chuyển sang `CHANGELOG.archive.md`. Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1043] - 2026-11-22
 
 ### feat: vtts — nhập giọng từ file .vtts (Giọng của tôi), để dùng giọng Ngọc Huyền tự train
@@ -383,17 +396,3 @@ Anh Bửu: "làm thêm option xem log nữa" → "Màn Ghi log hệ thống — 
   - Mới `LogSessionViewerView` (trang đẩy vào): thẻ đầu = khối đầu phiên như file xuất (bản app, máy, iOS, nhiệt / RAM / ổ trống, TTS, trạng thái cuối); chip "Tất cả / Chỉ lỗi (N)" + chip đảo "Mới nhất trước / Cũ nhất trước"; ô lọc chữ luôn hiện (300 ms); mỗi dòng `HH:mm:ss.SSS` + nội dung chữ đơn cách 11pt, dòng ❌ chữ đỏ nền đỏ mờ; nhấn giữ dòng ⇒ "Sao chép dòng" (`ClipboardCopier`, có toast); nạp 500 dòng mỗi lượt, tới chân thì nạp tiếp (`LoadMoreFooter` id cố định); nút chia sẻ góc phải xuất cả phiên.
   - Mới `AppLogger+Browse` (`loadLines`, `loadSessionHeader`): ghi nốt dòng chờ trên `queue` rồi đọc bằng kết nối riêng như đường xuất (không chặn ghi log); `AppLogDatabase.lines(sessionId:cursor:limit:newestFirst:onlyErrors:contains:)` — phân trang theo id, lọc lỗi + `LIKE` ở SQLite, tham số gắn bằng `bind` (thoát `%` `_` `\`). `SessionSummary` thêm `Hashable`; `header(for:)` dùng chung.
 - Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: menu nhấn giữ phiên (có lẫn với chạm chọn phiên không), phiên lớn cuộn nạp tiếp, lọc chữ tiếng Việt (LIKE chỉ không phân biệt hoa thường với chữ ASCII), đảo thứ tự, xuất từ màn xem.
-
-## [1.3.1014] - 2026-11-20
-
-### feat: Sheet nhấn giữ truyện — thao tác dưới Bộ sưu tập thành lưới 4 cột, Đổi nguồn thành dải dài
-
-Anh Bửu: "sửa các option phía dưới bộ sưu tập của context menu thành dạng lưới, cho tôi mockup" → "nếu nút không đủ hàng 4 cái thì căn cho chúng được nằm giữa" → "để nút đổi nguồn giống 'Chuyển sang nguồn …' trong mockup" → duyệt mockup bản 3.
-
-- **Trước**: phần dưới "Bộ sưu tập" của `BookActionSheet` là các hàng "icon + chữ" của `List` (Chuyển sang nguồn …, Đổi nguồn, Mở trong trình duyệt, Tải, Xuất, Dịch lại tên chương, Thêm cả phim / album vào playlist, Bỏ khỏi bộ sưu tập này, Xoá bản tải, Đánh dấu NSFW, Xoá / Xóa lịch sử).
-- **Nay** (section "Thao tác", một hàng `List` không nền, không lề):
-  - Dải dài viền màu nhấn (`BookActionStrip`, nền nhấn 16%, viền 55%): "Chuyển sang nguồn …" (chỉ truyện mất nguồn, `MissingSourceRebindActionRows`) rồi "Đổi nguồn" (truyện không phải nhập từ file).
-  - Lưới 4 cột (`BookActionTileGrid` — `Layout` riêng: cột bằng nhau, cách 8, hàng cuối không đủ 4 ô thì ô giữ bề rộng và nằm giữa; hàng cao bằng ô cao nhất): ô `BookActionTile` = icon 22pt màu nhấn trên, chữ 2 dòng dưới, nền `AppGlassSheetModifier.rowFill`, bo 12. Thứ tự: Mở trình duyệt, Tải, Xuất, Dịch lại tên chương, Thêm cả phim / album vào playlist (vòng xoay thay icon khi tải mục lục), Bỏ khỏi bộ sưu tập này, Đánh dấu NSFW, rồi ô đỏ: Xoá bản tải (dòng phụ "5 tập · 2,3 GB", vẫn hỏi xác nhận), Xoá / Xoá lịch sử.
-  - Ô "Xoá bản tải" chỉ thêm vào lưới khi phim còn file tải (kiểm ở sheet) để lưới không giữ chỗ trống. Điều kiện hiện từng ô giữ nguyên như trước.
-- `PlaylistAddBookActionRow`, `VideoDownloadsActionRow` vẽ thành ô; `MissingSourceRebindActionRows` vẽ thành dải. Phần Truyện (bìa, tên, nút sửa / kệ) và Bộ sưu tập không đổi.
-- Kiểm: chỉ đọc code, **không build tại chỗ (Windows), chưa chạy trên máy** — cần thử: chạm từng ô có đúng ô đó (không kích hoạt cả hàng), sheet chọn playlist / hộp xác nhận xoá bản tải mở từ ô, hàng cuối căn giữa, chữ dài 2 dòng.

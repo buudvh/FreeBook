@@ -40,7 +40,7 @@ struct VttsVoicePickerList: View {
                     }
                     if !bundled.isEmpty {
                         Section("Có sẵn trong app") {
-                            ForEach(bundled) { voice in row(voice, detail: VttsVoice.bundledDetail) }
+                            ForEach(bundled) { voice in row(voice, detail: voice.bundledRowDetail) }
                         }
                     }
                     if !mine.isEmpty {
