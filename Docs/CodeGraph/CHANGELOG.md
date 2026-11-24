@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1053] - 2026-11-24
+
+### fix: mục lục sheet nghe mini — hết đơ khi truyện nhiều chương (List thay LazyVStack, thôi observe TTSManager)
+
+Anh Bửu: mở mục lục từ sheet nghe mini bị hơi đơ khi truyện có nhiều chương.
+
+- **Nguyên nhân 1 (lúc mở)**: `TTSQuickTimerChapterList` dựng bằng `ScrollView` + `LazyVStack`, 0,1 s sau khi hiện thì `scrollTo` chương đang nghe (giữa màn) ⇒ `LazyVStack` dựng + đo **mọi** hàng phía trước trên main (cùng bài học "neo sâu" của Reader), mỗi hàng còn dịch tên chương (`displayTitle(for:)`) — đang nghe chương 2000 là 2000 hàng một lượt, đúng lúc sheet trượt lên. Mục lục Reader không bị vì dùng `List` (ô tái dùng, nhảy bằng chiều cao ước lượng). Sheet mini **không** dùng chung view với mục lục Reader / Chi tiết / truyện tranh.
+- **Nguyên nhân 2 (lúc cuộn)**: sheet Hẹn giờ (`TTSQuickTimerSheet`) và danh sách `@ObservedObject` thẳng `TTSManager` (trái luật View không observe `TTSManager`) ⇒ mỗi câu (chỉ số đoạn, highlight, snapshot), mỗi lần đệm tiếng đổi, mỗi giây hẹn giờ… dựng lại cả sheet và `ForEach` vài nghìn chương.
+- **Sửa**:
+  - Danh sách → `List(.plain)` như mục lục Reader: nền trong suốt, hàng không vạch, lề hàng 4 / 16 + `contentMargins` dọc 4 ⇒ thẻ, khoảng cách 8, cột số, ô tìm, nút tìm nổi giữ nguyên; vẫn cuộn tới chương đang nghe lúc mở.
+  - `TTSChapterListReader` (mới, `Views/TTSWidget/`): chỉ phát `chapters` (`$chaptersQueue`) + `playingChapterIndex`; sheet giữ bằng `@StateObject`, danh sách nhận qua tham số ⇒ nhịp đọc không chạm danh sách. Tên chương vẫn `TTSManager.displayTitle(for:)` (cặp với ô tìm `matchingChapters`); danh sách đọc `TranslationDisplayRevision` để vẽ lại khi từ điển / rule / cấu hình dịch đổi (trước đây nhịp TTS vẽ lại hộ).
+  - Sheet Hẹn giờ thôi `@ObservedObject`: hẹn giờ + bìa qua `TTSWidgetStateReader`, tên truyện / chương qua `TTSWidgetBarInfoReader`, số chương qua `TTSChapterListReader`; tác giả / tên nguồn / tiện ích đọc `TTSManager.shared` lúc dựng (chỉ đổi theo truyện); nút ⚙ vẫn qua `TTSSettingsSheetHost`.
+  - Log: mở / đóng danh sách gọi `MainThreadHangMonitor.noteScreen("mục lục TTS mini")` + dòng `📑 [TTSTOC] Mở mục lục sheet nghe (N chương, đang nghe chương k)` ⇒ dòng `🐢 [MainHang]` lúc mở ghi kèm bối cảnh này.
+- `TabView(.page)` của sheet có thể dựng sẵn trang mục lục bên cạnh ⇒ mở ⏱ Hẹn giờ trước đây cũng có thể khựng — cùng được sửa.
+- `CHANGELOG.md` dời 1.3.1023 sang `CHANGELOG.archive.md` (giữ 30 entry).
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log, truyện vài nghìn chương đang nghe chương xa đầu ⇒ chạm đĩa nghe ⇒ Mục lục ⇒ cuộn.
+
 ## [1.3.1052] - 2026-11-24
 
 ### feat: vtts — giọng nu-10 dùng model mới của tác giả (train giai đoạn cuối 80.000 bước), tài sản theo release v0.11.0
@@ -371,14 +388,3 @@ Gom ba bản header (1.3.1020, 1.3.1022, 1.3.1023) từ session con; dọn hai c
 - Entry 1.3.1023 sửa câu "vùng chạm không đổi": khoảng 19 nút trước chưa có khung nay có khung 36×38 nên vùng chạm rộng thêm về bên trái.
 - `CHANGELOG.md` dời 1.3.987–994 sang `CHANGELOG.archive.md` (giữ ~30 entry).
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**.
-
-## [1.3.1023] - 2026-11-20
-
-### feat: Toolbar — nút ngoài cùng bên phải canh icon vào lề 16pt, icon tài sản trên toolbar 20pt
-
-- Anh Bửu: "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau", "icon nhiều chỗ nhìn size cũng không giống nhau" — phần còn lại của lưới header chung (1.3.1017–1021): toolbar của thanh điều hướng hệ thống.
-- Trước: icon nằm giữa khung chạm (36 hoặc 32 rộng) nên icon ngoài cùng lùi vào 6–10pt so với lề 16pt của tiêu đề / ô tìm / thẻ danh sách. Nay nút **ngoài cùng bên phải** của mỗi toolbar thêm `alignment: .trailing` vào `.frame(width:height:)` của icon (nút đã có khung giữ nguyên rộng / cao; khoảng 19 nút trước chưa có khung nay có khung 36×38 ⇒ vùng chạm rộng thêm về bên trái, icon vốn đã sát lề); nút bên trong cụm (🔍, ↻, nút dịch, Lọc, Chia sẻ) giữ canh giữa. Nút chữ (Lưu, Xong, `.headerTextButton()`), capsule "Áp dụng", nút "?" `SectionHelpButton`, `EditButton` không đổi.
-- Số trần `17` của icon SF trong các nút đó → `HeaderMetrics.iconFontSize`; khung `36` / `38` → `HeaderMetrics.iconFrameWidth` / `iconFrameHeight` (đúng giá trị cũ, khung cao `36` giữ nguyên để không đổi cỡ thật). Icon tài sản `AppGlyph` trên toolbar → `HeaderMetrics.assetIconSize` (20pt, trước 17): nút sao chép của Gỡ lỗi từng bước (Legado), Lỗi & cảnh báo rule dịch nhanh; nút dịch `ReaderTranslationScopeMenuView(iconSize:)` của Chi tiết truyện; phễu `FilterGlyph` (đã 20, nay dùng token).
-- Màn đã đổi: Kệ (🔍 | … — "…" ngoài cùng, chấm đỏ thông báo vẫn nằm đúng góc trên phải icon), Hộp thông báo, Chi tiết bộ sưu tập, Chi tiết truyện (nút dịch | …), Danh sách thể loại / Xem thêm (Lọc | Kiểu hiển thị), Tìm kiếm (Kiểu hiển thị), từ điển (VP / Name riêng, VP / Name chung, Phiên âm / Pronouns, sheet sửa từ có bút chì), Báo cáo kiểm tra (danh sách + chi tiết: Chia sẻ | Xoá), Gỡ lỗi từng bước (Legado), Danh sách kho (↻ | +), tab Legado + tab Tất cả tiện ích của Kho tiện ích, Bộ lọc tiện ích (Đặt lại), Playlist chi tiết, Cấu hình AI (+), Lịch sử phiên chat AI (thùng rác), Theo dõi nhiệt, Log phiên, Công cụ tra cứu nhanh, Dung lượng (↻ / vòng xoay đo), từ điển phiên âm NghiTTS / VieNeu, Thay thế TTS, Quản lý lọc rác, Bộ ngoặc, rule dịch nhanh (`QuickTranslationRuleIOMenu`), Quy tắc TOC.
-- Không đụng (session khác làm hoặc đang làm): `PageHeader`, `HubStyleSheet`, `FloatingHub`, `TTSWidget`, `AudioPlayer`, `Reader`, `ComicReader`, `VideoPlayer`, `Discovery`, `SleepTimer`, `AppUpdate`, `ChapterTOCPanel`, `SideDrawerMenuPanel`, `SourceCheck`, `ExtensionCheckView`, `LegadoSourceCheckView`. `SideDrawerMenuModifier` chỉ có ví dụ trong comment, không có frame ⇒ không sửa.
-- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ `JSDom.swift`); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: icon ngoài cùng ở các màn trên chạm đúng lề 16pt (so với tiêu đề / ô tìm / thẻ), chấm đỏ của "…" ở Kệ vẫn đúng góc, nút dịch ở Chi tiết truyện và sao chép ở Gỡ lỗi từng bước (20pt) không lệch hàng với nút bên cạnh.

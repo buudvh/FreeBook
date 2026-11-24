@@ -7,9 +7,16 @@ import UIKit
 /// đồng hồ hẹn giờ trên bìa) → hàng tên chương đang phát → tab con ô viên thuốc có icon (kiểu cũ, 1.3.713; badge đỏ
 /// tổng số chương trong ô sau chữ) → nội dung tab. Không có `NavigationStack`: sheet không đẩy trang nào. Nút ⚙ mở
 /// Cài đặt TTS đè lên sheet này (`TTSSettingsSheetHost`).
+///
+/// Không observe `TTSManager` (1.3.1053): trạng thái đọc qua projection reader — hẹn giờ + bìa (`TTSWidgetStateReader`),
+/// tên truyện / chương (`TTSWidgetBarInfoReader`), mục lục (`TTSChapterListReader`) — nên nhịp đọc từng câu không dựng lại
+/// sheet lẫn danh sách chương. Tác giả / tên nguồn / tiện ích đọc thẳng `TTSManager.shared` lúc dựng: chỉ đổi khi đổi
+/// truyện, mà đổi truyện thì `playingBookId` của reader đã làm sheet vẽ lại.
 struct TTSQuickTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var ttsManager = TTSManager.shared
+    @StateObject private var ttsState = TTSWidgetStateReader()
+    @StateObject private var info = TTSWidgetBarInfoReader()
+    @StateObject private var chapterReader = TTSChapterListReader()
     @State private var selectedTab: Int // 0: Hẹn giờ tắt, 1: Danh sách chương
     @State private var customMinutes: Double = 90.0
 
@@ -33,7 +40,7 @@ struct TTSQuickTimerSheet: View {
             TabView(selection: $selectedTab) {
                 timerTabContent
                     .tag(0)
-                TTSQuickTimerChapterList(ttsManager: ttsManager)
+                TTSQuickTimerChapterList(reader: chapterReader)
                     .tag(1)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -49,37 +56,38 @@ struct TTSQuickTimerSheet: View {
         // Sheet của widget TTS (cửa sổ riêng): gắn lại màu nhấn người dùng chọn cho nút / thanh / ô đang chọn.
         .appAccentTint()
         .onAppear {
-            if case .minutes(let mins) = ttsManager.timerMode { customMinutes = Double(mins) }
+            if case .minutes(let mins) = ttsState.snapshot.timerMode { customMinutes = Double(mins) }
         }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        let packageId = ttsManager.extensionInfo?.packageId ?? ""
+        let manager = TTSManager.shared
+        let packageId = manager.extensionInfo?.packageId ?? ""
         // Viên nguồn như header Reader: tên + icon của tiện ích đã cài; tiện ích đã gỡ ⇒ tên nguồn đã lưu của phiên TTS.
         let ext: Extension? = packageId.isEmpty
             ? nil
             : ExtensionLibraryRepository.shared.installed.first(where: { $0.packageId == packageId })
         let extName = ext?.name ?? ""
         return TTSQuickTimerHeader(
-            bookId: ttsManager.playingBookId,
-            coverUrl: ttsManager.playingCoverUrl,
+            bookId: ttsState.snapshot.playingBookId,
+            coverUrl: ttsState.snapshot.playingCoverUrl,
             extensionPackageId: packageId,
-            title: ttsManager.displayedBookTitle,
-            author: ttsManager.displayedAuthor,
-            sourceName: extName.isEmpty ? ttsManager.playingBookSourceName : extName,
+            title: info.bookTitle,
+            author: manager.displayedAuthor,
+            sourceName: extName.isEmpty ? manager.playingBookSourceName : extName,
             sourceLocalPath: ext?.localPath ?? "",
             sourceIconUrl: ext?.iconUrl,
-            timerMode: ttsManager.timerMode,
-            timerBadgeText: ttsManager.sleepTimerBadgeText,
+            timerMode: ttsState.snapshot.timerMode,
+            timerBadgeText: ttsState.snapshot.sleepTimerBadgeText,
             onOpenReader: {
                 dismiss()
                 NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
             },
             onCancelTimer: {
                 triggerHaptic()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { ttsManager.cancelSleepTimer() }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { TTSManager.shared.cancelSleepTimer() }
             }
         )
     }
@@ -88,7 +96,8 @@ struct TTSQuickTimerSheet: View {
     /// chung 1.3.1017), khung 36×38 canh phải ⇒ icon chạm lề như nút ngoài cùng của header.
     private var settingsButton: some View {
         Button(action: {
-            ttsManager.showingSettingsSheet = true
+            // `TTSSettingsSheetHost` (modifier tự observe cờ này) trình bày Cài đặt đè lên sheet.
+            TTSManager.shared.showingSettingsSheet = true
         }) {
             Image(systemName: "gearshape")
                 .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
@@ -105,7 +114,7 @@ struct TTSQuickTimerSheet: View {
     private var playingChapterMarqueeRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "waveform").font(.system(size: 12, weight: .semibold)).foregroundStyle(.tint)
-            MarqueeText(text: ttsManager.displayedChapterTitle)
+            MarqueeText(text: info.chapterLine)
                 .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.primary)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -116,7 +125,7 @@ struct TTSQuickTimerSheet: View {
     // MARK: - Tab con (ô viên thuốc có icon như trước 1.3.712)
 
     private var subTabsBar: some View {
-        let count = ttsManager.chaptersQueue.count
+        let count = chapterReader.chapters.count
         return HStack(spacing: 8) {
             subTabButton(title: "Hẹn giờ tắt", icon: "timer", badgeCount: nil, index: 0)
             subTabButton(title: "Danh sách chương", icon: "list.bullet", badgeCount: count > 0 ? count : nil, index: 1)
@@ -169,18 +178,18 @@ struct TTSQuickTimerSheet: View {
             endOfItemIcon: "bookmark.fill",
             isEndOfItemSelected: isEndOfChapterSelected,
             customMinutes: $customMinutes,
-            onSelectMinutes: { ttsManager.startSleepTimer(minutes: $0) },
-            onSelectEndOfItem: { ttsManager.setStopAtEndOfChapter() }
+            onSelectMinutes: { TTSManager.shared.startSleepTimer(minutes: $0) },
+            onSelectEndOfItem: { TTSManager.shared.setStopAtEndOfChapter() }
         )
     }
 
     private var selectedPresetMinutes: Int? {
-        if case .minutes(let activeMins) = ttsManager.timerMode { return activeMins }
+        if case .minutes(let activeMins) = ttsState.snapshot.timerMode { return activeMins }
         return nil
     }
 
     private var isEndOfChapterSelected: Bool {
-        if case .endOfChapter = ttsManager.timerMode { return true }
+        if case .endOfChapter = ttsState.snapshot.timerMode { return true }
         return false
     }
 

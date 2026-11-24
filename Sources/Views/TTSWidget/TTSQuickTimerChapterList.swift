@@ -11,8 +11,13 @@ import UIKit
 /// - Lọc giống ô tìm mục lục Reader: `ChapterTitleSearchMatcher` trên tên đang hiển thị (bản dịch nếu phiên TTS bật
 ///   dịch) và tên gốc; chờ 250 ms sau phím cuối, chạy ngoài main (dịch cả mục lục), phím mới huỷ lượt cũ.
 /// - Chương đang phát chỉ đổi màu nền + chữ đậm, không có chip hay icon.
+/// - `List` (ô tái dùng) chứ không `ScrollView` + `LazyVStack` (1.3.1053, anh Bửu: mở mục lục từ sheet nghe mini hơi đơ
+///   khi truyện nhiều chương): cuộn tới chương đang phát lúc mở, `LazyVStack` phải dựng + đo **mọi** hàng phía trước
+///   (mỗi hàng còn dịch tên chương) trên main — đang nghe chương 2000 là 2000 hàng một lượt; `List` nhảy bằng chiều cao
+///   ước lượng như mục lục Reader. Không observe `TTSManager` (`TTSChapterListReader` do sheet giữ).
 struct TTSQuickTimerChapterList: View {
-    @ObservedObject var ttsManager: TTSManager
+    /// Danh sách chương + chương đang phát của phiên — không theo nhịp đọc từng câu.
+    @ObservedObject var reader: TTSChapterListReader
 
     @AppStorage(ChapterOrdinalNumbering.showsOrdinalKey)
     private var showsChapterOrdinal = ChapterOrdinalNumbering.showsOrdinalDefault
@@ -26,13 +31,17 @@ struct TTSQuickTimerChapterList: View {
     @FocusState private var isSearchFocused: Bool
 
     private static let rowFont = Font.system(size: 14)
+    /// Hai thẻ cách nhau 8 (4 + 4) như `LazyVStack(spacing: 8)` cũ; lề ngang 16.
+    private static let rowInsets = EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)
+    /// Tên màn cho dòng `🐢 [MainHang]` (`MainThreadHangMonitor.noteScreen`).
+    private static let hangScreenName = "mục lục TTS mini"
 
     var body: some View {
         VStack(spacing: 0) {
             if isSearchVisible {
                 ChapterTOCSearchField(
                     text: $searchQuery,
-                    placeholder: "Tìm kiếm \(ttsManager.chaptersQueue.count) chương",
+                    placeholder: "Tìm kiếm \(reader.chapters.count) chương",
                     palette: .system,
                     onSubmit: { isSearchFocused = false },
                     focus: $isSearchFocused
@@ -43,12 +52,12 @@ struct TTSQuickTimerChapterList: View {
                 .padding(.bottom, 8)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
-            chapterScroll
+            chapterList
         }
         .onChange(of: searchQuery) { _, newValue in
             scheduleFilter(newValue)
         }
-        .onChange(of: ttsManager.chaptersQueue.count) { _, _ in
+        .onChange(of: reader.chapters.count) { _, _ in
             // Mục lục làm mới khi đang lọc ⇒ lọc lại trên bản mới.
             if filteredChapters != nil { scheduleFilter(searchQuery) }
         }
@@ -57,37 +66,58 @@ struct TTSQuickTimerChapterList: View {
                 withAnimation(.easeInOut(duration: 0.2)) { isSearchVisible = false }
             }
         }
-        .onDisappear { searchTask?.cancel() }
+        .onAppear {
+            // Bối cảnh cho log đo main kẹt (khuôn mục lục Reader): dòng `🐢 [MainHang]` ghi kèm tên màn này khi đang mở.
+            MainThreadHangMonitor.shared.noteScreen(Self.hangScreenName, visible: true)
+            AppLogger.shared.log("📑 [TTSTOC] Mở mục lục sheet nghe (\(reader.chapters.count) chương, đang nghe chương \(reader.playingChapterIndex + 1))")
+        }
+        .onDisappear {
+            searchTask?.cancel()
+            MainThreadHangMonitor.shared.noteScreen(Self.hangScreenName, visible: false)
+            AppLogger.shared.log("📑 [TTSTOC] Đóng mục lục sheet nghe")
+        }
     }
 
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var chapterScroll: some View {
-        let chapters = ttsManager.chaptersQueue
+    private var chapterList: some View {
+        let chapters = reader.chapters
         let rows = filteredChapters ?? chapters
         // Bề rộng cột số theo số lớn nhất của mục lục đủ (không theo kết quả lọc) ⇒ tên không nhảy ngang khi gõ.
         let ordinalDigits = showsChapterOrdinal
             ? ChapterOrdinalNumbering(chapterCount: max(chapters.count, (chapters.last?.index ?? -1) + 1)).digits
             : 0
-        let playingIndex = ttsManager.playingChapterIndex
+        let playingIndex = reader.playingChapterIndex
+        // Tên chương đi qua từ điển / rule / cấu hình dịch ⇒ đọc mốc này để vẽ lại khi chúng đổi (trước đây nhịp đọc của
+        // `TTSManager` vẽ lại hộ).
+        _ = TranslationDisplayRevision.shared.value
         return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(rows, id: \.index) { chapter in
-                        chapterRow(chapter, isPlaying: chapter.index == playingIndex, ordinalDigits: ordinalDigits)
-                            .id(chapter.index)
-                    }
-                    if filteredChapters?.isEmpty == true {
-                        Text("Không có chương nào khớp")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 24)
-                    }
+            List {
+                ForEach(rows, id: \.index) { chapter in
+                    chapterRow(chapter, isPlaying: chapter.index == playingIndex, ordinalDigits: ordinalDigits)
+                        .id(chapter.index)
+                        .listRowInsets(Self.rowInsets)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 8)
+                if filteredChapters?.isEmpty == true {
+                    Text("Không có chương nào khớp")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 24)
+                        .listRowInsets(Self.rowInsets)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
             }
+            .listStyle(.plain)
+            // Nằm trong sheet kính: nền trong suốt, hàng tự vẽ thẻ. Lề trên / dưới 4 + 4 của hàng = 8 như bản cũ.
+            .scrollContentBackground(.hidden)
+            .contentMargins(.vertical, 4, for: .scrollContent)
+            .environment(\.defaultMinListRowHeight, 0)
             .scrollDismissesKeyboard(.immediately)
             .floatingAddButton(
                 isSearchVisible ? "Đóng tìm chương" : "Tìm chương",
@@ -102,7 +132,7 @@ struct TTSQuickTimerChapterList: View {
     private func chapterRow(_ chapter: TTSChapterInfo, isPlaying: Bool, ordinalDigits: Int) -> some View {
         Button(action: {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            ttsManager.jumpToChapter(at: chapter.index)
+            TTSManager.shared.jumpToChapter(at: chapter.index)
         }) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 if ordinalDigits > 0 {
@@ -116,7 +146,7 @@ struct TTSQuickTimerChapterList: View {
                     )
                     .padding(.trailing, 8)
                 }
-                Text(ttsManager.displayTitle(for: chapter))
+                Text(TTSManager.shared.displayTitle(for: chapter))
                     .font(Self.rowFont.weight(isPlaying ? .bold : .regular))
                     .foregroundStyle(isPlaying ? Color.primary : Color.secondary)
                     .lineLimit(2)
@@ -131,7 +161,7 @@ struct TTSQuickTimerChapterList: View {
     }
 
     private func scrollToPlaying(_ proxy: ScrollViewProxy) {
-        let playingIndex = ttsManager.playingChapterIndex
+        let playingIndex = reader.playingChapterIndex
         guard playingIndex >= 0 else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             proxy.scrollTo(playingIndex, anchor: .center)
@@ -166,8 +196,8 @@ struct TTSQuickTimerChapterList: View {
             }
             return
         }
-        let chapters = ttsManager.chaptersQueue
-        let options = ttsManager.sessionTextOptions
+        let chapters = reader.chapters
+        let options = TTSManager.shared.sessionTextOptions
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
