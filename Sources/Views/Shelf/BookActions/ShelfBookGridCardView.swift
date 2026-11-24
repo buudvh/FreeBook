@@ -2,11 +2,12 @@ import SwiftUI
 
 /// Thẻ một truyện trong lưới phía kệ (Kệ sách, Lịch sử, Bộ sưu tập, Tìm trên kệ), cho hai kiểu lưới của
 /// `BookListLayoutMode`:
-/// - `.grid`: bìa; dưới bìa là tên 2 dòng + dòng "icon nguồn · Ch. N".
-/// - `.coverOnly`: tên + "Ch. N" trên dải tối ở đáy bìa (`CoverCaptionStrip`), không có icon nguồn.
+/// - `.grid`: bìa; dưới bìa là tên 2 dòng + dòng "icon nguồn · tên chương đang đọc".
+/// - `.coverOnly`: tên + tên chương đang đọc trên dải tối ở đáy bìa (`CoverCaptionStrip`), không có icon nguồn.
 ///
 /// Góc bìa: ghim cam (trên-trái, khi `isPinned`), badge chương mới (trên-phải), badge loại (dưới-phải — chỉ truyện
-/// tranh/video/âm thanh, như `ShelfBookRowView`). Video ghi "Tập N", âm thanh "Bài N" thay "Ch. N".
+/// tranh/video/âm thanh, như `ShelfBookRowView`). Video ghi "Tập N", âm thanh "Bài N" thay tên chương (1.3.1058: không còn
+/// "Ch. N" — `BookListRowSize.progressLabel`).
 ///
 /// Bìa vẫn là `BookCoverView` (đọc/ghi bìa ở `covers/` như hàng danh sách), đặt trong một khung màu tỉ lệ cố định
 /// giống `ExploreCoverView`: ảnh `.fill` nằm trong `overlay` nên không làm phình bố cục; bề rộng do cột lưới quyết
@@ -17,7 +18,7 @@ import SwiftUI
 /// (`accessory = .more`) là nút thật, được nhận chạm trước cử chỉ của thẻ.
 @MainActor
 struct ShelfBookGridCardView: View {
-    /// Phụ kiện của thẻ (Kệ Sách / Lịch Sử): ⋮ mở sheet tuỳ chọn — kiểu Lưới ở cuối dòng "icon · Ch. N", kiểu Chỉ bìa là
+    /// Phụ kiện của thẻ (Kệ Sách / Lịch Sử): ⋮ mở sheet tuỳ chọn — kiểu Lưới ở cuối dòng "icon · tên chương", kiểu Chỉ bìa là
     /// vòng tròn góc trên phải bìa (badge chương mới lùi sang trái); hoặc vòng chọn của chế độ chọn nhiều (góc trên phải
     /// bìa, thay badge chương mới; đã chọn thì bìa có viền màu nhấn 3pt).
     enum Accessory {
@@ -36,15 +37,16 @@ struct ShelfBookGridCardView: View {
     var body: some View {
         let kind = ExtensionContentKind.resolve(packageId: book.extensionPackageId)
         // Ba cấp của popup dịch + phồn → giản, vẽ lại khi cấu hình đổi (`BookDisplayTranslation`).
-        let title = BookDisplayTranslation.title(book.title, BookDisplayTranslation.listOptions(for: book))
-        let progress = progressLabel(kind: kind)
+        let options = BookDisplayTranslation.listOptions(for: book)
+        let title = BookDisplayTranslation.title(book.title, options)
+        let progress = progressLabel(kind: kind, options: options)
 
         VStack(alignment: .leading, spacing: 6) {
             cover(kind: kind, title: title, progress: progress)
 
             if mode == .grid {
                 VStack(alignment: .leading, spacing: 3) {
-                    // Giữ chỗ đủ 2 dòng: thẻ cùng hàng có dòng "icon · Ch. N" thẳng hàng dù tên dài ngắn khác nhau.
+                    // Giữ chỗ đủ 2 dòng: thẻ cùng hàng có dòng "icon · tên chương" thẳng hàng dù tên dài ngắn khác nhau.
                     Text(title)
                         .font(.system(size: 13, weight: .semibold))
                         .lineLimit(2, reservesSpace: true)
@@ -186,8 +188,13 @@ struct ShelfBookGridCardView: View {
         }
     }
 
-    /// `Book` không có tổng số chương ⇒ chỉ hiện chương/tập/bài đang đọc (`currentChapterIndex` tính từ 0).
-    private func progressLabel(kind: ExtensionContentKind) -> String {
-        BookListRowSize.progressLabel(kind: kind, chapterIndex: book.currentChapterIndex)
+    /// `Book` không có tổng số chương ⇒ chỉ hiện chương (tên) / tập / bài đang đọc (`currentChapterIndex` tính từ 0).
+    private func progressLabel(kind: ExtensionContentKind, options: BookDisplayTranslation.Options) -> String {
+        BookListRowSize.progressLabel(
+            kind: kind,
+            chapterIndex: book.currentChapterIndex,
+            chapterTitle: book.currentChapterTitle,
+            options: options
+        )
     }
 }

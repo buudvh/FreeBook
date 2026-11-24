@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1058] - 2026-11-24
+
+### fix: Kệ Sách và sheet "+" Chi tiết bỏ "Ch. N", thẻ ghi tên chương đang đọc
+
+Anh Bửu: không hiển thị chương kiểu "Ch. stt" → duyệt mockup https://claude.ai/artifact/2fREpEgACNQJVkuwVMhyoj (sheet "+" ghi "N chương").
+
+- `BookListRowSize.progressLabel(kind:chapterIndex:chapterTitle:options:)`: truyện chữ / truyện tranh trả **tên chương đã lưu** (`Book.currentChapterTitle`, dịch theo `options`), tên rỗng mới "Chương N"; phim "Tập N", âm thanh "Bài N" giữ nguyên. Dùng chung cho thẻ Kệ kiểu Lưới (dòng "icon · tên chương · ⋮") và Chỉ bìa (dải chữ đáy bìa) — `ShelfBookGridCardView`, dòng gọn nấc 1–2 "tác giả · tên chương" — `BookListItemView` (cũng ở Tìm trên kệ, hai sheet chọn truyện của Từ điển), và dải "Đọc tiếp" (`BookContinueReadingStrip`, trước tự tính riêng). Dòng thường nấc 3+ vẫn "Đang đọc: tên chương" như cũ.
+- Sheet "+" của Chi tiết (`BookDetailView+FloatingActions.floatingSheetCaption`): "Ch. N/tổng" ⇒ "N chương" (tổng), đã lưu hay chưa đều vậy; dòng "Đọc tiếp" của sheet đã có tên chương.
+- Đánh đổi (đã nêu trong mockup): kiểu Lưới 3 cột chỉ còn ~65 pt cho chữ cạnh ⋮ ⇒ tên chương bị cắt "…"; tên nguồn tự mở đầu "Chương 340: …" thì ô Lưới vẫn chỉ thấy "Chương 34…".
+- `ui-conventions.md`: luật "Không hiển thị kiểu Ch. stt" ghi đã xong + hàm dùng chung; luật video / audio ghi rõ anh chỉ yêu cầu context menu.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1057] - 2026-11-24
 
 ### fix: mục lục sheet nghe mini — hiện nhanh lại (hàng là struct riêng, bỏ .id, tên chương dịch theo ô đang hiện)
@@ -366,16 +378,3 @@ Tiếp 1.3.1028 (rà lại trước khi đẩy; chưa lượt CI nào chạy b�
 - `ci-release.md`: mục vtts ghi hai bước + cách lưu cache.
 - Kiểm: `bash -n`, thử lại các hàm kiểm stamp / WAV của script trên Windows, YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch được C / Swift tại chỗ (Windows).**
 
-## [1.3.1028] - 2026-11-20
-
-### feat: vtts Việt–Anh — runtime C, tài sản đóng trong IPA, service tổng hợp
-
-Anh Bửu duyệt plan `Docs/Plans/2026-11-20-vtts-integration.md` (phần A — nền tảng; phần B là 1.3.1027). Nguồn ghim: `tuanpmt/vtts` commit `c5c8c0018dc6a1651d8ee6d4ec3635f6ff2f8e1e` (Apache-2.0) cho runtime lẫn script dựng từ điển, model release `v0.4.0` (`nu-10` nữ, `nam-1` nam, bản M, 2 580 320 byte mỗi file).
-
-- **Gói SPM cục bộ `Vendor/vtts`** (product `CVTTS`, `project.yml` dùng `path:`): `Sources/CVTTS/runtime/{include,src}` chép nguyên văn ở commit ghim (`VTTS_COMMIT.txt`), kèm `LICENSE` / `NOTICE` của vtts; mọi ngôn ngữ phụ tắt bằng `VTTS_ENABLE_<L>=0` (27 ngôn ngữ, cấu hình `langs_test_none` của upstream) ⇒ chỉ còn Việt / Anh / auto. Bridging header của app không đổi.
-- **Shim C `vtts_bridge`** (`Sources/CVTTS/bridge/`, header công khai duy nhất Swift thấy — không struct nào của vtts lộ ra): `create` mmap model + VLEX và giữ suốt đời handle (cả hai được đọc tại chỗ), workspace front-end ~145 KB trên heap, fd đóng ngay sau mmap; `synthesize` = `vtts_text_to_ids_ex` chế độ `VTTS_LANG_AUTO` (chọn Việt / Anh theo từng từ, có VLEX) ⇒ mỗi chunk ≤ 40 âm tiết tổng hợp riêng, nối với 150 ms im lặng như `tools/vtts_say.c`. Khác `vtts_say`: lấy số khung thật bằng `vtts_durations` rồi mới cấp arena / PCM đúng cỡ (vtts_say cấp theo n × max_duration — hàng chục MB với 320 id); id ngoài từ vựng ⇒ lỗi thay vì đọc lố bảng embedding; đoạn > 2000 code point tự chia ở ranh giới câu (front-end cắt **im lặng** phần sau 4096 code point); thẻ huỷ nguyên tử xét trước mỗi chunk. Model không phải bộ token vi-en / không có chế độ auto ⇒ mã lỗi riêng.
-- **`Scripts/ci/fetch_vtts_assets.sh`** (máy Mac chạy trước `xcodegen`, idempotent theo `.stamp`): tải + kiểm SHA256 2 model; clone vtts ở commit ghim, so runtime đã vendor **từng byte** (lệch ⇒ đỏ); dựng `lex_en.bin` bằng `scripts/frontend/build_lexicon.py` (CMUdict ghim + SHA256, Python ≥ 3.11 chỉ thư viện chuẩn, ~8 phút — đo trên máy Windows: 1 860 736 byte); dựng `vtts_say` bằng clang với đúng cờ tắt ngôn ngữ của gói, đọc thử "Đã kết nối Bluetooth với AirPods, chương này tên là The Last Train." bằng từng giọng (kiểm `token_set vi-en`, `mode auto lex 1`, id < vocab, WAV ≥ 1 s, không im lặng); **luôn** biên dịch shim + runtime đã vendor + `Scripts/ci/vtts_bridge_smoke.c` với ASan/UBSan và chạy từng giọng (câu thử, chuỗi rỗng, chỉ dấu câu, đoạn > 4096 code point, thẻ huỷ), so WAV shim với `vtts_say` (lệch chỉ cảnh báo). Tài sản ⇒ `Vendor/vtts-assets/vtts` (gitignore), `project.yml` khai folder resource ⇒ `FreeBook.app/vtts/`.
-- **`build-ipa.yml`**: bước Cache (khoá = hash script + `VTTS_COMMIT.txt` + tên model) + chạy script trước `xcodegen generate` (`pipefail`); artifact `vtts-samples` (WAV đọc thử); `paths` của `push` / `pull_request` thêm `Vendor/vtts/**`, `fetch_vtts_assets.sh`, `vtts_bridge_smoke.c`.
-- **Swift `Services/TTS/Vtts/`**: `VttsVoice` (2 giọng, `resolve` id lạ ⇒ `nu-10`), `VttsRuntime` (handle theo giọng, **mọi** lượt gọi C trên **một** hàng đợi nối tiếp — front-end vtts có mảng `static` toàn cục, runtime có setter toàn cục; tra / nhả handle chỉ trong hàng đợi; `releaseAll` không chặn), `VttsTTSService` (`LocalTTSEngine`, qua `PiperSynthesisCoordinator`; tổng hợp `length_scale = 1`, tốc độ do `NghiAudioPlayerQueue`; khoảng lặng đuôi `VieNeuTTSEngine.pauseSeconds(for:)` như Turbo; áp "Phiên âm tiếng Nhật" của chính trình đọc ở tầng service (`TTSJapaneseTextTransliterator.apply(_, tool: "vtts")`) rồi NFC; WAV 22 050 Hz `WAVEncoder.encodePCM16`; `TTSEngineRTFStore` chia cho phần lời đọc; log `🗣️ [Vtts]` nạp giọng + mỗi đoạn (ký tự, số câu, ms, RTF), lỗi có `❌`, `CancellationError` không ghi lỗi).
-- Bản quyền: `Vendor/vtts/THIRD_PARTY_NOTICES.md` + `LICENSE-cmudict.txt` (VLEX dẫn xuất từ CMUdict, BSD-2, phân phối trong IPA). `ci-release.md`: mục vtts (bước tài sản, commit ghim, cách nâng runtime / model).
-- Kiểm: đọc code, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`), `bash -n` + thử các hàm kiểm stamp / WAV của script trên Windows, YAML hợp lệ; tải 2 model và kiểm SHA256, dựng VLEX thành công trên máy này. **Không biên dịch được C / Swift tại chỗ (Windows)** — biên dịch, đọc thử và kiểm thử shim chỉ chạy trên CI; chưa thử trên máy iOS.

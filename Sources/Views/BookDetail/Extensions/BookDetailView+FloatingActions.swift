@@ -28,13 +28,11 @@ extension BookDetailView {
         )
     }
 
-    /// Chữ bên phải tên truyện trên sheet: truyện đã lưu ⇒ "Ch. N/tổng" (cùng kiểu "Ch. N" của Kệ, `chapterIndex` tính
-    /// từ 0); chưa lưu ⇒ "N chương".
+    /// Chữ bên phải tên truyện trên sheet: "N chương" (tổng số chương), đã lưu hay chưa đều vậy. Bỏ "Ch. N/tổng" (1.3.1058,
+    /// anh Bửu: không hiển thị kiểu "Ch. stt") — dòng "Đọc tiếp" của sheet đã ghi tên chương đang đọc.
     private var floatingSheetCaption: String? {
         let total = totalChaptersCount
-        guard total > 0 else { return nil }
-        guard let book = localBook else { return "\(total) chương" }
-        return "Ch. \(min(book.currentChapterIndex + 1, total))/\(total)"
+        return total > 0 ? "\(total) chương" : nil
     }
 
     /// Tên chương "Đọc tiếp" sẽ mở, hiển thị theo đúng luật của tab Mục lục (`tocText`: `title_trans` / tiện ích dịch / QT).

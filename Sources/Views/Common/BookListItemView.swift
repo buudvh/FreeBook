@@ -145,7 +145,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
         .contentShape(Rectangle())
     }
 
-    /// Dòng gọn (nấc 1–2) thay cho dòng phụ + "Đang đọc": mô tả (kiểu Khám phá) hoặc "tác giả · Ch. N" (kiểu kệ;
+    /// Dòng gọn (nấc 1–2) thay cho dòng phụ + "Đang đọc": mô tả (kiểu Khám phá) hoặc "tác giả · tên chương" (kiểu kệ;
     /// video ghi "Tập N", âm thanh "Bài N" như thẻ lưới).
     @ViewBuilder
     private func compactSubtitle(kind: ExtensionContentKind, options: BookDisplayTranslation.Options) -> some View {
@@ -167,7 +167,12 @@ struct BookListItemView<Item: BookDisplayable>: View {
             parts.append(DisplayTextFormatter.titleCase(BookDisplayTranslation.author(item.author, options)))
         }
         if showChapter {
-            parts.append(BookListRowSize.progressLabel(kind: kind, chapterIndex: item.currentChapterIndex))
+            parts.append(BookListRowSize.progressLabel(
+                kind: kind,
+                chapterIndex: item.currentChapterIndex,
+                chapterTitle: item.currentChapterTitle,
+                options: options
+            ))
         }
         return parts.joined(separator: " · ")
     }

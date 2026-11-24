@@ -10,7 +10,7 @@ struct ShelfBookMoreButton: View {
     enum Style {
         /// Cuối hàng kiểu Danh sách: 17pt nửa đậm màu phụ, khung 32×44 canh phải (icon chạm lề trong của panel).
         case row
-        /// Cuối dòng "icon · Ch. N" dưới bìa (kiểu Lưới): 15pt, khung 28×20 canh phải.
+        /// Cuối dòng "icon · tên chương" dưới bìa (kiểu Lưới): 15pt, khung 28×20 canh phải.
         case card
         /// Trên bìa (kiểu Chỉ bìa): vòng tròn 26 nền đen 50%, ⋮ trắng 13pt; khung 34 ⇒ vòng cách mép bìa 4pt.
         case onCover

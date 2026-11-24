@@ -35,7 +35,7 @@ struct HubStyleActionSheetContent: Identifiable {
 
     let id = UUID()
     let title: String
-    /// Chữ nhỏ bên phải tiêu đề (vd "Ch. 128/1.204"); `nil` ⇒ không có.
+    /// Chữ nhỏ bên phải tiêu đề (vd "1.204 chương"); `nil` ⇒ không có.
     var caption: String?
     let items: [Item]
 }

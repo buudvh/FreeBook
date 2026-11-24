@@ -4,7 +4,7 @@ import SwiftUI
 /// (`FloatingRoundButton`, nền kính), canh lề như nút "+" chung (16 / 12).
 ///
 /// - Chạm "+" ⇒ **sheet hành động kiểu hub** (anh Bửu duyệt mockup 2026-11-11, thay cụm pill xổ lên của
-///   `FloatingActionMenu`): dòng đầu tên truyện + "Ch. N/tổng" (truyện chưa lưu ⇒ "N chương"); các dòng Đọc ngay / Đọc
+///   `FloatingActionMenu`): dòng đầu tên truyện + "N chương" (1.3.1058 bỏ "Ch. N/tổng"); các dòng Đọc ngay / Đọc
 ///   tiếp (kèm tên chương đang đọc), Thêm vào kệ / Đã ở kệ (icon xanh), Tải, Xuất, và **"Về trang gốc" dưới cùng** khi
 ///   trang đủ điều kiện Home (`FloatingHomePlacement`: trang đẩy vào trong tab Kệ / Khám phá / Tiện ích; Chi tiết mở trong
 ///   Reader / truyện tranh / phim thì không có). Sheet nằm trên mọi viên thuốc (`.hubStyleActionSheet`); chạm dòng ⇒ sheet
@@ -17,7 +17,7 @@ struct BookDetailFloatingActions: View {
     let hasChapters: Bool
     /// Tên truyện đang hiện (đã dịch theo trang) — dòng đầu sheet.
     let sheetTitle: String
-    /// "Ch. N/tổng" / "N chương" bên phải tên.
+    /// "N chương" bên phải tên.
     let progressCaption: String?
     let readTitle: String
     let readSystemImage: String

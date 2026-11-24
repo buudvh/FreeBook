@@ -9,8 +9,9 @@ import SwiftUI
 ///   bài đầu tiên ⇒ "… ngay" như "Đọc ngay" của Chi tiết. Xét theo **vị trí**, không theo `isHistory` (tiện ích tắt Lưu lịch
 ///   sử, truyện thêm kệ từ Chi tiết đều không bật cờ đó).
 /// - Dòng phụ: chữ / truyện tranh **chỉ tên chương** đã lưu (dịch như tên chương "Đang đọc"), không có tiền tố "Ch. N"
-///   (1.3.1055, anh Bửu: không hiển thị kiểu "Ch. stt"); tên rỗng mới lùi về "Chương N" như widget TTS (1.3.804). Phim / âm
-///   thanh: "Tập N" / "Bài N" (`BookListRowSize.progressLabel`) + chỗ đang dở m:ss (`currentChapterPage` là số giây). Không có
+///   (1.3.1055, anh Bửu: không hiển thị kiểu "Ch. stt"); tên rỗng mới lùi về "Chương N" như widget TTS (1.3.804) — cùng
+///   một luật với thẻ Kệ (`BookListRowSize.progressLabel`, 1.3.1058). Phim / âm
+///   thanh: "Tập N" / "Bài N" + chỗ đang dở m:ss (`currentChapterPage` là số giây). Không có
 ///   phần trăm: `Book` không lưu tổng số chương lẫn số đoạn của chương.
 /// - TTS đang đọc chính truyện này: tiến độ ghi trễ (debounce) nên dòng phụ có thể chậm một nhịp, như dòng tiến độ của thẻ.
 struct BookContinueReadingStrip: View {
@@ -49,16 +50,19 @@ struct BookContinueReadingStrip: View {
     }
 
     private func detail(kind: ExtensionContentKind) -> String {
+        // Chữ / tranh: chỉ tên chương, không "Ch. N" (1.3.1055); luật chung với thẻ Kệ ở `progressLabel` (1.3.1058).
+        let progress = BookListRowSize.progressLabel(
+            kind: kind,
+            chapterIndex: book.currentChapterIndex,
+            chapterTitle: book.currentChapterTitle,
+            options: BookDisplayTranslation.options(for: book)
+        )
         switch kind {
         case .video, .audio:
-            let progress = BookListRowSize.progressLabel(kind: kind, chapterIndex: book.currentChapterIndex)
             guard book.currentChapterPage > 0 else { return progress }
             return "\(progress) · \(VideoTimelineRow.format(Double(book.currentChapterPage)))"
         case .text, .comic, .unsupported:
-            // Chỉ tên chương, không "Ch. N" phía trước (1.3.1055). Tên rỗng mới lùi về "Chương N".
-            let raw = book.currentChapterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !raw.isEmpty else { return "Chương \(book.currentChapterIndex + 1)" }
-            return BookDisplayTranslation.chapterTitle(raw, BookDisplayTranslation.options(for: book))
+            return progress
         }
     }
 }

@@ -47,13 +47,23 @@ struct BookListRowSize: Equatable {
         return kind == .audio ? size.width : size.height
     }
 
-    /// Nhãn mục đang đọc ở thẻ / dòng gọn của kệ: "Ch. N", phim "Tập N", âm thanh "Bài N" (`chapterIndex` tính từ 0).
-    static func progressLabel(kind: ExtensionContentKind, chapterIndex: Int) -> String {
+    /// Nhãn mục đang đọc ở thẻ / dòng gọn của kệ và dải "Đọc tiếp" (`chapterIndex` tính từ 0): truyện chữ / tranh ⇒ **tên
+    /// chương** đã lưu, dịch theo `options` (1.3.1058, anh Bửu: không hiển thị kiểu "Ch. stt"); tên rỗng mới lùi về
+    /// "Chương N". Phim "Tập N", âm thanh "Bài N".
+    static func progressLabel(
+        kind: ExtensionContentKind,
+        chapterIndex: Int,
+        chapterTitle: String,
+        options: BookDisplayTranslation.Options
+    ) -> String {
         let number = chapterIndex + 1
         switch kind {
         case .video: return "Tập \(number)"
         case .audio: return "Bài \(number)"
-        case .text, .comic, .unsupported: return "Ch. \(number)"
+        case .text, .comic, .unsupported:
+            let raw = chapterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { return "Chương \(number)" }
+            return BookDisplayTranslation.chapterTitle(raw, options)
         }
     }
 
