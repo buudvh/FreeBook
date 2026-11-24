@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1056] - 2026-11-24
+
+### fix: sheet tuỳ chọn của video / audio ghi "video" / "audio" thay cho "truyện"
+
+Anh Bửu: "context menu của video, audio thì hiển thị chữ video, audio chứ đừng hiển thị truyện".
+
+- `ExtensionContentKind.shelfItemNoun` (mới): "truyện" (chữ, truyện tranh) / "video" / "audio"; loại suy bằng `BookContentKindResolver.kind` như lối mở nội dung (ghi đè loại của nguồn Legado thắng).
+- `BookActionSheet`: tiêu đề phần đầu "Truyện" ⇒ "Video" / "Audio"; chú thích Bộ sưu tập "… không xoá video khỏi kệ sách"; lời nhắc của hộp Bộ sưu tập mới; nhãn trợ năng của ô "Bỏ khỏi bộ sưu tập này". Toast `BookActionRunner.removeFromCollection` "(video vẫn ở trên kệ)".
+- Ghi luật vào `ui-conventions.md`. Chỗ khác còn "truyện" chung (thanh chọn nhiều, Kệ, Lịch sử) chưa rà.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**; `BookActionSheet.swift` 396/400 dòng); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1055] - 2026-11-24
 
 ### fix: dải "Đọc tiếp" bỏ tiền tố "Ch. N", chỉ ghi tên chương
@@ -372,17 +383,4 @@ Anh Bửu duyệt plan `Docs/Plans/2026-11-20-vtts-integration.md` + mockup màn
 - `TTSSettingsSnapshot` / `TTSSynthesisIdentity` không thêm trường: `tool` + `selectedVoice` + `chunkLength` + cờ tiếng Nhật theo `tool` + `fingerprint` đã phủ vtts. Khối đầu phiên log "vtts · <giọng>"; tab Cài đặt hiện "vtts".
 - `tts.md`: thêm gạch "vtts Việt–Anh".
 - Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows)** — biên dịch phụ thuộc type của phần A (`VttsVoice`, `VttsTTSService`), chỉ CI kiểm được; chưa chạy trên máy.
-
-## [1.3.1026] - 2026-11-20
-
-### fix: TTS tạm dừng lâu rồi bấm phát ở sheet nghe mini không phát lại — luôn bật lại phiên âm thanh, VieNeu / NghiTTS kiểm tiếng chạy thật
-
-Anh Bửu: "có lỗi để pause truyện lâu bấm start bằng sheet mini thì không phát lại, phải bấm tai nghe mới được. Phần nghe nhạc thì chưa biết" → plan → "Duyệt".
-
-- **Nguyên nhân (đọc code, chưa có log máy)**: nút tai nghe Reader (trang đã cuộn khỏi đoạn đang dừng) dừng hẳn phiên rồi dựng phiên mới ⇒ bật lại phiên âm thanh; nút ⏯ của sheet mini chỉ `resume()`. Đường đó (1) không bật lại `AVAudioSession` vì tin cờ `isAudioSessionConfigured` — trong lúc tạm dừng phiên có thể bị app khác phát tiếng, phim trong app trả phiên, nghe thử giọng ở Cài đặt TTS, cuộc gọi tắt mà cờ vẫn `true` (ngắt lúc TTS không phát trước đây không hạ cờ); (2) với VieNeu / NghiTTS không kiểm `play()` có chạy thật — trình phát báo `true` mà thời gian đứng yên ⇒ kẹt "đang phát" không tiếng (đường Google / tiện ích đã có bước kiểm `verifyRemoteResumeProgress`).
-- **Sửa** (`TTSManager+ResumeRecovery`, mới): `resume()` đường tạm dừng → phát gọi `reactivateAudioSessionForResume()` (hạ cờ rồi `setCategory` + `setActive` lại) thay cho `configureAudioSession()`; VieNeu / NghiTTS phát tiếp được ⇒ `didResumeNghiPlayer()` kiểm sau 0,25 s, `currentTime` không tiến ⇒ dừng player, bật lại phiên, đọc lại đoạn hiện tại từ đầu đoạn. `handleInterruption` `.began` lúc TTS đang tạm dừng cũng hạ cờ phiên.
-- Log `🔊 [TTSResume]` (bật lại phiên OK / lỗi; play() trả true mà không tiến ⇒ đọc lại đoạn) để xác nhận trên máy.
-- **Nghe nhạc**: nút phát của trình nghe (`AudioPlaybackSession.play` → `prepareAudioForPlayback`) luôn `setActive(true)` trước khi phát ⇒ không dính lỗi này, không sửa.
-- `tts.md`: thêm gạch "Phát tiếp sau tạm dừng".
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: tạm dừng TTS, mở app khác phát video / nhạc (hoặc nghe thử giọng ở Cài đặt TTS), quay lại bấm ⏯ ở sheet mini — phải đọc tiếp (VieNeu / NghiTTS có thể đọc lại từ đầu đoạn đang dừng); bật Ghi log để xem dòng `🔊 [TTSResume]`.
 

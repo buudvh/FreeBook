@@ -9,6 +9,7 @@ paths:
 > Tách từ `AGENTS.md` (1.3.959). Claude Code tự nạp file này khi đọc / sửa file khớp `paths`; agent khác phải tự đọc trước khi sửa phân hệ này.
 
 - **Không hiển thị chương kiểu "Ch. stt"** (anh Bửu, 1.3.1055): chỗ nào hiện chương đang đọc / đang nghe thì ghi **tên chương**, không thêm tiền tố "Ch. N" (hay "Ch. N/tổng"); tên rỗng mới lùi về "Chương N" (tiền lệ widget TTS 1.3.804, dải "Đọc tiếp" 1.3.1055). Áp cho mọi UI mới. Chỗ cũ còn "Ch. N" (thẻ Kệ — `BookListRowSize.progressLabel`, sheet "+" của Chi tiết — "Ch. N/tổng") chưa đổi, chờ anh quyết.
+- **Video / audio không gọi là "truyện"** (anh Bửu, 1.3.1056): chữ hiển thị về một mục trên kệ lấy danh từ theo loại — `ExtensionContentKind.shelfItemNoun` ("truyện" / "video" / "audio", suy loại bằng `BookContentKindResolver.kind`); đã áp cho sheet tuỳ chọn (`BookActionSheet`) + toast bỏ khỏi bộ sưu tập. Chỗ khác còn "truyện" chung (thanh chọn nhiều, Kệ, Lịch sử) chưa rà.
 
 - **Chuẩn Header & Toolbar UI (Bắt buộc cho mọi màn hình)**:
   - Mọi icon trên Header, NavigationBar, Toolbar bắt buộc dùng font `.system(size: 17, weight: .semibold)` (Apple SF Pro Header Action). Tuyệt đối không dùng kích cỡ tuỳ tiện (`.title3`, 13pt, 14pt hay regular).

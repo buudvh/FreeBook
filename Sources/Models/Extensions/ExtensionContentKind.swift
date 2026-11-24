@@ -88,6 +88,16 @@ public enum ExtensionContentKind: String, Sendable {
         }
     }
 
+    /// Danh từ chỉ một mục trên kệ trong chữ hiển thị (anh Bửu, 1.3.1056: sheet tuỳ chọn của video / audio ghi "video" /
+    /// "audio", đừng ghi "truyện"). Chữ thường; đầu câu thì viết hoa ở chỗ gọi (`.capitalized`).
+    public var shelfItemNoun: String {
+        switch self {
+        case .video: return "video"
+        case .audio: return "audio"
+        case .text, .comic, .unsupported: return "truyện"
+        }
+    }
+
     public var symbolName: String {
         switch self {
         case .text: return "book"

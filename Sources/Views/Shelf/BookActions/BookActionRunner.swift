@@ -64,7 +64,8 @@ struct BookActionRunner {
         let res = BookCollectionCoordinator.shared.removeBook(bookId: book.bookId, fromCollection: collectionId, in: context)
         switch res {
         case .success:
-            ToastManager.shared.show(message: "Đã bỏ khỏi bộ sưu tập (truyện vẫn ở trên kệ)", type: .success)
+            let noun = BookContentKindResolver.kind(bookId: book.bookId, packageId: book.extensionPackageId).shelfItemNoun
+            ToastManager.shared.show(message: "Đã bỏ khỏi bộ sưu tập (\(noun) vẫn ở trên kệ)", type: .success)
         case .failure(let err):
             AppLogger.shared.log("❌ [BookActionRunner] Lỗi bỏ khỏi bộ sưu tập: \(err.localizedDescription)")
             ToastManager.shared.show(message: "Không thể bỏ khỏi bộ sưu tập: \(err.localizedDescription)", type: .error)

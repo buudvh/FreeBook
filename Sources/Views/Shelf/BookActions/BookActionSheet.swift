@@ -34,6 +34,8 @@ struct BookActionSheet: View {
     @State private var newCollectionName = ""
 
     private var book: Book { target.book }
+    /// "truyện" / "video" / "audio" (1.3.1056) — chữ của sheet theo loại, suy như lối mở nội dung.
+    private var itemNoun: String { BookContentKindResolver.kind(bookId: book.bookId, packageId: book.extensionPackageId).shelfItemNoun }
 
     /// `nil` khi sheet không mở từ trong một bộ sưu tập. Bóc ra thành computed property để phần thân
     /// `@ViewBuilder` chỉ dùng `if let` — khớp đúng lối viết của các view khác trong repo.
@@ -58,7 +60,7 @@ struct BookActionSheet: View {
             Section {
                 header
             } header: {
-                SectionHelpHeader("Truyện", texts: [Text(headerHint)])
+                SectionHelpHeader(itemNoun.capitalized, texts: [Text(headerHint)])
             }
 
             Section {
@@ -70,7 +72,7 @@ struct BookActionSheet: View {
             Section {
                 collectionRows
             } header: {
-                SectionHelpHeader("Bộ sưu tập", paragraphs: ["Bỏ khỏi bộ sưu tập không xoá truyện khỏi kệ sách."])
+                SectionHelpHeader("Bộ sưu tập", paragraphs: ["Bỏ khỏi bộ sưu tập không xoá \(itemNoun) khỏi kệ sách."])
             }
 
             Section {
@@ -97,7 +99,7 @@ struct BookActionSheet: View {
             Button("Tạo") { createCollectionAndAdd() }
             Button("Hủy", role: .cancel) { newCollectionName = "" }
         } message: {
-            Text("Truyện sẽ được thêm vào bộ sưu tập vừa tạo.")
+            Text("\(itemNoun.capitalized) sẽ được thêm vào bộ sưu tập vừa tạo.")
         }
     }
 
@@ -350,7 +352,7 @@ struct BookActionSheet: View {
                 }
                 if currentCollectionId != nil {
                     tile(.removeFromCurrentCollection, "Bỏ khỏi bộ sưu tập này", "folder.badge.minus")
-                        .accessibilityHint("Truyện vẫn ở trên kệ sách")
+                        .accessibilityHint("\(itemNoun.capitalized) vẫn ở trên kệ sách")
                 }
                 // Nguồn NSFW đã ẩn theo nguồn ⇒ không cần dấu riêng. Đọc dấu trong `body` ⇒ nhãn đổi ngay khi dấu đổi.
                 if !RepositoryFilterPolicy.isNsfwSource(packageId: book.extensionPackageId) {
