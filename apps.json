@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1056",
+          "buildVersion": "1338",
+          "date": "2026-11-24T07:27:59Z",
+          "localizedDescription": "- fix: dải \"Đọc tiếp\" bỏ tiền tố \"Ch. N\", chỉ ghi tên chương\n- fix: sheet tuỳ chọn của video / audio ghi \"video\" / \"audio\" thay cho \"truyện\"",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1338/TangCongCac-1.3.1056-1338.ipa",
+          "size": 52586710,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1055",
           "buildVersion": "1337",
           "date": "2026-11-24T07:23:43Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1334/TangCongCac-1.3.1052-1334.ipa",
           "size": 52573032,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1050",
-          "buildVersion": "1332",
-          "date": "2026-11-23T08:56:26Z",
-          "localizedDescription": "- revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1332/TangCongCac-1.3.1050-1332.ipa",
-          "size": 52574658,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1055",
-      "versionDate": "2026-11-24T07:23:43Z",
-      "versionDescription": "- fix: dải \"Đọc tiếp\" bỏ tiền tố \"Ch. N\", chỉ ghi tên chương",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1337/TangCongCac-1.3.1055-1337.ipa",
-      "size": 52585301,
+      "version": "1.3.1056",
+      "versionDate": "2026-11-24T07:27:59Z",
+      "versionDescription": "- fix: dải \"Đọc tiếp\" bỏ tiền tố \"Ch. N\", chỉ ghi tên chương\n- fix: sheet tuỳ chọn của video / audio ghi \"video\" / \"audio\" thay cho \"truyện\"",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1338/TangCongCac-1.3.1056-1338.ipa",
+      "size": 52586710,
       "appPermissions": {}
     }
   ],
