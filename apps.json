@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1059",
+          "buildVersion": "1341",
+          "date": "2026-11-24T13:59:13Z",
+          "localizedDescription": "- feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1341/TangCongCac-1.3.1059-1341.ipa",
+          "size": 52604359,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1058",
           "buildVersion": "1340",
           "date": "2026-11-24T08:00:51Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1337/TangCongCac-1.3.1055-1337.ipa",
           "size": 52585301,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1054",
-          "buildVersion": "1336",
-          "date": "2026-11-24T07:00:30Z",
-          "localizedDescription": "- feat: Kệ Sách — nút \"Đọc tiếp\" ở đầu sheet tuỳ chọn truyện (nhãn theo loại, dòng phụ chương đang đọc)",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1336/TangCongCac-1.3.1054-1336.ipa",
-          "size": 52586131,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1058",
-      "versionDate": "2026-11-24T08:00:51Z",
-      "versionDescription": "- fix: Kệ Sách và sheet \"+\" Chi tiết bỏ \"Ch. N\", thẻ ghi tên chương đang đọc",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1340/TangCongCac-1.3.1058-1340.ipa",
-      "size": 52586443,
+      "version": "1.3.1059",
+      "versionDate": "2026-11-24T13:59:13Z",
+      "versionDescription": "- feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1341/TangCongCac-1.3.1059-1341.ipa",
+      "size": 52604359,
       "appPermissions": {}
     }
   ],
