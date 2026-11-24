@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1059] - 2026-11-24
+
+### feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub
+
+Anh Bửu: "Thêm nút mở vpn 1.1.1.1 được không, có thể sử dụng shortcut" → duyệt mockup https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k, chỗ đặt A (dòng ở sheet hub); phần thêm (trạng thái VPN, toast sau khi về) anh không chọn.
+
+- App chạy trong LiveContainer, không có Network Extension ⇒ không tự bật VPN được. Nút chạy **phím tắt người dùng tạo sẵn** (tác vụ "Đặt VPN" › Bật/tắt › cấu hình 1.1.1.1) qua `shortcuts://x-callback-url/run-shortcut?name=…`; app Phím tắt hiện lên giây lát.
+- `VPNShortcutLauncher` (`Services/Network/VPNShortcut/`, chỉ Foundation): dựng link, tên phím tắt từ `@AppStorage` `vpnShortcutName` (mặc định "VPN 1.1.1.1", không dấu). **Link quay về** chỉ gắn khi có `LC_HOME_PATH`: `livecontainer://livecontainer-launch?bundle-name=<Bundle.main.bundlePath cuối>&container-folder-name=<HOME cuối>` — đúng hai giá trị LiveContainer so trong `LCHandleControlAppURL` (`UIKit+GuestHooks.m`), trùng app đang chạy ⇒ LiveContainer không làm gì, app chỉ lên trước, không mở lại (TTS / phim không ngắt). Giá trị lồng mã hoá chặt `-._~`. Log `🛡️ [VPNShortcut]` ghi link + link quay về để tra trên máy.
+- `VPNShortcutRunner` (View): `UIApplication.open` không qua `canOpenURL` (trong LiveContainer `LSApplicationQueriesSchemes` là của LiveContainer); iOS không nhận ⇒ toast "Không mở được app Phím tắt".
+- Mạng & DNS (`NetworkSettingsView`): section "VPN 1.1.1.1" giữa DNS mã hoá và Trình duyệt & phim — nút "Bật / tắt VPN 1.1.1.1", ô "Tên phím tắt", trang "Cách tạo phím tắt" (`VPNShortcutGuideView`, khuôn bước của `SystemDNSGuideView`, nút "Mở app Phím tắt").
+- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) ngay dưới bốn dòng cố định, cùng dáng `FloatingHubMenuRow`; là lối tắt hành động nên **không** thuộc `FloatingHubItem.Kind` (không tính đang chạy / nháy nút hub); chạm ⇒ `sheetState.dismiss` xong mới chạy (`runVPNShortcut`).
+- `network-dns.md`, `floating-pills.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy** — điểm cần thử: phím tắt có bật / tắt được 1.1.1.1 không, và quay về app có giữ nguyên (không mở lại) không.
+
 ## [1.3.1058] - 2026-11-24
 
 ### fix: Kệ Sách và sheet "+" Chi tiết bỏ "Ch. N", thẻ ghi tên chương đang đọc
@@ -366,15 +380,4 @@ Anh Bửu chọn mốc B ("đáy thanh +16": nội dung đầu tiên cách đáy
 - **Mũi back tự dựng trùng chỗ mũi back hệ thống**: `HeaderBackButton` lùi `HeaderMetrics.backChevronOutdent` (8pt) ra ngoài lề (bề ngang bố cục 30pt, vùng chạm vẫn 38pt) ⇒ mũi ở `lề − 8` như nút back hệ thống (đo: x=12 khi lề 20). Áp cho trang con trong sheet, sheet hub, Reader, truyện tranh, trang xem phim mở bằng UIKit. Khoảng mũi → chữ tiêu đề giữ ~8pt.
 - `ui-conventions.md`: luật nút back tự dựng thêm phần lùi 8pt.
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần: mở Cài đặt › Ghi log hệ thống › Thử nhịp dọc header, bấm Chạy, để yên ~50 s, bấm chia sẻ gửi báo cáo; nhìn mũi back ở trang con sheet hub / Reader có thẳng với mũi back của trang Cài đặt không.
-
-## [1.3.1029] - 2026-11-20
-
-### chore: vtts — CI giữ cache từ điển khi build đỏ, kiểm thử shim nhanh hơn
-
-Tiếp 1.3.1028 (rà lại trước khi đẩy; chưa lượt CI nào chạy bản vtts).
-
-- **Cache tài sản vtts tách `actions/cache/restore` + `save`**: `actions/cache` gộp chỉ lưu khi cả job xanh ⇒ lượt đầu mà shim C / code Swift còn lỗi biên dịch sẽ dựng lại VLEX ~8 phút mỗi lần đẩy sửa. Nay `fetch_vtts_assets.sh` có hai bước — `assets` (tải model, dựng VLEX, `vtts_say` đọc thử) rồi lưu cache ngay, sau đó `smoke` (kiểm thử shim) — không tham số vẫn chạy cả hai (build local). Bước `smoke` từ chối chạy khi chưa có tài sản khớp stamp.
-- **Kiểm thử shim nhẹ hơn**: bản dựng thử đặt `-DVTTS_BRIDGE_SEGMENT_CP=150` ⇒ đường chia đoạn dài chạy với 8 bản câu thử (~550 code point, 4 phần) thay vì ~60 bản (~4 phút tiếng dưới ASan, mỗi giọng); chỉ giọng đầu chạy đoạn dài (`--long`), vẫn đòi đúng 8 lần tiếng câu thử + khoảng 150 ms. `vtts_bridge.c` thêm `#error` khi `VTTS_BRIDGE_SEGMENT_CP` ra ngoài `[1, VTTS_TEXT_MAX_CP)` ⇒ không phần nào chạm mức 4096 code point mà front-end cắt im lặng. Thêm `-fno-sanitize=function` (Apple clang mới bật nó cho C; tránh báo động nhầm ở callback nội bộ của upstream).
-- `ci-release.md`: mục vtts ghi hai bước + cách lưu cache.
-- Kiểm: `bash -n`, thử lại các hàm kiểm stamp / WAV của script trên Windows, YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch được C / Swift tại chỗ (Windows).**
 

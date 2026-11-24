@@ -4,19 +4,23 @@ import SwiftUI
 /// 1. DNS mã hoá — công tắc **"Bật cho cả app"** (`EncryptedDNSPolicy`, mặc định tắt), máy chủ dùng chung cho cả bật
 ///    chung lẫn bật riêng, dòng **"Bật riêng: N tiện ích / nguồn"** (cờ `Extension.encryptedDNSEnabled` đặt ở Cấu hình
 ///    tiện ích / Chi tiết nguồn Legado), trạng thái + "Kiểm tra lại" khi có ai cần (`EncryptedDNSRepository`).
-/// 2. Trình duyệt & phim — dẫn sang `SystemDNSGuideView` (đổi DNS / IP cho cả máy), vì WebView và AVPlayer nằm ngoài
+/// 2. VPN 1.1.1.1 (1.3.1059) — nút chạy phím tắt bật / tắt VPN (`VPNShortcutRunner`), ô tên phím tắt, trang
+///    `VPNShortcutGuideView`. Cùng nút có ở sheet hub (dòng "VPN 1.1.1.1").
+/// 3. Trình duyệt & phim — dẫn sang `SystemDNSGuideView` (đổi DNS / IP cho cả máy), vì WebView và AVPlayer nằm ngoài
 ///    tầm của DNS trong app.
 ///
 /// Không tự bọc `NavigationStack`: Cài đặt đẩy màn này vào stack của nó.
 struct NetworkSettingsView: View {
     @AppStorage(EncryptedDNSPolicy.enabledKey) private var dnsEnabled = EncryptedDNSPolicy.defaultEnabled
     @AppStorage(EncryptedDNSPolicy.resolverKey) private var resolver = EncryptedDNSPolicy.defaultResolver
+    @AppStorage(VPNShortcutLauncher.shortcutNameKey) private var vpnShortcutName = VPNShortcutLauncher.defaultShortcutName
 
     private var repository: EncryptedDNSRepository { EncryptedDNSRepository.shared }
 
     var body: some View {
         Form { Group {
             dnsSection
+            vpnSection
             systemSection
         }.glassSheetRows() }
         .backPageTitle("Mạng & DNS")
@@ -99,6 +103,37 @@ struct NetworkSettingsView: View {
         case .waitingForNetwork:
             Image(systemName: "wifi.slash")
                 .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - VPN 1.1.1.1
+
+    private var vpnSection: some View {
+        Section {
+            Button {
+                VPNShortcutRunner.run()
+            } label: {
+                Label("Bật / tắt VPN 1.1.1.1", systemImage: "network.badge.shield.half.filled")
+            }
+            HStack {
+                Text("Tên phím tắt")
+                Spacer(minLength: 8)
+                TextField(VPNShortcutLauncher.defaultShortcutName, text: $vpnShortcutName)
+                    .multilineTextAlignment(.trailing)
+                    .foregroundColor(.secondary)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.done)
+            }
+            NavigationLink(destination: VPNShortcutGuideView()) {
+                Text("Cách tạo phím tắt")
+            }
+        } header: {
+            SectionHelpHeader("VPN 1.1.1.1", paragraphs: [
+                "App không tự bật VPN được. Nút này chạy một phím tắt tạo sẵn trong app Phím tắt (tác vụ \"Đặt VPN\" › Bật/tắt › cấu hình 1.1.1.1) — xem \"Cách tạo phím tắt\".",
+                "Mỗi lần bấm, app Phím tắt hiện lên giây lát rồi tự quay về đây; đang nghe / xem thì không bị ngắt.",
+                "Tên phím tắt phải trùng tên trong app Phím tắt. Nên đặt không dấu. Cũng bấm được từ dòng \"VPN 1.1.1.1\" của nút hub nổi."
+            ])
         }
     }
 

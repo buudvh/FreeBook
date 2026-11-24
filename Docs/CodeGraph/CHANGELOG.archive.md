@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1029] - 2026-11-20
+
+### chore: vtts — CI giữ cache từ điển khi build đỏ, kiểm thử shim nhanh hơn
+
+Tiếp 1.3.1028 (rà lại trước khi đẩy; chưa lượt CI nào chạy bản vtts).
+
+- **Cache tài sản vtts tách `actions/cache/restore` + `save`**: `actions/cache` gộp chỉ lưu khi cả job xanh ⇒ lượt đầu mà shim C / code Swift còn lỗi biên dịch sẽ dựng lại VLEX ~8 phút mỗi lần đẩy sửa. Nay `fetch_vtts_assets.sh` có hai bước — `assets` (tải model, dựng VLEX, `vtts_say` đọc thử) rồi lưu cache ngay, sau đó `smoke` (kiểm thử shim) — không tham số vẫn chạy cả hai (build local). Bước `smoke` từ chối chạy khi chưa có tài sản khớp stamp.
+- **Kiểm thử shim nhẹ hơn**: bản dựng thử đặt `-DVTTS_BRIDGE_SEGMENT_CP=150` ⇒ đường chia đoạn dài chạy với 8 bản câu thử (~550 code point, 4 phần) thay vì ~60 bản (~4 phút tiếng dưới ASan, mỗi giọng); chỉ giọng đầu chạy đoạn dài (`--long`), vẫn đòi đúng 8 lần tiếng câu thử + khoảng 150 ms. `vtts_bridge.c` thêm `#error` khi `VTTS_BRIDGE_SEGMENT_CP` ra ngoài `[1, VTTS_TEXT_MAX_CP)` ⇒ không phần nào chạm mức 4096 code point mà front-end cắt im lặng. Thêm `-fno-sanitize=function` (Apple clang mới bật nó cho C; tránh báo động nhầm ở callback nội bộ của upstream).
+- `ci-release.md`: mục vtts ghi hai bước + cách lưu cache.
+- Kiểm: `bash -n`, thử lại các hàm kiểm stamp / WAV của script trên Windows, YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch được C / Swift tại chỗ (Windows).**
+
 ## [1.3.1028] - 2026-11-20
 
 ### feat: vtts Việt–Anh — runtime C, tài sản đóng trong IPA, service tổng hợp

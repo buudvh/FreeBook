@@ -83,6 +83,14 @@ extension FloatingHubContainerViewController {
         }
     }
 
+    /// Dòng "VPN 1.1.1.1" (1.3.1059): đóng sheet **xong** mới mở app Phím tắt — mở link lúc sheet đang đóng dở thì app rời
+    /// màn hình giữa chừng hoạt cảnh.
+    func runVPNShortcut() {
+        sheetState.dismiss {
+            VPNShortcutRunner.run()
+        }
+    }
+
     /// Sheet đang mở ⇒ chuyển trang; chưa mở ⇒ mở thẳng ở trang đó.
     private func showSheetPage(_ page: FloatingHubSheet.Page) {
         if sheetState.isPresented {
