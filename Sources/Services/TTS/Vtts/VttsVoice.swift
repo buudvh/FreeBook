@@ -32,13 +32,16 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
     /// giọng của release vtts (Apache-2.0, ghi ở `Vendor/vtts/THIRD_PARTY_NOTICES.md`) và giọng tự nhập.
     let credit: String?
 
+    /// File của release vtts `v0.11.0` (1.3.1052). `nu-10` M là model v0.9.1: giai đoạn joint 80k bước thay 20k — upstream
+    /// đo UTMOS vi 2,73 → 3,11, bớt lớp ồn "buzzy" của bản 20k; cùng kiến trúc / bộ token. Mức tăng 10,5 đo trên bản
+    /// v0.4, chưa đo lại. `nam-1` v0.11 trùng byte v0.4.0 (upstream chưa train lại).
     static let nu10 = VttsVoice(
         id: "nu-10", displayName: "Nữ · nu-10",
-        source: .bundled(fileName: "vtts-vien-nu10-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 10.5, credit: nil
+        source: .bundled(fileName: "vtts-vien-nu10-m-v0.11.q8.vtts"), defaultLoudnessGainDb: 10.5, credit: nil
     )
     static let nam1 = VttsVoice(
         id: "nam-1", displayName: "Nam · nam-1",
-        source: .bundled(fileName: "vtts-vien-nam1-m-v0.4.q8.vtts"), defaultLoudnessGainDb: 7, credit: nil
+        source: .bundled(fileName: "vtts-vien-nam1-m-v0.11.q8.vtts"), defaultLoudnessGainDb: 7, credit: nil
     )
     /// Giọng FreeBook tự train (1.3.1044, anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà"): bản M chưng cất
     /// từ thầy VITS train trên dataset `pnnbao-ump/ngochuyen_voice` (**CC BY-NC 4.0** ⇒ ghi nguồn ở dòng phụ, app không thu

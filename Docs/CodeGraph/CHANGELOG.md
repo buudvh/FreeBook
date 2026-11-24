@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1052] - 2026-11-24
+
+### feat: vtts — giọng nu-10 dùng model mới của tác giả (train giai đoạn cuối 80.000 bước), tài sản theo release v0.11.0
+
+Anh Bửu: "tìm cách khác fix lỗi rè đi" → duyệt phương án: (1) thay nu-10 bằng bản mới của upstream ngay, (2) chạy tiếp Ngọc Huyền + Google Dịch tới 80.000 bước khi GPU Kaggle mở lại 28/11.
+
+- **Phát hiện**: sau commit runtime app đang ghim (`c5c8c00`), upstream `tuanpmt/vtts` đổi công thức chưng cất "trò": giai đoạn joint **80k bước thay 20k** (v0.9.1, 2026-11-20) vì bản 20k kém thầy ~1 điểm UTMOS và có lớp ồn "buzzy"; `nu-10` M đo UTMOS vi / en / trộn 2,73 / 3,44 / 2,70 → **3,11 / 3,87 / 3,12**, CER không đổi. Hai giọng tự train (Ngọc Huyền, Google Dịch) dùng đúng công thức 20k (đo 23/11 trên 2 câu: trò 2,57 / 2,79, thầy Google 3,70).
+- **Bản này**: `assets/vtts/vtts-vien-nu10-m-v0.11.q8.vtts` (= model v0.9.1, release `v0.11.0`, SHA256 `89ce7264…`) thay bản v0.4; bản S dự trữ `extra/…nu10-s-v0.11` (= v0.10.2). `nam-1` chưa có model mới — file v0.11 **trùng byte** v0.4.0, chỉ đổi tên để cả 4 file cùng một release. `assets/SHA256SUMS` = 4 dòng vi-en nguyên văn của `SHA256SUMS` release v0.11.0. Id giọng `nu-10` / `nam-1` giữ nguyên ⇒ lựa chọn đã lưu không đổi.
+- **Kiểm tại chỗ**: SHA256 khớp release; header file mới trùng bản cũ từng mục (33 dims, 122 tensor: tên / kiểu / shape, 2.580.320 byte, bộ token vi-en) ⇒ runtime ghim đọc cùng đường. Tiếng thật do bước đọc thử của CI kiểm (`check_vtts_assets.sh`).
+- Sửa tên file ở `VttsVoice`, `VOICES` của script, bước Package IPA của workflow, `THIRD_PARTY_NOTICES.md`, `Vendor/vtts/README.md` (release gộp nhiều giọng ⇒ chỉ lấy các dòng SHA256 của file mình dùng), `ci-release.md`, `tts.md`.
+- Chưa làm: `VttsVoice.nu10.defaultLoudnessGainDb` (10,5, chỉ dùng cho đoạn có tiếng < 0,4 s) đo trên bản v0.4, chưa đo lại. Chưa build được tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.1051] - 2026-11-24
 
 ### fix: header trình duyệt và màn Trợ lý AI không còn bị trong suốt
@@ -370,22 +382,3 @@ Gom ba bản header (1.3.1020, 1.3.1022, 1.3.1023) từ session con; dọn hai c
 - Màn đã đổi: Kệ (🔍 | … — "…" ngoài cùng, chấm đỏ thông báo vẫn nằm đúng góc trên phải icon), Hộp thông báo, Chi tiết bộ sưu tập, Chi tiết truyện (nút dịch | …), Danh sách thể loại / Xem thêm (Lọc | Kiểu hiển thị), Tìm kiếm (Kiểu hiển thị), từ điển (VP / Name riêng, VP / Name chung, Phiên âm / Pronouns, sheet sửa từ có bút chì), Báo cáo kiểm tra (danh sách + chi tiết: Chia sẻ | Xoá), Gỡ lỗi từng bước (Legado), Danh sách kho (↻ | +), tab Legado + tab Tất cả tiện ích của Kho tiện ích, Bộ lọc tiện ích (Đặt lại), Playlist chi tiết, Cấu hình AI (+), Lịch sử phiên chat AI (thùng rác), Theo dõi nhiệt, Log phiên, Công cụ tra cứu nhanh, Dung lượng (↻ / vòng xoay đo), từ điển phiên âm NghiTTS / VieNeu, Thay thế TTS, Quản lý lọc rác, Bộ ngoặc, rule dịch nhanh (`QuickTranslationRuleIOMenu`), Quy tắc TOC.
 - Không đụng (session khác làm hoặc đang làm): `PageHeader`, `HubStyleSheet`, `FloatingHub`, `TTSWidget`, `AudioPlayer`, `Reader`, `ComicReader`, `VideoPlayer`, `Discovery`, `SleepTimer`, `AppUpdate`, `ChapterTOCPanel`, `SideDrawerMenuPanel`, `SourceCheck`, `ExtensionCheckView`, `LegadoSourceCheckView`. `SideDrawerMenuModifier` chỉ có ví dụ trong comment, không có frame ⇒ không sửa.
 - Kiểm: chỉ đọc code + check_architecture.py (chỉ còn violation cũ `JSDom.swift`); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: icon ngoài cùng ở các màn trên chạm đúng lề 16pt (so với tiêu đề / ô tìm / thẻ), chấm đỏ của "…" ở Kệ vẫn đúng góc, nút dịch ở Chi tiết truyện và sao chép ở Gỡ lỗi từng bước (20pt) không lệch hàng với nút bên cạnh.
-
-## [1.3.1022] - 2026-11-20
-
-### feat: Header sheet tự dựng — sheet hub, điều khiển nhanh TTS / nhạc, hẹn giờ, mục lục, cập nhật app về lề 16pt chung, nút back chung, tiêu đề 22pt
-
-- Anh Bửu: "các header custom cho cảm giác logic thiết kế không giống", "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau" — áp tiếp lưới header chung (1.3.1017–1021) cho các sheet / panel tự dựng, giữ nguyên bố cục.
-- Sheet hub (`FloatingHubSheet`): lề ngang trang chính / trang con nhỏ 20 → `HeaderMetrics.horizontalMargin` (16, máy ≥ 414pt 20). Tiêu đề "Lối tắt nổi" giữ `.headline` (cùng khuôn sheet kiểu hub).
-- Trang con Tác vụ AI / Kiểm tra nguồn của hub (`FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`): bỏ nút `chevron.left` tự vẽ + `.padding(.leading, -10)` ⇒ `HeaderBackButton` (mũi chạm lề, giữ màu chữ `Color.primary`); tiêu đề `.headline` → 22pt đậm (`rowTitleFontSize`) ngay cạnh nút, lùi 17pt như trang con có nút ‹ của `PageTitleModifier`, một dòng, dài thì cắt đuôi.
-- Sheet hành động kiểu hub (`HubStyleActionSheet`): lề 20 → `horizontalMargin`; tiêu đề giữ `.headline`.
-- Sheet điều khiển nhanh TTS / nhạc (`TTSQuickControlSheet`, `AudioQuickControlSheet`) và sheet "đang đọc chương này" (`ReaderTTSSameChapterSheet`): lề 20 → `horizontalMargin`; nút ⏱ khung tối thiểu 44×44 canh giữa → 36×38 (`iconFrameWidth` / `iconFrameHeight`) canh phải ⇒ chưa hẹn giờ thì icon chạm lề (đang hẹn: viên "Hủy" ngoài cùng, giữ nguyên). Bìa 52 + tên giữ.
-- Sheet Hẹn giờ TTS (`TTSQuickTimerSheet` + `TTSQuickTimerHeader`): lề header 12, hàng tên chương đang phát + tab con 16 → `horizontalMargin`; nút ⚙ `gearshape.fill` trong vòng 28 nền `tertiarySystemFill` → icon trơn `gearshape` 17pt nửa đậm khung 36×38 canh phải, lề phải 10 → `horizontalMargin` (vòng nền chỉ cho header nổi trên ảnh / phim).
-- Header mục lục Reader / truyện tranh (`ReaderChapterListView`, `ComicChapterListSheet+Header`): lề 12 → `horizontalMargin`; cụm nút phụ 14pt khung 32 cách 4 giữ, chỉ nút đứng cuối canh icon phải (Reader: cập nhật / vòng xoay, truyện TXT trên máy thì nút dịch lại; truyện tranh: dịch lại, chưa có mục lục thì nút kệ).
-- Đầu panel Mục lục (`ChapterTOCPanelHeader`, dùng chung Chi tiết / Reader / truyện tranh / danh sách tập): lề trái 16 / phải 10 → `horizontalMargin` hai bên; nút ↓↑ khung 36 canh phải; "Mục lục" 22 → `rowTitleFontSize`, bỏ `minimumScaleFactor(0.8)` (không co chữ, dài thì cắt đuôi); ô tìm kéo ra 6pt bù khoản đệm phải sẵn có của `ChapterTOCSearchField` để hai mép ô tìm vẫn bằng lề.
-- Ngăn kéo menu (`SideDrawerMenuPanel`): tiêu đề 22 → `rowTitleFontSize`, bỏ co chữ; lề phải khi có phụ kiện 10 → 16 như lề hàng ngăn kéo ⇒ viên NSFW của bảng chọn nguồn Khám phá chạm lề 16.
-- Sheet "Tất cả tập" (`VideoWatchEpisodeSheet`): hàng tiêu đề lề 16 / 10 → `horizontalMargin`, "Danh sách tập (N)" 22 → token, bỏ co chữ; nút đổi kiểu Lưới / Danh sách canh icon phải khi là nút ngoài cùng (kiểu Lưới), giữa khi đứng trước ↓↑ (kiểu Danh sách).
-- Sheet Hẹn giờ tắt phim / nhạc (`MediaSleepTimerSheet`), "Bản cập nhật mới" (`AppUpdateSheet`), "Có gì mới ở bản này" (`AppReleaseNotesSheet`): lề ngang 20 → `horizontalMargin` (lề dọc 20 giữ), tiêu đề 22 → `rowTitleFontSize`; hai sheet cập nhật bỏ co chữ tiêu đề, icon cạnh tiêu đề cùng token cỡ.
-- Chưa sửa (ngoài phạm vi): nội dung dưới vài header vẫn lề cứng 16 — `SleepTimerOptionsView`, `TTSQuickTimerChapterList`, `VideoEpisodeGridView`, `.padding(.horizontal)` của `ChapterTOCPanelBackground` ⇒ máy ≥ 414pt lệch 4pt so với tiêu đề.
-- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn vi phạm cũ JSDom.swift); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: sheet hub (trang chính, Tác vụ AI, Kiểm tra nguồn hai lượt — mũi ‹ chạm lề, chữ 22pt), sheet nghe TTS / nhạc (⏱ chưa hẹn và đang hẹn + "Hủy"), sheet Hẹn giờ TTS (⚙ trơn góc phải), mục lục Reader / truyện tranh / tab Mục lục Chi tiết (nút ↓↑ và hai mép ô tìm thẳng lề), ngăn kéo chọn nguồn Khám phá (viên NSFW), "Tất cả tập" hai kiểu, hai sheet cập nhật app.
-

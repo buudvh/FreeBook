@@ -14,8 +14,8 @@ Ghi chú của FreeBook, đặt cạnh `LICENSE` / `NOTICE` nguyên văn của v
 
 | File | Nguồn | Giấy phép | Vào IPA? |
 |---|---|---|---|
-| `vtts/vtts-vien-nu10-m-v0.4.q8.vtts`, `vtts/vtts-vien-nam1-m-v0.4.q8.vtts` | GitHub release `v0.4.0` của `tuanpmt/vtts`, khớp `SHA256SUMS` (nguyên văn file của release) | Apache-2.0, như repo vtts | Có (`FreeBook.app/vtts/`) |
-| `extra/vtts-vien-nu10-s-v0.4.q8.vtts`, `extra/vtts-vien-nam1-s-v0.4.q8.vtts` | Như trên (bản S, dự trữ) | Apache-2.0 | Không |
+| `vtts/vtts-vien-nu10-m-v0.11.q8.vtts`, `vtts/vtts-vien-nam1-m-v0.11.q8.vtts` | GitHub release `v0.11.0` của `tuanpmt/vtts` (từ 1.3.1052; `nu-10` = model v0.9.1 train joint 80k bước, `nam-1` trùng byte v0.4.0), khớp các dòng tương ứng của `SHA256SUMS` release | Apache-2.0, như repo vtts | Có (`FreeBook.app/vtts/`) |
+| `extra/vtts-vien-nu10-s-v0.11.q8.vtts`, `extra/vtts-vien-nam1-s-v0.11.q8.vtts` | Như trên (bản S, dự trữ) | Apache-2.0 | Không |
 | `vtts/vtts-ngochuyen-m-k4.q8.vtts` (giọng "Nữ · Ngọc Huyền", 1.3.1044) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (theo dữ liệu train) | Có |
 | `vtts/vtts-googledich-m-k4.q8.vtts` (giọng "Nữ · Google Dịch", 1.3.1046) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (thầy warm-start từ thầy Ngọc Huyền) | Có |
 | `vtts/lex_en.bin` (VLEX: từ điển tiếng Anh + bảng letter-to-sound) | Dựng bằng `tools/scripts/frontend/build_lexicon.py` từ `cmudict/cmudict.dict` (SHA256 ở `LOCAL_SHA256SUMS`) | Phần dẫn xuất từ CMUdict theo **BSD 2-clause** — `LICENSE-cmudict.txt` | Có |

@@ -14,7 +14,7 @@ Bửu, 2026-11-20: phòng repo upstream bị xoá).
 | `assets/vtts/` | Đóng vào app (`FreeBook.app/vtts/`): 2 giọng M của release + `vtts-ngochuyen-m-k4.q8.vtts` + `vtts-googledich-m-k4.q8.vtts` + `lex_en.bin` — **chỉ** 5 file này (CI kiểm) |
 | `assets/extra/` | Bản S của 2 giọng release (dự trữ, không vào app) |
 | `assets/cmudict/cmudict.dict` | CMUdict nguồn để dựng lại `lex_en.bin` |
-| `assets/SHA256SUMS` | Nguyên văn `SHA256SUMS` của release model; `LOCAL_SHA256SUMS`: `lex_en.bin` + `cmudict.dict` + 2 giọng tự train |
+| `assets/SHA256SUMS` | 4 dòng vi-en (nguyên văn) của `SHA256SUMS` release model `v0.11.0`; `LOCAL_SHA256SUMS`: `lex_en.bin` + `cmudict.dict` + 2 giọng tự train |
 | `tools/` | Công cụ upstream cùng commit: `build_lexicon.py` + module Python nó cần, `vtts_say.c`, `Makefile` |
 | `rebuild_lex_en.sh` | Dựng lại `lex_en.bin` từ `tools/` + `cmudict.dict`, không mạng (Python ≥ 3.11, ~8 phút) |
 
@@ -47,8 +47,12 @@ bằng `rebuild_lex_en.sh` trên máy đó **chưa chạy xong**: hết RAM ở 
 ## Nâng model (release mới)
 
 Tải file `.vtts` + `SHA256SUMS` của release, kiểm khớp, thay trong `assets/vtts/` (M) và `assets/extra/` (S), thay
-`assets/SHA256SUMS` nguyên văn; sửa tên file trong `VttsVoice` (`source: .bundled(fileName:)`, Swift) và `VOICES` trong
-`Scripts/ci/check_vtts_assets.sh`. `assets/vtts/` phải còn đúng 5 file.
+`assets/SHA256SUMS` bằng **đúng các dòng của file mình dùng**, giữ nguyên văn từng dòng (release từ `v0.11.0` gộp mọi
+giọng — 22 file — nên không chép cả file; script đòi đúng 4 dòng); sửa tên file trong `VttsVoice` (`source: .bundled(fileName:)`, Swift) và `VOICES` trong
+`Scripts/ci/check_vtts_assets.sh` + danh sách file của bước "Package IPA" (`build-ipa.yml`). `assets/vtts/` phải còn
+đúng 5 file. Model mới phải đọc được bằng runtime ghim ở `VTTS_COMMIT.txt`: so header (dims + bảng tensor) với file cũ,
+và bước đọc thử của CI là phép kiểm cuối. Lần gần nhất: 1.3.1052 — release `v0.11.0`, `nu-10` đổi sang model train
+giai đoạn joint 80k bước (v0.9.1 / v0.10.2), `nam-1` trùng byte v0.4.0.
 
 ## Giọng tự train (Ngọc Huyền, Google Dịch)
 

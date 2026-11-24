@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1022] - 2026-11-20
+
+### feat: Header sheet tự dựng — sheet hub, điều khiển nhanh TTS / nhạc, hẹn giờ, mục lục, cập nhật app về lề 16pt chung, nút back chung, tiêu đề 22pt
+
+- Anh Bửu: "các header custom cho cảm giác logic thiết kế không giống", "hàng 1 và hàng 2 header nhiều chỗ margin không giống nhau" — áp tiếp lưới header chung (1.3.1017–1021) cho các sheet / panel tự dựng, giữ nguyên bố cục.
+- Sheet hub (`FloatingHubSheet`): lề ngang trang chính / trang con nhỏ 20 → `HeaderMetrics.horizontalMargin` (16, máy ≥ 414pt 20). Tiêu đề "Lối tắt nổi" giữ `.headline` (cùng khuôn sheet kiểu hub).
+- Trang con Tác vụ AI / Kiểm tra nguồn của hub (`FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`): bỏ nút `chevron.left` tự vẽ + `.padding(.leading, -10)` ⇒ `HeaderBackButton` (mũi chạm lề, giữ màu chữ `Color.primary`); tiêu đề `.headline` → 22pt đậm (`rowTitleFontSize`) ngay cạnh nút, lùi 17pt như trang con có nút ‹ của `PageTitleModifier`, một dòng, dài thì cắt đuôi.
+- Sheet hành động kiểu hub (`HubStyleActionSheet`): lề 20 → `horizontalMargin`; tiêu đề giữ `.headline`.
+- Sheet điều khiển nhanh TTS / nhạc (`TTSQuickControlSheet`, `AudioQuickControlSheet`) và sheet "đang đọc chương này" (`ReaderTTSSameChapterSheet`): lề 20 → `horizontalMargin`; nút ⏱ khung tối thiểu 44×44 canh giữa → 36×38 (`iconFrameWidth` / `iconFrameHeight`) canh phải ⇒ chưa hẹn giờ thì icon chạm lề (đang hẹn: viên "Hủy" ngoài cùng, giữ nguyên). Bìa 52 + tên giữ.
+- Sheet Hẹn giờ TTS (`TTSQuickTimerSheet` + `TTSQuickTimerHeader`): lề header 12, hàng tên chương đang phát + tab con 16 → `horizontalMargin`; nút ⚙ `gearshape.fill` trong vòng 28 nền `tertiarySystemFill` → icon trơn `gearshape` 17pt nửa đậm khung 36×38 canh phải, lề phải 10 → `horizontalMargin` (vòng nền chỉ cho header nổi trên ảnh / phim).
+- Header mục lục Reader / truyện tranh (`ReaderChapterListView`, `ComicChapterListSheet+Header`): lề 12 → `horizontalMargin`; cụm nút phụ 14pt khung 32 cách 4 giữ, chỉ nút đứng cuối canh icon phải (Reader: cập nhật / vòng xoay, truyện TXT trên máy thì nút dịch lại; truyện tranh: dịch lại, chưa có mục lục thì nút kệ).
+- Đầu panel Mục lục (`ChapterTOCPanelHeader`, dùng chung Chi tiết / Reader / truyện tranh / danh sách tập): lề trái 16 / phải 10 → `horizontalMargin` hai bên; nút ↓↑ khung 36 canh phải; "Mục lục" 22 → `rowTitleFontSize`, bỏ `minimumScaleFactor(0.8)` (không co chữ, dài thì cắt đuôi); ô tìm kéo ra 6pt bù khoản đệm phải sẵn có của `ChapterTOCSearchField` để hai mép ô tìm vẫn bằng lề.
+- Ngăn kéo menu (`SideDrawerMenuPanel`): tiêu đề 22 → `rowTitleFontSize`, bỏ co chữ; lề phải khi có phụ kiện 10 → 16 như lề hàng ngăn kéo ⇒ viên NSFW của bảng chọn nguồn Khám phá chạm lề 16.
+- Sheet "Tất cả tập" (`VideoWatchEpisodeSheet`): hàng tiêu đề lề 16 / 10 → `horizontalMargin`, "Danh sách tập (N)" 22 → token, bỏ co chữ; nút đổi kiểu Lưới / Danh sách canh icon phải khi là nút ngoài cùng (kiểu Lưới), giữa khi đứng trước ↓↑ (kiểu Danh sách).
+- Sheet Hẹn giờ tắt phim / nhạc (`MediaSleepTimerSheet`), "Bản cập nhật mới" (`AppUpdateSheet`), "Có gì mới ở bản này" (`AppReleaseNotesSheet`): lề ngang 20 → `horizontalMargin` (lề dọc 20 giữ), tiêu đề 22 → `rowTitleFontSize`; hai sheet cập nhật bỏ co chữ tiêu đề, icon cạnh tiêu đề cùng token cỡ.
+- Chưa sửa (ngoài phạm vi): nội dung dưới vài header vẫn lề cứng 16 — `SleepTimerOptionsView`, `TTSQuickTimerChapterList`, `VideoEpisodeGridView`, `.padding(.horizontal)` của `ChapterTOCPanelBackground` ⇒ máy ≥ 414pt lệch 4pt so với tiêu đề.
+- Kiểm: chỉ đọc code + check_architecture.py (chỉ còn vi phạm cũ JSDom.swift); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: sheet hub (trang chính, Tác vụ AI, Kiểm tra nguồn hai lượt — mũi ‹ chạm lề, chữ 22pt), sheet nghe TTS / nhạc (⏱ chưa hẹn và đang hẹn + "Hủy"), sheet Hẹn giờ TTS (⚙ trơn góc phải), mục lục Reader / truyện tranh / tab Mục lục Chi tiết (nút ↓↑ và hai mép ô tìm thẳng lề), ngăn kéo chọn nguồn Khám phá (viên NSFW), "Tất cả tập" hai kiểu, hai sheet cập nhật app.
+
 ## [1.3.1021] - 2026-11-20
 
 ### feat: Nút ⌄ của sheet Kiểm tra tiện ích / Kiểm tra nguồn và màn AI toàn màn dời sang trái, tiêu đề 22pt kế bên

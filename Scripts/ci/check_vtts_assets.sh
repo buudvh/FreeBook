@@ -4,7 +4,7 @@
 # dựng lại đều nằm trong `Vendor/vtts` (anh Bửu: phòng repo upstream / CMUdict bị xoá) — xem `Vendor/vtts/README.md`.
 #
 # Kiểm (thoát mã ≠ 0 nếu hỏng):
-#   1. SHA256 của 4 model (theo `assets/SHA256SUMS` — nguyên văn file của release v0.4.0) và của `lex_en.bin` /
+#   1. SHA256 của 4 model (theo `assets/SHA256SUMS` — 4 dòng vi-en nguyên văn của release v0.11.0) và của `lex_en.bin` /
 #      `cmudict.dict` / 2 giọng tự train (theo `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào bundle app)
 #      có đúng 4 giọng M + `lex_en.bin`, không thừa file nào;
 #   2. dựng `vtts_say` của upstream (đã vendor ở `tools/runtime/tools/`) bằng clang trên runtime đã vendor, với ĐÚNG cờ
@@ -33,8 +33,8 @@ SMOKE_DIR="${SMOKE_DIR:-$REPO_ROOT/build/vtts-smoke}"
 # `google-dich` (1.3.1046) do FreeBook tự train (chưng cất bản M từ thầy VITS) — không có trong release upstream, SHA256
 # ở `LOCAL_SHA256SUMS` (`Vendor/vtts/THIRD_PARTY_NOTICES.md`).
 VOICES=(
-  "nu-10 vtts-vien-nu10-m-v0.4.q8.vtts"
-  "nam-1 vtts-vien-nam1-m-v0.4.q8.vtts"
+  "nu-10 vtts-vien-nu10-m-v0.11.q8.vtts"
+  "nam-1 vtts-vien-nam1-m-v0.11.q8.vtts"
   "ngoc-huyen vtts-ngochuyen-m-k4.q8.vtts"
   "google-dich vtts-googledich-m-k4.q8.vtts"
 )
@@ -114,7 +114,7 @@ PY
 check_hashes() {
   local want name path got count=0
   echo "▶ vtts: kiểm SHA256 tài sản trong $ASSETS"
-  # Model: file SHA256SUMS nguyên văn của release (tên trần) — giọng M nằm ở vtts/, bản S dự trữ ở extra/.
+  # Model: các dòng vi-en nguyên văn của SHA256SUMS release (tên trần) — giọng M nằm ở vtts/, bản S dự trữ ở extra/.
   while read -r want name; do
     [ -n "${name:-}" ] || continue
     name="${name#\*}"
