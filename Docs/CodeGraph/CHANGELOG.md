@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1055] - 2026-11-24
+
+### fix: dải "Đọc tiếp" bỏ tiền tố "Ch. N", chỉ ghi tên chương
+
+Anh Bửu: "Bỏ chữ Ch. stt đi, ghi nhớ rule không được hiển thị kiểu Ch. stt".
+
+- **Dòng phụ** của dải "Đọc tiếp" (`BookContinueReadingStrip`, 1.3.1054): truyện chữ / truyện tranh giờ **chỉ ghi tên chương** đã lưu (dịch như tên chương "Đang đọc"), bỏ "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N" như widget TTS (1.3.804). Phim / âm thanh giữ "Tập N · m:ss" / "Bài N · m:ss".
+- **Luật mới** ở đầu `.claude/rules/ui-conventions.md`: không hiển thị chương kiểu "Ch. stt" ("Ch. N", "Ch. N/tổng") ở UI mới. Chỗ cũ còn "Ch. N" (thẻ Kệ — `BookListRowSize.progressLabel`, sheet "+" của Chi tiết — "Ch. N/tổng") **chưa đổi**, chờ anh quyết.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1054] - 2026-11-24
 
 ### feat: Kệ Sách — nút "Đọc tiếp" ở đầu sheet tuỳ chọn truyện (nhãn theo loại, dòng phụ chương đang đọc)
@@ -376,18 +386,3 @@ Anh Bửu: "có lỗi để pause truyện lâu bấm start bằng sheet mini th
 - `tts.md`: thêm gạch "Phát tiếp sau tạm dừng".
 - Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: tạm dừng TTS, mở app khác phát video / nhạc (hoặc nghe thử giọng ở Cài đặt TTS), quay lại bấm ⏯ ở sheet mini — phải đọc tiếp (VieNeu / NghiTTS có thể đọc lại từ đầu đoạn đang dừng); bật Ghi log để xem dòng `🔊 [TTSResume]`.
 
-## [1.3.1025] - 2026-11-20
-
-### chore: Log đo bố cục header 📐 [HeaderLayout] (tạm thời) để chỉnh khoảng cách dọc dưới tiêu đề
-
-Anh Bửu: "hàng 1 với hàng 2 nhiều lúc cách khoảng rỗng, nhiều lúc khoảng hẹp", "hàng icon và hàng tiêu đề cũng có khoảng cách khác nhau giữa các màn hình" → plan header (đo trước khi chốt nhịp dọc 16pt) → "Làm tiếp".
-
-- Mới `PageHeaderLayoutProbe` (`Views/Common/PageHeader/`, **tạm thời**): đầu dò UIKit 0×0 gắn ở mọi trang dùng `PageTitleModifier`. Chỉ khi công tắc Ghi log bật: ~0,8 s sau khi trang hiện ghi **một** dòng `📐 [HeaderLayout]` toạ độ cửa sổ (pt):
-  - tiêu đề, kiểu tiêu đề, cách trình bày (gốc tab / đẩy vào / sheet / toàn màn), bề ngang cửa sổ, vùng an toàn trên;
-  - thanh điều hướng: y, cao, lề trong (`layoutMargins`);
-  - mũi back hệ thống (x, rộng, cao, tâm y);
-  - các ô SwiftUI của toolbar bên trái / phải (x đầu–cuối, y, cao) — tiêu đề cạnh nút trái, cụm icon phải;
-  - ô tìm `.searchable` (x, y đầu–cuối);
-  - scroll view chính của trang (loại, y, inset trên, offset, gốc nội dung) và ô / tiêu đề nhóm đầu tiên của List (y, x đầu–cuối, cao).
-- Không đổi gì trên màn. Có số thật rồi mới chốt cách đưa khoảng chân header → nội dung đầu tiên về một nhịp (Form / List thẻ đang chừa nhiều, List trơn / panel gần như sát) và vị trí mũi back hệ thống; xong thì **gỡ đầu dò**.
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần: bật Ghi log, mở các màn mẫu, xuất log phiên gửi lại.
