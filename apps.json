@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1058",
+          "buildVersion": "1340",
+          "date": "2026-11-24T08:00:51Z",
+          "localizedDescription": "- fix: Kệ Sách và sheet \"+\" Chi tiết bỏ \"Ch. N\", thẻ ghi tên chương đang đọc",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1340/TangCongCac-1.3.1058-1340.ipa",
+          "size": 52586443,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1057",
           "buildVersion": "1339",
           "date": "2026-11-24T07:40:17Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1336/TangCongCac-1.3.1054-1336.ipa",
           "size": 52586131,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1053",
-          "buildVersion": "1335",
-          "date": "2026-11-24T05:19:40Z",
-          "localizedDescription": "- fix: mục lục sheet nghe mini — hết đơ khi truyện nhiều chương (List thay LazyVStack, thôi observe TTSManager)",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1335/TangCongCac-1.3.1053-1335.ipa",
-          "size": 52578345,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1057",
-      "versionDate": "2026-11-24T07:40:17Z",
-      "versionDescription": "- fix: dải \"Đọc tiếp\" bỏ tiền tố \"Ch. N\", chỉ ghi tên chương\n- fix: sheet tuỳ chọn của video / audio ghi \"video\" / \"audio\" thay cho \"truyện\"\n- fix: mục lục sheet nghe mini — hiện nhanh lại (hàng là struct riêng, bỏ .id, tên chương dịch theo ô đang hiện)",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1339/TangCongCac-1.3.1057-1339.ipa",
-      "size": 52585692,
+      "version": "1.3.1058",
+      "versionDate": "2026-11-24T08:00:51Z",
+      "versionDescription": "- fix: Kệ Sách và sheet \"+\" Chi tiết bỏ \"Ch. N\", thẻ ghi tên chương đang đọc",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1340/TangCongCac-1.3.1058-1340.ipa",
+      "size": 52586443,
       "appPermissions": {}
     }
   ],
