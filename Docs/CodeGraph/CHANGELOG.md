@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1051] - 2026-11-24
+
+### fix: header trình duyệt và màn Trợ lý AI không còn bị trong suốt
+
+Anh Bửu gửi ảnh: "khi nhấn các button sẽ hiển sheet như cài đặt trình duyệt ở trình duyệt sẽ bị lỗi trong suốt phần header của trình duyệt" (header lộ Kệ Sách phía dưới), rồi "bấm dừng trong AI, header bị trong suốt" (chữ chat hiện xuyên header) → "Tự duyệt đi".
+
+- **Trình duyệt** (`BypassWebView`): `VStack` gốc tự tô `Color(.systemBackground).ignoresSafeArea()` (cách `LegadoBrowserSheet` đã dùng). Trước đó header, dải tab, vạch tiến độ, trang Home không có nền riêng mà trông vào nền của màn che toàn màn; nền đó mất sau khi mở sheet (nghi từ 1.3.873 — sheet kính `presentationBackground`) ⇒ lộ màn phía dưới. Thanh dưới có `barColor` riêng nên không bị. Áp cho mọi lối mở trình duyệt (Kệ, Chi tiết, Reader, Khám phá, Mở link lỗi, tiện ích, Legado, tra từ); lúc bình thường giao diện không đổi.
+- **Trợ lý AI** (`ReaderAIFullScreenView`): `.toolbarBackground(.visible, for: .navigationBar)` — nền thanh điều hướng luôn hiện. Trước đó bấm Dừng lúc lọc name nhiều chương ⇒ dải tiến độ trên cùng biến mất, khung chat dâng lên sát header mà thanh không nhận ra có nội dung bên dưới ⇒ giữ nền trong suốt, chữ chat lộ qua tiêu đề. Đổi nhỏ: chat ngắn (chưa có gì dưới header) thì header cũng có nền mờ tối thay cho đen trơn.
+- Nguyên nhân suy từ code, chưa kiểm trên máy. Chưa build được tại chỗ (Windows). Cần thử: trình duyệt mở từ Kệ ⇒ mở / đóng Cài đặt trình duyệt, Lịch sử ⇒ header vẫn đặc; Trợ lý AI ⇒ Lọc name nhiều chương ⇒ Dừng ⇒ cuộn chat, chữ không lộ qua header.
+
 ## [1.3.1050] - 2026-11-23
 
 ### revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×
@@ -379,15 +389,3 @@ Gom ba bản header (1.3.1020, 1.3.1022, 1.3.1023) từ session con; dọn hai c
 - Chưa sửa (ngoài phạm vi): nội dung dưới vài header vẫn lề cứng 16 — `SleepTimerOptionsView`, `TTSQuickTimerChapterList`, `VideoEpisodeGridView`, `.padding(.horizontal)` của `ChapterTOCPanelBackground` ⇒ máy ≥ 414pt lệch 4pt so với tiêu đề.
 - Kiểm: chỉ đọc code + check_architecture.py (chỉ còn vi phạm cũ JSDom.swift); không build tại chỗ (Windows), chưa chạy trên máy. Cần thử: sheet hub (trang chính, Tác vụ AI, Kiểm tra nguồn hai lượt — mũi ‹ chạm lề, chữ 22pt), sheet nghe TTS / nhạc (⏱ chưa hẹn và đang hẹn + "Hủy"), sheet Hẹn giờ TTS (⚙ trơn góc phải), mục lục Reader / truyện tranh / tab Mục lục Chi tiết (nút ↓↑ và hai mép ô tìm thẳng lề), ngăn kéo chọn nguồn Khám phá (viên NSFW), "Tất cả tập" hai kiểu, hai sheet cập nhật app.
 
-## [1.3.1021] - 2026-11-20
-
-### feat: Nút ⌄ của sheet Kiểm tra tiện ích / Kiểm tra nguồn và màn AI toàn màn dời sang trái, tiêu đề 22pt kế bên
-
-Anh Bửu (sau danh sách các màn có 2 nút bên phải): "Kiểm tra tiện ích / Kiểm tra nguồn, khi mở dạng sheet / Màn AI toàn màn của Reader dời ⌄", "size tiêu đề bằng size tiêu đề bình thường nhé".
-
-- Mới `HeaderLeadingIconButton` (`Views/Common/PageHeader/`): nút icon đứng **trước tiêu đề** ở hàng nút — icon SF 17pt nửa đậm, khung 36×44 canh trái (icon chạm lề), tiêu đề lùi `titleOverlap` 10pt vào khung để icon cách chữ ~10pt, tiêu đề đè lên không nhận chạm.
-- `PageTitleModifier` thêm `leadingIcon` (kiểu `.leading`) + `.pageTitle(_:style:leadingIcon:)`: nút và tiêu đề 22pt đậm chung một `ToolbarItem`; tiêu đề cạnh nút có trần bề ngang như cạnh nút back.
-- **Kiểm tra tiện ích / Kiểm tra nguồn mở dạng sheet** (`ExtensionCheckView`, `LegadoSourceCheckView`): lượt đang chạy ⇒ ⌄ thu nhỏ đứng trước tiêu đề (`SourceCheckHeaderButtons.leadingMinimize`), cụm phải chỉ còn Chia sẻ (canh icon vào lề phải). Mở dạng trang (có nút back) và trang con trong sheet hub giữ như cũ.
-- **Màn AI toàn màn của Reader** (`ReaderAIFullScreenView`): ⌄ Đóng (trước là `chevron.down.circle` ngoài cùng bên phải) thành `chevron.down` trước tiêu đề "Trợ lý AI" 22pt đậm + tên phiên; bên phải chỉ còn "…" (khung 36, canh vào lề).
-- `ui-conventions.md`: thêm luật nút ⌄ trước tiêu đề.
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: Tiện ích › Kiểm tra (mở dạng sheet) lúc đang chạy — ⌄ bên trái thu nhỏ đúng, hết lượt thì ⌄ biến mất, tiêu đề về sát lề; màn AI toàn màn — ⌄ đóng màn, "…" mở ngăn kéo.

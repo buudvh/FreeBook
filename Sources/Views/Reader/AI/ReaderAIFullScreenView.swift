@@ -176,6 +176,8 @@ public struct ReaderAIFullScreenView: View {
             // màn của Reader dời ⌄"); tiêu đề "Trợ lý AI" 22pt đậm như tiêu đề trang, tên phiên một dòng nhỏ bên dưới.
             .navigationTitle("Trợ lý AI")
             .navigationBarTitleDisplayMode(.inline)
+            // Nền thanh luôn hiện (1.3.1051): bấm Dừng lúc quét tên ⇒ dải tiến độ mất, chat dâng lên lộ qua header trong suốt.
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)

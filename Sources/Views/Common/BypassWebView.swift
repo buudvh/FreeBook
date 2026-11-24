@@ -63,6 +63,9 @@ struct BypassWebView: View {
                     Spacer()
                 }
             }
+            // Tự tô nền (1.3.1051): không có thì header / dải tab / trang Home trông vào nền của màn che toàn màn — nền đó
+            // mất sau khi mở sheet (Cài đặt trình duyệt, Lịch sử…) ⇒ lộ màn phía dưới (Kệ Sách) qua header.
+            .background(Color(.systemBackground).ignoresSafeArea())
             .pageTitle(store.activeTab?.displayTitle ?? "Trình duyệt")
             .toolbar {
                 // Toàn màn, không vuốt đóng được ⇒ giữ "Xong". Nút mở ngăn kéo là ⋮ ở thanh dưới.

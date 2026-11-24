@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1021] - 2026-11-20
+
+### feat: Nút ⌄ của sheet Kiểm tra tiện ích / Kiểm tra nguồn và màn AI toàn màn dời sang trái, tiêu đề 22pt kế bên
+
+Anh Bửu (sau danh sách các màn có 2 nút bên phải): "Kiểm tra tiện ích / Kiểm tra nguồn, khi mở dạng sheet / Màn AI toàn màn của Reader dời ⌄", "size tiêu đề bằng size tiêu đề bình thường nhé".
+
+- Mới `HeaderLeadingIconButton` (`Views/Common/PageHeader/`): nút icon đứng **trước tiêu đề** ở hàng nút — icon SF 17pt nửa đậm, khung 36×44 canh trái (icon chạm lề), tiêu đề lùi `titleOverlap` 10pt vào khung để icon cách chữ ~10pt, tiêu đề đè lên không nhận chạm.
+- `PageTitleModifier` thêm `leadingIcon` (kiểu `.leading`) + `.pageTitle(_:style:leadingIcon:)`: nút và tiêu đề 22pt đậm chung một `ToolbarItem`; tiêu đề cạnh nút có trần bề ngang như cạnh nút back.
+- **Kiểm tra tiện ích / Kiểm tra nguồn mở dạng sheet** (`ExtensionCheckView`, `LegadoSourceCheckView`): lượt đang chạy ⇒ ⌄ thu nhỏ đứng trước tiêu đề (`SourceCheckHeaderButtons.leadingMinimize`), cụm phải chỉ còn Chia sẻ (canh icon vào lề phải). Mở dạng trang (có nút back) và trang con trong sheet hub giữ như cũ.
+- **Màn AI toàn màn của Reader** (`ReaderAIFullScreenView`): ⌄ Đóng (trước là `chevron.down.circle` ngoài cùng bên phải) thành `chevron.down` trước tiêu đề "Trợ lý AI" 22pt đậm + tên phiên; bên phải chỉ còn "…" (khung 36, canh vào lề).
+- `ui-conventions.md`: thêm luật nút ⌄ trước tiêu đề.
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần thử: Tiện ích › Kiểm tra (mở dạng sheet) lúc đang chạy — ⌄ bên trái thu nhỏ đúng, hết lượt thì ⌄ biến mất, tiêu đề về sát lề; màn AI toàn màn — ⌄ đóng màn, "…" mở ngăn kéo.
+
 ## [1.3.1020] - 2026-11-20
 
 ### feat: Header tự dựng màn đọc / xem / nghe + Khám phá — lề 16pt chung, nút back chung, "…" có vòng, khối tiêu đề hai dòng
