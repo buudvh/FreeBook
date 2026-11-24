@@ -154,14 +154,17 @@ extension ShelfView {
     }
 
     private func openReader(_ book: Book) {
-        readerPresentationRoute = ShelfReaderRoute(
-            bookId: book.bookId,
-            extensionPackageId: book.extensionPackageId,
-            chapterIndex: book.currentChapterIndex,
-            paragraphIndex: nil,
-            detailUrl: book.detailUrl,
-            sourceName: book.sourceName
-        )
+        readerPresentationRoute = ShelfReaderRoute(resuming: book)
+    }
+
+    /// "Đọc tiếp" của sheet tuỳ chọn truyện: y như chạm thẻ của trang mở sheet (Lịch sử không `markSeen`). Sheet còn đang
+    /// đóng ⇒ chỉ xếp hàng; `onDismiss` của sheet mới mở màn đọc (cover bật lên lúc sheet đang trượt xuống thì không hiện —
+    /// cùng lý do với `queuedBrowserBook`).
+    func queueContinueReading(_ book: Book, mode: BookSheetAction.Mode) {
+        if mode != .history {
+            newChapters.markSeen(bookId: book.bookId)
+        }
+        queuedReaderRoute = ShelfReaderRoute(resuming: book)
     }
 
     // MARK: - Chip lọc + trạng thái rỗng

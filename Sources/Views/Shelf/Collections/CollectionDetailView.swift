@@ -33,6 +33,8 @@ struct CollectionDetailView: View {
     /// (`bookBrowserPresentation`).
     @State private var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
+    /// "Đọc tiếp" của sheet nhấn giữ — cũng chờ `onDismiss` như trình duyệt.
+    @State private var queuedReaderRoute: ShelfReaderRoute? = nil
     /// Quản lý chính bộ sưu tập (đổi tên / xoá) ngay tại màn chi tiết: trước 1.3.336 hai việc này chỉ
     /// có ở **swipe action** của danh sách bộ — không ai thấy, và đang ở trong bộ thì phải lùi ra mới
     /// làm được.
@@ -118,6 +120,10 @@ struct CollectionDetailView: View {
             if let book = queuedBrowserBook {
                 queuedBrowserBook = nil
                 browserBook = book
+            }
+            if let route = queuedReaderRoute {
+                queuedReaderRoute = nil
+                readerRoute = route
             }
         }) { target in
             Group {
@@ -210,14 +216,7 @@ struct CollectionDetailView: View {
                 ),
                 onTap: { book in
                     newChapters.markSeen(bookId: book.bookId)
-                    readerRoute = ShelfReaderRoute(
-                        bookId: book.bookId,
-                        extensionPackageId: book.extensionPackageId,
-                        chapterIndex: book.currentChapterIndex,
-                        paragraphIndex: nil,
-                        detailUrl: book.detailUrl,
-                        sourceName: book.sourceName
-                    )
+                    readerRoute = ShelfReaderRoute(resuming: book)
                 },
                 onLongPress: { book in
                     BookSheetAction.playLongPressFeedback()
@@ -330,6 +329,10 @@ struct CollectionDetailView: View {
 
     private func handle(_ action: BookSheetAction, for book: Book) {
         switch action {
+        case .continueReading:
+            // Y như chạm thẻ của bộ (`markSeen` + mở), mở khi sheet đóng hẳn.
+            newChapters.markSeen(bookId: book.bookId)
+            queuedReaderRoute = ShelfReaderRoute(resuming: book)
         case .openDetail:
             detailTargetBook = book
             navigateToBookDetail = true

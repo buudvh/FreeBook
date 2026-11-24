@@ -70,6 +70,8 @@ extension ShelfSearchView {
 
     func handle(_ action: BookSheetAction, for book: Book) {
         switch action {
+        case .continueReading:
+            openReader(book, queued: true)
         case .openDetail:
             detailTargetBook = book
             navigateToBookDetail = true

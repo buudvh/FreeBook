@@ -104,6 +104,8 @@ struct ShelfView: View {
     /// không hiện ⇒ xếp hàng ở đây, chuyển sang `browserBook` (`bookBrowserPresentation`) trong `onDismiss` của sheet.
     @State private var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
+    /// "Đọc tiếp" của sheet đó — cũng chờ `onDismiss` như trình duyệt (`queueContinueReading`, `ShelfView+Layout`).
+    @State internal var queuedReaderRoute: ShelfReaderRoute? = nil
 
     // Import từ trình duyệt / bước "Từ URL" — `internal` vì `openImportedBook` ở `ShelfView+ImportEntry.swift`.
     @State internal var importedBookId: String = ""
@@ -333,13 +335,17 @@ struct ShelfView: View {
                     queuedBrowserBook = nil
                     browserBook = book
                 }
+                if let route = queuedReaderRoute {
+                    queuedReaderRoute = nil
+                    readerPresentationRoute = route
+                }
             }) { target in
                 Group {
                     BookActionSheet(
                         target: target,
                         isCheckingNewChapters: newChapters.isChecking,
                         onAction: { action in
-                            handleBookAction(action, for: target.book)
+                            handleBookAction(action, for: target.book, mode: target.mode)
                         }
                     )
                 }
@@ -602,8 +608,10 @@ struct ShelfView: View {
 
     /// Thực thi mục người dùng chọn trong `BookActionSheet`. Thân của từng hành động nằm ở
     /// `BookActionRunner` để màn Bộ sưu tập cư xử y hệt; ở đây chỉ còn phần mở sheet/navigation.
-    private func handleBookAction(_ action: BookSheetAction, for book: Book) {
+    private func handleBookAction(_ action: BookSheetAction, for book: Book, mode: BookSheetAction.Mode) {
         switch action {
+        case .continueReading:
+            queueContinueReading(book, mode: mode)
         case .openDetail:
             detailTargetBook = book
             navigateToBookDetail = true

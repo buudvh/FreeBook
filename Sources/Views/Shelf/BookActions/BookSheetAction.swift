@@ -4,6 +4,8 @@ import UIKit
 /// Các mục trong sheet nhấn-giữ một cuốn sách. Sheet chỉ **phát** hành động, người trình bày (kệ sách
 /// hoặc màn bộ sưu tập) mới thực thi — vì mấy hành động phải mở tiếp sheet/navigation của riêng nó.
 enum BookSheetAction: Equatable {
+    /// Dải "Đọc tiếp" đầu sheet (`BookContinueReadingStrip`): mở nội dung y như chạm thẻ của màn gọi sheet.
+    case continueReading
     case openDetail
     case checkNewChapters
     case changeSource

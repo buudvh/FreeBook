@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1024] - 2026-11-20
+
+### fix: Header — mũi ‹ trang con sheet hub cùng màu nhấn, khoảng tiêu đề cạnh nút back thành token chung
+
+Gom ba bản header (1.3.1020, 1.3.1022, 1.3.1023) từ session con; dọn hai chỗ session con để ngỏ.
+
+- **Mũi ‹ trang con Tác vụ AI / Kiểm tra nguồn của sheet hub** (`FloatingHubAITaskListView`, `FloatingHubSourceCheckListView`): bỏ `tint: Color.primary` ⇒ màu nhấn như trang con Thông báo / màn kiểm tra trong cùng sheet hub (trước một sheet có hai màu mũi).
+- **Khoảng tiêu đề lùi về nút back 17pt** thành `HeaderBackButton.titleOverlap` (trước là hằng `private` ở `PageTitleModifier` + chép tay ở hai file hub).
+- Entry 1.3.1023 sửa câu "vùng chạm không đổi": khoảng 19 nút trước chưa có khung nay có khung 36×38 nên vùng chạm rộng thêm về bên trái.
+- `CHANGELOG.md` dời 1.3.987–994 sang `CHANGELOG.archive.md` (giữ ~30 entry).
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**.
+
 ## [1.3.1023] - 2026-11-20
 
 ### feat: Toolbar — nút ngoài cùng bên phải canh icon vào lề 16pt, icon tài sản trên toolbar 20pt

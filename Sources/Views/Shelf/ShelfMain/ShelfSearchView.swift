@@ -37,6 +37,8 @@ struct ShelfSearchView: View {
     /// hàng ở đây, mở trong `onDismiss` của sheet (`bookBrowserPresentation`).
     @State var queuedBrowserBook: Book? = nil
     @State private var browserBook: Book? = nil
+    /// "Đọc tiếp" của sheet nhấn giữ — cũng chờ `onDismiss` như trình duyệt (`openReader(_:queued:)`).
+    @State private var queuedReaderRoute: ShelfReaderRoute? = nil
     /// Sheet tải/xuất — sách + loại tác vụ đi chung một item (`TaskSheetRequest`, 1.3.654).
     @State var taskSheetRequest: TaskSheetRequest? = nil
     @State var changeSourceTargetBook: Book? = nil
@@ -108,6 +110,10 @@ struct ShelfSearchView: View {
                 if let book = queuedBrowserBook {
                     queuedBrowserBook = nil
                     browserBook = book
+                }
+                if let route = queuedReaderRoute {
+                    queuedReaderRoute = nil
+                    readerRoute = route
                 }
             }) { target in
                 Group {
@@ -339,16 +345,15 @@ struct ShelfSearchView: View {
         }
     }
 
-    private func openReader(_ book: Book) {
+    /// Chạm truyện, hoặc "Đọc tiếp" của sheet (`queued`: sheet còn đang đóng ⇒ mở trong `onDismiss`).
+    func openReader(_ book: Book, queued: Bool = false) {
         newChapters.markSeen(bookId: book.bookId)
-        readerRoute = ShelfReaderRoute(
-            bookId: book.bookId,
-            extensionPackageId: book.extensionPackageId,
-            chapterIndex: book.currentChapterIndex,
-            paragraphIndex: nil,
-            detailUrl: book.detailUrl,
-            sourceName: book.sourceName
-        )
+        let route = ShelfReaderRoute(resuming: book)
+        if queued {
+            queuedReaderRoute = route
+        } else {
+            readerRoute = route
+        }
     }
 
     private func showActions(for book: Book) {

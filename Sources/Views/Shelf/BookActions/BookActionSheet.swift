@@ -15,6 +15,8 @@ import SwiftData
 /// cả hai chiều, chọn theo `book.isOnShelf`. Sheet **không** còn `NavigationStack`, tiêu đề "Tuỳ chọn
 /// truyện" và nút "Xong" — chỉ còn tay cầm vuốt xuống.
 ///
+/// Dải "Đọc tiếp" (`BookContinueReadingStrip`) là section riêng ngay dưới phần đầu.
+///
 /// Sheet **tự** lo phần bộ sưu tập (qua `BookCollectionCoordinator`), còn các hành động khác chỉ phát
 /// `BookSheetAction` cho màn gọi nó xử lý — vì chúng cần navigation/sheet của riêng màn đó.
 struct BookActionSheet: View {
@@ -57,6 +59,12 @@ struct BookActionSheet: View {
                 header
             } header: {
                 SectionHelpHeader("Truyện", texts: [Text(headerHint)])
+            }
+
+            Section {
+                BookContinueReadingStrip(book: book) { emit(.continueReading) }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
 
             Section {
