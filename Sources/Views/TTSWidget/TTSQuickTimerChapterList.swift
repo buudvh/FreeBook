@@ -15,6 +15,10 @@ import UIKit
 ///   khi truyện nhiều chương): cuộn tới chương đang phát lúc mở, `LazyVStack` phải dựng + đo **mọi** hàng phía trước
 ///   (mỗi hàng còn dịch tên chương) trên main — đang nghe chương 2000 là 2000 hàng một lượt; `List` nhảy bằng chiều cao
 ///   ước lượng như mục lục Reader. Không observe `TTSManager` (`TTSChapterListReader` do sheet giữ).
+/// - Hàng là struct riêng (`ChapterRow`), **không** gắn `.id` (1.3.1057, anh Bửu: bản 1.3.1053 hiện danh sách quá chậm):
+///   `List` duyệt closure của `ForEach` cho mọi chương để lấy danh tính hàng — bản 1.3.1053 dịch tên chương ngay trong
+///   closure + `.id(chapter.index)` ⇒ dịch cả N tên trên main trước khung đầu. Nay closure chỉ dựng struct, tên dịch trong
+///   `body` của hàng (chỉ ô đang hiện); `scrollTo` dùng id của `ForEach`.
 struct TTSQuickTimerChapterList: View {
     /// Danh sách chương + chương đang phát của phiên — không theo nhịp đọc từng câu.
     @ObservedObject var reader: TTSChapterListReader
@@ -90,14 +94,13 @@ struct TTSQuickTimerChapterList: View {
             ? ChapterOrdinalNumbering(chapterCount: max(chapters.count, (chapters.last?.index ?? -1) + 1)).digits
             : 0
         let playingIndex = reader.playingChapterIndex
-        // Tên chương đi qua từ điển / rule / cấu hình dịch ⇒ đọc mốc này để vẽ lại khi chúng đổi (trước đây nhịp đọc của
-        // `TTSManager` vẽ lại hộ).
-        _ = TranslationDisplayRevision.shared.value
         return ScrollViewReader { proxy in
             List {
+                // Closure chỉ dựng struct hàng (không dịch tên, không `.id`): `List` duyệt closure của **mọi** chương để
+                // lấy danh tính hàng ⇒ việc nặng ở đây nhân N lần trước khung đầu (1.3.1057). `scrollTo` dùng id của
+                // `ForEach` (`\.index`).
                 ForEach(rows, id: \.index) { chapter in
-                    chapterRow(chapter, isPlaying: chapter.index == playingIndex, ordinalDigits: ordinalDigits)
-                        .id(chapter.index)
+                    ChapterRow(chapter: chapter, isPlaying: chapter.index == playingIndex, ordinalDigits: ordinalDigits)
                         .listRowInsets(Self.rowInsets)
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -129,35 +132,47 @@ struct TTSQuickTimerChapterList: View {
         }
     }
 
-    private func chapterRow(_ chapter: TTSChapterInfo, isPlaying: Bool, ordinalDigits: Int) -> some View {
-        Button(action: {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            TTSManager.shared.jumpToChapter(at: chapter.index)
-        }) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                if ordinalDigits > 0 {
-                    ChapterOrdinalLabel(
-                        ordinal: chapter.index + 1,
-                        digits: ordinalDigits,
-                        palette: .system,
-                        isCurrent: isPlaying,
-                        isRead: false,
-                        font: Self.rowFont
-                    )
-                    .padding(.trailing, 8)
+    /// Một hàng chương. Tên chương (dịch / phồn → giản theo phiên TTS) tính trong `body` của **hàng** ⇒ chỉ ô đang hiện mới
+    /// dịch — `TranslateUtils.chapterTitleCache` chỉ 1024 mục nên mục lục dài hơn không trông vào cache được.
+    private struct ChapterRow: View {
+        let chapter: TTSChapterInfo
+        let isPlaying: Bool
+        let ordinalDigits: Int
+
+        var body: some View {
+            // Tên đi qua từ điển / rule / cấu hình dịch ⇒ đọc mốc ở **hàng** để vẽ lại khi chúng đổi (đọc ở danh sách thì
+            // hàng có đầu vào không đổi bỏ qua `body`, tên cũ nằm lại).
+            _ = TranslationDisplayRevision.shared.value
+            let rowFont = TTSQuickTimerChapterList.rowFont
+            return Button(action: {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                TTSManager.shared.jumpToChapter(at: chapter.index)
+            }) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    if ordinalDigits > 0 {
+                        ChapterOrdinalLabel(
+                            ordinal: chapter.index + 1,
+                            digits: ordinalDigits,
+                            palette: .system,
+                            isCurrent: isPlaying,
+                            isRead: false,
+                            font: rowFont
+                        )
+                        .padding(.trailing, 8)
+                    }
+                    Text(TTSManager.shared.displayTitle(for: chapter))
+                        .font(rowFont.weight(isPlaying ? .bold : .regular))
+                        .foregroundStyle(isPlaying ? Color.primary : Color.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Text(TTSManager.shared.displayTitle(for: chapter))
-                    .font(Self.rowFont.weight(isPlaying ? .bold : .regular))
-                    .foregroundStyle(isPlaying ? Color.primary : Color.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isPlaying ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isPlaying ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isPlaying ? Color.accentColor.opacity(0.18) : Color(uiColor: .secondarySystemGroupedBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isPlaying ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 1))
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     private func scrollToPlaying(_ proxy: ScrollViewProxy) {
