@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1060] - 2026-11-25
+
+### fix: danh sách name AI bỏ ô nhập nghĩa và nút bút chì, chạm hàng mở màn Sửa từ
+
+Anh Bửu: "màn hình danh sách name của AI hãy sửa lại bỏ cho nhập ô nhập nghĩa, bỏ nút edit, tap vào hàng nào thì hiển thị màn hình edit của nghĩa đó" → duyệt mockup https://claude.ai/artifact/3Y5Z8nGN3X5hA17R2Qf7bs.
+
+- Sheet "Duyệt tên riêng & VP" (`ReaderAINameReviewCardView`): dòng 2 của hàng là **chữ** nghĩa (`.subheadline`, màu phụ, một dòng) thay cho ô `TextField`; bỏ nút bút chì. Chạm khối chữ (tên + badge + nghĩa, kéo tới ✕) ⇒ mở màn Sửa từ có sẵn (`DictEntryEditSheet`, badge "AI · Riêng truyện", 1.3.780) theo khuôn `DictionaryEntryRow`: `.contentShape(Rectangle()).onTapGesture`, không bọc cả hàng trong `Button`, thêm `.accessibilityAction(named: "Sửa")`.
+- Đổi hành vi: chạm dòng tên trước đây là chọn / bỏ chọn ⇒ nay mở màn sửa; chọn / bỏ chọn chỉ còn ở ô vuông bên trái. Ô vuông và ✕ giữ `.buttonStyle(.plain)` (card nằm trong `ScrollView` + `LazyVStack`, không phải `List`, nên chạm thân hàng không kích hoạt chúng).
+- Mọi lần sửa nghĩa giờ đi qua màn Sửa từ ⇒ `onEditName` ghi vào tin nguồn, mở lại sheet vẫn còn (trước đây gõ thẳng vào ô trên hàng thì đóng sheet là mất). Nút bút chì trên header màn Sửa từ (gõ lại từ gốc) giữ nguyên — màn này dùng chung với danh sách VP/Name.
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows)**, chưa thử trên máy.
+
 ## [1.3.1059] - 2026-11-24
 
 ### feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub
@@ -368,16 +379,4 @@ Anh Bửu (qua session chính): lưu sẵn toàn bộ dữ liệu vtts trong rep
 - Bản quyền: `THIRD_PARTY_NOTICES.md` ghi thêm `tools/`, bản S, CMUdict nguồn trong repo (BSD-2 điều khoản 1) bên cạnh VLEX trong IPA (điều khoản 2). Chú thích `Package.swift`, `VttsVoice`, `VttsRuntime`, `vtts_bridge_smoke.c`, `ci-release.md` cập nhật theo.
 - Dung lượng thêm vào git: ~13,1 MB tài sản (4 model 7,57 MB + `lex_en.bin` 1,86 MB + `cmudict.dict` 3,62 MB) + ~85 KB công cụ.
 - Kiểm: `bash -n`, thử phần kiểm SHA256 của script mới trên Windows (bắt được file thừa trong `assets/vtts/`), YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch / chạy `vtts_say` được tại chỗ (Windows)** — chỉ CI.
-
-## [1.3.1030] - 2026-11-20
-
-### chore: Màn tự thử nhịp dọc header (tạm thời), đầu dò header sửa cho iOS 26, mũi back tự dựng trùng chỗ mũi back hệ thống
-
-Anh Bửu chọn mốc B ("đáy thanh +16": nội dung đầu tiên cách đáy thanh tiêu đề / đáy ô tìm 16pt) sau log đo 1.3.1025 (iPhone 11: Form không tiêu đề nhóm 35pt, dưới ô tìm 50pt, List trơn 0pt, panel 4pt; mũi back hệ thống x=12 trong khi nội dung x=20) → duyệt bản đo.
-
-- **Màn "Thử nhịp dọc header"** (tạm thời, Cài đặt › Ghi log hệ thống › Chẩn Đoán; `Views/Settings/Logs/HeaderSpacingLab/`): một nút **Chạy** tự đẩy lần lượt 22 trang mẫu — Form không / có tiêu đề nhóm, Form dưới ô tìm, List trơn (có / không ô tìm), panel ScrollView, header tự dựng — mỗi kiểu với các cách chỉnh khoảng trên (`contentMargins` top 0 / 16, `defaultMinListHeaderHeight` 0, `listSectionSpacing(.compact)`, đệm panel 16). Mỗi trang ~1,7 s: đầu dò UIKit (`HeaderSpacingLabProbe`) chụp đáy thanh, đáy ô tìm, mũi back hệ thống, ô / khung tiêu đề nhóm đầu; `labMeasure` (khung SwiftUI) đo chữ tiêu đề nhóm, chữ hàng đầu, panel đầu, icon "…" phải, mũi back tự dựng. Kết quả hiện trên màn + log `📐 [HeaderLab]` (kèm một lần cây view con của thanh: lớp + khung, để biết iOS 26 dựng ô nút toolbar bằng gì) + nút chia sẻ báo cáo. Gỡ cả thư mục khi đã áp.
-- **Đầu dò `📐 [HeaderLayout]`** (`PageHeaderLayoutProbe`, vẫn tạm): iOS 26 không còn lớp "HostingView" trong thanh (1.3.1025 ra `left=- right=-`) ⇒ đo **view lá** nhìn thấy ở hàng nút, chia trái / phải (số mảnh, mép trái nhất – phải nhất); trang có tab vuốt (Kệ, Kho tiện ích) ⇒ đo scroll view dọc trong trang đang hiện; chọn scroll view theo phần **nằm trong cửa sổ**; `note=scrolled / offscreen / nobar` đánh dấu dòng nhiễu.
-- **Mũi back tự dựng trùng chỗ mũi back hệ thống**: `HeaderBackButton` lùi `HeaderMetrics.backChevronOutdent` (8pt) ra ngoài lề (bề ngang bố cục 30pt, vùng chạm vẫn 38pt) ⇒ mũi ở `lề − 8` như nút back hệ thống (đo: x=12 khi lề 20). Áp cho trang con trong sheet, sheet hub, Reader, truyện tranh, trang xem phim mở bằng UIKit. Khoảng mũi → chữ tiêu đề giữ ~8pt.
-- `ui-conventions.md`: luật nút back tự dựng thêm phần lùi 8pt.
-- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần: mở Cài đặt › Ghi log hệ thống › Thử nhịp dọc header, bấm Chạy, để yên ~50 s, bấm chia sẻ gửi báo cáo; nhìn mũi back ở trang con sheet hub / Reader có thẳng với mũi back của trang Cài đặt không.
 

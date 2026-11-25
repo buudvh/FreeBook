@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1030] - 2026-11-20
+
+### chore: Màn tự thử nhịp dọc header (tạm thời), đầu dò header sửa cho iOS 26, mũi back tự dựng trùng chỗ mũi back hệ thống
+
+Anh Bửu chọn mốc B ("đáy thanh +16": nội dung đầu tiên cách đáy thanh tiêu đề / đáy ô tìm 16pt) sau log đo 1.3.1025 (iPhone 11: Form không tiêu đề nhóm 35pt, dưới ô tìm 50pt, List trơn 0pt, panel 4pt; mũi back hệ thống x=12 trong khi nội dung x=20) → duyệt bản đo.
+
+- **Màn "Thử nhịp dọc header"** (tạm thời, Cài đặt › Ghi log hệ thống › Chẩn Đoán; `Views/Settings/Logs/HeaderSpacingLab/`): một nút **Chạy** tự đẩy lần lượt 22 trang mẫu — Form không / có tiêu đề nhóm, Form dưới ô tìm, List trơn (có / không ô tìm), panel ScrollView, header tự dựng — mỗi kiểu với các cách chỉnh khoảng trên (`contentMargins` top 0 / 16, `defaultMinListHeaderHeight` 0, `listSectionSpacing(.compact)`, đệm panel 16). Mỗi trang ~1,7 s: đầu dò UIKit (`HeaderSpacingLabProbe`) chụp đáy thanh, đáy ô tìm, mũi back hệ thống, ô / khung tiêu đề nhóm đầu; `labMeasure` (khung SwiftUI) đo chữ tiêu đề nhóm, chữ hàng đầu, panel đầu, icon "…" phải, mũi back tự dựng. Kết quả hiện trên màn + log `📐 [HeaderLab]` (kèm một lần cây view con của thanh: lớp + khung, để biết iOS 26 dựng ô nút toolbar bằng gì) + nút chia sẻ báo cáo. Gỡ cả thư mục khi đã áp.
+- **Đầu dò `📐 [HeaderLayout]`** (`PageHeaderLayoutProbe`, vẫn tạm): iOS 26 không còn lớp "HostingView" trong thanh (1.3.1025 ra `left=- right=-`) ⇒ đo **view lá** nhìn thấy ở hàng nút, chia trái / phải (số mảnh, mép trái nhất – phải nhất); trang có tab vuốt (Kệ, Kho tiện ích) ⇒ đo scroll view dọc trong trang đang hiện; chọn scroll view theo phần **nằm trong cửa sổ**; `note=scrolled / offscreen / nobar` đánh dấu dòng nhiễu.
+- **Mũi back tự dựng trùng chỗ mũi back hệ thống**: `HeaderBackButton` lùi `HeaderMetrics.backChevronOutdent` (8pt) ra ngoài lề (bề ngang bố cục 30pt, vùng chạm vẫn 38pt) ⇒ mũi ở `lề − 8` như nút back hệ thống (đo: x=12 khi lề 20). Áp cho trang con trong sheet, sheet hub, Reader, truyện tranh, trang xem phim mở bằng UIKit. Khoảng mũi → chữ tiêu đề giữ ~8pt.
+- `ui-conventions.md`: luật nút back tự dựng thêm phần lùi 8pt.
+- Kiểm: chỉ đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Cần: mở Cài đặt › Ghi log hệ thống › Thử nhịp dọc header, bấm Chạy, để yên ~50 s, bấm chia sẻ gửi báo cáo; nhìn mũi back ở trang con sheet hub / Reader có thẳng với mũi back của trang Cài đặt không.
+
 ## [1.3.1029] - 2026-11-20
 
 ### chore: vtts — CI giữ cache từ điển khi build đỏ, kiểm thử shim nhanh hơn

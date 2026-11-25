@@ -4,11 +4,16 @@ import SwiftUI
 ///
 /// Từ 1.3.469 card **không** còn nút Lưu: nút Lưu là `Menu` 2 mục trên thanh điều hướng của
 /// `ReaderAINameReviewSheet` (đúng khuôn `AddWordSheet`). Card chỉ còn hiển thị danh sách, sắp xếp,
-/// chọn/bỏ chọn, sửa (1.3.780: nút bút chì ⇒ nơi dùng mở màn Sửa từ) và xoá từng mục.
+/// chọn/bỏ chọn, sửa và xoá từng mục.
+///
+/// Hàng theo khuôn hàng VP/Name (`DictionaryEntryRow`, 1.3.1060): dòng 2 là **chữ** nghĩa (không còn ô nhập), không
+/// còn nút bút chì — chạm khối chữ (tên + badge + nghĩa) ⇒ nơi dùng mở màn Sửa từ. Ô vuông chọn và ✕ là nút riêng
+/// nên chạm chúng không mở màn sửa; card nằm trong `ScrollView` + `LazyVStack` (không phải `List`) nên `.plain` đủ.
 public struct ReaderAINameReviewCardView: View {
     @Binding public var names: [AIExtractedName]
     public var onDelete: ((UUID) -> Void)? = nil
-    /// Bấm bút chì của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ ẩn nút.
+    /// Chạm thân hàng của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ chạm
+    /// không làm gì.
     public var onEdit: ((UUID) -> Void)? = nil
 
     public enum SortMode {
@@ -97,8 +102,8 @@ public struct ReaderAINameReviewCardView: View {
             }
             .padding(.bottom, 2)
 
-            // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay gõ nghĩa) `names` đổi, `VStack` thường
-            // cập nhật lại MỌI hàng kèm `TextField` của nó — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
+            // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay sửa nghĩa) `names` đổi, `VStack` thường
+            // cập nhật lại MỌI hàng — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
             LazyVStack(spacing: 6) {
                 ForEach($names) { $item in
                     HStack(spacing: 4) {
@@ -168,34 +173,19 @@ public struct ReaderAINameReviewCardView: View {
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
-                            // Chạm vào dòng tên cũng chọn/bỏ chọn; ô nhập nghĩa bên dưới vẫn để gõ.
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                item.isSelected.toggle()
-                            }
 
-                            TextField("Nghĩa Hán-Việt/Dịch", text: $item.suggestedMeaning)
+                            Text(item.suggestedMeaning)
                                 .font(.subheadline)
-                                .textFieldStyle(.plain)
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
-
-                        Spacer(minLength: 4)
-
-                        // Nút sửa từng mục — icon như nút Sửa của hàng VP/Name (`DictionaryEntryRow`), vùng chạm 36 pt.
-                        if let onEdit {
-                            Button(action: {
-                                onEdit(item.id)
-                            }) {
-                                Image(systemName: "pencil")
-                                    .font(.subheadline)
-                                    .foregroundColor(.primary)
-                                    .frame(width: 36, height: 36)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Sửa \(item.original)")
+                        // Thân hàng (chữ + khoảng trống tới ✕) mở màn Sửa từ — như `DictionaryEntryRow`, không bọc cả
+                        // hàng trong `Button`. Chọn/bỏ chọn chỉ còn ở ô vuông bên trái.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.trailing, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            onEdit?(item.id)
                         }
 
                         // Nút xóa từng mục
@@ -213,6 +203,7 @@ public struct ReaderAINameReviewCardView: View {
                     .padding(.trailing, 8)
                     .background(Color(UIColor.tertiarySystemBackground))
                     .cornerRadius(8)
+                    .accessibilityAction(named: "Sửa") { onEdit?(item.id) }
                 }
             }
         }

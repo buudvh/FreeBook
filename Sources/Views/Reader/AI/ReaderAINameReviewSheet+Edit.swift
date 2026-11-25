@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Nút bút chì của từng name (1.3.780): mở màn Sửa từ của danh sách VP/Name (`DictEntryEditSheet`, badge
+/// Chạm thân hàng của từng name (1.3.1060; 1.3.780–1059 là nút bút chì, hàng còn ô gõ nghĩa không lưu vào tin): mở
+/// màn Sửa từ của danh sách VP/Name (`DictEntryEditSheet`, badge
 /// "AI · Riêng truyện"), tra token / nghĩa gợi ý / chip theo từ điển của truyện này. "Cập nhật" sửa danh sách đang
 /// duyệt **và** tin nguồn (`onEditName` ⇒ `ReaderAIFullScreenView.applyNameEdit`) nên mở lại sheet vẫn còn; chưa ghi
 /// từ điển — nút "Lưu" vẫn lo việc đó.
