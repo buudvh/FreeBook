@@ -4,8 +4,8 @@ import SwiftUI
 /// 1. DNS mã hoá — công tắc **"Bật cho cả app"** (`EncryptedDNSPolicy`, mặc định tắt), máy chủ dùng chung cho cả bật
 ///    chung lẫn bật riêng, dòng **"Bật riêng: N tiện ích / nguồn"** (cờ `Extension.encryptedDNSEnabled` đặt ở Cấu hình
 ///    tiện ích / Chi tiết nguồn Legado), trạng thái + "Kiểm tra lại" khi có ai cần (`EncryptedDNSRepository`).
-/// 2. VPN 1.1.1.1 (1.3.1059) — nút chạy phím tắt bật / tắt VPN (`VPNShortcutRunner`), ô tên phím tắt, trang
-///    `VPNShortcutGuideView`. Cùng nút có ở sheet hub (dòng "VPN 1.1.1.1").
+/// 2. VPN 1.1.1.1 (1.3.1059; hai phím tắt Bật / Tắt 1.3.1061) — hai nút chạy phím tắt (`VPNShortcutRunner`), hai ô tên,
+///    trang `VPNShortcutGuideView`, dòng "App chạy phím tắt lần cuối". Cùng hai nút có ở sheet hub (dòng "VPN 1.1.1.1").
 /// 3. Trình duyệt & phim — dẫn sang `SystemDNSGuideView` (đổi DNS / IP cho cả máy), vì WebView và AVPlayer nằm ngoài
 ///    tầm của DNS trong app.
 ///
@@ -13,7 +13,10 @@ import SwiftUI
 struct NetworkSettingsView: View {
     @AppStorage(EncryptedDNSPolicy.enabledKey) private var dnsEnabled = EncryptedDNSPolicy.defaultEnabled
     @AppStorage(EncryptedDNSPolicy.resolverKey) private var resolver = EncryptedDNSPolicy.defaultResolver
-    @AppStorage(VPNShortcutLauncher.shortcutNameKey) private var vpnShortcutName = VPNShortcutLauncher.defaultShortcutName
+    @AppStorage(VPNShortcutLauncher.Action.on.nameKey) private var vpnOnName = VPNShortcutLauncher.Action.on.defaultName
+    @AppStorage(VPNShortcutLauncher.Action.off.nameKey) private var vpnOffName = VPNShortcutLauncher.Action.off.defaultName
+    @AppStorage(VPNShortcutLauncher.lastRunAtKey) private var vpnLastRunAt: Double = 0
+    @AppStorage(VPNShortcutLauncher.lastRunInfoKey) private var vpnLastRunInfo = ""
 
     private var repository: EncryptedDNSRepository { EncryptedDNSRepository.shared }
 
@@ -111,31 +114,70 @@ struct NetworkSettingsView: View {
     private var vpnSection: some View {
         Section {
             Button {
-                VPNShortcutRunner.run()
+                VPNShortcutRunner.run(.on, from: .settings)
             } label: {
-                Label("Bật / tắt VPN 1.1.1.1", systemImage: "network.badge.shield.half.filled")
+                Label("Bật VPN 1.1.1.1", systemImage: "network.badge.shield.half.filled")
             }
-            HStack {
-                Text("Tên phím tắt")
-                Spacer(minLength: 8)
-                TextField(VPNShortcutLauncher.defaultShortcutName, text: $vpnShortcutName)
-                    .multilineTextAlignment(.trailing)
-                    .foregroundColor(.secondary)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.done)
+            Button {
+                VPNShortcutRunner.run(.off, from: .settings)
+            } label: {
+                Label("Tắt VPN 1.1.1.1", systemImage: "shield.slash")
             }
+            shortcutNameRow("Phím tắt bật", text: $vpnOnName, placeholder: VPNShortcutLauncher.Action.on.defaultName)
+            shortcutNameRow("Phím tắt tắt", text: $vpnOffName, placeholder: VPNShortcutLauncher.Action.off.defaultName)
             NavigationLink(destination: VPNShortcutGuideView()) {
                 Text("Cách tạo phím tắt")
             }
+            HStack {
+                Text("App chạy phím tắt lần cuối")
+                Spacer(minLength: 8)
+                Text(lastRunText)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
         } header: {
             SectionHelpHeader("VPN 1.1.1.1", paragraphs: [
-                "App không tự bật VPN được. Nút này chạy một phím tắt tạo sẵn trong app Phím tắt (tác vụ \"Đặt VPN\" › Bật/tắt › cấu hình 1.1.1.1) — xem \"Cách tạo phím tắt\".",
-                "Mỗi lần bấm, app Phím tắt hiện lên giây lát rồi tự quay về đây; đang nghe / xem thì không bị ngắt.",
-                "Tên phím tắt phải trùng tên trong app Phím tắt. Nên đặt không dấu. Cũng bấm được từ dòng \"VPN 1.1.1.1\" của nút hub nổi."
+                "App không tự bật / tắt VPN được. Hai nút chạy hai phím tắt tạo sẵn trong app Phím tắt: phím tắt bật dùng tác vụ \"Đặt VPN\" › Kết nối, phím tắt tắt dùng \"Đặt VPN\" › Ngắt kết nối, cùng cấu hình 1.1.1.1 — xem \"Cách tạo phím tắt\".",
+                "Mỗi lần bấm, app Phím tắt hiện lên giây lát rồi tự quay về đây; app không bị mở lại.",
+                "Tên phím tắt phải trùng tên trong app Phím tắt, nên đặt không dấu. Hai nút cũng có ở dòng \"VPN 1.1.1.1\" của nút hub nổi.",
+                "App chạy phím tắt lần cuối: giờ, Bật / Tắt và chỗ bấm của lần gần nhất app mở app Phím tắt. VPN tự bật mà giờ ở đây cũ hơn thì không phải app này bật."
             ])
         }
     }
+
+    private func shortcutNameRow(_ title: String, text: Binding<String>, placeholder: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer(minLength: 8)
+            TextField(placeholder, text: text)
+                .multilineTextAlignment(.trailing)
+                .foregroundColor(.secondary)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .submitLabel(.done)
+        }
+    }
+
+    /// "10:42 · Bật · hub" (hôm nay) / "24/11 10:42 · …" (ngày khác) / "Chưa có".
+    private var lastRunText: String {
+        guard vpnLastRunAt > 0 else { return "Chưa có" }
+        let date = Date(timeIntervalSince1970: vpnLastRunAt)
+        let formatter = Calendar.current.isDateInToday(date) ? Self.timeFormatter : Self.dayTimeFormatter
+        let time = formatter.string(from: date)
+        return vpnLastRunInfo.isEmpty ? time : "\(time) · \(vpnLastRunInfo)"
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private static let dayTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM HH:mm"
+        return formatter
+    }()
 
     // MARK: - Trình duyệt & phim
 

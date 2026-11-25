@@ -125,7 +125,7 @@ final class FloatingHubContainerViewController: UIViewController, UIGestureRecog
             onSelectSourceCheck: { [weak self] kind in self?.openSourceCheck(kind) },
             onOpenInboxBook: { [weak self] book in self?.openInboxBook(book) },
             onLeaveSourceCheck: { [weak self] kind in self?.leaveSourceCheck(kind) },
-            onRunVPNShortcut: { [weak self] in self?.runVPNShortcut() }
+            onRunVPNShortcut: { [weak self] action in self?.runVPNShortcut(action) }
         )
     }
 

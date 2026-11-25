@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1061] - 2026-11-25
+
+### fix: VPN 1.1.1.1 tách hai nút Bật / Tắt chạy hai phím tắt, ghi lần app chạy phím tắt cuối
+
+Anh Bửu: "dù đã tắt vpn nhưng vào app vẫn cứ bật lại", "tôi không làm được shortcut bật/tắt vpn, chỉ làm được shortcut bật thôi" → duyệt mockup bản 3 https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k.
+
+- Hai phím tắt thay cho một phím tắt "Bật/tắt" (`VPNShortcutLauncher.Action`): **bật** = "Đặt VPN" › Kết nối (giữ khoá `vpnShortcutName`, mặc định "VPN 1.1.1.1" ⇒ phím tắt anh đã tạo vẫn chạy), **tắt** = "Đặt VPN" › Ngắt kết nối (khoá mới `vpnShortcutOffName`, mặc định "Tat VPN 1.1.1.1", không dấu). App không dò trạng thái VPN.
+- Mạng & DNS: hai nút "Bật VPN 1.1.1.1" / "Tắt VPN 1.1.1.1", hai ô "Phím tắt bật" / "Phím tắt tắt", dòng **"App chạy phím tắt lần cuối"** ("10:42 · Bật · hub", ngày khác "24/11 10:42 · …", chưa chạy "Chưa có"). Câu giải thích đổi "đang nghe / xem thì không bị ngắt" ⇒ "app không bị mở lại" (phim có thể bị iOS tạm dừng khi app Phím tắt hiện lên).
+- Lần chạy cuối: iOS nhận mở app Phím tắt ⇒ `VPNShortcutLauncher.recordRun` ghi `vpnShortcutLastRunAt` / `vpnShortcutLastRunInfo` vào UserDefaults — không phụ thuộc công tắc Ghi log (tắt lại mỗi lần mở app). Để bắt vụ VPN tự bật: anh đã kiểm "Kết nối theo yêu cầu" đang tắt, không có Tự động hoá, mở Safari thì không bị; app không dùng `NetworkExtension` ở đâu, đường duy nhất là mở app Phím tắt (luôn hiện lên trước mắt) ⇒ VPN tự bật mà giờ ở dòng này cũ hơn thì không phải app.
+- Trang "Cách tạo phím tắt" (`VPNShortcutGuideView`): nhóm bước Phím tắt bật / Phím tắt tắt + mục "VPN tự bật lại".
+- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) bỏ mũi ›, thân dòng không bấm; cuối dòng hai nút nhỏ Bật (kiểu chip đang chọn: chữ màu nhấn, nền nhấn 18%, viền 60%) / Tắt (nền trắng 12%), cao 32, chữ 13 nửa đậm; bấm ⇒ `runVPNShortcut(_:)` đóng sheet xong mới chạy.
+- `network-dns.md`, `floating-pills.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1060] - 2026-11-25
 
 ### fix: danh sách name AI bỏ ô nhập nghĩa và nút bút chì, chạm hàng mở màn Sửa từ
@@ -366,17 +380,4 @@ Sửa sau review phản biện (2 agent, chỉ đọc) trước lượt push đ�
 - Toast / log lỗi tổng hợp của đường phát local chung ghi tên trình đọc đang dùng (`TTSManager.localReaderLabel`: NghiTTS / VieNeu / vtts) thay cho luôn "NghiTTS" — sửa tại chỗ 2 dòng `TTSManager.swift`, không thêm dòng.
 - Dọn: 7 entry cũ nhất (1.3.995–1.3.1001) chuyển sang `CHANGELOG.archive.md` (file chính giữ 30 entry); `AGENTS.md` + `ci-release.md` ghi điều kiện chạy CI mới.
 - Review không thấy lỗi biên dịch Swift / C nào khác (đối chiếu code, máy Windows không biên dịch được). Để sau (ghi nhận, chưa sửa): lỗi front-end hiếm của một đoạn vtts làm dừng cả phiên đọc; runtime có thể nạp lại ngay sau khi vừa nhả (chỉ tốn ~4,7 MB, không lỗi).
-
-## [1.3.1031] - 2026-11-20
-
-### feat: vtts — lưu sẵn model, từ điển và công cụ dựng lại trong repo, CI không tải gì từ upstream
-
-Anh Bửu (qua session chính): lưu sẵn toàn bộ dữ liệu vtts trong repo, phòng repo upstream / CMUdict bị xoá — CI và app không phụ thuộc mạng tới `tuanpmt/vtts` hay `cmusphinx`. Thay phần tài sản của 1.3.1028–1029.
-
-- **`Vendor/vtts/assets/`** (commit, `-text` trong `.gitattributes` ⇒ giữ nguyên byte): `vtts/` = **đúng** 3 file đóng vào app (2 giọng M release `v0.4.0` + `lex_en.bin`), `extra/` = 2 bản S dự trữ (không vào app), `cmudict/cmudict.dict` (commit `74790861…`, SHA256 trùng mức `cmudict.py` ghim), `SHA256SUMS` nguyên văn của release (4 model đã kiểm khớp trước khi commit) + `LOCAL_SHA256SUMS` (`lex_en.bin`, `cmudict.dict`). `lex_en.bin` dựng trên máy này bằng `build_lexicon.py` ở commit ghim `c5c8c00` (1 860 736 byte).
-- **`Vendor/vtts/tools/`**: công cụ upstream cùng commit, chép nguyên văn (đã so hash git từng file): `scripts/frontend/build_lexicon.py` + 8 module `src/vtts/...` nó import (chỉ thư viện chuẩn), `runtime/tools/vtts_say.c`, `runtime/Makefile`. Nằm ngoài target SPM ⇒ không vào app. **`Vendor/vtts/rebuild_lex_en.sh`** (mới): dựng lại `lex_en.bin` từ `tools/` + `cmudict.dict` trong thư mục tạm, chặn mạng bằng proxy chết, so SHA256 (hoặc `--write` để ghi đè) — đã thử import + đọc CMUdict offline (126 052 từ); lượt dựng đầy đủ trên máy này hết RAM (`MemoryError` ở bước huấn luyện letter-to-sound, máy 8 GB chỉ còn ~0,8 GB trống) nên **chưa đối chiếu lại từng byte**. `Vendor/vtts/README.md` (mới): bố cục + cách dựng lại / nâng runtime / nâng model.
-- **`Scripts/ci/check_vtts_assets.sh`** thay `fetch_vtts_assets.sh` (xoá): không mạng, không cache — kiểm SHA256 mọi tài sản + `assets/vtts/` đúng 3 file, dựng `vtts_say` từ mã đã vendor đọc thử câu Việt + Anh bằng từng giọng M (kiểm `token_set vi-en`, `mode auto lex 1`, id < vocab, WAV ≥ 1 s, không im lặng), kiểm thử shim với ASan/UBSan như trước. `build-ipa.yml`: một bước "Check vtts assets + smoke test" thay 4 bước cache / tải / lưu / smoke; `paths` đổi sang `check_vtts_assets.sh`. `project.yml`: folder resource `Vendor/vtts/assets/vtts` (bundle vẫn là `vtts/`, Swift không đổi đường tra). `.gitignore` bỏ `/Vendor/vtts-assets/`.
-- Bản quyền: `THIRD_PARTY_NOTICES.md` ghi thêm `tools/`, bản S, CMUdict nguồn trong repo (BSD-2 điều khoản 1) bên cạnh VLEX trong IPA (điều khoản 2). Chú thích `Package.swift`, `VttsVoice`, `VttsRuntime`, `vtts_bridge_smoke.c`, `ci-release.md` cập nhật theo.
-- Dung lượng thêm vào git: ~13,1 MB tài sản (4 model 7,57 MB + `lex_en.bin` 1,86 MB + `cmudict.dict` 3,62 MB) + ~85 KB công cụ.
-- Kiểm: `bash -n`, thử phần kiểm SHA256 của script mới trên Windows (bắt được file thừa trong `assets/vtts/`), YAML hợp lệ, `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`). **Không biên dịch / chạy `vtts_say` được tại chỗ (Windows)** — chỉ CI.
 

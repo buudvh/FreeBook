@@ -7,7 +7,7 @@ import SwiftUI
 /// - Trang chính: dòng đầu "Lối tắt nổi" + "N đang chạy"; **bốn dòng cố định** (AI → Thông báo → Video → Kiểm tra nguồn,
 ///   `FloatingHubItem.Kind.allCases`) dạng ô bo góc, không vạch ngăn. Dòng không dùng được mờ 40%, không biến mất. Dòng
 ///   Video giữ ⏸ / ✕ ngay trên dòng (sheet không đóng). Ngay dưới là dòng **"VPN 1.1.1.1"** (1.3.1059, `FloatingHubVPNRow`
-///   — lối tắt chạy phím tắt bật / tắt VPN, luôn chạm được, không thuộc `Kind`). Dưới nữa là mục **"Đang chạy"** (1.3.967,
+///   — hai nút Bật / Tắt chạy hai phím tắt VPN (1.3.1061), luôn chạm được, không thuộc `Kind`). Dưới nữa là mục **"Đang chạy"** (1.3.967,
 ///   `FloatingHubActivitySection`): mỗi tác vụ nền có tiến độ một ô có thanh, không giới hạn số ô — trang cuộn khi dài.
 /// - Trang con trong sheet: "Tác vụ AI" (`FloatingHubAITaskListView`) và "Kiểm tra nguồn" khi có hai lượt
 ///   (`FloatingHubSourceCheckListView`), nút ‹ quay lại; danh sách rỗng ⇒ tự về trang chính.
@@ -49,8 +49,8 @@ struct FloatingHubSheet: View {
         let onOpenInboxBook: (Book) -> Void
         /// Nút ‹ / ⌄ của trang kiểm tra: giao lượt cho hub rồi về trang chính.
         let onLeaveSourceCheck: (MinimizedSourceCheck.Kind) -> Void
-        /// Dòng "VPN 1.1.1.1" (1.3.1059): đóng sheet rồi chạy phím tắt bật / tắt VPN.
-        let onRunVPNShortcut: () -> Void
+        /// Nút Bật / Tắt của dòng "VPN 1.1.1.1" (1.3.1059, hai nút 1.3.1061): đóng sheet rồi chạy phím tắt tương ứng.
+        let onRunVPNShortcut: (VPNShortcutLauncher.Action) -> Void
     }
 
     @ObservedObject var reader: FloatingHubPresentationReader
@@ -164,7 +164,7 @@ struct FloatingHubSheet: View {
                         onStop: { actions.onStopPlayback(kind) }
                     )
                 }
-                FloatingHubVPNRow(onSelect: actions.onRunVPNShortcut)
+                FloatingHubVPNRow(onRun: actions.onRunVPNShortcut)
                 // Tác vụ nền có thanh tiến độ (1.3.967); chạm ⇒ trang Thông báo trong sheet như dòng Thông báo.
                 FloatingHubActivitySection(onSelect: { selectMainRow(.notifications) })
             }

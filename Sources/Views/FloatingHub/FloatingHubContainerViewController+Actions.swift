@@ -83,11 +83,11 @@ extension FloatingHubContainerViewController {
         }
     }
 
-    /// Dòng "VPN 1.1.1.1" (1.3.1059): đóng sheet **xong** mới mở app Phím tắt — mở link lúc sheet đang đóng dở thì app rời
-    /// màn hình giữa chừng hoạt cảnh.
-    func runVPNShortcut() {
+    /// Nút Bật / Tắt của dòng "VPN 1.1.1.1" (1.3.1059, hai nút 1.3.1061): đóng sheet **xong** mới mở app Phím tắt — mở link
+    /// lúc sheet đang đóng dở thì app rời màn hình giữa chừng hoạt cảnh.
+    func runVPNShortcut(_ action: VPNShortcutLauncher.Action) {
         sheetState.dismiss {
-            VPNShortcutRunner.run()
+            VPNShortcutRunner.run(action, from: .hub)
         }
     }
 

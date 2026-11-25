@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// Trang **"Cách tạo phím tắt"** của mục VPN 1.1.1.1 ở Mạng & DNS (1.3.1059, mockup
-/// https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k): các bước tạo phím tắt "Đặt VPN" › Bật/tắt › 1.1.1.1 trong app Phím
-/// tắt, theo khuôn bước đánh số của `SystemDNSGuideView`. Nhãn tiếng Việt của iOS có thể lệch đôi chữ giữa các bản.
+/// Trang **"Cách tạo phím tắt"** của mục VPN 1.1.1.1 ở Mạng & DNS (1.3.1059; hai phím tắt Bật / Tắt 1.3.1061, mockup bản 3
+/// https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k): bước tạo phím tắt bật ("Đặt VPN" › Kết nối) và phím tắt tắt
+/// ("Đặt VPN" › Ngắt kết nối) trong app Phím tắt, theo khuôn bước đánh số của `SystemDNSGuideView`, cộng mục "VPN tự bật
+/// lại". Nhãn tiếng Việt của iOS có thể lệch đôi chữ giữa các bản.
 struct VPNShortcutGuideView: View {
-    @AppStorage(VPNShortcutLauncher.shortcutNameKey) private var shortcutName = VPNShortcutLauncher.defaultShortcutName
+    @AppStorage(VPNShortcutLauncher.Action.on.nameKey) private var onName = VPNShortcutLauncher.Action.on.defaultName
+    @AppStorage(VPNShortcutLauncher.Action.off.nameKey) private var offName = VPNShortcutLauncher.Action.off.defaultName
 
     var body: some View {
         Form { Group {
-            setupSection
-            notesSection
+            onSection
+            offSection
+            reconnectSection
             Section {
                 Button {
                     VPNShortcutRunner.openShortcutsApp()
@@ -21,30 +24,38 @@ struct VPNShortcutGuideView: View {
         .backPageTitle("Tạo phím tắt VPN")
     }
 
-    private var setupSection: some View {
+    private var onSection: some View {
         Section {
-            step(1, "Cài app **1.1.1.1** của Cloudflare, bật một lần để iOS thêm cấu hình VPN.")
-            step(2, "Mở app **Phím tắt** › **+** › Thêm tác vụ › tìm “VPN” › chọn **Đặt VPN**.")
-            step(3, "Bấm chữ “Kết nối” đổi thành **Bật/tắt**; bấm chữ “VPN” chọn cấu hình **1.1.1.1**.")
-            step(4, "Đặt tên phím tắt đúng như ô Tên phím tắt: **\(displayName)**.")
-            step(5, "Chạy thử ngay trong app Phím tắt: VPN 1.1.1.1 phải bật / tắt theo. Không phản ứng thì nút trong app cũng không làm được gì.")
+            step(1, "App **Phím tắt** › **+** › Thêm tác vụ › tìm “VPN” › **Đặt VPN**.")
+            step(2, "Giữ **Kết nối**; bấm chữ “VPN” chọn cấu hình **1.1.1.1** (cài app 1.1.1.1 và bật một lần để iOS có cấu hình này).")
+            step(3, "Đặt tên **\(displayName(onName, .on))**.")
         } header: {
-            Text("Tạo một lần")
+            Text("Phím tắt bật")
         }
     }
 
-    private var notesSection: some View {
+    private var offSection: some View {
         Section {
-            note("Chế độ **1.1.1.1** (chỉ đổi DNS) hay **WARP** (đổi cả IP) chọn trong app 1.1.1.1; phím tắt chỉ bật / tắt.")
-            note("Mỗi lần bấm, app Phím tắt hiện lên giây lát rồi tự quay về đây. Lần đầu iOS có thể hỏi cho phép mở Phím tắt.")
+            step(1, "Tạo phím tắt mới, thêm **Đặt VPN** như trên.")
+            step(2, "Bấm chữ “Kết nối” đổi thành **Ngắt kết nối**; chọn **1.1.1.1**.")
+            step(3, "Đặt tên **\(displayName(offName, .off))**.")
         } header: {
-            Text("Lưu ý")
+            Text("Phím tắt tắt")
         }
     }
 
-    private var displayName: String {
-        let trimmed = shortcutName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? VPNShortcutLauncher.defaultShortcutName : trimmed
+    private var reconnectSection: some View {
+        Section {
+            note("Xem dòng **App chạy phím tắt lần cuối** ở Mạng & DNS: giờ ở đó cũ hơn lúc VPN bật thì không phải app này bật.")
+            note("Thử tắt mục **Kết nối theo yêu cầu** ở Cài đặt › Cài đặt chung › VPN & Quản lý thiết bị › VPN › (i) cạnh 1.1.1.1, hoặc tắt VPN bằng công tắc lớn trong app 1.1.1.1.")
+        } header: {
+            Text("VPN tự bật lại")
+        }
+    }
+
+    private func displayName(_ saved: String, _ action: VPNShortcutLauncher.Action) -> String {
+        let trimmed = saved.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? action.defaultName : trimmed
     }
 
     private func step(_ number: Int, _ text: LocalizedStringKey) -> some View {
