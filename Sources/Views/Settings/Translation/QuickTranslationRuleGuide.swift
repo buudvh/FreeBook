@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Hai nơi đọc, không nơi nào viết lại nội dung:
 /// - `QuickTranslationRuleGuideView` — trang "Hướng dẫn viết rule" hiện đủ mọi mục.
-/// - Các nút "?" (`SectionHelpHeader`) ở màn sửa rule, Cấu hình token rule và Bộ ngoặc — chỉ lấy những ý gắn
+/// - Các nút "?" (`SectionHelpHeader`) ở màn sửa rule, Cấu hình token rule, Bộ ngoặc và Danh sách họ — chỉ lấy những ý gắn
 ///   `HelpSpot` của đúng chỗ đó qua `helpTexts(for:)`.
 ///
 /// Mỗi ý phải đúng với parser/matcher/compiler hiện tại (đã đối chiếu khi viết): sửa engine mà đổi hành vi thì
@@ -18,6 +18,8 @@ enum QuickTranslationRuleGuide {
         case replacement
         case tokenSettings
         case bracketList
+        /// Màn Danh sách họ của token `<ho>` (1.3.1062).
+        case surnameList
     }
 
     struct Point: Sendable {
@@ -91,7 +93,7 @@ enum QuickTranslationRuleGuide {
               "<a>级 = cấp {0}  →  SSS级 ra cấp SSS", help: [.tokenSettings]),
             p("<L> một nhãn 章 卷 集 节 節 幕 回 折, ra Chương, Quyển, Tập, Tiết, Màn, Hồi, Chiết.",
               "第<n><L> = {1} {0}  →  第3卷 ra Quyển 3"),
-            p("Token mặc định khớp 1-12 ký tự, chỉnh bằng <n:1-4>; <L> và <hv> luôn 1 ký tự, <m> tự nhận 1-4."),
+            p("Token mặc định khớp 1-12 ký tự, chỉnh bằng <n:1-4>; <L> và <hv> luôn 1 ký tự, <ho> 1-2 chữ, <m> tự nhận 1-4."),
         ]),
         Topic(title: "Token từ điển", points: [
             p("<ne> một cụm có trong Name, ra nghĩa Việt của cụm đó.", "<ne>说 = {0} nói  →  张三说 ra Trương Tam nói"),
@@ -99,18 +101,34 @@ enum QuickTranslationRuleGuide {
             p("<vp> một cụm có trong VietPhrase."),
             p("<hv> đúng một chữ Hán, ra âm Hán-Việt."),
             p("<w> một cụm có trong Name, Đại từ hoặc VietPhrase; có công tắc riêng."),
+            p("<ho> một họ người Trung Quốc trong Danh sách họ: họ đơn (王, 李…) hoặc họ kép (欧阳, 司马…), cả phồn thể; ra âm Hán-Việt viết hoa.",
+              "老<ho> = lão {0}  →  老王 ra lão Vương"),
+            p("<ho> thử họ kép trước; phần sau của mẫu không khớp thì lùi về họ đơn.",
+              "<ho>某 = {0} mỗ  →  司马某 ra Tư Mã mỗ"),
+            p("Nhiều họ cũng là chữ hay gặp (王, 白, 有, 和…): mẫu có <ho> nên kèm chữ cố định như 老, 某, 家, 氏, 先生."),
             p("Ghép bằng |: <ne|pn> nhận cụm có trong Name hoặc Đại từ."),
             p("Từ điển chưa nạp thì rule có token đó tạm không chạy."),
+        ]),
+        Topic(title: "Danh sách họ", points: [
+            p("Danh sách gốc có sẵn trong app: Bách gia tính, vài họ hay gặp trong truyện, kèm dạng phồn thể.",
+              help: [.surnameList]),
+            p("Họ thêm, sửa, xoá hay tắt được lưu riêng, danh sách gốc không bị ghi đè; Khôi phục mặc định ở menu … bỏ hết thay đổi.",
+              help: [.surnameList]),
+            p("Họ đang tắt vẫn nằm trong danh sách nhưng <ho> không khớp.", help: [.surnameList]),
+            p("Mỗi họ 1 hoặc 2 chữ Hán; âm đọc chính là chữ <ho> trả ra, nên viết hoa sẵn.", help: [.surnameList]),
+            p("Nhập file dạng 王=Vương, mỗi dòng một họ, dòng sai bị bỏ qua; xuất file bỏ họ đang tắt.", help: [.surnameList]),
+            p("Mở ở Cấu hình token rule › Danh sách họ; chỉ có một danh sách chung cho mọi truyện."),
         ]),
         Topic(title: "Viết hoa nghĩa", points: [
             p("Viết HOA tên token chữ thì nghĩa của nó được viết hoa chữ đầu mọi từ, như nút AA.",
               "<VP>宗 = {0} Tông  →  天剑宗 ra Thiên Kiếm Tông", help: [.pattern, .replacement]),
-            p("Dùng cho <NE> <PN> <VP> <W> <HV> <HN> <M> <A>; vẫn kèm độ dài, ? và |: <VP:1-4>, <NE|PN>?.",
+            p("Dùng cho <NE> <PN> <VP> <W> <HV> <HN> <M> <A> <HO>; vẫn kèm độ dài, ? và |: <VP:1-4>, <NE|PN>?.",
               help: [.pattern]),
             p("Chạm chip token trong mẫu rồi bấm AA hoa nghĩa để đổi qua lại; viết tay cũng được."),
             p("Cả token phải cùng viết hoa hoặc cùng viết thường: <NE|pn> là lỗi."),
             p("Phần còn lại của mỗi từ thành chữ thường: <A> trên SSS ra Sss."),
             p("Token số <n> <y> <h> <d> và <any> không có bản viết hoa; <L> vốn đã ra Chương, Quyển… viết hoa."),
+            p("<ho> vốn ra âm họ viết hoa sẵn; <HO> cho cùng kết quả."),
             p("<VP> theo đúng công tắc của <vp>: tắt VietPhrase là tắt cả hai.", help: [.tokenSettings]),
             p("<vp>宗 và <VP>宗 là hai mẫu khác nhau; đổi trên rule đã có thì Lưu sẽ hỏi Thay rule cũ hay Lưu thêm."),
         ]),

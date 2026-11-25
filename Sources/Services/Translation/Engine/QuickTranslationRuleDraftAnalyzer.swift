@@ -233,6 +233,9 @@ public enum QuickTranslationRuleDraftAnalyzer {
             isTitleCase ? names.map { $0.lowercased() } : names
         }
 
+        /// `<ho>` / `<HO>` đứng một mình (1.3.1062): thanh chỉnh ghi "một họ: 1 hoặc 2 chữ" thay cho câu "đúng 1 ký tự".
+        public var isSurname: Bool { baseNames == ["ho"] }
+
         /// Mặc định khi token không ghi `:min-max` — theo loại token, khớp parser.
         public var defaultRangeMax: Int {
             isAnyRun ? Self.anyRunDefaultMaxLength : Self.defaultMaxLength
@@ -243,13 +246,14 @@ public enum QuickTranslationRuleDraftAnalyzer {
             isAnyRun ? Self.anyRunAdjustableUpperBound : Self.adjustableUpperBound
         }
 
-        /// `<L>` và `<hv>` bị parser ép về đúng 1 ký tự, `<m>` tự động nhận diện dải cơ số 1-4 ký tự, nên không
-        /// cho điều chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có** range vì cấp bậc
+        /// `<L>` và `<hv>` bị parser ép về đúng 1 ký tự, `<ho>` về 1-2 (họ đơn / họ kép), `<m>` tự động nhận diện dải
+        /// cơ số 1-4 ký tự, nên không cho điều chỉnh: hiện thanh cho chúng là hứa một việc không có hiệu lực. `<a>` **có**
+        /// range vì cấp bậc
         /// kiểu `SSS` dài 3 ký tự. Neo `<START>`/`<END>` rộng 0 và ngoặc `<[>`/`<]>` đúng 1 ký tự: không có
         /// độ dài.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }
-            if baseNames == ["hv"] { return false }
+            if baseNames == ["hv"] || isSurname { return false }
             if baseNames == ["m"] { return false }
             if names.contains(where: { QuickTranslationRuleTokenSettings.Kind.kind(forTokenName: $0)?.isUncaptured == true }) {
                 return false

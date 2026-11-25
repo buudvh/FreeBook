@@ -5,7 +5,7 @@ import Foundation
 /// Giá trị chỉ sống trong `UserDefaults`, không đi vào file rule hay snapshot. Mỗi rule lưu lại
 /// cú pháp token gốc lúc parse để `<w>` vẫn là một công tắc độc lập với `<ne>|<pn>|<vp>`.
 public enum QuickTranslationRuleTokenSettings {
-    /// Mười tám token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
+    /// Mười chín token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
     ///
     /// Token mới **phải thêm vào cuối**: `Configuration.signature` là chuỗi bit theo thứ tự
     /// `allCases`, nên chèn vào giữa làm mọi chữ ký cũ trượt một bit và cache dịch của người dùng
@@ -41,6 +41,9 @@ public enum QuickTranslationRuleTokenSettings {
         /// đúng 1 và **không** sinh capture như neo; `<]>` phải đóng đúng cặp với `<[>` đi trước nó.
         case openBracket = "["
         case closeBracket = "]"
+        /// `<ho>` — một họ người Trung Quốc (1.3.1062), nối vào **cuối**. Token từ điển: tra danh sách họ
+        /// (`QuickTranslationSurnameStore`, bản gốc trong app + lớp riêng của người dùng), họ kép thử trước họ đơn.
+        case surname = "ho"
 
         /// Khóa cài đặt phải bắt đầu bằng chữ thường để `BackupSettingsArchiver` tự sao lưu.
         public var userDefaultsKey: String {
@@ -63,6 +66,7 @@ public enum QuickTranslationRuleTokenSettings {
             case .lineEnd: return "quickTranslateRuleTokenLineEndEnabled"
             case .openBracket: return "quickTranslateRuleTokenOpenBracketEnabled"
             case .closeBracket: return "quickTranslateRuleTokenCloseBracketEnabled"
+            case .surname: return "quickTranslateRuleTokenSurnameEnabled"
             }
         }
 
@@ -90,6 +94,7 @@ public enum QuickTranslationRuleTokenSettings {
             case .lineEnd: return "<END> — cuối dòng"
             case .openBracket: return "<[> — mở ngoặc"
             case .closeBracket: return "<]> — đóng ngoặc"
+            case .surname: return "<ho> — họ người Trung Quốc"
             }
         }
 
@@ -100,7 +105,7 @@ public enum QuickTranslationRuleTokenSettings {
             case .numeral, .digitwise, .hanDigits, .asciiDigits, .chapterLabel, .magnitude, .latinLetters,
                  .hanNumeral, .any, .lineStart, .lineEnd, .openBracket, .closeBracket:
                 return true
-            case .name, .pronoun, .vietPhrase, .hanViet, .word:
+            case .name, .pronoun, .vietPhrase, .hanViet, .word, .surname:
                 return false
             }
         }

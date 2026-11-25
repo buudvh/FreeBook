@@ -23,10 +23,13 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.lineEnd.userDefaultsKey) private var isLineEndEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.openBracket.userDefaultsKey) private var isOpenBracketEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.closeBracket.userDefaultsKey) private var isCloseBracketEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.surname.userDefaultsKey) private var isSurnameEnabled = true
 
     /// "x/y cặp bật" của hàng Bộ ngoặc. Store bộ ngoặc không phát thay đổi ⇒ đọc lại ở `onAppear` (chạy lại khi quay
     /// về từ màn Bộ ngoặc), không tính thẳng trong `body`.
     @State private var bracketSummary = ""
+    /// "683 họ · 1 đang tắt" của hàng Danh sách họ — store không phát thay đổi ⇒ đọc lại ở `onAppear` như Bộ ngoặc.
+    @State private var surnameSummary = ""
 
     var body: some View {
         Form { Group {
@@ -65,8 +68,23 @@ struct QuickTranslationRuleTokenSettingsView: View {
                 Toggle(QuickTranslationRuleTokenSettings.Kind.vietPhrase.label, isOn: invalidating($isVietPhraseEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.hanViet.label, isOn: invalidating($isHanVietEnabled))
                 Toggle(QuickTranslationRuleTokenSettings.Kind.word.label, isOn: invalidating($isWordEnabled))
+                Toggle(QuickTranslationRuleTokenSettings.Kind.surname.label, isOn: invalidating($isSurnameEnabled))
+
+                NavigationLink {
+                    QuickTranslationSurnameListView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Danh sách họ")
+                        Text(verbatim: surnameSummary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             } header: {
-                SectionHelpHeader("Token từ điển", paragraphs: ["<w> có công tắc riêng, không phụ thuộc <ne>, <pn> hay <vp>."])
+                SectionHelpHeader("Token từ điển", paragraphs: [
+                    "<w> có công tắc riêng, không phụ thuộc <ne>, <pn> hay <vp>.",
+                    "<ho> khớp một họ trong Danh sách họ: họ kép thử trước, rồi tới họ đơn."
+                ])
             }
 
             Section {
@@ -79,6 +97,8 @@ struct QuickTranslationRuleTokenSettingsView: View {
         .onAppear {
             let pairs = QuickTranslationRuleBracketStore.shared.globalPairs()
             bracketSummary = "\(pairs.filter(\.isEnabled).count)/\(pairs.count) cặp bật"
+            let surnames = QuickTranslationSurnameStore.shared.summary()
+            surnameSummary = QuickTranslationSurnameListView.summaryText(total: surnames.total, disabled: surnames.disabled)
         }
     }
 

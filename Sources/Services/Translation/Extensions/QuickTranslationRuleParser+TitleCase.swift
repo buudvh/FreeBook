@@ -4,8 +4,8 @@ import Foundation
 /// AA của `TextCaseFormatter` (hoa chữ đầu mọi từ, còn lại thường) — `天剑宗` qua `<VP>宗 = {0} Tông` ra
 /// `Thiên Kiếm Tông`.
 ///
-/// Chỉ token có chữ trong nghĩa mới nhận: từ điển `<NE> <PN> <VP> <W> <HV>`, `<HN>` (Hán-Việt), `<M>` (mươi, trăm…)
-/// và `<A>` (chữ Latin). Token số `<n> <y> <h> <d>` ra chữ số, `<any>` trả nguyên văn chữ Hán (dịch sau ở bước tra
+/// Chỉ token có chữ trong nghĩa mới nhận: từ điển `<NE> <PN> <VP> <W> <HV>`, `<HN>` (Hán-Việt), `<M>` (mươi, trăm…),
+/// `<A>` (chữ Latin) và `<HO>` (1.3.1062 — âm họ vốn lưu viết hoa sẵn, nhận để nút AA và thói quen viết hoa không báo lỗi). Token số `<n> <y> <h> <d>` ra chữ số, `<any>` trả nguyên văn chữ Hán (dịch sau ở bước tra
 /// từ điển của cả dòng) nên bản viết hoa của chúng vẫn là lỗi `UNKNOWN_TOKEN_NAME`; `<L>` vốn viết hoa tên và luôn
 /// ra nhãn viết hoa sẵn.
 ///
@@ -14,7 +14,7 @@ import Foundation
 /// `<VP>` theo công tắc VietPhrase như `<vp>`. Chữ hoa chỉ áp ở `QuickTranslationRuleElement.renderedMeaning`.
 extension QuickTranslationRuleParser {
     /// Tên (chữ thường) của các token chữ được viết HOA để ép viết hoa nghĩa.
-    static let titleCaseTokenNames: Set<String> = ["ne", "pn", "vp", "w", "hv", "hn", "m", "a"]
+    static let titleCaseTokenNames: Set<String> = ["ne", "pn", "vp", "w", "hv", "hn", "m", "a", "ho"]
 
     /// `true` khi `name` là bản viết HOA toàn bộ của một token chữ (`VP`, `HN`, `M`…). `Vp` hay `vP` không tính —
     /// chúng rơi xuống lỗi "không được hỗ trợ" như mọi tên sai.

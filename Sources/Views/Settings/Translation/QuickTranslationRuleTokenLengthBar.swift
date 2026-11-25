@@ -84,6 +84,10 @@ struct QuickTranslationRuleTokenLengthBar: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+            } else if spec.isSurname {
+                Text("Token này nuốt **một họ**: 1 chữ (họ đơn) hoặc 2 chữ (họ kép), không nhận khoảng độ dài.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             } else {
                 Text("Token này luôn nuốt **đúng 1 ký tự**, không nhận khoảng độ dài.")
                     .font(.caption2)

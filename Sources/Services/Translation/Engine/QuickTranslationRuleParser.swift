@@ -313,7 +313,7 @@ public enum QuickTranslationRuleParser {
             switch name {
             case "w":
                 kinds.append(contentsOf: [.name, .pronoun, .vietPhrase])
-            case "ne", "pn", "vp", "hv":
+            case "ne", "pn", "vp", "hv", "ho":
                 guard let kind = QuickTranslationRuleElement.DictionaryKind(rawValue: name) else {
                     throw ParseError(code: .unknownTokenName, message: "Token <\(name)> không được hỗ trợ")
                 }
@@ -323,10 +323,10 @@ public enum QuickTranslationRuleParser {
             }
         }
 
-        // `<hv>` là đúng một ký tự Hán theo header, không nhận range.
-        if kinds == [.hanViet] {
-            minLength = 1
-            maxLength = 1
+        // `<hv>` đúng một ký tự Hán, `<ho>` một họ (1-2 chữ): độ dài cố định, không nhận range.
+        if kinds.count == 1, let fixed = kinds[0].fixedLengthRange {
+            minLength = fixed.lowerBound
+            maxLength = fixed.upperBound
         }
 
         return QuickTranslationRuleElement(

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1062] - 2026-11-25
+
+### feat: rule dịch nhanh có token <ho> khớp họ người Trung Quốc, kèm màn Danh sách họ
+
+Anh Bửu: "thêm token phân loại họ trung quốc", rồi "Thêm quản lý danh sách họ trung quốc nữa" → duyệt plan + mockup https://claude.ai/artifact/1pajdjujzW1qQizNjXCgEY.
+
+- Token `<ho>` (`QuickTranslationRuleTokenSettings.Kind.surname`, nối **cuối** `allCases` ⇒ chữ ký cache dịch đổi một lần; khoá công tắc `quickTranslateRuleTokenSurnameEnabled`, mặc định bật, nhóm Từ điển) = `DictionaryKind.surname`: khớp một họ trong danh sách họ, `{i}` = âm Hán-Việt viết hoa lưu sẵn (`王` → Vương, `欧阳` → Âu Dương). Độ dài cố định 1–2 đơn vị UTF-16 (`DictionaryKind.fixedLengthRange`, parser ép như `<hv>`, không thanh độ dài); `QuickTranslationDictionaryToken.candidates` thử họ kép trước họ đơn, matcher lùi nếu phần sau mẫu không khớp. Có `?`, `|` (`<ne|ho>`); `<HO>` nhận như `<ho>` (âm đã viết hoa). `<w>` không đổi. Name riêng thắng như mọi token (capture không nuốt trọn Name ⇒ bỏ lượt khớp).
+- Danh sách gốc `Sources/Resources/Translation/ChineseSurnames.txt` (`chữ Hán=Âm`, `#` ghi chú; app chỉ đọc): Bách gia tính (bản giản thể phổ biến, đối chiếu Wikisource) + 肖 付 覃 冼 邝 / 独孤 太史 完颜 耶律 纳兰, phồn thể viết riêng từng dòng (钟 → 鍾; 于 余 范 沈 谷 后 giữ nguyên; thêm 鬱 麴 甯 雲). 683 khoá = 583 họ đơn + 100 họ kép. Âm theo bảng phiên âm, sửa riêng 曾 Tăng, 晏 Án, 扈 Hỗ, 干 Can, 肖 Tiêu, 佟 Đồng, 万俟 Mặc Kỳ, 尉迟 Uất Trì, 长孙 Trưởng Tôn, 单于 Thiền Vu, 段干 Đoạn Can; viết y: 祁 Kỳ, 纪 Kỷ, 冀 Ký, 暨 Kỵ, 百里 Bách Lý.
+- Lớp riêng của người dùng: `UserDefaults` `quickTranslateSurnameOverrides` = JSON `{"entries":{khoá: âm}, "removed":[…], "disabled":[…]}` (`QuickTranslationSurnameOverrides`; vắng = bản gốc; Backup tự gói). Trộn: gốc → áp `entries` → bỏ `removed` → đánh dấu `disabled`; engine chỉ thấy họ đang bật. `QuickTranslationSurnameStore` đọc file gốc một lần, cache bảng tra theo chuỗi JSON thô (như Bộ ngoặc), mọi lần ghi `TranslateUtils.clearCache()` + `notifyRulesDidUpdate()`. Một bộ đọc + một luật kiểm (`QuickTranslationSurnameListParser`: khoá 1–2 chữ Hán, UTF-16 ≤ 2; âm không rỗng, không `=` / xuống dòng) cho file gốc, sheet sửa và nhập file.
+- Màn **Danh sách họ** (`QuickTranslationSurnameListView`, hàng `QuickTranslationSurnameRow`, sheet `QuickTranslationSurnameEditorSheet`) mở từ hàng "Danh sách họ" (dòng phụ "683 họ · 1 đang tắt") dưới công tắc `<ho>` ở Cấu hình token rule: ô tìm luôn hiện, hàng kiểu VP/Name (chạm hàng mở sheet sửa, ⏸ / ▶, 🗑, không bút chì), `+` nổi, ngăn kéo "…" Nhập file (`.dataImportFilePicker`; Gộp đè âm + bỏ dấu đã xoá, Chỉ thêm key mới coi họ gốc đã xoá là đã có, Thay thế toàn bộ = đúng nội dung file; file không có dòng hợp lệ ⇒ báo lỗi, không đụng dữ liệu; toast "thêm X, cập nhật Y" + dòng lỗi bỏ qua) / Xuất file (họ đang bật, cùng dạng file gốc) / Khôi phục mặc định. Sửa chữ Hán = xoá khoá cũ + thêm khoá mới; họ gốc đã đổi âm có "Về âm gốc". Chỉ một danh sách chung (công tắc `<ho>` riêng truyện vẫn tự có).
+- Chip `<ho>` "họ Trung Quốc" ở bảng token + gợi ý bàn phím, câu "nuốt một họ: 1 hoặc 2 chữ" ở thanh chỉnh token, `QuickTranslationRuleGuide` thêm ý `<ho>` + mục "Danh sách họ" (`HelpSpot.surnameList`), `translation.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**), 683 dòng file gốc qua luật kiểm (mô phỏng Python); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1061] - 2026-11-25
 
 ### fix: VPN 1.1.1.1 tách hai nút Bật / Tắt chạy hai phím tắt, ghi lần app chạy phím tắt cuối
@@ -368,16 +381,3 @@ Anh Bửu: "giọng nhỏ quá". Đo WAV đọc thử của CI (run 44685147889)
 - `VttsTTSService` gọi trước khi nối khoảng lặng đuôi ⇒ áp cho trình đọc chính, giọng dự phòng và ▶ thử giọng (cùng đi qua service). Log `🗣️ [Vtts] Đoạn` thêm `gain=+X.XdB`.
 - Mô phỏng thuật toán trên 2 WAV mẫu: nu-10 +8,6 dB (đỉnh −2,7 dBFS), nam-1 +4,8 dB (đỉnh −1,1 dBFS), cả hai RMS −16 dBFS. Mốc −16 dBFS là ước lượng, chưa so với VieNeu / Google. Không thêm giao diện.
 - Chưa thử máy; `.claude/rules/tts.md` ghi thêm.
-
-## [1.3.1032] - 2026-11-20
-
-### fix: vtts — CI dựng vtts_say kèm stub ZH/JA/RU, kiểm tài sản trong IPA, toast lỗi ghi đúng trình đọc
-
-Sửa sau review phản biện (2 agent, chỉ đọc) trước lượt push đầu của vtts:
-
-- **CI sẽ đỏ chắc chắn**: `check_vtts_assets.sh` dựng `vtts_say` với đúng cờ tắt ngôn ngữ của gói SPM, nhưng `vtts_say.c` (upstream) luôn gọi `vtts_zlex_init` / `vtts_jlex_init` / `vtts_rlex_init` — chỉ được định nghĩa trong `#if VTTS_ENABLE_ZH / _JA / _RU` ⇒ `Undefined symbols` lúc link. Thêm `Scripts/ci/vtts_say_lex_stubs.c` (3 hàm trả `-1`, chỉ link vào `vtts_say`), giữ nguyên cờ của app; `build-ipa.yml` thêm file này vào `paths`.
-- **Bước Package IPA kiểm `FreeBook.app/vtts/`** có đủ `lex_en.bin` + 2 giọng M (folder reference nằm trong thư mục gói SPM cục bộ — chưa từng build; thiếu thì vtts lỗi ngay đoạn đầu).
-- Toast / log lỗi tổng hợp của đường phát local chung ghi tên trình đọc đang dùng (`TTSManager.localReaderLabel`: NghiTTS / VieNeu / vtts) thay cho luôn "NghiTTS" — sửa tại chỗ 2 dòng `TTSManager.swift`, không thêm dòng.
-- Dọn: 7 entry cũ nhất (1.3.995–1.3.1001) chuyển sang `CHANGELOG.archive.md` (file chính giữ 30 entry); `AGENTS.md` + `ci-release.md` ghi điều kiện chạy CI mới.
-- Review không thấy lỗi biên dịch Swift / C nào khác (đối chiếu code, máy Windows không biên dịch được). Để sau (ghi nhận, chưa sửa): lỗi front-end hiếm của một đoạn vtts làm dừng cả phiên đọc; runtime có thể nạp lại ngay sau khi vừa nhả (chỉ tốn ~4,7 MB, không lỗi).
-

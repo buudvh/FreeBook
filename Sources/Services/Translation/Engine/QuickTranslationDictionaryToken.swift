@@ -1,6 +1,6 @@
 import Foundation
 
-/// Ràng buộc từ điển cho `<ne>` / `<pn>` / `<vp>` / `<w>` / `<hv>`.
+/// Ràng buộc từ điển cho `<ne>` / `<pn>` / `<vp>` / `<w>` / `<hv>` / `<ho>`.
 ///
 /// Đây là điểm khác cốt lõi so với reference: reference biên dịch token từ điển thành
 /// `([\p{Script=Han}A-Za-z0-9]{min,max})` rồi trả **nguyên văn** capture, nên `<pn>一人` khớp
@@ -19,6 +19,8 @@ public struct QuickTranslationDictionaryToken {
     private let customVietPhrase: TrieDictionary?
     private let bookVietPhrase: TrieDictionary?
     private let phienAm: [String: String]
+    /// `<ho>` (1.3.1062): họ đang bật của danh sách họ, khoá 1–2 đơn vị UTF-16 → âm viết hoa sẵn.
+    private let surnames: [String: String]
 
     /// Phân giải một lần cho mỗi lượt rewrite.
     ///
@@ -45,7 +47,8 @@ public struct QuickTranslationDictionaryToken {
             vietPhrase: manager.vietPhraseDict,
             customVietPhrase: manager.customVietPhraseDict,
             bookVietPhrase: bookVP,
-            phienAm: manager.phienAmMap
+            phienAm: manager.phienAmMap,
+            surnames: QuickTranslationSurnameStore.shared.lookupTable()
         )
     }
 
@@ -61,6 +64,8 @@ public struct QuickTranslationDictionaryToken {
             return manager.vietPhraseDict != nil || manager.customVietPhraseDict != nil
         case .hanViet:
             return !manager.phienAmMap.isEmpty
+        case .surname:
+            return !QuickTranslationSurnameStore.shared.lookupTable().isEmpty
         }
     }
 
@@ -70,6 +75,7 @@ public struct QuickTranslationDictionaryToken {
         case .pronoun: return pronouns != nil
         case .vietPhrase: return vietPhrase != nil || customVietPhrase != nil || bookVietPhrase != nil
         case .hanViet: return !phienAm.isEmpty
+        case .surname: return !surnames.isEmpty
         }
     }
 
@@ -120,6 +126,16 @@ public struct QuickTranslationDictionaryToken {
                 continue
             }
 
+            if kind == .surname {
+                // Họ kép (2) trước họ đơn (1); matcher thử dài → ngắn và lùi nếu phần sau của mẫu không khớp.
+                let longest = min(maxLength, window.utf16.count, QuickTranslationSurnameListParser.maxKeyUTF16Length)
+                for length in stride(from: longest, through: max(minLength, 1), by: -1) where byLength[length] == nil {
+                    guard let key = String(window.utf16.prefix(length)), let reading = surnames[key] else { continue }
+                    byLength[length] = reading
+                }
+                continue
+            }
+
             for dictionary in dictionaries(for: kind) {
                 for match in dictionary.findAllPrefixMatches(text: window, startIndex: 0) {
                     guard match.length >= minLength, match.length <= maxLength else { continue }
@@ -145,7 +161,7 @@ public struct QuickTranslationDictionaryToken {
             return [pronouns].compactMap { $0 }
         case .vietPhrase:
             return [bookVietPhrase, customVietPhrase, vietPhrase].compactMap { $0 }
-        case .hanViet:
+        case .hanViet, .surname:
             return []
         }
     }

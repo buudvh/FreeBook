@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1032] - 2026-11-20
+
+### fix: vtts — CI dựng vtts_say kèm stub ZH/JA/RU, kiểm tài sản trong IPA, toast lỗi ghi đúng trình đọc
+
+Sửa sau review phản biện (2 agent, chỉ đọc) trước lượt push đầu của vtts:
+
+- **CI sẽ đỏ chắc chắn**: `check_vtts_assets.sh` dựng `vtts_say` với đúng cờ tắt ngôn ngữ của gói SPM, nhưng `vtts_say.c` (upstream) luôn gọi `vtts_zlex_init` / `vtts_jlex_init` / `vtts_rlex_init` — chỉ được định nghĩa trong `#if VTTS_ENABLE_ZH / _JA / _RU` ⇒ `Undefined symbols` lúc link. Thêm `Scripts/ci/vtts_say_lex_stubs.c` (3 hàm trả `-1`, chỉ link vào `vtts_say`), giữ nguyên cờ của app; `build-ipa.yml` thêm file này vào `paths`.
+- **Bước Package IPA kiểm `FreeBook.app/vtts/`** có đủ `lex_en.bin` + 2 giọng M (folder reference nằm trong thư mục gói SPM cục bộ — chưa từng build; thiếu thì vtts lỗi ngay đoạn đầu).
+- Toast / log lỗi tổng hợp của đường phát local chung ghi tên trình đọc đang dùng (`TTSManager.localReaderLabel`: NghiTTS / VieNeu / vtts) thay cho luôn "NghiTTS" — sửa tại chỗ 2 dòng `TTSManager.swift`, không thêm dòng.
+- Dọn: 7 entry cũ nhất (1.3.995–1.3.1001) chuyển sang `CHANGELOG.archive.md` (file chính giữ 30 entry); `AGENTS.md` + `ci-release.md` ghi điều kiện chạy CI mới.
+- Review không thấy lỗi biên dịch Swift / C nào khác (đối chiếu code, máy Windows không biên dịch được). Để sau (ghi nhận, chưa sửa): lỗi front-end hiếm của một đoạn vtts làm dừng cả phiên đọc; runtime có thể nạp lại ngay sau khi vừa nhả (chỉ tốn ~4,7 MB, không lỗi).
+
 ## [1.3.1031] - 2026-11-20
 
 ### feat: vtts — lưu sẵn model, từ điển và công cụ dựng lại trong repo, CI không tải gì từ upstream

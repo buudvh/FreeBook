@@ -130,6 +130,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         case .lineEnd: return "cuối dòng"
         case .openBracket: return "mở ngoặc"
         case .closeBracket: return "đóng ngoặc"
+        case .surname: return "họ Trung Quốc"
         }
     }
 

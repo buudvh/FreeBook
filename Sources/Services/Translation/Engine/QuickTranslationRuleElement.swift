@@ -10,12 +10,24 @@ import Foundation
 /// ngay mà không phải quy đổi.
 public struct QuickTranslationRuleElement: Sendable {
     /// Nhóm từ điển mà một token được phép nuốt. `<w>` mở thành `[.name, .pronoun, .vietPhrase]`
-    /// và thử theo thứ tự khai báo; `<hv>` là đúng một ký tự Hán, render bằng bảng `PhienAm`.
+    /// và thử theo thứ tự khai báo; `<hv>` là đúng một ký tự Hán, render bằng bảng `PhienAm`; `<ho>` (1.3.1062) là
+    /// một họ trong danh sách họ (`QuickTranslationSurnameStore`), render bằng âm lưu sẵn của họ đó.
     public enum DictionaryKind: String, Sendable {
         case name = "ne"
         case pronoun = "pn"
         case vietPhrase = "vp"
         case hanViet = "hv"
+        case surname = "ho"
+
+        /// Độ dài cố định khi token **chỉ** có loại này (parser ép, không nhận `:min-max`, màn sửa rule không hiện thanh
+        /// độ dài): `<hv>` đúng 1 ký tự Hán; `<ho>` 1–2 đơn vị UTF-16 = họ đơn hoặc họ kép.
+        public var fixedLengthRange: ClosedRange<Int>? {
+            switch self {
+            case .hanViet: return 1...1
+            case .surname: return 1...QuickTranslationSurnameListParser.maxKeyUTF16Length
+            case .name, .pronoun, .vietPhrase: return nil
+            }
+        }
     }
 
     /// `indirect` vì nhánh `group` chứa lại chính phần tử này.
@@ -26,7 +38,7 @@ public struct QuickTranslationRuleElement: Sendable {
         case numeral(NumeralKind)
         /// `<L>` — đúng một nhãn chương, sinh tên nhãn tiếng Việt.
         case chapterLabel
-        /// `<ne>/<pn>/<vp>/<hv>/<w>` — phải khớp một entry của từ điển tương ứng.
+        /// `<ne>/<pn>/<vp>/<hv>/<w>/<ho>` — phải khớp một entry của từ điển tương ứng.
         case dictionary([DictionaryKind])
         /// `<any>` / `<any:min-max>` — một cụm ký tự bất kỳ dài `minLength...maxLength` (không ghi độ dài
         /// ⇒ 1–50), nuốt cả dấu câu và khoảng trắng, chỉ dừng ở xuống dòng `\n`/`\r` (1.3.686); capture trả
