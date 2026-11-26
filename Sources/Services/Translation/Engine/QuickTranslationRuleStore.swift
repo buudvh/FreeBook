@@ -350,7 +350,7 @@ public final class QuickTranslationRuleStore: ObservableObject {
             if issues.count >= Self.maxStoredIssues { break }
         }
 
-        return issues
+        return issues + customTokenIssues(in: snapshot, configuration: tokenConfiguration)
     }
 
     /// Matcher gọi khi một rule chạm cap backtracking. Ghi log **một lần** cho mỗi dòng.

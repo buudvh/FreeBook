@@ -15,7 +15,13 @@ import SwiftUI
 /// Bẫy layout phải giữ: `FlowLayout` là custom `Layout` **không lazy**. Tuyệt đối **không** dùng
 /// `LazyHStack`/`LazyVGrid` ở đây — lazy container nằm trong một hàng `List`/`Form` làm layout tự vô
 /// hiệu giữa lượt cập nhật cell và trap `EXC_BREAKPOINT` (đã crash thật ở 1.3.269).
+///
+/// **Quản lý token ngay tại bảng** (1.3.1063, `+Management`): nhóm "Tùy chọn" liệt kê token tùy chọn `<@tên>` kèm chip
+/// `+` thêm token; **nhấn giữ** một chip token (kể cả token cố định) mở menu: danh sách của nó nếu có (Danh sách họ, Bộ
+/// ngoặc, danh sách từ), Tắt / Bật, và Sửa mô tả / Xoá với token tùy chọn. Ý định ghi vào `model`; sheet sửa rule mới
+/// đẩy trang / mở sheet (`QuickTranslationRuleTokenPaletteManagement`).
 struct QuickTranslationRuleTokenPaletteView: View {
+    let model: QuickTranslationRuleTokenPaletteModel
     /// Chuỗi cần chèn tại con trỏ / thay cho vùng đang chọn.
     let onInsert: (String) -> Void
 
@@ -31,9 +37,13 @@ struct QuickTranslationRuleTokenPaletteView: View {
     static let dictionaryKinds = QuickTranslationRuleTokenSettings.Kind.allCases.filter { !$0.isNumeralGroup }
 
     var body: some View {
+        // Đọc `revision` để vẽ lại sau mỗi lần bật / tắt / thêm / xoá token (hai store token không phát thay đổi).
+        let _ = model.revision
+        let customTokens = QuickTranslationCustomTokenStore.shared.tokens()
         VStack(alignment: .leading, spacing: 10) {
             group(title: "Lớp ký tự & nhãn", kinds: Self.numeralKinds)
             group(title: "Từ điển", kinds: Self.dictionaryKinds)
+            customGroup(customTokens)
 
             VStack(alignment: .leading, spacing: 4) {
                 caption("Nhóm")
@@ -46,7 +56,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
                 }
             }
 
-            if hasDisabledToken {
+            if hasDisabledToken || customTokens.contains(where: { !$0.isEnabled }) {
                 Text("Token mờ đang **tắt** ở Cấu hình token rule: rule chứa nó vẫn lưu được nhưng sẽ không chạy.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -66,7 +76,7 @@ struct QuickTranslationRuleTokenPaletteView: View {
         }
     }
 
-    private func caption(_ text: String) -> some View {
+    func caption(_ text: String) -> some View {
         Text(text.uppercased())
             .font(.system(size: 9, weight: .semibold))
             .foregroundColor(.secondary)
@@ -83,10 +93,11 @@ struct QuickTranslationRuleTokenPaletteView: View {
         return plainButton(kind.syntax, caption: Self.caption(for: kind), isDimmed: !isEnabled) {
             onInsert(kind.syntax)
         }
+        .contextMenu { tokenMenu(kind) }
         .accessibilityLabel("Chèn token \(kind.syntax) — \(Self.caption(for: kind))")
     }
 
-    private func plainButton(
+    func plainButton(
         _ syntax: String,
         caption: String,
         isDimmed: Bool = false,

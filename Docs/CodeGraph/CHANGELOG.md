@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1065] - 2026-11-26
+
+### feat: token tùy chọn <@tên> cho rule dịch nhanh, kèm màn quản lý và menu nhấn giữ ở bảng token
+
+Anh Bửu: "thêm chức năng thêm và sử dụng bộ token tùy chọn" → duyệt plan + mockup https://claude.ai/artifact/EPVM1fC9YrAozdyt1H5NUj, kèm hai ý anh thêm: "thêm nút + ở phần tùy chọn để thêm token mới", "nhấn giữ các token, kể cả token cố định sẽ hiện thị ra các option quản lý danh sách từ (nếu có), bật/tắt token, xóa (đối với token tùy chọn)".
+
+- Cú pháp `<@tên>` (tên `a-z 0-9 _`, bắt đầu bằng chữ, ≤ 20): khớp một từ trong danh sách `chữ gốc=nghĩa` của token, `{i}` = nghĩa, từ dài thử trước (`DictionaryKind.custom` + `QuickTranslationRuleElement.customTokenName`, `QuickTranslationDictionaryToken.candidates`). `<@TÊN>` = viết hoa nghĩa; không nhận `:min-max`, không ghép `|`.
+- Parser **không** tra token lúc parse (`QuickTranslationRuleParser+CustomToken`): token chưa có / tắt / đã xoá không biến dòng rule thành lỗi nặng ⇒ `validRecords` không xoá dòng; trạng thái đó báo `DICT_TOKEN_WITHOUT_DICTIONARY` theo từng tên (`QuickTranslationRuleStore+CustomTokenIssues`).
+- Lưu `UserDefaults` `quickTranslateCustomTokens` (JSON, `QuickTranslationCustomTokenStore`): Backup tự gói, trần 50 token / 20.000 từ, cache bảng tra chỉ so lại chuỗi thô sau `UserDefaults.didChangeNotification`; mỗi lần ghi dọn cache dịch + phát tín hiệu rule đổi. Luật tên / chữ / nghĩa + bộ đọc file: `QuickTranslationCustomTokenListParser`.
+- Màn: hàng "Token tùy chọn" ở Cấu hình token rule ⇒ `QuickTranslationCustomTokenListView` (tìm, tắt / bật, xoá có hỏi lại, + Thêm token) ⇒ `QuickTranslationCustomTokenEntryListView` (tìm, + Thêm từ, ngăn kéo …: Sửa mô tả, Tắt / Bật, Nhập file 3 cách, Xuất file, Xoá token); sheet `QuickTranslationCustomTokenEditorSheet` (tên khoá khi sửa) và `QuickTranslationCustomTokenEntryEditorSheet`.
+- Bảng token màn sửa rule: nhóm "Tùy chọn" + chip + (sheet Thêm token); nhấn giữ chip token (`.contextMenu`): Danh sách họ (`<ho>`) / Bộ ngoặc (`<[>` `<]>`) / Danh sách từ, Tắt / Bật (token cố định = công tắc ở Cấu hình token rule), Sửa mô tả + Xoá (token tùy chọn). Ý định ghi vào `QuickTranslationRuleTokenPaletteModel`, đẩy trang / sheet / hỏi xoá ở `QuickTranslationRuleTokenPaletteManagement` gắn ngoài hàng lazy của `Form`. Hàng gợi ý trên bàn phím có `<@tên>` (lọc khi gõ `<@`), không có menu.
+- Thanh chỉnh token: `<@tên>` không có thanh độ dài, có "AA hoa nghĩa". Hướng dẫn viết rule thêm mục "Token tùy chọn"; `translation.md`.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1064] - 2026-11-26
 
 ### fix: đổi nguồn tại chỗ đặt ngay link chương đang đọc theo mục lục mới
@@ -374,14 +388,3 @@ Anh Bửu nghe 4 bản vtts tạo tiếng nhanh 1,8× ngay từ gốc (CI 1.3.10
 - **Bản 4** — `VttsLoudness.process` (viết lại): lọc thông cao 150 Hz + nâng +6 dB quanh 2,8 kHz (biquad RBJ) → RMS khung 20 ms có tiếng về −14 dBFS (≈ −16 LUFS; trước −16 dBFS), tăng tối đa +18 dB → ghìm đỉnh ≤ −1 dBFS (cực tiểu ±5 ms, trung bình trượt ±5 ms, nhả 80 ms) thay cho cách hạ cả đoạn của 1.3.1033 (cách cũ chặn mức to ~−17,5 LUFS). `VttsVoice.defaultLoudnessGainDb` theo mốc mới (nu-10 +10,5, nam-1 +7 dB). Log `🗣️ [Vtts] Đoạn` thêm `speed=`, `limit=`. Thuật toán trùng bản Python đã dựng 4 file anh nghe (nu-10 tốc độ gốc: +11,6 dB, ghìm −3,8 dB).
 - CI: gỡ `render_listening_samples` (tạm của 1.3.1035) — `check_vtts_assets.sh` / `build-ipa.yml` về như trước 1.3.1034.
 - Dọn: entry 1.3.1006 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi tự đọc nhanh, `VttsEdgeFade`, bản 4. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1035] - 2026-11-20
-
-### fix: vtts — độ dài phân đoạn mặc định 500, log độ trễ chuyển đoạn, CI dựng câu nghe thử ở tốc độ gốc
-
-Anh Bửu: "chỗ ngắt đoạn cũ đoạn mới hay có tiếng xoẹt xoẹt hoặc vấp". Anh thử câu "…Thổ Nạp Thuật phiên bản, đem mệnh danh là “Cá Trê Thổ Nạp Thuật”." (lỗi ở dấu phẩy): 1× + phân đoạn 500 sạch, 1× + 150 bị, 1,8× + 150 bị, 1,8× + 500 còn "vụt" nhẹ. vtts không có nhiễu ngẫu nhiên (cùng chữ ⇒ cùng mẫu) và tự cắt câu > 40 âm tiết **đúng dấu phẩy đó** (`MAX_SYL` của `vtts_text.c`; log máy `chars=187 chunks=2`) ⇒ ở 150 tiếng hai nửa câu y hệt, khác duy nhất là app xẻ thành 2 file ⇒ một lần đổi `AVAudioPlayer` giữa câu. Phần "vụt" ở 1,8× + 500 nằm trong một file ⇒ do trình phát kéo nhanh (chưa rõ cơ chế).
-
-- `TTSManager.VttsSettings.defaultChunkLength` 150 → **500**: `NghiUtteranceSegmenter` luôn cắt ở dấu hết câu đầu tiên nên chunk vẫn là từng câu, chỉ câu > 150 ký tự thôi bị xẻ. Máy đã lưu `vttsChunk` giữ giá trị cũ (máy anh đã để 500).
-- `NghiAudioPlayerQueue.lastHandoffDelayMs` (mới): ms từ delegate phát xong tới khi `play()` của player kế đã gọi; log `🔊 [TTSPerf] NghiHandoff` thêm `delayMs=` (sửa tại chỗ dòng log trong `TTSManager.swift`, không thêm dòng). Dùng chung NghiTTS / VieNeu / vtts — đo xem chỗ vấp có phải main kẹt lúc bàn giao (log anh có main kẹt 554 / 1045 ms).
-- CI (tạm): bỏ phần đo Google (`Scripts/ci/tts_loudness_probe.py` xoá, `build-ipa.yml` thôi đưa `GOOGLE_CLOUD_TTS_API_KEY` vào bước vtts); `check_vtts_assets.sh` › `render_listening_samples` dựng câu của anh bằng 2 giọng: cả câu 1×, cả câu tốc độ gốc 1,8× (`vtts_say --speed 0.5556` — tham số này là `length_scale`), và 2 mảnh như khi cắt ở 150 ⇒ artifact `vtts-samples` để anh nghe so với app. Kết quả đo 1.3.1034: Google readaloud 6 giọng −19,8 LUFS, vtts 1.3.1033 đã ngang / to hơn (nu-10 −19,4, nam-1 −17,8) ⇒ vtts nghe nhỏ là do chất tiếng; bản "sáng và to hơn" anh chọn còn giữ tới khi nghe xong bản tốc độ gốc.
-- Dọn: entry 1.3.1005 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi lý do mặc định 500 + `delayMs`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`.

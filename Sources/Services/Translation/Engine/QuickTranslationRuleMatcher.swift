@@ -283,7 +283,8 @@ public final class QuickTranslationRuleMatcher {
             kinds: kinds,
             in: window,
             minLength: element.minLength,
-            maxLength: element.maxLength
+            maxLength: element.maxLength,
+            customTokenName: element.customTokenName
         )
 
         let saved = captures

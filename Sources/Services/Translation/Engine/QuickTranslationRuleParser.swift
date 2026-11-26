@@ -224,6 +224,8 @@ public enum QuickTranslationRuleParser {
 
         // Neo `<START>`/`<END>` và ngoặc `<[>`/`<]>` không capture ⇒ phải trả về TRƯỚC `captureCount += 1`.
         if let uncaptured = try parseUncapturedToken(spec: spec, isOptional: isOptional) { return uncaptured }
+        // Token tùy chọn `<@tên>` (1.3.1063, `+CustomToken`): không tra tên lúc parse ⇒ xoá token không xoá dòng rule.
+        if let custom = try parseCustomToken(spec: spec, isOptional: isOptional, captureCount: &captureCount) { return custom }
 
         let parts = spec.components(separatedBy: ":")
         // Tên token chữ viết HOA (`<VP>`) = ép viết hoa nghĩa (`+TitleCase`, 1.3.761); từ đây `names` là tên thường.

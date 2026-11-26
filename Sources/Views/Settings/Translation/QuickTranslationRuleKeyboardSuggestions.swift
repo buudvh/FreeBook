@@ -3,8 +3,9 @@ import Foundation
 /// Dựng chip cho **hàng gợi ý trên bàn phím** (`KeyboardSuggestionRowView`) của hai ô ở màn thêm/sửa rule — để chèn token
 /// ngay lúc gõ mà không phải cuộn xuống bảng token / dải `{i}` đang bị bàn phím che.
 ///
-/// - Ô **Mẫu**: đủ token (`<n>`, `<y>`… theo đúng thứ tự nhóm của `QuickTranslationRuleTokenPaletteView`) rồi tới cú pháp
-///   nhóm `( | ) )?`; token đang tắt ở Cấu hình token rule hiện mờ, giống bảng token.
+/// - Ô **Mẫu**: đủ token (`<n>`, `<y>`… theo đúng thứ tự nhóm của `QuickTranslationRuleTokenPaletteView`, kể cả token
+///   tùy chọn `<@tên>` — 1.3.1063) rồi tới cú pháp nhóm `( | ) )?`; token đang tắt hiện mờ, giống bảng token. Hàng này
+///   chỉ để chèn, không có menu nhấn giữ như bảng token.
 /// - Ô **Bản dịch**: `{0} {1}…` theo số `{i}` của parser — các nhánh của một nhóm dùng chung số (1.3.687) nên mỗi số chỉ
 ///   một chip. Đã dùng có ✓, chưa dùng là chip thường: `UNUSED_CAPTURE` chỉ là cảnh báo (token dùng để khớp mà không
 ///   xuất ra), không tô đỏ như lỗi. Mẫu chưa có token ⇒ `nil` ⇒ không có hàng.
@@ -52,9 +53,11 @@ enum QuickTranslationRuleKeyboardSuggestions {
     /// thay vì để lại `<[<[>`. Neo dòng viết bằng chữ (`<START>`/`<END>`) nên gõ `<s` đã lọc ra `<START>` (không phân
     /// biệt hoa thường). `^`/`$` giữ lại cho cách viết cũ `<^>`/`<$>` mà parser vẫn nhận: gõ dở `<^` không có chip nào
     /// khớp ⇒ hiện đủ chip, không thay đoạn gõ dở.
+    /// `@`, `_` và chữ số (1.3.1063) cho tên token tùy chọn: gõ `<@ma` lọc ra `<@mau>`.
     private static func isTokenNameCharacter(_ character: Character) -> Bool {
         character.isASCII
-            && (character.isLetter || character == "[" || character == "]" || character == "^" || character == "$")
+            && (character.isLetter || character.isNumber || character == "[" || character == "]" || character == "^"
+                || character == "$" || character == "@" || character == "_")
     }
 
     private static func isDigit(_ character: Character) -> Bool {
@@ -65,11 +68,14 @@ enum QuickTranslationRuleKeyboardSuggestions {
 
     private static func patternSuggestions(typed: String?) -> [KeyboardSuggestion] {
         let kinds = QuickTranslationRuleTokenPaletteView.numeralKinds + QuickTranslationRuleTokenPaletteView.dictionaryKinds
+        let customTokens = QuickTranslationCustomTokenStore.shared.tokens()
 
         if let typed {
-            let matches = kinds.filter { $0.syntax.lowercased().hasPrefix(typed.lowercased()) }
+            let lowered = typed.lowercased()
+            let matches: [KeyboardSuggestion] = kinds.filter { $0.syntax.lowercased().hasPrefix(lowered) }.map { tokenSuggestion($0, replacing: typed) }
+                + customTokens.filter { $0.syntax.hasPrefix(lowered) }.map { customSuggestion($0, replacing: typed) }
             if !matches.isEmpty {
-                return matches.map { tokenSuggestion($0, replacing: typed) }
+                return matches
             }
         }
 
@@ -81,7 +87,18 @@ enum QuickTranslationRuleKeyboardSuggestions {
                 accessibilityLabel: "Chèn \(syntax) — \(QuickTranslationRuleTokenPaletteView.caption(forGroup: syntax))"
             )
         }
-        return kinds.map { tokenSuggestion($0, replacing: "") } + groups
+        return kinds.map { tokenSuggestion($0, replacing: "") }
+            + customTokens.map { customSuggestion($0, replacing: "") }
+            + groups
+    }
+
+    private static func customSuggestion(_ token: QuickTranslationCustomToken, replacing typed: String) -> KeyboardSuggestion {
+        KeyboardSuggestion(
+            text: token.syntax,
+            replacingPrefix: typed,
+            style: token.isEnabled ? .normal : .dimmed,
+            accessibilityLabel: "Chèn token \(token.syntax) — \(token.displayTitle)"
+        )
     }
 
     private static func tokenSuggestion(

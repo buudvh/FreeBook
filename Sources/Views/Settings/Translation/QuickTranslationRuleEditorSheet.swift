@@ -99,6 +99,8 @@ struct QuickTranslationRuleEditorSheet: View {
     /// Ô đang gõ, chỉ để ghi vào bản nháp. Cả hai ô nhập đều là `UIViewRepresentable` nên không dùng
     /// được `@FocusState`; mỗi ô tự báo lên qua `onFocusChange`.
     @State var focusedField: QuickTranslationRuleDraftStore.Field?
+    /// Menu nhấn giữ / chip `+` của bảng token (1.3.1063): `internal` vì bảng token dựng ở `+Editing`.
+    @State var tokenPalette = QuickTranslationRuleTokenPaletteModel()
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
@@ -212,6 +214,7 @@ struct QuickTranslationRuleEditorSheet: View {
                 }
             }.glassSheetRows() }
             .pageTitle(isEditing ? "Sửa rule" : "Thêm rule")
+            .tokenPaletteManagement(tokenPalette)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     saveControl

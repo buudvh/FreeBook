@@ -1,6 +1,6 @@
 import Foundation
 
-/// Ràng buộc từ điển cho `<ne>` / `<pn>` / `<vp>` / `<w>` / `<hv>` / `<ho>`.
+/// Ràng buộc từ điển cho `<ne>` / `<pn>` / `<vp>` / `<w>` / `<hv>` / `<ho>` / `<@tên>`.
 ///
 /// Đây là điểm khác cốt lõi so với reference: reference biên dịch token từ điển thành
 /// `([\p{Script=Han}A-Za-z0-9]{min,max})` rồi trả **nguyên văn** capture, nên `<pn>一人` khớp
@@ -21,6 +21,8 @@ public struct QuickTranslationDictionaryToken {
     private let phienAm: [String: String]
     /// `<ho>` (1.3.1062): họ đang bật của danh sách họ, khoá 1–2 đơn vị UTF-16 → âm viết hoa sẵn.
     private let surnames: [String: String]
+    /// `<@tên>` (1.3.1063): bảng tra của các token tùy chọn **đang bật** và có từ, theo tên.
+    private let customTokens: [String: QuickTranslationCustomTokenStore.Table]
 
     /// Phân giải một lần cho mỗi lượt rewrite.
     ///
@@ -48,7 +50,8 @@ public struct QuickTranslationDictionaryToken {
             customVietPhrase: manager.customVietPhraseDict,
             bookVietPhrase: bookVP,
             phienAm: manager.phienAmMap,
-            surnames: QuickTranslationSurnameStore.shared.lookupTable()
+            surnames: QuickTranslationSurnameStore.shared.lookupTable(),
+            customTokens: QuickTranslationCustomTokenStore.shared.lookupTables()
         )
     }
 
@@ -66,6 +69,9 @@ public struct QuickTranslationDictionaryToken {
             return !manager.phienAmMap.isEmpty
         case .surname:
             return !QuickTranslationSurnameStore.shared.lookupTable().isEmpty
+        case .custom:
+            // Theo **từng tên** token, không theo nhóm: `QuickTranslationRuleStore+CustomTokenIssues` báo riêng.
+            return true
         }
     }
 
@@ -76,6 +82,7 @@ public struct QuickTranslationDictionaryToken {
         case .vietPhrase: return vietPhrase != nil || customVietPhrase != nil || bookVietPhrase != nil
         case .hanViet: return !phienAm.isEmpty
         case .surname: return !surnames.isEmpty
+        case .custom: return !customTokens.isEmpty
         }
     }
 
@@ -107,11 +114,14 @@ public struct QuickTranslationDictionaryToken {
     ///
     /// - Parameter window: chuỗi bắt đầu **đúng tại** vị trí capture, đã cắt tối đa `maxLength` đơn vị
     ///   UTF-16 để mỗi lời gọi trie không phải quét cả dòng.
+    /// - Parameter customTokenName: tên token của `<@tên>` (`QuickTranslationRuleElement.customTokenName`); chỉ dùng khi
+    ///   `kinds` có `.custom`.
     public func candidates(
         kinds: [QuickTranslationRuleElement.DictionaryKind],
         in window: String,
         minLength: Int,
-        maxLength: Int
+        maxLength: Int,
+        customTokenName: String? = nil
     ) -> [(length: Int, meaning: String)] {
         guard !window.isEmpty else { return [] }
         var byLength: [Int: String] = [:]
@@ -132,6 +142,17 @@ public struct QuickTranslationDictionaryToken {
                 for length in stride(from: longest, through: max(minLength, 1), by: -1) where byLength[length] == nil {
                     guard let key = String(window.utf16.prefix(length)), let reading = surnames[key] else { continue }
                     byLength[length] = reading
+                }
+                continue
+            }
+
+            if kind == .custom {
+                // Token tắt / đã xoá / trống ⇒ không có bảng ⇒ không ứng viên ⇒ rule không khớp (dòng rule vẫn giữ).
+                guard let customTokenName, let table = customTokens[customTokenName] else { continue }
+                let longest = min(maxLength, window.utf16.count, table.maxKeyLength)
+                for length in stride(from: longest, through: max(minLength, 1), by: -1) where byLength[length] == nil {
+                    guard let key = String(window.utf16.prefix(length)), let meaning = table.meanings[key] else { continue }
+                    byLength[length] = meaning
                 }
                 continue
             }
@@ -161,7 +182,7 @@ public struct QuickTranslationDictionaryToken {
             return [pronouns].compactMap { $0 }
         case .vietPhrase:
             return [bookVietPhrase, customVietPhrase, vietPhrase].compactMap { $0 }
-        case .hanViet, .surname:
+        case .hanViet, .surname, .custom:
             return []
         }
     }

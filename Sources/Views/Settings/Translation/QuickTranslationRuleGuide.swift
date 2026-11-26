@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Hai nơi đọc, không nơi nào viết lại nội dung:
 /// - `QuickTranslationRuleGuideView` — trang "Hướng dẫn viết rule" hiện đủ mọi mục.
-/// - Các nút "?" (`SectionHelpHeader`) ở màn sửa rule, Cấu hình token rule, Bộ ngoặc và Danh sách họ — chỉ lấy những ý gắn
+/// - Các nút "?" (`SectionHelpHeader`) ở màn sửa rule, Cấu hình token rule, Bộ ngoặc, Danh sách họ và token tùy chọn — chỉ lấy những ý gắn
 ///   `HelpSpot` của đúng chỗ đó qua `helpTexts(for:)`.
 ///
 /// Mỗi ý phải đúng với parser/matcher/compiler hiện tại (đã đối chiếu khi viết): sửa engine mà đổi hành vi thì
@@ -20,6 +20,10 @@ enum QuickTranslationRuleGuide {
         case bracketList
         /// Màn Danh sách họ của token `<ho>` (1.3.1062).
         case surnameList
+        /// Section / màn Token tùy chọn `<@tên>` (1.3.1063).
+        case customTokenList
+        /// Màn danh sách từ của một token tùy chọn (1.3.1063).
+        case customTokenEntries
     }
 
     struct Point: Sendable {
@@ -93,7 +97,7 @@ enum QuickTranslationRuleGuide {
               "<a>级 = cấp {0}  →  SSS级 ra cấp SSS", help: [.tokenSettings]),
             p("<L> một nhãn 章 卷 集 节 節 幕 回 折, ra Chương, Quyển, Tập, Tiết, Màn, Hồi, Chiết.",
               "第<n><L> = {1} {0}  →  第3卷 ra Quyển 3"),
-            p("Token mặc định khớp 1-12 ký tự, chỉnh bằng <n:1-4>; <L> và <hv> luôn 1 ký tự, <ho> 1-2 chữ, <m> tự nhận 1-4."),
+            p("Token mặc định khớp 1-12 ký tự, chỉnh bằng <n:1-4>; <L> và <hv> luôn 1 ký tự, <ho> 1-2 chữ, <m> tự nhận 1-4, <@tên> theo danh sách từ."),
         ]),
         Topic(title: "Token từ điển", points: [
             p("<ne> một cụm có trong Name, ra nghĩa Việt của cụm đó.", "<ne>说 = {0} nói  →  张三说 ra Trương Tam nói"),
@@ -119,10 +123,29 @@ enum QuickTranslationRuleGuide {
             p("Nhập file dạng 王=Vương, mỗi dòng một họ, dòng sai bị bỏ qua; xuất file bỏ họ đang tắt.", help: [.surnameList]),
             p("Mở ở Cấu hình token rule › Danh sách họ; chỉ có một danh sách chung cho mọi truyện."),
         ]),
+        Topic(title: "Token tùy chọn", points: [
+            p("<@tên> khớp một từ trong danh sách của token tùy chọn cùng tên, ra nghĩa của từ đó.",
+              "穿着<@mau>衣服 = mặc áo {0}  →  穿着红色衣服 ra mặc áo màu đỏ", help: [.pattern, .customTokenList]),
+            p("Token do anh tự tạo ở Cấu hình token rule › Token tùy chọn, hoặc nút + ở nhóm Tùy chọn của bảng token.",
+              help: [.customTokenList]),
+            p("Nhấn giữ một token trong bảng token: mở danh sách của nó (nếu có), bật / tắt, xoá token tùy chọn.",
+              help: [.pattern]),
+            p("Tên gồm a-z, 0-9, _ và bắt đầu bằng chữ; đặt lúc tạo, không đổi được. Mô tả sửa được.",
+              help: [.customTokenList]),
+            p("Token tắt, đã xoá hoặc chưa có từ thì chỗ dùng nó không khớp; dòng rule vẫn giữ nguyên trong file.",
+              help: [.customTokenList]),
+            p("Từ dài thử trước; phần sau của mẫu không khớp thì lùi về từ ngắn hơn: 红色 thắng 红.",
+              help: [.customTokenEntries]),
+            p("Mỗi từ có chữ gốc (tối đa 12 ký tự) và nghĩa; nghĩa chính là chữ {i} trả ra.", help: [.customTokenEntries]),
+            p("Nhập / xuất file dạng 红色=màu đỏ, mỗi dòng một từ; dòng sai bị bỏ qua.", help: [.customTokenEntries]),
+            p("<@TÊN> viết hoa cả tên thì nghĩa được viết hoa chữ đầu mọi từ, như <VP>."),
+            p("Không nhận độ dài :min-max, không ghép |; muốn “hoặc” thì dùng nhóm (<@a>|<@b>)."),
+            p("Một bộ chung cho mọi truyện, tối đa 50 token và 20.000 từ."),
+        ]),
         Topic(title: "Viết hoa nghĩa", points: [
             p("Viết HOA tên token chữ thì nghĩa của nó được viết hoa chữ đầu mọi từ, như nút AA.",
               "<VP>宗 = {0} Tông  →  天剑宗 ra Thiên Kiếm Tông", help: [.pattern, .replacement]),
-            p("Dùng cho <NE> <PN> <VP> <W> <HV> <HN> <M> <A> <HO>; vẫn kèm độ dài, ? và |: <VP:1-4>, <NE|PN>?.",
+            p("Dùng cho <NE> <PN> <VP> <W> <HV> <HN> <M> <A> <HO> và <@TÊN>; vẫn kèm độ dài, ? và |: <VP:1-4>, <NE|PN>?.",
               help: [.pattern]),
             p("Chạm chip token trong mẫu rồi bấm AA hoa nghĩa để đổi qua lại; viết tay cũng được."),
             p("Cả token phải cùng viết hoa hoặc cùng viết thường: <NE|pn> là lỗi."),
@@ -212,7 +235,7 @@ enum QuickTranslationRuleGuide {
             issue(.multipleConsecutiveWildcards, "hai token dán nhau như <n><L>; vẫn chạy nhưng dễ chia sai."),
             issue(.literalSpaceInPattern, "mẫu có dấu cách; chữ Trung hầu như không có."),
             issue(.weakAnchor, "chữ cố định chỉ gồm chữ quá phổ biến (的, 了, 是…), dễ khớp bừa."),
-            issue(.dictTokenWithoutDictionary, "từ điển của token chưa nạp."),
+            issue(.dictTokenWithoutDictionary, "từ điển của token chưa nạp, hoặc token tùy chọn chưa có / đang tắt / chưa có từ."),
             issue(.ruleTooComplex, "rule thử quá nhiều cách chia nên bị dừng; thu hẹp độ dài token."),
             issue(.unparseableRuleLine, "dòng không có dạng mẫu = bản dịch."),
             issue(.emptyPattern, "vế trái dấu = để trống."),

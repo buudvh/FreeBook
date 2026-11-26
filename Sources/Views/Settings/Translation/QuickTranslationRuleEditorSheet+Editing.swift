@@ -244,7 +244,7 @@ extension QuickTranslationRuleEditorSheet {
                 onDeleteBackward: deleteBackwardInPattern
             )
 
-            QuickTranslationRuleTokenPaletteView { insertIntoPattern($0) }
+            QuickTranslationRuleTokenPaletteView(model: tokenPalette) { insertIntoPattern($0) }
 
             if let segment = selectedTokenSegment(in: segments),
                let position = segment.tokenPosition,

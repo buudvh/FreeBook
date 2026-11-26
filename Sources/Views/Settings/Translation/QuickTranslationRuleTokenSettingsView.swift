@@ -30,6 +30,8 @@ struct QuickTranslationRuleTokenSettingsView: View {
     @State private var bracketSummary = ""
     /// "683 họ · 1 đang tắt" của hàng Danh sách họ — store không phát thay đổi ⇒ đọc lại ở `onAppear` như Bộ ngoặc.
     @State private var surnameSummary = ""
+    /// "2 token · 1 đang tắt" của hàng Token tùy chọn (1.3.1063) — đọc lại ở `onAppear` như hai hàng trên.
+    @State private var customTokenSummary = ""
 
     var body: some View {
         Form { Group {
@@ -88,6 +90,21 @@ struct QuickTranslationRuleTokenSettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    QuickTranslationCustomTokenListView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Token tùy chọn")
+                        Text(verbatim: customTokenSummary)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                SectionHelpHeader("Token tùy chọn", texts: QuickTranslationRuleGuide.helpTexts(for: .customTokenList))
+            }
+
+            Section {
                 Text("Tắt token chỉ tạm vô hiệu toàn bộ rule có chứa đúng token đó, kể cả token trong nhóm, danh sách | hoặc phần tùy chọn. File QuickTranslateRules.txt không bị sửa.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -99,6 +116,8 @@ struct QuickTranslationRuleTokenSettingsView: View {
             bracketSummary = "\(pairs.filter(\.isEnabled).count)/\(pairs.count) cặp bật"
             let surnames = QuickTranslationSurnameStore.shared.summary()
             surnameSummary = QuickTranslationSurnameListView.summaryText(total: surnames.total, disabled: surnames.disabled)
+            let customTokens = QuickTranslationCustomTokenStore.shared.summary()
+            customTokenSummary = QuickTranslationCustomTokenListView.summaryText(total: customTokens.total, disabled: customTokens.disabled)
         }
     }
 

@@ -213,13 +213,24 @@ public enum QuickTranslationRuleDraftAnalyzer {
         /// Token chữ đang viết HOA tên (`<VP>`, `<NE|PN>`…) = ép viết hoa nghĩa (1.3.761). Hỏi đúng hàm của parser
         /// (`QuickTranslationRuleParser+TitleCase`) để màn sửa rule và runtime hiểu cùng một luật.
         public var isTitleCase: Bool {
-            !names.isEmpty && names.allSatisfy(QuickTranslationRuleParser.isTitleCaseTokenName)
+            if isCustomToken {
+                return QuickTranslationCustomTokenListParser.ruleName(String(names[0].dropFirst()))?.capitalizesMeaning == true
+            }
+            return !names.isEmpty && names.allSatisfy(QuickTranslationRuleParser.isTitleCaseTokenName)
         }
+
+        /// Token tùy chọn `<@tên>` / `<@TÊN>` (1.3.1063): tên token chữ thường, `nil` với mọi token khác.
+        public var customTokenName: String? {
+            names.count == 1 ? QuickTranslationRuleParser.customTokenName(inSpec: names[0]) : nil
+        }
+
+        public var isCustomToken: Bool { customTokenName != nil }
 
         /// Mọi tên đều là token chữ (bỏ qua hoa/thường) ⇒ thanh chỉnh hiện nút "AA viết hoa nghĩa". Token số,
         /// `<any>`, `<L>`, neo và ngoặc không có.
         public var supportsTitleCase: Bool {
-            !names.isEmpty && names.allSatisfy { QuickTranslationRuleParser.titleCaseTokenNames.contains($0.lowercased()) }
+            if isCustomToken { return true }
+            return !names.isEmpty && names.allSatisfy { QuickTranslationRuleParser.titleCaseTokenNames.contains($0.lowercased()) }
         }
 
         /// Bật/tắt viết hoa nghĩa = viết lại tên token HOA/thường; token không hỗ trợ thì giữ nguyên.
@@ -253,6 +264,7 @@ public enum QuickTranslationRuleDraftAnalyzer {
         /// độ dài.
         public var supportsLengthRange: Bool {
             if names.allSatisfy({ $0 == "L" }) { return false }
+            if isCustomToken { return false }
             if baseNames == ["hv"] || isSurname { return false }
             if baseNames == ["m"] { return false }
             if names.contains(where: { QuickTranslationRuleTokenSettings.Kind.kind(forTokenName: $0)?.isUncaptured == true }) {

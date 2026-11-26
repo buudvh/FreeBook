@@ -84,6 +84,17 @@ struct QuickTranslationRuleTokenLengthBar: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+            } else if let name = spec.customTokenName {
+                // Token tùy chọn (1.3.1063): độ dài do danh sách từ quyết định.
+                if let token = QuickTranslationCustomTokenStore.shared.token(named: name) {
+                    Text("Token này nuốt **một từ** của \(token.displayTitle), không nhận khoảng độ dài.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text(verbatim: "Chưa có token <@\(name)>: tạo bằng chip + ở nhóm Tùy chọn.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             } else if spec.isSurname {
                 Text("Token này nuốt **một họ**: 1 chữ (họ đơn) hoặc 2 chữ (họ kép), không nhận khoảng độ dài.")
                     .font(.caption2)

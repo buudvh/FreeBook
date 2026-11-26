@@ -11,13 +11,15 @@ import Foundation
 public struct QuickTranslationRuleElement: Sendable {
     /// Nhóm từ điển mà một token được phép nuốt. `<w>` mở thành `[.name, .pronoun, .vietPhrase]`
     /// và thử theo thứ tự khai báo; `<hv>` là đúng một ký tự Hán, render bằng bảng `PhienAm`; `<ho>` (1.3.1062) là
-    /// một họ trong danh sách họ (`QuickTranslationSurnameStore`), render bằng âm lưu sẵn của họ đó.
+    /// một họ trong danh sách họ (`QuickTranslationSurnameStore`), render bằng âm lưu sẵn của họ đó. `.custom` (1.3.1063) là
+    /// token tùy chọn `<@tên>`: tên token nằm ở `customTokenName` của phần tử, bảng tra ở `QuickTranslationCustomTokenStore`.
     public enum DictionaryKind: String, Sendable {
         case name = "ne"
         case pronoun = "pn"
         case vietPhrase = "vp"
         case hanViet = "hv"
         case surname = "ho"
+        case custom = "@"
 
         /// Độ dài cố định khi token **chỉ** có loại này (parser ép, không nhận `:min-max`, màn sửa rule không hiện thanh
         /// độ dài): `<hv>` đúng 1 ký tự Hán; `<ho>` 1–2 đơn vị UTF-16 = họ đơn hoặc họ kép.
@@ -25,7 +27,7 @@ public struct QuickTranslationRuleElement: Sendable {
             switch self {
             case .hanViet: return 1...1
             case .surname: return 1...QuickTranslationSurnameListParser.maxKeyUTF16Length
-            case .name, .pronoun, .vietPhrase: return nil
+            case .name, .pronoun, .vietPhrase, .custom: return nil
             }
         }
     }
@@ -122,6 +124,8 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Token chữ viết HOA tên (`<VP>`, `<HN>`, `<A>`…, 1.3.761 — `QuickTranslationRuleParser+TitleCase`): nghĩa ép
     /// kiểu AA qua `renderedMeaning`. Parser đã hạ tên về chữ thường nên `kind`/`sourceTokenKinds` y như token thường.
     public var capitalizesMeaning: Bool
+    /// Chỉ `<@tên>` (1.3.1063, `kind == .dictionary([.custom])`): tên token (chữ thường, không kèm `@`).
+    public var customTokenName: String?
 
     public init(
         kind: Kind,
@@ -135,7 +139,8 @@ public struct QuickTranslationRuleElement: Sendable {
         leadsPattern: Bool = false,
         bracketSlot: Int? = nil,
         bracketPartnerSlot: Int? = nil,
-        capitalizesMeaning: Bool = false
+        capitalizesMeaning: Bool = false,
+        customTokenName: String? = nil
     ) {
         self.kind = kind
         self.sourceTokenKinds = sourceTokenKinds
@@ -149,6 +154,7 @@ public struct QuickTranslationRuleElement: Sendable {
         self.bracketSlot = bracketSlot
         self.bracketPartnerSlot = bracketPartnerSlot
         self.capitalizesMeaning = capitalizesMeaning
+        self.customTokenName = customTokenName
     }
 
     /// Chuỗi capture **đã render** của token này — chỗ duy nhất áp viết hoa nghĩa (matcher gọi qua `store`).
