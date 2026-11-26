@@ -3,7 +3,8 @@ import UniformTypeIdentifiers
 
 /// Danh sách **sửa thẳng từ điển gốc** PhienAm (`ChinesePhienAmWords.txt`) hoặc Pronouns (`Pronouns.dat`) — mở từ thẻ
 /// PhienAm.txt / Pronouns.txt › Sửa ở Cài đặt dịch thuật. Hàng kiểu VP/Name (`DictionaryEntryRow`): dòng 1 `.headline`
-/// từ gốc, dòng 2 `.subheadline` nghĩa màu phụ, icon [Xoá]; **chạm thân hàng** mở sheet sửa. "+" nổi thêm mục; ngăn
+/// từ gốc, dòng 2 `.subheadline` nghĩa màu phụ, icon [Xoá]; **chạm thân hàng** mở sheet sửa (Pronouns: màn Sửa từ của
+/// VP — `editSheet(for:)`; Phiên âm: form hai ô `BaseDictionaryEntrySheet`). "+" nổi thêm mục; ngăn
 /// kéo "…" có Nhập file (chọn file trước, popup 3 cách nhập sau kèm tên file — `dataImportFilePicker` ⇒
 /// `GlobalDictionaryImporter`) / Xuất file (`GlobalDictionaryTextExporter`).
 ///
@@ -98,12 +99,8 @@ struct BaseDictionaryListView: View {
                 .disabled(entries.isEmpty)
         }
         .sheet(item: $editingEntry) { entry in
-            Group {
-                BaseDictionaryEntrySheet(title: "Sửa mục", originalKey: entry.key, originalValue: entry.value) { key, value in
-                    save(key: key, value: value, replacing: entry.key)
-                }
-            }
-            .appGlassSheet()
+            Group { editSheet(for: entry) }
+                .appGlassSheet()
         }
         .sheet(isPresented: $showingAddSheet) {
             Group {
@@ -167,6 +164,32 @@ struct BaseDictionaryListView: View {
             .accessibilityLabel("Xoá \(entry.key)")
         }
         .accessibilityAction(named: "Sửa") { if !isImporting { editingEntry = entry } }
+    }
+
+    /// Pronouns ⇒ màn Sửa từ của VP (`DictEntryEditSheet`, anh Bửu: "sửa mục pronoun cần giống sửa mục của vp"):
+    /// chọn cả từ gốc ⇒ sửa nghĩa mục đó; gõ lại từ gốc (bút chì) ⇒ đổi khoá, **bỏ** mục cũ (khác VP — VP chỉ ghi lớp
+    /// sửa đổi, còn đây ghi thẳng file gốc nên giữ mục cũ là sinh trùng); chọn một phần ⇒ thêm mục mới, mục cũ giữ.
+    /// Không gắn truyện ⇒ chip chỉ từ điển chung, nút ⚙ quản lý nghĩa ẩn. Phiên âm giữ form hai ô.
+    @ViewBuilder
+    private func editSheet(for entry: DictEntry) -> some View {
+        if kind == .pronouns {
+            DictEntryEditSheet(
+                originalKey: entry.key,
+                originalValue: entry.value,
+                dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
+                scopeBookId: nil,
+                chipBookId: nil,
+                existingValue: { key in entries.first { $0.key == key }?.value },
+                onUpdate: { key, value in save(key: key, value: value, replacing: entry.key) },
+                onAddEntry: { key, value in save(key: key, value: value, replacing: nil) },
+                onDefinitionsChanged: {},
+                badgeText: "Pronouns · Chung"
+            )
+        } else {
+            BaseDictionaryEntrySheet(title: "Sửa mục", originalKey: entry.key, originalValue: entry.value) { key, value in
+                save(key: key, value: value, replacing: entry.key)
+            }
+        }
     }
 
     // MARK: - Thao tác

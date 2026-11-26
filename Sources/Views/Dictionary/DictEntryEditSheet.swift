@@ -35,7 +35,8 @@ struct DictEntryEditSheet: View {
     let onAddEntry: (String, String) -> Void
     let onDefinitionsChanged: () -> Void
     /// Chữ thay cho badge "loại · phạm vi" ở header; `nil` = suy từ `dictType` + `scopeBookId`. Danh sách name AI
-    /// (`ReaderAINameReviewSheet+Edit`, 1.3.780) chưa có loại — Name hay VP chọn lúc Lưu — nên ghi "AI · Riêng truyện".
+    /// (`ReaderAINameReviewSheet+Edit`, 1.3.780) chưa có loại — Name hay VP chọn lúc Lưu — nên ghi "AI · Riêng truyện";
+    /// danh sách Pronouns gốc (`BaseDictionaryListView`, 1.3.1067) ghi "Pronouns · Chung".
     let badgeText: String?
 
     // `internal` (không `private`): các hàng ở `DictEntryEditSheet+Rows.swift` dùng chung trạng thái này.

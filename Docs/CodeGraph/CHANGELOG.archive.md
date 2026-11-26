@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1037] - 2026-11-20
+
+### fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần
+
+Anh Bửu: "vietpharse tìm quá lâu, hiển thị ra cũng lâu, vì sao vậy?" → "tôi đang nói trong danh sách khi nhấn sửa ấy nhé" → plan → "Duyệt".
+
+- **Nguyên nhân**: mở màn duyệt **hết** cây và dựng `String` cho từng khoá (cỡ triệu) rồi mới hiện; mỗi lượt tìm dựng lại bảng con của cây (vài mảng cỡ triệu phần tử) và dựng `String` + `range(of:options: .caseInsensitive)` cho **từng nghĩa** — từ hiếm phải quét hết cây, kết quả chỉ hiện khi quét xong.
+- **Chỉ mục** `BaseDictionaryIndex` (`Models/Dictionaries/`, mới): dựng một lần mỗi lần mở màn ở nền — khoá dạng đơn vị UTF-16 nối liền một mảng + vị trí nghĩa trong pool `.dat`, thứ tự tiền thứ tự của cây như cũ. Phép duyệt **chép riêng** cùng phép tính của `walkEntries` (hàm đó giữ nguyên vì nuôi `allEntries` của nhập / gộp); không kiểm UTF-8 nghĩa lúc dựng (nghĩa hỏng hiện rỗng). 200 khoá đầu gửi về màn ngay khi có (`onFirstPage`), phần sau dựng chuỗi theo lượt 200 khi cuộn; tổng số từ lấy số mục chỉ mục (lúc đang dựng: `wordCount` ở đầu file). Lượt dựng không theo huỷ của `.task` (quay về từ "Từ đã sửa / đã xoá" không dựng lại).
+- **Tìm** `BaseDictionaryIndexSearch` (mới): lớp sửa đổi (như cũ) ⇒ khoá **bắt đầu bằng** ⇒ khoá **chứa** (quét tuyến tính mảng UTF-16, không dựng chuỗi) ⇒ **nghĩa** chứa, so trên byte bằng `BaseDictionaryMeaningMatcher` (parser UTF-8 của stdlib, hạ thường theo `lowercaseMapping` dưới U+2000, không bỏ dấu, chuỗi tìm NFC; nghĩa có dấu rời / NFD đi đường Foundation cũ), quét theo lượt chia 2–3 luồng (1 luồng khi NghiTTS / VieNeu đang đọc). Kết quả gửi dần qua `AsyncStream` (`BaseDictionaryBrowser.searchUpdates`), dòng tổng ghi "Đang tìm… N kết quả" khi chưa xong; gõ tiếp ⇒ huỷ lượt quét; chỉ mục chưa xong thì lượt tìm chờ rồi tự chạy. Mỗi khoá một lần trong kết quả.
+- Bỏ `FrozenTrieDictionary.allKeys()` và `BaseDictionaryBrowser.keys` / `search` cũ (không còn ai gọi). `walkEntries` / `allEntries` không đổi.
+- Log `📚 [VPList]` (số mục, ms dựng, ms tới trang đầu) và `🔎 [VPList]` (ms phần khoá / nghĩa, số luồng, số nghĩa phải so bằng Foundation, đối chiếu 1000 nghĩa đầu giữa đường byte và Foundation — số lệch phải là 0) để đo trên máy.
+- `translation.md`: sửa câu mô tả danh sách từ điển gốc. CHANGELOG: chuyển bản 1.3.1007 sang archive.
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy, chưa đo được nhanh lên bao nhiêu**. Cần thử: bật Ghi log, Cài đặt dịch thuật › thẻ VietPhrase.txt › Sửa — trang đầu phải hiện gần như ngay; tìm một chữ Hán, một chữ Việt hiếm, một chữ Việt thông dụng (vd "của"); gửi log.
+
 ## [1.3.1036] - 2026-11-20
 
 ### fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn

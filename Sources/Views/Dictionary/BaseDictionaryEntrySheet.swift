@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** mục của từ điển gốc PhienAm hoặc Pronouns (`BaseDictionaryListView`): hai ô Từ gốc + Nghĩa,
+/// Sheet thêm **một** mục của từ điển gốc PhienAm hoặc Pronouns, và sửa mục PhienAm (`BaseDictionaryListView`; sửa mục
+/// Pronouns dùng màn Sửa từ của VP `DictEntryEditSheet` từ 1.3.1067): hai ô Từ gốc + Nghĩa,
 /// nút "Lưu" chữ ở header. Không có nút chỉ để đóng (vuốt xuống); đã gõ dở thì vuốt xuống hỏi bỏ thay đổi.
 /// Chỗ trình bày bọc `Group { … }.appGlassSheet()`.
 struct BaseDictionaryEntrySheet: View {

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1067] - 2026-11-26
+
+### feat: sửa mục Pronouns dùng màn Sửa từ như VietPhrase
+
+Anh Bửu: "sửa mục pronoun cần giống sửa mục của vp cho tôi" → duyệt plan (chỉ màn Sửa, "+" giữ nguyên).
+
+- Pronouns (Chung) › chạm hàng mở `DictEntryEditSheet` (màn Sửa từ của VietPhrase.dat: chữ gốc chạm từng chữ + nút nới / thu, token đã dịch, ô nghĩa, chip, aa…AA, Cập nhật, tra cứu nhanh) thay form hai ô; badge "Pronouns · Chung", không gắn truyện ⇒ nút ⚙ quản lý nghĩa ẩn (`BaseDictionaryListView.editSheet(for:)`).
+- Lưu vẫn qua `GlobalDictionaryEditor` (ghi lại file gốc, dựng lại `.dat`, nạp lại Pronouns, xoá cache dịch): chọn cả từ ⇒ sửa nghĩa; đổi từ gốc (bút chì) ⇒ **bỏ** mục cũ như trước (khác VP — VP chỉ ghi lớp sửa đổi); chọn một phần ⇒ thêm mục mới, mục cũ giữ; từ đích đã có ⇒ màn báo ghi đè.
+- Hàng token và nghĩa gợi ý (chọn một phần) ra nghĩa VP/Name vì tách từ không tra Pronouns (1.3.1016) — như panel Dịch của Reader; nghĩa Pronouns hiện ở chip "Xưng hô (Pronouns)".
+- Phiên âm giữ form hai ô `BaseDictionaryEntrySheet` (sheet này giờ chỉ còn: thêm mục cả hai, sửa mục Phiên âm). `translation.md` ghi lại; entry 1.3.1037 chuyển sang `CHANGELOG.archive.md`.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1066] - 2026-11-26
 
 ### fix: sheet có hộp "Bỏ thay đổi?" chạm ra ngoài sheet cũng hỏi như vuốt xuống, không còn đứng im
@@ -373,17 +385,3 @@ Anh Bửu thử 1.3.1036: hết tiếng "vụt" nhưng "âm điệu nghe khác v
 - **Phiên âm tiếng Nhật**: `TTSJapaneseTextTransliterator` (dùng chung Siri / Google / tiện ích / vtts) chỉ đổi từ `ForeignScriptClassifier` chấm ≥ 4 điểm hoặc có trong `JapaneseLoanwordList` ⇒ "Konoha", "Naruto", "Sasuke" (1 điểm) không bao giờ đổi, vtts đọc tiếng Anh. `spokenForm` nhận thêm luật tên viết hoa của VieNeu (`VieNeuJapaneseNameReader.reads`). Không hạ ngưỡng bộ chấm điểm. vtts đọc kết quả ("Kô nô ha", "Na ru tô") bằng tiếng Việt — đã đối chiếu `word_tag` / `parse_syl` của runtime. Log `🗣️ [Vtts] Đoạn` thêm `jp=off` / `jp=on(N: Konoha→Kô nô ha, …)` (tối đa 2 cặp, `applyReportingChanges`).
 - **"vtts tự đọc nhanh tối đa"** (mockup https://claude.ai/artifact/XPxHGwcaoi3ZF9GsC2apAM): `VttsNativeSpeedRow` (mới, `Views/Settings/TTS/`) ngay dưới thanh Tốc độ ở Cài đặt TTS và màn Giọng dự phòng khi chọn vtts, 1,0–2,0 bước 0,1, khoá `vttsNativeSpeedMax` (`@AppStorage`), mặc định 1,4 (ước lượng), dòng số "vtts đọc X · trình phát kéo thêm Y", giải thích sau nút "?" của "Cấu hình giọng nói", "Đặt lại" về mặc định. Thanh Tốc độ giữ nghĩa tốc độ nghe: `TTSManager.vttsNativeSpeed(forListeningSpeed:)` = min(tốc độ, tối đa) kẹp 1,0–2,0; `localPlaybackRate` / `remotePlaybackRate` kéo phần còn lại. Giá trị nằm trong `TTSSettingsSnapshot` (`vttsNativeSpeedMax`) và fingerprint giọng dự phòng ⇒ đóng Cài đặt là dựng lại đoạn như đổi tốc độ.
 - Dọn: entry 1.3.1008 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi luật tên viết hoa + hàng mới. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1037] - 2026-11-20
-
-### fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần
-
-Anh Bửu: "vietpharse tìm quá lâu, hiển thị ra cũng lâu, vì sao vậy?" → "tôi đang nói trong danh sách khi nhấn sửa ấy nhé" → plan → "Duyệt".
-
-- **Nguyên nhân**: mở màn duyệt **hết** cây và dựng `String` cho từng khoá (cỡ triệu) rồi mới hiện; mỗi lượt tìm dựng lại bảng con của cây (vài mảng cỡ triệu phần tử) và dựng `String` + `range(of:options: .caseInsensitive)` cho **từng nghĩa** — từ hiếm phải quét hết cây, kết quả chỉ hiện khi quét xong.
-- **Chỉ mục** `BaseDictionaryIndex` (`Models/Dictionaries/`, mới): dựng một lần mỗi lần mở màn ở nền — khoá dạng đơn vị UTF-16 nối liền một mảng + vị trí nghĩa trong pool `.dat`, thứ tự tiền thứ tự của cây như cũ. Phép duyệt **chép riêng** cùng phép tính của `walkEntries` (hàm đó giữ nguyên vì nuôi `allEntries` của nhập / gộp); không kiểm UTF-8 nghĩa lúc dựng (nghĩa hỏng hiện rỗng). 200 khoá đầu gửi về màn ngay khi có (`onFirstPage`), phần sau dựng chuỗi theo lượt 200 khi cuộn; tổng số từ lấy số mục chỉ mục (lúc đang dựng: `wordCount` ở đầu file). Lượt dựng không theo huỷ của `.task` (quay về từ "Từ đã sửa / đã xoá" không dựng lại).
-- **Tìm** `BaseDictionaryIndexSearch` (mới): lớp sửa đổi (như cũ) ⇒ khoá **bắt đầu bằng** ⇒ khoá **chứa** (quét tuyến tính mảng UTF-16, không dựng chuỗi) ⇒ **nghĩa** chứa, so trên byte bằng `BaseDictionaryMeaningMatcher` (parser UTF-8 của stdlib, hạ thường theo `lowercaseMapping` dưới U+2000, không bỏ dấu, chuỗi tìm NFC; nghĩa có dấu rời / NFD đi đường Foundation cũ), quét theo lượt chia 2–3 luồng (1 luồng khi NghiTTS / VieNeu đang đọc). Kết quả gửi dần qua `AsyncStream` (`BaseDictionaryBrowser.searchUpdates`), dòng tổng ghi "Đang tìm… N kết quả" khi chưa xong; gõ tiếp ⇒ huỷ lượt quét; chỉ mục chưa xong thì lượt tìm chờ rồi tự chạy. Mỗi khoá một lần trong kết quả.
-- Bỏ `FrozenTrieDictionary.allKeys()` và `BaseDictionaryBrowser.keys` / `search` cũ (không còn ai gọi). `walkEntries` / `allEntries` không đổi.
-- Log `📚 [VPList]` (số mục, ms dựng, ms tới trang đầu) và `🔎 [VPList]` (ms phần khoá / nghĩa, số luồng, số nghĩa phải so bằng Foundation, đối chiếu 1000 nghĩa đầu giữa đường byte và Foundation — số lệch phải là 0) để đo trên máy.
-- `translation.md`: sửa câu mô tả danh sách từ điển gốc. CHANGELOG: chuyển bản 1.3.1007 sang archive.
-- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy, chưa đo được nhanh lên bao nhiêu**. Cần thử: bật Ghi log, Cài đặt dịch thuật › thẻ VietPhrase.txt › Sửa — trang đầu phải hiện gần như ngay; tìm một chữ Hán, một chữ Việt hiếm, một chữ Việt thông dụng (vd "của"); gửi log.
