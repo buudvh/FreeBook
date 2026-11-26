@@ -1,8 +1,10 @@
 import ObjectiveC
 import UIKit
 
-/// Delegate **trung gian** đặt lên `presentationController` của một sheet SwiftUI để bắt lượt vuốt-xuống bị chặn
-/// (`presentationControllerDidAttemptToDismiss`) — SwiftUI không có API nào báo sự kiện này.
+/// Delegate **trung gian** đặt lên `presentationController` của một sheet SwiftUI để **chặn** lượt đóng do người dùng khi
+/// sheet có nội dung chưa lưu và báo lượt bị chặn — SwiftUI không có API nào báo sự kiện này. Chặn bằng
+/// `presentationControllerShouldDismiss` (1.3.1066) chứ không bằng `isModalInPresentation`: UIKit hỏi hàm này cho **cả**
+/// vuốt xuống lẫn chạm ra ngoài sheet, còn `isModalInPresentation` bỏ qua hẳn chạm ngoài.
 ///
 /// Bất biến quan trọng nhất: **mọi** callback của delegate gốc (của SwiftUI) phải tới được nó. SwiftUI đưa binding
 /// `isPresented`/`item` của `.sheet` về `false` trong `presentationControllerDidDismiss`; nuốt mất callback đó là sheet
@@ -33,6 +35,8 @@ final class SheetDismissDelegateProxy: NSObject, UISheetPresentationControllerDe
     /// Presentation controller đang mang proxy — để `uninstall` trả lại delegate gốc.
     private weak var host: UIPresentationController?
     private var attemptHandler: (() -> Void)?
+    /// `true` ⇒ từ chối lượt đóng do người dùng (vuốt / chạm ngoài) và gọi `attemptHandler`.
+    private var shouldBlockHandler: (() -> Bool)?
     /// Chủ của `attemptHandler` hiện tại: probe cũ bị gỡ **sau** khi probe mới đã gắn thì không được xoá handler mới.
     private var handlerOwner: ObjectIdentifier?
 
@@ -54,9 +58,10 @@ final class SheetDismissDelegateProxy: NSObject, UISheetPresentationControllerDe
         return proxy
     }
 
-    func setAttemptHandler(owner: AnyObject, _ handler: @escaping () -> Void) {
+    func setHandlers(owner: AnyObject, shouldBlock: @escaping () -> Bool, onAttempt: @escaping () -> Void) {
         handlerOwner = ObjectIdentifier(owner)
-        attemptHandler = handler
+        shouldBlockHandler = shouldBlock
+        attemptHandler = onAttempt
     }
 
     /// Probe chủ hiện tại bị gỡ ⇒ trả delegate gốc cho presentation controller, bỏ associated object và nhả `original`
@@ -65,6 +70,7 @@ final class SheetDismissDelegateProxy: NSObject, UISheetPresentationControllerDe
         guard handlerOwner == ObjectIdentifier(owner) else { return }
         handlerOwner = nil
         attemptHandler = nil
+        shouldBlockHandler = nil
         if let host {
             if host.delegate === self {
                 host.delegate = original
@@ -77,8 +83,15 @@ final class SheetDismissDelegateProxy: NSObject, UISheetPresentationControllerDe
 
     // MARK: - Callback vòng đời (luôn gọi tiếp bản gốc)
 
+    /// Có nội dung chưa lưu ⇒ không cho đóng và báo ngay: chạm ra ngoài sheet chưa chắc được UIKit báo tiếp qua
+    /// `presentationControllerDidAttemptToDismiss`. Nếu UIKit vẫn báo thì handler chạy lần hai — vô hại (chỉ bật cờ hiện
+    /// hộp hỏi).
     func presentationControllerShouldDismiss(_ presentationController: UIPresentationController) -> Bool {
-        original?.presentationControllerShouldDismiss?(presentationController) ?? true
+        if shouldBlockHandler?() == true {
+            attemptHandler?()
+            return false
+        }
+        return original?.presentationControllerShouldDismiss?(presentationController) ?? true
     }
 
     func presentationControllerWillDismiss(_ presentationController: UIPresentationController) {

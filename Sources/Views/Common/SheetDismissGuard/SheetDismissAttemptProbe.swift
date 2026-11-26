@@ -2,16 +2,17 @@ import SwiftUI
 import UIKit
 
 /// View controller vô hình gắn vào nội dung sheet để tìm `presentationController` của **chính** sheet đó và đặt
-/// `SheetDismissDelegateProxy` lên nó. Mỗi lượt vuốt-xuống bị chặn ⇒ `onAttempt`.
+/// `SheetDismissDelegateProxy` lên nó. Lúc `isDirty`, proxy từ chối mọi lượt đóng do người dùng (vuốt xuống, chạm ra
+/// ngoài sheet) ⇒ `onAttempt`.
 ///
 /// Tìm theo chuỗi `parent` từ chính probe lên gốc (view controller được trình bày), **không** lấy "view controller
 /// đang trình bày trên cùng": màn có sheet con (vd bảng chọn script của Script editor) sẽ ra nhầm presentation controller.
-/// Cài lại ở mỗi `updateUIViewController` vì SwiftUI có thể gán lại delegate khi `interactiveDismissDisabled` đổi.
+/// Cài lại ở mỗi `updateUIViewController` vì SwiftUI có thể gán lại delegate của nó giữa chừng.
 struct SheetDismissAttemptProbe: UIViewControllerRepresentable {
+    /// Có nội dung chưa lưu ⇒ proxy chặn đóng. Đọc lúc UIKit hỏi (`presentationControllerShouldDismiss`), nên luôn là giá
+    /// trị của lượt cập nhật view gần nhất.
+    let isDirty: Bool
     let onAttempt: () -> Void
-    /// Báo proxy đã cài được hay chưa — modifier chỉ chặn vuốt khi đã cài (không thì sheet kẹt không có lối đóng).
-    /// Gọi trễ một nhịp main queue, không bao giờ trong lượt cập nhật view.
-    let onArmedChange: (Bool) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -28,7 +29,7 @@ struct SheetDismissAttemptProbe: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: ProbeViewController, context: Context) {
         context.coordinator.onAttempt = onAttempt
-        context.coordinator.onArmedChange = onArmedChange
+        context.coordinator.isDirty = isDirty
         // Lượt update đầu có thể chạy trước khi probe vào cây view controller ⇒ chưa tìm được, không log.
         context.coordinator.install(from: controller, logsFailure: false)
     }
@@ -40,10 +41,9 @@ struct SheetDismissAttemptProbe: UIViewControllerRepresentable {
     @MainActor
     final class Coordinator {
         var onAttempt: () -> Void = {}
-        var onArmedChange: (Bool) -> Void = { _ in }
+        var isDirty = false
         private weak var proxy: SheetDismissDelegateProxy?
         private var didLogMissing = false
-        private var isArmed = false
 
         func install(from controller: UIViewController, logsFailure: Bool) {
             guard let presentationController = Self.presentationController(of: controller) else {
@@ -54,11 +54,12 @@ struct SheetDismissAttemptProbe: UIViewControllerRepresentable {
                 return
             }
             let proxy = SheetDismissDelegateProxy.install(on: presentationController)
-            proxy.setAttemptHandler(owner: self) { [weak self] in
-                self?.onAttempt()
-            }
+            proxy.setHandlers(
+                owner: self,
+                shouldBlock: { [weak self] in self?.isDirty ?? false },
+                onAttempt: { [weak self] in self?.onAttempt() }
+            )
             self.proxy = proxy
-            setArmed(true)
         }
 
         /// Probe bị gỡ (sheet đóng, hoặc nội dung sheet bị dựng lại): trả delegate gốc cho presentation controller nếu
@@ -66,13 +67,6 @@ struct SheetDismissAttemptProbe: UIViewControllerRepresentable {
         func detach() {
             proxy?.uninstall(owner: self)
             proxy = nil
-        }
-
-        private func setArmed(_ armed: Bool) {
-            guard isArmed != armed else { return }
-            isArmed = armed
-            let callback = onArmedChange
-            DispatchQueue.main.async { callback(armed) }
         }
 
         /// Gốc của chuỗi `parent` phải là view controller **được trình bày** (có `presentingViewController`).

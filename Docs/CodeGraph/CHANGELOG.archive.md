@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1036] - 2026-11-20
+
+### fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn
+
+Anh Bửu nghe 4 bản vtts tạo tiếng nhanh 1,8× ngay từ gốc (CI 1.3.1035, câu "…phiên bản, đem mệnh danh…"): "4 cái đều không có tiếng vụt" ⇒ tiếng "vụt" ở 1,8× là do `AVAudioPlayer` kéo nhanh tiếng vtts. Duyệt plan bước 2 kèm "bản 4" (anh đã chọn trong lượt nghe so âm lượng).
+
+- **Tự đọc nhanh**: `TTSManager.localSynthesisSpeed(forTool: "vtts")` = `vttsSynthesisSpeed` (khoá `vttsRate` kẹp `VttsTTSService.nativeSpeedRange` 1,0–2,0, chung trình đọc chính và giọng dự phòng) ⇒ `VttsTTSService` đưa `length_scale = 1 / tốc độ` vào vtts, khoảng lặng đuôi chia cho tốc độ, khoá tổng hợp mặc định có tốc độ. Trình phát chỉ kéo phần còn lại: `TTSManager.localPlaybackRate` (sửa tại chỗ 2 dòng `NghiAudioPlayerQueue.start` / `updateRate` của `TTSManager.swift`, không thêm dòng) và `remotePlaybackRate` khi vtts là giọng dự phòng. NghiTTS / VieNeu không đổi. Tốc độ chỉ đổi ở sheet Cài đặt TTS, nằm trong `TTSSettingsSnapshot` ⇒ đóng sheet là xoá hết đệm (cả đầu chương kế).
+- **Đuôi cụt** — `VttsEdgeFade` (mới): WAV CI cho thấy mảnh vtts kết thúc ở dấu phẩy (vtts tự cắt câu > 40 âm tiết) bị cắt lúc âm còn −36 dBFS rồi rơi thẳng về 0 (cả hai giọng ở 1×). Làm nhỏ dần 20 ms trước mỗi khe số 0 tuyệt đối ≥ 100 ms (khe 150 ms bridge chèn) và ở cuối tiếng, to dần 5 ms sau khe; log `cut=`.
+- **Bản 4** — `VttsLoudness.process` (viết lại): lọc thông cao 150 Hz + nâng +6 dB quanh 2,8 kHz (biquad RBJ) → RMS khung 20 ms có tiếng về −14 dBFS (≈ −16 LUFS; trước −16 dBFS), tăng tối đa +18 dB → ghìm đỉnh ≤ −1 dBFS (cực tiểu ±5 ms, trung bình trượt ±5 ms, nhả 80 ms) thay cho cách hạ cả đoạn của 1.3.1033 (cách cũ chặn mức to ~−17,5 LUFS). `VttsVoice.defaultLoudnessGainDb` theo mốc mới (nu-10 +10,5, nam-1 +7 dB). Log `🗣️ [Vtts] Đoạn` thêm `speed=`, `limit=`. Thuật toán trùng bản Python đã dựng 4 file anh nghe (nu-10 tốc độ gốc: +11,6 dB, ghìm −3,8 dB).
+- CI: gỡ `render_listening_samples` (tạm của 1.3.1035) — `check_vtts_assets.sh` / `build-ipa.yml` về như trước 1.3.1034.
+- Dọn: entry 1.3.1006 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi tự đọc nhanh, `VttsEdgeFade`, bản 4. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1035] - 2026-11-20
 
 ### fix: vtts — độ dài phân đoạn mặc định 500, log độ trễ chuyển đoạn, CI dựng câu nghe thử ở tốc độ gốc

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1066] - 2026-11-26
+
+### fix: sheet có hộp "Bỏ thay đổi?" chạm ra ngoài sheet cũng hỏi như vuốt xuống, không còn đứng im
+
+Anh Bửu: "tiện thể fix luôn các sheet có thông báo bỏ thay đổi/tiếp tục sửa khi bấm ra ngoài sheet không đóng được", "điển hình như sửa từ ở danh sách name của AI" (`DictEntryEditSheet`, nấc `.medium`).
+
+- Nguyên nhân: `SheetDismissGuardModifier` chặn đóng bằng `interactiveDismissDisabled` lúc có nội dung chưa lưu ⇒ `isModalInPresentation`; UIKit khi đó bỏ qua hẳn chạm ra ngoài sheet (không đóng, không báo lượt thử nên không hiện hộp hỏi), chỉ báo lượt vuốt.
+- Sửa: bỏ `interactiveDismissDisabled`; `SheetDismissDelegateProxy.presentationControllerShouldDismiss` trả `false` + gọi handler khi `isDirty` (UIKit hỏi hàm này cho cả vuốt lẫn chạm ngoài). Probe truyền `isDirty` thay cho cờ "đã cài" (`onArmedChange` bỏ — chưa cài được proxy thì vốn không chặn được, vẫn cho đóng như trước). Áp cho mọi sheet gắn `.confirmDiscardOnSwipe` (15 file).
+- `ui-conventions.md` ghi luật mới.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy** — nhất là nhịp hiện hộp hỏi khi vừa chạm ngoài / vừa bắt đầu vuốt.
+
 ## [1.3.1065] - 2026-11-26
 
 ### feat: token tùy chọn <@tên> cho rule dịch nhanh, kèm màn quản lý và menu nhấn giữ ở bảng token
@@ -376,15 +387,3 @@ Anh Bửu: "vietpharse tìm quá lâu, hiển thị ra cũng lâu, vì sao vậy
 - Log `📚 [VPList]` (số mục, ms dựng, ms tới trang đầu) và `🔎 [VPList]` (ms phần khoá / nghĩa, số luồng, số nghĩa phải so bằng Foundation, đối chiếu 1000 nghĩa đầu giữa đường byte và Foundation — số lệch phải là 0) để đo trên máy.
 - `translation.md`: sửa câu mô tả danh sách từ điển gốc. CHANGELOG: chuyển bản 1.3.1007 sang archive.
 - Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy, chưa đo được nhanh lên bao nhiêu**. Cần thử: bật Ghi log, Cài đặt dịch thuật › thẻ VietPhrase.txt › Sửa — trang đầu phải hiện gần như ngay; tìm một chữ Hán, một chữ Việt hiếm, một chữ Việt thông dụng (vd "của"); gửi log.
-
-## [1.3.1036] - 2026-11-20
-
-### fix: vtts — tự đọc nhanh theo thanh Tốc độ, làm nhỏ dần đuôi cụt, tiếng sáng và to hơn
-
-Anh Bửu nghe 4 bản vtts tạo tiếng nhanh 1,8× ngay từ gốc (CI 1.3.1035, câu "…phiên bản, đem mệnh danh…"): "4 cái đều không có tiếng vụt" ⇒ tiếng "vụt" ở 1,8× là do `AVAudioPlayer` kéo nhanh tiếng vtts. Duyệt plan bước 2 kèm "bản 4" (anh đã chọn trong lượt nghe so âm lượng).
-
-- **Tự đọc nhanh**: `TTSManager.localSynthesisSpeed(forTool: "vtts")` = `vttsSynthesisSpeed` (khoá `vttsRate` kẹp `VttsTTSService.nativeSpeedRange` 1,0–2,0, chung trình đọc chính và giọng dự phòng) ⇒ `VttsTTSService` đưa `length_scale = 1 / tốc độ` vào vtts, khoảng lặng đuôi chia cho tốc độ, khoá tổng hợp mặc định có tốc độ. Trình phát chỉ kéo phần còn lại: `TTSManager.localPlaybackRate` (sửa tại chỗ 2 dòng `NghiAudioPlayerQueue.start` / `updateRate` của `TTSManager.swift`, không thêm dòng) và `remotePlaybackRate` khi vtts là giọng dự phòng. NghiTTS / VieNeu không đổi. Tốc độ chỉ đổi ở sheet Cài đặt TTS, nằm trong `TTSSettingsSnapshot` ⇒ đóng sheet là xoá hết đệm (cả đầu chương kế).
-- **Đuôi cụt** — `VttsEdgeFade` (mới): WAV CI cho thấy mảnh vtts kết thúc ở dấu phẩy (vtts tự cắt câu > 40 âm tiết) bị cắt lúc âm còn −36 dBFS rồi rơi thẳng về 0 (cả hai giọng ở 1×). Làm nhỏ dần 20 ms trước mỗi khe số 0 tuyệt đối ≥ 100 ms (khe 150 ms bridge chèn) và ở cuối tiếng, to dần 5 ms sau khe; log `cut=`.
-- **Bản 4** — `VttsLoudness.process` (viết lại): lọc thông cao 150 Hz + nâng +6 dB quanh 2,8 kHz (biquad RBJ) → RMS khung 20 ms có tiếng về −14 dBFS (≈ −16 LUFS; trước −16 dBFS), tăng tối đa +18 dB → ghìm đỉnh ≤ −1 dBFS (cực tiểu ±5 ms, trung bình trượt ±5 ms, nhả 80 ms) thay cho cách hạ cả đoạn của 1.3.1033 (cách cũ chặn mức to ~−17,5 LUFS). `VttsVoice.defaultLoudnessGainDb` theo mốc mới (nu-10 +10,5, nam-1 +7 dB). Log `🗣️ [Vtts] Đoạn` thêm `speed=`, `limit=`. Thuật toán trùng bản Python đã dựng 4 file anh nghe (nu-10 tốc độ gốc: +11,6 dB, ghìm −3,8 dB).
-- CI: gỡ `render_listening_samples` (tạm của 1.3.1035) — `check_vtts_assets.sh` / `build-ipa.yml` về như trước 1.3.1034.
-- Dọn: entry 1.3.1006 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi tự đọc nhanh, `VttsEdgeFade`, bản 4. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
