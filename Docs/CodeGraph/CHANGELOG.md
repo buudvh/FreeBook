@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1063] - 2026-11-26
+
+### fix: đổi nguồn lúc đang nghe đọc hết đoạn đang phát rồi sang đoạn sau của nguồn mới, không ngắt tiếng
+
+Anh Bửu: "khi chuyển nguồn của truyện đang nghe sẽ có bước tắt nghe và mở lại đúng đoạn đang nghe, điều này khiến người nghe có cảm giác gián đoạn, hãy sửa lại chứ để nghe xong đoạn đang phát và phát đoạn tiếp theo (đoạn chứ không phải chunk nhé)" → duyệt plan "Duyệt + cả tạm dừng".
+
+- `TTSManager.continueListeningAfterSourceChange` (1.3.946) thôi `stop()` + `startSpeaking` từ đầu dòng (cắt giữa câu, im 1–3 s, nghe lại cả dòng). Nay trả một Task: chờ lượt dựng chương đang chạy (`awaitChapterBuildsInFlight`, nay `internal`) → `handOffSession` đổi trong một nhịp main truyện đang phát sang truyện mới — `playingBookId`, mục lục mới, tiện ích, tên / bìa / tác giả / link / nguồn, cờ dịch + phồn → giản theo truyện mới, chủ mảng chunk, bỏ đồ chuẩn bị theo truyện cũ (`invalidatePreparedTranslationState`), giành + lưu tiến độ cho truyện mới — **không** đổi `sessionID` / `ttsProcessingGeneration`, không bỏ bộ đệm; rồi nối chữ của nguồn mới từ **dòng sau** dòng đang đọc bằng chính lượt nối của dịch lại (`scheduleChapterRetranslation(reason: "đổi nguồn", evenWithoutTranslation: true, debounceNanoseconds: 0)`). Chương đã tải được chép nguyên văn ⇒ chữ trùng, không bỏ tiếng nào. Áp cả khi **tạm dừng**: giữ đĩa nghe, bấm ▶ đọc tiếp truyện mới đúng chỗ (trước: dừng hẳn + toast "bấm nghe để đọc tiếp").
+- Việc đang bay đóng dấu truyện cũ vẫn hợp lệ trong cùng phiên: `isPlayingBook(_:)` (= `playingBookId` hoặc `sourceChangeFormerBook` khoá theo `sessionID`) thay phép so ở `isContextValid` (thiếu ⇒ chunk đang phát xong không gọi đoạn kế), task phát Nghi chờ tổng hợp, refill Nghi, nạp trước remote, nạp gộp Google. `playingChapterUrl` giữ link nguồn cũ tới hết chương (chỗ kiểm + khoá tổng hợp tính theo nó). 7 thuộc tính `@Published` của phiên `private(set)` → `internal(set)` để `+SourceChange` ghi được.
+- Lượt nối dựng theo cờ dịch của phiên (`RetranslationInputs.translates`, trước ghi cứng dịch) ⇒ chạy được với truyện tắt dịch; lùi / tua về dòng chữ cũ (`adoptFullRetranslationIfStale`) so cờ này thay vì đòi bật dịch.
+- `BookSourceChangeCoordinator.scheduleFinish(after:)` chờ Task chuyển phiên xong rồi mới dọn truyện cũ (`deleteBooksAsync` bỏ qua truyện TTS đang phát ⇒ dọn sớm là giữ lại bản trùng). Nguồn mới không có chương đang đọc ⇒ dừng + toast lỗi như cũ; tải chương nguồn mới lỗi ⇒ đọc nốt chương bằng chữ đang có.
+- Giới hạn: NghiTTS / VieNeu đã hẹn giờ chunk đầu của dòng sau ⇒ dòng đó còn chữ cũ, chữ mới từ dòng kế; chương chưa tải ghép dòng theo vị trí (gần đúng như trước).
+- `books-sources.md`, `tts.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1062] - 2026-11-25
 
 ### feat: rule dịch nhanh có token <ho> khớp họ người Trung Quốc, kèm màn Danh sách họ
@@ -370,14 +384,3 @@ Anh Bửu: sau 1.3.1033 vtts vẫn "không to bằng google tts". Đo lại 2 WA
 - `Scripts/ci/tts_loudness_probe.py` (mới, **tạm thời**, chỉ thư viện chuẩn): gọi Google readaloud đúng body của `GoogleTTSService.makeRequest` với cả 6 giọng (câu thử + một đoạn truyện ~30 s có thoại, câu cảm thán), giải mã bằng `afconvert` (lùi `ffmpeg`), đo LUFS tích hợp BS.1770, RMS lúc có tiếng (đúng cách `VttsLoudness` đo), đỉnh; vtts đọc cùng đoạn dài bằng 2 giọng, đo mức gốc + mô phỏng `VttsLoudness` 1.3.1033. In ra log CI + `loudness.txt` trong artifact `vtts-samples` (kèm WAV đoạn dài của vtts; audio Google không lưu). Không in key, lỗi gì cũng không làm đỏ build.
 - `check_vtts_assets.sh`: hàm `probe_loudness` (tạm) chạy sau kiểm shim. `build-ipa.yml`: bước vtts nhận `GOOGLE_CLOUD_TTS_API_KEY` từ secret (tạm).
 - Gỡ cả hai ở lượt sửa `VttsLoudness` tiếp theo. Dọn: 3 entry cũ nhất (1.3.1002–1.3.1004) chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1033] - 2026-11-20
-
-### fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường
-
-Anh Bửu: "giọng nhỏ quá". Đo WAV đọc thử của CI (run 44685147889): model xuất nhỏ — `nu-10` đỉnh −11,3 dBFS, RMS lúc có tiếng −24,1 dBFS; `nam-1` −5,9 / −19,8 dBFS (TTS thường ~−16…−18 dBFS).
-
-- `VttsLoudness` (mới, `Services/TTS/Vtts/`): đo RMS trên khung 20 ms có tiếng (> −45 dBFS) của **mỗi đoạn**, tăng về −16 dBFS; chỉ tăng 0…+12 dB, giới hạn để đỉnh ≤ −1 dBFS (không để `WAVEncoder` kẹp cứng gây rè); đoạn có tiếng < 0,4 s dùng mức cố định theo giọng (`VttsVoice.defaultLoudnessGainDb`: nu-10 +8, nam-1 +3,5 dB). Dùng Accelerate (`vDSP`).
-- `VttsTTSService` gọi trước khi nối khoảng lặng đuôi ⇒ áp cho trình đọc chính, giọng dự phòng và ▶ thử giọng (cùng đi qua service). Log `🗣️ [Vtts] Đoạn` thêm `gain=+X.XdB`.
-- Mô phỏng thuật toán trên 2 WAV mẫu: nu-10 +8,6 dB (đỉnh −2,7 dBFS), nam-1 +4,8 dB (đỉnh −1,1 dBFS), cả hai RMS −16 dBFS. Mốc −16 dBFS là ước lượng, chưa so với VieNeu / Google. Không thêm giao diện.
-- Chưa thử máy; `.claude/rules/tts.md` ghi thêm.

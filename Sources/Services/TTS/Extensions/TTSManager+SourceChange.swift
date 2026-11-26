@@ -3,81 +3,103 @@ import Foundation
 /// Đổi nguồn lúc đang nghe truyện cũ (1.3.946, anh Bửu chọn "tự chuyển nghe sang truyện mới"). Trước đây đang nghe thì
 /// lượt đổi nguồn **giữ** truyện cũ để khỏi ngắt quãng ⇒ hai truyện tách đôi: TTS và Reader mở từ đĩa nghe vẫn là truyện
 /// cũ, VP / Name riêng lưu lúc đó vào truyện cũ, truyện mới không bao giờ nhận được.
+///
+/// 1.3.1063 (anh Bửu: "nghe xong đoạn đang phát và phát đoạn tiếp theo (đoạn chứ không phải chunk)"): bản 1.3.946 dừng
+/// phiên rồi đọc lại từ đầu dòng ⇒ tiếng bị cắt giữa câu, im 1–3 s, nghe lại cả dòng. Nay phiên (đang phát **hoặc** tạm
+/// dừng) chuyển sang truyện mới **tại chỗ** — không đổi `sessionID` / `ttsProcessingGeneration`, không bỏ bộ đệm — rồi nối
+/// chữ của nguồn mới từ **dòng sau** dòng đang đọc bằng chính lượt nối của dịch lại (`TTSManager+RetranslationSplice`).
+/// Chương đã tải được chép nguyên văn ⇒ chữ trùng, không bỏ tiếng nào, chuyển liền mạch.
 extension TTSManager {
-    /// `BookSourceChangeCoordinator` gọi ngay sau mốc chốt (truyện cũ chưa bị dọn — dọn sau ~1,2 s). Phiên đang đọc truyện
-    /// cũ ⇒ dừng **ngay** (để `BookStorageManager` xoá được truyện cũ) rồi đọc tiếp truyện mới ở **cùng chỉ số chương** (đổi
-    /// nguồn chép chương theo vị trí) từ đầu dòng đang đọc (chương đã tải chép nguyên văn nên trùng dòng; chương tải mới từ
-    /// nguồn mới thì gần đúng). Phiên đang tạm dừng ⇒ chỉ dừng hẳn, bấm nghe lại ở truyện mới.
+    /// `BookSourceChangeCoordinator` gọi ngay sau mốc chốt và **chờ** Task trả về xong rồi mới dọn truyện cũ:
+    /// `deleteBooksAsync` bỏ qua truyện TTS đang phát ⇒ dọn lúc phiên còn ở truyện cũ là giữ lại vĩnh viễn một bản trùng.
+    /// Bình thường Task xong ngay (một nhịp main); chỉ chờ lâu khi đúng lúc đó một lượt dựng chương đang chạy.
+    @discardableResult
     func continueListeningAfterSourceChange(
         fromBookId oldBookId: String,
         toBookId newBookId: String,
         source: BookSourceChangeCoordinator.SourceSnapshot,
         ext: Extension
-    ) {
-        guard !oldBookId.isEmpty, playingBookId == oldBookId, showFloatingWidget || isPlaying else { return }
-        let wasPlaying = isPlaying
-        let chapterIndex = playingChapterIndex
-        let paragraphIndex = max(currentParentParagraphIndex, -1)
-        stop()
-        guard wasPlaying else {
-            AppLogger.shared.log("[SourceChange] TTS đang tạm dừng ⇒ dừng phiên của truyện cũ \(oldBookId)")
-            TTSPresentationEventCenter.shared.send(.showToast(
-                message: "Đã chuyển sang nguồn mới — bấm nghe để đọc tiếp", type: .info
-            ))
-            return
-        }
+    ) -> Task<Void, Never>? {
+        guard !oldBookId.isEmpty, playingBookId == oldBookId, showFloatingWidget || isPlaying else { return nil }
         let queue = source.chapters.map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
-        guard let chapter = queue.first(where: { $0.index == chapterIndex }) else {
-            AppLogger.shared.log("❌ [SourceChange] Nguồn mới không có chương \(chapterIndex + 1) ⇒ dừng nghe")
-            TTSPresentationEventCenter.shared.send(.showToast(
-                message: "Nguồn mới không có chương \(chapterIndex + 1) — đã dừng nghe", type: .error
-            ))
-            return
-        }
         let extensionInfo = TTSExtensionInfo(
             packageId: ext.packageId, localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson
         )
         let book = source.createSnapshot
-        AppLogger.shared.log("[SourceChange] TTS chuyển sang truyện mới \(newBookId), chương \(chapterIndex + 1), dòng \(paragraphIndex)")
-        // Phiên "đã dừng" do `stop()` ở trên tạo: người dùng tự bấm nghe (kể cả chính truyện mới) hay dừng trong lúc tải
-        // chương thì phiên đổi ⇒ không đè lên lựa chọn của họ (1.3.960).
-        let stoppedSession = sessionID
-        Task { @MainActor [weak self] in
+        return Task { @MainActor [weak self] in
             guard let self else { return }
-            let request = ChapterContentRequest(
-                bookId: newBookId,
-                chapterIndex: chapter.index,
-                title: chapter.title,
-                url: chapter.url,
-                host: chapter.host,
-                bookMetadata: nil,
-                extensionInfo: extensionInfo,
-                forceRefresh: false
-            )
-            do {
-                let result = try await ChapterContentRepository.shared.load(request)
-                // Trong lúc tải người dùng đã tự bắt đầu / dừng nghe ⇒ thôi.
-                guard self.sessionID == stoppedSession, self.playingBookId.isEmpty else { return }
-                self.startSpeaking(
-                    bookId: newBookId,
-                    chapters: queue,
-                    currentIndex: chapter.index,
-                    chapterContent: result.document.text.content,
-                    startParagraphIndex: paragraphIndex,
-                    bookTitle: book.title,
-                    coverUrl: book.coverUrl,
-                    bookDetailUrl: book.detailUrl,
-                    bookSourceName: book.sourceName,
-                    extensionInfo: extensionInfo,
-                    translationPackageId: ext.packageId,
-                    author: book.author
-                )
-            } catch {
-                AppLogger.shared.log("❌ [SourceChange] Không tải được chương \(chapterIndex + 1) ở nguồn mới: \(error.localizedDescription)")
+            // Đang chuyển chương / vừa bấm nghe: lượt đó đóng dấu truyện cũ + mục lục cũ (đổi giữa chừng là nó tự bỏ ⇒ im
+            // tiếng) ⇒ để nó xong rồi mới chuyển, như lượt dịch lại.
+            await self.awaitChapterBuildsInFlight()
+            // Người dùng đã dừng / mở truyện khác trong lúc chờ ⇒ thôi.
+            guard self.playingBookId == oldBookId, self.showFloatingWidget || self.isPlaying else { return }
+            let chapterIndex = self.playingChapterIndex
+            guard queue.contains(where: { $0.index == chapterIndex }) else {
+                AppLogger.shared.log("❌ [SourceChange] Nguồn mới không có chương \(chapterIndex + 1) ⇒ dừng nghe")
+                self.stop()
                 TTSPresentationEventCenter.shared.send(.showToast(
-                    message: "Không tải được chương \(chapterIndex + 1) ở nguồn mới — đã dừng nghe", type: .error
+                    message: "Nguồn mới không có chương \(chapterIndex + 1) — đã dừng nghe", type: .error
                 ))
+                return
             }
+            guard self.isChunkLayoutCurrent else {
+                AppLogger.shared.log("[SourceChange] TTS chưa dựng xong chương ⇒ dừng phiên của truyện cũ \(oldBookId)")
+                self.stop()
+                TTSPresentationEventCenter.shared.send(.showToast(
+                    message: "Đã chuyển sang nguồn mới — bấm nghe để đọc tiếp", type: .info
+                ))
+                return
+            }
+            self.handOffSession(toBookId: newBookId, queue: queue, extensionInfo: extensionInfo, book: book)
+            AppLogger.shared.log(
+                "[SourceChange] TTS chuyển tại chỗ \(oldBookId) → \(newBookId), chương \(chapterIndex + 1), "
+                    + "dòng \(self.currentParentParagraphIndex), đang phát=\(self.isPlaying ? "có" : "không")"
+            )
+            // Chữ của nguồn mới từ dòng sau dòng đang đọc — cả khi truyện tắt dịch, không gộp sự kiện.
+            self.scheduleChapterRetranslation(reason: "đổi nguồn", evenWithoutTranslation: true, debounceNanoseconds: 0)
         }
+    }
+
+    /// `bookId` đóng dấu trên việc đang bay (context phát, task phát NghiTTS / VieNeu, refill, nạp trước remote) vẫn là
+    /// truyện đang phát: bằng `playingBookId`, hoặc là truyện cũ của lần đổi nguồn tại chỗ **trong chính phiên này** —
+    /// thiếu nó thì chunk đang phát xong không gọi được đoạn kế (im luôn) và tiếng đang nạp bị vứt.
+    func isPlayingBook(_ bookId: String) -> Bool {
+        if bookId == playingBookId { return true }
+        guard !playingBookId.isEmpty, let former = sourceChangeFormerBook else { return false }
+        return former.sessionID == sessionID && former.bookId == bookId
+    }
+
+    /// Đổi danh tính phiên sang truyện mới trong **một** nhịp main. `playingChapterUrl` giữ link nguồn cũ tới hết chương:
+    /// lượt phát / tổng hợp / nạp trước đang bay kiểm cả link này (và khoá tổng hợp tính theo nó); chương sau lấy link từ
+    /// mục lục mới (`applyNextChapter`), lượt nối tải chương hiện tại theo `chaptersQueue` mới.
+    private func handOffSession(
+        toBookId newBookId: String,
+        queue: [TTSChapterInfo],
+        extensionInfo: TTSExtensionInfo,
+        book: TOCBookCreateSnapshot
+    ) {
+        sourceChangeFormerBook = (sessionID: sessionID, bookId: playingBookId)
+        let packageId = extensionInfo.packageId
+        sessionTranslationPackageId = packageId
+        sessionTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: newBookId, packageId: packageId)
+        sessionShouldConvertTraditionalToSimplified = TranslationConfigStore.shared.convertsTraditionalToSimplified(
+            bookId: newBookId, packageId: packageId
+        )
+        playingBookId = newBookId
+        chaptersQueue = queue
+        self.extensionInfo = extensionInfo
+        bookTitle = book.title
+        playingCoverUrl = book.coverUrl
+        playingAuthor = book.author
+        playingBookDetailUrl = book.detailUrl
+        playingBookSourceName = book.sourceName
+
+        // Chủ mảng chunk ⇒ truyện mới (`isChunkLayoutCurrent` cho lượt nối, tua đoạn, sheet nghe mini).
+        noteParagraphsReplaced()
+        // Chương chuẩn bị sẵn, chương kế nạp trước, đầu chương kế, Now Playing đều theo truyện cũ / mục lục cũ.
+        invalidatePreparedTranslationState()
+        publishLifecycleState(isPlaying: isPlaying)
+        Task { await ReadingProgressStore.shared.claim(bookId: newBookId, owner: .tts) }
+        checkpointProgress()
     }
 }

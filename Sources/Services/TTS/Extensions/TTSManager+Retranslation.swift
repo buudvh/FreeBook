@@ -18,6 +18,7 @@ extension TTSManager {
         let chapterIndex: Int
         let chapterUrl: String
         let packageId: String?
+        let translates: Bool
         let convertsTraditional: Bool
         let chunkLength: Int
         let includeChapterTitle: Bool
@@ -92,6 +93,7 @@ extension TTSManager {
             chapterIndex: playingChapterIndex,
             chapterUrl: playingChapterUrl,
             packageId: sessionTranslationPackageId,
+            translates: sessionTranslationEnabled,
             convertsTraditional: sessionShouldConvertTraditionalToSimplified,
             chunkLength: chunkLength,
             includeChapterTitle: showTitle,
@@ -101,18 +103,30 @@ extension TTSManager {
 
     /// Có phiên TTS (đang phát hoặc tạm dừng) và truyện bật dịch ⇒ gộp sự kiện rồi dịch lại chương đang đọc. Tắt dịch thì
     /// từ điển / rule không đổi chữ TTS đọc ⇒ bỏ qua.
-    func scheduleChapterRetranslation(reason: String) {
-        guard showFloatingWidget, !playingBookId.isEmpty, playingChapterIndex >= 0, sessionTranslationEnabled else { return }
+    ///
+    /// Đổi nguồn tại chỗ (`TTSManager+SourceChange`) dùng chung lượt này để nối chữ của nguồn mới: `evenWithoutTranslation`
+    /// (chữ đổi theo nguồn cả khi truyện tắt dịch), `debounceNanoseconds: 0` (không có sự kiện nào cần gộp).
+    func scheduleChapterRetranslation(
+        reason: String,
+        evenWithoutTranslation: Bool = false,
+        debounceNanoseconds: UInt64 = 400_000_000
+    ) {
+        guard showFloatingWidget, !playingBookId.isEmpty, playingChapterIndex >= 0,
+              sessionTranslationEnabled || evenWithoutTranslation else { return }
         let coordinator = TTSRetranslationCoordinator.shared
         let bookId = playingBookId
         let chapterIndex = playingChapterIndex
         coordinator.retranslationTask?.cancel()
         coordinator.retranslationTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            if debounceNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
             guard let self, !Task.isCancelled else { return }
             await self.awaitChapterBuildsInFlight()
             guard !Task.isCancelled else { return }
-            await self.retranslateCurrentChapter(bookId: bookId, chapterIndex: chapterIndex, reason: reason)
+            await self.retranslateCurrentChapter(
+                bookId: bookId, chapterIndex: chapterIndex, reason: reason, requiresTranslation: !evenWithoutTranslation
+            )
         }
     }
 
@@ -120,7 +134,7 @@ extension TTSManager {
     /// dịch, chuyển chương) xong rồi mới dịch lại / nối trên chữ nó vừa đặt — nối vào mảng sắp bị thay thì tiếng nạp trước
     /// theo phiên mới có thể sống sót với chữ sai. Task đã xong thì `value` trả ngay (hai task này không được gán `nil` khi
     /// xong); lượt mới chen vào trong lúc chờ ⇒ chờ tiếp.
-    private func awaitChapterBuildsInFlight() async {
+    func awaitChapterBuildsInFlight() async {
         var start: Task<Void, Never>?
         var advance: Task<Void, Never>?
         repeat {
@@ -131,8 +145,13 @@ extension TTSManager {
         } while !Task.isCancelled && (startSpeakingTask != start || chapterAdvanceTask != advance)
     }
 
-    private func retranslateCurrentChapter(bookId: String, chapterIndex: Int, reason: String) async {
-        guard playingBookId == bookId, playingChapterIndex == chapterIndex, sessionTranslationEnabled,
+    /// `requiresTranslation`: lượt của từ điển / rule chỉ chạy khi phiên bật dịch; lượt đổi nguồn dựng theo cờ dịch của
+    /// phiên (`inputs.translates`), bật hay tắt.
+    private func retranslateCurrentChapter(
+        bookId: String, chapterIndex: Int, reason: String, requiresTranslation: Bool
+    ) async {
+        guard playingBookId == bookId, playingChapterIndex == chapterIndex,
+              sessionTranslationEnabled || !requiresTranslation,
               !paragraphs.isEmpty,
               let chapter = chaptersQueue.first(where: { $0.index == chapterIndex }) else { return }
         let startUptime = ProcessInfo.processInfo.systemUptime
@@ -158,7 +177,7 @@ extension TTSManager {
                 chapterTitle: chapter.title,
                 rawContent: result.document.text.content,
                 chunkLength: inputs.chunkLength,
-                shouldTranslateRawContent: true,
+                shouldTranslateRawContent: inputs.translates,
                 shouldConvertTraditionalToSimplified: inputs.convertsTraditional,
                 includeChapterTitle: inputs.includeChapterTitle,
                 removeDuplicatedTitle: inputs.removeDuplicatedTitle,
@@ -175,7 +194,8 @@ extension TTSManager {
         // Người dùng đọc lại chương trong lúc tải / dịch ⇒ nối lên chữ của lượt dựng mới.
         await awaitChapterBuildsInFlight()
 
-        guard !Task.isCancelled, sessionTranslationEnabled, !paragraphs.isEmpty, isChunkLayoutCurrent,
+        // `inputs.translates` nằm trong phép so ⇒ bật / tắt dịch giữa chừng là bỏ.
+        guard !Task.isCancelled, !paragraphs.isEmpty, isChunkLayoutCurrent,
               currentRetranslationInputs() == inputs,
               TranslateUtils.translationGenerationToken(for: bookId) == processed.translationToken else {
             AppLogger.shared.log("🔁 [TTSRetranslate] Bỏ bản dịch lại chương \(chapterIndex + 1): phiên / cấu hình / từ điển đã đổi")

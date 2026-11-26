@@ -136,7 +136,7 @@ extension TTSManager {
                 if Task.isCancelled { return false }
                 if !self.isPlaying { return false }
                 if self.sessionID != expectedSessionID { return false }
-                if self.playingBookId != expectedBookId { return false }
+                if !self.isPlayingBook(expectedBookId) { return false }
                 if self.playingChapterIndex != expectedChapterIndex { return false }
                 if self.playingChapterUrl != expectedChapterURL { return false }
                 if self.selectedVoice != voice { return false }

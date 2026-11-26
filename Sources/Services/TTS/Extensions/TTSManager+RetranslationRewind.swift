@@ -18,7 +18,8 @@ extension TTSManager {
         let line = paragraphs[chunkIndex].paragraphIndex
         guard coordinator.needsFullRetranslation(from: line) else { return chunkIndex }
         let inputs = currentRetranslationInputs()
-        guard sessionTranslationEnabled,
+        // Lượt nối của đổi nguồn (1.3.1063) chạy cả khi tắt dịch ⇒ so cờ dịch của bản mới với phiên thay vì đòi bật dịch.
+        guard full.inputs.translates == inputs.translates,
               full.inputs.bookId == inputs.bookId, full.inputs.chapterIndex == inputs.chapterIndex,
               full.inputs.chapterUrl == inputs.chapterUrl, full.inputs.packageId == inputs.packageId,
               full.inputs.convertsTraditional == inputs.convertsTraditional,

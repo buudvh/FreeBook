@@ -198,14 +198,16 @@ final class BookSourceChangeCoordinator {
                            isOnShelf: outcome.isOnShelf, copyReport: report, source: source)
         }
         // Đang nghe TTS truyện cũ (1.3.946) ⇒ phiên nghe sang truyện mới **trước** khi dọn truyện cũ — trước đây giữ cả hai
-        // truyện để khỏi ngắt quãng, nên VP / Name riêng lưu lúc nghe tiếp rơi vào truyện cũ rồi mất cùng nó.
+        // truyện để khỏi ngắt quãng, nên VP / Name riêng lưu lúc nghe tiếp rơi vào truyện cũ rồi mất cùng nó. Từ 1.3.1063
+        // phiên chuyển tại chỗ, không ngắt tiếng; lượt dọn chờ nó chuyển xong.
+        var ttsHandoff: Task<Void, Never>?
         if !journal.keepsOldBook {
-            TTSManager.shared.continueListeningAfterSourceChange(
+            ttsHandoff = TTSManager.shared.continueListeningAfterSourceChange(
                 fromBookId: request.oldBookId, toBookId: newBookId, source: source, ext: request.ext
             )
         }
         finishScheduled = true
-        scheduleFinish(journal, container: container)
+        scheduleFinish(journal, container: container, after: ttsHandoff)
         return outcome
     }
 
@@ -230,9 +232,14 @@ final class BookSourceChangeCoordinator {
         }
     }
 
-    private func scheduleFinish(_ journal: BookSourceChangeJournal, container: ModelContainer) {
+    /// `ttsHandoff`: phiên TTS chuyển sang truyện mới (`TTSManager+SourceChange`) — `deleteBooksAsync` bỏ qua truyện TTS
+    /// đang phát, dọn khi phiên còn ở truyện cũ là giữ lại bản trùng ⇒ chờ nó xong (thường đã xong trước 1,2 s).
+    private func scheduleFinish(
+        _ journal: BookSourceChangeJournal, container: ModelContainer, after ttsHandoff: Task<Void, Never>? = nil
+    ) {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: Self.finishDelayNanoseconds)
+            await ttsHandoff?.value
             await self.finishCommitted(journal, container: container)
             self.isRunning = false
         }

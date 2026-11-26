@@ -319,16 +319,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     // Thông tin phát nhạc độc lập toàn cục
-    @Published public private(set) var playingBookId: String = ""
-    @Published public private(set) var playingCoverUrl: String = ""
-    @Published public private(set) var playingAuthor: String = ""
+    @Published public internal(set) var playingBookId: String = ""
+    @Published public internal(set) var playingCoverUrl: String = ""
+    @Published public internal(set) var playingAuthor: String = ""
     @Published public private(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
-    @Published public private(set) var playingBookDetailUrl: String = ""
-    @Published public private(set) var playingBookSourceName: String = ""
-    @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
+    @Published public internal(set) var playingBookDetailUrl: String = ""
+    @Published public internal(set) var playingBookSourceName: String = ""
+    @Published public internal(set) var extensionInfo: TTSExtensionInfo? = nil
 
-    @Published public private(set) var chaptersQueue: [TTSChapterInfo] = []
+    @Published public internal(set) var chaptersQueue: [TTSChapterInfo] = []
     internal var currentPlaybackId: String? = nil
     internal var wasPlayingBeforeSettings = false
     internal var savedParagraphIdentityBeforeSettings: Int = -1
@@ -356,6 +356,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var sessionTranslationEnabled: Bool = false
     internal var sessionTranslationPackageId: String? = nil // tra bộ dịch / công tắc dịch y Reader (TXT tự nhập: "local")
     internal var sessionShouldConvertTraditionalToSimplified: Bool = false
+    internal var sourceChangeFormerBook: (sessionID: UUID, bookId: String)? = nil // đổi nguồn tại chỗ — TTSManager+SourceChange
     internal var prefetchTaskGenerations: [Int: UInt64] = [:]
     internal var nextPrefetchTaskGeneration: UInt64 = 0
 
@@ -2251,7 +2252,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         !Task.isCancelled &&
         TTSManager.isLocalEngine(tool) &&
         sessionID == expectedSessionID &&
-        playingBookId == expectedBookID &&
+        isPlayingBook(expectedBookID) &&
         playingChapterIndex == expectedChapterIndex &&
         playingChapterUrl == expectedChapterURL &&
         selectedVoice == expectedVoice &&
@@ -2524,7 +2525,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if Task.isCancelled { return false }
                 if !self.isPlaying { return false }
                 if self.sessionID != expectedSessionID { return false }
-                if self.playingBookId != expectedBookId { return false }
+                if !self.isPlayingBook(expectedBookId) { return false }
                 if self.playingChapterIndex != expectedChapterIndex { return false }
                 if self.playingChapterUrl != expectedChapterURL { return false }
                 if self.selectedVoice != voice { return false }
@@ -2599,7 +2600,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard isPlaying,
               sessionID == context.sessionID,
               audibleHandoffGeneration == context.handoffGeneration,
-              playingBookId == context.bookId,
+              isPlayingBook(context.bookId),
               playingChapterIndex == context.chapterIndex,
               tool == context.engine else {
             return false
@@ -3044,7 +3045,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     !Task.isCancelled &&
                     self.currentPlaybackId == playbackId &&
                     self.sessionID == expectedSessionID &&
-                    self.playingBookId == expectedBookID &&
+                    self.isPlayingBook(expectedBookID) &&
                     self.playingChapterIndex == expectedChapterIndex &&
                     self.playingChapterUrl == expectedChapterURL &&
                     self.ttsProcessingGeneration == expectedGeneration &&
