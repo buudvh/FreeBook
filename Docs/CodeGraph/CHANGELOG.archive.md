@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1034] - 2026-11-20
+
+### chore: vtts — CI đo tạm mức to Google TTS so với vtts để chọn mốc âm lượng
+
+Anh Bửu: sau 1.3.1033 vtts vẫn "không to bằng google tts". Đo lại 2 WAV mẫu của CI: bản 1.3.1033 chỉ đưa vtts lên ~−17,7 LUFS (nu-10 −26,4 → −17,8; nam-1 −22,4 → −17,6 và đỉnh đã chạm trần −1 dBFS) — giữ đỉnh ≤ −1 dBFS bằng cách hạ **cả đoạn** nên mức to bị chặn, đoạn truyện dài đỉnh cao hơn còn được tăng ít hơn. Mốc −16 dBFS là ước lượng, chưa từng đo Google. Lượt này chỉ đo, chưa đổi app:
+
+- `Scripts/ci/tts_loudness_probe.py` (mới, **tạm thời**, chỉ thư viện chuẩn): gọi Google readaloud đúng body của `GoogleTTSService.makeRequest` với cả 6 giọng (câu thử + một đoạn truyện ~30 s có thoại, câu cảm thán), giải mã bằng `afconvert` (lùi `ffmpeg`), đo LUFS tích hợp BS.1770, RMS lúc có tiếng (đúng cách `VttsLoudness` đo), đỉnh; vtts đọc cùng đoạn dài bằng 2 giọng, đo mức gốc + mô phỏng `VttsLoudness` 1.3.1033. In ra log CI + `loudness.txt` trong artifact `vtts-samples` (kèm WAV đoạn dài của vtts; audio Google không lưu). Không in key, lỗi gì cũng không làm đỏ build.
+- `check_vtts_assets.sh`: hàm `probe_loudness` (tạm) chạy sau kiểm shim. `build-ipa.yml`: bước vtts nhận `GOOGLE_CLOUD_TTS_API_KEY` từ secret (tạm).
+- Gỡ cả hai ở lượt sửa `VttsLoudness` tiếp theo. Dọn: 3 entry cũ nhất (1.3.1002–1.3.1004) chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1033] - 2026-11-20
 
 ### fix: vtts — giọng nhỏ, tự kéo âm lượng mỗi đoạn về mức TTS thường

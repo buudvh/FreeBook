@@ -138,7 +138,7 @@ extension TTSManager {
                 if self.sessionID != expectedSessionID { return false }
                 if !self.isPlayingBook(expectedBookId) { return false }
                 if self.playingChapterIndex != expectedChapterIndex { return false }
-                if self.playingChapterUrl != expectedChapterURL { return false }
+                if !self.isPlayingChapterUrl(expectedChapterURL) { return false }
                 if self.selectedVoice != voice { return false }
                 if self.tool != toolBeforeStart { return false }
                 return true

@@ -322,7 +322,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public internal(set) var playingBookId: String = ""
     @Published public internal(set) var playingCoverUrl: String = ""
     @Published public internal(set) var playingAuthor: String = ""
-    @Published public private(set) var playingChapterUrl: String = ""
+    @Published public internal(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
     @Published public internal(set) var playingBookDetailUrl: String = ""
     @Published public internal(set) var playingBookSourceName: String = ""
@@ -356,7 +356,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var sessionTranslationEnabled: Bool = false
     internal var sessionTranslationPackageId: String? = nil // tra bộ dịch / công tắc dịch y Reader (TXT tự nhập: "local")
     internal var sessionShouldConvertTraditionalToSimplified: Bool = false
-    internal var sourceChangeFormerBook: (sessionID: UUID, bookId: String)? = nil // đổi nguồn tại chỗ — TTSManager+SourceChange
+    internal var sourceChangeFormerBook: (sessionID: UUID, bookId: String, chapterUrl: String)? = nil // đổi nguồn tại chỗ — +SourceChange
     internal var prefetchTaskGenerations: [Int: UInt64] = [:]
     internal var nextPrefetchTaskGeneration: UInt64 = 0
 
@@ -2254,7 +2254,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         sessionID == expectedSessionID &&
         isPlayingBook(expectedBookID) &&
         playingChapterIndex == expectedChapterIndex &&
-        playingChapterUrl == expectedChapterURL &&
+        isPlayingChapterUrl(expectedChapterURL) &&
         selectedVoice == expectedVoice &&
         ttsProcessingGeneration == expectedGeneration &&
         nghiRefillGeneration == expectedRefillGeneration
@@ -2527,7 +2527,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if self.sessionID != expectedSessionID { return false }
                 if !self.isPlayingBook(expectedBookId) { return false }
                 if self.playingChapterIndex != expectedChapterIndex { return false }
-                if self.playingChapterUrl != expectedChapterURL { return false }
+                if !self.isPlayingChapterUrl(expectedChapterURL) { return false }
                 if self.selectedVoice != voice { return false }
                 if self.tool != toolBeforeStart { return false }
                 if index >= self.paragraphs.count || self.paragraphs[index].text != rawText { return false } // dịch lại khi đang nghe
@@ -3047,7 +3047,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.sessionID == expectedSessionID &&
                     self.isPlayingBook(expectedBookID) &&
                     self.playingChapterIndex == expectedChapterIndex &&
-                    self.playingChapterUrl == expectedChapterURL &&
+                    self.isPlayingChapterUrl(expectedChapterURL) &&
                     self.ttsProcessingGeneration == expectedGeneration &&
                     self.nghiPlaybackTaskGeneration == playbackTaskGeneration &&
                     self.selectedVoice == expectedVoice &&

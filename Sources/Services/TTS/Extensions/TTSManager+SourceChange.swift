@@ -62,23 +62,36 @@ extension TTSManager {
 
     /// `bookId` đóng dấu trên việc đang bay (context phát, task phát NghiTTS / VieNeu, refill, nạp trước remote) vẫn là
     /// truyện đang phát: bằng `playingBookId`, hoặc là truyện cũ của lần đổi nguồn tại chỗ **trong chính phiên này** —
-    /// thiếu nó thì chunk đang phát xong không gọi được đoạn kế (im luôn) và tiếng đang nạp bị vứt.
+    /// thiếu nó thì chunk đang phát xong không gọi được đoạn kế (im luôn) và tiếng đang nạp bị vứt. Chỗ kiểm mới của việc
+    /// đang bay theo truyện / link chương thì dùng hàm này / `isPlayingChapterUrl`.
     func isPlayingBook(_ bookId: String) -> Bool {
         if bookId == playingBookId { return true }
         guard !playingBookId.isEmpty, let former = sourceChangeFormerBook else { return false }
         return former.sessionID == sessionID && former.bookId == bookId
     }
 
-    /// Đổi danh tính phiên sang truyện mới trong **một** nhịp main. `playingChapterUrl` giữ link nguồn cũ tới hết chương:
-    /// lượt phát / tổng hợp / nạp trước đang bay kiểm cả link này (và khoá tổng hợp tính theo nó); chương sau lấy link từ
-    /// mục lục mới (`applyNextChapter`), lượt nối tải chương hiện tại theo `chaptersQueue` mới.
+    /// Như `isPlayingBook` cho link chương đóng dấu trên việc đang bay: link nguồn cũ của chương đang đọc lúc đổi nguồn tại
+    /// chỗ vẫn khớp trong chính phiên này (bên gọi kiểm thêm `playingChapterIndex` ⇒ sang chương sau là hết khớp).
+    func isPlayingChapterUrl(_ url: String) -> Bool {
+        if url == playingChapterUrl { return true }
+        guard !playingBookId.isEmpty, let former = sourceChangeFormerBook else { return false }
+        return former.sessionID == sessionID && former.chapterUrl == url
+    }
+
+    /// Đổi danh tính phiên sang truyện mới trong **một** nhịp main. `playingChapterUrl` = link chương đang đọc trong mục lục
+    /// mới (bất biến chung: `ProtectedTTSChapter` khi làm mới mục lục truyện mới dò theo nó); link cũ nằm trong
+    /// `sourceChangeFormerBook` cho việc đang bay. Lượt tổng hợp đang bay mang khoá tính theo link cũ ⇒ lượt mới cùng đoạn
+    /// không gộp được với nó (chỉ vài đoạn quanh lúc chuyển, không sai tiếng).
     private func handOffSession(
         toBookId newBookId: String,
         queue: [TTSChapterInfo],
         extensionInfo: TTSExtensionInfo,
         book: TOCBookCreateSnapshot
     ) {
-        sourceChangeFormerBook = (sessionID: sessionID, bookId: playingBookId)
+        sourceChangeFormerBook = (sessionID: sessionID, bookId: playingBookId, chapterUrl: playingChapterUrl)
+        if let chapterUrl = queue.first(where: { $0.index == playingChapterIndex })?.url {
+            playingChapterUrl = chapterUrl
+        }
         let packageId = extensionInfo.packageId
         sessionTranslationPackageId = packageId
         sessionTranslationEnabled = TranslationConfigStore.shared.isTranslationEnabled(bookId: newBookId, packageId: packageId)

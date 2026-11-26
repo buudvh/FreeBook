@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1064] - 2026-11-26
+
+### fix: đổi nguồn tại chỗ đặt ngay link chương đang đọc theo mục lục mới
+
+Rà lại 1.3.1063 (chưa push): giữ `playingChapterUrl` là link nguồn cũ tới hết chương làm lệch bất biến "link chương đang đọc = link trong `chaptersQueue`" — `BookDetailView` / `VideoWatchModel.activeTTSProtectedChapter` dựng `ProtectedTTSChapter(bookId mới, chỉ số, link cũ)` khi làm mới mục lục truyện mới ⇒ chương TTS đang đọc có thể không được giữ.
+
+- `handOffSession` đặt `playingChapterUrl` = link chương đang đọc trong mục lục mới; link cũ vào `sourceChangeFormerBook` (thêm `chapterUrl`).
+- `isPlayingChapterUrl(_:)` (khuôn `isPlayingBook`, khoá theo `sessionID`) thay phép so link ở 4 chỗ kiểm việc đang bay: refill Nghi, nạp trước remote, task phát Nghi chờ tổng hợp, nạp gộp Google. Lượt tổng hợp đang bay mang khoá theo link cũ ⇒ lượt mới cùng đoạn không gộp với nó (vài đoạn quanh lúc chuyển, không sai tiếng).
+- `tts.md` sửa câu tương ứng.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1063] - 2026-11-26
 
 ### fix: đổi nguồn lúc đang nghe đọc hết đoạn đang phát rồi sang đoạn sau của nguồn mới, không ngắt tiếng
@@ -374,13 +385,3 @@ Anh Bửu: "chỗ ngắt đoạn cũ đoạn mới hay có tiếng xoẹt xoẹt
 - `NghiAudioPlayerQueue.lastHandoffDelayMs` (mới): ms từ delegate phát xong tới khi `play()` của player kế đã gọi; log `🔊 [TTSPerf] NghiHandoff` thêm `delayMs=` (sửa tại chỗ dòng log trong `TTSManager.swift`, không thêm dòng). Dùng chung NghiTTS / VieNeu / vtts — đo xem chỗ vấp có phải main kẹt lúc bàn giao (log anh có main kẹt 554 / 1045 ms).
 - CI (tạm): bỏ phần đo Google (`Scripts/ci/tts_loudness_probe.py` xoá, `build-ipa.yml` thôi đưa `GOOGLE_CLOUD_TTS_API_KEY` vào bước vtts); `check_vtts_assets.sh` › `render_listening_samples` dựng câu của anh bằng 2 giọng: cả câu 1×, cả câu tốc độ gốc 1,8× (`vtts_say --speed 0.5556` — tham số này là `length_scale`), và 2 mảnh như khi cắt ở 150 ⇒ artifact `vtts-samples` để anh nghe so với app. Kết quả đo 1.3.1034: Google readaloud 6 giọng −19,8 LUFS, vtts 1.3.1033 đã ngang / to hơn (nu-10 −19,4, nam-1 −17,8) ⇒ vtts nghe nhỏ là do chất tiếng; bản "sáng và to hơn" anh chọn còn giữ tới khi nghe xong bản tốc độ gốc.
 - Dọn: entry 1.3.1005 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi lý do mặc định 500 + `delayMs`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`.
-
-## [1.3.1034] - 2026-11-20
-
-### chore: vtts — CI đo tạm mức to Google TTS so với vtts để chọn mốc âm lượng
-
-Anh Bửu: sau 1.3.1033 vtts vẫn "không to bằng google tts". Đo lại 2 WAV mẫu của CI: bản 1.3.1033 chỉ đưa vtts lên ~−17,7 LUFS (nu-10 −26,4 → −17,8; nam-1 −22,4 → −17,6 và đỉnh đã chạm trần −1 dBFS) — giữ đỉnh ≤ −1 dBFS bằng cách hạ **cả đoạn** nên mức to bị chặn, đoạn truyện dài đỉnh cao hơn còn được tăng ít hơn. Mốc −16 dBFS là ước lượng, chưa từng đo Google. Lượt này chỉ đo, chưa đổi app:
-
-- `Scripts/ci/tts_loudness_probe.py` (mới, **tạm thời**, chỉ thư viện chuẩn): gọi Google readaloud đúng body của `GoogleTTSService.makeRequest` với cả 6 giọng (câu thử + một đoạn truyện ~30 s có thoại, câu cảm thán), giải mã bằng `afconvert` (lùi `ffmpeg`), đo LUFS tích hợp BS.1770, RMS lúc có tiếng (đúng cách `VttsLoudness` đo), đỉnh; vtts đọc cùng đoạn dài bằng 2 giọng, đo mức gốc + mô phỏng `VttsLoudness` 1.3.1033. In ra log CI + `loudness.txt` trong artifact `vtts-samples` (kèm WAV đoạn dài của vtts; audio Google không lưu). Không in key, lỗi gì cũng không làm đỏ build.
-- `check_vtts_assets.sh`: hàm `probe_loudness` (tạm) chạy sau kiểm shim. `build-ipa.yml`: bước vtts nhận `GOOGLE_CLOUD_TTS_API_KEY` từ secret (tạm).
-- Gỡ cả hai ở lượt sửa `VttsLoudness` tiếp theo. Dọn: 3 entry cũ nhất (1.3.1002–1.3.1004) chuyển sang `CHANGELOG.archive.md`.
