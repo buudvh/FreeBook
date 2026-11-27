@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1100] - 2026-11-27
+
+### fix: lọc name local siết luật ghép mảnh từ điển, tập chữ phiên âm đóng trong app dùng ở mọi chế độ
+
+- Mọi mục từ điển dùng làm **một phần** của nghĩa — cả mảnh (phần riêng trước đuôi / danh xưng, mảnh tách theo `·`) và mục ghép khi phủ trọn — chỉ được nhận khi nghĩa chọn là (a) kiểu tên Hán-Việt: không phải chữ Latin, viết hoa chữ đầu mọi từ ("Đông Khu"); hoặc (b) chữ Latin mà khoá có ≥ 1 chữ thuộc tập chữ phiên âm (`LocalNameFilterProperNames.coverEntry` / `hasTranslitChar`). Không đạt ⇒ về Hán-Việt như cũ. Đường "cả từ có trong từ điển" giữ nguyên (图铎 đứng một mình vẫn ra Tudor). Bỏ ca lạ ở truyện Trung: 炎珠草 "Viên viêm châu thảo" ⇒ "Viêm Châu thảo", 黑礁岛 không còn ra "Black Lagoon đảo".
+- Ngưỡng (b) là **≥ 1 chữ**, không phải ≥ nửa (session chính chọn): tập 268 chữ thiếu nhiều chữ phiên âm thông dụng như 戴 里 图 铎, ngưỡng ≥ nửa làm hỏng 戴里克 Derrick, 所罗门 Solomon, 查拉图 Zaratul. Chọn nghĩa Latin (`pick`) và đoán tên khi bật "Ưu tiên tên Latin" vẫn dùng ngưỡng ≥ nửa.
+- Tập chữ phiên âm đóng trong app: `Sources/Resources/Translation/NameFilterTranslitChars.txt` (268 chữ, đúng `translitChars` của `translit_latin.json` @ HF `0df8c84a`), đọc một lần qua `LocalNameFilterTranslitChars`, dùng ở **mọi** chế độ kể cả tắt Latin (cách C) — giữ được Backlund Đông Khu, Russel đại đế, Derrick Berg khi tắt Latin. `translitChars` trong file mô hình chỉ để đối chiếu: lệch ⇒ log ❌ (`LocalNameFilterLatinModelGate`).
+- Python tham chiếu `name_meaning.py` sửa trước (`cover_entry`, `has_translit_char`, `load_translit_chars`); 10 truyện giữ y hàng. Với VP của anh, so với trước, đổi 8 hàng (tắt và bật Latin như nhau): 炎珠草 (sửa đúng), 图铎家族 / 图铎王朝 Tudor ⇒ Đồ Đạc, 水仙花街 "Thủy Tiên Hoa nhai", 沐氏家族 "Mộc Thị gia tộc", 天元圣女 "Thiên Nguyên Thánh Nữ", 天使神神位 "Thiên Sử Thần Thần Vị", 剑道·君亭 "Kiếm Đạo Quân Đình".
+- Comment `LocalNameFilter.Suffix`: danh sách đuôi chỉ để ghép nghĩa (không còn "đuôi đang bật").
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1099] - 2026-11-27
 
 ### feat: gói name tạm tự cập nhật theo danh sách đuôi và danh sách không phải name
@@ -325,13 +336,3 @@ Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 2–5, mock
 - **Chuẩn hoá một lần** (`PronounsSeparatorNormalization`, mới; cờ `pronounsPipeNormalizedV1`): `TranslationManager.init` gọi ngay sau lượt nạp từ điển đầu ⇒ `GlobalDictionaryEditor.normalizePronounSeparators()` (trong hàng đợi ghi) đổi mọi `|` trong nghĩa thành `/`, một ký tự đổi một ký tự — dòng, khoá, chữ nghĩa giữ nguyên; không mục nào có `|` ⇒ không ghi. Chưa có file ⇒ đánh dấu xong; lỗi ⇒ `❌`, lần mở sau thử lại. Log `📚 [Pronouns] Chuẩn hoá một lần | → /: đổi N / tổng` (dòng thường — log tắt lúc mở app nên lần chạy đầu thường không ghi). `GlobalDictionaryEditor` tách phần nạp lại sau khi ghi thành `reloadAfterWrite(type:)` dùng chung.
 - Sửa comment / tài liệu cũ nói "Xưng hô không lên chip"; `.claude/rules/translation.md` thêm đoạn "Pronoun trên chip nghĩa + Quản lý nghĩa từ", làm rõ luật "Pronouns chỉ qua `<pn>`" là về đường dịch.
 - Dọn: entry 1.3.1044 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1073] - 2026-11-27
-
-### fix: nút xoá ở danh sách duyệt name dùng thùng rác đỏ như danh sách từ điển
-
-Anh Bửu (ngay sau 1.3.1072): "đổi thành nút xóa giống danh sách trong từ điển".
-
-- `ReaderAINameReviewCardView.removeIcon`: ✕ tròn xám 22 pt ⇒ `trash` đỏ `.subheadline` y hàng `DictionaryEntryRow`; vẫn giữ vùng chạm 44 × 44 của 1.3.1072. Áp cho cả màn duyệt của AI và của lọc name local (luồng local bấm vẫn ra menu "Bỏ khỏi lần này / Không phải name").
-- Không build tại chỗ (Windows).
-- Dọn: entry 1.3.1043 chuyển sang `CHANGELOG.archive.md`.

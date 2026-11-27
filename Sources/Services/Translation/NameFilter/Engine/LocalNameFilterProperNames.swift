@@ -5,12 +5,20 @@ import Foundation
 ///
 /// - `nameLike`: nghĩa thô trong từ điển (Name 3 lớp rồi VP 3 lớp, `LocalNameFilterDictionaries.dictionaryValue`) ⇒ chọn
 ///   bằng `pick` ⇒ chỉ nhận khi viết hoa chữ đầu (nghĩa kiểu tên).
-/// - `pick`: nghĩa đầu (tách `/` `|` `¦`, bỏ mục rỗng); "Ưu tiên tên Latin" + từ trông như phiên âm ⇒ nghĩa chữ Latin
-///   đầu tiên nếu có (班森 Ban Sâm/Benson ⇒ Benson; 金边 Kim Biên/Phnom Penh giữ Kim Biên).
-/// - `properAll`: tách theo `·` `.` `•` (bỏ dấu ngăn, nối bằng dấu cách); mỗi mảnh: cả mảnh `nameLike` ⇒ nghĩa đó; phủ
-///   **trọn** bằng mục ≥ 2 chữ `nameLike` (từ trái, thử dài → ngắn) ⇒ ghép (贝克兰德 + 东区); còn sót chữ lẻ ⇒ không ghép
+/// - `pick`: nghĩa đầu (tách `/` `|` `¦`, bỏ mục rỗng); "Ưu tiên tên Latin" (có mô hình) + từ trông như phiên âm ⇒ nghĩa
+///   chữ Latin đầu tiên nếu có (班森 Ban Sâm/Benson ⇒ Benson; 金边 Kim Biên/Phnom Penh giữ Kim Biên).
+/// - `properAll`: tách theo `·` `.` `•` (bỏ dấu ngăn, nối bằng dấu cách); mỗi mảnh: cả mảnh `coverEntry` ⇒ nghĩa đó; phủ
+///   **trọn** bằng mục ≥ 2 chữ `coverEntry` (từ trái, thử dài → ngắn) ⇒ ghép (贝克兰德 + 东区); còn sót chữ lẻ ⇒ không ghép
 ///   lai ("Mạc Bear"): Latin + mảnh trông như phiên âm ⇒ mô hình đoán (`isGuessed`); còn lại ⇒ âm Hán-Việt như cũ (họ theo
 ///   Danh sách họ ở mảnh đầu của tên người).
+/// - `coverEntry` (siết 2026-11-27, anh Bửu duyệt — bỏ ca lạ 黑礁岛 ⇒ "Black Lagoon đảo", 炎珠草 ⇒ "Viên viêm châu thảo"):
+///   **mọi** mục từ điển dùng làm một phần của nghĩa (cả mảnh — phần riêng trước đuôi / danh xưng, mảnh tách theo `·` — và
+///   mục ghép) phải `nameLike` **và** nghĩa là kiểu tên Hán-Việt (không phải chữ Latin, viết hoa chữ đầu **mọi** từ: "Đông
+///   Khu") hoặc chữ Latin mà khoá có **≥ 1 chữ** thuộc tập chữ phiên âm (`hasTranslitChar` — không dùng ngưỡng "≥ nửa"
+///   vì tập thiếu nhiều chữ thông dụng như 戴 里 图 铎). Chỉ đường "cả từ" (`nameLike` của cả name, ở
+///   `LocalNameFilterMeaningBuilder`) không siết.
+/// - Tập chữ phiên âm (`LocalNameFilterTranslitChars`, đóng trong app — cách C) dùng ở **mọi** chế độ: tắt Latin vẫn nhận
+///   罗塞尔 ⇒ Russel, 戴里克.伯格 ⇒ Derrick Berg; công tắc chỉ thêm chọn nghĩa Latin (`pick`) + đoán.
 /// - `coverAll`: phép phủ trọn cả từ dùng trước khi bóc đuôi (xem hàm).
 ///
 /// Một đối tượng cho cả lượt lọc (`LocalNameFilterEngine` giữ) — nhớ kết quả qua mọi lần chụp. **Không khoá**: chỉ dùng
@@ -44,24 +52,42 @@ final class LocalNameFilterProperNames {
     private let dictionaries: LocalNameFilterDictionaries
     /// `nil` = tắt "Ưu tiên tên Latin" hoặc bật mà không có mô hình (tải lỗi) — khi đó như tắt.
     private let latinModel: LocalNameFilterLatinModel?
+    /// Tập chữ phiên âm (code point) — luôn có, không theo công tắc.
+    private let translitChars: Set<UInt32>
     /// Chuỗi rỗng = không có nghĩa kiểu tên.
     private var nameLikeMemo: [Word: String] = [:]
+    /// Như `nameLikeMemo` cho `coverEntry`.
+    private var coverEntryMemo: [Word: String] = [:]
     private var properMemo: [ProperKey: Proper] = [:]
 
-    init(dictionaries: LocalNameFilterDictionaries, latinModel: LocalNameFilterLatinModel?) {
+    /// `translitChars` mặc định là tập đóng trong app; truyền vào chỉ để thử.
+    init(
+        dictionaries: LocalNameFilterDictionaries,
+        latinModel: LocalNameFilterLatinModel?,
+        translitChars: Set<UInt32> = LocalNameFilterTranslitChars.set
+    ) {
         self.dictionaries = dictionaries
         self.latinModel = latinModel
+        self.translitChars = translitChars
     }
 
     var prefersLatin: Bool { latinModel != nil }
 
     // MARK: - Từ điển
 
-    /// ≥ một nửa số chữ thuộc tập chữ phiên âm của mô hình. Tắt Latin ⇒ luôn `false`.
+    /// ≥ một nửa số chữ thuộc tập chữ phiên âm (mọi chế độ).
     func looksTransliterated(_ word: Word) -> Bool {
-        guard let latinModel, !word.isEmpty else { return false }
-        let hits = word.scalars.reduce(0) { $0 + (latinModel.translitChars.contains($1) ? 1 : 0) }
+        guard !translitChars.isEmpty, !word.isEmpty else { return false }
+        let hits = word.scalars.reduce(0) { $0 + (translitChars.contains($1) ? 1 : 0) }
         return 2 * hits >= word.count
+    }
+
+    /// Có ≥ 1 chữ thuộc tập chữ phiên âm — ngưỡng của luật "mảnh chữ Latin" ở `coverEntry` (session chính chọn,
+    /// 2026-11-27): tập 268 chữ thiếu nhiều chữ phiên âm thông dụng (戴 里 图 铎…) nên ngưỡng "≥ nửa" làm hỏng 戴里克 ⇒
+    /// Derrick, 所罗门 ⇒ Solomon, 查拉图 ⇒ Zaratul; "≥ 1 chữ" giữ được chúng mà vẫn chặn 黑礁 ⇒ "Black Lagoon" (không chữ
+    /// nào). Mất 图铎 ⇒ Tudor khi là mảnh của name dài hơn (cả từ 图铎 vẫn ra Tudor).
+    func hasTranslitChar(_ word: Word) -> Bool {
+        word.scalars.contains { translitChars.contains($0) }
     }
 
     /// Nghĩa dùng cho tên trong nghĩa thô `raw` của khoá `key`.
@@ -70,7 +96,9 @@ final class LocalNameFilterProperNames {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard let first = alternatives.first else { return "" }
-        if looksTransliterated(key), let latin = alternatives.first(where: Self.isLatinName) { return latin }
+        if latinModel != nil, looksTransliterated(key), let latin = alternatives.first(where: Self.isLatinName) {
+            return latin
+        }
         return first
     }
 
@@ -83,6 +111,23 @@ final class LocalNameFilterProperNames {
             if picked.first?.isUppercase == true { result = picked }
         }
         nameLikeMemo[word] = result
+        return result.isEmpty ? nil : result
+    }
+
+    /// `cover_entry`: nghĩa của một mục dùng làm **phần** của nghĩa (cả mảnh, mục ghép) — `nameLike` và (a) không phải chữ
+    /// Latin, mọi từ viết hoa chữ đầu; hoặc (b) chữ Latin mà khoá có ≥ 1 chữ phiên âm. Không đạt ⇒ `nil` ("Black Lagoon"
+    /// của 黑礁, "Viên viêm châu" của 炎珠).
+    func coverEntry(_ word: Word) -> String? {
+        if let cached = coverEntryMemo[word] { return cached.isEmpty ? nil : cached }
+        var result = ""
+        if let meaning = nameLike(word) {
+            if Self.isLatinName(meaning) {
+                if hasTranslitChar(word) { result = meaning }
+            } else if meaning.split(whereSeparator: \.isWhitespace).allSatisfy({ $0.first?.isUppercase == true }) {
+                result = meaning
+            }
+        }
+        coverEntryMemo[word] = result
         return result.isEmpty ? nil : result
     }
 
@@ -117,7 +162,7 @@ final class LocalNameFilterProperNames {
     }
 
     private func uncachedProper(_ piece: Word, surnameLength: Int) -> Proper {
-        if let whole = nameLike(piece) { return Proper(text: whole, isGuessed: false) }
+        if let whole = coverEntry(piece) { return Proper(text: whole, isGuessed: false) }
         if let covered = cover(piece) { return Proper(text: covered, isGuessed: false) }
         if let latinModel, looksTransliterated(piece), let guess = latinModel.predict(piece.scalars) {
             return Proper(text: guess, isGuessed: true)
@@ -134,7 +179,7 @@ final class LocalNameFilterProperNames {
         var lastLength = 0
         for piece in word.scalars.split(whereSeparator: { Self.separators.contains($0) }) {
             let piece = Word(scalars: Array(piece))
-            if let whole = nameLike(piece) {
+            if let whole = coverEntry(piece) {
                 texts.append(whole)
                 lastLength = piece.count
                 continue
@@ -147,7 +192,7 @@ final class LocalNameFilterProperNames {
         return texts.joined(separator: " ")
     }
 
-    /// Phủ trọn mảnh bằng các mục ≥ 2 chữ có nghĩa kiểu tên, khớp dài nhất từ trái; còn chữ lẻ ⇒ `nil`.
+    /// Phủ trọn mảnh bằng các mục ≥ 2 chữ `coverEntry`, khớp dài nhất từ trái; còn chữ lẻ ⇒ `nil`.
     private func cover(_ piece: Word) -> String? {
         coverParts(piece).map { parts in parts.map { $0.text }.joined(separator: " ") }
     }
@@ -160,7 +205,7 @@ final class LocalNameFilterProperNames {
         while start < count {
             var hit: (end: Int, text: String)?
             for end in stride(from: min(count, start + Self.maxPieceLength), through: start + 2, by: -1) {
-                if let text = nameLike(piece.slice(start, end)) {
+                if let text = coverEntry(piece.slice(start, end)) {
                     hit = (end, text)
                     break
                 }

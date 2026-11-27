@@ -24,6 +24,13 @@ actor LocalNameFilterLatinModelGate {
             let model = try LocalNameFilterLatinModel(data: data)
             AppLogger.shared.log("🔎 [LọcName] Nạp mô hình đoán tên Latin \(Int(Date().timeIntervalSince(started) * 1_000)) ms "
                 + "(\(model.translitChars.count) chữ phiên âm)")
+            // Tập chữ phiên âm dùng thật là bản đóng trong app (`LocalNameFilterTranslitChars`); tập trong file mô hình chỉ
+            // để đối chiếu — lệch nghĩa là hai file không cùng một lần học.
+            let bundled = LocalNameFilterTranslitChars.set
+            if model.translitChars != bundled {
+                AppLogger.shared.log("❌ [LọcName] Tập chữ phiên âm của mô hình (\(model.translitChars.count) chữ) lệch tập "
+                    + "đóng trong app (\(bundled.count) chữ) — vẫn dùng tập đóng trong app")
+            }
             return model
         }
         inFlight = task

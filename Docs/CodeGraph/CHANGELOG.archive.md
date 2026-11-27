@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1073] - 2026-11-27
+
+### fix: nút xoá ở danh sách duyệt name dùng thùng rác đỏ như danh sách từ điển
+
+Anh Bửu (ngay sau 1.3.1072): "đổi thành nút xóa giống danh sách trong từ điển".
+
+- `ReaderAINameReviewCardView.removeIcon`: ✕ tròn xám 22 pt ⇒ `trash` đỏ `.subheadline` y hàng `DictionaryEntryRow`; vẫn giữ vùng chạm 44 × 44 của 1.3.1072. Áp cho cả màn duyệt của AI và của lọc name local (luồng local bấm vẫn ra menu "Bỏ khỏi lần này / Không phải name").
+- Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1043 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1072] - 2026-11-27
 
 ### fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn

@@ -5,7 +5,8 @@ import Foundation
 /// `Tools/lac-export/export_translit.py` và bản tham chiếu `TranslitModel` trong
 /// `Docs/Plans/local-name-filter-lac/name_meaning.py` (khớp `Model.predict` của công cụ học 6000/6000 mục VP).
 ///
-/// - `translitChars`: tập "chữ phiên âm" — `LocalNameFilterProperNames.looksTransliterated` (≥ một nửa số chữ thuộc tập).
+/// - `translitChars`: tập "chữ phiên âm" ghi trong file — **chỉ để đối chiếu** với tập đóng trong app
+///   (`LocalNameFilterTranslitChars`, tập dùng thật ở mọi chế độ; `LocalNameFilterLatinModelGate` log ❌ khi lệch).
 /// - `predict`: mỗi chữ Hán ↔ một đoạn chữ cái theo vị trí trong tên (S một mình / B đầu / M giữa / E cuối; thiếu thì thử
 ///   M, B, E); tìm chùm 16 với điểm = Σ log p(đoạn) + λ · LM chữ cái bậc 3 (làm trơn cộng hằng); hết tên cộng λ · LM("$");
 ///   lấy điểm cao nhất (hoà ⇒ giả thuyết sinh trước, như `sort` ổn định + `max` của Python); ít nguyên âm hơn
@@ -59,7 +60,7 @@ final class LocalNameFilterLatinModel: Sendable {
     private static let other: UInt8 = 28
     private static let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
 
-    /// "Chữ phiên âm" (code point).
+    /// "Chữ phiên âm" (code point) ghi trong file mô hình — chỉ để đối chiếu.
     let translitChars: Set<UInt32>
     private let segments: [UInt32: [[Segment]]]
     private let trigram: [Double]

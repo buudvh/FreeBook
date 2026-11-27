@@ -1,0 +1,7 @@
+# Tập "chữ phiên âm" của Lọc name local (268 chữ, một dòng dưới): chữ Hán hay dùng phiên âm tên nước ngoài — ≥ 30 %
+# mục 2–6 chữ chứa nó trong VP có nghĩa Latin, ≥ 20 mục. Sinh bằng Tools/lac-export/export_translit.py từ VP của anh
+# Bửu, đúng chuỗi translitChars của translit_latin.json @ commit HF 0df8c84a (kho datasets/raikiri1498/vietpharse).
+# Dùng ở mọi chế độ (kể cả tắt "Ưu tiên tên Latin"): mảnh tên có nghĩa chữ Latin chỉ được nhận khi có ≥ 1 chữ thuộc
+# tập này (tập thiếu nhiều chữ thông dụng như 戴 里 图 铎 nên không đòi ≥ nửa).
+# App chỉ đọc file này. Dòng bắt đầu bằng # bị bỏ qua.
+丽乃乌乔亚亞亨伊伦伽佐佩侑侬俄倉倫傑優克內兰兹冈凯凱切列利加努劳勃勒勞博卡卢厄叙吉咲哈喀嘉噗噢圖圭坂坎坦埃基堀塔塚塞奇奈奎奥奧妮妲姆娃娅娜婭媞孚安宾尔尤尼岡島崎巴布希帕庇库庫康弗徳德忒恩恰戀戈扎托拉捷提摩撒敦斐斯昂昴普曼朗札朴杉柚柯格桑梅森椎橋橘欧歷氢氨汀沃波泰泷泽洙洛津涅渥漢澳濑燮爾特狄玖玛珀珂珉珊琪琳瑙瑞瑟瑪瓦甸町登矢矶祐科穆穗笠約納紐紗索絲維纳纽绀绫维缅缇罗羅羯翰耶肯胺腓艾芙芬芭茉茜茨茱茲茵荷莉莎莫莱菲萊萝萨蒂蓮蔻蕾薇薙薩蘇蘭蘿蜻西覃諾謝讷诺谟貝貞賓賴賽贝赛赫辛达迈迦迪逊達遜邦酱鈴铉锡阪阿隆隼雅雷霍韦頓顿馬魯鲁麗麥麦黒默黛鼬

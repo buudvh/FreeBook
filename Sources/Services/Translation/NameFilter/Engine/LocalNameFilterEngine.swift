@@ -44,7 +44,7 @@ final class LocalNameFilterEngine {
     private let properNames: LocalNameFilterProperNames
 
     /// `latinModel`: mô hình đoán tên Latin khi cấu hình bật "Ưu tiên tên Latin" và nạp được; `nil` ⇒ nghĩa như tắt
-    /// (không chọn nghĩa Latin, không đoán — tập chữ phiên âm nằm trong file mô hình).
+    /// (không chọn nghĩa Latin, không đoán; tập chữ phiên âm đóng trong app vẫn dùng để nhận mảnh tên chữ Latin).
     init(
         configuration: LocalNameFilter.Configuration,
         dictionaries: LocalNameFilterDictionaries,
