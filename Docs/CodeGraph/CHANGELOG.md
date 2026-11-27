@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1089] - 2026-11-27
+
+### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
+
+## [1.3.NNN] - 2026-11-27
+### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
+- `LocalNameFilterSession.start`: vòng nghe sự kiện thoát ngay sau `.finished` / `.failed`. Trước đó nếu stream của bộ lọc đóng trễ mà người dùng đã bấm "Thử lại", task của lượt cũ tới bước "Bộ lọc dừng mà không báo kết quả" và đẩy lượt mới sang màn lỗi.
+
 ## [1.3.1088] - 2026-11-27
 
 ### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
@@ -371,17 +379,3 @@ Anh Bửu: "màn hình danh sách name của AI hãy sửa lại bỏ cho nhập
 - Đổi hành vi: chạm dòng tên trước đây là chọn / bỏ chọn ⇒ nay mở màn sửa; chọn / bỏ chọn chỉ còn ở ô vuông bên trái. Ô vuông và ✕ giữ `.buttonStyle(.plain)` (card nằm trong `ScrollView` + `LazyVStack`, không phải `List`, nên chạm thân hàng không kích hoạt chúng).
 - Mọi lần sửa nghĩa giờ đi qua màn Sửa từ ⇒ `onEditName` ghi vào tin nguồn, mở lại sheet vẫn còn (trước đây gõ thẳng vào ô trên hàng thì đóng sheet là mất). Nút bút chì trên header màn Sửa từ (gõ lại từ gốc) giữ nguyên — màn này dùng chung với danh sách VP/Name.
 - Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows)**, chưa thử trên máy.
-
-## [1.3.1059] - 2026-11-24
-
-### feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub
-
-Anh Bửu: "Thêm nút mở vpn 1.1.1.1 được không, có thể sử dụng shortcut" → duyệt mockup https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k, chỗ đặt A (dòng ở sheet hub); phần thêm (trạng thái VPN, toast sau khi về) anh không chọn.
-
-- App chạy trong LiveContainer, không có Network Extension ⇒ không tự bật VPN được. Nút chạy **phím tắt người dùng tạo sẵn** (tác vụ "Đặt VPN" › Bật/tắt › cấu hình 1.1.1.1) qua `shortcuts://x-callback-url/run-shortcut?name=…`; app Phím tắt hiện lên giây lát.
-- `VPNShortcutLauncher` (`Services/Network/VPNShortcut/`, chỉ Foundation): dựng link, tên phím tắt từ `@AppStorage` `vpnShortcutName` (mặc định "VPN 1.1.1.1", không dấu). **Link quay về** chỉ gắn khi có `LC_HOME_PATH`: `livecontainer://livecontainer-launch?bundle-name=<Bundle.main.bundlePath cuối>&container-folder-name=<HOME cuối>` — đúng hai giá trị LiveContainer so trong `LCHandleControlAppURL` (`UIKit+GuestHooks.m`), trùng app đang chạy ⇒ LiveContainer không làm gì, app chỉ lên trước, không mở lại (TTS / phim không ngắt). Giá trị lồng mã hoá chặt `-._~`. Log `🛡️ [VPNShortcut]` ghi link + link quay về để tra trên máy.
-- `VPNShortcutRunner` (View): `UIApplication.open` không qua `canOpenURL` (trong LiveContainer `LSApplicationQueriesSchemes` là của LiveContainer); iOS không nhận ⇒ toast "Không mở được app Phím tắt".
-- Mạng & DNS (`NetworkSettingsView`): section "VPN 1.1.1.1" giữa DNS mã hoá và Trình duyệt & phim — nút "Bật / tắt VPN 1.1.1.1", ô "Tên phím tắt", trang "Cách tạo phím tắt" (`VPNShortcutGuideView`, khuôn bước của `SystemDNSGuideView`, nút "Mở app Phím tắt").
-- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) ngay dưới bốn dòng cố định, cùng dáng `FloatingHubMenuRow`; là lối tắt hành động nên **không** thuộc `FloatingHubItem.Kind` (không tính đang chạy / nháy nút hub); chạm ⇒ `sheetState.dismiss` xong mới chạy (`runVPNShortcut`).
-- `network-dns.md`, `floating-pills.md` ghi phần mới.
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy** — điểm cần thử: phím tắt có bật / tắt được 1.1.1.1 không, và quay về app có giữ nguyên (không mở lại) không.

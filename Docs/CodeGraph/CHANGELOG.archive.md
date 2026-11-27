@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1059] - 2026-11-24
+
+### feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub
+
+Anh Bửu: "Thêm nút mở vpn 1.1.1.1 được không, có thể sử dụng shortcut" → duyệt mockup https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k, chỗ đặt A (dòng ở sheet hub); phần thêm (trạng thái VPN, toast sau khi về) anh không chọn.
+
+- App chạy trong LiveContainer, không có Network Extension ⇒ không tự bật VPN được. Nút chạy **phím tắt người dùng tạo sẵn** (tác vụ "Đặt VPN" › Bật/tắt › cấu hình 1.1.1.1) qua `shortcuts://x-callback-url/run-shortcut?name=…`; app Phím tắt hiện lên giây lát.
+- `VPNShortcutLauncher` (`Services/Network/VPNShortcut/`, chỉ Foundation): dựng link, tên phím tắt từ `@AppStorage` `vpnShortcutName` (mặc định "VPN 1.1.1.1", không dấu). **Link quay về** chỉ gắn khi có `LC_HOME_PATH`: `livecontainer://livecontainer-launch?bundle-name=<Bundle.main.bundlePath cuối>&container-folder-name=<HOME cuối>` — đúng hai giá trị LiveContainer so trong `LCHandleControlAppURL` (`UIKit+GuestHooks.m`), trùng app đang chạy ⇒ LiveContainer không làm gì, app chỉ lên trước, không mở lại (TTS / phim không ngắt). Giá trị lồng mã hoá chặt `-._~`. Log `🛡️ [VPNShortcut]` ghi link + link quay về để tra trên máy.
+- `VPNShortcutRunner` (View): `UIApplication.open` không qua `canOpenURL` (trong LiveContainer `LSApplicationQueriesSchemes` là của LiveContainer); iOS không nhận ⇒ toast "Không mở được app Phím tắt".
+- Mạng & DNS (`NetworkSettingsView`): section "VPN 1.1.1.1" giữa DNS mã hoá và Trình duyệt & phim — nút "Bật / tắt VPN 1.1.1.1", ô "Tên phím tắt", trang "Cách tạo phím tắt" (`VPNShortcutGuideView`, khuôn bước của `SystemDNSGuideView`, nút "Mở app Phím tắt").
+- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) ngay dưới bốn dòng cố định, cùng dáng `FloatingHubMenuRow`; là lối tắt hành động nên **không** thuộc `FloatingHubItem.Kind` (không tính đang chạy / nháy nút hub); chạm ⇒ `sheetState.dismiss` xong mới chạy (`runVPNShortcut`).
+- `network-dns.md`, `floating-pills.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy** — điểm cần thử: phím tắt có bật / tắt được 1.1.1.1 không, và quay về app có giữ nguyên (không mở lại) không.
+
 ## [1.3.1058] - 2026-11-24
 
 ### fix: Kệ Sách và sheet "+" Chi tiết bỏ "Ch. N", thẻ ghi tên chương đang đọc

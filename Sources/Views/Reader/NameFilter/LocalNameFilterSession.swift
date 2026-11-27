@@ -136,6 +136,10 @@ final class LocalNameFilterSession {
             for await event in run.events {
                 guard !Task.isCancelled else { break }
                 await self.handle(event)
+                // Sự kiện cuối ⇒ thôi nghe ngay, kể cả khi stream đóng trễ: "Thử lại" bấm sau đó chạy lượt mới, task cũ
+                // không được tới bước "dừng mà không báo kết quả" bên dưới và đè lên lượt mới.
+                if case .finished = event { break }
+                if case .failed = event { break }
             }
             // Stream đóng mà không có sự kiện cuối (không nên xảy ra) ⇒ đừng để sheet kẹt ở màn đang lọc.
             if !Task.isCancelled, self.phase == .running || self.phase == .stopping {
