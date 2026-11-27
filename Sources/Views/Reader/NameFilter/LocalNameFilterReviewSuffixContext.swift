@@ -23,6 +23,8 @@ public final class LocalNameFilterReviewSuffixContext {
     let bookId: String
     private(set) var autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
     private let onChange: ([String: LocalNameFilterDraft.AutoMeaning]) -> Void
+    /// Lượt ghép lại trước (`enqueueRecompose`): lượt sau chờ nó xong — cả bước áp lên màn — rồi mới đọc danh sách.
+    private var queue: Task<Void, Never>?
 
     init(
         bookId: String,
@@ -40,9 +42,10 @@ public final class LocalNameFilterReviewSuffixContext {
         if let kind = autoMeanings?[item.original]?.kind {
             switch kind {
             case .place: return .place
-            case .sect, .family: return .sect
+            case .sect: return .sect
             case .term: return .term
-            case .person: return nil
+            // Họ tộc (萧家) không bao giờ ghép lại theo đuôi (`canRecompose`) ⇒ không có hàng "Đuôi", như tên người.
+            case .person, .family: return nil
             }
         }
         switch item.category {
@@ -50,6 +53,30 @@ public final class LocalNameFilterReviewSuffixContext {
         case LocalNameFilter.Category.organization.label: return .sect
         case LocalNameFilter.Category.term.label: return .term
         default: return nil
+        }
+    }
+
+    /// Xếp hàng một lượt ghép lại sau khi lưu đuôi: các lượt chạy **lần lượt** (lưu hai đuôi liền nhau, nhất là lúc mô hình
+    /// Latin đang tải lần đầu, không còn chồng nhau); mỗi lượt chờ lượt trước áp xong lên màn rồi mới đọc danh sách
+    /// (`currentNames`) ⇒ name vừa đổi ở lượt trước được ghép tiếp theo đuôi mới. `suffixes` theo thứ tự: khoá vừa lưu
+    /// rồi khoá cũ khi đổi chữ đuôi — khoá sau bỏ qua name khoá trước đã đổi. `apply` nhận thay đổi gộp của cả lượt.
+    @MainActor
+    func enqueueRecompose(
+        suffixes: [String],
+        currentNames: @escaping @MainActor () -> [AIExtractedName],
+        apply: @escaping @MainActor ([UUID: Change]) -> Void
+    ) {
+        let previous = queue
+        queue = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self else { return }
+            let names = currentNames()
+            var changes: [UUID: Change] = [:]
+            for suffix in suffixes {
+                let more = await self.recompose(names, suffix: suffix)
+                changes.merge(more) { first, _ in first }
+            }
+            apply(changes)
         }
     }
 
@@ -97,14 +124,20 @@ public final class LocalNameFilterReviewSuffixContext {
 
         var changes: [UUID: Change] = [:]
         for candidate in candidates {
-            guard let built = rebuilt[candidate.term], built.meaning != candidate.old
-                    || built.isGuessed != (names.first { $0.id == candidate.id }?.isGuessedMeaning ?? false) else { continue }
+            // Chỉ khi nghĩa đổi thật: nghĩa giữ nguyên thì không đụng cờ "đoán" (người dùng bấm Cập nhật để xác nhận đã bỏ
+            // cờ — so cờ ở đây sẽ bật lại nhãn và đếm dư vào toast).
+            guard let built = rebuilt[candidate.term], built.meaning != candidate.old else { continue }
             changes[candidate.id] = Change(old: candidate.old, new: built.meaning, isGuessed: built.isGuessed)
             auto[candidate.term] = LocalNameFilterDraft.AutoMeaning(meaning: built.meaning, kind: candidate.kind)
         }
         if !changes.isEmpty {
-            autoMeanings = auto
-            onChange(auto)
+            // Chỉ gộp khoá vừa đổi vào bản hiện tại (bản chụp `auto` có từ trước các `await`).
+            var current = autoMeanings ?? [:]
+            for candidate in candidates where changes[candidate.id] != nil {
+                current[candidate.term] = auto[candidate.term]
+            }
+            autoMeanings = current
+            onChange(current)
             AppLogger.shared.log("🔎 [LọcName] Thêm / sửa đuôi \(suffix) ⇒ ghép lại \(changes.count) name ở màn duyệt")
         }
         return changes

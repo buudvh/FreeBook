@@ -21,6 +21,8 @@ extension LocalNameFilterSession {
         /// sách đuôi (`LocalNameFilterDraftRefresher`); thêm đuôi ở màn duyệt ghép lại thì cập nhật theo
         /// (`makeReviewSuffixContext`). `nil` = mở từ gói của bản trước.
         var autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
+        /// Dấu danh sách đuôi + công tắc Latin mà `autoMeanings` ứng với (`LocalNameFilterDraft.meaningSignature`).
+        var meaningSignature: String?
     }
 
     /// Ngữ cảnh đuôi của màn duyệt sắp mở: nghĩa máy ghép đổi (thêm đuôi từ màn Sửa từ) ⇒ ghi vào `reviewContext` để gói
@@ -29,8 +31,16 @@ extension LocalNameFilterSession {
         bookId: String,
         autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
     ) -> LocalNameFilterReviewSuffixContext {
-        LocalNameFilterReviewSuffixContext(bookId: bookId, autoMeanings: autoMeanings) { [weak self] updated in
-            self?.reviewContext?.autoMeanings = updated
+        // Gắn với **đúng** màn duyệt đang mở: lượt ghép lại xong muộn (sau ‹ rồi mở gói khác) không được ghi vào gói khác.
+        let draftId = reviewContext?.draftId
+        return LocalNameFilterReviewSuffixContext(bookId: bookId, autoMeanings: autoMeanings) { [weak self] updated in
+            guard let self, self.reviewContext?.draftId == draftId else { return }
+            self.reviewContext?.autoMeanings = updated
+            // Ghép lại theo danh sách đuôi vừa đổi ⇒ gói ứng với danh sách hiện tại.
+            self.reviewContext?.meaningSignature = LocalNameFilterMeaningComposer.signature(
+                suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
+                prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
+            )
         }
     }
 
@@ -87,7 +97,8 @@ extension LocalNameFilterSession {
             scopeLabel: context.scopeLabel,
             chapterCount: context.chapterCount,
             names: latestReviewNames,
-            autoMeanings: context.autoMeanings
+            autoMeanings: context.autoMeanings,
+            meaningSignature: context.meaningSignature
         )
     }
 }

@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1075] - 2026-11-27
+
+### feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển
+
+Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 1, mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 4): "làm cái gì có vế trái là chữ Hán giống từ điển cũng làm kiểu edit của từ điển" — bốn danh sách `chữ Hán = …` bỏ form hai ô, thêm / sửa một mục mở **chính** màn Sửa từ `DictEntryEditSheet` (hàng chữ gốc chọn được ‹ › | chữ | ‹ ›, hàng token, ô nghĩa, chip nghĩa gợi ý, aa…AA, "Cập nhật", tra cứu ngoài, bút chì đổi chữ gốc).
+
+- **Chế độ danh sách** (`DictEntryEditListMode` mới + `DictEntryEditSheet+List.swift`, tham số `listMode:` cuối init, mặc định `nil` ⇒ VP / Name / Pronouns / name AI chạy y như trước — ba chỗ gọi cũ không sửa): kiểm luật + trùng khoá qua store của từng danh sách, lỗi hiện đỏ ở dòng thông báo (ô trống không tô đỏ); store từ chối khoá đã có nên câu "sẽ bị ghi đè" + cảnh báo cam ẩn đi; lưu trả lỗi ⇒ sheet giữ nguyên. Khoá rỗng = thêm mới: tiêu đề "Thêm từ", ô gõ chữ gốc mở sẵn + focus, nút "Thêm". Chọn cả từ ⇒ cập nhật / đổi chữ gốc (`replacing` = khoá đang sửa); chọn một phần ⇒ thêm mục mới = phần đang chọn, mục đang sửa giữ nguyên ("Lưu thêm X, giữ nguyên Y"). Hàng phụ riêng của danh sách qua `extraRows` (sau aa…AA) + `isExtraDirty` (hỏi "Bỏ thay đổi?"). Không gắn truyện ⇒ không có ⚙ Quản lý nghĩa; chip lấy từ hàm chip dùng chung (có chip Pronoun của 1.3.1074).
+- **Đuôi địa danh & tông môn** (`LocalNameFilterSuffixEditorSheet`): badge "Đuôi · Chung", khối **Loại** (Địa danh / Tông môn) + **Nghĩa đứng** (Trước tên / Sau tên, mục mới mặc định Sau tên, loại mặc định theo tab) và dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn; giữ "Nghĩa gốc: …" khi nghĩa khác bản gốc và nút "Về bản gốc: …" cho đuôi gốc đã sửa.
+- **Không phải name** (`LocalNameFilterBlocklistEditorSheet`, thay `LocalNameFilterBlocklistAddSheet`): chỉ hàng chữ gốc + hàng token, không ô nghĩa / chip / aa…AA. Hàng của danh sách nay chạm thân hàng = sửa cụm (trước chỉ xoá rồi thêm lại); đổi cụm qua `LocalNameFilterBlocklistStore.replace(_:with:)` mới — giữ chỗ và ngày thêm, trùng cụm khác ⇒ lỗi; cụm giữ nguyên ⇒ không làm gì, không toast.
+- **Danh sách họ** (`QuickTranslationSurnameEditorSheet`): badge "Họ · Chung", ô nghĩa = âm Hán-Việt của họ, giữ nút "Về âm gốc: …".
+- **Token tùy chọn** (`QuickTranslationCustomTokenEntryEditorSheet`): badge "<@tên> · Chung", ô nghĩa = nghĩa của từ.
+- `onSave` của ba sheet đuôi / họ / token thêm tham số `replacing` (màn danh sách thôi tự lấy khoá của mục đang mở). Ghi chú: `.claude/rules/ui-conventions.md` (luật "Danh sách vế trái chữ Hán ⇒ màn Sửa từ"), `translation.md` (đoạn cùng tên + Danh sách họ / Token tùy chọn / Lọc name local).
+- Dọn: entry 1.3.1045 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1074] - 2026-11-27
 
 ### feat: chip nghĩa Pronoun viền tím, nhóm Pronoun trong Quản lý nghĩa từ, tách nghĩa Pronoun bằng | và chuẩn hoá | thành / một lần

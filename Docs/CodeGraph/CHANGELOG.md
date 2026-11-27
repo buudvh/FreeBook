@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1102] - 2026-11-27
+
+### fix: lọc name local không bật lại nhãn đoán, gói tạm chỉ ghép lại nghĩa khi danh sách đuôi đổi, lưu hai đuôi liền nhau không đè nhau
+
+Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo bằng hai agent (phần bộ lọc; màn duyệt + màn Sửa từ dùng chung): không thấy lỗi biên dịch, luồng AI và các chỗ dùng khác của màn Sửa từ giữ nguyên hành vi; sửa các lỗi tìm được.
+
+- **Nhãn "đoán" không bật lại**: xác nhận nghĩa ở màn Sửa từ (bấm Cập nhật, nghĩa không đổi) bỏ cờ, nhưng lần ghép lại sau so cả cờ nên gắn lại nhãn và đếm dư vào toast. Nay màn duyệt (`LocalNameFilterReviewSuffixContext.recompose`) và gói tạm (`LocalNameFilterDraftRefresher`) chỉ đổi khi nghĩa đổi thật.
+- **Gói tạm chỉ ghép lại khi có gì đổi**: gói nhớ dấu danh sách đuôi + công tắc Latin của lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`, `LocalNameFilterMeaningComposer.signature`); trùng dấu ⇒ bỏ qua. Trước đây mỗi lần trang đầu hiện ra, hàng bộ luật địa danh / tổ chức (lúc lọc lấy đúng đuôi đã dò) có thể tự đổi nghĩa theo đường ghép "đuôi dài nhất" dù không ai đổi gì; nay cũng ít khi giữ khoá kho gói lâu.
+- **Lưu hai đuôi liền nhau** (nhất là lúc mô hình Latin đang tải lần đầu): các lượt ghép lại ở màn duyệt chạy lần lượt (`enqueueRecompose`), lượt sau đọc danh sách đã áp lượt trước; chỉ gộp khoá vừa đổi vào `autoMeanings`.
+- **Đổi chữ của đuôi có sẵn** (chip ✓, 街 ⇒ 兰街): ghép lại cả name mang khoá cũ (`onSaved` báo thêm khoá bị thay).
+- Họ tộc (萧家) không có hàng "Đuôi" (đuôi không bao giờ đổi nghĩa họ tộc). Lượt ghép lại xong muộn không ghi vào gói khác đang mở (gắn `draftId`). Thu một đuôi có sẵn thành đuôi mới ⇒ toast "Đã thêm".
+- Tải mô hình Latin dùng phiên riêng có hạn tổng 30 s (`timeoutIntervalForResource`) — mạng nhỏ giọt không còn treo ở "Nạp model…".
+- Comment: khoá đuôi 1–6 chữ (`LocalNameFilter.Suffix.key`), lúc tải mô hình Latin. Tài liệu `.claude/rules/translation.md` / `storage.md` / `books-sources.md` cập nhật cho cả đợt.
+- Ghi nhận, chưa sửa (nhẹ): huỷ lúc đang tải mô hình Latin lần đầu không cắt ngay (cửa nạp là `Task.detached`); dòng "Ví dụ" khi sửa đuôi có sẵn qua chip ✓ dùng mẫu chung.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1101] - 2026-11-27
 
 ### feat: thêm đuôi ngay từ màn sửa từ của màn duyệt lọc name local, đuôi dài 1 đến 6 chữ, ghép lại nghĩa ngay
@@ -320,17 +336,3 @@ Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 6): chọn 
 - **"Cập nhật" với PN** (`DefinitionSaveTarget.save`): nghĩa chuẩn hoá như NE / VP (`DictionaryTextFileStore.normalizeMeaning`) rồi `GlobalDictionaryEditor.save` vào file Pronouns gốc — từ đã có ⇒ thay nghĩa; dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch, báo đổi từ điển (Reader / truyện tranh tra lại chip; chữ dịch chỉ đổi ở chỗ có rule `<pn>` khớp — tách từ không tra Pronouns từ 1.3.1016). Thành công ⇒ đóng panel y NE / VP — NE / VP vốn **không** có toast thành công nên PN cũng không; lỗi ⇒ "Không lưu được định nghĩa (Pronoun): …".
 - `.claude/rules/translation.md` thêm phần panel Dịch vào đoạn "Pronoun trên chip nghĩa".
 - Dọn: entry 1.3.1046 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang hàng nút chưa đo trên máy.
-
-## [1.3.1075] - 2026-11-27
-
-### feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển
-
-Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 1, mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 4): "làm cái gì có vế trái là chữ Hán giống từ điển cũng làm kiểu edit của từ điển" — bốn danh sách `chữ Hán = …` bỏ form hai ô, thêm / sửa một mục mở **chính** màn Sửa từ `DictEntryEditSheet` (hàng chữ gốc chọn được ‹ › | chữ | ‹ ›, hàng token, ô nghĩa, chip nghĩa gợi ý, aa…AA, "Cập nhật", tra cứu ngoài, bút chì đổi chữ gốc).
-
-- **Chế độ danh sách** (`DictEntryEditListMode` mới + `DictEntryEditSheet+List.swift`, tham số `listMode:` cuối init, mặc định `nil` ⇒ VP / Name / Pronouns / name AI chạy y như trước — ba chỗ gọi cũ không sửa): kiểm luật + trùng khoá qua store của từng danh sách, lỗi hiện đỏ ở dòng thông báo (ô trống không tô đỏ); store từ chối khoá đã có nên câu "sẽ bị ghi đè" + cảnh báo cam ẩn đi; lưu trả lỗi ⇒ sheet giữ nguyên. Khoá rỗng = thêm mới: tiêu đề "Thêm từ", ô gõ chữ gốc mở sẵn + focus, nút "Thêm". Chọn cả từ ⇒ cập nhật / đổi chữ gốc (`replacing` = khoá đang sửa); chọn một phần ⇒ thêm mục mới = phần đang chọn, mục đang sửa giữ nguyên ("Lưu thêm X, giữ nguyên Y"). Hàng phụ riêng của danh sách qua `extraRows` (sau aa…AA) + `isExtraDirty` (hỏi "Bỏ thay đổi?"). Không gắn truyện ⇒ không có ⚙ Quản lý nghĩa; chip lấy từ hàm chip dùng chung (có chip Pronoun của 1.3.1074).
-- **Đuôi địa danh & tông môn** (`LocalNameFilterSuffixEditorSheet`): badge "Đuôi · Chung", khối **Loại** (Địa danh / Tông môn) + **Nghĩa đứng** (Trước tên / Sau tên, mục mới mặc định Sau tên, loại mặc định theo tab) và dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn; giữ "Nghĩa gốc: …" khi nghĩa khác bản gốc và nút "Về bản gốc: …" cho đuôi gốc đã sửa.
-- **Không phải name** (`LocalNameFilterBlocklistEditorSheet`, thay `LocalNameFilterBlocklistAddSheet`): chỉ hàng chữ gốc + hàng token, không ô nghĩa / chip / aa…AA. Hàng của danh sách nay chạm thân hàng = sửa cụm (trước chỉ xoá rồi thêm lại); đổi cụm qua `LocalNameFilterBlocklistStore.replace(_:with:)` mới — giữ chỗ và ngày thêm, trùng cụm khác ⇒ lỗi; cụm giữ nguyên ⇒ không làm gì, không toast.
-- **Danh sách họ** (`QuickTranslationSurnameEditorSheet`): badge "Họ · Chung", ô nghĩa = âm Hán-Việt của họ, giữ nút "Về âm gốc: …".
-- **Token tùy chọn** (`QuickTranslationCustomTokenEntryEditorSheet`): badge "<@tên> · Chung", ô nghĩa = nghĩa của từ.
-- `onSave` của ba sheet đuôi / họ / token thêm tham số `replacing` (màn danh sách thôi tự lấy khoá của mục đang mở). Ghi chú: `.claude/rules/ui-conventions.md` (luật "Danh sách vế trái chữ Hán ⇒ màn Sửa từ"), `translation.md` (đoạn cùng tên + Danh sách họ / Token tùy chọn / Lọc name local).
-- Dọn: entry 1.3.1045 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

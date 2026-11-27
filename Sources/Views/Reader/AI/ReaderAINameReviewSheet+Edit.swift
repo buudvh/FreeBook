@@ -48,18 +48,21 @@ extension ReaderAINameReviewSheet {
     /// Hàng "Đuôi" của màn Sửa từ — chỉ luồng lọc local, name không phải người.
     private func suffixRow(for item: AIExtractedName) -> AnyView? {
         guard let context = localSuffixContext, let kind = context.suffixKind(for: item) else { return nil }
-        return AnyView(LocalNameFilterSuffixQuickRow(name: item.original, kind: kind) { key, isNew in
-            suffixDidSave(key: key, isNew: isNew)
+        return AnyView(LocalNameFilterSuffixQuickRow(name: item.original, kind: kind) { key, replaced, isNew in
+            suffixDidSave(key: key, replaced: replaced, isNew: isNew)
         })
     }
 
     /// Đuôi vừa thêm / sửa ⇒ ghép lại nghĩa các name có đuôi đó (nghĩa còn do máy ghép), áp cho name chưa bị sửa trong lúc
     /// chờ; name đang mở ở màn Sửa từ cập nhật theo (`editingName` ⇒ `originalValue`). Toast số name đã ghép lại.
-    func suffixDidSave(key: String, isNew: Bool) {
+    /// Sửa đuôi có sẵn mà đổi chữ (`replaced`) ⇒ ghép lại cả name mang khoá cũ (nghĩa của chúng dựa vào đuôi vừa mất). Lượt
+    /// thứ hai chạy sau lượt đầu nên name mang cả hai khoá chỉ đổi một lần (`recompose` so với nghĩa máy ghép mới nhất).
+    func suffixDidSave(key: String, replaced: String?, isNew: Bool) {
         guard let context = localSuffixContext else { return }
-        let snapshot = names
-        Task { @MainActor in
-            let changes = await context.recompose(snapshot, suffix: key)
+        let suffixes = [key] + (replaced.map { $0 == key ? [] : [$0] } ?? [])
+        // Xếp hàng trong `context`: lưu hai đuôi liền nhau ⇒ lượt sau đọc `names` đã áp lượt trước. Nhảy sang main-actor
+        // tường minh như bản trước (hàm này có thể được coi là nonisolated tuỳ phiên bản SDK).
+        Task { @MainActor in context.enqueueRecompose(suffixes: suffixes, currentNames: { names }) { changes in
             var updated = names
             var applied = 0
             for index in updated.indices {
@@ -78,7 +81,7 @@ extension ReaderAINameReviewSheet {
                 message: "\(isNew ? "Đã thêm" : "Đã lưu") đuôi \(key) · ghép lại \(applied) name",
                 type: .success
             )
-        }
+        } }
     }
 
     /// Nghĩa đang có của một khoá **trong danh sách đang duyệt** — màn Sửa từ dùng để báo ghi đè.

@@ -179,7 +179,8 @@ final class LocalNameFilterSession {
             filteredAt: draft.filteredAt,
             scopeLabel: draft.scopeLabel,
             chapterCount: draft.chapterCount,
-            autoMeanings: draft.autoMeanings
+            autoMeanings: draft.autoMeanings,
+            meaningSignature: draft.meaningSignature
         )
         reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: draft.autoMeanings)
         savePending = false
@@ -316,7 +317,12 @@ final class LocalNameFilterSession {
             filteredAt: Date(),
             scopeLabel: LocalNameFilterDraft.scopeLabel(chapterNumbers: Array(numbers)),
             chapterCount: snapshot.chaptersRead,
-            autoMeanings: Self.autoMeanings(of: snapshot.names)
+            autoMeanings: Self.autoMeanings(of: snapshot.names),
+            // Nghĩa lúc lọc ứng với đúng danh sách đuôi + công tắc Latin của lượt này.
+            meaningSignature: LocalNameFilterMeaningComposer.signature(
+                suffixes: request.configuration.suffixes,
+                prefersLatinNames: request.configuration.prefersLatinNames
+            )
         )
         reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: reviewContext?.autoMeanings)
         savePending = false

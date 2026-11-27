@@ -82,7 +82,7 @@ public enum LocalNameFilter {
     /// Một đuôi trong danh sách "Đuôi địa danh, tổ chức, thuật ngữ" — từ cách A (2026-11-27) danh sách **chỉ** dùng để
     /// ghép nghĩa name không phải tên người (`Configuration.suffixes`); bộ đuôi dò cố định của app cũng dùng kiểu này.
     public struct Suffix: Sendable, Equatable, Hashable {
-        /// Chữ Hán của đuôi, 1–2 chữ (城, 山脉).
+        /// Chữ Hán của đuôi: danh sách người dùng 1–6 chữ (城, 山脉, 安保公司); bộ dò cố định của file gốc 1–2 chữ.
         public let key: String
         /// Nghĩa ghép vào nghĩa name, giữ nguyên chữ người dùng viết (thường viết thường: "trấn", "thành phố").
         public let meaning: String

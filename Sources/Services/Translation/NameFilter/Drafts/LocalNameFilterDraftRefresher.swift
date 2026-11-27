@@ -28,7 +28,11 @@ enum LocalNameFilterDraftRefresher {
     static func refresh(_ inputs: Inputs) async -> [LocalNameFilterDraft] {
         let drafts = LocalNameFilterDraftStore.load(bookId: inputs.bookId)
         guard !drafts.isEmpty else { return [] }
-        let composer = await makeComposer(for: drafts, inputs: inputs)
+        // Gói đã ghép với đúng danh sách đuôi + công tắc Latin này ⇒ không ghép lại (nghĩa không tự đổi khi không ai đổi gì).
+        let signature = LocalNameFilterMeaningComposer.signature(
+            suffixes: inputs.suffixes, prefersLatinNames: inputs.prefersLatinNames
+        )
+        let composer = await makeComposer(for: drafts, inputs: inputs, signature: signature)
         if Task.isCancelled { return drafts }
         var removed = 0
         var recomposed = 0
@@ -43,8 +47,9 @@ enum LocalNameFilterDraftRefresher {
                 }
                 removed += draft.names.count - kept.count
                 draft.names = kept
-                if let composer {
+                if let composer, draft.autoMeanings != nil, draft.meaningSignature != signature {
                     recomposed += recompose(&draft, with: composer)
+                    draft.meaningSignature = signature
                 }
                 if draft != before { changed = true }
                 if !draft.names.isEmpty { updated.append(draft) }
@@ -62,10 +67,11 @@ enum LocalNameFilterDraftRefresher {
     /// Latin).
     private static func makeComposer(
         for drafts: [LocalNameFilterDraft],
-        inputs: Inputs
+        inputs: Inputs,
+        signature: String
     ) async -> LocalNameFilterMeaningComposer? {
         let needsMeaning = drafts.contains { draft in
-            guard let auto = draft.autoMeanings else { return false }
+            guard let auto = draft.autoMeanings, draft.meaningSignature != signature else { return false }
             return auto.values.contains { LocalNameFilterMeaningComposer.canRecompose($0.kind) }
         }
         guard needsMeaning else { return nil }
@@ -92,9 +98,9 @@ enum LocalNameFilterDraftRefresher {
             let key = draft.names[index].original
             guard let auto = autoMeanings[key], draft.names[index].suggestedMeaning == auto.meaning,
                   let rebuilt = composer.meaning(term: key, kind: auto.kind) else { continue }
-            guard rebuilt.meaning != auto.meaning || rebuilt.isGuessed != draft.names[index].isGuessedMeaning else {
-                continue
-            }
+            // Chỉ khi nghĩa đổi thật: nghĩa giữ nguyên thì không đụng cờ "đoán" (người dùng có thể đã xác nhận ở màn Sửa từ
+            // — so cờ ở đây sẽ bật lại nhãn mỗi lần trang đầu hiện ra).
+            guard rebuilt.meaning != auto.meaning else { continue }
             draft.names[index].suggestedMeaning = rebuilt.meaning
             draft.names[index].isGuessedMeaning = rebuilt.isGuessed
             autoMeanings[key] = LocalNameFilterDraft.AutoMeaning(meaning: rebuilt.meaning, kind: auto.kind)

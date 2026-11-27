@@ -16,8 +16,9 @@ struct LocalNameFilterSuffixQuickRow: View {
 
     let name: String
     let kind: LocalNameFilter.SuffixKind
-    /// Đuôi vừa lưu; `isNew` = thêm mới (không phải sửa đuôi có sẵn).
-    let onSaved: (_ key: String, _ isNew: Bool) -> Void
+    /// Đuôi vừa lưu; `replaced` = khoá cũ khi sửa đuôi có sẵn mà đổi chữ (街 ⇒ 兰街) — màn duyệt ghép lại cả name mang khoá
+    /// cũ; `isNew` = thêm mới (không phải sửa đuôi có sẵn).
+    let onSaved: (_ key: String, _ replaced: String?, _ isNew: Bool) -> Void
 
     private struct EditorTarget: Identifiable {
         let id = UUID()
@@ -132,7 +133,9 @@ struct LocalNameFilterSuffixQuickRow: View {
             LocalNameFilterSuffixEditorSheet(
                 original: entry,
                 onSave: { key, meaning, kind, position, replacing in
-                    save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing, isNew: false)
+                    // Chọn một phần của đuôi đang có (兰街 ⇒ 街) = thêm đuôi mới (`replacing == nil`).
+                    save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing,
+                         isNew: replacing == nil)
                 },
                 onRestoreBundled: { restoreBundled(entry) }
             )
@@ -153,7 +156,7 @@ struct LocalNameFilterSuffixQuickRow: View {
                       position: LocalNameFilter.MeaningPosition, replacing: String?, isNew: Bool) -> String? {
         let error = Store.shared.save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing)
         entries = Store.shared.entries()
-        if error == nil { onSaved(key, isNew) }
+        if error == nil { onSaved(key, replacing == key ? nil : replacing, isNew) }
         return error
     }
 
@@ -163,7 +166,7 @@ struct LocalNameFilterSuffixQuickRow: View {
         if let error {
             ToastManager.shared.show(message: error, type: .error)
         } else {
-            onSaved(entry.key, false)
+            onSaved(entry.key, nil, false)
         }
     }
 }

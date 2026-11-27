@@ -30,6 +30,9 @@ struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
     /// Chữ Hán ⇒ nghĩa máy ghép (lúc lọc, hoặc lần tự cập nhật trước). Nghĩa đang có khác nghĩa máy ghép ⇒ người dùng đã tự
     /// sửa ⇒ giữ nguyên. `nil` = gói của bản trước (chưa có trường này) ⇒ không ghép lại nghĩa, chỉ bỏ name "Không phải name".
     var autoMeanings: [String: AutoMeaning]?
+    /// Dấu danh sách đuôi + công tắc Latin của lần ghép nghĩa gần nhất (`LocalNameFilterMeaningComposer.signature`): trùng
+    /// dấu hiện tại ⇒ bộ cập nhật gói không ghép lại. `nil` ⇒ chưa biết ⇒ ghép lại một lần rồi ghi dấu.
+    var meaningSignature: String? = nil
 
     var selectedCount: Int {
         names.reduce(0) { $0 + ($1.isSelected ? 1 : 0) }

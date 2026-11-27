@@ -5,8 +5,9 @@ import Foundation
 /// từ VP của anh. Ghim **commit + sha256 + kích thước** như `LACModelMirror` — đổi file trong kho ⇒ đổi cả ba hằng.
 ///
 /// Trên máy: `Application Support/translate/LAC/translit_latin.json` (thư mục của `LACModelStore` ⇒ màn Dung lượng tính vào
-/// "Từ điển & dịch", sao lưu từ điển không mang theo). Chỉ tải khi một lượt lọc bật "Ưu tiên tên Latin" mà máy chưa có
-/// file đúng sha. `LACModelStore.removeAll()` (model LAC hỏng / bản cũ) xoá cả thư mục ⇒ file này mất theo, lượt sau tải
+/// "Từ điển & dịch", sao lưu từ điển không mang theo). Chỉ tải khi truyện bật "Ưu tiên tên Latin" mà máy chưa có file
+/// đúng sha — lúc lọc, lúc trang đầu cập nhật gói tạm (`LocalNameFilterDraftRefresher`) hoặc lúc màn duyệt ghép lại nghĩa
+/// sau khi thêm đuôi (`LocalNameFilterReviewSuffixContext`). `LACModelStore.removeAll()` (model LAC hỏng / bản cũ) xoá cả thư mục ⇒ file này mất theo, lượt sau tải
 /// lại — đúng ý. Không dùng đuôi `.partial` (Dọn rác coi là rác): tải vào RAM, kiểm sha rồi ghi `.atomic`.
 enum LocalNameFilterLatinModelStore {
     static let revision = "0df8c84aba207a485d93737cd4b21ece1ad6ee61"
@@ -15,6 +16,14 @@ enum LocalNameFilterLatinModelStore {
     static let byteCount: Int64 = 154_787
     /// Tải lần đầu là việc nhỏ: hết hạn sớm để lượt lọc không đứng chờ lâu khi mạng hỏng.
     private static let timeout: TimeInterval = 30
+    /// Phiên riêng có hạn **tổng** (`timeoutIntervalForResource`): `URLRequest.timeoutInterval` chỉ là hạn im lặng giữa hai
+    /// lần nhận dữ liệu — mạng nhỏ giọt thì lượt lọc đứng mãi ở "Nạp model…".
+    static let downloadSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
+        return URLSession(configuration: configuration)
+    }()
 
     static var url: URL? {
         URL(string: "https://huggingface.co/datasets/\(LACModelMirror.repository)/resolve/\(revision)/"
@@ -23,7 +32,7 @@ enum LocalNameFilterLatinModelStore {
 
     /// Nội dung file đã kiểm (kích thước + sha256): đọc trên máy, thiếu / lệch ⇒ tải về rồi ghi lại. Ném
     /// `LACModelError.downloadFailed` / `.invalidFiles`, hoặc `CancellationError`.
-    static func loadData(session: URLSession = .shared) async throws -> Data {
+    static func loadData(session: URLSession = downloadSession) async throws -> Data {
         let store: LACModelStore
         do {
             store = try LACModelStore()

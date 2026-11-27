@@ -31,6 +31,17 @@ final class LocalNameFilterMeaningComposer {
         )
     }
 
+    /// **Dấu** của những gì quyết định nghĩa máy ghép ngoài từ điển: danh sách đuôi (chữ, nghĩa, loại, vị trí) + công tắc
+    /// "Ưu tiên tên Latin". Gói tạm nhớ dấu lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`); trùng dấu hiện tại
+    /// ⇒ không ghép lại — nếu không, mỗi lần trang đầu hiện ra hàng bộ luật địa danh / tổ chức (lúc lọc lấy đúng đuôi đã dò)
+    /// có thể đổi nghĩa theo đường ghép ở đây dù người dùng không đổi gì.
+    static func signature(suffixes: [LocalNameFilter.Suffix], prefersLatinNames: Bool) -> String {
+        let lines = suffixes
+            .map { "\($0.key)=\($0.meaning)|\($0.kind.rawValue)|\($0.position.rawValue)" }
+            .sorted()
+        return (lines + ["latin=\(prefersLatinNames ? 1 : 0)"]).joined(separator: "\n").sha256()
+    }
+
     /// Loại ghép lại được: địa danh, tổ chức (không phải họ tộc), thuật ngữ.
     static func canRecompose(_ kind: LocalNameFilter.Kind) -> Bool {
         switch kind {
