@@ -12,11 +12,21 @@ import SwiftUI
 ///   đuôi mới = cụm đang chọn, đuôi đang sửa giữ nguyên.
 /// - Ghi do màn danh sách làm (`onSave` trả chuỗi lỗi nếu không lưu được — sheet giữ nguyên để sửa tiếp).
 /// - Đuôi gốc: nghĩa khác bản gốc ⇒ dòng "Nghĩa gốc: …"; đã sửa ⇒ nút "Về bản gốc: …".
+/// - **Thêm từ một name** (`source`, plan 2026-11-27-nghia-ten-tay-huyen mục 7 — hàng "Đuôi" ở màn Sửa từ của màn duyệt
+///   Lọc name local): mở với nguyên cụm name (佐特兰街) hoặc đoạn cuối đã chọn sẵn; người dùng thu / nới bằng ‹ › của hàng
+///   chữ gốc, khoá lưu = phần đang chọn (luôn thêm mới). Ô nghĩa = phiên âm viết thường của phần đang chọn (đã gõ thì giữ);
+///   "Thêm" mờ + dòng nhắc khi chọn cả cụm, phần chọn không nằm cuối name, hoặc dài quá 6 chữ. Dòng "Ví dụ" dùng chính name.
 struct LocalNameFilterSuffixEditorSheet: View {
     typealias Entry = LocalNameFilterSuffixEntry
     typealias Store = LocalNameFilterSuffixStore
     typealias Kind = LocalNameFilter.SuffixKind
     typealias Position = LocalNameFilter.MeaningPosition
+
+    /// Name nguồn khi thêm đuôi từ màn Sửa từ của màn duyệt + vùng chọn ban đầu (UTF-16 trên name đã bỏ khoảng trắng).
+    struct Source {
+        let name: String
+        let selection: NSRange
+    }
 
     /// Phần tên riêng của dòng "Ví dụ": địa danh / tổ chức 江海 → Giang Hải, thuật ngữ 五气 → Ngũ Khí (五气丹 → Ngũ Khí đan).
     private static func sample(for kind: Kind) -> (name: String, reading: String) {
@@ -30,6 +40,8 @@ struct LocalNameFilterSuffixEditorSheet: View {
 
     /// `nil` = thêm đuôi mới.
     let original: Entry?
+    /// Thêm đuôi từ một name (xem doc của type); `nil` = màn danh sách đuôi như cũ.
+    let source: Source?
     /// `replacing` = khoá bị thay (`nil` = thêm mới, kể cả thêm cụm chọn một phần khi đang sửa).
     let onSave: (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position, _ replacing: String?) -> String?
     let onRestoreBundled: () -> Void
@@ -41,10 +53,12 @@ struct LocalNameFilterSuffixEditorSheet: View {
     init(
         original: Entry?,
         initialKind: Kind = .place,
+        source: Source? = nil,
         onSave: @escaping (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position, _ replacing: String?) -> String?,
         onRestoreBundled: @escaping () -> Void = {}
     ) {
         self.original = original
+        self.source = original == nil ? source : nil
         self.onSave = onSave
         self.onRestoreBundled = onRestoreBundled
         _kind = State(initialValue: original?.kind ?? initialKind)
@@ -53,7 +67,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
 
     var body: some View {
         DictEntryEditSheet(
-            originalKey: original?.key ?? "",
+            originalKey: original?.key ?? source?.name ?? "",
             originalValue: original?.meaning ?? "",
             dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
             scopeBookId: nil,
@@ -63,19 +77,36 @@ struct LocalNameFilterSuffixEditorSheet: View {
             onAddEntry: { _, _ in },
             onDefinitionsChanged: {},
             badgeText: "Đuôi · Chung",
-            listMode: listMode
+            listMode: listMode,
+            initialSelection: source?.selection
         )
     }
 
     private var listMode: DictEntryEditListMode {
-        DictEntryEditListMode(
+        let source = self.source
+        let suggest: ((String) -> String)? = source == nil ? nil : { key in Store.suggestedMeaning(for: key) }
+        return DictEntryEditListMode(
             meaningPlaceholder: "Nghĩa của đuôi (trấn, thành phố…)",
-            keyError: { key, replacing in Store.shared.keyError(key, replacing: replacing) },
+            keyError: { key, replacing in
+                Self.sourceKeyError(key, source: source) ?? Store.shared.keyError(key, replacing: replacing)
+            },
             meaningError: { meaning in Store.shared.meaningError(meaning) },
             save: { key, meaning, replacing in onSave(key, meaning, kind, position, replacing) },
             isExtraDirty: original.map { kind != $0.kind || position != $0.position } ?? false,
-            extraRows: { key, meaning in AnyView(extraRows(key: key, meaning: meaning)) }
+            extraRows: { key, meaning in AnyView(extraRows(key: key, meaning: meaning)) },
+            addsFromSource: source != nil,
+            suggestedMeaning: suggest
         )
+    }
+
+    /// Thêm từ một name: đuôi phải là phần **cuối** name và chừa ≥ 1 chữ phía trước. `nil` = hợp lệ (luật chung còn lại do
+    /// store kiểm, gồm cả dài quá 6 chữ).
+    private static func sourceKeyError(_ key: String, source: Source?) -> String? {
+        guard let source else { return nil }
+        let name = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if key == name { return "Chừa ít nhất 1 chữ trước đuôi." }
+        if !name.hasSuffix(key) { return "Đuôi phải là phần cuối của \(name)." }
+        return nil
     }
 
     // MARK: - Khối Loại / Nghĩa đứng
@@ -104,7 +135,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
             .cornerRadius(8)
 
             if let example = exampleText(key: key, meaning: meaning) {
-                Text("Ví dụ: \(Self.sample(for: kind).name)\(key) → \(Text(verbatim: example).bold().foregroundColor(.primary))")
+                Text("Ví dụ: \(exampleSample(key: key).name)\(key) → \(Text(verbatim: example).bold().foregroundColor(.primary))")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -141,8 +172,21 @@ struct LocalNameFilterSuffixEditorSheet: View {
     /// "thành phố Giang Hải" / "Giang Hải thành phố" / "Ngũ Khí đan" — chỉ khi đã có đuôi và nghĩa.
     private func exampleText(key: String, meaning: String) -> String? {
         guard !key.isEmpty, !meaning.isEmpty else { return nil }
-        let reading = Self.sample(for: kind).reading
+        let reading = exampleSample(key: key).reading
         return position == .before ? "\(meaning) \(reading)" : "\(reading) \(meaning)"
+    }
+
+    /// Phần tên riêng của dòng "Ví dụ": thêm từ một name ⇒ chính name đó (佐特兰 + 街, phần riêng đọc Hán-Việt); không thì
+    /// mẫu theo loại.
+    private func exampleSample(key: String) -> (name: String, reading: String) {
+        if let source {
+            let name = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.hasSuffix(key), name.count > key.count {
+                let proper = String(name.dropLast(key.count))
+                return (proper, LocalNameFilterRules.capitalizeWords(Store.suggestedMeaning(for: proper)))
+            }
+        }
+        return Self.sample(for: kind)
     }
 
     /// Đuôi gốc đang mang nghĩa khác bản gốc (chưa lưu) ⇒ "Nghĩa gốc: thị". Đã sửa thì nút "Về bản gốc" nói thay.

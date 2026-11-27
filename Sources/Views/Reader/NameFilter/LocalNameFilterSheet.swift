@@ -69,7 +69,8 @@ struct LocalNameFilterSheet: View {
                     onSave: { items, isName, isMerge in save(items, isName: isName, isMerge: isMerge) },
                     onBlockName: { item in block(item) },
                     onNamesChange: { names in session.updateReviewNames(names) },
-                    onBack: { session.leaveReview() }
+                    onBack: { session.leaveReview() },
+                    suffixContext: session.reviewSuffixContext
                 )
             } else {
                 NavigationStack {

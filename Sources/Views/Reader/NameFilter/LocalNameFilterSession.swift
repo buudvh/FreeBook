@@ -91,6 +91,8 @@ final class LocalNameFilterSession {
     @ObservationIgnored var latestReviewNames: [AIExtractedName] = []
     /// Đã bấm Lưu ⇒ đóng sheet không giữ gói (lưu xong mới xoá gói, lưu lỗi thì ghi lại — `LocalNameFilterSheet.save`).
     @ObservationIgnored var savePending = false
+    /// Hàng "Đuôi" + ghép lại nghĩa sau khi thêm đuôi ở màn duyệt đang mở (`+Drafts.makeReviewSuffixContext`).
+    @ObservationIgnored var reviewSuffixContext: LocalNameFilterReviewSuffixContext?
 
     @ObservationIgnored private var run: LocalNameFilterRun?
     @ObservationIgnored private var consumeTask: Task<Void, Never>?
@@ -179,6 +181,7 @@ final class LocalNameFilterSession {
             chapterCount: draft.chapterCount,
             autoMeanings: draft.autoMeanings
         )
+        reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: draft.autoMeanings)
         savePending = false
         phase = .review
     }
@@ -190,6 +193,7 @@ final class LocalNameFilterSession {
         guard phase == .review else { return }
         _ = keepDraftOnClose()
         reviewContext = nil
+        reviewSuffixContext = nil
         latestReviewNames = []
         reviewNames = []
         phase = .setup
@@ -314,6 +318,7 @@ final class LocalNameFilterSession {
             chapterCount: snapshot.chaptersRead,
             autoMeanings: Self.autoMeanings(of: snapshot.names)
         )
+        reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: reviewContext?.autoMeanings)
         savePending = false
         phase = .review
         AppLogger.shared.log("🔎 [LọcName] Màn duyệt: \(decorated.count) name, \(known) đã có trong Name / VP (bỏ chọn sẵn)")

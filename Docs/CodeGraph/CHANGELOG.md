@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1101] - 2026-11-27
+
+### feat: thêm đuôi ngay từ màn sửa từ của màn duyệt lọc name local, đuôi dài 1 đến 6 chữ, ghép lại nghĩa ngay
+
+- Đuôi dài 1–6 chữ (anh Bửu: "chọn đuôi thoải mái hơn"): luật khoá `LocalNameFilterSuffixListParser` nới từ 1–2 lên 1–6 chữ Hán cho danh sách người dùng (cả màn danh sách đuôi). Bộ dò cố định (file gốc, cách A) vẫn chỉ dùng đuôi 1–2 chữ. Ghép nghĩa lấy đuôi **dài nhất** khớp cuối name, phần tên riêng còn ≥ 1 chữ (安保公司 thắng 公司) — `LocalNameFilterSetup.meaningSuffix(of:)`, Python `suffix_of`. 10 truyện với danh sách mặc định ra y như trước (tắt và bật Latin).
+- Màn Sửa từ mở từ màn duyệt (chỉ luồng Lọc name local, chỉ name không phải tên người) có hàng phụ **"Đuôi"** dưới aa…AA, nút "?" (`LocalNameFilterSuffixQuickRow`, plan 2026-11-27-nghia-ten-tay-huyen mục 7, mockup v4): cuộn ngang, đầu hàng là chip chọn nhanh = đoạn cuối 1, 2, 3 chữ của name (chừa ≥ 1 chữ trước, bỏ đoạn có chữ không phải Hán) `+ 街` `+ 兰街` `+ 特兰街`; đoạn đã là đuôi ⇒ chip "✓ 街 · phố · trước" chạm để sửa; cuối hàng nút "+ Thêm đuôi".
+- Chip "+" / "+ Thêm đuôi" ⇒ `LocalNameFilterSuffixEditorSheet` chế độ thêm từ name (`Source`): mở với đúng đoạn đó hoặc **nguyên cụm** name, thu / nới bằng ‹ › của hàng chữ gốc, khoá lưu = phần đang chọn (luôn thêm mới); ô nghĩa = phiên âm viết thường của phần đang chọn, đã gõ thì giữ; Loại = loại của name, "Sau tên"; dòng "Ví dụ" dùng chính name; "Thêm" mờ + dòng nhắc khi chọn cả cụm ("Chừa ít nhất 1 chữ trước đuôi."), phần chọn không nằm cuối name, hoặc dài quá 6 chữ.
+- Lưu đuôi (thêm hoặc sửa) ⇒ ghi qua `LocalNameFilterSuffixStore` như cũ ⇒ ghép lại nghĩa ngay các name trong màn duyệt đang mở: không phải người / họ tộc, kết thúc bằng đuôi đó, nghĩa vẫn do máy ghép (`autoMeanings`) — bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc Latin (`LocalNameFilterReviewSuffixContext`); nghĩa tự sửa giữ nguyên; ô nghĩa của màn Sửa từ theo nếu chưa gõ khác; gói tạm mang nghĩa máy ghép mới; toast "Đã thêm đuôi 街 · ghép lại N name".
+- Màn Sửa từ dùng chung (`DictEntryEditSheet`) thêm móc mặc định không đổi hành vi chỗ khác: `initialSelection`, `accessoryRows` (chế độ từ điển), `followsOriginalValue`; `DictEntryEditListMode.addsFromSource` + `suggestedMeaning`. `LocalNameFilterSuffixStore.suggestedMeaning(for:)` = phiên âm viết thường.
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1100] - 2026-11-27
 
 ### fix: lọc name local siết luật ghép mảnh từ điển, tập chữ phiên âm đóng trong app dùng ở mọi chế độ
@@ -323,16 +334,3 @@ Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 1, mockup h
 - **Token tùy chọn** (`QuickTranslationCustomTokenEntryEditorSheet`): badge "<@tên> · Chung", ô nghĩa = nghĩa của từ.
 - `onSave` của ba sheet đuôi / họ / token thêm tham số `replacing` (màn danh sách thôi tự lấy khoá của mục đang mở). Ghi chú: `.claude/rules/ui-conventions.md` (luật "Danh sách vế trái chữ Hán ⇒ màn Sửa từ"), `translation.md` (đoạn cùng tên + Danh sách họ / Token tùy chọn / Lọc name local).
 - Dọn: entry 1.3.1045 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1074] - 2026-11-27
-
-### feat: chip nghĩa Pronoun viền tím, nhóm Pronoun trong Quản lý nghĩa từ, tách nghĩa Pronoun bằng | và chuẩn hoá | thành / một lần
-
-Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 2–5, mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 1–3 / 5): Pronoun thành lớp nghĩa ngang hàng NE / VP ở mọi chỗ tra / sửa nghĩa — đảo quyết định 1.3.721 "chip chỉ Name/VP". Ý 6 (nơi lưu PN ở panel Dịch) chưa làm, chờ anh chọn cách xếp.
-
-- **Chip Pronoun** (`ReaderView.suggestionChips(from:)` — panel Dịch Reader, màn Sửa từ / Thêm từ): nguồn `"Xưng hô (Pronouns)"` của `dictionaryMatches`, nay là hằng `ManageDefinitionsDraft.pronounSource` và là mục thứ năm của `editableSources` ⇒ thứ tự Name Riêng → Name Chung → VP Riêng → VP Chung → **Pronoun** → Phiên âm. Category mới `SuggestionChipCategory.pronoun` viền tím (`rgba(191,90,242,0.7)` như mockup), chữ trắng, không badge R/C; nghĩa trùng chữ với chip đứng trước gộp vào chip đó. Sheet Tra từ điển của trình duyệt thêm nhóm "Pronouns" (chỉ hiện khi có nghĩa riêng của Pronoun). VoiceOver đọc thêm "Pronoun".
-- **Tách nghĩa Pronoun thêm bằng `|`** (ngoài `/`, `¦`), chỉ Pronoun: chip và `ManageDefinitionsDraft.splitMeanings(_:source:)` (bản nháp + phép so lúc lưu cùng gọi ⇒ mục `a|b` không đụng tới thì không ghi lại). `<pn>` và danh xưng lọc name local vốn đã nhận `|`.
-- **Quản lý nghĩa từ có nhóm "Pronoun · Chung"** sau VP Chung (`ManageDefinitionsView` / `ManageDefinitionGroupView`): thêm / sửa / xoá / đổi chỗ như nhóm khác. Đóng màn ⇒ nhóm đã đổi ghi thẳng file Pronouns gốc qua `GlobalDictionaryEditor` (`save` nối `/`, hết nghĩa ⇒ `delete`) — cùng đường danh sách Pronouns: dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch. Log lỗi lưu của màn này đổi `⚠️` ⇒ `❌`.
-- **Chuẩn hoá một lần** (`PronounsSeparatorNormalization`, mới; cờ `pronounsPipeNormalizedV1`): `TranslationManager.init` gọi ngay sau lượt nạp từ điển đầu ⇒ `GlobalDictionaryEditor.normalizePronounSeparators()` (trong hàng đợi ghi) đổi mọi `|` trong nghĩa thành `/`, một ký tự đổi một ký tự — dòng, khoá, chữ nghĩa giữ nguyên; không mục nào có `|` ⇒ không ghi. Chưa có file ⇒ đánh dấu xong; lỗi ⇒ `❌`, lần mở sau thử lại. Log `📚 [Pronouns] Chuẩn hoá một lần | → /: đổi N / tổng` (dòng thường — log tắt lúc mở app nên lần chạy đầu thường không ghi). `GlobalDictionaryEditor` tách phần nạp lại sau khi ghi thành `reloadAfterWrite(type:)` dùng chung.
-- Sửa comment / tài liệu cũ nói "Xưng hô không lên chip"; `.claude/rules/translation.md` thêm đoạn "Pronoun trên chip nghĩa + Quản lý nghĩa từ", làm rõ luật "Pronouns chỉ qua `<pn>`" là về đường dịch.
-- Dọn: entry 1.3.1044 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

@@ -64,6 +64,19 @@ final class LocalNameFilterSuffixStore {
     /// Đã có thay đổi so với bản gốc — "Khôi phục mặc định" chỉ bật khi đúng.
     var isCustomized: Bool { !currentOverrides().isEmpty }
 
+    /// Nghĩa gợi ý cho một đuôi mới (thêm đuôi từ màn Sửa từ của màn duyệt): âm Hán-Việt đầu của từng chữ, viết thường, nối
+    /// dấu cách (街 ⇒ "nhai", 兰街 ⇒ "lan nhai"). Chữ không có trong bảng phiên âm giữ nguyên.
+    static func suggestedMeaning(for key: String) -> String {
+        let map = TranslationManager.shared.phienAmMap
+        return key.unicodeScalars
+            .map { scalar -> String in
+                let char = String(Character(scalar))
+                return map[char].flatMap(LocalNameFilterRules.firstReading) ?? char
+            }
+            .joined(separator: " ")
+            .lowercased()
+    }
+
     /// Giá trị của bản gốc; `nil` = khoá không có trong bản gốc.
     func bundledValue(for key: String) -> Value? {
         Self.base.linesByKey[key]?.value

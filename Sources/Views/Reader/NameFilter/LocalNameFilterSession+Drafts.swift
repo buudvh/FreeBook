@@ -18,8 +18,20 @@ extension LocalNameFilterSession {
         let scopeLabel: String
         let chapterCount: Int
         /// Nghĩa máy ghép của từng name (`LocalNameFilterDraft.autoMeanings`) — đi theo gói để gói tự cập nhật theo danh
-        /// sách đuôi (`LocalNameFilterDraftRefresher`). `nil` = mở từ gói của bản trước.
-        let autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
+        /// sách đuôi (`LocalNameFilterDraftRefresher`); thêm đuôi ở màn duyệt ghép lại thì cập nhật theo
+        /// (`makeReviewSuffixContext`). `nil` = mở từ gói của bản trước.
+        var autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
+    }
+
+    /// Ngữ cảnh đuôi của màn duyệt sắp mở: nghĩa máy ghép đổi (thêm đuôi từ màn Sửa từ) ⇒ ghi vào `reviewContext` để gói
+    /// tạm mang bản mới.
+    func makeReviewSuffixContext(
+        bookId: String,
+        autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
+    ) -> LocalNameFilterReviewSuffixContext {
+        LocalNameFilterReviewSuffixContext(bookId: bookId, autoMeanings: autoMeanings) { [weak self] updated in
+            self?.reviewContext?.autoMeanings = updated
+        }
     }
 
     /// Nghĩa máy ghép lúc lọc xong: chữ Hán ⇒ nghĩa + loại (trùng chữ ⇒ giữ hàng đầu).

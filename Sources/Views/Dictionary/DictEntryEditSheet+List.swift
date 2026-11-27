@@ -7,8 +7,12 @@ extension DictEntryEditSheet {
 
     // MARK: - Trạng thái suy ra
 
-    /// Danh sách, khoá gốc rỗng = thêm mục mới (tiêu đề "Thêm từ", nút "Thêm", ô gõ chữ gốc mở sẵn).
-    var isAddingListEntry: Bool { listMode != nil && trimmedOriginalKey.isEmpty }
+    /// Danh sách, khoá gốc rỗng = thêm mục mới (tiêu đề "Thêm từ", nút "Thêm", ô gõ chữ gốc mở sẵn); thêm từ một cụm nguồn
+    /// (`DictEntryEditListMode.addsFromSource`) cũng là thêm mới.
+    var isAddingListEntry: Bool {
+        guard let listMode else { return false }
+        return trimmedOriginalKey.isEmpty || listMode.addsFromSource
+    }
 
     /// Ô nghĩa, dải chip, aa…AA — chỉ "Không phải name" tắt.
     var showsMeaningRows: Bool { listMode?.showsMeaning ?? true }

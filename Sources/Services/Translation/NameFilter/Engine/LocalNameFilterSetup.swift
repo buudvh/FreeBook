@@ -91,10 +91,12 @@ struct LocalNameFilterSetup {
         self.lacSuffixes = lacSuffixes
         self.lacSuffixChars = lacSuffixChars
 
+        // Danh sách người dùng nhận đuôi 1–6 chữ (việc 7, 2026-11-27); bộ dò ở trên vẫn 1–2 chữ.
         var meaningSuffixes: [LocalNameFilterWord: LocalNameFilter.Suffix] = [:]
         for suffix in configuration.suffixes {
             let word = LocalNameFilterWord(suffix.key)
-            guard (1...2).contains(word.count), meaningSuffixes[word] == nil else { continue }
+            guard (1...LocalNameFilterSuffixListParser.maxKeyLength).contains(word.count),
+                  meaningSuffixes[word] == nil else { continue }
             meaningSuffixes[word] = suffix
         }
         self.meaningSuffixes = meaningSuffixes
@@ -168,9 +170,11 @@ struct LocalNameFilterSetup {
         meaningSuffixes[key]
     }
 
-    /// `suffix_of` của `name_meaning.py`: đuôi dài nhất (2 rồi 1 chữ) của danh sách người dùng mà từ dài hơn đuôi.
+    /// `suffix_of` của `name_meaning.py`: đuôi dài nhất (6 … 1 chữ) của danh sách người dùng mà từ dài hơn đuôi — phần tên
+    /// riêng còn ≥ 1 chữ (安保公司 thắng 公司).
     func meaningSuffix(of word: LocalNameFilterWord) -> (length: Int, suffix: LocalNameFilter.Suffix)? {
-        for length in stride(from: 2, through: 1, by: -1) where word.count > length {
+        for length in stride(from: LocalNameFilterSuffixListParser.maxKeyLength, through: 1, by: -1)
+        where word.count > length {
             if let suffix = meaningSuffixes[word.suffix(length)] { return (length, suffix) }
         }
         return nil

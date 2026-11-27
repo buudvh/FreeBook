@@ -25,8 +25,9 @@ enum LocalNameFilterSuffixListParser {
         var invalidLineCount = 0
     }
 
-    /// Bộ lọc tách ứng viên theo đơn vị code point, đuôi dài tối đa 2 chữ.
-    static let maxKeyLength = 2
+    /// Đuôi dài tối đa 6 chữ (đếm code point) — việc 7 (2026-11-27, anh Bửu: "chọn đuôi thoải mái hơn"): danh sách chỉ để
+    /// ghép nghĩa (cách A) nên đuôi dài không ảnh hưởng việc dò; bộ dò cố định (file gốc) vẫn chỉ dùng đuôi 1–2 chữ.
+    static let maxKeyLength = 6
     static let notDetectedMarker = "off"
 
     static func parse(_ text: String) -> Result {
@@ -72,11 +73,11 @@ enum LocalNameFilterSuffixListParser {
         return Line(key: key, value: Value(meaning: meaning, kind: kind, position: position), isDetectable: isDetectable)
     }
 
-    /// Luật khoá: 1 hoặc 2 chữ Hán. `nil` = hợp lệ.
+    /// Luật khoá: 1–6 chữ Hán. `nil` = hợp lệ.
     static func keyError(_ key: String) -> String? {
         if key.isEmpty { return "Chưa nhập đuôi." }
         guard key.unicodeScalars.count <= maxKeyLength, isHanText(key) else {
-            return "Đuôi phải là 1 hoặc 2 chữ Hán."
+            return "Đuôi phải là 1 đến \(maxKeyLength) chữ Hán."
         }
         return nil
     }

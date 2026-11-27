@@ -19,7 +19,7 @@ struct LocalNameFilterSuffixEntry: Identifiable, Equatable, Sendable {
         var position: LocalNameFilter.MeaningPosition
     }
 
-    /// 1–2 chữ Hán, ví dụ `城`, `山脉`.
+    /// 1–6 chữ Hán, ví dụ `城`, `山脉`, `公司`.
     let key: String
     let value: Value
     let origin: Origin

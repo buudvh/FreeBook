@@ -42,6 +42,11 @@ struct DictEntryEditSheet: View {
     /// Danh sách `chữ Hán = …` ngoài từ điển (đuôi, "Không phải name", họ, token tùy chọn) — xem `DictEntryEditListMode`
     /// và `DictEntryEditSheet+List.swift`. `nil` = từ điển VP / Name / Pronouns / name AI, hành vi như cũ.
     let listMode: DictEntryEditListMode?
+    /// Hàng phụ ở chế độ từ điển, đặt sau aa…AA (vd hàng "Đuôi" khi mở từ màn duyệt Lọc name local). `nil` = không có.
+    let accessoryRows: AnyView?
+    /// `true` ⇒ nơi mở đổi `originalValue` khi sheet đang mở (màn duyệt ghép lại nghĩa sau khi thêm đuôi) thì ô nghĩa theo,
+    /// **trừ khi** người dùng đã gõ nghĩa khác giá trị cũ. Mặc định `false` = như cũ.
+    let followsOriginalValue: Bool
 
     // `internal` (không `private`): các hàng ở `DictEntryEditSheet+Rows.swift` dùng chung trạng thái này.
     @State var workingKey: String
@@ -54,6 +59,9 @@ struct DictEntryEditSheet: View {
     @State var wholeKeyMeaning: String
     /// Người dùng đã sửa nghĩa của cụm (một phần) đang chọn ⇒ kết quả tra về muộn không được đè lên.
     @State var isSubMeaningEdited = false
+    /// Chế độ có nghĩa gợi ý (`DictEntryEditListMode.suggestedMeaning`): người dùng đã tự gõ / chạm chip ⇒ đổi vùng chọn
+    /// không ghi đè ô nghĩa nữa.
+    @State var isSuggestedMeaningEdited = false
     @State var isLoadingMeaning = false
     @State var tokens: [TranslationWordToken] = []
     @State var chips: [SuggestionChip] = []
@@ -84,10 +92,15 @@ struct DictEntryEditSheet: View {
         onAddEntry: @escaping (String, String) -> Void,
         onDefinitionsChanged: @escaping () -> Void,
         badgeText: String? = nil,
-        listMode: DictEntryEditListMode? = nil
+        listMode: DictEntryEditListMode? = nil,
+        initialSelection: NSRange? = nil,
+        accessoryRows: AnyView? = nil,
+        followsOriginalValue: Bool = false
     ) {
         self.badgeText = badgeText
         self.listMode = listMode
+        self.accessoryRows = accessoryRows
+        self.followsOriginalValue = followsOriginalValue
         self.originalKey = originalKey
         self.originalValue = originalValue
         self.dictType = dictType
@@ -98,10 +111,19 @@ struct DictEntryEditSheet: View {
         self.onAddEntry = onAddEntry
         self.onDefinitionsChanged = onDefinitionsChanged
         let trimmedKey = originalKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let keyLength = (trimmedKey as NSString).length
+        // Vùng chọn ban đầu (mặc định cả từ); ngoài biên ⇒ cả từ.
+        let selection = initialSelection.flatMap { range -> NSRange? in
+            range.location >= 0 && range.length > 0 && range.location + range.length <= keyLength ? range : nil
+        } ?? NSRange(location: 0, length: keyLength)
         _workingKey = State(initialValue: originalKey)
         _selectionKey = State(initialValue: trimmedKey)
-        _selectionLength = State(initialValue: (trimmedKey as NSString).length)
-        _meaning = State(initialValue: originalValue)
+        _selectionOffset = State(initialValue: selection.location)
+        _selectionLength = State(initialValue: selection.length)
+        let initialMeaning = listMode?.suggestedMeaning.map { suggest in
+            suggest((trimmedKey as NSString).substring(with: selection).trimmingCharacters(in: .whitespacesAndNewlines))
+        } ?? originalValue
+        _meaning = State(initialValue: initialMeaning)
         _wholeKeyMeaning = State(initialValue: originalValue)
         // Danh sách, thêm mục mới (khoá rỗng): mở sẵn ô gõ chữ gốc.
         _isEditingKey = State(initialValue: listMode != nil && trimmedKey.isEmpty)
@@ -127,6 +149,7 @@ struct DictEntryEditSheet: View {
             .onAppear(perform: handleAppear)
             .onChange(of: workingKey) { _, _ in keyDidChange() }
             .onChange(of: meaning) { _, newValue in meaningDidChange(newValue) }
+            .onChange(of: originalValue) { oldValue, newValue in originalValueDidChange(from: oldValue, to: newValue) }
             .sheet(isPresented: $showingManageDefinitions) { manageDefinitionsSheet.appGlassSheet() }
             .sheet(isPresented: $showingSearchEngineConfig, onDismiss: { searchEngines = SearchEngine.loadEngines() }) {
                 Group {
@@ -161,6 +184,7 @@ struct DictEntryEditSheet: View {
             Group {
                 if showsMeaningRows { caseButtonsView }
                 listExtraRowsView
+                if listMode == nil, let accessoryRows { accessoryRows }
                 noticeView
                 updateButtonView
                 Divider()
@@ -213,6 +237,7 @@ struct DictEntryEditSheet: View {
 
     func editMeaning(_ value: String) {
         if !isWholeSelection { isSubMeaningEdited = true }
+        if listMode?.suggestedMeaning != nil { isSuggestedMeaningEdited = true }
         meaning = value
     }
 
@@ -242,8 +267,15 @@ struct DictEntryEditSheet: View {
     /// Như `updateEditorFromSelection` của Reader: vùng chọn đổi ⇒ ô nghĩa hiện nghĩa của cụm mới. Cả từ gốc ⇒ nghĩa
     /// của mục (kể cả chữ người dùng đã sửa); cụm đã có trong danh sách ⇒ nghĩa đang lưu; còn lại ⇒ dịch cụm đó.
     private func selectionDidChange() {
-        isSubMeaningEdited = false
         listSaveError = nil
+        if let suggest = listMode?.suggestedMeaning {
+            // Nghĩa theo gợi ý của phần đang chọn (vd phiên âm của đuôi), người dùng đã tự gõ thì giữ.
+            targetExistingValue = nil
+            if !isSuggestedMeaningEdited { meaning = suggest(saveTargetKey) }
+            refreshSelectionData(needsMeaning: false)
+            return
+        }
+        isSubMeaningEdited = false
         let target = saveTargetKey
         targetExistingValue = (target.isEmpty || target == trimmedOriginalKey) ? nil : existingValue(target)
         if isWholeSelection {
@@ -265,6 +297,15 @@ struct DictEntryEditSheet: View {
         selectionLength = (key as NSString).length
         selectionDidChange()
         refreshTokens()
+    }
+
+    /// `followsOriginalValue`: nơi mở đổi nghĩa (ghép lại) ⇒ ô nghĩa theo khi người dùng chưa gõ khác giá trị cũ.
+    private func originalValueDidChange(from oldValue: String, to newValue: String) {
+        guard followsOriginalValue, oldValue != newValue else { return }
+        let old = oldValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard wholeKeyMeaning.trimmingCharacters(in: .whitespacesAndNewlines) == old else { return }
+        wholeKeyMeaning = newValue
+        if isWholeSelection { meaning = newValue }
     }
 
     private func meaningDidChange(_ newValue: String) {

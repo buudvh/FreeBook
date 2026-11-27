@@ -1,6 +1,6 @@
 # Danh sách gốc "Đuôi địa danh, tổ chức, thuật ngữ" của Lọc name local (đọc trong LocalNameFilterSuffixStore).
 # Mỗi dòng: chữ Hán=nghĩa|loại|vị trí, thêm |off ở cuối nếu đuôi không dùng để dò. Dòng trống và dòng bắt đầu bằng # bị bỏ qua.
-#   - chữ Hán: 1 hoặc 2 chữ Hán.
+#   - chữ Hán: 1 hoặc 2 chữ Hán (bộ dò cố định chỉ dùng đuôi 1–2 chữ; đuôi người dùng tự thêm được tới 6 chữ).
 #   - nghĩa: ghép vào nghĩa name, giữ nguyên chữ; không có dấu = hay | (làm vỡ dạng dòng).
 #   - loại: place = Địa danh, sect = Tổ chức (tên cũ "Tông môn", giữ chữ sect), term = Thuật ngữ.
 #   - vị trí: after = nghĩa đứng sau phần tên riêng (落霞镇 → Lạc Hà trấn), before = đứng trước (市 sửa nghĩa thành

@@ -26,4 +26,11 @@ struct DictEntryEditListMode {
     var isExtraDirty = false
     /// Hàng phụ đặt sau aa…AA, trước dòng thông báo + nút Cập nhật. Nhận (khoá sẽ lưu, nghĩa đang gõ).
     var extraRows: ((_ key: String, _ meaning: String) -> AnyView)? = nil
+    /// **Thêm từ một cụm nguồn** (thêm đuôi từ màn Sửa từ của màn duyệt Lọc name local, 2026-11-27): khoá gốc là cụm nguồn
+    /// (vd name 佐特兰街), không phải mục đang có — tiêu đề "Thêm từ", nút "Thêm", lưu luôn là thêm mới (`replacing == nil`)
+    /// với phần đang chọn. Mặc định `false`.
+    var addsFromSource = false
+    /// Nghĩa gợi ý cho phần đang chọn, thay cho tra nghĩa của màn (vd phiên âm viết thường của đuôi). Có ⇒ mỗi lần đổi vùng
+    /// chọn ô nghĩa theo gợi ý, cho tới khi người dùng tự gõ / chạm chip (từ đó giữ chữ người dùng). Mặc định `nil`.
+    var suggestedMeaning: ((_ key: String) -> String)? = nil
 }
