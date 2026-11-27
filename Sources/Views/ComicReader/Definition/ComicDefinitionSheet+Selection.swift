@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Vùng chọn, tra nghĩa, lưu Name / VP và tra nhanh của `ComicDefinitionSheet` — chép từ `ReaderView+Selection` /
+/// Vùng chọn, tra nghĩa, lưu Name / VP / Pronoun và tra nhanh của `ComicDefinitionSheet` — chép từ `ReaderView+Selection` /
 /// `ReaderView+DefinitionLoading` (bỏ phần của panel Xoá từ rác / Copy gốc mà màn truyện tranh không có).
 ///
 /// `selectedWordOffset/Length` là `NSRange` UTF-16 trên **câu gốc** (chữ Trung OCR), như Reader.
@@ -36,7 +36,7 @@ extension ComicDefinitionSheet {
 
     /// Cụm đang chọn ⇒ ô nghĩa + chip + loại / phạm vi theo ghim mặc định, rồi tra lại.
     func updateEditorFromSelection() {
-        saveAsNameType = pinnedSaveAsNameType
+        saveTarget = DefinitionSaveTarget(pinnedAsName: pinnedSaveAsNameType)
         saveToBookSpecific = pinnedSaveToBookSpecific
         let ns = sentence as NSString
         guard selectedWordOffset >= 0, selectedWordOffset + selectedWordLength <= ns.length else { return }
@@ -141,19 +141,20 @@ extension ComicDefinitionSheet {
 
     // MARK: - Lưu
 
-    /// Lưu cụm đang chọn thành Name / VP (riêng truyện hoặc chung); xong mà người dùng chưa đổi gì nữa ⇒ đóng sheet.
+    /// Lưu cụm đang chọn thành Name / VP (riêng truyện hoặc chung) hoặc Pronoun (chỉ chung, file Pronouns gốc); xong mà
+    /// người dùng chưa đổi gì nữa ⇒ đóng sheet.
     func saveDefinition() {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty, !meaning.isEmpty, !definitionSession.saving else { return }
+        let target = saveTarget
         let book = saveToBookSpecific ? bookId : nil
-        let isName = saveAsNameType
         let session = definitionSession.identity
         let revision = definitionSession.meaningRevision
         definitionSession.saving = true
         Task { @MainActor in
             do {
-                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: isName, bookId: book)
+                try await target.save(word: word, meaning: meaning, bookId: book)
                 guard definitionSession.identity == session else { return }
                 definitionSession.saving = false
                 if definitionSession.meaningRevision == revision, selectedTextForDefinition == word {
@@ -161,7 +162,8 @@ extension ComicDefinitionSheet {
                 }
             } catch {
                 if definitionSession.identity == session { definitionSession.saving = false }
-                ToastManager.shared.show(message: "Không lưu được định nghĩa: \(error.localizedDescription)", type: .error)
+                let place = target == .pronoun ? " (Pronoun)" : ""
+                ToastManager.shared.show(message: "Không lưu được định nghĩa\(place): \(error.localizedDescription)", type: .error)
             }
         }
     }

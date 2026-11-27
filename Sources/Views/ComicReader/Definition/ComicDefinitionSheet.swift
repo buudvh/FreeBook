@@ -34,7 +34,7 @@ struct ComicDefinitionSheet: View {
     @State var selectedTextForDefinition: String
     @State var translationTokens: [TranslationWordToken] = []
     @State var customMeaning = ""
-    @State var saveAsNameType = false
+    @State var saveTarget: DefinitionSaveTarget = .vietPhrase // NE / VP / PN; ghim chỉ NE / VP
     @State var saveToBookSpecific = true
     @State var suggestionChips: [SuggestionChip] = []
     @State var searchEngines: [SearchEngine] = []
@@ -105,13 +105,13 @@ struct ComicDefinitionSheet: View {
             selectedWordLength: $selectedWordLength,
             translationTokens: translationTokens,
             customMeaning: meaningBinding,
-            saveAsNameType: $saveAsNameType,
+            saveTarget: $saveTarget,
             saveToBookSpecific: $saveToBookSpecific,
             pinnedSaveAsNameType: pinnedSaveAsNameType,
             pinnedSaveToBookSpecific: pinnedSaveToBookSpecific,
             onPinNameType: { isName in
                 pinnedSaveAsNameType = isName
-                saveAsNameType = isName
+                saveTarget = DefinitionSaveTarget(pinnedAsName: isName)
                 ToastManager.shared.show(message: "Đã ghim mặc định Loại: \(isName ? "Names" : "VP")", type: .success)
             },
             onPinScope: { isBook in

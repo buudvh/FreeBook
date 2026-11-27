@@ -88,13 +88,13 @@ extension ReaderView {
             selectedWordLength: $selectedWordLength,
             translationTokens: translationTokens,
             customMeaning: definitionMeaningBinding,
-            saveAsNameType: $saveAsNameType,
+            saveTarget: $saveTarget,
             saveToBookSpecific: $saveToBookSpecific,
             pinnedSaveAsNameType: pinnedSaveAsNameType,
             pinnedSaveToBookSpecific: pinnedSaveToBookSpecific,
             onPinNameType: { isName in
                 pinnedSaveAsNameType = isName
-                saveAsNameType = isName
+                saveTarget = DefinitionSaveTarget(pinnedAsName: isName)
                 ToastManager.shared.show(message: "Đã ghim mặc định Loại: \(isName ? "Names" : "VP")", type: .success)
             },
             onPinScope: { isBook in

@@ -64,7 +64,7 @@ struct ReaderDefinitionOverlayView: View {
     @Binding var selectedWordLength: Int
     let translationTokens: [TranslationWordToken]
     @Binding var customMeaning: String
-    @Binding var saveAsNameType: Bool
+    @Binding var saveTarget: DefinitionSaveTarget
     @Binding var saveToBookSpecific: Bool
     let pinnedSaveAsNameType: Bool
     let pinnedSaveToBookSpecific: Bool

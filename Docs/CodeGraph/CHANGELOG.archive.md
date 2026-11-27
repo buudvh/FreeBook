@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1046] - 2026-11-23
+
+### feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)
+
+Anh Bửu: "thêm giọng google và ipa nữa" — sau khi Javis báo rủi ro (tiếng thầy lấy qua endpoint không chính thức của Google Dịch, repo công khai ⇒ có thể bị yêu cầu gỡ) và đề nghị chỉ đóng Ngọc Huyền.
+
+- **Model**: `Vendor/vtts/assets/vtts/vtts-googledich-m-k4.q8.vtts` (2 580 320 byte) = `M-vocos-p-bi.q8.vtts` của chuỗi `gg` cùng lượt `vtts-k4`: ~42 giờ tiếng Google Dịch (notebook `vtts-gg-data`), lọc ASR còn 16.275 câu (vi 31,1 h, trộn 1,2 h, Anh 3,1 h) ⇒ thầy VITS 20k bước warm-start từ thầy Ngọc Huyền ⇒ chưng cất như Ngọc Huyền. SHA256 `46cbe449…3761d8` ở `assets/LOCAL_SHA256SUMS`. IPA thêm ~2,4 MB (~53 MB ⇒ Telegram nhận tin kèm link tải thay cho file, 1.3.1045).
+- **`VttsVoice.googleDich`** (id `google-dich`, "Nữ · Google Dịch"), `bundled = [nu10, nam1, ngocHuyen, googleDich]`; mặc định vẫn `nu-10`. Ghi nguồn "pnnbao-ump · CC BY-NC 4.0" như Ngọc Huyền (thầy kế thừa thầy Ngọc Huyền ⇒ coi là dẫn xuất CC BY-NC). Mức tăng đoạn ngắn 8 dB (6 câu mẫu, −22,3 dBFS sau chỉnh tiếng).
+- **CI**: `VOICES` thêm `google-dich`, `assets/vtts/` đúng 5 file.
+- **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Google Dịch (nguồn tiếng không chính thức, không liên kết với Google, câu chữ dùng để đọc); `Vendor/vtts/README.md` ghi cách gỡ nếu bị yêu cầu (xoá file + `VttsVoice.googleDich` + dòng `VOICES` / `LOCAL_SHA256SUMS`, sửa số file mong đợi).
+- Ai đã tự nhập `Google Dịch.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
+- Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1045] - 2026-11-23
 
 ### ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh

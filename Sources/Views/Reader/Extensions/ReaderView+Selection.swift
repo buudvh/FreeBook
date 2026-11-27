@@ -58,7 +58,7 @@ extension ReaderView {
     // MARK: - Đồng bộ editor theo vùng chọn
 
     func updateEditorFromSelection() {
-        self.saveAsNameType = self.pinnedSaveAsNameType
+        self.saveTarget = DefinitionSaveTarget(pinnedAsName: self.pinnedSaveAsNameType)
         self.saveToBookSpecific = self.pinnedSaveToBookSpecific
         let ns = originalSentence as NSString
         guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }

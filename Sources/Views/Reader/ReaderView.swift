@@ -120,7 +120,7 @@ struct ReaderView: View {
     @AppStorage("pinnedSaveToBookSpecific") var pinnedSaveToBookSpecific = true
     @AppStorage("pinnedSaveAsNameType") var pinnedSaveAsNameType = false
     @State var saveToBookSpecific = true
-    @State var saveAsNameType = false
+    @State var saveTarget: DefinitionSaveTarget = .vietPhrase // NE / VP / PN; ghim chỉ NE / VP
 
     // Các cấu hình tra từ nâng cao và hiển thị
     @State var originalSentence = ""

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1076] - 2026-11-27
+
+### feat: panel Dịch lưu được vào Pronoun bằng nút PN cạnh NE và VP
+
+Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 6): chọn **cách A** của mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 1 — giữ một hàng; sau đó chốt "PN không ghim được".
+
+- **Hàng định dạng + nơi lưu** (`ReaderDefinitionOverlayView+Rows`, dùng chung panel Dịch Reader và sheet Dịch của truyện tranh): `[aa Aa¹ Aa² Aa AA] | [NE|VP|PN] [R|C]`. Nút NE / VP / PN / R / C bề ngang tối thiểu 30 pt (máy 375 pt: cụm aa…AA tự co còn ~27 pt / nút, chữ aa…AA co tới 80% nếu thiếu chỗ; máy rộng hơn cả hai cụm giãn như trước).
+- **Lựa chọn ba giá trị** `DefinitionSaveTarget` (mới: `.name` / `.vietPhrase` / `.pronoun`) thay `@State saveAsNameType: Bool` ở `ReaderView` và `ComicDefinitionSheet`. Ghim mặc định giữ nguyên `@AppStorage pinnedSaveAsNameType` (`Bool`, NE / VP) — PN không ghim được: `dictSegmentButton` nhận `onPin: nil` ⇒ tắt riêng cử chỉ nhấn giữ (`including: .subviews`), không badge, không rung, không toast. Mở panel / đổi vùng chọn vẫn lấy NE hoặc VP theo ghim (kể cả đang chọn PN mà nới vùng chọn — như NE / VP hiện nay).
+- **Chọn PN ⇒ cụm R | C mờ 0,35**, không bấm / không nhấn giữ ghim được (`.disabled` + `.allowsHitTesting(false)`); lựa chọn R / C giữ nguyên, chọn lại NE / VP thì về như cũ.
+- **"Cập nhật" với PN** (`DefinitionSaveTarget.save`): nghĩa chuẩn hoá như NE / VP (`DictionaryTextFileStore.normalizeMeaning`) rồi `GlobalDictionaryEditor.save` vào file Pronouns gốc — từ đã có ⇒ thay nghĩa; dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch, báo đổi từ điển (Reader / truyện tranh tra lại chip, dịch lại). Thành công ⇒ đóng panel y NE / VP — NE / VP vốn **không** có toast thành công nên PN cũng không; lỗi ⇒ "Không lưu được định nghĩa (Pronoun): …".
+- `.claude/rules/translation.md` thêm phần panel Dịch vào đoạn "Pronoun trên chip nghĩa".
+- Dọn: entry 1.3.1046 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang hàng nút chưa đo trên máy.
+
 ## [1.3.1075] - 2026-11-27
 
 ### feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển
@@ -368,16 +381,3 @@ Anh Bửu: "giọng Google Dịch bị rè quá" → 5 bản xử lý sau đều
 - **Giao diện**: `TTSVolumeRow` "Âm lượng:" (nút ± và thanh kéo, dòng dưới "<giọng> · mặc định <dB>") cuối "Cấu hình giọng nói", trước Cao độ, ở Cài đặt TTS và màn Giọng dự phòng khi trình đọc là vtts / NghiTTS / VieNeu. Nút "?" thêm đoạn giải thích Âm lượng (NghiTTS được thêm nút "?"); "Đặt lại" đưa giọng đang chọn về mặc định.
 - **Làm mới tiếng**: mức nằm trong `TTSSettingsSnapshot` (`volumeOffset`), fingerprint giọng dự phòng và `TTSSynthesisIdentity` (chỉ ghép khi ≠ 0 ⇒ khoá cũ của giọng 0 dB không đổi) + khoá mặc định của từng service ⇒ đổi mức, đóng Cài đặt là dựng lại đoạn; ▶ thử giọng nghe đúng mức. `TTSManager.onlineFallbackVoice` + `effectiveVieNeuVoice` thành `nonisolated` (fingerprint dự phòng gọi ngoài MainActor).
 - Cập nhật `.claude/rules/tts.md`, `tts-vieneu.md`. Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1046] - 2026-11-23
-
-### feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)
-
-Anh Bửu: "thêm giọng google và ipa nữa" — sau khi Javis báo rủi ro (tiếng thầy lấy qua endpoint không chính thức của Google Dịch, repo công khai ⇒ có thể bị yêu cầu gỡ) và đề nghị chỉ đóng Ngọc Huyền.
-
-- **Model**: `Vendor/vtts/assets/vtts/vtts-googledich-m-k4.q8.vtts` (2 580 320 byte) = `M-vocos-p-bi.q8.vtts` của chuỗi `gg` cùng lượt `vtts-k4`: ~42 giờ tiếng Google Dịch (notebook `vtts-gg-data`), lọc ASR còn 16.275 câu (vi 31,1 h, trộn 1,2 h, Anh 3,1 h) ⇒ thầy VITS 20k bước warm-start từ thầy Ngọc Huyền ⇒ chưng cất như Ngọc Huyền. SHA256 `46cbe449…3761d8` ở `assets/LOCAL_SHA256SUMS`. IPA thêm ~2,4 MB (~53 MB ⇒ Telegram nhận tin kèm link tải thay cho file, 1.3.1045).
-- **`VttsVoice.googleDich`** (id `google-dich`, "Nữ · Google Dịch"), `bundled = [nu10, nam1, ngocHuyen, googleDich]`; mặc định vẫn `nu-10`. Ghi nguồn "pnnbao-ump · CC BY-NC 4.0" như Ngọc Huyền (thầy kế thừa thầy Ngọc Huyền ⇒ coi là dẫn xuất CC BY-NC). Mức tăng đoạn ngắn 8 dB (6 câu mẫu, −22,3 dBFS sau chỉnh tiếng).
-- **CI**: `VOICES` thêm `google-dich`, `assets/vtts/` đúng 5 file.
-- **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Google Dịch (nguồn tiếng không chính thức, không liên kết với Google, câu chữ dùng để đọc); `Vendor/vtts/README.md` ghi cách gỡ nếu bị yêu cầu (xoá file + `VttsVoice.googleDich` + dòng `VOICES` / `LOCAL_SHA256SUMS`, sửa số file mong đợi).
-- Ai đã tự nhập `Google Dịch.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
-- Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

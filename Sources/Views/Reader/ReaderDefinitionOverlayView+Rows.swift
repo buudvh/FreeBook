@@ -8,6 +8,10 @@ import SwiftUI
 /// phải là `internal` vì `private` trong Swift là phạm vi **file**.
 extension ReaderDefinitionOverlayView {
 
+    /// Bề ngang tối thiểu của nút NE / VP / PN / R / C (mockup Pronoun khung 1, panel 329 pt): một hàng có 5 nút này,
+    /// máy hẹp thì mức sàn thắng và cụm aa…AA tự co (~27 pt / nút); máy rộng hơn cả hai cụm cùng giãn như trước.
+    private static let segmentButtonMinWidth: CGFloat = 30
+
     internal var combinedFormattingAndPickersView: some View {
         HStack(spacing: 8) {
             // Cụm 1: Định dạng chữ (aa, Aa¹, Aa², Aa, AA)
@@ -19,6 +23,8 @@ extension ReaderDefinitionOverlayView {
                         Text(format)
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                             .background(Color.secondary.opacity(0.12))
@@ -33,10 +39,10 @@ extension ReaderDefinitionOverlayView {
 
             // Cụm 2: Phân loại & Phạm vi Từ điển
             HStack(spacing: 6) {
-                // Loại (NE vs VP)
+                // Loại (NE / VP / PN). PN (Pronouns) không ghim được — ghim mặc định chỉ NE hoặc VP.
                 HStack(spacing: 0) {
-                    dictSegmentButton(title: "NE", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
-                        saveAsNameType = true
+                    dictSegmentButton(title: "NE", isSelected: saveTarget == .name, isPinned: pinnedSaveAsNameType == true) {
+                        saveTarget = .name
                     } onPin: {
                         onPinNameType(true)
                     }
@@ -44,17 +50,26 @@ extension ReaderDefinitionOverlayView {
                     Divider()
                         .frame(height: 14)
 
-                    dictSegmentButton(title: "VP", isSelected: saveAsNameType == false, isPinned: pinnedSaveAsNameType == false) {
-                        saveAsNameType = false
+                    dictSegmentButton(title: "VP", isSelected: saveTarget == .vietPhrase, isPinned: pinnedSaveAsNameType == false) {
+                        saveTarget = .vietPhrase
                     } onPin: {
                         onPinNameType(false)
                     }
+
+                    Divider()
+                        .frame(height: 14)
+
+                    dictSegmentButton(title: "PN", isSelected: saveTarget == .pronoun, isPinned: false) {
+                        saveTarget = .pronoun
+                    }
+                    .accessibilityLabel("Pronoun")
                 }
                 .padding(2)
                 // Nền bo góc thay cho `.cornerRadius` (cắt cả nhóm): ghim của nút nhô ra ngoài nhóm, không được bị cắt.
                 .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
 
-                // Phạm vi (R vs C)
+                // Phạm vi (R vs C). PN chỉ có bản chung ⇒ cả cụm mờ, không bấm / không ghim được; `saveToBookSpecific`
+                // giữ nguyên để chọn lại NE / VP thì R / C về như cũ.
                 HStack(spacing: 0) {
                     dictSegmentButton(title: "R", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
                         saveToBookSpecific = true
@@ -73,23 +88,28 @@ extension ReaderDefinitionOverlayView {
                 }
                 .padding(2)
                 .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                .opacity(saveTarget.hasBookScope ? 1 : 0.35)
+                .disabled(!saveTarget.hasBookScope)
+                .allowsHitTesting(saveTarget.hasBookScope) // chặn cả cử chỉ nhấn giữ ghim, không chỉ nút
             }
         }
     }
 
+    /// `onPin == nil` ⇒ nút không ghim được (PN): tắt riêng cử chỉ nhấn giữ — `including: .subviews` giữ cú chạm của
+    /// `Button` (`.none` sẽ tắt luôn cả nút).
     @ViewBuilder
     internal func dictSegmentButton(
         title: String,
         isSelected: Bool,
         isPinned: Bool,
         onTap: @escaping () -> Void,
-        onPin: @escaping () -> Void
+        onPin: (() -> Void)? = nil
     ) -> some View {
         Button(action: onTap) {
             Text(title)
                 .font(.system(size: 13, weight: isSelected ? .bold : .medium))
                 .foregroundColor(isSelected ? selectedTheme.textColor : .secondary)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: Self.segmentButtonMinWidth, maxWidth: .infinity)
                 .padding(.vertical, 6)
                 .background(isSelected ? Color.secondary.opacity(0.25) : Color.clear)
                 .cornerRadius(6)
@@ -107,9 +127,11 @@ extension ReaderDefinitionOverlayView {
         }
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard let onPin else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 onPin()
-            }
+            },
+            including: onPin == nil ? .subviews : .all
         )
         .zIndex(isPinned ? 1 : 0)
     }

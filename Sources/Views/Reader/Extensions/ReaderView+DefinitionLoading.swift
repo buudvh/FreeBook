@@ -27,14 +27,15 @@ extension ReaderView {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty, !meaning.isEmpty, !definitionSession.saving else { return }
+        let target = saveTarget
+        // PN (Pronouns) chỉ có bản chung — `DefinitionSaveTarget.save` bỏ qua phạm vi.
         let book = saveToBookSpecific ? bookId : nil
-        let isName = saveAsNameType
         let session = definitionSession.identity
         let revision = definitionSession.meaningRevision
         definitionSession.saving = true
         Task { @MainActor in
             do {
-                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: isName, bookId: book)
+                try await target.save(word: word, meaning: meaning, bookId: book)
                 guard definitionSession.identity == session else { return }
                 definitionSession.saving = false
                 if definitionSession.meaningRevision == revision, selectedTextForDefinition == word {
@@ -43,7 +44,8 @@ extension ReaderView {
                 }
             } catch {
                 if definitionSession.identity == session { definitionSession.saving = false }
-                ToastManager.shared.show(message: "Không lưu được định nghĩa: \(error.localizedDescription)", type: .error)
+                let place = target == .pronoun ? " (Pronoun)" : ""
+                ToastManager.shared.show(message: "Không lưu được định nghĩa\(place): \(error.localizedDescription)", type: .error)
             }
         }
     }
