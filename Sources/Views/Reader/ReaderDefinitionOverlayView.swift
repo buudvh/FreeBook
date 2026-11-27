@@ -195,14 +195,14 @@ struct ReaderDefinitionOverlayView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
-                        let nsSentence = originalSentence as NSString
-                        ForEach(0..<nsSentence.length, id: \.self) { index in
-                            let char = nsSentence.substring(with: NSRange(location: index, length: 1))
-                            let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
+                        // Mỗi ô một chữ trọn (1.3.1080): chữ ngoài BMP dài 2 đơn vị UTF-16 vẫn là một ô.
+                        ForEach(ComposedTextSelection.cells(in: originalSentence)) { cell in
+                            let index = cell.range.location
+                            let isSelected = cell.overlaps(NSRange(location: selectedWordOffset, length: selectedWordLength))
                             // Nền nhạt = cụm của rule đang chọn ở dải chip. Lớp này **độc lập** với vùng
                             // chọn nên bấm chip không đổi cụm đang tra nghĩa.
-                            let inRuleSpan = ruleRange.map { index >= $0.location && index < NSMaxRange($0) } ?? false
-                            Text(char)
+                            let inRuleSpan = ruleRange.map(cell.overlaps) ?? false
+                            Text(cell.text)
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
@@ -213,7 +213,7 @@ struct ReaderDefinitionOverlayView: View {
                                 .id("orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
-                                    selectedWordLength = 1
+                                    selectedWordLength = cell.range.length
                                     onUpdateEditorFromSelection()
                                 }
                         }

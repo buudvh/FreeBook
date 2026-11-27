@@ -76,11 +76,11 @@ struct ReaderCopyOriginalOverlayView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
-                        let nsSentence = originalSentence as NSString
-                        ForEach(0..<nsSentence.length, id: \.self) { index in
-                            let char = nsSentence.substring(with: NSRange(location: index, length: 1))
-                            let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
-                            Text(char)
+                        // Mỗi ô một chữ trọn (1.3.1080), như panel Dịch.
+                        ForEach(ComposedTextSelection.cells(in: originalSentence)) { cell in
+                            let index = cell.range.location
+                            let isSelected = cell.overlaps(NSRange(location: selectedWordOffset, length: selectedWordLength))
+                            Text(cell.text)
                                 .font(.body)
                                 .bold(isSelected)
                                 .underline(isSelected)
@@ -88,7 +88,7 @@ struct ReaderCopyOriginalOverlayView: View {
                                 .id("copy-orig-\(index)")
                                 .onTapGesture {
                                     selectedWordOffset = index
-                                    selectedWordLength = 1
+                                    selectedWordLength = cell.range.length
                                     onUpdateEditorFromSelection()
                                 }
                         }

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1050] - 2026-11-23
+
+### revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×
+
+Anh Bửu: "bỏ mấy cái sửa sau này đi, đâu fix được đâu" → "lúc trước bị to quá, giảm bớt chút" → hỏi "đọc 1× là sao", nhắc "ko làm 1x vì nó dễ có vụt vụt" → "tạm thời làm đi, tôi sẽ test và nói bạn sau".
+
+- **Chẩn đoán rè đã xong** (2026-11-23, anh nghe tai nghe Bluetooth): Nữ nu-10 / Nam nam-1 rè do vtts **tự đọc nhanh** — hết rè từ 1.3.1049 (đọc 1×). Google Dịch rè **có sẵn trong tiếng Google Dịch gốc** (gốc / thầy / trò "rè như nhau"; anh giữ giọng). Ngọc Huyền: thu âm gốc rè nhẹ, model làm nặng thêm. Âm lượng, bộ ghìm đỉnh, EQ, cắt trên 5 kHz đều không phải nguyên nhân.
+- **Gỡ** (đảo 99d493ef + 793a6b08 + phần âm lượng của 47613e05): `TTSVolumeSettings`, `TTSVolumeStage`, `TTSPeakLimiter` (thuật toán về lại `VttsLoudness`), `TTSVolumeRow` ở Cài đặt TTS + màn Giọng dự phòng (kèm nút "?" mới của NghiTTS, đoạn giải thích Âm lượng), mức Google Dịch −3, ghìm đỉnh thêm cho NghiTTS / VieNeu Nano / Turbo / đọc lai, `vol=` trong khoá tổng hợp / snapshot / fingerprint dự phòng / log ⇒ NghiTTS và VieNeu nghe đúng như trước 1.3.1047. Khoá `ttsVolumeOffsets` còn sót trong `UserDefaults` máy đã chạy 1.3.1047–1049, vô hại.
+- **vtts nhỏ đi 3 dB, cố định cho mọi giọng**: `VttsLoudness.targetRMSDb` −14 → **−17 dBFS** (≈ −19 LUFS, ngang Google online; mức −17 anh từng nghe trên máy tính không rè). Đoạn ngắn: `VttsVoice.defaultLoudnessGainDb` (đo cho mốc −14) + phần chênh của mốc (`fallbackGainReferenceDb`).
+- **Giữ từ 1.3.1049**: "vtts tự đọc nhanh tối đa" mặc định 1,0 (đọc 1×, trình phát kéo cả tốc độ), xoá giá trị đã lưu một lần, "Đặt lại" xoá khoá. Rủi ro "vụt" ở chỗ nối khi trình phát kéo (lý do 1.3.1036 chuyển sang tự đọc nhanh): từ đó đã có phân đoạn 500 + `VttsEdgeFade`; anh sẽ thử — còn "vụt" thì chọn mức giữa (vd 1,2) hoặc làm nhỏ dần đuôi mạnh hơn.
+- Cập nhật `.claude/rules/tts.md` (đoạn "Hàng Âm lượng đã gỡ"), `tts-vieneu.md` về như cũ. Chưa build được tại chỗ (Windows). Chưa thử máy.
+
 ## [1.3.1049] - 2026-11-23
 
 ### fix: vtts — đọc 1× để hết rè (tự đọc nhanh tối đa mặc định 1,0, xoá giá trị 1,4 đã lưu), âm lượng mặc định về như 1.3.1047

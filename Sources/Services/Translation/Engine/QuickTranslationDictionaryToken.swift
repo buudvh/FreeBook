@@ -128,8 +128,10 @@ public struct QuickTranslationDictionaryToken {
 
         for kind in kinds {
             if kind == .hanViet {
+                // Độ dài ứng viên là đơn vị UTF-16 ⇒ chỉ nhận chữ dài đúng 1 đơn vị: chữ ngoài BMP (2 đơn vị) mà ghi
+                // độ dài 1 là capture cắt đôi cặp surrogate (1.3.1080).
                 if minLength <= 1, maxLength >= 1, byLength[1] == nil,
-                   let first = window.first, VietPhraseTokenizer.isChineseCharacter(first) {
+                   let first = window.first, first.utf16.count == 1, VietPhraseTokenizer.isChineseCharacter(first) {
                     let key = String(first)
                     byLength[1] = phienAm[key] ?? key
                 }

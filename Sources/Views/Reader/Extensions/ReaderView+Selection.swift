@@ -24,35 +24,21 @@ extension ReaderView {
 
     // MARK: - Nới / thu vùng chọn
 
-    func expandSelectionLeft() {
-        if selectedWordOffset > 0 {
-            selectedWordOffset -= 1
-            selectedWordLength += 1
-            updateEditorFromSelection()
-        }
-    }
+    /// Nhích theo **trọn chữ** (`ComposedTextSelection`, 1.3.1080): chữ ngoài BMP dài 2 đơn vị UTF-16 không bị cắt đôi.
+    func expandSelectionLeft() { stepSelection(ComposedTextSelection.expandLeft) }
 
-    func shrinkSelectionLeft() {
-        if selectedWordLength > 1 {
-            selectedWordOffset += 1
-            selectedWordLength -= 1
-            updateEditorFromSelection()
-        }
-    }
+    func shrinkSelectionLeft() { stepSelection(ComposedTextSelection.shrinkLeft) }
 
-    func shrinkSelectionRight() {
-        if selectedWordLength > 1 {
-            selectedWordLength -= 1
-            updateEditorFromSelection()
-        }
-    }
+    func shrinkSelectionRight() { stepSelection(ComposedTextSelection.shrinkRight) }
 
-    func expandSelectionRight() {
-        let ns = originalSentence as NSString
-        if selectedWordOffset + selectedWordLength < ns.length {
-            selectedWordLength += 1
-            updateEditorFromSelection()
-        }
+    func expandSelectionRight() { stepSelection(ComposedTextSelection.expandRight) }
+
+    private func stepSelection(_ step: (NSRange, String) -> NSRange?) {
+        let current = NSRange(location: selectedWordOffset, length: selectedWordLength)
+        guard let next = step(current, originalSentence) else { return }
+        selectedWordOffset = next.location
+        selectedWordLength = next.length
+        updateEditorFromSelection()
     }
 
     // MARK: - Đồng bộ editor theo vùng chọn

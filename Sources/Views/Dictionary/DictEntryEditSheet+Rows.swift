@@ -119,22 +119,21 @@ extension DictEntryEditSheet {
         .accessibilityLabel(label)
     }
 
-    /// Từng đơn vị UTF-16 của từ gốc (như Reader duyệt `NSString` của câu gốc); chạm một chữ = chọn đúng chữ đó.
+    /// Từng chữ trọn của từ gốc (`ComposedTextSelection`, như hàng chữ gốc của Reader — chữ ngoài BMP là một ô); chạm
+    /// một chữ = chọn đúng chữ đó.
     var originalCharactersView: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
-                    let nsKey = displayKey as NSString
-                    ForEach(0..<nsKey.length, id: \.self) { index in
-                        let char = nsKey.substring(with: NSRange(location: index, length: 1))
-                        let isSelected = index >= selectionOffset && index < selectionOffset + selectionLength
-                        Text(char)
+                    ForEach(ComposedTextSelection.cells(in: displayKey)) { cell in
+                        let isSelected = cell.overlaps(NSRange(location: selectionOffset, length: selectionLength))
+                        Text(cell.text)
                             .font(.body)
                             .bold(isSelected)
                             .underline(isSelected)
                             .foregroundColor(isSelected ? .primary : Color.primary.opacity(0.45))
-                            .id("orig-\(index)")
-                            .onTapGesture { select(offset: index, length: 1) }
+                            .id("orig-\(cell.id)")
+                            .onTapGesture { select(offset: cell.range.location, length: cell.range.length) }
                     }
                 }
             }

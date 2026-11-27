@@ -225,24 +225,18 @@ struct DictEntryEditSheet: View {
         selectionDidChange()
     }
 
-    func expandSelectionLeft() {
-        guard selectionOffset > 0 else { return }
-        select(offset: selectionOffset - 1, length: selectionLength + 1)
-    }
+    /// Nhích theo **trọn chữ** như Reader (`ComposedTextSelection`, 1.3.1080).
+    func expandSelectionLeft() { stepSelection(ComposedTextSelection.expandLeft) }
 
-    func shrinkSelectionLeft() {
-        guard selectionLength > 1 else { return }
-        select(offset: selectionOffset + 1, length: selectionLength - 1)
-    }
+    func shrinkSelectionLeft() { stepSelection(ComposedTextSelection.shrinkLeft) }
 
-    func shrinkSelectionRight() {
-        guard selectionLength > 1 else { return }
-        select(offset: selectionOffset, length: selectionLength - 1)
-    }
+    func shrinkSelectionRight() { stepSelection(ComposedTextSelection.shrinkRight) }
 
-    func expandSelectionRight() {
-        guard selectionOffset + selectionLength < keyLength else { return }
-        select(offset: selectionOffset, length: selectionLength + 1)
+    func expandSelectionRight() { stepSelection(ComposedTextSelection.expandRight) }
+
+    private func stepSelection(_ step: (NSRange, String) -> NSRange?) {
+        guard let next = step(NSRange(location: selectionOffset, length: selectionLength), displayKey) else { return }
+        select(offset: next.location, length: next.length)
     }
 
     /// Như `updateEditorFromSelection` của Reader: vùng chọn đổi ⇒ ô nghĩa hiện nghĩa của cụm mới. Cả từ gốc ⇒ nghĩa

@@ -27,10 +27,17 @@ public enum VietPhraseTokenizer {
         }
     }
 
+    /// Mọi chỉ số ở đây là chỉ số **`Character`** trên `chars`, còn trie trả độ dài khớp theo **UTF-16** (luật 1.3.339).
+    /// Độ dài trie phải đổi qua `characterCounts` trước khi cộng vào chỉ số: chữ ngoài BMP (𫄸 U+2B138 — một chữ, hai
+    /// đơn vị) làm hai đơn vị lệch nhau, dùng thẳng là cắt lấn sang chữ sau và vượt cuối mảng (sập app ở panel Dịch khi
+    /// thu hẹp cụm, 1.3.1080).
     private static func tokenizeUncached(_ text: String, bookId: String?) -> [String] {
         let chars = Array(text)
         let length = chars.count
         guard length > 0 else { return [] }
+        // Mỗi ký tự dài ≥ 1 đơn vị ⇒ hai số đếm bằng nhau đúng khi mọi ký tự dài 1 đơn vị (gần như mọi dòng chữ Trung):
+        // khi đó không dựng bảng và độ dài trie dùng thẳng như trước.
+        let utf16Starts: [Int]? = text.utf16.count == length ? nil : Self.utf16StartTable(of: chars)
 
         let names = TranslationManager.shared.namesDict
         let customNames = TranslationManager.shared.customNamesDict
@@ -57,19 +64,22 @@ public enum VietPhraseTokenizer {
             var nameLengths = Set<Int>()
             
             if let bookNames = bookNames {
-                for matchLength in bookNames.prefixMatchLengths(text: checkText, startIndex: 0) {
+                let lengths = bookNames.prefixMatchLengths(text: checkText, startIndex: 0)
+                for matchLength in characterCounts(lengths, from: i, utf16Starts: utf16Starts) {
                     nameLengths.insert(matchLength)
                 }
             }
-            
+
             if let customNames = customNames {
-                for matchLength in customNames.prefixMatchLengths(text: checkText, startIndex: 0) {
+                let lengths = customNames.prefixMatchLengths(text: checkText, startIndex: 0)
+                for matchLength in characterCounts(lengths, from: i, utf16Starts: utf16Starts) {
                     nameLengths.insert(matchLength)
                 }
             }
-            
+
             if let names = names {
-                for matchLength in names.prefixMatchLengths(text: checkText, startIndex: 0) {
+                let lengths = names.prefixMatchLengths(text: checkText, startIndex: 0)
+                for matchLength in characterCounts(lengths, from: i, utf16Starts: utf16Starts) {
                     let matchedStr = String(chars[i..<(i + matchLength)])
                     if !deletedNames.contains(matchedStr) {
                         nameLengths.insert(matchLength)
@@ -135,20 +145,25 @@ public enum VietPhraseTokenizer {
                 let checkText = String(chars[j..<(j + limit)])
                 var vpLengths = Set<Int>()
                 
+                // Ngưỡng "≥ 2" tính theo **chữ** (sau khi đổi đơn vị): một chữ ngoài BMP đứng lẻ dài 2 đơn vị nhưng chỉ
+                // là một chữ, không được thành cụm VP.
                 if let bookVP = bookVP {
-                    for matchLength in bookVP.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                    let lengths = bookVP.prefixMatchLengths(text: checkText, startIndex: 0)
+                    for matchLength in characterCounts(lengths, from: j, utf16Starts: utf16Starts) where matchLength >= 2 {
                         vpLengths.insert(matchLength)
                     }
                 }
-                
+
                 if let customVP = customVP {
-                    for matchLength in customVP.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                    let lengths = customVP.prefixMatchLengths(text: checkText, startIndex: 0)
+                    for matchLength in characterCounts(lengths, from: j, utf16Starts: utf16Starts) where matchLength >= 2 {
                         vpLengths.insert(matchLength)
                     }
                 }
-                
+
                 if let vp = vp {
-                    for matchLength in vp.prefixMatchLengths(text: checkText, startIndex: 0) where matchLength >= 2 {
+                    let lengths = vp.prefixMatchLengths(text: checkText, startIndex: 0)
+                    for matchLength in characterCounts(lengths, from: j, utf16Starts: utf16Starts) where matchLength >= 2 {
                         let matchedStr = String(chars[j..<(j + matchLength)])
                         if !deletedVP.contains(matchedStr) {
                             vpLengths.insert(matchLength)
@@ -270,6 +285,41 @@ public enum VietPhraseTokenizer {
         }
         
         return output
+    }
+
+    /// `starts[k]` = offset UTF-16 của `chars[k]`; phần tử cuối (`starts[chars.count]`) = tổng số đơn vị.
+    private static func utf16StartTable(of chars: [Character]) -> [Int] {
+        var starts: [Int] = []
+        starts.reserveCapacity(chars.count + 1)
+        var offset = 0
+        for char in chars {
+            starts.append(offset)
+            offset += char.utf16.count
+        }
+        starts.append(offset)
+        return starts
+    }
+
+    /// Độ dài khớp của trie (UTF-16, tính từ ký tự `start`) ⇒ số `Character`. Bỏ độ dài kết thúc giữa một ký tự (nửa
+    /// cặp surrogate, nửa cụm có dấu rời) — không có token nào cắt được ở đó. `utf16Starts == nil` ⇒ mỗi ký tự một đơn
+    /// vị, trả nguyên mảng.
+    ///
+    /// Không vượt mảng: trie chỉ khớp trong `checkText` = `chars[start..<start + limit]`, nên ký tự kết thúc tìm được
+    /// luôn ≤ `start + limit`.
+    private static func characterCounts(_ utf16Lengths: [Int], from start: Int, utf16Starts: [Int]?) -> [Int] {
+        guard let utf16Starts else { return utf16Lengths }
+        return utf16Lengths.compactMap { (utf16Length: Int) -> Int? in
+            let target = utf16Starts[start] + utf16Length
+            // Mỗi ký tự ≥ 1 đơn vị ⇒ ký tự kết thúc nằm trong (start, start + utf16Length].
+            var low = start + 1
+            var high = min(start + utf16Length, utf16Starts.count - 1)
+            while low <= high {
+                let mid = (low + high) / 2
+                if utf16Starts[mid] == target { return mid - start }
+                if utf16Starts[mid] < target { low = mid + 1 } else { high = mid - 1 }
+            }
+            return nil
+        }
     }
 
     /// `table[i]` = mốc bắt đầu **nhỏ nhất lớn hơn `i`**, hoặc `length` khi không còn mốc nào.

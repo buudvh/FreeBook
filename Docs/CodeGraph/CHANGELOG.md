@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1080] - 2026-11-27
+
+### fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ
+
+Anh Bửu: bôi đen 玄𫄸法衣 trong Reader ⇒ Dịch ⇒ bấm "Thu hẹp bên phải" ⇒ văng app. Ba crash log `.ips` cùng một stack: trap Swift trên luồng nền, đúng chỗ `ReaderDefinitionWorker.load` dịch lại cụm sau mỗi lần thu hẹp (bản Release không có dSYM nên kết luận từ đọc code). 𫄸 (U+2B138) nằm ngoài BMP: một chữ nhưng hai đơn vị UTF-16.
+
+- **Nguyên nhân văng** — `VietPhraseTokenizer.tokenizeUncached`: chỉ số là chỉ số `Character` (`Array(text)`) nhưng trie trả độ dài khớp theo UTF-16 ⇒ mục từ điển chứa chữ ngoài BMP làm độ dài dư 1 mỗi chữ, cắt lấn sang chữ sau; cụm ngắn (panel dịch lại cụm đã thu hẹp qua `translateTerm`) thì vượt cuối mảng ⇒ sập. Sửa: chuỗi có ký tự dài ≠ 1 đơn vị thì dựng bảng offset UTF-16 từng ký tự, đổi độ dài trie ⇒ số ký tự (`characterCounts`), bỏ độ dài rơi giữa một ký tự; ngưỡng "cụm VP ≥ 2" tính theo chữ (một chữ ngoài BMP đứng lẻ từng lọt ngưỡng). Chuỗi toàn ký tự 1 đơn vị: kết quả y như cũ. Hệ quả: chương / TTS có chữ ngoài BMP khớp từ điển nay tách đúng (trước nuốt thêm chữ sau ⇒ dịch sai).
+- **Token `<hv>`** (`QuickTranslationDictionaryToken.candidates`): chỉ nhận chữ dài đúng 1 đơn vị UTF-16 — chữ ngoài BMP không còn bị capture lấy nửa cặp surrogate.
+- **Nút ‹ › nhích trọn chữ**: hàm chung mới `ComposedTextSelection` (`Sources/Common/Utils/`, dựa trên `rangeOfComposedCharacterSequence`) cho Reader (`ReaderView+Selection` — dùng chung panel Dịch / Xoá từ rác / Copy gốc), sheet Dịch truyện tranh (`ComicDefinitionSheet+Selection`) và màn Sửa từ (`DictEntryEditSheet`). Vùng chọn vẫn là `NSRange` UTF-16; chữ 1 đơn vị nhích y như trước.
+- **Hàng chữ gốc mỗi chữ một ô** (`ComposedTextSelection.cells`): panel Dịch, Xoá từ rác, Copy gốc, màn Sửa từ — 𫄸 không còn vẽ thành hai ô vỡ; chạm một ô chọn trọn chữ đó.
+- Ghi bất biến vào `.claude/rules/reader-text-pipeline.md`. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
+- Dọn: entry 1.3.1050 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1079] - 2026-11-27
 
 ### fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn
@@ -362,15 +375,3 @@ Anh Bửu gửi ảnh: "khi nhấn các button sẽ hiển sheet như cài đặ
 - **Trình duyệt** (`BypassWebView`): `VStack` gốc tự tô `Color(.systemBackground).ignoresSafeArea()` (cách `LegadoBrowserSheet` đã dùng). Trước đó header, dải tab, vạch tiến độ, trang Home không có nền riêng mà trông vào nền của màn che toàn màn; nền đó mất sau khi mở sheet (nghi từ 1.3.873 — sheet kính `presentationBackground`) ⇒ lộ màn phía dưới. Thanh dưới có `barColor` riêng nên không bị. Áp cho mọi lối mở trình duyệt (Kệ, Chi tiết, Reader, Khám phá, Mở link lỗi, tiện ích, Legado, tra từ); lúc bình thường giao diện không đổi.
 - **Trợ lý AI** (`ReaderAIFullScreenView`): `.toolbarBackground(.visible, for: .navigationBar)` — nền thanh điều hướng luôn hiện. Trước đó bấm Dừng lúc lọc name nhiều chương ⇒ dải tiến độ trên cùng biến mất, khung chat dâng lên sát header mà thanh không nhận ra có nội dung bên dưới ⇒ giữ nền trong suốt, chữ chat lộ qua tiêu đề. Đổi nhỏ: chat ngắn (chưa có gì dưới header) thì header cũng có nền mờ tối thay cho đen trơn.
 - Nguyên nhân suy từ code, chưa kiểm trên máy. Chưa build được tại chỗ (Windows). Cần thử: trình duyệt mở từ Kệ ⇒ mở / đóng Cài đặt trình duyệt, Lịch sử ⇒ header vẫn đặc; Trợ lý AI ⇒ Lọc name nhiều chương ⇒ Dừng ⇒ cuộn chat, chữ không lộ qua header.
-
-## [1.3.1050] - 2026-11-23
-
-### revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×
-
-Anh Bửu: "bỏ mấy cái sửa sau này đi, đâu fix được đâu" → "lúc trước bị to quá, giảm bớt chút" → hỏi "đọc 1× là sao", nhắc "ko làm 1x vì nó dễ có vụt vụt" → "tạm thời làm đi, tôi sẽ test và nói bạn sau".
-
-- **Chẩn đoán rè đã xong** (2026-11-23, anh nghe tai nghe Bluetooth): Nữ nu-10 / Nam nam-1 rè do vtts **tự đọc nhanh** — hết rè từ 1.3.1049 (đọc 1×). Google Dịch rè **có sẵn trong tiếng Google Dịch gốc** (gốc / thầy / trò "rè như nhau"; anh giữ giọng). Ngọc Huyền: thu âm gốc rè nhẹ, model làm nặng thêm. Âm lượng, bộ ghìm đỉnh, EQ, cắt trên 5 kHz đều không phải nguyên nhân.
-- **Gỡ** (đảo 99d493ef + 793a6b08 + phần âm lượng của 47613e05): `TTSVolumeSettings`, `TTSVolumeStage`, `TTSPeakLimiter` (thuật toán về lại `VttsLoudness`), `TTSVolumeRow` ở Cài đặt TTS + màn Giọng dự phòng (kèm nút "?" mới của NghiTTS, đoạn giải thích Âm lượng), mức Google Dịch −3, ghìm đỉnh thêm cho NghiTTS / VieNeu Nano / Turbo / đọc lai, `vol=` trong khoá tổng hợp / snapshot / fingerprint dự phòng / log ⇒ NghiTTS và VieNeu nghe đúng như trước 1.3.1047. Khoá `ttsVolumeOffsets` còn sót trong `UserDefaults` máy đã chạy 1.3.1047–1049, vô hại.
-- **vtts nhỏ đi 3 dB, cố định cho mọi giọng**: `VttsLoudness.targetRMSDb` −14 → **−17 dBFS** (≈ −19 LUFS, ngang Google online; mức −17 anh từng nghe trên máy tính không rè). Đoạn ngắn: `VttsVoice.defaultLoudnessGainDb` (đo cho mốc −14) + phần chênh của mốc (`fallbackGainReferenceDb`).
-- **Giữ từ 1.3.1049**: "vtts tự đọc nhanh tối đa" mặc định 1,0 (đọc 1×, trình phát kéo cả tốc độ), xoá giá trị đã lưu một lần, "Đặt lại" xoá khoá. Rủi ro "vụt" ở chỗ nối khi trình phát kéo (lý do 1.3.1036 chuyển sang tự đọc nhanh): từ đó đã có phân đoạn 500 + `VttsEdgeFade`; anh sẽ thử — còn "vụt" thì chọn mức giữa (vd 1,2) hoặc làm nhỏ dần đuôi mạnh hơn.
-- Cập nhật `.claude/rules/tts.md` (đoạn "Hàng Âm lượng đã gỡ"), `tts-vieneu.md` về như cũ. Chưa build được tại chỗ (Windows). Chưa thử máy.

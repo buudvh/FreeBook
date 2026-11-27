@@ -8,29 +8,19 @@ extension ComicDefinitionSheet {
 
     // MARK: - Nới / thu vùng chọn
 
-    func expandSelectionLeft() {
-        guard selectedWordOffset > 0 else { return }
-        selectedWordOffset -= 1
-        selectedWordLength += 1
-        updateEditorFromSelection()
-    }
+    /// Nhích theo **trọn chữ** như Reader (`ComposedTextSelection`, 1.3.1080).
+    func expandSelectionLeft() { stepSelection(ComposedTextSelection.expandLeft) }
 
-    func shrinkSelectionLeft() {
-        guard selectedWordLength > 1 else { return }
-        selectedWordOffset += 1
-        selectedWordLength -= 1
-        updateEditorFromSelection()
-    }
+    func shrinkSelectionLeft() { stepSelection(ComposedTextSelection.shrinkLeft) }
 
-    func shrinkSelectionRight() {
-        guard selectedWordLength > 1 else { return }
-        selectedWordLength -= 1
-        updateEditorFromSelection()
-    }
+    func shrinkSelectionRight() { stepSelection(ComposedTextSelection.shrinkRight) }
 
-    func expandSelectionRight() {
-        guard selectedWordOffset + selectedWordLength < (sentence as NSString).length else { return }
-        selectedWordLength += 1
+    func expandSelectionRight() { stepSelection(ComposedTextSelection.expandRight) }
+
+    private func stepSelection(_ step: (NSRange, String) -> NSRange?) {
+        guard let next = step(NSRange(location: selectedWordOffset, length: selectedWordLength), sentence) else { return }
+        selectedWordOffset = next.location
+        selectedWordLength = next.length
         updateEditorFromSelection()
     }
 
