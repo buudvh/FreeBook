@@ -148,11 +148,21 @@ final class LocalNameFilterSuffixStore {
     private static func decode(_ raw: String?) -> Overrides {
         guard let raw, let data = raw.data(using: .utf8) else { return .empty }
         guard let decoded = try? JSONDecoder().decode(Overrides.self, from: data) else {
-            AppLogger.shared.log("❌ [LọcName] Lớp riêng danh sách đuôi hỏng, tạm dùng bản gốc")
+            // Đọc cả trong `body` (kiểm từng phím gõ ở sheet sửa) ⇒ chỉ log **một lần** cho mỗi chuỗi hỏng.
+            corruptLogLock.lock()
+            let isNew = lastCorruptRaw != raw
+            lastCorruptRaw = raw
+            corruptLogLock.unlock()
+            if isNew {
+                AppLogger.shared.log("❌ [LọcName] Lớp riêng danh sách đuôi hỏng, tạm dùng bản gốc")
+            }
             return .empty
         }
         return decoded
     }
+
+    private static let corruptLogLock = NSLock()
+    private static var lastCorruptRaw: String?
 
     private static func loadBase() -> Overrides.Base {
         guard let url = Bundle.main.url(forResource: bundledResourceName, withExtension: "txt"),

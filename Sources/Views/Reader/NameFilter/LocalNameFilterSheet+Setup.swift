@@ -252,6 +252,9 @@ extension LocalNameFilterSheet {
             translatesTitles: translatesChapterTitles,
             convertsTraditionalToSimplified: convertsTraditionalToSimplified
         )
+        // Bị huỷ giữa chừng (đẩy màn quản lý danh sách trước khi nạp xong) ⇒ tên chương chưa dịch hết; để `.task` nạp
+        // lại khi quay về thay vì giữ bản dở.
+        guard !Task.isCancelled else { return }
         await MainActor.run {
             self.chapters = loaded
         }

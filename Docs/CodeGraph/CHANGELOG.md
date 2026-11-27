@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1071] - 2026-11-27
+
+### fix: lọc name local ghi rõ "cập nhật sau N chương", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng
+
+Sửa sau lượt rà soát chéo ba commit lọc name local (1.3.1068–1070; hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
+
+- Màn đang lọc: dòng phụ "cập nhật ở chương X" ⇒ "cập nhật sau X chương" — X là số chương **đã đọc trong lượt**, lọc từ giữa truyện vẫn đếm từ 1 (`LocalNameFilterProgressView`).
+- Bấm "Dừng" trước khi đọc xong khối chương đầu ⇒ báo "Đã dừng trước khi đọc xong chương nào" thay cho "Không tìm thấy name mới · ẩn 0 name đã có" (`LocalNameFilterSession`).
+- Đẩy màn quản lý danh sách trước khi nạp xong danh sách chương ⇒ task bị huỷ, tên chương chỉ mới phồn → giản chưa dịch; nay bỏ kết quả dở để `.task` nạp lại khi quay về (`LocalNameFilterSheet+Setup`).
+- JSON của "Không phải name" / lớp riêng danh sách đuôi hỏng ⇒ dòng `❌` chỉ ghi **một lần** cho mỗi chuỗi hỏng (trước đây ghi mỗi lần đọc, mà sheet thêm / sửa đọc trong `body` ở từng phím gõ) (`LocalNameFilterBlocklistStore`, `LocalNameFilterSuffixStore`).
+- `.claude/rules/translation.md`: thêm mục "Lọc name local — bộ lọc + luồng Reader" (đổi luật thì sửa bản Python trước, danh xưng / nghĩa đuôi theo quyết định của anh Bửu, `start` internal, `cancel()` có thể còn sự kiện tới muộn).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1041 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1070] - 2026-11-27
 
 ### feat: bộ lọc name local tự dò tên người, địa danh, tông môn ngay trên máy
@@ -372,16 +386,3 @@ Anh Bửu: "bấm vào phần playlist trong phát video dọc cho xổ ra danh 
 - **Chạm hàng** ⇒ `PlaylistPlaybackCoordinator.jumpVideo(to:)` (mới, `+Video`): `queue.jump(to:)` rồi `playVideoItem` (cùng phim ⇒ chuyển tập trong phiên, phim khác ⇒ màn đổi tại chỗ) — vẫn ở chế độ playlist; không đi `model.play` / `selectEpisode` (lối đó thôi playlist). Chạm đúng mục đang phát ⇒ phim lỗi thì thử lại, đang mở / đang phát thì để yên. Danh sách giữ mở sau khi chạm. Log `🎶 [VideoWatch]` (xổ / thu, chọn mục), `⏭️ [PlaylistPlayback] Chọn mục i/n`.
 - Đang xáo: số trên dải ("3/8") theo thứ tự phát, số của hàng theo thứ tự xếp — giống màn nghe nhạc.
 - Dọn: entry 1.3.1012 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/comic-video.md` ghi danh sách xổ. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1041] - 2026-11-20
-
-### feat: vtts — từ điển phiên âm riêng như VieNeu / NghiTTS, sheet phiên âm khi bôi đen lưu được vào vtts
-
-Anh Bửu: "thêm từ điển phiên âm giống vieneu và pipetts giúp tôi, sheet phiên âm bôi đen có thêm option lưu từ điển vtts" → plan + mockup (https://claude.ai/artifact/8eQ4RX84WY35hc1GABjCxv) → "Duyệt".
-
-- **Kho** `VttsPhoneticDictionary` (actor, mới): `FreeBook/TTS/phien-am-vtts.plist`, khoá hạ chữ thường + NFC, **giữ dấu** (vtts tra mọi token kể cả chữ Việt — gấp dấu như hai từ điển kia thì mục "ban" thay luôn "bàn"). Công tắc `vttsDictionaryEnabled`, mặc định **bật** (từ điển chỉ có mục người dùng tự thêm).
-- **Áp khi đọc** — `VttsTextFrontend` (mới): token **từ** của `TTSReplacementTokenizer` (từ nối `Kamar-Taj` là một token) khớp từ điển ⇒ cách đọc đi nguyên văn; phần chữ còn lại mới qua phiên âm tiếng Nhật ⇒ mục người dùng thắng, không phiên âm hai lần. `VttsTTSService` dùng nó cho trình đọc chính, giọng dự phòng, ▶ thử giọng; log `🗣️ [Vtts] Đoạn` thêm `dict=N` / `dict=off`. Công tắc nằm trong `TTSSettingsSnapshot` (`vttsDictionaryEnabled`) + fingerprint giọng dự phòng.
-- **Cài đặt**: `VttsReaderManagementRows` (mới) — "Từ điển phiên âm vtts ›" + công tắc "Áp dụng từ điển phiên âm vtts" trên hàng "Phiên âm tiếng Nhật" ở Cài đặt TTS (nhánh vtts đặt **trước** nhánh tiện ích của `TTSSettingsView` — `isExtensionTool` cũng đúng với vtts nên trước đây vtts rơi vào nhánh tiện ích trống) và màn Giọng dự phòng; nút "?" giải thích. Màn `VttsPhoneticDictionaryView` (mới, khuôn màn VieNeu): tìm, nạp 100 từ / lượt, chạm hàng ⇒ `EditWordSheet`, xoá bằng icon / vuốt, "+" nổi ⇒ `AddWordSheet(target: .vtts)`, ngăn kéo "…": Nhập từ file… (`PhoneticDictionaryImporter.importVtts`, 3 chế độ), Xuất .plist / .json, Xoá tất cả. Không có Tải từ điển / Phiên âm lại.
-- **Sheet bôi đen › Phiên âm** (`AddWordSheet`): Menu Lưu 4 mục — NghiTTS / VieNeu-TTS / **vtts** / Lưu tất cả (cả ba). `PhoneticDictionaryWriter.Destination` thành `nghiTTS / vieNeu / vtts / all` với cờ viết dương (bản cũ `self != .vieNeu` — thêm đích là cờ cũ đúng cho cả đích mới), `Result` thêm `wroteVtts`, toast liệt kê đúng từ điển đã ghi. Chip gợi ý `VTT` (`TTSPhoneticSuggestion.Origin.vttsLibrary`) ở sheet thêm từ và sheet sửa từ của mọi từ điển, nhấn giữ để xoá khỏi từ điển vtts (tra / xoá bằng khoá của chính vtts).
-- **Sao lưu / Dung lượng**: file vào `BackupPaths.ttsDictionaryFiles` (nhóm `.dictCustom`), khôi phục xong nạp lại `VttsPhoneticDictionary`; nhãn Dung lượng "Từ điển phiên âm (NghiTTS, VieNeu, vtts)".
-- Dọn: entry 1.3.1011 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi từ điển vtts. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

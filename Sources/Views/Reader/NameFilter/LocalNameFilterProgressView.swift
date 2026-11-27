@@ -47,7 +47,8 @@ struct LocalNameFilterProgressView: View {
     private var updateCaption: String {
         if session.phase == .stopping { return "sắp xong…" }
         guard let chapter = session.lastUpdateChapter else { return "chờ lần cập nhật đầu…" }
-        return "cập nhật ở chương \(chapter)"
+        // Số chương **đã đọc trong lượt lọc**, không phải số thứ tự chương (lọc từ giữa truyện vẫn đếm từ 1).
+        return "cập nhật sau \(chapter) chương"
     }
 
     private var progressCard: some View {

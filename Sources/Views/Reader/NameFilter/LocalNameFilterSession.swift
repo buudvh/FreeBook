@@ -155,7 +155,10 @@ final class LocalNameFilterSession {
         guard !snapshot.names.isEmpty else {
             phase = .setup
             resetProgress()
-            notice = .info("Không tìm thấy name mới · ẩn \(hidden) name đã có")
+            // Bấm "Dừng" trước khi đọc xong khối chương đầu ⇒ chưa phân tích gì, đừng báo như đã lọc mà không thấy.
+            notice = snapshot.chaptersRead == 0
+                ? .info("Đã dừng trước khi đọc xong chương nào")
+                : .info("Không tìm thấy name mới · ẩn \(hidden) name đã có")
             return
         }
         reviewNames = snapshot.names.map { name in

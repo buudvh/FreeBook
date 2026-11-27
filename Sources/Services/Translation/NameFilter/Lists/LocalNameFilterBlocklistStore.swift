@@ -101,6 +101,9 @@ final class LocalNameFilterBlocklistStore {
         return nil
     }
 
+    private static let corruptLogLock = NSLock()
+    private static var lastCorruptRaw: String?
+
     /// Khoá vắng ⇒ rỗng; JSON hỏng ⇒ rỗng + log (lần ghi sau ghi đè bản hỏng).
     private static func load() -> [Entry] {
         guard let raw = UserDefaults.standard.string(forKey: userDefaultsKey), let data = raw.data(using: .utf8) else {
@@ -109,7 +112,14 @@ final class LocalNameFilterBlocklistStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
         guard let entries = try? decoder.decode([Entry].self, from: data) else {
-            AppLogger.shared.log("❌ [LọcName] Danh sách “Không phải name” hỏng, tạm coi là rỗng")
+            // `load()` chạy cả trong `body` (kiểm từng phím gõ) ⇒ chỉ log **một lần** cho mỗi chuỗi hỏng.
+            corruptLogLock.lock()
+            let isNew = lastCorruptRaw != raw
+            lastCorruptRaw = raw
+            corruptLogLock.unlock()
+            if isNew {
+                AppLogger.shared.log("❌ [LọcName] Danh sách “Không phải name” hỏng, tạm coi là rỗng")
+            }
             return []
         }
         return entries
