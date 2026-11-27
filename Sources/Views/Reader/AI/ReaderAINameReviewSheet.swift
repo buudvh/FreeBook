@@ -35,7 +35,7 @@ public struct ReaderAINameReviewSheet: View {
     let prefilledNames: [AIExtractedName]?
     /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Nhiều lần nhất".
     let initialSortMode: ReaderAINameReviewCardView.SortMode
-    /// ✕ › "Không phải name" — chỉ luồng lọc local truyền; `nil` ⇒ ✕ xoá như cũ.
+    /// Thùng rác › "Không phải name" — chỉ luồng lọc local truyền; luồng AI gạch hàng (`onStrikeName`).
     public let onBlockName: ((AIExtractedName) -> Void)?
 
     @State private var isLoading: Bool = true
@@ -45,7 +45,8 @@ public struct ReaderAINameReviewSheet: View {
     @State private var pendingIsName: Bool = true
     @State private var showingModeDialog: Bool = false
     /// Khoá đang gạch (luồng AI) — khởi tạo từ tin nguồn, mỗi lần gạch / bỏ gạch ghi ngay qua `onStrikeName`.
-    @State private var struckKeys: Set<String>
+    // `internal` (không `private`): `+Edit` bỏ gạch khoá đích khi người dùng sửa một name thành khoá đang gạch.
+    @State var struckKeys: Set<String>
 
     public init(
         content: String,

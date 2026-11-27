@@ -46,6 +46,13 @@ extension ReaderAINameReviewSheet {
         guard let key = edit.resultingKey, !key.isEmpty else { return }
         names = edit.applied(to: names)
         onEditName(edit)
+        // Sửa một name thành khoá đang gạch ⇒ người dùng muốn dùng khoá đó: bỏ gạch, kẻo nghĩa mới nằm trong hàng gạch
+        // (không chọn / không lưu được).
+        let normalizedKey = AIRuntimeCoordinator.nameKey(key)
+        if prefilledNames == nil, struckKeys.contains(normalizedKey) {
+            struckKeys.remove(normalizedKey)
+            onStrikeName(normalizedKey, false)
+        }
         if edit.mayIntroduceKey { refreshDictionaryFlags() }
     }
 

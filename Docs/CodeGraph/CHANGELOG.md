@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1079] - 2026-11-27
+
+### fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn
+
+Sửa sau lượt rà soát chéo đợt 1.3.1074–1078 (hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
+
+- **Gạch hàng name AI** (`ReaderAIFullScreenView.setNameStruck`): sửa cả bản phiên của lượt AI đang chạy (`AIRuntimeCoordinator.updateMessage`) — lượt đó ghi đè phiên xuống đĩa khi xong / mỗi lượt quét, nên gạch trong lúc đang quét hay chờ AI trả lời từng bị mất khi mở lại.
+- Sửa một name thành khoá đang gạch ⇒ tự bỏ gạch khoá đó (`ReaderAINameReviewSheet+Edit`); VoiceOver "Sửa" không mở hàng gạch; gạch hết mọi hàng thì nút đầu thẻ là "Chọn hết" (không còn "Bỏ chọn" bấm không có tác dụng). Sửa comment còn nói "✕ xoá như cũ".
+- **Quản lý nghĩa từ**: so bản gốc đã chuẩn hoá y như bản nháp (cùng tách + bỏ trùng) — nghĩa trùng sẵn trong file (vd Pronoun `ta/ta`) làm mở-rồi-đóng cũng ghi lại cả file Pronouns gốc + dựng lại `.dat` + dịch lại Reader.
+- **Màn Sửa từ ở chế độ danh sách** (đuôi, "Không phải name", họ, token): chế độ Thêm chọn một phần chữ gốc ⇒ hiện "Chỉ thêm X (phần đang chọn)" thay vì lặng lẽ chỉ thêm phần đó; mở cao hết cỡ (`.large`) như form cũ để bàn phím không che nút "Thêm" và hàng Loại / Nghĩa đứng (VP / Name / Pronouns giữ nấc nửa màn).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1078] - 2026-11-27
 
 ### feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch
@@ -361,15 +374,3 @@ Anh Bửu: "bỏ mấy cái sửa sau này đi, đâu fix được đâu" → "l
 - **vtts nhỏ đi 3 dB, cố định cho mọi giọng**: `VttsLoudness.targetRMSDb` −14 → **−17 dBFS** (≈ −19 LUFS, ngang Google online; mức −17 anh từng nghe trên máy tính không rè). Đoạn ngắn: `VttsVoice.defaultLoudnessGainDb` (đo cho mốc −14) + phần chênh của mốc (`fallbackGainReferenceDb`).
 - **Giữ từ 1.3.1049**: "vtts tự đọc nhanh tối đa" mặc định 1,0 (đọc 1×, trình phát kéo cả tốc độ), xoá giá trị đã lưu một lần, "Đặt lại" xoá khoá. Rủi ro "vụt" ở chỗ nối khi trình phát kéo (lý do 1.3.1036 chuyển sang tự đọc nhanh): từ đó đã có phân đoạn 500 + `VttsEdgeFade`; anh sẽ thử — còn "vụt" thì chọn mức giữa (vd 1,2) hoặc làm nhỏ dần đuôi mạnh hơn.
 - Cập nhật `.claude/rules/tts.md` (đoạn "Hàng Âm lượng đã gỡ"), `tts-vieneu.md` về như cũ. Chưa build được tại chỗ (Windows). Chưa thử máy.
-
-## [1.3.1049] - 2026-11-23
-
-### fix: vtts — đọc 1× để hết rè (tự đọc nhanh tối đa mặc định 1,0, xoá giá trị 1,4 đã lưu), âm lượng mặc định về như 1.3.1047
-
-Anh Bửu thử 1.3.1048 (mọi giọng vtts −6 dB): "vẫn rè, nghe khó chịu hơn lúc nãy" ⇒ âm lượng / bộ ghìm đỉnh không phải nguyên nhân trên điện thoại → Javis đề xuất cho vtts đọc 1× → "Duyệt, làm đi".
-
-- **Vì sao nghi khâu tự đọc nhanh**: mọi bản anh nghe sạch trên máy tính đều do vtts đọc 1×; trên máy anh nghe 1,8× ⇒ vtts tự đọc 1,4× (`length_scale` 0,71) + trình phát kéo 1,29×. Anh chỉ bắt đầu kêu rè từ 1.3.1036 (bản thêm tự đọc nhanh; ngay sau đó "âm điệu khác", "không rõ lời", và bản thường / bản 4 cùng tự đọc nhanh "nghe như nhau"). Google online — sạch trên cùng máy — cũng tạo tiếng 1× rồi để `AVAudioPlayer` kéo cả 1,8×.
-- **`VttsSettings.defaultNativeSpeedMax` 1,4 → 1,0** ⇒ vtts tạo tiếng 1×, trình phát kéo cả tốc độ nghe (như trước 1.3.1036). Rủi ro đã biết: tiếng "vụt" ở chỗ nối từng xuất hiện khi trình phát kéo nhanh — từ đó đã có phân đoạn 500 + `VttsEdgeFade` (lần anh thử 1× / 500 sạch); quay lại thì kéo hàng "vtts tự đọc nhanh tối đa" lên.
-- **Xoá giá trị đã lưu một lần** (`VttsSettings.nativeSpeedDefaultMigration`, lần đọc `vttsNativeSpeedMax` đầu tiên, cờ `vttsNativeSpeedMaxResetTo1`, log `🗣️ [Vtts]`): "Đặt lại" trước đây ghi **cứng** 1,4 vào khoá nên mặc định mới không tới được. Nay "Đặt lại" (Cài đặt TTS + màn Giọng dự phòng) **xoá khoá** (`VttsSettings.resetNativeSpeedMax`). Đoạn "?" của hàng: tự đọc nhanh nhiều "dễ rè", mặc định 1,0x = trình phát kéo cả.
-- **Âm lượng về như 1.3.1047**: mặc định 0, Google Dịch −3 (bỏ `vttsDefaultOffset` −6 và lượt chuyển của 1.3.1048 — máy đã chạy 1.3.1048 thì các mục vtts to hơn −6 đã bị bỏ, mục dưới −6 giữ). Đoạn "?" Âm lượng bỏ câu "vtts mặc định −6".
-- Cập nhật `.claude/rules/tts.md`. Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ hỏi loa ngoài hay tai nghe: loa ⇒ cắt trầm mạnh hơn (giọng vtts 40–50% năng lượng < 300 Hz), tai nghe ⇒ bỏ nâng 2,8 kHz.

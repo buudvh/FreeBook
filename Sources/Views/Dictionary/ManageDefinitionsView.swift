@@ -216,6 +216,9 @@ struct ManageDefinitionsView: View {
 
         let originals = matches
         let snapshot = draft
+        // Bản gốc chuẩn hoá **y như** bản nháp (cùng phép tách + bỏ trùng của `activeMeanings`): so thẳng với
+        // `splitMeanings` thì nghĩa trùng sẵn trong file (vd Pronoun `ta/ta`) làm mở-rồi-đóng cũng ghi lại cả file gốc.
+        let initialDraft = ManageDefinitionsDraft(matches: originals)
 
         Task {
             for source in ManageDefinitionsDraft.editableSources {
@@ -223,9 +226,7 @@ struct ManageDefinitionsView: View {
                 let isRieng = source.contains("Riêng")
                 let bid = isRieng ? bookId : nil
 
-                let originalTranslation = originals.first(where: { $0.source == source })?.translation ?? ""
-                // Cùng phép tách với bản nháp (Pronoun tách thêm `|`) — khác nhau là mục không đụng tới vẫn bị ghi lại.
-                let originalMeanings = ManageDefinitionsDraft.splitMeanings(originalTranslation, source: source)
+                let originalMeanings = initialDraft.activeMeanings(for: source)
                 let finalMeanings = snapshot.activeMeanings(for: source)
                 guard finalMeanings != originalMeanings else { continue }
 

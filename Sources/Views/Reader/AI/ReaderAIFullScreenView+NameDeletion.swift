@@ -25,9 +25,13 @@ extension ReaderAIFullScreenView {
             guard keys.contains(target) else { return }
             keys.removeAll { $0 == target }
         }
-        message.struckNameKeys = keys.isEmpty ? nil : keys
+        let stored: [String]? = keys.isEmpty ? nil : keys
+        message.struckNameKeys = stored
         currentSession.messages[index] = message
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
+        // Lượt AI đang chạy giữ bản phiên riêng và ghi đè xuống đĩa khi xong / mỗi lượt quét ⇒ sửa cả bản đó, kẻo gạch
+        // trong lúc đang quét / chờ AI trả lời bị mất khi mở lại (như `rememberNameEdit` của màn Sửa từ).
+        AIRuntimeCoordinator.shared.updateMessage(messageId, bookId: bookId) { $0.struckNameKeys = stored }
         AppLogger.shared.log("🗑️ [AI] \(struck ? "Gạch" : "Bỏ gạch") name '\(target)' ở tin \(messageId) (còn \(keys.count) gạch)")
     }
 }

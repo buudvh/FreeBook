@@ -15,8 +15,9 @@ public struct ReaderAINameReviewCardView: View {
     /// Chạm thân hàng của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ chạm
     /// không làm gì.
     public var onEdit: ((UUID) -> Void)? = nil
-    /// ✕ › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ; card bỏ mục khỏi danh
-    /// sách sau khi gọi. `nil` (luồng AI) ⇒ ✕ là nút xoá như cũ; có ⇒ ✕ mở menu "Bỏ khỏi lần này" / "Không phải name".
+    /// Thùng rác › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ; card bỏ mục khỏi
+    /// danh sách sau khi gọi. Có ⇒ thùng rác mở menu "Bỏ khỏi lần này" / "Không phải name". Luồng AI dùng `onToggleStrike`
+    /// (gạch / bỏ gạch); không truyền cả hai ⇒ thùng rác xoá khỏi danh sách đang duyệt.
     public var onBlock: ((UUID) -> Void)? = nil
     /// Luồng AI (anh Bửu 2026-11-27): có ⇒ thùng rác **gạch** hàng thay cho xoá; hàng gạch hiện ↶ Hoàn tác (bấm = bỏ gạch).
     /// Trạng thái gạch do nơi dùng giữ (`struckKeys`, khoá = vế trái đã trim) và lưu vào tin nguồn.
@@ -261,7 +262,10 @@ public struct ReaderAINameReviewCardView: View {
                     .padding(.vertical, 4)
                     .background(Color(UIColor.tertiarySystemBackground))
                     .cornerRadius(8)
-                    .accessibilityAction(named: "Sửa") { onEdit?(item.id) }
+                    .accessibilityAction(named: "Sửa") {
+                        guard !isStruck(item) else { return }
+                        onEdit?(item.id)
+                    }
                 }
             }
         }
@@ -335,7 +339,8 @@ public struct ReaderAINameReviewCardView: View {
 
     /// "Chọn hết" / "Bỏ chọn" chỉ xét hàng chọn được (bỏ qua hàng gạch).
     private var allSelected: Bool {
-        names.allSatisfy { $0.isSelected || isStruck($0) }
+        // Không còn hàng nào chọn được (gạch hết) ⇒ nút hiện "Chọn hết" (bấm không làm gì) thay vì "Bỏ chọn".
+        names.contains { !isStruck($0) } && names.allSatisfy { $0.isSelected || isStruck($0) }
     }
 
     private func toggleSelectAll() {

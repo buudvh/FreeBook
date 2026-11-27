@@ -140,7 +140,9 @@ struct DictEntryEditSheet: View {
             }
         }
         .confirmDiscardOnSwipe(isDirty: isDirty)
-        .presentationDetents([.medium, .large])
+        // Danh sách (đuôi, "Không phải name", họ, token): mở cao hết cỡ như form cũ — ô chữ gốc tự focus, nấc nửa màn
+        // để bàn phím che nút "Thêm" và các hàng phụ (Loại / Nghĩa đứng).
+        .presentationDetents(listMode == nil ? Set<PresentationDetent>([.medium, .large]) : [.large])
         .presentationDragIndicator(.visible)
     }
 

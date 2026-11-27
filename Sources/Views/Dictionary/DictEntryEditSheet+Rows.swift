@@ -311,6 +311,11 @@ extension DictEntryEditSheet {
         if let newKey = addedKey, !isAddingListEntry {
             noticeLine("Lưu thêm \(newKey), giữ nguyên \(trimmedOriginalKey)", systemImage: "plus.circle", color: .secondary)
         }
+        // Chế độ Thêm của danh sách: chọn một phần chữ gốc ⇒ chỉ phần đó được thêm — báo rõ, không im lặng.
+        if isAddingListEntry, !saveTargetKey.isEmpty,
+           saveTargetKey != workingKey.trimmingCharacters(in: .whitespacesAndNewlines) {
+            noticeLine("Chỉ thêm \(saveTargetKey) (phần đang chọn)", systemImage: "plus.circle", color: .secondary)
+        }
         if listMode == nil, let action = saveAction, action != .update, targetExistingValue != nil {
             noticeLine("\(saveTargetKey) đã có trong danh sách — nghĩa cũ sẽ bị ghi đè.",
                        systemImage: "exclamationmark.triangle.fill", color: .orange)

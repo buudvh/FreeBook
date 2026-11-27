@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1049] - 2026-11-23
+
+### fix: vtts — đọc 1× để hết rè (tự đọc nhanh tối đa mặc định 1,0, xoá giá trị 1,4 đã lưu), âm lượng mặc định về như 1.3.1047
+
+Anh Bửu thử 1.3.1048 (mọi giọng vtts −6 dB): "vẫn rè, nghe khó chịu hơn lúc nãy" ⇒ âm lượng / bộ ghìm đỉnh không phải nguyên nhân trên điện thoại → Javis đề xuất cho vtts đọc 1× → "Duyệt, làm đi".
+
+- **Vì sao nghi khâu tự đọc nhanh**: mọi bản anh nghe sạch trên máy tính đều do vtts đọc 1×; trên máy anh nghe 1,8× ⇒ vtts tự đọc 1,4× (`length_scale` 0,71) + trình phát kéo 1,29×. Anh chỉ bắt đầu kêu rè từ 1.3.1036 (bản thêm tự đọc nhanh; ngay sau đó "âm điệu khác", "không rõ lời", và bản thường / bản 4 cùng tự đọc nhanh "nghe như nhau"). Google online — sạch trên cùng máy — cũng tạo tiếng 1× rồi để `AVAudioPlayer` kéo cả 1,8×.
+- **`VttsSettings.defaultNativeSpeedMax` 1,4 → 1,0** ⇒ vtts tạo tiếng 1×, trình phát kéo cả tốc độ nghe (như trước 1.3.1036). Rủi ro đã biết: tiếng "vụt" ở chỗ nối từng xuất hiện khi trình phát kéo nhanh — từ đó đã có phân đoạn 500 + `VttsEdgeFade` (lần anh thử 1× / 500 sạch); quay lại thì kéo hàng "vtts tự đọc nhanh tối đa" lên.
+- **Xoá giá trị đã lưu một lần** (`VttsSettings.nativeSpeedDefaultMigration`, lần đọc `vttsNativeSpeedMax` đầu tiên, cờ `vttsNativeSpeedMaxResetTo1`, log `🗣️ [Vtts]`): "Đặt lại" trước đây ghi **cứng** 1,4 vào khoá nên mặc định mới không tới được. Nay "Đặt lại" (Cài đặt TTS + màn Giọng dự phòng) **xoá khoá** (`VttsSettings.resetNativeSpeedMax`). Đoạn "?" của hàng: tự đọc nhanh nhiều "dễ rè", mặc định 1,0x = trình phát kéo cả.
+- **Âm lượng về như 1.3.1047**: mặc định 0, Google Dịch −3 (bỏ `vttsDefaultOffset` −6 và lượt chuyển của 1.3.1048 — máy đã chạy 1.3.1048 thì các mục vtts to hơn −6 đã bị bỏ, mục dưới −6 giữ). Đoạn "?" Âm lượng bỏ câu "vtts mặc định −6".
+- Cập nhật `.claude/rules/tts.md`. Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ hỏi loa ngoài hay tai nghe: loa ⇒ cắt trầm mạnh hơn (giọng vtts 40–50% năng lượng < 300 Hz), tai nghe ⇒ bỏ nâng 2,8 kHz.
+
 ## [1.3.1048] - 2026-11-23
 
 ### fix: vtts — mọi giọng mặc định −6 dB cho hết rè (bộ ghìm đỉnh không phải cắt), mức đã chỉnh to hơn tự về −6
