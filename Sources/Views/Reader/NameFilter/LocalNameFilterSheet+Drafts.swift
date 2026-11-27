@@ -4,6 +4,7 @@ import SwiftUI
 /// (`LocalNameFilterDraftStore`, ghi khi đóng màn duyệt mà chưa Lưu / app vào nền lúc đang duyệt). Mỗi hàng: "giờ lọc ·
 /// phạm vi", dòng 2 "N name · đang chọn M"; chạm ⇒ mở lại màn duyệt đúng trạng thái đã giữ
 /// (`LocalNameFilterSession.openDraft`); vuốt trái ⇒ Xoá. Lưu xong từ màn mở lại ⇒ gói tự xoá (`LocalNameFilterSheet.save`).
+/// Mỗi lần trang đầu hiện ra, gói tự cập nhật theo danh sách đuôi + "Không phải name" (`LocalNameFilterDraftRefresher`).
 extension LocalNameFilterSheet {
     @ViewBuilder
     var draftsSection: some View {
@@ -20,6 +21,7 @@ extension LocalNameFilterSheet {
             } header: {
                 SectionHelpHeader("Gói tạm chưa lưu (\(drafts.count))", paragraphs: [
                     "Đóng màn duyệt mà chưa bấm Lưu (kể cả sau \"Dừng\") thì danh sách đang duyệt được giữ thành một gói tạm của truyện, gồm cả ô đã chọn / bỏ chọn và nghĩa đã sửa.",
+                    "Gói tự cập nhật mỗi lần quay lại trang này: name nằm trong \"Không phải name\" bị bỏ; địa danh / tổ chức / thuật ngữ còn nghĩa máy ghép thì ghép lại theo danh sách đuôi hiện tại. Nghĩa đã tự sửa giữ nguyên.",
                     "Chạm một gói để mở lại đúng màn duyệt đó; vuốt trái để xoá. Bấm Lưu xong thì gói tự biến mất. Mỗi truyện giữ \(LocalNameFilterDraftStore.maxDraftsPerBook) gói ghi gần nhất."
                 ])
             }
@@ -58,7 +60,9 @@ extension LocalNameFilterSheet {
         ToastManager.shared.show(message: "Đã xoá gói tạm (\(draft.names.count) name)", type: .success)
     }
 
-    /// Nạp gói của truyện ngoài main (file vài trăm KB với truyện dài).
+    /// Nạp gói của truyện ngoài main (file vài trăm KB với truyện dài) rồi cập nhật theo danh sách đuôi + "Không phải
+    /// name" (`LocalNameFilterDraftRefresher`, plan 2026-11-27-nghia-ten-tay-huyen mục 6). Chạy mỗi lần trang đầu hiện ra
+    /// (`.task` chạy lại khi quay về từ trang con / từ màn duyệt).
     func loadDrafts() async {
         let bid = bookId
         let loaded = await Task.detached(priority: .userInitiated) {
@@ -67,6 +71,22 @@ extension LocalNameFilterSheet {
         guard !Task.isCancelled else { return }
         await MainActor.run {
             self.drafts = loaded
+        }
+        guard !loaded.isEmpty else { return }
+        let inputs = await MainActor.run {
+            LocalNameFilterDraftRefresher.Inputs(
+                bookId: bid,
+                blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
+                suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
+                prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bid)
+            )
+        }
+        let refreshed = await Task.detached(priority: .userInitiated) {
+            await LocalNameFilterDraftRefresher.refresh(inputs)
+        }.value
+        guard !Task.isCancelled else { return }
+        await MainActor.run {
+            self.drafts = refreshed
         }
     }
 

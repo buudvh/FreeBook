@@ -17,6 +17,18 @@ extension LocalNameFilterSession {
         let filteredAt: Date
         let scopeLabel: String
         let chapterCount: Int
+        /// Nghĩa máy ghép của từng name (`LocalNameFilterDraft.autoMeanings`) — đi theo gói để gói tự cập nhật theo danh
+        /// sách đuôi (`LocalNameFilterDraftRefresher`). `nil` = mở từ gói của bản trước.
+        let autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
+    }
+
+    /// Nghĩa máy ghép lúc lọc xong: chữ Hán ⇒ nghĩa + loại (trùng chữ ⇒ giữ hàng đầu).
+    static func autoMeanings(of names: [LocalNameFilter.Name]) -> [String: LocalNameFilterDraft.AutoMeaning] {
+        var result: [String: LocalNameFilterDraft.AutoMeaning] = [:]
+        for name in names where result[name.term] == nil {
+            result[name.term] = LocalNameFilterDraft.AutoMeaning(meaning: name.meaning, kind: name.kind)
+        }
+        return result
     }
 
     /// Màn duyệt báo danh sách đang duyệt mỗi lần đổi (chọn / bỏ chọn, sửa, bỏ mục, cờ NE / VP tra lại).
@@ -62,7 +74,8 @@ extension LocalNameFilterSession {
             savedAt: Date(),
             scopeLabel: context.scopeLabel,
             chapterCount: context.chapterCount,
-            names: latestReviewNames
+            names: latestReviewNames,
+            autoMeanings: context.autoMeanings
         )
     }
 }

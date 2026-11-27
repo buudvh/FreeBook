@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1072] - 2026-11-27
+
+### fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn
+
+Anh Bửu: "danh sách name của AI có nút X nhỏ quá, tăng to lên cho tôi", màn duyệt của lọc name local cũng vậy (dùng chung `ReaderAINameReviewCardView`).
+
+- ✕ mỗi hàng: icon `xmark.circle.fill` 14 pt ⇒ **22 pt** trong vùng chạm **44 × 44** — bằng ô vuông chọn bên trái; một view chung `removeIcon` cho cả nút xoá của luồng AI và menu "Bỏ khỏi lần này / Không phải name" của luồng lọc local (trước đó luồng AI không có khung chạm riêng, luồng local 28 × 36). Nút xoá luồng AI có thêm nhãn trợ năng "Bỏ …".
+- Hàng bỏ đệm phải 8 pt: khung 44 pt của ✕ tự chừa lề, hai icon cách mép đều nhau.
+- Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1042 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1071] - 2026-11-27
 
 ### fix: lọc name local ghi rõ "cập nhật sau N chương", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng

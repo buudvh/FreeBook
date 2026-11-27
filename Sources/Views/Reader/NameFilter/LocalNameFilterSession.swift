@@ -176,7 +176,8 @@ final class LocalNameFilterSession {
             draftId: draft.id,
             filteredAt: draft.filteredAt,
             scopeLabel: draft.scopeLabel,
-            chapterCount: draft.chapterCount
+            chapterCount: draft.chapterCount,
+            autoMeanings: draft.autoMeanings
         )
         savePending = false
         phase = .review
@@ -310,7 +311,8 @@ final class LocalNameFilterSession {
             draftId: UUID(),
             filteredAt: Date(),
             scopeLabel: LocalNameFilterDraft.scopeLabel(chapterNumbers: Array(numbers)),
-            chapterCount: snapshot.chaptersRead
+            chapterCount: snapshot.chaptersRead,
+            autoMeanings: Self.autoMeanings(of: snapshot.names)
         )
         savePending = false
         phase = .review

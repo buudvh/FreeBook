@@ -6,7 +6,16 @@ import Foundation
 ///
 /// `names` giữ nguyên `AIExtractedName` của màn duyệt: chữ Hán, nghĩa (kể cả nghĩa đã sửa), nhãn loại, số lần, đang chọn,
 /// cờ NE / VP — mở lại vẫn tra lại cờ NE / VP (từ điển có thể đã đổi), giữ trạng thái chọn.
+///
+/// Gói **tự cập nhật** theo danh sách đuôi + "Không phải name" (plan 2026-11-27-nghia-ten-tay-huyen mục 6,
+/// `LocalNameFilterDraftRefresher`): `autoMeanings` nhớ nghĩa máy ghép để phân biệt với nghĩa người dùng đã tự sửa.
 struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
+    /// Nghĩa máy ghép của một name + loại của nó lúc lọc (loại quyết định có ghép lại được không — người / họ tộc thì không).
+    struct AutoMeaning: Codable, Sendable, Equatable {
+        var meaning: String
+        let kind: LocalNameFilter.Kind
+    }
+
     /// Cố định suốt đời gói: mở lại rồi đóng chưa Lưu ⇒ ghi đè đúng gói này, không tạo gói mới.
     let id: UUID
     /// Lúc lọc xong (giờ hiện ở hàng của sheet thiết lập) — không đổi khi gói được ghi lại.
@@ -18,6 +27,9 @@ struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
     /// Số chương đã đọc trong lượt lọc.
     let chapterCount: Int
     var names: [AIExtractedName]
+    /// Chữ Hán ⇒ nghĩa máy ghép (lúc lọc, hoặc lần tự cập nhật trước). Nghĩa đang có khác nghĩa máy ghép ⇒ người dùng đã tự
+    /// sửa ⇒ giữ nguyên. `nil` = gói của bản trước (chưa có trường này) ⇒ không ghép lại nghĩa, chỉ bỏ name "Không phải name".
+    var autoMeanings: [String: AutoMeaning]?
 
     var selectedCount: Int {
         names.reduce(0) { $0 + ($1.isSelected ? 1 : 0) }

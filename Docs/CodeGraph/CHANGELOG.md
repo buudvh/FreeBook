@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1099] - 2026-11-27
+
+### feat: gói name tạm tự cập nhật theo danh sách đuôi và danh sách không phải name
+
+- Gói tạm của Lọc name local nhớ thêm `autoMeanings` (chữ Hán ⇒ nghĩa máy ghép + loại, lúc lọc hoặc lần cập nhật trước; plan 2026-11-27-nghia-ten-tay-huyen mục 6). Trường tuỳ chọn: gói cũ chưa có ⇒ không ghép lại nghĩa. Màn duyệt mang theo qua `ReviewContext` (lọc xong, mở lại gói, ghi gói).
+- Mỗi lần trang đầu "Lọc name local" hiện ra (mở sheet, quay lại từ màn danh sách, bấm ‹ ở màn duyệt), `LocalNameFilterDraftRefresher` cập nhật các gói của truyện đang mở ngoài main: bỏ name nằm trong "Không phải name" (xoá cụm khỏi danh sách thì name đã bỏ không quay lại; gói hết name ⇒ xoá gói); địa danh / tổ chức / thuật ngữ mà nghĩa đang có bằng nghĩa máy ghép ⇒ ghép lại bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc "Ưu tiên tên Latin" của truyện (cập nhật nghĩa, `autoMeanings`, cờ đoán); nghĩa đã tự sửa giữ nguyên; người / họ tộc không ghép lại. Bật Latin mà thiếu mô hình ⇒ lần đó không ghép lại.
+- `LocalNameFilterMeaningComposer`: ghép nghĩa một name lẻ (chụp từ điển của truyện) bằng `LocalNameFilterMeaningBuilder` đường hàng LAC. `LocalNameFilterDraftStore.update`: đọc – sửa – ghi trong một lần giữ khoá, không đổi thì không ghi, `savedAt` giữ nguyên.
+- Nút "?" của mục "Gói tạm chưa lưu" thêm đoạn giải thích việc tự cập nhật. Log `🔎 [LọcName] Cập nhật gói tạm: bỏ N name…, ghép lại M nghĩa…`.
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1098] - 2026-11-27
 
 ### feat: màn duyệt của lọc name local có nút quay lại, giữ danh sách thành gói tạm rồi về trang lọc
@@ -325,14 +335,3 @@ Anh Bửu (ngay sau 1.3.1072): "đổi thành nút xóa giống danh sách trong
 - `ReaderAINameReviewCardView.removeIcon`: ✕ tròn xám 22 pt ⇒ `trash` đỏ `.subheadline` y hàng `DictionaryEntryRow`; vẫn giữ vùng chạm 44 × 44 của 1.3.1072. Áp cho cả màn duyệt của AI và của lọc name local (luồng local bấm vẫn ra menu "Bỏ khỏi lần này / Không phải name").
 - Không build tại chỗ (Windows).
 - Dọn: entry 1.3.1043 chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1072] - 2026-11-27
-
-### fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn
-
-Anh Bửu: "danh sách name của AI có nút X nhỏ quá, tăng to lên cho tôi", màn duyệt của lọc name local cũng vậy (dùng chung `ReaderAINameReviewCardView`).
-
-- ✕ mỗi hàng: icon `xmark.circle.fill` 14 pt ⇒ **22 pt** trong vùng chạm **44 × 44** — bằng ô vuông chọn bên trái; một view chung `removeIcon` cho cả nút xoá của luồng AI và menu "Bỏ khỏi lần này / Không phải name" của luồng lọc local (trước đó luồng AI không có khung chạm riêng, luồng local 28 × 36). Nút xoá luồng AI có thêm nhãn trợ năng "Bỏ …".
-- Hàng bỏ đệm phải 8 pt: khung 44 pt của ✕ tự chừa lề, hai icon cách mép đều nhau.
-- Không build tại chỗ (Windows).
-- Dọn: entry 1.3.1042 chuyển sang `CHANGELOG.archive.md`.

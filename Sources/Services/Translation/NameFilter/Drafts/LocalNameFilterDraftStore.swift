@@ -52,6 +52,23 @@ enum LocalNameFilterDraftStore {
         saveLocked(drafts, bookId: bookId)
     }
 
+    /// Đọc – sửa – ghi các gói của truyện trong **một** lần giữ khoá (gói tạm tự cập nhật,
+    /// `LocalNameFilterDraftRefresher`): lượt ghi khác (đóng màn duyệt) không chen vào giữa. `transform` nhận gói ghi gần
+    /// nhất trước, trả `nil` = không đổi gì (không ghi); không được gọi hàm khác của store (khoá không lồng được). Trả danh
+    /// sách sau cùng, ghi gần nhất trước.
+    static func update(
+        bookId: String,
+        _ transform: ([LocalNameFilterDraft]) -> [LocalNameFilterDraft]?
+    ) -> [LocalNameFilterDraft] {
+        guard !bookId.isEmpty else { return [] }
+        lock.lock()
+        defer { lock.unlock() }
+        let current = loadLocked(bookId: bookId)
+        guard let changed = transform(current) else { return current }
+        saveLocked(changed, bookId: bookId)
+        return Array(changed.sorted { $0.savedAt > $1.savedAt }.prefix(maxDraftsPerBook))
+    }
+
     /// Xoá một gói (lưu xong / vuốt Xoá). Không có gói đó ⇒ không ghi gì.
     static func delete(id: UUID, bookId: String) {
         guard !bookId.isEmpty else { return }
