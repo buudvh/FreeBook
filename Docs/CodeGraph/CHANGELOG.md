@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1105] - 2026-11-27
+
+### feat: màn duyệt name giữ đầu thẻ, ô tìm và chip loại dính trên cùng khi cuộn
+
+Plan 2026-11-27-phan-loai-name mục L14 (anh Bửu: "các chip và search hiển thị kiểu sticky để scroll xuống vẫn thấy"),
+mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Màn duyệt — cuộn xuống".
+
+- ReaderAINameReviewCardView: cả thẻ thành một LazyVStack(pinnedViews: [.sectionHeaders]) với một Section; đầu thẻ
+  (Tên riêng (N), menu sắp xếp, Chọn hết / Bỏ chọn) + ô tìm + hàng chip loại là tiêu đề section (stickyHeader), cuộn
+  xuống vẫn nằm trên cùng vùng cuộn của sheet. Luồng AI không có chip ⇒ dính đầu thẻ + ô tìm.
+- Tiêu đề tô nền đặc bằng nền thẻ (cardBackground, tô sau đệm nên phủ cả dải 12 pt phía trên): hàng cuộn qua bên dưới
+  không lộ chữ. Lề trên của thẻ dời vào tiêu đề; không đổ bóng lúc dính (đo vị trí cần onGeometryChange — iOS 18).
+- Hành vi lọc / chọn giữ nguyên: ô tìm + chip chỉ ẩn hàng, Chọn hết / Bỏ chọn theo mục đang hiện, Lưu lưu mọi mục đang
+  chọn; sheet giữ scrollDismissesKeyboard. Thẻ phải là con trực tiếp của ScrollView của ReaderAINameReviewSheet.
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1104] - 2026-11-27
 
 ### feat: lọc name local có danh sách họ riêng, thêm họ 洛 và 玉, chép một lần họ đã sửa ở danh sách họ của rule dịch nhanh
@@ -353,17 +370,5 @@ Sửa sau lượt rà soát chéo đợt 1.3.1074–1078 (hai agent đọc code,
 - Sửa một name thành khoá đang gạch ⇒ tự bỏ gạch khoá đó (`ReaderAINameReviewSheet+Edit`); VoiceOver "Sửa" không mở hàng gạch; gạch hết mọi hàng thì nút đầu thẻ là "Chọn hết" (không còn "Bỏ chọn" bấm không có tác dụng). Sửa comment còn nói "✕ xoá như cũ".
 - **Quản lý nghĩa từ**: so bản gốc đã chuẩn hoá y như bản nháp (cùng tách + bỏ trùng) — nghĩa trùng sẵn trong file (vd Pronoun `ta/ta`) làm mở-rồi-đóng cũng ghi lại cả file Pronouns gốc + dựng lại `.dat` + dịch lại Reader.
 - **Màn Sửa từ ở chế độ danh sách** (đuôi, "Không phải name", họ, token): chế độ Thêm chọn một phần chữ gốc ⇒ hiện "Chỉ thêm X (phần đang chọn)" thay vì lặng lẽ chỉ thêm phần đó; mở cao hết cỡ (`.large`) như form cũ để bàn phím không che nút "Thêm" và hàng Loại / Nghĩa đứng (VP / Name / Pronouns giữ nấc nửa màn).
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
-- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1078] - 2026-11-27
-
-### feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch
-
-Anh Bửu: "khi xóa từ trong danh sách của AI đừng xóa hẳn, xóa thì gạch hàng đó và chuyển thành nút hoàn tác", rồi chốt "mở lên lại thì vẫn còn gạch hàng + nút hoàn tác, cái bị gạch thì không chọn được". Chỉ màn duyệt của AI (nút xoá ở đó từng xoá hẳn dòng `từ=nghĩa` khỏi tin nhắn — lỡ tay là mất); màn duyệt của lọc name local giữ menu "Bỏ khỏi lần này / Không phải name".
-
-- Thùng rác ⇒ **gạch** hàng: chữ gạch ngang + mờ, ô chọn bỏ chọn và khoá, chạm thân hàng không mở màn Sửa từ, nút thành ↶ Hoàn tác (xanh lá). Bấm ↶ ⇒ bỏ gạch. Đầu thẻ "· đã gạch N"; "Chọn hết / Bỏ chọn" bỏ qua hàng gạch; Lưu lọc bỏ hàng gạch (`ReaderAINameReviewCardView` `struckKeys` + `onToggleStrike`, `ReaderAINameReviewSheet`).
-- Trạng thái gạch lưu theo **tin nhắn**: trường mới `AIChatMessage.struckNameKeys` (khoá = vế trái đã trim, optional — lịch sử cũ đọc như chưa gạch), ghi ngay mỗi lần gạch / bỏ gạch qua `AIChatHistoryStore.saveSession` (`ReaderAIFullScreenView.setNameStruck`, thay `removeNameLine`). `content` của tin **không** đổi nên mở lại sheet (kể cả sau khi tắt app) dựng lại danh sách như cũ rồi vẽ hàng gạch. Gạch theo từng tin.
-- Không còn đường nào gọi `AIRuntimeCoordinator.forgetName` / `contentRemovingNameLines` từ sheet duyệt (để nguyên trong coordinator).
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
 - Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.

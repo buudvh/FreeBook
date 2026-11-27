@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1078] - 2026-11-27
+
+### feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch
+
+Anh Bửu: "khi xóa từ trong danh sách của AI đừng xóa hẳn, xóa thì gạch hàng đó và chuyển thành nút hoàn tác", rồi chốt "mở lên lại thì vẫn còn gạch hàng + nút hoàn tác, cái bị gạch thì không chọn được". Chỉ màn duyệt của AI (nút xoá ở đó từng xoá hẳn dòng `từ=nghĩa` khỏi tin nhắn — lỡ tay là mất); màn duyệt của lọc name local giữ menu "Bỏ khỏi lần này / Không phải name".
+
+- Thùng rác ⇒ **gạch** hàng: chữ gạch ngang + mờ, ô chọn bỏ chọn và khoá, chạm thân hàng không mở màn Sửa từ, nút thành ↶ Hoàn tác (xanh lá). Bấm ↶ ⇒ bỏ gạch. Đầu thẻ "· đã gạch N"; "Chọn hết / Bỏ chọn" bỏ qua hàng gạch; Lưu lọc bỏ hàng gạch (`ReaderAINameReviewCardView` `struckKeys` + `onToggleStrike`, `ReaderAINameReviewSheet`).
+- Trạng thái gạch lưu theo **tin nhắn**: trường mới `AIChatMessage.struckNameKeys` (khoá = vế trái đã trim, optional — lịch sử cũ đọc như chưa gạch), ghi ngay mỗi lần gạch / bỏ gạch qua `AIChatHistoryStore.saveSession` (`ReaderAIFullScreenView.setNameStruck`, thay `removeNameLine`). `content` của tin **không** đổi nên mở lại sheet (kể cả sau khi tắt app) dựng lại danh sách như cũ rồi vẽ hàng gạch. Gạch theo từng tin.
+- Không còn đường nào gọi `AIRuntimeCoordinator.forgetName` / `contentRemovingNameLines` từ sheet duyệt (để nguyên trong coordinator).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1077] - 2026-11-27
 
 ### fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt

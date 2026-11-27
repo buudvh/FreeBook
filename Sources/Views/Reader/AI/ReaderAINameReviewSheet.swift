@@ -169,6 +169,7 @@ public struct ReaderAINameReviewSheet: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
+                    // Thẻ là con **trực tiếp** của `ScrollView`: khối đầu thẻ (ô tìm + chip) ghim trên cùng khi cuộn (L14).
                     ScrollView {
                         ReaderAINameReviewCardView(
                             names: $names,

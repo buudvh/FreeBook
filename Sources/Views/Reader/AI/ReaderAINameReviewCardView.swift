@@ -9,6 +9,13 @@ import SwiftUI
 /// Hàng theo khuôn hàng VP/Name (`DictionaryEntryRow`, 1.3.1060): dòng 2 là **chữ** nghĩa (không còn ô nhập), không
 /// còn nút bút chì — chạm khối chữ (tên + badge + nghĩa) ⇒ nơi dùng mở màn Sửa từ. Ô vuông chọn và ✕ là nút riêng
 /// nên chạm chúng không mở màn sửa; card nằm trong `ScrollView` + `LazyVStack` (không phải `List`) nên `.plain` đủ.
+///
+/// Khối đầu **dính** (plan `2026-11-27-phan-loai-name` mục L14, anh Bửu: "các chip và search hiển thị kiểu sticky để
+/// scroll xuống vẫn thấy"): cả thẻ là **một** `LazyVStack(pinnedViews: [.sectionHeaders])` với một `Section` — đầu thẻ
+/// (số name, sắp xếp, Chọn hết / Bỏ chọn) + ô tìm + hàng chip loại (chỉ luồng lọc local) là tiêu đề section, cuộn xuống vẫn
+/// nằm trên cùng vùng cuộn của sheet. Thẻ phải là con trực tiếp của `ScrollView` (`ReaderAINameReviewSheet`) — bọc thêm
+/// `VStack` / `List` là mất ghim. Tiêu đề tô nền đặc bằng nền thẻ (`cardBackground`, gồm cả dải đệm 12 pt phía trên) để
+/// hàng cuộn qua bên dưới không lộ chữ. Không đổ bóng lúc dính (đo vị trí cần `onGeometryChange` — iOS 18).
 public struct ReaderAINameReviewCardView: View {
     @Binding public var names: [AIExtractedName]
     public var onDelete: ((UUID) -> Void)? = nil
@@ -76,55 +83,21 @@ public struct ReaderAINameReviewCardView: View {
         return categoryFilter
     }
 
+    /// Nền thẻ — cũng là nền đặc của khối đầu dính (`stickyHeader`), để hai lớp liền một màu.
+    static var cardBackground: Color { Color(UIColor.secondarySystemBackground) }
+
     public var body: some View {
         let activeFilter = activeCategoryFilter
         // Một tập cho cả ba chỗ: hàng nào hiện, dòng "Không có name khớp", "Chọn hết" / "Bỏ chọn".
         let visible = visibleNameIDs(activeFilter: activeFilter)
-        VStack(alignment: .leading, spacing: 10) {
-            // Header
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
-                    Image(systemName: "tag.fill")
-                        .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
-                    Text("Tên riêng (\(names.count))")
-                        .font(.system(size: 13, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    if struckCount > 0 {
-                        Text("· đã gạch \(struckCount)")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
+        // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay sửa nghĩa) `names` đổi, `VStack` thường
+        // cập nhật lại MỌI hàng — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện. `pinnedViews` ghim khối đầu (L14).
+        LazyVStack(alignment: .leading, spacing: 6, pinnedViews: [.sectionHeaders]) {
+            Section {
+                if let visible, visible.isEmpty {
+                    noMatchRow
                 }
-                Spacer()
 
-                sortMenu
-
-                Button(allSelected(visible: visible) ? "Bỏ chọn" : "Chọn hết") {
-                    toggleSelectAll()
-                }
-                .font(.system(size: 11))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .disabled(visible?.isEmpty == true)
-            }
-            .padding(.bottom, 2)
-
-            // Ô tìm trên hàng chip (mockup khung 2); luồng AI không có chip nên nằm ngay dưới đầu thẻ.
-            searchField
-
-            if showsCategoryFilter {
-                ReaderAINameReviewCategoryBar(names: names, active: activeFilter) { categoryFilter = $0 }
-            }
-
-            if let visible, visible.isEmpty {
-                noMatchRow
-            }
-
-            // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay sửa nghĩa) `names` đổi, `VStack` thường
-            // cập nhật lại MỌI hàng — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
-            LazyVStack(spacing: 6) {
                 ForEach($names) { $item in
                     // Ô tìm / chip loại chỉ ẩn hàng; vẫn duyệt cả `$names` (không lọc mảng binding: xoá mục lúc đang lọc
                     // là binding lệch chỉ số).
@@ -188,10 +161,14 @@ public struct ReaderAINameReviewCardView: View {
                         }
                     }
                 }
+            } header: {
+                stickyHeader(visible: visible, activeFilter: activeFilter)
             }
         }
-        .padding(12)
-        .background(Color(UIColor.secondarySystemBackground))
+        // Lề trên của thẻ nằm trong khối đầu (`stickyHeader`) để lúc dính dải đệm phía trên cũng có nền đặc.
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+        .background(Self.cardBackground)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -200,6 +177,53 @@ public struct ReaderAINameReviewCardView: View {
         .onAppear {
             applySorting()
         }
+    }
+
+    /// Khối đầu dính (L14): đầu thẻ + ô tìm + hàng chip loại (chỉ luồng lọc local; luồng AI chỉ đầu thẻ + ô tìm). Nền đặc
+    /// tô **sau** đệm nên phủ cả dải 12 pt phía trên lẫn khoảng dưới hàng chip — hàng cuộn qua không lộ chữ.
+    private func stickyHeader(visible: Set<UUID>?, activeFilter: LocalNameFilter.Category?) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: "tag.fill")
+                        .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
+                    Text("Tên riêng (\(names.count))")
+                        .font(.system(size: 13, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    if struckCount > 0 {
+                        Text("· đã gạch \(struckCount)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+
+                sortMenu
+
+                Button(allSelected(visible: visible) ? "Bỏ chọn" : "Chọn hết") {
+                    toggleSelectAll()
+                }
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .disabled(visible?.isEmpty == true)
+            }
+            .padding(.bottom, 2)
+
+            // Ô tìm trên hàng chip (mockup khung 2); luồng AI không có chip nên nằm ngay dưới đầu thẻ.
+            searchField
+
+            if showsCategoryFilter {
+                ReaderAINameReviewCategoryBar(names: names, active: activeFilter) { categoryFilter = $0 }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 12)
+        // Cộng `spacing` 6 của stack ⇒ cách hàng đầu ~10 pt như khi khối đầu còn là con của `VStack(spacing: 10)`.
+        .padding(.bottom, 4)
+        .background(Self.cardBackground)
     }
 
     /// Nút xoá (thùng rác) của một hàng. Luồng AI (`onBlock == nil`): xoá ngay như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
