@@ -9,9 +9,36 @@ import UniformTypeIdentifiers
 /// Bản gốc 683 họ đóng trong app; mọi thao tác ở đây chỉ ghi lớp riêng (`QuickTranslationSurnameStore`). Store không phát
 /// thay đổi ⇒ màn giữ bản chụp ở `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear` (như `QuickTranslationRuleBracketListView`).
 /// Chỉ có một danh sách chung, không có bản riêng từng truyện. Toast ở đây (Service không gọi `ToastManager`).
+///
+/// Từ L13 màn dùng chung cho hai danh sách họ độc lập qua `Context`: `.quickTranslation` (mặc định — `<ho>`) và bản của
+/// Lọc name local (`LocalNameFilterSurnameListView`, store `QuickTranslationSurnameStore.nameFilter`, tiêu đề "Họ").
 struct QuickTranslationSurnameListView: View {
     typealias Entry = QuickTranslationSurnameEntry
     typealias Store = QuickTranslationSurnameStore
+
+    /// Phần khác nhau giữa các danh sách họ dùng chung màn này (L13).
+    struct Context {
+        let store: Store
+        /// Tiêu đề trang + tiêu đề ngăn kéo `…`.
+        let title: String
+        /// Tên file khi Xuất file (= tên file gốc của danh sách).
+        let exportFileName: String
+        /// Các dòng của nút "?" ở tiêu đề section.
+        let helpTexts: [Text]
+        /// Chữ khi danh sách trống hẳn.
+        let emptyListText: String
+
+        /// Danh sách họ của token `<ho>` — đúng chữ / store như trước L13.
+        static var quickTranslation: Context {
+            Context(
+                store: .shared,
+                title: "Danh sách họ",
+                exportFileName: "ChineseSurnames.txt",
+                helpTexts: QuickTranslationRuleGuide.helpTexts(for: .surnameList),
+                emptyListText: "Danh sách họ đang trống: <ho> sẽ không khớp gì. Bấm + để thêm."
+            )
+        }
+    }
 
     /// Đích của sheet sửa; `entry == nil` = thêm họ mới.
     private struct EditorTarget: Identifiable {
@@ -24,16 +51,24 @@ struct QuickTranslationSurnameListView: View {
         var id: String { url.absoluteString }
     }
 
-    private static let exportFileName = "ChineseSurnames.txt"
+    let context: Context
 
-    @State private var entries: [Entry] = Store.shared.entries()
-    @State private var isCustomized = Store.shared.isCustomized
+    @State private var entries: [Entry]
+    @State private var isCustomized: Bool
     @State private var searchText = ""
     @State private var editorTarget: EditorTarget?
     @State private var showingMenu = false
     @State private var showingFilePicker = false
     @State private var confirmingReset = false
     @State private var sharedExport: SharedExport?
+
+    init(context: Context = .quickTranslation) {
+        self.context = context
+        _entries = State(initialValue: context.store.entries())
+        _isCustomized = State(initialValue: context.store.isCustomized)
+    }
+
+    private var store: Store { context.store }
 
     /// "683 họ · 1 đang tắt" — dùng chung cho tiêu đề section ở đây và dòng phụ hàng "Danh sách họ".
     static func summaryText(total: Int, disabled: Int) -> String {
@@ -58,8 +93,7 @@ struct QuickTranslationSurnameListView: View {
             Section {
                 let matched = matchedEntries
                 if matched.isEmpty {
-                    Text(verbatim: entries.isEmpty ? "Danh sách họ đang trống: <ho> sẽ không khớp gì. Bấm + để thêm."
-                                                   : "Không có họ nào khớp.")
+                    Text(verbatim: entries.isEmpty ? context.emptyListText : "Không có họ nào khớp.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -72,12 +106,12 @@ struct QuickTranslationSurnameListView: View {
                     )
                 }
             } header: {
-                SectionHelpHeader(sectionTitle, texts: QuickTranslationRuleGuide.helpTexts(for: .surnameList))
+                SectionHelpHeader(sectionTitle, texts: context.helpTexts)
             }
         }.glassSheetRows() }
         .listStyle(.plain)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm chữ Hán hoặc âm đọc")
-        .backPageTitle("Danh sách họ")
+        .backPageTitle(context.title)
         .floatingAddButton("Thêm họ") {
             editorTarget = EditorTarget(entry: nil)
         }
@@ -94,7 +128,7 @@ struct QuickTranslationSurnameListView: View {
                 .accessibilityLabel("Tuỳ chọn danh sách họ")
             }
         }
-        .sideDrawerMenu(isPresented: $showingMenu, title: "Danh sách họ") {
+        .sideDrawerMenu(isPresented: $showingMenu, title: context.title) {
             SideDrawerActionRow("Nhập file", systemImage: "square.and.arrow.down") { showingFilePicker = true }
             SideDrawerActionRow("Xuất file", systemImage: "square.and.arrow.up") { exportFile() }
                 .disabled(!entries.contains(where: \.isEnabled))
@@ -107,6 +141,7 @@ struct QuickTranslationSurnameListView: View {
             Group {
                 QuickTranslationSurnameEditorSheet(
                     original: target.entry,
+                    store: store,
                     onSave: { key, reading, replacing in save(key: key, reading: reading, replacing: replacing) },
                     onRestoreBundledReading: { restoreBundledReading(of: target.entry) }
                 )
@@ -141,13 +176,13 @@ struct QuickTranslationSurnameListView: View {
     // MARK: - Thao tác
 
     private func reload() {
-        entries = Store.shared.entries()
-        isCustomized = Store.shared.isCustomized
+        entries = store.entries()
+        isCustomized = store.isCustomized
     }
 
     /// Lưu từ sheet: store kiểm lại luật + trùng khoá trên dữ liệu mới nhất. `nil` = đã lưu; chuỗi = lỗi để sheet hiện.
     private func save(key: String, reading: String, replacing originalKey: String?) -> String? {
-        if let error = Store.shared.save(key: key, reading: reading, replacing: originalKey) {
+        if let error = store.save(key: key, reading: reading, replacing: originalKey) {
             reload()
             return error
         }
@@ -157,22 +192,22 @@ struct QuickTranslationSurnameListView: View {
     }
 
     private func toggle(_ entry: Entry) {
-        report(Store.shared.setEnabled(!entry.isEnabled, key: entry.key),
+        report(store.setEnabled(!entry.isEnabled, key: entry.key),
                success: entry.isEnabled ? "Đã tắt họ \(entry.key)" : "Đã bật họ \(entry.key)")
     }
 
     /// Xoá một chạm như các danh sách rule / từ điển; họ gốc đã xoá thêm lại được, hoặc "Khôi phục mặc định".
     private func delete(_ entry: Entry) {
-        report(Store.shared.delete(key: entry.key), success: "Đã xoá họ \(entry.key)")
+        report(store.delete(key: entry.key), success: "Đã xoá họ \(entry.key)")
     }
 
     private func restoreBundledReading(of entry: Entry?) {
         guard let entry, let bundled = entry.bundledReading else { return }
-        report(Store.shared.restoreBundledReading(key: entry.key), success: "Đã về âm gốc \(bundled)")
+        report(store.restoreBundledReading(key: entry.key), success: "Đã về âm gốc \(bundled)")
     }
 
     private func resetToDefaults() {
-        Store.shared.resetToDefaults()
+        store.resetToDefaults()
         reload()
         ToastManager.shared.show(message: "Đã khôi phục danh sách họ mặc định", type: .success)
     }
@@ -189,7 +224,7 @@ struct QuickTranslationSurnameListView: View {
     /// File + cách nhập đã chọn (popup hiện sau bộ chọn file, chạy khi popup đóng hẳn). File nhỏ ⇒ đọc ngay trên main.
     private func importFile(_ url: URL, mode: DataImportMode) {
         do {
-            let outcome = try Store.shared.importFile(at: url, mode: mode)
+            let outcome = try store.importFile(at: url, mode: mode)
             reload()
             var message = "Đã nhập: thêm \(outcome.added), cập nhật \(outcome.updated)"
             if outcome.removed > 0 { message += ", bỏ \(outcome.removed) họ cũ" }
@@ -202,9 +237,9 @@ struct QuickTranslationSurnameListView: View {
     }
 
     private func exportFile() {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(Self.exportFileName)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(context.exportFileName)
         do {
-            try Store.shared.exportText().write(to: url, atomically: true, encoding: .utf8)
+            try store.exportText().write(to: url, atomically: true, encoding: .utf8)
             sharedExport = SharedExport(url: url)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất danh sách họ: \(error.localizedDescription)", type: .error)
@@ -213,7 +248,7 @@ struct QuickTranslationSurnameListView: View {
 
     /// `sheet(item:)` đặt `nil` trước `onDismiss` ⇒ xoá file xuất tạm.
     private func cleanUpExport() {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(Self.exportFileName)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(context.exportFileName)
         try? FileManager.default.removeItem(at: url)
     }
 }

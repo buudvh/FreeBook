@@ -5,9 +5,10 @@ import SwiftUI
 /// "Họ · Chung", hàng chữ gốc chọn được, hàng token, **ô nghĩa = âm Hán-Việt của họ**, chip nghĩa gợi ý, aa…AA. Chỗ trình
 /// bày bọc `Group { … }.appGlassSheet()`.
 ///
-/// - Luật lấy từ `QuickTranslationSurnameStore` (`keyError` / `readingError` — cùng luật với nhập file), hiện đỏ ở dòng
-///   thông báo; ô còn trống thì không tô đỏ. Đổi chữ gốc = xoá khoá cũ + thêm khoá mới (store lo); chọn một phần (vd 欧
-///   của 欧阳) ⇒ thêm họ mới = phần đang chọn, họ đang sửa giữ nguyên.
+/// - Luật lấy từ store của danh sách đang sửa (`keyError` / `readingError` — cùng luật với nhập file; `store` = `<ho>`
+///   hay họ của Lọc name local, L13 — trùng khoá xét đúng danh sách đó), hiện đỏ ở dòng thông báo; ô còn trống thì không
+///   tô đỏ. Đổi chữ gốc = xoá khoá cũ + thêm khoá mới (store lo); chọn một phần (vd 欧 của 欧阳) ⇒ thêm họ mới = phần đang
+///   chọn, họ đang sửa giữ nguyên.
 /// - Ghi do màn danh sách làm (`onSave` trả chuỗi lỗi nếu không lưu được — sheet giữ nguyên để sửa tiếp).
 /// - Họ gốc đã đổi âm có thêm nút "Về âm gốc: …".
 struct QuickTranslationSurnameEditorSheet: View {
@@ -15,6 +16,7 @@ struct QuickTranslationSurnameEditorSheet: View {
 
     /// `nil` = thêm họ mới.
     let original: Entry?
+    let store: QuickTranslationSurnameStore
     /// `replacing` = khoá bị thay (`nil` = thêm mới, kể cả thêm phần chọn một phần khi đang sửa).
     let onSave: (_ key: String, _ reading: String, _ replacing: String?) -> String?
     let onRestoreBundledReading: () -> Void
@@ -23,10 +25,12 @@ struct QuickTranslationSurnameEditorSheet: View {
 
     init(
         original: Entry?,
+        store: QuickTranslationSurnameStore = .shared,
         onSave: @escaping (_ key: String, _ reading: String, _ replacing: String?) -> String?,
         onRestoreBundledReading: @escaping () -> Void = {}
     ) {
         self.original = original
+        self.store = store
         self.onSave = onSave
         self.onRestoreBundledReading = onRestoreBundledReading
     }
@@ -38,15 +42,15 @@ struct QuickTranslationSurnameEditorSheet: View {
             dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
             scopeBookId: nil,
             chipBookId: nil,
-            existingValue: { key in QuickTranslationSurnameStore.shared.entries().first { $0.key == key }?.reading },
+            existingValue: { key in store.entries().first { $0.key == key }?.reading },
             onUpdate: { _, _ in },
             onAddEntry: { _, _ in },
             onDefinitionsChanged: {},
             badgeText: "Họ · Chung",
             listMode: DictEntryEditListMode(
                 meaningPlaceholder: "Âm Hán-Việt của họ (Vương, Âu Dương…)",
-                keyError: { key, replacing in QuickTranslationSurnameStore.shared.keyError(key, replacing: replacing) },
-                meaningError: { reading in QuickTranslationSurnameStore.shared.readingError(reading) },
+                keyError: { key, replacing in store.keyError(key, replacing: replacing) },
+                meaningError: { reading in store.readingError(reading) },
                 save: { key, reading, replacing in onSave(key, reading, replacing) },
                 extraRows: extraRows
             )

@@ -1,7 +1,8 @@
 import Foundation
 
-/// Lớp riêng của người dùng trên danh sách họ gốc của token `<ho>` (1.3.1062) — JSON ở `UserDefaults` khoá
-/// `quickTranslateSurnameOverrides` (`QuickTranslationSurnameStore`):
+/// Lớp riêng của người dùng trên một danh sách họ gốc (1.3.1062) — JSON ở `UserDefaults` khoá
+/// `quickTranslateSurnameOverrides` (token `<ho>`) hoặc `localNameFilterSurnameOverrides` (Lọc name local, L13) — xem
+/// `QuickTranslationSurnameStore`:
 ///
 /// ```json
 /// {"disabled":["和"],"entries":{"单":"Thiện","揭":"Yết"},"removed":["有"]}
@@ -125,6 +126,20 @@ struct QuickTranslationSurnameOverrides: Codable, Equatable, Sendable {
     mutating func restoreBundledReading(for key: String, base: Base) {
         guard base.readings[key] != nil else { return }
         entries[key] = nil
+    }
+
+    // MARK: - Đổi bản gốc
+
+    /// Cùng các thay đổi này đặt lên một bản gốc khác (chép một lần Danh sách họ `<ho>` sang họ của Lọc name local, L13):
+    /// áp lại qua đúng các phép sửa nên giữ bất biến với bản gốc mới — âm trùng âm gốc mới thì không ghi (họ tự thêm 洛=Lạc
+    /// gặp bản gốc đã có 洛=Lạc ⇒ hết là phần khác), `removed` chỉ giữ khoá có trong bản gốc mới. `removed` áp trước
+    /// `entries` để khoá có ở cả hai thì `entries` thắng, như `effectiveReadings`. Khoá chỉ có ở bản gốc mới giữ như gốc.
+    func rebased(onto base: Base) -> Self {
+        var result = Self.empty
+        for key in removed { result.remove(key, base: base) }
+        for (key, reading) in entries { result.setReading(reading, for: key, base: base) }
+        for key in disabled where result.contains(key, base: base) { result.setEnabled(false, for: key) }
+        return result
     }
 
     // MARK: - Nhập file

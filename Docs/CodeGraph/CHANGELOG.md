@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1104] - 2026-11-27
+
+### feat: lọc name local có danh sách họ riêng, thêm họ 洛 và 玉, chép một lần họ đã sửa ở danh sách họ của rule dịch nhanh
+
+- Danh sách họ riêng của Lọc name local (L13, plan 2026-11-27-phan-loai-name, anh Bửu: "Màn quản lý họ riêng cho lọc luôn"): bộ lọc **chỉ** đọc danh sách mới (`LocalNameFilterDictionaries.capture` ⇒ `QuickTranslationSurnameStore.nameFilter.lookupTable()`, đổi đúng một dòng); token `<ho>` của rule dịch nhanh giữ Danh sách họ cũ ⇒ hai danh sách độc lập, sửa bên nào không đổi bên kia.
+- Dùng lại store, không chép code: `QuickTranslationSurnameStore` nhận cấu hình `QuickTranslationSurnameStoreConfiguration` (tên file gốc, khoá `UserDefaults` lớp riêng, nhãn log, có đi vào bộ dịch không, chép một lần từ đâu). Bản gốc thành thuộc tính của từng bản (trước là `static let` dùng chung). `shared` = cấu hình `.quickTranslation` (`ChineseSurnames.txt`, `quickTranslateSurnameOverrides`, ghi vẫn dọn cache dịch + báo rule đổi) — hành vi như cũ. `nameFilter` = `NameFilterSurnames.txt` + khoá `localNameFilterSurnameOverrides` (chữ thường ⇒ `BackupSettingsArchiver` tự gói); ghi **không** dọn cache dịch / không báo rule đổi (danh sách không vào bộ dịch, như `LocalNameFilterSuffixStore`); có hiệu lực từ lần "Bắt đầu lọc" sau.
+- File gốc mới `Sources/Resources/Translation/NameFilterSurnames.txt` = bản sao `ChineseSurnames.txt` (683 khoá) + `洛=Lạc`, `玉=Ngọc` cuối mục "Họ đơn bổ sung" ⇒ 685 khoá (585 đơn, 100 kép); chú thích đầu file ghi đúng vai trò. 洛 / 玉 không thuộc tập hư từ bộ lọc tự bỏ.
+- Chép một lần (anh chọn "chép họ đã sửa"): lần đầu bản `nameFilter` được tạo (mở màn Họ hoặc lượt lọc đầu), nếu cờ `localNameFilterSurnameSeeded` chưa có ⇒ đặt cờ (cả khi không có gì để chép — "Khôi phục mặc định" sau này không làm chép lại); khoá lớp riêng của bộ lọc chưa có và lớp riêng của `<ho>` có ⇒ chép sang, áp lại lên bản gốc mới (`QuickTranslationSurnameOverrides.rebased(onto:)`: họ tự thêm trùng âm với bản gốc mới như 洛=Lạc không còn tính là phần sửa). Đặt trong `init` của store thay cho bootstrap lúc mở app: `static let` bảo đảm chạy một lần, an toàn luồng, trước mọi lượt đọc (kể cả từ task nền của bộ lọc), không đụng `FreeBookApp` / `MainTabView`. Cờ chữ thường ⇒ Backup gói cùng lớp riêng. Log `📋 [NameFilterSurname]`.
+- Màn quản lý: `QuickTranslationSurnameListView` nhận `Context` (store, tiêu đề, tên file xuất, dòng "?", chữ khi trống; mặc định `.quickTranslation` ⇒ hai chỗ mở cũ không đổi); `QuickTranslationSurnameEditorSheet` nhận `store` (trùng khoá xét đúng danh sách đang sửa). View mới `LocalNameFilterSurnameListView()` (`Views/Reader/NameFilter/Lists/`, tiêu đề "Họ", xuất `NameFilterSurnames.txt`, đủ Sửa từ / nhập file 3 cách / xuất / khôi phục mặc định / tắt / xoá) để session giao diện nối hàng "Họ" vào sheet Lọc name local — sheet chưa có hàng này.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1103] - 2026-11-27
 
 ### feat: lọc name local sửa phân loại, hậu tố Nhân danh thay Pronouns, tiền tố cho tên Latin, lọc độ dài name
@@ -356,13 +367,3 @@ Anh Bửu: "khi xóa từ trong danh sách của AI đừng xóa hẳn, xóa th�
 - Không còn đường nào gọi `AIRuntimeCoordinator.forgetName` / `contentRemovingNameLines` từ sheet duyệt (để nguyên trong coordinator).
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
 - Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1077] - 2026-11-27
-
-### fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt
-
-Rà lại 1.3.1076 (chưa thử máy): nút loại / phạm vi đặt `minWidth: 30` + `maxWidth: .infinity` trong khi cụm aa…AA cũng giãn vô hạn ⇒ hai cụm hoà về độ co giãn, `HStack` có thể chia đôi cho cụm aa…AA trước ⇒ cụm NE | VP | PN · R | C thiếu ~11 pt ở panel 329 pt (máy 375 pt) và hàng tràn; đặt trần hữu hạn thì `HStack` bên trong lại chia cho cụm R | C trước ⇒ R / C rộng hơn NE / VP / PN.
-
-- `ReaderDefinitionOverlayView+Rows.dictSegmentButton`: `.frame(width: segmentButtonWidth)` = 30 pt cố định — đúng mockup khung 1 anh Bửu chọn ("nút loại còn khoảng 30 pt"). Cụm nút cứng ⇒ đặt trước, cụm aa…AA nhận phần còn lại (~27 pt / nút ở 329 pt, giãn trên máy rộng). Trên máy rộng hơn 375 pt, NE / VP / R / C không còn giãn theo màn (trước 1.3.1076 rộng ~36–47 pt).
-- Sửa chữ entry 1.3.1076: lưu PN đổi chip / bảng tra ngay, còn **chữ dịch** chỉ đổi ở chỗ có rule `<pn>` khớp (tách từ không tra Pronouns từ 1.3.1016 — luật đó giữ nguyên).
-- Dọn: entry 1.3.1047 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang chưa đo trên máy.

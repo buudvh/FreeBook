@@ -1,30 +1,40 @@
 import Foundation
 
-/// Chủ dữ liệu **danh sách họ** của token `<ho>` (1.3.1062).
+/// Chủ dữ liệu một **danh sách họ** (1.3.1062; hai bản từ L13 — `QuickTranslationSurnameStoreConfiguration`):
+/// - `shared`: danh sách của token `<ho>` (rule dịch nhanh), file gốc `ChineseSurnames.txt`, khoá
+///   `quickTranslateSurnameOverrides` — hành vi như trước L13.
+/// - `nameFilter`: danh sách riêng của Lọc name local, file gốc `NameFilterSurnames.txt`, khoá
+///   `localNameFilterSurnameOverrides`; ghi không dọn cache dịch / không báo rule đổi; lần đầu dùng chép lớp riêng của
+///   `shared` sang một lần (`seedOnce`).
 ///
-/// - **Bản gốc**: `ChineseSurnames.txt` trong bundle (683 khoá), đọc **một lần** mỗi tiến trình, app không bao giờ ghi.
-/// - **Lớp riêng**: `UserDefaults` khoá `quickTranslateSurnameOverrides` = chuỗi JSON của
-///   `QuickTranslationSurnameOverrides` (`entries` / `removed` / `disabled`). Khoá vắng = đúng bản gốc, nên họ mới của bản
-///   app sau tới cả người đã sửa (lớp riêng chỉ ghi phần khác). Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói; không
-///   có thư mục dữ liệu mới.
+/// Mỗi bản:
+/// - **Bản gốc**: file trong bundle, đọc **một lần** mỗi tiến trình (lúc bản store được tạo), app không bao giờ ghi.
+/// - **Lớp riêng**: `UserDefaults` = chuỗi JSON của `QuickTranslationSurnameOverrides` (`entries` / `removed` /
+///   `disabled`). Khoá vắng = đúng bản gốc, nên họ mới của bản app sau tới cả người đã sửa (lớp riêng chỉ ghi phần khác).
+///   Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói; không có thư mục dữ liệu mới.
 /// - **Trộn**: bản gốc → áp `entries` → bỏ `removed` → đánh dấu `disabled`; engine chỉ thấy họ đang bật.
 ///
 /// `lookupTable()` chạy mỗi lượt rewrite (`QuickTranslationDictionaryToken.resolve`) từ nhiều luồng ⇒ cache theo **chuỗi
 /// JSON thô** như `QuickTranslationRuleBracketStore`: bước khôi phục cài đặt của Backup ghi thẳng `UserDefaults`, không
-/// qua store. Mọi lần ghi dọn cache dịch + phát một tín hiệu rule đổi ⇒ sửa danh sách có hiệu lực từ lượt dịch kế tiếp.
+/// qua store. Bản `<ho>`: mọi lần ghi dọn cache dịch + phát một tín hiệu rule đổi ⇒ sửa danh sách có hiệu lực từ lượt dịch
+/// kế tiếp. Bản bộ lọc: có hiệu lực từ lần "Bắt đầu lọc" sau (bộ lọc chụp bảng tra lúc bắt đầu).
 ///
 /// Ranh giới tầng: Service ⇒ không `import SwiftUI`, không `ToastManager`; lỗi trả chuỗi / ném cho View tự báo.
 public final class QuickTranslationSurnameStore {
     public typealias Entry = QuickTranslationSurnameEntry
     typealias Overrides = QuickTranslationSurnameOverrides
     typealias Parser = QuickTranslationSurnameListParser
+    typealias Configuration = QuickTranslationSurnameStoreConfiguration
 
-    public static let shared = QuickTranslationSurnameStore()
+    /// Danh sách họ của token `<ho>` (rule dịch nhanh).
+    public static let shared = QuickTranslationSurnameStore(configuration: .quickTranslation)
+    /// Danh sách họ riêng của Lọc name local (L13) — `LocalNameFilterDictionaries` chỉ đọc bản này.
+    static let nameFilter = QuickTranslationSurnameStore(configuration: .nameFilter)
 
-    /// Chữ thường để `BackupSettingsArchiver` tự sao lưu.
-    public static let userDefaultsKey = "quickTranslateSurnameOverrides"
-    /// Tên file gốc trong bundle (XcodeGen làm phẳng thư mục ⇒ tên phải duy nhất trong cả app).
-    static let bundledResourceName = "ChineseSurnames"
+    /// Khoá lớp riêng của `shared` (giữ tên hằng cũ). Chữ thường để `BackupSettingsArchiver` tự sao lưu.
+    public static let userDefaultsKey = Configuration.quickTranslation.userDefaultsKey
+    /// Tên file gốc của `shared` (giữ tên hằng cũ).
+    static let bundledResourceName = Configuration.quickTranslation.bundledResourceName
 
     /// Kết quả một lượt nhập file — View dựng toast "thêm X, cập nhật Y".
     public struct ImportOutcome: Sendable {
@@ -57,19 +67,24 @@ public final class QuickTranslationSurnameStore {
         let table: [String: String]
     }
 
-    /// Bản gốc — `static let` nên Swift tự khởi tạo lười và an toàn luồng.
-    private static let base: Overrides.Base = loadBase()
+    let configuration: Configuration
+    /// Bản gốc của bản này — đọc trong `init`; hai bản đều là `static let` nên Swift tự khởi tạo lười, một lần, an toàn luồng.
+    private let base: Overrides.Base
 
     private let lock = NSLock()
     private nonisolated(unsafe) var lookupCache: LookupCache?
 
-    private init() {}
+    private init(configuration: Configuration) {
+        self.configuration = configuration
+        self.base = Self.loadBase(configuration)
+        if let seed = configuration.seed { seedOnce(seed) }
+    }
 
     // MARK: - Đọc
 
     /// Danh sách hiệu lực cho màn Danh sách họ: họ tự thêm đứng đầu, rồi họ gốc theo thứ tự file.
     public func entries() -> [Entry] {
-        currentOverrides().merged(with: Self.base)
+        currentOverrides().merged(with: base)
     }
 
     /// Số họ của danh sách hiệu lực và số đang tắt — dòng phụ hàng "Danh sách họ" + tiêu đề section của màn danh sách.
@@ -83,13 +98,13 @@ public final class QuickTranslationSurnameStore {
 
     /// Âm của bản gốc; `nil` = khoá không có trong bản gốc.
     public func bundledReading(for key: String) -> String? {
-        Self.base.readings[key]
+        base.readings[key]
     }
 
-    /// Bảng tra của engine: khoá (1–2 đơn vị UTF-16) → âm, chỉ họ **đang bật**. Rỗng ⇒ rule có `<ho>` báo
+    /// Bảng tra của engine: khoá (1–2 đơn vị UTF-16) → âm, chỉ họ **đang bật**. Bản `<ho>` rỗng ⇒ rule có `<ho>` báo
     /// `DICT_TOKEN_WITHOUT_DICTIONARY` (thiếu file gốc, hoặc người dùng tắt / xoá hết) — đúng hành vi mong muốn.
     public func lookupTable() -> [String: String] {
-        let raw = UserDefaults.standard.string(forKey: Self.userDefaultsKey)
+        let raw = UserDefaults.standard.string(forKey: configuration.userDefaultsKey)
         lock.lock()
         if let cache = lookupCache, cache.raw == raw {
             lock.unlock()
@@ -97,7 +112,7 @@ public final class QuickTranslationSurnameStore {
         }
         lock.unlock()
 
-        let table = Self.decode(raw).lookupTable(with: Self.base)
+        let table = decode(raw).lookupTable(with: base)
         lock.lock()
         lookupCache = LookupCache(raw: raw, table: table)
         lock.unlock()
@@ -109,7 +124,7 @@ public final class QuickTranslationSurnameStore {
     /// Luật khoá + trùng khoá. `originalKey` = khoá đang sửa (giữ nguyên chữ Hán không tính là trùng).
     public func keyError(_ key: String, replacing originalKey: String?) -> String? {
         if let error = Parser.keyError(key) { return error }
-        if key != originalKey, currentOverrides().contains(key, base: Self.base) {
+        if key != originalKey, currentOverrides().contains(key, base: base) {
             return "Họ \(key) đã có trong danh sách."
         }
         return nil
@@ -129,9 +144,9 @@ public final class QuickTranslationSurnameStore {
         if let error = keyError(key, replacing: originalKey) ?? readingError(reading) { return error }
         var overrides = currentOverrides()
         if let originalKey, originalKey != key {
-            overrides.rename(from: originalKey, to: key, reading: reading, base: Self.base)
+            overrides.rename(from: originalKey, to: key, reading: reading, base: base)
         } else {
-            overrides.setReading(reading, for: key, base: Self.base)
+            overrides.setReading(reading, for: key, base: base)
         }
         return write(overrides)
     }
@@ -147,7 +162,7 @@ public final class QuickTranslationSurnameStore {
     @discardableResult
     public func delete(key: String) -> String? {
         var overrides = currentOverrides()
-        overrides.remove(key, base: Self.base)
+        overrides.remove(key, base: base)
         return write(overrides)
     }
 
@@ -155,13 +170,13 @@ public final class QuickTranslationSurnameStore {
     @discardableResult
     public func restoreBundledReading(key: String) -> String? {
         var overrides = currentOverrides()
-        overrides.restoreBundledReading(for: key, base: Self.base)
+        overrides.restoreBundledReading(for: key, base: base)
         return write(overrides)
     }
 
     /// Xoá cả lớp riêng ⇒ về đúng bản gốc.
     public func resetToDefaults() {
-        UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: configuration.userDefaultsKey)
         didChange()
     }
 
@@ -182,9 +197,9 @@ public final class QuickTranslationSurnameStore {
         guard !parsed.lines.isEmpty else { throw ImportError.noValidLine(skipped: parsed.invalidLineCount) }
 
         var overrides = currentOverrides()
-        let counts = overrides.importLines(parsed.lines, mode: mode, base: Self.base)
+        let counts = overrides.importLines(parsed.lines, mode: mode, base: base)
         if let message = write(overrides) {
-            AppLogger.shared.log("❌ [Surname] \(message)")
+            AppLogger.shared.log("❌ \(configuration.logTag) \(message)")
             throw ImportError.unreadable
         }
         return ImportOutcome(added: counts.added, updated: counts.updated,
@@ -199,21 +214,21 @@ public final class QuickTranslationSurnameStore {
     // MARK: - Nội bộ
 
     private func currentOverrides() -> Overrides {
-        Self.decode(UserDefaults.standard.string(forKey: Self.userDefaultsKey))
+        decode(UserDefaults.standard.string(forKey: configuration.userDefaultsKey))
     }
 
     /// Lớp riêng rỗng ⇒ xoá khoá (giữ "vắng = bản gốc"). `nil` = đã ghi; chuỗi = lỗi.
     private func write(_ overrides: Overrides) -> String? {
         if overrides.isEmpty {
-            UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: configuration.userDefaultsKey)
         } else {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
             guard let data = try? encoder.encode(overrides), let raw = String(data: data, encoding: .utf8) else {
-                AppLogger.shared.log("❌ [Surname] Không mã hoá được danh sách họ riêng")
+                AppLogger.shared.log("❌ \(configuration.logTag) Không mã hoá được danh sách họ riêng")
                 return "Không lưu được danh sách họ."
             }
-            UserDefaults.standard.set(raw, forKey: Self.userDefaultsKey)
+            UserDefaults.standard.set(raw, forKey: configuration.userDefaultsKey)
         }
         didChange()
         return nil
@@ -223,29 +238,56 @@ public final class QuickTranslationSurnameStore {
         lock.lock()
         lookupCache = nil
         lock.unlock()
+        guard configuration.affectsTranslation else { return }
         TranslateUtils.clearCache()
         TranslationManager.shared.notifyRulesDidUpdate()
     }
 
-    /// Khoá vắng hoặc JSON hỏng ⇒ lớp rỗng (= bản gốc): dữ liệu hỏng không được làm `<ho>` ngừng chạy.
-    private static func decode(_ raw: String?) -> Overrides {
+    /// Chép một lần lớp riêng của danh sách nguồn (bản bộ lọc: lớp riêng của `<ho>` — anh Bửu chọn "chép họ đã sửa").
+    ///
+    /// Chạy trong `init` = lần đầu bản này được chạm tới (mở màn Họ, hoặc lượt lọc đầu chụp bảng tra từ task nền). Chọn chỗ
+    /// này thay cho bootstrap lúc mở app vì đơn giản nhất: `static let` đã bảo đảm chạy đúng một lần, an toàn luồng, trước
+    /// mọi lượt đọc — không cần khoá / cờ trong RAM, không đụng `FreeBookApp` / `MainTabView`. Đổi lại, thứ được chép là lớp
+    /// riêng của `<ho>` ở lần đầu dùng bộ lọc sau bản này chứ không phải lúc cài bản này (khác nhau chỉ khi anh sửa Danh
+    /// sách họ cũ trong khoảng đó; khôi phục Backup cũ trước lần dùng đầu cũng được chép theo).
+    ///
+    /// - Cờ `markerKey` đặt **cả khi không có gì để chép**: "Khôi phục mặc định" sau này xoá khoá lớp riêng, lần chạy sau
+    ///   không được chép lại.
+    /// - Lớp riêng của danh sách này đã có (khôi phục từ Backup…) ⇒ không đè.
+    /// - Áp lại lên bản gốc mới (`rebased`): họ đã tự thêm trùng âm với họ mới của bản gốc (洛=Lạc, 玉=Ngọc) không còn là
+    ///   phần khác bản gốc.
+    private func seedOnce(_ seed: Configuration.Seed) {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: seed.markerKey) else { return }
+        defaults.set(true, forKey: seed.markerKey)
+        guard defaults.object(forKey: configuration.userDefaultsKey) == nil,
+              let raw = defaults.string(forKey: seed.sourceKey) else { return }
+        let copied = decode(raw).rebased(onto: base)
+        guard !copied.isEmpty, write(copied) == nil else { return }
+        AppLogger.shared.log("📋 \(configuration.logTag) Đã chép lớp riêng của danh sách họ <ho>: "
+            + "\(copied.entries.count) thêm / sửa, \(copied.removed.count) xoá, \(copied.disabled.count) tắt")
+    }
+
+    /// Khoá vắng hoặc JSON hỏng ⇒ lớp rỗng (= bản gốc): dữ liệu hỏng không được làm danh sách ngừng chạy.
+    private func decode(_ raw: String?) -> Overrides {
         guard let raw, let data = raw.data(using: .utf8) else { return .empty }
         guard let decoded = try? JSONDecoder().decode(Overrides.self, from: data) else {
-            AppLogger.shared.log("❌ [Surname] Lớp riêng danh sách họ hỏng, tạm dùng bản gốc")
+            AppLogger.shared.log("❌ \(configuration.logTag) Lớp riêng danh sách họ hỏng, tạm dùng bản gốc")
             return .empty
         }
         return decoded
     }
 
-    private static func loadBase() -> Overrides.Base {
-        guard let url = Bundle.main.url(forResource: bundledResourceName, withExtension: "txt"),
+    private static func loadBase(_ configuration: Configuration) -> Overrides.Base {
+        let name = configuration.bundledResourceName
+        guard let url = Bundle.main.url(forResource: name, withExtension: "txt"),
               let text = try? String(contentsOf: url, encoding: .utf8) else {
-            AppLogger.shared.log("❌ [Surname] Không đọc được \(bundledResourceName).txt trong bundle — <ho> chỉ còn họ tự thêm")
+            AppLogger.shared.log("❌ \(configuration.logTag) Không đọc được \(name).txt trong bundle — chỉ còn họ tự thêm")
             return Overrides.Base(lines: [])
         }
         let parsed = Parser.parse(text)
         if parsed.invalidLineCount > 0 {
-            AppLogger.shared.log("❌ [Surname] \(bundledResourceName).txt có \(parsed.invalidLineCount) dòng sai, đã bỏ qua")
+            AppLogger.shared.log("❌ \(configuration.logTag) \(name).txt có \(parsed.invalidLineCount) dòng sai, đã bỏ qua")
         }
         return Overrides.Base(lines: parsed.lines)
     }

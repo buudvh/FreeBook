@@ -9,7 +9,7 @@ import Foundation
 /// - `status` (`Dicts.status`): có trong bất kỳ lớp Name nào (riêng / Chung / gốc trừ `deletedNames`) ⇒ `known`; không thì
 ///   nghĩa VP hiệu lực theo thứ tự riêng > Chung đã sửa > gốc, nghĩa đầu (`TranslateUtils.getFirstMeaning`) viết hoa chữ
 ///   đầu ⇒ `known`, còn lại ⇒ `common`; không có ⇒ `nil`.
-/// - Phiên âm (`phienAmMap`), họ đang bật (`QuickTranslationSurnameStore`, bỏ họ chứa hư từ như Python). **Không** chụp
+/// - Phiên âm (`phienAmMap`), họ đang bật của **danh sách họ riêng** của bộ lọc (`QuickTranslationSurnameStore.nameFilter`, bỏ họ chứa hư từ như Python). **Không** chụp
 ///   Pronouns (plan 2026-11-27-phan-loai-name L11, anh Bửu duyệt): danh xưng của bộ lọc lấy từ hậu tố Nhân danh của danh
 ///   sách hậu tố (`LocalNameFilterSetup`) — Pronouns là từ điển của bộ dịch, cắt cho vừa bộ lọc là hỏng bản dịch.
 /// - Nghĩa thô cho nghĩa đề xuất (`dictionaryValue`, 2026-11-27): Name (riêng > Chung > gốc trừ đã xoá) rồi VP hiệu lực —
@@ -80,7 +80,7 @@ final class LocalNameFilterDictionaries {
             baseNames: manager.namesDict?.frozen(),
             deletedNames: manager.deletedNames,
             phienAmMap: manager.phienAmMap,
-            surnames: surnameTable(QuickTranslationSurnameStore.shared.lookupTable())
+            surnames: surnameTable(QuickTranslationSurnameStore.nameFilter.lookupTable())
         )
     }
 

@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1077] - 2026-11-27
+
+### fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt
+
+Rà lại 1.3.1076 (chưa thử máy): nút loại / phạm vi đặt `minWidth: 30` + `maxWidth: .infinity` trong khi cụm aa…AA cũng giãn vô hạn ⇒ hai cụm hoà về độ co giãn, `HStack` có thể chia đôi cho cụm aa…AA trước ⇒ cụm NE | VP | PN · R | C thiếu ~11 pt ở panel 329 pt (máy 375 pt) và hàng tràn; đặt trần hữu hạn thì `HStack` bên trong lại chia cho cụm R | C trước ⇒ R / C rộng hơn NE / VP / PN.
+
+- `ReaderDefinitionOverlayView+Rows.dictSegmentButton`: `.frame(width: segmentButtonWidth)` = 30 pt cố định — đúng mockup khung 1 anh Bửu chọn ("nút loại còn khoảng 30 pt"). Cụm nút cứng ⇒ đặt trước, cụm aa…AA nhận phần còn lại (~27 pt / nút ở 329 pt, giãn trên máy rộng). Trên máy rộng hơn 375 pt, NE / VP / R / C không còn giãn theo màn (trước 1.3.1076 rộng ~36–47 pt).
+- Sửa chữ entry 1.3.1076: lưu PN đổi chip / bảng tra ngay, còn **chữ dịch** chỉ đổi ở chỗ có rule `<pn>` khớp (tách từ không tra Pronouns từ 1.3.1016 — luật đó giữ nguyên).
+- Dọn: entry 1.3.1047 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang chưa đo trên máy.
+
 ## [1.3.1076] - 2026-11-27
 
 ### feat: panel Dịch lưu được vào Pronoun bằng nút PN cạnh NE và VP
