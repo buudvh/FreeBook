@@ -35,7 +35,7 @@ enum LACModelDownloader {
         for (name, entry) in pending {
             try Task.checkCancellation()
             let base = completed
-            try await transfer(session: session, name: name, entry: entry, to: store.url(for: name)) { written in
+            try await transfer(session: session, name: name, entry: entry, into: store) { written in
                 guard total > 0 else { return }
                 progress(min(1, Double(base + min(written, entry.bytes)) / Double(total)))
             }
@@ -45,6 +45,7 @@ enum LACModelDownloader {
 
         try Task.checkCancellation()
         do {
+            try store.validatePathSafety(for: store.manifestURL)
             try manifestData.write(to: store.manifestURL, options: .atomic)
         } catch {
             throw LACModelError.downloadFailed("không ghi được manifest (\(error.localizedDescription))")
@@ -74,9 +75,10 @@ enum LACModelDownloader {
         session: URLSession,
         name: String,
         entry: LACManifest.FileEntry,
-        to destination: URL,
+        into store: LACModelStore,
         progress: @escaping @Sendable (Int64) -> Void
     ) async throws {
+        let destination = store.url(for: name)
         guard let url = LACModelMirror.url(for: name) else { throw LACModelError.downloadFailed("URL hỏng: \(name)") }
         // Giữ mạnh tới hết lời gọi: `download(for:delegate:)` chỉ giữ delegate yếu.
         let observer = ProgressObserver(expectedBytes: entry.bytes, report: progress)
@@ -104,6 +106,7 @@ enum LACModelDownloader {
         guard digest == entry.sha256 else { throw LACModelError.downloadFailed("\(name) sai sha256") }
         try Task.checkCancellation()
         do {
+            try store.validatePathSafety(for: destination)
             if fileManager.fileExists(atPath: destination.path) {
                 try fileManager.removeItem(at: destination)
             }

@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1054] - 2026-11-24
+
+### feat: Kệ Sách — nút "Đọc tiếp" ở đầu sheet tuỳ chọn truyện (nhãn theo loại, dòng phụ chương đang đọc)
+
+Anh Bửu: thêm nút "Đọc tiếp" vào đầu menu của mỗi truyện ở Kệ Sách → duyệt mockup https://claude.ai/artifact/KGiBWCBGdKdrc5z7MJ8rWg với các phương án mặc định.
+
+- **Menu là sheet ⋮**: Kệ không có context menu hệ thống (nhấn giữ ở Kệ / Lịch Sử là chọn nhiều, 1.3.1039); menu của một truyện là `BookActionSheet`. Dải mới là **section riêng ngay dưới phần đầu** (phương án A), trên Bộ sưu tập; hiện ở cả bốn nơi mở sheet (Kệ, Lịch Sử, Bộ sưu tập, Tìm trên kệ) và mọi kiểu hiển thị.
+- **Nhãn** (`BookContinueReadingStrip`, mới): Đọc (chữ, truyện tranh) / Xem (phim) / Nghe (âm thanh) + "tiếp"; vị trí đang lưu ở đầu chương / tập / bài đầu tiên ⇒ "… ngay" như nút đọc của Chi tiết. Xét theo vị trí, không theo `isHistory` (tiện ích tắt Lưu lịch sử, truyện thêm kệ từ Chi tiết không bật cờ đó). Icon: chữ / truyện tranh `book.fill` ("tiếp") hoặc `play.fill` ("ngay") như Chi tiết, phim `play.fill`, âm thanh `headphones`.
+- **Dòng phụ**: "Ch. N · tên chương đã lưu" (dịch như tên chương "Đang đọc") / "Tập N · m:ss" / "Bài N · m:ss"; không có phần trăm vì `Book` không lưu tổng số chương lẫn số đoạn. `BookActionStrip` thêm `subtitle` tuỳ chọn (hai dòng, tên đậm hơn); dải "Đổi nguồn" / "Chuyển sang nguồn …" không đổi.
+- **Mở y như chạm thẻ**: `ShelfReaderRoute(resuming:)` (mới, `ShelfReaderRoute+Resume.swift`) dùng chung cho chạm thẻ ở Kệ / Lịch Sử / Bộ sưu tập / Tìm trên kệ và nút mới ⇒ `BookContentDestination` chọn Reader / truyện tranh / màn xem / màn nghe. Lịch Sử vẫn không `markSeen` (`ShelfView.handleBookAction` nhận thêm `mode` của sheet). Route xếp hàng ở `queuedReaderRoute`, mở trong `onDismiss` của sheet như `queuedBrowserBook` (cover bật lên lúc sheet còn trượt xuống thì không hiện).
+- `BookSheetAction.continueReading`; ba `switch` (Kệ, Bộ sưu tập, Tìm trên kệ) thêm nhánh. Ghi chú vào `ui-conventions.md`.
+- Trường hợp biên giống chạm thẻ: truyện đang tải, truyện mất nguồn (dải "Chuyển sang nguồn …" vẫn ở phần Thao tác), TTS đang đọc truyện khác. TTS đang đọc chính truyện này: dòng phụ có thể chậm một nhịp (tiến độ ghi trễ), mở như chạm thẻ; chưa xác minh Reader có tự theo chương TTS khi lệch.
+- `CHANGELOG.md` dời 1.3.1024 sang `CHANGELOG.archive.md` (giữ 30 entry).
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1053] - 2026-11-24
 
 ### fix: mục lục sheet nghe mini — hết đơ khi truyện nhiều chương (List thay LazyVStack, thôi observe TTSManager)

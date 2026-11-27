@@ -13,6 +13,8 @@ import Foundation
 /// rác. File tải về nằm ở thư mục tạm của hệ thống tới khi kiểm sha256 xong mới chuyển vào.
 struct LACModelStore: Sendable {
     let directory: URL
+    /// `Application Support/translate/` — thư mục cha, dùng để kiểm lệnh xoá cả thư mục model.
+    private let translateRoot: URL
 
     init(fileManager: FileManager = .default) throws {
         let support = try fileManager.url(
@@ -21,9 +23,8 @@ struct LACModelStore: Sendable {
             appropriateFor: nil,
             create: true
         )
-        directory = support
-            .appendingPathComponent("translate", isDirectory: true)
-            .appendingPathComponent("LAC", isDirectory: true)
+        translateRoot = support.appendingPathComponent("translate", isDirectory: true)
+        directory = translateRoot.appendingPathComponent("LAC", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
@@ -62,6 +63,7 @@ struct LACModelStore: Sendable {
     func removeAll() {
         let fileManager = FileManager.default
         do {
+            try Self.validatePath(directory, inside: translateRoot)
             if fileManager.fileExists(atPath: directory.path) {
                 try fileManager.removeItem(at: directory)
             }
@@ -85,6 +87,30 @@ struct LACModelStore: Sendable {
             }
             guard digest == entry.sha256 else { throw LACModelError.invalidFiles("\(name) sai sha256") }
         }
+    }
+
+    /// Luật `validatePathSafety(for:)` của `rules.md`: mọi lệnh ghi / chuyển / xoá file model phải trỏ vào trong
+    /// `translate/LAC/` (đã giải symlink). Ném `invalidFiles`.
+    func validatePathSafety(for targetURL: URL) throws {
+        try Self.validatePath(targetURL, inside: directory)
+    }
+
+    private static func validatePath(_ targetURL: URL, inside root: URL) throws {
+        guard canonicalComponents(targetURL).starts(with: canonicalComponents(root)) else {
+            throw LACModelError.invalidFiles("đường dẫn ngoài thư mục model: \(targetURL.lastPathComponent)")
+        }
+    }
+
+    /// Chỉ giải symlink phần **đã có** trên đĩa: `resolvingSymlinksInPath` bỏ tiền tố `/private` (`/var` → `/private/var`)
+    /// cho đường dẫn tồn tại nhưng có thể giữ nó cho file chưa có ⇒ so lệch dù cùng thư mục. File chưa có (manifest sắp
+    /// ghi, đích sắp chuyển vào) ⇒ giải thư mục cha (luôn có) rồi ghép tên.
+    private static func canonicalComponents(_ url: URL) -> [String] {
+        let standardized = url.standardizedFileURL
+        if FileManager.default.fileExists(atPath: standardized.path) {
+            return standardized.resolvingSymlinksInPath().pathComponents
+        }
+        return standardized.deletingLastPathComponent().resolvingSymlinksInPath().pathComponents
+            + [standardized.lastPathComponent]
     }
 
     // MARK: - Tiện ích file
