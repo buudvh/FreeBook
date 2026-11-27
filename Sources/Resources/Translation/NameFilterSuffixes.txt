@@ -1,0 +1,79 @@
+# Danh sách gốc "Đuôi địa danh & tông môn" của Lọc name local (đọc trong LocalNameFilterSuffixStore).
+# Mỗi dòng: chữ Hán=nghĩa|loại|vị trí, thêm |off ở cuối nếu đuôi tắt sẵn. Dòng trống và dòng bắt đầu bằng # bị bỏ qua.
+#   - chữ Hán: 1 hoặc 2 chữ Hán.
+#   - nghĩa: ghép vào nghĩa name, giữ nguyên chữ; không có dấu = hay | (làm vỡ dạng dòng).
+#   - loại: place = Địa danh, sect = Tông môn.
+#   - vị trí: after = nghĩa đứng sau phần tên riêng (落霞镇 → Lạc Hà trấn), before = đứng trước (市 sửa nghĩa thành
+#     "thành phố" và đặt trước ⇒ 江海市 → thành phố Giang Hải).
+# App chỉ đọc file này. Đuôi người dùng thêm / sửa / xoá / tắt lưu riêng ở khoá cài đặt localNameFilterSuffixOverrides,
+# không ghi lại file.
+#
+# Nghĩa gốc là âm Hán-Việt viết thường, đặt sau tên. 路 区 观 团 tắt sẵn: trên 5 truyện thử chỉ ra rác (兵分四路, 待战区).
+# Số đuôi: 63 = 40 địa danh (2 tắt) + 23 tông môn (2 tắt).
+
+# Địa danh
+大陆=đại lục|place|after
+山脉=sơn mạch|place|after
+帝国=đế quốc|place|after
+王朝=vương triều|place|after
+王国=vương quốc|place|after
+森林=sâm lâm|place|after
+峡谷=hiệp cốc|place|after
+山谷=sơn cốc|place|after
+县城=huyện thành|place|after
+城=thành|place|after
+镇=trấn|place|after
+村=thôn|place|after
+山=sơn|place|after
+峰=phong|place|after
+谷=cốc|place|after
+岛=đảo|place|after
+州=châu|place|after
+国=quốc|place|after
+域=vực|place|after
+界=giới|place|after
+湖=hồ|place|after
+河=hà|place|after
+江=giang|place|after
+海=hải|place|after
+原=nguyên|place|after
+岭=lĩnh|place|after
+崖=nhai|place|after
+渊=uyên|place|after
+县=huyện|place|after
+府=phủ|place|after
+巷=hạng|place|after
+街=nhai|place|after
+胡同=hồ đồng|place|after
+市=thị|place|after
+省=tỉnh|place|after
+乡=hương|place|after
+寨=trại|place|after
+关=quan|place|after
+路=lộ|place|after|off
+区=khu|place|after|off
+
+# Tông môn
+学院=học viện|sect|after
+宗门=tông môn|sect|after
+联盟=liên minh|sect|after
+商会=thương hội|sect|after
+家族=gia tộc|sect|after
+宗=tông|sect|after
+门=môn|sect|after
+派=phái|sect|after
+阁=các|sect|after
+殿=điện|sect|after
+宫=cung|sect|after
+帮=bang|sect|after
+盟=minh|sect|after
+堂=đường|sect|after
+寺=tự|sect|after
+楼=lâu|sect|after
+庄=trang|sect|after
+坊=phường|sect|after
+院=viện|sect|after
+教=giáo|sect|after
+军=quân|sect|after
+观=quán|sect|after|off
+团=đoàn|sect|after|off

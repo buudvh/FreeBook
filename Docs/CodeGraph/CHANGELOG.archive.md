@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1038] - 2026-11-20
+
+### fix: vtts — phiên âm tiếng Nhật đọc được tên viết hoa, thêm "vtts tự đọc nhanh tối đa" để chỉnh độ rõ lời
+
+Anh Bửu thử 1.3.1036: hết tiếng "vụt" nhưng "âm điệu nghe khác ver trước", "nghe không được rõ lời lắm" (hai file tự đọc nhanh thường / bản 4 "nghe như nhau" ⇒ do tự đọc nhanh, không do bản 4); "tôi bật phiên âm tiếng nhật nhưng không thấy hoạt động". Log máy: `speed=1.80`, `NghiHandoff delayMs` 12–39 ms (đổi file không gây hở tiếng). Anh duyệt plan + mockup.
+
+- **Phiên âm tiếng Nhật**: `TTSJapaneseTextTransliterator` (dùng chung Siri / Google / tiện ích / vtts) chỉ đổi từ `ForeignScriptClassifier` chấm ≥ 4 điểm hoặc có trong `JapaneseLoanwordList` ⇒ "Konoha", "Naruto", "Sasuke" (1 điểm) không bao giờ đổi, vtts đọc tiếng Anh. `spokenForm` nhận thêm luật tên viết hoa của VieNeu (`VieNeuJapaneseNameReader.reads`). Không hạ ngưỡng bộ chấm điểm. vtts đọc kết quả ("Kô nô ha", "Na ru tô") bằng tiếng Việt — đã đối chiếu `word_tag` / `parse_syl` của runtime. Log `🗣️ [Vtts] Đoạn` thêm `jp=off` / `jp=on(N: Konoha→Kô nô ha, …)` (tối đa 2 cặp, `applyReportingChanges`).
+- **"vtts tự đọc nhanh tối đa"** (mockup https://claude.ai/artifact/XPxHGwcaoi3ZF9GsC2apAM): `VttsNativeSpeedRow` (mới, `Views/Settings/TTS/`) ngay dưới thanh Tốc độ ở Cài đặt TTS và màn Giọng dự phòng khi chọn vtts, 1,0–2,0 bước 0,1, khoá `vttsNativeSpeedMax` (`@AppStorage`), mặc định 1,4 (ước lượng), dòng số "vtts đọc X · trình phát kéo thêm Y", giải thích sau nút "?" của "Cấu hình giọng nói", "Đặt lại" về mặc định. Thanh Tốc độ giữ nghĩa tốc độ nghe: `TTSManager.vttsNativeSpeed(forListeningSpeed:)` = min(tốc độ, tối đa) kẹp 1,0–2,0; `localPlaybackRate` / `remotePlaybackRate` kéo phần còn lại. Giá trị nằm trong `TTSSettingsSnapshot` (`vttsNativeSpeedMax`) và fingerprint giọng dự phòng ⇒ đóng Cài đặt là dựng lại đoạn như đổi tốc độ.
+- Dọn: entry 1.3.1008 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi luật tên viết hoa + hàng mới. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1037] - 2026-11-20
 
 ### fix: Danh sách VietPhrase.dat / Names.dat (thẻ › Sửa) mở và tìm chậm — chỉ mục dựng một lần, trang đầu hiện ngay, tìm trên byte, kết quả hiện dần

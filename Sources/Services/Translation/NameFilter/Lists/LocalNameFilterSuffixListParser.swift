@@ -1,0 +1,101 @@
+import Foundation
+
+/// Dạng chữ của danh sách "Đuôi địa danh & tông môn" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`, thêm `|off`
+/// ở cuối nếu đuôi tắt sẵn; `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind` (`place` / `sect`) và
+/// `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng `#` bỏ qua.
+///
+/// **Một** chỗ giữ luật khoá / nghĩa cho cả file gốc `NameFilterSuffixes.txt` lẫn sheet sửa (`keyError` /
+/// `meaningError`) — sai ở đường nào cũng bị chặn như nhau. `isHanText` dùng chung cho danh sách "Không phải name".
+enum LocalNameFilterSuffixListParser {
+    typealias Value = LocalNameFilterSuffixEntry.Value
+
+    struct Line: Equatable, Sendable {
+        let key: String
+        let value: Value
+        /// `false` = dòng có `|off`: đuôi có trong danh sách nhưng tắt sẵn.
+        let isEnabled: Bool
+    }
+
+    struct Result: Sendable {
+        /// Theo thứ tự trong file. Khoá lặp lại ⇒ giữ chỗ của lần đầu, nội dung lấy của dòng sau cùng.
+        var lines: [Line] = []
+        /// Dòng không phải ghi chú / dòng trống mà sai dạng hoặc sai luật.
+        var invalidLineCount = 0
+    }
+
+    /// Bộ lọc tách ứng viên theo đơn vị code point, đuôi dài tối đa 2 chữ.
+    static let maxKeyLength = 2
+    static let disabledMarker = "off"
+
+    static func parse(_ text: String) -> Result {
+        var result = Result()
+        var indexByKey: [String: Int] = [:]
+        let body = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+        // `\r\n` tách thành một dòng thật + một dòng rỗng — dòng rỗng bị bỏ qua như dòng trống.
+        for rawLine in body.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") { continue }
+            guard let parsed = parseLine(line) else {
+                result.invalidLineCount += 1
+                continue
+            }
+            if let index = indexByKey[parsed.key] {
+                result.lines[index] = parsed
+            } else {
+                indexByKey[parsed.key] = result.lines.count
+                result.lines.append(parsed)
+            }
+        }
+        return result
+    }
+
+    private static func parseLine(_ line: String) -> Line? {
+        guard let separator = line.firstIndex(of: "=") else { return nil }
+        let key = line[..<separator].trimmingCharacters(in: .whitespaces)
+        let fields = line[line.index(after: separator)...]
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard fields.count == 3 || fields.count == 4,
+              let kind = LocalNameFilter.SuffixKind(rawValue: fields[1]),
+              let position = LocalNameFilter.MeaningPosition(rawValue: fields[2]) else {
+            return nil
+        }
+        var isEnabled = true
+        if fields.count == 4 {
+            guard fields[3] == disabledMarker else { return nil }
+            isEnabled = false
+        }
+        let meaning = fields[0]
+        guard keyError(key) == nil, meaningError(meaning) == nil else { return nil }
+        return Line(key: key, value: Value(meaning: meaning, kind: kind, position: position), isEnabled: isEnabled)
+    }
+
+    /// Luật khoá: 1 hoặc 2 chữ Hán. `nil` = hợp lệ.
+    static func keyError(_ key: String) -> String? {
+        if key.isEmpty { return "Chưa nhập đuôi." }
+        guard key.unicodeScalars.count <= maxKeyLength, isHanText(key) else {
+            return "Đuôi phải là 1 hoặc 2 chữ Hán."
+        }
+        return nil
+    }
+
+    /// Luật nghĩa: không rỗng, không có `=`, `|` hay xuống dòng (làm vỡ dạng dòng của file). `nil` = hợp lệ.
+    static func meaningError(_ meaning: String) -> String? {
+        if meaning.isEmpty { return "Chưa nhập nghĩa." }
+        if meaning.contains("=") || meaning.contains("|") || meaning.contains(where: \.isNewline) {
+            return "Nghĩa không được có dấu =, | hay xuống dòng."
+        }
+        return nil
+    }
+
+    /// Chuỗi khác rỗng, mọi ký tự là chữ Hán — cùng dải với bộ lọc (`U+3400–4DBF`, `U+4E00–9FFF`, `U+F900–FAFF`) cộng
+    /// khối mở rộng B (`U+20000–2A6DF`) như `VietPhraseTokenizer.isChineseCharacter`.
+    static func isHanText(_ text: String) -> Bool {
+        !text.isEmpty && text.unicodeScalars.allSatisfy { scalar in
+            switch scalar.value {
+            case 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0x20000...0x2A6DF: return true
+            default: return false
+            }
+        }
+    }
+}

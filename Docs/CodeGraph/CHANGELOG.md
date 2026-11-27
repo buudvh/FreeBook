@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1068] - 2026-11-27
+
+### feat: danh sách đuôi địa danh & tông môn và danh sách "Không phải name" cho lọc name local
+
+Phần B của "Lọc name local" (plan 2026-11-27 anh Bửu duyệt; mockup khung 5, 5b, 6). Phần A (bộ lọc) và phần C (sheet Reader, màn duyệt) làm song song — commit này chỉ có store + hai màn quản lý, **chưa nối** vào Reader.
+
+- **Đuôi địa danh & tông môn**: file gốc `Sources/Resources/Translation/NameFilterSuffixes.txt` (app chỉ đọc; dòng `chữ Hán=nghĩa|place/sect|after/before[|off]`; 63 đuôi = 40 địa danh + 23 tông môn, nghĩa Hán-Việt viết thường đặt **sau** tên; 路 区 观 团 tắt sẵn) + lớp riêng `UserDefaults` `localNameFilterSuffixOverrides` (JSON `LocalNameFilterSuffixOverrides`: `entries` đuôi tự thêm / đuôi gốc đã sửa nghĩa · loại · vị trí, `removed`, `enabled` chỉ ghi bật / tắt khác mặc định). `LocalNameFilterSuffixStore`: `enabledSuffixes()` / `enabledCount` cho sheet lọc, thêm / sửa (đổi chữ Hán giữ bật tắt) / bật tắt / xoá / về bản gốc / khôi phục mặc định; luật khoá 1–2 chữ Hán + nghĩa không rỗng, không `=` `|` xuống dòng ở `LocalNameFilterSuffixListParser`. Không dọn cache dịch (đuôi không vào bộ dịch).
+- **Không phải name**: `LocalNameFilterBlocklistStore`, `UserDefaults` `localNameFilterBlockedTerms` (JSON `[{term, addedAt}]`), khớp nguyên cụm, trần 5.000 cụm / 20 chữ Hán; `terms()` / `count` / `add(_:)` (trả `nil` khi cụm có trong danh sách sau lệnh — kể cả trùng; chuỗi lỗi khi không thêm) / `remove` / `removeAll`.
+- **Màn** (`Views/Reader/NameFilter/Lists/`, `init()` không tham số, `.backPageTitle` — đẩy vào `NavigationStack` của sheet Lọc name local): `LocalNameFilterSuffixListView` (tìm chữ Hán / nghĩa, tab Tất cả / Địa danh / Tông môn, "N đuôi · M đang tắt", hàng "nghĩa · loại · trước tên|sau tên" + tự thêm / đã sửa / đang tắt, ⏸/▶ 🗑, `+` nổi, … "Khôi phục mặc định" hỏi lại) + `LocalNameFilterSuffixEditorSheet` (Chữ Hán, Nghĩa kèm "gốc: …", Loại, Nghĩa đứng Trước tên / Sau tên — mới mặc định Sau tên, dòng "Ví dụ: 江海市 → …" đổi theo, "Về bản gốc"); `LocalNameFilterBlocklistView` (tìm chữ Hán / âm Hán-Việt, "N cụm", hàng "âm Hán-Việt · thêm dd/MM", 🗑, `+` nổi mở sheet một ô, … "Xoá hết" hỏi lại).
+- Khoá chữ thường ⇒ Backup tự gói. `translation.md` ghi lại; entry 1.3.1038 chuyển sang `CHANGELOG.archive.md`.
+- Biên dịch cần `Sources/Services/Translation/NameFilter/LocalNameFilter.swift` (hợp đồng chung, phần A commit).
+- **Kiểm**: đọc code + `check_architecture.py` (vẫn chỉ violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1067] - 2026-11-26
 
 ### feat: sửa mục Pronouns dùng màn Sửa từ như VietPhrase
@@ -375,13 +388,3 @@ Anh Bửu: thêm nút ba chấm dọc trên mỗi sách ở Kệ mở menu của
 - Thêm xong (playlist / bộ sưu tập) ⇒ thoát chế độ chọn khi sheet đóng hẳn; vuốt đóng mà chưa thêm ⇒ giữ lựa chọn.
 - Bộ sưu tập và Tìm trên kệ giữ nguyên (nhấn giữ vẫn mở sheet, không ⋮). Cụm nút phải header Kệ tách ra `headerTrailingButtons` (ngân sách type-check của `body`).
 - `.claude/rules/ui-conventions.md` thêm luật. CHANGELOG: chuyển bản 1.3.1009 sang archive. Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **chưa build tại chỗ (Windows), chưa thử máy**.
-
-## [1.3.1038] - 2026-11-20
-
-### fix: vtts — phiên âm tiếng Nhật đọc được tên viết hoa, thêm "vtts tự đọc nhanh tối đa" để chỉnh độ rõ lời
-
-Anh Bửu thử 1.3.1036: hết tiếng "vụt" nhưng "âm điệu nghe khác ver trước", "nghe không được rõ lời lắm" (hai file tự đọc nhanh thường / bản 4 "nghe như nhau" ⇒ do tự đọc nhanh, không do bản 4); "tôi bật phiên âm tiếng nhật nhưng không thấy hoạt động". Log máy: `speed=1.80`, `NghiHandoff delayMs` 12–39 ms (đổi file không gây hở tiếng). Anh duyệt plan + mockup.
-
-- **Phiên âm tiếng Nhật**: `TTSJapaneseTextTransliterator` (dùng chung Siri / Google / tiện ích / vtts) chỉ đổi từ `ForeignScriptClassifier` chấm ≥ 4 điểm hoặc có trong `JapaneseLoanwordList` ⇒ "Konoha", "Naruto", "Sasuke" (1 điểm) không bao giờ đổi, vtts đọc tiếng Anh. `spokenForm` nhận thêm luật tên viết hoa của VieNeu (`VieNeuJapaneseNameReader.reads`). Không hạ ngưỡng bộ chấm điểm. vtts đọc kết quả ("Kô nô ha", "Na ru tô") bằng tiếng Việt — đã đối chiếu `word_tag` / `parse_syl` của runtime. Log `🗣️ [Vtts] Đoạn` thêm `jp=off` / `jp=on(N: Konoha→Kô nô ha, …)` (tối đa 2 cặp, `applyReportingChanges`).
-- **"vtts tự đọc nhanh tối đa"** (mockup https://claude.ai/artifact/XPxHGwcaoi3ZF9GsC2apAM): `VttsNativeSpeedRow` (mới, `Views/Settings/TTS/`) ngay dưới thanh Tốc độ ở Cài đặt TTS và màn Giọng dự phòng khi chọn vtts, 1,0–2,0 bước 0,1, khoá `vttsNativeSpeedMax` (`@AppStorage`), mặc định 1,4 (ước lượng), dòng số "vtts đọc X · trình phát kéo thêm Y", giải thích sau nút "?" của "Cấu hình giọng nói", "Đặt lại" về mặc định. Thanh Tốc độ giữ nghĩa tốc độ nghe: `TTSManager.vttsNativeSpeed(forListeningSpeed:)` = min(tốc độ, tối đa) kẹp 1,0–2,0; `localPlaybackRate` / `remotePlaybackRate` kéo phần còn lại. Giá trị nằm trong `TTSSettingsSnapshot` (`vttsNativeSpeedMax`) và fingerprint giọng dự phòng ⇒ đóng Cài đặt là dựng lại đoạn như đổi tốc độ.
-- Dọn: entry 1.3.1008 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` ghi luật tên viết hoa + hàng mới. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
