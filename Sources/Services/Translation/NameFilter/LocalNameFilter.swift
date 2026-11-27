@@ -1,7 +1,9 @@
 import Foundation
 
-/// Kiểu dữ liệu dùng chung của **bộ lọc name local**: tự dò tên người / địa danh / tông môn trong chữ Hán của các chương
-/// đã tải, ngay trên máy, không gọi AI (mở từ menu "…" của Reader).
+/// Kiểu dữ liệu dùng chung của **bộ lọc name local**: tự dò tên người / địa danh / tổ chức / thuật ngữ trong chữ Hán của
+/// các chương đã tải, ngay trên máy, không gọi AI (mở từ menu "…" của Reader). Từ bản LAC (plan
+/// `Docs/Plans/2026-11-27-loc-name-lac.md`): ứng viên lấy từ model nhận diện thực thể LAC (`NER/`, tải về lần đầu dùng)
+/// ghép với bộ luật đuôi / danh xưng / "Không phải name".
 ///
 /// Đây là hợp đồng giữa ba phần, mỗi phần chỉ dựa vào các kiểu ở đây:
 /// - bộ lọc: `LocalNameFilterEngine` (luật, hai lượt quét) + `LocalNameFilterRun` (đọc chương, cập nhật dần, sự kiện);
@@ -18,21 +20,56 @@ public enum LocalNameFilter {
         case sect
         /// Họ + 家 / 氏 / 族 (秦家 → "Tần gia").
         case family
+        /// Thuật ngữ: công pháp, đan dược, pháp bảo… (五气丹, 三元真诀) — LAC gắn `nz` / `nw`, hoặc có đuôi loại `term`.
+        case term
 
-        /// Nhãn ở màn duyệt (`AIExtractedName.category`).
+        /// Nhóm người dùng thấy và lọc theo.
+        public var category: Category {
+            switch self {
+            case .person: return .person
+            case .place: return .place
+            case .sect, .family: return .organization
+            case .term: return .term
+            }
+        }
+
+        /// Nhãn ở màn duyệt (`AIExtractedName.category`) = nhãn của nhóm.
+        public var label: String { category.label }
+    }
+
+    /// Bốn nhóm name: chip "Loại cần tìm" ở sheet thiết lập và chip lọc ở màn duyệt.
+    public enum Category: String, Codable, Sendable, CaseIterable {
+        case person
+        case place
+        case organization
+        case term
+
         public var label: String {
             switch self {
-            case .person: return "Nhân vật"
+            case .person: return "Nhân danh"
             case .place: return "Địa danh"
-            case .sect, .family: return "Tông môn"
+            case .organization: return "Tổ chức"
+            case .term: return "Thuật ngữ"
             }
         }
     }
 
-    /// Loại của một đuôi trong danh sách "Đuôi địa danh & tông môn".
+    /// Loại của một đuôi trong danh sách "Đuôi địa danh, tổ chức, thuật ngữ". `sect` hiển thị là "Tổ chức" (giữ
+    /// `rawValue` cũ vì đã nằm trong file gốc + ghi đè của người dùng).
     public enum SuffixKind: String, Codable, Sendable, CaseIterable {
         case place
         case sect
+        /// Đuôi thuật ngữ (丹 = "đan", 诀 = "quyết", 圣体 = "thánh thể").
+        case term
+
+        /// Nhóm của name có đuôi này.
+        public var category: Category {
+            switch self {
+            case .place: return .place
+            case .sect: return .organization
+            case .term: return .term
+            }
+        }
     }
 
     /// Nghĩa của đuôi đứng trước hay sau phần tên riêng. Mặc định `after`: 落霞镇 → "Lạc Hà trấn";
@@ -67,11 +104,19 @@ public enum LocalNameFilter {
         public var suffixes: [Suffix]
         /// "Không phải name": khớp nguyên cụm, chỉ lọc ở đầu ra.
         public var blockedTerms: Set<String>
+        /// "Loại cần tìm" (ít nhất một nhóm): name ngoài các nhóm này bị bỏ ở đầu ra, kể cả danh sách hiện dần.
+        public var categories: Set<Category>
 
-        public init(minCount: Int, suffixes: [Suffix], blockedTerms: Set<String>) {
+        public init(
+            minCount: Int,
+            suffixes: [Suffix],
+            blockedTerms: Set<String>,
+            categories: Set<Category> = Set(Category.allCases)
+        ) {
             self.minCount = minCount
             self.suffixes = suffixes
             self.blockedTerms = blockedTerms
+            self.categories = categories
         }
     }
 
@@ -84,6 +129,7 @@ public enum LocalNameFilter {
         /// lấy nghĩa từ từ điển Đại từ (江镖头 → "Giang tiêu đầu").
         public let meaning: String
         public let kind: Kind
+        public var category: Category { kind.category }
         /// Số lần xuất hiện trong các chương đã đọc.
         public let count: Int
         /// Số chương có mặt.
@@ -103,18 +149,19 @@ public enum LocalNameFilter {
 
     /// Kết quả phân tích trên phần đã đọc tới lúc đó.
     public struct Snapshot: Sendable {
-        /// Sắp theo `count` giảm dần, rồi `term` tăng dần.
+        /// Sắp theo `count` giảm dần, rồi `term` tăng dần. **Gồm cả** name đã có trong từ điển (không còn ẩn) — màn
+        /// duyệt tự gắn badge NE / VP và bỏ chọn sẵn như luồng AI (`AIBookDataInspector.decorateExtractedNames`).
         public let names: [Name]
-        /// Số name bị ẩn vì đã có (có trong Name, hoặc nghĩa đầu trong VP viết hoa).
-        public let hiddenKnownCount: Int
+        /// Số name trong `names` đã có (có trong Name, hoặc nghĩa đầu trong VP viết hoa) — chỉ để ghi log.
+        public let knownCount: Int
         /// Số ứng viên bị bỏ theo từng luật — tên luật trùng bản thử Python (`glue_left`, `dict_common_word`…).
         public let droppedByReason: [String: Int]
         /// Số chương đã đọc khi chụp.
         public let chaptersRead: Int
 
-        public init(names: [Name], hiddenKnownCount: Int, droppedByReason: [String: Int], chaptersRead: Int) {
+        public init(names: [Name], knownCount: Int, droppedByReason: [String: Int], chaptersRead: Int) {
             self.names = names
-            self.hiddenKnownCount = hiddenKnownCount
+            self.knownCount = knownCount
             self.droppedByReason = droppedByReason
             self.chaptersRead = chaptersRead
         }
@@ -122,14 +169,18 @@ public enum LocalNameFilter {
 
     /// Sự kiện của một lượt lọc (`LocalNameFilterRun.events`), theo thứ tự phát.
     public enum Event: Sendable {
+        /// Đang chuẩn bị model nhận diện tên (LAC), phát **trước** mọi `progress`: `fraction` 0…1 = đang tải về lần đầu;
+        /// `nil` = đang nạp + tự kiểm. Model đã có và đã nạp trong phiên ⇒ có thể không phát lần nào.
+        case preparingModel(fraction: Double?)
         /// Đã đọc thêm chương.
         case progress(chaptersRead: Int, total: Int)
         /// Danh sách tạm (cập nhật thưa dần trong lúc đọc).
         case update(Snapshot)
         /// Xong — cả khi người dùng bấm "Dừng" (`stop()`): phân tích nốt phần đã đọc. Sự kiện cuối, stream đóng sau đó.
         case finished(Snapshot)
-        /// Không chạy được (chưa nạp từ điển VietPhrase, không có chương đọc được…). Chuỗi tiếng Việt cho người dùng.
-        /// Sự kiện cuối, stream đóng sau đó.
+        /// Không chạy được (chưa nạp từ điển VietPhrase, không có chương đọc được, **tải model lỗi**…). Chuỗi tiếng Việt
+        /// cho người dùng; màn đang lọc hiện kèm nút "Thử lại" (chạy lại đúng cấu hình). Sự kiện cuối, stream đóng sau đó.
+        /// Model tự kiểm lệch **không** phát `failed`: bộ lọc lùi về bộ luật cũ và ghi log ❌.
         case failed(String)
     }
 }

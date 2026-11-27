@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1082] - 2026-11-27
+
+### refactor: hợp đồng lọc name local có loại Thuật ngữ, bốn nhóm name và cửa vào model LAC
+
+Bước đầu của đợt "Lọc name local bằng LAC" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-loc-name-lac.md`, mockup https://claude.ai/artifact/Tx6oQ2Xd7KeaEybnnZ3cQq): chốt kiểu dữ liệu chung trước để ba phần (model LAC, bộ lọc + danh sách, giao diện + gói tạm) làm song song.
+
+- `LocalNameFilter`: `Kind.term` (thuật ngữ); nhóm `Category` (Nhân danh / Địa danh / Tổ chức / Thuật ngữ) — `Kind.category`, `label` theo nhóm (tông môn + họ tộc ⇒ "Tổ chức"); `SuffixKind.term` + `SuffixKind.category`; `Configuration.categories` ("Loại cần tìm", mặc định cả bốn); `Event.preparingModel(fraction:)`; `Snapshot.knownCount` thay `hiddenKnownCount` — name đã có không còn bị ẩn, màn duyệt gắn badge NE / VP và bỏ chọn sẵn như luồng AI.
+- `NameFilter/NER/`: `LACToken`, giao thức `LACTagging` (một dòng ⇒ các từ + nhãn, an toàn đa luồng), `LACModelError`, `LACModel.prepare(progress:)` (bản giữ chỗ). Model đã đẩy lên `datasets/raikiri1498/vietpharse` thư mục `lac/`, commit `73bb76d4`.
+- Commit này một mình **chưa biên dịch được** (các `switch` trên `Kind` / `SuffixKind` / `Event` chưa có nhánh mới) — các phần sau của đợt bổ sung, chỉ push khi đủ.
+
 ## [1.3.1081] - 2026-11-27
 
 ### fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc
@@ -365,15 +375,3 @@ Anh Bửu: mở mục lục từ sheet nghe mini bị hơi đơ khi truyện có
 - `TabView(.page)` của sheet có thể dựng sẵn trang mục lục bên cạnh ⇒ mở ⏱ Hẹn giờ trước đây cũng có thể khựng — cùng được sửa.
 - `CHANGELOG.md` dời 1.3.1023 sang `CHANGELOG.archive.md` (giữ 30 entry).
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log, truyện vài nghìn chương đang nghe chương xa đầu ⇒ chạm đĩa nghe ⇒ Mục lục ⇒ cuộn.
-
-## [1.3.1052] - 2026-11-24
-
-### feat: vtts — giọng nu-10 dùng model mới của tác giả (train giai đoạn cuối 80.000 bước), tài sản theo release v0.11.0
-
-Anh Bửu: "tìm cách khác fix lỗi rè đi" → duyệt phương án: (1) thay nu-10 bằng bản mới của upstream ngay, (2) chạy tiếp Ngọc Huyền + Google Dịch tới 80.000 bước khi GPU Kaggle mở lại 28/11.
-
-- **Phát hiện**: sau commit runtime app đang ghim (`c5c8c00`), upstream `tuanpmt/vtts` đổi công thức chưng cất "trò": giai đoạn joint **80k bước thay 20k** (v0.9.1, 2026-11-20) vì bản 20k kém thầy ~1 điểm UTMOS và có lớp ồn "buzzy"; `nu-10` M đo UTMOS vi / en / trộn 2,73 / 3,44 / 2,70 → **3,11 / 3,87 / 3,12**, CER không đổi. Hai giọng tự train (Ngọc Huyền, Google Dịch) dùng đúng công thức 20k (đo 23/11 trên 2 câu: trò 2,57 / 2,79, thầy Google 3,70).
-- **Bản này**: `assets/vtts/vtts-vien-nu10-m-v0.11.q8.vtts` (= model v0.9.1, release `v0.11.0`, SHA256 `89ce7264…`) thay bản v0.4; bản S dự trữ `extra/…nu10-s-v0.11` (= v0.10.2). `nam-1` chưa có model mới — file v0.11 **trùng byte** v0.4.0, chỉ đổi tên để cả 4 file cùng một release. `assets/SHA256SUMS` = 4 dòng vi-en nguyên văn của `SHA256SUMS` release v0.11.0. Id giọng `nu-10` / `nam-1` giữ nguyên ⇒ lựa chọn đã lưu không đổi.
-- **Kiểm tại chỗ**: SHA256 khớp release; header file mới trùng bản cũ từng mục (33 dims, 122 tensor: tên / kiểu / shape, 2.580.320 byte, bộ token vi-en) ⇒ runtime ghim đọc cùng đường. Tiếng thật do bước đọc thử của CI kiểm (`check_vtts_assets.sh`).
-- Sửa tên file ở `VttsVoice`, `VOICES` của script, bước Package IPA của workflow, `THIRD_PARTY_NOTICES.md`, `Vendor/vtts/README.md` (release gộp nhiều giọng ⇒ chỉ lấy các dòng SHA256 của file mình dùng), `ci-release.md`, `tts.md`.
-- Chưa làm: `VttsVoice.nu10.defaultLoudnessGainDb` (10,5, chỉ dùng cho đoạn có tiếng < 0,4 s) đo trên bản v0.4, chưa đo lại. Chưa build được tại chỗ (Windows). Chưa thử máy.
