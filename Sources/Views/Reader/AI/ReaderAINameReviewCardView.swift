@@ -226,9 +226,8 @@ public struct ReaderAINameReviewCardView: View {
                         // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
                         removeControl(id: item.id, term: item.original)
                     }
-                    // Không đệm trái: khung 44 pt của nút chọn đã tự chừa lề, hàng giữ chiều cao gần như cũ.
+                    // Không đệm hai bên: khung 44 pt của ô chọn (trái) và ✕ (phải) đã tự chừa lề, hai icon cách mép đều nhau.
                     .padding(.vertical, 4)
-                    .padding(.trailing, 8)
                     .background(Color(UIColor.tertiarySystemBackground))
                     .cornerRadius(8)
                     .accessibilityAction(named: "Sửa") { onEdit?(item.id) }
@@ -264,23 +263,28 @@ public struct ReaderAINameReviewCardView: View {
                     Label("Không phải name", systemImage: "nosign")
                 }
             } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(.tertiaryLabel))
-                    .frame(width: 28, height: 36)
-                    .contentShape(Rectangle())
+                removeIcon
             }
             .accessibilityLabel("Bỏ \(term)")
         } else {
             Button(action: {
                 deleteItem(id: id)
             }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(.tertiaryLabel))
+                removeIcon
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Bỏ \(term)")
         }
+    }
+
+    /// ✕ cỡ bằng ô vuông chọn bên trái (anh Bửu: "nút X nhỏ quá, tăng to lên"): icon 22 pt trong vùng chạm 44 × 44
+    /// (mức tối thiểu của Apple) — trước là icon 14 pt, luồng AI không có khung chạm riêng.
+    private var removeIcon: some View {
+        Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 22))
+            .foregroundColor(Color(.tertiaryLabel))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 
     private var allSelected: Bool {

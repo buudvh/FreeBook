@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1072] - 2026-11-27
+
+### fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn
+
+Anh Bửu: "danh sách name của AI có nút X nhỏ quá, tăng to lên cho tôi", màn duyệt của lọc name local cũng vậy (dùng chung `ReaderAINameReviewCardView`).
+
+- ✕ mỗi hàng: icon `xmark.circle.fill` 14 pt ⇒ **22 pt** trong vùng chạm **44 × 44** — bằng ô vuông chọn bên trái; một view chung `removeIcon` cho cả nút xoá của luồng AI và menu "Bỏ khỏi lần này / Không phải name" của luồng lọc local (trước đó luồng AI không có khung chạm riêng, luồng local 28 × 36). Nút xoá luồng AI có thêm nhãn trợ năng "Bỏ …".
+- Hàng bỏ đệm phải 8 pt: khung 44 pt của ✕ tự chừa lề, hai icon cách mép đều nhau.
+- Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1042 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1071] - 2026-11-27
 
 ### fix: lọc name local ghi rõ "cập nhật sau N chương", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng
@@ -374,15 +385,3 @@ Anh Bửu: "Tích hợp giọng ngọc huyền vào app" → plan (giọng train
 - Log: `🗣️ [Vtts] Đã nhập giọng <file>: <Hz>, bộ token …, X MB`, `❌ [Vtts] Nhập giọng …`, `🗑️ [Vtts] Đã xoá giọng tự nhập …`, `🗣️ [Vtts] Đã nhả giọng <id>`.
 - Runtime vtts của app (`Vendor/vtts/VTTS_COMMIT.txt` c5c8c00) trùng commit repo dùng train giọng trên Kaggle ⇒ file `.vtts` train ra đọc được. Không đổi CI / `Vendor/vtts` / IPA.
 - Dọn: entry 1.3.1013 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` + `storage.md` ghi giọng tự nhập. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1042] - 2026-11-21
-
-### feat: Màn xem phim — chạm dải Playlist xổ danh sách mục (bìa ngang), chạm hàng phát mục đó
-
-Anh Bửu: "bấm vào phần playlist trong phát video dọc cho xổ ra danh sách video cho tôi, hiển thị kiểu danh sách nhưng cover ngang" → plan + mockup (https://claude.ai/artifact/3vLeRzLdCr1fimJhxu9pFj) → "Duyệt".
-
-- **Dải** `VideoWatchPlaylistBar`: cả dải (trừ nút ⏭) thành nút xổ / thu, thêm mũi `chevron.down` lật lên khi đang xổ; trạng thái xổ là `@State` của dải nên giữ qua lượt đổi phim tại chỗ. ⏭ giữ nguyên việc cũ.
-- **Danh sách** `VideoWatchPlaylistQueueList` (mới): mục theo **thứ tự người dùng xếp** (không theo thứ tự xáo — như `AudioPlaylistQueueList`), lấy bản mới nhất của playlist, NSFW ẩn theo công tắc chung, playlist đã xoá ⇒ bản chụp của hàng đợi. Hàng dùng lại `PlaylistItemRow(kind: .video)` (bìa 92×52 bo 8, tên `.headline` 2 dòng, tên phim `.subheadline`; màn xem ép nền tối nên chữ trắng), mục đang phát tô màu nhấn + icon loa theo **id mục**. Thẻ nền trắng 7% bo 12, vạch ngăn mảnh giữa hàng. ≤ 4 mục hiện hết; dài hơn ⇒ khung cao 310 pt (≈ 4,5 hàng) cuộn bên trong, xổ ra / đổi mục thì cuộn tới mục đang phát.
-- **Chạm hàng** ⇒ `PlaylistPlaybackCoordinator.jumpVideo(to:)` (mới, `+Video`): `queue.jump(to:)` rồi `playVideoItem` (cùng phim ⇒ chuyển tập trong phiên, phim khác ⇒ màn đổi tại chỗ) — vẫn ở chế độ playlist; không đi `model.play` / `selectEpisode` (lối đó thôi playlist). Chạm đúng mục đang phát ⇒ phim lỗi thì thử lại, đang mở / đang phát thì để yên. Danh sách giữ mở sau khi chạm. Log `🎶 [VideoWatch]` (xổ / thu, chọn mục), `⏭️ [PlaylistPlayback] Chọn mục i/n`.
-- Đang xáo: số trên dải ("3/8") theo thứ tự phát, số của hàng theo thứ tự xếp — giống màn nghe nhạc.
-- Dọn: entry 1.3.1012 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/comic-video.md` ghi danh sách xổ. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1042] - 2026-11-21
+
+### feat: Màn xem phim — chạm dải Playlist xổ danh sách mục (bìa ngang), chạm hàng phát mục đó
+
+Anh Bửu: "bấm vào phần playlist trong phát video dọc cho xổ ra danh sách video cho tôi, hiển thị kiểu danh sách nhưng cover ngang" → plan + mockup (https://claude.ai/artifact/3vLeRzLdCr1fimJhxu9pFj) → "Duyệt".
+
+- **Dải** `VideoWatchPlaylistBar`: cả dải (trừ nút ⏭) thành nút xổ / thu, thêm mũi `chevron.down` lật lên khi đang xổ; trạng thái xổ là `@State` của dải nên giữ qua lượt đổi phim tại chỗ. ⏭ giữ nguyên việc cũ.
+- **Danh sách** `VideoWatchPlaylistQueueList` (mới): mục theo **thứ tự người dùng xếp** (không theo thứ tự xáo — như `AudioPlaylistQueueList`), lấy bản mới nhất của playlist, NSFW ẩn theo công tắc chung, playlist đã xoá ⇒ bản chụp của hàng đợi. Hàng dùng lại `PlaylistItemRow(kind: .video)` (bìa 92×52 bo 8, tên `.headline` 2 dòng, tên phim `.subheadline`; màn xem ép nền tối nên chữ trắng), mục đang phát tô màu nhấn + icon loa theo **id mục**. Thẻ nền trắng 7% bo 12, vạch ngăn mảnh giữa hàng. ≤ 4 mục hiện hết; dài hơn ⇒ khung cao 310 pt (≈ 4,5 hàng) cuộn bên trong, xổ ra / đổi mục thì cuộn tới mục đang phát.
+- **Chạm hàng** ⇒ `PlaylistPlaybackCoordinator.jumpVideo(to:)` (mới, `+Video`): `queue.jump(to:)` rồi `playVideoItem` (cùng phim ⇒ chuyển tập trong phiên, phim khác ⇒ màn đổi tại chỗ) — vẫn ở chế độ playlist; không đi `model.play` / `selectEpisode` (lối đó thôi playlist). Chạm đúng mục đang phát ⇒ phim lỗi thì thử lại, đang mở / đang phát thì để yên. Danh sách giữ mở sau khi chạm. Log `🎶 [VideoWatch]` (xổ / thu, chọn mục), `⏭️ [PlaylistPlayback] Chọn mục i/n`.
+- Đang xáo: số trên dải ("3/8") theo thứ tự phát, số của hàng theo thứ tự xếp — giống màn nghe nhạc.
+- Dọn: entry 1.3.1012 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/comic-video.md` ghi danh sách xổ. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1041] - 2026-11-20
 
 ### feat: vtts — từ điển phiên âm riêng như VieNeu / NghiTTS, sheet phiên âm khi bôi đen lưu được vào vtts
