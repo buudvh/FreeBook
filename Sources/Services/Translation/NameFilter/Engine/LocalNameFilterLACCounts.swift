@@ -2,7 +2,7 @@ import Foundation
 
 /// Bước 1 của phía LAC (`lacpipe.py`), cộng dồn theo chương: số lần mỗi từ LAC gắn nhãn thực thể theo **nhóm**
 /// (PER ⇒ Nhân danh, LOC ⇒ Địa danh, ORG ⇒ Tổ chức, `nz` / `nw` ⇒ Thuật ngữ), các chương có mặt, số lần từ đó mang nhãn
-/// **khác** (cho luật (e)), và chuỗi các dòng đã gắn nhãn (`joined` của Python — chỉ để đếm từ có chữ ngoài dải Hán của
+/// **khác** (luật (e), luật phân loại L2 / L4), và chuỗi các dòng đã gắn nhãn (`joined` của Python — chỉ để đếm từ có chữ ngoài dải Hán của
 /// bộ luật, như 奥斯汀·格里芬).
 ///
 /// Chỉ thêm, không sửa phần đã có ⇒ chụp lúc nào cũng như chạy một lần trên đúng phần đã đọc. Một task dùng.
@@ -69,7 +69,8 @@ final class LocalNameFilterLACCounts {
     }
 
     private(set) var entities: [LocalNameFilterWord: Entry] = [:]
-    /// Số lần từ mang nhãn không phải thực thể — chỉ gom từ ≥ 3 chữ kết thúc bằng chữ cuối của một đuôi.
+    /// Số lần từ mang nhãn không phải thực thể — mọi từ ≥ 2 chữ có chữ Hán (`other[w]` của `lacpipe.py`; luật (e) và L2 / L4
+    /// tự lọc từ cần xét). Bảng lớn cỡ vài chục nghìn mục với truyện 7 MB, sống trong lượt lọc.
     private(set) var others: [LocalNameFilterWord: Int32] = [:]
     /// Các dòng có chữ Hán đã gắn nhãn, nối bằng `\n` (UTF-16).
     private(set) var fullText: [UInt16] = []

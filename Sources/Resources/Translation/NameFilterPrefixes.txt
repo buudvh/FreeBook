@@ -1,0 +1,15 @@
+# Danh sách gốc "Tiền tố" của Lọc name local (đọc trong LocalNameFilterPrefixStore) — plan 2026-11-27-phan-loai-name
+# L7 / L10. Cùng dạng với danh sách hậu tố NameFilterSuffixes.txt (cùng bộ đọc LocalNameFilterSuffixListParser):
+# chữ Hán=nghĩa|loại|vị trí. Dòng trống và dòng bắt đầu bằng # bị bỏ qua.
+#   - chữ Hán: 1–6 chữ Hán ở đầu name.
+#   - nghĩa: viết thường, giữ nguyên chữ; không có dấu = hay | (làm vỡ dạng dòng).
+#   - loại: nhóm name được áp — person = tên người; place / sect / term = name không phải tên người.
+#   - vị trí: before = nghĩa đứng trước tên (老尼尔 → lão Neil), after = đứng sau.
+# Chỉ để ghép nghĩa (không dò, không đổi loại): mảnh tên mở đầu bằng một tiền tố (dài nhất trước), phần sau ≥ 2 chữ ra
+# tên Latin (từ điển, hoặc mô hình đoán khi bật "Ưu tiên tên Latin" và mọi chữ phần sau là chữ phiên âm) ⇒ tiền tố + tên;
+# không ra Latin ⇒ Hán-Việt cả cụm như cũ (小鱼 → Tiểu Ngư, 老张 → Lão Trương).
+# App chỉ đọc file này. Tiền tố người dùng thêm / sửa / xoá lưu riêng ở khoá cài đặt localNameFilterPrefixOverrides,
+# không ghi lại file. Không thêm 大 / 阿: là âm đầu của tên phiên âm (大卫 David, 阿尔杰 Alger).
+
+老=lão|person|before
+小=tiểu|person|before

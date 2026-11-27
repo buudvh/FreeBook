@@ -1,7 +1,8 @@
 import Foundation
 
-/// Lớp riêng của người dùng trên danh sách gốc "Đuôi địa danh, tổ chức, thuật ngữ" (Lọc name local) — JSON ở `UserDefaults` khoá
-/// `localNameFilterSuffixOverrides` (`LocalNameFilterSuffixStore`):
+/// Lớp riêng của người dùng trên danh sách gốc "Hậu tố" (Lọc name local) — JSON ở `UserDefaults` khoá
+/// `localNameFilterSuffixOverrides` (`LocalNameFilterSuffixStore`); danh sách "Tiền tố" dùng cùng dạng ở khoá
+/// `localNameFilterPrefixOverrides` (`LocalNameFilterPrefixStore`):
 ///
 /// ```json
 /// {"entries":{"市":{"kind":"place","meaning":"thành phố","position":"before"}},"format":3,"removed":["谷"]}

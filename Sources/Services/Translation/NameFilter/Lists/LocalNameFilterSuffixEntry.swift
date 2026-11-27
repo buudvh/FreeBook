@@ -1,9 +1,10 @@
 import Foundation
 
-/// Một đuôi trong **danh sách hiệu lực** "Đuôi địa danh, tổ chức, thuật ngữ" của Lọc name local = danh sách gốc đóng trong app
-/// (`NameFilterSuffixes.txt`) trộn lớp riêng của người dùng (`LocalNameFilterSuffixOverrides`). Màn danh sách vẽ thẳng
-/// từ đây; bộ lọc nhận **mọi** đuôi dưới dạng `LocalNameFilter.Suffix` (`LocalNameFilterSuffixStore.allSuffixes()`) — từ
-/// cách A (2026-11-27) danh sách chỉ dùng để ghép nghĩa, không còn bật / tắt.
+/// Một mục trong **danh sách hiệu lực** "Hậu tố" (hoặc "Tiền tố") của Lọc name local = danh sách gốc đóng trong app
+/// (`NameFilterSuffixes.txt` / `NameFilterPrefixes.txt`) trộn lớp riêng của người dùng (`LocalNameFilterSuffixOverrides`).
+/// Màn danh sách vẽ thẳng từ đây; bộ lọc nhận **mọi** mục dưới dạng `LocalNameFilter.Suffix`
+/// (`LocalNameFilterSuffixStore.allSuffixes()` / `LocalNameFilterPrefixStore.allPrefixes()`) — từ cách A (2026-11-27) danh
+/// sách chỉ dùng để ghép nghĩa, không còn bật / tắt.
 struct LocalNameFilterSuffixEntry: Identifiable, Equatable, Sendable {
     enum Origin: Equatable, Sendable {
         /// Có trong `NameFilterSuffixes.txt` của app.

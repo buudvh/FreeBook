@@ -5,13 +5,13 @@ import Foundation
 ///
 /// 2. Chuẩn hoá: bóc ≤ 2 chữ nhẹ cuối (穆小鱼道 → 穆小鱼) khi phần trước cũng là thực thể; tên + 1 chữ mà phần tên mạnh
 ///    ≥ 5 lần (李印生|盘) ⇒ gộp về tên, trừ khi chữ cuối là đuôi (mọi loại); mảnh nằm trong cụm dài ≥ 60 % số lần ⇒ mảnh.
-/// 3. Lọc: mảnh; < "Ít nhất N lần"; **đã có** (Name / nghĩa đầu VP viết hoa) ⇒ giữ, đánh dấu, không qua luật sau; nghĩa
-///    đầu viết thường ⇒ bỏ (`dict_common_word`) trừ luật (e) — có đuôi không yếu, ≥ 3 chữ, LAC gắn thực thể nhiều hơn
-///    nhãn khác (菩提丹, 青山县); hư từ; đầu 2 chữ là từ thường; họ + từ thường; thực thể mạnh hơn hẳn + phần thừa vô
-///    nghĩa (`glued_fragment`).
-/// 4. Loại: đuôi dò dài nhất (place / sect / term, bộ cố định — cách A) rồi nhãn LAC nhiều nhất; LAC bảo người + chữ cuối
-///    là đuôi yếu (山 河…) + loại địa danh / tổ chức ⇒ vẫn là người (费渊). Nghĩa dựng sau, theo danh sách người dùng
-///    (`LocalNameFilterMeaningBuilder`).
+/// 3. Lọc: mảnh; < "Ít nhất N lần"; L5 số + 阶 / 级 / 品 ở đầu (`rank_prefix`, cả name đã có: 九阶, 九阶妖王); **đã có**
+///    (Name / nghĩa đầu VP viết hoa) ⇒ giữ, đánh dấu, không qua luật sau; nghĩa đầu viết thường ⇒ bỏ (`dict_common_word`)
+///    trừ luật (e) — có đuôi không yếu (không tính hậu tố Nhân danh), ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác
+///    (菩提丹, 青山县); hư từ; đầu 2 chữ là từ thường; họ + từ thường; thực thể mạnh hơn hẳn + phần thừa vô nghĩa
+///    (`glued_fragment` — phần thừa là một hậu tố ≥ 2 chữ của danh sách người dùng, mọi loại, thì giữ).
+/// 4. Loại (`kind(of:…)`, file `+Kind`): L11 / L1–L4 của plan 2026-11-27-phan-loai-name. Nghĩa dựng sau, theo danh sách
+///    người dùng (`LocalNameFilterMeaningBuilder`).
 ///
 /// Tên lý do bỏ trùng `lacpipe.py`. Đếm số lần trong truyện: từ toàn chữ Hán dải bộ luật ⇒ chỉ mục của bộ luật
 /// (`LocalNameFilterTextCounter`), từ khác ⇒ chuỗi các dòng của phía LAC.
@@ -20,7 +20,7 @@ struct LocalNameFilterLACPipeline {
     typealias Tally = LocalNameFilterLACCounts.Tally
     typealias SuffixMatch = (length: Int, suffix: LocalNameFilter.Suffix)
     private typealias Reason = LocalNameFilterRules.Reason
-    private typealias Rules = LocalNameFilterRules
+    typealias Rules = LocalNameFilterRules
 
     struct Row {
         let word: Word
@@ -43,6 +43,8 @@ struct LocalNameFilterLACPipeline {
     let dictionaries: LocalNameFilterDictionaries
     let counts: LocalNameFilterLACCounts
     let counter: LocalNameFilterTextCounter
+    /// Danh xưng của bộ luật lúc chụp (`Snapshot.titles`) — danh xưng 1 chữ của luật phân loại ("có danh xưng").
+    let titles: Set<LocalNameFilterTermKey>
 
     /// `nil` ⇒ task bị huỷ giữa chừng.
     func run() -> Output? {
@@ -70,17 +72,22 @@ struct LocalNameFilterLACPipeline {
                 output.reasons[Reason.minCount, default: 0] += 1
                 continue
             }
+            if Rules.isRankPrefix(word) {
+                output.reasons[Reason.rankPrefix, default: 0] += 1
+                continue
+            }
             let status = dictionaries.status(word: word)
             let suffix = setup.lacSuffix(of: word)
             let row = { (isKnown: Bool) in
-                Row(word: word, kind: kind(of: word, suffix: suffix, tag: tally.dominant), count: count,
-                    chapterCount: chapterCount(of: sources[word] ?? [word], entities: entities), isKnown: isKnown)
+                Row(word: word, kind: kind(of: word, suffix: suffix, tag: tally.dominant, entities: entities),
+                    count: count, chapterCount: chapterCount(of: sources[word] ?? [word], entities: entities),
+                    isKnown: isKnown)
             }
             if status == .known {
                 output.rows.append(row(true))
                 continue
             }
-            if status == .common, !isRescued(word, suffix: suffix, entities: entities) {
+            if status == .common, !isRescued(word, entities: entities) {
                 output.reasons[Reason.dictCommonWord, default: 0] += 1
                 continue
             }
@@ -140,9 +147,12 @@ struct LocalNameFilterLACPipeline {
 
     // MARK: - 3. Lọc
 
-    /// Luật (e): VP nghĩa thường nhưng có đuôi không yếu, ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác (đếm thô).
-    private func isRescued(_ word: Word, suffix: SuffixMatch?, entities: [Word: LocalNameFilterLACCounts.Entry]) -> Bool {
-        guard suffix != nil, word.count >= 3, !Rules.has(scalar: word.last, .weakSuffix) else { return false }
+    /// Luật (e): VP nghĩa thường nhưng có đuôi không yếu (đuôi dò địa danh / tổ chức / thuật ngữ — không tính hậu tố
+    /// Nhân danh), ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác (đếm thô).
+    private func isRescued(_ word: Word, entities: [Word: LocalNameFilterLACCounts.Entry]) -> Bool {
+        guard setup.lacRescueSuffix(of: word) != nil, word.count >= 3, !Rules.has(scalar: word.last, .weakSuffix) else {
+            return false
+        }
         return (entities[word]?.tally.total ?? 0) > (counts.others[word] ?? 0)
     }
 
@@ -166,8 +176,9 @@ struct LocalNameFilterLACPipeline {
         return isGlued(word, count: count, merged: merged) ? Reason.gluedFragment : nil
     }
 
-    /// `glued_fragment`: trong cụm có thực thể (không phải họ) mạnh ≥ 3 lần cụm, phần thừa không phải danh xưng và là
-    /// một chữ / có hư từ / có từ thường (宁天|目光, 尘|心中|君亭, 比|林宇). Phần thừa là danh xưng thì giữ (林砚|公子).
+    /// `glued_fragment`: trong cụm có thực thể (không phải họ) mạnh ≥ 3 lần cụm, phần thừa không phải hậu tố và là một chữ /
+    /// có hư từ / có từ thường (宁天|目光, 尘|心中|君亭, 比|林宇). Phần thừa là một hậu tố ≥ 2 chữ của danh sách người dùng,
+    /// mọi loại, thì giữ (林砚|公子, 东阳|酒店, 贝克兰德|大学 — plan 2026-11-27-phan-loai-name L11).
     private func isGlued(_ word: Word, count: Int, merged: [Word: Tally]) -> Bool {
         let length = word.count
         guard length >= 3 else { return false }
@@ -177,7 +188,7 @@ struct LocalNameFilterLACPipeline {
                 guard !isSurname(inner), let tally = merged[inner],
                       Int(tally.total) >= Rules.lacGlueStrength * count else { continue }
                 let rest = word.removing(from: start, length: innerLength)
-                if isPronoun(rest) { continue }
+                if setup.isGlueKeep(rest) { continue }
                 let parts = [word.slice(0, start), word.slice(start + innerLength, length)].filter { !$0.isEmpty }
                 let commonInside = parts.contains { part in
                     (0..<max(0, part.count - 1)).contains { dictionaries.status(word: part.slice($0, $0 + 2)) == .common }
@@ -192,34 +203,6 @@ struct LocalNameFilterLACPipeline {
         return false
     }
 
-    // MARK: - 4. Loại
-
-    private func kind(of word: Word, suffix: SuffixMatch?, tag: LocalNameFilter.Category) -> LocalNameFilter.Kind {
-        guard let suffix else { return Self.kind(for: tag) }
-        let kind = Self.kind(for: suffix.suffix.kind)
-        if tag == .person, Rules.has(scalar: word.last, .weakSuffix), kind == .place || kind == .sect {
-            return .person
-        }
-        return kind
-    }
-
-    static func kind(for category: LocalNameFilter.Category) -> LocalNameFilter.Kind {
-        switch category {
-        case .person: return .person
-        case .place: return .place
-        case .organization: return .sect
-        case .term: return .term
-        }
-    }
-
-    static func kind(for suffixKind: LocalNameFilter.SuffixKind) -> LocalNameFilter.Kind {
-        switch suffixKind {
-        case .place: return .place
-        case .sect: return .sect
-        case .term: return .term
-        }
-    }
-
     // MARK: - Tra
 
     private func chapterCount(of words: [Word], entities: [Word: LocalNameFilterLACCounts.Entry]) -> Int {
@@ -231,12 +214,6 @@ struct LocalNameFilterLACPipeline {
 
     private func isSurname(_ word: Word) -> Bool {
         word.termKey.map { dictionaries.surnames[$0] != nil } ?? false
-    }
-
-    /// `rest in PRONOUNS` (khoá Pronouns ≥ 2 chữ).
-    private func isPronoun(_ word: Word) -> Bool {
-        guard word.count >= 2, let key = word.termKey else { return false }
-        return dictionaries.pronounEntries?[key] != nil
     }
 
     private func textCount(_ word: Word) -> Int {

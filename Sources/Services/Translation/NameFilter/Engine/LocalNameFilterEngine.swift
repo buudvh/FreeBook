@@ -7,9 +7,10 @@ import Foundation
 /// - **có model LAC** (`usesLAC`): bộ luật chạy với cờ `V3` chỉ để góp hàng ở bước hợp; danh sách chính là phía LAC
 ///   (`LocalNameFilterLACPipeline`).
 /// - **đường lùi "chỉ bộ luật"** (model tự kiểm lệch): bộ luật v2 như trước bản LAC.
-/// Cả hai: name đã có **không ẩn** (giữ, đếm `knownCount`), "Không phải name" + "Loại cần tìm" lọc ở đầu ra. Nghĩa đề
-/// xuất theo từ điển (+ mô hình đoán tên Latin khi bật "Ưu tiên tên Latin") — `LocalNameFilterMeaningBuilder`; phần tên
-/// riêng nhớ qua mọi lần chụp ở `LocalNameFilterProperNames`.
+/// Cả hai: name đã có **không ẩn** (giữ, đếm `knownCount`), "Không phải name" + "Loại cần tìm" + "Độ dài name" lọc ở đầu
+/// ra. Nghĩa đề xuất theo từ điển (+ mô hình đoán tên Latin khi bật "Ưu tiên tên Latin", + tiền tố của danh sách "Tiền tố")
+/// — `LocalNameFilterMeaningBuilder`; phần tên riêng nhớ qua mọi lần chụp ở `LocalNameFilterProperNames`. Danh xưng lấy từ
+/// hậu tố Nhân danh của danh sách "Hậu tố" (không còn đọc Pronouns — plan 2026-11-27-phan-loai-name L11).
 ///
 /// - `feed(_:)`: lượt 1 của bộ luật cho một chương (`Stream.feed`); `feedLAC(_:)`: nhãn LAC của chương đó.
 /// - `snapshot(chaptersRead:)`: lượt 2 + luật + phía LAC + hợp trên **toàn bộ** phần đã đọc. Không sửa trạng thái cộng
@@ -58,19 +59,16 @@ final class LocalNameFilterEngine {
         lacCounts = usesLAC ? LocalNameFilterLACCounts() : nil
         properNames = LocalNameFilterProperNames(
             dictionaries: dictionaries,
-            latinModel: configuration.prefersLatinNames ? latinModel : nil
+            latinModel: configuration.prefersLatinNames ? latinModel : nil,
+            prefixes: configuration.prefixes
         )
     }
 
-    /// Có từ điển Đại từ (bước danh xưng chạy được).
-    var hasPronouns: Bool { dictionaries.pronounEntries != nil }
     var hanCount: Int { accumulator.hanCount }
     var usesLAC: Bool { lacCounts != nil }
     var lacTaggedLines: Int { lacCounts?.taggedLines ?? 0 }
     /// Đang chọn nghĩa Latin + đoán (bật "Ưu tiên tên Latin" và có mô hình).
     var prefersLatin: Bool { properNames.prefersLatin }
-    /// Chữ cuối của mọi đuôi dò — bộ gắn nhãn chỉ gom số lần "nhãn khác" của từ kết thúc bằng các chữ này.
-    var lacSuffixLastScalars: Set<UInt32> { Set(setup.lacSuffixes.keys.map(\.last)) }
 
     func feed(_ chapterText: String) {
         accumulator.feed(chapterText)
@@ -97,7 +95,7 @@ final class LocalNameFilterEngine {
         var rescued = 0
         if let lacCounts {
             let pipeline = LocalNameFilterLACPipeline(
-                setup: setup, dictionaries: dictionaries, counts: lacCounts, counter: counter
+                setup: setup, dictionaries: dictionaries, counts: lacCounts, counter: counter, titles: occurrences.titles
             )
             guard let lac = pipeline.run() else { return nil }
             rescued = lac.rescued

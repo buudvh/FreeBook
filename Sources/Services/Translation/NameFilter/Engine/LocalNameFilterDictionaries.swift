@@ -9,8 +9,9 @@ import Foundation
 /// - `status` (`Dicts.status`): có trong bất kỳ lớp Name nào (riêng / Chung / gốc trừ `deletedNames`) ⇒ `known`; không thì
 ///   nghĩa VP hiệu lực theo thứ tự riêng > Chung đã sửa > gốc, nghĩa đầu (`TranslateUtils.getFirstMeaning`) viết hoa chữ
 ///   đầu ⇒ `known`, còn lại ⇒ `common`; không có ⇒ `nil`.
-/// - Phiên âm (`phienAmMap`), họ đang bật (`QuickTranslationSurnameStore`, bỏ họ chứa hư từ như Python), Pronouns (`nil` khi
-///   chưa nạp ⇒ bỏ hẳn bước danh xưng).
+/// - Phiên âm (`phienAmMap`), họ đang bật (`QuickTranslationSurnameStore`, bỏ họ chứa hư từ như Python). **Không** chụp
+///   Pronouns (plan 2026-11-27-phan-loai-name L11, anh Bửu duyệt): danh xưng của bộ lọc lấy từ hậu tố Nhân danh của danh
+///   sách hậu tố (`LocalNameFilterSetup`) — Pronouns là từ điển của bộ dịch, cắt cho vừa bộ lọc là hỏng bản dịch.
 /// - Nghĩa thô cho nghĩa đề xuất (`dictionaryValue`, 2026-11-27): Name (riêng > Chung > gốc trừ đã xoá) rồi VP hiệu lực —
 ///   lớp đầu tiên có khoá thắng, như thứ tự dịch (Name đè VP).
 ///
@@ -34,9 +35,6 @@ final class LocalNameFilterDictionaries {
 
     /// Họ đang bật, bỏ họ có chữ thuộc `FUNCTION_CHARS`: khoá → âm đầu (`""` khi file không có âm).
     let surnames: [LocalNameFilterTermKey: String]
-    /// Pronouns thô (khoá toàn chữ Hán, ≤ 5 chữ) → nghĩa đầu; `nil` = chưa nạp từ điển Đại từ. Bộ luật chỉ dùng khoá
-    /// ≤ 3 chữ (`LocalNameFilterSetup.pronouns`); phía LAC dùng mọi khoá ≥ 2 chữ (`rest in PRONOUNS` của `lacpipe.py`).
-    let pronounEntries: [LocalNameFilterTermKey: String]?
 
     /// `Status.rawValue`, 0 = không có trong VP / Name; vắng khoá = chưa tra.
     private var statusMemo: [LocalNameFilterTermKey: UInt8] = [:]
@@ -49,7 +47,7 @@ final class LocalNameFilterDictionaries {
         bookVietPhrase: FrozenTrieDictionary?, customVietPhrase: FrozenTrieDictionary?, baseVietPhrase: FrozenTrieDictionary,
         deletedVietPhrase: Set<String>, bookNames: FrozenTrieDictionary?, customNames: FrozenTrieDictionary?,
         baseNames: FrozenTrieDictionary?, deletedNames: Set<String>, phienAmMap: [String: String],
-        surnames: [LocalNameFilterTermKey: String], pronounEntries: [LocalNameFilterTermKey: String]?
+        surnames: [LocalNameFilterTermKey: String]
     ) {
         self.bookVietPhrase = bookVietPhrase
         self.customVietPhrase = customVietPhrase
@@ -61,7 +59,6 @@ final class LocalNameFilterDictionaries {
         self.deletedNames = deletedNames
         self.phienAmMap = phienAmMap
         self.surnames = surnames
-        self.pronounEntries = pronounEntries
     }
 
     // MARK: - Chụp
@@ -83,8 +80,7 @@ final class LocalNameFilterDictionaries {
             baseNames: manager.namesDict?.frozen(),
             deletedNames: manager.deletedNames,
             phienAmMap: manager.phienAmMap,
-            surnames: surnameTable(QuickTranslationSurnameStore.shared.lookupTable()),
-            pronounEntries: manager.pronounsDict.map { pronounTable($0.frozen().allEntries()) }
+            surnames: surnameTable(QuickTranslationSurnameStore.shared.lookupTable())
         )
     }
 
@@ -95,18 +91,6 @@ final class LocalNameFilterDictionaries {
             guard let term = LocalNameFilterTermKey(string: key), term.count <= 2,
                   !term.units.contains(where: { LocalNameFilterRules.has($0, .function) }) else { continue }
             result[term] = LocalNameFilterRules.firstReading(value) ?? ""
-        }
-        return result
-    }
-
-    /// Khoá Pronouns dùng được (toàn chữ Hán, ≤ 5 chữ) → `(readings(v) or [k])[0]`. Phần lọc theo cấu hình (thân tộc,
-    /// đuôi dò, hư từ, ≤ 3 chữ…) ở `LocalNameFilterSetup`. Khoá không phải chữ Hán không bao giờ khớp chữ trong
-    /// truyện nên bỏ ngay ở đây — không đổi kết quả.
-    private static func pronounTable(_ entries: [(key: String, value: String)]) -> [LocalNameFilterTermKey: String] {
-        var result: [LocalNameFilterTermKey: String] = [:]
-        for entry in entries {
-            guard let term = LocalNameFilterTermKey(string: entry.key), result[term] == nil else { continue }
-            result[term] = LocalNameFilterRules.firstReading(entry.value) ?? entry.key
         }
         return result
     }
@@ -136,6 +120,14 @@ final class LocalNameFilterDictionaries {
         guard let raw = vietPhraseMeaning(word) else { return nil }
         let first = TranslateUtils.getFirstMeaning(of: raw)
         return first.first?.isUppercase == true ? .known : .common
+    }
+
+    /// `surname_len(w)` của `lacpipe.py`: họ kép khi từ ≥ 3 chữ, rồi họ đơn khi từ ≥ 2 chữ, không có ⇒ 0. "Mở đầu bằng họ"
+    /// của luật phân loại phía LAC (L1–L4) = kết quả > 0.
+    func surnameLength(of word: LocalNameFilterWord) -> Int {
+        if word.count >= 3, let key = word.slice(0, 2).termKey, surnames[key] != nil { return 2 }
+        if word.count >= 2, let key = word.slice(0, 1).termKey, surnames[key] != nil { return 1 }
+        return 0
     }
 
     /// `run[a:b] in d.vp` cho cặp hai chữ (luật `glue_left` / `glue_right`).

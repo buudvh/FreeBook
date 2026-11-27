@@ -25,7 +25,7 @@ enum LocalNameFilterRules {
     static let familySuffixes = "家氏族"
     /// `KINSHIP_TAILS` — danh xưng 1 chữ chỉ lấy trong nhóm thân tộc / kính xưng này (18 chữ).
     static let kinshipTails = "伯兄公叔哥妹姐姑姨婶嫂少弟母父爷老舅"
-    /// `NAME_PART_TAILS` — chữ có trong từ điển Đại từ nhưng là phần của tên (王冬儿).
+    /// `NAME_PART_TAILS` — chữ có trong danh sách danh xưng (hậu tố Nhân danh) nhưng là phần của tên (王冬儿).
     static let namePartTails = "儿"
     /// `PERSON_AFTER` — chữ đứng sau tên người (đã bỏ qua danh xưng): `tail.startswith(p)`.
     static let personAfter = ["说道", "笑道", "问道", "喝道", "怒道", "冷笑", "冷哼", "沉声", "淡淡", "轻声", "点头", "摇头",
@@ -49,6 +49,26 @@ enum LocalNameFilterRules {
     /// `TRAIL_LIGHT` — chữ nhẹ dính sau thực thể LAC (穆小鱼|道), bóc tối đa 2 chữ.
     static let trailLight = "上下中也便前却去又叹后就已时来正笑说道都里问"
 
+    // MARK: - Phân loại phía LAC (plan 2026-11-27-phan-loai-name, `lacpipe.py` › `classify`)
+    //
+    // Tra theo code point (từ LAC dài tuỳ ý, có thể có chữ ngoài BMP) — không chiếm bit của `CharClass`.
+
+    /// `LAC_WEAK_SUFFIX` = `weakSuffixChars` + 卫 泽 (L1 / L6): đuôi yếu **chỉ khi phân loại phía LAC** (王精卫, 李泽). Bộ
+    /// luật và luật (e) giữ `weakSuffixChars`.
+    static let lacWeakSuffixScalars: Set<UInt32> = scalarSet(weakSuffixChars + "卫泽")
+    /// `CREATURE_CHARS` (L3): chữ cuối là loài vật / yêu ma (蜃龙, 啸月银狼, 赤炎魔).
+    static let creatureScalars: Set<UInt32> = scalarSet("龙狼熊虎猿豹狮蛟蛇鹰雕鹏蝠蝎蛛鼠狐猴鹿鳄蟾鸦枭鹤凤凰麟兕魈蜥妖魔")
+    /// `CREATURE_KEEP_START` (L3): mở đầu bằng 阿 / 小 ⇒ vẫn là người.
+    static let creatureKeepStartScalars: Set<UInt32> = scalarSet("阿小")
+    /// `COMMON_KEEP_START` / `COMMON_KEEP_END` (L4).
+    static let commonKeepStartScalars: Set<UInt32> = scalarSet("小阿老")
+    static let commonKeepEndScalars: Set<UInt32> = scalarSet("儿子")
+    /// `RANK_PREFIX` (L5) = `^[一二三四五六七八九十百千万两零]+[阶级品]` — khác `numerals` (có 零, không có 几 数).
+    static let rankNumeralScalars: Set<UInt32> = scalarSet("一二三四五六七八九十百千万两零")
+    static let rankUnitScalars: Set<UInt32> = scalarSet("阶级品")
+    /// L4: nhãn thường ≥ 2 lần tổng nhãn thực thể.
+    static let commonTagFactor: Int32 = 2
+
     // MARK: - Ngưỡng (Python)
 
     static let dominance = 0.6
@@ -70,8 +90,12 @@ enum LocalNameFilterRules {
     static let lacFragmentRatio = 0.6
     /// Phía LAC (`glued_fragment`): thực thể bên trong mạnh ≥ 3 lần cụm.
     static let lacGlueStrength = 3
-    /// `Config.pronouns` chỉ nhận khoá ≤ 3 chữ.
+    /// `Config.pronouns` (danh xưng của bộ luật, nay dựng từ hậu tố Nhân danh) chỉ nhận khoá ≤ 3 chữ.
     static let pronounMaxLength = 3
+    /// `detectable()` của `lacpipe.py`: hậu tố Nhân danh dò ở phía LAC dài 2–6 chữ; đuôi địa danh / tổ chức / thuật ngữ
+    /// 1–2 chữ.
+    static let personSuffixMinLength = 2
+    static let detectionSuffixMaxLength = 2
 
     // MARK: - Lý do bỏ (đúng chuỗi Python)
 
@@ -97,8 +121,14 @@ enum LocalNameFilterRules {
         static let minCount = "min_count"
         static let functionChar = "function_char"
         static let gluedFragment = "glued_fragment"
+        /// L5: số + 阶 / 级 / 品 ở đầu (九阶妖王) — phía LAC (cả name đã có) và hàng bộ luật ở bước hợp.
+        static let rankPrefix = "rank_prefix"
+        /// L9: hai tên người của danh sách dính liền (姬晴|苟义), name chưa có.
+        static let gluedNames = "glued_names"
         /// Đầu ra: ngoài "Loại cần tìm".
         static let categoryOff = "category_off"
+        /// Đầu ra (L15): ngoài "Độ dài name".
+        static let lengthOff = "length_off"
     }
 
     // MARK: - Loại ứng viên
@@ -200,6 +230,22 @@ enum LocalNameFilterRules {
     @inline(__always)
     static func pair(_ first: UInt16, _ second: UInt16) -> UInt32 {
         UInt32(first) << 16 | UInt32(second)
+    }
+
+    /// L5 `RANK_PREFIX.match(w)`: một hay nhiều chữ số rồi 阶 / 级 / 品 (九阶, 八级定装魂导炮弹).
+    static func isRankPrefix(_ word: LocalNameFilterWord) -> Bool {
+        var index = 0
+        while index < word.count, rankNumeralScalars.contains(word[index]) { index += 1 }
+        return index > 0 && index < word.count && rankUnitScalars.contains(word[index])
+    }
+
+    /// `name_length(w)` của `lacpipe.py` (L15): số chữ (code point), không tính dấu `·` (U+00B7).
+    static func nameLength(_ word: LocalNameFilterWord) -> Int {
+        word.scalars.reduce(0) { $0 + ($1 == 0x00B7 ? 0 : 1) }
+    }
+
+    private static func scalarSet(_ chars: String) -> Set<UInt32> {
+        Set(chars.unicodeScalars.map(\.value))
     }
 
     /// `readings(v)[0]` của Python: tách theo `/ | ;`, bỏ khoảng trắng hai đầu, lấy mảnh **không rỗng** đầu tiên.

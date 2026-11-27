@@ -123,9 +123,6 @@ public final class LocalNameFilterRun: @unchecked Sendable {
             emit(.failed("Chưa nạp từ điển VietPhrase — mở Cài đặt dịch thuật để tải / làm mới dữ liệu"))
             return
         }
-        if dictionaries.pronounEntries == nil {
-            AppLogger.shared.log("🔎 [LọcName] Chưa nạp từ điển Đại từ (Pronouns) — bỏ bước danh xưng")
-        }
         var metrics = Metrics()
         let modelStart = Self.seconds()
         let tagger: (any LACTagging)?
@@ -149,7 +146,6 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         let engine = LocalNameFilterEngine(
             configuration: configuration, dictionaries: dictionaries, usesLAC: tagger != nil, latinModel: latinModel
         )
-        let suffixLastScalars = engine.lacSuffixLastScalars
         var stoppedEarly = false
         var lastReport: (report: LocalNameFilterEngine.Report, chapters: Int)?
         var lastEnd = Self.seconds()
@@ -176,9 +172,7 @@ public final class LocalNameFilterRun: @unchecked Sendable {
             var tagged: [LocalNameFilterLACChapterTagger.Chapter?] = []
             if let tagger {
                 let lacStart = Self.seconds()
-                guard let result = await LocalNameFilterLACChapterTagger.tag(
-                    loaded.texts, tagger: tagger, suffixLastScalars: suffixLastScalars
-                ) else { return }
+                guard let result = await LocalNameFilterLACChapterTagger.tag(loaded.texts, tagger: tagger) else { return }
                 tagged = result
                 metrics.lacMs += Self.milliseconds(Self.seconds() - lacStart)
             }
@@ -219,7 +213,7 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         emit(.finished(finalReport.snapshot))
         LocalNameFilterRunLog.write(
             finalReport, metrics: metrics, total: chapters.count, hanCount: engine.hanCount,
-            stoppedEarly: stoppedEarly, hasPronouns: engine.hasPronouns, usesLAC: engine.usesLAC,
+            stoppedEarly: stoppedEarly, usesLAC: engine.usesLAC,
             taggedLines: engine.lacTaggedLines,
             latin: configuration.prefersLatinNames ? (engine.prefersLatin ? .on : .missingModel) : .off
         )

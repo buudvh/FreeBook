@@ -4,11 +4,14 @@ import Foundation
 ///
 /// - Có model LAC (`withLAC`): hàng phía LAC + **bước hợp** của `lacpipe.py` — thêm hàng bộ luật (v3) chưa có, không phải
 ///   mảnh, không phải name đã có: địa danh / tổ chức / họ tộc (LAC hay sót 极星岛, 海神家族); tên người chỉ khi LAC từng gắn
-///   PER cho đúng cụm đó (đếm thô, trước khi gộp).
-/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có.
+///   PER cho đúng cụm đó (đếm thô, trước khi gộp). Hàng bộ luật cũng chịu L5 (`rank_prefix`). Sau khi hợp: L9 — name chưa
+///   có ghép đúng hai hàng **Nhân danh** của danh sách, mỗi phần ≥ 2 chữ (姬晴|苟义) ⇒ bỏ (`glued_names`). Plan
+///   2026-11-27-phan-loai-name.
+/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có — không có L5 / L9 (như `fallback_rules.py`).
 ///
-/// Rồi lọc "Không phải name" (`user_blocked`) và "Loại cần tìm" (`category_off`) — cả danh sách hiện dần — và sắp theo số
-/// lần giảm dần, rồi chữ Hán theo code point (`(−count, term)` của bản Python).
+/// Rồi lọc "Không phải name" (`user_blocked`), "Loại cần tìm" (`category_off`) và "Độ dài name" (`length_off`, L15 — đếm
+/// code point, không tính `·`) — cả danh sách hiện dần, cả hai đường — và sắp theo số lần giảm dần, rồi chữ Hán theo code
+/// point (`(−count, term)` của bản Python).
 struct LocalNameFilterOutputBuilder {
     private typealias Reason = LocalNameFilterRules.Reason
 
@@ -61,6 +64,7 @@ struct LocalNameFilterOutputBuilder {
             ), isKnown: row.isKnown))
         }
         let have = Set(lac.rows.map(\.word))
+        var reasons = lac.reasons
         var added = 0
         for row in ruleRows where !row.isKnown {
             let word = LocalNameFilterWord(row.term)
@@ -73,10 +77,30 @@ struct LocalNameFilterOutputBuilder {
             case .term:
                 continue
             }
+            if LocalNameFilterRules.isRankPrefix(word) {
+                reasons[Reason.rankPrefix, default: 0] += 1
+                continue
+            }
             items.append(Item(word: word, name: row.name, isKnown: false))
             added += 1
         }
-        return Result(snapshot: finish(items, reasons: lac.reasons, chaptersRead: chaptersRead), unionAdded: added)
+        items = droppingGluedNames(items, reasons: &reasons)
+        return Result(snapshot: finish(items, reasons: reasons, chaptersRead: chaptersRead), unionAdded: added)
+    }
+
+    /// L9 (`glued_names`): name chưa có = đúng hai hàng Nhân danh khác của danh sách (cả hàng đã có), mỗi phần ≥ 2 chữ.
+    private func droppingGluedNames(_ items: [Item], reasons: inout [String: Int]) -> [Item] {
+        let persons = Set(items.lazy.filter { $0.name.kind == .person }.map(\.word))
+        guard persons.count >= 2 else { return items }
+        return items.filter { item in
+            guard !item.isKnown, item.word.count >= 4 else { return true }
+            let word = item.word
+            let glued = (2...(word.count - 2)).contains { split in
+                persons.contains(word.slice(0, split)) && persons.contains(word.slice(split, word.count))
+            }
+            if glued { reasons[Reason.gluedNames, default: 0] += 1 }
+            return !glued
+        }
     }
 
     private func finish(_ items: [Item], reasons: [String: Int], chaptersRead: Int) -> LocalNameFilter.Snapshot {
@@ -88,6 +112,8 @@ struct LocalNameFilterOutputBuilder {
                 reasons[Reason.userBlocked, default: 0] += 1
             } else if !setup.categories.contains(item.name.category) {
                 reasons[Reason.categoryOff, default: 0] += 1
+            } else if !fitsLength(item.word) {
+                reasons[Reason.lengthOff, default: 0] += 1
             } else {
                 kept.append(item)
             }
@@ -101,5 +127,13 @@ struct LocalNameFilterOutputBuilder {
             droppedByReason: reasons,
             chaptersRead: chaptersRead
         )
+    }
+
+    /// "Độ dài name" (L15).
+    private func fitsLength(_ word: LocalNameFilterWord) -> Bool {
+        let length = LocalNameFilterRules.nameLength(word)
+        if length < setup.minLength { return false }
+        if let maxLength = setup.maxLength, length > maxLength { return false }
+        return true
     }
 }

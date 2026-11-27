@@ -19,7 +19,6 @@ enum LocalNameFilterRunLog {
         total: Int,
         hanCount: Int,
         stoppedEarly: Bool,
-        hasPronouns: Bool,
         usesLAC: Bool,
         taggedLines: Int,
         latin: LatinState
@@ -27,7 +26,6 @@ enum LocalNameFilterRunLog {
         let snapshot = report.snapshot
         let stopNote = stoppedEarly ? " (bấm Dừng)" : ""
         let unreadableNote = metrics.unreadable > 0 ? " (\(metrics.unreadable) không đọc được)" : ""
-        let titleNote = hasPronouns ? String(report.titleCount) : "tắt (chưa nạp Pronouns)"
         var parts: [String] = [
             "🔎 [LọcName] Xong\(stopNote): \(metrics.processed)/\(total) chương\(unreadableNote), \(hanCount) chữ Hán",
             usesLAC ? "LAC" : "chỉ bộ luật (model tự kiểm lệch)",
@@ -50,7 +48,7 @@ enum LocalNameFilterRunLog {
         if usesLAC { parts.append("hợp \(report.unionAdded) · (e) \(report.rescued)") }
         parts.append("bỏ [\(joined(snapshot.droppedByReason))]")
         if let ruleDropped = report.ruleDroppedByReason { parts.append("luật bỏ [\(joined(ruleDropped))]") }
-        parts.append("danh xưng \(titleNote)")
+        parts.append("danh xưng \(report.titleCount)")
         switch latin {
         case .off:
             break

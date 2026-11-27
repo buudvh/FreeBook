@@ -7,8 +7,8 @@ import Foundation
 ///
 /// Đây là hợp đồng giữa ba phần, mỗi phần chỉ dựa vào các kiểu ở đây:
 /// - bộ lọc: `LocalNameFilterEngine` (luật, hai lượt quét) + `LocalNameFilterRun` (đọc chương, cập nhật dần, sự kiện);
-/// - hai danh sách người dùng quản lý: `LocalNameFilterSuffixStore` (đuôi địa danh, tổ chức, thuật ngữ) và
-///   `LocalNameFilterBlocklistStore` ("Không phải name");
+/// - các danh sách người dùng quản lý: `LocalNameFilterSuffixStore` ("Hậu tố": đuôi địa danh, tổ chức, thuật ngữ, nhân
+///   danh), `LocalNameFilterPrefixStore` ("Tiền tố") và `LocalNameFilterBlocklistStore` ("Không phải name");
 /// - màn hình: sheet "Lọc name local" trong Reader + màn duyệt.
 ///
 /// Chỉ có kiểu dữ liệu thuần, không I/O. Luật lọc chép từ bản thử Python (`Docs/Plans/local-name-filter/`).
@@ -54,13 +54,16 @@ public enum LocalNameFilter {
         }
     }
 
-    /// Loại của một đuôi trong danh sách "Đuôi địa danh, tổ chức, thuật ngữ". `sect` hiển thị là "Tổ chức" (giữ
-    /// `rawValue` cũ vì đã nằm trong file gốc + ghi đè của người dùng).
+    /// Loại của một mục trong danh sách "Hậu tố" (và "Tiền tố" — cùng kiểu). `sect` hiển thị là "Tổ chức" (giữ `rawValue`
+    /// cũ vì đã nằm trong file gốc + ghi đè của người dùng).
     public enum SuffixKind: String, Codable, Sendable, CaseIterable {
         case place
         case sect
         /// Đuôi thuật ngữ (丹 = "đan", 诀 = "quyết", 圣体 = "thánh thể").
         case term
+        /// Hậu tố **Nhân danh** = danh xưng sau tên người (长老 = "trưởng lão", 圣女 = "thánh nữ") — plan
+        /// 2026-11-27-phan-loai-name L11, thay Pronouns ở cả bước dò lẫn bước nghĩa. Tiền tố loại này áp cho tên người.
+        case person
 
         /// Nhóm của name có đuôi này.
         public var category: Category {
@@ -68,8 +71,12 @@ public enum LocalNameFilter {
             case .place: return .place
             case .sect: return .organization
             case .term: return .term
+            case .person: return .person
             }
         }
+
+        /// Nhãn ở màn hình ("Địa danh", "Tổ chức", "Thuật ngữ", "Nhân danh") = nhãn của nhóm.
+        public var label: String { category.label }
     }
 
     /// Nghĩa của đuôi đứng trước hay sau phần tên riêng. Mặc định `after`: 落霞镇 → "Lạc Hà trấn";
@@ -79,10 +86,13 @@ public enum LocalNameFilter {
         case after
     }
 
-    /// Một đuôi trong danh sách "Đuôi địa danh, tổ chức, thuật ngữ" — từ cách A (2026-11-27) danh sách **chỉ** dùng để
-    /// ghép nghĩa name không phải tên người (`Configuration.suffixes`); bộ đuôi dò cố định của app cũng dùng kiểu này.
+    /// Một mục trong danh sách "Hậu tố" — từ cách A (2026-11-27) danh sách **chỉ** dùng để ghép nghĩa
+    /// (`Configuration.suffixes`): đuôi địa danh / tổ chức / thuật ngữ cho name không phải tên người, đuôi Nhân danh là danh
+    /// xưng của tên người; bộ đuôi dò cố định của app cũng dùng kiểu này. Danh sách "Tiền tố" (`Configuration.prefixes`)
+    /// dùng chung kiểu: `key` là chữ đầu name, `kind` là nhóm name được áp, `position` là chỗ đặt nghĩa.
     public struct Suffix: Sendable, Equatable, Hashable {
-        /// Chữ Hán của đuôi: danh sách người dùng 1–6 chữ (城, 山脉, 安保公司); bộ dò cố định của file gốc 1–2 chữ.
+        /// Chữ Hán: danh sách người dùng 1–6 chữ (城, 山脉, 安保公司, 太上长老); bộ dò cố định của file gốc: địa danh / tổ chức /
+        /// thuật ngữ 1–2 chữ, nhân danh 2–6 chữ.
         public let key: String
         /// Nghĩa ghép vào nghĩa name, giữ nguyên chữ người dùng viết (thường viết thường: "trấn", "thành phố").
         public let meaning: String
@@ -101,10 +111,20 @@ public enum LocalNameFilter {
     public struct Configuration: Sendable {
         /// "Ít nhất N lần" (2 / 3 / 5 / 10, mặc định 3).
         public var minCount: Int
-        /// Danh sách "Đuôi địa danh, tổ chức, thuật ngữ" của người dùng — từ 2026-11-27 (cách A, anh Bửu) **chỉ** dùng để
-        /// ghép nghĩa name không phải tên người; dò ứng viên / luật lọc / phân loại dùng bộ đuôi cố định của bản gốc
-        /// (trừ đuôi `|off`), không theo danh sách này. Không còn bật / tắt: mọi đuôi trong danh sách đều ghép nghĩa.
+        /// Danh sách "Hậu tố" của người dùng — từ 2026-11-27 (cách A, anh Bửu) **chỉ** dùng để ghép nghĩa: đuôi địa danh /
+        /// tổ chức / thuật ngữ cho name không phải tên người; đuôi Nhân danh là danh xưng của tên người (dài nhất thắng; 1 chữ
+        /// chỉ chữ thân tộc đứng sau ≥ 3 tên khác nhau) và giữ phần thừa của luật `glued_fragment`. Dò ứng viên / luật lọc /
+        /// phân loại dùng bộ đuôi cố định của bản gốc (trừ đuôi `|off`), không theo danh sách này.
         public var suffixes: [Suffix]
+        /// Danh sách "Tiền tố" của người dùng (`LocalNameFilterPrefixStore.allPrefixes()`, plan 2026-11-27-phan-loai-name
+        /// L7 / L10) — chỉ ghép nghĩa: mảnh tên mở đầu bằng tiền tố cùng nhóm loại mà phần sau ra tên Latin ⇒ "lão Neil".
+        /// Rỗng ⇒ không ghép tiền tố.
+        public var prefixes: [Suffix]
+        /// "Độ dài name" (L15): name ít hơn `minLength` chữ hoặc nhiều hơn `maxLength` chữ bị bỏ ở đầu ra (`length_off`,
+        /// mọi hàng). Đếm theo chữ (code point), không tính dấu `·`. Mặc định 2 ⇒ như trước.
+        public var minLength: Int
+        /// `nil` = không giới hạn (đầu phải thanh kéo ở "10+").
+        public var maxLength: Int?
         /// "Không phải name": khớp nguyên cụm, chỉ lọc ở đầu ra.
         public var blockedTerms: Set<String>
         /// "Loại cần tìm" (ít nhất một nhóm): name ngoài các nhóm này bị bỏ ở đầu ra, kể cả danh sách hiện dần.
@@ -118,13 +138,19 @@ public enum LocalNameFilter {
             suffixes: [Suffix],
             blockedTerms: Set<String>,
             categories: Set<Category> = Set(Category.allCases),
-            prefersLatinNames: Bool = false
+            prefersLatinNames: Bool = false,
+            prefixes: [Suffix] = [],
+            minLength: Int = 2,
+            maxLength: Int? = nil
         ) {
             self.minCount = minCount
             self.suffixes = suffixes
             self.blockedTerms = blockedTerms
             self.categories = categories
             self.prefersLatinNames = prefersLatinNames
+            self.prefixes = prefixes
+            self.minLength = minLength
+            self.maxLength = maxLength
         }
     }
 
@@ -135,7 +161,8 @@ public enum LocalNameFilter {
         public let term: String
         /// Nghĩa đề xuất: name đã có ⇒ nghĩa đầu của từ điển (Klein); name mới ⇒ phần tên riêng ghép từ mục có trong từ điển
         /// nếu phủ trọn, không thì phiên âm viết hoa từng âm; địa danh / tổ chức / thuật ngữ ghép nghĩa đuôi theo danh
-        /// sách; danh xưng lấy nghĩa từ từ điển Đại từ (江镖头 → "Giang tiêu đầu").
+        /// sách; danh xưng lấy nghĩa từ hậu tố Nhân danh (江镖头 → "Giang tiêu đầu"); tiền tố của tên Latin (老尼尔 → "lão
+        /// Neil").
         public let meaning: String
         public let kind: Kind
         public var category: Category { kind.category }
@@ -146,7 +173,7 @@ public enum LocalNameFilter {
         /// sinh ra ứng viên. Chương có chữ mà LAC gắn nhãn thường (`n`, `v`…) không tính — muốn "số chương có mặt" đúng
         /// nghĩa thì phải đếm lại trên chữ từng chương.
         public let chapterCount: Int
-        /// Danh xưng ở cuối (khoá trong từ điển Đại từ) nếu có: 江镖头 → "镖头".
+        /// Danh xưng ở cuối (khoá hậu tố Nhân danh) nếu có: 江镖头 → "镖头".
         public let title: String?
         /// Nghĩa có phần do mô hình đoán tên Latin sinh ra (chỉ khi `Configuration.prefersLatinNames`).
         public let isGuessedMeaning: Bool

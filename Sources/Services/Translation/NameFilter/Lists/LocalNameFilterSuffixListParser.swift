@@ -1,13 +1,14 @@
 import Foundation
 
-/// Dạng chữ của danh sách "Đuôi địa danh, tổ chức, thuật ngữ" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`,
-/// thêm `|off` ở cuối nếu đuôi **không dùng để dò** (cách A, 2026-11-27: đuôi vẫn ghép nghĩa, chỉ không vào bộ dò cố định
+/// Dạng chữ của danh sách "Hậu tố" và "Tiền tố" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`, thêm `|off` ở
+/// cuối nếu mục **không dùng để dò** (cách A, 2026-11-27: đuôi vẫn ghép nghĩa, chỉ không vào bộ dò cố định
 /// `LocalNameFilterSuffixStore.detectionSuffixes`); `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind`
-/// (`place` / `sect` / `term`) và `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng
-/// `#` bỏ qua.
+/// (`place` / `sect` / `term` / `person`) và `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt
+/// đầu bằng `#` bỏ qua.
 ///
-/// **Một** chỗ giữ luật khoá / nghĩa cho cả file gốc `NameFilterSuffixes.txt` lẫn sheet sửa (`keyError` /
-/// `meaningError`) — sai ở đường nào cũng bị chặn như nhau. `isHanText` dùng chung cho danh sách "Không phải name".
+/// **Một** chỗ giữ luật khoá / nghĩa cho cả hai file gốc (`NameFilterSuffixes.txt`, `NameFilterPrefixes.txt`) lẫn sheet sửa
+/// (`keyError` / `meaningError`) — sai ở đường nào cũng bị chặn như nhau. `isHanText` dùng chung cho danh sách "Không phải
+/// name".
 enum LocalNameFilterSuffixListParser {
     typealias Value = LocalNameFilterSuffixEntry.Value
 
@@ -25,8 +26,9 @@ enum LocalNameFilterSuffixListParser {
         var invalidLineCount = 0
     }
 
-    /// Đuôi dài tối đa 6 chữ (đếm code point) — việc 7 (2026-11-27, anh Bửu: "chọn đuôi thoải mái hơn"): danh sách chỉ để
-    /// ghép nghĩa (cách A) nên đuôi dài không ảnh hưởng việc dò; bộ dò cố định (file gốc) vẫn chỉ dùng đuôi 1–2 chữ.
+    /// Khoá dài tối đa 6 chữ (đếm code point) — việc 7 (2026-11-27, anh Bửu: "chọn đuôi thoải mái hơn"), cả ở file gốc
+    /// (hậu tố Nhân danh tới 5 chữ: 千金大小姐). Bộ dò cố định chỉ dùng đuôi địa danh / tổ chức / thuật ngữ 1–2 chữ và hậu
+    /// tố Nhân danh 2–6 chữ (`LocalNameFilterSetup`).
     static let maxKeyLength = 6
     static let notDetectedMarker = "off"
 
@@ -73,11 +75,11 @@ enum LocalNameFilterSuffixListParser {
         return Line(key: key, value: Value(meaning: meaning, kind: kind, position: position), isDetectable: isDetectable)
     }
 
-    /// Luật khoá: 1–6 chữ Hán. `nil` = hợp lệ.
-    static func keyError(_ key: String) -> String? {
-        if key.isEmpty { return "Chưa nhập đuôi." }
+    /// Luật khoá: 1–6 chữ Hán. `nil` = hợp lệ. `noun` = danh từ trong lời báo ("Hậu tố", "Tiền tố").
+    static func keyError(_ key: String, noun: String = "Hậu tố") -> String? {
+        if key.isEmpty { return "Chưa nhập \(noun.lowercased())." }
         guard key.unicodeScalars.count <= maxKeyLength, isHanText(key) else {
-            return "Đuôi phải là 1 đến \(maxKeyLength) chữ Hán."
+            return "\(noun) phải là 1 đến \(maxKeyLength) chữ Hán."
         }
         return nil
     }

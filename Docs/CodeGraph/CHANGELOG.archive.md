@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1076] - 2026-11-27
+
+### feat: panel Dịch lưu được vào Pronoun bằng nút PN cạnh NE và VP
+
+Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 6): chọn **cách A** của mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 1 — giữ một hàng; sau đó chốt "PN không ghim được".
+
+- **Hàng định dạng + nơi lưu** (`ReaderDefinitionOverlayView+Rows`, dùng chung panel Dịch Reader và sheet Dịch của truyện tranh): `[aa Aa¹ Aa² Aa AA] | [NE|VP|PN] [R|C]`. Nút NE / VP / PN / R / C bề ngang tối thiểu 30 pt (máy 375 pt: cụm aa…AA tự co còn ~27 pt / nút, chữ aa…AA co tới 80% nếu thiếu chỗ; máy rộng hơn cả hai cụm giãn như trước).
+- **Lựa chọn ba giá trị** `DefinitionSaveTarget` (mới: `.name` / `.vietPhrase` / `.pronoun`) thay `@State saveAsNameType: Bool` ở `ReaderView` và `ComicDefinitionSheet`. Ghim mặc định giữ nguyên `@AppStorage pinnedSaveAsNameType` (`Bool`, NE / VP) — PN không ghim được: `dictSegmentButton` nhận `onPin: nil` ⇒ tắt riêng cử chỉ nhấn giữ (`including: .subviews`), không badge, không rung, không toast. Mở panel / đổi vùng chọn vẫn lấy NE hoặc VP theo ghim (kể cả đang chọn PN mà nới vùng chọn — như NE / VP hiện nay).
+- **Chọn PN ⇒ cụm R | C mờ 0,35**, không bấm / không nhấn giữ ghim được (`.disabled` + `.allowsHitTesting(false)`); lựa chọn R / C giữ nguyên, chọn lại NE / VP thì về như cũ.
+- **"Cập nhật" với PN** (`DefinitionSaveTarget.save`): nghĩa chuẩn hoá như NE / VP (`DictionaryTextFileStore.normalizeMeaning`) rồi `GlobalDictionaryEditor.save` vào file Pronouns gốc — từ đã có ⇒ thay nghĩa; dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch, báo đổi từ điển (Reader / truyện tranh tra lại chip; chữ dịch chỉ đổi ở chỗ có rule `<pn>` khớp — tách từ không tra Pronouns từ 1.3.1016). Thành công ⇒ đóng panel y NE / VP — NE / VP vốn **không** có toast thành công nên PN cũng không; lỗi ⇒ "Không lưu được định nghĩa (Pronoun): …".
+- `.claude/rules/translation.md` thêm phần panel Dịch vào đoạn "Pronoun trên chip nghĩa".
+- Dọn: entry 1.3.1046 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang hàng nút chưa đo trên máy.
+
 ## [1.3.1075] - 2026-11-27
 
 ### feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển

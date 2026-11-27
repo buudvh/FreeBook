@@ -11,7 +11,8 @@ enum LocalNameFilterLACChapterTagger {
     struct Chapter: Sendable {
         /// Từ ≥ 2 chữ có chữ Hán, LAC gắn nhãn thực thể → số lần theo nhóm.
         let entities: [LocalNameFilterWord: LocalNameFilterLACCounts.Tally]
-        /// Từ ≥ 3 chữ kết thúc bằng chữ cuối của một đuôi, LAC gắn nhãn khác → số lần (luật (e)).
+        /// Từ ≥ 2 chữ có chữ Hán, LAC gắn nhãn **không** phải thực thể (`n`, `v`, `m`…) → số lần — luật (e) và luật phân
+        /// loại L2 / L4 (plan 2026-11-27-phan-loai-name) so với số lần nhãn thực thể của đúng từ đó.
         let others: [LocalNameFilterWord: Int32]
         /// Các dòng có chữ Hán, nối bằng `\n` (UTF-16).
         let text: [UInt16]
@@ -19,7 +20,7 @@ enum LocalNameFilterLACChapterTagger {
     }
 
     /// Kết quả đúng thứ tự `texts`; chương `nil` (đọc hỏng) ⇒ `nil`. Cả khối ⇒ `nil` khi task bị huỷ.
-    static func tag(_ texts: [String?], tagger: any LACTagging, suffixLastScalars: Set<UInt32>) async -> [Chapter?]? {
+    static func tag(_ texts: [String?], tagger: any LACTagging) async -> [Chapter?]? {
         let width = max(1, ProcessInfo.processInfo.activeProcessorCount - 1)
         let results = await withTaskGroup(of: (Int, Chapter?).self, returning: [Chapter?].self) { group in
             var results = [Chapter?](repeating: nil, count: texts.count)
@@ -28,7 +29,7 @@ enum LocalNameFilterLACChapterTagger {
                 let position = next
                 let text = texts[position]
                 group.addTask {
-                    (position, text.flatMap { tagChapter($0, tagger: tagger, suffixLastScalars: suffixLastScalars) })
+                    (position, text.flatMap { tagChapter($0, tagger: tagger) })
                 }
                 next += 1
             }
@@ -38,7 +39,7 @@ enum LocalNameFilterLACChapterTagger {
                 let position = next
                 let text = texts[position]
                 group.addTask {
-                    (position, text.flatMap { tagChapter($0, tagger: tagger, suffixLastScalars: suffixLastScalars) })
+                    (position, text.flatMap { tagChapter($0, tagger: tagger) })
                 }
                 next += 1
             }
@@ -48,7 +49,7 @@ enum LocalNameFilterLACChapterTagger {
     }
 
     /// Một chương; `nil` khi task bị huỷ giữa chừng (xét mỗi 32 dòng).
-    static func tagChapter(_ text: String, tagger: any LACTagging, suffixLastScalars: Set<UInt32>) -> Chapter? {
+    static func tagChapter(_ text: String, tagger: any LACTagging) -> Chapter? {
         var entities: [LocalNameFilterWord: LocalNameFilterLACCounts.Tally] = [:]
         var others: [LocalNameFilterWord: Int32] = [:]
         var joined: [UInt16] = []
@@ -69,7 +70,7 @@ enum LocalNameFilterLACChapterTagger {
                 guard word.count >= 2, word.scalars.contains(where: LocalNameFilterRules.isLACHan) else { continue }
                 if let category = LocalNameFilterLACCounts.Tally.category(ofTag: token.tag) {
                     entities[word, default: LocalNameFilterLACCounts.Tally()][category] += 1
-                } else if word.count >= 3, suffixLastScalars.contains(word.last) {
+                } else {
                     others[word, default: 0] += 1
                 }
             }

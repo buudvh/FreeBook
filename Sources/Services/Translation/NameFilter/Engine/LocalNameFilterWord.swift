@@ -80,7 +80,7 @@ struct LocalNameFilterWord: Hashable, Comparable, Sendable {
     }
 
     /// Khoá của bộ luật khi mọi chữ thuộc dải Hán của bộ luật (BMP) và dài 1–5 chữ; khác đi ⇒ `nil` (khi đó từ không
-    /// có trong Danh sách họ / Pronouns / bảng ứng viên của bộ luật).
+    /// có trong Danh sách họ / hậu tố Nhân danh / bảng ứng viên của bộ luật).
     var termKey: LocalNameFilterTermKey? {
         guard (1...LocalNameFilterTermKey.maxLength).contains(count), let units = ruleHanUnits else { return nil }
         return LocalNameFilterTermKey(units: units)
