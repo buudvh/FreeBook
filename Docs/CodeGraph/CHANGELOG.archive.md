@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1051] - 2026-11-24
+
+### fix: header trình duyệt và màn Trợ lý AI không còn bị trong suốt
+
+Anh Bửu gửi ảnh: "khi nhấn các button sẽ hiển sheet như cài đặt trình duyệt ở trình duyệt sẽ bị lỗi trong suốt phần header của trình duyệt" (header lộ Kệ Sách phía dưới), rồi "bấm dừng trong AI, header bị trong suốt" (chữ chat hiện xuyên header) → "Tự duyệt đi".
+
+- **Trình duyệt** (`BypassWebView`): `VStack` gốc tự tô `Color(.systemBackground).ignoresSafeArea()` (cách `LegadoBrowserSheet` đã dùng). Trước đó header, dải tab, vạch tiến độ, trang Home không có nền riêng mà trông vào nền của màn che toàn màn; nền đó mất sau khi mở sheet (nghi từ 1.3.873 — sheet kính `presentationBackground`) ⇒ lộ màn phía dưới. Thanh dưới có `barColor` riêng nên không bị. Áp cho mọi lối mở trình duyệt (Kệ, Chi tiết, Reader, Khám phá, Mở link lỗi, tiện ích, Legado, tra từ); lúc bình thường giao diện không đổi.
+- **Trợ lý AI** (`ReaderAIFullScreenView`): `.toolbarBackground(.visible, for: .navigationBar)` — nền thanh điều hướng luôn hiện. Trước đó bấm Dừng lúc lọc name nhiều chương ⇒ dải tiến độ trên cùng biến mất, khung chat dâng lên sát header mà thanh không nhận ra có nội dung bên dưới ⇒ giữ nền trong suốt, chữ chat lộ qua tiêu đề. Đổi nhỏ: chat ngắn (chưa có gì dưới header) thì header cũng có nền mờ tối thay cho đen trơn.
+- Nguyên nhân suy từ code, chưa kiểm trên máy. Chưa build được tại chỗ (Windows). Cần thử: trình duyệt mở từ Kệ ⇒ mở / đóng Cài đặt trình duyệt, Lịch sử ⇒ header vẫn đặc; Trợ lý AI ⇒ Lọc name nhiều chương ⇒ Dừng ⇒ cuộn chat, chữ không lộ qua header.
+
 ## [1.3.1050] - 2026-11-23
 
 ### revert: TTS — gỡ hàng Âm lượng theo giọng (1.3.1047–1048), vtts nhỏ đi 3 dB cố định, giữ đọc 1×

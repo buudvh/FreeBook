@@ -368,10 +368,8 @@ public enum VietPhraseTokenizer {
         return false
     }
 
+    /// Dải chữ Hán ở `ChineseCharacterClassifier` (gồm cả khối mở rộng, 1.3.1081).
     internal static func isChineseCharacter(_ char: Character) -> Bool {
-        guard let code = char.unicodeScalars.first?.value else { return false }
-        return (code >= 0x4E00 && code <= 0x9FFF) ||
-               (code >= 0x3400 && code <= 0x4DBF) ||
-               (code >= 0x20000 && code <= 0x2A6DF)
+        ChineseCharacterClassifier.isHan(char)
     }
 }

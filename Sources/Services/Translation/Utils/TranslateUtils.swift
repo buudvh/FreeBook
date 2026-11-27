@@ -73,11 +73,9 @@ public final class TranslateUtils {
     public static var isTranslationEnabled: Bool { TranslationConfigStore.shared.globalEnabled }
     public static func isTranslationEnabled(for bookId: String?, packageId: String? = nil) -> Bool { TranslationConfigStore.shared.isTranslationEnabled(bookId: bookId, packageId: packageId) }
     
+    /// Dải chữ Hán ở `ChineseCharacterClassifier` (gồm cả khối mở rộng, 1.3.1081).
     public static func containsChinese(_ text: String) -> Bool {
-        return text.contains { char in
-            guard let code = char.unicodeScalars.first?.value else { return false }
-            return code >= 0x4E00 && code <= 0x9FFF
-        }
+        text.contains { ChineseCharacterClassifier.isHan($0) }
     }
     
     public static func translateAuthorHanViet(_ author: String) -> String {

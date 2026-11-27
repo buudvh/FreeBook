@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1081] - 2026-11-27
+
+### fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc
+
+Anh Bửu thử 1.3.1080 (hết văng, 𫄸 thành một ô) và gửi ảnh: chọn riêng 𫄸 ⇒ ô nghĩa hiện nguyên "𫄸" trong khi chip có "huân" (VietPhrase Chung).
+
+- **Nguyên nhân**: `TranslateUtils.translateTerm` chỉ tra từ điển khi `containsChinese` đúng, mà hàm này chỉ nhận U+4E00–9FFF ⇒ chữ khối mở rộng C trở đi bị trả nguyên văn (bấm "Cập nhật" lúc đó là lưu nhầm `𫄸=𫄸`). `VietPhraseTokenizer.isChineseCharacter` cũng chỉ có cơ bản + mở rộng A, B.
+- **Sửa**: bảng dải chữ Hán dùng chung mới `ChineseCharacterClassifier` (`Services/Translation/Utils/`): cơ bản, mở rộng A, B–F + I, G–H, chữ tương thích (F900–FAFF, 2F800–2FA1F). `containsChinese` và `isChineseCharacter` cùng gọi vào đây.
+- **Ảnh hưởng** (22 file gọi hai hàm này): chuỗi đã có chữ Hán cơ bản cho kết quả y như cũ; chỉ chuỗi mà chữ Hán **toàn** thuộc khối mở rộng / tương thích mới đổi từ "để nguyên" sang "được dịch / phiên âm" (chương, TTS, phụ đề, tên truyện…); token một chữ mở rộng không có trong từ điển giờ lùi về phiên âm Hán-Việt như chữ thường.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
+- Dọn: entry 1.3.1051 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1080] - 2026-11-27
 
 ### fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ
@@ -365,13 +377,3 @@ Anh Bửu: "tìm cách khác fix lỗi rè đi" → duyệt phương án: (1) th
 - **Kiểm tại chỗ**: SHA256 khớp release; header file mới trùng bản cũ từng mục (33 dims, 122 tensor: tên / kiểu / shape, 2.580.320 byte, bộ token vi-en) ⇒ runtime ghim đọc cùng đường. Tiếng thật do bước đọc thử của CI kiểm (`check_vtts_assets.sh`).
 - Sửa tên file ở `VttsVoice`, `VOICES` của script, bước Package IPA của workflow, `THIRD_PARTY_NOTICES.md`, `Vendor/vtts/README.md` (release gộp nhiều giọng ⇒ chỉ lấy các dòng SHA256 của file mình dùng), `ci-release.md`, `tts.md`.
 - Chưa làm: `VttsVoice.nu10.defaultLoudnessGainDb` (10,5, chỉ dùng cho đoạn có tiếng < 0,4 s) đo trên bản v0.4, chưa đo lại. Chưa build được tại chỗ (Windows). Chưa thử máy.
-
-## [1.3.1051] - 2026-11-24
-
-### fix: header trình duyệt và màn Trợ lý AI không còn bị trong suốt
-
-Anh Bửu gửi ảnh: "khi nhấn các button sẽ hiển sheet như cài đặt trình duyệt ở trình duyệt sẽ bị lỗi trong suốt phần header của trình duyệt" (header lộ Kệ Sách phía dưới), rồi "bấm dừng trong AI, header bị trong suốt" (chữ chat hiện xuyên header) → "Tự duyệt đi".
-
-- **Trình duyệt** (`BypassWebView`): `VStack` gốc tự tô `Color(.systemBackground).ignoresSafeArea()` (cách `LegadoBrowserSheet` đã dùng). Trước đó header, dải tab, vạch tiến độ, trang Home không có nền riêng mà trông vào nền của màn che toàn màn; nền đó mất sau khi mở sheet (nghi từ 1.3.873 — sheet kính `presentationBackground`) ⇒ lộ màn phía dưới. Thanh dưới có `barColor` riêng nên không bị. Áp cho mọi lối mở trình duyệt (Kệ, Chi tiết, Reader, Khám phá, Mở link lỗi, tiện ích, Legado, tra từ); lúc bình thường giao diện không đổi.
-- **Trợ lý AI** (`ReaderAIFullScreenView`): `.toolbarBackground(.visible, for: .navigationBar)` — nền thanh điều hướng luôn hiện. Trước đó bấm Dừng lúc lọc name nhiều chương ⇒ dải tiến độ trên cùng biến mất, khung chat dâng lên sát header mà thanh không nhận ra có nội dung bên dưới ⇒ giữ nền trong suốt, chữ chat lộ qua tiêu đề. Đổi nhỏ: chat ngắn (chưa có gì dưới header) thì header cũng có nền mờ tối thay cho đen trơn.
-- Nguyên nhân suy từ code, chưa kiểm trên máy. Chưa build được tại chỗ (Windows). Cần thử: trình duyệt mở từ Kệ ⇒ mở / đóng Cài đặt trình duyệt, Lịch sử ⇒ header vẫn đặc; Trợ lý AI ⇒ Lọc name nhiều chương ⇒ Dừng ⇒ cuộn chat, chữ không lộ qua header.
