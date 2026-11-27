@@ -90,7 +90,11 @@ extension QuickTranslationRuleMatcher {
             case .hanNumeral:
                 rendered = dictionaries.hanVietReading(for: value)
             case .magnitude:
-                rendered = QuickTranslationNumberFormatter.renderMagnitude(value, leadsPattern: element.leadsPattern)
+                rendered = QuickTranslationNumberFormatter.renderMagnitude(
+                    value,
+                    leadsReplacement: element.leadsReplacement,
+                    followingUnit: String(decoding: element.numeralUnitsAfter, as: UTF16.self).first
+                )
             case .latinLetters:
                 rendered = QuickTranslationNumberFormatter.renderLatinLetters(value)
             }
@@ -128,7 +132,9 @@ extension QuickTranslationRuleMatcher {
         let after = String(decoding: element.numeralUnitsAfter, as: UTF16.self)
         switch kind {
         case .magnitude:
-            guard QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value) else { return false }
+            guard QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value, allowsDigits: element.leadsReplacement) else {
+                return false
+            }
             return QuickTranslationNumeralShape.isNumber(before + value + after)
         case .chinese:
             // Nhánh 0-9: lớp ký tự đã tách hẳn khỏi chữ Hán, không có gì để ghép.

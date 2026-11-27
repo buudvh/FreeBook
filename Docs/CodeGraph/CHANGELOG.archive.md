@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1067] - 2026-11-26
+
+### feat: sửa mục Pronouns dùng màn Sửa từ như VietPhrase
+
+Anh Bửu: "sửa mục pronoun cần giống sửa mục của vp cho tôi" → duyệt plan (chỉ màn Sửa, "+" giữ nguyên).
+
+- Pronouns (Chung) › chạm hàng mở `DictEntryEditSheet` (màn Sửa từ của VietPhrase.dat: chữ gốc chạm từng chữ + nút nới / thu, token đã dịch, ô nghĩa, chip, aa…AA, Cập nhật, tra cứu nhanh) thay form hai ô; badge "Pronouns · Chung", không gắn truyện ⇒ nút ⚙ quản lý nghĩa ẩn (`BaseDictionaryListView.editSheet(for:)`).
+- Lưu vẫn qua `GlobalDictionaryEditor` (ghi lại file gốc, dựng lại `.dat`, nạp lại Pronouns, xoá cache dịch): chọn cả từ ⇒ sửa nghĩa; đổi từ gốc (bút chì) ⇒ **bỏ** mục cũ như trước (khác VP — VP chỉ ghi lớp sửa đổi); chọn một phần ⇒ thêm mục mới, mục cũ giữ; từ đích đã có ⇒ màn báo ghi đè.
+- Hàng token và nghĩa gợi ý (chọn một phần) ra nghĩa VP/Name vì tách từ không tra Pronouns (1.3.1016) — như panel Dịch của Reader; nghĩa Pronouns hiện ở chip "Xưng hô (Pronouns)".
+- Phiên âm giữ form hai ô `BaseDictionaryEntrySheet` (sheet này giờ chỉ còn: thêm mục cả hai, sửa mục Phiên âm). `translation.md` ghi lại; entry 1.3.1037 chuyển sang `CHANGELOG.archive.md`.
+- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1066] - 2026-11-26
 
 ### fix: sheet có hộp "Bỏ thay đổi?" chạm ra ngoài sheet cũng hỏi như vuốt xuống, không còn đứng im

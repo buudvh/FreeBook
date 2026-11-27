@@ -1,124 +1,92 @@
 import Foundation
 
-/// Định nghĩa và render các biểu diễn số cơ số 10 mở rộng cho token `<m>`.
+/// Nhận và đọc cụm bậc tròn của token `<m>` — **ghép theo luật** thay cho bảng tay (1.3.1094, anh Bửu: "các token số
+/// như vạn ức, ngàn vạn chưa chính xác"; bảng cũ thiếu 万亿, 两亿, 三百亿, 十万亿…).
 ///
-/// Hỗ trợ các dạng cơ số 10 trong tiếng Trung:
-/// - Bậc cơ sở đơn thuần (không kèm "một" phía trước): `十` -> `mươi`, `百` -> `trăm`, `千` -> `nghìn`, `万` -> `vạn`, `亿` -> `ức`, `兆` -> `triệu`.
-/// - Hàng chục cổ: `廿` -> `hai mươi`, `卅` -> `ba mươi`, `卌` -> `bốn mươi`.
-/// - Hàng chục (20–90): `二十` -> `hai mươi` ... `九十` -> `chín mươi`.
-/// - Hàng trăm / nghìn / vạn ghép số: `二百`/`两百` -> `hai trăm`, `二千` -> `hai nghìn`, `二万` -> `hai vạn`...
-/// - Bậc kép: `十万` -> `chục vạn`, `百万` -> `trăm vạn`, `千万` -> `nghìn vạn`, `二十万` -> `hai mươi vạn`...
+/// Một cụm hợp lệ = [một chữ số] + một hay nhiều bậc **tăng dần** (十 < 百 < 千 < 万 < 亿 < 兆), tối đa 4 chữ (parser cố
+/// định `<m>` 1–4); `廿` `卅` `卌` đứng riêng tính như có chữ số. Không nhận bậc lặp hay bậc lớn trước bậc nhỏ (`万万`,
+/// `亿万`) — đó là thành ngữ, để VietPhrase đọc.
+///
+/// Chữ số đầu chỉ được nhận khi `{i}` của token **đứng đầu bản dịch** (`QuickTranslationRuleElement.leadsReplacement`,
+/// anh chốt 2026-11-27): `<m>几 = {0} mấy` cần `二十几` = hai mươi mấy; còn `几<m>年 = mấy {0} năm` thì sau 几 / 数 tiếng
+/// Trung không bao giờ có chữ số, nên chỉ nhận bậc trần (`之数五万年` không còn ra "mấy năm vạn năm").
+///
+/// Đọc: chữ số (`一` bỏ, `二/两/兩` hai…) rồi từng bậc — `十` mươi, `百` trăm, `千` **ngàn**, `万` vạn, `亿` ức, `兆` triệu.
+/// `十` không có chữ số đứng trước đọc **chục** khi ngay sau nó là 万 / 亿 / 兆 (trong cụm hoặc chữ cố định ngay sau
+/// token: `数<m>万年` trên `数十万年` = mấy chục vạn năm), đọc **mười** khi cả cụm là `十` / `一十` và token đứng đầu bản
+/// dịch (`十几` = mười mấy), còn lại **mươi** (`几十年` = mấy mươi năm). Bản tham chiếu Python: `m_valid` / `m_render` ở
+/// `Docs/Plans/token-so-lon/fix.py`.
 public enum QuickTranslationMagnitudeFormatter {
     /// Tập hợp ký tự UTF-16 cấu thành token `<m>`.
     public static let magnitudeUnits: Set<UInt16> = Set(
         "十百千万萬亿億兆廿卅卌一二两兩三四五六七八九".utf16
     )
 
-    /// Bảng ánh xạ chuẩn xác toàn bộ các cơ số 10 sang tiếng Việt.
-    private static let magnitudeWordsMap: [String: String] = [
-        // 1. Các bậc cơ sở đơn lẻ (không có "10/một" phía trước)
-        "十": "mươi", "一十": "mươi",
-        "百": "trăm", "一百": "trăm",
-        "千": "nghìn", "一千": "nghìn",
-        "万": "vạn", "萬": "vạn", "一万": "vạn", "一萬": "vạn",
-        "亿": "ức", "億": "ức", "一亿": "ức", "一億": "ức",
-        "兆": "triệu", "一兆": "triệu",
-
-        // 2. Ký tự hàng chục cổ
-        "廿": "hai mươi",
-        "卅": "ba mươi",
-        "卌": "bốn mươi",
-
-        // 3. Các số hàng chục từ 20 đến 90
-        "二十": "hai mươi", "三十": "ba mươi", "四十": "bốn mươi", "五十": "năm mươi",
-        "六十": "sáu mươi", "七十": "bảy mươi", "八十": "tám mươi", "九十": "chín mươi",
-
-        // 4. Các số hàng trăm (200 - 900)
-        "二百": "hai trăm", "两百": "hai trăm", "兩百": "hai trăm",
-        "三百": "ba trăm", "四百": "bốn trăm", "五百": "năm trăm",
-        "六百": "sáu trăm", "七百": "bảy trăm", "八百": "tám trăm", "九百": "chín trăm",
-
-        // 5. Các số hàng nghìn (2000 - 9000)
-        "二千": "hai nghìn", "两千": "hai nghìn", "兩千": "hai nghìn",
-        "三千": "ba nghìn", "四千": "bốn nghìn", "五千": "năm nghìn",
-        "六千": "sáu nghìn", "七千": "bảy nghìn", "八千": "tám nghìn", "九千": "chín nghìn",
-
-        // 6. Các số hàng vạn (2 vạn - 9 vạn)
-        "二万": "hai vạn", "两万": "hai vạn", "兩万": "hai vạn",
-        "二萬": "hai vạn", "两萬": "hai vạn", "兩萬": "hai vạn",
-        "三万": "ba vạn", "三萬": "ba vạn",
-        "四万": "bốn vạn", "四萬": "bốn vạn",
-        "五万": "năm vạn", "五萬": "năm vạn",
-        "六万": "sáu vạn", "六萬": "sáu vạn",
-        "七万": "bảy vạn", "七萬": "bảy vạn",
-        "八万": "tám vạn", "八萬": "tám vạn",
-        "九万": "chín vạn", "九萬": "chín vạn",
-
-        // 7. Bậc kép: chục vạn, trăm vạn, nghìn vạn...
-        "十万": "chục vạn", "十萬": "chục vạn",
-        "一十万": "chục vạn", "一十萬": "chục vạn",
-        "百万": "trăm vạn", "百萬": "trăm vạn",
-        "一百万": "trăm vạn", "一百萬": "trăm vạn",
-        "千万": "nghìn vạn", "千萬": "nghìn vạn",
-        "一千万": "nghìn vạn", "一千萬": "nghìn vạn",
-        "十亿": "chục ức", "十億": "chục ức", "一十亿": "chục ức", "一十億": "chục ức",
-        "百亿": "trăm ức", "百億": "trăm ức", "一百亿": "trăm ức", "一百億": "trăm ức",
-        "千亿": "nghìn ức", "千億": "nghìn ức", "一千亿": "nghìn ức", "一千億": "nghìn ức",
-
-        // Ghép số hàng chục + vạn (20 vạn - 90 vạn)
-        "二十万": "hai mươi vạn", "二十萬": "hai mươi vạn",
-        "三十万": "ba mươi vạn", "三十萬": "ba mươi vạn",
-        "四十万": "bốn mươi vạn", "四十萬": "bốn mươi vạn",
-        "五十万": "năm mươi vạn", "五十萬": "năm mươi vạn",
-        "六十万": "sáu mươi vạn", "六十萬": "sáu mươi vạn",
-        "七十万": "bảy mươi vạn", "七十萬": "bảy mươi vạn",
-        "八十万": "tám mươi vạn", "八十萬": "tám mươi vạn",
-        "九十万": "chín mươi vạn", "九十萬": "chín mươi vạn",
-
-        // Ghép số hàng trăm + vạn (200 vạn - 900 vạn)
-        "二百万": "hai trăm vạn", "两百万": "hai trăm vạn", "兩百万": "hai trăm vạn",
-        "二百萬": "hai trăm vạn", "两百萬": "hai trăm vạn", "兩百萬": "hai trăm vạn",
-        "三百万": "ba trăm vạn", "三百萬": "ba trăm vạn",
-        "四百万": "bốn trăm vạn", "四百萬": "bốn trăm vạn",
-        "五百万": "năm trăm vạn", "五百萬": "năm trăm vạn",
-        "六百万": "sáu trăm vạn", "六百萬": "sáu trăm vạn",
-        "七百万": "bảy trăm vạn", "七百萬": "bảy trăm vạn",
-        "八百万": "tám trăm vạn", "八百萬": "tám trăm vạn",
-        "九百万": "chín trăm vạn", "九百萬": "chín trăm vạn",
-
-        // Ghép số hàng nghìn + vạn (2000 vạn - 9000 vạn)
-        "二千万": "hai nghìn vạn", "两千万": "hai nghìn vạn", "兩千万": "hai nghìn vạn",
-        "二千萬": "hai nghìn vạn", "两千萬": "hai nghìn vạn", "兩千萬": "hai nghìn vạn",
-        "三千万": "ba nghìn vạn", "三千萬": "ba nghìn vạn",
-        "四千万": "bốn nghìn vạn", "四千萬": "bốn nghìn vạn",
-        "五千万": "năm nghìn vạn", "五千萬": "năm nghìn vạn",
-        "六千万": "sáu nghìn vạn", "六千萬": "sáu nghìn vạn",
-        "七千万": "bảy nghìn vạn", "七千萬": "bảy nghìn vạn",
-        "八千万": "tám nghìn vạn", "八千萬": "tám nghìn vạn",
-        "九千万": "chín nghìn vạn", "九千萬": "chín nghìn vạn",
-
-        // Ghép với ức
-        "二十亿": "hai mươi ức", "二十億": "hai mươi ức",
-        "三十亿": "ba mươi ức", "三十億": "ba mươi ức",
-        "两百亿": "hai trăm ức", "二百亿": "hai trăm ức", "兩百億": "hai trăm ức",
-        "两千亿": "hai nghìn ức", "二千亿": "hai nghìn ức", "兩千億": "hai nghìn ức"
+    private static let digitWords: [Character: String] = [
+        "一": "", "二": "hai", "两": "hai", "兩": "hai", "三": "ba", "四": "bốn",
+        "五": "năm", "六": "sáu", "七": "bảy", "八": "tám", "九": "chín"
     ]
+    private static let unitWords: [Character: String] = [
+        "十": "mươi", "百": "trăm", "千": "ngàn", "万": "vạn", "萬": "vạn", "亿": "ức", "億": "ức", "兆": "triệu"
+    ]
+    /// Số mũ của bậc — để kiểm "tăng dần" và nhận ra bậc từ vạn trở lên.
+    private static let unitExponents: [Character: Int] = [
+        "十": 1, "百": 2, "千": 3, "万": 4, "萬": 4, "亿": 8, "億": 8, "兆": 12
+    ]
+    private static let oldTens: [Character: String] = ["廿": "hai mươi", "卅": "ba mươi", "卌": "bốn mươi"]
 
-    /// Kiểm tra một chuỗi ký tự Hán có phải là biểu diễn cơ số 10 hợp lệ cho `<m>` hay không.
-    public static func isMagnitudeCandidate(_ value: String) -> Bool {
-        magnitudeWordsMap[value] != nil
+    /// `allowsDigits` = `{i}` của token đứng đầu bản dịch.
+    public static func isMagnitudeCandidate(_ value: String, allowsDigits: Bool) -> Bool {
+        let chars = Array(value)
+        guard !chars.isEmpty, chars.count <= 4 else { return false }
+        if chars.count == 1, oldTens[chars[0]] != nil { return allowsDigits }
+
+        var body = chars[...]
+        if let first = body.first, digitWords[first] != nil {
+            guard allowsDigits else { return false }
+            body = body.dropFirst()
+        }
+        guard !body.isEmpty else { return false }
+
+        var previous = 0
+        for char in body {
+            guard let exponent = unitExponents[char], exponent > previous else { return false }
+            previous = exponent
+        }
+        return true
     }
 
-    /// `十`/`一十` khi `<m>` đứng đầu mẫu: chính số 10, đọc `mười` (1.3.703).
-    private static let leadingTenValues: Set<String> = ["十", "一十"]
+    /// Đọc cụm đã qua `isMagnitudeCandidate`. `followingUnit` = chữ đầu của chữ cố định ngay sau token (nếu là chữ số / bậc
+    /// Hán), để `十` trước một 万 / 亿 nằm trong chữ cố định vẫn đọc "chục".
+    public static func renderMagnitude(_ value: String, leadsReplacement: Bool, followingUnit: Character? = nil) -> String {
+        let chars = Array(value)
+        if chars.count == 1, let word = oldTens[chars[0]] { return word }
 
-    /// Render một chuỗi cơ số 10 thành chữ tiếng Việt. Nếu không nằm trong danh mục, trả về nguyên bản.
-    ///
-    /// `leadsPattern` = `<m>` là phần tử đầu của mẫu (`QuickTranslationRuleElement.leadsPattern`): khi đó `十`/`一十`
-    /// là số 10 đứng một mình (`<m>几 = {0} mấy` trên `十几` ⇒ `mười mấy`), không phải chữ đơn vị sau số đếm
-    /// (`几<m>` ⇒ `mấy mươi`). Chỉ 10 đổi: `二十` vẫn `hai mươi`, `十万` vẫn `chục vạn`.
-    public static func renderMagnitude(_ value: String, leadsPattern: Bool = false) -> String {
-        if leadsPattern, leadingTenValues.contains(value) { return "mười" }
-        return magnitudeWordsMap[value] ?? value
+        var words: [String] = []
+        var body = chars[...]
+        var hasCountingDigit = false
+        if let first = body.first, let word = digitWords[first] {
+            body = body.dropFirst()
+            if !word.isEmpty {
+                words.append(word)
+                hasCountingDigit = true
+            }
+        }
+
+        for (offset, char) in body.enumerated() {
+            if char == "十", offset == 0, !hasCountingDigit {
+                let next = offset + 1 < body.count ? body[body.startIndex + offset + 1] : followingUnit
+                if let next, let exponent = unitExponents[next], exponent >= 4 {
+                    words.append("chục")
+                    continue
+                }
+                if leadsReplacement, body.count == 1 {
+                    words.append("mười")
+                    continue
+                }
+            }
+            words.append(unitWords[char] ?? String(char))
+        }
+        return words.joined(separator: " ")
     }
 }

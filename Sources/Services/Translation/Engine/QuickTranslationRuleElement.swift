@@ -79,10 +79,10 @@ public struct QuickTranslationRuleElement: Sendable {
         case hanDigits = "h"
         /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`); render full-width về ASCII.
         case asciiDigits = "d"
-        /// `<m>`: biểu diễn cơ số 10 trong tiếng Hán (từ bậc đơn `十`, `百`, `千`, `万`... đến hàng chục
-        /// `二十`...`九十`, `廿`, `卅`, `卌`, hàng trăm/nghìn ghép số, và bậc kép `十万`, `百万`, `二十万`...)
-        /// → **chữ đơn vị** tiếng Việt: `mươi`, `trăm`, `nghìn`, `hai mươi`, `chục vạn`... Dùng cho rule
-        /// kiểu `几<m> = mấy {0}` hoặc `<m>几 = {0} mấy`. Cần con số thì dùng `<n>`.
+        /// `<m>`: cụm bậc tròn của tiếng Hán — [chữ số] + bậc tăng dần (`十`, `百`, `千`, `万`, `十万`, `两千`, `万亿`…,
+        /// `廿 卅 卌`) → **chữ đơn vị** tiếng Việt: `mươi`, `trăm`, `ngàn`, `hai mươi`, `chục vạn`… (ghép theo luật ở
+        /// `QuickTranslationMagnitudeFormatter`, 1.3.1094). Dùng cho rule kiểu `几<m> = mấy {0}` hoặc `<m>几 = {0} mấy`;
+        /// chữ số đầu chỉ nhận khi `{i}` đứng đầu bản dịch (`leadsReplacement`). Cần con số thì dùng `<n>`.
         case magnitude = "m"
         /// `<a>`: chuỗi chữ cái Latin `A-Z`/`a-z`, trả **nguyên văn** (không đổi hoa/thường). Dùng cho
         /// rule kiểu `<a>级 = cấp {0}` phủ `A级`, `SSS级`, `BB级`.
@@ -113,9 +113,12 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Chỉ đặt khi phần tử liền kề **không** tiếp tục chuỗi số (xem `QuickTranslationRuleCompiler`).
     public var guardsLeft: Bool
     public var guardsRight: Bool
-    /// Chỉ `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+LeadingMagnitude`, 1.3.703): token là phần tử **đầu
-    /// tiên** của mẫu (bỏ qua neo dòng) ⇒ khớp `十`/`一十` thì đọc `mười` (`<m>几` trên `十几` = mười mấy) thay vì `mươi`.
-    public var leadsPattern: Bool
+    /// Chỉ `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+LeadingMagnitude`, 1.3.1094 — thay tiêu chí vế trái của
+    /// 1.3.703, anh Bửu: "nếu giá trị thay thế đứng đầu mới đọc là mười"): `{i}` của token là đoạn **đầu tiên** của bản
+    /// dịch (bỏ khoảng trắng đầu) ⇒ token nhận cả cụm có chữ số đầu (`二十`, `两百`) và `十`/`一十` đọc `mười`
+    /// (`<m>几 = {0} mấy` trên `十几` = mười mấy); không đứng đầu ⇒ chỉ nhận bậc trần (`几<m>年 = mấy {0} năm` trên `几十年`
+    /// = mấy mươi năm).
+    public var leadsReplacement: Bool
     /// Chỉ `<n>` / `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+NumeralNeighbours`, 1.3.1093): chữ số / bậc Hán
     /// **cuối** của chữ cố định ngay trước token và **đầu** của chữ cố định ngay sau. Matcher ghép chúng với phần token
     /// bắt để xét "cả cụm có phải một số thật" (`QuickTranslationNumeralShape`): `<n:1-5>万年` trên `万万年` ⇒ cụm `万万`
@@ -145,7 +148,7 @@ public struct QuickTranslationRuleElement: Sendable {
         captureIndex: Int? = nil,
         guardsLeft: Bool = false,
         guardsRight: Bool = false,
-        leadsPattern: Bool = false,
+        leadsReplacement: Bool = false,
         numeralUnitsBefore: [UInt16] = [],
         numeralUnitsAfter: [UInt16] = [],
         isPatternHead: Bool = false,
@@ -162,7 +165,7 @@ public struct QuickTranslationRuleElement: Sendable {
         self.captureIndex = captureIndex
         self.guardsLeft = guardsLeft
         self.guardsRight = guardsRight
-        self.leadsPattern = leadsPattern
+        self.leadsReplacement = leadsReplacement
         self.numeralUnitsBefore = numeralUnitsBefore
         self.numeralUnitsAfter = numeralUnitsAfter
         self.isPatternHead = isPatternHead

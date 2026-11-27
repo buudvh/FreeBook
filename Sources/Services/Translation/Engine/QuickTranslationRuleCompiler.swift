@@ -80,7 +80,7 @@ public enum QuickTranslationRuleCompiler {
             var elements = rule.elements
             applyBoundaryGuards(&elements)
             markNumeralNeighbours(&elements)
-            markLeadingMagnitude(&elements)
+            markLeadingMagnitude(&elements, template: template)
 
             let literal = requiredLiteral(of: elements)
             if !literal.units.isEmpty, literal.units.allSatisfy({ weakAnchorUnits.contains($0) }) {
