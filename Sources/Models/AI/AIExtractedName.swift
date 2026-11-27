@@ -17,6 +17,9 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
     public var hasInBookNames: Bool
     /// Đã tồn tại trong từ điển VietPhrase riêng (VietPhrase.txt) của truyện
     public var hasInBookVP: Bool
+    /// Nghĩa do **máy đoán** (Lọc name local, công tắc "Ưu tiên tên Latin": tên phiên âm không có trong từ điển ⇒ mô hình
+    /// đoán chữ Latin, vd 伽罗斯 ⇒ Garos) — màn duyệt gắn nhãn "đoán"; sửa nghĩa thì bỏ cờ. Luồng AI luôn `false`.
+    public var isGuessedMeaning: Bool
 
     public init(
         id: UUID = UUID(),
@@ -26,7 +29,8 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         occurrenceCount: Int = 1,
         isSelected: Bool = true,
         hasInBookNames: Bool = false,
-        hasInBookVP: Bool = false
+        hasInBookVP: Bool = false,
+        isGuessedMeaning: Bool = false
     ) {
         self.id = id
         self.original = original
@@ -36,11 +40,12 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         self.isSelected = isSelected
         self.hasInBookNames = hasInBookNames
         self.hasInBookVP = hasInBookVP
+        self.isGuessedMeaning = isGuessedMeaning
     }
 
     enum CodingKeys: String, CodingKey {
         case id, original, suggestedMeaning, category, occurrenceCount, isSelected
-        case hasInBookNames, hasInBookVP
+        case hasInBookNames, hasInBookVP, isGuessedMeaning
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +58,7 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         self.isSelected = try container.decodeIfPresent(Bool.self, forKey: .isSelected) ?? true
         self.hasInBookNames = try container.decodeIfPresent(Bool.self, forKey: .hasInBookNames) ?? false
         self.hasInBookVP = try container.decodeIfPresent(Bool.self, forKey: .hasInBookVP) ?? false
+        self.isGuessedMeaning = try container.decodeIfPresent(Bool.self, forKey: .isGuessedMeaning) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -65,5 +71,7 @@ public struct AIExtractedName: Identifiable, Codable, Sendable, Equatable {
         try container.encode(isSelected, forKey: .isSelected)
         try container.encode(hasInBookNames, forKey: .hasInBookNames)
         try container.encode(hasInBookVP, forKey: .hasInBookVP)
+        // Chỉ ghi khi bật: tin nhắn AI cũ / gói tạm không phình thêm trường luôn `false`.
+        if isGuessedMeaning { try container.encode(true, forKey: .isGuessedMeaning) }
     }
 }

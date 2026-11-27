@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1068] - 2026-11-27
+
+### feat: danh sách đuôi địa danh & tông môn và danh sách "Không phải name" cho lọc name local
+
+Phần B của "Lọc name local" (plan 2026-11-27 anh Bửu duyệt; mockup khung 5, 5b, 6). Phần A (bộ lọc) và phần C (sheet Reader, màn duyệt) làm song song — commit này chỉ có store + hai màn quản lý, **chưa nối** vào Reader.
+
+- **Đuôi địa danh & tông môn**: file gốc `Sources/Resources/Translation/NameFilterSuffixes.txt` (app chỉ đọc; dòng `chữ Hán=nghĩa|place/sect|after/before[|off]`; 63 đuôi = 40 địa danh + 23 tông môn, nghĩa Hán-Việt viết thường đặt **sau** tên; 路 区 观 团 tắt sẵn) + lớp riêng `UserDefaults` `localNameFilterSuffixOverrides` (JSON `LocalNameFilterSuffixOverrides`: `entries` đuôi tự thêm / đuôi gốc đã sửa nghĩa · loại · vị trí, `removed`, `enabled` chỉ ghi bật / tắt khác mặc định). `LocalNameFilterSuffixStore`: `enabledSuffixes()` / `enabledCount` cho sheet lọc, thêm / sửa (đổi chữ Hán giữ bật tắt) / bật tắt / xoá / về bản gốc / khôi phục mặc định; luật khoá 1–2 chữ Hán + nghĩa không rỗng, không `=` `|` xuống dòng ở `LocalNameFilterSuffixListParser`. Không dọn cache dịch (đuôi không vào bộ dịch).
+- **Không phải name**: `LocalNameFilterBlocklistStore`, `UserDefaults` `localNameFilterBlockedTerms` (JSON `[{term, addedAt}]`), khớp nguyên cụm, trần 5.000 cụm / 20 chữ Hán; `terms()` / `count` / `add(_:)` (trả `nil` khi cụm có trong danh sách sau lệnh — kể cả trùng; chuỗi lỗi khi không thêm) / `remove` / `removeAll`.
+- **Màn** (`Views/Reader/NameFilter/Lists/`, `init()` không tham số, `.backPageTitle` — đẩy vào `NavigationStack` của sheet Lọc name local): `LocalNameFilterSuffixListView` (tìm chữ Hán / nghĩa, tab Tất cả / Địa danh / Tông môn, "N đuôi · M đang tắt", hàng "nghĩa · loại · trước tên|sau tên" + tự thêm / đã sửa / đang tắt, ⏸/▶ 🗑, `+` nổi, … "Khôi phục mặc định" hỏi lại) + `LocalNameFilterSuffixEditorSheet` (Chữ Hán, Nghĩa kèm "gốc: …", Loại, Nghĩa đứng Trước tên / Sau tên — mới mặc định Sau tên, dòng "Ví dụ: 江海市 → …" đổi theo, "Về bản gốc"); `LocalNameFilterBlocklistView` (tìm chữ Hán / âm Hán-Việt, "N cụm", hàng "âm Hán-Việt · thêm dd/MM", 🗑, `+` nổi mở sheet một ô, … "Xoá hết" hỏi lại).
+- Khoá chữ thường ⇒ Backup tự gói. `translation.md` ghi lại; entry 1.3.1038 chuyển sang `CHANGELOG.archive.md`.
+- Biên dịch cần `Sources/Services/Translation/NameFilter/LocalNameFilter.swift` (hợp đồng chung, phần A commit).
+- **Kiểm**: đọc code + `check_architecture.py` (vẫn chỉ violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1067] - 2026-11-26
 
 ### feat: sửa mục Pronouns dùng màn Sửa từ như VietPhrase

@@ -100,23 +100,30 @@ public enum LocalNameFilter {
     public struct Configuration: Sendable {
         /// "Ít nhất N lần" (2 / 3 / 5 / 10, mặc định 3).
         public var minCount: Int
-        /// Các đuôi đang bật.
+        /// Danh sách "Đuôi địa danh, tổ chức, thuật ngữ" của người dùng — từ 2026-11-27 (cách A, anh Bửu) **chỉ** dùng để
+        /// ghép nghĩa name không phải tên người; dò ứng viên / luật lọc / phân loại dùng bộ đuôi cố định của bản gốc
+        /// (trừ đuôi `|off`), không theo danh sách này. Không còn bật / tắt: mọi đuôi trong danh sách đều ghép nghĩa.
         public var suffixes: [Suffix]
         /// "Không phải name": khớp nguyên cụm, chỉ lọc ở đầu ra.
         public var blockedTerms: Set<String>
         /// "Loại cần tìm" (ít nhất một nhóm): name ngoài các nhóm này bị bỏ ở đầu ra, kể cả danh sách hiện dần.
         public var categories: Set<Category>
+        /// "Ưu tiên tên Latin" (theo truyện, mặc định tắt): mảnh tên trông như phiên âm ⇒ nghĩa chữ Latin trong từ điển
+        /// (班森 Ban Sâm/Benson ⇒ Benson); không có trong từ điển ⇒ mô hình đoán (`Name.isGuessedMeaning`).
+        public var prefersLatinNames: Bool
 
         public init(
             minCount: Int,
             suffixes: [Suffix],
             blockedTerms: Set<String>,
-            categories: Set<Category> = Set(Category.allCases)
+            categories: Set<Category> = Set(Category.allCases),
+            prefersLatinNames: Bool = false
         ) {
             self.minCount = minCount
             self.suffixes = suffixes
             self.blockedTerms = blockedTerms
             self.categories = categories
+            self.prefersLatinNames = prefersLatinNames
         }
     }
 
@@ -125,8 +132,9 @@ public enum LocalNameFilter {
         public var id: String { term }
         /// Chữ Hán.
         public let term: String
-        /// Nghĩa đề xuất: tên người viết hoa từng âm; địa danh / tông môn ghép nghĩa đuôi theo danh sách; danh xưng
-        /// lấy nghĩa từ từ điển Đại từ (江镖头 → "Giang tiêu đầu").
+        /// Nghĩa đề xuất: name đã có ⇒ nghĩa đầu của từ điển (Klein); name mới ⇒ phần tên riêng ghép từ mục có trong từ điển
+        /// nếu phủ trọn, không thì phiên âm viết hoa từng âm; địa danh / tổ chức / thuật ngữ ghép nghĩa đuôi theo danh
+        /// sách; danh xưng lấy nghĩa từ từ điển Đại từ (江镖头 → "Giang tiêu đầu").
         public let meaning: String
         public let kind: Kind
         public var category: Category { kind.category }
@@ -139,14 +147,18 @@ public enum LocalNameFilter {
         public let chapterCount: Int
         /// Danh xưng ở cuối (khoá trong từ điển Đại từ) nếu có: 江镖头 → "镖头".
         public let title: String?
+        /// Nghĩa có phần do mô hình đoán tên Latin sinh ra (chỉ khi `Configuration.prefersLatinNames`).
+        public let isGuessedMeaning: Bool
 
-        public init(term: String, meaning: String, kind: Kind, count: Int, chapterCount: Int, title: String?) {
+        public init(term: String, meaning: String, kind: Kind, count: Int, chapterCount: Int, title: String?,
+                    isGuessedMeaning: Bool = false) {
             self.term = term
             self.meaning = meaning
             self.kind = kind
             self.count = count
             self.chapterCount = chapterCount
             self.title = title
+            self.isGuessedMeaning = isGuessedMeaning
         }
     }
 

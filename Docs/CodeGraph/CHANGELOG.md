@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1095] - 2026-11-27
+
+### refactor: hợp đồng lọc name local có cờ nghĩa do máy đoán, công tắc ưu tiên tên Latin và công cụ học mô hình đoán tên
+
+Bước đầu của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md`, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz): chốt kiểu chung trước để hai phần (nghĩa + đuôi + công tắc Latin; ô tìm + nhãn "đoán" ở màn duyệt) làm song song.
+
+- `AIExtractedName.isGuessedMeaning` (mặc định `false`, chỉ ghi JSON khi bật — tin nhắn AI cũ, gói tạm đọc được như cũ).
+- `LocalNameFilter.Name.isGuessedMeaning`, `Configuration.prefersLatinNames` ("Ưu tiên tên Latin", theo truyện); ghi rõ `Configuration.suffixes` từ nay **chỉ** để ghép nghĩa (cách A).
+- `Tools/lac-export/export_translit.py`: học mô hình phiên âm ngược Hán → Latin từ VietPhrase (54.722 cặp tên, EM theo đoạn 1–4 chữ cái + mô hình chữ cái bậc 3), xuất `translit_latin.json` (155 KB) kèm đặc tả bộ giải mã. Bài thi 10 %: đúng y hệt 13 %, sai ≤ 1 chữ cái 36 %. Bộ giải mã độc lập đọc JSON trùng 3000 / 3000 dự đoán. Đã đẩy lên `datasets/raikiri1498/vietpharse` `lac/translit_latin.json`, commit `0df8c84a`.
+- Commit này một mình chưa dùng các trường mới; hai phần sau của đợt bổ sung.
+
 ## [1.3.1094] - 2026-11-27
 
 ### feat: token <m> ghép chữ theo luật, xét vị trí trong bản dịch để nhận chữ số và đọc 十 là mười, 千 đọc ngàn
@@ -332,16 +343,3 @@ Anh Bửu duyệt plan + mockup "Lọc name local" (2026-11-27). Phần C — lu
 - **Đang lọc** (`LocalNameFilterProgressView` + `LocalNameFilterSession`, `@MainActor @Observable` giữ lượt lọc và vòng nghe sự kiện): "Đọc chương X / N" + thanh; "Name đã thấy (K)" + "cập nhật ở chương X"; danh sách tạm hiện ngay, name vừa vào có vạch + nhãn "mới", name vừa rơi ra gạch mờ — một nhịp tới lần cập nhật kế (`LocalNameFilterLiveRow`). "Dừng" = phân tích nốt phần đã đọc rồi sang màn duyệt; vuốt sheet xuống ở bất kỳ bước nào = huỷ (`onDisappear` ở `ZStack` ngoài cùng). Xong không có name ⇒ về bước chọn, báo "Không tìm thấy name mới · ẩn M name đã có"; `.failed` ⇒ về bước chọn, hiện lỗi.
 - **Duyệt**: thay gốc sheet bằng "Duyệt tên riêng & VP" của AI với init mới `ReaderAINameReviewSheet(names:bookId:onSave:onBlockName:)` (danh sách có sẵn, chọn sẵn hết, chỉ tra cờ NE/VP, badge màn Sửa từ "Lọc local · Riêng truyện") + toast "Lọc xong: N name mới · ẩn M name đã có". Card thêm `SortMode.mostFrequent` ("Nhiều lần nhất": số lần giảm dần rồi chữ Hán) + kiểu sắp mặc định; ✕ thành menu "Bỏ khỏi lần này" / "Không phải name" (thêm vào danh sách loại bỏ dùng chung, toast) **chỉ** khi có `onBlock` — luồng AI giữ ✕, menu sắp và mặc định như cũ. Lưu Name riêng / VP riêng (Gộp / Thay thế) thẳng qua `AIHarnessService.saveExtractedEntries`, toast như AI.
 - **Kiểm**: đọc code + `check_architecture.py` (không thêm violation); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1068] - 2026-11-27
-
-### feat: danh sách đuôi địa danh & tông môn và danh sách "Không phải name" cho lọc name local
-
-Phần B của "Lọc name local" (plan 2026-11-27 anh Bửu duyệt; mockup khung 5, 5b, 6). Phần A (bộ lọc) và phần C (sheet Reader, màn duyệt) làm song song — commit này chỉ có store + hai màn quản lý, **chưa nối** vào Reader.
-
-- **Đuôi địa danh & tông môn**: file gốc `Sources/Resources/Translation/NameFilterSuffixes.txt` (app chỉ đọc; dòng `chữ Hán=nghĩa|place/sect|after/before[|off]`; 63 đuôi = 40 địa danh + 23 tông môn, nghĩa Hán-Việt viết thường đặt **sau** tên; 路 区 观 团 tắt sẵn) + lớp riêng `UserDefaults` `localNameFilterSuffixOverrides` (JSON `LocalNameFilterSuffixOverrides`: `entries` đuôi tự thêm / đuôi gốc đã sửa nghĩa · loại · vị trí, `removed`, `enabled` chỉ ghi bật / tắt khác mặc định). `LocalNameFilterSuffixStore`: `enabledSuffixes()` / `enabledCount` cho sheet lọc, thêm / sửa (đổi chữ Hán giữ bật tắt) / bật tắt / xoá / về bản gốc / khôi phục mặc định; luật khoá 1–2 chữ Hán + nghĩa không rỗng, không `=` `|` xuống dòng ở `LocalNameFilterSuffixListParser`. Không dọn cache dịch (đuôi không vào bộ dịch).
-- **Không phải name**: `LocalNameFilterBlocklistStore`, `UserDefaults` `localNameFilterBlockedTerms` (JSON `[{term, addedAt}]`), khớp nguyên cụm, trần 5.000 cụm / 20 chữ Hán; `terms()` / `count` / `add(_:)` (trả `nil` khi cụm có trong danh sách sau lệnh — kể cả trùng; chuỗi lỗi khi không thêm) / `remove` / `removeAll`.
-- **Màn** (`Views/Reader/NameFilter/Lists/`, `init()` không tham số, `.backPageTitle` — đẩy vào `NavigationStack` của sheet Lọc name local): `LocalNameFilterSuffixListView` (tìm chữ Hán / nghĩa, tab Tất cả / Địa danh / Tông môn, "N đuôi · M đang tắt", hàng "nghĩa · loại · trước tên|sau tên" + tự thêm / đã sửa / đang tắt, ⏸/▶ 🗑, `+` nổi, … "Khôi phục mặc định" hỏi lại) + `LocalNameFilterSuffixEditorSheet` (Chữ Hán, Nghĩa kèm "gốc: …", Loại, Nghĩa đứng Trước tên / Sau tên — mới mặc định Sau tên, dòng "Ví dụ: 江海市 → …" đổi theo, "Về bản gốc"); `LocalNameFilterBlocklistView` (tìm chữ Hán / âm Hán-Việt, "N cụm", hàng "âm Hán-Việt · thêm dd/MM", 🗑, `+` nổi mở sheet một ô, … "Xoá hết" hỏi lại).
-- Khoá chữ thường ⇒ Backup tự gói. `translation.md` ghi lại; entry 1.3.1038 chuyển sang `CHANGELOG.archive.md`.
-- Biên dịch cần `Sources/Services/Translation/NameFilter/LocalNameFilter.swift` (hợp đồng chung, phần A commit).
-- **Kiểm**: đọc code + `check_architecture.py` (vẫn chỉ violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa thử trên máy**.
