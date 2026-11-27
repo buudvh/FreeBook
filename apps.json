@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1092",
+          "buildVersion": "1353",
+          "date": "2026-11-27T08:15:19Z",
+          "localizedDescription": "- feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1353/TangCongCac-1.3.1092-1353.ipa",
+          "size": 53124676,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1091",
           "buildVersion": "1352",
           "date": "2026-11-27T07:53:57Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1349/TangCongCac-1.3.1080-1349.ipa",
           "size": 52953289,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1079",
-          "buildVersion": "1348",
-          "date": "2026-11-27T03:39:07Z",
-          "localizedDescription": "- feat: danh sách đuôi địa danh & tông môn và danh sách \"Không phải name\" cho lọc name local\n- feat: lọc name local trong Reader, hiện name ngay khi lọc và duyệt có \"Không phải name\"\n- feat: bộ lọc name local tự dò tên người, địa danh, tông môn ngay trên máy\n- fix: lọc name local ghi rõ \"cập nhật sau N chương\", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng\n- fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn\n- fix: nút xoá ở danh sách duyệt name dùng thùng rác đỏ như danh sách từ điển\n- feat: chip nghĩa Pronoun viền tím, nhóm Pronoun trong Quản lý nghĩa từ, tách nghĩa Pronoun bằng | và chuẩn hoá | thành / một lần\n- feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển\n- feat: panel Dịch lưu được vào Pronoun bằng nút PN cạnh NE và VP\n- fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt\n- feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch\n- fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1348/TangCongCac-1.3.1079-1348.ipa",
-          "size": 52952343,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1091",
-      "versionDate": "2026-11-27T07:53:57Z",
-      "versionDescription": "- fix: lọc name local giữ model khi chỉ lỗi đọc file, bộ luật bỏ dòng tên chương như bản Python, sửa loại đuôi 花 không tự bật",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1352/TangCongCac-1.3.1091-1352.ipa",
-      "size": 53119438,
+      "version": "1.3.1092",
+      "versionDate": "2026-11-27T08:15:19Z",
+      "versionDescription": "- feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1353/TangCongCac-1.3.1092-1353.ipa",
+      "size": 53124676,
       "appPermissions": {}
     }
   ],
