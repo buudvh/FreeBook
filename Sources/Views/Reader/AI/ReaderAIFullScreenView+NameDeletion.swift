@@ -1,41 +1,33 @@
 import SwiftUI
 
-/// Nút ✕ của sheet "Duyệt tên riêng & VP" xoá **hẳn** dòng `từ=nghĩa` khỏi tin nhắn nguồn. Danh sách của sheet được
-/// dựng lại từ nội dung tin mỗi lần mở (`ReaderAINameReviewSheet.loadAndDecorateNames`), nên chỉ xoá khỏi bản tạm
-/// thì lần sau mở lại name vẫn hiện.
+/// Nút thùng rác của sheet "Duyệt tên riêng & VP" **gạch** một name thay cho xoá hẳn (anh Bửu 2026-11-27: "sợ người dùng
+/// lỡ tay xoá mất"). Trước đây (1.3.611–1.3.1073) nút này bỏ hẳn dòng `từ=nghĩa` khỏi tin nguồn + nhờ coordinator nhớ
+/// khoá đã xoá (`AIRuntimeCoordinator.forgetName`) — lỡ tay là mất.
 ///
-/// Xoá theo **khoá** (vế trái đã trim): mọi dòng trùng khoá đều đi, kể cả dòng sheet không hiện (vế phải lẫn chữ Hán)
-/// — người dùng đã bảo không muốn thấy name đó nữa. Các dòng khác (kể cả dòng tiêu đề) giữ nguyên. Chỉ tin đang mở.
-///
-/// 1.3.611: khoá đã xoá còn được coordinator ghi nhớ theo tin (`AIRuntimeCoordinator.forgetName`) — các đường của
-/// lượt quét/"Thử lại" dựng lại `content` từ danh sách tên đầy đủ lọc qua đó, nên name không quay lại. Tin cũ còn
-/// `extractedNames` (dữ liệu trước đây) cũng bỏ name khỏi mảng đó: `condenseHistoricalMessages` dựng lại `content`
-/// từ nó mỗi lần mở màn AI.
+/// Nay chỉ ghi / bỏ khoá trong `AIChatMessage.struckNameKeys` của tin đó rồi lưu phiên: `content` **giữ nguyên**, sheet
+/// mở lại (kể cả sau khi tắt app) đọc mảng này để vẽ hàng gạch + nút ↶ Hoàn tác; hàng gạch không chọn được nên không bao
+/// giờ được lưu vào từ điển. Gạch theo từng tin (cùng name ở tin khác không bị gạch). Khoá = vế trái đã trim
+/// (`AIRuntimeCoordinator.nameKey`), như cách sheet dựng danh sách từ nội dung tin.
 extension ReaderAIFullScreenView {
-    internal func removeNameLine(key: String, fromMessage messageId: UUID) {
+    internal func setNameStruck(key: String, struck: Bool, inMessage messageId: UUID) {
         let target = AIRuntimeCoordinator.nameKey(key)
         guard !target.isEmpty else { return }
         guard let index = currentSession.messages.firstIndex(where: { $0.id == messageId }) else {
-            AppLogger.shared.log("❌ [AI] Xoá name '\(target)': tin nguồn không còn trong phiên đang mở")
+            AppLogger.shared.log("❌ [AI] Gạch name '\(target)': tin nguồn không còn trong phiên đang mở")
             return
         }
         var message = currentSession.messages[index]
-        let originalContent = message.content
-        message.content = AIRuntimeCoordinator.contentRemovingNameLines(originalContent, key: target)
-        let removedLines = originalContent.components(separatedBy: "\n").count
-            - message.content.components(separatedBy: "\n").count
-        message.extractedNames?.removeAll { AIRuntimeCoordinator.nameKey($0.original) == target }
+        var keys = message.struckNameKeys ?? []
+        if struck {
+            guard !keys.contains(target) else { return }
+            keys.append(target)
+        } else {
+            guard keys.contains(target) else { return }
+            keys.removeAll { $0 == target }
+        }
+        message.struckNameKeys = keys.isEmpty ? nil : keys
         currentSession.messages[index] = message
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
-
-        // Nhớ khoá theo tin + sửa bản phiên đang chạy + context "Thử lại" — để không đường nào dựng lại name này.
-        AIRuntimeCoordinator.shared.forgetName(target, inMessage: messageId, bookId: bookId)
-        batchExtractedNames.removeAll { AIRuntimeCoordinator.nameKey($0.original) == target }
-
-        if removedLines > 0 {
-            AppLogger.shared.log("🗑️ [AI] Xoá name '\(target)': bỏ \(removedLines) dòng khỏi tin \(messageId)")
-        } else {
-            AppLogger.shared.log("❌ [AI] Xoá name '\(target)': không thấy dòng nào trùng khoá trong tin \(messageId)")
-        }
+        AppLogger.shared.log("🗑️ [AI] \(struck ? "Gạch" : "Bỏ gạch") name '\(target)' ở tin \(messageId) (còn \(keys.count) gạch)")
     }
 }

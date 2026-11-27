@@ -8,12 +8,15 @@ public struct ReaderAINameReviewSheet: View {
     public struct Target: Identifiable, Sendable {
         public let id = UUID()
         public let content: String
-        /// Tin nguồn — nút ✕ xoá dòng `từ=nghĩa` khỏi chính tin này (`ReaderAIFullScreenView.removeNameLine`).
+        /// Tin nguồn — nút thùng rác gạch / bỏ gạch name trong chính tin này (`ReaderAIFullScreenView.setNameStruck`).
         public let messageId: UUID
+        /// Khoá đã gạch của tin lúc mở sheet (`AIChatMessage.struckNameKeys`).
+        public let struckKeys: [String]
 
-        public init(content: String, messageId: UUID) {
+        public init(content: String, messageId: UUID, struckKeys: [String] = []) {
             self.content = content
             self.messageId = messageId
+            self.struckKeys = struckKeys
         }
     }
 
@@ -22,8 +25,9 @@ public struct ReaderAINameReviewSheet: View {
     public let content: String
     public let bookId: String
     public let onSave: ([AIExtractedName], Bool, Bool) -> Void
-    /// Bấm ✕ một name: nhận **khoá** (`original`) để nơi gọi xoá hẳn dòng đó khỏi tin nguồn.
-    public let onDeleteName: (String) -> Void
+    /// Luồng AI: bấm thùng rác / ↶ của một name ⇒ nhận **khoá** (vế trái đã trim) + `true` gạch / `false` bỏ gạch, để nơi
+    /// gọi ghi vào tin nguồn (`AIChatMessage.struckNameKeys`). Dòng trong tin **không** bị xoá (anh Bửu 2026-11-27).
+    public let onStrikeName: (String, Bool) -> Void
     /// Bấm "Cập nhật" ở màn Sửa từ của một name (1.3.780, `+Edit`): nhận phép sửa để nơi gọi ghi vào tin nguồn.
     public let onEditName: (AINameEdit) -> Void
     /// Danh sách có sẵn (luồng "Lọc name local", `LocalNameFilterSheet`): bỏ bước tách dòng `từ=nghĩa` khỏi tin AI.
@@ -40,22 +44,26 @@ public struct ReaderAINameReviewSheet: View {
     @State var editingName: AIExtractedName? = nil
     @State private var pendingIsName: Bool = true
     @State private var showingModeDialog: Bool = false
+    /// Khoá đang gạch (luồng AI) — khởi tạo từ tin nguồn, mỗi lần gạch / bỏ gạch ghi ngay qua `onStrikeName`.
+    @State private var struckKeys: Set<String>
 
     public init(
         content: String,
         bookId: String,
+        struckKeys: Set<String> = [],
         onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
-        onDeleteName: @escaping (String) -> Void = { _ in },
+        onStrikeName: @escaping (String, Bool) -> Void = { _, _ in },
         onEditName: @escaping (AINameEdit) -> Void = { _ in }
     ) {
         self.content = content
         self.bookId = bookId
         self.onSave = onSave
-        self.onDeleteName = onDeleteName
+        self.onStrikeName = onStrikeName
         self.onEditName = onEditName
         self.prefilledNames = nil
         self.initialSortMode = .selectedFirst
         self.onBlockName = nil
+        self._struckKeys = State(initialValue: struckKeys)
     }
 
     /// Luồng "Lọc name local": nhận sẵn danh sách (đã chọn hết, `occurrenceCount` = số lần thấy), sắp "Nhiều lần nhất",
@@ -69,13 +77,36 @@ public struct ReaderAINameReviewSheet: View {
         self.content = ""
         self.bookId = bookId
         self.onSave = onSave
-        self.onDeleteName = { _ in }
+        self.onStrikeName = { _, _ in }
         self.onEditName = { _ in }
         self.prefilledNames = names
         self.initialSortMode = .mostFrequent
         self.onBlockName = onBlockName
         self._names = State(initialValue: names)
         self._isLoading = State(initialValue: false)
+        self._struckKeys = State(initialValue: [])
+    }
+
+    /// Thùng rác / ↶ của card (luồng AI) ⇒ đảo trạng thái gạch của mục, bỏ chọn khi gạch, báo nơi gọi lưu vào tin.
+    private var strikeHandler: ((UUID) -> Void)? {
+        guard prefilledNames == nil else { return nil }
+        return { itemId in
+            guard let index = names.firstIndex(where: { $0.id == itemId }) else { return }
+            let key = AIRuntimeCoordinator.nameKey(names[index].original)
+            guard !key.isEmpty else { return }
+            let willStrike = !struckKeys.contains(key)
+            if willStrike {
+                struckKeys.insert(key)
+                names[index].isSelected = false
+            } else {
+                struckKeys.remove(key)
+            }
+            onStrikeName(key, willStrike)
+        }
+    }
+
+    private func isStruck(_ item: AIExtractedName) -> Bool {
+        prefilledNames == nil && struckKeys.contains(AIRuntimeCoordinator.nameKey(item.original))
     }
 
     /// ✕ › "Không phải name" của card ⇒ `onBlockName` với mục đầy đủ. Card gọi trước khi tự bỏ mục ⇒ còn tra được theo id.
@@ -89,7 +120,7 @@ public struct ReaderAINameReviewSheet: View {
     }
 
     private var selectedCount: Int {
-        names.filter { $0.isSelected }.count
+        names.filter { $0.isSelected && !isStruck($0) }.count
     }
 
     public var body: some View {
@@ -116,17 +147,16 @@ public struct ReaderAINameReviewSheet: View {
                         ReaderAINameReviewCardView(
                             names: $names,
                             onDelete: { deletedId in
-                                // Card gọi trước khi tự xoá khỏi danh sách ⇒ còn tra được khoá theo id.
-                                if let key = names.first(where: { $0.id == deletedId })?.original {
-                                    onDeleteName(key)
-                                }
+                                // Chỉ luồng lọc local còn xoá thật ("Bỏ khỏi lần này"); luồng AI đi `onToggleStrike`.
                                 names.removeAll(where: { $0.id == deletedId })
                             },
                             onEdit: { editedId in
                                 editingName = names.first(where: { $0.id == editedId })
                             },
                             initialSortMode: initialSortMode,
-                            onBlock: blockHandler
+                            onBlock: blockHandler,
+                            struckKeys: struckKeys,
+                            onToggleStrike: strikeHandler
                         )
                         .padding(.vertical, 8)
                     }
@@ -185,7 +215,9 @@ public struct ReaderAINameReviewSheet: View {
     /// ⇒ gộp luôn, không hỏi: không có gì để ghi đè. Chỉ xét đích — lưu vào Name riêng thì từ đang có ở VP riêng
     /// vẫn là từ mới với `Names.txt`.
     private func requestSave(isName: Bool) {
-        let hasExisting = names.contains { $0.isSelected && (isName ? $0.hasInBookNames : $0.hasInBookVP) }
+        let hasExisting = names.contains {
+            $0.isSelected && !isStruck($0) && (isName ? $0.hasInBookNames : $0.hasInBookVP)
+        }
         guard hasExisting else {
             executeSave(isName: isName, isMerge: true)
             return
@@ -197,7 +229,8 @@ public struct ReaderAINameReviewSheet: View {
     /// Bước 2: chốt chế độ ghi. Sheet đóng ngay sau khi giao việc cho `onSave` — màn gọi sẽ thay nội
     /// dung tin nhắn bằng bản tóm tắt nên danh sách ở đây thành dữ liệu cũ.
     private func executeSave(isName: Bool, isMerge: Bool) {
-        let chosen = names.filter { $0.isSelected }
+        // Hàng gạch không bao giờ được lưu (ô chọn đã khoá; lọc thêm cho chắc).
+        let chosen = names.filter { $0.isSelected && !isStruck($0) }
         guard !chosen.isEmpty else { return }
         onSave(chosen, isName, isMerge)
         dismiss()
@@ -227,7 +260,12 @@ public struct ReaderAINameReviewSheet: View {
         try? await Task.sleep(nanoseconds: 250_000_000)
 
         await MainActor.run {
-            self.names = decorated
+            // Hàng đã gạch ở lần trước: bỏ chọn sẵn (ô chọn khoá, không lưu được).
+            self.names = decorated.map { item in
+                var copy = item
+                if self.struckKeys.contains(AIRuntimeCoordinator.nameKey(item.original)) { copy.isSelected = false }
+                return copy
+            }
             self.isLoading = false
         }
     }

@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1048] - 2026-11-23
+
+### fix: vtts — mọi giọng mặc định −6 dB cho hết rè (bộ ghìm đỉnh không phải cắt), mức đã chỉnh to hơn tự về −6
+
+Anh Bửu: "vtts giảm âm lượng vẫn bị rè, tất cả giọng đều có độ rè" → "4 giọng của vtts bị rè hết ấy" → "lười thử quá" ⇒ Javis tự quyết → anh hỏi mức trước khi tăng âm lượng → "Duyệt, làm đi".
+
+- **Nguyên nhân** (đo lại bộ nghe thử 1.3.1047): bản anh nghe rè (−14 dB, có / không lọc) là bản **bộ ghìm đỉnh phải cắt** — đỉnh chạm −1 dBFS; bản −17 / −20 dB không chạm trần (đỉnh −2,6 … −6,4 dBFS), kể cả bản có đủ lọc 150 Hz + nâng 2,8 kHz ⇒ rè đi theo bộ ghìm, không theo EQ (giữ "bản 4"). Log máy anh ở −14 dB ghìm tới −5,5 dB ở đoạn đỉnh cao ⇒ mặc định −3 của Google Dịch chưa đủ, ba giọng kia còn 0.
+- **`TTSVolumeSettings.vttsDefaultOffset` = −6** cho mọi giọng vtts (kể cả giọng tự nhập) ⇒ mức đích `VttsLoudness` −20 dBFS: to hơn tiếng gốc model (≈ −7 … −10,5 dB trên thang này), nhỏ hơn Google online (≈ −4 dB) khoảng 2 dB. NghiTTS / VieNeu giữ 0.
+- **Chuyển một lần** (`vttsDefaultMigration`, lần đọc bảng đầu tiên, cờ `ttsVolumeOffsetsVttsDefaultMinus6`): mục vtts anh đã chỉnh to hơn −6 bị bỏ ⇒ về mặc định mới, mục nhỏ hơn giữ nguyên; log `🔊 [TTSVolume]`. Mức ≠ 0 ⇒ khoá tổng hợp vtts đổi ⇒ tiếng đã đệm được tạo lại.
+- Đoạn giải thích Âm lượng (nút "?") nói rõ ghìm càng nhiều càng rè + vtts mặc định −6. Cập nhật `.claude/rules/tts.md`.
+- Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ nghi kế tiếp là trình phát kéo nhanh (1,8× ⇒ kéo thêm ~1,29×), rồi mới tới EQ.
+
 ## [1.3.1047] - 2026-11-23
 
 ### feat: TTS — hàng Âm lượng theo giọng cho vtts, NghiTTS, VieNeu (Google Dịch mặc định −3 dB cho hết rè, ghìm đỉnh mềm)

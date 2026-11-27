@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1078] - 2026-11-27
+
+### feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch
+
+Anh Bửu: "khi xóa từ trong danh sách của AI đừng xóa hẳn, xóa thì gạch hàng đó và chuyển thành nút hoàn tác", rồi chốt "mở lên lại thì vẫn còn gạch hàng + nút hoàn tác, cái bị gạch thì không chọn được". Chỉ màn duyệt của AI (nút xoá ở đó từng xoá hẳn dòng `từ=nghĩa` khỏi tin nhắn — lỡ tay là mất); màn duyệt của lọc name local giữ menu "Bỏ khỏi lần này / Không phải name".
+
+- Thùng rác ⇒ **gạch** hàng: chữ gạch ngang + mờ, ô chọn bỏ chọn và khoá, chạm thân hàng không mở màn Sửa từ, nút thành ↶ Hoàn tác (xanh lá). Bấm ↶ ⇒ bỏ gạch. Đầu thẻ "· đã gạch N"; "Chọn hết / Bỏ chọn" bỏ qua hàng gạch; Lưu lọc bỏ hàng gạch (`ReaderAINameReviewCardView` `struckKeys` + `onToggleStrike`, `ReaderAINameReviewSheet`).
+- Trạng thái gạch lưu theo **tin nhắn**: trường mới `AIChatMessage.struckNameKeys` (khoá = vế trái đã trim, optional — lịch sử cũ đọc như chưa gạch), ghi ngay mỗi lần gạch / bỏ gạch qua `AIChatHistoryStore.saveSession` (`ReaderAIFullScreenView.setNameStruck`, thay `removeNameLine`). `content` của tin **không** đổi nên mở lại sheet (kể cả sau khi tắt app) dựng lại danh sách như cũ rồi vẽ hàng gạch. Gạch theo từng tin.
+- Không còn đường nào gọi `AIRuntimeCoordinator.forgetName` / `contentRemovingNameLines` từ sheet duyệt (để nguyên trong coordinator).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1077] - 2026-11-27
 
 ### fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt
@@ -361,15 +373,3 @@ Anh Bửu thử 1.3.1048 (mọi giọng vtts −6 dB): "vẫn rè, nghe khó ch�
 - **Xoá giá trị đã lưu một lần** (`VttsSettings.nativeSpeedDefaultMigration`, lần đọc `vttsNativeSpeedMax` đầu tiên, cờ `vttsNativeSpeedMaxResetTo1`, log `🗣️ [Vtts]`): "Đặt lại" trước đây ghi **cứng** 1,4 vào khoá nên mặc định mới không tới được. Nay "Đặt lại" (Cài đặt TTS + màn Giọng dự phòng) **xoá khoá** (`VttsSettings.resetNativeSpeedMax`). Đoạn "?" của hàng: tự đọc nhanh nhiều "dễ rè", mặc định 1,0x = trình phát kéo cả.
 - **Âm lượng về như 1.3.1047**: mặc định 0, Google Dịch −3 (bỏ `vttsDefaultOffset` −6 và lượt chuyển của 1.3.1048 — máy đã chạy 1.3.1048 thì các mục vtts to hơn −6 đã bị bỏ, mục dưới −6 giữ). Đoạn "?" Âm lượng bỏ câu "vtts mặc định −6".
 - Cập nhật `.claude/rules/tts.md`. Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ hỏi loa ngoài hay tai nghe: loa ⇒ cắt trầm mạnh hơn (giọng vtts 40–50% năng lượng < 300 Hz), tai nghe ⇒ bỏ nâng 2,8 kHz.
-
-## [1.3.1048] - 2026-11-23
-
-### fix: vtts — mọi giọng mặc định −6 dB cho hết rè (bộ ghìm đỉnh không phải cắt), mức đã chỉnh to hơn tự về −6
-
-Anh Bửu: "vtts giảm âm lượng vẫn bị rè, tất cả giọng đều có độ rè" → "4 giọng của vtts bị rè hết ấy" → "lười thử quá" ⇒ Javis tự quyết → anh hỏi mức trước khi tăng âm lượng → "Duyệt, làm đi".
-
-- **Nguyên nhân** (đo lại bộ nghe thử 1.3.1047): bản anh nghe rè (−14 dB, có / không lọc) là bản **bộ ghìm đỉnh phải cắt** — đỉnh chạm −1 dBFS; bản −17 / −20 dB không chạm trần (đỉnh −2,6 … −6,4 dBFS), kể cả bản có đủ lọc 150 Hz + nâng 2,8 kHz ⇒ rè đi theo bộ ghìm, không theo EQ (giữ "bản 4"). Log máy anh ở −14 dB ghìm tới −5,5 dB ở đoạn đỉnh cao ⇒ mặc định −3 của Google Dịch chưa đủ, ba giọng kia còn 0.
-- **`TTSVolumeSettings.vttsDefaultOffset` = −6** cho mọi giọng vtts (kể cả giọng tự nhập) ⇒ mức đích `VttsLoudness` −20 dBFS: to hơn tiếng gốc model (≈ −7 … −10,5 dB trên thang này), nhỏ hơn Google online (≈ −4 dB) khoảng 2 dB. NghiTTS / VieNeu giữ 0.
-- **Chuyển một lần** (`vttsDefaultMigration`, lần đọc bảng đầu tiên, cờ `ttsVolumeOffsetsVttsDefaultMinus6`): mục vtts anh đã chỉnh to hơn −6 bị bỏ ⇒ về mặc định mới, mục nhỏ hơn giữ nguyên; log `🔊 [TTSVolume]`. Mức ≠ 0 ⇒ khoá tổng hợp vtts đổi ⇒ tiếng đã đệm được tạo lại.
-- Đoạn giải thích Âm lượng (nút "?") nói rõ ghìm càng nhiều càng rè + vtts mặc định −6. Cập nhật `.claude/rules/tts.md`.
-- Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ nghi kế tiếp là trình phát kéo nhanh (1,8× ⇒ kéo thêm ~1,29×), rồi mới tới EQ.

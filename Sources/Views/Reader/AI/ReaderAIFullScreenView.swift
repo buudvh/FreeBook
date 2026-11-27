@@ -257,11 +257,12 @@ public struct ReaderAIFullScreenView: View {
                     ReaderAINameReviewSheet(
                         content: target.content,
                         bookId: bookId,
+                        struckKeys: Set(target.struckKeys),
                         onSave: { itemsToSave, isName, isMerge in
                             saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
                         },
-                        onDeleteName: { key in
-                            removeNameLine(key: key, fromMessage: target.messageId)
+                        onStrikeName: { key, struck in
+                            setNameStruck(key: key, struck: struck, inMessage: target.messageId)
                         },
                         onEditName: { edit in
                             applyNameEdit(edit, toMessage: target.messageId)
@@ -329,7 +330,7 @@ public struct ReaderAIFullScreenView: View {
 
                         if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                             Button {
-                                nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id)
+                                nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id, struckKeys: message.struckNameKeys ?? [])
                             } label: {
                                 Label("Thêm vào VP / Name riêng", systemImage: "tag")
                             }
@@ -356,7 +357,7 @@ public struct ReaderAIFullScreenView: View {
 
                                 if ReaderAINameReviewSheet.hasDictionaryEntries(in: message.content) {
                                     Button {
-                                        nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id)
+                                        nameReviewTarget = ReaderAINameReviewSheet.Target(content: message.content, messageId: message.id, struckKeys: message.struckNameKeys ?? [])
                                     } label: {
                                         Label("Thêm vào VP / Name riêng", systemImage: "tag")
                                     }

@@ -18,6 +18,11 @@ public struct ReaderAINameReviewCardView: View {
     /// ✕ › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ; card bỏ mục khỏi danh
     /// sách sau khi gọi. `nil` (luồng AI) ⇒ ✕ là nút xoá như cũ; có ⇒ ✕ mở menu "Bỏ khỏi lần này" / "Không phải name".
     public var onBlock: ((UUID) -> Void)? = nil
+    /// Luồng AI (anh Bửu 2026-11-27): có ⇒ thùng rác **gạch** hàng thay cho xoá; hàng gạch hiện ↶ Hoàn tác (bấm = bỏ gạch).
+    /// Trạng thái gạch do nơi dùng giữ (`struckKeys`, khoá = vế trái đã trim) và lưu vào tin nguồn.
+    public var onToggleStrike: ((UUID) -> Void)? = nil
+    /// Khoá đang gạch — hàng gạch ngang + mờ, ô chọn khoá, không mở màn sửa, "Chọn hết" bỏ qua.
+    public var struckKeys: Set<String> = []
 
     public enum SortMode {
         case selectedFirst
@@ -36,7 +41,9 @@ public struct ReaderAINameReviewCardView: View {
         onDelete: ((UUID) -> Void)? = nil,
         onEdit: ((UUID) -> Void)? = nil,
         initialSortMode: SortMode = .selectedFirst,
-        onBlock: ((UUID) -> Void)? = nil
+        onBlock: ((UUID) -> Void)? = nil,
+        struckKeys: Set<String> = [],
+        onToggleStrike: ((UUID) -> Void)? = nil
     ) {
         self._names = names
         self.onDelete = onDelete
@@ -44,6 +51,16 @@ public struct ReaderAINameReviewCardView: View {
         self.initialSortMode = initialSortMode
         self._sortMode = State(initialValue: initialSortMode)
         self.onBlock = onBlock
+        self.struckKeys = struckKeys
+        self.onToggleStrike = onToggleStrike
+    }
+
+    private func isStruck(_ item: AIExtractedName) -> Bool {
+        onToggleStrike != nil && struckKeys.contains(item.original.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private var struckCount: Int {
+        onToggleStrike == nil ? 0 : names.filter { isStruck($0) }.count
     }
 
     private var sortChipLabel: String {
@@ -65,6 +82,12 @@ public struct ReaderAINameReviewCardView: View {
                         .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                    if struckCount > 0 {
+                        Text("· đã gạch \(struckCount)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer()
 
@@ -153,6 +176,9 @@ public struct ReaderAINameReviewCardView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        // Hàng gạch (luồng AI) không chọn được ⇒ không bao giờ được lưu.
+                        .disabled(isStruck(item))
+                        .opacity(isStruck(item) ? 0.35 : 1)
 
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
@@ -160,6 +186,7 @@ public struct ReaderAINameReviewCardView: View {
                                 Text(item.original)
                                     .font(.headline)
                                     .foregroundColor(.primary)
+                                    .strikethrough(isStruck(item))
                                     .lineLimit(2)
 
                                 Text(item.category)
@@ -212,19 +239,23 @@ public struct ReaderAINameReviewCardView: View {
                             Text(item.suggestedMeaning)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .strikethrough(isStruck(item))
                                 .lineLimit(1)
                         }
+                        .opacity(isStruck(item) ? 0.45 : 1)
                         // Thân hàng (chữ + khoảng trống tới ✕) mở màn Sửa từ — như `DictionaryEntryRow`, không bọc cả
                         // hàng trong `Button`. Chọn/bỏ chọn chỉ còn ở ô vuông bên trái.
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.trailing, 4)
                         .contentShape(Rectangle())
                         .onTapGesture {
+                            // Hàng gạch: bỏ gạch trước rồi mới sửa được.
+                            guard !isStruck(item) else { return }
                             onEdit?(item.id)
                         }
 
                         // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
-                        removeControl(id: item.id, term: item.original)
+                        removeControl(id: item.id, term: item.original, struck: isStruck(item))
                     }
                     // Không đệm hai bên: khung 44 pt của ô chọn (trái) và ✕ (phải) đã tự chừa lề, hai icon cách mép đều nhau.
                     .padding(.vertical, 4)
@@ -249,8 +280,23 @@ public struct ReaderAINameReviewCardView: View {
     /// Nút xoá (thùng rác) của một hàng. Luồng AI (`onBlock == nil`): xoá ngay như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
     /// danh sách đang duyệt) / "Không phải name" (bỏ + thêm vào danh sách loại bỏ qua `onBlock`).
     @ViewBuilder
-    private func removeControl(id: UUID, term: String) -> some View {
-        if onBlock != nil {
+    private func removeControl(id: UUID, term: String, struck: Bool) -> some View {
+        if let onToggleStrike {
+            // Luồng AI: gạch / bỏ gạch, không xoá (anh Bửu 2026-11-27 — xoá nhầm là mất dòng trong tin AI).
+            Button(action: { onToggleStrike(id) }) {
+                if struck {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.green)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                } else {
+                    removeIcon
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(struck ? "Hoàn tác gạch \(term)" : "Gạch \(term)")
+        } else if onBlock != nil {
             Menu {
                 Button {
                     deleteItem(id: id)
@@ -287,13 +333,14 @@ public struct ReaderAINameReviewCardView: View {
             .contentShape(Rectangle())
     }
 
+    /// "Chọn hết" / "Bỏ chọn" chỉ xét hàng chọn được (bỏ qua hàng gạch).
     private var allSelected: Bool {
-        names.allSatisfy { $0.isSelected }
+        names.allSatisfy { $0.isSelected || isStruck($0) }
     }
 
     private func toggleSelectAll() {
         let target = !allSelected
-        for idx in names.indices {
+        for idx in names.indices where !isStruck(names[idx]) {
             names[idx].isSelected = target
         }
     }

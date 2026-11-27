@@ -17,6 +17,10 @@ public struct AIChatMessage: Identifiable, Codable, Sendable, Equatable {
     public var isStreaming: Bool
     public var harnessActions: [AIHarnessAction]?
     public var extractedNames: [AIExtractedName]?
+    /// Khoá (vế trái `từ=nghĩa` đã trim) người dùng **gạch** ở sheet "Duyệt tên riêng & VP" của tin này: hàng hiện gạch
+    /// ngang, không chọn được, nút ↶ Hoàn tác. Dòng trong `content` **giữ nguyên** (anh Bửu 2026-11-27: xoá nhầm không
+    /// mất chữ). Optional + Codable tổng hợp ⇒ lịch sử cũ không có trường này vẫn đọc được (`nil` = chưa gạch gì).
+    public var struckNameKeys: [String]?
 
     public init(
         id: UUID = UUID(),
@@ -25,7 +29,8 @@ public struct AIChatMessage: Identifiable, Codable, Sendable, Equatable {
         timestamp: Date = Date(),
         isStreaming: Bool = false,
         harnessActions: [AIHarnessAction]? = nil,
-        extractedNames: [AIExtractedName]? = nil
+        extractedNames: [AIExtractedName]? = nil,
+        struckNameKeys: [String]? = nil
     ) {
         self.id = id
         self.role = role
@@ -34,5 +39,6 @@ public struct AIChatMessage: Identifiable, Codable, Sendable, Equatable {
         self.isStreaming = isStreaming
         self.harnessActions = harnessActions
         self.extractedNames = extractedNames
+        self.struckNameKeys = struckNameKeys
     }
 }
