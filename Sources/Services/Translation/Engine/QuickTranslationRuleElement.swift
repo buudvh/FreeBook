@@ -116,6 +116,15 @@ public struct QuickTranslationRuleElement: Sendable {
     /// Chỉ `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+LeadingMagnitude`, 1.3.703): token là phần tử **đầu
     /// tiên** của mẫu (bỏ qua neo dòng) ⇒ khớp `十`/`一十` thì đọc `mười` (`<m>几` trên `十几` = mười mấy) thay vì `mươi`.
     public var leadsPattern: Bool
+    /// Chỉ `<n>` / `<m>`, do compiler đặt (`QuickTranslationRuleCompiler+NumeralNeighbours`, 1.3.1093): chữ số / bậc Hán
+    /// **cuối** của chữ cố định ngay trước token và **đầu** của chữ cố định ngay sau. Matcher ghép chúng với phần token
+    /// bắt để xét "cả cụm có phải một số thật" (`QuickTranslationNumeralShape`): `<n:1-5>万年` trên `万万年` ⇒ cụm `万万`
+    /// ⇒ không khớp.
+    public var numeralUnitsBefore: [UInt16]
+    public var numeralUnitsAfter: [UInt16]
+    /// Token lớp ký tự là phần tử **đầu** của mẫu (bỏ neo dòng; mẫu mở đầu bằng nhóm thì đầu mỗi nhánh), do compiler
+    /// đặt (1.3.1093): token như vậy không được bắt đầu **giữa một số Ả Rập** (`3千年`, `1.5万`).
+    public var isPatternHead: Bool
     /// Chỉ `<[>`: ô **ẩn** trong mảng capture của matcher (sau mọi ô `{i}`) giữ ký tự mở đã bắt. Parser cấp
     /// sau khi đánh số xong `{i}` (`captureCount + k`).
     public var bracketSlot: Int?
@@ -137,6 +146,9 @@ public struct QuickTranslationRuleElement: Sendable {
         guardsLeft: Bool = false,
         guardsRight: Bool = false,
         leadsPattern: Bool = false,
+        numeralUnitsBefore: [UInt16] = [],
+        numeralUnitsAfter: [UInt16] = [],
+        isPatternHead: Bool = false,
         bracketSlot: Int? = nil,
         bracketPartnerSlot: Int? = nil,
         capitalizesMeaning: Bool = false,
@@ -151,6 +163,9 @@ public struct QuickTranslationRuleElement: Sendable {
         self.guardsLeft = guardsLeft
         self.guardsRight = guardsRight
         self.leadsPattern = leadsPattern
+        self.numeralUnitsBefore = numeralUnitsBefore
+        self.numeralUnitsAfter = numeralUnitsAfter
+        self.isPatternHead = isPatternHead
         self.bracketSlot = bracketSlot
         self.bracketPartnerSlot = bracketPartnerSlot
         self.capitalizesMeaning = capitalizesMeaning

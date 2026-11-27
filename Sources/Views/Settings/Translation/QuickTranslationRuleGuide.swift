@@ -84,6 +84,10 @@ enum QuickTranslationRuleGuide {
         ]),
         Topic(title: "Token số và nhãn", points: [
             p("<n> số Hán hoặc 0-9, ra số Ả Rập.", "第<n>章 = Chương {0}  →  第一百二十章 ra Chương 120"),
+            p("<n> đọc đúng bậc chồng nhau và bỏ qua cụm không phải số: 万万, 千千, 亿万, 万千, 千百, 兆 đứng riêng, 一一, 万一.",
+              "<n>年 = {0} năm  →  一万亿年 ra 1000000000000 năm, 亿万年 giữ nguyên"),
+            p("Token đứng đầu mẫu không bắt giữa số Ả Rập (3千, 1.5万); <n>、<n> mượn bậc của số sau.",
+              "<n>、<n>年 = {0}, {1} năm  →  三、四千年 ra 3000, 4000 năm"),
             p("<y> đọc từng chữ số (Hán hoặc 0-9), không nhận 十 百 千 万.", "<y>年 = năm {0}  →  二零二五年 ra năm 2025"),
             p("<h> chỉ chữ số Hán 〇 零 一 … 九, không nhận bậc hay 0-9.", "<h>号 = số {0}  →  九号 ra số 9"),
             p("<d> chữ số 0-9, kể cả toàn khổ ０-９.", "<d>楼 = tầng {0}  →  １２楼 ra tầng 12"),

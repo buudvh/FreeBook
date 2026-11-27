@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1093] - 2026-11-27
+
+### fix: token <n> đọc đúng bậc chồng 万亿, không nhận 万万 千千 亿万 là số, không bắt giữa số Ả Rập, danh sách 三、四千 mượn bậc
+
+Anh Bửu: "các token số như vạn ức, ngàn vạn, chưa chính xác", "vạn vạn thật ra không phải số vẫn bị nhận là số", "kiểm tra kỹ xem". Plan `Docs/Plans/2026-11-27-token-so-lon.md` (anh duyệt); đo bằng bản chép Python của engine trên 6 truyện + bộ 537 rule anh gửi (`Docs/Plans/token-so-lon/`).
+
+- **Đọc số:** `QuickTranslationNumberFormatter.parseChineseNumeral` tách theo bậc lớn nhất (lần cuối), vế trái **nhân** bậc: 万亿 / 一万亿 = 1000000000000 (trước 100010000), 三千万亿 = 3·10¹⁵, 三万五千亿 = 3500000000000, 两万万 = 200000000 (trước 30000). Viết tắt 三万五, 两千五, 十万八 giữ nguyên.
+- **Cụm không phải số:** matcher ghép phần token bắt với chữ số liền kề trong chữ cố định của rule rồi kiểm (`QuickTranslationNumeralShape`): 万万, 千千, 亿亿, 亿万, 万千, 千百, 兆 đứng đầu, 一一, 万一 không còn là số. Ví dụ 他万万年 trước ra "10000 vạn năm" ⇒ rule `万万 = 万万` của anh thắng; 千岁,千千岁 hết ra "2000 tuổi"; 征兆, 沈兆日后 hết ra "1000000000000".
+- **Hai luật kèm:** sau chữ cố định là bậc thì số kế tiếp phải nhỏ hơn bậc đó (`<n>万<n>年` không còn tách 一万亿年 thành "1 vạn 100000000 năm"); bậc trần ngay sau 几 / 数 không bị `<n>` bắt riêng (两千几百人 hết "… mấy 100 người", 十几万两银子 hết "mười mấy 10000 lượng").
+- **Số Ả Rập:** token đứng đầu mẫu không bắt đầu giữa số Ả Rập — 3千年修为, 5千万人口, 1.5万人, 2.5亿年 hết ra "3 1000 năm", "1. 50000"; phần đó để rule `<d>…` hoặc VietPhrase.
+- **Danh sách:** `<n>,<n>` / `<n>、<n>`: số trước là một chữ số trần thì mượn bậc của số sau — 八,九万年 ra "80000, 90000 năm" (trước "8, 90000"), 三、四千年 ra "3000, 4000 năm".
+- `walkNumeral` dời sang `QuickTranslationRuleMatcher+Numeral.swift` (file gốc 387 → 298 dòng); compiler gắn `numeralUnitsBefore/After`, `isPatternHead`, `numeralListPairs` (`QuickTranslationRuleCompiler+NumeralNeighbours`). Hướng dẫn viết rule thêm hai dòng về `<n>`; `translation.md` thêm đoạn "Token số lớn".
+- Đo trên 6 truyện (3.387 đoạn có số lớn): chỉ các đoạn sai đổi, không đoạn nào hỏng; 十万年 (274 lần), 两万四千年, 十万八千年 giữ nguyên. Còn cần rule giữ chữ của anh: 百转千回, 成千上万, 万人之上, 千岁 (tước hiệu), 千万 (code không phân biệt 千万不要 với 千万人).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1092] - 2026-11-27
 
 ### feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện
@@ -327,54 +342,4 @@ Anh Bửu: "sửa mục pronoun cần giống sửa mục của vp cho tôi" →
 - Lưu vẫn qua `GlobalDictionaryEditor` (ghi lại file gốc, dựng lại `.dat`, nạp lại Pronouns, xoá cache dịch): chọn cả từ ⇒ sửa nghĩa; đổi từ gốc (bút chì) ⇒ **bỏ** mục cũ như trước (khác VP — VP chỉ ghi lớp sửa đổi); chọn một phần ⇒ thêm mục mới, mục cũ giữ; từ đích đã có ⇒ màn báo ghi đè.
 - Hàng token và nghĩa gợi ý (chọn một phần) ra nghĩa VP/Name vì tách từ không tra Pronouns (1.3.1016) — như panel Dịch của Reader; nghĩa Pronouns hiện ở chip "Xưng hô (Pronouns)".
 - Phiên âm giữ form hai ô `BaseDictionaryEntrySheet` (sheet này giờ chỉ còn: thêm mục cả hai, sửa mục Phiên âm). `translation.md` ghi lại; entry 1.3.1037 chuyển sang `CHANGELOG.archive.md`.
-- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1066] - 2026-11-26
-
-### fix: sheet có hộp "Bỏ thay đổi?" chạm ra ngoài sheet cũng hỏi như vuốt xuống, không còn đứng im
-
-Anh Bửu: "tiện thể fix luôn các sheet có thông báo bỏ thay đổi/tiếp tục sửa khi bấm ra ngoài sheet không đóng được", "điển hình như sửa từ ở danh sách name của AI" (`DictEntryEditSheet`, nấc `.medium`).
-
-- Nguyên nhân: `SheetDismissGuardModifier` chặn đóng bằng `interactiveDismissDisabled` lúc có nội dung chưa lưu ⇒ `isModalInPresentation`; UIKit khi đó bỏ qua hẳn chạm ra ngoài sheet (không đóng, không báo lượt thử nên không hiện hộp hỏi), chỉ báo lượt vuốt.
-- Sửa: bỏ `interactiveDismissDisabled`; `SheetDismissDelegateProxy.presentationControllerShouldDismiss` trả `false` + gọi handler khi `isDirty` (UIKit hỏi hàm này cho cả vuốt lẫn chạm ngoài). Probe truyền `isDirty` thay cho cờ "đã cài" (`onArmedChange` bỏ — chưa cài được proxy thì vốn không chặn được, vẫn cho đóng như trước). Áp cho mọi sheet gắn `.confirmDiscardOnSwipe` (15 file).
-- `ui-conventions.md` ghi luật mới.
-- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy** — nhất là nhịp hiện hộp hỏi khi vừa chạm ngoài / vừa bắt đầu vuốt.
-
-## [1.3.1065] - 2026-11-26
-
-### feat: token tùy chọn <@tên> cho rule dịch nhanh, kèm màn quản lý và menu nhấn giữ ở bảng token
-
-Anh Bửu: "thêm chức năng thêm và sử dụng bộ token tùy chọn" → duyệt plan + mockup https://claude.ai/artifact/EPVM1fC9YrAozdyt1H5NUj, kèm hai ý anh thêm: "thêm nút + ở phần tùy chọn để thêm token mới", "nhấn giữ các token, kể cả token cố định sẽ hiện thị ra các option quản lý danh sách từ (nếu có), bật/tắt token, xóa (đối với token tùy chọn)".
-
-- Cú pháp `<@tên>` (tên `a-z 0-9 _`, bắt đầu bằng chữ, ≤ 20): khớp một từ trong danh sách `chữ gốc=nghĩa` của token, `{i}` = nghĩa, từ dài thử trước (`DictionaryKind.custom` + `QuickTranslationRuleElement.customTokenName`, `QuickTranslationDictionaryToken.candidates`). `<@TÊN>` = viết hoa nghĩa; không nhận `:min-max`, không ghép `|`.
-- Parser **không** tra token lúc parse (`QuickTranslationRuleParser+CustomToken`): token chưa có / tắt / đã xoá không biến dòng rule thành lỗi nặng ⇒ `validRecords` không xoá dòng; trạng thái đó báo `DICT_TOKEN_WITHOUT_DICTIONARY` theo từng tên (`QuickTranslationRuleStore+CustomTokenIssues`).
-- Lưu `UserDefaults` `quickTranslateCustomTokens` (JSON, `QuickTranslationCustomTokenStore`): Backup tự gói, trần 50 token / 20.000 từ, cache bảng tra chỉ so lại chuỗi thô sau `UserDefaults.didChangeNotification`; mỗi lần ghi dọn cache dịch + phát tín hiệu rule đổi. Luật tên / chữ / nghĩa + bộ đọc file: `QuickTranslationCustomTokenListParser`.
-- Màn: hàng "Token tùy chọn" ở Cấu hình token rule ⇒ `QuickTranslationCustomTokenListView` (tìm, tắt / bật, xoá có hỏi lại, + Thêm token) ⇒ `QuickTranslationCustomTokenEntryListView` (tìm, + Thêm từ, ngăn kéo …: Sửa mô tả, Tắt / Bật, Nhập file 3 cách, Xuất file, Xoá token); sheet `QuickTranslationCustomTokenEditorSheet` (tên khoá khi sửa) và `QuickTranslationCustomTokenEntryEditorSheet`.
-- Bảng token màn sửa rule: nhóm "Tùy chọn" + chip + (sheet Thêm token); nhấn giữ chip token (`.contextMenu`): Danh sách họ (`<ho>`) / Bộ ngoặc (`<[>` `<]>`) / Danh sách từ, Tắt / Bật (token cố định = công tắc ở Cấu hình token rule), Sửa mô tả + Xoá (token tùy chọn). Ý định ghi vào `QuickTranslationRuleTokenPaletteModel`, đẩy trang / sheet / hỏi xoá ở `QuickTranslationRuleTokenPaletteManagement` gắn ngoài hàng lazy của `Form`. Hàng gợi ý trên bàn phím có `<@tên>` (lọc khi gõ `<@`), không có menu.
-- Thanh chỉnh token: `<@tên>` không có thanh độ dài, có "AA hoa nghĩa". Hướng dẫn viết rule thêm mục "Token tùy chọn"; `translation.md`.
-- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1064] - 2026-11-26
-
-### fix: đổi nguồn tại chỗ đặt ngay link chương đang đọc theo mục lục mới
-
-Rà lại 1.3.1063 (chưa push): giữ `playingChapterUrl` là link nguồn cũ tới hết chương làm lệch bất biến "link chương đang đọc = link trong `chaptersQueue`" — `BookDetailView` / `VideoWatchModel.activeTTSProtectedChapter` dựng `ProtectedTTSChapter(bookId mới, chỉ số, link cũ)` khi làm mới mục lục truyện mới ⇒ chương TTS đang đọc có thể không được giữ.
-
-- `handOffSession` đặt `playingChapterUrl` = link chương đang đọc trong mục lục mới; link cũ vào `sourceChangeFormerBook` (thêm `chapterUrl`).
-- `isPlayingChapterUrl(_:)` (khuôn `isPlayingBook`, khoá theo `sessionID`) thay phép so link ở 4 chỗ kiểm việc đang bay: refill Nghi, nạp trước remote, task phát Nghi chờ tổng hợp, nạp gộp Google. Lượt tổng hợp đang bay mang khoá theo link cũ ⇒ lượt mới cùng đoạn không gộp với nó (vài đoạn quanh lúc chuyển, không sai tiếng).
-- `tts.md` sửa câu tương ứng.
-- **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1063] - 2026-11-26
-
-### fix: đổi nguồn lúc đang nghe đọc hết đoạn đang phát rồi sang đoạn sau của nguồn mới, không ngắt tiếng
-
-Anh Bửu: "khi chuyển nguồn của truyện đang nghe sẽ có bước tắt nghe và mở lại đúng đoạn đang nghe, điều này khiến người nghe có cảm giác gián đoạn, hãy sửa lại chứ để nghe xong đoạn đang phát và phát đoạn tiếp theo (đoạn chứ không phải chunk nhé)" → duyệt plan "Duyệt + cả tạm dừng".
-
-- `TTSManager.continueListeningAfterSourceChange` (1.3.946) thôi `stop()` + `startSpeaking` từ đầu dòng (cắt giữa câu, im 1–3 s, nghe lại cả dòng). Nay trả một Task: chờ lượt dựng chương đang chạy (`awaitChapterBuildsInFlight`, nay `internal`) → `handOffSession` đổi trong một nhịp main truyện đang phát sang truyện mới — `playingBookId`, mục lục mới, tiện ích, tên / bìa / tác giả / link / nguồn, cờ dịch + phồn → giản theo truyện mới, chủ mảng chunk, bỏ đồ chuẩn bị theo truyện cũ (`invalidatePreparedTranslationState`), giành + lưu tiến độ cho truyện mới — **không** đổi `sessionID` / `ttsProcessingGeneration`, không bỏ bộ đệm; rồi nối chữ của nguồn mới từ **dòng sau** dòng đang đọc bằng chính lượt nối của dịch lại (`scheduleChapterRetranslation(reason: "đổi nguồn", evenWithoutTranslation: true, debounceNanoseconds: 0)`). Chương đã tải được chép nguyên văn ⇒ chữ trùng, không bỏ tiếng nào. Áp cả khi **tạm dừng**: giữ đĩa nghe, bấm ▶ đọc tiếp truyện mới đúng chỗ (trước: dừng hẳn + toast "bấm nghe để đọc tiếp").
-- Việc đang bay đóng dấu truyện cũ vẫn hợp lệ trong cùng phiên: `isPlayingBook(_:)` (= `playingBookId` hoặc `sourceChangeFormerBook` khoá theo `sessionID`) thay phép so ở `isContextValid` (thiếu ⇒ chunk đang phát xong không gọi đoạn kế), task phát Nghi chờ tổng hợp, refill Nghi, nạp trước remote, nạp gộp Google. `playingChapterUrl` giữ link nguồn cũ tới hết chương (chỗ kiểm + khoá tổng hợp tính theo nó). 7 thuộc tính `@Published` của phiên `private(set)` → `internal(set)` để `+SourceChange` ghi được.
-- Lượt nối dựng theo cờ dịch của phiên (`RetranslationInputs.translates`, trước ghi cứng dịch) ⇒ chạy được với truyện tắt dịch; lùi / tua về dòng chữ cũ (`adoptFullRetranslationIfStale`) so cờ này thay vì đòi bật dịch.
-- `BookSourceChangeCoordinator.scheduleFinish(after:)` chờ Task chuyển phiên xong rồi mới dọn truyện cũ (`deleteBooksAsync` bỏ qua truyện TTS đang phát ⇒ dọn sớm là giữ lại bản trùng). Nguồn mới không có chương đang đọc ⇒ dừng + toast lỗi như cũ; tải chương nguồn mới lỗi ⇒ đọc nốt chương bằng chữ đang có.
-- Giới hạn: NghiTTS / VieNeu đã hẹn giờ chunk đầu của dòng sau ⇒ dòng đó còn chữ cũ, chữ mới từ dòng kế; chương chưa tải ghép dòng theo vị trí (gần đúng như trước).
-- `books-sources.md`, `tts.md` ghi phần mới.
 - **Kiểm**: đọc code + `check_architecture.py`; **không build tại chỗ (Windows), chưa thử trên máy**.

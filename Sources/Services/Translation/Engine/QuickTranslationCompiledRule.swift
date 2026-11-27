@@ -11,6 +11,13 @@ public struct QuickTranslationCompiledRule: Sendable {
         case capture(Int)
     }
 
+    /// Hai `{i}` của dạng danh sách `<n>、<n>` / `<n>,<n>` / `<n>，<n>` ở mức ngoài cùng của mẫu (1.3.1093): số trước là
+    /// một chữ số trần thì mượn đuôi bậc của số sau (`八,九万` ⇒ 80000, 90000) — xem `QuickTranslationRuleMatcher+Numeral`.
+    public struct NumeralListPair: Sendable {
+        public let first: Int
+        public let second: Int
+    }
+
     public let sourceLine: Int
     public let pattern: String
     public let replacement: String
@@ -53,6 +60,8 @@ public struct QuickTranslationCompiledRule: Sendable {
     /// ngay trước `sourceLine`: trong một bộ đơn lẻ nó là hằng số nên thứ tự cũ **không đổi**; khi trộn
     /// nhiều bộ thì số nhỏ thắng.
     public let scopeRank: Int
+    /// Các cặp danh sách số (`NumeralListPair`), compiler tính sẵn; rỗng ở gần hết rule.
+    public let numeralListPairs: [NumeralListPair]
 
     public init(
         sourceLine: Int,
@@ -70,7 +79,8 @@ public struct QuickTranslationCompiledRule: Sendable {
         requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind],
         requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
         numeralNarrownessRanks: [Int] = [],
-        scopeRank: Int = QuickTranslationRuleScope.globalRank
+        scopeRank: Int = QuickTranslationRuleScope.globalRank,
+        numeralListPairs: [NumeralListPair] = []
     ) {
         self.sourceLine = sourceLine
         self.pattern = pattern
@@ -88,6 +98,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         self.requiredTokenKinds = requiredTokenKinds
         self.numeralNarrownessRanks = numeralNarrownessRanks
         self.scopeRank = scopeRank
+        self.numeralListPairs = numeralListPairs
     }
 
     /// Literal-only rule luôn hợp lệ; với token, chính sách yêu cầu mọi cú pháp đã ghi đều bật.

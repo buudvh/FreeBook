@@ -7,8 +7,9 @@ import Foundation
 ///    rồi map từng ký tự, nên `十` bị giữ nguyên và làm hỏng nhóm rule `十<y:1>级 = cấp 1{0}`.
 /// 2. `<L>` cố định đúng một ký tự (xem `QuickTranslationRuleParser`).
 ///
-/// Giữ nguyên theo reference: `chineseNumber` cộng dồn theo *section* nên `一万亿` ra `100010000`,
-/// và **không** tự thêm dấu phân cách số (`1000000`, không phải `1.000.000`).
+/// **Lệch** reference từ 1.3.1093: bậc lớn **nhân** vế trái thay vì cộng dồn theo *section* — `一万亿` ra
+/// `1000000000000`, `两万万` ra `200000000` (reference ra `100010000` và `30000`). Vẫn **không** tự thêm dấu phân cách
+/// số (`1000000`, không phải `1.000.000`).
 public enum QuickTranslationNumberFormatter {
     /// `<n>`: chuỗi số Hán hoặc Ả Rập, kể cả ký tự bậc + full-width digits.
     public static let numeralUnits: Set<UInt16> = makeUnits("〇零一二两兩三四五六七八九十百千万萬亿億兆0123456789０１２３４５６７８９")
@@ -186,81 +187,72 @@ public enum QuickTranslationNumberFormatter {
         return numbers
     }
 
-    /// Chữ số trần đứng **cuối, ngay sau một ký tự bậc** là cách viết tắt của "bậc **thấp hơn một
-    /// cấp**", không phải cộng thẳng. Hệ số luôn là `bậc / 10` nên không cần bảng riêng:
+    /// Đọc một chuỗi số Hán thành `Int`; `nil` khi tràn hoặc gặp ký tự lạ. `internal` cho luật "số sau nhỏ hơn bậc đứng
+    /// trước" của matcher (`QuickTranslationRuleMatcher+Numeral`).
     ///
-    /// * `八千三` = 8 nghìn + 3 **trăm** = `8300` (không phải `8003`)
-    /// * `一万二` = 1 vạn + 2 **nghìn** = `12000` (không phải `10002`)
-    /// * `三百五` = `350`; `一亿二` = `120000000`
-    /// * `二十三` = `23` — bậc `十` cho hệ số 1 nên dạng này **không đổi** so với trước
+    /// Tách theo **bậc lớn nhất** (兆 > 亿 > 万), lấy lần xuất hiện **cuối**: vế trái **nhân** bậc, vế phải cộng vào
+    /// (1.3.1093). Bậc chồng nhờ vậy đọc đúng — `万亿` = 10¹², `三万五千亿` = 3,5·10¹², `两万万` = 2·10⁸ — thay cho cách cộng
+    /// dồn theo *section* của reference (`一万亿` từng ra `100010000`). Bản tham chiếu: `parse_fixed` ở
+    /// `Docs/Plans/token-so-lon/fix.py`.
     ///
-    /// Trả `nil` = không phải dạng viết tắt, đọc như cũ. Hai cửa hẹp bắt buộc:
-    ///
-    /// * **Ký tự liền trước chữ số đuôi phải là bậc.** Điều kiện này tự loại `一万零二`: liền trước `二`
-    ///   là `零`, nên chuỗi đó vẫn đúng nghĩa `10002`.
-    /// * **`零`/`〇` không tính là chữ số đuôi** — `八千零` không phải viết tắt.
-    private static func trailingShorthandMultiplier(_ value: String) -> Int? {
-        let chars = Array(value)
-        guard chars.count >= 2, let last = chars.last else { return nil }
-        guard bareHanDigits.contains(last), last != "零", last != "〇" else { return nil }
-
-        let previous = chars[chars.count - 2]
-        guard let magnitude = smallMagnitudes[previous] ?? largeMagnitudes[previous],
-              magnitude >= 10 else { return nil }
-        return magnitude / 10
+    /// Chữ số trần đứng **cuối, ngay sau một bậc** là viết tắt của bậc **thấp hơn một cấp** (hệ số `bậc / 10`):
+    /// `一万二` = 12000, `一亿五` = 150000000, `八千三` = 8300, `三百五` = 350; `二十三` vẫn 23. `零`/`〇` không phải chữ số
+    /// đuôi và chữ liền trước phải là bậc ⇒ `一万零二` vẫn 10002.
+    static func parseChineseNumeral(_ value: String) -> Int? {
+        parseChineseNumeral(Array(value)[...])
     }
 
-    /// Đọc một chuỗi số Hán thành `Int`; `nil` khi tràn. Cộng dồn theo *section* nên `一万亿` ra
-    /// `100010000` — giữ nguyên theo reference `ruleEngine.ts`.
-    private static func parseChineseNumeral(_ value: String) -> Int? {
-        // Dạng viết tắt xử trước: đọc phần đầu rồi cộng `chữ số × bậc thấp hơn một cấp`. Không lo đệ
-        // quy vô hạn vì phần đầu luôn kết thúc bằng ký tự bậc ⇒ helper trả `nil` ngay.
-        if let multiplier = trailingShorthandMultiplier(value),
-           let last = value.last,
-           let digit = digitMap[last],
-           let head = parseChineseNumeral(String(value.dropLast())) {
-            let (scaled, scaleOverflow) = digit.multipliedReportingOverflow(by: multiplier)
-            guard !scaleOverflow else { return nil }
-            let (total, addOverflow) = head.addingReportingOverflow(scaled)
-            return addOverflow ? nil : total
-        }
+    /// Thứ tự thử bậc lớn: lớn nhất trước.
+    private static let largeMagnitudeOrder: [Character] = ["兆", "亿", "億", "万", "萬"]
 
-        var total = 0
-        var section = 0
-        var current = 0
-        var overflow = false
+    private static func parseChineseNumeral(_ chars: ArraySlice<Character>) -> Int? {
+        for unit in largeMagnitudeOrder {
+            guard let split = chars.lastIndex(of: unit), let scale = largeMagnitudes[unit] else { continue }
+            let left = chars[..<split]
+            let right = chars[chars.index(after: split)...]
+            guard let leftValue = left.isEmpty ? 1 : parseChineseNumeral(left) else { return nil }
 
-        func multiply(_ lhs: Int, _ rhs: Int) -> Int {
-            let (result, didOverflow) = lhs.multipliedReportingOverflow(by: rhs)
-            if didOverflow { overflow = true; return 0 }
-            return result
-        }
-
-        func add(_ lhs: Int, _ rhs: Int) -> Int {
-            let (result, didOverflow) = lhs.addingReportingOverflow(rhs)
-            if didOverflow { overflow = true; return 0 }
-            return result
-        }
-
-        for char in value {
-            if let small = smallMagnitudes[char] {
-                if current == 0 { current = 1 }
-                section = add(section, multiply(current, small))
-                current = 0
-            } else if let large = largeMagnitudes[char] {
-                section = add(section, current)
-                if section == 0 { section = 1 }
-                total = add(total, multiply(section, large))
-                section = 0
-                current = 0
+            let rightValue: Int
+            if right.count == 1, let last = right.first, last != "零", last != "〇",
+               bareHanDigits.contains(last), let digit = digitMap[last] {
+                rightValue = digit * (scale / 10)
             } else {
-                current = add(multiply(current, 10), digitMap[char] ?? 0)
+                let rest = right.drop(while: { $0 == "零" || $0 == "〇" })
+                guard let parsed = rest.isEmpty ? 0 : parseChineseNumeral(rest) else { return nil }
+                rightValue = parsed
             }
-            if overflow { return nil }
+
+            let (head, multiplyOverflow) = leftValue.multipliedReportingOverflow(by: scale)
+            let (total, addOverflow) = head.addingReportingOverflow(rightValue)
+            return multiplyOverflow || addOverflow ? nil : total
+        }
+        return parseSmallChineseNumeral(chars)
+    }
+
+    /// Phần dưới 1 vạn: `十百千` + chữ số, kèm viết tắt đuôi (`两千五` = 2500, `三百五` = 350).
+    private static func parseSmallChineseNumeral(_ chars: ArraySlice<Character>) -> Int? {
+        var total = 0
+        var current = 0
+        for char in chars {
+            if let unit = smallMagnitudes[char] {
+                total += (current == 0 ? 1 : current) * unit
+                current = 0
+            } else if let digit = digitMap[char] {
+                // Gán, không ghép `current * 10 + digit`: chữ số Hán đứng liền nhau không bao giờ là một số ghép
+                // (`二三十` đã đi nhánh liệt kê trước khi tới đây), và luật "số sau nhỏ hơn bậc" của matcher cần
+                // `三四千` ra 4000 chứ không phải 34000 — y bản tham chiếu `parse_small`.
+                current = digit
+            } else {
+                return nil
+            }
         }
 
-        let result = add(add(total, section), current)
-        return overflow ? nil : result
+        let array = Array(chars)
+        if array.count >= 2, let last = array.last, last != "零", last != "〇", bareHanDigits.contains(last),
+           let unit = smallMagnitudes[array[array.count - 2]], unit >= 100, let digit = digitMap[last] {
+            return total + digit * (unit / 10)
+        }
+        return total + current
     }
 
     /// `<y>`: đọc từng chữ số. Ký tự không phải chữ số được giữ nguyên (như reference).

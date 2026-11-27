@@ -53,8 +53,9 @@ public final class QuickTranslationRuleMatcher {
 
     let units: [UInt16]
     let text: NSString
-    private let dictionaries: QuickTranslationDictionaryToken
-    private let bookNameOccupiedIndices: Set<Int>
+    /// `internal` (không `private`) cho `QuickTranslationRuleMatcher+Numeral.swift`.
+    let dictionaries: QuickTranslationDictionaryToken
+    let bookNameOccupiedIndices: Set<Int>
     /// Bộ ngoặc của `<[>`/`<]>` cho lượt dịch này (1.3.692) — bản chụp bất biến, không đọc store theo vị trí.
     let brackets: QuickTranslationRuleBracketSet
 
@@ -91,6 +92,7 @@ public final class QuickTranslationRuleMatcher {
         didExceedStepCap = false
 
         guard let end = walk([Frame(elements: rule.elements, index: 0)], start) else { return nil }
+        if !rule.numeralListPairs.isEmpty { applyNumeralListUnits(rule.numeralListPairs) }
         // Chỉ trả các ô `{i}`: ô ẩn của ngoặc không được ra bản dịch, chẩn đoán hay kiểm Name riêng.
         let visible = captures.count > rule.captureCount ? Array(captures.prefix(rule.captureCount)) : captures
         return Match(start: start, length: end - start, captures: visible)
@@ -174,97 +176,6 @@ public final class QuickTranslationRuleMatcher {
         case .closeBracket:
             return walkCloseBracket(element, advanced, position)
         }
-    }
-
-    private func walkNumeral(
-        _ element: QuickTranslationRuleElement,
-        kind: QuickTranslationRuleElement.NumeralKind,
-        _ advanced: [Frame],
-        _ position: Int
-    ) -> Int? {
-        guard position < units.count else {
-            return skipOptional(element, advanced, position)
-        }
-        let baseAllowed = QuickTranslationNumberFormatter.units(for: kind)
-        guard baseAllowed.contains(units[position]) else {
-            return skipOptional(element, advanced, position)
-        }
-
-        // `<hn>` render bằng bảng phiên âm; bảng chưa nạp thì token không có gì để trả ⇒ coi như không
-        // khớp, đúng chính sách của `<hv>` (`QuickTranslationDictionaryToken.isUsable`).
-        if kind == .hanNumeral, !dictionaries.isUsable(.hanViet) {
-            return skipOptional(element, advanced, position)
-        }
-
-        let allowed: Set<UInt16>
-        if kind == .chinese || kind == .digitwise {
-            if QuickTranslationNumberFormatter.asciiDigitsUnits.contains(units[position]) {
-                allowed = baseAllowed.intersection(QuickTranslationNumberFormatter.asciiDigitsUnits)
-            } else {
-                allowed = baseAllowed.subtracting(QuickTranslationNumberFormatter.asciiDigitsUnits)
-            }
-        } else {
-            allowed = baseAllowed
-        }
-
-        // Guard bên trái: ký tự ngay trước match thuộc cùng lớp số ⇒ token đang nuốt phần giữa của
-        // một chuỗi số dài hơn. Ngoại lệ: nếu ký tự bên trái thuộc Name riêng thì nó là ranh giới tên chứ
-        // không phải phần tiếp nối của số.
-        if element.guardsLeft, position > 0,
-           !bookNameOccupiedIndices.contains(position - 1),
-           allowed.contains(units[position - 1]) {
-            return skipOptional(element, advanced, position)
-        }
-
-        var run = 0
-        while position + run < units.count, allowed.contains(units[position + run]) {
-            run += 1
-        }
-
-        // Guard bên phải: nếu buộc phải nuốt hết chuỗi số thì chỉ có duy nhất độ dài `run` hợp lệ —
-        // mọi độ dài ngắn hơn đều để lại ký tự cùng lớp ở ngay sau match.
-        let upper = element.guardsRight ? run : min(run, element.maxLength)
-        let lower = element.guardsRight ? run : element.minLength
-        guard upper <= element.maxLength, upper >= element.minLength, lower <= upper else {
-            return skipOptional(element, advanced, position)
-        }
-
-        let saved = captures
-        var candidate = upper
-        while candidate >= lower {
-            let value = text.substring(with: NSRange(location: position, length: candidate))
-            if kind == .magnitude, !QuickTranslationMagnitudeFormatter.isMagnitudeCandidate(value) {
-                candidate -= 1
-                continue
-            }
-            let rendered: String
-            switch kind {
-            case .chinese:
-                rendered = QuickTranslationNumberFormatter.renderNumeral(value)
-            case .digitwise:
-                rendered = QuickTranslationNumberFormatter.renderDigitwise(value)
-            case .hanDigits:
-                rendered = QuickTranslationNumberFormatter.renderHanDigits(value)
-            case .asciiDigits:
-                rendered = QuickTranslationNumberFormatter.renderAsciiDigits(value)
-            case .hanNumeral:
-                rendered = dictionaries.hanVietReading(for: value)
-            case .magnitude:
-                rendered = QuickTranslationNumberFormatter.renderMagnitude(value, leadsPattern: element.leadsPattern)
-            case .latinLetters:
-                rendered = QuickTranslationNumberFormatter.renderLatinLetters(value)
-            }
-            store(
-                rendered,
-                sourceRange: NSRange(location: position, length: candidate),
-                for: element
-            )
-            if let end = walk(advanced, position + candidate) { return end }
-            captures = saved
-            candidate -= 1
-        }
-
-        return skipOptional(element, advanced, position)
     }
 
     private func walkDictionary(

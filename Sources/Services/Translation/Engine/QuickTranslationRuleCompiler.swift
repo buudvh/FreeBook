@@ -79,6 +79,7 @@ public enum QuickTranslationRuleCompiler {
 
             var elements = rule.elements
             applyBoundaryGuards(&elements)
+            markNumeralNeighbours(&elements)
             markLeadingMagnitude(&elements)
 
             let literal = requiredLiteral(of: elements)
@@ -109,7 +110,8 @@ public enum QuickTranslationRuleCompiler {
                 requiredDictionaryKinds: dictionaryKinds,
                 requiredTokenKinds: tokenKinds,
                 numeralNarrownessRanks: numeralRanks,
-                scopeRank: scopeRank
+                scopeRank: scopeRank,
+                numeralListPairs: numeralListPairs(elements)
             ))
         }
 
