@@ -33,7 +33,8 @@ public struct ReaderAINameReviewSheet: View {
     /// Danh sách có sẵn (luồng "Lọc name local", `LocalNameFilterSheet`): bỏ bước tách dòng `từ=nghĩa` khỏi tin AI.
     /// `nil` = luồng AI.
     let prefilledNames: [AIExtractedName]?
-    /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Chưa chọn trước" (chưa chọn lên đầu, rồi số lần).
+    /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Chưa có trước" (name chưa có trong Name / VP lên
+    /// đầu, rồi số lần — `ReaderAINameReviewCardView.SortMode.notInDictionaryFirst`).
     let initialSortMode: ReaderAINameReviewCardView.SortMode
     /// Thùng rác › "Không phải name" — chỉ luồng lọc local truyền; luồng AI gạch hàng (`onStrikeName`).
     public let onBlockName: ((AIExtractedName) -> Void)?
@@ -72,7 +73,7 @@ public struct ReaderAINameReviewSheet: View {
     }
 
     /// Luồng "Lọc name local": nhận sẵn danh sách (đã gắn cờ NE / VP, name đã có bỏ chọn sẵn; `occurrenceCount` = số lần
-    /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Chưa chọn trước", chip lọc theo loại + badge loại có màu
+    /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Chưa có trước", chip lọc theo loại + badge loại có màu
     /// (`ReaderAINameReviewCardView.showsCategoryFilter`), ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi
     /// danh sách đang duyệt (không có tin nguồn).
     public init(
@@ -88,7 +89,7 @@ public struct ReaderAINameReviewSheet: View {
         self.onStrikeName = { _, _ in }
         self.onEditName = { _ in }
         self.prefilledNames = names
-        self.initialSortMode = .unselectedFirst
+        self.initialSortMode = .notInDictionaryFirst
         self.onBlockName = onBlockName
         self.onNamesChange = onNamesChange
         self._names = State(initialValue: names)
@@ -128,6 +129,7 @@ public struct ReaderAINameReviewSheet: View {
         }
     }
 
+    /// Số mục sẽ lưu — cả mục đang bị ô tìm / chip loại của card ẩn (card chỉ ẩn hàng, không bỏ chọn).
     private var selectedCount: Int {
         names.filter { $0.isSelected && !isStruck($0) }.count
     }
@@ -170,6 +172,8 @@ public struct ReaderAINameReviewSheet: View {
                         )
                         .padding(.vertical, 8)
                     }
+                    // Kéo danh sách là hạ bàn phím của ô tìm; vùng cuộn tự co theo bàn phím nên không che danh sách.
+                    .scrollDismissesKeyboard(.interactively)
                 }
             }
             .pageTitle("Duyệt tên riêng & VP")
@@ -242,7 +246,9 @@ public struct ReaderAINameReviewSheet: View {
     /// Bước 2: chốt chế độ ghi. Sheet đóng ngay sau khi giao việc cho `onSave` — màn gọi sẽ thay nội
     /// dung tin nhắn bằng bản tóm tắt nên danh sách ở đây thành dữ liệu cũ.
     private func executeSave(isName: Bool, isMerge: Bool) {
-        // Hàng gạch không bao giờ được lưu (ô chọn đã khoá; lọc thêm cho chắc).
+        // Lưu MỌI mục đang chọn, kể cả mục đang bị ô tìm / chip loại của card ẩn (ô tìm và chip chỉ đổi phần đang hiện,
+        // "Chọn hết" / "Bỏ chọn" mới theo phần đang hiện). Hàng gạch không bao giờ được lưu (ô chọn đã khoá; lọc thêm cho
+        // chắc).
         let chosen = names.filter { $0.isSelected && !isStruck($0) }
         guard !chosen.isEmpty else { return }
         onSave(chosen, isName, isMerge)

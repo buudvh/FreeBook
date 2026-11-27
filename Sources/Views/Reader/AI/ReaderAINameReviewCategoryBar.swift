@@ -4,8 +4,9 @@ import SwiftUI
 /// mockup LAC khung 3): "Tất cả N · Nhân danh N · Địa danh N · Tổ chức N · Thuật ngữ N", chỉ hiện nhóm có mục. Chip đang
 /// chọn theo kiểu `ExtensionKindFilterBar` (chữ màu nhấn, nền nhấn mờ 18%, viền 60%).
 ///
-/// Chip chỉ đổi phần **đang hiện**; chọn hết / bỏ chọn / Lưu vẫn tính trên cả danh sách (xem `ReaderAINameReviewCardView`).
-/// Nhóm đang chọn hết mục (bỏ / chặn hết) ⇒ thẻ coi như "Tất cả" (`active == nil`).
+/// Chip (cùng ô tìm của thẻ) chỉ đổi phần **đang hiện**: "Chọn hết" / "Bỏ chọn" áp lên phần đang hiện, còn số trên chip,
+/// số ở tiêu đề thẻ và nút Lưu vẫn tính trên cả danh sách (xem `ReaderAINameReviewCardView+Filtering`). Nhóm đang chọn hết
+/// mục (bỏ / chặn hết) ⇒ thẻ coi như "Tất cả" (`active == nil`).
 struct ReaderAINameReviewCategoryBar: View {
     let names: [AIExtractedName]
     /// Nhóm đang lọc có hiệu lực (`nil` = Tất cả).

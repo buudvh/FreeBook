@@ -3,8 +3,8 @@ import SwiftUI
 /// Bảng duyệt danh sách tên riêng trích xuất từ văn bản truyện.
 ///
 /// Từ 1.3.469 card **không** còn nút Lưu: nút Lưu là `Menu` 2 mục trên thanh điều hướng của
-/// `ReaderAINameReviewSheet` (đúng khuôn `AddWordSheet`). Card chỉ còn hiển thị danh sách, sắp xếp,
-/// chọn/bỏ chọn, sửa và xoá từng mục.
+/// `ReaderAINameReviewSheet` (đúng khuôn `AddWordSheet`). Card chỉ còn hiển thị danh sách, ô tìm, sắp xếp,
+/// chọn/bỏ chọn, sửa và xoá từng mục. Sắp xếp ở `+Sorting`, ô tìm + phần đang hiện + "Chọn hết" ở `+Filtering`.
 ///
 /// Hàng theo khuôn hàng VP/Name (`DictionaryEntryRow`, 1.3.1060): dòng 2 là **chữ** nghĩa (không còn ô nhập), không
 /// còn nút bút chì — chạm khối chữ (tên + badge + nghĩa) ⇒ nơi dùng mở màn Sửa từ. Ô vuông chọn và ✕ là nút riêng
@@ -25,28 +25,18 @@ public struct ReaderAINameReviewCardView: View {
     /// Khoá đang gạch — hàng gạch ngang + mờ, ô chọn khoá, không mở màn sửa, "Chọn hết" bỏ qua.
     public var struckKeys: Set<String> = []
     /// Luồng "Lọc name local" (mockup LAC khung 3): hàng chip lọc theo loại (`ReaderAINameReviewCategoryBar`) + badge loại
-    /// có màu. Chip **chỉ đổi phần đang hiện**: "Chọn hết" / "Bỏ chọn", số ở tiêu đề và nút Lưu của sheet vẫn tính trên cả
-    /// `names`, kể cả mục đang bị chip ẩn. Luồng AI: `false` (không chip, badge xám).
+    /// có màu. Chip (cùng ô tìm) **chỉ ẩn hàng**: "Chọn hết" / "Bỏ chọn" áp lên mục đang hiện, còn số ở tiêu đề và nút Lưu
+    /// của sheet vẫn tính trên cả `names`, kể cả mục đang bị ẩn (`+Filtering`). Luồng AI: `false` (không chip, badge xám).
     public var showsCategoryFilter: Bool = false
 
-    public enum SortMode {
-        case selectedFirst
-        case alphabetical
-        /// "Nhiều lần nhất": số lần giảm dần, rồi chữ Hán tăng dần (đúng thứ tự bộ lọc name local trả).
-        case mostFrequent
-        /// "Chưa chọn trước" (mặc định luồng lọc local, anh Bửu 2026-11-27): mục chưa chọn — chủ yếu name đã có NE / VP bị
-        /// bỏ chọn sẵn — lên đầu, mỗi nhóm số lần giảm dần, rồi chữ Hán tăng dần.
-        case unselectedFirst
-    }
-
-    /// Hai kiểu theo số lần chỉ có trong menu khi card mở với một trong hai kiểu đó (luồng lọc local) — luồng AI giữ menu cũ.
-    private var offersFrequencySorts: Bool { initialSortMode == .unselectedFirst || initialSortMode == .mostFrequent }
-
-    @State private var sortMode: SortMode
+    // `internal` (không `private`): `+Sorting` / `+Filtering` dùng chung.
+    @State var sortMode: SortMode
     /// Nhóm chip đang chọn (`nil` = Tất cả); chỉ dùng khi `showsCategoryFilter`.
-    @State private var categoryFilter: LocalNameFilter.Category?
-    /// Kiểu sắp lúc mở card — quyết định menu có "Nhiều lần nhất" không.
-    private let initialSortMode: SortMode
+    @State var categoryFilter: LocalNameFilter.Category?
+    /// Chữ trong ô tìm (`+Filtering`) — cả hai luồng.
+    @State var searchText: String = ""
+    /// Kiểu sắp lúc mở card — quyết định menu có các kiểu theo số lần không.
+    let initialSortMode: SortMode
 
     public init(
         names: Binding<[AIExtractedName]>,
@@ -69,7 +59,7 @@ public struct ReaderAINameReviewCardView: View {
         self.showsCategoryFilter = showsCategoryFilter
     }
 
-    private func isStruck(_ item: AIExtractedName) -> Bool {
+    func isStruck(_ item: AIExtractedName) -> Bool {
         onToggleStrike != nil && struckKeys.contains(item.original.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
@@ -77,41 +67,19 @@ public struct ReaderAINameReviewCardView: View {
         onToggleStrike == nil ? 0 : names.filter { isStruck($0) }.count
     }
 
-    /// Nhóm lọc có hiệu lực: nhóm đã chọn không còn mục nào (bỏ / chặn hết) ⇒ về Tất cả.
-    private var activeCategoryFilter: LocalNameFilter.Category? {
+    /// Nhóm lọc có hiệu lực: nhóm đã chọn không còn mục nào (bỏ / chặn hết) ⇒ về Tất cả. Xét trên **cả** `names`, không
+    /// theo ô tìm.
+    var activeCategoryFilter: LocalNameFilter.Category? {
         guard showsCategoryFilter, let categoryFilter,
               names.contains(where: { LocalNameFilterCategoryBadge.category(forLabel: $0.category) == categoryFilter })
         else { return nil }
         return categoryFilter
     }
 
-    private var sortChipLabel: String {
-        switch sortMode {
-        case .selectedFirst: return "Đã chọn"
-        case .alphabetical: return "A-Z"
-        case .mostFrequent: return "Nhiều lần"
-        case .unselectedFirst: return "Chưa chọn"
-        }
-    }
-
-    /// Một mục của menu sắp xếp: chọn ⇒ sắp lại ngay; kiểu đang dùng có dấu ✓. Danh sách chỉ sắp lại lúc mở card hoặc khi
-    /// chọn ở menu — tích / bỏ tích một ô không làm hàng nhảy chỗ.
-    private func sortMenuButton(_ mode: SortMode, title: String) -> some View {
-        Button {
-            sortMode = mode
-            applySorting()
-        } label: {
-            HStack {
-                Text(title)
-                if sortMode == mode {
-                    Image(systemName: "checkmark")
-                }
-            }
-        }
-    }
-
     public var body: some View {
         let activeFilter = activeCategoryFilter
+        // Một tập cho cả ba chỗ: hàng nào hiện, dòng "Không có name khớp", "Chọn hết" / "Bỏ chọn".
+        let visible = visibleNameIDs(activeFilter: activeFilter)
         VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 8) {
@@ -131,55 +99,36 @@ public struct ReaderAINameReviewCardView: View {
                 }
                 Spacer()
 
-                // Menu & Nút Sắp xếp
-                Menu {
-                    if offersFrequencySorts {
-                        sortMenuButton(.unselectedFirst, title: "Chưa chọn trước")
-                        sortMenuButton(.mostFrequent, title: "Nhiều lần nhất")
-                    }
-                    sortMenuButton(.selectedFirst, title: "Đã chọn trước")
-                    sortMenuButton(.alphabetical, title: "Từ A → Z (Hán Việt)")
+                sortMenu
 
-                    Divider()
-
-                    Button {
-                        applySorting()
-                    } label: {
-                        Label("Sắp xếp lại ngay", systemImage: "arrow.up.arrow.down")
-                    }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "arrow.up.arrow.down")
-                        Text(sortChipLabel)
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(6)
-                }
-
-                Button(allSelected ? "Bỏ chọn" : "Chọn hết") {
+                Button(allSelected(visible: visible) ? "Bỏ chọn" : "Chọn hết") {
                     toggleSelectAll()
                 }
                 .font(.system(size: 11))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .disabled(visible?.isEmpty == true)
             }
             .padding(.bottom, 2)
 
+            // Ô tìm trên hàng chip (mockup khung 2); luồng AI không có chip nên nằm ngay dưới đầu thẻ.
+            searchField
+
             if showsCategoryFilter {
                 ReaderAINameReviewCategoryBar(names: names, active: activeFilter) { categoryFilter = $0 }
+            }
+
+            if let visible, visible.isEmpty {
+                noMatchRow
             }
 
             // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay sửa nghĩa) `names` đổi, `VStack` thường
             // cập nhật lại MỌI hàng — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
             LazyVStack(spacing: 6) {
                 ForEach($names) { $item in
-                    // Chip loại chỉ ẩn hàng; vẫn duyệt cả `$names` (không lọc mảng binding: xoá mục lúc đang lọc
+                    // Ô tìm / chip loại chỉ ẩn hàng; vẫn duyệt cả `$names` (không lọc mảng binding: xoá mục lúc đang lọc
                     // là binding lệch chỉ số).
-                    if activeFilter == nil || LocalNameFilterCategoryBadge.category(forLabel: item.category) == activeFilter {
+                    if visible?.contains(item.id) ?? true {
                         HStack(spacing: 4) {
                             // Vùng chạm 44×44 (mức tối thiểu của Apple) thay cho icon 16 pt trơn.
                             Button(action: {
@@ -309,20 +258,6 @@ public struct ReaderAINameReviewCardView: View {
             .contentShape(Rectangle())
     }
 
-    /// "Chọn hết" / "Bỏ chọn" chỉ xét hàng chọn được (bỏ qua hàng gạch). Tính trên **cả** `names`, không theo chip loại
-    /// đang chọn (luồng lọc local): chip chỉ đổi phần đang hiện.
-    private var allSelected: Bool {
-        // Không còn hàng nào chọn được (gạch hết) ⇒ nút hiện "Chọn hết" (bấm không làm gì) thay vì "Bỏ chọn".
-        names.contains { !isStruck($0) } && names.allSatisfy { $0.isSelected || isStruck($0) }
-    }
-
-    private func toggleSelectAll() {
-        let target = !allSelected
-        for idx in names.indices where !isStruck(names[idx]) {
-            names[idx].isSelected = target
-        }
-    }
-
     /// Báo nơi dùng **trước** khi xoá: nơi dùng cần tra mục theo `id` (vd lấy khoá để xoá hẳn khỏi tin nguồn).
     private func deleteItem(id: UUID) {
         onDelete?(id)
@@ -333,42 +268,5 @@ public struct ReaderAINameReviewCardView: View {
     private func blockItem(id: UUID) {
         onBlock?(id)
         names.removeAll(where: { $0.id == id })
-    }
-
-    private func applySorting() {
-        switch sortMode {
-        case .mostFrequent:
-            names.sort { (a, b) -> Bool in
-                if a.occurrenceCount != b.occurrenceCount {
-                    return a.occurrenceCount > b.occurrenceCount
-                }
-                return a.original < b.original
-            }
-        case .unselectedFirst:
-            names.sort { (a, b) -> Bool in
-                if a.isSelected != b.isSelected {
-                    return !a.isSelected
-                }
-                if a.occurrenceCount != b.occurrenceCount {
-                    return a.occurrenceCount > b.occurrenceCount
-                }
-                return a.original < b.original
-            }
-        case .selectedFirst:
-            names.sort { (a, b) -> Bool in
-                if a.isSelected != b.isSelected {
-                    return a.isSelected && !b.isSelected
-                }
-                let aStr = a.suggestedMeaning.isEmpty ? a.original : a.suggestedMeaning
-                let bStr = b.suggestedMeaning.isEmpty ? b.original : b.suggestedMeaning
-                return aStr.localizedStandardCompare(bStr) == .orderedAscending
-            }
-        case .alphabetical:
-            names.sort { (a, b) -> Bool in
-                let aStr = a.suggestedMeaning.isEmpty ? a.original : a.suggestedMeaning
-                let bStr = b.suggestedMeaning.isEmpty ? b.original : b.suggestedMeaning
-                return aStr.localizedStandardCompare(bStr) == .orderedAscending
-            }
-        }
     }
 }

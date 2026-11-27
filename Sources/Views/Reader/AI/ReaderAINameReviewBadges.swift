@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Cụm badge sau chữ Hán của một hàng thẻ duyệt (`ReaderAINameReviewCardView`): badge loại, NE (đã có trong Name riêng /
-/// chung), VP (đã có trong VietPhrase), "N lần". Tách khỏi thẻ để thẻ giữ dưới 400 dòng.
+/// chung), VP (đã có trong VietPhrase), "đoán" (nghĩa do máy đoán), "N lần". Tách khỏi thẻ để thẻ giữ dưới 400 dòng.
 ///
 /// `colorsCategory` (chỉ luồng "Lọc name local"): badge loại có màu theo nhóm (`LocalNameFilterCategoryBadge`) với bốn
 /// nhãn Nhân danh / Địa danh / Tổ chức / Thuật ngữ, nhãn khác giữ xám. Luồng AI (`false`): badge xám như cũ — nhãn AI có
@@ -52,6 +52,22 @@ struct ReaderAINameReviewBadges: View {
                 )
                 .cornerRadius(4)
                 .fixedSize(horizontal: true, vertical: false)
+        }
+
+        // Nghĩa do máy đoán (Lọc name local, "Ưu tiên tên Latin": 伽罗斯 ⇒ Garos) — nhãn viền vàng để anh kiểm lại (mockup
+        // https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz khung 2). Sửa nghĩa ở màn Sửa từ thì mất nhãn (`+Edit`).
+        if item.isGuessedMeaning {
+            Text("đoán")
+                .font(.system(size: 9, weight: .bold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .foregroundColor(.yellow)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.yellow.opacity(0.7), lineWidth: 0.8)
+                )
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityLabel("nghĩa do máy đoán")
         }
 
         if item.occurrenceCount > 1 {

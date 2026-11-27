@@ -11,6 +11,8 @@ import SwiftUI
 /// - gõ lại cả từ gốc (bút chì của màn Sửa từ) ⇒ đổi khoá của mục;
 /// - chọn một phần ⇒ thêm mục mới ngay dưới mục đang sửa, mục cũ giữ nguyên.
 /// Khoá đích đã có trong danh sách ⇒ ghi đè nghĩa mục đó (màn Sửa từ báo trước), không tạo bản trùng.
+///
+/// Mục mang khoá đích sau lần sửa mất cờ `isGuessedMeaning` (nhãn "đoán"): nghĩa của nó giờ do người dùng chốt.
 extension ReaderAINameReviewSheet {
     static let editBadgeText = "AI · Riêng truyện"
     /// Badge màn Sửa từ khi mở từ luồng "Lọc name local" (danh sách có sẵn, không có tin AI nguồn).
@@ -44,7 +46,14 @@ extension ReaderAINameReviewSheet {
 
     func applyEdit(_ edit: AINameEdit) {
         guard let key = edit.resultingKey, !key.isEmpty else { return }
-        names = edit.applied(to: names)
+        // Ghi `names` một lần (mỗi lần ghi là một lượt `onNamesChange` ⇒ gói tạm).
+        var updated = edit.applied(to: names)
+        // Bỏ nhãn "đoán" của mục vừa nhận nghĩa từ màn Sửa từ. Chọn một phần ⇒ mục mới (cờ mặc định tắt), mục gốc giữ cờ.
+        let editedKey = AINameEdit.key(key)
+        if let index = updated.firstIndex(where: { AINameEdit.key($0.original) == editedKey }) {
+            updated[index].isGuessedMeaning = false
+        }
+        names = updated
         onEditName(edit)
         // Sửa một name thành khoá đang gạch ⇒ người dùng muốn dùng khoá đó: bỏ gạch, kẻo nghĩa mới nằm trong hàng gạch
         // (không chọn / không lưu được).

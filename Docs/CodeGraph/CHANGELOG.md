@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1096] - 2026-11-27
+
+### feat: màn duyệt name có ô tìm chữ Hán hoặc nghĩa, kiểu sắp chưa có trước và nhãn đoán
+
+Phần màn duyệt của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md` mục 4, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz khung 2). Anh: "danh sách name kết quả đang thiếu ô tìm kiếm"; về thứ tự: không phải "chưa chọn lên trước" mà là name **chưa có** trong VP / Name lên trước (đã yêu cầu nhầm ở 1.3.1092).
+
+- **Ô tìm** ở `ReaderAINameReviewCardView` (cả luồng lọc name local lẫn luồng AI), nằm trên hàng chip loại: khớp chữ Hán hoặc nghĩa, không phân biệt hoa thường, bỏ dấu, `đ` → `d` (gõ "klein" ra Klein, "khac" ra Khắc); kết hợp với chip loại; không còn mục nào ⇒ dòng "Không có name khớp"; nút ⓧ xoá chữ; kéo danh sách là hạ bàn phím (`scrollDismissesKeyboard(.interactively)`), vùng cuộn tự co theo bàn phím.
+- **"Chọn hết" / "Bỏ chọn" áp lên mục đang hiện** (sau ô tìm + chip loại) — trước đây chip loại tính cả danh sách. Hàng gạch của luồng AI vẫn không chọn được. Ô tìm / chip chỉ ẩn hàng: số ở tiêu đề thẻ, số trên chip và nút Lưu vẫn tính cả danh sách; Lưu lưu mọi mục đang chọn, kể cả mục đang bị ẩn.
+- **Kiểu sắp "Chưa có trước"** (`SortMode.notInDictionaryFirst`, chip "Chưa có") thay hẳn "Chưa chọn trước" (`unselectedFirst`, 1.3.1092): name không có badge NE / VP (`!(hasInBookNames || hasInBookVP)`) lên đầu, mỗi nhóm số lần giảm dần, hoà thì chữ Hán tăng dần — vd 炽翎 735 → 赤玄子 43 → 李印生 (NE) 4284 → 穆小鱼 (NE) 1287. Mặc định của luồng lọc local, kể cả khi mở lại gói tạm; menu còn "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu. Luồng AI giữ "Đã chọn trước".
+- **Nhãn "đoán"**: `AIExtractedName.isGuessedMeaning` ⇒ nhãn nhỏ viền vàng cạnh badge loại / NE / VP (`ReaderAINameReviewBadges`). Bấm "Cập nhật" ở màn Sửa từ ⇒ mục mang khoá đích bỏ cờ (`ReaderAINameReviewSheet+Edit.applyEdit`, ghi `names` một lần); chọn một phần thành mục mới thì mục gốc giữ cờ. Cờ đi theo gói tạm qua `AIExtractedName` (Codable).
+- Thẻ tách thành `ReaderAINameReviewCardView+Sorting.swift` (kiểu sắp, menu ⇅) và `+Filtering.swift` (ô tìm, phần đang hiện, "Chọn hết") để giữ dưới 400 dòng.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1095] - 2026-11-27
 
 ### refactor: hợp đồng lọc name local có cờ nghĩa do máy đoán, công tắc ưu tiên tên Latin và công cụ học mô hình đoán tên
@@ -331,15 +344,3 @@ Anh Bửu duyệt plan + mockup "Lọc name local" (2026-11-27). Phần A — b�
 - Khác hợp đồng: `LocalNameFilterRun.start` là `internal` (không `public`) vì `StoredChapterSnapshot` là kiểu `internal` — nơi gọi không đổi.
 - Kiểm: một bản Python chép theo đúng cấu trúc code Swift cho kết quả **trùng từng hàng** (chữ Hán, nghĩa, loại, số lần, số chương, danh xưng, số bỏ theo lý do, số ẩn) với bản thử trên 5 truyện ở 4 chế độ (mặc định, có "Không phải name", ít nhất 2 lần, không có Pronouns). Khác cố ý so với bản thử: `status` dùng nghĩa đầu kiểu app (`TranslateUtils.getFirstMeaning`: tách `/ ¦ |`, mảnh đầu rỗng ⇒ từ thường; Python tách `/ | ;` bỏ mảnh rỗng) và tra thêm Name + từ điển riêng truyện; khoá Pronouns / họ chỉ nhận chữ Hán (khoá khác không bao giờ khớp chữ truyện). `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. **Không build tại chỗ (Windows), chưa chạy trên máy.**
 - Dọn: entry 1.3.1040 chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1069] - 2026-11-27
-
-### feat: lọc name local trong Reader, hiện name ngay khi lọc và duyệt có "Không phải name"
-
-Anh Bửu duyệt plan + mockup "Lọc name local" (2026-11-27). Phần C — luồng trong Reader (bộ lọc và hai danh sách ở hai commit riêng).
-
-- Ngăn kéo "…" của Reader có hàng **"Lọc name local"** ngay dưới "Từ điển truyện" (cùng điều kiện: truyện đã có trong thư viện) ⇒ sheet kính `LocalNameFilterSheet` (`ReaderView+LocalNameFilter`; `ReaderView.swift` chỉ thêm cờ + một lần gọi).
-- **Bước chọn** (`LocalNameFilterSheet+Setup`): phạm vi như "Lọc name nhiều chương" của AI bỏ "Tiếp nối" — chương đang đọc (mặc định; không còn chương đã tải từ đó thì chương đầu tiên) / chương đầu tiên / "Chọn chương…", "Số lượng chương" mặc định Tất cả, dòng "Sẽ lọc N chương đã tải"; ô chương chỉ ghi tên chương. **Không** đọc / ghi mặc định của sheet AI (`AINameScanScopeStore`). "Ít nhất 2 / 3 / 5 / 10 lần" (mặc định 3). Mục "Danh sách": "Đuôi địa danh & tông môn" (số đuôi đang bật) và "Không phải name" (số cụm), đọc lại số khi quay về. "Bắt đầu lọc" chụp cấu hình từ hai danh sách, lấy chương đã tải theo phạm vi (`fetchDownloadedChapters`), cờ phồn → giản của Reader ⇒ `LocalNameFilterRun.start`.
-- **Đang lọc** (`LocalNameFilterProgressView` + `LocalNameFilterSession`, `@MainActor @Observable` giữ lượt lọc và vòng nghe sự kiện): "Đọc chương X / N" + thanh; "Name đã thấy (K)" + "cập nhật ở chương X"; danh sách tạm hiện ngay, name vừa vào có vạch + nhãn "mới", name vừa rơi ra gạch mờ — một nhịp tới lần cập nhật kế (`LocalNameFilterLiveRow`). "Dừng" = phân tích nốt phần đã đọc rồi sang màn duyệt; vuốt sheet xuống ở bất kỳ bước nào = huỷ (`onDisappear` ở `ZStack` ngoài cùng). Xong không có name ⇒ về bước chọn, báo "Không tìm thấy name mới · ẩn M name đã có"; `.failed` ⇒ về bước chọn, hiện lỗi.
-- **Duyệt**: thay gốc sheet bằng "Duyệt tên riêng & VP" của AI với init mới `ReaderAINameReviewSheet(names:bookId:onSave:onBlockName:)` (danh sách có sẵn, chọn sẵn hết, chỉ tra cờ NE/VP, badge màn Sửa từ "Lọc local · Riêng truyện") + toast "Lọc xong: N name mới · ẩn M name đã có". Card thêm `SortMode.mostFrequent` ("Nhiều lần nhất": số lần giảm dần rồi chữ Hán) + kiểu sắp mặc định; ✕ thành menu "Bỏ khỏi lần này" / "Không phải name" (thêm vào danh sách loại bỏ dùng chung, toast) **chỉ** khi có `onBlock` — luồng AI giữ ✕, menu sắp và mặc định như cũ. Lưu Name riêng / VP riêng (Gộp / Thay thế) thẳng qua `AIHarnessService.saveExtractedEntries`, toast như AI.
-- **Kiểm**: đọc code + `check_architecture.py` (không thêm violation); **không build tại chỗ (Windows), chưa thử trên máy**.
