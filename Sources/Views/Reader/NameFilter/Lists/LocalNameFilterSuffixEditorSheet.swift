@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** đuôi của màn "Đuôi địa danh & tông môn" = màn **Sửa từ** của từ điển (`DictEntryEditSheet`
-/// chế độ danh sách, plan 2026-11-27 mockup khung 4 — anh Bửu: danh sách vế trái chữ Hán làm kiểu Sửa từ): header "Sửa từ"
-/// / "Thêm từ" + badge "Đuôi · Chung" + bút chì đổi chữ gốc, hàng chữ gốc chọn được, hàng token, ô nghĩa, chip nghĩa gợi
-/// ý, aa…AA; phần riêng của đuôi là khối **Loại** (Địa danh / Tông môn) + **Nghĩa đứng** (Trước tên / Sau tên — mục mới
-/// mặc định Sau tên) và dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn. Chỗ trình bày bọc `Group { … }.appGlassSheet()`.
+/// Sheet thêm / sửa **một** đuôi của màn "Đuôi địa danh, tổ chức, thuật ngữ" = màn **Sửa từ** của từ điển
+/// (`DictEntryEditSheet` chế độ danh sách, plan 2026-11-27 mockup khung 4 — anh Bửu: danh sách vế trái chữ Hán làm kiểu
+/// Sửa từ): header "Sửa từ" / "Thêm từ" + badge "Đuôi · Chung" + bút chì đổi chữ gốc, hàng chữ gốc chọn được, hàng token,
+/// ô nghĩa, chip nghĩa gợi ý, aa…AA; phần riêng của đuôi là khối **Loại** (Địa danh / Tổ chức / Thuật ngữ) + **Nghĩa
+/// đứng** (Trước tên / Sau tên — mục mới mặc định Sau tên) và dòng "Ví dụ" đổi theo lựa chọn (江海市 → …; thuật ngữ
+/// 五气丹 → Ngũ Khí đan). Chỗ trình bày bọc `Group { … }.appGlassSheet()`.
 ///
 /// - Luật lấy từ `LocalNameFilterSuffixStore` (`keyError` / `meaningError` — cùng luật với file gốc), hiện đỏ ở dòng thông
 ///   báo; ô còn trống thì không tô đỏ. Đổi chữ gốc = xoá khoá cũ + thêm khoá mới (store lo); chọn một phần chữ gốc ⇒ thêm
@@ -17,9 +18,13 @@ struct LocalNameFilterSuffixEditorSheet: View {
     typealias Kind = LocalNameFilter.SuffixKind
     typealias Position = LocalNameFilter.MeaningPosition
 
-    /// Phần tên riêng của dòng "Ví dụ" (江海 → Giang Hải).
-    private static let sampleName = "江海"
-    private static let sampleReading = "Giang Hải"
+    /// Phần tên riêng của dòng "Ví dụ": địa danh / tổ chức 江海 → Giang Hải, thuật ngữ 五气 → Ngũ Khí (五气丹 → Ngũ Khí đan).
+    private static func sample(for kind: Kind) -> (name: String, reading: String) {
+        switch kind {
+        case .place, .sect: return ("江海", "Giang Hải")
+        case .term: return ("五气", "Ngũ Khí")
+        }
+    }
     /// Bề ngang nhãn "Loại" / "Nghĩa đứng" của khối phụ (mockup khung 4).
     private static let optionLabelWidth: CGFloat = 86
 
@@ -99,7 +104,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
             .cornerRadius(8)
 
             if let example = exampleText(key: key, meaning: meaning) {
-                Text("Ví dụ: \(Self.sampleName)\(key) → \(Text(verbatim: example).bold().foregroundColor(.primary))")
+                Text("Ví dụ: \(Self.sample(for: kind).name)\(key) → \(Text(verbatim: example).bold().foregroundColor(.primary))")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -133,10 +138,11 @@ struct LocalNameFilterSuffixEditorSheet: View {
         .frame(minHeight: 40)
     }
 
-    /// "thành phố Giang Hải" / "Giang Hải thành phố" — chỉ khi đã có đuôi và nghĩa.
+    /// "thành phố Giang Hải" / "Giang Hải thành phố" / "Ngũ Khí đan" — chỉ khi đã có đuôi và nghĩa.
     private func exampleText(key: String, meaning: String) -> String? {
         guard !key.isEmpty, !meaning.isEmpty else { return nil }
-        return position == .before ? "\(meaning) \(Self.sampleReading)" : "\(Self.sampleReading) \(meaning)"
+        let reading = Self.sample(for: kind).reading
+        return position == .before ? "\(meaning) \(reading)" : "\(reading) \(meaning)"
     }
 
     /// Đuôi gốc đang mang nghĩa khác bản gốc (chưa lưu) ⇒ "Nghĩa gốc: thị". Đã sửa thì nút "Về bản gốc" nói thay.

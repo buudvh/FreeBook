@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1057] - 2026-11-24
+
+### fix: mục lục sheet nghe mini — hiện nhanh lại (hàng là struct riêng, bỏ .id, tên chương dịch theo ô đang hiện)
+
+Anh Bửu: "Danh sách chương của sheet nghe truyện mini hiển thị lên quá chậm. Hiển thị chậm do bạn mới fix gần đây" (sau 1.3.1053).
+
+- **Nguyên nhân** (`TTSQuickTimerChapterList`, bản 1.3.1053): mỗi hàng của `ForEach` gắn `.id(chapter.index)` và closure hàng dịch tên chương ngay tại chỗ (`Text(TTSManager.shared.displayTitle(for:))`). `List` duyệt closure của **mọi** chương để lấy danh tính hàng ⇒ dịch cả N tên trên main **trước khung đầu**; `TranslateUtils.chapterTitleCache` chỉ 1024 mục nên mục lục dài hơn bị đẩy cache, mở lần nào cũng dịch lại hết. Bản `LazyVStack` cũ chỉ trả cho hàng 0…k (tới chương đang nghe) và sau khi sheet đã hiện ⇒ 1.3.1053 chậm hơn, nhất là khi đang nghe gần đầu truyện. `TabView(.page)` dựng sẵn trang bên cạnh nên mở ⏱ cũng chịu.
+- **Sửa**: hàng tách thành struct `ChapterRow` (đầu vào: chương, đang phát, số chữ số cột thứ tự); tên chương tính trong `body` của hàng ⇒ chỉ ô đang hiện mới dịch. Closure của `ForEach` chỉ dựng struct + ba `listRow*`, bỏ `.id(chapter.index)` — `scrollTo` dùng id của `ForEach` (`\.index`). Mốc `TranslationDisplayRevision` đọc ở `body` của hàng (đọc ở danh sách thì hàng có đầu vào không đổi bỏ qua `body`, tên cũ nằm lại sau khi sửa VP / Name / rule). Giữ `List`, `TTSChapterListReader`, giao diện như 1.3.1053.
+- `CHANGELOG.md` dời 1.3.1027 sang `CHANGELOG.archive.md` (giữ 30 entry).
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log; truyện > 1024 chương, bật dịch; thử khi đang nghe chương gần đầu và gần cuối; mở từ Mục lục và từ ⏱ ⇒ danh sách hiện ngay, nằm giữa đúng chương đang nghe; cuộn lúc TTS đang đọc; sửa một mục VP lúc sheet mở ⇒ tên chương đổi.
+
 ## [1.3.1056] - 2026-11-24
 
 ### fix: sheet tuỳ chọn của video / audio ghi "video" / "audio" thay cho "truyện"

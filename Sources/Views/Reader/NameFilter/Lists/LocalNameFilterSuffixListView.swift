@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Màn **Đuôi địa danh & tông môn** của Lọc name local (mockup khung 5) — đẩy vào `NavigationStack` của sheet "Lọc name
-/// local" từ mục "Danh sách". Khuôn màn Danh sách họ (`QuickTranslationSurnameListView`): header nút quay lại + `…`
-/// (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện (chữ Hán / nghĩa), tab Tất cả / Địa danh / Tông môn, nút `+`
+/// Màn **Đuôi địa danh, tổ chức, thuật ngữ** của Lọc name local (mockup khung 5, bản LAC khung 4) — đẩy vào
+/// `NavigationStack` của sheet "Lọc name local" từ mục "Danh sách". Khuôn màn Danh sách họ
+/// (`QuickTranslationSurnameListView`): header nút quay lại + `…` (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện
+/// (chữ Hán / nghĩa), tab Tất cả / Địa danh / Tổ chức / Thuật ngữ, nút `+`
 /// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Tắt/Bật] [Xoá]`).
 ///
 /// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng (`LocalNameFilterSuffixStore`). Store không phát thay đổi ⇒ màn
@@ -16,13 +17,10 @@ struct LocalNameFilterSuffixListView: View {
         case all
         case place
         case sect
+        case term
 
         var title: String {
-            switch self {
-            case .all: return "Tất cả"
-            case .place: return LocalNameFilterSuffixRow.kindLabel(.place)
-            case .sect: return LocalNameFilterSuffixRow.kindLabel(.sect)
-            }
+            kind.map(LocalNameFilterSuffixRow.kindLabel) ?? "Tất cả"
         }
 
         var kind: LocalNameFilter.SuffixKind? {
@@ -30,6 +28,7 @@ struct LocalNameFilterSuffixListView: View {
             case .all: return nil
             case .place: return .place
             case .sect: return .sect
+            case .term: return .term
             }
         }
     }
@@ -40,7 +39,7 @@ struct LocalNameFilterSuffixListView: View {
         let entry: Entry?
     }
 
-    private static let title = "Đuôi địa danh & tông môn"
+    private static let title = "Đuôi địa danh, tổ chức, thuật ngữ"
 
     @State private var entries: [Entry] = Store.shared.entries()
     @State private var isCustomized = Store.shared.isCustomized
@@ -81,7 +80,9 @@ struct LocalNameFilterSuffixListView: View {
 
     private var emptyText: String {
         if !trimmedQuery.isEmpty { return "Không có đuôi nào khớp." }
-        if entries.isEmpty { return "Danh sách đuôi đang trống: bộ lọc sẽ không nhận ra địa danh / tông môn. Bấm + để thêm." }
+        if entries.isEmpty {
+            return "Danh sách đuôi đang trống: bộ lọc sẽ khó nhận ra địa danh / tổ chức / thuật ngữ. Bấm + để thêm."
+        }
         return "Chưa có đuôi loại này. Bấm + để thêm."
     }
 
@@ -115,8 +116,8 @@ struct LocalNameFilterSuffixListView: View {
                     }
                 } header: {
                     SectionHelpHeader(sectionTitle, paragraphs: [
-                        "Cụm chữ Hán kết thúc bằng một đuôi **đang bật** (落霞**镇**, 天斗**帝国**, 史莱克**学院**) được xét là địa danh hoặc tông môn. Đuôi tắt vẫn nằm trong danh sách nhưng bộ lọc bỏ qua.",
-                        "Nghĩa đề xuất = phần tên riêng viết hoa + nghĩa của đuôi giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn) hoặc **trước tên** (市 = \"thành phố\" · trước tên ⇒ 江海市 → thành phố Giang Hải).",
+                        "Cụm chữ Hán kết thúc bằng một đuôi **đang bật** (落霞**镇**, 天斗**帝国**, 史莱克**学院**, 五气**丹**) được xét là địa danh, tổ chức hoặc thuật ngữ theo loại của đuôi. Đuôi tắt vẫn nằm trong danh sách nhưng bộ lọc bỏ qua.",
+                        "Nghĩa đề xuất = phần tên riêng viết hoa + nghĩa của đuôi giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn, 五气丹 → Ngũ Khí đan) hoặc **trước tên** (市 = \"thành phố\" · trước tên ⇒ 江海市 → thành phố Giang Hải).",
                         "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi đuôi đã thêm, sửa, xoá hoặc bật / tắt."
                     ])
                 }

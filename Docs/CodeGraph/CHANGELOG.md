@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1087] - 2026-11-27
+
+### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức
+
+## [1.3.NNN] - 2026-11-27
+### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức
+- Màn "Đuôi địa danh & tông môn" đổi tên thành "Đuôi địa danh, tổ chức, thuật ngữ" (plan `2026-11-27-loc-name-lac.md` mục D, mockup LAC khung 4); tab lọc thành Tất cả / Địa danh / Tổ chức / Thuật ngữ.
+- Nhãn loại của đuôi lấy từ nhóm name (`SuffixKind.category.label`): `sect` hiện là "Tổ chức", thêm "Thuật ngữ" (`SuffixKind.term`); ô Loại ở màn Sửa từ của đuôi có ba lựa chọn.
+- Dòng "Ví dụ" của màn Sửa từ đổi theo loại: thuật ngữ dùng 五气 ⇒ "Ví dụ: 五气丹 → Ngũ Khí đan", địa danh / tổ chức giữ 江海.
+- Lời giải thích "?" và dòng danh sách trống nói cả tổ chức / thuật ngữ.
+
 ## [1.3.1086] - 2026-11-27
 
 ### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
@@ -368,14 +379,3 @@ Anh Bửu: không hiển thị chương kiểu "Ch. stt" → duyệt mockup http
 - Đánh đổi (đã nêu trong mockup): kiểu Lưới 3 cột chỉ còn ~65 pt cho chữ cạnh ⋮ ⇒ tên chương bị cắt "…"; tên nguồn tự mở đầu "Chương 340: …" thì ô Lưới vẫn chỉ thấy "Chương 34…".
 - `ui-conventions.md`: luật "Không hiển thị kiểu Ch. stt" ghi đã xong + hàm dùng chung; luật video / audio ghi rõ anh chỉ yêu cầu context menu.
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1057] - 2026-11-24
-
-### fix: mục lục sheet nghe mini — hiện nhanh lại (hàng là struct riêng, bỏ .id, tên chương dịch theo ô đang hiện)
-
-Anh Bửu: "Danh sách chương của sheet nghe truyện mini hiển thị lên quá chậm. Hiển thị chậm do bạn mới fix gần đây" (sau 1.3.1053).
-
-- **Nguyên nhân** (`TTSQuickTimerChapterList`, bản 1.3.1053): mỗi hàng của `ForEach` gắn `.id(chapter.index)` và closure hàng dịch tên chương ngay tại chỗ (`Text(TTSManager.shared.displayTitle(for:))`). `List` duyệt closure của **mọi** chương để lấy danh tính hàng ⇒ dịch cả N tên trên main **trước khung đầu**; `TranslateUtils.chapterTitleCache` chỉ 1024 mục nên mục lục dài hơn bị đẩy cache, mở lần nào cũng dịch lại hết. Bản `LazyVStack` cũ chỉ trả cho hàng 0…k (tới chương đang nghe) và sau khi sheet đã hiện ⇒ 1.3.1053 chậm hơn, nhất là khi đang nghe gần đầu truyện. `TabView(.page)` dựng sẵn trang bên cạnh nên mở ⏱ cũng chịu.
-- **Sửa**: hàng tách thành struct `ChapterRow` (đầu vào: chương, đang phát, số chữ số cột thứ tự); tên chương tính trong `body` của hàng ⇒ chỉ ô đang hiện mới dịch. Closure của `ForEach` chỉ dựng struct + ba `listRow*`, bỏ `.id(chapter.index)` — `scrollTo` dùng id của `ForEach` (`\.index`). Mốc `TranslationDisplayRevision` đọc ở `body` của hàng (đọc ở danh sách thì hàng có đầu vào không đổi bỏ qua `body`, tên cũ nằm lại sau khi sửa VP / Name / rule). Giữ `List`, `TTSChapterListReader`, giao diện như 1.3.1053.
-- `CHANGELOG.md` dời 1.3.1027 sang `CHANGELOG.archive.md` (giữ 30 entry).
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log; truyện > 1024 chương, bật dịch; thử khi đang nghe chương gần đầu và gần cuối; mở từ Mục lục và từ ⏱ ⇒ danh sách hiện ngay, nằm giữa đúng chương đang nghe; cuộn lúc TTS đang đọc; sửa một mục VP lúc sheet mở ⇒ tên chương đổi.

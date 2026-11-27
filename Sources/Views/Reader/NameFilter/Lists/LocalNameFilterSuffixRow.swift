@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Một hàng của màn **Đuôi địa danh & tông môn** (`LocalNameFilterSuffixListView`), khuôn `QuickTranslationSurnameRow`:
+/// Một hàng của màn **Đuôi địa danh, tổ chức, thuật ngữ** (`LocalNameFilterSuffixListView`), khuôn
+/// `QuickTranslationSurnameRow`:
 /// dòng 1 chữ Hán `.headline`, dòng 2 "nghĩa · loại · trước tên|sau tên" `.subheadline` màu phụ kèm trạng thái ("tự thêm" /
 /// "đã sửa" / "đang tắt" — hàng tắt mờ 50%), cụm icon `[Tắt/Bật] [Xoá]`, không icon bút chì: chạm thân hàng mở sheet sửa.
 /// Không bọc cả hàng trong `Button` (List sẽ kích hoạt mọi nút); trợ năng có thao tác "Sửa".
@@ -10,12 +11,10 @@ struct LocalNameFilterSuffixRow: View {
     let onToggle: () -> Void
     let onDelete: () -> Void
 
-    /// Nhãn loại — dùng chung cho tab của màn danh sách và ô Loại của sheet sửa.
+    /// Nhãn loại — dùng chung cho tab của màn danh sách và ô Loại của sheet sửa = nhãn nhóm name của đuôi
+    /// (`sect` hiện là "Tổ chức").
     static func kindLabel(_ kind: LocalNameFilter.SuffixKind) -> String {
-        switch kind {
-        case .place: return "Địa danh"
-        case .sect: return "Tông môn"
-        }
+        kind.category.label
     }
 
     /// Nhãn vị trí ở dòng 2 (chữ thường, như mockup).
