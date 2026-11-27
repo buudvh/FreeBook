@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1062] - 2026-11-25
+
+### feat: rule dịch nhanh có token <ho> khớp họ người Trung Quốc, kèm màn Danh sách họ
+
+Anh Bửu: "thêm token phân loại họ trung quốc", rồi "Thêm quản lý danh sách họ trung quốc nữa" → duyệt plan + mockup https://claude.ai/artifact/1pajdjujzW1qQizNjXCgEY.
+
+- Token `<ho>` (`QuickTranslationRuleTokenSettings.Kind.surname`, nối **cuối** `allCases` ⇒ chữ ký cache dịch đổi một lần; khoá công tắc `quickTranslateRuleTokenSurnameEnabled`, mặc định bật, nhóm Từ điển) = `DictionaryKind.surname`: khớp một họ trong danh sách họ, `{i}` = âm Hán-Việt viết hoa lưu sẵn (`王` → Vương, `欧阳` → Âu Dương). Độ dài cố định 1–2 đơn vị UTF-16 (`DictionaryKind.fixedLengthRange`, parser ép như `<hv>`, không thanh độ dài); `QuickTranslationDictionaryToken.candidates` thử họ kép trước họ đơn, matcher lùi nếu phần sau mẫu không khớp. Có `?`, `|` (`<ne|ho>`); `<HO>` nhận như `<ho>` (âm đã viết hoa). `<w>` không đổi. Name riêng thắng như mọi token (capture không nuốt trọn Name ⇒ bỏ lượt khớp).
+- Danh sách gốc `Sources/Resources/Translation/ChineseSurnames.txt` (`chữ Hán=Âm`, `#` ghi chú; app chỉ đọc): Bách gia tính (bản giản thể phổ biến, đối chiếu Wikisource) + 肖 付 覃 冼 邝 / 独孤 太史 完颜 耶律 纳兰, phồn thể viết riêng từng dòng (钟 → 鍾; 于 余 范 沈 谷 后 giữ nguyên; thêm 鬱 麴 甯 雲). 683 khoá = 583 họ đơn + 100 họ kép. Âm theo bảng phiên âm, sửa riêng 曾 Tăng, 晏 Án, 扈 Hỗ, 干 Can, 肖 Tiêu, 佟 Đồng, 万俟 Mặc Kỳ, 尉迟 Uất Trì, 长孙 Trưởng Tôn, 单于 Thiền Vu, 段干 Đoạn Can; viết y: 祁 Kỳ, 纪 Kỷ, 冀 Ký, 暨 Kỵ, 百里 Bách Lý.
+- Lớp riêng của người dùng: `UserDefaults` `quickTranslateSurnameOverrides` = JSON `{"entries":{khoá: âm}, "removed":[…], "disabled":[…]}` (`QuickTranslationSurnameOverrides`; vắng = bản gốc; Backup tự gói). Trộn: gốc → áp `entries` → bỏ `removed` → đánh dấu `disabled`; engine chỉ thấy họ đang bật. `QuickTranslationSurnameStore` đọc file gốc một lần, cache bảng tra theo chuỗi JSON thô (như Bộ ngoặc), mọi lần ghi `TranslateUtils.clearCache()` + `notifyRulesDidUpdate()`. Một bộ đọc + một luật kiểm (`QuickTranslationSurnameListParser`: khoá 1–2 chữ Hán, UTF-16 ≤ 2; âm không rỗng, không `=` / xuống dòng) cho file gốc, sheet sửa và nhập file.
+- Màn **Danh sách họ** (`QuickTranslationSurnameListView`, hàng `QuickTranslationSurnameRow`, sheet `QuickTranslationSurnameEditorSheet`) mở từ hàng "Danh sách họ" (dòng phụ "683 họ · 1 đang tắt") dưới công tắc `<ho>` ở Cấu hình token rule: ô tìm luôn hiện, hàng kiểu VP/Name (chạm hàng mở sheet sửa, ⏸ / ▶, 🗑, không bút chì), `+` nổi, ngăn kéo "…" Nhập file (`.dataImportFilePicker`; Gộp đè âm + bỏ dấu đã xoá, Chỉ thêm key mới coi họ gốc đã xoá là đã có, Thay thế toàn bộ = đúng nội dung file; file không có dòng hợp lệ ⇒ báo lỗi, không đụng dữ liệu; toast "thêm X, cập nhật Y" + dòng lỗi bỏ qua) / Xuất file (họ đang bật, cùng dạng file gốc) / Khôi phục mặc định. Sửa chữ Hán = xoá khoá cũ + thêm khoá mới; họ gốc đã đổi âm có "Về âm gốc". Chỉ một danh sách chung (công tắc `<ho>` riêng truyện vẫn tự có).
+- Chip `<ho>` "họ Trung Quốc" ở bảng token + gợi ý bàn phím, câu "nuốt một họ: 1 hoặc 2 chữ" ở thanh chỉnh token, `QuickTranslationRuleGuide` thêm ý `<ho>` + mục "Danh sách họ" (`HelpSpot.surnameList`), `translation.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**), 683 dòng file gốc qua luật kiểm (mô phỏng Python); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1061] - 2026-11-25
 
 ### fix: VPN 1.1.1.1 tách hai nút Bật / Tắt chạy hai phím tắt, ghi lần app chạy phím tắt cuối

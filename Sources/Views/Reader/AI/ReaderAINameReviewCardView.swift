@@ -32,10 +32,15 @@ public struct ReaderAINameReviewCardView: View {
     public enum SortMode {
         case selectedFirst
         case alphabetical
-        /// "Nhiều lần nhất": số lần giảm dần, rồi chữ Hán tăng dần (đúng thứ tự bộ lọc name local trả). Chỉ có trong menu
-        /// khi card mở với kiểu này (luồng lọc local) — luồng AI giữ menu cũ.
+        /// "Nhiều lần nhất": số lần giảm dần, rồi chữ Hán tăng dần (đúng thứ tự bộ lọc name local trả).
         case mostFrequent
+        /// "Chưa chọn trước" (mặc định luồng lọc local, anh Bửu 2026-11-27): mục chưa chọn — chủ yếu name đã có NE / VP bị
+        /// bỏ chọn sẵn — lên đầu, mỗi nhóm số lần giảm dần, rồi chữ Hán tăng dần.
+        case unselectedFirst
     }
+
+    /// Hai kiểu theo số lần chỉ có trong menu khi card mở với một trong hai kiểu đó (luồng lọc local) — luồng AI giữ menu cũ.
+    private var offersFrequencySorts: Bool { initialSortMode == .unselectedFirst || initialSortMode == .mostFrequent }
 
     @State private var sortMode: SortMode
     /// Nhóm chip đang chọn (`nil` = Tất cả); chỉ dùng khi `showsCategoryFilter`.
@@ -85,6 +90,23 @@ public struct ReaderAINameReviewCardView: View {
         case .selectedFirst: return "Đã chọn"
         case .alphabetical: return "A-Z"
         case .mostFrequent: return "Nhiều lần"
+        case .unselectedFirst: return "Chưa chọn"
+        }
+    }
+
+    /// Một mục của menu sắp xếp: chọn ⇒ sắp lại ngay; kiểu đang dùng có dấu ✓. Danh sách chỉ sắp lại lúc mở card hoặc khi
+    /// chọn ở menu — tích / bỏ tích một ô không làm hàng nhảy chỗ.
+    private func sortMenuButton(_ mode: SortMode, title: String) -> some View {
+        Button {
+            sortMode = mode
+            applySorting()
+        } label: {
+            HStack {
+                Text(title)
+                if sortMode == mode {
+                    Image(systemName: "checkmark")
+                }
+            }
         }
     }
 
@@ -111,43 +133,12 @@ public struct ReaderAINameReviewCardView: View {
 
                 // Menu & Nút Sắp xếp
                 Menu {
-                    if initialSortMode == .mostFrequent {
-                        Button {
-                            sortMode = .mostFrequent
-                            applySorting()
-                        } label: {
-                            HStack {
-                                Text("Nhiều lần nhất")
-                                if sortMode == .mostFrequent {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
+                    if offersFrequencySorts {
+                        sortMenuButton(.unselectedFirst, title: "Chưa chọn trước")
+                        sortMenuButton(.mostFrequent, title: "Nhiều lần nhất")
                     }
-
-                    Button {
-                        sortMode = .selectedFirst
-                        applySorting()
-                    } label: {
-                        HStack {
-                            Text("Đã chọn trước")
-                            if sortMode == .selectedFirst {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-
-                    Button {
-                        sortMode = .alphabetical
-                        applySorting()
-                    } label: {
-                        HStack {
-                            Text("Từ A → Z (Hán Việt)")
-                            if sortMode == .alphabetical {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
+                    sortMenuButton(.selectedFirst, title: "Đã chọn trước")
+                    sortMenuButton(.alphabetical, title: "Từ A → Z (Hán Việt)")
 
                     Divider()
 
@@ -348,6 +339,16 @@ public struct ReaderAINameReviewCardView: View {
         switch sortMode {
         case .mostFrequent:
             names.sort { (a, b) -> Bool in
+                if a.occurrenceCount != b.occurrenceCount {
+                    return a.occurrenceCount > b.occurrenceCount
+                }
+                return a.original < b.original
+            }
+        case .unselectedFirst:
+            names.sort { (a, b) -> Bool in
+                if a.isSelected != b.isSelected {
+                    return !a.isSelected
+                }
                 if a.occurrenceCount != b.occurrenceCount {
                     return a.occurrenceCount > b.occurrenceCount
                 }

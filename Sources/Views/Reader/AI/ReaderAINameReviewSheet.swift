@@ -33,7 +33,7 @@ public struct ReaderAINameReviewSheet: View {
     /// Danh sách có sẵn (luồng "Lọc name local", `LocalNameFilterSheet`): bỏ bước tách dòng `từ=nghĩa` khỏi tin AI.
     /// `nil` = luồng AI.
     let prefilledNames: [AIExtractedName]?
-    /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Nhiều lần nhất".
+    /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Chưa chọn trước" (chưa chọn lên đầu, rồi số lần).
     let initialSortMode: ReaderAINameReviewCardView.SortMode
     /// Thùng rác › "Không phải name" — chỉ luồng lọc local truyền; luồng AI gạch hàng (`onStrikeName`).
     public let onBlockName: ((AIExtractedName) -> Void)?
@@ -72,7 +72,7 @@ public struct ReaderAINameReviewSheet: View {
     }
 
     /// Luồng "Lọc name local": nhận sẵn danh sách (đã gắn cờ NE / VP, name đã có bỏ chọn sẵn; `occurrenceCount` = số lần
-    /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Nhiều lần nhất", chip lọc theo loại + badge loại có màu
+    /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Chưa chọn trước", chip lọc theo loại + badge loại có màu
     /// (`ReaderAINameReviewCardView.showsCategoryFilter`), ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi
     /// danh sách đang duyệt (không có tin nguồn).
     public init(
@@ -88,7 +88,7 @@ public struct ReaderAINameReviewSheet: View {
         self.onStrikeName = { _, _ in }
         self.onEditName = { _ in }
         self.prefilledNames = names
-        self.initialSortMode = .mostFrequent
+        self.initialSortMode = .unselectedFirst
         self.onBlockName = onBlockName
         self.onNamesChange = onNamesChange
         self._names = State(initialValue: names)
