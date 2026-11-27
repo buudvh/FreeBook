@@ -1,8 +1,9 @@
 import Foundation
 
-/// Hằng số và bảng chữ của bộ lọc name local — chép nguyên từ bản thử Python `local_name_filter2.py`
-/// (`Docs/Plans/local-name-filter/`). Ba cờ của bản thử cố định ở giá trị anh Bửu duyệt: `STRICT_TAIL = True`,
-/// `GLUE_SUFFIX = True`, `TITLE_MODE = "combine"` — các nhánh còn lại của Python không được chép.
+/// Hằng số và bảng chữ của bộ lọc name local — chép nguyên từ bản thử Python `local_name_filter2.py` (bộ luật) và
+/// `lacpipe.py` (phía LAC), thư mục `Docs/Plans/local-name-filter-lac/`. Ba cờ của bộ luật cố định ở giá trị anh Bửu
+/// duyệt: `STRICT_TAIL = True`, `GLUE_SUFFIX = True`, `TITLE_MODE = "combine"`; cờ `V3` bật khi có model LAC
+/// (`LocalNameFilterSetup.rulesV3`), tắt ở đường lùi "chỉ bộ luật" (= bộ luật trước bản LAC).
 ///
 /// Các tập chữ dưới đây là tập của Python **đã sắp lại** (sinh bằng script từ file `.py`, đã so số phần tử). Đơn vị là
 /// UTF-16: cả ba dải Hán bộ lọc xét (`U+3400–4DBF`, `U+4E00–9FFF`, `U+F900–FAFF`) đều nằm trong BMP nên một đơn vị =
@@ -30,6 +31,24 @@ enum LocalNameFilterRules {
     static let personAfter = ["说道", "笑道", "问道", "喝道", "怒道", "冷笑", "冷哼", "沉声", "淡淡", "轻声", "点头", "摇头",
                               "皱眉", "开口", "说", "道", "问", "笑", "叹"]
 
+    // MARK: - Tập chữ của luật v3 (Python, cờ `V3`)
+
+    /// `GIVEN_BAD` — chữ thời gian / hướng / trợ từ không nằm trong phần tên người (东海时, 印生去, 石塔前).
+    static let givenBad = "到前去后尽所时"
+    /// `PLACE_INNER_BAD` — không nằm trong phần trước đuôi địa danh (宽阔如岛, 妾身所观).
+    static let placeInnerBad = "似前后如所时般"
+    /// `NUMERALS` — phần trước đuôi chỉ là một chữ số ⇒ không phải tên chỗ.
+    static let numerals = "一七万三两九二五八六几十千四数百"
+    /// `HEAD_LIGHT` — tên + chữ nhẹ (苏笙|笑, 法脉|中).
+    static let headLight = "上下中冷前去叫叹后听喝开怒想摇时来沉淡点皱看笑说轻道里问"
+
+    // MARK: - Tập chữ của phía LAC (`lacpipe.py`)
+
+    /// `FUNCTION_CHARS` của `lacpipe.py` = hư từ của bộ luật bỏ 道 一 (74 chữ).
+    static let lacFunctionChars = "不与个为么也了于些从他以们会但你便其再却又及只各向吗吧呀呢和哈哦啊嘛在地她它对将就已很得您我或才把敢於是有此每没的着给而能自被要让该说过还这连那都问"
+    /// `TRAIL_LIGHT` — chữ nhẹ dính sau thực thể LAC (穆小鱼|道), bóc tối đa 2 chữ.
+    static let trailLight = "上下中也便前却去又叹后就已时来正笑说道都里问"
+
     // MARK: - Ngưỡng (Python)
 
     static let dominance = 0.6
@@ -39,6 +58,18 @@ enum LocalNameFilterRules {
     static let containedRatio = 3.0
     /// Danh xưng 1 chữ: phải đứng sau ≥ 3 tên / họ khác nhau trong truyện.
     static let titleMinPredecessors = 3
+    /// v3 `WEAK_SURNAME`: họ dính vào từ thường ≥ 60 % số lần ⇒ cần bằng chứng là tên người.
+    static let weakSurname = 0.6
+    /// v3 `SPEECH_MIN_RATIO` + hai ngưỡng bằng chứng còn lại (danh xưng theo sau, đứng đầu vế câu).
+    static let speechMinRatio = 0.02
+    static let titleAfterRatio = 0.1
+    static let clauseStartRatio = 0.3
+    /// Phía LAC: tên + 1 chữ gộp về tên khi phần tên mạnh ≥ 5 lần (李印生|盘).
+    static let lacHeadStrength: Int32 = 5
+    /// Phía LAC: mảnh nằm trong cụm dài ≥ 60 % số lần ⇒ mảnh.
+    static let lacFragmentRatio = 0.6
+    /// Phía LAC (`glued_fragment`): thực thể bên trong mạnh ≥ 3 lần cụm.
+    static let lacGlueStrength = 3
     /// `Config.pronouns` chỉ nhận khoá ≤ 3 chữ.
     static let pronounMaxLength = 3
 
@@ -57,26 +88,33 @@ enum LocalNameFilterRules {
         static let boundLeft = "bound_left"
         static let dictCommonWord = "dict_common_word"
         static let userBlocked = "user_blocked"
+        // v3
+        static let personHeadPlusLight = "person_head_plus_light"
+        static let weakSurnameNoEvidence = "weak_surname_no_evidence"
+        // Phía LAC (`lacpipe.py`). `dict_common_word` / `dict_common_head` / `dict_common_given` trùng tên luật của bộ
+        // luật nhưng là luật riêng của phía LAC — log tách hai nhóm.
+        static let fragment = "fragment"
+        static let minCount = "min_count"
+        static let functionChar = "function_char"
+        static let gluedFragment = "glued_fragment"
+        /// Đầu ra: ngoài "Loại cần tìm".
+        static let categoryOff = "category_off"
     }
 
     // MARK: - Loại ứng viên
 
-    /// `KIND_ORDER` của Python: place 0, sect 1, family 2, person 3.
+    /// `KIND_ORDER` của Python: place 0, sect 1, family 2, person 3 — các loại **bộ luật** sinh ứng viên. `term` chỉ có ở
+    /// phía LAC (thực thể `nz` / `nw` hoặc đuôi loại `term`), không bao giờ là ứng viên của bộ luật.
     static let kindOrder: [LocalNameFilter.Kind] = [.place, .sect, .family, .person]
+    static let placeOrder = 0
+    static let sectOrder = 1
+    static let familyOrder = 2
+    static let personOrder = 3
 
     /// Một cặp `(kind, extra)` của Python thành một bit: `extra` là độ dài họ (person / family) hoặc độ dài đuôi
     /// (place / sect), luôn 1 hoặc 2 ⇒ 4 loại × 2 = 8 bit.
     static func kindBit(order: Int, extra: Int) -> UInt8 {
         UInt8(1) << UInt8(order * 2 + (extra - 1))
-    }
-
-    static func order(of kind: LocalNameFilter.Kind) -> Int {
-        switch kind {
-        case .place: return 0
-        case .sect: return 1
-        case .family: return 2
-        case .person: return 3
-        }
     }
 
     // MARK: - Bảng tra theo chữ
@@ -93,6 +131,12 @@ enum LocalNameFilterRules {
         static let namePartTail = CharClass(rawValue: 1 << 7)
         /// Chữ đơn của `PERSON_AFTER` (说 道 问 笑 叹).
         static let personAfterSingle = CharClass(rawValue: 1 << 8)
+        static let givenBad = CharClass(rawValue: 1 << 9)
+        static let placeInnerBad = CharClass(rawValue: 1 << 10)
+        static let numeral = CharClass(rawValue: 1 << 11)
+        static let headLight = CharClass(rawValue: 1 << 12)
+        static let lacFunction = CharClass(rawValue: 1 << 13)
+        static let trailLight = CharClass(rawValue: 1 << 14)
     }
 
     /// 65.536 ô, tra thẳng theo đơn vị UTF-16 — vòng quét không băm.
@@ -110,6 +154,12 @@ enum LocalNameFilterRules {
         mark(kinshipTails, .kinship)
         mark(namePartTails, .namePartTail)
         for word in personAfter where word.utf16.count == 1 { mark(word, .personAfterSingle) }
+        mark(givenBad, .givenBad)
+        mark(placeInnerBad, .placeInnerBad)
+        mark(numerals, .numeral)
+        mark(headLight, .headLight)
+        mark(lacFunctionChars, .lacFunction)
+        mark(trailLight, .trailLight)
         return table
     }()
 
@@ -129,10 +179,22 @@ enum LocalNameFilterRules {
         classTable[Int(unit)] & cls.rawValue != 0
     }
 
+    /// `has` theo code point (phía LAC): chữ ngoài BMP không thuộc tập nào.
+    @inline(__always)
+    static func has(scalar: UInt32, _ cls: CharClass) -> Bool {
+        scalar <= 0xFFFF && has(UInt16(scalar), cls)
+    }
+
     /// Dải chữ Hán của `HAN_RUN` trong Python: `[㐀-䶿一-鿿豈-﫿]`.
     @inline(__always)
     static func isHan(_ unit: UInt16) -> Bool {
         (0x4E00...0x9FFF).contains(unit) || (0x3400...0x4DBF).contains(unit) || (0xF900...0xFAFF).contains(unit)
+    }
+
+    /// Dải `HAN` của `lacpipe.py` (U+3400–9FFF, U+F900–FAFF): từ LAC phải có ít nhất một chữ trong dải này.
+    @inline(__always)
+    static func isLACHan(_ scalar: UInt32) -> Bool {
+        (0x3400...0x9FFF).contains(scalar) || (0xF900...0xFAFF).contains(scalar)
     }
 
     @inline(__always)
@@ -152,7 +214,7 @@ enum LocalNameFilterRules {
     /// `cap_words` của Python: tách theo khoảng trắng (gộp khoảng trắng liền), viết hoa chữ đầu mỗi từ, nối bằng một dấu cách.
     static func capitalizeWords(_ text: String) -> String {
         text.split(whereSeparator: { $0.isWhitespace })
-            .map { word in word.prefix(1).uppercased() + word.dropFirst() }
+            .map { word in word.prefix(1).uppercased() + String(word.dropFirst()) }
             .joined(separator: " ")
     }
 }

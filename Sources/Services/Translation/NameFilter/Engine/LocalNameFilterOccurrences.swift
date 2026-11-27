@@ -18,6 +18,8 @@ final class LocalNameFilterOccurrences {
     private(set) var glueSuffix: [Int32]
     private(set) var glueRight: [Int32]
     private(set) var speech: [Int32]
+    /// v3 `title_after`: số lần có danh xưng đứng ngay sau.
+    private(set) var titleAfter: [Int32]
     private(set) var left: [[UInt16: Int32]]
     private(set) var right: [[UInt16: Int32]]
     /// `right_p`: như `right`, nhưng danh xưng đứng sau (林戎兄) = ranh giới — chỉ dùng khi xét tên người.
@@ -39,6 +41,7 @@ final class LocalNameFilterOccurrences {
         glueSuffix = zeros
         glueRight = zeros
         speech = zeros
+        titleAfter = zeros
         let empty = [[UInt16: Int32]](repeating: [:], count: survivors.count)
         left = empty
         right = empty
@@ -150,6 +153,7 @@ final class LocalNameFilterOccurrences {
         let rightUnit: UInt16 = after >= runLength ? 0 : units[runStart + after]
         right[index][rightUnit, default: 0] += 1
         rightPerson[index][skip > 0 ? 0 : rightUnit, default: 0] += 1
+        if skip > 0 { titleAfter[index] += 1 }
         // `any(tail.startswith(p) for p in PERSON_AFTER)` với `tail` = 2 chữ sau tên (sau danh xưng nếu có).
         let tailOffset = after + skip
         if tailOffset < runLength {

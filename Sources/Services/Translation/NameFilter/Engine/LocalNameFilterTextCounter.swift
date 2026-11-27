@@ -6,10 +6,13 @@ import Foundation
 /// Quét cả 1,8 triệu chữ cho mỗi câu hỏi thì quá chậm, nên đi theo chỉ mục vị trí của chữ đầu
 /// (`LocalNameFilterAccumulator.positionsByUnit`, tăng dần) rồi so phần còn lại; giữ `nextAllowed` (cuối lần khớp trước)
 /// cho đúng nghĩa không chồng lấn. Kết quả nhớ trong **một** lần chụp (chữ đã đọc còn tăng giữa các lần chụp).
-/// Cụm chỉ gồm chữ Hán nên không bao giờ khớp qua dấu `\n` nối đoạn.
+/// Cụm chỉ gồm chữ Hán nên không bao giờ khớp qua dấu `\n` nối đoạn — và vì thế đếm trên chuỗi các đoạn Hán bằng đúng
+/// đếm trên cả dòng chữ (`joined` của `lacpipe.py`) cho mọi cụm toàn chữ Hán của dải bộ luật.
 final class LocalNameFilterTextCounter {
     private let accumulator: LocalNameFilterAccumulator
     private var memo: [LocalNameFilterTermKey: Int] = [:]
+    /// Cụm dài > 5 chữ của phía LAC (日月皇家魂导师学院).
+    private var longMemo: [[UInt16]: Int] = [:]
 
     init(accumulator: LocalNameFilterAccumulator) {
         self.accumulator = accumulator
@@ -17,7 +20,22 @@ final class LocalNameFilterTextCounter {
 
     func count(_ term: LocalNameFilterTermKey) -> Int {
         if let cached = memo[term] { return cached }
-        let units = term.units
+        let found = scan(term.units)
+        memo[term] = found
+        return found
+    }
+
+    /// Cụm toàn chữ Hán của dải bộ luật, dài bất kỳ (phía LAC).
+    func count(units: [UInt16]) -> Int {
+        guard !units.isEmpty else { return 0 }
+        if units.count <= LocalNameFilterTermKey.maxLength { return count(LocalNameFilterTermKey(units: units)) }
+        if let cached = longMemo[units] { return cached }
+        let found = scan(units)
+        longMemo[units] = found
+        return found
+    }
+
+    private func scan(_ units: [UInt16]) -> Int {
         let length = units.count
         var found = 0
         accumulator.text.withUnsafeBufferPointer { text in
@@ -40,7 +58,6 @@ final class LocalNameFilterTextCounter {
                 }
             }
         }
-        memo[term] = found
         return found
     }
 }

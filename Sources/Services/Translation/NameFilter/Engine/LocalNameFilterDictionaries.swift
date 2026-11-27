@@ -32,13 +32,16 @@ final class LocalNameFilterDictionaries {
 
     /// Họ đang bật, bỏ họ có chữ thuộc `FUNCTION_CHARS`: khoá → âm đầu (`""` khi file không có âm).
     let surnames: [LocalNameFilterTermKey: String]
-    /// Pronouns thô (khoá toàn chữ Hán, ≤ 3 chữ) → nghĩa đầu; `nil` = chưa nạp từ điển Đại từ.
+    /// Pronouns thô (khoá toàn chữ Hán, ≤ 5 chữ) → nghĩa đầu; `nil` = chưa nạp từ điển Đại từ. Bộ luật chỉ dùng khoá
+    /// ≤ 3 chữ (`LocalNameFilterSetup.pronouns`); phía LAC dùng mọi khoá ≥ 2 chữ (`rest in PRONOUNS` của `lacpipe.py`).
     let pronounEntries: [LocalNameFilterTermKey: String]?
 
     /// `Status.rawValue`, 0 = không có trong VP / Name; vắng khoá = chưa tra.
     private var statusMemo: [LocalNameFilterTermKey: UInt8] = [:]
+    /// Như `statusMemo` cho từ phía LAC không đổi được thành `LocalNameFilterTermKey` (dài > 5, có chữ ngoài dải Hán).
+    private var wordStatusMemo: [LocalNameFilterWord: UInt8] = [:]
     private var vietPhrasePairMemo: [UInt32: Bool] = [:]
-    private var phienAmMemo: [UInt16: String] = [:]
+    private var phienAmMemo: [UInt32: String] = [:]
 
     private init(
         bookVietPhrase: FrozenTrieDictionary?, customVietPhrase: FrozenTrieDictionary?, baseVietPhrase: FrozenTrieDictionary,
@@ -94,14 +97,13 @@ final class LocalNameFilterDictionaries {
         return result
     }
 
-    /// Khoá Pronouns dùng được (toàn chữ Hán, ≤ 3 chữ) → `(readings(v) or [k])[0]`. Phần lọc theo cấu hình (thân tộc,
-    /// đuôi đang bật, hư từ…) ở `LocalNameFilterSetup`. Khoá không phải chữ Hán không bao giờ khớp chữ trong truyện nên
-    /// bỏ ngay ở đây — không đổi kết quả.
+    /// Khoá Pronouns dùng được (toàn chữ Hán, ≤ 5 chữ) → `(readings(v) or [k])[0]`. Phần lọc theo cấu hình (thân tộc,
+    /// đuôi đang bật, hư từ, ≤ 3 chữ…) ở `LocalNameFilterSetup`. Khoá không phải chữ Hán không bao giờ khớp chữ trong
+    /// truyện nên bỏ ngay ở đây — không đổi kết quả.
     private static func pronounTable(_ entries: [(key: String, value: String)]) -> [LocalNameFilterTermKey: String] {
         var result: [LocalNameFilterTermKey: String] = [:]
         for entry in entries {
-            guard let term = LocalNameFilterTermKey(string: entry.key),
-                  term.count <= LocalNameFilterRules.pronounMaxLength, result[term] == nil else { continue }
+            guard let term = LocalNameFilterTermKey(string: entry.key), result[term] == nil else { continue }
             result[term] = LocalNameFilterRules.firstReading(entry.value) ?? entry.key
         }
         return result
@@ -112,18 +114,26 @@ final class LocalNameFilterDictionaries {
     /// `Dicts.status` (xem doc của type).
     func status(_ term: LocalNameFilterTermKey) -> Status? {
         if let cached = statusMemo[term] { return Status(rawValue: cached) }
-        let word = term.string
-        let result: Status?
-        if containsName(word) {
-            result = .known
-        } else if let raw = vietPhraseMeaning(word) {
-            let first = TranslateUtils.getFirstMeaning(of: raw)
-            result = first.first?.isUppercase == true ? .known : .common
-        } else {
-            result = nil
-        }
+        let result = lookupStatus(term.string)
         statusMemo[term] = result?.rawValue ?? 0
         return result
+    }
+
+    /// `status` cho từ phía LAC — cùng luật, từ đổi được thành cụm của bộ luật thì dùng chung bộ nhớ đệm. Từ rỗng ⇒ `nil`.
+    func status(word: LocalNameFilterWord) -> Status? {
+        if word.isEmpty { return nil }
+        if let term = word.termKey { return status(term) }
+        if let cached = wordStatusMemo[word] { return Status(rawValue: cached) }
+        let result = lookupStatus(word.string)
+        wordStatusMemo[word] = result?.rawValue ?? 0
+        return result
+    }
+
+    private func lookupStatus(_ word: String) -> Status? {
+        if containsName(word) { return .known }
+        guard let raw = vietPhraseMeaning(word) else { return nil }
+        let first = TranslateUtils.getFirstMeaning(of: raw)
+        return first.first?.isUppercase == true ? .known : .common
     }
 
     /// `run[a:b] in d.vp` cho cặp hai chữ (luật `glue_left` / `glue_right`).
@@ -137,10 +147,16 @@ final class LocalNameFilterDictionaries {
 
     /// `d.phienam.get(c, c)`: âm Hán-Việt đầu của một chữ, không có ⇒ chính chữ đó.
     func phienAm(_ unit: UInt16) -> String {
-        if let cached = phienAmMemo[unit] { return cached }
-        let char = String(decoding: [unit], as: UTF16.self)
+        phienAm(scalar: UInt32(unit))
+    }
+
+    /// `phienAm` theo code point (phía LAC: chữ khối mở rộng, dấu `·`…).
+    func phienAm(scalar value: UInt32) -> String {
+        if let cached = phienAmMemo[value] { return cached }
+        guard let scalar = Unicode.Scalar(value) else { return "" }
+        let char = String(Character(scalar))
         let reading = phienAmMap[char].flatMap(LocalNameFilterRules.firstReading) ?? char
-        phienAmMemo[unit] = reading
+        phienAmMemo[value] = reading
         return reading
     }
 

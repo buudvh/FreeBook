@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1055] - 2026-11-24
+
+### fix: dải "Đọc tiếp" bỏ tiền tố "Ch. N", chỉ ghi tên chương
+
+Anh Bửu: "Bỏ chữ Ch. stt đi, ghi nhớ rule không được hiển thị kiểu Ch. stt".
+
+- **Dòng phụ** của dải "Đọc tiếp" (`BookContinueReadingStrip`, 1.3.1054): truyện chữ / truyện tranh giờ **chỉ ghi tên chương** đã lưu (dịch như tên chương "Đang đọc"), bỏ "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N" như widget TTS (1.3.804). Phim / âm thanh giữ "Tập N · m:ss" / "Bài N · m:ss".
+- **Luật mới** ở đầu `.claude/rules/ui-conventions.md`: không hiển thị chương kiểu "Ch. stt" ("Ch. N", "Ch. N/tổng") ở UI mới. Chỗ cũ còn "Ch. N" (thẻ Kệ — `BookListRowSize.progressLabel`, sheet "+" của Chi tiết — "Ch. N/tổng") **chưa đổi**, chờ anh quyết.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1054] - 2026-11-24
 
 ### feat: Kệ Sách — nút "Đọc tiếp" ở đầu sheet tuỳ chọn truyện (nhãn theo loại, dòng phụ chương đang đọc)

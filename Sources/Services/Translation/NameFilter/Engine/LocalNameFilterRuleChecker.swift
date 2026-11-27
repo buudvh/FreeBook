@@ -1,7 +1,8 @@
 import Foundation
 
 /// `check(s, t, kind, extra, c)` của bản thử Python — xét **một** cách hiểu `(kind, extra)` của một ứng viên, đúng thứ tự
-/// luật; trả tên luật bỏ (đúng chuỗi Python, `LocalNameFilterRules.Reason`) hoặc `nil` = qua.
+/// luật; trả tên luật bỏ (đúng chuỗi Python, `LocalNameFilterRules.Reason`) hoặc `nil` = qua. Các luật `V3` chỉ chạy khi
+/// `setup.rulesV3` (có model LAC).
 ///
 /// `c` là số lần xuất hiện thật (`occ`, lượt 2). Mọi ngưỡng so bằng số thực như Python (`n >= 0.6 * c`…).
 struct LocalNameFilterRuleChecker {
@@ -12,6 +13,7 @@ struct LocalNameFilterRuleChecker {
     let dictionaries: LocalNameFilterDictionaries
     let occurrences: LocalNameFilterOccurrences
     let counter: LocalNameFilterTextCounter
+    let boundness: LocalNameFilterSurnameBoundness
 
     func check(_ index: Int, term: Term, kind: LocalNameFilter.Kind, extra: Int, count: Int) -> String? {
         let total = Double(count)
@@ -19,14 +21,21 @@ struct LocalNameFilterRuleChecker {
         let isPlaceLike = kind == .place || kind == .sect
         let surnameLength = isPersonLike ? extra : 0
         let units = term.units
+        let v3 = setup.rulesV3
 
-        // Hình dạng: tên có hư từ; địa danh mở đầu bằng chữ cấm hoặc có hư từ ở giữa (trước đuôi).
+        // Hình dạng: tên có hư từ (v3: cả chữ thời gian / hướng 时 前 去…); địa danh mở đầu bằng chữ cấm hoặc có hư từ ở
+        // giữa (trước đuôi); v3: phần trước đuôi có 如 所 时… hoặc chỉ là một chữ số.
         if isPersonLike {
-            if units[surnameLength...].contains(where: { LocalNameFilterRules.has($0, .function) }) {
+            if units[surnameLength...].contains(where: {
+                LocalNameFilterRules.has($0, .function) || (v3 && LocalNameFilterRules.has($0, .givenBad))
+            }) {
                 return Reason.shapeFunctionChar
             }
         } else if LocalNameFilterRules.has(units[0], .placeBadStart)
                     || units[1..<max(1, term.count - extra)].contains(where: { LocalNameFilterRules.has($0, .function) }) {
+            return Reason.shapePlaceStart
+        } else if v3, units[0..<(term.count - extra)].contains(where: { LocalNameFilterRules.has($0, .placeInnerBad) })
+                    || (term.count - extra == 1 && LocalNameFilterRules.has(units[0], .numeral)) {
             return Reason.shapePlaceStart
         }
 
@@ -74,9 +83,35 @@ struct LocalNameFilterRuleChecker {
                 }
             }
         }
+        if v3, kind == .person, !hasTitle,
+           let reason = checkV3Person(index, term: term, surnameLength: surnameLength, total: total) {
+            return reason
+        }
         let rightCounter = kind == .person ? occurrences.rightPerson[index] : occurrences.right[index]
         if dominant(rightCounter, total: total, light: .rightLight) { return Reason.boundRight }
         if dominant(occurrences.left[index], total: total, light: .function) { return Reason.boundLeft }
+        return nil
+    }
+
+    /// Hai luật v3 cho tên người không có danh xưng:
+    /// - `person_head_plus_light`: tên 2 chữ sau họ mà chữ cuối là chữ nhẹ (苏笙|笑, 法脉|中) và phần trước chữ cuối
+    ///   đứng riêng ≥ 3 × c lần ⇒ cụm chỉ là tên + chữ nhẹ;
+    /// - `weak_surname_no_evidence`: họ hay dính thành từ thường (经 金 古 水…) mà không có bằng chứng là người — đứng
+    ///   trước động từ nói (≥ 2 %), có danh xưng theo sau (≥ 10 %), hoặc đứng đầu vế câu (sau dấu câu ≥ 30 %).
+    private func checkV3Person(_ index: Int, term: Term, surnameLength: Int, total: Double) -> String? {
+        if term.count - surnameLength == 2, LocalNameFilterRules.has(term.last, .headLight),
+           let head = term.dropLast(1),
+           Double(counter.count(head)) >= LocalNameFilterRules.containedRatio * total {
+            return Reason.personHeadPlusLight
+        }
+        let speech = Double(occurrences.speech[index])
+        let evidence = (speech >= 1 && speech >= LocalNameFilterRules.speechMinRatio * total)
+            || Double(occurrences.titleAfter[index]) >= LocalNameFilterRules.titleAfterRatio * total
+            || Double(occurrences.left[index][0] ?? 0) >= LocalNameFilterRules.clauseStartRatio * total
+        if !evidence, let surname = term.slice(0, surnameLength),
+           boundness.ratio(surname) >= LocalNameFilterRules.weakSurname {
+            return Reason.weakSurnameNoEvidence
+        }
         return nil
     }
 

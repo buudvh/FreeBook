@@ -1,13 +1,16 @@
 import Foundation
 
-/// Một lượt **Lọc name local** (Reader › "…" › "Lọc name local"): đọc các chương đã tải theo khối trên luồng nền, chạy
-/// `LocalNameFilterEngine`, phát sự kiện qua `events` theo thứ tự `.progress` / `.update` … rồi `.finished` hoặc
-/// `.failed` (sự kiện cuối, stream đóng ngay sau).
+/// Một lượt **Lọc name local** (Reader › "…" › "Lọc name local"): chuẩn bị model LAC, đọc các chương đã tải theo khối trên
+/// luồng nền, gắn nhãn LAC song song theo chương, chạy `LocalNameFilterEngine`, phát sự kiện qua `events` theo thứ tự
+/// `.preparingModel` … / `.progress` / `.update` … rồi `.finished` hoặc `.failed` (sự kiện cuối, stream đóng ngay sau).
 ///
+/// - Model (`LACModel.prepare`, trước khi đọc chương — sau khi chụp từ điển để thiếu VP thì báo ngay, không tải 19 MB):
+///   tải / nạp ⇒ `.preparingModel(fraction:)` (thưa ≥ 1 %); tải lỗi / file hỏng ⇒ `.failed`; tự kiểm lệch ⇒ log ❌ rồi
+///   chạy **chỉ bộ luật** như trước bản LAC.
 /// - Cập nhật dần như `run_live` của bản thử Python: sau mỗi khối, nếu từ lúc lần chụp trước **kết thúc** đã qua
 ///   ≥ max(1 s, 2 × thời gian lần chụp đó) thì chụp ⇒ `.update`. Khối cuối chỉ chụp một lần ⇒ `.finished`. Lần chụp nào
 ///   cũng phân tích lại toàn bộ phần đã đọc nên kết quả cuối y như chạy một lần.
-/// - `stop()` ("Dừng"): thôi đọc chương mới, phân tích nốt phần đã đọc, phát `.finished`.
+/// - `stop()` ("Dừng"): thôi đọc chương mới (khối đang gắn nhãn chạy nốt), phân tích nốt phần đã đọc, phát `.finished`.
 /// - `cancel()` (đóng sheet): huỷ task, đóng stream ngay, không phát `.finished`. Người nghe thôi lặp `events` cũng huỷ.
 /// - Không chạy nền khi rời màn, không lưu tiến độ.
 public final class LocalNameFilterRun: @unchecked Sendable {
@@ -16,6 +19,9 @@ public final class LocalNameFilterRun: @unchecked Sendable {
     private let lock = NSLock()
     private var isStopRequested = false
     private var task: Task<Void, Never>?
+    /// Phần trăm tải model đã phát gần nhất (−1 = chưa) / đã phát "đang nạp" chưa — chỉ đọc ghi trong `lock`.
+    private var lastModelFraction = -1.0
+    private var didEmitModelLoading = false
 
     /// Số chương mỗi lần đọc (`BookBinManager` một `FileHandle` mỗi khối) — cũng là nhịp `.progress`.
     private static let chunkSize = 24
@@ -80,12 +86,22 @@ public final class LocalNameFilterRun: @unchecked Sendable {
     // MARK: - Chạy
 
     /// Số đo của một lượt cho dòng log cuối.
-    private struct Metrics {
+    struct Metrics {
         var processed = 0
         var unreadable = 0
         var readMs = 0
         var passOneMs = 0
         var updates = 0
+        var modelMs = 0
+        var lacMs = 0
+    }
+
+    private enum ModelOutcome {
+        case tagger(any LACTagging)
+        /// Model tự kiểm lệch ⇒ chỉ bộ luật.
+        case rulesOnly
+        /// Đã phát `.failed` hoặc bị huỷ.
+        case stop
     }
 
     private func execute(
@@ -107,8 +123,19 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         if dictionaries.pronounEntries == nil {
             AppLogger.shared.log("🔎 [LọcName] Chưa nạp từ điển Đại từ (Pronouns) — bỏ bước danh xưng")
         }
-        let engine = LocalNameFilterEngine(configuration: configuration, dictionaries: dictionaries)
         var metrics = Metrics()
+        let modelStart = Self.seconds()
+        let tagger: (any LACTagging)?
+        switch await prepareModel() {
+        case .tagger(let ready): tagger = ready
+        case .rulesOnly: tagger = nil
+        case .stop: return
+        }
+        metrics.modelMs = Self.milliseconds(Self.seconds() - modelStart)
+        if Task.isCancelled { return }
+
+        let engine = LocalNameFilterEngine(configuration: configuration, dictionaries: dictionaries, usesLAC: tagger != nil)
+        let suffixLastScalars = engine.lacSuffixLastScalars
         var stoppedEarly = false
         var lastReport: (report: LocalNameFilterEngine.Report, chapters: Int)?
         var lastEnd = Self.seconds()
@@ -131,10 +158,24 @@ public final class LocalNameFilterRun: @unchecked Sendable {
                 loggedReadFailure = true
                 AppLogger.shared.log("❌ 🔎 [LọcName] Không đọc được ch.\((chunk.first?.index ?? 0) + 1)–ch.\((chunk.last?.index ?? 0) + 1): \(failure)")
             }
+            metrics.readMs += Self.milliseconds(Self.seconds() - readStart)
+            var tagged: [LocalNameFilterLACChapterTagger.Chapter?] = []
+            if let tagger {
+                let lacStart = Self.seconds()
+                guard let result = await LocalNameFilterLACChapterTagger.tag(
+                    loaded.texts, tagger: tagger, suffixLastScalars: suffixLastScalars
+                ) else { return }
+                tagged = result
+                metrics.lacMs += Self.milliseconds(Self.seconds() - lacStart)
+            }
             let feedStart = Self.seconds()
-            metrics.readMs += Self.milliseconds(feedStart - readStart)
-            for text in loaded.texts {
-                if let text { engine.feed(text) } else { metrics.unreadable += 1 }
+            for (position, text) in loaded.texts.enumerated() {
+                guard let text else {
+                    metrics.unreadable += 1
+                    continue
+                }
+                engine.feed(text)
+                if position < tagged.count, let chapter = tagged[position] { engine.feedLAC(chapter) }
             }
             metrics.passOneMs += Self.milliseconds(Self.seconds() - feedStart)
             metrics.processed += chunk.count
@@ -159,11 +200,58 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         }
         // Không đọc thêm chương nào từ lần chụp trước ⇒ lần chụp đó chính là kết quả cuối.
         let reused = lastReport?.chapters == metrics.processed ? lastReport?.report : nil
-        guard let final = reused ?? engine.snapshot(chaptersRead: metrics.processed) else { return }
+        guard let finalReport = reused ?? engine.snapshot(chaptersRead: metrics.processed) else { return }
         if Task.isCancelled { return }
-        emit(.finished(final.snapshot))
-        log(final, metrics: metrics, total: chapters.count, hanCount: engine.hanCount, stoppedEarly: stoppedEarly,
-            hasPronouns: engine.hasPronouns)
+        emit(.finished(finalReport.snapshot))
+        LocalNameFilterRunLog.write(
+            finalReport, metrics: metrics, total: chapters.count, hanCount: engine.hanCount,
+            stoppedEarly: stoppedEarly, hasPronouns: engine.hasPronouns, usesLAC: engine.usesLAC,
+            taggedLines: engine.lacTaggedLines
+        )
+    }
+
+    /// `LACModel.prepare` + phân loại lỗi theo hợp đồng `LACModelError`.
+    private func prepareModel() async -> ModelOutcome {
+        do {
+            let tagger = try await LACModel.prepare { [weak self] fraction in
+                self?.emitModelProgress(fraction)
+            }
+            return .tagger(tagger)
+        } catch is CancellationError {
+            return .stop
+        } catch let error as LACModelError {
+            if Task.isCancelled { return .stop }
+            switch error {
+            case .selfCheckFailed(let why):
+                AppLogger.shared.log("❌ 🔎 [LọcName] Model LAC tự kiểm lệch — lọc bằng bộ luật cũ: \(why)")
+                return .rulesOnly
+            case .downloadFailed, .invalidFiles:
+                AppLogger.shared.log("❌ 🔎 [LọcName] \(error.localizedDescription)")
+                emit(.failed(error.localizedDescription))
+                return .stop
+            }
+        } catch {
+            if Task.isCancelled { return .stop }
+            AppLogger.shared.log("❌ 🔎 [LọcName] Không chuẩn bị được model LAC: \(error.localizedDescription)")
+            emit(.failed(error.localizedDescription))
+            return .stop
+        }
+    }
+
+    /// Phát `.preparingModel` thưa: phần trăm tải tăng ≥ 1 % (hoặc chạm 100 %), "đang nạp" (`nil`) một lần. Gọi được từ
+    /// luồng bất kỳ (hàng đợi của phiên tải) ⇒ yield thẳng vào continuation, không qua `emit`.
+    private func emitModelProgress(_ fraction: Double?) {
+        lock.lock()
+        let shouldEmit: Bool
+        if let fraction {
+            shouldEmit = fraction - lastModelFraction >= 0.01 || (fraction >= 1 && lastModelFraction < 1)
+            if shouldEmit { lastModelFraction = fraction }
+        } else {
+            shouldEmit = !didEmitModelLoading
+            didEmitModelLoading = true
+        }
+        lock.unlock()
+        if shouldEmit { continuation.yield(.preparingModel(fraction: fraction)) }
     }
 
     private func emit(_ event: LocalNameFilter.Event) {
@@ -171,42 +259,11 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         continuation.yield(event)
     }
 
-    private func log(
-        _ report: LocalNameFilterEngine.Report,
-        metrics: Metrics,
-        total: Int,
-        hanCount: Int,
-        stoppedEarly: Bool,
-        hasPronouns: Bool
-    ) {
-        let snapshot = report.snapshot
-        let dropped = snapshot.droppedByReason
-            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
-            .map { "\($0.key)=\($0.value)" }
-            .joined(separator: ", ")
-        let stopNote = stoppedEarly ? " (bấm Dừng)" : ""
-        let unreadableNote = metrics.unreadable > 0 ? " (\(metrics.unreadable) không đọc được)" : ""
-        let titleNote = hasPronouns ? String(report.titleCount) : "tắt (chưa nạp Pronouns)"
-        let parts: [String] = [
-            "🔎 [LọcName] Xong\(stopNote): \(metrics.processed)/\(total) chương\(unreadableNote), \(hanCount) chữ Hán",
-            "đọc \(metrics.readMs) ms",
-            "lượt 1 \(metrics.passOneMs) ms",
-            "lượt 2 \(report.passTwoMs) ms",
-            "luật \(report.rulesMs) ms",
-            "cập nhật \(metrics.updates) lần",
-            "giữ \(snapshot.names.count)",
-            "ẩn \(snapshot.hiddenKnownCount)",
-            "bỏ [\(dropped)]",
-            "danh xưng \(titleNote)"
-        ]
-        AppLogger.shared.log(parts.joined(separator: " · "))
-    }
-
-    private static func seconds() -> Double {
+    static func seconds() -> Double {
         Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
     }
 
-    private static func milliseconds(_ seconds: Double) -> Int {
+    static func milliseconds(_ seconds: Double) -> Int {
         Int((seconds * 1000).rounded())
     }
 }

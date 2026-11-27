@@ -54,15 +54,11 @@ final class LocalNameFilterAccumulator {
 
     init(setup: LocalNameFilterSetup) {
         self.setup = setup
-        let order = LocalNameFilterRules.order(of:)
-        personBits = [0, LocalNameFilterRules.kindBit(order: order(.person), extra: 1),
-                      LocalNameFilterRules.kindBit(order: order(.person), extra: 2)]
-        familyBits = [0, LocalNameFilterRules.kindBit(order: order(.family), extra: 1),
-                      LocalNameFilterRules.kindBit(order: order(.family), extra: 2)]
-        placeBits = [0, LocalNameFilterRules.kindBit(order: order(.place), extra: 1),
-                     LocalNameFilterRules.kindBit(order: order(.place), extra: 2)]
-        sectBits = [0, LocalNameFilterRules.kindBit(order: order(.sect), extra: 1),
-                    LocalNameFilterRules.kindBit(order: order(.sect), extra: 2)]
+        typealias Rules = LocalNameFilterRules
+        personBits = [0, Rules.kindBit(order: Rules.personOrder, extra: 1), Rules.kindBit(order: Rules.personOrder, extra: 2)]
+        familyBits = [0, Rules.kindBit(order: Rules.familyOrder, extra: 1), Rules.kindBit(order: Rules.familyOrder, extra: 2)]
+        placeBits = [0, Rules.kindBit(order: Rules.placeOrder, extra: 1), Rules.kindBit(order: Rules.placeOrder, extra: 2)]
+        sectBits = [0, Rules.kindBit(order: Rules.sectOrder, extra: 1), Rules.kindBit(order: Rules.sectOrder, extra: 2)]
     }
 
     /// `Stream.feed(chapter)`: tách các đoạn Hán liền của chương (theo đơn vị UTF-16, không theo `Character` — chữ Hán kèm

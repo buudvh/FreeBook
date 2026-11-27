@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1085] - 2026-11-27
+
+### feat: lọc name local dùng model LAC gắn nhãn theo chương, hợp với bộ luật, lọc theo loại và giữ name đã có
+
+### feat: lọc name local dùng model LAC gắn nhãn theo chương, hợp với bộ luật, lọc theo loại và giữ name đã có
+
+Đợt "Lọc name local bằng LAC" (plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục C + phần engine bước 0, anh Bửu duyệt 2026-11-27). Bản tham chiếu Python `Docs/Plans/local-name-filter-lac/` (`lacpipe.py` + `local_name_filter2.py` cờ `V3` / `KEEP_KNOWN`) sửa và chạy đủ 6 truyện trước; bản Python soi gương cấu trúc Swift khớp hoàn toàn bản tham chiếu trên 6 truyện (hàng, loại, số lần, nghĩa, cờ đã có, lý do bỏ, số hàng hợp).
+
+- **Chạy** (`LocalNameFilterRun`): chụp từ điển (thiếu VP thì báo ngay, không tải model) ⇒ `LACModel.prepare` phát `.preparingModel(fraction:)` thưa ≥ 1 %; tải lỗi / file hỏng ⇒ `.failed` (màn có "Thử lại"); model tự kiểm lệch ⇒ log ❌ rồi chạy **chỉ bộ luật** như trước bản LAC. Mỗi khối 24 chương: đọc ⇒ gắn nhãn LAC song song theo chương (`LocalNameFilterLACChapterTagger`, tối đa số nhân − 1, mỗi dòng gọi `tag` đúng một lần, bỏ dòng `第N章` / dòng không có chữ Hán) ⇒ cộng theo thứ tự chương. Cập nhật dần, Dừng, huỷ giữ như cũ.
+- **Phía LAC** (`LocalNameFilterLACPipeline`, bước 2–4 của `lacpipe.py`): bóc ≤ 2 chữ nhẹ cuối, gộp tên + 1 chữ khi phần tên mạnh ≥ 5 lần, mảnh ≥ 60 %; lọc Ít nhất N lần / từ thường / hư từ / đầu là từ thường / họ + từ thường / chữ dính; phân loại theo đuôi dài nhất (địa danh / tổ chức / thuật ngữ) rồi nhãn LAC (hoà: người > nơi > tổ chức > thuật ngữ), LAC bảo người + đuôi yếu (山 河…) ⇒ vẫn là người. Luật (e): từ VP nghĩa thường nhưng có đuôi không yếu, ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác ⇒ giữ (菩提丹, 青山县, 华山派 — 6 truyện cứu 5 mục, không rác).
+- **Bước hợp** (`LocalNameFilterOutputBuilder`): thêm hàng bộ luật (cờ v3: chữ thời gian / hướng trong tên, chữ cấm trong phần trước đuôi, tên + chữ nhẹ, họ hay dính từ thường mà không có bằng chứng — `LocalNameFilterSurnameBoundness`, `titleAfter`) chưa có, không phải mảnh, không phải name đã có: địa danh / tổ chức / họ tộc; tên người chỉ khi LAC từng gắn PER.
+- **Name đã có không còn ẩn** (cả hai chế độ): giữ trong danh sách, đếm `Snapshot.knownCount`; bộ luật giữ cả khi mọi cách hiểu bị luật bỏ. "Không phải name" + "Loại cần tìm" (`Configuration.categories`) lọc ở đầu ra, cả bản hiện dần.
+- **Nghĩa**: người / danh xưng như cũ (họ dò theo Danh sách họ); có đuôi ⇒ phần riêng viết hoa + nghĩa đuôi trước / sau (五气丹 → "Ngũ Khí đan"); thuật ngữ không đuôi ⇒ âm từng chữ viết hoa.
+- Từ phía LAC khoá theo code point (`LocalNameFilterWord`): dài tuỳ ý, có dấu `·` hay chữ khối mở rộng (日月皇家魂导师学院, 奥斯汀·格里芬, 玄𫄸).
+- Đuôi loại `term` không vào bộ luật (không sinh ứng viên), chỉ phân loại + dựng nghĩa phía LAC.
+- Log `🔎 [LọcName] Xong`: thêm chế độ, thời gian model / gắn nhãn / lọc LAC, `đã có` (thay `ẩn`), số theo loại, số hàng hợp + (e); `bỏ […]` là lý do phía LAC (trùng tên `lacpipe.py`), `luật bỏ […]` là bộ luật.
+- Số Python (mặc định app, 6 truyện): Sư muội 268 name (97 đã có + 171 mới), Võ Thánh 237, Chư thiên 100, Tổng võ 63, Từ cung 22, Đấu La 658 (382 + 276) — phần tăng đúng bằng số name đã có từng bị ẩn.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch (Windows); `LACModel.prepare` còn là bản giữ chỗ tới khi gộp phần model; màn hình (`Views/`) còn dùng `hiddenKnownCount` tới khi gộp phần giao diện.
+
 ## [1.3.1084] - 2026-11-27
 
 ### fix: kho model LAC kiểm đường dẫn trước mọi lệnh ghi, chuyển, xoá file
@@ -358,13 +377,3 @@ Anh Bửu: "context menu của video, audio thì hiển thị chữ video, audio
 - `BookActionSheet`: tiêu đề phần đầu "Truyện" ⇒ "Video" / "Audio"; chú thích Bộ sưu tập "… không xoá video khỏi kệ sách"; lời nhắc của hộp Bộ sưu tập mới; nhãn trợ năng của ô "Bỏ khỏi bộ sưu tập này". Toast `BookActionRunner.removeFromCollection` "(video vẫn ở trên kệ)".
 - Ghi luật vào `ui-conventions.md`. Chỗ khác còn "truyện" chung (thanh chọn nhiều, Kệ, Lịch sử) chưa rà.
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**; `BookActionSheet.swift` 396/400 dòng); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1055] - 2026-11-24
-
-### fix: dải "Đọc tiếp" bỏ tiền tố "Ch. N", chỉ ghi tên chương
-
-Anh Bửu: "Bỏ chữ Ch. stt đi, ghi nhớ rule không được hiển thị kiểu Ch. stt".
-
-- **Dòng phụ** của dải "Đọc tiếp" (`BookContinueReadingStrip`, 1.3.1054): truyện chữ / truyện tranh giờ **chỉ ghi tên chương** đã lưu (dịch như tên chương "Đang đọc"), bỏ "Ch. N · " phía trước; tên rỗng mới lùi về "Chương N" như widget TTS (1.3.804). Phim / âm thanh giữ "Tập N · m:ss" / "Bài N · m:ss".
-- **Luật mới** ở đầu `.claude/rules/ui-conventions.md`: không hiển thị chương kiểu "Ch. stt" ("Ch. N", "Ch. N/tổng") ở UI mới. Chỗ cũ còn "Ch. N" (thẻ Kệ — `BookListRowSize.progressLabel`, sheet "+" của Chi tiết — "Ch. N/tổng") **chưa đổi**, chờ anh quyết.
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.

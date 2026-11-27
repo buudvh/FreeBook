@@ -1,8 +1,12 @@
 import Foundation
 
 /// Bảng tra dựng **một** lần mỗi lượt lọc từ `LocalNameFilter.Configuration` + bản chụp từ điển — phần `Config` của bản
-/// thử Python (`local_name_filter2.py`), với đuôi lấy từ `Configuration.suffixes` thay cho `DEFAULT_PLACE` /
-/// `DEFAULT_SECT` + extra. Bất biến sau khi dựng.
+/// thử Python (`local_name_filter2.py` + `lacpipe.py`). Bất biến sau khi dựng.
+///
+/// Đuôi chia hai đường như Python:
+/// - **bộ luật** chỉ thấy đuôi `place` / `sect` đang bật (sinh ứng viên, `suffix_chars`, lọc danh xưng) — đuôi `term`
+///   không bao giờ sinh ứng viên;
+/// - **phía LAC** thấy mọi đuôi đang bật (`SUFFIXES` của `lacpipe.py`): phân loại thực thể, luật "tên + 1 chữ", nghĩa.
 struct LocalNameFilterSetup {
     /// Cờ theo chữ, tra thẳng theo đơn vị UTF-16 ở vòng quét lượt 1.
     struct UnitFlags: OptionSet {
@@ -13,7 +17,7 @@ struct LocalNameFilterSetup {
         static let placeSuffix = UnitFlags(rawValue: 1 << 2)
         static let sectSuffix = UnitFlags(rawValue: 1 << 3)
         static let suffixPairStart = UnitFlags(rawValue: 1 << 4)
-        /// `cfg.suffix_chars`: đuôi 1 chữ (mọi loại).
+        /// `cfg.suffix_chars` của bộ luật: đuôi 1 chữ loại place / sect.
         static let suffixChar = UnitFlags(rawValue: 1 << 5)
         /// Chữ cuối của một danh xưng (`pronouns`) — chặn sớm `pronoun_tail`.
         static let pronounLast = UnitFlags(rawValue: 1 << 6)
@@ -25,25 +29,35 @@ struct LocalNameFilterSetup {
 
     /// "Ít nhất N lần".
     let minCount: Int
-    /// "Không phải name" (khớp nguyên cụm). Cụm không phải 1–5 chữ Hán không bao giờ là name ⇒ bỏ khi dựng.
-    let blockedTerms: Set<LocalNameFilterTermKey>
+    /// "Không phải name" (khớp nguyên cụm, so theo code point) — lọc ở đầu ra cho cả hàng bộ luật lẫn hàng LAC.
+    let blockedWords: Set<LocalNameFilterWord>
+    /// "Loại cần tìm" — lọc ở đầu ra.
+    let categories: Set<LocalNameFilter.Category>
+    /// Cờ `V3` của bộ luật: bật khi chạy cùng model LAC (bước hợp), tắt ở đường lùi "chỉ bộ luật".
+    let rulesV3: Bool
     /// Họ kép (cặp hai chữ).
     let surnamePairs: Set<UInt32>
     /// Đuôi 2 chữ: cặp → `placeKindBit | sectKindBit`.
     let pairSuffixKinds: [UInt32: UInt8]
     /// `cfg.pronouns`: danh xưng dùng được → nghĩa đầu trong từ điển Đại từ (giữ nguyên chữ). Rỗng khi chưa nạp Pronouns.
     let pronouns: [LocalNameFilterTermKey: String]
-    /// Đuôi đang bật theo loại (nghĩa + vị trí).
+    /// Phía LAC: mọi đuôi đang bật (place / sect / term) theo khoá code point.
+    let lacSuffixes: [LocalNameFilterWord: LocalNameFilter.Suffix]
+    /// Phía LAC: chữ của đuôi 1 chữ, mọi loại (`SUFFIX_CHARS` của `lacpipe.py`).
+    let lacSuffixChars: Set<UInt32>
+    /// Đuôi đang bật theo loại (nghĩa + vị trí) cho bộ luật.
     private let placeSuffixes: [LocalNameFilterTermKey: LocalNameFilter.Suffix]
     private let sectSuffixes: [LocalNameFilterTermKey: LocalNameFilter.Suffix]
     private let unitFlags: [UInt8]
 
-    init(configuration: LocalNameFilter.Configuration, dictionaries: LocalNameFilterDictionaries) {
+    init(configuration: LocalNameFilter.Configuration, dictionaries: LocalNameFilterDictionaries, rulesV3: Bool) {
         var flags = [UInt8](repeating: 0, count: 65_536)
         func mark(_ unit: UInt16, _ flag: UnitFlags) { flags[Int(unit)] |= flag.rawValue }
 
         minCount = configuration.minCount
-        blockedTerms = Set(configuration.blockedTerms.compactMap { LocalNameFilterTermKey(string: $0) })
+        blockedWords = Set(configuration.blockedTerms.map { LocalNameFilterWord($0) })
+        categories = configuration.categories
+        self.rulesV3 = rulesV3
 
         var pairs = Set<UInt32>()
         for term in dictionaries.surnames.keys {
@@ -56,11 +70,23 @@ struct LocalNameFilterSetup {
         }
         surnamePairs = pairs
 
-        // Đuôi: khoá phải là 1–2 chữ Hán (Phần B đã kiểm; khoá khác bỏ qua cho chắc).
+        // Phía LAC: mọi đuôi đang bật, khoá 1–2 code point (Phần danh sách đã kiểm; khoá khác bỏ qua cho chắc).
+        var lacSuffixes: [LocalNameFilterWord: LocalNameFilter.Suffix] = [:]
+        var lacSuffixChars = Set<UInt32>()
+        for suffix in configuration.suffixes {
+            let word = LocalNameFilterWord(suffix.key)
+            guard (1...2).contains(word.count), lacSuffixes[word] == nil else { continue }
+            lacSuffixes[word] = suffix
+            if word.count == 1 { lacSuffixChars.insert(word[0]) }
+        }
+        self.lacSuffixes = lacSuffixes
+        self.lacSuffixChars = lacSuffixChars
+
+        // Bộ luật: chỉ place / sect, khoá phải là 1–2 chữ Hán của dải bộ luật.
         var places: [LocalNameFilterTermKey: LocalNameFilter.Suffix] = [:]
         var sects: [LocalNameFilterTermKey: LocalNameFilter.Suffix] = [:]
         var pairKinds: [UInt32: UInt8] = [:]
-        for suffix in configuration.suffixes {
+        for suffix in configuration.suffixes where suffix.kind != .term {
             guard let term = LocalNameFilterTermKey(string: suffix.key), term.count <= 2 else { continue }
             let isPlace = suffix.kind == .place
             if isPlace {
@@ -80,8 +106,8 @@ struct LocalNameFilterSetup {
         sectSuffixes = sects
         pairSuffixKinds = pairKinds
 
-        // `Config.pronouns`: bỏ khoá 1 chữ ngoài nhóm thân tộc; khoá ≤ 3 chữ, không trùng đuôi đang bật hay 家 / 氏 / 族,
-        // không chứa hư từ, không phải 儿.
+        // `Config.pronouns`: bỏ khoá 1 chữ ngoài nhóm thân tộc; khoá ≤ 3 chữ, không trùng đuôi place / sect đang bật hay
+        // 家 / 氏 / 族, không chứa hư từ, không phải 儿.
         var suffixAll = Set(places.keys).union(sects.keys)
         for unit in LocalNameFilterRules.familySuffixes.utf16 { suffixAll.insert(LocalNameFilterTermKey(unit: unit)) }
         var pronouns: [LocalNameFilterTermKey: String] = [:]
@@ -112,11 +138,29 @@ struct LocalNameFilterSetup {
         return nil
     }
 
-    /// Nghĩa + vị trí của đuôi `suffix` cho một name loại `kind` (place / sect). Python tra theo khoá đuôi; ở đây ưu tiên
-    /// đuôi cùng loại, rồi tới loại kia nếu người dùng khai cùng khoá ở cả hai loại.
+    /// `pronoun_tail` cho từ phía LAC (dài tuỳ ý): xét 3, 2, 1 chữ cuối của phần sau họ.
+    func pronounTail(of word: LocalNameFilterWord, surnameLength: Int) -> LocalNameFilterTermKey? {
+        let givenLength = word.count - surnameLength
+        guard givenLength > 0, word.last <= 0xFFFF, has(UInt16(word.last), .pronounLast) else { return nil }
+        for length in stride(from: min(3, givenLength), through: 1, by: -1) {
+            if let tail = word.suffix(length).termKey, pronouns[tail] != nil { return tail }
+        }
+        return nil
+    }
+
+    /// Nghĩa + vị trí của đuôi `suffix` cho một name bộ luật loại `kind` (place / sect). Python tra theo khoá đuôi; ở
+    /// đây ưu tiên đuôi cùng loại, rồi tới loại kia nếu người dùng khai cùng khoá ở cả hai loại.
     func suffixMeaning(_ suffix: LocalNameFilterTermKey, kind: LocalNameFilter.Kind) -> LocalNameFilter.Suffix? {
         kind == .sect
             ? (sectSuffixes[suffix] ?? placeSuffixes[suffix])
             : (placeSuffixes[suffix] ?? sectSuffixes[suffix])
+    }
+
+    /// `suffix_of(w)` của `lacpipe.py`: đuôi đang bật dài nhất (2 rồi 1 chữ) mà từ dài hơn đuôi. Không có ⇒ `nil`.
+    func lacSuffix(of word: LocalNameFilterWord) -> (length: Int, suffix: LocalNameFilter.Suffix)? {
+        for length in stride(from: 2, through: 1, by: -1) where word.count > length {
+            if let suffix = lacSuffixes[word.suffix(length)] { return (length, suffix) }
+        }
+        return nil
     }
 }
