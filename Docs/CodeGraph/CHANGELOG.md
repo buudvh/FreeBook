@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1083] - 2026-11-27
+
+### feat: bộ nhận diện tên LAC chạy trên máy, tự tải model lần đầu và tự kiểm với mẫu đối chiếu
+
+Phần "model LAC bằng Swift" của đợt Lọc name local bằng LAC (anh Bửu duyệt 2026-11-27, plan Docs/Plans/2026-11-27-loc-name-lac.md): thay thân LACModel.prepare (chữ ký giữ nguyên).
+
+- Tải model: lần đầu dùng tải ~19 MB từ kho Hugging Face datasets/raikiri1498/vietpharse, thư mục lac/, ghim commit 73bb76d4 (LACModelMirror, ghim cả sha256 của lac_manifest.json) vào Application Support/translate/LAC/ (LACModelStore). Thứ tự: manifest ⇒ từng file vào file tạm của hệ thống ⇒ đúng kích thước + sha256 ⇒ chuyển vào ⇒ ghi manifest cuối cùng. Tiến độ 0…1 theo tổng byte; resume theo từng file; huỷ ⇒ CancellationError, file tạm luôn bị xoá; không đặt file .partial dưới translate/ vì Dọn rác coi *.partial là rác.
+- Bộ gán nhãn LACTagger viết lại LAC 2.1.2 theo README của kho: tách từ sơ bộ trên small_seg.dic (LACSegmenter, mọi vị trí theo Unicode scalar, điểm Double từ manifest cộng đúng thứ tự ⇒ hoà giống hệt LAC), ra id word.dic + q2b.dic (LACVocabulary), hai lớp BiGRU + FC bằng Accelerate (LACNetwork: vDSP_mmul chiếu cả câu một lần, mỗi bước một vDSP_mmul 1×H, vvexpf / vvtanhf, không cấp phát trong vòng lặp bước; embedding fp16 đọc thẳng từ file ánh xạ bộ nhớ), Viterbi (LACViterbi), gộp nhãn B/I như parse_result. Từ điển tra bằng cây tiền tố theo scalar (LACScalarTrie), không dùng String làm khoá (Swift so tương đương chính tắc, LAC so code point). Bất biến ⇒ gọi song song nhiều chương được; dòng dài hơn 2.000 chữ cắt sau dấu hết câu rồi gán nhãn từng đoạn.
+- Mỗi lần nạp: kiểm sha256 mọi file (hỏng ⇒ xoá thư mục + invalidFiles, lần sau tải lại), rồi tự kiểm 203 câu lac_golden.json (LACSelfCheck): tách từ + id phải trùng 100%, nhãn cuối lệch tối đa 3 câu, lệch hơn ⇒ selfCheckFailed (giữ file) và log ❌ mẫu đầu tiên kèm chuỗi LAC / app.
+- LACModelGate: nhiều lượt gọi cùng lúc chỉ một lượt tải + nạp, tiến độ phát cho mọi người chờ; người chờ bị huỷ chỉ nhận CancellationError cho riêng mình, lượt gốc dừng khi người chờ cuối rời đi; giữ bộ gán nhãn yếu, còn sống thì lượt sau trả ngay không báo gì.
+- Log 🧠 [LAC]: thời gian tải, nạp, tự kiểm, số câu lệch; lỗi thật kèm ❌.
+- Đối chiếu trên PC bằng bản Python chép dòng-dòng phần Swift (không commit): golden 203 / 203 trùng cả bốn bước; 19.749 dòng truyện trùng tách từ + id 100%; 2.000 dòng chạy đủ mạng lệch nhãn 2 dòng (embedding fp16, như lúc xuất).
+- Giấy phép Apache-2.0 của LAC ở Docs/ThirdParty/LAC-LICENSE.txt; công cụ xuất model Tools/lac-export/ (export_lac.py, lac_shim.py, bản giấy phép).
+- check_architecture.py chỉ còn violation cũ JSDom.swift. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1082] - 2026-11-27
 
 ### refactor: hợp đồng lọc name local có loại Thuật ngữ, bốn nhóm name và cửa vào model LAC
@@ -358,20 +373,3 @@ Anh Bửu: thêm nút "Đọc tiếp" vào đầu menu của mỗi truyện ở 
 - Trường hợp biên giống chạm thẻ: truyện đang tải, truyện mất nguồn (dải "Chuyển sang nguồn …" vẫn ở phần Thao tác), TTS đang đọc truyện khác. TTS đang đọc chính truyện này: dòng phụ có thể chậm một nhịp (tiến độ ghi trễ), mở như chạm thẻ; chưa xác minh Reader có tự theo chương TTS khi lệch.
 - `CHANGELOG.md` dời 1.3.1024 sang `CHANGELOG.archive.md` (giữ 30 entry).
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1053] - 2026-11-24
-
-### fix: mục lục sheet nghe mini — hết đơ khi truyện nhiều chương (List thay LazyVStack, thôi observe TTSManager)
-
-Anh Bửu: mở mục lục từ sheet nghe mini bị hơi đơ khi truyện có nhiều chương.
-
-- **Nguyên nhân 1 (lúc mở)**: `TTSQuickTimerChapterList` dựng bằng `ScrollView` + `LazyVStack`, 0,1 s sau khi hiện thì `scrollTo` chương đang nghe (giữa màn) ⇒ `LazyVStack` dựng + đo **mọi** hàng phía trước trên main (cùng bài học "neo sâu" của Reader), mỗi hàng còn dịch tên chương (`displayTitle(for:)`) — đang nghe chương 2000 là 2000 hàng một lượt, đúng lúc sheet trượt lên. Mục lục Reader không bị vì dùng `List` (ô tái dùng, nhảy bằng chiều cao ước lượng). Sheet mini **không** dùng chung view với mục lục Reader / Chi tiết / truyện tranh.
-- **Nguyên nhân 2 (lúc cuộn)**: sheet Hẹn giờ (`TTSQuickTimerSheet`) và danh sách `@ObservedObject` thẳng `TTSManager` (trái luật View không observe `TTSManager`) ⇒ mỗi câu (chỉ số đoạn, highlight, snapshot), mỗi lần đệm tiếng đổi, mỗi giây hẹn giờ… dựng lại cả sheet và `ForEach` vài nghìn chương.
-- **Sửa**:
-  - Danh sách → `List(.plain)` như mục lục Reader: nền trong suốt, hàng không vạch, lề hàng 4 / 16 + `contentMargins` dọc 4 ⇒ thẻ, khoảng cách 8, cột số, ô tìm, nút tìm nổi giữ nguyên; vẫn cuộn tới chương đang nghe lúc mở.
-  - `TTSChapterListReader` (mới, `Views/TTSWidget/`): chỉ phát `chapters` (`$chaptersQueue`) + `playingChapterIndex`; sheet giữ bằng `@StateObject`, danh sách nhận qua tham số ⇒ nhịp đọc không chạm danh sách. Tên chương vẫn `TTSManager.displayTitle(for:)` (cặp với ô tìm `matchingChapters`); danh sách đọc `TranslationDisplayRevision` để vẽ lại khi từ điển / rule / cấu hình dịch đổi (trước đây nhịp TTS vẽ lại hộ).
-  - Sheet Hẹn giờ thôi `@ObservedObject`: hẹn giờ + bìa qua `TTSWidgetStateReader`, tên truyện / chương qua `TTSWidgetBarInfoReader`, số chương qua `TTSChapterListReader`; tác giả / tên nguồn / tiện ích đọc `TTSManager.shared` lúc dựng (chỉ đổi theo truyện); nút ⚙ vẫn qua `TTSSettingsSheetHost`.
-  - Log: mở / đóng danh sách gọi `MainThreadHangMonitor.noteScreen("mục lục TTS mini")` + dòng `📑 [TTSTOC] Mở mục lục sheet nghe (N chương, đang nghe chương k)` ⇒ dòng `🐢 [MainHang]` lúc mở ghi kèm bối cảnh này.
-- `TabView(.page)` của sheet có thể dựng sẵn trang mục lục bên cạnh ⇒ mở ⏱ Hẹn giờ trước đây cũng có thể khựng — cùng được sửa.
-- `CHANGELOG.md` dời 1.3.1023 sang `CHANGELOG.archive.md` (giữ 30 entry).
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log, truyện vài nghìn chương đang nghe chương xa đầu ⇒ chạm đĩa nghe ⇒ Mục lục ⇒ cuộn.

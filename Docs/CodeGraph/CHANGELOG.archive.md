@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1053] - 2026-11-24
+
+### fix: mục lục sheet nghe mini — hết đơ khi truyện nhiều chương (List thay LazyVStack, thôi observe TTSManager)
+
+Anh Bửu: mở mục lục từ sheet nghe mini bị hơi đơ khi truyện có nhiều chương.
+
+- **Nguyên nhân 1 (lúc mở)**: `TTSQuickTimerChapterList` dựng bằng `ScrollView` + `LazyVStack`, 0,1 s sau khi hiện thì `scrollTo` chương đang nghe (giữa màn) ⇒ `LazyVStack` dựng + đo **mọi** hàng phía trước trên main (cùng bài học "neo sâu" của Reader), mỗi hàng còn dịch tên chương (`displayTitle(for:)`) — đang nghe chương 2000 là 2000 hàng một lượt, đúng lúc sheet trượt lên. Mục lục Reader không bị vì dùng `List` (ô tái dùng, nhảy bằng chiều cao ước lượng). Sheet mini **không** dùng chung view với mục lục Reader / Chi tiết / truyện tranh.
+- **Nguyên nhân 2 (lúc cuộn)**: sheet Hẹn giờ (`TTSQuickTimerSheet`) và danh sách `@ObservedObject` thẳng `TTSManager` (trái luật View không observe `TTSManager`) ⇒ mỗi câu (chỉ số đoạn, highlight, snapshot), mỗi lần đệm tiếng đổi, mỗi giây hẹn giờ… dựng lại cả sheet và `ForEach` vài nghìn chương.
+- **Sửa**:
+  - Danh sách → `List(.plain)` như mục lục Reader: nền trong suốt, hàng không vạch, lề hàng 4 / 16 + `contentMargins` dọc 4 ⇒ thẻ, khoảng cách 8, cột số, ô tìm, nút tìm nổi giữ nguyên; vẫn cuộn tới chương đang nghe lúc mở.
+  - `TTSChapterListReader` (mới, `Views/TTSWidget/`): chỉ phát `chapters` (`$chaptersQueue`) + `playingChapterIndex`; sheet giữ bằng `@StateObject`, danh sách nhận qua tham số ⇒ nhịp đọc không chạm danh sách. Tên chương vẫn `TTSManager.displayTitle(for:)` (cặp với ô tìm `matchingChapters`); danh sách đọc `TranslationDisplayRevision` để vẽ lại khi từ điển / rule / cấu hình dịch đổi (trước đây nhịp TTS vẽ lại hộ).
+  - Sheet Hẹn giờ thôi `@ObservedObject`: hẹn giờ + bìa qua `TTSWidgetStateReader`, tên truyện / chương qua `TTSWidgetBarInfoReader`, số chương qua `TTSChapterListReader`; tác giả / tên nguồn / tiện ích đọc `TTSManager.shared` lúc dựng (chỉ đổi theo truyện); nút ⚙ vẫn qua `TTSSettingsSheetHost`.
+  - Log: mở / đóng danh sách gọi `MainThreadHangMonitor.noteScreen("mục lục TTS mini")` + dòng `📑 [TTSTOC] Mở mục lục sheet nghe (N chương, đang nghe chương k)` ⇒ dòng `🐢 [MainHang]` lúc mở ghi kèm bối cảnh này.
+- `TabView(.page)` của sheet có thể dựng sẵn trang mục lục bên cạnh ⇒ mở ⏱ Hẹn giờ trước đây cũng có thể khựng — cùng được sửa.
+- `CHANGELOG.md` dời 1.3.1023 sang `CHANGELOG.archive.md` (giữ 30 entry).
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log, truyện vài nghìn chương đang nghe chương xa đầu ⇒ chạm đĩa nghe ⇒ Mục lục ⇒ cuộn.
+
 ## [1.3.1052] - 2026-11-24
 
 ### feat: vtts — giọng nu-10 dùng model mới của tác giả (train giai đoạn cuối 80.000 bước), tài sản theo release v0.11.0
