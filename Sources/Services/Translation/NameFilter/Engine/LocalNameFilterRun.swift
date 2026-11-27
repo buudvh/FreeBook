@@ -133,6 +133,8 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         }
         metrics.modelMs = Self.milliseconds(Self.seconds() - modelStart)
         if Task.isCancelled { return }
+        // Model xong ⇒ báo ngay (0 chương): màn đang lọc đổi dòng model sang ✓ thay vì quay "Nạp model…" suốt khối đầu.
+        emit(.progress(chaptersRead: 0, total: chapters.count))
 
         let engine = LocalNameFilterEngine(configuration: configuration, dictionaries: dictionaries, usesLAC: tagger != nil)
         let suffixLastScalars = engine.lacSuffixLastScalars

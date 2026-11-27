@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1060] - 2026-11-25
+
+### fix: danh sách name AI bỏ ô nhập nghĩa và nút bút chì, chạm hàng mở màn Sửa từ
+
+Anh Bửu: "màn hình danh sách name của AI hãy sửa lại bỏ cho nhập ô nhập nghĩa, bỏ nút edit, tap vào hàng nào thì hiển thị màn hình edit của nghĩa đó" → duyệt mockup https://claude.ai/artifact/3Y5Z8nGN3X5hA17R2Qf7bs.
+
+- Sheet "Duyệt tên riêng & VP" (`ReaderAINameReviewCardView`): dòng 2 của hàng là **chữ** nghĩa (`.subheadline`, màu phụ, một dòng) thay cho ô `TextField`; bỏ nút bút chì. Chạm khối chữ (tên + badge + nghĩa, kéo tới ✕) ⇒ mở màn Sửa từ có sẵn (`DictEntryEditSheet`, badge "AI · Riêng truyện", 1.3.780) theo khuôn `DictionaryEntryRow`: `.contentShape(Rectangle()).onTapGesture`, không bọc cả hàng trong `Button`, thêm `.accessibilityAction(named: "Sửa")`.
+- Đổi hành vi: chạm dòng tên trước đây là chọn / bỏ chọn ⇒ nay mở màn sửa; chọn / bỏ chọn chỉ còn ở ô vuông bên trái. Ô vuông và ✕ giữ `.buttonStyle(.plain)` (card nằm trong `ScrollView` + `LazyVStack`, không phải `List`, nên chạm thân hàng không kích hoạt chúng).
+- Mọi lần sửa nghĩa giờ đi qua màn Sửa từ ⇒ `onEditName` ghi vào tin nguồn, mở lại sheet vẫn còn (trước đây gõ thẳng vào ô trên hàng thì đóng sheet là mất). Nút bút chì trên header màn Sửa từ (gõ lại từ gốc) giữ nguyên — màn này dùng chung với danh sách VP/Name.
+- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows)**, chưa thử trên máy.
+
 ## [1.3.1059] - 2026-11-24
 
 ### feat: nút bật / tắt VPN 1.1.1.1 qua app Phím tắt ở Mạng & DNS và sheet hub

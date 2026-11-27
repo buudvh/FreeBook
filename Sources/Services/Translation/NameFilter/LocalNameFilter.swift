@@ -7,7 +7,7 @@ import Foundation
 ///
 /// Đây là hợp đồng giữa ba phần, mỗi phần chỉ dựa vào các kiểu ở đây:
 /// - bộ lọc: `LocalNameFilterEngine` (luật, hai lượt quét) + `LocalNameFilterRun` (đọc chương, cập nhật dần, sự kiện);
-/// - hai danh sách người dùng quản lý: `LocalNameFilterSuffixStore` (đuôi địa danh & tông môn) và
+/// - hai danh sách người dùng quản lý: `LocalNameFilterSuffixStore` (đuôi địa danh, tổ chức, thuật ngữ) và
 ///   `LocalNameFilterBlocklistStore` ("Không phải name");
 /// - màn hình: sheet "Lọc name local" trong Reader + màn duyệt.
 ///

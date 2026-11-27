@@ -183,12 +183,21 @@ final class LocalNameFilterSession {
     }
 
     /// "Dừng": thôi đọc, phân tích nốt phần đã đọc rồi sang màn duyệt (khi bộ lọc phát `.finished`). Chưa kịp chạy
-    /// (đang lấy danh sách chương) ⇒ chưa đọc gì, về bước chọn.
+    /// (đang lấy danh sách chương) ⇒ chưa đọc gì, về bước chọn. Đang tải / nạp model ⇒ huỷ luôn (bộ lọc chỉ xét "Dừng"
+    /// sau khi model xong, chờ tải hết 19 MB là vô ích), báo ở bước chọn.
     func stop() {
         switch phase {
         case .preparing:
             cancel()
         case .running:
+            switch modelStep {
+            case .downloading, .loading:
+                cancel()
+                notice = .info("Đã dừng khi đang chuẩn bị model nhận diện tên")
+                return
+            case .hidden, .ready:
+                break
+            }
             phase = .stopping
             run?.stop()
         default:

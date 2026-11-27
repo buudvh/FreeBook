@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1090] - 2026-11-27
+
+### fix: lọc name local xoá gói tạm khi xoá truyện, Dừng được lúc đang tải model, toast gói tạm chỉ hiện khi đóng sheet thật
+
+Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, rà soát chéo bằng hai agent (Services: model LAC + bộ lọc; giao diện + gói tạm): không thấy lỗi biên dịch chắc chắn, hợp đồng giữa ba nhánh khớp; sửa các lỗi tìm được.
+
+- **Xoá truyện xoá luôn gói name tạm**: `BookStorageManager.deleteBookSideData` gọi `LocalNameFilterDraftStore.deleteAll` (lỗi ⇒ hàng đợi xoá lại, như ghi chú / dấu trang). `deleteAll` dọn cả bản `.broken-…` đã cất của truyện đó (Dọn rác cố ý bỏ qua các file này).
+- **"Dừng" lúc đang tải / nạp model**: trước phải chờ tải hết ~19 MB + tự kiểm mới dừng (bộ lọc chỉ xét "Dừng" trong vòng đọc chương) ⇒ nay huỷ ngay, về bước chọn với dòng "Đã dừng khi đang chuẩn bị model nhận diện tên".
+- **Toast "Đã giữ gói tạm" chỉ khi sheet đóng thật**: `onDisappear` còn chạy khi sheet chỉ bị màn toàn màn che (màn Sửa từ mở tra cứu ngoài) ⇒ gói vẫn ghi (ghi đè cùng gói), toast chỉ hiện khi `isPresented == false`.
+- **Dòng "Nạp model…" thôi quay suốt khối 24 chương đầu**: bộ lọc phát `.progress(0, tổng)` ngay khi model xong.
+- Comment / tài liệu: tên mới "đuôi địa danh, tổ chức, thuật ngữ"; `.claude/rules/translation.md` (bản LAC: hai chế độ, model `NER/`, chip loại, gói tạm), `storage.md` (`name_filter_drafts/`, `translate/LAC/`), `books-sources.md`, `ui-conventions.md`.
+- Ghi nhận, chưa sửa (nhẹ): lỗi đọc file model thoáng qua cũng xoá cả model (lần sau tải lại); `chapterCount` của hàng LAC chỉ đếm chương LAC gắn nhãn thực thể; số lần phía bộ luật tính cả dòng `第N章` nếu nội dung chương có; sửa loại của đuôi gốc 花 thì công tắc tự bật.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1089] - 2026-11-27
 
 ### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
@@ -368,14 +382,3 @@ Anh Bửu: "dù đã tắt vpn nhưng vào app vẫn cứ bật lại", "tôi kh
 - Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) bỏ mũi ›, thân dòng không bấm; cuối dòng hai nút nhỏ Bật (kiểu chip đang chọn: chữ màu nhấn, nền nhấn 18%, viền 60%) / Tắt (nền trắng 12%), cao 32, chữ 13 nửa đậm; bấm ⇒ `runVPNShortcut(_:)` đóng sheet xong mới chạy.
 - `network-dns.md`, `floating-pills.md` ghi phần mới.
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1060] - 2026-11-25
-
-### fix: danh sách name AI bỏ ô nhập nghĩa và nút bút chì, chạm hàng mở màn Sửa từ
-
-Anh Bửu: "màn hình danh sách name của AI hãy sửa lại bỏ cho nhập ô nhập nghĩa, bỏ nút edit, tap vào hàng nào thì hiển thị màn hình edit của nghĩa đó" → duyệt mockup https://claude.ai/artifact/3Y5Z8nGN3X5hA17R2Qf7bs.
-
-- Sheet "Duyệt tên riêng & VP" (`ReaderAINameReviewCardView`): dòng 2 của hàng là **chữ** nghĩa (`.subheadline`, màu phụ, một dòng) thay cho ô `TextField`; bỏ nút bút chì. Chạm khối chữ (tên + badge + nghĩa, kéo tới ✕) ⇒ mở màn Sửa từ có sẵn (`DictEntryEditSheet`, badge "AI · Riêng truyện", 1.3.780) theo khuôn `DictionaryEntryRow`: `.contentShape(Rectangle()).onTapGesture`, không bọc cả hàng trong `Button`, thêm `.accessibilityAction(named: "Sửa")`.
-- Đổi hành vi: chạm dòng tên trước đây là chọn / bỏ chọn ⇒ nay mở màn sửa; chọn / bỏ chọn chỉ còn ở ô vuông bên trái. Ô vuông và ✕ giữ `.buttonStyle(.plain)` (card nằm trong `ScrollView` + `LazyVStack`, không phải `List`, nên chạm thân hàng không kích hoạt chúng).
-- Mọi lần sửa nghĩa giờ đi qua màn Sửa từ ⇒ `onEditName` ghi vào tin nguồn, mở lại sheet vẫn còn (trước đây gõ thẳng vào ô trên hàng thì đóng sheet là mất). Nút bút chì trên header màn Sửa từ (gõ lại từ gốc) giữ nguyên — màn này dùng chung với danh sách VP/Name.
-- Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows)**, chưa thử trên máy.

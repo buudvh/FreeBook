@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Cấu hình **chế độ danh sách** của màn Sửa từ (`DictEntryEditSheet`, 1.3.1075 — anh Bửu: "làm cái gì có vế trái là chữ
 /// Hán giống từ điển cũng làm kiểu edit của từ điển"): các danh sách `chữ Hán = …` ngoài từ điển VP / Name / Pronouns
-/// (đuôi địa danh & tông môn, "Không phải name", Danh sách họ, token tùy chọn `<@tên>`) mở **cùng** màn Sửa từ thay cho
+/// (đuôi địa danh, tổ chức, thuật ngữ, "Không phải name", Danh sách họ, token tùy chọn `<@tên>`) mở **cùng** màn Sửa từ thay cho
 /// form hai ô. `listMode == nil` ⇒ màn chạy y như trước cho VP / Name / Pronouns / name AI.
 ///
 /// Khác với từ điển:

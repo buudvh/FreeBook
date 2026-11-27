@@ -85,6 +85,7 @@ enum LocalNameFilterDraftStore {
         lock.lock()
         defer { lock.unlock() }
         let url = fileURL(bookId: bookId)
+        removeQuarantined(of: url)
         guard FileManager.default.fileExists(atPath: url.path) else { return true }
         do {
             try FileManager.default.removeItem(at: url)
@@ -140,5 +141,15 @@ enum LocalNameFilterDraftStore {
         let stamp = Int(Date().timeIntervalSince1970)
         let target = url.deletingPathExtension().appendingPathExtension("broken-\(stamp).json")
         try? FileManager.default.moveItem(at: url, to: target)
+    }
+
+    /// Bản `.broken-…` đã cất của một truyện (`<hash>.broken-<thời điểm>.json`): xoá theo truyện. Dọn rác cố ý bỏ qua các
+    /// file này (tên không phải 64 ký tự hex), nên đây là lối dọn duy nhất.
+    private static func removeQuarantined(of url: URL) {
+        let prefix = url.deletingPathExtension().lastPathComponent + ".broken-"
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directoryURL.path)) ?? []
+        for name in names where name.hasPrefix(prefix) && name.hasSuffix(".json") {
+            try? FileManager.default.removeItem(at: directoryURL.appendingPathComponent(name))
+        }
     }
 }

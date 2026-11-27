@@ -34,6 +34,8 @@ struct LocalNameFilterSheet: View {
     let convertsTraditionalToSimplified: Bool
 
     @Environment(\.scenePhase) private var scenePhase
+    /// `false` khi sheet đang đóng thật; vẫn `true` lúc chỉ bị màn toàn màn che (xem `closeSheet`).
+    @Environment(\.isPresented) private var isPresented
     @State var session = LocalNameFilterSession()
     /// Kiểu người dùng đã bấm; `nil` = theo `defaultStart` (chỉ chốt được sau khi nạp xong danh sách chương).
     @State var pickedStart: ScanStart? = nil
@@ -165,8 +167,12 @@ struct LocalNameFilterSheet: View {
 
     /// Sheet đóng (vuốt xuống, hoặc màn duyệt tự đóng sau khi bấm Lưu): đang duyệt mà chưa Lưu ⇒ giữ gói tạm; rồi huỷ
     /// lượt lọc nếu còn chạy.
+    ///
+    /// `onDisappear` còn chạy khi sheet chỉ bị **che** (màn Sửa từ mở tra cứu ngoài bằng `fullScreenCover`) — lúc đó vẫn
+    /// ghi gói (ghi đè cùng gói, vô hại) và `cancel()` vô hại ở màn duyệt, nhưng chỉ báo toast khi sheet thật sự đóng
+    /// (`isPresented == false`), để không báo sớm rồi báo lại lần hai.
     private func closeSheet() {
-        if let kept = session.keepDraftOnClose() {
+        if let kept = session.keepDraftOnClose(), !isPresented {
             ToastManager.shared.show(message: "Đã giữ gói tạm (\(kept) name)", type: .info)
         }
         session.cancel()
