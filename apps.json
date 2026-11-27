@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1081",
+          "buildVersion": "1350",
+          "date": "2026-11-27T04:41:21Z",
+          "localizedDescription": "- fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1350/TangCongCac-1.3.1081-1350.ipa",
+          "size": 52956608,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1080",
           "buildVersion": "1349",
           "date": "2026-11-27T04:07:05Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1346/TangCongCac-1.3.1066-1346.ipa",
           "size": 52755717,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1064",
-          "buildVersion": "1345",
-          "date": "2026-11-26T04:23:33Z",
-          "localizedDescription": "- fix: đổi nguồn lúc đang nghe đọc hết đoạn đang phát rồi sang đoạn sau của nguồn mới, không ngắt tiếng\n- fix: đổi nguồn tại chỗ đặt ngay link chương đang đọc theo mục lục mới",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1345/TangCongCac-1.3.1064-1345.ipa",
-          "size": 52662246,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1080",
-      "versionDate": "2026-11-27T04:07:05Z",
-      "versionDescription": "- fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1349/TangCongCac-1.3.1080-1349.ipa",
-      "size": 52953289,
+      "version": "1.3.1081",
+      "versionDate": "2026-11-27T04:41:21Z",
+      "versionDescription": "- fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1350/TangCongCac-1.3.1081-1350.ipa",
+      "size": 52956608,
       "appPermissions": {}
     }
   ],
