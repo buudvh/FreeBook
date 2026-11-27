@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1091] - 2026-11-27
+
+### fix: lọc name local giữ model khi chỉ lỗi đọc file, bộ luật bỏ dòng tên chương như bản Python, sửa loại đuôi 花 không tự bật
+
+Anh Bửu: "sửa luôn mấy lỗi nhẹ còn lại đi" — bốn lỗi nhẹ ghi nhận ở 1.3.1090.
+
+- **Lỗi đọc file model thoáng qua không còn xoá cả model**: thêm `LACModelError.readFailed` ("Không đọc được model nhận diện tên…", có "Thử lại"). Kiểm sha256 (`LACModelStore.verifyChecksums`), đọc file khi nạp (`LACTagger.load`) và đọc mẫu đối chiếu mà lỗi I/O ⇒ `readFailed`, **giữ** thư mục; chỉ sha lệch / sai định dạng (`invalidFiles`) mới xoá để tải lại 19 MB. Bộ lọc xử lý `readFailed` như hai lỗi kia (sự kiện `.failed`).
+- **Bộ luật bỏ dòng tên chương** (`第N章…`) trước khi đếm, như `split_chapters` của bản Python (`LocalNameFilterLACChapterTagger.removingChapterHeadings`, dùng chung hàm nhận dạng của phía LAC) — số lần / mảnh / `dict_common_head` khớp bản tham chiếu cả khi nội dung chương có dòng tên chương. Chương không có dòng nào như vậy ⇒ chữ giữ nguyên.
+- **Sửa loại của đuôi gốc 花 không làm công tắc tự bật**: lớp riêng danh sách đuôi có trường `format` (2). Dữ liệu cũ (`format` vắng) đọc vào thì ghi rõ `enabled = true` cho 花 người dùng đã tự thêm từ trước (giữ bật như cũ); mặc định bật / tắt từ nay chỉ theo cờ `|off` của bản gốc.
+- **`Name.chapterCount`**: không màn hay luật nào dùng ⇒ không tốn công đếm lại trên chữ từng chương; ghi rõ nghĩa (hàng LAC = số chương LAC gắn nhãn thực thể; hàng bộ luật = số chương sinh ứng viên).
+- `translation.md`: ghi `readFailed` và việc bỏ dòng tên chương. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1090] - 2026-11-27
 
 ### fix: lọc name local xoá gói tạm khi xoá truyện, Dừng được lúc đang tải model, toast gói tạm chỉ hiện khi đóng sheet thật
@@ -368,17 +380,3 @@ Anh Bửu: "thêm token phân loại họ trung quốc", rồi "Thêm quản lý
 - Màn **Danh sách họ** (`QuickTranslationSurnameListView`, hàng `QuickTranslationSurnameRow`, sheet `QuickTranslationSurnameEditorSheet`) mở từ hàng "Danh sách họ" (dòng phụ "683 họ · 1 đang tắt") dưới công tắc `<ho>` ở Cấu hình token rule: ô tìm luôn hiện, hàng kiểu VP/Name (chạm hàng mở sheet sửa, ⏸ / ▶, 🗑, không bút chì), `+` nổi, ngăn kéo "…" Nhập file (`.dataImportFilePicker`; Gộp đè âm + bỏ dấu đã xoá, Chỉ thêm key mới coi họ gốc đã xoá là đã có, Thay thế toàn bộ = đúng nội dung file; file không có dòng hợp lệ ⇒ báo lỗi, không đụng dữ liệu; toast "thêm X, cập nhật Y" + dòng lỗi bỏ qua) / Xuất file (họ đang bật, cùng dạng file gốc) / Khôi phục mặc định. Sửa chữ Hán = xoá khoá cũ + thêm khoá mới; họ gốc đã đổi âm có "Về âm gốc". Chỉ một danh sách chung (công tắc `<ho>` riêng truyện vẫn tự có).
 - Chip `<ho>` "họ Trung Quốc" ở bảng token + gợi ý bàn phím, câu "nuốt một họ: 1 hoặc 2 chữ" ở thanh chỉnh token, `QuickTranslationRuleGuide` thêm ý `<ho>` + mục "Danh sách họ" (`HelpSpot.surnameList`), `translation.md` ghi phần mới.
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**), 683 dòng file gốc qua luật kiểm (mô phỏng Python); **không build tại chỗ (Windows), chưa thử trên máy**.
-
-## [1.3.1061] - 2026-11-25
-
-### fix: VPN 1.1.1.1 tách hai nút Bật / Tắt chạy hai phím tắt, ghi lần app chạy phím tắt cuối
-
-Anh Bửu: "dù đã tắt vpn nhưng vào app vẫn cứ bật lại", "tôi không làm được shortcut bật/tắt vpn, chỉ làm được shortcut bật thôi" → duyệt mockup bản 3 https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k.
-
-- Hai phím tắt thay cho một phím tắt "Bật/tắt" (`VPNShortcutLauncher.Action`): **bật** = "Đặt VPN" › Kết nối (giữ khoá `vpnShortcutName`, mặc định "VPN 1.1.1.1" ⇒ phím tắt anh đã tạo vẫn chạy), **tắt** = "Đặt VPN" › Ngắt kết nối (khoá mới `vpnShortcutOffName`, mặc định "Tat VPN 1.1.1.1", không dấu). App không dò trạng thái VPN.
-- Mạng & DNS: hai nút "Bật VPN 1.1.1.1" / "Tắt VPN 1.1.1.1", hai ô "Phím tắt bật" / "Phím tắt tắt", dòng **"App chạy phím tắt lần cuối"** ("10:42 · Bật · hub", ngày khác "24/11 10:42 · …", chưa chạy "Chưa có"). Câu giải thích đổi "đang nghe / xem thì không bị ngắt" ⇒ "app không bị mở lại" (phim có thể bị iOS tạm dừng khi app Phím tắt hiện lên).
-- Lần chạy cuối: iOS nhận mở app Phím tắt ⇒ `VPNShortcutLauncher.recordRun` ghi `vpnShortcutLastRunAt` / `vpnShortcutLastRunInfo` vào UserDefaults — không phụ thuộc công tắc Ghi log (tắt lại mỗi lần mở app). Để bắt vụ VPN tự bật: anh đã kiểm "Kết nối theo yêu cầu" đang tắt, không có Tự động hoá, mở Safari thì không bị; app không dùng `NetworkExtension` ở đâu, đường duy nhất là mở app Phím tắt (luôn hiện lên trước mắt) ⇒ VPN tự bật mà giờ ở dòng này cũ hơn thì không phải app.
-- Trang "Cách tạo phím tắt" (`VPNShortcutGuideView`): nhóm bước Phím tắt bật / Phím tắt tắt + mục "VPN tự bật lại".
-- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) bỏ mũi ›, thân dòng không bấm; cuối dòng hai nút nhỏ Bật (kiểu chip đang chọn: chữ màu nhấn, nền nhấn 18%, viền 60%) / Tắt (nền trắng 12%), cao 32, chữ 13 nửa đậm; bấm ⇒ `runVPNShortcut(_:)` đóng sheet xong mới chạy.
-- `network-dns.md`, `floating-pills.md` ghi phần mới.
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.

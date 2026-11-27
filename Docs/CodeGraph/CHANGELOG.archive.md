@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1061] - 2026-11-25
+
+### fix: VPN 1.1.1.1 tách hai nút Bật / Tắt chạy hai phím tắt, ghi lần app chạy phím tắt cuối
+
+Anh Bửu: "dù đã tắt vpn nhưng vào app vẫn cứ bật lại", "tôi không làm được shortcut bật/tắt vpn, chỉ làm được shortcut bật thôi" → duyệt mockup bản 3 https://claude.ai/artifact/NqVsj9fYBpdFUJJfzeZi1k.
+
+- Hai phím tắt thay cho một phím tắt "Bật/tắt" (`VPNShortcutLauncher.Action`): **bật** = "Đặt VPN" › Kết nối (giữ khoá `vpnShortcutName`, mặc định "VPN 1.1.1.1" ⇒ phím tắt anh đã tạo vẫn chạy), **tắt** = "Đặt VPN" › Ngắt kết nối (khoá mới `vpnShortcutOffName`, mặc định "Tat VPN 1.1.1.1", không dấu). App không dò trạng thái VPN.
+- Mạng & DNS: hai nút "Bật VPN 1.1.1.1" / "Tắt VPN 1.1.1.1", hai ô "Phím tắt bật" / "Phím tắt tắt", dòng **"App chạy phím tắt lần cuối"** ("10:42 · Bật · hub", ngày khác "24/11 10:42 · …", chưa chạy "Chưa có"). Câu giải thích đổi "đang nghe / xem thì không bị ngắt" ⇒ "app không bị mở lại" (phim có thể bị iOS tạm dừng khi app Phím tắt hiện lên).
+- Lần chạy cuối: iOS nhận mở app Phím tắt ⇒ `VPNShortcutLauncher.recordRun` ghi `vpnShortcutLastRunAt` / `vpnShortcutLastRunInfo` vào UserDefaults — không phụ thuộc công tắc Ghi log (tắt lại mỗi lần mở app). Để bắt vụ VPN tự bật: anh đã kiểm "Kết nối theo yêu cầu" đang tắt, không có Tự động hoá, mở Safari thì không bị; app không dùng `NetworkExtension` ở đâu, đường duy nhất là mở app Phím tắt (luôn hiện lên trước mắt) ⇒ VPN tự bật mà giờ ở dòng này cũ hơn thì không phải app.
+- Trang "Cách tạo phím tắt" (`VPNShortcutGuideView`): nhóm bước Phím tắt bật / Phím tắt tắt + mục "VPN tự bật lại".
+- Sheet hub: dòng "VPN 1.1.1.1" (`FloatingHubVPNRow`) bỏ mũi ›, thân dòng không bấm; cuối dòng hai nút nhỏ Bật (kiểu chip đang chọn: chữ màu nhấn, nền nhấn 18%, viền 60%) / Tắt (nền trắng 12%), cao 32, chữ 13 nửa đậm; bấm ⇒ `runVPNShortcut(_:)` đóng sheet xong mới chạy.
+- `network-dns.md`, `floating-pills.md` ghi phần mới.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1060] - 2026-11-25
 
 ### fix: danh sách name AI bỏ ô nhập nghĩa và nút bút chì, chạm hàng mở màn Sửa từ

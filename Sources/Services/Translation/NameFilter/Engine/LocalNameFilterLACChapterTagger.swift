@@ -77,6 +77,23 @@ enum LocalNameFilterLACChapterTagger {
         return Chapter(entities: entities, others: others, text: joined, taggedLines: taggedLines)
     }
 
+    /// Chữ chương cho **bộ luật** (`LocalNameFilterEngine.feed`), như `split_chapters` của Python: bỏ dòng tên chương
+    /// (`第N章…`) — nội dung chương trong app hiếm khi có, nhưng có thì số lần / mảnh / `dict_common_head` của bộ luật lệch
+    /// bản tham chiếu (phía LAC đã bỏ ở `tag`). Không có dòng nào bị bỏ ⇒ trả nguyên chuỗi.
+    static func removingChapterHeadings(_ text: String) -> String {
+        guard text.contains("第") else { return text }
+        var kept: [Substring] = []
+        var removed = false
+        for line in text.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "\n" || $0 == "\r\n" || $0 == "\r" }) {
+            if isChapterHeading(line) {
+                removed = true
+            } else {
+                kept.append(line)
+            }
+        }
+        return removed ? kept.joined(separator: "\n") : text
+    }
+
     /// `CHAPTER_LINE` của Python trên dòng **chưa** bỏ khoảng trắng: `^\s?第[0-9零一二三四五六七八九十百千两]+章`.
     static func isChapterHeading(_ line: Substring) -> Bool {
         var scalars = line.unicodeScalars[...]

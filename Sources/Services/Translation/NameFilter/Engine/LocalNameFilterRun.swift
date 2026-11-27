@@ -176,7 +176,7 @@ public final class LocalNameFilterRun: @unchecked Sendable {
                     metrics.unreadable += 1
                     continue
                 }
-                engine.feed(text)
+                engine.feed(LocalNameFilterLACChapterTagger.removingChapterHeadings(text))
                 if position < tagged.count, let chapter = tagged[position] { engine.feedLAC(chapter) }
             }
             metrics.passOneMs += Self.milliseconds(Self.seconds() - feedStart)
@@ -227,7 +227,7 @@ public final class LocalNameFilterRun: @unchecked Sendable {
             case .selfCheckFailed(let why):
                 AppLogger.shared.log("❌ 🔎 [LọcName] Model LAC tự kiểm lệch — lọc bằng bộ luật cũ: \(why)")
                 return .rulesOnly
-            case .downloadFailed, .invalidFiles:
+            case .downloadFailed, .invalidFiles, .readFailed:
                 AppLogger.shared.log("❌ 🔎 [LọcName] \(error.localizedDescription)")
                 emit(.failed(error.localizedDescription))
                 return .stop

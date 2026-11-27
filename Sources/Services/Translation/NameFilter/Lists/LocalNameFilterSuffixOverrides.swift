@@ -11,7 +11,9 @@ import Foundation
 /// - `removed`: đuôi gốc đã xoá (không bao giờ chứa đuôi tự thêm — xoá đuôi tự thêm là bỏ khỏi `entries`).
 /// - `enabled`: chỉ ghi trạng thái bật / tắt **khác mặc định** — đuôi gốc theo cờ `|off` của file, đuôi tự thêm mặc
 ///   định bật. Khác danh sách họ (mọi họ gốc đều bật) vì ở đây có đuôi gốc tắt sẵn (路 区 观 团 关 花) mà người dùng bật lên.
-///   Ngoại lệ `bundledOffLater`: khoá mới vào bản gốc ở dạng tắt sẵn mà người dùng đã tự thêm từ trước ⇒ vẫn bật.
+///   Ngoại lệ `bundledOffLater`: khoá mới vào bản gốc ở dạng tắt sẵn mà người dùng đã tự thêm từ trước ⇒ lúc đọc dữ
+///   liệu cũ (`format` vắng) ghi rõ `enabled = true` để vẫn bật.
+/// - `format`: phiên bản định dạng (2 từ bản LAC).
 ///
 /// **Trộn** (`merged`): bản gốc → áp `entries` → bỏ `removed` → áp `enabled`. Thuần, không I/O.
 struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
@@ -35,8 +37,12 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
     private(set) var entries: [String: Value] = [:]
     private(set) var removed: [String] = []
     private(set) var enabled: [String: Bool] = [:]
+    /// Phiên bản định dạng (khoá JSON `format`). Vắng = 1 (trước bản LAC): đọc vào thì chạy `migrateBundledOffLater`.
+    private(set) var format = 2
 
     static let empty = LocalNameFilterSuffixOverrides()
+    /// Phải bằng giá trị mặc định của `format`.
+    static let currentFormat = 2
 
     var isEmpty: Bool { entries.isEmpty && removed.isEmpty && enabled.isEmpty }
 
@@ -48,6 +54,9 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
         entries = try container.decodeIfPresent([String: Value].self, forKey: .entries) ?? [:]
         removed = Self.normalized(try container.decodeIfPresent([String].self, forKey: .removed) ?? [])
         enabled = try container.decodeIfPresent([String: Bool].self, forKey: .enabled) ?? [:]
+        let stored = try container.decodeIfPresent(Int.self, forKey: .format) ?? 1
+        if stored < 2 { migrateBundledOffLater() }
+        format = Self.currentFormat
     }
 
     // MARK: - Trộn
@@ -121,15 +130,19 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
     /// thể đã tự thêm đúng khoá này từ trước (khi đó là đuôi tự thêm — mặc định bật, không ghi `enabled`).
     static let bundledOffLater: Set<String> = ["花"]
 
-    /// Đuôi gốc theo cờ `|off` của file; đuôi tự thêm mặc định bật. Khoá trong `bundledOffLater` mà `entries` còn giá trị
-    /// khác **loại** bản gốc (đuôi người dùng tự thêm trước khi có loại thuật ngữ) ⇒ giữ bật như trước — "ghi đè cũ giữ
-    /// nguyên".
-    private func defaultEnabled(_ key: String, base: Base) -> Bool {
-        guard let line = base.linesByKey[key] else { return true }
-        if !line.isEnabled, Self.bundledOffLater.contains(key), let own = entries[key], own.kind != line.value.kind {
-            return true
+    /// Dữ liệu định dạng 1 (trước bản LAC): mọi khoá `bundledOffLater` có trong `entries` là đuôi người dùng **tự thêm**
+    /// (lúc đó chưa có trong bản gốc) và đang bật nếu `enabled` không ghi gì ⇒ ghi rõ `enabled = true` để nó giữ bật dưới
+    /// mặc định "tắt sẵn" mới — "ghi đè cũ giữ nguyên". Chỉ chạy một lần theo dữ liệu: lần ghi sau mang `format` 2, từ đó
+    /// sửa loại đuôi gốc 花 không còn làm công tắc tự bật.
+    private mutating func migrateBundledOffLater() {
+        for key in Self.bundledOffLater where entries[key] != nil && enabled[key] == nil {
+            enabled[key] = true
         }
-        return line.isEnabled
+    }
+
+    /// Đuôi gốc theo cờ `|off` của file; đuôi tự thêm mặc định bật.
+    private func defaultEnabled(_ key: String, base: Base) -> Bool {
+        base.linesByKey[key]?.isEnabled ?? true
     }
 
     private static func normalized(_ keys: [String]) -> [String] {

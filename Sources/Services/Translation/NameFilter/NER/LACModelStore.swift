@@ -83,7 +83,8 @@ struct LACModelStore: Sendable {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                throw LACModelError.invalidFiles("không đọc được \(name)")
+                // Lỗi đọc ≠ file hỏng: giữ file, "Thử lại" đọc lại.
+                throw LACModelError.readFailed("không đọc được \(name)")
             }
             guard digest == entry.sha256 else { throw LACModelError.invalidFiles("\(name) sai sha256") }
         }

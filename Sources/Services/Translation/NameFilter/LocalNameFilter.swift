@@ -132,7 +132,10 @@ public enum LocalNameFilter {
         public var category: Category { kind.category }
         /// Số lần xuất hiện trong các chương đã đọc.
         public let count: Int
-        /// Số chương có mặt.
+        /// Số chương **có ghi nhận** name này — chỉ để tham khảo (log, gói tạm), không luật nào hay màn nào dựa vào:
+        /// hàng từ LAC = số chương LAC gắn nhãn thực thể cho từ đó (gộp cả các từ đã gộp vào); hàng từ bộ luật = số chương
+        /// sinh ra ứng viên. Chương có chữ mà LAC gắn nhãn thường (`n`, `v`…) không tính — muốn "số chương có mặt" đúng
+        /// nghĩa thì phải đếm lại trên chữ từng chương.
         public let chapterCount: Int
         /// Danh xưng ở cuối (khoá trong từ điển Đại từ) nếu có: 江镖头 → "镖头".
         public let title: String?

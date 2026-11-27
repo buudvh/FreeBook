@@ -5,8 +5,8 @@ extension LACTagger {
     ///
     /// Kiểm sha256 mọi file trước (file hỏng mà đúng kích thước thì self-check sẽ lệch và người dùng bị lùi về bộ luật cũ
     /// mãi — kiểm ở đây biến nó thành `invalidFiles`, gọi viên xoá thư mục ⇒ lần sau tải lại). Trọng số mở bằng
-    /// `.alwaysMapped`: embedding fp16 đọc thẳng từ trang ánh xạ, không chép ~15 MB vào RAM. Ném `invalidFiles` /
-    /// `CancellationError`.
+    /// `.alwaysMapped`: embedding fp16 đọc thẳng từ trang ánh xạ, không chép ~15 MB vào RAM. Ném `invalidFiles` (sha /
+    /// định dạng) / `readFailed` (lỗi đọc, giữ file) / `CancellationError`.
     static func load(from store: LACModelStore, manifest: LACManifest) throws -> LACTagger {
         try store.verifyChecksums(manifest)
 
@@ -14,7 +14,8 @@ extension LACTagger {
             do {
                 return try Data(contentsOf: store.url(for: name), options: mapped ? .alwaysMapped : [])
             } catch {
-                throw LACModelError.invalidFiles("không đọc được \(name)")
+                // sha256 vừa đúng ⇒ file còn nguyên; lỗi đọc là thoáng qua, đừng để gọi viên xoá thư mục.
+                throw LACModelError.readFailed("không đọc được \(name)")
             }
         }
 

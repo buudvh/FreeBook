@@ -16,7 +16,8 @@ enum LACModel {
 
     /// Một lượt tải (nếu cần) + nạp + tự kiểm. Chỉ `LACModelGate` gọi — nó gộp lượt trùng và giữ bộ gán nhãn yếu.
     ///
-    /// File hỏng (sha / kích thước / định dạng) ⇒ xoá thư mục + `invalidFiles` (lần sau tải lại). Tự kiểm lệch ⇒
+    /// File hỏng (sha / kích thước / định dạng) ⇒ xoá thư mục + `invalidFiles` (lần sau tải lại); lỗi **đọc** file thoáng
+    /// qua ⇒ `readFailed`, giữ file ("Thử lại" đọc lại). Tự kiểm lệch ⇒
     /// `selfCheckFailed`, **giữ** file: sha đã đúng nên lỗi nằm ở code, tải lại không chữa được.
     static func load(progress: @escaping @Sendable (Double?) -> Void) async throws -> LACTagger {
         let store: LACModelStore
@@ -57,11 +58,18 @@ enum LACModel {
             tagger = try LACTagger.load(from: store, manifest: manifest)
         } catch is CancellationError {
             throw CancellationError()
-        } catch {
+        } catch LACModelError.readFailed(let why) {
+            // Lỗi đọc thoáng qua: giữ file (sha đúng thì tải lại cũng vậy), "Thử lại" đọc lại.
+            AppLogger.shared.log("❌ 🧠 [LAC] Nạp model lỗi đọc file — giữ model: \(why)")
+            throw LACModelError.readFailed(why)
+        } catch let error as LACModelError {
             store.removeAll()
-            let reason = (error as? LACModelError)?.errorDescription ?? error.localizedDescription
-            AppLogger.shared.log("❌ 🧠 [LAC] Nạp model lỗi — đã xoá để tải lại: \(reason)")
-            throw (error as? LACModelError) ?? LACModelError.invalidFiles(error.localizedDescription)
+            AppLogger.shared.log("❌ 🧠 [LAC] Nạp model lỗi — đã xoá để tải lại: \(error.errorDescription ?? "")")
+            throw error
+        } catch {
+            // Lỗi khác không do kiểm sha / định dạng (vốn ném `LACModelError`) ⇒ coi như lỗi đọc, giữ file.
+            AppLogger.shared.log("❌ 🧠 [LAC] Nạp model lỗi — giữ model: \(error.localizedDescription)")
+            throw LACModelError.readFailed(error.localizedDescription)
         }
         AppLogger.shared.log("🧠 [LAC] Nạp model \(milliseconds(since: loadStarted)) ms")
 
@@ -79,9 +87,9 @@ enum LACModel {
             }
             throw error
         } catch {
-            store.removeAll()
-            AppLogger.shared.log("❌ 🧠 [LAC] Không đọc được mẫu đối chiếu — đã xoá để tải lại")
-            throw LACModelError.invalidFiles("không đọc được \(LACModelMirror.goldenName)")
+            // `Data(contentsOf:)` lỗi ⇒ lỗi đọc (sha của file mẫu đã đúng lúc nạp), giữ model.
+            AppLogger.shared.log("❌ 🧠 [LAC] Không đọc được mẫu đối chiếu — giữ model: \(error.localizedDescription)")
+            throw LACModelError.readFailed("không đọc được \(LACModelMirror.goldenName)")
         }
         AppLogger.shared.log("🧠 [LAC] Tự kiểm \(summary.samples) mẫu trong \(milliseconds(since: checkStarted)) ms: "
             + "lệch nhãn \(summary.outputMismatches) câu (cho phép \(LACSelfCheck.maxOutputMismatches)), "
