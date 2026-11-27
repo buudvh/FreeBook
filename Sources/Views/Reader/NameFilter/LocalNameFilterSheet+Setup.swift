@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Bước chọn của sheet "Lọc name local" (mockup khung 2): Phạm vi lọc, Tuỳ chọn ("Ít nhất N lần"), Danh sách.
+/// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5): Gói tạm chưa lưu (`+Drafts`, chỉ khi có),
+/// Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N lần"), Danh sách.
 ///
 /// Phạm vi chép cách của `ReaderAIBatchPromptSheet` (chương đang đọc / chương đầu tiên / "Chọn chương…" qua
 /// `ReaderAINameScanChapterPickerView`, "Số lượng chương" `ChapterLimitPicker` mặc định Tất cả), bỏ "Tiếp nối", và
@@ -83,6 +84,8 @@ extension LocalNameFilterSheet {
                 }
             }
 
+            draftsSection
+
             Section {
                 if let chapters {
                     scopeRows(chapters)
@@ -105,6 +108,8 @@ extension LocalNameFilterSheet {
                 Text(scopeSummaryText)
                     .foregroundColor(effectiveCount == 0 ? .red : .secondary)
             }
+
+            categoriesSection
 
             Section {
                 HStack(spacing: 12) {
@@ -129,7 +134,7 @@ extension LocalNameFilterSheet {
                 NavigationLink {
                     LocalNameFilterSuffixListView()
                 } label: {
-                    LabeledContent("Đuôi địa danh & tông môn", value: "\(suffixCount)")
+                    LabeledContent("Đuôi địa danh, tổ chức, thuật ngữ", value: "\(suffixCount)")
                 }
                 NavigationLink {
                     LocalNameFilterBlocklistView()
@@ -137,12 +142,13 @@ extension LocalNameFilterSheet {
                     LabeledContent("Không phải name", value: "\(blockedCount)")
                 }
             } header: {
-                SectionHelpHeader("Danh sách", paragraphs: ["Dùng chung cho mọi truyện. Đuôi địa danh & tông môn: chữ đứng cuối để nhận ra tên chỗ (城, 巷, 市…) hoặc môn phái (宗, 派…); số bên phải là số đuôi đang bật. Không phải name: cụm đã loại, lần lọc sau không hiện nữa."])
+                SectionHelpHeader("Danh sách", paragraphs: ["Dùng chung cho mọi truyện. Đuôi địa danh, tổ chức, thuật ngữ: chữ đứng cuối để nhận ra tên chỗ (城, 巷, 市…), tổ chức (宗, 派, 商会…) hoặc thuật ngữ (丹, 诀, 功法…); số bên phải là số đuôi đang bật. Không phải name: cụm đã loại, lần lọc sau không hiện nữa."])
             }
         }.glassSheetRows() }
         // `onAppear` của gốc chạy lại mỗi lần quay về từ màn quản lý ⇒ số luôn mới.
         .onAppear { refreshListCounts() }
         .task { await loadChapters() }
+        .task { await loadDrafts() }
     }
 
     private func noticeRow(_ notice: LocalNameFilterSession.Notice) -> some View {

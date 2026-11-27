@@ -59,6 +59,8 @@ enum JunkPaths {
     static var videosRoot: URL { applicationSupport.appendingPathComponent("videos", isDirectory: true) }
     /// `BookAnnotationStore.directoryURL` — `<sha256(bookId)>.json` (dấu trang + ghi chú).
     static var annotationsRoot: URL { BookAnnotationStore.directoryURL }
+    /// `LocalNameFilterDraftStore.directoryURL` — `<sha256(bookId)>.json` (gói name tạm của Lọc name local).
+    static var nameFilterDraftsRoot: URL { LocalNameFilterDraftStore.directoryURL }
     /// `BookSourceChangeJournal.fileURL` (private ở owner) — còn file ⇒ đang có lượt đổi nguồn dở.
     static var sourceChangeJournal: URL {
         applicationSupport
@@ -101,6 +103,7 @@ enum JunkPaths {
 
     /// Các gốc mà một mục rác được phép nằm trong — mục mang gốc khác bị từ chối lúc xoá.
     static var allowedRoots: [URL] {
-        [freeBookRoot, translateRoot, temporaryRoot, booksRoot, comicsRoot, videosRoot, annotationsRoot, extensionLegacyDirectory]
+        [freeBookRoot, translateRoot, temporaryRoot, booksRoot, comicsRoot, videosRoot, annotationsRoot, nameFilterDraftsRoot,
+         extensionLegacyDirectory]
     }
 }

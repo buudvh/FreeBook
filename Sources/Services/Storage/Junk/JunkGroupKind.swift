@@ -12,7 +12,7 @@ enum JunkGroupKind: String, CaseIterable, Sendable, Identifiable {
     case partialDownloads
     /// Mục trong `tmp/` không đổi hơn 1 giờ, khi không có sao lưu / tải / xuất nào chạy.
     case staleTemporary
-    /// `books/*.bin`, `comics/*/`, `videos/*/` của `bookId` không còn trong thư viện.
+    /// `books/*.bin`, `comics/*/`, `videos/*/`, ghi chú + dấu trang, gói name tạm của `bookId` không còn trong thư viện.
     case deletedBooks
     /// `extension_store/legacy/` sau khi đã chuyển xong dữ liệu tiện ích cũ.
     case legacyExtensionCopy

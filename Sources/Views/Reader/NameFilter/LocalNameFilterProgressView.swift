@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// Màn "Đang lọc" của sheet "Lọc name local" (mockup khung 3): "Đọc chương X / N" + thanh tiến độ, rồi danh sách name
-/// hiện dần — bộ lọc chụp lại sau mỗi khối chương, lần sau cách lần trước ít nhất gấp đôi thời gian lần trước nên truyện
-/// dài cập nhật thưa dần. Name vừa vào có vạch + nhãn "mới", name vừa rơi ra gạch mờ — cả hai chỉ một nhịp (tới lần cập
-/// nhật kế, `LocalNameFilterLiveRow`). Danh sách chỉ để xem; chọn / loại ở màn duyệt. Nút "Dừng" nằm ở thanh đáy của sheet.
+/// Màn "Đang lọc" của sheet "Lọc name local" (mockup khung 3, bản LAC khung 2): dòng "Tải model" / "Nạp model…" (chỉ khi
+/// bộ lọc phải chuẩn bị model LAC, xong hiện ✓) + "Phân tích chương X / N" + thanh tiến độ, rồi danh sách name hiện dần —
+/// bộ lọc chụp lại sau mỗi khối chương, lần sau cách lần trước ít nhất gấp đôi thời gian lần trước nên truyện dài cập
+/// nhật thưa dần. Name vừa vào có vạch + nhãn "mới", name vừa rơi ra gạch mờ — cả hai chỉ một nhịp (tới lần cập nhật kế,
+/// `LocalNameFilterLiveRow`); badge loại có màu (`LocalNameFilterCategoryBadge`). Danh sách chỉ để xem; chọn / loại ở màn
+/// duyệt. Lỗi (kể cả tải model lỗi) ⇒ thẻ lỗi thay thẻ tiến độ. Nút "Dừng" (khi lỗi: "Quay lại" / "Thử lại") nằm ở thanh
+/// đáy của sheet.
 struct LocalNameFilterProgressView: View {
     let session: LocalNameFilterSession
 
@@ -11,17 +14,23 @@ struct LocalNameFilterProgressView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle(Text("Đang lọc"))
-                progressCard
-
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    sectionTitle(Text("Name đã thấy (\(session.liveNameCount))"))
-                    Spacer(minLength: 8)
-                    Text(updateCaption)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                if session.phase == .failed {
+                    failureCard
+                } else {
+                    progressCard
                 }
-                .padding(.top, 10)
+
+                if session.phase != .failed {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        sectionTitle(Text("Name đã thấy (\(session.liveNameCount))"))
+                        Spacer(minLength: 8)
+                        Text(updateCaption)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.top, 10)
+                }
 
                 // `LazyVStack`: truyện dài có thể vài trăm name, chỉ dựng hàng đang hiện.
                 LazyVStack(spacing: 6) {
@@ -40,7 +49,15 @@ struct LocalNameFilterProgressView: View {
         switch session.phase {
         case .preparing: return "Đang lấy danh sách chương…"
         case .stopping: return "Đang phân tích phần đã đọc…"
-        default: return "Đọc chương"
+        default: return "Phân tích chương"
+        }
+    }
+
+    /// Model còn đang tải / nạp ⇒ bước phân tích chưa bắt đầu.
+    private var isPreparingModel: Bool {
+        switch session.modelStep {
+        case .downloading, .loading: return true
+        case .hidden, .ready: return false
         }
     }
 
@@ -55,10 +72,19 @@ struct LocalNameFilterProgressView: View {
         let total = session.totalChapters
         let read = min(session.chaptersRead, total)
         return VStack(alignment: .leading, spacing: 12) {
+            if session.modelStep != .hidden {
+                modelRow
+            }
             HStack(spacing: 10) {
-                ProgressView()
-                    .controlSize(.small)
+                if isPreparingModel {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary)
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                }
                 Text(progressTitle)
+                    .foregroundColor(isPreparingModel ? .secondary : .primary)
                 Spacer(minLength: 8)
                 if total > 0 {
                     Text("\(read) / \(total)")
@@ -68,6 +94,57 @@ struct LocalNameFilterProgressView: View {
             }
             ProgressView(value: Double(read), total: Double(max(total, 1)))
         }
+        .padding(16)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// "Tải model 42%" / "Nạp model…" khi đang chuẩn bị; "Tải model ✓" / "Nạp model ✓" khi đã xong (mockup khung 2).
+    @ViewBuilder
+    private var modelRow: some View {
+        switch session.modelStep {
+        case .downloading(let fraction):
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Tải model")
+                Spacer(minLength: 8)
+                Text("\(Int((fraction * 100).rounded()))%")
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundColor(.secondary)
+            }
+        case .loading:
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Nạp model…")
+                Spacer(minLength: 8)
+            }
+        case .ready(let downloaded):
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                Text(downloaded ? "Tải model" : "Nạp model")
+                Spacer(minLength: 8)
+                Text("✓")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.green)
+            }
+        case .hidden:
+            EmptyView()
+        }
+    }
+
+    /// Lỗi của lượt lọc — "Thử lại" ở thanh đáy chạy lại đúng cấu hình.
+    private var failureCard: some View {
+        Label {
+            Text(session.failureMessage ?? "Lọc name không chạy được")
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.red)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
@@ -98,7 +175,7 @@ struct LocalNameFilterProgressView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     } else {
-                        kindBadge(row.kindLabel)
+                        LocalNameFilterCategoryBadge(label: row.kindLabel)
                         Text("\(row.count) lần")
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -125,18 +202,6 @@ struct LocalNameFilterProgressView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .opacity(row.mark == .gone ? 0.35 : 1)
         .accessibilityElement(children: .combine)
-    }
-
-    /// Cùng kiểu badge loại của màn duyệt (`ReaderAINameReviewCardView`).
-    private func kindBadge(_ label: String) -> some View {
-        Text(label)
-            .font(.system(size: 9, weight: .semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color(white: 0.25))
-            .foregroundColor(.white)
-            .cornerRadius(4)
-            .fixedSize()
     }
 
     /// Kiểu chip đang chọn của app (chữ màu nhấn, nền nhấn mờ, viền nhấn) — không tô nền nhấn đặc (luật `WHITE_TINT_FILL`).

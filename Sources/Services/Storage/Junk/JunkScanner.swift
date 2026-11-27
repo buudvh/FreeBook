@@ -58,7 +58,8 @@ enum JunkScanner {
 
     // MARK: - Dữ liệu của truyện đã xoá
 
-    /// `books/<hash>.bin`, `comics/<hash>/`, `videos/<hash>/` mà `<hash>` không phải hash của `bookId` nào còn trong thư
+    /// `books/<hash>.bin`, `comics/<hash>/`, `videos/<hash>/`, `annotations/<hash>.json`, `name_filter_drafts/<hash>.json`
+    /// mà `<hash>` không phải hash của `bookId` nào còn trong thư
     /// viện. Chỉ xét tên đúng 64 ký tự hex thường: `BookBinManager` còn chuyển dần file kiểu cũ `<bookId>.bin` khi mở truyện
     /// — file đó của truyện còn sống, không được coi là rác.
     static func deletedBookCandidates(owned: Set<String>, now: Date) -> [Candidate] {
@@ -86,17 +87,25 @@ enum JunkScanner {
             }
         }
 
-        // Dấu trang + ghi chú (`BookAnnotationStore`, 1.3.1040): `<sha256(bookId)>.json`, cùng hàm băm với phim / comic.
-        let annotationsRoot = JunkPaths.annotationsRoot
-        for child in children(of: annotationsRoot) {
-            let name = child.lastPathComponent
-            guard name.hasSuffix(".json") else { continue }
-            let stem = String(name.dropLast(5))
-            guard isSHA256Hex(stem), !mediaHashes.contains(stem), isRegularFile(child),
-                  isOlder(child, than: deletedBookMinimumAge, now: now) else { continue }
-            result.append(Candidate(url: child, root: annotationsRoot))
+        // Dấu trang + ghi chú (`BookAnnotationStore`, 1.3.1040) và gói name tạm của Lọc name local
+        // (`LocalNameFilterDraftStore`): `<sha256(bookId)>.json`, cùng hàm băm với phim / comic.
+        for root in [JunkPaths.annotationsRoot, JunkPaths.nameFilterDraftsRoot] {
+            result += hashedJSONCandidates(in: root, owned: mediaHashes, now: now)
         }
         return result
+    }
+
+    /// `<hash>.json` ngay trong `root` mà `<hash>` không thuộc truyện nào còn trong thư viện (bỏ file `.broken-…`: tên
+    /// không phải 64 ký tự hex).
+    private static func hashedJSONCandidates(in root: URL, owned: Set<String>, now: Date) -> [Candidate] {
+        children(of: root).compactMap { child in
+            let name = child.lastPathComponent
+            guard name.hasSuffix(".json") else { return nil }
+            let stem = String(name.dropLast(5))
+            guard isSHA256Hex(stem), !owned.contains(stem), isRegularFile(child),
+                  isOlder(child, than: deletedBookMinimumAge, now: now) else { return nil }
+            return Candidate(url: child, root: root)
+        }
     }
 
     /// Đúng hàm băm của `BookBinManager.sha256Hex` (SHA-256 của UTF-8, hex thường "%02x").

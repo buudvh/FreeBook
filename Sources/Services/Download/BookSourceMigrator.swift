@@ -2,7 +2,8 @@ import Foundation
 
 /// Thiết lập theo `bookId` phải đi theo truyện khi đổi nguồn (bookId đổi): từ điển + rule riêng, phiên AI chat, trí nhớ
 /// AI, phạm vi + điểm tiếp nối quét tên riêng, prompt quét tên Gần đây (`AINameScanPromptStore`), chế độ dịch riêng, bộ
-/// dịch riêng (`TranslationEngineStore`), dấu trang + ghi chú (`BookAnnotationStore`). Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
+/// dịch riêng (`TranslationEngineStore`), dấu trang + ghi chú (`BookAnnotationStore`), gói name tạm của Lọc name local
+/// (`LocalNameFilterDraftStore`). Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
 ///
 /// Từ 1.3.689 tách hai bước: `copyBookScopedSettings` chỉ **chép** (không đụng bản cũ; truyện đích đã có bản riêng thì giữ
 /// của đích), `removeBookScopedSettings` xoá bản của một truyện sau mốc chốt (hoặc của truyện mới khi lùi lại). Trước đây
@@ -42,6 +43,8 @@ public actor BookSourceMigrator {
         // lại được ở nguồn mới.
         BookAnnotationStore.copy(from: oldBookId, to: newBookId)
         await MainActor.run { BookAnnotationRepository.shared.invalidate(bookId: newBookId) }
+        // Gói name tạm chưa lưu: gộp theo id, giữ 5 gói ghi gần nhất của truyện đích.
+        LocalNameFilterDraftStore.copy(from: oldBookId, to: newBookId)
 
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)
         if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
@@ -73,6 +76,7 @@ public actor BookSourceMigrator {
         AINameScanPromptStore.shared.remove(bookId: bookId)
         BookAnnotationStore.delete(bookId: bookId)
         Task { @MainActor in BookAnnotationRepository.shared.invalidate(bookId: bookId) }
+        LocalNameFilterDraftStore.deleteAll(bookId: bookId)
         if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
         }

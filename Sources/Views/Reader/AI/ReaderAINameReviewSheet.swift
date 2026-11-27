@@ -37,6 +37,9 @@ public struct ReaderAINameReviewSheet: View {
     let initialSortMode: ReaderAINameReviewCardView.SortMode
     /// Thùng rác › "Không phải name" — chỉ luồng lọc local truyền; luồng AI gạch hàng (`onStrikeName`).
     public let onBlockName: ((AIExtractedName) -> Void)?
+    /// Luồng lọc local: danh sách đang duyệt mỗi lần đổi (chọn / bỏ chọn, sửa, bỏ mục, cờ NE / VP tra lại) — nơi gọi giữ
+    /// bản mới nhất để thành gói tạm khi đóng màn mà chưa Lưu (`LocalNameFilterSession+Drafts`). Luồng AI: `nil`.
+    let onNamesChange: (([AIExtractedName]) -> Void)?
 
     @State private var isLoading: Bool = true
     // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
@@ -64,16 +67,20 @@ public struct ReaderAINameReviewSheet: View {
         self.prefilledNames = nil
         self.initialSortMode = .selectedFirst
         self.onBlockName = nil
+        self.onNamesChange = nil
         self._struckKeys = State(initialValue: struckKeys)
     }
 
-    /// Luồng "Lọc name local": nhận sẵn danh sách (đã chọn hết, `occurrenceCount` = số lần thấy), sắp "Nhiều lần nhất",
-    /// ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi danh sách đang duyệt (không có tin nguồn).
+    /// Luồng "Lọc name local": nhận sẵn danh sách (đã gắn cờ NE / VP, name đã có bỏ chọn sẵn; `occurrenceCount` = số lần
+    /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Nhiều lần nhất", chip lọc theo loại + badge loại có màu
+    /// (`ReaderAINameReviewCardView.showsCategoryFilter`), ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi
+    /// danh sách đang duyệt (không có tin nguồn).
     public init(
         names: [AIExtractedName],
         bookId: String,
         onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
-        onBlockName: @escaping (AIExtractedName) -> Void
+        onBlockName: @escaping (AIExtractedName) -> Void,
+        onNamesChange: (([AIExtractedName]) -> Void)? = nil
     ) {
         self.content = ""
         self.bookId = bookId
@@ -83,6 +90,7 @@ public struct ReaderAINameReviewSheet: View {
         self.prefilledNames = names
         self.initialSortMode = .mostFrequent
         self.onBlockName = onBlockName
+        self.onNamesChange = onNamesChange
         self._names = State(initialValue: names)
         self._isLoading = State(initialValue: false)
         self._struckKeys = State(initialValue: [])
@@ -157,7 +165,8 @@ public struct ReaderAINameReviewSheet: View {
                             initialSortMode: initialSortMode,
                             onBlock: blockHandler,
                             struckKeys: struckKeys,
-                            onToggleStrike: strikeHandler
+                            onToggleStrike: strikeHandler,
+                            showsCategoryFilter: prefilledNames != nil
                         )
                         .padding(.vertical, 8)
                     }
@@ -198,6 +207,9 @@ public struct ReaderAINameReviewSheet: View {
                     editSheet(for: item)
                 }
                 .appGlassSheet()
+            }
+            .onChange(of: names) { _, newNames in
+                onNamesChange?(newNames)
             }
             .task {
                 if prefilledNames != nil {

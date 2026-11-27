@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1058] - 2026-11-24
+
+### fix: Kệ Sách và sheet "+" Chi tiết bỏ "Ch. N", thẻ ghi tên chương đang đọc
+
+Anh Bửu: không hiển thị chương kiểu "Ch. stt" → duyệt mockup https://claude.ai/artifact/2fREpEgACNQJVkuwVMhyoj (sheet "+" ghi "N chương").
+
+- `BookListRowSize.progressLabel(kind:chapterIndex:chapterTitle:options:)`: truyện chữ / truyện tranh trả **tên chương đã lưu** (`Book.currentChapterTitle`, dịch theo `options`), tên rỗng mới "Chương N"; phim "Tập N", âm thanh "Bài N" giữ nguyên. Dùng chung cho thẻ Kệ kiểu Lưới (dòng "icon · tên chương · ⋮") và Chỉ bìa (dải chữ đáy bìa) — `ShelfBookGridCardView`, dòng gọn nấc 1–2 "tác giả · tên chương" — `BookListItemView` (cũng ở Tìm trên kệ, hai sheet chọn truyện của Từ điển), và dải "Đọc tiếp" (`BookContinueReadingStrip`, trước tự tính riêng). Dòng thường nấc 3+ vẫn "Đang đọc: tên chương" như cũ.
+- Sheet "+" của Chi tiết (`BookDetailView+FloatingActions.floatingSheetCaption`): "Ch. N/tổng" ⇒ "N chương" (tổng), đã lưu hay chưa đều vậy; dòng "Đọc tiếp" của sheet đã có tên chương.
+- Đánh đổi (đã nêu trong mockup): kiểu Lưới 3 cột chỉ còn ~65 pt cho chữ cạnh ⋮ ⇒ tên chương bị cắt "…"; tên nguồn tự mở đầu "Chương 340: …" thì ô Lưới vẫn chỉ thấy "Chương 34…".
+- `ui-conventions.md`: luật "Không hiển thị kiểu Ch. stt" ghi đã xong + hàm dùng chung; luật video / audio ghi rõ anh chỉ yêu cầu context menu.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1057] - 2026-11-24
 
 ### fix: mục lục sheet nghe mini — hiện nhanh lại (hàng là struct riêng, bỏ .id, tên chương dịch theo ô đang hiện)

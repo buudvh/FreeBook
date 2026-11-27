@@ -1,16 +1,22 @@
 import SwiftUI
 
-/// Sheet "Lọc name local" (Reader › "…", plan 2026-11-27, mockup khung 2–4): tự dò tên người / địa danh / tông môn trong
-/// chữ Hán các chương đã tải, ngay trên máy, không gọi AI, rồi duyệt và lưu vào Name / VP riêng của truyện.
+/// Sheet "Lọc name local" (Reader › "…", plan 2026-11-27, mockup khung 2–4; bản LAC: mockup LAC khung 1–5): tự dò tên
+/// người / địa danh / tổ chức / thuật ngữ trong chữ Hán các chương đã tải, ngay trên máy, không gọi AI, rồi duyệt và lưu
+/// vào Name / VP riêng của truyện.
 ///
 /// Ba bước trong **một** sheet, theo `LocalNameFilterSession.phase`:
 /// 1. Chọn phạm vi (`+Setup`): như "Lọc name nhiều chương" của AI (`ReaderAIBatchPromptSheet`) bỏ "Tiếp nối"; không đọc /
-///    ghi mặc định của sheet AI. "Ít nhất N lần" (mặc định 3), mục "Danh sách" mở hai màn quản lý dùng chung mọi truyện.
-/// 2. Đang lọc (`LocalNameFilterProgressView`): name hiện dần; "Dừng" = phân tích nốt phần đã đọc rồi sang bước 3.
-/// 3. Duyệt: thay cả gốc sheet bằng `ReaderAINameReviewSheet` (danh sách có sẵn, sắp "Nhiều lần nhất", ✕ có "Không phải
-///    name"); lưu thẳng qua `AIHarnessService.saveExtractedEntries` như màn AI.
-/// Đóng sheet (vuốt xuống) ở bất kỳ bước nào ⇒ huỷ lượt lọc — `onDisappear` gắn ở `ZStack` ngoài cùng, sống qua mọi lần
-/// đổi bước (gắn vào `Group` thì SwiftUI rải xuống từng nhánh, đổi bước là tưởng đóng sheet).
+///    ghi mặc định của sheet AI. "Gói tạm chưa lưu" ở đầu (`+Drafts`, chỉ khi có gói), "Loại cần tìm" (`+Categories`,
+///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3), mục "Danh sách" mở hai màn quản lý dùng chung mọi truyện.
+///    Không có hàng tải model: chưa có model thì bước 2 tự tải trước.
+/// 2. Đang lọc (`LocalNameFilterProgressView`): "Tải model" (lần đầu) rồi "Phân tích chương", name hiện dần; "Dừng" =
+///    phân tích nốt phần đã đọc rồi sang bước 3. Lỗi ⇒ "Quay lại" / "Thử lại" (đúng cấu hình cũ).
+/// 3. Duyệt: thay cả gốc sheet bằng `ReaderAINameReviewSheet` (danh sách có sẵn, sắp "Nhiều lần nhất", chip lọc loại,
+///    badge NE / VP + name đã có bỏ chọn sẵn, ✕ có "Không phải name"); lưu thẳng qua `AIHarnessService.saveExtractedEntries`
+///    như màn AI.
+/// Đóng sheet (vuốt xuống) ở bất kỳ bước nào ⇒ huỷ lượt lọc; đang duyệt mà chưa Lưu ⇒ giữ gói tạm + toast. `onDisappear`
+/// gắn ở `ZStack` ngoài cùng, sống qua mọi lần đổi bước (gắn vào `Group` thì SwiftUI rải xuống từng nhánh, đổi bước là
+/// tưởng đóng sheet). App vào nền lúc đang duyệt ⇒ cũng giữ gói (không toast).
 struct LocalNameFilterSheet: View {
     /// Kiểu chọn chương bắt đầu (bỏ "Tiếp nối" của sheet AI: lọc local không lưu tiến độ).
     enum ScanStart: Hashable {
@@ -27,6 +33,7 @@ struct LocalNameFilterSheet: View {
     /// Cờ phồn → giản của Reader — chữ đưa vào bộ lọc là chữ Reader đang hiện.
     let convertsTraditionalToSimplified: Bool
 
+    @Environment(\.scenePhase) private var scenePhase
     @State var session = LocalNameFilterSession()
     /// Kiểu người dùng đã bấm; `nil` = theo `defaultStart` (chỉ chốt được sau khi nạp xong danh sách chương).
     @State var pickedStart: ScanStart? = nil
@@ -42,6 +49,10 @@ struct LocalNameFilterSheet: View {
     /// Số đuôi đang bật / số cụm "Không phải name" — đọc lại mỗi khi quay về từ màn quản lý.
     @State var suffixCount: Int = 0
     @State var blockedCount: Int = 0
+    /// "Loại cần tìm" (`+Categories`): `rawValue` các nhóm nối bằng dấu phẩy; rỗng / hỏng = cả bốn nhóm.
+    @AppStorage("localNameFilterCategories") var categoriesRaw: String = ""
+    /// Gói tạm chưa lưu của truyện (`+Drafts`), ghi gần nhất trước; nạp ngoài main khi mở sheet.
+    @State var drafts: [LocalNameFilterDraft] = []
 
     var body: some View {
         ZStack {
@@ -50,7 +61,8 @@ struct LocalNameFilterSheet: View {
                     names: session.reviewNames,
                     bookId: bookId,
                     onSave: { items, isName, isMerge in save(items, isName: isName, isMerge: isMerge) },
-                    onBlockName: { item in block(item) }
+                    onBlockName: { item in block(item) },
+                    onNamesChange: { names in session.updateReviewNames(names) }
                 )
             } else {
                 NavigationStack {
@@ -61,7 +73,12 @@ struct LocalNameFilterSheet: View {
             }
         }
         .presentationDragIndicator(.visible)
-        .onDisappear { session.cancel() }
+        .onDisappear { closeSheet() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                session.persistDraftForBackground()
+            }
+        }
     }
 
     @ViewBuilder
@@ -69,7 +86,7 @@ struct LocalNameFilterSheet: View {
         switch session.phase {
         case .setup, .review:
             setupForm
-        case .preparing, .running, .stopping:
+        case .preparing, .running, .stopping, .failed:
             LocalNameFilterProgressView(session: session)
         }
     }
@@ -104,6 +121,20 @@ struct LocalNameFilterSheet: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(true)
+            case .failed:
+                HStack(spacing: 10) {
+                    Button(action: { session.leaveFailure() }) {
+                        Text("Quay lại")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button(action: { session.retry() }) {
+                        Text("Thử lại")
+                    }
+                    .buttonStyle(.appFilled)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -111,26 +142,42 @@ struct LocalNameFilterSheet: View {
         .background(.bar)
     }
 
-    /// Chụp cấu hình từ hai danh sách đúng lúc bấm, rồi giao cho `session` (lấy chương đã tải theo phạm vi + chạy).
+    /// Chụp cấu hình từ hai danh sách + "Loại cần tìm" đúng lúc bấm, rồi giao cho `session` (lấy chương đã tải theo phạm
+    /// vi + chạy).
     private func startFilter() {
         guard canStart else { return }
         let configuration = LocalNameFilter.Configuration(
             minCount: minCount,
             suffixes: LocalNameFilterSuffixStore.shared.enabledSuffixes(),
-            blockedTerms: LocalNameFilterBlocklistStore.shared.terms()
+            blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
+            categories: selectedCategories
         )
-        session.start(
+        let numbers = Dictionary((chapters ?? []).map { ($0.index, $0.number) }, uniquingKeysWith: { first, _ in first })
+        session.start(LocalNameFilterSession.StartRequest(
             bookId: bookId,
             fromChapterIndex: fromChapterIndexForRun,
             limit: limitValue,
             convertsTraditional: convertsTraditionalToSimplified,
-            configuration: configuration
-        )
+            configuration: configuration,
+            chapterNumbers: numbers
+        ))
+    }
+
+    /// Sheet đóng (vuốt xuống, hoặc màn duyệt tự đóng sau khi bấm Lưu): đang duyệt mà chưa Lưu ⇒ giữ gói tạm; rồi huỷ
+    /// lượt lọc nếu còn chạy.
+    private func closeSheet() {
+        if let kept = session.keepDraftOnClose() {
+            ToastManager.shared.show(message: "Đã giữ gói tạm (\(kept) name)", type: .info)
+        }
+        session.cancel()
     }
 
     /// Lưu như màn AI (Name riêng / VP riêng, Gộp / Thay thế) — `ReaderAINameReviewSheet` đóng sheet ngay sau khi gọi.
+    /// Lưu xong ⇒ xoá gói tạm của màn duyệt này (mở từ gói, hoặc đã ghi khi app vào nền); lưu lỗi ⇒ ghi gói để không mất
+    /// danh sách.
     private func save(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {
         let bid = bookId
+        let pending = session.beginSave()
         Task {
             let savedCount = await AIHarnessService.shared.saveExtractedEntries(
                 items, bookId: bid, isName: isName, isMerge: isMerge
@@ -138,7 +185,16 @@ struct LocalNameFilterSheet: View {
             await MainActor.run {
                 let targetName = isName ? "Name riêng" : "VietPhrase riêng"
                 if savedCount > 0 {
+                    if let pending {
+                        LocalNameFilterDraftStore.delete(id: pending.draft.id, bookId: pending.bookId)
+                    }
                     ToastManager.shared.show(message: "Đã lưu \(savedCount) mục vào \(targetName) của truyện", type: .success)
+                } else if let pending, !pending.draft.names.isEmpty {
+                    LocalNameFilterDraftStore.upsert(pending.draft, bookId: pending.bookId)
+                    ToastManager.shared.show(
+                        message: "Lưu vào \(targetName) thất bại · đã giữ gói tạm (\(pending.draft.names.count) name)",
+                        type: .error
+                    )
                 } else {
                     ToastManager.shared.show(message: "Lưu vào \(targetName) thất bại", type: .error)
                 }

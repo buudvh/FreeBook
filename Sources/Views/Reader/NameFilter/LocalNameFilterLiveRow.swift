@@ -16,7 +16,8 @@ struct LocalNameFilterLiveRow: Identifiable, Equatable {
     /// Chữ Hán — mỗi chữ chỉ một hàng trong một lần cập nhật (hàng `.gone` là chữ không còn trong danh sách mới).
     let term: String
     let meaning: String
-    /// Nhãn loại (`LocalNameFilter.Kind.label`): Nhân vật / Địa danh / Tông môn.
+    /// Nhãn nhóm (`LocalNameFilter.Category.label`): Nhân danh / Địa danh / Tổ chức / Thuật ngữ — badge màu
+    /// `LocalNameFilterCategoryBadge`.
     let kindLabel: String
     let count: Int
     let mark: Mark
@@ -26,7 +27,7 @@ struct LocalNameFilterLiveRow: Identifiable, Equatable {
     init(name: LocalNameFilter.Name, mark: Mark) {
         self.term = name.term
         self.meaning = name.meaning
-        self.kindLabel = name.kind.label
+        self.kindLabel = name.category.label
         self.count = name.count
         self.mark = mark
     }

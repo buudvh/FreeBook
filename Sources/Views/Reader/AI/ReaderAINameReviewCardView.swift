@@ -24,6 +24,10 @@ public struct ReaderAINameReviewCardView: View {
     public var onToggleStrike: ((UUID) -> Void)? = nil
     /// Khoá đang gạch — hàng gạch ngang + mờ, ô chọn khoá, không mở màn sửa, "Chọn hết" bỏ qua.
     public var struckKeys: Set<String> = []
+    /// Luồng "Lọc name local" (mockup LAC khung 3): hàng chip lọc theo loại (`ReaderAINameReviewCategoryBar`) + badge loại
+    /// có màu. Chip **chỉ đổi phần đang hiện**: "Chọn hết" / "Bỏ chọn", số ở tiêu đề và nút Lưu của sheet vẫn tính trên cả
+    /// `names`, kể cả mục đang bị chip ẩn. Luồng AI: `false` (không chip, badge xám).
+    public var showsCategoryFilter: Bool = false
 
     public enum SortMode {
         case selectedFirst
@@ -34,6 +38,8 @@ public struct ReaderAINameReviewCardView: View {
     }
 
     @State private var sortMode: SortMode
+    /// Nhóm chip đang chọn (`nil` = Tất cả); chỉ dùng khi `showsCategoryFilter`.
+    @State private var categoryFilter: LocalNameFilter.Category?
     /// Kiểu sắp lúc mở card — quyết định menu có "Nhiều lần nhất" không.
     private let initialSortMode: SortMode
 
@@ -44,7 +50,8 @@ public struct ReaderAINameReviewCardView: View {
         initialSortMode: SortMode = .selectedFirst,
         onBlock: ((UUID) -> Void)? = nil,
         struckKeys: Set<String> = [],
-        onToggleStrike: ((UUID) -> Void)? = nil
+        onToggleStrike: ((UUID) -> Void)? = nil,
+        showsCategoryFilter: Bool = false
     ) {
         self._names = names
         self.onDelete = onDelete
@@ -54,6 +61,7 @@ public struct ReaderAINameReviewCardView: View {
         self.onBlock = onBlock
         self.struckKeys = struckKeys
         self.onToggleStrike = onToggleStrike
+        self.showsCategoryFilter = showsCategoryFilter
     }
 
     private func isStruck(_ item: AIExtractedName) -> Bool {
@@ -62,6 +70,14 @@ public struct ReaderAINameReviewCardView: View {
 
     private var struckCount: Int {
         onToggleStrike == nil ? 0 : names.filter { isStruck($0) }.count
+    }
+
+    /// Nhóm lọc có hiệu lực: nhóm đã chọn không còn mục nào (bỏ / chặn hết) ⇒ về Tất cả.
+    private var activeCategoryFilter: LocalNameFilter.Category? {
+        guard showsCategoryFilter, let categoryFilter,
+              names.contains(where: { LocalNameFilterCategoryBadge.category(forLabel: $0.category) == categoryFilter })
+        else { return nil }
+        return categoryFilter
     }
 
     private var sortChipLabel: String {
@@ -73,6 +89,7 @@ public struct ReaderAINameReviewCardView: View {
     }
 
     public var body: some View {
+        let activeFilter = activeCategoryFilter
         VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 8) {
@@ -161,110 +178,74 @@ public struct ReaderAINameReviewCardView: View {
             }
             .padding(.bottom, 2)
 
+            if showsCategoryFilter {
+                ReaderAINameReviewCategoryBar(names: names, active: activeFilter) { categoryFilter = $0 }
+            }
+
             // Danh sách tên riêng. `LazyVStack`: mỗi lần chọn/bỏ chọn (hay sửa nghĩa) `names` đổi, `VStack` thường
             // cập nhật lại MỌI hàng — vài trăm tên là giật; lazy chỉ dựng hàng đang hiện.
             LazyVStack(spacing: 6) {
                 ForEach($names) { $item in
-                    HStack(spacing: 4) {
-                        // Vùng chạm 44×44 (mức tối thiểu của Apple) thay cho icon 16 pt trơn.
-                        Button(action: {
-                            item.isSelected.toggle()
-                        }) {
-                            Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
-                                .foregroundColor(item.isSelected ? Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0) : .secondary)
-                                .font(.system(size: 22))
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        // Hàng gạch (luồng AI) không chọn được ⇒ không bao giờ được lưu.
-                        .disabled(isStruck(item))
-                        .opacity(isStruck(item) ? 0.35 : 1)
+                    // Chip loại chỉ ẩn hàng; vẫn duyệt cả `$names` (không lọc mảng binding: xoá mục lúc đang lọc
+                    // là binding lệch chỉ số).
+                    if activeFilter == nil || LocalNameFilterCategoryBadge.category(forLabel: item.category) == activeFilter {
+                        HStack(spacing: 4) {
+                            // Vùng chạm 44×44 (mức tối thiểu của Apple) thay cho icon 16 pt trơn.
+                            Button(action: {
+                                item.isSelected.toggle()
+                            }) {
+                                Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
+                                    .foregroundColor(item.isSelected ? Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0) : .secondary)
+                                    .font(.system(size: 22))
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            // Hàng gạch (luồng AI) không chọn được ⇒ không bao giờ được lưu.
+                            .disabled(isStruck(item))
+                            .opacity(isStruck(item) ? 0.35 : 1)
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                // Cỡ chữ theo hàng VP/Name (`DictionaryEntryRow`): tên `.headline`, nghĩa `.subheadline`.
-                                Text(item.original)
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    // Cỡ chữ theo hàng VP/Name (`DictionaryEntryRow`): tên `.headline`, nghĩa `.subheadline`.
+                                    Text(item.original)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                        .strikethrough(isStruck(item))
+                                        .lineLimit(2)
+
+                                    ReaderAINameReviewBadges(item: item, colorsCategory: showsCategoryFilter)
+                                }
+
+                                Text(item.suggestedMeaning)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
                                     .strikethrough(isStruck(item))
-                                    .lineLimit(2)
-
-                                Text(item.category)
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color(white: 0.25))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(4)
-                                    .fixedSize(horizontal: true, vertical: false)
-
-                                if item.hasInBookNames {
-                                    Text("NE")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1.5)
-                                        .background(Color.red.opacity(0.25))
-                                        .foregroundColor(.white)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .stroke(Color.red.opacity(0.8), lineWidth: 0.8)
-                                        )
-                                        .cornerRadius(4)
-                                        .fixedSize(horizontal: true, vertical: false)
-                                }
-
-                                if item.hasInBookVP {
-                                    Text("VP")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1.5)
-                                        .background(Color(red: 0.3, green: 0.6, blue: 0.9).opacity(0.25))
-                                        .foregroundColor(.white)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .stroke(Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.8), lineWidth: 0.8)
-                                        )
-                                        .cornerRadius(4)
-                                        .fixedSize(horizontal: true, vertical: false)
-                                }
-
-                                if item.occurrenceCount > 1 {
-                                    Text("\(item.occurrenceCount) lần")
-                                        .font(.system(size: 9))
-                                        .foregroundColor(.secondary)
-                                        .fixedSize(horizontal: true, vertical: false)
-                                }
+                                    .lineLimit(1)
+                            }
+                            .opacity(isStruck(item) ? 0.45 : 1)
+                            // Thân hàng (chữ + khoảng trống tới ✕) mở màn Sửa từ — như `DictionaryEntryRow`, không bọc cả
+                            // hàng trong `Button`. Chọn/bỏ chọn chỉ còn ở ô vuông bên trái.
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.trailing, 4)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                // Hàng gạch: bỏ gạch trước rồi mới sửa được.
+                                guard !isStruck(item) else { return }
+                                onEdit?(item.id)
                             }
 
-                            Text(item.suggestedMeaning)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .strikethrough(isStruck(item))
-                                .lineLimit(1)
+                            // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
+                            removeControl(id: item.id, term: item.original, struck: isStruck(item))
                         }
-                        .opacity(isStruck(item) ? 0.45 : 1)
-                        // Thân hàng (chữ + khoảng trống tới ✕) mở màn Sửa từ — như `DictionaryEntryRow`, không bọc cả
-                        // hàng trong `Button`. Chọn/bỏ chọn chỉ còn ở ô vuông bên trái.
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.trailing, 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            // Hàng gạch: bỏ gạch trước rồi mới sửa được.
+                        // Không đệm hai bên: khung 44 pt của ô chọn (trái) và ✕ (phải) đã tự chừa lề, hai icon cách mép đều nhau.
+                        .padding(.vertical, 4)
+                        .background(Color(UIColor.tertiarySystemBackground))
+                        .cornerRadius(8)
+                        .accessibilityAction(named: "Sửa") {
                             guard !isStruck(item) else { return }
                             onEdit?(item.id)
                         }
-
-                        // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
-                        removeControl(id: item.id, term: item.original, struck: isStruck(item))
-                    }
-                    // Không đệm hai bên: khung 44 pt của ô chọn (trái) và ✕ (phải) đã tự chừa lề, hai icon cách mép đều nhau.
-                    .padding(.vertical, 4)
-                    .background(Color(UIColor.tertiarySystemBackground))
-                    .cornerRadius(8)
-                    .accessibilityAction(named: "Sửa") {
-                        guard !isStruck(item) else { return }
-                        onEdit?(item.id)
                     }
                 }
             }
@@ -337,7 +318,8 @@ public struct ReaderAINameReviewCardView: View {
             .contentShape(Rectangle())
     }
 
-    /// "Chọn hết" / "Bỏ chọn" chỉ xét hàng chọn được (bỏ qua hàng gạch).
+    /// "Chọn hết" / "Bỏ chọn" chỉ xét hàng chọn được (bỏ qua hàng gạch). Tính trên **cả** `names`, không theo chip loại
+    /// đang chọn (luồng lọc local): chip chỉ đổi phần đang hiện.
     private var allSelected: Bool {
         // Không còn hàng nào chọn được (gạch hết) ⇒ nút hiện "Chọn hết" (bấm không làm gì) thay vì "Bỏ chọn".
         names.contains { !isStruck($0) } && names.allSatisfy { $0.isSelected || isStruck($0) }
