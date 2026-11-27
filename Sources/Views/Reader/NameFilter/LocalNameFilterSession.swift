@@ -182,6 +182,18 @@ final class LocalNameFilterSession {
         phase = .review
     }
 
+    /// Nút ‹ của màn duyệt (plan 2026-11-27-nghia-ten-tay-huyen mục 5): giữ danh sách đang duyệt thành gói tạm — cùng hàm
+    /// với lúc đóng sheet (`keepDraftOnClose`), không toast vì mục "Gói tạm chưa lưu" hiện ngay — rồi về bước chọn, sheet
+    /// không đóng. Sau đó đóng sheet thì không ghi gói lần nữa (không còn ở màn duyệt).
+    func leaveReview() {
+        guard phase == .review else { return }
+        _ = keepDraftOnClose()
+        reviewContext = nil
+        latestReviewNames = []
+        reviewNames = []
+        phase = .setup
+    }
+
     /// "Dừng": thôi đọc, phân tích nốt phần đã đọc rồi sang màn duyệt (khi bộ lọc phát `.finished`). Chưa kịp chạy
     /// (đang lấy danh sách chương) ⇒ chưa đọc gì, về bước chọn. Đang tải / nạp model ⇒ huỷ luôn (bộ lọc chỉ xét "Dừng"
     /// sau khi model xong, chờ tải hết 19 MB là vô ích), báo ở bước chọn.

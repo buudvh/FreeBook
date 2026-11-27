@@ -14,7 +14,8 @@ import SwiftUI
 ///    phân tích nốt phần đã đọc rồi sang bước 3. Lỗi ⇒ "Quay lại" / "Thử lại" (đúng cấu hình cũ).
 /// 3. Duyệt: thay cả gốc sheet bằng `ReaderAINameReviewSheet` (danh sách có sẵn, sắp "Nhiều lần nhất", chip lọc loại,
 ///    badge NE / VP + name đã có bỏ chọn sẵn, ✕ có "Không phải name"); lưu thẳng qua `AIHarnessService.saveExtractedEntries`
-///    như màn AI.
+///    như màn AI. Nút ‹ ở header ⇒ giữ gói tạm (không toast) rồi về bước 1, sheet không đóng
+///    (`LocalNameFilterSession.leaveReview`).
 /// Đóng sheet (vuốt xuống) ở bất kỳ bước nào ⇒ huỷ lượt lọc; đang duyệt mà chưa Lưu ⇒ giữ gói tạm + toast. `onDisappear`
 /// gắn ở `ZStack` ngoài cùng, sống qua mọi lần đổi bước (gắn vào `Group` thì SwiftUI rải xuống từng nhánh, đổi bước là
 /// tưởng đóng sheet). App vào nền lúc đang duyệt ⇒ cũng giữ gói (không toast).
@@ -67,7 +68,8 @@ struct LocalNameFilterSheet: View {
                     bookId: bookId,
                     onSave: { items, isName, isMerge in save(items, isName: isName, isMerge: isMerge) },
                     onBlockName: { item in block(item) },
-                    onNamesChange: { names in session.updateReviewNames(names) }
+                    onNamesChange: { names in session.updateReviewNames(names) },
+                    onBack: { session.leaveReview() }
                 )
             } else {
                 NavigationStack {

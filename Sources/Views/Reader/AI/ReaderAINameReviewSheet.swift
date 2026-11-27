@@ -41,6 +41,12 @@ public struct ReaderAINameReviewSheet: View {
     /// Luồng lọc local: danh sách đang duyệt mỗi lần đổi (chọn / bỏ chọn, sửa, bỏ mục, cờ NE / VP tra lại) — nơi gọi giữ
     /// bản mới nhất để thành gói tạm khi đóng màn mà chưa Lưu (`LocalNameFilterSession+Drafts`). Luồng AI: `nil`.
     let onNamesChange: (([AIExtractedName]) -> Void)?
+    /// Nút ‹ ở header (plan 2026-11-27-nghia-ten-tay-huyen mục 5, chỉ luồng lọc local): có ⇒ header là `HeaderBackButton`
+    /// + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`); bấm ⇒ nơi gọi giữ gói tạm rồi về
+    /// trang đầu "Lọc name local", sheet không đóng. Luồng AI: `nil` ⇒ header như cũ.
+    let onBack: (() -> Void)?
+    /// `\.sheetPageBack` của nơi trình bày — trả lại cho sheet Sửa từ để nút ‹ của màn duyệt không lan vào đó.
+    @Environment(\.sheetPageBack) private var inheritedSheetPageBack
 
     @State private var isLoading: Bool = true
     // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
@@ -69,19 +75,21 @@ public struct ReaderAINameReviewSheet: View {
         self.initialSortMode = .selectedFirst
         self.onBlockName = nil
         self.onNamesChange = nil
+        self.onBack = nil
         self._struckKeys = State(initialValue: struckKeys)
     }
 
     /// Luồng "Lọc name local": nhận sẵn danh sách (đã gắn cờ NE / VP, name đã có bỏ chọn sẵn; `occurrenceCount` = số lần
     /// thấy; mở lại gói tạm ⇒ đúng trạng thái đã giữ), sắp "Chưa có trước", chip lọc theo loại + badge loại có màu
-    /// (`ReaderAINameReviewCardView.showsCategoryFilter`), ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi
-    /// danh sách đang duyệt (không có tin nguồn).
+    /// (`ReaderAINameReviewCardView.showsCategoryFilter`), ✕ có "Không phải name" (`onBlockName`), nút ‹ về trang đầu
+    /// (`onBack`). Sửa một name chỉ đổi danh sách đang duyệt (không có tin nguồn).
     public init(
         names: [AIExtractedName],
         bookId: String,
         onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
         onBlockName: @escaping (AIExtractedName) -> Void,
-        onNamesChange: (([AIExtractedName]) -> Void)? = nil
+        onNamesChange: (([AIExtractedName]) -> Void)? = nil,
+        onBack: (() -> Void)? = nil
     ) {
         self.content = ""
         self.bookId = bookId
@@ -92,6 +100,7 @@ public struct ReaderAINameReviewSheet: View {
         self.initialSortMode = .notInDictionaryFirst
         self.onBlockName = onBlockName
         self.onNamesChange = onNamesChange
+        self.onBack = onBack
         self._names = State(initialValue: names)
         self._isLoading = State(initialValue: false)
         self._struckKeys = State(initialValue: [])
@@ -176,7 +185,7 @@ public struct ReaderAINameReviewSheet: View {
                     .scrollDismissesKeyboard(.interactively)
                 }
             }
-            .pageTitle("Duyệt tên riêng & VP")
+            .pageTitle("Duyệt tên riêng & VP", style: onBack == nil ? .leading : .centered)
             .presentationDragIndicator(.visible)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -211,6 +220,7 @@ public struct ReaderAINameReviewSheet: View {
                     editSheet(for: item)
                 }
                 .appGlassSheet()
+                .environment(\.sheetPageBack, inheritedSheetPageBack)
             }
             .onChange(of: names) { _, newNames in
                 onNamesChange?(newNames)
@@ -224,6 +234,8 @@ public struct ReaderAINameReviewSheet: View {
                 }
             }
         }
+        // Đặt **ngoài** `NavigationStack` (khuôn `SheetPageBackEnvironment`); luồng AI giữ nguyên giá trị kế thừa.
+        .environment(\.sheetPageBack, onBack ?? inheritedSheetPageBack)
     }
 
     /// Bước 1: chọn đích — mở dialog Gộp / Thay thế hoàn toàn.

@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1071] - 2026-11-27
+
+### fix: lọc name local ghi rõ "cập nhật sau N chương", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng
+
+Sửa sau lượt rà soát chéo ba commit lọc name local (1.3.1068–1070; hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
+
+- Màn đang lọc: dòng phụ "cập nhật ở chương X" ⇒ "cập nhật sau X chương" — X là số chương **đã đọc trong lượt**, lọc từ giữa truyện vẫn đếm từ 1 (`LocalNameFilterProgressView`).
+- Bấm "Dừng" trước khi đọc xong khối chương đầu ⇒ báo "Đã dừng trước khi đọc xong chương nào" thay cho "Không tìm thấy name mới · ẩn 0 name đã có" (`LocalNameFilterSession`).
+- Đẩy màn quản lý danh sách trước khi nạp xong danh sách chương ⇒ task bị huỷ, tên chương chỉ mới phồn → giản chưa dịch; nay bỏ kết quả dở để `.task` nạp lại khi quay về (`LocalNameFilterSheet+Setup`).
+- JSON của "Không phải name" / lớp riêng danh sách đuôi hỏng ⇒ dòng `❌` chỉ ghi **một lần** cho mỗi chuỗi hỏng (trước đây ghi mỗi lần đọc, mà sheet thêm / sửa đọc trong `body` ở từng phím gõ) (`LocalNameFilterBlocklistStore`, `LocalNameFilterSuffixStore`).
+- `.claude/rules/translation.md`: thêm mục "Lọc name local — bộ lọc + luồng Reader" (đổi luật thì sửa bản Python trước, danh xưng / nghĩa đuôi theo quyết định của anh Bửu, `start` internal, `cancel()` có thể còn sự kiện tới muộn).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1041 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1070] - 2026-11-27
 
 ### feat: bộ lọc name local tự dò tên người, địa danh, tông môn ngay trên máy

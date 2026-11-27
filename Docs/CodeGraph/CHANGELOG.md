@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1098] - 2026-11-27
+
+### feat: màn duyệt của lọc name local có nút quay lại, giữ danh sách thành gói tạm rồi về trang lọc
+
+- Màn "Duyệt tên riêng & VP" của luồng Lọc name local có nút ‹ ở header (plan 2026-11-27-nghia-ten-tay-huyen mục 5): `ReaderAINameReviewSheet` nhận `onBack` tuỳ chọn ⇒ `HeaderBackButton` + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`, đặt ngoài `NavigationStack`). Luồng AI không truyền ⇒ header như cũ; sheet Sửa từ mở từ màn duyệt nhận lại giá trị `\.sheetPageBack` kế thừa nên không có nút ‹ lạ.
+- Bấm ‹ ⇒ `LocalNameFilterSession.leaveReview`: giữ danh sách đang duyệt thành gói tạm bằng đúng hàm lúc đóng sheet (`keepDraftOnClose`), không toast, rồi về trang đầu "Lọc name local" — sheet không đóng, mục "Gói tạm chưa lưu" hiện ngay (trang đầu nạp lại gói khi hiện ra). Đóng sheet sau đó không ghi gói lần nữa.
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1097] - 2026-11-27
 
 ### feat: lọc name local lấy nghĩa theo từ điển, danh sách đuôi chỉ để dịch nghĩa, công tắc ưu tiên tên Latin theo truyện có mô hình đoán tên
@@ -328,17 +336,3 @@ Anh Bửu: "danh sách name của AI có nút X nhỏ quá, tăng to lên cho t�
 - Hàng bỏ đệm phải 8 pt: khung 44 pt của ✕ tự chừa lề, hai icon cách mép đều nhau.
 - Không build tại chỗ (Windows).
 - Dọn: entry 1.3.1042 chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1071] - 2026-11-27
-
-### fix: lọc name local ghi rõ "cập nhật sau N chương", báo riêng khi dừng sớm, nạp lại tên chương bị huỷ dở, không lặp log danh sách hỏng
-
-Sửa sau lượt rà soát chéo ba commit lọc name local (1.3.1068–1070; hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
-
-- Màn đang lọc: dòng phụ "cập nhật ở chương X" ⇒ "cập nhật sau X chương" — X là số chương **đã đọc trong lượt**, lọc từ giữa truyện vẫn đếm từ 1 (`LocalNameFilterProgressView`).
-- Bấm "Dừng" trước khi đọc xong khối chương đầu ⇒ báo "Đã dừng trước khi đọc xong chương nào" thay cho "Không tìm thấy name mới · ẩn 0 name đã có" (`LocalNameFilterSession`).
-- Đẩy màn quản lý danh sách trước khi nạp xong danh sách chương ⇒ task bị huỷ, tên chương chỉ mới phồn → giản chưa dịch; nay bỏ kết quả dở để `.task` nạp lại khi quay về (`LocalNameFilterSheet+Setup`).
-- JSON của "Không phải name" / lớp riêng danh sách đuôi hỏng ⇒ dòng `❌` chỉ ghi **một lần** cho mỗi chuỗi hỏng (trước đây ghi mỗi lần đọc, mà sheet thêm / sửa đọc trong `body` ở từng phím gõ) (`LocalNameFilterBlocklistStore`, `LocalNameFilterSuffixStore`).
-- `.claude/rules/translation.md`: thêm mục "Lọc name local — bộ lọc + luồng Reader" (đổi luật thì sửa bản Python trước, danh xưng / nghĩa đuôi theo quyết định của anh Bửu, `start` internal, `cancel()` có thể còn sự kiện tới muộn).
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
-- Dọn: entry 1.3.1041 chuyển sang `CHANGELOG.archive.md`.
