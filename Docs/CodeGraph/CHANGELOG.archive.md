@@ -2,6 +2,24 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1047] - 2026-11-23
+
+### feat: TTS — hàng Âm lượng theo giọng cho vtts, NghiTTS, VieNeu (Google Dịch mặc định −3 dB cho hết rè, ghìm đỉnh mềm)
+
+Anh Bửu: "giọng Google Dịch bị rè quá" → 5 bản xử lý sau đều rè → chẩn đoán từng khâu (Kaggle CPU `vtts-k5-diagnose`): không khâu nào rè ở −20 dB → "có khi nào do tăng âm lượng" → bộ nghe tách yếu tố: cùng câu kéo lên −14 dB (mức app) có / không lọc đều rè, −17 dB không rè ⇒ **app kéo to quá**, model không cần train lại → "thêm config tăng âm lượng" → rà mọi trình đọc → "Làm cho cả ba" → duyệt mockup https://claude.ai/artifact/SiAJyQbt7tgWohnCJesDcg.
+
+- **`TTSVolumeSettings`** (mới, `Services/TTS/Loudness/`): số dB to / nhỏ hơn mức app vẫn kéo (0 = như trước), −12…+4, lưu riêng từng cặp trình đọc + giọng trong một khoá JSON `ttsVolumeOffsets` (chỉ mục khác mặc định). Mặc định 0, riêng vtts Google Dịch −3 (= mức −17 dB anh nghe không rè). Khoá giọng: vtts `VttsVoice.id`, NghiTTS tên giọng, VieNeu `"nano:<tên>"` / `"turbo:<id>"`.
+- **Áp vào tiếng**:
+  - vtts: mức đích `VttsLoudness` = −14 + dB (mức âm được hạ tới đúng mức đó; 0 dB y như cũ), đoạn ngắn = mức cố định của giọng + dB; log `vol=`.
+  - NghiTTS: `PiperTTSService` nhân dB lên WAV + ghìm đỉnh (`TTSVolumeStage.applyToWAV`; 0 dB không đụng).
+  - VieNeu Nano (`VieNeuTTSEngine`, sau khi ghép mảnh) và Turbo (`VieNeuTurboTTSService`): nhân dB + **luôn ghìm đỉnh** — trước đây Nano cân mảnh ±4 dB không ghìm, mảnh đỉnh cao bị `WAVEncoder` kẹp cứng (rè).
+  - Đọc lai Nano · Turbo: đoạn của model phụ (đọc bằng giọng cặp, khoá riêng) được kéo thêm `mức giọng chính − mức giọng cặp` trước khi khớp RMS ⇒ cả hai model theo mức của giọng đang chọn; `VieNeuHybridLoudness` không kéo đỉnh quá −1 dBFS.
+  - Google Cloud / tiện ích / Siri không đổi (phát nguyên).
+- **`TTSPeakLimiter`** (mới): bộ ghìm đỉnh mềm −1 dBFS tách từ `VttsLoudness` (cùng thuật toán), dùng chung. **`TTSVolumeStage`** (mới): nhân dB + ghìm, bản cho WAV PCM16.
+- **Giao diện**: `TTSVolumeRow` "Âm lượng:" (nút ± và thanh kéo, dòng dưới "<giọng> · mặc định <dB>") cuối "Cấu hình giọng nói", trước Cao độ, ở Cài đặt TTS và màn Giọng dự phòng khi trình đọc là vtts / NghiTTS / VieNeu. Nút "?" thêm đoạn giải thích Âm lượng (NghiTTS được thêm nút "?"); "Đặt lại" đưa giọng đang chọn về mặc định.
+- **Làm mới tiếng**: mức nằm trong `TTSSettingsSnapshot` (`volumeOffset`), fingerprint giọng dự phòng và `TTSSynthesisIdentity` (chỉ ghép khi ≠ 0 ⇒ khoá cũ của giọng 0 dB không đổi) + khoá mặc định của từng service ⇒ đổi mức, đóng Cài đặt là dựng lại đoạn; ▶ thử giọng nghe đúng mức. `TTSManager.onlineFallbackVoice` + `effectiveVieNeuVoice` thành `nonisolated` (fingerprint dự phòng gọi ngoài MainActor).
+- Cập nhật `.claude/rules/tts.md`, `tts-vieneu.md`. Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1046] - 2026-11-23
 
 ### feat: vtts — đóng giọng Google Dịch vào app (Có sẵn trong app, cạnh Ngọc Huyền)

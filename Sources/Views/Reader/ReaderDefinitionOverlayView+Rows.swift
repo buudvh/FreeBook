@@ -8,9 +8,12 @@ import SwiftUI
 /// phải là `internal` vì `private` trong Swift là phạm vi **file**.
 extension ReaderDefinitionOverlayView {
 
-    /// Bề ngang tối thiểu của nút NE / VP / PN / R / C (mockup Pronoun khung 1, panel 329 pt): một hàng có 5 nút này,
-    /// máy hẹp thì mức sàn thắng và cụm aa…AA tự co (~27 pt / nút); máy rộng hơn cả hai cụm cùng giãn như trước.
-    private static let segmentButtonMinWidth: CGFloat = 30
+    /// Bề ngang **cố định** của nút NE / VP / PN / R / C (mockup Pronoun khung 1 anh Bửu chọn: "nút loại còn khoảng
+    /// 30 pt"). Cố định chứ không `minWidth` + `maxWidth: .infinity`: hai cụm cùng co giãn vô hạn thì HStack có thể chia
+    /// đôi cho cụm aa…AA trước ⇒ cụm nút loại thiếu ~11 pt ở panel 329 pt (máy 375 pt) và hàng tràn; còn trần hữu hạn
+    /// thì HStack trong chia cho cụm R | C trước ⇒ R / C rộng hơn NE / VP / PN. Cụm nút này cứng ⇒ đặt trước, cụm aa…AA
+    /// nhận phần còn lại (~27 pt / nút ở 329 pt, giãn trên máy rộng).
+    private static let segmentButtonWidth: CGFloat = 30
 
     internal var combinedFormattingAndPickersView: some View {
         HStack(spacing: 8) {
@@ -109,7 +112,7 @@ extension ReaderDefinitionOverlayView {
             Text(title)
                 .font(.system(size: 13, weight: isSelected ? .bold : .medium))
                 .foregroundColor(isSelected ? selectedTheme.textColor : .secondary)
-                .frame(minWidth: Self.segmentButtonMinWidth, maxWidth: .infinity)
+                .frame(width: Self.segmentButtonWidth)
                 .padding(.vertical, 6)
                 .background(isSelected ? Color.secondary.opacity(0.25) : Color.clear)
                 .cornerRadius(6)

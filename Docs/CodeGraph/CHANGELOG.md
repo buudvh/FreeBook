@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1077] - 2026-11-27
+
+### fix: nút NE, VP, PN, R, C ở panel Dịch rộng cố định 30 pt để hàng nút không tràn trên máy 375 pt
+
+Rà lại 1.3.1076 (chưa thử máy): nút loại / phạm vi đặt `minWidth: 30` + `maxWidth: .infinity` trong khi cụm aa…AA cũng giãn vô hạn ⇒ hai cụm hoà về độ co giãn, `HStack` có thể chia đôi cho cụm aa…AA trước ⇒ cụm NE | VP | PN · R | C thiếu ~11 pt ở panel 329 pt (máy 375 pt) và hàng tràn; đặt trần hữu hạn thì `HStack` bên trong lại chia cho cụm R | C trước ⇒ R / C rộng hơn NE / VP / PN.
+
+- `ReaderDefinitionOverlayView+Rows.dictSegmentButton`: `.frame(width: segmentButtonWidth)` = 30 pt cố định — đúng mockup khung 1 anh Bửu chọn ("nút loại còn khoảng 30 pt"). Cụm nút cứng ⇒ đặt trước, cụm aa…AA nhận phần còn lại (~27 pt / nút ở 329 pt, giãn trên máy rộng). Trên máy rộng hơn 375 pt, NE / VP / R / C không còn giãn theo màn (trước 1.3.1076 rộng ~36–47 pt).
+- Sửa chữ entry 1.3.1076: lưu PN đổi chip / bảng tra ngay, còn **chữ dịch** chỉ đổi ở chỗ có rule `<pn>` khớp (tách từ không tra Pronouns từ 1.3.1016 — luật đó giữ nguyên).
+- Dọn: entry 1.3.1047 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang chưa đo trên máy.
+
 ## [1.3.1076] - 2026-11-27
 
 ### feat: panel Dịch lưu được vào Pronoun bằng nút PN cạnh NE và VP
@@ -11,7 +21,7 @@ Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 6): chọn 
 - **Hàng định dạng + nơi lưu** (`ReaderDefinitionOverlayView+Rows`, dùng chung panel Dịch Reader và sheet Dịch của truyện tranh): `[aa Aa¹ Aa² Aa AA] | [NE|VP|PN] [R|C]`. Nút NE / VP / PN / R / C bề ngang tối thiểu 30 pt (máy 375 pt: cụm aa…AA tự co còn ~27 pt / nút, chữ aa…AA co tới 80% nếu thiếu chỗ; máy rộng hơn cả hai cụm giãn như trước).
 - **Lựa chọn ba giá trị** `DefinitionSaveTarget` (mới: `.name` / `.vietPhrase` / `.pronoun`) thay `@State saveAsNameType: Bool` ở `ReaderView` và `ComicDefinitionSheet`. Ghim mặc định giữ nguyên `@AppStorage pinnedSaveAsNameType` (`Bool`, NE / VP) — PN không ghim được: `dictSegmentButton` nhận `onPin: nil` ⇒ tắt riêng cử chỉ nhấn giữ (`including: .subviews`), không badge, không rung, không toast. Mở panel / đổi vùng chọn vẫn lấy NE hoặc VP theo ghim (kể cả đang chọn PN mà nới vùng chọn — như NE / VP hiện nay).
 - **Chọn PN ⇒ cụm R | C mờ 0,35**, không bấm / không nhấn giữ ghim được (`.disabled` + `.allowsHitTesting(false)`); lựa chọn R / C giữ nguyên, chọn lại NE / VP thì về như cũ.
-- **"Cập nhật" với PN** (`DefinitionSaveTarget.save`): nghĩa chuẩn hoá như NE / VP (`DictionaryTextFileStore.normalizeMeaning`) rồi `GlobalDictionaryEditor.save` vào file Pronouns gốc — từ đã có ⇒ thay nghĩa; dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch, báo đổi từ điển (Reader / truyện tranh tra lại chip, dịch lại). Thành công ⇒ đóng panel y NE / VP — NE / VP vốn **không** có toast thành công nên PN cũng không; lỗi ⇒ "Không lưu được định nghĩa (Pronoun): …".
+- **"Cập nhật" với PN** (`DefinitionSaveTarget.save`): nghĩa chuẩn hoá như NE / VP (`DictionaryTextFileStore.normalizeMeaning`) rồi `GlobalDictionaryEditor.save` vào file Pronouns gốc — từ đã có ⇒ thay nghĩa; dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch, báo đổi từ điển (Reader / truyện tranh tra lại chip; chữ dịch chỉ đổi ở chỗ có rule `<pn>` khớp — tách từ không tra Pronouns từ 1.3.1016). Thành công ⇒ đóng panel y NE / VP — NE / VP vốn **không** có toast thành công nên PN cũng không; lỗi ⇒ "Không lưu được định nghĩa (Pronoun): …".
 - `.claude/rules/translation.md` thêm phần panel Dịch vào đoạn "Pronoun trên chip nghĩa".
 - Dọn: entry 1.3.1046 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Bề ngang hàng nút chưa đo trên máy.
 
@@ -363,21 +373,3 @@ Anh Bửu: "vtts giảm âm lượng vẫn bị rè, tất cả giọng đều c
 - **Chuyển một lần** (`vttsDefaultMigration`, lần đọc bảng đầu tiên, cờ `ttsVolumeOffsetsVttsDefaultMinus6`): mục vtts anh đã chỉnh to hơn −6 bị bỏ ⇒ về mặc định mới, mục nhỏ hơn giữ nguyên; log `🔊 [TTSVolume]`. Mức ≠ 0 ⇒ khoá tổng hợp vtts đổi ⇒ tiếng đã đệm được tạo lại.
 - Đoạn giải thích Âm lượng (nút "?") nói rõ ghìm càng nhiều càng rè + vtts mặc định −6. Cập nhật `.claude/rules/tts.md`.
 - Chưa build được tại chỗ (Windows). Chưa thử máy. Vẫn rè ⇒ nghi kế tiếp là trình phát kéo nhanh (1,8× ⇒ kéo thêm ~1,29×), rồi mới tới EQ.
-
-## [1.3.1047] - 2026-11-23
-
-### feat: TTS — hàng Âm lượng theo giọng cho vtts, NghiTTS, VieNeu (Google Dịch mặc định −3 dB cho hết rè, ghìm đỉnh mềm)
-
-Anh Bửu: "giọng Google Dịch bị rè quá" → 5 bản xử lý sau đều rè → chẩn đoán từng khâu (Kaggle CPU `vtts-k5-diagnose`): không khâu nào rè ở −20 dB → "có khi nào do tăng âm lượng" → bộ nghe tách yếu tố: cùng câu kéo lên −14 dB (mức app) có / không lọc đều rè, −17 dB không rè ⇒ **app kéo to quá**, model không cần train lại → "thêm config tăng âm lượng" → rà mọi trình đọc → "Làm cho cả ba" → duyệt mockup https://claude.ai/artifact/SiAJyQbt7tgWohnCJesDcg.
-
-- **`TTSVolumeSettings`** (mới, `Services/TTS/Loudness/`): số dB to / nhỏ hơn mức app vẫn kéo (0 = như trước), −12…+4, lưu riêng từng cặp trình đọc + giọng trong một khoá JSON `ttsVolumeOffsets` (chỉ mục khác mặc định). Mặc định 0, riêng vtts Google Dịch −3 (= mức −17 dB anh nghe không rè). Khoá giọng: vtts `VttsVoice.id`, NghiTTS tên giọng, VieNeu `"nano:<tên>"` / `"turbo:<id>"`.
-- **Áp vào tiếng**:
-  - vtts: mức đích `VttsLoudness` = −14 + dB (mức âm được hạ tới đúng mức đó; 0 dB y như cũ), đoạn ngắn = mức cố định của giọng + dB; log `vol=`.
-  - NghiTTS: `PiperTTSService` nhân dB lên WAV + ghìm đỉnh (`TTSVolumeStage.applyToWAV`; 0 dB không đụng).
-  - VieNeu Nano (`VieNeuTTSEngine`, sau khi ghép mảnh) và Turbo (`VieNeuTurboTTSService`): nhân dB + **luôn ghìm đỉnh** — trước đây Nano cân mảnh ±4 dB không ghìm, mảnh đỉnh cao bị `WAVEncoder` kẹp cứng (rè).
-  - Đọc lai Nano · Turbo: đoạn của model phụ (đọc bằng giọng cặp, khoá riêng) được kéo thêm `mức giọng chính − mức giọng cặp` trước khi khớp RMS ⇒ cả hai model theo mức của giọng đang chọn; `VieNeuHybridLoudness` không kéo đỉnh quá −1 dBFS.
-  - Google Cloud / tiện ích / Siri không đổi (phát nguyên).
-- **`TTSPeakLimiter`** (mới): bộ ghìm đỉnh mềm −1 dBFS tách từ `VttsLoudness` (cùng thuật toán), dùng chung. **`TTSVolumeStage`** (mới): nhân dB + ghìm, bản cho WAV PCM16.
-- **Giao diện**: `TTSVolumeRow` "Âm lượng:" (nút ± và thanh kéo, dòng dưới "<giọng> · mặc định <dB>") cuối "Cấu hình giọng nói", trước Cao độ, ở Cài đặt TTS và màn Giọng dự phòng khi trình đọc là vtts / NghiTTS / VieNeu. Nút "?" thêm đoạn giải thích Âm lượng (NghiTTS được thêm nút "?"); "Đặt lại" đưa giọng đang chọn về mặc định.
-- **Làm mới tiếng**: mức nằm trong `TTSSettingsSnapshot` (`volumeOffset`), fingerprint giọng dự phòng và `TTSSynthesisIdentity` (chỉ ghép khi ≠ 0 ⇒ khoá cũ của giọng 0 dB không đổi) + khoá mặc định của từng service ⇒ đổi mức, đóng Cài đặt là dựng lại đoạn; ▶ thử giọng nghe đúng mức. `TTSManager.onlineFallbackVoice` + `effectiveVieNeuVoice` thành `nonisolated` (fingerprint dự phòng gọi ngoài MainActor).
-- Cập nhật `.claude/rules/tts.md`, `tts-vieneu.md`. Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
