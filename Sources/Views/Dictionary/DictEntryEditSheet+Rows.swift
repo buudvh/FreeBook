@@ -59,7 +59,7 @@ extension DictEntryEditSheet {
                     .autocorrectionDisabled()
                     .focused($isKeyFieldFocused)
 
-                if displayKey != trimmedOriginalKey {
+                if displayKey != trimmedOriginalKey, !isAddingListEntry {
                     Button(action: { workingKey = originalKey }) {
                         Image(systemName: "arrow.uturn.backward.circle.fill")
                             .foregroundColor(.secondary)
@@ -72,10 +72,13 @@ extension DictEntryEditSheet {
             .background(Color.secondary.opacity(0.1))
             .cornerRadius(8)
 
-            Text("Nếu thay đổi từ gốc thành từ khác đã tồn tại, nghĩa của từ đó sẽ bị ghi đè.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Danh sách từ chối khoá đã có (lỗi đỏ ở dòng thông báo) — câu "ghi đè" chỉ đúng với từ điển.
+            if listMode == nil {
+                Text("Nếu thay đổi từ gốc thành từ khác đã tồn tại, nghĩa của từ đó sẽ bị ghi đè.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 
@@ -193,7 +196,7 @@ extension DictEntryEditSheet {
     var meaningInputView: some View {
         HStack(alignment: .top) {
             if isLoadingMeaning { ProgressView().controlSize(.small) }
-            TextField("Nhập nghĩa dịch...", text: meaningBinding, axis: .vertical)
+            TextField(listMode?.meaningPlaceholder ?? "Nhập nghĩa dịch...", text: meaningBinding, axis: .vertical)
                 .lineLimit(2, reservesSpace: true)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(false)
@@ -305,13 +308,14 @@ extension DictEntryEditSheet {
     /// "Lưu thêm X, giữ nguyên Y" khi vùng chọn là một phần; cảnh báo ghi đè khi từ đích đã có trong danh sách.
     @ViewBuilder
     var noticeView: some View {
-        if let newKey = addedKey {
+        if let newKey = addedKey, !isAddingListEntry {
             noticeLine("Lưu thêm \(newKey), giữ nguyên \(trimmedOriginalKey)", systemImage: "plus.circle", color: .secondary)
         }
-        if let action = saveAction, action != .update, targetExistingValue != nil {
+        if listMode == nil, let action = saveAction, action != .update, targetExistingValue != nil {
             noticeLine("\(saveTargetKey) đã có trong danh sách — nghĩa cũ sẽ bị ghi đè.",
                        systemImage: "exclamationmark.triangle.fill", color: .orange)
         }
+        listErrorNoticeView
     }
 
     /// Cụm sẽ được thêm thành mục mới (vùng chọn là một phần); `nil` ở hai cách lưu còn lại.
@@ -329,7 +333,7 @@ extension DictEntryEditSheet {
 
     var updateButtonView: some View {
         Button(action: handleSave) {
-            Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
+            Label(isAddingListEntry ? "Thêm" : "Cập nhật", systemImage: "tray.and.arrow.down.fill")
         }
         .buttonStyle(.appFilled)
         .disabled(isSaveDisabled)

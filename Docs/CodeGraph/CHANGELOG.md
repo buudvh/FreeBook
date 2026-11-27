@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1075] - 2026-11-27
+
+### feat: đuôi địa danh, Không phải name, Danh sách họ và token tùy chọn sửa bằng màn Sửa từ như từ điển
+
+Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 1, mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 4): "làm cái gì có vế trái là chữ Hán giống từ điển cũng làm kiểu edit của từ điển" — bốn danh sách `chữ Hán = …` bỏ form hai ô, thêm / sửa một mục mở **chính** màn Sửa từ `DictEntryEditSheet` (hàng chữ gốc chọn được ‹ › | chữ | ‹ ›, hàng token, ô nghĩa, chip nghĩa gợi ý, aa…AA, "Cập nhật", tra cứu ngoài, bút chì đổi chữ gốc).
+
+- **Chế độ danh sách** (`DictEntryEditListMode` mới + `DictEntryEditSheet+List.swift`, tham số `listMode:` cuối init, mặc định `nil` ⇒ VP / Name / Pronouns / name AI chạy y như trước — ba chỗ gọi cũ không sửa): kiểm luật + trùng khoá qua store của từng danh sách, lỗi hiện đỏ ở dòng thông báo (ô trống không tô đỏ); store từ chối khoá đã có nên câu "sẽ bị ghi đè" + cảnh báo cam ẩn đi; lưu trả lỗi ⇒ sheet giữ nguyên. Khoá rỗng = thêm mới: tiêu đề "Thêm từ", ô gõ chữ gốc mở sẵn + focus, nút "Thêm". Chọn cả từ ⇒ cập nhật / đổi chữ gốc (`replacing` = khoá đang sửa); chọn một phần ⇒ thêm mục mới = phần đang chọn, mục đang sửa giữ nguyên ("Lưu thêm X, giữ nguyên Y"). Hàng phụ riêng của danh sách qua `extraRows` (sau aa…AA) + `isExtraDirty` (hỏi "Bỏ thay đổi?"). Không gắn truyện ⇒ không có ⚙ Quản lý nghĩa; chip lấy từ hàm chip dùng chung (có chip Pronoun của 1.3.1074).
+- **Đuôi địa danh & tông môn** (`LocalNameFilterSuffixEditorSheet`): badge "Đuôi · Chung", khối **Loại** (Địa danh / Tông môn) + **Nghĩa đứng** (Trước tên / Sau tên, mục mới mặc định Sau tên, loại mặc định theo tab) và dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn; giữ "Nghĩa gốc: …" khi nghĩa khác bản gốc và nút "Về bản gốc: …" cho đuôi gốc đã sửa.
+- **Không phải name** (`LocalNameFilterBlocklistEditorSheet`, thay `LocalNameFilterBlocklistAddSheet`): chỉ hàng chữ gốc + hàng token, không ô nghĩa / chip / aa…AA. Hàng của danh sách nay chạm thân hàng = sửa cụm (trước chỉ xoá rồi thêm lại); đổi cụm qua `LocalNameFilterBlocklistStore.replace(_:with:)` mới — giữ chỗ và ngày thêm, trùng cụm khác ⇒ lỗi; cụm giữ nguyên ⇒ không làm gì, không toast.
+- **Danh sách họ** (`QuickTranslationSurnameEditorSheet`): badge "Họ · Chung", ô nghĩa = âm Hán-Việt của họ, giữ nút "Về âm gốc: …".
+- **Token tùy chọn** (`QuickTranslationCustomTokenEntryEditorSheet`): badge "<@tên> · Chung", ô nghĩa = nghĩa của từ.
+- `onSave` của ba sheet đuôi / họ / token thêm tham số `replacing` (màn danh sách thôi tự lấy khoá của mục đang mở). Ghi chú: `.claude/rules/ui-conventions.md` (luật "Danh sách vế trái chữ Hán ⇒ màn Sửa từ"), `translation.md` (đoạn cùng tên + Danh sách họ / Token tùy chọn / Lọc name local).
+- Dọn: entry 1.3.1045 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1074] - 2026-11-27
 
 ### feat: chip nghĩa Pronoun viền tím, nhóm Pronoun trong Quản lý nghĩa từ, tách nghĩa Pronoun bằng | và chuẩn hoá | thành / một lần
@@ -367,15 +381,3 @@ Anh Bửu: "thêm giọng google và ipa nữa" — sau khi Javis báo rủi ro 
 - **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Google Dịch (nguồn tiếng không chính thức, không liên kết với Google, câu chữ dùng để đọc); `Vendor/vtts/README.md` ghi cách gỡ nếu bị yêu cầu (xoá file + `VttsVoice.googleDich` + dòng `VOICES` / `LOCAL_SHA256SUMS`, sửa số file mong đợi).
 - Ai đã tự nhập `Google Dịch.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
 - Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1045] - 2026-11-23
-
-### ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh
-
-Anh Bửu: "file realease vượt 50 MB có vấn đề gì ko" → Javis kiểm build 1327 (1.3.1044): IPA 50 417 384 byte vượt ngưỡng 50 000 000 byte của bước gửi Telegram ⇒ workflow đẩy IPA lên transfer.sh, dịch vụ không kết nối được (hết 30 s) ⇒ tin tới Telegram với dòng "Tải IPA tại đây:" **trống**. Release + nguồn LiveContainer vẫn đủ. Plan → "Duyệt, sửa đi".
-
-- **Ngưỡng** = giới hạn thật của Bot API: 50 MiB (52 428 800 byte). Dưới ngưỡng ⇒ `sendDocument` như cũ.
-- **Vượt ngưỡng hoặc `sendDocument` hết 3 lượt vẫn lỗi** ⇒ `sendMessage` cùng danh sách commit, tiêu đề ghi lý do ("IPA <cỡ MiB> MB, quá 50 MB của bot" / "gửi file IPA lỗi"), dòng `⬇️ Tải IPA: <link>` = asset của release `build-<số build>` (`RELEASE_IPA_URL`, bước Publish ghi vào `GITHUB_ENV`, cùng tên tag / asset với `publish_altstore_source.py`); không có release (nhánh khác, Publish lỗi) ⇒ link trang lượt build (IPA ở Artifacts). Bỏ hẳn transfer.sh. Trước đây `sendDocument` lỗi chỉ để lại cảnh báo, không có tin nào tới.
-- **Package IPA** nén `zip -9`.
-- `.claude/rules/ci-release.md`: mục "IPA lớn hơn giới hạn gửi file của bot"; luật "không gửi link release" thêm ngoại lệ này.
-- Không đổi code app. Chỉ sửa workflow (không tự kích hoạt build — chạy ở lượt build kế tiếp). Chưa thấy chạy thật.

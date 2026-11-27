@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1045] - 2026-11-23
+
+### ci: Telegram — IPA quá 50 MB gửi tin kèm link tải ở GitHub Release, bỏ transfer.sh
+
+Anh Bửu: "file realease vượt 50 MB có vấn đề gì ko" → Javis kiểm build 1327 (1.3.1044): IPA 50 417 384 byte vượt ngưỡng 50 000 000 byte của bước gửi Telegram ⇒ workflow đẩy IPA lên transfer.sh, dịch vụ không kết nối được (hết 30 s) ⇒ tin tới Telegram với dòng "Tải IPA tại đây:" **trống**. Release + nguồn LiveContainer vẫn đủ. Plan → "Duyệt, sửa đi".
+
+- **Ngưỡng** = giới hạn thật của Bot API: 50 MiB (52 428 800 byte). Dưới ngưỡng ⇒ `sendDocument` như cũ.
+- **Vượt ngưỡng hoặc `sendDocument` hết 3 lượt vẫn lỗi** ⇒ `sendMessage` cùng danh sách commit, tiêu đề ghi lý do ("IPA <cỡ MiB> MB, quá 50 MB của bot" / "gửi file IPA lỗi"), dòng `⬇️ Tải IPA: <link>` = asset của release `build-<số build>` (`RELEASE_IPA_URL`, bước Publish ghi vào `GITHUB_ENV`, cùng tên tag / asset với `publish_altstore_source.py`); không có release (nhánh khác, Publish lỗi) ⇒ link trang lượt build (IPA ở Artifacts). Bỏ hẳn transfer.sh. Trước đây `sendDocument` lỗi chỉ để lại cảnh báo, không có tin nào tới.
+- **Package IPA** nén `zip -9`.
+- `.claude/rules/ci-release.md`: mục "IPA lớn hơn giới hạn gửi file của bot"; luật "không gửi link release" thêm ngoại lệ này.
+- Không đổi code app. Chỉ sửa workflow (không tự kích hoạt build — chạy ở lượt build kế tiếp). Chưa thấy chạy thật.
+
 ## [1.3.1044] - 2026-11-23
 
 ### feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)

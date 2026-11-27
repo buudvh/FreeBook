@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 /// Màn **danh sách từ** của một token tùy chọn `<@tên>` (1.3.1063) — mở từ màn Token tùy chọn hoặc từ menu nhấn giữ của
 /// bảng token ở màn sửa rule (đẩy trang trong sheet). Kiểu màn danh sách 1.3.636 như `QuickTranslationSurnameListView`:
 /// header nút quay lại + `…` (`.sideDrawerMenu`: Sửa mô tả, Tắt / Bật token, Nhập file, Xuất file, Xoá token), ô tìm luôn
-/// hiện, nút `+` nổi "Thêm từ", hàng `QuickTranslationCustomTokenEntryRow` (chạm thân hàng mở sheet sửa, `[Xoá]`).
+/// hiện, nút `+` nổi "Thêm từ", hàng `QuickTranslationCustomTokenEntryRow` (chạm thân hàng mở màn Sửa từ
+/// `QuickTranslationCustomTokenEntryEditorSheet`, `[Xoá]`).
 ///
 /// Store không phát thay đổi ⇒ giữ bản chụp ở `@State`, đọc lại sau mọi lần ghi và ở `onAppear`. Xoá token ở ngăn kéo
 /// ⇒ màn tự quay lại; token đã mất vì lý do khác thì tiêu đề section ghi "Token không còn".
@@ -114,8 +115,8 @@ struct QuickTranslationCustomTokenEntryListView: View {
         }
         .sheet(item: $editorTarget) { target in
             Group {
-                QuickTranslationCustomTokenEntryEditorSheet(tokenName: tokenName, original: target.entry) { key, meaning in
-                    save(key: key, meaning: meaning, replacing: target.entry?.key)
+                QuickTranslationCustomTokenEntryEditorSheet(tokenName: tokenName, original: target.entry) { key, meaning, replacing in
+                    save(key: key, meaning: meaning, replacing: replacing)
                 }
             }
             .appGlassSheet()

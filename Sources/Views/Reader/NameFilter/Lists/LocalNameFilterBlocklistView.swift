@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Màn **Không phải name** của Lọc name local (mockup khung 6) — đẩy vào `NavigationStack` của sheet "Lọc name local" từ
 /// mục "Danh sách". Kiểu màn danh sách: header nút quay lại + `…` (`.sideDrawerMenu`: Xoá hết), ô tìm luôn hiện (chữ Hán /
-/// âm Hán-Việt), tiêu đề section "N cụm", hàng `LocalNameFilterBlocklistRow` (🗑), nút `+` nổi mở
-/// `LocalNameFilterBlocklistAddSheet`.
+/// âm Hán-Việt), tiêu đề section "N cụm", hàng `LocalNameFilterBlocklistRow` (chạm thân hàng mở màn Sửa từ, 🗑), nút `+`
+/// nổi mở cùng màn ở chế độ thêm — `LocalNameFilterBlocklistEditorSheet`.
 ///
 /// Store (`LocalNameFilterBlocklistStore`) không phát thay đổi ⇒ màn giữ bản chụp ở `@State`, đọc lại sau mọi lần ghi và
 /// ở `onAppear` (cụm thêm từ màn duyệt hiện ra khi quay lại). Âm Hán-Việt tính một lần mỗi lần đọc lại, không trong `body`.
@@ -20,6 +20,12 @@ struct LocalNameFilterBlocklistView: View {
         var id: String { term }
     }
 
+    /// Đích của màn Sửa từ; `term == nil` = thêm cụm mới.
+    private struct EditorTarget: Identifiable {
+        let id = UUID()
+        let term: String?
+    }
+
     private static let title = "Không phải name"
 
     /// "dd/MM" cố định, không theo vùng máy.
@@ -32,7 +38,7 @@ struct LocalNameFilterBlocklistView: View {
 
     @State private var items: [Item] = []
     @State private var searchText = ""
-    @State private var showingAddSheet = false
+    @State private var editorTarget: EditorTarget?
     @State private var showingMenu = false
     @State private var confirmingClear = false
 
@@ -66,9 +72,12 @@ struct LocalNameFilterBlocklistView: View {
                         .foregroundColor(.secondary)
                 }
                 ForEach(matched) { item in
-                    LocalNameFilterBlocklistRow(term: item.term, subtitle: item.subtitle) {
-                        remove(item.term)
-                    }
+                    LocalNameFilterBlocklistRow(
+                        term: item.term,
+                        subtitle: item.subtitle,
+                        onEdit: { editorTarget = EditorTarget(term: item.term) },
+                        onDelete: { remove(item.term) }
+                    )
                 }
             } header: {
                 SectionHelpHeader(sectionTitle, paragraphs: [
@@ -81,7 +90,7 @@ struct LocalNameFilterBlocklistView: View {
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm chữ Hán hoặc âm Hán-Việt")
         .backPageTitle(Self.title)
         .floatingAddButton("Thêm cụm") {
-            showingAddSheet = true
+            editorTarget = EditorTarget(term: nil)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -102,9 +111,11 @@ struct LocalNameFilterBlocklistView: View {
             }
             .disabled(items.isEmpty)
         }
-        .sheet(isPresented: $showingAddSheet) {
+        .sheet(item: $editorTarget) { target in
             Group {
-                LocalNameFilterBlocklistAddSheet { term in add(term) }
+                LocalNameFilterBlocklistEditorSheet(original: target.term) { term, replacing in
+                    save(term, replacing: replacing)
+                }
             }
             .appGlassSheet()
         }
@@ -140,14 +151,20 @@ struct LocalNameFilterBlocklistView: View {
         .lowercased()
     }
 
-    /// `nil` = đã thêm; chuỗi = lỗi để sheet hiện.
-    private func add(_ term: String) -> String? {
-        if let error = Store.shared.add(term) {
-            reload()
-            return error
+    /// Lưu từ màn Sửa từ: `replacing == nil` ⇒ thêm cụm; khác ⇒ đổi cụm đó thành `term` (giữ nguyên ⇒ không làm gì,
+    /// không toast). `nil` = đã lưu; chuỗi = lỗi để sheet hiện.
+    private func save(_ term: String, replacing originalTerm: String?) -> String? {
+        if let originalTerm, originalTerm == term { return nil }
+        let error: String?
+        if let originalTerm {
+            error = Store.shared.replace(originalTerm, with: term)
+        } else {
+            error = Store.shared.add(term)
         }
         reload()
-        ToastManager.shared.show(message: "Đã thêm \(term) vào “Không phải name”", type: .success)
+        if let error { return error }
+        let message = originalTerm.map { "Đã đổi \($0) thành \(term)" } ?? "Đã thêm \(term) vào “Không phải name”"
+        ToastManager.shared.show(message: message, type: .success)
         return nil
     }
 

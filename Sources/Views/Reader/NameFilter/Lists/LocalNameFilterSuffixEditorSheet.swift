@@ -1,81 +1,149 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** đuôi của màn "Đuôi địa danh & tông môn" (mockup khung 5b), khuôn
-/// `QuickTranslationSurnameEditorSheet` thêm hai ô **Loại** (Địa danh / Tông môn) và **Nghĩa đứng** (Trước tên / Sau tên —
-/// mục mới mặc định Sau tên) + dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn. Nút "Lưu" chữ ở header, không nút chỉ để
-/// đóng (vuốt xuống; sửa dở thì `confirmDiscardOnSwipe` hỏi lại). Chỗ trình bày bọc `Group { … }.appGlassSheet()`.
+/// Sheet thêm / sửa **một** đuôi của màn "Đuôi địa danh & tông môn" = màn **Sửa từ** của từ điển (`DictEntryEditSheet`
+/// chế độ danh sách, plan 2026-11-27 mockup khung 4 — anh Bửu: danh sách vế trái chữ Hán làm kiểu Sửa từ): header "Sửa từ"
+/// / "Thêm từ" + badge "Đuôi · Chung" + bút chì đổi chữ gốc, hàng chữ gốc chọn được, hàng token, ô nghĩa, chip nghĩa gợi
+/// ý, aa…AA; phần riêng của đuôi là khối **Loại** (Địa danh / Tông môn) + **Nghĩa đứng** (Trước tên / Sau tên — mục mới
+/// mặc định Sau tên) và dòng "Ví dụ: 江海市 → …" đổi theo lựa chọn. Chỗ trình bày bọc `Group { … }.appGlassSheet()`.
 ///
-/// - Luật lấy từ `LocalNameFilterSuffixStore` (`keyError` / `meaningError` — cùng luật với file gốc), hiện ngay dưới ô;
-///   ô còn trống thì không tô đỏ. Sửa chữ Hán = xoá khoá cũ + thêm khoá mới (store lo).
+/// - Luật lấy từ `LocalNameFilterSuffixStore` (`keyError` / `meaningError` — cùng luật với file gốc), hiện đỏ ở dòng thông
+///   báo; ô còn trống thì không tô đỏ. Đổi chữ gốc = xoá khoá cũ + thêm khoá mới (store lo); chọn một phần chữ gốc ⇒ thêm
+///   đuôi mới = cụm đang chọn, đuôi đang sửa giữ nguyên.
 /// - Ghi do màn danh sách làm (`onSave` trả chuỗi lỗi nếu không lưu được — sheet giữ nguyên để sửa tiếp).
-/// - Đuôi gốc: ô Nghĩa ghi "gốc: …" khi nghĩa khác bản gốc; đã sửa thì có thêm hàng "Về bản gốc".
+/// - Đuôi gốc: nghĩa khác bản gốc ⇒ dòng "Nghĩa gốc: …"; đã sửa ⇒ nút "Về bản gốc: …".
 struct LocalNameFilterSuffixEditorSheet: View {
     typealias Entry = LocalNameFilterSuffixEntry
     typealias Store = LocalNameFilterSuffixStore
     typealias Kind = LocalNameFilter.SuffixKind
     typealias Position = LocalNameFilter.MeaningPosition
 
-    private enum Field: Hashable {
-        case key
-        case meaning
-    }
-
     /// Phần tên riêng của dòng "Ví dụ" (江海 → Giang Hải).
     private static let sampleName = "江海"
     private static let sampleReading = "Giang Hải"
+    /// Bề ngang nhãn "Loại" / "Nghĩa đứng" của khối phụ (mockup khung 4).
+    private static let optionLabelWidth: CGFloat = 86
 
     /// `nil` = thêm đuôi mới.
     let original: Entry?
-    let onSave: (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position) -> String?
+    /// `replacing` = khoá bị thay (`nil` = thêm mới, kể cả thêm cụm chọn một phần khi đang sửa).
+    let onSave: (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position, _ replacing: String?) -> String?
     let onRestoreBundled: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var focusedField: Field?
-    @State private var key: String
-    @State private var meaning: String
     @State private var kind: Kind
     @State private var position: Position
-    /// Lỗi do màn danh sách trả về lúc ghi; xoá khi người dùng sửa tiếp.
-    @State private var saveError: String?
 
     init(
         original: Entry?,
         initialKind: Kind = .place,
-        onSave: @escaping (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position) -> String?,
+        onSave: @escaping (_ key: String, _ meaning: String, _ kind: Kind, _ position: Position, _ replacing: String?) -> String?,
         onRestoreBundled: @escaping () -> Void = {}
     ) {
         self.original = original
         self.onSave = onSave
         self.onRestoreBundled = onRestoreBundled
-        _key = State(initialValue: original?.key ?? "")
-        _meaning = State(initialValue: original?.meaning ?? "")
         _kind = State(initialValue: original?.kind ?? initialKind)
         _position = State(initialValue: original?.position ?? .after)
     }
 
-    private var trimmedKey: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var trimmedMeaning: String { meaning.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    private var keyError: String? {
-        Store.shared.keyError(trimmedKey, replacing: original?.key)
+    var body: some View {
+        DictEntryEditSheet(
+            originalKey: original?.key ?? "",
+            originalValue: original?.meaning ?? "",
+            dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
+            scopeBookId: nil,
+            chipBookId: nil,
+            existingValue: { key in Store.shared.entries().first { $0.key == key }?.meaning },
+            onUpdate: { _, _ in },
+            onAddEntry: { _, _ in },
+            onDefinitionsChanged: {},
+            badgeText: "Đuôi · Chung",
+            listMode: listMode
+        )
     }
 
-    private var meaningError: String? {
-        Store.shared.meaningError(trimmedMeaning)
+    private var listMode: DictEntryEditListMode {
+        DictEntryEditListMode(
+            meaningPlaceholder: "Nghĩa của đuôi (trấn, thành phố…)",
+            keyError: { key, replacing in Store.shared.keyError(key, replacing: replacing) },
+            meaningError: { meaning in Store.shared.meaningError(meaning) },
+            save: { key, meaning, replacing in onSave(key, meaning, kind, position, replacing) },
+            isExtraDirty: original.map { kind != $0.kind || position != $0.position } ?? false,
+            extraRows: { key, meaning in AnyView(extraRows(key: key, meaning: meaning)) }
+        )
     }
 
-    private var isDirty: Bool {
-        guard let original else { return !trimmedKey.isEmpty || !trimmedMeaning.isEmpty }
-        return trimmedKey != original.key || trimmedMeaning != original.meaning
-            || kind != original.kind || position != original.position
+    // MARK: - Khối Loại / Nghĩa đứng
+
+    private func extraRows(key: String, meaning: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(spacing: 0) {
+                optionRow("Loại") {
+                    Picker("Loại", selection: $kind) {
+                        ForEach(Kind.allCases, id: \.self) { option in
+                            Text(LocalNameFilterSuffixRow.kindLabel(option)).tag(option)
+                        }
+                    }
+                }
+                Divider()
+                optionRow("Nghĩa đứng") {
+                    Picker("Nghĩa đứng", selection: $position) {
+                        Text("Trước tên").tag(Position.before)
+                        Text("Sau tên").tag(Position.after)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.08))
+            .cornerRadius(8)
+
+            if let example = exampleText(key: key, meaning: meaning) {
+                Text("Ví dụ: \(Self.sampleName)\(key) → \(Text(verbatim: example).bold().foregroundColor(.primary))")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            if let note = bundledMeaningNote(key: key, meaning: meaning) {
+                Text(verbatim: note)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            if let restoreLabel {
+                Button {
+                    onRestoreBundled()
+                    dismiss()
+                } label: {
+                    Label(restoreLabel, systemImage: "arrow.uturn.backward")
+                        .font(.footnote)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var canSave: Bool { isDirty && keyError == nil && meaningError == nil }
+    private func optionRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.subheadline)
+                .frame(width: Self.optionLabelWidth, alignment: .leading)
+            control()
+                .pickerStyle(.segmented)
+                .labelsHidden()
+        }
+        .frame(minHeight: 40)
+    }
 
-    /// Nghĩa gốc khi đuôi gốc đang mang nghĩa khác ("gốc: thị").
-    private var bundledMeaningNote: String? {
-        guard let bundled = original?.bundledValue, bundled.meaning != trimmedMeaning else { return nil }
-        return "gốc: \(bundled.meaning)"
+    /// "thành phố Giang Hải" / "Giang Hải thành phố" — chỉ khi đã có đuôi và nghĩa.
+    private func exampleText(key: String, meaning: String) -> String? {
+        guard !key.isEmpty, !meaning.isEmpty else { return nil }
+        return position == .before ? "\(meaning) \(Self.sampleReading)" : "\(Self.sampleReading) \(meaning)"
+    }
+
+    /// Đuôi gốc đang mang nghĩa khác bản gốc (chưa lưu) ⇒ "Nghĩa gốc: thị". Đã sửa thì nút "Về bản gốc" nói thay.
+    private func bundledMeaningNote(key: String, meaning: String) -> String? {
+        guard restoreLabel == nil, let original, key == original.key, let bundled = original.bundledValue,
+              !meaning.isEmpty, bundled.meaning != meaning else { return nil }
+        return "Nghĩa gốc: \(bundled.meaning)"
     }
 
     /// Đuôi gốc đã sửa ⇒ "Về bản gốc: thị · Địa danh · sau tên".
@@ -84,123 +152,5 @@ struct LocalNameFilterSuffixEditorSheet: View {
         let parts = [bundled.meaning, LocalNameFilterSuffixRow.kindLabel(bundled.kind),
                      LocalNameFilterSuffixRow.positionLabel(bundled.position)]
         return "Về bản gốc: " + parts.joined(separator: " · ")
-    }
-
-    /// "Ví dụ: 江海市 → thành phố Giang Hải" — chỉ hiện khi đã có đuôi và nghĩa.
-    private var exampleText: String? {
-        guard !trimmedKey.isEmpty, !trimmedMeaning.isEmpty else { return nil }
-        let composed = position == .before
-            ? "\(trimmedMeaning) \(Self.sampleReading)"
-            : "\(Self.sampleReading) \(trimmedMeaning)"
-        return "Ví dụ: \(Self.sampleName)\(trimmedKey) → \(composed)"
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form { Group {
-                Section {
-                    TextField("镇 hoặc 山脉", text: $key)
-                        .font(.title3)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .key)
-                    if !trimmedKey.isEmpty, let keyError {
-                        errorText(keyError)
-                    }
-                } header: {
-                    Text("Chữ Hán")
-                }
-
-                Section {
-                    HStack {
-                        TextField("trấn hoặc thành phố", text: $meaning)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .focused($focusedField, equals: .meaning)
-                        if let bundledMeaningNote {
-                            Text(verbatim: bundledMeaningNote)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    if !trimmedMeaning.isEmpty, let meaningError {
-                        errorText(meaningError)
-                    }
-                    if let saveError {
-                        errorText(saveError)
-                    }
-                } header: {
-                    Text("Nghĩa")
-                }
-
-                Section {
-                    Picker("Loại", selection: $kind) {
-                        ForEach(Kind.allCases, id: \.self) { option in
-                            Text(LocalNameFilterSuffixRow.kindLabel(option)).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                } header: {
-                    Text("Loại")
-                }
-
-                Section {
-                    Picker("Nghĩa đứng", selection: $position) {
-                        Text("Trước tên").tag(Position.before)
-                        Text("Sau tên").tag(Position.after)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    if let exampleText {
-                        Text(verbatim: exampleText)
-                            .font(.subheadline)
-                    }
-                } header: {
-                    Text("Nghĩa đứng")
-                }
-
-                if let restoreLabel {
-                    Section {
-                        Button {
-                            onRestoreBundled()
-                            dismiss()
-                        } label: {
-                            Text(verbatim: restoreLabel)
-                        }
-                    }
-                }
-            }.glassSheetRows() }
-            .pageTitle(original == nil ? "Thêm đuôi" : "Sửa đuôi")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") { save() }
-                        .headerTextButton()
-                        .disabled(!canSave)
-                }
-            }
-            .onChange(of: key) { _, _ in saveError = nil }
-            .onChange(of: meaning) { _, _ in saveError = nil }
-            .onAppear {
-                focusedField = original == nil ? .key : .meaning
-            }
-        }
-        .confirmDiscardOnSwipe(isDirty: isDirty)
-        .presentationDragIndicator(.visible)
-    }
-
-    private func errorText(_ message: String) -> some View {
-        Text(verbatim: message)
-            .font(.footnote)
-            .foregroundColor(.red)
-    }
-
-    private func save() {
-        guard canSave else { return }
-        if let error = onSave(trimmedKey, trimmedMeaning, kind, position) {
-            saveError = error
-            return
-        }
-        dismiss()
     }
 }

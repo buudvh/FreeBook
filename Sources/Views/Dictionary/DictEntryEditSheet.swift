@@ -20,7 +20,8 @@ struct DictEntryEditSheet: View {
         case addNew(String)
     }
 
-    @Environment(\.dismiss) private var dismiss
+    // `internal`: chế độ danh sách (`+List`) chỉ đóng sheet khi store lưu được.
+    @Environment(\.dismiss) var dismiss
 
     let originalKey: String
     let originalValue: String
@@ -38,6 +39,9 @@ struct DictEntryEditSheet: View {
     /// (`ReaderAINameReviewSheet+Edit`, 1.3.780) chưa có loại — Name hay VP chọn lúc Lưu — nên ghi "AI · Riêng truyện";
     /// danh sách Pronouns gốc (`BaseDictionaryListView`, 1.3.1067) ghi "Pronouns · Chung".
     let badgeText: String?
+    /// Danh sách `chữ Hán = …` ngoài từ điển (đuôi, "Không phải name", họ, token tùy chọn) — xem `DictEntryEditListMode`
+    /// và `DictEntryEditSheet+List.swift`. `nil` = từ điển VP / Name / Pronouns / name AI, hành vi như cũ.
+    let listMode: DictEntryEditListMode?
 
     // `internal` (không `private`): các hàng ở `DictEntryEditSheet+Rows.swift` dùng chung trạng thái này.
     @State var workingKey: String
@@ -56,6 +60,8 @@ struct DictEntryEditSheet: View {
     @State var dictionaryMatches: [DictionaryMatchInfo] = []
     /// Nghĩa đang có của từ đích khi lưu khác mục đang sửa (để cảnh báo ghi đè).
     @State var targetExistingValue: String? = nil
+    /// Chế độ danh sách: lỗi store trả về lúc lưu; xoá khi người dùng sửa tiếp.
+    @State var listSaveError: String? = nil
     @State var searchEngines: [SearchEngine] = []
     @State var lookupRoute: ReaderLookupRoute? = nil
     @State var showingSearchEngineConfig = false
@@ -77,9 +83,11 @@ struct DictEntryEditSheet: View {
         onUpdate: @escaping (String, String) -> Void,
         onAddEntry: @escaping (String, String) -> Void,
         onDefinitionsChanged: @escaping () -> Void,
-        badgeText: String? = nil
+        badgeText: String? = nil,
+        listMode: DictEntryEditListMode? = nil
     ) {
         self.badgeText = badgeText
+        self.listMode = listMode
         self.originalKey = originalKey
         self.originalValue = originalValue
         self.dictType = dictType
@@ -95,6 +103,8 @@ struct DictEntryEditSheet: View {
         _selectionLength = State(initialValue: (trimmedKey as NSString).length)
         _meaning = State(initialValue: originalValue)
         _wholeKeyMeaning = State(initialValue: originalValue)
+        // Danh sách, thêm mục mới (khoá rỗng): mở sẵn ô gõ chữ gốc.
+        _isEditingKey = State(initialValue: listMode != nil && trimmedKey.isEmpty)
     }
 
     var body: some View {
@@ -110,7 +120,7 @@ struct DictEntryEditSheet: View {
                     })
             }
             .scrollDismissesKeyboard(.interactively)
-            .pageTitle("Sửa từ")
+            .pageTitle(isAddingListEntry ? "Thêm từ" : "Sửa từ")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { headerTrailingView }
             }
@@ -141,11 +151,14 @@ struct DictEntryEditSheet: View {
                 if isEditingKey { keyFieldView }
                 originalKeyRowView
                 translatedTokensRowView
-                meaningInputView
-                suggestionChipsView
+                if showsMeaningRows {
+                    meaningInputView
+                    suggestionChipsView
+                }
             }
             Group {
-                caseButtonsView
+                if showsMeaningRows { caseButtonsView }
+                listExtraRowsView
                 noticeView
                 updateButtonView
                 Divider()
@@ -178,7 +191,9 @@ struct DictEntryEditSheet: View {
     }
 
     var isSaveDisabled: Bool {
-        saveAction == nil || isLoadingMeaning || meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        saveAction == nil || isLoadingMeaning
+            || (showsMeaningRows && meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            || listValidationError != nil
     }
 
     private var isDirty: Bool {
@@ -186,6 +201,7 @@ struct DictEntryEditSheet: View {
             || wholeKeyMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
                 != originalValue.trimmingCharacters(in: .whitespacesAndNewlines)
             || isSubMeaningEdited
+            || (listMode?.isExtraDirty ?? false)
     }
 
     /// Mọi thay đổi nghĩa do **người dùng** (gõ, chip, dán, xoá, aa…AA) đi qua đây; đổi do vùng chọn thì gán thẳng.
@@ -231,6 +247,7 @@ struct DictEntryEditSheet: View {
     /// của mục (kể cả chữ người dùng đã sửa); cụm đã có trong danh sách ⇒ nghĩa đang lưu; còn lại ⇒ dịch cụm đó.
     private func selectionDidChange() {
         isSubMeaningEdited = false
+        listSaveError = nil
         let target = saveTargetKey
         targetExistingValue = (target.isEmpty || target == trimmedOriginalKey) ? nil : existingValue(target)
         if isWholeSelection {
@@ -258,6 +275,7 @@ struct DictEntryEditSheet: View {
         let cleaned = newValue.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "")
         if cleaned != newValue { meaning = cleaned }
         if isWholeSelection { wholeKeyMeaning = cleaned }
+        listSaveError = nil
     }
 
     // MARK: - Tra (ngoài main)
@@ -269,6 +287,8 @@ struct DictEntryEditSheet: View {
         searchEngines = SearchEngine.loadEngines()
         refreshTokens()
         refreshSelectionData(needsMeaning: false)
+        // Ô nhập đã có sẵn trong cây view (thêm mục mới của danh sách) — focus ở lượt sau như `toggleKeyEditing`.
+        if isEditingKey { DispatchQueue.main.async { isKeyFieldFocused = true } }
     }
 
     func refreshTokens() {
@@ -292,6 +312,8 @@ struct DictEntryEditSheet: View {
         let word = selectedText
         let meaningBook = scopeBookId
         let chipBook = chipBookId
+        // Không có ô nghĩa ("Không phải name") ⇒ không tra nghĩa, nút lưu khỏi chớp tắt khi đổi vùng chọn.
+        let needsMeaning = needsMeaning && showsMeaningRows
         isLoadingMeaning = needsMeaning
         Task { @MainActor in
             let result = await Task.detached(priority: .userInitiated) {
@@ -312,6 +334,10 @@ struct DictEntryEditSheet: View {
     // MARK: - Lưu
 
     func handleSave() {
+        if listMode != nil {
+            saveToList()
+            return
+        }
         let value = meaning.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let action = saveAction, !value.isEmpty, !isLoadingMeaning else { return }
         switch action {

@@ -79,6 +79,20 @@ final class LocalNameFilterBlocklistStore {
         return Self.save(entries)
     }
 
+    /// Đổi một cụm thành cụm khác (màn Sửa từ của danh sách), giữ chỗ và ngày thêm cũ. Cụm cũ không còn ⇒ thêm như
+    /// `add`. `nil` = đã đổi (hoặc không đổi gì); chuỗi = lỗi (sai luật, trùng cụm khác, không ghi được).
+    @discardableResult
+    func replace(_ oldTerm: String, with rawTerm: String) -> String? {
+        let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let error = Self.formatError(term) { return error }
+        var entries = Self.load()
+        guard let index = entries.firstIndex(where: { $0.term == oldTerm }) else { return add(term) }
+        guard term != oldTerm else { return nil }
+        if entries.contains(where: { $0.term == term }) { return "\(term) đã có trong danh sách." }
+        entries[index] = Entry(term: term, addedAt: entries[index].addedAt)
+        return Self.save(entries)
+    }
+
     @discardableResult
     func remove(_ term: String) -> String? {
         let entries = Self.load()

@@ -3,7 +3,7 @@ import SwiftUI
 /// Màn **Đuôi địa danh & tông môn** của Lọc name local (mockup khung 5) — đẩy vào `NavigationStack` của sheet "Lọc name
 /// local" từ mục "Danh sách". Khuôn màn Danh sách họ (`QuickTranslationSurnameListView`): header nút quay lại + `…`
 /// (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện (chữ Hán / nghĩa), tab Tất cả / Địa danh / Tông môn, nút `+`
-/// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở sheet sửa, `[Tắt/Bật] [Xoá]`).
+/// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Tắt/Bật] [Xoá]`).
 ///
 /// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng (`LocalNameFilterSuffixStore`). Store không phát thay đổi ⇒ màn
 /// giữ bản chụp ở `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Danh sách chung mọi truyện. Toast ở đây (Service
@@ -152,8 +152,8 @@ struct LocalNameFilterSuffixListView: View {
                 LocalNameFilterSuffixEditorSheet(
                     original: target.entry,
                     initialKind: tab.kind ?? .place,
-                    onSave: { key, meaning, kind, position in
-                        save(key: key, meaning: meaning, kind: kind, position: position, replacing: target.entry?.key)
+                    onSave: { key, meaning, kind, position, replacing in
+                        save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing)
                     },
                     onRestoreBundled: { restoreBundled(target.entry) }
                 )

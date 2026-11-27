@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 /// Màn **Danh sách họ** của token `<ho>` (1.3.1062) — mở từ hàng "Danh sách họ" ở Cấu hình token rule › Token từ điển,
 /// cạnh hàng "Bộ ngoặc". Kiểu màn danh sách 1.3.636: header chỉ có nút quay lại + `…` (`.sideDrawerMenu`: Nhập file,
 /// Xuất file, Khôi phục mặc định), ô tìm luôn hiện, nút `+` nổi, hàng `QuickTranslationSurnameRow` (chạm thân hàng mở
-/// sheet sửa, `[Tắt/Bật] [Xoá]`).
+/// màn Sửa từ `QuickTranslationSurnameEditorSheet`, `[Tắt/Bật] [Xoá]`).
 ///
 /// Bản gốc 683 họ đóng trong app; mọi thao tác ở đây chỉ ghi lớp riêng (`QuickTranslationSurnameStore`). Store không phát
 /// thay đổi ⇒ màn giữ bản chụp ở `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear` (như `QuickTranslationRuleBracketListView`).
@@ -107,7 +107,7 @@ struct QuickTranslationSurnameListView: View {
             Group {
                 QuickTranslationSurnameEditorSheet(
                     original: target.entry,
-                    onSave: { key, reading in save(key: key, reading: reading, replacing: target.entry?.key) },
+                    onSave: { key, reading, replacing in save(key: key, reading: reading, replacing: replacing) },
                     onRestoreBundledReading: { restoreBundledReading(of: target.entry) }
                 )
             }

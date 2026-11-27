@@ -1,131 +1,75 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** họ của màn Danh sách họ (1.3.1062): ô "Họ (chữ Hán)" + ô "Âm Hán-Việt", nút "Lưu" chữ ở
-/// header, không nút chỉ để đóng (vuốt xuống; gõ dở thì `confirmDiscardOnSwipe` hỏi lại). Chỗ trình bày bọc
-/// `Group { … }.appGlassSheet()`.
+/// Sheet thêm / sửa **một** họ của màn Danh sách họ = màn **Sửa từ** của từ điển (`DictEntryEditSheet` chế độ danh sách,
+/// plan 2026-11-27 — anh Bửu: danh sách vế trái chữ Hán làm kiểu Sửa từ; trước đó là form hai ô của 1.3.1062): badge
+/// "Họ · Chung", hàng chữ gốc chọn được, hàng token, **ô nghĩa = âm Hán-Việt của họ**, chip nghĩa gợi ý, aa…AA. Chỗ trình
+/// bày bọc `Group { … }.appGlassSheet()`.
 ///
-/// - Luật lấy từ `QuickTranslationSurnameStore` (`keyError` / `readingError` — cùng luật với nhập file), hiện ngay dưới
-///   ô; ô còn trống thì không tô đỏ. Sửa chữ Hán của một họ = xoá khoá cũ + thêm khoá mới (store lo).
+/// - Luật lấy từ `QuickTranslationSurnameStore` (`keyError` / `readingError` — cùng luật với nhập file), hiện đỏ ở dòng
+///   thông báo; ô còn trống thì không tô đỏ. Đổi chữ gốc = xoá khoá cũ + thêm khoá mới (store lo); chọn một phần (vd 欧
+///   của 欧阳) ⇒ thêm họ mới = phần đang chọn, họ đang sửa giữ nguyên.
 /// - Ghi do màn danh sách làm (`onSave` trả chuỗi lỗi nếu không lưu được — sheet giữ nguyên để sửa tiếp).
-/// - Họ gốc đã đổi âm có thêm hàng "Về âm gốc: …".
+/// - Họ gốc đã đổi âm có thêm nút "Về âm gốc: …".
 struct QuickTranslationSurnameEditorSheet: View {
     typealias Entry = QuickTranslationSurnameEntry
 
-    private enum Field: Hashable {
-        case key
-        case reading
-    }
-
     /// `nil` = thêm họ mới.
     let original: Entry?
-    let onSave: (_ key: String, _ reading: String) -> String?
+    /// `replacing` = khoá bị thay (`nil` = thêm mới, kể cả thêm phần chọn một phần khi đang sửa).
+    let onSave: (_ key: String, _ reading: String, _ replacing: String?) -> String?
     let onRestoreBundledReading: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var focusedField: Field?
-    @State private var key: String
-    @State private var reading: String
-    /// Lỗi do màn danh sách trả về lúc ghi; xoá khi người dùng sửa tiếp.
-    @State private var saveError: String?
 
     init(
         original: Entry?,
-        onSave: @escaping (_ key: String, _ reading: String) -> String?,
+        onSave: @escaping (_ key: String, _ reading: String, _ replacing: String?) -> String?,
         onRestoreBundledReading: @escaping () -> Void = {}
     ) {
         self.original = original
         self.onSave = onSave
         self.onRestoreBundledReading = onRestoreBundledReading
-        _key = State(initialValue: original?.key ?? "")
-        _reading = State(initialValue: original?.reading ?? "")
     }
-
-    private var trimmedKey: String { key.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var trimmedReading: String { reading.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    private var keyError: String? {
-        QuickTranslationSurnameStore.shared.keyError(trimmedKey, replacing: original?.key)
-    }
-
-    private var readingError: String? {
-        QuickTranslationSurnameStore.shared.readingError(trimmedReading)
-    }
-
-    private var isDirty: Bool {
-        trimmedKey != (original?.key ?? "") || trimmedReading != (original?.reading ?? "")
-    }
-
-    private var canSave: Bool { isDirty && keyError == nil && readingError == nil }
 
     var body: some View {
-        NavigationStack {
-            Form { Group {
-                Section {
-                    TextField("王 hoặc 欧阳", text: $key)
-                        .font(.title3)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .key)
-                    if !trimmedKey.isEmpty, let keyError {
-                        errorText(keyError)
-                    }
-                } header: {
-                    Text("Họ (chữ Hán)")
-                }
-
-                Section {
-                    TextField("Vương hoặc Âu Dương", text: $reading)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .reading)
-                    if !trimmedReading.isEmpty, let readingError {
-                        errorText(readingError)
-                    }
-                    if let saveError {
-                        errorText(saveError)
-                    }
-                } header: {
-                    Text("Âm Hán-Việt")
-                }
-
-                if let original, original.isEdited, let bundled = original.bundledReading {
-                    Section {
-                        Button("Về âm gốc: \(bundled)") {
-                            onRestoreBundledReading()
-                            dismiss()
-                        }
-                    }
-                }
-            }.glassSheetRows() }
-            .pageTitle(original == nil ? "Thêm họ" : "Sửa họ")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") { save() }
-                        .headerTextButton()
-                        .disabled(!canSave)
-                }
-            }
-            .onChange(of: key) { _, _ in saveError = nil }
-            .onChange(of: reading) { _, _ in saveError = nil }
-            .onAppear {
-                focusedField = original == nil ? .key : .reading
-            }
-        }
-        .confirmDiscardOnSwipe(isDirty: isDirty)
-        .presentationDragIndicator(.visible)
+        DictEntryEditSheet(
+            originalKey: original?.key ?? "",
+            originalValue: original?.reading ?? "",
+            dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
+            scopeBookId: nil,
+            chipBookId: nil,
+            existingValue: { key in QuickTranslationSurnameStore.shared.entries().first { $0.key == key }?.reading },
+            onUpdate: { _, _ in },
+            onAddEntry: { _, _ in },
+            onDefinitionsChanged: {},
+            badgeText: "Họ · Chung",
+            listMode: DictEntryEditListMode(
+                meaningPlaceholder: "Âm Hán-Việt của họ (Vương, Âu Dương…)",
+                keyError: { key, replacing in QuickTranslationSurnameStore.shared.keyError(key, replacing: replacing) },
+                meaningError: { reading in QuickTranslationSurnameStore.shared.readingError(reading) },
+                save: { key, reading, replacing in onSave(key, reading, replacing) },
+                extraRows: extraRows
+            )
+        )
     }
 
-    private func errorText(_ message: String) -> some View {
-        Text(verbatim: message)
-            .font(.footnote)
-            .foregroundColor(.red)
+    private var extraRows: ((_ key: String, _ reading: String) -> AnyView)? {
+        guard let row = restoreRow else { return nil }
+        return { _, _ in row }
     }
 
-    private func save() {
-        guard canSave else { return }
-        if let error = onSave(trimmedKey, trimmedReading) {
-            saveError = error
-            return
-        }
-        dismiss()
+    /// Họ gốc đã đổi âm ⇒ nút "Về âm gốc: Vương"; không thì không có hàng phụ.
+    private var restoreRow: AnyView? {
+        guard let original, original.isEdited, let bundled = original.bundledReading else { return nil }
+        return AnyView(
+            Button {
+                onRestoreBundledReading()
+                dismiss()
+            } label: {
+                Label("Về âm gốc: \(bundled)", systemImage: "arrow.uturn.backward")
+                    .font(.footnote)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        )
     }
 }
