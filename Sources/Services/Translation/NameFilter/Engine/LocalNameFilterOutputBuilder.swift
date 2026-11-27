@@ -49,14 +49,15 @@ struct LocalNameFilterOutputBuilder {
         var items: [Item] = []
         items.reserveCapacity(lac.rows.count + ruleRows.count / 4)
         for row in lac.rows {
-            let built = meanings.meaning(word: row.word, kind: row.kind, suffix: row.suffix, titles: titles)
+            let built = meanings.meaning(word: row.word, kind: row.kind, titles: titles)
             items.append(Item(word: row.word, name: LocalNameFilter.Name(
                 term: row.word.string,
                 meaning: built.meaning,
                 kind: row.kind,
                 count: row.count,
                 chapterCount: row.chapterCount,
-                title: built.title?.string
+                title: built.title?.string,
+                isGuessedMeaning: built.isGuessed
             ), isKnown: row.isKnown))
         }
         let have = Set(lac.rows.map(\.word))

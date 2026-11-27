@@ -7,7 +7,8 @@ import SwiftUI
 /// Ba bước trong **một** sheet, theo `LocalNameFilterSession.phase`:
 /// 1. Chọn phạm vi (`+Setup`): như "Lọc name nhiều chương" của AI (`ReaderAIBatchPromptSheet`) bỏ "Tiếp nối"; không đọc /
 ///    ghi mặc định của sheet AI. "Gói tạm chưa lưu" ở đầu (`+Drafts`, chỉ khi có gói), "Loại cần tìm" (`+Categories`,
-///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3), mục "Danh sách" mở hai màn quản lý dùng chung mọi truyện.
+///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3) + "Ưu tiên tên Latin" (theo truyện,
+///    `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở hai màn quản lý dùng chung mọi truyện.
 ///    Không có hàng tải model: chưa có model thì bước 2 tự tải trước.
 /// 2. Đang lọc (`LocalNameFilterProgressView`): "Tải model" (lần đầu) rồi "Phân tích chương", name hiện dần; "Dừng" =
 ///    phân tích nốt phần đã đọc rồi sang bước 3. Lỗi ⇒ "Quay lại" / "Thử lại" (đúng cấu hình cũ).
@@ -48,7 +49,9 @@ struct LocalNameFilterSheet: View {
     @State var chapters: [AINameScanChapter]? = nil
     /// "Ít nhất N lần" — mặc định 3, không nhớ giữa các lần mở.
     @State var minCount: Int = 3
-    /// Số đuôi đang bật / số cụm "Không phải name" — đọc lại mỗi khi quay về từ màn quản lý.
+    /// "Ưu tiên tên Latin" của truyện này — đọc khi mở / quay về, ghi ngay khi bấm (`LocalNameFilterLatinPreferenceStore`).
+    @State var prefersLatinNames: Bool = false
+    /// Số đuôi trong danh sách / số cụm "Không phải name" — đọc lại mỗi khi quay về từ màn quản lý.
     @State var suffixCount: Int = 0
     @State var blockedCount: Int = 0
     /// "Loại cần tìm" (`+Categories`): `rawValue` các nhóm nối bằng dấu phẩy; rỗng / hỏng = cả bốn nhóm.
@@ -150,9 +153,10 @@ struct LocalNameFilterSheet: View {
         guard canStart else { return }
         let configuration = LocalNameFilter.Configuration(
             minCount: minCount,
-            suffixes: LocalNameFilterSuffixStore.shared.enabledSuffixes(),
+            suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
             blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
-            categories: selectedCategories
+            categories: selectedCategories,
+            prefersLatinNames: prefersLatinNames
         )
         let numbers = Dictionary((chapters ?? []).map { ($0.index, $0.number) }, uniquingKeysWith: { first, _ in first })
         session.start(LocalNameFilterSession.StartRequest(

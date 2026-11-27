@@ -3,12 +3,11 @@ import SwiftUI
 /// Một hàng của màn **Đuôi địa danh, tổ chức, thuật ngữ** (`LocalNameFilterSuffixListView`), khuôn
 /// `QuickTranslationSurnameRow`:
 /// dòng 1 chữ Hán `.headline`, dòng 2 "nghĩa · loại · trước tên|sau tên" `.subheadline` màu phụ kèm trạng thái ("tự thêm" /
-/// "đã sửa" / "đang tắt" — hàng tắt mờ 50%), cụm icon `[Tắt/Bật] [Xoá]`, không icon bút chì: chạm thân hàng mở sheet sửa.
-/// Không bọc cả hàng trong `Button` (List sẽ kích hoạt mọi nút); trợ năng có thao tác "Sửa".
+/// "đã sửa"), icon `[Xoá]`, không icon bút chì: chạm thân hàng mở sheet sửa. Không còn nút bật / tắt (cách A, 2026-11-27:
+/// danh sách chỉ để ghép nghĩa). Không bọc cả hàng trong `Button` (List sẽ kích hoạt mọi nút); trợ năng có thao tác "Sửa".
 struct LocalNameFilterSuffixRow: View {
     let entry: LocalNameFilterSuffixEntry
     let onEdit: () -> Void
-    let onToggle: () -> Void
     let onDelete: () -> Void
 
     /// Nhãn loại — dùng chung cho tab của màn danh sách và ô Loại của sheet sửa = nhãn nhóm name của đuôi
@@ -29,7 +28,6 @@ struct LocalNameFilterSuffixRow: View {
         var parts = [entry.meaning, Self.kindLabel(entry.kind), Self.positionLabel(entry.position)]
         if entry.origin == .userAdded { parts.append("tự thêm") }
         if entry.isEdited { parts.append("đã sửa") }
-        if !entry.isEnabled { parts.append("đang tắt") }
         return parts.joined(separator: " · ")
     }
 
@@ -44,30 +42,19 @@ struct LocalNameFilterSuffixRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                .opacity(entry.isEnabled ? 1 : 0.5)
 
                 Spacer(minLength: 8)
             }
             .contentShape(Rectangle())
             .onTapGesture { onEdit() }
 
-            HStack(spacing: 10) {
-                Button(action: onToggle) {
-                    Image(systemName: entry.isEnabled ? "pause.circle" : "play.circle")
-                        .foregroundColor(entry.isEnabled ? .orange : .green)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(entry.isEnabled ? "Tắt đuôi \(entry.key)" : "Bật đuôi \(entry.key)")
-
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.subheadline)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Xoá đuôi \(entry.key)")
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
             }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Xoá đuôi \(entry.key)")
         }
         .padding(.vertical, 2)
         .accessibilityAction(named: "Sửa") { onEdit() }

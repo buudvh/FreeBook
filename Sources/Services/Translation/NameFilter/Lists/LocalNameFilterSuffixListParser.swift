@@ -1,8 +1,10 @@
 import Foundation
 
 /// Dạng chữ của danh sách "Đuôi địa danh, tổ chức, thuật ngữ" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`,
-/// thêm `|off` ở cuối nếu đuôi tắt sẵn; `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind` (`place` /
-/// `sect` / `term`) và `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng `#` bỏ qua.
+/// thêm `|off` ở cuối nếu đuôi **không dùng để dò** (cách A, 2026-11-27: đuôi vẫn ghép nghĩa, chỉ không vào bộ dò cố định
+/// `LocalNameFilterSuffixStore.detectionSuffixes`); `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind`
+/// (`place` / `sect` / `term`) và `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng
+/// `#` bỏ qua.
 ///
 /// **Một** chỗ giữ luật khoá / nghĩa cho cả file gốc `NameFilterSuffixes.txt` lẫn sheet sửa (`keyError` /
 /// `meaningError`) — sai ở đường nào cũng bị chặn như nhau. `isHanText` dùng chung cho danh sách "Không phải name".
@@ -12,8 +14,8 @@ enum LocalNameFilterSuffixListParser {
     struct Line: Equatable, Sendable {
         let key: String
         let value: Value
-        /// `false` = dòng có `|off`: đuôi có trong danh sách nhưng tắt sẵn.
-        let isEnabled: Bool
+        /// `false` = dòng có `|off`: đuôi ghép nghĩa nhưng không vào bộ dò cố định (路 区 观 团 关 花 — dò ra rác).
+        let isDetectable: Bool
     }
 
     struct Result: Sendable {
@@ -25,7 +27,7 @@ enum LocalNameFilterSuffixListParser {
 
     /// Bộ lọc tách ứng viên theo đơn vị code point, đuôi dài tối đa 2 chữ.
     static let maxKeyLength = 2
-    static let disabledMarker = "off"
+    static let notDetectedMarker = "off"
 
     static func parse(_ text: String) -> Result {
         var result = Result()
@@ -60,14 +62,14 @@ enum LocalNameFilterSuffixListParser {
               let position = LocalNameFilter.MeaningPosition(rawValue: fields[2]) else {
             return nil
         }
-        var isEnabled = true
+        var isDetectable = true
         if fields.count == 4 {
-            guard fields[3] == disabledMarker else { return nil }
-            isEnabled = false
+            guard fields[3] == notDetectedMarker else { return nil }
+            isDetectable = false
         }
         let meaning = fields[0]
         guard keyError(key) == nil, meaningError(meaning) == nil else { return nil }
-        return Line(key: key, value: Value(meaning: meaning, kind: kind, position: position), isEnabled: isEnabled)
+        return Line(key: key, value: Value(meaning: meaning, kind: kind, position: position), isDetectable: isDetectable)
     }
 
     /// Luật khoá: 1 hoặc 2 chữ Hán. `nil` = hợp lệ.

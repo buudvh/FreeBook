@@ -11,6 +11,8 @@ import Foundation
 ///   đầu ⇒ `known`, còn lại ⇒ `common`; không có ⇒ `nil`.
 /// - Phiên âm (`phienAmMap`), họ đang bật (`QuickTranslationSurnameStore`, bỏ họ chứa hư từ như Python), Pronouns (`nil` khi
 ///   chưa nạp ⇒ bỏ hẳn bước danh xưng).
+/// - Nghĩa thô cho nghĩa đề xuất (`dictionaryValue`, 2026-11-27): Name (riêng > Chung > gốc trừ đã xoá) rồi VP hiệu lực —
+///   lớp đầu tiên có khoá thắng, như thứ tự dịch (Name đè VP).
 ///
 /// Bộ nhớ đệm tra cứu **không khoá**: chỉ dùng trên task của lượt lọc. Mọi hàm tra là hàm thuần của bản chụp, nên nhớ qua
 /// nhiều lần chụp kết quả vẫn đúng.
@@ -98,7 +100,7 @@ final class LocalNameFilterDictionaries {
     }
 
     /// Khoá Pronouns dùng được (toàn chữ Hán, ≤ 5 chữ) → `(readings(v) or [k])[0]`. Phần lọc theo cấu hình (thân tộc,
-    /// đuôi đang bật, hư từ, ≤ 3 chữ…) ở `LocalNameFilterSetup`. Khoá không phải chữ Hán không bao giờ khớp chữ trong
+    /// đuôi dò, hư từ, ≤ 3 chữ…) ở `LocalNameFilterSetup`. Khoá không phải chữ Hán không bao giờ khớp chữ trong
     /// truyện nên bỏ ngay ở đây — không đổi kết quả.
     private static func pronounTable(_ entries: [(key: String, value: String)]) -> [LocalNameFilterTermKey: String] {
         var result: [LocalNameFilterTermKey: String] = [:]
@@ -158,6 +160,15 @@ final class LocalNameFilterDictionaries {
         let reading = phienAmMap[char].flatMap(LocalNameFilterRules.firstReading) ?? char
         phienAmMemo[value] = reading
         return reading
+    }
+
+    /// Nghĩa thô của `word` (khớp trọn) để dựng nghĩa đề xuất: Name riêng > Name Chung > Name gốc (trừ đã xoá), rồi VP
+    /// hiệu lực. `nil` = không có ở lớp nào.
+    func dictionaryValue(_ word: String) -> String? {
+        if let value = Self.exactValue(bookNames, word) { return value }
+        if let value = Self.exactValue(customNames, word) { return value }
+        if !deletedNames.contains(word), let value = Self.exactValue(baseNames, word) { return value }
+        return vietPhraseMeaning(word)
     }
 
     /// Nghĩa VP hiệu lực của `word` (khớp trọn): riêng truyện > Chung đã sửa > gốc (trừ từ đã xoá).

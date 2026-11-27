@@ -7,7 +7,9 @@ import Foundation
 /// - **có model LAC** (`usesLAC`): bộ luật chạy với cờ `V3` chỉ để góp hàng ở bước hợp; danh sách chính là phía LAC
 ///   (`LocalNameFilterLACPipeline`).
 /// - **đường lùi "chỉ bộ luật"** (model tự kiểm lệch): bộ luật v2 như trước bản LAC.
-/// Cả hai: name đã có **không ẩn** (giữ, đếm `knownCount`), "Không phải name" + "Loại cần tìm" lọc ở đầu ra.
+/// Cả hai: name đã có **không ẩn** (giữ, đếm `knownCount`), "Không phải name" + "Loại cần tìm" lọc ở đầu ra. Nghĩa đề
+/// xuất theo từ điển (+ mô hình đoán tên Latin khi bật "Ưu tiên tên Latin") — `LocalNameFilterMeaningBuilder`; phần tên
+/// riêng nhớ qua mọi lần chụp ở `LocalNameFilterProperNames`.
 ///
 /// - `feed(_:)`: lượt 1 của bộ luật cho một chương (`Stream.feed`); `feedLAC(_:)`: nhãn LAC của chương đó.
 /// - `snapshot(chaptersRead:)`: lượt 2 + luật + phía LAC + hợp trên **toàn bộ** phần đã đọc. Không sửa trạng thái cộng
@@ -39,13 +41,25 @@ final class LocalNameFilterEngine {
     private let dictionaries: LocalNameFilterDictionaries
     private let accumulator: LocalNameFilterAccumulator
     private let lacCounts: LocalNameFilterLACCounts?
+    private let properNames: LocalNameFilterProperNames
 
-    init(configuration: LocalNameFilter.Configuration, dictionaries: LocalNameFilterDictionaries, usesLAC: Bool) {
+    /// `latinModel`: mô hình đoán tên Latin khi cấu hình bật "Ưu tiên tên Latin" và nạp được; `nil` ⇒ nghĩa như tắt
+    /// (không chọn nghĩa Latin, không đoán — tập chữ phiên âm nằm trong file mô hình).
+    init(
+        configuration: LocalNameFilter.Configuration,
+        dictionaries: LocalNameFilterDictionaries,
+        usesLAC: Bool,
+        latinModel: LocalNameFilterLatinModel? = nil
+    ) {
         let setup = LocalNameFilterSetup(configuration: configuration, dictionaries: dictionaries, rulesV3: usesLAC)
         self.setup = setup
         self.dictionaries = dictionaries
         accumulator = LocalNameFilterAccumulator(setup: setup)
         lacCounts = usesLAC ? LocalNameFilterLACCounts() : nil
+        properNames = LocalNameFilterProperNames(
+            dictionaries: dictionaries,
+            latinModel: configuration.prefersLatinNames ? latinModel : nil
+        )
     }
 
     /// Có từ điển Đại từ (bước danh xưng chạy được).
@@ -53,7 +67,9 @@ final class LocalNameFilterEngine {
     var hanCount: Int { accumulator.hanCount }
     var usesLAC: Bool { lacCounts != nil }
     var lacTaggedLines: Int { lacCounts?.taggedLines ?? 0 }
-    /// Chữ cuối của mọi đuôi đang bật — bộ gắn nhãn chỉ gom số lần "nhãn khác" của từ kết thúc bằng các chữ này.
+    /// Đang chọn nghĩa Latin + đoán (bật "Ưu tiên tên Latin" và có mô hình).
+    var prefersLatin: Bool { properNames.prefersLatin }
+    /// Chữ cuối của mọi đuôi dò — bộ gắn nhãn chỉ gom số lần "nhãn khác" của từ kết thúc bằng các chữ này.
     var lacSuffixLastScalars: Set<UInt32> { Set(setup.lacSuffixes.keys.map(\.last)) }
 
     func feed(_ chapterText: String) {
@@ -72,7 +88,7 @@ final class LocalNameFilterEngine {
         }
         let rulesStart = DispatchTime.now().uptimeNanoseconds
         let counter = LocalNameFilterTextCounter(accumulator: accumulator)
-        let meanings = LocalNameFilterMeaningBuilder(setup: setup, dictionaries: dictionaries)
+        let meanings = LocalNameFilterMeaningBuilder(setup: setup, dictionaries: dictionaries, properNames: properNames)
         guard let decided = decide(occurrences, counter: counter, meanings: meanings) else { return nil }
         let lacStart = DispatchTime.now().uptimeNanoseconds
         let builder = LocalNameFilterOutputBuilder(setup: setup, meanings: meanings)
@@ -168,7 +184,8 @@ final class LocalNameFilterEngine {
                     kind: chosen.kind,
                     count: count,
                     chapterCount: Int(stats.chapters),
-                    title: built.title?.string
+                    title: built.title?.string,
+                    isGuessedMeaning: built.isGuessed
                 ),
                 isKnown: status == .known
             ))

@@ -4,7 +4,9 @@ import SwiftUI
 /// `NavigationStack` của sheet "Lọc name local" từ mục "Danh sách". Khuôn màn Danh sách họ
 /// (`QuickTranslationSurnameListView`): header nút quay lại + `…` (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện
 /// (chữ Hán / nghĩa), tab Tất cả / Địa danh / Tổ chức / Thuật ngữ, nút `+`
-/// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Tắt/Bật] [Xoá]`).
+/// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Xoá]`). Từ cách A
+/// (2026-11-27) danh sách chỉ để ghép nghĩa name không phải tên người — không còn bật / tắt; việc dò dùng bộ đuôi cố định
+/// của app.
 ///
 /// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng (`LocalNameFilterSuffixStore`). Store không phát thay đổi ⇒ màn
 /// giữ bản chụp ở `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Danh sách chung mọi truyện. Toast ở đây (Service
@@ -68,20 +70,18 @@ struct LocalNameFilterSuffixListView: View {
         }
     }
 
-    /// "63 đuôi · 4 đang tắt" theo tab đang chọn; đang tìm ⇒ số kết quả.
+    /// "63 đuôi" theo tab đang chọn; đang tìm ⇒ số kết quả.
     private var sectionTitle: String {
         if !trimmedQuery.isEmpty {
             return "\(matchedEntries.count) kết quả cho \"\(trimmedQuery)\""
         }
-        let shown = tabEntries
-        let disabled = shown.filter { !$0.isEnabled }.count
-        return disabled > 0 ? "\(shown.count) đuôi · \(disabled) đang tắt" : "\(shown.count) đuôi"
+        return "\(tabEntries.count) đuôi"
     }
 
     private var emptyText: String {
         if !trimmedQuery.isEmpty { return "Không có đuôi nào khớp." }
         if entries.isEmpty {
-            return "Danh sách đuôi đang trống: bộ lọc sẽ khó nhận ra địa danh / tổ chức / thuật ngữ. Bấm + để thêm."
+            return "Danh sách đuôi đang trống: nghĩa địa danh / tổ chức / thuật ngữ sẽ chỉ là phiên âm. Bấm + để thêm."
         }
         return "Chưa có đuôi loại này. Bấm + để thêm."
     }
@@ -110,15 +110,14 @@ struct LocalNameFilterSuffixListView: View {
                         LocalNameFilterSuffixRow(
                             entry: entry,
                             onEdit: { editorTarget = EditorTarget(entry: entry) },
-                            onToggle: { toggle(entry) },
                             onDelete: { delete(entry) }
                         )
                     }
                 } header: {
                     SectionHelpHeader(sectionTitle, paragraphs: [
-                        "Cụm chữ Hán kết thúc bằng một đuôi **đang bật** (落霞**镇**, 天斗**帝国**, 史莱克**学院**, 五气**丹**) được xét là địa danh, tổ chức hoặc thuật ngữ theo loại của đuôi. Đuôi tắt vẫn nằm trong danh sách nhưng bộ lọc bỏ qua.",
-                        "Nghĩa đề xuất = phần tên riêng viết hoa + nghĩa của đuôi giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn, 五气丹 → Ngũ Khí đan) hoặc **trước tên** (市 = \"thành phố\" · trước tên ⇒ 江海市 → thành phố Giang Hải).",
-                        "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi đuôi đã thêm, sửa, xoá hoặc bật / tắt."
+                        "Danh sách này **chỉ dùng để dịch nghĩa**: name không phải tên người kết thúc bằng một đuôi trong danh sách (落霞**镇**, 天斗**帝国**, 玄真**观**, 五气**丹**) có nghĩa = phần tên riêng + nghĩa của đuôi giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn, 玄真观 → Huyền Chân quán) hoặc **trước tên** (街 = \"phố\" · trước tên ⇒ 佐特兰街 → phố Zotland).",
+                        "Việc dò và lọc name dùng bộ đuôi cố định trong app, không theo danh sách này — thêm hay xoá đuôi không làm đổi số name tìm được.",
+                        "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi đuôi đã thêm, sửa hoặc xoá."
                     ])
                 }
             }.glassSheetRows() }
@@ -165,7 +164,7 @@ struct LocalNameFilterSuffixListView: View {
             Button("Khôi phục mặc định", role: .destructive) { resetToDefaults() }
             Button("Hủy", role: .cancel) {}
         } message: {
-            Text("Mọi đuôi đã thêm, sửa, xoá hoặc bật / tắt sẽ mất.")
+            Text("Mọi đuôi đã thêm, sửa hoặc xoá sẽ mất.")
         }
         .onAppear { reload() }
     }
@@ -185,11 +184,6 @@ struct LocalNameFilterSuffixListView: View {
         if let error { return error }
         ToastManager.shared.show(message: originalKey == nil ? "Đã thêm đuôi \(key)" : "Đã lưu đuôi \(key)", type: .success)
         return nil
-    }
-
-    private func toggle(_ entry: Entry) {
-        report(Store.shared.setEnabled(!entry.isEnabled, key: entry.key),
-               success: entry.isEnabled ? "Đã tắt đuôi \(entry.key)" : "Đã bật đuôi \(entry.key)")
     }
 
     /// Xoá một chạm như danh sách họ; đuôi gốc đã xoá thêm lại được, hoặc "Khôi phục mặc định".

@@ -9,8 +9,9 @@ import Foundation
 ///    đầu viết thường ⇒ bỏ (`dict_common_word`) trừ luật (e) — có đuôi không yếu, ≥ 3 chữ, LAC gắn thực thể nhiều hơn
 ///    nhãn khác (菩提丹, 青山县); hư từ; đầu 2 chữ là từ thường; họ + từ thường; thực thể mạnh hơn hẳn + phần thừa vô
 ///    nghĩa (`glued_fragment`).
-/// 4. Loại: đuôi dài nhất (place / sect / term) rồi nhãn LAC nhiều nhất; LAC bảo người + chữ cuối là đuôi yếu (山 河…) +
-///    loại địa danh / tổ chức ⇒ vẫn là người (费渊).
+/// 4. Loại: đuôi dò dài nhất (place / sect / term, bộ cố định — cách A) rồi nhãn LAC nhiều nhất; LAC bảo người + chữ cuối
+///    là đuôi yếu (山 河…) + loại địa danh / tổ chức ⇒ vẫn là người (费渊). Nghĩa dựng sau, theo danh sách người dùng
+///    (`LocalNameFilterMeaningBuilder`).
 ///
 /// Tên lý do bỏ trùng `lacpipe.py`. Đếm số lần trong truyện: từ toàn chữ Hán dải bộ luật ⇒ chỉ mục của bộ luật
 /// (`LocalNameFilterTextCounter`), từ khác ⇒ chuỗi các dòng của phía LAC.
@@ -27,8 +28,6 @@ struct LocalNameFilterLACPipeline {
         let count: Int
         let chapterCount: Int
         let isKnown: Bool
-        /// Đuôi khớp (dựng nghĩa); `nil` = không đuôi.
-        let suffix: SuffixMatch?
     }
 
     struct Output {
@@ -75,8 +74,7 @@ struct LocalNameFilterLACPipeline {
             let suffix = setup.lacSuffix(of: word)
             let row = { (isKnown: Bool) in
                 Row(word: word, kind: kind(of: word, suffix: suffix, tag: tally.dominant), count: count,
-                    chapterCount: chapterCount(of: sources[word] ?? [word], entities: entities), isKnown: isKnown,
-                    suffix: suffix)
+                    chapterCount: chapterCount(of: sources[word] ?? [word], entities: entities), isKnown: isKnown)
             }
             if status == .known {
                 output.rows.append(row(true))

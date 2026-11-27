@@ -2,8 +2,17 @@ import Foundation
 
 /// Dòng log `🔎 [LọcName] Xong…` cuối một lượt lọc name local. Giữ dạng cũ (các phần nối bằng " · ", lý do bỏ đúng tên
 /// bản thử Python) và thêm phần của bản LAC: chế độ, thời gian chuẩn bị model / gắn nhãn / lọc phía LAC, số theo loại, số
-/// name đã có, số hàng bước hợp + luật (e), lý do bỏ của bộ luật tách riêng ("luật bỏ").
+/// name đã có, số hàng bước hợp + luật (e), lý do bỏ của bộ luật tách riêng ("luật bỏ"); từ 2026-11-27 thêm trạng thái
+/// "Ưu tiên tên Latin" + số name có nghĩa do máy đoán ("Latin bật · đoán N").
 enum LocalNameFilterRunLog {
+    /// Công tắc "Ưu tiên tên Latin" của lượt lọc.
+    enum LatinState {
+        case off
+        case on
+        /// Bật mà không nạp được mô hình (đã log ❌) ⇒ lọc như tắt.
+        case missingModel
+    }
+
     static func write(
         _ report: LocalNameFilterEngine.Report,
         metrics: LocalNameFilterRun.Metrics,
@@ -12,7 +21,8 @@ enum LocalNameFilterRunLog {
         stoppedEarly: Bool,
         hasPronouns: Bool,
         usesLAC: Bool,
-        taggedLines: Int
+        taggedLines: Int,
+        latin: LatinState
     ) {
         let snapshot = report.snapshot
         let stopNote = stoppedEarly ? " (bấm Dừng)" : ""
@@ -41,6 +51,14 @@ enum LocalNameFilterRunLog {
         parts.append("bỏ [\(joined(snapshot.droppedByReason))]")
         if let ruleDropped = report.ruleDroppedByReason { parts.append("luật bỏ [\(joined(ruleDropped))]") }
         parts.append("danh xưng \(titleNote)")
+        switch latin {
+        case .off:
+            break
+        case .on:
+            parts.append("Latin bật · đoán \(snapshot.names.reduce(0) { $0 + ($1.isGuessedMeaning ? 1 : 0) })")
+        case .missingModel:
+            parts.append("Latin bật nhưng thiếu mô hình")
+        }
         AppLogger.shared.log(parts.joined(separator: " · "))
     }
 

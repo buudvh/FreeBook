@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5): Gói tạm chưa lưu (`+Drafts`, chỉ khi có),
-/// Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N lần"), Danh sách.
+/// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5; nghĩa tên tây huyễn khung 1): Gói tạm chưa
+/// lưu (`+Drafts`, chỉ khi có), Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N lần", "Ưu tiên tên Latin"
+/// theo truyện), Danh sách.
 ///
 /// Phạm vi chép cách của `ReaderAIBatchPromptSheet` (chương đang đọc / chương đầu tiên / "Chọn chương…" qua
 /// `ReaderAINameScanChapterPickerView`, "Số lượng chương" `ChapterLimitPicker` mặc định Tất cả), bỏ "Tiếp nối", và
@@ -126,6 +127,22 @@ extension LocalNameFilterSheet {
                     Text("lần")
                         .foregroundColor(.secondary)
                 }
+
+                HelpLabeledToggle(
+                    title: "Ưu tiên tên Latin",
+                    help: [
+                        "Bật cho truyện **tây huyễn**: tên phiên âm lấy nghĩa chữ Latin trong từ điển (班森 Ban Sâm/Benson ⇒ Benson); tên chưa có trong từ điển thì máy đoán (伽罗斯 ⇒ Garos) và gắn nhãn **đoán** ở màn duyệt để kiểm lại.",
+                        "Nhớ riêng cho từng truyện. Đừng bật cho truyện Trung: 史莱克 sẽ thành Shrek.",
+                        "Lần đầu bật cần tải mô hình đoán tên (~150 KB); tải lỗi thì vẫn lọc, chỉ không chọn nghĩa Latin."
+                    ],
+                    isOn: Binding(
+                        get: { prefersLatinNames },
+                        set: { value in
+                            prefersLatinNames = value
+                            LocalNameFilterLatinPreferenceStore.shared.setPrefersLatin(value, bookId: bookId)
+                        }
+                    )
+                )
             } header: {
                 SectionHelpHeader("Tuỳ chọn", paragraphs: ["Chỉ giữ name xuất hiện từ chừng ấy lần trở lên trong các chương đã chọn. Lọc ít chương thì nên hạ xuống 2."])
             }
@@ -142,10 +159,10 @@ extension LocalNameFilterSheet {
                     LabeledContent("Không phải name", value: "\(blockedCount)")
                 }
             } header: {
-                SectionHelpHeader("Danh sách", paragraphs: ["Dùng chung cho mọi truyện. Đuôi địa danh, tổ chức, thuật ngữ: chữ đứng cuối để nhận ra tên chỗ (城, 巷, 市…), tổ chức (宗, 派, 商会…) hoặc thuật ngữ (丹, 诀, 功法…); số bên phải là số đuôi đang bật. Không phải name: cụm đã loại, lần lọc sau không hiện nữa."])
+                SectionHelpHeader("Danh sách", paragraphs: ["Dùng chung cho mọi truyện. Đuôi địa danh, tổ chức, thuật ngữ: chỉ dùng để **dịch nghĩa** name không phải tên người — phần tên riêng + nghĩa của đuôi (落霞镇 ⇒ Lạc Hà trấn, 玄真观 ⇒ Huyền Chân quán); việc dò name dùng bộ đuôi cố định trong app. Số bên phải là số đuôi trong danh sách. Không phải name: cụm đã loại, lần lọc sau không hiện nữa."])
             }
         }.glassSheetRows() }
-        // `onAppear` của gốc chạy lại mỗi lần quay về từ màn quản lý ⇒ số luôn mới.
+        // `onAppear` của gốc chạy lại mỗi lần quay về từ màn quản lý ⇒ số + công tắc Latin luôn mới.
         .onAppear { refreshListCounts() }
         .task { await loadChapters() }
         .task { await loadDrafts() }
@@ -246,8 +263,9 @@ extension LocalNameFilterSheet {
     // MARK: - Nạp dữ liệu
 
     private func refreshListCounts() {
-        suffixCount = LocalNameFilterSuffixStore.shared.enabledCount
+        suffixCount = LocalNameFilterSuffixStore.shared.count
         blockedCount = LocalNameFilterBlocklistStore.shared.count
+        prefersLatinNames = LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
     }
 
     /// Nạp danh sách chương đã tải **một lần**; `.task` của gốc chạy lại khi quay về từ trang con ⇒ đã nạp thì thôi.

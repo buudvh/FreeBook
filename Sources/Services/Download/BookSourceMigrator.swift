@@ -45,6 +45,8 @@ public actor BookSourceMigrator {
         await MainActor.run { BookAnnotationRepository.shared.invalidate(bookId: newBookId) }
         // Gói name tạm chưa lưu: gộp theo id, giữ 5 gói ghi gần nhất của truyện đích.
         LocalNameFilterDraftStore.copy(from: oldBookId, to: newBookId)
+        // Công tắc "Ưu tiên tên Latin" của Lọc name local (truyện đích đã có giá trị riêng thì giữ).
+        LocalNameFilterLatinPreferenceStore.shared.copy(from: oldBookId, to: newBookId)
 
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)
         if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
@@ -77,6 +79,7 @@ public actor BookSourceMigrator {
         BookAnnotationStore.delete(bookId: bookId)
         Task { @MainActor in BookAnnotationRepository.shared.invalidate(bookId: bookId) }
         LocalNameFilterDraftStore.deleteAll(bookId: bookId)
+        LocalNameFilterLatinPreferenceStore.shared.remove(bookId: bookId)
         if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
         }

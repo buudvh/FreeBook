@@ -3,13 +3,16 @@ import Foundation
 /// Chủ dữ liệu danh sách **"Đuôi địa danh, tổ chức, thuật ngữ"** của Lọc name local (dùng chung mọi truyện).
 ///
 /// - **Bản gốc**: `NameFilterSuffixes.txt` trong bundle (103 đuôi: 40 địa danh, 23 tổ chức — loại `sect`, 40 thuật ngữ —
-///   loại `term`; nghĩa Hán-Việt viết thường, đặt sau tên; 路 区 观 团 关 花 tắt sẵn), đọc **một lần** mỗi tiến trình,
-///   app không bao giờ ghi. Đuôi thuật ngữ không sinh ứng viên ở bộ luật — chỉ phân loại + dựng nghĩa thực thể LAC.
+///   loại `term`; nghĩa Hán-Việt viết thường, đặt sau tên), đọc **một lần** mỗi tiến trình, app không bao giờ ghi.
 /// - **Lớp riêng**: `UserDefaults` khoá `localNameFilterSuffixOverrides` = chuỗi JSON của
-///   `LocalNameFilterSuffixOverrides` (`entries` / `removed` / `enabled`). Khoá vắng = đúng bản gốc, nên đuôi mới của bản
-///   app sau tới cả người đã sửa. Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói.
-/// - **Trộn**: bản gốc → áp `entries` → bỏ `removed` → áp `enabled`; bộ lọc chỉ nhận đuôi đang bật
-///   (`enabledSuffixes()`, màn "Lọc name local" chụp lúc bấm "Bắt đầu lọc").
+///   `LocalNameFilterSuffixOverrides` (`entries` / `removed`). Khoá vắng = đúng bản gốc, nên đuôi mới của bản app sau tới
+///   cả người đã sửa. Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói.
+/// - **Trộn**: bản gốc → áp `entries` → bỏ `removed`.
+///
+/// **Cách A** (2026-11-27, anh Bửu: "bỏ bật tắt trong danh sách đi, giờ nó dùng để dịch nghĩa thôi"): danh sách hiệu lực
+/// (`allSuffixes()`, màn "Lọc name local" chụp lúc bấm "Bắt đầu lọc") **chỉ** dùng để ghép nghĩa name không phải tên người
+/// — mọi đuôi, kể cả 观 花 区. Dò ứng viên / luật lọc / phân loại dùng bộ cố định `detectionSuffixes` = bản gốc trừ dòng
+/// `|off` (路 区 观 团 关 花), không theo lớp riêng.
 ///
 /// Đuôi không đi vào bộ dịch nên ghi không cần dọn cache dịch hay báo rule đổi. Danh sách nhỏ, đọc trên main ⇒ không
 /// cache; đọc `UserDefaults` mỗi lần nên bước khôi phục của Backup (ghi thẳng `UserDefaults`) có hiệu lực ngay.
@@ -40,14 +43,22 @@ final class LocalNameFilterSuffixStore {
         currentOverrides().merged(with: Self.base)
     }
 
-    /// Các đuôi **đang bật**, đúng dạng bộ lọc dùng (`LocalNameFilter.Configuration.suffixes`).
-    func enabledSuffixes() -> [LocalNameFilter.Suffix] {
-        entries().filter(\.isEnabled).map(\.suffix)
+    /// Mọi đuôi của danh sách, đúng dạng bộ lọc dùng (`LocalNameFilter.Configuration.suffixes` — chỉ để ghép nghĩa).
+    func allSuffixes() -> [LocalNameFilter.Suffix] {
+        entries().map(\.suffix)
     }
 
-    /// Số đuôi đang bật — giá trị hàng danh sách đuôi ở sheet Lọc name local.
-    var enabledCount: Int {
-        entries().filter(\.isEnabled).count
+    /// Số đuôi trong danh sách — giá trị hàng danh sách đuôi ở sheet Lọc name local.
+    var count: Int {
+        entries().count
+    }
+
+    /// Bộ đuôi **dò** cố định của bộ lọc = bản gốc trừ dòng `|off`, không theo lớp riêng (cách A). `LocalNameFilterSetup`
+    /// đọc mỗi lượt lọc; bản gốc đọc một lần mỗi tiến trình.
+    static var detectionSuffixes: [LocalNameFilter.Suffix] {
+        base.lines.filter(\.isDetectable).map {
+            LocalNameFilter.Suffix(key: $0.key, meaning: $0.value.meaning, kind: $0.value.kind, position: $0.value.position)
+        }
     }
 
     /// Đã có thay đổi so với bản gốc — "Khôi phục mặc định" chỉ bật khi đúng.
@@ -60,8 +71,7 @@ final class LocalNameFilterSuffixStore {
 
     // MARK: - Kiểm tra (dùng chung sheet sửa và lúc lưu)
 
-    /// Luật khoá + trùng khoá (tính cả đuôi đang tắt, cả hai loại). `originalKey` = khoá đang sửa (giữ nguyên chữ Hán
-    /// không tính là trùng).
+    /// Luật khoá + trùng khoá (mọi loại). `originalKey` = khoá đang sửa (giữ nguyên chữ Hán không tính là trùng).
     func keyError(_ key: String, replacing originalKey: String?) -> String? {
         if let error = Parser.keyError(key) { return error }
         if key != originalKey, currentOverrides().contains(key, base: Self.base) {
@@ -76,8 +86,8 @@ final class LocalNameFilterSuffixStore {
 
     // MARK: - Ghi
 
-    /// Thêm (`originalKey == nil`) hoặc sửa một đuôi. Đổi chữ Hán = xoá khoá cũ + thêm khoá mới (giữ bật / tắt). Đuôi
-    /// thêm mới luôn bật — kể cả thêm lại đuôi gốc tắt sẵn đã xoá. `nil` = đã lưu; chuỗi = lỗi.
+    /// Thêm (`originalKey == nil`) hoặc sửa một đuôi. Đổi chữ Hán = xoá khoá cũ + thêm khoá mới. `nil` = đã lưu; chuỗi =
+    /// lỗi.
     @discardableResult
     func save(key rawKey: String, meaning rawMeaning: String, kind: LocalNameFilter.SuffixKind,
               position: LocalNameFilter.MeaningPosition, replacing originalKey: String?) -> String? {
@@ -90,15 +100,7 @@ final class LocalNameFilterSuffixStore {
             overrides.rename(from: originalKey, to: key, value: value, base: Self.base)
         } else {
             overrides.setValue(value, for: key, base: Self.base)
-            if originalKey == nil { overrides.setEnabled(true, for: key, base: Self.base) }
         }
-        return write(overrides)
-    }
-
-    @discardableResult
-    func setEnabled(_ isEnabled: Bool, key: String) -> String? {
-        var overrides = currentOverrides()
-        overrides.setEnabled(isEnabled, for: key, base: Self.base)
         return write(overrides)
     }
 
@@ -129,7 +131,8 @@ final class LocalNameFilterSuffixStore {
         Self.decode(UserDefaults.standard.string(forKey: Self.userDefaultsKey))
     }
 
-    /// Lớp riêng rỗng ⇒ xoá khoá (giữ "vắng = bản gốc"). `nil` = đã ghi; chuỗi = lỗi.
+    /// Lớp riêng rỗng ⇒ xoá khoá (giữ "vắng = bản gốc"; dữ liệu cũ chỉ có `enabled` cũng rơi về đây). `nil` = đã ghi;
+    /// chuỗi = lỗi.
     private func write(_ overrides: Overrides) -> String? {
         if overrides.isEmpty {
             UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)

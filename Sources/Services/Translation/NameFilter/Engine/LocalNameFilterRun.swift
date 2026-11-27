@@ -7,6 +7,9 @@ import Foundation
 /// - Model (`LACModel.prepare`, trước khi đọc chương — sau khi chụp từ điển để thiếu VP thì báo ngay, không tải 19 MB):
 ///   tải / nạp ⇒ `.preparingModel(fraction:)` (thưa ≥ 1 %); tải lỗi / file hỏng ⇒ `.failed`; tự kiểm lệch ⇒ log ❌ rồi
 ///   chạy **chỉ bộ luật** như trước bản LAC.
+/// - Bật "Ưu tiên tên Latin" (`Configuration.prefersLatinNames`): sau model LAC, trước chương đầu (để danh sách hiện dần đã
+///   có tên đoán) nạp mô hình đoán tên Latin (`LocalNameFilterLatinModelGate`, ~155 KB, tải lần đầu, không phát sự kiện).
+///   Lỗi ⇒ log ❌ rồi lọc như tắt công tắc (không chọn nghĩa Latin, không đoán); huỷ ⇒ dừng như mọi bước khác.
 /// - Cập nhật dần như `run_live` của bản thử Python: sau mỗi khối, nếu từ lúc lần chụp trước **kết thúc** đã qua
 ///   ≥ max(1 s, 2 × thời gian lần chụp đó) thì chụp ⇒ `.update`. Khối cuối chỉ chụp một lần ⇒ `.finished`. Lần chụp nào
 ///   cũng phân tích lại toàn bộ phần đã đọc nên kết quả cuối y như chạy một lần.
@@ -131,12 +134,21 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         case .rulesOnly: tagger = nil
         case .stop: return
         }
+        var latinModel: LocalNameFilterLatinModel?
+        if configuration.prefersLatinNames {
+            switch await prepareLatinModel() {
+            case .model(let loaded): latinModel = loaded
+            case .stop: return
+            }
+        }
         metrics.modelMs = Self.milliseconds(Self.seconds() - modelStart)
         if Task.isCancelled { return }
         // Model xong ⇒ báo ngay (0 chương): màn đang lọc đổi dòng model sang ✓ thay vì quay "Nạp model…" suốt khối đầu.
         emit(.progress(chaptersRead: 0, total: chapters.count))
 
-        let engine = LocalNameFilterEngine(configuration: configuration, dictionaries: dictionaries, usesLAC: tagger != nil)
+        let engine = LocalNameFilterEngine(
+            configuration: configuration, dictionaries: dictionaries, usesLAC: tagger != nil, latinModel: latinModel
+        )
         let suffixLastScalars = engine.lacSuffixLastScalars
         var stoppedEarly = false
         var lastReport: (report: LocalNameFilterEngine.Report, chapters: Int)?
@@ -208,8 +220,31 @@ public final class LocalNameFilterRun: @unchecked Sendable {
         LocalNameFilterRunLog.write(
             finalReport, metrics: metrics, total: chapters.count, hanCount: engine.hanCount,
             stoppedEarly: stoppedEarly, hasPronouns: engine.hasPronouns, usesLAC: engine.usesLAC,
-            taggedLines: engine.lacTaggedLines
+            taggedLines: engine.lacTaggedLines,
+            latin: configuration.prefersLatinNames ? (engine.prefersLatin ? .on : .missingModel) : .off
         )
+    }
+
+    private enum LatinOutcome {
+        /// `nil` = không nạp được (đã log ❌) ⇒ lọc như tắt công tắc.
+        case model(LocalNameFilterLatinModel?)
+        /// Bị huỷ.
+        case stop
+    }
+
+    /// Mô hình đoán tên Latin cho lượt bật "Ưu tiên tên Latin".
+    private func prepareLatinModel() async -> LatinOutcome {
+        do {
+            let model = try await LocalNameFilterLatinModelGate.shared.model()
+            return Task.isCancelled ? .stop : .model(model)
+        } catch is CancellationError {
+            return .stop
+        } catch {
+            if Task.isCancelled { return .stop }
+            AppLogger.shared.log("❌ 🔎 [LọcName] Không có mô hình đoán tên Latin — lọc như tắt Ưu tiên tên Latin: "
+                + error.localizedDescription)
+            return .model(nil)
+        }
     }
 
     /// `LACModel.prepare` + phân loại lỗi theo hợp đồng `LACModelError`.

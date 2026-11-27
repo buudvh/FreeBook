@@ -276,7 +276,8 @@ final class LocalNameFilterSession {
                 suggestedMeaning: name.meaning,
                 category: name.category.label,
                 occurrenceCount: name.count,
-                isSelected: true
+                isSelected: true,
+                isGuessedMeaning: name.isGuessedMeaning
             )
         }
         // Gắn cờ NE / VP + bỏ chọn name đã có — đọc Names.txt / VietPhrase.txt của truyện, chạy ngoài main như luồng AI
