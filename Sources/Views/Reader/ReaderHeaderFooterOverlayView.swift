@@ -5,6 +5,8 @@ struct ReaderHeaderFooterOverlayView: View {
     @Binding var isTranslationEnabled: Bool
     @Binding var isAutoScrollDisabled: Bool
     @Binding var showingBookDictionary: Bool
+    /// Sheet "Lọc name local" (`ReaderView+LocalNameFilter`).
+    @Binding var showingLocalNameFilter: Bool
     @Binding var showingBypassBrowser: Bool
     @Binding var showingSettings: Bool
     @Binding var showingChapterList: Bool
@@ -232,6 +234,7 @@ struct ReaderHeaderFooterOverlayView: View {
             SideDrawerActionRow("Trợ lý AI", systemImage: "sparkles", action: onOpenAI)
             if hasLocalBook {
                 SideDrawerActionRow("Từ điển truyện", systemImage: "book.closed") { showingBookDictionary = true }
+                SideDrawerActionRow("Lọc name local", systemImage: "tag") { showingLocalNameFilter = true }
             }
             SideDrawerActionRow("Mở bằng trình duyệt", systemImage: "safari") { showingBypassBrowser = true }
             if !isLocalTXTBook {

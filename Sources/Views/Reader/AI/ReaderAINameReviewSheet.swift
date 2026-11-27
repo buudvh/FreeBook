@@ -26,6 +26,13 @@ public struct ReaderAINameReviewSheet: View {
     public let onDeleteName: (String) -> Void
     /// Bấm "Cập nhật" ở màn Sửa từ của một name (1.3.780, `+Edit`): nhận phép sửa để nơi gọi ghi vào tin nguồn.
     public let onEditName: (AINameEdit) -> Void
+    /// Danh sách có sẵn (luồng "Lọc name local", `LocalNameFilterSheet`): bỏ bước tách dòng `từ=nghĩa` khỏi tin AI.
+    /// `nil` = luồng AI.
+    let prefilledNames: [AIExtractedName]?
+    /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Nhiều lần nhất".
+    let initialSortMode: ReaderAINameReviewCardView.SortMode
+    /// ✕ › "Không phải name" — chỉ luồng lọc local truyền; `nil` ⇒ ✕ xoá như cũ.
+    public let onBlockName: ((AIExtractedName) -> Void)?
 
     @State private var isLoading: Bool = true
     // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
@@ -46,6 +53,39 @@ public struct ReaderAINameReviewSheet: View {
         self.onSave = onSave
         self.onDeleteName = onDeleteName
         self.onEditName = onEditName
+        self.prefilledNames = nil
+        self.initialSortMode = .selectedFirst
+        self.onBlockName = nil
+    }
+
+    /// Luồng "Lọc name local": nhận sẵn danh sách (đã chọn hết, `occurrenceCount` = số lần thấy), sắp "Nhiều lần nhất",
+    /// ✕ có "Không phải name" (`onBlockName`). Sửa một name chỉ đổi danh sách đang duyệt (không có tin nguồn).
+    public init(
+        names: [AIExtractedName],
+        bookId: String,
+        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
+        onBlockName: @escaping (AIExtractedName) -> Void
+    ) {
+        self.content = ""
+        self.bookId = bookId
+        self.onSave = onSave
+        self.onDeleteName = { _ in }
+        self.onEditName = { _ in }
+        self.prefilledNames = names
+        self.initialSortMode = .mostFrequent
+        self.onBlockName = onBlockName
+        self._names = State(initialValue: names)
+        self._isLoading = State(initialValue: false)
+    }
+
+    /// ✕ › "Không phải name" của card ⇒ `onBlockName` với mục đầy đủ. Card gọi trước khi tự bỏ mục ⇒ còn tra được theo id.
+    private var blockHandler: ((UUID) -> Void)? {
+        guard let onBlockName else { return nil }
+        return { blockedId in
+            if let item = names.first(where: { $0.id == blockedId }) {
+                onBlockName(item)
+            }
+        }
     }
 
     private var selectedCount: Int {
@@ -62,7 +102,9 @@ public struct ReaderAINameReviewSheet: View {
                         Image(systemName: "tag.slash")
                             .font(.system(size: 36))
                             .foregroundColor(.secondary)
-                        Text("Không tìm thấy tên riêng hợp lệ dạng 'Từ=Nghĩa' trong tin nhắn.")
+                        Text(prefilledNames == nil
+                             ? "Không tìm thấy tên riêng hợp lệ dạng 'Từ=Nghĩa' trong tin nhắn."
+                             : "Không còn name nào trong danh sách.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -82,7 +124,9 @@ public struct ReaderAINameReviewSheet: View {
                             },
                             onEdit: { editedId in
                                 editingName = names.first(where: { $0.id == editedId })
-                            }
+                            },
+                            initialSortMode: initialSortMode,
+                            onBlock: blockHandler
                         )
                         .padding(.vertical, 8)
                     }
@@ -125,7 +169,12 @@ public struct ReaderAINameReviewSheet: View {
                 .appGlassSheet()
             }
             .task {
-                await loadAndDecorateNames()
+                if prefilledNames != nil {
+                    // Danh sách có sẵn: chỉ tra cờ NE/VP (cho hộp Gộp / Thay thế lúc lưu), giữ nguyên trạng thái chọn.
+                    refreshDictionaryFlags()
+                } else {
+                    await loadAndDecorateNames()
+                }
             }
         }
     }

@@ -246,6 +246,7 @@ struct ReaderView: View {
     /// Kết quả tìm vừa được nhảy tới — dùng để tô vệt trên trang. `nil` = không tô gì.
     @State internal var searchHighlight: ReaderSearchMatcher.Highlight? = nil
     @State internal var showingBookDictionary = false
+    @State internal var showingLocalNameFilter = false // `ReaderView+LocalNameFilter`
     @State internal var currentOnlineChapters: [ChapterResult] = []
     @State internal var chapterListStore: ReaderChapterListStore? = nil
     @State internal var titleTranslations = ReaderTitleTranslationStore() // tên đầu trang / mục lục (`+TitleTranslation`)
@@ -412,7 +413,7 @@ struct ReaderView: View {
 
     /// Ba panel bôi đen (Dịch, Xoá từ rác, Copy gốc) là sheet gốc gắn ở đây — xem `ReaderView+SelectionSheets`.
     internal var readerSheetLayer: some View {
-        withTTSSameChapterPrompt(withSelectionSheets(readerOverlayStack))
+        withLocalNameFilterSheet(withTTSSameChapterPrompt(withSelectionSheets(readerOverlayStack)))
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 bookId: bookId,
@@ -989,6 +990,7 @@ struct ReaderView: View {
                 isTranslationEnabled: $isTranslationEnabled,
                 isAutoScrollDisabled: $isAutoScrollDisabled,
                 showingBookDictionary: $showingBookDictionary,
+                showingLocalNameFilter: $showingLocalNameFilter,
                 showingBypassBrowser: $showingBypassBrowser,
                 showingSettings: $showingSettings,
                 showingChapterList: $showingChapterList,

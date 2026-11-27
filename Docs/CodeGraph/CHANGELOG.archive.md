@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1039] - 2026-11-20
+
+### feat: Kệ — nút ⋮ mở tuỳ chọn truyện, nhấn giữ để chọn nhiều (Chọn tất cả, Thêm vào playlist, Thêm vào bộ sưu tập, Xoá)
+
+Anh Bửu: thêm nút ba chấm dọc trên mỗi sách ở Kệ mở menu của sách; nhấn giữ lâu = chọn nhiều sách, có Chọn tất cả / Bỏ chọn tất cả, Xoá, Thêm vào playlist, Thêm vào bộ sưu tập → plan + mockup https://claude.ai/artifact/Es6YfEe94Zyi2uigCzMTPX → "Duyệt" (theo đề xuất: chỉ Kệ Sách + Lịch Sử, thanh thao tác đè thanh tab, Xoá ở Kệ hỏi hai hướng).
+
+- **⋮** (`ShelfBookMoreButton`, mới): kiểu Danh sách cuối hàng sau badge chương mới (17pt, khung 32×44), kiểu Lưới cuối dòng "icon · Ch. N" (15pt), kiểu Chỉ bìa vòng tròn 26 nền đen 50% góc trên phải bìa (badge chương mới lùi sang trái). Bấm ⇒ `BookActionSheet` như nhấn giữ trước đây. Là tham số **opt-in** `onMore` của `ShelfBooksLayoutView`; thẻ lưới nhận `ShelfBookGridCardView.Accessory`.
+- **Chọn nhiều** (`ShelfBookSelection` + `ShelfView+Selection`, mới): nhấn giữ (0,25 s, rung) ⇒ vào chế độ, truyện đó chọn sẵn. Header ✕ + "Đã chọn N" (`pageTitle(_:leadingIcon:)`) + "Chọn tất cả" / "Bỏ chọn tất cả" thay cụm 🔍 | …; nút "+" nổi ẩn. Chạm / nhấn giữ = chọn / bỏ, không mở truyện. Vòng chọn `ShelfBookSelectionMark` (mới); hàng đã chọn nền nhấn 18% + viền 60% (`bookListPanel(_:isHighlighted:)`), bìa đã chọn viền nhấn 3pt. Chỉ giữ `bookId`, mọi phép đếm / thao tác giao với danh sách đang hiện của trang (chip loại + NSFW, kể cả phần chưa phân trang tới — "Chọn tất cả" chọn hết). Thoát: ✕, đổi trang, mở Reader (thông báo / đĩa nghe), thao tác xong.
+- **Thanh thao tác** `ShelfSelectionActionBar` (mới): cùng khuôn `MainTabBar`, `overlay` đè đúng chỗ thanh tab (không sửa thanh tab dùng chung). Thêm vào playlist · Thêm vào bộ sưu tập · Xoá.
+- **Xoá**: Kệ Sách hỏi "Bỏ khỏi kệ (về Lịch sử)" (một lần lưu, `BookTransactionCoordinator+Batch.removeFromShelf(bookIds:)` chép luật bản một truyện) hoặc "Xoá hẳn khỏi máy" (`BookStorageManager.deleteBooksAsync`, lớp chờ "Đang dọn dẹp sách...", toast theo số thật đã xoá — truyện đang nghe TTS được giữ). Lịch Sử hỏi "Xoá N truyện khỏi lịch sử": trên kệ ⇒ `setHistory(bookIds:isHistory: false)`, không ở kệ ⇒ xoá khỏi máy.
+- **Thêm vào bộ sưu tập**: sheet kính `CollectionBatchAddSheet` (mới) — chạm một bộ ⇒ `BookCollectionCoordinator.addBooks` (mới, **chỉ thêm**, một lần lưu; truyện ở Lịch sử lên kệ theo bất biến), "Tạo bộ sưu tập mới" tạo xong thêm luôn, toast "Đã thêm N truyện vào …".
+- **Thêm vào playlist**: chỉ album âm thanh / phim (`PlaylistKind` qua `BookContentKindResolver`). Không có cuốn nào hợp ⇒ ô mờ + toast; có cả hai loại ⇒ hỏi Nhạc / Video; lấy mục lục **lần lượt** (`PlaylistAlbumItemsLoader.items`, ô hiện "Đang lấy i/N · Huỷ", bấm lại ⇒ huỷ) rồi mở `PlaylistAddSheet` (thêm tham số tuỳ chọn `onAdded`); truyện khác loại / album lỗi mục lục báo gộp một toast.
+- Thêm xong (playlist / bộ sưu tập) ⇒ thoát chế độ chọn khi sheet đóng hẳn; vuốt đóng mà chưa thêm ⇒ giữ lựa chọn.
+- Bộ sưu tập và Tìm trên kệ giữ nguyên (nhấn giữ vẫn mở sheet, không ⋮). Cụm nút phải header Kệ tách ra `headerTrailingButtons` (ngân sách type-check của `body`).
+- `.claude/rules/ui-conventions.md` thêm luật. CHANGELOG: chuyển bản 1.3.1009 sang archive. Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **chưa build tại chỗ (Windows), chưa thử máy**.
+
 ## [1.3.1038] - 2026-11-20
 
 ### fix: vtts — phiên âm tiếng Nhật đọc được tên viết hoa, thêm "vtts tự đọc nhanh tối đa" để chỉnh độ rõ lời

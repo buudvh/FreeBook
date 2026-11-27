@@ -13,6 +13,8 @@ import SwiftUI
 /// Khoá đích đã có trong danh sách ⇒ ghi đè nghĩa mục đó (màn Sửa từ báo trước), không tạo bản trùng.
 extension ReaderAINameReviewSheet {
     static let editBadgeText = "AI · Riêng truyện"
+    /// Badge màn Sửa từ khi mở từ luồng "Lọc name local" (danh sách có sẵn, không có tin AI nguồn).
+    static let localFilterEditBadgeText = "Lọc local · Riêng truyện"
 
     func editSheet(for item: AIExtractedName) -> some View {
         let sourceKey = AINameEdit.key(item.original)
@@ -30,7 +32,7 @@ extension ReaderAINameReviewSheet {
                 applyEdit(.add(key: AINameEdit.key(key), meaning: meaning, anchorKey: sourceKey))
             },
             onDefinitionsChanged: { refreshDictionaryFlags() },
-            badgeText: Self.editBadgeText
+            badgeText: prefilledNames == nil ? Self.editBadgeText : Self.localFilterEditBadgeText
         )
     }
 

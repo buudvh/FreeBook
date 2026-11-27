@@ -15,22 +15,43 @@ public struct ReaderAINameReviewCardView: View {
     /// Chạm thân hàng của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ chạm
     /// không làm gì.
     public var onEdit: ((UUID) -> Void)? = nil
+    /// ✕ › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ; card bỏ mục khỏi danh
+    /// sách sau khi gọi. `nil` (luồng AI) ⇒ ✕ là nút xoá như cũ; có ⇒ ✕ mở menu "Bỏ khỏi lần này" / "Không phải name".
+    public var onBlock: ((UUID) -> Void)? = nil
 
     public enum SortMode {
         case selectedFirst
         case alphabetical
+        /// "Nhiều lần nhất": số lần giảm dần, rồi chữ Hán tăng dần (đúng thứ tự bộ lọc name local trả). Chỉ có trong menu
+        /// khi card mở với kiểu này (luồng lọc local) — luồng AI giữ menu cũ.
+        case mostFrequent
     }
 
-    @State private var sortMode: SortMode = .selectedFirst
+    @State private var sortMode: SortMode
+    /// Kiểu sắp lúc mở card — quyết định menu có "Nhiều lần nhất" không.
+    private let initialSortMode: SortMode
 
     public init(
         names: Binding<[AIExtractedName]>,
         onDelete: ((UUID) -> Void)? = nil,
-        onEdit: ((UUID) -> Void)? = nil
+        onEdit: ((UUID) -> Void)? = nil,
+        initialSortMode: SortMode = .selectedFirst,
+        onBlock: ((UUID) -> Void)? = nil
     ) {
         self._names = names
         self.onDelete = onDelete
         self.onEdit = onEdit
+        self.initialSortMode = initialSortMode
+        self._sortMode = State(initialValue: initialSortMode)
+        self.onBlock = onBlock
+    }
+
+    private var sortChipLabel: String {
+        switch sortMode {
+        case .selectedFirst: return "Đã chọn"
+        case .alphabetical: return "A-Z"
+        case .mostFrequent: return "Nhiều lần"
+        }
     }
 
     public var body: some View {
@@ -49,6 +70,20 @@ public struct ReaderAINameReviewCardView: View {
 
                 // Menu & Nút Sắp xếp
                 Menu {
+                    if initialSortMode == .mostFrequent {
+                        Button {
+                            sortMode = .mostFrequent
+                            applySorting()
+                        } label: {
+                            HStack {
+                                Text("Nhiều lần nhất")
+                                if sortMode == .mostFrequent {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+
                     Button {
                         sortMode = .selectedFirst
                         applySorting()
@@ -83,7 +118,7 @@ public struct ReaderAINameReviewCardView: View {
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.up.arrow.down")
-                        Text(sortMode == .selectedFirst ? "Đã chọn" : "A-Z")
+                        Text(sortChipLabel)
                     }
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color(red: 90/255.0, green: 170/255.0, blue: 255/255.0))
@@ -188,15 +223,8 @@ public struct ReaderAINameReviewCardView: View {
                             onEdit?(item.id)
                         }
 
-                        // Nút xóa từng mục
-                        Button(action: {
-                            deleteItem(id: item.id)
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color(.tertiaryLabel))
-                        }
-                        .buttonStyle(.plain)
+                        // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
+                        removeControl(id: item.id, term: item.original)
                     }
                     // Không đệm trái: khung 44 pt của nút chọn đã tự chừa lề, hàng giữ chiều cao gần như cũ.
                     .padding(.vertical, 4)
@@ -219,6 +247,42 @@ public struct ReaderAINameReviewCardView: View {
         }
     }
 
+    /// ✕ của một hàng. Luồng AI (`onBlock == nil`): nút xoá như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
+    /// danh sách đang duyệt) / "Không phải name" (bỏ + thêm vào danh sách loại bỏ qua `onBlock`).
+    @ViewBuilder
+    private func removeControl(id: UUID, term: String) -> some View {
+        if onBlock != nil {
+            Menu {
+                Button {
+                    deleteItem(id: id)
+                } label: {
+                    Label("Bỏ khỏi lần này", systemImage: "minus.circle")
+                }
+                Button(role: .destructive) {
+                    blockItem(id: id)
+                } label: {
+                    Label("Không phải name", systemImage: "nosign")
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(.tertiaryLabel))
+                    .frame(width: 28, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Bỏ \(term)")
+        } else {
+            Button(action: {
+                deleteItem(id: id)
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(.tertiaryLabel))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     private var allSelected: Bool {
         names.allSatisfy { $0.isSelected }
     }
@@ -236,8 +300,21 @@ public struct ReaderAINameReviewCardView: View {
         names.removeAll(where: { $0.id == id })
     }
 
+    /// "Không phải name": báo nơi dùng **trước** (còn tra được mục theo `id`) rồi bỏ khỏi danh sách.
+    private func blockItem(id: UUID) {
+        onBlock?(id)
+        names.removeAll(where: { $0.id == id })
+    }
+
     private func applySorting() {
         switch sortMode {
+        case .mostFrequent:
+            names.sort { (a, b) -> Bool in
+                if a.occurrenceCount != b.occurrenceCount {
+                    return a.occurrenceCount > b.occurrenceCount
+                }
+                return a.original < b.original
+            }
         case .selectedFirst:
             names.sort { (a, b) -> Bool in
                 if a.isSelected != b.isSelected {

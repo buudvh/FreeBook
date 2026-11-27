@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1069] - 2026-11-27
+
+### feat: lọc name local trong Reader, hiện name ngay khi lọc và duyệt có "Không phải name"
+
+Anh Bửu duyệt plan + mockup "Lọc name local" (2026-11-27). Phần C — luồng trong Reader (bộ lọc và hai danh sách ở hai commit riêng).
+
+- Ngăn kéo "…" của Reader có hàng **"Lọc name local"** ngay dưới "Từ điển truyện" (cùng điều kiện: truyện đã có trong thư viện) ⇒ sheet kính `LocalNameFilterSheet` (`ReaderView+LocalNameFilter`; `ReaderView.swift` chỉ thêm cờ + một lần gọi).
+- **Bước chọn** (`LocalNameFilterSheet+Setup`): phạm vi như "Lọc name nhiều chương" của AI bỏ "Tiếp nối" — chương đang đọc (mặc định; không còn chương đã tải từ đó thì chương đầu tiên) / chương đầu tiên / "Chọn chương…", "Số lượng chương" mặc định Tất cả, dòng "Sẽ lọc N chương đã tải"; ô chương chỉ ghi tên chương. **Không** đọc / ghi mặc định của sheet AI (`AINameScanScopeStore`). "Ít nhất 2 / 3 / 5 / 10 lần" (mặc định 3). Mục "Danh sách": "Đuôi địa danh & tông môn" (số đuôi đang bật) và "Không phải name" (số cụm), đọc lại số khi quay về. "Bắt đầu lọc" chụp cấu hình từ hai danh sách, lấy chương đã tải theo phạm vi (`fetchDownloadedChapters`), cờ phồn → giản của Reader ⇒ `LocalNameFilterRun.start`.
+- **Đang lọc** (`LocalNameFilterProgressView` + `LocalNameFilterSession`, `@MainActor @Observable` giữ lượt lọc và vòng nghe sự kiện): "Đọc chương X / N" + thanh; "Name đã thấy (K)" + "cập nhật ở chương X"; danh sách tạm hiện ngay, name vừa vào có vạch + nhãn "mới", name vừa rơi ra gạch mờ — một nhịp tới lần cập nhật kế (`LocalNameFilterLiveRow`). "Dừng" = phân tích nốt phần đã đọc rồi sang màn duyệt; vuốt sheet xuống ở bất kỳ bước nào = huỷ (`onDisappear` ở `ZStack` ngoài cùng). Xong không có name ⇒ về bước chọn, báo "Không tìm thấy name mới · ẩn M name đã có"; `.failed` ⇒ về bước chọn, hiện lỗi.
+- **Duyệt**: thay gốc sheet bằng "Duyệt tên riêng & VP" của AI với init mới `ReaderAINameReviewSheet(names:bookId:onSave:onBlockName:)` (danh sách có sẵn, chọn sẵn hết, chỉ tra cờ NE/VP, badge màn Sửa từ "Lọc local · Riêng truyện") + toast "Lọc xong: N name mới · ẩn M name đã có". Card thêm `SortMode.mostFrequent` ("Nhiều lần nhất": số lần giảm dần rồi chữ Hán) + kiểu sắp mặc định; ✕ thành menu "Bỏ khỏi lần này" / "Không phải name" (thêm vào danh sách loại bỏ dùng chung, toast) **chỉ** khi có `onBlock` — luồng AI giữ ✕, menu sắp và mặc định như cũ. Lưu Name riêng / VP riêng (Gộp / Thay thế) thẳng qua `AIHarnessService.saveExtractedEntries`, toast như AI.
+- **Kiểm**: đọc code + `check_architecture.py` (không thêm violation); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1068] - 2026-11-27
 
 ### feat: danh sách đuôi địa danh & tông môn và danh sách "Không phải name" cho lọc name local
@@ -372,19 +384,3 @@ Anh Bửu: "làm chức năng ghi chú, đánh dấu chương" → mockup → "t
 - **Đi theo truyện**: xoá truyện (`BookStorageManager.deleteBookSideData` thay cho `deleteLegadoState` ở ba lối xoá — gọi cả hai), đổi nguồn (`BookSourceMigrator` chép gộp theo id / xoá), sao lưu (`BackupAnnotationArchiver`, entry `library/annotations.json` = `[hash(bookId): …]`, đi kèm nhóm `.books`, khôi phục gộp), Dung lượng (loại mới "Ghi chú & dấu trang"), Dọn rác (file của truyện không còn trong thư viện, cùng luật `.bin` / phim / comic).
 - Log `🔖 [Annotations]`. `storage.md`: thêm thư mục `annotations/`.
 - Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **không build tại chỗ (Windows), chưa chạy trên máy**. Chưa làm (đã nói trong plan): tô màu chữ đoạn có ghi chú, xuất ghi chú, truyện tranh / phim, xem từ Chi tiết truyện; vân tay sao lưu tự động (`BackupLibraryFingerprint`) chưa tính ghi chú ⇒ chỉ sửa ghi chú thì lượt sao lưu Drive tự động có thể bỏ qua.
-
-## [1.3.1039] - 2026-11-20
-
-### feat: Kệ — nút ⋮ mở tuỳ chọn truyện, nhấn giữ để chọn nhiều (Chọn tất cả, Thêm vào playlist, Thêm vào bộ sưu tập, Xoá)
-
-Anh Bửu: thêm nút ba chấm dọc trên mỗi sách ở Kệ mở menu của sách; nhấn giữ lâu = chọn nhiều sách, có Chọn tất cả / Bỏ chọn tất cả, Xoá, Thêm vào playlist, Thêm vào bộ sưu tập → plan + mockup https://claude.ai/artifact/Es6YfEe94Zyi2uigCzMTPX → "Duyệt" (theo đề xuất: chỉ Kệ Sách + Lịch Sử, thanh thao tác đè thanh tab, Xoá ở Kệ hỏi hai hướng).
-
-- **⋮** (`ShelfBookMoreButton`, mới): kiểu Danh sách cuối hàng sau badge chương mới (17pt, khung 32×44), kiểu Lưới cuối dòng "icon · Ch. N" (15pt), kiểu Chỉ bìa vòng tròn 26 nền đen 50% góc trên phải bìa (badge chương mới lùi sang trái). Bấm ⇒ `BookActionSheet` như nhấn giữ trước đây. Là tham số **opt-in** `onMore` của `ShelfBooksLayoutView`; thẻ lưới nhận `ShelfBookGridCardView.Accessory`.
-- **Chọn nhiều** (`ShelfBookSelection` + `ShelfView+Selection`, mới): nhấn giữ (0,25 s, rung) ⇒ vào chế độ, truyện đó chọn sẵn. Header ✕ + "Đã chọn N" (`pageTitle(_:leadingIcon:)`) + "Chọn tất cả" / "Bỏ chọn tất cả" thay cụm 🔍 | …; nút "+" nổi ẩn. Chạm / nhấn giữ = chọn / bỏ, không mở truyện. Vòng chọn `ShelfBookSelectionMark` (mới); hàng đã chọn nền nhấn 18% + viền 60% (`bookListPanel(_:isHighlighted:)`), bìa đã chọn viền nhấn 3pt. Chỉ giữ `bookId`, mọi phép đếm / thao tác giao với danh sách đang hiện của trang (chip loại + NSFW, kể cả phần chưa phân trang tới — "Chọn tất cả" chọn hết). Thoát: ✕, đổi trang, mở Reader (thông báo / đĩa nghe), thao tác xong.
-- **Thanh thao tác** `ShelfSelectionActionBar` (mới): cùng khuôn `MainTabBar`, `overlay` đè đúng chỗ thanh tab (không sửa thanh tab dùng chung). Thêm vào playlist · Thêm vào bộ sưu tập · Xoá.
-- **Xoá**: Kệ Sách hỏi "Bỏ khỏi kệ (về Lịch sử)" (một lần lưu, `BookTransactionCoordinator+Batch.removeFromShelf(bookIds:)` chép luật bản một truyện) hoặc "Xoá hẳn khỏi máy" (`BookStorageManager.deleteBooksAsync`, lớp chờ "Đang dọn dẹp sách...", toast theo số thật đã xoá — truyện đang nghe TTS được giữ). Lịch Sử hỏi "Xoá N truyện khỏi lịch sử": trên kệ ⇒ `setHistory(bookIds:isHistory: false)`, không ở kệ ⇒ xoá khỏi máy.
-- **Thêm vào bộ sưu tập**: sheet kính `CollectionBatchAddSheet` (mới) — chạm một bộ ⇒ `BookCollectionCoordinator.addBooks` (mới, **chỉ thêm**, một lần lưu; truyện ở Lịch sử lên kệ theo bất biến), "Tạo bộ sưu tập mới" tạo xong thêm luôn, toast "Đã thêm N truyện vào …".
-- **Thêm vào playlist**: chỉ album âm thanh / phim (`PlaylistKind` qua `BookContentKindResolver`). Không có cuốn nào hợp ⇒ ô mờ + toast; có cả hai loại ⇒ hỏi Nhạc / Video; lấy mục lục **lần lượt** (`PlaylistAlbumItemsLoader.items`, ô hiện "Đang lấy i/N · Huỷ", bấm lại ⇒ huỷ) rồi mở `PlaylistAddSheet` (thêm tham số tuỳ chọn `onAdded`); truyện khác loại / album lỗi mục lục báo gộp một toast.
-- Thêm xong (playlist / bộ sưu tập) ⇒ thoát chế độ chọn khi sheet đóng hẳn; vuốt đóng mà chưa thêm ⇒ giữ lựa chọn.
-- Bộ sưu tập và Tìm trên kệ giữ nguyên (nhấn giữ vẫn mở sheet, không ⋮). Cụm nút phải header Kệ tách ra `headerTrailingButtons` (ngân sách type-check của `body`).
-- `.claude/rules/ui-conventions.md` thêm luật. CHANGELOG: chuyển bản 1.3.1009 sang archive. Kiểm: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`); **chưa build tại chỗ (Windows), chưa thử máy**.
