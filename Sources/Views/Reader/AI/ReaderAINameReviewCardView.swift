@@ -246,7 +246,7 @@ public struct ReaderAINameReviewCardView: View {
         }
     }
 
-    /// ✕ của một hàng. Luồng AI (`onBlock == nil`): nút xoá như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
+    /// Nút xoá (thùng rác) của một hàng. Luồng AI (`onBlock == nil`): xoá ngay như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
     /// danh sách đang duyệt) / "Không phải name" (bỏ + thêm vào danh sách loại bỏ qua `onBlock`).
     @ViewBuilder
     private func removeControl(id: UUID, term: String) -> some View {
@@ -277,12 +277,12 @@ public struct ReaderAINameReviewCardView: View {
         }
     }
 
-    /// ✕ cỡ bằng ô vuông chọn bên trái (anh Bửu: "nút X nhỏ quá, tăng to lên"): icon 22 pt trong vùng chạm 44 × 44
-    /// (mức tối thiểu của Apple) — trước là icon 14 pt, luồng AI không có khung chạm riêng.
+    /// Nút xoá **giống hàng danh sách từ điển** (`DictionaryEntryRow`: `trash` đỏ `.subheadline` — anh Bửu: "đổi thành
+    /// nút xóa giống danh sách trong từ điển"), vùng chạm 44 × 44 bằng ô vuông chọn bên trái (anh chê ✕ cũ nhỏ khó bấm).
     private var removeIcon: some View {
-        Image(systemName: "xmark.circle.fill")
-            .font(.system(size: 22))
-            .foregroundColor(Color(.tertiaryLabel))
+        Image(systemName: "trash")
+            .font(.subheadline)
+            .foregroundColor(.red)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
     }

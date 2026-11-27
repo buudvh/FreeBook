@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1073] - 2026-11-27
+
+### fix: nút xoá ở danh sách duyệt name dùng thùng rác đỏ như danh sách từ điển
+
+Anh Bửu (ngay sau 1.3.1072): "đổi thành nút xóa giống danh sách trong từ điển".
+
+- `ReaderAINameReviewCardView.removeIcon`: ✕ tròn xám 22 pt ⇒ `trash` đỏ `.subheadline` y hàng `DictionaryEntryRow`; vẫn giữ vùng chạm 44 × 44 của 1.3.1072. Áp cho cả màn duyệt của AI và của lọc name local (luồng local bấm vẫn ra menu "Bỏ khỏi lần này / Không phải name").
+- Không build tại chỗ (Windows).
+- Dọn: entry 1.3.1043 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1072] - 2026-11-27
 
 ### fix: nút ✕ ở danh sách duyệt name to bằng ô chọn, dễ bấm hơn
@@ -369,19 +379,3 @@ Anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà" �
 - **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Ngọc Huyền (CC BY-NC 4.0, nguồn dữ liệu + link, thay đổi đã làm, VoxCPM2, Piper vais1000; điều kiện phi thương mại — app thu phí / quảng cáo ⇒ phải bỏ giọng này). `Vendor/vtts/README.md` thêm mục "Giọng tự train".
 - Ai đã tự nhập `Ngọc Huyền.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
 - Dọn: entry 1.3.1014 chuyển sang `CHANGELOG.archive.md`. Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
-
-## [1.3.1043] - 2026-11-22
-
-### feat: vtts — nhập giọng từ file .vtts (Giọng của tôi), để dùng giọng Ngọc Huyền tự train
-
-Anh Bửu: "Tích hợp giọng ngọc huyền vào app" → plan (giọng train riêng không đóng vào IPA: dữ liệu Ngọc Huyền CC BY-NC, repo công khai, IPA gửi Telegram ⇒ làm chức năng nhập file, giọng chỉ nằm trên máy) → "Javis tự duyệt đi".
-
-- **`VttsVoice`** enum → struct (`id`, `displayName`, `source` = `.bundled(fileName:)` / `.imported(fileName:)`, `defaultLoudnessGainDb`). Id giọng có sẵn giữ `nu-10` / `nam-1` ⇒ lựa chọn đã lưu không mất; giọng tự nhập id `file:<tên file>`, tên hiện = tên file bỏ đuôi. `resolve`: giọng có sẵn ⇒ giọng tự nhập còn file ⇒ mặc định. Đoạn quá ngắn để đo âm lượng: giọng tự nhập tăng 9 dB (giữa hai giọng có sẵn).
-- **`VttsImportedVoiceRepository`** (mới, `@MainActor @Observable`, khuôn `NghiVoiceDirectory`): chủ duy nhất của `Application Support/FreeBook/TTS/Vtts/`. Nhập = kiểm cỡ (≤ 64 MB) → chép sang file tạm → **nạp thử + đọc "Xin chào."** bằng runtime vtts của app (`VttsRuntime.validateModel`, handle riêng trên hàng đợi runtime, không vào `handles`) → đặt vào thư mục (trùng tên ⇒ thay) → nhả handle cũ của id đó. File hỏng / không phải vtts / khác phiên bản runtime không bao giờ vào danh sách. Xoá: đúng giọng trình đọc vtts đang dùng ⇒ dừng phiên trước; giọng đang chọn (trình đọc chính hay giọng dự phòng) ⇒ về `nu-10`. Tên file từ id được kiểm (không `/`, `:`, không bắt đầu `.`, đuôi `.vtts`). Không vào Sao lưu.
-- **`VttsRuntime`**: handle khoá theo `VttsVoice.id`; `modelURL` theo nguồn (bundle / thư mục giọng tự nhập); `isAvailable` vẫn chỉ xét 2 giọng có sẵn + VLEX (giọng tự nhập cũng dùng VLEX của app); thêm `release(voiceId:)`, `validateModel(at:)`, lỗi `voiceFileMissing` (file tự nhập mất giữa chừng).
-- **Sheet chọn giọng vtts** (`VttsVoicePickerList`, chép khuôn sheet NghiTTS): hàng đầu "Nhập giọng từ file .vtts" (`DocumentPickerPresenter` — `.fileImporter` không trả kết quả trong LiveContainer; nhận mọi file, runtime quyết định), "Có sẵn trong app", "Giọng của tôi" (dòng phụ "Tự nhập · X MB", ▶ thử, 🗑 / nhấn giữ ⇒ hỏi "Xoá giọng"), lớp "Đang nhập giọng...", toast kết quả. Màn Giọng dự phòng dùng chung sheet nên có luôn.
-- Hàng "Giọng đọc" (`TTSReaderVoiceSummaryRow`): giọng tự nhập ghi "Giọng tự nhập · X MB".
-- **Dung lượng**: dòng mới "vtts · N giọng tự nhập" (`StorageUsageDetail.Kind.vttsVoices`, thư mục `TTS/Vtts`); snapshot đo cũ không giải được Kind mới ⇒ màn đo lại (đã chấp nhận ở comment của `StorageUsageDetail`).
-- Log: `🗣️ [Vtts] Đã nhập giọng <file>: <Hz>, bộ token …, X MB`, `❌ [Vtts] Nhập giọng …`, `🗑️ [Vtts] Đã xoá giọng tự nhập …`, `🗣️ [Vtts] Đã nhả giọng <id>`.
-- Runtime vtts của app (`Vendor/vtts/VTTS_COMMIT.txt` c5c8c00) trùng commit repo dùng train giọng trên Kaggle ⇒ file `.vtts` train ra đọc được. Không đổi CI / `Vendor/vtts` / IPA.
-- Dọn: entry 1.3.1013 chuyển sang `CHANGELOG.archive.md`. `.claude/rules/tts.md` + `storage.md` ghi giọng tự nhập. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
