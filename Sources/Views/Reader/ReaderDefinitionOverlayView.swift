@@ -3,20 +3,21 @@ import SwiftUI
 public enum SuggestionChipCategory: String, Sendable {
     case name       // Từ điển Names -> Chữ trắng, viền đỏ nhạt
     case vietPhrase // Từ điển VietPhrase -> Chữ trắng, viền xanh nhạt
+    case pronoun    // Từ điển Pronouns (chỉ có bản chung, không badge) -> Chữ trắng, viền tím
     case hanViet    // Phiên âm Hán Việt -> Giữ nguyên (chữ xám sáng, viền xám mờ)
 
     public var borderColor: Color {
         switch self {
         case .name: return Color.red.opacity(0.55)
         case .vietPhrase: return Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.6)
+        case .pronoun: return Color(red: 0.75, green: 0.35, blue: 0.95).opacity(0.7)
         case .hanViet: return Color.gray.opacity(0.45)
         }
     }
 
     public var textColor: Color {
         switch self {
-        case .name: return Color.white
-        case .vietPhrase: return Color.white
+        case .name, .vietPhrase, .pronoun: return Color.white
         case .hanViet: return Color(red: 0.75, green: 0.75, blue: 0.75)
         }
     }
@@ -24,7 +25,7 @@ public enum SuggestionChipCategory: String, Sendable {
 
 public struct SuggestionChip: Identifiable, Hashable, Sendable {
     /// Phạm vi từ điển của nghĩa, vẽ thành badge `R` / `C` ở góc trên phải chip. Chỉ nguồn Names và VietPhrase
-    /// mới có phạm vi (xem `ReaderView.suggestionChips(from:)`).
+    /// mới có phạm vi (xem `ReaderView.suggestionChips(from:)`); Pronoun và Phiên âm không badge.
     public enum Scope: Sendable, Hashable {
         case book    // "(Riêng)" — badge R
         case global  // "(Chung)" — badge C
@@ -45,7 +46,7 @@ public struct SuggestionChip: Identifiable, Hashable, Sendable {
     public let id = UUID()
     public let text: String
     public let category: SuggestionChipCategory
-    /// `nil` = không badge (Phiên âm). `var` để khi gộp nghĩa trùng thì nâng được badge.
+    /// `nil` = không badge (Pronoun, Phiên âm). `var` để khi gộp nghĩa trùng thì nâng được badge.
     public var scope: Scope?
 
     public init(text: String, category: SuggestionChipCategory, scope: Scope? = nil) {

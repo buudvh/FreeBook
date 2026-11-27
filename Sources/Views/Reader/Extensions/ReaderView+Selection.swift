@@ -116,9 +116,10 @@ extension ReaderView {
 
     /// Tra một từ qua **7** tầng theo đúng thứ tự ưu tiên của pipeline dịch, để màn Dịch nói rõ
     /// nghĩa đang đến từ đâu. Thứ tự này là hợp đồng với UI — đổi thứ tự là đổi nghĩa hiển thị.
-    /// Nhãn nguồn cũng là hợp đồng: `ReaderView+Suggestions` chọn nguồn lên chip theo đúng nhãn (chỉ Names/VietPhrase
-    /// Riêng/Chung + Phiên âm, xếp theo màn quản lý chứ không theo thứ tự này), suy màu chip từ tiền tố "Names" và
-    /// badge R/C từ hậu tố "(Riêng)" / "(Chung)".
+    /// Nhãn nguồn cũng là hợp đồng: `ReaderView+Suggestions` chọn nguồn lên chip theo đúng nhãn (Names/VietPhrase
+    /// Riêng/Chung, Pronoun, Phiên âm — xếp theo màn quản lý chứ không theo thứ tự này), suy màu chip từ tiền tố
+    /// "Names" / nhãn Pronoun và badge R/C từ hậu tố "(Riêng)" / "(Chung)". Màn Quản lý nghĩa nhận nhóm Pronoun bằng
+    /// cùng hằng `ManageDefinitionsDraft.pronounSource`.
     func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
         Self.dictionaryMatches(for: word, bookId: bookId)
     }
@@ -164,7 +165,7 @@ extension ReaderView {
         if let pronouns = manager.pronounsDict,
            let match = pronouns.findLongestMatch(text: word, startIndex: 0),
            match.length == word.utf16.count {
-            matches.append(DictionaryMatchInfo(source: "Xưng hô (Pronouns)", translation: match.value))
+            matches.append(DictionaryMatchInfo(source: ManageDefinitionsDraft.pronounSource, translation: match.value))
         }
 
         // 5. Book VietPhrase

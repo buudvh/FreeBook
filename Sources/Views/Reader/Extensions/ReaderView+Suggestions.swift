@@ -11,10 +11,11 @@ import SwiftUI
 /// có nghĩa nào thì thanh chip có nghĩa đó. Trước 1.3.601 hàm này tự tra lại từ điển và bỏ cả mục VietPhrase chung
 /// khi nghĩa dài ≥ 100 ký tự.
 ///
-/// Từ 1.3.721 thanh chip chỉ lấy đúng các mục màn quản lý hiện (Name/VP Riêng/Chung, rồi Phiên âm), theo **thứ tự
-/// của màn đó**. Trước đó chip còn có Xưng hô / Luật nhân đứng trước VP (kể cả khi công tắc dịch của chúng đang tắt):
-/// nghĩa Xưng hô chen lên đầu hàng, rồi nghĩa VP trùng chữ gộp vào và nâng nó lên badge C ⇒ trông như VP Chung xếp
-/// nghĩa đó đầu tiên, còn nghĩa chỉ có ở Xưng hô thì nằm giữa hàng mà không có badge.
+/// Thanh chip lấy đúng các mục màn quản lý hiện, theo **thứ tự của màn đó**: Name/VP Riêng/Chung, Pronoun, rồi
+/// Phiên âm. 1.3.721 từng bỏ Xưng hô khỏi chip vì nó đứng **trước** VP: nghĩa Xưng hô chen lên đầu hàng, rồi nghĩa VP
+/// trùng chữ gộp vào và nâng nó lên badge C ⇒ trông như VP Chung xếp nghĩa đó đầu tiên. Từ 2026-11-27 (anh Bửu)
+/// Pronoun lên chip lại nhưng đứng **sau** VP Chung (viền tím, không badge) — nghĩa trùng chữ với chip Name/VP gộp vào
+/// chip đứng trước, nên không còn đẩy nghĩa VP xuống.
 extension ReaderView {
     /// Tính lại chip cho `rawWord` và ghi vào `@State suggestionChips`.
     func refreshSuggestionChips(for rawWord: String) {
@@ -27,27 +28,26 @@ extension ReaderView {
         return suggestionChips(from: dictionaryMatches(for: word, bookId: bookId))
     }
 
-    /// Nguồn được lên chip, theo đúng thứ tự mục của màn Quản lý nghĩa (`ManageDefinitionsView`): bốn mục sửa được
-    /// (`ManageDefinitionsDraft.editableSources`) rồi Phiên âm ở cuối. Xưng hô không lên chip.
+    /// Nguồn được lên chip, theo đúng thứ tự mục của màn Quản lý nghĩa (`ManageDefinitionsView`): năm mục sửa được
+    /// (`ManageDefinitionsDraft.editableSources` — Name/VP Riêng/Chung rồi Pronoun) rồi Phiên âm ở cuối.
     /// Nhãn là hợp đồng với `dictionaryMatches(for:bookId:)` (`ReaderView+Selection`) — đổi nhãn ở đó là chip mất im
-    /// lặng, sửa cả hai chỗ.
+    /// lặng, sửa cả hai chỗ (nhãn Pronoun dùng chung hằng `ManageDefinitionsDraft.pronounSource`).
     private nonisolated static let chipSourceOrder = ManageDefinitionsDraft.editableSources + ["Phiên âm"]
 
-    /// Mỗi nguồn tách theo `/` (và `¦`) thành chip, bỏ nghĩa trùng. Thứ tự theo `chipSourceOrder` chứ **không** theo
-    /// thứ tự của `matches` (màn quản lý nối nguồn mới thêm vào cuối danh sách — `mergedMatches`); trong một nguồn,
-    /// nghĩa giữ đúng thứ tự đang lưu.
+    /// Mỗi nguồn tách theo `/` (và `¦`; riêng Pronoun thêm `|`) thành chip, bỏ nghĩa trùng. Thứ tự theo
+    /// `chipSourceOrder` chứ **không** theo thứ tự của `matches` (màn quản lý nối nguồn mới thêm vào cuối danh sách —
+    /// `mergedMatches`); trong một nguồn, nghĩa giữ đúng thứ tự đang lưu.
     ///
     /// Badge phạm vi: nghĩa có trong **bất kỳ** nguồn Names/VietPhrase "(Riêng)" nào ⇒ `R`; không có mà có trong nguồn
-    /// "(Chung)" ⇒ `C`; Phiên âm không badge. Nghĩa trùng giữ vị trí + category (màu viền) của lần xuất hiện đầu, chỉ
-    /// nâng badge.
+    /// "(Chung)" ⇒ `C`; Pronoun và Phiên âm không badge. Nghĩa trùng giữ vị trí + category (màu viền) của lần xuất hiện
+    /// đầu, chỉ nâng badge.
     nonisolated static func suggestionChips(from matches: [DictionaryMatchInfo]) -> [SuggestionChip] {
         var chips: [SuggestionChip] = []
         let ordered = chipSourceOrder.flatMap { source in matches.filter { $0.source == source } }
         for match in ordered {
             let category = suggestionCategory(forSource: match.source)
             let scope = suggestionScope(forSource: match.source)
-            let translation = category == .hanViet ? match.translation.lowercased() : match.translation
-            for part in translation.replacingOccurrences(of: "¦", with: "/").components(separatedBy: "/") {
+            for part in meaningParts(of: match.translation, category: category) {
                 let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { continue }
                 if let index = chips.firstIndex(where: { $0.text == trimmed }) {
@@ -60,9 +60,17 @@ extension ReaderView {
         return chips
     }
 
+    /// Phiên âm hạ chữ thường; nghĩa Pronoun còn ngăn bằng `|` (file Pronouns cũ) — tách như `/`, chỉ Pronoun.
+    private nonisolated static func meaningParts(of translation: String, category: SuggestionChipCategory) -> [String] {
+        var text = category == .hanViet ? translation.lowercased() : translation
+        text = text.replacingOccurrences(of: "¦", with: "/")
+        if category == .pronoun { text = text.replacingOccurrences(of: "|", with: "/") }
+        return text.components(separatedBy: "/")
+    }
+
     /// Phạm vi suy từ **hậu tố nhãn nguồn** "(Riêng)" / "(Chung)" khai ở `dictionaryMatches(for:bookId:)`
     /// (`ReaderView+Selection`). Đổi nhãn ở đó là badge R/C mất im lặng — sửa cả hai chỗ. Chỉ nguồn Names và
-    /// VietPhrase có phạm vi; Phiên âm trả `nil`.
+    /// VietPhrase có phạm vi; Pronoun và Phiên âm trả `nil`.
     private nonisolated static func suggestionScope(forSource source: String) -> SuggestionChip.Scope? {
         guard source.hasPrefix("Names") || source.hasPrefix("VietPhrase") else { return nil }
         if source.hasSuffix("(Riêng)") { return .book }
@@ -81,9 +89,10 @@ extension ReaderView {
     }
 
     /// Màu chip theo nhãn nguồn — nhãn khai ở `dictionaryMatches(for:bookId:)` (`ReaderView+Selection`):
-    /// "Names (…)" viền đỏ, "Phiên âm" viền xám, VietPhrase viền xanh.
+    /// "Names (…)" viền đỏ, Pronoun viền tím, "Phiên âm" viền xám, VietPhrase viền xanh.
     private nonisolated static func suggestionCategory(forSource source: String) -> SuggestionChipCategory {
         if source.hasPrefix("Names") { return .name }
+        if source == ManageDefinitionsDraft.pronounSource { return .pronoun }
         if source == "Phiên âm" { return .hanViet }
         return .vietPhrase
     }

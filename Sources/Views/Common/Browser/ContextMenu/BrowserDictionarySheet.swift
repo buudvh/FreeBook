@@ -51,6 +51,9 @@ struct BrowserDictionarySheet: View {
                 }
                 section("VietPhrase") { chipsOrEmpty(lookup.vietPhrase) }
                 section("Names") { chipsOrEmpty(lookup.names) }
+                if !lookup.pronouns.isEmpty {
+                    section("Pronouns") { chips(lookup.pronouns) }
+                }
             }
         } else if isLoading {
             ProgressView()

@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1074] - 2026-11-27
+
+### feat: chip nghĩa Pronoun viền tím, nhóm Pronoun trong Quản lý nghĩa từ, tách nghĩa Pronoun bằng | và chuẩn hoá | thành / một lần
+
+Anh Bửu (plan `Docs/Plans/2026-11-27-pronoun-chip-dict-edit.md` ý 2–5, mockup https://claude.ai/artifact/3LcrV8ViqPyhmg7wSYhE5W khung 1–3 / 5): Pronoun thành lớp nghĩa ngang hàng NE / VP ở mọi chỗ tra / sửa nghĩa — đảo quyết định 1.3.721 "chip chỉ Name/VP". Ý 6 (nơi lưu PN ở panel Dịch) chưa làm, chờ anh chọn cách xếp.
+
+- **Chip Pronoun** (`ReaderView.suggestionChips(from:)` — panel Dịch Reader, màn Sửa từ / Thêm từ): nguồn `"Xưng hô (Pronouns)"` của `dictionaryMatches`, nay là hằng `ManageDefinitionsDraft.pronounSource` và là mục thứ năm của `editableSources` ⇒ thứ tự Name Riêng → Name Chung → VP Riêng → VP Chung → **Pronoun** → Phiên âm. Category mới `SuggestionChipCategory.pronoun` viền tím (`rgba(191,90,242,0.7)` như mockup), chữ trắng, không badge R/C; nghĩa trùng chữ với chip đứng trước gộp vào chip đó. Sheet Tra từ điển của trình duyệt thêm nhóm "Pronouns" (chỉ hiện khi có nghĩa riêng của Pronoun). VoiceOver đọc thêm "Pronoun".
+- **Tách nghĩa Pronoun thêm bằng `|`** (ngoài `/`, `¦`), chỉ Pronoun: chip và `ManageDefinitionsDraft.splitMeanings(_:source:)` (bản nháp + phép so lúc lưu cùng gọi ⇒ mục `a|b` không đụng tới thì không ghi lại). `<pn>` và danh xưng lọc name local vốn đã nhận `|`.
+- **Quản lý nghĩa từ có nhóm "Pronoun · Chung"** sau VP Chung (`ManageDefinitionsView` / `ManageDefinitionGroupView`): thêm / sửa / xoá / đổi chỗ như nhóm khác. Đóng màn ⇒ nhóm đã đổi ghi thẳng file Pronouns gốc qua `GlobalDictionaryEditor` (`save` nối `/`, hết nghĩa ⇒ `delete`) — cùng đường danh sách Pronouns: dựng lại `.dat`, nạp lại riêng Pronouns, xoá cache dịch. Log lỗi lưu của màn này đổi `⚠️` ⇒ `❌`.
+- **Chuẩn hoá một lần** (`PronounsSeparatorNormalization`, mới; cờ `pronounsPipeNormalizedV1`): `TranslationManager.init` gọi ngay sau lượt nạp từ điển đầu ⇒ `GlobalDictionaryEditor.normalizePronounSeparators()` (trong hàng đợi ghi) đổi mọi `|` trong nghĩa thành `/`, một ký tự đổi một ký tự — dòng, khoá, chữ nghĩa giữ nguyên; không mục nào có `|` ⇒ không ghi. Chưa có file ⇒ đánh dấu xong; lỗi ⇒ `❌`, lần mở sau thử lại. Log `📚 [Pronouns] Chuẩn hoá một lần | → /: đổi N / tổng` (dòng thường — log tắt lúc mở app nên lần chạy đầu thường không ghi). `GlobalDictionaryEditor` tách phần nạp lại sau khi ghi thành `reloadAfterWrite(type:)` dùng chung.
+- Sửa comment / tài liệu cũ nói "Xưng hô không lên chip"; `.claude/rules/translation.md` thêm đoạn "Pronoun trên chip nghĩa + Quản lý nghĩa từ", làm rõ luật "Pronouns chỉ qua `<pn>`" là về đường dịch.
+- Dọn: entry 1.3.1044 chuyển sang `CHANGELOG.archive.md`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.
+
 ## [1.3.1073] - 2026-11-27
 
 ### fix: nút xoá ở danh sách duyệt name dùng thùng rác đỏ như danh sách từ điển
@@ -366,16 +379,3 @@ Anh Bửu: "file realease vượt 50 MB có vấn đề gì ko" → Javis kiểm
 - **Package IPA** nén `zip -9`.
 - `.claude/rules/ci-release.md`: mục "IPA lớn hơn giới hạn gửi file của bot"; luật "không gửi link release" thêm ngoại lệ này.
 - Không đổi code app. Chỉ sửa workflow (không tự kích hoạt build — chạy ở lượt build kế tiếp). Chưa thấy chạy thật.
-
-## [1.3.1044] - 2026-11-23
-
-### feat: vtts — đóng giọng Ngọc Huyền vào app (Có sẵn trong app, ghi nguồn CC BY-NC 4.0)
-
-Anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà" → Javis đọc lại giấy phép (dataset `pnnbao-ump/ngochuyen_voice` CC BY-NC 4.0, card không thêm điều kiện; VoxCPM2 Apache-2.0; Piper vais1000 MIT, dữ liệu VAIS-1000 CC BY 4.0) ⇒ phát hành phi thương mại có ghi nguồn là được phép → plan → "Duyệt, làm đi". Giọng Google Dịch train cùng đợt vẫn chỉ nhập file (dữ liệu lấy qua endpoint không chính thức).
-
-- **Model**: `Vendor/vtts/assets/vtts/vtts-ngochuyen-m-k4.q8.vtts` (2 580 320 byte) = `M-vocos-p-bi.q8.vtts` của lượt chưng cất `vtts-k4` trên Kaggle (thầy VITS 60k bước warm-start Piper vais1000; chưng cất front 10k / dec 30k / joint 20k bước trên 17.670 câu). SHA256 `908684ca…6dc72` ghi ở `assets/LOCAL_SHA256SUMS`. Trainer cùng commit runtime `VTTS_COMMIT.txt` (c5c8c00) ⇒ app đọc được. IPA nặng thêm ~2,6 MB.
-- **`VttsVoice`**: thêm `ngocHuyen` (id `ngoc-huyen`, "Nữ · Ngọc Huyền"), `bundled = [nu10, nam1, ngocHuyen]`; mặc định vẫn `nu-10`. Trường mới `credit` (ghi nguồn mà giấy phép bắt buộc) + `bundledRowDetail`: hàng Ngọc Huyền trong sheet chọn giọng ghi "pnnbao-ump · CC BY-NC 4.0" thay "Việt + Anh · 2,6 MB" (dòng phụ chỉ một dòng, nối thêm sẽ bị cắt mất giấy phép). Mức tăng cho đoạn quá ngắn 7,5 dB — đo trên 6 câu mẫu của lượt train (−22,0 dBFS sau bước chỉnh tiếng của `VttsLoudness`), chưa đo trên đoạn truyện dài của CI như hai giọng release.
-- **CI** (`Scripts/ci/check_vtts_assets.sh`): `VOICES` thêm `ngoc-huyen` ⇒ đọc thử bằng `vtts_say` + shim ASan/UBSan như hai giọng kia; `assets/vtts/` phải đúng 4 file; SHA256 kiểm qua `LOCAL_SHA256SUMS`.
-- **Bản quyền**: `Vendor/vtts/THIRD_PARTY_NOTICES.md` thêm mục Ngọc Huyền (CC BY-NC 4.0, nguồn dữ liệu + link, thay đổi đã làm, VoxCPM2, Piper vais1000; điều kiện phi thương mại — app thu phí / quảng cáo ⇒ phải bỏ giọng này). `Vendor/vtts/README.md` thêm mục "Giọng tự train".
-- Ai đã tự nhập `Ngọc Huyền.vtts` (1.3.1043) sẽ thấy hai giọng; xoá bản ở "Giọng của tôi".
-- Dọn: entry 1.3.1014 chuyển sang `CHANGELOG.archive.md`. Cập nhật `.claude/rules/tts.md`, `ci-release.md`, comment `project.yml`. Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa thử máy.

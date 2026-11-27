@@ -63,6 +63,8 @@ public final class TranslationManager: ObservableObject {
     private init() {
         Task {
             try? await loadAllDictionaries()
+            // Sau lượt nạp đầu (lượt đó có thể dựng Pronouns.dat từ .txt, không qua hàng đợi ghi): một lần đổi `|` → `/`.
+            await PronounsSeparatorNormalization.runIfNeeded()
         }
     }
     

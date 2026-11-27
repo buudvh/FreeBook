@@ -23,13 +23,19 @@ struct ManageDefinitionsDraft {
         }
     }
 
-    /// Bốn nhóm từ điển sửa được ở màn này, theo thứ tự hiển thị. Các nhóm khác trong
-    /// `[DictionaryMatchInfo]` (Phiên âm, Xưng hô…) chỉ đọc nên không có mặt ở đây.
+    /// Nhãn nguồn của từ điển Pronouns trong `[DictionaryMatchInfo]` — `ReaderView.dictionaryMatches(for:bookId:)` gắn
+    /// đúng hằng này, thanh chip (`ReaderView+Suggestions`) và màn này nhận ra nhóm Pronoun bằng nó.
+    static let pronounSource = "Xưng hô (Pronouns)"
+
+    /// Năm nhóm từ điển sửa được ở màn này, theo thứ tự hiển thị — cũng là thứ tự chip nghĩa (`ReaderView+Suggestions`).
+    /// Pronoun (anh Bửu, 2026-11-27) đứng sau VP Chung, chỉ có bản chung, lưu thẳng file Pronouns gốc. Nhóm còn lại trong
+    /// `[DictionaryMatchInfo]` (Phiên âm) chỉ đọc nên không có mặt ở đây.
     static let editableSources = [
         "Names (Riêng)",
         "Names (Chung)",
         "VietPhrase (Riêng)",
-        "VietPhrase (Chung)"
+        "VietPhrase (Chung)",
+        pronounSource
     ]
 
     private var rowsBySource: [String: [Row]] = [:]
@@ -37,7 +43,7 @@ struct ManageDefinitionsDraft {
     init(matches: [DictionaryMatchInfo]) {
         for source in Self.editableSources {
             let translation = matches.first(where: { $0.source == source })?.translation ?? ""
-            rowsBySource[source] = Self.splitMeanings(translation).map {
+            rowsBySource[source] = Self.splitMeanings(translation, source: source).map {
                 Row(text: $0, preservesEmpty: $0.isEmpty)
             }
         }
@@ -111,6 +117,13 @@ struct ManageDefinitionsDraft {
     }
 
     // MARK: - Tách chuỗi nghĩa
+
+    /// Như `splitMeanings(_:)`, thêm luật riêng nguồn: nghĩa Pronoun còn ngăn bằng `|` (file Pronouns cũ), coi như `/`.
+    /// Bản nháp và phép so "đã sửa chưa" lúc lưu phải cùng gọi hàm này — tách khác nhau là mục không đụng tới vẫn bị ghi lại.
+    static func splitMeanings(_ translation: String, source: String) -> [String] {
+        guard source == pronounSource else { return splitMeanings(translation) }
+        return splitMeanings(translation.replacingOccurrences(of: "|", with: "/"))
+    }
 
     /// Tách chuỗi nghĩa gộp thành từng nghĩa. Giữ nguyên hành vi cũ: `¦` coi như `/`, và chuỗi bắt
     /// đầu bằng `/` thì phần rỗng đầu tiên được giữ lại (đừng lặng lẽ đổi `/foo` thành `foo`).

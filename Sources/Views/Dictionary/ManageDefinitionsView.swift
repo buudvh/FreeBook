@@ -1,7 +1,12 @@
 import SwiftUI
 
-/// Màn "Quản lý nghĩa từ" kiểu chip (1.3.981): bốn nhóm từ điển sửa được nằm trong **một** thẻ, mỗi nghĩa là một viên
-/// con nhộng (`ManageDefinitionChipView`). Bấm chip ⇒ ô sửa hiện dưới nhóm; nút góc chip xoá nhanh / hoàn tác.
+/// Màn "Quản lý nghĩa từ" kiểu chip (1.3.981): các nhóm từ điển sửa được (Name / VP Riêng + Chung, rồi Pronoun Chung —
+/// `ManageDefinitionsDraft.editableSources`) nằm trong **một** thẻ, mỗi nghĩa là một viên con nhộng
+/// (`ManageDefinitionChipView`). Bấm chip ⇒ ô sửa hiện dưới nhóm; nút góc chip xoá nhanh / hoàn tác.
+///
+/// Đóng màn ⇒ ghi nhóm đã đổi: Name / VP vào lớp sửa đổi (`saveCustomEntry` / `deleteCustomEntry`); Pronoun ghi thẳng
+/// **file Pronouns gốc** qua hàng đợi `GlobalDictionaryEditor` (cùng đường danh sách Pronouns: dựng lại `.dat`, nạp lại
+/// riêng Pronouns, xoá cache dịch), nghĩa nối bằng `/`, hết nghĩa ⇒ xoá mục.
 struct ManageDefinitionsView: View {
     /// Chip đang mở ô sửa. Khoá theo `id` của hàng — hàng đổi chỗ được nên không dùng chỉ số.
     private struct Selection: Equatable {
@@ -102,7 +107,7 @@ struct ManageDefinitionsView: View {
     private func group(for source: String) -> some View {
         let selectedRowId = selection?.source == source ? selection?.rowId : nil
         return ManageDefinitionGroupView(
-            dictionaryName: source.hasPrefix("Names") ? "Name" : "VP",
+            dictionaryName: Self.dictionaryName(for: source),
             scopeName: source.hasSuffix("(Riêng)") ? "Riêng" : "Chung",
             isBookScope: source.hasSuffix("(Riêng)"),
             rows: draft.rows(for: source),
@@ -115,6 +120,12 @@ struct ManageDefinitionsView: View {
             onMoveSelected: { moveSelected(by: $0) },
             onSubmit: { select(nil) }
         )
+    }
+
+    /// Nhãn nhóm (dòng 1 của cột nhãn). Pronoun chỉ có bản chung nên dòng 2 luôn "Chung".
+    private static func dictionaryName(for source: String) -> String {
+        if source == ManageDefinitionsDraft.pronounSource { return "Pronoun" }
+        return source.hasPrefix("Names") ? "Name" : "VP"
     }
 
     private var statusLine: some View {
@@ -213,12 +224,16 @@ struct ManageDefinitionsView: View {
                 let bid = isRieng ? bookId : nil
 
                 let originalTranslation = originals.first(where: { $0.source == source })?.translation ?? ""
-                let originalMeanings = ManageDefinitionsDraft.splitMeanings(originalTranslation)
+                // Cùng phép tách với bản nháp (Pronoun tách thêm `|`) — khác nhau là mục không đụng tới vẫn bị ghi lại.
+                let originalMeanings = ManageDefinitionsDraft.splitMeanings(originalTranslation, source: source)
                 let finalMeanings = snapshot.activeMeanings(for: source)
                 guard finalMeanings != originalMeanings else { continue }
 
                 do {
-                    if finalMeanings.isEmpty {
+                    if source == ManageDefinitionsDraft.pronounSource {
+                        // Pronoun không có lớp sửa đổi: **không** rơi xuống `saveCustomEntry` (sẽ ghi vào VP Chung).
+                        try await Self.savePronounMeanings(finalMeanings, word: word)
+                    } else if finalMeanings.isEmpty {
                         try await TranslationManager.shared.deleteCustomEntry(
                             word: word,
                             isName: isName,
@@ -234,7 +249,7 @@ struct ManageDefinitionsView: View {
                     }
                 } catch {
                     AppLogger.shared.log(
-                        "⚠️ [ManageDefinitions] Không lưu được nghĩa của '\(word)' ở \(source): \(error.localizedDescription)"
+                        "❌ [ManageDefinitions] Không lưu được nghĩa của '\(word)' ở \(source): \(error.localizedDescription)"
                     )
                 }
             }
@@ -246,8 +261,21 @@ struct ManageDefinitionsView: View {
         }
     }
 
-    /// Ghép lại danh sách cho màn gọi: nhóm chỉ đọc (Phiên âm, Xưng hô…) giữ nguyên,
-    /// bốn nhóm sửa được lấy theo bản nháp và biến mất nếu không còn nghĩa nào.
+    /// Ghi nhóm Pronoun thẳng vào file Pronouns gốc qua hàng đợi `GlobalDictionaryEditor` (như danh sách Pronouns):
+    /// còn nghĩa ⇒ `từ=nghĩa1/nghĩa2…` đè mục cũ; hết nghĩa ⇒ xoá mục. Editor tự nạp lại riêng Pronouns, xoá cache dịch.
+    private static func savePronounMeanings(_ meanings: [String], word: String) async throws {
+        let key = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = meanings.joined(separator: "/")
+        let editor = GlobalDictionaryEditor.shared
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try await editor.delete(key: key, type: "pronouns")
+        } else {
+            try await editor.save(key: key, value: value, replacing: nil, type: "pronouns")
+        }
+    }
+
+    /// Ghép lại danh sách cho màn gọi: nhóm chỉ đọc (Phiên âm) giữ nguyên,
+    /// các nhóm sửa được lấy theo bản nháp và biến mất nếu không còn nghĩa nào.
     private static func mergedMatches(
         originals: [DictionaryMatchInfo],
         draft: ManageDefinitionsDraft

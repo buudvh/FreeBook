@@ -6,7 +6,8 @@ import Foundation
 /// Trình duyệt không gắn với truyện nào ⇒ chỉ từ điển chung (`bookId: nil`, badge C). Chỉ tra, không sửa nghĩa.
 ///
 /// Nguồn nghĩa dùng chung với Reader: `ReaderView.dictionaryMatches(for:bookId:)` + `ReaderView.suggestionChips(from:)`
-/// (chip `.vietPhrase` = VietPhrase, `.name` = Names; Xưng hô / Luật nhân không lên chip từ 1.3.721). Hán Việt lấy riêng từ
+/// (chip `.vietPhrase` = VietPhrase, `.name` = Names, `.pronoun` = Pronouns — nghĩa Pronoun trùng chữ với chip Name/VP đã
+/// gộp vào chip đó nên nhóm Pronouns chỉ còn nghĩa riêng của nó). Hán Việt lấy riêng từ
 /// `ReaderSelectionCoordinator.hanViet(for:)` nên chip `.hanViet` (Phiên âm) không lặp lại ở nhóm VietPhrase.
 struct BrowserDictionaryLookup: Sendable {
     /// Câu dài hơn trần này thì cắt cửa sổ quanh từ đang tra.
@@ -23,6 +24,8 @@ struct BrowserDictionaryLookup: Sendable {
     let hanViet: String?
     let vietPhrase: [SuggestionChip]
     let names: [SuggestionChip]
+    /// Rỗng ⇒ sheet ẩn hẳn nhóm Pronouns (đa số từ không có).
+    let pronouns: [SuggestionChip]
 
     /// Token đang tra (viền sáng): giao với vùng của từ, hoặc trùng chữ khi không biết vị trí.
     func isFocused(_ token: TranslationWordToken) -> Bool {
@@ -76,7 +79,7 @@ struct BrowserDictionaryLookup: Sendable {
         }
         return BrowserDictionaryLookup(
             sentence: sentence, tokens: tokens, word: "", wordStart: nil, wordLength: 0,
-            hanViet: nil, vietPhrase: [], names: []
+            hanViet: nil, vietPhrase: [], names: [], pronouns: []
         ).focusing(token)
     }
 
@@ -101,7 +104,8 @@ struct BrowserDictionaryLookup: Sendable {
             wordLength: length,
             hanViet: hanViet,
             vietPhrase: chips.filter { $0.category == .vietPhrase },
-            names: chips.filter { $0.category == .name }
+            names: chips.filter { $0.category == .name },
+            pronouns: chips.filter { $0.category == .pronoun }
         )
     }
 

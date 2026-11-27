@@ -1,7 +1,8 @@
 import Foundation
 
 /// **Hàng đợi duy nhất** cho mọi lượt ghi từ điển gốc dùng chung: nhập từ thẻ (Cài đặt dịch thuật › Từ điển chung), nhập
-/// từ danh sách Phiên âm / Pronouns, sửa / xoá một hàng của hai danh sách đó, xoá cả từ điển ở thẻ.
+/// từ danh sách Phiên âm / Pronouns, sửa / xoá một hàng của hai danh sách đó (và nhóm Pronoun của màn Quản lý nghĩa từ),
+/// xoá cả từ điển ở thẻ, lượt chuẩn hoá `|` → `/` một lần của Pronouns.
 ///
 /// Vì sao phải xếp hàng **cả phần nạp lại**: một lượt = đọc file gốc ⇒ đổi ⇒ ghi ⇒ nạp lại (`loadAllDictionaries` mất vài
 /// giây). Actor thường cho lượt khác chen vào ở mỗi `await` (reentrancy) — trước đây một lượt sửa hàng chen giữa lúc nhập
@@ -73,6 +74,33 @@ actor GlobalDictionaryEditor {
         }
     }
 
+    // MARK: - Chuẩn hoá một lần
+
+    /// Kết quả `normalizePronounSeparators()`: số mục Pronouns đã đổi / tổng số mục (0 / 0 = chưa có từ điển).
+    struct SeparatorNormalization: Sendable {
+        let changed: Int
+        let total: Int
+    }
+
+    /// Đổi mọi `|` trong **nghĩa** của Pronouns thành `/` (`PronounsSeparatorNormalization`). Chỉ đổi cú pháp: một ký tự
+    /// đổi một ký tự — không cắt khoảng trắng, không gộp / bỏ nghĩa trùng, không đụng `¦`, khoá giữ nguyên. Không mục nào
+    /// có `|` (hoặc chưa có từ điển) ⇒ không ghi gì. Có đổi ⇒ ghi lại + nạp lại y như sửa một hàng.
+    func normalizePronounSeparators() async throws -> SeparatorNormalization {
+        try await serialized {
+            let entries = try GlobalDictionaryImporter.baseEntries(type: "pronouns")
+            var changed = 0
+            let normalized = entries.map { entry -> (key: String, value: String) in
+                guard entry.value.contains("|") else { return entry }
+                changed += 1
+                return (key: entry.key, value: entry.value.replacingOccurrences(of: "|", with: "/"))
+            }
+            guard changed > 0 else { return SeparatorNormalization(changed: 0, total: entries.count) }
+            try GlobalDictionaryImporter.writeBase(normalized, type: "pronouns")
+            await Self.reloadAfterWrite(type: "pronouns")
+            return SeparatorNormalization(changed: changed, total: entries.count)
+        }
+    }
+
     // MARK: - Phụ trợ
 
     /// Chạy `operation` sau khi mọi lượt xếp trước đã xong hẳn. `tail` đổi ngay (không `await` trước đó) nên thứ tự lượt
@@ -100,14 +128,19 @@ actor GlobalDictionaryEditor {
             var entries = try GlobalDictionaryImporter.baseEntries(type: type)
             change(&entries)
             try GlobalDictionaryImporter.writeBase(entries, type: type)
-            let manager = TranslationManager.shared
-            if type == "phienam" {
-                await manager.reloadPhienAmMap()
-            } else {
-                await manager.reloadPronounsDictionary()
-            }
-            TranslateUtils.clearCache()
-            manager.notifyDictionariesDidUpdate()
+            await Self.reloadAfterWrite(type: type)
         }
+    }
+
+    /// Sau khi ghi lại cả file gốc: nạp lại **riêng** từ điển đó, xoá cache dịch, báo đổi từ điển (Reader / TTS dịch lại).
+    private static func reloadAfterWrite(type: String) async {
+        let manager = TranslationManager.shared
+        if type == "phienam" {
+            await manager.reloadPhienAmMap()
+        } else {
+            await manager.reloadPronounsDictionary()
+        }
+        TranslateUtils.clearCache()
+        manager.notifyDictionariesDidUpdate()
     }
 }

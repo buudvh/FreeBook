@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Một nhóm từ điển trong màn "Quản lý nghĩa từ": nhãn (Name / VP + Riêng / Chung) bên trái, các chip nghĩa tràn dòng
+/// Một nhóm từ điển trong màn "Quản lý nghĩa từ": nhãn (Name / VP / Pronoun + Riêng / Chung) bên trái, các chip nghĩa tràn dòng
 /// bên phải, chip `+` ở cuối; chip đang chọn thì hiện ô sửa ngay dưới nhóm kèm hai nút đổi chỗ sang trái / phải.
 ///
 /// View này không giữ trạng thái: bản nháp, chip đang chọn và focus đều do `ManageDefinitionsView` giữ.
@@ -72,6 +72,8 @@ struct ManageDefinitionGroupView: View {
             Text(dictionaryName)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8) // "Pronoun" vừa sát cột nhãn 52pt khi chữ hệ thống to hơn mặc định
             Text(scopeName)
                 .font(.caption2)
                 .foregroundColor(isBookScope ? .accentColor : .secondary)
