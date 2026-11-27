@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1086] - 2026-11-27
+
+### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
+
+### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
+
+Plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục D (anh Bửu duyệt 2026-11-27).
+
+- `NameFilterSuffixes.txt` 103 đuôi: thêm 40 đuôi loại `term` (神诀 真诀 心法 剑法 功法 真经 宝体 圣体 诀 经 功 丹 鼎 舟 符 箓 阵 珠 镜 氅 袍 甲 旗 钟 炉 剑 刀 枪 印 芝 果 草 盾 轮 花 瘴 术 蟒 鲤 兽), nghĩa Hán-Việt viết thường đặt sau theo bảng phiên âm (旗 = kì, 鲤 = lí).
+- Xét từng đuôi trên 6 truyện: chỉ **花** phân loại sai tên người (李翠花) ngang số mục đúng ⇒ tắt sẵn; 芝 gặp một tên người (宋韵芝) nhưng 2/3 đúng ⇒ giữ. **关** tắt sẵn (cùng 路 区 观 团).
+- Ghi đè cũ của người dùng giữ nguyên: bật / tắt đuôi gốc vẫn theo `enabled`; ai đã tự thêm đuôi 花 (loại địa danh / tông môn) trước bản này vẫn bật (`LocalNameFilterSuffixOverrides.bundledOffLater`). Parser / store nhận `term` qua `SuffixKind`.
+- Chú thích đổi tên danh sách thành "Đuôi địa danh, tổ chức, thuật ngữ" (loại `sect` giữ chữ cũ, hiển thị "Tổ chức").
+
 ## [1.3.1085] - 2026-11-27
 
 ### feat: lọc name local dùng model LAC gắn nhãn theo chương, hợp với bộ luật, lọc theo loại và giữ name đã có
@@ -366,14 +379,3 @@ Anh Bửu: "Danh sách chương của sheet nghe truyện mini hiển thị lên
 - **Sửa**: hàng tách thành struct `ChapterRow` (đầu vào: chương, đang phát, số chữ số cột thứ tự); tên chương tính trong `body` của hàng ⇒ chỉ ô đang hiện mới dịch. Closure của `ForEach` chỉ dựng struct + ba `listRow*`, bỏ `.id(chapter.index)` — `scrollTo` dùng id của `ForEach` (`\.index`). Mốc `TranslationDisplayRevision` đọc ở `body` của hàng (đọc ở danh sách thì hàng có đầu vào không đổi bỏ qua `body`, tên cũ nằm lại sau khi sửa VP / Name / rule). Giữ `List`, `TTSChapterListReader`, giao diện như 1.3.1053.
 - `CHANGELOG.md` dời 1.3.1027 sang `CHANGELOG.archive.md` (giữ 30 entry).
 - **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**); **không build tại chỗ (Windows), chưa thử trên máy**. Cách thử: bật log; truyện > 1024 chương, bật dịch; thử khi đang nghe chương gần đầu và gần cuối; mở từ Mục lục và từ ⏱ ⇒ danh sách hiện ngay, nằm giữa đúng chương đang nghe; cuộn lúc TTS đang đọc; sửa một mục VP lúc sheet mở ⇒ tên chương đổi.
-
-## [1.3.1056] - 2026-11-24
-
-### fix: sheet tuỳ chọn của video / audio ghi "video" / "audio" thay cho "truyện"
-
-Anh Bửu: "context menu của video, audio thì hiển thị chữ video, audio chứ đừng hiển thị truyện".
-
-- `ExtensionContentKind.shelfItemNoun` (mới): "truyện" (chữ, truyện tranh) / "video" / "audio"; loại suy bằng `BookContentKindResolver.kind` như lối mở nội dung (ghi đè loại của nguồn Legado thắng).
-- `BookActionSheet`: tiêu đề phần đầu "Truyện" ⇒ "Video" / "Audio"; chú thích Bộ sưu tập "… không xoá video khỏi kệ sách"; lời nhắc của hộp Bộ sưu tập mới; nhãn trợ năng của ô "Bỏ khỏi bộ sưu tập này". Toast `BookActionRunner.removeFromCollection` "(video vẫn ở trên kệ)".
-- Ghi luật vào `ui-conventions.md`. Chỗ khác còn "truyện" chung (thanh chọn nhiều, Kệ, Lịch sử) chưa rà.
-- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**; `BookActionSheet.swift` 396/400 dòng); **không build tại chỗ (Windows), chưa thử trên máy**.

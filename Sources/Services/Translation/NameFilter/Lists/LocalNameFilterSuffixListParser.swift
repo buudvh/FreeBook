@@ -1,8 +1,8 @@
 import Foundation
 
-/// Dạng chữ của danh sách "Đuôi địa danh & tông môn" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`, thêm `|off`
-/// ở cuối nếu đuôi tắt sẵn; `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind` (`place` / `sect`) và
-/// `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng `#` bỏ qua.
+/// Dạng chữ của danh sách "Đuôi địa danh, tổ chức, thuật ngữ" (Lọc name local): mỗi dòng `chữ Hán=nghĩa|loại|vị trí`,
+/// thêm `|off` ở cuối nếu đuôi tắt sẵn; `loại` / `vị trí` là `rawValue` của `LocalNameFilter.SuffixKind` (`place` /
+/// `sect` / `term`) và `LocalNameFilter.MeaningPosition` (`before` / `after`). Dòng trống và dòng bắt đầu bằng `#` bỏ qua.
 ///
 /// **Một** chỗ giữ luật khoá / nghĩa cho cả file gốc `NameFilterSuffixes.txt` lẫn sheet sửa (`keyError` /
 /// `meaningError`) — sai ở đường nào cũng bị chặn như nhau. `isHanText` dùng chung cho danh sách "Không phải name".

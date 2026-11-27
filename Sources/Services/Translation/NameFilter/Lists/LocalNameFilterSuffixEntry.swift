@@ -1,6 +1,6 @@
 import Foundation
 
-/// Một đuôi trong **danh sách hiệu lực** "Đuôi địa danh & tông môn" của Lọc name local = danh sách gốc đóng trong app
+/// Một đuôi trong **danh sách hiệu lực** "Đuôi địa danh, tổ chức, thuật ngữ" của Lọc name local = danh sách gốc đóng trong app
 /// (`NameFilterSuffixes.txt`) trộn lớp riêng của người dùng (`LocalNameFilterSuffixOverrides`). Màn danh sách vẽ thẳng
 /// từ đây; bộ lọc chỉ nhận các đuôi **đang bật** dưới dạng `LocalNameFilter.Suffix`
 /// (`LocalNameFilterSuffixStore.enabledSuffixes()`).

@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1056] - 2026-11-24
+
+### fix: sheet tuỳ chọn của video / audio ghi "video" / "audio" thay cho "truyện"
+
+Anh Bửu: "context menu của video, audio thì hiển thị chữ video, audio chứ đừng hiển thị truyện".
+
+- `ExtensionContentKind.shelfItemNoun` (mới): "truyện" (chữ, truyện tranh) / "video" / "audio"; loại suy bằng `BookContentKindResolver.kind` như lối mở nội dung (ghi đè loại của nguồn Legado thắng).
+- `BookActionSheet`: tiêu đề phần đầu "Truyện" ⇒ "Video" / "Audio"; chú thích Bộ sưu tập "… không xoá video khỏi kệ sách"; lời nhắc của hộp Bộ sưu tập mới; nhãn trợ năng của ô "Bỏ khỏi bộ sưu tập này". Toast `BookActionRunner.removeFromCollection` "(video vẫn ở trên kệ)".
+- Ghi luật vào `ui-conventions.md`. Chỗ khác còn "truyện" chung (thanh chọn nhiều, Kệ, Lịch sử) chưa rà.
+- **Kiểm**: đọc code + `check_architecture.py` (chỉ còn violation cũ `JSDom.swift`, **0 mới**; `BookActionSheet.swift` 396/400 dòng); **không build tại chỗ (Windows), chưa thử trên máy**.
+
 ## [1.3.1055] - 2026-11-24
 
 ### fix: dải "Đọc tiếp" bỏ tiền tố "Ch. N", chỉ ghi tên chương

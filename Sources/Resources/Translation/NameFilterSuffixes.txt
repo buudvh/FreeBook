@@ -1,15 +1,17 @@
-# Danh sách gốc "Đuôi địa danh & tông môn" của Lọc name local (đọc trong LocalNameFilterSuffixStore).
+# Danh sách gốc "Đuôi địa danh, tổ chức, thuật ngữ" của Lọc name local (đọc trong LocalNameFilterSuffixStore).
 # Mỗi dòng: chữ Hán=nghĩa|loại|vị trí, thêm |off ở cuối nếu đuôi tắt sẵn. Dòng trống và dòng bắt đầu bằng # bị bỏ qua.
 #   - chữ Hán: 1 hoặc 2 chữ Hán.
 #   - nghĩa: ghép vào nghĩa name, giữ nguyên chữ; không có dấu = hay | (làm vỡ dạng dòng).
-#   - loại: place = Địa danh, sect = Tông môn.
+#   - loại: place = Địa danh, sect = Tổ chức (tên cũ "Tông môn", giữ chữ sect), term = Thuật ngữ.
 #   - vị trí: after = nghĩa đứng sau phần tên riêng (落霞镇 → Lạc Hà trấn), before = đứng trước (市 sửa nghĩa thành
 #     "thành phố" và đặt trước ⇒ 江海市 → thành phố Giang Hải).
 # App chỉ đọc file này. Đuôi người dùng thêm / sửa / xoá / tắt lưu riêng ở khoá cài đặt localNameFilterSuffixOverrides,
 # không ghi lại file.
 #
-# Nghĩa gốc là âm Hán-Việt viết thường, đặt sau tên. 路 区 观 团 tắt sẵn: trên 5 truyện thử chỉ ra rác (兵分四路, 待战区).
-# Số đuôi: 63 = 40 địa danh (2 tắt) + 23 tông môn (2 tắt).
+# Nghĩa gốc là âm Hán-Việt viết thường, đặt sau tên. 路 区 观 团 tắt sẵn: trên 5 truyện thử chỉ ra rác (兵分四路, 待战区);
+# 关 tắt sẵn từ bản LAC (plan 2026-11-27); 花 (thuật ngữ) tắt sẵn: hay là chữ cuối tên nữ (李翠花).
+# Đuôi thuật ngữ (bản LAC) không sinh ứng viên: chỉ phân loại thực thể LAC tìm được (五气丹 → Thuật ngữ) + dựng nghĩa.
+# Số đuôi: 103 = 40 địa danh (3 tắt) + 23 tổ chức (2 tắt) + 40 thuật ngữ (1 tắt).
 
 # Địa danh
 大陆=đại lục|place|after
@@ -49,11 +51,11 @@
 省=tỉnh|place|after
 乡=hương|place|after
 寨=trại|place|after
-关=quan|place|after
+关=quan|place|after|off
 路=lộ|place|after|off
 区=khu|place|after|off
 
-# Tông môn
+# Tổ chức (loại sect)
 学院=học viện|sect|after
 宗门=tông môn|sect|after
 联盟=liên minh|sect|after
@@ -77,3 +79,45 @@
 军=quân|sect|after
 观=quán|sect|after|off
 团=đoàn|sect|after|off
+
+# Thuật ngữ
+神诀=thần quyết|term|after
+真诀=chân quyết|term|after
+心法=tâm pháp|term|after
+剑法=kiếm pháp|term|after
+功法=công pháp|term|after
+真经=chân kinh|term|after
+宝体=bảo thể|term|after
+圣体=thánh thể|term|after
+诀=quyết|term|after
+经=kinh|term|after
+功=công|term|after
+丹=đan|term|after
+鼎=đỉnh|term|after
+舟=chu|term|after
+符=phù|term|after
+箓=lục|term|after
+阵=trận|term|after
+珠=châu|term|after
+镜=kính|term|after
+氅=sưởng|term|after
+袍=bào|term|after
+甲=giáp|term|after
+旗=kì|term|after
+钟=chung|term|after
+炉=lô|term|after
+剑=kiếm|term|after
+刀=đao|term|after
+枪=thương|term|after
+印=ấn|term|after
+芝=chi|term|after
+果=quả|term|after
+草=thảo|term|after
+盾=thuẫn|term|after
+轮=luân|term|after
+花=hoa|term|after|off
+瘴=chướng|term|after
+术=thuật|term|after
+蟒=mãng|term|after
+鲤=lí|term|after
+兽=thú|term|after

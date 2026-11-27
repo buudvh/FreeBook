@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lớp riêng của người dùng trên danh sách gốc "Đuôi địa danh & tông môn" (Lọc name local) — JSON ở `UserDefaults` khoá
+/// Lớp riêng của người dùng trên danh sách gốc "Đuôi địa danh, tổ chức, thuật ngữ" (Lọc name local) — JSON ở `UserDefaults` khoá
 /// `localNameFilterSuffixOverrides` (`LocalNameFilterSuffixStore`):
 ///
 /// ```json
@@ -10,7 +10,8 @@ import Foundation
 /// - `entries`: đuôi tự thêm + đuôi gốc đã sửa nghĩa / loại / vị trí. Giá trị trùng bản gốc thì **không** ghi.
 /// - `removed`: đuôi gốc đã xoá (không bao giờ chứa đuôi tự thêm — xoá đuôi tự thêm là bỏ khỏi `entries`).
 /// - `enabled`: chỉ ghi trạng thái bật / tắt **khác mặc định** — đuôi gốc theo cờ `|off` của file, đuôi tự thêm mặc
-///   định bật. Khác danh sách họ (mọi họ gốc đều bật) vì ở đây có đuôi gốc tắt sẵn (路 区 观 团) mà người dùng bật lên.
+///   định bật. Khác danh sách họ (mọi họ gốc đều bật) vì ở đây có đuôi gốc tắt sẵn (路 区 观 团 关 花) mà người dùng bật lên.
+///   Ngoại lệ `bundledOffLater`: khoá mới vào bản gốc ở dạng tắt sẵn mà người dùng đã tự thêm từ trước ⇒ vẫn bật.
 ///
 /// **Trộn** (`merged`): bản gốc → áp `entries` → bỏ `removed` → áp `enabled`. Thuần, không I/O.
 struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
@@ -75,7 +76,7 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
     }
 
     func isEnabled(_ key: String, base: Base) -> Bool {
-        enabled[key] ?? Self.defaultEnabled(key, base: base)
+        enabled[key] ?? defaultEnabled(key, base: base)
     }
 
     // MARK: - Sửa
@@ -105,7 +106,7 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
 
     /// Chỉ ghi khi khác mặc định — về đúng mặc định thì bỏ dòng.
     mutating func setEnabled(_ isEnabled: Bool, for key: String, base: Base) {
-        enabled[key] = isEnabled == Self.defaultEnabled(key, base: base) ? nil : isEnabled
+        enabled[key] = isEnabled == defaultEnabled(key, base: base) ? nil : isEnabled
     }
 
     /// Đuôi gốc đã sửa ⇒ về nghĩa / loại / vị trí của bản gốc (bật / tắt giữ nguyên).
@@ -116,9 +117,19 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
 
     // MARK: - Nội bộ
 
-    /// Đuôi gốc theo cờ `|off` của file; đuôi tự thêm mặc định bật.
-    private static func defaultEnabled(_ key: String, base: Base) -> Bool {
-        base.linesByKey[key]?.isEnabled ?? true
+    /// Khoá vào bản gốc **sau** khi đã có danh sách, ở dạng tắt sẵn (bản LAC 2026-11-27: 花 loại thuật ngữ). Người dùng có
+    /// thể đã tự thêm đúng khoá này từ trước (khi đó là đuôi tự thêm — mặc định bật, không ghi `enabled`).
+    static let bundledOffLater: Set<String> = ["花"]
+
+    /// Đuôi gốc theo cờ `|off` của file; đuôi tự thêm mặc định bật. Khoá trong `bundledOffLater` mà `entries` còn giá trị
+    /// khác **loại** bản gốc (đuôi người dùng tự thêm trước khi có loại thuật ngữ) ⇒ giữ bật như trước — "ghi đè cũ giữ
+    /// nguyên".
+    private func defaultEnabled(_ key: String, base: Base) -> Bool {
+        guard let line = base.linesByKey[key] else { return true }
+        if !line.isEnabled, Self.bundledOffLater.contains(key), let own = entries[key], own.kind != line.value.kind {
+            return true
+        }
+        return line.isEnabled
     }
 
     private static func normalized(_ keys: [String]) -> [String] {

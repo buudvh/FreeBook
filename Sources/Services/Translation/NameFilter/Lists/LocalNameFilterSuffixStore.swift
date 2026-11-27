@@ -1,9 +1,10 @@
 import Foundation
 
-/// Chủ dữ liệu danh sách **"Đuôi địa danh & tông môn"** của Lọc name local (dùng chung mọi truyện).
+/// Chủ dữ liệu danh sách **"Đuôi địa danh, tổ chức, thuật ngữ"** của Lọc name local (dùng chung mọi truyện).
 ///
-/// - **Bản gốc**: `NameFilterSuffixes.txt` trong bundle (63 đuôi, nghĩa Hán-Việt viết thường, đặt sau tên; 路 区 观 团
-///   tắt sẵn), đọc **một lần** mỗi tiến trình, app không bao giờ ghi.
+/// - **Bản gốc**: `NameFilterSuffixes.txt` trong bundle (103 đuôi: 40 địa danh, 23 tổ chức — loại `sect`, 40 thuật ngữ —
+///   loại `term`; nghĩa Hán-Việt viết thường, đặt sau tên; 路 区 观 团 关 花 tắt sẵn), đọc **một lần** mỗi tiến trình,
+///   app không bao giờ ghi. Đuôi thuật ngữ không sinh ứng viên ở bộ luật — chỉ phân loại + dựng nghĩa thực thể LAC.
 /// - **Lớp riêng**: `UserDefaults` khoá `localNameFilterSuffixOverrides` = chuỗi JSON của
 ///   `LocalNameFilterSuffixOverrides` (`entries` / `removed` / `enabled`). Khoá vắng = đúng bản gốc, nên đuôi mới của bản
 ///   app sau tới cả người đã sửa. Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói.
@@ -44,7 +45,7 @@ final class LocalNameFilterSuffixStore {
         entries().filter(\.isEnabled).map(\.suffix)
     }
 
-    /// Số đuôi đang bật — giá trị hàng "Đuôi địa danh & tông môn" ở sheet Lọc name local.
+    /// Số đuôi đang bật — giá trị hàng danh sách đuôi ở sheet Lọc name local.
     var enabledCount: Int {
         entries().filter(\.isEnabled).count
     }
