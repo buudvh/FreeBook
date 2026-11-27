@@ -21,6 +21,16 @@ actor TranslationDictionaryWriter {
     @discardableResult
     func importEntries(from url: URL, isName: Bool, bookId: String?, mode: DataImportMode) throws -> ImportCounts {
         let imported = try DictionaryTextFileStore.parseRecords(from: url)
+        return try importRecords(imported, isName: isName, bookId: bookId, mode: mode)
+    }
+
+    /// Như `importEntries(from:)` nhưng nhận sẵn bản ghi (nghĩa đã qua `DictionaryTextFileStore.normalizeMeaning`, khoá
+    /// không lặp): nút Lưu của màn duyệt name AI / Lọc name local (`AIHarnessService.saveExtractedEntries`, plan
+    /// 2026-11-27-phan-loai-name L16) — cùng một luật ba chế độ với nhập file.
+    @discardableResult
+    func importRecords(
+        _ imported: [DictionaryTextRecord], isName: Bool, bookId: String?, mode: DataImportMode
+    ) throws -> ImportCounts {
         // Đọc trước để đếm (closure của `mutate` là `@Sendable`, không ghi được biến ngoài). Actor ⇒ không lượt ghi nào
         // chen giữa hai lần đọc vì không có `await` ở giữa.
         let fileURL = TranslationManager.shared.customTextURL(isName: isName, bookId: bookId)

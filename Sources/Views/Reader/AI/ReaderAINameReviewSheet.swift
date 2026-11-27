@@ -3,7 +3,9 @@ import SwiftUI
 /// Bottom sheet hiển thị danh sách tên riêng trích xuất từ tin nhắn AI với hiệu ứng Skeleton bất đồng bộ.
 ///
 /// Từ 1.3.469 nút Lưu nằm trên **thanh điều hướng** (`.confirmationAction`) dưới dạng `Menu` 2 mục —
-/// đúng khuôn `AddWordSheet` — thay cho hai nút `Lưu Name riêng` / `Lưu VP riêng` ở đáy card.
+/// đúng khuôn `AddWordSheet` — thay cho hai nút `Lưu Name riêng` / `Lưu VP riêng` ở đáy card. Bấm một mục ⇒ có name đã
+/// có trong file đích của truyện thì hỏi cách lưu bằng popup ba chế độ như nhập file (`+Save`, plan
+/// 2026-11-27-phan-loai-name L16), toàn name mới thì lưu thẳng.
 public struct ReaderAINameReviewSheet: View {
     public struct Target: Identifiable, Sendable {
         public let id = UUID()
@@ -20,11 +22,13 @@ public struct ReaderAINameReviewSheet: View {
         }
     }
 
-    @Environment(\.dismiss) private var dismiss
+    // `internal` (không `private`): `+Save` đóng sheet sau khi giao việc lưu.
+    @Environment(\.dismiss) var dismiss
 
     public let content: String
     public let bookId: String
-    public let onSave: ([AIExtractedName], Bool, Bool) -> Void
+    /// Bấm Lưu: mục đang chọn (không gạch), `true` = Name riêng / `false` = VP riêng, cách lưu (`DataImportMode`, `+Save`).
+    public let onSave: ([AIExtractedName], Bool, DataImportMode) -> Void
     /// Luồng AI: bấm thùng rác / ↶ của một name ⇒ nhận **khoá** (vế trái đã trim) + `true` gạch / `false` bỏ gạch, để nơi
     /// gọi ghi vào tin nguồn (`AIChatMessage.struckNameKeys`). Dòng trong tin **không** bị xoá (anh Bửu 2026-11-27).
     public let onStrikeName: (String, Bool) -> Void
@@ -55,8 +59,12 @@ public struct ReaderAINameReviewSheet: View {
     // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
     @State var names: [AIExtractedName] = []
     @State var editingName: AIExtractedName? = nil
-    @State private var pendingIsName: Bool = true
-    @State private var showingModeDialog: Bool = false
+    // Popup chọn cách lưu (`+Save`): đích, số name mới / đã có trong file đích, đang đọc file đích.
+    @State var pendingIsName: Bool = true
+    @State var pendingNewCount: Int = 0
+    @State var pendingExistingCount: Int = 0
+    @State var showingSavePopup: Bool = false
+    @State var isCheckingSaveTarget: Bool = false
     /// Khoá đang gạch (luồng AI) — khởi tạo từ tin nguồn, mỗi lần gạch / bỏ gạch ghi ngay qua `onStrikeName`.
     // `internal` (không `private`): `+Edit` bỏ gạch khoá đích khi người dùng sửa một name thành khoá đang gạch.
     @State var struckKeys: Set<String>
@@ -65,7 +73,7 @@ public struct ReaderAINameReviewSheet: View {
         content: String,
         bookId: String,
         struckKeys: Set<String> = [],
-        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
+        onSave: @escaping ([AIExtractedName], Bool, DataImportMode) -> Void,
         onStrikeName: @escaping (String, Bool) -> Void = { _, _ in },
         onEditName: @escaping (AINameEdit) -> Void = { _ in }
     ) {
@@ -90,7 +98,7 @@ public struct ReaderAINameReviewSheet: View {
     public init(
         names: [AIExtractedName],
         bookId: String,
-        onSave: @escaping ([AIExtractedName], Bool, Bool) -> Void,
+        onSave: @escaping ([AIExtractedName], Bool, DataImportMode) -> Void,
         onBlockName: @escaping (AIExtractedName) -> Void,
         onNamesChange: (([AIExtractedName]) -> Void)? = nil,
         onBack: (() -> Void)? = nil,
@@ -130,7 +138,7 @@ public struct ReaderAINameReviewSheet: View {
         }
     }
 
-    private func isStruck(_ item: AIExtractedName) -> Bool {
+    func isStruck(_ item: AIExtractedName) -> Bool {
         prefilledNames == nil && struckKeys.contains(AIRuntimeCoordinator.nameKey(item.original))
     }
 
@@ -204,23 +212,16 @@ public struct ReaderAINameReviewSheet: View {
                     .disabled(selectedCount == 0)
                 }
             }
-            .confirmationDialog(
-                "Lựa chọn chế độ lưu vào \(pendingIsName ? "Name riêng" : "VietPhrase riêng")",
-                isPresented: $showingModeDialog,
-                titleVisibility: .visible
-            ) {
-                Button("Gộp (trùng từ thì thay mới)") {
-                    executeSave(isName: pendingIsName, isMerge: true)
-                }
-                Button("Thay thế hoàn toàn", role: .destructive) {
-                    executeSave(isName: pendingIsName, isMerge: false)
-                }
-                Button("Hủy", role: .cancel) {}
-            } message: {
-                Text(pendingIsName
-                     ? "Chế độ Gộp sẽ thêm các tên mới vào Names.txt và giữ nguyên các tên cũ. Chế độ Thay thế sẽ làm mới hoàn toàn Names.txt của truyện."
-                     : "Chế độ Gộp sẽ thêm các từ mới vào VietPhrase.txt và giữ nguyên các từ cũ. Chế độ Thay thế sẽ làm mới hoàn toàn VietPhrase.txt của truyện."
-                )
+            // Có name đã có trong file đích ⇒ popup ba cách lưu như nhập file (`+Save`); "Gộp" chọn sẵn.
+            .dataImportModePopup(
+                isPresented: $showingSavePopup,
+                title: savePopupTitle,
+                message: savePopupMessage,
+                messageSystemImage: pendingIsName ? "person.fill" : "character.book.closed",
+                explanations: Self.saveModeExplanations(isName: pendingIsName),
+                confirmTitle: "Lưu"
+            ) { mode in
+                executeSave(isName: pendingIsName, mode: mode)
             }
             .sheet(item: $editingName) { item in
                 Group {
@@ -234,7 +235,7 @@ public struct ReaderAINameReviewSheet: View {
             }
             .task {
                 if prefilledNames != nil {
-                    // Danh sách có sẵn: chỉ tra cờ NE/VP (cho hộp Gộp / Thay thế lúc lưu), giữ nguyên trạng thái chọn.
+                    // Danh sách có sẵn: chỉ tra cờ NE/VP (badge + kiểu sắp "Chưa có trước"), giữ nguyên trạng thái chọn.
                     refreshDictionaryFlags()
                 } else {
                     await loadAndDecorateNames()
@@ -243,35 +244,6 @@ public struct ReaderAINameReviewSheet: View {
         }
         // Đặt **ngoài** `NavigationStack` (khuôn `SheetPageBackEnvironment`); luồng AI giữ nguyên giá trị kế thừa.
         .environment(\.sheetPageBack, onBack ?? inheritedSheetPageBack)
-    }
-
-    /// Bước 1: chọn đích — mở dialog Gộp / Thay thế hoàn toàn.
-    ///
-    /// Không từ nào đang chọn có sẵn trong **từ điển đích** (cờ `hasInBookNames` / `hasInBookVP` dựng lúc mở sheet)
-    /// ⇒ gộp luôn, không hỏi: không có gì để ghi đè. Chỉ xét đích — lưu vào Name riêng thì từ đang có ở VP riêng
-    /// vẫn là từ mới với `Names.txt`.
-    private func requestSave(isName: Bool) {
-        let hasExisting = names.contains {
-            $0.isSelected && !isStruck($0) && (isName ? $0.hasInBookNames : $0.hasInBookVP)
-        }
-        guard hasExisting else {
-            executeSave(isName: isName, isMerge: true)
-            return
-        }
-        pendingIsName = isName
-        showingModeDialog = true
-    }
-
-    /// Bước 2: chốt chế độ ghi. Sheet đóng ngay sau khi giao việc cho `onSave` — màn gọi sẽ thay nội
-    /// dung tin nhắn bằng bản tóm tắt nên danh sách ở đây thành dữ liệu cũ.
-    private func executeSave(isName: Bool, isMerge: Bool) {
-        // Lưu MỌI mục đang chọn, kể cả mục đang bị ô tìm / chip loại của card ẩn (ô tìm và chip chỉ đổi phần đang hiện,
-        // "Chọn hết" / "Bỏ chọn" mới theo phần đang hiện). Hàng gạch không bao giờ được lưu (ô chọn đã khoá; lọc thêm cho
-        // chắc).
-        let chosen = names.filter { $0.isSelected && !isStruck($0) }
-        guard !chosen.isEmpty else { return }
-        onSave(chosen, isName, isMerge)
-        dismiss()
     }
 
     private func loadAndDecorateNames() async {

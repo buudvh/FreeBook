@@ -320,8 +320,14 @@ extension ReaderAIFullScreenView {
         appendStopNote(stopNote)
     }
 
-    internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {
-        let header = "Đã lưu \(items.count) tên riêng vào từ điển \(isName ? "Name riêng" : "VietPhrase riêng"):"
+    /// Nút Lưu của màn duyệt name (`ReaderAINameReviewSheet`, `+Save`): thay tin có danh sách name bằng bản tóm tắt rồi
+    /// ghi theo cách lưu đã chọn (`DataImportMode`); toast theo số đếm thật của chế độ (`savedToast`).
+    internal func saveNamesToDictionary(_ items: [AIExtractedName], isName: Bool, mode: DataImportMode) {
+        let targetName = isName ? "Name riêng" : "VietPhrase riêng"
+        // "Chỉ thêm key mới": tên đã có giữ nghĩa cũ ⇒ tóm tắt không khẳng định đã lưu đủ N tên (số thật ở toast).
+        let header = mode == .keepExisting
+            ? "Đã lưu vào từ điển \(targetName) (chỉ thêm tên chưa có, tên đã có giữ nghĩa cũ):"
+            : "Đã lưu \(items.count) tên riêng vào từ điển \(targetName):"
         let plainText = condenseExtractedNamesToText(names: items, title: header)
 
         for i in currentSession.messages.indices {
@@ -334,11 +340,11 @@ extension ReaderAIFullScreenView {
         AIChatHistoryStore.shared.saveSession(currentSession, for: bookId)
 
         Task {
-            let savedCount = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, isMerge: isMerge)
+            let result = await AIHarnessService.shared.saveExtractedEntries(items, bookId: bookId, isName: isName, mode: mode)
             await MainActor.run {
-                let targetName = isName ? "Name riêng" : "VietPhrase riêng"
-                if savedCount > 0 {
-                    ToastManager.shared.show(message: "Đã lưu \(savedCount) mục vào \(targetName) của truyện", type: .success)
+                if let result {
+                    let toast = ReaderAINameReviewSheet.savedToast(result, targetName: targetName)
+                    ToastManager.shared.show(message: toast.message, type: toast.type)
                 } else {
                     ToastManager.shared.show(message: "Lưu vào \(targetName) thất bại", type: .error)
                 }

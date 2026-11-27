@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1079] - 2026-11-27
+
+### fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn
+
+Sửa sau lượt rà soát chéo đợt 1.3.1074–1078 (hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
+
+- **Gạch hàng name AI** (`ReaderAIFullScreenView.setNameStruck`): sửa cả bản phiên của lượt AI đang chạy (`AIRuntimeCoordinator.updateMessage`) — lượt đó ghi đè phiên xuống đĩa khi xong / mỗi lượt quét, nên gạch trong lúc đang quét hay chờ AI trả lời từng bị mất khi mở lại.
+- Sửa một name thành khoá đang gạch ⇒ tự bỏ gạch khoá đó (`ReaderAINameReviewSheet+Edit`); VoiceOver "Sửa" không mở hàng gạch; gạch hết mọi hàng thì nút đầu thẻ là "Chọn hết" (không còn "Bỏ chọn" bấm không có tác dụng). Sửa comment còn nói "✕ xoá như cũ".
+- **Quản lý nghĩa từ**: so bản gốc đã chuẩn hoá y như bản nháp (cùng tách + bỏ trùng) — nghĩa trùng sẵn trong file (vd Pronoun `ta/ta`) làm mở-rồi-đóng cũng ghi lại cả file Pronouns gốc + dựng lại `.dat` + dịch lại Reader.
+- **Màn Sửa từ ở chế độ danh sách** (đuôi, "Không phải name", họ, token): chế độ Thêm chọn một phần chữ gốc ⇒ hiện "Chỉ thêm X (phần đang chọn)" thay vì lặng lẽ chỉ thêm phần đó; mở cao hết cỡ (`.large`) như form cũ để bàn phím không che nút "Thêm" và hàng Loại / Nghĩa đứng (VP / Name / Pronouns giữ nấc nửa màn).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
+- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1078] - 2026-11-27
 
 ### feat: danh sách duyệt name của AI gạch hàng kèm nút Hoàn tác thay cho xoá hẳn, mở lại vẫn còn gạch

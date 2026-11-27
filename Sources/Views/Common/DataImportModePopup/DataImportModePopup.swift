@@ -7,13 +7,23 @@ import SwiftUI
 ///
 /// - Lớp tối phủ cả màn; chạm ra ngoài thẻ ⇒ `onCancel` (không có nút Huỷ, như chuẩn sheet của app).
 /// - Mỗi hàng: vòng radio (màu nhấn khi chọn) + tên chế độ (`DataImportMode.actionTitle`) + một dòng mô tả
-///   (`DataImportMode.explanation`). Nút cuối nền đặc màu nhấn (`.appFilled`) ⇒ `onConfirm(selection)`.
+///   (`DataImportMode.explanation`, hoặc lời riêng theo ngữ cảnh ở `explanations`). Nút cuối nền đặc màu nhấn
+///   (`.appFilled`) ⇒ `onConfirm(selection)`.
 /// - Tông tối cục bộ (`colorScheme` của environment, không `preferredColorScheme` — không đổi giao diện màn bên dưới).
+/// - Chỗ không phải nhập file (plan 2026-11-27-phan-loai-name L16: Lưu ở màn duyệt name) truyền icon dòng dưới tiêu đề
+///   (`messageSystemImage`) và lời giải thích ba chế độ theo ngữ cảnh (`explanations`) — đừng nói "file" ở đó.
 struct DataImportModePopup: View {
+    /// Icon mặc định của dòng dưới tiêu đề (tên file).
+    static let fileMessageIcon = "doc.text"
+
     let title: String
     /// Dòng mô tả dưới tiêu đề — tên file vừa chọn (1.3.1011, anh Bửu: "hiển thị tên file nhập ở phần mô tả dưới tiêu đề
     /// nhập"); `nil` ⇒ "Chọn cách nhập".
     let message: String?
+    /// Icon trước `message`: mặc định `fileMessageIcon` (tên file); ngữ cảnh khác truyền icon hợp ngữ cảnh.
+    let messageSystemImage: String
+    /// Lời giải thích riêng theo ngữ cảnh của từng chế độ; chế độ không có ở đây ⇒ `DataImportMode.explanation`.
+    let explanations: [DataImportMode: String]
     let confirmTitle: String
     let confirmSystemImage: String
     let modes: [DataImportMode]
@@ -26,6 +36,8 @@ struct DataImportModePopup: View {
     init(
         title: String,
         message: String?,
+        messageSystemImage: String = DataImportModePopup.fileMessageIcon,
+        explanations: [DataImportMode: String] = [:],
         confirmTitle: String,
         confirmSystemImage: String,
         modes: [DataImportMode],
@@ -35,6 +47,8 @@ struct DataImportModePopup: View {
     ) {
         self.title = title
         self.message = message
+        self.messageSystemImage = messageSystemImage
+        self.explanations = explanations
         self.confirmTitle = confirmTitle
         self.confirmSystemImage = confirmSystemImage
         self.modes = modes.isEmpty ? DataImportMode.allCases : modes
@@ -98,7 +112,8 @@ struct DataImportModePopup: View {
         .onTapGesture {}
     }
 
-    /// Tên file (icon tài liệu + tên, dài thì cắt giữa để thấy cả đuôi `.txt`) hoặc "Chọn cách nhập".
+    /// Tên file (icon tài liệu + tên, dài thì cắt giữa để thấy cả đuôi `.txt`), dòng mô tả theo ngữ cảnh (icon riêng) hoặc
+    /// "Chọn cách nhập".
     @ViewBuilder
     private var subtitle: some View {
         if let message, !message.isEmpty {
@@ -107,9 +122,9 @@ struct DataImportModePopup: View {
                     .lineLimit(2)
                     .truncationMode(.middle)
             } icon: {
-                Image(systemName: "doc.text")
+                Image(systemName: messageSystemImage)
             }
-            .accessibilityLabel("File: \(message)")
+            .accessibilityLabel(messageSystemImage == Self.fileMessageIcon ? "File: \(message)" : message)
         } else {
             Text("Chọn cách nhập")
         }
@@ -128,7 +143,7 @@ struct DataImportModePopup: View {
                     Text(mode.actionTitle)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
-                    Text(mode.explanation)
+                    Text(explanations[mode] ?? mode.explanation)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -18,11 +18,15 @@ import SwiftUI
 /// - Mặc định chọn `.overwriteExisting` ("Gộp"): "Thay thế toàn bộ" xoá dữ liệu cũ nên không để sẵn.
 /// - Danh sách chỉ có khoá (vd danh sách rule tắt): "Gộp" và "Chỉ thêm key mới" cho cùng kết quả — vẫn hiện đủ ba cho
 ///   đồng bộ (anh Bửu: "nhập luôn có 3 option").
+/// - Không phải nhập (Lưu ở màn duyệt name, plan 2026-11-27-phan-loai-name L16): `messageSystemImage` + `explanations`
+///   cho icon dòng dưới tiêu đề và lời giải thích ba chế độ theo ngữ cảnh; bỏ trống ⇒ icon file + lời của `DataImportMode`.
 struct DataImportModePopupModifier: ViewModifier {
     @Binding var isPresented: Bool
     let title: String
     /// Dòng dưới tiêu đề (tên file / tên nguồn); `nil` ⇒ "Chọn cách nhập".
     let message: String?
+    let messageSystemImage: String
+    let explanations: [DataImportMode: String]
     let confirmTitle: String
     let confirmSystemImage: String
     let modes: [DataImportMode]
@@ -44,6 +48,8 @@ struct DataImportModePopupModifier: ViewModifier {
                 DataImportModePopup(
                     title: title,
                     message: message,
+                    messageSystemImage: messageSystemImage,
+                    explanations: explanations,
                     confirmTitle: confirmTitle,
                     confirmSystemImage: confirmSystemImage,
                     modes: modes,
@@ -83,6 +89,8 @@ extension View {
         isPresented: Binding<Bool>,
         title: String,
         message: String? = nil,
+        messageSystemImage: String = DataImportModePopup.fileMessageIcon,
+        explanations: [DataImportMode: String] = [:],
         confirmTitle: String = "Nhập",
         confirmSystemImage: String = "square.and.arrow.down",
         modes: [DataImportMode] = DataImportMode.allCases,
@@ -93,6 +101,8 @@ extension View {
             isPresented: isPresented,
             title: title,
             message: message,
+            messageSystemImage: messageSystemImage,
+            explanations: explanations,
             confirmTitle: confirmTitle,
             confirmSystemImage: confirmSystemImage,
             modes: modes,

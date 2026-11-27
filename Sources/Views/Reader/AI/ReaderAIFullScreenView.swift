@@ -258,8 +258,8 @@ public struct ReaderAIFullScreenView: View {
                         content: target.content,
                         bookId: bookId,
                         struckKeys: Set(target.struckKeys),
-                        onSave: { itemsToSave, isName, isMerge in
-                            saveNamesToDictionary(itemsToSave, isName: isName, isMerge: isMerge)
+                        onSave: { itemsToSave, isName, mode in
+                            saveNamesToDictionary(itemsToSave, isName: isName, mode: mode)
                         },
                         onStrikeName: { key, struck in
                             setNameStruck(key: key, struck: struck, inMessage: target.messageId)

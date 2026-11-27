@@ -2,6 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1106] - 2026-11-27
+
+### feat: bấm Lưu ở màn duyệt name hiện popup ba cách lưu như nhập file, cả luồng AI và lọc name local
+
+Plan 2026-11-27-phan-loai-name mục L16 (anh Bửu: "Bấm lưu sẽ hiển thị màn popup vào hoạt động giống nhập name/vp từ
+file. Tất nhiên chỉ có name mới thì nhập thẳng như hiện tại. Làm cho cả AI nhé"), mockup
+https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Bấm Lưu → chọn cách nhập".
+
+- ReaderAINameReviewSheet (+Save mới): bỏ hộp confirmationDialog "Gộp / Thay thế hoàn toàn". Bấm "Lưu vào Name riêng /
+  VP riêng" ⇒ đọc file đích của truyện ngoài main; có name đang chọn đã có trong đó ⇒ popup DataImportModePopup đủ ba
+  chế độ (Thay thế toàn bộ / Gộp — chọn sẵn / Chỉ thêm key mới), tiêu đề "Lưu vào Name riêng" / "Lưu vào VP riêng",
+  dòng dưới "N name mới · M đã có trong Name riêng" (icon người / sách, không phải icon file), nút "Lưu". Toàn name mới
+  ⇒ lưu thẳng bằng Gộp như trước.
+- "Đã có" tính theo file Names.txt / VietPhrase.txt riêng của truyện (đích thật của ba chế độ), không theo cờ
+  hasInBookNames / hasInBookVP (hai cờ đó gồm cả Name / VP Chung và từ điển gốc). Name chỉ có ở từ điển chung giờ lưu
+  thẳng thay vì hỏi — kết quả y như chọn Gộp.
+- Lời giải thích ba chế độ theo ngữ cảnh lưu: "Xoá Name riêng cũ của truyện, chỉ giữ các name đang chọn." (VP thì "VP
+  riêng"), "Name đã có thì lấy nghĩa mới đè lên; chưa có thì thêm vào.", "Chỉ thêm name chưa có; name đã có giữ nguyên
+  nghĩa cũ.". DataImportModePopup / .dataImportModePopup nhận thêm messageSystemImage + explanations (tham số tuỳ chọn,
+  mặc định giữ icon file và lời cũ — các chỗ nhập file không đổi).
+- Đường lưu nhận DataImportMode thay cho isMerge: onSave của sheet, ReaderAIFullScreenView.saveNamesToDictionary,
+  LocalNameFilterSheet.save, AIHarnessService.saveExtractedEntries. Service ghi qua TranslationDictionaryWriter.importRecords
+  mới (tách từ importEntries, cùng luật ba chế độ với nhập file); nghĩa chuẩn hoá trước, khoá lặp giữ mục đầu.
+- saveExtractedEntries trả ExtractedEntriesSaveResult? (nil = không có mục hợp lệ / ghi lỗi). Toast dùng chung
+  ReaderAINameReviewSheet.savedToast: "Đã lưu N mục vào … của truyện" như cũ; Chỉ thêm key mới thêm " · giữ nguyên M mục
+  đã có"; mọi name đã có ⇒ "Không có mục mới …" (thông báo, không phải lỗi — lọc name local vẫn xoá gói tạm). Tóm tắt
+  trong tin AI ở chế độ Chỉ thêm key mới không khẳng định đã lưu đủ N tên.
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1105] - 2026-11-27
 
 ### feat: màn duyệt name giữ đầu thẻ, ô tìm và chip loại dính trên cùng khi cuộn
@@ -359,16 +389,3 @@ Anh Bửu: bôi đen 玄𫄸法衣 trong Reader ⇒ Dịch ⇒ bấm "Thu hẹp 
 - **Hàng chữ gốc mỗi chữ một ô** (`ComposedTextSelection.cells`): panel Dịch, Xoá từ rác, Copy gốc, màn Sửa từ — 𫄸 không còn vẽ thành hai ô vỡ; chạm một ô chọn trọn chữ đó.
 - Ghi bất biến vào `.claude/rules/reader-text-pipeline.md`. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
 - Dọn: entry 1.3.1050 chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1079] - 2026-11-27
-
-### fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn
-
-Sửa sau lượt rà soát chéo đợt 1.3.1074–1078 (hai agent đọc code, không thấy lỗi biên dịch chắc chắn).
-
-- **Gạch hàng name AI** (`ReaderAIFullScreenView.setNameStruck`): sửa cả bản phiên của lượt AI đang chạy (`AIRuntimeCoordinator.updateMessage`) — lượt đó ghi đè phiên xuống đĩa khi xong / mỗi lượt quét, nên gạch trong lúc đang quét hay chờ AI trả lời từng bị mất khi mở lại.
-- Sửa một name thành khoá đang gạch ⇒ tự bỏ gạch khoá đó (`ReaderAINameReviewSheet+Edit`); VoiceOver "Sửa" không mở hàng gạch; gạch hết mọi hàng thì nút đầu thẻ là "Chọn hết" (không còn "Bỏ chọn" bấm không có tác dụng). Sửa comment còn nói "✕ xoá như cũ".
-- **Quản lý nghĩa từ**: so bản gốc đã chuẩn hoá y như bản nháp (cùng tách + bỏ trùng) — nghĩa trùng sẵn trong file (vd Pronoun `ta/ta`) làm mở-rồi-đóng cũng ghi lại cả file Pronouns gốc + dựng lại `.dat` + dịch lại Reader.
-- **Màn Sửa từ ở chế độ danh sách** (đuôi, "Không phải name", họ, token): chế độ Thêm chọn một phần chữ gốc ⇒ hiện "Chỉ thêm X (phần đang chọn)" thay vì lặng lẽ chỉ thêm phần đó; mở cao hết cỡ (`.large`) như form cũ để bàn phím không che nút "Thêm" và hàng Loại / Nghĩa đứng (VP / Name / Pronouns giữ nấc nửa màn).
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Không build tại chỗ (Windows).
-- Dọn: entry cũ nhất chuyển sang `CHANGELOG.archive.md`.

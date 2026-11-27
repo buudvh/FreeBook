@@ -66,7 +66,7 @@ struct LocalNameFilterSheet: View {
                 ReaderAINameReviewSheet(
                     names: session.reviewNames,
                     bookId: bookId,
-                    onSave: { items, isName, isMerge in save(items, isName: isName, isMerge: isMerge) },
+                    onSave: { items, isName, mode in save(items, isName: isName, mode: mode) },
                     onBlockName: { item in block(item) },
                     onNamesChange: { names in session.updateReviewNames(names) },
                     onBack: { session.leaveReview() },
@@ -185,23 +185,24 @@ struct LocalNameFilterSheet: View {
         session.cancel()
     }
 
-    /// Lưu như màn AI (Name riêng / VP riêng, Gộp / Thay thế) — `ReaderAINameReviewSheet` đóng sheet ngay sau khi gọi.
-    /// Lưu xong ⇒ xoá gói tạm của màn duyệt này (mở từ gói, hoặc đã ghi khi app vào nền); lưu lỗi ⇒ ghi gói để không mất
-    /// danh sách.
-    private func save(_ items: [AIExtractedName], isName: Bool, isMerge: Bool) {
+    /// Lưu như màn AI (Name riêng / VP riêng, ba cách lưu `DataImportMode` — popup ở `ReaderAINameReviewSheet+Save`) —
+    /// `ReaderAINameReviewSheet` đóng sheet ngay sau khi gọi. Lưu xong (kể cả "Chỉ thêm key mới" mà mọi name đã có) ⇒ xoá
+    /// gói tạm của màn duyệt này (mở từ gói, hoặc đã ghi khi app vào nền); lưu lỗi ⇒ ghi gói để không mất danh sách.
+    private func save(_ items: [AIExtractedName], isName: Bool, mode: DataImportMode) {
         let bid = bookId
         let pending = session.beginSave()
         Task {
-            let savedCount = await AIHarnessService.shared.saveExtractedEntries(
-                items, bookId: bid, isName: isName, isMerge: isMerge
+            let result = await AIHarnessService.shared.saveExtractedEntries(
+                items, bookId: bid, isName: isName, mode: mode
             )
             await MainActor.run {
                 let targetName = isName ? "Name riêng" : "VietPhrase riêng"
-                if savedCount > 0 {
+                if let result {
                     if let pending {
                         LocalNameFilterDraftStore.delete(id: pending.draft.id, bookId: pending.bookId)
                     }
-                    ToastManager.shared.show(message: "Đã lưu \(savedCount) mục vào \(targetName) của truyện", type: .success)
+                    let toast = ReaderAINameReviewSheet.savedToast(result, targetName: targetName)
+                    ToastManager.shared.show(message: toast.message, type: toast.type)
                 } else if let pending, !pending.draft.names.isEmpty {
                     LocalNameFilterDraftStore.upsert(pending.draft, bookId: pending.bookId)
                     ToastManager.shared.show(

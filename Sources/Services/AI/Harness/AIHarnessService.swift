@@ -53,37 +53,55 @@ public final class AIHarnessService: Sendable {
         return updated
     }
 
-    /// Lưu hàng loạt danh sách mục trích xuất vào từ điển riêng của truyện (Name riêng hoặc VP riêng).
+    /// Kết quả `saveExtractedEntries` — số đếm cho toast theo đúng chế độ lưu.
+    public struct ExtractedEntriesSaveResult: Sendable {
+        /// Số mục đã ghi vào từ điển: "Thay thế toàn bộ" / "Gộp" = mọi mục hợp lệ; "Chỉ thêm key mới" = mục chưa có.
+        public let saved: Int
+        /// "Chỉ thêm key mới": số mục đã có trong từ điển đích, giữ nguyên nghĩa cũ (không ghi). Chế độ khác: 0.
+        public let keptExisting: Int
+    }
+
+    /// Lưu hàng loạt danh sách mục trích xuất vào từ điển riêng của truyện (Name riêng hoặc VP riêng) theo `DataImportMode`
+    /// (plan 2026-11-27-phan-loai-name L16, cùng luật với nhập file — `TranslationDictionaryWriter.importRecords`):
+    /// - `.replaceAll`: từ điển riêng chỉ còn các mục đang chọn.
+    /// - `.overwriteExisting` ("Gộp"): mục đã có lấy nghĩa mới, mục chưa có thêm vào (lên đầu file).
+    /// - `.keepExisting` ("Chỉ thêm key mới"): chỉ thêm mục chưa có; mục đã có giữ nghĩa cũ.
+    ///
+    /// `nil` = không có mục hợp lệ (khoá / nghĩa rỗng) hoặc ghi lỗi (log ❌). `saved == 0` **không** phải lỗi: "Chỉ thêm
+    /// key mới" mà mọi mục đã có.
     public func saveExtractedEntries(
         _ names: [AIExtractedName],
         bookId: String,
         isName: Bool,
-        isMerge: Bool
-    ) async -> Int {
-        let validItems = names.filter { $0.isSelected }
-            .map { (
-                orig: $0.original.trimmingCharacters(in: .whitespacesAndNewlines),
-                mean: $0.suggestedMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
+        mode: DataImportMode
+    ) async -> ExtractedEntriesSaveResult? {
+        // Nghĩa chuẩn hoá trước (như `persist`) để "đã có" so đúng nghĩa đã lưu; khoá lặp chỉ giữ mục đầu (như `persist`).
+        var seenKeys = Set<String>()
+        let newRecords = names.filter { $0.isSelected }
+            .map { DictionaryTextRecord(
+                key: $0.original.trimmingCharacters(in: .whitespacesAndNewlines),
+                value: DictionaryTextFileStore.normalizeMeaning($0.suggestedMeaning)
             )}
-            .filter { !$0.orig.isEmpty && !$0.mean.isEmpty }
+            .filter { !$0.key.isEmpty && !$0.value.isEmpty && seenKeys.insert($0.key).inserted }
 
-        guard !validItems.isEmpty else { return 0 }
-
-        let newRecords = validItems.map { DictionaryTextRecord(key: $0.orig, value: $0.mean) }
+        guard !newRecords.isEmpty else { return nil }
 
         do {
-            try await TranslationDictionaryWriter.shared.mutate(isName: isName, bookId: bookId) { existing in
-                existing = DictionaryTextFileStore.mergedRecords(imported: newRecords, existing: existing, isMerge: isMerge)
+            let counts = try await TranslationDictionaryWriter.shared.importRecords(
+                newRecords, isName: isName, bookId: bookId, mode: mode
+            )
+            guard mode == .keepExisting else {
+                return ExtractedEntriesSaveResult(saved: newRecords.count, keptExisting: 0)
             }
-            return validItems.count
+            return ExtractedEntriesSaveResult(saved: counts.added, keptExisting: newRecords.count - counts.added)
         } catch {
             AppLogger.shared.log("❌ Lỗi lưu từ điển AI vào sách \(bookId): \(error.localizedDescription)")
-            return 0
+            return nil
         }
     }
 
     /// Lưu hàng loạt danh sách tên riêng trích xuất vào từ điển truyện (mặc định gộp).
     public func saveExtractedNames(_ names: [AIExtractedName], bookId: String) async -> Int {
-        await saveExtractedEntries(names, bookId: bookId, isName: true, isMerge: true)
+        await saveExtractedEntries(names, bookId: bookId, isName: true, mode: .overwriteExisting)?.saved ?? 0
     }
 }
