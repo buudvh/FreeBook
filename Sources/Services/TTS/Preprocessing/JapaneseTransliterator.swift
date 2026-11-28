@@ -248,11 +248,11 @@ final class JapaneseTransliterator {
         return syllables
     }
 
-    static func isJapaneseRomaji(_ word: String) -> Bool {
+    static func isJapaneseRomaji(_ word: String, hadLongVowel: Bool? = nil) -> Bool {
         // Quyết định thuộc `ForeignScriptClassifier`: bản cũ ở đây coi mọi chuỗi cắt được thành âm
         // romaji là tiếng Nhật rồi chống đỡ bằng `englishBlacklist` ~420 từ vá theo từng ca — tập từ
         // tiếng Anh cần loại trừ là vô hạn nên cách đó không bao giờ đúng được.
-        ForeignScriptClassifier.isJapaneseRomaji(word)
+        ForeignScriptClassifier.isJapaneseRomaji(word, hadLongVowel: hadLongVowel)
     }
 
     static func transliterateRomaji(_ word: String) -> String {

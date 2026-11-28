@@ -983,9 +983,9 @@ final actor TextPreprocessor {
         let english = config.transliterationEnabled, japanese = config.japaneseTransliterationEnabled
 
         let folded = token.folding(options: .diacriticInsensitive, locale: nil)
-        let cacheKey = folded.lowercased()
-        // Kết quả phụ thuộc hai công tắc Anh / Nhật ⇒ khoá đệm mang cả hai (1.3.973), cả hai bật thì giữ khoá cũ.
-        let storeKey = english && japanese ? cacheKey : (english ? "e|" : "j|") + cacheKey
+        let cacheKey = folded.lowercased(), longVowel = ForeignScriptClassifier.hasHepburnLongVowel(token)  // ō bị gấp ở trên
+        // Kết quả phụ thuộc hai công tắc Anh / Nhật (1.3.973) và nguyên âm dài của token gốc (1.3.1136) ⇒ khoá đệm mang cả ba.
+        let storeKey = (longVowel ? "ō|" : "") + (english && japanese ? cacheKey : (english ? "e|" : "j|") + cacheKey)
 
         if let cached = transliterationCache[storeKey] {
             return cached
@@ -1000,7 +1000,7 @@ final actor TextPreprocessor {
         let transliterated: String
         if config.dictionaryReplacementEnabled, let dictMatch = lookupWord(cacheKey) {
             transliterated = dictMatch
-        } else if japanese, JapaneseTransliterator.isJapaneseRomaji(cacheKey) {
+        } else if japanese, JapaneseTransliterator.isJapaneseRomaji(cacheKey, hadLongVowel: longVowel) {
             transliterated = JapaneseTransliterator.transliterateRomaji(cacheKey)
         } else if cacheKey.contains("-") || cacheKey.contains(".") {
             var partsResult = ""

@@ -76,7 +76,9 @@ public enum TTSPhoneticSuggestionBuilder {
         }
         let hasLibrary = !(nghiTTSHit ?? "").isEmpty || !(vieNeuHit ?? "").isEmpty || !(vttsHit ?? "").isEmpty
 
-        let isJapanese = ForeignScriptClassifier.isJapaneseRomaji(key)
+        // Khoá đã gấp dấu ⇒ báo riêng nguyên âm dài của từ gốc ("Mangekyō", 1.3.1136).
+        let isJapanese = ForeignScriptClassifier.isJapaneseRomaji(
+            key, hadLongVowel: ForeignScriptClassifier.hasHepburnLongVowel(word))
 
         let japanese = JapaneseTransliterator.transliterateRomaji(key)
         // `transliterateRomaji` trả **nguyên văn** khi không cắt được âm tiết; chuỗi đó không phải gợi ý.
@@ -114,7 +116,11 @@ public enum TTSPhoneticSuggestionBuilder {
         guard pieces.joined().count > 1,
               pieces.allSatisfy({ piece in piece.allSatisfy { $0.isASCII && $0.isLetter } }) else { return [] }
 
-        let japanesePieces = pieces.map { $0.count > 1 && ForeignScriptClassifier.isJapaneseRomaji($0) }
+        // Khoá đã gấp dấu ⇒ nguyên âm dài xét trên từ gốc, áp cho mọi phần ("Ryūjin-sama", 1.3.1136).
+        let longVowel = ForeignScriptClassifier.hasHepburnLongVowel(trimmed)
+        let japanesePieces = pieces.map {
+            $0.count > 1 && ForeignScriptClassifier.isJapaneseRomaji($0, hadLongVowel: longVowel)
+        }
         let isJapanese = isKana || japanesePieces.contains(true)
         var result: [TTSPhoneticSuggestion] = []
 

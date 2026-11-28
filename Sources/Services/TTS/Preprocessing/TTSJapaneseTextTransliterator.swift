@@ -13,7 +13,8 @@ import Foundation
 ///    **hoặc** (1.3.1037) đúng luật tên viết hoa của VieNeu (`VieNeuJapaneseNameReader.reads`: hoa đầu, ≥ 4 chữ, cắt hết
 ///    thành âm tiết romaji, không phải âm tiết Việt, không thuộc 507 từ tiếng Anh giống romaji). Trước đó chỉ có bộ chấm
 ///    điểm, mà ngưỡng 4 điểm cố ý nghiêng về tiếng Anh ⇒ "Konoha", "Naruto", "Sasuke" (1 điểm) không bao giờ được đổi —
-///    anh Bửu bật công tắc cho vtts mà nghe vẫn tiếng Anh.
+///    anh Bửu bật công tắc cho vtts mà nghe vẫn tiếng Anh. Từ 1.3.1136 từ có nguyên âm dài ā ī ū ē ō ("Mangekyō",
+///    "Ryūjin") mà cắt hết được thành âm romaji luôn là romaji (`ForeignScriptClassifier.hasHepburnLongVowel`).
 /// 2. Dãy kana (hiragana / katakana) ⇒ romaji ⇒ âm tiết Việt. Chữ Hán giữ nguyên.
 ///
 /// Không bao giờ trả rỗng cho đầu vào khác rỗng: từ không cắt được thành âm tiết thì giữ nguyên.
@@ -96,8 +97,10 @@ enum TTSJapaneseTextTransliterator {
         let spoken = pieces.map { piece -> String in
             // Token ghép: phần trùng âm tiết Việt không dấu ("san" trong "Sasuke-san") giữ nguyên — như NghiTTS.
             if pieces.count > 1, VietnameseWordChecker.isVietnameseWord(piece) { return piece }
-            guard piece.count > 1,
-                  JapaneseTransliterator.isJapaneseRomaji(piece) || VieNeuJapaneseNameReader.reads(piece) else { return piece }
+            // Bộ chấm điểm nhận `piece` còn nguyên ō (nguyên âm dài ⇒ romaji, 1.3.1136); luật tên của VieNeu chỉ nhận chữ
+            // không dấu nên gấp ā ī ū ē ō trước, như đường VieNeu (`VieNeuJapanesePreprocessor.apply` gấp trước khi xét).
+            guard piece.count > 1, JapaneseTransliterator.isJapaneseRomaji(piece)
+                    || VieNeuJapaneseNameReader.reads(VieNeuJapanesePreprocessor.foldMacrons(piece)) else { return piece }
             let reading = JapaneseTransliterator.transliterateRomaji(piece)
             // `transliterateRomaji` trả **nguyên từ** khi không cắt được thành âm tiết ⇒ không phải bản phiên âm.
             guard reading.lowercased() != piece.lowercased() else { return piece }

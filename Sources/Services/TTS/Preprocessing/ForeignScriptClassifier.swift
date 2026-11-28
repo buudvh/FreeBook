@@ -68,12 +68,24 @@ enum ForeignScriptClassifier {
         let reasons: [String]
     }
 
-    static func isJapaneseRomaji(_ word: String) -> Bool {
-        classify(word).isJapanese
+    /// `hadLongVowel`: chỗ gọi đã gấp dấu trước khi hỏi (NghiTTS gấp `ō` → `o` để làm khoá đệm) thì báo token **gốc** có
+    /// nguyên âm dài hay không; `nil` = tự xét trên `word`.
+    static func isJapaneseRomaji(_ word: String, hadLongVowel: Bool? = nil) -> Bool {
+        classify(word, hadLongVowel: hadLongVowel).isJapanese
     }
 
-    static func classify(_ word: String) -> Verdict {
+    /// Nguyên âm dài kiểu Hepburn (ā ī ū ē ō, cả chữ hoa). Tiếng Anh và tiếng Việt không bao giờ có ⇒ dấu hiệu chắc chắn
+    /// của romaji (1.3.1136, anh Bửu: bật "Phiên âm tiếng Nhật" mà "Mangekyō" vẫn không đọc kiểu Nhật — cụm "ng" bị trừ
+    /// điểm như cụm tiếng Anh nên chỉ được 2 / 4).
+    static func hasHepburnLongVowel(_ word: String) -> Bool {
+        word.unicodeScalars.contains { hepburnLongVowels.contains($0) }
+    }
+
+    private static let hepburnLongVowels = Set("āīūēōĀĪŪĒŌ".unicodeScalars)
+
+    static func classify(_ word: String, hadLongVowel: Bool? = nil) -> Verdict {
         var reasons: [String] = []
+        let longVowel = hadLongVowel ?? hasHepburnLongVowel(word)
         let normalized = normalize(word)
 
         // Whitelist chạy **trước** mọi phép chấm điểm: `sakura` và `sonata` giống nhau trên mọi dấu
@@ -100,6 +112,11 @@ enum ForeignScriptClassifier {
         }
         guard parts.count >= 2 else {
             return Verdict(isJapanese: false, score: -99, reasons: ["chỉ có một âm tiết"])
+        }
+        // Có nguyên âm dài và cắt hết được thành âm romaji ⇒ tiếng Nhật, khỏi chấm điểm: các dấu hiệu "kiểu Anh" của bảng
+        // điểm (cụm "ng" trong "mangekyō", đuôi "-ed") không còn nghĩa khi từ đã mang dấu chỉ romaji mới có.
+        if longVowel {
+            return Verdict(isJapanese: true, score: 99, reasons: ["có nguyên âm dài kiểu Hepburn (ā ī ū ē ō)"])
         }
 
         var score = 0

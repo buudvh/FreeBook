@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1136] - 2026-11-28
+
+### fix: phiên âm tiếng Nhật đọc được từ có nguyên âm dài như Mangekyō ở vtts, NghiTTS, Siri, Google và tiện ích
+
+- Anh Bửu: "Sao bật phiên âm tiếng nhật rồi mà đọc chữ Mangekyō ko đc" → duyệt plan. Nguyên nhân: `ForeignScriptClassifier` chấm "mangekyo" 2 điểm (cụm `ng` bị trừ −2 như cụm tiếng Anh; `kyo` +2, đuôi nguyên âm +1, `n` riêng +1) < ngưỡng 4; luật tên viết hoa của VieNeu (đường dùng chung của vtts / Siri / Google / tiện ích, 1.3.1037) chỉ nhận chữ Latin không dấu mà `ō` chưa được gấp.
+- `ForeignScriptClassifier`: từ có nguyên âm dài ā ī ū ē ō (tiếng Anh, tiếng Việt không có) mà gấp xong cắt hết được thành ≥ 2 âm romaji ⇒ romaji, khỏi chấm điểm (`hasHepburnLongVowel`, tham số `hadLongVowel` cho chỗ đã gấp dấu trước khi hỏi). Từ không có nguyên âm dài giữ nguyên cách chấm cũ.
+- NghiTTS (`TextPreprocessor.transliterateToken` gấp dấu làm khoá đệm): truyền `hadLongVowel` của token gốc, khoá đệm thêm tiền tố `ō|` để "mangekyo" và "Mangekyō" không dùng chung kết quả. Chip gợi ý phiên âm (`TTSPhoneticSuggestionBuilder`) cũng xét nguyên âm dài trên từ gốc.
+- `TTSJapaneseTextTransliterator` (vtts / Siri / Google / tiện ích): gấp ā ī ū ē ō trước khi hỏi luật tên viết hoa, như đường VieNeu.
+- Ví dụ (mô phỏng bằng Python bảng âm tiết của `JapaneseTransliterator`): Mangekyō → "Man ghê kiô", Tōkyō → "Tô kiô", Ryūjin → "Riu gin", Kyūbi → "Kiu bi", Ōsaka → "Ô xa ka". VieNeu không đổi.
+- Chưa biên dịch được tại chỗ (Windows), chưa nghe thử trên máy; check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1135] - 2026-11-28
 
 ### feat: gỡ giọng vtts nam-1 và Google Dịch khỏi app, chỉ còn nu-10 và Ngọc Huyền
@@ -426,35 +437,5 @@ tiền tố phải đầy đủ như hậu tố"), mockup https://claude.ai/arti
   tiền tố ví dụ 老尼尔 → lão Neil; thêm từ một name ⇒ "Thêm" mờ + dòng nhắc khi phần chọn không nằm cuối (hậu tố) / đầu
   (tiền tố) name, chọn cả cụm hoặc dài quá 6 chữ. Sửa lỗi biên dịch: `switch` trên `SuffixKind` thiếu `.person`.
 - Mọi chữ "Đuôi" trên màn đổi thành "Hậu tố" (tiêu đề, số mục, ô trống, toast, trợ năng, menu …, hộp khôi phục).
-
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1106] - 2026-11-27
-
-### feat: bấm Lưu ở màn duyệt name hiện popup ba cách lưu như nhập file, cả luồng AI và lọc name local
-
-Plan 2026-11-27-phan-loai-name mục L16 (anh Bửu: "Bấm lưu sẽ hiển thị màn popup vào hoạt động giống nhập name/vp từ
-file. Tất nhiên chỉ có name mới thì nhập thẳng như hiện tại. Làm cho cả AI nhé"), mockup
-https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Bấm Lưu → chọn cách nhập".
-
-- ReaderAINameReviewSheet (+Save mới): bỏ hộp confirmationDialog "Gộp / Thay thế hoàn toàn". Bấm "Lưu vào Name riêng /
-  VP riêng" ⇒ đọc file đích của truyện ngoài main; có name đang chọn đã có trong đó ⇒ popup DataImportModePopup đủ ba
-  chế độ (Thay thế toàn bộ / Gộp — chọn sẵn / Chỉ thêm key mới), tiêu đề "Lưu vào Name riêng" / "Lưu vào VP riêng",
-  dòng dưới "N name mới · M đã có trong Name riêng" (icon người / sách, không phải icon file), nút "Lưu". Toàn name mới
-  ⇒ lưu thẳng bằng Gộp như trước.
-- "Đã có" tính theo file Names.txt / VietPhrase.txt riêng của truyện (đích thật của ba chế độ), không theo cờ
-  hasInBookNames / hasInBookVP (hai cờ đó gồm cả Name / VP Chung và từ điển gốc). Name chỉ có ở từ điển chung giờ lưu
-  thẳng thay vì hỏi — kết quả y như chọn Gộp.
-- Lời giải thích ba chế độ theo ngữ cảnh lưu: "Xoá Name riêng cũ của truyện, chỉ giữ các name đang chọn." (VP thì "VP
-  riêng"), "Name đã có thì lấy nghĩa mới đè lên; chưa có thì thêm vào.", "Chỉ thêm name chưa có; name đã có giữ nguyên
-  nghĩa cũ.". DataImportModePopup / .dataImportModePopup nhận thêm messageSystemImage + explanations (tham số tuỳ chọn,
-  mặc định giữ icon file và lời cũ — các chỗ nhập file không đổi).
-- Đường lưu nhận DataImportMode thay cho isMerge: onSave của sheet, ReaderAIFullScreenView.saveNamesToDictionary,
-  LocalNameFilterSheet.save, AIHarnessService.saveExtractedEntries. Service ghi qua TranslationDictionaryWriter.importRecords
-  mới (tách từ importEntries, cùng luật ba chế độ với nhập file); nghĩa chuẩn hoá trước, khoá lặp giữ mục đầu.
-- saveExtractedEntries trả ExtractedEntriesSaveResult? (nil = không có mục hợp lệ / ghi lỗi). Toast dùng chung
-  ReaderAINameReviewSheet.savedToast: "Đã lưu N mục vào … của truyện" như cũ; Chỉ thêm key mới thêm " · giữ nguyên M mục
-  đã có"; mọi name đã có ⇒ "Không có mục mới …" (thông báo, không phải lỗi — lọc name local vẫn xoá gói tạm). Tóm tắt
-  trong tin AI ở chế độ Chỉ thêm key mới không khẳng định đã lưu đủ N tên.
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
