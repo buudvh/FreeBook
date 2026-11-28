@@ -181,10 +181,14 @@ struct LocalNameFilterSuffixEditorSheet: View {
             extraRows: { key, meaning in AnyView(extraRows(key: key, meaning: meaning)) },
             addsFromSource: source != nil && original == nil,
             suggestedMeaning: suggest,
-            caseRowTrailing: bookId == nil ? nil : AnyView(DictEntryEditScopeToggle(isBookScope: Binding(
-                get: { scope == .book },
-                set: { scope = $0 ? .book : .common }
-            ))),
+            caseRowTrailing: bookId == nil ? nil : AnyView(DictEntryEditScopeToggle(
+                isBookScope: Binding(
+                    get: { scope == .book },
+                    set: { scope = $0 ? .book : .common }
+                ),
+                // Sửa mục có sẵn: nhấn giữ chỉ ghim mặc định, không đổi phạm vi của mục (đổi bằng chạm).
+                selectsOnPin: original == nil
+            )),
             interceptSave: { key, meaning, replacing in
                 let pending = self.request(key: key, meaning: meaning, replacing: replacing)
                 guard needsOverwriteConfirmation(pending) else { return false }

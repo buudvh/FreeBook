@@ -7,8 +7,9 @@ import SwiftUI
 /// nền xám đậm hơn, ghim cam `CoverPinBadge` nhô ở góc trên phải) nhưng chữ theo màu hệ thống (panel Reader tô theo nền đọc)
 /// — nút của Reader là hàm của view đó, gắn `selectedTheme` nên không dùng lại trực tiếp được.
 ///
-/// **Ghim mặc định** (N3, anh Bửu duyệt): nhấn giữ R hoặc C ⇒ ghim nút đó (chọn luôn nút đó + toast như panel Dịch), nhấn giữ
-/// nút đang ghim ⇒ bỏ ghim. Nhớ bằng `@AppStorage` khoá `localNameFilterAffixScopePin` ("" chưa ghim / "book" / "common") —
+/// **Ghim mặc định** (N3, anh Bửu duyệt): nhấn giữ R hoặc C ⇒ ghim nút đó + toast như panel Dịch, nhấn giữ nút đang ghim ⇒ bỏ
+/// ghim. Khi **thêm mới** (`selectsOnPin`) ghim xong chọn luôn nút đó; khi **sửa mục có sẵn** nhấn giữ **chỉ ghim**, không đổi
+/// phạm vi của mục (session chính chốt 2026-11-28: đổi phạm vi chỉ bằng chạm, vì R → C ghi đè Chung). Nhớ bằng `@AppStorage` khoá `localNameFilterAffixScopePin` ("" chưa ghim / "book" / "common") —
 /// chung cho mọi lần mở. Ghim chỉ quyết định phạm vi chọn sẵn khi **thêm từ chip "+ X" / "+ Thêm …" ở màn Sửa từ của màn
 /// duyệt** (`defaultIsBookScope`, chưa ghim ⇒ R); "+ Thêm" trong nhóm của màn Quản lý theo nhóm, màn danh sách theo chip
 /// phạm vi, sửa mục có sẵn theo phạm vi của mục.
@@ -18,6 +19,8 @@ struct DictEntryEditScopeToggle: View {
 
     /// `true` = R (Riêng truyện), `false` = C (Chung).
     @Binding var isBookScope: Bool
+    /// `true` (thêm mới) ⇒ ghim xong chọn luôn nút vừa ghim; `false` (sửa mục có sẵn) ⇒ chỉ ghim, phạm vi giữ nguyên.
+    var selectsOnPin: Bool = true
 
     /// "" = chưa ghim, "book" = ghim R, "common" = ghim C.
     // Chuỗi trần = `pinStorageKey` (đặt thẳng trong thuộc tính bọc cho chắc).
@@ -62,7 +65,8 @@ struct DictEntryEditScopeToggle: View {
         .accessibilityLabel("Phạm vi lưu")
     }
 
-    /// Nhấn giữ: nút đang ghim ⇒ bỏ ghim; nút khác ⇒ ghim nút đó và chọn luôn (như `onPinScope` của panel Dịch).
+    /// Nhấn giữ: nút đang ghim ⇒ bỏ ghim; nút khác ⇒ ghim nút đó, thêm mới thì chọn luôn (như `onPinScope` của panel Dịch),
+    /// sửa mục có sẵn thì không đổi lựa chọn.
     private func togglePin(book: Bool, current: Bool?) {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         let label = book ? "Riêng" : "Chung"
@@ -71,7 +75,7 @@ struct DictEntryEditScopeToggle: View {
             ToastManager.shared.show(message: "Đã bỏ ghim Phạm vi: \(label) — thêm mới về mặc định Riêng", type: .success)
         } else {
             pinnedRaw = book ? "book" : "common"
-            isBookScope = book
+            if selectsOnPin { isBookScope = book }
             ToastManager.shared.show(message: "Đã ghim mặc định Phạm vi: \(label)", type: .success)
         }
     }

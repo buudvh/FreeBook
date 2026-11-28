@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1124] - 2026-11-28
+
+### fix: sửa tiền tố hậu tố có sẵn mà nhấn giữ R hoặc C thì chỉ ghim mặc định, không đổi phạm vi của mục đang sửa
+
+Nối tiếp "màn Sửa từ của lọc name local ghim được R hoặc C làm mặc định khi thêm tiền tố hậu tố" (mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N3; session chính chốt 2026-11-28).
+
+- `DictEntryEditScopeToggle` thêm `selectsOnPin` (mặc định `true`): thêm mới ⇒ nhấn giữ vừa ghim vừa chọn luôn nút đó như trước; `false` ⇒ chỉ ghim mặc định + toast, phạm vi đang chọn giữ nguyên.
+- `LocalNameFilterSuffixEditorSheet` truyền `selectsOnPin: original == nil` ⇒ sửa mục có sẵn (màn danh sách, chip ✓, màn Quản lý) nhấn giữ không còn chuyển mục R sang C (đường R → C ghi đè Chung) hay ngược lại; đổi phạm vi của mục chỉ bằng chạm R / C.
+
 ## [1.3.1123] - 2026-11-28
 
 ### feat: màn Sửa từ của lọc name local ghim được R hoặc C làm mặc định khi thêm tiền tố hậu tố, chip có sẵn mang badge R hoặc C
@@ -477,17 +486,3 @@ Bước đầu của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-1
 - `LocalNameFilter.Name.isGuessedMeaning`, `Configuration.prefersLatinNames` ("Ưu tiên tên Latin", theo truyện); ghi rõ `Configuration.suffixes` từ nay **chỉ** để ghép nghĩa (cách A).
 - `Tools/lac-export/export_translit.py`: học mô hình phiên âm ngược Hán → Latin từ VietPhrase (54.722 cặp tên, EM theo đoạn 1–4 chữ cái + mô hình chữ cái bậc 3), xuất `translit_latin.json` (155 KB) kèm đặc tả bộ giải mã. Bài thi 10 %: đúng y hệt 13 %, sai ≤ 1 chữ cái 36 %. Bộ giải mã độc lập đọc JSON trùng 3000 / 3000 dự đoán. Đã đẩy lên `datasets/raikiri1498/vietpharse` `lac/translit_latin.json`, commit `0df8c84a`.
 - Commit này một mình chưa dùng các trường mới; hai phần sau của đợt bổ sung.
-
-## [1.3.1094] - 2026-11-27
-
-### feat: token <m> ghép chữ theo luật, xét vị trí trong bản dịch để nhận chữ số và đọc 十 là mười, 千 đọc ngàn
-
-Anh Bửu (cùng đợt 1.3.1093): "các token số như vạn ức, ngàn vạn chưa chính xác"; về phạm vi `<m>`: "nếu `<m>` là token thứ 2 trở đi … chỉ nhận 十, 百, 千, 万, 十万", rồi "nếu giá trị thay thế đứng đầu mới đọc là mười" và chọn "dùng chung" một tiêu chí; 千 đọc "ngàn".
-
-- `QuickTranslationMagnitudeFormatter` bỏ bảng tay: cụm = [một chữ số] + bậc tăng dần (十 < 百 < 千 < 万 < 亿 < 兆), ≤ 4 chữ; 廿 卅 卌 đứng riêng. Thêm được 万亿 (vạn ức), 两亿…九亿, 四十亿, 三百亿, 三千亿, 十万亿, 千万亿, 十兆 — trước đây rule có `<m>` không khớp các cụm này (vd 数万亿年 ra "mấy 100010000 năm", nay "mấy vạn ức năm"). 万万, 亿万 vẫn không nhận (thành ngữ).
-- **Tiêu chí vế phải** thay luật vế trái của 1.3.703: `{i}` của `<m>` đứng đầu bản dịch ⇒ nhận cả chữ số đầu và 十 đọc "mười" (`<m>几 = {0} mấy`: 十几 = mười mấy, 二十几 = hai mươi mấy; `百分之<m>几 = {0} mấy phần trăm`: 百分之十几 trước ra "mươi mấy phần trăm" nay "mười mấy"); không đứng đầu ⇒ chỉ bậc trần (`数<m>年`: 之数五万年 trước "mấy năm vạn năm", nay để `<n:1-5>万年` ra "5 vạn năm").
-- 十 trần đứng trước 万 / 亿 nằm ở chữ cố định ngay sau token cũng đọc "chục": `数<m>万年` trên 数十万年 trước "mấy mươi vạn năm", nay "mấy chục vạn năm".
-- 千 đọc **ngàn** (trước "nghìn"): 数千年 = mấy ngàn năm, 几百上千 = mấy trăm đến mấy ngàn.
-- `leadsPattern` đổi tên `leadsReplacement`; `markLeadingMagnitude` xét `template`. Hướng dẫn viết rule sửa hai dòng `<m>`; `translation.md` thêm đoạn "Token `<m>` ghép chữ".
-- Đo trên 6 truyện cùng bộ rule của anh (bản chép Python, gộp cả 1.3.1093): 83 / 3.387 đoạn đổi = 69 đoạn chỉ nghìn → ngàn + 14 đoạn đúng hơn, không đoạn nào hỏng. Sau đợt này anh bỏ được 40 dòng rule mà kết quả không đổi (danh sách ở `Docs/Plans/token-so-lon/remove2_out.txt`, gồm `万万 = 万万`, `亿万 = 亿万`, `千千万万 = 千千万万`, `数<m>万年`…); Javis không sửa file rule của anh.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
