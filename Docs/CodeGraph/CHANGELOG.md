@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1133] - 2026-11-28
+
+### docs: ghi chú lọc name local cho sáu luật chặn rác L17 đến L22 và lịch sử lọc ghi cả lần không thành
+
+Cập nhật `.claude/rules/translation.md` cho 1.3.1130 và 1.3.1132.
+- Luật rác L17–L22 (`LocalNameFilterJunkRules`, sau L9, chỉ name chưa có, thứ tự `junk_reason`): điều kiện, ví dụ bỏ /
+  giữ, số đo Python 85 hàng, các luật đã thử và gạt vì bắt nhầm tên thật (để khỏi đề xuất lại); bộ đếm
+  `LocalNameFilterLACCounts.verbish`; đường lùi "chỉ bộ luật" không có L17–L22.
+- Lịch sử lọc: ghi mục ngay lúc bấm "Bắt đầu lọc" / "Thử lại", bốn kết quả không thành (không ra name, lỗi, đã huỷ, bị ngắt),
+  nền sẫm, không mở được, tính vào "N lần".
+
 ## [1.3.1132] - 2026-11-28
 
 ### feat: lọc name local chặn rác bằng sáu luật L17 đến L22 cho name chưa có ở đường có model LAC
@@ -452,46 +463,3 @@ Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn
 - Chép một lần (anh chọn "chép họ đã sửa"): lần đầu bản `nameFilter` được tạo (mở màn Họ hoặc lượt lọc đầu), nếu cờ `localNameFilterSurnameSeeded` chưa có ⇒ đặt cờ (cả khi không có gì để chép — "Khôi phục mặc định" sau này không làm chép lại); khoá lớp riêng của bộ lọc chưa có và lớp riêng của `<ho>` có ⇒ chép sang, áp lại lên bản gốc mới (`QuickTranslationSurnameOverrides.rebased(onto:)`: họ tự thêm trùng âm với bản gốc mới như 洛=Lạc không còn tính là phần sửa). Đặt trong `init` của store thay cho bootstrap lúc mở app: `static let` bảo đảm chạy một lần, an toàn luồng, trước mọi lượt đọc (kể cả từ task nền của bộ lọc), không đụng `FreeBookApp` / `MainTabView`. Cờ chữ thường ⇒ Backup gói cùng lớp riêng. Log `📋 [NameFilterSurname]`.
 - Màn quản lý: `QuickTranslationSurnameListView` nhận `Context` (store, tiêu đề, tên file xuất, dòng "?", chữ khi trống; mặc định `.quickTranslation` ⇒ hai chỗ mở cũ không đổi); `QuickTranslationSurnameEditorSheet` nhận `store` (trùng khoá xét đúng danh sách đang sửa). View mới `LocalNameFilterSurnameListView()` (`Views/Reader/NameFilter/Lists/`, tiêu đề "Họ", xuất `NameFilterSurnames.txt`, đủ Sửa từ / nhập file 3 cách / xuất / khôi phục mặc định / tắt / xoá) để session giao diện nối hàng "Họ" vào sheet Lọc name local — sheet chưa có hàng này.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1103] - 2026-11-27
-
-### feat: lọc name local sửa phân loại, hậu tố Nhân danh thay Pronouns, tiền tố cho tên Latin, lọc độ dài name
-
-Phần lõi của plan Docs/Plans/2026-11-27-phan-loai-name.md (anh Bửu duyệt): L1–L6, L7 / L10 (engine + store), L9, L11,
-L12 (dữ liệu), L15 (engine). Giao diện (Views) để session sau. Bản tham chiếu Python
-Docs/Plans/local-name-filter-lac/lacpipe.py + name_meaning.py sửa trước (bản cũ *_before_phanloai.py), chạy 11 truyện.
-
-Phân loại phía LAC (LocalNameFilterLACPipeline+Kind, file mới):
-- L11: hậu tố Nhân danh 2–6 chữ của bản gốc vào bộ dò phía LAC ⇒ name có hậu tố đó là Nhân danh (天元圣女 →
-  "Thiên Nguyên thánh nữ"). Luật (e) và bộ luật không dùng hậu tố Nhân danh.
-- L1 / L2: LAC bảo người + chữ cuối là đuôi yếu phía LAC (bộ cũ + 卫 泽) ⇒ theo hậu tố khi nhãn thường nhiều hơn nhãn
-  thực thể (không mở đầu bằng họ, không danh xưng) hoặc ≥ 3 chữ không mở đầu bằng họ (玄剑峰, 执事堂, 魔渊); 刘云峰,
-  楚渊, 王精卫 vẫn là người.
-- L3: chữ cuối là loài vật / yêu ma ⇒ Thuật ngữ (蜃龙, 啸月银狼), trừ mở đầu bằng họ / 阿 / 小 / có danh xưng.
-- L4: nhãn thường ≥ 2 lần nhãn thực thể, không đuôi ⇒ Thuật ngữ (天君, 虚空乱流), trừ họ / danh xưng / 小 阿 老 đầu /
-  儿 子 cuối.
-- Bộ gắn nhãn đếm nhãn thường cho mọi từ ≥ 2 chữ có chữ Hán (trước chỉ từ ≥ 3 chữ có chữ cuối là đuôi); bỏ
-  suffixLastScalars.
-Lọc:
-- L5 rank_prefix: số + 阶 / 级 / 品 ở đầu ⇒ bỏ, cả name đã có (九阶) và hàng bộ luật ở bước hợp.
-- L9 glued_names: name chưa có = hai hàng Nhân danh khác của danh sách (mỗi phần ≥ 2 chữ) ⇒ bỏ (姬晴苟义).
-- L15 length_off: Configuration.minLength (mặc định 2) / maxLength (nil = không giới hạn), đếm code point, không tính
-  dấu ·, lọc ở đầu ra cả hai đường.
-Bỏ Pronouns: LocalNameFilterDictionaries thôi chụp Pronouns; danh xưng của bộ luật (pronouns / titles) dựng từ hậu tố
-Nhân danh của danh sách người dùng (cùng bộ lọc Config); glued_fragment giữ phần thừa là hậu tố ≥ 2 chữ mọi loại
-(东阳酒店, 贝克兰德大学 nay được giữ); nghĩa tên người lấy hậu tố Nhân danh dài nhất (LocalNameFilterSetup.personTitle,
-陈太上长老 ⇒ 太上长老), 1 chữ vẫn chỉ chữ thân tộc sau ≥ 3 tên. Bỏ hasPronouns, log "chưa nạp Pronouns".
-Tiền tố (L7 / L10): LocalNameFilterPrefixStore mới (NameFilterPrefixes.txt: 老=lão, 小=tiểu, khoá
-localNameFilterPrefixOverrides), dùng chung bộ máy với danh sách hậu tố qua lớp cha LocalNameFilterAffixListStore (lời
-báo theo danh từ "Hậu tố" / "Tiền tố"). LocalNameFilterProperNames: mảnh mở đầu bằng tiền tố cùng nhóm loại, phần sau
-ra tên Latin ⇒ "lão Kolle", "lão Wood", "tiểu Etter" (bật Latin); nghĩa cả mảnh "lão Neil" trong từ điển ⇒ nhận; 小鱼
-老张 giữ Hán-Việt. Configuration.prefixes (mặc định rỗng — màn hình phải truyền allPrefixes()).
-Gói tạm: signature tính cả tiền tố, canRecompose thêm tên người (danh xưng 1 chữ chỉ giữ khi nghĩa máy trước đã dùng),
-Inputs.prefixes mặc định = danh sách hiện tại.
-Dữ liệu: NameFilterSuffixes.txt thêm 渡 泽 (địa danh), 酒店 大学 司 卫 (tổ chức), 1.190 dòng Nhân danh từ
-DuoiNhanDanh.de-xuat.txt; SuffixKind.person ("Nhân danh").
-
-Đo 11 truyện (so với lượt Pronouns của anh): L1 13, L2 4, L5 13 khớp plan; L3 40 (二阶虎妖 nay bị L5 bỏ trước); L4 52
-(镇魔司 → L6, 无量天君 → L11, 九阶 → L5, 金仙 mở đầu bằng họ); L6 đúng 6 hàng + bộ luật thêm 7 tổ chức (城卫司 巡检司…);
-L9 thêm 唐三海神; L11 lật 26 hàng sang Nhân danh, có hàng nghi sai (新晋真传, 绝顶天骄, 魂斗罗…) — chi tiết ở ghi chú
-bàn giao. Chưa biên dịch (Windows); Views còn một switch thiếu case .person (LocalNameFilterSuffixEditorSheet).
