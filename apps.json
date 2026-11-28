@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1132",
+          "buildVersion": "1363",
+          "date": "2026-11-28T09:43:21Z",
+          "localizedDescription": "- feat: lịch sử lọc name local ghi cả lần không ra name, lỗi, huỷ và lần bị ngắt khi app thoát lúc đang lọc\n- feat: giọng vtts Ngọc Huyền đổi sang bản joint 80k và Google Dịch sang mốc joint 60k của lượt train vtts-k6\n- feat: lọc name local chặn rác bằng sáu luật L17 đến L22 cho name chưa có ở đường có model LAC",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1363/TangCongCac-1.3.1132-1363.ipa",
+          "size": 53490362,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1129",
           "buildVersion": "1362",
           "date": "2026-11-28T08:05:50Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1358/TangCongCac-1.3.1118-1358.ipa",
           "size": 53384706,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1111",
-          "buildVersion": "1357",
-          "date": "2026-11-28T02:08:30Z",
-          "localizedDescription": "- fix: lọc name local ghép nghĩa bằng hậu tố dài nhất cho cả name của bộ luật, tên kiểu Hán luôn bóc tiền tố hậu tố thay vì lấy nghĩa VP cả cụm",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1357/TangCongCac-1.3.1111-1357.ipa",
-          "size": 53278315,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1129",
-      "versionDate": "2026-11-28T08:05:50Z",
-      "versionDescription": "- feat: danh sách Hậu tố, Tiền tố và Không phải name của lọc name local xuất được ra file để gửi",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1362/TangCongCac-1.3.1129-1362.ipa",
-      "size": 53472370,
+      "version": "1.3.1132",
+      "versionDate": "2026-11-28T09:43:21Z",
+      "versionDescription": "- feat: lịch sử lọc name local ghi cả lần không ra name, lỗi, huỷ và lần bị ngắt khi app thoát lúc đang lọc\n- feat: giọng vtts Ngọc Huyền đổi sang bản joint 80k và Google Dịch sang mốc joint 60k của lượt train vtts-k6\n- feat: lọc name local chặn rác bằng sáu luật L17 đến L22 cho name chưa có ở đường có model LAC",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1363/TangCongCac-1.3.1132-1363.ipa",
+      "size": 53490362,
       "appPermissions": {}
     }
   ],
