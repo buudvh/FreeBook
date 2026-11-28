@@ -62,13 +62,15 @@ struct LocalNameFilterOutputBuilder {
         _ lac: LocalNameFilterLACPipeline.Output,
         ruleRows: [RuleRow],
         counts: LocalNameFilterLACCounts,
+        counter: LocalNameFilterTextCounter,
         titles: Set<LocalNameFilterTermKey>,
         chaptersRead: Int
     ) -> Result {
         var items: [Item] = []
         items.reserveCapacity(lac.rows.count + ruleRows.count / 4)
         for row in lac.rows {
-            let built = meanings.meaning(word: row.word, kind: row.kind, titles: titles)
+            let built = meanings.meaning(word: row.word, kind: row.kind, titles: titles,
+                                         dictionaryTitle: row.dictionaryTitle)
             items.append(Item(word: row.word, name: LocalNameFilter.Name(
                 term: row.word.string,
                 meaning: built.meaning,
@@ -102,7 +104,7 @@ struct LocalNameFilterOutputBuilder {
             added += 1
         }
         items = droppingGluedNames(items, reasons: &reasons)
-        items = droppingJunk(items, counts: counts, reasons: &reasons)
+        items = droppingJunk(items, counts: counts, counter: counter, reasons: &reasons)
         return Result(snapshot: finish(items, reasons: reasons, chaptersRead: chaptersRead), unionAdded: added)
     }
 
@@ -121,14 +123,16 @@ struct LocalNameFilterOutputBuilder {
         }
     }
 
-    /// Luật rác L17–L25 (`junk_reason` + `title_fragment`): bảng tra dựng từ mọi hàng sau L9 (kể cả name đã có), chỉ xét name chưa có.
+    /// Luật rác L17–L25 + đợt 4 (`junk_reason` + `title_fragment` + `context_junk`): bảng tra dựng từ mọi hàng sau L9 (kể cả name đã có), chỉ xét name chưa có.
     private func droppingJunk(
         _ items: [Item],
         counts: LocalNameFilterLACCounts,
+        counter: LocalNameFilterTextCounter,
         reasons: inout [String: Int]
     ) -> [Item] {
         let rows = items.map(\.junkRow)
-        let rules = LocalNameFilterJunkRules(rows: rows, setup: setup, dictionaries: meanings.dictionaries, counts: counts)
+        let rules = LocalNameFilterJunkRules(rows: rows, setup: setup, dictionaries: meanings.dictionaries, counts: counts,
+                                            counter: counter)
         var kept: [Item] = []
         kept.reserveCapacity(items.count)
         for (item, row) in zip(items, rows) {

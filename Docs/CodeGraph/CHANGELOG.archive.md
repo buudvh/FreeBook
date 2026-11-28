@@ -2,6 +2,29 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1107] - 2026-11-28
+
+### feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách
+
+Plan 2026-11-27-phan-loai-name mục 6, 11, L10, L11 (anh Bửu: "Đuôi bây giờ gọi hậu tố đi cho đối xứng tiền tố", "Thêm
+tiền tố phải đầy đủ như hậu tố"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 4, 6, 7.
+
+- Mới `LocalNameFilterAffixListFlavor` (`.suffix` / `.prefix`): mọi chỗ khác nhau giữa danh sách "Hậu tố" và "Tiền tố" —
+  store (`LocalNameFilterSuffixStore` / `LocalNameFilterPrefixStore`), danh từ trên màn, badge "Hậu tố · chung" /
+  "Tiền tố · chung", mặc định mục mới (hậu tố: Địa danh, sau tên; tiền tố: Nhân danh, trước tên), luật "nằm cuối / đầu
+  name" khi thêm từ một name, mẫu dòng "Ví dụ", lời giải thích "?". Tên type / file giữ chữ Suffix.
+- `LocalNameFilterSuffixListView(flavor:)` dùng cho cả hai danh sách (tiêu đề "Hậu tố" / "Tiền tố"); thanh tab đổi thành
+  hàng chip lọc theo loại kèm số (`LocalNameFilterAffixKindFilterBar`: Tất cả 1.299 · Địa danh · Tổ chức · Thuật ngữ ·
+  Nhân danh, kiểu chip `ExtensionKindFilterBar`, nền chip thường mờ hợp sheet kính, số kiểu Việt); chỉ hiện loại có mục
+  (danh sách tiền tố gốc chỉ có Nhân danh). Thêm mới lấy loại của chip đang chọn.
+- `LocalNameFilterSuffixEditorSheet(flavor:)`: màn Sửa từ đủ như hậu tố cho tiền tố (hai cặp ‹ ›, token, ô nghĩa, chip
+  nghĩa gợi ý, aa…AA, Loại 4 + Nghĩa đứng + Ví dụ, tra cứu); loại thứ tư Nhân danh (ví dụ 陈 + 长老 → Trần trưởng lão),
+  tiền tố ví dụ 老尼尔 → lão Neil; thêm từ một name ⇒ "Thêm" mờ + dòng nhắc khi phần chọn không nằm cuối (hậu tố) / đầu
+  (tiền tố) name, chọn cả cụm hoặc dài quá 6 chữ. Sửa lỗi biên dịch: `switch` trên `SuffixKind` thiếu `.person`.
+- Mọi chữ "Đuôi" trên màn đổi thành "Hậu tố" (tiêu đề, số mục, ô trống, toast, trợ năng, menu …, hộp khôi phục).
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1106] - 2026-11-27
 
 ### feat: bấm Lưu ở màn duyệt name hiện popup ba cách lưu như nhập file, cả luồng AI và lọc name local

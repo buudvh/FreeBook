@@ -60,4 +60,54 @@ final class LocalNameFilterTextCounter {
         }
         return found
     }
+
+    // MARK: - Ngữ cảnh trái / phải (đợt 4, 2026-11-28)
+
+    /// `neighbors(w)` của `lacpipe.py`: số lần khớp không chồng lấn + chữ Hán đứng **ngay trước** / **ngay sau** mỗi lần
+    /// khớp ⇒ số lần. Đầu / cuối đoạn Hán (dấu câu, chữ khác trong chữ truyện) là ranh giới, không tính.
+    struct Neighbors {
+        let count: Int
+        let left: [UInt16: Int]
+        let right: [UInt16: Int]
+    }
+
+    private var neighborMemo: [[UInt16]: Neighbors] = [:]
+
+    func neighbors(units: [UInt16]) -> Neighbors {
+        if let cached = neighborMemo[units] { return cached }
+        var found = 0
+        var left: [UInt16: Int] = [:]
+        var right: [UInt16: Int] = [:]
+        let length = units.count
+        if length > 0 {
+            accumulator.text.withUnsafeBufferPointer { text in
+                var nextAllowed = 0
+                for position32 in accumulator.positionsByUnit[Int(units[0])] {
+                    let position = Int(position32)
+                    guard position >= nextAllowed, position + length <= text.count else { continue }
+                    var matches = true
+                    var step = 1
+                    while step < length {
+                        if text[position + step] != units[step] {
+                            matches = false
+                            break
+                        }
+                        step += 1
+                    }
+                    guard matches else { continue }
+                    found += 1
+                    nextAllowed = position + length
+                    if position > 0, LocalNameFilterRules.isHan(text[position - 1]) {
+                        left[text[position - 1], default: 0] += 1
+                    }
+                    if position + length < text.count, LocalNameFilterRules.isHan(text[position + length]) {
+                        right[text[position + length], default: 0] += 1
+                    }
+                }
+            }
+        }
+        let result = Neighbors(count: found, left: left, right: right)
+        neighborMemo[units] = result
+        return result
+    }
 }

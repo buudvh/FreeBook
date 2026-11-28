@@ -124,8 +124,22 @@ final class LocalNameFilterMeaningComposer {
         let word = LocalNameFilterWord(term.trimmingCharacters(in: .whitespacesAndNewlines))
         guard Self.canRecompose(kind), !word.isEmpty else { return nil }
         let titles = kind == .person ? singleCharacterTitle(of: word, previousMeaning: previousMeaning) : []
-        let built = builder(loosensLatin: override ?? loosensLatin).meaning(word: word, kind: kind, titles: titles)
+        let dictionaryTitle = kind == .person ? dictionaryTitle(of: word, previousMeaning: previousMeaning) : nil
+        let built = builder(loosensLatin: override ?? loosensLatin)
+            .meaning(word: word, kind: kind, titles: titles, dictionaryTitle: dictionaryTitle)
         return (built.meaning, built.isGuessed)
+    }
+
+    /// Danh xưng lấy từ từ điển ở nghĩa trước (đợt 4, 2026-11-28 — cụm LAC cắt cụt được nối một chữ: 寒尸冥将 ⇒ "Hàn Thi Minh
+    /// Tướng"): hai chữ cuối có trong từ điển và nghĩa trước kết thúc bằng " " + nghĩa đầu của nó. Bộ dựng nghĩa chỉ dùng
+    /// khi danh sách hậu tố không có danh xưng nào khớp.
+    private func dictionaryTitle(of word: LocalNameFilterWord, previousMeaning: String?) -> LocalNameFilterWord? {
+        guard let previousMeaning, word.count >= 4 else { return nil }
+        let pair = word.suffix(2)
+        guard let raw = dictionaries.dictionaryValue(pair.string),
+              let meaning = LocalNameFilterRules.firstReading(raw),
+              previousMeaning.hasSuffix(" " + meaning) else { return nil }
+        return pair
     }
 
     /// Danh xưng 1 chữ đã dùng ở nghĩa trước: chữ cuối là chữ thân tộc, là hậu tố Nhân danh của danh sách, và nghĩa trước

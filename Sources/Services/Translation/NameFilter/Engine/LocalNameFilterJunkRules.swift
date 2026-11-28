@@ -29,6 +29,14 @@ import Foundation
 /// 一众江湖); L24 `title_fragment` xét **sau cùng** (`title_fragment(r)` chạy khi `junk_reason` không bắt) — Nhân danh `w`
 /// có hàng `w + c` (≥ 80 % số lần của `w`) mà chữ cuối hoặc hai chữ cuối của `w` + `c` là hậu tố Nhân danh ⇒ `w` là tên
 /// bị cắt giữa danh xưng, tên đủ vẫn còn (萧太 ⊂ 萧太上, 离乱天 ⊂ 离乱天君).
+///
+/// Đợt 4 (2026-11-28, `context_junk` — đo trên file anh Bửu xuất từ màn duyệt; chạy sau mọi luật trên, chỉ name chưa có):
+/// `count_classifier` — ≥ 3 chữ mở đầu bằng chữ số + lượng từ 尊 位 名 个 座 (三尊诡物天尊); `jianghu_tail` — ≥ 3 chữ kết thúc
+/// bằng 江湖 (武者江湖, 陈诚江湖); `double_suffix` — hai chữ cuối là cùng một chữ đuôi dò (紫府府, 临济城城); địa danh / tổ chức
+/// ≥ 3 chữ: `small_generic` — từ thường + 小 + đuôi 1 chữ (黑色小湖), `prep_common` — 1 chữ `PREP_HEAD` + từ thường (朝城门,
+/// 朝山崖). Rồi theo chữ truyện (cụm toàn chữ Hán dải bộ luật, ≥ 3 lần): `fragment_multi` — ≥ 90 % số lần chữ đứng ngay trước
+/// + cụm là name đã có hoặc là đuôi của một hàng (元大陆 ⊂ 天元大陆 + 混元大陆; 山镇 ⊂ 珩琅山镇 + 罗山镇 + 鹤山镇); `demo_left` —
+/// địa danh / tổ chức ≥ 60 % số lần đứng ngay sau chữ chỉ định / chữ số (这方天界, 一方大陆).
 struct LocalNameFilterJunkRules {
     typealias Word = LocalNameFilterWord
     private typealias Rules = LocalNameFilterRules
@@ -51,6 +59,9 @@ struct LocalNameFilterJunkRules {
     private let setup: LocalNameFilterSetup
     private let dictionaries: LocalNameFilterDictionaries
     private let counts: LocalNameFilterLACCounts
+    private let counter: LocalNameFilterTextCounter
+    /// Đợt 4 `row_tails()`: mọi đuôi ≥ 2 chữ (kể cả cả cụm) của các hàng.
+    private let tails: Set<Word>
     /// `all_cat`.
     private let categories: [Word: LocalNameFilter.Category]
     /// `count_of`.
@@ -63,11 +74,18 @@ struct LocalNameFilterJunkRules {
         rows: [Row],
         setup: LocalNameFilterSetup,
         dictionaries: LocalNameFilterDictionaries,
-        counts: LocalNameFilterLACCounts
+        counts: LocalNameFilterLACCounts,
+        counter: LocalNameFilterTextCounter
     ) {
         self.setup = setup
         self.dictionaries = dictionaries
         self.counts = counts
+        self.counter = counter
+        var tails = Set<Word>()
+        for row in rows where row.word.count >= 2 {
+            for start in 0...(row.word.count - 2) { tails.insert(row.word.slice(start, row.word.count)) }
+        }
+        self.tails = tails
         // Dict comprehension của Python: trùng khoá thì hàng sau thắng (danh sách không có khoá trùng).
         categories = Dictionary(rows.map { ($0.word, $0.category) }, uniquingKeysWith: { _, last in last })
         rowCounts = Dictionary(rows.map { ($0.word, $0.count) }, uniquingKeysWith: { _, last in last })
@@ -97,6 +115,42 @@ struct LocalNameFilterJunkRules {
         if isVerbHead(row) { return Reason.verbHead }
         if isNameFragment(row) { return Reason.nameFragment }
         if isTitleFragment(row) { return Reason.titleFragment }
+        return contextReason(for: row)
+    }
+
+    /// Đợt 4 `context_junk(r)`.
+    private func contextReason(for row: Row) -> String? {
+        let word = row.word
+        let length = word.count
+        if length >= 3, Rules.countNumeralScalars.contains(word[0]), Rules.countClassifierScalars.contains(word[1]) {
+            return Reason.countClassifier
+        }
+        if length >= 3, word.suffix(2) == Rules.jianghuWord { return Reason.jianghuTail }
+        if length >= 3, word[length - 1] == word[length - 2], setup.lacSuffixChars.contains(word.last) {
+            return Reason.doubleSuffix
+        }
+        let isPlaceLike = row.category == .place || row.category == .organization
+        if isPlaceLike, length >= 3 {
+            if word[length - 2] == Rules.smallScalar, setup.lacSuffixChars.contains(word.last),
+               dictionaries.status(word: word.dropLast(2)) == .common {
+                return Reason.smallGeneric
+            }
+            if Rules.prepHeadScalars.contains(word[0]), dictionaries.status(word: word.slice(1, length)) == .common {
+                return Reason.prepCommon
+            }
+        }
+        guard let units = word.ruleHanUnits else { return nil }
+        let found = counter.neighbors(units: units)
+        guard found.count >= Rules.boundMinCount else { return nil }
+        var inside = 0
+        var demonstrative = 0
+        for (unit, times) in found.left {
+            let longer = Word(scalars: [UInt32(unit)] + word.scalars)
+            if dictionaries.status(word: longer) == .known || tails.contains(longer) { inside += times }
+            if Rules.demoLeftUnits.contains(unit) { demonstrative += times }
+        }
+        if Double(inside) >= Rules.boundRatio * Double(found.count) { return Reason.fragmentMulti }
+        if isPlaceLike, Double(demonstrative) >= Rules.demoLeftRatio * Double(found.count) { return Reason.demoLeft }
         return nil
     }
 

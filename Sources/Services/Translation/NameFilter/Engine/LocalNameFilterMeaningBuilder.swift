@@ -87,10 +87,18 @@ struct LocalNameFilterMeaningBuilder {
 
     // MARK: - Hàng phía LAC
 
-    /// Nghĩa + danh xưng của một hàng phía LAC.
-    func meaning(word: Word, kind: LocalNameFilter.Kind, titles: Set<LocalNameFilterTermKey>) -> Built {
+    /// Nghĩa + danh xưng của một hàng phía LAC. `dictionaryTitle` (đợt 4, 2026-11-28): danh xưng lấy **từ từ điển** cho riêng
+    /// name này — cụm LAC cắt cụt được nối một chữ mà cặp "chữ cuối + chữ nối" có trong từ điển (寒尸冥 + 将, 冥将 = "Minh
+    /// Tướng" ⇒ "Hàn Thi Minh Tướng"); chỉ dùng khi danh sách hậu tố không có danh xưng nào khớp.
+    func meaning(
+        word: Word,
+        kind: LocalNameFilter.Kind,
+        titles: Set<LocalNameFilterTermKey>,
+        dictionaryTitle: Word? = nil
+    ) -> Built {
         if kind == .person {
-            return person(word, surnameLength: dictionaries.surnameLength(of: word), titles: titles)
+            return person(word, surnameLength: dictionaries.surnameLength(of: word), titles: titles,
+                          dictionaryTitle: dictionaryTitle)
         }
         if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
         if let affixed = latinAffixed(word) { return affixed }
@@ -118,8 +126,17 @@ struct LocalNameFilterMeaningBuilder {
 
     /// Tên người: cả từ trong từ điển ⇒ nghĩa đó (vẫn báo danh xưng); tên kiểu Latin có tiền tố / hậu tố ⇒ ghép theo vị trí
     /// (vẫn báo danh xưng); không thì phần tên + nghĩa danh xưng.
-    private func person(_ word: Word, surnameLength: Int, titles: Set<LocalNameFilterTermKey>) -> Built {
-        let title = setup.personTitle(of: word, surnameLength: surnameLength, titles: titles)
+    private func person(
+        _ word: Word,
+        surnameLength: Int,
+        titles: Set<LocalNameFilterTermKey>,
+        dictionaryTitle: Word? = nil
+    ) -> Built {
+        var title = setup.personTitle(of: word, surnameLength: surnameLength, titles: titles)
+        if title == nil, let key = dictionaryTitle, key.count < word.count,
+           let raw = dictionaries.dictionaryValue(key.string), let meaning = LocalNameFilterRules.firstReading(raw) {
+            title = (key: key, meaning: meaning)
+        }
         if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: title?.key, isGuessed: false) }
         if let affixed = properNames.latinAffixed(word) {
             return Built(meaning: affixed.text, title: title?.key, isGuessed: affixed.isGuessed)

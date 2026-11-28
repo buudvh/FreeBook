@@ -71,9 +71,9 @@ enum LocalNameFilterRules {
 
     // MARK: - Luật rác L17–L25 (`lacpipe.py` › `junk_reason` + `title_fragment`, anh Bửu duyệt 2026-11-28) — `LocalNameFilterJunkRules`
 
-    /// `PREP_HEAD` (L18, 65 chữ): giới từ / phó từ / chữ chỉ số đông đứng ngay trước hậu tố (朝城, 处山脉, 众村).
+    /// `PREP_HEAD` (L18, 66 chữ — đợt 4 thêm 必): giới từ / phó từ / chữ chỉ số đông đứng ngay trước hậu tố (朝城, 处山脉, 众村).
     static let prepHeadScalars: Set<UInt32> = scalarSet(
-        "与也于从众会先再几凭到又及只叫可各同向和因在处太奉将就已并当往很才把拉掠数更曾替最朝某此每沿由给而能自至被要让该诸趁跟还这那都随顺"
+        "与也于从众会先再几凭到又及只叫可各同向和因在处太奉将就已并当往很才把拉掠数更曾替最朝某此每沿由给而能自至被要让该诸趁跟还这那都随顺必"
     )
     /// `KIN_TAIL` (L20, 15 chữ): name kết thúc bằng chữ thân tộc này thì L20 không bỏ — khác `kinshipTails` (danh xưng 1
     /// chữ của bộ luật: có 奶 妈 爸, không có 公 婶 少 母 父 老).
@@ -102,6 +102,31 @@ enum LocalNameFilterRules {
         "许多", "诸多", "众多", "一众", "无数", "各大", "所有", "一些", "这些", "那些", "其他", "其余",
     ].map { (head: String) in LocalNameFilterWord(head) }
     static let quantityHeadMinLength = 3
+
+    // MARK: - Đợt 4 (2026-11-28, `lacpipe.py` › "Đợt 4"): ngữ cảnh trái / phải trong chữ truyện
+
+    /// Một chữ đứng cạnh ≥ 90 % số lần ⇒ dính (`BOUND`); cụm phải xuất hiện ≥ 3 lần (`BOUND_MIN`); nối tối đa 3 chữ mỗi
+    /// phía (`BOUND_STEPS`).
+    static let boundRatio = 0.9
+    static let boundMinCount = 3
+    static let boundMaxSteps = 3
+    /// `BOUND_LISTED`: ≥ 1/3 số lần dính là một hậu tố / danh xưng của danh sách ⇒ cụm đã trọn.
+    static let boundListedRatio = 1.0 / 3.0
+    /// `INFERRED_MIN`: cặp "chữ cuối + chữ dính" lặp ở ≥ 3 thực thể Nhân danh ⇒ danh xưng suy ra (冥将).
+    static let inferredTitleMinHeads = 3
+    /// (K) `dict_common_head`: phần đứng riêng của "đầu 2 chữ" ≥ 0,5 × số lần của cụm.
+    static let commonHeadStandaloneRatio = 0.5
+    /// `demo_left`: ≥ 60 % số lần đứng ngay sau chữ chỉ định / chữ số.
+    static let demoLeftRatio = 0.6
+    /// `DEMO_LEFT` (19 chữ).
+    static let demoLeftUnits: Set<UInt16> = Set("这那此某每各一二三四五六七八九十两几数".utf16)
+    /// `COUNT_NUM` (16 chữ) + `COUNT_CLASSIFIER` (5 chữ): chữ số + lượng từ ở đầu (三尊诡物天尊).
+    static let countNumeralScalars: Set<UInt32> = scalarSet("一二三四五六七八九十两几数百千万")
+    static let countClassifierScalars: Set<UInt32> = scalarSet("尊位名个座")
+    /// `jianghu_tail`: name kết thúc bằng 江湖.
+    static let jianghuWord = LocalNameFilterWord(scalars: [0x6C5F, 0x6E56])
+    /// 小 của `small_generic` (từ thường + 小 + đuôi 1 chữ: 黑色小湖).
+    static let smallScalar: UInt32 = 0x5C0F
 
     // MARK: - Ngưỡng (Python)
 
@@ -178,6 +203,25 @@ enum LocalNameFilterRules {
         static let titleFragment = "title_fragment"
         /// L25: lượng từ số đông đứng đầu (许多大家族, 一众江湖).
         static let quantityHead = "quantity_head"
+        /// Đợt 4 (2026-11-28) — phía LAC, lúc nối cụm bị cắt cụt (`LocalNameFilterLACPipeline+Bound`): dính hư từ / lộ thực
+        /// thể vắt qua chỗ nối (宝剑锋|从, 天机阁主|姬长发, 熊妖|撼山妖尊).
+        static let boundGlued = "bound_glued"
+        /// Cụm sau khi nối đã là thực thể khác / đã nối từ mảnh khác.
+        static let boundMerged = "bound_merged"
+        /// Luật rác đợt 4 (`context_junk`, sau L17–L25): chữ số + lượng từ ở đầu (三尊诡物天尊).
+        static let countClassifier = "count_classifier"
+        /// Kết thúc bằng 江湖 (武者江湖).
+        static let jianghuTail = "jianghu_tail"
+        /// Hai chữ cuối là cùng một chữ đuôi (紫府府).
+        static let doubleSuffix = "double_suffix"
+        /// Từ thường + 小 + đuôi 1 chữ (黑色小湖).
+        static let smallGeneric = "small_generic"
+        /// 1 chữ giới từ + từ thường (朝城门).
+        static let prepCommon = "prep_common"
+        /// ≥ 90 % số lần nằm ở cuối các name dài hơn (元大陆 ⊂ 天元大陆 + 混元大陆).
+        static let fragmentMulti = "fragment_multi"
+        /// Địa danh / tổ chức ≥ 60 % số lần đứng sau chữ chỉ định / chữ số (这方天界).
+        static let demoLeft = "demo_left"
         /// Đầu ra: ngoài "Loại cần tìm".
         static let categoryOff = "category_off"
         /// Đầu ra (L15): ngoài "Độ dài name".

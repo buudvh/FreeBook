@@ -10,6 +10,10 @@ import Foundation
 ///    trừ luật (e) — có đuôi không yếu (không tính hậu tố Nhân danh), ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác
 ///    (菩提丹, 青山县); hư từ; đầu 2 chữ là từ thường; họ + từ thường; thực thể mạnh hơn hẳn + phần thừa vô nghĩa
 ///    (`glued_fragment` — phần thừa là một hậu tố ≥ 2 chữ của danh sách người dùng, mọi loại, thì giữ).
+/// 3b. Đợt 4 (2026-11-28, file `+Bound`): cụm qua hết luật trên mà LAC cắt cụt ⇒ nối chữ dính trái / phải (寒尸冥 → 寒尸冥将,
+///    情谷 → 问情谷) hoặc bỏ (`bound_glued`); cụm đã nối xét lại "đã là thực thể khác" (`bound_merged`), từ thường,
+///    `glued_fragment`. Luật "đầu 2 chữ là từ thường" (K) chỉ tính phần đầu **không** nằm trong thực thể 3 chữ nào mở đầu
+///    bằng nó (沈清瑶: VP có 沈清 = "trầm thanh" nhưng 沈清 chỉ nằm trong 沈清瑶 / 沈清霜… ⇒ không bỏ).
 /// 4. Loại (`kind(of:…)`, file `+Kind`): L11 / L1–L4 / L16 của plan 2026-11-27-phan-loai-name. Nghĩa dựng sau, theo danh sách
 ///    người dùng (`LocalNameFilterMeaningBuilder`).
 ///
@@ -28,6 +32,10 @@ struct LocalNameFilterLACPipeline {
         let count: Int
         let chapterCount: Int
         let isKnown: Bool
+        /// Đợt 4: danh xưng lấy từ từ điển cho riêng hàng này — cụm được nối đúng một chữ bên phải mà cặp "chữ cuối + chữ
+        /// nối" có trong từ điển (寒尸冥 + 将: 冥将 = "Minh Tướng"). `LocalNameFilterMeaningBuilder` chỉ dùng khi danh sách
+        /// hậu tố không có danh xưng nào khớp.
+        var dictionaryTitle: Word? = nil
     }
 
     struct Output {
@@ -37,6 +45,8 @@ struct LocalNameFilterLACPipeline {
         var reasons: [String: Int] = [:]
         /// Số hàng luật (e) giữ lại (chỉ để log).
         var rescued = 0
+        /// Đợt 4: số hàng là cụm đã nối (chỉ để log).
+        var extended = 0
     }
 
     let setup: LocalNameFilterSetup
@@ -60,6 +70,11 @@ struct LocalNameFilterLACPipeline {
         }
         if Task.isCancelled { return nil }
         guard let fragments = findFragments(merged) else { return nil }
+        // Đợt 4: danh xưng suy ra (`INFERRED_TITLES`), bảng "đầu 2 chữ ⇒ thực thể 3 chữ" (`SIBLINGS`), cụm đã nối (`EXTENDED`).
+        guard let inferred = inferredTitles(merged) else { return nil }
+        var siblings: [Word: [Word]] = [:]
+        for word in merged.keys where word.count == 3 { siblings[word.slice(0, 2), default: []].append(word) }
+        var extendedWords = Set<Word>()
 
         var output = Output()
         output.fragments = fragments
@@ -93,8 +108,41 @@ struct LocalNameFilterLACPipeline {
                 output.reasons[Reason.dictCommonWord, default: 0] += 1
                 continue
             }
-            if let reason = check(word, count: count, merged: merged) {
+            if let reason = check(word, count: count, merged: merged, siblings: siblings) {
                 output.reasons[reason, default: 0] += 1
+                continue
+            }
+            // Đợt 4: LAC cắt cụt ⇒ nối chữ dính (`+Bound`).
+            guard let target = boundTarget(word, tag: tally.dominant, inferred: inferred) else {
+                output.reasons[Reason.boundGlued, default: 0] += 1
+                continue
+            }
+            if target != word {
+                if merged[target] != nil || extendedWords.contains(target) {
+                    output.reasons[Reason.boundMerged, default: 0] += 1
+                    continue
+                }
+                let targetStatus = dictionaries.status(word: target)
+                if targetStatus == .common {
+                    output.reasons[Reason.dictCommonWord, default: 0] += 1
+                    continue
+                }
+                if isGlued(target, count: count, merged: merged) {
+                    output.reasons[Reason.gluedFragment, default: 0] += 1
+                    continue
+                }
+                extendedWords.insert(target)
+                let targetKind = kind(of: target, suffix: setup.lacSuffix(of: target), tag: tally.dominant,
+                                      entities: entities, statsOf: word)
+                var title: Word?
+                if targetKind == .person, word.count >= 3, target.count == word.count + 1, target.dropLast(1) == word,
+                   dictionaries.status(word: target.suffix(2)) != nil {
+                    title = target.suffix(2)
+                }
+                output.rows.append(Row(word: target, kind: targetKind, count: count,
+                                       chapterCount: chapterCount(of: sources[word] ?? [word], entities: entities),
+                                       isKnown: targetStatus == .known, dictionaryTitle: title))
+                output.extended += 1
                 continue
             }
             if status == .common { output.rescued += 1 }
@@ -159,13 +207,14 @@ struct LocalNameFilterLACPipeline {
     }
 
     /// Các luật sau "từ thường", đúng thứ tự `lacpipe.py`. `nil` = qua.
-    private func check(_ word: Word, count: Int, merged: [Word: Tally]) -> String? {
+    private func check(_ word: Word, count: Int, merged: [Word: Tally], siblings: [Word: [Word]]) -> String? {
         if word.scalars.contains(where: { Rules.has(scalar: $0, .lacFunction) }) { return Reason.functionChar }
         if word.count == 3 {
-            // Đầu 2 chữ là từ thường đứng riêng nhiều hơn hẳn (许久|之, 周身|魂); họ kép (上官|博) không tính.
+            // Đầu 2 chữ là từ thường đứng riêng nhiều hơn hẳn (许久|之, 周身|魂); họ kép (上官|博) không tính. Đợt 4 (K): "đứng
+            // riêng" = không nằm trong thực thể 3 chữ nào mở đầu bằng nó (沈清瑶 / 沈清霜 / 沈清璇 dùng chung đầu 沈清).
             let head = word.slice(0, 2)
             if !isSurname(head), dictionaries.status(word: head) == .common,
-               Double(textCount(head)) >= Rules.commonPartRatio * Double(textCount(word)) {
+               Double(standaloneCount(head, siblings: siblings)) >= Rules.commonHeadStandaloneRatio * Double(textCount(word)) {
                 return Reason.dictCommonHead
             }
             // Họ đơn + từ thường 2 chữ (王|余孽).
@@ -176,6 +225,13 @@ struct LocalNameFilterLACPipeline {
             }
         }
         return isGlued(word, count: count, merged: merged) ? Reason.gluedFragment : nil
+    }
+
+    /// (K) `standalone_head(w)`: số lần `head` xuất hiện trừ số lần của mọi thực thể 3 chữ mở đầu bằng nó.
+    private func standaloneCount(_ head: Word, siblings: [Word: [Word]]) -> Int {
+        var count = textCount(head)
+        for sibling in siblings[head] ?? [] { count -= textCount(sibling) }
+        return count
     }
 
     /// `glued_fragment`: trong cụm có thực thể (không phải họ) mạnh ≥ 3 lần cụm, phần thừa không phải hậu tố và là một chữ /

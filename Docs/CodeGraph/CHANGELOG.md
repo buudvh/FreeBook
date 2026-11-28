@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1137] - 2026-11-28
+
+### feat: lọc name local nối lại tên bị LAC cắt cụt, trả lại tên chính bị bỏ nhầm và thêm bảy luật rác theo ngữ cảnh
+
+- Làm sau khi anh Bửu gửi file xuất màn duyệt trên máy (925 dòng) và dặn "phải đảm bảo thuật toán hết rác thì mới tích hợp vào app". Đo trước trên bản tham chiếu Python: coi 815 name anh đã lưu là "đã có" thì Python tái hiện 107 / 110 name mới và đủ 815 name đã lưu của file ⇒ app đang chạy đúng như bản tham chiếu; rác trong 110 name mới chia ba nhóm (LAC cắt cụt, mảnh của name dài hơn, cụm chung chung).
+- Nối cụm LAC cắt cụt (`LocalNameFilterLACPipeline+Bound`, file mới; `LocalNameFilterTextCounter.neighbors` đếm chữ Hán đứng ngay trước / sau mỗi lần xuất hiện): cụm sắp thành hàng (chưa có, toàn chữ Hán dải bộ luật, không nằm trong "Không phải name") mà một chữ đứng cạnh ≥ 90 % số lần (cụm ≥ 3 lần) ⇒ nối chữ đó, tối đa 3 chữ mỗi phía. Bên phải chỉ cho Nhân danh (寒尸冥 → 寒尸冥将, 赤瑶 → 赤瑶蚊), bên trái cho mọi nhóm (情谷 → 问情谷, 波特王国 → 费内波特王国).
+  - Dừng nối: chữ dính là họ (五鬼老三|范…); ≥ 1/3 số lần dính là một hậu tố ≥ 2 chữ của danh sách bắt đầu ngay sau (穷朔|洞主) hoặc một danh xưng ≥ 2 chữ kết thúc ngay trước (老怪|卞琦); chữ dính + chữ dính kế là một từ của từ điển (无餍|真身, 魁首|厉辉); bên trái còn dừng ở hư từ / chữ thân tộc.
+  - Bỏ cả cụm (`bound_glued`): dính hư từ mà cặp "chữ cuối + hư từ" không có trong từ điển và không phải danh xưng suy ra (宝剑锋|从, 艺多|不); lộ tên người mở đầu bằng họ vắt qua chỗ nối (天机阁主|姬长发); lộ thực thể vắt qua chỗ nối bên trái mà phần còn lại không phải hậu tố (熊妖|撼山妖尊, 镇北侯|潘凤 — 考伊姆|公司 thì giữ).
+  - Danh xưng suy ra: cặp "chữ cuối + chữ dính" lặp ở ≥ 3 thực thể Nhân danh chưa có (冥将) ⇒ nối dù chữ dính là hư từ.
+  - Cụm nối xong: đã là thực thể khác ⇒ `bound_merged`; là từ thường ⇒ `dict_common_word` (洗耳恭 → 洗耳恭听, 梁小丑 → 跳梁小丑); dính thực thể mạnh ⇒ `glued_fragment`. Loại của cụm nối tính bằng số đếm nhãn của cụm gốc (`kind(of:…statsOf:)`).
+  - Nghĩa: nối đúng một chữ bên phải mà cặp "chữ cuối + chữ nối" có trong từ điển ⇒ cặp đó là danh xưng của riêng hàng này (`Row.dictionaryTitle`, `LocalNameFilterMeaningBuilder.meaning(…dictionaryTitle:)`) — 寒尸冥将 ra "Hàn Thi Minh Tướng" thay vì "Hàn Thi Minh Tương". `LocalNameFilterMeaningComposer` nhận ra danh xưng đó ở lần ghép lại bằng nghĩa máy lần trước.
+- `dict_common_head` (K): "đầu 2 chữ là từ thường đứng riêng nhiều hơn hẳn" nay chỉ tính phần đầu không nằm trong thực thể 3 chữ nào mở đầu bằng nó. Trước đó 沈清瑶 (1.000 lần), 沈清霜 (768 lần), 沈清璇, 铁龙娘 (84 lần), 南城区, 王廷焕 bị bỏ khi chưa lưu name, vì VP có 沈清 = "trầm thanh" và mọi lần 沈清 đều nằm trong 沈清瑶 / 沈清霜.
+- Bảy luật rác theo ngữ cảnh (`LocalNameFilterJunkRules.contextReason`, sau L24, chỉ name chưa có, chỉ đường có model LAC): `count_classifier` (chữ số + lượng từ 尊 位 名 个 座 ở đầu: 三尊诡物天尊), `jianghu_tail` (kết thúc bằng 江湖: 武者江湖, 陈诚江湖), `double_suffix` (hai chữ cuối là cùng một chữ đuôi: 紫府府), `small_generic` (địa danh / tổ chức = từ thường + 小 + đuôi 1 chữ: 黑色小湖), `prep_common` (1 chữ giới từ + từ thường: 朝城门, 朝山崖; `PREP_HEAD` thêm 必 ⇒ 必教), `fragment_multi` (≥ 90 % số lần chữ đứng ngay trước + cụm là name đã có hoặc là đuôi của một hàng: 元大陆 ⊂ 天元大陆 + 混元大陆, 山镇 ⊂ 珩琅山镇 + 罗山镇 + 鹤山镇), `demo_left` (địa danh / tổ chức ≥ 60 % số lần đứng ngay sau chữ chỉ định / chữ số: 这方天界, 一方大陆).
+- Số đo trên bản Python (11 truyện, so với 1.3.1134): mất 73 hàng, thêm 44 hàng — phần lớn là cụm được nối cho đủ và tên được trả lại; name đã có không bị luật mới bỏ (luật chỉ xét name chưa có; đo thử trên name đã có: `fragment_multi` trúng 剑阁, 爱罗 — đều là mảnh của 洗剑阁, 我爱罗 —, `demo_left` trúng 成都). Danh sách "Không phải name" 137 cụm của anh: 43 / 81 (trước 32). Trên 110 name mới của file anh xuất: 19 tên được nối đủ, 21 cụm rác bị bỏ; rác còn lại là 19 cụm đều nằm trong danh sách chặn của anh (lúc anh lọc, danh sách chặn trên máy không còn các cụm đó) và 麾下宗门, 广派.
+- Đã thử và gạt vì nhầm tên thật: nối trái vô điều kiện (厉辉 → 魁首厉辉), bỏ điều kiện họ của L20 (通天蛤蟆), "X小 + đuôi" không xét từ thường (莫尔斯小镇), danh xưng vắt qua cuối cho địa danh (清微洞|主).
+- `.claude/rules/translation.md`: ghi đợt 4 và cách đo bằng file xuất của anh.
+- Chưa build (máy Windows); chưa thử trên máy. Số đo là của bản Python tham chiếu, không phải của app.
+
 ## [1.3.1136] - 2026-11-28
 
 ### fix: phiên âm tiếng Nhật đọc được từ có nguyên âm dài như Mangekyō ở vtts, NghiTTS, Siri, Google và tiện ích
@@ -414,28 +432,5 @@ nằm trong cụm", "sắp xếp theo thứ tự số từ tăng dần"), mockup
   `enqueueRecompose(affixes:flavor:)` ghép lại name kết thúc bằng hậu tố / mở đầu bằng tiền tố vừa lưu, kể cả tên người,
   truyền nghĩa máy ghép lần trước (giữ danh xưng 1 chữ "Lâm ca") và danh sách tiền tố hiện tại.
 - Toast "Đã thêm hậu tố / tiền tố X · ghép lại N name".
-
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1107] - 2026-11-28
-
-### feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách
-
-Plan 2026-11-27-phan-loai-name mục 6, 11, L10, L11 (anh Bửu: "Đuôi bây giờ gọi hậu tố đi cho đối xứng tiền tố", "Thêm
-tiền tố phải đầy đủ như hậu tố"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 4, 6, 7.
-
-- Mới `LocalNameFilterAffixListFlavor` (`.suffix` / `.prefix`): mọi chỗ khác nhau giữa danh sách "Hậu tố" và "Tiền tố" —
-  store (`LocalNameFilterSuffixStore` / `LocalNameFilterPrefixStore`), danh từ trên màn, badge "Hậu tố · chung" /
-  "Tiền tố · chung", mặc định mục mới (hậu tố: Địa danh, sau tên; tiền tố: Nhân danh, trước tên), luật "nằm cuối / đầu
-  name" khi thêm từ một name, mẫu dòng "Ví dụ", lời giải thích "?". Tên type / file giữ chữ Suffix.
-- `LocalNameFilterSuffixListView(flavor:)` dùng cho cả hai danh sách (tiêu đề "Hậu tố" / "Tiền tố"); thanh tab đổi thành
-  hàng chip lọc theo loại kèm số (`LocalNameFilterAffixKindFilterBar`: Tất cả 1.299 · Địa danh · Tổ chức · Thuật ngữ ·
-  Nhân danh, kiểu chip `ExtensionKindFilterBar`, nền chip thường mờ hợp sheet kính, số kiểu Việt); chỉ hiện loại có mục
-  (danh sách tiền tố gốc chỉ có Nhân danh). Thêm mới lấy loại của chip đang chọn.
-- `LocalNameFilterSuffixEditorSheet(flavor:)`: màn Sửa từ đủ như hậu tố cho tiền tố (hai cặp ‹ ›, token, ô nghĩa, chip
-  nghĩa gợi ý, aa…AA, Loại 4 + Nghĩa đứng + Ví dụ, tra cứu); loại thứ tư Nhân danh (ví dụ 陈 + 长老 → Trần trưởng lão),
-  tiền tố ví dụ 老尼尔 → lão Neil; thêm từ một name ⇒ "Thêm" mờ + dòng nhắc khi phần chọn không nằm cuối (hậu tố) / đầu
-  (tiền tố) name, chọn cả cụm hoặc dài quá 6 chữ. Sửa lỗi biên dịch: `switch` trên `SuffixKind` thiếu `.person`.
-- Mọi chữ "Đuôi" trên màn đổi thành "Hậu tố" (tiêu đề, số mục, ô trống, toast, trợ năng, menu …, hộp khôi phục).
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.

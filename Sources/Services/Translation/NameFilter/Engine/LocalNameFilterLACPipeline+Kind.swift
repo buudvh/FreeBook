@@ -23,10 +23,13 @@ extension LocalNameFilterLACPipeline {
         of word: Word,
         suffix: SuffixMatch?,
         tag: LocalNameFilter.Category,
-        entities: [Word: LocalNameFilterLACCounts.Entry]
+        entities: [Word: LocalNameFilterLACCounts.Entry],
+        statsOf statsWord: Word? = nil
     ) -> LocalNameFilter.Kind {
-        let entity = entities[word]?.tally.total ?? 0
-        let other = counts.others[word] ?? 0
+        // `stat` của `classify` (đợt 4): cụm đã nối lấy nhãn thường / thực thể của cụm gốc LAC gắn nhãn.
+        let counted = statsWord ?? word
+        let entity = entities[counted]?.tally.total ?? 0
+        let other = counts.others[counted] ?? 0
         if let suffix {
             let kind = Self.kind(for: suffix.suffix.kind)
             if kind == .person { return .person }

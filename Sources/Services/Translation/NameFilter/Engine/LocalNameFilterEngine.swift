@@ -102,8 +102,8 @@ final class LocalNameFilterEngine {
             )
             guard let lac = pipeline.run() else { return nil }
             rescued = lac.rescued
-            result = builder.withLAC(lac, ruleRows: decided.rows, counts: lacCounts, titles: occurrences.titles,
-                                     chaptersRead: chaptersRead)
+            result = builder.withLAC(lac, ruleRows: decided.rows, counts: lacCounts, counter: counter,
+                                     titles: occurrences.titles, chaptersRead: chaptersRead)
         } else {
             result = builder.rulesOnly(decided.rows, reasons: decided.reasons, chaptersRead: chaptersRead)
         }

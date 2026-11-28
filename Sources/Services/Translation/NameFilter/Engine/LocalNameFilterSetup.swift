@@ -66,6 +66,12 @@ struct LocalNameFilterSetup {
     private let personSuffixMaxLength: Int
     /// Mọi khoá ≥ 2 chữ của danh sách người dùng (mọi loại) — phần thừa của `glued_fragment` là một trong số này ⇒ giữ.
     private let glueKeepWords: Set<LocalNameFilterWord>
+    /// Đợt 4 (`SUFFIX_BY_FIRST` của `lacpipe.py`): mọi khoá ≥ 2 chữ của danh sách người dùng (mọi loại) theo **chữ đầu** —
+    /// "một hậu tố của danh sách bắt đầu ngay sau cụm" (穷朔|洞主) ⇒ cụm đã trọn, không nối.
+    let suffixesByFirst: [UInt32: [LocalNameFilterWord]]
+    /// Đợt 4 (`TITLE_BY_LAST`): hậu tố Nhân danh ≥ 2 chữ của danh sách người dùng theo **chữ cuối** — "một danh xưng kết
+    /// thúc ngay trước cụm" (老怪|卞琦) ⇒ cụm đã trọn.
+    let personTitlesByLast: [UInt32: [LocalNameFilterWord]]
     private let unitFlags: [UInt8]
 
     /// `detectionSuffixes` mặc định là bộ cố định của app; truyền vào chỉ để thử.
@@ -132,6 +138,12 @@ struct LocalNameFilterSetup {
         self.personSuffixes = personSuffixes
         personSuffixMaxLength = personSuffixes.keys.map(\.count).max() ?? 0
         self.glueKeepWords = glueKeepWords
+        var suffixesByFirst: [UInt32: [LocalNameFilterWord]] = [:]
+        for word in glueKeepWords { suffixesByFirst[word[0], default: []].append(word) }
+        self.suffixesByFirst = suffixesByFirst
+        var personTitlesByLast: [UInt32: [LocalNameFilterWord]] = [:]
+        for word in personSuffixes.keys where word.count >= 2 { personTitlesByLast[word.last, default: []].append(word) }
+        self.personTitlesByLast = personTitlesByLast
 
         // Bộ luật: chỉ place / sect (không term, không person), khoá phải là 1–2 chữ Hán của dải bộ luật.
         var places: [LocalNameFilterTermKey: LocalNameFilter.Suffix] = [:]
