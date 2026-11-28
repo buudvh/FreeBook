@@ -232,7 +232,7 @@ public final class LocalNameFilterReviewSuffixContext {
             await previous?.value
             guard let self, let start = self.autoMeanings?[term], start.loosensLatin == loose else { return }
             guard let built = await self.composeMeanings(
-                [(term: term, kind: start.kind, previous: start.meaning, loosensLatin: loose)],
+                [(term: term, kind: start.kind, previous: start.meaning, loosensLatin: Optional(loose))],
                 reason: "đổi Nới đoán tên Latin"
             )?[term] else {
                 apply(.failed)

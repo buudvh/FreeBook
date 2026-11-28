@@ -2,6 +2,21 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1093] - 2026-11-27
+
+### fix: token <n> đọc đúng bậc chồng 万亿, không nhận 万万 千千 亿万 là số, không bắt giữa số Ả Rập, danh sách 三、四千 mượn bậc
+
+Anh Bửu: "các token số như vạn ức, ngàn vạn, chưa chính xác", "vạn vạn thật ra không phải số vẫn bị nhận là số", "kiểm tra kỹ xem". Plan `Docs/Plans/2026-11-27-token-so-lon.md` (anh duyệt); đo bằng bản chép Python của engine trên 6 truyện + bộ 537 rule anh gửi (`Docs/Plans/token-so-lon/`).
+
+- **Đọc số:** `QuickTranslationNumberFormatter.parseChineseNumeral` tách theo bậc lớn nhất (lần cuối), vế trái **nhân** bậc: 万亿 / 一万亿 = 1000000000000 (trước 100010000), 三千万亿 = 3·10¹⁵, 三万五千亿 = 3500000000000, 两万万 = 200000000 (trước 30000). Viết tắt 三万五, 两千五, 十万八 giữ nguyên.
+- **Cụm không phải số:** matcher ghép phần token bắt với chữ số liền kề trong chữ cố định của rule rồi kiểm (`QuickTranslationNumeralShape`): 万万, 千千, 亿亿, 亿万, 万千, 千百, 兆 đứng đầu, 一一, 万一 không còn là số. Ví dụ 他万万年 trước ra "10000 vạn năm" ⇒ rule `万万 = 万万` của anh thắng; 千岁,千千岁 hết ra "2000 tuổi"; 征兆, 沈兆日后 hết ra "1000000000000".
+- **Hai luật kèm:** sau chữ cố định là bậc thì số kế tiếp phải nhỏ hơn bậc đó (`<n>万<n>年` không còn tách 一万亿年 thành "1 vạn 100000000 năm"); bậc trần ngay sau 几 / 数 không bị `<n>` bắt riêng (两千几百人 hết "… mấy 100 người", 十几万两银子 hết "mười mấy 10000 lượng").
+- **Số Ả Rập:** token đứng đầu mẫu không bắt đầu giữa số Ả Rập — 3千年修为, 5千万人口, 1.5万人, 2.5亿年 hết ra "3 1000 năm", "1. 50000"; phần đó để rule `<d>…` hoặc VietPhrase.
+- **Danh sách:** `<n>,<n>` / `<n>、<n>`: số trước là một chữ số trần thì mượn bậc của số sau — 八,九万年 ra "80000, 90000 năm" (trước "8, 90000"), 三、四千年 ra "3000, 4000 năm".
+- `walkNumeral` dời sang `QuickTranslationRuleMatcher+Numeral.swift` (file gốc 387 → 298 dòng); compiler gắn `numeralUnitsBefore/After`, `isPatternHead`, `numeralListPairs` (`QuickTranslationRuleCompiler+NumeralNeighbours`). Hướng dẫn viết rule thêm hai dòng về `<n>`; `translation.md` thêm đoạn "Token số lớn".
+- Đo trên 6 truyện (3.387 đoạn có số lớn): chỉ các đoạn sai đổi, không đoạn nào hỏng; 十万年 (274 lần), 两万四千年, 十万八千年 giữ nguyên. Còn cần rule giữ chữ của anh: 百转千回, 成千上万, 万人之上, 千岁 (tước hiệu), 千万 (code không phân biệt 千万不要 với 千万人).
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1092] - 2026-11-27
 
 ### feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện

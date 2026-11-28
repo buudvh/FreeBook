@@ -18,8 +18,10 @@ import SwiftUI
 /// - chip "+ X" cho đoạn cuối (hậu tố) / đầu (tiền tố) 1–3 chữ toàn chữ Hán chưa có trong danh sách hiệu lực, chừa ≥ 1 chữ
 ///   phía bên kia — chạm ⇒ màn thêm với đúng đoạn đó đã chọn (vẫn nới / thu được bằng ‹ ›);
 /// - cuối hàng: "+ Thêm hậu tố / tiền tố" ⇒ màn thêm với **nguyên cụm** name, người dùng thu hẹp bằng ‹ ›.
-/// Thêm mới mặc định vào **R** (Riêng truyện), đổi được ở cụm R | C. Không có thao tác nhấn giữ — xoá ở màn Quản lý
-/// (nút ⚙ cuối dòng nhãn "Tiền tố", `onManage`).
+/// Chip ✓ có badge **R / C** ở góc trên phải như chip nghĩa (mockup N2, `ChipCornerBadge` — R đỏ, C xám), theo mục hiệu lực.
+/// Thêm mới (chip "+ X", "+ Thêm …") chọn sẵn nút R | C đang **ghim** (nhấn giữ R / C ở màn thêm, mockup N3 —
+/// `DictEntryEditScopeToggle.defaultIsBookScope`), chưa ghim ⇒ **R**; đổi được ở cụm R | C. Không có thao tác nhấn giữ trên
+/// chip — xoá ở màn Quản lý (nút ⚙ cuối dòng nhãn "Tiền tố", `onManage`).
 /// Màn thêm / sửa là `LocalNameFilterSuffixEditorSheet` (chế độ thêm từ name hoặc sửa mục có sẵn), ghi theo luật phạm vi của
 /// lõi. Lưu được ⇒ `onSaved` (màn duyệt ghép lại nghĩa + toast).
 struct LocalNameFilterSuffixQuickRow: View {
@@ -113,6 +115,9 @@ struct LocalNameFilterSuffixQuickRow: View {
                     }
                     .buttonStyle(.plain)
                 }
+                // Chừa chỗ cho badge R / C nhô ở góc chip ✓ (ScrollView cắt theo khung của nó) — như thanh chip nghĩa.
+                .padding(.top, ChipCornerBadge.inset)
+                .padding(.trailing, ChipCornerBadge.inset)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -205,6 +210,11 @@ struct LocalNameFilterSuffixQuickRow: View {
                 open(item: item, piece: nil)
             } label: {
                 chipLabel(isActive ? "● " + text : text, highlighted: true)
+                    // Badge phạm vi góc trên phải như chip nghĩa (mockup N2): R nền đỏ = riêng truyện, C nền xám = chung —
+                    // theo mục hiệu lực (Riêng thắng Chung cùng chữ).
+                    .overlay(alignment: .topTrailing) {
+                        ChipCornerBadge(scope: item.scope == .book ? .book : .global)
+                    }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
@@ -267,7 +277,8 @@ struct LocalNameFilterSuffixQuickRow: View {
                 initialKind: kind,
                 source: Editor.Source(name: trimmedName, selection: target.selection),
                 bookId: bookId,
-                initialScope: .book,
+                // Nút R | C đang ghim (nhấn giữ ở màn thêm, mockup N3); chưa ghim ⇒ R.
+                initialScope: DictEntryEditScopeToggle.defaultIsBookScope ? .book : .common,
                 onSave: { request in save(request, isNew: true) }
             )
         }

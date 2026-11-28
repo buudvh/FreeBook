@@ -14,8 +14,9 @@ import SwiftUI
 ///   được — sheet giữ nguyên để sửa tiếp).
 /// - Mục gốc (Chung): nghĩa khác bản gốc ⇒ dòng "Nghĩa gốc: …"; đã sửa ⇒ nút "Về bản gốc: …".
 /// - **Mở từ một truyện** (`bookId`, 2026-11-28 — mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M5 / M5b):
-///   cụm **R | C** cuối hàng aa…AA (`DictEntryEditScopeToggle`), badge chỉ còn "Hậu tố" / "Tiền tố"; thêm mới mặc định R
-///   (`initialScope` chọn sẵn theo nhóm khi mở từ màn quản lý), sửa thì đúng phạm vi của mục. Đổi phạm vi khi sửa theo luật
+///   cụm **R | C** cuối hàng aa…AA (`DictEntryEditScopeToggle` — nhấn giữ R / C để ghim mặc định, mockup N3), badge chỉ còn
+///   "Hậu tố" / "Tiền tố"; thêm mới mặc định R (`initialScope` chọn sẵn theo nhóm khi mở từ màn quản lý, theo chip phạm vi ở
+///   màn danh sách, theo nút đang ghim khi thêm từ chip ở màn Sửa từ của màn duyệt), sửa thì đúng phạm vi của mục. Đổi phạm vi khi sửa theo luật
 ///   chuyển của lõi (`LocalNameFilterAffixListStore.save(...scope:bookId:original:)`): C → R tạo bản riêng (Chung giữ cho
 ///   truyện khác), R → C ghi lên Chung rồi xoá bản riêng — Chung đã có chữ đó ⇒ **hỏi lại** trước khi ghi đè
 ///   (`DictEntryEditListMode.interceptSave`). Không có truyện ⇒ chỉ Chung như trước.
