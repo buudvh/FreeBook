@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1141] - 2026-11-28
+
+### fix: lọc name local không còn nhận tên người kèm hư từ đứng sau như 穆宣和 là một tên
+
+- Anh Bửu gửi file xuất màn duyệt ở bản 1.3.1139 (truyện Thiết Y Công, 921 dòng = 95 name mới + 826 đã có). Đối chiếu với bản Python mô phỏng máy: khớp — 20 tên "…冥将" ra đúng "… Minh Tướng", các tên từng bị bỏ nhầm (江明月, 柯大力, 田悠悠, 叶瞻, 大力盟, 裴问心) đã có mặt, 临州城 / 东城区 / 老柯 thành "đã có", và 29 cụm của danh sách "Không phải name" không còn hiện sau khi anh nhập lại file (chức năng Nhập file của 1.3.1138 chạy được). Khác biệt còn lại đều do máy có nhiều chương hơn file thử.
+- File đó lộ một lỗi của luật hư từ nới ở 1.3.1139: 穆宣和 (= 穆宣 + "và") được giữ vì 和 nằm trong 9 chữ được phép ở tên "họ + tên" 2–3 chữ. Sửa ở `LocalNameFilterLACPipeline.hasFunctionChar`: chữ được phép đứng ở **cuối** cụm 3 chữ không còn được miễn khi hai chữ đầu đã là một thực thể LAC xuất hiện ít nhất bằng chính cụm đó (và đủ "Ít nhất N lần") — khi ấy chữ cuối là hư từ đứng sau tên. 石良才 (24 lần, 石良 chỉ 17 lần) vẫn giữ.
+- Bản Python tham chiếu (`lacpipe.py`, khối "Đợt 7") sửa trước; chạy 11 truyện: không hàng nào đổi (file thử chỉ có 穆宣和 một lần nên vốn dưới ngưỡng).
+- Rác còn lại trong 95 name mới của file anh gửi: 麾下宗门, 幽碧, 锻岳锤 và vài cụm lưng chừng (祖地俊彦榜, 黄泉地火, 极乐宗府库) — chưa có luật tách được khỏi tên thật.
+- `.claude/rules/translation.md`: ghi kết quả kiểm trên máy và đợt 7.
+- Chưa build (máy Windows); bản sửa này chưa thử trên máy.
+
 ## [1.3.1140] - 2026-11-28
 
 ### feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người
@@ -406,24 +417,3 @@ phần A + B4–B5, chép đúng bản tham chiếu `Docs/Plans/local-name-filte
   `save(...scope:bookId:original:)`, `delete(key:scope:bookId:)`). Sheet Lọc name local, gói tạm tự cập nhật, dấu gói
   tạm, ghép lại ở màn duyệt đổi sang bản theo truyện; `signature` / composer / `DraftRefresher.Inputs` bỏ mặc định
   `prefixes`. Bộ dò `detectionSuffixes` không đổi; giao diện chưa đổi.
-
-## [1.3.1111] - 2026-11-28
-
-### fix: lọc name local ghép nghĩa bằng hậu tố dài nhất cho cả name của bộ luật, tên kiểu Hán luôn bóc tiền tố hậu tố thay vì lấy nghĩa VP cả cụm
-
-Anh Bửu (2026-11-28, ảnh 瑶池仙阁 "Dao Trì Tiên Các" dù đã có hậu tố 仙阁 = tiên các; "tên không phải la tinh thì dùng tiền
-tố hậu tố thôi được rồi sao dùng vp nữa"; duyệt cách 2).
-- `LocalNameFilterMeaningBuilder`: hàng bộ luật địa danh / tổ chức lấy hậu tố **dài nhất** của danh sách người dùng khi nó
-  dài hơn đuôi đã dò (như hàng phía LAC) — trước đó chỉ lấy đuôi đã dò 阁 nên mục VP 仙阁 "Tiên Các" nuốt cả cụm. Hai
-  đường dùng chung `suffixed(_:_:)`.
-- `LocalNameFilterProperNames.coverAll` (phủ trọn cả từ bằng mục từ điển, 贝克兰德东区 ⇒ "Backlund Đông Khu"): chỉ còn áp
-  cho name có phần tên Latin thật — mục nghĩa chữ Latin và khác âm Hán-Việt của khoá (`isRealLatin`, "Tinh La" của 星罗
-  không tính). Tên kiểu Hán luôn bóc hậu tố theo danh sách: 昆仑神宫 ⇒ "Côn Luân Thần cung", 北境五州 ⇒ "Bắc Cảnh Ngũ
-  châu". Phần tên vẫn tra VP (玄武 Huyền Vũ, 乾坤 Càn Khôn); name có sẵn cả cụm trong Name / VP giữ nghĩa từ điển.
-- Dấu gói tạm có số `rulesVersion` = 2 ⇒ mọi gói tạm ghép lại nghĩa một lần (nghĩa người dùng đã sửa vẫn giữ).
-- Bản tham chiếu Python `name_meaning.py` sửa trước; đo 11 truyện (danh sách gốc + 仙阁): 9 hàng mới đổi nghĩa (瑶池仙阁 +
-  8 hàng chỉ đổi hậu tố về chữ thường), không thêm / mất / đổi loại hàng nào, tên Latin và name đã có không đổi. Phương án
-  bỏ hẳn VP cho tên không Latin đo 410 hàng đổi, hỏng tên Nhật / tây và chữ đa âm (Naruto ⇒ Minh Nhân, Tingen ⇒ Đình Căn,
-  Đái Hạo ⇒ Đới Hạo) — không làm.
-- `translation.md` cập nhật đoạn Nghĩa và Gói tạm tự cập nhật.
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.

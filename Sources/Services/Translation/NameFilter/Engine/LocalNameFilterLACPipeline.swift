@@ -231,7 +231,7 @@ struct LocalNameFilterLACPipeline {
         merged: [Word: Tally],
         siblings: [Word: [Word]]
     ) -> String? {
-        if hasFunctionChar(word, tag: tag) { return Reason.functionChar }
+        if hasFunctionChar(word, tag: tag, count: count) { return Reason.functionChar }
         if word.count == 3 {
             // Đầu 2 chữ là từ thường đứng riêng nhiều hơn hẳn (许久|之, 周身|魂); họ kép (上官|博) không tính. Đợt 4 (K): "đứng
             // riêng" = không nằm trong thực thể 3 chữ nào mở đầu bằng nó (沈清瑶 / 沈清霜 / 沈清璇 dùng chung đầu 沈清).
@@ -259,7 +259,7 @@ struct LocalNameFilterLACPipeline {
     /// (F) `has_function_char(w, lac_tag)`: có hư từ phía LAC, trừ 会 ở cuối cụm ≥ 3 chữ (商会, 教会, 协会), 哈 khi không có 哈哈
     /// (phiên âm: 哈迪, 哈布拉), 地 không ở cuối (遁地术, 大地母神), và các chữ `functionNameOKScalars` trong tên người 2–3 chữ mở
     /// đầu bằng họ đơn (于斯年, 裴问心, 石良才).
-    private func hasFunctionChar(_ word: Word, tag: LocalNameFilter.Category) -> Bool {
+    private func hasFunctionChar(_ word: Word, tag: LocalNameFilter.Category, count: Int) -> Bool {
         let scalars = word.scalars
         let last = scalars.count - 1
         let personShape = tag == .person && (2...3).contains(scalars.count) && isSingleSurname(scalars[0])
@@ -273,7 +273,15 @@ struct LocalNameFilterLACPipeline {
             if scalar == Rules.huiScalar, index == last, scalars.count >= 3 { continue }
             if scalar == Rules.haScalar, !hasDoubleHa { continue }
             if scalar == Rules.diScalar, index < last { continue }
-            if personShape, Rules.functionNameOKScalars.contains(scalar) { continue }
+            if personShape, Rules.functionNameOKScalars.contains(scalar) {
+                // Đợt 7 (kiểm trên máy 1.3.1139: 穆宣和 = 穆宣 + "và"): chữ cuối của cụm 3 chữ mà hai chữ đầu đã là thực thể
+                // LAC xuất hiện ít nhất bằng chính cụm (và đủ "Ít nhất N lần") ⇒ hư từ đứng sau tên. 石良才 (石良 ít hơn) giữ.
+                if index == last, scalars.count == 3,
+                   Int(counts.entities[word.dropLast(1)]?.tally.total ?? 0) >= max(setup.minCount, count) {
+                    return true
+                }
+                continue
+            }
             return true
         }
         return false

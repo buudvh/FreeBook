@@ -2,6 +2,27 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1111] - 2026-11-28
+
+### fix: lọc name local ghép nghĩa bằng hậu tố dài nhất cho cả name của bộ luật, tên kiểu Hán luôn bóc tiền tố hậu tố thay vì lấy nghĩa VP cả cụm
+
+Anh Bửu (2026-11-28, ảnh 瑶池仙阁 "Dao Trì Tiên Các" dù đã có hậu tố 仙阁 = tiên các; "tên không phải la tinh thì dùng tiền
+tố hậu tố thôi được rồi sao dùng vp nữa"; duyệt cách 2).
+- `LocalNameFilterMeaningBuilder`: hàng bộ luật địa danh / tổ chức lấy hậu tố **dài nhất** của danh sách người dùng khi nó
+  dài hơn đuôi đã dò (như hàng phía LAC) — trước đó chỉ lấy đuôi đã dò 阁 nên mục VP 仙阁 "Tiên Các" nuốt cả cụm. Hai
+  đường dùng chung `suffixed(_:_:)`.
+- `LocalNameFilterProperNames.coverAll` (phủ trọn cả từ bằng mục từ điển, 贝克兰德东区 ⇒ "Backlund Đông Khu"): chỉ còn áp
+  cho name có phần tên Latin thật — mục nghĩa chữ Latin và khác âm Hán-Việt của khoá (`isRealLatin`, "Tinh La" của 星罗
+  không tính). Tên kiểu Hán luôn bóc hậu tố theo danh sách: 昆仑神宫 ⇒ "Côn Luân Thần cung", 北境五州 ⇒ "Bắc Cảnh Ngũ
+  châu". Phần tên vẫn tra VP (玄武 Huyền Vũ, 乾坤 Càn Khôn); name có sẵn cả cụm trong Name / VP giữ nghĩa từ điển.
+- Dấu gói tạm có số `rulesVersion` = 2 ⇒ mọi gói tạm ghép lại nghĩa một lần (nghĩa người dùng đã sửa vẫn giữ).
+- Bản tham chiếu Python `name_meaning.py` sửa trước; đo 11 truyện (danh sách gốc + 仙阁): 9 hàng mới đổi nghĩa (瑶池仙阁 +
+  8 hàng chỉ đổi hậu tố về chữ thường), không thêm / mất / đổi loại hàng nào, tên Latin và name đã có không đổi. Phương án
+  bỏ hẳn VP cho tên không Latin đo 410 hàng đổi, hỏng tên Nhật / tây và chữ đa âm (Naruto ⇒ Minh Nhân, Tingen ⇒ Đình Căn,
+  Đái Hạo ⇒ Đới Hạo) — không làm.
+- `translation.md` cập nhật đoạn Nghĩa và Gói tạm tự cập nhật.
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1110] - 2026-11-28
 
 ### docs: ghi chú lọc name local theo hậu tố Nhân danh, tiền tố, họ riêng, luật phân loại mới và độ dài name
